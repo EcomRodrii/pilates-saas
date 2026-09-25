@@ -58,7 +58,9 @@ function montar(o: Opciones) {
   return { admin: admin as never, updates, seguidos, seguir, creditos, seguirCreditos };
 }
 
-const P = { studioId: 'studio-1', reciboId: 'rec-penaliz-pen-1', ahoraISO: '2026-09-15T09:00:00.000Z' };
+// El actor es OBLIGATORIO en la firma: un llamador nuevo que lo olvide no compila.
+const ACTOR = { userId: '00000000-0000-4000-8000-000000000001', rol: 'RECEPCION' };
+const P = { studioId: 'studio-1', reciboId: 'rec-penaliz-pen-1', ahoraISO: '2026-09-15T09:00:00.000Z', actor: ACTOR };
 
 test('recibo COBRADO a mano (sin Stripe) de una penalización: DEVUELTO con CAS sobre el estado leído, sin reintento programado, y la penalización se pone al día', async () => {
   const m = montar({ recibo: { estado: 'COBRADO', stripe_payment_intent_id: null } });
@@ -217,4 +219,53 @@ test('créditos: un fallo al sincronizarlos no tumba «marcar devuelto»', async
   const m = montar({ recibo: { estado: 'COBRADO' } });
   const r = await marcarReciboDevuelto(m.admin, P, m.seguir, async () => { throw new Error('RPC caída'); });
   assert.equal(r.ok, true);
+});
+
+// ── Libro de auditoría ──────────────────────────────────────────────────────
+// Antes, marcar devuelto pasaba por servidor con service-role y el trigger del
+// libro (que solo ve sesiones de persona) no lo veía: nadie sabía QUIÉN lo hizo.
+
+function registrador() {
+  const entradas: Array<Record<string, unknown>> = [];
+  return { entradas, registrar: async (_admin: unknown, e: Record<string, unknown>) => { entradas.push(e); } };
+}
+
+test('libro: al marcar devuelto anota quién, el estado de antes y de después, y de qué recibo', async () => {
+  const m = montar({ recibo: {
+    estado: 'COBRADO', stripe_payment_intent_id: null,
+    socio_id: 'soc-1', concepto: 'Mensual Ilimitado — Jul 2026', importe: 85, fecha_vencimiento: '2026-07-01', proximo_reintento: null,
+  } as never });
+  const l = registrador();
+  const r = await marcarReciboDevuelto(m.admin, P, m.seguir, m.seguirCreditos, l.registrar as never);
+  assert.equal(r.ok, true);
+  assert.equal(l.entradas.length, 1);
+  assert.deepEqual(l.entradas[0], {
+    // Persona, sede y rol juntos, en un solo objeto.
+    sesion: { userId: ACTOR.userId, rol: ACTOR.rol, studioId: 'studio-1' },
+    tabla: 'recibos', filaId: P.reciboId, operacion: 'UPDATE', socioId: 'soc-1',
+    antes: { estado: 'COBRADO', fecha_devolucion: null, proximo_reintento: null },
+    // `fecha_devolucion` es una columna `date`: se anota el día que la base guarda, no el instante.
+    despues: { estado: 'DEVUELTO', fecha_devolucion: '2026-09-15', proximo_reintento: null },
+    contexto: { accion: 'RECIBO_MARCADO_DEVUELTO', concepto: 'Mensual Ilimitado — Jul 2026', fecha_vencimiento: '2026-07-01', importe: 85 },
+  });
+});
+
+test('libro: no anota si ya estaba devuelto, si otro proceso lo cambió ni si el UPDATE falla', async () => {
+  const casos: Array<[string, Parameters<typeof montar>[0]]> = [
+    ['ya estaba DEVUELTO', { recibo: { estado: 'DEVUELTO', fecha_devolucion: '2026-09-01T00:00:00Z' } }],
+    ['otro proceso lo cambió entre medias', { recibo: { estado: 'COBRADO' }, cambiaEntreMedias: true }],
+    ['el UPDATE falla', { recibo: { estado: 'COBRADO' }, errorUpdate: true }],
+  ];
+  for (const [nombre, opciones] of casos) {
+    const m = montar(opciones);
+    const l = registrador();
+    await marcarReciboDevuelto(m.admin, P, m.seguir, m.seguirCreditos, l.registrar as never);
+    assert.equal(l.entradas.length, 0, nombre);
+  }
+});
+
+test('libro: la ruta pasa como actor la SESIÓN, no lo que diga el cuerpo', () => {
+  const ruta = leer('app/api/cobros/marcar-devuelto/route.ts');
+  assert.match(ruta, /actor:\s*\{\s*userId:\s*sesion\.userId,\s*rol:\s*sesion\.rol\s*\}/);
+  assert.doesNotMatch(ruta, /body\.(userId|actor|rol)/);
 });

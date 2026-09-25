@@ -3,6 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
+import { registrarAuditoriaServidor } from '@/lib/auditoria/registrar-servidor';
 import { calcularReversion, huellaDe, type Snapshot, type SuscripcionActual } from '@/lib/billing/preview-reversion';
 
 // Resuelve una devolución pendiente: o se deshace lo que entregó el cobro, o se
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
   // ── Revertir ──────────────────────────────────────────────────────────────
   const [{ data: rec }, { data: sus }] = await Promise.all([
     admin.from('recibos')
-      .select('entrega_tipo, entrega_aplicada, entrega_sesiones_antes, entrega_sesiones_despues, entrega_fecha_fin_antes, entrega_fecha_fin_despues, entrega_estado_antes')
+      .select('socio_id, entrega_tipo, entrega_aplicada, entrega_sesiones_antes, entrega_sesiones_despues, entrega_fecha_fin_antes, entrega_fecha_fin_despues, entrega_estado_antes')
       .eq('id', dev.recibo_id).eq('studio_id', sesion.studioId).maybeSingle(),
     dev.suscripcion_id
       ? admin.from('suscripciones').select('sesiones_restantes, fecha_fin, estado')
@@ -127,6 +128,21 @@ export async function POST(req: NextRequest) {
     console.error('[devoluciones] no se pudo revertir la entrega', dev.id, error?.message ?? 'sin filas afectadas');
     return NextResponse.json({ error: 'No se ha podido revertir. Inténtalo de nuevo.' }, { status: 500 });
   }
+
+  // Libro de auditoría: quitar sesiones o fecha a una clienta es un ajuste de dinero. Esta ruta usa
+  // service-role, así que el trigger no lo ve; el actor es la SESIÓN. Solo las columnas que se
+  // escribieron (`cambio`): el resto no es un cambio. Nunca lanza.
+  const columnasAntes: Record<string, unknown> = {
+    sesiones_restantes: actual?.sesionesRestantes ?? null, fecha_fin: actual?.fechaFin ?? null, estado: actual?.estado ?? null,
+  };
+  await registrarAuditoriaServidor(admin, {
+    sesion,
+    tabla: 'suscripciones', filaId: String(dev.suscripcion_id), operacion: 'UPDATE',
+    socioId: (rec?.socio_id as string | null | undefined) ?? null,
+    antes: Object.fromEntries(Object.keys(cambio).map(k => [k, columnasAntes[k] ?? null])),
+    despues: cambio,
+    contexto: { accion: 'ENTREGA_REVERTIDA', devolucion_id: dev.id },
+  });
 
   // `aplicado` guarda lo que se escribió DE VERDAD: sin esto, un "REVERTIDA" no
   // dice cuánto se quitó ni sobre qué números se decidió.

@@ -13,6 +13,7 @@ import {
 import { cerrarSinConsentimiento, consentimientoCubrePenalizacion } from '@/lib/billing/penalizacion-consentimiento';
 import { borrarReciboDePenalizacionSinCobro } from '@/lib/billing/penalizacion-recibo-server';
 import { textoLegalVigenteDeFila } from '@/lib/legal-textos';
+import { avisarAuditoria, registrarAuditoriaServidor } from '@/lib/auditoria/registrar-servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +59,25 @@ export async function POST(req: NextRequest) {
     return error ? { ok: false } : { ok: true, estado: (data?.estado as string | undefined) ?? null };
   };
 
+  // Para el libro de auditoría, lo que pasó DE VERDAD y no lo que el plan pretendía:
+  //  · `estadoEscrito`: el estado que ESTA petición escribió (null si el compare-and-set no tocó nada);
+  //  · `estadoObservado`: si no tocó nada, cómo estaba la penalización cuando se releyó. Es lo que ocurre
+  //    cuando el webhook de Stripe (o el dunning) la cerró un instante antes que esta ruta: el cargo lo
+  //    aprobó una persona igualmente, y sin esto ese caso, que no es raro, no dejaría entrada.
+  let estadoEscrito: string | null = null;
+  let estadoObservado: string | null = null;
+
+  // Una entrada del libro sobre ESTA penalización. El actor es la SESIÓN (esta ruta usa service-role y
+  // el trigger no la ve). `despues` null = no se sabe cómo quedó: no se anota nada. Nunca lanza.
+  const anotar = (contexto: { accion: string } & Record<string, unknown>, despues: string | null) =>
+    despues === null ? Promise.resolve() : registrarAuditoriaServidor(admin, {
+      sesion,
+      tabla: 'penalizaciones', filaId: pen.id, operacion: 'UPDATE', socioId: (pen.socio_id as string | null) ?? null,
+      antes: { estado: pen.estado as string },
+      despues: { estado: despues },
+      contexto,
+    });
+
   // Compare-and-set del plan. Si no toca ninguna fila (o la escritura falla),
   // se relee y se contesta con lo que hay, sin pisarlo.
   const ejecutar = async (plan: Plan): Promise<Desenlace> => {
@@ -73,12 +93,16 @@ export async function POST(req: NextRequest) {
       .eq('id', pen.id).eq('studio_id', sesion.studioId)
       .in('estado', [...plan.escritura.desde])
       .select('id');
-    if (!errEscritura && tocadas?.length) return plan.desenlace;
+    if (!errEscritura && tocadas?.length) {
+      estadoEscrito = plan.escritura.estado;
+      return plan.desenlace;
+    }
 
     const { data: ahora, error: errRelectura } = await admin
       .from('penalizaciones').select('estado')
       .eq('id', pen.id).eq('studio_id', sesion.studioId).maybeSingle();
     const estadoActual = errRelectura ? null : ((ahora?.estado as string | undefined) ?? null);
+    estadoObservado = estadoActual;
     const desenlace = resolverEscrituraSinEfecto(plan, estadoActual);
     if (plan.escritura.estado === 'COBRADA' && desenlace.http === 202) {
       Sentry.captureMessage('[penalizaciones/aprobar] cobro confirmado pero la penalización no quedó COBRADA', {
@@ -95,6 +119,8 @@ export async function POST(req: NextRequest) {
   const antes = decidirAntesDeCobrar(previo, hayQueLeerReciboAntesDeCobrar(previo) ? await leerRecibo() : undefined);
   if (antes) {
     const d = await ejecutar(antes);
+    // Sin cobrar nada: alguien pulsó «aprobar» y el estado se puso al día con lo que ya había pasado.
+    await anotar({ accion: 'PENALIZACION_CORREGIDA' }, estadoEscrito);
     return NextResponse.json(cuerpoRespuesta(d), { status: d.http });
   }
 
@@ -136,6 +162,9 @@ export async function POST(req: NextRequest) {
   });
   if (!veredicto.ok) {
     const d = await ejecutar(planSinConsentimiento(veredicto.motivo));
+    // Nadie cobró: la penalización se cierra porque el contrato que aceptó la socia no la recoge, y su
+    // recibo se borra (con service-role, que el trigger tampoco ve). Solo si ESTA petición la cerró.
+    await anotar({ accion: 'PENALIZACION_SIN_CONSENTIMIENTO', motivo_cierre: veredicto.motivo }, estadoEscrito);
     // Solo si esta petición la sacó de pendiente (`SIN_CONSENTIMIENTO` = el CAS
     // tocó la fila): se borra su recibo, que si no seguía PENDIENTE en Cobros, y
     // se avisa. El motor deduplica el aviso por penalización igualmente.
@@ -175,6 +204,21 @@ export async function POST(req: NextRequest) {
   // de después, el recibo ya está COBRADO.
   const recibo = hayQueReleerRecibo(resultado) ? await leerRecibo() : undefined;
   const desenlace = await ejecutar(planificarTrasCobro(resultado, recibo));
+
+  // Alguien aprobó cobrar esta penalización y se lanzó el cargo. Se anota cómo quedó: lo que escribió esta
+  // petición o, si otro proceso la cerró antes, lo que había. Si no cambia respecto a antes de cobrar (un
+  // fallo transitorio que la deja PENDIENTE_APROBACION) no hay nada que anotar: el reintento reutiliza la
+  // misma clave de Stripe y el que se anote será el que cierre.
+  const estadoFinal = estadoEscrito ?? estadoObservado;
+  if (estadoFinal === null) {
+    // Ni escribió ni pudo releer: no se sabe cómo quedó. Que quede a la vista y no en silencio.
+    avisarAuditoria('AUDITORIA_PENALIZACION_SIN_ESTADO_FINAL', { penalizacionId: pen.id, estadoCobro: resultado.status ?? null });
+  }
+  await anotar({
+    accion: 'PENALIZACION_APROBADA',
+    importe: resultado.importe ?? (Number(pen.importe ?? 0) || null),
+    resultado_cobro: resultado.status ?? null,
+  }, estadoFinal);
 
   if (desenlace.notificar) {
     // Deduplicado por penalización en el motor (`pago-penalizacion:<id>`): dos

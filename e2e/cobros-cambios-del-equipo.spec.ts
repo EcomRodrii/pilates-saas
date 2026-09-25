@@ -33,6 +33,13 @@ function fila(id: number, o: Record<string, unknown> = {}) {
 }
 
 const CAMBIOS = [
+  // Lo escribe una ruta de servidor (reembolso): se cuenta por lo que hizo la persona.
+  fila(6, {
+    origen: 'servidor', cambios: ['reembolso_solicitado_en', 'reembolso_stripe_id'],
+    antes: { reembolso_solicitado_en: null, reembolso_stripe_id: null },
+    despues: { reembolso_solicitado_en: '2026-09-25T12:30:00+00:00', reembolso_stripe_id: 're_123' },
+    contexto: { accion: 'REEMBOLSO_PEDIDO', concepto: 'Bono 10 clases', importe: 130 }, motivo: null,
+  }),
   fila(5),
   // Un descuento de UNA sesión de un bono: ruido diario, oculto por defecto.
   fila(4, {
@@ -109,7 +116,7 @@ test.describe('Cobros · «Cambios del equipo»', () => {
     await ir(page, 'cobros?tab=historial');
 
     await expect(page.getByRole('button', { name: 'Cambios del equipo' })).toHaveAttribute('aria-current', 'page', { timeout: 30_000 });
-    await expect(items(page)).toHaveCount(4);
+    await expect(items(page)).toHaveCount(5);
     expect(p.urls.length, 'la pantalla no llegó a pedir el historial').toBeGreaterThan(0);
 
     const recibo = items(page).filter({ hasText: 'Cambió un recibo' });
@@ -131,24 +138,29 @@ test.describe('Cobros · «Cambios del equipo»', () => {
 
     await expect(items(page).filter({ hasText: 'Creó un ingreso manual' })).toContainText('300,00 €');
     await expect(items(page).filter({ hasText: 'Cambió un plan' })).toContainText('Bono 8');
+    // Una acción de servidor se cuenta por lo que hizo, con el importe primero.
+    const reembolso = items(page).filter({ hasText: 'Pidió un reembolso' });
+    await expect(reembolso).toContainText('Bono 10 clases');
+    await expect(reembolso).toContainText('130,00 €');
     // Dice de qué NO habla, para que su ausencia no se lea como «no ha pasado».
-    await expect(page.getByText(/No incluye los cobros automáticos, lo que confirma Stripe, ni todavía los ingresos manuales, los reembolsos y las devoluciones\./)).toBeVisible();
-    // Los ingresos manuales no se auditan desde el panel, así que no hay filtro que prometa lo contrario.
-    await expect(page.getByRole('button', { name: 'Ingresos manuales', exact: true })).toHaveCount(0);
+    await expect(page.getByText(/No incluye los cobros automáticos ni lo que confirma Stripe\. Todavía no recoge las ventas y devoluciones de la caja, el cobro con tarjeta guardada que lanza una persona/)).toBeVisible();
+    // Los ingresos manuales y las penalizaciones ya se recogen (por servidor): tienen su filtro.
+    await expect(page.getByRole('button', { name: 'Ingresos manuales', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Penalizaciones', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Planes', exact: true })).toBeVisible();
 
     // El descuento de una sesión no sale, pero se sabe que existe y se puede ver.
     await expect(page.getByText('Sesiones restantes')).toHaveCount(0);
     await expect(page.getByText('(1 ocultos)')).toBeVisible();
     await page.getByLabel(/Mostrar también los descuentos de sesión/).check();
-    await expect(items(page)).toHaveCount(5);
+    await expect(items(page)).toHaveCount(6);
     await expect(page.getByText('Sesiones restantes:')).toBeVisible();
   });
 
   test('filtrar por tipo pide solo esa tabla', async ({ page }) => {
     const p = await montarPanel(page);
     await ir(page, 'cobros?tab=historial');
-    await expect(items(page)).toHaveCount(4, { timeout: 30_000 });
+    await expect(items(page)).toHaveCount(5, { timeout: 30_000 });
 
     const antes = p.urls.length;
     await page.getByRole('button', { name: 'Planes', exact: true }).click();
@@ -188,7 +200,7 @@ test.describe('Cobros · «Cambios del equipo»', () => {
     await expect(items(page)).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Reintentar' }).click();
-    await expect(items(page)).toHaveCount(4);
+    await expect(items(page)).toHaveCount(5);
     expect(p.urls.length, 'Reintentar no volvió a pedir').toBe(2);
   });
 
@@ -220,9 +232,11 @@ test.describe('Ficha de la clienta · «Cambios de dinero en esta ficha»', () =
     await page.getByRole('button', { name: 'Pagos', exact: true }).click();
 
     await expect(page.getByRole('region', { name: 'Cambios de dinero en esta ficha' })).toBeVisible({ timeout: 30_000 });
-    await expect(items(page)).toHaveCount(1);
-    await expect(items(page).first()).toContainText('Cambió un recibo');
-    await expect(items(page).first()).not.toContainText('María García Fernández');
+    // Dos cambios de ESTA clienta: el de un recibo (panel) y el reembolso que pidió una ruta de servidor.
+    await expect(items(page)).toHaveCount(2);
+    await expect(items(page).filter({ hasText: 'Cambió un recibo' })).toHaveCount(1);
+    await expect(items(page).filter({ hasText: 'Pidió un reembolso' })).toHaveCount(1);
+    await expect(items(page).filter({ hasText: 'María García Fernández' })).toHaveCount(0);
     // Sin filtros de tipo: son pocas filas de una sola persona.
     await expect(page.getByRole('group', { name: 'Filtrar por tipo' })).toHaveCount(0);
     expect(p.urls.length).toBeGreaterThan(0);

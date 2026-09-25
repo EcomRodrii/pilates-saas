@@ -8,6 +8,7 @@ import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { evaluarReembolso, type PoliticaReembolso } from '@/lib/billing/politica-reembolso';
 import { paramsReembolso } from '@/lib/billing/reembolso-params';
+import { registrarAuditoriaServidor } from '@/lib/auditoria/registrar-servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
   // de endpoints de dinero del repo.
   const { data: recibo } = await admin
     .from('recibos')
-    .select('id, estado, importe, fecha_cobro, suscripcion_id, entrega_sesiones_despues, stripe_payment_intent_id, reembolso_fallido_en, reembolso_stripe_id')
+    .select('id, estado, importe, fecha_cobro, suscripcion_id, entrega_sesiones_despues, stripe_payment_intent_id, reembolso_fallido_en, reembolso_stripe_id, reembolso_solicitado_en, socio_id, concepto')
     .eq('id', body.reciboId).eq('studio_id', sesion.studioId).maybeSingle();
   if (!recibo) return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
 
@@ -183,8 +184,32 @@ export async function POST(req: NextRequest) {
     //
     // Best-effort a propósito: el dinero YA ha salido. Si esta escritura falla,
     // lo último que hay que hacer es responder error y que alguien lo reintente.
+    const pedidoEn = new Date().toISOString();
+
+    // Libro de auditoría: el dinero YA ha salido, así que se anota ANTES de la marca del recibo
+    // (que es de mejor esfuerzo y puede fallar): quién lo pidió, de qué recibo y por cuánto. La
+    // ruta usa service-role, así que el trigger no lo ve; el actor es la SESIÓN. Nunca lanza.
+    // Un doble clic llega a Stripe dos veces y Stripe devuelve el MISMO reembolso (clave de
+    // idempotencia). Si el recibo ya lo tenía anotado se ahorra el intento; si dos clics llegan A LA VEZ
+    // (los dos leyeron el recibo sin marcar), el que rechaza el duplicado es el índice único del libro
+    // (`auditoria_estudio_reembolso_unico_idx`) y el helper lo da por bueno sin avisar.
+    if (recibo.reembolso_stripe_id !== refund.id) await registrarAuditoriaServidor(admin, {
+      sesion,
+      tabla: 'recibos', filaId: recibo.id, operacion: 'UPDATE', socioId: (recibo.socio_id as string | null) ?? null,
+      antes: {
+        reembolso_solicitado_en: recibo.reembolso_solicitado_en ?? null,
+        reembolso_stripe_id: recibo.reembolso_stripe_id ?? null,
+        reembolso_fallido_en: recibo.reembolso_fallido_en ?? null,
+      },
+      despues: { reembolso_solicitado_en: pedidoEn, reembolso_stripe_id: refund.id, reembolso_fallido_en: null },
+      contexto: {
+        accion: 'REEMBOLSO_PEDIDO', concepto: recibo.concepto ?? null,
+        importe: Number(recibo.importe) || null, estado_stripe: refund.status ?? null,
+      },
+    });
+
     const { error: errMarca } = await admin.from('recibos').update({
-      reembolso_solicitado_en: new Date().toISOString(),
+      reembolso_solicitado_en: pedidoEn,
       reembolso_stripe_id: refund.id,
       // D-8: el refund nuevo sustituye al fallido — la marca de fallo se
       // limpia para que la fila vuelva a "devolviendo…" y el ciclo pueda

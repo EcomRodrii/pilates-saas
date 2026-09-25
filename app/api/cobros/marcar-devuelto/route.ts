@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
 
   const r = await marcarReciboDevuelto(admin, {
     studioId: sesion.studioId, reciboId: body.reciboId, ahoraISO: new Date().toISOString(),
+    // Quien lo hizo, para el libro de auditoría: la sesión, nunca el cuerpo.
+    actor: { userId: sesion.userId, rol: sesion.rol },
   });
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.http });
   return NextResponse.json({ ok: true, fechaDevolucion: r.fechaDevolucion, yaEstaba: r.yaEstaba });
