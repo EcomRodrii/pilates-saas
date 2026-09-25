@@ -3132,7 +3132,7 @@ export interface RowSalesEvents {
 export interface RowCobrosIntentos {
   payment_intent_id: string;
   studio_id: string;
-  recibo_id: string;
+  recibo_id: string | null;
   importe_centimos: number;
   origen: string;
   desenlace: string;
