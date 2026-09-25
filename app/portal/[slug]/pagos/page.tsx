@@ -28,8 +28,7 @@ function Pagos() {
   const pendiente = totalPendiente(data ?? []);
   const grupos = agruparPorMes(data ?? []);
 
-  // Retorno de Stripe al guardar tarjeta o domiciliación (`setup-tarjeta` y
-  // `setup-sepa` vuelven aquí). Sin esto, la alumna guardaba su tarjeta y
+  // Retorno de Stripe al guardar una tarjeta (`setup-tarjeta` vuelve aquí). Sin esto, la alumna guardaba su tarjeta y
   // aterrizaba en una lista de recibos sin que nada dijera que se había
   // guardado: un éxito mudo se lee como un fallo.
   const sp = useSearchParams();

@@ -62,17 +62,15 @@ export interface AvisoRetorno {
  *
  * Los nombres NO se inventan: son los que compone el backend hoy —
  * `?compra=ok|cancelada` (origen-pago.ts), `?pago=ok|cancelado` (ídem),
- * `?tarjeta=ok|cancel` (setup-tarjeta) y `?sepa=ok|cancel` (setup-sepa).
+ * `?tarjeta=ok|cancel` (setup-tarjeta).
  *
- * Guardar una tarjeta o un mandato SÍ se puede dar por bueno al volver: eso lo
+ * Guardar una tarjeta SÍ se puede dar por bueno al volver: eso lo
  * confirma Stripe en su propia pantalla y no depende de ningún webhook nuestro.
  * Una COMPRA no.
  */
 export function avisoDeRetorno(params: URLSearchParams): AvisoRetorno | null {
   if (params.get('tarjeta') === 'ok') return { mensaje: 'Tarjeta guardada ✓' };
   if (params.get('tarjeta') === 'cancel') return { mensaje: 'No se ha guardado ninguna tarjeta' };
-  if (params.get('sepa') === 'ok') return { mensaje: 'Domiciliación activada ✓' };
-  if (params.get('sepa') === 'cancel') return { mensaje: 'No se ha activado la domiciliación' };
   if (params.get('pago') === 'ok') return { mensaje: 'Pago recibido ✓' };
   if (params.get('pago') === 'cancelado') return { mensaje: 'Pago cancelado — no se ha hecho ningún cargo' };
   if (params.get('compra') === 'cancelada') return { mensaje: 'Compra cancelada — no se ha hecho ningún cargo' };

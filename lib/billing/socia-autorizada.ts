@@ -4,8 +4,8 @@ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 
 // Fuente ÚNICA de "¿puede quien llama actuar sobre la ficha de esta socia?".
 //
-// Por qué existe (auditoría 22-ago): los dos endpoints de `mode: 'setup'`
-// —/api/stripe/setup-tarjeta y su gemelo /api/stripe/setup-sepa— solo
+// Por qué existe (auditoría 22-ago): los endpoints de `mode: 'setup'`
+// —/api/stripe/setup-tarjeta y su gemelo de SEPA, retirado en F-7— solo
 // comprobaban `socio.studio_id === body.studioId`. Es decir: bastaba conocer
 // (o acertar) un `socioId` del estudio para abrir un Checkout de autorización
 // y que el webhook escribiera el `stripe_payment_method_id` de QUIEN LLAMA
@@ -16,13 +16,8 @@ import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 // asumido — la versión anterior de este comentario daba por hecho algo falso):
 //  · `crearEnlaceTarjeta` (panel de cobros) → ya manda `authHeader()`, staff.
 //  · `urlParaGuardarTarjeta` (portal)       → ya manda `portalAuthHeader()`.
-//  · `iniciarDomiciliacionSepa` (portal)    → NO mandaba nada. `postCheckout`
-//    NO adjunta la cabecera por su cuenta, la recibe como 3er argumento, y
-//    esta llamada no se lo pasaba. Se le añade en lib/api-client.ts como parte
-//    de este mismo cambio: sin eso, exigir el JWT aquí rompería la
-//    domiciliación SEPA de todas las socias.
-// La ruta del portal está gateada por sesión (app/portal/[slug]/compras/
-// page.tsx:49 `session?.socioId`), así que el JWT siempre existe.
+//  · `iniciarDomiciliacionSepa` (portal)    → retirada en F-7 (ninguna pantalla
+//    la llamaba y no había socias con SEPA de Stripe).
 //
 // Vive aquí y no copiado en cada ruta a propósito: el fallo recurrente de este
 // repo es arreglar un endpoint y no su gemelo.

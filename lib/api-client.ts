@@ -820,39 +820,6 @@ export async function crearCheckoutStripe(params: {
   return postCheckout('/api/stripe/checkout', params);
 }
 
-// Fase 1 · PR-2 — inicia el alta del mandato SEPA (domiciliación). Devuelve la
-// URL del Checkout hosted en modo 'setup' donde la socia introduce su IBAN y
-// acepta el mandato. Semipúblico como crearCheckoutStripe.
-export async function iniciarDomiciliacionSepa(params: {
-  studioId: string;
-  socioId: string;
-  slug: string;
-}): Promise<{ url: string } | { error: string }> {
-  // El Bearer de la socia es obligatorio: el servidor deriva de él quién puede
-  // autorizar un mandato sobre esta ficha (lib/billing/socia-autorizada.ts).
-  // `postCheckout` NO lo adjunta solo — lo recibe como tercer argumento.
-  return postCheckout('/api/stripe/setup-sepa', params, await portalAuthHeader());
-}
-
-// Comprobación proactiva antes de OFRECER el botón "Domiciliar": sin esto, la
-// socia solo se enteraba de que SEPA no estaba activado en el estudio al
-// volver del Checkout con un error. Fail-open ante cualquier problema de red
-// (devuelve true) — ver app/api/stripe/sepa-disponible/route.ts.
-export async function sepaDisponibleParaEstudio(studioId: string): Promise<boolean> {
-  try {
-    // La cabecera es obligatoria desde la auditoría 2026-09-21 (la ruta ya no
-    // es anónima). Se manda la del portal, igual que su gemela
-    // `iniciarDomiciliacionSepa` de unas líneas más arriba.
-    const res = await fetch(`/api/stripe/sepa-disponible?studioId=${encodeURIComponent(studioId)}`, {
-      headers: { ...(await portalAuthHeader()) },
-    });
-    const data = await res.json() as { disponible?: boolean };
-    return data.disponible !== false;
-  } catch {
-    return true;
-  }
-}
-
 // Aprobación de un toque: cobra un recibo pendiente con la tarjeta ya
 // guardada de la socia, sin redirigirla a ningún sitio.
 // ⚠️ `ok: true` NO significa "todo cerrado": el servidor responde 202 con

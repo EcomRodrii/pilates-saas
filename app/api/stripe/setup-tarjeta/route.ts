@@ -16,7 +16,7 @@ import { autorizarSobreSocia } from '@/lib/billing/socia-autorizada';
 // alumna lo decía igual de claro y de inútil: "Se guarda sola la primera vez
 // que compras un bono".
 //
-// Es el gemelo de /api/stripe/setup-sepa, y a propósito: mismo `mode: 'setup'`,
+// Es el antiguo gemelo de SEPA (retirado en F-7), y a propósito: mismo `mode: 'setup'`,
 // misma cuenta conectada, mismo Customer reutilizado, y el webhook lo resuelve
 // en la misma rama (`session.mode === 'setup'`) distinguiendo por
 // `metadata.purpose`. No se construye ningún formulario de tarjeta propio:
@@ -24,7 +24,7 @@ import { autorizarSobreSocia } from '@/lib/billing/socia-autorizada';
 // número — requisito explícito ("nunca guardar datos sensibles de tarjeta
 // directamente en nuestra base de datos").
 //
-// Semipúblico igual que setup-sepa: la socia abre el enlace sin sesión de
+// Semipúblico: la socia abre el enlace sin sesión de
 // staff. La defensa es validar que la socia pertenece a ese estudio; no mueve
 // dinero, solo deja un método autorizado.
 // ─────────────────────────────────────────────────────────────────────────────
