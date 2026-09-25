@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
@@ -34,7 +34,12 @@ import { OrganizationStructuredData } from '@/components/OrganizationStructuredD
 // exportar `metadata`: la home heredaba título, descripción y canonical del
 // layout raíz (fase 5 del SEO, 23-sep). Ahora `app/page.tsx` es un componente de
 // servidor con sus propios metadatos y esto solo se monta debajo.
-export function LandingCliente() {
+/**
+ * `guias`: la sección de guías de /recursos, que llega ya pintada desde el
+ * servidor (app/page.tsx) para que el texto de los artículos no entre en el
+ * JavaScript de la home. Ver components/landing/SeccionGuias.tsx.
+ */
+export function LandingCliente({ guias }: { guias?: ReactNode } = {}) {
   // Los usuarios AUTENTICADOS que aterrizan en "/" (logo, marcador, tras
   // cerrar sesión y volver) van a su home real; los anónimos ven la landing.
   const router = useRouter();
@@ -114,6 +119,7 @@ export function LandingCliente() {
         <SeccionFuncionalidades />
         <SeccionPrecio />
         <SeccionFaq />
+        {guias}
       </div>
       <SeccionCtaFinal />
       <WhatsAppFab />
