@@ -305,6 +305,16 @@ export default function CrecimientoInterno() {
                     {l.softwareActual && (
                       <span className="ml-1.5 text-[11.5px] text-muted-foreground">· viene de {l.softwareActual}</span>
                     )}
+                    {/* Solo «confirmadas» permite escribirle: la casilla sin confirmar pudo marcarla otra persona. */}
+                    {l.novedades === 'confirmadas' && (
+                      <span className="ml-1.5 text-[11.5px] font-semibold text-emerald-700 dark:text-emerald-400">· acepta novedades</span>
+                    )}
+                    {l.novedades === 'pendientes' && (
+                      <span className="ml-1.5 text-[11.5px] text-muted-foreground">· novedades sin confirmar</span>
+                    )}
+                    {l.novedades === 'baja' && (
+                      <span className="ml-1.5 text-[11.5px] text-muted-foreground">· se dio de baja</span>
+                    )}
                   </span>
                   <span className={`sm:hidden shrink-0 rounded-lg px-2 py-0.5 text-[11.5px] font-bold ${TONO[l.estado as EstadoLead]}`}>
                     {ESTADO_ETIQUETA[l.estado as EstadoLead] ?? l.estado}

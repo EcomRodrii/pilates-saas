@@ -15,7 +15,10 @@
 export const ESTADOS = ['NUEVO', 'CONTACTADO', 'DEMO', 'PRUEBA', 'CLIENTE', 'PERDIDO'] as const;
 export type EstadoLead = (typeof ESTADOS)[number];
 
-export const ORIGENES = ['CONCIERGE', 'ALTA', 'SOPORTE', 'MANUAL', 'REFERIDO', 'IMPORT_PROSPECTOS'] as const;
+export const ORIGENES = [
+  'CONCIERGE', 'ALTA', 'SOPORTE', 'MANUAL', 'REFERIDO', 'IMPORT_PROSPECTOS',
+  'NETWORK_ESTUDIO', 'NETWORK_CIUDAD', 'DESCARGA',
+] as const;
 export type OrigenLead = (typeof ORIGENES)[number];
 
 export const ESTADO_ETIQUETA: Record<EstadoLead, string> = {
@@ -37,6 +40,10 @@ export const ORIGEN_ETIQUETA: Record<OrigenLead, string> = {
   // convierte mucho peor que quien entra solo, y mezclarlos haría que el % de
   // conversión del embudo siguiera saliendo pero dejara de significar nada.
   IMPORT_PROSPECTOS: 'Prospección en frío',
+  NETWORK_ESTUDIO: 'Network: busca instructora',
+  NETWORK_CIUDAD: 'Network: interés en su ciudad',
+  // Pidió una plantilla de /recursos (lib/recursos/descargas.ts).
+  DESCARGA: 'Descargó una plantilla',
 };
 
 /** Los estados en los que el lead sigue vivo: ni ganado ni perdido. */
@@ -50,6 +57,14 @@ export interface Lead {
   telefono: string | null;
   ciudad: string | null;
   softwareActual: string | null;
+  /** Qué plantilla pidió, si llegó por una descarga. */
+  recurso?: string | null;
+  /**
+   * Su permiso para recibir novedades (migr 20260925182615). Solo se le puede
+   * escribir con 'confirmadas': 'pendientes' es una casilla marcada que su
+   * dueña no ha confirmado desde el correo, y pudo marcarla otra persona.
+   */
+  novedades?: 'confirmadas' | 'pendientes' | 'baja' | null;
   // Contexto para redactar el outreach en frío (migr 20260902101500). Solo se
   // rellenan en los leads importados; los que entran por el concierge no los
   // traen y siguen siendo null.

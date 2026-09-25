@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Articulo, Bloque } from './tipos.ts';
+import { esSlugDescarga } from '../descargas.ts';
 
 /**
  * Lo que Tentare NO puede decir de sí mismo en la web (registro de afirmaciones
@@ -46,6 +47,7 @@ function textosDe(b: Bloque): string[] {
     case 'nota': return [b.titulo, b.texto];
     case 'cifras': return [b.titulo, b.nota, ...b.cifras.flatMap((c) => [c.valor, c.etiqueta])];
     case 'herramienta': return [];
+    case 'descarga': return [];
   }
 }
 
@@ -111,6 +113,7 @@ export function validarArticulo(a: Articulo, rutasValidas: Set<string>): string[
   for (const s of a.secciones) {
     for (const b of s.bloques) {
       if (b.t === 'cifras') ok(b.nota.trim().length > 10, `cifras sin nota de origen en «${s.titulo}»`);
+      if (b.t === 'descarga') ok(esSlugDescarga(b.recurso), `descarga de un recurso que no está en lib/recursos/descargas.ts: ${b.recurso}`);
       if (b.t === 'tabla') {
         ok(b.filas.every((f) => f.length === b.cabecera.length), `tabla con filas de distinto ancho en «${s.titulo}»`);
         const conNumeros = b.filas.flat().some((c) => /\d/.test(c));

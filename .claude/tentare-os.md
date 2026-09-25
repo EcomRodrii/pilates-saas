@@ -879,16 +879,23 @@ Quién verifica el token **no es la app**: lo valida gotrue en todas las
 pantallas de auth (el captcha se exige a nivel de PROYECTO en Supabase), y eso
 incluye el alta nueva de `/crear-estudio`.
 
-⚠️ **`lib/auth/captcha-servidor.ts` y `lib/auth/trampa-bots.ts` se han quedado
-SIN NINGÚN consumidor** al abrir Tentare al público: su único caller era
-`/api/public/interes-lanzamiento` (el formulario de lista de espera), borrado
-con ella. Siguen en el repo como primitivas para el próximo endpoint público
-propio — pero un honeypot o un captcha que nadie comprueba EN SERVIDOR es
-decoración, que es literalmente el bug de #847. Si se pinta un captcha en un
-formulario nuevo que no pase por gotrue, hay que llamar a `verificarCaptcha()`
-desde el servidor; necesita `TURNSTILE_SECRET_KEY` y sin esa variable devuelve
-`'ok'` sin llamar a nadie. Fail-CLOSED en el veredicto de Cloudflare,
-fail-OPEN si la llamada no llega a completarse.
+⚠️ **Quién usa `lib/auth/captcha-servidor.ts` y `lib/auth/trampa-bots.ts`.**
+Corregido el 2026-09-25: este texto decía que las dos se habían quedado sin
+ningún consumidor al borrar `/api/public/interes-lanzamiento`, y la trampa ya la
+usaba `/api/network/interes`. Hoy la trampa la usan `/api/network/interes` y
+`/api/public/descargas`; el captcha de servidor, solo `/api/public/descargas`
+(#2319). Un honeypot o un captcha que nadie comprueba EN SERVIDOR es decoración,
+que es literalmente el bug de #847: si se pinta un captcha en un formulario
+nuevo que no pase por gotrue, hay que llamar a `verificarCaptcha()` desde el
+servidor. Sin `TURNSTILE_SECRET_KEY` devuelve `'ok'` sin llamar a nadie
+(fail-CLOSED en el veredicto de Cloudflare, fail-OPEN si la llamada no llega a
+completarse), así que un endpoint que manda correos se cierra él mismo cuando
+falta la clave en un entorno desplegado (`captchaDeServidorListo()`), como
+`/api/public/descargas`, y la guía ni enseña el recuadro: aparece solo en el
+primer despliegue que tenga la clave.
+⚠️ Antes de fiarte de un captcha de servidor, mira que la variable exista en
+Vercel: el 25-sep no estaba (solo la site key), aunque este documento contaba
+más abajo que se había añadido.
 
 ## Tentare ABIERTO al público — prueba de 7 días sin tarjeta (2026-08-19)
 

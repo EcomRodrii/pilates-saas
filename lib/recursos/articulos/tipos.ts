@@ -24,6 +24,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { CategoriaRecursos } from '../guias.ts';
+import type { SlugDescarga } from '../descargas.ts';
 
 export type Bloque =
   /** Párrafo. */
@@ -39,7 +40,12 @@ export type Bloque =
   /** Cifras grandes. `nota` dice de dónde salen o que son de ejemplo. */
   | { t: 'cifras'; titulo: string; cifras: { valor: string; etiqueta: string }[]; nota: string }
   /** Herramienta interactiva (components/recursos). Solo las que existen. */
-  | { t: 'herramienta'; id: 'calculadora-rentabilidad' };
+  | { t: 'herramienta'; id: 'calculadora-rentabilidad' }
+  /**
+   * Recuadro «descárgala a cambio del email» (lib/recursos/descargas.ts). El
+   * archivo llega por correo; el texto del recuadro sale del catálogo.
+   */
+  | { t: 'descarga'; recurso: SlugDescarga };
 
 export interface Seccion {
   /** Ancla (kebab-case). Sale en el índice. */

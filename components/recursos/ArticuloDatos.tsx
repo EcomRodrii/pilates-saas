@@ -6,6 +6,9 @@ import { TextoMarcado } from '@/components/recursos/TextoMarcado';
 import { PortadaCabecera } from '@/components/recursos/PortadaCabecera';
 import { portadaArticulo } from '@/lib/recursos/articulos/portadas';
 import { CalculadoraRentabilidad } from '@/components/recursos/CalculadoraRentabilidad';
+import { DescargaRecurso } from '@/components/recursos/DescargaRecurso';
+import { RECURSOS_DESCARGABLES } from '@/lib/recursos/descargas';
+import { captchaDeServidorListo } from '@/lib/auth/captcha-servidor';
 import { CATEGORIAS_RECURSOS } from '@/lib/recursos/guias';
 import { fechaArticulo, minutosLectura } from '@/lib/recursos/articulos';
 import { articuloLd, faqLd, migasLd, textoPlano } from '@/lib/recursos/articulos/schema';
@@ -91,6 +94,16 @@ function BloqueArticulo({ b }: { b: Bloque }) {
       return <StatBlock eyebrow={b.titulo} stats={b.cifras.map((c) => ({ value: c.valor, label: c.etiqueta }))} note={textoPlano(b.nota)} />;
     case 'herramienta':
       return <CalculadoraRentabilidad />;
+    case 'descarga': {
+      // Sin captcha de servidor la ruta responde 503 a todo: mejor no enseñar un
+      // formulario que siempre falla. Aparece solo en el primer despliegue que
+      // tenga `TURNSTILE_SECRET_KEY` (la página es estática: se decide al construir).
+      if (!captchaDeServidorListo()) return null;
+      // Al cliente le llegan los textos del recuadro; el archivo va por correo
+      // (su ruta no es secreta, ver lib/recursos/descargas.ts).
+      const r = RECURSOS_DESCARGABLES[b.recurso];
+      return <DescargaRecurso recurso={b.recurso} formato={r.formato} llamada={r.llamada} promesa={r.promesa} />;
+    }
   }
 }
 

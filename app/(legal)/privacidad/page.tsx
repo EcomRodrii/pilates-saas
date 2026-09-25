@@ -49,6 +49,7 @@ export default function Privacidad() {
           <tr><td>Datos de uso y registros técnicos</td><td>Seguridad, prevención del fraude y mejora del servicio</td><td>Interés legítimo</td></tr>
           <tr><td>Comunicaciones y soporte</td><td>Atender tus consultas e informarte del servicio</td><td>Ejecución del contrato / interés legítimo</td></tr>
           <tr><td>Comunicaciones comerciales</td><td>Enviarte novedades del producto</td><td>Consentimiento (revocable)</td></tr>
+          <tr><td>Descarga de plantillas (email y, si lo indicas, el nombre de tu estudio)</td><td>Enviarte la plantilla que pides y, solo si marcas la casilla y lo confirmas desde el correo, novedades y guías de Tentare</td><td>Tu solicitud / consentimiento (revocable en cualquier momento)</td></tr>
         </tbody>
       </table>
       <p>

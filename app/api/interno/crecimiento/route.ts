@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
 import { registrar } from '@/lib/interno/auditoria';
 import { validarLead, type Lead } from '@/lib/interno/crecimiento';
+import { puedeRecibirNovedades } from '@/lib/recursos/descargas-lead';
 
 export const runtime = 'nodejs';
 
@@ -24,6 +25,17 @@ export const runtime = 'nodejs';
 // que se montó el panel sin cerrar ninguna puerta.
 // ─────────────────────────────────────────────────────────────────────────────
 
+function estadoNovedades(f: Record<string, unknown>): Lead['novedades'] {
+  const lead = {
+    consentimiento_comercial: f.consentimiento_comercial === true,
+    consentimiento_confirmado_en: (f.consentimiento_confirmado_en as string | null) ?? null,
+    baja_en: (f.baja_en as string | null) ?? null,
+  };
+  if (puedeRecibirNovedades(lead)) return 'confirmadas';
+  if (lead.consentimiento_comercial) return 'pendientes';
+  return lead.baja_en ? 'baja' : null;
+}
+
 function aLead(f: Record<string, unknown>): Lead {
   return {
     id: f.id as string,
@@ -33,6 +45,8 @@ function aLead(f: Record<string, unknown>): Lead {
     telefono: (f.telefono as string | null) ?? null,
     ciudad: (f.ciudad as string | null) ?? null,
     softwareActual: (f.software_actual as string | null) ?? null,
+    recurso: (f.recurso as string | null) ?? null,
+    novedades: estadoNovedades(f),
     web: (f.web as string | null) ?? null,
     instagram: (f.instagram as string | null) ?? null,
     mensaje: (f.mensaje as string | null) ?? null,
@@ -158,6 +172,12 @@ export async function POST(req: NextRequest) {
   // que ya no lo son.
   if (estado !== 'PERDIDO') fila.motivo_perdida = null;
 
+  // El permiso de novedades es de una DIRECCIÓN, no de la ficha: si se cambia
+  // el email, el permiso no pasa a la nueva (nadie lo dio desde ese buzón).
+  // Se anula aquí y se apunta en el historial más abajo.
+  const anulaPermiso = Boolean(antes && antes.email !== email && antes.consentimiento_comercial);
+  if (anulaPermiso) fila.consentimiento_comercial = false;
+
   const id = cuerpo.id ?? `lead-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
   const { error } = antes
@@ -170,6 +190,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Ya hay un lead con el email ${email}.` }, { status: 409 });
     }
     return NextResponse.json({ error: 'No se ha podido guardar el lead.' }, { status: 500 });
+  }
+
+  if (anulaPermiso) {
+    const { error: errHistorial } = await db
+      .from('plataforma_lead_consentimiento')
+      .insert({ lead_id: id, tipo: 'ANULADO', texto: 'Email cambiado en el CRM' });
+    if (errHistorial) console.error('[interno:crecimiento] no se ha podido apuntar la anulación del permiso', errHistorial.code);
   }
 
   const nombre = (fila.nombre as string | null) ?? email;
