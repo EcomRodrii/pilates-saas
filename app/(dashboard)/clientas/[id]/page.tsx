@@ -433,10 +433,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const socio = socios.find(s => s.id === id);
 
   // AU-4: si se dio de baja del marketing, se dice antes de registrarle otro consentimiento.
-  const [retiroMkt, setRetiroMkt] = useState<{ retiradoEn: string; origen: string } | null>(null);
+  const [retiroMktLeido, setRetiroMkt] = useState<{ retiradoEn: string; origen: string } | null>(null);
   const sinConsentimientoMkt = !socio?.consentimientoMarketing;
+  // Solo cuenta mientras siga sin consentimiento y quien mira gestione clientas.
+  const retiroMkt = gestionaClientas && sinConsentimientoMkt ? retiroMktLeido : null;
   useEffect(() => {
-    if (!gestionaClientas || !sinConsentimientoMkt) { setRetiroMkt(null); return; }
+    if (!gestionaClientas || !sinConsentimientoMkt) return;
     let vivo = true;
     void consultarRetiroMarketing(id).then(r => { if (vivo) setRetiroMkt(r); });
     return () => { vivo = false; };
