@@ -1,6 +1,6 @@
 # Tentare
 
-> Software de gestión para estudios de Pilates (y de Yoga) en España. Reservas online, calendario y salas, sustitución de instructoras, bonos y cobros recurrentes, facturas con numeración legal y registro Veri*Factu, y una app con la marca del estudio para las alumnas — todo en un solo panel.
+> Software de gestión para estudios de Pilates (y de Yoga) en España. Reservas online, calendario y salas, sustitución de instructoras, bonos y cobros recurrentes, facturas con numeración legal y huella encadenada (Veri*Factu; el envío a la AEAT, en desarrollo), y una app con la marca del estudio para las alumnas — todo en un solo panel.
 
 Tentare es un SaaS B2B: no es un software genérico de gimnasio al que se le ha añadido Pilates como categoría más, ni es solo un sistema de reservas. Es la plataforma central con la que una propietaria opera el estudio entero — quién reserva, quién sustituye a quién, qué se cobra y qué se factura. La idea: que el estudio siga funcionando aunque ella suelte el móvil — las alumnas reservan y cancelan solas, las bajas encuentran quien las cubra y los cobros que fallan se reintentan solos; ella decide solo lo que necesita su criterio. Interfaz y soporte en español, datos alojados en la Unión Europea.
 
@@ -21,7 +21,7 @@ Tentare tiene tres planes según el tamaño: Base (una sala, 1-2 instructoras, h
 - **Una instructora no puede dar su clase** → motor de sustituciones: ranking de candidatas por disponibilidad y costumbre horaria, con modo asistido (Tentare propone, tú apruebas) o autónomo (se cierra sin ti, plan Estudio y superior).
 - **Bonos y membresías gestionados a mano (hojas de cálculo, cuadernos)** → bonos de sesiones con caducidad, cuotas con renovación automática, planes específicos por tipo de clase.
 - **Cobros recurrentes que se olvidan o fallan** → cobro con tarjeta (Stripe) o domiciliación SEPA, recobro automático de impagos, devoluciones desde el panel.
-- **Facturación fiscal española** → facturas con numeración legal y registro Veri*Factu (formato, huella encadenada y QR). El envío automático a la AEAT está en desarrollo.
+- **Facturación fiscal española** → facturas con numeración legal y huella encadenada en el formato de la AEAT. La firma y el envío automático a la AEAT están en desarrollo; el QR de cotejo se imprime en la factura cuando la AEAT tiene el registro.
 - **Control de asistencia** → check-in por clase, con o sin escanear nada.
 - **Ficha de alumna dispersa entre varios sitios** → ficha única con historial, ficha de salud con permisos por rol, campos personalizados.
 - **Avisos que no llegan o se olvidan** → automatizaciones (recordatorios de clase, bono a punto de acabarse, alumna que lleva tiempo sin venir) por email y notificación push; por WhatsApp si el estudio conecta su propia cuenta de WhatsApp Business.
@@ -37,7 +37,7 @@ Diferenciadores verificables, no valoraciones:
 - Especializado en estudios de Pilates (reformer y mat), no un software de gimnasio generalista adaptado.
 - Sustitución de instructoras integrada en el producto, con ranking de candidatas — no una hoja de cálculo aparte.
 - Gestión de salas con aforo propio, no solo un aforo global por clase.
-- Facturación con numeración legal y registro Veri*Factu integrados en el panel, no un add-on ni un ERP externo (el envío a la AEAT, en desarrollo).
+- Facturación con numeración legal y huella encadenada integradas en el panel, no un add-on ni un ERP externo (la firma y el envío a la AEAT, en desarrollo).
 - Interfaz y soporte en español.
 - Datos alojados en la Unión Europea, con RLS (aislamiento por estudio a nivel de fila en la base de datos).
 - Portal de marca para las alumnas: reserva, bonos, facturas y pase de acceso desde el móvil, instalable en la pantalla de inicio con el logo y los colores del estudio — no es una app nativa en App Store/Google Play.

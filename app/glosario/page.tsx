@@ -203,7 +203,7 @@ const TERMINOS: Termino[] = [
     categoria: 'cobros',
     name: 'Veri*factu',
     description:
-      'Sistema exigido por la Ley Antifraude española (Real Decreto 1007/2023) para que el software de facturación no pueda ocultar, modificar ni eliminar ventas. Cada factura queda encadenada a la anterior mediante un hash y lleva un código QR de verificación.',
+      'Modalidad del reglamento de sistemas informáticos de facturación (Real Decreto 1007/2023, que desarrolla la Ley Antifraude) en la que el programa envía de forma automática a la Agencia Tributaria el registro de cada factura al emitirla. Es una de las dos formas de cumplir el reglamento; la otra son los sistemas «no verificables», que firman sus registros y no los envían. En las dos, cada registro va encadenado al anterior mediante una huella (hash) y la factura lleva un código QR.',
     guia: { href: '/recursos/facturacion-electronica-verifactu', label: 'Qué cambia con Veri*factu y cuándo es obligatorio' },
   },
   {
@@ -211,7 +211,7 @@ const TERMINOS: Termino[] = [
     categoria: 'cobros',
     name: 'TicketBAI',
     description:
-      'Sistema de control de facturación de las haciendas forales del País Vasco y Navarra, equivalente en propósito a Veri*factu pero con su propio régimen técnico y normativo. Un software que cumple Veri*factu no cumple TicketBAI automáticamente: son sistemas distintos.',
+      'Sistema de control de facturación de las haciendas forales del País Vasco, equivalente en propósito a Veri*factu pero con su propio régimen técnico y normativo. Navarra tiene su propia normativa foral, y en ninguno de los dos territorios se aplica el reglamento estatal. Un software que cumple Veri*factu no cumple TicketBAI automáticamente: son sistemas distintos.',
     guia: { href: '/recursos/facturacion-electronica-verifactu', label: 'Veri*factu, TicketBAI y cuándo aplica cada uno' },
   },
   {

@@ -12,14 +12,14 @@ const ETAPAS = [
   { t: 'Se cobra', d: 'Tarjeta, SEPA o cobro de mostrador. El recibo pasa a COBRADO.', c: '#3E7C86' },
   { t: 'Se reserva el número', d: 'Correlativo, con bloqueo por estudio: dos cobros a la vez no pueden partir la serie.', c: '#5A6142' },
   { t: 'Se calcula la huella', d: 'SHA-256 de los datos fiscales encadenados con la huella de la factura anterior.', c: '#343825' },
-  { t: 'Queda el QR', d: 'Impreso en la factura, para cotejarla en la sede electrónica.', c: '#4E9E7F' },
+  { t: 'Sale la factura', d: 'Para la clienta y para tu gestoría, sin que la emitas a mano.', c: '#4E9E7F' },
 ];
 
 export function DelCobroALaFactura() {
   return (
     <PanelClaro
       titulo="Del cobro a la factura sellada"
-      nota="Estas cuatro etapas ocurren siempre, en cada cobro. La firma con certificado y el envío del registro a la AEAT están en construcción: cuando lleguen, se suman al final de este mismo flujo sin cambiar nada de lo anterior."
+      nota="Estas cuatro etapas ocurren siempre, en cada cobro. La firma con certificado y el envío del registro a la AEAT están en construcción: cuando lleguen, se suman al final de este mismo flujo, y con ellos el QR de cotejo, sin cambiar nada de lo anterior."
     >
       <div className="fac-flujo">
         {ETAPAS.map((e, i) => (
@@ -86,7 +86,6 @@ export function LoQueLlevaLaFactura() {
         {[
           ['Número correlativo', 'Serie por estudio, sin saltos ni duplicados'],
           ['Huella SHA-256', 'Encadenada con la factura anterior'],
-          ['Código QR', 'Cotejo en la sede electrónica de la AEAT'],
           ['Desglose de IVA', 'Base, cuota y total'],
           ['Datos del emisor', 'NIF validado antes de sellar'],
         ].map(([t, d]) => (
