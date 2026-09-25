@@ -147,6 +147,24 @@ test('las excepciones siguen existiendo (una lista muerta solo sirve para colar 
   assert.deepEqual([...muertas, ...carpetasMuertas], [], 'quita de la lista lo que ya no está en el repo');
 });
 
+// `.playwright-mcp/` es lo que un agente vio al navegar con el MCP de
+// Playwright: volcados de página, consola y capturas. Si navegó el panel con
+// una sesión real, ahí queda lo que se veía. No se revisa el contenido, se
+// prohíbe la carpeta: `.yml` y `.log` caen fuera del ámbito de emails de abajo,
+// y ninguna regex lee una captura. El `.gitignore` corta el `git add -A`; esto
+// corta el `git add -f` y la rama abierta antes de esa regla que los traiga.
+// Entraron 26 de paso, dentro de un commit que hacía otra cosa (#1607).
+test('nada de la salida del MCP de Playwright versionado (.playwright-mcp/)', () => {
+  const versionados = ficheros.filter(f => /(^|\/)\.playwright-mcp\//.test(f));
+  assert.equal(
+    versionados.length,
+    0,
+    `${versionados.length} fichero(s) de .playwright-mcp/ versionados (\`git ls-files | grep playwright-mcp\`). `
+      + 'El repo es público y esa carpeta guarda lo que un agente vio al navegar, que puede incluir datos reales. '
+      + 'Sácalos del índice con `git rm -r --cached .playwright-mcp`; el disco no se toca.',
+  );
+});
+
 function enAmbitoDeEmails(f: string): boolean {
   if (!f.includes('/')) return true; // la raíz
   if (/^(supabase|scripts|docs|\.claude|\.github)\//.test(f)) return true;
