@@ -97,7 +97,20 @@ software para estudios de Pilates · software de gestión para Pilates · progra
 
 ## Recursos
 
-- [Centro de Recursos](https://www.tentare.app/recursos): guías prácticas de gestión para propietarias de estudios de Pilates (ocupación, precios, sustituciones, retención, facturación).
+- [Centro de Recursos](https://www.tentare.app/recursos): guías prácticas de gestión para propietarias de estudios de Pilates (ocupación, precios, sustituciones, retención, facturación). Cada guía cita sus fuentes (BOE, Agencia Tributaria, DGT, INE, Seguridad Social, webs de fabricantes y de estudios) y dice cuándo se consultaron.
+- [Cómo abrir un estudio de pilates](https://www.tentare.app/recursos/como-abrir-un-estudio-de-pilates): los pasos en orden, del concepto a los primeros 90 días.
+- [Cuánto cuesta abrir un estudio de pilates](https://www.tentare.app/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates): precio de los reformers por marca, con y sin IVA, y presupuesto de ejemplo por partidas.
+- [Requisitos para abrir un estudio de pilates](https://www.tentare.app/recursos/requisitos-para-abrir-un-estudio-de-pilates): modelo 036, epígrafe IAE 967.2, CNAE-2025 93.13, Seguridad Social, licencia o declaración responsable, seguro, datos de salud y titulación.
+- [Precio de una clase de pilates en 2026](https://www.tentare.app/recursos/precio-clase-de-pilates): tarifas publicadas por 32 estudios de 8 ciudades españolas, con medianas y rangos por formato.
+- [Rentabilidad de un estudio de pilates](https://www.tentare.app/recursos/rentabilidad-estudio-de-pilates): punto de equilibrio, margen por clase y ocupación, con una calculadora.
+- [Bonos de pilates](https://www.tentare.app/recursos/bonos-de-pilates): tipos de bono, descuento frente a la clase suelta, caducidades reales de estudios españoles y cancelaciones tardías.
+- [Cuánto cobra una instructora de pilates](https://www.tentare.app/recursos/cuanto-cobra-una-instructora-de-pilates): convenio estatal de gimnasios, salario mínimo de 2026, lo que pagan las ofertas por hora y el coste para el estudio (nómina o factura).
+- [IVA de las clases de pilates](https://www.tentare.app/recursos/iva-clases-de-pilates): 21 % en un estudio privado; exenciones (fisioterapia, entidades sin ánimo de lucro) según la Ley del IVA y las consultas de la DGT.
+- [Mejor software para estudios de pilates](https://www.tentare.app/recursos/mejor-software-para-estudios-de-pilates): comparativa de 13 programas según su web pública (precio, permanencia, Veri*Factu, sustituciones), escrita por Tentare y marcada como tal.
+- [Software de pilates gratis](https://www.tentare.app/recursos/software-pilates-gratis): lo que se puede montar sin pagar y sus límites.
+- [Plantilla de control de asistencia](https://www.tentare.app/recursos/plantilla-control-de-asistencia-pilates): Excel gratuito con alumnas, bonos, clases y asistencia.
+- [Franquicia de pilates](https://www.tentare.app/recursos/franquicia-de-pilates): inversión, canon y royalty de las franquicias que publican sus condiciones, y lo que la ley obliga a entregar antes de firmar.
+- [Nombres para estudio de pilates](https://www.tentare.app/recursos/nombres-para-estudio-de-pilates): más de 100 ideas por estilos y cómo comprobar que el nombre está libre (OEPM, Registro Mercantil, dominio .es).
 - [Glosario](https://www.tentare.app/glosario): definiciones neutrales de los términos del sector (software de gestión, pilates reformer, Veri*factu, lista de espera automática, CRM de estudio, etc.).
 
 ## Tentare Network

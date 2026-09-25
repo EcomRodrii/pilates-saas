@@ -12,6 +12,7 @@
 
 import { LEGAL } from '../legal-info.ts';
 import { ANCHO_MAX_PORTADA, GUIAS, fechaModificada, guia, rutaPortada, altoPortada, urlGuia, type Guia } from './guias.ts';
+import { ARTICULOS, fechaArticulo, urlArticulo } from './articulos/index.ts';
 
 /** `@id` estable del Blog: el mismo en el listado y en el `isPartOf` de cada guía. */
 export const ID_BLOG = `${LEGAL.url}/recursos#blog`;
@@ -87,14 +88,26 @@ export function blogLd() {
     url: `${LEGAL.url}/recursos`,
     inLanguage: IDIOMA,
     publisher: PUBLISHER,
-    blogPost: GUIAS.map((g) => ({
-      '@type': 'BlogPosting',
-      headline: g.titulo,
-      url: `${LEGAL.url}${urlGuia(g.slug)}`,
-      datePublished: g.publicado,
-      dateModified: fechaModificada(g),
-      image: imagenPortada(g),
-    })),
+    blogPost: [
+      // Los artículos escritos como datos (lib/recursos/articulos) no tienen
+      // portada: su imagen es la OG que genera su ruta.
+      ...ARTICULOS.map((a) => ({
+        '@type': 'BlogPosting',
+        headline: a.titulo,
+        url: `${LEGAL.url}${urlArticulo(a.slug)}`,
+        datePublished: a.publicado,
+        dateModified: fechaArticulo(a),
+        image: { '@type': 'ImageObject', url: `${LEGAL.url}${urlArticulo(a.slug)}/opengraph-image`, ...TAMANO_OG },
+      })),
+      ...GUIAS.map((g) => ({
+        '@type': 'BlogPosting',
+        headline: g.titulo,
+        url: `${LEGAL.url}${urlGuia(g.slug)}`,
+        datePublished: g.publicado,
+        dateModified: fechaModificada(g),
+        image: imagenPortada(g),
+      })),
+    ],
   };
 }
 

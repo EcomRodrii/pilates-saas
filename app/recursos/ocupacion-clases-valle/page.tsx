@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { fechaModificada, guia } from '@/lib/recursos/guias';
 import { openGraphGuia } from '@/lib/recursos/schema';
@@ -72,7 +73,7 @@ export default function OcupacionClasesVallePage() {
         <h2 id="s1">Por qué una clase vacía cuesta igual que una llena</h2>
         <p>
           La sala, la instructora y la luz están pagadas exista o no exista una alumna dentro. El coste es fijo; el ingreso, no. Por eso una clase al 30% de aforo no es &quot;un poco menos rentable&quot; — es casi pura pérdida frente a su coste de oportunidad. Y el efecto se nota más en reformer que en mat: las clases de reformer suelen llenar bastante más aforo que las de mat en un estudio boutique medio, según los datos que reunimos en{' '}
-          <a href="/recursos/precios-reformer-mat">nuestra guía de precios reformer vs. mat</a>
+          <Link href="/recursos/precios-reformer-mat">nuestra guía de precios reformer vs. mat</Link>
           , así que un hueco de reformer vacío duele más que uno de mat.
         </p>
 

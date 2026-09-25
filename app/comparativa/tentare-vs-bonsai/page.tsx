@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio de entrada', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['yes', 'Plan gratis (con un 3 % extra por cobro) o desde 29 €/mes + IVA (Starter)'] },
+  { feature: 'Precio de entrada', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['yes', 'Plan gratis (con un 3 % extra por cobro) o Starter desde 29 €/mes + IVA con pago anual (39 € mes a mes)'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'Mensual sin compromiso; el plan anual se paga por adelantado'] },
   { feature: 'Comisión de la plataforma por cobro', tentare: ['yes', 'Ninguna de Tentare (solo la de Stripe)'], them: ['partial', '3 % extra en el plan gratis; ninguna en los de pago'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['yes', 'Servidores en la UE, según sus condiciones'] },
@@ -47,7 +47,7 @@ const HONESTY: HonestyCard[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Bonsai?',
-    a: 'Tiene un plan Seed gratuito (con un 3 % extra por transacción y límites: hasta 100 reservas grupales al mes y 30 cuotas activas), Starter a 29 €/mes (500 reservas al mes), Pro a 49 €/mes y Premium a medida. Los precios de Bonsai no incluyen IVA. Los de Tentare sí: Base 29, Estudio 59 y Cadena 149 €/mes.',
+    a: 'Tiene un plan Seed gratuito (con un 3 % extra por transacción y límites: hasta 100 reservas grupales al mes y 30 cuotas activas), Starter a 39 €/mes, o 29 €/mes con pago anual (500 reservas al mes), Pro a 69 €/mes, o 49 €/mes con pago anual, y Premium a medida. Los precios de Bonsai no incluyen IVA. Los de Tentare sí: Base 29, Estudio 59 y Cadena 149 €/mes.',
   },
   {
     q: '¿Puedo pasar mis datos de Bonsai a Tentare?',

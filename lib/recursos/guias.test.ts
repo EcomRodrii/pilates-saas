@@ -39,7 +39,9 @@ function medidas(fichero: string): { ancho: number; alto: number } {
 
 test('cada carpeta de app/recursos es una guía registrada, y al revés', () => {
   const enApp = readdirSync(join(RAIZ, 'app', 'recursos'), { withFileTypes: true })
-    .filter((d) => d.isDirectory() && existsSync(join(RAIZ, 'app', 'recursos', d.name, 'page.tsx')))
+    // `[slug]` es el segmento de los artículos escritos como datos
+    // (lib/recursos/articulos), que tienen su propio test de registro.
+    .filter((d) => d.isDirectory() && !d.name.startsWith('[') && existsSync(join(RAIZ, 'app', 'recursos', d.name, 'page.tsx')))
     .map((d) => d.name)
     .sort();
   assert.deepEqual(GUIAS.map((g) => g.slug).sort(), enApp);

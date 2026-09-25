@@ -2,6 +2,7 @@ import { LogoTentare } from '@/components/marca/logo-tentare';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { ACC } from '@/components/landing/theme';
+import { MedicionPaginasPublicas } from '@/components/seo/MedicionPaginasPublicas';
 
 // Barra superior de las páginas públicas que no son la landing (/recursos,
 // /comparativa, /glosario, /seguridad, /funcionalidades…).
@@ -14,6 +15,9 @@ import { ACC } from '@/components/landing/theme';
 // quedan siempre.
 export function SiteNav({ backHref = '/recursos', backLabel = 'Centro de Recursos' }: { backHref?: string; backLabel?: string }) {
   return (
+    <>
+    {/* Toda página pública con esta barra mide qué la trae al alta (no es la landing). */}
+    <MedicionPaginasPublicas />
     <nav className="sitenav">
       <Link href="/" className="sitenav-logo">
         <LogoTentare formato="horizontal" alto={24} />
@@ -45,5 +49,6 @@ export function SiteNav({ backHref = '/recursos', backLabel = 'Centro de Recurso
         @media (prefers-reduced-motion: reduce) { .sitenav-cta { transition: none; } }
       `}</style>
     </nav>
+    </>
   );
 }

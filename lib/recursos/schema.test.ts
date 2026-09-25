@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { LEGAL } from '../legal-info.ts';
 import { GUIAS, TARJETAS_SIN_GUIA } from './guias.ts';
+import { ARTICULOS } from './articulos/index.ts';
 import { ID_BLOG, blogLd, blogPostingLd, imagenesSitemap, openGraphGuia } from './schema.ts';
 
 // JSON-LD de /recursos: lo que Google necesita para leer cada guía como un post
@@ -58,14 +59,14 @@ test('autor Person y editor Organization con logo ImageObject absoluto', () => {
   assert.ok(existsSync(join(RAIZ, 'public', post.publisher.logo.url.slice(LEGAL.url.length))), 'el logo del editor no existe en public/');
 });
 
-test('el Blog lista solo las guías publicadas, con el mismo @id que usan los posts', () => {
+test('el Blog lista las guías y los artículos publicados, con el mismo @id que usan los posts', () => {
   const blog = blogLd();
   assert.equal(blog['@type'], 'Blog');
   assert.equal(blog['@id'], ID_BLOG);
   assert.equal(blog.url, `${LEGAL.url}/recursos`);
   assert.ok(blog.publisher.logo);
   const urls = blog.blogPost.map((p) => p.url);
-  assert.deepEqual(urls.sort(), GUIAS.map((g) => `${LEGAL.url}/recursos/${g.slug}`).sort());
+  assert.deepEqual(urls.sort(), [...GUIAS, ...ARTICULOS].map((g) => `${LEGAL.url}/recursos/${g.slug}`).sort());
   // Ni la «en preparación» (sin página) ni la comparativa (no es una guía).
   for (const t of TARJETAS_SIN_GUIA) {
     assert.ok(!blog.blogPost.some((p) => p.headline === t.titulo), `«${t.titulo}» no debe estar en el Blog`);
@@ -73,8 +74,12 @@ test('el Blog lista solo las guías publicadas, con el mismo @id que usan los po
   for (const p of blog.blogPost) {
     assert.ok(p.headline && absoluta(p.url) && absoluta(p.image.url));
     assert.match(p.datePublished, ISO);
-    // Cada una tiene su página de verdad.
-    assert.ok(existsSync(join(RAIZ, 'app', p.url.slice(LEGAL.url.length), 'page.tsx')), `${p.url} no tiene página`);
+    // Cada una tiene su página de verdad: la guía, su carpeta; el artículo
+    // escrito como datos, la ruta dinámica app/recursos/[slug].
+    const ruta = p.url.slice(LEGAL.url.length);
+    const esArticulo = ARTICULOS.some((a) => `/recursos/${a.slug}` === ruta);
+    const pagina = esArticulo ? join(RAIZ, 'app', 'recursos', '[slug]', 'page.tsx') : join(RAIZ, 'app', ruta, 'page.tsx');
+    assert.ok(existsSync(pagina), `${p.url} no tiene página`);
   }
 });
 
