@@ -1,14 +1,15 @@
 import Link from 'next/link';
-import { ARTICULOS, urlArticulo } from '@/lib/recursos/articulos';
+import { ARTICULOS_META } from '@/lib/recursos/articulos/meta';
+import { urlArticulo } from '@/lib/recursos/articulos/util';
 
 // Guías de /recursos en la portada. No vende: le da a quien todavía se está
 // informando lo que busca (costes, requisitos, precios) y, de paso, es el
 // enlace más fuerte que pueden tener esas guías, porque la portada es la
 // página con más autoridad del dominio (25-sep, aprobado por el fundador).
 //
-// ⚠️ Componente de SERVIDOR que LandingCliente recibe como hueco (`guias`):
-// importado desde el cliente, los 13 artículos —texto completo, fuentes y
-// FAQ— acabarían en el JavaScript de la home.
+// Componente de servidor que LandingCliente recibe como hueco (`guias`), y
+// solo con los metadatos de los artículos (meta.ts): su texto completo no debe
+// llegar nunca al JavaScript de la home (e2e/portada-guias.spec.ts).
 //
 // Título y descripción salen de cada artículo (su título SEO y su meta
 // descripción), no se reescriben aquí: dos copias del mismo texto solo pueden
@@ -23,7 +24,7 @@ const DESTACADAS = [
 ];
 
 export function SeccionGuias() {
-  const guias = DESTACADAS.flatMap((slug) => ARTICULOS.filter((a) => a.slug === slug));
+  const guias = DESTACADAS.flatMap((slug) => ARTICULOS_META.filter((a) => a.slug === slug));
   if (guias.length === 0) return null;
 
   return (
