@@ -304,3 +304,25 @@ test.describe('Arrastrar con el navegador fuera de Madrid', () => {
     expect(horaEnEstudio(patchBody.valor.inicio)).toBe(13);
   });
 });
+
+// RES-7-a: en la vista Día el destino no trae columna de día y el día se sacaba del
+// NAVEGADOR. Con un navegador 10 h POR DELANTE de Madrid (Auckland en agosto), una
+// clase de las 15:00 de Madrid (13:00 UTC) cae a la 01:00 del DÍA SIGUIENTE en su
+// reloj: soltarla la reprogramaba a ese día. «Hoy» sigue siendo el mismo día para los dos (a las 09:00
+// de Madrid ya son las 19:00 del mismo día en Auckland), así que la vista Día enseña
+// la clase y se puede arrastrar.
+test.describe('Arrastrar en vista Día con el navegador un día por delante', () => {
+  test.use({ timezoneId: 'Pacific/Auckland' });
+
+  test('mover a las 13:00 conserva el DÍA del estudio', async ({ page }) => {
+    const { patchBody } = await montar(page, { sesiones: [sesionRow('ses-1', '13:00', '13:50')], reservas: [] });
+
+    await arrastrarA(page, 13 * 60);
+
+    await expect(page.getByText('Clase movida')).toBeVisible({ timeout: 30_000 });
+    expect(patchBody.valor).toBeTruthy();
+    expect(horaEnEstudio(patchBody.valor.inicio)).toBe(13);
+    const diaEstudio = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date(patchBody.valor.inicio));
+    expect(diaEstudio).toBe(HOY);
+  });
+});

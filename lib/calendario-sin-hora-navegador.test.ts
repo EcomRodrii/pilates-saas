@@ -22,3 +22,9 @@ test('el día de la semana de una sesión sale del estudio, no de new Date(inici
   const malas = CODIGO.filter((l) => /new Date\([^)]*\)\.getDay\(\)/.test(l));
   assert.deepEqual(malas, []);
 });
+
+test('RES-7-a: al soltar una clase, el día sin columna (vista Día) sale del ESTUDIO, no de new Date(instante)', () => {
+  assert.ok(CODIGO.some((l) => l.includes('diaEnEstudio(sesion.inicio)')), 'falta el día del estudio en el destino del arrastre');
+  const malas = CODIGO.filter((l) => /:\s*new Date\(sesion\.inicio\);/.test(l));
+  assert.deepEqual(malas, [], 'el día base del arrastre volvió a salir de un Date del navegador');
+});

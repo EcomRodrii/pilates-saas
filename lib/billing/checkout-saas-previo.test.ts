@@ -80,3 +80,10 @@ test('⚠️ la ruta consulta a Stripe ANTES de crear el Checkout, en las dos ra
   assert.equal(previos.length, 2);
   creaciones.forEach((c, k) => assert.ok(previos[k] < c, `la rama ${k + 1} consulta antes de crear`));
 });
+
+test('⚠️ PAY-5-cadena: las DOS claves de idempotencia del checkout SaaS distinguen el descuento', () => {
+  const ruta = readFileSync(new URL('../../app/api/billing/checkout/route.ts', import.meta.url), 'utf8');
+  const claves = ruta.split('\n').filter(l => l.includes('idempotencyKey: `billing-checkout-'));
+  assert.equal(claves.length, 2, 'una por rama (CADENA y BASE/ESTUDIO)');
+  for (const c of claves) assert.match(c, /discounts \?/, `la clave no distingue el descuento: ${c.trim()}`);
+});

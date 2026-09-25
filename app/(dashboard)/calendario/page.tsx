@@ -2587,10 +2587,18 @@ export default function Calendario() {
       return;
     }
 
-    const baseDate = destino.diaColumna != null ? dias[destino.diaColumna] : new Date(sesion.inicio);
-    if (!baseDate) return;
-    const nuevoInicio = toISO(localDate(baseDate), mmA(inicioMin));
-    const nuevoFin = toISO(localDate(baseDate), mmA(finMin));
+    // ⚠️ Auditoría 2026-09-25 (RES-7-a): sin `diaColumna` (vista Día) esto salía de
+    // `localDate(new Date(sesion.inicio))`, es decir del día del NAVEGADOR: con el
+    // navegador detrás de Madrid, mover una clase de las 10:00 la reprogramaba al
+    // día anterior (y avisaba por email a las alumnas). El día de una sesión es el
+    // del ESTUDIO. Con `diaColumna` (vista Semana) el día sale de la propia
+    // columna, que es una fecha de calendario y no un instante.
+    const diaBase = destino.diaColumna != null
+      ? (dias[destino.diaColumna] ? localDate(dias[destino.diaColumna]) : null)
+      : diaEnEstudio(sesion.inicio);
+    if (!diaBase) return;
+    const nuevoInicio = toISO(diaBase, mmA(inicioMin));
+    const nuevoFin = toISO(diaBase, mmA(finMin));
     const nuevoSalaId = destino.salaId ?? sesion.salaId;
     if (nuevoInicio === sesion.inicio && nuevoSalaId === sesion.salaId) return;
 

@@ -208,7 +208,13 @@ export async function POST(req: NextRequest) {
         // segunda. Ventana de 1 minuto (mismo criterio que
         // `claveCheckoutPlanModoA`): un reintento minutos después, con la
         // suscripción anterior ya cancelada, sigue pudiendo contratar.
-        idempotencyKey: `billing-checkout-cadena-${cadena.id}-${plan}-${Math.floor(Date.now() / 60000)}`,
+        // ⚠️ Auditoría 2026-09-25 (PAY-5-cadena): la clave no distinguía el descuento y
+        // este se decide más arriba canjeando `review_boost_recompensas` con un CAS. La
+        // primera petición canjea y crea la sesión CON `discounts`; una segunda del
+        // mismo minuto ya no encuentra la recompensa, manda `allow_promotion_codes` con
+        // la MISMA clave y parámetros distintos, Stripe la rechaza (500) y la propietaria
+        // ha perdido el 20 %. Mismo discriminante que la rama BASE/ESTUDIO.
+        idempotencyKey: `billing-checkout-cadena-${cadena.id}-${plan}-${discounts ? `d${recompensa?.stripe_coupon_id ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}`,
       });
 
       if (discounts) capturar(studio.id, { nombre: 'review_boost_reward_claimed', props: {} });
