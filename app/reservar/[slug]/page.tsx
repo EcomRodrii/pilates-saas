@@ -16,7 +16,7 @@ import { portalAuthHeader } from '@/lib/api-client';
 import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
-import { PlanTarifa, type Reserva } from '@/lib/types';
+import { PlanTarifa, type Reserva, type TipoPlan } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando, nombrePeriodo } from '@/lib/bono-logic';
 import { planesComprablesParaReservar } from '@/lib/reserva-planes-comprables';
 import { resolutorCobertura, precioDeCobertura, textoCobertura, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
@@ -44,7 +44,7 @@ import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
-import { trackEventoWidget } from '@/lib/reservar/eventos';
+import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget } from '@/lib/reservar/eventos';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, RESERVAR_PALETA, varsReservarModo, tokensCalendarioDeApariencia } from '@/lib/reservar-publico-tokens';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
@@ -308,7 +308,7 @@ function MenuSecciones({ tabs, tabActual, onIr }: {
 // Anónimo: los ocupados se muestran deshabilitados, sin revelar quién los tiene.
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio' | 'cuenta';
+type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio' | 'cuenta' | 'planes' | 'equipo';
 // Cada pestaña es también un widget embebible por separado (Configuración >
 // Estudio > Enlaces genera un <iframe ?embed=1&tab=…> distinto por cada una)
 // — de ahí que valga la pena validar el ?tab= de la URL contra esta lista en
@@ -318,7 +318,14 @@ type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio' | 'cuenta';
 // enlaces ?tab= en producción apuntando a ese id, y "Mis reservas" y "Mi
 // cuenta" (bonos+perfil) son conceptualmente distintos incluso en el portal
 // instalable (rutas separadas). Ver docs/account-widget-diseno.md §4.
-const TAB_IDS: readonly Tab[] = ['clases', 'citas', 'misreservas', 'estudio', 'cuenta'];
+//
+// 'planes' y 'equipo' («Tentare Widgets», lib/widgets/catalogo.ts) son vistas
+// SOLO del modo incrustado: en la página completa los planes y el equipo ya
+// son secciones (bonos al bajar, equipo dentro de «El estudio») y no ganan
+// una pestaña propia. Ver `tabHabilitada`.
+const TAB_IDS: readonly Tab[] = ['clases', 'citas', 'misreservas', 'estudio', 'cuenta', 'planes', 'equipo'];
+// Tipos de plan que admite el filtro `?planes=` del widget «Planes y precios».
+const TIPOS_PLAN_FILTRO: readonly TipoPlan[] = ['MENSUAL', 'BONO', 'PUNTUAL'];
 // 'pendiente' (Fase 2a, migr 20260730192445): la clase exige aprobación
 // manual — la reserva no queda confirmada ni en lista de espera, se avisa a
 // la socia por separado cuando la propietaria decida.
@@ -451,7 +458,8 @@ export default function ReservarPage() {
     || (t === 'citas' && configHorario.mostrarCitas !== false)
     || (t === 'misreservas' && configHorario.mostrarMisReservas !== false)
     || (t === 'estudio' && configHorario.mostrarEstudio !== false)
-    || (t === 'cuenta' && configHorario.mostrarCuenta !== false);
+    || (t === 'cuenta' && configHorario.mostrarCuenta !== false)
+    || ((t === 'planes' || t === 'equipo') && searchParams.get('embed') === '1');
   // ⚠️ Sin identidad inventada. Estos cuatro valores caían a los de Tentare y a
   // una dirección de ejemplo ('Tentare', 'hola@tentare.es', '+34 951 000 000',
   // 'Málaga · Calle Larios 12'). Se ven cuando `studio` es null — es decir,
@@ -582,6 +590,15 @@ export default function ReservarPage() {
   // Fase 2 "Growth Widget": primer evento del funnel. `studio?.id` llega tras
   // resolver el catálogo público — sin ref, cada refresco del catálogo
   // (recargarPublico) dispararía el evento otra vez.
+  // La etiqueta del widget (`?ref=`) viaja en TODOS los eventos, no solo en
+  // los que la pasan a mano (lib/reservar/eventos.ts). Va antes que el primer
+  // evento: los efectos corren en el orden en que se declaran.
+  // `vista-previa=1`: el constructor de widgets del panel — no es una visita.
+  const esVistaPrevia = searchParams.get('vista-previa') === '1';
+  useEffect(() => {
+    fijarOrigenWidget(refCode);
+    silenciarEventosWidget(esVistaPrevia);
+  }, [refCode, esVistaPrevia]);
   const widgetLoadedRef = useRef(false);
   useEffect(() => {
     if (widgetLoadedRef.current || !studio?.id) return;
@@ -677,12 +694,12 @@ export default function ReservarPage() {
   }, [tab, studio?.id]);
 
   // Auto-resize del <iframe> embebido (audit de rendimiento de los widgets):
-  // el código que se copia en tab-api.tsx fija un `height` en px por widget —
+  // el código que se copia (lib/widgets/integracion.ts) fija un `height` en px por widget —
   // un contenido más corto o más largo que ese valor deja hueco muerto o
   // recorta contenido y obliga a hacer scroll DENTRO del iframe. Se avisa a
   // la ventana padre con la altura real del documento cada vez que cambia
   // (cambio de tab, expandir un desplegable, cargar más clases…); el snippet
-  // que se copia junto al iframe (tab-api.tsx) escucha este mensaje y ajusta
+  // que se copia junto al iframe (lib/reservar/snippet-embed.ts) escucha este mensaje y ajusta
   // el alto. Sin efecto si el widget no está embebido en un iframe ajeno.
   useEffect(() => {
     if (!embedMode || typeof window === 'undefined' || window.parent === window) return;
@@ -838,7 +855,7 @@ export default function ReservarPage() {
   // El iframe de Modo A se auto-dimensiona a TODO el contenido (2000px o más),
   // así que un overlay con `inset: 0` se ancla al iframe entero: medido en
   // producción, el modal «Tus datos» apareció a ~1000px por debajo del borde de
-  // la pantalla del usuario. El snippet NUEVO (tab-api.tsx) informa por
+  // la pantalla del usuario. El snippet NUEVO (lib/reservar/snippet-embed.ts) informa por
   // postMessage (`tentareHostViewport`) de qué franja del iframe está visible
   // de verdad; los overlays se posicionan dentro de ella. Con el snippet VIEJO
   // (ya pegado en webs que no se actualizan solas) no llega ningún mensaje:
@@ -1059,7 +1076,7 @@ export default function ReservarPage() {
   // Deep-link a una sesión concreta: si volvemos con ?sesion=<id> abrimos su
   // reserva (una sola vez) en cuanto los datos estén cargados. Dos orígenes:
   // el enlace mágico (la socia ya está autenticada) Y el widget "Reserva
-  // esta clase" (tab-api.tsx) — este último llega a visitantes ANÓNIMAS
+  // esta clase" (lib/widgets/catalogo.ts, «Reserva una clase») — este último llega a visitantes ANÓNIMAS
   // (un post, una story, un newsletter), así que YA NO se exige
   // `autenticado` para esta rama: `openBooking()` sabe manejar el caso sin
   // sesión (abre el paso 'login' guardando `bookingSesionId`, y el efecto de
@@ -2393,9 +2410,25 @@ export default function ReservarPage() {
   // real a "El estudio"/"Mi cuenta"/"Citas" — esta vez esas tres secciones
   // tienen una salida real: `MenuSecciones` en la cabecera. Fuera de Clases
   // la barra se sigue pintando completa.
+  // «Mi cuenta» del catálogo de widgets (`?cuenta=completa`): un solo widget
+  // con sus dos caras, «Mis reservas» y «Mi cuenta» (bonos y perfil). Sin el
+  // parámetro, cada una sigue siendo su propio widget de un solo propósito.
+  const cuentaCompleta = embedMode && searchParams.get('cuenta') === 'completa'
+    && (tab === 'misreservas' || tab === 'cuenta');
   const tabsVisibles = tab === 'clases' && !embedMode && !apariencia.soloPestana
     ? []
-    : (embedMode || apariencia.soloPestana) ? tabs.filter(([t]) => t === tab) : tabs;
+    : (embedMode || apariencia.soloPestana)
+      ? tabs.filter(([t]) => t === tab || (cuentaCompleta && (t === 'misreservas' || t === 'cuenta')))
+      : tabs;
+  // Las vistas incrustadas de UNA sola cosa (planes, equipo): nada de las
+  // secciones de la página completa debajo — 1 widget = 1 propósito.
+  const vistaUnica = embedMode && (tab === 'planes' || tab === 'equipo');
+  // `?planes=BONO,MENSUAL` (widgets «Planes y precios» / «Bonos y packs»).
+  // Solo incrustado, y un valor que no es un tipo de plan se ignora.
+  const filtroPlanes = embedMode
+    ? (searchParams.get('planes') ?? '').split(',').map(x => x.trim()).filter((x): x is TipoPlan => (TIPOS_PLAN_FILTRO as readonly string[]).includes(x))
+    : [];
+  const planesEnVenta = filtroPlanes.length ? planesContratables.filter(p => filtroPlanes.includes(p.tipo)) : planesContratables;
 
   // ── Orden y visibilidad de las secciones ───────────────────────────────────
   // Lo decide el estudio desde el editor de Apariencia (Theme Builder
@@ -2493,6 +2526,144 @@ export default function ReservarPage() {
       </>
     );
   }
+
+  // El equipo — la rejilla de «El estudio» y, tal cual, el widget
+  // «Instructoras» incrustado (`tab=equipo`). Mismo patrón que
+  // `contenidoPlanes`: un bloque, dos sitios.
+  const rejillaEquipo = (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 14 }}>
+      {queImparten(instructores).map(i => {
+        const especialidades = [...(especialidadesPorInstructor.get(i.id) ?? [])];
+        return (
+          <div key={i.id} style={{ borderRadius: R.chipCard, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', padding: '18px 14px', textAlign: 'center' }}>
+            {i.fotoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={i.fotoUrl} alt={i.nombre} loading="lazy" decoding="async" style={{ width: 46, height: 46, borderRadius: 999, objectFit: 'cover', marginInline: 'auto' }} />
+            ) : (
+              <div style={{ width: 46, height: 46, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: 'var(--portal-muted)', background: 'var(--portal-surface-2)', border: '1px solid var(--portal-line)', marginInline: 'auto' }}>
+                {i.nombre.split(' ').map(n => n[0]).join('')}
+              </div>
+            )}
+            <div style={{ fontFamily: serif, fontSize: 16.5, lineHeight: 1.2, marginTop: 10 }}>{i.nombre}</div>
+            {especialidades.length > 0 && (
+              <div style={{ fontSize: 11.5, color: 'var(--portal-muted)', marginTop: 4 }}>
+                {especialidades.join(' · ')}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // Los planes a la venta: la sección «Bonos y membresías» de la página
+  // completa y, tal cual, el widget «Planes y precios» / «Bonos y packs»
+  // incrustado (`tab=planes`). Un solo bloque en dos sitios, mismo patrón que
+  // `misReservasBody`: el checkout, el código de descuento y el «más elegido»
+  // son los de siempre, no una copia.
+  const contenidoPlanes = (
+    <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
+      <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
+      {/* ⚠️ Sin las clases `text-destructive`/`bg-destructive` del PANEL.
+          Esas no participan del modo del widget: medido, el aviso salía
+          EXACTAMENTE igual en claro y en oscuro —rojo teja #A8442A sobre
+          un fondo al 10 %—, que sobre una web oscura da ~2,8:1 y no llega
+          a AA con texto de 13 px. Justo el error que la alumna más
+          necesita poder leer: el que le dice que su pago no ha arrancado.
+          `semantic.danger` sí tiene variante de noche. */}
+      {stripeError && (
+        <div
+          role="alert"
+          style={{
+            marginTop: 12, padding: '10px 16px', borderRadius: 14, fontSize: 13,
+            color: esNoche ? semantic.danger.textNoche : semantic.danger.text,
+            background: semantic.danger.soft,
+            border: `1px solid ${esNoche ? semantic.danger.textNoche : semantic.danger.text}33`,
+          }}
+        >
+          {stripeError}
+        </div>
+      )}
+      {/* Auditoría vs Momence: código de descuento, plegado por defecto.
+          El precio final que se cobra siempre lo decide el servidor al
+          crear el checkout — esto solo manda el texto. */}
+      <div style={{ textAlign: 'center', marginTop: 10 }}>
+        {!mostrarCodigo ? (
+          <button
+            onClick={() => setMostrarCodigo(true)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--portal-muted-2)', textDecoration: 'underline' }}
+          >
+            ¿Tienes un código de descuento?
+          </button>
+        ) : (
+          <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="text"
+              value={codigoDescuento}
+              onChange={e => setCodigoDescuento(e.target.value)}
+              placeholder="Código de descuento"
+              style={{
+                height: 36, padding: '0 12px', borderRadius: R.pillBtnXs, fontSize: 12.5,
+                border: '1px solid var(--portal-line)', background: 'var(--portal-surface)', color: 'var(--portal-ink)',
+              }}
+            />
+          </div>
+        )}
+      </div>
+      {/* Rejilla de tres, no una pila a lo ancho: los planes se COMPARAN,
+          y apilados obligaban a recordar el precio anterior al bajar. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, marginTop: 16, alignItems: 'stretch' }}>
+        {planesEnVenta.map(p => {
+          const destacado = p.id === planDestacadoId;
+          const porClase = precioPorClase(p);
+          // Solo sale si significa algo: sin precio de clase suelta con
+          // el que comparar, no hay ahorro que enseñar (ver ahorro-plan.ts).
+          const ahorro = ahorroPorcentaje(p, precioClaseSuelta);
+          return (
+            <div key={p.id} style={{
+              borderRadius: R.cardSmall, background: destacado ? PRIMARY : 'var(--portal-surface)',
+              padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12,
+              boxShadow: destacado ? SH.ctaOscuroFuerte : SH.planClaro,
+            }}>
+              <div style={{ flex: '1 1 auto' }}>
+                {destacado && <div style={{ ...eyebrow(8.5), color: `color-mix(in srgb, ${PRIMARY_FG} 65%, transparent)` }}>EL MÁS ELEGIDO</div>}
+                <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, marginTop: destacado ? 9 : 0, color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.nombre}</div>
+                <div style={{ fontSize: 11, marginTop: 7, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 60%, transparent)` : 'var(--portal-muted-2)' }}>
+                  {/* «Mensual» era una etiqueta fija: una cuota
+                      trimestral se anunciaba como mensual y su precio,
+                      debajo, como «/mes». Decir cada cuánto se cobra es
+                      justo lo que decide la compra. */}
+                  {p.tipo === 'MENSUAL' ? `Cada ${nombrePeriodo(p)} · sin compromiso` : (porClase ?? p.descripcion ?? `Bono ${p.sesiones ?? ''} clases`)}
+                </div>
+                {ahorro !== null && (
+                  <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 80%, transparent)` : 'var(--portal-accent)' }}>
+                    Ahorras un {ahorro} % frente a clases sueltas
+                  </div>
+                )}
+              </div>
+              <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), whiteSpace: 'nowrap', color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>
+                {p.precio} €{p.tipo === 'MENSUAL' && <span style={{ fontFamily: sans, fontSize: 12 }}>/{nombrePeriodo(p)}</span>}
+              </div>
+              <button onClick={() => handleContratarPlan(p)}
+                disabled={stripeLoading === p.id}
+                style={{
+                  height: 46, padding: '0 24px', borderRadius: R.pillBtnXs, whiteSpace: 'nowrap', fontSize: 12.5, fontWeight: 500,
+                  display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', opacity: stripeLoading === p.id ? 0.6 : 1,
+                  border: destacado ? 'none' : '1px solid var(--portal-line)',
+                  background: destacado ? 'var(--portal-surface)' : 'transparent',
+                  color: destacado ? 'var(--portal-ink)' : 'var(--portal-ink)',
+                }}>
+                {stripeLoading === p.id
+                  ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'currentColor', borderRadius: 999, display: 'inline-block' }} className="animate-spin" />
+                  : <><CreditCard size={14} />Contratar</>}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <p style={{ fontSize: 10.5, color: 'var(--portal-muted)', marginTop: 14, textAlign: 'center' }}>Pago seguro con Stripe · IVA incluido</p>
+    </div>
+  );
 
   // Contenido de "Mis reservas" — mismo bloque real (Próximas/Pasadas, login
   // gate, estado vacío, lista con cancelar inline), extraído a una constante
@@ -3305,29 +3476,7 @@ export default function ReservarPage() {
                 pensada para escanear el equipo de un vistazo, no para leerlo. */}
             {queImparten(instructores).length > 0 && (<>
               <div style={{ ...eyebrow(9), marginTop: 38 }}>EL EQUIPO</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 14, marginTop: 16 }}>
-                {queImparten(instructores).map(i => {
-                  const especialidades = [...(especialidadesPorInstructor.get(i.id) ?? [])];
-                  return (
-                    <div key={i.id} style={{ borderRadius: R.chipCard, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', padding: '18px 14px', textAlign: 'center' }}>
-                      {i.fotoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={i.fotoUrl} alt={i.nombre} loading="lazy" decoding="async" style={{ width: 46, height: 46, borderRadius: 999, objectFit: 'cover', marginInline: 'auto' }} />
-                      ) : (
-                        <div style={{ width: 46, height: 46, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: 'var(--portal-muted)', background: 'var(--portal-surface-2)', border: '1px solid var(--portal-line)', marginInline: 'auto' }}>
-                          {i.nombre.split(' ').map(n => n[0]).join('')}
-                        </div>
-                      )}
-                      <div style={{ fontFamily: serif, fontSize: 16.5, lineHeight: 1.2, marginTop: 10 }}>{i.nombre}</div>
-                      {especialidades.length > 0 && (
-                        <div style={{ fontSize: 11.5, color: 'var(--portal-muted)', marginTop: 4 }}>
-                          {especialidades.join(' · ')}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <div style={{ marginTop: 16 }}>{rejillaEquipo}</div>
             </>)}
 
             {/* Igual que en «Mis reservas»: fuera de `embedMode` saltar a
@@ -3385,6 +3534,35 @@ export default function ReservarPage() {
           </div>
         )}
 
+        {/* ── VISTAS SOLO INCRUSTADAS («Tentare Widgets») ─────────────────
+            «Planes y precios»/«Bonos y packs» y «Instructoras», widgets de un
+            solo propósito (lib/widgets/catalogo.ts). Pintan los MISMOS bloques
+            que la página completa (`contenidoPlanes`, `rejillaEquipo`) — el
+            pago, el código de descuento y las fichas son los de siempre.
+            Vacíos lo dicen: la propietaria lo ve en la vista previa antes de
+            pegarlo, y una visitante no se encuentra un recuadro en blanco. */}
+        {tab === 'planes' && (
+          <div style={{ padding: `${cq(24, 3, 40)} 0 ${cq(30, 4, 56)}` }}>
+            {planesEnVenta.length > 0 ? contenidoPlanes : (
+              <p role="status" style={{ textAlign: 'center', fontSize: 14, color: 'var(--portal-muted)', padding: '40px 0' }}>
+                Ahora mismo no hay planes a la venta online.
+              </p>
+            )}
+          </div>
+        )}
+        {tab === 'equipo' && (
+          <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(36, 5, 64)}` }}>
+            <h2 style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Nuestro equipo</h2>
+            {queImparten(instructores).length > 0 ? (
+              <div style={{ marginTop: 20 }}>{rejillaEquipo}</div>
+            ) : (
+              <p role="status" style={{ fontSize: 14, color: 'var(--portal-muted)', marginTop: 14 }}>
+                Pronto conocerás a nuestro equipo.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md):
             insignia de confianza al pie de CADA formato — captación 01-05.
             El logo se pinta con el componente en línea de siempre
@@ -3426,109 +3604,9 @@ export default function ReservarPage() {
           mismo de siempre (activo y precio > 0, que además es requisito del
           checkout de Stripe): una banda «Bonos y membresías» vacía en la
           página pública es peor que no tenerla. */}
-      {!enVistaReserva && seccionVisible('bonos') && planesContratables.length > 0 && (
+      {!enVistaReserva && seccionVisible('bonos') && !vistaUnica && planesEnVenta.length > 0 && (
         <div id="bonos-membresias" style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
-          <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
-            <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
-            {/* ⚠️ Sin las clases `text-destructive`/`bg-destructive` del PANEL.
-                Esas no participan del modo del widget: medido, el aviso salía
-                EXACTAMENTE igual en claro y en oscuro —rojo teja #A8442A sobre
-                un fondo al 10 %—, que sobre una web oscura da ~2,8:1 y no llega
-                a AA con texto de 13 px. Justo el error que la alumna más
-                necesita poder leer: el que le dice que su pago no ha arrancado.
-                `semantic.danger` sí tiene variante de noche. */}
-            {stripeError && (
-              <div
-                role="alert"
-                style={{
-                  marginTop: 12, padding: '10px 16px', borderRadius: 14, fontSize: 13,
-                  color: esNoche ? semantic.danger.textNoche : semantic.danger.text,
-                  background: semantic.danger.soft,
-                  border: `1px solid ${esNoche ? semantic.danger.textNoche : semantic.danger.text}33`,
-                }}
-              >
-                {stripeError}
-              </div>
-            )}
-            {/* Auditoría vs Momence: código de descuento, plegado por defecto.
-                El precio final que se cobra siempre lo decide el servidor al
-                crear el checkout — esto solo manda el texto. */}
-            <div style={{ textAlign: 'center', marginTop: 10 }}>
-              {!mostrarCodigo ? (
-                <button
-                  onClick={() => setMostrarCodigo(true)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--portal-muted-2)', textDecoration: 'underline' }}
-                >
-                  ¿Tienes un código de descuento?
-                </button>
-              ) : (
-                <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    type="text"
-                    value={codigoDescuento}
-                    onChange={e => setCodigoDescuento(e.target.value)}
-                    placeholder="Código de descuento"
-                    style={{
-                      height: 36, padding: '0 12px', borderRadius: R.pillBtnXs, fontSize: 12.5,
-                      border: '1px solid var(--portal-line)', background: 'var(--portal-surface)', color: 'var(--portal-ink)',
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-            {/* Rejilla de tres, no una pila a lo ancho: los planes se COMPARAN,
-                y apilados obligaban a recordar el precio anterior al bajar. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, marginTop: 16, alignItems: 'stretch' }}>
-              {planesContratables.map(p => {
-                const destacado = p.id === planDestacadoId;
-                const porClase = precioPorClase(p);
-                // Solo sale si significa algo: sin precio de clase suelta con
-                // el que comparar, no hay ahorro que enseñar (ver ahorro-plan.ts).
-                const ahorro = ahorroPorcentaje(p, precioClaseSuelta);
-                return (
-                  <div key={p.id} style={{
-                    borderRadius: R.cardSmall, background: destacado ? PRIMARY : 'var(--portal-surface)',
-                    padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12,
-                    boxShadow: destacado ? SH.ctaOscuroFuerte : SH.planClaro,
-                  }}>
-                    <div style={{ flex: '1 1 auto' }}>
-                      {destacado && <div style={{ ...eyebrow(8.5), color: `color-mix(in srgb, ${PRIMARY_FG} 65%, transparent)` }}>EL MÁS ELEGIDO</div>}
-                      <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, marginTop: destacado ? 9 : 0, color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.nombre}</div>
-                      <div style={{ fontSize: 11, marginTop: 7, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 60%, transparent)` : 'var(--portal-muted-2)' }}>
-                        {/* «Mensual» era una etiqueta fija: una cuota
-                            trimestral se anunciaba como mensual y su precio,
-                            debajo, como «/mes». Decir cada cuánto se cobra es
-                            justo lo que decide la compra. */}
-                        {p.tipo === 'MENSUAL' ? `Cada ${nombrePeriodo(p)} · sin compromiso` : (porClase ?? p.descripcion ?? `Bono ${p.sesiones ?? ''} clases`)}
-                      </div>
-                      {ahorro !== null && (
-                        <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 80%, transparent)` : 'var(--portal-accent)' }}>
-                          Ahorras un {ahorro} % frente a clases sueltas
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), whiteSpace: 'nowrap', color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>
-                      {p.precio} €{p.tipo === 'MENSUAL' && <span style={{ fontFamily: sans, fontSize: 12 }}>/{nombrePeriodo(p)}</span>}
-                    </div>
-                    <button onClick={() => handleContratarPlan(p)}
-                      disabled={stripeLoading === p.id}
-                      style={{
-                        height: 46, padding: '0 24px', borderRadius: R.pillBtnXs, whiteSpace: 'nowrap', fontSize: 12.5, fontWeight: 500,
-                        display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', opacity: stripeLoading === p.id ? 0.6 : 1,
-                        border: destacado ? 'none' : '1px solid var(--portal-line)',
-                        background: destacado ? 'var(--portal-surface)' : 'transparent',
-                        color: destacado ? 'var(--portal-ink)' : 'var(--portal-ink)',
-                      }}>
-                      {stripeLoading === p.id
-                        ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'currentColor', borderRadius: 999, display: 'inline-block' }} className="animate-spin" />
-                        : <><CreditCard size={14} />Contratar</>}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            <p style={{ fontSize: 10.5, color: 'var(--portal-muted)', marginTop: 14, textAlign: 'center' }}>Pago seguro con Stripe · IVA incluido</p>
-          </div>
+          {contenidoPlanes}
         </div>
       )}
       {/* ── SOBRE NOSOTROS ────────────────────────────────────────────────────
@@ -3543,7 +3621,7 @@ export default function ReservarPage() {
           criterio que la bio de instructora (#946).
 
           El título solo no basta: un encabezado sobre nada es peor que nada. */}
-      {!enVistaReserva && seccionVisible('sobre') && textosReservar.sobreTexto && (
+      {!enVistaReserva && !vistaUnica && seccionVisible('sobre') && textosReservar.sobreTexto && (
         <div style={{ order: orden('sobre'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 720, marginInline: 'auto', textAlign: 'center' }}>
             {textosReservar.sobreTitulo && (
@@ -3563,7 +3641,7 @@ export default function ReservarPage() {
         </div>
       )}
 
-      {!enVistaReserva && seccionVisible('cifras') && mereceBanda(cifras) && (
+      {!enVistaReserva && !vistaUnica && seccionVisible('cifras') && mereceBanda(cifras) && (
         <div style={{ order: orden('cifras'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(26, 3, 38)} ${cq(20, 3.8, 48)} 0` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: cq(28, 4, 60) }}>
             {cifras.map(c => (
@@ -3578,7 +3656,7 @@ export default function ReservarPage() {
 
       {/* Bloques del catálogo añadidos desde el editor — cada uno en su propia
           posición de `order`, entre las 6 secciones de siempre. */}
-      {bloquesCatalogo.map((b) => (
+      {!vistaUnica && bloquesCatalogo.map((b) => (
         <div key={b.id} style={{ order: orden(b.id) }}>
           <BloqueReservarRender bloque={b} slug={slug} />
         </div>
@@ -3587,7 +3665,7 @@ export default function ReservarPage() {
       {/* `ocultarPie` solo puede venir en modo incrustado (ver `apariencia`),
           así que la página suelta conserva su pie con los legales pase lo que
           pase. Ahí es el único sitio donde vive esa información. */}
-      {!enVistaReserva && !apariencia.ocultarPie && seccionVisible('contacto') && (
+      {!enVistaReserva && !vistaUnica && !apariencia.ocultarPie && seccionVisible('contacto') && (
       <footer style={{ order: orden('contacto'), borderTop: '1px solid var(--portal-surface-2)', marginTop: 40, padding: `${cq(28, 3, 40)} ${cq(20, 3.8, 48)}` }}>
         <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center' }}>
           {/* ¿Dudas? — teléfono y email del estudio. Cada uno se pinta SOLO si

@@ -1,6 +1,6 @@
-// Script que acompaña al <iframe> del widget de Modo A (el snippet que la
-// propietaria copia desde Estudio → API/Widgets, components/configuracion/
-// tab-api.tsx). Vive aquí, como función pura, para que el e2e
+// Script que acompaña al <iframe> del widget de Modo A (el código que la
+// propietaria copia desde «Widgets para tu web», lib/widgets/integracion.ts).
+// Vive aquí, como función pura, para que el e2e
 // (e2e/reservar-embed-overlays-visibles.spec.ts) monte una página anfitriona
 // con EL MISMO script que se copia de verdad — replicarlo a mano en el test
 // habría dejado que los dos divergieran en silencio.

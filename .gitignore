@@ -31,6 +31,7 @@
 # fichero (2026-08-31): checkout diferido, mismo motivo.
 /public/widget.js
 /public/widget-checkout.js
+/public/widget-popup.js
 
 # misc
 .DS_Store
