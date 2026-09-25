@@ -1,6 +1,6 @@
 'use client';
 
-import { FileSignature, HeartPulse, ListPlus, ShoppingBag, Sparkles } from 'lucide-react';
+import { FileSignature, HeartPulse, ListChecks, ListPlus, ShoppingBag, Sparkles } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { hayPenalizacionConfigurada } from '@/lib/configuracion/penalizacion-activa';
 import {
@@ -56,6 +56,18 @@ export function SeccionAltas({ showToast }: { showToast: (m: string) => void }) 
     return null;
   }
 
+  // Lo mismo: aquí se decide si a TODAS sus alumnas se les para la app hasta
+  // contestar. Sin preguntas activas no hay nada que pedir, y se dice.
+  async function cambiarPreguntasEnApp(v: boolean): Promise<string | null> {
+    const res = await updateStudio({ preguntasAltaActivas: v });
+    if (!res.ok) return res.error;
+    const hayPreguntas = camposPersonalizados.some(c => c.activo);
+    showToast(!v ? 'Tus alumnas ya no verán las preguntas en su app'
+      : hayPreguntas ? 'Tus alumnas contestarán tus preguntas en su app'
+      : 'Activado. Añade alguna pregunta en «Datos extra de la ficha» para que les salga');
+    return null;
+  }
+
   const props = { showToast, onGuardado: guardado };
 
   return (
@@ -72,6 +84,7 @@ export function SeccionAltas({ showToast }: { showToast: (m: string) => void }) 
           valor={resumenDatosExtra(camposPersonalizadosCargados ? camposPersonalizados : null)}
           onAbrir={abrir}
         />
+        <FilaInterruptor id="preguntas-en-su-app" icono={ListChecks} on={cargado ? cargado.preguntasAltaActivas : null} onCambiar={cambiarPreguntasEnApp} />
         <FilaInterruptor id="valoracion-inicial" icono={Sparkles} on={cargado ? cargado.valoracionInicialActiva : null} onCambiar={cambiarValoracion} />
         <FilaAjuste
           id="cuestionario-de-salud"

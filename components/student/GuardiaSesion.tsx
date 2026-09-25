@@ -5,6 +5,15 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { debeElegirComoEntrar, hayInvitacionParaEstaSesion, useSesionInstructora } from '@/lib/student/sesion-instructora';
+import { alFaltarPreguntas, getPreguntasAlta, type EstadoPreguntasAltaRemoto } from '@/lib/student/preguntas-alta';
+import { PreguntasAlta } from '@/components/student/PreguntasAlta';
+
+/**
+ * Socias (estudio:socia) que ya no tienen nada que contestar en esta carga de la
+ * app. De módulo y no de estado: la guarda se monta de nuevo en cada pantalla, y
+ * sin esto cada navegación volvería a preguntar al servidor.
+ */
+const sinPreguntasPendientes = new Set<string>();
 
 /**
  * Deja pasar solo a quien tiene sesión; al resto lo manda a acceso conservando
@@ -34,7 +43,7 @@ import { debeElegirComoEntrar, hayInvitacionParaEstaSesion, useSesionInstructora
 export function GuardiaSesion({ children }: { children: ReactNode }) {
   const r = useRouter();
   const path = usePathname();
-  const { slug } = useEstudio();
+  const { slug, estudio } = useEstudio();
   const href = usePortalHref();
   const { socia, autenticado, isLoading } = useSesionStudent(slug);
   const sinFicha = !isLoading && autenticado && !socia;
@@ -73,8 +82,50 @@ export function GuardiaSesion({ children }: { children: ReactNode }) {
     if (elegir) r.replace(href('/acceso/elegir'));
   }, [isLoading, autenticado, instructora, elegir, href, path, r]);
 
+  // ── Las preguntas del estudio (Configuración → «Preguntar los datos extra en
+  // su app»). Con el interruptor encendido y alguna sin contestar, la app le
+  // pone las preguntas delante en vez de cualquier pantalla: no reserva ni
+  // compra sin contestarlas. El servidor lo exige también en esas puertas
+  // (`bloqueoPorPreguntasAlta`); esto es para que no llegue a chocar con él.
+  //
+  // `forzar` cuenta los avisos de «faltan preguntas» que llegan de reservar o
+  // comprar: pasa si el estudio las encendió con la app ya abierta.
+  const [forzar, setForzar] = useState(0);
+  const [preguntas, setPreguntas] = useState<{ clave: string; estado: EstadoPreguntasAltaRemoto | null } | null>(null);
+  const base = socia ? `${estudio.id}:${socia.socioId}` : '';
+  const clave = `${base}:${forzar}`;
+  const mirarPreguntas = !!socia && (estudio.pideDatosExtra === true || forzar > 0) && !sinPreguntasPendientes.has(base);
+
+  useEffect(() => {
+    if (!mirarPreguntas) return;
+    let vivo = true;
+    void getPreguntasAlta(estudio.id).then((e) => {
+      if (!vivo) return;
+      // Apagado o todo contestado: no se vuelve a preguntar en esta carga.
+      // Si la petición falla (`null`) se deja pasar sin apuntarlo, y se vuelve a
+      // mirar en la siguiente pantalla: la puerta de reservar y comprar sigue
+      // cerrada en el servidor, así que no se cuela nada.
+      if (e && (!e.activa || e.pendientes.length === 0)) sinPreguntasPendientes.add(base);
+      setPreguntas({ clave, estado: e });
+    });
+    return () => { vivo = false; };
+  }, [mirarPreguntas, estudio.id, base, clave]);
+
+  useEffect(() => {
+    if (!base) return;
+    return alFaltarPreguntas(() => {
+      sinPreguntasPendientes.delete(base);
+      setForzar((n) => n + 1);
+    });
+  }, [base]);
+
+  const estadoPreguntas = preguntas?.clave === clave ? preguntas.estado : undefined;
+  const cargandoPreguntas = mirarPreguntas && estadoPreguntas === undefined;
+  const conPreguntas = mirarPreguntas && estadoPreguntas?.activa === true && estadoPreguntas.pendientes.length > 0
+    ? estadoPreguntas : null;
+
   const esperando = isLoading || !autenticado || (sinFicha && cargandoInstructora) || instructora
-    || (preguntarEleccion && elegir !== false);
+    || (preguntarEleccion && elegir !== false) || cargandoPreguntas;
   if (esperando) {
     return (
       <div className="shell" aria-busy="true">
@@ -86,6 +137,18 @@ export function GuardiaSesion({ children }: { children: ReactNode }) {
           ))}
         </div>
       </div>
+    );
+  }
+
+  if (conPreguntas) {
+    return (
+      <PreguntasAlta
+        estado={conPreguntas}
+        onCompletada={(nuevo) => {
+          if (nuevo.pendientes.length === 0) sinPreguntasPendientes.add(base);
+          setPreguntas({ clave, estado: nuevo });
+        }}
+      />
     );
   }
 

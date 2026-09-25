@@ -9,6 +9,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { claveCheckoutEmbebido } from '@/lib/billing/clave-checkout-embebido';
 import { setupFutureUsageCheckout } from '@/lib/billing/uso-futuro-tarjeta';
 import { telefonoValido } from '@/lib/csv';
@@ -211,6 +212,10 @@ export async function POST(req: NextRequest) {
     if (!socioId) {
       return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 403 }));
     }
+    // Con ficha: si el estudio pide sus preguntas y le falta alguna, no se cobra.
+    // Sin ficha (invitada) no hay a quién preguntar: se le pedirán al entrar.
+    const sinPreguntas = await bloqueoPorPreguntasAlta(body.studioId, socioId, 'comprar');
+    if (sinPreguntas) return conCorsWidget(req, sinPreguntas);
   }
   // Comprar un plan sin ficha: decide el estudio (0110). En EXIGIR_REGISTRO no
   // se cobra a quien no se ha registrado — sin ficha no hay contrato aceptado,

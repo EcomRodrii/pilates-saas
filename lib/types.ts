@@ -216,6 +216,11 @@ export interface Studio {
    * —«¿tienes alguna molestia?»— es una decisión del estudio, no del producto.
    */
   valoracionInicialActiva: boolean;
+  /**
+   * Si la alumna contesta en su app las preguntas de «Datos extra de la ficha»
+   * antes de poder usarla (migr 20260925102844). Apagado por defecto.
+   */
+  preguntasAltaActivas: boolean;
   // Fase 2b (migr 20260731130000): minutos para aceptar una plaza liberada
   // de lista de espera antes de que se ofrezca a la siguiente. 0 =
   // confirmación instantánea (comportamiento clásico). tipos_clase puede

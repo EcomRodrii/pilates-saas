@@ -14,6 +14,7 @@
 // componente que usa `/reservar`.
 
 import { portalAuthHeader } from '@/lib/api-client';
+import { avisarFaltanPreguntas } from '@/lib/student/preguntas-alta';
 
 export type InicioCobro =
   | {
@@ -107,11 +108,14 @@ export async function iniciarCompra(
     }
 
     const cuerpo = (await res.json().catch(() => null)) as {
-      clientSecret?: string; error?: string;
+      clientSecret?: string; error?: string; codigo?: string;
       importe?: number; descuento?: number; codigoAplicado?: boolean; matricula?: number;
     } | null;
 
     if (!res.ok) {
+      // Le faltan las preguntas del estudio: se le abren encima, y la hoja
+      // cuenta por qué no se ha podido seguir.
+      if (cuerpo?.codigo === 'faltan-preguntas') avisarFaltanPreguntas();
       // El texto del servidor es el bueno: distingue «plan no disponible» de
       // «el estudio no tiene Stripe conectado», y ese matiz importa.
       return { ok: false, error: cuerpo?.error ?? 'No hemos podido iniciar el pago. Inténtalo de nuevo.' };
@@ -173,7 +177,8 @@ export async function comprarConBizum(
     if (res.status === 401) {
       return { ok: false, error: 'Tu sesión ha caducado. Vuelve a entrar y no se te ha cobrado nada.' };
     }
-    const cuerpo = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+    const cuerpo = (await res.json().catch(() => null)) as { url?: string; error?: string; codigo?: string } | null;
+    if (cuerpo?.codigo === 'faltan-preguntas') avisarFaltanPreguntas();
     if (!res.ok || !cuerpo?.url) {
       return { ok: false, error: cuerpo?.error ?? 'No hemos podido iniciar el pago. Inténtalo de nuevo.' };
     }

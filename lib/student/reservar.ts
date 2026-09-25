@@ -22,6 +22,7 @@
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { desenlaceDeRespuesta, esRechazoConocido, type DesenlaceReserva, type RespuestaReserva } from '@/lib/student/reserva-codigos';
 import { portalAuthHeader } from '@/lib/api-client';
+import { avisarFaltanPreguntas } from '@/lib/student/preguntas-alta';
 // Diferido, como el resto de la app: ver `lib/sentry-cliente`.
 import { capturarMensaje } from '@/lib/sentry-cliente';
 
@@ -79,6 +80,8 @@ export async function confirmarReserva(
   const desenlace = desenlaceDeRespuesta(respuesta);
 
   const codigo = respuesta && 'codigo' in respuesta ? respuesta.codigo : undefined;
+  // Le faltan las preguntas del estudio: se le abren encima de esta pantalla.
+  if (codigo === 'faltan-preguntas') avisarFaltanPreguntas();
 
   // Los desenlaces de NEGOCIO (lleno, duplicada, conflicto) son normales y no
   // se reportan: son parte del producto, no averías. Lo que sí se reporta es

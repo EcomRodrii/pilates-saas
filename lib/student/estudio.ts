@@ -105,6 +105,8 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     // «Peticiones desde su app»). Nada más que el botón; el servidor decide.
     puedePedirPlazaFija: s.plazaFijaSolicitarDesdeApp,
     puedePedirPausa: s.plazaFijaPausaDesdeApp,
+    // Solo decide si la app pregunta; la puerta es `/api/public/preguntas-alta`.
+    pideDatosExtra: s.preguntasAltaActivas,
     aperturaSuaveHasta: s.aperturaSuaveHasta,
     // Se pasa CRUDO (puede ser null): el respaldo lo pone `nombreCreditos`
     // en el momento de pintar, para que panel y portal usen la misma palabra.

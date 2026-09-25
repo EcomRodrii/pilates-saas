@@ -113,6 +113,10 @@ const SPECS_WEBKIT = [
   '**/student-heroe-sobre-la-foto.spec.ts',
   '**/student-cabecera-sobre-foto.spec.ts',
   '**/student-clase-en-curso.spec.ts',
+  // Las preguntas del estudio antes de usar la app: es una PUERTA. Si se rompe
+  // en Safari no es una pantalla fea, es una alumna que no puede entrar a
+  // reservar y no sabe por qué. Siete pruebas cortas (~15 s en Chromium).
+  '**/student-preguntas-alta.spec.ts',
 ];
 
 export default defineConfig({
