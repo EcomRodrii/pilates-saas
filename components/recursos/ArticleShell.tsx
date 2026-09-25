@@ -137,6 +137,9 @@ export function ArticleShell({
 
       <SiteFooter />
 
+      {/* En móvil la columna es minmax(0,1fr) y no 1fr: 1fr (= minmax(auto,1fr))
+          dejaba que una tabla ancha la estirase más allá del margen, y como el
+          body recorta el overflow-x, el texto y la foto llegaban al borde derecho. */}
       <style>{`
         .art-wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 230px minmax(0,1fr); gap: clamp(28px,5vw,64px); padding: 0 clamp(20px,4vw,44px); }
         .art-toc { position: sticky; top: 96px; align-self: start; }
@@ -149,7 +152,7 @@ export function ArticleShell({
         .art-related-card { transition: transform .2s, box-shadow .2s; }
         .art-related-card:hover { transform: translateY(-4px); box-shadow: 0 26px 50px -30px rgba(26,26,26,.3); }
         @media (max-width: 900px) {
-          .art-wrap { grid-template-columns: 1fr; }
+          .art-wrap { grid-template-columns: minmax(0,1fr); }
           .art-toc { display: none; }
           .art-cta2 { grid-template-columns: 1fr; }
         }
