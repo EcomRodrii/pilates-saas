@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { penalizacionDelRecibo } from './penalizacion-aprobar-reglas.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
+import { registrarAuditoriaServidor, type RegistrarAuditoria } from '../auditoria/registrar-servidor.ts';
 
 // «Marcar devuelto» / «Devolver» de Cobros (components/cobros/panel-pendientes.tsx).
 //
@@ -48,12 +49,14 @@ export function cobroEntroPorStripe(r: { stripe_payment_intent_id?: unknown; met
 
 export async function marcarReciboDevuelto(
   admin: SupabaseClient,
-  p: { studioId: string; reciboId: string; ahoraISO: string },
+  /** `actor`: quien pulsó el botón, para el libro de auditoría. Obligatorio: un llamador nuevo que lo olvide no puede dejar el cambio sin dueño. */
+  p: { studioId: string; reciboId: string; ahoraISO: string; actor: { userId: string; rol: string } },
   seguir: SeguirPenalizacion = seguirPorDefecto,
   seguirCreditos: SeguirPenalizacion = seguirCreditosAlRecibo,
+  registrar: RegistrarAuditoria = registrarAuditoriaServidor,
 ): Promise<ResultadoMarcarDevuelto> {
   const { data: recibo, error: errLectura } = await admin.from('recibos')
-    .select('estado, fecha_devolucion, stripe_payment_intent_id, metodo_cobro, sepa_estado')
+    .select('estado, fecha_devolucion, stripe_payment_intent_id, metodo_cobro, sepa_estado, socio_id, concepto, importe, fecha_vencimiento, proximo_reintento')
     .eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
   if (errLectura) return { ok: false, http: 500, error: 'No se ha podido comprobar el recibo.' };
   if (!recibo) return { ok: false, http: 404, error: 'No se encuentra ese recibo.' };
@@ -93,6 +96,22 @@ export async function marcarReciboDevuelto(
       return { ok: false, http: 500, error: 'No se ha podido marcar el recibo como devuelto.' };
     }
     if (!tocado) return { ok: false, http: 409, error: 'Este recibo acaba de cambiar. Recarga y vuelve a intentarlo.' };
+
+    // Solo si ESTA llamada lo cambió (no si ya estaba DEVUELTO: nada que anotar). No lanza:
+    // el recibo ya dice la verdad y el libro es fail-open.
+    await registrar(admin, {
+      sesion: { userId: p.actor.userId, rol: p.actor.rol, studioId: p.studioId },
+      tabla: 'recibos', filaId: p.reciboId, operacion: 'UPDATE',
+      socioId: (recibo.socio_id as string | null) ?? null,
+      antes: { estado, fecha_devolucion: recibo.fecha_devolucion ?? null, proximo_reintento: recibo.proximo_reintento ?? null },
+      // `fecha_devolucion` es una columna `date`: se anota el día, que es lo que la base guarda.
+      despues: { estado: 'DEVUELTO', fecha_devolucion: p.ahoraISO.slice(0, 10), proximo_reintento: null },
+      contexto: {
+        accion: 'RECIBO_MARCADO_DEVUELTO',
+        concepto: recibo.concepto ?? null, fecha_vencimiento: recibo.fecha_vencimiento ?? null,
+        importe: typeof recibo.importe === 'number' ? recibo.importe : Number(recibo.importe) || null,
+      },
+    });
   }
 
   // ⚠️ SIEMPRE que el recibo esté DEVUELTO, no solo si lo ha devuelto esta

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  TABLAS_AUDITADAS, cuandoDe, describirEntrada, entradaDeFila, esRutina, formatearValor, quienDe,
+  ACCIONES, TABLAS_AUDITADAS, cuandoDe, fraseDeAccion, describirEntrada, entradaDeFila, esRutina, formatearValor, quienDe,
   type EntradaAuditoria, type FilaAuditoria,
 } from './auditoria-estudio.ts';
 
@@ -139,22 +139,24 @@ test('una tabla que no conoce se describe sin inventar nada', () => {
   assert.equal(d.objeto, null);
 });
 
-test('las tablas que la pantalla sabe describir son EXACTAMENTE las que la migración vigila', () => {
+test('las tablas que la pantalla sabe describir son las que vigila un trigger MÁS las de solo servidor', () => {
   // Si un trigger nuevo vigila otra tabla y aquí no se declara, su historial se
   // vería como «un registro de …»; y al revés, un filtro sin datos.
   const sql = readFileSync(new URL('../supabase/migrations/20260925152253_auditoria_estudio_dinero.sql', import.meta.url), 'utf8')
     .replace(/--.*$/gm, '');
-  const vigiladas = [...sql.matchAll(/create trigger trg_auditar_\w+\s+after insert or update or delete on public\.(\w+)/g)].map(m => m[1]).sort();
+  const vigiladas = [...sql.matchAll(/create trigger trg_auditar_\w+\s+after insert or update or delete on public\.(\w+)/g)].map(m => m[1]);
   assert.ok(vigiladas.length >= 4, 'el parser no ve los triggers de la migración');
-  assert.deepEqual(Object.keys(TABLAS_AUDITADAS).sort(), vigiladas);
+  const soloServidor = Object.entries(TABLAS_AUDITADAS).filter(([, t]) => t.soloServidor).map(([id]) => id);
+  assert.ok(soloServidor.length >= 1, 'no hay ninguna tabla solo de servidor declarada');
+  for (const t of soloServidor) assert.ok(!vigiladas.includes(t), `${t} está marcada solo-servidor pero tiene trigger`);
+  assert.deepEqual(Object.keys(TABLAS_AUDITADAS).sort(), [...vigiladas, ...soloServidor].sort());
 });
 
-test('solo se ofrece filtrar por lo que se audita de verdad desde el panel', () => {
-  // `ingresos_manuales` se escribe por una ruta de servidor sin actor: un filtro
-  // suyo prometería un historial que el panel nunca rellena.
+test('se ofrece filtrar por todo lo que el libro recoge: ya no hay tabla que el panel escriba a sus espaldas', () => {
+  // `ingresos_manuales` se escribía por una ruta de servidor sin actor y por eso no tenía filtro;
+  // ahora esa ruta escribe su propia entrada. Si una tabla vuelve a escaparse, se marca `false`.
   const conFiltro = Object.entries(TABLAS_AUDITADAS).filter(([, t]) => t.desdeElPanel).map(([id]) => id).sort();
-  assert.deepEqual(conFiltro, ['planes_tarifa', 'recibos', 'suscripciones']);
-  assert.equal(TABLAS_AUDITADAS.ingresos_manuales.desdeElPanel, false);
+  assert.deepEqual(conFiltro, ['ingresos_manuales', 'penalizaciones', 'planes_tarifa', 'recibos', 'suscripciones']);
 });
 
 test('el motivo se enseña en claro, y sin motivo no se inventa uno', () => {
@@ -164,4 +166,54 @@ test('el motivo se enseña en claro, y sin motivo no se inventa uno', () => {
   assert.equal(entrada({ motivo: '   ' }).motivo, null, 'un motivo en blanco no cuenta');
   // Un código que la pantalla aún no conoce se lee igualmente.
   assert.equal(describirEntrada(entrada({ motivo: 'CODIGO_NUEVO' })).motivo, 'Codigo nuevo');
+});
+
+test('una acción de servidor se cuenta por lo que hizo la persona, no como un cambio cualquiera', () => {
+  const reembolso = describirEntrada(entrada({
+    origen: 'servidor', cambios: ['reembolso_solicitado_en', 'reembolso_stripe_id'],
+    antes: { reembolso_solicitado_en: null, reembolso_stripe_id: null },
+    despues: { reembolso_solicitado_en: '2026-09-25T10:00:00Z', reembolso_stripe_id: 're_123' },
+    contexto: { accion: 'REEMBOLSO_PEDIDO', concepto: 'Mensual Ilimitado — Jul 2026', importe: 85 },
+  }), { ahora: AHORA });
+  assert.equal(reembolso.titulo, 'Pidió un reembolso');
+  assert.equal(reembolso.objeto, 'Mensual Ilimitado — Jul 2026');
+  // El importe va PRIMERO: es lo que importa de un reembolso.
+  assert.deepEqual(reembolso.lineas.map(l => l.campo), ['Importe', 'Reembolso pedido', 'Referencia del reembolso']);
+  assert.equal(reembolso.lineas[0].despues, '85,00 €');
+  // Sin acción conocida, el verbo genérico de siempre; un código desconocido no se esconde ni rompe.
+  assert.equal(describirEntrada(entrada({ contexto: { accion: 'CODIGO_FUTURO' } })).titulo, 'Cambió un recibo');
+  assert.equal(describirEntrada(entrada({ contexto: {} })).titulo, 'Cambió un recibo');
+  // Y no duplica el importe si el propio cambio ya lo trae.
+  const conImporte = describirEntrada(entrada({ contexto: { accion: 'REEMBOLSO_PEDIDO', importe: 85 } }), { ahora: AHORA });
+  assert.equal(conImporte.lineas.filter(l => l.campo === 'Importe').length, 1);
+});
+
+test('un código de acción que es una clave heredada de los objetos no rompe la pantalla ni se toma por frase', () => {
+  // Viene de un JSON de la base: `constructor` y `__proto__` responden en un objeto normal con algo que no es texto.
+  for (const accion of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+    const d = describirEntrada(entrada({ contexto: { accion, importe: 10 } }), { ahora: AHORA });
+    assert.equal(typeof d.titulo, 'string', accion);
+    assert.equal(d.titulo, 'Cambió un recibo', accion);
+    // Se trata como cualquier código desconocido, ni más ni menos.
+    assert.deepEqual(d.lineas, describirEntrada(entrada({ contexto: { accion: 'CODIGO_FUTURO', importe: 10 } }), { ahora: AHORA }).lineas, accion);
+  }
+  assert.equal(fraseDeAccion('REEMBOLSO_PEDIDO'), 'Pidió un reembolso');
+  assert.equal(fraseDeAccion(42), null);
+});
+
+test('toda acción que una ruta de servidor puede escribir tiene su frase', () => {
+  // Las rutas usan estos códigos; si una escribe uno que no está aquí, el historial lo contaría como un cambio genérico.
+  const escritos = new Set<string>();
+  for (const ruta of [
+    '../lib/billing/marcar-devuelto.ts', '../app/api/reembolsos/route.ts', '../app/api/ingresos-manuales/route.ts',
+    '../app/api/devoluciones/revertir/route.ts', '../app/api/penalizaciones/aprobar/route.ts',
+  ]) {
+    const fuente = readFileSync(new URL(ruta, import.meta.url), 'utf8');
+    // Solo lo que va dentro de `contexto` (o del `anotar({…})` de la ruta de penalizaciones, que lo arma): las
+    // respuestas JSON de estas rutas también dicen `accion: 'DESCARTADA'`.
+    for (const m of fuente.matchAll(/(?:contexto:\s*|anotar\(\s*)\{\s*accion:\s*'([A-Z_]+)'/g)) escritos.add(m[1]);
+  }
+  assert.ok(escritos.size >= 7, `solo se ven ${escritos.size} acciones en las rutas: ¿se han instrumentado?`);
+  const sinFrase = [...escritos].filter(a => !(a in ACCIONES));
+  assert.deepEqual(sinFrase, [], `acciones sin frase: ${sinFrase.join(', ')}`);
 });

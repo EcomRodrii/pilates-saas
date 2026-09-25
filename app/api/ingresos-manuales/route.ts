@@ -7,6 +7,7 @@ import { mapIngresoManual, desglosarIvaDesdeTotal } from '@/lib/fiscal/cierre-en
 import type { RowIngresosManuales } from '@/lib/db-types';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { fetchAllRows } from '@/lib/supabase-data';
+import { avisarAuditoria, registrarAuditoriaServidor } from '@/lib/auditoria/registrar-servidor';
 
 // CRUD de ingresos cobrados FUERA de Tentare que el estudio añade al cierre de
 // año (efectivo, transferencia, otra plataforma…). Solo staff autenticado; el
@@ -80,6 +81,13 @@ export async function POST(req: NextRequest) {
   const row = { id: uid(), studio_id: sesion.studioId, ...s };
   const { error } = await admin.from('ingresos_manuales').insert(row);
   if (error) return errorInterno('ingresos-manuales:crear', error, 'No se ha podido guardar el ingreso. Inténtalo de nuevo.');
+  // Libro de auditoría: este camino usa service-role, así que el trigger no lo ve. El actor es la
+  // SESIÓN. Nunca lanza, y NIF, cliente y nota no entran (COLUMNAS_EXCLUIDAS).
+  await registrarAuditoriaServidor(admin, {
+    sesion,
+    tabla: 'ingresos_manuales', filaId: row.id, operacion: 'INSERT', despues: row,
+    contexto: { accion: 'INGRESO_MANUAL_CREADO', concepto: row.concepto, fecha: row.fecha },
+  });
   return NextResponse.json({ ingreso: mapIngresoManual(row as RowIngresosManuales) });
 }
 
@@ -101,12 +109,27 @@ export async function PATCH(req: NextRequest) {
   const s = saneaEntrada(body);
   if ('error' in s) return NextResponse.json({ error: s.error }, { status: 400 });
 
+  // El valor de ANTES: el UPDATE solo devuelve la fila nueva y el libro necesita las dos. Si esta lectura
+  // falla, el cambio sigue adelante (fail-open, como el resto del libro) pero SE AVISA: sin el aviso quedaría
+  // un ingreso fiscal cambiado sin rastro y sin que nadie lo sepa.
+  const { data: previo, error: errPrevio } = await admin
+    .from('ingresos_manuales').select('*')
+    .eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
+  if (errPrevio) avisarAuditoria('AUDITORIA_LECTURA_PREVIA_FALLO', { tabla: 'ingresos_manuales', filaId: id, error: errPrevio.message });
+
   const { data, error } = await admin
     .from('ingresos_manuales').update(s)
     .eq('id', id).eq('studio_id', sesion.studioId)
     .select('*').maybeSingle();
   if (error) return errorInterno('ingresos-manuales:editar', error, 'No se han podido guardar los cambios.');
   if (!data) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+  if (previo) {
+    await registrarAuditoriaServidor(admin, {
+      sesion,
+      tabla: 'ingresos_manuales', filaId: id, operacion: 'UPDATE', antes: previo, despues: data,
+      contexto: { accion: 'INGRESO_MANUAL_EDITADO', concepto: data.concepto, fecha: data.fecha },
+    });
+  }
   return NextResponse.json({ ingreso: mapIngresoManual(data as RowIngresosManuales) });
 }
 
@@ -126,7 +149,22 @@ export async function DELETE(req: NextRequest) {
   const id = typeof body?.id === 'string' ? body.id : null;
   if (!id) return NextResponse.json({ error: 'Falta el id' }, { status: 400 });
 
-  const { error } = await admin.from('ingresos_manuales').delete().eq('id', id).eq('studio_id', sesion.studioId);
+  // Lo que se borra queda en el libro: sin esta lectura, un ingreso fiscal desaparecía sin rastro.
+  const { data: previo, error: errPrevio } = await admin
+    .from('ingresos_manuales').select('*')
+    .eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
+  if (errPrevio) avisarAuditoria('AUDITORIA_LECTURA_PREVIA_FALLO', { tabla: 'ingresos_manuales', filaId: id, error: errPrevio.message });
+
+  // `.select('id')`: solo se anota si ESTA petición borró la fila. Con dos borrados a la vez, los dos leen
+  // el valor de antes pero solo uno la borra, y un libro que no se puede rectificar no debe llevar el segundo.
+  const { data: borradas, error } = await admin.from('ingresos_manuales').delete().eq('id', id).eq('studio_id', sesion.studioId).select('id');
   if (error) return errorInterno('ingresos-manuales:borrar', error, 'No se ha podido eliminar el ingreso.');
+  if (previo && borradas?.length) {
+    await registrarAuditoriaServidor(admin, {
+      sesion,
+      tabla: 'ingresos_manuales', filaId: id, operacion: 'DELETE', antes: previo,
+      contexto: { accion: 'INGRESO_MANUAL_ELIMINADO', concepto: previo.concepto, fecha: previo.fecha },
+    });
+  }
   return NextResponse.json({ ok: true });
 }

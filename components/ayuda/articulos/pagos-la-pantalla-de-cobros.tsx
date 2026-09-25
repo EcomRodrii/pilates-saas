@@ -74,17 +74,18 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cambios del equipo</h2>
       <p>
         Solo la propietaria la ve. Cada vez que alguien de tu equipo <strong>crea, cambia o borra</strong> un recibo,
-        una cuota o bono o un plan, queda aquí: quién fue, cuándo, y qué valor había antes. Es lo que
+        una cuota o bono, un plan o un ingreso manual, <strong>pide un reembolso</strong>, marca un recibo como
+        devuelto o aprueba cobrar una penalización, queda aquí: quién fue, cuándo, y qué valor había antes. Es lo que
         necesitas para explicar un descuadre sin preguntar a todo el mundo. Lo de una clienta concreta también sale en
         la pestaña «Pagos» de su ficha.
       </p>
       <p style={{ margin: 0 }}>
         Cuenta lo que se hace desde el panel, desde el día que se activó: no hay historial anterior. <strong>No incluye</strong>{' '}
         los cobros automáticos, los reintentos ni lo que confirma Stripe por su cuenta, porque no los hace una
-        persona de tu equipo; y todavía no recoge los ingresos manuales, los reembolsos ni las devoluciones que se
-        lanzan desde el panel. Los
-        descuentos de una sola sesión de un bono se esconden por defecto para que no tapen lo importante, y puedes
-        mostrarlos.
+        persona de tu equipo. Todavía no recoge las ventas y devoluciones de la caja, el cobro con tarjeta guardada
+        que lanza una persona («Cobrar online» o aprobar un cobro en Automatizaciones) ni lo que se importa desde otra
+        plataforma. Los descuentos de una sola
+        sesión de un bono se esconden por defecto para que no tapen lo importante, y puedes mostrarlos.
       </p>
 
       <AyudaResultado>

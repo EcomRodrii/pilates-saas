@@ -86,12 +86,14 @@ interface InfoTabla {
   /** Etiqueta corta para el filtro. */
   etiqueta: string;
   /**
-   * ¿Se escribe desde el panel con la sesión de una persona del equipo? Si NO
-   * (todo pasa por una ruta de servidor), el trigger solo recoge lo que alguien
-   * escriba a mano contra la API, y ofrecer un filtro o prometer «queda aquí» sería
-   * mentir: `ingresos_manuales` va por `/api/ingresos-manuales` con service-role.
+   * ¿El libro recoge lo que el equipo hace en esta tabla? `false` si se escribe por
+   * un camino que el libro NO ve: ofrecer un filtro o prometer «queda aquí» sería
+   * mentir. Lo recogen dos caminos: el trigger de la base de datos (sesión de la
+   * persona) y las rutas de servidor con actor explícito (`origen = 'servidor'`).
    */
   desdeElPanel: boolean;
+  /** Sin trigger en la base de datos: solo la escriben rutas de servidor. */
+  soloServidor?: boolean;
   /** Columnas que se enseñan al crear o borrar la fila, en este orden. */
   principales: readonly string[];
 }
@@ -99,8 +101,10 @@ interface InfoTabla {
 export const TABLAS_AUDITADAS: Readonly<Record<string, InfoTabla>> = {
   recibos: { uno: 'un recibo', etiqueta: 'Recibos', desdeElPanel: true, principales: ['concepto', 'importe', 'estado', 'fecha_vencimiento', 'metodo_cobro'] },
   suscripciones: { uno: 'una cuota o bono', etiqueta: 'Cuotas y bonos', desdeElPanel: true, principales: ['plan_id', 'estado', 'sesiones_restantes', 'fecha_inicio', 'fecha_fin'] },
-  ingresos_manuales: { uno: 'un ingreso manual', etiqueta: 'Ingresos manuales', desdeElPanel: false, principales: ['concepto', 'fecha', 'base_imponible', 'total'] },
+  ingresos_manuales: { uno: 'un ingreso manual', etiqueta: 'Ingresos manuales', desdeElPanel: true, principales: ['concepto', 'fecha', 'base_imponible', 'total'] },
   planes_tarifa: { uno: 'un plan', etiqueta: 'Planes', desdeElPanel: true, principales: ['nombre', 'precio', 'tipo', 'sesiones', 'activo'] },
+  // Sin trigger: solo la escribe la ruta de servidor que aprueba el cobro.
+  penalizaciones: { uno: 'una penalización', etiqueta: 'Penalizaciones', desdeElPanel: true, soloServidor: true, principales: ['estado', 'importe', 'tipo'] },
 };
 
 type TipoValor = 'euros' | 'fecha' | 'fechahora' | 'estado' | 'si-no' | 'texto';
@@ -131,6 +135,8 @@ const CAMPOS: Readonly<Record<string, { etiqueta: string; tipo: TipoValor }>> = 
   fecha_devolucion: { etiqueta: 'Fecha de devolución', tipo: 'fecha' },
   proximo_reintento: { etiqueta: 'Próximo reintento', tipo: 'fechahora' },
   intentos_reintento: { etiqueta: 'Reintentos', tipo: 'texto' },
+  reembolso_solicitado_en: { etiqueta: 'Reembolso pedido', tipo: 'fechahora' },
+  reembolso_stripe_id: { etiqueta: 'Referencia del reembolso', tipo: 'texto' },
   baja_al_vencer: { etiqueta: 'Baja al vencer', tipo: 'si-no' },
 };
 
@@ -232,7 +238,7 @@ export interface EntradaDescrita {
   socioId: string | null;
   cuando: string;
   quien: string;
-  /** «Cambió un recibo». */
+  /** «Cambió un recibo», o lo que hizo si lo dice una ruta de servidor: «Pidió un reembolso». */
   titulo: string;
   /** Qué fila era, si el libro lo sabe: «Mensual Ilimitado — Jul 2026». */
   objeto: string | null;
@@ -244,6 +250,31 @@ export interface EntradaDescrita {
 }
 
 const VERBOS: Readonly<Record<OperacionAuditoria, string>> = { INSERT: 'Creó', UPDATE: 'Cambió', DELETE: 'Eliminó' };
+
+/**
+ * Lo que hizo la persona, cuando la entrada la escribe una ruta de servidor
+ * (`contexto.accion`). Sin esto, un reembolso saldría como «Cambió un recibo».
+ * Un código que no conoce cae en el verbo genérico, no se esconde.
+ */
+/**
+ * La frase de un código de acción, o null. `hasOwn`: la acción viene de un JSON de la base y un objeto
+ * normal responde también a `constructor` o `__proto__` con algo que no es texto — y React no pinta un objeto.
+ */
+export function fraseDeAccion(accion: unknown): string | null {
+  return typeof accion === 'string' && Object.hasOwn(ACCIONES, accion) ? ACCIONES[accion] : null;
+}
+
+export const ACCIONES: Readonly<Record<string, string>> = {
+  REEMBOLSO_PEDIDO: 'Pidió un reembolso',
+  RECIBO_MARCADO_DEVUELTO: 'Marcó un recibo como devuelto',
+  ENTREGA_REVERTIDA: 'Revirtió la entrega de una devolución',
+  PENALIZACION_APROBADA: 'Aprobó cobrar una penalización',
+  PENALIZACION_CORREGIDA: 'Aprobó una penalización que ya estaba resuelta',
+  PENALIZACION_SIN_CONSENTIMIENTO: 'Una penalización se cerró sin cobrar: el contrato no la recoge',
+  INGRESO_MANUAL_CREADO: 'Creó un ingreso manual',
+  INGRESO_MANUAL_EDITADO: 'Cambió un ingreso manual',
+  INGRESO_MANUAL_ELIMINADO: 'Eliminó un ingreso manual',
+};
 
 function objetoDe(e: EntradaAuditoria, o: OpcionesDescripcion): string | null {
   const ctx = e.contexto;
@@ -270,11 +301,18 @@ function lineasDe(e: EntradaAuditoria, o: OpcionesDescripcion): LineaCambio[] {
     campo === 'plan_id' && typeof v === 'string' ? (o.nombreDePlan?.(v) ?? SIN_VALOR) : formatearValor(campo, v, ahora);
 
   if (e.operacion === 'UPDATE') {
-    return [...e.cambios].sort(porOrdenDeCampos).map(campo => ({
+    const lineas: LineaCambio[] = [...e.cambios].sort(porOrdenDeCampos).map(campo => ({
       campo: etiquetaCampo(campo),
       antes: valor(campo, e.antes[campo]),
       despues: valor(campo, e.despues[campo]),
     }));
+    // Un reembolso o una aprobación no cambian una columna de importe, pero lo que importa
+    // es CUÁNTO dinero: lo trae la ruta de servidor en el contexto.
+    const importe = e.contexto.importe;
+    if (fraseDeAccion(e.contexto.accion) && typeof importe === 'number' && !lineas.some(l => l.campo === etiquetaCampo('importe'))) {
+      lineas.unshift({ campo: etiquetaCampo('importe'), despues: valor('importe', importe) });
+    }
+    return lineas;
   }
   const fila = e.operacion === 'INSERT' ? e.despues : e.antes;
   const columnas = TABLAS_AUDITADAS[e.tabla]?.principales ?? Object.keys(fila).sort(porOrdenDeCampos);
@@ -286,6 +324,10 @@ function lineasDe(e: EntradaAuditoria, o: OpcionesDescripcion): LineaCambio[] {
     });
 }
 
+function tituloDe(e: EntradaAuditoria, uno: string): string {
+  return fraseDeAccion(e.contexto.accion) ?? `${VERBOS[e.operacion]} ${uno}`;
+}
+
 export function describirEntrada(e: EntradaAuditoria, o: OpcionesDescripcion = {}): EntradaDescrita {
   const uno = TABLAS_AUDITADAS[e.tabla]?.uno ?? `un registro de ${e.tabla.replace(/_/g, ' ')}`;
   return {
@@ -294,7 +336,7 @@ export function describirEntrada(e: EntradaAuditoria, o: OpcionesDescripcion = {
     socioId: e.socioId,
     cuando: cuandoDe(e.ocurridoEn, o.ahora),
     quien: quienDe(e, o.nombreDeActor?.(e.actorUid)),
-    titulo: `${VERBOS[e.operacion]} ${uno}`,
+    titulo: tituloDe(e, uno),
     objeto: objetoDe(e, o),
     motivo: e.motivo ? etiquetaMotivo(e.motivo) : null,
     lineas: lineasDe(e, o),
