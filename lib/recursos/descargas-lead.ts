@@ -40,7 +40,7 @@ export interface PeticionDescarga {
 }
 
 export type EscrituraLead =
-  | { tipo: 'insertar'; fila: Record<string, unknown> }
+  | { tipo: 'insertar'; id: string; fila: Record<string, unknown> }
   | { tipo: 'actualizar'; id: string; cambios: Record<string, unknown> }
   | { tipo: 'nada'; id: string };
 
@@ -73,10 +73,12 @@ export function escrituraLeadDescarga(
   };
 
   if (!existente) {
+    // El id va aparte y lo pone la ruta en la propia llamada: `plataforma_lead`
+    // no tiene default y la guardia de lib/insert-id-explicito.test.ts tiene que verlo.
     return {
       tipo: 'insertar',
+      id: nuevoId(),
       fila: {
-        id: nuevoId(),
         email: peticion.email,
         estudio: peticion.estudio,
         origen: 'DESCARGA',

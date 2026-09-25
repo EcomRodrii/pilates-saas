@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
   if (escritura.tipo !== 'nada') {
     const { error } = escritura.tipo === 'insertar'
       // ignoreDuplicates: si dos envíos se cruzan, gana el primero y el segundo no lo pisa.
-      ? await db.from('plataforma_lead').upsert(escritura.fila, { onConflict: 'email', ignoreDuplicates: true })
+      ? await db.from('plataforma_lead').upsert({ id: escritura.id, ...escritura.fila }, { onConflict: 'email', ignoreDuplicates: true })
       : await db.from('plataforma_lead').update(escritura.cambios).eq('id', escritura.id);
     if (error) {
       console.error('[public:descargas] no se ha podido guardar el lead', resumenError(error));

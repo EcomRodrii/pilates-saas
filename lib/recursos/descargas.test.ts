@@ -121,6 +121,8 @@ test('un email nuevo entra como DESCARGA, y sin casilla no lleva permiso', () =>
   const e = escrituraLeadDescarga(null, peticion, ahora, nuevoId);
   assert.equal(e.tipo, 'insertar');
   if (e.tipo !== 'insertar') return;
+  assert.match(e.id, /^lead-/, 'el id va aparte: la ruta lo pone a la vista en el upsert');
+  assert.equal('id' in e.fila, false);
   assert.equal(e.fila.origen, 'DESCARGA');
   assert.equal(e.fila.recurso, 'plantilla-politica-cancelacion');
   assert.equal(e.fila.consentimiento_comercial, undefined, 'descargar no es consentir');
