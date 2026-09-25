@@ -140,6 +140,9 @@ TIPOS_MANUALES = {
     # para que borrar la cuenta de una socia suprimida no falle con 23503.
     ('mensajes', 'remitente_auth_user_id'): 'string | null',
     ('documentos_socio', 'subido_por'): 'string | null',
+    # Ídem, migr 20260925001354 (D-5): el intento de cobro sobrevive al recibo
+    # borrado, con ON DELETE SET NULL.
+    ('cobros_intentos', 'recibo_id'): 'string | null',
 }
 for (tabla, col), ts in TIPOS_MANUALES.items():
     if tabla in tables and col in tables[tabla]:
