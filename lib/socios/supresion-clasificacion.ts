@@ -146,6 +146,10 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
   devoluciones: { accion: 'CONSERVAR', detalle: 'Fiscal.' },
   pagos_historicos: { accion: 'CONSERVAR', detalle: 'Fiscal (histórico importado).' },
   codigos_descuento_consumos: { accion: 'CONSERVAR', detalle: 'Ligado a un recibo fiscal. Seudónimo.' },
+  auditoria_estudio: {
+    accion: 'CONSERVAR',
+    detalle: 'Libro de auditoría de los cambios de dinero del equipo (quién, cuándo, antes y después). Solo audita tablas fiscales que ya se conservan (recibos, suscripciones), con el mismo seudónimo por socio_id.',
+  },
 
   // ── Cuenta, contacto y huellas globales ────────────────────────────────────
   socios: {

@@ -7,6 +7,7 @@ import {
   puedeModerarComunidad, puedeVerFichaClinica, puedeVerSemaforo,
   puedeGestionarFichaDe, puedeVerRetribucionDe, filtrarRetribucionVisible,
   puedeGestionarCamposPersonalizados, puedeVerDetalleAusencias, puedeVerSolicitudesSoporte, puedeVerDatosPrivadosSocia,
+  puedeVerAuditoriaFinanciera,
   puedeOperarClase, puedeEnviarEmail, TIPOS_EMAIL_PANEL, TIPOS_EMAIL_DE_CLASE,
   puedeGestionarAutomatizaciones, puedeVerContactoEquipo,
   puedeVerValoracionesDe, puedeVerResumenValoracionDe, puedeGestionarCalendario,
@@ -590,4 +591,13 @@ test('puedeVerSolicitudesSoporte: solo la propietaria lee lo que el estudio escr
   assert.equal(puedeVerSolicitudesSoporte('MANAGER'), false);
   assert.equal(puedeVerSolicitudesSoporte('RECEPCION'), false);
   assert.equal(puedeVerSolicitudesSoporte('INSTRUCTOR'), false);
+});
+
+test('el historial de cambios de dinero lo ve solo la propietaria: ni recepción, que sí mueve dinero', () => {
+  assert.equal(puedeVerAuditoriaFinanciera('PROPIETARIO'), true);
+  for (const rol of ['RECEPCION', 'MANAGER', 'INSTRUCTOR'] as const) {
+    assert.equal(puedeVerAuditoriaFinanciera(rol), false, rol);
+  }
+  // Recepción puede tocar el dinero pero no leer el registro de lo que toca.
+  assert.equal(puedeMoverDinero('RECEPCION'), true);
 });

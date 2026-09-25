@@ -68,7 +68,7 @@
 -- | socios                         | ANONIMIZAR | Ver el UPDATE; se quedan fechas de consentimiento como prueba
 -- | reservas                       | CONSERVAR  | Seudónima (las futuras las cancela la ruta antes)
 -- | suscripciones                  | CONSERVAR  | Seudónima, estado CANCELADA (recibos la referencian)
--- | recibos / facturas / ventas_pos / devoluciones / pagos_historicos / codigos_descuento_consumos | CONSERVAR | Fiscal
+-- | recibos / facturas / ventas_pos / devoluciones / pagos_historicos / codigos_descuento_consumos / auditoria_estudio | CONSERVAR | Fiscal (auditoria_estudio: el libro de cambios de esas mismas tablas)
 -- | lecturas_ficha_salud           | CONSERVAR  | ⚠️ REVISIÓN LEGAL: registro de accesos del staff a su ficha; falta fijar plazo
 -- | supresiones                    | CONSERVAR  | El propio registro
 -- | solicitudes_derechos           | CONSERVAR  | ⚠️ REVISIÓN LEGAL: prueba de que el derecho se ejerció y resolvió (#1922; la función no la toca)

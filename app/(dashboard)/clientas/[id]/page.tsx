@@ -14,7 +14,8 @@ import { saldoSesionesBono, nombrePeriodo } from '@/lib/bono-logic';
 import type { LeadStage } from '@/lib/types';
 import { ETIQUETA_GENERO, GENEROS, etiquetaFija, generoDe, mayuscula, trato, type Genero } from '@/lib/genero';
 import { enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto } from '@/lib/api-client';
-import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia, puedeVerAuditoriaFinanciera } from '@/lib/permisos';
+import { HistorialDinero } from '@/components/auditoria/historial-dinero';
 import { asignarVentaAClienta, esError, ventasPorAsignarDePlan, type VentaPorAsignar } from '@/lib/pos/cliente';
 import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
 import { FichaSalud } from '@/components/socios/ficha-salud';
@@ -1679,6 +1680,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         Importados de la plataforma anterior — no son recibos de Tentare y no entran en el cierre fiscal.
                       </p>
                     </div>
+                  )}
+
+                  {/* Solo la propietaria: quién tocó el dinero de esta clienta. */}
+                  {studio && puedeVerAuditoriaFinanciera(rol) && (
+                    <section className="mt-8" aria-label="Cambios de dinero en esta ficha">
+                      <h3 className="text-sm font-bold text-foreground mb-3">Cambios de dinero en esta ficha</h3>
+                      <HistorialDinero studioId={studio.id} socioId={id} />
+                    </section>
                   )}
                 </div>
               )}
