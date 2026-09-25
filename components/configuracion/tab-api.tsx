@@ -49,7 +49,7 @@ export function TabApi({ showToast }: { showToast: (m: string) => void }) {
           ))}
         </div>
         {vista === 'widgets'
-          ? <ConstructorWidgets slug={studio.slug} showToast={showToast} />
+          ? <ConstructorWidgets slug={studio.slug} showToast={showToast} onVerResultados={() => setVista('crecimiento')} />
           : <TabCrecimientoWeb showToast={showToast} />}
       </div>
     </TarjetaAjuste>

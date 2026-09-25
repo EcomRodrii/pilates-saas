@@ -3875,6 +3875,17 @@ export async function dbEmbudoWidgetPorDia(desde: string): Promise<{ dia: string
   return ((data ?? []) as { dia: string; tipo: string; n: number }[]).map((r) => ({ dia: r.dia, tipo: r.tipo, n: Number(r.n) }));
 }
 
+// «Tentare Widgets»: el mismo embudo partido por la etiqueta de cada widget
+// (`widget_eventos.origen`, migr 20260925201000). `null` = no se pudo leer
+// (distinto de «sin datos»: quien lo pinta no debe decir «0 visitas» si en
+// realidad no sabe).
+export async function dbEmbudoWidgetPorOrigen(desde: string): Promise<{ origen: string | null; tipo: string; n: number }[] | null> {
+  const { data, error } = await supabase.rpc('embudo_widget_por_origen', { p_desde: desde });
+  if (error) { reportDbError('[dbEmbudoWidgetPorOrigen]', error); return null; }
+  return ((data ?? []) as { origen: string | null; tipo: string; n: number }[])
+    .map((r) => ({ origen: r.origen ?? null, tipo: r.tipo, n: Number(r.n) }));
+}
+
 // Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) para
 // /informes, agregado SERVER-SIDE (migr 20260810150000, mismo patrón que
 // dbInformeIngresos). `tipo` sale de planes_tarifa.tipo; los recibos sin

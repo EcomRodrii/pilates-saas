@@ -2,13 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, Loader2, TrendingUp } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { LEGAL } from '@/lib/legal-info';
 import { WIDGETS, widgetPorId, widgetsVisibles, esDisponible, type MetodoIntegracion, type WidgetDisponible } from '@/lib/widgets/catalogo';
-import { CONFIG_POR_DEFECTO, leerConfigs, metodoEfectivo, anchoPorDefecto, type ConfigConstructor } from '@/lib/widgets/config';
+import { CONFIG_POR_DEFECTO, leerConfigs, metodoEfectivo, anchoPorDefecto, etiquetaEfectiva, type ConfigConstructor } from '@/lib/widgets/config';
+import { embudoPorWidget, type EmbudoWidget } from '@/lib/widgets/embudo';
+import { dbEmbudoWidgetPorOrigen } from '@/lib/supabase-data';
+import { useRol } from '@/lib/permisos';
+import { puedeGestionarPortalHome } from '@/lib/permisos-reglas';
 import { conVistaPrevia, faltaParaGenerar, urlEmbebido, urlPagina, type EntradaIntegracion } from '@/lib/widgets/integracion';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import type { TipoPlan } from '@/lib/types';
@@ -33,7 +37,12 @@ const ORIGEN_POR_DEFECTO = new URL(LEGAL.url).origin;
 const HORARIO = WIDGETS.find((x): x is WidgetDisponible => x.id === 'horario' && x.estado === 'disponible')!;
 type EstadoGuardado = 'guardando' | 'guardado' | 'error' | null;
 
-export function ConstructorWidgets({ slug, showToast }: { slug: string; showToast: (m: string) => void }) {
+export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
+  slug: string;
+  showToast: (m: string) => void;
+  /** Lleva a «Cómo le va a tu página». */
+  onVerResultados?: () => void;
+}) {
   const { sesiones, tiposClase, salas, instructores, planesTarifa, citasServicios, studio, updateStudio, reflejarStudioGuardado } = useStudio();
   const origen = typeof window !== 'undefined' ? window.location.origin : ORIGEN_POR_DEFECTO;
 
@@ -62,6 +71,24 @@ export function ConstructorWidgets({ slug, showToast }: { slug: string; showToas
   }
 
   const metodo = metodoEfectivo(config, w);
+
+  // El mes de cada widget, por su etiqueta (lib/widgets/embudo.ts). Solo para
+  // quien puede ver el embudo (la RLS de widget_eventos: PROPIETARIO/MANAGER).
+  const rol = useRol();
+  const veResultados = puedeGestionarPortalHome(rol);
+  const [resultadosMes, setResultadosMes] = useState<EmbudoWidget[] | null>(null);
+  useEffect(() => {
+    if (!veResultados) return;
+    const hoy = new Date();
+    const desde = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+    let vivo = true;
+    void dbEmbudoWidgetPorOrigen(desde).then(filas => { if (vivo && filas) setResultadosMes(embudoPorWidget(filas)); });
+    return () => { vivo = false; };
+  }, [veResultados]);
+  const etiquetaActiva = etiquetaEfectiva(config, w);
+  const resultadoActivo = resultadosMes && etiquetaActiva
+    ? resultadosMes.find(r => r.etiqueta === etiquetaActiva) ?? null
+    : null;
   const elegirMetodo = (m: MetodoIntegracion) => cambiar({ metodo: m === w.metodos[0] ? null : m });
 
   // Un tipo, una instructora o una sala borrados después de guardarse no se
@@ -206,9 +233,14 @@ export function ConstructorWidgets({ slug, showToast }: { slug: string; showToas
         <div className="min-w-0 space-y-6">
           <div className="grid items-start gap-6 @4xl/config:grid-cols-[minmax(0,1fr)_360px] @6xl/config:grid-cols-[minmax(0,1fr)_380px]">
             <div className="min-w-0 space-y-3">
-              <div>
-                <h3 className="text-[17px] font-semibold tracking-tight text-foreground">{w.nombre}</h3>
-                <p className="text-[12.5px] text-muted-foreground">{w.descripcion}</p>
+              <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+                <div className="min-w-0">
+                  <h3 className="text-[17px] font-semibold tracking-tight text-foreground">{w.nombre}</h3>
+                  <p className="text-[12.5px] text-muted-foreground">{w.descripcion}</p>
+                </div>
+                {resultadosMes && etiquetaActiva && (
+                  <ResumenMes resultado={resultadoActivo} onVer={onVerResultados} />
+                )}
               </div>
               {contenido ? (
                 <VistaPrevia
@@ -281,4 +313,23 @@ function avisosDeDatos(id: string, d: { stripe: boolean; planes: number; bonos: 
   if (id === 'bonos' && d.bonos === 0) a.push({ texto: 'No tienes bonos a la venta: el widget saldría vacío.', enlace: ir('/productos', 'Crear un bono') });
   if (id === 'citas' && d.citas === 0) a.push({ texto: 'Ningún servicio de cita se puede reservar online todavía.', enlace: ir('/configuracion?tab=clases', 'Revisar servicios') });
   return a;
+}
+
+// El mes del widget activo, en una línea. Sin visitas con su etiqueta lo dice
+// así — no «0 % de conversión», que se leería como un widget que no funciona.
+function ResumenMes({ resultado, onVer }: { resultado: EmbudoWidget | null; onVer?: () => void }) {
+  const texto = !resultado || resultado.visitas === 0
+    ? 'Este mes, sin visitas con su etiqueta todavía'
+    : `Este mes: ${resultado.visitas.toLocaleString('es-ES')} visitas · ${resultado.reservasCompletadas.toLocaleString('es-ES')} reservas${resultado.conversion !== null ? ` · ${resultado.conversion.toLocaleString('es-ES')} %` : ''}`;
+  return (
+    <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+      <TrendingUp size={13} aria-hidden />
+      <span>{texto}</span>
+      {onVer && (
+        <button type="button" onClick={onVer} className="inline-flex items-center gap-0.5 font-medium text-foreground underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          Ver resultados<ArrowRight size={12} aria-hidden />
+        </button>
+      )}
+    </div>
+  );
 }
