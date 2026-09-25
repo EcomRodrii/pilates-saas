@@ -66,6 +66,18 @@ export async function reclamarWebhookEvent(
   }
 }
 
+// PAY-4: el handler terminó SIN completar el evento (error, excepción o éxito
+// parcial con trabajo a mano). Pasa 'procesando' → 'fallido', que un reenvío
+// reclama al instante y que deja `procesando` significando solo «en vuelo».
+// No pisa un 'completado'. Best-effort: si falla, la reclamación expira sola.
+export async function fallarWebhookEvent(admin: SupabaseClient, eventId: string): Promise<void> {
+  try {
+    await admin.rpc('fallar_webhook_event', { p_event_id: eventId });
+  } catch {
+    /* no-op */
+  }
+}
+
 // Marca la reclamación como completada. Best-effort: si falla, NO rompemos el
 // 200 (peor caso, la reclamación expira sola y un reintento reprocesa
 // idempotentemente).

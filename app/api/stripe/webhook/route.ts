@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { entregarVentaPOS } from '@/lib/pos/venta-servidor';
 import { capturar } from '@/lib/analytics';
-import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/lib/webhook-idempotencia';
+import { reclamarWebhookEvent, marcarWebhookProcesado, fallarWebhookEvent, claveWebhook } from '@/lib/webhook-idempotencia';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
 import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 import { guardarMetodoDeCompra } from '@/lib/billing/guardar-metodo-de-compra';
@@ -311,6 +311,12 @@ export async function POST(req: NextRequest) {
         tags: { area: 'cobros', tipo: 'webhook-post-respuesta' },
         extra: { eventId: event.id, eventType: event.type },
       });
+    } finally {
+      // PAY-4: si el evento no llegó a 'completado' (error de cualquiera de las
+      // salidas 4xx/5xx, excepción, o éxito parcial con trabajo a mano) se cierra
+      // como 'fallido' en vez de dejarlo en 'procesando' hasta expirar. No pisa un
+      // 'completado'. Un único sitio: no hay que tocar cada `return`.
+      if (adminDedup) await fallarWebhookEvent(adminDedup, claveEvento);
     }
   });
   return NextResponse.json({ received: true });

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from './webhook-idempotencia.ts';
+import { readFileSync } from 'node:fs';
+import { reclamarWebhookEvent, marcarWebhookProcesado, fallarWebhookEvent, claveWebhook } from './webhook-idempotencia.ts';
 
 // Fake admin client que reproduce EXACTAMENTE la semántica SQL de la RPC
 // reclamar_webhook_event / completar_webhook_event (migr. 20260730109000):
@@ -9,7 +10,7 @@ import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from './we
 // modela el contrato atómico que el wrapper de lib/webhook-idempotencia.ts
 // asume, para poder probar el caso de carrera sin una base de datos viva.
 function crearAdminFake(nowMs: () => number) {
-  const filas = new Map<string, { estado: 'procesando' | 'completado'; reclamadoEnMs: number }>();
+  const filas = new Map<string, { estado: 'procesando' | 'completado' | 'fallido'; reclamadoEnMs: number }>();
   return {
     async rpc(nombre: string, params: Record<string, unknown>) {
       if (nombre === 'reclamar_webhook_event') {
@@ -20,7 +21,8 @@ function crearAdminFake(nowMs: () => number) {
           filas.set(id, { estado: 'procesando', reclamadoEnMs: nowMs() });
           return { data: true, error: null };
         }
-        const expirada = fila.estado === 'procesando' && fila.reclamadoEnMs < nowMs() - expiraMs;
+        const expirada = fila.estado === 'fallido'
+          || (fila.estado === 'procesando' && fila.reclamadoEnMs < nowMs() - expiraMs);
         if (!expirada) {
           return { data: false, error: null };
         }
@@ -32,6 +34,11 @@ function crearAdminFake(nowMs: () => number) {
         const id = params.p_event_id as string;
         const fila = filas.get(id);
         if (fila && fila.estado === 'procesando') fila.estado = 'completado';
+        return { data: null, error: null };
+      }
+      if (nombre === 'fallar_webhook_event') {
+        const fila = filas.get(params.p_event_id as string);
+        if (fila && fila.estado === 'procesando') fila.estado = 'fallido';
         return { data: null, error: null };
       }
       throw new Error(`rpc no soportada en el fake: ${nombre}`);
@@ -161,4 +168,24 @@ test('ámbito "whatsapp": aislado del resto igual que connect/billing', async ()
   // diferente, no un duplicado — la clave incluye el estado a propósito.
   const claveSiguienteEstado = claveWebhook('whatsapp', 'wamid.ABC123:read');
   assert.equal(await reclamarWebhookEvent(admin as any, claveSiguienteEstado, 'whatsapp_status_read', 120), true);
+});
+
+test('PAY-4: un evento que termina sin completar queda fallido y un reenvío lo reclama al instante', async () => {
+  const admin = crearAdminFake(() => 3_000_000);
+  assert.equal(await reclamarWebhookEvent(admin as any, 'evt_f', 'x', 120), true);
+  await fallarWebhookEvent(admin as any, 'evt_f');
+  assert.equal(await reclamarWebhookEvent(admin as any, 'evt_f', 'x', 120), true, 'sin esperar los 120 s');
+});
+
+test('PAY-4: fallar nunca pisa un completado', async () => {
+  const admin = crearAdminFake(() => 4_000_000);
+  await reclamarWebhookEvent(admin as any, 'evt_c', 'x', 120);
+  await marcarWebhookProcesado(admin as any, 'evt_c');
+  await fallarWebhookEvent(admin as any, 'evt_c');
+  assert.equal(await reclamarWebhookEvent(admin as any, 'evt_c', 'x', 120), false);
+});
+
+test('PAY-4: el webhook de Stripe cierra SIEMPRE el evento en un finally, no en cada return', () => {
+  const src = readFileSync(new URL('../app/api/stripe/webhook/route.ts', import.meta.url), 'utf8');
+  assert.match(src, /\} finally \{[\s\S]{0,600}fallarWebhookEvent\(adminDedup, claveEvento\)/);
 });
