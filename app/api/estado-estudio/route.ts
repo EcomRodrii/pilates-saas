@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
     plazasFijasPorDecidir, reconciliacionesPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
-    alertasApertura, equipoPorRevisar, clasesSinInstructora,
+    alertasApertura, equipoPorRevisar, clasesSinInstructora, doblesCobrosPorRevisar,
   ] = await Promise.all([
     // ── Decidir ──
     // Solo clases que aún no han empezado: una que ya pasó sin cubrir la cierra
@@ -236,6 +236,9 @@ export async function GET(req: NextRequest) {
     si(gestionaCalendario, () => contar('clases-sin-instructora', admin.from('sesiones')
       .select('id, instructores!inner(activo)', HEAD).eq('studio_id', studioId)
       .eq('cancelada', false).gt('inicio', ahoraISO).eq('instructores.activo', false))),
+    // PAY-5: detecciones abiertas del detector de dobles cobros (solo de servidor).
+    si(mueveDinero, () => contar('dobles-cobros', admin.from('dobles_cobros_detectados')
+      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'DETECTADA'))),
   ]);
 
   const jornadasPorRevisar = equipoPorRevisar === undefined ? undefined : (equipoPorRevisar?.jornadas ?? null);
@@ -243,7 +246,7 @@ export async function GET(req: NextRequest) {
   const conteos: ConteosEstudio = {
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, clasesSinInstructora, recibosFallidos, renovacionesSinCobro, penalizacionesPorAprobar,
     devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
-    plazasFijasPorDecidir, reconciliacionesPorRevisar,
+    plazasFijasPorDecidir, reconciliacionesPorRevisar, doblesCobrosPorRevisar,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
     alertasApertura, jornadasPorRevisar, clasesNoDadasPorRevisar,

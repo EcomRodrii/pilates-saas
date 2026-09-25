@@ -64,6 +64,8 @@ export interface ConteosEstudio {
   plazasFijasPorDecidir?: number | null;
   /** Cobros por datáfono confirmados en Stripe sin venta registrada (A-14, backstop). */
   reconciliacionesPorRevisar?: number | null;
+  /** PAY-5: recibos con más de un cargo que tomó dinero. Hay que devolver uno. */
+  doblesCobrosPorRevisar?: number | null;
   /** Alertas de apertura abiertas (Opening OS, lib/opening/alertas.ts). */
   alertasApertura?: number | null;
   /** Jornadas del equipo abiertas más horas de las que permite el estudio, o marcadas por revisar. */
@@ -103,6 +105,7 @@ export const ANCLA_DECIDIR: Partial<Record<ClaveConteo, string>> = {
   seriesPorRenovar: 'decidir-series',
   plazasFijasPorDecidir: 'decidir-plazas-fijas',
   reconciliacionesPorRevisar: 'decidir-reconciliaciones',
+  doblesCobrosPorRevisar: 'decidir-dobles-cobros',
   alertasApertura: 'decidir-apertura',
 };
 
@@ -173,6 +176,10 @@ const LINEAS: DefLinea[] = [
     uno: 'Una recompensa canjeada por entregar', varios: n => `${n} recompensas canjeadas por entregar` },
   // Backstop A-14: cobro confirmado en Stripe sin venta registrada. Se resuelve
   // en su propia tarjeta (marcar resuelto), no hay pantalla a la que ir.
+  // Dinero de una alumna cobrado dos veces por el mismo recibo: la primera línea de
+  // dinero en la que hay algo que devolver. Se marca resuelto en su tarjeta.
+  { id: 'doblesCobrosPorRevisar', bandeja: 'decidir', href: null,
+    uno: 'Un recibo cobrado dos veces: hay que devolver uno', varios: n => `${n} recibos cobrados dos veces: hay que devolver uno` },
   { id: 'reconciliacionesPorRevisar', bandeja: 'decidir', href: null,
     uno: 'Un cobro de caja sin venta registrada', varios: n => `${n} cobros de caja sin venta registrada` },
   // La última: no corre prisa (la clase ya la cubre el motor o la decide la

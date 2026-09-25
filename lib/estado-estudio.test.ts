@@ -200,3 +200,11 @@ test('RES-8: las clases de una instructora de baja esperan decisión, sin enlace
   assert.equal(e.nDecidir, 2);
   assert.equal(construirEstadoEstudio({ clasesSinInstructora: undefined }).aplica, false);
 });
+
+test('PAY-5: un recibo cobrado dos veces espera decisión, sin enlace y con su tarjeta', () => {
+  const e = construirEstadoEstudio({ doblesCobrosPorRevisar: 1 });
+  assert.equal(e.decidir[0].id, 'doblesCobrosPorRevisar');
+  assert.equal(e.decidir[0].href, null);
+  assert.equal(ANCLA_DECIDIR.doblesCobrosPorRevisar, 'decidir-dobles-cobros');
+  assert.equal(e.nDecidir, 1);
+});

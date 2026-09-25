@@ -41,6 +41,7 @@ import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-
 import { ReconciliacionesPendientes } from '@/components/dashboard/reconciliaciones-pendientes';
 import { CanjesPendientes } from '@/components/dashboard/canjes-pendientes';
 import { BajasPorRevisar } from '@/components/dashboard/bajas-por-revisar';
+import { DoblesCobrosPorRevisar } from '@/components/dashboard/dobles-cobros-por-revisar';
 import { ClasesSinInstructora } from '@/components/dashboard/clases-sin-instructora';
 import { PlazasFijasPorDecidir } from '@/components/dashboard/plazas-fijas-por-decidir';
 import { ReservasPorAprobar } from '@/components/dashboard/reservas-por-aprobar';
@@ -709,6 +710,7 @@ export default function Dashboard() {
               {gestionaClientas && gestionaCalendario && <PlazasFijasPorDecidir onToast={showToast} />}
               {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
               {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
+              {mueveDinero && <DoblesCobrosPorRevisar onToast={showToast} />}
               {mueveDinero && <ReconciliacionesPendientes onToast={showToast} />}
               {gestionaClientas && <CanjesPendientes onToast={showToast} />}
               {/* El motivo de una baja puede ser salud: propietaria y gerencia, nunca recepción. */}

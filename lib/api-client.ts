@@ -1621,6 +1621,28 @@ export async function terminalMarcarReconciliado(params: {
   } catch { return false; }
 }
 
+// ── Dobles cobros (PAY-5) ─────────────────────────────────────────────────────
+export interface DobleCobroPendiente { id: string; concepto: string | null; importe: number | null; cargos: number; detectadoEn: string }
+
+export async function listarDoblesCobros(): Promise<DobleCobroPendiente[]> {
+  try {
+    const res = await fetch('/api/dobles-cobros', { headers: { ...(await authHeader()) } });
+    if (!res.ok) return [];
+    return ((await res.json()) as { pendientes?: DobleCobroPendiente[] }).pendientes ?? [];
+  } catch { return []; }
+}
+
+export async function resolverDobleCobro(id: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/dobles-cobros', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 // ── Emails ────────────────────────────────────────────────────────────────────
 
 // El servidor arma el justificante desde el recibo (concepto, importe, fecha y
