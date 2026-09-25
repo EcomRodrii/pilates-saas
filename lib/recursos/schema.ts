@@ -11,9 +11,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { LEGAL } from '../legal-info.ts';
-import { ANCHO_MAX_PORTADA, GUIAS, fechaModificada, guia, rutaPortada, altoPortada, urlGuia, type Guia } from './guias.ts';
+import { ANCHO_MAX_PORTADA, GUIAS, fechaModificada, guia, rutaPortada, altoPortada, anchosPortada, urlGuia, type Guia } from './guias.ts';
 import { ARTICULOS_META } from './articulos/meta.ts';
 import { fechaArticulo, urlArticulo } from './articulos/util.ts';
+import { portadaArticulo } from './articulos/portadas.ts';
 
 /** `@id` estable del Blog: el mismo en el listado y en el `isPartOf` de cada guía. */
 export const ID_BLOG = `${LEGAL.url}/recursos#blog`;
@@ -90,16 +91,22 @@ export function blogLd() {
     inLanguage: IDIOMA,
     publisher: PUBLISHER,
     blogPost: [
-      // Los artículos escritos como datos (lib/recursos/articulos) no tienen
-      // portada: su imagen es la OG que genera su ruta.
-      ...ARTICULOS_META.map((a) => ({
-        '@type': 'BlogPosting',
-        headline: a.titulo,
-        url: `${LEGAL.url}${urlArticulo(a.slug)}`,
-        datePublished: a.publicado,
-        dateModified: fechaArticulo(a),
-        image: { '@type': 'ImageObject', url: `${LEGAL.url}${urlArticulo(a.slug)}/opengraph-image`, ...TAMANO_OG },
-      })),
+      // Los artículos escritos como datos (lib/recursos/articulos): su foto
+      // (articulos/portadas.ts) en su derivado mayor, o la OG si no tuviera.
+      ...ARTICULOS_META.map((a) => {
+        const p = portadaArticulo(a.slug);
+        const mayor = p ? Math.max(...anchosPortada(p)) : 0;
+        return {
+          '@type': 'BlogPosting',
+          headline: a.titulo,
+          url: `${LEGAL.url}${urlArticulo(a.slug)}`,
+          datePublished: a.publicado,
+          dateModified: fechaArticulo(a),
+          image: p
+            ? { '@type': 'ImageObject', url: `${LEGAL.url}${rutaPortada(p, mayor, 'webp')}`, width: mayor, height: altoPortada(p, mayor) }
+            : { '@type': 'ImageObject', url: `${LEGAL.url}${urlArticulo(a.slug)}/opengraph-image`, ...TAMANO_OG },
+        };
+      }),
       ...GUIAS.map((g) => ({
         '@type': 'BlogPosting',
         headline: g.titulo,
@@ -126,5 +133,9 @@ export function openGraphGuia(slug: string) {
 /** Para el sitemap: las imágenes de la página de una guía, en URL absoluta. */
 export function imagenesSitemap(path: string): string[] {
   const g = GUIAS.find((x) => urlGuia(x.slug) === path);
-  return g ? [imagenPortada(g).url] : [];
+  if (g) return [imagenPortada(g).url];
+  // Un artículo escrito como datos: su foto en el derivado mayor.
+  const slug = path.startsWith('/recursos/') ? path.slice('/recursos/'.length) : '';
+  const p = slug ? portadaArticulo(slug) : undefined;
+  return p ? [`${LEGAL.url}${rutaPortada(p, Math.max(...anchosPortada(p)), 'webp')}`] : [];
 }

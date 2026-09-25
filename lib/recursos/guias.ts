@@ -17,6 +17,8 @@
 // `scripts/portadas-recursos.mjs`, y ninguno de los dos los resuelve.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { PORTADAS_ARTICULOS } from './articulos/portadas.ts';
+
 export type CategoriaRecursos = 'abrir' | 'sustituciones' | 'rentabilidad' | 'operacion' | 'espana' | 'software';
 
 /** Filtros del listado, en su orden. */
@@ -57,6 +59,11 @@ export interface PortadaRecursos {
   recorte: readonly [number, number, number, number];
   credito: CreditoPortada;
   consentimiento: 'no-aplica' | 'firmado';
+  /**
+   * Anchos de sus derivados, si no son los de tarjeta (ANCHOS_PORTADA). Los
+   * artículos piden además los de su cabecera: ver articulos/portadas.ts.
+   */
+  anchos?: readonly number[];
 }
 
 export interface Guia {
@@ -308,15 +315,22 @@ export const nombrePortada = (p: PortadaRecursos, ancho: number, formato: Format
 export const rutaPortada = (p: PortadaRecursos, ancho: number, formato: FormatoPortada) =>
   `/${CARPETA_PORTADAS}/${nombrePortada(p, ancho, formato)}`;
 
+/** Anchos de los derivados de una portada: los de tarjeta, o los suyos si los pide. */
+export const anchosPortada = (p: PortadaRecursos): readonly number[] => p.anchos ?? ANCHOS_PORTADA;
+
+/** Techo de peso del derivado MAYOR de una portada con cabecera (1200 px). */
+export const PRESUPUESTO_PORTADA_CABECERA_KB: Record<FormatoPortada, number> = { avif: 160, webp: 260 };
+
 export function derivadosPortada(p: PortadaRecursos) {
-  return ANCHOS_PORTADA.flatMap((ancho) =>
+  return anchosPortada(p).flatMap((ancho) =>
     FORMATOS_PORTADA.map((formato) => ({ ancho, alto: altoPortada(p, ancho), formato, fichero: nombrePortada(p, ancho, formato) })));
 }
 
-/** Todas las portadas registradas: las de las guías y las de las tarjetas sin guía. */
+/** Todas las portadas registradas: las de las guías, las de las tarjetas sin guía y las de los artículos. */
 export function todasLasPortadas(): PortadaRecursos[] {
   return [
     ...GUIAS.map((g) => g.portada),
     ...TARJETAS_SIN_GUIA.flatMap((t) => (t.portada ? [t.portada] : [])),
+    ...Object.values(PORTADAS_ARTICULOS),
   ];
 }

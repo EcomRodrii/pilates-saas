@@ -19,6 +19,7 @@ import {
 // texto entero de los artículos al bundle.
 import { ARTICULOS_META } from '@/lib/recursos/articulos/meta';
 import { minutosLectura, urlArticulo } from '@/lib/recursos/articulos/util';
+import { portadaArticulo } from '@/lib/recursos/articulos/portadas';
 
 type Category = 'todos' | CategoriaRecursos;
 
@@ -46,14 +47,16 @@ type Article = {
 // título, texto, fechas, minutos y portada ya no se escriben aquí. El pie de cada
 // tarjeta («9 min · ago 2026») se deriva de la misma fecha que el JSON-LD.
 // Los artículos escritos como datos (lib/recursos/articulos) van delante: son
-// los que responden a lo que más buscan las propietarias. Sin portada: la
-// tarjeta enseña el color de su categoría.
+// los que responden a lo que más buscan las propietarias. Su portada sale de
+// lib/recursos/articulos/portadas.ts (sin ella, la tarjeta enseña el color de
+// su categoría).
 const ARTICULOS_DATOS: Article[] = ARTICULOS_META.map((a) => ({
   category: a.categoria,
   title: a.titulo,
   body: a.resumen,
   href: urlArticulo(a.slug),
   meta: `${minutosLectura(a.palabras)} min · ${mesCorto(a.publicado)}`,
+  portada: portadaArticulo(a.slug),
 }));
 
 const ARTICLES: Article[] = [...ARTICULOS_DATOS, ...ORDEN_LISTADO.map((clave) => {

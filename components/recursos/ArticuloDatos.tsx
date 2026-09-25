@@ -3,6 +3,8 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { Callout, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { TextoMarcado } from '@/components/recursos/TextoMarcado';
+import { PortadaCabecera } from '@/components/recursos/PortadaCabecera';
+import { portadaArticulo } from '@/lib/recursos/articulos/portadas';
 import { CalculadoraRentabilidad } from '@/components/recursos/CalculadoraRentabilidad';
 import { CATEGORIAS_RECURSOS } from '@/lib/recursos/guias';
 import { fechaArticulo, minutosLectura } from '@/lib/recursos/articulos';
@@ -118,6 +120,8 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
         actualizado={fechaArticulo(a)}
         toc={toc}
       >
+        {portadaArticulo(a.slug) && <PortadaCabecera portada={portadaArticulo(a.slug)!} />}
+
         <section aria-label="En resumen" style={{ background: '#fff', border: '1px solid #E0E5D0', borderLeft: '4px solid #6E7650', borderRadius: 16, padding: '18px 20px', margin: '0 0 28px' }}>
           <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#6E7650', marginBottom: 8 }}>En resumen</div>
           <p style={{ margin: 0, fontSize: 16.5, lineHeight: 1.6, color: '#1A1A1A' }}><TextoMarcado texto={a.respuesta} /></p>
