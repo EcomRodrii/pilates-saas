@@ -59,6 +59,18 @@ export default function Contenido() {
         <Link href="/ayuda/pagos/cierre-de-ano" style={{ color: 'inherit', textDecoration: 'underline' }}>Cierre de año</Link>.
       </p>
 
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Eliminar un recibo</h2>
+      <p>
+        Solo se puede eliminar un recibo que aún <strong>no es dinero cobrado</strong>: uno pendiente, fallido o
+        anulado, sin factura y sin un pago abierto (por ejemplo, un enlace de pago que la clienta aún puede completar).
+        Al eliminarlo eliges un motivo —está duplicado, el importe estaba mal, se creó por error, la clienta se da de
+        baja u otro motivo— y queda guardado, con quién lo eliminó y cuándo, en «Cambios del equipo».
+      </p>
+      <p>
+        Un recibo <strong>cobrado, devuelto o en curso no se elimina</strong>: el dinero no desaparece, se devuelve. Si
+        algo cobrado no debía estar ahí, regístralo como devuelto.
+      </p>
+
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cambios del equipo</h2>
       <p>
         Solo la propietaria la ve. Cada vez que alguien de tu equipo <strong>crea, cambia o borra</strong> un recibo,

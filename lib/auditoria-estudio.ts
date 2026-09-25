@@ -13,6 +13,7 @@
 // esconderla: un cambio de dinero que no se lee no es una auditoría.
 
 import { capitalizarPrimera, formatEuro, fechaCortaEstudio, horaEstudio, TZ_ESTUDIO } from './utils.ts';
+import { etiquetaMotivo } from './recibos-eliminar.ts';
 
 export type OperacionAuditoria = 'INSERT' | 'UPDATE' | 'DELETE';
 
@@ -29,6 +30,8 @@ export interface FilaAuditoria {
   operacion: string;
   socio_id: string | null;
   cambios: string[] | null;
+  /** Código de motivo (lista cerrada) si el cambio lo pedía; null si no. */
+  motivo: string | null;
   contexto: Record<string, unknown> | null;
   antes: Record<string, unknown> | null;
   despues: Record<string, unknown> | null;
@@ -45,6 +48,7 @@ export interface EntradaAuditoria {
   operacion: OperacionAuditoria;
   socioId: string | null;
   cambios: string[];
+  motivo: string | null;
   contexto: Record<string, unknown>;
   antes: Record<string, unknown>;
   despues: Record<string, unknown>;
@@ -67,6 +71,7 @@ export function entradaDeFila(f: FilaAuditoria): EntradaAuditoria | null {
     operacion,
     socioId: f.socio_id,
     cambios: Array.isArray(f.cambios) ? f.cambios : [],
+    motivo: f.motivo?.trim() ? f.motivo.trim() : null,
     contexto: f.contexto ?? {},
     antes: f.antes ?? {},
     despues: f.despues ?? {},
@@ -231,6 +236,8 @@ export interface EntradaDescrita {
   titulo: string;
   /** Qué fila era, si el libro lo sabe: «Mensual Ilimitado — Jul 2026». */
   objeto: string | null;
+  /** «Está duplicado»: por qué lo hizo, si lo dijo. */
+  motivo: string | null;
   lineas: LineaCambio[];
   /** Un descuento o devolución de UNA sesión de un bono: ruido diario, no un ajuste. */
   rutina: boolean;
@@ -289,6 +296,7 @@ export function describirEntrada(e: EntradaAuditoria, o: OpcionesDescripcion = {
     quien: quienDe(e, o.nombreDeActor?.(e.actorUid)),
     titulo: `${VERBOS[e.operacion]} ${uno}`,
     objeto: objetoDe(e, o),
+    motivo: e.motivo ? etiquetaMotivo(e.motivo) : null,
     lineas: lineasDe(e, o),
     rutina: esRutina(e),
   };

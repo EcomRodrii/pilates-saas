@@ -26,7 +26,7 @@ function fila(id: number, o: Record<string, unknown> = {}) {
     id, studio_id: STUDIO_ID, ocurrido_en: '2026-09-25T12:32:00+00:00',
     actor_uid: 'auth-e2e-recepcion', actor_rol: 'RECEPCION', origen: 'panel',
     tabla: 'recibos', fila_id: `rec-${id}`, operacion: 'UPDATE', socio_id: 'soc-1',
-    cambios: ['importe'], contexto: { concepto: 'Mensual Ilimitado — Jul 2026', fecha_vencimiento: '2026-07-01' },
+    cambios: ['importe'], motivo: null, contexto: { concepto: 'Mensual Ilimitado — Jul 2026', fecha_vencimiento: '2026-07-01' },
     antes: { importe: 85 }, despues: { importe: 86 },
     ...o,
   };
@@ -41,7 +41,7 @@ const CAMBIOS = [
   }),
   fila(3, {
     actor_uid: AUTH_UID, actor_rol: 'PROPIETARIO', operacion: 'DELETE', socio_id: 'soc-2',
-    cambios: null, contexto: { concepto: 'Clase suelta' },
+    cambios: null, motivo: 'DUPLICADO', contexto: { concepto: 'Clase suelta' },
     antes: { concepto: 'Clase suelta', importe: 12, estado: 'PENDIENTE' }, despues: null,
   }),
   fila(2, {
@@ -125,6 +125,9 @@ test.describe('Cobros · «Cambios del equipo»', () => {
     await expect(baja).toContainText('Propietaria');
     await expect(baja).toContainText('Clase suelta');
     await expect(baja).toContainText('12,00 €');
+    // El motivo que dio quien lo eliminó, en claro.
+    await expect(baja).toContainText('Motivo: Está duplicado');
+    await expect(items(page).filter({ hasText: 'Cambió un recibo' })).not.toContainText('Motivo:');
 
     await expect(items(page).filter({ hasText: 'Creó un ingreso manual' })).toContainText('300,00 €');
     await expect(items(page).filter({ hasText: 'Cambió un plan' })).toContainText('Bono 8');

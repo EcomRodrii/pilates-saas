@@ -13,6 +13,7 @@ import { cn, copiarAlPortapapeles, formatEuro, hoyEnEstudio } from '@/lib/utils'
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cobrarOnlineDirecto, crearEnlaceTarjeta, enviarEmailRecibo } from '@/lib/api-client';
+import { MOTIVOS_ELIMINAR_RECIBO, puedeEliminarRecibo } from '@/lib/recibos-eliminar';
 import {
   CheckCircle2,
   XCircle,
@@ -267,6 +268,25 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
   const [sort, setSort]             = useState<SortKey>('reciente');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmEliminar, setConfirmEliminar] = useState<string | null>(null);
+  // Eliminar un recibo pide un motivo (lista cerrada) y el servidor decide si se puede:
+  // el diálogo se queda abierto con su explicación si lo rechaza.
+  const [motivoEliminar, setMotivoEliminar] = useState<string | null>(null);
+  const [eliminando, setEliminando] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+  function cerrarEliminar() {
+    setConfirmEliminar(null);
+    setMotivoEliminar(null);
+    setErrorEliminar(null);
+  }
+  async function confirmarEliminar() {
+    if (!confirmEliminar || !motivoEliminar || eliminando) return;
+    setEliminando(true);
+    setErrorEliminar(null);
+    const res = await deleteRecibo(confirmEliminar, motivoEliminar);
+    setEliminando(false);
+    if (res.ok) { cerrarEliminar(); return; }
+    setErrorEliminar(res.error);
+  }
   const [cobrandoRecibo, setCobrandoRecibo] = useState<string | null>(null); // F2 B2.6: elegir método al cobrar
   const [reintentandoFactura, setReintentandoFactura] = useState<string | null>(null);
 
@@ -858,14 +878,17 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
             Reintentar
           </button>
         )}
-        <button
-          onClick={() => setConfirmEliminar(r.id)}
-          className={rojo}
-          title={titulo('Eliminar')}
-        >
-          <Trash2 size={tactil ? 15 : 14} className="text-destructive" />
-          {tactil && 'Eliminar'}
-        </button>
+        {/* Un recibo cobrado, devuelto o en curso no se elimina (se devuelve), ni uno con factura. */}
+        {puedeEliminarRecibo(r, { tieneFactura: !!factura }).ok && (
+          <button
+            onClick={() => setConfirmEliminar(r.id)}
+            className={rojo}
+            title={titulo('Eliminar')}
+          >
+            <Trash2 size={tactil ? 15 : 14} className="text-destructive" />
+            {tactil && 'Eliminar'}
+          </button>
+        )}
       </>
     );
   }
@@ -2034,33 +2057,57 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       {/* MODAL: Confirmar eliminar                                              */}
       {/* ═══════════════════════════════════════════════════════════════════════ */}
-      <Dialog open={!!confirmEliminar} onOpenChange={open => !open && setConfirmEliminar(null)}>
-        <DialogContent className="max-w-sm">
-          <div className="flex flex-col items-center text-center gap-4 py-2">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-destructive/10">
-              <AlertTriangle size={24} className="text-destructive" />
+      <Dialog open={!!confirmEliminar} onOpenChange={open => { if (!open && !eliminando) cerrarEliminar(); }}>
+        <DialogContent className="max-w-sm" data-testid="dialogo-eliminar-recibo">
+          <div className="flex flex-col gap-4 py-2">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-destructive/10">
+                <AlertTriangle size={20} className="text-destructive" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Eliminar recibo</h3>
+                <p className="text-sm text-muted-foreground">
+                  No se puede deshacer. Se guarda quién lo elimina, cuándo y por qué.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-base font-semibold text-foreground mb-1">Eliminar recibo</h3>
-              <p className="text-sm text-muted-foreground">Esta accion no se puede deshacer.</p>
-            </div>
+            <fieldset className="space-y-1.5" disabled={eliminando}>
+              <legend className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                ¿Por qué lo eliminas?
+              </legend>
+              {MOTIVOS_ELIMINAR_RECIBO.map(m => (
+                <label key={m.codigo} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                  <input
+                    type="radio"
+                    name="motivo-eliminar-recibo"
+                    value={m.codigo}
+                    checked={motivoEliminar === m.codigo}
+                    onChange={() => setMotivoEliminar(m.codigo)}
+                  />
+                  {m.etiqueta}
+                </label>
+              ))}
+            </fieldset>
+            {errorEliminar && (
+              <p role="alert" data-testid="error-eliminar-recibo" className="text-[13px] text-destructive">
+                {errorEliminar}
+              </p>
+            )}
             <div className="flex gap-3 w-full">
               <button
-                onClick={() => setConfirmEliminar(null)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-background transition-colors"
+                onClick={cerrarEliminar}
+                disabled={eliminando}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-background transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
-                onClick={async () => {
-                  if (!confirmEliminar) return;
-                  const res = await deleteRecibo(confirmEliminar);
-                  setConfirmEliminar(null);
-                  if (!res.ok) onToast(res.error);
-                }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-destructive hover:bg-red-700 transition-colors"
+                data-testid="confirmar-eliminar-recibo"
+                onClick={confirmarEliminar}
+                disabled={!motivoEliminar || eliminando}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-destructive hover:bg-red-700 transition-colors disabled:opacity-50"
               >
-                Eliminar
+                {eliminando ? 'Eliminando…' : 'Eliminar'}
               </button>
             </div>
           </div>

@@ -3381,6 +3381,8 @@ export interface RowAuditoriaEstudio {
   contexto: any | null;
   antes: any | null;
   despues: any | null;
+  // migr 20260925175253.
+  motivo: string | null;
 }
 
 
@@ -9333,6 +9335,7 @@ export type AuditoriaEstudioInsert = {
   contexto?: any | null | null;
   antes?: any | null | null;
   despues?: any | null | null;
+  motivo?: string | null | null;
 }
 
 export type AuditoriaEstudioUpdate = {
@@ -9350,6 +9353,7 @@ export type AuditoriaEstudioUpdate = {
   contexto?: any | null | null;
   antes?: any | null | null;
   despues?: any | null | null;
+  motivo?: string | null | null;
 }
 
 export type Database = {

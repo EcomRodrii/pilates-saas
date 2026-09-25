@@ -33,7 +33,7 @@ import {
   dbReasignarInstructora,
   dbCancelarReservasPorSesiones,
   dbUpdateReserva,
-  dbInsertRecibo, dbUpdateRecibo, dbMarcarCobrado, dbUpdateRecibosBatch, dbDeleteRecibo,
+  dbInsertRecibo, dbUpdateRecibo, dbMarcarCobrado, dbUpdateRecibosBatch, dbEliminarRecibo,
   dbInsertCita, dbUpdateCita,
   dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
   dbInsertVentaPOS,
@@ -497,7 +497,8 @@ interface StudioContextValue {
   marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentarSelladoFactura: (reciboId: string) => Promise<ResultadoEscritura>;
-  deleteRecibo: (id: string) => Promise<ResultadoEscritura>;
+  /** Elimina un recibo con un motivo (lista cerrada); el servidor decide si se puede. */
+  deleteRecibo: (id: string, motivo: string) => Promise<ResultadoEscritura>;
   /** `cobrados`: los que esta llamada cobró; `saltados`: penalizaciones anuladas que no se cobran. */
   cobrarTodosPendientes: (socioId?: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura & { cobrados?: number; saltados?: Recibo[] }>;
   /** `idsActualizados`: los que se marcaron de verdad. Solo esos van en la remesa. */
@@ -4433,8 +4434,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  async function deleteRecibo(id: string): Promise<ResultadoEscritura> {
-    const res = await dbDeleteRecibo(id);
+  async function deleteRecibo(id: string, motivo: string): Promise<ResultadoEscritura> {
+    const res = await dbEliminarRecibo(id, getCurrentStudioId(), motivo);
     if (!res.ok) return res;
     setRecibos(prev => prev.filter(r => r.id !== id));
     return res;
