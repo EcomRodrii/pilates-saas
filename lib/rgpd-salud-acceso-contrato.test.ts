@@ -231,6 +231,12 @@ test('una columna NUEVA de socios necesita su grant por columna (o ser solo de s
         const concedida = [...resto.matchAll(/grant\s+update\s*\(([^)]*)\)\s*on\s+(?:table\s+)?public\.socios/gi)]
           .some(g => new RegExp(String.raw`\b${col}\b`).test(g[1]));
         if (!concedida) faltan.push(`${nombre}: ${col}`);
+        // ⚠️ Y también LEERLA: `authenticated` no tiene SELECT de tabla sobre socios, solo por
+        // columna. Sin este grant, la consulta del panel que la pida falla ENTERA («permission
+        // denied for column») y la lista de Clientas sale vacía — pasó con `genero` (25-sep).
+        const legible = [...resto.matchAll(/grant\s+select\s*\(([^)]*)\)\s*on\s+(?:table\s+)?public\.socios/gi)]
+          .some(g => new RegExp(String.raw`\b${col}\b`).test(g[1]));
+        if (!legible) faltan.push(`${nombre}: ${col} (sin grant select)`);
       }
     }
   });
