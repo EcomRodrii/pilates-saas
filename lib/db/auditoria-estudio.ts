@@ -9,7 +9,7 @@ import { entradaDeFila, type EntradaAuditoria, type FilaAuditoria } from '@/lib/
 export const POR_PAGINA = 50;
 
 const COLUMNAS =
-  'id, studio_id, ocurrido_en, actor_uid, actor_rol, origen, tabla, fila_id, operacion, socio_id, cambios, contexto, antes, despues';
+  'id, studio_id, ocurrido_en, actor_uid, actor_rol, origen, tabla, fila_id, operacion, socio_id, cambios, motivo, contexto, antes, despues';
 
 export interface PeticionAuditoria {
   studioId: string;

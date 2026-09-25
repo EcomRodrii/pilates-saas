@@ -13,7 +13,7 @@ function fila(o: Partial<FilaAuditoria> = {}): FilaAuditoria {
     id: 1, studio_id: 'studio-1', ocurrido_en: '2026-09-25T12:32:00+00:00',
     actor_uid: '00000000-0000-4000-8000-000000000001', actor_rol: 'RECEPCION',
     origen: 'panel', tabla: 'recibos', fila_id: 'rec-1', operacion: 'UPDATE', socio_id: 'soc-1',
-    cambios: ['importe'], contexto: { concepto: 'Mensual Ilimitado — Jul 2026', fecha_vencimiento: '2026-07-01' },
+    cambios: ['importe'], motivo: null, contexto: { concepto: 'Mensual Ilimitado — Jul 2026', fecha_vencimiento: '2026-07-01' },
     antes: { importe: 85 }, despues: { importe: 86 },
     ...o,
   };
@@ -155,4 +155,13 @@ test('solo se ofrece filtrar por lo que se audita de verdad desde el panel', () 
   const conFiltro = Object.entries(TABLAS_AUDITADAS).filter(([, t]) => t.desdeElPanel).map(([id]) => id).sort();
   assert.deepEqual(conFiltro, ['planes_tarifa', 'recibos', 'suscripciones']);
   assert.equal(TABLAS_AUDITADAS.ingresos_manuales.desdeElPanel, false);
+});
+
+test('el motivo se enseña en claro, y sin motivo no se inventa uno', () => {
+  const baja = describirEntrada(entrada({ operacion: 'DELETE', cambios: null, despues: null, antes: { concepto: 'Clase suelta' }, motivo: 'DUPLICADO' }), { ahora: AHORA });
+  assert.equal(baja.motivo, 'Está duplicado');
+  assert.equal(describirEntrada(entrada(), { ahora: AHORA }).motivo, null);
+  assert.equal(entrada({ motivo: '   ' }).motivo, null, 'un motivo en blanco no cuenta');
+  // Un código que la pantalla aún no conoce se lee igualmente.
+  assert.equal(describirEntrada(entrada({ motivo: 'CODIGO_NUEVO' })).motivo, 'Codigo nuevo');
 });

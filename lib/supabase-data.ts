@@ -7,6 +7,7 @@ import { supabase } from '@/lib/db/supabase';
 import { actualizarFilaStudio } from '@/lib/db/actualizar-studio';
 import { esConflictoDeNegocioEsperado } from '@/lib/db/conflicto-esperado';
 import { generoDe } from '@/lib/genero';
+import { interpretarErrorEliminar } from '@/lib/recibos-eliminar';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
 import type { Plan } from '@/lib/billing/entitlements';
 import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
@@ -3474,9 +3475,18 @@ export async function dbUpdateRecibosBatch(
   return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string), idsSaltados };
 }
 
-export async function dbDeleteRecibo(id: string): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('recibos').delete().eq('id', id);
-  return error ? falloEscritura('[dbDeleteRecibo]', error) : ESCRITURA_OK;
+// Eliminar un recibo pasa SIEMPRE por la RPC `eliminar_recibo`: el DELETE directo
+// del cliente se quitó (migración 20260925175253). Pide un motivo de una lista
+// cerrada y el servidor solo lo elimina si aún no es dinero cobrado ni tiene
+// factura o un pago abierto; el motivo queda en el libro de auditoría.
+export async function dbEliminarRecibo(id: string, studioId: string, motivo: string): Promise<ResultadoEscritura> {
+  const { error } = await supabase.rpc('eliminar_recibo', { p_studio_id: studioId, p_recibo_id: id, p_motivo: motivo });
+  if (!error) return ESCRITURA_OK;
+  const conocido = interpretarErrorEliminar(error.message, error.code);
+  // Ya no estaba: lo que se pedía (que no esté) se cumple, no es un fallo.
+  if (conocido?.tipo === 'YA_NO_EXISTE') return ESCRITURA_OK;
+  if (conocido?.tipo === 'RECHAZADO') return { ok: false, error: conocido.mensaje };
+  return falloEscritura('[dbEliminarRecibo]', error);
 }
 
 // NOTA: las facturas se crean y sellan (huella Veri*Factu) en el servidor vía

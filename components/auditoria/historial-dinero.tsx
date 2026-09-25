@@ -128,6 +128,7 @@ export function HistorialDinero({ studioId, socioId }: { studioId: string; socio
                     {d.quien}
                     {clienta && <> · {clienta}</>}
                   </p>
+                  {d.motivo && <p className="text-xs text-muted-foreground">Motivo: {d.motivo}</p>}
                   {d.lineas.length > 0 && (
                     <ul className="mt-2 space-y-0.5">
                       {d.lineas.map(l => (
