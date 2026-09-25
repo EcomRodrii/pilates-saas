@@ -64,6 +64,12 @@ next-env.d.ts
 /playwright-report/
 /playwright/.cache/
 
+# Salida del MCP de Playwright: volcados de página, logs de consola y capturas
+# de lo que un agente navega en local, que puede incluir datos reales. Sin
+# anclar a la raíz: la carpeta sale donde arranque el servidor MCP.
+# `lib/repo-publico-guardia.test.ts` la vigila también en CI.
+.playwright-mcp/
+
 # skills de agente instaladas en local (skillfish / clonadas de GitHub).
 # Fuera del repo a propósito: son herramientas de quien programa, no del
 # producto, y algunas pesan cientos de ficheros.
