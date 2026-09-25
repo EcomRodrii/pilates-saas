@@ -273,7 +273,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/lista-de-espera', '/funcionalidades/cobros-recurrentes'],
+    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/lista-de-espera', '/funcionalidades/cobros-recurrentes', '/recursos/politica-de-cancelacion-de-clases'],
   },
   {
     path: '/funcionalidades/app-para-alumnas',
@@ -385,7 +385,7 @@ export const PAGINAS: PaginaSeo[] = [
     resumen: 'Descubre, conoce y contacta con instructoras de Pilates y Yoga verificadas.',
     prioridad: 0.8,
     changeFrequency: 'weekly',
-    relacionadas: ['/network/instructoras', '/funcionalidades/sustituciones'],
+    relacionadas: ['/network/instructoras', '/funcionalidades/sustituciones', '/recursos/como-ser-instructora-de-pilates'],
   },
   // `changeFrequency: 'daily'`: a diferencia del resto del registro (páginas
   // de contenido estático), el listado cambia con cada perfil nuevo
@@ -583,7 +583,7 @@ export const PAGINAS: PaginaSeo[] = [
     prioridad: 0.6,
     changeFrequency: 'monthly',
     actualizado: '2026-08-15',
-    relacionadas: ['/funcionalidades/sustituciones', '/soluciones/estudio-de-pilates-reformer', '/precios', '/comparativa'],
+    relacionadas: ['/funcionalidades/sustituciones', '/soluciones/estudio-de-pilates-reformer', '/precios', '/comparativa', '/recursos/como-abrir-un-estudio-de-yoga'],
   },
   // Página pilar del estudio de REFORMER (fase 5 del rediseño, 23-sep). No
   // compite con la home («software de gestión para estudios de Pilates»): la

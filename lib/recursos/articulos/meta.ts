@@ -26,6 +26,24 @@ export const ARTICULOS_META: ArticuloMeta[] = [
     "palabras": 2789
   },
   {
+    "slug": "como-abrir-un-estudio-de-yoga",
+    "titulo": "Cómo abrir un estudio de yoga: estilos, local, material, trámites, titulación y precios",
+    "tituloSeo": "Cómo abrir un estudio de yoga: qué necesitas y cuánto cuesta",
+    "descripcion": "Qué pide cada estilo al local (aéreo, sala caliente), material con precios reales, epígrafe e IVA, titulación oficial y lo que cobran 14 estudios españoles.",
+    "resumen": "Lo propio de montar un estudio de yoga en España: qué pide cada estilo al local, material con precios, epígrafe, CNAE e IVA, titulación oficial y lo que cobran 14 estudios.",
+    "categoria": "abrir",
+    "seccion": "Abrir un estudio",
+    "publicado": "2026-09-25",
+    "relacionadas": [
+      "/soluciones/estudio-de-yoga",
+      "/recursos/requisitos-para-abrir-un-estudio-de-pilates",
+      "/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates",
+      "/recursos/rentabilidad-estudio-de-pilates",
+      "/recursos/politica-de-cancelacion-de-clases"
+    ],
+    "palabras": 2470
+  },
+  {
     "slug": "mejor-software-para-estudios-de-pilates",
     "titulo": "Mejor software para estudios de pilates: comparativa honesta 2026",
     "tituloSeo": "Mejor software para estudios de pilates: comparativa 2026",
@@ -44,6 +62,24 @@ export const ARTICULOS_META: ArticuloMeta[] = [
     "palabras": 2795
   },
   {
+    "slug": "bsport-vs-timp",
+    "titulo": "bsport vs TIMP: diferencias para un estudio de pilates boutique",
+    "tituloSeo": "bsport vs TIMP: diferencias para estudios boutique",
+    "descripcion": "bsport vs TIMP para tu estudio de pilates: precio, permanencia, prueba, app, cobros, Veri*Factu y sustituciones, con lo que dice hoy la web de cada uno.",
+    "resumen": "bsport y TIMP comparados para un estudio boutique de pilates con lo que publica hoy la web de cada uno: tabla lado a lado, para quién encaja cada uno y qué preguntar en la demo.",
+    "categoria": "software",
+    "seccion": "Elegir software",
+    "publicado": "2026-09-25",
+    "relacionadas": [
+      "/recursos/mejor-software-para-estudios-de-pilates",
+      "/comparativa/tentare-vs-bsport",
+      "/comparativa/tentare-vs-timp",
+      "/recursos/checklist-elegir-software-estudio",
+      "/soluciones/cambiar-de-software"
+    ],
+    "palabras": 1972
+  },
+  {
     "slug": "cuanto-cuesta-abrir-un-estudio-de-pilates",
     "titulo": "Cuánto cuesta abrir un estudio de pilates: presupuesto por partidas con precios reales",
     "tituloSeo": "Cuánto cuesta abrir un estudio de pilates en 2026",
@@ -59,7 +95,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/informes-y-rentabilidad",
       "/precios"
     ],
-    "palabras": 2186
+    "palabras": 2261
   },
   {
     "slug": "precio-clase-de-pilates",
@@ -93,7 +129,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates",
       "/funcionalidades/informes-y-rentabilidad"
     ],
-    "palabras": 2249
+    "palabras": 2375
   },
   {
     "slug": "requisitos-para-abrir-un-estudio-de-pilates",
@@ -131,6 +167,24 @@ export const ARTICULOS_META: ArticuloMeta[] = [
     "palabras": 1997
   },
   {
+    "slug": "politica-de-cancelacion-de-clases",
+    "titulo": "Política de cancelación de clases: plantilla para tu estudio y lo que dice la ley",
+    "tituloSeo": "Política de cancelación de clases: plantilla y ley",
+    "descripcion": "Plantilla de política de cancelación para un estudio de pilates o yoga, cláusula a cláusula, con ventanas reales y lo que permite la ley sobre penalizaciones.",
+    "resumen": "Qué tiene que decir la política de cancelación de tu estudio, cuántas horas piden estudios reales, qué permite la ley (penalizaciones y desistimiento) y una plantilla lista para adaptar.",
+    "categoria": "operacion",
+    "seccion": "Operación",
+    "publicado": "2026-09-25",
+    "relacionadas": [
+      "/recursos/reducir-cancelaciones-ultima-hora",
+      "/funcionalidades/cancelaciones-y-politicas",
+      "/recursos/bonos-de-pilates",
+      "/funcionalidades/lista-de-espera",
+      "/recursos/como-abrir-un-estudio-de-yoga"
+    ],
+    "palabras": 2394
+  },
+  {
     "slug": "cuanto-cobra-una-instructora-de-pilates",
     "titulo": "Cuánto cobra una instructora de pilates en España: convenio, precio por hora y coste real",
     "tituloSeo": "Cuánto cobra una instructora de pilates en 2026",
@@ -147,6 +201,24 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/iva-clases-de-pilates"
     ],
     "palabras": 2153
+  },
+  {
+    "slug": "como-ser-instructora-de-pilates",
+    "titulo": "Cómo ser instructora de pilates en España: formación, cualificación oficial y trabajo",
+    "tituloSeo": "Cómo ser instructora de pilates: formación y trabajo",
+    "descripcion": "La cualificación oficial de 510 horas, las formaciones de Polestar, STOTT, BASI y Balanced Body con horas y precio, suelo o reformer y cómo encontrar trabajo.",
+    "resumen": "El camino para ser instructora de pilates en España: qué es la cualificación oficial AFD805_3, qué formaciones hay con sus horas y precios, suelo o reformer y cómo encontrar trabajo.",
+    "categoria": "sustituciones",
+    "seccion": "Sustituciones y equipo",
+    "publicado": "2026-09-25",
+    "relacionadas": [
+      "/network",
+      "/recursos/requisitos-para-abrir-un-estudio-de-pilates",
+      "/recursos/cuanto-cobra-una-instructora-de-pilates",
+      "/recursos/iva-clases-de-pilates",
+      "/recursos/cubrir-baja-instructora"
+    ],
+    "palabras": 2199
   },
   {
     "slug": "iva-clases-de-pilates",
