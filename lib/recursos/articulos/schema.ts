@@ -8,6 +8,14 @@ import { AUTOR, ID_BLOG, PUBLISHER, TAMANO_OG } from '../schema.ts';
 import { fechaArticulo, urlArticulo } from './index.ts';
 import { contarPalabras } from './validar.ts';
 import type { Articulo } from './tipos.ts';
+import { altoPortada, anchosPortada, rutaPortada, type PortadaRecursos } from '../guias.ts';
+import { portadaArticulo } from './portadas.ts';
+
+/** La portada en su derivado mayor (1200 px), como ImageObject absoluto. */
+export function imagenPortadaArticulo(p: PortadaRecursos) {
+  const ancho = Math.max(...anchosPortada(p));
+  return { '@type': 'ImageObject', url: `${LEGAL.url}${rutaPortada(p, ancho, 'webp')}`, width: ancho, height: altoPortada(p, ancho) };
+}
 
 /** Quita el marcado mínimo (**negrita**, [enlace](url)) para los textos del JSON-LD. */
 export function textoPlano(t: string): string {
@@ -23,7 +31,11 @@ export function articuloLd(a: Articulo) {
     description: a.descripcion,
     abstract: textoPlano(a.respuesta),
     url,
-    image: [{ '@type': 'ImageObject', url: `${url}/opengraph-image`, ...TAMANO_OG }],
+    // La foto primero (es lo que se ve arriba del artículo) y la OG detrás.
+    image: [
+      ...(portadaArticulo(a.slug) ? [imagenPortadaArticulo(portadaArticulo(a.slug)!)] : []),
+      { '@type': 'ImageObject', url: `${url}/opengraph-image`, ...TAMANO_OG },
+    ],
     datePublished: a.publicado,
     dateModified: fechaArticulo(a),
     inLanguage: 'es-ES',

@@ -4,7 +4,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   GUIAS, TARJETAS_SIN_GUIA, ORDEN_LISTADO, DESTACADA, CARPETA_PORTADAS, PRESUPUESTO_PORTADA_KB, ANCHOS_PORTADA, ANCHO_MAX_PORTADA,
-  anchoUtil, altoUtil, derivadosPortada, rutaPortada, todasLasPortadas, fechaModificada, mesCorto, metaTarjeta,
+  anchoUtil, altoUtil, anchosPortada, derivadosPortada, rutaPortada, todasLasPortadas, fechaModificada, mesCorto, metaTarjeta,
+  PRESUPUESTO_PORTADA_CABECERA_KB,
 } from './guias.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -132,9 +133,17 @@ test('existen todos los ficheros, a su tamaño, sin ampliar y dentro de presupue
       const ruta = join(CARPETA, d.fichero);
       assert.ok(existsSync(ruta), `falta ${d.fichero}: node scripts/portadas-recursos.mjs`);
       assert.deepEqual(medidas(ruta), { ancho: d.ancho, alto: d.alto }, `${d.fichero} no mide lo que dice el registro`);
+      assert.ok(d.ancho <= anchoUtil(p), `${d.fichero}: ${d.ancho} px ampliaría un original de ${anchoUtil(p)}`);
       if (d.ancho === ANCHO_MAX_PORTADA) {
         const kb = statSync(ruta).size / 1024;
         assert.ok(kb <= PRESUPUESTO_PORTADA_KB[d.formato], `${d.fichero} pesa ${kb.toFixed(1)} KB (presupuesto ${PRESUPUESTO_PORTADA_KB[d.formato]} KB)`);
+      }
+      // La de cabecera de un artículo (su derivado mayor) tiene su propio techo.
+      const mayor = Math.max(...anchosPortada(p));
+      if (mayor > ANCHO_MAX_PORTADA && d.ancho === mayor) {
+        const kb = statSync(ruta).size / 1024;
+        const techo = PRESUPUESTO_PORTADA_CABECERA_KB[d.formato];
+        assert.ok(kb <= techo, `${d.fichero} pesa ${kb.toFixed(1)} KB (presupuesto de cabecera ${techo} KB)`);
       }
     }
   }

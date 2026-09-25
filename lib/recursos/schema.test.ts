@@ -6,6 +6,8 @@ import { LEGAL } from '../legal-info.ts';
 import { GUIAS, TARJETAS_SIN_GUIA } from './guias.ts';
 import { ARTICULOS } from './articulos/index.ts';
 import { ID_BLOG, blogLd, blogPostingLd, imagenesSitemap, openGraphGuia } from './schema.ts';
+import { imagenPortadaArticulo, articuloLd } from './articulos/schema.ts';
+import { PORTADAS_ARTICULOS } from './articulos/portadas.ts';
 
 // JSON-LD de /recursos: lo que Google necesita para leer cada guía como un post
 // de blog con imagen, y el listado como el Blog que las agrupa.
@@ -102,4 +104,16 @@ test('el JSON-LD no se escapa del <script>: sin «</» sin escapar', () => {
   // El componente reemplaza «<» por <; aquí se comprueba que no hay nada raro
   // que dependa de ello (un titular con HTML, por ejemplo).
   for (const g of GUIAS) assert.doesNotMatch(JSON.stringify(ld(g.slug)), /<\/script/i);
+});
+
+test('la foto de cada artículo va en su JSON-LD y en el sitemap de imágenes, a 1200 px', () => {
+  for (const a of ARTICULOS) {
+    const p = PORTADAS_ARTICULOS[a.slug];
+    if (!p) continue;
+    const img = imagenPortadaArticulo(p);
+    assert.equal(img.width, 1200);
+    assert.ok(img.url.startsWith(`${LEGAL.url}/`) && img.url.endsWith('-1200.webp'), img.url);
+    assert.deepEqual(articuloLd(a).image[0], img, `${a.slug}: la foto no va primera en su BlogPosting`);
+    assert.deepEqual(imagenesSitemap(`/recursos/${a.slug}`), [img.url]);
+  }
 });

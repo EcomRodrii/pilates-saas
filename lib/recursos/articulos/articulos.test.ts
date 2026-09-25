@@ -9,6 +9,7 @@ import { ARTICULOS } from './index.ts';
 import { enlacesInternos, validarArticulo } from './validar.ts';
 import { ARTICULOS_META } from './meta.ts';
 import { metaDe } from './proyeccion.ts';
+import { PORTADAS_ARTICULOS } from './portadas.ts';
 
 // Todo artículo registrado cumple las reglas de validar.ts, y el registro no
 // se pisa consigo mismo ni con las guías antiguas.
@@ -79,4 +80,15 @@ test('lo que llega al cliente no importa el texto de los artículos', () => {
     const src = readFileSync(join(RAIZ, f), 'utf8');
     assert.ok(!/from ['"](@\/lib\/recursos\/articulos|\.{1,2}\/[^'"]*articulos(\/index(\.ts)?)?)['"]/.test(src), `${f} importa lib/recursos/articulos entero: usa meta.ts y util.ts`);
   }
+});
+
+test('cada artículo tiene su portada, con alt y crédito, y no sobra ninguna', () => {
+  const slugs = new Set(ARTICULOS.map((a) => a.slug));
+  for (const a of ARTICULOS) {
+    const p = PORTADAS_ARTICULOS[a.slug];
+    assert.ok(p, `${a.slug}: sin portada en lib/recursos/articulos/portadas.ts`);
+    assert.ok(p.alt.length >= 20, `${a.slug}: alt demasiado corto`);
+    assert.ok(p.credito.autor && p.credito.licencia && /^https:\/\//.test(p.credito.url), `${a.slug}: crédito incompleto`);
+  }
+  for (const slug of Object.keys(PORTADAS_ARTICULOS)) assert.ok(slugs.has(slug), `portada de «${slug}», que no es ningún artículo`);
 });
