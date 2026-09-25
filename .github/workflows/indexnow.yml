@@ -1,0 +1,51 @@
+name: IndexNow
+
+# Cuando entra en main un cambio de contenido público, espera a que Vercel
+# despliegue ESE commit y avisa por IndexNow (scripts/indexnow.mjs). Unos pocos
+# avisos a la semana: nada de ejecutarlo en cada push.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/recursos/**'
+      - 'app/recursos/**'
+      - 'app/funcionalidades/**'
+      - 'app/comparativa/**'
+      - 'app/soluciones/**'
+      - 'app/precios/**'
+      - 'app/glosario/**'
+      - 'lib/seo/paginas.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: read
+
+concurrency:
+  group: indexnow
+  cancel-in-progress: true
+
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Esperar al despliegue de Vercel de este commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 80); do
+            estado=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/status" -q '[.statuses[]|select(.context=="Vercel")][0].state' || true)
+            echo "Vercel: ${estado:-sin estado todavía}"
+            if [ "$estado" = "success" ]; then exit 0; fi
+            if [ "$estado" = "failure" ] || [ "$estado" = "error" ]; then echo "::error::el despliegue de Vercel falló"; exit 1; fi
+            sleep 20
+          done
+          echo "::error::Vercel no terminó en ~26 min"
+          exit 1
+      - name: Avisar a IndexNow
+        run: node --experimental-strip-types scripts/indexnow.mjs
