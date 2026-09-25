@@ -24,6 +24,14 @@ export default function Contenido() {
         &ldquo;Guardar esta y las siguientes&rdquo;. Para cancelar pasa lo mismo: &ldquo;Cancelar&rdquo; quita solo
         esa clase y &ldquo;Cancelar serie&rdquo; (dentro del botón &ldquo;Serie&rdquo;), esa y las siguientes.
       </p>
+      <p>
+        &ldquo;Guardar esta y las siguientes&rdquo; no guarda al pulsarlo: antes te enseña qué va a pasar. Cuántas
+        clases cambian y desde qué fecha, qué cambia (hora, sala, instructora&hellip;), cuántas reservas confirmadas
+        se ven afectadas y a cuántas alumnas se avisará (una vez a cada una, aunque cambien varias de sus clases),
+        qué alumnas tienen plaza fija en esas clases, quién está en lista de espera y qué reservas se hicieron
+        con una recuperación. Solo se guarda —y se avisa— cuando confirmas. Si cambias únicamente el aforo o las
+        notas, no se avisa a nadie.
+      </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cancelar una clase</h2>
       <p>
@@ -37,7 +45,8 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué NO cambia sola</h2>
       <p>
         Editar la hora de una clase no reordena su lista de espera ni fuerza nuevas reglas de antelación sobre
-        reservas que ya existían — esas reglas se comprueban al reservar, no otra vez después.
+        reservas que ya existían — esas reglas se comprueban al reservar, no otra vez después. Tampoco avisa a la
+        gente en lista de espera: solo se avisa a quien tiene la plaza confirmada.
       </p>
 
       <AyudaResultado>
