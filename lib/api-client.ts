@@ -1610,6 +1610,15 @@ export async function resolverDobleCobro(id: string): Promise<boolean> {
   } catch { return false; }
 }
 
+// AU-4: ¿retiró su consentimiento de marketing? null = no, o no se pudo saber.
+export async function consultarRetiroMarketing(socioId: string): Promise<{ retiradoEn: string; origen: string } | null> {
+  try {
+    const res = await fetch(`/api/socios/consentimiento-retirado?socioId=${encodeURIComponent(socioId)}`, { headers: { ...(await authHeader()) } });
+    if (!res.ok) return null;
+    return ((await res.json()) as { retiro?: { retiradoEn: string; origen: string } | null }).retiro ?? null;
+  } catch { return null; }
+}
+
 // ── Emails ────────────────────────────────────────────────────────────────────
 
 // El servidor arma el justificante desde el recibo (concepto, importe, fecha y

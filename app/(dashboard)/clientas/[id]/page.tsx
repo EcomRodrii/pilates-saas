@@ -13,7 +13,8 @@ import { resumenSocio } from '@/lib/socio-resumen';
 import { saldoSesionesBono, nombrePeriodo } from '@/lib/bono-logic';
 import type { LeadStage } from '@/lib/types';
 import { ETIQUETA_GENERO, GENEROS, etiquetaFija, generoDe, mayuscula, trato, type Genero } from '@/lib/genero';
-import { enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto } from '@/lib/api-client';
+import { textoRetiro } from '@/lib/socios/consentimiento-retirado';
+import { consultarRetiroMarketing, enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia, puedeVerAuditoriaFinanciera } from '@/lib/permisos';
 import { HistorialDinero } from '@/components/auditoria/historial-dinero';
 import { asignarVentaAClienta, esError, ventasPorAsignarDePlan, type VentaPorAsignar } from '@/lib/pos/cliente';
@@ -430,6 +431,16 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   }, [id, verFinanzas]);
 
   const socio = socios.find(s => s.id === id);
+
+  // AU-4: si se dio de baja del marketing, se dice antes de registrarle otro consentimiento.
+  const [retiroMkt, setRetiroMkt] = useState<{ retiradoEn: string; origen: string } | null>(null);
+  const sinConsentimientoMkt = !socio?.consentimientoMarketing;
+  useEffect(() => {
+    if (!gestionaClientas || !sinConsentimientoMkt) { setRetiroMkt(null); return; }
+    let vivo = true;
+    void consultarRetiroMarketing(id).then(r => { if (vivo) setRetiroMkt(r); });
+    return () => { vivo = false; };
+  }, [id, gestionaClientas, sinConsentimientoMkt]);
   // Las palabras que hablan de ESTA persona («clienta»/«cliente», «esta»/«este»…).
   // Sin género indicado se escribe en femenino, como siempre.
   const t = trato(socio?.genero);
@@ -2155,6 +2166,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <p className="text-[11px] text-muted-foreground">
                   No recibirá campañas ni automatizaciones de marketing hasta que dé su consentimiento explícito.
                 </p>
+                {retiroMkt && (
+                  <p className="text-[11px] font-medium text-destructive" data-testid="retiro-marketing">
+                    {textoRetiro(retiroMkt, fecha(retiroMkt.retiradoEn))}
+                  </p>
+                )}
                 {gestionaClientas && (
                   <button
                     onClick={() => setConfirmarConsentimientoMkt(true)}
@@ -2182,6 +2198,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             Confirma solo si {t.la} {t.clienta} ha aceptado expresamente, en persona o por escrito, recibir marketing
             por email. Podrá retirarlo en cualquier momento desde el enlace de baja de cualquier email.
           </p>
+          {retiroMkt && (
+            <p className="mt-2 text-xs font-medium text-destructive" role="alert">
+              {textoRetiro(retiroMkt, fecha(retiroMkt.retiradoEn))} Confirma solo si {t.la} {t.clienta} te ha dicho
+              expresamente que quiere volver a recibirlo: quedará anotado.
+            </p>
+          )}
           <div className="flex gap-2 mt-4">
             <button
               onClick={() => setConfirmarConsentimientoMkt(false)}
@@ -2206,7 +2228,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               }}
               className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-60"
             >
-              Sí, lo ha aceptado
+              {retiroMkt ? 'Sí, ha vuelto a aceptarlo' : 'Sí, lo ha aceptado'}
             </button>
           </div>
         </DialogContent>
