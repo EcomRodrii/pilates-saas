@@ -1825,6 +1825,20 @@ export interface RowPlataformaLead {
   web: string | null;
   // migr 20260902162926.
   instagram: string | null;
+  // migr 20260925182615.
+  recurso: string | null;
+  // migr 20260925182615.
+  consentimiento_comercial: boolean | null;
+  // migr 20260925182615.
+  consentimiento_texto: string | null;
+  // migr 20260925182615.
+  consentimiento_en: string | null;
+  // migr 20260925182615.
+  consentimiento_confirmado_en: string | null;
+  // migr 20260925182615.
+  baja_en: string | null;
+  // migr 20260925182615.
+  descargado_en: string | null;
 }
 
 export interface RowLecturasFichaSalud {
@@ -3381,6 +3395,16 @@ export interface RowAuditoriaEstudio {
   contexto: any | null;
   antes: any | null;
   despues: any | null;
+}
+
+export interface RowPlataformaLeadConsentimiento {
+  id: string;
+  lead_id: string;
+  tipo: string;
+  texto: string | null;
+  recurso: string | null;
+  solicitud_id: string | null;
+  creado_en: string;
 }
 
 
@@ -6339,6 +6363,13 @@ export type PlataformaLeadInsert = {
   actualizado_en?: string | null;
   web?: string | null | null;
   instagram?: string | null | null;
+  recurso?: string | null | null;
+  consentimiento_comercial?: boolean | null | null;
+  consentimiento_texto?: string | null | null;
+  consentimiento_en?: string | null | null;
+  consentimiento_confirmado_en?: string | null | null;
+  baja_en?: string | null | null;
+  descargado_en?: string | null | null;
 }
 
 export type PlataformaLeadUpdate = {
@@ -6362,6 +6393,13 @@ export type PlataformaLeadUpdate = {
   actualizado_en?: string | null;
   web?: string | null | null;
   instagram?: string | null | null;
+  recurso?: string | null | null;
+  consentimiento_comercial?: boolean | null | null;
+  consentimiento_texto?: string | null | null;
+  consentimiento_en?: string | null | null;
+  consentimiento_confirmado_en?: string | null | null;
+  baja_en?: string | null | null;
+  descargado_en?: string | null | null;
 }
 
 export type LecturasFichaSaludInsert = {
@@ -9352,6 +9390,26 @@ export type AuditoriaEstudioUpdate = {
   despues?: any | null | null;
 }
 
+export type PlataformaLeadConsentimientoInsert = {
+  id?: string | null;
+  lead_id?: string | null;
+  tipo?: string | null;
+  texto?: string | null | null;
+  recurso?: string | null | null;
+  solicitud_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type PlataformaLeadConsentimientoUpdate = {
+  id?: string | null;
+  lead_id?: string | null;
+  tipo?: string | null;
+  texto?: string | null | null;
+  recurso?: string | null | null;
+  solicitud_id?: string | null | null;
+  creado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -10424,6 +10482,11 @@ export type Database = {
         Row: RowAuditoriaEstudio;
         Insert: AuditoriaEstudioInsert;
         Update: AuditoriaEstudioUpdate;
+      };
+      plataforma_lead_consentimiento: {
+        Row: RowPlataformaLeadConsentimiento;
+        Insert: PlataformaLeadConsentimientoInsert;
+        Update: PlataformaLeadConsentimientoUpdate;
       };
     };
   };

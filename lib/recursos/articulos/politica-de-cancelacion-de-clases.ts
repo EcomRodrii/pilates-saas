@@ -129,6 +129,7 @@ const articulo: Articulo = {
           t: 'p',
           texto: 'Copia cada cláusula, cambia lo que va entre corchetes (los números son ejemplos para rellenar, no recomendaciones) y borra lo que no aplique. Revísala con tu asesoría antes de publicarla.',
         },
+        { t: 'descarga', recurso: 'plantilla-politica-cancelacion' },
         {
           t: 'pasos',
           items: [
