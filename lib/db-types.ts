@@ -101,6 +101,7 @@ export interface RowAutomationLogs {
   automatizacion_id: string | null;
   // migr 0062.
   mensaje_cliente: string | null;
+  // migr 20260924235532.
   provider_id: string | null;
 }
 
