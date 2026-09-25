@@ -73,7 +73,7 @@ test('el pie de las tarjetas sale de las mismas fechas', () => {
   assert.equal(mesCorto('2026-01-31'), 'ene 2026');
   const f = GUIAS.find((g) => g.slug === 'facturacion-electronica-verifactu')!;
   assert.equal(metaTarjeta(f), '7 min · jul 2026');
-  assert.equal(fechaModificada(f), '2026-08-13');
+  assert.equal(fechaModificada(f), '2026-09-25');
 });
 
 test('el listado enseña todas las guías y tarjetas, una vez cada una', () => {

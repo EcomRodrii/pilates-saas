@@ -30,7 +30,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo llevar mi contabilidad con esto?',
-    a: 'No es un programa de contabilidad ni presenta impuestos. Lo que hace es emitir facturas que cumplen y prepararte el resumen anual de ingresos e IVA para que tu gestoría trabaje con datos, no con un Excel reconstruido en enero.',
+    a: 'No es un programa de contabilidad ni presenta impuestos. Lo que hace es emitir tus facturas con numeración legal y huella encadenada, y prepararte el resumen anual de ingresos e IVA para que tu gestoría trabaje con datos, no con un Excel reconstruido en enero.',
   },
   {
     q: '¿Y si un cobro se devuelve después de emitir la factura?',
@@ -43,9 +43,9 @@ export default function FacturacionPage() {
     <FeatureShell
       path={PATH}
       eyebrow="España · Ley Antifraude"
-      h1={<>Facturas que cumplen, sin que tengas que saber cómo.</>}
-      intro={<>Cada cobro —salvo el efectivo— genera su factura con número correlativo, huella encadenada y QR de verificación, en el formato que exige el reglamento. Sin que abras nada.</>}
-      chips={['Formato Veri*Factu', 'Numeración a prueba de carreras', 'Cierre anual para la gestoría']}
+      h1={<>Cada cobro, su factura. Sin que tengas que saber cómo.</>}
+      intro={<>Cada cobro —salvo el efectivo— genera su factura con número correlativo y huella encadenada, calculada como fija la AEAT. Sin que abras nada.</>}
+      chips={['Huella encadenada', 'Numeración a prueba de carreras', 'Cierre anual para la gestoría']}
       visual={<LoQueLlevaLaFactura />}
     >
       <Seccion id="contexto" titulo="Qué cambió en España, en una página">
@@ -59,9 +59,9 @@ export default function FacturacionPage() {
           comparten el mismo defecto — se pueden editar después.
         </p>
         <p>
-          Lo que resuelve Veri*Factu es exactamente eso: cada factura queda <strong>encadenada a la anterior</strong> mediante
-          una huella criptográfica, y lleva un QR con el que cualquiera puede cotejarla en la sede electrónica de la AEAT. Si
-          quieres el detalle normativo con fuentes, está en la guía{' '}
+          Lo que exige el reglamento es exactamente eso: cada factura queda <strong>encadenada a la anterior</strong> mediante
+          una huella criptográfica y lleva un QR; en la modalidad VERI*FACTU, además, el registro de cada factura se envía a
+          la AEAT al emitirla. Si quieres el detalle normativo con fuentes, está en la guía{' '}
           <Link href="/recursos/facturacion-electronica-verifactu">facturación electrónica para estudios en España</Link>.
         </p>
       </Seccion>
@@ -97,25 +97,26 @@ export default function FacturacionPage() {
 
       <Seccion id="aeat" titulo="Qué se genera hoy, y qué falta">
         <p>
-          Calcular la huella es la mitad. La otra mitad es <strong>firmar el registro con un certificado</strong> y
-          transmitirlo a la AEAT. Lo primero está hecho y funciona en cada factura; lo segundo, todavía no.
+          Calcular la huella está hecho y funciona en cada factura. <strong>Firmar el registro con un certificado</strong> y
+          transmitirlo a la AEAT, todavía no.
         </p>
         <Tabla
           cabeceras={['Paso', 'Estado hoy']}
           filas={[
             ['Numeración correlativa y a prueba de carreras', 'Sí, siempre'],
             ['Huella SHA-256 encadenada', 'Sí, siempre'],
-            ['QR de cotejo AEAT', 'Sí, siempre'],
+            ['QR de cotejo AEAT', 'Cuando la AEAT tenga el registro: llega con el envío'],
             ['Facturas rectificativas (R1–R5)', 'Sí, siempre'],
             ['Cierre trimestral y anual para la gestoría', 'Sí, siempre'],
             ['Firma con certificado y envío a la AEAT', 'En construcción'],
           ]}
         />
         <Limite titulo="Dónde está el límite, dicho claro">
-          Tus facturas se emiten hoy con el formato que exige el reglamento: numeración legal, huella encadenada y QR de
-          cotejo. Lo que <strong>todavía no ocurre</strong> es el envío automático del registro a la AEAT, que estamos
-          construyendo — y preferimos decirlo aquí antes que dejar que te enteres cuando toque. La obligación entra en
-          enero de 2027 para sociedades y en julio de 2027 para autónomos. Además, esto cubre la vía común: los
+          Tus facturas se emiten hoy con numeración legal y huella encadenada. Lo que <strong>todavía no ocurre</strong> es
+          la firma y el envío automático del registro a la AEAT, que estamos construyendo, y por eso tampoco llevan aún el
+          QR de cotejo: un QR que la AEAT no puede comprobar le diría a tu clienta que su factura no consta. Preferimos
+          decirlo aquí antes que dejar que te enteres cuando toque. La obligación entra el 1 de enero de 2027 para las
+          sociedades, sean del tamaño que sean, y el 1 de julio de 2027 para las autónomas. Además, esto cubre la vía común: los
           territorios forales tienen sus propios sistemas y no están incluidos. Nada de esto es asesoramiento fiscal — el
           encaje con tu situación lo confirma tu asesoría.
         </Limite>
@@ -142,7 +143,7 @@ export default function FacturacionPage() {
 
       <CierreCta
         titulo="Deja de reconstruir el año en enero"
-        body="Factura desde el primer euro con numeración, huella y QR, y llega a la gestoría con los números ya hechos."
+        body="Factura desde el primer euro con numeración legal y huella encadenada, y llega a la gestoría con los números ya hechos."
       />
     </FeatureShell>
   );

@@ -118,7 +118,7 @@ export const GUIAS: Guia[] = [
     seccion: 'España y fiscalidad',
     lectura: 7,
     publicado: '2026-07-01',
-    actualizado: '2026-08-13',
+    actualizado: '2026-09-25',
     portada: portada('portatil-factura-facturacion-electronica', '04-facturacion-electronica.jpg',
       'Escena ilustrativa: unas manos escriben en un portátil que muestra una factura, junto a una taza en una mesa de madera',
       505, 244, [1, 0, 1, 0]),

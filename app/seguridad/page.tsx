@@ -53,7 +53,7 @@ const PILLARS = [
     bg: '#E7F3EC', fg: '#4E9E7F',
     icon: <FileCheck size={21} />,
     title: 'Facturación legal (Veri*factu)',
-    body: 'Las facturas se emiten con numeración legal, encadenamiento por hash y código QR, en el formato Veri*factu español. El envío automático del registro a la AEAT está todavía en construcción.',
+    body: 'Las facturas se emiten con numeración legal y encadenamiento por hash, calculado en el orden que fija la AEAT. La firma y el envío automático del registro a la AEAT están todavía en construcción; el QR de cotejo se imprime cuando la AEAT tiene el registro.',
   },
   {
     bg: '#F1F2EA', fg: '#5A6142',
