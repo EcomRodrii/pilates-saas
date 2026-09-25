@@ -151,6 +151,15 @@ export function puedeVerFinanzas(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'RECEPCION';
 }
 
+// VER el historial de cambios de dinero del estudio (quién cambió qué recibo,
+// cuota o plan, y qué valor había antes). Solo la propietaria: es el registro con
+// el que vigila lo que hace su equipo, así que ni recepción con permiso de dinero
+// lo lee. Espejo de la RLS de `auditoria_estudio` (migración 20260925152253), que
+// es la cerradura: esto solo evita enseñar una pestaña que no va a cargar nada.
+export function puedeVerAuditoriaFinanciera(rol: Rol): boolean {
+  return rol === 'PROPIETARIO';
+}
+
 // Aprobar/rechazar una reserva pendiente de aprobación (Fase 2a). Espejo TS
 // de `puede_gestionar_calendario()` en SQL (`resolver_reserva_pendiente`,
 // migr 20260730192445) — el mismo criterio en los dos sitios, como manda la

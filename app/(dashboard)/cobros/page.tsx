@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useStudio } from '@/lib/studio-context';
+import { useRol, puedeVerAuditoriaFinanciera } from '@/lib/permisos';
 import { PageHeader } from '@/components/ui/page-header';
 import { PanelPendientes } from '@/components/cobros/panel-pendientes';
 import { PanelFacturas } from '@/components/cobros/panel-facturas';
 import { BotonRemesaSepa } from '@/components/cobros/boton-remesa-sepa';
+import { HistorialDinero } from '@/components/auditoria/historial-dinero';
 import { Toast, useToast } from '@/components/ui/toast';
 
 // "Cobrar" existe ahora como un solo sitio. Antes estaba repartido entre
@@ -33,6 +36,9 @@ const TABS = [
   { id: 'deudas', label: 'Quién me debe' },
   { id: 'cobrado', label: 'Lo que he cobrado' },
   { id: 'facturas', label: 'Facturas' },
+  // Solo la propietaria (`puedeVerAuditoriaFinanciera`): quién tocó qué recibo,
+  // cuota o plan. Se filtra abajo; aquí solo existe como opción.
+  { id: 'historial', label: 'Cambios del equipo' },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -44,14 +50,18 @@ function esTab(v: string | null): v is TabId {
 export default function Cobros() {
   const [tab, setTab] = useState<TabId>('deudas');
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const { studio } = useStudio();
+  const verHistorial = puedeVerAuditoriaFinanciera(useRol());
+  const tabs = TABS.filter(t => t.id !== 'historial' || verHistorial);
 
   // Se lee de window.location y no con useSearchParams para no suspender el
   // árbol (mismo motivo que en el resto de pantallas del panel).
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get('tab');
+    // `?tab=historial` no abre la pestaña a quien no puede verla.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (esTab(t)) setTab(t);
-  }, []);
+    if (esTab(t) && (t !== 'historial' || verHistorial)) setTab(t);
+  }, [verHistorial]);
 
   function irA(id: TabId) {
     setTab(id);
@@ -70,7 +80,7 @@ export default function Cobros() {
       {/* `max-w-full`: con `w-fit` a secas la barra medía su ancho natural y en un
           móvil de 375 px «Facturas» se salía del margen de la página. */}
       <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit max-w-full overflow-x-auto">
-        {TABS.map(t => (
+        {tabs.map(t => (
           <button
             key={t.id}
             onClick={() => irA(t.id)}
@@ -90,6 +100,7 @@ export default function Cobros() {
       )}
       {tab === 'cobrado' && <PanelPendientes vista="cobrado" onToast={showToast} />}
       {tab === 'facturas' && <PanelFacturas />}
+      {tab === 'historial' && verHistorial && studio && <HistorialDinero studioId={studio.id} />}
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
   );

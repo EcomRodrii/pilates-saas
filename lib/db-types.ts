@@ -3366,6 +3366,23 @@ export interface RowCampanaEnvios {
   creado_en: string;
 }
 
+export interface RowAuditoriaEstudio {
+  id: number;
+  studio_id: string;
+  ocurrido_en: string;
+  actor_uid: string;
+  actor_rol: string;
+  origen: string;
+  tabla: string;
+  fila_id: string;
+  operacion: string;
+  socio_id: string | null;
+  cambios: string[] | null;
+  contexto: any | null;
+  antes: any | null;
+  despues: any | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -9301,6 +9318,40 @@ export type CampanaEnviosUpdate = {
   creado_en?: string | null;
 }
 
+export type AuditoriaEstudioInsert = {
+  id?: number | null;
+  studio_id?: string | null;
+  ocurrido_en?: string | null;
+  actor_uid?: string | null;
+  actor_rol?: string | null;
+  origen?: string | null;
+  tabla?: string | null;
+  fila_id?: string | null;
+  operacion?: string | null;
+  socio_id?: string | null | null;
+  cambios?: string[] | null | null;
+  contexto?: any | null | null;
+  antes?: any | null | null;
+  despues?: any | null | null;
+}
+
+export type AuditoriaEstudioUpdate = {
+  id?: number | null;
+  studio_id?: string | null;
+  ocurrido_en?: string | null;
+  actor_uid?: string | null;
+  actor_rol?: string | null;
+  origen?: string | null;
+  tabla?: string | null;
+  fila_id?: string | null;
+  operacion?: string | null;
+  socio_id?: string | null | null;
+  cambios?: string[] | null | null;
+  contexto?: any | null | null;
+  antes?: any | null | null;
+  despues?: any | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -10368,6 +10419,11 @@ export type Database = {
         Row: RowCampanaEnvios;
         Insert: CampanaEnviosInsert;
         Update: CampanaEnviosUpdate;
+      };
+      auditoria_estudio: {
+        Row: RowAuditoriaEstudio;
+        Insert: AuditoriaEstudioInsert;
+        Update: AuditoriaEstudioUpdate;
       };
     };
   };

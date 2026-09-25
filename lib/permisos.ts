@@ -12,6 +12,7 @@ export {
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar,
   puedeCrearClasesPropias, puedeGestionarCalendario, puedeGestionarAppsOAuth,
   nombreAppPorRol, puedeGestionarCamposPersonalizados, puedeVerDatosPrivadosSocia,
+  puedeVerAuditoriaFinanciera,
 } from './permisos-reglas';
 
 // A-2 (fail-closed): antes cualquier usuario autenticado SIN ficha de instructora
