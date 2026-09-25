@@ -8,6 +8,7 @@ import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
 import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
+import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
 // suscribir su negocio. Crea (o reutiliza) el Customer de Stripe del estudio y
@@ -79,6 +80,22 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // PAY-5: se pregunta a STRIPE, no a `studio.subscription_id` (que solo escribe
+    // el webhook, minutos después). Ver lib/billing/checkout-saas-previo.ts.
+    async function checkoutPrevio(customerId: string): Promise<NextResponse | null> {
+      const previo = await consultarCheckoutPrevio(stripe, customerId, plan as string, Boolean(discounts));
+      // Caducar lo que sobra (best-effort: si una ya estaba completada o caducada
+      // Stripe lo rechaza, y en el peor caso queda como estaba antes de este arreglo).
+      for (const id of previo.expirar) await stripe.checkout.sessions.expire(id).catch(() => {});
+      if (previo.accion === 'bloquear') {
+        return NextResponse.json(
+          { error: 'Ya tienes una suscripción activa. Gestiónala desde Suscripción.' },
+          { status: 409 },
+        );
+      }
+      if (previo.accion === 'reutilizar') return NextResponse.json({ url: previo.url });
+      return null;
+    }
     // Plan CADENA: una sola suscripción cubre todas las sedes de la cadena
     // (studios.cadena_id) — el customer/subscription viven en `cadenas`, no en
     // `studios`. BASE/ESTUDIO siguen 1:1 contra la propia fila de studios.
@@ -161,6 +178,9 @@ export async function POST(req: NextRequest) {
         await admin.from('cadenas').update({ stripe_customer_id: customerId }).eq('id', cadena.id);
       }
 
+      const yaHay = await checkoutPrevio(customerId);
+      if (yaHay) return yaHay;
+
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         customer: customerId,
@@ -223,6 +243,9 @@ export async function POST(req: NextRequest) {
       customerId = customer.id;
       await admin.from('studios').update({ stripe_customer_id: customerId }).eq('id', studio.id);
     }
+
+    const yaHay = await checkoutPrevio(customerId);
+    if (yaHay) return yaHay;
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
