@@ -207,10 +207,15 @@ test.describe('Reordenar módulos', () => {
     await page.goto('/dashboard');
     // «Todo»: en modo esencial no se listan los dos y no habría nada que comparar.
     await page.getByRole('button', { name: 'Todo' }).click({ timeout: 30_000 });
-    const hrefs = await page.locator('aside').first().locator('a[href]').evaluateAll(
+    // ⚠️ Se ESPERA a que el menú pinte los módulos antes de leerlo. Leerlo justo
+    // tras el clic devolvía a veces solo `/mi-perfil` en CI (el menú aún no había
+    // pintado los módulos): un rojo intermitente que no decía nada del orden.
+    const menu = page.locator('aside').first();
+    await expect(menu.locator('a[href="/citas"]')).toBeAttached({ timeout: 30_000 });
+    await expect(menu.locator('a[href="/calendario"]')).toBeAttached();
+    const hrefs = await menu.locator('a[href]').evaluateAll(
       as => as.map(a => a.getAttribute('href')),
     );
-    expect(hrefs).toContain('/citas');
     expect(hrefs.indexOf('/citas')).toBeLessThan(hrefs.indexOf('/calendario'));
   });
 });
