@@ -15,10 +15,12 @@ const REDES_SOCIALES_TENTARE = [
 // no van en el pie de la landing: solo le dicen a Google y a los buscadores con
 // IA que estas páginas hablan de la misma empresa. Las facilitó el fundador el
 // 25-sep-2026 y se abrieron una a una ese día (Capterra y GetApp detrás de
-// Cloudflare: comprobadas con un lector, no con curl). La que pasó como «G2»
-// era la misma URL de Capterra: no hay ficha de G2 comprobada todavía.
+// Cloudflare: comprobadas con un lector, no con curl). La de G2 no se pudo
+// abrir desde fuera (G2 responde 403 a cualquier lector automático): va tal
+// cual la dio el fundador, que es quien la administra.
 const PERFILES_EN_DIRECTORIOS = [
   'https://www.capterra.com/p/10054501/Tentare/',
+  'https://www.g2.com/es/products/tentare/reviews',
   'https://www.getapp.ca/software/2141983/tentare',
   'https://sellwithboost.com/startups/tentare-pilates-software',
 ];
