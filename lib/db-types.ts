@@ -35,6 +35,8 @@ export interface RowReservas {
   cancelada_motivo: string | null;
   // migr 20260919075507.
   bono_devuelto_en: string | null;
+  // migr 20260925132205.
+  bono_devolucion_debida_en: string | null;
 }
 
 export interface RowAchievementDefinitions {
@@ -3386,6 +3388,7 @@ export type ReservasInsert = {
   bono_consumo_rastreado?: boolean | null | null;
   cancelada_motivo?: string | null | null;
   bono_devuelto_en?: string | null | null;
+  bono_devolucion_debida_en?: string | null | null;
 }
 
 export type ReservasUpdate = {
@@ -3409,6 +3412,7 @@ export type ReservasUpdate = {
   bono_consumo_rastreado?: boolean | null | null;
   cancelada_motivo?: string | null | null;
   bono_devuelto_en?: string | null | null;
+  bono_devolucion_debida_en?: string | null | null;
 }
 
 export type AchievementDefinitionsInsert = {
