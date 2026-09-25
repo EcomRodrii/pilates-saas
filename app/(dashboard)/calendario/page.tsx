@@ -27,7 +27,8 @@ import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
 import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera, TZ_ESTUDIO } from '@/lib/utils';
 import { horaParedAInstante, fechaLocalDe, esHoraHHMM } from '@/lib/citas/slots';
-import { horarioConNuevaHora } from '@/lib/serie-horario';
+import { calcularImpactoEdicionSerie, cambiosPorClase, type EdicionDeSerie, type ImpactoEdicionSerie } from '@/lib/series-impacto-edicion';
+import { DialogoImpactoEdicion, type CambioVisible } from '@/components/series/dialogo-impacto-edicion';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, decidirReservaPendiente, type AusenciaInstructora } from '@/lib/api-client';
 import { resultadoDecisionReserva } from '@/lib/reservas-por-aprobar';
 import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
@@ -881,6 +882,9 @@ export default function Calendario() {
   );
 
   const horaInvalida = !!(showForm && form.horaInicio && form.horaFin && form.horaFin <= form.horaInicio);
+  // Un <input type="time"> borrado da '': sin hora no hay clase que guardar (y la
+  // conversión a instante lanzaría). Mismo criterio que el formulario de series.
+  const horaVacia = !!(showForm && (!form.horaInicio || !form.horaFin));
   const repetirInvalido = !!(showForm === 'nueva' && form.repetir && (!form.repetirSemanas || form.repetirSemanas < 2));
 
   const faltaConfigurar = useMemo(() => {
@@ -1196,7 +1200,7 @@ export default function Calendario() {
   }
 
   async function crearSesion() {
-    if (horaInvalida || faltaConfigurar || repetirInvalido || guardandoSesion) return;
+    if (horaInvalida || horaVacia || faltaConfigurar || repetirInvalido || guardandoSesion) return;
     const semanas = form.repetir ? form.repetirSemanas : 1;
     const eraLaPrimera = sinNingunaClase;
     setGuardandoSesion(true);
@@ -1361,7 +1365,7 @@ export default function Calendario() {
   }
 
   async function editarSesion() {
-    if (!sesionId || horaInvalida || guardandoSesion) return;
+    if (!sesionId || horaInvalida || horaVacia || guardandoSesion) return;
     if (sesionActual && sesionYaEmpezada(sesionActual.inicio)) {
       showToast(MENSAJE_CLASE_YA_EMPEZADA);
       return;
@@ -1475,14 +1479,56 @@ export default function Calendario() {
     }
   }
 
+  // Las clases que tocaría «Guardar esta y las siguientes»: la clase abierta y las
+  // siguientes de su serie. Una sola definición para la vista previa, el recuento
+  // del toast y los avisos.
+  function tramoDeLaSerie() {
+    const base = sesionesEnriquecidas.find(x => x.id === sesionId);
+    if (!base?.serieId) return [];
+    return sesionesEnriquecidas.filter(s => s.serieId === base.serieId && s.inicio >= base.inicio);
+  }
+
+  function edicionDelFormulario(): EdicionDeSerie {
+    return {
+      tipoClaseId: form.tipoClaseId, salaId: form.salaId, instructorId: form.instructorId,
+      aforoMaximo: form.aforoMaximo, horaInicio: form.horaInicio, horaFin: form.horaFin,
+      notas: form.notas || null,
+    };
+  }
+
+  // «Guardar esta y las siguientes» ya no guarda al pulsarlo: primero enseña qué va
+  // a pasar (a cuántas alumnas se avisa, plazas fijas, lista de espera…) y guarda
+  // al confirmar. Los datos son los mismos que ya tiene el panel en pantalla.
+  const [impactoSerie, setImpactoSerie] = useState<{ impacto: ImpactoEdicionSerie; cambios: CambioVisible[]; desdeTexto: string } | null>(null);
+  function pedirConfirmacionSerie() {
+    if (!sesionId || horaInvalida || horaVacia || guardandoSesion) return;
+    const base = sesionesEnriquecidas.find(x => x.id === sesionId);
+    if (!base) return;
+    const edicion = edicionDelFormulario();
+    const impacto = calcularImpactoEdicionSerie({
+      tramo: tramoDeLaSerie(), edicion, reservas, plazasFijas, recuperaciones,
+    });
+    const cambios: CambioVisible[] = [];
+    if (impacto.cambian.hora > 0) cambios.push({ etiqueta: 'Hora', desde: `${horaEstudio(new Date(base.inicio))}–${horaEstudio(new Date(base.fin))}`, a: `${form.horaInicio}–${form.horaFin}` });
+    if (impacto.cambian.sala > 0) cambios.push({ etiqueta: 'Sala', desde: nombreSala(base.salaId), a: nombreSala(form.salaId) });
+    if (impacto.cambian.instructora > 0) cambios.push({ etiqueta: 'Instructora', desde: nombreInstructor(base.instructorId), a: nombreInstructor(form.instructorId) });
+    if (impacto.cambian.tipo > 0) cambios.push({ etiqueta: 'Tipo de clase', desde: base.tipoClase.nombre, a: tiposClase.find(t => t.id === form.tipoClaseId)?.nombre ?? '' });
+    if (impacto.cambian.aforo > 0) cambios.push({ etiqueta: 'Aforo', desde: String(base.aforoMaximo), a: String(form.aforoMaximo) });
+    if (impacto.cambian.notas > 0) cambios.push({ etiqueta: 'Notas', desde: '', a: form.notas ? 'se actualizan' : 'se quitan' });
+    setImpactoSerie({
+      impacto, cambios,
+      desdeTexto: fechaLargaEstudio(new Date(impacto.primeraISO ?? base.inicio)),
+    });
+  }
+
   async function editarSerie() {
-    if (!sesionId || horaInvalida || guardandoSesion) return;
+    if (!sesionId || horaInvalida || horaVacia || guardandoSesion) return;
     setGuardandoSesion(true);
     try {
-    const n = sesionesEnriquecidas.filter(s => {
-      const base = sesionesEnriquecidas.find(x => x.id === sesionId);
-      return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio;
-    }).length;
+    // Se calcula ANTES de guardar: es lo que había, no lo que queda.
+    const tramo = tramoDeLaSerie();
+    const n = tramo.length;
+    const evaluadas = cambiosPorClase(tramo, edicionDelFormulario());
     const guardado = await editarSerieDesde(sesionId, {
       tipoClaseId: form.tipoClaseId,
       salaId: form.salaId,
@@ -1514,35 +1560,28 @@ export default function Calendario() {
       // la serie recibía un correo por clase (evaluación del 13-sep). El
       // servidor decide a quién avisar en qué clase (lib/avisos-serie.ts).
       const cambios: CambioClaseSerie[] = [];
-      for (const s of sesionesEnriquecidas) {
-        if (s.serieId !== base.serieId || s.inicio < base.inicio) continue;
-        // R-3: mismo motivo que openEdit — `localDate` (zona del navegador)
-        // desplazaba esto igual que el bug original. Aquí, además, es
-        // exactamente lo que ya resuelve serie-horario.ts (mismo propósito:
-        // conservar la fecha local del estudio, cambiar solo la hora).
-        const nuevoInicioS = horarioConNuevaHora(s.inicio, form.horaInicio, form.horaFin).inicio;
-        const cambioHora = s.inicio !== nuevoInicioS;
-        const cambioSala = s.salaId !== form.salaId;
-        // ⚠️ El cambio de INSTRUCTORA entra en la condición, y antes no estaba:
-        // el bucle solo avisaba si había cambiado la hora o la sala, así que
-        // pasar una serie de 12 clases a otra profesora no mandaba NI UN aviso
-        // a las 8 alumnas apuntadas. La comparación es POR SESIÓN y no contra
-        // `base`: dentro de una serie puede haber clases con instructoras
+      for (const c of evaluadas) {
+        // La MISMA función que la vista previa (lib/series-impacto-edicion.ts):
+        // compara instantes, no texto (ver el porqué allí), y el cambio de
+        // INSTRUCTORA cuenta —antes no estaba y una serie de 12 clases pasada a
+        // otra profesora no avisaba a nadie—. La comparación es POR SESIÓN y no
+        // contra `base`: dentro de una serie puede haber clases con instructoras
         // distintas (una sustitución puntual), y esas también cambian.
-        const cambioInstructora = s.instructorId !== form.instructorId;
-        if (!cambioHora && !cambioSala && !cambioInstructora) continue;
-        const d = new Date(nuevoInicioS);
+        if (!c.avisa) continue;
+        const s = c.sesion;
+        // R-3: la fecha local del estudio con la hora nueva (no la del navegador).
+        const d = new Date(c.nuevoInicio);
         // Mismos datos que el aviso COMPLETO de una clase suelta, no los de
         // `avisarClaseModificada`: ese no lleva instructora, así que el correo
         // habría dicho que algo cambió sin decir qué.
         cambios.push({
-          sesionId: s.id, inicio: nuevoInicioS,
+          sesionId: s.id, inicio: c.nuevoInicio,
           clase, cuando: cuandoEstudio(d), sala: salaNombre,
-          instructora: cambioInstructora ? nuevaInstructora : '',
+          instructora: c.instructora ? nuevaInstructora : '',
           instructorActual: nuevaInstructora,
-          instructorAnterior: cambioInstructora ? nombreInstructor(s.instructorId) : undefined,
+          instructorAnterior: c.instructora ? nombreInstructor(s.instructorId) : undefined,
           fecha: fechaLargaEstudio(d), hora: horaEstudio(d),
-          cambioHora, cambioSala,
+          cambioHora: c.hora, cambioSala: c.sala,
         });
       }
       if (cambios.length > 0) void avisarCambioSerieServidor(cambios);
@@ -3559,6 +3598,17 @@ export default function Calendario() {
         guardando={guardandoSesion}
       />
 
+      {impactoSerie && (
+        <DialogoImpactoEdicion
+          impacto={impactoSerie.impacto}
+          cambios={impactoSerie.cambios}
+          desdeTexto={impactoSerie.desdeTexto}
+          guardando={guardandoSesion}
+          onClose={() => setImpactoSerie(null)}
+          onConfirm={() => { void editarSerie().finally(() => setImpactoSerie(null)); }}
+        />
+      )}
+
       <ConfirmDialog
         open={confirmCancelar}
         onOpenChange={setConfirmCancelar}
@@ -3777,6 +3827,14 @@ export default function Calendario() {
                 </div>
               </div>
             )}
+            {horaVacia && !faltaConfigurar && (
+              <div className="px-6 pb-1 shrink-0">
+                <div className="rounded-xl px-3.5 py-2.5 text-xs bg-destructive/10 border border-destructive/30 text-destructive flex gap-2">
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5 text-destructive" />
+                  <p>Elige la hora de inicio y la de fin.</p>
+                </div>
+              </div>
+            )}
 
             {/* Conflicto de sala/instructora (I-1): BLOQUEA el guardado — la BD lo
                 rechazaría igualmente (sesiones_sala_sin_solape, 0071, y
@@ -3817,14 +3875,14 @@ export default function Calendario() {
               <div className="px-6 py-5 border-t border-border flex flex-col gap-2 shrink-0">
                 <button
                   onClick={editarSesion}
-                  disabled={horaInvalida || !!faltaConfigurar || !!conflictosForm}
+                  disabled={horaInvalida || horaVacia || !!faltaConfigurar || !!conflictosForm}
                   className="w-full py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Guardar solo esta clase
                 </button>
                 <button
-                  onClick={editarSerie}
-                  disabled={horaInvalida || !!faltaConfigurar || !!conflictosForm}
+                  onClick={pedirConfirmacionSerie}
+                  disabled={horaInvalida || horaVacia || !!faltaConfigurar || !!conflictosForm}
                   className="w-full py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:pointer-events-none"
                 >
                   Guardar esta y las siguientes
@@ -3843,7 +3901,7 @@ export default function Calendario() {
                   </button>
                   <button
                     onClick={showForm === 'nueva' ? crearSesion : editarSesion}
-                    disabled={horaInvalida || !!faltaConfigurar || repetirInvalido || !!conflictosForm || guardandoSesion}
+                    disabled={horaInvalida || horaVacia || !!faltaConfigurar || repetirInvalido || !!conflictosForm || guardandoSesion}
                     className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {guardandoSesion
