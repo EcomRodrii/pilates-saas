@@ -166,7 +166,9 @@ export const CATEGORIAS: CategoriaPlan[] = [
       // panel de Facturas dice «envío a la AEAT en desarrollo»: descubrir esa
       // diferencia durante la prueba destruye la confianza justo cuando se está
       // decidiendo la compra.
-      { nombre: 'Facturas con el formato de Veri*Factu', detalle: 'Numeración legal, huella encadenada y QR de cotejo. El envío automático a la AEAT está en construcción.', valor: TODOS },
+      // ⚠️ Y el QR tampoco: la factura solo lo imprime cuando la AEAT ya tiene
+      // el registro (selloParaCliente), así que sin envío no sale en ninguna.
+      { nombre: 'Facturas con huella encadenada (Veri*Factu)', detalle: 'Numeración legal y huella encadenada. La firma y el envío automático a la AEAT están en construcción; el QR de cotejo llega con el envío.', valor: TODOS },
       { nombre: 'Cierre de año para la gestoría', valor: TODOS },
       { nombre: 'Exportación de tus datos cuando quieras', valor: TODOS },
     ],

@@ -15,12 +15,15 @@ import {
   fechaModificada, guia, mesCorto, metaTarjeta, urlGuia,
   type CategoriaRecursos, type PortadaRecursos as Portada,
 } from '@/lib/recursos/guias';
+import { ARTICULOS, minutosLectura, urlArticulo } from '@/lib/recursos/articulos';
+import { contarPalabras } from '@/lib/recursos/articulos/validar';
 
 type Category = 'todos' | CategoriaRecursos;
 
 const CATEGORIES: { key: Category; label: string }[] = [{ key: 'todos', label: 'Todos' }, ...CATEGORIAS_RECURSOS];
 
 const CATEGORY_GRADIENTS: Record<CategoriaRecursos, string> = {
+  abrir: 'linear-gradient(140deg,#2b2a1d,#6E7650)',
   sustituciones: 'linear-gradient(140deg,#22463a,#4E9E7F)',
   rentabilidad: 'linear-gradient(140deg,#1f3d42,#3E7C86)',
   operacion: 'linear-gradient(140deg,#5e2318,#C2503A)',
@@ -40,13 +43,24 @@ type Article = {
 // Las tarjetas y la destacada salen del registro de guías (lib/recursos/guias.ts):
 // título, texto, fechas, minutos y portada ya no se escriben aquí. El pie de cada
 // tarjeta («9 min · ago 2026») se deriva de la misma fecha que el JSON-LD.
-const ARTICLES: Article[] = ORDEN_LISTADO.map((clave) => {
+// Los artículos escritos como datos (lib/recursos/articulos) van delante: son
+// los que responden a lo que más buscan las propietarias. Sin portada: la
+// tarjeta enseña el color de su categoría.
+const ARTICULOS_DATOS: Article[] = ARTICULOS.map((a) => ({
+  category: a.categoria,
+  title: a.titulo,
+  body: a.resumen,
+  href: urlArticulo(a.slug),
+  meta: `${minutosLectura(contarPalabras(a))} min · ${mesCorto(a.publicado)}`,
+}));
+
+const ARTICLES: Article[] = [...ARTICULOS_DATOS, ...ORDEN_LISTADO.map((clave) => {
   const g = GUIAS.find((x) => x.slug === clave);
   if (g) return { category: g.categoria, title: g.titulo, body: g.resumen, href: urlGuia(g.slug), meta: metaTarjeta(g), portada: g.portada };
   const t = TARJETAS_SIN_GUIA.find((x) => x.clave === clave);
   if (!t) throw new Error(`ORDEN_LISTADO: «${clave}» no es ni una guía ni una tarjeta registrada`);
   return { category: t.categoria, title: t.titulo, body: t.resumen, href: t.href, meta: t.meta, portada: t.portada };
-});
+})];
 
 const G_DESTACADA = guia(DESTACADA);
 const FEATURED = {

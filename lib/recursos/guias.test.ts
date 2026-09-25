@@ -39,7 +39,9 @@ function medidas(fichero: string): { ancho: number; alto: number } {
 
 test('cada carpeta de app/recursos es una guía registrada, y al revés', () => {
   const enApp = readdirSync(join(RAIZ, 'app', 'recursos'), { withFileTypes: true })
-    .filter((d) => d.isDirectory() && existsSync(join(RAIZ, 'app', 'recursos', d.name, 'page.tsx')))
+    // `[slug]` es el segmento de los artículos escritos como datos
+    // (lib/recursos/articulos), que tienen su propio test de registro.
+    .filter((d) => d.isDirectory() && !d.name.startsWith('[') && existsSync(join(RAIZ, 'app', 'recursos', d.name, 'page.tsx')))
     .map((d) => d.name)
     .sort();
   assert.deepEqual(GUIAS.map((g) => g.slug).sort(), enApp);
@@ -73,7 +75,7 @@ test('el pie de las tarjetas sale de las mismas fechas', () => {
   assert.equal(mesCorto('2026-01-31'), 'ene 2026');
   const f = GUIAS.find((g) => g.slug === 'facturacion-electronica-verifactu')!;
   assert.equal(metaTarjeta(f), '7 min · jul 2026');
-  assert.equal(fechaModificada(f), '2026-08-13');
+  assert.equal(fechaModificada(f), '2026-09-25');
 });
 
 test('el listado enseña todas las guías y tarjetas, una vez cada una', () => {

@@ -17,10 +17,11 @@
 // `scripts/portadas-recursos.mjs`, y ninguno de los dos los resuelve.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type CategoriaRecursos = 'sustituciones' | 'rentabilidad' | 'operacion' | 'espana' | 'software';
+export type CategoriaRecursos = 'abrir' | 'sustituciones' | 'rentabilidad' | 'operacion' | 'espana' | 'software';
 
 /** Filtros del listado, en su orden. */
 export const CATEGORIAS_RECURSOS: { key: CategoriaRecursos; label: string }[] = [
+  { key: 'abrir', label: 'Abrir un estudio' },
   { key: 'sustituciones', label: 'Sustituciones y equipo' },
   { key: 'rentabilidad', label: 'Rentabilidad' },
   { key: 'operacion', label: 'Operación' },
@@ -118,7 +119,7 @@ export const GUIAS: Guia[] = [
     seccion: 'España y fiscalidad',
     lectura: 7,
     publicado: '2026-07-01',
-    actualizado: '2026-08-13',
+    actualizado: '2026-09-25',
     portada: portada('portatil-factura-facturacion-electronica', '04-facturacion-electronica.jpg',
       'Escena ilustrativa: unas manos escriben en un portátil que muestra una factura, junto a una taza en una mesa de madera',
       505, 244, [1, 0, 1, 0]),

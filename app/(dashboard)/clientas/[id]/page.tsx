@@ -12,6 +12,7 @@ import { estructurarNotaIA } from '@/lib/ai/instructor-note-client';
 import { resumenSocio } from '@/lib/socio-resumen';
 import { saldoSesionesBono, nombrePeriodo } from '@/lib/bono-logic';
 import type { LeadStage } from '@/lib/types';
+import { ETIQUETA_GENERO, GENEROS, etiquetaFija, generoDe, mayuscula, trato, type Genero } from '@/lib/genero';
 import { enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia } from '@/lib/permisos';
 import { asignarVentaAClienta, esError, ventasPorAsignarDePlan, type VentaPorAsignar } from '@/lib/pos/cliente';
@@ -379,9 +380,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [msgForm, setMsgForm] = useState({ asunto: '', cuerpo: '' });
   const [enviandoMsg, setEnviandoMsg] = useState(false);
   const [editForm, setEditForm] = useState<{
-    nombre: string; apellidos: string; email: string; telefono: string; nif: string;
+    nombre: string; apellidos: string; email: string; telefono: string; nif: string; genero: Genero | '';
     camposExtra: Record<string, string | number | boolean | null>;
-  }>({ nombre: '', apellidos: '', email: '', telefono: '', nif: '', camposExtra: {} });
+  }>({ nombre: '', apellidos: '', email: '', telefono: '', nif: '', genero: '', camposExtra: {} });
   const [reciboForm, setReciboForm] = useState({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()) });
 
   // ── Historial real de comunicaciones (comunicaciones_socio) ─────────────────
@@ -428,6 +429,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   }, [id, verFinanzas]);
 
   const socio = socios.find(s => s.id === id);
+  // Las palabras que hablan de ESTA persona («clienta»/«cliente», «esta»/«este»…).
+  // Sin género indicado se escribe en femenino, como siempre.
+  const t = trato(socio?.genero);
   // Si el buzón de esta clienta rechaza el correo, hay que decirlo AQUÍ. Antes
   // solo se veía al reintentar un aviso de hueco: los recordatorios, las
   // facturas y los accesos se daban por enviados igual (#1868). Se normaliza
@@ -576,6 +580,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       email: socio!.email,
       telefono: socio!.telefono ?? '',
       nif: socio!.nif ?? '',
+      genero: generoDe(socio!.genero) ?? '',
       camposExtra: socio!.camposExtra ?? {},
     });
     setShowEdit(true);
@@ -590,13 +595,16 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       email: editForm.email.trim(),
       telefono: editForm.telefono || null,
       nif: editForm.nif || null,
+      genero: editForm.genero || null,
       camposExtra: editForm.camposExtra,
     }, { puedeVerPrivados: veDatosPrivados, original: socio }));
     // El diálogo solo se cierra si de verdad se guardó: cerrarlo con el error
     // detrás deja a la propietaria creyendo que cambió el email de una clienta.
     if (!res.ok) { setToast(res.error); return; }
     setShowEdit(false);
-    setToast('Clienta actualizada');
+    // Con el género que se acaba de guardar, no con el de antes de abrir el diálogo.
+    const nuevo = trato(editForm.genero || null);
+    setToast(`${mayuscula(nuevo.clienta)} actualizad${nuevo.fin}`);
   }
 
   async function handleDelete() {
@@ -803,7 +811,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   async function handleSendMessage() {
     if (!socio) return;
     if (!msgForm.asunto.trim() || !msgForm.cuerpo.trim()) return;
-    if (!socio.email) { setToast('La clienta no tiene email registrado'); return; }
+    if (!socio.email) { setToast(`${mayuscula(t.la)} ${t.clienta} no tiene email registrado`); return; }
     // Antes solo actualizaba estado local y decía "Email enviado" sin enviar nada.
     // Ahora manda el email de verdad por Resend (/api/emails/send).
     setEnviandoMsg(true);
@@ -1698,7 +1706,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                     <div className="py-16 text-center border border-dashed border-border rounded-xl">
                       <Mail size={28} className="mx-auto text-muted-foreground mb-3" />
                       <p className="text-sm font-semibold text-muted-foreground">Sin comunicaciones enviadas</p>
-                      <p className="text-xs text-muted-foreground mt-1">Los emails enviados a esta clienta aparecerán aquí.</p>
+                      <p className="text-xs text-muted-foreground mt-1">Los emails enviados {t.alA} {t.clienta} aparecerán aquí.</p>
                       {gestionaClientas && (
                       <button
                         onClick={() => setShowSendMessage(true)}
@@ -1793,7 +1801,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, var(--card))', color: 'var(--primary)' }}
                 >
                   <CalendarClock size={12} aria-hidden />
-                  Clienta fija
+                  {etiquetaFija(socio.genero)}
                 </span>
               )}
               {verSemaforo && semaforoSocio !== 'VERDE' && (
@@ -1941,7 +1949,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 onClick={openEdit}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
               >
-                <Pencil size={14} />Editar clienta
+                <Pencil size={14} />Editar {t.clienta}
               </button>
               <button
                 onClick={() => { void updateSocio(id, { activo: !socio.activo }).then(res => { if (!res.ok) setToast(res.error); }); }}
@@ -1953,7 +1961,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 onClick={() => setShowConfirmDelete(true)}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-destructive hover:bg-destructive/10 transition-colors"
               >
-                <Trash2 size={14} />Eliminar clienta
+                <Trash2 size={14} />Eliminar {t.clienta}
               </button>
               </>)}
             </div>
@@ -2162,7 +2170,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <DialogTitle className="text-base font-semibold text-foreground">¿{socio.nombre} ha dado su consentimiento?</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground mt-2">
-            Confirma solo si la clienta ha aceptado expresamente, en persona o por escrito, recibir marketing
+            Confirma solo si {t.la} {t.clienta} ha aceptado expresamente, en persona o por escrito, recibir marketing
             por email. Podrá retirarlo en cualquier momento desde el enlace de baja de cualquier email.
           </p>
           <div className="flex gap-2 mt-4">
@@ -2225,7 +2233,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       <Dialog open={showEdit && gestionaClientas} onOpenChange={open => !open && setShowEdit(false)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-foreground">Editar clienta</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-foreground">Editar {t.clienta}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-4">
@@ -2239,6 +2247,21 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <FF label="Email">
               <input type="email" className={inputCls} value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
             </FF>
+            <FF label="Género">
+              <select
+                className={inputCls}
+                value={editForm.genero}
+                onChange={e => setEditForm(f => ({ ...f, genero: generoDe(e.target.value) ?? '' }))}
+              >
+                <option value="">Sin indicar</option>
+                {GENEROS.map(g => (
+                  <option key={g} value={g}>{ETIQUETA_GENERO[g]}</option>
+                ))}
+              </select>
+            </FF>
+            <p className="-mt-2 text-[11px] text-muted-foreground">
+              Solo cambia cómo se escribe en el panel («clienta»/«cliente», «alumna»/«alumno»). Sin indicar, en femenino.
+            </p>
             <div className="grid grid-cols-2 gap-4">
               <FF label="Teléfono">
                 <input className={inputCls} value={editForm.telefono} onChange={e => setEditForm(f => ({ ...f, telefono: e.target.value }))} />
@@ -2616,7 +2639,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               <Trash2 size={24} className="text-destructive" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-foreground mb-1">Dar de baja a la clienta</h3>
+              <h3 className="text-base font-semibold text-foreground mb-1">Dar de baja {t.alA} {t.clienta}</h3>
               <p className="text-sm text-muted-foreground">
                 Se anonimizan los datos personales de {socio.nombre} {socio.apellidos} y se elimina su ficha de salud; su suscripción queda cancelada. Las facturas y recibos se conservan por obligación fiscal. Esta acción no se puede deshacer.
               </p>

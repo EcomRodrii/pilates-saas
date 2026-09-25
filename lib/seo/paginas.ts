@@ -19,6 +19,7 @@
 
 import { LEGAL } from '../legal-info.ts';
 import { GUIAS, fechaModificada } from '../recursos/guias.ts';
+import { ARTICULOS } from '../recursos/articulos/index.ts';
 
 /**
  * Origen canónico del sitio. **No se escribe aquí**: se deriva de `LEGAL.url`,
@@ -123,7 +124,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/sustituciones', '/funcionalidades/calendario-y-salas', '/funcionalidades/informes-y-rentabilidad'],
+    relacionadas: ['/funcionalidades/sustituciones', '/funcionalidades/calendario-y-salas', '/funcionalidades/informes-y-rentabilidad', '/recursos/cuanto-cobra-una-instructora-de-pilates'],
   },
   {
     path: '/funcionalidades/sustituciones',
@@ -149,7 +150,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/cobros-recurrentes', '/funcionalidades/reservas-online', '/funcionalidades/ficha-de-clienta', '/funcionalidades/plazas-fijas'],
+    relacionadas: ['/funcionalidades/cobros-recurrentes', '/funcionalidades/reservas-online', '/funcionalidades/ficha-de-clienta', '/funcionalidades/plazas-fijas', '/recursos/bonos-de-pilates'],
   },
   {
     path: '/funcionalidades/plazas-fijas',
@@ -199,14 +200,14 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     // cosa y la página diga otra es la peor forma de perder la confianza de
     // quien te está evaluando. Aquí solo va lo que hoy es cierto.
     descripcion:
-      'Cada cobro, salvo el efectivo, genera su factura con numeración correlativa, huella encadenada y QR de verificación. Y el cierre de año listo para tu gestoría.',
+      'Cada cobro, salvo el efectivo, genera su factura con numeración correlativa y huella encadenada, y el cierre de año sale listo para tu gestoría.',
     grupo: 'funcionalidades',
     etiqueta: 'Facturación',
     resumen: 'Del cobro a la factura sellada, sin tocar nada.',
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/cobros-recurrentes', '/recursos/facturacion-electronica-verifactu', '/seguridad'],
+    relacionadas: ['/funcionalidades/cobros-recurrentes', '/recursos/facturacion-electronica-verifactu', '/recursos/iva-clases-de-pilates', '/seguridad'],
   },
   {
     path: '/funcionalidades/ficha-de-clienta',
@@ -256,7 +257,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/gestion-de-instructoras', '/funcionalidades/calendario-y-salas', '/funcionalidades/bonos-y-membresias'],
+    relacionadas: ['/funcionalidades/gestion-de-instructoras', '/funcionalidades/calendario-y-salas', '/funcionalidades/bonos-y-membresias', '/recursos/rentabilidad-estudio-de-pilates'],
   },
 
   {
@@ -297,7 +298,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.8,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/calendario-y-salas', '/funcionalidades/ficha-de-clienta'],
+    relacionadas: ['/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/calendario-y-salas', '/funcionalidades/ficha-de-clienta', '/recursos/plantilla-control-de-asistencia-pilates'],
   },
   {
     path: '/funcionalidades/multi-centro',
@@ -458,7 +459,7 @@ export const PAGINAS: PaginaSeo[] = [
     prioridad: 0.8,
     changeFrequency: 'monthly',
     actualizado: '2026-08-13',
-    relacionadas: ['/precios', '/funcionalidades', '/seguridad'],
+    relacionadas: ['/precios', '/funcionalidades', '/recursos/mejor-software-para-estudios-de-pilates', '/seguridad'],
   },
   // relacionadas y descripcion por competidor: la descripción NO es una
   // plantilla única — cada una es la misma que ya está escrita a mano en su
@@ -471,19 +472,19 @@ export const PAGINAS: PaginaSeo[] = [
   // competidor concreto — ver docs/SEO-AI-MASTERPLAN.md §28.
   ...([
     ['tentare-vs-mindbody', 'Mindbody', ['/funcionalidades/cobros-recurrentes', '/seguridad'],
-      'Precio, permanencia, facturación Veri*factu, dónde se alojan tus datos y comisión por captar clientas — Tentare frente a Mindbody, punto por punto.'],
+      'Mindbody publica desde 99 € al mes por ubicación; el resto de planes, a consultar. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia), punto por punto.'],
     ['tentare-vs-bsport', 'bsport', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'Cuánto cuesta bsport frente a Tentare, permanencia, facturación y sustitución de instructoras — comparados con lo que consta en la web pública de bsport.'],
+      'bsport no publica precios: hay que pedir presupuesto. Compáralo con Tentare (desde 29 €/mes con IVA, sin permanencia) en facturación, sustituciones y funciones.'],
     ['tentare-vs-momence', 'Momence', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
-      'Precio real (con comisiones), facturación Veri*factu, dónde se alojan tus datos y sustitución de instructoras — Tentare frente a Momence, punto por punto.'],
+      'Momence no publica precios: pide hablar con ellos. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia): cobros, facturación y funciones, punto por punto.'],
     ['tentare-vs-timp', 'TIMP', ['/funcionalidades/sustituciones', '/funcionalidades/cobros-recurrentes'],
-      'Precio, permanencia, Veri*factu y TicketBAI, comisión por captar clientas y sustitución de instructoras — Tentare frente a TIMP, punto por punto.'],
+      'TIMP publica desde 50 €/mes para un profesional (no consta si incluye IVA). Frente a Tentare (desde 29 €/mes con IVA, sin permanencia), punto por punto.'],
     ['tentare-vs-eversports', 'Eversports', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
-      'Precio, permanencia, facturación Veri*factu, comisión por captar clientas y sustitución de instructoras — Tentare frente a Eversports, punto por punto.'],
+      'Eversports publica desde 33 €/mes (anual) o 41 €/mes (mensual), sin IVA y según reservas. Frente a Tentare (desde 29 €/mes con IVA), punto por punto.'],
     ['tentare-vs-lorari', 'Lorari', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Lorari, punto por punto.'],
+      'Lorari publica desde 12 €/mes + IVA (hasta 50 alumnos activos). Frente a Tentare (desde 29 €/mes con IVA, sin permanencia): funciones y límites.'],
     ['tentare-vs-bonsai', 'Bonsai', ['/funcionalidades/facturacion', '/funcionalidades/sustituciones'],
-      'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Bonsai, punto por punto.'],
+      'Bonsai: plan gratis (con un 3 % extra por cobro) o desde 29 €/mes + IVA con pago anual. Frente a Tentare (29 €/mes con IVA, sin permanencia), punto por punto.'],
     // Estos 5 no salieron de una lista genérica de "competidores conocidos"
     // como los 8 de arriba — son los que de verdad aparecen en el SERP español
     // para "gestión pilates"/"gestión centros de pilates", las 2 únicas
@@ -492,29 +493,29 @@ export const PAGINAS: PaginaSeo[] = [
     // en su web pública — donde no se encontró un dato, la fila dice
     // "no encontrada"/"no especifica", nunca se asumió.
     ['tentare-vs-viday', 'ViDay', ['/funcionalidades/sustituciones', '/precios'],
-      'Precio, permanencia, Veri*factu, gestión por reformer individual y sustitución de instructoras — Tentare frente a ViDay, punto por punto.'],
+      'ViDay publica desde 39 €/mes (plan Individual), IVA no incluido. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia), punto por punto.'],
     ['tentare-vs-gesyoga', 'GesYoga', ['/funcionalidades/sustituciones', '/precios'],
-      'Precio, permanencia, Veri*factu, gestión por reformer individual y sustitución de instructoras — Tentare frente a GesYoga, punto por punto.'],
+      'GesYoga publica desde 12 €/mes (plan Personal), IVA no incluido. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia): funciones y límites.'],
     ['tentare-vs-bookyway', 'BookyWay', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'Precio, modelo de pago, Veri*factu, gestión por reformer individual y sustitución de instructoras — Tentare frente a BookyWay, punto por punto.'],
+      'BookyWay no tiene suscripción: 1,50 € por usuario adicional tras 30 días. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia), punto por punto.'],
     ['tentare-vs-deporweb', 'DeporWeb', ['/funcionalidades/sustituciones', '/precios'],
-      'Precio, transparencia de información, gestión por reformer individual y sustitución de instructoras — Tentare frente a DeporWeb, punto por punto.'],
+      'DeporWeb no publica precios. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia): reservas por reformer, sustituciones y facturación.'],
     ['tentare-vs-flowstark', 'Flowstark', ['/funcionalidades/sustituciones', '/precios'],
-      'Precio, permanencia, Veri*factu, gestión por reformer individual y sustitución de instructoras — Tentare frente a Flowstark, punto por punto.'],
+      'Flowstark es gratis hasta 50 clientes o 19 €/mes + impuestos. Frente a Tentare (desde 29 €/mes con IVA, sin permanencia), punto por punto.'],
   ] as const).map(([slug, nombre, relacionadasFuncionalidad, descripcion]): PaginaSeo => ({
     path: `/comparativa/${slug}`,
     // bsport es la comparación que más se busca («bsport precio», «alternativa
     // a bsport»): su título lo dice. El resto sigue la plantilla.
-    titulo: slug === 'tentare-vs-bsport'
-      ? 'Tentare vs bsport: precio, alternativas y comparativa para estudios de Pilates'
-      : `Tentare vs ${nombre}: comparativa para estudios de Pilates en España`,
+    // Lo que se busca de un competidor es su precio y su alternativa («bsport
+    // precios», «timp precios», «alternativa a mindbody»), no «Tentare vs X»:
+    // nadie busca aún la marca. El título lo dice y la descripción responde el
+    // precio con el dato verificado de su fila (revisión del 23-sep-2026).
+    titulo: `${nombre}: precios y alternativa para estudios de Pilates | Tentare`,
     // Desde el 23-sep las descripciones no prometen un cruce de datos que la
     // página ya no hace (dónde alojan los datos, comisiones…): dicen que se
     // compara con lo que consta en la web pública del competidor. bsport,
     // que se buscaba con «precio», conserva la suya.
-    descripcion: slug === 'tentare-vs-bsport'
-      ? descripcion
-      : `Tentare frente a ${nombre}: precio, permanencia, facturación y funciones, comparados con lo que consta en su web pública y con la fecha de la última revisión.`,
+    descripcion,
     grupo: 'software',
     etiqueta: `Tentare vs ${nombre}`,
     // Fecha de la última revisión contra la web pública del competidor (visible
@@ -558,7 +559,7 @@ export const PAGINAS: PaginaSeo[] = [
     prioridad: 0.7,
     changeFrequency: 'monthly',
     actualizado: '2026-08-13',
-    relacionadas: ['/comparativa', '/precios', '/recursos/checklist-elegir-software-estudio'],
+    relacionadas: ['/comparativa', '/precios', '/recursos/checklist-elegir-software-estudio', '/recursos/mejor-software-para-estudios-de-pilates'],
   },
   {
     // Página única, no un árbol de 15 funcionalidades en paralelo: nace sin
@@ -598,7 +599,7 @@ export const PAGINAS: PaginaSeo[] = [
     prioridad: 0.8,
     changeFrequency: 'monthly',
     actualizado: '2026-09-23',
-    relacionadas: ['/funcionalidades/plazas-fijas', '/funcionalidades/calendario-y-salas', '/funcionalidades/lista-de-espera', '/funcionalidades/sustituciones', '/soluciones'],
+    relacionadas: ['/funcionalidades/plazas-fijas', '/funcionalidades/calendario-y-salas', '/funcionalidades/lista-de-espera', '/funcionalidades/sustituciones', '/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates', '/soluciones'],
   },
   // Índice de /soluciones: hasta el 23-sep era un 404 aunque colgaran de él
   // tres páginas.
@@ -627,6 +628,20 @@ export const PAGINAS: PaginaSeo[] = [
     changeFrequency: 'weekly',
     relacionadas: ['/glosario', '/funcionalidades'],
   },
+  // Los artículos escritos como datos (lib/recursos/articulos): su <title>, su
+  // descripción y su enlazado salen del propio artículo, que es la fuente única.
+  ...ARTICULOS.map((a): PaginaSeo => ({
+    path: `/recursos/${a.slug}`,
+    titulo: `${a.tituloSeo} | Tentare`,
+    descripcion: a.descripcion,
+    grupo: 'recursos',
+    etiqueta: a.titulo,
+    resumen: a.resumen,
+    actualizado: a.actualizado ?? a.publicado,
+    prioridad: 0.7,
+    changeFrequency: 'monthly',
+    relacionadas: a.relacionadas,
+  })),
   // Las guías salen de su registro (lib/recursos/guias.ts), que también da las
   // fechas de su JSON-LD: antes esta lista las repetía a mano.
   ...GUIAS.map((g): PaginaSeo => ({
