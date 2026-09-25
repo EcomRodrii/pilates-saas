@@ -15,8 +15,10 @@ import {
   fechaModificada, guia, mesCorto, metaTarjeta, urlGuia,
   type CategoriaRecursos, type PortadaRecursos as Portada,
 } from '@/lib/recursos/guias';
-import { ARTICULOS, minutosLectura, urlArticulo } from '@/lib/recursos/articulos';
-import { contarPalabras } from '@/lib/recursos/articulos/validar';
+// Página de cliente: solo los metadatos (meta.ts), nunca index.ts, que trae el
+// texto entero de los artículos al bundle.
+import { ARTICULOS_META } from '@/lib/recursos/articulos/meta';
+import { minutosLectura, urlArticulo } from '@/lib/recursos/articulos/util';
 
 type Category = 'todos' | CategoriaRecursos;
 
@@ -46,12 +48,12 @@ type Article = {
 // Los artículos escritos como datos (lib/recursos/articulos) van delante: son
 // los que responden a lo que más buscan las propietarias. Sin portada: la
 // tarjeta enseña el color de su categoría.
-const ARTICULOS_DATOS: Article[] = ARTICULOS.map((a) => ({
+const ARTICULOS_DATOS: Article[] = ARTICULOS_META.map((a) => ({
   category: a.categoria,
   title: a.titulo,
   body: a.resumen,
   href: urlArticulo(a.slug),
-  meta: `${minutosLectura(contarPalabras(a))} min · ${mesCorto(a.publicado)}`,
+  meta: `${minutosLectura(a.palabras)} min · ${mesCorto(a.publicado)}`,
 }));
 
 const ARTICLES: Article[] = [...ARTICULOS_DATOS, ...ORDEN_LISTADO.map((clave) => {

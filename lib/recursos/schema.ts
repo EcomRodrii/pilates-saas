@@ -12,7 +12,8 @@
 
 import { LEGAL } from '../legal-info.ts';
 import { ANCHO_MAX_PORTADA, GUIAS, fechaModificada, guia, rutaPortada, altoPortada, urlGuia, type Guia } from './guias.ts';
-import { ARTICULOS, fechaArticulo, urlArticulo } from './articulos/index.ts';
+import { ARTICULOS_META } from './articulos/meta.ts';
+import { fechaArticulo, urlArticulo } from './articulos/util.ts';
 
 /** `@id` estable del Blog: el mismo en el listado y en el `isPartOf` de cada guía. */
 export const ID_BLOG = `${LEGAL.url}/recursos#blog`;
@@ -91,7 +92,7 @@ export function blogLd() {
     blogPost: [
       // Los artículos escritos como datos (lib/recursos/articulos) no tienen
       // portada: su imagen es la OG que genera su ruta.
-      ...ARTICULOS.map((a) => ({
+      ...ARTICULOS_META.map((a) => ({
         '@type': 'BlogPosting',
         headline: a.titulo,
         url: `${LEGAL.url}${urlArticulo(a.slug)}`,

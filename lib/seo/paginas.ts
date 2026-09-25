@@ -19,7 +19,9 @@
 
 import { LEGAL } from '../legal-info.ts';
 import { GUIAS, fechaModificada } from '../recursos/guias.ts';
-import { ARTICULOS } from '../recursos/articulos/index.ts';
+// meta.ts y no index.ts: este registro llega al cliente (la landing lo usa) y
+// index.ts arrastra el texto entero de los artículos.
+import { ARTICULOS_META } from '../recursos/articulos/meta.ts';
 
 /**
  * Origen canónico del sitio. **No se escribe aquí**: se deriva de `LEGAL.url`,
@@ -630,7 +632,7 @@ export const PAGINAS: PaginaSeo[] = [
   },
   // Los artículos escritos como datos (lib/recursos/articulos): su <title>, su
   // descripción y su enlazado salen del propio artículo, que es la fuente única.
-  ...ARTICULOS.map((a): PaginaSeo => ({
+  ...ARTICULOS_META.map((a): PaginaSeo => ({
     path: `/recursos/${a.slug}`,
     titulo: `${a.tituloSeo} | Tentare`,
     descripcion: a.descripcion,

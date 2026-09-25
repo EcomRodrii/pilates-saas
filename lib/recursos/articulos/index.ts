@@ -4,6 +4,12 @@
 // El ORDEN de este array es el del listado /recursos (van delante de las guías
 // antiguas) y el del sitemap. Cada artículo vive en su propio fichero.
 //
+// ⚠️ SOLO SERVIDOR (y tests y scripts): importar este fichero mete el texto
+// completo de todos los artículos en el bundle. El código de cliente y el
+// registro SEO usan meta.ts (generado: `node --experimental-strip-types
+// scripts/generar-meta-articulos.mjs` tras añadir o cambiar un artículo; un
+// test falla si no se ha regenerado).
+//
 // Sin alias `@/`: lo leen `node --test`, el registro SEO y los scripts.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -42,14 +48,8 @@ export function articuloPorSlug(slug: string): Articulo | undefined {
   return ARTICULOS.find((a) => a.slug === slug);
 }
 
-export const urlArticulo = (slug: string) => `/recursos/${slug}`;
-
-/** La última fecha del contenido: la revisión si la hay, si no la publicación. */
-export const fechaArticulo = (a: Articulo) => a.actualizado ?? a.publicado;
-
-/** Minutos de lectura a 220 palabras por minuto, redondeando hacia arriba. */
-export function minutosLectura(palabras: number): number {
-  return Math.max(1, Math.ceil(palabras / 220));
-}
+// Los ayudantes ligeros viven en util.ts para que el cliente pueda usarlos sin
+// arrastrar este fichero, que importa el texto entero de cada artículo.
+export { urlArticulo, fechaArticulo, minutosLectura } from './util.ts';
 
 export type { Articulo };

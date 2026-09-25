@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { LandingCliente } from '@/components/landing/LandingCliente';
+import { SeccionGuias } from '@/components/landing/SeccionGuias';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 // La home tiene sus PROPIOS metadatos (fase 5 del SEO, 23-sep). Hasta entonces
@@ -38,5 +39,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <LandingCliente />;
+  return <LandingCliente guias={<SeccionGuias />} />;
 }
