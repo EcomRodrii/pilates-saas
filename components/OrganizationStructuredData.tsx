@@ -11,6 +11,18 @@ const REDES_SOCIALES_TENTARE = [
   'https://www.linkedin.com/company/tentare/',
 ];
 
+// Fichas de Tentare en directorios de software. No son redes sociales, así que
+// no van en el pie de la landing: solo le dicen a Google y a los buscadores con
+// IA que estas páginas hablan de la misma empresa. Las facilitó el fundador el
+// 25-sep-2026 y se abrieron una a una ese día (Capterra y GetApp detrás de
+// Cloudflare: comprobadas con un lector, no con curl). La que pasó como «G2»
+// era la misma URL de Capterra: no hay ficha de G2 comprobada todavía.
+const PERFILES_EN_DIRECTORIOS = [
+  'https://www.capterra.com/p/10054501/Tentare/',
+  'https://www.getapp.ca/software/2141983/tentare',
+  'https://sellwithboost.com/startups/tentare-pilates-software',
+];
+
 // JSON-LD sitewide (Organization + WebSite). La misma entidad en todas las
 // páginas públicas, con un `@id` estable al que se refieren el resto de bloques
 // (SoftwareApplication de la home, artículos…): así Google y los buscadores con
@@ -35,7 +47,7 @@ export function OrganizationStructuredData() {
     logo: { '@type': 'ImageObject', url: `${LEGAL.url}/icon-512.png`, width: 512, height: 512 },
     description: 'Software de gestión para estudios de Pilates y Yoga en España: reservas, cobros, bonos y sustituciones de instructoras.',
     email: LEGAL.email,
-    sameAs: REDES_SOCIALES_TENTARE,
+    sameAs: [...REDES_SOCIALES_TENTARE, ...PERFILES_EN_DIRECTORIOS],
     contactPoint: {
       '@type': 'ContactPoint',
       email: LEGAL.email,
