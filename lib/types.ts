@@ -712,6 +712,14 @@ export interface PlanTarifa {
   matriculaGratisCupos?: number | null;
   /** Plazas ya gastadas. SOLO LECTURA desde el panel: lo lleva la BD. */
   matriculaGratisUsados?: number | null;
+  /**
+   * Oferta de primera visita («Clase de prueba», migr `planes_tarifa_es_prueba`).
+   * Solo la usa, una vez, quien no tiene historial en el estudio, y siempre
+   * junto a una clase (lib/billing/clase-prueba.ts). NO se vende en el
+   * catálogo normal ni fija el precio de la clase suelta. Solo PUNTUAL/BONO,
+   * con caducidad y sin matrícula (CHECK en BD).
+   */
+  esPrueba?: boolean;
 }
 
 export interface Suscripcion {

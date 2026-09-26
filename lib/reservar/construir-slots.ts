@@ -1,3 +1,4 @@
+import { precioClaseSuelta as precioSueltaDe } from '../student/precio-suelta.ts';
 import type {
   Sesion, TipoClase, Sala, Instructor, Spot, Reserva, Suscripcion, PlanTarifa,
   SustitucionConfirmadaPublica,
@@ -119,7 +120,8 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
     spotsActivosPorSala.set(sp.salaId, arr);
   }
 
-  const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
+  // De la fuente única (lib/student/precio-suelta.ts): sin la oferta de prueba.
+  const precioClaseSuelta = precioSueltaDe(planesTarifa);
   // §3 — La cobertura se resuelve POR CLASE, no una vez para todo el listado.
   // Antes se calculaba con el tipo de la clase cuya hoja estuviera abierta
   // (`tipoClaseAbierta`) y ese resultado se aplicaba a las decenas de slots: con

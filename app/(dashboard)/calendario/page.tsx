@@ -1,5 +1,6 @@
 'use client';
 
+import { precioClaseSuelta as precioSueltaDelEstudio } from '@/lib/student/precio-suelta';
 import { ETIQUETA_INSTRUCTORA_NO_DISPONIBLE, nombreInstructoraDeClase } from '@/lib/equipo/clases-sin-instructora';
 import * as Sentry from '@sentry/nextjs';
 import { useState, useMemo, useEffect, useRef, useCallback, useId, useSyncExternalStore, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
@@ -1821,7 +1822,8 @@ export default function Calendario() {
 
   const precioSueltaDe = (sesionId: string): number | null => {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
-    return sesion?.precioPuntual ?? planesTarifa.find(p => p.tipo === 'PUNTUAL')?.precio ?? null;
+    // Fuente única: nunca el precio de la «clase de prueba».
+    return sesion?.precioPuntual ?? precioSueltaDelEstudio(planesTarifa);
   };
 
   async function handleCobrarSuelta() {

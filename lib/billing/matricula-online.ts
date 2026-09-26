@@ -38,12 +38,18 @@ export async function primeraVezConPlan(
     id = data.id as string;
   }
 
-  const { count, error } = await admin
-    .from('suscripciones')
-    .select('id', { count: 'exact', head: true })
-    .eq('studio_id', studioId).eq('socio_id', id);
-  if (error) return false;
-  return (count ?? 0) === 0;
+  // La «clase de prueba» no es contratar un plan: la matrícula se cobra en el
+  // primer plan DE VERDAD que venga después. Se cuentan todas y se restan las
+  // de prueba (y no un `inner join` a planes que dejaría fuera las que no
+  // tienen plan: eso cobraría matrícula de más).
+  const [todas, pruebas] = await Promise.all([
+    admin.from('suscripciones').select('id', { count: 'exact', head: true })
+      .eq('studio_id', studioId).eq('socio_id', id),
+    admin.from('suscripciones').select('id, planes_tarifa!inner(es_prueba)', { count: 'exact', head: true })
+      .eq('studio_id', studioId).eq('socio_id', id).eq('planes_tarifa.es_prueba', true),
+  ]);
+  if (todas.error || pruebas.error) return false;
+  return (todas.count ?? 1) - (pruebas.count ?? 0) <= 0;
 }
 
 /**

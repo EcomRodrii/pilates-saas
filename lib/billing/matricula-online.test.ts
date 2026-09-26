@@ -4,7 +4,7 @@ import { primeraVezConPlan, liberarCupoMatricula, liberarCupoMatriculaUnaVez, es
 
 type Fila = Record<string, unknown>;
 
-function fakeAdmin(opts: { sociosPorEmail?: Fila[]; countSuscripciones?: number; errorSocios?: boolean; errorSuscripciones?: boolean } = {}) {
+function fakeAdmin(opts: { sociosPorEmail?: Fila[]; countSuscripciones?: number; countPruebas?: number; errorSocios?: boolean; errorSuscripciones?: boolean } = {}) {
   return {
     from(tabla: string) {
       if (tabla === 'socios') {
@@ -23,16 +23,17 @@ function fakeAdmin(opts: { sociosPorEmail?: Fila[]; countSuscripciones?: number;
           }),
         };
       }
-      // suscripciones
+      // suscripciones: todas, o solo las de prueba (el select con el join).
       return {
-        select: () => ({
-          eq: () => ({
-            eq: () => Promise.resolve(
-              opts.errorSuscripciones ? { count: null, error: { message: 'fallo' } }
-                : { count: opts.countSuscripciones ?? 0, error: null },
-            ),
-          }),
-        }),
+        select: (cols: string) => {
+          const deprueba = cols.includes('es_prueba');
+          const resultado = () => Promise.resolve(
+            opts.errorSuscripciones ? { count: null, error: { message: 'fallo' } }
+              : { count: deprueba ? (opts.countPruebas ?? 0) : (opts.countSuscripciones ?? 0), error: null },
+          );
+          const q = { eq: () => q, then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => resultado().then(ok, ko) };
+          return q;
+        },
       };
     },
   } as never;
@@ -184,4 +185,11 @@ test('⚠️ compensación: si nunca lo consigue, AVISA con plan y estudio (no s
   assert.equal(avisos.length, 1);
   assert.equal(avisos[0].planId, 'plan-1');
   assert.equal(avisos[0].studioId, 'studio-1');
+});
+
+test('⚠️ la clase de prueba NO cuenta como plan: la matrícula se cobra en el primero de verdad', async () => {
+  // Solo tiene la suscripción de prueba → sigue siendo su primera vez.
+  assert.equal(await primeraVezConPlan(fakeAdmin({ countSuscripciones: 1, countPruebas: 1 }), 'studio-1', 'soc-1', null), true);
+  // La prueba y un bono de verdad → ya no.
+  assert.equal(await primeraVezConPlan(fakeAdmin({ countSuscripciones: 2, countPruebas: 1 }), 'studio-1', 'soc-1', null), false);
 });
