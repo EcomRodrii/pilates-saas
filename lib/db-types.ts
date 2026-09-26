@@ -450,7 +450,7 @@ export interface RowPlanesTarifa {
   matricula_gratis_cupos: number | null;
   // migr 20260911013944.
   matricula_gratis_usados: number | null;
-  // migr 20260926100000.
+  // migr 20260926120237.
   es_prueba: boolean | null;
 }
 
