@@ -352,4 +352,35 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await select.selectOption({ index: 1 });
     await expect(snippet(page)).toContainText(`/reservar/${SLUG}?sesion=`);
   });
+
+  test('el embudo por widget: el mes del widget activo en el constructor y la tabla «Por widget»', async ({ page }) => {
+    await montar(page);
+    // Registrada DESPUÉS de montar: la última ruta gana sobre el catch-all.
+    let lecturas = 0;
+    await page.route('**/rest/v1/rpc/embudo_widget_por_origen', route => {
+      lecturas++;
+      return json(route, [
+        { origen: 'web-horario', tipo: 'widget_loaded', n: 200 },
+        { origen: 'web-horario', tipo: 'booking_completed', n: 9 },
+        { origen: 'web-planes', tipo: 'widget_loaded', n: 50 },
+        { origen: null, tipo: 'widget_loaded', n: 300 },
+      ]);
+    });
+    await page.reload();
+    await expect(page.getByText('Este mes: 200 visitas · 9 reservas · 4,5 %')).toBeVisible({ timeout: 60_000 });
+    expect(lecturas).toBeGreaterThan(0);
+    // Con otro widget, su propia línea.
+    await page.getByRole('navigation', { name: 'Biblioteca de widgets' }).getByRole('button', { name: /Citas/ }).click();
+    await expect(page.getByText('Este mes, sin visitas con su etiqueta todavía')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Ver resultados' }).click();
+    const tabla = page.getByRole('region', { name: 'Por widget' });
+    await expect(tabla).toBeVisible();
+    const filas = tabla.getByRole('row');
+    // Cabecera + horario + planes + sin etiqueta (siempre al final).
+    await expect(filas).toHaveCount(4);
+    await expect(filas.nth(1)).toContainText('Horario y reservas');
+    await expect(filas.nth(1)).toContainText('4,5 %');
+    await expect(filas.nth(3)).toContainText('Sin etiqueta');
+  });
 });
