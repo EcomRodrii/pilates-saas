@@ -3876,7 +3876,7 @@ export async function dbEmbudoWidgetPorDia(desde: string): Promise<{ dia: string
 }
 
 // «Tentare Widgets»: el mismo embudo partido por la etiqueta de cada widget
-// (`widget_eventos.origen`, migr 20260925201000). `null` = no se pudo leer
+// (`widget_eventos.origen`, migr 20260926035222). `null` = no se pudo leer
 // (distinto de «sin datos»: quien lo pinta no debe decir «0 visitas» si en
 // realidad no sabe).
 export async function dbEmbudoWidgetPorOrigen(desde: string): Promise<{ origen: string | null; tipo: string; n: number }[] | null> {
