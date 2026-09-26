@@ -465,7 +465,7 @@ interface StudioContextValue {
   // (una LISTA_ESPERA no puede tener asistencia) y fuera de la vía pública.
   // `avisar` solo cuenta en el panel: `false` = recepción desmarcó «Avisar a la
   // alumna». Por defecto se la avisa, como en cualquier otra reserva.
-  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean }) => Promise<ResultadoReserva>;
+  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string }) => Promise<ResultadoReserva>;
   // recuperacionCreada/recuperacionCaducaEl: solo la vía pública los rellena
   // (al cancelar una ocurrencia de plaza fija, ver cancelarReservaPublica) —
   // el panel de staff los deja undefined, no aplica ahí.
@@ -3528,7 +3528,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return true;
   }
 
-  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean }): Promise<ResultadoReserva> {
+  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string }): Promise<ResultadoReserva> {
     const sesion = sesiones.find(s => s.id === sesionId);
     // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
     const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
@@ -3541,7 +3541,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // tope de simultáneas, límite semanal) y antes ninguno de esos rechazos
       // llegaba a la pantalla — la socia veía «Reservada» y en el panel no había
       // nada. spotId: el sitio elegido (solo se asigna si queda CONFIRMADA).
-      const r = await postPublico('/api/public/reserva', { accion: 'crear', studioId: cpub.studioId, sesionId, socioId, email: cpub.email, spotId: spotId ?? null });
+      // `pruebaPlanId`: la «clase de prueba» gratis — el servidor le concede el
+      // bono antes de reservar (lib/billing/clase-prueba.ts).
+      const r = await postPublico('/api/public/reserva', { accion: 'crear', studioId: cpub.studioId, sesionId, socioId, email: cpub.email, spotId: spotId ?? null, ...(opciones?.pruebaPlanId ? { pruebaPlanId: opciones.pruebaPlanId } : {}) });
       if (!r.ok) return r;
       // El estado lo decide la BD bloqueando la fila de la sesión, no la
       // estimación de arriba: con dos socias peleando por la última plaza, la

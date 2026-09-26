@@ -218,8 +218,14 @@ function ResumenPlan({ form, tiposClase }: { form: FormularioPlan; tiposClase: {
   );
 }
 
-function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
+function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendida = false }: {
   initial?: PlanTarifa;
+  /**
+   * Ya hay alguien con esta tarifa. Entonces «clase de prueba» no se puede
+   * cambiar: cambiaría hacia atrás quién ha pagado ya matrícula y quién puede
+   * renovar (lo impide también un trigger en la base).
+   */
+  yaVendida?: boolean;
   tiposClase: { id: string; nombre: string }[];
   // Al crear desde una pestaña concreta (Suscripciones/Paquetes/Bajo demanda),
   // el formulario arranca con ese tipo ya puesto en vez de MENSUAL siempre —
@@ -262,6 +268,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
     nombre: true, precio: true, limiteSemanal: form.limiteSemanal.trim() !== '',
     sesiones: form.tipo === 'BONO', validezDias: form.tipo !== 'MENSUAL',
     matricula: form.matricula.trim() !== '',
+    esPrueba: form.tipo !== 'MENSUAL',
   };
   const camposConErrorVisibles = (Object.keys(errores) as CampoPlan[]).some(c => enPantalla[c]);
   const sucio = JSON.stringify(form) !== JSON.stringify(inicial);
@@ -276,6 +283,8 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
       tipo,
       sesiones: tipo === 'PUNTUAL' ? '1' : tipo === 'MENSUAL' ? '' : f.sesiones,
       validezDias: tipo === 'MENSUAL' ? '' : f.validezDias,
+      // Una cuota nunca es clase de prueba: se apaga, no se deja escondida.
+      esPrueba: tipo === 'MENSUAL' ? false : f.esPrueba,
     }));
   }
 
@@ -490,11 +499,39 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
                   )}
                 </div>
 
+                {/* «Clase de prueba» (Tentare Widgets): la oferta de primera
+                    visita. Solo clase suelta o bono; con ella encendida no hay
+                    matrícula, y la caducidad es obligatoria (la base lo exige
+                    igual). Una vez vendida, no se cambia. */}
+                {form.tipo !== 'MENSUAL' && (
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <Interruptor
+                        activo={form.esPrueba}
+                        onChange={v => { if (yaVendida) return; set('esPrueba', v); if (v) { set('matricula', ''); set('matriculaGratisCupos', ''); } }}
+                        labelledBy={`${uid}-prueba-tx`}
+                        describedBy={`${uid}-prueba-ayuda`} />
+                      <span
+                        id={`${uid}-prueba-tx`}
+                        onClick={() => { if (yaVendida) return; const v = !form.esPrueba; set('esPrueba', v); if (v) { set('matricula', ''); set('matriculaGratisCupos', ''); } }}
+                        className={cn('text-sm font-medium text-foreground select-none', yaVendida ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')}>
+                        Es una clase de prueba
+                      </span>
+                    </div>
+                    <p id={`${uid}-prueba-ayuda`} className="mt-1.5 pl-[52px] text-xs leading-relaxed text-muted-foreground">
+                      {yaVendida
+                        ? 'Ya hay alumnas con esta tarifa: no se puede cambiar. Crea otra si quieres una clase de prueba.'
+                        : 'Solo para quien viene por primera vez, una vez, y siempre con una clase. No sale en tus planes: se ofrece en el widget «Clase de prueba».'}
+                    </p>
+                    {visible('esPrueba') && <p role="alert" className="mt-1 pl-[52px] text-xs text-destructive">{visible('esPrueba')}</p>}
+                  </div>
+                )}
+
                 {/* Matrícula: mismo patrón de interruptor que el límite
                     semanal, y por el mismo motivo — un campo suelto con «0» de
                     marcador parece algo a rellenar. La mayoría de tarifas no
                     tienen matrícula, así que apagada por defecto. */}
-                <div>
+                {!form.esPrueba && <div>
                   <div className="flex items-center gap-2.5">
                     <Interruptor
                       activo={form.matricula.trim() !== ''}
@@ -523,7 +560,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
                       </Campo>
                     </div>
                   )}
-                </div>
+                </div>}
 
                 {/* Venía solo en Configuración → Planes y tarifas, que era la
                     segunda pantalla de tarifas y se ha quitado (evaluación del
@@ -1159,6 +1196,11 @@ export default function Productos() {
                     </p>
                     {/* Una matrícula que solo se ve abriendo la tarifa es una
                         matrícula que se olvida de cobrar. */}
+                    {plan.esPrueba && (
+                      <p className="text-xs font-medium text-foreground mt-0.5">
+                        Clase de prueba · solo primera visita, en el widget
+                      </p>
+                    )}
                     {(plan.matricula ?? 0) > 0 && (
                       <p className="text-xs text-muted-foreground mt-0.5">
                         + {fmt(plan.matricula ?? 0)} € de matrícula la primera vez
@@ -1336,6 +1378,7 @@ export default function Productos() {
           // justo el tipo de silencio que dejó a esta pantalla sin caducidad.
           onSave={savePlan}
           onClose={() => setPlanModal(null)}
+          yaVendida={planModal !== 'new' && !!planModal && suscripciones.some(s => s.planId === planModal.id)}
         />
       )}
       <ConfirmDialog

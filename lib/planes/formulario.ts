@@ -97,6 +97,12 @@ export type FormularioPlan = {
    */
   matriculaGratisHasta: string;
   matriculaGratisCupos: string;
+  /**
+   * «Clase de prueba»: oferta de primera visita (lib/billing/clase-prueba.ts).
+   * Solo clase suelta o bono, con caducidad y sin matrícula — lo mismo que
+   * exige el CHECK de la base, dicho aquí antes de guardar.
+   */
+  esPrueba: boolean;
 };
 
 /** Lo que se guarda: un plan sin los campos que pone el sistema. */
@@ -125,6 +131,7 @@ export function planVacio(): FormularioPlan {
     matricula: '',
     matriculaGratisHasta: '',
     matriculaGratisCupos: '',
+    esPrueba: false,
   };
 }
 
@@ -162,6 +169,7 @@ export function planAFormulario(p: PlanTarifa): FormularioPlan {
     matricula: p.matricula ? String(p.matricula) : '',
     matriculaGratisHasta: p.matriculaGratisHasta ?? '',
     matriculaGratisCupos: p.matriculaGratisCupos ? String(p.matriculaGratisCupos) : '',
+    esPrueba: p.esPrueba === true,
   };
 }
 
@@ -238,6 +246,9 @@ export function formularioAPlan(f: FormularioPlan): DatosPlan {
     // «0 plazas» / un texto ilegible siguen siendo NO HAY promoción (null), no
     // una promoción permanentemente agotada — eso no cambia.
     matriculaGratisCupos: enteroPositivo(f.matriculaGratisCupos),
+    // Una cuota nunca es prueba (se renovaría a precio de prueba). Siempre se
+    // emite, como `ofertaHasta`: en la edición lo `undefined` no se escribe.
+    esPrueba: f.tipo !== 'MENSUAL' && f.esPrueba,
   };
 }
 
@@ -264,7 +275,7 @@ function limitesDeTipos(f: FormularioPlan): { limitePorTipo?: Record<string, num
 }
 
 /** Los campos del formulario que pueden llevar un error propio. */
-export type CampoPlan = 'nombre' | 'precio' | 'sesiones' | 'validezDias' | 'limiteSemanal' | 'matricula';
+export type CampoPlan = 'nombre' | 'precio' | 'sesiones' | 'validezDias' | 'limiteSemanal' | 'matricula' | 'esPrueba';
 
 /**
  * Qué está mal, CAMPO A CAMPO.
@@ -312,6 +323,18 @@ export function erroresPlan(f: FormularioPlan): Partial<Record<CampoPlan, string
     else if (m < 0) e.matricula = 'La matrícula no puede ser negativa';
   }
 
+  // La clase de prueba, con las MISMAS reglas que el CHECK de la base
+  // (`planes_tarifa_prueba_forma`): mejor decirlo aquí que un «no se ha podido
+  // guardar» al pulsar.
+  if (f.esPrueba) {
+    if (f.tipo === 'MENSUAL') e.esPrueba = 'Una cuota no puede ser clase de prueba: elige clase suelta o bono';
+    if (caducaPorDias(f.tipo) && !enteroPositivo(f.validezDias)) {
+      e.validezDias = e.validezDias ?? 'Una clase de prueba necesita caducidad: ¿en cuántos días hay que usarla?';
+    }
+    if (importeNoNegativo(f.matricula) > 0) e.matricula = e.matricula ?? 'Una clase de prueba no lleva matrícula';
+    if (enteroPositivo(f.matriculaGratisCupos)) e.esPrueba = e.esPrueba ?? 'Una clase de prueba no lleva promoción de matrícula';
+  }
+
   return e;
 }
 
@@ -325,7 +348,7 @@ export function erroresPlan(f: FormularioPlan): Partial<Record<CampoPlan, string
  */
 export function motivoNoGuardable(f: FormularioPlan): string | null {
   const e = erroresPlan(f);
-  const orden: CampoPlan[] = ['nombre', 'precio', 'sesiones', 'validezDias', 'limiteSemanal', 'matricula'];
+  const orden: CampoPlan[] = ['nombre', 'precio', 'sesiones', 'validezDias', 'limiteSemanal', 'matricula', 'esPrueba'];
   for (const campo of orden) if (e[campo]) return e[campo]!;
   return null;
 }

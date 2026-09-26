@@ -204,7 +204,10 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     ? ((configEfectiva.ancho ?? anchoPorDefecto(w)) === 'compacto' ? 480 : null)
     : metodo === 'popup' ? w.anchoPopup : null;
 
+  const ofertasPrueba = planesTarifa.filter(p => p.activo && p.esPrueba === true);
   const avisos = avisosDeDatos(w.id, {
+    pruebas: ofertasPrueba.length,
+    pruebaDePago: ofertasPrueba.some(p => p.precio > 0),
     stripe: !!studio?.stripeAccountId,
     planes: planesContratables.length,
     bonos: planesContratables.filter(p => p.tipo === 'BONO').length,
@@ -305,12 +308,14 @@ function EstadoGuardadoChip({ estado }: { estado: EstadoGuardado }) {
 
 // Lo que haría que el widget pegado no sirviera para lo que promete. Se dice
 // ANTES de copiar, con el sitio donde se arregla.
-function avisosDeDatos(id: string, d: { stripe: boolean; planes: number; bonos: number; citas: number }): { texto: string; enlace: ReactNode }[] {
+function avisosDeDatos(id: string, d: { pruebas: number; pruebaDePago: boolean; stripe: boolean; planes: number; bonos: number; citas: number }): { texto: string; enlace: ReactNode }[] {
   const a: { texto: string; enlace: ReactNode }[] = [];
   const ir = (href: string, texto: string) => <Link href={href} className="font-medium underline underline-offset-2">{texto}</Link>;
   if ((id === 'planes' || id === 'bonos') && !d.stripe) a.push({ texto: 'Para vender online necesitas los cobros con tarjeta conectados.', enlace: ir('/configuracion?tab=cobros', 'Conectarlos') });
   if (id === 'planes' && d.planes === 0) a.push({ texto: 'No tienes planes a la venta: el widget saldría vacío.', enlace: ir('/productos', 'Crear un plan') });
   if (id === 'bonos' && d.bonos === 0) a.push({ texto: 'No tienes bonos a la venta: el widget saldría vacío.', enlace: ir('/productos', 'Crear un bono') });
+  if (id === 'prueba' && d.pruebas === 0) a.push({ texto: 'No tienes ninguna clase de prueba activa: tu web diría «Ahora no hay clase de prueba». Marca una tarifa como clase de prueba en Paquetes.', enlace: ir('/productos', 'Ir a Paquetes') });
+  if (id === 'prueba' && d.pruebaDePago && !d.stripe) a.push({ texto: 'Tu clase de prueba es de pago y no tienes los cobros con tarjeta conectados.', enlace: ir('/configuracion?tab=cobros', 'Conectarlos') });
   if (id === 'citas' && d.citas === 0) a.push({ texto: 'Ningún servicio de cita se puede reservar online todavía.', enlace: ir('/configuracion?tab=clases', 'Revisar servicios') });
   return a;
 }

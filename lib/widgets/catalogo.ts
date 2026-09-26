@@ -79,6 +79,8 @@ export interface VistaPagina {
   tab?: 'clases' | 'citas' | 'misreservas' | 'cuenta' | 'estudio';
   /** Ancla de una sección de la página (p. ej. los bonos). */
   ancla?: string;
+  /** Parámetros fijos que también valen fuera del modo incrustado (`prueba=1`). */
+  extra?: Readonly<Record<string, string>>;
 }
 
 interface Base {
@@ -197,10 +199,16 @@ export const WIDGETS: readonly Widget[] = [
 
   // ── Captación ────────────────────────────────────────────────────────────
   {
-    id: 'prueba', estado: 'en-preparacion', categoria: 'captacion', icono: 'Sparkles',
+    // La oferta es un plan marcado «clase de prueba» en Paquetes; quién puede
+    // estrenarla lo decide el servidor (lib/billing/clase-prueba.ts). Sin
+    // integración nativa: el bundle es otra implementación del flujo de
+    // reserva y tendría dos dueños.
+    id: 'prueba', estado: 'disponible', categoria: 'captacion', icono: 'Sparkles',
     nombre: 'Clase de prueba',
-    descripcion: 'Convierte visitas en su primera clase.',
-    falta: 'Necesita una tarifa de primera clase en tus planes.',
+    descripcion: 'Su primera clase a tu precio de bienvenida, solo para quien viene por primera vez.',
+    embebido: { tab: 'clases', extra: { prueba: '1' } }, pagina: { tab: 'clases', extra: { prueba: '1' } },
+    metodos: ['popup', 'enlace', 'boton', 'iframe'],
+    contenido: ['horario'], alto: 640, anchoPopup: 720, textoBoton: 'Reserva tu clase de prueba',
   },
   {
     id: 'contacto', estado: 'en-preparacion', categoria: 'captacion', icono: 'Mail',

@@ -383,4 +383,17 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await expect(filas.nth(1)).toContainText('4,5 %');
     await expect(filas.nth(3)).toContainText('Sin etiqueta');
   });
+
+  test('«Clase de prueba»: aviso sin oferta, `prueba=1` en el código y sin integración nativa', async ({ page }) => {
+    await montar(page);
+    await widget(page, /Clase de prueba/);
+    await expect(page.getByText(/No tienes ninguna clase de prueba activa/)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Ir a Paquetes' })).toHaveAttribute('href', '/productos');
+    // Recomendado: popup.
+    await expect(snippet(page)).toContainText('data-tentare-popup=');
+    await expect(snippet(page)).toContainText('prueba=1');
+    await metodo(page, 'Enlace');
+    await expect(snippet(page)).toContainText('?prueba=1&ref=web-prueba');
+    await expect(page.getByRole('radiogroup', { name: 'Método de integración' }).getByRole('radio', { name: /Integración nativa/ })).toHaveCount(0);
+  });
 });
