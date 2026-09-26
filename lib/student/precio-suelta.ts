@@ -22,6 +22,8 @@ export interface PlanPrecio {
   precio?: number | null;
   activo?: boolean | null;
   sesiones?: number | null;
+  /** La oferta de prueba nunca fija el precio de la clase suelta. */
+  esPrueba?: boolean | null;
 }
 
 /**
@@ -43,6 +45,8 @@ export function precioClaseSuelta(planes: readonly PlanPrecio[] | null | undefin
   const candidatos = planes
     .filter((p) => p.tipo === 'PUNTUAL')
     .filter((p) => p.activo !== false)
+    // Una «clase de prueba» a 10 € no es el precio de la suelta para todo el mundo.
+    .filter((p) => p.esPrueba !== true)
     .map((p) => Number(p.precio))
     .filter((n) => Number.isFinite(n) && n > 0);
   if (candidatos.length === 0) return null;

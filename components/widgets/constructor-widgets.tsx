@@ -131,7 +131,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       }));
   }, [sesiones, ahora, tiposPorId]);
 
-  const planesContratables = useMemo(() => planesTarifa.filter(p => p.activo && p.precio > 0), [planesTarifa]);
+  const planesContratables = useMemo(() => planesTarifa.filter(p => p.activo && p.precio > 0 && p.esPrueba !== true), [planesTarifa]);
   const datos: DatosPanel = useMemo(() => {
     const planesPorTipo: Record<TipoPlan, number> = { MENSUAL: 0, BONO: 0, PUNTUAL: 0 };
     for (const p of planesContratables) planesPorTipo[p.tipo] += 1;

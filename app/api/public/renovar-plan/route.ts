@@ -66,12 +66,20 @@ export async function POST(req: NextRequest) {
 
     const { data: plan, error: planErr } = await admin
       .from('planes_tarifa')
-      .select('id, nombre, precio, tipo')
+      .select('id, nombre, precio, tipo, es_prueba')
       .eq('id', sus.plan_id)
       .eq('studio_id', body.studioId)
       .maybeSingle();
     if (planErr) throw new Error(planErr.message);
     if (!plan) return NextResponse.json({ error: 'Tu plan ya no existe. Habla con tu estudio.' }, { status: 404 });
+    // La clase de prueba es de una sola vez (lib/billing/clase-prueba.ts):
+    // renovarla la volvería a vender, a precio de prueba, a quien ya la usó.
+    if (plan.es_prueba === true) {
+      return NextResponse.json(
+        { error: 'La clase de prueba no se renueva. Mira los planes de tu estudio para seguir viniendo.' },
+        { status: 409 },
+      );
+    }
 
     // Si ya hay un recibo de renovación en juego, se reutiliza (el portal lo
     // paga): puede venir del cron, del panel o de un toque anterior.

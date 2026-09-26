@@ -16,6 +16,7 @@ import { telefonoValido } from '@/lib/csv';
 import type { TipoPlan } from '@/lib/types';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
+import { rechazoCompraPrueba } from '@/lib/billing/clase-prueba';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
 import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula, esRespuestaRepetida } from '@/lib/billing/matricula-online';
 import {
@@ -167,7 +168,7 @@ export async function POST(req: NextRequest) {
 
   const { data: plan, error: errPlan } = await admin
     .from('planes_tarifa')
-    .select('nombre, precio, tipo, studio_id, activo, matricula')
+    .select('nombre, precio, tipo, studio_id, activo, matricula, es_prueba')
     .eq('id', body.planId)
     .maybeSingle();
   if (errPlan || !plan) {
@@ -245,6 +246,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // «Clase de prueba»: solo junto a una clase, nunca a 0 € por Stripe y solo
+  // para quien la estrena (lib/billing/clase-prueba.ts, el mismo dueño que su
+  // gemelo /api/stripe/checkout). Un plan normal no toca la base aquí.
+  const rechazoPrueba = await rechazoCompraPrueba(admin, {
+    studioId: body.studioId, plan: { es_prueba: plan.es_prueba, precio: plan.precio },
+    socioId, email: body.socioEmail, sesionId: body.sesionId,
+  });
+  if (rechazoPrueba) {
+    return conCorsWidget(req, NextResponse.json({ error: rechazoPrueba.error, codigo: rechazoPrueba.codigo }, { status: rechazoPrueba.status }));
+  }
+
   let importe = Number(plan.precio);
   if (!(importe > 0)) {
     return conCorsWidget(req, NextResponse.json({ error: 'Importe no válido' }, { status: 409 }));
@@ -257,7 +269,8 @@ export async function POST(req: NextRequest) {
   // Cuánto se ha descontado, para poder DECÍRSELO a quien paga. Ver el
   // comentario de la respuesta, al final de esta función.
   let descuentoAplicado = 0;
-  if (body.codigoDescuento) {
+  // Sin códigos sobre una prueba: ya es la oferta de bienvenida, no se apila otra.
+  if (body.codigoDescuento && plan.es_prueba !== true) {
     const { data: codigosRaw } = await admin
       .from('codigos_descuento')
       .select('*')

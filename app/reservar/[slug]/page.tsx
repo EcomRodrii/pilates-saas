@@ -45,6 +45,7 @@ import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
 import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget } from '@/lib/reservar/eventos';
+import { precioClaseSuelta as precioSueltaDe } from '@/lib/student/precio-suelta';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, RESERVAR_PALETA, varsReservarModo, tokensCalendarioDeApariencia } from '@/lib/reservar-publico-tokens';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
@@ -1285,7 +1286,8 @@ export default function ReservarPage() {
   // Cobertura de plan/bono de la socia autenticada → precio y frase de "qué te
   // cuesta" del CTA (informativo; el gate real se aplica en handleConfirm y en
   // el servidor).
-  const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
+  // De la fuente única (lib/student/precio-suelta.ts): sin la oferta de prueba.
+  const precioClaseSuelta = precioSueltaDe(planesTarifa);
   // §3 — POR CLASE, no una vez para todo el listado. Antes esto se resolvía con
   // el tipo de la clase cuya hoja estuviera abierta y se aplicaba a todos los
   // slots: con un Reformer cubierto abierto, las filas de Mat perdían su precio
@@ -2351,7 +2353,8 @@ export default function ReservarPage() {
   //
   // Sale del JSX a una constante porque ahora se pregunta DOS veces: para
   // pintar las tarjetas y para decidir si la sección existe siquiera.
-  const planesContratables = planesTarifa.filter(p => p.activo && p.precio > 0);
+  // La «clase de prueba» no se vende en el catálogo normal (lib/billing/clase-prueba.ts).
+  const planesContratables = planesTarifa.filter(p => p.activo && p.precio > 0 && p.esPrueba !== true);
 
   // ¿Hay que comprar algo antes de poder reservar aquí? Se resuelve una vez y
   // se enseña AL PRINCIPIO del flujo, no al final.

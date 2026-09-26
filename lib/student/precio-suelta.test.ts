@@ -69,3 +69,12 @@ test('sin override se cae a la tarifa del estudio — el bug original', () => {
 test('sin override y sin plan PUNTUAL: null, para que la pantalla no invente', () => {
   assert.equal(precioDeSesion(null, PLANES.filter((p) => p.tipo !== 'PUNTUAL')), null);
 });
+
+test('⚠️ una «clase de prueba» más barata NO es el precio de la clase suelta', () => {
+  assert.equal(precioClaseSuelta([
+    { tipo: 'PUNTUAL', precio: 22, activo: true },
+    { tipo: 'PUNTUAL', precio: 10, activo: true, esPrueba: true },
+  ]), 22);
+  // Con solo la prueba, este estudio no vende clases sueltas: null, no 10.
+  assert.equal(precioClaseSuelta([{ tipo: 'PUNTUAL', precio: 10, activo: true, esPrueba: true }]), null);
+});

@@ -7,6 +7,9 @@
 // PUNTUAL, y en un estudio que vende bonos de 10 y cuotas (la mayoría de los
 // de Pilates) eso significaba no poder vender NADA por el enlace público.
 //
+// La «clase de prueba» (`esPrueba`) también: solo se vende en su propia vista
+// (lib/billing/clase-prueba.ts) y solo a quien la estrena.
+//
 // MENSUAL queda fuera a propósito: es un compromiso recurrente, y crear una
 // suscripción que se renovará sola a nombre de alguien que todavía no ha
 // verificado su email ni tiene contraseña es otra conversación. Se sigue
@@ -31,6 +34,6 @@ export function planesComprablesParaReservar(
   planes: PlanTarifa[],
 ): PlanTarifa[] {
   return planes
-    .filter(p => p.activo && p.precio > 0 && (p.tipo === 'PUNTUAL' || p.tipo === 'BONO') && planCubreTipo(p, tipoClaseId))
+    .filter(p => p.activo && p.precio > 0 && p.esPrueba !== true && (p.tipo === 'PUNTUAL' || p.tipo === 'BONO') && planCubreTipo(p, tipoClaseId))
     .sort((a, b) => (a.tipo === b.tipo ? a.precio - b.precio : a.tipo === 'PUNTUAL' ? -1 : 1));
 }

@@ -881,6 +881,7 @@ export function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
     matriculaGratisHasta: r.matricula_gratis_hasta ?? null,
     matriculaGratisCupos: r.matricula_gratis_cupos ?? null,
     matriculaGratisUsados: r.matricula_gratis_usados ?? 0,
+    esPrueba: r.es_prueba === true,
   } as PlanTarifa;
 }
 
@@ -1590,6 +1591,7 @@ const COLUMNAS_PLAN = {
   // una, la propietaria sube los cupos.
   matriculaGratisHasta: 'matricula_gratis_hasta',
   matriculaGratisCupos: 'matricula_gratis_cupos',
+  esPrueba: 'es_prueba',
 } as const satisfies Partial<Record<keyof PlanTarifa, string>>;
 
 const CAMPOS_PLAN = Object.entries(COLUMNAS_PLAN) as [keyof typeof COLUMNAS_PLAN, string][];
@@ -1602,6 +1604,8 @@ function planTarifaToDb(plan: PlanTarifa) {
   // El alta escribe TODAS las columnas: lo ausente se guarda como null, que es
   // lo que hacía la lista literal de antes.
   for (const [campo, columna] of CAMPOS_PLAN) db[columna] = plan[campo] ?? null;
+  // `es_prueba` es NOT NULL: lo ausente es «no es una prueba», nunca null.
+  db.es_prueba = plan.esPrueba === true;
   return db;
 }
 
@@ -2686,13 +2690,18 @@ export async function dbReservarMatricula(
 }
 
 export async function dbSocioTieneAlgunPlan(socioId: string, studioId: string): Promise<boolean | null> {
-  const { count, error } = await supabase
-    .from('suscripciones')
-    .select('id', { count: 'exact', head: true })
-    .eq('studio_id', studioId)
-    .eq('socio_id', socioId);
+  // La «clase de prueba» no cuenta como plan: la matrícula se cobra en el
+  // primero de verdad. Mismo cálculo que `primeraVezConPlan` (todas menos las
+  // de prueba), y misma dirección de fallo: ante la duda, `null` = «ya tenía».
+  const [todas, pruebas] = await Promise.all([
+    supabase.from('suscripciones').select('id', { count: 'exact', head: true })
+      .eq('studio_id', studioId).eq('socio_id', socioId),
+    supabase.from('suscripciones').select('id, planes_tarifa!inner(es_prueba)', { count: 'exact', head: true })
+      .eq('studio_id', studioId).eq('socio_id', socioId).eq('planes_tarifa.es_prueba', true),
+  ]);
+  const error = todas.error ?? pruebas.error;
   if (error) { console.error('[dbSocioTieneAlgunPlan]', error); return null; }
-  return (count ?? 0) > 0;
+  return (todas.count ?? 0) - (pruebas.count ?? 0) > 0;
 }
 
 export async function dbInsertSuscripcion(sus: Suscripcion): Promise<ResultadoEscritura> {

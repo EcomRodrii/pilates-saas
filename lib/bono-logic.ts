@@ -413,8 +413,11 @@ export function nuevaFechaFinTrasCongelar(fechaFin: string | null, desdeISO: str
  * Exigir algo que no se puede conseguir no protege nada: solo bloquea. Cuando la
  * dueña crea su primer plan, el gate empieza a aplicar solo.
  */
-export function hayAlgoQueContratar(planes: { activo: boolean }[]): boolean {
-  return planes.some(p => p.activo);
+export function hayAlgoQueContratar(planes: { activo: boolean; esPrueba?: boolean }[]): boolean {
+  // La «clase de prueba» no cuenta: quien ya la usó no puede volver a
+  // contratarla, así que un estudio cuya única tarifa activa es la prueba no
+  // tiene nada que ofrecerle — exigirle plan la dejaría sin salida.
+  return planes.some(p => p.activo && p.esPrueba !== true);
 }
 
 /**

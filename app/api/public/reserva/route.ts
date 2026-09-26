@@ -7,6 +7,8 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { bloqueoPorSuspension } from '@/lib/billing/billing-guard';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { concederClasePruebaGratis } from '@/lib/billing/clase-prueba';
 
 // Crear o cancelar una reserva desde las páginas públicas (reserva/portal).
 // SEGURIDAD: exige sesión real de socia (JWT de Supabase Auth) y deriva su id
@@ -30,6 +32,8 @@ export async function POST(req: NextRequest) {
     reservaId?: string;
     spotId?: string | null;
     valoracion?: number;
+    /** «Clase de prueba» GRATIS: el plan de prueba que se estrena con esta reserva. */
+    pruebaPlanId?: string;
   } | null;
 
   if (!body?.studioId) {
@@ -62,6 +66,22 @@ export async function POST(req: NextRequest) {
       // El estudio pide sus preguntas antes de reservar y le falta alguna.
       const sinPreguntas = await bloqueoPorPreguntasAlta(body.studioId, socioId, 'reservar');
       if (sinPreguntas) return conCorsWidget(req, sinPreguntas);
+      // «Clase de prueba» gratis: primero se le concede su bono de prueba (una
+      // sola vez, lib/billing/clase-prueba.ts) y la reserva de siempre lo gasta.
+      // Si ya lo tenía, se sigue igual: gasta lo que le quede o dice «sin plan».
+      if (body.pruebaPlanId) {
+        const admin = getSupabaseAdmin();
+        if (!admin) return conCorsWidget(req, NextResponse.json({ error: 'Servicio no disponible' }, { status: 503 }));
+        const prueba = await concederClasePruebaGratis(admin, {
+          studioId: body.studioId, socioId, planId: body.pruebaPlanId, sesionId: body.sesionId,
+        });
+        if (!prueba.ok) {
+          return conCorsWidget(req, NextResponse.json(
+            { error: prueba.error, codigo: prueba.codigo },
+            { status: prueba.codigo === 'error' ? 500 : 409 },
+          ));
+        }
+      }
       const r = await crearReservaPublica({
         studioId: body.studioId, sesionId: body.sesionId, socioId, authUserId: user.userId, spotId: body.spotId ?? null,
       });

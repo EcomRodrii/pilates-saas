@@ -167,6 +167,12 @@ export type ResultadoEntrega =
        * cobro (comportamiento idéntico al de antes de este campo).
        */
       reciboMatriculaId?: string | null;
+      /**
+       * «Clase de prueba» entregada a quien YA tenía otra (dos intentos de pago
+       * abiertos a la vez, o uno pagado tarde). Se entrega igual —el dinero ya
+       * está cobrado— y quien llama lo avisa: decide el estudio si reembolsa.
+       */
+      pruebaRepetida?: boolean;
     }
   | { ok: false; motivo: 'plan-no-encontrado' | 'sin-socia' | 'error'; detalle?: string };
 
@@ -209,7 +215,7 @@ export async function entregarPlanComprado(
 ): Promise<ResultadoEntrega> {
   const { data: plan, error: errPlan } = await admin
     .from('planes_tarifa')
-    .select('id, nombre, precio, tipo, sesiones, validez_dias, periodicidad_meses, studio_id')
+    .select('id, nombre, precio, tipo, sesiones, validez_dias, periodicidad_meses, studio_id, es_prueba')
     .eq('id', compra.planId)
     .eq('studio_id', compra.studioId)
     .maybeSingle();
@@ -394,6 +400,20 @@ export async function entregarPlanComprado(
     return { ok: false, motivo: 'error', detalle: errSus.message };
   }
 
+  // «Clase de prueba»: la puerta está en los dos checkouts, pero se evalúa al
+  // ABRIR el cobro. Dos intentos abiertos a la vez (clases distintas = claves
+  // de idempotencia distintas) o uno pagado tarde entregarían una segunda.
+  // Nunca se deja de entregar lo cobrado: se marca para que se avise.
+  let pruebaRepetida = false;
+  if ((plan as { es_prueba?: boolean | null }).es_prueba === true) {
+    const { data: otras } = await admin
+      .from('suscripciones').select('id, planes_tarifa!inner(es_prueba)')
+      .eq('studio_id', compra.studioId).eq('socio_id', socioId)
+      .eq('planes_tarifa.es_prueba', true).neq('id', ids.suscripcionId).limit(1);
+    pruebaRepetida = (otras ?? []).length > 0;
+    if (pruebaRepetida) console.error('[entregarPlanComprado] clase de prueba entregada a quien ya tenía otra', { studioId: compra.studioId, suscripcionId: ids.suscripcionId });
+  }
+
   // ── 3. El recibo, ya cobrado ───────────────────────────────────────────────
   // Se marca COBRADO porque Stripe ya ha cobrado: es el registro contable de un
   // dinero que está en la cuenta del estudio.
@@ -534,5 +554,6 @@ export async function entregarPlanComprado(
   return {
     ok: true, socioId, suscripcionId: ids.suscripcionId, reciboId: ids.reciboId, fichaCreada,
     reciboMatriculaId: matriculaCentimos > 0 ? ids.reciboMatriculaId : null,
+    ...(pruebaRepetida ? { pruebaRepetida: true } : {}),
   };
 }

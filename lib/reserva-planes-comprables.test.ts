@@ -61,3 +61,11 @@ test('ni planes inactivos ni de 0 € (serían clases gratis por el enlace públ
   ];
   assert.deepEqual(planesComprablesParaReservar(null, planes), []);
 });
+
+test('⚠️ la «clase de prueba» nunca se ofrece en «pagar y reservar» normal', () => {
+  const r = planesComprablesParaReservar('tc-r', [
+    plan({ id: 'suelta', nombre: 'Suelta', tipo: 'PUNTUAL', precio: 22 }),
+    plan({ id: 'prueba', nombre: 'Prueba', tipo: 'PUNTUAL', precio: 10, esPrueba: true }),
+  ]);
+  assert.deepEqual(r.map(p => p.id), ['suelta']);
+});

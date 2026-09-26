@@ -227,3 +227,8 @@ test('un producto NO trae nada que sugiera comprarlo online', () => {
   assert.equal(p.periodicidadMeses, null);
   assert.deepEqual(p.tiposClaseIds, []);
 });
+
+test('⚠️ la «clase de prueba» no se vende en la tienda de la app', () => {
+  const productos = catalogoTienda([...PLANES, { id: 'prueba', nombre: 'Tu primera clase', tipo: 'PUNTUAL', precio: 5, sesiones: 1, activo: true, esPrueba: true }], []);
+  assert.ok(!productos.some(p => p.id === 'prueba'));
+});

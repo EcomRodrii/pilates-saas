@@ -99,6 +99,8 @@ export interface PlanTienda {
   limiteSemanal?: number | null;
   periodicidadMeses?: number | null;
   tiposClaseIds?: string[] | null;
+  /** La «clase de prueba» no se vende en la tienda (lib/billing/clase-prueba.ts). */
+  esPrueba?: boolean | null;
   /** Techo semanal POR ACTIVIDAD (`plan_tipos_clase.limite_semanal`, migr 20260907030553). */
   limitePorTipo?: Record<string, number | null> | null;
 }
@@ -154,6 +156,7 @@ export function catalogoTienda(
 ): ProductoTienda[] {
   const dePlanes: ProductoTienda[] = (planes ?? [])
     .filter((p) => p.activo !== false)
+    .filter((p) => p.esPrueba !== true)
     .filter((p) => precioValido(p.precio))
     .flatMap((p): ProductoTienda[] => {
       const familia = familiaDePlan(p.tipo);

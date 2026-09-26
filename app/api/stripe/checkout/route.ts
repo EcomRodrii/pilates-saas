@@ -16,6 +16,7 @@ import { decidirSesionCheckout, claveCheckoutRecibo } from '@/lib/billing/sesion
 import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
+import { rechazoCompraPrueba } from '@/lib/billing/clase-prueba';
 import { codigosYaUsadosPorSocia } from '@/lib/billing/codigos-ya-usados';
 import { primeraVezConPlan, reservarMatricula, liberarCupoMatricula, esRespuestaRepetida } from '@/lib/billing/matricula-online';
 import {
@@ -255,7 +256,7 @@ export async function POST(req: NextRequest) {
     if (cerrada) return conCorsWidget(req, cerrada);
     const { data: plan, error } = await admin
       .from('planes_tarifa')
-      .select('nombre, precio, studio_id, activo, matricula, tipo')
+      .select('nombre, precio, studio_id, activo, matricula, tipo, es_prueba')
       .eq('id', body.planId)
       .maybeSingle();
     if (error || !plan) {
@@ -311,6 +312,14 @@ export async function POST(req: NextRequest) {
         ));
       }
     }
+    // «Clase de prueba»: la MISMA puerta que su gemelo /api/public/checkout-embebido.
+    const rechazoPrueba = await rechazoCompraPrueba(admin, {
+      studioId: body.studioId, plan: { es_prueba: plan.es_prueba, precio: plan.precio },
+      socioId, email: body.socioEmail, sesionId: body.sesionId,
+    });
+    if (rechazoPrueba) {
+      return conCorsWidget(req, NextResponse.json({ error: rechazoPrueba.error, codigo: rechazoPrueba.codigo }, { status: rechazoPrueba.status }));
+    }
     importe = Number(plan.precio);
     concepto = plan.nombre;
     tipoPlanCobrado = (plan.tipo as string | null | undefined) ?? null;
@@ -322,7 +331,8 @@ export async function POST(req: NextRequest) {
     // Un código inválido/caducado/agotado no bloquea la compra: se ignora en
     // silencio y se cobra el precio de catálogo (mismo criterio que el POS
     // congelado, que tampoco impedía la venta por un código malo).
-    if (body.codigoDescuento) {
+    // Sin códigos sobre una prueba: ya es la oferta de bienvenida.
+    if (body.codigoDescuento && plan.es_prueba !== true) {
       const { data: codigosRaw } = await admin
         .from('codigos_descuento')
         .select('*')
