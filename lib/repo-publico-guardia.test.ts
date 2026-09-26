@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 //
 // ⚠️ Auditoría del 15-sep-2026: esta guardia miraba ficheros, nunca MENSAJES DE
 // COMMIT — y ahí es exactamente por donde entró el nombre real de una clienta
-// («Indira Herrero», studio-id incluido) en un commit ya en `main`. Borrar el
+// (con el id de su estudio) en un commit ya en `main`. Borrar el
 // commit no lo saca del historial (reescribirlo es una decisión aparte, no
 // algo que se hace por iniciativa propia); lo que SÍ se puede cerrar sin
 // riesgo es que no vuelva a pasar. Este test solo detecta EMAILS (mismo patrón
@@ -162,6 +162,26 @@ test('nada de la salida del MCP de Playwright versionado (.playwright-mcp/)', ()
     `${versionados.length} fichero(s) de .playwright-mcp/ versionados (\`git ls-files | grep playwright-mcp\`). `
       + 'El repo es público y esa carpeta guarda lo que un agente vio al navegar, que puede incluir datos reales. '
       + 'Sácalos del índice con `git rm -r --cached .playwright-mcp`; el disco no se toca.',
+  );
+});
+
+// `graphify-out/` es la salida de la skill graphify: el grafo del código y su
+// informe. Siempre lleva rutas absolutas de la máquina de quien la genera
+// (`.graphify_root`, `.graphify_python`, `cost.json`, `cache/stat-index.json`),
+// y una copia versionada engaña a la propia skill: si encuentra
+// `graphify-out/graph.json` lo consulta tal cual, sin reconstruirlo, y cada
+// checkout nuevo responde con un grafo viejo. A cualquier profundidad, no solo
+// en la raíz: `graphify update <carpeta>` la escribe dentro de esa carpeta.
+// Entraron 33 el 9-jul-2026, media hora después de su regla de `.gitignore`,
+// desde una rama abierta antes de ella.
+test('nada de la salida de graphify versionado (graphify-out/)', () => {
+  const versionados = ficheros.filter(f => /(^|\/)graphify-out\//.test(f));
+  assert.equal(
+    versionados.length,
+    0,
+    `${versionados.length} fichero(s) de graphify-out/ versionados (\`git ls-files | grep graphify-out\`). `
+      + 'Llevan rutas absolutas de la máquina de quien los generó, y la skill graphify consultaría ese grafo viejo sin reconstruirlo. '
+      + 'Sácalos del índice con `git rm -r --cached graphify-out` (o `<carpeta>/graphify-out`); el disco no se toca.',
   );
 });
 
