@@ -18,7 +18,7 @@ import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-te
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva, type TipoPlan } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando, nombrePeriodo } from '@/lib/bono-logic';
-import { planesComprablesParaReservar } from '@/lib/reserva-planes-comprables';
+import { planesComprablesParaReservar, planCubreTipo } from '@/lib/reserva-planes-comprables';
 import { resolutorCobertura, precioDeCobertura, textoCobertura, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
   contarReservasActivasFuturas, esCancelacionTardia,
@@ -1288,6 +1288,21 @@ export default function ReservarPage() {
   // el servidor).
   // De la fuente única (lib/student/precio-suelta.ts): sin la oferta de prueba.
   const precioClaseSuelta = precioSueltaDe(planesTarifa);
+
+  // «Clase de prueba» (widget, `?prueba=1`; dentro y fuera del modo incrustado,
+  // porque el enlace y el botón llevan a la página completa). Solo las clases
+  // que cubre alguna oferta activa, a su precio. La oferta la vende SOLO esta
+  // vista, y el servidor decide si la persona puede estrenarla
+  // (lib/billing/clase-prueba.ts): aquí nada es la puerta, todo es escaparate.
+  const modoPrueba = searchParams.get('prueba') === '1';
+  const ofertasPrueba = useMemo(
+    () => (modoPrueba ? planesTarifa.filter(p => p.activo && p.esPrueba === true).sort((a, b) => a.precio - b.precio) : []),
+    [modoPrueba, planesTarifa],
+  );
+  const ofertaPruebaPara = useCallback(
+    (tipoClaseId: string | null | undefined) => ofertasPrueba.find(p => planCubreTipo(p, tipoClaseId)) ?? null,
+    [ofertasPrueba],
+  );
   // §3 — POR CLASE, no una vez para todo el listado. Antes esto se resolvía con
   // el tipo de la clase cuya hoja estuviera abierta y se aplicaba a todos los
   // slots: con un Reformer cubierto abierto, las filas de Mat perdían su precio
@@ -1342,6 +1357,8 @@ export default function ReservarPage() {
       .filter(s => !configWidget?.tipos.length || configWidget.tipos.includes(s.tipoClaseId))
       .filter(s => !configWidget?.instructoras.length || configWidget.instructoras.includes(s.instructorId))
       .filter(s => !configWidget?.salas.length || configWidget.salas.includes(s.salaId))
+      // Clase de prueba: solo las clases que cubre alguna oferta.
+      .filter(s => !modoPrueba || !!ofertaPruebaPara(s.tipoClaseId))
       .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
       .filter(s => !filtroInstructor || s.instructorId === filtroInstructor)
       .filter(s => !filtroSala || s.sala?.nombre === filtroSala)
@@ -1378,12 +1395,17 @@ export default function ReservarPage() {
           miReservaId: mia?.id ?? null,
           miEstado: mia ? (mia.estado as 'CONFIRMADA' | 'LISTA_ESPERA') : null,
           miOfertaExpiraEn: mia?.ofertaExpiraEn ?? null,
-          precio: precioDeCobertura(cobertura(s.tipoClaseId)),
-          coberturaTexto: textoCobertura(cobertura(s.tipoClaseId)),
+          // En la vista de prueba, el precio de la oferta (0 € = gratis: sin cifra).
+          precio: modoPrueba
+            ? ((ofertaPruebaPara(s.tipoClaseId)?.precio ?? 0) > 0 ? ofertaPruebaPara(s.tipoClaseId)!.precio : null)
+            : precioDeCobertura(cobertura(s.tipoClaseId)),
+          coberturaTexto: modoPrueba
+            ? ((ofertaPruebaPara(s.tipoClaseId)?.precio ?? 0) > 0 ? 'Tu clase de prueba' : 'Tu clase de prueba, gratis')
+            : textoCobertura(cobertura(s.tipoClaseId)),
           coberturaTextoListaEspera: textoCoberturaListaEspera(cobertura(s.tipoClaseId)),
         } satisfies ReservaSlot;
       });
-  }, [sesionesRich, nowMs, configWidget, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
+  }, [sesionesRich, nowMs, configWidget, modoPrueba, ofertaPruebaPara, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
 
   // Efecto A — URL → estado. Cubre tres disparadores con el mismo código:
   // carga inicial/refresh con `?paso=` en la URL, y Atrás/Adelante del
@@ -1581,6 +1603,8 @@ export default function ReservarPage() {
       .filter(s => !configWidget?.tipos.length || configWidget.tipos.includes(s.tipoClaseId))
       .filter(s => !configWidget?.instructoras.length || configWidget.instructoras.includes(s.instructorId))
       .filter(s => !configWidget?.salas.length || configWidget.salas.includes(s.salaId))
+      // Clase de prueba: solo las clases que cubre alguna oferta.
+      .filter(s => !modoPrueba || !!ofertaPruebaPara(s.tipoClaseId))
       .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
       .filter(s => !filtroInstructor || s.instructorId === filtroInstructor)
       .filter(s => !filtroSala || s.sala?.nombre === filtroSala)
@@ -1592,7 +1616,7 @@ export default function ReservarPage() {
         instructorColor: s.instructor?.color ?? null,
         instructorFotoUrl: s.instructor?.fotoUrl ?? null,
       }));
-  }, [sesionesRich, now, nowMs, configWidget, filtroTipo, filtroNivel, filtroInstructor, filtroSala]);
+  }, [sesionesRich, now, nowMs, configWidget, modoPrueba, ofertaPruebaPara, filtroTipo, filtroNivel, filtroInstructor, filtroSala]);
 
   const misReservas = useMemo(() => {
     if (!socia?.socioId) return [];
@@ -1649,7 +1673,10 @@ export default function ReservarPage() {
 
   // Gate de derechos (C-4): mismo criterio que el servidor, para avisar antes de
   // intentar la reserva. El servidor es la autoridad; esto es solo UX.
-  function evaluarGate(socioId?: string, tipoClaseId?: string | null, inicioISO?: string): string | null {
+  // `conPrueba`: la reserva estrena la clase de prueba GRATIS, que le da el bono
+  // en el servidor justo antes de reservar — aquí aún no lo tiene, y exigirle
+  // plan la frenaría antes de llegar.
+  function evaluarGate(socioId?: string, tipoClaseId?: string | null, inicioISO?: string, conPrueba = false): string | null {
     if (!studio) return null;
     // Fase 1 de reglas por tipo de clase: cada regla puede sobrescribirse en el
     // tipo de clase (NULL = hereda el default del estudio). Mismo criterio que
@@ -1668,7 +1695,7 @@ export default function ReservarPage() {
     const exigirPlan = heredaOverride(tipo?.reservaExigirPlan, studio.reservaExigirPlan);
     // Mismo criterio que el servidor: exigir plan cuando no hay ninguno a la
     // venta solo bloquea (ver `hayAlgoQueContratar`).
-    if (exigirPlan && hayAlgoQueContratar(planesTarifa)) {
+    if (exigirPlan && !conPrueba && hayAlgoQueContratar(planesTarifa)) {
       const ok = socioId
         ? tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyEnEstudio(now), tipoClaseId)
         : false;
@@ -1755,6 +1782,19 @@ export default function ReservarPage() {
       // existe un camino "reservar gratis sin cuenta" (deferred a propósito,
       // ver la nota junto a handleDatosContinuar).
       const sesionDelGate = sesionId ? sesiones.find(s => s.id === sesionId) : undefined;
+      // Clase de prueba: la de pago se paga aquí mismo (como «pagar y reservar
+      // sin login»); la gratis necesita cuenta, así que va por 'login' y la
+      // concede el servidor al confirmar.
+      if (modoPrueba && sesionId) {
+        const oferta = ofertaPruebaPara(sesionDelGate?.tipoClaseId);
+        if (oferta && oferta.precio > 0 && studio?.stripeAccountId && STRIPE_PUBLISHABLE_KEY) {
+          setDatosPlan(oferta);
+          setLoginStep('datos');
+        } else {
+          setLoginStep('login');
+        }
+        return;
+      }
       const tipoDelGate = sesionDelGate?.tipoClaseId ? tiposClase.find(t => t.id === sesionDelGate.tipoClaseId) : undefined;
       const exigePlan = studio && tipoDelGate ? heredaOverride(tipoDelGate.reservaExigirPlan, studio.reservaExigirPlan) : false;
       const planDisponible = sesionId && exigePlan ? planClaseSueltaPara(sesionDelGate?.tipoClaseId, planesTarifa) : null;
@@ -1769,6 +1809,13 @@ export default function ReservarPage() {
       const needsContract = !found?.aceptacionContrato;
       if (needsContract) {
         setLoginStep('contrato');
+      } else if (sesionId && modoPrueba && (ofertaPruebaPara(sesiones.find(s => s.id === sesionId)?.tipoClaseId)?.precio ?? 0) > 0
+        && studio?.stripeAccountId && STRIPE_PUBLISHABLE_KEY) {
+        // Prueba DE PAGO con cuenta: el mismo paso de pago, ya rellenado. El
+        // servidor mira su ficha (por email) y decide si puede estrenarla.
+        setLoginForm(f => ({ ...f, nombre: found?.nombre ?? f.nombre, email: found?.email ?? usuarioEmail ?? f.email, telefono: found?.telefono ?? f.telefono }));
+        setDatosPlan(ofertaPruebaPara(sesiones.find(s => s.id === sesionId)?.tipoClaseId));
+        setLoginStep('datos');
       } else if (sesionId) {
         setLoginStep('confirm');
         trackEventoWidget(studio?.id, 'class_detail_viewed', { sesionClaseId: sesionId });
@@ -2146,7 +2193,10 @@ export default function ReservarPage() {
 
     // Gate de derechos (C-4) antes de crear nada: si no cumple, avisa y no da de
     // alta a la walk-in ni reserva. El servidor lo revalida igualmente.
-    const gate = evaluarGate(socia?.socioId, sesion.tipoClaseId, sesion.inicio);
+    // Clase de prueba GRATIS: el servidor le concede el bono antes de reservar.
+    const ofertaGratis = modoPrueba ? ofertaPruebaPara(sesion.tipoClaseId) : null;
+    const pruebaPlanId = ofertaGratis && ofertaGratis.precio === 0 ? ofertaGratis.id : undefined;
+    const gate = evaluarGate(socia?.socioId, sesion.tipoClaseId, sesion.inicio, !!pruebaPlanId);
     if (gate) { setGateError(gate); return; }
 
     trackEventoWidget(studio?.id, 'booking_started', { sesionClaseId: bookingSesionId, socioId: socia?.socioId ?? null });
@@ -2175,7 +2225,7 @@ export default function ReservarPage() {
       // alimenta la actualización optimista de la UI. El estado (confirmada/espera)
       // lo decide addReserva según el aforo del momento. El sitio elegido (I-12)
       // solo se asigna si la reserva queda confirmada (lo valida el servidor).
-      const r = await addReserva(bookingSesionId, socioIdParaReserva, selectedSpot);
+      const r = await addReserva(bookingSesionId, socioIdParaReserva, selectedSpot, pruebaPlanId ? { pruebaPlanId } : undefined);
       // Si el servidor la rechaza (sin bono, clase empezada, tope de reservas…) se
       // dice, y el paso se queda donde estaba. Antes se saltaba a «done» siempre y
       // la clienta se iba convencida de tener plaza.
@@ -2206,7 +2256,9 @@ export default function ReservarPage() {
   //    por eso se fija después).
   function handleReservarCalendario(slot: ReservaSlot, spotId: string | null): ResultadoReserva | void | Promise<ResultadoReserva | void> {
     trackEventoWidget(studio?.id, 'booking_started', { sesionClaseId: slot.id, socioId: socia?.socioId ?? null });
-    if (!autenticado || !socia) {
+    // En la vista de prueba, siempre por los pasos (pago o concesión de la
+    // prueba): el camino rápido reservaría sin la oferta.
+    if (!autenticado || !socia || modoPrueba) {
       openBooking(slot.id);
       if (spotId) setSelectedSpot(spotId);
       return;
@@ -3230,6 +3282,37 @@ export default function ReservarPage() {
           // propio ReservaCalendario.
           <div style={{ width: '100%', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
 
+            {/* «Clase de prueba» (`?prueba=1`): la oferta, con las palabras del
+                estudio (nombre y descripción del plan), y la regla dicha antes de
+                elegir. Sin oferta activa se dice, con salida al horario de
+                siempre — nunca un horario vacío sin explicación. */}
+            {modoPrueba && !fichaCalendarioAbierta && (ofertasPrueba.length > 0 ? (
+              <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', padding: '18px 20px' }}>
+                <div style={{ ...eyebrow(9), color: 'var(--portal-muted)' }}>SOLO PARA TU PRIMERA VISITA</div>
+                <p style={{ fontFamily: serif, fontSize: cq(20, 2.4, 26), lineHeight: 1.15, marginTop: 8, color: 'var(--portal-ink)' }}>
+                  {ofertasPrueba[0].nombre}
+                  <span style={{ fontFamily: sans, fontSize: 14, fontWeight: 600, marginLeft: 10 }}>
+                    {ofertasPrueba[0].precio > 0 ? `${ofertasPrueba[0].precio} €` : 'Gratis'}
+                  </span>
+                </p>
+                {ofertasPrueba[0].descripcion && (
+                  <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--portal-muted)', marginTop: 6 }}>{ofertasPrueba[0].descripcion}</p>
+                )}
+                <p style={{ fontSize: 12.5, color: 'var(--portal-muted-2)', marginTop: 8 }}>Elige tu clase. Si ya has venido antes, reserva desde el horario de siempre.</p>
+              </div>
+            ) : (
+              <div role="status" style={{ borderRadius: R.card, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', padding: '28px 22px', textAlign: 'center' }}>
+                <p style={{ fontFamily: serif, fontSize: 20, color: 'var(--portal-ink)' }}>Ahora no hay clase de prueba</p>
+                <p style={{ fontSize: 13, color: 'var(--portal-muted)', marginTop: 6 }}>Puedes reservar cualquier clase del horario.</p>
+                <a
+                  href={`/reservar/${slug}?${(() => { const q = new URLSearchParams(searchParams.toString()); q.delete('prueba'); return q.toString(); })()}`}
+                  style={{ display: 'inline-flex', marginTop: 14, height: 44, alignItems: 'center', padding: '0 22px', borderRadius: R.pillBtnSm, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontSize: 13.5, fontWeight: 600, textDecoration: 'none' }}
+                >
+                  Ver el horario
+                </a>
+              </div>
+            ))}
+
             {/* Calendario de reservas — componente compartido (estilo Acuity), el
                 mismo que usa el portal de socias, re-vestido con el lenguaje
                 visual de esta pantalla (ver reserva-calendario.tsx). La reserva
@@ -4205,12 +4288,14 @@ export default function ReservarPage() {
                 // que cubre la clase (aunque sea uno solo, "Clase suelta" a su
                 // propio precio) — confirma explícitamente qué se está pagando,
                 // igual que el mockup de referencia.
-                planesOpciones={(() => {
+                planesOpciones={datosPlan.esPrueba ? [datosPlan] : (() => {
                   const opciones = planesComprablesParaReservar(bookingSesion.tipoClaseId, planesTarifa);
                   return opciones.length > 0 ? opciones : undefined;
                 })()}
                 planSeleccionadoId={datosPlan.id}
                 onCambiarPlan={setDatosPlan}
+                // La clase de prueba no admite códigos: ya es la oferta.
+                sinCodigo={datosPlan.esPrueba === true}
                 // "Elige tu plaza" — mismo criterio que la pantalla 'confirm' de
                 // socia autenticada: solo si la sala tiene mapa de sitios y la
                 // clase no está llena (lista de espera no ocupa sitio).

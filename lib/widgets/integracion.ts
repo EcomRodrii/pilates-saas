@@ -136,6 +136,7 @@ export function urlPagina(e: EntradaIntegracion): string {
     ? (c.cuentaInicio === 'bonos' ? 'cuenta' : 'misreservas')
     : w.pagina.tab;
   if (tab && tab !== 'clases') pares.push(['tab', tab]);
+  for (const [k, v] of Object.entries(w.pagina.extra ?? {})) pares.push([k, v]);
   if (w.contenido.includes('sesion') && c.sesion) pares.push(['sesion', c.sesion]);
   const ref = etiquetaEfectiva(c, w);
   if (ref) pares.push(['ref', ref]);

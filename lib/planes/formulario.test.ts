@@ -68,6 +68,8 @@ test('editar y volver a guardar sin tocar nada no cambia el plan', () => {
     // Como `ofertaHasta`: se emiten siempre (es lo que permite APAGAR la
     // promoción vaciando las casillas), así que la ida y vuelta los devuelve.
     matriculaGratisHasta: null, matriculaGratisCupos: null,
+    // Igual: siempre se emite (en la edición, lo `undefined` no se escribe).
+    esPrueba: false,
   } as PlanTarifa;
 
   const vuelta = formularioAPlan(planAFormulario(guardado));
@@ -390,4 +392,19 @@ test('la promoción va y vuelve del plan al formulario', () => {
   assert.equal(d.matriculaGratisHasta, '2026-12-31');
   assert.equal(d.matriculaGratisCupos, 4);
   assert.equal('matriculaGratisUsados' in d, false);
+});
+
+// ── Clase de prueba ─────────────────────────────────────────────────────────
+
+test('clase de prueba: las mismas reglas que el CHECK de la base, dichas antes de guardar', () => {
+  const base = { ...planVacio(), nombre: 'Tu primera clase', precio: '12', esPrueba: true };
+  assert.match(erroresPlan({ ...base, tipo: 'MENSUAL' }).esPrueba ?? '', /cuota/);
+  assert.match(erroresPlan({ ...base, tipo: 'PUNTUAL', sesiones: '1', validezDias: '' }).validezDias ?? '', /caducidad/);
+  assert.match(erroresPlan({ ...base, tipo: 'BONO', sesiones: '3', validezDias: '21', matricula: '20' }).matricula ?? '', /matrícula/);
+  assert.equal(motivoNoGuardable({ ...base, tipo: 'BONO', sesiones: '3', validezDias: '21' }), null);
+});
+
+test('clase de prueba: una cuota nunca sale marcada, aunque la casilla lo estuviera', () => {
+  assert.equal(formularioAPlan({ ...planVacio(), nombre: 'X', precio: '50', tipo: 'MENSUAL', esPrueba: true }).esPrueba, false);
+  assert.equal(formularioAPlan({ ...planVacio(), nombre: 'X', precio: '10', tipo: 'PUNTUAL', sesiones: '1', validezDias: '30', esPrueba: true }).esPrueba, true);
 });

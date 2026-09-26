@@ -85,7 +85,10 @@ export function useSociaSession(slug: string) {
   // socia en la página sin ninguna señal de si había entrado o no: tenía que
   // pulsar "Acceder" otra vez para que el modal reaccionara.
   const enviarEnlace = useCallback(async (email: string, sesionId?: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
-    const base = sesionId ? `?sesion=${encodeURIComponent(sesionId)}` : '?acceso=1';
+    // La «clase de prueba» (`?prueba=1`) sigue siéndolo al volver del correo:
+    // sin esto aterrizaría en el horario normal, sin la oferta.
+    const prueba = new URLSearchParams(window.location.search).get('prueba') === '1' ? '&prueba=1' : '';
+    const base = `${sesionId ? `?sesion=${encodeURIComponent(sesionId)}` : '?acceso=1'}${prueba}`;
     // Fase 8 (CRO): propaga el sessionId ANÓNIMO (sessionStorage, no
     // identidad de socia — eventos.ts) al enlace mágico para poder medir
     // lead_completed al volver: es la única forma de emparejar "pidió el
