@@ -156,7 +156,7 @@ test('se ofrece filtrar por todo lo que el libro recoge: ya no hay tabla que el 
   // `ingresos_manuales` se escribía por una ruta de servidor sin actor y por eso no tenía filtro;
   // ahora esa ruta escribe su propia entrada. Si una tabla vuelve a escaparse, se marca `false`.
   const conFiltro = Object.entries(TABLAS_AUDITADAS).filter(([, t]) => t.desdeElPanel).map(([id]) => id).sort();
-  assert.deepEqual(conFiltro, ['ingresos_manuales', 'penalizaciones', 'planes_tarifa', 'recibos', 'suscripciones']);
+  assert.deepEqual(conFiltro, ['facturas', 'ingresos_manuales', 'penalizaciones', 'planes_tarifa', 'recibos', 'suscripciones', 'ventas_pos']);
 });
 
 test('el motivo se enseña en claro, y sin motivo no se inventa uno', () => {
@@ -201,19 +201,70 @@ test('un código de acción que es una clave heredada de los objetos no rompe la
   assert.equal(fraseDeAccion(42), null);
 });
 
+test('un cobro lanzado con el método guardado se cuenta con su resultado y su origen, y sin jerga de Stripe', () => {
+  const d = describirEntrada(entrada({
+    origen: 'servidor', cambios: ['estado', 'fecha_cobro', 'metodo_cobro', 'stripe_payment_intent_id'],
+    antes: { estado: 'PENDIENTE', fecha_cobro: null, metodo_cobro: null, stripe_payment_intent_id: null },
+    despues: { estado: 'COBRADO', fecha_cobro: '2026-09-26', metodo_cobro: 'TARJETA', stripe_payment_intent_id: 'pi_123' },
+    contexto: { accion: 'COBRO_LANZADO', concepto: 'Mensual Ilimitado — Sep 2026', importe: 85, resultado_cobro: 'succeeded', origen: 'COBRAR_ONLINE' },
+  }), { ahora: AHORA });
+  assert.equal(d.titulo, 'Lanzó el cobro de un recibo con el método de pago guardado');
+  assert.equal(d.objeto, 'Mensual Ilimitado — Sep 2026');
+  // El importe primero, y el resto con etiquetas de persona (no `stripe_payment_intent_id`).
+  assert.equal(d.lineas[0].campo, 'Importe');
+  assert.equal(d.lineas[0].despues, '85,00 €');
+  const campos = d.lineas.map(l => l.campo);
+  assert.ok(campos.includes('Referencia del cobro') && campos.includes('Estado'), campos.join(', '));
+  assert.ok(!campos.some(c => /payment|intent|_/i.test(c)), `una etiqueta con jerga: ${campos.join(', ')}`);
+  // Un adeudo SEPA en marcha se lee igual de bien.
+  const sepa = describirEntrada(entrada({
+    origen: 'servidor', cambios: ['estado', 'metodo_cobro', 'sepa_estado'],
+    antes: { estado: 'PENDIENTE', metodo_cobro: null, sepa_estado: null },
+    despues: { estado: 'EN_CURSO', metodo_cobro: 'SEPA', sepa_estado: 'processing' },
+    contexto: { accion: 'COBRO_LANZADO', importe: 85, resultado_cobro: 'processing', origen: 'AUTOMATIZACIONES' },
+  }), { ahora: AHORA });
+  assert.ok(sepa.lineas.some(l => l.campo === 'Estado del adeudo SEPA'));
+});
+
+test('una devolución de la caja se cuenta con lo devuelto, y el canal se lee sin jerga', () => {
+  const d = describirEntrada(entrada({
+    origen: 'servidor', tabla: 'ventas_pos', cambios: ['importe_devuelto'],
+    antes: { importe_devuelto: 0 }, despues: { importe_devuelto: 30 },
+    contexto: { accion: 'DEVOLUCION_CAJA', concepto: 'Venta #000123', importe: 30, es_total: false, canal: 'tarjeta' },
+  }), { ahora: AHORA });
+  assert.equal(d.titulo, 'Devolvió una venta de la caja');
+  assert.equal(d.objeto, 'Venta #000123');
+  assert.equal(d.lineas[0].campo, 'Importe');
+  assert.equal(d.lineas[0].despues, '30,00 €');
+  assert.ok(d.lineas.some(l => l.campo === 'Importe devuelto'));
+});
+
+test('una rectificativa se cuenta por lo que hizo la persona y solo lleva importes', () => {
+  const d = describirEntrada(entrada({
+    origen: 'servidor', tabla: 'facturas', operacion: 'INSERT', cambios: [], antes: {},
+    despues: { base_imponible: 70.25, cuota_iva: 14.75, total: 85, importe_rectificacion: 85 },
+    contexto: { accion: 'FACTURA_RECTIFICATIVA_EMITIDA', concepto: 'Rectificativa R1', tipo_factura: 'R1' },
+  }), { ahora: AHORA });
+  assert.equal(d.titulo, 'Emitió una factura rectificativa');
+  assert.equal(d.objeto, 'Rectificativa R1');
+  assert.deepEqual(d.lineas.map(l => l.campo), ['Base imponible', 'IVA', 'Total', 'Importe rectificado']);
+  assert.equal(TABLAS_AUDITADAS.facturas.uno, 'una factura');
+});
+
 test('toda acción que una ruta de servidor puede escribir tiene su frase', () => {
   // Las rutas usan estos códigos; si una escribe uno que no está aquí, el historial lo contaría como un cambio genérico.
   const escritos = new Set<string>();
   for (const ruta of [
     '../lib/billing/marcar-devuelto.ts', '../app/api/reembolsos/route.ts', '../app/api/ingresos-manuales/route.ts',
     '../app/api/devoluciones/revertir/route.ts', '../app/api/penalizaciones/aprobar/route.ts',
+    '../lib/auditoria/cobro-manual.ts', '../app/api/facturas/rectificar/route.ts', '../app/api/pos/devolucion/route.ts',
   ]) {
     const fuente = readFileSync(new URL(ruta, import.meta.url), 'utf8');
     // Solo lo que va dentro de `contexto` (o del `anotar({…})` de la ruta de penalizaciones, que lo arma): las
     // respuestas JSON de estas rutas también dicen `accion: 'DESCARTADA'`.
     for (const m of fuente.matchAll(/(?:contexto:\s*|anotar\(\s*)\{\s*accion:\s*'([A-Z_]+)'/g)) escritos.add(m[1]);
   }
-  assert.ok(escritos.size >= 7, `solo se ven ${escritos.size} acciones en las rutas: ¿se han instrumentado?`);
+  assert.ok(escritos.size >= 10, `solo se ven ${escritos.size} acciones en las rutas: ¿se han instrumentado?`);
   const sinFrase = [...escritos].filter(a => !(a in ACCIONES));
   assert.deepEqual(sinFrase, [], `acciones sin frase: ${sinFrase.join(', ')}`);
 });

@@ -105,6 +105,10 @@ export const TABLAS_AUDITADAS: Readonly<Record<string, InfoTabla>> = {
   planes_tarifa: { uno: 'un plan', etiqueta: 'Planes', desdeElPanel: true, principales: ['nombre', 'precio', 'tipo', 'sesiones', 'activo'] },
   // Sin trigger: solo la escribe la ruta de servidor que aprueba el cobro.
   penalizaciones: { uno: 'una penalización', etiqueta: 'Penalizaciones', desdeElPanel: true, soloServidor: true, principales: ['estado', 'importe', 'tipo'] },
+  // Sin trigger: solo la escribe la ruta de servidor de las devoluciones de la caja. El importe, no el motivo (texto libre).
+  ventas_pos: { uno: 'una venta de la caja', etiqueta: 'Ventas de la caja', desdeElPanel: true, soloServidor: true, principales: ['importe_devuelto'] },
+  // Sin trigger: solo la escribe la ruta de servidor que emite la rectificativa. Solo importes: el receptor no entra.
+  facturas: { uno: 'una factura', etiqueta: 'Rectificativas', desdeElPanel: true, soloServidor: true, principales: ['base_imponible', 'cuota_iva', 'total', 'importe_rectificacion'] },
 };
 
 type TipoValor = 'euros' | 'fecha' | 'fechahora' | 'estado' | 'si-no' | 'texto';
@@ -121,8 +125,11 @@ const CAMPOS: Readonly<Record<string, { etiqueta: string; tipo: TipoValor }>> = 
   base_imponible: { etiqueta: 'Base imponible', tipo: 'euros' },
   cuota_iva: { etiqueta: 'IVA', tipo: 'euros' },
   total: { etiqueta: 'Total', tipo: 'euros' },
+  importe_rectificacion: { etiqueta: 'Importe rectificado', tipo: 'euros' },
   estado: { etiqueta: 'Estado', tipo: 'estado' },
   metodo_cobro: { etiqueta: 'Método de cobro', tipo: 'estado' },
+  sepa_estado: { etiqueta: 'Estado del adeudo SEPA', tipo: 'estado' },
+  stripe_payment_intent_id: { etiqueta: 'Referencia del cobro', tipo: 'texto' },
   sesiones_restantes: { etiqueta: 'Sesiones restantes', tipo: 'texto' },
   sesiones: { etiqueta: 'Sesiones', tipo: 'texto' },
   tipo: { etiqueta: 'Tipo', tipo: 'estado' },
@@ -268,6 +275,9 @@ export const ACCIONES: Readonly<Record<string, string>> = {
   REEMBOLSO_PEDIDO: 'Pidió un reembolso',
   RECIBO_MARCADO_DEVUELTO: 'Marcó un recibo como devuelto',
   ENTREGA_REVERTIDA: 'Revirtió la entrega de una devolución',
+  COBRO_LANZADO: 'Lanzó el cobro de un recibo con el método de pago guardado',
+  FACTURA_RECTIFICATIVA_EMITIDA: 'Emitió una factura rectificativa',
+  DEVOLUCION_CAJA: 'Devolvió una venta de la caja',
   PENALIZACION_APROBADA: 'Aprobó cobrar una penalización',
   PENALIZACION_CORREGIDA: 'Aprobó una penalización que ya estaba resuelta',
   PENALIZACION_SIN_CONSENTIMIENTO: 'Una penalización se cerró sin cobrar: el contrato no la recoge',

@@ -74,10 +74,12 @@ export function HistorialDinero({ studioId, socioId }: { studioId: string; socio
     <div className="space-y-4" data-testid="historial-dinero">
       <p className="text-xs text-muted-foreground max-w-prose">
         Cada vez que alguien de tu equipo crea, cambia o borra un recibo, una cuota o bono, un plan o un ingreso
-        manual, pide un reembolso, marca un recibo como devuelto o aprueba cobrar una penalización, queda aquí:
-        quién, cuándo y qué valor había antes. No incluye los cobros automáticos ni lo que confirma Stripe. Todavía no
-        recoge las ventas y devoluciones de la caja, el cobro con tarjeta guardada que lanza una persona («Cobrar
-        online» o aprobar un cobro en Automatizaciones) ni lo que se importa desde otra plataforma.
+        manual, pide un reembolso, marca un recibo como devuelto, lanza un cobro con el método de pago guardado
+        («Cobrar online» o aprobar una propuesta en Automatizaciones), devuelve una venta de la caja, emite una
+        factura rectificativa o aprueba cobrar una penalización, queda aquí: quién, cuándo y qué valor había antes.
+        No incluye los cobros automáticos ni lo que confirma Stripe, ni un intento de cobro que el banco rechaza
+        (no cambia ningún dato). Las ventas de la caja y sus entradas y salidas de efectivo llevan su propio
+        registro, con quién las hizo, en Caja. Todavía no recoge lo que se importa desde otra plataforma.
         {' '}{AVISO_DE_CONSERVACION}
       </p>
 
