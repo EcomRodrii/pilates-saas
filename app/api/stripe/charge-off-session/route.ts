@@ -7,6 +7,7 @@ import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/billing/strip
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { anotarCobroManual, leerReciboAntesDeCobrar } from '@/lib/auditoria/cobro-manual';
 
 // Cobra un recibo pendiente usando la tarjeta ya guardada de la socia, sin
 // que ella tenga que hacer nada. Solo se llama cuando alguien del estudio
@@ -64,13 +65,25 @@ export async function POST(req: NextRequest) {
 
   // El recibo de una penalización solo con el cobro ya decidido (RECIBO_CREADO),
   // igual que en «Cobrar online». La propuesta queda cerrada con el porqué.
-  const penalizacionNoCobrable = await bloqueoCobroManualDePenalizacion(getSupabaseAdmin(), {
+  const admin = getSupabaseAdmin();
+  const penalizacionNoCobrable = await bloqueoCobroManualDePenalizacion(admin, {
     studioId: sesion.studioId, reciboId: body.reciboId,
   });
   if (penalizacionNoCobrable) {
     await dbUpdateAutomationLog(body.logId, sesion.studioId, { resultado: 'FALLIDO', detalle: penalizacionNoCobrable.mensaje });
     return NextResponse.json({ error: penalizacionNoCobrable.mensaje }, { status: penalizacionNoCobrable.http });
   }
+
+  // Libro de auditoría: quién aprueba el cobro. Esta ruta usa service-role, así que el trigger no lo ve; el
+  // actor es la SESIÓN. Se lee el recibo antes y después y se anota lo que cambió. Nunca lanza ni retrasa
+  // el cargo más de unos segundos.
+  const antes = admin ? await leerReciboAntesDeCobrar(admin, sesion.studioId, body.reciboId) : null;
+  const anotarCobro = (resultado: Awaited<ReturnType<typeof cobrarReciboOffSession>>) =>
+    admin
+      ? anotarCobroManual(admin, {
+          sesion, reciboId: body.reciboId, socioId: body.socioId, antes, resultado, origen: 'AUTOMATIZACIONES',
+        })
+      : Promise.resolve();
 
   // A-10: la Idempotency-Key la deriva cobrarReciboOffSession del reciboId, para
   // que este disparador (aprobación manual) y el ejecutor del Decision OS
@@ -89,6 +102,8 @@ export async function POST(req: NextRequest) {
       const detalle = resultado.error ?? 'Cobro completado en Stripe, pero pendiente de reconciliación manual.';
       await dbUpdateAutomationLog(body.logId, sesion.studioId, { resultado: 'FALLIDO', detalle });
       capturar(body.studioId, { nombre: 'pago_completado', props: { importe_centimos: Math.round((resultado.importe ?? 0) * 100), via: 'off_session' } });
+      // Después del log: con el dinero ya cobrado, nada puede retrasar que la automatización quede marcada.
+      await anotarCobro(resultado);
       return NextResponse.json({ ok: true, status: resultado.status, aviso: resultado.aviso, error: detalle }, { status: 202 });
     }
     await dbUpdateAutomationLog(body.logId, sesion.studioId, {
@@ -97,6 +112,7 @@ export async function POST(req: NextRequest) {
     });
     // R4: señal de GMV (cobro con tarjeta guardada).
     capturar(body.studioId, { nombre: 'pago_completado', props: { importe_centimos: Math.round((resultado.importe ?? 0) * 100), via: 'off_session' } });
+    await anotarCobro(resultado);
     return NextResponse.json({ ok: true, status: resultado.status });
   }
 

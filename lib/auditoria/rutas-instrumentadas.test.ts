@@ -14,12 +14,17 @@ import { ACCIONES } from '../auditoria-estudio.ts';
 
 const leer = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.url), 'utf8');
 
+/** Las dos rutas de cobro con el método guardado anotan a través de `anotarCobroManual` (lib/auditoria/cobro-manual.ts). */
+const RUTAS_DE_COBRO = ['app/api/cobros/cobrar-online/route.ts', 'app/api/stripe/charge-off-session/route.ts'];
+
 const RUTAS: Array<{ ruta: string; acciones: string[] }> = [
   { ruta: 'app/api/reembolsos/route.ts', acciones: ['REEMBOLSO_PEDIDO'] },
   { ruta: 'app/api/cobros/marcar-devuelto/route.ts', acciones: [] }, // la anota lib/billing/marcar-devuelto.ts
   { ruta: 'app/api/ingresos-manuales/route.ts', acciones: ['INGRESO_MANUAL_CREADO', 'INGRESO_MANUAL_EDITADO', 'INGRESO_MANUAL_ELIMINADO'] },
   { ruta: 'app/api/devoluciones/revertir/route.ts', acciones: ['ENTREGA_REVERTIDA'] },
   { ruta: 'app/api/penalizaciones/aprobar/route.ts', acciones: ['PENALIZACION_APROBADA', 'PENALIZACION_CORREGIDA', 'PENALIZACION_SIN_CONSENTIMIENTO'] },
+  { ruta: 'app/api/facturas/rectificar/route.ts', acciones: ['FACTURA_RECTIFICATIVA_EMITIDA'] },
+  { ruta: 'app/api/pos/devolucion/route.ts', acciones: ['DEVOLUCION_CAJA'] },
 ];
 
 test('cada ruta usa la sesión ENTERA como actor y nunca lo que diga el cuerpo', () => {
@@ -36,6 +41,62 @@ test('cada ruta usa la sesión ENTERA como actor y nunca lo que diga el cuerpo',
     assert.doesNotMatch(fuente, /userId:\s*body\./, `${ruta}: el userId sale del cuerpo`);
   }
   assert.match(leer('app/api/cobros/marcar-devuelto/route.ts'), /actor:\s*\{\s*userId:\s*sesion\.userId,\s*rol:\s*sesion\.rol\s*\}/);
+
+  // Las dos de cobro con el método guardado: la sesión entera, a través del helper.
+  for (const ruta of RUTAS_DE_COBRO) {
+    const fuente = leer(ruta);
+    assert.match(fuente, /anotarCobroManual\(admin,\s*\{\s*sesion,/, `${ruta}: no le pasa la sesión entera`);
+    assert.doesNotMatch(fuente, /anotarCobroManual\(admin,\s*\{\s*(?![\s]|sesion,)/, `${ruta}: una llamada no empieza por la sesión`);
+    assert.doesNotMatch(fuente, /anotarCobroManual\([^)]*\bbody\.(userId|rol|actor)/, `${ruta}: el actor sale del cuerpo`);
+  }
+});
+
+test('cobro con el método guardado: se lee ANTES del cargo, se anota DESPUÉS, y las dos rutas dicen de dónde vienen', () => {
+  const origenes = new Set<string>();
+  for (const ruta of RUTAS_DE_COBRO) {
+    const f = leer(ruta);
+    const antes = f.indexOf('leerReciboAntesDeCobrar(');
+    const cargo = f.indexOf('cobrarReciboOffSession({');
+    // La llamada (no la definición del envoltorio, que en charge-off-session va antes del cargo).
+    const anota = [f.indexOf('await anotarCobroManual(admin', cargo), f.indexOf('await anotarCobro(resultado)', cargo)]
+      .filter(i => i > 0).sort((a, b) => a - b)[0] ?? -1;
+    assert.ok(antes > 0 && cargo > 0 && anota > 0, `${ruta}: no se encuentran los tres hitos`);
+    assert.ok(antes < cargo, `${ruta}: el recibo se lee después del cargo, y ya no es «antes»`);
+    assert.ok(cargo < anota, `${ruta}: se anota un cobro que aún no ha ocurrido`);
+    // Y antes de responder: el helper no lanza, pero tiene que haber corrido cuando se contesta.
+    assert.ok(anota < f.indexOf('return NextResponse.json({ ok: true'), `${ruta}: se anota después de responder`);
+    const m = f.match(/origen:\s*'([A-Z_]+)'/);
+    assert.ok(m, `${ruta}: no dice su origen`);
+    origenes.add(m[1]);
+  }
+  assert.deepEqual([...origenes].sort(), ['AUTOMATIZACIONES', 'COBRAR_ONLINE']);
+  // La acción que anota el helper existe en la pantalla.
+  assert.match(leer('lib/auditoria/cobro-manual.ts'), /accion:\s*'COBRO_LANZADO'/);
+  assert.ok('COBRO_LANZADO' in ACCIONES);
+});
+
+test('devolución de la caja: se anota DESPUÉS de que el dinero salga y el libro de la venta se aplique, y sin el motivo (texto libre)', () => {
+  const f = leer('app/api/pos/devolucion/route.ts');
+  const reembolso = f.indexOf('stripe.refunds.create');
+  const aplicado = f.indexOf("p_simular: false");
+  const anota = f.indexOf('registrarAuditoriaServidor(admin');
+  assert.ok(reembolso > 0 && aplicado > 0 && anota > 0, 'no se encuentran los tres hitos');
+  assert.ok(reembolso < anota && aplicado < anota, 'se anota una devolución que aún no ha ocurrido');
+  // Solo si hubo dinero que devolver.
+  assert.match(f, /if \(importe > 0\) \{\s+const yaDevuelto/);
+  const trozo = f.slice(anota, f.indexOf('// ── 3. Créditos de gamificación'));
+  assert.doesNotMatch(trozo, /motivo/i, 'el motivo es texto libre y no entra al libro');
+  assert.doesNotMatch(trozo, /nombre/i, 'el nombre de quien devuelve o de la clienta no entra al libro');
+});
+
+test('rectificativa: se anota solo si ESTA petición la emitió, y sin datos del receptor', () => {
+  const f = leer('app/api/facturas/rectificar/route.ts');
+  assert.match(f, /if \(r\.sellada && !r\.yaExistia\)/);
+  // Después del sellado y antes de responder.
+  assert.ok(f.indexOf('sellarRectificativaDeFactura(') < f.indexOf('registrarAuditoriaServidor(admin'));
+  const trozo = f.slice(f.indexOf('registrarAuditoriaServidor(admin'), f.indexOf('return NextResponse.json(r)'));
+  // Ni el nombre ni el NIF del receptor entran al libro.
+  assert.doesNotMatch(trozo, /receptor|nif/i);
 });
 
 test('cada ruta anota lo que hizo con un código conocido de ACCIONES', () => {
