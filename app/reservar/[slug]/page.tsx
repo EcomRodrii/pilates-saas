@@ -614,10 +614,14 @@ export default function ReservarPage() {
   const [filtroTipo, setFiltroTipo] = useState('');
   // Con `?tipos=` en el snippet, los chips solo enseñan ese subconjunto: un
   // chip de un tipo que el snippet excluye daría siempre cero resultados.
-  const tiposClaseVisibles = useMemo(
-    () => (configWidget?.tipos.length ? tiposClase.filter(t => configWidget.tipos.includes(t.id)) : tiposClase),
-    [tiposClase, configWidget],
-  );
+  const tiposClaseVisibles = useMemo(() => {
+    const delSnippet = configWidget?.tipos.length ? tiposClase.filter(t => configWidget.tipos.includes(t.id)) : tiposClase;
+    // Clase de prueba (`?prueba=1`): solo los tipos que cubre alguna oferta —
+    // por el mismo motivo, un chip de un tipo sin oferta daría cero clases.
+    if (searchParams.get('prueba') !== '1') return delSnippet;
+    const ofertas = planesTarifa.filter(p => p.activo && p.esPrueba === true);
+    return delSnippet.filter(t => ofertas.some(p => planCubreTipo(p, t.id)));
+  }, [tiposClase, configWidget, searchParams, planesTarifa]);
   // Filtros de nivel/horario/día/instructora/sala — sin UI propia hoy (vivían
   // en el rail lateral y el quiz de descubrimiento, quitados al adoptar el
   // handoff design_handoff_widget_reservas), pero `slots` sigue filtrando por
@@ -2477,7 +2481,8 @@ export default function ReservarPage() {
       : tabs;
   // Las vistas incrustadas de UNA sola cosa (planes, equipo): nada de las
   // secciones de la página completa debajo — 1 widget = 1 propósito.
-  const vistaUnica = embedMode && (tab === 'planes' || tab === 'equipo');
+  // La clase de prueba también: debajo no van tus bonos ni «Sobre nosotros».
+  const vistaUnica = embedMode && (tab === 'planes' || tab === 'equipo' || modoPrueba);
   // `?planes=BONO,MENSUAL` (widgets «Planes y precios» / «Bonos y packs»).
   // Solo incrustado, y un valor que no es un tipo de plan se ignora.
   const filtroPlanes = embedMode
@@ -3291,7 +3296,7 @@ export default function ReservarPage() {
                 <div style={{ ...eyebrow(9), color: 'var(--portal-muted)' }}>SOLO PARA TU PRIMERA VISITA</div>
                 <p style={{ fontFamily: serif, fontSize: cq(20, 2.4, 26), lineHeight: 1.15, marginTop: 8, color: 'var(--portal-ink)' }}>
                   {ofertasPrueba[0].nombre}
-                  <span style={{ fontFamily: sans, fontSize: 14, fontWeight: 600, marginLeft: 10 }}>
+                  <span style={{ fontFamily: sans, fontSize: 14, fontWeight: 600, marginLeft: 10, whiteSpace: 'nowrap' }}>
                     {ofertasPrueba[0].precio > 0 ? `${ofertasPrueba[0].precio} €` : 'Gratis'}
                   </span>
                 </p>
@@ -3690,7 +3695,9 @@ export default function ReservarPage() {
           mismo de siempre (activo y precio > 0, que además es requisito del
           checkout de Stripe): una banda «Bonos y membresías» vacía en la
           página pública es peor que no tenerla. */}
-      {!enVistaReserva && seccionVisible('bonos') && !vistaUnica && planesEnVenta.length > 0 && (
+      {/* Con `?prueba=1` tampoco en la página completa (enlace/botón): la
+          clase suelta a su precio competiría con la oferta de al lado. */}
+      {!enVistaReserva && seccionVisible('bonos') && !vistaUnica && !modoPrueba && planesEnVenta.length > 0 && (
         <div id="bonos-membresias" style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           {contenidoPlanes}
         </div>

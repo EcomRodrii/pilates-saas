@@ -109,6 +109,9 @@ test('solo las clases que cubre la oferta, a su precio, con la regla dicha antes
   await expect(reformer).toContainText('10 €');
   // Mat no la cubre la oferta: no sale.
   await expect(page.getByRole('button', { name: /Mat a las 12:00/ })).toHaveCount(0);
+  // Y tampoco su chip: daría siempre cero clases.
+  const chips = page.getByRole('group', { name: 'Filtrar por tipo de clase' });
+  await expect(chips.getByRole('button', { name: 'Mat' })).toHaveCount(0);
 });
 
 test('pagar la prueba manda el plan de PRUEBA, sin código; un 409 se dice y no arranca el pago', async ({ page }) => {
@@ -166,4 +169,10 @@ test('⚠️ regresión: fuera de `?prueba=1` la oferta no existe (precio y pago
   await rellenarDatos(page);
   await expect.poll(api.intentos, { timeout: 15_000 }).toBeGreaterThan(0);
   expect(api.body()).toMatchObject({ planId: 'plan-suelto' });
+});
+
+test('⚠️ debajo de la oferta no van tus bonos (la suelta a su precio competiría con la prueba)', async ({ page }) => {
+  await abrir(page, 'tab=clases&prueba=1&embed=1');
+  await expect(page.getByText('SOLO PARA TU PRIMERA VISITA')).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('#bonos-membresias')).toHaveCount(0);
 });
