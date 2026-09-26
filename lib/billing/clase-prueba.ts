@@ -44,7 +44,7 @@ export async function puedeEstrenarPrueba(
   socioId: string | null,
   email: string | null | undefined,
 ): Promise<boolean> {
-  let id = socioId;
+  const id = socioId;
   if (!id) {
     const e = email?.trim();
     // Sin ficha y sin email no hay a quién entregar nada: el checkout ya lo
@@ -53,21 +53,28 @@ export async function puedeEstrenarPrueba(
     // `*` PostgREST lo convierte en comodín ANTES de Postgres: casaría con
     // cualquier ficha. No es un email válido: fuera.
     if (e.includes('*')) return false;
+    // TODAS las fichas con ese email (borradas incluidas): con una vieja y una
+    // nueva, coger «una cualquiera» podría mirar justo la que no tiene historial.
     const { data, error } = await admin
       .from('socios').select('id')
       .eq('studio_id', studioId).ilike('email', escaparLike(e))
-      .limit(1).maybeSingle();
+      .limit(50);
     if (error) return false;
-    if (!data) return true;
-    id = (data as { id: string }).id;
+    const ids = ((data ?? []) as { id: string }[]).map(f => f.id);
+    if (ids.length === 0) return true;
+    return sinHistorial(admin, studioId, ids);
   }
+  return sinHistorial(admin, studioId, [id]);
+}
+
+async function sinHistorial(admin: SupabaseClient, studioId: string, ids: string[]): Promise<boolean> {
   const [sus, res, rec] = await Promise.all([
     admin.from('suscripciones').select('id', { count: 'exact', head: true })
-      .eq('studio_id', studioId).eq('socio_id', id),
+      .eq('studio_id', studioId).in('socio_id', ids),
     admin.from('reservas').select('id', { count: 'exact', head: true })
-      .eq('studio_id', studioId).eq('socio_id', id).neq('estado', 'CANCELADA'),
+      .eq('studio_id', studioId).in('socio_id', ids).neq('estado', 'CANCELADA'),
     admin.from('recibos').select('id', { count: 'exact', head: true })
-      .eq('studio_id', studioId).eq('socio_id', id).eq('estado', 'COBRADO'),
+      .eq('studio_id', studioId).in('socio_id', ids).eq('estado', 'COBRADO'),
   ]);
   if (sus.error || res.error || rec.error) return false;
   return (sus.count ?? 1) === 0 && (res.count ?? 1) === 0 && (rec.count ?? 1) === 0;

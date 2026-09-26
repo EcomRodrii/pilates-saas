@@ -39,7 +39,9 @@ export function ListaPlanes({
 }) {
   const [estado, setEstado] = useState<EstadoCompra>({ fase: 'lista' });
   const [error, setError] = useState<string | null>(null);
-  const activos = planes.filter(p => p.activo);
+  // La «clase de prueba» no se vende aquí: solo junto a una clase, en su vista
+  // (lib/billing/clase-prueba.ts). Listarla prometería algo que el servidor rechaza.
+  const activos = planes.filter(p => p.activo && p.esPrueba !== true);
 
   const configuracionIncompleta = !publishableKey || !stripeAccountId;
 

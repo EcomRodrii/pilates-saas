@@ -20,6 +20,7 @@ function falso(responder: (l: Llamada) => Resp) {
         select() { return q; },
         eq(k: string, v: unknown) { l.filtros[k] = v; return q; },
         neq(k: string, v: unknown) { l.filtros[`${k}!=`] = v; return q; },
+        in(k: string, v: unknown) { l.filtros[`${k}[]`] = v; return q; },
         ilike(k: string, v: unknown) { l.filtros[`${k}~`] = v; return q; },
         limit() { return q; },
         maybeSingle() { llamadas.push(l); return Promise.resolve({ error: null, ...responder(l) }); },
@@ -39,10 +40,10 @@ function falso(responder: (l: Llamada) => Resp) {
 }
 
 // Historial por tabla para una ficha concreta.
-function historial(h: { sus?: number; res?: number; rec?: number; errorEn?: string; ficha?: string | null }) {
+function historial(h: { sus?: number; res?: number; rec?: number; errorEn?: string; ficha?: string | null; fichas?: string[] }) {
   return (l: Llamada): Resp => {
     if (h.errorEn === l.tabla) return { error: { message: 'boom' } };
-    if (l.tabla === 'socios') return { data: h.ficha === undefined ? null : h.ficha ? { id: h.ficha } : null };
+    if (l.tabla === 'socios') return { data: (h.fichas ?? (h.ficha ? [h.ficha] : [])).map(id => ({ id })) };
     if (l.tabla === 'suscripciones') return { count: h.sus ?? 0 };
     if (l.tabla === 'reservas') return { count: h.res ?? 0 };
     if (l.tabla === 'recibos') return { count: h.rec ?? 0 };
@@ -68,6 +69,12 @@ test('con suscripción, reserva viva o recibo cobrado: NO', async () => {
     const { admin } = falso(historial(h));
     assert.equal(await puedeEstrenarPrueba(admin, 'st', 'soc-1', null), false, JSON.stringify(h));
   }
+});
+
+test('⚠️ dos fichas con el mismo email: se mira el historial de TODAS', async () => {
+  const { admin, llamadas } = falso(historial({ fichas: ['vieja', 'nueva'], rec: 1 }));
+  assert.equal(await puedeEstrenarPrueba(admin, 'st', null, 'x@example.com'), false);
+  assert.deepEqual(llamadas.find(l => l.tabla === 'recibos')!.filtros['socio_id[]'], ['vieja', 'nueva']);
 });
 
 test('las reservas CANCELADAS no cuentan (el filtro va en la consulta)', async () => {

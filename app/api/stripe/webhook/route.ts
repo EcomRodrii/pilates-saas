@@ -679,6 +679,13 @@ async function procesarEvento(
           fuente: 'webhook',
           matriculaCobradaCentimos: matriculaCentimos,
         });
+        // «Clase de prueba» entregada a quien ya tenía otra: el dinero ya está
+        // cobrado y se entrega; que el estudio decida si reembolsa (nunca solo).
+        if (entrega.ok && entrega.pruebaRepetida) {
+          Sentry.captureMessage('[stripe webhook] clase de prueba entregada a quien ya tenía otra', {
+            level: 'warning', tags: { studioId }, extra: { suscripcionId: entrega.suscripcionId },
+          });
+        }
         if (!entrega.ok) {
           Sentry.captureMessage('[stripe webhook] cobrado pero NO entregado', {
             level: 'error',
@@ -1126,6 +1133,13 @@ async function procesarEvento(
         // P-1 (auditoría 26ª pasada): ya decidido al crear el PaymentIntent.
         matriculaCobradaCentimos: Number(pi.metadata.matriculaCentimos ?? 0) || 0,
       });
+      // «Clase de prueba» entregada a quien ya tenía otra: el dinero ya está
+      // cobrado y se entrega; que el estudio decida si reembolsa (nunca solo).
+      if (entrega.ok && entrega.pruebaRepetida) {
+        Sentry.captureMessage('[stripe webhook] clase de prueba entregada a quien ya tenía otra', {
+          level: 'warning', tags: { studioId }, extra: { suscripcionId: entrega.suscripcionId },
+        });
+      }
       if (!entrega.ok) {
         Sentry.captureMessage('[stripe webhook] checkout embebido: cobrado pero NO entregado', {
           level: 'error',

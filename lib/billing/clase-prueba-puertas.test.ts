@@ -61,3 +61,15 @@ test('⚠️ el precio de la clase suelta sale de la fuente única, nunca de un 
   recorrer('lib/reservar');
   assert.deepEqual(culpables, [], 'un `.find(PUNTUAL && activo)` en línea tomaría el precio de la prueba');
 });
+
+test('⚠️ la lista de planes del widget nativo no ofrece la prueba', () => {
+  assert.match(fuente('components/checkout-widget/lista-planes.tsx'), /p\.activo && p\.esPrueba !== true/);
+});
+
+test('⚠️ una segunda prueba pagada se entrega (dinero cobrado) pero se AVISA, en los dos eventos del webhook', () => {
+  const entrega = fuente('lib/billing/entregar-plan-comprado.ts');
+  assert.match(entrega, /select\('[^']*\bes_prueba\b[^']*'\)/);
+  assert.match(entrega, /pruebaRepetida/);
+  const webhook = fuente('app/api/stripe/webhook/route.ts');
+  assert.equal((webhook.match(/entrega\.ok && entrega\.pruebaRepetida/g) ?? []).length, 2);
+});
