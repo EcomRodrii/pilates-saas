@@ -32,7 +32,7 @@ const STUDIO_ROW = {
 };
 
 const INSTRUCTORA = {
-  id: 'ins-1', studio_id: STUDIO_ID, nombre: 'Indira Herrero', email: 'indira@example.com',
+  id: 'ins-1', studio_id: STUDIO_ID, nombre: 'Marta Ruiz', email: 'marta@example.com',
   activo: true, imparte_clases: true, color: '#B08D57',
 };
 
