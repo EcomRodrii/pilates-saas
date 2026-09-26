@@ -18,6 +18,7 @@ import { useStudio } from '@/lib/studio-context';
 import { cn } from '@/lib/utils';
 import { cargarAuditoriaEstudio } from '@/lib/db/auditoria-estudio';
 import { describirEntrada, TABLAS_AUDITADAS, type EntradaAuditoria } from '@/lib/auditoria-estudio';
+import { AVISO_DE_CONSERVACION } from '@/lib/auditoria/aviso-equipo';
 
 export function HistorialDinero({ studioId, socioId }: { studioId: string; socioId?: string }) {
   const { planesTarifa, socios, instructores } = useStudio();
@@ -77,6 +78,7 @@ export function HistorialDinero({ studioId, socioId }: { studioId: string; socio
         quién, cuándo y qué valor había antes. No incluye los cobros automáticos ni lo que confirma Stripe. Todavía no
         recoge las ventas y devoluciones de la caja, el cobro con tarjeta guardada que lanza una persona («Cobrar
         online» o aprobar un cobro en Automatizaciones) ni lo que se importa desde otra plataforma.
+        {' '}{AVISO_DE_CONSERVACION}
       </p>
 
       {!socioId && (

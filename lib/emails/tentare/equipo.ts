@@ -7,6 +7,7 @@ import { correoTentare, TENTARE } from './plantilla.ts';
 import { nombreAppPorRol } from '../../permisos-reglas.ts';
 import { lineaNetworkAgotada } from '../../sustituciones/mensajes.ts';
 import { formatEuro } from '../../utils.ts';
+import { AVISO_PARA_LA_PERSONA, seAnotanSusCambios } from '../../auditoria/aviso-equipo.ts';
 import type { Rol } from '../../types';
 
 const ROL_LABEL: Record<string, string> = {
@@ -33,7 +34,11 @@ export function correoInvitacionEquipo(p: {
     preheader: `${p.propietariaNombre} te ha invitado a ${p.estudioNombre}`,
     antetitulo: p.estudioNombre,
     titular: 'Te han invitado al equipo',
-    parrafos: [`Hola ${p.nombre}, ${p.propietariaNombre} te ha dado de alta como ${rolLabel} en el equipo de ${p.estudioNombre} en ${marca}.`],
+    parrafos: [
+      `Hola ${p.nombre}, ${p.propietariaNombre} te ha dado de alta como ${rolLabel} en el equipo de ${p.estudioNombre} en ${marca}.`,
+      // Quien trabaja con el dinero en el panel tiene que saber, ANTES de aceptar, que sus cambios quedan anotados.
+      seAnotanSusCambios(p.rol) ? AVISO_PARA_LA_PERSONA : null,
+    ],
     destacado: {
       titulo: 'Este enlace es tuyo',
       texto: esApp
