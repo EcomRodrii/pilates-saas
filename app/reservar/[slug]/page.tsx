@@ -3635,6 +3635,7 @@ export default function ReservarPage() {
               origen={refCode}
               vistaPrevia={esVistaPrevia}
               onAbrirPrivacidad={() => setLegalDoc({ label: 'Política de privacidad', text: studioConfig.politicaPrivacidad })}
+              fotoFondo={heroFoto}
             />
           </div>
         )}
