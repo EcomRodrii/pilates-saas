@@ -131,7 +131,10 @@ test('⚠️ la página SUELTA no cambia, aunque le pases los parámetros', asyn
   await page.goto(`/reservar/${SLUG}?tab=estudio&fondo=transparente&pie=0&solo-pestana=1`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await expect(page.locator('footer')).toBeVisible();
-  await expect(page.locator('#horario button')).toHaveCount(5);
+  // 4 y no 5: sin ningún servicio de cita activo, «Citas» ya no sale en la
+  // barra de la página suelta (llevaba a «no hay citas»). Lo que se comprueba
+  // sigue igual: la barra está entera, `solo-pestana=1` no la ha recortado.
+  await expect(page.locator('#horario button')).toHaveCount(4);
 });
 
 // ── Color del texto ─────────────────────────────────────────────────────────
