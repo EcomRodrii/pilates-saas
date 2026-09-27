@@ -30,6 +30,53 @@ export function emailConFormato(email: string): boolean {
   return EMAIL_VALIDO.test(email.trim());
 }
 
+export const EMAIL_CON_ERRATA = 'Escribe un email válido para que te puedan responder.';
+export const PRIVACIDAD_SIN_MARCAR = 'Marca que has leído la información sobre privacidad.';
+
+/** Lo que se comprueba al enviar, en este orden: se para en el primero que falla. */
+export type PasoPendiente = 'vacios' | 'email' | 'privacidad';
+export type CampoMarcable = CampoObligatorio | 'privacidad';
+
+export interface ValoresContacto {
+  nombre: string;
+  email: string;
+  mensaje: string;
+  privacidad: boolean;
+}
+
+export interface Pendiente {
+  paso: PasoPendiente;
+  mensaje: string;
+  /** Los que se marcan como inválidos: exactamente los que nombra el aviso. */
+  campos: CampoMarcable[];
+}
+
+/**
+ * Qué sigue mal en UN paso, con los valores de ahora. El formulario lo
+ * recalcula al escribir: el aviso cambia con lo que se corrige y desaparece
+ * cuando el paso queda bien. No salta al siguiente paso por su cuenta: avisar
+ * de la errata del email mientras aún se está escribiendo sería regañar antes
+ * de tiempo; eso lo dice el siguiente intento.
+ */
+export function pendienteEnPaso(paso: PasoPendiente, v: ValoresContacto): Pendiente | null {
+  if (paso === 'vacios') {
+    const faltan = camposVacios(v);
+    const mensaje = avisoCamposVacios(faltan);
+    return mensaje ? { paso, mensaje, campos: faltan } : null;
+  }
+  if (paso === 'email') return emailConFormato(v.email) ? null : { paso, mensaje: EMAIL_CON_ERRATA, campos: ['email'] };
+  return v.privacidad ? null : { paso, mensaje: PRIVACIDAD_SIN_MARCAR, campos: ['privacidad'] };
+}
+
+/** Al pulsar «Enviar»: lo primero que impide enviar, o `null` si ya se puede. */
+export function primerPendiente(v: ValoresContacto): Pendiente | null {
+  for (const paso of ['vacios', 'email', 'privacidad'] as const) {
+    const p = pendienteEnPaso(paso, v);
+    if (p) return p;
+  }
+  return null;
+}
+
 /** Para el «Gracias, Ana»: la primera palabra, aunque venga con espacios de más. */
 export function primerNombre(nombre: string): string {
   return nombre.trim().split(/\s+/)[0] ?? '';

@@ -22,15 +22,20 @@ import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { CAMPO_TRAMPA } from '@/lib/auth/trampa-bots';
 import { CONSERVACION_MESES, LIMITES_CONSULTA } from '@/lib/contacto/consulta';
 import {
-  avisoCamposVacios, camposVacios, emailConFormato, primerNombre, viasDeContacto,
-  type CampoObligatorio, type ViaDeContacto,
+  pendienteEnPaso, primerNombre, primerPendiente, viasDeContacto,
+  type CampoMarcable, type PasoPendiente, type ViaDeContacto,
 } from '@/lib/contacto/formulario';
+import { alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
+import { semantic } from '@/lib/portal-tokens';
 import { cq, serif, shadow } from '@/lib/reservar-publico-tokens';
 
 type Estado =
   | { tipo: 'libre' }
   | { tipo: 'enviando' }
   | { tipo: 'enviada'; nombre: string; email: string }
+  // Se paró antes de enviar. El aviso NO se guarda: se recalcula al escribir
+  // (pendienteEnPaso), para que nunca diga que falta algo ya escrito.
+  | { tipo: 'pendiente'; paso: PasoPendiente; foco: CampoMarcable }
   | { tipo: 'error'; mensaje: string; conOtraVia: boolean };
 
 interface Props {
@@ -44,9 +49,9 @@ interface Props {
   onAbrirPrivacidad: () => void;
   /** Foto del estudio: de fondo tras la tarjeta, o en banda arriba si el hueco es estrecho. */
   fotoFondo?: string | null;
+  /** Modo noche del widget (`texto=claro`): solo cambia `--portal-*`, así que el rojo de error va aparte. */
+  noche?: boolean;
 }
-
-const EMAIL_CON_ERRATA = 'Escribe un email válido para que te puedan responder.';
 
 // La foto cambia de papel según el ancho REAL del hueco (container query y no
 // media query: incrustado, el viewport es el del iframe; a página completa,
@@ -59,8 +64,8 @@ const CSS = `
 .contacto-marco{position:relative;overflow:hidden;border-radius:24px;border:1px solid var(--portal-line);background:var(--portal-surface)}
 .contacto-foto{display:block;width:100%;object-fit:cover}
 .contacto-tarjeta{position:relative;background:var(--portal-surface)}
-.contacto-campo::placeholder{color:color-mix(in srgb,var(--portal-muted) 72%,var(--portal-surface));opacity:1}
-.contacto-campo[aria-invalid=true]{border-color:var(--destructive)!important}
+.contacto-campo::placeholder{color:color-mix(in srgb,var(--portal-muted) 85%,var(--portal-surface));opacity:1}
+.contacto-campo[aria-invalid=true]{border-color:var(--contacto-error)!important}
 .contacto-enviar:focus-visible,.contacto-enlace:focus-visible{outline:2px solid var(--portal-brand);outline-offset:3px}
 @container contacto (max-width:479.98px){
   .contacto-foto{height:clamp(132px,40cqw,190px)}
@@ -91,15 +96,21 @@ const titular: CSSProperties = {
 };
 const entradilla: CSSProperties = { marginTop: 8, fontSize: 14.5, lineHeight: 1.55, color: 'var(--portal-muted)' };
 
-function Marco({ foto, children }: { foto: string | null | undefined; children: ReactNode }) {
+function Marco({ foto, noche, children }: { foto: string | null | undefined; noche: boolean; children: ReactNode }) {
+  // `--destructive` no sirve aquí: en /reservar nadie pone `.dark`, y en el
+  // modo noche del widget quedaría a menos de 3:1 sobre la tarjeta.
+  const error = noche ? semantic.danger.textNoche : semantic.danger.text;
   return (
-    <div className="contacto-raiz" style={{ padding: `${cq(16, 2.4, 32)} 0 ${cq(24, 3.4, 48)}` }}>
+    <div className="contacto-raiz"
+      style={{ padding: `${cq(16, 2.4, 32)} 0 ${cq(24, 3.4, 48)}`, '--contacto-error': error } as CSSProperties}>
       <style>{CSS}</style>
       <div className="contacto-marco" data-foto={foto ? '' : undefined}>
         {foto && (
-          // Decorativa: el estudio ya se nombra en el texto.
+          // Decorativa: el estudio ya se nombra en el texto. Si la del estudio
+          // ya no está en Storage, la de por defecto: nunca una banda vacía.
           // eslint-disable-next-line @next/next/no-img-element
-          <img className="contacto-foto" src={foto} alt="" decoding="async" />
+          <img className="contacto-foto" src={foto} alt="" decoding="async"
+            onError={alFallarImagen(IMAGENES_POR_DEFECTO.portada[0])} />
         )}
         <div className="contacto-tarjeta">{children}</div>
       </div>
@@ -133,9 +144,6 @@ export function FormularioContacto(p: Props) {
   const [mensaje, setMensaje] = useState('');
   const [privacidad, setPrivacidad] = useState(false);
   const [trampa, setTrampa] = useState('');
-  // Tras el primer intento, los campos que siguen mal se marcan (y se desmarcan
-  // solos al corregirlos): antes no, que un formulario en rojo sin tocar asusta.
-  const [intentado, setIntentado] = useState(false);
   const [estado, setEstado] = useState<Estado>({ tipo: 'libre' });
   const titularRef = useRef<HTMLHeadingElement>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
@@ -158,30 +166,29 @@ export function FormularioContacto(p: Props) {
     if (estado.tipo === 'enviada') titularRef.current?.focus();
   }, [estado.tipo]);
 
+  // Tras pintar y no en el propio clic: así el campo ya lleva `aria-invalid` y
+  // el aviso enlazado cuando le llega el foco, y el lector los lee con él.
+  // Depende del objeto entero: cada intento crea uno nuevo y vuelve a llevar
+  // al campo, aunque sea el mismo que la vez anterior.
+  useEffect(() => {
+    if (estado.tipo !== 'pendiente') return;
+    const refs: Record<CampoMarcable, { current: HTMLElement | null }> = {
+      nombre: nombreRef, email: emailRef, mensaje: mensajeRef, privacidad: privacidadRef,
+    };
+    refs[estado.foco].current?.focus();
+  }, [estado]);
+
   const vias = viasDeContacto(p.emailEstudio, p.telefonoEstudio);
   const estudio = p.nombreEstudio || 'el estudio';
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
     if (estado.tipo === 'enviando' || p.vistaPrevia) return;
-    setIntentado(true);
     // El foco va al primer campo que falla: el aviso se anuncia (role=alert) y
     // quien no ve la pantalla aterriza donde tiene que escribir.
-    const faltan = camposVacios({ nombre, email, mensaje });
-    if (faltan.length > 0) {
-      const primero: Record<CampoObligatorio, { current: HTMLElement | null }> = { nombre: nombreRef, email: emailRef, mensaje: mensajeRef };
-      setEstado({ tipo: 'error', mensaje: avisoCamposVacios(faltan) ?? '', conOtraVia: false });
-      primero[faltan[0]].current?.focus();
-      return;
-    }
-    if (!emailConFormato(email)) {
-      setEstado({ tipo: 'error', mensaje: EMAIL_CON_ERRATA, conOtraVia: false });
-      emailRef.current?.focus();
-      return;
-    }
-    if (!privacidad) {
-      setEstado({ tipo: 'error', mensaje: 'Marca que has leído la información sobre privacidad.', conOtraVia: false });
-      privacidadRef.current?.focus();
+    const antes = primerPendiente({ nombre, email, mensaje, privacidad });
+    if (antes) {
+      setEstado({ tipo: 'pendiente', paso: antes.paso, foco: antes.campos[0] });
       return;
     }
     setEstado({ tipo: 'enviando' });
@@ -225,9 +232,11 @@ export function FormularioContacto(p: Props) {
     }
   }
 
+  const noche = p.noche ?? false;
+
   if (estado.tipo === 'enviada') {
     return (
-      <Marco foto={p.fotoFondo}>
+      <Marco foto={p.fotoFondo} noche={noche}>
         <div role="status" className="pantalla-reserva-seccion">
           <span aria-hidden="true" style={{
             width: 48, height: 48, borderRadius: 999, display: 'grid', placeItems: 'center', marginBottom: 16,
@@ -247,7 +256,7 @@ export function FormularioContacto(p: Props) {
 
   if (disponible === false) {
     return (
-      <Marco foto={p.fotoFondo}>
+      <Marco foto={p.fotoFondo} noche={noche}>
         <h2 style={titular}>¿Tienes alguna duda?</h2>
         <p role="status" style={{ ...entradilla, marginTop: 10 }}>
           {vias.length > 0
@@ -260,9 +269,17 @@ export function FormularioContacto(p: Props) {
 
   const enviando = estado.tipo === 'enviando';
   const quedan = LIMITES_CONSULTA.mensaje - mensaje.length;
+  // Lo que sigue mal AHORA en el paso donde se paró el envío: el aviso y las
+  // marcas en rojo salen de aquí los dos, así que nunca se contradicen.
+  const pendiente = estado.tipo === 'pendiente' ? pendienteEnPaso(estado.paso, { nombre, email, mensaje, privacidad }) : null;
+  const aviso = pendiente ? { mensaje: pendiente.mensaje, conOtraVia: false } : estado.tipo === 'error' ? estado : null;
+  const avisoId = `${id}-aviso`;
+  const invalido = (c: CampoMarcable) => pendiente?.campos.includes(c) ?? false;
+  const describe = (c: CampoMarcable, ...otros: string[]) =>
+    [...(invalido(c) ? [avisoId] : []), ...otros].join(' ') || undefined;
 
   return (
-    <Marco foto={p.fotoFondo}>
+    <Marco foto={p.fotoFondo} noche={noche}>
       <h2 id={`${id}-t`} style={titular}>¿Tienes alguna duda?</h2>
       <p style={entradilla}>Escríbenos y te responderemos lo antes posible.</p>
 
@@ -271,14 +288,14 @@ export function FormularioContacto(p: Props) {
         <div>
           <label htmlFor={`${id}-nombre`} style={etiqueta}>Nombre</label>
           <input ref={nombreRef} id={`${id}-nombre`} name="nombre" type="text" autoComplete="name" required
-            maxLength={LIMITES_CONSULTA.nombre} placeholder="Tu nombre" aria-invalid={intentado && !nombre.trim()}
+            maxLength={LIMITES_CONSULTA.nombre} placeholder="Tu nombre" aria-invalid={invalido('nombre')} aria-describedby={describe('nombre')}
             value={nombre} onChange={e => setNombre(e.target.value)} className="pantalla-reserva-campo contacto-campo" style={campo} />
         </div>
         <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))' }}>
           <div>
             <label htmlFor={`${id}-email`} style={etiqueta}>Email</label>
             <input ref={emailRef} id={`${id}-email`} name="email" type="email" inputMode="email" autoComplete="email" required
-              maxLength={LIMITES_CONSULTA.email} placeholder="tu@email.com" aria-invalid={intentado && !emailConFormato(email)}
+              maxLength={LIMITES_CONSULTA.email} placeholder="tu@email.com" aria-invalid={invalido('email')} aria-describedby={describe('email')}
               value={email} onChange={e => setEmail(e.target.value)} className="pantalla-reserva-campo contacto-campo" style={campo} />
           </div>
           <div>
@@ -293,7 +310,7 @@ export function FormularioContacto(p: Props) {
         <div>
           <label htmlFor={`${id}-mensaje`} style={etiqueta}>Mensaje</label>
           <textarea ref={mensajeRef} id={`${id}-mensaje`} name="mensaje" required rows={4} maxLength={LIMITES_CONSULTA.mensaje}
-            placeholder="Cuéntanos en qué podemos ayudarte…" aria-describedby={`${id}-salud`} aria-invalid={intentado && !mensaje.trim()}
+            placeholder="Cuéntanos en qué podemos ayudarte…" aria-describedby={describe('mensaje', `${id}-salud`)} aria-invalid={invalido('mensaje')}
             value={mensaje} onChange={e => setMensaje(e.target.value)} className="pantalla-reserva-campo contacto-campo"
             style={{ ...campo, resize: 'vertical', minHeight: 116, lineHeight: 1.5 }} />
           <p id={`${id}-salud`} style={{ marginTop: 6, fontSize: 12.5, lineHeight: 1.45, color: 'var(--portal-muted)' }}>
@@ -323,18 +340,18 @@ export function FormularioContacto(p: Props) {
 
         <label htmlFor={`${id}-priv`} style={{ display: 'flex', gap: 12, alignItems: 'center', minHeight: 44, fontSize: 14, lineHeight: 1.45, color: 'var(--portal-ink)', cursor: 'pointer' }}>
           <input ref={privacidadRef} id={`${id}-priv`} type="checkbox" checked={privacidad} onChange={e => setPrivacidad(e.target.checked)}
-            aria-invalid={intentado && !privacidad}
+            aria-invalid={invalido('privacidad')} aria-describedby={describe('privacidad')}
             style={{ width: 20, height: 20, margin: 0, flex: '0 0 auto', accentColor: 'var(--portal-brand)', cursor: 'pointer' }} />
           <span>He leído la información sobre privacidad</span>
         </label>
 
-        {estado.tipo === 'error' && (
-          <p role="alert" style={{
-            fontSize: 14, lineHeight: 1.45, color: 'var(--destructive)', borderRadius: 12, padding: '10px 12px',
-            background: 'color-mix(in srgb, var(--destructive) 8%, var(--portal-surface))',
+        {aviso && (
+          <p id={avisoId} role="alert" style={{
+            fontSize: 14, lineHeight: 1.45, color: 'var(--contacto-error)', borderRadius: 12, padding: '10px 12px',
+            background: semantic.danger.soft, border: '1px solid color-mix(in srgb, var(--contacto-error) 22%, transparent)',
           }}>
-            {estado.mensaje}
-            {estado.conOtraVia && vias.length > 0 && <> Si corre prisa, escríbenos a <Vias vias={vias} />.</>}
+            {aviso.mensaje}
+            {aviso.conOtraVia && vias.length > 0 && <> Si corre prisa, escríbenos a <Vias vias={vias} />.</>}
           </p>
         )}
 

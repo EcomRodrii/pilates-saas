@@ -112,6 +112,9 @@ test('página completa (enlace o botón): el formulario, con el pie y sus textos
   await abrir(page, 'tab=contacto&ref=web-contacto');
   await expect(page.getByRole('button', { name: 'Enviar mensaje' })).toBeVisible();
   await expect(page.locator('footer')).toHaveCount(1);
+  // La portada ya enseña la foto del estudio: detrás del formulario no se repite.
+  await expect(page.locator('.reserva-hero-foto')).toHaveCount(1);
+  await expect(page.locator('.contacto-foto')).toHaveCount(0);
 });
 
 test('enviar: manda los campos con la privacidad aceptada y la etiqueta, y lo dice', async ({ page }) => {
@@ -149,13 +152,22 @@ for (const [nombre, fallo, texto] of [
 test('sin rellenar nada: dice qué falta, lleva al primer campo y no se intenta enviar', async ({ page }) => {
   const api = await abrir(page, 'embed=1&tab=contacto');
   await page.getByRole('button', { name: 'Enviar mensaje' }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'Faltan tu nombre, tu email y el mensaje.' })).toBeVisible();
+  const aviso = page.getByRole('alert').filter({ hasText: /^Falta/ });
+  await expect(aviso).toHaveText('Faltan tu nombre, tu email y el mensaje.');
   const nombre = page.getByLabel('Nombre', { exact: true });
   await expect(nombre).toBeFocused();
   await expect(nombre).toHaveAttribute('aria-invalid', 'true');
-  // Se desmarca al escribir, sin esperar a otro intento.
+  // El campo lleva el aviso como descripción: el lector lo lee al llegarle el foco.
+  await expect(nombre).toHaveAccessibleDescription('Faltan tu nombre, tu email y el mensaje.');
+  // Nada en rojo que el aviso no nombre: la casilla aún no toca.
+  await expect(page.getByRole('checkbox', { name: /información sobre privacidad/ })).toHaveAttribute('aria-invalid', 'false');
+  // Se desmarca al escribir, sin esperar a otro intento, y el aviso dice lo que queda.
   await nombre.fill('Nueva');
   await expect(nombre).toHaveAttribute('aria-invalid', 'false');
+  await expect(aviso).toHaveText('Faltan tu email y el mensaje.');
+  await page.getByLabel('Email', { exact: true }).fill('nueva@example.com');
+  await page.getByLabel('Mensaje').fill('Hola');
+  await expect(aviso).toHaveCount(0);
   expect(api.intentos()).toBe(0);
 });
 

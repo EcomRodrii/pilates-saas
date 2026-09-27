@@ -3635,7 +3635,10 @@ export default function ReservarPage() {
               origen={refCode}
               vistaPrevia={esVistaPrevia}
               onAbrirPrivacidad={() => setLegalDoc({ label: 'Política de privacidad', text: studioConfig.politicaPrivacidad })}
-              fotoFondo={heroFoto}
+              // Solo cuando la portada no la enseña ya (su condición, negada):
+              // a página completa saldría la misma foto dos veces seguidas.
+              fotoFondo={embedMode || enVistaReserva || !seccionVisible('portada') ? heroFoto : null}
+              noche={esNoche}
             />
           </div>
         )}

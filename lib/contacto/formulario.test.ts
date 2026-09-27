@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { avisoCamposVacios, camposVacios, emailConFormato, primerNombre, viasDeContacto } from './formulario.ts';
+import {
+  avisoCamposVacios, camposVacios, emailConFormato, pendienteEnPaso, primerNombre, primerPendiente, viasDeContacto,
+  EMAIL_CON_ERRATA, PRIVACIDAD_SIN_MARCAR,
+} from './formulario.ts';
 import { validarConsulta } from './consulta.ts';
 
 const lleno = { nombre: 'Ana', email: 'ana@example.com', mensaje: 'Hola' };
@@ -25,6 +28,38 @@ test('⚠️ el email se comprueba con el MISMO criterio que el servidor: nada q
     const servidor = validarConsulta({ slug: 'x', nombre: 'Ana', email, mensaje: 'Hola', aceptaPrivacidad: true }).ok;
     assert.equal(emailConFormato(email), servidor, email);
   }
+});
+
+const todo = { ...lleno, privacidad: true };
+
+test('al enviar se para en lo primero que falla: vacíos, luego el email, luego la privacidad', () => {
+  assert.equal(primerPendiente(todo), null);
+  assert.deepEqual(primerPendiente({ nombre: '', email: '', mensaje: '', privacidad: false }), {
+    paso: 'vacios', mensaje: 'Faltan tu nombre, tu email y el mensaje.', campos: ['nombre', 'email', 'mensaje'],
+  });
+  assert.deepEqual(primerPendiente({ ...todo, email: 'ana@example', privacidad: false }), {
+    paso: 'email', mensaje: EMAIL_CON_ERRATA, campos: ['email'],
+  });
+  assert.deepEqual(primerPendiente({ ...todo, privacidad: false }), {
+    paso: 'privacidad', mensaje: PRIVACIDAD_SIN_MARCAR, campos: ['privacidad'],
+  });
+});
+
+test('⚠️ el aviso y las marcas dicen lo mismo: nada en rojo que el aviso no nombre', () => {
+  // Todo vacío y sin casilla: el aviso habla de los tres campos, la casilla no se marca.
+  const p = pendienteEnPaso('vacios', { nombre: '', email: '', mensaje: '', privacidad: false });
+  assert.deepEqual(p?.campos, ['nombre', 'email', 'mensaje']);
+  // Solo falta el mensaje y el email lleva errata: se marca el mensaje, no el email.
+  assert.deepEqual(pendienteEnPaso('vacios', { ...todo, email: 'ana@example', mensaje: '' })?.campos, ['mensaje']);
+});
+
+test('al corregir, el aviso se actualiza y desaparece; no salta solo al paso siguiente', () => {
+  const vacio = { nombre: '', email: '', mensaje: '', privacidad: false };
+  assert.equal(pendienteEnPaso('vacios', { ...vacio, nombre: 'Ana' })?.mensaje, 'Faltan tu email y el mensaje.');
+  // Todo escrito (con errata en el email y sin casilla): el paso de los vacíos ya no tiene nada que decir.
+  assert.equal(pendienteEnPaso('vacios', { nombre: 'Ana', email: 'ana@', mensaje: 'Hola', privacidad: false }), null);
+  assert.equal(pendienteEnPaso('email', { ...todo, email: 'ana@example.com' }), null);
+  assert.equal(pendienteEnPaso('privacidad', todo), null);
 });
 
 test('primer nombre: sin espacios de más ni tabuladores', () => {
