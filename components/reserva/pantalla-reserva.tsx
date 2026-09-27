@@ -81,7 +81,7 @@ export function PantallaReserva({
   privacidadAceptada, onTogglePrivacidad, onAbrirPrivacidad,
   mostrarCodigo, onMostrarCodigo, codigoDescuento, onChangeCodigo,
   onContinuar, pago,
-  planesOpciones, planSeleccionadoId, onCambiarPlan,
+  planesOpciones, planSeleccionadoId, onCambiarPlan, sinCodigo = false,
   spotPicker, infoAdicional, onChangeInfoAdicional,
 }: {
   t: ModoTokens;
@@ -128,6 +128,8 @@ export function PantallaReserva({
   planesOpciones?: PlanTarifa[];
   planSeleccionadoId?: string;
   onCambiarPlan?: (plan: PlanTarifa) => void;
+  /** Sin el campo de código promocional (la «clase de prueba» ya es la oferta). */
+  sinCodigo?: boolean;
   /** "Elige tu plaza": solo cuando la sala tiene mapa de sitios y la clase no
    *  está llena (la lista de espera no ocupa sitio, igual que en 'confirm'). */
   spotPicker?: {
@@ -531,7 +533,7 @@ export function PantallaReserva({
                     (validando/válido/inválido) contra
                     /api/public/validar-codigo-descuento. */}
                 <div>
-                  {!mostrarCodigo ? (
+                  {sinCodigo ? null : !mostrarCodigo ? (
                     <button type="button" onClick={onMostrarCodigo}
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',

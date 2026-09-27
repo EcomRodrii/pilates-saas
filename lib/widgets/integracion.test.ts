@@ -271,3 +271,23 @@ test('no se da un código que no vaya a funcionar', () => {
   assert.match(faltaParaGenerar(entrada('horario'), 'nativa', sinDominios) ?? '', /dominio/);
   assert.equal(faltaParaGenerar(entrada('horario'), 'nativa', { dominiosAutorizados: ['https://a.com'] }), null);
 });
+
+// ── Clase de prueba ──────────────────────────────────────────────────────────
+
+test('clase de prueba: `prueba=1` en el iframe/popup Y en el enlace/botón (la página completa también la honra)', () => {
+  assert.equal(params(urlEmbebido(entrada('prueba'))).get('prueba'), '1');
+  assert.equal(params(urlEmbebido(entrada('prueba'), 'popup')).get('prueba'), '1');
+  assert.equal(urlPagina(entrada('prueba')), `${ORIGEN}/reservar/${SLUG}?prueba=1&ref=web-prueba`);
+  assert.ok(generarCodigo(entrada('prueba'), 'boton').codigo.includes('prueba=1'));
+});
+
+test('clase de prueba: sin integración nativa (el bundle tendría otro dueño del flujo)', () => {
+  assert.ok(!w('prueba').metodos.includes('nativa'));
+  assert.equal(w('prueba').metodos[0], 'popup');
+});
+
+test('clase de prueba: los filtros del horario se aplican encima de la oferta', () => {
+  const url = urlEmbebido(entrada('prueba', { tipos: ['tc-r'] }));
+  assert.equal(params(url).get('tipos'), 'tc-r');
+  assert.equal(params(url).get('prueba'), '1');
+});
