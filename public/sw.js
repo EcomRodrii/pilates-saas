@@ -15,8 +15,21 @@
 */
 
 // ───────────────────────────────────────────────────────────────────────────
-// 1. Web Push — sin cambios
+// 1. Web Push
 // ───────────────────────────────────────────────────────────────────────────
+
+// Avisa al servidor de que ESTE dispositivo mostró (`shown`) o pulsó (`click`) el
+// aviso. Es lo que permite contestar «¿llegó de verdad?». Nunca puede impedir
+// que la notificación se muestre: el fallo se traga.
+function avisarServidor(evento, nid) {
+  if (!nid) return Promise.resolve();
+  return fetch('/api/notifications/receipt', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ nid, evento }),
+    keepalive: true,
+  }).catch(() => {});
+}
 
 self.addEventListener('push', (event) => {
   let data = {};
@@ -33,23 +46,48 @@ self.addEventListener('push', (event) => {
     // aporta nada personalizarlo ahí.
     icon: data.icon || '/icon-192.png',
     badge: '/icon-192.png',
+    // Una etiqueta por aviso (la pone el servidor): dos del mismo tipo ya no se pisan.
     tag: data.tag || undefined,
-    data: { url: data.url || '/' },
+    data: { url: data.url || '/', nid: data.nid || null },
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  // El aviso al servidor va DENTRO del waitUntil (si no, el navegador puede dar
+  // por terminado el evento y matar el fetch), pero después de mostrarla.
+  event.waitUntil(
+    self.registration.showNotification(title, options).then(() => avisarServidor('shown', data.nid)),
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/';
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+  const datos = event.notification.data || {};
+  const url = datos.url || '/';
+  // URL absoluta y del propio origen: un `url` externo o mal formado no puede
+  // sacar a la usuaria de Tentare.
+  let destino;
+  try {
+    destino = new URL(url, self.location.origin);
+    if (destino.origin !== self.location.origin) destino = new URL('/', self.location.origin);
+  } catch { destino = new URL('/', self.location.origin); }
+
+  event.waitUntil(Promise.all([
+    avisarServidor('click', datos.nid),
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (wins) => {
+      // Una ventana ya en esa pantalla: solo se enfoca. Cualquier otra ventana
+      // de Tentare se lleva a la pantalla del aviso (antes solo se enfocaba si su
+      // URL «contenía» la del aviso, y si no, se abría OTRA ventana).
+      const misma = wins.find((w) => w.url === destino.href);
+      if (misma && 'focus' in misma) return misma.focus();
       for (const w of wins) {
-        if (w.url.includes(url) && 'focus' in w) return w.focus();
+        if (new URL(w.url).origin !== self.location.origin) continue;
+        try {
+          const c = 'navigate' in w ? await w.navigate(destino.href) : null;
+          if (c && 'focus' in c) return c.focus();
+          if ('focus' in w) return w.focus();
+        } catch { /* cliente no controlado: se abre una ventana nueva */ }
       }
-      if (self.clients.openWindow) return self.clients.openWindow(url);
+      if (self.clients.openWindow) return self.clients.openWindow(destino.href);
     }),
-  );
+  ]));
 });
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -65,7 +103,10 @@ const CACHE = 'tentare-student-v1';
 const OFFLINE_URL = '/portal/offline';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll([OFFLINE_URL])));
+  // La pantalla offline es un extra: si no se puede guardar (red caída al instalar,
+  // 404 puntual), el SW se instala igual. Con `addAll` un fallo aquí abortaba la
+  // instalación ENTERA y la alumna se quedaba sin avisos push.
+  event.waitUntil(caches.open(CACHE).then((c) => c.add(OFFLINE_URL)).catch(() => {}));
   // La pantalla offline tiene que estar disponible desde la primera visita.
   self.skipWaiting();
 });

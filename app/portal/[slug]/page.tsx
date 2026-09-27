@@ -24,6 +24,7 @@ import { añadirAlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase'
 import { TuRitmo } from '@/components/student/domain/TuRitmo';
 import { AccesosRapidos } from '@/components/student/domain/AccesosRapidos';
 import { ProximaClaseVacia } from '@/components/student/domain/ProximaClaseVacia';
+import { ActivarAvisos } from '@/components/student/domain/ActivarAvisos';
 import { FiltrosRapidos } from '@/components/student/domain/FiltrosRapidos';
 import { CitaManuscrita } from '@/components/student/domain/CitaManuscrita';
 import { subtituloDelHeroe } from '@/lib/student/subtitulo-heroe';
@@ -413,6 +414,10 @@ export default function InicioPage() {
             ) : (
               <ProximaClaseVacia huecosHoy={libresHoy.length} hrefReservar={href('/reservar')} />
             )}
+
+            {/* Sin este aviso casi nadie activaba los push: el interruptor estaba
+                solo en Perfil → Preferencias. Se oculta sola si ya están activos. */}
+            <ActivarAvisos estudioId={estudio.id} slug={estudio.slug} />
 
             {/* ── TU RITMO ─────────────────────────────────────────────────
                 Todo lo que enseña sale de sus reservas reales

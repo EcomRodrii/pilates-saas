@@ -38,19 +38,40 @@ export async function GET(req: NextRequest) {
     .limit(150);
 
   const ids = (notis ?? []).map(n => n.id as string);
-  const porNoti = new Map<string, { channel: string; status: string; error: string | null }[]>();
+  type Entrega = { channel: string; status: string; error: string | null; detalle: string | null; entregadaEn: string | null };
+  const porNoti = new Map<string, Entrega[]>();
   if (ids.length) {
     const { data: dels } = await admin.from('notification_delivery')
-      .select('notification_id, channel, status, error').in('notification_id', ids);
+      .select('notification_id, channel, status, error, provider_id, delivered_at').in('notification_id', ids);
     for (const d of dels ?? []) {
       const arr = porNoti.get(d.notification_id as string) ?? [];
-      arr.push({ channel: d.channel as string, status: d.status as string, error: (d.error as string | null) ?? null });
+      arr.push({
+        channel: d.channel as string, status: d.status as string, error: (d.error as string | null) ?? null,
+        // Para PUSH: «1/2 · fcm:201 apple:410(caducada)» — qué endpoint aceptó y cuál no.
+        detalle: (d.provider_id as string | null) ?? null,
+        // Cuándo lo MOSTRÓ el dispositivo (lo avisa el service worker).
+        entregadaEn: (d.delivered_at as string | null) ?? null,
+      });
       porNoti.set(d.notification_id as string, arr);
     }
   }
 
+  // «Esta notificación no le llegó a esta alumna»: hace falta saber QUIÉN es. Solo
+  // nombre y apellidos, de los ids de las 150 filas de este estudio.
+  const nombres = new Map<string, string>();
+  const socioIds = [...new Set((notis ?? []).map(n => n.recipient_socio_id as string | null).filter((x): x is string => !!x))];
+  const instructorIds = [...new Set((notis ?? []).map(n => n.recipient_instructor_id as string | null).filter((x): x is string => !!x))];
+  const [socs, inss] = await Promise.all([
+    socioIds.length ? admin.from('socios').select('id, nombre, apellidos').eq('studio_id', staff.studioId).in('id', socioIds) : Promise.resolve({ data: [] }),
+    instructorIds.length ? admin.from('instructores').select('id, nombre').eq('studio_id', staff.studioId).in('id', instructorIds) : Promise.resolve({ data: [] }),
+  ]);
+  for (const r of (socs.data ?? []) as { id: string; nombre: string | null; apellidos: string | null }[]) nombres.set(r.id, [r.nombre, r.apellidos].filter(Boolean).join(' '));
+  for (const r of (inss.data ?? []) as { id: string; nombre: string | null }[]) nombres.set(r.id, r.nombre ?? '');
+
   const items = (notis ?? []).map(n => ({
-    id: n.id, recipientRole: n.recipient_role, eventType: n.event_type, category: n.category,
+    id: n.id, recipientRole: n.recipient_role,
+    recipientName: nombres.get((n.recipient_socio_id ?? n.recipient_instructor_id) as string) || null,
+    eventType: n.event_type, category: n.category,
     priority: n.priority, title: n.title, body: n.body, createdAt: n.created_at, readAt: n.read_at ?? null,
     deliveries: porNoti.get(n.id as string) ?? [],
   }));

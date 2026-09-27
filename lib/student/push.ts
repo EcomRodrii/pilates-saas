@@ -12,7 +12,7 @@
 // sistema de push.
 
 import { portalAuthHeader } from '@/lib/api-client';
-import { esIOS, esStandalone, estadoPermiso, pushSoportado, urlBase64ToUint8Array } from '@/lib/notifications/push-client';
+import { confirmarSuscripcion, esIOS, esStandalone, estadoPermiso, pushSoportado, soltarDispositivoEnServidor, urlBase64ToUint8Array } from '@/lib/notifications/push-client';
 import { tocaRenovarPush, type ContextoPush } from '@/lib/student/push-estado';
 
 export type ResultadoPush =
@@ -51,14 +51,18 @@ async function registroActivo(slug: string): Promise<ServiceWorkerRegistration |
   return reg;
 }
 
-/** Lo que el navegador sabe de los avisos en ESTE dispositivo. */
-export async function contextoPushStudent(slug: string): Promise<ContextoPush> {
+/**
+ * Lo que sabemos de los avisos en ESTE dispositivo: el navegador Y el servidor.
+ * `suscrita` solo es true si las dos cosas son ciertas (si el servidor no tiene la
+ * fila se intenta repararla al momento; ver `confirmarSuscripcion`).
+ */
+export async function contextoPushStudent(slug: string, studioId?: string): Promise<ContextoPush> {
   const permiso = estadoPermiso();
   let suscrita = false;
   if (permiso === 'granted') {
     try {
       const reg = await navigator.serviceWorker.getRegistration(scopeDe(slug));
-      suscrita = !!(await reg?.pushManager.getSubscription());
+      suscrita = await confirmarSuscripcion(reg, studioId ?? null, portalAuthHeader);
     } catch {
       suscrita = false;
     }
@@ -70,6 +74,14 @@ export async function contextoPushStudent(slug: string): Promise<ContextoPush> {
     hayClave: !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
     suscrita,
   };
+}
+
+/** Al cerrar sesión: este dispositivo deja de recibir los avisos de esta cuenta. */
+export async function soltarPushStudent(slug: string): Promise<void> {
+  await soltarDispositivoEnServidor(portalAuthHeader);
+  // La próxima cuenta que entre aquí tiene que volver a registrar el dispositivo
+  // sin esperar 24 h a la renovación diaria.
+  try { localStorage.removeItem(claveRenovado(slug)); } catch { /* da igual */ }
 }
 
 /** Pide permiso, se suscribe con el SW acotado y guarda la suscripción en el servidor. */

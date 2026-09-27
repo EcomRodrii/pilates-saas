@@ -329,6 +329,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signOut() {
+    // Antes de cerrar sesión (después el servidor no sabría de quién es): este
+    // dispositivo deja de recibir los avisos de esta cuenta. Import dinámico: no
+    // arrastra el cliente de la API al arranque de la sesión.
+    try {
+      const [{ soltarDispositivoEnServidor }, { authHeader }] = await Promise.all([
+        import('@/lib/notifications/push-client'), import('@/lib/api-client'),
+      ]);
+      await soltarDispositivoEnServidor(authHeader);
+    } catch { /* cerrar sesión no puede depender de esto */ }
     await supabase.auth.signOut();
     // Multi-tenancy: don't let the next session (anonymous browsing, or a
     // different account signing in on this device) inherit this user's

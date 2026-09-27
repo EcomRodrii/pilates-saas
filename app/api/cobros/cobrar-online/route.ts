@@ -5,6 +5,7 @@ import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { cobrarReciboOffSession, type CobroErrorCode } from '@/lib/billing/stripe-cobros';
 import { bloqueoCobroManualDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { anotarCobroManual, leerReciboAntesDeCobrar } from '@/lib/auditoria/cobro-manual';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,16 +55,28 @@ export async function POST(req: NextRequest) {
   // El recibo de una penalización solo con el cobro ya decidido (RECIBO_CREADO).
   // Si no, se cobraba una PENDIENTE_APROBACION saltándose la aprobación y el
   // guardia de consentimiento, o una que se decidió no cobrar.
-  const penalizacionNoCobrable = await bloqueoCobroManualDePenalizacion(getSupabaseAdmin(), {
+  const admin = getSupabaseAdmin();
+  const penalizacionNoCobrable = await bloqueoCobroManualDePenalizacion(admin, {
     studioId: sesion.studioId, reciboId: body.reciboId,
   });
   if (penalizacionNoCobrable) {
     return NextResponse.json({ error: penalizacionNoCobrable.mensaje }, { status: penalizacionNoCobrable.http });
   }
 
+  // Libro de auditoría: quién lanza el cobro. Esta ruta usa service-role, así que el trigger no lo ve; el
+  // actor es la SESIÓN. Se lee el recibo antes y después y se anota lo que cambió. Nunca lanza ni retrasa
+  // el cargo más de unos segundos.
+  const antes = admin ? await leerReciboAntesDeCobrar(admin, sesion.studioId, body.reciboId) : null;
+
   const resultado = await cobrarReciboOffSession({
     reciboId: body.reciboId, socioId: body.socioId, studioId: sesion.studioId,
   });
+
+  if (admin) {
+    await anotarCobroManual(admin, {
+      sesion, reciboId: body.reciboId, socioId: body.socioId, antes, resultado, origen: 'COBRAR_ONLINE',
+    });
+  }
 
   if (resultado.ok) {
     if (resultado.aviso === 'COBRADO_SIN_PERSISTIR') {

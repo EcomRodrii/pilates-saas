@@ -10,7 +10,8 @@ import { Bell, BellOff, BellRing } from 'lucide-react';
 import { CATEGORIAS_POR_ROL, CATEGORIA_ETIQUETA, canalesDisponibles } from '@/lib/notifications/catalog';
 import type { NotificationRole } from '@/lib/notifications/types';
 import { fetchPreferencias, guardarPreferencia } from '@/lib/notifications/client';
-import { activarPush, estadoPermiso } from '@/lib/notifications/push-client';
+import { activarPush, contextoPushPanel, desactivarPush } from '@/lib/notifications/push-client';
+import { estadoPush, textoPush, type EstadoPush } from '@/lib/student/push-estado';
 import { Interruptor } from '@/components/ui/interruptor';
 
 type Headers = () => Promise<Record<string, string>>;
@@ -29,27 +30,42 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
   const categorias = CATEGORIAS_POR_ROL[role];
   const [prefs, setPrefs] = useState<Record<string, Pref>>({});
   const [cargando, setCargando] = useState(true);
-  const [permiso, setPermiso] = useState<NotificationPermission | 'unsupported'>('default');
+  const [estado, setEstado] = useState<EstadoPush | null>(null);
   const [activando, setActivando] = useState(false);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+  const [avisoPush, setAvisoPush] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
 
-  // Notification.permission solo existe en cliente → se lee tras montar.
+  // El estado se lee tras montar (Notification y el service worker solo existen
+  // en cliente) y mira TRES cosas, no una: permiso, suscripción del navegador y
+  // fila en el servidor. «Permiso concedido» solo no es «activado».
+  const leerEstado = useCallback(async () => {
+    setEstado(estadoPush(await contextoPushPanel(studioId, getHeaders)));
+  }, [studioId, getHeaders]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setPermiso(estadoPermiso()); }, []);
+  useEffect(() => { void leerEstado(); }, [leerEstado]);
 
   async function habilitarPush() {
     setActivando(true);
+    setAvisoPush(null);
     const r = await activarPush(studioId, getHeaders);
+    await leerEstado();
     setActivando(false);
-    setPermiso(estadoPermiso());
-    if (r.ok) { alert('¡Listo! Recibirás avisos en este dispositivo.'); return; }
+    if (r.ok) { setAvisoPush({ tipo: 'ok', texto: '¡Listo! Recibirás avisos en este dispositivo.' }); return; }
     const msg: Record<string, string> = {
       denied: 'Has bloqueado las notificaciones. Actívalas desde los ajustes del navegador para este sitio.',
       unsupported: 'Este navegador no admite push. En iPhone: instala la app en la pantalla de inicio (Compartir → Añadir a inicio) y ábrela desde ahí.',
       'sin-clave': 'Las notificaciones push aún no están listas en el servidor. Espera unos minutos e inténtalo de nuevo.',
       error: 'No se ha podido activar. Cierra y vuelve a abrir la app e inténtalo de nuevo.',
     };
-    alert((msg[r.motivo] ?? 'No se ha podido activar.') + (r.detalle ? `\n\n(${r.detalle})` : ''));
+    setAvisoPush({ tipo: 'error', texto: (msg[r.motivo] ?? 'No se ha podido activar.') + (r.detalle ? ` (${r.detalle})` : '') });
+  }
+
+  async function quitarPush() {
+    setActivando(true);
+    setAvisoPush(null);
+    await desactivarPush(getHeaders);
+    await leerEstado();
+    setActivando(false);
   }
 
   const cargar = useCallback(async () => {
@@ -84,29 +100,44 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
     {errorGuardado && (
       <p role="alert" className="text-[12.5px] font-semibold text-destructive">{errorGuardado}</p>
     )}
-    {/* Activar push en este dispositivo */}
-    <div className="rounded-2xl border border-border bg-card px-4 py-3.5 flex items-center gap-3">
-      <span className={`w-9 h-9 rounded-full flex items-center justify-center ${permiso === 'granted' ? 'bg-emerald-500/10 text-success' : 'bg-brand/10 text-brand-medio'}`}>
-        {permiso === 'granted' ? <BellRing size={17} /> : permiso === 'denied' ? <BellOff size={17} /> : <Bell size={17} />}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-[13.5px] font-bold text-foreground">Avisos en este dispositivo</p>
-        <p className="text-[12px] text-muted-foreground">
-          {permiso === 'granted' ? 'Activados — recibirás avisos aunque no tengas Tentare abierto.'
-            : permiso === 'denied' ? 'Bloqueados en el navegador. Actívalos desde sus ajustes para este sitio.'
-            : permiso === 'unsupported' ? 'Este navegador no admite push (en iPhone, instala la app en la pantalla de inicio).'
-            : 'Recibe avisos en el móvil/ordenador aunque no tengas Tentare abierto.'}
-        </p>
-      </div>
-      {/* Botón SIEMPRE presente (salvo no soportado): aunque el permiso ya esté
-          concedido puede no haber suscripción (falló antes) → poder reactivar. */}
-      {permiso !== 'unsupported' && (
-        <button onClick={habilitarPush} disabled={activando || permiso === 'denied'}
-          className="shrink-0 px-3.5 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-50">
-          {activando ? 'Activando…' : permiso === 'granted' ? 'Reactivar' : 'Activar'}
-        </button>
-      )}
-    </div>
+    {/* Activar push en este dispositivo. El texto sale de `textoPush`, el mismo de
+        la app de la alumna: solo dice «activados» si el navegador Y el servidor lo
+        tienen registrado. */}
+    {(() => {
+      const t = estado ? textoPush(estado) : null;
+      return (
+        <div className="rounded-2xl border border-border bg-card px-4 py-3.5 flex items-center gap-3" data-testid="avisos-dispositivo" data-estado={estado ?? 'cargando'}>
+          <span className={`w-9 h-9 rounded-full flex items-center justify-center ${t?.encendido ? 'bg-emerald-500/10 text-success' : 'bg-brand/10 text-brand-medio'}`}>
+            {t?.encendido ? <BellRing size={17} /> : estado === 'denied' ? <BellOff size={17} /> : <Bell size={17} />}
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13.5px] font-bold text-foreground">Avisos en este dispositivo</p>
+            <p className="text-[12px] text-muted-foreground">
+              {t && t.titulo !== 'Avisos en este dispositivo' && <strong className="font-semibold text-foreground">{t.titulo}. </strong>}
+              {t?.cuerpo ?? 'Comprobando…'}
+            </p>
+          </div>
+          {t?.accion === 'activar' && (
+            <button onClick={habilitarPush} disabled={activando}
+              className="shrink-0 px-3.5 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-50">
+              {activando ? 'Activando…' : estado === 'granted-off' ? 'Reactivar' : 'Activar'}
+            </button>
+          )}
+          {t?.accion === 'desactivar' && (
+            <button onClick={quitarPush} disabled={activando}
+              className="shrink-0 px-3.5 py-2 rounded-xl border border-border text-foreground text-[13px] font-bold disabled:opacity-50">
+              {activando ? 'Quitando…' : 'Desactivar'}
+            </button>
+          )}
+        </div>
+      );
+    })()}
+    {avisoPush && (
+      <p role={avisoPush.tipo === 'error' ? 'alert' : 'status'}
+        className={`text-[12.5px] font-semibold ${avisoPush.tipo === 'error' ? 'text-destructive' : 'text-success'}`}>
+        {avisoPush.texto}
+      </p>
+    )}
 
     <div className="rounded-2xl border border-border bg-card overflow-hidden">
       <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 px-4 py-2.5 border-b border-border text-[11px] font-bold uppercase tracking-wide text-muted-foreground">

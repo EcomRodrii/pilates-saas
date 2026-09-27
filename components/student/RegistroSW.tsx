@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { supabasePortal } from '@/lib/db/supabase-portal';
 import { renovarSuscripcionPush } from '@/lib/student/push';
 
 /**
@@ -40,6 +41,13 @@ export function RegistroSW({ slug, studioId }: { slug: string; studioId: string 
         // Un registro fallido no puede tumbar la app: sin SW simplemente no hay
         // caché ni push, y todo lo demás sigue funcionando contra la red.
       });
+    // Iniciar sesión sin recargar la página (lo normal en una PWA): al cerrar
+    // sesión se soltó el dispositivo, y sin esto no volvería a registrarse hasta
+    // la próxima vez que se abra la app.
+    const { data: sus } = supabasePortal.auth.onAuthStateChange((evento) => {
+      if (evento === 'SIGNED_IN') void renovarSuscripcionPush(studioId, slug);
+    });
+    return () => sus.subscription.unsubscribe();
   }, [slug, studioId]);
 
   return null;

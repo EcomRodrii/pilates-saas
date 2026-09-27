@@ -62,16 +62,26 @@ interface Peticion { method: string; auth: string | undefined; body: Record<stri
 async function montarPreferencias(page: Page, respuestaSubscribe = 200) {
   await sembrarSociaLista(page);
   const peticiones: Peticion[] = [];
+  const consultas: string[] = [];
+  const registrada = { valor: true };
   await page.route((u) => u.pathname === '/api/notifications', (r) =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) }));
   await page.route('**/api/notifications/preferences', (r) =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(r.request().method() === 'GET' ? { prefs: {} } : { ok: true }) }));
-  await page.route('**/api/notifications/subscribe', (r) => {
+  // Por pathname: el glob `**/subscribe` no casa con `?endpoint=…` (el GET).
+  await page.route((u) => u.pathname === '/api/notifications/subscribe', (r) => {
     const req = r.request();
+    // El GET es la pregunta «¿sigue registrado este dispositivo?» (la pantalla no
+    // dice «activados» sin comprobarlo): no es una escritura y no se cuenta con
+    // ellas. El servidor real contesta que sí lo tiene.
+    if (req.method() === 'GET') {
+      consultas.push(new URL(req.url()).searchParams.get('endpoint') ?? '');
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ registrada: registrada.valor }) });
+    }
     peticiones.push({ method: req.method(), auth: req.headers()['authorization'], body: req.postDataJSON() as Record<string, unknown> });
     return r.fulfill({ status: respuestaSubscribe, contentType: 'application/json', body: JSON.stringify(respuestaSubscribe === 200 ? { ok: true } : { error: 'boom' }) });
   });
-  return peticiones;
+  return Object.assign(peticiones, { consultas, registrada });
 }
 
 const tarjeta = (page: Page) => page.getByTestId('push-dispositivo');
@@ -133,6 +143,32 @@ test.describe('Student PWA · avisos push en este dispositivo', () => {
     await expect.poll(() => borrados().length).toBe(1);
     expect(borrados()[0].body.endpoint).toBe('https://push.e2e.test/inicial');
     await expect(tarjeta(page)).toHaveAttribute('data-estado', 'granted-off');
+  });
+
+  test('el navegador está suscrito pero el servidor NO lo tiene: se repara solo y dice «activado»', async ({ page }) => {
+    // El estado que antes se pintaba como activado sin serlo: permiso concedido,
+    // PushSubscription viva, fila borrada en el servidor.
+    await fingirNavegador(page, 'granted', { suscrita: true });
+    const peticiones = await montarPreferencias(page);
+    peticiones.registrada.valor = false;
+    await page.goto(PREFS);
+
+    await expect(tarjeta(page)).toHaveAttribute('data-estado', 'granted-on', { timeout: 30_000 });
+    expect(peticiones.consultas.length).toBeGreaterThan(0);
+    const posts = peticiones.filter((p) => p.method === 'POST');
+    expect(posts.length).toBeGreaterThan(0); // contador: no es verdad «por no haber intentado nada»
+    expect((posts[0].body.subscription as { endpoint: string }).endpoint).toBe('https://push.e2e.test/inicial');
+  });
+
+  test('el navegador está suscrito, el servidor NO lo tiene y no se puede reparar: NO dice «activado»', async ({ page }) => {
+    await fingirNavegador(page, 'granted', { suscrita: true });
+    const peticiones = await montarPreferencias(page, 500);
+    peticiones.registrada.valor = false;
+    await page.goto(PREFS);
+
+    await expect(tarjeta(page)).toHaveAttribute('data-estado', 'granted-off', { timeout: 30_000 });
+    expect(peticiones.filter((p) => p.method === 'POST').length).toBeGreaterThan(0);
+    await expect(interruptor(page)).toHaveAttribute('aria-checked', 'false');
   });
 
   test('permiso rechazado al pedirlo → sigue apagado y no se manda nada', async ({ page }) => {
