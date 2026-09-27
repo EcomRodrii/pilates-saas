@@ -41,6 +41,23 @@ test('nunca se anuncia lo que no está en el horario', () => {
   assert.equal(r.size, 0);
 });
 
+test('una clase cancelada no anuncia su disciplina, ni cuenta para la principal', () => {
+  // Solo quedaba Yoga en el horario, y se canceló: ya no la da. Y el Mat
+  // cancelado no pesa más que el Reformer que sí da.
+  const sesiones = [
+    { instructorId: 'ana', tipoClaseId: 'tc-y', cancelada: true },
+    { instructorId: 'ana', tipoClaseId: 'tc-m', cancelada: true },
+    { instructorId: 'ana', tipoClaseId: 'tc-m', cancelada: true },
+    { instructorId: 'ana', tipoClaseId: 'tc-m', cancelada: false },
+    { instructorId: 'ana', tipoClaseId: 'tc-r' },
+    { instructorId: 'ana', tipoClaseId: 'tc-r' },
+    { instructorId: 'bea', tipoClaseId: 'tc-r', cancelada: true },
+  ];
+  const r = tiposQueImparte(sesiones, tipos);
+  assert.deepEqual(r.get('ana')?.map(t => t.nombre), ['Reformer', 'Mat']);
+  assert.equal(r.get('bea'), undefined);
+});
+
 test('el color de cada tipo solo pasa si es un hex; si no, lo decide quien pinta', () => {
   const r = tiposQueImparte([{ instructorId: 'ana', tipoClaseId: 'tc-y' }], tipos);
   assert.equal(r.get('ana')?.[0].color, null);

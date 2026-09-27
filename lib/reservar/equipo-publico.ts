@@ -2,8 +2,8 @@
 // tarjeta y cómo avanza el carrusel. Puro, sin React, para poder probarlo.
 //
 // Qué imparte cada una NO es un campo que rellene nadie: sale de las clases que
-// tiene en el horario (mismo criterio que usaba la página). Así nunca se
-// anuncia una disciplina que no da.
+// tiene en el horario (mismo criterio que usaba la página), sin contar las
+// canceladas. Así nunca se anuncia una disciplina que no da.
 
 export interface TipoQueImparte {
   id: string;
@@ -15,6 +15,7 @@ export interface TipoQueImparte {
 interface SesionMinima {
   instructorId?: string | null;
   tipoClaseId: string;
+  cancelada?: boolean;
 }
 
 interface TipoMinimo {
@@ -46,7 +47,7 @@ export function tiposQueImparte(
   const tipoPorId = new Map(tipos.map(t => [t.id, t]));
   const cuenta = new Map<string, Map<string, number>>();
   for (const s of sesiones) {
-    if (!s.instructorId || !tipoPorId.has(s.tipoClaseId)) continue;
+    if (s.cancelada || !s.instructorId || !tipoPorId.has(s.tipoClaseId)) continue;
     const suyas = cuenta.get(s.instructorId) ?? new Map<string, number>();
     suyas.set(s.tipoClaseId, (suyas.get(s.tipoClaseId) ?? 0) + 1);
     cuenta.set(s.instructorId, suyas);

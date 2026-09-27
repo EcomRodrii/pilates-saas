@@ -3494,7 +3494,7 @@ export default function ReservarPage() {
               <div style={{ marginTop: 38 }}>
                 <EquipoPublico
                   instructores={instructores} sesiones={sesiones} tiposClase={tiposClase}
-                  etiqueta="El equipo" cabecera={<div style={eyebrow(9)}>EL EQUIPO</div>}
+                  etiqueta="El equipo" cabecera={<div style={eyebrow(9)}>EL EQUIPO</div>} compacta
                 />
               </div>
             )}

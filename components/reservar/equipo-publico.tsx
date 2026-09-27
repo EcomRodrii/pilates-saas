@@ -3,9 +3,9 @@
 // «Nuestro equipo» en /reservar («El estudio») y en el widget «Instructoras»
 // (`tab=equipo`): un carrusel con una tarjeta por persona que da clase.
 //
-// Solo lo que existe: foto (o sus iniciales en su color), nombre y los tipos
-// de clase que tiene en el horario (lib/reservar/equipo-publico.ts). Sin
-// valoraciones ni bio: la tarjeta es para poner cara a un nombre del horario,
+// Solo lo que existe: foto (o sus iniciales en su color), nombre, la clase que
+// más da y las demás que tiene en el horario (lib/reservar/equipo-publico.ts).
+// Sin valoraciones ni bio: la tarjeta es para poner cara a un nombre del horario,
 // no para leerla. Las flechas solo salen si hay más gente de la que cabe; en
 // el móvil se desliza con el dedo, y con el teclado, con las flechas.
 
@@ -20,24 +20,29 @@ import { serif } from '@/lib/reservar-publico-tokens';
 interface Props {
   /** El staff tal cual: aquí se queda solo quien imparte (`queImparten`). */
   instructores: Instructor[];
-  sesiones: { instructorId?: string | null; tipoClaseId: string }[];
+  sesiones: { instructorId?: string | null; tipoClaseId: string; cancelada?: boolean }[];
   tiposClase: { id: string; nombre: string; color?: string | null }[];
   /** El titular de cada sitio: el h2 del widget o el rótulo de «El estudio». */
   cabecera: ReactNode;
   /** Nombre accesible del carrusel. */
   etiqueta: string;
+  /** La cabecera es un rótulo pequeño y no un titular: menos aire debajo. */
+  compacta?: boolean;
 }
 
 const marca = 'var(--portal-brand)';
 const FOTO = 104;
 const HUECO = 14;
 
-// Cuatro por fila en escritorio y dos y un trozo de la siguiente en el móvil,
-// que es lo que invita a deslizar. `cqw` mide el propio carrusel (container
+// Cuatro por fila en escritorio. En el móvil, dos enteras y 40 px de la
+// tercera, que es lo que invita a deslizar: con un mínimo fijo de 152 px, a
+// 360 de ancho no asomaba nada. `cqw` mide el propio carrusel (container
 // abajo): el widget incrustado en una columna estrecha se comporta como móvil.
-const anchoTarjeta = `clamp(152px, calc((100cqw - ${3 * HUECO}px) / 4), 250px)`;
-
 const css = `
+.equipo-publico-tarjeta { width: clamp(152px, calc((100cqw - ${3 * HUECO}px) / 4), 250px); }
+@container (max-width: 560px) {
+  .equipo-publico-tarjeta { width: calc((100cqw - ${2 * HUECO + 40}px) / 2); }
+}
 .equipo-publico-carril { scrollbar-width: none; }
 .equipo-publico-carril::-webkit-scrollbar { display: none; }
 .equipo-publico-carril:focus-visible,
@@ -54,14 +59,14 @@ function Retrato({ i }: { i: Instructor }) {
       <img
         src={i.fotoUrl} alt="" width={FOTO} height={FOTO} loading="lazy" decoding="async"
         onError={() => setFallo(true)}
-        style={{ display: 'block', width: FOTO, height: FOTO, borderRadius: 999, objectFit: 'cover', background: 'var(--portal-surface-2)', flex: '0 0 auto' }}
+        style={{ display: 'block', width: `min(${FOTO}px, 100%)`, height: 'auto', aspectRatio: '1 / 1', borderRadius: 999, objectFit: 'cover', background: 'var(--portal-surface-2)', flex: '0 0 auto' }}
       />
     );
   }
   const color = colorSeguro(i.color) ?? marca;
   return (
     <span aria-hidden="true" style={{
-      width: FOTO, height: FOTO, borderRadius: 999, flex: '0 0 auto', display: 'grid', placeItems: 'center',
+      width: `min(${FOTO}px, 100%)`, aspectRatio: '1 / 1', borderRadius: 999, flex: '0 0 auto', display: 'grid', placeItems: 'center',
       background: `color-mix(in srgb, ${color} 16%, var(--portal-surface))`,
       boxShadow: `inset 0 0 0 2px color-mix(in srgb, ${color} 45%, transparent)`,
       fontFamily: serif, fontSize: 32, fontWeight: 700, letterSpacing: '.02em', color: 'var(--portal-ink)',
@@ -72,8 +77,8 @@ function Retrato({ i }: { i: Instructor }) {
 }
 
 const chip: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 26, padding: '3px 10px', borderRadius: 999,
-  fontSize: 12, fontWeight: 600, lineHeight: 1.2, color: 'var(--portal-ink)',
+  display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 26, maxWidth: '100%', padding: '3px 10px', borderRadius: 999,
+  fontSize: 12, fontWeight: 600, lineHeight: 1.2, color: 'var(--portal-ink)', overflowWrap: 'anywhere',
 };
 
 function Chip({ t }: { t: TipoQueImparte }) {
@@ -86,24 +91,14 @@ function Chip({ t }: { t: TipoQueImparte }) {
   );
 }
 
-// Tres como mucho: todas las tarjetas del carrusel miden lo que la más alta, y
-// una con cinco tipos estiraba a las demás con un hueco en blanco. El resto se
-// resume en «+N», y un lector de pantalla los oye todos.
-const MAX_CHIPS = 3;
-
+// Todas, sin resumir en «+N»: un `title` no llega al dedo, y en el móvil lo
+// que no se ve no existe. Una tarjeta con muchas estira a las demás (miden lo
+// que la más alta), pero un hueco abajo es mejor que esconder una clase.
+// `role="list"`: con `list-style: none`, VoiceOver deja de anunciarla como lista.
 function Chips({ tipos }: { tipos: TipoQueImparte[] }) {
-  const cortar = tipos.length > MAX_CHIPS;
-  const vistos = cortar ? tipos.slice(0, MAX_CHIPS - 1) : tipos;
-  const resto = tipos.slice(vistos.length);
   return (
-    <ul aria-label="Clases que imparte" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 12, listStyle: 'none', padding: 0 }}>
-      {vistos.map(t => <Chip key={t.id} t={t} />)}
-      {cortar && (
-        <li title={resto.map(t => t.nombre).join(', ')} style={{ ...chip, position: 'relative', background: 'var(--portal-surface-2)', color: 'var(--portal-muted)' }}>
-          <span aria-hidden="true">+{resto.length}</span>
-          <span className="sr-only">{resto.map(t => t.nombre).join(', ')}</span>
-        </li>
-      )}
+    <ul role="list" aria-label="También imparte" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 12, listStyle: 'none', padding: 0 }}>
+      {tipos.map(t => <Chip key={t.id} t={t} />)}
     </ul>
   );
 }
@@ -114,7 +109,7 @@ const flecha: CSSProperties = {
   cursor: 'pointer', transition: 'background .15s ease, opacity .15s ease',
 };
 
-export function EquipoPublico({ instructores, sesiones, tiposClase, cabecera, etiqueta }: Props) {
+export function EquipoPublico({ instructores, sesiones, tiposClase, cabecera, etiqueta, compacta = false }: Props) {
   const equipo = queImparten(instructores);
   const tiposPorPersona = tiposQueImparte(sesiones, tiposClase);
   const idLista = useId();
@@ -167,7 +162,9 @@ export function EquipoPublico({ instructores, sesiones, tiposClase, cabecera, et
   return (
     <div>
       <style>{css}</style>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44 }}>
+      {/* Los 44 px son los de las flechas: sin ellas, la cabecera mide lo suyo y
+          el rótulo de «El estudio» no se aleja de sus tarjetas. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: hayMas ? 44 : undefined }}>
         <div style={{ minWidth: 0 }}>{cabecera}</div>
         {hayMas && (
           <div style={{ display: 'flex', gap: 8, flex: '0 0 auto' }}>
@@ -197,18 +194,20 @@ export function EquipoPublico({ instructores, sesiones, tiposClase, cabecera, et
         tabIndex={hayMas ? 0 : undefined}
         className="equipo-publico-carril"
         style={{
-          containerType: 'inline-size', marginTop: 18, overflowX: 'auto', overscrollBehaviorX: 'contain',
+          containerType: 'inline-size', marginTop: compacta ? 16 : 18, overflowX: 'auto', overscrollBehaviorX: 'contain',
           scrollSnapType: 'x mandatory', borderRadius: 20,
         }}
       >
-        <ul style={{ display: 'flex', gap: HUECO, width: 'max-content', listStyle: 'none', margin: 0, padding: 0 }}>
+        <ul role="list" style={{ display: 'flex', gap: HUECO, width: 'max-content', listStyle: 'none', margin: 0, padding: 0 }}>
           {equipo.map(i => {
-            const tipos = tiposPorPersona.get(i.id) ?? [];
+            // La primera es la que más da: va en gris bajo el nombre, como su
+            // especialidad, y los chips son el resto, sin repetirla.
+            const [principal, ...otras] = tiposPorPersona.get(i.id) ?? [];
             return (
               <li
-                key={i.id} data-tarjeta-equipo=""
+                key={i.id} data-tarjeta-equipo="" className="equipo-publico-tarjeta"
                 style={{
-                  width: anchoTarjeta, flex: '0 0 auto', scrollSnapAlign: 'start',
+                  flex: '0 0 auto', scrollSnapAlign: 'start',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
                   padding: '22px 14px 18px', borderRadius: 20,
                   background: 'var(--portal-surface)', border: '1px solid var(--portal-line)',
@@ -218,7 +217,12 @@ export function EquipoPublico({ instructores, sesiones, tiposClase, cabecera, et
                 <h3 style={{ fontFamily: serif, fontSize: 16.5, fontWeight: 700, lineHeight: 1.25, color: 'var(--portal-ink)', marginTop: 14, overflowWrap: 'anywhere' }}>
                   {i.nombre}
                 </h3>
-                {tipos.length > 0 && <Chips tipos={tipos} />}
+                {principal && (
+                  <p style={{ fontSize: 13, lineHeight: 1.35, color: 'var(--portal-muted)', marginTop: 4, overflowWrap: 'anywhere' }}>
+                    {principal.nombre}
+                  </p>
+                )}
+                {otras.length > 0 && <Chips tipos={otras} />}
               </li>
             );
           })}
