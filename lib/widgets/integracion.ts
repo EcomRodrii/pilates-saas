@@ -22,7 +22,7 @@ import { COLOR_VALIDO, fuenteValida } from '../reservar/config-widget.ts';
 import { scriptSnippetIframe } from '../reservar/snippet-embed.ts';
 import type { MetodoIntegracion, WidgetDisponible } from './catalogo.ts';
 import {
-  anchoPorDefecto, etiquetaEfectiva, textoBotonEfectivo, type ConfigConstructor,
+  anchoPopupDe, anchoPorDefecto, etiquetaEfectiva, textoBotonEfectivo, type ConfigConstructor,
 } from './config.ts';
 
 export type Plataforma = 'html' | 'wordpress' | 'webflow' | 'react';
@@ -55,7 +55,12 @@ function paresContenido(e: EntradaIntegracion, metodo: MetodoIntegracion): Par[]
   const { widget: w, config: c } = e;
   const p: Par[] = [];
   if (w.contenido.includes('horario')) {
-    if (c.vista === 'hoy') p.push(['vista', 'hoy']);
+    // El calendario semanal sustituye a la lista entera: con él, la vista
+    // inicial y el diseño de la lista no pintan nada y no se emiten. La nativa
+    // (el bundle) no lo entiende, así que ahí manda la lista de siempre.
+    const semana = metodo !== 'nativa' && c.presentacion === 'semana';
+    if (semana) p.push(['presentacion', 'semana']);
+    if (!semana && c.vista === 'hoy') p.push(['vista', 'hoy']);
     if (c.tipos.length) p.push(['tipos', c.tipos.join(',')]);
     if (c.instructoras.length) p.push(['instructoras', c.instructoras.join(',')]);
     if (c.salas.length) p.push(['salas', c.salas.join(',')]);
@@ -64,7 +69,7 @@ function paresContenido(e: EntradaIntegracion, metodo: MetodoIntegracion): Par[]
     if (!c.mostrarSustituta) p.push(['ocultar-sustituta', '1']);
     // El default del iframe es 'completo'; el de la nativa, 'ligero'.
     const defecto = metodo === 'nativa' ? 'ligero' : 'completo';
-    if (c.diseno && c.diseno !== defecto) p.push(['diseno', c.diseno]);
+    if (!semana && c.diseno && c.diseno !== defecto) p.push(['diseno', c.diseno]);
   }
   const tiposPlan = w.tiposPlanFijos ?? (w.contenido.includes('tiposPlan') ? c.tiposPlan : []);
   if (tiposPlan.length) p.push(['planes', tiposPlan.join(',')]);
@@ -128,6 +133,10 @@ export function urlEmbebido(e: EntradaIntegracion, metodo: MetodoIntegracion = '
  * La página de reservas COMPLETA (enlace y botón). Los filtros y el diseño del
  * widget NO viajan aquí: la página completa es el portal del estudio con su
  * propia apariencia, y el motor solo los lee en modo incrustado.
+ *
+ * La excepción es la presentación del horario (`presentacion=semana`): no es
+ * un filtro ni apariencia, es cómo se lee el mismo horario, y la página la
+ * honra también fuera del modo incrustado (`leerPresentacion`).
  */
 export function urlPagina(e: EntradaIntegracion): string {
   const { widget: w, config: c } = e;
@@ -137,6 +146,7 @@ export function urlPagina(e: EntradaIntegracion): string {
     : w.pagina.tab;
   if (tab && tab !== 'clases') pares.push(['tab', tab]);
   for (const [k, v] of Object.entries(w.pagina.extra ?? {})) pares.push([k, v]);
+  if (w.contenido.includes('horario') && c.presentacion === 'semana') pares.push(['presentacion', 'semana']);
   if (w.contenido.includes('sesion') && c.sesion) pares.push(['sesion', c.sesion]);
   const ref = etiquetaEfectiva(c, w);
   if (ref) pares.push(['ref', ref]);
@@ -215,7 +225,7 @@ export function idIframe(e: EntradaIntegracion): string {
 }
 
 function anchoMaximoPx(e: EntradaIntegracion): number | null {
-  const ancho = e.config.ancho ?? anchoPorDefecto(e.widget);
+  const ancho = e.config.ancho ?? anchoPorDefecto(e.widget, e.config);
   return ancho === 'compacto' ? 480 : null;
 }
 
@@ -350,7 +360,7 @@ export function ${nombreComponente(w)}Popup() {
       type="button"
       data-tentare-popup=${jsString(url)}
       data-tentare-titulo=${jsString(w.nombre)}
-      data-tentare-ancho="${w.anchoPopup}"
+      data-tentare-ancho="${anchoPopupDe(w, e.config)}"
       style={${objetoEstiloReact(e)}}
     >
       {${jsString(texto)}}
@@ -361,7 +371,7 @@ export function ${nombreComponente(w)}Popup() {
       }
       return {
         lenguaje: 'html',
-        codigo: `<button type="button" data-tentare-popup="${urlEnAtributo(url)}" data-tentare-titulo="${escaparAtributo(w.nombre)}" data-tentare-ancho="${w.anchoPopup}" style="${cssBoton(e)}">${escaparTexto(texto)}</button>
+        codigo: `<button type="button" data-tentare-popup="${urlEnAtributo(url)}" data-tentare-titulo="${escaparAtributo(w.nombre)}" data-tentare-ancho="${anchoPopupDe(w, e.config)}" style="${cssBoton(e)}">${escaparTexto(texto)}</button>
 <script src="${script}" async></script>`,
       };
     }

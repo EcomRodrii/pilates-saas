@@ -98,6 +98,13 @@ export interface ConfigWidget {
    * aquí.
    */
   diseno: 'completo' | 'ligero' | null;
+  /**
+   * 'lista' = el horario de siempre (tira de días o rejilla, según `diseno`);
+   * 'semana' = el calendario semanal, días en columnas y horas en filas
+   * (components/reservar/horario-semana.tsx). Solo lo pinta Modo A: el bundle
+   * (Modo B) lo lee con el resto del vocabulario y lo ignora.
+   */
+  presentacion: 'lista' | 'semana';
   /** Fondo del contenedor raíz (Modo B; en Modo A ya existe `?fondo=`). */
   colorFondo: string | null;
   /** Color primario de marca (`--portal-brand`). */
@@ -131,7 +138,7 @@ export const CONFIG_WIDGET_POR_DEFECTO: ConfigWidget = {
   tipos: [], instructoras: [], salas: [],
   vistaInicial: 'todo',
   ocultarPrecio: false, ocultarNivel: false, ocultarSustituta: false,
-  diseno: null,
+  diseno: null, presentacion: 'lista',
   colorFondo: null, colorPrimario: null, colorNegro: null,
   fuente: null, fuenteDisplay: null,
   ref: null, identidadEstudio: false,
@@ -196,11 +203,25 @@ function leerFuente(v: string | null): string | null {
 }
 
 /**
+ * `presentacion=semana` → el calendario semanal; cualquier otra cosa (o nada:
+ * todos los snippets de antes) → la lista de siempre.
+ *
+ * Exportado aparte porque, a diferencia del resto del vocabulario, la página
+ * también la honra FUERA del modo incrustado: el enlace y el botón del
+ * constructor abren la página completa, y la presentación es lo único del
+ * widget que viaja con ellos (lib/widgets/integracion.ts, `urlPagina`).
+ */
+export function leerPresentacion(fuente: FuenteConfig): 'lista' | 'semana' {
+  return fuente.get('presentacion')?.trim() === 'semana' ? 'semana' : 'lista';
+}
+
+/**
  * Parser único del snippet, para ambos modos. Nombres exactos del vocabulario
  * (query param en Modo A / `data-<nombre>` en Modo B):
  * `tipos`, `instructoras`, `salas` (ids separados por coma), `vista`
  * (`hoy`|`todo`), `ocultar-precio`, `ocultar-nivel`, `ocultar-sustituta`
- * (booleanos), `diseno` (`completo`|`ligero`), `fondo`, `marca`, `negro`
+ * (booleanos), `diseno` (`completo`|`ligero`), `presentacion` (`lista`|
+ * `semana`, solo Modo A), `fondo`, `marca`, `negro`
  * (colores hex), `fuente`, `fuente-display` (familias de Google Fonts),
  * `ref` (etiqueta de seguimiento) e `identidad` (`estudio`, solo Modo B).
  *
@@ -220,6 +241,7 @@ export function resolverConfigWidget(fuente: FuenteConfig): ConfigWidget {
     ocultarNivel: leerBooleano(fuente.get('ocultar-nivel')) ?? false,
     ocultarSustituta: leerBooleano(fuente.get('ocultar-sustituta')) ?? false,
     diseno: disenoCrudo === 'completo' || disenoCrudo === 'ligero' ? disenoCrudo : null,
+    presentacion: leerPresentacion(fuente),
     colorFondo: leerColor(fuente.get('fondo')),
     colorPrimario: leerColor(fuente.get('marca')),
     colorNegro: leerColor(fuente.get('negro')),

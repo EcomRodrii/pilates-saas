@@ -39,7 +39,7 @@ import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/porta
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
 import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe, escalaDensidad } from '@/lib/reservar/apariencia-widget';
-import { resolverConfigWidget } from '@/lib/reservar/config-widget';
+import { resolverConfigWidget, leerPresentacion } from '@/lib/reservar/config-widget';
 import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { FormularioContacto } from '@/components/reservar/formulario-contacto';
@@ -95,6 +95,11 @@ const MiCuenta = dynamic(
 const CitasPublica = dynamic(
   () => import('@/components/reserva/citas-publica').then((m) => m.CitasPublica),
   { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando citas…</div> },
+);
+// Solo con `?presentacion=semana`: la lista de siempre no descarga este trozo.
+const HorarioSemana = dynamic(
+  () => import('@/components/reservar/horario-semana').then((m) => m.HorarioSemana),
+  { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando calendario…</div> },
 );
 
 
@@ -520,6 +525,18 @@ export default function ReservarPage() {
     () => (embedMode ? resolverConfigWidget(searchParams) : null),
     [embedMode, searchParams],
   );
+  // `?presentacion=semana` (calendario semanal) es la excepción: vale TAMBIÉN
+  // en la página suelta, porque el enlace y el botón del constructor de
+  // widgets llevan ahí. No es un filtro ni apariencia, es cómo se lee el mismo
+  // horario; sin el parámetro, la página es exactamente la de siempre.
+  const horarioEnSemana = leerPresentacion(searchParams) === 'semana';
+  // La semana a la vista del calendario semanal (`null` = la de siempre). Aquí
+  // y no dentro del componente: el componente se desmonta mientras se ve la
+  // ficha o el pago, y al volver la visitante tiene que seguir en su semana.
+  const [lunesHorarioSemana, setLunesHorarioSemana] = useState<string | null>(null);
+  // La clase del calendario semanal cuya ficha se acaba de pedir. Ver
+  // `abriendoFichaSemana`, junto a `slots`.
+  const [fichaSemanaPedida, setFichaSemanaPedida] = useState<string | null>(null);
   // `marca=` pisa `--portal-brand` en el subárbol del widget. El foreground se
   // deriva por luminancia — dejar el crema del tema sobre una marca clara
   // dejaría el texto de los botones ilegible.
@@ -1400,6 +1417,18 @@ export default function ReservarPage() {
       });
   }, [sesionesRich, nowMs, configWidget, modoPrueba, ofertaPruebaPara, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
 
+  // Calendario semanal: entre el toque en una clase y que `ReservaCalendario`
+  // confirme la ficha abierta (`alCambiarFicha` llega en un efecto, un render
+  // después), la ficha YA se está pintando — y tiene que pintarse visible: al
+  // montarse enfoca su título, y dentro de un `display: none` no hay foco
+  // posible (el teclado y el lector de pantalla se quedarían en el vacío).
+  // Solo mientras la clase siga en `slots`: es lo que garantiza que
+  // `ReservaCalendario` (que recibe esos mismos `slots`) la vaya a abrir.
+  // Se ajusta en render, no en un efecto: mismo patrón que `irADia`.
+  if (fichaSemanaPedida !== null && fichaCalendarioAbierta) setFichaSemanaPedida(null);
+  const abriendoFichaSemana = fichaSemanaPedida !== null && slots.some(s => s.id === fichaSemanaPedida);
+  const verCalendarioSemanal = horarioEnSemana && !fichaCalendarioAbierta && !abriendoFichaSemana;
+
   // Efecto A — URL → estado. Cubre tres disparadores con el mismo código:
   // carga inicial/refresh con `?paso=` en la URL, y Atrás/Adelante del
   // navegador. Lee `searchParams` (Next) directamente en vez de un
@@ -1464,6 +1493,11 @@ export default function ReservarPage() {
       const existe = !!claseId && slots.some(s => s.id === claseId);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Sincroniza con la URL (sistema externo): abre la ficha que pide `?paso=ficha&clase=...` al volver con Atrás/Adelante o al refrescar. No es estado derivable de props/estado local.
       setAbrirFichaExterna(v => ({ slotId: existe ? claseId : null, nonce: v.nonce + 1 }));
+      // Calendario semanal: la ficha que reabre la URL (Adelante, refresco,
+      // Atrás desde el flujo) tiene que montarse ya visible, igual que tras un
+      // toque en la clase — si no, se monta dentro del `display: none`, su
+      // título no puede recibir el foco y asoma un fotograma del calendario.
+      if (existe && horarioEnSemana) setFichaSemanaPedida(claseId);
       // Un Atrás desde el flujo (login/datos/pago/...) aterriza aquí — hay
       // que cerrar el flujo TAMBIÉN, no solo abrir la ficha: sin esto,
       // `bookingSesionId` seguía sin `null` y el flujo se quedaba pintado
@@ -2282,6 +2316,19 @@ export default function ReservarPage() {
       if (r.ok) trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: slot.id, socioId: socia?.socioId ?? null });
     }).catch(() => {});
     return resultado;
+  }
+
+  // Un toque en una clase del calendario semanal hace EXACTAMENTE lo que el
+  // toque en su tarjeta de la lista (`TarjetaClase.onOpen` con
+  // `saltarFichaSiInvitada={!autenticado}`, reserva-calendario.tsx): la
+  // invitada va directa a sus pasos; la socia abre la ficha — la de siempre,
+  // la que pinta `ReservaCalendario` —, que es donde ve qué bono se le
+  // descuenta antes de confirmar. Nunca reserva de un toque (ver el ⚠️ de
+  // arriba sobre el camino rápido).
+  function elegirClaseSemana(slot: ReservaSlot) {
+    if (!autenticado) { void handleReservarCalendario(slot, null); return; }
+    setFichaSemanaPedida(slot.id);
+    setAbrirFichaExterna(v => ({ slotId: slot.id, nonce: v.nonce + 1 }));
   }
 
   async function handleContratarPlan(plan: PlanTarifa) {
@@ -3262,8 +3309,32 @@ export default function ReservarPage() {
                 sin este guardia volvía a pintar su calendario de siempre por
                 debajo del flujo — encontrado con la propia captura de
                 verificación de esta fase. */}
+            {/* Calendario semanal (`?presentacion=semana`): ocupa el sitio de
+                la lista. La ficha de una clase la sigue pintando
+                `ReservaCalendario` de abajo, que por eso se queda MONTADO pero
+                oculto (`display: none`, fuera también del árbol accesible) —
+                recibe la orden de abrirla por `abrirSlotExterno`, igual que al
+                volver con Atrás. Sin el parámetro, nada de esto existe. */}
+            {verCalendarioSemanal && bookingSesionId === null && (
+              <div style={{ marginTop: 20 }}>
+                <HorarioSemana
+                  slots={slots}
+                  hoy={hoyEnEstudio(now)}
+                  lunes={lunesHorarioSemana}
+                  onCambiarSemana={setLunesHorarioSemana}
+                  onElegir={elegirClaseSemana}
+                  filtros={filtrosChipsClases}
+                  cargando={!dataLoaded}
+                  error={dataLoaded && errorPublico ? { onReintentar: recargarPublico } : undefined}
+                  vacio={{
+                    titulo: textosReservar.vacioTitulo || 'Sin clases disponibles',
+                    cuerpo: textosReservar.vacioTexto || 'Prueba con otra semana o cambia el filtro',
+                  }}
+                />
+              </div>
+            )}
             {bookingSesionId === null && (
-            <div style={{ marginTop: fichaCalendarioAbierta ? 0 : 20 }}>
+            <div style={{ marginTop: fichaCalendarioAbierta ? 0 : 20, display: verCalendarioSemanal ? 'none' : undefined }}>
               <ReservaCalendario
                 t={tokensCalendario}
                 slots={slots}
