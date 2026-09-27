@@ -1,0 +1,11 @@
+-- Endurece permisos de borrado sobre `instructores`: `authenticated` conservaba
+-- DELETE por las policies `manager_gestiona_equipo`/`owner_write_instructores`
+-- (FOR ALL), sin ningún llamador real — confirmado con grep: la app solo
+-- desactiva una ficha (`activo = false`) o la anonimiza, siempre vía
+-- service_role; el único DELETE real sobre esta tabla vive en `restaurar_backup`
+-- (SECURITY DEFINER, propiedad de `postgres`, invocado con `admin.rpc`), que no
+-- depende de ningún privilegio de `authenticated` y sigue intacto.
+-- Verificado con has_table_privilege tras aplicar: authenticated pasa a false
+-- en DELETE, service_role se mantiene en true (camino admin sin cambios);
+-- anon nunca tuvo el privilegio.
+revoke delete on public.instructores from authenticated;
