@@ -70,13 +70,13 @@ export type AjusteContenido = 'horario' | 'sesion' | 'cuentaInicio' | 'tiposPlan
 
 /** Una vista de `/reservar/[slug]`: la pestaña y los parámetros fijos. */
 export interface VistaMotor {
-  tab: 'clases' | 'citas' | 'misreservas' | 'cuenta' | 'estudio' | 'planes' | 'equipo';
+  tab: 'clases' | 'citas' | 'misreservas' | 'cuenta' | 'estudio' | 'planes' | 'equipo' | 'contacto';
   extra?: Readonly<Record<string, string>>;
 }
 
 /** Adónde lleva un enlace o un botón: la página de reservas COMPLETA. */
 export interface VistaPagina {
-  tab?: 'clases' | 'citas' | 'misreservas' | 'cuenta' | 'estudio';
+  tab?: 'clases' | 'citas' | 'misreservas' | 'cuenta' | 'estudio' | 'contacto';
   /** Ancla de una sección de la página (p. ej. los bonos). */
   ancla?: string;
   /** Parámetros fijos que también valen fuera del modo incrustado (`prueba=1`). */
@@ -211,10 +211,15 @@ export const WIDGETS: readonly Widget[] = [
     contenido: ['horario'], alto: 640, anchoPopup: 720, textoBoton: 'Reserva tu clase de prueba',
   },
   {
-    id: 'contacto', estado: 'en-preparacion', categoria: 'captacion', icono: 'Mail',
+    // Las consultas llegan a Clientas (consultas_contacto), nunca como ficha.
+    // Sin integración nativa: el bundle sería un segundo dueño del formulario y
+    // además necesitaría CORS para escribir desde otro dominio.
+    id: 'contacto', estado: 'disponible', categoria: 'captacion', icono: 'Mail',
     nombre: 'Formulario de contacto',
     descripcion: 'Consultas que llegan directas a tu panel.',
-    falta: 'Necesita una bandeja de consultas en el panel.',
+    embebido: { tab: 'contacto' }, pagina: { tab: 'contacto' },
+    metodos: ['iframe', 'popup', 'enlace', 'boton'],
+    contenido: [], alto: 620, anchoPopup: 560, textoBoton: 'Escríbenos',
   },
   {
     id: 'newsletter', estado: 'en-preparacion', categoria: 'captacion', icono: 'Newspaper',

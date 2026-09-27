@@ -245,6 +245,9 @@ export const EVENTOS = {
   // su uso. El estudio es el responsable y tiene un plazo legal para responder
   // (tabla `solicitudes_derechos`). Sin ningún dato de salud en el aviso.
   SOLICITUD_DERECHOS: 'socia.solicitud_derechos',
+  // Widget «Formulario de contacto»: alguien que aún no es clienta ha escrito
+  // desde la web del estudio (tabla `consultas_contacto`, nunca `socios`).
+  CONSULTA_CONTACTO: 'contacto.consulta_nueva',
   RIESGO_DEPENDENCIA: 'riesgo.dependencia',
   // Equipo: la instructora avisa de que no puede dar una clase.
   INSTRUCTORA_BAJA: 'instructora.baja',
@@ -485,6 +488,11 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // ALTA el correo no saldría casi nunca, y aquí corre un plazo legal de 30
   // días. Sin PUSH: no hay que actuar en el minuto, hay que no perderlo.
   [EVENTOS.SOLICITUD_DERECHOS]: { category: 'sistema', priority: 'CRITICA', canales: ['EMAIL'], audiencia: 'mostrador' },
+  // Consulta desde la web → al mismo trío que la lee y la cierra en Clientas
+  // (RLS de `consultas_contacto`). ALTA y no CRÍTICA: es un mensaje, no un plazo
+  // legal; el EMAIL sale solo si lo activa en sus preferencias. No cuenta en la
+  // bandeja única (lib/estado-estudio.ts): el spam no puede mover el «por decidir».
+  [EVENTOS.CONSULTA_CONTACTO]: { category: 'mensajeria', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
   // Stripe desconectado = se deja de cobrar. CRÍTICA: ignora preferencias y usa
   // todos los canales que declara (los no configurados → SKIPPED).
   [EVENTOS.SISTEMA_STRIPE_DESCONECTADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
@@ -1139,6 +1147,14 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Solicitud sobre datos personales',
     body: '{socia} ha pedido {accion}. Tenéis hasta el {plazo} para responder desde su ficha.',
     deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
+  }),
+  // ⚠️ Sin nombre, email ni mensaje: el aviso se guarda más tiempo que la
+  // consulta, sobrevive a «Eliminar» y el push se ve en la pantalla bloqueada
+  // del iPad de recepción.
+  ...paraRoles(EVENTOS.CONSULTA_CONTACTO, ROLES_POR_AUDIENCIA.mostrador, {
+    title: 'Consulta nueva desde tu web',
+    body: 'Alguien te ha escrito desde tu formulario de contacto. Respóndele desde Clientas.',
+    deepLink: () => `/clientas`,
   }),
   [`${EVENTOS.RIESGO_DEPENDENCIA}#PROPIETARIO`]: {
     title: 'Riesgo de concentración alto',

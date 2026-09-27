@@ -291,3 +291,17 @@ test('clase de prueba: los filtros del horario se aplican encima de la oferta', 
   assert.equal(params(url).get('tipos'), 'tc-r');
   assert.equal(params(url).get('prueba'), '1');
 });
+
+// ── Formulario de contacto ───────────────────────────────────────────────────
+
+test('formulario de contacto: `tab=contacto` en el iframe/popup y en el enlace/botón, sin integración nativa', () => {
+  const x = w('contacto');
+  assert.ok(!x.metodos.includes('nativa'));
+  assert.deepEqual(x.contenido, [], 'no pinta ajustes del horario que el formulario ignoraría');
+  const url = params(urlEmbebido(entrada('contacto')));
+  assert.equal(url.get('embed'), '1');
+  assert.equal(url.get('tab'), 'contacto');
+  assert.equal(url.get('ref'), 'web-contacto');
+  assert.equal(urlPagina(entrada('contacto')), `${ORIGEN}/reservar/${SLUG}?tab=contacto&ref=web-contacto`);
+  assert.ok(generarCodigo(entrada('contacto'), 'boton').codigo.includes('tab=contacto'));
+});

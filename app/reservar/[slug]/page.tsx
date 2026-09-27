@@ -42,6 +42,7 @@ import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss,
 import { resolverConfigWidget } from '@/lib/reservar/config-widget';
 import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { FormularioContacto } from '@/components/reservar/formulario-contacto';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
 import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget } from '@/lib/reservar/eventos';
@@ -309,7 +310,7 @@ function MenuSecciones({ tabs, tabActual, onIr }: {
 // Anónimo: los ocupados se muestran deshabilitados, sin revelar quién los tiene.
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio' | 'cuenta' | 'planes' | 'equipo';
+type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio' | 'cuenta' | 'planes' | 'equipo' | 'contacto';
 // Cada pestaña es también un widget embebible por separado (Configuración >
 // Estudio > Enlaces genera un <iframe ?embed=1&tab=…> distinto por cada una)
 // — de ahí que valga la pena validar el ?tab= de la URL contra esta lista en
@@ -324,7 +325,10 @@ type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio' | 'cuenta' | 'planes' 
 // SOLO del modo incrustado: en la página completa los planes y el equipo ya
 // son secciones (bonos al bajar, equipo dentro de «El estudio») y no ganan
 // una pestaña propia. Ver `tabHabilitada`.
-const TAB_IDS: readonly Tab[] = ['clases', 'citas', 'misreservas', 'estudio', 'cuenta', 'planes', 'equipo'];
+//
+// 'contacto' (widget «Formulario de contacto») vale incrustado y en la página
+// completa (enlace o botón), pero tampoco es pestaña: no sale en la barra.
+const TAB_IDS: readonly Tab[] = ['clases', 'citas', 'misreservas', 'estudio', 'cuenta', 'planes', 'equipo', 'contacto'];
 // Tipos de plan que admite el filtro `?planes=` del widget «Planes y precios».
 const TIPOS_PLAN_FILTRO: readonly TipoPlan[] = ['MENSUAL', 'BONO', 'PUNTUAL'];
 // 'pendiente' (Fase 2a, migr 20260730192445): la clase exige aprobación
@@ -460,7 +464,8 @@ export default function ReservarPage() {
     || (t === 'misreservas' && configHorario.mostrarMisReservas !== false)
     || (t === 'estudio' && configHorario.mostrarEstudio !== false)
     || (t === 'cuenta' && configHorario.mostrarCuenta !== false)
-    || ((t === 'planes' || t === 'equipo') && searchParams.get('embed') === '1');
+    || ((t === 'planes' || t === 'equipo') && searchParams.get('embed') === '1')
+    || t === 'contacto';
   // ⚠️ Sin identidad inventada. Estos cuatro valores caían a los de Tentare y a
   // una dirección de ejemplo ('Tentare', 'hola@tentare.es', '+34 951 000 000',
   // 'Málaga · Calle Larios 12'). Se ven cuando `studio` es null — es decir,
@@ -2474,7 +2479,7 @@ export default function ReservarPage() {
   // parámetro, cada una sigue siendo su propio widget de un solo propósito.
   const cuentaCompleta = embedMode && searchParams.get('cuenta') === 'completa'
     && (tab === 'misreservas' || tab === 'cuenta');
-  const tabsVisibles = tab === 'clases' && !embedMode && !apariencia.soloPestana
+  const tabsVisibles = (tab === 'clases' || tab === 'contacto') && !embedMode && !apariencia.soloPestana
     ? []
     : (embedMode || apariencia.soloPestana)
       ? tabs.filter(([t]) => t === tab || (cuentaCompleta && (t === 'misreservas' || t === 'cuenta')))
@@ -2482,7 +2487,7 @@ export default function ReservarPage() {
   // Las vistas incrustadas de UNA sola cosa (planes, equipo): nada de las
   // secciones de la página completa debajo — 1 widget = 1 propósito.
   // La clase de prueba también: debajo no van tus bonos ni «Sobre nosotros».
-  const vistaUnica = embedMode && (tab === 'planes' || tab === 'equipo' || modoPrueba);
+  const vistaUnica = embedMode && (tab === 'planes' || tab === 'equipo' || tab === 'contacto' || modoPrueba);
   // `?planes=BONO,MENSUAL` (widgets «Planes y precios» / «Bonos y packs»).
   // Solo incrustado, y un valor que no es un tipo de plan se ignora.
   const filtroPlanes = embedMode
@@ -3060,8 +3065,9 @@ export default function ReservarPage() {
                 )}
               </div>
             </div>
-            {/* El prototipo no lleva esta píldora en la cabecera de "El estudio". */}
-            {tab !== 'estudio' && (
+            {/* El prototipo no lleva esta píldora en la cabecera de "El estudio".
+                Tampoco en el formulario de contacto: ahí no se reserva nada. */}
+            {tab !== 'estudio' && tab !== 'contacto' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'var(--portal-muted)', whiteSpace: 'nowrap' }}>
                 <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--success)' }} />
                 {socia ? socia.email : 'Reserva sin registro'}
@@ -3651,6 +3657,22 @@ export default function ReservarPage() {
                 Pronto conocerás a nuestro equipo.
               </p>
             )}
+          </div>
+        )}
+
+        {/* «Formulario de contacto»: la consulta va a Clientas, nunca a una
+            ficha (app/api/public/contacto). */}
+        {tab === 'contacto' && (
+          <div>
+            <FormularioContacto
+              slug={slug}
+              nombreEstudio={studio?.nombre ?? ''}
+              emailEstudio={studio?.email || null}
+              telefonoEstudio={studio?.telefono || null}
+              origen={refCode}
+              vistaPrevia={esVistaPrevia}
+              onAbrirPrivacidad={() => setLegalDoc({ label: 'Política de privacidad', text: studioConfig.politicaPrivacidad })}
+            />
           </div>
         )}
 
