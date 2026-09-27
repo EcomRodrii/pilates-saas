@@ -60,7 +60,7 @@ async function abrir(page: Page, query: string, o: { disponible?: boolean } = {}
   });
   for (let i = 0; i < 3; i++) {
     await page.goto(`/reservar/${SLUG}?${query}`);
-    if (await page.getByRole('heading', { name: 'Escríbenos' }).waitFor({ timeout: 40_000 }).then(() => true, () => false)) break;
+    if (await page.getByRole('heading', { name: '¿Tienes alguna duda?' }).waitFor({ timeout: 40_000 }).then(() => true, () => false)) break;
   }
   return {
     intentos: () => intentos,
@@ -85,12 +85,36 @@ test('incrustado: el formulario y nada más (ni horario, ni bonos, ni pie)', asy
   await expect(page.locator('footer')).toHaveCount(0);
   // La información de privacidad, antes de enviar y con el nombre del estudio.
   await expect(page.getByText(/Responsable: Estudio Alma/)).toBeVisible();
+  // Sin foto propia, la de por defecto: el formulario nunca sale sobre un hueco.
+  await expect(page.locator('.contacto-foto')).toHaveAttribute('src', /por-defecto/);
+  await expect(page.getByPlaceholder('tu@email.com')).toBeVisible();
+});
+
+test('en el móvil la foto es una banda arriba; con sitio, el fondo de la tarjeta', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await abrir(page, 'embed=1&tab=contacto');
+  const foto = page.locator('.contacto-foto');
+  const tarjeta = page.locator('.contacto-tarjeta');
+  // Estrecho: la tarjeta empieza donde acaba la banda (menos la esquina que la pisa).
+  await expect.poll(async () => {
+    const [f, t] = [await foto.boundingBox(), await tarjeta.boundingBox()];
+    return !!f && !!t && t.y >= f.y + f.height - 30 && f.height < 220;
+  }).toBe(true);
+  // Ancho: la foto ocupa todo el marco y la tarjeta va encima, dentro de ella.
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await expect.poll(async () => {
+    const [f, t] = [await foto.boundingBox(), await tarjeta.boundingBox()];
+    return !!f && !!t && t.y > f.y && t.y + t.height < f.y + f.height && t.x > f.x && t.x + t.width < f.x + f.width;
+  }).toBe(true);
 });
 
 test('página completa (enlace o botón): el formulario, con el pie y sus textos legales', async ({ page }) => {
   await abrir(page, 'tab=contacto&ref=web-contacto');
   await expect(page.getByRole('button', { name: 'Enviar mensaje' })).toBeVisible();
   await expect(page.locator('footer')).toHaveCount(1);
+  // La portada ya enseña la foto del estudio: detrás del formulario no se repite.
+  await expect(page.locator('.reserva-hero-foto')).toHaveCount(1);
+  await expect(page.locator('.contacto-foto')).toHaveCount(0);
 });
 
 test('enviar: manda los campos con la privacidad aceptada y la etiqueta, y lo dice', async ({ page }) => {
@@ -125,6 +149,38 @@ for (const [nombre, fallo, texto] of [
   });
 }
 
+test('sin rellenar nada: dice qué falta, lleva al primer campo y no se intenta enviar', async ({ page }) => {
+  const api = await abrir(page, 'embed=1&tab=contacto');
+  await page.getByRole('button', { name: 'Enviar mensaje' }).click();
+  const aviso = page.getByRole('alert').filter({ hasText: /^Falta/ });
+  await expect(aviso).toHaveText('Faltan tu nombre, tu email y el mensaje.');
+  const nombre = page.getByLabel('Nombre', { exact: true });
+  await expect(nombre).toBeFocused();
+  await expect(nombre).toHaveAttribute('aria-invalid', 'true');
+  // El campo lleva el aviso como descripción: el lector lo lee al llegarle el foco.
+  await expect(nombre).toHaveAccessibleDescription('Faltan tu nombre, tu email y el mensaje.');
+  // Nada en rojo que el aviso no nombre: la casilla aún no toca.
+  await expect(page.getByRole('checkbox', { name: /información sobre privacidad/ })).toHaveAttribute('aria-invalid', 'false');
+  // Se desmarca al escribir, sin esperar a otro intento, y el aviso dice lo que queda.
+  await nombre.fill('Nueva');
+  await expect(nombre).toHaveAttribute('aria-invalid', 'false');
+  await expect(aviso).toHaveText('Faltan tu email y el mensaje.');
+  await page.getByLabel('Email', { exact: true }).fill('nueva@example.com');
+  await page.getByLabel('Mensaje').fill('Hola');
+  await expect(aviso).toHaveCount(0);
+  expect(api.intentos()).toBe(0);
+});
+
+test('email con errata: se dice antes de enviar, sin gastar el captcha', async ({ page }) => {
+  const api = await abrir(page, 'embed=1&tab=contacto');
+  await rellenar(page);
+  await page.getByLabel('Email', { exact: true }).fill('nueva@example');
+  await page.getByRole('button', { name: 'Enviar mensaje' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Escribe un email válido' })).toBeVisible();
+  await expect(page.getByLabel('Email', { exact: true })).toBeFocused();
+  expect(api.intentos()).toBe(0);
+});
+
 test('sin marcar la privacidad no se intenta enviar', async ({ page }) => {
   const api = await abrir(page, 'embed=1&tab=contacto');
   await rellenar(page, { privacidad: false });
@@ -144,6 +200,8 @@ test('sin captcha comprobable en el servidor: el contacto del estudio, no un for
   const api = await abrir(page, 'embed=1&tab=contacto', { disponible: false });
   await expect(page.getByText(/El formulario no está disponible ahora mismo/)).toBeVisible();
   await expect(page.getByText(/hola@example\.com/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'hola@example.com' })).toHaveAttribute('href', 'mailto:hola@example.com');
+  await expect(page.getByRole('link', { name: '+34 600 000 000' })).toHaveAttribute('href', 'tel:+34600000000');
   await expect(page.getByRole('button', { name: 'Enviar mensaje' })).toHaveCount(0);
   expect(api.intentos()).toBe(0);
 });
