@@ -3369,11 +3369,10 @@ export default function ReservarPage() {
         )}
 
         {/* ── TAB: CITAS 1:1 ──────────────────────────────────────────────── */}
-        {/* Sin cabecera propia aquí: CitasPublica ya pinta "Citas" + el
-            subtítulo (calcando design_handoff_widget_reservas) tanto con
-            servicios configurados como en su estado vacío — una cabecera
-            aparte aquí quedaba duplicada en el primer caso y con el título
-            equivocado ("Citas privadas") en el segundo. */}
+        {/* Sin cabecera propia aquí: CitasPublica ya pinta su titular
+            («Selecciona tu cita», o «Citas» en su estado vacío) — una cabecera
+            aparte aquí quedaba duplicada. La foto va en la tarjeta solo si la
+            portada no la enseña ya justo encima (widget, o portada oculta). */}
         {tab === 'citas' && !enVistaReserva && (
           <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
             <CitasPublica
@@ -3390,6 +3389,7 @@ export default function ReservarPage() {
               onCancelar={cancelarCita}
               primary={PRIMARY}
               primaryFg={PRIMARY_FG}
+              foto={!embedMode && seccionVisible('portada') ? null : heroFoto}
             />
           </div>
         )}

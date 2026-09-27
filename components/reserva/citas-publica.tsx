@@ -1,7 +1,7 @@
 'use client';
 import { queImparten } from '@/lib/equipo';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Clock, ChevronLeft, X, CheckCircle2, Calendar, User, AlertCircle } from 'lucide-react';
 import type { ServicioCita, DisponibilidadCita, Instructor } from '@/lib/types';
 import { PublicSheet } from '@/components/ui/public-sheet';
@@ -11,6 +11,8 @@ import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { localDayKey, addDays, fechaDeClave } from '@/lib/reserva-calendario-logic';
 import { hoyEnEstudio } from '@/lib/utils';
 import { TiraDias } from './tira-dias';
+import { SelectorCita } from '@/components/reservar/selector-cita';
+import { metaServicioCita, precioServicioCita } from '@/lib/reservar/servicio-cita';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reserva pública de citas 1:1 (widget /reservar). Flujo: servicio → (paso
@@ -64,17 +66,23 @@ export interface CitasPublicaProps {
    * seguimiento del scroll se perdía en silencio.
    */
   onOverlayAbierto?: (abierto: boolean) => void;
+  /** La foto del primer paso (ver `SelectorCita`). Sin ella, la lista va sola. */
+  foto?: string | null;
 }
 
 function fmtHora(iso: string) { return horaEstudio(iso); }
 function fmtDiaLargo(iso: string) { return fechaLargaEstudio(iso); }
 
 const CUALQUIERA = '__cualquiera__';
+// Una columna centrada, del ancho de la de los huecos; más ancha cuando la
+// tarjeta de elegir servicio lleva la foto al lado, que si no se come la lista.
+const ANCHO = 560;
+const ANCHO_CON_FOTO = 760;
 
 export function CitasPublica({
   studioId, servicios, instructores, disponibilidad, misCitas,
   autenticada, onNeedLogin, onReservar, onCancelar, primary, primaryFg,
-  overlayStyle, onOverlayAbierto,
+  overlayStyle, onOverlayAbierto, foto,
 }: CitasPublicaProps) {
   // RES-7-f: `ahora` es el INSTANTE (para saber qué cita ya terminó) y `hoy` el día
   // del ESTUDIO como fecha de calendario (tira de días, día elegido): con el
@@ -100,6 +108,17 @@ export function CitasPublica({
   const [errorCancelar, setErrorCancelar] = useState<string | null>(null);
 
   const servicio = servicios.find(s => s.id === servicioId) ?? null;
+  const precioServicio = servicio ? precioServicioCita(servicio.precio) : null;
+
+  // El botón que se pulsa para cambiar de paso («Reservar cita», «← Servicios»)
+  // desaparece con el paso: sin mover el foco, caía al <body> y con teclado o
+  // lector de pantalla se perdía el sitio. Al entrar en los huecos va al titular
+  // del paso; al volver, a la opción marcada (`enfocar` de SelectorCita). Sin
+  // desplazar la página: dentro del widget sería la web del estudio la que salta.
+  const tituloHuecosRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (paso === 'huecos') tituloHuecosRef.current?.focus({ preventScroll: true });
+  }, [paso]);
 
   const instructorasDisponibles = useMemo(
     () => queImparten(instructores).filter(i => disponibilidad.some(d => d.instructorId === i.id)),
@@ -195,36 +214,38 @@ export function CitasPublica({
     fuenteDisplay: serif, fuenteUI: sans, radioChip: radius.hour,
   };
 
+  // Superficies y textos con las variables del widget (no `bg-white` ni los
+  // colores del panel): sobre una web oscura eran una losa blanca.
   if (servicios.length === 0) {
     return (
-      <div>
+      <div style={{ maxWidth: ANCHO, marginInline: 'auto' }}>
         <CabeceraCitas />
-        <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-3 text-center shadow-sm" style={{ marginTop: 18 }}>
+        <div className="rounded-2xl flex flex-col items-center py-16 px-6 gap-3 text-center" style={{ marginTop: 18, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)' }}>
           <Clock size={28} className="text-[var(--portal-micro)]" />
-          <p className="text-muted-foreground font-medium">Este estudio aún no ofrece citas reservables online</p>
-          <p className="text-[#B0B0A8] text-sm max-w-xs">Escríbeles para reservar una sesión individual.</p>
+          <p className="font-medium" style={{ color: 'var(--portal-ink)' }}>Este estudio aún no ofrece citas reservables online</p>
+          <p className="text-sm max-w-xs" style={{ color: 'var(--portal-muted)' }}>Escríbeles para reservar una sesión individual.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" style={{ maxWidth: foto ? ANCHO_CON_FOTO : ANCHO, marginInline: 'auto' }}>
       {/* Mis próximas citas */}
       {citasFuturas.length > 0 && paso === 'servicio' && (
         <div className="space-y-2">
-          <h2 className="text-foreground font-bold text-base px-1">Mis próximas citas</h2>
+          <h2 className="font-bold text-base px-1" style={{ color: 'var(--portal-ink)' }}>Mis próximas citas</h2>
           {errorCancelar && (
             <p role="alert" className="mx-1 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               <span className="font-semibold">La cita sigue en pie.</span> {errorCancelar}
             </p>
           )}
           {citasFuturas.map(c => (
-            <div key={c.id} className="bg-white rounded-2xl shadow-sm p-4 flex items-center justify-between gap-3" style={{ border: '1px solid #F1F3F5' }}>
+            <div key={c.id} className="p-4 flex items-center justify-between gap-3" style={{ background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', borderRadius: radius.card }}>
               <div className="min-w-0">
-                <p className="font-bold text-foreground text-sm">{c.servicioNombre}</p>
-                <p className="text-muted-foreground text-xs mt-0.5 capitalize">{fmtDiaLargo(c.inicio)} · {fmtHora(c.inicio)}</p>
-                <p className="text-muted-foreground text-xs mt-0.5 flex items-center gap-1"><User size={11} />{c.instructorNombre}</p>
+                <p className="font-bold text-sm" style={{ color: 'var(--portal-ink)' }}>{c.servicioNombre}</p>
+                <p className="text-xs mt-0.5 capitalize" style={{ color: 'var(--portal-muted)' }}>{fmtDiaLargo(c.inicio)} · {fmtHora(c.inicio)}</p>
+                <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: 'var(--portal-muted)' }}><User size={11} aria-hidden="true" />{c.instructorNombre}</p>
               </div>
               <button
                 onClick={async () => {
@@ -247,32 +268,11 @@ export function CitasPublica({
         </div>
       )}
 
-      {/* Paso 1 — servicio */}
+      {/* Paso 1 — servicio: se marca y «Reservar cita» avanza (components/reservar/selector-cita.tsx) */}
       {paso === 'servicio' && (
-        <div>
-          <CabeceraCitas />
-          <div style={{ display: 'grid', gap: 10, margin: '18px 0 16px' }}>
-            {servicios.map(s => (
-              <button key={s.id}
-                onClick={() => abrirHuecos(s.id)}
-                style={{
-                  textAlign: 'left', borderRadius: radius.card, padding: '18px 20px',
-                  border: '1px solid var(--portal-line)', background: 'var(--portal-surface)',
-                  display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
-                  transition: 'border-color .3s ease',
-                }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: serif, fontSize: 19, color: 'var(--portal-ink)' }}>{s.nombre}</div>
-                  {s.descripcion && <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', marginTop: 5 }}>{s.descripcion}</p>}
-                  <p style={{ fontSize: 12, color: 'var(--portal-muted)', marginTop: 6 }}>
-                    {s.duracionMin} min{s.precio != null && <> · <span style={{ color: 'var(--portal-ink)', fontWeight: 700 }}>{s.precio.toFixed(2)} €</span></>}
-                  </p>
-                </div>
-                <ChevronLeft size={15} style={{ color: 'var(--portal-muted)', transform: 'rotate(180deg)', flexShrink: 0 }} />
-              </button>
-            ))}
-          </div>
-        </div>
+        // `servicioId` solo existe tras haber pasado por los huecos: al volver
+        // de ahí (y no en la primera carga) el foco va a la opción marcada.
+        <SelectorCita servicios={servicios} inicial={servicioId} foto={foto} enfocar={servicioId !== null} onContinuar={abrirHuecos} />
       )}
 
       {/* Paso 2 — instructora / día / hora */}
@@ -284,9 +284,9 @@ export function CitasPublica({
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.12em', color: 'var(--portal-muted)', marginTop: 10 }}>PASO 1 DE 3</div>
 
           <div style={{ marginTop: 14, padding: '14px 18px', borderRadius: radius.cardSmall, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)' }}>
-            <div style={{ fontFamily: serif, fontSize: 19, color: 'var(--portal-ink)' }}>{servicio.nombre}</div>
+            <h2 ref={tituloHuecosRef} tabIndex={-1} style={{ fontFamily: serif, fontSize: 19, fontWeight: 'inherit', color: 'var(--portal-ink)', margin: 0, outline: 'none' }}>{servicio.nombre}</h2>
             <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', marginTop: 3 }}>
-              {servicio.duracionMin} min{servicio.precio != null && ` · ${servicio.precio.toFixed(2)} €`}
+              {metaServicioCita(servicio)}
             </p>
           </div>
 
@@ -366,7 +366,7 @@ export function CitasPublica({
               background: primary, color: primaryFg,
               cursor: booking ? 'pointer' : 'not-allowed', opacity: booking ? 1 : 0.55,
             }}>
-            {booking ? `Continuar · ${servicio.precio != null ? `${servicio.precio.toFixed(2)} €` : fmtHora(booking.inicio)}` : 'Elige una hora para continuar'}
+            {booking ? `Continuar · ${precioServicio ?? fmtHora(booking.inicio)}` : 'Elige una hora para continuar'}
           </button>
         </div>
       )}
@@ -414,7 +414,7 @@ export function CitasPublica({
                   </div>
                   <p className="text-muted-foreground text-sm capitalize">{fmtDiaLargo(booking.inicio)}</p>
                   <p className="text-muted-foreground text-sm">{fmtHora(booking.inicio)} – {fmtHora(booking.fin)} · {servicio.duracionMin} min</p>
-                  {servicio.precio != null && <p className="text-muted-foreground text-sm">{servicio.precio} €</p>}
+                  {precioServicio && <p className="text-muted-foreground text-sm">{precioServicio}</p>}
                 </div>
                 {resultado && 'error' in resultado && (
                   <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">{resultado.error}</div>
@@ -477,16 +477,15 @@ function botonVacio(lleno: boolean) {
   };
 }
 
-/** Título + subtítulo de la pestaña, iguales tanto con servicios configurados
- *  como en el estado vacío — calca el handoff (design_handoff_widget_reservas):
- *  "Citas" a secas, sin el "UNO A UNO"/"Citas privadas" que pintaba page.tsx
- *  por fuera y quedaba duplicado con este cuando sí había servicios. */
+/** Título de la pestaña en el estado vacío. Con servicios, el titular es el de
+ *  la propia tarjeta («Selecciona tu cita»): dos títulos seguidos repetían la
+ *  pestaña. Sin servicios no hay nada que elegir, así que no se invita a ello. */
 function CabeceraCitas() {
   return (
     <>
       <div style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Citas</div>
       <p style={{ fontSize: 13, color: 'var(--portal-muted)', marginTop: 8, maxWidth: 460 }}>
-        Sesiones individuales con el equipo. Elige un servicio para ver los huecos disponibles.
+        Sesiones individuales con el equipo.
       </p>
     </>
   );
