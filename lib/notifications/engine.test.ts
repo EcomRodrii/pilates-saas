@@ -306,6 +306,37 @@ test('reserva confirmada: crea in-app para la socia con la plantilla renderizada
   assert.deepEqual(canales.sort(), ['INAPP:SENT', 'PUSH:SKIPPED']);
 });
 
+test('sin cuenta pero con EMAIL declarado: se intenta, sin exigir preferencia (no puede haberla configurado)', async () => {
+  // Auditoría 27-sep: reserva.oferta_lista_espera declara ['PUSH', 'EMAIL'].
+  const { admin, notifs, deliveries } = fakeAdmin();
+  const event: NotificationEvent = {
+    type: EVENTOS.RESERVA_OFERTA_LISTA_ESPERA, studioId: 'st1',
+    data: { clase: 'Reformer', cuando: 'hoy', minutos: 30, slug: 'mar', sesionId: 'ses1' },
+    recipients: [{ role: 'SOCIA', userId: null, socioId: 's1', email: 'socia@example.com' }],
+    dedupKey: 'oferta:ses1:s1',
+  };
+  const r = await procesarEvento(admin, event);
+  assert.equal(r.creadas, 1);
+  assert.equal(notifs[0].recipient_user_id, null);
+  const canales = deliveries.map(d => `${d.channel}:${d.status}`).sort();
+  // INAPP: sin cuenta no se puede leer → SKIPPED. PUSH: sin cuenta → SKIPPED.
+  // EMAIL: es lo único que ella puede recibir, y se intenta (sin Resend en test → SKIPPED, no omitido en silencio).
+  assert.deepEqual(canales, ['EMAIL:SKIPPED', 'INAPP:SKIPPED', 'PUSH:SKIPPED']);
+  assert.ok(deliveries.some(d => d.channel === 'EMAIL'), 'debe existir una fila EMAIL: antes ni se intentaba');
+});
+
+test('sin cuenta y sin EMAIL en la regla: sigue sin mandarlo (reserva.confirmada no se reabre)', async () => {
+  const { admin, deliveries } = fakeAdmin();
+  const event: NotificationEvent = {
+    type: EVENTOS.RESERVA_CONFIRMADA, studioId: 'st1',
+    data: { clase: 'Reformer', cuando: 'hoy', slug: 'mar', sesionId: 'ses1' },
+    recipients: [{ role: 'SOCIA', userId: null, socioId: 's1', email: 'socia@example.com' }],
+    dedupKey: 'reserva:ses1:s1:CONFIRMADA',
+  };
+  await procesarEvento(admin, event);
+  assert.ok(!deliveries.some(d => d.channel === 'EMAIL'), 'sin EMAIL en la regla, ninguna fila EMAIL');
+});
+
 test('idempotencia: reprocesar el mismo hecho (dedupKey) no duplica', async () => {
   const { admin, notifs } = fakeAdmin();
   const event: NotificationEvent = {

@@ -175,6 +175,20 @@ test('renovar plan: el gate va antes de crear el recibo', () => {
   gateAntesDe('app/api/public/renovar-plan/route.ts', ['.insert(', "from('suscripciones')"]);
 });
 
+test('formulario de contacto: el gate va antes de guardar la consulta y de avisar', () => {
+  const ruta = 'app/api/public/contacto/route.ts';
+  const f = gateAntesDe(ruta, [".from('consultas_contacto')", 'emitirConsultaContacto('], { despuesDe: ['resolverStudioPorSlug('] });
+  // Y el antispam, antes de tocar la base: trampa → captcha → estudio.
+  const trampa = posicion(f, 'cayoEnLaTrampa(', ruta);
+  const captcha = posicion(f, 'verificarCaptcha(', ruta);
+  assert.ok(trampa < captcha && captcha < posicion(f, 'resolverStudioPorSlug(', ruta));
+  assert.ok(posicion(f, 'captchaDeServidorListo()', ruta) < captcha, 'sin clave de captcha en un entorno desplegado no se guarda nada');
+  assert.ok(posicion(f, 'bloqueoPorSuspension(', ruta) < posicion(f, ".from('consultas_contacto')", ruta));
+  // Nunca una ficha: quien escribe aún no es clienta.
+  for (const no of ["from('socios')", 'registrarSociaPublica(', 'addSocio('])
+    assert.equal(f.includes(no), false, `${ruta} no puede tocar «${no}»`);
+});
+
 test('el gate lee la cookie del estudio pedido y decide con la regla pura', () => {
   const f = fuente('lib/publico/pagina-cerrada-peticion.ts');
   assert.ok(f.includes('nombreCookieAcceso(studioId)'));

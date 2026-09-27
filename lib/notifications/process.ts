@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { REGLAS } from './catalog.ts';
 import { CANALES, type ResultadoCanal } from './channels.ts';
-import { crearInApp, canalesExtraDe, preferenciaDe, prefDelEvento, PREF_DEFECTO, type Preferencia } from './inapp.ts';
+import { crearInApp, canalesExtraDe, preferenciaDe, prefDelEvento, PREF_DEFECTO, preferenciaSinCuenta, type Preferencia } from './inapp.ts';
 import { resolverContactoConocido, emailDeLaPropietaria } from './recipients.ts';
 import * as Sentry from '@sentry/nextjs';
 import type {
@@ -20,7 +20,7 @@ import type {
 
 // Preferencia/PREF_DEFECTO/canalesExtraDe/preferenciaDe viven en inapp.ts (que
 // no importa canales) y se re-exportan aquí por compatibilidad.
-export { canalesExtraDe, preferenciaDe, PREF_DEFECTO };
+export { canalesExtraDe, preferenciaDe, PREF_DEFECTO, preferenciaSinCuenta };
 export type { Preferencia };
 
 export interface ResultadoProceso { creadas: number; deliveries: number; omitidas: number; }
@@ -282,13 +282,14 @@ export async function entregarExternos(
 
     const critica = regla.priority === 'CRITICA';
     const fila = dest.userId ? prefs.get(`${dest.userId}|${regla.category}`) : undefined;
-    // Sin fila guardada se aplica el default, igual que hacía `preferenciaDe`.
+    // Sin fila guardada se aplica el default; sin cuenta, el default que hace
+    // alcanzable lo que la regla ya declaraba (ver `preferenciaSinCuenta`).
     const pref: Preferencia = prefDelEvento(fila
       ? {
           inapp: fila.inapp as boolean, push: fila.push as boolean, email: fila.email as boolean,
           whatsapp: fila.whatsapp as boolean, sms: fila.sms as boolean, pushEventos: fila.push_eventos,
         }
-      : PREF_DEFECTO, noti.event_type as string);
+      : (dest.userId ? PREF_DEFECTO : preferenciaSinCuenta(regla)), noti.event_type as string);
     const canales = canalesExtraDe(regla, pref, critica);
     const n = await entregarCanales(admin, mapRow(noti), dest, canales, fallos);
     if (n > 0) entregadas++;

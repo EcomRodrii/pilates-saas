@@ -3411,6 +3411,21 @@ export interface RowPlataformaLeadConsentimiento {
   creado_en: string;
 }
 
+export interface RowConsultasContacto {
+  id: string;
+  studio_id: string;
+  nombre: string;
+  email: string;
+  telefono: string | null;
+  mensaje: string;
+  origen: string | null;
+  privacidad_aceptada_en: string;
+  estado: string;
+  creada_en: string;
+  atendida_en: string | null;
+  atendida_por: string | null;
+}
+
 export interface RowSupresionesEquipo {
   id: string;
   studio_id: string;
@@ -9429,6 +9444,36 @@ export type PlataformaLeadConsentimientoUpdate = {
   creado_en?: string | null;
 }
 
+export type ConsultasContactoInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  email?: string | null;
+  telefono?: string | null | null;
+  mensaje?: string | null;
+  origen?: string | null | null;
+  privacidad_aceptada_en?: string | null;
+  estado?: string | null;
+  creada_en?: string | null;
+  atendida_en?: string | null | null;
+  atendida_por?: string | null | null;
+}
+
+export type ConsultasContactoUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  email?: string | null;
+  telefono?: string | null | null;
+  mensaje?: string | null;
+  origen?: string | null | null;
+  privacidad_aceptada_en?: string | null;
+  estado?: string | null;
+  creada_en?: string | null;
+  atendida_en?: string | null | null;
+  atendida_por?: string | null | null;
+}
+
 export type SupresionesEquipoInsert = {
   id?: string | null;
   studio_id?: string | null;
@@ -10528,6 +10573,11 @@ export type Database = {
         Row: RowPlataformaLeadConsentimiento;
         Insert: PlataformaLeadConsentimientoInsert;
         Update: PlataformaLeadConsentimientoUpdate;
+      };
+      consultas_contacto: {
+        Row: RowConsultasContacto;
+        Insert: ConsultasContactoInsert;
+        Update: ConsultasContactoUpdate;
       };
       supresiones_equipo: {
         Row: RowSupresionesEquipo;

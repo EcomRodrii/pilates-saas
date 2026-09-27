@@ -58,6 +58,9 @@ const USA_BUILD = process.env.E2E_USA_BUILD === '1';
 // ahí hay alguien que puede avisar; una socia con el widget roto se va.
 const SPECS_WEBKIT = [
   '**/reservar-acoplar-widget.spec.ts',
+  // El formulario de contacto del estudio: público, y quien lo sufre roto es
+  // alguien de fuera que escribe desde el móvil y, si no le funciona, no insiste.
+  '**/widget-contacto.spec.ts',
   // Misma pantalla y mismo criterio que acoplar-widget: los parámetros del
   // snippet embebido los sufre la visitante de la web del estudio.
   '**/widget-config-params.spec.ts',

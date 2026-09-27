@@ -33,6 +33,9 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { PageHeader } from '@/components/ui/page-header';
 import { SolicitudesDerechosPendientes } from '@/components/socios/solicitudes-derechos-pendientes';
+import { ConsultasContacto } from '@/components/clientas/consultas-contacto';
+import { marcarAtendida, type ConsultaContacto } from '@/lib/contacto/consultas-cliente';
+import { useAuth } from '@/lib/auth-context';
 import { ConstructorSegmentos } from '@/components/segmentos/constructor-segmento';
 import { construirContextoSegmento, evaluarSegmento } from '@/lib/segmentos/evaluador';
 import type { SegmentoCliente } from '@/lib/segmentos/tipos';
@@ -279,6 +282,11 @@ export default function Socios() {
   const [showForm, setShowForm] = useState<'nueva' | 'editar' | null>(null);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState<FormSocia>(emptyForm());
+  // El alta se abrió desde una consulta de la web: al guardarse bien, esa
+  // consulta pasa a atendida (y la tarjeta se recarga).
+  const [consultaEnAlta, setConsultaEnAlta] = useState<string | null>(null);
+  const [recargaConsultas, setRecargaConsultas] = useState(0);
+  const { user } = useAuth();
   const [confirmEliminar, setConfirmEliminar] = useState<string | null>(null);
   const [eliminando, setEliminando] = useState(false);
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
@@ -707,6 +715,7 @@ export default function Socios() {
     setShowForm(null);
     setEditandoId(null);
     setForm(emptyForm());
+    setConsultaEnAlta(null);
     setFirma('');
     setAceptado(false);
     setErrorGuardar(null);
@@ -772,6 +781,14 @@ export default function Socios() {
       if (!sello.ok) setErrorFila(`La clienta se ha creado, pero su firma no ha quedado registrada: ${sello.error}`);
     }
     setGuardando(false);
+
+    // Alta abierta desde una consulta de la web: la consulta queda atendida. La
+    // ficha ya existe, así que si esto falla se dice, pero no se deshace nada.
+    if (consultaEnAlta && user?.id) {
+      const cierre = await marcarAtendida(consultaEnAlta, user.id);
+      if (!cierre.ok) setErrorFila(`La clienta se ha creado, pero su consulta sigue como nueva: ${cierre.error}`);
+      setRecargaConsultas(n => n + 1);
+    }
 
     // La bienvenida la manda addSocio (lib/studio-context.tsx) — así cubre
     // también las altas que no pasan por esta pantalla (import CSV, alta
@@ -932,6 +949,19 @@ export default function Socios() {
 
       {/* RGPD: solicitudes de las clientas desde su app, por plazo. Se atienden en la ficha. */}
       {gestionaClientas && <SolicitudesDerechosPendientes />}
+
+      {/* Consultas del formulario de contacto de su web (aún no son clientas). */}
+      {gestionaClientas && (
+        <ConsultasContacto
+          recarga={recargaConsultas}
+          onDarDeAlta={(c: ConsultaContacto) => {
+            const [nombre = '', ...apellidos] = c.nombre.trim().split(/\s+/);
+            setForm({ ...emptyForm(), nombre, apellidos: apellidos.join(' '), email: c.email, telefono: c.telefono ?? '' });
+            setConsultaEnAlta(c.id);
+            setShowForm('nueva');
+          }}
+        />
+      )}
 
       {/* ── Stats row ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
