@@ -30,10 +30,16 @@ function fixture() {
     spots: [], planesTarifa: [], sesiones: [],
     videosOnDemand: [], rewardRules: [], rewardCatalog: [], levelDefinitions: [],
     achievementDefinitions: [], challengeDefinitions: [],
+    // Dos servicios, y el que se reserva NO es el primero (que sale marcado
+    // de serie): así se comprueba que se reserva el que ella marca.
     citasServicios: [{
+      id: 'serv-0', studioId: S, nombre: 'Sesión informativa', tipo: 'PRIVADA',
+      duracionMin: 15, precio: 0, autoReservable: true, color: '#7C6A52',
+      descripcion: null, activo: true, orden: 0, creadoEn: '2026-01-01T00:00:00Z',
+    }, {
       id: 'serv-1', studioId: S, nombre: 'Evaluación inicial', tipo: 'EVALUACION',
       duracionMin: 50, precio: 45, autoReservable: true, color: null,
-      descripcion: 'Primera valoración postural.', activo: true, orden: 0, creadoEn: '2026-01-01T00:00:00Z',
+      descripcion: 'Primera valoración postural.', activo: true, orden: 1, creadoEn: '2026-01-01T00:00:00Z',
     }],
     citasDisponibilidad: [{
       id: 'disp-1', studioId: S, instructorId: 'ins-1', diaSemana: new Date(AHORA).getDay(),
@@ -76,7 +82,16 @@ test('en móvil: elegir servicio, instructora y hueco reserva la cita de verdad'
   });
 
   await page.goto(`/reservar/${SLUG}?tab=citas`);
+  // El servicio se MARCA en un grupo de opciones y «Reservar cita» avanza (antes
+  // un clic en el servicio saltaba directo a los huecos). Cada opción dice su
+  // duración y su precio, y un precio 0 es «Gratis», no «0.00 €».
+  const informativa = page.getByRole('radio', { name: /Sesión informativa\s+15 min · Gratis/ });
+  const evaluacion = page.getByRole('radio', { name: /Evaluación inicial\s+50 min · 45 €/ });
+  await expect(informativa).toBeChecked({ timeout: 30_000 });
   await page.getByText('Evaluación inicial').click();
+  await expect(evaluacion).toBeChecked();
+  await expect(informativa).not.toBeChecked();
+  await page.getByRole('button', { name: 'Reservar cita', exact: true }).click();
   await page.getByRole('button', { name: /Ana/ }).click();
   await page.getByRole('button', { name: HORA_HUECO }).click();
   // Fase 4 del rediseño (formato 02): elegir la hora ya no abre la hoja
@@ -103,6 +118,7 @@ test('en móvil: un hueco que ya no está disponible se rechaza con el motivo re
 
   await page.goto(`/reservar/${SLUG}?tab=citas`);
   await page.getByText('Evaluación inicial').click();
+  await page.getByRole('button', { name: 'Reservar cita', exact: true }).click();
   await page.getByRole('button', { name: /Ana/ }).click();
   await page.getByRole('button', { name: HORA_HUECO }).click();
   await page.getByRole('button', { name: /^Continuar/ }).click();
