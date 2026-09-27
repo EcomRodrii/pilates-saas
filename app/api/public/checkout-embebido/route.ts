@@ -1,3 +1,4 @@
+import { sesionWidgetValida } from '@/lib/reservar/compra-en-embudo';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
@@ -102,6 +103,8 @@ export async function POST(req: NextRequest) {
     // cliente y se TIRABA: la ficha creada por el webhook quedaba sin él.
     socioTelefono?: string | null;
     origenLead?: string | null;
+    /** Sesión del widget público (lib/reservar/eventos.ts), para el embudo. */
+    widgetSesion?: string | null;
     // NUEVO — "pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
     // §4.1): la clase que se quiere reservar en cuanto el pago se confirme.
     // Nunca decide el importe (siempre viene de plan.precio abajo) — solo
@@ -536,6 +539,9 @@ export async function POST(req: NextRequest) {
   if (body.socioNombre) metadata.socioNombre = body.socioNombre;
   if (socioTelefono) metadata.socioTelefono = socioTelefono;
   if (body.sesionId) metadata.sesionId = body.sesionId;
+  // La sesión del widget, para anotar la compra en su embudo al entregarla.
+  const widgetSesion = sesionWidgetValida(body.widgetSesion);
+  if (widgetSesion) metadata.widgetSesion = widgetSesion;
   // Solo tiene sentido junto a sesionId (misma clase que reservar_plaza va a
   // confirmar) — sin sesión no hay reserva a la que asignarle un sitio.
   if (body.sesionId && body.spotId) metadata.spotId = body.spotId;

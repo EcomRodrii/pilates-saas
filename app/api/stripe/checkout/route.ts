@@ -1,3 +1,4 @@
+import { sesionWidgetValida } from '@/lib/reservar/compra-en-embudo';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
@@ -104,6 +105,8 @@ export async function POST(req: NextRequest) {
     // P1 auditoría Momence: lead-id crudo del widget público (`?ref=`),
     // viaja en la metadata de Stripe hasta entregarPlanComprado.
     origenLead?: string | null;
+    /** Sesión del widget público (lib/reservar/eventos.ts), para el embudo. */
+    widgetSesion?: string | null;
     // Auditoría vs Momence (#canje-codigos-descuento-checkout): texto tal
     // cual lo escribe la socia. Solo aplica a compra de plan (body.planId),
     // nunca al cobro de un recibo ya generado — el importe de un recibo
@@ -449,6 +452,9 @@ export async function POST(req: NextRequest) {
   // aquí, el fallback de Bizum entregaría el plan pero no reservaría la clase
   // ni rellenaría la ficha nueva con lo que la visitante ya escribió.
   if (body.sesionId) metadata.sesionId = body.sesionId;
+  // La sesión del widget, para anotar la compra en su embudo al entregarla.
+  const widgetSesion = sesionWidgetValida(body.widgetSesion);
+  if (widgetSesion) metadata.widgetSesion = widgetSesion;
   // Solo tiene sentido junto a sesionId — sin sesión no hay reserva a la que
   // asignarle un sitio.
   if (body.sesionId && body.spotId) metadata.spotId = body.spotId;
