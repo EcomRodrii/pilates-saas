@@ -717,6 +717,9 @@ async function entregar(
     socioId: p.socioId,
     ...datos,
     origenLead: p.origenLead,
+    // La compra, en el embudo del widget (el webhook no llegó a anotarla).
+    widgetSesion: (sesion?.metadata?.widgetSesion ?? pi?.metadata?.widgetSesion) ?? null,
+    sesionClaseId: (sesion?.metadata?.sesionId ?? pi?.metadata?.sesionId) ?? null,
     // Igual que el webhook: sellado en el checkout, aquí solo se lee. El
     // conciliador recoge cobros que el webhook no llegó a procesar, así que
     // sin esto esas compras se quedarían sin constancia de qué se aceptó.

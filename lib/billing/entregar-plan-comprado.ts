@@ -30,6 +30,7 @@ import { facturaIdCheckout } from './cobro-confirmado-reglas.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 import { confirmarPlazaPorRef } from '../opening/cupo.ts';
 import { idsDe } from './ids-compra.ts';
+import { registrarCompraEnEmbudo } from '../reservar/compra-en-embudo.ts';
 
 export interface CompraPlan {
   /**
@@ -152,6 +153,13 @@ export interface CompraPlan {
    * en el alta/asignación de plan por mostrador (lib/studio-context.tsx).
    */
   matriculaCobradaCentimos?: number | null;
+  /**
+   * La sesión del widget público desde el que se pagó (`metadata.widgetSesion`)
+   * y la clase, si la había. Con ella se anota la compra en el embudo del
+   * widget (lib/reservar/compra-en-embudo.ts). Ausente = no vino del widget.
+   */
+  widgetSesion?: string | null;
+  sesionClaseId?: string | null;
 }
 
 export type ResultadoEntrega =
@@ -504,6 +512,14 @@ export async function entregarPlanComprado(
   // (y que terminó hace 60 días o menos) cuenta como renovarlo. Lo decide la
   // base; si no toca, no pasa nada. Nunca lanza.
   await seguirCreditosAlRecibo(admin, { studioId: compra.studioId, reciboId: ids.reciboId });
+
+  // La compra, en el embudo del widget desde el que se pagó. Aquí y no en el
+  // navegador: tras Stripe Checkout la vuelta no conserva ni la sesión ni la
+  // etiqueta. Idempotente por pago y nunca lanza.
+  await registrarCompraEnEmbudo(admin, {
+    studioId: compra.studioId, idPago: compra.sessionId, widgetSesion: compra.widgetSesion,
+    origen: compra.origenLead, sesionClaseId: compra.sesionClaseId ?? null, socioId,
+  });
 
   // ── 4. La matrícula, si se cobró en este mismo cargo ───────────────────────
   // P-1 (auditoría 26ª pasada). Recibo y factura APARTE de los del plan —

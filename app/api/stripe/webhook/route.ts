@@ -671,6 +671,9 @@ async function procesarEvento(
           // buscarlo a mano en Stripe.
           paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
           origenLead: origenLead ?? null,
+          // La compra, en el embudo del widget desde el que se pagó.
+          widgetSesion: session.metadata?.widgetSesion ?? null,
+          sesionClaseId: session.metadata?.sesionId ?? null,
           // Con qué se pagó de verdad. Esta rama escribía siempre 'TARJETA', y
           // desde #1864/#1865 también entra Bizum por aquí.
           metodoCobro: await metodoRealDeSesion(stripe, session, event.account ?? null),
@@ -1119,6 +1122,9 @@ async function procesarEvento(
         // buscarlo a mano en Stripe.
         paymentIntentId: pi.id,
         origenLead: pi.metadata.origenLead ?? null,
+        // La compra, en el embudo del widget desde el que se pagó.
+        widgetSesion: pi.metadata.widgetSesion ?? null,
+        sesionClaseId: pi.metadata.sesionId ?? null,
         // I-8: si es invitada, crear ficha nueva siempre (no reutilizar)
         esInvitada,
         // "Información adicional" del formulario de pago sin login — solo se
