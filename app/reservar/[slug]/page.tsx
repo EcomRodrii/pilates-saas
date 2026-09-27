@@ -17,7 +17,7 @@ import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva, type TipoPlan } from '@/lib/types';
-import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando, nombrePeriodo } from '@/lib/bono-logic';
+import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando } from '@/lib/bono-logic';
 import { planesComprablesParaReservar, planCubreTipo } from '@/lib/reserva-planes-comprables';
 import { resolutorCobertura, precioDeCobertura, textoCobertura, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
@@ -43,8 +43,8 @@ import { resolverConfigWidget } from '@/lib/reservar/config-widget';
 import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { FormularioContacto } from '@/components/reservar/formulario-contacto';
-import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
-import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
+import { PlanesPublicos } from '@/components/reservar/planes-publicos';
+import { horarioPublico } from '@/lib/estudio-publico';
 import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget } from '@/lib/reservar/eventos';
 import { precioClaseSuelta as precioSueltaDe } from '@/lib/student/precio-suelta';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, RESERVAR_PALETA, varsReservarModo, tokensCalendarioDeApariencia } from '@/lib/reservar-publico-tokens';
@@ -59,7 +59,7 @@ import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 import {
   Users, CheckCircle2, X, Calendar, ChevronLeft,
-  CreditCard, FileText, Download, ExternalLink, Mail,
+  FileText, Download, ExternalLink, Mail,
   Loader2, AlertTriangle, Hourglass, Menu,
 } from 'lucide-react';
 
@@ -2679,58 +2679,17 @@ export default function ReservarPage() {
           </div>
         )}
       </div>
-      {/* Rejilla de tres, no una pila a lo ancho: los planes se COMPARAN,
-          y apilados obligaban a recordar el precio anterior al bajar. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, marginTop: 16, alignItems: 'stretch' }}>
-        {planesEnVenta.map(p => {
-          const destacado = p.id === planDestacadoId;
-          const porClase = precioPorClase(p);
-          // Solo sale si significa algo: sin precio de clase suelta con
-          // el que comparar, no hay ahorro que enseñar (ver ahorro-plan.ts).
-          const ahorro = ahorroPorcentaje(p, precioClaseSuelta);
-          return (
-            <div key={p.id} style={{
-              borderRadius: R.cardSmall, background: destacado ? PRIMARY : 'var(--portal-surface)',
-              padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12,
-              boxShadow: destacado ? SH.ctaOscuroFuerte : SH.planClaro,
-            }}>
-              <div style={{ flex: '1 1 auto' }}>
-                {destacado && <div style={{ ...eyebrow(8.5), color: `color-mix(in srgb, ${PRIMARY_FG} 65%, transparent)` }}>EL MÁS ELEGIDO</div>}
-                <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, marginTop: destacado ? 9 : 0, color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.nombre}</div>
-                <div style={{ fontSize: 11, marginTop: 7, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 60%, transparent)` : 'var(--portal-muted-2)' }}>
-                  {/* «Mensual» era una etiqueta fija: una cuota
-                      trimestral se anunciaba como mensual y su precio,
-                      debajo, como «/mes». Decir cada cuánto se cobra es
-                      justo lo que decide la compra. */}
-                  {p.tipo === 'MENSUAL' ? `Cada ${nombrePeriodo(p)} · sin compromiso` : (porClase ?? p.descripcion ?? `Bono ${p.sesiones ?? ''} clases`)}
-                </div>
-                {ahorro !== null && (
-                  <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 80%, transparent)` : 'var(--portal-accent)' }}>
-                    Ahorras un {ahorro} % frente a clases sueltas
-                  </div>
-                )}
-              </div>
-              <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), whiteSpace: 'nowrap', color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>
-                {p.precio} €{p.tipo === 'MENSUAL' && <span style={{ fontFamily: sans, fontSize: 12 }}>/{nombrePeriodo(p)}</span>}
-              </div>
-              <button onClick={() => handleContratarPlan(p)}
-                disabled={stripeLoading === p.id}
-                style={{
-                  height: 46, padding: '0 24px', borderRadius: R.pillBtnXs, whiteSpace: 'nowrap', fontSize: 12.5, fontWeight: 500,
-                  display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', opacity: stripeLoading === p.id ? 0.6 : 1,
-                  border: destacado ? 'none' : '1px solid var(--portal-line)',
-                  background: destacado ? 'var(--portal-surface)' : 'transparent',
-                  color: destacado ? 'var(--portal-ink)' : 'var(--portal-ink)',
-                }}>
-                {stripeLoading === p.id
-                  ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'currentColor', borderRadius: 999, display: 'inline-block' }} className="animate-spin" />
-                  : <><CreditCard size={14} />Contratar</>}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-      <p style={{ fontSize: 10.5, color: 'var(--portal-muted)', marginTop: 14, textAlign: 'center' }}>Pago seguro con Stripe · IVA incluido</p>
+      {/* Maquetas «columnas» (comparar tipos) y «lista» (un solo tipo):
+          components/reservar/planes-publicos.tsx. El pago, el de siempre. */}
+      <PlanesPublicos
+        planes={planesEnVenta}
+        destacadoId={planDestacadoId}
+        precioClaseSuelta={precioClaseSuelta}
+        cargandoId={stripeLoading}
+        onContratar={handleContratarPlan}
+        fotoCabecera={embedMode && heroFoto ? heroFoto : null}
+      />
+      <p style={{ fontSize: 12, color: 'var(--portal-muted)', marginTop: 16, textAlign: 'center' }}>Pago seguro con Stripe · IVA incluido</p>
     </div>
   );
 
