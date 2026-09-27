@@ -69,3 +69,24 @@ test('recuperacion.otorgada va solo por PUSH y a la socia del evento', () => {
   assert.deepEqual(r.canales, ['PUSH'], 'un email más por una buena noticia diluye el resto');
   assert.equal(r.audiencia, 'socia-del-evento');
 });
+
+// ── Consulta del formulario de contacto ──────────────────────────────────────
+// ⚠️ Sin datos de quien escribe: el aviso se guarda más que la consulta,
+// sobrevive a «Eliminar» y el push se ve en la pantalla bloqueada del iPad de
+// recepción. El emisor solo manda el id (para el dedup) y la plantilla no tiene
+// huecos que rellenar.
+test('consulta de contacto: al mostrador, sin nombre/email/mensaje ni en los datos ni en el texto', () => {
+  const regla = REGLAS[EVENTOS.CONSULTA_CONTACTO];
+  assert.equal(regla.audiencia, 'mostrador');
+  assert.notEqual(regla.priority, 'CRITICA');
+  for (const rol of ROLES_POR_AUDIENCIA.mostrador) {
+    const p = plantillaDe(EVENTOS.CONSULTA_CONTACTO, rol)!;
+    assert.ok(!/\{[a-z]+\}/i.test(p.title + p.body), `${rol}: la plantilla no puede llevar huecos`);
+    assert.equal(p.deepLink?.({}), '/clientas');
+  }
+  const emit = readFileSync(join(import.meta.dirname, 'emit.ts'), 'utf8');
+  const cuerpo = emit.slice(emit.indexOf('export async function emitirConsultaContacto('));
+  const bloque = cuerpo.slice(0, cuerpo.indexOf('\n}\n'));
+  assert.ok(bloque.includes('data: { consultaId: p.consultaId }'));
+  for (const no of ['nombre', 'email', 'mensaje', 'telefono']) assert.equal(bloque.includes(no), false, `emitirConsultaContacto no puede mandar «${no}»`);
+});

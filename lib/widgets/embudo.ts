@@ -66,7 +66,10 @@ export function embudoPorWidget(filas: readonly FilaEmbudoOrigen[]): EmbudoWidge
     const visitas = n('widget_loaded');
     const reservasCompletadas = n('booking_completed');
     const nombre = nombreDeEtiqueta(etiqueta);
-    const deVenta = nombre.widgetId !== null && WIDGETS.find(w => w.id === nombre.widgetId)?.categoria === 'venta';
+    // Sin reserva que medir: los de venta (cuentan compras) y el formulario de
+    // contacto. Darles «0 %» diría que convierten mal cuando no convierten a eso.
+    const w = nombre.widgetId !== null ? WIDGETS.find(x => x.id === nombre.widgetId) : undefined;
+    const sinReserva = w?.categoria === 'venta' || w?.id === 'contacto';
     out.push({
       etiqueta,
       ...nombre,
@@ -75,7 +78,7 @@ export function embudoPorWidget(filas: readonly FilaEmbudoOrigen[]): EmbudoWidge
       reservasIniciadas: n('booking_started'),
       reservasCompletadas,
       comprasIniciadas: n('checkout_started'),
-      conversion: visitas > 0 && !deVenta ? Math.round((reservasCompletadas / visitas) * 1000) / 10 : null,
+      conversion: visitas > 0 && !sinReserva ? Math.round((reservasCompletadas / visitas) * 1000) / 10 : null,
     });
   }
   // Lo que más se ve, arriba; lo sin etiqueta, siempre al final.

@@ -1449,6 +1449,23 @@ export async function emitirSolicitudDerechos(
   }
 }
 
+// Widget «Formulario de contacto»: una consulta nueva desde la web. Al
+// mostrador, sin ningún dato de quien escribe (ver la plantilla): solo el id,
+// para el dedup. Best-effort: la consulta ya está guardada y se ve en Clientas
+// aunque el aviso no salga.
+export async function emitirConsultaContacto(p: { studioId: string; consultaId: string }): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.CONSULTA_CONTACTO, studioId: p.studioId,
+      data: { consultaId: p.consultaId },
+      resource: { type: 'consulta_contacto', id: p.consultaId },
+      dedupKey: `consulta-contacto:${p.consultaId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirConsultaContacto:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Series de clases que se acaban (lib/series/avisos-cron.ts). Un aviso por
 // estudio y día con todas las clases juntas: el dedupKey lleva la fecha, y el
 // barrido guarda en `series` qué tramo se avisó de cada una. Devuelve si se ha

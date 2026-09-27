@@ -47,3 +47,12 @@ test('sin visitas, la conversión es null — nunca un 0 % inventado', () => {
 test('sin filas, nada', () => {
   assert.deepEqual(embudoPorWidget([]), []);
 });
+
+test('⚠️ el formulario de contacto no tiene «conversión» a reserva: null, nunca un 0 %', () => {
+  const [x] = embudoPorWidget([
+    { origen: 'web-contacto', tipo: 'widget_loaded', n: 40 },
+  ]);
+  assert.equal(x.widgetId, 'contacto');
+  assert.equal(x.visitas, 40);
+  assert.equal(x.conversion, null);
+});
