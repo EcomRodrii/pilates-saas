@@ -76,16 +76,17 @@ export default function Contenido() {
       <p>
         Solo la propietaria la ve. Cada vez que alguien de tu equipo <strong>crea, cambia o borra</strong> un recibo,
         una cuota o bono, un plan o un ingreso manual, <strong>pide un reembolso</strong>, marca un recibo como
-        devuelto o aprueba cobrar una penalización, queda aquí: quién fue, cuándo, y qué valor había antes. Es lo que
+        devuelto, <strong>lanza un cobro</strong> con el método de pago guardado, devuelve una venta de la caja, emite
+        una factura rectificativa o aprueba cobrar una penalización, queda aquí: quién fue, cuándo, y qué valor había antes. Es lo que
         necesitas para explicar un descuadre sin preguntar a todo el mundo. Lo de una clienta concreta también sale en
         la pestaña «Pagos» de su ficha.
       </p>
       <p style={{ margin: 0 }}>
         Cuenta lo que se hace desde el panel, desde el día que se activó: no hay historial anterior. <strong>No incluye</strong>{' '}
         los cobros automáticos, los reintentos ni lo que confirma Stripe por su cuenta, porque no los hace una
-        persona de tu equipo. Todavía no recoge las ventas y devoluciones de la caja, el cobro con tarjeta guardada
-        que lanza una persona («Cobrar online» o aprobar un cobro en Automatizaciones) ni lo que se importa desde otra
-        plataforma. Los descuentos de una sola
+        persona de tu equipo, ni un intento de cobro que el banco rechaza (no cambia ningún dato: eso lo ves en
+        Stripe). Las ventas de la caja y sus entradas y salidas de efectivo llevan su propio registro, con quién las
+        hizo, en la propia Caja. Todavía no recoge lo que se importa desde otra plataforma. Los descuentos de una sola
         sesión de un bono se esconden por defecto para que no tapen lo importante, y puedes mostrarlos.
       </p>
       <p style={{ margin: 0 }}>

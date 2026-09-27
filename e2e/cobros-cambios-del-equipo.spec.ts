@@ -143,10 +143,14 @@ test.describe('Cobros · «Cambios del equipo»', () => {
     await expect(reembolso).toContainText('Bono 10 clases');
     await expect(reembolso).toContainText('130,00 €');
     // Dice de qué NO habla, para que su ausencia no se lea como «no ha pasado».
-    await expect(page.getByText(/No incluye los cobros automáticos ni lo que confirma Stripe\. Todavía no recoge las ventas y devoluciones de la caja, el cobro con tarjeta guardada que lanza una persona/)).toBeVisible();
+    await expect(page.getByText(/No incluye los cobros automáticos ni lo que confirma Stripe, ni un intento de cobro que el banco rechaza/)).toBeVisible();
+    await expect(page.getByText(/Las ventas de la caja y sus entradas y salidas de efectivo llevan su propio registro/)).toBeVisible();
     // Los ingresos manuales y las penalizaciones ya se recogen (por servidor): tienen su filtro.
     await expect(page.getByRole('button', { name: 'Ingresos manuales', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Penalizaciones', exact: true })).toBeVisible();
+    // Las rectificativas y las devoluciones de la caja también llegan por servidor y tienen su filtro.
+    await expect(page.getByRole('button', { name: 'Rectificativas', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ventas de la caja', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Planes', exact: true })).toBeVisible();
 
     // El descuento de una sesión no sale, pero se sabe que existe y se puede ver.

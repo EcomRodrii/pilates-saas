@@ -12,6 +12,7 @@ import { revertirCreditosVentaPOS } from '@/lib/pos/venta-servidor';
 import { registrarDevolucion } from '@/lib/billing/registrar-devolucion';
 import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
 import { mensajeErrorVenta, codigoDeErrorPg } from '@/lib/pos/tipos';
+import { registrarAuditoriaServidor } from '@/lib/auditoria/registrar-servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -165,6 +166,37 @@ export async function POST(req: NextRequest) {
 
   const fila = Array.isArray(aplicado) ? aplicado[0] : aplicado;
   const esTotal = fila?.r_es_total === true;
+
+  // Libro de auditoría: alguien devolvió dinero (o efectivo) de una venta de la caja. El actor de esta
+  // devolución solo constaba en el apunte de caja, y ese no se escribe si no hay turno abierto: entonces
+  // no quedaba QUIÉN. Esta ruta usa service-role, así que el trigger no lo ve; el actor es la SESIÓN.
+  // Va cuando el dinero ya ha salido (o el efectivo está apuntado). El motivo es texto libre y NO entra:
+  // un libro que no se puede rectificar no lleva lo que se escribe a mano. Nunca lanza.
+  if (importe > 0) {
+    const yaDevuelto = Number(venta.importe_devuelto ?? 0);
+    // Lo que guardó la RPC (`r_total_acumulado`); si no se aplicó (el dinero salió por Stripe y el libro de la
+    // venta falló, que el webhook concilia), lo que habría quedado — y `libro_aplicado` lo dice.
+    const acumulado = Number(fila?.r_total_acumulado);
+    await registrarAuditoriaServidor(admin, {
+      sesion,
+      tabla: 'ventas_pos', filaId: ventaId, operacion: 'UPDATE', socioId: (venta.socio_id as string | null) ?? null,
+      antes: { importe_devuelto: yaDevuelto },
+      despues: { importe_devuelto: Number.isFinite(acumulado) ? acumulado : Math.round((yaDevuelto + importe) * 100) / 100 },
+      contexto: {
+        accion: 'DEVOLUCION_CAJA',
+        concepto: `Venta #${String(venta.numero ?? '').padStart(6, '0')}`,
+        importe,
+        // null = no se sabe (la RPC no llegó a contestar).
+        es_total: fila ? esTotal : null,
+        // Cómo se pagó la venta (EFECTIVO, TARJETA, BIZUM…), y si el dinero lo devolvió Stripe o salió a mano:
+        // «tarjeta» no es lo mismo que «reembolsado por Stripe».
+        metodo_pago: (venta.metodo_pago as string | null) ?? null,
+        reembolsado_por: porStripe ? 'stripe' : 'a mano',
+        libro_aplicado: !errAplicar,
+        devolucion_id: devolucionId,
+      },
+    });
+  }
 
   // ── 4. Fila de auditoría del canal EFECTIVO ──────────────────────────────
   // Para tarjeta y Bizum la escribe el webhook `charge.refunded`

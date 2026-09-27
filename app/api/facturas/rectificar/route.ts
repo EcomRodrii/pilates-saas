@@ -4,6 +4,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { sellarRectificativaDeFactura } from '@/lib/billing/sellar-factura-server';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
+import { registrarAuditoriaServidor } from '@/lib/auditoria/registrar-servidor';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Emite una factura rectificativa (issue #769, Fase A — disparo MANUAL). Solo
@@ -96,6 +97,25 @@ export async function POST(req: NextRequest) {
   if (!r.ok) {
     const status = r.error === 'Factura original no encontrada' ? 404 : 500;
     return NextResponse.json({ error: r.error }, { status });
+  }
+
+  // Libro de auditoría: alguien emitió una rectificativa (un número Veri*Factu encadenado que no se deshace).
+  // Esta ruta usa service-role, así que el trigger no lo ve; el actor es la SESIÓN. Solo si ESTA petición la
+  // emitió: el id sale del contenido, así que repetir la petición (o perder la carrera contra otra idéntica)
+  // devuelve `yaExistia` y esa otra ya la anotó. Solo importes e ids: ni el receptor ni su NIF entran. Nunca lanza.
+  if (r.sellada && !r.yaExistia) {
+    await registrarAuditoriaServidor(admin, {
+      sesion,
+      tabla: 'facturas', filaId: facturaRectificativaId, operacion: 'INSERT',
+      despues: { base_imponible: base, cuota_iva: cuota, total, importe_rectificacion: importeRectificacion },
+      contexto: {
+        accion: 'FACTURA_RECTIFICATIVA_EMITIDA',
+        concepto: `Rectificativa ${body.tipoFactura}`,
+        tipo_factura: body.tipoFactura,
+        tipo_rectificativa: body.tipoRectificativa,
+        factura_original_id: body.facturaOriginalId,
+      },
+    });
   }
   return NextResponse.json(r);
 }
