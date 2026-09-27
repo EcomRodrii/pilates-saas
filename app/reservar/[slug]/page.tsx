@@ -44,6 +44,7 @@ import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { FormularioContacto } from '@/components/reservar/formulario-contacto';
 import { PlanesPublicos } from '@/components/reservar/planes-publicos';
+import { EquipoPublico } from '@/components/reservar/equipo-publico';
 import { horarioPublico } from '@/lib/estudio-publico';
 import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget } from '@/lib/reservar/eventos';
 import { precioClaseSuelta as precioSueltaDe } from '@/lib/student/precio-suelta';
@@ -671,23 +672,6 @@ export default function ReservarPage() {
   // quitado al adoptar el handoff design_handoff_widget_reservas), pero
   // `slots` sigue filtrando por él si algún día se reconecta un selector.
   const [filtroObjetivo] = useState('');
-  // Especialidades de cada instructora (P1 auditoría Momence-vs-Tentare) —
-  // NO es un campo nuevo, se deriva de qué tipos de clase imparte de verdad
-  // con los datos que esta página ya carga (sesiones/tiposClase) — nunca
-  // inventar una categoría.
-  const especialidadesPorInstructor = useMemo(() => {
-    const tiposById = new Map(tiposClase.map(t => [t.id, t.nombre]));
-    const porInstructor = new Map<string, Set<string>>();
-    for (const s of sesiones) {
-      if (!s.instructorId) continue;
-      const nombreTipo = tiposById.get(s.tipoClaseId);
-      if (!nombreTipo) continue;
-      const set = porInstructor.get(s.instructorId) ?? new Set<string>();
-      set.add(nombreTipo);
-      porInstructor.set(s.instructorId, set);
-    }
-    return porInstructor;
-  }, [sesiones, tiposClase]);
   const tabInicial = searchParams.get('tab');
   const [tab, setTab] = useState<Tab>(
     TAB_IDS.includes(tabInicial as Tab) && tabHabilitada(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
@@ -2596,35 +2580,6 @@ export default function ReservarPage() {
     );
   }
 
-  // El equipo — la rejilla de «El estudio» y, tal cual, el widget
-  // «Instructoras» incrustado (`tab=equipo`). Mismo patrón que
-  // `contenidoPlanes`: un bloque, dos sitios.
-  const rejillaEquipo = (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 14 }}>
-      {queImparten(instructores).map(i => {
-        const especialidades = [...(especialidadesPorInstructor.get(i.id) ?? [])];
-        return (
-          <div key={i.id} style={{ borderRadius: R.chipCard, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', padding: '18px 14px', textAlign: 'center' }}>
-            {i.fotoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={i.fotoUrl} alt={i.nombre} loading="lazy" decoding="async" style={{ width: 46, height: 46, borderRadius: 999, objectFit: 'cover', marginInline: 'auto' }} />
-            ) : (
-              <div style={{ width: 46, height: 46, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: 'var(--portal-muted)', background: 'var(--portal-surface-2)', border: '1px solid var(--portal-line)', marginInline: 'auto' }}>
-                {i.nombre.split(' ').map(n => n[0]).join('')}
-              </div>
-            )}
-            <div style={{ fontFamily: serif, fontSize: 16.5, lineHeight: 1.2, marginTop: 10 }}>{i.nombre}</div>
-            {especialidades.length > 0 && (
-              <div style={{ fontSize: 11.5, color: 'var(--portal-muted)', marginTop: 4 }}>
-                {especialidades.join(' · ')}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-
   // Los planes a la venta: la sección «Bonos y membresías» de la página
   // completa y, tal cual, el widget «Planes y precios» / «Bonos y packs»
   // incrustado (`tab=planes`). Un solo bloque en dos sitios, mismo patrón que
@@ -3532,12 +3487,17 @@ export default function ReservarPage() {
 
             {/* El equipo — mismo criterio de arriba: `queImparten` ya filtra a
                 quien de verdad da clase. Fase 4: sin bio (respuesta 5 del brief
-                de diseño) — solo avatar, nombre, especialidad; una tarjeta
-                pensada para escanear el equipo de un vistazo, no para leerlo. */}
-            {queImparten(instructores).length > 0 && (<>
-              <div style={{ ...eyebrow(9), marginTop: 38 }}>EL EQUIPO</div>
-              <div style={{ marginTop: 16 }}>{rejillaEquipo}</div>
-            </>)}
+                de diseño) — solo foto, nombre y lo que imparte; una tarjeta
+                pensada para escanear el equipo de un vistazo, no para leerlo.
+                El mismo carrusel que el widget «Instructoras». */}
+            {queImparten(instructores).length > 0 && (
+              <div style={{ marginTop: 38 }}>
+                <EquipoPublico
+                  instructores={instructores} sesiones={sesiones} tiposClase={tiposClase}
+                  etiqueta="El equipo" cabecera={<div style={eyebrow(9)}>EL EQUIPO</div>} compacta
+                />
+              </div>
+            )}
 
             {/* Igual que en «Mis reservas»: fuera de `embedMode` saltar a
                 «Clases» tiene sentido (misma página, otra pestaña). El widget
@@ -3597,7 +3557,7 @@ export default function ReservarPage() {
         {/* ── VISTAS SOLO INCRUSTADAS («Tentare Widgets») ─────────────────
             «Planes y precios»/«Bonos y packs» y «Instructoras», widgets de un
             solo propósito (lib/widgets/catalogo.ts). Pintan los MISMOS bloques
-            que la página completa (`contenidoPlanes`, `rejillaEquipo`) — el
+            que la página completa (`contenidoPlanes`, `EquipoPublico`) — el
             pago, el código de descuento y las fichas son los de siempre.
             Vacíos lo dicen: la propietaria lo ve en la vista previa antes de
             pegarlo, y una visitante no se encuentra un recuadro en blanco. */}
@@ -3612,14 +3572,11 @@ export default function ReservarPage() {
         )}
         {tab === 'equipo' && (
           <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(36, 5, 64)}` }}>
-            <h2 style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Nuestro equipo</h2>
-            {queImparten(instructores).length > 0 ? (
-              <div style={{ marginTop: 20 }}>{rejillaEquipo}</div>
-            ) : (
-              <p role="status" style={{ fontSize: 14, color: 'var(--portal-muted)', marginTop: 14 }}>
-                Pronto conocerás a nuestro equipo.
-              </p>
-            )}
+            <EquipoPublico
+              instructores={instructores} sesiones={sesiones} tiposClase={tiposClase}
+              etiqueta="Nuestro equipo"
+              cabecera={<h2 style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Nuestro equipo</h2>}
+            />
           </div>
         )}
 
