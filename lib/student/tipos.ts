@@ -26,6 +26,8 @@ export interface StudioConfig {
   puedePedirPausa?: boolean;
   /** El estudio pide sus «Datos extra» en la app antes de dejarla usar. Ausente = no. */
   pideDatosExtra?: boolean;
+  /** El estudio usa el control de acceso con QR: la alumna ve su QR en Perfil. */
+  qrAcceso?: boolean;
   /** Opening OS: fecha de apertura si la apertura suave está puesta. Solo etiqueta; decide el servidor. */
   aperturaSuaveHasta?: string | null;
   /** Cómo llama el estudio a sus créditos. `null` = el nombre por defecto. */

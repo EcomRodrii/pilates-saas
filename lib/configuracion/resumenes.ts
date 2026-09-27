@@ -859,6 +859,7 @@ export function resumenRegla(
     case 'asistencia':
       return unir([
         r.requiereCheckinQr ? 'se pasa lista' : 'sin pasar lista',
+        r.controlAccesoQr === false ? 'sin QR de acceso' : null,
         excepciones,
         e.pideConfirmacion === true ? 'pide confirmar a quien falta' : null,
       ]);

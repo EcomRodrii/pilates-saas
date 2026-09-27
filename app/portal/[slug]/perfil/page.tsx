@@ -16,6 +16,7 @@ import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Icono } from '@/components/student/ui/Icono';
 import { useFotoUrl } from '@/lib/foto-signed-url';
+import { CajaQr, useQrAcceso } from '@/components/student/domain/QrAcceso';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -36,6 +37,7 @@ export default function PerfilPage() {
   const { logout } = useAuthStudent(estudio.slug);
   const [salir, setSalir] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
+  const qrAcceso = useQrAcceso(estudio.slug, estudio.qrAcceso === true);
 
   const nombreCompleto = [socia?.nombre, socia?.apellidos].filter(Boolean).join(' ') || 'Tu perfil';
 
@@ -71,6 +73,31 @@ export default function PerfilPage() {
             <Icono nombre="chevron-derecha" tamano={18} />
           </span>
         </Link>
+
+        {/* Su QR de acceso, justo debajo de su nombre y con el color de la
+            tarjeta de su reserva: es lo que busca en la puerta del estudio, con
+            prisa, y en una lista de ajustes se perdería entre «Contraseña» y
+            «Preferencias». La miniatura es el QR de verdad. */}
+        {estudio.qrAcceso && qrAcceso.estado !== 'apagado' && (
+          <Link
+            href={href('/perfil/qr')}
+            className="card card--tap row"
+            data-testid="perfil-qr-acceso"
+            style={{
+              ['--gap' as string]: '14px', padding: '14px 16px',
+              background: 'var(--accent-deep)', color: 'var(--accent-deep-foreground)', borderColor: 'transparent',
+            }}
+          >
+            <CajaQr qr={qrAcceso.qr} estado={qrAcceso.estado} tamano={56} />
+            <div className="trunc">
+              <p className="t-card-title trunc" style={{ color: 'var(--on-dark)' }}>QR de acceso</p>
+              <p className="t-meta" style={{ marginTop: 1, color: 'var(--accent-deep-muted)' }}>Muéstralo al llegar al estudio</p>
+            </div>
+            <span aria-hidden className="push" style={{ display: 'flex', color: 'var(--accent-deep-muted)' }}>
+              <Icono nombre="chevron-derecha" tamano={18} />
+            </span>
+          </Link>
+        )}
 
         {/* ⚠️ Dos bloques y no uno. «Cuenta» acumulaba OCHO filas seguidas,
             y las cuatro últimas no son ajustes de cuenta: son dinero. En un

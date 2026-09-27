@@ -25,7 +25,9 @@ const COLUMNAS_DE_ANTES = [
 const MUDADAS = ['compraPublicaModo', 'instructorasCreanClases'];
 // Llegadas después, cada una con su tarjeta y su motivo. 16-sep: qué pasa con las
 // clases de su plaza fija cuando se queda sin cuota (la elige el estudio).
-const NUEVAS = ['plazaFijaSinCuota', 'plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp', 'plazaFijaPausaLiberaSitio', 'plazaFijaFinPausa'];
+const NUEVAS = ['plazaFijaSinCuota', 'plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp', 'plazaFijaPausaLiberaSitio', 'plazaFijaFinPausa',
+  // 27-sep: el control de acceso con QR, en la tarjeta de Asistencia.
+  'controlAccesoQr'];
 
 test('la sección guarda las columnas de antes, menos las dos que se fueron a su sitio, más las nuevas con nombre', () => {
   const r = reglasAGuardar(formularioReglas(null), reglasGuardadas(null));
@@ -46,7 +48,7 @@ test('sin dato del servidor, los mismos valores por defecto que el formulario de
     cancelacionVentanaHoras: 12, cancelacionDevolverBonoTardia: false, cancelacionClaseDevuelveBono: true,
     minimoAsistentesPorClase: 0, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null,
     recuperacionAutoSemanal: false, permiteListaEspera: true, listaEsperaPlazoAceptacionMinutos: 0,
-    requiereCheckinQr: true, penalizacionImporteEur: null, penalizacionAplicaCancelacionTardia: true,
+    requiereCheckinQr: true, controlAccesoQr: true, penalizacionImporteEur: null, penalizacionAplicaCancelacionTardia: true,
     penalizacionAplicaNoShow: true, penalizacionCobroAutomatico: false,
     // Sin elegir: como siempre (decisión del fundador, 16-sep).
     plazaFijaSinCuota: 'MANTENER',

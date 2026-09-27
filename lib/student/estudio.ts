@@ -107,6 +107,8 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     puedePedirPausa: s.plazaFijaPausaDesdeApp,
     // Solo decide si la app pregunta; la puerta es `/api/public/preguntas-alta`.
     pideDatosExtra: s.preguntasAltaActivas,
+    // Solo decide si se enseña la sección; el QR lo da `/api/public/qr-acceso`.
+    qrAcceso: s.controlAccesoQr,
     aperturaSuaveHasta: s.aperturaSuaveHasta,
     // Se pasa CRUDO (puede ser null): el respaldo lo pone `nombreCreditos`
     // en el momento de pintar, para que panel y portal usen la misma palabra.

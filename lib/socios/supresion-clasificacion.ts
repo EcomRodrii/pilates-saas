@@ -70,6 +70,8 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
   },
   tareas: { accion: 'BORRAR', detalle: 'Tareas del staff sobre ella (título con su nombre).' },
   intentos_reserva_fallidos: { accion: 'BORRAR', detalle: 'Log de intentos.' },
+  socios_qr_acceso: { accion: 'BORRAR', detalle: 'Su QR de acceso (solo el hash) y los revocados.' },
+  accesos_escaneos: { accion: 'BORRAR', detalle: 'Cada lectura de su QR en la puerta (historial de accesos).' },
   recordatorio_envios: { accion: 'BORRAR', detalle: 'Deduplicación de recordatorios.' },
   favoritos_clase: { accion: 'BORRAR', detalle: 'Favoritos.' },
   avisos_hueco: { accion: 'BORRAR', detalle: 'Avisos de hueco enviados.' },

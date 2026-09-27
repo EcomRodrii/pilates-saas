@@ -277,6 +277,10 @@ export interface Studio {
   // "¿hay alguien en la puerta dispuesto a escanear?", no algo que varíe
   // clase a clase.
   requiereCheckinQr: boolean;
+  /** Control de acceso con QR (migr 20260927150000): la alumna ve su QR permanente
+   *  y el equipo puede escanearlo. Encendido de serie. Si un 🟢 marca asistencia lo
+   *  sigue decidiendo `requiereCheckinQr`. */
+  controlAccesoQr?: boolean;
   /** Impedir reservar con un recibo FALLIDO o DEVUELTO. Solo autoservicio. */
   bloquearReservaImpago: boolean;
   /** Otorgar recuperaciones solas al cerrar la semana. Solo planes con límite semanal. */
