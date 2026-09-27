@@ -96,6 +96,17 @@ export function HorarioSemana({ slots, hoy, lunes, onCambiarSemana, onElegir, fi
     caja.scrollLeft = hoyEnSemana && hoyRef.current ? Math.max(0, hoyRef.current.offsetLeft - ANCHO_HORAS) : 0;
   }, [lunesVisible, hoyEnSemana, hayClases, cargando]);
 
+  // «Ir a la próxima semana con clases» se desmonta al pulsarlo: el foco se
+  // lleva a la flecha de volver en cuanto se pinta la semana nueva, para que
+  // quien va con teclado o lector de pantalla no se quede en el vacío.
+  const anteriorRef = useRef<HTMLButtonElement>(null);
+  const enfocarAnterior = useRef(false);
+  useEffect(() => {
+    if (!enfocarAnterior.current) return;
+    enfocarAnterior.current = false;
+    anteriorRef.current?.focus();
+  }, [lunesVisible]);
+
   const deTipo = (filtros ?? []).filter(c => c.grupo !== 'instructora');
   const deInstructora = (filtros ?? []).filter(c => c.grupo === 'instructora');
 
@@ -115,13 +126,17 @@ export function HorarioSemana({ slots, hoy, lunes, onCambiarSemana, onElegir, fi
             {cargando ? '' : rango}
           </p>
         </div>
+        {/* `aria-disabled` y no `disabled`: al llegar con «Semana siguiente» a
+            la última semana, un botón `disabled` soltaría el foco que tiene
+            (se iría a `body`) y quien navega con teclado perdería su sitio. */}
         <div style={{ display: 'flex', gap: 8, flex: '0 0 auto' }}>
           <button
+            ref={anteriorRef}
             type="button"
             className="reserva-semana-foco"
             aria-label="Semana anterior"
-            disabled={!nav.anterior}
-            onClick={() => nav.anterior && onCambiarSemana(nav.anterior)}
+            aria-disabled={nav.anterior ? undefined : true}
+            onClick={() => { if (nav.anterior) onCambiarSemana(nav.anterior); }}
             style={{ ...botonRedondo, opacity: nav.anterior ? 1 : 0.4, cursor: nav.anterior ? 'pointer' : 'default' }}
           >
             <ChevronLeft size={18} aria-hidden />
@@ -130,8 +145,8 @@ export function HorarioSemana({ slots, hoy, lunes, onCambiarSemana, onElegir, fi
             type="button"
             className="reserva-semana-foco"
             aria-label="Semana siguiente"
-            disabled={!nav.siguiente}
-            onClick={() => nav.siguiente && onCambiarSemana(nav.siguiente)}
+            aria-disabled={nav.siguiente ? undefined : true}
+            onClick={() => { if (nav.siguiente) onCambiarSemana(nav.siguiente); }}
             style={{ ...botonRedondo, opacity: nav.siguiente ? 1 : 0.4, cursor: nav.siguiente ? 'pointer' : 'default' }}
           >
             <ChevronRight size={18} aria-hidden />
@@ -188,7 +203,7 @@ export function HorarioSemana({ slots, hoy, lunes, onCambiarSemana, onElegir, fi
             {slots.length === 0 ? vacio.titulo : 'Sin clases esta semana'}
           </p>
           {proxima ? (
-            <button type="button" className="reserva-semana-foco" onClick={() => onCambiarSemana(proxima)} style={{
+            <button type="button" className="reserva-semana-foco" onClick={() => { enfocarAnterior.current = true; onCambiarSemana(proxima); }} style={{
               marginTop: 18, minHeight: 44, padding: '0 22px', borderRadius: 999, cursor: 'pointer', background: 'transparent',
               border: `1px solid color-mix(in srgb, ${marca} 45%, transparent)`, color: 'var(--portal-ink)',
               fontFamily: sans, fontWeight: 700, fontSize: 13.5,
@@ -301,13 +316,16 @@ function ChipClase({ slot, onElegir }: { slot: ReservaSlot; onElegir: (slot: Res
   const completa = plazas.tono === 'completa';
   const mia = plazas.tono === 'mia';
   const color = slot.claseColor || marca;
-  const detalle = empiezaEnPunto(slot.inicio) ? plazas.texto : `${horaDe(slot.inicio)} · ${plazas.texto}`;
+  // La fila solo dice la hora en punto: una clase de las 10:30 lleva su hora
+  // en una línea propia. Pegada a las plazas («10:30 · 6 libres») no cabía en
+  // la columna del móvil y se cortaba justo en las plazas.
+  const horaPropia = empiezaEnPunto(slot.inicio) ? null : horaDe(slot.inicio);
   return (
     <button
       type="button"
       className="reserva-semana-chip reserva-semana-foco"
       onClick={() => onElegir(slot)}
-      aria-label={nombreAccesibleClase(slot.claseNombre, slot.inicio, plazas.texto)}
+      aria-label={nombreAccesibleClase(slot.claseNombre, slot.inicio, plazas.texto, slot.instructorNombre)}
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 2,
         width: '100%', minHeight: 44, padding: '6px 7px 6px 9px', borderRadius: 10, border: 0,
@@ -329,13 +347,19 @@ function ChipClase({ slot, onElegir }: { slot: ReservaSlot; onElegir: (slot: Res
       }}>
         {slot.claseNombre}
       </span>
-      {/* Solo si cabe: en una columna muy estrecha se queda el nombre (el
-          nombre accesible sigue diciendo las plazas). */}
-      <span className="reserva-semana-plazas" style={{
+      {horaPropia && (
+        <span style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: 'var(--portal-muted)' }}>
+          {horaPropia}
+        </span>
+      )}
+      {/* «6 libres», «Quedan 2», «En espera»: caben en la columna más
+          estrecha (88 px). La elipsis solo es red por si un aforo de tres
+          cifras no cupiera; el nombre accesible lo dice entero. */}
+      <span style={{
         fontSize: 11, fontWeight: plazas.tono === 'libre' || completa ? 500 : 700, lineHeight: 1.2,
         color: COLOR_PLAZAS[plazas.tono], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%',
       }}>
-        {detalle}
+        {plazas.texto}
       </span>
     </button>
   );

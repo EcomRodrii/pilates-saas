@@ -22,7 +22,7 @@ import { COLOR_VALIDO, fuenteValida } from '../reservar/config-widget.ts';
 import { scriptSnippetIframe } from '../reservar/snippet-embed.ts';
 import type { MetodoIntegracion, WidgetDisponible } from './catalogo.ts';
 import {
-  anchoPorDefecto, etiquetaEfectiva, textoBotonEfectivo, type ConfigConstructor,
+  anchoPopupDe, anchoPorDefecto, etiquetaEfectiva, textoBotonEfectivo, type ConfigConstructor,
 } from './config.ts';
 
 export type Plataforma = 'html' | 'wordpress' | 'webflow' | 'react';
@@ -360,7 +360,7 @@ export function ${nombreComponente(w)}Popup() {
       type="button"
       data-tentare-popup=${jsString(url)}
       data-tentare-titulo=${jsString(w.nombre)}
-      data-tentare-ancho="${w.anchoPopup}"
+      data-tentare-ancho="${anchoPopupDe(w, e.config)}"
       style={${objetoEstiloReact(e)}}
     >
       {${jsString(texto)}}
@@ -371,7 +371,7 @@ export function ${nombreComponente(w)}Popup() {
       }
       return {
         lenguaje: 'html',
-        codigo: `<button type="button" data-tentare-popup="${urlEnAtributo(url)}" data-tentare-titulo="${escaparAtributo(w.nombre)}" data-tentare-ancho="${w.anchoPopup}" style="${cssBoton(e)}">${escaparTexto(texto)}</button>
+        codigo: `<button type="button" data-tentare-popup="${urlEnAtributo(url)}" data-tentare-titulo="${escaparAtributo(w.nombre)}" data-tentare-ancho="${anchoPopupDe(w, e.config)}" style="${cssBoton(e)}">${escaparTexto(texto)}</button>
 <script src="${script}" async></script>`,
       };
     }

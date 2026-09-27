@@ -153,6 +153,14 @@ test('nombre accesible: clase, día y hora del estudio, y lo que dice de sus pla
   );
   // Un lector de pantalla en otro huso oye la hora del estudio, no la suya.
   assert.equal(nombreAccesibleClase('Mat', '2026-09-22T22:30:00Z'), 'Mat, miércoles 23 a las 00:30');
+  // Dos Reformer a la misma hora (dos salas) se distinguen por quién la da.
+  assert.equal(
+    nombreAccesibleClase('Reformer', '2026-09-23T08:00:00Z', '6 libres', 'Ana'),
+    'Reformer, miércoles 23 a las 10:00, con Ana, 6 libres',
+  );
+  // Sin instructora asignada (o en blanco), ni «con» suelto ni coma de más.
+  assert.equal(nombreAccesibleClase('Reformer', '2026-09-23T08:00:00Z', '6 libres', null), 'Reformer, miércoles 23 a las 10:00, 6 libres');
+  assert.equal(nombreAccesibleClase('Reformer', '2026-09-23T08:00:00Z', '6 libres', '  '), 'Reformer, miércoles 23 a las 10:00, 6 libres');
   assert.equal(nombreAccesibleClase('Mat', 'roto'), 'Mat');
 });
 

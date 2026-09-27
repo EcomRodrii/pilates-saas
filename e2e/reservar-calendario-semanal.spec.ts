@@ -14,7 +14,9 @@ test.use({ timezoneId: 'Europe/Madrid' });
 //   - tocar una clase hace lo mismo que tocar su tarjeta: la invitada va a sus
 //     pasos y la socia abre la ficha de siempre — con el foco en ella, que la
 //     ficha se monta dentro de un contenedor que estaba oculto un instante antes;
-//   - el Atrás del navegador vuelve al calendario, no a la lista.
+//   - el Atrás del navegador vuelve al calendario, no a la lista, y Adelante
+//     reabre la ficha también con el foco en ella;
+//   - las flechas de semana no sueltan el foco del teclado al apagarse.
 //
 // El miércoles 12 de agosto de 2026, a las 08:00 de Madrid; la clase es a las 10:00.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,11 +86,16 @@ test('con `presentacion=semana` el calendario ocupa el sitio de la lista, y se n
 
   // Hacia atrás no: lo pasado no se reserva.
   await expect(calendario(page).getByRole('button', { name: 'Semana anterior' })).toBeDisabled();
-  await calendario(page).getByRole('button', { name: 'Semana siguiente' }).click();
+  // Con el teclado, que es donde un botón que se apaga puede soltar el foco.
+  const siguiente = calendario(page).getByRole('button', { name: 'Semana siguiente' });
+  await siguiente.focus();
+  await page.keyboard.press('Enter');
   await expect(calendario(page).getByText('17 – 23 de agosto', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Mat, martes 18 a las 18:30/ })).toBeVisible();
-  // Y después de la última clase no hay más semanas vacías que recorrer.
-  await expect(calendario(page).getByRole('button', { name: 'Semana siguiente' })).toBeDisabled();
+  // Y después de la última clase no hay más semanas vacías que recorrer…
+  await expect(siguiente).toBeDisabled();
+  // …pero la flecha apagada conserva el foco (con `disabled` se iba a `body`).
+  await expect(siguiente).toBeFocused();
 });
 
 test('invitada: tocar la clase lleva a sus pasos, como la tarjeta, y Atrás vuelve al calendario', async ({ page }) => {
@@ -121,4 +128,11 @@ test('socia: tocar la clase abre la ficha de siempre, con el foco en ella', asyn
 
   await page.goBack();
   await expect(chipReformer(page)).toBeVisible({ timeout: 30_000 });
+
+  // Adelante reabre la ficha desde la URL, no desde un toque: también tiene
+  // que montarse visible y con el foco en su título.
+  await page.goForward();
+  await expect.poll(() => new URL(page.url()).searchParams.get('paso'), { timeout: 10_000 }).toBe('ficha');
+  await expect(page.getByRole('heading', { level: 2, name: 'Reformer' })).toBeFocused({ timeout: 30_000 });
+  await expect(calendario(page)).toHaveCount(0);
 });

@@ -244,21 +244,24 @@ export function plazasDeClase(c: PlazasDeClase): { texto: string; tono: TonoPlaz
 }
 
 /**
- * «Reformer, miércoles 12 a las 10:00, quedan 2»: el nombre del botón de cada
- * clase. En la rejilla, el día y la hora solo se deducen de la columna y la
- * fila, y un lector de pantalla que salta de botón en botón no las oye — sin
- * esto serían siete «Reformer» idénticos.
+ * «Reformer, miércoles 12 a las 10:00, con Ana, quedan 2»: el nombre del botón
+ * de cada clase. En la rejilla, el día y la hora solo se deducen de la columna
+ * y la fila, y un lector de pantalla que salta de botón en botón no las oye —
+ * sin esto serían siete «Reformer» idénticos. La instructora, por lo mismo:
+ * dos Reformer a la misma hora en dos salas sonarían iguales (la tarjeta de la
+ * lista también la dice).
  *
  * Empieza por lo que el chip enseña (el nombre) y acaba con lo mismo que dice
  * de sus plazas, para que quien usa control por voz pueda decir lo que ve.
  */
-export function nombreAccesibleClase(nombre: string, inicio: string, plazas?: string): string {
+export function nombreAccesibleClase(nombre: string, inicio: string, plazas?: string, instructora?: string | null): string {
   const { dia } = enEstudio(inicio);
   if (!dia) return nombre;
   const { dia: numero } = partes(dia);
   const cuando = `${DIAS_LARGOS[diaSemanaDe(dia)]} ${numero} a las ${horaDe(inicio)}`;
+  const quien = instructora?.trim() ? `, con ${instructora.trim()}` : '';
   const resto = plazas ? `, ${plazas.charAt(0).toLowerCase()}${plazas.slice(1)}` : '';
-  return `${nombre}, ${cuando}${resto}`;
+  return `${nombre}, ${cuando}${quien}${resto}`;
 }
 
 /** «12 clases», el recuento de la semana. */

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WIDGETS, CATEGORIAS, widgetPorId, esDisponible, widgetsVisibles, type WidgetDisponible } from './catalogo.ts';
-import { CONFIG_POR_DEFECTO, leerConfig, leerConfigs, etiquetaEfectiva, anchoPorDefecto, type ConfigConstructor } from './config.ts';
+import { CONFIG_POR_DEFECTO, leerConfig, leerConfigs, etiquetaEfectiva, anchoPorDefecto, anchoPopupDe, type ConfigConstructor } from './config.ts';
 import {
   urlEmbebido, urlPagina, atributosNativa, generarCodigo, faltaParaGenerar, plataformasDe,
   estiloBoton, type EntradaIntegracion,
@@ -377,4 +377,18 @@ test('calendario semanal: a todo el ancho por defecto (siete columnas no caben e
   assert.ok(generarCodigo(entrada('horario', { presentacion: 'semana', ancho: 'compacto' }), 'iframe').codigo.includes('max-width:480px'));
   // La lista sigue como siempre.
   assert.ok(generarCodigo(entrada('horario'), 'iframe').codigo.includes('max-width:480px'));
+});
+
+test('calendario semanal: el popup se abre a 960 para que la rejilla no se deslice; la lista sigue en 720', () => {
+  // La rejilla mide 670 px de mínimo: en 720, menos el margen y la barra de scroll, no cabía.
+  for (const plataforma of ['html', 'react'] as const) {
+    const semana = generarCodigo(entrada('horario', { presentacion: 'semana' }), 'popup', plataforma).codigo;
+    assert.ok(semana.includes('data-tentare-ancho="960"'), plataforma);
+    const lista = generarCodigo(entrada('horario'), 'popup', plataforma).codigo;
+    assert.ok(lista.includes('data-tentare-ancho="720"'), plataforma);
+  }
+  assert.equal(anchoPopupDe(w('horario'), { presentacion: 'lista' }), 720);
+  assert.equal(anchoPopupDe(w('prueba'), { presentacion: 'semana' }), 960);
+  // En un widget que no es un horario, `presentacion` no mueve su ancho.
+  assert.equal(anchoPopupDe(w('citas'), { presentacion: 'semana' }), w('citas').anchoPopup);
 });

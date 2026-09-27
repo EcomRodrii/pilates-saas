@@ -121,6 +121,16 @@ export function anchoPorDefecto(w: WidgetDisponible, c?: Pick<ConfigConstructor,
     ? 'compacto' : 'completo';
 }
 
+/**
+ * El ancho de la ventana del popup (`data-tentare-ancho`). El calendario
+ * semanal pide 960: su rejilla mide 670 px de mínimo, y en la ventana de 720
+ * (menos el margen de la página y la barra de scroll del propio iframe) se
+ * deslizaba unos píxeles en horizontal. El runtime acepta hasta 1200.
+ */
+export function anchoPopupDe(w: WidgetDisponible, c: Pick<ConfigConstructor, 'presentacion'>): number {
+  return w.contenido.includes('horario') && c.presentacion === 'semana' ? 960 : w.anchoPopup;
+}
+
 export function metodoEfectivo(c: ConfigConstructor, w: WidgetDisponible): MetodoIntegracion {
   return c.metodo && w.metodos.includes(c.metodo) ? c.metodo : w.metodos[0];
 }

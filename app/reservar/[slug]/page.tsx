@@ -1509,6 +1509,11 @@ export default function ReservarPage() {
       const existe = !!claseId && slots.some(s => s.id === claseId);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Sincroniza con la URL (sistema externo): abre la ficha que pide `?paso=ficha&clase=...` al volver con Atrás/Adelante o al refrescar. No es estado derivable de props/estado local.
       setAbrirFichaExterna(v => ({ slotId: existe ? claseId : null, nonce: v.nonce + 1 }));
+      // Calendario semanal: la ficha que reabre la URL (Adelante, refresco,
+      // Atrás desde el flujo) tiene que montarse ya visible, igual que tras un
+      // toque en la clase — si no, se monta dentro del `display: none`, su
+      // título no puede recibir el foco y asoma un fotograma del calendario.
+      if (existe && horarioEnSemana) setFichaSemanaPedida(claseId);
       // Un Atrás desde el flujo (login/datos/pago/...) aterriza aquí — hay
       // que cerrar el flujo TAMBIÉN, no solo abrir la ficha: sin esto,
       // `bookingSesionId` seguía sin `null` y el flujo se quedaba pintado
