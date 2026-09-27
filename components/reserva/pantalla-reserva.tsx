@@ -76,7 +76,7 @@ export interface ClaseParaPantallaReserva {
 }
 
 export function PantallaReserva({
-  t, onVolver, estudioNombre, estudioDireccion, studioId, clase, precio, fase,
+  t, onVolver, estudioNombre, ocultarNombreEstudio, estudioDireccion, studioId, clase, precio, fase,
   loginForm, onChangeLoginForm, datosError, datosCargando,
   privacidadAceptada, onTogglePrivacidad, onAbrirPrivacidad,
   mostrarCodigo, onMostrarCodigo, codigoDescuento, onChangeCodigo,
@@ -88,6 +88,8 @@ export function PantallaReserva({
   /** "‹ Volver a la clase" — un único punto de salida, no un "atrás" por paso. */
   onVolver: () => void;
   estudioNombre: string;
+  /** La página ya pinta la cabecera del estudio encima: no repetir su nombre. */
+  ocultarNombreEstudio?: boolean;
   estudioDireccion: string;
   /** Solo para validar el código promocional en vivo (`/api/public/validar-codigo-descuento`). */
   studioId: string;
@@ -234,12 +236,14 @@ export function PantallaReserva({
             estudio largo ("Centro de Pilates y Bienestar Marbella Este")
             empujaba la cabecera fuera del viewport en un Android estrecho
             (360px) en vez de truncarse. */}
+        {!ocultarNombreEstudio && (
         <span style={{
           fontFamily: serif, fontSize: cq(14, 1.6, 16), color: 'var(--portal-ink)', letterSpacing: '-0.01em',
           minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 12,
         }}>
           {estudioNombre}
         </span>
+        )}
       </header>
 
       {/* Único scroll natural de la pantalla — nada de overflow anidado ni

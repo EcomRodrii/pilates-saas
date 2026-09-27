@@ -2466,7 +2466,11 @@ export default function ReservarPage() {
   const antelacionMaxima = fraseAntelacionMaxima(reglasEstudio, tiposClase);
 
   const tabsTodas = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio'], ['cuenta', 'Mi cuenta']] as const;
-  const tabs = tabsTodas.filter(([t]) => tabHabilitada(t));
+  // «Citas» sin ningún servicio activo es una pestaña que lleva a «no hay
+  // citas»: fuera de la barra. Incrustada sí se deja (el widget «Citas» y su
+  // vista previa enseñan ese estado vacío a propósito).
+  const hayCitas = citasServicios.some(sv => sv.activo);
+  const tabs = tabsTodas.filter(([t]) => tabHabilitada(t) && (t !== 'citas' || hayCitas || embedMode));
   // Diseño "Tentare Portal Reservas": sin barra de pestañas en la pantalla
   // de Clases — vacía del todo, no una sola píldora "Clases" (a diferencia
   // de `embedMode`/`soloPestana`, que sí dejan la píldora del único
@@ -3877,16 +3881,24 @@ export default function ReservarPage() {
         // esta pantalla es un bloque más de la página, tan alta como su
         // contenido — el `min-h-` solo evita un salto al pasar de una fila
         // corta de "Mis reservas" a un formulario largo.
-        sheetClassName="w-full min-h-[50vh] px-6 pt-6"
+        // Acceder, registro y las confirmaciones son formularios de una
+        // columna: en escritorio iban a todo el ancho (campos de 1.232 px).
+        // Datos y pago no: <PantallaReserva> tiene su propia maqueta de dos.
+        sheetClassName={esPantallaReserva ? 'w-full min-h-[50vh] px-6 pt-6' : 'w-full max-w-[560px] mx-auto min-h-[50vh] px-6 pt-6'}
         // Sin `footer` (done/espera/pendiente/confirm/contrato), nada más
         // le pone aire por debajo — mismo `paddingBottom` con safe-area que
         // ya llevaba esta hoja antes del rediseño (#1365: el botón "Añadir a
         // tu calendario" quedaba a ras de la barra de gestos del iPhone).
         // Con `footer` esa hoja YA lleva su propio padding con safe-area
         // (public-sheet.tsx), así que aquí se omite para no duplicarlo.
+        // `order`: la página es una columna flex y la cabecera del estudio va
+        // con `order: orden('horario')`. Sin él la hoja (order 0) se pintaba
+        // ANTES que la cabecera y el nombre del estudio caía debajo del
+        // formulario de acceso, de datos y de pago. Con el mismo `order`,
+        // manda el orden del DOM: primero la cabecera, luego la hoja.
         sheetStyle={((loginStep === 'login' && !enlaceEnviado) || loginStep === 'registro')
-          ? undefined
-          : { paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+          ? { order: orden('horario') }
+          : { order: orden('horario'), paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
         // El CTA de 'login'/'registro' sigue con `footer`: separa la acción
         // del contenido con una línea de pelo, aunque ya no vaya "pegado
         // abajo" (no hay altura acotada que fijarlo) — sigue siendo lo
@@ -4283,6 +4295,7 @@ export default function ReservarPage() {
                 t={tokensCalendario}
                 onVolver={closeBooking}
                 estudioNombre={estudioNombre}
+                ocultarNombreEstudio={!embedMode}
                 estudioDireccion={estudioDireccion}
                 studioId={studio?.id ?? ''}
                 clase={{
