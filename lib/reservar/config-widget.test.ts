@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   resolverConfigWidget, fuenteDeDataset, CONFIG_WIDGET_POR_DEFECTO,
-  fuenteValida, familiaCssDe, urlFuenteGoogle,
+  fuenteValida, familiaCssDe, urlFuenteGoogle, leerPresentacion,
 } from './config-widget.ts';
 
 test('sin parámetros devuelve exactamente los defaults (todo visible, sin filtros)', () => {
@@ -54,6 +54,19 @@ test('diseno solo acepta completo/ligero; basura queda en null (el default del m
   assert.equal(resolverConfigWidget(new URLSearchParams('diseno=completo')).diseno, 'completo');
   assert.equal(resolverConfigWidget(new URLSearchParams('diseno=ligero')).diseno, 'ligero');
   assert.equal(resolverConfigWidget(new URLSearchParams('diseno=bonito')).diseno, null);
+});
+
+test('presentacion: solo «semana» cambia algo; sin ella (todo snippet de antes), la lista de siempre', () => {
+  assert.equal(CONFIG_WIDGET_POR_DEFECTO.presentacion, 'lista');
+  assert.equal(resolverConfigWidget(new URLSearchParams('presentacion=semana')).presentacion, 'semana');
+  assert.equal(resolverConfigWidget(new URLSearchParams('presentacion=%20semana%20')).presentacion, 'semana');
+  assert.equal(resolverConfigWidget(new URLSearchParams('presentacion=mes')).presentacion, 'lista');
+  assert.equal(resolverConfigWidget(new URLSearchParams('presentacion=')).presentacion, 'lista');
+  assert.equal(resolverConfigWidget(new URLSearchParams('diseno=ligero')).presentacion, 'lista');
+  // La misma puerta que usa la página fuera del modo incrustado (enlace y botón).
+  assert.equal(leerPresentacion(new URLSearchParams('presentacion=semana')), 'semana');
+  assert.equal(leerPresentacion(new URLSearchParams('')), 'lista');
+  assert.equal(resolverConfigWidget(fuenteDeDataset({ presentacion: 'semana' })).presentacion, 'semana');
 });
 
 test('colores: hex válido pasa, basura se ignora — nunca llega crudo al CSS', () => {

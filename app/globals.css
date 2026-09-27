@@ -937,6 +937,17 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
 .reserva-cta-btn { transition: transform .15s ease, background .2s ease; }
 .reserva-cta-btn:active:not(:disabled) { transform: scale(.96); }
 
+/* Calendario semanal de /reservar (`?presentacion=semana`,
+   components/reservar/horario-semana.tsx). Clases y no estilos en línea
+   porque hacen falta `:focus-visible`, `:hover` y un container query: la línea
+   de plazas del chip solo se enseña si cabe (el nombre accesible la dice
+   siempre). Solo lo usa esa presentación: la lista de siempre no cambia. */
+.reserva-semana-foco:focus-visible { outline: 2px solid var(--portal-brand); outline-offset: 2px; }
+.reserva-semana-chip { container-type: inline-size; transition: transform .15s ease, filter .2s ease; }
+.reserva-semana-chip:hover { filter: brightness(.97); }
+.reserva-semana-chip:active { transform: scale(.97); }
+@container (max-width: 60px) { .reserva-semana-plazas { display: none; } }
+
 @keyframes reserva-banner-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .reserva-banner-in { animation: reserva-banner-in .3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 

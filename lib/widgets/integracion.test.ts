@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WIDGETS, CATEGORIAS, widgetPorId, esDisponible, widgetsVisibles, type WidgetDisponible } from './catalogo.ts';
-import { CONFIG_POR_DEFECTO, leerConfig, leerConfigs, etiquetaEfectiva, type ConfigConstructor } from './config.ts';
+import { CONFIG_POR_DEFECTO, leerConfig, leerConfigs, etiquetaEfectiva, anchoPorDefecto, type ConfigConstructor } from './config.ts';
 import {
   urlEmbebido, urlPagina, atributosNativa, generarCodigo, faltaParaGenerar, plataformasDe,
   estiloBoton, type EntradaIntegracion,
 } from './integracion.ts';
-import { resolverConfigWidget, fuenteDeDataset } from '../reservar/config-widget.ts';
+import { resolverConfigWidget, fuenteDeDataset, leerPresentacion } from '../reservar/config-widget.ts';
 import { resolverApariencia } from '../reservar/apariencia-widget.ts';
 
 const ORIGEN = 'https://www.tentare.app';
@@ -304,4 +304,77 @@ test('formulario de contacto: `tab=contacto` en el iframe/popup y en el enlace/b
   assert.equal(url.get('ref'), 'web-contacto');
   assert.equal(urlPagina(entrada('contacto')), `${ORIGEN}/reservar/${SLUG}?tab=contacto&ref=web-contacto`);
   assert.ok(generarCodigo(entrada('contacto'), 'boton').codigo.includes('tab=contacto'));
+});
+
+// ── Calendario semanal (`presentacion`) ──────────────────────────────────────
+
+test('calendario semanal: lo guardado se lee, y la basura cae a la lista de siempre', () => {
+  assert.equal(CONFIG_POR_DEFECTO.presentacion, 'lista');
+  assert.equal(leerConfig({ presentacion: 'semana' }).presentacion, 'semana');
+  assert.equal(leerConfig({ presentacion: 'mes' }).presentacion, 'lista');
+  assert.equal(leerConfig({}).presentacion, 'lista');
+});
+
+test('⚠️ calendario semanal: la lista (el default) no se emite — ningún snippet cambia sin tocarlo', () => {
+  for (const metodo of ['iframe', 'popup'] as const) {
+    assert.equal(params(urlEmbebido(entrada('horario'), metodo)).get('presentacion'), null, metodo);
+  }
+  assert.equal(urlPagina(entrada('horario')), `${ORIGEN}/reservar/${SLUG}?ref=web-horario`);
+  assert.ok(!generarCodigo(entrada('horario'), 'iframe').codigo.includes('presentacion'));
+});
+
+test('calendario semanal: iframe y popup lo llevan, y el parser real del motor lo entiende', () => {
+  for (const metodo of ['iframe', 'popup'] as const) {
+    const url = urlEmbebido(entrada('horario', { presentacion: 'semana', tipos: ['tc-r'] }), metodo);
+    const c = resolverConfigWidget(params(url));
+    assert.equal(c.presentacion, 'semana', metodo);
+    // Los filtros siguen aplicándose: el calendario pinta las mismas clases que la lista.
+    assert.deepEqual(c.tipos, ['tc-r'], metodo);
+  }
+});
+
+test('calendario semanal: con él no viajan la vista inicial ni el diseño de la lista (no pintarían nada)', () => {
+  const url = urlEmbebido(entrada('horario', { presentacion: 'semana', vista: 'hoy', diseno: 'ligero', mostrarPrecio: false }));
+  assert.equal(params(url).get('vista'), null);
+  assert.equal(params(url).get('diseno'), null);
+  // Lo que sí se ve en la ficha de la clase se sigue respetando.
+  assert.equal(params(url).get('ocultar-precio'), '1');
+  // Y al volver a la lista, lo que había elegido sigue ahí.
+  const lista = urlEmbebido(entrada('horario', { presentacion: 'lista', vista: 'hoy', diseno: 'ligero' }));
+  assert.equal(params(lista).get('vista'), 'hoy');
+  assert.equal(params(lista).get('diseno'), 'ligero');
+});
+
+test('calendario semanal: el enlace y el botón lo llevan a la página completa (la página lo honra fuera del iframe)', () => {
+  const e = entrada('horario', { presentacion: 'semana', tipos: ['tc-r'] });
+  assert.equal(urlPagina(e), `${ORIGEN}/reservar/${SLUG}?presentacion=semana&ref=web-horario`);
+  assert.equal(leerPresentacion(params(urlPagina(e))), 'semana');
+  assert.ok(generarCodigo(e, 'boton').codigo.includes('presentacion=semana'));
+  assert.equal(generarCodigo(e, 'enlace').codigo, `${ORIGEN}/reservar/${SLUG}?presentacion=semana&ref=web-horario`);
+  // La clase de prueba también es un horario: lo lleva detrás de su `prueba=1`.
+  assert.equal(urlPagina(entrada('prueba', { presentacion: 'semana' })), `${ORIGEN}/reservar/${SLUG}?prueba=1&presentacion=semana&ref=web-prueba`);
+});
+
+test('⚠️ calendario semanal: la integración nativa lo ignora y sigue con su lista (el bundle no cambia)', () => {
+  const attrs = atributosNativa(entrada('horario', { presentacion: 'semana', diseno: 'completo', vista: 'hoy' }));
+  assert.ok(!attrs.some(a => a.startsWith('data-presentacion')));
+  assert.ok(attrs.includes('data-diseno="completo"'));
+  assert.ok(attrs.includes('data-vista="hoy"'));
+});
+
+test('calendario semanal: no se cuela en widgets que no son un horario', () => {
+  for (const id of ['citas', 'planes', 'contacto', 'clase']) {
+    const e = entrada(id, { presentacion: 'semana', sesion: 'ses-1' });
+    assert.equal(params(urlEmbebido(e)).get('presentacion'), null, id);
+    assert.equal(params(urlPagina(e)).get('presentacion'), null, id);
+  }
+});
+
+test('calendario semanal: a todo el ancho por defecto (siete columnas no caben en 480 px), salvo que se elija otro', () => {
+  assert.equal(anchoPorDefecto(w('horario')), 'compacto');
+  assert.equal(anchoPorDefecto(w('horario'), { presentacion: 'semana' }), 'completo');
+  assert.ok(!generarCodigo(entrada('horario', { presentacion: 'semana' }), 'iframe').codigo.includes('max-width'));
+  assert.ok(generarCodigo(entrada('horario', { presentacion: 'semana', ancho: 'compacto' }), 'iframe').codigo.includes('max-width:480px'));
+  // La lista sigue como siempre.
+  assert.ok(generarCodigo(entrada('horario'), 'iframe').codigo.includes('max-width:480px'));
 });

@@ -201,7 +201,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       };
   }
   const anchoWidget = metodo === 'iframe'
-    ? ((configEfectiva.ancho ?? anchoPorDefecto(w)) === 'compacto' ? 480 : null)
+    ? ((configEfectiva.ancho ?? anchoPorDefecto(w, configEfectiva)) === 'compacto' ? 480 : null)
     : metodo === 'popup' ? w.anchoPopup : null;
 
   const ofertasPrueba = planesTarifa.filter(p => p.activo && p.esPrueba === true);

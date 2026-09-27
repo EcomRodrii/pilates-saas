@@ -31,6 +31,12 @@ export interface ConfigConstructor {
    * abre en días, la integración nativa en rejilla).
    */
   diseno: 'completo' | 'ligero' | null;
+  /**
+   * 'lista' = el horario de siempre (con su `diseno`); 'semana' = el calendario
+   * semanal, días en columnas y horas en filas. Viaja con el iframe, el popup,
+   * el enlace y el botón; la integración nativa no lo entiende y lo ignora.
+   */
+  presentacion: 'lista' | 'semana';
   /** «Reserva una clase»: la sesión a la que apunta. */
   sesion: string | null;
   /** «Mi cuenta»: con qué abre. */
@@ -86,7 +92,7 @@ export interface ConfigConstructor {
 export const CONFIG_POR_DEFECTO: ConfigConstructor = {
   vista: 'todo', tipos: [], instructoras: [], salas: [],
   mostrarPrecio: true, mostrarNivel: true, mostrarSustituta: true,
-  diseno: null, sesion: null, cuentaInicio: 'reservas', tiposPlan: [],
+  diseno: null, presentacion: 'lista', sesion: null, cuentaInicio: 'reservas', tiposPlan: [],
   identidad: 'estudio', tema: 'auto',
   fondo: null, marca: null, tinta: null, superficie: null, linea: null,
   forma: null, densidad: null, fuente: null, fuenteDisplay: null, ancho: null,
@@ -105,7 +111,12 @@ export function etiquetaEfectiva(c: ConfigConstructor, w: WidgetDisponible): str
   return c.etiqueta && ETIQUETA_VALIDA.test(c.etiqueta) ? c.etiqueta : null;
 }
 
-export function anchoPorDefecto(w: WidgetDisponible): 'compacto' | 'completo' {
+/**
+ * El ancho del recuadro si no se toca. El calendario semanal va a todo el
+ * ancho: son siete columnas, y en 480 px solo se verían tres días a la vez.
+ */
+export function anchoPorDefecto(w: WidgetDisponible, c?: Pick<ConfigConstructor, 'presentacion'>): 'compacto' | 'completo' {
+  if (w.contenido.includes('horario') && c?.presentacion === 'semana') return 'completo';
   return w.contenido.includes('horario') || w.contenido.includes('sesion') || w.id === 'citas' || w.id === 'cuenta'
     ? 'compacto' : 'completo';
 }
@@ -153,6 +164,7 @@ export function leerConfig(raw: unknown): ConfigConstructor {
   c.mostrarNivel = mostrar(o.mostrarNivel, o.ocultarNivel);
   c.mostrarSustituta = mostrar(o.mostrarSustituta, o.ocultarSustituta);
   c.diseno = uno(o.diseno, ['completo', 'ligero'] as const);
+  c.presentacion = o.presentacion === 'semana' ? 'semana' : 'lista';
   c.sesion = typeof o.sesion === 'string' && o.sesion ? o.sesion : null;
   c.cuentaInicio = o.cuentaInicio === 'bonos' ? 'bonos' : 'reservas';
   c.tiposPlan = lista(o.tiposPlan).filter((t): t is TipoPlan => (TIPOS_PLAN as readonly string[]).includes(t));
