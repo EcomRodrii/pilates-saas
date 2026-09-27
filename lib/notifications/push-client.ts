@@ -5,6 +5,8 @@
 // esté INSTALADA (Añadir a pantalla de inicio) y iOS 16.4+.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import type { ContextoPush } from '../student/push-estado.ts';
+
 type Headers = () => Promise<Record<string, string>>;
 
 export function pushSoportado(): boolean {
@@ -97,4 +99,82 @@ export function esStandalone(): boolean {
   if (typeof window === 'undefined') return false;
   return window.matchMedia?.('(display-mode: standalone)').matches === true
     || (navigator as unknown as { standalone?: boolean }).standalone === true;
+}
+
+// ── Estado VERDADERO de los avisos en este dispositivo ──────────────────────
+//
+// Antes la pantalla decía «activados» con solo mirar `Notification.permission`:
+// permiso concedido no es suscripción, y suscripción del navegador no es fila en
+// el servidor. Las tres cosas tienen que ser verdad a la vez.
+
+/** `true`/`false` = respuesta del servidor; `null` = no se pudo preguntar (sin red). */
+export async function suscripcionRegistradaEnServidor(endpoint: string, getHeaders: Headers): Promise<boolean | null> {
+  try {
+    const res = await fetch(`/api/notifications/subscribe?endpoint=${encodeURIComponent(endpoint)}`, { headers: { ...(await getHeaders()) } });
+    if (!res.ok) return null;
+    return ((await res.json()) as { registrada?: boolean }).registrada === true;
+  } catch { return null; }
+}
+
+/** Vuelve a mandar al servidor una suscripción que el navegador ya tiene. */
+export async function registrarSuscripcionEnServidor(studioId: string, sub: PushSubscription, getHeaders: Headers): Promise<boolean> {
+  try {
+    const res = await fetch('/api/notifications/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await getHeaders()) },
+      body: JSON.stringify({ studioId, subscription: sub.toJSON(), userAgent: navigator.userAgent }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+/**
+ * Lo que sabe el navegador Y el servidor. Si el navegador está suscrito pero el
+ * servidor no lo sabe, se intenta repararlo en el acto: con el permiso ya dado no
+ * hace falta preguntar nada. Solo si la reparación falla se dice «sin activar».
+ */
+export async function confirmarSuscripcion(
+  reg: ServiceWorkerRegistration | null | undefined, studioId: string | null, getHeaders: Headers,
+): Promise<boolean> {
+  let sub: PushSubscription | null = null;
+  try { sub = (await reg?.pushManager.getSubscription()) ?? null; } catch { sub = null; }
+  if (!sub) return false;
+  const enServidor = await suscripcionRegistradaEnServidor(sub.endpoint, getHeaders);
+  if (enServidor === null || enServidor) return true; // sin red: no se contradice al navegador
+  if (!studioId) return false;
+  return registrarSuscripcionEnServidor(studioId, sub, getHeaders);
+}
+
+/** Contexto para el PANEL (service worker de scope raíz). */
+export async function contextoPushPanel(studioId: string, getHeaders: Headers): Promise<ContextoPush> {
+  const permiso = estadoPermiso();
+  let suscrita = false;
+  if (permiso === 'granted') {
+    try { suscrita = await confirmarSuscripcion(await navigator.serviceWorker.getRegistration(), studioId, getHeaders); } catch { suscrita = false; }
+  }
+  return { permiso, esIOS: esIOS(), esStandalone: esStandalone(), hayClave: !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY, suscrita };
+}
+
+/**
+ * Al cerrar sesión: este dispositivo deja de recibir los avisos de esa cuenta.
+ * Se borra la fila del servidor (no la suscripción del navegador, para que al
+ * volver a entrar no haya que pedir permiso otra vez). Hay que llamarla ANTES de
+ * `signOut`: sin sesión el servidor no sabría de quién es la fila. Best-effort.
+ */
+export async function soltarDispositivoEnServidor(getHeaders: Headers): Promise<void> {
+  if (!pushSoportado()) return;
+  try {
+    const cabeceras = await getHeaders();
+    if (!cabeceras.Authorization) return;
+    const regs = await navigator.serviceWorker.getRegistrations();
+    for (const reg of regs) {
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) continue;
+      await fetch('/api/notifications/subscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...cabeceras },
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      });
+    }
+  } catch { /* cerrar sesión no puede depender de esto */ }
 }

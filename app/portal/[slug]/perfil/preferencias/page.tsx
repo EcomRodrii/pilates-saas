@@ -44,7 +44,7 @@ export default function PreferenciasPage() {
     const prefs = await getPreferencias();
     // Sin fila, email apagado: es el defecto del endpoint, no una suposición.
     setEmailPagos(prefs.find((p) => p.category === 'pagos')?.email ?? false);
-    setPush(estadoPush(await contextoPushStudent(estudio.slug)));
+    setPush(estadoPush(await contextoPushStudent(estudio.slug, estudio.id)));
     setMarketing(await getConsentimientoMarketing(estudio.id));
     return estadoInicialPush('SOCIA', prefs);
   }, [estudio.slug, estudio.id]);
@@ -94,7 +94,7 @@ export default function PreferenciasPage() {
         const ok = await desactivarPushStudent(estudio.slug);
         if (!ok) toast('No hemos podido desactivar los avisos en este dispositivo.');
       }
-      setPush(estadoPush(await contextoPushStudent(estudio.slug)));
+      setPush(estadoPush(await contextoPushStudent(estudio.slug, estudio.id)));
     } finally {
       setOcupadoPush(false);
     }

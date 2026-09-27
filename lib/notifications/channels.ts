@@ -42,9 +42,141 @@ const inapp: Canal = {
 };
 
 // PUSH (Web Push): envía a cada endpoint del usuario con web-push + VAPID. Sin
-// VAPID o sin suscripción → SKIPPED (no es error, es que aún no aplica). Los
-// endpoints caducados (404/410) se borran solos. web-push se importa perezoso
-// para no cargarlo salvo cuando de verdad hay que enviar.
+// VAPID o sin suscripción → SKIPPED (no es error, es que aún no aplica). web-push
+// se importa perezoso para no cargarlo salvo cuando de verdad hay que enviar.
+//
+// Auditoría de notificaciones (27-sep-2026). Lo que esto hacía mal antes:
+//  · Los endpoints iban en SERIE y sin plazo: un servicio de push lento retenía a
+//    los demás y a la propia petición.
+//  · Solo 404/410 se distinguían. Un 429/5xx/timeout (transitorio) se daba por
+//    FAILED definitivo —«un FAILED no se reintenta solo»— y la notificación se
+//    perdía por un parpadeo del proveedor.
+//  · Un 400/401/403 (payload o VAPID rechazados) quedaba como «error push» sin
+//    decir qué endpoint ni con qué código.
+//  · `failure_count` existía y NADIE lo tocaba: una suscripción rota para siempre
+//    (no 410) se reintentaba en cada aviso hasta el fin de los tiempos.
+//  · `tag` era el tipo de evento: dos «reserva confirmada» seguidas se pisaban en
+//    el dispositivo (la segunda sustituía a la primera, sin sonido).
+//  · No se mandaba `TTL` ni `urgency`: un recordatorio de 1 h podía llegar al
+//    móvil horas después, con la clase ya empezada.
+//  · El resultado por endpoint no se guardaba en ningún sitio: «no le llegó a esta
+//    alumna, ¿por qué?» no tenía respuesta.
+
+export type EstadoEndpoint = 'ok' | 'caducada' | 'transitorio' | 'rechazado';
+
+export interface ResultadoEndpoint {
+  id: string;
+  /** Solo el host del servicio de push (fcm, apple…): el endpoint entero es un secreto. */
+  host: string;
+  estado: EstadoEndpoint;
+  codigo?: number;
+  detalle?: string;
+}
+
+export interface EndpointPush {
+  id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  failure_count?: number | null;
+}
+
+type Enviador = (
+  sub: { endpoint: string; keys: { p256dh: string; auth: string } },
+  payload: string,
+  opciones: { TTL: number; urgency: 'very-low' | 'low' | 'normal' | 'high'; timeout: number },
+) => Promise<{ statusCode?: number }>;
+
+/** Fallos SEGUIDOS de una suscripción (no 410) tras los que se retira. */
+export const FALLOS_PARA_RETIRAR = 10;
+const REINTENTOS_TRANSITORIOS = 2;
+const PLAZO_ENDPOINT_MS = 8_000;
+const ESPERA_REINTENTO_MS = [400, 1_200];
+
+export function hostDeEndpoint(endpoint: string): string {
+  try { return new URL(endpoint).host; } catch { return 'desconocido'; }
+}
+
+/** El nombre corto que se enseña: fcm, apple, mozilla, windows… */
+export function proveedorDePush(host: string): string {
+  if (host.includes('fcm.googleapis') || host.includes('googleapis')) return 'fcm';
+  if (host.includes('push.apple.com')) return 'apple';
+  if (host.includes('mozilla')) return 'mozilla';
+  if (host.includes('notify.windows')) return 'windows';
+  return host.split('.').slice(-2, -1)[0] || host;
+}
+
+export function opcionesPush(prioridad: string): { TTL: number; urgency: 'very-low' | 'low' | 'normal' | 'high' } {
+  // Un aviso urgente pierde valor rápido (plaza libre, clase cancelada): que el
+  // proveedor no lo guarde más de 6 h. El resto aguanta un día.
+  const urgente = prioridad === 'CRITICA' || prioridad === 'ALTA';
+  return {
+    TTL: urgente ? 6 * 3600 : 24 * 3600,
+    urgency: urgente ? 'high' : prioridad === 'BAJA' ? 'low' : 'normal',
+  };
+}
+
+function clasificar(codigo: number | undefined): EstadoEndpoint {
+  if (codigo != null && codigo >= 200 && codigo < 300) return 'ok';
+  if (codigo === 404 || codigo === 410) return 'caducada';
+  // Sin código = red caída/timeout; 429 y 5xx = el servicio de push, no la suscripción.
+  if (codigo == null || codigo === 429 || codigo >= 500) return 'transitorio';
+  return 'rechazado'; // 400/401/403/413…: payload, VAPID o suscripción inválidos
+}
+
+const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * Manda el mismo payload a todos los endpoints EN PARALELO, con plazo y con
+ * reintentos acotados para los fallos transitorios. Nunca lanza: un endpoint roto
+ * no puede impedir el envío a los demás.
+ */
+export async function enviarAEndpoints(
+  endpoints: readonly EndpointPush[],
+  payload: string,
+  prioridad: string,
+  enviar: Enviador,
+  espera: (ms: number) => Promise<void> = dormir,
+): Promise<ResultadoEndpoint[]> {
+  const opciones = { ...opcionesPush(prioridad), timeout: PLAZO_ENDPOINT_MS };
+  return Promise.all(endpoints.map(async (e): Promise<ResultadoEndpoint> => {
+    const host = hostDeEndpoint(e.endpoint);
+    let ultimo: ResultadoEndpoint = { id: e.id, host, estado: 'transitorio' };
+    for (let intento = 0; intento <= REINTENTOS_TRANSITORIOS; intento++) {
+      let codigo: number | undefined;
+      let detalle: string | undefined;
+      try {
+        const r = await enviar({ endpoint: e.endpoint, keys: { p256dh: e.p256dh, auth: e.auth } }, payload, opciones);
+        codigo = r?.statusCode ?? 201;
+      } catch (err) {
+        codigo = (err as { statusCode?: number }).statusCode;
+        detalle = err instanceof Error ? err.message.slice(0, 120) : 'error push';
+      }
+      ultimo = { id: e.id, host, estado: clasificar(codigo), ...(codigo != null ? { codigo } : {}), ...(detalle ? { detalle } : {}) };
+      if (ultimo.estado !== 'transitorio' || intento === REINTENTOS_TRANSITORIOS) break;
+      await espera(ESPERA_REINTENTO_MS[intento] ?? 1_000);
+    }
+    return ultimo;
+  }));
+}
+
+/** El veredicto y el texto que queda en `notification_delivery` para «¿por qué no le llegó?». */
+export function resumirPush(res: readonly ResultadoEndpoint[], retiradas: number): ResultadoCanal {
+  const partes = res.map((r) => `${proveedorDePush(r.host)}:${r.codigo ?? 'sin-respuesta'}${r.estado === 'ok' ? '' : `(${r.estado})`}`);
+  const ok = res.filter((r) => r.estado === 'ok').length;
+  const providerId = `${ok}/${res.length} · ${partes.join(' ')}`.slice(0, 250);
+  if (ok > 0) return { status: 'SENT', providerId };
+  const fallidos = res.filter((r) => r.estado === 'transitorio' || r.estado === 'rechazado');
+  if (fallidos.length === 0) {
+    return { status: 'SKIPPED', providerId, error: `suscripción caducada: se ha retirado${retiradas > 1 ? ` (${retiradas})` : ''}; hay que volver a activar los avisos en ese dispositivo` };
+  }
+  const f = fallidos[0];
+  const que = f.estado === 'rechazado'
+    ? 'el servicio de push rechazó el envío'
+    : 'el servicio de push no respondió a tiempo';
+  return { status: 'FAILED', providerId, error: `${que} (${proveedorDePush(f.host)} ${f.codigo ?? 'sin respuesta'})${f.detalle ? `: ${f.detalle}` : ''}` };
+}
+
 const push: Canal = {
   nombre: 'PUSH',
   async enviar({ admin, notificacion, destinatario }) {
@@ -53,9 +185,11 @@ const push: Canal = {
     const privateKey = process.env.VAPID_PRIVATE_KEY;
     if (!publicKey || !privateKey) return { status: 'SKIPPED', error: 'push no configurado (VAPID pendiente)' };
 
-    const { data: subs } = await admin.from('push_subscription')
-      .select('id, endpoint, p256dh, auth').eq('user_id', destinatario.userId);
-    if (!subs || subs.length === 0) return { status: 'SKIPPED', error: 'sin suscripción push' };
+    const { data: subs, error: errSubs } = await admin.from('push_subscription')
+      .select('id, endpoint, p256dh, auth, failure_count').eq('user_id', destinatario.userId);
+    // Leer mal NO es «no tiene suscripción»: se dice, no se calla.
+    if (errSubs) return { status: 'FAILED', error: `no se pudieron leer sus suscripciones: ${errSubs.message}` };
+    if (!subs || subs.length === 0) return { status: 'SKIPPED', error: 'sin suscripción push: la usuaria no ha activado los avisos en ningún dispositivo' };
 
     // El icono mostraba SIEMPRE el logo genérico de Tentare (hardcodeado en
     // public/sw.js), aunque cada estudio ya puede subir el suyo desde
@@ -69,28 +203,36 @@ const push: Canal = {
     webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:soporte@tentare.app', publicKey, privateKey);
     const payload = JSON.stringify({
       title: notificacion.title, body: notificacion.body,
-      url: notificacion.deepLink || '/', tag: notificacion.eventType,
+      url: notificacion.deepLink || '/',
+      // Una etiqueta POR notificación: con el tipo de evento como etiqueta, dos
+      // avisos del mismo tipo seguidos se sustituían en el dispositivo.
+      tag: notificacion.id,
+      // El service worker devuelve este id al recibir y al pulsar: así se sabe si
+      // el aviso llegó de verdad al dispositivo (`/api/notifications/receipt`).
+      nid: notificacion.id,
       icon: logoUrl || urlMonograma(st?.nombre as string | undefined, st?.color_primario as string | undefined, 192),
     });
 
-    let enviados = 0;
-    let ultimoError: string | undefined;
-    for (const s of subs) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint as string, keys: { p256dh: s.p256dh as string, auth: s.auth as string } },
-          payload,
-        );
-        enviados++;
-      } catch (e) {
-        const code = (e as { statusCode?: number }).statusCode;
-        // 404/410 = endpoint muerto (desinstaló la PWA / revocó) → limpiar.
-        if (code === 404 || code === 410) await admin.from('push_subscription').delete().eq('id', s.id);
-        else ultimoError = e instanceof Error ? e.message : 'error push';
+    const resultados = await enviarAEndpoints(
+      subs as EndpointPush[], payload, notificacion.priority,
+      (sub, cuerpo, opciones) => webpush.sendNotification(sub, cuerpo, opciones),
+    );
+
+    const caducadas = resultados.filter((r) => r.estado === 'caducada').map((r) => r.id);
+    if (caducadas.length > 0) await admin.from('push_subscription').delete().in('id', caducadas);
+    // failure_count: se sube con cada fallo que no es «caducada», y se retira la
+    // que lleva demasiados seguidos. Sin esto una suscripción rota para siempre
+    // se reintentaba en cada aviso, eternamente.
+    for (const r of resultados) {
+      const previa = (subs.find((s) => s.id === r.id)?.failure_count as number | null | undefined) ?? 0;
+      if (r.estado === 'ok' && previa > 0) {
+        await admin.from('push_subscription').update({ failure_count: 0 }).eq('id', r.id);
+      } else if (r.estado === 'transitorio' || r.estado === 'rechazado') {
+        if (previa + 1 >= FALLOS_PARA_RETIRAR) await admin.from('push_subscription').delete().eq('id', r.id);
+        else await admin.from('push_subscription').update({ failure_count: previa + 1 }).eq('id', r.id);
       }
     }
-    if (enviados > 0) return { status: 'SENT', providerId: `${enviados} endpoint(s)` };
-    return { status: ultimoError ? 'FAILED' : 'SKIPPED', error: ultimoError ?? 'sin endpoints válidos' };
+    return resumirPush(resultados, caducadas.length);
   },
 };
 

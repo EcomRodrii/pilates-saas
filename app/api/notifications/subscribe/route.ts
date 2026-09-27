@@ -68,6 +68,24 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+// ¿Sigue registrado en el servidor ESTE dispositivo? El navegador puede seguir
+// suscrito (permiso concedido, PushSubscription viva) mientras el servidor ya no
+// tiene la fila: se retiró por caducada, falló el POST de renovación, la borró
+// otra sesión. La pantalla decía «activados» y no llegaba nada. Solo responde
+// por la suscripción de QUIEN PREGUNTA (identidad del JWT).
+export async function GET(req: NextRequest) {
+  const user = await verificarUsuarioSupabase(req);
+  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'sin service-role' }, { status: 500 });
+  const endpoint = req.nextUrl.searchParams.get('endpoint');
+  if (!endpoint) return NextResponse.json({ error: 'falta endpoint' }, { status: 400 });
+  const { data, error } = await admin.from('push_subscription')
+    .select('id, created_at').eq('user_id', user.userId).eq('endpoint', endpoint).maybeSingle();
+  if (error) return errorInterno('notifications/subscribe:get', error, 'No se ha podido comprobar la suscripción.');
+  return NextResponse.json({ registrada: !!data, desde: (data?.created_at as string | undefined) ?? null });
+}
+
 export async function DELETE(req: NextRequest) {
   const user = await verificarUsuarioSupabase(req);
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });

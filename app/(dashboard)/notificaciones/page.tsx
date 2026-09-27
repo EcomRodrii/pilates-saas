@@ -15,6 +15,7 @@ import type { NotificationCategory } from '@/lib/notifications/types';
 interface AdminItem {
   id: string;
   recipientRole: string;
+  recipientName?: string | null;
   eventType: string;
   category: NotificationCategory;
   priority: string;
@@ -22,13 +23,19 @@ interface AdminItem {
   body: string;
   createdAt: string;
   readAt: string | null;
-  deliveries: { channel: string; status: string; error: string | null }[];
+  deliveries: { channel: string; status: string; error: string | null; detalle?: string | null; entregadaEn?: string | null }[];
 }
 
 const ROL_ETIQUETA: Record<string, string> = { PROPIETARIO: 'Propietaria', INSTRUCTOR: 'Instructora', SOCIA: 'Socia' };
 const PRIO_COLOR: Record<string, string> = {
   CRITICA: 'text-destructive bg-red-500/10', ALTA: 'text-warning bg-amber-500/10',
   MEDIA: 'text-brand-medio bg-brand/10', BAJA: 'text-muted-foreground bg-muted', SILENCIOSA: 'text-muted-foreground bg-muted',
+};
+// Lo que significa cada estado, sin jerga. SENT NO es «le llegó»: es que el servicio
+// de push (Apple, Google) aceptó el mensaje. «Mostrado» sí lo confirma el móvil.
+const ESTADO_TEXTO: Record<string, string> = {
+  SENT: 'aceptado', DELIVERED: 'mostrado en el dispositivo', PENDING: 'pendiente',
+  SKIPPED: 'no enviado', FAILED: 'falló',
 };
 const ESTADO_COLOR: Record<string, string> = {
   SENT: 'text-success', DELIVERED: 'text-success', PENDING: 'text-muted-foreground',
@@ -44,6 +51,7 @@ export default function NotificationCenterPage() {
   const [cargando, setCargando] = useState(true);
   const [reintentando, setReintentando] = useState<string | null>(null);
   const [errorReintento, setErrorReintento] = useState<string | null>(null);
+  const [buscar, setBuscar] = useState('');
 
   const cargar = useCallback(async () => {
     const res = await fetch('/api/notifications/admin', { headers: await authHeader(), cache: 'no-store' });
@@ -89,6 +97,13 @@ export default function NotificationCenterPage() {
         description="Todo lo que el sistema ha enviado: a quién, por qué canal y con qué resultado."
       />
 
+      <input
+        type="search" value={buscar} onChange={e => setBuscar(e.target.value)}
+        placeholder="Buscar por destinatario, aviso o error (p. ej. el nombre de una alumna)…"
+        aria-label="Buscar notificaciones"
+        className="mt-3 w-full max-w-md rounded-xl border border-border bg-card px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground"
+      />
+
       {errorReintento && (
         <p role="alert" className="mt-3 px-3 py-2.5 rounded-xl text-[12px] font-semibold bg-destructive/10 text-destructive">
           {errorReintento}
@@ -114,10 +129,13 @@ export default function NotificationCenterPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map(n => (
+                {items.filter(n => !buscar.trim() || [n.recipientName, n.recipientRole, n.title, n.body, n.eventType, ...n.deliveries.map(d => d.error), ...n.deliveries.map(d => d.detalle)].some(t => (t ?? '').toLowerCase().includes(buscar.trim().toLowerCase()))).map(n => (
                   <tr key={n.id} className="border-b border-border/50 align-top">
                     <td className="px-4 py-3 whitespace-nowrap text-muted-foreground tabular-nums">{fecha(n.createdAt)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap font-semibold text-foreground">{ROL_ETIQUETA[n.recipientRole] ?? n.recipientRole}</td>
+                    <td className="px-4 py-3 whitespace-nowrap font-semibold text-foreground">
+                      {n.recipientName || (ROL_ETIQUETA[n.recipientRole] ?? n.recipientRole)}
+                      {n.recipientName && <span className="block text-[11px] font-normal text-muted-foreground">{ROL_ETIQUETA[n.recipientRole] ?? n.recipientRole}</span>}
+                    </td>
                     <td className="px-4 py-3 max-w-[260px]">
                       <p className="font-semibold text-foreground truncate">{n.title}</p>
                       <p className="text-muted-foreground text-[12px] truncate">{n.body}</p>
@@ -131,8 +149,10 @@ export default function NotificationCenterPage() {
                         {n.deliveries.length === 0 ? <span className="text-muted-foreground/60">—</span> : n.deliveries.map((d, i) => (
                           <span key={i} className="whitespace-nowrap text-[12px]">
                             <span className="text-muted-foreground">{d.channel}</span>{' '}
-                            <span className={`font-semibold ${ESTADO_COLOR[d.status] ?? ''}`}>{d.status}</span>
+                            <span className={`font-semibold ${ESTADO_COLOR[d.status] ?? ''}`} title={d.status}>{ESTADO_TEXTO[d.status] ?? d.status}</span>
+                            {d.entregadaEn && <span className="text-muted-foreground text-[11px]"> · {fecha(d.entregadaEn)}</span>}
                             {d.error && <span className="text-destructive/70 text-[11px]"> · {d.error}</span>}
+                            {d.detalle && d.channel === 'PUSH' && <span className="block text-[10.5px] text-muted-foreground/80">{d.detalle}</span>}
                           </span>
                         ))}
                         {n.deliveries.some(d => d.status === 'FAILED') && (

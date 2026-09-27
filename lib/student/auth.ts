@@ -1,5 +1,6 @@
 'use client';
 
+import { soltarPushStudent } from '@/lib/student/push';
 import { useCallback } from 'react';
 import { codigoDeError, emailYaEnUso, traducirAuth, type CodigoAuth } from './auth-errores.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
@@ -262,7 +263,12 @@ export function useAuthStudent(slug: string) {
   // quien se va; `catalogo.ts` ya se vacía en SIGNED_OUT, pero aquí no cuesta.
   // La invitación de equipo guardada se va con la sesión: en un dispositivo
   // compartido no puede esperar a la siguiente persona (`invitacion-app-regla.ts`).
-  const logout = useCallback(async () => { invalidarCatalogo(slug); olvidarInvitacionApp(slug); await supabasePortal.auth.signOut(); }, [slug]);
+  const logout = useCallback(async () => {
+    // Antes de cerrar sesión (después el servidor no sabría de quién es): este
+    // dispositivo deja de recibir los avisos de esta cuenta.
+    await soltarPushStudent(slug);
+    invalidarCatalogo(slug); olvidarInvitacionApp(slug); await supabasePortal.auth.signOut();
+  }, [slug]);
 
   return { loginConPassword, enviarEnlace, registrarCuenta, reenviarCodigoAlta, fijarPassword, cambiarPassword, cambiarEmail, recuperar, entrarConGoogle, logout };
 }
