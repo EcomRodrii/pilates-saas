@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import type { MiembroCompleto } from '@/lib/equipo-tarjetas.ts';
+import { NOMBRE_PERSONA_ELIMINADA } from '@/lib/equipo/eliminar-persona-reglas';
 import { DIAS_LARGOS, MIN_CLASES_OCUPACION } from '@/lib/equipo-tarjetas.ts';
 
 // GET /api/equipo/tarjetas — el equipo, ya listo para la rejilla de tarjetas
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
   const desde = new Date(Math.min(ahora.getTime() - 30 * MS_DIA, inicioMes.getTime(), lunes.getTime()));
   const hasta = new Date(ahora.getTime() + 21 * MS_DIA);
 
-  const [{ data: instructores, error: errInst }, { data: sesiones, error: errSes }, valRpc, ultimaClaseRes, dispRes] = await Promise.all([
+  const [{ data: instructores, error: errInst }, { data: sesiones, error: errSes }, valRpc, ultimaClaseRes, dispRes, supresionesRes] = await Promise.all([
     admin.from('instructores')
       .select('id, nombre, rol, color, avatar, foto_url, activo, auth_user_id, email, telefono')
       .eq('studio_id', sesion.studioId),
@@ -101,8 +102,24 @@ export async function GET(req: NextRequest) {
       .select('instructor_id, creado_en')
       .eq('studio_id', sesion.studioId)
       .order('creado_en', { ascending: false }),
+    // Personas ya eliminadas (art. 17) a las que aún les falta borrar algo fuera de la base de datos (cuenta de acceso,
+    // foto): siguen apareciendo para que la propietaria pueda completarlo. Tabla pequeña, solo del servidor.
+    admin.from('supresiones_equipo')
+      .select('instructor_id, terceros_pendientes')
+      .eq('studio_id', sesion.studioId),
   ]);
   if (errInst) return errorInterno('equipo:tarjetas:instructores', errInst, 'No se ha podido cargar el equipo.');
+  if (supresionesRes.error) return errorInterno('equipo:tarjetas:supresiones', supresionesRes.error, 'No se ha podido cargar el equipo.');
+  // Una ficha ya eliminada (art. 17) se conserva por sus clases y jornadas, pero no es un miembro del equipo:
+  // solo se ve, y solo la propietaria, mientras le quede algo por borrar fuera de la base de datos.
+  const conPendientes = new Set(
+    sesion.rol === 'PROPIETARIO'
+      ? (supresionesRes.data ?? [])
+          .filter(f => Array.isArray(f.terceros_pendientes) && f.terceros_pendientes.length > 0)
+          .map(f => f.instructor_id as string)
+      : [],
+  );
+  const equipo = (instructores ?? []).filter(i => i.nombre !== NOMBRE_PERSONA_ELIMINADA || conPendientes.has(i.id));
   if (errSes) return errorInterno('equipo:tarjetas:sesiones', errSes, 'No se ha podido cargar el equipo.');
   if (valRpc.error) return errorInterno('equipo:tarjetas:valoraciones', valRpc.error, 'No se ha podido cargar el equipo.');
   if (ultimaClaseRes.error) return errorInterno('equipo:tarjetas:ultima_clase', ultimaClaseRes.error, 'No se ha podido cargar el equipo.');
@@ -171,7 +188,7 @@ export async function GET(req: NextRequest) {
   // El propio instructor puede tener más de una ficha histórica; la primera
   // activa es la que cuenta — mismo criterio que app/api/equipo/tarifas y
   // app/api/equipo/ausencias.
-  const miFicha = (instructores ?? []).find(i => i.auth_user_id === sesion.userId && i.activo !== false) ?? null;
+  const miFicha = equipo.find(i => i.auth_user_id === sesion.userId && i.activo !== false) ?? null;
 
   function labelSesion(s: SesionFila): string {
     const hora = new Date(s.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -192,7 +209,7 @@ export async function GET(req: NextRequest) {
   // Quien llega aquí gestiona el equipo (recepción e instructora ya recibieron 403).
   const gestiona = puedeGestionarEquipo(sesion.rol);
 
-  const items: MiembroCompleto[] = (instructores ?? []).map(i => {
+  const items: MiembroCompleto[] = equipo.map(i => {
     const esYo = i.auth_user_id === sesion.userId;
     const propias = porInstructor.get(i.id) ?? [];
 

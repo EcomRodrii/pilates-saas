@@ -7,11 +7,12 @@
 // Puro, sin I/O (el reloj y la espera se inyectan para poder testearlo).
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type TerceroSupresion = 'stripe_customer' | 'cuenta_acceso';
+// `foto_avatar`: la foto de una persona del EQUIPO en el bucket público `avatars` (`app/api/equipo/eliminar`).
+export type TerceroSupresion = 'stripe_customer' | 'cuenta_acceso' | 'foto_avatar';
 
 export interface TerceroPendiente {
   tercero: TerceroSupresion;
-  /** Id en el tercero (cus_… / uuid). Hace falta para reintentar. */
+  /** Id en el tercero (cus_… / uuid / URL de la foto). Hace falta para reintentar. */
   ref: string;
   /** Cuenta conectada del estudio, solo para Stripe. */
   cuenta?: string | null;

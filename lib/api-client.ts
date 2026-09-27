@@ -1172,6 +1172,29 @@ export async function invitarAlEquipo(instructorId: string): Promise<{ ok: true;
   return { ok: true, email: String(data.email ?? '') };
 }
 
+/**
+ * Elimina definitivamente a alguien del equipo (art. 17): anonimiza su ficha, borra lo suyo y su
+ * cuenta de acceso. Solo la propietaria, y solo a alguien ya de baja. NO se puede deshacer.
+ * `completa: false` = algo (la cuenta de acceso) quedó pendiente y `aviso` lo cuenta.
+ */
+export async function eliminarPersonaDelEquipo(
+  instructorId: string,
+): Promise<{ ok: true; completa: boolean; cuentaConservada: boolean; aviso: string | null } | { error: string }> {
+  const res = await fetch('/api/equipo/eliminar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ instructorId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  return {
+    ok: true,
+    completa: data.completa !== false,
+    cuentaConservada: data.cuentaConservada === true,
+    aviso: typeof data.aviso === 'string' ? data.aviso : null,
+  };
+}
+
 // ── Billing del SaaS (suscripción del estudio a Tentare) ───────────────────────
 
 export interface EstadoBilling {

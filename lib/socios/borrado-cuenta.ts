@@ -32,6 +32,20 @@ export const VINCULOS_CUENTA: readonly VinculoCuenta[] = [
   { clave: 'perfil_network_alumna', tabla: 'red_perfiles_alumna', columna: 'auth_user_id', descripcion: 'perfil de Network (alumna)' },
   { clave: 'admin_plataforma', tabla: 'plataforma_admin', columna: 'auth_user_id', descripcion: 'admin de la plataforma' },
   { clave: 'permiso_plataforma', tabla: 'plataforma_permiso', columna: 'auth_user_id', descripcion: 'permiso de plataforma' },
+  // Actividad de Network: las FK hacia auth.users son NO ACTION a propósito (una reseña, una solicitud o un mensaje
+  // no deben desaparecer en silencio), así que `deleteUser` fallaría siempre con 23503 y quedaría un pendiente
+  // eterno. Con actividad de Network fuera de este estudio la cuenta se CONSERVA.
+  { clave: 'network_favoritos', tabla: 'red_favoritos', columna: 'creado_por', descripcion: 'favoritos de Network' },
+  { clave: 'network_formalizaciones', tabla: 'red_formalizaciones', columna: 'propuesto_por', descripcion: 'formalización de Network' },
+  { clave: 'network_mensajes', tabla: 'red_mensajes', columna: 'remitente', descripcion: 'mensajes de Network' },
+  { clave: 'network_reportes_hechos', tabla: 'red_reportes', columna: 'reportado_por', descripcion: 'reporte de Network' },
+  { clave: 'network_reportes_revisados', tabla: 'red_reportes', columna: 'revisado_por', descripcion: 'reporte de Network revisado' },
+  { clave: 'network_resenas', tabla: 'red_resenas', columna: 'autor', descripcion: 'reseña de Network' },
+  { clave: 'network_resenas_moderadas', tabla: 'red_resenas', columna: 'moderado_por', descripcion: 'reseña de Network moderada' },
+  { clave: 'network_solicitudes', tabla: 'red_solicitudes_contacto', columna: 'solicitado_por', descripcion: 'solicitud de contacto de Network' },
+  { clave: 'network_vacantes', tabla: 'red_vacantes', columna: 'publicado_por', descripcion: 'vacante de Network' },
+  { clave: 'network_experiencias_solicitadas', tabla: 'red_verificaciones_experiencia', columna: 'solicitado_por', descripcion: 'verificación de experiencia de Network' },
+  { clave: 'network_experiencias_resueltas', tabla: 'red_verificaciones_experiencia', columna: 'resuelto_por', descripcion: 'verificación de experiencia de Network resuelta' },
 ];
 
 /** Recuento por `clave` de VINCULOS_CUENTA. `null` = no se pudo contar. */

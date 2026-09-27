@@ -3426,6 +3426,17 @@ export interface RowConsultasContacto {
   atendida_por: string | null;
 }
 
+export interface RowSupresionesEquipo {
+  id: string;
+  studio_id: string;
+  instructor_id: string;
+  auth_user_id: string | null;
+  ejecutada_en: string;
+  ejecutada_por: string | null;
+  reaplicada_en: string | null;
+  terceros_pendientes: any;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -9463,6 +9474,28 @@ export type ConsultasContactoUpdate = {
   atendida_por?: string | null | null;
 }
 
+export type SupresionesEquipoInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  auth_user_id?: string | null | null;
+  ejecutada_en?: string | null;
+  ejecutada_por?: string | null | null;
+  reaplicada_en?: string | null | null;
+  terceros_pendientes?: any | null;
+}
+
+export type SupresionesEquipoUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  instructor_id?: string | null;
+  auth_user_id?: string | null | null;
+  ejecutada_en?: string | null;
+  ejecutada_por?: string | null | null;
+  reaplicada_en?: string | null | null;
+  terceros_pendientes?: any | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -10545,6 +10578,11 @@ export type Database = {
         Row: RowConsultasContacto;
         Insert: ConsultasContactoInsert;
         Update: ConsultasContactoUpdate;
+      };
+      supresiones_equipo: {
+        Row: RowSupresionesEquipo;
+        Insert: SupresionesEquipoInsert;
+        Update: SupresionesEquipoUpdate;
       };
     };
   };

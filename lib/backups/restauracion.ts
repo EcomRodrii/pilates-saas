@@ -38,6 +38,13 @@
 //      cliente reenvíe el studioId/nombre de sede que cree activo y comparar
 //      contra `sesion.studioId`, 409 si difieren — mismo criterio que ya usa
 //      `sedeGuardada` en resolverSesionStaff.
+//   9. Persona del EQUIPO eliminada DESPUÉS de la copia (`anonimizar_instructor`,
+//      constancia en `supresiones_equipo`): la copia trae su ficha con nombre, email y
+//      cuenta. Tras restaurar hay que volver a llamar a `anonimizar_instructor` por cada
+//      fila de `supresiones_equipo` (es repetible a propósito y recupera la cuenta del
+//      registro) y comprobar que la ficha vuelve a ser «Persona eliminada», sin email ni
+//      `auth_user_id`, y que no reaparece en /equipo. Hoy ningún camino de restauración
+//      lo hace, y `restaurar_backup` no mira esa tabla.
 // Y además: el diálogo del panel tiene que dejar de decir «sobrescribirá todos
 // los datos» y enumerar lo que NO se restaura (lo fiscal, y las tablas en modo
 // insertar_faltantes no revierten cambios, solo recuperan lo borrado).
