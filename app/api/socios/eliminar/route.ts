@@ -6,9 +6,9 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 import { ejecutarCancelacionReserva } from '@/lib/db/supabase-data-admin';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
-import { VINCULOS_CUENTA, decidirBorradoCuenta, type RecuentoVinculos } from '@/lib/socios/borrado-cuenta';
+import { borrarCuentaSiQuedaSuelta } from '@/lib/socios/cuenta-acceso-servidor';
 import {
-  avisoPendientes, conReintentos, cuentaYaNoExiste, stripeYaNoExiste, type TerceroPendiente,
+  avisoPendientes, conReintentos, stripeYaNoExiste, type TerceroPendiente,
 } from '@/lib/socios/terceros-supresion';
 
 // Supresión RGPD (art. 17) de una socia, con RETENCIÓN FISCAL.
@@ -227,36 +227,4 @@ async function borrarClienteStripe(
     return pendiente(`Stripe: ${r.error}`, cuenta);
   }
   return null;
-}
-
-async function borrarCuentaSiQuedaSuelta(
-  admin: SupabaseClient, authUserId: string,
-): Promise<{ pendiente: TerceroPendiente | null; conservada: boolean }> {
-  const pendiente = (motivo: string): TerceroPendiente => ({
-    tercero: 'cuenta_acceso', ref: authUserId, motivo, en: new Date().toISOString(),
-  });
-
-  const recuento: RecuentoVinculos = {};
-  await Promise.all(VINCULOS_CUENTA.map(async v => {
-    const { count, error } = await admin
-      .from(v.tabla).select(v.columna, { count: 'exact', head: true }).eq(v.columna, authUserId);
-    recuento[v.clave] = error ? null : (count ?? null);
-  }));
-
-  const decision = decidirBorradoCuenta(recuento);
-  if (!decision.borrar) {
-    // Con otros vínculos la cuenta se conserva a propósito: no es un pendiente.
-    if (decision.motivo === 'tiene_vinculos') return { pendiente: null, conservada: true };
-    return { pendiente: pendiente(`No se pudieron comprobar sus otros vínculos (${decision.sinComprobar.join(', ')})`), conservada: false };
-  }
-
-  const r = await conReintentos(async () => {
-    const { error } = await admin.auth.admin.deleteUser(authUserId);
-    if (error && !cuentaYaNoExiste(error)) throw error;
-  });
-  if (!r.ok) {
-    console.error('[socios/eliminar] no se pudo borrar la cuenta de acceso', r.error);
-    return { pendiente: pendiente(`Cuenta: ${r.error}`), conservada: false };
-  }
-  return { pendiente: null, conservada: false };
 }

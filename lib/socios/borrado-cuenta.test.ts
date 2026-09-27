@@ -14,13 +14,17 @@ test('cubre los vínculos que exige la decisión de producto', () => {
     'socios.auth_user_id', 'instructores.auth_user_id', 'studios.owner_auth_user_id',
     'cadenas.owner_auth_user_id', 'red_perfiles.auth_user_id', 'red_perfiles_alumna.auth_user_id',
     'plataforma_admin.auth_user_id',
+    // Las FK NO ACTION de Network hacia auth.users: sin ellas, deleteUser fallaría siempre con 23503.
+    'red_vacantes.publicado_por', 'red_solicitudes_contacto.solicitado_por', 'red_resenas.autor', 'red_mensajes.remitente',
+    'red_favoritos.creado_por', 'red_formalizaciones.propuesto_por', 'red_reportes.reportado_por',
+    'red_verificaciones_experiencia.solicitado_por',
   ]) {
     assert.ok(tablas.has(t), `falta el vínculo ${t}`);
   }
 });
 
 test('una otra ficha de socia, una instructora o una dueña conservan la cuenta', () => {
-  for (const clave of ['otras_fichas_socia', 'instructora', 'duena_estudio', 'duena_cadena', 'perfil_network', 'admin_plataforma']) {
+  for (const clave of ['otras_fichas_socia', 'instructora', 'duena_estudio', 'duena_cadena', 'perfil_network', 'admin_plataforma', 'network_vacantes', 'network_resenas']) {
     const r = decidirBorradoCuenta({ ...ceros(), [clave]: 1 });
     assert.deepEqual(r, { borrar: false, motivo: 'tiene_vinculos', vinculos: [clave] });
   }

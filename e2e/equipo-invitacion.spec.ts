@@ -185,3 +185,180 @@ test.describe('Aviso: lo que hace el equipo con el dinero se anota', () => {
     await expect(dialogo.getByTestId('aviso-registro-alta')).toHaveCount(0);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────────
+// «Dar de baja» y «eliminar definitivamente» son dos cosas. La baja es reversible y es lo que se ofrece a
+// quien está en el equipo; eliminar definitivamente (art. 17: anonimiza la ficha y borra la cuenta, no se
+// deshace) solo se ofrece a la propietaria y sobre alguien YA de baja. La cerradura real es la ruta.
+// ────────────────────────────────────────────────────────────────────────────
+const LOLA = {
+  id: 'ins-lola', studio_id: STUDIO_ID, nombre: 'Lola', email: null, telefono: null, color: '#111', activo: false,
+  rol: 'RECEPCION', avatar: null, foto_url: null, auth_user_id: null,
+};
+
+// Una persona con nombre de dos palabras (su nombre SÍ se busca en los textos de actividad) y otra ya eliminada a la que le falta algo.
+const LOLA_RUIZ = { ...LOLA, id: 'ins-lola-ruiz', nombre: 'Lola Ruiz' };
+const ELIMINADA_A_MEDIAS = { ...LOLA, id: 'ins-eliminada', nombre: 'Persona eliminada' };
+
+async function abrirMenuDe(page: Page, nombre: string) {
+  const tarjeta = page.locator('article, [data-testid^="tarjeta-"], div').filter({ hasText: nombre }).filter({ has: page.getByTitle('Más acciones') }).last();
+  await tarjeta.getByTitle('Más acciones').click();
+}
+
+async function verInactivas(page: Page) {
+  await page.locator('label', { hasText: 'Estado:' }).locator('select').selectOption('inactivas');
+}
+
+test.describe('Eliminar definitivamente a alguien del equipo', () => {
+  test('a quien está en el equipo se le da de baja; solo a quien ya lo está se le puede eliminar definitivamente', async ({ page }) => {
+    await montarEquipo(page, [MARTA, LOLA]);
+
+    await expect(page.getByText('Marta').first()).toBeVisible({ timeout: 30_000 });
+    await abrirMenuDe(page, 'Marta');
+    await expect(page.getByRole('button', { name: 'Dar de baja' })).toBeVisible();
+    await expect(page.getByTestId('eliminar-definitivamente')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    await verInactivas(page);
+    await expect(page.getByText('Lola').first()).toBeVisible();
+    await abrirMenuDe(page, 'Lola');
+    await expect(page.getByTestId('eliminar-definitivamente')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dar de baja' })).toHaveCount(0);
+  });
+
+  test('pide entender que no se deshace, manda solo el id de la persona, y avisa al terminar', async ({ page }) => {
+    await montarEquipo(page, [MARTA, LOLA]);
+    const llamadas: string[] = [];
+    await page.route('**/api/equipo/eliminar', route => {
+      llamadas.push(route.request().postData() ?? '');
+      return json(route, { ok: true, completa: true, cuentaConservada: false, aviso: null });
+    });
+
+    await verInactivas(page);
+    await expect(page.getByText('Lola').first()).toBeVisible({ timeout: 30_000 });
+    await abrirMenuDe(page, 'Lola');
+    await page.getByTestId('eliminar-definitivamente').click();
+
+    const dialogo = page.getByTestId('dialogo-eliminar-persona');
+    await expect(dialogo).toBeVisible();
+    // Dice qué se borra, qué se conserva y que no se deshace.
+    await expect(dialogo).toContainText('Se borra');
+    await expect(dialogo).toContainText('Se conserva');
+    await expect(dialogo).toContainText('Persona eliminada');
+    await expect(dialogo).toContainText('Esto no se puede deshacer');
+    // «Lola» tiene una sola palabra: no se puede reconocer con seguridad en los textos, y se dice ANTES de confirmar.
+    await expect(dialogo.getByTestId('aviso-nombre-una-palabra')).toContainText('una sola palabra');
+
+    const confirmar = page.getByTestId('confirmar-eliminar-persona');
+    // El texto es largo y el diálogo hace scroll: el botón que decide no puede quedar fuera de vista (se vio cortado a 720 px de alto).
+    await expect(confirmar).toBeInViewport();
+    await expect(confirmar).toBeDisabled();
+    expect(llamadas).toHaveLength(0);
+    await dialogo.getByRole('checkbox', { name: /Entiendo que no se puede deshacer/ }).check();
+    await expect(confirmar).toBeEnabled();
+    await confirmar.click();
+
+    await expect.poll(() => llamadas.length).toBe(1);
+    expect(JSON.parse(llamadas[0])).toEqual({ instructorId: 'ins-lola' });
+    await expect(page.getByText('Lola se ha eliminado definitivamente')).toBeVisible();
+    await expect(dialogo).toHaveCount(0);
+  });
+
+  test('si el servidor dice que no, el diálogo se queda abierto con el porqué (y no se cuenta como hecho)', async ({ page }) => {
+    await montarEquipo(page, [MARTA, LOLA]);
+    const llamadas: string[] = [];
+    await page.route('**/api/equipo/eliminar', route => {
+      llamadas.push(route.request().postData() ?? '');
+      return json(route, { error: 'Todavía tiene clases o citas por venir. Pásalas a otra persona (o cancélalas) antes de eliminarla.' }, 409);
+    });
+
+    await verInactivas(page);
+    await expect(page.getByText('Lola').first()).toBeVisible({ timeout: 30_000 });
+    await abrirMenuDe(page, 'Lola');
+    await page.getByTestId('eliminar-definitivamente').click();
+    const dialogo = page.getByTestId('dialogo-eliminar-persona');
+    await dialogo.getByRole('checkbox').check();
+    await page.getByTestId('confirmar-eliminar-persona').click();
+
+    await expect.poll(() => llamadas.length).toBe(1);
+    await expect(page.getByTestId('error-eliminar-persona')).toContainText('clases o citas por venir');
+    await expect(dialogo).toBeVisible();
+    await expect(page.getByText('se ha eliminado definitivamente')).toHaveCount(0);
+  });
+
+  test('con dos palabras no se avisa del nombre, y si al terminar hay algo que contar el diálogo se queda con el texto', async ({ page }) => {
+    await montarEquipo(page, [MARTA, LOLA_RUIZ]);
+    await page.route('**/api/equipo/eliminar', route => json(route, {
+      ok: true, completa: true, cuentaConservada: false,
+      aviso: 'Su nombre coincide con el de otra persona de tu estudio, así que no se ha buscado en los textos de actividad y avisos: esos textos no se han tocado.',
+    }));
+
+    await verInactivas(page);
+    await expect(page.getByText('Lola Ruiz').first()).toBeVisible({ timeout: 30_000 });
+    await abrirMenuDe(page, 'Lola Ruiz');
+    await page.getByTestId('eliminar-definitivamente').click();
+    const dialogo = page.getByTestId('dialogo-eliminar-persona');
+    await expect(dialogo).toBeVisible();
+    await expect(dialogo.getByTestId('aviso-nombre-una-palabra')).toHaveCount(0);
+    await dialogo.getByRole('checkbox').check();
+    await page.getByTestId('confirmar-eliminar-persona').click();
+
+    // No desaparece detrás de un aviso de unos segundos: se lee y se cierra a propósito.
+    await expect(dialogo.getByTestId('resultado-eliminar-persona')).toContainText('coincide con el de otra persona');
+    await expect(dialogo).toContainText('Lola Ruiz se ha eliminado');
+    await expect(page.getByTestId('confirmar-eliminar-persona')).toHaveCount(0);
+    await page.getByTestId('cerrar-resultado-eliminar-persona').click();
+    await expect(dialogo).toHaveCount(0);
+  });
+
+  test('si la cuenta de acceso no se pudo borrar, se dice (no se da por completo)', async ({ page }) => {
+    await montarEquipo(page, [MARTA, LOLA]);
+    await page.route('**/api/equipo/eliminar', route => json(route, {
+      ok: true, completa: false, cuentaConservada: false,
+      aviso: 'Los datos de esta persona se han borrado de tu estudio, pero su cuenta de acceso no se ha podido borrar todavía. Vuelve a intentarlo desde Equipo.',
+    }));
+
+    await verInactivas(page);
+    await expect(page.getByText('Lola').first()).toBeVisible({ timeout: 30_000 });
+    await abrirMenuDe(page, 'Lola');
+    await page.getByTestId('eliminar-definitivamente').click();
+    await page.getByTestId('dialogo-eliminar-persona').getByRole('checkbox').check();
+    await page.getByTestId('confirmar-eliminar-persona').click();
+
+    const resultado = page.getByTestId('resultado-eliminar-persona');
+    await expect(resultado).toContainText('su cuenta de acceso no se ha podido borrar todavía');
+    await expect(page.getByTestId('dialogo-eliminar-persona')).toContainText('Falta terminar de borrar');
+    await expect(page.getByText('se ha eliminado definitivamente')).toHaveCount(0);
+  });
+
+  test('a quien quedó a medio borrar se le ofrece COMPLETAR (sin volver a confirmar), y al lograrlo se avisa', async ({ page }) => {
+    await montarEquipo(page, [MARTA, ELIMINADA_A_MEDIAS]);
+    const llamadas: string[] = [];
+    await page.route('**/api/equipo/eliminar', route => {
+      llamadas.push(route.request().postData() ?? '');
+      return json(route, { ok: true, yaEstaba: true, completa: true, cuentaConservada: false, aviso: null });
+    });
+
+    await verInactivas(page);
+    await expect(page.getByText('Persona eliminada').first()).toBeVisible({ timeout: 30_000 });
+    await abrirMenuDe(page, 'Persona eliminada');
+    await expect(page.getByTestId('eliminar-definitivamente')).toContainText('Completar la eliminación');
+    await page.getByTestId('eliminar-definitivamente').click();
+
+    const dialogo = page.getByTestId('dialogo-eliminar-persona');
+    await expect(dialogo).toContainText('Completar la eliminación');
+    await expect(dialogo).toContainText('falta terminar de borrar su cuenta de acceso o su foto');
+    // Ya está confirmada: nada que entender de nuevo ni «Se borra / Se conserva» otra vez.
+    await expect(dialogo.getByRole('checkbox')).toHaveCount(0);
+    const reintentar = page.getByTestId('confirmar-eliminar-persona');
+    await expect(reintentar).toContainText('Reintentar');
+    await expect(reintentar).toBeEnabled();
+    expect(llamadas).toHaveLength(0);
+    await reintentar.click();
+
+    await expect.poll(() => llamadas.length).toBe(1);
+    expect(JSON.parse(llamadas[0])).toEqual({ instructorId: 'ins-eliminada' });
+    await expect(page.getByText('Listo: ya no queda nada por borrar de esta persona')).toBeVisible();
+    await expect(dialogo).toHaveCount(0);
+  });
+});

@@ -26,6 +26,8 @@ import {
 import { PageHeader } from '@/components/ui/page-header';
 import { AvisoControlHorario } from '@/components/equipo/aviso-control-horario';
 import { AvisoRegistroDeCambios } from '@/components/equipo/aviso-registro-de-cambios';
+import { EliminarPersonaDialog } from '@/components/equipo/eliminar-persona-dialog';
+import { NOMBRE_PERSONA_ELIMINADA, puedeEliminarDefinitivamente } from '@/lib/equipo/eliminar-persona-reglas';
 import { seAnotanSusCambios } from '@/lib/auditoria/aviso-equipo';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Toast, useToast } from '@/components/ui/toast';
@@ -156,6 +158,8 @@ export default function EquipoPage() {
   const [invitando, setInvitando] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmDel, setConfirmDel] = useState<Instructor | null>(null);
+  // «Eliminar definitivamente» (art. 17): solo la propietaria, y solo a alguien ya de baja.
+  const [eliminarDef, setEliminarDef] = useState<{ id: string; nombre: string } | null>(null);
   const [eliminando, setEliminando] = useState(false);
   const [enlace, setEnlace] = useState<
     { instructor: MiembroCompleto; scope: EnlaceScope; url: string | null; loading: boolean; error: string | null; copiado: boolean } | null
@@ -646,6 +650,7 @@ export default function EquipoPage() {
               onAccion={tipo => ejecutarAccion(m, tipo)}
               onEditar={() => openEditar(m)}
               onEliminar={() => { setMenuCardId(null); const i = instructorDe(m); if (i) setConfirmDel(i); }}
+              onEliminarDefinitivo={() => { setMenuCardId(null); setEliminarDef({ id: m.id, nombre: m.nombre }); }}
               onValoraciones={() => { setMenuCardId(null); setVerValor(instructorDe(m)); }}
               onHoras={() => { setMenuCardId(null); setVerHoras(instructorDe(m)); }}
               onAusencias={() => { setMenuCardId(null); setVerAusencias(instructorDe(m)); }}
@@ -919,10 +924,10 @@ export default function EquipoPage() {
       <Dialog open={confirmDel !== null} onOpenChange={open => !open && !eliminando && setConfirmDel(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar miembro</DialogTitle>
+            <DialogTitle>Dar de baja</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            ¿Seguro que quieres eliminar a <strong className="text-foreground">{confirmDel?.nombre}</strong> del equipo? Sus clases futuras no se cancelan ni se tocan las reservas: quedarán marcadas «Instructor/a no disponible» y en tu bandeja de Inicio decidirás si las pasas a otra instructora, las mantienes sin instructora o las cancelas.
+            ¿Seguro que quieres dar de baja a <strong className="text-foreground">{confirmDel?.nombre}</strong>? Deja de formar parte del equipo y pierde el acceso; puedes reactivarla cuando quieras. Sus clases futuras no se cancelan ni se tocan las reservas: quedarán marcadas «Instructor/a no disponible» y en tu bandeja de Inicio decidirás si las pasas a otra instructora, las mantienes sin instructora o las cancelas.
           </p>
           {(() => {
             const dep = confirmDel ? dependencySnapshots.find(s => s.instructorId === confirmDel.id) : undefined;
@@ -947,11 +952,24 @@ export default function EquipoPage() {
               setConfirmDel(null);
               if (!res.ok) showToast(res.error);
             }} disabled={eliminando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white text-[13px] font-bold hover:bg-red-600 disabled:opacity-40">
-              {eliminando ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />} Eliminar
+              {eliminando ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />} Dar de baja
             </button>
           </div>
         </DialogContent>
       </Dialog>
+
+      <EliminarPersonaDialog
+        key={eliminarDef?.id ?? 'ninguna'}
+        persona={eliminarDef}
+        onClose={() => setEliminarDef(null)}
+        onEliminada={r => {
+          recargarTarjetas();
+          // Con algo que contar (lo que falta, o un nombre que no se pudo buscar) el diálogo se queda abierto con el texto.
+          if (r.aviso) return;
+          setEliminarDef(null);
+          showToast(r.nombre === NOMBRE_PERSONA_ELIMINADA ? 'Listo: ya no queda nada por borrar de esta persona' : `${r.nombre} se ha eliminado definitivamente`);
+        }}
+      />
 
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
 
@@ -1002,14 +1020,14 @@ const ACCION_ICONO: Record<AccionTipo, typeof Bell> = {
 
 function TarjetaMiembro({
   m, rolViewer, gestiona, refCb, pedido, diaSel, onDiaSel, menuAbierto, onMenu, onAccion,
-  onEditar, onEliminar, onValoraciones, onHoras, onAusencias, onEnlaceBaja, onReasignar, ausente, invitando, onInvitar, relacion,
+  onEditar, onEliminar, onEliminarDefinitivo, onValoraciones, onHoras, onAusencias, onEnlaceBaja, onReasignar, ausente, invitando, onInvitar, relacion,
 }: {
   m: MiembroCompleto; rolViewer: Rol; gestiona: boolean; refCb: (el: HTMLElement | null) => void;
   /** Contratada/autónoma (control horario). Solo para quien gestiona el equipo; null = no se enseña. */
   relacion?: 'CONTRATADA' | 'AUTONOMA' | null;
   pedido: boolean; diaSel: number | null; onDiaSel: (i: number) => void;
   menuAbierto: boolean; onMenu: () => void; onAccion: (tipo: AccionTipo) => void;
-  onEditar: () => void; onEliminar: () => void; onValoraciones: () => void; onHoras: () => void;
+  onEditar: () => void; onEliminar: () => void; onEliminarDefinitivo: () => void; onValoraciones: () => void; onHoras: () => void;
   onAusencias: () => void; onEnlaceBaja: () => void; onReasignar: () => void;
   ausente?: AusenciaInstructora | null; invitando?: boolean; onInvitar?: () => void;
 }) {
@@ -1092,9 +1110,17 @@ function TarjetaMiembro({
                     </button>
                   </>
                 )}
-                <button onClick={onEliminar} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-destructive hover:bg-destructive/10 text-left">
-                  <Trash2 size={14} /> Eliminar
-                </button>
+                {/* Dar de baja (reversible) mientras está en el equipo; eliminar definitivamente (art. 17, no se
+                    deshace) solo a quien YA está de baja, y solo la propietaria. La cerradura real es la ruta. */}
+                {m.activo ? (
+                  <button onClick={onEliminar} className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-destructive hover:bg-destructive/10 text-left">
+                    <Trash2 size={14} /> Dar de baja
+                  </button>
+                ) : puedeEliminarDefinitivamente({ rolActor: rolViewer, esPropia: m.esYo, rolDeLaPersona: m.rol, activa: m.activo }).ok && (
+                  <button onClick={onEliminarDefinitivo} data-testid="eliminar-definitivamente" className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-destructive hover:bg-destructive/10 text-left">
+                    <Trash2 size={14} /> {m.nombre === NOMBRE_PERSONA_ELIMINADA ? 'Completar la eliminación…' : 'Eliminar definitivamente…'}
+                  </button>
+                )}
               </div>
             )}
           </div>
