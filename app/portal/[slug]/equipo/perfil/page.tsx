@@ -57,7 +57,7 @@ export default function PerfilInstructoraPage() {
   // después de cada acción en vez de suponer el resultado.
   const { online } = useOnline();
   const { toast } = useToast();
-  const cargarPush = useCallback(async () => estadoPush(await contextoPushStudent(estudio.slug, estudio.id)), [estudio.slug]);
+  const cargarPush = useCallback(async () => estadoPush(await contextoPushStudent(estudio.slug, estudio.id)), [estudio.slug, estudio.id]);
   const { data: push, refrescar: refrescarPush } = useAsync(cargarPush, () => false);
   const [ocupadoPush, setOcupadoPush] = useState(false);
   const dispositivo = push ? textoPush(push) : null;
