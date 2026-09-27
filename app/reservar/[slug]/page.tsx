@@ -46,7 +46,7 @@ import { FormularioContacto } from '@/components/reservar/formulario-contacto';
 import { PlanesPublicos } from '@/components/reservar/planes-publicos';
 import { EquipoPublico } from '@/components/reservar/equipo-publico';
 import { horarioPublico } from '@/lib/estudio-publico';
-import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget } from '@/lib/reservar/eventos';
+import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget, sessionIdWidget } from '@/lib/reservar/eventos';
 import { precioClaseSuelta as precioSueltaDe } from '@/lib/student/precio-suelta';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, RESERVAR_PALETA, varsReservarModo, tokensCalendarioDeApariencia } from '@/lib/reservar-publico-tokens';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
@@ -1979,6 +1979,7 @@ export default function ReservarPage() {
           // quedaba sin teléfono aunque la persona lo acabara de escribir.
           socioTelefono: loginForm.telefono.trim(),
           origenLead: searchParams.get('ref') ?? null,
+          widgetSesion: sessionIdWidget(),
           codigoDescuento: codigoDescuento.trim() || undefined,
           spotId: selectedSpot || undefined,
           genero: datosInfoAdicional.genero || undefined,
@@ -2034,6 +2035,7 @@ export default function ReservarPage() {
           socioNombre: loginForm.nombre.trim(),
           socioTelefono: loginForm.telefono.trim(),
           origenLead: searchParams.get('ref') ?? null,
+          widgetSesion: sessionIdWidget(),
           codigoDescuento: codigoDescuento.trim() || undefined,
           spotId: selectedSpot || undefined,
           genero: datosInfoAdicional.genero || undefined,
@@ -2072,7 +2074,8 @@ export default function ReservarPage() {
   // (enviarEnlace → signInWithOtp). Misma respuesta exista ya cuenta con ese
   // email o no (portal-puerta-unica-acceso): nunca se revela cuál de las dos.
   async function handlePagoExitoso() {
-    trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: bookingSesionId ?? undefined, socioId: null });
+    // `booking_completed` de una compra lo anota el servidor al entregarla
+    // (lib/reservar/compra-en-embudo.ts): aquí contaría dos veces.
     const token = await pedirToken();
     await enviarEnlace(loginForm.email, bookingSesionId || undefined, token || undefined);
     setPagoWebSinLogin(true);
@@ -2360,6 +2363,7 @@ export default function ReservarPage() {
           // `openBooking`, `Date.now` en `handleSignContract`, mutación de
           // `window.top`) — mismo valor, sin ese efecto colateral.
           origenLead: searchParams.get('ref') ?? null,
+          widgetSesion: sessionIdWidget(),
           codigoDescuento: codigoDescuento.trim() || undefined,
           // Pagos España: el checkout hospedado de Stripe ya sabe pintar su
           // propio selector de método (tarjeta/Bizum) cuando se ofrecen los
