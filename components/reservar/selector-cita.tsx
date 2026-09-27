@@ -12,7 +12,7 @@
 // el foco y el anuncio «1 de 3, marcado» los da el navegador, no un teclado
 // hecho a mano.
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import type { ServicioCita } from '@/lib/types';
 import { serif, sans, cq, radius } from '@/lib/reservar-publico-tokens';
@@ -28,12 +28,21 @@ interface Props {
    * página suelta la portada ya enseña esa misma foto justo encima.
    */
   foto?: string | null;
+  /**
+   * Llevar el foco a la opción marcada al montar: al volver de los huecos, el
+   * botón pulsado («← Servicios») ya no existe. En la primera carga, no: sería
+   * robarle el foco a la página.
+   */
+  enfocar?: boolean;
   onContinuar: (servicioId: string) => void;
 }
 
 // Una columna hasta 560 px del propio bloque (móvil, o el iframe metido en una
 // columna estrecha): la foto queda como banda corta arriba. Container query y
-// no media query: dentro del widget lo que cuenta es el ancho del bloque.
+// no media query: dentro del widget lo que cuenta es el ancho del bloque. En
+// dos columnas el botón va en su propia fila, a todo el ancho y bajo la foto
+// (como en la referencia), y la altura la marca la lista: con un solo servicio,
+// una foto alta dejaba un hueco entre la opción y el botón.
 //
 // La opción marcada y el foco van en tinta, no en el color de marca: sobre una
 // web oscura la marca de muchos estudios es oscura también, y la elección
@@ -44,7 +53,7 @@ const CSS = `
 .cita-selector__foto { min-height: 128px; }
 @container (min-width: 560px) {
   .cita-selector__tarjeta--foto { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
-  .cita-selector__foto { min-height: 320px; }
+  .cita-selector__foto { min-height: 240px; }
 }
 .cita-selector__opcion { border: 1.5px solid var(--portal-line); background: var(--portal-surface); }
 .cita-selector__opcion[data-marcada="false"]:hover { border-color: color-mix(in srgb, var(--portal-ink) 35%, var(--portal-line)); }
@@ -61,10 +70,18 @@ const CSS = `
 }
 `;
 
-export function SelectorCita({ servicios, inicial, foto, onContinuar }: Props) {
+export function SelectorCita({ servicios, inicial, foto, enfocar = false, onContinuar }: Props) {
   const id = useId();
   const [elegido, setElegido] = useState<string | null>(inicial);
   const marcado = servicioMarcado(servicios, elegido);
+  const grupoRef = useRef<HTMLDivElement>(null);
+  // Sin desplazar: dentro del widget sería la web del estudio la que salta.
+  useEffect(() => {
+    if (enfocar) grupoRef.current?.querySelector<HTMLInputElement>('input:checked')?.focus({ preventScroll: true });
+  }, [enfocar]);
+  // Mismo margen a los lados que la columna de la lista, para que el botón
+  // (en su propia fila) quede alineado con ella en una columna.
+  const margen = cq(18, 4, 28);
 
   return (
     <section aria-labelledby={`${id}-t`} style={{ containerType: 'inline-size' }}>
@@ -89,7 +106,7 @@ export function SelectorCita({ servicios, inicial, foto, onContinuar }: Props) {
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', padding: cq(18, 4, 28), minWidth: 0 }}>
+        <div style={{ padding: `${margen} ${margen} 0`, minWidth: 0 }}>
           <h2 id={`${id}-t`} style={{ fontFamily: serif, fontSize: cq(22, 3.6, 26), lineHeight: 1.15, fontWeight: 700, color: 'var(--portal-ink)', margin: 0 }}>
             Selecciona tu cita
           </h2>
@@ -97,11 +114,14 @@ export function SelectorCita({ servicios, inicial, foto, onContinuar }: Props) {
             Sesiones individuales con el equipo.
           </p>
 
-          <div role="radiogroup" aria-labelledby={`${id}-t`} style={{ display: 'grid', gap: 8, marginTop: 16, marginBottom: 20 }}>
+          <div ref={grupoRef} role="radiogroup" aria-labelledby={`${id}-t`} style={{ display: 'grid', gap: 8, marginTop: 16 }}>
             {servicios.map(s => {
               const sel = s.id === marcado;
-              // Sin color propio, el acento del widget: cambia con el modo, y la
-              // marca oscura sobre fondo oscuro dejaba las iniciales sin leer.
+              // Sin color propio, el acento del widget. El color del servicio es
+              // libre en el panel (un pastel, un marrón): tiñe el fondo y solo
+              // una parte de la letra, que es sobre todo tinta y cambia con el
+              // modo. Así se lee con cualquier color, de día y de noche (≥ 4.5:1
+              // medido con blanco, negro, pasteles y marrones).
               const color = s.color || 'var(--portal-accent)';
               return (
                 <label
@@ -122,8 +142,8 @@ export function SelectorCita({ servicios, inicial, foto, onContinuar }: Props) {
                   />
                   <span aria-hidden="true" style={{
                     width: 44, height: 44, flex: '0 0 auto', borderRadius: 12, display: 'grid', placeItems: 'center',
-                    background: `color-mix(in srgb, ${color} 16%, var(--portal-surface))`,
-                    color: `color-mix(in srgb, ${color} 65%, var(--portal-ink))`,
+                    background: `color-mix(in srgb, ${color} 22%, var(--portal-surface))`,
+                    color: `color-mix(in srgb, ${color} 35%, var(--portal-ink))`,
                     fontFamily: serif, fontSize: 15, fontWeight: 700, letterSpacing: '.02em',
                   }}>
                     {monogramaServicio(s.nombre)}
@@ -153,13 +173,15 @@ export function SelectorCita({ servicios, inicial, foto, onContinuar }: Props) {
               );
             })}
           </div>
+        </div>
 
+        <div style={{ gridColumn: '1 / -1', padding: margen }}>
           <button
             type="button"
             className="cita-selector__boton"
             onClick={() => { if (marcado) onContinuar(marcado); }}
             style={{
-              marginTop: 'auto', width: '100%', minHeight: 50, padding: '0 22px', borderRadius: radius.pill, border: 0,
+              width: '100%', minHeight: 50, padding: '0 22px', borderRadius: radius.pill, border: 0,
               background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
               fontFamily: sans, fontSize: 15, fontWeight: 700, letterSpacing: '.01em', cursor: 'pointer',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,

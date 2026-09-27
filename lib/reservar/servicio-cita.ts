@@ -8,11 +8,21 @@
 import type { ServicioCita } from '../types.ts';
 import { precioEnEuros } from './tarjeta-plan.ts';
 
+/**
+ * «Gratis», «45 €», o null si el precio se acuerda aparte. El único formato del
+ * precio en todo el flujo de la cita: la opción, el resumen, el botón
+ * «Continuar» y la hoja de confirmar dicen lo mismo.
+ */
+export function precioServicioCita(precio: ServicioCita['precio'] | undefined): string | null {
+  if (precio == null || !Number.isFinite(precio)) return null;
+  return precio <= 0 ? 'Gratis' : precioEnEuros(precio);
+}
+
 /** «30 min · Gratis», «45 min · 45 €», o «50 min» si el precio se acuerda aparte. */
 export function metaServicioCita(s: Pick<ServicioCita, 'duracionMin' | 'precio'>): string {
   const duracion = `${s.duracionMin} min`;
-  if (s.precio == null || !Number.isFinite(s.precio)) return duracion;
-  return `${duracion} · ${s.precio <= 0 ? 'Gratis' : precioEnEuros(s.precio)}`;
+  const precio = precioServicioCita(s.precio);
+  return precio ? `${duracion} · ${precio}` : duracion;
 }
 
 // Palabras que no dan letra al monograma: «Sesión de valoración» es «SV», no «SD».

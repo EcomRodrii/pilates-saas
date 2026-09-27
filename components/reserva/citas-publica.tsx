@@ -1,7 +1,7 @@
 'use client';
 import { queImparten } from '@/lib/equipo';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Clock, ChevronLeft, X, CheckCircle2, Calendar, User, AlertCircle } from 'lucide-react';
 import type { ServicioCita, DisponibilidadCita, Instructor } from '@/lib/types';
 import { PublicSheet } from '@/components/ui/public-sheet';
@@ -12,7 +12,7 @@ import { localDayKey, addDays, fechaDeClave } from '@/lib/reserva-calendario-log
 import { hoyEnEstudio } from '@/lib/utils';
 import { TiraDias } from './tira-dias';
 import { SelectorCita } from '@/components/reservar/selector-cita';
-import { metaServicioCita } from '@/lib/reservar/servicio-cita';
+import { metaServicioCita, precioServicioCita } from '@/lib/reservar/servicio-cita';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reserva pública de citas 1:1 (widget /reservar). Flujo: servicio → (paso
@@ -108,6 +108,17 @@ export function CitasPublica({
   const [errorCancelar, setErrorCancelar] = useState<string | null>(null);
 
   const servicio = servicios.find(s => s.id === servicioId) ?? null;
+  const precioServicio = servicio ? precioServicioCita(servicio.precio) : null;
+
+  // El botón que se pulsa para cambiar de paso («Reservar cita», «← Servicios»)
+  // desaparece con el paso: sin mover el foco, caía al <body> y con teclado o
+  // lector de pantalla se perdía el sitio. Al entrar en los huecos va al titular
+  // del paso; al volver, a la opción marcada (`enfocar` de SelectorCita). Sin
+  // desplazar la página: dentro del widget sería la web del estudio la que salta.
+  const tituloHuecosRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (paso === 'huecos') tituloHuecosRef.current?.focus({ preventScroll: true });
+  }, [paso]);
 
   const instructorasDisponibles = useMemo(
     () => queImparten(instructores).filter(i => disponibilidad.some(d => d.instructorId === i.id)),
@@ -259,7 +270,9 @@ export function CitasPublica({
 
       {/* Paso 1 — servicio: se marca y «Reservar cita» avanza (components/reservar/selector-cita.tsx) */}
       {paso === 'servicio' && (
-        <SelectorCita servicios={servicios} inicial={servicioId} foto={foto} onContinuar={abrirHuecos} />
+        // `servicioId` solo existe tras haber pasado por los huecos: al volver
+        // de ahí (y no en la primera carga) el foco va a la opción marcada.
+        <SelectorCita servicios={servicios} inicial={servicioId} foto={foto} enfocar={servicioId !== null} onContinuar={abrirHuecos} />
       )}
 
       {/* Paso 2 — instructora / día / hora */}
@@ -271,7 +284,7 @@ export function CitasPublica({
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.12em', color: 'var(--portal-muted)', marginTop: 10 }}>PASO 1 DE 3</div>
 
           <div style={{ marginTop: 14, padding: '14px 18px', borderRadius: radius.cardSmall, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)' }}>
-            <div style={{ fontFamily: serif, fontSize: 19, color: 'var(--portal-ink)' }}>{servicio.nombre}</div>
+            <h2 ref={tituloHuecosRef} tabIndex={-1} style={{ fontFamily: serif, fontSize: 19, fontWeight: 'inherit', color: 'var(--portal-ink)', margin: 0, outline: 'none' }}>{servicio.nombre}</h2>
             <p style={{ fontSize: 12.5, color: 'var(--portal-muted)', marginTop: 3 }}>
               {metaServicioCita(servicio)}
             </p>
@@ -353,7 +366,7 @@ export function CitasPublica({
               background: primary, color: primaryFg,
               cursor: booking ? 'pointer' : 'not-allowed', opacity: booking ? 1 : 0.55,
             }}>
-            {booking ? `Continuar · ${servicio.precio != null ? `${servicio.precio.toFixed(2)} €` : fmtHora(booking.inicio)}` : 'Elige una hora para continuar'}
+            {booking ? `Continuar · ${precioServicio ?? fmtHora(booking.inicio)}` : 'Elige una hora para continuar'}
           </button>
         </div>
       )}
@@ -401,7 +414,7 @@ export function CitasPublica({
                   </div>
                   <p className="text-muted-foreground text-sm capitalize">{fmtDiaLargo(booking.inicio)}</p>
                   <p className="text-muted-foreground text-sm">{fmtHora(booking.inicio)} – {fmtHora(booking.fin)} · {servicio.duracionMin} min</p>
-                  {servicio.precio != null && <p className="text-muted-foreground text-sm">{servicio.precio} €</p>}
+                  {precioServicio && <p className="text-muted-foreground text-sm">{precioServicio}</p>}
                 </div>
                 {resultado && 'error' in resultado && (
                   <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">{resultado.error}</div>
