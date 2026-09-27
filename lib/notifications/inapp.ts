@@ -35,6 +35,20 @@ export interface Preferencia {
 }
 export const PREF_DEFECTO: Preferencia = { inapp: true, push: true, email: false, whatsapp: false, sms: false };
 
+// Auditoría de notificaciones (27-sep-2026). Una socia SIN cuenta reclamada no
+// puede recibir IN-APP ni PUSH (los dos exigen `userId`) y tampoco tiene ninguna
+// pantalla de Preferencias donde activar el email — así que con `PREF_DEFECTO`
+// (email:false) se quedaba sin NINGÚN canal, aunque el propio evento ya
+// declarase EMAIL entre sus `regla.canales` (p. ej. `reserva.oferta_lista_espera`,
+// `suscripcion.precio_sube`, `documento_socio.nuevo`). No es un canal nuevo: es
+// el mismo que la regla ya autorizaba, hecho alcanzable para quien no puede
+// gestionar preferencias. Un evento que NO declara EMAIL (p. ej.
+// `reserva.confirmada`, decisión de producto explícita de no mandarlo por
+// correo) sigue sin mandarlo — esto nunca añade un canal que la regla no listó.
+export function preferenciaSinCuenta(regla: ReglaEvento): Preferencia {
+  return { ...PREF_DEFECTO, email: regla.canales.includes('EMAIL') };
+}
+
 // La preferencia de la CATEGORÍA con el push ya resuelto para ESTE tipo. Todo
 // camino que decida si sale un push pasa por aquí: si uno la aplica y otro no,
 // la campana y el móvil dejan de estar de acuerdo.
@@ -189,7 +203,7 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
 
     const critica = regla.priority === 'CRITICA';
     const pref = prefDelEvento(
-      dest.userId ? await preferenciaDe(admin, dest.userId, regla.category) : PREF_DEFECTO, event.type,
+      dest.userId ? await preferenciaDe(admin, dest.userId, regla.category) : preferenciaSinCuenta(regla), event.type,
     );
     const quiereInapp = critica || pref.inapp;
     const canalesExtra = canalesExtraDe(regla, pref, critica);
