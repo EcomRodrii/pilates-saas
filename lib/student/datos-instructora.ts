@@ -150,7 +150,7 @@ export async function guardarDisponibilidadInstructora(
 }
 
 async function postInstructora(
-  ruta: 'ofertas' | 'lista' | 'perfil' | 'ausencias' | 'clases' | 'alumnas' | 'mensajes', cuerpo: Record<string, unknown>,
+  ruta: 'ofertas' | 'lista' | 'escanear' | 'perfil' | 'ausencias' | 'clases' | 'alumnas' | 'mensajes', cuerpo: Record<string, unknown>,
 ): Promise<Response> {
   const auth = await portalAuthHeader();
   return fetch(`/api/portal/instructora/${ruta}`, {
@@ -227,6 +227,37 @@ export async function marcarAsistenciaEnLista(
   } catch {
     return { ok: false, error: 'Sin conexión: no se ha guardado.' };
   }
+}
+
+export type ResultadoEscanerClase<T> =
+  | { ok: true; datos: T }
+  | { ok: false; error: string; sesionCaducada?: boolean };
+
+/**
+ * El QR de una alumna, leído desde «Pasar lista» de SU clase. El servidor dice
+ * si puede entrar con su reserva de verdad y, si entra y la clase pasa lista, la
+ * marca. Nada optimista: se pinta lo que devuelve.
+ */
+async function postEscaner<T>(cuerpo: Record<string, unknown>): Promise<ResultadoEscanerClase<T>> {
+  const auth = await portalAuthHeader();
+  if (!auth.Authorization) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+  try {
+    const res = await postInstructora('escanear', cuerpo);
+    if (res.status === 401) return { ok: false, error: SESION_CADUCADA, sesionCaducada: true };
+    const d = await res.json().catch(() => null) as (T & { error?: string }) | null;
+    if (!res.ok || !d) return { ok: false, error: mensajeSeguro(d?.error, 'No hemos podido comprobar el QR. Vuelve a intentarlo.') };
+    return { ok: true, datos: d };
+  } catch {
+    return { ok: false, error: 'Sin conexión: no hemos podido comprobar el QR.' };
+  }
+}
+
+export function escanearQrEnClase<T>(slug: string, sesionId: string, lectura: string) {
+  return postEscaner<T>({ slug, sesionId, accion: 'escanear', lectura });
+}
+
+export function decidirEscaneoEnClase<T>(slug: string, sesionId: string, escaneoId: number, decision: 'DEJAR_PASAR' | 'NO_PERMITIR') {
+  return postEscaner<T>({ slug, sesionId, accion: 'decidir', escaneoId, decision });
 }
 
 /** Sus estudios y su tarifa. Nunca da por hecha la forma de la respuesta. */
