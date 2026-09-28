@@ -1,5 +1,8 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { firmaDeUrl } from '../lib/widgets/firma-contenido.ts';
+import { firmaCodigo } from '../lib/widgets/integracion.ts';
+import { esCopiaCompleta, leerConfigs } from '../lib/widgets/config.ts';
+import { WIDGETS, esDisponible, type WidgetDisponible } from '../lib/widgets/catalogo.ts';
 
 // RES-7-f: la hora de una clase se enseña en la zona del ESTUDIO, no en la del
 // navegador. Los fixtures llevan la hora sin zona («10:00» del navegador), así que
@@ -1183,6 +1186,293 @@ test.describe('Lo que tienes en tu web: lo copiado, qué cambió y dónde se ve,
     const fila1 = portada(page).getByRole('listitem').filter({ hasText: 'Horario y reservas' });
     await expect(fila1).toContainText(AVISO_SIN_AUTORIZAR);
     await expect(fila1.getByRole('button', { name: 'Ir a las webs autorizadas' })).toHaveCount(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fase D (29-sep): el botón que abre la ventana sigue el estilo de sus widgets
+// (el código lleva cada color dos veces: el literal y la variable con el mismo
+// respaldo), copiar a mano el código entero cuenta como copiado, y «Ver
+// resultados» abre «Cómo le va a tu página» centrada en su widget.
+//
+// Mismas reglas que arriba: las rutas propias se registran DESPUÉS de montar()
+// y se recarga, y antes de cualquier «no pasó nada» va un CONTADOR que prueba
+// que se llegó a intentar. La copia a mano se simula con una selección y un
+// `copy` despachado (determinista en headless); la copia nativa de verdad, con
+// el portapapeles del sistema, se mira a mano en Safari y en el iPad.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const HORARIO_W = WIDGETS.find((x): x is WidgetDisponible => x.id === 'horario' && esDisponible(x))!;
+/**
+ * La huella REAL del popup del horario tal como lo lee el panel (`firmaCodigo`
+ * quita el origen, así que no depende de dónde corra el test).
+ */
+const FIRMA_POPUP = firmaCodigo({
+  widget: HORARIO_W, config: leerConfigs({ horario: { metodo: 'popup' } }).horario,
+  origen: 'http://tentare.example.com', slug: SLUG, colorEstudio: '#343825',
+}, 'popup');
+/** Un popup copiado ANTES de la Fase D: la misma huella, sin la marca `botonVivo`. */
+const COPIA_POPUP_ANTERIOR = { firma: FIRMA_POPUP, en: '2026-09-12T10:00:00.000Z' };
+
+const NOTA_BOTON_ANTERIOR = 'El botón que abre la ventana es de un código anterior y no cambia con el estilo de tus widgets. Lo de dentro de la ventana, sí. Si copias el código de ahora y lo pegas en lugar del de antes, el botón también cambiará solo.';
+const LINEA_BOTON_ANTERIOR = 'El botón que ya tienes pegado es de un código anterior y no cambia con el estilo de tus widgets. Si copias este y lo pegas en lugar del de antes, cambiará solo.';
+const CONFIRMA_CONGELADO = 'El botón que abre la ventana de Horario y reservas es de un código anterior y no cambia; lo de dentro de la ventana, sí. Si copias su código otra vez y lo pegas en lugar del de antes, desde entonces cambiará solo.';
+const CONFIRMA_VIVO = 'El botón que abre la ventana de Horario y reservas también cambia, aunque puede tardar unos minutos más.';
+
+/** Lo último guardado como copiado del horario. */
+const copiadoDe = (patches: Record<string, unknown>[]) =>
+  ultimoBuilder(patches)?.horario?.copiado as Record<string, unknown> | undefined;
+/** Los PATCH que guardan una copia (el constructor manda `widget_builder` entero). */
+const guardadosConCopia = (patches: Record<string, unknown>[]) =>
+  patches.filter(p => JSON.stringify(p.widget_builder ?? {}).includes('"copiado"')).length;
+
+/** Cuenta cada `copy` que llega al documento: el control de que la copia a mano se llegó a hacer. */
+async function contarCopias(page: Page) {
+  await page.evaluate(() => {
+    const w = window as unknown as { __copias: number };
+    w.__copias = 0;
+    document.addEventListener('copy', () => { w.__copias += 1; });
+  });
+  return () => page.evaluate(() => (window as unknown as { __copias: number }).__copias);
+}
+const seleccion = (page: Page) => page.evaluate(() => window.getSelection()?.toString() ?? '');
+
+test.describe('Fase D: el botón del popup sigue el estilo, la copia a mano cuenta y los resultados se centran en su widget', () => {
+
+  test('D1 · el código del popup lleva cada color dos veces (literal y variable); con diseño propio o dentro de una página, ninguna variable; copiarlo marca `botonVivo`', async ({ page }) => {
+    const { patches } = await montar(page, { plataforma: 'otra' });
+    await donde(page, /Un botón/);
+    await expect(snippet(page)).toContainText('data-tentare-popup=');
+    // Tema mockeado: su color #343825, nada elegido en el estilo de sus widgets.
+    await expect(snippet(page)).toContainText(
+      'background:#343825;background:var(--tentare-boton,#343825);color:#FFFFFF;color:var(--tentare-boton-texto,#FFFFFF)',
+    );
+    await expect(snippet(page)).toContainText('border-radius:999px;border-radius:var(--tentare-boton-radio,999px);');
+
+    await paso(page, 'Ponlo en tu web');
+    await expect(page.getByText('Tus clases, precios y plazas, y el estilo de tus widgets: dentro de la ventana y en el botón que la abre (su color y sus esquinas).')).toBeVisible();
+    await page.getByRole('button', { name: 'Copiar código' }).click();
+    await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
+    await expect.poll(() => copiadoDe(patches)?.botonVivo, { timeout: 10_000 }).toBe(true);
+    expect(copiadoDe(patches)?.metodo).toBe('popup');
+
+    // Dentro de una página no hay botón que pintar: la copia va sin la marca.
+    await paso(page, 'Qué y dónde');
+    await donde(page, /Dentro de una página/);
+    await expect(snippet(page)).toContainText('<iframe');
+    await expect(snippet(page)).not.toContainText('var(--tentare');
+    await paso(page, 'Ponlo en tu web');
+    await page.getByRole('button', { name: 'Copiar el código nuevo' }).click();
+    await expect.poll(() => copiadoDe(patches)?.metodo, { timeout: 10_000 }).toBe('iframe');
+    expect('botonVivo' in copiadoDe(patches)!).toBe(false);
+
+    // Con un diseño propio el botón lleva su color a propósito: literal, sin variables.
+    await paso(page, 'Qué y dónde');
+    await donde(page, /Un botón/);
+    await expect(snippet(page)).toContainText('var(--tentare-boton,');
+    await paso(page, 'Cómo se ve');
+    await abrir(page, 'Un diseño distinto');
+    await page.getByRole('switch', { name: /Usar un diseño propio/ }).click();
+    await page.getByLabel('Color principal').fill('#112233');
+    await expect(snippet(page)).toContainText('marca=%23112233');
+    await expect(snippet(page)).toContainText('data-tentare-popup=');
+    await expect(snippet(page)).not.toContainText('var(--tentare');
+  });
+
+  test('D1 · el respaldo del código es lo PUBLICADO; la vista previa pinta el estilo que está probando', async ({ page }) => {
+    await montar(page, { plataforma: 'otra', widgetBuilder: { horario: { metodo: 'popup' } } });
+    // En su web, «Esquinas: rectas» ya aplicado.
+    let lecturas = 0;
+    await page.route('**/api/theme**', route => {
+      lecturas++;
+      return json(route, { primary: '#343825', secondary: '#D9C29E', logoUrl: null, radius: 12, widgetWeb: { ...ARENA, estilo: null, forma: 'recto' } });
+    });
+    await page.reload();
+    await expect(page.getByText('Widgets para tu web')).toBeVisible({ timeout: 60_000 });
+    await expect(snippet(page)).toContainText('border-radius:6px;border-radius:var(--tentare-boton-radio,6px);', { timeout: 15_000 });
+    expect(lecturas).toBeGreaterThan(0);
+    const botonPrevia = page.getByRole('button', { name: 'Reservar clase' });
+    await expect(botonPrevia).toHaveCSS('border-radius', '6px');
+
+    // Prueba «Suaves» sin aplicarla: la previa la enseña, el código no.
+    await paso(page, 'Cómo se ve');
+    await abrir(page, 'Ajustes finos');
+    await page.getByRole('radiogroup', { name: 'Esquinas de tus widgets' }).getByRole('radio', { name: 'Suaves' }).click();
+    await expect(estadoEstilo(page)).toContainText('Cambios sin aplicar');
+    await expect(botonPrevia).toHaveCSS('border-radius', '13px');
+    await expect(snippet(page)).toContainText('border-radius:6px;border-radius:var(--tentare-boton-radio,6px);');
+    await expect(snippet(page)).not.toContainText('13px');
+  });
+
+  test('D1 · un popup copiado antes: la portada lo dice, la confirmación lo nombra aparte, y copiarlo otra vez lo pasa a los que cambian', async ({ page }) => {
+    const { patches } = await montar(page, {
+      plataforma: 'otra',
+      widgetBuilder: { horario: { metodo: 'popup', copiado: COPIA_POPUP_ANTERIOR } },
+    });
+    const cuerpos = await servidorDelEstilo(page, escribe);
+    const fila1 = portada(page).getByRole('listitem').filter({ hasText: 'Horario y reservas' });
+    await expect(fila1).toContainText('Un botón que se abre encima · copiado el 12 sep');
+    await expect(fila1).toContainText(NOTA_BOTON_ANTERIOR);
+    // Es lo de ahora (misma huella): ni ámbar ni «Copiar el código nuevo».
+    await expect(fila1).not.toContainText('Lo cambiaste después de copiarlo');
+
+    await fila1.getByRole('button', { name: 'Ir a copiarlo', exact: true }).click();
+    await expect(page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: 'Ponlo en tu web', exact: true }))
+      .toHaveAttribute('aria-current', 'step');
+    await expect(page.getByText(/Lo copiaste aquí el 12 sept?\./)).toBeVisible();
+    await expect(page.getByText(LINEA_BOTON_ANTERIOR)).toBeVisible();
+
+    // La confirmación: su botón, aparte y con lo que lo arregla. Abrirla no manda nada.
+    await paso(page, 'Cómo se ve');
+    await arena(page).click();
+    await botonAplicar(page).click();
+    await expect(dialogoAplicar(page)).toContainText('Entre ellos, los que copiaste desde aquí: Horario y reservas.');
+    await expect(dialogoAplicar(page)).toContainText(CONFIRMA_CONGELADO);
+    await expect(dialogoAplicar(page)).not.toContainText(CONFIRMA_VIVO);
+    expect(cuerpos).toHaveLength(0);
+    await dialogoAplicar(page).getByRole('button', { name: 'Cancelar' }).click();
+
+    // Copia el código de ahora: su botón ya lee las variables.
+    await paso(page, 'Ponlo en tu web');
+    await page.getByRole('button', { name: 'Copiar código' }).click();
+    await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
+    await expect.poll(() => copiadoDe(patches)?.botonVivo, { timeout: 10_000 }).toBe(true);
+    await expect(page.getByText(LINEA_BOTON_ANTERIOR)).toHaveCount(0);
+
+    await paso(page, 'Cómo se ve');
+    await botonAplicar(page).click();
+    await expect(dialogoAplicar(page)).toContainText(CONFIRMA_VIVO);
+    await expect(dialogoAplicar(page)).not.toContainText('es de un código anterior');
+    await dialogoAplicar(page).getByRole('button', { name: 'Aplicar en mi web' }).click();
+    await expect(estadoEstilo(page)).toHaveText('Aplicado en tu web · hace un momento');
+    expect(cuerpos).toHaveLength(1);
+
+    // Y la portada deja de decirlo.
+    await page.getByRole('button', { name: 'Lo que tienes en tu web' }).click();
+    await expect(fila1).toBeVisible();
+    await expect(fila1).not.toContainText(NOTA_BOTON_ANTERIOR);
+  });
+
+  test('D2 · copiar a mano el código ENTERO lo guarda como copiado, sin decir «Copiado»; un trozo no cuenta', async ({ page }) => {
+    const { patches } = await montar(page, { plataforma: 'otra' });
+    await paso(page, 'Ponlo en tu web');
+    await expect(page.getByText('Aún no lo has copiado desde aquí.')).toBeVisible();
+    await abrir(page, 'Ver el código');
+    const codigo = (await snippet(page).textContent())!;
+    const copias = await contarCopias(page);
+
+    // Un trozo: el `copy` llega (contador), pero no es el código y no se guarda nada.
+    await snippet(page).evaluate(pre => {
+      const r = document.createRange();
+      r.selectNodeContents(pre.querySelector('span')!);
+      const s = window.getSelection()!;
+      s.removeAllRanges();
+      s.addRange(r);
+    });
+    const trozo = await seleccion(page);
+    expect(trozo.trim().length).toBeGreaterThan(0);
+    expect(esCopiaCompleta(trozo, codigo)).toBe(false);
+    await snippet(page).dispatchEvent('copy');
+    await expect.poll(copias, { message: 'el copy del trozo ni llegó' }).toBe(1);
+    await page.waitForTimeout(1_500);
+    expect(guardadosConCopia(patches)).toBe(0);
+    await expect(page.getByText('Aún no lo has copiado desde aquí.')).toBeVisible();
+
+    // El código entero: se guarda una vez, y solo cambia la línea de «Lo copiaste aquí».
+    await snippet(page).selectText();
+    expect(esCopiaCompleta(await seleccion(page), codigo)).toBe(true);
+    await snippet(page).dispatchEvent('copy');
+    await expect.poll(copias).toBe(2);
+    await expect.poll(() => guardadosConCopia(patches), { timeout: 10_000 }).toBeGreaterThan(0);
+    await expect(page.getByText(/Lo copiaste aquí el/)).toBeVisible();
+    await page.waitForTimeout(1_000);
+    expect(guardadosConCopia(patches)).toBe(1);
+    expect(copiadoDe(patches)?.metodo).toBe('iframe');
+    expect(copiadoDe(patches)?.contenido).toBe(FIRMA_AHORA);
+    // #994: la copia es del navegador, no nuestra; nunca «Copiado».
+    await expect(page.getByRole('button', { name: 'Copiado' })).toHaveCount(0);
+    await expect(page.getByText('Copiado al portapapeles')).toHaveCount(0);
+  });
+
+  test('D2 · el botón «Copiar código» y la copia a mano en menos de un minuto son UNA copia', async ({ page }) => {
+    const { patches } = await montar(page, { plataforma: 'otra' });
+    await paso(page, 'Ponlo en tu web');
+    await page.getByRole('button', { name: 'Copiar código' }).click();
+    await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
+    await expect.poll(() => guardadosConCopia(patches), { timeout: 10_000 }).toBe(1);
+
+    await abrir(page, 'Ver el código');
+    const codigo = (await snippet(page).textContent())!;
+    const copias = await contarCopias(page);
+    await snippet(page).selectText();
+    // Control: es el código entero, así que por sí sola SÍ se guardaría.
+    expect(esCopiaCompleta(await seleccion(page), codigo)).toBe(true);
+    await snippet(page).dispatchEvent('copy');
+    await expect.poll(copias, { message: 'el copy a mano ni llegó' }).toBe(1);
+    await page.waitForTimeout(1_500);
+    expect(guardadosConCopia(patches)).toBe(1);
+  });
+
+  test('D3 · «Ver resultados» de un widget abre «Cómo le va a tu página» centrada en su fila; el chip, sin centrar', async ({ page }) => {
+    await montar(page, { plataforma: 'otra', widgetBuilder: { horario: { copiado: COPIA_CON_FOTO } } });
+    let lecturas = 0;
+    await page.route('**/rest/v1/rpc/embudo_widget_por_origen', route => {
+      lecturas++;
+      return json(route, [
+        { origen: 'web-horario', tipo: 'widget_loaded', n: 200 },
+        { origen: 'web-horario', tipo: 'booking_completed', n: 9 },
+        { origen: 'web-planes', tipo: 'widget_loaded', n: 50 },
+        { origen: null, tipo: 'widget_loaded', n: 300 },
+      ]);
+    });
+    await recargar(page);
+
+    await portada(page).getByRole('button', { name: 'Ver resultados de Horario y reservas', exact: true }).click();
+    const chips = page.getByRole('group', { name: 'Qué ver' });
+    await expect(chips.getByRole('button', { name: 'Cómo le va a tu página' })).toHaveAttribute('aria-pressed', 'true');
+    const tabla = page.getByRole('region', { name: 'Por widget' });
+    await expect(tabla.getByRole('row')).toHaveCount(4);
+    expect(lecturas).toBeGreaterThan(0);
+    const suya = tabla.getByRole('row').filter({ hasText: 'Horario y reservas' });
+    await expect(suya).toHaveAttribute('aria-current', 'true');
+    await expect(suya).toBeFocused();
+    await expect(suya).toBeInViewport();
+    await expect(tabla.locator('[aria-current]')).toHaveCount(1);
+    await expect(tabla.getByText(/aún no ha llegado nadie en este periodo/)).toHaveCount(0);
+
+    // Por el chip se abre sin centrar en ninguna.
+    await chips.getByRole('button', { name: 'Widgets' }).click();
+    await expect(portada(page)).toBeVisible();
+    const antes = lecturas;
+    await chips.getByRole('button', { name: 'Cómo le va a tu página' }).click();
+    await expect(tabla.getByRole('row')).toHaveCount(4);
+    await expect.poll(() => lecturas).toBeGreaterThan(antes);
+    await expect(tabla.locator('[aria-current]')).toHaveCount(0);
+  });
+
+  test('D3 · sin fila suya en el periodo, se dice en una línea (y sigue al cambiar de periodo)', async ({ page }) => {
+    await montar(page, { plataforma: 'otra', widgetBuilder: { horario: { copiado: COPIA_CON_FOTO } } });
+    let filas: unknown[] = [];
+    let lecturas = 0;
+    await page.route('**/rest/v1/rpc/embudo_widget_por_origen', route => { lecturas++; return json(route, filas); });
+    await recargar(page);
+
+    await portada(page).getByRole('button', { name: 'Ver resultados de Horario y reservas', exact: true }).click();
+    const tabla = page.getByRole('region', { name: 'Por widget' });
+    const linea = tabla.getByText('Horario y reservas: aún no ha llegado nadie en este periodo.', { exact: true });
+    await expect(linea).toBeVisible();
+    expect(lecturas).toBeGreaterThan(0);
+    await expect(linea).toBeFocused();
+    await expect(tabla.getByRole('table')).toHaveCount(0);
+
+    // Otro periodo con visitas de OTRO widget: la tabla sale, y la línea sigue.
+    filas = [{ origen: 'web-planes', tipo: 'widget_loaded', n: 50 }];
+    const antes = lecturas;
+    await page.getByRole('button', { name: 'Últimos 3 meses' }).click();
+    await expect.poll(() => lecturas).toBeGreaterThan(antes);
+    await expect(tabla.getByRole('row').filter({ hasText: 'Planes y precios' })).toBeVisible();
+    await expect(linea).toBeVisible();
+    await expect(tabla.locator('[aria-current]')).toHaveCount(0);
   });
 });
 

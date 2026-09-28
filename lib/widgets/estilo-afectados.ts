@@ -51,12 +51,6 @@ export interface PiezasAfectadas {
    */
   columnasSinPaleta: string[];
   /**
-   * Alguno de los que cambian va en una ventana encima. ⚠️ Lo lee todavía la
-   * confirmación de antes de la Fase D; se borra en cuanto deje de leerlo (las
-   * dos listas de abajo dicen ya qué pasa con su botón).
-   */
-  hayPopup: boolean;
-  /**
    * Fase D: los que van en una ventana encima cuyo botón sigue el estilo (se
    * copió leyendo sus variables, `copiado.botonVivo`): también cambia.
    */
@@ -133,7 +127,7 @@ export function columnasSinPaleta(
 
 export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
   const out: PiezasAfectadas = {
-    cambian: [], columnasSinPaleta: [], hayPopup: false, botonesVivos: [], botonesCongelados: [], hayNativa: false, hayPagina: false,
+    cambian: [], columnasSinPaleta: [], botonesVivos: [], botonesCongelados: [], hayNativa: false, hayPagina: false,
   };
   for (const w of WIDGETS) {
     const copiado = d.copiados[w.id];
@@ -147,10 +141,7 @@ export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
     if (metodo === 'iframe' || metodo === 'popup') {
       if (d.base && columnasSinPaleta(w, c, metodo, d.estilo, d.base)) out.columnasSinPaleta.push(w.nombre);
       else out.cambian.push(w.nombre);
-      if (metodo === 'popup') {
-        out.hayPopup = true;
-        (copiado.botonVivo === true ? out.botonesVivos : out.botonesCongelados).push(w.nombre);
-      }
+      if (metodo === 'popup') (copiado.botonVivo === true ? out.botonesVivos : out.botonesCongelados).push(w.nombre);
     } else if (metodo === 'nativa') {
       out.hayNativa = true;
     } else {

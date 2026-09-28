@@ -20,7 +20,7 @@ const BASE = baseEstiloWeb('#343825', null);
 const GENERADO = { origen: 'https://tentare.example.com', slug: 'pilates-centro', colorEstudio: '#343825' };
 const widget = (id: string) => WIDGETS.find((x): x is WidgetDisponible => x.id === id && esDisponible(x))!;
 const HORARIO = widget('horario');
-const VACIO = { cambian: [], columnasSinPaleta: [], hayPopup: false, botonesVivos: [], botonesCongelados: [], hayNativa: false, hayPagina: false };
+const VACIO = { cambian: [], columnasSinPaleta: [], botonesVivos: [], botonesCongelados: [], hayNativa: false, hayPagina: false };
 
 /** La copia que registra el constructor al copiar el código de esta config, tal como es ahora. */
 function copiaDe(id: string, config: ConfigConstructor, plataforma: PlataformaWeb | null): Copiado {
@@ -53,7 +53,6 @@ test('solo lo COPIADO desde el constructor, por su nombre y en el orden del cat�
 test('la ventana encima cambia (su botón no); sin marco y los enlaces a la página, no', () => {
   const r = piezasAfectadas(datos({ horario: c({ metodo: 'popup' }), planes: c({ metodo: 'boton' }), cuenta: c({ metodo: 'enlace' }) }, 'otra'));
   assert.deepEqual(r.cambian, ['Horario y reservas']);
-  assert.equal(r.hayPopup, true);
   // Copiado sin la marca de la Fase D: su botón es de un código anterior.
   assert.deepEqual(r.botonesCongelados, ['Horario y reservas']);
   assert.deepEqual(r.botonesVivos, []);

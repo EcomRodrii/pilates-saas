@@ -19,11 +19,17 @@ import { ConstructorWidgets } from '@/components/widgets/constructor-widgets';
 // «Cómo le va a tu página» (antes «Crecimiento web») vive en la misma tarjeta:
 // el widget público es el canal y esto es su cuadro de mando. Un enlace viejo
 // `?tab=api&sub=crecimiento` abre esta tarjeta (lib/configuracion/destino.ts).
+//
+// «Ver resultados» de un widget (Fase D) la abre CENTRADA en su fila de «Por
+// widget» (`enfoque`, su etiqueta), no filtrada: la gráfica diaria no se puede
+// partir por etiqueta, y filtrar solo los totales dejaría una gráfica de todo
+// bajo un filtro. Pulsar el chip la abre sin centrar en ninguna.
 type Vista = 'widgets' | 'crecimiento';
 
 export function TabApi({ showToast }: { showToast: (m: string) => void }) {
   const { studio } = useStudio();
   const [vista, setVista] = useState<Vista>('widgets');
+  const [enfoque, setEnfoque] = useState<string | null>(null);
 
   if (!studio?.slug) return null;
 
@@ -37,7 +43,7 @@ export function TabApi({ showToast }: { showToast: (m: string) => void }) {
             <button
               key={id}
               type="button"
-              onClick={() => setVista(id)}
+              onClick={() => { setVista(id); setEnfoque(null); }}
               aria-pressed={vista === id}
               className={cn(
                 'px-3 py-1.5 rounded-full text-[12px] font-semibold border transition-colors',
@@ -49,8 +55,8 @@ export function TabApi({ showToast }: { showToast: (m: string) => void }) {
           ))}
         </div>
         {vista === 'widgets'
-          ? <ConstructorWidgets slug={studio.slug} showToast={showToast} onVerResultados={() => setVista('crecimiento')} />
-          : <TabCrecimientoWeb showToast={showToast} />}
+          ? <ConstructorWidgets slug={studio.slug} showToast={showToast} onVerResultados={e => { setEnfoque(e); setVista('crecimiento'); }} />
+          : <TabCrecimientoWeb showToast={showToast} enfoque={enfoque} />}
       </div>
     </TarjetaAjuste>
   );
