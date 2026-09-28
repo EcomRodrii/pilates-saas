@@ -79,7 +79,7 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   socio_tipos_clase_autorizados: { seccion: 'otros' },
   post_evento_asistentes: { seccion: 'otros' },
   solicitudes_derechos: { seccion: 'otros' },
-  // Cada vez que el estudio leyó su QR en la puerta y qué salió (migr 20260927150000).
+  // Cada vez que el estudio leyó su QR en la puerta y qué salió (migr 20260927235435).
   accesos_escaneos: { seccion: 'otros' },
   socios_qr_acceso: { excluida: 'Solo la huella del código de su QR de acceso, que no se puede leer ni contiene nada suyo; su QR lo ve siempre en su app.' },
   consentimientos_salud_eventos: { seccion: 'consentimientos' },

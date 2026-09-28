@@ -104,7 +104,7 @@ export interface StudioSeo {
   /** Pedirle en su app las preguntas de «Datos extra» (migr 20260925102844). Solo decide si
    *  la app las pregunta; qué se pregunta y qué se guarda lo decide `/api/public/preguntas-alta`. */
   preguntasAltaActivas: boolean;
-  /** Control de acceso con QR (migr 20260927150000): si la alumna ve su QR en la app.
+  /** Control de acceso con QR (migr 20260927235435): si la alumna ve su QR en la app.
    *  Solo decide si se enseña; la puerta es `/api/public/qr-acceso`. */
   controlAccesoQr: boolean;
   /** Fecha de apertura si el estudio tiene la apertura suave puesta; null si no. */

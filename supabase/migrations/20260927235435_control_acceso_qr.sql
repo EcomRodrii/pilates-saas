@@ -2,6 +2,11 @@
 -- Control de acceso con QR: el QR permanente de la alumna y el registro de cada
 -- escaneo.
 --
+-- Aplicada el 28-sep-2026 con OK del fundador, sellada como 20260927235435 (el
+-- fichero se llamaba 20260927150000; el comentario de dentro de
+-- `anonimizar_socio` conserva ese número a propósito: cambiarlo alteraría el
+-- md5 de su cuerpo, que coincide con el de producción).
+--
 -- Hasta hoy el QR era de una RESERVA: un token firmado que caducaba en 2 minutos
 -- (lib/pase-acceso.ts), solo en el detalle de la próxima clase, y un código de 6
 -- caracteres para teclearlo. Ahora el QR es de la ALUMNA y no cambia: la

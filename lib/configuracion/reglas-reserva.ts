@@ -46,7 +46,7 @@ export interface ReglasReserva {
   permiteListaEspera: boolean;
   listaEsperaPlazoAceptacionMinutos: number;
   requiereCheckinQr: boolean;
-  /** Control de acceso con QR (migr 20260927150000). Sin override por tipo: es de la puerta, no de la clase. */
+  /** Control de acceso con QR (migr 20260927235435). Sin override por tipo: es de la puerta, no de la clase. */
   controlAccesoQr: boolean;
   penalizacionImporteEur: number | null;
   penalizacionAplicaCancelacionTardia: boolean;

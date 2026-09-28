@@ -1048,7 +1048,7 @@ export interface RowStudios {
   es_demo: boolean | null;
   // migr 20260925102844.
   preguntas_alta_activas: boolean | null;
-  // migr 20260927150000.
+  // migr 20260927235435.
   control_acceso_qr: boolean | null;
 }
 
