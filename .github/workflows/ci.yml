@@ -168,6 +168,86 @@ jobs:
       - name: Tests unitarios (dinero · reservas · aforo · fiscal)
         run: npm test
 
+  # ---------------------------------------------------------------------------
+  # CI-1 (auditoría 62ª pasada): "0 sobre BD/RLS". Todo lo de arriba (`npm
+  # test`) mockea la red entera — nunca toca Postgres de verdad, así que una
+  # política RLS borrada por error (como pasó con DB-1: dos políticas dejaban
+  # crear/borrar `reservas` saltándose el motor entero, colado hasta que se
+  # verificó A MANO contra producción) no la habría cazado ningún test.
+  #
+  # Job aparte, en paralelo, NO dentro de `calidad-test`: ese es 100% mockeado
+  # por diseño y está en el camino crítico de cada PR — mezclar aquí un stack
+  # de Docker Compose completo lo haría más lento y más frágil para algo que no
+  # necesita tocarlo.
+  #
+  # Por qué el CLI de Supabase y no un `postgres:16` a pelo: este repo depende
+  # de `auth.uid()`, de los roles `anon`/`authenticated`/`service_role` y de
+  # grants explícitos por rol y por columna (tres gotchas de grants ya
+  # documentados en .claude/tentare-os.md). Un Postgres desnudo no tiene el
+  # esquema `auth` ni esos roles — cualquier política que dependa de ellos
+  # pasaría en falso, sin probar nada de verdad (el mismo antipatrón de
+  # "botones que dicen que sí sin comprobar" que ya documenta este repo).
+  #
+  # Fase 0: solo los dos invariantes de mayor valor y menor coste de fixture
+  # (supabase/tests/rls-invariantes.test.ts). Ampliar ahí mismo, no aquí.
+  calidad-rls:
+    name: RLS — base de datos real
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
+      - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.114.0
+
+      # Arranca Postgres + GoTrue (Auth) + PostgREST + Kong (API Gateway) reales
+      # en Docker, dentro del propio runner — nunca contra dwqvdycjcffqwfkzapvi.
+      - name: Arrancar Supabase local
+        run: supabase start
+
+      # `start` puede reaprovechar un volumen ya inicializado; `reset` aplica
+      # TODAS las migraciones de `supabase/migrations/` + `supabase/seed.sql`
+      # desde cero, así que el estado de partida es siempre el mismo sin
+      # depender de qué haya hecho `start` por su cuenta. Es también la primera
+      # vez que las ~700 migraciones de este repo se EJECUTAN de verdad en vez
+      # de solo leerse (scripts/gen-db-types.py, en `calidad-tipos`, solo las
+      # parsea) — si alguna asume un estado intermedio que ya no existe al
+      # recorrerlas todas de un tirón, es aquí donde se ve.
+      - name: Aplicar migraciones + seed desde cero
+        run: supabase db reset
+
+      # Nombres propios (`SUPABASE_LOCAL_*`), no `NEXT_PUBLIC_SUPABASE_URL`:
+      # ese ya lo usan (con valores dummy) el resto de jobs de este workflow, y
+      # mezclarlos sería fácil de confundir con "la app usa esto en producción".
+      - name: Exportar credenciales del Supabase local
+        run: |
+          eval "$(supabase status -o env)"
+          {
+            echo "SUPABASE_LOCAL_URL=$API_URL"
+            echo "SUPABASE_LOCAL_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_LOCAL_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Tests de RLS contra la base de datos real
+        run: node --import ./scripts/register-test-hooks.mjs --test --experimental-strip-types "supabase/tests/**/*.test.ts"
+
   build:
     name: Build de producción
     runs-on: ubuntu-latest
@@ -460,7 +540,7 @@ jobs:
   test:
     name: test
     if: always()
-    needs: [calidad-tipos, calidad-lint, calidad-test, build, e2e]
+    needs: [calidad-tipos, calidad-lint, calidad-test, calidad-rls, build, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -469,10 +549,11 @@ jobs:
           echo "calidad-tipos  = ${{ needs.calidad-tipos.result }}"
           echo "calidad-lint   = ${{ needs.calidad-lint.result }}"
           echo "calidad-test   = ${{ needs.calidad-test.result }}"
+          echo "calidad-rls    = ${{ needs.calidad-rls.result }}"
           echo "build          = ${{ needs.build.result }}"
           echo "e2e            = ${{ needs.e2e.result }}"
           fallo=0
-          for r in "${{ needs.calidad-tipos.result }}" "${{ needs.calidad-lint.result }}" "${{ needs.calidad-test.result }}" "${{ needs.build.result }}" "${{ needs.e2e.result }}"; do
+          for r in "${{ needs.calidad-tipos.result }}" "${{ needs.calidad-lint.result }}" "${{ needs.calidad-test.result }}" "${{ needs.calidad-rls.result }}" "${{ needs.build.result }}" "${{ needs.e2e.result }}"; do
             [ "$r" = "success" ] || fallo=1
           done
           if [ "$fallo" = "1" ]; then
