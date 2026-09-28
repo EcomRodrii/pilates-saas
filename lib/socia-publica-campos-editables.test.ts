@@ -59,3 +59,30 @@ test('un cambio de email real se rechaza explícitamente, no se guarda en silenc
   const guarda = cuerpo.slice(cuerpo.indexOf(`'email' in params.cambios`));
   assert.match(guarda, /return \{ error:/, 'el cambio de email debe devolver un error explícito, no un ok fingido');
 });
+
+// Sentry JAVASCRIPT-NEXTJS-34 (29-sep): tras SEC-01 (auditoría 23-sep),
+// `/api/public/foto-perfil` escribe el PATH desnudo del bucket privado
+// (`r.socioId`), nunca una URL — pero esta guarda seguía exigiendo que
+// empezara por `NEXT_PUBLIC_SUPABASE_URL`. Ninguna subida real podía pasarla
+// nunca: TODA foto de perfil de la app de la alumna fallaba con «Esa foto no
+// es válida» desde ese commit, sin que ningún test lo cazara.
+test('foto_url ya no exige el prefijo de una URL — SEC-01 la cambió a un path desnudo', () => {
+  const cuerpo = cuerpoDe('actualizarSociaPublica');
+  assert.ok(cuerpo.includes(`'foto_url' in db`), 'no encuentro la guarda de foto_url: ¿se renombró?');
+  const guarda = cuerpo.slice(cuerpo.indexOf(`'foto_url' in db`));
+  assert.doesNotMatch(
+    guarda.slice(0, guarda.indexOf('\n  }')),
+    /NEXT_PUBLIC_SUPABASE_URL|startsWith/,
+    'la guarda de foto_url sigue comprobando un prefijo de URL — desde SEC-01 el valor legítimo es un path desnudo, así que ninguna subida real la pasaría',
+  );
+});
+
+test('foto_url solo acepta el id de la PROPIA socia como path, o vaciarla', () => {
+  const cuerpo = cuerpoDe('actualizarSociaPublica');
+  const guarda = cuerpo.slice(cuerpo.indexOf(`'foto_url' in db`), cuerpo.indexOf(`'foto_url' in db`) + 400);
+  assert.match(
+    guarda,
+    /url !== params\.socioId/,
+    'la guarda de foto_url debe exigir que el path sea exactamente el id de la propia socia (lo único que escribe la subida legítima)',
+  );
+});

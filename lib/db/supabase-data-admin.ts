@@ -5732,14 +5732,22 @@ export async function actualizarSociaPublica(params: {
   // una petición saliente a un tercero desde el panel del estudio, y el
   // proyecto no tiene CSP que la frene.
   //
-  // La subida legítima (`/api/public/foto-perfil`) SOLO devuelve URLs de
-  // nuestro propio Storage, así que exigir ese origen no quita ninguna vía
-  // real. Vaciarla sigue permitido: es cómo se quita la foto.
+  // ⚠️ Sentry JAVASCRIPT-NEXTJS-34 (29-sep): esto comprobaba que la URL
+  // empezara por `NEXT_PUBLIC_SUPABASE_URL`, pero SEC-01 (auditoría 23-sep)
+  // ya había movido la subida al bucket PRIVADO `avatars-privadas` — desde
+  // entonces `foto_url` guarda el PATH desnudo (`r.socioId`), nunca una URL,
+  // porque ya no hay ninguna URL pública que construir (ver el comentario de
+  // `app/api/public/foto-perfil/route.ts`). La comprobación por prefijo de URL
+  // quedó comprobando algo que ya no podía pasar nunca: TODA subida desde la
+  // app de la alumna fallaba con «Esa foto no es válida» desde ese commit.
+  // La subida legítima solo escribe la ID DE LA PROPIA SOCIA como path —
+  // exigir exactamente eso cierra el mismo hueco (no se puede apuntar a un
+  // path ni a un servidor ajenos) sin repetir el error. Vaciarla sigue
+  // permitido: es cómo se quita la foto.
   if ('foto_url' in db) {
     const url = db.foto_url;
-    const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
     if (url === null || url === '') db.foto_url = null;
-    else if (typeof url !== 'string' || !base || !url.startsWith(base)) {
+    else if (url !== params.socioId) {
       return { error: 'Esa foto no es válida. Súbela desde tu perfil.' as const };
     }
   }
