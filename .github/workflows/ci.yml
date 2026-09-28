@@ -235,6 +235,15 @@ jobs:
       - name: Reordenar panel_interno antes de 0135 (solo para este job)
         run: mv supabase/migrations/20260725170000_panel_interno.sql supabase/migrations/01340_panel_interno.sql
 
+      # Mismo motivo que el paso de arriba: revoca EXECUTE sobre una función
+      # que crea 20260804201830_consentimiento_salud_revocacion_y_reconciliacion.sql,
+      # 6 días después por nombre. Aquí se mueve el fichero PEQUEÑO (un único
+      # `revoke`, sin más precondiciones) a sonar justo DESPUÉS del que crea la
+      # función, en vez de adelantar el fichero grande que la define — así no
+      # se arriesga a que ESE, al adelantarlo, dependa de algo de por medio.
+      - name: Reordenar el revoke de tiene_consentimiento_salud tras su creación (solo para este job)
+        run: mv supabase/migrations/20260729161000_tiene_consentimiento_salud_revoca_anon.sql supabase/migrations/20260804201831_tiene_consentimiento_salud_revoca_anon.sql
+
       # Arranca Postgres + GoTrue (Auth) + PostgREST + Kong (API Gateway) reales
       # en Docker, dentro del propio runner — nunca contra dwqvdycjcffqwfkzapvi.
       - name: Arrancar Supabase local
