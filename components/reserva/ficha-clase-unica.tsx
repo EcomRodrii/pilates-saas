@@ -11,7 +11,7 @@
 // `page.tsx` ya resolvió (mismo criterio que ReservaCalendario/CitasPublica).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { serif, sans, cq, radius, shadow } from '@/lib/reservar-publico-tokens';
+import { serif, sans, cq, radius, shadow, pesoTitular } from '@/lib/reservar-publico-tokens';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 export function FichaClaseUnica({
@@ -46,7 +46,7 @@ export function FichaClaseUnica({
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.14em', color: 'var(--portal-accent)' }}>
         TE HAN INVITADO A ESTA CLASE
       </div>
-      <h2 style={{ fontFamily: serif, fontSize: cq(26, 6, 32), lineHeight: 1.05, marginTop: 10 }}>{claseNombre}</h2>
+      <h2 style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: cq(26, 6, 32), lineHeight: 1.05, marginTop: 10 }}>{claseNombre}</h2>
 
       <div style={{ marginTop: 22, borderRadius: radius.card, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', boxShadow: shadow.card }}>
         <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>

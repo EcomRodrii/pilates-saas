@@ -15,7 +15,7 @@ import type { Instructor } from '@/lib/types';
 import { queImparten } from '@/lib/equipo';
 import { iniciales } from '@/lib/mensajeria/presentacion';
 import { colorSeguro, destinoCarrusel, tiposQueImparte, type TipoQueImparte, type Tramo } from '@/lib/reservar/equipo-publico';
-import { serif } from '@/lib/reservar-publico-tokens';
+import { serif, pesoTitular } from '@/lib/reservar-publico-tokens';
 
 interface Props {
   /** El staff tal cual: aquí se queda solo quien imparte (`queImparten`). */
@@ -69,7 +69,7 @@ function Retrato({ i }: { i: Instructor }) {
       width: `min(${FOTO}px, 100%)`, aspectRatio: '1 / 1', borderRadius: 999, flex: '0 0 auto', display: 'grid', placeItems: 'center',
       background: `color-mix(in srgb, ${color} 16%, var(--portal-surface))`,
       boxShadow: `inset 0 0 0 2px color-mix(in srgb, ${color} 45%, transparent)`,
-      fontFamily: serif, fontSize: 32, fontWeight: 700, letterSpacing: '.02em', color: 'var(--portal-ink)',
+      fontFamily: serif, fontSize: 32, fontWeight: pesoTitular(700), letterSpacing: '.02em', color: 'var(--portal-ink)',
     }}>
       {iniciales(i.nombre)}
     </span>
@@ -214,7 +214,7 @@ export function EquipoPublico({ instructores, sesiones, tiposClase, cabecera, et
                 }}
               >
                 <Retrato i={i} />
-                <h3 style={{ fontFamily: serif, fontSize: 16.5, fontWeight: 700, lineHeight: 1.25, color: 'var(--portal-ink)', marginTop: 14, overflowWrap: 'anywhere' }}>
+                <h3 style={{ fontFamily: serif, fontSize: 16.5, fontWeight: pesoTitular(700), lineHeight: 1.25, color: 'var(--portal-ink)', marginTop: 14, overflowWrap: 'anywhere' }}>
                   {i.nombre}
                 </h3>
                 {principal && (

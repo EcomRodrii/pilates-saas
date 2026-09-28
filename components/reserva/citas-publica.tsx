@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Clock, ChevronLeft, X, CheckCircle2, Calendar, User, AlertCircle } from 'lucide-react';
 import type { ServicioCita, DisponibilidadCita, Instructor } from '@/lib/types';
 import { PublicSheet } from '@/components/ui/public-sheet';
-import { serif, sans, cq, radius, shadow } from '@/lib/reservar-publico-tokens';
+import { serif, sans, cq, radius, shadow, pesoTitular, paletaOscura, textoSemantico } from '@/lib/reservar-publico-tokens';
+import type { ModoTokens } from '@/lib/portal-modo';
 import { semantic } from '@/lib/portal-tokens';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { localDayKey, addDays, fechaDeClave } from '@/lib/reserva-calendario-logic';
@@ -68,6 +69,13 @@ export interface CitasPublicaProps {
   onOverlayAbierto?: (abierto: boolean) => void;
   /** La foto del primer paso (ver `SelectorCita`). Sin ella, la lista va sola. */
   foto?: string | null;
+  /**
+   * La paleta que se ve (la prop `t=` del resto de la página). Solo cambia algo
+   * sobre fondo OSCURO: los errores y el «¡Cita reservada!» usan los tokens del
+   * PANEL (`text-destructive`, `--success`), pensados para fondo claro, y sobre
+   * la tarjeta de Carbón se quedaban por debajo de 3:1. Sin ella, lo de siempre.
+   */
+  t?: ModoTokens;
 }
 
 function fmtHora(iso: string) { return horaEstudio(iso); }
@@ -82,8 +90,12 @@ const ANCHO_CON_FOTO = 760;
 export function CitasPublica({
   studioId, servicios, instructores, disponibilidad, misCitas,
   autenticada, onNeedLogin, onReservar, onCancelar, primary, primaryFg,
-  overlayStyle, onOverlayAbierto, foto,
+  overlayStyle, onOverlayAbierto, foto, t,
 }: CitasPublicaProps) {
+  // En claro, `undefined`: mandan las clases de siempre.
+  const oscura = t != null && paletaOscura(t);
+  const peligro = oscura ? textoSemantico('danger', t) : undefined;
+  const exito = oscura ? textoSemantico('success', t) : 'var(--success)';
   // RES-7-f: `ahora` es el INSTANTE (para saber qué cita ya terminó) y `hoy` el día
   // del ESTUDIO como fecha de calendario (tira de días, día elegido): con el
   // navegador fuera de Madrid, «hoy» era otro día.
@@ -236,7 +248,7 @@ export function CitasPublica({
         <div className="space-y-2">
           <h2 className="font-bold text-base px-1" style={{ color: 'var(--portal-ink)' }}>Mis próximas citas</h2>
           {errorCancelar && (
-            <p role="alert" className="mx-1 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <p role="alert" className="mx-1 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive" style={{ color: peligro }}>
               <span className="font-semibold">La cita sigue en pie.</span> {errorCancelar}
             </p>
           )}
@@ -260,7 +272,8 @@ export function CitasPublica({
                   }
                 }}
                 disabled={cancelandoId === c.id}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-destructive bg-destructive/10 hover:bg-destructive/10 border border-destructive/30 transition-colors disabled:opacity-60">
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-destructive bg-destructive/10 hover:bg-destructive/10 border border-destructive/30 transition-colors disabled:opacity-60"
+                style={{ color: peligro }}>
                 <X size={12} />{cancelandoId === c.id ? 'Cancelando…' : 'Cancelar'}
               </button>
             </div>
@@ -326,7 +339,7 @@ export function CitasPublica({
                 ))}
               </div>
             ) : errorHuecos ? (
-              <EstadoNoFeliz tono="error" titulo="No hemos podido cargar el horario" cuerpo="Parece un problema de conexión. Inténtalo de nuevo en unos segundos." ctaLabel="Reintentar" onCta={cargarHuecos} />
+              <EstadoNoFeliz tono="error" peligro={peligro} titulo="No hemos podido cargar el horario" cuerpo="Parece un problema de conexión. Inténtalo de nuevo en unos segundos." ctaLabel="Reintentar" onCta={cargarHuecos} />
             ) : huecos && huecos.length > 0 ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))', gap: 8 }}>
                 {huecos.map(h => {
@@ -376,7 +389,10 @@ export function CitasPublica({
         open={confirmando && !!(booking && servicio)}
         onClose={cerrarSheet}
         label={resultado && 'ok' in resultado ? 'Cita reservada' : 'Confirmar cita'}
-        sheetClassName="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
+        // La superficie de la paleta, no `bg-white`: con Carbón su caja interior
+        // (`--portal-surface-2`) se oscurecía y dejaba la letra del PANEL,
+        // oscura, encima (1,2:1). Mismo arreglo que la hoja legal de la página.
+        sheetClassName="bg-[var(--portal-surface)] w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
         // ⚠️ Esta hoja era la ÚNICA del flujo que no participaba del protocolo
         // de anclaje del iframe: dentro de un widget auto-dimensionado se
         // anclaba al fondo del iframe entero, a cientos de píxeles de lo que
@@ -393,38 +409,40 @@ export function CitasPublica({
 
             {resultado && 'ok' in resultado ? (
               <div className="flex flex-col items-center text-center gap-4 py-2">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))' }}>
-                  <CheckCircle2 size={30} style={{ color: 'var(--success)' }} />
+                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${exito} 12%, var(--portal-surface))` }}>
+                  <CheckCircle2 size={30} style={{ color: exito }} />
                 </div>
                 <div>
-                  <p className="text-foreground font-extrabold text-xl">¡Cita reservada!</p>
-                  <p className="text-muted-foreground text-sm mt-1 capitalize">{fmtDiaLargo(booking.inicio)} · {fmtHora(booking.inicio)}</p>
+                  <p className="text-[var(--portal-ink)] font-extrabold text-xl">¡Cita reservada!</p>
+                  <p className="text-[var(--portal-muted)] text-sm mt-1 capitalize">{fmtDiaLargo(booking.inicio)} · {fmtHora(booking.inicio)}</p>
                 </div>
-                <button onClick={cerrarSheet} className="w-full py-3 rounded-2xl text-sm font-bold text-white" style={{ backgroundColor: primary }}>
+                {/* El texto sobre la marca es su foreground, no blanco fijo: con
+                    Carbón la marca se aclara y el blanco encima no se leía. */}
+                <button onClick={cerrarSheet} className="w-full py-3 rounded-2xl text-sm font-bold" style={{ backgroundColor: primary, color: primaryFg }}>
                   Hecho
                 </button>
               </div>
             ) : (
               <>
-                <h2 className="text-foreground font-bold text-lg mb-4">Confirmar cita</h2>
-                <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-border space-y-1.5">
+                <h2 className="text-[var(--portal-ink)] font-bold text-lg mb-4">Confirmar cita</h2>
+                <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-[var(--portal-line)] space-y-1.5">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: servicio.color ?? primary }} />
-                    <p className="text-foreground font-bold">{servicio.nombre}</p>
+                    <p className="text-[var(--portal-ink)] font-bold">{servicio.nombre}</p>
                   </div>
-                  <p className="text-muted-foreground text-sm capitalize">{fmtDiaLargo(booking.inicio)}</p>
-                  <p className="text-muted-foreground text-sm">{fmtHora(booking.inicio)} – {fmtHora(booking.fin)} · {servicio.duracionMin} min</p>
-                  {precioServicio && <p className="text-muted-foreground text-sm">{precioServicio}</p>}
+                  <p className="text-[var(--portal-muted)] text-sm capitalize">{fmtDiaLargo(booking.inicio)}</p>
+                  <p className="text-[var(--portal-muted)] text-sm">{fmtHora(booking.inicio)} – {fmtHora(booking.fin)} · {servicio.duracionMin} min</p>
+                  {precioServicio && <p className="text-[var(--portal-muted)] text-sm">{precioServicio}</p>}
                 </div>
                 {resultado && 'error' in resultado && (
-                  <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">{resultado.error}</div>
+                  <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30" style={{ color: peligro }}>{resultado.error}</div>
                 )}
                 {!autenticada && (
-                  <p className="text-muted-foreground text-xs mb-3">Necesitas acceder con tu email para reservar.</p>
+                  <p className="text-[var(--portal-muted)] text-xs mb-3">Necesitas acceder con tu email para reservar.</p>
                 )}
                 <button onClick={confirmar} disabled={enviando}
-                  className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-50"
-                  style={{ backgroundColor: primary }}>
+                  className="w-full py-3 rounded-2xl font-bold transition-all disabled:opacity-50"
+                  style={{ backgroundColor: primary, color: primaryFg }}>
                   {enviando ? 'Reservando…' : autenticada ? 'Confirmar cita' : 'Acceder para reservar'}
                 </button>
               </>
@@ -440,8 +458,10 @@ export function CitasPublica({
  *  icono circular 52px, título display, cuerpo acotado, 1-2 CTAs. Versión
  *  local: `citas-publica.tsx` no monta `ReservaCalendario`, así que no
  *  hereda su `EstadoVacio`/`EstadoErrorRed` internos. */
-function EstadoNoFeliz({ tono, titulo, cuerpo, ctaLabel, onCta, acciones }: {
+function EstadoNoFeliz({ tono, titulo, cuerpo, ctaLabel, onCta, acciones, peligro }: {
   tono: 'vacio' | 'error'; titulo: string; cuerpo: string;
+  /** El rojo legible sobre fondo oscuro (ver `t` en `CitasPublicaProps`); sin él, el de siempre. */
+  peligro?: string;
   ctaLabel?: string; onCta?: () => void;
   acciones?: { label: string; onClick: () => void }[];
 }) {
@@ -450,7 +470,7 @@ function EstadoNoFeliz({ tono, titulo, cuerpo, ctaLabel, onCta, acciones }: {
     <div style={{ background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', borderRadius: radius.card, padding: '38px 24px', textAlign: 'center', boxShadow: shadow.card }} role={err ? 'alert' : undefined}>
       <div style={{
         width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: err ? semantic.danger.soft : 'var(--portal-velo)', color: err ? semantic.danger.text : 'var(--portal-muted)',
+        background: err ? semantic.danger.soft : 'var(--portal-velo)', color: err ? (peligro ?? semantic.danger.text) : 'var(--portal-muted)',
       }}>
         {err ? <AlertCircle size={22} /> : <Calendar size={22} />}
       </div>
@@ -483,7 +503,7 @@ function botonVacio(lleno: boolean) {
 function CabeceraCitas() {
   return (
     <>
-      <div style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Citas</div>
+      <div style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Citas</div>
       <p style={{ fontSize: 13, color: 'var(--portal-muted)', marginTop: 8, maxWidth: 460 }}>
         Sesiones individuales con el equipo.
       </p>

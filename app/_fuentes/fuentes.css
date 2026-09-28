@@ -8,9 +8,16 @@
  *
  * ⚠️ Van en `:root` de una hoja de estilos, NO en un `style` en línea del
  * <html>: /reservar las redefine con su propio `:root { --font-ui: … }`
- * (`fuenteReservarCssVars`, lib/reservar-publico-tokens.ts), y eso solo gana
- * con la misma especificidad y apareciendo después — igual que cuando las
- * declaraba la clase de `next/font/google`. Un `style` en línea le ganaría.
+ * (`temaReservarCssText`, lib/reservar/tema-app.ts: la pareja tipográfica que
+ * el estudio eligió para la app de sus alumnas), y eso solo gana con la misma
+ * especificidad y apareciendo después — igual que cuando las declaraba la clase
+ * de `next/font/google`. Un `style` en línea le ganaría.
+ *
+ * ⚠️ Y como /reservar redefine `--font-ui` y `--font-display`, allí no se puede
+ * escribir `var(--font-ui)` para decir «Instrument Sans» (sería una variable
+ * que se referencia a sí misma): usa la composición de abajo, copiada en
+ * `FUENTE_BASE` (lib/reservar/tema-app.ts). Si cambias esas dos líneas, su test
+ * lo avisa.
  */
 :root {
   --font-jakarta: var(--font-jakarta-latin), var(--font-jakarta-ext), 'Plus Jakarta Sans Fallback';

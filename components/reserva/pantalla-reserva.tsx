@@ -37,7 +37,7 @@ import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { ChevronLeft, Tag, Lock, ShieldCheck, RotateCcw, Check, X, Loader2 } from 'lucide-react';
 import type { PlanTarifa } from '@/lib/types';
 import type { ModoTokens } from '@/lib/portal-modo';
-import { serif, sans, cq, radius as R, shadow as SH, eyebrow, EASE } from '@/lib/reservar-publico-tokens';
+import { serif, sans, cq, radius as R, shadow as SH, eyebrow, EASE, pesoTitular } from '@/lib/reservar-publico-tokens';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
 import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
@@ -309,7 +309,7 @@ export function PantallaReserva({
                 {clase.nivel && (
                   <div style={{ ...eyebrow(9), color: 'rgba(255,255,255,.82)', marginBottom: 8 }}>{clase.nivel}</div>
                 )}
-                <h1 style={{ fontFamily: serif, fontWeight: 800, fontSize: cq(26, 3.2, 38), lineHeight: 1.04, color: '#fff', letterSpacing: '-0.01em' }}>
+                <h1 style={{ fontFamily: serif, fontWeight: pesoTitular(800), fontSize: cq(26, 3.2, 38), lineHeight: 1.04, color: '#fff', letterSpacing: '-0.01em' }}>
                   {clase.nombre}
                 </h1>
               </div>
@@ -394,7 +394,7 @@ export function PantallaReserva({
                       algo ha ido mal. `fase === 'pago'` (más abajo) no lleva
                       ningún eyebrow de paso — quitado aquí también para no
                       prometer un conteo que el propio flujo no sostiene. */}
-                  <h2 style={{ fontFamily: serif, fontWeight: 800, fontSize: cq(21, 2.2, 25), color: 'var(--portal-ink)', marginBottom: 6 }}>
+                  <h2 style={{ fontFamily: serif, fontWeight: pesoTitular(800), fontSize: cq(21, 2.2, 25), color: 'var(--portal-ink)', marginBottom: 6 }}>
                     Tus datos
                   </h2>
                   <p style={{ fontSize: 13, color: 'var(--portal-muted-2)', lineHeight: 1.5 }}>
