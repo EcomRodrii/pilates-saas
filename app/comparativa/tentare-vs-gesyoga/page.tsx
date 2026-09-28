@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 // ⚠️ Solo se afirma de GesYoga lo que consta en su web pública (gesyoga.com,
-// revisada el 23-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
+// revisada el 29-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
 // cual —«no consta en su web pública»— y nunca se rellena con «sí» ni con «no».
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
@@ -29,6 +29,12 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
+  // Ejes añadidos el 29-sep-2026 (gesyoga.com y
+  // gesyoga.com/funcionalidades-software-gestion-yoga/, revisadas esa fecha).
+  { feature: 'Aforo por sala o aparato individual', tentare: ['yes', 'Capacidad por reformer, no solo un número de aforo'], them: ['partial', '«Asignación de sala según la capacidad que requiere cada clase», según su web; no consta a nivel de aparato individual'] },
+  { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación mínima/máxima y lista de espera propias por tipo de clase'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta'], them: ['yes', '30 días, sin tarjeta, según su web'] },
+  { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Con una sola suscripción (plan Cadena)'], them: ['partial', 'El plan Enterprise menciona «múltiples sedes»; no consta si es un panel único con una sola suscripción'] },
 ];
 
 const HONESTY: HonestyCard[] = [
@@ -63,7 +69,7 @@ export default function TentareVsGesYogaPage() {
       veredicto={<>Si tu prioridad es el precio más bajo, la facturación con VeriFactu ya integrada o publicar grabaciones, GesYoga encaja bien. Si buscas plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras, Tentare está pensado para un estudio de Pilates.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
-      footnote="Basado en la información pública de GesYoga (gesyoga.com) a 23 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. GesYoga es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de GesYoga (gesyoga.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. GesYoga es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );

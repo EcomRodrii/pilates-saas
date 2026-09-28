@@ -43,6 +43,11 @@ const FAQ = [
   { q: '¿Cuál de las dos plataformas gestiona reformers individuales?', a: 'La documentación pública de Glofox no confirma la gestión por aparato individual. Tentare anuncia esta funcionalidad como una de sus características principales, aunque se recomienda verificarla con el proveedor antes de tomar una decisión.' },
 ];
 
+// Filas verificadas contra la web pública de Glofox (www.glofox.com, /features/scheduling/,
+// /features/billing/ y /pricing/, revisadas el 29-sep-2026) y, del lado de Tentare, contra
+// tentare.app/llms.txt y app/funcionalidades. «Integraciones con Stripe, GoCardless» estaba
+// mal en Tentare («Consultar con el proveedor»): Tentare sí integra Stripe, confirmado en
+// llms.txt — corregido, sin dejarlo en duda.
 const TABLA_FILAS: { funcionalidad: string; glofox: string; tentare: string }[] = [
   { funcionalidad: 'Gestión por reformer individual', glofox: 'No documentada', tentare: 'Sí (según el proveedor)' },
   { funcionalidad: 'Lista de espera automática por aparato', glofox: 'No documentada', tentare: 'Sí (según el proveedor)' },
@@ -52,8 +57,11 @@ const TABLA_FILAS: { funcionalidad: string; glofox: string; tentare: string }[] 
   { funcionalidad: 'Soporte en español', glofox: 'Disponible', tentare: 'Nativo en castellano' },
   { funcionalidad: 'Precio de entrada', glofox: 'Desde ~100 €/mes (en USD)', tentare: 'Desde 29 €/mes' },
   { funcionalidad: 'Permanencia mínima', glofox: 'Habitual (anual/trimestral)', tentare: 'Sin permanencia' },
-  { funcionalidad: 'Integraciones con Stripe, GoCardless', glofox: 'Sí', tentare: 'Consultar con el proveedor' },
+  { funcionalidad: 'Integraciones con Stripe, GoCardless', glofox: 'Sí, según su web', tentare: 'Sí con Stripe (tarjeta y domiciliación SEPA); no usa GoCardless, genera su propia remesa SEPA' },
   { funcionalidad: 'Plan para cadenas o franquicias', glofox: 'Sí', tentare: 'Sí (según el proveedor)' },
+  { funcionalidad: 'Reglas de reserva/cancelación por tipo de clase', glofox: 'Sí: aforo, ventana de reserva y cancelación configurables por clase, según su web', tentare: 'Sí (según el proveedor)' },
+  { funcionalidad: 'Prueba gratuita sin tarjeta', glofox: 'No documentada', tentare: 'Sí, 7 días sin tarjeta' },
+  { funcionalidad: 'Precio público sin pedir demo', glofox: 'No; su web remite a pedir una demo para conocer el precio', tentare: 'Sí, precios publicados en /precios' },
 ];
 
 function TablaComparativa() {
@@ -97,7 +105,7 @@ export default function GlofoxVsTentarePage() {
             description: 'Qué hace cada plataforma, cuánto cuesta de verdad y cuál encaja con tu situación concreta.',
             url: urlDe(`/comparativa/${SLUG}`),
             datePublished: '2026-08-18',
-            dateModified: '2026-08-18',
+            dateModified: '2026-09-29',
             author: { '@type': 'Organization', name: LEGAL.marca, url: LEGAL.url },
             publisher: { '@type': 'Organization', name: LEGAL.marca, url: LEGAL.url },
             mainEntityOfPage: { '@type': 'WebPage', '@id': urlDe(`/comparativa/${SLUG}`) },

@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 // ⚠️ Solo se afirma de Eversports lo que consta en su web pública (eversportsmanager.com,
-// revisada el 23-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
+// revisada el 29-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
 // cual —«no consta en su web pública»— y nunca se rellena con «sí» ni con «no».
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
@@ -29,6 +29,11 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Facturas con registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['yes', 'Extensión de Veri*factu y TicketBAI (con fiskaly); no consta su coste'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['yes', '«Gestión de sustituciones», según su web'] },
   { feature: 'Elegir plaza en la sala', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Gestión de salas y Spot Booking», según su web'] },
+  // Ejes añadidos el 29-sep-2026 (eversportsmanager.com/es, /es-ES/precios y
+  // /es-ES/funciones-de-gestion, revisadas esa fecha).
+  { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación mínima/máxima y lista de espera propias por tipo de clase'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública; solo se ofrece reservar una demo'] },
+  { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Con una sola suscripción (plan Cadena)'], them: ['yes', '«Gestionarlos desde un solo panel», según su web'] },
 ];
 
 const HONESTY: HonestyCard[] = [
@@ -67,7 +72,7 @@ export default function TentareVsEversportsPage() {
       veredicto={<>Eversports es una opción muy completa y más madura en varios puntos. Tentare compite en precio y en enfoque: publica un precio fijo por plan (no por número de reservas), no cobra cuota de alta y está pensado para el estudio de Pilates. Si ya necesitas hoy Veri*factu y TicketBAI funcionando, o clases online y vídeo a la carta, Eversports te lo da.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
-      footnote="Basado en la información pública de Eversports (eversportsmanager.com) a 23 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Eversports es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de Eversports (eversportsmanager.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Eversports es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );
