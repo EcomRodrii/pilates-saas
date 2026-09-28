@@ -19,6 +19,9 @@ import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Badge } from '@/components/student/ui/Badge';
 import { Icono } from '@/components/student/ui/Icono';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+import { Button } from '@/components/student/ui/Button';
+import { Sheet } from '@/components/student/ui/Sheet';
+import { EscanerQrClase } from '@/components/student/domain/EscanerQrClase';
 
 // Pasar lista de una clase que imparte la instructora.
 //
@@ -29,6 +32,11 @@ import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components
 // Nada optimista: cada toque espera al servidor, y lo que se pinta es el estado
 // que él devuelve. Un «Asistió» que no se ha guardado es exactamente el bug que
 // este repo ya ha pagado en otras pantallas.
+//
+// «Escanear QR» (control de acceso con QR, 28-sep): la alternativa rápida a
+// buscarla en la lista. Lee el QR de su app, el servidor mira su reserva real
+// para ESTA clase y, si entra, la marca con el mismo «Asistió» — la fila de
+// abajo se pone en «Ha venido» con lo que confirma el servidor.
 
 export default function PasarListaPage() {
   const { sesionId } = useParams<{ sesionId: string }>();
@@ -44,6 +52,11 @@ export default function PasarListaPage() {
   const [confirmados, setConfirmados] = useState<Record<string, EstadoEnLista>>({});
   const [enCurso, setEnCurso] = useState<Record<string, true>>({});
   const [errorFila, setErrorFila] = useState<{ id: string; texto: string } | null>(null);
+  const [escaner, setEscaner] = useState(false);
+  const asistioPorQr = useCallback((reservaId: string) => {
+    setConfirmados((p) => ({ ...p, [reservaId]: 'asistio' }));
+  }, []);
+  const sesionCaducada = useCallback(() => router.push(href('/acceso/login')), [router, href]);
 
   const cargar = useCallback(
     // Monta antes que su guardia (es su padre): sin confirmar, no se pide nada.
@@ -152,6 +165,10 @@ export default function PasarListaPage() {
         {aviso && (
           <p role="status" data-testid="aviso-lista" className="note note--warn" style={{ margin: 0 }}>{aviso}</p>
         )}
+        {/* Solo con la lista abierta y el control de acceso encendido en el estudio. */}
+        {abierta && estudio.qrAcceso && (
+          <Button full disabled={!online} onClick={() => setEscaner(true)}>Escanear QR</Button>
+        )}
         {!online && <OfflineState cuerpo="Para marcar asistencia necesitas conexión." />}
 
         {total === 0 ? (
@@ -228,6 +245,21 @@ export default function PasarListaPage() {
           </>
         )}
       </div>
+
+      <Sheet open={escaner} onClose={() => setEscaner(false)} label="Escanear QR">
+        <div style={{ padding: '6px 16px 18px', maxHeight: '88vh', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+            <div>
+              <p className="t-h2" style={{ margin: 0 }}>Escanear QR</p>
+              <p className="t-meta" style={{ margin: '2px 0 0' }}>{clase.tipo} · {clase.hora}</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setEscaner(false)}>Cerrar</Button>
+          </div>
+          {escaner && (
+            <EscanerQrClase slug={estudio.slug} sesionId={sesionId} onAsistio={asistioPorQr} onSesionCaducada={sesionCaducada} />
+          )}
+        </div>
+      </Sheet>
     </StudentShell>
   );
 }
