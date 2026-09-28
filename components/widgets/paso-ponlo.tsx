@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, Check, Code2, Copy, Mail, Send } from 'lucide-react';
+import { AlertCircle, BookOpen, Check, Code2, Copy, Mail, Send } from 'lucide-react';
 import { cn, copiarAlPortapapeles } from '@/lib/utils';
 import { btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { METODOS, type MetodoIntegracion } from '@/lib/widgets/catalogo';
 import { ETIQUETA_VALIDA, type ConfigConstructor, type Copiado } from '@/lib/widgets/config';
-import { faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, urlPagina, type EntradaIntegracion } from '@/lib/widgets/integracion';
+import {
+  faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, tieneDisenoEnCodigo, urlPagina, type EntradaIntegracion,
+} from '@/lib/widgets/integracion';
 import {
   guiaDe, mensajeParaTuWeb, nombrePlataforma, pasosEnTuWeb, usaBotonPropio, type PlataformaWeb, type Receta,
 } from '@/lib/widgets/recetas';
@@ -23,7 +25,7 @@ import { SelectorClase, type DatosPanel } from './paso-que';
 // copiado, que es lo que luego avisa de un código antiguo.
 
 export function PasoPonlo({
-  entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, onCopiado, onMetodo, cambiar,
+  entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, estiloSinAplicar, onCopiado, onMetodo, cambiar,
   proximasClases, dominiosAutorizados, dominios, showToast,
 }: {
   entrada: EntradaIntegracion;
@@ -34,6 +36,11 @@ export function PasoPonlo({
   origen: string;
   copiado: Copiado | null;
   desfase: boolean;
+  /**
+   * Cambió el estilo de sus widgets en «Cómo se ve» y no lo ha aplicado. Se
+   * dice aquí porque es donde se copia: podría creer que copiar se lo lleva.
+   */
+  estiloSinAplicar: boolean;
   onCopiado: (firma: string) => void;
   onMetodo: (m: MetodoIntegracion) => void;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
@@ -139,6 +146,12 @@ export function PasoPonlo({
         titulo={falta ? 'Te falta un dato' : plataforma === 'sinweb' ? 'Ya está. Ahora compártelo' : 'Ya está. Ahora ponlo en tu web'}
         subtitulo={`${w.respuesta} · ${forma.toLowerCase()}${plataforma ? ` · ${nombrePlataforma(plataforma)}` : ''}`}
       >
+        {estiloSinAplicar && (
+          <p className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-foreground">
+            <AlertCircle size={15} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+            <span className="min-w-0">Tienes cambios de estilo sin aplicar. No van en el código: aplícalos en «Cómo se ve».</span>
+          </p>
+        )}
         {falta ? (
           <div className="space-y-3 rounded-xl bg-muted/60 px-3.5 py-3">
             <p role="status" className="text-[13px] font-medium text-foreground">{falta}</p>
@@ -203,7 +216,7 @@ export function PasoPonlo({
         <div className="grid gap-2 @xl/config:grid-cols-2">
           <div className="rounded-xl border border-success/30 bg-success/5 p-3 text-[12.5px] leading-relaxed text-foreground">
             <p className="mb-0.5 flex items-center gap-1 font-semibold"><Check size={13} aria-hidden />Se actualiza solo</p>
-            Tus clases, precios y plazas{estiloVivo(metodo, c.identidad === 'estudio')}.
+            Tus clases, precios y plazas{estiloVivo(metodo, metodo === 'nativa' ? c.identidad === 'estudio' : !tieneDisenoEnCodigo(c))}.
           </div>
           <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-[12.5px] leading-relaxed text-foreground">
             <p className="mb-0.5 font-semibold">Si lo cambias, cópialo otra vez</p>
@@ -228,15 +241,17 @@ export function PasoPonlo({
   );
 }
 
-// Qué parte del aspecto llega sola a lo ya pegado: el estilo de la app (F1 del
-// rediseño de /reservar); en la integración nativa, solo el color de marca. El
+// Qué parte del aspecto llega sola a lo ya pegado: el estilo de sus widgets (el
+// que se aplica en «Cómo se ve», Fase B), salvo que su código lleve un diseño
+// propio —entonces /reservar no se lo pasa—; en la integración nativa, solo el
+// color de marca, y solo con la identidad del estudio (`data-identidad`). El
 // color del botón del popup va en su `style`, dentro del código: ese no.
-function estiloVivo(metodo: MetodoIntegracion, delEstudio: boolean): string {
+function estiloVivo(metodo: MetodoIntegracion, sigueElEstilo: boolean): string {
   if (metodo === 'boton' || metodo === 'enlace') return ', y tu página de reservas entera';
-  if (!delEstudio) return '';
-  if (metodo === 'popup') return ', y el estilo de tu app dentro de la ventana (el color del botón va en el código)';
-  if (metodo === 'nativa') return ', y tu color de marca, el de Apariencia';
-  return ', y el estilo de tu app, el de Apariencia';
+  if (!sigueElEstilo) return '';
+  if (metodo === 'popup') return ', y el estilo de tus widgets dentro de la ventana (el color del botón va en el código)';
+  if (metodo === 'nativa') return ', y tu color de marca';
+  return ', y el estilo de tus widgets';
 }
 
 function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo, dominios, botonPropio, onCopiarReact, reactCopiado }: {

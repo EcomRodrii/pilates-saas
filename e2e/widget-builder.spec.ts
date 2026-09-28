@@ -286,7 +286,7 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await expect(page.getByRole('group', { name: 'Solo las de estas instructoras' }).getByRole('button', { name: 'Bea Gil' })).toHaveCount(0);
     await expect.poll(() => JSON.stringify(ultimoBuilder(patches)?.horario ?? {}), { timeout: 10_000 }).toContain('tc-r');
     expect(ultimoBuilder(patches)?._web).toEqual({ plataforma: 'otra' });
-    await expect(page.getByRole('status').filter({ hasText: 'Tus ajustes están guardados. Tu web cambia cuando pegues el código.' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Tus ajustes están guardados. Lo que va en el código llega a tu web cuando lo pegues.' })).toBeVisible();
 
     // «Todas» quita los filtros del código.
     await page.getByRole('group', { name: 'Qué clases salen' }).getByRole('button', { name: 'Todas' }).click();
@@ -431,9 +431,11 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
   test('⚠️ letra: con un diseño propio entra en el código (en la página y sin marco) y pinta la previa real', async ({ page }) => {
     const { patches } = await montar(page, { plataforma: 'otra' });
     await paso(page, 'Cómo se ve');
-    // Con el estilo de su página de reservas no hay letra que elegir.
+    // Sin diseño propio, la letra es la del estilo de sus widgets (en su
+    // propio grupo, que no va en el código): no hay selector de fuente suelto.
     await expect(page.getByRole('button', { name: 'Letra', exact: true })).toHaveCount(0);
-    await expect(page.getByText('El estilo de tu página de reservas')).toBeVisible();
+    await expect(page.getByRole('radiogroup', { name: 'Estilo de tus widgets' }).getByRole('radio', { name: /Igual que tu app · Crema/ }))
+      .toHaveAttribute('aria-checked', 'true');
     await abrir(page, 'Un diseño distinto');
     await page.getByRole('switch', { name: /Usar un diseño propio/ }).click();
     await elegirFuente(page, 'Letra', 'Poppins');
@@ -617,6 +619,243 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await paso(page, 'Ponlo en tu web');
     await abrir(page, 'Para quien te hace la web');
     await expect(page.getByRole('switch', { name: 'Ponerlo sin marco' })).toHaveCount(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fase B (28-sep): el ESTILO de sus widgets no va en el código. Se prueba en la
+// vista previa (un borrador que solo ve ella) y se aplica en su web con
+// «Aplicar en mi web», por su propio endpoint.
+//
+// Lo que se vigila es lo de siempre con una pantalla que escribe (#500/#505/
+// #560 y #565): nunca «Aplicado en tu web» sin que el servidor lo diga, y en
+// cada camino de fallo un CONTADOR de peticiones —un test de fallo que pasa
+// porque no se llegó a intentar nada es un test hueco—. Las rutas se registran
+// DESPUÉS de montar(): la última gana al comodín `/api/**`, que responde `{}`
+// (y un `{}` también tiene que leerse como fallo). De la vista previa solo se
+// mira su `src`, por donde viaja el borrador, nunca lo que pinta (ver arriba).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ARENA = { estilo: 'arena', letra: null, boton: null, web: null, colorWeb: null, fundido: false, forma: null, densidad: null, ocultarPie: false };
+const MENSAJE_FUNDIDO = 'Con este color de web, el texto fundido no se lee bien. Prueba «En su propio recuadro».';
+const NO_APLICADO = 'No se ha aplicado. Tu web sigue como estaba. Vuelve a intentarlo.';
+
+interface CuerpoEstilo { estilo: Record<string, unknown> | null; esperado: Record<string, unknown> | null; motivo: string }
+
+/** Cada POST a /api/estudio/widget-estilo, con su cuerpo; responde lo que diga `responder`. */
+async function servidorDelEstilo(page: Page, responder: (route: Route, cuerpo: CuerpoEstilo) => Promise<void>) {
+  const cuerpos: CuerpoEstilo[] = [];
+  await page.route('**/api/estudio/widget-estilo', async route => {
+    const cuerpo = route.request().postDataJSON() as CuerpoEstilo;
+    cuerpos.push(cuerpo);
+    await responder(route, cuerpo);
+  });
+  return cuerpos;
+}
+/** Lo que responde el servidor cuando escribe: lo aplicado y lo que había (su `esperado`, que coincidía). */
+const escribe = (route: Route, c: CuerpoEstilo) => json(route, { aplicado: c.estilo, anterior: c.esperado });
+
+const estilos = (page: Page) => page.getByRole('radiogroup', { name: 'Estilo de tus widgets' });
+const arena = (page: Page) => estilos(page).getByRole('radio', { name: 'Arena', exact: true });
+const barraEstilo = (page: Page) => page.getByRole('group', { name: 'Aplicar el estilo en tu web' });
+const estadoEstilo = (page: Page) => barraEstilo(page).getByRole('status');
+const botonAplicar = (page: Page) => barraEstilo(page).getByRole('button', { name: 'Aplicar en mi web' });
+const previa = (page: Page) => page.getByTitle(/^Vista previa:/);
+const dialogoAplicar = (page: Page) => page.getByRole('dialog', { name: '¿Aplicar este estilo en tu web?' });
+
+async function aplicarYConfirmar(page: Page) {
+  await botonAplicar(page).click();
+  await expect(dialogoAplicar(page)).toBeVisible();
+  await dialogoAplicar(page).getByRole('button', { name: 'Aplicar en mi web' }).click();
+}
+
+test.describe('El estilo de tus widgets: se prueba en la previa y se aplica en su web, sin mentir', () => {
+
+  test('elegir otro estilo es un borrador: la previa lo enseña, el código no cambia y no se manda nada', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    const cuerpos = await servidorDelEstilo(page, escribe);
+    const codigo = await snippet(page).textContent();
+    await paso(page, 'Cómo se ve');
+    await expect(estilos(page).getByRole('radio', { name: /Igual que tu app · Crema/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(estadoEstilo(page)).toHaveText('Es lo que hay ahora en tu web');
+    await expect(botonAplicar(page)).toBeDisabled();
+
+    await arena(page).click();
+    await expect(arena(page)).toHaveAttribute('aria-checked', 'true');
+    await expect(estadoEstilo(page)).toContainText('Cambios sin aplicar');
+    await expect(previa(page)).toHaveAttribute('src', /vista-previa=1&borrador-web=/);
+    expect(decodeURIComponent((await previa(page).getAttribute('src'))!)).toContain('"estilo":"arena"');
+    // Nada de esto va en el código: el estilo vive en su web, no en lo copiado.
+    expect(await snippet(page).textContent()).toBe(codigo);
+    expect(codigo).not.toContain('borrador-web');
+    // Y donde se copia se le recuerda que copiar no se lo lleva.
+    await paso(page, 'Ponlo en tu web');
+    await expect(page.getByText('Tienes cambios de estilo sin aplicar. No van en el código: aplícalos en «Cómo se ve».')).toBeVisible();
+    await page.waitForTimeout(500);
+    expect(cuerpos).toHaveLength(0);
+  });
+
+  test('«Descartar» vuelve a lo que hay en su web sin mandar nada', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    const cuerpos = await servidorDelEstilo(page, escribe);
+    await paso(page, 'Cómo se ve');
+    await arena(page).click();
+    await expect(estadoEstilo(page)).toContainText('Cambios sin aplicar');
+    await barraEstilo(page).getByRole('button', { name: 'Descartar' }).click();
+    await expect(estadoEstilo(page)).toHaveText('Es lo que hay ahora en tu web');
+    await expect(estilos(page).getByRole('radio', { name: /Igual que tu app · Crema/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(previa(page)).not.toHaveAttribute('src', /borrador-web=/);
+    await page.waitForTimeout(500);
+    expect(cuerpos).toHaveLength(0);
+  });
+
+  test('⚠️ «Aplicar en mi web»: la confirmación nombra lo copiado, el cuerpo es exacto y «Aplicado» llega con la respuesta', async ({ page }) => {
+    await montar(page, {
+      plataforma: 'otra',
+      widgetBuilder: { horario: { copiado: { firma: 'huella', en: '2026-09-12T10:00:00.000Z' } } },
+    });
+    const cuerpos = await servidorDelEstilo(page, escribe);
+    await paso(page, 'Cómo se ve');
+    await arena(page).click();
+    await botonAplicar(page).click();
+    const dialogo = dialogoAplicar(page);
+    await expect(dialogo).toContainText('No tienes que volver a pegar ningún código.');
+    await expect(dialogo).toContainText('Entre ellos, los que copiaste desde aquí: Horario y reservas.');
+    await expect(dialogo).toContainText('Los widgets con un diseño propio dentro de su código no cambian.');
+    // Abrir la confirmación no manda nada todavía.
+    expect(cuerpos).toHaveLength(0);
+    await dialogo.getByRole('button', { name: 'Aplicar en mi web' }).click();
+
+    await expect(estadoEstilo(page)).toHaveText('Aplicado en tu web · hace un momento');
+    await expect(barraEstilo(page)).toContainText('Aplicado en tu web. Tus widgets lo toman al volver a abrirse.');
+    expect(cuerpos).toHaveLength(1);
+    expect(cuerpos[0]).toEqual({ estilo: ARENA, esperado: null, motivo: 'aplicar' });
+    // Aplicado ya no es un borrador: la previa carga lo publicado, como cualquier web.
+    await expect(previa(page)).not.toHaveAttribute('src', /borrador-web=/);
+    await expect(botonAplicar(page)).toBeDisabled();
+    await expect(barraEstilo(page).getByRole('button', { name: 'Deshacer' })).toBeVisible();
+  });
+
+  test('«Deshacer» vuelve a lo que el servidor leyó al aplicar, con lo aplicado como `esperado`', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    const cuerpos = await servidorDelEstilo(page, escribe);
+    await paso(page, 'Cómo se ve');
+    await arena(page).click();
+    await aplicarYConfirmar(page);
+    await expect(estadoEstilo(page)).toHaveText('Aplicado en tu web · hace un momento');
+
+    await barraEstilo(page).getByRole('button', { name: 'Deshacer' }).click();
+    await expect(barraEstilo(page)).toContainText('Hemos vuelto a poner el estilo de antes en tu web.');
+    expect(cuerpos).toHaveLength(2);
+    expect(cuerpos[1]).toEqual({ estilo: null, esperado: ARENA, motivo: 'deshacer' });
+    await expect(estadoEstilo(page)).toHaveText('Es lo que hay ahora en tu web');
+    await expect(estilos(page).getByRole('radio', { name: /Igual que tu app · Crema/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(barraEstilo(page).getByRole('button', { name: 'Deshacer' })).toHaveCount(0);
+  });
+
+  test('⚠️ si el servidor dice que no (400, 500, sin red o una respuesta vacía), nunca «Aplicado» y el borrador se queda', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    let responder: (route: Route) => Promise<void> = route => json(route, {});
+    const cuerpos = await servidorDelEstilo(page, route => responder(route));
+    await paso(page, 'Cómo se ve');
+    await arena(page).click();
+
+    const casos: [string, (route: Route) => Promise<void>][] = [
+      ['400', route => json(route, { error: 'Los cambios de estilo no son válidos.' }, 400)],
+      ['500', route => json(route, { error: 'No se ha podido aplicar el estilo. Vuelve a intentarlo.' }, 500)],
+      ['sin red', route => route.abort('failed')],
+      ['200 con {}', route => json(route, {})],
+    ];
+    for (const [caso, respuesta] of casos) {
+      responder = respuesta;
+      const antes = cuerpos.length;
+      await aplicarYConfirmar(page);
+      await expect.poll(() => cuerpos.length, { message: `${caso}: ni lo intentó` }).toBeGreaterThan(antes);
+      await expect(barraEstilo(page).getByRole('alert'), caso).toHaveText(NO_APLICADO);
+      await expect(page.getByText(/Aplicado en tu web/), caso).toHaveCount(0);
+      await expect(estadoEstilo(page), caso).toContainText('Cambios sin aplicar');
+      await expect(arena(page), caso).toHaveAttribute('aria-checked', 'true');
+    }
+    expect(cuerpos.length).toBeGreaterThan(0);
+  });
+
+  test('409: otra pestaña lo cambió entretanto, y se dice en vez de pisarlo', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    const cuerpos = await servidorDelEstilo(page, route => json(route, { error: 'El estilo ha cambiado' }, 409));
+    await paso(page, 'Cómo se ve');
+    await arena(page).click();
+    await aplicarYConfirmar(page);
+    await expect.poll(() => cuerpos.length).toBeGreaterThan(0);
+    await expect(barraEstilo(page).getByRole('alert'))
+      .toHaveText('El estilo de tus widgets acaba de cambiar desde otra pestaña. Recarga la página para ver el de ahora.');
+    await expect(page.getByText(/Aplicado en tu web/)).toHaveCount(0);
+    await expect(estadoEstilo(page)).toContainText('Cambios sin aplicar');
+  });
+
+  test('422: el servidor no lo deja por contraste, y se enseña su motivo', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    const cuerpos = await servidorDelEstilo(page, route =>
+      json(route, { error: 'Contraste insuficiente', errores: [{ campo: 'colorWeb', mensaje: MENSAJE_FUNDIDO }] }, 422));
+    await paso(page, 'Cómo se ve');
+    await arena(page).click();
+    await aplicarYConfirmar(page);
+    await expect.poll(() => cuerpos.length).toBeGreaterThan(0);
+    await expect(barraEstilo(page).getByRole('alert')).toHaveText(MENSAJE_FUNDIDO);
+    await expect(page.getByText(/Aplicado en tu web/)).toHaveCount(0);
+  });
+
+  test('⚠️ doble clic en «Aplicar en mi web»: una sola petición', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    const cuerpos = await servidorDelEstilo(page, async (route, c) => {
+      // Lento a propósito: el segundo clic llega con la primera aún en vuelo.
+      await new Promise(r => setTimeout(r, 1_500));
+      await escribe(route, c);
+    });
+    await paso(page, 'Cómo se ve');
+    await arena(page).click();
+    await botonAplicar(page).click();
+    await dialogoAplicar(page).getByRole('button', { name: 'Aplicar en mi web' }).dblclick();
+    await expect(estadoEstilo(page)).toHaveText('Aplicando…');
+    await expect(botonAplicar(page)).toBeDisabled();
+    await expect(estadoEstilo(page)).toHaveText('Aplicado en tu web · hace un momento', { timeout: 10_000 });
+    expect(cuerpos).toHaveLength(1);
+  });
+
+  test('fundido sobre una web gris que no se lee: se avisa y «Aplicar» no se deja pulsar (0 peticiones)', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    const cuerpos = await servidorDelEstilo(page, escribe);
+    await paso(page, 'Cómo se ve');
+    await page.getByRole('radiogroup', { name: 'Cómo es tu web' }).getByRole('radio', { name: 'Otro color' }).click();
+    await page.getByLabel('Color de tu web').fill('#808080');
+    await page.getByRole('radiogroup', { name: 'Fondo', exact: true }).getByRole('radio', { name: 'Que se funda con tu web' }).click();
+    await expect(page.getByText(MENSAJE_FUNDIDO)).toBeVisible();
+    await expect(estadoEstilo(page)).toContainText('Cambios sin aplicar');
+    await expect(botonAplicar(page)).toBeDisabled();
+    // La previa lo enseña igual, para que vea por qué.
+    await expect(previa(page)).toHaveAttribute('src', /borrador-web=/);
+    await page.waitForTimeout(500);
+    expect(cuerpos).toHaveLength(0);
+  });
+
+  test('si no se puede leer lo que hay en su web, se dice y no se deja aplicar nada a ciegas', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    let lecturas = 0;
+    await page.route('**/api/theme**', route => { lecturas++; return json(route, { error: 'no' }, 500); });
+    const cuerpos = await servidorDelEstilo(page, escribe);
+    await page.reload();
+    await expect(page.getByText('Widgets para tu web')).toBeVisible({ timeout: 60_000 });
+    await paso(page, 'Cómo se ve');
+    const tarjeta = page.getByRole('region', { name: '¿Cómo quieres que se vea?' });
+    await expect(tarjeta.getByRole('alert')).toHaveText('No hemos podido leer el estilo de tus widgets.');
+    expect(lecturas).toBeGreaterThan(0);
+    await expect(page.getByRole('button', { name: 'Aplicar en mi web' })).toHaveCount(0);
+    await expect(estilos(page)).toHaveCount(0);
+
+    // Con el tema de vuelta, «Reintentar» lo trae.
+    await page.route('**/api/theme**', route => json(route, { primary: '#343825', secondary: '#D9C29E', logoUrl: null, radius: 12 }));
+    await tarjeta.getByRole('button', { name: 'Reintentar' }).click();
+    await expect(estilos(page).getByRole('radio', { name: /Igual que tu app · Crema/ })).toHaveAttribute('aria-checked', 'true');
+    expect(cuerpos).toHaveLength(0);
   });
 });
 
