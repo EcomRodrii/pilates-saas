@@ -4,6 +4,7 @@
 // por auditoría que no había NADA (ni GA/PostHog/Sentry-para-eventos/tabla
 // propia) antes de este módulo.
 import type { PegadoWidget } from './pegado-widget.ts';
+import { uuidV4 } from '../utils.ts';
 
 export const TIPOS_EVENTO_WIDGET = [
   'widget_loaded', 'widget_viewed', 'class_list_viewed', 'class_selected',
@@ -69,13 +70,18 @@ export function silenciarEventosWidget(si: boolean): void {
 /**
  * Un id por pestaña/visita — sessionStorage, se pierde al cerrarla. Nunca se
  * cruza con `socios`: es anónimo por diseño, no un identificador de persona.
+ *
+ * ⚠️ `uuidV4`, nunca `crypto.randomUUID()` a secas: dentro del iframe de una
+ * web del estudio en `http` la página NO es un contexto seguro (lo es solo si
+ * toda la cadena de marcos lo es), `randomUUID` no existe, y el fallo se lo
+ * tragaba el `.catch` del envío: esa web no registraba ni una visita.
  */
 export function sessionIdWidget(): string {
   if (typeof window === 'undefined') return '';
   try {
     let id = window.sessionStorage.getItem(CLAVE_SESSION_ID);
     if (!id) {
-      id = crypto.randomUUID();
+      id = uuidV4();
       window.sessionStorage.setItem(CLAVE_SESSION_ID, id);
     }
     return id;
@@ -83,7 +89,7 @@ export function sessionIdWidget(): string {
     // Safari en modo privado (o cookies/storage bloqueados) puede lanzar al
     // tocar sessionStorage — un id nuevo cada vez no rompe nada, solo hace
     // que esa visitante cuente como varias "sesiones" en el funnel.
-    return crypto.randomUUID();
+    return uuidV4();
   }
 }
 
