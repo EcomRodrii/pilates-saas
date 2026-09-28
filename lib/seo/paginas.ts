@@ -293,7 +293,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/control-de-asistencia',
     titulo: 'Control de asistencia y no-shows en tu estudio | Tentare',
     descripcion:
-      'Marca quién vino con un QR en la puerta, con un código corto o sin hacer nada — y detecta a quien reserva y falla, con un riesgo de plantón que pesa lo reciente.',
+      'Marca quién vino con el QR de cada alumna, que comprueba su reserva al escanearlo, o sin hacer nada — y detecta a quien reserva y falla, con un riesgo de plantón que pesa lo reciente.',
     grupo: 'funcionalidades',
     etiqueta: 'Control de asistencia',
     resumen: 'Quién vino y quién falló, con o sin escanear nada.',

@@ -266,8 +266,8 @@ export interface Studio {
   recibosAlCancelarCuota: 'MANTENER_CON_REINTENTOS' | 'MANTENER_SIN_REINTENTOS' | 'ANULAR';
   // Si la alumna puede renovar sola desde su app una cuota cancelada (por defecto, sí).
   renovarSolaCuotaCancelada: boolean;
-  // true (default) = comportamiento de siempre: la socia enseña su pase
-  // (QR o código corto) y alguien del estudio lo escanea/teclea antes de que
+  // true (default) = comportamiento de siempre: alguien del estudio marca su
+  // asistencia (escaneando su QR de acceso o en la lista de la clase) antes de que
   // la reserva cuente como asistida. false = el estudio confía en que quien
   // reserva viene: la reserva se marca ASISTIDA sola al terminar la clase
   // (cron `checkin-automatico`), sin pedir ningún gesto de check-in. El
@@ -277,7 +277,7 @@ export interface Studio {
   // "¿hay alguien en la puerta dispuesto a escanear?", no algo que varíe
   // clase a clase.
   requiereCheckinQr: boolean;
-  /** Control de acceso con QR (migr 20260927150000): la alumna ve su QR permanente
+  /** Control de acceso con QR (migr 20260927235435): la alumna ve su QR permanente
    *  y el equipo puede escanearlo. Encendido de serie. Si un 🟢 marca asistencia lo
    *  sigue decidiendo `requiereCheckinQr`. */
   controlAccesoQr?: boolean;
