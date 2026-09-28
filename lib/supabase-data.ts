@@ -29,6 +29,7 @@ import { saldoVivo } from '@/lib/creditos-caducidad';
 // `hoyISO` fija la zona del negocio (Madrid). Sin eso, el saldo caducaría a
 // medianoche UTC — dos horas antes en verano — para todo el mundo.
 import { hoyISO } from '@/lib/student/formato';
+import { FORMAS_PEGADAS, type FormaPegada, type VistoWidget } from '@/lib/widgets/pegado';
 import {
   cobroManualDeRecibo, penalizacionDelRecibo, TEXTO_PENALIZACION_ANULADA, type LecturaPenalizacionesDeRecibos,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
@@ -3893,6 +3894,25 @@ export async function dbEmbudoWidgetPorOrigen(desde: string): Promise<{ origen: 
   if (error) { reportDbError('[dbEmbudoWidgetPorOrigen]', error); return null; }
   return ((data ?? []) as { origen: string | null; tipo: string; n: number }[])
     .map((r) => ({ origen: r.origen ?? null, tipo: r.tipo, n: Number(r.n) }));
+}
+
+// Fase C del constructor de widgets: dónde se ha visto cada pieza pegada y con
+// qué versión (`widget_vistos()`, SECURITY INVOKER sobre la RLS de
+// `widget_eventos`). ⚠️ `null` en el fallo, NUNCA `[]`: `[]` es «aún no lo
+// vemos en tu web», una afirmación que la portada enseña tal cual. Y a quien
+// la RLS no deja leer (RECEPCION) también le llega `[]`, así que el panel solo
+// la pide con permiso de ver resultados.
+export async function dbWidgetVistos(): Promise<VistoWidget[] | null> {
+  const { data, error } = await supabase.rpc('widget_vistos');
+  if (error) { reportDbError('[dbWidgetVistos]', error); return null; }
+  return ((data ?? []) as { origen: string; forma: string; anfitrion: string | null; firma: string | null; primero: string; ultimo: string; n: number }[])
+    // Una forma que este código no conoce (una columna ampliada antes de
+    // desplegar) no se pinta como si fuera otra.
+    .filter((r): r is typeof r & { forma: FormaPegada } => (FORMAS_PEGADAS as readonly string[]).includes(r.forma))
+    .map((r) => ({
+      origen: r.origen, forma: r.forma, anfitrion: r.anfitrion ?? null, firma: r.firma ?? null,
+      primero: r.primero, ultimo: r.ultimo, n: Number(r.n),
+    }));
 }
 
 // Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) para

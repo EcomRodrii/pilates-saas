@@ -5,6 +5,7 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { esTipoEventoValido } from '@/lib/reservar/eventos';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
+import { pegadoDelEvento, propiosDeLaPeticion } from '@/lib/widgets/evento-pegado';
 
 // Fase 2 "Growth Widget": recibe los eventos anónimos del funnel del widget
 // público (ver lib/reservar/eventos.ts para el catálogo y el helper de
@@ -26,6 +27,12 @@ import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 // body. Riesgo original documentado en docs/cro-analytics-widget-diseno.md
 // §5.2/§7.3.
 //
+// Fase C del constructor de widgets: `widget_loaded` dice además dónde está
+// pegado (forma, anfitrión y firma de la versión). Todo lo decide
+// `pegadoDelEvento` (lib/widgets/evento-pegado.ts): la nativa la reconoce aquí
+// el servidor por la cabecera Origin; el iframe y el popup los cuenta la
+// página en el cuerpo. Botón y enlace no mandan nada, a propósito.
+//
 // Fire-and-forget desde el cliente (no espera la respuesta, usa `keepalive`):
 // este endpoint SIEMPRE responde 200 salvo un body claramente inválido — un
 // fallo de analítica nunca debe convertirse en ruido visible para nadie.
@@ -46,6 +53,11 @@ export async function POST(req: NextRequest) {
     // Fase 8 (CRO): solo poblado por el cliente en los eventos donde la
     // visitante ya está identificada — ver lib/reservar/eventos.ts.
     socioId?: string | null;
+    // Fase C: solo en `widget_loaded` de un iframe o un popup. Sin validar
+    // aquí: lo filtra `pegadoDelEvento`, que decide también cuándo no cuentan.
+    forma?: unknown;
+    anfitrion?: unknown;
+    firma?: unknown;
   } | null;
 
   if (!body?.studioId || !body.sessionId || !body.tipo || !esTipoEventoValido(body.tipo)) {
@@ -74,6 +86,16 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // La nativa llama con `?studioId=` en la URL (el preflight CORS no puede
+  // leer el cuerpo); su anfitrión es la cabecera Origin, nunca el cuerpo.
+  const pegado = pegadoDelEvento({
+    tipo: body.tipo,
+    cuerpo: { forma: body.forma, anfitrion: body.anfitrion, firma: body.firma },
+    studioIdEnUrl: !!req.nextUrl.searchParams.get('studioId'),
+    origenCabecera: req.headers.get('origin'),
+    propios: propiosDeLaPeticion(req.nextUrl.origin),
+  });
+
   registrarEventoWidget(admin, {
     studioId: body.studioId,
     sessionId: body.sessionId,
@@ -82,6 +104,7 @@ export async function POST(req: NextRequest) {
     origen: body.origen ?? null,
     socioId: body.socioId ?? null,
     socioIdVerificado,
+    ...pegado,
   });
 
   return conCorsWidget(req, NextResponse.json({ ok: true }));
