@@ -4,7 +4,7 @@ import { WIDGETS, CATEGORIAS, widgetPorId, esDisponible, widgetsVisibles, type W
 import { CONFIG_POR_DEFECTO, leerConfig, leerConfigs, etiquetaEfectiva, anchoPorDefecto, anchoPopupDe, type ConfigConstructor } from './config.ts';
 import {
   urlEmbebido, urlPagina, atributosNativa, generarCodigo, faltaParaGenerar, plataformasDe,
-  estiloBoton, type EntradaIntegracion,
+  estiloBoton, firmaCodigo, type EntradaIntegracion,
 } from './integracion.ts';
 import { resolverConfigWidget, fuenteDeDataset, leerPresentacion } from '../reservar/config-widget.ts';
 import { resolverApariencia } from '../reservar/apariencia-widget.ts';
@@ -391,4 +391,41 @@ test('calendario semanal: el popup se abre a 960 para que la rejilla no se desli
   assert.equal(anchoPopupDe(w('prueba'), { presentacion: 'semana' }), 960);
   // En un widget que no es un horario, `presentacion` no mueve su ancho.
   assert.equal(anchoPopupDe(w('citas'), { presentacion: 'semana' }), w('citas').anchoPopup);
+});
+
+// ── Huella de lo copiado ─────────────────────────────────────────────────────
+
+test('firma: estable, corta y la misma copiada desde cualquier dirección de Tentare', () => {
+  const f = firmaCodigo(entrada('horario'), 'iframe');
+  assert.match(f, /^[0-9a-z]{1,32}$/);
+  assert.equal(firmaCodigo(entrada('horario'), 'iframe'), f);
+  assert.equal(firmaCodigo({ ...entrada('horario'), origen: 'http://localhost:3000' }, 'iframe'), f);
+});
+
+test('firma: cambia con lo que va en el código', () => {
+  const base = firmaCodigo(entrada('horario'), 'iframe');
+  assert.notEqual(firmaCodigo(entrada('horario', { tipos: ['tc-r'] }), 'iframe'), base);
+  assert.notEqual(firmaCodigo(entrada('horario', { mostrarPrecio: false }), 'iframe'), base);
+  assert.notEqual(firmaCodigo(entrada('horario'), 'popup'), base);
+  assert.notEqual(firmaCodigo(entrada('horario', { etiqueta: 'insta-bio' }), 'iframe'), base);
+  const popup = firmaCodigo(entrada('horario'), 'popup');
+  assert.notEqual(firmaCodigo(entrada('horario', { textoBoton: 'Ven a probar' }), 'popup'), popup);
+  assert.notEqual(firmaCodigo(entrada('horario', { estiloBoton: 'contorno' }), 'popup'), popup);
+});
+
+test('⚠️ firma: el color de marca del estudio (Apariencia) no cuenta como «has cambiado algo»', () => {
+  const popup = firmaCodigo(entrada('horario'), 'popup');
+  assert.equal(firmaCodigo({ ...entrada('horario'), colorEstudio: '#123456' }, 'popup'), popup);
+  // Ni un ajuste de botón que el iframe no lleva.
+  assert.equal(firmaCodigo(entrada('horario', { estiloBoton: 'contorno' }), 'iframe'), firmaCodigo(entrada('horario'), 'iframe'));
+  // Su propio color, en cambio, sí.
+  assert.notEqual(firmaCodigo(entrada('horario', { identidad: 'propia', marca: '#123456' }), 'boton'), firmaCodigo(entrada('horario'), 'boton'));
+});
+
+test('lo que falta para el código ya no manda a otra pestaña', () => {
+  const sinDominios = { dominiosAutorizados: [] as string[] };
+  for (const m of [faltaParaGenerar(entrada('clase'), 'enlace', sinDominios), faltaParaGenerar(entrada('horario'), 'nativa', sinDominios)]) {
+    assert.ok(m);
+    assert.doesNotMatch(m, /«Contenido»|«Avanzado»/);
+  }
 });

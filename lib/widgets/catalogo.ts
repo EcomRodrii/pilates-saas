@@ -49,12 +49,15 @@ export const CATEGORIAS: readonly { id: CategoriaWidget; nombre: string }[] = [
  */
 export type MetodoIntegracion = 'iframe' | 'nativa' | 'popup' | 'boton' | 'enlace';
 
+// Los nombres dicen DÓNDE queda en su web, no la técnica: quien elige es la
+// dueña, no quien le hace la web. Los ids no cambian (van guardados en
+// `studios.widget_builder`).
 export const METODOS: Record<MetodoIntegracion, { nombre: string; descripcion: string }> = {
-  iframe: { nombre: 'Incrustado', descripcion: 'Dentro de una página de tu web, a su medida.' },
-  nativa: { nombre: 'Integración nativa', descripcion: 'Sin marco: toma el espacio de tu web como si fuera suyo.' },
-  popup: { nombre: 'Popup', descripcion: 'Un botón de tu web que lo abre en una ventana.' },
-  boton: { nombre: 'Botón', descripcion: 'Un botón que lleva a tu página de reservas.' },
-  enlace: { nombre: 'Enlace', descripcion: 'Para Instagram, un newsletter o WhatsApp.' },
+  iframe: { nombre: 'Dentro de una página', descripcion: 'Por ejemplo, en tu página «Horarios». Se adapta sola a su alto.' },
+  nativa: { nombre: 'Sin marco', descripcion: 'Toma la letra de tu web y ocupa su hueco como si fuera suyo. Solo funciona en las webs que autorices.' },
+  popup: { nombre: 'Un botón que se abre encima', descripcion: 'Tu alumna no sale de tu web.' },
+  boton: { nombre: 'Un botón que lleva a tu página de reservas', descripcion: 'Se abre tu página de reservas.' },
+  enlace: { nombre: 'Un enlace', descripcion: 'Para la bio de Instagram, WhatsApp o tu newsletter. Sin código.' },
 };
 
 /**
@@ -94,6 +97,14 @@ interface Base {
 
 export interface WidgetDisponible extends Base {
   estado: 'disponible';
+  /**
+   * Cómo lo diría ella: la respuesta a «¿Qué quieres poner en tu web?». El
+   * `nombre` se queda como está porque viaja en el código (el `title` del
+   * iframe, el de la ventana del popup y el nombre del componente de React).
+   */
+  respuesta: string;
+  /** Los que más se usan: van grandes; el resto, en «Más cosas para tu web». */
+  principal?: boolean;
   /** La vista incrustada (iframe y popup). */
   embebido: VistaMotor;
   /** La vista a pantalla completa (enlace y botón). */
@@ -131,8 +142,8 @@ export const WIDGETS: readonly Widget[] = [
   // ── Reservas ─────────────────────────────────────────────────────────────
   {
     id: 'horario', estado: 'disponible', categoria: 'reservas', icono: 'CalendarDays',
-    nombre: 'Horario y reservas',
-    descripcion: 'Tu horario en vivo. Reservan y pagan sin salir de tu web.',
+    nombre: 'Horario y reservas', respuesta: 'Tu horario, para que reserven', principal: true,
+    descripcion: 'Ven tus clases, reservan y pagan sin salir de tu web.',
     embebido: { tab: 'clases' }, pagina: { tab: 'clases' },
     metodos: ['iframe', 'nativa', 'popup', 'boton', 'enlace'],
     contenido: ['horario'], alto: 640, anchoPopup: 720, textoBoton: 'Reservar clase',
@@ -140,7 +151,7 @@ export const WIDGETS: readonly Widget[] = [
   },
   {
     id: 'citas', estado: 'disponible', categoria: 'reservas', icono: 'Clock',
-    nombre: 'Citas',
+    nombre: 'Citas', respuesta: 'Citas',
     descripcion: 'Servicios con hora concreta: valoraciones, sesiones 1 a 1…',
     embebido: { tab: 'citas' }, pagina: { tab: 'citas' },
     metodos: ['iframe', 'popup', 'boton', 'enlace'],
@@ -149,7 +160,7 @@ export const WIDGETS: readonly Widget[] = [
   },
   {
     id: 'cuenta', estado: 'disponible', categoria: 'reservas', icono: 'UserRound',
-    nombre: 'Mi cuenta',
+    nombre: 'Mi cuenta', respuesta: 'La cuenta de tus alumnas',
     descripcion: 'Sus reservas, sus bonos y su perfil, sin descargar nada.',
     embebido: { tab: 'misreservas', extra: { cuenta: 'completa' } }, pagina: { tab: 'misreservas' },
     metodos: ['iframe', 'popup', 'boton', 'enlace'],
@@ -158,7 +169,7 @@ export const WIDGETS: readonly Widget[] = [
   },
   {
     id: 'clase', estado: 'disponible', categoria: 'reservas', icono: 'CalendarCheck',
-    nombre: 'Reserva una clase',
+    nombre: 'Reserva una clase', respuesta: 'Una clase concreta',
     descripcion: 'Directo a una clase concreta: para un post, una story o un newsletter.',
     embebido: { tab: 'clases' }, pagina: { tab: 'clases' },
     metodos: ['enlace', 'boton', 'popup', 'iframe'],
@@ -169,15 +180,15 @@ export const WIDGETS: readonly Widget[] = [
   // ── Venta ────────────────────────────────────────────────────────────────
   {
     id: 'planes', estado: 'disponible', categoria: 'venta', icono: 'BadgeEuro',
-    nombre: 'Planes y precios',
-    descripcion: 'Tus cuotas y bonos, comparables de un vistazo y con pago seguro.',
+    nombre: 'Planes y precios', respuesta: 'Tus precios', principal: true,
+    descripcion: 'Cuotas, bonos y clase suelta, para comparar y pagar con seguridad.',
     embebido: { tab: 'planes' }, pagina: { ancla: 'bonos-membresias' },
     metodos: ['iframe', 'popup', 'boton', 'enlace'],
     contenido: ['tiposPlan'], alto: 520, anchoPopup: 960, textoBoton: 'Ver precios',
   },
   {
     id: 'bonos', estado: 'disponible', categoria: 'venta', icono: 'Ticket',
-    nombre: 'Bonos y packs',
+    nombre: 'Bonos y packs', respuesta: 'Bonos y packs',
     descripcion: 'Solo tus bonos de clases, listos para comprar.',
     embebido: { tab: 'planes' }, pagina: { ancla: 'bonos-membresias' },
     metodos: ['iframe', 'popup', 'boton', 'enlace'],
@@ -204,8 +215,8 @@ export const WIDGETS: readonly Widget[] = [
     // integración nativa: el bundle es otra implementación del flujo de
     // reserva y tendría dos dueños.
     id: 'prueba', estado: 'disponible', categoria: 'captacion', icono: 'Sparkles',
-    nombre: 'Clase de prueba',
-    descripcion: 'Su primera clase a tu precio de bienvenida, solo para quien viene por primera vez.',
+    nombre: 'Clase de prueba', respuesta: 'Tu clase de prueba', principal: true,
+    descripcion: 'La primera clase a tu precio de bienvenida, solo para quien viene por primera vez.',
     embebido: { tab: 'clases', extra: { prueba: '1' } }, pagina: { tab: 'clases', extra: { prueba: '1' } },
     metodos: ['popup', 'enlace', 'boton', 'iframe'],
     contenido: ['horario'], alto: 640, anchoPopup: 720, textoBoton: 'Reserva tu clase de prueba',
@@ -215,8 +226,8 @@ export const WIDGETS: readonly Widget[] = [
     // Sin integración nativa: el bundle sería un segundo dueño del formulario y
     // además necesitaría CORS para escribir desde otro dominio.
     id: 'contacto', estado: 'disponible', categoria: 'captacion', icono: 'Mail',
-    nombre: 'Formulario de contacto',
-    descripcion: 'Consultas que llegan directas a tu panel.',
+    nombre: 'Formulario de contacto', respuesta: 'Un formulario de contacto', principal: true,
+    descripcion: 'Las consultas te llegan a Clientas.',
     embebido: { tab: 'contacto' }, pagina: { tab: 'contacto' },
     metodos: ['iframe', 'popup', 'enlace', 'boton'],
     contenido: [], alto: 620, anchoPopup: 560, textoBoton: 'Escríbenos',
@@ -231,7 +242,7 @@ export const WIDGETS: readonly Widget[] = [
   // ── Estudio ──────────────────────────────────────────────────────────────
   {
     id: 'estudio', estado: 'disponible', categoria: 'estudio', icono: 'Building2',
-    nombre: 'El estudio',
+    nombre: 'El estudio', respuesta: 'Tu estudio',
     descripcion: 'Descripción, horario de apertura, clases y equipo.',
     embebido: { tab: 'estudio' }, pagina: { tab: 'estudio' },
     metodos: ['iframe', 'popup', 'boton', 'enlace'],
@@ -240,8 +251,8 @@ export const WIDGETS: readonly Widget[] = [
   },
   {
     id: 'equipo', estado: 'disponible', categoria: 'estudio', icono: 'Users',
-    nombre: 'Instructoras',
-    descripcion: 'Tu equipo, con su foto y lo que imparte cada una.',
+    nombre: 'Instructoras', respuesta: 'Tu equipo',
+    descripcion: 'Tus instructoras, con su foto y lo que imparte cada una.',
     embebido: { tab: 'equipo' }, pagina: { tab: 'estudio' },
     metodos: ['iframe', 'popup', 'boton', 'enlace'],
     contenido: [], alto: 360, anchoPopup: 760, textoBoton: 'Conoce al equipo',
@@ -277,7 +288,7 @@ export function esDisponible(w: Widget | undefined): w is WidgetDisponible {
   return w?.estado === 'disponible';
 }
 
-/** Los que se enseñan en la biblioteca, en el orden del catálogo. */
+/** Los que se enseñan en el constructor, en el orden del catálogo. */
 export function widgetsVisibles(): Widget[] {
   return WIDGETS.filter(w => !(w.estado === 'en-preparacion' && w.oculto));
 }
