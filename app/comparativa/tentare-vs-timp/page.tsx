@@ -18,10 +18,18 @@ export const metadata: Metadata = {
 };
 
 // ⚠️ Solo se afirma de TIMP lo que consta en su web pública (timp.pro,
-// revisada el 23-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
-// cual —«no consta en su web pública»— y nunca se rellena con «sí» ni con «no».
-// Una versión anterior de esta tabla atribuía al competidor datos que nadie había
-// comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
+// revisada el 23-sep-2026 y ampliada el 29-sep-2026, con la URL de cada dato). Lo
+// que no consta se dice tal cual —«no consta en su web pública»— y nunca se
+// rellena con «sí» ni con «no». Una versión anterior de esta tabla atribuía al
+// competidor datos que nadie había comprobado (contratos, comisiones, dónde
+// aloja los datos): eso no vuelve a entrar.
+//
+// Las 3 filas añadidas el 29-sep-2026 se verificaron en vivo con el navegador
+// contra: https://timp.pro/ (home, FAQ «¿Puedo gestionar varios centros desde
+// una sola cuenta de administrador?»), https://timp.pro/precios/ (tabla de
+// comparación de características y nota «Precios por centro») y
+// https://timp.pro/app-de-reservas/ (sin mención de aforo por sala ni de
+// reglas de reserva por tipo de clase).
 const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['yes', 'Desde 50 €/mes (1 profesional); no consta si incluye IVA'] },
   { feature: 'Compromiso mínimo', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', '«La contratación mínima en la mayoría de planes es de 3 meses»'] },
@@ -29,6 +37,9 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Comisión por captar clientas', tentare: ['yes', 'Sin marketplace ni comisión'], them: ['partial', 'Con TIMPY, «comisión por la gestión del cobro»; el porcentaje no es público'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador, con tu nombre y tu icono'], them: ['yes', 'Progressive Web App con tu logo, nombre y colores'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada clase pertenece a una sala con capacidad propia, no solo un aforo global de la clase'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación mínima, penalización y mínimo de asistentes se fijan por tipo de clase, heredando lo del estudio'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Varias sedes en un panel único', tentare: ['yes', 'El plan Cadena cubre varios centros bajo la misma suscripción'], them: ['partial', 'Según su FAQ, un único panel gestiona varias sedes; pero sus precios se cotizan «por centro»'] },
 ];
 
 const HONESTY: HonestyCard[] = [
@@ -71,7 +82,7 @@ export default function TentareVsTimpPage() {
       veredicto={<>Entre dos productos españoles, TIMP cubre más disciplinas y ya adapta su facturación a TicketBAI y Verifactu. Si tu negocio es un estudio de Pilates y quieres precio de entrada más bajo, sin compromiso mínimo ni comisión por captar clientas, Tentare encaja mejor.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
-      footnote="Basado en la información pública de TIMP (timp.pro) a 23 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. TIMP es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de TIMP (timp.pro) a 23 de septiembre de 2026, ampliada el 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. TIMP es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );

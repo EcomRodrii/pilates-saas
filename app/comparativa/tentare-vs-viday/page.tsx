@@ -18,10 +18,16 @@ export const metadata: Metadata = {
 };
 
 // ⚠️ Solo se afirma de ViDay lo que consta en su web pública (viday.es,
-// revisada el 23-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
-// cual —«no consta en su web pública»— y nunca se rellena con «sí» ni con «no».
-// Una versión anterior de esta tabla atribuía al competidor datos que nadie había
-// comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
+// revisada el 23-sep-2026 y ampliada el 29-sep-2026, con la URL de cada dato). Lo
+// que no consta se dice tal cual —«no consta en su web pública»— y nunca se
+// rellena con «sí» ni con «no». Una versión anterior de esta tabla atribuía al
+// competidor datos que nadie había comprobado (contratos, comisiones, dónde
+// aloja los datos): eso no vuelve a entrar.
+//
+// Las 3 filas añadidas el 29-sep-2026 se verificaron en vivo con el navegador
+// contra: https://viday.es/clases-grupales/ (sin mención de aforo por sala ni
+// de reglas de reserva por tipo de clase) y https://viday.es/precios/ (sin
+// mención de periodo de prueba; solo CTAs «Empieza ahora» y «Te llamamos»).
 const ROWS: ComparativaRow[] = [
   { feature: 'Precio de entrada', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['partial', 'Desde 39 €/mes (Individual), IVA no incluido'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', 'Sí: «solo avísanos y te damos de baja»'] },
@@ -29,6 +35,9 @@ const ROWS: ComparativaRow[] = [
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador, con tu nombre y tu icono'], them: ['yes', 'App con tu marca, incluida desde el plan Estándar'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta; sí ofrece plazas fijas con recuperación'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada clase pertenece a una sala con capacidad propia, no solo un aforo global de la clase'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación mínima, penalización y mínimo de asistentes se fijan por tipo de clase, heredando lo del estudio'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días gratis del plan que elijas, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública; solo ofrece agendar una demo'] },
 ];
 
 const HONESTY: HonestyCard[] = [
@@ -63,7 +72,7 @@ export default function TentareVsVidayPage() {
       veredicto={<>ViDay es una alternativa española muy cercana, con Veri*factu y TicketBAI ya incluidos. Si valoras el precio de entrada más bajo, la plaza por reformer y las sustituciones de instructoras de un producto pensado para Pilates, Tentare está más enfocado en eso.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
-      footnote="Basado en la información pública de ViDay (viday.es) a 23 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. ViDay es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de ViDay (viday.es) a 23 de septiembre de 2026, ampliada el 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. ViDay es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );
