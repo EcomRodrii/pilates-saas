@@ -299,15 +299,23 @@ jobs:
         run: supabase start
 
       # `start` puede reaprovechar un volumen ya inicializado; `reset` aplica
-      # TODAS las migraciones de `supabase/migrations/` + `supabase/seed.sql`
-      # desde cero, así que el estado de partida es siempre el mismo sin
-      # depender de qué haya hecho `start` por su cuenta. Es también la primera
-      # vez que las ~700 migraciones de este repo se EJECUTAN de verdad en vez
-      # de solo leerse (scripts/gen-db-types.py, en `calidad-tipos`, solo las
-      # parsea) — si alguna asume un estado intermedio que ya no existe al
-      # recorrerlas todas de un tirón, es aquí donde se ve.
-      - name: Aplicar migraciones + seed desde cero
-        run: supabase db reset
+      # TODAS las migraciones de `supabase/migrations/` desde cero, así que el
+      # estado de partida es siempre el mismo sin depender de qué haya hecho
+      # `start` por su cuenta. Es también la primera vez que las ~700
+      # migraciones de este repo se EJECUTAN de verdad en vez de solo leerse
+      # (scripts/gen-db-types.py, en `calidad-tipos`, solo las parsea) — si
+      # alguna asume un estado intermedio que ya no existe al recorrerlas
+      # todas de un tirón, es aquí donde se ve (5 casos encontrados y
+      # corregidos SOLO para este job, ver los pasos de arriba).
+      #
+      # `--no-seed`: `supabase/seed.sql` es la demo de desarrollo
+      # (studio-1/soc-1…) y no lo usa ningún test de este job — cada uno crea
+      # sus propios fixtures (`lib/db/rls-test-helpers.ts`). Sembrarlo aquí
+      # solo arriesga que quede desfasado contra una columna NOT NULL añadida
+      # después (pasó con `facturas.tipo`) y rompa este job por un motivo que
+      # no tiene nada que ver con RLS.
+      - name: Aplicar migraciones desde cero (sin el seed de desarrollo)
+        run: supabase db reset --no-seed
 
       # Nombres propios (`SUPABASE_LOCAL_*`), no `NEXT_PUBLIC_SUPABASE_URL`:
       # ese ya lo usan (con valores dummy) el resto de jobs de este workflow, y
