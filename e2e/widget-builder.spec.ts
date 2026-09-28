@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { firmaDeUrl } from '../lib/widgets/firma-contenido.ts';
 
 // RES-7-f: la hora de una clase se enseña en la zona del ESTUDIO, no en la del
 // navegador. Los fixtures llevan la hora sin zona («10:00» del navegador), así que
@@ -186,6 +187,9 @@ async function sinMarco(page: Page) {
   await page.getByRole('switch', { name: 'Ponerlo sin marco' }).click();
 }
 
+/** La portada «Lo que tienes en tu web» (Fase C): con algo copiado, se entra por ella. */
+const portada = (page: Page) => page.getByRole('region', { name: 'Lo que tienes en tu web' });
+
 const soloAlgunas = (page: Page) => page.getByRole('group', { name: 'Qué clases salen' }).getByRole('button', { name: 'Solo algunas' }).click();
 const ultimoBuilder = (patches: Record<string, unknown>[]) =>
   [...patches].reverse().find(p => typeof p.widget_builder === 'object' && p.widget_builder !== null)?.widget_builder as Record<string, Record<string, unknown>> | undefined;
@@ -360,9 +364,12 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     expect(await snippet(page).textContent()).not.toContain('copiado');
     expect(ultimoBuilder(patches)?._web).toEqual({ plataforma: 'otra' });
 
-    // Otra visita, sin tocar nada: lo copiado sigue siendo lo de ahora.
+    // Otra visita, sin tocar nada: lo copiado sigue siendo lo de ahora. Con
+    // algo copiado se entra por «Lo que tienes en tu web».
     await page.reload();
     await expect(page.getByText('Widgets para tu web')).toBeVisible({ timeout: 60_000 });
+    await expect(portada(page)).toBeVisible();
+    await page.getByRole('button', { name: 'Cambiar Horario y reservas', exact: true }).click();
     await expect(page.getByRole('navigation', { name: 'Pasos' })).toBeVisible();
     await expect(aviso).toHaveCount(0);
     await paso(page, 'Ponlo en tu web');
@@ -393,6 +400,9 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
       plataforma: 'otra',
       widgetBuilder: { horario: { copiado: { firma: 'huellavieja', en: '2026-09-12T10:00:00.000Z' } } },
     });
+    // En la portada, en su fila: de una copia de antes solo se sabe QUE cambió.
+    await expect(portada(page).getByText('Lo cambiaste después de copiarlo: tu web sigue con lo de antes.')).toBeVisible();
+    await page.getByRole('button', { name: 'Cambiar Horario y reservas', exact: true }).click();
     await expect(page.getByText(/Has cambiado algo que va en el código después de copiarlo el 12 sept?\./)).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' }).getByRole('radio', { name: /Tu horario/ })).toContainText('Cambiado después de copiarlo');
     await page.getByRole('button', { name: 'Ir a copiarlo' }).click();
@@ -717,6 +727,9 @@ test.describe('El estilo de tus widgets: se prueba en la previa y se aplica en s
       widgetBuilder: { horario: { copiado: { firma: 'huella', en: '2026-09-12T10:00:00.000Z' } } },
     });
     const cuerpos = await servidorDelEstilo(page, escribe);
+    // Con algo copiado se entra por la portada: desde su tarjeta del estilo.
+    await expect(portada(page)).toBeVisible();
+    await page.getByRole('button', { name: 'Cambiar el estilo', exact: true }).click();
     await paso(page, 'Cómo se ve');
     await arena(page).click();
     await botonAplicar(page).click();
@@ -908,6 +921,268 @@ test.describe('El estilo de tus widgets: se prueba en la previa y se aplica en s
     await tarjeta.getByRole('button', { name: 'Reintentar' }).click();
     await expect(estilos(page).getByRole('radio', { name: /Igual que tu app · Crema/ })).toHaveAttribute('aria-checked', 'true');
     expect(cuerpos).toHaveLength(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fase C (28-sep): «Lo que tienes en tu web». Con algo copiado, el constructor
+// abre por la portada: cada pieza copiada, qué cambió después de copiarla y
+// dónde se ha visto (`widget_vistos()`), con qué versión.
+//
+// Lo que se vigila es que nunca diga lo que no sabe: «Aún no lo vemos» solo con
+// la respuesta de verdad (un 500 no es «nada»), y «Visto en…» con cuándo y
+// dónde. Cada caso lleva su CONTADOR de lecturas: sin él, «no dice nada» puede
+// ser verdad por no haber preguntado. La ruta se registra DESPUÉS de montar()
+// (la última gana al comodín `/rest/v1/**`, que responde `[]`) y se recarga.
+// ⚠️ Con `**` al final: la lectura va filtrada por etiqueta
+// (`?origen=in.(web-horario)`), y sin él la ruta no la reconoce.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** La versión que /reservar calcula del horario por defecto, dentro de una página. */
+const FIRMA_AHORA = firmaDeUrl(new URLSearchParams('embed=1&tab=clases&ref=web-horario'));
+/** La de una copia anterior (sin el precio): está en el historial de lo copiado. */
+const FIRMA_ANTERIOR = firmaDeUrl(new URLSearchParams('embed=1&tab=clases&ocultar-precio=1&ref=web-horario'));
+/** Una que nunca se copió desde aquí (retocada a mano, o de otra cuenta). */
+const FIRMA_A_MANO = 'c1zzzzz';
+const WEB_ALBA = 'http://albapilates.example.com';
+/** Lo de ahora frente a esa copia: el precio apagado después de copiarlo. */
+const CONFIG_SIN_PRECIO = { mostrarPrecio: false };
+
+/** Una copia de esta fase: su forma, la foto de la config, la versión que verá la página y el historial. */
+const COPIA_CON_FOTO = {
+  firma: 'abc123', en: '2026-09-12T10:00:00.000Z',
+  metodo: 'iframe', config: {}, contenido: FIRMA_AHORA, anteriores: [`incrustado:${FIRMA_ANTERIOR}`],
+};
+
+const haceHoras = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
+/** Una fila de `widget_vistos()`; las horas, contadas al responder. */
+const fila = (firma: string | null, ultimoHaceHoras: number) => ({
+  origen: 'web-horario', forma: 'incrustado', anfitrion: WEB_ALBA, firma,
+  primero: haceHoras(72), ultimo: haceHoras(ultimoHaceHoras), n: 4,
+});
+
+type Respuesta = { status: number; cuerpo: unknown };
+/** `widget_vistos()` con lo que diga `responder`, y cuántas veces se ha pedido. */
+async function lectorDeVistos(page: Page, responder: () => Respuesta) {
+  let lecturas = 0;
+  await page.route('**/rest/v1/rpc/widget_vistos**', route => {
+    lecturas++;
+    const r = responder();
+    return json(route, r.cuerpo, r.status);
+  });
+  return () => lecturas;
+}
+
+/** La respuesta de verdad a `widget_vistos()`, con este estado: registrarla ANTES de recargar. */
+const respuestaVistos = (page: Page, status: number) =>
+  page.waitForResponse(r => r.url().includes('/rest/v1/rpc/widget_vistos') && r.status() === status);
+
+async function recargar(page: Page) {
+  await page.reload();
+  await expect(page.getByText('Widgets para tu web')).toBeVisible({ timeout: 60_000 });
+  await expect(portada(page)).toBeVisible();
+}
+
+const VERSIONES = /versión anterior|versión distinta|dos versiones/;
+
+test.describe('Lo que tienes en tu web: lo copiado, qué cambió y dónde se ve, sin decir lo que no sabe', () => {
+
+  test('lo visto en su web: aún no, visto hace 2 h y, si la lectura falla, nada', async ({ page }) => {
+    await montar(page, { plataforma: 'otra', widgetBuilder: { horario: { copiado: COPIA_CON_FOTO } } });
+    let respuesta: Respuesta = { status: 200, cuerpo: [] };
+    const lecturas = await lectorDeVistos(page, () => respuesta);
+
+    // Nada todavía: se dice, con lo que hará falta para verlo.
+    await recargar(page);
+    await expect.poll(lecturas, { message: 'ni se pidió lo visto' }).toBeGreaterThan(0);
+    const fila1 = portada(page).getByRole('listitem').filter({ hasText: 'Horario y reservas' });
+    await expect(fila1).toContainText('Dentro de una página · copiado el 12 sep');
+    await expect(fila1).toContainText('Aún no ha llegado nadie desde aquí este mes');
+    await expect(fila1).toContainText('Aún no lo vemos en tu web. Cuando alguien abra la página donde lo pegaste, aparecerá aquí.');
+    // Sin cambios desde que lo copió: ni ámbar ni nada que volver a copiar.
+    await expect(fila1).not.toContainText('Lo cambiaste después de copiarlo');
+    await expect(fila1.getByRole('button', { name: /Copiar el/ })).toHaveCount(0);
+    // Nada de pasos ni vista previa en la portada.
+    await expect(page.getByRole('navigation', { name: 'Pasos' })).toHaveCount(0);
+
+    // Visto con la versión de ahora: dónde y cuándo, sin veredicto de versión.
+    respuesta = { status: 200, cuerpo: [fila(FIRMA_AHORA, 2)] };
+    let antes = lecturas();
+    await recargar(page);
+    await expect.poll(lecturas).toBeGreaterThan(antes);
+    await expect(portada(page).getByText('Visto en albapilates.example.com hace 2 h', { exact: true })).toBeVisible();
+    await expect(portada(page).getByText(VERSIONES)).toHaveCount(0);
+    await expect(portada(page).getByText(/Aún no lo vemos/)).toHaveCount(0);
+    // El anfitrión es texto, nunca un enlace a una dirección que llega de fuera.
+    await expect(portada(page).getByRole('link', { name: /albapilates/ })).toHaveCount(0);
+
+    // La lectura falla: ni «Aún no» (sería mentira) ni «Visto».
+    respuesta = { status: 500, cuerpo: { message: 'fallo' } };
+    antes = lecturas();
+    const fallo = respuestaVistos(page, 500);
+    await recargar(page);
+    // El 500 ya ha llegado a la página (entero): lo que se aserta abajo es lo
+    // que pinta CON él, no lo de antes de tenerlo.
+    await (await fallo).finished();
+    await expect.poll(lecturas, { message: 'el 500 ni se llegó a pedir' }).toBeGreaterThan(antes);
+    await expect(portada(page).getByText('Aún no ha llegado nadie desde aquí este mes')).toBeVisible();
+    // Un fotograma para que React pinte lo que hizo con él.
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))));
+    await expect(portada(page).getByText(/Aún no lo vemos/)).toHaveCount(0);
+    await expect(portada(page).getByText(/Visto (en|hace)/)).toHaveCount(0);
+  });
+
+  test('la versión que enseña su web: anterior, distinta o dos a la vez, cada una con «Copiar el código nuevo»', async ({ page }) => {
+    await montar(page, { plataforma: 'otra', widgetBuilder: { horario: { copiado: COPIA_CON_FOTO } } });
+    let respuesta: Respuesta = { status: 200, cuerpo: [fila(FIRMA_ANTERIOR, 3)] };
+    const lecturas = await lectorDeVistos(page, () => respuesta);
+
+    await recargar(page);
+    await expect.poll(lecturas).toBeGreaterThan(0);
+    await expect(portada(page).getByText('Visto en albapilates.example.com hace 3 h', { exact: true })).toBeVisible();
+    await expect(portada(page).getByText(
+      'La última vez que lo vimos (hace 3 h, en albapilates.example.com), tu web tenía una versión anterior. Pega el código de ahora en lugar del que hay; cuando alguien lo abra, cambiará aquí.',
+    )).toBeVisible();
+
+    respuesta = { status: 200, cuerpo: [fila(FIRMA_A_MANO, 3)] };
+    let antes = lecturas();
+    await recargar(page);
+    await expect.poll(lecturas).toBeGreaterThan(antes);
+    await expect(portada(page).getByText(/tu web tenía una versión distinta de la de aquí\. Si nadie la cambió a mano/)).toBeVisible();
+    await expect(portada(page).getByText(/versión anterior/)).toHaveCount(0);
+
+    // Las dos: la de ahora, la más reciente; la otra, vista después de pegar la de ahora.
+    respuesta = { status: 200, cuerpo: [fila(FIRMA_AHORA, 3), fila(FIRMA_A_MANO, 5)] };
+    antes = lecturas();
+    await recargar(page);
+    await expect.poll(lecturas).toBeGreaterThan(antes);
+    await expect(portada(page).getByText('Visto en albapilates.example.com hace 3 h', { exact: true })).toBeVisible();
+    await expect(portada(page).getByText(
+      'Esta semana tu web ha enseñado dos versiones: la de ahora y otra distinta (la última vez hace 5 h, en albapilates.example.com). Si lo pegaste en varias páginas, cambia el código también en las demás.',
+    )).toBeVisible();
+
+    // «Copiar el código nuevo» lleva a copiarlo, con su widget abierto.
+    await portada(page).getByRole('button', { name: 'Copiar el código nuevo', exact: true }).click();
+    await expect(page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: 'Ponlo en tu web', exact: true }))
+      .toHaveAttribute('aria-current', 'step');
+    await expect(page.getByRole('button', { name: 'Copiar código', exact: true })).toBeVisible();
+  });
+
+  test('cambiar después de copiar: la fila dice QUÉ cambió, y desde la portada se llega a cada paso y se vuelve', async ({ page }) => {
+    await montar(page, {
+      plataforma: 'otra',
+      widgetBuilder: { horario: { ...CONFIG_SIN_PRECIO, copiado: COPIA_CON_FOTO } },
+    });
+    // La lectura se retiene: mientras no llega, lo que ve su web podría quitar
+    // el ámbar (si ya pegó lo de ahora), así que no se pinta para quitarlo después.
+    let lecturas = 0;
+    let soltar = () => {};
+    const retenida = new Promise<void>(r => { soltar = r; });
+    await page.route('**/rest/v1/rpc/widget_vistos**', async route => { lecturas++; await retenida; return json(route, []); });
+    await recargar(page);
+    await expect.poll(() => lecturas).toBeGreaterThan(0);
+    await expect(portada(page).getByText(/Lo cambiaste después de copiarlo/)).toHaveCount(0);
+    soltar();
+    await expect(portada(page).getByText('Lo cambiaste después de copiarlo (qué se ve de cada clase): tu web sigue con lo de antes.')).toBeVisible();
+    // Con ámbar no se dice nada de su versión.
+    await expect(portada(page).getByText(VERSIONES)).toHaveCount(0);
+
+    // «Cambiar» abre su widget en «Qué y dónde», con los pasos.
+    await page.getByRole('button', { name: 'Cambiar Horario y reservas', exact: true }).click();
+    await expect(page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: 'Qué y dónde', exact: true }))
+      .toHaveAttribute('aria-current', 'step');
+    await expect(page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' }).getByRole('radio', { name: /Tu horario/ }))
+      .toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByText(/Has cambiado algo que va en el código después de copiarlo/)).toBeVisible();
+
+    // La flecha vuelve a la portada, sin pasos.
+    await page.getByRole('button', { name: 'Lo que tienes en tu web' }).click();
+    await expect(portada(page)).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Pasos' })).toHaveCount(0);
+
+    // «Cambiar el estilo», a «Cómo se ve».
+    const tarjetaEstilo = page.getByRole('region', { name: 'Estilo de tus widgets' });
+    await expect(tarjetaEstilo).toContainText('Igual que tu app · Crema');
+    await expect(tarjetaEstilo).toContainText('Llega a lo que tienes dentro de una página o en una ventana encima, salvo a lo que lleva su propio diseño en el código.');
+    await tarjetaEstilo.getByRole('button', { name: 'Cambiar el estilo', exact: true }).click();
+    await expect(page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: 'Cómo se ve', exact: true }))
+      .toHaveAttribute('aria-current', 'step');
+    await expect(estilos(page)).toBeVisible();
+
+    // «Poner otra cosa en tu web», a lo primero que aún no tiene (sus precios).
+    await page.getByRole('button', { name: 'Lo que tienes en tu web' }).click();
+    await page.getByRole('button', { name: 'Poner otra cosa en tu web' }).click();
+    await expect(page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' }).getByRole('radio', { name: /Tus precios/ }))
+      .toHaveAttribute('aria-checked', 'true');
+
+    // «Cambiar» su web desde la portada y «Cancelar» vuelven a la portada.
+    await page.getByRole('button', { name: 'Lo que tienes en tu web' }).click();
+    await page.getByRole('button', { name: 'Cambiar con qué está hecha tu web' }).click();
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(portada(page)).toBeVisible();
+
+    // «Ver resultados», a «Cómo le va a tu página».
+    await page.getByRole('button', { name: 'Ver resultados de Horario y reservas', exact: true }).click();
+    await expect(page.getByRole('group', { name: 'Qué ver' }).getByRole('button', { name: 'Cómo le va a tu página' }))
+      .toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('copiar guarda la forma, la foto de la config y la versión, sin tocar el código; y ya hay portada', async ({ page }) => {
+    const { patches } = await montar(page, { plataforma: 'otra' });
+    // Sin nada copiado, ni portada ni vuelta a ella.
+    await expect(portada(page)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Lo que tienes en tu web' })).toHaveCount(0);
+    const codigo = await snippet(page).textContent();
+
+    await paso(page, 'Ponlo en tu web');
+    await page.getByRole('button', { name: 'Copiar código' }).click();
+    await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
+    await expect.poll(() => typeof ultimoBuilder(patches)?.horario?.copiado, { timeout: 10_000 }).toBe('object');
+    const copiado = ultimoBuilder(patches)!.horario.copiado as Record<string, unknown>;
+    expect(copiado.metodo).toBe('iframe');
+    expect(copiado.contenido).toBe(FIRMA_AHORA);
+    expect(copiado.config).toEqual(expect.objectContaining({ tipos: [], mostrarPrecio: true, etiqueta: null }));
+    expect('anteriores' in copiado).toBe(false);
+    // Nada de esto viaja en el código.
+    expect(await snippet(page).textContent()).toBe(codigo);
+
+    await page.getByRole('button', { name: 'Lo que tienes en tu web' }).click();
+    await expect(portada(page).getByRole('listitem').filter({ hasText: 'Horario y reservas' })).toContainText(/Dentro de una página · copiado el/);
+  });
+
+  // Sin marco y con su web sin autorizar: el botón lleva a la LISTA, no solo al paso.
+  const AVISO_SIN_AUTORIZAR = 'Tu web (albapilates.example.com) no está entre las webs autorizadas, y sin marco el widget solo carga en las que autorices.';
+  const COPIA_SIN_MARCO = { firma: 'abc123', en: '2026-09-12T10:00:00.000Z', metodo: 'nativa', config: { metodo: 'nativa' } };
+  const WEB_SIN_AUTORIZAR = { plataforma: 'otra', direccion: 'albapilates.example.com' };
+
+  test('«Ir a las webs autorizadas» abre «Para quien te hace la web» y lleva a la lista, cada vez', async ({ page }) => {
+    await montar(page, { widgetBuilder: { _web: WEB_SIN_AUTORIZAR, horario: { metodo: 'nativa', copiado: COPIA_SIN_MARCO } } });
+    const fila1 = portada(page).getByRole('listitem').filter({ hasText: 'Horario y reservas' });
+    await expect(fila1).toContainText(AVISO_SIN_AUTORIZAR);
+    const lista = page.getByRole('list', { name: 'Webs autorizadas' });
+    const focoEnLaLista = () => page.evaluate(() => !!document.activeElement?.querySelector('ul[aria-label="Webs autorizadas"]'));
+
+    await fila1.getByRole('button', { name: 'Ir a las webs autorizadas', exact: true }).click();
+    await expect(page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: 'Ponlo en tu web', exact: true }))
+      .toHaveAttribute('aria-current', 'step');
+    await expect(lista).toBeVisible();
+    await expect(lista).toBeInViewport();
+    await expect.poll(focoEnLaLista).toBe(true);
+
+    // Si lo cierra y vuelve a pedirlo desde la portada, se vuelve a abrir.
+    await page.locator('summary', { hasText: 'Para quien te hace la web' }).click();
+    await expect(lista).toBeHidden();
+    await page.getByRole('button', { name: 'Lo que tienes en tu web' }).click();
+    await portada(page).getByRole('button', { name: 'Ir a las webs autorizadas', exact: true }).click();
+    await expect(lista).toBeVisible();
+    await expect.poll(focoEnLaLista).toBe(true);
+  });
+
+  test('si ahora ya no va sin marco, el aviso sigue (es cierto) pero sin un botón que no lleva a ninguna lista', async ({ page }) => {
+    await montar(page, { widgetBuilder: { _web: WEB_SIN_AUTORIZAR, horario: { metodo: 'iframe', copiado: COPIA_SIN_MARCO } } });
+    const fila1 = portada(page).getByRole('listitem').filter({ hasText: 'Horario y reservas' });
+    await expect(fila1).toContainText(AVISO_SIN_AUTORIZAR);
+    await expect(fila1.getByRole('button', { name: 'Ir a las webs autorizadas' })).toHaveCount(0);
   });
 });
 

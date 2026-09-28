@@ -4,6 +4,9 @@ import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { mensajeSeguro } from '@/lib/errores';
 import { postPublicoWidget } from '@/lib/reservar/api-publica';
 import { esAvisoPuenteListo, TIPO_EMAIL_DEL_INTENTO } from '@/lib/widget/puente-sesion';
+// `uuidV4` y no `randomUUID` a secas: la nativa corre en la web del estudio, y
+// en una web `http` (contexto no seguro) `randomUUID` no existe.
+import { uuidV4 } from '@/lib/utils';
 
 // Acciones de login/registro del bundle embebible (Modo B) — Fase 2 del
 // Booking Engine, ver docs/auth-widget-diseno.md. Separado de
@@ -77,7 +80,7 @@ export function useAuthWidget(slug: string, baseUrl: string) {
   // vez por clic, antes de `window.open`, y pasar ese mismo valor a
   // `enviarEnlace`.
   const nuevoIntentoEnlace = useCallback((email: string): string => {
-    const nonce = crypto.randomUUID();
+    const nonce = uuidV4();
     intentoRef.current = nonce;
     emailIntentoRef.current = email.trim();
     return nonce;
@@ -117,7 +120,7 @@ export function useAuthWidget(slug: string, baseUrl: string) {
     return postPublicoWidget(`${baseUrl}/api/public/socio`, {
       accion: 'registrar',
       studioId,
-      id: crypto.randomUUID(),
+      id: uuidV4(),
       nombre: nombre.trim(),
       telefono: telefono.trim(),
       aceptacion,

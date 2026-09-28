@@ -51,6 +51,24 @@ export function nombreDeEtiqueta(etiqueta: string | null): { widgetId: string | 
   return { widgetId: null, nombre: `Etiqueta «${etiqueta}»` };
 }
 
+const cifra = (n: number, uno: string, varios: string) => `${n.toLocaleString('es-ES')} ${n === 1 ? uno : varios}`;
+
+/**
+ * El mes de un widget en una línea: la cabecera del constructor y cada fila de
+ * «Lo que tienes en tu web». Sin visitas lo dice así, y nunca con un «0 %»:
+ * se leería como un widget que no funciona, cuando lo que dice es que aún no
+ * ha reservado nadie desde él. Sin reserva que medir (venta, contacto) no
+ * cuenta reservas: «0 reservas» en un widget de precios diría lo mismo.
+ */
+export function textoMes(r: EmbudoWidget | null): string {
+  if (!r || r.visitas === 0) return 'Aún no ha llegado nadie desde aquí este mes';
+  const partes = [cifra(r.visitas, 'visita', 'visitas')];
+  // `conversion` es null con visitas solo si el widget no tiene reserva que medir.
+  if (r.conversion !== null) partes.push(cifra(r.reservasCompletadas, 'reserva', 'reservas'));
+  if (r.conversion) partes.push(`${r.conversion.toLocaleString('es-ES')} %`);
+  return `Este mes: ${partes.join(' · ')}`;
+}
+
 export function embudoPorWidget(filas: readonly FilaEmbudoOrigen[]): EmbudoWidget[] {
   const porEtiqueta = new Map<string | null, Map<string, number>>();
   for (const f of filas) {

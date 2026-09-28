@@ -2453,6 +2453,12 @@ export interface RowWidgetEventos {
   creado_en: string;
   // migr 20260817013933.
   socio_id: string | null;
+  // migr 20260928203632.
+  anfitrion: string | null;
+  // migr 20260928203632.
+  forma: string | null;
+  // migr 20260928203632.
+  firma: string | null;
 }
 
 export interface RowTareas {
@@ -7586,6 +7592,9 @@ export type WidgetEventosInsert = {
   origen?: string | null | null;
   creado_en?: string | null;
   socio_id?: string | null | null;
+  anfitrion?: string | null | null;
+  forma?: string | null | null;
+  firma?: string | null | null;
 }
 
 export type WidgetEventosUpdate = {
@@ -7597,6 +7606,9 @@ export type WidgetEventosUpdate = {
   origen?: string | null | null;
   creado_en?: string | null;
   socio_id?: string | null | null;
+  anfitrion?: string | null | null;
+  forma?: string | null | null;
+  firma?: string | null | null;
 }
 
 export type TareasInsert = {

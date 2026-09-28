@@ -29,6 +29,7 @@ import { saldoVivo } from '@/lib/creditos-caducidad';
 // `hoyISO` fija la zona del negocio (Madrid). Sin eso, el saldo caducaría a
 // medianoche UTC — dos horas antes en verano — para todo el mundo.
 import { hoyISO } from '@/lib/student/formato';
+import { leerVistos, type VistoWidget } from '@/lib/widgets/pegado';
 import {
   cobroManualDeRecibo, penalizacionDelRecibo, TEXTO_PENALIZACION_ANULADA, type LecturaPenalizacionesDeRecibos,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
@@ -3893,6 +3894,26 @@ export async function dbEmbudoWidgetPorOrigen(desde: string): Promise<{ origen: 
   if (error) { reportDbError('[dbEmbudoWidgetPorOrigen]', error); return null; }
   return ((data ?? []) as { origen: string | null; tipo: string; n: number }[])
     .map((r) => ({ origen: r.origen ?? null, tipo: r.tipo, n: Number(r.n) }));
+}
+
+// Fase C del constructor de widgets: dónde se ha visto cada pieza pegada y con
+// qué versión (`widget_vistos()`, SECURITY INVOKER sobre la RLS de
+// `widget_eventos`). ⚠️ `null` en el fallo, NUNCA `[]`: `[]` es «aún no lo
+// vemos en tu web», una afirmación que la portada enseña tal cual. Y a quien
+// la RLS no deja leer (RECEPCION) también le llega `[]`, así que el panel solo
+// la pide con permiso de ver resultados.
+//
+// Solo lo de `etiquetas` (lo copiado y lo de ahora de cada pieza), filtrado en
+// la propia petición: la función guarda hasta 20 grupos por etiqueta y forma,
+// y sin filtro las etiquetas que ya no usa nadie podían llenar el tope de
+// PostgREST y dejar fuera lo que sí se pinta. Si aun así se llega al tope,
+// `null` (`leerVistos`): puede faltar justo lo de una pieza.
+export async function dbWidgetVistos(etiquetas: readonly string[]): Promise<VistoWidget[] | null> {
+  // Sin etiquetas no hay nada que pueda verse: ni se pregunta.
+  if (!etiquetas.length) return [];
+  const { data, error } = await supabase.rpc('widget_vistos').in('origen', [...etiquetas]);
+  if (error) { reportDbError('[dbWidgetVistos]', error); return null; }
+  return leerVistos((data ?? []) as unknown[]);
 }
 
 // Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) para
