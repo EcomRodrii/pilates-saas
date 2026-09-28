@@ -228,14 +228,15 @@ export function PasoPonlo({
   );
 }
 
-// Qué parte del aspecto llega sola a lo ya pegado: el color de marca de
-// Apariencia. El color del botón del popup va en su `style`, dentro del
-// código: ese no.
+// Qué parte del aspecto llega sola a lo ya pegado: el estilo de la app (F1 del
+// rediseño de /reservar); en la integración nativa, solo el color de marca. El
+// color del botón del popup va en su `style`, dentro del código: ese no.
 function estiloVivo(metodo: MetodoIntegracion, delEstudio: boolean): string {
   if (metodo === 'boton' || metodo === 'enlace') return ', y tu página de reservas entera';
   if (!delEstudio) return '';
-  if (metodo === 'popup') return ', y tu color de marca dentro de la ventana (el del botón va en el código)';
-  return ', y tu color de marca, el de Apariencia';
+  if (metodo === 'popup') return ', y el estilo de tu app dentro de la ventana (el color del botón va en el código)';
+  if (metodo === 'nativa') return ', y tu color de marca, el de Apariencia';
+  return ', y el estilo de tu app, el de Apariencia';
 }
 
 function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo, dominios, botonPropio, onCopiarReact, reactCopiado }: {

@@ -10,16 +10,15 @@ import { anchoPorDefecto, type ConfigConstructor } from '@/lib/widgets/config';
 import { botonDeSuWeb, usaBotonPropio, type PlataformaWeb } from '@/lib/widgets/recetas';
 import { Ajuste, AjusteInterruptor, Etiqueta, FOCO, MuestraColor, Plegable, Segmentado, TACTIL, Tarjeta } from './piezas';
 
-// Paso 2 · Cómo se ve. Por defecto, el estilo de su página de reservas: su
-// color de marca (el de Apariencia) llega solo a lo que ya está pegado, sin
-// tocar el código. Solo si quiere algo distinto para ESTE widget, plegado al
+// Paso 2 · Cómo se ve. Por defecto, el estilo de su app (el de Apariencia), que
+// llega solo a lo que ya está pegado, sin tocar el código. Solo si quiere algo distinto para ESTE widget, plegado al
 // final, los controles de siempre —en palabras suyas y sin un código de color a
 // la vista—, que sí van congelados en el código.
 //
-// ⚠️ Solo el COLOR viene de Apariencia: /reservar fija su propia letra
-// (`fuenteReservarCssText`, lib/reservar-publico-tokens.ts) y su paleta de
-// fondos. Cuando la página de reservas tome también la letra y los fondos del
-// tema (F1 del rediseño de /reservar), estos textos se amplían; antes, no.
+// Desde la F1 del rediseño de /reservar, el widget en iframe o ventana toma el
+// ESTILO de la app de la alumna (colores, letra y fondos: lib/reservar/tema-app.ts),
+// así que la tarjeta lo promete entero. La integración nativa no pasa por ahí:
+// solo recibe el color de marca, y su texto lo dice.
 
 const COLOR_DE_FONDO = '#F6F3EC';
 
@@ -41,8 +40,8 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio }: {
     : soloBoton
       ? 'El botón lleva a tu página de reservas, que se ve con su estilo.'
       : metodo === 'popup'
-        ? 'Por defecto, la ventana se ve como tu página de reservas y lleva tu color de marca: si lo cambias en Apariencia, cambia sola. El color del botón, en cambio, va en el código.'
-        : 'Por defecto se ve como tu página de reservas y lleva tu color de marca: si lo cambias en Apariencia, cambia solo, sin volver a pegar nada.';
+        ? 'Por defecto, la ventana se ve con el estilo de tu app: si lo cambias en Apariencia, cambia sola. El color del botón, en cambio, va en el código.'
+        : 'Por defecto se ve con el estilo de tu app: si lo cambias en Apariencia, cambia solo, sin volver a pegar nada.';
 
   return (
     <div className="space-y-4">
@@ -116,11 +115,13 @@ function EstiloDeTuPagina({ colorEstudio, nativa, enUso }: { colorEstudio: strin
         <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
           {nativa
             ? 'Tu color de marca, el de Apariencia, con la letra de tu propia web.'
-            : 'Tu color de marca, el de Apariencia. La letra y los fondos son los de tu página de reservas.'}{' '}
-          {enUso ? 'Si cambias tu color, tu web cambia con él.' : 'Ahora no lo usa: lleva un diseño propio (abajo).'}
+            : 'El mismo estilo que tu app: tus colores, tu letra y tus fondos, los que elegiste en Apariencia.'}{' '}
+          {enUso
+            ? (nativa ? 'Si cambias tu color, tu web cambia con él.' : 'Si cambias el estilo de tu app, tu web cambia con él.')
+            : 'Ahora no lo usa: lleva un diseño propio (abajo).'}
         </p>
         <Link href="/configuracion/apariencia" className={cn(TACTIL, 'mt-1 gap-0.5 text-[12.5px] font-medium text-foreground underline underline-offset-2 hover:no-underline', FOCO)}>
-          Cambiar tu color en Apariencia<ArrowUpRight size={12} aria-hidden />
+          {nativa ? 'Cambiar tu color en Apariencia' : 'Cambiar el estilo en Apariencia'}<ArrowUpRight size={12} aria-hidden />
         </Link>
       </div>
     </div>
