@@ -3,6 +3,8 @@
 // forma de saber si un cambio del widget convierte mejor o peor — confirmado
 // por auditoría que no había NADA (ni GA/PostHog/Sentry-para-eventos/tabla
 // propia) antes de este módulo.
+import type { PegadoWidget } from './pegado-widget.ts';
+
 export const TIPOS_EVENTO_WIDGET = [
   'widget_loaded', 'widget_viewed', 'class_list_viewed', 'class_selected',
   'class_detail_viewed', 'recommendation_started', 'recommendation_completed',
@@ -41,6 +43,18 @@ let origenPorDefecto: string | null = null;
 
 export function fijarOrigenWidget(ref: string | null | undefined): void {
   origenPorDefecto = ref?.trim() ? ref.trim() : null;
+}
+
+// Dónde está pegado y con qué versión (Fase C del constructor,
+// lib/reservar/pegado-widget.ts). Lo fija la página una vez al montar, antes
+// de que el router toque la URL, y viaja SOLO en `widget_loaded`: basta una
+// vez por visita para decir «Visto en … hace 2 h», y el resto del embudo
+// (donde la sesión acaba llevando el id de la socia) no tiene por qué saber de
+// qué web vino. `null` = no se manda nada (botón, enlace, vista previa…).
+let pegado: PegadoWidget | null = null;
+
+export function fijarPegadoWidget(p: PegadoWidget | null): void {
+  pegado = p;
 }
 
 // La vista previa del constructor de widgets (`?vista-previa=1`) es la
@@ -100,6 +114,12 @@ export function trackEventoWidget(
       ? `${extra.baseUrl}/api/public/evento?studioId=${encodeURIComponent(studioId)}`
       : '/api/public/evento';
     const socioId = extra?.socioId ?? null;
+    // Sin `baseUrl`: la nativa llama desde la web del estudio y su anfitrión
+    // lo pone el servidor a partir de la cabecera `Origin`, no el cuerpo. Se
+    // lee YA, no dentro de `enviar`: es lo de esta llamada.
+    const pegadoAqui = tipo === 'widget_loaded' && !extra?.baseUrl && pegado
+      ? { forma: pegado.forma, anfitrion: pegado.anfitrion, firma: pegado.firma }
+      : null;
     const enviar = async () => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       // C-4 (auditoría 29-ago): solo se busca token cuando el evento va
@@ -121,6 +141,7 @@ export function trackEventoWidget(
           sesionClaseId: extra?.sesionClaseId ?? null,
           origen: extra?.origen ?? origenPorDefecto,
           socioId,
+          ...pegadoAqui,
         }),
       });
     };

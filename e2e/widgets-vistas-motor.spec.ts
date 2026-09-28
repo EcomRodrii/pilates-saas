@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { firmaDeUrl } from '../lib/widgets/firma-contenido.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Tentare Widgets»: las vistas del motor que añadió el catálogo
@@ -11,14 +12,27 @@ import { test, expect, type Page } from '@playwright/test';
 // de la página completa (1 widget = 1 propósito).
 //
 // Mismo andamiaje de mocks que e2e/widget-config-params.spec.ts.
+//
+// Y, al final, lo que manda la página de la Fase C del constructor: dónde está
+// pegada y con qué versión (lib/reservar/pegado-widget.ts), solo dentro de la
+// web del estudio y solo en `widget_loaded`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.setTimeout(180_000);
+
+// Chromium bloquea que una web pública enmarque la red local (Local Network
+// Access, `ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS`), y el servidor bajo
+// test ES localhost: sin esto, el iframe de la anfitriona de la Fase C no
+// cargaría. En producción no aplica (todo es público). Mismo arreglo que
+// reservar-embed-overlays-visibles.spec.ts; es de lanzamiento, así que va para
+// todo el fichero (no se puede acotar a un `describe`).
+test.use({ launchOptions: { args: ['--disable-features=LocalNetworkAccessChecks'] } });
+
 const SLUG = 'tentare';
 const S = 'studio-test';
 
 function fx() {
-  const mk = (d: string, h: string, id: string) => ({ id, studioId: S, tipoClaseId: 'tc-r', salaId: 'sala-1', instructorId: 'ins-1', inicio: `2026-08-${d}T${h}:00:00`, fin: `2026-08-${d}T${h}:50:00`, aforoMaximo: 10, cancelada: false });
+  const mk = (d: string, h: string, id: string) => ({ id, studioId: S, tipoClaseId: 'tc-r', salaId: 'sala-1', instructorId: 'ins-1', inicio: `2026-08-${d}T${h}:00:00+02:00`, fin: `2026-08-${d}T${h}:50:00+02:00`, aforoMaximo: 10, cancelada: false });
   return {
     studio: { id: S, nombre: 'Estudio Alma', slug: SLUG, ciudad: 'Marbella', direccion: 'Calle Larios 1', email: 'hola@example.com', telefono: '+34 600 000 000', cancelacionVentanaHoras: 12, descripcion: 'Estudio pequeño.', colorPrimario: '#2C352C' },
     tiposClase: [{ id: 'tc-r', studioId: S, nombre: 'Reformer', color: '#7C6A52', nivel: 'TODOS', ventanaCancelacionHoras: null, duracionMinutos: 50 }],
@@ -38,20 +52,32 @@ function fx() {
   };
 }
 
-async function abrir(page: Page, query: string) {
+/** Lo que manda la página al embudo (lib/reservar/eventos.ts), tal cual. */
+type Evento = { tipo: string; origen: string | null; forma?: unknown; anfitrion?: unknown; firma?: unknown };
+/** Las tres claves de la Fase C: dónde está pegado y con qué versión. */
+const lleva = (e: Evento) => 'forma' in e || 'anfitrion' in e || 'firma' in e;
+
+async function montar(page: Page) {
   await page.setViewportSize({ width: 1100, height: 760 });
-  await page.clock.install({ time: new Date('2026-08-12T08:00:00') });
+  // Con su zona, igual que las clases del fixture: sin ella lo interpretaría el
+  // navegador, y en CI (UTC) serían otras horas.
+  await page.clock.install({ time: new Date('2026-08-12T08:00:00+02:00') });
   await page.route('**/rest/v1/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: S }) }));
   await page.route('**/api/theme**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }) }));
   await page.route('**/api/public/studio-data', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx()) }));
   await page.route('**/api/public/session', r => r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'no' }) }));
   // Contador de eventos del embudo: la vista previa del panel no debe contar.
-  const eventos: { tipo: string; origen: string | null }[] = [];
+  // El cuerpo entero, no solo tipo y origen: la Fase C mira qué claves lleva.
+  const eventos: Evento[] = [];
   await page.route('**/api/public/evento**', r => {
-    const b = r.request().postDataJSON() as { tipo: string; origen: string | null };
-    eventos.push({ tipo: b.tipo, origen: b.origen });
+    eventos.push(r.request().postDataJSON() as Evento);
     return r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
   });
+  return { eventos };
+}
+
+async function abrir(page: Page, query: string) {
+  const { eventos } = await montar(page);
   await page.goto(`/reservar/${SLUG}?${query}`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   return { eventos };
@@ -111,6 +137,9 @@ test('la etiqueta `ref` viaja en los eventos, y la vista previa del panel no cue
   const { eventos } = await abrir(page, 'embed=1&tab=clases&ref=web-horario');
   await expect.poll(() => eventos.filter(e => e.tipo === 'widget_loaded').length, { timeout: 15_000 }).toBeGreaterThan(0);
   expect(eventos.every(e => e.origen === 'web-horario'), JSON.stringify(eventos)).toBe(true);
+  // Fase C: a pantalla completa (sin marco) no es un widget pegado en su web,
+  // así que la carga no dice de dónde viene ni con qué versión.
+  expect(eventos.some(lleva), JSON.stringify(eventos)).toBe(false);
 });
 
 test('⚠️ `vista-previa=1` (el constructor del panel) no manda ningún evento', async ({ page }) => {
@@ -119,4 +148,58 @@ test('⚠️ `vista-previa=1` (el constructor del panel) no manda ningún evento
   // Margen para que cualquier evento de carga hubiera salido ya.
   await page.waitForTimeout(1500);
   expect(eventos).toEqual([]);
+});
+
+// ── Fase C: dónde se ve lo pegado ────────────────────────────────────────────
+//
+// La web de una anfitriona de verdad, en `http` a propósito (una web del
+// estudio en http es su web, y de https a http el navegador no manda
+// referrer), con el iframe TAL CUAL lo copia el constructor: sin ningún
+// parámetro nuevo. Se abre con una ruta y una `utm` que no deben salir de ahí.
+
+const ANFITRIONA = 'http://albapilates.example.com';
+const CODIGO = 'embed=1&tab=clases&ref=web-horario';
+
+async function enSuWeb(page: Page, app: string, query: string) {
+  const { eventos } = await montar(page);
+  // Después del andamiaje: registrada antes, alguna ruta de `montar` podría taparla.
+  await page.route(`${ANFITRIONA}/**`, r => r.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body style="margin:0">
+<p>Horarios de Alba Pilates</p>
+<iframe id="w" src="${app}/reservar/${SLUG}?${query}" style="width:100%;height:700px;border:0" title="Reservas"></iframe>
+</body></html>`,
+  }));
+  await page.goto(`${ANFITRIONA}/horarios?utm_source=x`);
+  await page.frameLocator('#w').locator('#horario').waitFor({ timeout: 150_000 });
+  return { eventos };
+}
+
+test('dentro de su web, `widget_loaded` dice dónde (solo el origen) y con qué versión; el resto del embudo, nada', async ({ page, baseURL }) => {
+  const { eventos } = await enSuWeb(page, baseURL!, CODIGO);
+  // Primero, que ha salido algo: sin esto, las negativas de abajo pasarían sin mirar nada.
+  await expect.poll(() => eventos.filter(e => e.tipo === 'widget_loaded').length, { timeout: 15_000 }).toBeGreaterThan(0);
+  await expect.poll(() => eventos.filter(e => e.tipo === 'widget_viewed').length, { timeout: 15_000 }).toBeGreaterThan(0);
+
+  for (const carga of eventos.filter(e => e.tipo === 'widget_loaded')) {
+    expect(carga).toMatchObject({
+      origen: 'web-horario',
+      forma: 'incrustado',
+      anfitrion: ANFITRIONA,
+      // La misma cuenta que hace el panel sobre el código que genera.
+      firma: firmaDeUrl(new URLSearchParams(CODIGO)),
+    });
+  }
+  // Solo en la carga: la sesión del embudo acaba llevando el id de la socia.
+  const resto = eventos.filter(e => e.tipo !== 'widget_loaded');
+  expect(resto.some(lleva), JSON.stringify(resto)).toBe(false);
+  // Nunca la ruta ni la query de su web.
+  expect(JSON.stringify(eventos)).not.toContain('/horarios');
+  expect(JSON.stringify(eventos)).not.toContain('utm_source');
+});
+
+test('⚠️ con un parámetro de ejecución (`directo=1`, el de la redirección de la nativa) no dice nada, aunque esté en su web', async ({ page, baseURL }) => {
+  const { eventos } = await enSuWeb(page, baseURL!, `${CODIGO}&directo=1`);
+  await expect.poll(() => eventos.filter(e => e.tipo === 'widget_loaded').length, { timeout: 15_000 }).toBeGreaterThan(0);
+  expect(eventos.some(lleva), JSON.stringify(eventos)).toBe(false);
 });

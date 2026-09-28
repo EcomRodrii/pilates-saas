@@ -46,7 +46,8 @@ import { FormularioContacto } from '@/components/reservar/formulario-contacto';
 import { PlanesPublicos } from '@/components/reservar/planes-publicos';
 import { EquipoPublico } from '@/components/reservar/equipo-publico';
 import { horarioPublico } from '@/lib/estudio-publico';
-import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget, sessionIdWidget } from '@/lib/reservar/eventos';
+import { trackEventoWidget, fijarOrigenWidget, fijarPegadoWidget, silenciarEventosWidget, sessionIdWidget } from '@/lib/reservar/eventos';
+import { pegadoDesde } from '@/lib/reservar/pegado-widget';
 import { precioClaseSuelta as precioSueltaDe } from '@/lib/student/precio-suelta';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, pesoTitular, textoSemantico } from '@/lib/reservar-publico-tokens';
 import { cssDocumentoIncrustado, paletaEfectivaReservar, varsMarcaWidget, varsTipografiaWidget } from '@/lib/reservar/precedencia-tema';
@@ -658,6 +659,21 @@ export default function ReservarPage() {
     fijarOrigenWidget(refCode);
     silenciarEventosWidget(esVistaPrevia);
   }, [refCode, esVistaPrevia]);
+  // Fase C del constructor: dónde está pegado y con qué versión, para «Visto en
+  // … hace 2 h» en el panel (lib/reservar/pegado-widget.ts). Una sola vez y en
+  // su propio efecto, no en el de arriba (que se repite si cambia `ref`): la URL
+  // que cuenta es la del primer commit, antes de que el router la reescriba
+  // (`compra`, `tentare_pago`, los pasos de la reserva). Va antes que el de
+  // `widget_loaded`, que es el único evento que lo lleva.
+  useEffect(() => {
+    fijarPegadoWidget(pegadoDesde({
+      params: new URLSearchParams(location.search),
+      enMarco: window.parent !== window,
+      ancestros: location.ancestorOrigins ? Array.from(location.ancestorOrigins) : null,
+      referrer: document.referrer,
+      propio: location.origin,
+    }));
+  }, []);
   const widgetLoadedRef = useRef(false);
   useEffect(() => {
     if (widgetLoadedRef.current || !studio?.id) return;
