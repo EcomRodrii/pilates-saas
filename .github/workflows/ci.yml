@@ -293,6 +293,16 @@ jobs:
             -e '/^grant execute on function public\.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean) to service_role, postgres;$/d' \
             supabase/migrations/20260919074101_reservar_plaza_una_sola_firma_y_entitlement_sin_js.sql
 
+      # `--no-seed` en el `db reset` de abajo NO basta: en un volumen nuevo
+      # (como el de este runner, siempre), `supabase start` YA siembra
+      # `supabase/seed.sql` en su primer arranque, antes de que el `db reset`
+      # de después llegue a ejecutarse — comprobado, sigue fallando igual con
+      # el flag puesto. Apartar el fichero es lo único que de verdad lo evita.
+      # Solo en el checkout efímero de este job, igual que los reordenamientos
+      # de arriba.
+      - name: Apartar el seed de desarrollo antes de arrancar (solo para este job)
+        run: mv supabase/seed.sql supabase/seed.sql.deshabilitado-en-ci
+
       # Arranca Postgres + GoTrue (Auth) + PostgREST + Kong (API Gateway) reales
       # en Docker, dentro del propio runner — nunca contra dwqvdycjcffqwfkzapvi.
       - name: Arrancar Supabase local
@@ -308,12 +318,8 @@ jobs:
       # todas de un tirón, es aquí donde se ve (5 casos encontrados y
       # corregidos SOLO para este job, ver los pasos de arriba).
       #
-      # `--no-seed`: `supabase/seed.sql` es la demo de desarrollo
-      # (studio-1/soc-1…) y no lo usa ningún test de este job — cada uno crea
-      # sus propios fixtures (`lib/db/rls-test-helpers.ts`). Sembrarlo aquí
-      # solo arriesga que quede desfasado contra una columna NOT NULL añadida
-      # después (pasó con `facturas.tipo`) y rompa este job por un motivo que
-      # no tiene nada que ver con RLS.
+      # `--no-seed` por cinturón y tirantes: el fichero ya está apartado (paso
+      # de arriba), así que aquí no hay nada que sembrar de todos modos.
       - name: Aplicar migraciones desde cero (sin el seed de desarrollo)
         run: supabase db reset --no-seed
 
