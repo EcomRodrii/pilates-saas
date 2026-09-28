@@ -99,7 +99,9 @@ export interface Studio {
    * Última config del constructor de widgets (Configuración → Mi app y mi web →
    * Widgets para tu web), por widget del catálogo ({ "horario": {...},
    * "planes": {...} }; los ids de antes —"clases", "embed-script"…— se siguen
-   * leyendo, ver `leerConfigs`). Solo comodidad del panel para
+   * leyendo, ver `leerConfigs`), con la huella de lo último copiado de cada uno
+   * (`copiado`) y con qué está hecha su web (`_web`, lib/widgets/recetas.ts).
+   * Se guarda FUSIONANDO (`fusionarWidgetBuilder`). Solo comodidad del panel para
    * no perderlo al recargar: la config EFECTIVA viaja congelada en el snippet
    * copiado (query params / data-*), nunca se lee de aquí en la página pública.
    * La forma concreta la valida quien lo lee (lib/widgets/config.ts) — es jsonb libre.

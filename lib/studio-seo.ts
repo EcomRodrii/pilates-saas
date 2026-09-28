@@ -176,7 +176,15 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // comprobar que la app se tiñe con la marca de cada estudio. Ausente =
       // '#1A1A1A', como siempre.
       colorPrimario: process.env.E2E_COLOR_PRIMARIO ?? '#1A1A1A',
-      aparienciaApp: process.env.E2E_APARIENCIA_APP ? JSON.parse(process.env.E2E_APARIENCIA_APP) : null,
+      // Además de la variable global (que el `webServer` de Playwright NO
+      // reenvía, así que en CI no llega), una palanca por SLUG, mismo patrón
+      // que `tentare-preguntas` más abajo: /reservar toma el estilo de la app
+      // de la alumna en el SERVIDOR y `page.route` no llega hasta ahí. Sin
+      // esto todas las specs corren con la apariencia por defecto y el camino
+      // nuevo no lo mira nadie (e2e/reservar-tema-de-la-app.spec.ts).
+      aparienciaApp: process.env.E2E_APARIENCIA_APP ? JSON.parse(process.env.E2E_APARIENCIA_APP)
+        : slug === 'tentare-carbon' ? { estilo: 'carbon', tipografia: 'editorial', marca: 'fiel' }
+        : null,
       // Mismo motivo que `E2E_PAGINA_OCULTA` de unas líneas más abajo: el icono
       // de la PWA se compone en el SERVIDOR a partir de este campo, así que
       // `page.route` no puede llegar a él y sin esta palanca el camino «el

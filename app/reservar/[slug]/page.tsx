@@ -38,7 +38,7 @@ import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
-import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe, escalaDensidad } from '@/lib/reservar/apariencia-widget';
+import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, radiosDe, escalaDensidad } from '@/lib/reservar/apariencia-widget';
 import { resolverConfigWidget, leerPresentacion } from '@/lib/reservar/config-widget';
 import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
@@ -48,7 +48,9 @@ import { EquipoPublico } from '@/components/reservar/equipo-publico';
 import { horarioPublico } from '@/lib/estudio-publico';
 import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget, sessionIdWidget } from '@/lib/reservar/eventos';
 import { precioClaseSuelta as precioSueltaDe } from '@/lib/student/precio-suelta';
-import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, RESERVAR_PALETA, varsReservarModo, tokensCalendarioDeApariencia } from '@/lib/reservar-publico-tokens';
+import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, pesoTitular, textoSemantico } from '@/lib/reservar-publico-tokens';
+import { cssDocumentoIncrustado, paletaEfectivaReservar, varsMarcaWidget, varsTipografiaWidget } from '@/lib/reservar/precedencia-tema';
+import { useTemaAppReservar } from '@/components/reservar/tema-app-provider';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
@@ -377,20 +379,12 @@ function claveDeVista(paso: VistaPaso | null, claseId: string): string {
 const OCUPA_PLAZA: Reserva['estado'][] = ['CONFIRMADA', 'ASISTIDA'];
 const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 
-// Tema del calendario PÚBLICO: la paleta propia del rediseño de /reservar
-// (RESERVAR_PALETA, lib/reservar-publico-tokens.ts) — YA NO `MODO_TOKENS.dia`
-// (esa es la del portal privado de la clienta, un contexto de marca distinto
-// a propósito, ver .claude/tentare-os.md "Arquitectura de marca"). Fuera del
-// componente para no recrearlo en cada render.
-//
-// ⚠️ **Solo queda `RT.hero` aquí, y a propósito.** El resto de tokens de esta
-// página se leen por variable CSS (`var(--portal-…)`) y no por este objeto: al
-// incrustar el widget sobre una web oscura, la raíz recibe la paleta de NOCHE en
-// línea, y un token de JS fijado a `dia` a nivel de módulo NO se entera — las
-// tarjetas se quedaban blancas con letra clara encima. El degradado del hero es
-// la excepción legítima: solo se pinta fuera del modo incrustado.
-const RESERVAR_TOKENS = RESERVAR_PALETA.dia;
-const RT = RESERVAR_TOKENS;
+// ⚠️ Aquí vivía `RT` (= `RESERVAR_PALETA.dia`, fijado a nivel de módulo) solo
+// para el degradado de la portada. Se fue el 27-sep-2026: un token de JS fijado
+// a `dia` no se entera del estilo de la app de la alumna (con «Carbón» dejaba
+// una portada crema sobre una página oscura). El degradado sale ahora de
+// `tokensCalendario.hero`, que es la paleta que de verdad se ve — y sin estilo
+// elegido es el mismo objeto de antes.
 
 // Mínimo razonable de dígitos para un teléfono real (España: 9). No se valida
 // prefijo — el estudio contacta por WhatsApp/llamada, un formato demasiado
@@ -513,9 +507,19 @@ export default function ReservarPage() {
   // Los ajustes que la propietaria guardó en Apariencia, con los `?params=` del
   // iframe pisándolos. Fuera del modo incrustado no se aplica ninguno de los
   // dos: `/reservar/<slug>` es la página de Tentare.
+  //
+  // ⚠️ Hasta que llegan los datos públicos, los «Colores del widget» guardados
+  // salen del servidor (`temaApp.widgetGuardado`, los mismos): llegan tarde, y
+  // con la app en Carbón el primer fotograma del iframe era Carbón y luego
+  // saltaba a la paleta que el estudio había guardado para su web.
+  const temaApp = useTemaAppReservar();
+  const aparienciaGuardada = useMemo(
+    () => (dataLoaded || !temaApp.widgetGuardado ? aparienciaWidget : { ...aparienciaWidget, ...temaApp.widgetGuardado }),
+    [dataLoaded, aparienciaWidget, temaApp],
+  );
   const apariencia = useMemo(
-    () => resolverApariencia(embedMode ? aparienciaWidget : null, embedMode ? searchParams : null),
-    [embedMode, aparienciaWidget, searchParams],
+    () => resolverApariencia(embedMode ? aparienciaGuardada : null, embedMode ? searchParams : null),
+    [embedMode, aparienciaGuardada, searchParams],
   );
   // El resto del snippet (filtros/vista/toggles/diseño/marca), también SOLO
   // incrustado — la página suelta /reservar/<slug> es de Tentare y no cambia.
@@ -537,25 +541,29 @@ export default function ReservarPage() {
   // La clase del calendario semanal cuya ficha se acaba de pedir. Ver
   // `abriendoFichaSemana`, junto a `slots`.
   const [fichaSemanaPedida, setFichaSemanaPedida] = useState<string | null>(null);
-  // `marca=` pisa `--portal-brand` en el subárbol del widget. El foreground se
-  // deriva por luminancia — dejar el crema del tema sobre una marca clara
-  // dejaría el texto de los botones ilegible.
-  const varsMarca = useMemo(() => {
-    const marca = configWidget?.colorPrimario;
-    if (!marca) return null;
-    const l = luminancia(marca.slice(0, 7));
-    return {
-      '--portal-brand': marca,
-      '--portal-brand-foreground': l != null && l < 0.45 ? '#FFFFFF' : '#22261F',
-    };
-  }, [configWidget]);
+  // Quién manda en los colores (lib/reservar/precedencia-tema.ts): suelta, el
+  // estilo de la app de la alumna (llega del layout, en servidor); incrustada,
+  // el widget si toca algún color, y si no, también el de la app. Sobre un
+  // estilo oscuro, `marca=` y `diseno=ligero` también deciden: los dos están
+  // pensados para una web clara.
+  const paleta = useMemo(
+    () => paletaEfectivaReservar(apariencia, embedMode, temaApp, {
+      marca: configWidget?.colorPrimario, ligero: configWidget?.diseno === 'ligero',
+    }),
+    [apariencia, embedMode, temaApp, configWidget],
+  );
+  // `marca=` pisa `--portal-brand` en el subárbol del widget, con su texto
+  // encima y la marca como texto medidos contra la paleta que se ve.
+  const varsMarca = useMemo(
+    () => varsMarcaWidget(configWidget?.colorPrimario, paleta.tokens),
+    [configWidget, paleta],
+  );
   // ⚠️ Solo se pisan las variables cuando hace falta. Emitirlas SIEMPRE dejaría
   // el widget con la paleta en línea aunque nadie la haya tocado, y a partir de
-  // ahí un cambio del tema del portal ya no llegaría aquí.
-  const varsTexto = useMemo(
-    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? varsReservarModo('noche') : null),
-    [embedMode, apariencia],
-  );
+  // ahí un cambio del tema (del portal o de la app) ya no llegaría aquí. Cuando
+  // el widget decide, en cambio, va la paleta ENTERA de su modo —también la de
+  // día— y la marca del estudio tal cual: debajo puede haber una app en Carbón.
+  const varsTexto = paleta.varsEnLinea;
   // ⚠️ El calendario NO se pinta por variables CSS: recibe los tokens por prop
   // (`t=`) y los reparte a mano por todos sus subcomponentes. Es un tercer canal
   // de color además de las variables y de `RT`, y por eso se le escapaba al
@@ -564,8 +572,8 @@ export default function ReservarPage() {
   // aunque el resto de la página ya hubiera cambiado. Medido en producción, no
   // supuesto: un icono de 44 px seguía en `#E7E4DB` (el `surface2` del día).
   //
-  // Fuera del modo incrustado es el MISMO objeto de siempre, así que ningún
-  // estudio ve un cambio.
+  // Fuera del modo incrustado, y sin estilo elegido en la app de la alumna, es
+  // el MISMO objeto de siempre, así que ningún estudio ve un cambio.
   //
   // ⚠️ Auditoría de UX (2026-08-31): por el MISMO motivo de arriba (tercer
   // canal de color, no CSS), los 5 controles de "Colores del widget" del
@@ -574,14 +582,21 @@ export default function ReservarPage() {
   // aquí — `tokensCalendarioDeApariencia` (lib/reservar-publico-tokens.ts) es
   // la pieza que faltaba: la paleta de siempre, con esos 5 campos pisados
   // solo si el estudio los tocó.
-  const tokensCalendario = useMemo(
-    () => tokensCalendarioDeApariencia(apariencia, embedMode && modoTextoDe(apariencia) === 'noche' ? 'noche' : 'dia'),
-    [embedMode, apariencia],
-  );
-  // Widget incrustado sobre una web oscura. Se saca a su propia constante
-  // porque lo necesita algo más que los tokens del calendario — ver el aviso de
-  // error del checkout, más abajo.
-  const esNoche = embedMode && modoTextoDe(apariencia) === 'noche';
+  //
+  // Desde el 27-sep-2026 esto es la paleta del estilo de la app de la alumna
+  // cuando el widget no decide (hex reales, nunca `var()`: el pago se los pasa
+  // a Stripe). Sin estilo elegido sigue siendo `RESERVAR_PALETA.dia`.
+  const tokensCalendario = paleta.tokens;
+  // Fondo oscuro: el del widget sobre una web oscura, o el del estilo «Carbón»
+  // de la app. Se saca a su propia constante porque lo necesita algo más que
+  // los tokens del calendario — ver el aviso de error del checkout, más abajo.
+  const esNoche = paleta.noche;
+  // Los errores y los «confirmada» de esta página usan los tokens del PANEL
+  // (`text-destructive`, `var(--success)`), fijados para fondo claro: sobre la
+  // tarjeta de Carbón —o de un widget de noche— se quedaban en ~2,7:1. En
+  // oscuro, su variante legible; en claro, `undefined` y mandan los de siempre.
+  const colorPeligro = esNoche ? textoSemantico('danger', tokensCalendario) : undefined;
+  const colorExito = esNoche ? textoSemantico('success', tokensCalendario) : 'var(--success)';
   const fuenteWidget = familiaCss(apariencia);
   const cssFuente = urlFuente(apariencia);
   // Titulares/horas/precios (widgetFuenteDisplay). Contrato de AparienciaWidget:
@@ -2406,8 +2421,17 @@ export default function ReservarPage() {
   // servidor, así que el header se pinta al instante.
   if (!mounted) {
     return (
-      <div className="min-h-dvh bg-[var(--portal-bg)]">
-        <header className="sticky top-0 z-30 bg-white border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      // Las variables del widget también aquí: el esqueleto está FUERA de la
+      // raíz de abajo, y sin ellas un widget de noche (o una app en Carbón bajo
+      // un widget de día) pintaría su primer fotograma con la paleta contraria.
+      // La cabecera iba en `bg-white` fijo: blanca sobre una página oscura.
+      // Y el `<style>` del documento, como en el render normal: sin él, un
+      // widget de día sobre una app en Carbón arrancaba con la raíz en
+      // `color-scheme: dark` (lienzo opaco oscuro dentro del iframe).
+      <>
+      {embedMode && <style>{cssDocumentoIncrustado(apariencia, paleta)}</style>}
+      <div className="min-h-dvh bg-[var(--portal-bg)]" style={{ ...(varsTexto ?? {}), ...(varsMarca ?? {}) } as React.CSSProperties}>
+        <header className="sticky top-0 z-30 bg-[var(--portal-surface)] border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div className="max-w-2xl mx-auto px-4">
             <div className="flex items-center gap-3 py-3">
               <div className="w-9 h-9 rounded-xl bg-[var(--portal-line)] shrink-0" />
@@ -2423,10 +2447,11 @@ export default function ReservarPage() {
           <p className="text-[var(--portal-muted-2)] text-sm">Cargando horario…</p>
         </div>
       </div>
+      </>
     );
   }
 
-  const bookingSesion = bookingSesionId ? sesionesRich.find(s => s.id === bookingSesionId) : null;
+  const bookingSesion = bookingSesionId ?sesionesRich.find(s => s.id === bookingSesionId) : null;
 
   // Marca del estudio (white-label): inyectada como CSS var por <ThemeStyle>
   // server-side. PRIMARY_FG es el texto sobre la marca, autoderivado por
@@ -2598,17 +2623,22 @@ export default function ReservarPage() {
                  `var(--portal-ink)`, porque el color del texto de esta página
                  no viaja por variables CSS. */}
         {embedMode && (
-          <style>{`html,body{background:${fondoCss(apariencia) ?? 'var(--portal-bg)'} !important;}`}</style>
+          <style>{cssDocumentoIncrustado(apariencia, paleta)}</style>
         )}
         <div style={{
           minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 24, background: fondoCss(apariencia) ?? 'var(--portal-bg)',
           fontFamily: fuenteWidget ?? sans,
-        }}>
+          // Esta pantalla vive FUERA de la raíz de abajo: sin sus variables,
+          // `var(--portal-bg)` sería el `:root` (la app) y no la paleta que
+          // decidió el widget — un fondo claro con la letra de noche encima.
+          ...(varsTexto ?? {}),
+          ...(varsMarca ?? {}),
+        } as React.CSSProperties}>
           <div style={{ maxWidth: 380, textAlign: 'center' }}>
             {/* Serif y tamaño fijo, no `heading()`: ese usa `cq()`, que necesita
                 un ancestro con `container-type`, y esta pantalla es autónoma. */}
-            <h1 style={{ fontFamily: serif, fontSize: 26, lineHeight: 1.1, color: tokensCalendario.ink, marginBottom: 10 }}>
+            <h1 style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: 26, lineHeight: 1.1, color: tokensCalendario.ink, marginBottom: 10 }}>
               No hemos podido cargar el horario
             </h1>
             <p style={{ fontSize: 14, lineHeight: 1.5, color: tokensCalendario.muted, marginBottom: 22 }}>
@@ -2638,7 +2668,7 @@ export default function ReservarPage() {
   // son los de siempre, no una copia.
   const contenidoPlanes = (
     <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
-      <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
+      <h2 style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
       {/* ⚠️ Sin las clases `text-destructive`/`bg-destructive` del PANEL.
           Esas no participan del modo del widget: medido, el aviso salía
           EXACTAMENTE igual en claro y en oscuro —rojo teja #A8442A sobre
@@ -2708,7 +2738,7 @@ export default function ReservarPage() {
   // se desliza sobre el listado, no una página).
   const misReservasBody = (
     <>
-      <h2 style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Mis reservas</h2>
+      <h2 style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Mis reservas</h2>
 
       {socia && (
         <div style={{ display: 'flex', gap: 4, marginTop: 20, padding: 3, borderRadius: R.pill, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Próximas o pasadas">
@@ -2733,7 +2763,7 @@ export default function ReservarPage() {
               <Users size={24} style={{ color: 'var(--portal-brand-texto)' }} />
             </div>
             <div>
-              <h3 style={{ fontFamily: serif, fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tus reservas</h3>
+              <h3 style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tus reservas</h3>
               <p style={{ fontSize: 12.5, color: 'var(--portal-muted-2)', marginTop: 6 }}>Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
             </div>
             <button onClick={() => openBooking('')}
@@ -2776,7 +2806,7 @@ export default function ReservarPage() {
                 ? { texto: r.posicionEspera ? `Lista de espera · ${r.posicionEspera}ª` : 'Lista de espera', bg: 'color-mix(in oklab, var(--portal-accent) 10%, var(--portal-surface))', color: 'var(--portal-accent)' }
                 : isPast
                 ? { texto: 'Cancelada', bg: 'var(--portal-surface-2)', color: 'var(--portal-muted)' }
-                : { texto: 'Confirmada', bg: 'color-mix(in oklab, var(--success) 14%, var(--portal-surface))', color: 'var(--success)' };
+                : { texto: 'Confirmada', bg: `color-mix(in oklab, ${colorExito} 14%, var(--portal-surface))`, color: colorExito };
               const abriendoCancel = cancelConfirm?.reservaId === r.id;
               return (
                 <div key={r.id} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--portal-line)', opacity: isPast ? 0.8 : 1 }}>
@@ -2812,7 +2842,7 @@ export default function ReservarPage() {
                     <div style={{ margin: '0 20px 16px', padding: '12px 14px', borderRadius: R.spot, background: errorCancelar ? 'color-mix(in oklab, var(--destructive) 8%, var(--portal-surface))' : 'var(--portal-velo)', border: `1px solid ${errorCancelar ? 'color-mix(in oklab, var(--destructive) 25%, transparent)' : 'var(--portal-line)'}` }}>
                       {errorCancelar ? (
                         <p style={{ fontSize: 12.5, color: 'var(--portal-ink)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                          <span aria-hidden style={{ color: 'var(--destructive)', fontWeight: 800 }}>!</span>
+                          <span aria-hidden style={{ color: colorPeligro ?? 'var(--destructive)', fontWeight: 800 }}>!</span>
                           {errorCancelar}
                         </p>
                       ) : (
@@ -2869,9 +2899,14 @@ export default function ReservarPage() {
 
         El valor es seguro aunque venga de la URL de una página pública:
         `fondoCss` solo devuelve `transparent`, `null`, o un color que ya pasó
-        el `COLOR_VALIDO` de `resolverApariencia` — nunca la cadena cruda. */}
+        el `COLOR_VALIDO` de `resolverApariencia` — nunca la cadena cruda.
+
+        Y cuando el widget decide la paleta, además devuelve la raíz del
+        documento a `color-scheme: normal`: con la app en Carbón el iframe se
+        pintaba sobre un lienzo OPACO oscuro y «transparente» dejaba una losa
+        negra con la tinta de día encima (ver `cssDocumentoIncrustado`). */}
     {embedMode && (
-      <style>{`html,body{background:${fondoCss(apariencia) ?? 'var(--portal-bg)'} !important;}`}</style>
+      <style>{cssDocumentoIncrustado(apariencia, paleta)}</style>
     )}
     <div ref={rootRef} style={{
       // `dvh` y no `vh`: con la barra de Safari visible, `100vh` sobra y deja un
@@ -2893,12 +2928,13 @@ export default function ReservarPage() {
       // fuente elegida no llegaba a ninguno de ellos: se aplicaba al hueco
       // entre componentes y a poco más. Modo B ya las fijaba (main.tsx), o sea
       // que los dos modos pintaban distinto con el mismo snippet.
-      ...(fuenteWidget ? { '--font-ui': fuenteWidget } : {}),
-      ...(fuenteDisplayWidget ? { '--font-display': fuenteDisplayWidget } : {}),
-      // Solo se pisa la variable cuando hay fuente de titulares que aplicar —
-      // emitirla siempre rompería el fallback a `--font-display` (la pila
-      // `serif` de siempre) para quien no tocó nada.
-      ...(fuenteDisplayWidget ? { '--portal-heading-font': fuenteDisplayWidget } : {}),
+      //
+      // Solo se pisan las variables cuando hay fuente que aplicar — emitirlas
+      // siempre taparía la pareja tipográfica de la app de la alumna (que
+      // llega por `:root`) para quien no tocó nada. Con fuente del widget,
+      // gana ella y se anula el peso de titular de la pareja
+      // (lib/reservar/precedencia-tema.ts).
+      ...varsTipografiaWidget(fuenteWidget, fuenteDisplayWidget),
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
       // Custom properties en línea: cascadean a todo el subárbol, así que con
       // esto el widget entero pasa a letra clara sin tocar un solo componente.
@@ -2928,13 +2964,13 @@ export default function ReservarPage() {
           Es el mismo fallo que ya costó un hero desplegado y muerto: un dato
           que sí viaja, y una nota que asegura que no. */}
       {/* ⚠️ UNA sola caja para barra + portada + pestañas, y no tres.
-          `RT.hero` es un `linear-gradient(175deg, …)`, y un degradado se pinta
+          `tokensCalendario.hero` es un `linear-gradient(175deg, …)`, y un degradado se pinta
           por CAJA: partirlo lo reinicia en cada trozo y deja dos costuras
           horizontales en la página de todos los estudios. Se probó partido —
           para poder mover la portada por separado— y las capturas antes/después
           lo enseñaron sin lugar a dudas. Por eso la portada va ANCLADA al
           horario (`SECCIONES_ANCLADAS`): se puede ocultar, no mover. */}
-      <div style={{ order: orden('horario'), position: 'relative', overflow: 'hidden', background: embedMode ? 'var(--portal-bg)' : RT.hero }}>
+      <div style={{ order: orden('horario'), position: 'relative', overflow: 'hidden', background: embedMode ? 'var(--portal-bg)' : tokensCalendario.hero }}>
         {!embedMode && (
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 14, padding: `${cq(20, 2.4, 30)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, minWidth: 0 }}>
@@ -3083,7 +3119,7 @@ export default function ReservarPage() {
                 cada uno incrusta en su propia web. Ahora los escribe cada
                 estudio; vacío deja el de siempre, así que nadie cambia salvo
                 que quiera. */}
-            <h1 style={{ fontFamily: serif, fontSize: cq(34, 5.4, 68), lineHeight: 1.02, marginTop: cq(12, 1.6, 20) }}>
+            <h1 style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: cq(34, 5.4, 68), lineHeight: 1.02, marginTop: cq(12, 1.6, 20) }}>
               {textosReservar.titular || <>Encuentra tu<br />próxima clase</>}
             </h1>
             {/* El subtítulo propio gana a la descripción del estudio: se ha
@@ -3159,7 +3195,7 @@ export default function ReservarPage() {
                 // La barra scrollea en horizontal: mismo motivo que arriba.
                 WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation',
                 borderBottom: tab === t ? '1.5px solid var(--portal-ink)' : '1.5px solid transparent',
-                fontFamily: serif, fontSize: cq(19, 2.1, 27), color: tab === t ? 'var(--portal-ink)' : 'var(--portal-muted)',
+                fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: cq(19, 2.1, 27), color: tab === t ? 'var(--portal-ink)' : 'var(--portal-muted)',
                 whiteSpace: 'nowrap', transition: 'color .35s ease',
               }}>
               {label}
@@ -3176,9 +3212,15 @@ export default function ReservarPage() {
           orden relativo. */}
       {pagoAviso && (
         <div style={{ order: orden('horario'), padding: `12px ${cq(20, 3.8, 48)} 0`, maxWidth: 1280, marginInline: 'auto' }}>
+          {/* Con los tokens de la paleta que se ve, no `text-muted-foreground`
+              `bg-muted/50` del PANEL: sobre Carbón daban ~1,5:1. Y el verde de
+              «pago recibido», en su variante de noche si el fondo es oscuro. */}
           <div
-            className={pagoAviso === 'ok' ? 'text-success bg-success/10 border-success/30' : 'text-muted-foreground bg-muted/50 border-[var(--portal-line)]'}
-            style={{ border: '1px solid', borderRadius: 14, padding: '10px 16px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+            className={pagoAviso === 'ok' ? 'text-success bg-success/10 border-success/30' : 'text-[var(--portal-muted)] bg-[var(--portal-surface-2)] border-[var(--portal-line)]'}
+            style={{
+              border: '1px solid', borderRadius: 14, padding: '10px 16px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              ...(pagoAviso === 'ok' && esNoche ? { color: textoSemantico('success', tokensCalendario, tokensCalendario.bg) } : {}),
+            }}
           >
             <span>
               {pagoAviso === 'ok'
@@ -3197,7 +3239,7 @@ export default function ReservarPage() {
       {avisoPagoRetorno && (
         <div style={{ order: orden('horario'), padding: `12px ${cq(20, 3.8, 48)} 0`, maxWidth: 1280, marginInline: 'auto' }}>
           <div
-            className="text-muted-foreground bg-muted/50 border-[var(--portal-line)]"
+            className="text-[var(--portal-muted)] bg-[var(--portal-surface-2)] border-[var(--portal-line)]"
             style={{ border: '1px solid', borderRadius: 14, padding: '10px 16px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
           >
             <span>Si has confirmado el pago con tu banco, en unos segundos verás tu reserva por email.</span>
@@ -3465,6 +3507,7 @@ export default function ReservarPage() {
               primary={PRIMARY}
               primaryFg={PRIMARY_FG}
               foto={!embedMode && seccionVisible('portada') ? null : heroFoto}
+              t={tokensCalendario}
             />
           </div>
         )}
@@ -3502,7 +3545,7 @@ export default function ReservarPage() {
             dirección en el hero de arriba Y en la tarjeta lateral). */}
         {tab === 'estudio' && (
           <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
-            <h2 style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>El estudio</h2>
+            <h2 style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>El estudio</h2>
             {studio?.descripcion && (
               <p style={{ fontSize: 13.5, color: 'var(--portal-muted)', marginTop: 14, maxWidth: 520, lineHeight: 1.65 }}>{studio.descripcion}</p>
             )}
@@ -3602,7 +3645,7 @@ export default function ReservarPage() {
                   <Users size={24} style={{ color: PRIMARY }} />
                 </div>
                 <div>
-                  <h3 style={{ fontFamily: serif, fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tu cuenta</h3>
+                  <h3 style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tu cuenta</h3>
                   <p style={{ fontSize: 12.5, color: 'var(--portal-muted-2)', marginTop: 6 }}>Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
                 </div>
                 <button onClick={() => openBooking('')}
@@ -3650,7 +3693,7 @@ export default function ReservarPage() {
             <EquipoPublico
               instructores={instructores} sesiones={sesiones} tiposClase={tiposClase}
               etiqueta="Nuestro equipo"
-              cabecera={<h2 style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Nuestro equipo</h2>}
+              cabecera={<h2 style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Nuestro equipo</h2>}
             />
           </div>
         )}
@@ -3739,7 +3782,7 @@ export default function ReservarPage() {
         <div style={{ order: orden('sobre'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 720, marginInline: 'auto', textAlign: 'center' }}>
             {textosReservar.sobreTitulo && (
-              <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, marginBottom: 14 }}>
+              <h2 style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: cq(22, 2.6, 34), lineHeight: 1.15, marginBottom: 14 }}>
                 {textosReservar.sobreTitulo}
               </h2>
             )}
@@ -3951,10 +3994,10 @@ export default function ReservarPage() {
                     <span className="reserva-confeti-b1 absolute rounded-full" style={{ left: '48%', top: '33%', width: 7, height: 7, background: 'var(--warning)' }} />
                     <span className="reserva-confeti-c absolute rounded-sm" style={{ left: '62%', top: '36%', width: 7, height: 10, background: 'var(--destructive)' }} />
                     <span className="reserva-confeti-b2 absolute rounded-full" style={{ left: '40%', top: '38%', width: 6, height: 6, background: 'var(--portal-ink)' }} />
-                    <span className="reserva-check-ring absolute inset-0 rounded-full" style={{ border: '2.5px solid var(--success)' }} />
+                    <span className="reserva-check-ring absolute inset-0 rounded-full" style={{ border: `2.5px solid ${colorExito}` }} />
                     <span className="reserva-check-pop absolute inset-0 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: 'color-mix(in oklab, var(--success) 14%, var(--portal-surface))' }}>
-                      <CheckCircle2 size={30} style={{ color: 'var(--success)' }} />
+                      style={{ backgroundColor: `color-mix(in oklab, ${colorExito} 14%, var(--portal-surface))` }}>
+                      <CheckCircle2 size={30} style={{ color: colorExito }} />
                     </span>
                   </div>
                 ) : confirmacionPago === 'confirmando' ? (
@@ -4224,7 +4267,7 @@ export default function ReservarPage() {
                       autoComplete="current-password"
                       className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                       style={{ backgroundColor: 'var(--portal-surface-2)' }} />
-                    {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
+                    {loginError && <p className="text-destructive text-sm mb-3" style={{ color: colorPeligro }}>{loginError}</p>}
                     {/* Sin margen propio: mide 0 px salvo que Cloudflare pida
                         resolver algo a mano. El CTA vive en el `footer` de
                         `PublicSheet`, anclado abajo del sheet. */}
@@ -4255,7 +4298,7 @@ export default function ReservarPage() {
                         onChange={e => codigoCorreo.escribir(e.target.value)}
                         className="w-full rounded-xl px-4 py-3 text-base text-center tracking-[0.3em] text-[var(--portal-ink)] placeholder:tracking-normal placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors"
                         style={{ backgroundColor: 'var(--portal-surface-2)' }} />
-                      {codigoCorreo.error && <p role="alert" className="text-destructive text-sm">{codigoCorreo.error}</p>}
+                      {codigoCorreo.error && <p role="alert" className="text-destructive text-sm" style={{ color: colorPeligro }}>{codigoCorreo.error}</p>}
                       <button type="submit" disabled={codigoCorreo.verificando} className={BOTON_PRIMARIO}>
                         {codigoCorreo.verificando ? 'Comprobando…' : 'Entrar con el código'}
                       </button>
@@ -4417,7 +4460,7 @@ export default function ReservarPage() {
                   onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
                   className="w-full rounded-xl px-4 py-3 text-base text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
                   style={{ backgroundColor: 'var(--portal-surface-2)' }} />
-                {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
+                {loginError && <p className="text-destructive text-sm mb-3" style={{ color: colorPeligro }}>{loginError}</p>}
                 <p className="text-[11px] text-[var(--portal-muted)]">El teléfono solo lo usa {estudioNombre} para avisos de tus clases.</p>
                 {/* El CTA vive en el `footer` de `PublicSheet`, anclado abajo. */}
               </div>
@@ -4551,7 +4594,7 @@ export default function ReservarPage() {
                   </p>
                 </div>
                 {gateError && (
-                  <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30">
+                  <div className="mb-3 px-4 py-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/30" style={{ color: colorPeligro }}>
                     {gateError}
                     {/* ⚠️ Tercera versión de este botón, y las dos anteriores
                         mandaban a sitios que podían no existir: primero a «la
@@ -4632,7 +4675,9 @@ export default function ReservarPage() {
         open={legalDoc !== null}
         onClose={() => setLegalDoc(null)}
         label={legalDoc?.label ?? 'Documento legal'}
-        sheetClassName="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl relative shadow-2xl flex flex-col"
+        // La superficie de la paleta, no `bg-white`: el texto de dentro va en
+        // `--portal-ink`, que en noche o con la app en Carbón es clara.
+        sheetClassName="bg-[var(--portal-surface)] w-full max-w-lg rounded-t-3xl sm:rounded-3xl relative shadow-2xl flex flex-col"
         // P0-3: mismo criterio que el modal de reserva de arriba.
         sheetStyle={{ maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(85vh, 640px)') : '85vh' }}
         overlayStyle={overlayEmbed}

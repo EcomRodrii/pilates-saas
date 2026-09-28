@@ -15,7 +15,7 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { Lock, AlertTriangle } from 'lucide-react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { PlanTarifa } from '@/lib/types';
-import { sans, serif, radius } from '@/lib/reservar-publico-tokens';
+import { sans, serif, radius, textoSemantico } from '@/lib/reservar-publico-tokens';
 import { fuenteValida, urlFuenteGoogle } from '@/lib/reservar/config-widget';
 import { semantic } from '@/lib/portal-tokens';
 
@@ -218,6 +218,10 @@ export function CheckoutEmbebido({
     }
   }, []);
 
+  // El rojo de los errores DENTRO del iframe de Stripe, legible sobre la
+  // tarjeta de la paleta (en oscuro, su variante de noche). Un string: no
+  // cambia de identidad entre renders y no resincroniza el iframe.
+  const colorPeligro = textoSemantico('danger', t);
   // Objeto memoizado, no literal inline: sin esto, CUALQUIER re-render de
   // este componente (p. ej. la propietaria escribe en el código de
   // descuento, ajeno al checkout) le pasaba a <Elements> un objeto nuevo
@@ -254,7 +258,7 @@ export function CheckoutEmbebido({
         // negro/serif por defecto de Stripe.
         colorTextSecondary: t.muted,
         colorTextPlaceholder: t.muted,
-        colorDanger: semantic.danger.text,
+        colorDanger: colorPeligro,
         fontFamily: `'${fuenteCheckout.familia}', system-ui, sans-serif`,
         // Radio de INPUT (ver docblock de `radioInput`), nunca el de
         // tarjeta.
@@ -272,12 +276,12 @@ export function CheckoutEmbebido({
         '.TermsText': { color: t.muted, fontSize: '11.5px' },
       },
     },
-  }), [clientSecret, colorMarca, t.surface, t.ink, t.muted, t.line, fuenteCheckout.cssSrc, fuenteCheckout.familia, radioInput]);
+  }), [clientSecret, colorMarca, t.surface, t.ink, t.muted, t.line, colorPeligro, fuenteCheckout.cssSrc, fuenteCheckout.familia, radioInput]);
 
   if (!stripePromise || stripeKo) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontFamily: sans }}>
-        <p style={{ fontSize: 13, color: semantic.warning.text, background: semantic.warning.soft, padding: '10px 12px', borderRadius: radius.cardSmall }}>
+        <p style={{ fontSize: 13, color: textoSemantico('warning', t), background: semantic.warning.soft, padding: '10px 12px', borderRadius: radius.cardSmall }}>
           El pago online no está disponible ahora mismo en este estudio.
         </p>
         <button type="button" onClick={onCerrar} style={{
@@ -453,6 +457,7 @@ function FormularioPago({
   // se cuela el siguiente. Bizum no depende de Stripe.js (redirige), así que
   // `stripe`/`elementoListo` siguen siendo solo del botón de tarjeta.
   const bloqueado = enviando || (!!textosLegales && !acepta);
+  const avisoColor = textoSemantico('warning', t);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -464,7 +469,13 @@ function FormularioPago({
           `ready` — mismo keyframe `widget-skeleton-shimmer` que ya duplican
           app/globals.css y app/widget-bundle/widget.css (este componente
           también corre en el Shadow DOM del bundle). */}
-      <div style={{ position: 'relative', minHeight: elementoListo ? undefined : 220 }}>
+      {/* ⚠️ `colorScheme: 'normal'`: con el estilo «Carbón» la raíz del
+          documento va en `color-scheme: dark`, y un iframe cuyo esquema no
+          coincide con el del documento que lo contiene (el de Stripe es claro)
+          se pinta sobre un lienzo OPACO de su propio esquema: franjas blancas
+          alrededor de los campos, con el texto claro de la paleta encima.
+          Aquí dentro solo vive el iframe de Stripe; en claro no cambia nada. */}
+      <div style={{ position: 'relative', minHeight: elementoListo ? undefined : 220, colorScheme: 'normal' }}>
         {!elementoListo && (
           <div aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[44, 44, 44].map((h, i) => (
@@ -520,15 +531,17 @@ function FormularioPago({
         // todavía (la reserva la crea el webhook tras el cobro), así que
         // decir "tu plaza sigue bloqueada" sería mentir. El único hecho
         // cierto es que no se ha cobrado nada — eso sí se dice.
+        // El ámbar de siempre en claro; sobre Carbón, su variante de noche
+        // (el fijo daba 3,1:1 en 12 px, justo en el error que hay que leer).
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '10px 12px', borderRadius: radius.cardSmall, background: semantic.warning.soft }}>
-          <AlertTriangle size={16} style={{ color: semantic.warning.text, flexShrink: 0, marginTop: 1 }} />
+          <AlertTriangle size={16} style={{ color: avisoColor, flexShrink: 0, marginTop: 1 }} />
           <div>
-            <p style={{ fontSize: 12.5, fontWeight: 700, color: semantic.warning.text }}>No hemos podido procesar el pago</p>
-            <p style={{ fontSize: 12, color: semantic.warning.text, marginTop: 2 }}>{error} No se ha realizado ningún cargo.</p>
+            <p style={{ fontSize: 12.5, fontWeight: 700, color: avisoColor }}>No hemos podido procesar el pago</p>
+            <p style={{ fontSize: 12, color: avisoColor, marginTop: 2 }}>{error} No se ha realizado ningún cargo.</p>
             {/* Accionable, no solo diagnóstico: qué hacer ahora. El botón de
                 pagar ya vuelve solo a su estado normal (marcarEnVuelo(false)
                 antes de pintar este error). */}
-            <p style={{ fontSize: 12, fontWeight: 600, color: semantic.warning.text, marginTop: 4 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: avisoColor, marginTop: 4 }}>
               Revisa los datos de la tarjeta o prueba con otra e inténtalo de nuevo.
             </p>
           </div>

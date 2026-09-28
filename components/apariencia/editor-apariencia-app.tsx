@@ -351,6 +351,12 @@ export function EditorAparienciaApp() {
           Cómo ven tus alumnas su app: el estilo, tu color, la tipografía y tus fotos. Pruébalo aquí y mira el
           resultado en el móvil de la derecha; nadie lo ve hasta que publiques.
         </p>
+        {/* Desde el 27-sep-2026 /reservar toma este mismo estilo (lib/reservar/tema-app.ts):
+            publicar aquí también cambia la página de reservas y el widget de su web. */}
+        <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">
+          También se aplica a tu página de reservas y al widget de tu web (salvo los colores o la letra que le
+          pongas al widget).
+        </p>
         {!soyPropietaria && (
           <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-[13px] text-foreground">
             Puedes probar estilos, pero solo la propietaria del estudio puede publicarlos.
