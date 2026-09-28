@@ -1,4 +1,5 @@
 import { test, expect, type Route } from '@playwright/test';
+import { sesionFutura } from './sesion-futura';
 
 // Regresión de #970: el cliente mandaba { tipoClase, resumen } y route.ts
 // (app/api/ai/ficha-clinica-clase/route.ts) casteaba el body ENTERO como
@@ -44,20 +45,6 @@ function reservaApi(r: any) {
 function salaApi(r: any) { return { id: r.id, studioId: r.studio_id, nombre: r.nombre, capacidad: r.capacidad, color: r.color }; }
 function instructorApi(r: any) {
   return { id: r.id, studioId: r.studio_id, nombre: r.nombre, email: r.email, telefono: r.telefono, color: r.color, activo: r.activo, avatar: r.avatar, fotoUrl: r.foto_url, rol: r.rol ?? 'INSTRUCTOR', authUserId: r.auth_user_id };
-}
-
-// Clase en el futuro cercano (misma técnica que calendario-momentos.spec.ts):
-// evita cruzar medianoche UTC y que sesionYaEmpezada() la marque como pasada.
-function sesionFutura(offsetMinutos = 180, duracionMinutos = 55) {
-  let inicio = new Date(Date.now() + offsetMinutos * 60_000);
-  inicio.setSeconds(0, 0);
-  let fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
-  if (inicio.getUTCDate() !== fin.getUTCDate()) {
-    inicio = new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth(), inicio.getUTCDate() + 1, 10, 0, 0));
-    fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
-  }
-  const iso = (d: Date) => d.toISOString().slice(0, 19);
-  return { inicio: iso(inicio), fin: iso(fin) };
 }
 
 test('Preparar clase con IA envía el resumen plano, no anidado bajo { tipoClase, resumen }', async ({ page }) => {

@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { sesionFutura } from './sesion-futura';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tres recortes del calendario, señalados con capturas.
@@ -36,18 +37,6 @@ const INSTRUCTORES = [
 
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
-}
-
-function sesionFutura(offsetMinutos = 180, duracionMinutos = 55) {
-  let inicio = new Date(Date.now() + offsetMinutos * 60_000);
-  inicio.setSeconds(0, 0);
-  let fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
-  if (inicio.getUTCDate() !== fin.getUTCDate()) {
-    inicio = new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth(), inicio.getUTCDate() + 1, 10, 0, 0));
-    fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
-  }
-  const iso = (d: Date) => d.toISOString().slice(0, 19);
-  return { inicio: iso(inicio), fin: iso(fin) };
 }
 
 const S = sesionFutura();
