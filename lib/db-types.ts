@@ -3466,6 +3466,12 @@ export interface RowAccesosEscaneos {
   asistencia_marcada: boolean;
 }
 
+export interface RowBillingCheckoutLocks {
+  clave: string;
+  en_curso: boolean;
+  iniciado_en: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -9581,6 +9587,18 @@ export type AccesosEscaneosUpdate = {
   asistencia_marcada?: boolean | null;
 }
 
+export type BillingCheckoutLocksInsert = {
+  clave?: string | null;
+  en_curso?: boolean | null;
+  iniciado_en?: string | null | null;
+}
+
+export type BillingCheckoutLocksUpdate = {
+  clave?: string | null;
+  en_curso?: boolean | null;
+  iniciado_en?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -10678,6 +10696,11 @@ export type Database = {
         Row: RowAccesosEscaneos;
         Insert: AccesosEscaneosInsert;
         Update: AccesosEscaneosUpdate;
+      };
+      billing_checkout_locks: {
+        Row: RowBillingCheckoutLocks;
+        Insert: BillingCheckoutLocksInsert;
+        Update: BillingCheckoutLocksUpdate;
       };
     };
   };

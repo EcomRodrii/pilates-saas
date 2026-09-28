@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/nextjs';
 import { reclamarWebhookEvent, marcarWebhookProcesado, fallarWebhookEvent, claveWebhook } from '@/lib/webhook-idempotencia';
 import { enviarEmailFalloPagoSaas } from '@/lib/emails/fallo-pago-saas-server';
 import { verificarFirmaStripe } from '@/lib/billing/verificar-firma-stripe';
+import { cancelarSuscripcionAnteriorSiToca } from '@/lib/billing/cancelar-suscripcion-anterior';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Webhook de Stripe Billing (suscripción del estudio al SaaS). Distinto del
@@ -95,12 +96,12 @@ export async function POST(req: NextRequest) {
 
   try {
     if (event.type.startsWith('customer.subscription.')) {
-      await actualizarSuscripcion(admin, event.data.object as Stripe.Subscription, event.created);
+      await actualizarSuscripcion(admin, stripe, event.data.object as Stripe.Subscription, event.created);
     } else if (event.type === 'checkout.session.completed') {
       const s = event.data.object as Stripe.Checkout.Session;
       if (s.mode === 'subscription' && typeof s.subscription === 'string') {
         const sub = await stripe.subscriptions.retrieve(s.subscription);
-        await actualizarSuscripcion(admin, sub, event.created);
+        await actualizarSuscripcion(admin, stripe, sub, event.created);
       } else if (s.mode === 'payment') {
         // Un checkout en modo `payment` NO es una suscripción al SaaS: es una
         // compra de una socia (un bono, un recibo), y su sitio es
@@ -207,7 +208,7 @@ async function aplicarSiNoDesordenado(
   return fila ? 'desordenado' : 'no_encontrado';
 }
 
-async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscription, eventCreated: number) {
+async function actualizarSuscripcion(admin: SupabaseClient, stripe: Stripe, sub: Stripe.Subscription, eventCreated: number) {
   // Plan CADENA: una sola suscripción cubre varias sedes (studios.cadena_id).
   // metadata.cadenaId la puso el checkout (ver app/api/billing/checkout).
   const cadenaId = sub.metadata?.cadenaId ?? null;
@@ -256,6 +257,18 @@ async function actualizarSuscripcion(admin: SupabaseClient, sub: Stripe.Subscrip
       return;
     }
     capturar(cadenaId, { nombre: 'suscripcion_cambiada', props: { plan, estado: sub.status } });
+    // PAY-2 (62ª pasada): la individual que esta cadena reemplaza NO se cancela
+    // en /api/billing/checkout (si la propietaria abandonaba el pago se
+    // quedaba sin ninguna suscripción). Se cancela aquí, solo cuando Stripe
+    // confirma que la de cadena existe de verdad — `sub.metadata` es la que
+    // puso `subscription_data.metadata` al crear el Checkout.
+    const cancelacion = await cancelarSuscripcionAnteriorSiToca(stripe, sub);
+    if (cancelacion.errorInesperado) {
+      Sentry.captureException(cancelacion.errorInesperado, {
+        tags: { area: 'billing', tipo: 'cancelar-suscripcion-anterior' },
+        extra: { anteriorId: sub.metadata?.cancelarSuscripcionAnterior, nuevaId: sub.id },
+      });
+    }
     return;
   }
 

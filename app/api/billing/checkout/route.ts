@@ -9,6 +9,7 @@ import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements
 import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
 import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
+import { claveCheckoutLock, reclamarCheckoutLock, liberarCheckoutLock } from '@/lib/billing/checkout-lock';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
 // suscribir su negocio. Crea (o reutiliza) el Customer de Stripe del estudio y
@@ -79,6 +80,18 @@ export async function POST(req: NextRequest) {
     if (reclamada) discounts = [{ coupon: recompensa.stripe_coupon_id as string }];
   }
 
+  // PAY-3 (62ª pasada): cerrojo de una fila por estudio, además de la clave de
+  // idempotencia (que lleva un bucket de minuto a propósito, ver el comentario
+  // de la migración) y de `checkoutPrevio` (que solo ve lo que Stripe YA tiene
+  // creado). Cierra la rendija que ni una ni otra cierran solas: dos peticiones
+  // casi simultáneas, antes de que ninguna haya llegado a crear su sesión.
+  const claveLock = claveCheckoutLock('studio', studio.id);
+  if (!(await reclamarCheckoutLock(admin, claveLock))) {
+    return NextResponse.json(
+      { error: 'Ya hay un pago en marcha para esta suscripción. Espera unos segundos y vuelve a intentarlo.' },
+      { status: 409 },
+    );
+  }
   try {
     // PAY-5: se pregunta a STRIPE, no a `studio.subscription_id` (que solo escribe
     // el webhook, minutos después). Ver lib/billing/checkout-saas-previo.ts.
@@ -153,19 +166,24 @@ export async function POST(req: NextRequest) {
       // Si el estudio venía de ESTUDIO/BASE con una suscripción individual viva,
       // hay que cancelarla — si no, queda cobrando en paralelo con la de cadena.
       //
-      // Auditoría de producto (P0-4): el `.catch(() => {})` tragaba CUALQUIER
-      // fallo de Stripe, no solo "ya estaba cancelada" — un timeout, un
-      // rate-limit o una clave inválida dejaban seguir el alta de CADENA con la
-      // suscripción individual todavía viva: doble cobro real, sin log ni
-      // aviso. Solo `resource_missing` (ya cancelada/inexistente en Stripe) es
-      // seguro de ignorar; cualquier otro código relanza para que el `catch`
-      // exterior lo registre (errorInterno → Sentry) y bloquee el alta.
-      if (studio.subscription_id && studio.subscription_status && studio.subscription_status !== 'canceled') {
-        await stripe.subscriptions.cancel(studio.subscription_id).catch((err: unknown) => {
-          const code = err instanceof Stripe.errors.StripeError ? err.code : undefined;
-          if (code !== 'resource_missing') throw err;
-        });
-      }
+      // ⚠️ Auditoría 62ª pasada (PAY-2): esto cancelaba la suscripción individual
+      // AQUÍ, antes de crear el Checkout de cadena. Si la propietaria abandonaba
+      // la página de pago (cerrar la pestaña, atrás del navegador, tarjeta
+      // rechazada y no reintenta), se quedaba sin NINGUNA suscripción — ni la
+      // vieja (cancelada) ni la nueva (nunca llegó a pagarse) — con sus rutas de
+      // dinero bloqueadas hasta que volviera a intentarlo. «Cero escritura
+      // optimista sin comprobar el resultado real»: cancelar algo que ya
+      // funciona no puede depender de que un paso POSTERIOR tenga éxito.
+      //
+      // Se aplaza al webhook: solo se cancela la individual cuando Stripe
+      // confirma que la de cadena existe de verdad (`actualizarSuscripcion`,
+      // ESTADOS_VIVOS). El id a cancelar viaja en la metadata de la suscripción
+      // nueva —no se puede leer `studio.subscription_id` en el webhook porque
+      // para entonces esta misma llamada ya lo habrá sobrescrito.
+      const cancelarAlConfirmar =
+        studio.subscription_id && studio.subscription_status && studio.subscription_status !== 'canceled'
+          ? (studio.subscription_id as string)
+          : null;
 
       let customerId = cadena.stripe_customer_id;
       if (!customerId) {
@@ -190,7 +208,9 @@ export async function POST(req: NextRequest) {
         // el estudio — ver lib/billing/trial.ts). Añadirla otra vez aquí sería
         // regalar una segunda prueba a quien acaba de terminar la primera.
         subscription_data: {
-          metadata: { cadenaId: cadena.id, plan },
+          // PAY-2: leído por el webhook para cancelar la individual SOLO cuando
+          // esta suscripción de cadena está confirmada — nunca antes.
+          metadata: { cadenaId: cadena.id, plan, ...(cancelarAlConfirmar ? { cancelarSuscripcionAnterior: cancelarAlConfirmar } : {}) },
         },
         metadata: { cadenaId: cadena.id, plan },
         success_url: `${appUrl}/suscripcion?suscripcion=ok`,
@@ -293,5 +313,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (err) {
     return errorInterno('billing/checkout:POST', err, 'No se pudo iniciar la suscripción. Inténtalo de nuevo más tarde.');
+  } finally {
+    // Best-effort: si falla, el cerrojo expira solo a los 30 s (ver la migración).
+    await liberarCheckoutLock(admin, claveLock);
   }
 }
