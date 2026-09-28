@@ -22,7 +22,9 @@
 import type { CSSProperties } from 'react';
 import { EASE } from './portal-design.ts';
 import type { Modo, ModoTokens } from './portal-paleta.ts';
-import { radiosDe, coloresDe, familiaCss, familiaDisplayCss, type AparienciaWidget } from './reservar/apariencia-widget.ts';
+import { radiosDe, coloresDe, familiaCss, familiaDisplayCss, luminancia, type AparienciaWidget } from './reservar/apariencia-widget.ts';
+import { semantic } from './portal-tokens.ts';
+import { colorLegibleSobre } from './color-utils.ts';
 
 export { EASE };
 
@@ -170,9 +172,42 @@ export function eyebrow(size = 9): CSSProperties {
  * trazo a mano — la negrita sintética, que ensucia justo las fuentes finas.
  * Sin pareja elegida, sin widget y en el bundle de Modo B la variable no existe
  * y vale el número de siempre: cero cambio.
+ *
+ * `'normal'` es para los titulares que NO llevaban peso escrito (la portada,
+ * «Mis reservas», «El estudio», las pestañas…): heredaban el 400 de la página
+ * y así seguían, finos, con una pareja cuyo titular la app pinta a 600-700.
+ * Con «Moderna» o con fuente del widget (`initial`) cae a `normal`, que es lo
+ * que ya salía. Solo FUERA de las tarjetas de clase: esas no se tocan.
  */
-export function pesoTitular(porDefecto: 700 | 800): string {
+export function pesoTitular(porDefecto: 700 | 800 | 'normal'): string {
   return `var(--reservar-heading-weight, ${porDefecto})`;
+}
+
+/**
+ * ¿Es oscura esta paleta? Manda la tarjeta, que es donde se lee casi todo
+ * (en «Luz» el fondo y la tarjeta van al revés que en el resto, pero los dos
+ * son claros). Un valor que no sea hex —nunca debería— cuenta como claro: es
+ * lo de siempre.
+ */
+export function paletaOscura(t: ModoTokens): boolean {
+  const l = luminancia(t.surface);
+  return l != null && l < 0.45;
+}
+
+/**
+ * El color de un texto de estado (plazas que se acaban, lista de espera, un
+ * error de pago) legible sobre la paleta que de verdad se ve.
+ *
+ * `semantic.*.text` está fijado para fondo CLARO: sobre la tarjeta de «Carbón»
+ * el ámbar da 3,1:1 y el rojo 2,9:1. En oscuro se parte de su variante de
+ * noche (`textNoche`, que ya existía), y en los dos casos se ajusta lo justo
+ * para llegar a AA sobre `fondo` — la tarjeta por defecto. Sobre el blanco de
+ * siempre ninguno de los tres necesita ajuste: sin estilo elegido sale el
+ * mismo hex de antes.
+ */
+export function textoSemantico(tipo: keyof typeof semantic, t: ModoTokens, fondo: string = t.surface): string {
+  const base = paletaOscura(t) ? semantic[tipo].textNoche : semantic[tipo].text;
+  return luminancia(fondo) == null ? base : colorLegibleSobre(base, fondo);
 }
 
 /** Titular: misma familia que el cuerpo (`sans`/`serif`), a peso 800 — el diseño no usa cursiva. */

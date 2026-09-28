@@ -194,8 +194,11 @@ export default async function ReservarSlugLayout({ children, params }: { childre
       />
       <ThemePreviewListener />
       {/* Lo mismo para lo que no lee variables CSS (los colores por prop del
-          calendario y del pago). Ver components/reservar/tema-app-provider.tsx. */}
-      <TemaAppReservarProvider tema={temaAppParaReservar(aparienciaApp)}>
+          calendario y del pago). Ver components/reservar/tema-app-provider.tsx.
+          Con el tema publicado va también lo que el estudio guardó en «Colores
+          del widget»: en cliente llega tarde, y sin esto un widget incrustado
+          sobre una app en Carbón pintaba Carbón y saltaba a su paleta. */}
+      <TemaAppReservarProvider tema={temaAppParaReservar(aparienciaApp, temaPublicado)}>
         {children}
       </TemaAppReservarProvider>
     </StudioSlugGate>

@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  FUENTE_BASE, esReservarPorDefecto, marcaEstudioDeVars, pilaSinCiclo, temaAppParaReservar,
-  temaReservarCssText, textoDeMarca, tokensDeEstilo, type MarcaEstudio,
+  FUENTE_BASE, coloresWidgetGuardados, esReservarPorDefecto, marcaEstudioDeVars, pilaSinCiclo, reservarCambiaMarca,
+  temaAppParaReservar, temaReservarCssText, textoDeMarca, tokensDeEstilo, type MarcaEstudio,
 } from './tema-app.ts';
 import { ESTILOS, TIPOGRAFIAS, APARIENCIA_POR_DEFECTO, acentoDe, resolverApariencia } from '../student/apariencia.ts';
 import { RESERVAR_PALETA, fuenteReservarCssVars } from '../reservar-publico-tokens.ts';
@@ -132,6 +132,11 @@ test('ningún color de marca, en ningún estilo, deja un botón o un enlace ileg
     const crudo = { estilo: e.id, marca, tipografia: 'editorial' };
     const d = declaraciones(temaReservarCssText(c, crudo, MARCA));
     const t = tokensDeEstilo(e);
+    // Crema + suave no cambia la marca (ver el test de abajo): se queda la del tema.
+    if (e.id === 'crema' && marca === 'suave') {
+      assert.equal(d.get('--portal-brand'), undefined, c);
+      continue;
+    }
     const brand = d.get('--portal-brand')!;
     assert.equal(brand, acentoDe(c, resolverApariencia(crudo)).accent);
     assert.ok(r(d.get('--portal-brand-foreground')!, brand) >= 4.5, `${e.id}/${marca}/${c}: texto sobre botón`);
@@ -140,6 +145,22 @@ test('ningún color de marca, en ningún estilo, deja un botón o un enlace ileg
     }
     // Lo que la app ya garantiza: sobre un fondo oscuro, el acento se separa del fondo.
     if (e.oscuro) assert.ok(r(brand, t.bg) >= 4.5, `${e.id}/${marca}/${c}: marca sobre fondo oscuro`);
+  }
+});
+
+test('⚠️ la marca solo cambia con el estilo o la intensidad: ni la tipografía ni el botón la apagan', () => {
+  // Elegir solo «Editorial», o solo «Botón principal: En tu color», pasaba los
+  // CTA de la marca tal cual (un rosa) al acento `suave`, apagado: elegir «en
+  // tu color» dejaba /reservar MENOS de su color.
+  for (const crudo of [{ tipografia: 'editorial' }, { boton: 'marca' }, { tipografia: 'elegante', boton: 'marca' }]) {
+    assert.equal(reservarCambiaMarca(resolverApariencia(crudo)), false, JSON.stringify(crudo));
+    const d = declaraciones(temaReservarCssText('#E11D48', crudo, MARCA));
+    assert.equal(d.get('--portal-brand'), undefined, JSON.stringify(crudo));
+    assert.equal(d.get('--portal-brand-texto'), undefined, JSON.stringify(crudo));
+  }
+  for (const crudo of [{ estilo: 'arena' }, { marca: 'fiel' }, { estilo: 'carbon' }]) {
+    assert.equal(reservarCambiaMarca(resolverApariencia(crudo)), true, JSON.stringify(crudo));
+    assert.notEqual(declaraciones(temaReservarCssText('#E11D48', crudo, MARCA)).get('--portal-brand'), undefined);
   }
 });
 
@@ -152,6 +173,31 @@ test('la marca del estudio tal cual queda siempre a mano para el widget', () => 
   assert.notEqual(d.get('--portal-brand'), '#2C352C');
   // Sin la marca del tema, la de `:root`, nunca un hueco.
   assert.equal(declaraciones(temaReservarCssText(null, null, null)).get('--portal-brand-estudio'), 'var(--portal-brand)');
+  assert.equal(declaraciones(temaReservarCssText(null, null, null)).get('--portal-brand-estudio-texto-noche'), 'var(--portal-brand-estudio)');
+});
+
+test('la marca del estudio como texto de NOCHE se lee sobre la paleta de noche (la de día va oscurecida)', () => {
+  const noche = RESERVAR_PALETA.noche;
+  for (const brand of ['#2C352C', '#1A1A1A', '#C9A227', '#E11D48', '#FFFFFF']) {
+    const m: MarcaEstudio = { brand, foreground: '#FFFFFF', texto: brand };
+    const v = declaraciones(temaReservarCssText(null, null, m)).get('--portal-brand-estudio-texto-noche')!;
+    for (const f of [noche.bg, noche.surface, noche.surface2]) assert.ok(r(v, f) >= 4.5, `${brand} → ${v} sobre ${f}`);
+  }
+});
+
+test('los «Colores del widget» guardados viajan con el tema de la app solo si deciden algo', () => {
+  assert.equal(coloresWidgetGuardados(null), null);
+  assert.equal(coloresWidgetGuardados({ widgetFondo: null, widgetTexto: 'auto', widgetFuente: 'Lobster' }), null);
+  assert.deepEqual(coloresWidgetGuardados({ widgetFondo: '#FFFFFF', widgetTexto: 'auto' }), {
+    fondo: '#FFFFFF', texto: 'auto', superficie: null, tinta: null, textoSecundario: null, linea: null, relleno: null,
+  });
+  assert.equal(coloresWidgetGuardados({ widgetFondo: 'transparente' })!.fondo, 'transparente');
+  assert.equal(coloresWidgetGuardados({ widgetTexto: 'claro' })!.texto, 'claro');
+  // Solo hex: esto acaba en estilos en línea.
+  assert.equal(coloresWidgetGuardados({ widgetSuperficie: 'red;}' }), null);
+  // Y sin nada que decida, `temaAppParaReservar` ni añade la clave: lo de siempre.
+  assert.deepEqual(temaAppParaReservar(null, { widgetFondo: null }), { tokens: RESERVAR_PALETA.dia, oscuro: false });
+  assert.equal(temaAppParaReservar({ estilo: 'carbon' }, { widgetFondo: '#FFFFFF' }).widgetGuardado?.fondo, '#FFFFFF');
 });
 
 test('la marca del tema solo se acepta si es hex: acaba dentro de un <style>', () => {

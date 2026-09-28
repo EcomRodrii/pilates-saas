@@ -240,7 +240,8 @@ export function FormularioContacto(p: Props) {
         <div role="status" className="pantalla-reserva-seccion">
           <span aria-hidden="true" style={{
             width: 48, height: 48, borderRadius: 999, display: 'grid', placeItems: 'center', marginBottom: 16,
-            background: 'color-mix(in srgb, var(--portal-brand) 12%, var(--portal-surface))', color: 'var(--portal-brand)',
+            // La marca como TEXTO (icono), medida contra la paleta; sin la variable, la de siempre.
+            background: 'color-mix(in srgb, var(--portal-brand) 12%, var(--portal-surface))', color: 'var(--portal-brand-texto, var(--portal-brand))',
           }}>
             <Check size={24} strokeWidth={2.2} />
           </span>

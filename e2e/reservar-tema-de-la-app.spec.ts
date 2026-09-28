@@ -175,3 +175,194 @@ test('⚠️ incrustada con parámetros, gana el widget ENTERO sobre Carbón: su
   // Y la tarjeta de clase (colores por prop) es la de día, no la de Carbón.
   await expect(page.locator('.reserva-slot-row', { hasText: 'Reformer' }).first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Correcciones de la revisión de F1 (28-sep-2026). Todo lo de abajo salió de
+// leer el código, no de un test: los de arriba abren /reservar como página
+// principal, nunca dentro de un iframe, y no medían contraste.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Textos por debajo de AA dentro de `selector`, con su fondo real (capas
+ * translúcidas apiladas hasta una opaca). El medidor de
+ * e2e/oscuro-contraste.spec.ts en pequeño: oklab a mano, y lo que no sabe leer
+ * (una foto de fondo, un `color()`) no se mide en vez de adivinarse.
+ */
+async function ilegiblesEn(page: Page, selector: string) {
+  return page.evaluate((sel) => {
+    type RGBA = [number, number, number, number];
+    const gamma = (v: number) => {
+      const c = v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+      return Math.max(0, Math.min(255, Math.round(c * 255)));
+    };
+    const deOklab = (L: number, a: number, b: number, alfa: number): RGBA => {
+      const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+      const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+      const s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+      return [
+        gamma(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+        gamma(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+        gamma(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s),
+        alfa,
+      ];
+    };
+    const aRGBA = (css: string): RGBA | null => {
+      if (!css || css === 'transparent') return [0, 0, 0, 0];
+      const toks = css.match(/-?[\d.]+%?/g) ?? [];
+      const num = (i: number, pct = 1) => {
+        const t = toks[i];
+        if (t === undefined) return undefined;
+        return t.endsWith('%') ? (parseFloat(t) / 100) * pct : parseFloat(t);
+      };
+      if (css.startsWith('oklab')) {
+        const L = num(0), a = num(1, 0.4), b = num(2, 0.4);
+        return L === undefined || a === undefined || b === undefined ? null : deOklab(L, a, b, num(3) ?? 1);
+      }
+      if (/^rgba?\(/.test(css)) {
+        const n = toks.map(parseFloat);
+        return n.length >= 3 ? [n[0], n[1], n[2], n.length > 3 ? n[3] : 1] : null;
+      }
+      return null;
+    };
+    const sobre = (f: RGBA, b: RGBA): RGBA => [0, 1, 2].map(i => f[i] * f[3] + b[i] * (1 - f[3])).concat(1) as RGBA;
+    const lin = (v: number) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+    const lum = (c: RGBA) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    const ratio = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    // `null` = sobre una foto o un color que no se sabe leer: no se mide.
+    const fondoDe = (el: HTMLElement): RGBA | null => {
+      const capas: RGBA[] = [];
+      for (let n: HTMLElement | null = el; n; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        if (cs.backgroundImage.startsWith('url(')) return null;
+        const c = aRGBA(cs.backgroundColor);
+        if (!c) return null;
+        if (c[3] === 0) continue;
+        capas.push(c);
+        if (c[3] >= 0.999) break;
+      }
+      let base: RGBA = capas.length && capas[capas.length - 1][3] >= 0.999 ? capas.pop()! : [255, 255, 255, 1];
+      for (let i = capas.length - 1; i >= 0; i--) base = sobre(capas[i], base);
+      return base;
+    };
+    const out: string[] = [];
+    let medidos = 0;
+    for (const raiz of Array.from(document.querySelectorAll<HTMLElement>(sel))) {
+      for (const el of [raiz, ...Array.from(raiz.querySelectorAll<HTMLElement>('*'))]) {
+        const cs = getComputedStyle(el);
+        if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) < 0.3) continue;
+        const propio = Array.from(el.childNodes).filter(n => n.nodeType === Node.TEXT_NODE).map(n => n.textContent ?? '').join('').trim();
+        if (!propio) continue;
+        const caja = el.getBoundingClientRect();
+        if (caja.width < 6 || caja.height < 6) continue;
+        const tinta = aRGBA(cs.color);
+        const fondo = fondoDe(el);
+        if (!tinta || !fondo) continue;
+        medidos += 1;
+        const px = parseFloat(cs.fontSize);
+        const grande = px >= 24 || (px >= 18.66 && Number(cs.fontWeight) >= 700);
+        const c = ratio(lum(sobre(tinta, fondo)), lum(fondo));
+        if (c < (grande ? 3 : 4.5)) out.push(`${c.toFixed(2)}:1 «${propio.slice(0, 40)}» ${cs.color} sobre rgb(${fondo.slice(0, 3).join(',')})`);
+      }
+    }
+    return { out, medidos };
+  }, selector);
+}
+
+test('⚠️ en un iframe DE VERDAD, «transparente» sobre Carbón deja ver la web del estudio (sin lienzo opaco)', async ({ page }) => {
+  // Carbón pone `color-scheme: dark` en la raíz. Un iframe con la raíz en
+  // oscuro dentro de una web en claro se pinta sobre un lienzo OPACO oscuro
+  // (CSS Color Adjust §2.2): la losa negra que «transparente» existe para
+  // quitar. Solo pasa dentro de un iframe; como página principal no se ve.
+  await page.setViewportSize({ width: 1000, height: 760 });
+  await mocks(page, 'tentare-carbon');
+  await page.route('**/host-widget-e2e', r => r.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><html><body style="margin:0;background:#ffffff">
+      <iframe id="w" src="/reservar/tentare-carbon?tab=clases&embed=1&fondo=transparente" style="border:0;width:900px;height:700px"></iframe>
+    </body></html>`,
+  }));
+  await page.goto('/host-widget-e2e');
+  await page.frameLocator('#w').locator('#horario').waitFor({ timeout: 150_000 });
+  await page.waitForTimeout(900);
+
+  const frame = page.frames().find(f => f.url().includes('/reservar/tentare-carbon'))!;
+  const dentro = await frame.evaluate(() => ({
+    esquema: getComputedStyle(document.documentElement).colorScheme,
+    body: getComputedStyle(document.body).backgroundColor,
+  }));
+  expect(dentro.esquema).toBe('normal');
+  expect(dentro.body).toBe('rgba(0, 0, 0, 0)');
+
+  // Y lo que de verdad importa: lo que se ve. Con el lienzo opaco, el recuadro
+  // sale IDÉNTICO con la web del estudio en blanco o en amarillo.
+  const iframe = page.locator('#w');
+  const enBlanco = await iframe.screenshot({ animations: 'disabled' });
+  await page.evaluate(() => { document.body.style.background = '#ffd60a'; });
+  const enAmarillo = await iframe.screenshot({ animations: 'disabled' });
+  expect(enBlanco.equals(enAmarillo), 'el iframe tapa la web del estudio: lienzo opaco').toBe(false);
+});
+
+test('⚠️ `marca=` suelta sobre Carbón: el widget pasa al día ENTERO, con su marca encima', async ({ page }) => {
+  // El constructor emite `marca` siempre que la identidad es «propia», pensada
+  // para una web clara. Heredando Carbón, un `#1A1A1A` como texto (contadores,
+  // «Ver más») era invisible sobre la tarjeta oscura, y las píldoras
+  // «Reservar» no se distinguían del fondo.
+  await abrir(page, 'tentare-carbon', '&embed=1&marca=%231A1A1A');
+  const r = await medir(page);
+  expect(r.fondo).toBe('rgb(250, 249, 245)');
+  expect(r.marcaRaiz.toUpperCase()).toBe('#1A1A1A');
+  // La raíz del documento, de vuelta a `normal` (ver el test del iframe).
+  expect(r.esquema).toBe('normal');
+  await expect(page.locator('.reserva-slot-row', { hasText: 'Reformer' }).first()).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+});
+
+test('la página suelta en Carbón: el aviso de vuelta del pago y las tarjetas de clase se leen', async ({ page }) => {
+  // El aviso usaba `text-muted-foreground bg-muted/50` del PANEL (~1,5:1 sobre
+  // Carbón), y las plazas, `semantic.warning.text`, fijado para fondo claro.
+  await abrir(page, 'tentare-carbon', '&compra=cancelada');
+  await expect(page.getByText('Pago cancelado', { exact: false })).toBeVisible({ timeout: 15_000 });
+  const aviso = await ilegiblesEn(page, 'div:has(> button[aria-label="Cerrar aviso"])');
+  expect(aviso.medidos).toBeGreaterThan(0);
+  expect(aviso.out, aviso.out.join('\n')).toEqual([]);
+  const tarjetas = await ilegiblesEn(page, '.reserva-slot-row');
+  expect(tarjetas.medidos).toBeGreaterThan(0);
+  expect(tarjetas.out, tarjetas.out.join('\n')).toEqual([]);
+});
+
+test('la página suelta en Carbón: la hoja «Confirmar cita» se lee (era blanca, con la caja interior oscura y la letra del panel)', async ({ page }) => {
+  const HUECO = { inicio: '2026-08-12T11:00:00', fin: '2026-08-12T11:50:00' };
+  await page.setViewportSize({ width: 1000, height: 760 });
+  await mocks(page, 'tentare-carbon');
+  await page.route('**/api/public/studio-data', (r) => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({
+      ...fx('tentare-carbon'),
+      citasServicios: [{
+        id: 'serv-1', studioId: S, nombre: 'Evaluación inicial', tipo: 'EVALUACION', duracionMin: 50, precio: 45,
+        autoReservable: true, color: null, descripcion: null, activo: true, orden: 0, creadoEn: '2026-01-01T00:00:00Z',
+      }],
+      // El 12 de agosto de 2026 es miércoles.
+      citasDisponibilidad: [{
+        id: 'disp-1', studioId: S, instructorId: 'ins-1', diaSemana: 3, horaInicio: '09:00', horaFin: '18:00', creadoEn: '2026-01-01T00:00:00Z',
+      }],
+    }),
+  }));
+  let pedidas = 0;
+  await page.route('**/api/public/citas**', (r) => {
+    pedidas += 1;
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ huecos: [HUECO] }) });
+  });
+  await page.goto('/reservar/tentare-carbon?tab=citas');
+  await page.getByRole('button', { name: 'Reservar cita', exact: true }).click({ timeout: 150_000 });
+  await page.getByRole('button', { name: /Ana/ }).click();
+  const hora = new Date(HUECO.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  await page.getByRole('button', { name: hora }).click();
+  await page.getByRole('button', { name: /^Continuar/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Confirmar cita' })).toBeVisible({ timeout: 15_000 });
+  // Se pidieron los huecos de verdad: la hoja no es un estado vacío.
+  expect(pedidas).toBeGreaterThan(0);
+  await page.waitForTimeout(600);
+  const { out, medidos } = await ilegiblesEn(page, '[role="dialog"][aria-label="Confirmar cita"]');
+  expect(medidos).toBeGreaterThan(2);
+  expect(out, out.join('\n')).toEqual([]);
+});

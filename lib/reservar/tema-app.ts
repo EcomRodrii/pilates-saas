@@ -34,11 +34,15 @@
 //     (`pesoTitular`).
 
 import type { ModoTokens } from '../portal-paleta.ts';
-import { hexARgb, ratioContraste } from '../wcag-contrast.ts';
-import { colorLegibleSobre, mezclarHex } from '../color-utils.ts';
+import { hexARgb } from '../wcag-contrast.ts';
+import { mezclarHex } from '../color-utils.ts';
 import { acentoDe, estiloPorId, resolverApariencia, tipografiaPorId, type AparienciaApp, type Estilo } from '../student/apariencia.ts';
 import { RESERVAR_PALETA, fuenteReservarCssVars, varsDeTokensReservar } from '../reservar-publico-tokens.ts';
-import type { TemaAppReservar } from './precedencia-tema.ts';
+import { textoDeMarca, widgetDecidePaleta, type ColoresWidget, type TemaAppReservar } from './precedencia-tema.ts';
+
+// Vive en ./precedencia-tema.ts porque también la usa la página (cliente), para
+// la `marca=` del snippet. Se reexporta: el servidor la sigue pidiendo aquí.
+export { textoDeMarca };
 
 /**
  * ¿Ha elegido algo el estudio que /reservar deba seguir? Es la misma pregunta
@@ -48,6 +52,21 @@ import type { TemaAppReservar } from './precedencia-tema.ts';
  */
 export function esReservarPorDefecto(a: AparienciaApp): boolean {
   return a.estilo === 'crema' && a.tipografia === 'moderna' && a.marca === 'suave' && a.boton === 'tinta';
+}
+
+/**
+ * ¿Cambia el color de los botones de /reservar? Solo con los dos ejes que
+ * definen el color en la app: el estilo y la intensidad de marca.
+ *
+ * ⚠️ Antes bastaba con elegir CUALQUIER cosa (`!esReservarPorDefecto`): cambiar
+ * solo la pareja tipográfica, o solo «Botón principal: En tu color», pasaba
+ * todos los CTA de la marca del estudio tal cual (un rosa #E11D48) al acento
+ * `suave`, apagado. O sea, elegir «en tu color» dejaba /reservar MENOS de su
+ * color. Con Crema + suave la app pinta el mismo tono de siempre y /reservar
+ * se queda con la marca que ya tenía.
+ */
+export function reservarCambiaMarca(a: AparienciaApp): boolean {
+  return a.estilo !== 'crema' || a.marca !== 'suave';
 }
 
 function rgba(hex: string, alfa: number): string {
@@ -87,10 +106,36 @@ export function tokensDeEstilo(e: Estilo): ModoTokens {
   };
 }
 
-/** Lo que el layout le pasa a la página (cliente) por el proveedor. */
-export function temaAppParaReservar(crudo: unknown): TemaAppReservar {
+/**
+ * Los «Colores del widget» guardados en el tema publicado (`widgetFondo`,
+ * `widgetTexto`, `widgetSuperficie`…), solo si deciden la paleta. Solo hex (o
+ * «transparente»): esto viaja a cliente y acaba en estilos en línea.
+ */
+export function coloresWidgetGuardados(tema: object | null | undefined): ColoresWidget | null {
+  if (!tema) return null;
+  const t = tema as Readonly<Record<string, unknown>>;
+  const hex = (v: unknown) => (typeof v === 'string' && HEX.test(v) ? v : null);
+  const c: ColoresWidget = {
+    fondo: t.widgetFondo === 'transparente' ? 'transparente' : hex(t.widgetFondo),
+    texto: t.widgetTexto === 'claro' || t.widgetTexto === 'oscuro' ? t.widgetTexto : 'auto',
+    superficie: hex(t.widgetSuperficie),
+    tinta: hex(t.widgetTinta),
+    textoSecundario: hex(t.widgetTextoSecundario),
+    linea: hex(t.widgetLinea),
+    relleno: hex(t.widgetRelleno),
+  };
+  return widgetDecidePaleta(c) ? c : null;
+}
+
+/**
+ * Lo que el layout le pasa a la página (cliente) por el proveedor. Con el tema
+ * publicado, además, los colores del widget que el estudio guardó (ver
+ * `TemaAppReservar.widgetGuardado`).
+ */
+export function temaAppParaReservar(crudo: unknown, temaPublicado?: object | null): TemaAppReservar {
   const e = estiloPorId(resolverApariencia(crudo).estilo);
-  return { tokens: tokensDeEstilo(e), oscuro: e.oscuro === true };
+  const widgetGuardado = coloresWidgetGuardados(temaPublicado);
+  return { tokens: tokensDeEstilo(e), oscuro: e.oscuro === true, ...(widgetGuardado ? { widgetGuardado } : {}) };
 }
 
 /**
@@ -142,18 +187,6 @@ export function marcaEstudioDeVars(vars: object | null | undefined): MarcaEstudi
 }
 
 /**
- * La marca como TEXTO (un enlace, una cifra suelta) legible sobre las tres
- * superficies donde se pinta: se mide contra la que peor contrasta y se
- * oscurece —o aclara, en oscuro— solo lo justo. En «Luz» la tarjeta es MÁS
- * oscura que el fondo, así que medir solo contra el fondo no bastaría.
- */
-export function textoDeMarca(marca: string, t: ModoTokens): string {
-  const r = (fondo: string) => ratioContraste(marca, fondo) ?? 0;
-  const peor = [t.bg, t.surface, t.surface2].reduce((p, f) => (r(f) < r(p) ? f : p));
-  return colorLegibleSobre(marca, peor);
-}
-
-/**
  * El `<style>` de /reservar con el estilo de la app. Va DETRÁS del de
  * `ThemeStyle` (misma especificidad, gana por orden) y sustituye al antiguo
  * `<style id="reservar-fuente">`, que hacía lo mismo solo con Jakarta.
@@ -164,10 +197,13 @@ export function textoDeMarca(marca: string, t: ModoTokens): string {
  *   · Con un estilo que no sea «Crema», sus neutros como `--portal-*`, el fondo
  *     del `body` (lo que asoma al rebotar el scroll) y, en «Carbón»,
  *     `color-scheme: dark` — lo mismo que hace `temaAppCssText`.
- *   · Si el estudio eligió algo, la marca de la app (`acentoDe`: suave, fiel o
+ *   · Si el estudio cambió el estilo o la intensidad de marca
+ *     (`reservarCambiaMarca`), la marca de la app (`acentoDe`: suave, fiel o
  *     aclarada sobre oscuro, con su contraste ya garantizado).
  *   · Siempre, la marca del estudio tal cual en `--portal-brand-estudio*`, para
- *     que el widget la recupere cuando decide su propia paleta.
+ *     que el widget la recupere cuando decide su propia paleta — con la marca
+ *     como texto también en su variante de noche (`-texto-noche`), para un
+ *     widget de letra clara.
  *
  * `selector` existe para una futura vista previa del editor (`:root:root`, que
  * pisa lo publicado sin ganarle al widget en línea).
@@ -201,7 +237,7 @@ export function temaReservarCssText(
     for (const [k, v] of Object.entries(varsDeTokensReservar(tokens))) decl.push(`${k}: ${v};`);
   }
 
-  if (!esReservarPorDefecto(a)) {
+  if (reservarCambiaMarca(a)) {
     const acento = acentoDe(colorPrimario, a);
     decl.push(
       `--portal-brand: ${acento.accent};`,
@@ -218,6 +254,7 @@ export function temaReservarCssText(
     `--portal-brand-estudio: ${m.brand};`,
     `--portal-brand-estudio-foreground: ${m.foreground};`,
     `--portal-brand-estudio-texto: ${m.texto};`,
+    `--portal-brand-estudio-texto-noche: ${marcaEstudio ? textoDeMarca(marcaEstudio.brand, RESERVAR_PALETA.noche) : 'var(--portal-brand-estudio)'};`,
   );
 
   const pagina = e.id === 'crema' ? ''

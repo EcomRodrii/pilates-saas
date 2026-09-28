@@ -28,7 +28,7 @@ import type { ResultadoEscritura } from '@/lib/errores';
 import { semantic } from '@/lib/portal-tokens';
 import { colorOcupacion, ratioOcupacion, etiquetaOcupacion } from '@/lib/ocupacion';
 import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
-import { serif, sans, mono, cq, radius, EASE, densidadCss, pesoTitular } from '@/lib/reservar-publico-tokens';
+import { serif, sans, mono, cq, radius, EASE, densidadCss, pesoTitular, paletaOscura, textoSemantico } from '@/lib/reservar-publico-tokens';
 import {
   localDayKey, addDays, diasSemana, contarSlotsPorDia, slotsDelDia,
   agruparPorDia, etiquetaDiaClave, fechaDeClave,
@@ -360,6 +360,14 @@ export interface ReservaCalendarioProps {
   estiloFicha?: 'modal' | 'vista' | 'inline';
 }
 
+// La marca cuando es TEXTO (una cifra, «Ver más», «Reservada»), no relleno.
+// `--portal-brand` a secas daba 3,8–4,5:1 sobre las tarjetas de «Luz», «Crema»
+// o «Arena»; `--portal-brand-texto` es la misma marca medida contra la paleta
+// que se ve (lib/reservar/tema-app.ts). En el bundle de Modo B esa variable no
+// existe y el respaldo deja exactamente lo de antes. Solo cambia el color: la
+// estructura de las tarjetas no se toca.
+const MARCA_TEXTO = 'var(--portal-brand-texto, var(--portal-brand))';
+
 // Neutros FIJOS del formato 06 — nunca `t`. Ver comentario de `estiloDias` arriba.
 const GRID_NEUTROS = {
   bg: '#FFFFFF', ink: '#1A1A1A', mut: '#8A8A8A', mut2: '#6E6E6E',
@@ -508,7 +516,10 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
   return (
     <div style={{
       width: size, height: size, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: size * 0.4, fontWeight: 800, color: '#fff', flexShrink: 0, background: color ?? 'var(--portal-brand)',
+      // Sin color propio de la instructora, el fondo es la marca y la inicial
+      // va en SU foreground: con Carbón la marca se aclara y el blanco fijo
+      // encima no se leía.
+      fontSize: size * 0.4, fontWeight: 800, color: color ? '#fff' : 'var(--portal-brand-foreground)', flexShrink: 0, background: color ?? 'var(--portal-brand)',
       ...ringStyle,
     }}>
       {nombre.charAt(0).toUpperCase()}
@@ -912,7 +923,7 @@ export function ReservaCalendario({
                   </span>
                   <span style={{
                     fontFamily: serif, fontSize: cq(21, 2.2, 26), lineHeight: 1,
-                    color: isSel ? 'var(--portal-brand-foreground)' : (isToday ? 'var(--portal-brand)' : t.ink),
+                    color: isSel ? 'var(--portal-brand-foreground)' : (isToday ? MARCA_TEXTO : t.ink),
                   }}>
                     {d.getDate()}
                   </span>
@@ -932,9 +943,9 @@ export function ReservaCalendario({
 
       {variant === 'calendario' && estiloDias === 'grid' && (
         error ? (
-          <RejillaGridError titulo={error.titulo} onReintentar={error.onReintentar} />
+          <RejillaGridError t={t} titulo={error.titulo} onReintentar={error.onReintentar} />
         ) : siete.every(d => (slotsPorDiaGrid.get(localDayKey(d)) ?? []).length === 0) ? (
-          <RejillaGridVacio titulo={vistaInicial === 'hoy' ? 'Sin clases hoy' : 'Sin clases esta semana'} cuerpo="Vuelve a mirar en unos días." />
+          <RejillaGridVacio t={t} titulo={vistaInicial === 'hoy' ? 'Sin clases hoy' : 'Sin clases esta semana'} cuerpo="Vuelve a mirar en unos días." />
         ) : (
           <div style={{ overflowX: 'auto' }}>
             {/* Con `vistaInicial='hoy'` la rejilla es de UNA columna: repetir 7
@@ -964,7 +975,11 @@ export function ReservaCalendario({
                           transition: 'background .15s ease',
                         }}
                       >
-                        <span style={{ color: 'var(--portal-brand)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                        {/* La celda es blanca SIEMPRE (neutros fijos): la marca como
+                            texto de la paleta solo sirve si la paleta es clara. En un
+                            widget de noche, `--portal-brand-texto` está aclarada para
+                            fondo oscuro y sobre este blanco no se leería. */}
+                        <span style={{ color: paletaOscura(t) ? 'var(--portal-brand)' : MARCA_TEXTO, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
                           {horaEstudio(slot.inicio)}
                         </span>{' '}
                         {slot.claseNombre}
@@ -1007,7 +1022,7 @@ export function ReservaCalendario({
                 no lo que trae el .dc.html). */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 9 }}>
               <span style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: '-.01em', color: t.ink }}>{dayLabel}</span>
-              <span style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--portal-brand)' }}>{countLabel}</span>
+              <span style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: MARCA_TEXTO }}>{countLabel}</span>
             </div>
             {error ? (
               <div style={{ borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}` }}>
@@ -1371,17 +1386,17 @@ function SlotRowImpl({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; on
         {yaMia ? (
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: radius.pillBtnSm - 2,
-            background: 'color-mix(in oklab, var(--portal-brand) 10%, var(--portal-surface))', color: 'var(--portal-brand)',
+            background: 'color-mix(in oklab, var(--portal-brand) 10%, var(--portal-surface))', color: MARCA_TEXTO,
             fontSize: 12.5, fontWeight: 700,
           }}>
-            <EstadoIcono estado={slot.miEstado as 'CONFIRMADA' | 'LISTA_ESPERA'} />
+            <EstadoIcono t={t} estado={slot.miEstado as 'CONFIRMADA' | 'LISTA_ESPERA'} />
             {slot.miEstado === 'CONFIRMADA' ? 'Reservada' : 'En espera'}
           </span>
         ) : lleno ? (
           <span aria-hidden="true" style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, padding: '0 16px',
             border: '1px solid color-mix(in oklab, var(--portal-brand) 40%, transparent)', borderRadius: radius.pillBtnSm - 2,
-            color: 'var(--portal-brand)', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+            color: MARCA_TEXTO, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
           }}>
             Lista de espera
           </span>
@@ -1433,10 +1448,13 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio, origenTentare = '' }
     : lleno ? 'Completa'
     : libres <= 2 ? `Quedan ${libres}`
     : `${libres} plazas libres`;
-  const plazasColor = slot.miEstado === 'CONFIRMADA' ? 'var(--portal-brand)'
-    : slot.miEstado === 'LISTA_ESPERA' ? semantic.warning.text
+  // Solo cambia el COLOR (hereda la paleta que se ve), nunca la tarjeta:
+  // `semantic.warning.text` está fijado para fondo claro y sobre la tarjeta de
+  // Carbón daba 3,1:1 en un texto de 11,5 px.
+  const plazasColor = slot.miEstado === 'CONFIRMADA' ? MARCA_TEXTO
+    : slot.miEstado === 'LISTA_ESPERA' ? textoSemantico('warning', t)
     : lleno ? t.muted
-    : libres <= 2 ? semantic.warning.text
+    : libres <= 2 ? textoSemantico('warning', t)
     : capColor;
 
   const ctaTxt = slot.miEstado === 'CONFIRMADA' ? 'Reservada'
@@ -1494,10 +1512,10 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio, origenTentare = '' }
             padding: '8px 16px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
             background: yaMia ? 'color-mix(in oklab, var(--portal-brand) 10%, var(--portal-surface))'
               : lleno ? t.surface2 : 'var(--portal-brand)',
-            color: yaMia || lleno ? 'var(--portal-brand)' : 'var(--portal-brand-foreground)',
+            color: yaMia || lleno ? MARCA_TEXTO : 'var(--portal-brand-foreground)',
             boxShadow: !yaMia && !lleno ? 'none' : 'inset 0 0 0 1px var(--portal-brand)',
           }}>
-            {yaMia && <EstadoIcono estado={slot.miEstado as 'CONFIRMADA' | 'LISTA_ESPERA'} />}
+            {yaMia && <EstadoIcono t={t} estado={slot.miEstado as 'CONFIRMADA' | 'LISTA_ESPERA'} />}
             {ctaTxt}
           </span>
         </div>
@@ -1797,7 +1815,7 @@ function BookingSheet({
             // copy que la tarjeta rica («X plazas libres»); la barra de abajo
             // ya cuenta la ocupación de un vistazo.
             valor={lleno ? 'Completa' : `${libres} ${libres === 1 ? 'plaza libre' : 'plazas libres'}`}
-            valorColor={lleno ? semantic.danger.text : (libres <= 2 ? semantic.warning.text : t.ink)}
+            valorColor={lleno ? textoSemantico('danger', t) : (libres <= 2 ? textoSemantico('warning', t) : t.ink)}
           />
           {/* Barra de ocupación — la cifra de arriba ya lo dice, esto es para
               leerlo de un vistazo sin hacer la resta mental. Mismo ratio/color
@@ -1847,7 +1865,7 @@ function BookingSheet({
                 onClick={() => { onSelectSpot(null); onReservar(); }}
                 disabled={enviando}
                 style={{
-                  fontSize: 11.5, fontWeight: 700, color: 'var(--portal-brand)', background: 'none', border: 'none',
+                  fontSize: 11.5, fontWeight: 700, color: MARCA_TEXTO, background: 'none', border: 'none',
                   padding: 0, cursor: enviando ? 'default' : 'pointer', textDecoration: 'underline', textUnderlineOffset: 3,
                   whiteSpace: 'nowrap', flexShrink: 0,
                 }}
@@ -1875,12 +1893,12 @@ function BookingSheet({
         )}
 
         {/* Banner de resultado / estado actual */}
-        {errorReserva && <Banner tipo="warn" texto={errorReserva} />}
-        {resultado === 'CONFIRMADA' && <Banner tipo="ok" texto="¡Reserva confirmada! Te esperamos en clase." />}
-        {resultado === 'LISTA_ESPERA' && <Banner tipo="warn" texto="Estás en lista de espera. Te avisaremos si se libera una plaza." />}
-        {resultado === 'CANCELADA' && <Banner tipo="warn" texto="Reserva cancelada." />}
-        {!resultado && yaReservada && <Banner tipo="ok" texto="Ya tienes esta clase reservada." />}
-        {!resultado && enEspera && !hayOferta && <Banner tipo="warn" texto="Estás en lista de espera para esta clase." />}
+        {errorReserva && <Banner t={t} tipo="warn" texto={errorReserva} />}
+        {resultado === 'CONFIRMADA' && <Banner t={t} tipo="ok" texto="¡Reserva confirmada! Te esperamos en clase." />}
+        {resultado === 'LISTA_ESPERA' && <Banner t={t} tipo="warn" texto="Estás en lista de espera. Te avisaremos si se libera una plaza." />}
+        {resultado === 'CANCELADA' && <Banner t={t} tipo="warn" texto="Reserva cancelada." />}
+        {!resultado && yaReservada && <Banner t={t} tipo="ok" texto="Ya tienes esta clase reservada." />}
+        {!resultado && enEspera && !hayOferta && <Banner t={t} tipo="warn" texto="Estás en lista de espera para esta clase." />}
 
         {!resultado && hayOferta && (
           <div style={{ padding: '13px 15px', borderRadius: radius.card, background: semantic.warning.soft }}>
@@ -1948,7 +1966,7 @@ function BookingSheet({
               <span>{avisoRequisitoCompra.texto}</span>
               <a
                 href={avisoRequisitoCompra.href}
-                style={{ color: 'var(--portal-brand)', fontWeight: 800, textDecoration: 'underline', textUnderlineOffset: 3 }}
+                style={{ color: MARCA_TEXTO, fontWeight: 800, textDecoration: 'underline', textUnderlineOffset: 3 }}
               >
                 {avisoRequisitoCompra.cta}
               </a>
@@ -1977,7 +1995,7 @@ function BookingSheet({
               opacity: resultado === 'CANCELADA' ? 0.4 : enviando ? 0.7 : 1,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0,
               ...(esCancelar
-                ? { background: semantic.danger.soft, color: semantic.danger.text }
+                ? { background: semantic.danger.soft, color: textoSemantico('danger', t, t.bg) }
                 : { background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' }),
             }}
           >
@@ -2007,20 +2025,24 @@ function FilaDato({ t, icon, label, valor, valorColor }: {
   );
 }
 
-function EstadoIcono({ estado }: { estado: 'CONFIRMADA' | 'LISTA_ESPERA' }) {
+// Los colores de estado, legibles sobre la paleta que se ve (`textoSemantico`):
+// en claro, el mismo hex de siempre; sobre Carbón o un widget de noche, su
+// variante de noche.
+function EstadoIcono({ t, estado }: { t: ModoTokens; estado: 'CONFIRMADA' | 'LISTA_ESPERA' }) {
   return estado === 'CONFIRMADA'
-    ? <CheckCircle2 size={14} style={{ color: semantic.success.text, flexShrink: 0 }} />
-    : <AlertTriangle size={14} style={{ color: semantic.warning.text, flexShrink: 0 }} />;
+    ? <CheckCircle2 size={14} style={{ color: textoSemantico('success', t), flexShrink: 0 }} />
+    : <AlertTriangle size={14} style={{ color: textoSemantico('warning', t), flexShrink: 0 }} />;
 }
 
-function Banner({ tipo, texto }: { tipo: 'ok' | 'warn'; texto: string }) {
+function Banner({ t, tipo, texto }: { t: ModoTokens; tipo: 'ok' | 'warn'; texto: string }) {
   const c = tipo === 'ok' ? semantic.success : semantic.warning;
+  const color = textoSemantico(tipo === 'ok' ? 'success' : 'warning', t, t.bg);
   return (
     <div role="status" className="reserva-banner-in" style={{ display: 'flex', alignItems: 'center', gap: 8, borderRadius: 14, padding: '11px 14px', background: c.soft }}>
       {tipo === 'ok'
-        ? <CheckCircle2 size={15} style={{ color: c.text, flexShrink: 0 }} />
-        : <AlertTriangle size={15} style={{ color: c.text, flexShrink: 0 }} />}
-      <p style={{ fontSize: 13, fontWeight: 700, color: c.text }}>{texto}</p>
+        ? <CheckCircle2 size={15} style={{ color, flexShrink: 0 }} />
+        : <AlertTriangle size={15} style={{ color, flexShrink: 0 }} />}
+      <p style={{ fontSize: 13, fontWeight: 700, color }}>{texto}</p>
     </div>
   );
 }
@@ -2043,7 +2065,7 @@ function EstadoVacio({ t, titulo, cuerpo, ctaLabel, onCta }: {
         <button type="button" onClick={onCta} style={{
           marginTop: 18, height: 42, padding: '0 20px', borderRadius: 999, cursor: 'pointer',
           background: 'transparent', border: '1px solid color-mix(in oklab, var(--portal-brand) 40%, transparent)',
-          color: 'var(--portal-brand)', fontFamily: sans, fontWeight: 700, fontSize: 13,
+          color: MARCA_TEXTO, fontFamily: sans, fontWeight: 700, fontSize: 13,
         }}>
           {ctaLabel}
         </button>
@@ -2059,7 +2081,7 @@ function EstadoErrorRed({ t, titulo = 'No hemos podido cargar el horario', onRei
 }) {
   return (
     <div style={{ textAlign: 'center', padding: '52px 24px 56px' }} role="alert">
-      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: semantic.danger.soft, color: semantic.danger.text }}>
+      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: semantic.danger.soft, color: textoSemantico('danger', t) }}>
         <AlertCircle size={22} />
       </div>
       <p style={{ fontFamily: serif, fontSize: 21, marginTop: 16, color: t.ink }}>{titulo}</p>
@@ -2079,25 +2101,40 @@ function EstadoErrorRed({ t, titulo = 'No hemos podido cargar el horario', onRei
 // Versiones en neutros FIJOS de arriba, solo para `estiloDias === 'grid'`
 // (formato 06, Modo B) — "los estados de carga/vacío/error usan los mismos
 // patrones en neutros y fuente de sistema" (brief de diseño Fase 4).
-function RejillaGridVacio({ titulo, cuerpo }: { titulo: string; cuerpo: string }) {
+//
+// ⚠️ Salvo sobre una paleta OSCURA: estos dos estados no van dentro de una
+// celda blanca, van sobre el fondo de la página, y el `#1A1A1A` fijo sobre un
+// widget de noche daba tinta negra sobre negro. Ahí toman la tinta de la
+// paleta; en claro, los neutros de siempre, al píxel.
+function neutrosEstadoGrid(t: ModoTokens) {
+  const oscura = paletaOscura(t);
+  return {
+    ink: oscura ? t.ink : GRID_NEUTROS.ink,
+    mut: oscura ? t.muted : GRID_NEUTROS.mut,
+    circulo: oscura ? t.surface2 : GRID_NEUTROS.linea2,
+  };
+}
+function RejillaGridVacio({ t, titulo, cuerpo }: { t: ModoTokens; titulo: string; cuerpo: string }) {
+  const n = neutrosEstadoGrid(t);
   return (
     <div style={{ textAlign: 'center', padding: '52px 24px 56px', fontFamily: GRID_FUENTE }}>
-      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: GRID_NEUTROS.linea2, color: GRID_NEUTROS.mut }}>
+      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: n.circulo, color: n.mut }}>
         <Clock size={22} />
       </div>
-      <p style={{ fontSize: 17, fontWeight: 700, marginTop: 16, color: GRID_NEUTROS.ink }}>{titulo}</p>
-      <p style={{ fontSize: 13, color: GRID_NEUTROS.mut, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>{cuerpo}</p>
+      <p style={{ fontSize: 17, fontWeight: 700, marginTop: 16, color: n.ink }}>{titulo}</p>
+      <p style={{ fontSize: 13, color: n.mut, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>{cuerpo}</p>
     </div>
   );
 }
-function RejillaGridError({ titulo = 'No hemos podido cargar el horario', onReintentar }: { titulo?: string; onReintentar: () => void }) {
+function RejillaGridError({ t, titulo = 'No hemos podido cargar el horario', onReintentar }: { t: ModoTokens; titulo?: string; onReintentar: () => void }) {
+  const n = neutrosEstadoGrid(t);
   return (
     <div style={{ textAlign: 'center', padding: '52px 24px 56px', fontFamily: GRID_FUENTE }} role="alert">
-      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: semantic.danger.soft, color: semantic.danger.text }}>
+      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: semantic.danger.soft, color: textoSemantico('danger', t, t.bg) }}>
         <AlertCircle size={22} />
       </div>
-      <p style={{ fontSize: 17, fontWeight: 700, marginTop: 16, color: GRID_NEUTROS.ink }}>{titulo}</p>
-      <p style={{ fontSize: 13, color: GRID_NEUTROS.mut, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>
+      <p style={{ fontSize: 17, fontWeight: 700, marginTop: 16, color: n.ink }}>{titulo}</p>
+      <p style={{ fontSize: 13, color: n.mut, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>
         Parece un problema de conexión. Inténtalo de nuevo en unos segundos.
       </p>
       <button type="button" onClick={onReintentar} style={{

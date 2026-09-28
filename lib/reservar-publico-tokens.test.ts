@@ -1,7 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolverTokensReservar, tokensCalendarioDeApariencia, radius, serif, sans, RESERVAR_PALETA } from './reservar-publico-tokens.ts';
+import {
+  resolverTokensReservar, tokensCalendarioDeApariencia, radius, serif, sans, RESERVAR_PALETA,
+  paletaOscura, pesoTitular, textoSemantico,
+} from './reservar-publico-tokens.ts';
 import { APARIENCIA_POR_DEFECTO } from './reservar/apariencia-widget.ts';
+import { semantic } from './portal-tokens.ts';
+import { ratioContraste } from './wcag-contrast.ts';
+import { ESTILOS } from './student/apariencia.ts';
+import { tokensDeEstilo } from './reservar/tema-app.ts';
 
 // ⚠️ El caso más importante de este fichero: sin tocar ningún campo nuevo, el
 // widget tiene que verse EXACTAMENTE igual que el default de esta pantalla —
@@ -87,4 +94,28 @@ test('tokensCalendarioDeApariencia: solo el campo tocado cambia', () => {
   assert.equal(t.ink, '#ABCDEF');
   assert.equal(t.surface, RESERVAR_PALETA.dia.surface);
   assert.equal(t.line, RESERVAR_PALETA.dia.line);
+});
+
+// ── Colores de estado sobre la paleta que se ve ─────────────────────────────
+
+test('textoSemantico: sobre el día de siempre, el MISMO hex de antes (sin estilo elegido no cambia un píxel)', () => {
+  for (const tipo of ['success', 'warning', 'danger'] as const) {
+    assert.equal(textoSemantico(tipo, RESERVAR_PALETA.dia), semantic[tipo].text, tipo);
+  }
+  assert.equal(paletaOscura(RESERVAR_PALETA.dia), false);
+  assert.equal(paletaOscura(RESERVAR_PALETA.noche), true);
+});
+
+test('⚠️ textoSemantico: en AA sobre la tarjeta y el fondo de TODOS los estilos y de la noche del widget', () => {
+  // `semantic.*.text` fijo daba 3,1:1 (ámbar) y 2,9:1 (rojo) sobre la tarjeta de Carbón.
+  const paletas = [...ESTILOS.map(e => [e.id, tokensDeEstilo(e)] as const), ['noche', RESERVAR_PALETA.noche] as const];
+  for (const [id, t] of paletas) for (const tipo of ['success', 'warning', 'danger'] as const) {
+    assert.ok((ratioContraste(textoSemantico(tipo, t), t.surface) ?? 0) >= 4.5, `${id}/${tipo} sobre la tarjeta`);
+    assert.ok((ratioContraste(textoSemantico(tipo, t, t.bg), t.bg) ?? 0) >= 4.5, `${id}/${tipo} sobre el fondo`);
+  }
+});
+
+test('pesoTitular: sin pareja elegida, el peso de siempre (también «normal» para los titulares que no llevaban)', () => {
+  assert.equal(pesoTitular(800), 'var(--reservar-heading-weight, 800)');
+  assert.equal(pesoTitular('normal'), 'var(--reservar-heading-weight, normal)');
 });
