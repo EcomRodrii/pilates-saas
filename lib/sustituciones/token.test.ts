@@ -57,6 +57,15 @@ test('aceptar_sustitucion caduca en 3 h', () => {
   assert.equal(verificarTokenInstructora(t, 'aceptar_sustitucion', AHORA + 4 * 60 * 60 * 1000), null);
 });
 
+// SEC-1 (auditoría): invitacion es un bearer token de activación de cuenta —
+// vive 7 días, no los 30 de disponibilidad/reportar_baja, para acortar la
+// ventana de un enlace filtrado (correo reenviado, bandeja compartida).
+test('invitacion caduca en 7 días, no en 30', () => {
+  const t = firmarTokenInstructora('ins-1', 'studio-1', 'invitacion', 'PROPIETARIO', AHORA);
+  assert.notEqual(verificarTokenInstructora(t, 'invitacion', AHORA + 6 * DIA), null);
+  assert.equal(verificarTokenInstructora(t, 'invitacion', AHORA + 8 * DIA), null);
+});
+
 // ── Manipulación ────────────────────────────────────────────────────────────
 
 test('firma manipulada → null', () => {
