@@ -330,7 +330,10 @@ test('la página suelta en Carbón: el aviso de vuelta del pago y las tarjetas d
 });
 
 test('la página suelta en Carbón: la hoja «Confirmar cita» se lee (era blanca, con la caja interior oscura y la letra del panel)', async ({ page }) => {
-  const HUECO = { inicio: '2026-08-12T11:00:00', fin: '2026-08-12T11:50:00' };
+  // Con su zona explícita: sin ella, el navegador la lee en la hora de SU máquina
+  // y el test en la del runner, y en CI no coincidían (pintaba «11:00» y buscaba
+  // «13:00»). La UI la pinta en hora del estudio, así que aquí es 11:00 siempre.
+  const HUECO = { inicio: '2026-08-12T11:00:00+02:00', fin: '2026-08-12T11:50:00+02:00' };
   await page.setViewportSize({ width: 1000, height: 760 });
   await mocks(page, 'tentare-carbon');
   await page.route('**/api/public/studio-data', (r) => r.fulfill({
@@ -355,8 +358,7 @@ test('la página suelta en Carbón: la hoja «Confirmar cita» se lee (era blanc
   await page.goto('/reservar/tentare-carbon?tab=citas');
   await page.getByRole('button', { name: 'Reservar cita', exact: true }).click({ timeout: 150_000 });
   await page.getByRole('button', { name: /Ana/ }).click();
-  const hora = new Date(HUECO.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-  await page.getByRole('button', { name: hora }).click();
+  await page.getByRole('button', { name: '11:00' }).click();
   await page.getByRole('button', { name: /^Continuar/ }).click();
   await expect(page.getByRole('dialog', { name: 'Confirmar cita' })).toBeVisible({ timeout: 15_000 });
   // Se pidieron los huecos de verdad: la hoja no es un estado vacío.
