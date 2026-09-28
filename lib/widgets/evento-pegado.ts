@@ -38,6 +38,12 @@ export function pegadoDelEvento(x: {
   origenCabecera: string | null;
   /** Los orígenes de Tentare: el canónico y el de la propia petición. */
   propios: readonly string[];
+  /**
+   * Esa cabecera `Origin` está entre las webs que ESTE estudio autorizó
+   * (`origenPermitido`, lib/cors-widget.ts) y el `?studioId=` de la URL es el
+   * del cuerpo. Lo resuelve la ruta, que es quien puede consultar la BD.
+   */
+  nativaAutorizada?: boolean;
 }): PegadoDelEvento {
   // Solo la carga dice dónde está pegado. El resto de eventos de la misma
   // sesión (y algunos llevan el socio_id) no se atan a ninguna web.
@@ -48,7 +54,12 @@ export function pegadoDelEvento(x: {
   // no basta (un POST del mismo origen también la manda, según Fetch): hace
   // falta además el `?studioId=` que solo pone el bundle, y que el origen no
   // sea de Tentare. Lo que diga el cuerpo aquí no cuenta.
+  //
+  // ⚠️ Y esa web tiene que estar autorizada por ESTE estudio: «Visto en» solo
+  // nombra webs que el propio estudio dio por suyas. La nativa de verdad solo
+  // carga en webs autorizadas, así que no se pierde ninguna carga real.
   if (x.studioIdEnUrl && x.origenCabecera && !esOrigenDeTentare(x.origenCabecera, x.propios)) {
+    if (!x.nativaAutorizada) return NADA;
     return { forma: 'nativa', anfitrion: origenAnfitrion(x.origenCabecera), firma: null };
   }
 
@@ -56,6 +67,12 @@ export function pegadoDelEvento(x: {
   // que ve el marco y el referrer. 'nativa' en el cuerpo NO vale: una petición
   // del mismo origen no puede ser la nativa, y aceptarla dejaría a cualquiera
   // inventarse una sin cabecera.
+  //
+  // ⚠️ Solo si la petición sale de Tentare: la página manda el evento desde
+  // su propio origen (un POST del mismo origen, que siempre lleva `Origin`).
+  // El precio: un iframe con `sandbox` sin `allow-same-origin` manda `null` y
+  // pierde la forma; la visita sigue contando.
+  if (!x.origenCabecera || !esOrigenDeTentare(x.origenCabecera, x.propios)) return NADA;
   const forma = x.cuerpo.forma;
   if (forma !== 'incrustado' && forma !== 'ventana') return NADA;
 

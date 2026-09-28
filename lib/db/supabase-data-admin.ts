@@ -2333,7 +2333,9 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
     tipo: params.tipo,
     sesion_clase_id: params.sesionClaseId ?? null,
     origen: params.origen ?? null,
-    socio_id: params.socioId ?? null,
+    // Una carga que dice dónde está pegado nunca lleva socia: atarían a una
+    // persona con una web (widget_eventos_pegado_sin_socia).
+    socio_id: params.forma ? null : (params.socioId ?? null),
     // Las tres columnas SOLO con forma, nunca como `null` explícito: si este
     // código llegara a producción antes que su migración, un insert con una
     // columna desconocida fallaría entero, y así solo se perderían las cargas

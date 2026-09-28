@@ -4,8 +4,9 @@ import { registrarEventoWidget, socioAutenticado } from '@/lib/db/supabase-data-
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { esTipoEventoValido } from '@/lib/reservar/eventos';
-import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
+import { respuestaPreflightWidget, conCorsWidget, origenPermitido } from '@/lib/cors-widget';
 import { pegadoDelEvento, propiosDeLaPeticion } from '@/lib/widgets/evento-pegado';
+import { esOrigenDeTentare } from '@/lib/widgets/pegado';
 
 // Fase 2 "Growth Widget": recibe los eventos anónimos del funnel del widget
 // público (ver lib/reservar/eventos.ts para el catálogo y el helper de
@@ -87,13 +88,23 @@ export async function POST(req: NextRequest) {
   }
 
   // La nativa llama con `?studioId=` en la URL (el preflight CORS no puede
-  // leer el cuerpo); su anfitrión es la cabecera Origin, nunca el cuerpo.
+  // leer el cuerpo); su anfitrión es la cabecera Origin, nunca el cuerpo. Y
+  // solo cuenta si esa web la autorizó el MISMO estudio del cuerpo: la misma
+  // consulta que decide el CORS, y solo cuando puede ser una nativa.
+  const origenCabecera = req.headers.get('origin');
+  const studioIdEnUrl = req.nextUrl.searchParams.get('studioId');
+  const propios = propiosDeLaPeticion(req.nextUrl.origin);
+  const puedeSerNativa = body.tipo === 'widget_loaded' && !!studioIdEnUrl && !!origenCabecera
+    && !esOrigenDeTentare(origenCabecera, propios);
+  const nativaAutorizada = puedeSerNativa && studioIdEnUrl === body.studioId
+    && (await origenPermitido({ studioId: body.studioId }, origenCabecera)) !== null;
   const pegado = pegadoDelEvento({
     tipo: body.tipo,
     cuerpo: { forma: body.forma, anfitrion: body.anfitrion, firma: body.firma },
-    studioIdEnUrl: !!req.nextUrl.searchParams.get('studioId'),
-    origenCabecera: req.headers.get('origin'),
-    propios: propiosDeLaPeticion(req.nextUrl.origin),
+    studioIdEnUrl: !!studioIdEnUrl,
+    origenCabecera,
+    propios,
+    nativaAutorizada,
   });
 
   registrarEventoWidget(admin, {

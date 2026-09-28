@@ -29,9 +29,10 @@ function dePagina(cuerpo: Entrada['cuerpo'], tipo = 'widget_loaded'): PegadoDelE
   return desde({ tipo, cuerpo, origenCabecera: 'http://localhost:3000' });
 }
 
-// El POST del bundle de la nativa: desde la web del estudio, con `?studioId=`.
+// El POST del bundle de la nativa: desde la web del estudio, con `?studioId=`,
+// y esa web autorizada por el estudio (lo resuelve la ruta con `origenPermitido`).
 function deNativa(origenCabecera: string, cuerpo: Entrada['cuerpo'] = {}, tipo = 'widget_loaded'): PegadoDelEvento {
-  return desde({ tipo, cuerpo, studioIdEnUrl: true, origenCabecera });
+  return desde({ tipo, cuerpo, studioIdEnUrl: true, origenCabecera, nativaAutorizada: true });
 }
 
 test('FIRMA de ejemplo: una firma de verdad, con el formato del CHECK', () => {
@@ -94,7 +95,30 @@ test('⚠️ sin `?studioId=` no hay nativa, aunque la cabecera sea de otra web 
   assert.deepEqual(desde({ studioIdEnUrl: true, origenCabecera: '' }), NADA);
 });
 
+test('⚠️ la nativa desde una web que el estudio NO autorizó no cuenta: ni forma, ni web', () => {
+  assert.deepEqual(desde({ studioIdEnUrl: true, origenCabecera: WEB }), NADA);
+  assert.deepEqual(desde({ studioIdEnUrl: true, origenCabecera: WEB, nativaAutorizada: false }), NADA);
+  // Ni aunque el cuerpo diga que es un iframe: con `?studioId=` y una web ajena
+  // manda la cabecera, no el cuerpo.
+  assert.deepEqual(
+    desde({ studioIdEnUrl: true, origenCabecera: WEB, nativaAutorizada: false, cuerpo: { forma: 'incrustado', anfitrion: WEB, firma: FIRMA } }),
+    NADA,
+  );
+});
+
 // ── La página: dentro de una página o encima ─────────────────────────────────
+
+test('⚠️ la forma del cuerpo solo cuenta si la petición sale de Tentare', () => {
+  const cuerpo = { forma: 'incrustado', anfitrion: WEB, firma: FIRMA };
+  // Sin cabecera, con la de otra web o con la de un iframe sandbox: nada.
+  for (const origenCabecera of [null, '', WEB, 'https://otra.example.com', 'null']) {
+    assert.deepEqual(desde({ origenCabecera, cuerpo }), NADA, String(origenCabecera));
+  }
+  // Desde Tentare (el canónico, el apex o el despliegue que atiende), sí.
+  for (const origenCabecera of [TENTARE, APEX, 'http://localhost:3000']) {
+    assert.deepEqual(desde({ origenCabecera, cuerpo }), { forma: 'incrustado', anfitrion: WEB, firma: FIRMA }, origenCabecera);
+  }
+});
 
 test('iframe y popup: forma, anfitrión y firma tal cual los manda la página', () => {
   assert.deepEqual(dePagina({ forma: 'incrustado', anfitrion: WEB, firma: FIRMA }), { forma: 'incrustado', anfitrion: WEB, firma: FIRMA });
@@ -185,13 +209,13 @@ test('⚠️ nada de lo que devuelve lo rechazaría la BD (se perdería la visit
   ];
   let casos = 0;
   for (const tipo of [...TIPOS_EVENTO_WIDGET, 'otro']) {
-    for (const studioIdEnUrl of [false, true]) {
+    for (const [studioIdEnUrl, nativaAutorizada] of [[false, false], [true, false], [true, true]] as const) {
       for (const origenCabecera of [null, WEB, 'http://localhost:3000', TENTARE, 'null', 'http://192.168.1.10']) {
         for (const forma of valores) {
           for (const anfitrion of valores) {
             for (const firma of [undefined, FIRMA, 'zz', 7]) {
-              const r = pegadoDelEvento({ tipo, cuerpo: { forma, anfitrion, firma }, studioIdEnUrl, origenCabecera, propios: PROPIOS });
-              const donde = JSON.stringify({ tipo, studioIdEnUrl, origenCabecera, forma, anfitrion, firma, r });
+              const r = pegadoDelEvento({ tipo, cuerpo: { forma, anfitrion, firma }, studioIdEnUrl, origenCabecera, propios: PROPIOS, nativaAutorizada });
+              const donde = JSON.stringify({ tipo, studioIdEnUrl, nativaAutorizada, origenCabecera, forma, anfitrion, firma, r });
               // widget_eventos_anfitrion_es_origen
               assert.ok(r.anfitrion === null || (r.anfitrion.length <= 300 && anfitrionValido.test(r.anfitrion)), donde);
               // widget_eventos_forma_valida
