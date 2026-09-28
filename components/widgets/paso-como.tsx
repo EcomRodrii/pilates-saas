@@ -7,7 +7,7 @@ import { MODO_TOKENS } from '@/lib/portal-modo';
 import type { MetodoIntegracion, WidgetDisponible } from '@/lib/widgets/catalogo';
 import { anchoPorDefecto, type ConfigConstructor } from '@/lib/widgets/config';
 import { tieneDisenoEnCodigo } from '@/lib/widgets/integracion';
-import type { PiezasAfectadas } from '@/lib/widgets/estilo-afectados';
+import { columnasSinPaleta, type PiezasAfectadas } from '@/lib/widgets/estilo-afectados';
 import { botonDeSuWeb, usaBotonPropio, type PlataformaWeb } from '@/lib/widgets/recetas';
 import { Ajuste, AjusteInterruptor, Etiqueta, MuestraColor, Plegable, Segmentado, Tarjeta } from './piezas';
 import { EstiloWeb } from './estilo-web';
@@ -25,7 +25,8 @@ import type { EstiloWebPanel } from './usar-estilo-web';
 //
 // Lo que no sigue el estilo se dice arriba, antes de que elija nada: el enlace y
 // el botón a su página abren la página suelta (se ve como su app), y la
-// integración sin marco lleva su propio diseño.
+// integración sin marco lleva su propio diseño. Y lo que lo sigue a medias,
+// en cuanto pasa: «Siete días en columnas» con un estilo de noche.
 
 const COLOR_DE_FONDO = '#F6F3EC';
 
@@ -46,19 +47,31 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
   const nativa = metodo === 'nativa';
   const soloBoton = metodo === 'boton';
   const botonPropio = soloBoton && usaBotonPropio(plataforma);
-  // El pie ya es del estilo de su web («Ajustes finos»). Aquí solo sigue el
-  // interruptor de antes para quien lo apagó en ESTE widget: su `pie=0` va en
-  // el código, y tiene que poder volver a encenderlo. Se decide al abrir el
-  // widget, para que no desaparezca bajo el dedo al encenderlo.
-  const [pieDelWidget] = useState(() => c.mostrarPie === false);
+  // El pie ya es del estilo de su web («Ajustes finos»). Aquí sigue el
+  // interruptor de cada widget en dos casos, y su `pie=0` va en el código:
+  //   · con un diseño propio en su código, porque a ese widget el estilo de su
+  //     web no le llega —tampoco su pie— (`urlTraeDisenoPropio`), y esta es la
+  //     única forma de quitárselo;
+  //   · si ya lo apagó en ESTE widget, para que pueda volver a encenderlo. Eso
+  //     se mira también al abrirlo, para que no desaparezca bajo el dedo al
+  //     encenderlo.
+  const [pieApagadoAlAbrir] = useState(() => c.mostrarPie === false);
+  const disenoEnCodigo = tieneDisenoEnCodigo(c);
+  const pieDelWidget = disenoEnCodigo || pieApagadoAlAbrir || c.mostrarPie === false;
+
+  // La misma cuenta que la confirmación de «Aplicar en mi web», con el borrador
+  // que se está probando: lo que haría /reservar con el código de este widget.
+  const sinPaleta = !!estilo.base && columnasSinPaleta(w, c, metodo, estilo.borrador, estilo.base);
 
   const aviso: ReactNode = metodo === 'enlace' || soloBoton
     ? <>Con {metodo === 'enlace' ? 'un enlace' : 'un botón que lleva a tu página'}, tu página de reservas se ve <strong className="font-semibold">como tu app</strong>. Este estilo es para lo que pongas dentro de tu web o en una ventana encima.</>
     : nativa
       ? 'Sin marco, el widget no sigue este estilo: lleva su propio diseño, con la letra de tu web. Si quieres que cambie solo, ponlo dentro de tu página.'
-      : tieneDisenoEnCodigo(c)
+      : disenoEnCodigo
         ? 'Este widget lleva un diseño propio en su código (abajo): este estilo no le llega.'
-        : null;
+        : sinPaleta
+          ? 'Con «Siete días en columnas», este widget no se pinta en oscuro: de este estilo solo le llegan la letra, las esquinas, la separación y el pie.'
+          : null;
 
   const disenoDistinto = metodo !== 'enlace' && !botonPropio ? (
     <Plegable
@@ -125,8 +138,12 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
             <AjusteInterruptor
               etiqueta="Dirección y aviso legal al pie"
               // El mismo nombre que el de «Ajustes finos», que puede decir otra
-              // cosa: se explica cuál es este para que no parezca que se contradicen.
-              descripcion="Solo para este widget, y va en su código. Para todos tus widgets a la vez, está en «Ajustes finos»."
+              // cosa: se explica cuál es este para que no parezca que se
+              // contradicen. Con un diseño propio, el de «Ajustes finos» no le
+              // llega, y remitir allí sería mandarla a un interruptor que no hace nada.
+              descripcion={disenoEnCodigo
+                ? 'Solo para este widget, y va en su código: con un diseño propio, el de «Ajustes finos» no le llega.'
+                : 'Solo para este widget, y va en su código. Para todos tus widgets a la vez, está en «Ajustes finos».'}
               on={c.mostrarPie}
               onChange={v => cambiar({ mostrarPie: v })}
             />

@@ -289,12 +289,26 @@ test('el borrador solo cuenta en la vista previa incrustada del panel', () => {
   assert.equal(leerBorradorWeb(params(`vista-previa=1&${PARAM_BORRADOR}=${arena}`)), undefined);
   assert.equal(leerBorradorWeb(params('embed=1&vista-previa=1')), undefined);
   assert.equal(leerBorradorWeb(params(`embed=1&vista-previa=1&${PARAM_BORRADOR}=%7Bno-json`)), undefined);
-  assert.equal(leerBorradorWeb(params(`embed=1&vista-previa=1&${PARAM_BORRADOR}=${'x'.repeat(2000)}`)), undefined);
   // «Nada elegido» SÍ es un borrador: enseña la app aunque lo publicado sea otro.
   assert.deepEqual(leerBorradorWeb(params(`embed=1&vista-previa=1&${PARAM_BORRADOR}=%7B%7D`)), w());
   // Y lo que trae se valida como lo guardado.
   const malo = encodeURIComponent(JSON.stringify({ web: 'otro', colorWeb: '#fff;}</style>', fundido: true }));
   assert.deepEqual(leerBorradorWeb(params(`embed=1&vista-previa=1&${PARAM_BORRADOR}=${malo}`)), w({ fundido: true }));
+});
+
+test('⚠️ el tope del borrador lo corta el TAMAÑO: un JSON válido de más de 1000 caracteres no se lee', () => {
+  // JSON válido y con un estilo que se leería (`relleno` no es una clave: se
+  // ignora), para que lo único que pueda rechazarlo sea el tope. Con algo que
+  // no fuera JSON, lo rechazaría `JSON.parse` y el tope podría no existir.
+  const deLargo = (n: number) => {
+    const sinRelleno = JSON.stringify({ estilo: 'arena', relleno: '' }).length;
+    const crudo = JSON.stringify({ estilo: 'arena', relleno: 'a'.repeat(n - sinRelleno) });
+    assert.equal(crudo.length, n);
+    return `embed=1&vista-previa=1&${PARAM_BORRADOR}=${encodeURIComponent(crudo)}`;
+  };
+  assert.deepEqual(leerBorradorWeb(params(deLargo(1000))), w({ estilo: 'arena' }));
+  assert.equal(leerBorradorWeb(params(deLargo(1001))), undefined);
+  assert.equal(leerBorradorWeb(params(deLargo(5000))), undefined);
 });
 
 // ── Nada de lo que se escribe en línea puede salirse ─────────────────────────

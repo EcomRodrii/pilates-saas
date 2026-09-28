@@ -81,12 +81,14 @@ export function EstiloWeb({ estado, metodo, soloLectura, verApariencia, piezas, 
   // los neutros son los del otro lado (claro ↔ Carbón). Los botones se miden ahí.
   const vista = paletaWidget(estilo, web, b.fundido);
   const aplicando = estado.envio === 'aplicando';
+  // Tras un 409 se vuelve a leer lo que hay en su web: mientras, lo que llegue pisa el borrador.
+  const ocupado = aplicando || estado.relectura === 'releyendo';
   const errorDe = (campo: 'colorWeb' | 'boton') => estado.errores.find(e => e.campo === campo)?.mensaje ?? null;
 
   return (
     <>
-      {/* Deshabilitado de golpe: en solo lectura, y mientras se aplica (lo que llega del servidor pisa el borrador). */}
-      <fieldset disabled={soloLectura || aplicando} className="m-0 min-w-0 space-y-6 border-0 p-0">
+      {/* Deshabilitado de golpe: en solo lectura, y mientras se aplica o se vuelve a leer (lo que llega del servidor pisa el borrador). */}
+      <fieldset disabled={soloLectura || ocupado} className="m-0 min-w-0 space-y-6 border-0 p-0">
         <legend className="sr-only">El estilo de tus widgets</legend>
 
         <Ajuste etiqueta="Estilo">
@@ -227,8 +229,13 @@ export function EstiloWeb({ estado, metodo, soloLectura, verApariencia, piezas, 
           {/* Solo lo que sabemos: lo copiado desde aquí, nunca «tus N widgets» (no vemos qué hay pegado). */}
           <div className="space-y-2 text-[13px] leading-relaxed text-muted-foreground">
             {piezas.cambian.length > 0 && <p>Entre ellos, los que copiaste desde aquí: {enLista(piezas.cambian)}.</p>}
+            {piezas.columnasSinPaleta.length > 0 && (
+              // /reservar no pinta de noche la semana en columnas (`columnasSinPaleta`).
+              <p>{enLista(piezas.columnasSinPaleta)}: con «Siete días en columnas» no se {piezas.columnasSinPaleta.length > 1 ? 'pintan' : 'pinta'} en oscuro, así que de este estilo solo {piezas.columnasSinPaleta.length > 1 ? 'les' : 'le'} llegan la letra, las esquinas, la separación y el pie.</p>
+            )}
             <p>Los widgets con un diseño propio dentro de su código no cambian.</p>
-            {piezas.hayPopup && <p>El botón que abre la ventana lleva su color dentro del código: cambia lo de dentro, y el botón cambiará cuando lo copies otra vez.</p>}
+            {/* El color del botón sale de su marca o de la del estudio (`estiloBoton`), nunca de este estilo: ni copiándolo otra vez. */}
+            {piezas.hayPopup && <p>El botón que abre la ventana lleva su color dentro de su código: ese no cambia con este estilo, ni aunque lo copies otra vez. Lo de dentro de la ventana, sí.</p>}
             {piezas.hayNativa && <p>El widget sin marco no sigue este estilo.</p>}
             {piezas.hayPagina && <p>Los enlaces y botones que llevan a tu página no cambian: tu página se ve como tu app.</p>}
           </div>
@@ -413,7 +420,14 @@ function ColorBotones({ b, base, neutros, fondo, cambiar }: {
       detalle: `Sin tu color: botones y detalles en ${oscuro ? 'claro' : 'oscuro'}.`, dibujo: muestra('tinta'),
     },
     { valor: 'suave', titulo: 'Tu color, suave', dibujo: muestra('suave') },
-    { valor: 'fiel', titulo: 'Tu color tal cual', detalle: 'Tu color como es. Si no se lee bien, lo oscurecemos lo justo.', dibujo: muestra('fiel') },
+    {
+      valor: 'fiel', titulo: 'Tu color tal cual',
+      // De día, el crudo si se lee y si no, oscurecido lo justo (`acentoFiel`).
+      // De noche nunca es el crudo: siempre una versión clara (`acentoDe`, que
+      // lo sube al menos a luminosidad 62), aunque el crudo ya se leyera.
+      detalle: oscuro ? 'Sobre fondo oscuro, una versión clara de tu color, para que se lea.' : 'Tu color como es. Si no se lee bien, lo oscurecemos lo justo.',
+      dibujo: muestra('fiel'),
+    },
   ];
   if (def === null) opciones.push({ valor: 'defecto', titulo: 'Por defecto', dibujo: muestra(null) });
   return (
@@ -442,22 +456,29 @@ function AvisoContraste({ mensaje }: { mensaje: string | null }) {
 // ── Aplicar ───────────────────────────────────────────────────────────────────
 
 function BarraAplicar({ estado, onAplicar }: { estado: EstiloWebPanel; onAplicar: () => void }) {
-  const { pendiente, envio, errores, anterior, ultimo, mensajeFallo } = estado;
+  const { pendiente, envio, errores, anterior, ultimo, mensajeFallo, relectura } = estado;
   const aplicando = envio === 'aplicando';
+  // Tras un 409, lo que teníamos por publicado ya no lo es: hasta volver a
+  // leerlo no se afirma qué hay en su web, ni se aplica o deshace contra eso.
+  const sinSaber = relectura !== null;
   const texto: ReactNode = aplicando
     ? <span className="inline-flex items-center gap-1.5"><Loader2 size={13} className="animate-spin" aria-hidden />Aplicando…</span>
-    : pendiente
-      ? <>Cambios sin aplicar: <strong className="font-semibold">solo los ves tú</strong></>
-      : envio === 'aplicado' ? 'Aplicado en tu web · hace un momento' : 'Es lo que hay ahora en tu web';
-  const aviso = pendiente || aplicando ? null
+    : relectura === 'releyendo'
+      ? <span className="inline-flex items-center gap-1.5"><Loader2 size={13} className="animate-spin" aria-hidden />Leyendo lo que hay ahora en tu web…</span>
+      : relectura === 'fallo'
+        ? 'No hemos podido leer lo que hay ahora en tu web.'
+        : pendiente
+          ? <>Cambios sin aplicar: <strong className="font-semibold">solo los ves tú</strong></>
+          : envio === 'aplicado' ? 'Aplicado en tu web · hace un momento' : 'Es lo que hay ahora en tu web';
+  const aviso = pendiente || aplicando || sinSaber ? null
     : envio === 'aplicado' ? 'Aplicado en tu web. Tus widgets lo toman al volver a abrirse.'
       : ultimo === 'deshacer' ? 'Hemos vuelto a poner el estilo de antes en tu web.' : null;
-  const puedeDeshacer = anterior !== undefined && !pendiente && !aplicando;
+  const puedeDeshacer = anterior !== undefined && !pendiente && !aplicando && !sinSaber;
 
   return (
     <div role="group" aria-label="Aplicar el estilo en tu web" className="space-y-2.5 rounded-xl border border-border bg-muted/40 p-3.5">
       <p role="status" aria-live="polite" className="flex items-start gap-2 text-[12.5px] leading-relaxed text-foreground">
-        <span aria-hidden className={cn('mt-[7px] size-2 shrink-0 rounded-full', pendiente || aplicando ? 'bg-warning' : 'bg-success')} />
+        <span aria-hidden className={cn('mt-[7px] size-2 shrink-0 rounded-full', pendiente || aplicando || sinSaber ? 'bg-warning' : 'bg-success')} />
         <span className="min-w-0">{texto}</span>
       </p>
       {aviso && (
@@ -472,7 +493,12 @@ function BarraAplicar({ estado, onAplicar }: { estado: EstiloWebPanel; onAplicar
         </p>
       )}
       <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
-        {pendiente && !aplicando && (
+        {relectura === 'fallo' && (
+          <button type="button" onClick={estado.releer} className={cn(TACTIL, 'text-[12.5px] font-medium text-foreground underline underline-offset-2 hover:no-underline', FOCO)}>
+            Volver a leer
+          </button>
+        )}
+        {pendiente && !aplicando && !sinSaber && (
           <button type="button" onClick={estado.descartar} className={cn(TACTIL, 'text-[12.5px] font-medium text-foreground underline underline-offset-2 hover:no-underline', FOCO)}>
             Descartar
           </button>
@@ -482,7 +508,7 @@ function BarraAplicar({ estado, onAplicar }: { estado: EstiloWebPanel; onAplicar
             Deshacer
           </button>
         )}
-        <button type="button" onClick={onAplicar} disabled={!pendiente || errores.length > 0 || aplicando} className={btnPrimary}>
+        <button type="button" onClick={onAplicar} disabled={!pendiente || errores.length > 0 || aplicando || sinSaber} className={btnPrimary}>
           Aplicar en mi web
         </button>
       </div>

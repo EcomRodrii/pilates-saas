@@ -245,11 +245,13 @@ export function PasoPonlo({
 // que se aplica en «Cómo se ve», Fase B), salvo que su código lleve un diseño
 // propio —entonces /reservar no se lo pasa—; en la integración nativa, solo el
 // color de marca, y solo con la identidad del estudio (`data-identidad`). El
-// color del botón del popup va en su `style`, dentro del código: ese no.
+// color del botón del popup va en su `style`, dentro del código, y sale de su
+// marca o de la del estudio (`estiloBoton`), nunca del estilo de sus widgets:
+// ese no cambia solo, ni al copiarlo otra vez por haber cambiado el estilo.
 function estiloVivo(metodo: MetodoIntegracion, sigueElEstilo: boolean): string {
   if (metodo === 'boton' || metodo === 'enlace') return ', y tu página de reservas entera';
   if (!sigueElEstilo) return '';
-  if (metodo === 'popup') return ', y el estilo de tus widgets dentro de la ventana (el color del botón va en el código)';
+  if (metodo === 'popup') return ', y el estilo de tus widgets dentro de la ventana (el botón que la abre no: su color va en el código)';
   if (metodo === 'nativa') return ', y tu color de marca';
   return ', y el estilo de tus widgets';
 }

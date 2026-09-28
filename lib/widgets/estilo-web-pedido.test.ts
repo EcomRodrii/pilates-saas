@@ -124,11 +124,21 @@ const RUTA = 'app/api/estudio/widget-estilo/route.ts';
 test('la ruta comprueba la sesión y el rol antes de tocar nada, y el estudio sale de la sesión', () => {
   const ruta = leer(RUTA);
   assert.match(ruta, /export const dynamic = 'force-dynamic'/);
+  // ⚠️ Cada `indexOf` se comprueba ANTES de medir con él: un -1 (no está)
+  // hace verdad cualquier «está antes de…» o «a menos de N de…», y el test
+  // pasaría con la ruta sin la comprobación que dice vigilar.
   const sesion = ruta.indexOf('verificarSesionStaff(req)');
   const rol = ruta.indexOf("sesion.rol !== 'PROPIETARIO'");
   const aplicar = ruta.indexOf('aplicarEstiloWebTheme(sesion.studioId');
   assert.ok(sesion > 0 && rol > sesion && aplicar > rol, 'sesión → rol → aplicar, en ese orden');
-  assert.ok(ruta.indexOf('status: 403', rol) - rol < 200, 'el rol corta con un 403');
+  // Sin sesión, 401 y fuera: el `return` en la misma línea que la comprobación.
+  assert.match(ruta, /if \(!sesion\) return NextResponse\.json\([^;]*\{ status: 401 \}\);/);
+  // El rol corta de verdad: su `if` abre un bloque que RETORNA un 403, no que
+  // solo lo avisa (un `console.warn` ahí dejaría pasar a una MANAGER).
+  const i403 = ruta.indexOf('status: 403', rol);
+  assert.ok(i403 > rol && i403 - rol < 200, 'el rol corta con un 403');
+  assert.match(ruta, /if \(sesion\.rol !== 'PROPIETARIO'\) \{\s*return NextResponse\.json\([^;]*\{ status: 403 \}\);\s*\}/);
+  assert.ok(i403 < aplicar, 'el 403 va antes de aplicar');
   const validar = ruta.indexOf('validarPedidoEstiloWeb(');
   assert.ok(validar > rol && validar < aplicar, 'el cuerpo se valida antes de aplicar');
   // Sin candado de plan, como el resto de los widgets.
@@ -154,7 +164,11 @@ test('el servidor mide el contraste del ESTILO, no del tema entero, y escribe si
   const datos = leer('lib/theme-data.ts');
   const inicio = datos.indexOf('export async function aplicarEstiloWebTheme');
   assert.ok(inicio > 0, 'falta aplicarEstiloWebTheme');
-  const cuerpo = datos.slice(inicio, datos.indexOf('\n}\n', inicio));
+  // Sin su cierre, `slice(inicio, -1)` sería el resto del fichero, y las piezas
+  // de abajo se encontrarían en otras funciones.
+  const fin = datos.indexOf('\n}\n', inicio);
+  assert.ok(fin > inicio, 'aplicarEstiloWebTheme sin cierre');
+  const cuerpo = datos.slice(inicio, fin);
   for (const pieza of ['decidirEstiloWeb(', 'escribirSiNoHaCambiado(', 'invalidarCatalogoPublico(', 'throw new ConflictoTheme()']) {
     assert.ok(cuerpo.includes(pieza), `aplicarEstiloWebTheme sin ${pieza}`);
   }

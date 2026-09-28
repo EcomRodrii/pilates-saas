@@ -709,14 +709,28 @@ test.describe('El estilo de tus widgets: se prueba en la previa y se aplica en s
     expect(cuerpos).toHaveLength(0);
   });
 
-  test('⚠️ «Aplicar en mi web»: la confirmación nombra lo copiado, el cuerpo es exacto y «Aplicado» llega con la respuesta', async ({ page }) => {
+  test('⚠️ «Aplicar en mi web»: la confirmación nombra lo copiado (si sigue siendo el código de ahora), el cuerpo es exacto y «Aplicado» llega con la respuesta', async ({ page }) => {
     await montar(page, {
       plataforma: 'otra',
+      // Una copia de otra visita cuya huella no es la de su código de ahora:
+      // no sabemos qué lleva lo pegado, así que no se nombra.
       widgetBuilder: { horario: { copiado: { firma: 'huella', en: '2026-09-12T10:00:00.000Z' } } },
     });
     const cuerpos = await servidorDelEstilo(page, escribe);
     await paso(page, 'Cómo se ve');
     await arena(page).click();
+    await botonAplicar(page).click();
+    await expect(dialogoAplicar(page)).toContainText('No tienes que volver a pegar ningún código.');
+    await expect(dialogoAplicar(page)).not.toContainText('los que copiaste desde aquí');
+    await dialogoAplicar(page).getByRole('button', { name: 'Cancelar' }).click();
+    await expect(dialogoAplicar(page)).toHaveCount(0);
+
+    // Copiado el código de ahora, ya se sabe qué hay pegado: se nombra.
+    await paso(page, 'Ponlo en tu web');
+    await page.getByRole('button', { name: 'Copiar el código nuevo' }).click();
+    await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
+    await paso(page, 'Cómo se ve');
+    await expect(arena(page)).toHaveAttribute('aria-checked', 'true');
     await botonAplicar(page).click();
     const dialogo = dialogoAplicar(page);
     await expect(dialogo).toContainText('No tienes que volver a pegar ningún código.');
@@ -779,17 +793,55 @@ test.describe('El estilo de tus widgets: se prueba en la previa y se aplica en s
     expect(cuerpos.length).toBeGreaterThan(0);
   });
 
-  test('409: otra pestaña lo cambió entretanto, y se dice en vez de pisarlo', async ({ page }) => {
+  test('⚠️ 409: otra pestaña lo cambió entretanto; se dice, se vuelve a leer lo que hay y el siguiente intento va contra eso', async ({ page }) => {
     await montar(page, { plataforma: 'otra' });
-    const cuerpos = await servidorDelEstilo(page, route => json(route, { error: 'El estilo ha cambiado' }, 409));
+    let responder: (route: Route, c: CuerpoEstilo) => Promise<void> = route => json(route, { error: 'El estilo ha cambiado' }, 409);
+    const cuerpos = await servidorDelEstilo(page, (route, c) => responder(route, c));
     await paso(page, 'Cómo se ve');
     await arena(page).click();
+    await expect(arena(page)).toHaveAttribute('aria-checked', 'true');
+
+    // Lo que hay en su web desde ahora es lo que dejó la otra pestaña (Piedra).
+    // Su lectura se retiene hasta haber mirado qué dice el panel mientras tanto.
+    const PIEDRA = { ...ARENA, estilo: 'piedra' };
+    let lecturas = 0;
+    let soltar: () => void = () => {};
+    const retenida = new Promise<void>(r => { soltar = () => r(); });
+    await page.route('**/api/theme', async route => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      lecturas++;
+      await retenida;
+      await json(route, { primary: '#343825', secondary: '#D9C29E', logoUrl: null, radius: 12, widgetWeb: PIEDRA });
+    });
+    const lecturasAntes = lecturas;
+
     await aplicarYConfirmar(page);
-    await expect.poll(() => cuerpos.length).toBeGreaterThan(0);
+    await expect.poll(() => cuerpos.length).toBe(1);
     await expect(barraEstilo(page).getByRole('alert'))
       .toHaveText('El estilo de tus widgets acaba de cambiar desde otra pestaña. Recarga la página para ver el de ahora.');
+    // Tras el 409 vuelve a leer lo que hay (contador real, no fe)…
+    await expect.poll(() => lecturas, { message: 'tras el 409 no se volvió a leer el tema' }).toBeGreaterThan(lecturasAntes);
+    // …y mientras no lo tiene, no afirma qué hay en su web ni deja aplicar contra lo viejo.
+    await expect(estadoEstilo(page)).toContainText('Leyendo lo que hay ahora en tu web');
+    await expect(estadoEstilo(page)).not.toHaveText('Es lo que hay ahora en tu web');
+    await expect(page.getByText('Es lo que hay ahora en tu web')).toHaveCount(0);
+    await expect(botonAplicar(page)).toBeDisabled();
     await expect(page.getByText(/Aplicado en tu web/)).toHaveCount(0);
+
+    soltar();
+    // Leído: el aviso del 409 se queda, y su borrador (Arena) también.
     await expect(estadoEstilo(page)).toContainText('Cambios sin aplicar');
+    await expect(barraEstilo(page).getByRole('alert'))
+      .toHaveText('El estilo de tus widgets acaba de cambiar desde otra pestaña. Recarga la página para ver el de ahora.');
+    await expect(arena(page)).toHaveAttribute('aria-checked', 'true');
+
+    // Si lo vuelve a aplicar, el `esperado` es lo que acaba de leer, no lo de antes.
+    responder = escribe;
+    await aplicarYConfirmar(page);
+    await expect(estadoEstilo(page)).toHaveText('Aplicado en tu web · hace un momento');
+    expect(cuerpos).toHaveLength(2);
+    expect(cuerpos[0]).toEqual({ estilo: ARENA, esperado: null, motivo: 'aplicar' });
+    expect(cuerpos[1]).toEqual({ estilo: ARENA, esperado: PIEDRA, motivo: 'aplicar' });
   });
 
   test('422: el servidor no lo deja por contraste, y se enseña su motivo', async ({ page }) => {

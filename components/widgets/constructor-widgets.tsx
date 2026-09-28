@@ -254,10 +254,14 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // De CADA widget copiado, no solo del abierto: si cambió otro y vuelve otro
   // día, su tarjeta en «¿Qué quieres poner en tu web?» se lo dice.
   const copias: Record<string, EstadoCopias[string]> = {};
+  // Las configs de lo copiado como se copiaron (sin huérfanos): con ellas
+  // rehace su firma la confirmación de «Aplicar en mi web» (`piezasAfectadas`).
+  const configsCopiadas: Record<string, ConfigConstructor> = {};
   for (const [id, k] of Object.entries(copiados)) {
     const otro = widgetPorId(id);
     if (!esDisponible(otro)) continue;
     const c = id === w.id ? configEfectiva : sinHuerfanos(configs[id] ?? CONFIG_POR_DEFECTO, vigentes);
+    configsCopiadas[id] = c;
     const m = metodoEnWeb(c, otro, plataforma);
     const e: EntradaIntegracion = { ...entrada, widget: otro, config: c };
     const desfasado = !faltaParaGenerar(e, m, { dominiosAutorizados }) && k.firma !== firmaCodigo(e, m);
@@ -329,7 +333,12 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     // diseño propio para una web oscura manda sobre él: es de este widget.
     fondo: configEfectiva.identidad === 'propia' && configEfectiva.tema === 'oscuro' ? FONDO_WEB_OSCURA : colorDeLaWeb(estiloWeb.borrador),
   };
-  const piezas = piezasAfectadas(configs, copiados, plataforma);
+  // Lo que nombra la confirmación: solo lo copiado que sigue siendo el código de
+  // ahora, y a qué le llega el borrador que se va a aplicar.
+  const piezas = piezasAfectadas({
+    configs: configsCopiadas, copiados, plataforma, origen, slug, colorEstudio: studio?.colorPrimario ?? null,
+    estilo: estiloWeb.borrador, base: estiloWeb.base,
+  });
 
   const ofertasPrueba = planesTarifa.filter(p => p.activo && p.esPrueba === true);
   const avisos = avisosDeDatos(w.id, {

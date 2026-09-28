@@ -29,9 +29,15 @@ import { baseEstiloWeb, validarEstiloWeb, type BaseEstiloWeb, type ErrorEstiloWe
 //   · Deshacer vuelve a lo que el servidor LEYÓ al aplicar (`anterior`), no a lo
 //     que el panel creía que había, y manda `esperado`: si otra pestaña lo cambió
 //     entretanto, el servidor responde 409 en lugar de pisarlo.
+//   · Tras ese 409, lo que el panel tenía por publicado es VIEJO: se vuelve a
+//     leer (`releer`) antes de afirmar «Es lo que hay ahora en tu web», y el
+//     siguiente Aplicar va contra lo leído, no contra lo de antes (si no, cada
+//     intento daría otro 409). El borrador que estaba probando no se pierde.
 
 export type FaseCargaEstilo = 'cargando' | 'error-carga' | 'listo';
 export type EnvioEstilo = 'reposo' | 'aplicando' | 'aplicado' | 'fallo';
+/** Tras un 409: se está volviendo a leer lo publicado, o no se ha podido. */
+export type RelecturaEstilo = 'releyendo' | 'fallo';
 
 export interface EstiloWebPanel {
   fase: FaseCargaEstilo;
@@ -54,15 +60,29 @@ export interface EstiloWebPanel {
   ultimo: 'aplicar' | 'deshacer' | null;
   /** Sube con cada acierto: la vista previa se vuelve a montar con lo publicado de verdad. */
   version: number;
+  /**
+   * `null`: `publicado` es lo último que dijo el servidor. Si no, un 409 lo
+   * dejó viejo y se está volviendo a leer (o falló): no se afirma qué hay en
+   * su web, ni se aplica o deshace contra eso.
+   */
+  relectura: RelecturaEstilo | null;
   cambiar: (parcial: Partial<WidgetWeb>) => void;
   descartar: () => void;
   aplicar: () => Promise<void>;
   deshacer: () => Promise<void>;
   reintentarCarga: () => void;
+  /** Vuelve a leer lo publicado tras un 409, conservando el borrador que estaba probando. */
+  releer: () => void;
 }
 
 function motivoDe(r: Exclude<ResultadoAplicarEstiloWeb, { ok: true }>): string {
   return r.motivo === 'contraste' ? r.errores[0].mensaje : r.mensaje;
+}
+
+/** Lo publicado tal como lo guarda el panel: «nada elegido» es `null`. */
+function publicadoDe(widgetWeb: unknown): WidgetWeb | null {
+  const leido = leerWidgetWeb(widgetWeb);
+  return esNeutro(leido) ? null : leido;
 }
 
 export function useEstiloWeb(): EstiloWebPanel {
@@ -76,16 +96,18 @@ export function useEstiloWeb(): EstiloWebPanel {
   const [anterior, setAnterior] = useState<WidgetWeb | null | undefined>(undefined);
   const [ultimo, setUltimo] = useState<'aplicar' | 'deshacer' | null>(null);
   const [version, setVersion] = useState(0);
+  const [relectura, setRelectura] = useState<RelecturaEstilo | null>(null);
   // El cerrojo del envío: se lee y se escribe solo en los manejadores, nunca al pintar.
   const enVuelo = useRef(false);
+  // El de la relectura, por lo mismo: dos clics en «Volver a leer» ven el mismo render.
+  const leyendo = useRef(false);
 
   useEffect(() => {
     let vivo = true;
     fetchThemePublicado()
       .then(tema => {
         if (!vivo) return;
-        const leido = leerWidgetWeb(tema.widgetWeb);
-        const actual = esNeutro(leido) ? null : leido;
+        const actual = publicadoDe(tema.widgetWeb);
         setPublicado(actual);
         setBorrador(actual ? { ...actual } : { ...WIDGET_WEB_NEUTRO });
         setBase(baseEstiloWeb(tema.primary, tema.appAlumna));
@@ -101,7 +123,7 @@ export function useEstiloWeb(): EstiloWebPanel {
   const errores = base && pendiente && !esNeutro(borrador) ? validarEstiloWeb(borrador, base) : [];
 
   function cambiar(parcial: Partial<WidgetWeb>) {
-    if (enVuelo.current) return;
+    if (enVuelo.current || leyendo.current) return;
     setBorrador(b => {
       const n = { ...b, ...parcial };
       // «Otro color» va siempre con su color, y ninguna otra web lleva uno.
@@ -115,14 +137,42 @@ export function useEstiloWeb(): EstiloWebPanel {
   }
 
   function descartar() {
-    if (enVuelo.current) return;
+    // Sin lo publicado al día, «descartar» volvería a lo viejo.
+    if (enVuelo.current || relectura !== null) return;
     setBorrador(publicado ? { ...publicado } : { ...WIDGET_WEB_NEUTRO });
     setEnvio('reposo');
     setMensajeFallo(null);
   }
 
+  /**
+   * Otra pestaña lo cambió (409): se vuelve a leer lo que hay. El borrador se
+   * queda si era un cambio suyo (distinto de lo que creíamos publicado); si no
+   * —estaba deshaciendo, o no tocaba nada—, pasa a ser lo leído, que es lo que
+   * de verdad hay en su web. `anterior` se olvida: deshacer ahora devolvería su
+   * web a lo de antes pasando por encima de lo que hizo la otra pestaña.
+   */
+  function releer() {
+    if (leyendo.current) return;
+    leyendo.current = true;
+    const viejo = publicado;
+    setRelectura('releyendo');
+    setAnterior(undefined);
+    fetchThemePublicado()
+      .then(tema => {
+        const actual = publicadoDe(tema.widgetWeb);
+        setPublicado(actual);
+        setBorrador(b => (mismoWidgetWeb(b, viejo) ? (actual ? { ...actual } : { ...WIDGET_WEB_NEUTRO }) : b));
+        setBase(baseEstiloWeb(tema.primary, tema.appAlumna));
+        setRelectura(null);
+        // La vista previa, otra vez desde cero: lo publicado es otro.
+        setVersion(v => v + 1);
+      })
+      .catch(() => setRelectura('fallo'))
+      .finally(() => { leyendo.current = false; });
+  }
+
   async function aplicar() {
-    if (enVuelo.current || !pendiente || errores.length > 0) return;
+    if (enVuelo.current || relectura !== null || !pendiente || errores.length > 0) return;
     enVuelo.current = true;
     setEnvio('aplicando');
     setMensajeFallo(null);
@@ -133,6 +183,7 @@ export function useEstiloWeb(): EstiloWebPanel {
       // El borrador se queda: lo que eligió no se pierde por un fallo de red.
       setEnvio('fallo');
       setMensajeFallo(motivoDe(r));
+      if (r.motivo === 'cambiado') releer();
       return;
     }
     setPublicado(r.aplicado);
@@ -144,7 +195,7 @@ export function useEstiloWeb(): EstiloWebPanel {
   }
 
   async function deshacer() {
-    if (enVuelo.current || anterior === undefined || pendiente) return;
+    if (enVuelo.current || relectura !== null || anterior === undefined || pendiente) return;
     enVuelo.current = true;
     setEnvio('aplicando');
     setMensajeFallo(null);
@@ -154,6 +205,7 @@ export function useEstiloWeb(): EstiloWebPanel {
     if (!r.ok) {
       setEnvio('fallo');
       setMensajeFallo(motivoDe(r));
+      if (r.motivo === 'cambiado') releer();
       return;
     }
     setPublicado(r.aplicado);
@@ -170,7 +222,7 @@ export function useEstiloWeb(): EstiloWebPanel {
   }
 
   return {
-    fase, publicado, base, borrador, pendiente, errores, envio, mensajeFallo, anterior, ultimo, version,
-    cambiar, descartar, aplicar, deshacer, reintentarCarga,
+    fase, publicado, base, borrador, pendiente, errores, envio, mensajeFallo, anterior, ultimo, version, relectura,
+    cambiar, descartar, aplicar, deshacer, reintentarCarga, releer,
   };
 }
