@@ -452,20 +452,58 @@ test('resolveTheme deja vacíos los textos de voz cuando no hay nada guardado', 
 // e2e del editor comprobaba lo que se ENVÍA, y la vista previa inyecta su CSS
 // por su cuenta, así que el camino real —publicar, leer, pintar— no se probaba
 // en ningún sitio. Esto lo cierra para cualquier campo futuro.
+const WIDGET_WEB = {
+  estilo: 'arena', letra: 'editorial', boton: 'tinta', web: 'otro', colorWeb: '#E8E1D3',
+  fundido: true, forma: 'recto', densidad: 'compacta', ocultarPie: true,
+} as const;
+
 test('resolveTheme no pierde ningún campo que el esquema acepta', () => {
   const completo = {
     ...DEFAULT_THEME,
     appAlumna: { estilo: 'carbon', tipografia: 'romantica', marca: 'fiel', boton: 'marca', encuadre: 'arriba' },
+    widgetWeb: WIDGET_WEB,
   };
   const resuelto = resolveTheme(completo) as Record<string, unknown>;
   const declarados = Object.keys(themeConfigSchema.shape);
   const perdidos = declarados.filter((k) => !(k in resuelto));
   assert.deepEqual(perdidos, [], 'campos que el esquema acepta y la lectura tira por el camino');
   assert.deepEqual(resuelto.appAlumna, completo.appAlumna);
+  assert.deepEqual(resuelto.widgetWeb, completo.widgetWeb);
 });
 
 test('un appAlumna corrupto no tumba el resto del tema', () => {
   const resuelto = resolveTheme({ ...DEFAULT_THEME, primary: '#123456', appAlumna: { estilo: 'nope' } });
   assert.equal(resuelto.primary, '#123456');
   assert.equal(resuelto.appAlumna, undefined);
+});
+
+// ── El estilo de los widgets en su web (Fase B) ─────────────────────────────
+
+test('widgetWeb: ausente en un tema de antes, y el tema sigue siendo igual a DEFAULT_THEME', () => {
+  const r = themeConfigSchema.safeParse({ ...DEFAULT_THEME });
+  assert.ok(r.success);
+  if (r.success) assert.equal(r.data.widgetWeb, undefined);
+  assert.equal('widgetWeb' in resolveTheme({}), false);
+  assert.deepEqual(resolveTheme(DEFAULT_THEME), DEFAULT_THEME);
+});
+
+test('resolveTheme conserva un widgetWeb válido y descarta uno corrupto sin tocar lo demás', () => {
+  assert.deepEqual(resolveTheme({ ...DEFAULT_THEME, widgetWeb: WIDGET_WEB }).widgetWeb, WIDGET_WEB);
+  for (const malo of [
+    { ...WIDGET_WEB, estilo: 'nope' }, { ...WIDGET_WEB, colorWeb: '#fff;}</style>' }, { ...WIDGET_WEB, colorWeb: null },
+    { ...WIDGET_WEB, extra: 1 }, 'arena', null,
+  ]) {
+    const r = resolveTheme({ ...DEFAULT_THEME, primary: '#123456', widgetWeb: malo });
+    assert.equal('widgetWeb' in r, false, JSON.stringify(malo));
+    assert.equal(r.primary, '#123456');
+  }
+});
+
+test('instalarTema: el estilo de los widgets de su web sobrevive, y si no lo hay no aparece un `undefined` suelto', () => {
+  const con = instalarTema({ ...DEFAULT_THEME, widgetWeb: { ...WIDGET_WEB } }, { barraOscura: true }, { themeId: 'noir', themeVersion: 6 });
+  assert.deepEqual(con.widgetWeb, WIDGET_WEB);
+  const sin = instalarTema({ ...DEFAULT_THEME }, {}, { themeId: 'classic', themeVersion: 1 });
+  assert.equal('widgetWeb' in sin, false);
+  assert.deepEqual(sin, DEFAULT_THEME);
+  assert.ok((CAMPOS_DEL_ESTUDIO as readonly string[]).includes('widgetWeb'));
 });

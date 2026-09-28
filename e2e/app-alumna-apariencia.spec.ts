@@ -40,22 +40,17 @@ async function preparar(page: Page, publicar: (cuerpo: { campos: Record<string, 
 /** Nombre de la alumna con la que entra la vista previa: el saludo de Inicio lo lleva. */
 const ALUMNA = 'Alumna Prueba';
 
+/** El saludo de Inicio sin nombre: el de la propietaria, que no es alumna. */
+const SALUDO_SIN_NOMBRE = /^Buen(os días|as tardes|as noches) 👋$/;
+const VISTA_PREVIA = 'iframe[title="Vista previa de la app de tus alumnas"]';
+
 /**
- * Una alumna con sesión en el navegador, para que la vista previa pueda enseñar
- * «Inicio».
- *
- * ⚠️ Sin esto «Inicio» NO es Inicio. La vista previa es la app REAL, y su
- * guardia (`GuardiaSesion`) manda a `/acceso/login` a quien no tiene sesión de
- * alumna —la propietaria del panel no la tiene: la suya es de staff, en otro
- * almacén—. El login vive en el mismo marco que «Entrada» (`/acceso` → 308 →
- * `/acceso/login`), así que sin alumna las dos opciones pintan LA MISMA
- * pantalla. Medido el 28-sep-2026: mismo texto en las dos.
- *
- * El test de Inicio/Entrada miraba `toHaveCount(0)` sobre `.st-auth-hero` en
- * «Inicio» y pasaba solo si llegaba ANTES de que el iframe hidratase y la
- * guardia redirigiera: verde en CI por lento, rojo en local con el servidor ya
- * caliente, que se leía como estado arrastrado entre tests. No lo era: fallaba
- * igual corriendo solo.
+ * Una alumna con sesión en el mismo navegador: la vista previa enseña entonces
+ * SU Inicio (el saludo lleva su nombre). Es el caso raro —la propietaria que
+ * además es alumna de su estudio—; el normal es sin sesión, y desde el
+ * 28-sep-2026 también enseña Inicio (`GuardiaSesion` → `vistaPrevia`). Antes
+ * pintaba el login, igual que «Entrada», y el test de Inicio/Entrada solo
+ * pasaba si miraba antes de que el iframe hidratase y redirigiera.
  *
  * Se registra DESPUÉS de `preparar()`: gana la última ruta, y el comodín
  * `/api/**` del panel contestaría `{}` a la sesión.
@@ -81,7 +76,7 @@ async function conAlumna(page: Page) {
 
 /** El `--background` que ve la app dentro del iframe de la vista previa. */
 async function fondoDeLaApp(page: Page) {
-  const marco = page.frameLocator('iframe[title="Vista previa de la app de tus alumnas"]');
+  const marco = page.frameLocator(VISTA_PREVIA);
   await marco.locator('.student-app').first().waitFor({ timeout: 60_000 });
   return marco.locator('.student-app').first().evaluate((el) => getComputedStyle(el).getPropertyValue('--background').trim().toUpperCase());
 }
@@ -133,7 +128,7 @@ test.describe('Apariencia de tu app', () => {
     await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
     // Arranca en Inicio DE VERDAD. Sin esto el `.st-auth-hero` del final ya
     // estaba ahí desde el principio (el login) y el «salta» no probaba nada.
-    const marco = page.frameLocator('iframe[title="Vista previa de la app de tus alumnas"]');
+    const marco = page.frameLocator(VISTA_PREVIA);
     await expect(marco.getByRole('heading', { name: new RegExp(ALUMNA) })).toBeVisible({ timeout: 60_000 });
     await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
 
@@ -149,27 +144,70 @@ test.describe('Apariencia de tu app', () => {
     await expect(marco.getByRole('heading', { name: new RegExp(ALUMNA) })).toHaveCount(0);
   });
 
-  test('la vista previa cambia entre Inicio y Entrada', async ({ page }) => {
+  test('la vista previa cambia entre Inicio y Entrada, sin que la propietaria sea alumna', async ({ page }) => {
+    await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
+    // Lo que pida la app del iframe a `/api/public/*`: el catálogo sí, y SIN token.
+    // Enseñar Inicio no puede hacerse pasar por nadie.
+    const publicas: { ruta: string; conToken: boolean }[] = [];
+    page.on('request', (req) => {
+      const u = new URL(req.url());
+      if (u.pathname.startsWith('/api/public/')) publicas.push({ ruta: u.pathname, conToken: !!req.headers().authorization });
+    });
+    await ir(page, 'configuracion/apariencia');
+    await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
+    const marco = page.frameLocator(VISTA_PREVIA);
+    // Primero lo que SÍ es Inicio —su saludo—, y solo entonces la ausencia de
+    // la entrada: un `toHaveCount(0)` a secas se cumple con el iframe aún en
+    // blanco, que es como este test estuvo verde sin mirar nada.
+    await expect(marco.getByRole('heading', { name: SALUDO_SIN_NOMBRE })).toBeVisible({ timeout: 60_000 });
+    await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
+    expect(page.frames().some((f) => /\/acceso\//.test(f.url()))).toBe(false);
+    expect(publicas.some((p) => p.ruta === '/api/public/studio-data')).toBe(true);
+    expect(publicas.filter((p) => p.conToken)).toEqual([]);
+
+    await page.getByRole('radio', { name: 'Entrada', exact: true }).click();
+    await expect(marco.locator('.st-auth-hero')).toBeVisible({ timeout: 60_000 });
+    await expect(marco.getByRole('heading', { name: SALUDO_SIN_NOMBRE })).toHaveCount(0);
+
+    // Y de vuelta: el selector va en los dos sentidos.
+    await page.getByRole('radio', { name: 'Inicio', exact: true }).click();
+    await expect(marco.getByRole('heading', { name: SALUDO_SIN_NOMBRE })).toBeVisible({ timeout: 60_000 });
+    await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
+  });
+
+  test('con sesión de alumna, la vista previa enseña SU Inicio', async ({ page }) => {
     await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
     const alumna = await conAlumna(page);
     await ir(page, 'configuracion/apariencia');
     await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
-    const marco = page.frameLocator('iframe[title="Vista previa de la app de tus alumnas"]');
-    // Primero lo que SÍ es Inicio —su saludo—, y solo entonces la ausencia de
-    // la entrada: un `toHaveCount(0)` a secas se cumple con el iframe aún en
-    // blanco, que es como este test estuvo verde sin mirar nada.
+    const marco = page.frameLocator(VISTA_PREVIA);
     await expect(marco.getByRole('heading', { name: new RegExp(ALUMNA) })).toBeVisible({ timeout: 60_000 });
     await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
     expect(alumna.sesiones()).toBeGreaterThan(0);
+  });
 
-    await page.getByRole('radio', { name: 'Entrada', exact: true }).click();
-    await expect(marco.locator('.st-auth-hero')).toBeVisible({ timeout: 60_000 });
-    await expect(marco.getByRole('heading', { name: new RegExp(ALUMNA) })).toHaveCount(0);
+  // ── Hasta dónde llega la excepción. Enseñar Inicio sin sesión es SOLO de la
+  // vista previa y SOLO de Inicio; lo demás sigue mandando a entrar.
 
-    // Y de vuelta: el selector va en los dos sentidos.
-    await page.getByRole('radio', { name: 'Inicio', exact: true }).click();
-    await expect(marco.getByRole('heading', { name: new RegExp(ALUMNA) })).toBeVisible({ timeout: 60_000 });
-    await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
+  test('dentro de la vista previa, las demás pantallas siguen pidiendo entrar', async ({ page }) => {
+    await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
+    await ir(page, 'configuracion/apariencia');
+    await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
+    const marco = page.frameLocator(VISTA_PREVIA);
+    await expect(marco.getByRole('heading', { name: SALUDO_SIN_NOMBRE })).toBeVisible({ timeout: 60_000 });
+    const iframe = page.frames().find((f) => f.url().includes('/portal/pilates-centro'));
+    expect(iframe).toBeTruthy();
+    await iframe!.goto(new URL('/portal/pilates-centro/mis-reservas', iframe!.url()).href);
+    await expect.poll(() => iframe!.url(), { timeout: 30_000 }).toMatch(/\/portal\/pilates-centro\/acceso\/login\?next=/);
+    await expect(marco.locator('.st-auth-hero')).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('fuera de la vista previa, Inicio sin sesión sigue pidiendo entrar', async ({ page }) => {
+    await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
+    await page.goto('/portal/pilates-centro', { waitUntil: 'domcontentloaded' });
+    await expect(page).toHaveURL(/\/portal\/pilates-centro\/acceso\/login\?next=/, { timeout: 30_000 });
+    await expect(page.locator('.st-auth-hero')).toBeVisible();
+    await expect(page.getByRole('heading', { name: SALUDO_SIN_NOMBRE })).toHaveCount(0);
   });
 
   test('«Descartar» vuelve a lo publicado, también en la vista previa', async ({ page }) => {

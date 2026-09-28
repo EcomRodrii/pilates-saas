@@ -16,8 +16,11 @@ import {
 import { embudoPorWidget, type EmbudoWidget } from '@/lib/widgets/embudo';
 import { dbEmbudoWidgetPorOrigen } from '@/lib/supabase-data';
 import { useRol } from '@/lib/permisos';
-import { puedeGestionarPortalHome } from '@/lib/permisos-reglas';
+import { puedeGestionarPortalHome, puedeVer } from '@/lib/permisos-reglas';
 import { conVistaPrevia, faltaParaGenerar, firmaCodigo, urlEmbebido, urlPagina, type EntradaIntegracion } from '@/lib/widgets/integracion';
+import { urlPopupPermitida } from '@/lib/widgets/popup-url';
+import { piezasAfectadas } from '@/lib/widgets/estilo-afectados';
+import { colorDeLaWeb } from '@/lib/reservar/estilo-web-tipos';
 import {
   direccionLegible, leerWeb, metodoEnWeb, nombrePlataforma, receta as recetaDe, usaBotonPropio, type EstadoWeb, type PlataformaWeb,
 } from '@/lib/widgets/recetas';
@@ -28,6 +31,7 @@ import { PasoPlataforma } from './paso-plataforma';
 import { PasoQue, type AvisoDeDatos, type DatosPanel, type EstadoCopias } from './paso-que';
 import { PasoComo } from './paso-como';
 import { PasoPonlo } from './paso-ponlo';
+import { useEstiloWeb } from './usar-estilo-web';
 import { BotonEnTuWeb, VistaPrevia, type Contenido, type Dispositivo, type FormaPrevia } from './vista-previa';
 import { PreviewNativa } from './preview-nativa';
 import { GestionDominios } from './dominios';
@@ -47,10 +51,17 @@ import { GestionDominios } from './dominios';
 // ⚠️ Los tres pasos están SIEMPRE montados y solo se oculta el que no toca:
 // el código (su <pre>) tiene que estar en el DOM desde el principio, también
 // mientras se contesta la pregunta de la web.
+//
+// El ESTILO de sus widgets (Fase B, 28-sep-2026) es otra cosa: no va en el
+// código ni en `widget_builder`, sino en el tema publicado, y se aplica con su
+// botón (./usar-estilo-web.ts). Por eso su borrador vive aquí arriba: lo leen la
+// vista previa, «Cómo se ve» y «Ponlo en tu web», y no depende del widget abierto.
 
 const ORIGEN_POR_DEFECTO = new URL(LEGAL.url).origin;
 const HORARIO = WIDGETS.find((x): x is WidgetDisponible => x.id === 'horario' && x.estado === 'disponible')!;
 const COLOR_POR_DEFECTO = '#343825';
+/** El lienzo de la vista previa con un diseño propio «para una web oscura». */
+const FONDO_WEB_OSCURA = '#1C1D1A';
 
 type Paso = 'plataforma' | 'que' | 'como' | 'ponlo';
 // Sin web no hay dónde «ponerlo»: el último paso se llama por lo que hace.
@@ -74,6 +85,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const { sesiones, tiposClase, salas, instructores, planesTarifa, citasServicios, studio, updateStudio, reflejarStudioGuardado } = useStudio();
   const origen = typeof window !== 'undefined' ? window.location.origin : ORIGEN_POR_DEFECTO;
   const rol = useRol();
+  const estiloWeb = useEstiloWeb();
 
   const [activoId, setActivoId] = useState('horario');
   const elegido = widgetPorId(activoId);
@@ -242,10 +254,14 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // De CADA widget copiado, no solo del abierto: si cambió otro y vuelve otro
   // día, su tarjeta en «¿Qué quieres poner en tu web?» se lo dice.
   const copias: Record<string, EstadoCopias[string]> = {};
+  // Las configs de lo copiado como se copiaron (sin huérfanos): con ellas
+  // rehace su firma la confirmación de «Aplicar en mi web» (`piezasAfectadas`).
+  const configsCopiadas: Record<string, ConfigConstructor> = {};
   for (const [id, k] of Object.entries(copiados)) {
     const otro = widgetPorId(id);
     if (!esDisponible(otro)) continue;
     const c = id === w.id ? configEfectiva : sinHuerfanos(configs[id] ?? CONFIG_POR_DEFECTO, vigentes);
+    configsCopiadas[id] = c;
     const m = metodoEnWeb(c, otro, plataforma);
     const e: EntradaIntegracion = { ...entrada, widget: otro, config: c };
     const desfasado = !faltaParaGenerar(e, m, { dominiosAutorizados }) && k.firma !== firmaCodigo(e, m);
@@ -264,13 +280,28 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     : null;
   const paginaCompleta = metodo === 'boton' || metodo === 'enlace';
   const urlReal = paginaCompleta ? urlPagina(entrada) : urlEmbebido(entrada, metodo);
+  // El estilo de sus widgets que está probando, solo mientras no lo aplica:
+  // aplicado, la previa ya lo recibe del servidor como cualquier web.
+  const borradorWeb = estiloWeb.pendiente ? estiloWeb.borrador : undefined;
+  const urlConBorrador = conVistaPrevia(urlReal, borradorWeb ? { borradorWeb } : undefined);
+  // La ventana de verdad la abre /widget-popup.js con `ventana=1` (ahí el
+  // estilo no se funde): la previa carga exactamente la misma URL que ella.
+  const urlPrevia = metodo === 'popup' ? urlPopupPermitida(urlConBorrador, origen) ?? urlConBorrador : urlConBorrador;
   // Un color a medio elegir recargaría la vista previa a cada paso: se espera
   // a que se deje de tocar. El código sí cambia al momento.
-  const [srcPrevia, setSrcPrevia] = useState(() => conVistaPrevia(urlReal));
+  const [srcPrevia, setSrcPrevia] = useState(urlPrevia);
   useEffect(() => {
-    const t = setTimeout(() => setSrcPrevia(conVistaPrevia(urlReal)), 350);
+    const t = setTimeout(() => setSrcPrevia(urlPrevia), 350);
     return () => clearTimeout(t);
-  }, [urlReal]);
+  }, [urlPrevia]);
+  // Tras aplicar o deshacer, sin esperar: la vista previa se vuelve a montar
+  // (ver su `key`) y tiene que cargar ya lo publicado, no el borrador de antes
+  // para recargar otra vez 350 ms después.
+  const [versionPrevia, setVersionPrevia] = useState(estiloWeb.version);
+  if (versionPrevia !== estiloWeb.version) {
+    setVersionPrevia(estiloWeb.version);
+    setSrcPrevia(urlPrevia);
+  }
 
   let contenido: Contenido | null = null;
   if (!faltaPrevia) {
@@ -285,7 +316,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const forma: FormaPrevia = metodo === 'popup' || metodo === 'boton'
     ? {
       tipo: 'boton',
-      boton: <BotonEnTuWeb entrada={entrada} metodo={metodo} botonPropio={botonPropio} />,
+      boton: <BotonEnTuWeb entrada={entrada} metodo={metodo} botonPropio={botonPropio} borradorWeb={borradorWeb} />,
       pista: botonPropio
         ? 'Es el botón de tu propia web con tu enlace: se verá como el resto de tus botones.'
         : metodo === 'popup' ? 'Púlsalo: se abre encima, como pasará en tu web.' : 'Púlsalo: lleva a tu página de reservas.',
@@ -298,8 +329,16 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     direccion: direccionWeb,
     nombre: studio?.nombre ?? 'Tu estudio',
     color: studio?.colorPrimario ?? COLOR_POR_DEFECTO,
-    oscura: configEfectiva.identidad === 'propia' && configEfectiva.tema === 'oscuro',
+    // El de «¿Cómo es tu web?» (el borrador: lo está contestando ahora). Un
+    // diseño propio para una web oscura manda sobre él: es de este widget.
+    fondo: configEfectiva.identidad === 'propia' && configEfectiva.tema === 'oscuro' ? FONDO_WEB_OSCURA : colorDeLaWeb(estiloWeb.borrador),
   };
+  // Lo que nombra la confirmación: solo lo copiado que sigue siendo el código de
+  // ahora, y a qué le llega el borrador que se va a aplicar.
+  const piezas = piezasAfectadas({
+    configs: configsCopiadas, copiados, plataforma, origen, slug, colorEstudio: studio?.colorPrimario ?? null,
+    estilo: estiloWeb.borrador, base: estiloWeb.base,
+  });
 
   const ofertasPrueba = planesTarifa.filter(p => p.activo && p.esPrueba === true);
   const avisos = avisosDeDatos(w.id, {
@@ -409,7 +448,21 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
             />
           </div>
           <div ref={el => { contenedores.current.como = el; }} tabIndex={-1} hidden={paso !== 'como'} className="outline-none">
-            <PasoComo key={w.id} w={w} c={configEfectiva} metodo={metodo} plataforma={plataforma} cambiar={cambiar} colorEstudio={datos.colorEstudio} />
+            <PasoComo
+              key={w.id}
+              w={w}
+              c={configEfectiva}
+              metodo={metodo}
+              plataforma={plataforma}
+              cambiar={cambiar}
+              colorEstudio={datos.colorEstudio}
+              estilo={estiloWeb}
+              // Lo aplica solo la propietaria, igual que decide el servidor
+              // (`/api/estudio/widget-estilo`): el resto lo ve sin poder tocarlo.
+              soloLectura={rol !== 'PROPIETARIO'}
+              verApariencia={puedeVer(rol, '/configuracion/apariencia')}
+              piezas={piezas}
+            />
           </div>
           <div ref={el => { contenedores.current.ponlo = el; }} tabIndex={-1} hidden={paso !== 'ponlo'} className="outline-none">
             <PasoPonlo
@@ -422,6 +475,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               origen={origen}
               copiado={copia}
               desfase={desfase}
+              estiloSinAplicar={estiloWeb.pendiente}
               onCopiado={registrarCopia}
               onMetodo={elegirMetodo}
               cambiar={cambiar}
@@ -459,14 +513,15 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
         {conPrevia && (
           <div className="order-first min-w-0 @4xl/config:sticky @4xl/config:top-4 @4xl/config:order-none">
             <VistaPrevia
-              key={`${w.id}-${metodo}`}
+              // Tras aplicar o deshacer, otra vez desde cero: lo publicado cambió en el servidor.
+              key={`${w.id}-${metodo}-${estiloWeb.version}`}
               contenido={contenido}
               falta={faltaPrevia}
               forma={forma}
               web={suWeb}
               paginaDeReservas={`${new URL(origen).host}/reservar/${slug}`}
               anchoWidget={anchoWidget}
-              abrirEn={conVistaPrevia(urlReal)}
+              abrirEn={urlPrevia}
               dispositivo={dispositivo}
               onDispositivo={setDispositivo}
             />
@@ -489,12 +544,13 @@ function sinHuerfanos(c: ConfigConstructor, v: Vigentes): ConfigConstructor {
 }
 
 // El estado de lo guardado, sin que parezca que su web ya ha cambiado: lo
-// guardado es lo de esta pantalla; su web cambia cuando pega el código.
+// guardado es lo de esta pantalla; lo que va en el código llega a su web cuando
+// lo pega. (El estilo de sus widgets no pasa por aquí: se aplica con su botón.)
 function EstadoGuardadoLinea({ estado }: { estado: EstadoGuardado }) {
   return (
     <p role="status" aria-live="polite" className={cn('flex min-h-5 items-center gap-1.5 text-[12px] text-muted-foreground', estado === 'error' && 'text-destructive')}>
       {estado === 'guardando' && <><Loader2 size={12} className="animate-spin" aria-hidden />Guardando tus ajustes…</>}
-      {estado === 'guardado' && <><CheckCircle2 size={12} className="text-success" aria-hidden />Tus ajustes están guardados. Tu web cambia cuando pegues el código.</>}
+      {estado === 'guardado' && <><CheckCircle2 size={12} className="text-success" aria-hidden />Tus ajustes están guardados. Lo que va en el código llega a tu web cuando lo pegues.</>}
       {estado === 'error' && 'No se han guardado tus ajustes. El código que copies sigue valiendo.'}
     </p>
   );

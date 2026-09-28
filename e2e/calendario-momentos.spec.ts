@@ -33,6 +33,9 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+// La clase sembrada se edita desde el formulario: ver `sesionFutura()` en
+// e2e/sesion-futura.ts (no puede cruzar la medianoche del estudio).
+
 // Rediseño del Calendario: la rejilla ya no pinta desde `sesiones`/`reservas`
 // del contexto (over-fetch admin), sino desde /api/calendario (payload por
 // rol). Mapeo mínimo fila cruda → forma de esa respuesta, mismo shape que

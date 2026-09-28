@@ -36,10 +36,11 @@ import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
 import { CampoImagen } from '@/components/ui/campo-imagen';
 import { btnPrimary, btnSecondary, cardCls, inputCls } from '@/components/configuracion/estilos';
 import {
-  ESTILOS, TIPOGRAFIAS, acentoDe, estiloPorId, resolverApariencia, temaAppCssText,
+  ESTILOS, TIPOGRAFIAS, resolverApariencia, temaAppCssText,
   type AparienciaApp, type EncuadrePortada,
 } from '@/lib/student/apariencia';
 import { TITULO_ACCESO_POR_DEFECTO } from '@/lib/student/titulo-acceso';
+import { MuestraEstilo } from './muestra-estilo';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const ID_ESTILO_BORRADOR = 'apariencia-borrador';
@@ -104,51 +105,6 @@ function Segmentado<T extends string>({ etiqueta, valor, opciones, onChange }: {
         </button>
       ))}
     </div>
-  );
-}
-
-/** Miniatura de un estilo: su fondo, una tarjeta y el botón como quedaría con la marca actual. */
-function MuestraEstilo({ app, primary, activo, onElegir }: {
-  app: AparienciaApp; primary: string; activo: boolean; onElegir: () => void;
-}) {
-  const e = estiloPorId(app.estilo);
-  const a = acentoDe(primary, app);
-  const boton = app.boton === 'marca' ? { bg: a.accent, fg: a.accentForeground } : { bg: e.tinta, fg: e.tintaForeground };
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={activo}
-      onClick={onElegir}
-      className={cn(
-        'group relative flex flex-col overflow-hidden rounded-xl border text-left',
-        'transition-[box-shadow,transform,border-color] duration-200 ease-out will-change-transform active:scale-[.98]',
-        activo ? 'border-brand shadow-md ring-2 ring-brand/30' : 'border-border hover:-translate-y-0.5 hover:shadow-md',
-      )}
-    >
-      <span aria-hidden className="block px-3 pb-3 pt-4 transition-colors duration-300" style={{ background: e.background }}>
-        <span className="block p-2.5" style={{ background: e.card, borderRadius: e.radios.card * 0.7, border: `1px solid ${e.border}`, boxShadow: '0 6px 14px -8px rgba(26,26,26,.25)' }}>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full transition-colors duration-300" style={{ background: a.accent }} />
-            <span className="h-1.5 w-12 rounded-full" style={{ background: e.foreground, opacity: 0.8 }} />
-          </span>
-          <span className="mt-1.5 block h-1.5 w-16 rounded-full" style={{ background: e.mutedForeground, opacity: 0.45 }} />
-          <span
-            className="mt-2.5 flex h-5 items-center justify-center text-[9px] font-semibold transition-all duration-300"
-            style={{ background: boton.bg, color: boton.fg, borderRadius: Math.min(e.radios.pill, 999) * (e.radios.pill > 100 ? 1 : 0.6) }}
-          >
-            Reservar
-          </span>
-        </span>
-      </span>
-      <span className="block border-t border-border bg-card px-3 py-2">
-        <span className="flex items-center justify-between gap-2 text-[13px] font-semibold text-foreground">
-          {e.nombre}
-          {activo && <Check size={14} className="text-brand" aria-hidden />}
-        </span>
-        <span className="block text-[12px] leading-snug text-muted-foreground">{e.descripcion}</span>
-      </span>
-    </button>
   );
 }
 

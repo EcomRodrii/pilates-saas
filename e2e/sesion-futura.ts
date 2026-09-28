@@ -1,31 +1,30 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Una clase sembrada en el futuro cercano, para los specs del calendario que
-// abren su formulario de Editar. Vivía copiada en tres specs
-// (calendario-momentos, calendario-tres-recortes, preparar-clase-ia) y las tres
-// copias tenían el mismo agujero: se saca aquí para arreglarlo una vez, mismo
-// criterio que `socia-lista.ts` y `panel-sembrado.ts`.
+// Una clase sembrada en el futuro cercano, que se pueda EDITAR desde el
+// calendario. Vivía copiada en tres specs (calendario-momentos,
+// calendario-tres-recortes, preparar-clase-ia); aquí una sola vez.
 //
-// Por qué no a las 09:00 fijas de «hoy»: sesionYaEmpezada()
-// (calendario-estado.ts) deshabilita Editar para cualquier clase cuyo inicio ya
-// haya pasado, y un runner de CI que ejecutara después de las 09:00 volvía «ya
-// empezada» la clase que el test necesitaba poder editar.
+// En el futuro y no a las 09:00 fijas de «hoy»: `sesionYaEmpezada()`
+// (calendario-estado.ts) deshabilita Editar en cuanto la clase ha empezado, y un
+// runner que corriera por la tarde volvía «ya empezada» la clase del test.
 //
-// Por qué NUNCA puede cruzar la medianoche DE MADRID: el formulario de editar
-// tiene UN solo campo `fecha` compartido por horaInicio/horaFin, y desde RES-7-f
-// los extrae y recombina en hora del ESTUDIO (openEdit()/toISO() en
-// app/(dashboard)/calendario/page.tsx). `horaInvalida` compara las horas como
-// cadenas HH:MM del mismo día, así que una clase de 23:15 a 00:10 en Madrid se
-// marca —con razón, dado ese modelo— «La hora de fin debe ser posterior a la
-// hora de inicio» y deja «Guardar cambios» deshabilitado. `Date.now() + 180 min`
-// cae ahí si el runner arranca entre ~20:05 y ~21:00 de Madrid, y el spec
-// fallaba según la hora del CI (28-sep-2026, run de main 36463284542).
+// ⚠️ Nunca puede cruzar la medianoche EN HORA DEL ESTUDIO. El formulario de
+// editar tiene UN solo campo `fecha` para inicio y fin, los extrae y recombina
+// en hora del estudio (openEdit()/toISO(), desde RES-7-f) y compara las horas
+// como texto HH:MM del mismo día (`horaInvalida`, app/(dashboard)/calendario/
+// page.tsx). Una franja 23:54–00:49 de Madrid sale «La hora de fin debe ser
+// posterior…» con «Guardar cambios» deshabilitado, y el test muere a los 30 s
+// esperando el clic.
 //
-// ⚠️ La versión anterior ya comprobaba esto, pero en UTC (`getUTCDate`), que es
-// la medianoche que no le importa al formulario. Y serializaba SIN zona, así que
-// el instante lo decidía el NAVEGADOR: UTC en CI, Madrid en un portátil de aquí
-// — la misma cadena eran dos clases distintas según dónde corriera. Ahora va con
-// `+00:00` explícito (el formato en que PostgREST devuelve un timestamptz), así
-// que ni la zona del runner ni la de Chromium cambian nada.
+// La guarda solo miraba la medianoche UTC (6ee820b5c, cuando el formulario aún
+// pintaba en la hora del navegador), y eso dejaba sin cubrir de 20:05 a 21:00 de
+// Madrid: medido el 28-sep-2026, `calendario-momentos` rojo en `main` (run
+// 36463284542) y en cualquier PR que corriera a esa hora.
+//
+// ⚠️ Y la fecha va con `+00:00` explícito (el formato en que PostgREST devuelve
+// un timestamptz). Sin zona, el instante lo decidía el NAVEGADOR —UTC en CI,
+// Madrid en un portátil de aquí—: la misma cadena eran dos clases distintas
+// según dónde corriera, y ninguna comprobación hecha en el runner valía para
+// las dos.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TZ_ESTUDIO = 'Europe/Madrid';

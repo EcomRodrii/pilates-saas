@@ -36,6 +36,7 @@ import { semanaDe, hechasEstaSemana, rachaSemanas } from '@/lib/student/ritmo';
 import { useRouter } from 'next/navigation';
 import { Foto, precargarFoto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
+import { enVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
 
 // Cuánto mide el héroe en cada ancho. Lo leen el `<img>` y su precarga: si
 // dijeran cosas distintas, el navegador bajaría la portada dos veces.
@@ -68,7 +69,7 @@ export default function InicioPage() {
     // En la vista previa de «Apariencia de tu app» (iframe del panel) se queda
     // en el Inicio de la alumna aunque la propietaria también dé clase aquí:
     // es la pantalla que ha venido a ver.
-    if (instructora && window.self === window.top) router.replace(destinoEquipo);
+    if (instructora && !enVistaPreviaDelPanel()) router.replace(destinoEquipo);
   }, [instructora, destinoEquipo, router]);
   const hoy = hoyISO();
   // `null` hasta que hidrata; los filtros que lo usan lo tratan como «todavía no».
@@ -154,7 +155,11 @@ export default function InicioPage() {
   const huecos = libresHoy.slice(0, 3);
 
   return (
-    <StudentShell headerTransparente conLema>
+    // `vistaPrevia`: en la vista previa del panel se ve SIN sesión de alumna,
+    // como la vería una recién llegada (el catálogo del estudio es público; lo
+    // suyo —reservas, bono— sale vacío). Sin esto, la propietaria que no es
+    // alumna de su propio estudio —casi todas— veía el login en «Inicio».
+    <StudentShell headerTransparente conLema vistaPrevia>
       {/* Héroe fotográfico, con la cabecera FLOTANDO encima.
           ⚠️ Antes decía justo esto en el comentario y no era verdad: la home
           nunca pasaba `headerTransparente`, así que la barra salía opaca y se
