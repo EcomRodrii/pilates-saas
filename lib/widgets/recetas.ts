@@ -175,7 +175,9 @@ export function pasosEnTuWeb(plataforma: PlataformaWeb | null, metodo: MetodoInt
   if (metodo === 'enlace') {
     return [
       'Pulsa «Copiar enlace».',
-      'Pégalo en la bio de Instagram, en WhatsApp, en tu newsletter o en cualquier botón de tu web.',
+      plataforma === 'sinweb'
+        ? 'Pégalo en la bio de Instagram, en WhatsApp o en tu newsletter.'
+        : 'Pégalo en la bio de Instagram, en WhatsApp, en tu newsletter o en cualquier botón de tu web.',
     ];
   }
   if (metodo === 'boton' && usaBotonPropio(plataforma)) {

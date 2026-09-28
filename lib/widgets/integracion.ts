@@ -320,13 +320,16 @@ function huella(texto: string): string {
  * avisar si cambia después de copiarlo. Fuera de ella, a propósito:
  *  - el origen de Tentare (el mismo código copiado desde otra dirección de la
  *    app es el mismo código);
- *  - el `style` del botón, que lleva el color de marca del estudio: ese se
- *    cambia en Apariencia, no aquí, y no debe saltar como «has cambiado algo».
- * Lo que ella elige para el botón en el constructor sí cuenta.
+ *  - el `style` del BOTÓN (popup y botón), que lleva el color de marca del
+ *    estudio: ese se cambia en Apariencia, no aquí, y no debe saltar como «has
+ *    cambiado algo». Lo que ella elige para el botón sí cuenta (abajo).
+ * ⚠️ El `style` del iframe sí va dentro: lleva el «Ancho» (`max-width`), que
+ * es un ajuste suyo con la etiqueta «Va en el código».
  */
 export function firmaCodigo(e: EntradaIntegracion, metodo: MetodoIntegracion): string {
   const c = e.config;
-  const codigo = generarCodigo(e, metodo, 'html').codigo.split(e.origen).join('').replace(/ style="[^"]*"/g, '');
+  const crudo = generarCodigo(e, metodo, 'html').codigo.split(e.origen).join('');
+  const codigo = metodo === 'popup' || metodo === 'boton' ? crudo.replace(/ style="[^"]*"/g, '') : crudo;
   const boton = metodo === 'popup' || metodo === 'boton'
     ? [c.estiloBoton, c.identidad === 'propia' ? `${c.marca ?? ''}|${c.forma ?? ''}` : ''].join('|')
     : '';

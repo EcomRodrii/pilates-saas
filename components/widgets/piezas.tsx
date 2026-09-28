@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Check, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Toggle } from '@/components/configuracion/estilos';
@@ -11,6 +11,14 @@ import { Toggle } from '@/components/configuracion/estilos';
 // antes de elegir, no después de equivocarse.
 
 export const FOCO = 'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+
+/** 44 px con el dedo (el iPad de recepción), más justo con ratón. */
+export const TACTIL = 'inline-flex min-h-11 items-center [@media(pointer:fine)]:min-h-8';
+
+/** «12 sept», en la hora del estudio. */
+export function fechaCorta(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
+}
 
 /**
  * Lo que decide si un cambio llega solo a su web o hay que volver a copiar el
@@ -49,7 +57,14 @@ export function Tarjeta({ titulo, etiqueta, subtitulo, children, className }: {
   );
 }
 
-/** Un pliegue con su flecha. El contenido sigue en el DOM aunque esté cerrado. */
+/**
+ * Un pliegue con su flecha. El contenido sigue en el DOM aunque esté cerrado.
+ *
+ * ⚠️ `abierto` lo ABRE, nunca lo cierra: con `open={abierto}` controlado,
+ * React quita el atributo cuando pasa a `false` y el pliegue se cerraba justo
+ * después de usar su propio control (apagar «solo las clases de hoy», apagar el
+ * diseño propio, autorizar su web). Cerrar es cosa suya.
+ */
 export function Plegable({ titulo, abierto, children, className, id }: {
   titulo: ReactNode;
   abierto?: boolean;
@@ -57,8 +72,13 @@ export function Plegable({ titulo, abierto, children, className, id }: {
   className?: string;
   id?: string;
 }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  const [inicial] = useState(abierto);
+  useEffect(() => {
+    if (abierto && ref.current) ref.current.open = true;
+  }, [abierto]);
   return (
-    <details id={id} open={abierto} className={cn('group', className)}>
+    <details ref={ref} id={id} open={inicial} className={cn('group', className)}>
       <summary className={cn('flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg text-[13px] font-medium text-foreground [&::-webkit-details-marker]:hidden', FOCO)}>
         <ChevronRight size={15} aria-hidden className="shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
         {titulo}
@@ -152,6 +172,8 @@ export interface Opcion<T extends string> {
   insignia?: string;
   /** Por qué no se puede: se enseña en lugar del detalle. */
   desactivada?: string;
+  /** Una línea más, debajo del detalle (p. ej. cuándo se copió). */
+  nota?: ReactNode;
 }
 
 /**
@@ -226,6 +248,7 @@ export function GrupoOpciones<T extends string>({ etiqueta, opciones, valor, onC
               {(o.desactivada || o.detalle) && (
                 <span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{o.desactivada ?? o.detalle}</span>
               )}
+              {o.nota && <span className="mt-1 block text-[11.5px] leading-snug">{o.nota}</span>}
             </span>
           </button>
         );
@@ -293,9 +316,12 @@ export function MuestraColor({ etiqueta, descripcion, valor, muestra, onChange, 
   /** El color que se pinta mientras no se toca. */
   muestra: string;
   onChange: (v: string | null) => void;
+  /** Con su artículo: «el de tu página de reservas». */
   porDefecto?: string;
 }) {
   const id = useId();
+  // «a» + «el» se contrae: «Volver al de tu página de reservas».
+  const volver = porDefecto.startsWith('el ') ? `Volver al ${porDefecto.slice(3)}` : `Volver a ${porDefecto}`;
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
@@ -303,15 +329,12 @@ export function MuestraColor({ etiqueta, descripcion, valor, muestra, onChange, 
         {descripcion && <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{descripcion}</p>}
         <p className="mt-0.5 text-[12px] text-muted-foreground">
           {valor === null ? `Ahora: ${porDefecto}.` : 'Ahora: el que elegiste.'}
-          {valor !== null && (
-            <>
-              {' '}
-              <button type="button" onClick={() => onChange(null)} className={cn('font-medium text-foreground underline underline-offset-2 hover:no-underline', FOCO)}>
-                Volver a {porDefecto}
-              </button>
-            </>
-          )}
         </p>
+        {valor !== null && (
+          <button type="button" onClick={() => onChange(null)} className={cn(TACTIL, 'text-[12px] font-medium text-foreground underline underline-offset-2 hover:no-underline', FOCO)}>
+            {volver}
+          </button>
+        )}
       </div>
       <input
         id={id}

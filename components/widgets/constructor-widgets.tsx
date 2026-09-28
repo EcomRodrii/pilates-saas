@@ -19,15 +19,15 @@ import { useRol } from '@/lib/permisos';
 import { puedeGestionarPortalHome } from '@/lib/permisos-reglas';
 import { conVistaPrevia, faltaParaGenerar, firmaCodigo, urlEmbebido, urlPagina, type EntradaIntegracion } from '@/lib/widgets/integracion';
 import {
-  direccionLegible, leerWeb, metodoEnWeb, nombrePlataforma, receta as recetaDe, usaBotonPropio, type EstadoWeb,
+  direccionLegible, leerWeb, metodoEnWeb, nombrePlataforma, receta as recetaDe, usaBotonPropio, type EstadoWeb, type PlataformaWeb,
 } from '@/lib/widgets/recetas';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import type { TipoPlan } from '@/lib/types';
-import { FOCO } from './piezas';
+import { FOCO, TACTIL, fechaCorta } from './piezas';
 import { PasoPlataforma } from './paso-plataforma';
-import { PasoQue, type AvisoDeDatos, type DatosPanel } from './paso-que';
+import { PasoQue, type AvisoDeDatos, type DatosPanel, type EstadoCopias } from './paso-que';
 import { PasoComo } from './paso-como';
-import { PasoPonlo, fechaCorta } from './paso-ponlo';
+import { PasoPonlo } from './paso-ponlo';
 import { BotonEnTuWeb, VistaPrevia, type Contenido, type Dispositivo, type FormaPrevia } from './vista-previa';
 import { PreviewNativa } from './preview-nativa';
 import { GestionDominios } from './dominios';
@@ -53,11 +53,15 @@ const HORARIO = WIDGETS.find((x): x is WidgetDisponible => x.id === 'horario' &&
 const COLOR_POR_DEFECTO = '#343825';
 
 type Paso = 'plataforma' | 'que' | 'como' | 'ponlo';
-const PASOS: readonly { id: Exclude<Paso, 'plataforma'>; nombre: string; siguiente: string }[] = [
-  { id: 'que', nombre: 'Qué y dónde', siguiente: 'Siguiente: qué y dónde' },
-  { id: 'como', nombre: 'Cómo se ve', siguiente: 'Siguiente: cómo se ve' },
-  { id: 'ponlo', nombre: 'Ponlo en tu web', siguiente: 'Siguiente: ponlo en tu web' },
-];
+// Sin web no hay dónde «ponerlo»: el último paso se llama por lo que hace.
+function pasosDe(plataforma: PlataformaWeb | null): readonly { id: Exclude<Paso, 'plataforma'>; nombre: string; siguiente: string }[] {
+  const ponlo = plataforma === 'sinweb' ? 'Compártelo' : 'Ponlo en tu web';
+  return [
+    { id: 'que', nombre: 'Qué y dónde', siguiente: 'Siguiente: qué y dónde' },
+    { id: 'como', nombre: 'Cómo se ve', siguiente: 'Siguiente: cómo se ve' },
+    { id: 'ponlo', nombre: ponlo, siguiente: `Siguiente: ${ponlo.toLowerCase()}` },
+  ];
+}
 type EstadoGuardado = 'guardando' | 'guardado' | 'error' | null;
 interface Guardable { configs: Record<string, ConfigConstructor>; copiados: Record<string, Copiado>; web: EstadoWeb }
 
@@ -152,17 +156,12 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // cuelan en el código: un filtro por un id que ya no existe dejaría el
   // horario vacío sin que nadie entienda por qué.
   const instructorasActivas = useMemo(() => instructores.filter(i => i.activo), [instructores]);
-  const configEfectiva = useMemo<ConfigConstructor>(() => {
-    const tipos = new Set(tiposClase.map(t => t.id));
-    const ins = new Set(instructorasActivas.map(i => i.id));
-    const sal = new Set(salas.map(s => s.id));
-    return {
-      ...config,
-      tipos: config.tipos.filter(id => tipos.has(id)),
-      instructoras: config.instructoras.filter(id => ins.has(id)),
-      salas: config.salas.filter(id => sal.has(id)),
-    };
-  }, [config, tiposClase, instructorasActivas, salas]);
+  const vigentes = useMemo<Vigentes>(() => ({
+    tipos: new Set(tiposClase.map(t => t.id)),
+    instructoras: new Set(instructorasActivas.map(i => i.id)),
+    salas: new Set(salas.map(s => s.id)),
+  }), [tiposClase, instructorasActivas, salas]);
+  const configEfectiva = useMemo(() => sinHuerfanos(config, vigentes), [config, vigentes]);
 
   // Sin useMemo a mano: el React Compiler ya memoiza, y uno manual sobre `w`
   // (un objeto del catálogo) le impide optimizar el componente entero.
@@ -240,14 +239,29 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const dominiosAutorizados = studio?.widgetDominiosAutorizados ?? [];
 
   // ── Lo copiado: ¿sigue siendo lo de ahora? ──
+  // De CADA widget copiado, no solo del abierto: si cambió otro y vuelve otro
+  // día, su tarjeta en «¿Qué quieres poner en tu web?» se lo dice.
+  const copias: Record<string, EstadoCopias[string]> = {};
+  for (const [id, k] of Object.entries(copiados)) {
+    const otro = widgetPorId(id);
+    if (!esDisponible(otro)) continue;
+    const c = id === w.id ? configEfectiva : sinHuerfanos(configs[id] ?? CONFIG_POR_DEFECTO, vigentes);
+    const m = metodoEnWeb(c, otro, plataforma);
+    const e: EntradaIntegracion = { ...entrada, widget: otro, config: c };
+    const desfasado = !faltaParaGenerar(e, m, { dominiosAutorizados }) && k.firma !== firmaCodigo(e, m);
+    copias[id] = { en: k.en, desfasado };
+  }
   const copia = copiados[w.id] ?? null;
-  const faltaCodigo = faltaParaGenerar(entrada, metodo, { dominiosAutorizados });
-  const desfase = !!copia && !faltaCodigo && copia.firma !== firmaCodigo(entrada, metodo);
+  const desfase = !!copias[w.id]?.desfasado;
 
   // ── Vista previa ──
   const [dispositivo, setDispositivo] = useState<Dispositivo>(() =>
     typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches ? 'movil' : 'escritorio');
-  const faltaPrevia = faltaParaGenerar(entrada, metodo, { dominiosAutorizados: ['*'] });
+  // Con cualquier dominio dado por bueno, lo único que puede faltar para
+  // enseñarlo es la clase. Con su propio texto: aquí no se habla de código.
+  const faltaPrevia = faltaParaGenerar(entrada, metodo, { dominiosAutorizados: ['*'] })
+    ? 'Elige la clase y aquí verás cómo queda.'
+    : null;
   const paginaCompleta = metodo === 'boton' || metodo === 'enlace';
   const urlReal = paginaCompleta ? urlPagina(entrada) : urlEmbebido(entrada, metodo);
   // Un color a medio elegir recargaría la vista previa a cada paso: se espera
@@ -298,7 +312,11 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   });
 
   const conPrevia = paso !== 'plataforma';
-  const indice = PASOS.findIndex(p => p.id === paso);
+  const pasos = pasosDe(plataforma);
+  const indice = pasos.findIndex(p => p.id === paso);
+  // Un paso anterior solo lleva ✓ si de verdad está hecho: sin la clase de
+  // «Una clase concreta», «Qué y dónde» no lo está.
+  const hecho = (id: Paso, i: number) => i < indice && !(id === 'que' && faltaPrevia);
 
   return (
     <div className="space-y-5">
@@ -320,7 +338,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
             {resultadosMes && etiquetaActiva && <ResumenMes resultado={resultadoActivo} onVer={onVerResultados} />}
           </div>
           <nav aria-label="Pasos" className="flex flex-wrap gap-2">
-            {PASOS.map((p, i) => {
+            {pasos.map((p, i) => {
               const actual = p.id === paso;
               return (
                 <button
@@ -335,7 +353,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
                   )}
                 >
                   <span aria-hidden className={cn('flex size-7 items-center justify-center rounded-full text-[12px] font-semibold', actual ? 'bg-foreground text-background' : 'bg-muted')}>
-                    {i < indice ? <Check size={13} /> : i + 1}
+                    {hecho(p.id, i) ? <Check size={13} /> : i + 1}
                   </span>
                   {p.nombre}
                 </button>
@@ -349,18 +367,17 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       {conPrevia && desfase && copia && (
         <div aria-live="polite" className="flex items-start gap-2.5 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
           <AlertCircle size={16} aria-hidden className="mt-0.5 shrink-0 text-warning" />
-          <p>
-            <strong>Has cambiado algo que va en el código después de copiarlo el {fechaCorta(copia.en)}.</strong>{' '}
-            Tu web sigue con lo de antes hasta que copies el código nuevo y lo pegues en lugar del anterior.
+          <div className="min-w-0">
+            <p>
+              <strong>Has cambiado algo que va en el código después de copiarlo el {fechaCorta(copia.en)}.</strong>{' '}
+              Tu web sigue con lo de antes hasta que copies el código nuevo y lo pegues en lugar del anterior.
+            </p>
             {paso !== 'ponlo' && (
-              <>
-                {' '}
-                <button type="button" onClick={() => irA('ponlo')} className={cn('font-semibold underline underline-offset-2 hover:no-underline', FOCO)}>
-                  Ir a copiarlo
-                </button>
-              </>
+              <button type="button" onClick={() => irA('ponlo')} className={cn(TACTIL, 'font-semibold underline underline-offset-2 hover:no-underline', FOCO)}>
+                Ir a copiarlo
+              </button>
             )}
-          </p>
+          </div>
         </div>
       )}
 
@@ -386,6 +403,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               cambiar={cambiar}
               datos={datos}
               avisos={avisos}
+              copias={copias}
               onElegirWidget={setActivoId}
               onMetodo={elegirMetodo}
             />
@@ -425,13 +443,13 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
           {conPrevia && (
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               {indice > 0 ? (
-                <button type="button" onClick={() => irA(PASOS[indice - 1].id)} className={cn(btnSecondary, 'inline-flex items-center gap-1.5')}>
+                <button type="button" onClick={() => irA(pasos[indice - 1].id)} className={cn(btnSecondary, 'inline-flex items-center gap-1.5')}>
                   <ArrowLeft size={15} aria-hidden />Atrás
                 </button>
               ) : <span />}
-              {indice < PASOS.length - 1 && (
-                <button type="button" onClick={() => irA(PASOS[indice + 1].id)} className={btnPrimary}>
-                  {PASOS[indice + 1].siguiente}<ArrowRight size={15} aria-hidden />
+              {indice < pasos.length - 1 && (
+                <button type="button" onClick={() => irA(pasos[indice + 1].id)} className={btnPrimary}>
+                  {pasos[indice + 1].siguiente}<ArrowRight size={15} aria-hidden />
                 </button>
               )}
             </div>
@@ -457,6 +475,17 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       </div>
     </div>
   );
+}
+
+interface Vigentes { tipos: ReadonlySet<string>; instructoras: ReadonlySet<string>; salas: ReadonlySet<string> }
+
+function sinHuerfanos(c: ConfigConstructor, v: Vigentes): ConfigConstructor {
+  return {
+    ...c,
+    tipos: c.tipos.filter(id => v.tipos.has(id)),
+    instructoras: c.instructoras.filter(id => v.instructoras.has(id)),
+    salas: c.salas.filter(id => v.salas.has(id)),
+  };
 }
 
 // El estado de lo guardado, sin que parezca que su web ya ha cambiado: lo

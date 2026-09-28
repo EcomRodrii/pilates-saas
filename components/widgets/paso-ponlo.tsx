@@ -10,7 +10,7 @@ import { faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, urlPagina,
 import {
   guiaDe, mensajeParaTuWeb, nombrePlataforma, pasosEnTuWeb, usaBotonPropio, type PlataformaWeb, type Receta,
 } from '@/lib/widgets/recetas';
-import { AjusteInterruptor, Ajuste, FOCO, Plegable, Tarjeta } from './piezas';
+import { AjusteInterruptor, Ajuste, FOCO, Plegable, Tarjeta, fechaCorta } from './piezas';
 import { SelectorClase, type DatosPanel } from './paso-que';
 
 // Paso 3 · Ponlo en tu web. Un botón grande para copiar, los pasos de SU web y
@@ -21,10 +21,6 @@ import { SelectorClase, type DatosPanel } from './paso-que';
 // ⚠️ «Copiado» solo se dice si el portapapeles lo aceptó (#994: Safari puede
 // decir que sí sin copiar nada). Y solo entonces se guarda la huella de lo
 // copiado, que es lo que luego avisa de un código antiguo.
-
-export function fechaCorta(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
-}
 
 export function PasoPonlo({
   entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, onCopiado, onMetodo, cambiar,
@@ -140,7 +136,7 @@ export function PasoPonlo({
   return (
     <div className="space-y-4">
       <Tarjeta
-        titulo="Ya está. Ahora ponlo en tu web"
+        titulo={falta ? 'Te falta un dato' : plataforma === 'sinweb' ? 'Ya está. Ahora compártelo' : 'Ya está. Ahora ponlo en tu web'}
         subtitulo={`${w.respuesta} · ${forma.toLowerCase()}${plataforma ? ` · ${nombrePlataforma(plataforma)}` : ''}`}
       >
         {falta ? (
@@ -232,14 +228,14 @@ export function PasoPonlo({
   );
 }
 
-// Qué parte del aspecto llega sola a lo ya pegado. El color del botón del
-// popup va en su `style`, dentro del código: ese no.
+// Qué parte del aspecto llega sola a lo ya pegado: el color de marca de
+// Apariencia. El color del botón del popup va en su `style`, dentro del
+// código: ese no.
 function estiloVivo(metodo: MetodoIntegracion, delEstudio: boolean): string {
   if (metodo === 'boton' || metodo === 'enlace') return ', y tu página de reservas entera';
   if (!delEstudio) return '';
-  if (metodo === 'nativa') return ', y tu color de marca';
-  if (metodo === 'popup') return ', y el estilo de la ventana (el color del botón va en el código)';
-  return ', y su estilo, el de tu página de reservas';
+  if (metodo === 'popup') return ', y tu color de marca dentro de la ventana (el del botón va en el código)';
+  return ', y tu color de marca, el de Apariencia';
 }
 
 function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo, dominios, botonPropio, onCopiarReact, reactCopiado }: {

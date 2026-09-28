@@ -169,7 +169,11 @@ async function abrir(page: Page, titulo: string) {
 }
 
 async function widget(page: Page, nombre: RegExp) {
-  const principal = page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' }).getByRole('radio', { name: nombre });
+  // `count()` no espera: recién montado, el grupo puede no estar pintado aún y
+  // daría 0 aunque el widget sea de los principales.
+  const grupo = page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' });
+  await expect(grupo).toBeVisible();
+  const principal = grupo.getByRole('radio', { name: nombre });
   if (await principal.count()) return principal.click();
   await abrir(page, 'Más cosas para tu web');
   await page.getByRole('radiogroup', { name: 'Más cosas para tu web' }).getByRole('radio', { name: nombre }).click();
@@ -373,6 +377,15 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
     await expect(aviso).toHaveCount(0);
     expect(await page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado)).toContain('ocultar-precio=1');
+
+    // El «Ancho» solo cambia el `style` del iframe, y también va en el código:
+    // la huella tiene que verlo.
+    await paso(page, 'Cómo se ve');
+    await page.getByRole('group', { name: 'Ancho del widget' }).getByRole('button', { name: 'Todo el ancho' }).click();
+    await expect(aviso).toBeVisible();
+    // Y la tarjeta del widget lo dice también, para cuando no esté abierto.
+    await paso(page, 'Qué y dónde');
+    await expect(page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' }).getByRole('radio', { name: /Tu horario/ })).toContainText('Cambiado después de copiarlo');
   });
 
   test('código antiguo: una copia de otra visita con otra huella avisa desde el principio, con su fecha', async ({ page }) => {
@@ -381,6 +394,7 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
       widgetBuilder: { horario: { copiado: { firma: 'huellavieja', en: '2026-09-12T10:00:00.000Z' } } },
     });
     await expect(page.getByText(/Has cambiado algo que va en el código después de copiarlo el 12 sept?\./)).toBeVisible();
+    await expect(page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' }).getByRole('radio', { name: /Tu horario/ })).toContainText('Cambiado después de copiarlo');
     await page.getByRole('button', { name: 'Ir a copiarlo' }).click();
     await expect(page.getByRole('button', { name: 'Copiar el código nuevo' })).toBeVisible();
   });
@@ -399,6 +413,11 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await expect(page.getByRole('group', { name: 'Qué clases salen' }).getByRole('button', { name: 'Solo algunas' })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('group', { name: 'Solo estas clases' }).getByRole('button', { name: 'Reformer' })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('switch', { name: 'Al abrir, solo las clases de hoy' })).toHaveAttribute('aria-checked', 'true');
+    // «Más opciones» se abrió solo por esto; apagarlo no le cierra el pliegue
+    // en la cara.
+    await page.getByRole('switch', { name: 'Al abrir, solo las clases de hoy' }).click();
+    await expect(page.getByRole('switch', { name: 'Al abrir, solo las clases de hoy' })).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByRole('switch', { name: 'Al abrir, solo las clases de hoy' })).toBeVisible();
     // Tocó un color: su diseño era propio, no se le apaga en silencio.
     await paso(page, 'Cómo se ve');
     await expect(page.getByRole('switch', { name: /Usar un diseño propio/ })).toHaveAttribute('aria-checked', 'true');
@@ -502,6 +521,19 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await expect(page.getByRole('button', { name: 'Reservar clase' })).toHaveAttribute('data-tentare-popup', /vista-previa=1/);
     await page.getByRole('textbox', { name: 'Texto del botón' }).fill('Ven a probar');
     await expect(snippet(page)).toContainText('>Ven a probar</button>');
+    // El marcador de la previa se queda en la previa: ni en lo copiado ni en
+    // lo que se le manda a quien le hace la web.
+    await paso(page, 'Ponlo en tu web');
+    await page.getByRole('button', { name: 'Copiar código' }).click();
+    const copiadoPopup = await page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado);
+    expect(copiadoPopup).toContain('data-tentare-popup=');
+    expect(copiadoPopup).not.toContain('vista-previa');
+    await abrir(page, '¿Te lleva la web otra persona? Mándaselo');
+    await page.getByRole('button', { name: 'Copiar el mensaje' }).click();
+    const mensaje = await page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado);
+    expect(mensaje).toContain('data-tentare-popup=');
+    expect(mensaje).not.toContain('vista-previa');
+    await paso(page, 'Qué y dónde');
 
     await page.getByRole('group', { name: 'Qué hace el botón' }).getByRole('button', { name: 'Lleva a tu página de reservas' }).click();
     await expect(snippet(page)).toContainText(`<a href="`);
@@ -512,7 +544,8 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     // Con un enlace no se ofrece ningún filtro: el enlace no se lo lleva.
     await expect(page.getByRole('group', { name: 'Qué clases salen' })).toHaveCount(0);
     await paso(page, 'Ponlo en tu web');
-    await expect(page.getByRole('button', { name: 'Copiar enlace' })).toBeVisible();
+    // Ya copió el botón de antes: lo de ahora es otra cosa, y así se dice.
+    await expect(page.getByRole('button', { name: 'Copiar el enlace nuevo' })).toBeVisible();
   });
 
   test('React: el mismo widget como componente, para quien hace la web', async ({ page }) => {
@@ -532,7 +565,9 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await widget(page, /Una clase concreta/);
     await expect(snippet(page)).toHaveCount(0);
     await paso(page, 'Ponlo en tu web');
-    await expect(page.getByText('Elige la clase para tener el código.')).toBeVisible();
+    // Solo el paso habla del código; la previa tiene su propio texto.
+    await expect(page.getByRole('status').filter({ hasText: 'Elige la clase para tener el código.' })).toBeVisible();
+    await expect(page.getByText('Te falta un dato')).toBeVisible();
     await page.getByRole('combobox', { name: 'Qué clase' }).selectOption({ index: 1 });
     await expect(snippet(page)).toContainText(`/reservar/${SLUG}?sesion=`);
     await expect(page.getByRole('button', { name: 'Copiar enlace' })).toBeVisible();

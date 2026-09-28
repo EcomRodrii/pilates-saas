@@ -75,7 +75,7 @@ export function GestionDominios({ dominios, onGuardar, showToast, puedeCambiar, 
                   type="button"
                   onClick={() => quitar(d)}
                   disabled={guardando}
-                  className={cn('flex size-7 items-center justify-center rounded-full text-muted-foreground hover:text-destructive disabled:opacity-40', FOCO)}
+                  className={cn('flex size-11 items-center justify-center rounded-full text-muted-foreground hover:text-destructive disabled:opacity-40 -my-3 [@media(pointer:fine)]:my-0 [@media(pointer:fine)]:size-7', FOCO)}
                   aria-label={`Quitar ${d}`}
                 >
                   ×

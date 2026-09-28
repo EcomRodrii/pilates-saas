@@ -110,6 +110,8 @@ test('cada plataforma tiene sus pasos, y con su propio botón no se pega código
   assert.doesNotMatch(pasosEnTuWeb('wordpress', 'boton').join(' '), /código/i);
   assert.match(pasosEnTuWeb('otra', 'boton')[0], /código/);
   assert.match(pasosEnTuWeb('sinweb', 'enlace')[0], /Copiar enlace/);
+  // Sin web no se le habla de «tu web».
+  assert.doesNotMatch(pasosEnTuWeb('sinweb', 'enlace').join(' '), /tu web/);
 });
 
 test('usaBotonPropio: las plataformas con su propio botón, no «otra» ni la agencia', () => {

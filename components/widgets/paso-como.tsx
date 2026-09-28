@@ -8,13 +8,18 @@ import { MODO_TOKENS } from '@/lib/portal-modo';
 import type { MetodoIntegracion, WidgetDisponible } from '@/lib/widgets/catalogo';
 import { anchoPorDefecto, type ConfigConstructor } from '@/lib/widgets/config';
 import { botonDeSuWeb, usaBotonPropio, type PlataformaWeb } from '@/lib/widgets/recetas';
-import { Ajuste, AjusteInterruptor, Etiqueta, FOCO, MuestraColor, Plegable, Segmentado, Tarjeta } from './piezas';
+import { Ajuste, AjusteInterruptor, Etiqueta, FOCO, MuestraColor, Plegable, Segmentado, TACTIL, Tarjeta } from './piezas';
 
-// Paso 2 · Cómo se ve. Por defecto, el estilo de su página de reservas: vive
-// en el tema publicado y llega solo a lo que ya está pegado, sin tocar el
-// código. Solo si quiere algo distinto para ESTE widget, plegado al final, los
-// controles de siempre —en palabras suyas y sin un código de color a la vista—,
-// que sí van congelados en el código.
+// Paso 2 · Cómo se ve. Por defecto, el estilo de su página de reservas: su
+// color de marca (el de Apariencia) llega solo a lo que ya está pegado, sin
+// tocar el código. Solo si quiere algo distinto para ESTE widget, plegado al
+// final, los controles de siempre —en palabras suyas y sin un código de color a
+// la vista—, que sí van congelados en el código.
+//
+// ⚠️ Solo el COLOR viene de Apariencia: /reservar fija su propia letra
+// (`fuenteReservarCssText`, lib/reservar-publico-tokens.ts) y su paleta de
+// fondos. Cuando la página de reservas tome también la letra y los fondos del
+// tema (F1 del rediseño de /reservar), estos textos se amplían; antes, no.
 
 const COLOR_DE_FONDO = '#F6F3EC';
 
@@ -36,8 +41,8 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio }: {
     : soloBoton
       ? 'El botón lleva a tu página de reservas, que se ve con su estilo.'
       : metodo === 'popup'
-        ? 'Por defecto, la ventana se ve como tu página de reservas y cambia sola cuando cambias su estilo. El color del botón, en cambio, va en el código.'
-        : 'Por defecto se ve como tu página de reservas, y cambia sola cuando cambias su estilo: no hace falta volver a pegar nada.';
+        ? 'Por defecto, la ventana se ve como tu página de reservas y lleva tu color de marca: si lo cambias en Apariencia, cambia sola. El color del botón, en cambio, va en el código.'
+        : 'Por defecto se ve como tu página de reservas y lleva tu color de marca: si lo cambias en Apariencia, cambia solo, sin volver a pegar nada.';
 
   return (
     <div className="space-y-4">
@@ -109,11 +114,13 @@ function EstiloDeTuPagina({ colorEstudio, nativa, enUso }: { colorEstudio: strin
           <Etiqueta tipo="vivo" />
         </div>
         <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
-          {nativa ? 'Tu color de marca y la letra de tu propia web.' : 'Tus colores y tu letra, los de Apariencia.'}{' '}
-          {enUso ? 'Si los cambias, tu web cambia con ellos.' : 'Ahora no lo usa: lleva un diseño propio (abajo).'}
+          {nativa
+            ? 'Tu color de marca, el de Apariencia, con la letra de tu propia web.'
+            : 'Tu color de marca, el de Apariencia. La letra y los fondos son los de tu página de reservas.'}{' '}
+          {enUso ? 'Si cambias tu color, tu web cambia con él.' : 'Ahora no lo usa: lleva un diseño propio (abajo).'}
         </p>
-        <Link href="/configuracion/apariencia" className={cn('mt-1.5 inline-flex min-h-8 items-center gap-0.5 text-[12.5px] font-medium text-foreground underline underline-offset-2 hover:no-underline', FOCO)}>
-          Cambiar el estilo en Apariencia<ArrowUpRight size={12} aria-hidden />
+        <Link href="/configuracion/apariencia" className={cn(TACTIL, 'mt-1 gap-0.5 text-[12.5px] font-medium text-foreground underline underline-offset-2 hover:no-underline', FOCO)}>
+          Cambiar tu color en Apariencia<ArrowUpRight size={12} aria-hidden />
         </Link>
       </div>
     </div>
@@ -128,21 +135,17 @@ function DisenoPropio({ c, nativa, soloBoton, cambiar, colorEstudio }: {
   colorEstudio: string;
 }) {
   const fondo = c.fondo === null ? 'defecto' : c.fondo === 'transparente' ? 'transparente' : 'color';
+  // `auto` deduce la letra del fondo (lib/reservar/apariencia-widget.ts,
+  // `modoTextoDe`), y solo puede con un color que conozca: con el de su página
+  // o fundido con su web se queda en letra oscura, que es «Clara». Así se dice,
+  // y «Según el fondo» solo se ofrece cuando de verdad hay un fondo que mirar.
+  const segunFondo = fondo === 'color';
+  const tema = c.tema === 'auto' && !segunFondo ? 'claro' : c.tema;
   return (
     <div className="space-y-5 rounded-xl border border-border p-3.5">
       <MuestraColor etiqueta="Color principal" descripcion="Botones y acentos." valor={c.marca} muestra={colorEstudio} onChange={v => cambiar({ marca: v })} />
       {!soloBoton && (
         <>
-          {!nativa && (
-            <Ajuste etiqueta="¿Tu web es clara u oscura?" descripcion="Para que la letra se lea bien sobre ella.">
-              <Segmentado
-                etiqueta="Tu web es clara u oscura"
-                valor={c.tema}
-                onChange={v => cambiar({ tema: v })}
-                opciones={[{ valor: 'auto', nombre: 'Automático' }, { valor: 'claro', nombre: 'Clara' }, { valor: 'oscuro', nombre: 'Oscura' }] as const}
-              />
-            </Ajuste>
-          )}
           <Ajuste etiqueta="Fondo">
             <Segmentado
               etiqueta="Fondo del widget"
@@ -158,6 +161,21 @@ function DisenoPropio({ c, nativa, soloBoton, cambiar, colorEstudio }: {
               </div>
             )}
           </Ajuste>
+          {!nativa && (
+            <Ajuste etiqueta="¿Tu web es clara u oscura?" descripcion="Para que la letra se lea bien sobre ella.">
+              <Segmentado
+                etiqueta="Tu web es clara u oscura"
+                valor={tema}
+                // Pulsar lo que ya está marcado no cambia el código.
+                onChange={v => { if (v !== tema) cambiar({ tema: v }); }}
+                opciones={[
+                  ...(segunFondo ? [{ valor: 'auto' as const, nombre: 'Según el fondo' }] : []),
+                  { valor: 'claro' as const, nombre: 'Clara' },
+                  { valor: 'oscuro' as const, nombre: 'Oscura' },
+                ]}
+              />
+            </Ajuste>
+          )}
           <MuestraColor etiqueta="Texto" descripcion="El color de la letra." valor={c.tinta} muestra={MODO_TOKENS.dia.ink} onChange={v => cambiar({ tinta: v })} />
           {!nativa && (
             <>

@@ -12,7 +12,7 @@ import { widgetsVisibles, type MetodoIntegracion, type WidgetDisponible } from '
 import type { ConfigConstructor } from '@/lib/widgets/config';
 import { botonDeSuWeb, nombrePlataforma, usaBotonPropio, type PlataformaWeb, type Receta } from '@/lib/widgets/recetas';
 import type { TipoPlan } from '@/lib/types';
-import { AjusteInterruptor, Ajuste, Chips, Etiqueta, FOCO, GrupoOpciones, Plegable, Segmentado, Tarjeta } from './piezas';
+import { AjusteInterruptor, Ajuste, Chips, Etiqueta, FOCO, GrupoOpciones, Plegable, Segmentado, Tarjeta, fechaCorta } from './piezas';
 
 // Paso 1 · Qué y dónde. Primero QUÉ quiere poner y DÓNDE lo quiere (con la
 // forma que mejor funciona en su web ya marcada), y solo después los ajustes
@@ -40,10 +40,13 @@ export interface DatosPanel {
 
 export interface AvisoDeDatos { texto: string; enlace: ReactNode }
 
+/** Lo copiado de cada widget: cuándo, y si lo de ahora ya no es eso. */
+export type EstadoCopias = Readonly<Record<string, { en: string; desfasado: boolean }>>;
+
 type Donde = 'dentro' | 'boton' | 'enlace';
 const DONDE_DE: Record<MetodoIntegracion, Donde> = { iframe: 'dentro', nativa: 'dentro', popup: 'boton', boton: 'boton', enlace: 'enlace' };
 
-export function PasoQue({ w, c, metodo, plataforma, receta, cambiar, datos, avisos, onElegirWidget, onMetodo }: {
+export function PasoQue({ w, c, metodo, plataforma, receta, cambiar, datos, avisos, copias, onElegirWidget, onMetodo }: {
   w: WidgetDisponible;
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
@@ -52,12 +55,13 @@ export function PasoQue({ w, c, metodo, plataforma, receta, cambiar, datos, avis
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   datos: DatosPanel;
   avisos: readonly AvisoDeDatos[];
+  copias: EstadoCopias;
   onElegirWidget: (id: string) => void;
   onMetodo: (m: MetodoIntegracion) => void;
 }) {
   return (
     <div className="space-y-4">
-      <QueQuieres activo={w} avisos={avisos} onElegir={onElegirWidget} />
+      <QueQuieres activo={w} avisos={avisos} copias={copias} onElegir={onElegirWidget} />
       <DondeLoQuieres w={w} c={c} metodo={metodo} plataforma={plataforma} receta={receta} cambiar={cambiar} onMetodo={onMetodo} />
       <QueEnsena key={w.id} w={w} c={c} metodo={metodo} cambiar={cambiar} datos={datos} />
     </div>
@@ -71,7 +75,25 @@ function icono(nombre: string, size = 17) {
   return <Icono size={size} strokeWidth={1.8} />;
 }
 
-function QueQuieres({ activo, avisos, onElegir }: { activo: WidgetDisponible; avisos: readonly AvisoDeDatos[]; onElegir: (id: string) => void }) {
+// Lo que ya puso en su web, en cada tarjeta: así, si cambió un widget que no
+// es el que tiene abierto, lo ve al volver sin tener que entrar en cada uno.
+function notaCopia(copia: EstadoCopias[string] | undefined): ReactNode {
+  if (!copia) return undefined;
+  return copia.desfasado ? (
+    <span className="flex items-center gap-1 font-medium text-foreground">
+      <AlertCircle size={12} aria-hidden className="shrink-0 text-warning" />Cambiado después de copiarlo
+    </span>
+  ) : (
+    <span className="text-muted-foreground">Copiado el {fechaCorta(copia.en)}</span>
+  );
+}
+
+function QueQuieres({ activo, avisos, copias, onElegir }: {
+  activo: WidgetDisponible;
+  avisos: readonly AvisoDeDatos[];
+  copias: EstadoCopias;
+  onElegir: (id: string) => void;
+}) {
   const visibles = widgetsVisibles();
   const disponibles = visibles.filter((x): x is WidgetDisponible => x.estado === 'disponible');
   const principales = disponibles.filter(x => x.principal);
@@ -87,7 +109,7 @@ function QueQuieres({ activo, avisos, onElegir }: { activo: WidgetDisponible; av
         className="@md/config:grid-cols-2"
         opciones={principales.map(x => ({
           valor: x.id, titulo: x.respuesta, detalle: x.descripcion, icono: icono(x.icono),
-          insignia: x.id === 'horario' ? 'Lo que más se usa' : undefined,
+          insignia: x.id === 'horario' ? 'Lo que más se usa' : undefined, nota: notaCopia(copias[x.id]),
         }))}
       />
       <Plegable titulo="Más cosas para tu web" abierto={!activo.principal} className="border-t border-border pt-2">
@@ -96,7 +118,7 @@ function QueQuieres({ activo, avisos, onElegir }: { activo: WidgetDisponible; av
           valor={activo.principal ? null : activo.id}
           onChange={onElegir}
           className="@md/config:grid-cols-2"
-          opciones={otros.map(x => ({ valor: x.id, titulo: x.respuesta, detalle: x.descripcion, icono: icono(x.icono, 16) }))}
+          opciones={otros.map(x => ({ valor: x.id, titulo: x.respuesta, detalle: x.descripcion, icono: icono(x.icono, 16), nota: notaCopia(copias[x.id]) }))}
         />
         {enCamino.length > 0 && (
           <ul aria-label="Próximamente" className="mt-3 grid gap-2 @md/config:grid-cols-2">
@@ -147,7 +169,11 @@ function DondeLoQuieres({ w, c, metodo, plataforma, receta: r, cambiar, onMetodo
   const recomendado = DONDE_DE[r.recomendado];
   const botonPropio = metodo === 'boton' && usaBotonPropio(plataforma);
 
+  // Tocar la que ya está marcada no hace nada: «Dentro de una página» cubre
+  // también la forma sin marco, y volver al iframe cambiaría su código sin que
+  // se note.
   function elegir(d: Donde) {
+    if (d === donde) return;
     if (d === 'dentro') onMetodo('iframe');
     else if (d === 'enlace') onMetodo('enlace');
     else if (donde !== 'boton') onMetodo(botones.includes(r.recomendado as 'popup' | 'boton') ? r.recomendado : botones[0]);
@@ -190,7 +216,13 @@ function DondeLoQuieres({ w, c, metodo, plataforma, receta: r, cambiar, onMetodo
 
       <p className="flex items-start gap-2 rounded-xl bg-muted/60 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-foreground">
         <Info size={15} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" />
-        <span>{plataforma && <strong>{nombrePlataforma(plataforma)}: </strong>}{r.motivo}</span>
+        {/* El motivo es de la RECOMENDADA: si eligió otra, se dice que es una
+            recomendación y no una explicación de lo que ha marcado. */}
+        <span>
+          {metodo === r.recomendado
+            ? <>{plataforma && <strong>{nombrePlataforma(plataforma)}: </strong>}{r.motivo}</>
+            : <><strong>Recomendado para tu web: </strong>{r.motivo}</>}
+        </span>
       </p>
       {r.avisos[metodo] && (
         <p className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/5 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-foreground">
@@ -231,7 +263,7 @@ function ElBoton({ w, c, metodo, cambiar }: {
           className={inputCls}
         />
       </Ajuste>
-      <Ajuste etiqueta="Cómo es" descripcion="Su color es el de tu página de reservas. Míralo en la vista previa: se puede pulsar.">
+      <Ajuste etiqueta="Cómo es" descripcion="Con tu color de marca de ahora, el de Apariencia. Míralo en la vista previa: se puede pulsar.">
         <Segmentado
           etiqueta="Estilo del botón"
           valor={c.estiloBoton}

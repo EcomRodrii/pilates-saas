@@ -408,6 +408,8 @@ test('firma: cambia con lo que va en el código', () => {
   assert.notEqual(firmaCodigo(entrada('horario', { mostrarPrecio: false }), 'iframe'), base);
   assert.notEqual(firmaCodigo(entrada('horario'), 'popup'), base);
   assert.notEqual(firmaCodigo(entrada('horario', { etiqueta: 'insta-bio' }), 'iframe'), base);
+  // El «Ancho» solo toca el `style` del iframe: también cuenta.
+  assert.notEqual(firmaCodigo(entrada('horario', { ancho: 'completo' }), 'iframe'), base);
   const popup = firmaCodigo(entrada('horario'), 'popup');
   assert.notEqual(firmaCodigo(entrada('horario', { textoBoton: 'Ven a probar' }), 'popup'), popup);
   assert.notEqual(firmaCodigo(entrada('horario', { estiloBoton: 'contorno' }), 'popup'), popup);

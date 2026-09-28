@@ -5,7 +5,7 @@ import { ExternalLink, Monitor, Smartphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { anchoPopupDe, textoBotonEfectivo } from '@/lib/widgets/config';
 import { conVistaPrevia, estiloBoton, urlEmbebido, urlPagina, type EntradaIntegracion } from '@/lib/widgets/integracion';
-import { FOCO, Segmentado } from './piezas';
+import { FOCO, Segmentado, TACTIL } from './piezas';
 
 // La vista previa. ⚠️ El widget nunca es una imagen ni una maqueta: es el
 // MISMO motor que verá la visitante —la página incrustada real en un iframe, o
@@ -18,6 +18,10 @@ import { FOCO, Segmentado } from './piezas';
 // queda. Y el fondo es el que ELLA dijo que tiene su web (un diseño propio
 // para una web oscura); no hay un conmutador que pinte de oscuro el lienzo
 // sin cambiar el widget, que solo servía para confundir.
+//
+// Por debajo de las dos columnas (iPad en vertical, móvil) la previa va ANTES
+// del paso: ahí se enseña recortada y con un solo marco, o el paso quedaba a
+// 700-900 px de distancia. «Ver en grande» la despliega.
 
 export type Dispositivo = 'escritorio' | 'movil';
 
@@ -60,6 +64,7 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
   onDispositivo: (d: Dispositivo) => void;
 }) {
   const movil = dispositivo === 'movil';
+  const [grande, setGrande] = useState(false);
   const widget = contenido
     ? <Lienzo ancho={ANCHO[dispositivo]} anchoWidget={anchoWidget} dispositivo={dispositivo} contenido={contenido} />
     : <p className="flex min-h-48 items-center justify-center px-6 text-center text-[13px] text-muted-foreground">{falta}</p>;
@@ -97,11 +102,11 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
       {forma.tipo === 'enlace' ? (
         <>
           <p className="text-[12px] text-muted-foreground">Al abrir el enlace, se abre tu página de reservas:</p>
-          <Marco movil={movil} direccion={paginaDeReservas} oscura={false}>{widget}</Marco>
+          <Marco movil={movil} direccion={paginaDeReservas} oscura={false} recortado={!grande}>{widget}</Marco>
         </>
       ) : forma.tipo === 'boton' ? (
         <>
-          <Marco movil={movil} direccion={web.direccion} oscura={web.oscura}>
+          <Marco movil={movil} direccion={web.direccion} oscura={web.oscura} recortado={!grande}>
             <CabeceraWeb web={web} movil={movil} />
             <div className="px-4 pb-6 pt-2">
               {forma.boton}
@@ -109,19 +114,32 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
               <BloquesGrises oscura={web.oscura} />
             </div>
           </Marco>
-          <p className="text-[12px] text-muted-foreground">{forma.alPulsar}</p>
-          <Marco movil={movil} direccion={forma.abrePagina ? paginaDeReservas : web.direccion} oscura={false}>{widget}</Marco>
+          {/* Lo que se abre al pulsar: en pequeño, solo si lo pide. */}
+          <div className={cn('space-y-3', !grande && 'hidden @4xl/config:block')}>
+            <p className="text-[12px] text-muted-foreground">{forma.alPulsar}</p>
+            <Marco movil={movil} direccion={forma.abrePagina ? paginaDeReservas : web.direccion} oscura={false} recortado={false}>{widget}</Marco>
+          </div>
         </>
       ) : (
-        <Marco movil={movil} direccion={web.direccion} oscura={web.oscura}>
+        <Marco movil={movil} direccion={web.direccion} oscura={web.oscura} recortado={!grande}>
           <CabeceraWeb web={web} movil={movil} />
           {widget}
         </Marco>
       )}
 
-      <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-        El widget es el de verdad, con tus clases de hoy. Lo de alrededor es un dibujo de tu web para que veas cómo encaja.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <p className="min-w-0 flex-1 text-[11.5px] leading-relaxed text-muted-foreground">
+          El widget es el de verdad, con tus clases de hoy. Lo de alrededor es un dibujo de tu web para que veas cómo encaja.
+        </p>
+        <button
+          type="button"
+          aria-expanded={grande}
+          onClick={() => setGrande(g => !g)}
+          className={cn(TACTIL, 'shrink-0 text-[12.5px] font-medium text-foreground underline underline-offset-2 hover:no-underline @4xl/config:hidden', FOCO)}
+        >
+          {grande ? 'Verla más pequeña' : 'Ver en grande'}
+        </button>
+      </div>
     </section>
   );
 }
@@ -179,10 +197,12 @@ export function BotonEnTuWeb({ entrada, metodo, botonPropio }: {
   );
 }
 
-function Marco({ movil, direccion, oscura, children }: {
+function Marco({ movil, direccion, oscura, recortado, children }: {
   movil: boolean;
   direccion: string | null;
   oscura: boolean;
+  /** Más bajo por debajo de las dos columnas (ver la cabecera). */
+  recortado: boolean;
   children: ReactNode;
 }) {
   return (
@@ -205,7 +225,7 @@ function Marco({ movil, direccion, oscura, children }: {
         </span>
       </div>
       <div
-        className="max-h-[440px] overflow-y-auto overflow-x-hidden @4xl/config:max-h-[640px]"
+        className={cn('overflow-y-auto overflow-x-hidden @4xl/config:max-h-[640px]', recortado ? 'max-h-[260px]' : 'max-h-[440px]')}
         style={{ background: oscura ? '#1C1D1A' : '#FFFFFF' }}
         data-vista-previa=""
       >
@@ -353,7 +373,7 @@ function Lienzo({ ancho, anchoWidget, dispositivo, contenido }: {
               <button
                 type="button"
                 onClick={() => { setIntento(n => n + 1); setTarda(false); }}
-                className={cn('font-medium text-foreground underline underline-offset-2', FOCO)}
+                className={cn(TACTIL, 'font-medium text-foreground underline underline-offset-2', FOCO)}
               >
                 Reintentar
               </button>
