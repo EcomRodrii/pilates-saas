@@ -16,6 +16,7 @@ import { NAV_SEG_IDS, NAV_ICONOS_DISPONIBLES, DEFAULT_NAV_CONFIG, migrarNavConfi
 import { VARIANTES_PORTAL, type EjeVariante } from './theme-variantes.ts';
 import { FAVICON_URL_MAX, faviconConFormaValida } from './theme-favicon.ts';
 import { ESTILO_IDS, TIPOGRAFIA_IDS } from './student/apariencia.ts';
+import { BOTONES_WEB, FORMAS_WEB, HEX6, WEBS } from './reservar/estilo-web-tipos.ts';
 
 /** Hex de 3 o 6 dígitos. */
 export const hexSchema = z
@@ -419,6 +420,25 @@ export const appAlumnaSchema = z.object({
 }).strict();
 export type AppAlumna = z.infer<typeof appAlumnaSchema>;
 
+/**
+ * El estilo de los widgets en la web del estudio (Fase B del constructor): un
+ * objeto, no claves sueltas, para aplicarlo y deshacerlo entero. La forma y su
+ * lectura tolerante viven en lib/reservar/estilo-web-tipos.ts; esto es la
+ * cerradura del servidor, y un test comprueba que los dos dicen lo mismo.
+ * «Otro color» sin su color (o un color sin «Otro color») no es un estilo.
+ */
+export const widgetWebSchema = z.object({
+  estilo: z.enum(ESTILO_IDS).nullable(),
+  letra: z.enum(TIPOGRAFIA_IDS).nullable(),
+  boton: z.enum(BOTONES_WEB).nullable(),
+  web: z.enum(WEBS).nullable(),
+  colorWeb: z.string().regex(HEX6).nullable(),
+  fundido: z.boolean(),
+  forma: z.enum(FORMAS_WEB).nullable(),
+  densidad: z.literal('compacta').nullable(),
+  ocultarPie: z.boolean(),
+}).strict().refine(w => (w.web === 'otro') === (w.colorWeb !== null), { path: ['colorWeb'] });
+
 /** Esquema completo de un tema válido (el que exige `publicar`). */
 export const themeConfigSchema = z
   .object({
@@ -516,6 +536,10 @@ export const themeConfigSchema = z
     // Apariencia de la app de la alumna (lib/student/apariencia.ts). Ausente =
     // el aspecto de siempre; la app lo lee con lectura tolerante, clave a clave.
     appAlumna: appAlumnaSchema.optional(),
+    // El estilo de los widgets en su web (ver `widgetWebSchema`). Ausente =
+    // nada elegido: /reservar se ve como la app. Fuera de DEFAULT_THEME, como
+    // `appAlumna`: un tema guardado antes no cambia en nada.
+    widgetWeb: widgetWebSchema.optional(),
     // Redes sociales del pie de página público (Fase 3) — ver REDES_SOCIALES_IDS arriba.
     redesSociales: redesSocialesSchema,
     // Galería de temas (lib/theme-definitions.ts): de qué ThemeDefinition (y
@@ -625,6 +649,9 @@ export const CAMPOS_DEL_ESTUDIO = [
   'widgetFondo', 'widgetFuente', 'widgetOcultarPie', 'widgetSoloPestana', 'widgetTexto',
   'widgetFuenteDisplay', 'widgetRadioBoton', 'widgetRadioInput', 'widgetSuperficie',
   'widgetTinta', 'widgetTextoSecundario', 'widgetLinea', 'widgetRelleno',
+  // Y el estilo de los widgets que aplicó para su web, con más motivo: probar
+  // un tema para el portal no puede cambiarle los widgets ya pegados.
+  'widgetWeb',
 ] as const;
 
 /** Lo que sí es del tema. Se calcula, no se escribe a mano: así no puede
@@ -656,7 +683,10 @@ export function instalarTema(
 ): ThemeConfig {
   const base: ThemeConfig = { ...DEFAULT_THEME };
   for (const campo of CAMPOS_DEL_ESTUDIO) {
-    (base as Record<string, unknown>)[campo] = draft[campo];
+    // Solo lo que hay: un campo opcional ausente (`widgetWeb` de quien nunca
+    // lo aplicó) no puede aparecer como `widgetWeb: undefined` suelto, que
+    // rompe la igualdad con quien compara temas enteros.
+    if (draft[campo] !== undefined) (base as Record<string, unknown>)[campo] = draft[campo];
   }
   return {
     ...base,
@@ -678,6 +708,7 @@ export function instalarTema(
  */
 export function resolveTheme(raw: unknown): ThemeConfig {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const widgetWeb = widgetWebSchema.safeParse(obj.widgetWeb);
   const pick = <K extends keyof ThemeConfig>(clave: K, esquema: z.ZodType): ThemeConfig[K] => {
     // navPortal pasa primero por la migración de ids legacy (clases/bonos→
     // reservas, videos→eliminado) — ver migrarNavConfigRaw en portal-nav.ts.
@@ -749,6 +780,8 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     ...(appAlumnaSchema.safeParse(obj.appAlumna).success
       ? { appAlumna: appAlumnaSchema.parse(obj.appAlumna) }
       : {}),
+    // Lo mismo, y por lo mismo, con el estilo de los widgets en su web.
+    ...(widgetWeb.success ? { widgetWeb: widgetWeb.data } : {}),
     navPortal: pick('navPortal', navConfigSchema),
     redesSociales: pick('redesSociales', redesSocialesSchema),
     themeId: pick('themeId', themeIdSchema),

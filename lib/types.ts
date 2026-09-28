@@ -1666,7 +1666,10 @@ export type TipoActividad =
   // Lo escriben solo rutas de servidor.
   | 'CUENTA_COBRO_CAMBIADA'
   // Dominios autorizados del widget embebido. Solo /api/estudio/widget-dominios.
-  | 'WIDGET_DOMINIOS_CAMBIADOS';
+  | 'WIDGET_DOMINIOS_CAMBIADOS'
+  // Estilo de los widgets en su web aplicado o deshecho. Solo
+  // /api/estudio/widget-estilo.
+  | 'WIDGETS_ESTILO_CAMBIADO';
 
 export interface ActividadReciente {
   id: string;

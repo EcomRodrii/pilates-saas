@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { huellaClave } from '@/lib/publico/acceso-pagina';
 import { getThemePublicado } from '@/lib/theme-data';
 import { colorMarcaDelEstudio } from '@/lib/emails/color-marca';
+import { WIDGET_WEB_NEUTRO } from '@/lib/reservar/estilo-web-tipos';
 
 // Columnas de `studios` que esta función lee, partidas en dos por una razón
 // operativa, no estética: las ESTABLES llevan meses en producción y ninguna
@@ -61,6 +62,10 @@ export interface StudioSeo {
   /** Lo que el estudio eligió en «Apariencia de tu app», crudo del tema publicado.
    *  Se valida al leerlo (`resolverApariencia`): aquí puede venir cualquier cosa. */
   aparienciaApp: unknown;
+  /** El estilo de sus widgets dentro de su web (Fase B del constructor), crudo
+   *  del tema publicado. Mismo trato que `aparienciaApp`: se valida al leerlo
+   *  (`leerWidgetWeb`, lib/reservar/estilo-web-tipos.ts). `null` = nada elegido. */
+  widgetWeb: unknown;
   logoUrl: string | null;
   /** El favicon PUBLICADO del estudio (su símbolo, preparado al subirlo), ya
    *  saneado por `getThemePublicado`. Es su icono en la pestaña, en la app
@@ -184,6 +189,15 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // nuevo no lo mira nadie (e2e/reservar-tema-de-la-app.spec.ts).
       aparienciaApp: process.env.E2E_APARIENCIA_APP ? JSON.parse(process.env.E2E_APARIENCIA_APP)
         : slug === 'tentare-carbon' ? { estilo: 'carbon', tipografia: 'editorial', marca: 'fiel' }
+        : null,
+      // La misma palanca por SLUG para el estilo de sus widgets en su web:
+      // también se resuelve en el servidor (el layout lo pasa por el
+      // proveedor, sin destello), así que `page.route` tampoco llega. Uno con
+      // estilo, letra y botones elegidos, y otro que se funde con una web
+      // oscura (e2e/reservar-estilo-web.spec.ts). Cualquier otro slug, sin
+      // nada: exactamente F1.
+      widgetWeb: slug === 'tentare-web-arena' ? { ...WIDGET_WEB_NEUTRO, estilo: 'arena', letra: 'editorial', boton: 'tinta' }
+        : slug === 'tentare-web-fundido' ? { ...WIDGET_WEB_NEUTRO, web: 'oscura', fundido: true }
         : null,
       // Mismo motivo que `E2E_PAGINA_OCULTA` de unas líneas más abajo: el icono
       // de la PWA se compone en el SERVIDOR a partir de este campo, así que
@@ -324,6 +338,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     direccion: data.direccion ?? '',
     colorPrimario: colorMarcaDelEstudio(temaPublicado.primary, null, data.color_primario) ?? '#1A1A1A',
     aparienciaApp: temaPublicado.appAlumna ?? null,
+    widgetWeb: temaPublicado.widgetWeb ?? null,
     logoUrl: data.logo_url ?? null,
     faviconUrl: temaPublicado.faviconUrl ?? null,
     slug: data.slug ?? slug,

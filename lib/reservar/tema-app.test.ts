@@ -2,12 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  FUENTE_BASE, coloresWidgetGuardados, esReservarPorDefecto, marcaEstudioDeVars, pilaSinCiclo, reservarCambiaMarca,
-  temaAppParaReservar, temaReservarCssText, textoDeMarca, tokensDeEstilo, type MarcaEstudio,
+  FUENTE_BASE, esReservarPorDefecto, marcaEstudioDeVars, pilaSinCiclo, reservarCambiaMarca,
+  temaAppParaReservar, temaReservarCssText, textoDeMarca, tokensDeEstilo, varsPareja, type MarcaEstudio,
 } from './tema-app.ts';
 import { ESTILOS, TIPOGRAFIAS, APARIENCIA_POR_DEFECTO, acentoDe, resolverApariencia } from '../student/apariencia.ts';
 import { RESERVAR_PALETA, fuenteReservarCssVars } from '../reservar-publico-tokens.ts';
 import { ratioContraste } from '../wcag-contrast.ts';
+import { baseEstiloWeb } from './estilo-web.ts';
+import { WIDGET_WEB_NEUTRO } from './estilo-web-tipos.ts';
 
 const r = (a: string, b: string) => ratioContraste(a, b) ?? 0;
 const MARCA: MarcaEstudio = { brand: '#2C352C', foreground: '#FFFFFF', texto: '#2C352C' };
@@ -81,6 +83,34 @@ test('una pareja elegida llega entera: texto, titulares, modales y peso', () => 
   assert.match(d.get('--portal-heading-font')!, /^var\(--font-libre-caslon\)/);
   assert.equal(d.get('--font-display'), d.get('--portal-heading-font'));
   assert.equal(d.get('--reservar-heading-weight'), '700');
+});
+
+test('varsPareja: SIEMPRE las cuatro; con «Moderna», cada una a su valor de siempre', () => {
+  // Va en línea encima de la pareja de la app: callar una dejaría la de la app.
+  const moderna = varsPareja('moderna');
+  assert.deepEqual(moderna, {
+    '--font-ui': 'var(--font-jakarta)',
+    '--portal-heading-font': 'var(--font-jakarta)',
+    '--font-display': FUENTE_BASE['--font-display'],
+    '--reservar-heading-weight': 'initial',
+  });
+  // Y el Jakarta es el mismo que emite `:root` sin elegir nada.
+  for (const [k, v] of Object.entries(moderna).slice(0, 2)) assert.ok(fuenteReservarCssVars().includes(`${k}: ${v};`), k);
+  for (const t of TIPOGRAFIAS) assert.equal(Object.keys(varsPareja(t.id)).length, 4, t.id);
+});
+
+test('⚠️ `temaReservarCssText` emite la pareja carácter por carácter como antes de extraer `varsPareja`', () => {
+  // La versión de F1, congelada: el texto que ya está publicado en `:root`.
+  const antes = (id: (typeof TIPOGRAFIAS)[number]['id']) => {
+    const t = TIPOGRAFIAS.find(x => x.id === id)!;
+    if (id === 'moderna') return fuenteReservarCssVars();
+    const titulos = pilaSinCiclo(t.titulos);
+    return [`--font-ui: ${pilaSinCiclo(t.texto)};`, `--portal-heading-font: ${titulos};`, `--font-display: ${titulos};`,
+      `--reservar-heading-weight: ${t.pesoTitulo};`].join(' ');
+  };
+  for (const t of TIPOGRAFIAS) {
+    assert.ok(temaReservarCssText('#1F4E79', { tipografia: t.id }, MARCA).startsWith(`:root { ${antes(t.id)} --portal-brand-estudio: `), t.id);
+  }
 });
 
 // ── Estilos: los neutros se leen ────────────────────────────────────────────
@@ -185,19 +215,24 @@ test('la marca del estudio como texto de NOCHE se lee sobre la paleta de noche (
   }
 });
 
-test('los «Colores del widget» guardados viajan con el tema de la app solo si deciden algo', () => {
-  assert.equal(coloresWidgetGuardados(null), null);
-  assert.equal(coloresWidgetGuardados({ widgetFondo: null, widgetTexto: 'auto', widgetFuente: 'Lobster' }), null);
-  assert.deepEqual(coloresWidgetGuardados({ widgetFondo: '#FFFFFF', widgetTexto: 'auto' }), {
-    fondo: '#FFFFFF', texto: 'auto', superficie: null, tinta: null, textoSecundario: null, linea: null, relleno: null,
-  });
-  assert.equal(coloresWidgetGuardados({ widgetFondo: 'transparente' })!.fondo, 'transparente');
-  assert.equal(coloresWidgetGuardados({ widgetTexto: 'claro' })!.texto, 'claro');
-  // Solo hex: esto acaba en estilos en línea.
-  assert.equal(coloresWidgetGuardados({ widgetSuperficie: 'red;}' }), null);
-  // Y sin nada que decida, `temaAppParaReservar` ni añade la clave: lo de siempre.
-  assert.deepEqual(temaAppParaReservar(null, { widgetFondo: null }), { tokens: RESERVAR_PALETA.dia, oscuro: false });
-  assert.equal(temaAppParaReservar({ estilo: 'carbon' }, { widgetFondo: '#FFFFFF' }).widgetGuardado?.fondo, '#FFFFFF');
+test('el estilo de su web viaja con el tema de la app tal cual, sin resolver; sin él, ni la clave', () => {
+  // Sin resolver: si hay borrador de la vista previa, si el código trae diseño
+  // propio o si va en la ventana encima solo lo sabe la página.
+  const web = { guardado: { ...WIDGET_WEB_NEUTRO, estilo: 'arena' as const }, base: baseEstiloWeb('#E11D48', { estilo: 'carbon' }) };
+  const t = temaAppParaReservar({ estilo: 'carbon' }, web);
+  assert.equal(t.web, web);
+  // Los tokens y lo oscuro siguen siendo los de la APP, no los de su web.
+  assert.equal(t.tokens.bg, '#17181B');
+  assert.equal(t.oscuro, true);
+  // Con nada publicado también va (la vista previa puede traer un borrador).
+  // Y solo esas tres claves: los «Colores del widget» antiguos (`widgetGuardado`)
+  // ya no viajan — una vez cargada la página nunca se veían, y leerlos solo en
+  // servidor era un destello al revés.
+  const vacio = temaAppParaReservar({ estilo: 'carbon' }, { guardado: null, base: baseEstiloWeb(null, null) });
+  assert.equal(vacio.web?.guardado, null);
+  assert.deepEqual(Object.keys(vacio).sort(), ['oscuro', 'tokens', 'web']);
+  // Y sin `web`, lo de siempre, sin la clave: los `deepEqual` de F1 no se mueven.
+  assert.deepEqual(temaAppParaReservar(null), { tokens: RESERVAR_PALETA.dia, oscuro: false });
 });
 
 test('la marca del tema solo se acepta si es hex: acaba dentro de un <style>', () => {
