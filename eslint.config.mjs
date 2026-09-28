@@ -25,7 +25,17 @@ const eslintConfig = defineConfig([
     // Generado por scripts/build-widget-bundle.mjs (esbuild, minificado) —
     // no es código fuente, es exactamente lo mismo que `.next/**` de arriba
     // pero para el bundle embebible.
+    //
+    // ⚠️ 62ª pasada: el script genera TRES bundles (líneas 80, 94 y 106 de
+    // scripts/build-widget-bundle.mjs) y aquí solo estaba ignorado el primero.
+    // Medido: tras `npm run build:widget`, `npm run lint` pasaba de 0 a 772
+    // avisos, todos de `widget-popup.js` y `widget-checkout.js`. En local solo
+    // es ruido, pero CI lintea con `--max-warnings 0` (.github/workflows/ci.yml),
+    // así que cualquier flujo que linte después de generar los bundles falla
+    // por código que nadie escribió.
     "public/widget.js",
+    "public/widget-checkout.js",
+    "public/widget-popup.js",
   ]),
   {
     // Los scripts de `scripts/*.mjs` son el ÚNICO código del repo que nadie

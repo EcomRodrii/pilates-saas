@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { FiltrosBusquedaNetwork } from '@/components/network/filtros-busqueda';
 import { TarjetaResultadoNetwork } from '@/components/network/tarjeta-resultado';
-import { AvisoCoberturaMapa } from '@/components/network/mapa-resultados';
+import { AvisoCoberturaMapa } from '@/components/network/aviso-cobertura-mapa';
 import { buscarPerfilesNetwork } from '@/lib/api-client';
 import { useCercaDeMi, distanciaDePerfil, ordenarPorCercania } from '@/lib/network/use-cerca-de-mi';
 import { encajeBusquedaDe } from '@/lib/network/encaje-busqueda';

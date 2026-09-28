@@ -786,7 +786,12 @@ export async function guardarOferta(
     }
   }
   // Cerrar, editar o crear cambia lo que ve la alumna: no esperar al cuarto de minuto.
+  // ⚠️ 62ª pasada: las DOS claves, no solo la de ofertas. `ofertasPublicas` y
+  // `franjasSueltas` se cachean por separado (líneas 169 y 171) y las dos
+  // cambian cuando se toca una oferta: invalidar solo la primera dejaba las
+  // franjas sueltas viejas hasta agotar su TTL.
   invalidarCacheCatalogo(claveCatalogoClasesFijas(studioId));
+  invalidarCacheCatalogo(claveSueltasClasesFijas(studioId));
   return { ok: true, id: id as string };
 }
 

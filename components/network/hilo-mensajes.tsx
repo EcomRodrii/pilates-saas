@@ -36,7 +36,14 @@ export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
 
   useEffect(() => {
     let vivo = true;
+    let yaCargado = false;
     async function cargar() {
+      // ⚠️ 62ª pasada: no sondear con la pestaña en segundo plano — mismo criterio
+      // que app/reservar/[slug]/page.tsx y components/notifications/notification-bell.tsx.
+      // La PRIMERA carga sí ocurre aunque esté oculta: si no, `mensajes` se queda
+      // en null y el hilo muestra el vacío para siempre al volver a la pestaña.
+      if (yaCargado && typeof document !== 'undefined' && document.hidden) return;
+      yaCargado = true;
       const r = await fetchMensajesNetwork(solicitudId);
       if (!vivo) return;
       setMensajes(r.mensajes);
@@ -49,7 +56,13 @@ export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
 
   useEffect(() => {
     let vivo = true;
+    let yaCargado = false;
     async function cargarFormalizacion() {
+      // ⚠️ 62ª pasada: igual que el polling de mensajes — ver el comentario de
+      // arriba. La primera carga no se salta nunca, o `cargandoFormalizacion`
+      // se queda colgado en true y la tarjeta no sale del esqueleto.
+      if (yaCargado && typeof document !== 'undefined' && document.hidden) return;
+      yaCargado = true;
       const r = await fetchFormalizacionNetwork(solicitudId);
       if (!vivo) return;
       setFormalizacion(r?.formalizacion ?? null);

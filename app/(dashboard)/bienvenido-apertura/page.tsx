@@ -27,7 +27,13 @@ const DESTINO_DEFECTO = '/calendario';
 function destinoValido(v: string | null): string {
   // Solo rutas internas del panel: nunca se navega a algo que no haya puesto
   // el propio `finalizar()` del asistente.
-  return v && v.startsWith('/') && !v.startsWith('//') ? v : DESTINO_DEFECTO;
+  // ⚠️ 62ª pasada: la barra invertida también. El parser de URL del navegador
+  // (WHATWG, estado «relative slash») trata `\` como `/` para http(s), así que
+  // `/\evil.com` pasaba las dos comprobaciones de arriba y navegaba fuera del
+  // dominio: redirección abierta sobre una propietaria ya autenticada. Es el
+  // mismo criterio que ya aplica `destinoTrasMfa` en lib/interno/mfa.ts.
+  if (!v || !v.startsWith('/') || v.startsWith('//') || v.includes('\\')) return DESTINO_DEFECTO;
+  return v;
 }
 
 async function pedirApertura(): Promise<{ visible: boolean; onboarding?: unknown } | null> {

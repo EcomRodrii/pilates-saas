@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin } from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { ESPECIALIDAD_LABEL } from '@/lib/network/catalogo';
 import type { PerfilNetworkPublico } from '@/lib/network/tipos';
@@ -80,14 +79,3 @@ export function MapaResultadosNetwork({ perfiles }: { perfiles: PerfilNetworkPub
  * app/(dashboard)/network/buscar/page.tsx): este componente puede seguir
  * usándose si algún día se decide mostrar el mapa vacío igualmente.
  */
-export function AvisoCoberturaMapa({ perfiles }: { perfiles: PerfilNetworkPublico[] }) {
-  const total = perfiles.length;
-  const geocodificados = perfiles.filter(p => p.lat != null && p.lng != null).length;
-  if (total === 0 || geocodificados === total) return null;
-  return (
-    <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground px-1">
-      <MapPin size={12} className="shrink-0" />
-      {geocodificados} de {total} profesionales tienen ubicación en el mapa.
-    </p>
-  );
-}

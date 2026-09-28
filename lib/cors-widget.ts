@@ -41,7 +41,16 @@ export async function origenPermitido(
 }
 
 export function corsHeadersWidget(origenValido: string | null): HeadersInit {
-  if (!origenValido) return {};
+  // ⚠️ 62ª pasada: `Vary: Origin` va SIEMPRE, también cuando el origen no está
+  // autorizado. `/api/public/aforo` es la única ruta de este módulo con caché de
+  // CDN (`s-maxage=5`), y para la MISMA URL devuelve dos cuerpos de cabeceras
+  // distintos: con ACAO (widget embebido en la web del estudio, manda Origin) y
+  // sin ACAO (portal same-origin, no manda Origin). Sin `Vary` en la segunda, la
+  // CDN puede guardar esa variante y servírsela al widget durante 5-15 s: el
+  // navegador la bloquea por falta de ACAO y el aforo se congela de forma
+  // intermitente. La cabecera no filtra nada: solo dice de qué depende la
+  // respuesta, que es justamente lo que la CDN necesita saber.
+  if (!origenValido) return { 'Vary': 'Origin' };
   return {
     'Access-Control-Allow-Origin': origenValido,
     'Vary': 'Origin',
