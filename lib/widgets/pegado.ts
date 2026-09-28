@@ -97,6 +97,21 @@ function canonico(origen: string): string | null {
 }
 
 /**
+ * true si el origen es uno de `propios` (comparados con canonicalizarOrigen:
+ * el apex cuenta como `www`, que es adonde redirige). Sin `*.vercel.app`: eso
+ * lo añade `esOrigenDeTentare`.
+ *
+ * Aparte porque la página necesita distinguir lo SEGURO (su propio origen y
+ * el canónico: la carga no es de ninguna web del estudio) de lo DUDOSO (otro
+ * `*.vercel.app`, que puede ser una vista previa de Tentare o la web de un
+ * estudio alojada ahí).
+ */
+export function esOrigenPropio(origen: string, propios: readonly string[]): boolean {
+  const c = canonico(origen);
+  return !!c && propios.some(p => canonico(p) === c);
+}
+
+/**
  * true si el origen es de Tentare: está en `propios` (comparados con
  * canonicalizarOrigen) o su host acaba en `.vercel.app`.
  *
@@ -106,13 +121,15 @@ function canonico(origen: string): string | null {
  * llama (el origen canónico y el de la propia petición); el apex cuenta como
  * `www`, que es adonde redirige.
  * ⚠️ Una web del estudio alojada en `*.vercel.app` no se distingue de una
- * vista previa de Tentare y tampoco cuenta.
+ * vista previa de Tentare: nunca se NOMBRA. Pero su carga sí cuenta (la
+ * página la manda sin dirección, lib/reservar/pegado-widget.ts): si no, esa
+ * web no saldría nunca en la portada.
  */
 export function esOrigenDeTentare(origen: string, propios: readonly string[]): boolean {
   const c = canonico(origen);
   if (!c) return false;
   if (new URL(c).hostname.endsWith('.vercel.app')) return true;
-  return propios.some(p => canonico(p) === c);
+  return esOrigenPropio(c, propios);
 }
 
 /** Una fila de `widget_vistos()`: dónde y con qué versión se ha visto una pieza. */
@@ -129,4 +146,36 @@ export interface VistoWidget {
   /** ISO. */
   ultimo: string;
   n: number;
+}
+
+/**
+ * Las filas que PostgREST devuelve como mucho en una petición (`max-rows` del
+ * proyecto). Una respuesta que llega a ese número puede venir recortada.
+ */
+export const MAX_FILAS_POSTGREST = 1000;
+
+/**
+ * Lo que devuelve `widget_vistos()`, listo para el panel (dbWidgetVistos,
+ * lib/supabase-data.ts). `null` = no se sabe: si llega al tope de PostgREST
+ * puede faltar justo lo de una pieza, y la portada diría de ella «Aún no lo
+ * vemos en tu web» sin ser cierto. Mejor no decir nada.
+ */
+export function leerVistos(filas: readonly unknown[]): VistoWidget[] | null {
+  if (filas.length >= MAX_FILAS_POSTGREST) return null;
+  const out: VistoWidget[] = [];
+  for (const f of filas) {
+    if (!f || typeof f !== 'object') continue;
+    const r = f as Record<string, unknown>;
+    // Una forma que este código no conoce (una columna ampliada antes de
+    // desplegar) no se pinta como si fuera otra.
+    const forma = FORMAS_PEGADAS.find(x => x === r.forma);
+    if (!forma || typeof r.origen !== 'string' || typeof r.primero !== 'string' || typeof r.ultimo !== 'string') continue;
+    out.push({
+      origen: r.origen, forma,
+      anfitrion: typeof r.anfitrion === 'string' ? r.anfitrion : null,
+      firma: typeof r.firma === 'string' ? r.firma : null,
+      primero: r.primero, ultimo: r.ultimo, n: Number(r.n),
+    });
+  }
+  return out;
 }

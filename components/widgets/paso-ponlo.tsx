@@ -26,7 +26,7 @@ import { SelectorClase, type DatosPanel } from './paso-que';
 
 export function PasoPonlo({
   entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, estiloSinAplicar, onCopiado, onMetodo, cambiar,
-  proximasClases, dominiosAutorizados, dominios, showToast,
+  proximasClases, dominiosAutorizados, dominios, verDominios, showToast,
 }: {
   entrada: EntradaIntegracion;
   metodo: MetodoIntegracion;
@@ -48,6 +48,11 @@ export function PasoPonlo({
   dominiosAutorizados: readonly string[];
   /** El gestor de webs autorizadas (integración sin marco). */
   dominios: ReactNode;
+  /**
+   * Viene de «Ir a las webs autorizadas» (la portada): abre «Para quien te hace
+   * la web», donde está la lista. Quien lo pide lleva allí el foco.
+   */
+  verDominios?: boolean;
   showToast: (m: string) => void;
 }) {
   const w = entrada.widget;
@@ -233,6 +238,7 @@ export function PasoPonlo({
         cambiar={cambiar}
         onMetodo={onMetodo}
         dominios={dominios}
+        verDominios={!!verDominios}
         botonPropio={botonPropio}
         onCopiarReact={() => void copiarReact()}
         reactCopiado={recienCopiado === 'react'}
@@ -256,7 +262,7 @@ function estiloVivo(metodo: MetodoIntegracion, sigueElEstilo: boolean): string {
   return ', y el estilo de tus widgets';
 }
 
-function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo, dominios, botonPropio, onCopiarReact, reactCopiado }: {
+function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo, dominios, verDominios, botonPropio, onCopiarReact, reactCopiado }: {
   entrada: EntradaIntegracion;
   metodo: MetodoIntegracion;
   receta: Receta;
@@ -264,6 +270,7 @@ function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo,
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   onMetodo: (m: MetodoIntegracion) => void;
   dominios: ReactNode;
+  verDominios: boolean;
   botonPropio: boolean;
   onCopiarReact: () => void;
   reactCopiado: boolean;
@@ -278,7 +285,7 @@ function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo,
 
   return (
     <section className="rounded-2xl border border-border bg-card px-4 shadow-xs @md/config:px-5">
-      <Plegable titulo="Para quien te hace la web" abierto={metodo === 'nativa' && !!falta} className="py-1.5">
+      <Plegable titulo="Para quien te hace la web" abierto={metodo === 'nativa' && (!!falta || verDominios)} className="py-1.5">
         <div className="space-y-6 pb-3">
           {w.metodos.includes('nativa') && (
             <div className="space-y-3">

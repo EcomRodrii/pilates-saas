@@ -19,7 +19,7 @@ export default function Contenido() {
       ]} />
 
       <ComoSolucionarlo>
-        <p style={{ margin: '0 0 12px' }}>Si lo copiaste desde Widgets para tu web, vuelve allí: en «Lo que tienes en tu web» verás cuándo lo vimos por última vez en tu web. Que aún no salga no quiere decir que esté mal pegado: aparece en cuanto alguien lo abre en tu web. De un botón que lleva a tu página de reservas o de un enlace no vemos desde dónde llegan, solo cuántas visitas.</p>
+        <p style={{ margin: '0 0 12px' }}>Si lo copiaste desde Widgets para tu web, vuelve allí: en «Lo que tienes en tu web» verás cuándo lo vimos por última vez en tu web. Que aún no salga no quiere decir que esté mal pegado. Si lo copiaste desde allí con su nombre para tus estadísticas y va dentro de una página, en una ventana que se abre encima o sin marco, aparece en cuanto alguien lo abre en tu web. Si lo copiaste sin ese nombre, no vemos dónde está. De un botón que lleva a tu página de reservas o de un enlace no vemos desde dónde llegan, solo cuántas visitas.</p>
         <p style={{ margin: '0 0 12px' }}>Si lo pusiste sin marco, ve a Configuración &gt; Mi app y mi web &gt; Widgets para tu web, paso «Ponlo en tu web», abre «Para quien te hace la web» y comprueba que tu web está entre las autorizadas (con «www» y sin él) — es el motivo más común con esa forma en concreto.</p>
         <p style={{ margin: '0 0 12px' }}>Revisa que el fragmento de código está completo y sin cortar — un solo carácter que falte puede impedir que cargue.</p>
         <p style={{ margin: '0 0 12px' }}>Vacía la caché de tu web (o del plugin de caché, si usas WordPress) y recarga con caché del navegador también vacía.</p>

@@ -87,9 +87,23 @@ test('⚠️ dentro de la propia Tentare (onboarding, portal, vista previa de un
   assert.equal(enSuWeb(CODIGO, { ancestros: ['https://tentare.app'] }), null);
   // El origen que sirve la página, sea cual sea (local, previsualizaciones).
   assert.equal(enSuWeb(CODIGO, { ancestros: ['http://localhost:3000'], propio: 'http://localhost:3000' }), null);
-  assert.equal(enSuWeb(CODIGO, { ancestros: ['https://tentare-git-rama.vercel.app'] }), null);
+  const previa = 'https://tentare-git-rama.vercel.app';
+  assert.equal(enSuWeb(CODIGO, { ancestros: [previa], propio: previa }), null);
+  // El canónico también desde una vista previa: el onboarding de producción no es su web.
+  assert.equal(enSuWeb(CODIGO, { ancestros: [PROPIO], propio: previa }), null);
   // Firefox en el onboarding: el referrer del mismo origen llega con la ruta entera.
   assert.equal(enSuWeb(CODIGO, { ancestros: null, referrer: `${PROPIO}/configuracion?tab=web` }), null);
+});
+
+test('⚠️ otro `*.vercel.app`: la carga cuenta (forma y firma), pero sin nombrar la web', () => {
+  // Puede ser la web de un estudio alojada en Vercel: descartarla entera la
+  // dejaba fuera de la portada para siempre. Tampoco se nombra: podría ser una
+  // vista previa de Tentare (y el servidor anula esa dirección igualmente).
+  const firma = firmaDeUrl(new URLSearchParams(CODIGO));
+  for (const web of ['https://albapilates.vercel.app', 'https://tentare-git-rama.vercel.app']) {
+    assert.deepEqual(enSuWeb(CODIGO, { ancestros: [web] }), { forma: 'incrustado', anfitrion: null, firma }, web);
+    assert.deepEqual(enSuWeb(`${CODIGO}&ventana=1`, { ancestros: null, referrer: `${web}/clases` }), { forma: 'ventana', anfitrion: null, firma }, web);
+  }
 });
 
 test('«null» o vacío: firma y forma, pero sin dirección (una web que no nos la dice)', () => {

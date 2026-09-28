@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { canonicalizarOrigen, LEGAL } from '../legal-info.ts';
 import { METODOS, type MetodoIntegracion } from './catalogo.ts';
 import {
-  FIRMA_CONTENIDO_VALIDA, FORMAS_PEGADAS, claveVista, esOrigenDeTentare, formaDeMetodo, origenAnfitrion,
+  FIRMA_CONTENIDO_VALIDA, FORMAS_PEGADAS, MAX_FILAS_POSTGREST, claveVista, esOrigenDeTentare, esOrigenPropio, formaDeMetodo,
+  leerVistos, origenAnfitrion,
 } from './pegado.ts';
 
 // El CHECK `widget_eventos_anfitrion_es_origen` de la migración de la Fase C.
@@ -94,6 +95,18 @@ test('esOrigenDeTentare: la web del estudio no lo es, aunque se le parezca', () 
   assert.equal(esOrigenDeTentare(LEGAL.url, []), false);
 });
 
+test('esOrigenPropio: lo de `propios` (el apex como `www`), pero NO cualquier *.vercel.app', () => {
+  const apex = `https://${new URL(LEGAL.url).hostname.replace(/^www\./, '')}`;
+  for (const propio of [LEGAL.url, apex, `${LEGAL.url}/onboarding`, 'http://localhost:3000']) {
+    assert.equal(esOrigenPropio(propio, PROPIOS), true, propio);
+  }
+  // Una web alojada en Vercel no es de Tentare con certeza: es `esOrigenDeTentare` quien la duda.
+  for (const ajeno of ['https://albapilates.vercel.app', 'https://tentare-git-rama.vercel.app', 'https://albapilates.example.com', 'null', '']) {
+    assert.equal(esOrigenPropio(ajeno, PROPIOS), false, ajeno);
+  }
+  assert.equal(esOrigenPropio('https://tentare-git-rama.vercel.app', ['https://tentare-git-rama.vercel.app']), true);
+});
+
 // ── Formas y claves ──────────────────────────────────────────────────────────
 
 test('formaDeMetodo: dentro de una página, encima y sin marco; botón y enlace no dicen dónde se ven', () => {
@@ -116,4 +129,31 @@ test('⚠️ FIRMA_CONTENIDO_VALIDA es literalmente el CHECK `widget_eventos_fir
   assert.equal(FIRMA_CONTENIDO_VALIDA.source, '^c[0-9][0-9a-z]{1,7}$');
   assert.equal(FIRMA_CONTENIDO_VALIDA.flags, '');
   for (const malo of ['zz', 'c1', 'c1ABC', 'x1abc', 'c1abcdefgh', '1fxr0n3', ' c1abc']) assert.doesNotMatch(malo, FIRMA_CONTENIDO_VALIDA, malo);
+});
+
+// ── leerVistos ───────────────────────────────────────────────────────────────
+
+const VISTA = {
+  origen: 'web-horario', forma: 'incrustado', anfitrion: 'https://albapilates.example.com', firma: 'c1abc',
+  primero: '2026-09-20T10:00:00.000Z', ultimo: '2026-09-28T10:00:00.000Z', n: '7',
+};
+
+test('leerVistos: las filas de widget_vistos(), con `n` como número y lo que falte a null', () => {
+  assert.deepEqual(leerVistos([VISTA, { ...VISTA, forma: 'nativa', anfitrion: null, firma: undefined }]), [
+    { ...VISTA, n: 7 },
+    { ...VISTA, forma: 'nativa', anfitrion: null, firma: null, n: 7 },
+  ]);
+  assert.deepEqual(leerVistos([]), []);
+});
+
+test('leerVistos: una forma que este código no conoce, o una fila rota, no se pinta como otra', () => {
+  for (const mala of [{ ...VISTA, forma: 'pagina' }, { ...VISTA, forma: 'toString' }, { ...VISTA, origen: null }, { ...VISTA, ultimo: 5 }, null, 'x']) {
+    assert.deepEqual(leerVistos([mala]), [], JSON.stringify(mala));
+  }
+});
+
+test('⚠️ leerVistos: con el tope de PostgREST, `null` (puede faltar justo lo de una pieza)', () => {
+  assert.equal(MAX_FILAS_POSTGREST, 1000);
+  assert.equal(leerVistos(Array.from({ length: MAX_FILAS_POSTGREST }, () => VISTA)), null);
+  assert.equal(leerVistos(Array.from({ length: MAX_FILAS_POSTGREST - 1 }, () => VISTA))?.length, MAX_FILAS_POSTGREST - 1);
 });

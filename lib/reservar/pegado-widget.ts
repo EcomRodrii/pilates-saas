@@ -10,7 +10,8 @@
 // ejecución, lib/widgets/popup-url.ts), la web de `ancestorOrigins` o del
 // referrer, y la versión de la propia URL (`firmaDeUrl`).
 
-import { esOrigenDeTentare, origenAnfitrion, type FormaPegada } from '../widgets/pegado.ts';
+import { LEGAL } from '../legal-info.ts';
+import { esOrigenDeTentare, esOrigenPropio, origenAnfitrion, type FormaPegada } from '../widgets/pegado.ts';
 import { firmaDeUrl } from '../widgets/firma-contenido.ts';
 
 /**
@@ -57,10 +58,18 @@ export function pegadoDesde(x: {
   // (`filesusr.com`) dentro de la web del estudio, y el padre inmediato sería
   // Wix. Firefox no tiene `ancestorOrigins`: ahí queda el referrer, que con la
   // política por defecto es solo el origen del padre.
-  const anfitrion = origenAnfitrion(x.ancestros?.at(-1) ?? x.referrer);
-  // Dentro de la propia Tentare (el onboarding, el portal, las vistas previas
-  // de cada despliegue) no es su web: nada, ni siquiera «sin dirección».
-  if (anfitrion && esOrigenDeTentare(anfitrion, [x.propio])) return null;
+  const visto = origenAnfitrion(x.ancestros?.at(-1) ?? x.referrer);
+  // Dentro de la propia Tentare (el onboarding, el portal, la vista previa de
+  // este mismo despliegue) no es su web: nada, ni siquiera «sin dirección».
+  // Solo lo SEGURO: el origen que sirve esta página y el canónico.
+  const propios = [x.propio, LEGAL.url];
+  if (visto && esOrigenPropio(visto, propios)) return null;
+  // Otro `*.vercel.app` puede ser una vista previa de Tentare o la web de un
+  // estudio alojada ahí, y no se distinguen: se cuenta la carga (forma y
+  // versión) sin nombrar la web. Descartarla entera dejaba esa web fuera de la
+  // portada para siempre; nombrarla podría decir «Visto en» una vista previa
+  // nuestra (y el servidor anula esa dirección de todas formas).
+  const anfitrion = visto && !esOrigenDeTentare(visto, propios) ? visto : null;
 
   return {
     forma: x.params.get('ventana') === '1' ? 'ventana' : 'incrustado',

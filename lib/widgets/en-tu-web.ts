@@ -142,18 +142,26 @@ const ms = (iso: string) => Date.parse(iso);
 const masReciente = (a: VistoWidget, b: VistoWidget) => (ms(b.ultimo) > ms(a.ultimo) ? b : a);
 
 /**
- * La versión que enseña su web, con las filas de esta pieza. `null` si no hay
- * con qué decirlo (sin versión de ahora que comparar, o nada con firma esta
- * semana).
+ * La versión que enseña su web, con las filas de esta pieza EN LA FORMA
+ * COPIADA. `null` si no hay con qué decirlo (sin versión de ahora que
+ * comparar, o nada con firma esta semana).
+ *
+ * ⚠️ Solo esa forma: la misma pieza puede estar pegada a propósito dentro de
+ * una página y, en otra, como botón que se abre encima (el iframe y el popup
+ * cargan la misma URL, y llevan la misma etiqueta). Eso no son «dos
+ * versiones» de lo copiado: son dos cosas pegadas, y compararlas entre sí
+ * daría un aviso perpetuo que ningún código nuevo arregla.
  */
 function versionVista(
   filas: readonly VistoWidget[],
+  forma: FormaPegada,
   claveAhora: string | null,
   conocidas: readonly string[],
   ahora: number,
 ): { version: Version; laOtra?: { anfitrion: string | null; ultimo: string } } | null {
   if (!claveAhora) return null;
-  const recientes = filas.filter(f => f.firma && f.firma.startsWith(VERSION_FIRMA) && ahora - ms(f.ultimo) <= VENTANA_VERSION_MS);
+  const recientes = filas.filter(f =>
+    f.forma === forma && f.firma && f.firma.startsWith(VERSION_FIRMA) && ahora - ms(f.ultimo) <= VENTANA_VERSION_MS);
   if (!recientes.length) return null;
   const clave = (f: VistoWidget) => claveVista(f.forma, f.firma!);
   const actual = recientes.filter(f => clave(f) === claveAhora);
@@ -178,12 +186,16 @@ function versionVista(
 /**
  * Qué se dice de una pieza en su web. En orden:
  *  1. `oculto`: sin permiso de resultados, cargando o con error (`vistos`
- *     `undefined`/`null`), sin `ahora`, o sin saber qué forma se copió.
+ *     `undefined`/`null`), sin `ahora`, sin saber qué forma se copió, o sin
+ *     `etiquetas` (se copió sin etiqueta: `widget_vistos()` descarta las
+ *     cargas sin `origen`, así que nunca se podrá ver y «Aún no lo vemos»
+ *     sería mentira para siempre).
  *  2. `no-medible`: un botón o un enlace (no se mide de dónde llegan, a propósito).
  *  3. Las filas de su etiqueta (la copiada y la de ahora). Sin filas: `sin-dato`
  *     si este mes tuvo visitas, y si no `sin-ver`.
- *  4. `visto`, con la fila más reciente. La versión, solo si no hay ámbar (el
- *     ámbar ya dice que su web sigue con lo de antes).
+ *  4. `visto`, con la fila más reciente de la forma copiada (si no hay, la más
+ *     reciente de todas). La versión, solo si no hay ámbar (el ámbar ya dice
+ *     que su web sigue con lo de antes), y solo entre filas de esa forma.
  */
 export function estadoEnTuWeb(x: {
   metodoCopiado: MetodoIntegracion | null;
@@ -195,14 +207,16 @@ export function estadoEnTuWeb(x: {
   hayAmbar: boolean;
   ahora: number | null;
 }): EstadoEnTuWeb {
-  if (!x.vistos || x.ahora === null || !x.metodoCopiado) return { tipo: 'oculto' };
+  if (!x.vistos || x.ahora === null || !x.metodoCopiado || !x.etiquetas.length) return { tipo: 'oculto' };
   const forma = formaDeMetodo(x.metodoCopiado);
   if (!forma) return { tipo: 'no-medible' };
   const filas = x.vistos.filter(v => x.etiquetas.includes(v.origen));
   if (!filas.length) return (x.visitasMes ?? 0) > 0 ? { tipo: 'sin-dato' } : { tipo: 'sin-ver', forma };
-  const principal = filas.reduce(masReciente);
+  // Lo que se copió manda: su fila, si la hay, da la web y el momento.
+  const deSuForma = filas.filter(f => f.forma === forma);
+  const principal = (deSuForma.length ? deSuForma : filas).reduce(masReciente);
   const otrasWebs = new Set(filas.map(f => f.anfitrion).filter((a): a is string => !!a && a !== principal.anfitrion)).size;
-  const v = x.hayAmbar ? null : versionVista(filas, x.claveAhora, x.conocidas, x.ahora);
+  const v = x.hayAmbar ? null : versionVista(filas, forma, x.claveAhora, x.conocidas, x.ahora);
   return {
     tipo: 'visto', forma: principal.forma, anfitrion: principal.anfitrion, ultimo: principal.ultimo, otrasWebs,
     version: v?.version ?? null,
@@ -257,6 +271,23 @@ export function textosEnTuWeb(e: EstadoEnTuWeb, ahora: number): { linea: string 
 
 // ── Una pieza copiada, entera ────────────────────────────────────────────────
 
+/**
+ * Las etiquetas con las que se busca lo visto de una pieza: la copiada (la que
+ * lleva lo que hay en su web) y la de ahora (si la cambió y pegó el código
+ * nuevo sin copiarlo desde aquí, su web ya lleva esa). Son las que pide el
+ * panel a `widget_vistos()`.
+ *
+ * Vacío si se copió SIN etiqueta («Nombre para tus estadísticas» en blanco):
+ * `widget_vistos()` descarta las cargas sin `origen`, así que lo pegado así no
+ * se puede ver nunca, ni siquiera con la etiqueta de ahora.
+ */
+export function etiquetasDeCopia(copia: Copiado, base: EntradaIntegracion): string[] {
+  const copiada = etiquetaEfectiva(copia.config ?? base.config, base.widget);
+  if (!copiada) return [];
+  const deAhora = etiquetaEfectiva(base.config, base.widget);
+  return deAhora && deAhora !== copiada ? [copiada, deAhora] : [copiada];
+}
+
 export interface PiezaCopiada {
   /** La forma que se copió, o `null` si no se sabe (una copia de antes de la Fase C que ya no es lo de ahora). */
   metodo: MetodoIntegracion | null;
@@ -285,7 +316,8 @@ export interface PiezaCopiada {
  *   coincide con lo de ahora, lo copiado ES lo de ahora (su forma y su versión).
  *
  * `puedeGenerar`: sin código que dar (`faltaParaGenerar`) no hay «código nuevo»
- * que copiar, y no se avisa de nada.
+ * que copiar, y no se avisa de nada. Tampoco hay versión de ahora con la que
+ * comparar lo que enseña su web: ni «al día» ni «anterior».
  */
 export function piezaCopiada(x: {
   copia: Copiado;
@@ -294,14 +326,29 @@ export function piezaCopiada(x: {
   metodoAhora: MetodoIntegracion;
   puedeGenerar: boolean;
   vistos: readonly VistoWidget[] | null | undefined;
+  /**
+   * Las etiquetas que se pidieron para `vistos` (se pide filtrado, ver
+   * `etiquetasDeCopia`). Si no cubre las de esta pieza —las cambió después de
+   * pedirlo—, lo leído no dice nada de ella y cuenta como sin leer. Sin esto,
+   * todo lo de `vistos`.
+   */
+  leidas?: readonly string[];
+  /**
+   * Lo visto en su web se ha pedido y aún no ha llegado. Con foto, lo que se
+   * ve puede quitar el ámbar: pintarlo ya y quitarlo al llegar sería decirle
+   * algo y desdecirse, así que se espera. Sin permiso para verlo no se pide, y
+   * el ámbar sale como siempre.
+   */
+  esperandoVistos?: boolean;
   /** El mes por etiqueta (`embudoPorWidget`), o `null` si no ha cargado. */
   mes: readonly EmbudoWidget[] | null;
   ahora: number | null;
 }): PiezaCopiada {
   const { copia: k, base, metodoAhora } = x;
-  const w = base.widget;
   const formaAhora = formaDeMetodo(metodoAhora);
-  const contenidoAhora = firmaContenidoDe(base, metodoAhora);
+  const contenidoAhora = x.puedeGenerar ? firmaContenidoDe(base, metodoAhora) : null;
+  // Sin código de ahora no hay versión de ahora: «Reserva una clase» sin clase
+  // elegida no es «otra versión» de lo que hay en su web.
   const claveAhora = formaAhora && contenidoAhora ? claveVista(formaAhora, contenidoAhora) : null;
 
   const foto = k.config && k.metodo ? { config: k.config, metodo: k.metodo } : null;
@@ -311,15 +358,16 @@ export function piezaCopiada(x: {
 
   // La etiqueta con la que se COPIÓ (la foto, aunque no se sepa su forma): es
   // la que lleva lo que hay en su web.
-  const etiqueta = etiquetaEfectiva(k.config ?? pegada ?? base.config, w);
-  const etiquetas = [...new Set([etiqueta, etiquetaEfectiva(base.config, w)].filter((e): e is string => !!e))];
+  const etiquetas = etiquetasDeCopia(k, base);
+  const etiqueta = etiquetas[0] ?? null;
   const mes = x.mes && etiqueta ? x.mes.find(r => r.etiqueta === etiqueta) ?? null : null;
+  const leido = !x.leidas || etiquetas.every(e => x.leidas!.includes(e));
   const entrada = {
     metodoCopiado: metodo,
     etiquetas,
     claveAhora,
     conocidas: foto ? [claveDeCopia(k), ...(k.anteriores ?? [])].filter((c): c is string => !!c) : coincide && claveAhora ? [claveAhora] : [],
-    vistos: x.vistos,
+    vistos: leido ? x.vistos : undefined,
     // Sin etiqueta, sus visitas no se distinguen de las de otros códigos.
     visitasMes: x.mes && etiqueta ? (mes?.visitas ?? 0) : null,
     ahora: x.ahora,
@@ -331,11 +379,20 @@ export function piezaCopiada(x: {
   if (foto) {
     const grupos = x.puedeGenerar ? gruposCambiados(foto.config, base, foto.metodo, metodoAhora) : [];
     const sinAmbar = estadoEnTuWeb({ ...entrada, hayAmbar: false });
-    const alDia = sinAmbar.tipo === 'visto' && sinAmbar.version === 'al-dia';
-    const quedan = alDia ? grupos.filter(g => !g.seVe) : grupos;
-    cambios = quedan.map(g => g.nombre);
-    desfasado = quedan.length > 0;
-    estado = desfasado ? estadoEnTuWeb({ ...entrada, hayAmbar: true }) : sinAmbar;
+    if (x.esperandoVistos && grupos.some(g => g.seVe)) {
+      // Lo que llegue puede quitar el ámbar (o cambiar su lista): se espera.
+      // Si ningún cambio llega a la página, nada de lo que llegue lo quita, y
+      // no hay por qué callarlo.
+      cambios = [];
+      desfasado = false;
+      estado = sinAmbar;
+    } else {
+      const alDia = sinAmbar.tipo === 'visto' && sinAmbar.version === 'al-dia';
+      const quedan = alDia ? grupos.filter(g => !g.seVe) : grupos;
+      cambios = quedan.map(g => g.nombre);
+      desfasado = quedan.length > 0;
+      estado = desfasado ? estadoEnTuWeb({ ...entrada, hayAmbar: true }) : sinAmbar;
+    }
   } else {
     desfasado = x.puedeGenerar && !coincide;
     estado = estadoEnTuWeb({ ...entrada, hayAmbar: desfasado });

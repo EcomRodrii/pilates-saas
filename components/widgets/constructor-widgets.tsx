@@ -14,7 +14,7 @@ import {
   type ConfigConstructor, type Copiado,
 } from '@/lib/widgets/config';
 import { embudoPorWidget, textoMes, type EmbudoWidget } from '@/lib/widgets/embudo';
-import { piezaCopiada, webSinAutorizar } from '@/lib/widgets/en-tu-web';
+import { etiquetasDeCopia, piezaCopiada, webSinAutorizar } from '@/lib/widgets/en-tu-web';
 import type { VistoWidget } from '@/lib/widgets/pegado';
 import { dbEmbudoWidgetPorOrigen, dbWidgetVistos } from '@/lib/supabase-data';
 import { useRol } from '@/lib/permisos';
@@ -164,21 +164,22 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // quien puede ver el embudo (la RLS de widget_eventos: PROPIETARIO/MANAGER).
   const veResultados = puedeGestionarPortalHome(rol);
   const [resultadosMes, setResultadosMes] = useState<EmbudoWidget[] | null>(null);
-  // Dónde se ha visto cada pieza (Fase C). `undefined` mientras carga (o sin
-  // permiso: ni se pide) y `null` si falla: en los dos casos la portada no dice
-  // nada de su web. «Aún no lo vemos» sería mentira, y a quien la RLS no deja
-  // leer le llega `[]`, no un error.
-  const [vistos, setVistos] = useState<VistoWidget[] | null | undefined>(undefined);
+  // Dónde se ha visto cada pieza (Fase C), con las etiquetas que se pidieron
+  // (se pide filtrado: ver `etiquetasVistas`, más abajo). `undefined` mientras
+  // llega lo primero (o sin permiso: ni se pide) y `filas: null` si falla: en
+  // los dos casos la portada no dice nada de su web. «Aún no lo vemos» sería
+  // mentira, y a quien la RLS no deja leer le llega `[]`, no un error.
+  const [vistos, setVistos] = useState<{ etiquetas: readonly string[]; filas: VistoWidget[] | null } | undefined>(undefined);
+  // Lo visto espera al mes: con visitas este mes y nada visto, la fila dice
+  // «aún no sabemos desde qué web», y antes del mes diría un momento «Aún no lo
+  // vemos». La lectura del mes se guarda aquí para que la espere.
+  const mesLeido = useRef<Promise<unknown> | null>(null);
   useEffect(() => {
     if (!veResultados) return;
     const hoy = new Date();
     const desde = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
     let vivo = true;
-    const mes = dbEmbudoWidgetPorOrigen(desde).then(filas => { if (vivo && filas) setResultadosMes(embudoPorWidget(filas)); });
-    // Lo visto, cuando ya está el mes: con visitas este mes y nada visto, la
-    // fila dice «aún no sabemos desde qué web», y antes del mes diría un
-    // momento «Aún no lo vemos».
-    void Promise.all([dbWidgetVistos(), mes]).then(([v]) => { if (vivo) setVistos(v); }, () => { if (vivo) setVistos(null); });
+    mesLeido.current = dbEmbudoWidgetPorOrigen(desde).then(filas => { if (vivo && filas) setResultadosMes(embudoPorWidget(filas)); });
     return () => { vivo = false; };
   }, [veResultados]);
 
@@ -293,6 +294,8 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // Las configs de lo copiado con lo de ahora (sin huérfanos): con ellas rehace
   // su firma la confirmación de «Aplicar en mi web» (`piezasAfectadas`).
   const configsCopiadas: Record<string, ConfigConstructor> = {};
+  // Lo que se pide a `widget_vistos()`: lo copiado y lo de ahora de cada pieza.
+  const pedir = new Set<string>();
   for (const [id, k] of Object.entries(copiados)) {
     const otro = widgetPorId(id);
     if (!esDisponible(otro)) continue;
@@ -300,9 +303,12 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     configsCopiadas[id] = c;
     const m = metodoEnWeb(c, otro, plataforma);
     const e: EntradaIntegracion = { ...entrada, widget: otro, config: c };
+    for (const t of etiquetasDeCopia(k, e)) pedir.add(t);
     const p = piezaCopiada({
       copia: k, base: e, metodoAhora: m, puedeGenerar: !faltaParaGenerar(e, m, { dominiosAutorizados }),
-      vistos, mes: resultadosMes, ahora,
+      vistos: vistos?.filas, leidas: vistos?.etiquetas,
+      esperandoVistos: veResultados && vistos === undefined,
+      mes: resultadosMes, ahora,
     });
     copias[id] = { en: k.en, desfasado: p.desfasado };
     filasTienes.push({
@@ -311,8 +317,33 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       esEnlace: m === 'enlace' || (m === 'boton' && usaBotonPropio(plataforma)),
       // Solo la dirección que ELLA nos dio: nunca se ofrece autorizar otra.
       webSinAutorizar: p.metodo === 'nativa' ? webSinAutorizar(direccionWeb, dominiosAutorizados) : null,
+      // La lista solo se pinta con la nativa de AHORA («Ponlo en tu web»).
+      conListaDeWebs: m === 'nativa',
     });
   }
+  // Una cadena y no la lista, para que el efecto dependa de lo que se pide y no
+  // de un array nuevo en cada render. Las etiquetas no llevan espacios
+  // (ETIQUETA_VALIDA).
+  const etiquetasVistas = [...pedir].sort().join(' ');
+  // Se vuelve a pedir si cambian (copia algo nuevo, o cambia una etiqueta):
+  // lo leído no dice nada de una etiqueta que no se pidió (`leidas`). Mientras
+  // tanto se queda lo anterior, y tras la primera lectura se espera a que deje
+  // de escribir para no pedir una vez por letra.
+  const vistosLeidos = useRef(false);
+  useEffect(() => {
+    if (!veResultados) return;
+    const etiquetas = etiquetasVistas ? etiquetasVistas.split(' ') : [];
+    let vivo = true;
+    const t = setTimeout(() => {
+      void Promise.all([dbWidgetVistos(etiquetas), mesLeido.current])
+        .then(([filas]) => filas, () => null)
+        .then(filas => {
+          vistosLeidos.current = true;
+          if (vivo) setVistos({ etiquetas, filas });
+        });
+    }, vistosLeidos.current ? 600 : 0);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [veResultados, etiquetasVistas]);
   const copia = copiados[w.id] ?? null;
   const desfase = !!copias[w.id]?.desfasado;
   const conCopias = filasTienes.length > 0;
@@ -418,6 +449,31 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     setActivoId(id);
     irA(p);
   }
+  // «Ir a las webs autorizadas»: la lista vive en «Ponlo en tu web», dentro del
+  // pliegue «Para quien te hace la web» (y solo con la nativa, por eso la fila
+  // no enseña el botón con otra forma). Se abre el pliegue (`verDominios`) y se
+  // lleva allí el foco, que la pone a la vista: dejarla en el paso con el
+  // pliegue cerrado era mandarla a buscarla.
+  const dominiosRef = useRef<HTMLDivElement | null>(null);
+  const [verDominios, setVerDominios] = useState(false);
+  function irAWebsAutorizadas(id: string) {
+    setActivoId(id);
+    setPaso('ponlo');
+    setVerDominios(true);
+    // Tras pintar el paso: el pliegue ya está abierto (su efecto corre al
+    // confirmar el clic, antes del siguiente fotograma).
+    requestAnimationFrame(() => {
+      const lista = dominiosRef.current;
+      if (lista) {
+        lista.focus({ preventScroll: true });
+        lista.scrollIntoView({ block: 'center' });
+      } else {
+        contenedores.current.ponlo?.focus();
+      }
+      // Se suelta: la próxima vez que lo pida, vuelve a abrirlo aunque lo cerrara.
+      setVerDominios(false);
+    });
+  }
   function ponerOtraCosa() {
     // Lo primero que aún no tiene: lo más probable es que venga a por eso.
     const libre = WIDGETS.find((x): x is WidgetDisponible => esDisponible(x) && !!x.principal && !(x.id in copiados));
@@ -510,7 +566,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
                 onCambiar={id => abrirPieza(id, 'que')}
                 onCopiarNuevo={id => abrirPieza(id, 'ponlo')}
                 onEstiloComun={id => abrirPieza(id, 'como')}
-                onWebsAutorizadas={id => abrirPieza(id, 'ponlo')}
+                onWebsAutorizadas={irAWebsAutorizadas}
                 onCambiarEstilo={() => irA('como')}
                 onOtraCosa={ponerOtraCosa}
                 // Sin filtrar por widget (Fase D): lleva a «Cómo le va a tu página».
@@ -577,14 +633,17 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               cambiar={cambiar}
               proximasClases={datos.proximasClases}
               dominiosAutorizados={dominiosAutorizados}
+              verDominios={verDominios}
               dominios={(
-                <GestionDominios
-                  dominios={dominiosAutorizados}
-                  onGuardar={guardarDominios}
-                  showToast={showToast}
-                  puedeCambiar={rol === 'PROPIETARIO'}
-                  sugerido={direccionWeb}
-                />
+                <div ref={dominiosRef} tabIndex={-1} className="outline-none">
+                  <GestionDominios
+                    dominios={dominiosAutorizados}
+                    onGuardar={guardarDominios}
+                    showToast={showToast}
+                    puedeCambiar={rol === 'PROPIETARIO'}
+                    sugerido={direccionWeb}
+                  />
+                </div>
               )}
               showToast={showToast}
             />

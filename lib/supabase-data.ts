@@ -29,7 +29,7 @@ import { saldoVivo } from '@/lib/creditos-caducidad';
 // `hoyISO` fija la zona del negocio (Madrid). Sin eso, el saldo caducaría a
 // medianoche UTC — dos horas antes en verano — para todo el mundo.
 import { hoyISO } from '@/lib/student/formato';
-import { FORMAS_PEGADAS, type FormaPegada, type VistoWidget } from '@/lib/widgets/pegado';
+import { leerVistos, type VistoWidget } from '@/lib/widgets/pegado';
 import {
   cobroManualDeRecibo, penalizacionDelRecibo, TEXTO_PENALIZACION_ANULADA, type LecturaPenalizacionesDeRecibos,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
@@ -3902,17 +3902,18 @@ export async function dbEmbudoWidgetPorOrigen(desde: string): Promise<{ origen: 
 // vemos en tu web», una afirmación que la portada enseña tal cual. Y a quien
 // la RLS no deja leer (RECEPCION) también le llega `[]`, así que el panel solo
 // la pide con permiso de ver resultados.
-export async function dbWidgetVistos(): Promise<VistoWidget[] | null> {
-  const { data, error } = await supabase.rpc('widget_vistos');
+//
+// Solo lo de `etiquetas` (lo copiado y lo de ahora de cada pieza), filtrado en
+// la propia petición: la función guarda hasta 20 grupos por etiqueta y forma,
+// y sin filtro las etiquetas que ya no usa nadie podían llenar el tope de
+// PostgREST y dejar fuera lo que sí se pinta. Si aun así se llega al tope,
+// `null` (`leerVistos`): puede faltar justo lo de una pieza.
+export async function dbWidgetVistos(etiquetas: readonly string[]): Promise<VistoWidget[] | null> {
+  // Sin etiquetas no hay nada que pueda verse: ni se pregunta.
+  if (!etiquetas.length) return [];
+  const { data, error } = await supabase.rpc('widget_vistos').in('origen', [...etiquetas]);
   if (error) { reportDbError('[dbWidgetVistos]', error); return null; }
-  return ((data ?? []) as { origen: string; forma: string; anfitrion: string | null; firma: string | null; primero: string; ultimo: string; n: number }[])
-    // Una forma que este código no conoce (una columna ampliada antes de
-    // desplegar) no se pinta como si fuera otra.
-    .filter((r): r is typeof r & { forma: FormaPegada } => (FORMAS_PEGADAS as readonly string[]).includes(r.forma))
-    .map((r) => ({
-      origen: r.origen, forma: r.forma, anfitrion: r.anfitrion ?? null, firma: r.firma ?? null,
-      primero: r.primero, ultimo: r.ultimo, n: Number(r.n),
-    }));
+  return leerVistos((data ?? []) as unknown[]);
 }
 
 // Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) para

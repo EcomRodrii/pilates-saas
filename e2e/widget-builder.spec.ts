@@ -934,6 +934,8 @@ test.describe('El estilo de tus widgets: se prueba en la previa y se aplica en s
 // dónde. Cada caso lleva su CONTADOR de lecturas: sin él, «no dice nada» puede
 // ser verdad por no haber preguntado. La ruta se registra DESPUÉS de montar()
 // (la última gana al comodín `/rest/v1/**`, que responde `[]`) y se recarga.
+// ⚠️ Con `**` al final: la lectura va filtrada por etiqueta
+// (`?origen=in.(web-horario)`), y sin él la ruta no la reconoce.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** La versión que /reservar calcula del horario por defecto, dentro de una página. */
@@ -963,13 +965,17 @@ type Respuesta = { status: number; cuerpo: unknown };
 /** `widget_vistos()` con lo que diga `responder`, y cuántas veces se ha pedido. */
 async function lectorDeVistos(page: Page, responder: () => Respuesta) {
   let lecturas = 0;
-  await page.route('**/rest/v1/rpc/widget_vistos', route => {
+  await page.route('**/rest/v1/rpc/widget_vistos**', route => {
     lecturas++;
     const r = responder();
     return json(route, r.cuerpo, r.status);
   });
   return () => lecturas;
 }
+
+/** La respuesta de verdad a `widget_vistos()`, con este estado: registrarla ANTES de recargar. */
+const respuestaVistos = (page: Page, status: number) =>
+  page.waitForResponse(r => r.url().includes('/rest/v1/rpc/widget_vistos') && r.status() === status);
 
 async function recargar(page: Page) {
   await page.reload();
@@ -1013,10 +1019,15 @@ test.describe('Lo que tienes en tu web: lo copiado, qué cambió y dónde se ve,
     // La lectura falla: ni «Aún no» (sería mentira) ni «Visto».
     respuesta = { status: 500, cuerpo: { message: 'fallo' } };
     antes = lecturas();
+    const fallo = respuestaVistos(page, 500);
     await recargar(page);
+    // El 500 ya ha llegado a la página (entero): lo que se aserta abajo es lo
+    // que pinta CON él, no lo de antes de tenerlo.
+    await (await fallo).finished();
     await expect.poll(lecturas, { message: 'el 500 ni se llegó a pedir' }).toBeGreaterThan(antes);
     await expect(portada(page).getByText('Aún no ha llegado nadie desde aquí este mes')).toBeVisible();
-    await page.waitForTimeout(500);
+    // Un fotograma para que React pinte lo que hizo con él.
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))));
     await expect(portada(page).getByText(/Aún no lo vemos/)).toHaveCount(0);
     await expect(portada(page).getByText(/Visto (en|hace)/)).toHaveCount(0);
   });
@@ -1062,10 +1073,16 @@ test.describe('Lo que tienes en tu web: lo copiado, qué cambió y dónde se ve,
       plataforma: 'otra',
       widgetBuilder: { horario: { ...CONFIG_SIN_PRECIO, copiado: COPIA_CON_FOTO } },
     });
+    // La lectura se retiene: mientras no llega, lo que ve su web podría quitar
+    // el ámbar (si ya pegó lo de ahora), así que no se pinta para quitarlo después.
     let lecturas = 0;
-    await page.route('**/rest/v1/rpc/widget_vistos', route => { lecturas++; return json(route, []); });
+    let soltar = () => {};
+    const retenida = new Promise<void>(r => { soltar = r; });
+    await page.route('**/rest/v1/rpc/widget_vistos**', async route => { lecturas++; await retenida; return json(route, []); });
     await recargar(page);
     await expect.poll(() => lecturas).toBeGreaterThan(0);
+    await expect(portada(page).getByText(/Lo cambiaste después de copiarlo/)).toHaveCount(0);
+    soltar();
     await expect(portada(page).getByText('Lo cambiaste después de copiarlo (qué se ve de cada clase): tu web sigue con lo de antes.')).toBeVisible();
     // Con ámbar no se dice nada de su versión.
     await expect(portada(page).getByText(VERSIONES)).toHaveCount(0);
@@ -1086,7 +1103,7 @@ test.describe('Lo que tienes en tu web: lo copiado, qué cambió y dónde se ve,
     // «Cambiar el estilo», a «Cómo se ve».
     const tarjetaEstilo = page.getByRole('region', { name: 'Estilo de tus widgets' });
     await expect(tarjetaEstilo).toContainText('Igual que tu app · Crema');
-    await expect(tarjetaEstilo).toContainText('Llega solo a lo que tienes en tu web, salvo a lo que lleva su propio diseño en el código.');
+    await expect(tarjetaEstilo).toContainText('Llega a lo que tienes dentro de una página o en una ventana encima, salvo a lo que lleva su propio diseño en el código.');
     await tarjetaEstilo.getByRole('button', { name: 'Cambiar el estilo', exact: true }).click();
     await expect(page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: 'Cómo se ve', exact: true }))
       .toHaveAttribute('aria-current', 'step');
@@ -1131,6 +1148,41 @@ test.describe('Lo que tienes en tu web: lo copiado, qué cambió y dónde se ve,
 
     await page.getByRole('button', { name: 'Lo que tienes en tu web' }).click();
     await expect(portada(page).getByRole('listitem').filter({ hasText: 'Horario y reservas' })).toContainText(/Dentro de una página · copiado el/);
+  });
+
+  // Sin marco y con su web sin autorizar: el botón lleva a la LISTA, no solo al paso.
+  const AVISO_SIN_AUTORIZAR = 'Tu web (albapilates.example.com) no está entre las webs autorizadas, y sin marco el widget solo carga en las que autorices.';
+  const COPIA_SIN_MARCO = { firma: 'abc123', en: '2026-09-12T10:00:00.000Z', metodo: 'nativa', config: { metodo: 'nativa' } };
+  const WEB_SIN_AUTORIZAR = { plataforma: 'otra', direccion: 'albapilates.example.com' };
+
+  test('«Ir a las webs autorizadas» abre «Para quien te hace la web» y lleva a la lista, cada vez', async ({ page }) => {
+    await montar(page, { widgetBuilder: { _web: WEB_SIN_AUTORIZAR, horario: { metodo: 'nativa', copiado: COPIA_SIN_MARCO } } });
+    const fila1 = portada(page).getByRole('listitem').filter({ hasText: 'Horario y reservas' });
+    await expect(fila1).toContainText(AVISO_SIN_AUTORIZAR);
+    const lista = page.getByRole('list', { name: 'Webs autorizadas' });
+    const focoEnLaLista = () => page.evaluate(() => !!document.activeElement?.querySelector('ul[aria-label="Webs autorizadas"]'));
+
+    await fila1.getByRole('button', { name: 'Ir a las webs autorizadas', exact: true }).click();
+    await expect(page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: 'Ponlo en tu web', exact: true }))
+      .toHaveAttribute('aria-current', 'step');
+    await expect(lista).toBeVisible();
+    await expect(lista).toBeInViewport();
+    await expect.poll(focoEnLaLista).toBe(true);
+
+    // Si lo cierra y vuelve a pedirlo desde la portada, se vuelve a abrir.
+    await page.locator('summary', { hasText: 'Para quien te hace la web' }).click();
+    await expect(lista).toBeHidden();
+    await page.getByRole('button', { name: 'Lo que tienes en tu web' }).click();
+    await portada(page).getByRole('button', { name: 'Ir a las webs autorizadas', exact: true }).click();
+    await expect(lista).toBeVisible();
+    await expect.poll(focoEnLaLista).toBe(true);
+  });
+
+  test('si ahora ya no va sin marco, el aviso sigue (es cierto) pero sin un botón que no lleva a ninguna lista', async ({ page }) => {
+    await montar(page, { widgetBuilder: { _web: WEB_SIN_AUTORIZAR, horario: { metodo: 'iframe', copiado: COPIA_SIN_MARCO } } });
+    const fila1 = portada(page).getByRole('listitem').filter({ hasText: 'Horario y reservas' });
+    await expect(fila1).toContainText(AVISO_SIN_AUTORIZAR);
+    await expect(fila1.getByRole('button', { name: 'Ir a las webs autorizadas' })).toHaveCount(0);
   });
 });
 

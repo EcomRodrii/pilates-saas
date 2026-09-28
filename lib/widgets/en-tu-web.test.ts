@@ -4,10 +4,10 @@ import { WIDGETS, type MetodoIntegracion, type WidgetDisponible } from './catalo
 import { CONFIG_POR_DEFECTO, nuevaCopia, type ConfigConstructor, type Copiado } from './config.ts';
 import { embudoPorWidget } from './embudo.ts';
 import {
-  GRUPOS, MARGEN_MISMA_VERSION_MS, VENTANA_VERSION_MS, estadoEnTuWeb, gruposCambiados, hostDe, piezaCopiada, textoCambios,
-  textosEnTuWeb, unirGrupos, webSinAutorizar, type EstadoEnTuWeb,
+  GRUPOS, MARGEN_MISMA_VERSION_MS, VENTANA_VERSION_MS, estadoEnTuWeb, etiquetasDeCopia, gruposCambiados, hostDe, piezaCopiada,
+  textoCambios, textosEnTuWeb, unirGrupos, webSinAutorizar, type EstadoEnTuWeb,
 } from './en-tu-web.ts';
-import { firmaCodigo, firmaContenidoDe, type EntradaIntegracion } from './integracion.ts';
+import { faltaParaGenerar, firmaCodigo, firmaContenidoDe, type EntradaIntegracion } from './integracion.ts';
 import { claveVista, type FormaPegada, type VistoWidget } from './pegado.ts';
 
 const HORARIO = WIDGETS.find((w): w is WidgetDisponible => w.id === 'horario' && w.estado === 'disponible')!;
@@ -118,6 +118,14 @@ test('estadoEnTuWeb 1: oculto cargando, con error, sin permiso, sin `ahora` o si
   assert.deepEqual(estado(null, { metodoCopiado: 'boton' }), { tipo: 'oculto' });
 });
 
+test('⚠️ estadoEnTuWeb 1b: sin etiqueta, oculto (nunca se podrá ver: `widget_vistos()` descarta las cargas sin `origen`)', () => {
+  // Ni «Aún no lo vemos» (sería mentira para siempre) ni «sin dato».
+  assert.deepEqual(estado([], { etiquetas: [] }), { tipo: 'oculto' });
+  assert.deepEqual(estado([], { etiquetas: [], visitasMes: 300 }), { tipo: 'oculto' });
+  assert.deepEqual(estado([fila({})], { etiquetas: [] }), { tipo: 'oculto' });
+  assert.deepEqual(estado([], { etiquetas: [], metodoCopiado: 'boton' }), { tipo: 'oculto' });
+});
+
 test('estadoEnTuWeb 2: un botón o un enlace no se miden (a propósito), aunque haya filas', () => {
   assert.deepEqual(estado([fila({})], { metodoCopiado: 'boton' }), { tipo: 'no-medible' });
   assert.deepEqual(estado([fila({})], { metodoCopiado: 'enlace' }), { tipo: 'no-medible' });
@@ -150,7 +158,8 @@ test('estadoEnTuWeb 4: visto, con la fila más reciente y las otras webs sin con
   assert.equal(e.forma, 'incrustado');
   assert.equal(e.otrasWebs, 2);
 
-  const sinDireccion = estado([fila({ ultimo: H, anfitrion: null, forma: 'ventana' }), fila({ ultimo: 3 * H })]);
+  // Copiado como ventana: su fila, la más reciente, no dice su dirección.
+  const sinDireccion = estado([fila({ ultimo: H, anfitrion: null, forma: 'ventana' }), fila({ ultimo: 3 * H })], { metodoCopiado: 'popup' });
   assert.equal(sinDireccion.tipo === 'visto' && sinDireccion.anfitrion, null);
   assert.equal(sinDireccion.tipo === 'visto' && sinDireccion.forma, 'ventana');
   assert.equal(sinDireccion.tipo === 'visto' && sinDireccion.otrasWebs, 1);
@@ -177,8 +186,32 @@ test('estadoEnTuWeb 5: al día, anterior (solo si la copió desde aquí), distin
   assert.equal(version(tres), 'distinta');
   assert.deepEqual(tres.tipo === 'visto' && tres.laOtra, { anfitrion: null, ultimo: iso(AHORA - 3 * H) });
 
-  // La misma firma con otra forma es OTRA versión: el iframe y el popup cargan la misma URL.
-  assert.equal(version(estado([fila({ forma: 'ventana' })])), 'distinta');
+  // Lo que se ve con OTRA forma no es una versión de lo copiado: es otra cosa
+  // pegada (la misma pieza como botón que se abre encima, en otra página). Ni
+  // «distinta» ni «al día»: de lo copiado dentro de la página no se sabe nada.
+  assert.equal(version(estado([fila({ forma: 'ventana' })])), null);
+  assert.equal(version(estado([fila({ forma: 'ventana', firma: 'c1amano' })])), null);
+});
+
+test('⚠️ estadoEnTuWeb: la misma pieza pegada a propósito dentro de una página y como ventana no son «dos versiones»', () => {
+  // Lo que encontró la revisión: una copia dentro de la página y la misma,
+  // con el mismo contenido, abriéndose encima en otra página (misma etiqueta).
+  const e = estado([
+    fila({ ultimo: H, primero: 20 * H }),
+    fila({ forma: 'ventana', ultimo: 3 * H, primero: 90 * H }),
+  ]);
+  assert.equal(version(e), 'al-dia');
+  // Y la fila principal es la de lo copiado, aunque la otra sea más reciente.
+  const masReciente = estado([
+    fila({ ultimo: 5 * H }),
+    fila({ forma: 'ventana', ultimo: H, anfitrion: OTRA_WEB }),
+  ]);
+  assert.equal(masReciente.tipo === 'visto' && masReciente.forma, 'incrustado');
+  assert.equal(masReciente.tipo === 'visto' && masReciente.anfitrion, WEB);
+  assert.equal(masReciente.tipo === 'visto' && masReciente.ultimo, iso(AHORA - 5 * H));
+  assert.equal(masReciente.tipo === 'visto' && masReciente.otrasWebs, 1);
+  // Una versión vieja en la ventana tampoco hace «dos versiones» con lo de dentro de la página.
+  assert.equal(version(estado([fila({ ultimo: H }), fila({ forma: 'ventana', firma: 'c1vieja', ultimo: 2 * H })])), 'al-dia');
 });
 
 test('⚠️ estadoEnTuWeb: el margen de 1 h tras ver la versión de ahora (la caché de su web no son dos versiones)', () => {
@@ -355,11 +388,31 @@ test('piezaCopiada: el mes y lo visto se miden con la etiqueta COPIADA (y la de 
   // Sin filas de lo visto y con visitas este mes: aún no sabemos desde qué web.
   assert.deepEqual(p.estado, { tipo: 'sin-dato' });
   assert.equal(pieza(copia, BASE, { mes, vistos: [fila({ origen: 'web-horario', firma: null })] }).estado.tipo, 'visto');
-  // Sin etiqueta no hay mes que atribuirle.
+  // Sin etiqueta no hay mes que atribuirle, ni nada que pueda verse: lo pegado
+  // sin etiqueta carga sin `origen`, y `widget_vistos()` lo descarta. Nunca
+  // «Aún no lo vemos».
   const sinEtiqueta = pieza(copiaDe({ ...CONFIG_POR_DEFECTO, etiqueta: '' }, 'iframe'), conConfig({ etiqueta: '' }), { mes });
   assert.equal(sinEtiqueta.etiqueta, null);
   assert.equal(sinEtiqueta.mes, null);
-  assert.deepEqual(sinEtiqueta.estado, { tipo: 'sin-ver', forma: 'incrustado' });
+  assert.deepEqual(sinEtiqueta.estado, { tipo: 'oculto' });
+  assert.equal(textosEnTuWeb(sinEtiqueta.estado, AHORA).linea, null);
+  // Tampoco si ahora tiene una: lo que hay en su web sigue sin ella.
+  const conOtra = pieza(copiaDe({ ...CONFIG_POR_DEFECTO, etiqueta: '' }, 'iframe'), conConfig({ etiqueta: 'insta' }), {
+    mes, vistos: [fila({ origen: 'insta' })],
+  });
+  assert.deepEqual(conOtra.estado, { tipo: 'oculto' });
+});
+
+test('etiquetasDeCopia: la copiada y la de ahora; sin etiqueta copiada, ninguna', () => {
+  const k = (etiqueta: string | null) => copiaDe({ ...CONFIG_POR_DEFECTO, etiqueta }, 'iframe');
+  assert.deepEqual(etiquetasDeCopia(k(null), BASE), ['web-horario']);
+  assert.deepEqual(etiquetasDeCopia(k('insta'), BASE), ['insta', 'web-horario']);
+  assert.deepEqual(etiquetasDeCopia(k(null), conConfig({ etiqueta: 'insta' })), ['web-horario', 'insta']);
+  // Una etiqueta de ahora a medio escribir (no válida) no se pide.
+  assert.deepEqual(etiquetasDeCopia(k(null), conConfig({ etiqueta: 'ins ta' })), ['web-horario']);
+  assert.deepEqual(etiquetasDeCopia(k(''), conConfig({ etiqueta: 'insta' })), []);
+  // Una copia de antes (sin foto): la de ahora hace de copiada.
+  assert.deepEqual(etiquetasDeCopia({ firma: 'x', en: EN }, conConfig({ etiqueta: 'insta' })), ['insta']);
 });
 
 test('piezaCopiada: un diseño propio en lo pegado (dentro de una página o encima) no recibe el estilo común', () => {
@@ -379,6 +432,58 @@ test('piezaCopiada: la clave de ahora sale de la forma de AHORA (lo copiado dent
   // Su web enseña lo copiado (dentro de la página), no lo de ahora (encima).
   assert.equal(version(p.estado), null);
   assert.equal(claveVista('ventana', firmaDe(CONFIG_POR_DEFECTO, 'popup')), `ventana:${firmaDe(CONFIG_POR_DEFECTO)}`);
+});
+
+test('⚠️ piezaCopiada: sin código de ahora (falta la clase), ni versión de ahora ni «anterior»', () => {
+  // «Reserva una clase» copiada con su clase, pegada; después vacía «La clase».
+  const RESERVA = WIDGETS.find((w): w is WidgetDisponible => w.estado === 'disponible' && w.contenido.includes('sesion'))!;
+  const copiada: EntradaIntegracion = { ...BASE, widget: RESERVA, config: { ...CONFIG_POR_DEFECTO, sesion: 'ses-1' } };
+  const k = nuevaCopia(undefined, {
+    firma: firmaCodigo(copiada, 'iframe'), en: EN, metodo: 'iframe', config: copiada.config, contenido: firmaContenidoDe(copiada, 'iframe'),
+  });
+  const ahora: EntradaIntegracion = { ...copiada, config: { ...CONFIG_POR_DEFECTO, sesion: null } };
+  const puedeGenerar = !faltaParaGenerar(ahora, 'iframe', { dominiosAutorizados: [] });
+  assert.equal(puedeGenerar, false);
+  const p = piezaCopiada({
+    copia: k, base: ahora, metodoAhora: 'iframe', puedeGenerar, mes: null, ahora: AHORA,
+    vistos: [fila({ origen: `web-${RESERVA.id}`, firma: k.contenido! })],
+  });
+  assert.equal(p.desfasado, false);
+  // Se dice dónde se vio, pero nada de su versión: la de su web ES la copiada.
+  assert.equal(p.estado.tipo, 'visto');
+  assert.equal(version(p.estado), null);
+  assert.equal(textosEnTuWeb(p.estado, AHORA).version, null);
+});
+
+test('⚠️ piezaCopiada: mientras llega lo visto, sin el ámbar que lo visto podría quitar', () => {
+  const copia = copiaDe(CONFIG_POR_DEFECTO, 'iframe');
+  const ahora = conConfig({ tipos: ['tc-r'] });
+  const esperando = pieza(copia, ahora, { vistos: undefined, esperandoVistos: true });
+  assert.equal(esperando.desfasado, false);
+  assert.deepEqual(esperando.cambios, []);
+  assert.deepEqual(esperando.estado, { tipo: 'oculto' });
+  // Llegan: con la versión de ahora en su web, nada; sin ella, el ámbar.
+  const vistaAhora = fila({ firma: firmaDe(ahora.config) });
+  assert.equal(pieza(copia, ahora, { vistos: [vistaAhora] }).desfasado, false);
+  assert.deepEqual(pieza(copia, ahora, { vistos: [] }).cambios, ['qué clases salen']);
+  // Si falla la lectura, el ámbar de siempre (no se sabe lo que se ve).
+  assert.equal(pieza(copia, ahora, { vistos: null }).desfasado, true);
+  // Sin permiso de ver resultados no se pide, y no se espera nada: como siempre.
+  assert.equal(pieza(copia, ahora, { vistos: undefined }).desfasado, true);
+  // Lo que la página no ve (el ancho) no lo quita ningún dato: no se calla.
+  const soloAncho = pieza(copia, conConfig({ ancho: 'completo' }), { vistos: undefined, esperandoVistos: true });
+  assert.deepEqual(soloAncho.cambios, ['el ancho']);
+  // Ni una copia de antes (sin foto): su aviso no depende de lo visto.
+  assert.equal(pieza({ firma: 'huellavieja', en: EN }, BASE, { vistos: undefined, esperandoVistos: true }).desfasado, true);
+});
+
+test('⚠️ piezaCopiada: lo leído para otras etiquetas no dice nada de esta (se pidió filtrado)', () => {
+  const copia = copiaDe({ ...CONFIG_POR_DEFECTO, etiqueta: 'insta' }, 'iframe');
+  // Se pidió solo «web-horario»: ni «Aún no lo vemos» ni «sin dato».
+  assert.deepEqual(pieza(copia, BASE, { vistos: [], leidas: ['web-horario'] }).estado, { tipo: 'oculto' });
+  // Cubre las dos (la copiada y la de ahora): ahora sí.
+  assert.deepEqual(pieza(copia, BASE, { vistos: [], leidas: ['insta', 'web-horario'] }).estado, { tipo: 'sin-ver', forma: 'incrustado' });
+  assert.equal(pieza(copia, BASE, { vistos: [fila({ origen: 'insta' })], leidas: ['insta', 'web-horario', 'otra'] }).estado.tipo, 'visto');
 });
 
 // ── Su web, sin autorizar ────────────────────────────────────────────────────

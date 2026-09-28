@@ -35,6 +35,12 @@ export interface FilaTienes {
   esEnlace: boolean;
   /** Su web, si va sin marco y no la tiene autorizada. */
   webSinAutorizar: string | null;
+  /**
+   * La lista de webs autorizadas se puede abrir desde aquí: solo se pinta con
+   * la nativa de AHORA. Si ya no va sin marco, el aviso sigue siendo cierto
+   * (lo pegado sí va sin marco), pero no hay adónde llevarla.
+   */
+  conListaDeWebs: boolean;
 }
 
 export function LoQueTienes({
@@ -90,7 +96,7 @@ export function LoQueTienes({
       <Tarjeta titulo="Estilo de tus widgets" etiqueta="vivo" subtitulo={nombreEstilo}>
         <div className="space-y-3">
           <p className="text-[12.5px] leading-relaxed text-foreground">
-            Llega solo a lo que tienes en tu web, salvo a lo que lleva su propio diseño en el código.
+            Llega a lo que tienes dentro de una página o en una ventana encima, salvo a lo que lleva su propio diseño en el código.
           </p>
           {estilo.pendiente && (
             <p className="flex items-start gap-2 text-[12.5px] leading-relaxed text-foreground">
@@ -157,7 +163,7 @@ function FilaPieza({ f, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAu
           </Nota>
         )}
         {f.webSinAutorizar && (
-          <Nota tono="aviso" accion="Ir a las webs autorizadas" onAccion={onWebsAutorizadas}>
+          <Nota tono="aviso" accion={f.conListaDeWebs ? 'Ir a las webs autorizadas' : undefined} onAccion={onWebsAutorizadas}>
             Tu web ({f.webSinAutorizar}) no está entre las webs autorizadas, y sin marco el widget solo carga en las que autorices.
           </Nota>
         )}
@@ -179,8 +185,8 @@ function FilaPieza({ f, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAu
   );
 }
 
-/** Lo que pide algo de ella en una fila: qué pasa y el botón que lo arregla. */
-function Nota({ tono, accion, onAccion, children }: { tono: 'aviso' | 'info'; accion: string; onAccion: () => void; children: ReactNode }) {
+/** Lo que pide algo de ella en una fila: qué pasa y, si lo hay aquí, el botón que lo arregla. */
+function Nota({ tono, accion, onAccion, children }: { tono: 'aviso' | 'info'; accion?: string; onAccion?: () => void; children: ReactNode }) {
   const Icono = tono === 'aviso' ? AlertCircle : Info;
   return (
     <div className={cn(
@@ -190,9 +196,11 @@ function Nota({ tono, accion, onAccion, children }: { tono: 'aviso' | 'info'; ac
       <Icono size={15} aria-hidden className={cn('mt-0.5 shrink-0', tono === 'aviso' ? 'text-warning' : 'text-muted-foreground')} />
       <div className="min-w-0">
         <p className="[overflow-wrap:anywhere]">{children}</p>
-        <button type="button" onClick={onAccion} className={cn(TACTIL, 'font-semibold underline underline-offset-2 hover:no-underline', FOCO)}>
-          {accion}
-        </button>
+        {accion && onAccion && (
+          <button type="button" onClick={onAccion} className={cn(TACTIL, 'font-semibold underline underline-offset-2 hover:no-underline', FOCO)}>
+            {accion}
+          </button>
+        )}
       </div>
     </div>
   );
