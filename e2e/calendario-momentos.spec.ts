@@ -339,12 +339,13 @@ test.describe('Momentos del calendario', () => {
     // "…T09:00:00+00:00") con `toISO(...)` ("…T09:00:00.000Z") como CADENAS.
     // Era siempre distinto, así que cualquier edición —una nota, el aforo—
     // mandaba a todas las apuntadas un aviso de que su clase había cambiado.
+    // `sesionFutura()` ya devuelve ese formato de Postgres ("…+00:00").
     const hoy = new Date().toISOString().slice(0, 10);
     const { inicio, fin } = sesionFutura();
     const { avisos } = await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
-        inicio: `${inicio}+00:00`, fin: `${fin}+00:00`, aforo_maximo: 10, cancelada: false,
+        inicio, fin, aforo_maximo: 10, cancelada: false,
         notas: null, serie_id: null, precio_puntual: null,
       }],
       reservas: [
