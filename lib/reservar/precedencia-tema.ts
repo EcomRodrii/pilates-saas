@@ -7,7 +7,16 @@
 // puso en el snippet del widget sigue ganando a eso. O sea:
 //
 //   página suelta:  tema de la app  >  lo de siempre
-//   incrustada:     widget  >  tema de la app  >  lo de siempre
+//   incrustada:     widget  >  estilo de su web  >  tema de la app  >  lo de siempre
+//
+// El «estilo de su web» (Fase B del constructor, 28-sep-2026) es el que la
+// dueña aplica una vez para todos sus widgets desde el panel (./estilo-web.ts).
+// Va por el MISMO hueco que el widget, en línea sobre la raíz, pero solo llega
+// a un código sin diseño propio: con cualquier parámetro de diseño en la URL,
+// la página ni lo resuelve (`urlTraeDisenoPropio`), así que aquí «widget» y
+// «estilo de su web» casi nunca coinciden. Cuando coinciden (`diseno=ligero`,
+// que no es un parámetro de diseño, sobre un estilo de su web oscuro: ver
+// `widgetDecide`), gana el widget, como dice la línea de arriba.
 //
 // El tema de la app llega por CSS en `:root` (lo inyecta el layout en servidor,
 // `temaReservarCssText` de ./tema-app.ts: sin destello). El widget gana porque
@@ -28,6 +37,10 @@ import { ratioContraste } from '../wcag-contrast.ts';
 import { colorLegibleSobre } from '../color-utils.ts';
 import { RESERVAR_PALETA, varsReservarModo, tokensCalendarioDeApariencia } from '../reservar-publico-tokens.ts';
 import { fondoCss, luminancia, modoTextoDe, type AparienciaWidget } from './apariencia-widget.ts';
+// Solo tipos: ./estilo-web.ts importa de aquí `textoDeMarca`, y un import de
+// valores en sentido contrario sería un ciclo.
+import type { BaseEstiloWeb, EstiloWebResuelto } from './estilo-web.ts';
+import type { WidgetWeb } from './estilo-web-tipos.ts';
 
 /**
  * Los ajustes del widget que deciden los COLORES (y solo esos): fondo, color
@@ -60,6 +73,14 @@ export interface TemaAppReservar {
    * La página los usa hasta que llegan los de verdad, que son los mismos.
    */
   widgetGuardado?: ColoresWidget;
+  /**
+   * El estilo de los widgets en su web tal como está PUBLICADO (`guardado`,
+   * `null` = nada elegido) y con qué resolverlo (`base`: la apariencia de la
+   * app y el color del estudio). Llega sin resolver porque depende de dos
+   * cosas que solo sabe la página: si hay un borrador de la vista previa y si
+   * va dentro de la web o en la ventana encima (./estilo-web.ts).
+   */
+  web?: { guardado: WidgetWeb | null; base: BaseEstiloWeb };
 }
 
 /** Sin nada elegido: la paleta de día de siempre. ⚠️ Es también lo que ve quien no tiene el proveedor encima. */
@@ -108,6 +129,14 @@ export interface PaletaEfectiva {
   noche: boolean;
   /** Lo que el widget escribe en línea sobre la raíz, o `null` si no decide nada (se hereda `:root`). */
   varsEnLinea: Record<string, string> | null;
+  /**
+   * El estilo de su web se funde con ella: la raíz y el documento, sin fondo.
+   * Opcional y solo si lo hay, como `varsLetra`: sin estilo de su web, la
+   * paleta tiene exactamente las tres claves de siempre.
+   */
+  fondoRaiz?: 'transparent';
+  /** La letra del estilo de su web, en línea sobre la raíz y ANTES de la fuente del snippet, que gana. */
+  varsLetra?: Record<string, string>;
 }
 
 /** Lo del snippet que, sin ser un color, también puede decidir la paleta. */
@@ -150,12 +179,32 @@ export function widgetDecide(a: ColoresWidget, temaApp: TemaAppReservar, w: Opci
  * app, carácter por carácter: `tokensCalendarioDeApariencia` en su modo, y la
  * paleta de ese modo en línea — ahora también la de DÍA, porque debajo ya no
  * tiene por qué haber un día.
+ *
+ * `web` es el estilo de su web ya resuelto (`resolverEstiloWeb`), o `null`.
+ * Sin él, esta función es la de F1 tal cual (./estilo-web.test.ts lo compara
+ * contra una copia congelada). Con él:
+ *   · lo oscuro que mira `widgetDecide` es el de lo que se VE: sobre un estilo
+ *     de su web Carbón, `diseno=ligero` decide igual que sobre una app Carbón;
+ *   · si decide el widget, su rama de siempre, y del estilo de su web solo la
+ *     letra (el snippet la pisa después si trae la suya);
+ *   · si no, sus colores en línea (si eligió alguno) o los de la app, su letra
+ *     y, si se funde, la raíz sin fondo.
  */
 export function paletaEfectivaReservar(
   a: AparienciaWidget, embed: boolean, temaApp: TemaAppReservar, w: OpcionesWidget = {},
+  web: EstiloWebResuelto | null = null,
 ): PaletaEfectiva {
-  if (!embed || !widgetDecide(a, temaApp, w)) {
-    return { tokens: temaApp.tokens, noche: temaApp.oscuro, varsEnLinea: null };
+  const deLaApp: PaletaEfectiva = { tokens: temaApp.tokens, noche: temaApp.oscuro, varsEnLinea: null };
+  if (!embed) return deLaApp;
+  const letra = web?.varsLetra ? { varsLetra: web.varsLetra } : {};
+  const oscuro = web?.varsEnLinea ? web.noche : temaApp.oscuro;
+  if (!widgetDecide(a, { ...temaApp, oscuro }, w)) {
+    if (!web) return deLaApp;
+    return {
+      ...(web.varsEnLinea ? { tokens: web.tokens, noche: web.noche, varsEnLinea: web.varsEnLinea } : deLaApp),
+      ...(web.fondoRaiz ? { fondoRaiz: web.fondoRaiz } : {}),
+      ...letra,
+    };
   }
   const modo = modoTextoDe(a);
   return {
@@ -171,6 +220,7 @@ export function paletaEfectivaReservar(
       // `cssDocumentoIncrustado`.)
       ...(modo === 'dia' ? { colorScheme: 'light' } : {}),
     },
+    ...letra,
   };
 }
 
@@ -191,13 +241,18 @@ export function paletaEfectivaReservar(
  *     de día encima. El `colorScheme` en línea del div no basta: va en el div,
  *     no en `<html>`. Así la raíz queda como estaba antes del tema de la app.
  *     `:root:root` para ganarle al `:root` del layout sin `!important`.
+ *   · Con el estilo de su web fundido (`fondoRaiz`), transparente: si no, el
+ *     documento pintaría el fondo del estilo detrás de una raíz sin fondo.
  *
  * Seguro dentro de un `<style>`: `fondoCss` solo devuelve `transparent` o un
- * color que ya pasó `COLOR_VALIDO`, y `tokens.bg` sale de la paleta.
+ * color que ya pasó `COLOR_VALIDO`, y `tokens.bg` sale de la paleta o, con el
+ * estilo de su web fundido, es el color de SU web — que solo entra si pasa
+ * `HEX6` (`leerWidgetWeb`, ./estilo-web-tipos.ts, lo guardado y el borrador de
+ * la URL por igual).
  */
 export function cssDocumentoIncrustado(a: AparienciaWidget, p: PaletaEfectiva): string {
   const decide = p.varsEnLinea != null;
-  const fondo = fondoCss(a) ?? (decide ? p.tokens.bg : 'var(--portal-bg)');
+  const fondo = fondoCss(a) ?? p.fondoRaiz ?? (decide ? p.tokens.bg : 'var(--portal-bg)');
   return `html,body{background:${fondo} !important;}${decide ? ':root:root{color-scheme:normal;}' : ''}`;
 }
 

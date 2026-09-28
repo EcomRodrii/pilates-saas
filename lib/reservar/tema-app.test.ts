@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   FUENTE_BASE, coloresWidgetGuardados, esReservarPorDefecto, marcaEstudioDeVars, pilaSinCiclo, reservarCambiaMarca,
-  temaAppParaReservar, temaReservarCssText, textoDeMarca, tokensDeEstilo, type MarcaEstudio,
+  temaAppParaReservar, temaReservarCssText, textoDeMarca, tokensDeEstilo, varsPareja, type MarcaEstudio,
 } from './tema-app.ts';
 import { ESTILOS, TIPOGRAFIAS, APARIENCIA_POR_DEFECTO, acentoDe, resolverApariencia } from '../student/apariencia.ts';
 import { RESERVAR_PALETA, fuenteReservarCssVars } from '../reservar-publico-tokens.ts';
@@ -81,6 +81,34 @@ test('una pareja elegida llega entera: texto, titulares, modales y peso', () => 
   assert.match(d.get('--portal-heading-font')!, /^var\(--font-libre-caslon\)/);
   assert.equal(d.get('--font-display'), d.get('--portal-heading-font'));
   assert.equal(d.get('--reservar-heading-weight'), '700');
+});
+
+test('varsPareja: SIEMPRE las cuatro; con «Moderna», cada una a su valor de siempre', () => {
+  // Va en línea encima de la pareja de la app: callar una dejaría la de la app.
+  const moderna = varsPareja('moderna');
+  assert.deepEqual(moderna, {
+    '--font-ui': 'var(--font-jakarta)',
+    '--portal-heading-font': 'var(--font-jakarta)',
+    '--font-display': FUENTE_BASE['--font-display'],
+    '--reservar-heading-weight': 'initial',
+  });
+  // Y el Jakarta es el mismo que emite `:root` sin elegir nada.
+  for (const [k, v] of Object.entries(moderna).slice(0, 2)) assert.ok(fuenteReservarCssVars().includes(`${k}: ${v};`), k);
+  for (const t of TIPOGRAFIAS) assert.equal(Object.keys(varsPareja(t.id)).length, 4, t.id);
+});
+
+test('⚠️ `temaReservarCssText` emite la pareja carácter por carácter como antes de extraer `varsPareja`', () => {
+  // La versión de F1, congelada: el texto que ya está publicado en `:root`.
+  const antes = (id: (typeof TIPOGRAFIAS)[number]['id']) => {
+    const t = TIPOGRAFIAS.find(x => x.id === id)!;
+    if (id === 'moderna') return fuenteReservarCssVars();
+    const titulos = pilaSinCiclo(t.titulos);
+    return [`--font-ui: ${pilaSinCiclo(t.texto)};`, `--portal-heading-font: ${titulos};`, `--font-display: ${titulos};`,
+      `--reservar-heading-weight: ${t.pesoTitulo};`].join(' ');
+  };
+  for (const t of TIPOGRAFIAS) {
+    assert.ok(temaReservarCssText('#1F4E79', { tipografia: t.id }, MARCA).startsWith(`:root { ${antes(t.id)} --portal-brand-estudio: `), t.id);
+  }
 });
 
 // ── Estilos: los neutros se leen ────────────────────────────────────────────

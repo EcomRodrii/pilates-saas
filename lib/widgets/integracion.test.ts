@@ -4,8 +4,10 @@ import { WIDGETS, CATEGORIAS, widgetPorId, esDisponible, widgetsVisibles, type W
 import { CONFIG_POR_DEFECTO, leerConfig, leerConfigs, etiquetaEfectiva, anchoPorDefecto, anchoPopupDe, type ConfigConstructor } from './config.ts';
 import {
   urlEmbebido, urlPagina, atributosNativa, generarCodigo, faltaParaGenerar, plataformasDe,
-  estiloBoton, firmaCodigo, type EntradaIntegracion,
+  estiloBoton, firmaCodigo, conVistaPrevia, type EntradaIntegracion,
 } from './integracion.ts';
+import { PARAM_BORRADOR, WIDGET_WEB_NEUTRO, leerWidgetWeb } from '../reservar/estilo-web-tipos.ts';
+import { leerBorradorWeb } from '../reservar/estilo-web.ts';
 import { resolverConfigWidget, fuenteDeDataset, leerPresentacion } from '../reservar/config-widget.ts';
 import { resolverApariencia } from '../reservar/apariencia-widget.ts';
 
@@ -430,4 +432,40 @@ test('lo que falta para el código ya no manda a otra pestaña', () => {
     assert.ok(m);
     assert.doesNotMatch(m, /«Contenido»|«Avanzado»/);
   }
+});
+
+// ── El estilo de su web no entra en el código que se copia (Fase B) ─────────
+
+test('⚠️ nada de lo que se copia lleva el borrador, la marca de ventana ni la de vista previa', () => {
+  // El estilo de su web llega solo, sin volver a pegar: si algo de esto se
+  // colara en el código, un widget pegado se quedaría con el borrador de un
+  // día (o contando como vista previa) para siempre.
+  const configs: Partial<ConfigConstructor>[] = [
+    {}, { identidad: 'propia', marca: '#123456', forma: 'recto', fuente: 'Poppins' }, { mostrarPie: false, presentacion: 'semana' },
+  ];
+  for (const x of WIDGETS.filter(esDisponible)) for (const parcial of configs) for (const metodo of x.metodos) {
+    const e = entrada(x.id, { sesion: 'ses-1', ...parcial });
+    for (const plataforma of ['html', 'wordpress', 'webflow', 'react'] as const) {
+      const { codigo } = generarCodigo(e, metodo, plataforma);
+      for (const nunca of [PARAM_BORRADOR, 'ventana=', 'vista-previa']) assert.ok(!codigo.includes(nunca), `${x.id}/${metodo}/${plataforma}: ${nunca}`);
+    }
+    for (const url of [urlEmbebido(e, 'iframe'), urlEmbebido(e, 'popup'), urlPagina(e), atributosNativa(e).join(' ')]) {
+      for (const nunca of [PARAM_BORRADOR, 'ventana=', 'vista-previa']) assert.ok(!url.includes(nunca), `${x.id}: ${nunca}`);
+    }
+  }
+});
+
+test('conVistaPrevia: el borrador va detrás de `vista-previa=1`, y la página lo lee tal cual', () => {
+  const url = urlEmbebido(entrada('horario'));
+  assert.equal(conVistaPrevia(url), `${url}&vista-previa=1`);
+  const arena = { ...WIDGET_WEB_NEUTRO, estilo: 'arena' as const, web: 'otro' as const, colorWeb: '#E8E1D3', fundido: true };
+  const conBorrador = conVistaPrevia(url, { borradorWeb: arena });
+  assert.ok(conBorrador.startsWith(`${url}&vista-previa=1&${PARAM_BORRADOR}=`), conBorrador);
+  assert.deepEqual(leerBorradorWeb(new URL(conBorrador).searchParams), arena);
+  // «Nada elegido» también viaja: en la previa, sustituye a lo publicado.
+  assert.deepEqual(leerBorradorWeb(new URL(conVistaPrevia(url, { borradorWeb: { ...WIDGET_WEB_NEUTRO } })).searchParams), WIDGET_WEB_NEUTRO);
+  // El ancla se queda al final.
+  const conAncla = conVistaPrevia(`${ORIGEN}/reservar/${SLUG}?tab=clases#horario`, { borradorWeb: arena });
+  assert.match(conAncla, /&borrador-web=[^#]+#horario$/);
+  assert.deepEqual(leerWidgetWeb(JSON.parse(new URL(conAncla).searchParams.get(PARAM_BORRADOR)!)), arena);
 });

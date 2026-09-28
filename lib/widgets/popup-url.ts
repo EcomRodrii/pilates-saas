@@ -16,6 +16,12 @@ export function urlPopupPermitida(cruda: string | null, origen: string): string 
     if (!/^\/reservar\/[A-Za-z0-9-]+$/.test(u.pathname)) return null;
     // Siempre la vista incrustada: la página completa trae su propia cabecera.
     u.searchParams.set('embed', '1');
+    // Y marcada como ventana: el estilo de los widgets de su web no se funde
+    // aquí, porque el marco del popup es blanco fijo y un widget fundido de
+    // letra clara (el de una web oscura) no se leería encima
+    // (lib/reservar/estilo-web.ts). Va en el script que sirve Tentare, no en
+    // el código que se copia: los popups ya pegados lo llevan sin tocar nada.
+    u.searchParams.set('ventana', '1');
     return `${origen}${u.pathname}?${u.searchParams.toString()}`;
   } catch {
     return null;

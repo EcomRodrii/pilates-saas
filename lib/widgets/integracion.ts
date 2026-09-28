@@ -20,6 +20,7 @@
 import { luminancia } from '../reservar/apariencia-widget.ts';
 import { COLOR_VALIDO, fuenteValida } from '../reservar/config-widget.ts';
 import { scriptSnippetIframe } from '../reservar/snippet-embed.ts';
+import { PARAM_BORRADOR, borradorAParam, type WidgetWeb } from '../reservar/estilo-web-tipos.ts';
 import type { MetodoIntegracion, WidgetDisponible } from './catalogo.ts';
 import {
   anchoPopupDe, anchoPorDefecto, etiquetaEfectiva, textoBotonEfectivo, type ConfigConstructor,
@@ -70,6 +71,17 @@ function paresContenido(e: EntradaIntegracion, metodo: MetodoIntegracion): Par[]
   const tiposPlan = w.tiposPlanFijos ?? (w.contenido.includes('tiposPlan') ? c.tiposPlan : []);
   if (tiposPlan.length) p.push(['planes', tiposPlan.join(',')]);
   return p;
+}
+
+/**
+ * ¿Lleva su código un diseño propio? Entonces el estilo de los widgets de su
+ * web no le llega: /reservar no lo resuelve para un código con parámetros de
+ * diseño (`urlTraeDisenoPropio`, lib/reservar/estilo-web.ts). Es la misma
+ * pregunta vista desde el panel, y sale de lo que de verdad se emite, no de
+ * `identidad`: «propia» sin tocar nada no emite nada y sigue su estilo.
+ */
+export function tieneDisenoEnCodigo(c: ConfigConstructor): boolean {
+  return paresDiseno(c).length > 0;
 }
 
 function paresDiseno(c: ConfigConstructor): Par[] {
@@ -155,10 +167,16 @@ export function urlPagina(e: EntradaIntegracion): string {
  * La misma URL marcada como vista previa del panel (`vista-previa=1`): la
  * página no cuenta la visita (lib/reservar/eventos.ts). Solo para el panel —
  * nunca entra en el código que se copia.
+ *
+ * Con `borradorWeb`, además, el estilo de los widgets que la dueña está
+ * probando y aún no ha aplicado (`borrador-web=`): sustituye a lo publicado
+ * solo en esta vista previa, aunque sea «nada elegido» (entonces enseña la
+ * app). /reservar solo lo lee junto a `embed=1&vista-previa=1`.
  */
-export function conVistaPrevia(url: string): string {
+export function conVistaPrevia(url: string, opc?: { borradorWeb?: WidgetWeb }): string {
   const [sinAncla, ancla] = url.split('#');
-  return `${sinAncla}${sinAncla.includes('?') ? '&' : '?'}vista-previa=1${ancla ? `#${ancla}` : ''}`;
+  const borrador = opc?.borradorWeb ? `&${PARAM_BORRADOR}=${encodeURIComponent(borradorAParam(opc.borradorWeb))}` : '';
+  return `${sinAncla}${sinAncla.includes('?') ? '&' : '?'}vista-previa=1${borrador}${ancla ? `#${ancla}` : ''}`;
 }
 
 /** Atributos `data-*` de la integración nativa (sin el `data-studio`). */
