@@ -63,22 +63,20 @@ export interface TemaAppReservar {
   /** Estilo de fondo oscuro («Carbón»): el logo del pie y los avisos pasan a su variante de noche. */
   oscuro: boolean;
   /**
-   * Los «Colores del widget» que el estudio GUARDÓ en su tema, resueltos en
-   * servidor, solo si deciden algo (si no, la clave no está).
-   *
-   * ⚠️ En cliente llegan con `/api/public/studio-data`, DESPUÉS del primer
-   * fotograma. Antes de la app de la alumna daba igual (día sobre día), pero
-   * con una app en «Carbón» y un widget guardado de fondo claro, el iframe
-   * pintaba Carbón y saltaba a su paleta de día dentro de la web del estudio.
-   * La página los usa hasta que llegan los de verdad, que son los mismos.
-   */
-  widgetGuardado?: ColoresWidget;
-  /**
    * El estilo de los widgets en su web tal como está PUBLICADO (`guardado`,
    * `null` = nada elegido) y con qué resolverlo (`base`: la apariencia de la
-   * app y el color del estudio). Llega sin resolver porque depende de dos
-   * cosas que solo sabe la página: si hay un borrador de la vista previa y si
-   * va dentro de la web o en la ventana encima (./estilo-web.ts).
+   * app y el color del estudio). Llega sin resolver porque depende de tres
+   * cosas que solo sabe la página: si el código trae su propio diseño, si hay
+   * un borrador de la vista previa y si va dentro de la web o en la ventana
+   * encima (./estilo-web.ts).
+   *
+   * Por aquí y no con los datos públicos (`/api/public/studio-data`): esos
+   * llegan DESPUÉS del primer fotograma, y en /reservar ni siquiera traen el
+   * tema (catálogo `liviano`). Resuelto con el proveedor del layout, el
+   * esqueleto que sale del servidor ya lleva el estilo: sin destello.
+   *
+   * (Aquí vivía `widgetGuardado`, los «Colores del widget» antiguos para el
+   * primer fotograma. Se fue con la Fase B: ver `temaAppParaReservar`.)
    */
   web?: { guardado: WidgetWeb | null; base: BaseEstiloWeb };
 }

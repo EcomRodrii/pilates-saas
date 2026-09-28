@@ -17,6 +17,8 @@ import { paletaReservarCssText } from '@/lib/reservar-publico-tokens';
 import { themeToCssVars } from '@/lib/theme-runtime';
 import { temaReservarCssText, temaAppParaReservar, marcaEstudioDeVars } from '@/lib/reservar/tema-app';
 import { TemaAppReservarProvider } from '@/components/reservar/tema-app-provider';
+import { leerWidgetWeb } from '@/lib/reservar/estilo-web-tipos';
+import { baseEstiloWeb } from '@/lib/reservar/estilo-web';
 
 // Metadata server-rendered (I-9): título/descripción/Open Graph con el nombre y
 // la ciudad del estudio. Sirve para lo que la socia comparte por WhatsApp y
@@ -195,10 +197,17 @@ export default async function ReservarSlugLayout({ children, params }: { childre
       <ThemePreviewListener />
       {/* Lo mismo para lo que no lee variables CSS (los colores por prop del
           calendario y del pago). Ver components/reservar/tema-app-provider.tsx.
-          Con el tema publicado va también lo que el estudio guardó en «Colores
-          del widget»: en cliente llega tarde, y sin esto un widget incrustado
-          sobre una app en Carbón pintaba Carbón y saltaba a su paleta. */}
-      <TemaAppReservarProvider tema={temaAppParaReservar(aparienciaApp, temaPublicado)}>
+          Con él va también el estilo de sus widgets en su web (Fase B), sin
+          resolver: el layout no recibe `searchParams` y no sabe si es un
+          widget, si trae diseño propio o un borrador de la vista previa. Lo
+          resuelve la página, y como el proveedor ya está en el SSR, el primer
+          fotograma del iframe lo lleva puesto: en cliente, con los datos
+          públicos, llegaría tarde (y ni llega: el catálogo de /reservar no lee
+          el tema). Validado aquí, en servidor: todo acaba en estilos en línea. */}
+      <TemaAppReservarProvider tema={temaAppParaReservar(aparienciaApp, {
+        guardado: leerWidgetWeb(studio?.widgetWeb),
+        base: baseEstiloWeb(studio?.colorPrimario, aparienciaApp),
+      })}>
         {children}
       </TemaAppReservarProvider>
     </StudioSlugGate>

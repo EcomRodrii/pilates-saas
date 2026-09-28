@@ -40,7 +40,7 @@ import {
   acentoDe, estiloPorId, resolverApariencia, tipografiaPorId, type AparienciaApp, type Estilo, type TipografiaId,
 } from '../student/apariencia.ts';
 import { RESERVAR_PALETA, fuenteReservarCssVars, varsDeTokensReservar } from '../reservar-publico-tokens.ts';
-import { textoDeMarca, widgetDecidePaleta, type ColoresWidget, type TemaAppReservar } from './precedencia-tema.ts';
+import { textoDeMarca, type TemaAppReservar } from './precedencia-tema.ts';
 
 // Vive en ./precedencia-tema.ts porque también la usa la página (cliente), para
 // la `marca=` del snippet. Se reexporta: el servidor la sigue pidiendo aquí.
@@ -110,35 +110,23 @@ export function tokensDeEstilo(e: Estilo): ModoTokens {
 }
 
 /**
- * Los «Colores del widget» guardados en el tema publicado (`widgetFondo`,
- * `widgetTexto`, `widgetSuperficie`…), solo si deciden la paleta. Solo hex (o
- * «transparente»): esto viaja a cliente y acaba en estilos en línea.
+ * Lo que el layout le pasa a la página (cliente) por el proveedor. Con `web`,
+ * además, el estilo de los widgets en su web tal como está publicado, sin
+ * resolver (ver `TemaAppReservar.web`): el layout lo pasa SIEMPRE, también
+ * con nada publicado, porque la vista previa del panel puede traer un
+ * borrador aunque no haya nada aplicado todavía.
+ *
+ * ⚠️ Aquí iban también los «Colores del widget» antiguos (`widgetFondo`,
+ * `widgetTexto`…) para el primer fotograma. Ya no: una vez cargada la página
+ * se veían los de por defecto —/reservar pide el catálogo `liviano`, que no
+ * lee el tema—, y leerlos solo en servidor era un destello al revés: su paleta
+ * en el primer fotograma y la de la app en cuanto llegaban los datos. Ignorarlos
+ * es exactamente como se veía /reservar una vez cargada. Las claves se quedan
+ * en la base de datos, sin leer.
  */
-export function coloresWidgetGuardados(tema: object | null | undefined): ColoresWidget | null {
-  if (!tema) return null;
-  const t = tema as Readonly<Record<string, unknown>>;
-  const hex = (v: unknown) => (typeof v === 'string' && HEX.test(v) ? v : null);
-  const c: ColoresWidget = {
-    fondo: t.widgetFondo === 'transparente' ? 'transparente' : hex(t.widgetFondo),
-    texto: t.widgetTexto === 'claro' || t.widgetTexto === 'oscuro' ? t.widgetTexto : 'auto',
-    superficie: hex(t.widgetSuperficie),
-    tinta: hex(t.widgetTinta),
-    textoSecundario: hex(t.widgetTextoSecundario),
-    linea: hex(t.widgetLinea),
-    relleno: hex(t.widgetRelleno),
-  };
-  return widgetDecidePaleta(c) ? c : null;
-}
-
-/**
- * Lo que el layout le pasa a la página (cliente) por el proveedor. Con el tema
- * publicado, además, los colores del widget que el estudio guardó (ver
- * `TemaAppReservar.widgetGuardado`).
- */
-export function temaAppParaReservar(crudo: unknown, temaPublicado?: object | null): TemaAppReservar {
+export function temaAppParaReservar(crudo: unknown, web?: TemaAppReservar['web']): TemaAppReservar {
   const e = estiloPorId(resolverApariencia(crudo).estilo);
-  const widgetGuardado = coloresWidgetGuardados(temaPublicado);
-  return { tokens: tokensDeEstilo(e), oscuro: e.oscuro === true, ...(widgetGuardado ? { widgetGuardado } : {}) };
+  return { tokens: tokensDeEstilo(e), oscuro: e.oscuro === true, ...(web ? { web } : {}) };
 }
 
 /**

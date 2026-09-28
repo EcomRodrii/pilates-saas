@@ -285,3 +285,29 @@ test('⚠️ fundido, el documento del iframe también se queda sin fondo (y en 
   const recuadro = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, true, CARBON, {}, webDe({ estilo: 'arena' }));
   assert.equal(cssDocumentoIncrustado(APARIENCIA_POR_DEFECTO, recuadro), 'html,body{background:#F4EEE5 !important;}:root:root{color-scheme:normal;}');
 });
+
+// ── Cómo lo compone la página (app/reservar/[slug]/page.tsx) ────────────────
+
+test('las esquinas, la separación y el pie del estilo de su web entran como «guardado»: nunca deciden la paleta, y la URL los pisa', () => {
+  const web = webDe({ estilo: 'arena', forma: 'recto', densidad: 'compacta', ocultarPie: true })!;
+  const a = resolverApariencia(web.capa, new URLSearchParams(''));
+  assert.equal(a.forma, 'recto');
+  assert.equal(a.densidad, 'compacta');
+  assert.equal(a.ocultarPie, true);
+  // Si la capa decidiera la paleta, la rama del widget taparía los colores del
+  // propio estilo de su web con el día de siempre.
+  assert.equal(widgetDecidePaleta(a), false);
+  assert.equal(paletaEfectivaReservar(a, true, ARENA, {}, web).varsEnLinea, web.varsEnLinea);
+  // `?pie=1` vuelve a sacar el pie: el snippet gana, como con todo lo guardado.
+  assert.equal(resolverApariencia(web.capa, new URLSearchParams('pie=1')).ocultarPie, false);
+});
+
+test('⚠️ en la ventana que se abre encima no se funde: el documento conserva su fondo opaco y la página es la app', () => {
+  const soloFundido: WidgetWeb = { ...NEUTRO, web: 'oscura', fundido: true };
+  const base = baseEstiloWeb('#E11D48', null);
+  const dentro = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, true, TEMA_APP_RESERVAR_POR_DEFECTO, {}, resolverEstiloWeb(soloFundido, base, 'dentro'));
+  assert.equal(cssDocumentoIncrustado(APARIENCIA_POR_DEFECTO, dentro), 'html,body{background:transparent !important;}:root:root{color-scheme:normal;}');
+  const ventana = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, true, TEMA_APP_RESERVAR_POR_DEFECTO, {}, resolverEstiloWeb(soloFundido, base, 'ventana'));
+  assert.deepEqual(ventana, { tokens: RESERVAR_PALETA.dia, noche: false, varsEnLinea: null });
+  assert.equal(cssDocumentoIncrustado(APARIENCIA_POR_DEFECTO, ventana), 'html,body{background:var(--portal-bg) !important;}');
+});
