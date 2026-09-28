@@ -88,7 +88,9 @@ async function montar(
 
 // Mi estudio en filas con su cajón (15-sep, v2): los siete campos de «Datos y
 // contacto» son dos cajones, y cada «Guardar» manda solo los suyos.
-const NOMBRE_Y_DIRECCION = ['ciudad', 'codigo_postal', 'direccion', 'nombre'];
+// Con la zona horaria (CAL-5): su selector vive en este mismo bloque, así que
+// guardar el bloque la manda con él.
+const NOMBRE_Y_DIRECCION = ['ciudad', 'codigo_postal', 'direccion', 'nombre', 'zona_horaria'];
 const CONTACTO = ['email', 'sitio_web', 'telefono'];
 const FISCALES = ['iva_por_defecto', 'nif', 'razon_social'];
 // Marca en filas con su cajón (16-sep, v2): los siete textos son dos cajones,
@@ -143,7 +145,7 @@ test.describe('Datos del estudio: guardar una cosa no borra ni manda otra', () =
     await expect(page.getByText('Contacto guardado')).toBeVisible();
   });
 
-  test('guardar nombre y dirección manda solo esos cuatro campos', async ({ page }) => {
+  test('guardar nombre y dirección manda solo los campos de su bloque', async ({ page }) => {
     const { patches } = await montar(page, '/configuracion?tab=estudio#nombre-y-direccion', {
       fila: { ...STUDIO_ROW, nif: NIF, telefono: '600000000' },
     });
