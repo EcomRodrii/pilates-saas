@@ -2453,11 +2453,11 @@ export interface RowWidgetEventos {
   creado_en: string;
   // migr 20260817013933.
   socio_id: string | null;
-  // migr 20260928190000.
+  // migr 20260928203632.
   anfitrion: string | null;
-  // migr 20260928190000.
+  // migr 20260928203632.
   forma: string | null;
-  // migr 20260928190000.
+  // migr 20260928203632.
   firma: string | null;
 }
 
