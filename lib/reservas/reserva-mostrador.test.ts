@@ -95,39 +95,49 @@ test('⚠️ la ruta del mostrador saca el estudio de la sesión y comprueba el 
     'la autorización tiene que ir antes de llamar a crearReservaMostrador');
 });
 
-// ── RES-1 (auditoría 2026-09-23) ────────────────────────────────────────────
+// ── RES-1 (auditoría 2026-09-23) / CAL-1 (auditoría 62ª pasada) ────────────
 // El mostrador comprobaba DOS cosas (existe, no cancelada) donde el camino
 // público comprueba TRES, y el comentario del propio código afirmaba la paridad
-// que no existía. `reservar_plaza` tampoco compara `inicio` con `now()` — es la
+// que no existía. `reservar_plaza` tampoco compara fechas con `now()` — es la
 // única de su familia que no lo hace; sus hermanas (`aceptar_oferta_lista_espera`,
 // `resolver_reserva_pendiente`, `promocionar_siguiente_espera`,
 // `confirmar_sustitucion`) sí. Resultado: recepción podía dejar una reserva
 // CONFIRMADA sobre una clase de ayer, CON consumo real de bono, disparando sus
 // avisos y sus créditos, y ensuciando asistencia, ocupación y liquidaciones.
-test('⚠️ el mostrador NO puede apuntar a nadie a una clase que ya empezó', () => {
+//
+// RES-1 lo cerró comparando `inicio`, y eso se llevó por delante el WALK-IN
+// (CAL-1, 62ª pasada): apuntar a quien está delante con la clase en marcha
+// devolvía este mismo error SIEMPRE, porque `inicio <= now()` es verdad toda
+// la clase. El corte correcto es `fin`: sigue bloqueando la clase de ayer y
+// deja apuntar mientras la clase sigue en curso.
+test('⚠️ el mostrador NO puede apuntar a nadie a una clase que ya terminó', () => {
   const i = ADMIN.indexOf('export async function crearReservaMostrador');
   assert.ok(i > 0, 'no se encuentra crearReservaMostrador: revisa este guardián');
   // Solo el cuerpo de la función, hasta la llamada a la RPC: el guard tiene que
   // estar ANTES de reservar, no después.
   const hastaLaRpc = ADMIN.slice(i, ADMIN.indexOf("admin.rpc('reservar_plaza'", i));
   assert.ok(
-    /\.select\('cancelada, inicio'\)/.test(hastaLaRpc),
-    'sin leer `inicio` no se puede comprobar si la clase ya empezó',
+    /\.select\('cancelada, inicio, fin'\)/.test(hastaLaRpc),
+    'sin leer `fin` no se puede comprobar si la clase ya terminó',
   );
   assert.ok(
-    /new Date\(ses\.inicio as string\)\.getTime\(\) <= Date\.now\(\)/.test(hastaLaRpc),
-    'falta el guard de clase ya empezada, el mismo que tiene el camino público',
+    /new Date\(ses\.fin as string\)\.getTime\(\) <= Date\.now\(\)/.test(hastaLaRpc),
+    'el guard tiene que comparar `fin`, no `inicio` — «inicio» bloquea también el walk-in (CAL-1)',
+  );
+  assert.doesNotMatch(
+    hastaLaRpc, /new Date\(ses\.inicio as string\)\.getTime\(\) <= Date\.now\(\)/,
+    'CAL-1: comparar `inicio` rechaza el walk-in el 100% de las veces — la clase ya está SIEMPRE empezada cuando alguien camina hasta el mostrador',
   );
   assert.ok(
-    hastaLaRpc.includes('ya ha empezado'),
+    hastaLaRpc.includes('ya ha terminado'),
     'y quien lo sufre tiene que leer por qué, no un error genérico',
   );
 });
 
-test('⚠️ el guard de clase empezada del mostrador rechaza con 400, no con 500', () => {
+test('⚠️ el guard de clase terminada del mostrador rechaza con 400, no con 500', () => {
   const i = ADMIN.indexOf('export async function crearReservaMostrador');
   const hastaLaRpc = ADMIN.slice(i, ADMIN.indexOf("admin.rpc('reservar_plaza'", i));
-  const j = hastaLaRpc.indexOf('ya ha empezado');
+  const j = hastaLaRpc.indexOf('ya ha terminado');
   const linea = hastaLaRpc.slice(hastaLaRpc.lastIndexOf('return', j), j);
   assert.match(linea, /status: 400/, 'es una regla de negocio, no una avería del servidor');
 });

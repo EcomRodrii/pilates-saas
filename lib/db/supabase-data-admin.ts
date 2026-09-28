@@ -2876,14 +2876,14 @@ export async function crearReservaMostrador(params: {
   // las sesiones ajenas con las que busca solape). Mismo guard que el camino
   // público y que el que ya tenía `addReserva` en el cliente (I-2, 59ª pasada).
   const { data: ses } = await admin
-    .from('sesiones').select('cancelada, inicio')
+    .from('sesiones').select('cancelada, inicio, fin')
     .eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
   if (!ses) return { ok: false, status: 404, error: MENSAJE_RESERVA_RPC.SESION_NO_ENCONTRADA };
   if (ses.cancelada) return { ok: false, status: 400, error: 'Esta clase está cancelada: no se puede apuntar a nadie.' };
   // ⚠️ Auditoría 2026-09-23 (RES-1): el comentario de arriba decía «mismo guard
   // que el camino público», y era falso: el público comprueba TRES cosas
   // (existe, no cancelada, no empezada) y aquí solo estaban dos. `reservar_plaza`
-  // tampoco compara `inicio` con `now()` —valida cierre, impago, autorización,
+  // tampoco compara la fecha con `now()` —valida cierre, impago, autorización,
   // entitlement, duplicado, spot, aforo, conflicto y límite semanal, pero nunca
   // la fecha—, a diferencia de sus hermanas `aceptar_oferta_lista_espera`,
   // `resolver_reserva_pendiente`, `promocionar_siguiente_espera` y
@@ -2891,8 +2891,17 @@ export async function crearReservaMostrador(params: {
   // dejar una reserva CONFIRMADA sobre una clase de ayer, CON consumo real de
   // bono (la RPC llama a `consumir_bono_interno` para toda CONFIRMADA) y con sus
   // avisos y créditos disparados. Ensucia asistencia, ocupación y liquidaciones.
-  if (new Date(ses.inicio as string).getTime() <= Date.now()) {
-    return { ok: false, status: 400, error: 'Esta clase ya ha empezado: no se puede apuntar a nadie.' };
+  //
+  // ⚠️ Auditoría 62ª pasada (CAL-1): el primer arreglo comparó `inicio`, y eso
+  // se llevó por delante el WALK-IN — el gesto más común del mostrador: apuntar
+  // a quien está delante, con la clase ya en marcha (`esWalkIn` en
+  // calendario/page.tsx, pensado justo para esto — `checkInInmediato` lo marca
+  // como asistida en el mismo paso). `inicio <= now()` es verdad TODA la clase,
+  // así que el walk-in devolvía este mismo error el 100 % de las veces. El
+  // corte real es `fin`: bloquea la clase de ayer (ya terminó, que es lo que
+  // RES-1 vino a evitar) y deja apuntar mientras la clase sigue en curso.
+  if (new Date(ses.fin as string).getTime() <= Date.now()) {
+    return { ok: false, status: 400, error: 'Esta clase ya ha terminado: no se puede apuntar a nadie.' };
   }
 
   // D-1: el bono se elige AQUÍ para que la RPC lo descuente DENTRO del mismo
