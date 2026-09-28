@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { embudoPorWidget, nombreDeEtiqueta } from './embudo.ts';
+import { embudoPorWidget, nombreDeEtiqueta, textoMes } from './embudo.ts';
 
 test('la etiqueta por defecto se nombra con su widget; una propia, tal cual; sin etiqueta, al final', () => {
   assert.deepEqual(nombreDeEtiqueta('web-horario'), { widgetId: 'horario', nombre: 'Horario y reservas' });
@@ -46,6 +46,36 @@ test('sin visitas, la conversión es null — nunca un 0 % inventado', () => {
 
 test('sin filas, nada', () => {
   assert.deepEqual(embudoPorWidget([]), []);
+});
+
+test('textoMes: una línea por widget, en singular o plural, y nunca un «0 %»', () => {
+  const [horario, planes] = embudoPorWidget([
+    { origen: 'web-horario', tipo: 'widget_loaded', n: 214 },
+    { origen: 'web-horario', tipo: 'booking_completed', n: 11 },
+    { origen: 'web-planes', tipo: 'widget_loaded', n: 1 },
+  ]);
+  assert.equal(textoMes(horario), 'Este mes: 214 visitas · 11 reservas · 5,1 %');
+  // Un widget de venta no tiene reservas que contar: ni «0 reservas» ni «0 %».
+  assert.equal(textoMes(planes), 'Este mes: 1 visita');
+
+  const [una] = embudoPorWidget([
+    { origen: 'web-horario', tipo: 'widget_loaded', n: 1 },
+    { origen: 'web-horario', tipo: 'booking_completed', n: 1 },
+  ]);
+  assert.equal(textoMes(una), 'Este mes: 1 visita · 1 reserva · 100 %');
+
+  // Con visitas y sin reservas, las reservas se cuentan pero el porcentaje no se enseña.
+  const [sinReservas] = embudoPorWidget([{ origen: 'web-horario', tipo: 'widget_loaded', n: 12 }]);
+  assert.equal(textoMes(sinReservas), 'Este mes: 12 visitas · 0 reservas');
+  // Un porcentaje que redondea a 0 tampoco.
+  const [casiCero] = embudoPorWidget([
+    { origen: 'web-horario', tipo: 'widget_loaded', n: 3000 },
+    { origen: 'web-horario', tipo: 'booking_completed', n: 1 },
+  ]);
+  assert.equal(textoMes(casiCero), 'Este mes: 3000 visitas · 1 reserva');
+
+  assert.equal(textoMes(null), 'Aún no ha llegado nadie desde aquí este mes');
+  assert.equal(textoMes({ ...horario, visitas: 0, conversion: null }), 'Aún no ha llegado nadie desde aquí este mes');
 });
 
 test('⚠️ el formulario de contacto no tiene «conversión» a reserva: null, nunca un 0 %', () => {

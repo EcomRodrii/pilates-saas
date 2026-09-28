@@ -14,6 +14,7 @@
 import { COLOR_VALIDO, fuenteValida } from '../reservar/config-widget.ts';
 import type { TipoPlan } from '../types.ts';
 import { WIDGETS, type MetodoIntegracion, type WidgetDisponible } from './catalogo.ts';
+import { FIRMA_CONTENIDO_VALIDA, FORMAS_PEGADAS, claveVista, formaDeMetodo } from './pegado.ts';
 import type { EstadoWeb } from './recetas.ts';
 
 export interface ConfigConstructor {
@@ -154,6 +155,8 @@ function uno<T extends string>(v: unknown, validos: readonly T[]): T | null {
   return typeof v === 'string' && (validos as readonly string[]).includes(v) ? (v as T) : null;
 }
 
+const METODOS_VALIDOS: readonly MetodoIntegracion[] = ['iframe', 'nativa', 'popup', 'boton', 'enlace'];
+
 /**
  * Lo guardado para UN widget → config válida. Entiende también la forma de
  * antes del catálogo (`ocultarPrecio`, `negro`, `anchoCompleto`…), para que
@@ -198,7 +201,7 @@ export function leerConfig(raw: unknown): ConfigConstructor {
     .some(v => v !== null) || c.tema !== 'auto';
   c.identidad = o.identidad === 'propia' || o.identidad === 'estudio' ? o.identidad : (tocoDiseno ? 'propia' : 'estudio');
 
-  c.metodo = uno(o.metodo, ['iframe', 'nativa', 'popup', 'boton', 'enlace'] as const);
+  c.metodo = uno(o.metodo, METODOS_VALIDOS);
   c.textoBoton = typeof o.textoBoton === 'string' ? o.textoBoton.slice(0, TEXTO_BOTON_MAX) : null;
   c.estiloBoton = o.estiloBoton === 'contorno' ? 'contorno' : 'relleno';
   c.abrirEn = o.abrirEn === 'misma' ? 'misma' : 'nueva';
@@ -238,14 +241,52 @@ export function leerConfigs(raw: Record<string, unknown> | null | undefined): Re
  * algo que va en el código cambió DESPUÉS de copiarlo: nunca se emite, y no
  * dice nada de lo que hay de verdad en su web (si lo copió a mano, o lo pegó
  * en dos sitios, esto no lo sabe).
+ *
+ * Desde la Fase C (28-sep-2026) lleva también lo que hace falta para la portada
+ * «Lo que tienes en tu web». Los cuatro son OPCIONALES y solo se leen si son
+ * válidos: las copias de antes no los tienen, y siguen leyéndose igual.
  */
 export interface Copiado {
   firma: string;
   /** ISO. */
   en: string;
+  /** La forma que se copió. `metodoEnWeb` da la de AHORA, que puede ser otra. */
+  metodo?: MetodoIntegracion;
+  /**
+   * Una foto de la configuración copiada (sin huérfanos). Con ella, «qué
+   * cambió» se calcula por grupos contra la MISMA plantilla (`gruposCambiados`,
+   * ./en-tu-web.ts): un cambio en la plantilla de Tentare no sale como un
+   * cambio suyo, que es lo que pasa comparando solo `firma`.
+   */
+  config?: ConfigConstructor;
+  /**
+   * `firmaContenidoDe` de lo copiado: la versión que /reservar dirá ver en su
+   * web. Solo dentro de una página y encima; la nativa, el botón y el enlace no
+   * la mandan.
+   */
+  contenido?: string;
+  /**
+   * Las versiones de copias anteriores (`claveVista`), la más reciente primero
+   * y hasta `MAX_ANTERIORES`. Es lo que deja decir «una versión ANTERIOR» y no
+   * solo «distinta»: comparar fechas no lo demuestra (un código retocado a mano
+   * antes de copiar saldría como anterior).
+   */
+  anteriores?: string[];
 }
 
 const FIRMA_VALIDA = /^[0-9a-z]{1,32}$/;
+export const MAX_ANTERIORES = 5;
+
+function esClaveVista(v: unknown): v is string {
+  if (typeof v !== 'string') return false;
+  const i = v.indexOf(':');
+  return i > 0 && (FORMAS_PEGADAS as readonly string[]).includes(v.slice(0, i)) && FIRMA_CONTENIDO_VALIDA.test(v.slice(i + 1));
+}
+
+/** Sin basura, sin repetir y cortada: el jsonb es texto libre para la BD. */
+function limpiarAnteriores(v: unknown): string[] {
+  return Array.isArray(v) ? [...new Set(v.filter(esClaveVista))].slice(0, MAX_ANTERIORES) : [];
+}
 
 /** `widget_builder[<id>].copiado` de cada widget del catálogo. */
 export function leerCopiados(raw: Record<string, unknown> | null | undefined): Record<string, Copiado> {
@@ -255,12 +296,48 @@ export function leerCopiados(raw: Record<string, unknown> | null | undefined): R
     const o = raw[w.id];
     const k = o && typeof o === 'object' ? (o as Record<string, unknown>).copiado : null;
     if (!k || typeof k !== 'object') continue;
-    const { firma, en } = k as Record<string, unknown>;
-    if (typeof firma === 'string' && FIRMA_VALIDA.test(firma) && typeof en === 'string' && !Number.isNaN(Date.parse(en))) {
-      out[w.id] = { firma, en };
-    }
+    const x = k as Record<string, unknown>;
+    const { firma, en } = x;
+    if (!(typeof firma === 'string' && FIRMA_VALIDA.test(firma) && typeof en === 'string' && !Number.isNaN(Date.parse(en)))) continue;
+    const copia: Copiado = { firma, en };
+    const metodo = uno(x.metodo, METODOS_VALIDOS);
+    if (metodo) copia.metodo = metodo;
+    if (x.config && typeof x.config === 'object' && !Array.isArray(x.config)) copia.config = leerConfig(x.config);
+    if (typeof x.contenido === 'string' && FIRMA_CONTENIDO_VALIDA.test(x.contenido)) copia.contenido = x.contenido;
+    const anteriores = limpiarAnteriores(x.anteriores);
+    if (anteriores.length) copia.anteriores = anteriores;
+    out[w.id] = copia;
   }
   return out;
+}
+
+/** La versión que la página dirá ver de esta copia (`claveVista`), o `null` si no se sabe. */
+export function claveDeCopia(k: Copiado | null | undefined): string | null {
+  if (!k?.metodo || !k.contenido) return null;
+  const forma = formaDeMetodo(k.metodo);
+  return forma ? claveVista(forma, k.contenido) : null;
+}
+
+/**
+ * Lo que se guarda al copiar (lo llama `registrarCopia`, en el constructor):
+ * la huella, cuándo, la forma, la foto de la configuración, la versión que
+ * verá la página y el historial. La versión de la copia de antes pasa delante
+ * del historial —salvo que sea la misma que se copia ahora—, sin repetir y con
+ * `MAX_ANTERIORES` como mucho.
+ */
+export function nuevaCopia(anterior: Copiado | null | undefined, x: {
+  firma: string;
+  en: string;
+  metodo: MetodoIntegracion;
+  config: ConfigConstructor;
+  contenido: string | null;
+}): Copiado {
+  const copia: Copiado = { firma: x.firma, en: x.en, metodo: x.metodo, config: x.config };
+  if (x.contenido && FIRMA_CONTENIDO_VALIDA.test(x.contenido)) copia.contenido = x.contenido;
+  const nueva = claveDeCopia(copia);
+  const anteriores = limpiarAnteriores([claveDeCopia(anterior), ...(anterior?.anteriores ?? [])].filter(k => k !== nueva));
+  if (anteriores.length) copia.anteriores = anteriores;
+  return copia;
 }
 
 function objeto(v: unknown): Record<string, unknown> {
