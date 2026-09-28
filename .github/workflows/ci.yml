@@ -273,6 +273,26 @@ jobs:
       - name: Saltar el PAY-4 original, roto de origen — el sustituto ya crea la tabla de verdad (solo para este job)
         run: rm supabase/migrations/20260918000200_pay4_cobros_intentos.sql
 
+      # Quinto hallazgo: `20260919074101_...sql` revoca/concede sobre
+      # `reservar_plaza` con firma de 9 parámetros — pero NINGUNA migración
+      # crea esa firma exacta antes: la evolución real es 8 parámetros
+      # (20260917094717) → 10 (20260918000000, que su propio sucesor dice que
+      # "nunca llegó a aplicarse" en producción) → 9, creada por PRIMERA VEZ
+      # en `20260919074320_reservar_plaza_gate_de_plan_usa_el_parametro.sql`,
+      # el fichero SIGUIENTE. Ese mismo fichero termina con el idéntico
+      # `revoke`/`grant` sobre esa firma de 9 (su propio comentario: "create or
+      # replace sobre la MISMA firma conserva los grants, pero se repiten
+      # explícitos"), así que las dos líneas que fallan aquí son  además
+      # redundantes, no solo prematuras. Se quitan solo esas dos líneas —el
+      # resto del fichero (el `??`→`coalesce` de socio_tiene_entitlement_activo
+      # y el DROP de las firmas de 8/10 parámetros) se queda igual.
+      - name: Quitar el revoke/grant prematuro y redundante de reservar_plaza(9) en 20260919074101 (solo para este job)
+        run: |
+          sed -i \
+            -e '/^revoke execute on function public\.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean) from public, anon, authenticated;$/d' \
+            -e '/^grant execute on function public\.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean) to service_role, postgres;$/d' \
+            supabase/migrations/20260919074101_reservar_plaza_una_sola_firma_y_entitlement_sin_js.sql
+
       # Arranca Postgres + GoTrue (Auth) + PostgREST + Kong (API Gateway) reales
       # en Docker, dentro del propio runner — nunca contra dwqvdycjcffqwfkzapvi.
       - name: Arrancar Supabase local
