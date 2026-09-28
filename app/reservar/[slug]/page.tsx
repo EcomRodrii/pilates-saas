@@ -46,7 +46,7 @@ import { FormularioContacto } from '@/components/reservar/formulario-contacto';
 import { PlanesPublicos } from '@/components/reservar/planes-publicos';
 import { EquipoPublico } from '@/components/reservar/equipo-publico';
 import { horarioPublico } from '@/lib/estudio-publico';
-import { trackEventoWidget, fijarOrigenWidget, fijarPegadoWidget, silenciarEventosWidget, sessionIdWidget } from '@/lib/reservar/eventos';
+import { trackEventoWidget, fijarOrigenWidget, fijarPegadoWidget, silenciarEventosWidget, sessionIdWidget, visitaYaContada } from '@/lib/reservar/eventos';
 import { pegadoDesde } from '@/lib/reservar/pegado-widget';
 import { precioClaseSuelta as precioSueltaDe } from '@/lib/student/precio-suelta';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, pesoTitular, textoSemantico } from '@/lib/reservar-publico-tokens';
@@ -655,6 +655,10 @@ export default function ReservarPage() {
   // evento: los efectos corren en el orden en que se declaran.
   // `vista-previa=1`: el constructor de widgets del panel — no es una visita.
   const esVistaPrevia = searchParams.get('vista-previa') === '1';
+  // Fase D: la redirección de la integración nativa (`directo=1`) llega con la
+  // visita ya contada en la web del estudio. Se lee al montar, antes de que el
+  // router reescriba la URL; el resto del embudo sí se cuenta aquí.
+  const [visitaContada] = useState(() => visitaYaContada(searchParams));
   useEffect(() => {
     fijarOrigenWidget(refCode);
     silenciarEventosWidget(esVistaPrevia);
@@ -678,12 +682,13 @@ export default function ReservarPage() {
   useEffect(() => {
     if (widgetLoadedRef.current || !studio?.id) return;
     widgetLoadedRef.current = true;
+    if (visitaContada) return;
     trackEventoWidget(studio.id, 'widget_loaded', { origen: searchParams.get('ref') });
     // Fase 8 (CRO): en Modo A "cargado" y "visto" son el mismo instante
     // (página completa, visible al pintar) — Modo B ya dispara los dos
     // juntos (main.tsx), aquí faltaba este.
     trackEventoWidget(studio.id, 'widget_viewed', { origen: searchParams.get('ref') });
-  }, [studio?.id, searchParams]);
+  }, [studio?.id, searchParams, visitaContada]);
 
   const [filtroTipo, setFiltroTipo] = useState('');
   // Con `?tipos=` en el snippet, los chips solo enseñan ese subconjunto: un

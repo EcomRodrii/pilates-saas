@@ -19,6 +19,8 @@
 //  - Accesible: `role="dialog"` + `aria-modal`, foco al abrir y devuelto al
 //    botón al cerrar, Esc cierra, el resto de la página queda `inert` mientras
 //    tanto y la animación se apaga con `prefers-reduced-motion`.
+//  - El botón sigue el estilo de sus widgets (Fase D, `pintarBotones`): una
+//    petición cacheada por estudio, y solo si su código lee las variables.
 
 const ORIGEN = (() => {
   try {
@@ -32,6 +34,7 @@ const ORIGEN = (() => {
 })();
 
 import { urlPopupPermitida } from '@/lib/widgets/popup-url';
+import { RUTA_BOTON_VIVO, cssBotonVivo, leerBotonVivo, slugDePopup, usaBotonVivo } from '@/lib/widgets/boton-vivo';
 import { canonicalizarOrigen } from '@/lib/legal-info';
 
 const ANCHO_POR_DEFECTO = 720;
@@ -147,9 +150,46 @@ function alPulsar(e: MouseEvent) {
   abrir(objetivo, url);
 }
 
+// Fase D: el botón que abre la ventana sigue el estilo de sus widgets. El
+// código nuevo lo pinta con `var(--tentare-boton,<respaldo>)`, y aquí se
+// rellenan esas variables con el botón de ahora: UNA regla `<style>` por
+// estudio (lib/widgets/boton-vivo.ts), que llega también a los botones que
+// aparecen después y no mezcla dos estudios en la misma página.
+// Si no llega (red, 4xx/5xx, sin CORS, algo que no es hex), se queda el
+// respaldo, que es el color de cuando se copió. Nada se guarda en el navegador
+// de la visitante: ni localStorage ni cookies.
+const pedidos = new Set<string>();
+function pintarBotones() {
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>('[data-tentare-popup]'))) {
+    // Códigos anteriores, con diseño propio o pasados por un filtro que se
+    // comió los var(): colores literales, nada que pedir.
+    if (!usaBotonVivo(el.getAttribute('style'))) continue;
+    const slug = slugDePopup(el.getAttribute('data-tentare-popup'), ORIGEN);
+    if (!slug || pedidos.has(slug)) continue;
+    pedidos.add(slug);
+    fetch(`${ORIGEN}${RUTA_BOTON_VIVO}?slug=${slug}`, { credentials: 'omit', referrerPolicy: 'no-referrer' })
+      .then(r => (r.ok ? r.json() : null))
+      .then((j: unknown) => {
+        const b = leerBotonVivo(j);
+        const css = b && cssBotonVivo(slug, b);
+        if (!css) return;
+        const s = document.createElement('style');
+        s.setAttribute('data-tentare-boton', slug);
+        s.textContent = css;
+        document.head.append(s);
+      })
+      .catch(() => {});
+  }
+}
+
 // Una sola vez por página aunque el script se pegue con varios botones.
 const w = window as unknown as { __tentarePopup?: boolean };
 if (!w.__tentarePopup) {
   w.__tentarePopup = true;
   document.addEventListener('click', alPulsar);
+  // El script va después del botón en el código (y en React se inyecta con el
+  // botón ya montado); `async` puede correr antes de que acabe de leerse la
+  // página, y por eso se barre otra vez al terminar.
+  pintarBotones();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pintarBotones, { once: true });
 }

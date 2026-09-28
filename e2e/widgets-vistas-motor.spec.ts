@@ -198,8 +198,26 @@ test('dentro de su web, `widget_loaded` dice dónde (solo el origen) y con qué 
   expect(JSON.stringify(eventos)).not.toContain('utm_source');
 });
 
-test('⚠️ con un parámetro de ejecución (`directo=1`, el de la redirección de la nativa) no dice nada, aunque esté en su web', async ({ page, baseURL }) => {
+// Fase D: `directo=1` solo lo pone la redirección de la integración nativa
+// (app/widget-bundle/main.tsx), que ya contó la visita en la web del estudio.
+// Aquí no se vuelve a contar: ni `widget_loaded` ni `widget_viewed`. El resto
+// del embudo sí, con la misma etiqueta, que es lo que dice si ese widget convierte.
+
+test('⚠️ con `directo=1` (la redirección de la nativa) no cuenta otra visita ni dice dónde, aunque esté en su web', async ({ page, baseURL }) => {
   const { eventos } = await enSuWeb(page, baseURL!, `${CODIGO}&directo=1`);
-  await expect.poll(() => eventos.filter(e => e.tipo === 'widget_loaded').length, { timeout: 15_000 }).toBeGreaterThan(0);
+  // El control: la página sí manda el resto del embudo. Sin esto, «no ha
+  // contado la visita» podría ser verdad por no haber mandado nada.
+  await expect.poll(() => eventos.filter(e => e.tipo === 'class_list_viewed').length, { timeout: 15_000 }).toBeGreaterThan(0);
+  await page.waitForTimeout(500);
+  expect(eventos.some(e => e.tipo === 'widget_loaded' || e.tipo === 'widget_viewed'), JSON.stringify(eventos)).toBe(false);
   expect(eventos.some(lleva), JSON.stringify(eventos)).toBe(false);
+});
+
+test('⚠️ a pantalla completa, con la URL real de la redirección de la nativa: el embudo sigue, con su etiqueta, sin contar otra visita', async ({ page }) => {
+  // Tal cual la escribe `irAPaginaDeTentare` (app/widget-bundle/main.tsx).
+  const { eventos } = await abrir(page, 'sesion=s1&directo=1&ref=web-horario');
+  await expect.poll(() => eventos.length, { timeout: 15_000 }).toBeGreaterThan(0);
+  await page.waitForTimeout(500);
+  expect(eventos.some(e => e.tipo === 'widget_loaded' || e.tipo === 'widget_viewed'), JSON.stringify(eventos)).toBe(false);
+  expect(eventos.every(e => e.origen === 'web-horario'), JSON.stringify(eventos)).toBe(true);
 });
