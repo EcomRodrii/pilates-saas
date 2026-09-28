@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import {
@@ -16,15 +17,12 @@ import { textoCobroEnLote } from '@/lib/cobros/texto-cobro-en-lote';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
-import { AperturaEstudio } from '@/components/dashboard/apertura-estudio';
 import { AvisoIntegracionesCaidas } from '@/components/dashboard/aviso-integraciones-caidas';
 import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
 import { ProximasClases } from '@/components/dashboard/proximas-clases';
 import { EstadoDelEstudio } from '@/components/dashboard/estado-del-estudio';
 import { TentareOrb } from '@/components/marca/tentare-orb';
 import { ActionCenter } from '@/components/decision/action-center';
-import { CustomChartsSection } from '@/components/dashboard/custom-charts';
 import { fetchLayout } from '@/lib/api-client';
 import { dbStatsClientas } from '@/lib/supabase-data';
 import { aplicarLayout, DEFAULT_LAYOUT } from '@/lib/layout-runtime';
@@ -50,6 +48,17 @@ import { puedeGestionarApertura, puedeGestionarAutomatizaciones, puedeGestionarE
 import { useConteoDecidir } from '@/lib/estado-estudio-cliente';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
+
+// Code-split (mismo patrón que components/configuracion/shell/config-shell.tsx):
+// las tres se pintan solo en circunstancias que la mayoría de cargas de
+// /dashboard no da: onboarding ya completado, estudio ya abierto (Opening OS
+// se apaga solo con `datos?.visible`) y gráficos personalizados es una
+// herramienta opt-in con 0 configurados por defecto. Sin el code-split, sus
+// ~75 KB de fuente combinados se bajaban en CADA carga de la pantalla más
+// visitada del panel aunque casi nunca fueran a pintar nada.
+const OnboardingChecklist = dynamic(() => import('@/components/dashboard/onboarding-checklist').then(m => m.OnboardingChecklist));
+const AperturaEstudio = dynamic(() => import('@/components/dashboard/apertura-estudio').then(m => m.AperturaEstudio));
+const CustomChartsSection = dynamic(() => import('@/components/dashboard/custom-charts').then(m => m.CustomChartsSection));
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
