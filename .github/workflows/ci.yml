@@ -259,6 +259,20 @@ jobs:
       - name: Saltar el ALTER de RLS sobre la tabla huérfana respaldo_sereno_studio1 (solo para este job)
         run: rm supabase/migrations/20260819211544_respaldo_sereno_studio1_rls.sql
 
+      # Cuarto hallazgo, ya documentado por el propio repo (la migración
+      # siguiente lo explica con evidencia forense): PAY-4
+      # (20260918000200_pay4_cobros_intentos.sql) figuraba «aplicada» en
+      # producción pero su DDL NUNCA pudo tener efecto — `studio_id uuid`
+      # (todo el resto de la BD usa `studios.id text`) y una policy que lee
+      # `sesion_activa_vista`, una vista que no existe en este proyecto.
+      # `20260919074730_pay4_cobros_intentos_de_verdad.sql` la sustituye
+      # entera con `create table if not exists` — mismo caso que ya documenta
+      # este repo en otro sitio: una migración prometida que nunca llegó a
+      # escribir nada de verdad. Se salta el original roto; el sustituto ya
+      # cubre todo lo que hacía falta.
+      - name: Saltar el PAY-4 original, roto de origen — el sustituto ya crea la tabla de verdad (solo para este job)
+        run: rm supabase/migrations/20260918000200_pay4_cobros_intentos.sql
+
       # Arranca Postgres + GoTrue (Auth) + PostgREST + Kong (API Gateway) reales
       # en Docker, dentro del propio runner — nunca contra dwqvdycjcffqwfkzapvi.
       - name: Arrancar Supabase local
