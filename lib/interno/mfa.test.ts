@@ -25,10 +25,19 @@ test('nivelAutenticacion soporta payloads con caracteres no ASCII', () => {
   assert.equal(nivelAutenticacion(token({ email: 'núria@estudio.es', aal: 'aal2' })), 'aal2');
 });
 
-test('exigeMfa: sin la variable, comportamiento de siempre', () => {
-  assert.equal(exigeMfa({}, 'aal1'), false);
-  assert.equal(exigeMfa({ INTERNO_EXIGIR_MFA: '' }, 'aal1'), false);
+// SEC-2 paso 2 (auditoría 62ª pasada): fail-closed. Sin la variable (o con
+// cualquier valor que no sea '0' exacto), se exige MFA por defecto — un
+// olvido al configurarla ahora se nota porque SÍ pide el segundo factor, no
+// al revés.
+test('exigeMfa: sin la variable, exige MFA por defecto (fail-closed)', () => {
+  assert.equal(exigeMfa({}, 'aal1'), true);
+  assert.equal(exigeMfa({ INTERNO_EXIGIR_MFA: '' }, 'aal1'), true);
+  assert.equal(exigeMfa({}, 'aal2'), false);
+});
+
+test('exigeMfa: con INTERNO_EXIGIR_MFA=0, se desactiva la exigencia', () => {
   assert.equal(exigeMfa({ INTERNO_EXIGIR_MFA: '0' }, 'aal1'), false);
+  assert.equal(exigeMfa({ INTERNO_EXIGIR_MFA: '0' }, 'aal2'), false);
 });
 
 test('exigeMfa: con INTERNO_EXIGIR_MFA=1, aal1 se rechaza y aal2 pasa', () => {
@@ -36,9 +45,9 @@ test('exigeMfa: con INTERNO_EXIGIR_MFA=1, aal1 se rechaza y aal2 pasa', () => {
   assert.equal(exigeMfa({ INTERNO_EXIGIR_MFA: '1' }, 'aal2'), false);
 });
 
-test('exigeMfa: solo el valor exacto "1" activa la exigencia', () => {
-  assert.equal(exigeMfa({ INTERNO_EXIGIR_MFA: 'true' }, 'aal1'), false);
-  assert.equal(exigeMfa({ INTERNO_EXIGIR_MFA: ' 1' }, 'aal1'), false);
+test('exigeMfa: solo el valor exacto "0" desactiva la exigencia', () => {
+  assert.equal(exigeMfa({ INTERNO_EXIGIR_MFA: 'false' }, 'aal1'), true);
+  assert.equal(exigeMfa({ INTERNO_EXIGIR_MFA: ' 0' }, 'aal1'), true);
 });
 
 test('puedeEnrolarFactor: el primer factor sin aal2; el segundo exige aal2', () => {
