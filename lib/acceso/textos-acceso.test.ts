@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explicacionAcceso, detallesAcceso, fechaVigencia, etiquetaEstadoReserva, type DatosTexto, type MotivoVisible } from './textos-acceso.ts';
+import { explicacionAcceso, detallesAcceso, fechaVigencia, etiquetaEstadoReserva, MOTIVO_CORTO, type DatosTexto, type MotivoVisible } from './textos-acceso.ts';
 
 const vacio: DatosTexto = { clase: null, otraClase: null, plazaFija: null, yaEntroEn: null, avisos: [] };
 const REFORMER = { nombre: 'Reformer', inicio: '2026-09-29T16:00:00Z', sala: 'Sala 2' };
@@ -45,4 +45,17 @@ test('el detalle de los avisos es solo para quien los recibe; a la instructora, 
 test('estado de la reserva en palabras', () => {
   assert.equal(etiquetaEstadoReserva('LISTA_ESPERA'), 'En lista de espera');
   assert.equal(etiquetaEstadoReserva(null), 'Sin reserva');
+});
+
+test('historial: cada motivo del registro tiene su etiqueta corta, y la lista es la del CHECK de la tabla', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const dir = new URL('../../supabase/migrations/', import.meta.url);
+  const fichero = readdirSync(dir).find(n => n.endsWith('_control_acceso_qr.sql'));
+  assert.ok(fichero, 'no se encuentra la migración del control de acceso');
+  const sql = readFileSync(new URL(fichero, dir), 'utf8');
+  const bloque = sql.slice(sql.indexOf('motivo text not null check (motivo in ('), sql.indexOf('decision text check'));
+  const delCheck = [...bloque.matchAll(/'([A-Z_]+)'/g)].map(m => m[1]).sort();
+  assert.ok(delCheck.length > 15, 'el parser no ve los motivos del CHECK');
+  assert.deepEqual(Object.keys(MOTIVO_CORTO).sort(), delCheck);
+  for (const [m, t] of Object.entries(MOTIVO_CORTO)) assert.ok(t.length > 3, m);
 });

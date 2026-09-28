@@ -22,27 +22,17 @@ import { authHeader } from '@/lib/api-client';
 import { useStudio } from '@/lib/studio-context';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, hoyEnEstudio } from '@/lib/utils';
 import { useLectorQr } from '@/components/acceso/lector-qr';
 import { ResultadoAcceso } from '@/components/acceso/resultado-acceso';
 import { leerTokenQr } from '@/lib/acceso/qr-formato';
 import { horaAcceso } from '@/lib/acceso/textos-acceso';
+import { HistorialAccesos, useHistorialAccesos } from '@/components/acceso/historial-accesos';
 import type { AccionAcceso, ClaseDetalle, RespuestaDecision, RespuestaEscaneo } from '@/lib/acceso/escanear-servidor';
-
-/** El pase de 2 minutos (lib/pase-acceso.ts): `payload.firma` en base64url. Se retira con él. */
-const esPaseAntiguo = (v: string) => /^[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}$/.test(v.trim());
 
 /** Un 🟢 se cierra solo: en la puerta hay cola. Un 🟠 o un 🔴 esperan a que alguien lo lea, y
  *  un 🟢 con la puerta de Kisi por abrir espera a que alguien pulse el botón. */
 const CIERRE_PERMITIDO_MS = 5000;
-
-function resultadoDeError(texto: string): RespuestaEscaneo {
-  return {
-    escaneoId: null, veredicto: 'DENEGADO', motivo: 'QR_NO_RECONOCIDO', alumna: null, clase: null, otraClase: null,
-    candidatas: [], tipoAcceso: null, plazaFija: null, estadoReserva: null, reservaId: null, avisos: [], yaEntroEn: null,
-    asistenciaMarcada: false, asistenciaAlTerminar: false, errorAsistencia: texto, puerta: 'sin-kisi', acciones: [], claseEmpezada: false,
-  };
-}
 
 export default function ControlDeAccesoPage() {
   const { studio, dataLoaded, deshacerCheckin } = useStudio();
@@ -56,6 +46,11 @@ export default function ControlDeAccesoPage() {
   const [abriendoPuerta, setAbriendoPuerta] = useState(false);
   const ultimaLectura = useRef<string>('');
   const tarjetaRef = useRef<HTMLElement>(null);
+  // Historial: por día (hoy de entrada). Se refresca con cada resultado nuevo o
+  // decisión, que son justo las filas que se acaban de escribir.
+  const [dia, setDia] = useState(() => hoyEnEstudio());
+  const [versionHistorial, setVersionHistorial] = useState(0);
+  const historial = useHistorialAccesos(`dia=${dia}`, versionHistorial);
 
   // `?sesion=` (se llega desde una clase del calendario) se lee de
   // window.location, como en /calendario: `useSearchParams` suspendería la
@@ -91,19 +86,6 @@ export default function ControlDeAccesoPage() {
     setError(null);
     setErrorDecision(null);
     try {
-      // ⚠️ TRANSICIÓN: el pase antiguo de 2 minutos (payload.firma) sigue valiendo
-      // mientras quede alguna app sin recargar. Se retira con /api/checkin/pase.
-      if (!leerTokenQr(lectura) && esPaseAntiguo(lectura)) {
-        const res = await fetch('/api/checkin/pase', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-          body: JSON.stringify({ token: lectura }),
-        });
-        const data = await res.json().catch(() => null) as { quien?: string; yaEstaba?: boolean; error?: string } | null;
-        setResultado(res.ok
-          ? { ...resultadoDeError(''), veredicto: 'PERMITIDO', motivo: data?.yaEstaba ? 'YA_ENTRO' : 'RESERVA_CONFIRMADA', alumna: { nombre: data?.quien ?? '', foto: null }, errorAsistencia: null, asistenciaMarcada: !data?.yaEstaba }
-          : resultadoDeError(data?.error ?? 'No hemos podido leer el pase.'));
-        return;
-      }
       const res = await fetch('/api/acceso/escanear', {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify({ lectura, sesionId }),
@@ -111,6 +93,7 @@ export default function ControlDeAccesoPage() {
       const data = await res.json().catch(() => null) as (RespuestaEscaneo & { error?: string }) | null;
       if (!res.ok || !data) { setError(data?.error ?? 'No hemos podido comprobar el QR. Inténtalo otra vez.'); return; }
       setResultado(data);
+      setVersionHistorial(v => v + 1);
     } catch {
       setError('Sin conexión. Inténtalo otra vez.');
     } finally {
@@ -121,11 +104,11 @@ export default function ControlDeAccesoPage() {
   const { videoRef, camara, encender, olvidarUltimo } = useLectorQr({
     pausado: resultado !== null || enviando,
     onLectura: (valor) => {
-      // Solo van al servidor los QR de acceso de Tentare (y, en la transición,
-      // el pase antiguo). Cualquier otro código que vea la cámara —el de una
-      // caja, el de la web del estudio— se contesta aquí: no es un intento de
+      // Solo van al servidor los QR de acceso de Tentare. Cualquier otro código
+      // que vea la cámara —el de una caja, el de la web del estudio, el pase de
+      // 2 minutos que se retiró el 28-sep— se contesta aquí: no es un intento de
       // entrar y no tiene por qué llenar el historial de accesos.
-      if (!leerTokenQr(valor) && !esPaseAntiguo(valor)) {
+      if (!leerTokenQr(valor)) {
         setError('Ese código no es un QR de acceso de Tentare. Pídele que abra Perfil → QR de acceso en su app.');
         return;
       }
@@ -165,6 +148,7 @@ export default function ControlDeAccesoPage() {
       if (!res.ok || !data) { setErrorDecision(data?.error ?? 'No se ha podido guardar. Inténtalo otra vez.'); return; }
       // La decisión es un escaneo nuevo en el historial: la tarjeta pasa a contar
       // lo que ha pasado de verdad (aprobada sin plaza, clase ya empezada…).
+      setVersionHistorial(v => v + 1);
       setResultado(r => r && {
         ...r, ...data, acciones: [],
         estadoReserva: data.veredicto === 'PERMITIDO' ? (data.asistenciaMarcada ? 'ASISTIDA' : 'CONFIRMADA') : r.estadoReserva,
@@ -304,6 +288,32 @@ export default function ControlDeAccesoPage() {
         </Link>
         .
       </p>
+
+      {/* Historial de accesos: qué pasó cada vez que alguien leyó un QR, con
+          quién lo escaneó. Para contestar «¿qué pasó cuando intentó entrar?». */}
+      <section aria-label="Historial de accesos" className="flex flex-col gap-3 pt-2">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-bold text-foreground">Historial de accesos</h2>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="sr-only">Día</span>
+            <input
+              type="date"
+              value={dia}
+              max={hoyEnEstudio()}
+              onChange={e => { if (e.target.value) setDia(e.target.value); }}
+              className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground"
+            />
+          </label>
+        </div>
+        <HistorialAccesos
+          filas={historial.filas}
+          cargando={historial.cargando}
+          error={historial.error}
+          conAlumna
+          conFecha={false}
+          vacio={dia === hoyEnEstudio() ? 'Hoy todavía nadie ha escaneado un QR.' : 'Ese día nadie escaneó un QR.'}
+        />
+      </section>
     </div>
   );
 }

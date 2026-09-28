@@ -246,8 +246,9 @@ export function textoMotivoOferta(motivo: string | undefined): string {
  *
  * El panel no deja marcar hasta que la clase empieza (#870, contra «última
  * asistencia: hace -1 días» en clases de OTRO día). Una hora antes no abre nada
- * nuevo: es la misma apertura que el pase de la alumna (`lib/pase-acceso.ts`),
- * que ya marca asistencia, y que la puerta de Kisi — la gente llega antes.
+ * nuevo: es la misma apertura que las «clases de ahora» del control de acceso con
+ * QR (`MINUTOS_ANTES_DE_EMPEZAR`, lib/acceso/evaluar-acceso.ts), que ya marca
+ * asistencia, y que la puerta de Kisi — la gente llega antes.
  */
 export const LISTA_ABRE_MIN_ANTES = 60;
 export const LISTA_CIERRA_HORAS_DESPUES = 12;

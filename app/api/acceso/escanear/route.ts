@@ -12,9 +12,9 @@ import { marcadoresDelPanel } from '@/lib/acceso/marcadores-panel';
 //   GET  → las clases de ahora, para fijar una si se quiere.
 //   POST → { lectura, sesionId? } → el resultado del escaneo.
 //
-// Quién: quien gestiona el calendario, los mismos que podían leer el pase de
-// antes (`/api/checkin/pase`). La instructora escanea desde su app, en sus
-// clases, por su propia puerta.
+// Quién: quien gestiona el calendario (propietaria, gerencia, recepción). La
+// instructora escanea desde su app, en sus clases, por su propia puerta
+// (`/api/portal/instructora/escanear`).
 
 async function actorDelPanel(req: NextRequest): Promise<Actor | NextResponse> {
   const sesion = await verificarSesionStaff(req);
