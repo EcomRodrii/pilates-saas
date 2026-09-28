@@ -13,9 +13,9 @@
 // única excepción es la etiqueta de seguimiento (`ref`), que no cambia nada
 // de lo que se ve y es lo que permite medir cada widget por separado.
 //
-// Las plataformas (HTML, WordPress, Webflow, React) solo existen donde la
-// diferencia es real: en WordPress y Webflow el código es el MISMO que en HTML
-// y lo que cambia son los pasos; en React sí cambia el código.
+// Las plataformas de aquí (HTML, WordPress, Webflow, React) son variantes del
+// CÓDIGO: en WordPress y Webflow es el mismo que en HTML y en React cambia.
+// Con qué está hecha la web de la dueña y sus pasos viven en ./recetas.ts.
 
 import { luminancia } from '../reservar/apariencia-widget.ts';
 import { COLOR_VALIDO, fuenteValida } from '../reservar/config-widget.ts';
@@ -26,10 +26,6 @@ import {
 } from './config.ts';
 
 export type Plataforma = 'html' | 'wordpress' | 'webflow' | 'react';
-
-export const PLATAFORMAS: Record<Plataforma, string> = {
-  html: 'HTML', wordpress: 'WordPress', webflow: 'Webflow', react: 'React',
-};
 
 export interface EntradaIntegracion {
   widget: WidgetDisponible;
@@ -299,12 +295,45 @@ export function faltaParaGenerar(
   opts: { dominiosAutorizados: readonly string[] },
 ): string | null {
   if (e.widget.contenido.includes('sesion') && !e.config.sesion) {
-    return 'Elige la clase en «Contenido» para generar el código.';
+    return 'Elige la clase para tener el código.';
   }
   if (metodo === 'nativa' && opts.dominiosAutorizados.length === 0) {
-    return 'Autoriza el dominio de tu web en «Avanzado» para usar la integración nativa.';
+    return 'Para usarlo sin marco, autoriza antes el dominio de tu web.';
   }
   return null;
+}
+
+// ── Huella de lo copiado ──────────────────────────────────────────────────────
+
+/** FNV-1a de 32 bits en base 36: corta, estable y sin dependencias. */
+function huella(texto: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < texto.length; i++) {
+    h ^= texto.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+/**
+ * La huella de lo que va en el código de este widget con esta forma, para
+ * avisar si cambia después de copiarlo. Fuera de ella, a propósito:
+ *  - el origen de Tentare (el mismo código copiado desde otra dirección de la
+ *    app es el mismo código);
+ *  - el `style` del BOTÓN (popup y botón), que lleva el color de marca del
+ *    estudio: ese se cambia en Apariencia, no aquí, y no debe saltar como «has
+ *    cambiado algo». Lo que ella elige para el botón sí cuenta (abajo).
+ * ⚠️ El `style` del iframe sí va dentro: lleva el «Ancho» (`max-width`), que
+ * es un ajuste suyo con la etiqueta «Va en el código».
+ */
+export function firmaCodigo(e: EntradaIntegracion, metodo: MetodoIntegracion): string {
+  const c = e.config;
+  const crudo = generarCodigo(e, metodo, 'html').codigo.split(e.origen).join('');
+  const codigo = metodo === 'popup' || metodo === 'boton' ? crudo.replace(/ style="[^"]*"/g, '') : crudo;
+  const boton = metodo === 'popup' || metodo === 'boton'
+    ? [c.estiloBoton, c.identidad === 'propia' ? `${c.marca ?? ''}|${c.forma ?? ''}` : ''].join('|')
+    : '';
+  return huella(`${metodo}\n${codigo}\n${boton}`);
 }
 
 export function generarCodigo(e: EntradaIntegracion, metodo: MetodoIntegracion, plataforma: Plataforma = 'html'): CodigoGenerado {
@@ -471,45 +500,5 @@ export function ${nombreComponente(w)}() {
 ${scriptSnippetIframe({ origen: e.origen, slug: e.slug, iframeId: id })}`,
       };
     }
-  }
-}
-
-// ── Guía por plataforma ───────────────────────────────────────────────────────
-
-/** Los pasos para pegar el código, en la plataforma elegida. */
-export function pasosInstalacion(metodo: MetodoIntegracion, plataforma: Plataforma): string[] {
-  if (metodo === 'enlace') {
-    return [
-      'Copia el enlace.',
-      'Pégalo en la bio de Instagram, en un newsletter, en WhatsApp o en cualquier botón de tu web.',
-    ];
-  }
-  const cabeceraGlobal = metodo === 'nativa' || metodo === 'popup';
-  switch (plataforma) {
-    case 'wordpress':
-      return [
-        'En la página donde lo quieras, añade un bloque «HTML personalizado».',
-        'Pega el código dentro y guarda.',
-        ...(cabeceraGlobal
-          ? ['Si no aparece, pega la línea <script …> en el pie GLOBAL de tu tema (Apariencia → Editor o tu plugin de cabecera y pie): algunos constructores de página no ejecutan scripts dentro de un bloque.']
-          : []),
-      ];
-    case 'webflow':
-      return [
-        'Arrastra un elemento «Embed» (Code Embed) donde lo quieras.',
-        'Pega el código y pulsa «Save & Close».',
-        'Publica el sitio: en el editor de Webflow los scripts no se ejecutan, solo en la web publicada.',
-      ];
-    case 'react':
-      return [
-        'Crea un archivo con este componente (JavaScript/JSX).',
-        'Impórtalo y ponlo donde quieras que aparezca.',
-      ];
-    case 'html':
-    default:
-      return [
-        'Pega el código en el HTML de tu página, donde quieras que aparezca.',
-        'Sube el cambio a tu web. No hace falta nada más.',
-      ];
   }
 }

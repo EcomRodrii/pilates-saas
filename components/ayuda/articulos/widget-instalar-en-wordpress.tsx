@@ -6,7 +6,8 @@ export default function Contenido() {
     <>
       <AyudaPaso numero={1} titulo="Genera tu código en Configuración > Mi app y mi web > Widgets para tu web">
         <p style={{ margin: 0 }}>
-          Elige el widget, personalízalo y pulsa «Copiar código» — ver{' '}
+          Cuando te pregunte con qué está hecha tu web, elige «WordPress»: los pasos que te da al final ya son los de
+          WordPress. Elige qué quieres poner, ajústalo y pulsa «Copiar código» — ver{' '}
           <Link href="/ayuda/widget/instalar-con-html" style={{ color: 'inherit', textDecoration: 'underline' }}>instalar el widget con HTML</Link> para el detalle de esta pantalla.
         </p>
       </AyudaPaso>

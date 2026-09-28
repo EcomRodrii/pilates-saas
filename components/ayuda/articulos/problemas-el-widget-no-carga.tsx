@@ -12,14 +12,14 @@ export default function Contenido() {
 
       <CausasComunes items={[
         'El código del widget se ha pegado incompleto o en el sitio equivocado de tu página.',
-        'Estás usando la «Integración nativa» del horario y tu dominio todavía no está autorizado en Configuración > Mi app y mi web > Widgets para tu web (pestaña «Avanzado») — este método, a diferencia del resto, lo exige antes de funcionar.',
-        'Usas el «Popup» y tu web no ejecuta la línea <script> del código (algunos constructores de páginas no lo hacen dentro de un bloque): pégala en el pie global de tu web.',
+        'Pusiste el horario «sin marco» (la integración nativa) y tu web todavía no está autorizada en Configuración > Mi app y mi web > Widgets para tu web, en el paso «Ponlo en tu web», dentro de «Para quien te hace la web» — esa forma, a diferencia del resto, lo exige antes de funcionar.',
+        'Usas «Un botón que se abre encima» y tu web no ejecuta la línea <script> del código (algunos constructores de páginas no lo hacen dentro de un bloque): pégala en el pie global de tu web.',
         'Un bloqueador de scripts o un plugin de "optimización" de tu web retrasa o bloquea el script de Tentare.',
         'La caché de tu web (muy común en WordPress) sigue sirviendo una versión antigua de la página, de antes de instalarlo.',
       ]} />
 
       <ComoSolucionarlo>
-        <p style={{ margin: '0 0 12px' }}>Si usas la integración nativa, ve a Configuración &gt; Mi app y mi web &gt; Widgets para tu web, pestaña «Avanzado», y comprueba que tu dominio está en la lista de autorizados — es el motivo más común con este método en concreto.</p>
+        <p style={{ margin: '0 0 12px' }}>Si lo pusiste sin marco, ve a Configuración &gt; Mi app y mi web &gt; Widgets para tu web, paso «Ponlo en tu web», abre «Para quien te hace la web» y comprueba que tu web está entre las autorizadas (con «www» y sin él) — es el motivo más común con esa forma en concreto.</p>
         <p style={{ margin: '0 0 12px' }}>Revisa que el fragmento de código está completo y sin cortar — un solo carácter que falte puede impedir que cargue.</p>
         <p style={{ margin: '0 0 12px' }}>Vacía la caché de tu web (o del plugin de caché, si usas WordPress) y recarga con caché del navegador también vacía.</p>
         <p style={{ margin: 0 }}>Prueba la página en una pestaña de incógnito, sin extensiones — si ahí carga bien, el problema es un bloqueador o plugin de tu navegador, no el widget.</p>

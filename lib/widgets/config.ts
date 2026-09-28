@@ -14,6 +14,7 @@
 import { COLOR_VALIDO, fuenteValida } from '../reservar/config-widget.ts';
 import type { TipoPlan } from '../types.ts';
 import { WIDGETS, type MetodoIntegracion, type WidgetDisponible } from './catalogo.ts';
+import type { EstadoWeb } from './recetas.ts';
 
 export interface ConfigConstructor {
   // ── Contenido ──
@@ -227,4 +228,72 @@ export function leerConfigs(raw: Record<string, unknown> | null | undefined): Re
     out[w.id] = c;
   }
   return out;
+}
+
+// ── Lo copiado y lo guardado ─────────────────────────────────────────────────
+
+/**
+ * La huella del código la última vez que se copió desde aquí
+ * (`firmaCodigo`, ./integracion.ts) y cuándo. Solo sirve para avisar de que
+ * algo que va en el código cambió DESPUÉS de copiarlo: nunca se emite, y no
+ * dice nada de lo que hay de verdad en su web (si lo copió a mano, o lo pegó
+ * en dos sitios, esto no lo sabe).
+ */
+export interface Copiado {
+  firma: string;
+  /** ISO. */
+  en: string;
+}
+
+const FIRMA_VALIDA = /^[0-9a-z]{1,32}$/;
+
+/** `widget_builder[<id>].copiado` de cada widget del catálogo. */
+export function leerCopiados(raw: Record<string, unknown> | null | undefined): Record<string, Copiado> {
+  const out: Record<string, Copiado> = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const w of WIDGETS) {
+    const o = raw[w.id];
+    const k = o && typeof o === 'object' ? (o as Record<string, unknown>).copiado : null;
+    if (!k || typeof k !== 'object') continue;
+    const { firma, en } = k as Record<string, unknown>;
+    if (typeof firma === 'string' && FIRMA_VALIDA.test(firma) && typeof en === 'string' && !Number.isNaN(Date.parse(en))) {
+      out[w.id] = { firma, en };
+    }
+  }
+  return out;
+}
+
+function objeto(v: unknown): Record<string, unknown> {
+  return v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
+}
+
+/**
+ * Lo que se escribe en `studios.widget_builder`. FUSIONA sobre lo que había:
+ * las claves que este constructor no entiende (ids viejos de antes del
+ * catálogo, lo que añada una versión más nueva dentro de `_web`…) se quedan
+ * como estaban, y cada widget lleva su `copiado`. Reescribir el objeto entero
+ * se comería `_web` y la dueña tendría que volver a contestar con qué está
+ * hecha su web.
+ */
+export function fusionarWidgetBuilder(
+  raw: Record<string, unknown> | null | undefined,
+  configs: Readonly<Record<string, ConfigConstructor>>,
+  copiados: Readonly<Record<string, Copiado>>,
+  web: EstadoWeb,
+): Record<string, unknown> {
+  const base: Record<string, unknown> = { ...objeto(raw) };
+  for (const [id, c] of Object.entries(configs)) {
+    base[id] = copiados[id] ? { ...c, copiado: copiados[id] } : { ...c };
+  }
+  for (const [id, k] of Object.entries(copiados)) {
+    if (!(id in configs)) base[id] = { ...objeto(base[id]), copiado: k };
+  }
+  // Sin contestar, `_web` se queda como estaba (quizá con una plataforma que
+  // esta versión no conoce). La dirección se contesta junto a la plataforma:
+  // si la borró, se borra.
+  if (web.plataforma) {
+    const { direccion: _antes, ...restoDeWeb } = objeto(base._web);
+    base._web = { ...restoDeWeb, plataforma: web.plataforma, ...(web.direccion ? { direccion: web.direccion } : {}) };
+  }
+  return base;
 }

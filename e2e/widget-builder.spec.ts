@@ -21,6 +21,14 @@ test.use({ timezoneId: 'Europe/Madrid' });
 // e2e/apariencia-reservar-orden.spec.ts / e2e/aforo-hereda-la-sala.spec.ts.
 // ⚠️ Fechas RELATIVAS a hoy, nunca fijas ([[e2e-fecha-fija-cruza-de-mes]]) — y
 // sin page.clock: el builder usa debounces reales (guardado, vista previa).
+//
+// El recorrido (28-sep): «¿Con qué está hecha tu web?» una vez, y tres pasos
+// —Qué y dónde, Cómo se ve, Ponlo en tu web—. Los tres pasos están SIEMPRE
+// montados (el oculto, con `hidden`): el <pre> del código está en el DOM desde
+// el principio y se lee con `textContent`, nunca con `innerText` ni
+// `toBeVisible`, porque va plegado y en el último paso.
+// ⚠️ La vista previa del iframe NO se aserta: en e2e /reservar tarda ~15 s en
+// llegar (el tema se pide a un Supabase de mentira que reintenta en servidor).
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.setTimeout(180_000);
@@ -77,14 +85,20 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page, opts: { widgetBuilder?: Record<string, unknown> } = {}) {
-  const studioRow = {
+/**
+ * `plataforma`: la respuesta a «¿Con qué está hecha tu web?», ya guardada en
+ * `widget_builder._web` como la dejaría una visita anterior. Sin ella, el
+ * constructor empieza por la pregunta (un estudio que llega por primera vez).
+ */
+async function montar(page: Page, opts: { widgetBuilder?: Record<string, unknown>; plataforma?: string } = {}) {
+  const studioRow: Record<string, unknown> = {
     id: STUDIO_ID, nombre: 'Pilates Centro', slug: SLUG, owner_auth_user_id: AUTH_UID,
     email: 'duena@example.com', color_primario: '#343825',
     widget_dominios_autorizados: ['https://midominio.com'],
-    widget_builder: opts.widgetBuilder ?? {},
+    widget_builder: { ...(opts.widgetBuilder ?? {}), ...(opts.plataforma ? { _web: { plataforma: opts.plataforma } } : {}) },
   };
   // PATCHes reales que el builder manda al guardar (updateStudio con debounce).
+  // Lo guardado se queda en la fila: al recargar se lee lo último, como en la BD.
   const patches: Record<string, unknown>[] = [];
 
   await page.addInitScript(([key, uid]) => {
@@ -119,7 +133,9 @@ async function montar(page: Page, opts: { widgetBuilder?: Record<string, unknown
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route => {
     if (route.request().method() === 'PATCH') {
-      patches.push(route.request().postDataJSON() as Record<string, unknown>);
+      const cuerpo = route.request().postDataJSON() as Record<string, unknown>;
+      patches.push(cuerpo);
+      Object.assign(studioRow, cuerpo);
       // Lo que devuelve PostgREST con `select=id`; `[]` sería «no se guardó».
       return json(route, [{ id: STUDIO_ID }]);
     }
@@ -142,9 +158,37 @@ async function montar(page: Page, opts: { widgetBuilder?: Record<string, unknown
 }
 
 const snippet = (page: Page) => page.locator('pre');
-const pestana = (page: Page, nombre: string) => page.getByRole('tab', { name: nombre, exact: true }).click();
-const metodo = (page: Page, nombre: string) => page.getByRole('radiogroup', { name: 'Método de integración' }).getByRole('radio', { name: new RegExp(nombre) }).click();
-const widget = (page: Page, nombre: RegExp) => page.getByRole('navigation', { name: 'Biblioteca de widgets' }).getByRole('button', { name: nombre }).click();
+const paso = (page: Page, nombre: 'Qué y dónde' | 'Cómo se ve' | 'Ponlo en tu web') =>
+  page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: nombre, exact: true }).click();
+const donde = (page: Page, nombre: RegExp) => page.getByRole('radiogroup', { name: 'Dónde lo quieres' }).getByRole('radio', { name: nombre }).click();
+
+/** Abre un pliegue visible por el texto de su título, solo si está cerrado (pulsarlo abierto lo cerraría). */
+async function abrir(page: Page, titulo: string) {
+  const pliegue = page.locator('details:visible', { has: page.locator('summary', { hasText: titulo }) }).first();
+  if (!(await pliegue.evaluate(d => (d as HTMLDetailsElement).open))) await pliegue.locator('summary').first().click();
+}
+
+async function widget(page: Page, nombre: RegExp) {
+  // `count()` no espera: recién montado, el grupo puede no estar pintado aún y
+  // daría 0 aunque el widget sea de los principales.
+  const grupo = page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' });
+  await expect(grupo).toBeVisible();
+  const principal = grupo.getByRole('radio', { name: nombre });
+  if (await principal.count()) return principal.click();
+  await abrir(page, 'Más cosas para tu web');
+  await page.getByRole('radiogroup', { name: 'Más cosas para tu web' }).getByRole('radio', { name: nombre }).click();
+}
+
+/** «Ponerlo sin marco» (integración nativa), en «Para quien te hace la web». */
+async function sinMarco(page: Page) {
+  await paso(page, 'Ponlo en tu web');
+  await abrir(page, 'Para quien te hace la web');
+  await page.getByRole('switch', { name: 'Ponerlo sin marco' }).click();
+}
+
+const soloAlgunas = (page: Page) => page.getByRole('group', { name: 'Qué clases salen' }).getByRole('button', { name: 'Solo algunas' }).click();
+const ultimoBuilder = (patches: Record<string, unknown>[]) =>
+  [...patches].reverse().find(p => typeof p.widget_builder === 'object' && p.widget_builder !== null)?.widget_builder as Record<string, Record<string, unknown>> | undefined;
 
 test.describe('Tentare Widgets — cada control conectado al código y a la vista previa', () => {
 
@@ -157,39 +201,102 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     }
   });
 
-  test('la biblioteca: lo que no existe todavía se lee, pero no se pulsa', async ({ page }) => {
-    await montar(page);
-    const biblio = page.getByRole('navigation', { name: 'Biblioteca de widgets' });
-    await expect(biblio.getByRole('button', { name: /Horario y reservas/ })).toHaveAttribute('aria-pressed', 'true');
-    await expect(biblio.getByText('Tarjetas regalo', { exact: true })).toBeVisible();
-    await expect(biblio.getByRole('button', { name: /Tarjetas regalo/ })).toHaveCount(0);
-    // El «Calendario embebido» ya no es un widget: es un método del horario.
-    await expect(biblio.getByText(/Calendario embebido/)).toHaveCount(0);
-    await expect(page.getByRole('radiogroup', { name: 'Método de integración' }).getByRole('radio', { name: /Integración nativa/ })).toBeVisible();
-    // Y la videoteca (congelada) ni aparece.
-    await expect(biblio.getByText('Videoteca')).toHaveCount(0);
+  test('la pregunta de la web: se contesta una vez, se guarda en `_web` sin comerse lo demás y ordena la recomendación', async ({ page }) => {
+    const { patches } = await montar(page, {
+      widgetBuilder: { horario: { tipos: ['tc-r'] }, algoDeOtraVersion: { x: 1 } },
+    });
+    const pregunta = page.getByRole('radiogroup', { name: 'Con qué está hecha tu web' });
+    await expect(pregunta).toBeVisible();
+    // Hasta contestar no hay pasos que dar.
+    await expect(page.getByRole('navigation', { name: 'Pasos' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+    for (const p of ['WordPress', 'Wix', 'Squarespace', 'Webflow', 'Otra o hecha a mano', 'Me la lleva una agencia', 'Aún no tengo web']) {
+      await expect(pregunta.getByRole('radio', { name: new RegExp(p) })).toBeVisible();
+    }
+
+    await pregunta.getByRole('radio', { name: /Wix/ }).click();
+    await page.getByLabel(/¿Cuál es su dirección\?/).fill('https://www.estudio.example.com/inicio');
+    await page.getByRole('button', { name: 'Siguiente' }).click();
+
+    await expect.poll(() => ultimoBuilder(patches)?._web, { timeout: 10_000 })
+      .toEqual({ plataforma: 'wix', direccion: 'www.estudio.example.com' });
+    // FUSIONA: lo que había (y lo que no entiende) sigue ahí.
+    const guardado = ultimoBuilder(patches)!;
+    expect(guardado.algoDeOtraVersion).toEqual({ x: 1 });
+    expect(guardado.horario.tipos).toEqual(['tc-r']);
+
+    await expect(page.getByText('www.estudio.example.com').first()).toBeVisible();
+    // En Wix, un botón de su web con nuestro enlace: se copia el ENLACE.
+    const dondeLoQuieres = page.getByRole('radiogroup', { name: 'Dónde lo quieres' });
+    await expect(dondeLoQuieres.getByRole('radio', { name: /Un botón/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(dondeLoQuieres.getByRole('radio', { name: /Un botón/ })).toContainText('Recomendado');
+    await expect(page.getByText(/En Wix te recomendamos un botón de tu propia web/)).toBeVisible();
+    await expect(snippet(page)).toHaveText(new RegExp(`/reservar/${SLUG}\\?ref=web-horario$`));
+
+    // «Cambiar» vuelve a la pregunta con lo contestado, y «Cancelar» a donde estaba.
+    await page.getByRole('button', { name: 'Cambiar con qué está hecha tu web' }).click();
+    await expect(pregunta.getByRole('radio', { name: /Wix/ })).toHaveAttribute('aria-checked', 'true');
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: 'Qué y dónde', exact: true })).toHaveAttribute('aria-current', 'step');
   });
 
-  test('elegir un tipo de clase mete tipos=<id> en el código, y se persiste en widget_builder', async ({ page }) => {
-    const { patches } = await montar(page);
-    await page.getByRole('group', { name: 'Tipos de clase' }).getByRole('button', { name: 'Reformer' }).click();
+  test('con la web contestada no se pregunta otra vez: sus pasos, Ordenador y Móvil, y nada engañoso en la previa', async ({ page }) => {
+    await montar(page, { plataforma: 'wordpress' });
+    await expect(page.getByRole('radiogroup', { name: 'Con qué está hecha tu web' })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: 'Qué y dónde', exact: true })).toHaveAttribute('aria-current', 'step');
+    const dispositivo = page.getByRole('group', { name: 'Dispositivo de la vista previa' });
+    await expect(dispositivo.getByRole('button')).toHaveText(['Ordenador', 'Móvil']);
+    await expect(page.getByRole('button', { name: 'Web oscura' })).toHaveCount(0);
+
+    await paso(page, 'Ponlo en tu web');
+    await expect(page.getByText(/añade un bloque «HTML personalizado»/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Copiar código' })).toBeVisible();
+    await expect(page.getByText('Aún no lo has copiado desde aquí.')).toBeVisible();
+  });
+
+  test('«Más cosas para tu web»: lo que no existe todavía se lee, pero no se pulsa', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    const que = page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' });
+    await expect(que.getByRole('radio', { name: /Tu horario, para que reserven/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(que.getByRole('radio', { name: /Tu horario/ })).toContainText('Lo que más se usa');
+    await abrir(page, 'Más cosas para tu web');
+    const mas = page.getByRole('radiogroup', { name: 'Más cosas para tu web' });
+    // «Bonos y packs» sigue siendo su propia tarjeta.
+    await expect(mas.getByRole('radio', { name: /Bonos y packs/ })).toBeVisible();
+    // Los «Próximamente» se ven, pero no son un botón.
+    await expect(page.getByText('Tarjetas regalo', { exact: true })).toBeVisible();
+    await expect(page.getByRole('radio', { name: /Tarjetas regalo/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Tarjetas regalo/ })).toHaveCount(0);
+    // El «Calendario embebido» ya no es un widget, y la videoteca (congelada) ni aparece.
+    await expect(page.getByText(/Calendario embebido/)).toHaveCount(0);
+    await expect(page.getByText('Videoteca')).toHaveCount(0);
+  });
+
+  test('elegir un tipo de clase mete tipos=<id> en el código, y se persiste en widget_builder sin perder `_web`', async ({ page }) => {
+    const { patches } = await montar(page, { plataforma: 'otra' });
+    // Con «Todas» no hay nada que marcar.
+    await expect(page.getByRole('group', { name: 'Solo estas clases' })).toHaveCount(0);
+    await soloAlgunas(page);
+    await page.getByRole('group', { name: 'Solo estas clases' }).getByRole('button', { name: 'Reformer' }).click();
     await expect(snippet(page)).toContainText('tipos=tc-r');
-    await page.getByRole('group', { name: 'Instructoras' }).getByRole('button', { name: 'Ana Ruiz' }).click();
+    await page.getByRole('group', { name: 'Solo las de estas instructoras' }).getByRole('button', { name: 'Ana Ruiz' }).click();
     await expect(snippet(page)).toContainText('instructoras=ins-1');
     // La inactiva no se ofrece: un filtro por alguien que ya no da clases
     // dejaría el calendario vacío.
-    await expect(page.getByRole('group', { name: 'Instructoras' }).getByRole('button', { name: 'Bea Gil' })).toHaveCount(0);
-    await expect.poll(
-      () => patches.some(p => typeof p.widget_builder === 'object' && p.widget_builder !== null
-        && JSON.stringify(p.widget_builder).includes('tc-r')),
-      { timeout: 10_000 },
-    ).toBe(true);
-    await expect(page.getByRole('status').filter({ hasText: 'Guardado' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Solo las de estas instructoras' }).getByRole('button', { name: 'Bea Gil' })).toHaveCount(0);
+    await expect.poll(() => JSON.stringify(ultimoBuilder(patches)?.horario ?? {}), { timeout: 10_000 }).toContain('tc-r');
+    expect(ultimoBuilder(patches)?._web).toEqual({ plataforma: 'otra' });
+    await expect(page.getByRole('status').filter({ hasText: 'Tus ajustes están guardados. Tu web cambia cuando pegues el código.' })).toBeVisible();
+
+    // «Todas» quita los filtros del código.
+    await page.getByRole('group', { name: 'Qué clases salen' }).getByRole('button', { name: 'Todas' }).click();
+    await expect(snippet(page)).not.toContainText('tipos=');
+    await expect(snippet(page)).not.toContainText('instructoras=');
   });
 
-  test('⚠️ integración nativa: apagar «Precio» cambia el código Y la vista previa real', async ({ page }) => {
-    await montar(page);
-    await metodo(page, 'Integración nativa');
+  test('⚠️ integración sin marco: apagar «El precio» cambia el código Y la vista previa real', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    await sinMarco(page);
     await expect(snippet(page)).toContainText('data-tentare-booking');
     await expect(snippet(page)).toContainText('data-identidad="estudio"');
 
@@ -199,7 +306,9 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await hoja.getByRole('button', { name: 'Volver a las clases' }).click();
     await expect(hoja).toHaveCount(0);
 
-    await page.getByRole('switch', { name: 'Precio' }).click();
+    await paso(page, 'Qué y dónde');
+    await expect(page.getByText(/Ahora va sin marco/)).toBeVisible();
+    await page.getByRole('switch', { name: 'El precio' }).click();
     await expect(snippet(page)).toContainText('data-ocultar-precio');
 
     await page.getByRole('button', { name: '10:00 Reformer' }).click();
@@ -209,9 +318,11 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
   });
 
   test('⚠️ copiar entrega el string EXACTO del código, nunca los tokens coloreados', async ({ page }) => {
-    await montar(page);
-    await page.getByRole('group', { name: 'Tipos de clase' }).getByRole('button', { name: 'Mat' }).click();
+    await montar(page, { plataforma: 'otra' });
+    await soloAlgunas(page);
+    await page.getByRole('group', { name: 'Solo estas clases' }).getByRole('button', { name: 'Mat' }).click();
     const codigo = await snippet(page).textContent();
+    await paso(page, 'Ponlo en tu web');
     await page.getByRole('button', { name: 'Copiar código' }).click();
     await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
     const copiado = await page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado);
@@ -219,8 +330,78 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     expect(copiado).toContain('tipos=tc-m');
   });
 
+  test('⚠️ si el portapapeles dice que no, no dice «Copiado» ni guarda la copia', async ({ page }) => {
+    const { patches } = await montar(page, { plataforma: 'otra' });
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: () => Promise.reject(new Error('no')) },
+        configurable: true,
+      });
+    });
+    await paso(page, 'Ponlo en tu web');
+    await page.getByRole('button', { name: 'Copiar código' }).click();
+    await expect(page.getByText(/No se ha podido copiar/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Copiado' })).toHaveCount(0);
+    // Y el código queda a la vista para copiarlo a mano.
+    await expect(snippet(page)).toBeVisible();
+    await page.waitForTimeout(1_500);
+    expect(patches.some(p => JSON.stringify(p.widget_builder ?? {}).includes('"copiado"'))).toBe(false);
+  });
+
+  test('⚠️ código antiguo: al copiar se guarda su huella; cambiar algo que va en el código después avisa, y copiar otra vez lo quita', async ({ page }) => {
+    const { patches } = await montar(page, { plataforma: 'otra' });
+    const aviso = page.getByText(/Has cambiado algo que va en el código después de copiarlo/);
+
+    await paso(page, 'Ponlo en tu web');
+    await page.getByRole('button', { name: 'Copiar código' }).click();
+    await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
+    await expect.poll(() => typeof ultimoBuilder(patches)?.horario?.copiado, { timeout: 10_000 }).toBe('object');
+    // La huella nunca viaja en el código.
+    expect(await snippet(page).textContent()).not.toContain('copiado');
+    expect(ultimoBuilder(patches)?._web).toEqual({ plataforma: 'otra' });
+
+    // Otra visita, sin tocar nada: lo copiado sigue siendo lo de ahora.
+    await page.reload();
+    await expect(page.getByText('Widgets para tu web')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('navigation', { name: 'Pasos' })).toBeVisible();
+    await expect(aviso).toHaveCount(0);
+    await paso(page, 'Ponlo en tu web');
+    await expect(page.getByText(/Lo copiaste aquí el/)).toBeVisible();
+
+    // Cambia algo que va en el código: el aviso sale EN ESE MOMENTO.
+    await paso(page, 'Qué y dónde');
+    await page.getByRole('switch', { name: 'El precio' }).click();
+    await expect(aviso).toBeVisible();
+    await page.getByRole('button', { name: 'Ir a copiarlo' }).click();
+    await page.getByRole('button', { name: 'Copiar el código nuevo' }).click();
+    await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
+    await expect(aviso).toHaveCount(0);
+    expect(await page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado)).toContain('ocultar-precio=1');
+
+    // El «Ancho» solo cambia el `style` del iframe, y también va en el código:
+    // la huella tiene que verlo.
+    await paso(page, 'Cómo se ve');
+    await page.getByRole('group', { name: 'Ancho del widget' }).getByRole('button', { name: 'Todo el ancho' }).click();
+    await expect(aviso).toBeVisible();
+    // Y la tarjeta del widget lo dice también, para cuando no esté abierto.
+    await paso(page, 'Qué y dónde');
+    await expect(page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' }).getByRole('radio', { name: /Tu horario/ })).toContainText('Cambiado después de copiarlo');
+  });
+
+  test('código antiguo: una copia de otra visita con otra huella avisa desde el principio, con su fecha', async ({ page }) => {
+    await montar(page, {
+      plataforma: 'otra',
+      widgetBuilder: { horario: { copiado: { firma: 'huellavieja', en: '2026-09-12T10:00:00.000Z' } } },
+    });
+    await expect(page.getByText(/Has cambiado algo que va en el código después de copiarlo el 12 sept?\./)).toBeVisible();
+    await expect(page.getByRole('radiogroup', { name: 'Qué quieres poner en tu web' }).getByRole('radio', { name: /Tu horario/ })).toContainText('Cambiado después de copiarlo');
+    await page.getByRole('button', { name: 'Ir a copiarlo' }).click();
+    await expect(page.getByRole('button', { name: 'Copiar el código nuevo' })).toBeVisible();
+  });
+
   test('al volver a entrar, lo guardado con el constructor anterior se restaura en el widget nuevo', async ({ page }) => {
     await montar(page, {
+      plataforma: 'otra',
       widgetBuilder: { clases: { vista: 'hoy', tipos: ['tc-r'], ocultarPrecio: true, marca: '#112233' } },
     });
     const codigo = await snippet(page).textContent();
@@ -228,11 +409,18 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     expect(codigo).toContain('tipos=tc-r');
     expect(codigo).toContain('ocultar-precio=1');
     expect(codigo).toContain('marca=%23112233');
-    await expect(page.getByRole('switch', { name: 'Precio' })).toHaveAttribute('aria-checked', 'false');
-    await expect(page.getByRole('group', { name: 'Tipos de clase' }).getByRole('button', { name: 'Reformer' })).toHaveAttribute('aria-pressed', 'true');
-    // Tocó un color: su identidad era propia, no se le apaga en silencio.
-    await pestana(page, 'Diseño');
-    await expect(page.getByRole('radio', { name: /Personalizar este widget/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByRole('switch', { name: 'El precio' })).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByRole('group', { name: 'Qué clases salen' }).getByRole('button', { name: 'Solo algunas' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('group', { name: 'Solo estas clases' }).getByRole('button', { name: 'Reformer' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('switch', { name: 'Al abrir, solo las clases de hoy' })).toHaveAttribute('aria-checked', 'true');
+    // «Más opciones» se abrió solo por esto; apagarlo no le cierra el pliegue
+    // en la cara.
+    await page.getByRole('switch', { name: 'Al abrir, solo las clases de hoy' }).click();
+    await expect(page.getByRole('switch', { name: 'Al abrir, solo las clases de hoy' })).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByRole('switch', { name: 'Al abrir, solo las clases de hoy' })).toBeVisible();
+    // Tocó un color: su diseño era propio, no se le apaga en silencio.
+    await paso(page, 'Cómo se ve');
+    await expect(page.getByRole('switch', { name: /Usar un diseño propio/ })).toHaveAttribute('aria-checked', 'true');
   });
 
   async function elegirFuente(page: Page, campo: string, familia: string) {
@@ -240,29 +428,27 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await page.getByRole('option', { name: new RegExp(familia) }).click();
   }
 
-  test('⚠️ tipografía: con identidad propia entra en el código (iframe y nativa) y pinta la previa real', async ({ page }) => {
-    const { patches } = await montar(page);
-    await pestana(page, 'Diseño');
-    // Con la identidad del estudio no hay tipografía que elegir: manda la del portal.
-    await expect(page.getByRole('button', { name: 'Tipografía', exact: true })).toHaveCount(0);
-    await page.getByRole('radio', { name: /Personalizar este widget/ }).click();
-    await elegirFuente(page, 'Tipografía', 'Poppins');
-    await elegirFuente(page, 'Tipografía de titulares', 'Playfair Display');
+  test('⚠️ letra: con un diseño propio entra en el código (en la página y sin marco) y pinta la previa real', async ({ page }) => {
+    const { patches } = await montar(page, { plataforma: 'otra' });
+    await paso(page, 'Cómo se ve');
+    // Con el estilo de su página de reservas no hay letra que elegir.
+    await expect(page.getByRole('button', { name: 'Letra', exact: true })).toHaveCount(0);
+    await expect(page.getByText('El estilo de tu página de reservas')).toBeVisible();
+    await abrir(page, 'Un diseño distinto');
+    await page.getByRole('switch', { name: /Usar un diseño propio/ }).click();
+    await elegirFuente(page, 'Letra', 'Poppins');
+    await elegirFuente(page, 'Letra de los titulares', 'Playfair Display');
     await expect(snippet(page)).toContainText('fuente=Poppins');
     await expect(snippet(page)).toContainText('fuente-display=Playfair%20Display');
 
-    await page.getByRole('button', { name: 'Tipografía', exact: true }).click();
+    await page.getByRole('button', { name: 'Letra', exact: true }).click();
     await expect(page.getByRole('option')).toHaveCount(11); // 10 + «la de por defecto»
     await page.keyboard.press('Escape');
 
-    await expect.poll(
-      () => patches.some(p => typeof p.widget_builder === 'object' && p.widget_builder !== null
-        && JSON.stringify(p.widget_builder).includes('Poppins')),
-      { timeout: 10_000 },
-    ).toBe(true);
+    await expect.poll(() => JSON.stringify(ultimoBuilder(patches) ?? {}), { timeout: 10_000 }).toContain('Poppins');
 
-    // El mismo widget con integración nativa lleva la misma letra.
-    await metodo(page, 'Integración nativa');
+    // El mismo widget sin marco lleva la misma letra.
+    await sinMarco(page);
     await expect(snippet(page)).toContainText('data-fuente="Poppins"');
     await expect(snippet(page)).toContainText('data-fuente-display="Playfair Display"');
     const boton = page.getByRole('button', { name: '10:00 Reformer' });
@@ -271,20 +457,21 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     expect(fam).toContain('Poppins');
   });
 
-  test('al volver a entrar, una tipografía escrita a mano con el constructor viejo se conserva', async ({ page }) => {
+  test('al volver a entrar, una letra escrita a mano con el constructor viejo se conserva', async ({ page }) => {
     await montar(page, {
+      plataforma: 'otra',
       widgetBuilder: { clases: { fuente: 'Space Grotesk', fuenteDisplay: 'Lobster' } },
     });
     const codigo = await snippet(page).textContent();
     expect(codigo).toContain('fuente=Space%20Grotesk');
     expect(codigo).toContain('fuente-display=Lobster');
-    await pestana(page, 'Diseño');
-    await expect(page.getByRole('button', { name: 'Tipografía', exact: true })).toContainText('Space Grotesk');
-    await expect(page.getByRole('button', { name: 'Tipografía de titulares', exact: true })).toContainText('Lobster');
+    await paso(page, 'Cómo se ve');
+    await expect(page.getByRole('button', { name: 'Letra', exact: true })).toContainText('Space Grotesk');
+    await expect(page.getByRole('button', { name: 'Letra de los titulares', exact: true })).toContainText('Lobster');
   });
 
-  test('⚠️ guardar un dominio dispara el registro de wallets (contador real, no fe)', async ({ page }) => {
-    const { patches } = await montar(page);
+  test('⚠️ autorizar su web: con y sin «www» en la MISMA petición, y dispara el registro de wallets (contador real, no fe)', async ({ page }) => {
+    const { patches } = await montar(page, { plataforma: 'otra' });
     const envios: string[][] = [];
     await page.route('**/api/estudio/widget-dominios', route => {
       const cuerpo = route.request().postDataJSON() as { dominios: string[] };
@@ -297,64 +484,97 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
       return json(route, { registrados: [] });
     });
 
-    await metodo(page, 'Integración nativa');
-    await pestana(page, 'Avanzado');
-    await page.getByPlaceholder('midominio.com').fill('otrodominio.com');
-    await page.getByRole('button', { name: 'Añadir', exact: true }).click();
-    await expect.poll(() => envios.some(d => d.includes('https://otrodominio.com')), { timeout: 10_000 }).toBe(true);
+    await sinMarco(page);
+    await expect(page.getByRole('list', { name: 'Webs autorizadas' })).toContainText('https://midominio.com');
+    await page.getByLabel('Dirección de la web que quieres autorizar').fill('otrodominio.com');
+    await page.getByRole('button', { name: 'Autorizar', exact: true }).click();
+    await expect.poll(
+      () => envios.some(d => d.includes('https://otrodominio.com') && d.includes('https://www.otrodominio.com') && d.includes('https://midominio.com')),
+      { timeout: 10_000 },
+    ).toBe(true);
+    expect(envios).toHaveLength(1);
     expect(patches.some(p => 'widget_dominios_autorizados' in p)).toBe(false);
     await expect.poll(() => intentosWallet, { timeout: 10_000 }).toBeGreaterThan(0);
   });
 
-  test('los widgets que no honran filtros no los ofrecen (nada de UI fake)', async ({ page }) => {
-    await montar(page);
+  test('los widgets que no honran filtros no los ofrecen (nada de UI fake), y el color va sin códigos a la vista', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
     await widget(page, /Citas/);
-    await expect(page.getByRole('group', { name: 'Tipos de clase' })).toHaveCount(0);
-    await expect(page.getByRole('switch', { name: 'Precio' })).toHaveCount(0);
+    await expect(page.getByRole('group', { name: 'Qué clases salen' })).toHaveCount(0);
+    await expect(page.getByRole('switch', { name: 'El precio' })).toHaveCount(0);
+    await expect(page.getByText(/Ningún servicio de cita se puede reservar online todavía/)).toBeVisible();
     await expect(snippet(page)).toContainText('tab=citas');
-    await pestana(page, 'Diseño');
-    await page.getByRole('radio', { name: /Personalizar este widget/ }).click();
-    await expect(page.getByText('Color principal')).toBeVisible();
+    await paso(page, 'Cómo se ve');
+    await abrir(page, 'Un diseño distinto');
+    await page.getByRole('switch', { name: /Usar un diseño propio/ }).click();
+    await expect(page.getByLabel('Color principal')).toBeVisible();
+    // Ningún «#343825» a la vista: el hex solo vive dentro del selector de color.
+    expect(await page.locator('#widgets').innerText()).not.toMatch(/#[0-9a-f]{3,6}\b/i);
   });
 
-  test('popup, botón y enlace generan el código real de cada método', async ({ page }) => {
-    await montar(page);
-    await metodo(page, 'Popup');
+  test('un botón (encima o a su página) y un enlace generan el código real de cada forma', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    await donde(page, /Un botón/);
     await expect(snippet(page)).toContainText('data-tentare-popup=');
     await expect(snippet(page)).toContainText('/widget-popup.js');
+    // En la previa, el botón real sobre su web: abre la ventana de verdad.
     await expect(page.getByRole('button', { name: 'Reservar clase' })).toHaveAttribute('data-tentare-popup', /vista-previa=1/);
-    await pestana(page, 'Comportamiento');
     await page.getByRole('textbox', { name: 'Texto del botón' }).fill('Ven a probar');
     await expect(snippet(page)).toContainText('>Ven a probar</button>');
+    // El marcador de la previa se queda en la previa: ni en lo copiado ni en
+    // lo que se le manda a quien le hace la web.
+    await paso(page, 'Ponlo en tu web');
+    await page.getByRole('button', { name: 'Copiar código' }).click();
+    const copiadoPopup = await page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado);
+    expect(copiadoPopup).toContain('data-tentare-popup=');
+    expect(copiadoPopup).not.toContain('vista-previa');
+    await abrir(page, '¿Te lleva la web otra persona? Mándaselo');
+    await page.getByRole('button', { name: 'Copiar el mensaje' }).click();
+    const mensaje = await page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado);
+    expect(mensaje).toContain('data-tentare-popup=');
+    expect(mensaje).not.toContain('vista-previa');
+    await paso(page, 'Qué y dónde');
 
-    await metodo(page, 'Botón');
+    await page.getByRole('group', { name: 'Qué hace el botón' }).getByRole('button', { name: 'Lleva a tu página de reservas' }).click();
     await expect(snippet(page)).toContainText(`<a href="`);
     await expect(snippet(page)).not.toContainText('<script');
 
-    await metodo(page, 'Enlace');
+    await donde(page, /Un enlace/);
     await expect(snippet(page)).toHaveText(new RegExp(`/reservar/${SLUG}\\?ref=web-horario$`));
+    // Con un enlace no se ofrece ningún filtro: el enlace no se lo lleva.
+    await expect(page.getByRole('group', { name: 'Qué clases salen' })).toHaveCount(0);
+    await paso(page, 'Ponlo en tu web');
+    // Ya copió el botón de antes: lo de ahora es otra cosa, y así se dice.
+    await expect(page.getByRole('button', { name: 'Copiar el enlace nuevo' })).toBeVisible();
+  });
+
+  test('React: el mismo widget como componente, para quien hace la web', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    await paso(page, 'Ponlo en tu web');
+    await abrir(page, 'Para quien te hace la web');
+    await page.getByRole('button', { name: 'Copiar el componente de React' }).click();
+    const copiado = await page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado);
+    expect(copiado).toContain('export function TentareHorarioYReservas()');
+    expect(copiado).toContain('tentareEmbedAltura');
+    // Lo que se enseña y se copia con el botón grande sigue siendo el HTML.
+    await expect(snippet(page)).not.toContainText('export function');
+  });
+
+  test('«Una clase concreta» no da código hasta elegir la clase, que se pide allí mismo, y entonces es un enlace directo', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    await widget(page, /Una clase concreta/);
+    await expect(snippet(page)).toHaveCount(0);
+    await paso(page, 'Ponlo en tu web');
+    // Solo el paso habla del código; la previa tiene su propio texto.
+    await expect(page.getByRole('status').filter({ hasText: 'Elige la clase para tener el código.' })).toBeVisible();
+    await expect(page.getByText('Te falta un dato')).toBeVisible();
+    await page.getByRole('combobox', { name: 'Qué clase' }).selectOption({ index: 1 });
+    await expect(snippet(page)).toContainText(`/reservar/${SLUG}?sesion=`);
     await expect(page.getByRole('button', { name: 'Copiar enlace' })).toBeVisible();
   });
 
-  test('React: el mismo widget como componente', async ({ page }) => {
-    await montar(page);
-    await page.getByRole('tablist', { name: 'Plataforma' }).getByRole('tab', { name: 'React' }).click();
-    await expect(snippet(page)).toContainText('export function TentareHorarioYReservas()');
-    await expect(snippet(page)).toContainText('tentareEmbedAltura');
-  });
-
-  test('«Reserva una clase» no da código hasta elegir la clase, y entonces es un enlace directo', async ({ page }) => {
-    await montar(page);
-    await widget(page, /Reserva una clase/);
-    await expect(snippet(page)).toHaveCount(0);
-    await expect(page.getByText('Elige la clase en «Contenido» para generar el código.').first()).toBeVisible();
-    const select = page.getByRole('combobox', { name: 'Qué clase' });
-    await select.selectOption({ index: 1 });
-    await expect(snippet(page)).toContainText(`/reservar/${SLUG}?sesion=`);
-  });
-
   test('el embudo por widget: el mes del widget activo en el constructor y la tabla «Por widget»', async ({ page }) => {
-    await montar(page);
+    await montar(page, { plataforma: 'otra' });
     // Registrada DESPUÉS de montar: la última ruta gana sobre el catch-all.
     let lecturas = 0;
     await page.route('**/rest/v1/rpc/embudo_widget_por_origen', route => {
@@ -370,8 +590,8 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await expect(page.getByText('Este mes: 200 visitas · 9 reservas · 4,5 %')).toBeVisible({ timeout: 60_000 });
     expect(lecturas).toBeGreaterThan(0);
     // Con otro widget, su propia línea.
-    await page.getByRole('navigation', { name: 'Biblioteca de widgets' }).getByRole('button', { name: /Citas/ }).click();
-    await expect(page.getByText('Este mes, sin visitas con su etiqueta todavía')).toBeVisible();
+    await widget(page, /Citas/);
+    await expect(page.getByText('Aún no ha llegado nadie desde aquí este mes')).toBeVisible();
 
     await page.getByRole('button', { name: 'Ver resultados' }).click();
     const tabla = page.getByRole('region', { name: 'Por widget' });
@@ -384,16 +604,19 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await expect(filas.nth(3)).toContainText('Sin etiqueta');
   });
 
-  test('«Clase de prueba»: aviso sin oferta, `prueba=1` en el código y sin integración nativa', async ({ page }) => {
-    await montar(page);
-    await widget(page, /Clase de prueba/);
+  test('«Tu clase de prueba»: aviso sin oferta, `prueba=1` en el código y sin la forma sin marco', async ({ page }) => {
+    await montar(page, { plataforma: 'otra' });
+    await widget(page, /Tu clase de prueba/);
     await expect(page.getByText(/No tienes ninguna clase de prueba activa/)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Ir a Paquetes' })).toHaveAttribute('href', '/productos');
-    // Recomendado: popup.
+    // Recomendado: un botón que se abre encima.
     await expect(snippet(page)).toContainText('data-tentare-popup=');
     await expect(snippet(page)).toContainText('prueba=1');
-    await metodo(page, 'Enlace');
+    await donde(page, /Un enlace/);
     await expect(snippet(page)).toContainText('?prueba=1&ref=web-prueba');
-    await expect(page.getByRole('radiogroup', { name: 'Método de integración' }).getByRole('radio', { name: /Integración nativa/ })).toHaveCount(0);
+    await paso(page, 'Ponlo en tu web');
+    await abrir(page, 'Para quien te hace la web');
+    await expect(page.getByRole('switch', { name: 'Ponerlo sin marco' })).toHaveCount(0);
   });
 });
+

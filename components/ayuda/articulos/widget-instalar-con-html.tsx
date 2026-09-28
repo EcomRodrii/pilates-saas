@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { AyudaPaso, AyudaAntesDeEmpezar, AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
-// 25-sep-2026: «Tentare Widgets» — el método se elige en «Cómo integrarlo» y
-// el modo sin iframe se llama «Integración nativa».
+// 28-sep-2026: el constructor pregunta primero con qué está hecha la web y va
+// en tres pasos (qué y dónde, cómo se ve, ponlo en tu web); la integración
+// nativa («sin marco») vive en «Para quien te hace la web».
 //
 // Reescrito el 28-ago-2026 tras verificar en vivo Configuración > API >
 // Widgets: el código real es un <iframe> con un pequeño <script> de ajuste de
@@ -21,23 +22,23 @@ export default function Contenido() {
       {/* 15-sep-2026: sin captura; enseñaba la fila de pestañas de Configuración
           de antes de reorganizarla por preguntas. */}
       <AyudaPaso numero={1} titulo="Ve a Configuración > Mi app y mi web > Widgets para tu web">
-        <p>Elige el widget que quieres (el más habitual es «Horario y reservas») y ajústalo: qué enseña, su diseño y cómo se comporta. La vista previa es el widget real, en escritorio, tablet y móvil, y se actualiza al momento.</p>
+        <p>La primera vez te pregunta con qué está hecha tu web (WordPress, Wix, Squarespace, Webflow, otra…). Luego eliges qué quieres poner (lo más habitual es tu horario) y dónde, y ves cómo queda: la vista previa es el widget real, en ordenador y en móvil, y se actualiza al momento.</p>
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Copia el código y pégalo en tu web">
         <p style={{ margin: 0 }}>
-          En «Cómo integrarlo en tu web», con el método «Incrustado», el botón «Copiar código» te da un{' '}
+          En el último paso, «Ponlo en tu web», con la forma «Dentro de una página», el botón «Copiar código» te da un{' '}
           <code>&lt;iframe&gt;</code> con un pequeño <code>&lt;script&gt;</code> que ajusta su alto automáticamente
-          al contenido — no tienes que fijar una altura a mano. Elige tu plataforma (HTML, WordPress, Webflow o React)
-          y sigue los pasos que aparecen debajo del código. Si no te aclaras, pásaselo a quien lleve tu web: está
-          pensado para copiar y pegar, no para editarlo.
+          al contenido — no tienes que fijar una altura a mano. Debajo tienes los pasos de tu web. Si te la lleva
+          otra persona, se lo mandas desde ahí mismo con el código y los pasos: está pensado para copiar y pegar,
+          no para editarlo.
         </p>
       </AyudaPaso>
 
       <AyudaResultado>
-        Con este método NO hace falta autorizar tu dominio antes — funciona nada más pegarlo. Solo la
-        «Integración nativa» del horario —sin marco ni recuadro— lo exige, porque en ese caso el contenido se
-        pinta directamente en tu página en vez de dentro de un iframe aislado. Si tras instalarlo no ves nada,
+        Con esta forma NO hace falta autorizar tu dominio antes — funciona nada más pegarlo. Solo el horario
+        «sin marco» (la integración nativa, en «Para quien te hace la web») lo exige, porque en ese caso el
+        contenido se pinta directamente en tu página en vez de dentro de un iframe aislado. Si tras instalarlo no ves nada,
         revisa{' '}
         <Link href="/ayuda/problemas/el-widget-no-carga" style={{ color: 'inherit', textDecoration: 'underline' }}>el widget no carga</Link>.
       </AyudaResultado>
