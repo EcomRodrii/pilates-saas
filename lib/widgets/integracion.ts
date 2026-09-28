@@ -25,6 +25,8 @@ import type { MetodoIntegracion, WidgetDisponible } from './catalogo.ts';
 import {
   anchoPopupDe, anchoPorDefecto, etiquetaEfectiva, textoBotonEfectivo, type ConfigConstructor,
 } from './config.ts';
+import { firmaDeUrl } from './firma-contenido.ts';
+import { huella } from './huella.ts';
 
 export type Plataforma = 'html' | 'wordpress' | 'webflow' | 'react';
 
@@ -323,16 +325,6 @@ export function faltaParaGenerar(
 
 // ── Huella de lo copiado ──────────────────────────────────────────────────────
 
-/** FNV-1a de 32 bits en base 36: corta, estable y sin dependencias. */
-function huella(texto: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < texto.length; i++) {
-    h ^= texto.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return (h >>> 0).toString(36);
-}
-
 /**
  * La huella de lo que va en el código de este widget con esta forma, para
  * avisar si cambia después de copiarlo. Fuera de ella, a propósito:
@@ -352,6 +344,23 @@ export function firmaCodigo(e: EntradaIntegracion, metodo: MetodoIntegracion): s
     ? [c.estiloBoton, c.identidad === 'propia' ? `${c.marca ?? ''}|${c.forma ?? ''}` : ''].join('|')
     : '';
   return huella(`${metodo}\n${codigo}\n${boton}`);
+}
+
+/**
+ * La huella de lo que la PÁGINA entiende de este código (`firmaDeUrl`,
+ * ./firma-contenido.ts): la misma que /reservar calcula de su propia URL al
+ * cargar dentro de su web. Es la que dice qué versión se ve allí; `firmaCodigo`
+ * sigue diciendo si algo cambió aquí después de copiarlo.
+ *
+ * Solo dentro de una página y encima: los dos cargan `urlEmbebido`, que es lo
+ * que llega entero a la página (el popup, reescrito por `urlPopupPermitida`,
+ * pero con los mismos valores). La nativa no manda firma (el bundle no se toca
+ * en esta fase) y el botón y el enlace no mandan nada a propósito: de dónde
+ * llega quien pulsa un enlace no es la web del estudio.
+ */
+export function firmaContenidoDe(e: EntradaIntegracion, m: MetodoIntegracion): string | null {
+  if (m !== 'iframe' && m !== 'popup') return null;
+  return firmaDeUrl(new URL(urlEmbebido(e, m)).searchParams);
 }
 
 export function generarCodigo(e: EntradaIntegracion, metodo: MetodoIntegracion, plataforma: Plataforma = 'html'): CodigoGenerado {
