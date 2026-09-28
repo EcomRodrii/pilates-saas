@@ -32,11 +32,11 @@ export interface EnlaceNav {
 export const ALTA = '/crear-estudio';
 
 /**
- * WhatsApp de soporte (el del fundador). Mismo número que WhatsAppFab.tsx,
- * SeccionCtaFinal.tsx y app/api/soporte/route.ts, que lo llevan literal; los
- * bloques nuevos lo importan de aquí.
+ * WhatsApp Business de soporte. Mismo número que WhatsAppFab.tsx y
+ * SeccionCtaFinal.tsx, que lo llevan literal; los bloques nuevos lo importan
+ * de aquí.
  */
-export const WHATSAPP_SOPORTE = '+34640515871';
+export const WHATSAPP_SOPORTE = '+34603556580';
 
 /** Menú superior. Anclas: el recorrido de la landing es la propia página. */
 export const NAV_V5: EnlaceNav[] = [
