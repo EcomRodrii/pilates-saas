@@ -4991,6 +4991,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
   if ('imagenBienvenidaUrl' in changes) db.imagen_bienvenida_url = changes.imagenBienvenidaUrl;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
+  if ('zonaHoraria' in changes) db.zona_horaria = changes.zonaHoraria;
   if ('anioFundacion' in changes) db.anio_fundacion = changes.anioFundacion;
   // ⚠️ Estas dos NO se guardan solo con estar aquí: `authenticated` perdió el
   // UPDATE de tabla sobre `studios` y ahora va por lista blanca de columnas
@@ -5361,6 +5362,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     direccion: r.direccion,
     ciudad: r.ciudad,
     descripcion: r.descripcion ?? null,
+    zonaHoraria: r.zona_horaria ?? 'Europe/Madrid',
     anioFundacion: r.anio_fundacion ?? null,
     lema: r.lema ?? null,
     fraseHeroe: r.frase_heroe ?? null,

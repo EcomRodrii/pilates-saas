@@ -109,9 +109,9 @@ export const TZ_ESTUDIO = 'Europe/Madrid';
 
 /** Desfase de la zona del estudio respecto a UTC, en milisegundos, para un
  *  instante dado. Cambia con el horario de verano, así que NO se puede fijar. */
-function desfaseEstudio(msUtc: number): number {
+function desfaseEstudio(msUtc: number, tz: string = TZ_ESTUDIO): number {
   const f = new Intl.DateTimeFormat('en-US', {
-    timeZone: TZ_ESTUDIO, hour12: false,
+    timeZone: tz, hour12: false,
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit',
   });
@@ -133,10 +133,10 @@ function desfaseEstudio(msUtc: number): number {
  * Se resuelve el desfase con el instante tentativo y se corrige, así el cambio
  * de hora sale bien sin tabla de reglas.
  */
-export function inicioDelDiaEstudio(fechaISO: string): string {
+export function inicioDelDiaEstudio(fechaISO: string, tz: string = TZ_ESTUDIO): string {
   const [a, m, d] = fechaISO.split('-').map(Number);
   const tentativo = Date.UTC(a, m - 1, d, 0, 0, 0);
-  return new Date(tentativo - desfaseEstudio(tentativo)).toISOString();
+  return new Date(tentativo - desfaseEstudio(tentativo, tz)).toISOString();
 }
 
 /**
@@ -150,16 +150,16 @@ export function inicioDelDiaEstudio(fechaISO: string): string {
  * primavera salía una hora antes. Y se comprueba a la vuelta: «31 de febrero» o
  * las 02:30 del día que el reloj salta de 02:00 a 03:00 no existen.
  */
-export function instanteEnEstudio(fechaISO: string, hora: string): string | null {
+export function instanteEnEstudio(fechaISO: string, hora: string, tz: string = TZ_ESTUDIO): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaISO) || !/^\d{2}:\d{2}$/.test(hora)) return null;
   const [a, m, d] = fechaISO.split('-').map(Number);
   const [h, min] = hora.split(':').map(Number);
   if (h > 23 || min > 59) return null;
   const tentativo = Date.UTC(a, m - 1, d, h, min, 0);
-  const primero = tentativo - desfaseEstudio(tentativo);
-  const ms = tentativo - desfaseEstudio(primero);
+  const primero = tentativo - desfaseEstudio(tentativo, tz);
+  const ms = tentativo - desfaseEstudio(primero, tz);
   const f = new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ_ESTUDIO, year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   });
   const p = Object.fromEntries(f.formatToParts(new Date(ms)).map(x => [x.type, x.value]));
@@ -169,10 +169,10 @@ export function instanteEnEstudio(fechaISO: string, hora: string): string | null
 
 /** El instante UTC en que TERMINA ese día del estudio (= empieza el siguiente).
  *  Exclusivo, para usarlo como `< fin` y no dejar fuera los últimos segundos. */
-export function finDelDiaEstudio(fechaISO: string): string {
+export function finDelDiaEstudio(fechaISO: string, tz: string = TZ_ESTUDIO): string {
   const [a, m, d] = fechaISO.split('-').map(Number);
   const tentativo = Date.UTC(a, m - 1, d + 1, 0, 0, 0);
-  return new Date(tentativo - desfaseEstudio(tentativo)).toISOString();
+  return new Date(tentativo - desfaseEstudio(tentativo, tz)).toISOString();
 }
 
 /**
@@ -189,11 +189,11 @@ export function finDelDiaEstudio(fechaISO: string): string {
  * (`fechaCortaEstudio`, `horaEstudio`): la hora del estudio manda, nunca la del
  * servidor ni la del navegador.
  */
-export function hoyEnEstudio(ahora: Date = new Date()): string {
+export function hoyEnEstudio(ahora: Date = new Date(), tz: string = TZ_ESTUDIO): string {
   // 'en-CA' da exactamente 'YYYY-MM-DD', que es el formato que espera una
   // columna `date` de Postgres.
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ_ESTUDIO, year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(ahora);
 }
 
@@ -254,10 +254,20 @@ export interface FranjaLocal {
   minuto: number;
 }
 
+// El formateador se reutiliza para el caso normal (TZ_ESTUDIO, el 100% de las
+// llamadas hoy); solo se construye uno nuevo cuando alguien pasa una zona
+// distinta — evita pagar el coste de `Intl.DateTimeFormat` en el camino
+// caliente mientras ningún estudio real usa otra zona.
+function formatoFranjaLocal(tz: string): Intl.DateTimeFormat {
+  return tz === TZ_ESTUDIO ? FORMATO_FRANJA_LOCAL : new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  });
+}
+
 /** Día de la semana + hora de un instante, en la zona horaria del estudio. */
-export function franjaLocalDe(inicioISO: string): FranjaLocal {
+export function franjaLocalDe(inicioISO: string, tz: string = TZ_ESTUDIO): FranjaLocal {
   let dow = 0, hora = 0, minuto = 0;
-  for (const p of FORMATO_FRANJA_LOCAL.formatToParts(new Date(inicioISO))) {
+  for (const p of formatoFranjaLocal(tz).formatToParts(new Date(inicioISO))) {
     if (p.type === 'weekday') dow = DOW_POR_ETIQUETA[p.value] ?? 0;
     else if (p.type === 'hour') hora = Number(p.value) % 24;
     else if (p.type === 'minute') minuto = Number(p.value);
@@ -266,6 +276,10 @@ export function franjaLocalDe(inicioISO: string): FranjaLocal {
 }
 
 const FORMATO_DIA_ESTUDIO = new Intl.DateTimeFormat('en-CA', { timeZone: TZ_ESTUDIO });
+
+function formatoDiaEstudio(tz: string): Intl.DateTimeFormat {
+  return tz === TZ_ESTUDIO ? FORMATO_DIA_ESTUDIO : new Intl.DateTimeFormat('en-CA', { timeZone: tz });
+}
 
 /**
  * Clave ('YYYY-MM-DD', LUNES) de la semana natural del ESTUDIO que contiene
@@ -281,36 +295,36 @@ const FORMATO_DIA_ESTUDIO = new Intl.DateTimeFormat('en-CA', { timeZone: TZ_ESTU
  * 2026-09-10). Ambos deben derivar la clave de "semana completa" con ESTA
  * función, nunca con el reloj/huso propio del entorno donde corren.
  */
-export function claveSemanaEstudio(instante: Date): string {
-  const { dow } = franjaLocalDe(instante.toISOString()); // 0=domingo..6=sábado, hora del estudio
-  const diaEstudio = FORMATO_DIA_ESTUDIO.format(instante); // 'YYYY-MM-DD' en hora del estudio
+export function claveSemanaEstudio(instante: Date, tz: string = TZ_ESTUDIO): string {
+  const { dow } = franjaLocalDe(instante.toISOString(), tz); // 0=domingo..6=sábado, hora del estudio
+  const diaEstudio = formatoDiaEstudio(tz).format(instante); // 'YYYY-MM-DD' en hora del estudio
   return masDias(diaEstudio, -((dow + 6) % 7));
 }
 
 /** "sábado, 25 de julio" en hora del estudio. */
-export function fechaLargaEstudio(fecha: Date | string): string {
+export function fechaLargaEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): string {
   return new Date(fecha).toLocaleDateString('es-ES', {
-    weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ_ESTUDIO,
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: tz,
   });
 }
 
 /** "25 de julio" en hora del estudio (sin día de la semana). */
-export function fechaCortaEstudio(fecha: Date | string): string {
+export function fechaCortaEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): string {
   return new Date(fecha).toLocaleDateString('es-ES', {
-    day: 'numeric', month: 'long', timeZone: TZ_ESTUDIO,
+    day: 'numeric', month: 'long', timeZone: tz,
   });
 }
 
 /** "09:00" en hora del estudio. */
-export function horaEstudio(fecha: Date | string): string {
+export function horaEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): string {
   return new Date(fecha).toLocaleTimeString('es-ES', {
-    hour: '2-digit', minute: '2-digit', timeZone: TZ_ESTUDIO,
+    hour: '2-digit', minute: '2-digit', timeZone: tz,
   });
 }
 
 /** "sábado, 25 de julio a las 09:00" en hora del estudio. */
-export function cuandoEstudio(fecha: Date | string): string {
-  return `${fechaLargaEstudio(fecha)} a las ${horaEstudio(fecha)}`;
+export function cuandoEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): string {
+  return `${fechaLargaEstudio(fecha, tz)} a las ${horaEstudio(fecha, tz)}`;
 }
 
 /**

@@ -1050,6 +1050,8 @@ export interface RowStudios {
   preguntas_alta_activas: boolean | null;
   // migr 20260927235435.
   control_acceso_qr: boolean | null;
+  // migr 20260928204621.
+  zona_horaria: string | null;
 }
 
 export interface RowSuscripciones {
@@ -4913,6 +4915,7 @@ export type StudiosInsert = {
   es_demo?: boolean | null | null;
   preguntas_alta_activas?: boolean | null | null;
   control_acceso_qr?: boolean | null | null;
+  zona_horaria?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5051,6 +5054,7 @@ export type StudiosUpdate = {
   es_demo?: boolean | null | null;
   preguntas_alta_activas?: boolean | null | null;
   control_acceso_qr?: boolean | null | null;
+  zona_horaria?: string | null | null;
 }
 
 export type SuscripcionesInsert = {

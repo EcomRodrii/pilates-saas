@@ -48,6 +48,13 @@ export interface Studio {
   sitioWeb: string | null;
   /** Presentación del estudio en su página pública (migr 0134). Null = no se pinta. */
   descripcion: string | null;
+  /**
+   * Zona horaria IANA del local (CAL-5, migr 20260928204621). Por sede, no por
+   * cadena ni por tipo de clase. Fase 0: la columna existe y viaja hasta aquí,
+   * pero `lib/utils.ts` (`TZ_ESTUDIO` y compañía) todavía no la lee — ningún
+   * comportamiento cambia hasta que exista un estudio real fuera de Madrid.
+   */
+  zonaHoraria: string;
   /** Año en que abrió. NO es `creadoEn`, que es el alta en Tentare (migr 0134). */
   anioFundacion: number | null;
   /**
