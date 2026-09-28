@@ -123,3 +123,15 @@ del producto — cero lógica de reglas nueva:
   espera del 31/07 (colisión de overloads de `cancelar_reserva_plaza`).
   Marcado como tarea aparte para verificar con `tentare-supabase`/
   `tentare-stripe` — no se ha tocado nada de ese camino aquí.
+- ⚠️ **La ficha pública de Zapier da 404 desde al menos el 29-sep-2026**
+  (`https://zapier.com/apps/tentare/integrations`, la `ZAPIER_URL` de
+  `components/configuracion/conexiones.tsx`). El servidor OAuth de este
+  documento **funciona de verdad** — cliente `zapier` seedeado, redirect URI
+  real de la app `developer.zapier.com` (integration id 245096) ya
+  configurada (`supabase/migrations/20260814133044_oauth_zapier_redirect_uri.sql`)
+  — lo que falta es que Zapier la tenga PUBLICADA en su directorio (o que el
+  fundador tenga el enlace privado de invitación, developer.zapier.com →
+  Manage → Sharing). Mientras tanto la fila de Conexiones se enseña «No
+  disponible todavía» (`ZAPIER_DISPONIBLE = false` en ese fichero) en vez de
+  mandar a un 404 — no reactivar el botón sin comprobar antes que la URL
+  carga de verdad.
