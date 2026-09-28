@@ -39,7 +39,7 @@ import { reservarCambiaMarca, rgba, tokensDeEstilo, varsPareja } from './tema-ap
 import { textoDeMarca } from './precedencia-tema.ts';
 import type { AparienciaWidget, ParamsWidget } from './apariencia-widget.ts';
 import {
-  BOTONES_WEB, PARAM_BORRADOR, colorDeLaWeb, esNeutro, leerWidgetWeb, type BotonWeb, type WidgetWeb,
+  BOTONES_WEB, PARAM_BORRADOR, colorDeLaWeb, esNeutro, leerWidgetWeb, type BotonWeb, type FormaWeb, type WidgetWeb,
 } from './estilo-web-tipos.ts';
 
 /** AA para texto normal: el umbral de todo lo que se lee aquí. */
@@ -187,6 +187,26 @@ export function botonWeb(b: BotonWeb | null, neutros: EstiloId, base: BaseEstilo
       if (reservarCambiaMarca(app)) return acento(app.marca);
       return { fondo: crudo, texto: foregroundParaFondo(crudo) };
   }
+}
+
+/**
+ * El botón que abre la ventana en su web (método «Popup», Fase D): el MISMO
+ * color que los botones de DENTRO de la ventana, y las esquinas de su estilo.
+ *
+ * Es `resolverEstiloWeb(w, base, 'ventana').boton` (un test lo ata): en la
+ * ventana nunca se funde, así que sus neutros son los del estilo elegido (o los
+ * de la app). Con nada elegido, la regla de F1 (`botonWeb(null, …)`): el día del
+ * despliegue ningún botón cambia de color. Las esquinas sin elegir son `pill`,
+ * las de siempre (999 px).
+ *
+ * Para el endpoint público que consulta `widget-popup.js` y para el panel (el
+ * respaldo que va en el código al copiarlo, y su vista previa): los dos tienen
+ * que dar el mismo botón.
+ */
+export function botonDeLaVentana(
+  w: WidgetWeb | null | undefined, base: BaseEstiloWeb,
+): { fondo: string; texto: string; esquinas: FormaWeb } {
+  return { ...botonWeb(w?.boton ?? null, w?.estilo ?? base.app.estilo, base), esquinas: w?.forma ?? 'pill' };
 }
 
 /**

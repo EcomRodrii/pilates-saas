@@ -20,7 +20,7 @@ const BASE = baseEstiloWeb('#343825', null);
 const GENERADO = { origen: 'https://tentare.example.com', slug: 'pilates-centro', colorEstudio: '#343825' };
 const widget = (id: string) => WIDGETS.find((x): x is WidgetDisponible => x.id === id && esDisponible(x))!;
 const HORARIO = widget('horario');
-const VACIO = { cambian: [], columnasSinPaleta: [], hayPopup: false, hayNativa: false, hayPagina: false };
+const VACIO = { cambian: [], columnasSinPaleta: [], hayPopup: false, botonesVivos: [], botonesCongelados: [], hayNativa: false, hayPagina: false };
 
 /** La copia que registra el constructor al copiar el código de esta config, tal como es ahora. */
 function copiaDe(id: string, config: ConfigConstructor, plataforma: PlataformaWeb | null): Copiado {
@@ -54,6 +54,9 @@ test('la ventana encima cambia (su botón no); sin marco y los enlaces a la pág
   const r = piezasAfectadas(datos({ horario: c({ metodo: 'popup' }), planes: c({ metodo: 'boton' }), cuenta: c({ metodo: 'enlace' }) }, 'otra'));
   assert.deepEqual(r.cambian, ['Horario y reservas']);
   assert.equal(r.hayPopup, true);
+  // Copiado sin la marca de la Fase D: su botón es de un código anterior.
+  assert.deepEqual(r.botonesCongelados, ['Horario y reservas']);
+  assert.deepEqual(r.botonesVivos, []);
   assert.equal(r.hayPagina, true);
   assert.equal(r.hayNativa, false);
   const nativa = piezasAfectadas(datos({ horario: c({ metodo: 'nativa' }) }, 'otra'));
@@ -178,4 +181,37 @@ test('los casos que se ven: Carbón, y «Oscura» fundida, sí; en la ventana en
   assert.deepEqual(r, { ...VACIO, cambian: ['Planes y precios'], columnasSinPaleta: ['Horario y reservas'] });
   // Mientras carga el estilo (sin base) no se puede saber: nadie enseña la confirmación así.
   assert.deepEqual(piezasAfectadas(datos({ horario: columnas }, null, { estilo: carbon, base: null })).cambian, ['Horario y reservas']);
+});
+
+// ── Fase D: el botón que abre la ventana ────────────────────────────────────
+
+test('el botón de la ventana: sigue el estilo si se copió leyendo sus variables; si no, es de un código anterior', () => {
+  const popup = c({ metodo: 'popup' });
+  const sinMarca = datos({ horario: popup, planes: popup }, null);
+  const conMarca: DatosAfectados = {
+    ...sinMarca, copiados: { ...sinMarca.copiados, planes: { ...sinMarca.copiados.planes, botonVivo: true } },
+  };
+  const r = piezasAfectadas(conMarca);
+  assert.deepEqual(r.botonesVivos, ['Planes y precios']);
+  assert.deepEqual(r.botonesCongelados, ['Horario y reservas']);
+  // Lo de dentro de la ventana cambia en los dos.
+  assert.deepEqual(r.cambian, ['Horario y reservas', 'Planes y precios']);
+  assert.deepEqual(piezasAfectadas(sinMarca).botonesCongelados, ['Horario y reservas', 'Planes y precios']);
+});
+
+test('el botón de la ventana: con diseño propio, cambiado después de copiarlo o fuera del popup, en ninguna de las dos', () => {
+  // Diseño propio: esa línea ya dice que no cambia.
+  const propio = c({ metodo: 'popup', identidad: 'propia', marca: '#E11D48' });
+  const d = datos({ horario: propio }, null);
+  assert.deepEqual(piezasAfectadas({ ...d, copiados: { horario: { ...d.copiados.horario, botonVivo: true } } }), VACIO);
+  assert.deepEqual(piezasAfectadas(d), VACIO);
+  // Otra huella: no sabemos qué hay pegado.
+  const otra = piezasAfectadas(datos({ horario: c({ metodo: 'popup' }) }, null, {
+    copiados: { horario: { firma: 'huella', en: '2026-09-28T10:00:00.000Z', botonVivo: true } },
+  }));
+  assert.deepEqual(otra, VACIO);
+  // Dentro de una página no hay botón que abra nada.
+  const iframe = datos({ horario: c({ metodo: 'iframe' }) }, null);
+  const r = piezasAfectadas({ ...iframe, copiados: { horario: { ...iframe.copiados.horario, botonVivo: true } } });
+  assert.deepEqual([r.botonesVivos, r.botonesCongelados], [[], []]);
 });

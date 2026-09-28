@@ -272,6 +272,19 @@ export interface Copiado {
    * antes de copiar saldría como anterior).
    */
   anteriores?: string[];
+  /**
+   * Fase D (29-sep-2026): el código copiado es un popup cuyo botón lee las
+   * variables del estilo de sus widgets (`botonSigueElEstilo`,
+   * ./integracion.ts): cambia solo al aplicar otro estilo. Solo `true` o
+   * ausente: sin ella (un popup de antes, o con diseño propio) su botón lleva
+   * el color literal y no cambia.
+   *
+   * No se deduce de la firma a propósito: `firmaCodigo` no mira el `style` del
+   * botón, y cambiarla daría por «cambiado después de copiarlo» a todo popup ya
+   * copiado. Ni de la fecha: una pestaña con el panel de antes del despliegue
+   * sigue copiando botones literales.
+   */
+  botonVivo?: true;
 }
 
 const FIRMA_VALIDA = /^[0-9a-z]{1,32}$/;
@@ -306,6 +319,7 @@ export function leerCopiados(raw: Record<string, unknown> | null | undefined): R
     if (typeof x.contenido === 'string' && FIRMA_CONTENIDO_VALIDA.test(x.contenido)) copia.contenido = x.contenido;
     const anteriores = limpiarAnteriores(x.anteriores);
     if (anteriores.length) copia.anteriores = anteriores;
+    if (x.botonVivo === true) copia.botonVivo = true;
     out[w.id] = copia;
   }
   return out;
@@ -321,9 +335,10 @@ export function claveDeCopia(k: Copiado | null | undefined): string | null {
 /**
  * Lo que se guarda al copiar (lo llama `registrarCopia`, en el constructor):
  * la huella, cuándo, la forma, la foto de la configuración, la versión que
- * verá la página y el historial. La versión de la copia de antes pasa delante
- * del historial —salvo que sea la misma que se copia ahora—, sin repetir y con
- * `MAX_ANTERIORES` como mucho.
+ * verá la página, el historial y si su botón sigue el estilo (`botonVivo`, con
+ * el MISMO predicado que emitió las variables). La versión de la copia de
+ * antes pasa delante del historial —salvo que sea la misma que se copia
+ * ahora—, sin repetir y con `MAX_ANTERIORES` como mucho.
  */
 export function nuevaCopia(anterior: Copiado | null | undefined, x: {
   firma: string;
@@ -331,13 +346,49 @@ export function nuevaCopia(anterior: Copiado | null | undefined, x: {
   metodo: MetodoIntegracion;
   config: ConfigConstructor;
   contenido: string | null;
+  botonVivo?: boolean;
 }): Copiado {
   const copia: Copiado = { firma: x.firma, en: x.en, metodo: x.metodo, config: x.config };
   if (x.contenido && FIRMA_CONTENIDO_VALIDA.test(x.contenido)) copia.contenido = x.contenido;
   const nueva = claveDeCopia(copia);
   const anteriores = limpiarAnteriores([claveDeCopia(anterior), ...(anterior?.anteriores ?? [])].filter(k => k !== nueva));
   if (anteriores.length) copia.anteriores = anteriores;
+  if (x.botonVivo) copia.botonVivo = true;
   return copia;
+}
+
+/**
+ * ¿Lo seleccionado es el código ENTERO? Para contar una copia hecha a mano
+ * (seleccionar y Ctrl+C sobre «Ver el código»): un trozo no funciona pegado, y
+ * «seleccionar todo» en la página lleva el código dentro pero no es él. Los
+ * espacios se normalizan: el navegador puede devolver la selección con `\r\n`
+ * o con un salto de más al principio o al final.
+ */
+export function esCopiaCompleta(seleccion: string, codigo: string): boolean {
+  const norma = (t: string) => t.replace(/\s+/g, ' ').trim();
+  const c = norma(codigo);
+  return c !== '' && norma(seleccion) === c;
+}
+
+/**
+ * El margen en el que copiar OTRA VEZ lo mismo no se vuelve a guardar: dos
+ * Ctrl+C seguidos, o el botón «Copiar código» y después la copia a mano, son
+ * una sola copia y no dos escrituras en `studios.widget_builder`.
+ */
+export const MARGEN_MISMA_COPIA_MS = 60_000;
+
+/**
+ * ¿Es `nueva` la misma copia que `previa`, repetida dentro del margen? Misma
+ * huella, forma, versión y marca del botón, y hecha después y a menos de
+ * `MARGEN_MISMA_COPIA_MS`. Una fecha anterior (otro reloj, otra pestaña) no
+ * cuenta como repetición: se guarda.
+ */
+export function esLaMismaCopia(previa: Copiado | null | undefined, nueva: Copiado): boolean {
+  if (!previa) return false;
+  if (previa.firma !== nueva.firma || previa.metodo !== nueva.metodo || previa.contenido !== nueva.contenido) return false;
+  if ((previa.botonVivo === true) !== (nueva.botonVivo === true)) return false;
+  const dt = Date.parse(nueva.en) - Date.parse(previa.en);
+  return dt >= 0 && dt < MARGEN_MISMA_COPIA_MS;
 }
 
 function objeto(v: unknown): Record<string, unknown> {

@@ -19,6 +19,10 @@
 //     que se ve de NOCHE: esa rejilla pinta sus celdas en blanco fijo, así que
 //     /reservar no le pasa la paleta (`widgetDecide`) y de este estilo solo le
 //     llegan la letra, las esquinas, la separación y el pie. Van aparte.
+//     El BOTÓN que abre la ventana tiene sus propias listas (Fase D): sigue
+//     el estilo si el código copiado lee sus variables (`copiado.botonVivo`);
+//     si no, es de un código anterior y se queda con el color de cuando se
+//     copió.
 //   · sin marco (nativa): no sigue el estilo, lleva su propio diseño.
 //   · enlace y botón: abren la página suelta, que se ve como la app.
 // Un widget con diseño propio no cuenta en ninguno: la confirmación ya dice
@@ -46,8 +50,23 @@ export interface PiezasAfectadas {
    * `columnasSinPaleta`). Nunca están también en `cambian`.
    */
   columnasSinPaleta: string[];
-  /** Alguno de los que cambian va en una ventana encima: su botón no cambia (va en el código). */
+  /**
+   * Alguno de los que cambian va en una ventana encima. ⚠️ Lo lee todavía la
+   * confirmación de antes de la Fase D; se borra en cuanto deje de leerlo (las
+   * dos listas de abajo dicen ya qué pasa con su botón).
+   */
   hayPopup: boolean;
+  /**
+   * Fase D: los que van en una ventana encima cuyo botón sigue el estilo (se
+   * copió leyendo sus variables, `copiado.botonVivo`): también cambia.
+   */
+  botonesVivos: string[];
+  /**
+   * Los mismos, copiados sin esa marca: su botón lleva el color literal de
+   * cuando se copió y no cambia; lo de dentro de la ventana, sí. Nunca están
+   * también en `botonesVivos`.
+   */
+  botonesCongelados: string[];
   /** Alguno copiado va sin marco: ese no sigue el estilo. */
   hayNativa: boolean;
   /** Alguno copiado es un enlace o un botón a la página: se ve como la app. */
@@ -113,7 +132,9 @@ export function columnasSinPaleta(
 }
 
 export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
-  const out: PiezasAfectadas = { cambian: [], columnasSinPaleta: [], hayPopup: false, hayNativa: false, hayPagina: false };
+  const out: PiezasAfectadas = {
+    cambian: [], columnasSinPaleta: [], hayPopup: false, botonesVivos: [], botonesCongelados: [], hayNativa: false, hayPagina: false,
+  };
   for (const w of WIDGETS) {
     const copiado = d.copiados[w.id];
     if (!esDisponible(w) || !copiado) continue;
@@ -126,7 +147,10 @@ export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
     if (metodo === 'iframe' || metodo === 'popup') {
       if (d.base && columnasSinPaleta(w, c, metodo, d.estilo, d.base)) out.columnasSinPaleta.push(w.nombre);
       else out.cambian.push(w.nombre);
-      if (metodo === 'popup') out.hayPopup = true;
+      if (metodo === 'popup') {
+        out.hayPopup = true;
+        (copiado.botonVivo === true ? out.botonesVivos : out.botonesCongelados).push(w.nombre);
+      }
     } else if (metodo === 'nativa') {
       out.hayNativa = true;
     } else {

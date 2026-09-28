@@ -301,6 +301,14 @@ export interface PiezaCopiada {
   mes: EmbudoWidget | null;
   /** Lo pegado lleva su propio diseño en el código: el estilo de sus widgets no le llega. */
   disenoPropio: boolean;
+  /**
+   * Fase D: un popup sin diseño propio copiado SIN la marca `botonVivo` (un
+   * código anterior, o copiado desde un panel sin actualizar): su botón lleva
+   * el color literal de cuando se copió y no sigue el estilo de sus widgets;
+   * lo de dentro de la ventana, sí. Copiar el código de ahora lo arregla. Con
+   * diseño propio no: ese botón no cambia nunca, a propósito.
+   */
+  botonCongelado: boolean;
   estado: EstadoEnTuWeb;
 }
 
@@ -398,9 +406,10 @@ export function piezaCopiada(x: {
     estado = estadoEnTuWeb({ ...entrada, hayAmbar: desfasado });
   }
 
+  const disenoPropio = (metodo === 'iframe' || metodo === 'popup') && !!pegada && tieneDisenoEnCodigo(pegada);
   return {
-    metodo, desfasado, cambios, etiqueta, mes, estado,
-    disenoPropio: (metodo === 'iframe' || metodo === 'popup') && !!pegada && tieneDisenoEnCodigo(pegada),
+    metodo, desfasado, cambios, etiqueta, mes, estado, disenoPropio,
+    botonCongelado: metodo === 'popup' && !disenoPropio && k.botonVivo !== true,
   };
 }
 
