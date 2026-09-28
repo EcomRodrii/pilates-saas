@@ -244,6 +244,21 @@ jobs:
       - name: Reordenar el revoke de tiene_consentimiento_salud tras su creación (solo para este job)
         run: mv supabase/migrations/20260729161000_tiene_consentimiento_salud_revoca_anon.sql supabase/migrations/20260804201831_tiene_consentimiento_salud_revoca_anon.sql
 
+      # Distinto de los dos de arriba: esto NO es un problema de orden.
+      # `respaldo_sereno_studio1` es, según su propio comentario, "un backup
+      # puntual del theme builder, huérfano" — creada directamente contra
+      # producción (un `execute_sql` de una sesión, nunca una migración
+      # `CREATE TABLE`) y esta migración solo le activa RLS después. NINGÚN
+      # fichero de `supabase/migrations/` la crea — confirmado con
+      # `grep -rl respaldo_sereno_studio1 supabase/migrations/*.sql`, un único
+      # resultado: este mismo fichero. En una BD nueva no existe nada que
+      # asegurar, así que se salta (no se reordena: no hay ningún sitio al
+      # que moverla). Solo en el checkout efímero, igual que los dos de
+      # arriba — no es una migración inútil en producción, solo irreproducible
+      # desde cero.
+      - name: Saltar el ALTER de RLS sobre la tabla huérfana respaldo_sereno_studio1 (solo para este job)
+        run: rm supabase/migrations/20260819211544_respaldo_sereno_studio1_rls.sql
+
       # Arranca Postgres + GoTrue (Auth) + PostgREST + Kong (API Gateway) reales
       # en Docker, dentro del propio runner — nunca contra dwqvdycjcffqwfkzapvi.
       - name: Arrancar Supabase local
