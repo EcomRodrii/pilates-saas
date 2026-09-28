@@ -5039,6 +5039,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('reembolsoPlazoDias' in changes) db.reembolso_plazo_dias = changes.reembolsoPlazoDias;
   if ('reembolsoSoloSinUsar' in changes) db.reembolso_solo_sin_usar = changes.reembolsoSoloSinUsar;
   if ('requiereCheckinQr' in changes) db.requiere_checkin_qr = changes.requiereCheckinQr;
+  if ('controlAccesoQr' in changes) db.control_acceso_qr = changes.controlAccesoQr;
   if ('bloquearReservaImpago' in changes) db.bloquear_reserva_impago = changes.bloquearReservaImpago;
   if ('recuperacionAutoSemanal' in changes) db.recuperacion_auto_semanal = changes.recuperacionAutoSemanal;
   if ('instructorasCreanClases' in changes) db.instructoras_crean_clases = changes.instructorasCreanClases;
@@ -5446,6 +5447,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     reembolsoPlazoDias: r.reembolso_plazo_dias ?? 14,
     reembolsoSoloSinUsar: r.reembolso_solo_sin_usar ?? true,
     requiereCheckinQr: r.requiere_checkin_qr ?? true,
+    controlAccesoQr: r.control_acceso_qr ?? true,
     bloquearReservaImpago: r.bloquear_reserva_impago ?? false,
     recuperacionAutoSemanal: r.recuperacion_auto_semanal ?? false,
     instructorasCreanClases: r.instructoras_crean_clases ?? true,

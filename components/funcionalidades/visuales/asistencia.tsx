@@ -3,8 +3,11 @@ import { PanelClaro, PanelOscuro } from './comunes';
 
 // ── Dibujos propios de /funcionalidades/control-de-asistencia ────────────────
 // Fuente:
-//   · lib/pase-acceso.ts — ventana del pase (60 min antes / 15 después), QR con
-//     token firmado que caduca a los 2 min, código corto que no rota.
+//   · lib/acceso/evaluar-acceso.ts — el QR permanente identifica; si entra lo
+//     decide su reserva para la clase de ahora (🟢 / 🟠 / 🔴, 28-sep). Sin
+//     código corto y sin caducidad: se retiraron con el pase de 2 minutos.
+//   · lib/acceso/escanear-servidor.ts — con Kisi, la puerta la abre una persona
+//     con el botón «Abrir la puerta», nunca el QR solo.
 //   · lib/checkin/marcar-asistidas-automatico.ts — pasar lista es opcional
 //     (`studios.requiere_checkin_qr`, y por tipo de clase desde migr
 //     20260909210000): cuando no se pasa, marca ASISTIDA al TERMINAR la clase,
@@ -13,20 +16,22 @@ import { PanelClaro, PanelOscuro } from './comunes';
 //     este comentario.
 //   · lib/no-show.ts — riesgo de plantón con decaimiento exponencial
 //     (VENTANA_DIAS = 90, VIDA_MEDIA_DIAS = 45) y suavizado bayesiano.
-//   · app/(dashboard)/calendario/pase — lector con BarcodeDetector nativo y
+//   · components/acceso/lector-qr.tsx — lector con BarcodeDetector nativo y
 //     respaldo jsQR (Safari no lo implementa en ninguna versión).
+//   · lib/portal-instructora/lista-servidor.ts — la instructora pasa lista de
+//     SUS clases desde la app del estudio.
 
 const VIAS = [
   {
     n: 'Enseña su QR',
-    d: 'Lo abre en su móvil al llegar. Vosotros lo leéis con la cámara del mostrador.',
-    pie: 'Y si tenéis Kisi, el escaneo abre la puerta',
+    d: 'Lo lleva en su app. Lo leéis con la cámara del mostrador y Tentare comprueba su reserva al momento.',
+    pie: 'Con Kisi, la puerta la abre quien mira',
     c: '#343825',
   },
   {
-    n: 'Dice su código',
-    d: 'Seis caracteres, para cuando la cámara no coopera: cristal sucio, contraluz, móvil sin batería.',
-    pie: 'Solo vale dentro de la ventana de su clase',
+    n: 'La instructora pasa lista',
+    d: 'Desde la app del estudio, en su clase: marca quién ha venido en el móvil.',
+    pie: 'Solo en sus clases',
     c: '#3E7C86',
   },
   {
@@ -68,31 +73,27 @@ export function CuatroFormasDeMarcar() {
   );
 }
 
-export function VentanaDelPase() {
+export function SemaforoDelAcceso() {
+  const filas = [
+    { c: '#4E9E7F', t: 'Acceso permitido', d: 'Reserva confirmada o plaza fija para la clase de ahora. Si pasáis lista, queda marcada.' },
+    { c: '#D9A441', t: 'Revisar', d: 'Pendiente de aprobación, ficha desactivada o un recibo impagado: decide quien escanea.' },
+    { c: '#C2503A', t: 'Acceso denegado', d: 'Sin reserva, cancelada, en lista de espera o de otra clase. La pantalla dice por qué.' },
+  ];
   return (
-    <PanelOscuro titulo="Cuándo vale su pase">
-      <div style={{ position: 'relative', padding: '8px 0 4px' }}>
-        <div style={{ height: 6, borderRadius: 3, background: 'linear-gradient(90deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,.07) 18%, rgba(168,176,128,.5) 18%, rgba(168,176,128,.5) 82%, rgba(255,255,255,.07) 82%, rgba(255,255,255,.07) 100%)' }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
-          <span className="lp-mono" style={{ fontSize: 10, color: 'rgba(255,255,255,.4)' }}>−60 MIN</span>
-          <span className="lp-mono" style={{ fontSize: 10, color: '#D9C29E' }}>EMPIEZA</span>
-          <span className="lp-mono" style={{ fontSize: 10, color: 'rgba(255,255,255,.4)' }}>+15 MIN</span>
-        </div>
-      </div>
-      <div style={{ display: 'grid', gap: 10, marginTop: 18 }}>
-        {[
-          ['Una hora antes', 'En Pilates se llega pronto. El pase tiene que estar listo cuando va de camino.'],
-          ['El QR caduca a los 2 minutos', 'Y se renueva solo mientras tiene la pantalla abierta. Una captura reenviada por WhatsApp no sirve.'],
-          ['Quince minutos después', 'Pasado ese rato ya no es «llegar»: lo marca la instructora y decide ella.'],
-        ].map(([t, d]) => (
-          <div key={t} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-            <span style={{ flexShrink: 0, width: 17, height: 17, borderRadius: 5, background: 'rgba(217,194,158,.16)', color: '#D9C29E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, marginTop: 2 }}>·</span>
+    <PanelOscuro titulo="Lo que ve recepción al escanear">
+      <div style={{ display: 'grid', gap: 12, marginTop: 4 }}>
+        {filas.map((f) => (
+          <div key={f.t} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <span aria-hidden style={{ flexShrink: 0, width: 12, height: 12, borderRadius: 6, background: f.c, marginTop: 4, boxShadow: `0 0 0 4px ${f.c}33` }} />
             <div>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{t}</div>
-              <div style={{ fontSize: 12.5, lineHeight: 1.45, color: 'rgba(255,255,255,.62)' }}>{d}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{f.t}</div>
+              <div style={{ fontSize: 12.5, lineHeight: 1.45, color: 'rgba(255,255,255,.62)' }}>{f.d}</div>
             </div>
           </div>
         ))}
+      </div>
+      <div style={{ marginTop: 16, fontSize: 12, lineHeight: 1.5, color: 'rgba(255,255,255,.5)' }}>
+        El QR es siempre el mismo y no lleva sus datos: lo que cambia es su reserva, y eso es lo que se mira.
       </div>
     </PanelOscuro>
   );

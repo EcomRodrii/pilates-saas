@@ -32,6 +32,9 @@ import { SLUG, STUDIO_ID, SOCIO_ID, SESION_ID, AHORA, fixtureSociaLista } from '
 
 export { SLUG, STUDIO_ID, SOCIO_ID, SESION_ID, AHORA };
 
+/** Un QR de acceso con la forma real (`TNT1-` + 22). Opaco: no es de nadie. */
+export const QR_ACCESO_E2E = 'TNT1-e2eQrDeAccesoDePrueba1';
+
 export interface OpcionesSocia {
   /** Sesiones que le quedan en el bono. `null` = sin bono. */
   bono?: number | null;
@@ -88,11 +91,6 @@ export interface OpcionesSocia {
 
 const json = (b: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(b) });
 
-/** Milisegundos hasta el inicio de la clase del fixture, desde el reloj fijo. */
-function minutosHastaLaClase(): number {
-  const inicio = new Date('2026-08-12T10:00:00').getTime();
-  return Math.max(0, Math.round((inicio - new Date(AHORA).getTime()) / 60_000));
-}
 
 export interface Andamiaje {
   /** Endpoints que la app pidió y NADIE mockeó. Debe estar vacío. */
@@ -270,19 +268,11 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
   )));
   await ruta((p) => p === '/api/public/consentimiento-salud/revocar', (r) => r.fulfill(json({ ok: true })));
 
-  // El pase de acceso. ⚠️ `hayPase` con `reservaId` de la reserva del fixture:
-  // el endpoint devuelve SIEMPRE el de la próxima clase, y la pantalla de
-  // detalle compara ese id con el suyo (`pase.reservaId === res.id`).
-  await ruta((p) => p === '/api/public/pase', (r) => r.fulfill(json(
-    reservada
-      ? {
-          hayPase: true, reservaId: 'res-1', vigente: false, yaAsistida: false,
-          minutosParaActivarse: minutosHastaLaClase() - 60,
-          seActivaA: '2026-08-12T09:00:00.000Z', paseHasta: '2026-08-12T10:15:00.000Z',
-          inicio: '2026-08-12T10:00:00', token: null, codigo: null,
-        }
-      : { hayPase: false },
-  )));
+  // Su QR de acceso permanente (Perfil → QR de acceso y el detalle de una
+  // reserva). Encendido, como el estudio del fixture (`controlAccesoQr: true`).
+  await ruta((p) => p === '/api/public/qr-acceso', (r) => r.fulfill(json({
+    activo: true, qr: QR_ACCESO_E2E, creadoEn: '2026-08-01T10:00:00.000Z',
+  })));
 
   await ruta((p) => p === '/api/public/valoracion', (r) => r.fulfill(json({
     activa: valoracionActiva, conSalud: false, historial: null,

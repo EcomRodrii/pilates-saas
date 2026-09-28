@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
@@ -8,40 +8,26 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
-import { getPase, type Pase } from '@/lib/student/reservas-acciones';
 import { fechaLarga, hoyISO } from '@/lib/student/formato';
-import { qrSvgMarkup } from '@/lib/qr-svg';
+import { CajaQr, useQrAcceso } from '@/components/student/domain/QrAcceso';
 import { Badge } from '@/components/student/ui/Badge';
 import { etiquetaHistorial } from '@/lib/student/etiqueta-historial';
 import { Button } from '@/components/student/ui/Button';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
 import { ValorarClase } from '@/components/student/domain/ValorarClase';
 
-// Detalle de reserva + pase de acceso (§A.10).
+// Detalle de reserva + su QR de acceso (§A.10).
 //
-// ⚠️ El QR es REAL, no el grid decorativo del paquete. `POST /api/public/pase`
-// devuelve un token firmado que caduca en DOS MINUTOS, y `lib/qr-svg.ts` —que
-// sobrevivió al borrado del portal— lo dibuja. Esa caducidad es el punto: sin
-// ella, una captura reenviada por WhatsApp abre la puerta del estudio, porque
-// validar el pase dispara Kisi. Por eso se vuelve a pedir mientras la pantalla
-// está abierta y NUNCA se guarda.
-//
-// ⚠️ Y el pase es de la PRÓXIMA clase, no de una reserva cualquiera: el
-// endpoint devuelve uno solo. Por eso se comprueba `pase.reservaId` contra la
-// reserva que se está mirando — sin eso, el detalle de una clase de la semana
-// que viene enseñaría el pase de la de mañana bajo su título.
-const REFRESCO_PASE_MS = 60_000;
-
+// El QR es el PERMANENTE de la alumna (Perfil → QR de acceso), el mismo en
+// todas partes: no es de esta reserva ni caduca. Hasta el 27-sep era un token
+// de dos minutos atado a la próxima clase, con un código de seis caracteres; lo
+// sustituyó el control de acceso con QR. Enseñarlo no marca nada: el estudio lo
+// escanea y Tentare mira en ese momento si esta reserva sigue en pie.
 export default function DetalleReservaPage() {
   const { reservaId } = useParams<{ reservaId: string }>();
   const router = useRouter();
   const href = usePortalHref();
   const { estudio } = useEstudio();
-  const [pase, setPase] = useState<Pase | null>(null);
-  // `null` = todavía no ha vuelto; `true` = ya contestó. Distinguirlo es lo que
-  // evita dejar «Preparando tu pase…» para siempre cuando la respuesta ya
-  // llegó y resulta que el pase no es de esta reserva.
-  const [paseResuelto, setPaseResuelto] = useState(false);
 
   const cargar = useCallback(async () => {
     const [reservas, clases, instructoras] = await Promise.all([
@@ -64,17 +50,9 @@ export default function DetalleReservaPage() {
   // al llegar», para una clase que ya pasó.
   const activa = data?.res.estado === 'confirmada' && data.c.fecha >= hoyISO();
 
-  // El token caduca en 2 min: se refresca mientras la pantalla esté abierta.
-  useEffect(() => {
-    if (!activa) return;
-    let vivo = true;
-    const pedir = () => {
-      void getPase(estudio.slug).then((p) => { if (vivo) { setPase(p); setPaseResuelto(true); } });
-    };
-    pedir();
-    const id = setInterval(pedir, REFRESCO_PASE_MS);
-    return () => { vivo = false; clearInterval(id); };
-  }, [activa, estudio.slug]);
+  // Solo se pide si se va a enseñar: reserva activa y el estudio con el control de acceso encendido.
+  const qrAcceso = useQrAcceso(estudio.slug, activa && estudio.qrAcceso === true);
+  const conQr = activa && estudio.qrAcceso === true && qrAcceso.estado !== 'apagado';
 
   if (estado === 'loading') {
     return (
@@ -99,25 +77,14 @@ export default function DetalleReservaPage() {
   }
 
   const { res, c, i } = data;
-  // El pase solo se enseña si es EL de esta reserva.
-  const paseDeEsta = pase?.hayPase && pase.reservaId === res.id ? pase : null;
-  // Un solo valor decide el cuadro Y lo que va dentro: si fueran dos
-  // condiciones, un QR podría acabar pintado sobre el hueco transparente
-  // (ilegible para la cámara) o un texto sobre el blanco macizo (la cara de
-  // imagen rota). Es el TOKEN y no un booleano a propósito: ramificando sobre
-  // él, TypeScript sabe dentro del QR que no es nulo — con un `hayQr` suelto
-  // perdía ese estrechamiento y `qrSvgMarkup` recibía `string | null`.
-  const tokenQr = paseDeEsta?.vigente && paseDeEsta.token ? paseDeEsta.token : null;
-  const hayQr = tokenQr !== null;
-
   return (
     <StudentShell>
       <PageHeader titulo="Tu reserva" back />
 
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '13px', marginTop: 14 }}>
-        {activa ? (
+        {conQr ? (
           <section
-            aria-label="Pase de acceso"
+            aria-label="QR de acceso"
             className="a-pop"
             style={{
               background: 'var(--accent-deep)', color: 'var(--accent-deep-foreground)',
@@ -125,64 +92,11 @@ export default function DetalleReservaPage() {
             }}
           >
             <p className="t-label" style={{ color: 'var(--accent-deep-muted)' }}>
-              Pase de acceso · {estudio.nombre}
+              QR de acceso · {estudio.nombre}
             </p>
 
-            {/* ⚠️ Blanco SOLO cuando hay QR que leer. Sin QR, este cuadrado se
-                pintaba igual —168 px de blanco macizo con una frase dentro— y
-                eso es exactamente la cara de una imagen que no ha cargado: la
-                socia llega a la puerta del estudio, abre su pase y ve lo que
-                parece un QR roto.
-
-                Ahora, sin QR, es un HUECO: el mismo tamaño —así nada salta
-                cuando el pase se activa—, sin relleno y con borde discontinuo.
-                Es la receta con la que la app ya dice «aquí irá algo» (`1.5px
-                dashed`, estado vacío y «Tu próxima clase» vacía), pero con el
-                color de ESTA tarjeta: `--border-strong` está pensado para el
-                crema y sobre `--accent-deep` apenas se vería, así que el borde
-                usa `--accent-deep-muted`, el mismo tono de los rótulos de la
-                tarjeta. El QR sí necesita el blanco: la cámara lee contraste. */}
-            <div
-              data-testid={hayQr ? 'pase-qr' : 'pase-hueco'}
-              style={{
-                width: 168, height: 168, margin: '14px auto 0', boxSizing: 'border-box',
-                background: hayQr ? 'var(--on-dark)' : 'transparent',
-                border: hayQr ? 'none' : '1.5px dashed var(--accent-deep-muted)',
-                borderRadius: 18, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              {tokenQr ? (
-                <div
-                  role="img"
-                  aria-label="Código QR de acceso"
-                  style={{ width: '100%', height: '100%' }}
-                  // El SVG lo genera `lib/qr-svg.ts` a partir del token firmado.
-                  // No es HTML de usuario: es marcado que construimos aquí.
-                  dangerouslySetInnerHTML={{ __html: qrSvgMarkup(tokenQr) }}
-                />
-              ) : (
-                // Sin QR no se deja un hueco mudo: se dice POR QUÉ y CUÁNDO.
-                // Es la diferencia entre «esto está roto» y «todavía no toca».
-                // ⚠️ El color es el de la TARJETA, no el `#5A5A52` que tenía. Ese
-                // gris estaba pensado para el blanco macizo; al quitarle el blanco
-                // al hueco se quedó gris oscuro sobre `--accent-deep`, a ~2:1, y
-                // la frase que explica por qué no hay QR dejó de leerse. Lo cazó
-                // la captura, no el test: el test medía el fondo y el borde.
-                <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--accent-deep-foreground)', lineHeight: 1.5 }}>
-                  {paseDeEsta?.yaAsistida
-                    ? 'Ya has entrado a esta clase ✓'
-                    : paseDeEsta
-                      ? `Tu pase se activa ${paseDeEsta.minutosParaActivarse > 0
-                          ? `en ${paseDeEsta.minutosParaActivarse}\u00A0min`
-                          : 'en breve'}`
-                      : paseResuelto
-                        // El servidor ya contestó y este pase no es de esta
-                        // reserva: solo hay uno, el de la próxima clase. Decirlo
-                        // es mejor que dejar un «Preparando…» que no acaba nunca.
-                        ? 'El pase aparece aquí el día de la clase'
-                        : 'Preparando tu pase…'}
-                </p>
-              )}
+            <div style={{ marginTop: 14 }}>
+              <CajaQr qr={qrAcceso.qr} estado={qrAcceso.estado} onReintentar={qrAcceso.reintentar} />
             </div>
 
             <p style={{ margin: '14px 0 0', fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', color: 'var(--on-dark)' }}>{c.nombre}</p>
@@ -190,15 +104,8 @@ export default function DetalleReservaPage() {
               {fechaLarga(c.fecha)} · {c.hora} · con {i?.nombre ?? '—'}
             </p>
 
-            {paseDeEsta?.vigente && paseDeEsta.codigo && (
-              // El código corto existe para cuando la cámara no lee: pantalla
-              // rota, mucha luz, funda con brillo.
-              <p className="t-code" style={{ margin: '10px 0 0', fontSize: 'var(--t-small)', letterSpacing: '.18em', color: 'var(--on-dark)' }}>
-                {paseDeEsta.codigo}
-              </p>
-            )}
             <p style={{ margin: '8px 0 0', fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--accent-deep-muted)' }}>
-              Se valida solo al llegar
+              Muéstralo al llegar al estudio
             </p>
           </section>
         ) : (

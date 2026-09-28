@@ -1048,6 +1048,8 @@ export interface RowStudios {
   es_demo: boolean | null;
   // migr 20260925102844.
   preguntas_alta_activas: boolean | null;
+  // migr 20260927235435.
+  control_acceso_qr: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -3437,6 +3439,33 @@ export interface RowSupresionesEquipo {
   terceros_pendientes: any;
 }
 
+export interface RowSociosQrAcceso {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  token_hash: string;
+  creado_en: string;
+  revocado_en: string | null;
+  revocado_por: string | null;
+}
+
+export interface RowAccesosEscaneos {
+  id: number;
+  studio_id: string;
+  ocurrido_en: string;
+  socio_id: string | null;
+  sesion_id: string | null;
+  reserva_id: string | null;
+  actor_uid: string;
+  actor_rol: string;
+  origen: string;
+  resultado: string;
+  motivo: string;
+  decision: string | null;
+  decision_de: number | null;
+  asistencia_marcada: boolean;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -4877,6 +4906,7 @@ export type StudiosInsert = {
   subscription_evento_en?: string | null | null;
   es_demo?: boolean | null | null;
   preguntas_alta_activas?: boolean | null | null;
+  control_acceso_qr?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5014,6 +5044,7 @@ export type StudiosUpdate = {
   subscription_evento_en?: string | null | null;
   es_demo?: boolean | null | null;
   preguntas_alta_activas?: boolean | null | null;
+  control_acceso_qr?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -9496,6 +9527,60 @@ export type SupresionesEquipoUpdate = {
   terceros_pendientes?: any | null;
 }
 
+export type SociosQrAccesoInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  token_hash?: string | null;
+  creado_en?: string | null;
+  revocado_en?: string | null | null;
+  revocado_por?: string | null | null;
+}
+
+export type SociosQrAccesoUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  token_hash?: string | null;
+  creado_en?: string | null;
+  revocado_en?: string | null | null;
+  revocado_por?: string | null | null;
+}
+
+export type AccesosEscaneosInsert = {
+  id?: number | null;
+  studio_id?: string | null;
+  ocurrido_en?: string | null;
+  socio_id?: string | null | null;
+  sesion_id?: string | null | null;
+  reserva_id?: string | null | null;
+  actor_uid?: string | null;
+  actor_rol?: string | null;
+  origen?: string | null;
+  resultado?: string | null;
+  motivo?: string | null;
+  decision?: string | null | null;
+  decision_de?: number | null | null;
+  asistencia_marcada?: boolean | null;
+}
+
+export type AccesosEscaneosUpdate = {
+  id?: number | null;
+  studio_id?: string | null;
+  ocurrido_en?: string | null;
+  socio_id?: string | null | null;
+  sesion_id?: string | null | null;
+  reserva_id?: string | null | null;
+  actor_uid?: string | null;
+  actor_rol?: string | null;
+  origen?: string | null;
+  resultado?: string | null;
+  motivo?: string | null;
+  decision?: string | null | null;
+  decision_de?: number | null | null;
+  asistencia_marcada?: boolean | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -10583,6 +10668,16 @@ export type Database = {
         Row: RowSupresionesEquipo;
         Insert: SupresionesEquipoInsert;
         Update: SupresionesEquipoUpdate;
+      };
+      socios_qr_acceso: {
+        Row: RowSociosQrAcceso;
+        Insert: SociosQrAccesoInsert;
+        Update: SociosQrAccesoUpdate;
+      };
+      accesos_escaneos: {
+        Row: RowAccesosEscaneos;
+        Insert: AccesosEscaneosInsert;
+        Update: AccesosEscaneosUpdate;
       };
     };
   };

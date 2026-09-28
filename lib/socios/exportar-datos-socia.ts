@@ -79,6 +79,9 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   socio_tipos_clase_autorizados: { seccion: 'otros' },
   post_evento_asistentes: { seccion: 'otros' },
   solicitudes_derechos: { seccion: 'otros' },
+  // Cada vez que el estudio leyó su QR en la puerta y qué salió (migr 20260927235435).
+  accesos_escaneos: { seccion: 'otros' },
+  socios_qr_acceso: { excluida: 'Solo la huella del código de su QR de acceso, que no se puede leer ni contiene nada suyo; su QR lo ve siempre en su app.' },
   consentimientos_salud_eventos: { seccion: 'consentimientos' },
   aceptaciones_contrato_eventos: { seccion: 'consentimientos' },
   consentimientos_marketing_eventos: { seccion: 'consentimientos' },
@@ -238,7 +241,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     saldo, movimientos, canjes, recompensas, logros, progresoLogros, retos, progresoRetos, participacionesRetos,
     participaciones, valoraciones, preferenciasClase, favoritos, documentos,
     comunicaciones, excepciones, autorizadas, eventos, solicitudes, consentimientosSalud, aceptacionesContrato, consentimientosMarketing, memoria, recomendaciones,
-    avisos, camposPersonalizados,
+    accesos, avisos, camposPersonalizados,
     valoracionesIniciales, valoracionesInicialesSalud, condiciones, respuestasCuestionario, respuestasSesion, notasProgreso,
   ] = await Promise.all([
     tabla('reservas', 'id, sesion_id, estado, posicion_espera, check_in_en, creado_en, cancelada_tardia, valoracion_experiencia'),
@@ -286,6 +289,8 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('consentimientos_marketing_eventos', 'id, accion, en, origen, texto', 'en'),
     tabla('memoria_socio', 'id, clave, origen, evidencia, activa, creado_en, expira_en'),
     tabla('recomendaciones', 'id, tipo, titulo, motivo, estado, creado_en'),
+    // Sin quién escaneó (`actor_uid`): es la cuenta del personal.
+    tabla('accesos_escaneos', 'id, ocurrido_en, sesion_id, resultado, motivo, decision', 'ocurrido_en'),
     authUserId
       ? leer(db, 'notification_preference', 'category, inapp, push, email, push_eventos', [['eq', 'studio_id', studioId], ['eq', 'user_id', authUserId]], 'category')
       : sinFilas,
@@ -511,6 +516,11 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
           desdeAprobada: str(p.desde_aprobada), hastaAprobada: str(p.hasta_aprobada),
           motivo: str(p.motivo_sistema), motivoDelEstudio: str(p.motivo_rechazo),
           pedidaEn: str(p.creada_en), resueltaEn: str(p.resuelta_en),
+        })),
+        // Su historial de accesos: cada lectura de su QR y lo que decidió el estudio.
+        accesos: porFecha(accesos, 'ocurrido_en').map(a => ({
+          fecha: str(a.ocurrido_en), clase: clase(a.sesion_id)?.clase ?? null,
+          resultado: str(a.resultado), motivo: str(a.motivo), decision: str(a.decision),
         })),
         perfilado: {
           hechos: memoria.map(m => ({ clave: str(m.clave), origen: str(m.origen), evidencia: str(m.evidencia), activo: bool(m.activa), fecha: str(m.creado_en), caduca: str(m.expira_en) })),

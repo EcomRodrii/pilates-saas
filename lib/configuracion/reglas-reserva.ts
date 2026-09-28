@@ -46,6 +46,8 @@ export interface ReglasReserva {
   permiteListaEspera: boolean;
   listaEsperaPlazoAceptacionMinutos: number;
   requiereCheckinQr: boolean;
+  /** Control de acceso con QR (migr 20260927235435). Sin override por tipo: es de la puerta, no de la clase. */
+  controlAccesoQr: boolean;
   penalizacionImporteEur: number | null;
   penalizacionAplicaCancelacionTardia: boolean;
   penalizacionAplicaNoShow: boolean;
@@ -63,7 +65,7 @@ export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (ke
   'cancelar-y-recuperar': ['cancelacionVentanaHoras', 'cancelacionDevolverBonoTardia', 'recuperacionCaducidadTipo', 'recuperacionCaducidadDias', 'recuperacionAutoSemanal'],
   'si-se-cancela-una-clase': ['cancelacionClaseDevuelveBono', 'minimoAsistentesPorClase'],
   'lista-de-espera': ['permiteListaEspera', 'listaEsperaPlazoAceptacionMinutos'],
-  asistencia: ['requiereCheckinQr'],
+  asistencia: ['requiereCheckinQr', 'controlAccesoQr'],
   'si-cancela-tarde-o-no-viene': ['penalizacionImporteEur', 'penalizacionAplicaCancelacionTardia', 'penalizacionAplicaNoShow', 'penalizacionCobroAutomatico'],
   'si-se-queda-sin-cuota': ['plazaFijaSinCuota'],
   'plaza-fija-desde-la-app': ['plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp'],
@@ -98,6 +100,8 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     permiteListaEspera: s?.permiteListaEspera ?? true,
     listaEsperaPlazoAceptacionMinutos: s?.listaEsperaPlazoAceptacionMinutos ?? 0,
     requiereCheckinQr: s?.requiereCheckinQr ?? true,
+    // Encendido de serie: el QR ya se enseñaba en todos los estudios (el pase por reserva).
+    controlAccesoQr: s?.controlAccesoQr ?? true,
     penalizacionImporteEur: s?.penalizacionImporteEur ?? null,
     penalizacionAplicaCancelacionTardia: s?.penalizacionAplicaCancelacionTardia ?? true,
     penalizacionAplicaNoShow: s?.penalizacionAplicaNoShow ?? true,
@@ -295,10 +299,12 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
     }
     case 'lista-de-espera':
       return frase('plaza-liberada');
-    case 'asistencia':
-      return r.requiereCheckinQr
+    case 'asistencia': {
+      const lista = r.requiereCheckinQr
         ? 'Solo cuenta como asistida quien marques al pasar lista.'
         : 'Toda reserva confirmada cuenta como asistida al terminar la clase.';
+      return r.controlAccesoQr ? lista : `${lista} Tus alumnas no ven su QR de acceso.`;
+    }
     case 'si-cancela-tarde-o-no-viene': {
       const importe = cifra(r.penalizacionImporteEur);
       if (importe === 0) return 'Cancelar tarde o no venir no cuesta nada.';

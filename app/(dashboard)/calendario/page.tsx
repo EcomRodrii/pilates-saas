@@ -38,7 +38,7 @@ import type { CambioClaseSerie } from '@/lib/avisos-serie';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { colorPorIndice } from '@/lib/onboarding/plan-configuracion';
 import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
-import { decidirReservaNueva, heredaOverride } from '@/lib/booking-logic';
+import { decidirReservaNueva } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
 import { sesionEncajaEnPlaza, claveFranjaDeSesion, type SesionSlot } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
@@ -869,15 +869,6 @@ export default function Calendario() {
   }, [sesiones, reservas, tiposClase, salas, instructores]);
 
   const sesionActual = sesionesEnriquecidas.find(s => s.id === sesionId) ?? null;
-
-  // ¿Se pasa lista en ESTA clase? El tipo de clase puede sobrescribir el ajuste
-  // del estudio (migr 20260909210000), así que el escáner se ofrece —o no—
-  // según la sesión abierta, no según el estudio entero. `?? true` es el mismo
-  // respaldo que el resto: sin valor, se pasa lista.
-  const sePasaLista = heredaOverride(
-    tiposClase.find(t => t.id === sesionActual?.tipoClaseId)?.requiereCheckinQr ?? null,
-    studio?.requiereCheckinQr ?? true,
-  );
 
   const reservasActuales = useMemo<ReservaEnriquecida[]>(() =>
     sesionActual
@@ -2878,6 +2869,18 @@ export default function Calendario() {
         actions={
         <div className="flex items-center gap-2 flex-wrap">
           <BuscadorRapido candidatas={candidatasBusqueda} onSeleccionar={saltarAClase} />
+          {/* Control de acceso: la puerta de recepción. A mano en la cabecera
+              porque es lo primero que se abre en el iPad del mostrador. */}
+          {puedeGestionarCalendario(rolActual) && studio?.controlAccesoQr !== false && (
+            <Link
+              href="/calendario/pase"
+              title="Escanear el QR de una alumna"
+              aria-label="Escanear QR"
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 lg:px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <QrCode size={14} /><span className="hidden 2xl:inline">Escanear QR</span>
+            </Link>
+          )}
           {gestionaClientas && (
             <Link
               href="/calendario/importar"
@@ -3536,9 +3539,12 @@ export default function Calendario() {
                   </button>
                 </div>
               ))}
-              {sePasaLista && (
-                <Link href="/calendario/pase" className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground">
-                  <QrCode size={14} />Leer un pase
+              {/* El lector ya no depende de «Pasar lista»: comprobar quién entra
+                  sirve también en una clase que no pasa lista (ahí solo no marca).
+                  Llega con ESTA clase fijada. */}
+              {studio?.controlAccesoQr !== false && (
+                <Link href={`/calendario/pase?sesion=${encodeURIComponent(sesionActual.id)}`} className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground">
+                  <QrCode size={14} />Escanear QR
                 </Link>
               )}
             </>

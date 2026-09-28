@@ -459,11 +459,17 @@ export function FormAsistencia({ excepciones, confirmacion, showToast, onGuardad
   }
   const cambiaPedir = pedir !== null && pedir !== confirmacion.guardada;
   const cambiaLista = form.requiereCheckinQr !== r.guardado.requiereCheckinQr;
+  const cambiaQr = form.controlAccesoQr !== r.guardado.controlAccesoQr;
 
   async function guardarAsistencia(): Promise<string | null> {
     const errores: string[] = [];
-    if (cambiaLista) {
-      const res = await updateStudio({ requiereCheckinQr: form.requiereCheckinQr });
+    // Una sola escritura con SOLO lo que ha cambiado: el PATCH no toca columnas
+    // que nadie ha movido.
+    if (cambiaLista || cambiaQr) {
+      const res = await updateStudio({
+        ...(cambiaLista ? { requiereCheckinQr: form.requiereCheckinQr } : {}),
+        ...(cambiaQr ? { controlAccesoQr: form.controlAccesoQr } : {}),
+      });
       if (!res.ok) errores.push(res.error);
     }
     if (cambiaPedir && pedir !== null) {
@@ -491,6 +497,16 @@ export function FormAsistencia({ excepciones, confirmacion, showToast, onGuardad
           onChange={v => cambiar('requiereCheckinQr', v)}
         />
         <InterruptorCampo
+          titulo="Control de acceso con QR"
+          on={form.controlAccesoQr}
+          onChange={v => cambiar('controlAccesoQr', v)}
+        >
+          <span className="block text-sm text-muted-foreground text-pretty">
+            Cada alumna tiene su QR en la app. Al escanearlo, Tentare comprueba en el momento si tiene plaza en la clase.
+            {form.requiereCheckinQr ? ' Si puede entrar, su asistencia queda marcada.' : ''}
+          </span>
+        </InterruptorCampo>
+        <InterruptorCampo
           titulo="Pedir confirmación a quien suele no venir"
           on={!!pedir}
           onChange={v => { if (!confirmacion.sinPlan) setPedir(v); }}
@@ -503,12 +519,12 @@ export function FormAsistencia({ excepciones, confirmacion, showToast, onGuardad
             <span className="block text-sm text-muted-foreground">Esta regla va con el Centro de Control, y tu plan no lo incluye.</span>
           )}
         </InterruptorCampo>
-        <Consecuencia texto={consecuenciaRegla('asistencia', { ...reglasGuardadas(studio), requiereCheckinQr: form.requiereCheckinQr })} />
+        <Consecuencia texto={consecuenciaRegla('asistencia', { ...reglasGuardadas(studio), requiereCheckinQr: form.requiereCheckinQr, controlAccesoQr: form.controlAccesoQr })} />
         <TiposDeClaseQueLaCambian tipos={excepciones} />
       </div>
       <BarraGuardar
         seccion="reservas"
-        cambios={cambiaLista || cambiaPedir ? [tarjetaPorId('asistencia').titulo] : []}
+        cambios={cambiaLista || cambiaQr || cambiaPedir ? [tarjetaPorId('asistencia').titulo] : []}
         onGuardar={guardarAsistencia}
         onDescartar={descartar}
       />

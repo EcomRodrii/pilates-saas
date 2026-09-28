@@ -15,7 +15,8 @@ const COLUMNAS_ESTABLES =
   + 'codigo_postal, descripcion, foto_url, cancelacion_ventana_horas, permite_lista_espera';
 const COLUMNAS_JOVENES =
   'creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe, titulo_acceso, imagen_bienvenida_url, '
-  + 'plaza_fija_solicitar_desde_app, plaza_fija_pausa_desde_app, apertura_suave, fecha_apertura, preguntas_alta_activas';
+  + 'plaza_fija_solicitar_desde_app, plaza_fija_pausa_desde_app, apertura_suave, fecha_apertura, preguntas_alta_activas, '
+  + 'control_acceso_qr';
 
 /** La fila tal y como la lee esta función: las jóvenes pueden no venir. */
 interface FilaStudio {
@@ -31,6 +32,7 @@ interface FilaStudio {
   plaza_fija_solicitar_desde_app?: boolean | null; plaza_fija_pausa_desde_app?: boolean | null;
   apertura_suave?: boolean | null; fecha_apertura?: string | null;
   preguntas_alta_activas?: boolean | null;
+  control_acceso_qr?: boolean | null;
 }
 
 /**
@@ -102,6 +104,9 @@ export interface StudioSeo {
   /** Pedirle en su app las preguntas de «Datos extra» (migr 20260925102844). Solo decide si
    *  la app las pregunta; qué se pregunta y qué se guarda lo decide `/api/public/preguntas-alta`. */
   preguntasAltaActivas: boolean;
+  /** Control de acceso con QR (migr 20260927235435): si la alumna ve su QR en la app.
+   *  Solo decide si se enseña; la puerta es `/api/public/qr-acceso`. */
+  controlAccesoQr: boolean;
   /** Fecha de apertura si el estudio tiene la apertura suave puesta; null si no. */
   aperturaSuaveHasta: string | null;
   /** Cómo llama el estudio a su moneda de fidelización. `null` = la del producto. */
@@ -196,6 +201,8 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // PROPIO slug: una variable global lo encendería en todas las specs de la
       // app, y todas pasarían a esperar la petición de las preguntas.
       preguntasAltaActivas: slug === 'tentare-preguntas',
+      // Encendido, como en producción (de serie).
+      controlAccesoQr: true,
       aperturaSuaveHasta: null,
       creditosNombre: process.env.E2E_CREDITOS_NOMBRE ?? null,
       // ⚠️ Puestos POR DEFECTO, al revés que el logo. Se deciden en el SERVIDOR
@@ -331,6 +338,9 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     // Sin la columna, «no sé» es «no se pregunta»: parar la app por algo que el
     // estudio no ha encendido sería peor que no preguntar.
     preguntasAltaActivas: (data.preguntas_alta_activas as boolean | null) === true,
+    // Sin la columna todavía, «no sé» es «no se enseña»: la app no pinta un QR
+    // que el servidor todavía no sabe emitir.
+    controlAccesoQr: (data.control_acceso_qr as boolean | null) === true,
     // Apertura suave (Opening OS): la fecha solo viaja si el interruptor está
     // puesto, para etiquetar sus clases. Quién reserva lo decide el servidor.
     aperturaSuaveHasta: data.apertura_suave === true ? ((data.fecha_apertura as string | null) ?? null) : null,

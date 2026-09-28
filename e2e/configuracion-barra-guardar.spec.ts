@@ -261,20 +261,20 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
     });
   }
 
-  test('pasar lista se guarda pero la confirmación dice que no: el cajón se queda con «Asistencia» pendiente', async ({ page }) => {
-    const { patches, puts } = await cajonDe(page, 'asistencia', 'Asistencia', { falloConfirmacion: true });
+  test('pasar lista se guarda pero la confirmación dice que no: el cajón se queda con «Asistencia y acceso» pendiente', async ({ page }) => {
+    const { patches, puts } = await cajonDe(page, 'asistencia', 'Asistencia y acceso', { falloConfirmacion: true });
 
     await page.getByRole('switch', { name: /^Pasar lista/ }).click();
     const pedir = page.getByRole('switch', { name: /Pedir confirmación a quien suele no venir/ });
     await expect(pedir).toBeEnabled({ timeout: 15_000 });
     await pedir.click();
-    await expect(barra(page)).toContainText('Cambios sin guardar en: Asistencia');
+    await expect(barra(page)).toContainText('Cambios sin guardar en: Asistencia y acceso');
     await guardar(page).click();
 
     await expect.poll(() => puts.length, { timeout: 15_000 }).toBe(1);
     expect(puts[0]).toEqual({ activo: true });
     await expect(barra(page).getByRole('alert')).toContainText('No se ha guardado', { timeout: 15_000 });
-    await expect(barra(page)).toContainText('Cambios sin guardar en: Asistencia');
+    await expect(barra(page)).toContainText('Cambios sin guardar en: Asistencia y acceso');
     await expect(pedir).toHaveAttribute('aria-checked', 'true');
     expect(patches).toEqual([{ requiere_checkin_qr: false }]);
     expect(Object.keys(patches[0])).not.toContain('pedir_confirmacion_riesgo');

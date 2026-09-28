@@ -24,11 +24,15 @@ export function qrPathData(text: string, opciones?: { margen?: number; nivel?: E
   return { dim, path };
 }
 
-export function qrSvgMarkup(text: string, opciones?: { margen?: number }): string {
+export function qrSvgMarkup(text: string, opciones?: { margen?: number; etiqueta?: string }): string {
   const { dim, path } = qrPathData(text, opciones);
+  // El nombre accesible. Por defecto el de Veri*Factu, su primer uso; el QR de
+  // acceso de la alumna lleva el suyo (si no, un lector de pantalla le leía
+  // «código QR de cotejo Veri*Factu» en la puerta del estudio).
+  const etiqueta = (opciones?.etiqueta ?? 'Código QR de cotejo Veri*Factu').replace(/[<>&"]/g, '');
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${dim} ${dim}" ` +
-    `shape-rendering="crispEdges" width="100%" height="100%" role="img" aria-label="Código QR de cotejo Veri*Factu">` +
+    `shape-rendering="crispEdges" width="100%" height="100%" role="img" aria-label="${etiqueta}">` +
     `<rect width="${dim}" height="${dim}" fill="#ffffff"/>` +
     `<path d="${path}" fill="#000000"/>` +
     `</svg>`

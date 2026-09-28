@@ -1,287 +1,309 @@
 'use client';
 
-// Leer el pase de una clienta.
+// Control de acceso: escanear el QR de una alumna en la puerta.
 //
-// Vive bajo /calendario a propósito, no en una sección propia: la lista blanca
-// de rutas se compara POR PREFIJO (lib/permisos-reglas.ts), así que colgar de
-// ahí le da acceso a la instructora sin tocar los permisos. Y es lo correcto —
-// hoy ya marca asistencia a mano en la pestaña Asistentes; esto solo le ahorra
-// buscar el nombre en la lista.
+// Vive bajo /calendario porque la lista blanca de rutas del panel se compara
+// por prefijo (lib/permisos-reglas.ts) y es donde vive todo lo de las clases de
+// hoy. Pensada para el iPad de recepción: la cámara se queda encendida, cada
+// lectura enseña un resultado grande, y un 🟢 se cierra solo para leer a la
+// siguiente. Escanear → resultado, sin buscar a nadie ni elegir la clase.
 //
-// Dos formas de leer, porque la cámara falla más de lo que parece: cristal
-// sucio, contraluz en la puerta, un Android viejo sin BarcodeDetector, o
-// sencillamente que la clienta no encuentra el móvil. El código de seis
-// caracteres no es el plan B: es la mitad del plan.
+// La clase: por defecto, «cualquiera de las de ahora» — Tentare mira en cuál
+// tiene plaza ella. Si se llega desde una clase (`?sesion=<id>`), o se toca una
+// de la fila de arriba, se comprueba contra ESA.
+//
+// Si la cámara no lee, no hay código que teclear (se retiró con el pase de 2
+// minutos): se marca en la lista de la clase, que ya existía.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import jsQR from 'jsqr';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { ArrowLeft, Camera, CheckCircle2, XCircle, DoorOpen, QrCode } from 'lucide-react';
+import { Camera, QrCode } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 import { useStudio } from '@/lib/studio-context';
+import { PageHeader } from '@/components/ui/page-header';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { useLectorQr } from '@/components/acceso/lector-qr';
+import { ResultadoAcceso } from '@/components/acceso/resultado-acceso';
+import { leerTokenQr } from '@/lib/acceso/qr-formato';
+import { horaAcceso } from '@/lib/acceso/textos-acceso';
+import type { AccionAcceso, ClaseDetalle, RespuestaDecision, RespuestaEscaneo } from '@/lib/acceso/escanear-servidor';
 
-interface Resultado {
-  ok: boolean;
-  quien?: string;
-  yaEstaba?: boolean;
-  puerta?: 'abierta' | 'fallo' | 'sin-kisi';
-  error?: string;
+/** El pase de 2 minutos (lib/pase-acceso.ts): `payload.firma` en base64url. Se retira con él. */
+const esPaseAntiguo = (v: string) => /^[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}$/.test(v.trim());
+
+/** Un 🟢 se cierra solo: en la puerta hay cola. Un 🟠 o un 🔴 esperan a que alguien lo lea, y
+ *  un 🟢 con la puerta de Kisi por abrir espera a que alguien pulse el botón. */
+const CIERRE_PERMITIDO_MS = 5000;
+
+function resultadoDeError(texto: string): RespuestaEscaneo {
+  return {
+    escaneoId: null, veredicto: 'DENEGADO', motivo: 'QR_NO_RECONOCIDO', alumna: null, clase: null, otraClase: null,
+    candidatas: [], tipoAcceso: null, plazaFija: null, estadoReserva: null, reservaId: null, avisos: [], yaEntroEn: null,
+    asistenciaMarcada: false, asistenciaAlTerminar: false, errorAsistencia: texto, puerta: 'sin-kisi', acciones: [], claseEmpezada: false,
+  };
 }
 
-// `BarcodeDetector` es nativo en Chrome y Edge (escritorio y Android). **Safari
-// NO lo implementa en ninguna versión**, y como en iOS todos los navegadores
-// usan WebKit, en iPhone y iPad no existe — tampoco en "Chrome para iPhone".
-// Firefox tampoco. Verificado 2026-07-30 tras probarlo en vivo; el comentario
-// anterior decía "y Safari 17+" y era FALSO, escrito de memoria.
-//
-// Consecuencia real, no académica: el mostrador de un estudio de Pilates es un
-// iPad con mucha frecuencia, así que en el dispositivo más probable la cámara
-// NUNCA lee y el código de 6 caracteres deja de ser el plan B para ser el
-// único plan. La pantalla tiene que estar a la altura de eso.
-//
-// No está en los tipos de TS, de ahí la declaración mínima.
-interface DetectorCodigos {
-  detect(fuente: CanvasImageSource): Promise<{ rawValue: string }[]>;
-}
-declare global {
-  interface Window {
-    BarcodeDetector?: new (opciones?: { formats?: string[] }) => DetectorCodigos;
-  }
-}
-
-export default function LeerPasePage() {
-  useParams();
-  const { studio, tiposClase, dataLoaded } = useStudio();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  // Ya no hay estado «sin-soporte»: con el respaldo de jsQR la cámara lee en
-  // cualquier navegador con `getUserMedia`. Lo único que puede faltar ahora es
-  // el PERMISO, que sí es cosa de quien mira.
-  const [camara, setCamara] = useState<'apagada' | 'pidiendo' | 'activa' | 'sin-permiso'>('apagada');
-  const [resultado, setResultado] = useState<Resultado | null>(null);
+export default function ControlDeAccesoPage() {
+  const { studio, dataLoaded, deshacerCheckin } = useStudio();
+  const [clases, setClases] = useState<ClaseDetalle[]>([]);
+  const [fijada, setFijada] = useState<string | null>(null);
+  const [resultado, setResultado] = useState<RespuestaEscaneo | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const [codigo, setCodigo] = useState('');
-  const ultimoLeido = useRef<string>('');
+  const [decidiendo, setDecidiendo] = useState<AccionAcceso | null>(null);
+  const [errorDecision, setErrorDecision] = useState<string | null>(null);
+  const [abriendoPuerta, setAbriendoPuerta] = useState(false);
+  const ultimaLectura = useRef<string>('');
+  const tarjetaRef = useRef<HTMLElement>(null);
 
-  const validar = useCallback(async (cuerpo: { token?: string; codigo?: string }) => {
+  // `?sesion=` (se llega desde una clase del calendario) se lee de
+  // window.location, como en /calendario: `useSearchParams` suspendería la
+  // página entera. Se aplica cuando llegan las clases de ahora.
+  const sesionDelEnlace = useRef<string | null>(null);
+  useEffect(() => {
+    sesionDelEnlace.current = new URLSearchParams(window.location.search).get('sesion');
+  }, []);
+
+  // Las clases de ahora, y otra vez cada dos minutos: la fila tiene que seguir
+  // al reloj en un iPad que se queda toda la mañana abierto.
+  useEffect(() => {
+    let vivo = true;
+    const cargar = () => {
+      authHeader()
+        .then(h => fetch('/api/acceso/escanear', { headers: h }))
+        .then(r => (r.ok ? r.json() as Promise<{ clases?: ClaseDetalle[] }> : null))
+        .then(d => {
+          if (!vivo || !d) return;
+          setClases(d.clases ?? []);
+          if (sesionDelEnlace.current) { setFijada(sesionDelEnlace.current); sesionDelEnlace.current = null; }
+        })
+        .catch(() => { /* sin la fila de clases se sigue pudiendo escanear contra «todas» */ });
+    };
+    cargar();
+    const id = setInterval(cargar, 120_000);
+    return () => { vivo = false; clearInterval(id); };
+  }, []);
+
+  const escanear = useCallback(async (lectura: string, sesionId: string | null) => {
+    ultimaLectura.current = lectura;
     setEnviando(true);
+    setError(null);
+    setErrorDecision(null);
     try {
-      const res = await fetch('/api/checkin/pase', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify(cuerpo),
+      // ⚠️ TRANSICIÓN: el pase antiguo de 2 minutos (payload.firma) sigue valiendo
+      // mientras quede alguna app sin recargar. Se retira con /api/checkin/pase.
+      if (!leerTokenQr(lectura) && esPaseAntiguo(lectura)) {
+        const res = await fetch('/api/checkin/pase', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+          body: JSON.stringify({ token: lectura }),
+        });
+        const data = await res.json().catch(() => null) as { quien?: string; yaEstaba?: boolean; error?: string } | null;
+        setResultado(res.ok
+          ? { ...resultadoDeError(''), veredicto: 'PERMITIDO', motivo: data?.yaEstaba ? 'YA_ENTRO' : 'RESERVA_CONFIRMADA', alumna: { nombre: data?.quien ?? '', foto: null }, errorAsistencia: null, asistenciaMarcada: !data?.yaEstaba }
+          : resultadoDeError(data?.error ?? 'No hemos podido leer el pase.'));
+        return;
+      }
+      const res = await fetch('/api/acceso/escanear', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ lectura, sesionId }),
       });
-      const data = await res.json().catch(() => null) as Resultado | null;
-      setResultado(res.ok ? { ok: true, ...(data ?? {}) } : { ok: false, error: data?.error ?? 'No hemos podido leer el pase.' });
+      const data = await res.json().catch(() => null) as (RespuestaEscaneo & { error?: string }) | null;
+      if (!res.ok || !data) { setError(data?.error ?? 'No hemos podido comprobar el QR. Inténtalo otra vez.'); return; }
+      setResultado(data);
     } catch {
-      setResultado({ ok: false, error: 'Sin conexión. Inténtalo otra vez.' });
+      setError('Sin conexión. Inténtalo otra vez.');
     } finally {
       setEnviando(false);
     }
   }, []);
 
-  const encender = useCallback(async () => {
-    setCamara('pidiendo');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+  const { videoRef, camara, encender, olvidarUltimo } = useLectorQr({
+    pausado: resultado !== null || enviando,
+    onLectura: (valor) => {
+      // Solo van al servidor los QR de acceso de Tentare (y, en la transición,
+      // el pase antiguo). Cualquier otro código que vea la cámara —el de una
+      // caja, el de la web del estudio— se contesta aquí: no es un intento de
+      // entrar y no tiene por qué llenar el historial de accesos.
+      if (!leerTokenQr(valor) && !esPaseAntiguo(valor)) {
+        setError('Ese código no es un QR de acceso de Tentare. Pídele que abra Perfil → QR de acceso en su app.');
+        return;
       }
-      setCamara('activa');
-    } catch {
-      setCamara('sin-permiso');
-    }
-  }, []);
+      void escanear(valor, fijada);
+    },
+  });
 
-  // Bucle de lectura. Va con `requestAnimationFrame` y un detector reutilizado:
-  // crear uno por fotograma es lo que convierte esto en un calentador de móvil.
+  const cerrar = useCallback(() => {
+    setResultado(null);
+    setError(null);
+    setErrorDecision(null);
+    olvidarUltimo();
+  }, [olvidarUltimo]);
+
+  // Quien apunta la cámara puede tener la página bajada: el resultado se trae a la vista.
   useEffect(() => {
-    if (camara !== 'activa') return;
-    // Nativo donde existe; donde no, jsQR sobre un canvas. NO es un capricho de
-    // dependencia: Safari no implementa `BarcodeDetector` en NINGUNA versión y
-    // en iOS todos los navegadores son WebKit, así que sin esto la cámara no
-    // lee en iPhone ni en iPad — y el mostrador de un estudio suele ser un
-    // iPad. Verificado en vivo el 2026-07-30: el lector se rendía y mandaba a
-    // teclear el código a mano.
-    const detector = window.BarcodeDetector ? new window.BarcodeDetector({ formats: ['qr_code'] }) : null;
-    const lienzo = detector ? null : document.createElement('canvas');
-    const ctx = lienzo ? lienzo.getContext('2d', { willReadFrequently: true }) : null;
-    let vivo = true;
-    let ultimo = 0;
+    if (resultado) tarjetaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [resultado]);
 
-    const leerConJsQR = (video: HTMLVideoElement): string | null => {
-      if (!lienzo || !ctx) return null;
-      // Se decodifica a 480 px de ancho como mucho: a resolución completa el
-      // bucle se come la CPU de una tablet y baja de 8 lecturas por segundo.
-      const escala = Math.min(1, 480 / (video.videoWidth || 480));
-      lienzo.width = Math.round(video.videoWidth * escala);
-      lienzo.height = Math.round(video.videoHeight * escala);
-      if (!lienzo.width || !lienzo.height) return null;
-      ctx.drawImage(video, 0, 0, lienzo.width, lienzo.height);
-      const datos = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
-      return jsQR(datos.data, datos.width, datos.height, { inversionAttempts: 'dontInvert' })?.data ?? null;
-    };
+  // 🟢: se cierra solo para la siguiente de la cola.
+  useEffect(() => {
+    if (resultado?.veredicto !== 'PERMITIDO' || resultado.motivo === 'YA_ENTRO' || resultado.puerta === 'disponible') return;
+    const id = setTimeout(cerrar, CIERRE_PERMITIDO_MS);
+    return () => clearTimeout(id);
+  }, [resultado, cerrar]);
 
-    const mirar = async (ts: number) => {
-      if (!vivo) return;
-      // Ocho lecturas por segundo bastan de sobra y dejan el resto del tiempo
-      // al navegador.
-      if (ts - ultimo > 125 && videoRef.current && videoRef.current.readyState >= 2) {
-        ultimo = ts;
-        try {
-          const valor = detector
-            ? (await detector.detect(videoRef.current))[0]?.rawValue
-            : leerConJsQR(videoRef.current);
-          // El mismo QR sigue delante de la cámara muchos fotogramas seguidos:
-          // sin esta guarda se dispararían decenas de peticiones por lectura.
-          if (valor && valor !== ultimoLeido.current) {
-            ultimoLeido.current = valor;
-            void validar({ token: valor });
-          }
-        } catch { /* un fotograma ilegible no es un error */ }
-      }
-      requestAnimationFrame(mirar);
-    };
-    requestAnimationFrame(mirar);
-    return () => { vivo = false; };
-  }, [camara, validar]);
-
-  // Apagar la cámara al salir. Sin esto el piloto del móvil se queda encendido
-  // y la instructora piensa que la estamos grabando — con razón.
-  useEffect(() => () => {
-    const s = videoRef.current?.srcObject as MediaStream | null;
-    s?.getTracks().forEach(t => t.stop());
-  }, []);
-
-  const caja: React.CSSProperties = {
-    background: 'var(--card, #fff)', border: '1px solid var(--border, #E7E7E0)', borderRadius: 18, padding: 20,
+  const decidir = async (accion: AccionAcceso) => {
+    if (!resultado?.escaneoId) return;
+    setDecidiendo(accion);
+    setErrorDecision(null);
+    try {
+      const res = await fetch('/api/acceso/decidir', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ escaneoId: resultado.escaneoId, decision: accion }),
+      });
+      const data = await res.json().catch(() => null) as (RespuestaDecision & { error?: string }) | null;
+      if (!res.ok || !data) { setErrorDecision(data?.error ?? 'No se ha podido guardar. Inténtalo otra vez.'); return; }
+      // La decisión es un escaneo nuevo en el historial: la tarjeta pasa a contar
+      // lo que ha pasado de verdad (aprobada sin plaza, clase ya empezada…).
+      setResultado(r => r && {
+        ...r, ...data, acciones: [],
+        estadoReserva: data.veredicto === 'PERMITIDO' ? (data.asistenciaMarcada ? 'ASISTIDA' : 'CONFIRMADA') : r.estadoReserva,
+      });
+    } catch {
+      setErrorDecision('Sin conexión. Inténtalo otra vez.');
+    } finally {
+      setDecidiendo(null);
+    }
   };
 
-  // Esta pantalla se alcanza por URL directa (favorito, atajo guardado en el
-  // móvil de recepción) además de por el enlace del calendario — ese enlace ya
-  // se oculta con el flag desactivado, pero si alguien llega aquí igual, mejor
-  // explicarlo que dejar la cámara encendida sin ningún pase real que leer.
-  //
-  // ⚠️ Desde que se puede decidir por tipo de clase (migr 20260909210000) no
-  // basta con mirar el estudio: si tiene la lista apagada en general pero UN
-  // tipo de clase la exige, esos pases sí hay que poder leerlos. Se bloquea
-  // solo cuando no queda ninguna clase donde se pase lista.
-  const algunTipoPasaLista = tiposClase.some(t => t.requiereCheckinQr === true);
-  if (dataLoaded && studio && !studio.requiereCheckinQr && !algunTipoPasaLista) {
+  const abrirPuerta = async () => {
+    if (!resultado?.escaneoId) return;
+    setAbriendoPuerta(true);
+    setErrorDecision(null);
+    try {
+      const res = await fetch('/api/acceso/puerta', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ escaneoId: resultado.escaneoId }),
+      });
+      const data = await res.json().catch(() => null) as { puerta?: 'abierta' | 'fallo'; error?: string } | null;
+      if (!res.ok || !data?.puerta) { setErrorDecision(data?.error ?? 'No se ha podido abrir la puerta.'); return; }
+      setResultado(x => x && { ...x, puerta: data.puerta! });
+    } catch {
+      setErrorDecision('Sin conexión. Ábrela a mano.');
+    } finally {
+      setAbriendoPuerta(false);
+    }
+  };
+
+  const deshacer = async () => {
+    if (!resultado?.reservaId) return;
+    const r = await deshacerCheckin(resultado.reservaId);
+    if (r.ok) setResultado(x => x && { ...x, asistenciaMarcada: false, estadoReserva: 'CONFIRMADA' });
+    else setErrorDecision(r.error);
+  };
+
+  const cabecera = <PageHeader title="Control de acceso" description="Escanea el QR de la alumna: Tentare comprueba en el momento si puede entrar a su clase." back={{ href: '/calendario', label: 'Volver al calendario' }} />;
+
+  if (dataLoaded && studio && studio.controlAccesoQr === false) {
     return (
-      <div className="p-4 max-w-md mx-auto flex flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <Link href="/calendario" aria-label="Volver al calendario" className="p-2 -ml-2">
-            <ArrowLeft size={20} />
-          </Link>
-          <h1 className="text-xl font-bold">Leer un pase</h1>
-        </div>
-        <div style={caja} className="flex flex-col items-center gap-3 text-center py-10">
-          <QrCode size={26} className="opacity-40" />
-          <p className="text-sm font-semibold">El check-in por QR está desactivado</p>
-          <p className="text-sm opacity-70">
-            Este estudio da por asistida cada reserva confirmada al terminar la clase, sin pedir ningún pase.
-            Puedes activarlo de nuevo en Configuración → Cómo reservan mis alumnas, con «Pasar lista» en la tarjeta «Asistencia».
+      <div className="p-4 max-w-xl mx-auto flex flex-col gap-4">
+        {cabecera}
+        <div className="rounded-2xl border bg-card flex flex-col items-center gap-3 text-center px-6 py-10">
+          <QrCode className="size-7 text-muted-foreground" aria-hidden />
+          <p className="text-sm font-semibold">El control de acceso con QR está desactivado</p>
+          <p className="text-sm text-muted-foreground text-pretty">
+            Tus alumnas no ven su QR en la app. Puedes activarlo en Configuración → Cómo reservan mis alumnas → Asistencia y acceso.
           </p>
-          <Link href="/configuracion?tab=reservas#asistencia" className="text-sm font-bold underline mt-1">
-            Ir a Configuración
-          </Link>
+          <Link href="/configuracion?tab=reservas#asistencia" className="text-sm font-bold underline mt-1">Ir a Configuración</Link>
         </div>
       </div>
     );
   }
 
+  const claseFijada = clases.find(c => c.id === fijada) ?? null;
+
   return (
-    <div className="p-4 max-w-md mx-auto flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <Link href="/calendario" aria-label="Volver al calendario" className="p-2 -ml-2">
-          <ArrowLeft size={20} />
-        </Link>
-        <h1 className="text-xl font-bold">Leer un pase</h1>
-      </div>
+    <div className="p-4 max-w-xl mx-auto flex flex-col gap-4">
+      {cabecera}
 
-      <div style={caja} className="flex flex-col gap-3">
-        <div className="relative rounded-2xl overflow-hidden bg-black aspect-square">
-          <video ref={videoRef} playsInline muted className="w-full h-full object-cover" />
-          {camara !== 'activa' && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6" style={{ background: 'var(--muted, #F1F1EC)' }}>
-              <Camera size={26} className="opacity-60" />
-              {camara === 'sin-permiso' && <p className="text-sm opacity-70">No nos has dado permiso para la cámara. Usa el código de abajo.</p>}
-              {camara === 'apagada' && (
-                <button type="button" onClick={encender} className="px-4 py-2.5 rounded-xl text-sm font-bold" style={{ background: 'var(--brand)', color: 'var(--brand-foreground)' }}>
-                  Encender la cámara
-                </button>
-              )}
-              {camara === 'pidiendo' && <p className="text-sm opacity-70">Pidiendo permiso…</p>}
-            </div>
-          )}
-        </div>
-        <p className="text-xs opacity-60 text-center">Apunta al código que te enseña la clienta en su móvil.</p>
-      </div>
-
-      <div style={caja} className="flex flex-col gap-3">
-        <label htmlFor="codigo-pase" className="text-xs font-bold uppercase tracking-wide opacity-60">O teclea su código</label>
-        <div className="flex gap-2">
-          <input
-            id="codigo-pase"
-            value={codigo}
-            onChange={e => setCodigo(e.target.value.toUpperCase())}
-            placeholder="A2C4E6"
-            maxLength={8}
-            autoCapitalize="characters"
-            autoCorrect="off"
-            spellCheck={false}
-            className="flex-1 min-w-0 px-4 py-3 rounded-xl text-lg tracking-[0.2em] font-bold"
-            style={{ border: '1px solid var(--border, #E7E7E0)', background: 'var(--background, #fff)' }}
-          />
+      {/* La clase contra la que se comprueba. «Todas las de ahora» es lo normal
+          en recepción; fijar una sirve cuando dos coinciden en hora. */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4" role="radiogroup" aria-label="Clase que se comprueba">
+        {[{ id: null as string | null, texto: 'Todas las de ahora' }, ...clases.map(c => ({ id: c.id as string | null, texto: `${c.nombre} · ${horaAcceso(c.inicio)}${c.sala ? ` · ${c.sala}` : ''}` }))].map(o => (
           <button
+            key={o.id ?? 'todas'}
             type="button"
-            disabled={enviando || codigo.replace(/[\s-]/g, '').length < 6}
-            onClick={() => void validar({ codigo })}
-            className="px-5 rounded-xl text-sm font-bold disabled:opacity-40"
-            style={{ background: 'var(--brand)', color: 'var(--brand-foreground)' }}
+            role="radio"
+            aria-checked={fijada === o.id}
+            onClick={() => setFijada(o.id)}
+            className={cn(
+              'shrink-0 rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors',
+              fijada === o.id ? 'bg-foreground text-background border-foreground' : 'bg-card text-foreground hover:bg-muted',
+            )}
           >
-            Marcar
+            {o.texto}
           </button>
-        </div>
+        ))}
+        {fijada && !claseFijada && clases.length > 0 && (
+          <span className="shrink-0 self-center text-xs text-muted-foreground">Esa clase no es de ahora</span>
+        )}
       </div>
 
-      {resultado && (
-        <div
-          role="status"
-          style={{ ...caja, borderColor: resultado.ok ? '#2E7D46' : '#C0362D' }}
-          className="flex items-start gap-3"
-        >
-          {resultado.ok
-            ? <CheckCircle2 size={20} style={{ color: '#2E7D46', flexShrink: 0 }} />
-            : <XCircle size={20} style={{ color: '#C0362D', flexShrink: 0 }} />}
-          <div className="flex flex-col gap-1">
-            {resultado.ok ? (
-              <>
-                <p className="font-bold">
-                  {resultado.quien}{resultado.yaEstaba ? ' ya estaba dentro' : ' — dentro'}
-                </p>
-                {resultado.puerta === 'abierta' && (
-                  <p className="text-xs opacity-70 inline-flex items-center gap-1.5"><DoorOpen size={14} />Puerta abierta</p>
-                )}
-                {resultado.puerta === 'fallo' && (
-                  <p className="text-xs" style={{ color: '#A65A0A' }}>La asistencia está marcada, pero la puerta no ha respondido. Ábrela a mano.</p>
-                )}
-              </>
-            ) : (
-              <p className="text-sm">{resultado.error}</p>
-            )}
-            <button
-              type="button"
-              onClick={() => { setResultado(null); setCodigo(''); ultimoLeido.current = ''; }}
-              className="text-xs font-bold underline self-start mt-1"
-            >
-              Leer otro
-            </button>
+      {/* El resultado va ENCIMA de la cámara: en el iPad del mostrador la cámara
+          ocupa casi toda la pantalla, y debajo quedaba fuera de la vista justo
+          lo que hay que leer. */}
+      {error && (
+        <div role="alert" className="rounded-2xl border-2 border-destructive/40 bg-card p-4 flex flex-col gap-2">
+          <p className="text-sm font-semibold text-foreground">{error}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => void escanear(ultimaLectura.current, fijada)}>Reintentar</Button>
+            <Button variant="ghost" onClick={cerrar}>Escanear otra</Button>
           </div>
         </div>
       )}
+
+      {resultado && (
+        <ResultadoAcceso
+          ref={tarjetaRef}
+          r={resultado}
+          decidiendo={decidiendo}
+          errorDecision={errorDecision}
+          onDecidir={a => void decidir(a)}
+          onElegirClase={id => { setFijada(id); void escanear(ultimaLectura.current, id); }}
+          onDeshacer={() => void deshacer()}
+          onAbrirPuerta={() => void abrirPuerta()}
+          abriendoPuerta={abriendoPuerta}
+          onCerrar={cerrar}
+        />
+      )}
+
+      <div className="relative rounded-2xl overflow-hidden bg-black aspect-square">
+        <video ref={videoRef} playsInline muted className="w-full h-full object-cover" />
+        {camara === 'activa' && !resultado && (
+          <div aria-hidden className="pointer-events-none absolute inset-[18%] rounded-3xl border-4 border-white/80" />
+        )}
+        {camara !== 'activa' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6 bg-muted">
+            <Camera className="size-7 text-muted-foreground" aria-hidden />
+            {camara === 'sin-permiso' && (
+              <p className="text-sm text-muted-foreground text-pretty">No hay permiso para usar la cámara. Actívalo en los ajustes del navegador, o marca la asistencia en la lista de la clase.</p>
+            )}
+            {camara === 'apagada' && <Button size="lg" onClick={() => void encender()}>Encender la cámara</Button>}
+            {camara === 'pidiendo' && <p className="text-sm text-muted-foreground">Pidiendo permiso…</p>}
+          </div>
+        )}
+        {enviando && (
+          <div className="absolute inset-x-0 bottom-0 bg-black/60 py-2 text-center text-sm font-semibold text-white">Comprobando…</div>
+        )}
+      </div>
+
+      <p className="text-xs text-muted-foreground text-center text-pretty">
+        ¿La cámara no lee su QR?{' '}
+        <Link href={fijada ? `/calendario?sesion=${encodeURIComponent(fijada)}` : '/calendario'} className="font-semibold underline">
+          Márcala en la lista de la clase
+        </Link>
+        .
+      </p>
     </div>
   );
 }

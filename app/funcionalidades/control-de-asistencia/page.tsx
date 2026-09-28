@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FeatureShell } from '@/components/funcionalidades/FeatureShell';
 import { CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion } from '@/components/funcionalidades/bloques';
-import { CuatroFormasDeMarcar, RiesgoDePlanton, VentanaDelPase } from '@/components/funcionalidades/visuales/asistencia';
+import { CuatroFormasDeMarcar, RiesgoDePlanton, SemaforoDelAcceso } from '@/components/funcionalidades/visuales/asistencia';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/funcionalidades/control-de-asistencia';
@@ -18,11 +18,11 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: '¿Hace falta una tablet en la entrada?',
-    a: 'No, y no la hay: no existe una pantalla de kiosko donde tu alumna fiche sola. El pase lo lee el estudio desde el móvil o el ordenador del mostrador, o directamente no se lee nada y la asistencia se marca sola al terminar la clase.',
+    a: 'No, y no la hay: no existe una pantalla de kiosko donde tu alumna fiche sola. El QR de la alumna lo lee el estudio desde el móvil o el iPad del mostrador, o directamente no se lee nada y la asistencia se marca sola al terminar la clase.',
   },
   {
     q: '¿Y si mi estudio no tiene a nadie en recepción?',
-    a: 'Entonces desactivas el check-in por QR y listo: quien reserva y no cancela cuenta como asistida cuando la clase termina. Es el modo que usa la mayoría de estudios pequeños, y sigue permitiendo marcar «no asistió» a mano en la excepción puntual.',
+    a: 'Entonces desactivas «Pasar lista» y listo: quien reserva y no cancela cuenta como asistida cuando la clase termina. Es el modo que usa la mayoría de estudios pequeños, y sigue permitiendo marcar «no asistió» a mano en la excepción puntual.',
   },
   {
     q: '¿El lector de QR funciona en un iPad?',
@@ -30,7 +30,7 @@ const FAQ = [
   },
   {
     q: '¿Puede alguien colarse con una captura del QR de otra?',
-    a: 'No le serviría de mucho: el código del QR va firmado y caduca a los dos minutos, renovándose mientras tiene la pantalla abierta. Para cuando esa captura llegue a otro móvil ya no vale. Importa porque en los estudios con Kisi el escaneo abre la puerta.',
+    a: 'El QR solo dice quién es: al escanearlo, Tentare comprueba en ese momento si ella tiene plaza en esa clase, y si no la tiene no entra nadie. Quien escanea ve su nombre y su foto para comparar, un segundo escaneo avisa de que ya había entrado, y la alumna puede generar un QR nuevo desde su app si ha compartido una captura. En los estudios con Kisi la puerta no se abre sola: la abre quien está mirando.',
   },
   {
     q: '¿Puedo cobrar por no presentarse?',
@@ -44,9 +44,9 @@ export default function AsistenciaPage() {
       path={PATH}
       eyebrow="Quién vino de verdad"
       h1={<>Reservar no es venir.</>}
-      intro={<>Marca la asistencia con un QR en la puerta, con un código corto o sin hacer absolutamente nada. Y entérate de quién reserva y falla antes de que se te note en el aforo.</>}
-      chips={['QR firmado o código corto', 'Marcado automático al terminar', 'Riesgo de plantón graduado']}
-      visual={<VentanaDelPase />}
+      intro={<>Cada alumna lleva su QR en la app: lo escaneáis en la puerta y Tentare comprueba en ese momento si tiene plaza en su clase. O no escaneáis nada y la asistencia se marca sola. Y entérate de quién reserva y falla antes de que se te note en el aforo.</>}
+      chips={['QR de acceso de cada alumna', 'Marcado automático al terminar', 'Riesgo de plantón graduado']}
+      visual={<SemaforoDelAcceso />}
     >
       <Seccion id="problema" titulo="La diferencia entre plazas vendidas y plazas ocupadas">
         <Entradilla>
@@ -78,20 +78,22 @@ export default function AsistenciaPage() {
         </p>
       </Seccion>
 
-      <Seccion id="pase" titulo="El pase: por qué caduca">
+      <Seccion id="pase" titulo="El QR dice quién es. Si entra lo decide su reserva">
         <p>
-          Cuando sí hay alguien leyendo, la alumna enseña un QR desde su móvil. Ese código va firmado y{' '}
-          <strong>caduca a los dos minutos</strong>, renovándose solo mientras tiene la pantalla abierta.
+          Cada alumna tiene su QR en la app, en su perfil, y es siempre el mismo: no cambia al reservar ni caduca. No
+          lleva su nombre ni sus datos, solo un código que el estudio lee con su sesión.
         </p>
         <p>
-          No es exceso de celo. En los estudios que tienen la cerradura conectada, escanear el pase{' '}
-          <strong>abre la puerta</strong>: sin caducidad, una captura de pantalla reenviada por WhatsApp daría acceso al
-          local. Dos minutos deja esa captura inservible antes de que llegue a ningún sitio.
+          Lo importante pasa al escanearlo. Tentare mira <strong>en ese momento</strong> su reserva para la clase de ahora:
+          con reserva confirmada o plaza fija, entra; si está pendiente de aprobación, tiene la ficha desactivada o un
+          recibo impagado, decide quien escanea; sin reserva, con la reserva cancelada o en lista de espera, no entra, y la
+          pantalla dice por qué.
         </p>
         <Rejilla
           items={[
-            { titulo: 'El código corto no caduca', body: 'Seis caracteres para cuando la cámara falla. No rota, porque un código que cambia mientras la instructora lo teclea es un código que no se usa — pero solo sirve dentro de la ventana de su clase y desde una sesión del estudio.' },
+            { titulo: 'Una captura no basta', body: 'Solo sirve si su dueña tiene plaza en ese momento. Quien escanea ve su nombre y su foto, un segundo escaneo avisa de que ya había entrado, y la alumna puede cambiar su QR desde la app si lo ha compartido.' },
             { titulo: 'Enseñarlo no marca nada', body: 'Marcar la asistencia lo hace el estudio al leerlo, nunca la alumna desde su móvil. La asistencia da recompensas, y lo que da algo no puede otorgárselo quien lo recibe.' },
+            { titulo: 'La puerta la abre una persona', body: 'Con una cerradura Kisi conectada, tras un acceso permitido aparece «Abrir la puerta». El QR no la abre solo: así una captura no abre el estudio con recepción vacía.' },
           ]}
         />
       </Seccion>
@@ -112,7 +114,7 @@ export default function AsistenciaPage() {
 
       <Seccion id="limites" titulo="Lo que no vas a encontrar aquí">
         <Limite titulo="No hay pantalla de kiosko en tablet">
-          La que ficha es la persona del mostrador leyendo un pase, no la alumna en un iPad de la entrada. Si tu operativa
+          La que ficha es la persona del mostrador leyendo el QR, no la alumna en un iPad de la entrada. Si tu operativa
           depende de que la gente fiche sola al entrar, esto no la cubre hoy — y es mejor saberlo antes que descubrirlo el
           primer lunes.
         </Limite>
@@ -134,7 +136,7 @@ export default function AsistenciaPage() {
 
       <CierreCta
         titulo="Empieza sin escanear nada"
-        body="Deja el marcado automático puesto y añade el pase el día que tengas a alguien en la puerta."
+        body="Deja el marcado automático puesto y empieza a escanear QR el día que tengas a alguien en la puerta."
       />
     </FeatureShell>
   );

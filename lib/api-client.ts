@@ -2670,22 +2670,6 @@ async function patchClases(cuerpo: Record<string, unknown>): Promise<{ ok: boole
   }
 }
 
-// El pase de acceso de la clienta (QR + código corto). Devuelve null si algo
-// falla: la hoja del pase enseña su propio aviso y no rompe el inicio.
-export async function pedirPaseDeAcceso(slug: string) {
-  try {
-    const res = await fetch('/api/public/pase', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
-      body: JSON.stringify({ slug }),
-    });
-    if (!res.ok) return null;
-    return await res.json() as { hayPase: boolean; vigente?: boolean; yaAsistida?: boolean; minutosParaActivarse?: number; seActivaA?: string | null; paseHasta?: string | null; inicio?: string; token?: string | null; codigo?: string | null };
-  } catch {
-    return null;
-  }
-}
-
 // ── Tentare Network: perfil profesional (Fase 2) ─────────────────────────────
 // Identidad por auth_user_id, no por studio_id — mismo JWT de staff
 // (authHeader) que el resto del panel, validado en el servidor por
