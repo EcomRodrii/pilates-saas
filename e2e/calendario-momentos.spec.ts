@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { sesionFutura } from './sesion-futura';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tres momentos del calendario que la dueña señaló en la prueba de usabilidad.
@@ -30,42 +31,6 @@ const INSTRUCTORES = [
 
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
-}
-
-// Sesión de prueba en el futuro cercano, no a las 09:00 fijas de "hoy": estos
-// tests abren el formulario de Editar, y sesionYaEmpezada() (calendario-estado.ts)
-// deshabilita ese botón para cualquier clase cuyo inicio ya haya pasado — un
-// runner de CI que ejecute después de las 09:00 UTC volvía "ya empezada" una
-// clase que el test necesitaba poder editar.
-function sesionFutura(offsetMinutos = 180, duracionMinutos = 55) {
-  // Redondeado al minuto exacto: el formulario de editar reconstruye la hora
-  // como `${fecha}T${hora}:00` (toISO(), app/(dashboard)/calendario/page.tsx)
-  // — sin esto, `Date.now()` deja segundos sueltos y el guardado sin tocar la
-  // hora se detectaba como "cambioHora" (mismoInstante comparando getTime()
-  // exacto), desviando el test al diálogo equivocado.
-  let inicio = new Date(Date.now() + offsetMinutos * 60_000);
-  inicio.setSeconds(0, 0);
-  let fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
-  // NUNCA puede cruzar medianoche (UTC, que es lo que iso() extrae más abajo):
-  // el formulario de editar solo tiene UN campo `fecha` compartido por
-  // horaInicio/horaFin (openEdit(), app/(dashboard)/calendario/page.tsx) — no
-  // puede representar una clase que empieza un día y termina al siguiente.
-  // `horaInvalida` (mismo fichero) compara las horas como strings HH:MM
-  // asumiendo el mismo día, así que una franja como 23:39–00:34 se marca
-  // (correctamente, dado ese modelo) como "la hora de fin debe ser posterior
-  // a la de inicio" y deja "Guardar cambios" deshabilitado para siempre — no
-  // es un bug de la app, es que `Date.now() + offsetMinutos` cruzaba
-  // medianoche cuando el runner de CI corría tarde en el día UTC, y ROMPÍA
-  // ESTE TEST AL AZAR según la hora real de ejecución. Si el hueco propuesto
-  // no cabe en el día UTC de hoy, se prueba MAÑANA a una hora fija (10:00
-  // UTC, de sobra lejos de cualquier medianoche) en vez de sumar minutos —
-  // desacopla el fixture de "ahora mismo".
-  if (inicio.getUTCDate() !== fin.getUTCDate()) {
-    inicio = new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth(), inicio.getUTCDate() + 1, 10, 0, 0));
-    fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
-  }
-  const iso = (d: Date) => d.toISOString().slice(0, 19); // sin milisegundos ni 'Z'
-  return { inicio: iso(inicio), fin: iso(fin) };
 }
 
 // Rediseño del Calendario: la rejilla ya no pinta desde `sesiones`/`reservas`
@@ -371,12 +336,13 @@ test.describe('Momentos del calendario', () => {
     // "…T09:00:00+00:00") con `toISO(...)` ("…T09:00:00.000Z") como CADENAS.
     // Era siempre distinto, así que cualquier edición —una nota, el aforo—
     // mandaba a todas las apuntadas un aviso de que su clase había cambiado.
+    // `sesionFutura()` ya devuelve ese formato de Postgres ("…+00:00").
     const hoy = new Date().toISOString().slice(0, 10);
     const { inicio, fin } = sesionFutura();
     const { avisos } = await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
-        inicio: `${inicio}+00:00`, fin: `${fin}+00:00`, aforo_maximo: 10, cancelada: false,
+        inicio, fin, aforo_maximo: 10, cancelada: false,
         notas: null, serie_id: null, precio_puntual: null,
       }],
       reservas: [
