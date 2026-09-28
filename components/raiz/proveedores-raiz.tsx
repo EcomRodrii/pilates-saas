@@ -1,9 +1,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { esAppDeLaAlumna } from '@/lib/raiz/rutas-sin-proveedores';
+import { reiniciarBloqueoDeScroll } from '@/lib/bloqueo-scroll';
 
 // Los providers de sesión, montados en la raíz salvo en la app de la alumna.
 //
@@ -23,6 +25,13 @@ import { esAppDeLaAlumna } from '@/lib/raiz/rutas-sin-proveedores';
 const ProveedoresSesion = dynamic(() => import('./proveedores-sesion'));
 
 export function ProveedoresRaiz({ children }: { children: ReactNode }) {
-  if (esAppDeLaAlumna(usePathname())) return <>{children}</>;
+  const pathname = usePathname();
+  // Red de seguridad contra el bloqueo de scroll que se queda pegado (ver el
+  // comentario de lib/bloqueo-scroll.ts): se repara solo en cada cambio de
+  // ruta, en TODA la app — panel, /reservar público y la app de la
+  // alumna/instructora, que comparten ese mismo hook.
+  useEffect(() => { reiniciarBloqueoDeScroll(); }, [pathname]);
+
+  if (esAppDeLaAlumna(pathname)) return <>{children}</>;
   return <ProveedoresSesion>{children}</ProveedoresSesion>;
 }
