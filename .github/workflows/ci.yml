@@ -217,6 +217,24 @@ jobs:
         with:
           version: 2.114.0
 
+      # Descubierto en el primer run real de este job: `supabase db reset`
+      # aplica por ORDEN DE NOMBRE DE FICHERO, y `0135_equipo_interno_buscar_usuario.sql`
+      # crea una función que lee `plataforma_admin` — tabla que crea
+      # `20260725170000_panel_interno.sql`, cuyo nombre ordena DESPUÉS de
+      # "0135" (el esquema corto `0000`-`0140` es un bloque legado más antiguo
+      # que el de timestamps, y estos dos cruzan). En producción no falla
+      # porque cada migración se aplicó en su momento real, no de golpe desde
+      # cero — este job es la primera vez que se recorren las ~700 en fila.
+      #
+      # ⚠️ Se reordena SOLO en el checkout efímero de este job — nunca en
+      # `supabase/migrations/` de verdad. Renombrar un fichero YA APLICADO en
+      # dwqvdycjcffqwfkzapvi le haría creer a un futuro `supabase db push` que
+      # es una migración nueva pendiente y la reaplicaría con otro timestamp
+      # (regla de este repo: nunca tocar el nombre de una migración aplicada).
+      # Aquí no hay ese riesgo: este checkout se descarta al final del job.
+      - name: Reordenar panel_interno antes de 0135 (solo para este job)
+        run: mv supabase/migrations/20260725170000_panel_interno.sql supabase/migrations/01340_panel_interno.sql
+
       # Arranca Postgres + GoTrue (Auth) + PostgREST + Kong (API Gateway) reales
       # en Docker, dentro del propio runner — nunca contra dwqvdycjcffqwfkzapvi.
       - name: Arrancar Supabase local
