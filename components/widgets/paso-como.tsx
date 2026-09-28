@@ -53,11 +53,12 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
   //     web no le llega —tampoco su pie— (`urlTraeDisenoPropio`), y esta es la
   //     única forma de quitárselo;
   //   · si ya lo apagó en ESTE widget, para que pueda volver a encenderlo. Eso
-  //     se mira también al abrirlo, para que no desaparezca bajo el dedo al
-  //     encenderlo.
+  //     se mira también al abrirlo y, una vez tocado, se queda: si no, al
+  //     quitar el diseño propio y volver a encenderlo desaparecería bajo el dedo.
   const [pieApagadoAlAbrir] = useState(() => c.mostrarPie === false);
+  const [pieTocado, setPieTocado] = useState(false);
   const disenoEnCodigo = tieneDisenoEnCodigo(c);
-  const pieDelWidget = disenoEnCodigo || pieApagadoAlAbrir || c.mostrarPie === false;
+  const pieDelWidget = disenoEnCodigo || pieApagadoAlAbrir || pieTocado || c.mostrarPie === false;
 
   // La misma cuenta que la confirmación de «Aplicar en mi web», con el borrador
   // que se está probando: lo que haría /reservar con el código de este widget.
@@ -145,7 +146,7 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
                 ? 'Solo para este widget, y va en su código: con un diseño propio, el de «Ajustes finos» no le llega.'
                 : 'Solo para este widget, y va en su código. Para todos tus widgets a la vez, está en «Ajustes finos».'}
               on={c.mostrarPie}
-              onChange={v => cambiar({ mostrarPie: v })}
+              onChange={v => { setPieTocado(true); cambiar({ mostrarPie: v }); }}
             />
           )}
         </Tarjeta>

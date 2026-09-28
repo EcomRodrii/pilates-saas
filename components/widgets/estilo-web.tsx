@@ -77,9 +77,12 @@ export function EstiloWeb({ estado, metodo, soloLectura, verApariencia, piezas, 
   const { borrador: b, base, cambiar } = estado;
   const estilo = b.estilo ?? base.app.estilo;
   const web = colorDeLaWeb(b);
-  // Lo que se ve dentro de su web: si se funde y su estilo no se lee sobre ella,
-  // los neutros son los del otro lado (claro ↔ Carbón). Los botones se miden ahí.
-  const vista = paletaWidget(estilo, web, b.fundido);
+  // Lo que se ve donde va ESTE widget: dentro de su web, si se funde y su estilo
+  // no se lee sobre ella, los neutros son los del otro lado (claro ↔ Carbón); en
+  // la ventana que se abre encima nunca se funde (`resolverEstiloWeb(…,
+  // 'ventana')`). Los botones se miden ahí: medirlos fundidos en un popup
+  // prometía «tu color como es» donde la ventana lo pinta aclarado, y al revés.
+  const vista = paletaWidget(estilo, web, metodo === 'popup' ? false : b.fundido);
   const aplicando = estado.envio === 'aplicando';
   // Tras un 409 se vuelve a leer lo que hay en su web: mientras, lo que llegue pisa el borrador.
   const ocupado = aplicando || estado.relectura === 'releyendo';
