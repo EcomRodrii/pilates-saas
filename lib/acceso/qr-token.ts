@@ -12,9 +12,9 @@
 // sale de HMAC(secreto, id) cada vez que se pide. Con la base de datos entera y
 // sin el secreto no se puede fabricar ningún QR.
 //
-// Mismo secreto que el pase de 2 minutos al que sustituye (lib/pase-acceso.ts)
-// y que los enlaces de instructora, con un ámbito propio para que un token de
-// un sitio no valga en otro. Si el secreto cambiara, el hash guardado dejaría de
+// Mismo secreto que los enlaces de instructora (y que el pase de 2 minutos al que
+// sustituyó, retirado el 28-sep), con un ámbito propio para que un token de un
+// sitio no valga en otro. Si el secreto cambiara, el hash guardado dejaría de
 // coincidir y, en producción, la fila se renueva sola al pedir el QR
 // (qr-alumna-servidor.ts).
 //

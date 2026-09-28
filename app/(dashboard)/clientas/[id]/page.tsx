@@ -15,7 +15,8 @@ import type { LeadStage } from '@/lib/types';
 import { ETIQUETA_GENERO, GENEROS, etiquetaFija, generoDe, mayuscula, trato, type Genero } from '@/lib/genero';
 import { textoRetiro } from '@/lib/socios/consentimiento-retirado';
 import { consultarRetiroMarketing, enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto } from '@/lib/api-client';
-import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia, puedeVerAuditoriaFinanciera } from '@/lib/permisos';
+import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia, puedeVerAuditoriaFinanciera, puedeGestionarCalendario } from '@/lib/permisos';
+import { AccesosDeLaClienta } from '@/components/acceso/accesos-de-la-clienta';
 import { HistorialDinero } from '@/components/auditoria/historial-dinero';
 import { asignarVentaAClienta, esError, ventasPorAsignarDePlan, type VentaPorAsignar } from '@/lib/pos/cliente';
 import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
@@ -1471,6 +1472,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       )}
                     </>
                   )}
+
+                  {/* Control de acceso con QR: su QR y sus accesos. Solo quien puede
+                      escanear en el panel (la RLS de `accesos_escaneos` es la misma). */}
+                  {puedeGestionarCalendario(rol) && <AccesosDeLaClienta socioId={id} />}
                 </div>
               )}
 

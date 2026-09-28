@@ -23,8 +23,14 @@ function respuesta(p: Record<string, unknown>) {
   };
 }
 
+const FILA_HISTORIAL = {
+  id: 90, ocurridoEn: '2026-09-29T15:52:00Z', resultado: 'DENEGADO', motivo: 'RESERVA_CANCELADA', decision: null,
+  origen: 'APP_INSTRUCTORA', asistenciaMarcada: false, alumna: { id: 'soc-2', nombre: 'Laura Martín' },
+  clase: { nombre: 'Reformer', inicio: '2026-09-29T16:00:00Z', sala: 'Sala 2' }, quien: 'Marta Ruiz',
+};
+
 async function montarLector(page: Page, escaneo: { status: number; body: unknown }) {
-  const contador = { escanear: [] as Record<string, unknown>[], decidir: [] as Record<string, unknown>[], puerta: 0 };
+  const contador = { escanear: [] as Record<string, unknown>[], decidir: [] as Record<string, unknown>[], puerta: 0, historial: [] as string[] };
   await montar(page);
   await camaraQueEnsena(page, QR_E2E);
   // Después del andamiaje: en Playwright gana la última ruta registrada.
@@ -40,6 +46,10 @@ async function montarLector(page: Page, escaneo: { status: number; body: unknown
   await page.route((u) => u.pathname === '/api/acceso/puerta', (route) => {
     contador.puerta++;
     return json(route, { puerta: 'abierta' });
+  });
+  await page.route((u) => u.pathname === '/api/acceso/historial', (route) => {
+    contador.historial.push(new URL(route.request().url()).search);
+    return json(route, { filas: [FILA_HISTORIAL] });
   });
   return contador;
 }
@@ -103,5 +113,59 @@ test.describe('Control de acceso con QR en el panel', () => {
     await expect(page.getByRole('alert').filter({ hasText: 'No hemos podido leer el QR.' })).toBeVisible({ timeout: 30_000 });
     expect(contador.escanear.length).toBeGreaterThan(0);
     await expect(page.getByTestId('resultado-acceso')).toHaveCount(0);
+  });
+});
+
+test.describe('Historial de accesos y QR de una alumna en el panel', () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test('el historial del día dice quién intentó entrar, qué pasó y quién escaneó, y se refresca tras cada escaneo', async ({ page }) => {
+    const contador = await montarLector(page, { status: 200, body: respuesta({ veredicto: 'PERMITIDO', motivo: 'RESERVA_CONFIRMADA', asistenciaMarcada: true }) });
+    await ir(page, 'calendario/pase');
+
+    const historial = page.getByTestId('historial-accesos');
+    await expect(historial).toContainText('Laura Martín', { timeout: 30_000 });
+    await expect(historial).toContainText('Reserva cancelada');
+    await expect(historial).toContainText('Escaneó Marta Ruiz · desde su app');
+    expect(contador.historial[0]).toMatch(/^\?dia=\d{4}-\d{2}-\d{2}$/);
+    const antes = contador.historial.length;
+
+    await page.getByRole('button', { name: 'Encender la cámara' }).click();
+    await expect(page.getByTestId('resultado-acceso')).toHaveAttribute('data-veredicto', 'PERMITIDO', { timeout: 30_000 });
+    await expect.poll(() => contador.historial.length, { timeout: 15_000 }).toBeGreaterThan(antes);
+  });
+
+  test('ficha: «Generar QR nuevo» no anuncia nada si el servidor dice que no, y avisa de que el anterior ya no vale cuando sí', async ({ page }) => {
+    await montar(page);
+    const regenerar: Record<string, unknown>[] = [];
+    await page.route((u) => u.pathname === '/api/acceso/historial', (route) => json(route, { filas: [{ ...FILA_HISTORIAL, alumna: { id: 'soc-1', nombre: 'María García Fernández' }, resultado: 'PERMITIDO', motivo: 'PLAZA_FIJA', origen: 'PANEL', quien: 'Ana Peña', asistenciaMarcada: true }] }));
+    await page.route((u) => u.pathname === '/api/acceso/qr-alumna', (route) => {
+      if (route.request().method() === 'GET') return json(route, { controlActivo: true, qrDesde: '2026-09-20T10:00:00Z' });
+      regenerar.push(JSON.parse(route.request().postData() || '{}'));
+      return regenerar.length === 1
+        ? json(route, { error: 'No hemos podido generar el QR nuevo.' }, 500)
+        : json(route, { qrDesde: '2026-09-28T10:00:00Z' });
+    });
+    await ir(page, 'clientas/soc-1');
+    await page.getByRole('button', { name: 'Reservas', exact: true }).click();
+
+    const bloque = page.getByTestId('accesos-clienta');
+    await expect(bloque).toContainText('Su QR vale desde el 20 de septiembre', { timeout: 30_000 });
+    await expect(bloque.getByTestId('historial-accesos')).toContainText('Plaza fija');
+    await expect(bloque.getByTestId('historial-accesos')).toContainText('asistencia marcada');
+
+    const pedir = async () => {
+      await bloque.getByRole('button', { name: 'Generar QR nuevo' }).click();
+      await page.getByRole('alertdialog').or(page.getByRole('dialog')).getByRole('button', { name: 'Generar QR nuevo' }).click();
+    };
+    await pedir();
+    await expect(bloque.getByRole('alert')).toContainText('No hemos podido generar el QR nuevo.', { timeout: 15_000 });
+    expect(regenerar).toEqual([{ socioId: 'soc-1' }]);
+    await expect(bloque).not.toContainText('ya no funciona');
+
+    await pedir();
+    await expect(bloque.getByRole('status')).toContainText('Hecho: su QR anterior ya no funciona.', { timeout: 15_000 });
+    expect(regenerar).toHaveLength(2);
+    await expect(bloque).toContainText('Su QR vale desde el 28 de septiembre');
   });
 });

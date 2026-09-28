@@ -97,10 +97,10 @@ export type ErrorEscaneo = { error: string; status: 400 | 403 | 404 | 409 };
 
 type Admin = SupabaseClient;
 
-interface FilaSesion { id: string; inicio: string; fin: string; cancelada: boolean | null; tipo_clase_id: string | null; sala_id: string | null; instructor_id: string | null }
+export interface FilaSesion { id: string; inicio: string; fin: string; cancelada: boolean | null; tipo_clase_id: string | null; sala_id: string | null; instructor_id: string | null }
 interface FilaEstudio { control_acceso_qr: boolean | null; requiere_checkin_qr: boolean | null; bloquear_reserva_impago: boolean | null }
 
-const COLS_SESION = 'id, inicio, fin, cancelada, tipo_clase_id, sala_id, instructor_id';
+export const COLS_SESION = 'id, inicio, fin, cancelada, tipo_clase_id, sala_id, instructor_id';
 const MIN = 60_000;
 
 const aClase = (s: FilaSesion): ClaseEnPuerta => ({ id: s.id, inicio: s.inicio, fin: s.fin, cancelada: s.cancelada === true });
@@ -126,8 +126,8 @@ async function sesionesDeAhora(admin: Admin, actor: Actor, ahoraMs: number): Pro
   return (data ?? []) as FilaSesion[];
 }
 
-/** Nombre de la clase, sala e instructora, para pintar. */
-async function detallar(admin: Admin, studioId: string, sesiones: FilaSesion[]): Promise<Map<string, ClaseDetalle>> {
+/** Nombre de la clase, sala e instructora, para pintar. También lo usa el historial. */
+export async function detallar(admin: Admin, studioId: string, sesiones: FilaSesion[]): Promise<Map<string, ClaseDetalle>> {
   const ids = (xs: (string | null)[]) => [...new Set(xs.filter((x): x is string => !!x))];
   const tipos = ids(sesiones.map(s => s.tipo_clase_id));
   const salas = ids(sesiones.map(s => s.sala_id));

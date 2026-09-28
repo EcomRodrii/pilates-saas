@@ -43,15 +43,36 @@ test('ninguna ruta del panel abre una vía propia a la instructora', () => {
   }
 });
 
-test('leer un pase y ver los correos rebotados exigen rol, no solo sesión de personal', () => {
-  // Salieron de la revisión de seguridad de la retirada: el pase dejaba a la
-  // instructora marcar cualquier reserva del estudio (créditos, rachas, Kisi) y
-  // los rebotes daban las direcciones de todas las socias a cualquier sesión.
-  const pase = sinComentarios(leer('app/api/checkin/pase/route.ts'));
-  const verifica = pase.indexOf('verificarSesionStaff(req)');
-  const gate = pase.indexOf('if (!puedeGestionarCalendario(sesion.rol))');
-  assert.ok(verifica > 0 && gate > verifica, 'checkin/pase: rol comprobado justo tras la sesión');
-  assert.ok(gate < pase.indexOf('checkinPublico('), 'checkin/pase: antes de marcar nada');
+test('leer un QR en el panel y ver los correos rebotados exigen rol, no solo sesión de personal', () => {
+  // Salieron de la revisión de seguridad de la retirada: el pase de antes dejaba
+  // a la instructora marcar cualquier reserva del estudio (créditos, rachas,
+  // Kisi) y los rebotes daban las direcciones de todas las socias a cualquier
+  // sesión. El pase de 2 minutos se retiró el 28-sep (`/api/checkin/pase` ya no
+  // existe); su sitio lo ocupan las rutas del control de acceso, y la
+  // instructora escanea SUS clases por `/api/portal/instructora/escanear`.
+  assert.equal(existsSync(join(RAIZ, 'app/api/checkin/pase/route.ts')), false, 'el pase de 2 minutos no vuelve');
+  for (const [ruta, accion] of [
+    ['app/api/acceso/decidir/route.ts', 'decidirEscaneo('],
+    ['app/api/acceso/puerta/route.ts', 'abrirPuertaTrasEscaneo('],
+    ['app/api/acceso/historial/route.ts', 'historialDeAccesos('],
+  ] as const) {
+    const src = sinComentarios(leer(ruta));
+    const verifica = src.indexOf('verificarSesionStaff(req)');
+    const gate = src.indexOf('if (!puedeGestionarCalendario(sesion.rol))');
+    assert.ok(verifica > 0 && gate > verifica, `${ruta}: rol comprobado justo tras la sesión`);
+    assert.ok(gate < src.indexOf(accion), `${ruta}: antes de actuar`);
+  }
+  // Escanear y el QR de una alumna comprueban el rol en su helper común, antes de cualquier acción.
+  for (const [ruta, helper, accion] of [
+    ['app/api/acceso/escanear/route.ts', 'async function actorDelPanel', 'escanearQr('],
+    ['app/api/acceso/qr-alumna/route.ts', 'async function contexto', 'regenerarQr('],
+  ] as const) {
+    const src = sinComentarios(leer(ruta));
+    const cuerpo = src.slice(src.indexOf(helper));
+    assert.ok(src.indexOf(helper) >= 0, `${ruta}: sin su helper de acceso`);
+    assert.ok(cuerpo.indexOf('verificarSesionStaff(req)') < cuerpo.indexOf('if (!puedeGestionarCalendario(sesion.rol))'), `${ruta}: rol tras la sesión`);
+    assert.ok(src.indexOf('if (!puedeGestionarCalendario(sesion.rol))') < src.indexOf(accion), `${ruta}: antes de actuar`);
+  }
 
   const rebotes = sinComentarios(leer('app/api/clientas/rebotes/route.ts'));
   const gateRebotes = rebotes.indexOf('if (!puedeGestionarClientas(sesion.rol))');

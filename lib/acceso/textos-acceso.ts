@@ -110,3 +110,36 @@ export function detallesAcceso(motivo: MotivoVisible, d: DatosTexto): string[] {
   }
   return out;
 }
+
+/** Una línea por escaneo en el historial de accesos: qué pasó, en tres o cuatro palabras. */
+export const MOTIVO_CORTO: Record<MotivoAcceso, string> = {
+  RESERVA_CONFIRMADA: 'Reserva confirmada',
+  PLAZA_FIJA: 'Plaza fija',
+  YA_ENTRO: 'Ya había entrado',
+  PENDIENTE_APROBACION: 'Pendiente de aprobación',
+  CLIENTA_DESACTIVADA: 'Ficha desactivada',
+  IMPAGO: 'Recibo impagado',
+  VARIAS_CLASES: 'Reserva en varias clases',
+  SIN_RESERVA: 'Sin reserva',
+  RESERVA_CANCELADA: 'Reserva cancelada',
+  LISTA_ESPERA: 'En lista de espera',
+  NO_ASISTIO: 'Marcada como que no vino',
+  RESERVA_OTRA_CLASE: 'Reserva de otra clase',
+  CLASE_CANCELADA: 'Clase cancelada',
+  CLASE_TERMINADA: 'Clase ya terminada',
+  CLASE_NO_EMPEZADA: 'La clase aún no empezaba',
+  SIN_CLASE_AHORA: 'Sin clase a esa hora',
+  QR_NO_RECONOCIDO: 'QR no reconocido',
+  QR_SUSTITUIDO: 'QR ya sustituido',
+  QR_OTRO_ESTUDIO: 'QR de otro estudio',
+  APROBADA_SIN_PLAZA: 'Aprobada, sin plaza libre',
+  CLASE_YA_EMPEZADA: 'No se pudo aprobar: clase empezada',
+  NO_PERMITIDO: 'No se le dejó pasar',
+};
+
+/** La decisión tomada tras un 🟠, dicha por quien la tomó. */
+export const DECISION_LEGIBLE: Record<'DEJAR_PASAR' | 'APROBAR' | 'NO_PERMITIR', string> = {
+  APROBAR: 'aprobó y dejó pasar',
+  DEJAR_PASAR: 'dejó pasar',
+  NO_PERMITIR: 'no permitió el acceso',
+};

@@ -15,7 +15,8 @@
 // Mismo esquema que lib/valoraciones/token.ts: HMAC-SHA256 sobre el payload en
 // base64url, con el mismo secreto. Para que un token de otro sitio del producto,
 // firmado con esa misma clave, no sirva aquí (ni al revés), lo que se firma
-// lleva delante el prefijo `descargas.` —como hace lib/pase-acceso.ts— y el
+// lleva delante el prefijo `descargas.` —como hace lib/acceso/qr-token.ts con
+// `qr-acceso:`— y el
 // payload, además, `v: 'descargas'`.
 // ─────────────────────────────────────────────────────────────────────────────
 
