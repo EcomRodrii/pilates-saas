@@ -28,7 +28,7 @@ import type { ResultadoEscritura } from '@/lib/errores';
 import { semantic } from '@/lib/portal-tokens';
 import { colorOcupacion, ratioOcupacion, etiquetaOcupacion } from '@/lib/ocupacion';
 import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
-import { serif, sans, mono, cq, radius, EASE, densidadCss } from '@/lib/reservar-publico-tokens';
+import { serif, sans, mono, cq, radius, EASE, densidadCss, pesoTitular } from '@/lib/reservar-publico-tokens';
 import {
   localDayKey, addDays, diasSemana, contarSlotsPorDia, slotsDelDia,
   agruparPorDia, etiquetaDiaClave, fechaDeClave,
@@ -1771,7 +1771,7 @@ function BookingSheet({
                 titulares del estudio — se notaba al pintar la foto de
                 catálogo por defecto en la hoja, sin ningún elemento de
                 verdad reflejando `data-fuente-display` ahí dentro. */}
-            <h2 id={titleId} ref={tituloRef} tabIndex={-1} style={{ fontFamily: serif, fontSize: 22, fontWeight: 800, color: t.ink, lineHeight: 1.1, textTransform: 'uppercase', letterSpacing: '-0.02em', marginTop: 8, outline: 'none' }}>
+            <h2 id={titleId} ref={tituloRef} tabIndex={-1} style={{ fontFamily: serif, fontSize: 22, fontWeight: pesoTitular(800), color: t.ink, lineHeight: 1.1, textTransform: 'uppercase', letterSpacing: '-0.02em', marginTop: 8, outline: 'none' }}>
               {slot.claseNombre}
             </h2>
           </div>

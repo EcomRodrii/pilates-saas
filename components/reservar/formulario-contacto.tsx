@@ -27,7 +27,7 @@ import {
 } from '@/lib/contacto/formulario';
 import { alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { semantic } from '@/lib/portal-tokens';
-import { cq, serif, shadow } from '@/lib/reservar-publico-tokens';
+import { cq, serif, shadow, pesoTitular } from '@/lib/reservar-publico-tokens';
 
 type Estado =
   | { tipo: 'libre' }
@@ -91,7 +91,7 @@ const campo: CSSProperties = {
 };
 const etiqueta: CSSProperties = { display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--portal-ink)', marginBottom: 6 };
 const titular: CSSProperties = {
-  fontFamily: serif, fontSize: cq(24, 6, 30), fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1.1,
+  fontFamily: serif, fontSize: cq(24, 6, 30), fontWeight: pesoTitular(800), letterSpacing: '-.02em', lineHeight: 1.1,
   color: 'var(--portal-ink)', outline: 'none',
 };
 const entradilla: CSSProperties = { marginTop: 8, fontSize: 14.5, lineHeight: 1.55, color: 'var(--portal-muted)' };

@@ -16,7 +16,7 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import { AlertCircle, CalendarX2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { semantic } from '@/lib/portal-tokens';
-import { serif, sans, mono, cq } from '@/lib/reservar-publico-tokens';
+import { serif, sans, mono, cq, pesoTitular } from '@/lib/reservar-publico-tokens';
 import {
   rejillaSemana, semanaInicial, navegacionSemana, etiquetaRangoSemana, cabeceraDia, etiquetaHora,
   horaDe, empiezaEnPunto, plazasDeClase, nombreAccesibleClase, recuentoClases, type TonoPlazas,
@@ -122,7 +122,7 @@ export function HorarioSemana({ slots, hoy, lunes, onCambiarSemana, onElegir, fi
           {/* Mientras carga no se sabe aún con qué semana abre (la de la
               próxima clase, si esta ya no tiene): mejor un hueco que un rango
               que salta en cuanto llegan las clases. */}
-          <p style={{ margin: '4px 0 0', minHeight: '1.15em', fontFamily: serif, fontSize: cq(17, 2.2, 22), fontWeight: 800, letterSpacing: '-.01em', lineHeight: 1.15, color: 'var(--portal-ink)' }}>
+          <p style={{ margin: '4px 0 0', minHeight: '1.15em', fontFamily: serif, fontSize: cq(17, 2.2, 22), fontWeight: pesoTitular(800), letterSpacing: '-.01em', lineHeight: 1.15, color: 'var(--portal-ink)' }}>
             {cargando ? '' : rango}
           </p>
         </div>
@@ -179,7 +179,7 @@ export function HorarioSemana({ slots, hoy, lunes, onCambiarSemana, onElegir, fi
           <span aria-hidden style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'grid', placeItems: 'center', background: semantic.danger.soft, color: semantic.danger.text }}>
             <AlertCircle size={22} />
           </span>
-          <p style={{ fontFamily: serif, fontSize: 20, fontWeight: 800, margin: '16px 0 0', color: 'var(--portal-ink)' }}>No hemos podido cargar el horario</p>
+          <p style={{ fontFamily: serif, fontSize: 20, fontWeight: pesoTitular(800), margin: '16px 0 0', color: 'var(--portal-ink)' }}>No hemos podido cargar el horario</p>
           <p style={{ fontSize: 13, color: 'var(--portal-muted)', margin: '6px auto 0', maxWidth: 300 }}>
             Parece un problema de conexión. Inténtalo de nuevo en unos segundos.
           </p>
@@ -199,7 +199,7 @@ export function HorarioSemana({ slots, hoy, lunes, onCambiarSemana, onElegir, fi
           </span>
           {/* Sin ninguna clase, los textos del estudio. Con clases en otra
               semana, decirlo así: «Sin clases disponibles» sería mentira. */}
-          <p style={{ fontFamily: serif, fontSize: 20, fontWeight: 800, margin: '16px 0 0', color: 'var(--portal-ink)' }}>
+          <p style={{ fontFamily: serif, fontSize: 20, fontWeight: pesoTitular(800), margin: '16px 0 0', color: 'var(--portal-ink)' }}>
             {slots.length === 0 ? vacio.titulo : 'Sin clases esta semana'}
           </p>
           {proxima ? (
@@ -256,7 +256,7 @@ export function HorarioSemana({ slots, hoy, lunes, onCambiarSemana, onElegir, fi
                           <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>
                             {d.hoy ? 'Hoy' : c.corta}
                           </span>
-                          <span style={{ fontFamily: serif, fontSize: 17, fontWeight: 800, lineHeight: 1 }}>{c.numero}</span>
+                          <span style={{ fontFamily: serif, fontSize: 17, fontWeight: pesoTitular(800), lineHeight: 1 }}>{c.numero}</span>
                         </span>
                       </th>
                     );

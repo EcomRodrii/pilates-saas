@@ -52,6 +52,12 @@ export { EASE };
 // que emite `paletaReservarCssText` (usado solo por Modo A,
 // `/reservar/[slug]/layout.tsx`) — no aquí, y no globalmente en `<html>`
 // (eso cambiaría también el portal privado).
+//
+// Desde el 27-sep-2026 Jakarta es solo el valor de la pareja «Moderna»: si el
+// estudio eligió otra pareja para la app de sus alumnas, `temaReservarCssText`
+// (lib/reservar/tema-app.ts) redefine esas mismas dos variables —más
+// `--font-display`— con la suya. Por eso `sans`/`serif` NO se tocan: el canal
+// ya existía, solo cambia quién lo llena.
 export const sans = "var(--font-ui, var(--font-jakarta)), 'Plus Jakarta Sans', system-ui, sans-serif";
 export const serif = "var(--portal-heading-font, var(--font-jakarta)), 'Plus Jakarta Sans', system-ui, sans-serif";
 /** IBM Plex Mono — las etiquetas en versalitas (fecha, franja, "plazas libres", precios pequeños). */
@@ -153,9 +159,25 @@ export function eyebrow(size = 9): CSSProperties {
     paddingLeft: '.2em', textTransform: 'uppercase',
   };
 }
+/**
+ * El peso de un titular en NEGRITA (los que hoy llevan 700/800 escrito a mano
+ * con la pila `serif`), con el de la pareja tipográfica de la app encima
+ * cuando el estudio eligió una (`--reservar-heading-weight`, lo emite
+ * `temaReservarCssText`, lib/reservar/tema-app.ts).
+ *
+ * ⚠️ No es cosmético: las serif de las parejas no tienen 800 (Instrument Serif
+ * solo 400, Cormorant hasta 600), y pedírselo hace que el navegador ENGORDE el
+ * trazo a mano — la negrita sintética, que ensucia justo las fuentes finas.
+ * Sin pareja elegida, sin widget y en el bundle de Modo B la variable no existe
+ * y vale el número de siempre: cero cambio.
+ */
+export function pesoTitular(porDefecto: 700 | 800): string {
+  return `var(--reservar-heading-weight, ${porDefecto})`;
+}
+
 /** Titular: misma familia que el cuerpo (`sans`/`serif`), a peso 800 — el diseño no usa cursiva. */
 export function heading(vw: [number, number, number], it = false): CSSProperties {
-  return { fontFamily: serif, fontSize: cq(...vw), fontWeight: 800, letterSpacing: '-.02em', fontStyle: it ? 'italic' : 'normal', lineHeight: 1 };
+  return { fontFamily: serif, fontSize: cq(...vw), fontWeight: pesoTitular(800), letterSpacing: '-.02em', fontStyle: it ? 'italic' : 'normal', lineHeight: 1 };
 }
 
 export const easeCard = `border-color .4s ease, background .4s ease, transform .5s ${EASE}`;
@@ -187,9 +209,9 @@ export function paletaReservarCssText(selector = ':root'): string {
 
 /**
  * `--font-ui`/`--portal-heading-font` a Jakarta. Separada de
- * `paletaReservarCssText` (y expuesta como su propio `<style>`,
- * `fuenteReservarCssText`, emitido DESPUÉS del tema del estudio en
- * `/reservar/[slug]/layout.tsx`) por un bug real encontrado en producción
+ * `paletaReservarCssText` (y repetida en su propio `<style id="reservar-tema">`,
+ * `temaReservarCssText` de lib/reservar/tema-app.ts, emitido DESPUÉS del tema
+ * del estudio en `/reservar/[slug]/layout.tsx`) por un bug real encontrado en producción
  * (2026-08-27, estudio con el tema "Sereno"): `ThemeStyle` pinta
  * `paletaCssText()` y LUEGO `themeToCssText(theme, ':root')` en el MISMO
  * `<style>` — y todo tema con titular propio (`lib/theme-runtime.ts`, los
@@ -210,14 +232,13 @@ export function paletaReservarCssText(selector = ':root'): string {
  * TODO esto: su override vive más abajo en el árbol (inline en el propio
  * widget), y la especificidad de un `style` inline siempre gana a cualquier
  * `:root` de un `<style>`, sea cual sea el orden.
+ *
+ * Desde que /reservar toma el estilo de la app de la alumna (27-sep-2026), esto
+ * es solo lo que se emite con la pareja «Moderna» — la de por defecto. Con otra
+ * pareja, `temaReservarCssText` pone la suya en su lugar.
  */
 export function fuenteReservarCssVars(): string {
   return `--font-ui: var(--font-jakarta); --portal-heading-font: var(--font-jakarta);`;
-}
-
-/** `fuenteReservarCssVars()` como bloque `<style>` — ver su comentario. */
-export function fuenteReservarCssText(selector = ':root'): string {
-  return `${selector} { ${fuenteReservarCssVars()} }`;
 }
 
 /**
@@ -229,7 +250,17 @@ export function fuenteReservarCssText(selector = ':root'): string {
  * `MODO_TOKENS`.
  */
 export function varsReservarModo(modo: Modo): Record<string, string> {
-  const t = RESERVAR_PALETA[modo];
+  return varsDeTokensReservar(RESERVAR_PALETA[modo]);
+}
+
+/**
+ * Unos `ModoTokens` cualesquiera como las `--portal-*` que leen los
+ * componentes de esta pantalla. Es el mismo reparto que `varsReservarModo`,
+ * abierto para la paleta que sale del estilo de la app de la alumna
+ * (lib/reservar/tema-app.ts): un solo sitio donde se decide qué token va a qué
+ * variable, no dos copias que se separen.
+ */
+export function varsDeTokensReservar(t: ModoTokens): Record<string, string> {
   return {
     '--portal-bg': t.bg, '--portal-surface': t.surface, '--portal-surface-2': t.surface2,
     '--portal-line': t.line, '--portal-ink': t.ink,

@@ -13,7 +13,10 @@ import { PaginaOculta } from '@/components/publico/pagina-oculta';
 import { ThemeStyle } from '@/components/theme-style';
 import { ThemePreviewListener } from '@/components/theme/theme-preview-listener';
 import { iconosDeEstudio } from '@/lib/monograma-estudio';
-import { paletaReservarCssText, fuenteReservarCssText } from '@/lib/reservar-publico-tokens';
+import { paletaReservarCssText } from '@/lib/reservar-publico-tokens';
+import { themeToCssVars } from '@/lib/theme-runtime';
+import { temaReservarCssText, temaAppParaReservar, marcaEstudioDeVars } from '@/lib/reservar/tema-app';
+import { TemaAppReservarProvider } from '@/components/reservar/tema-app-provider';
 
 // Metadata server-rendered (I-9): título/descripción/Open Graph con el nombre y
 // la ciudad del estudio. Sirve para lo que la socia comparte por WhatsApp y
@@ -142,6 +145,14 @@ export default async function ReservarSlugLayout({ children, params }: { childre
   // metadata): el gate monta el StudioProvider al instante, sin round-trip de
   // cliente ni el flash en blanco previo.
   const studio = await getStudioSeo(slug);
+  // El estilo de la app de la alumna (27-sep-2026, decisión del fundador):
+  // /reservar se viste igual que la app de sus alumnas. Las dos consultas ya
+  // las hace `ThemeStyle` y van con `cache` de React — aquí no cuestan nada.
+  // La marca de siempre se saca del MISMO tema publicado que pinta `ThemeStyle`,
+  // para que el widget pueda recuperarla tal cual (lib/reservar/tema-app.ts).
+  const temaPublicado = studio ? await getThemePublicado(studio.id) : null;
+  const marcaEstudio = marcaEstudioDeVars(temaPublicado ? themeToCssVars(temaPublicado) : null);
+  const aparienciaApp = studio?.aparienciaApp ?? null;
   return (
     <StudioSlugGate slug={slug} initialStudioId={studio?.id ?? null} initialResuelto>
       {/* Negocio local, para que Google sepa que detrás de esta página de
@@ -167,16 +178,26 @@ export default async function ReservarSlugLayout({ children, params }: { childre
         />
       )}
       <ThemeStyle slug={slug} paletaCssText={paletaReservarCssText} />
-      {/* Bug real en producción (2026-08-27): el `<style>` de ThemeStyle pinta
-          el tema PUBLICADO del estudio DESPUÉS de `paletaReservarCssText` —
-          y todo tema con titular propio fija `--portal-heading-font`, que con
-          la misma especificidad (`:root`) gana por venir después. Este bloque,
-          en su PROPIO `<style>` posterior, vuelve a fijar Jakarta por encima
-          — ver el comentario de `fuenteReservarCssVars` en
-          reservar-publico-tokens.ts. */}
-      <style id="reservar-fuente" dangerouslySetInnerHTML={{ __html: fuenteReservarCssText() }} />
+      {/* El estilo de la app de la alumna: pareja tipográfica, neutros del
+          estilo y marca. Va en su PROPIO `<style>`, DESPUÉS del de ThemeStyle,
+          y gana por orden con la misma especificidad (`:root`).
+          Sustituye a `<style id="reservar-fuente">`, que existía por un bug
+          real (2026-08-27): el tema del PORTAL fija `--portal-heading-font` y
+          se comía el titular de esta pantalla. Ese arreglo sigue dentro —con
+          la pareja «Moderna» esto emite exactamente aquel Jakarta—, solo que
+          ahora la fuente la decide el estudio en Apariencia.
+          Los valores son hex validados, constantes y `var(--font-…)`: nada que
+          venga escrito a mano puede cerrar el bloque. */}
+      <style
+        id="reservar-tema"
+        dangerouslySetInnerHTML={{ __html: temaReservarCssText(studio?.colorPrimario, aparienciaApp, marcaEstudio) }}
+      />
       <ThemePreviewListener />
-      {children}
+      {/* Lo mismo para lo que no lee variables CSS (los colores por prop del
+          calendario y del pago). Ver components/reservar/tema-app-provider.tsx. */}
+      <TemaAppReservarProvider tema={temaAppParaReservar(aparienciaApp)}>
+        {children}
+      </TemaAppReservarProvider>
     </StudioSlugGate>
   );
 }

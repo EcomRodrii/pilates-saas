@@ -38,7 +38,7 @@ import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
-import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe, escalaDensidad } from '@/lib/reservar/apariencia-widget';
+import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, luminancia, radiosDe, escalaDensidad } from '@/lib/reservar/apariencia-widget';
 import { resolverConfigWidget, leerPresentacion } from '@/lib/reservar/config-widget';
 import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
@@ -48,7 +48,9 @@ import { EquipoPublico } from '@/components/reservar/equipo-publico';
 import { horarioPublico } from '@/lib/estudio-publico';
 import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget, sessionIdWidget } from '@/lib/reservar/eventos';
 import { precioClaseSuelta as precioSueltaDe } from '@/lib/student/precio-suelta';
-import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, RESERVAR_PALETA, varsReservarModo, tokensCalendarioDeApariencia } from '@/lib/reservar-publico-tokens';
+import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
+import { paletaEfectivaReservar, varsTipografiaWidget } from '@/lib/reservar/precedencia-tema';
+import { useTemaAppReservar } from '@/components/reservar/tema-app-provider';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
@@ -377,20 +379,12 @@ function claveDeVista(paso: VistaPaso | null, claseId: string): string {
 const OCUPA_PLAZA: Reserva['estado'][] = ['CONFIRMADA', 'ASISTIDA'];
 const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 
-// Tema del calendario PÚBLICO: la paleta propia del rediseño de /reservar
-// (RESERVAR_PALETA, lib/reservar-publico-tokens.ts) — YA NO `MODO_TOKENS.dia`
-// (esa es la del portal privado de la clienta, un contexto de marca distinto
-// a propósito, ver .claude/tentare-os.md "Arquitectura de marca"). Fuera del
-// componente para no recrearlo en cada render.
-//
-// ⚠️ **Solo queda `RT.hero` aquí, y a propósito.** El resto de tokens de esta
-// página se leen por variable CSS (`var(--portal-…)`) y no por este objeto: al
-// incrustar el widget sobre una web oscura, la raíz recibe la paleta de NOCHE en
-// línea, y un token de JS fijado a `dia` a nivel de módulo NO se entera — las
-// tarjetas se quedaban blancas con letra clara encima. El degradado del hero es
-// la excepción legítima: solo se pinta fuera del modo incrustado.
-const RESERVAR_TOKENS = RESERVAR_PALETA.dia;
-const RT = RESERVAR_TOKENS;
+// ⚠️ Aquí vivía `RT` (= `RESERVAR_PALETA.dia`, fijado a nivel de módulo) solo
+// para el degradado de la portada. Se fue el 27-sep-2026: un token de JS fijado
+// a `dia` no se entera del estilo de la app de la alumna (con «Carbón» dejaba
+// una portada crema sobre una página oscura). El degradado sale ahora de
+// `tokensCalendario.hero`, que es la paleta que de verdad se ve — y sin estilo
+// elegido es el mismo objeto de antes.
 
 // Mínimo razonable de dígitos para un teléfono real (España: 9). No se valida
 // prefijo — el estudio contacta por WhatsApp/llamada, un formato demasiado
@@ -549,13 +543,20 @@ export default function ReservarPage() {
       '--portal-brand-foreground': l != null && l < 0.45 ? '#FFFFFF' : '#22261F',
     };
   }, [configWidget]);
+  // Quién manda en los colores (lib/reservar/precedencia-tema.ts): suelta, el
+  // estilo de la app de la alumna (llega del layout, en servidor); incrustada,
+  // el widget si toca algún color, y si no, también el de la app.
+  const temaApp = useTemaAppReservar();
+  const paleta = useMemo(
+    () => paletaEfectivaReservar(apariencia, embedMode, temaApp),
+    [apariencia, embedMode, temaApp],
+  );
   // ⚠️ Solo se pisan las variables cuando hace falta. Emitirlas SIEMPRE dejaría
   // el widget con la paleta en línea aunque nadie la haya tocado, y a partir de
-  // ahí un cambio del tema del portal ya no llegaría aquí.
-  const varsTexto = useMemo(
-    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? varsReservarModo('noche') : null),
-    [embedMode, apariencia],
-  );
+  // ahí un cambio del tema (del portal o de la app) ya no llegaría aquí. Cuando
+  // el widget decide, en cambio, va la paleta ENTERA de su modo —también la de
+  // día— y la marca del estudio tal cual: debajo puede haber una app en Carbón.
+  const varsTexto = paleta.varsEnLinea;
   // ⚠️ El calendario NO se pinta por variables CSS: recibe los tokens por prop
   // (`t=`) y los reparte a mano por todos sus subcomponentes. Es un tercer canal
   // de color además de las variables y de `RT`, y por eso se le escapaba al
@@ -564,8 +565,8 @@ export default function ReservarPage() {
   // aunque el resto de la página ya hubiera cambiado. Medido en producción, no
   // supuesto: un icono de 44 px seguía en `#E7E4DB` (el `surface2` del día).
   //
-  // Fuera del modo incrustado es el MISMO objeto de siempre, así que ningún
-  // estudio ve un cambio.
+  // Fuera del modo incrustado, y sin estilo elegido en la app de la alumna, es
+  // el MISMO objeto de siempre, así que ningún estudio ve un cambio.
   //
   // ⚠️ Auditoría de UX (2026-08-31): por el MISMO motivo de arriba (tercer
   // canal de color, no CSS), los 5 controles de "Colores del widget" del
@@ -574,14 +575,15 @@ export default function ReservarPage() {
   // aquí — `tokensCalendarioDeApariencia` (lib/reservar-publico-tokens.ts) es
   // la pieza que faltaba: la paleta de siempre, con esos 5 campos pisados
   // solo si el estudio los tocó.
-  const tokensCalendario = useMemo(
-    () => tokensCalendarioDeApariencia(apariencia, embedMode && modoTextoDe(apariencia) === 'noche' ? 'noche' : 'dia'),
-    [embedMode, apariencia],
-  );
-  // Widget incrustado sobre una web oscura. Se saca a su propia constante
-  // porque lo necesita algo más que los tokens del calendario — ver el aviso de
-  // error del checkout, más abajo.
-  const esNoche = embedMode && modoTextoDe(apariencia) === 'noche';
+  //
+  // Desde el 27-sep-2026 esto es la paleta del estilo de la app de la alumna
+  // cuando el widget no decide (hex reales, nunca `var()`: el pago se los pasa
+  // a Stripe). Sin estilo elegido sigue siendo `RESERVAR_PALETA.dia`.
+  const tokensCalendario = paleta.tokens;
+  // Fondo oscuro: el del widget sobre una web oscura, o el del estilo «Carbón»
+  // de la app. Se saca a su propia constante porque lo necesita algo más que
+  // los tokens del calendario — ver el aviso de error del checkout, más abajo.
+  const esNoche = paleta.noche;
   const fuenteWidget = familiaCss(apariencia);
   const cssFuente = urlFuente(apariencia);
   // Titulares/horas/precios (widgetFuenteDisplay). Contrato de AparienciaWidget:
@@ -2406,8 +2408,12 @@ export default function ReservarPage() {
   // servidor, así que el header se pinta al instante.
   if (!mounted) {
     return (
-      <div className="min-h-dvh bg-[var(--portal-bg)]">
-        <header className="sticky top-0 z-30 bg-white border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      // Las variables del widget también aquí: el esqueleto está FUERA de la
+      // raíz de abajo, y sin ellas un widget de noche (o una app en Carbón bajo
+      // un widget de día) pintaría su primer fotograma con la paleta contraria.
+      // La cabecera iba en `bg-white` fijo: blanca sobre una página oscura.
+      <div className="min-h-dvh bg-[var(--portal-bg)]" style={{ ...(varsTexto ?? {}), ...(varsMarca ?? {}) } as React.CSSProperties}>
+        <header className="sticky top-0 z-30 bg-[var(--portal-surface)] border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div className="max-w-2xl mx-auto px-4">
             <div className="flex items-center gap-3 py-3">
               <div className="w-9 h-9 rounded-xl bg-[var(--portal-line)] shrink-0" />
@@ -2604,7 +2610,12 @@ export default function ReservarPage() {
           minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 24, background: fondoCss(apariencia) ?? 'var(--portal-bg)',
           fontFamily: fuenteWidget ?? sans,
-        }}>
+          // Esta pantalla vive FUERA de la raíz de abajo: sin sus variables,
+          // `var(--portal-bg)` sería el `:root` (la app) y no la paleta que
+          // decidió el widget — un fondo claro con la letra de noche encima.
+          ...(varsTexto ?? {}),
+          ...(varsMarca ?? {}),
+        } as React.CSSProperties}>
           <div style={{ maxWidth: 380, textAlign: 'center' }}>
             {/* Serif y tamaño fijo, no `heading()`: ese usa `cq()`, que necesita
                 un ancestro con `container-type`, y esta pantalla es autónoma. */}
@@ -2893,12 +2904,13 @@ export default function ReservarPage() {
       // fuente elegida no llegaba a ninguno de ellos: se aplicaba al hueco
       // entre componentes y a poco más. Modo B ya las fijaba (main.tsx), o sea
       // que los dos modos pintaban distinto con el mismo snippet.
-      ...(fuenteWidget ? { '--font-ui': fuenteWidget } : {}),
-      ...(fuenteDisplayWidget ? { '--font-display': fuenteDisplayWidget } : {}),
-      // Solo se pisa la variable cuando hay fuente de titulares que aplicar —
-      // emitirla siempre rompería el fallback a `--font-display` (la pila
-      // `serif` de siempre) para quien no tocó nada.
-      ...(fuenteDisplayWidget ? { '--portal-heading-font': fuenteDisplayWidget } : {}),
+      //
+      // Solo se pisan las variables cuando hay fuente que aplicar — emitirlas
+      // siempre taparía la pareja tipográfica de la app de la alumna (que
+      // llega por `:root`) para quien no tocó nada. Con fuente del widget,
+      // gana ella y se anula el peso de titular de la pareja
+      // (lib/reservar/precedencia-tema.ts).
+      ...varsTipografiaWidget(fuenteWidget, fuenteDisplayWidget),
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
       // Custom properties en línea: cascadean a todo el subárbol, así que con
       // esto el widget entero pasa a letra clara sin tocar un solo componente.
@@ -2928,13 +2940,13 @@ export default function ReservarPage() {
           Es el mismo fallo que ya costó un hero desplegado y muerto: un dato
           que sí viaja, y una nota que asegura que no. */}
       {/* ⚠️ UNA sola caja para barra + portada + pestañas, y no tres.
-          `RT.hero` es un `linear-gradient(175deg, …)`, y un degradado se pinta
+          `tokensCalendario.hero` es un `linear-gradient(175deg, …)`, y un degradado se pinta
           por CAJA: partirlo lo reinicia en cada trozo y deja dos costuras
           horizontales en la página de todos los estudios. Se probó partido —
           para poder mover la portada por separado— y las capturas antes/después
           lo enseñaron sin lugar a dudas. Por eso la portada va ANCLADA al
           horario (`SECCIONES_ANCLADAS`): se puede ocultar, no mover. */}
-      <div style={{ order: orden('horario'), position: 'relative', overflow: 'hidden', background: embedMode ? 'var(--portal-bg)' : RT.hero }}>
+      <div style={{ order: orden('horario'), position: 'relative', overflow: 'hidden', background: embedMode ? 'var(--portal-bg)' : tokensCalendario.hero }}>
         {!embedMode && (
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 14, padding: `${cq(20, 2.4, 30)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, minWidth: 0 }}>
@@ -4632,7 +4644,9 @@ export default function ReservarPage() {
         open={legalDoc !== null}
         onClose={() => setLegalDoc(null)}
         label={legalDoc?.label ?? 'Documento legal'}
-        sheetClassName="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl relative shadow-2xl flex flex-col"
+        // La superficie de la paleta, no `bg-white`: el texto de dentro va en
+        // `--portal-ink`, que en noche o con la app en Carbón es clara.
+        sheetClassName="bg-[var(--portal-surface)] w-full max-w-lg rounded-t-3xl sm:rounded-3xl relative shadow-2xl flex flex-col"
         // P0-3: mismo criterio que el modal de reserva de arriba.
         sheetStyle={{ maxHeight: embedMode ? (franjaVisible ? '100%' : 'min(85vh, 640px)') : '85vh' }}
         overlayStyle={overlayEmbed}

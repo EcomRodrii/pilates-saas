@@ -15,7 +15,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import type { ServicioCita } from '@/lib/types';
-import { serif, sans, cq, radius } from '@/lib/reservar-publico-tokens';
+import { serif, sans, cq, radius, pesoTitular } from '@/lib/reservar-publico-tokens';
 import { IMAGENES_POR_DEFECTO, alFallarImagen } from '@/lib/imagenes-por-defecto';
 import { metaServicioCita, monogramaServicio, servicioMarcado } from '@/lib/reservar/servicio-cita';
 
@@ -107,7 +107,7 @@ export function SelectorCita({ servicios, inicial, foto, enfocar = false, onCont
         )}
 
         <div style={{ padding: `${margen} ${margen} 0`, minWidth: 0 }}>
-          <h2 id={`${id}-t`} style={{ fontFamily: serif, fontSize: cq(22, 3.6, 26), lineHeight: 1.15, fontWeight: 700, color: 'var(--portal-ink)', margin: 0 }}>
+          <h2 id={`${id}-t`} style={{ fontFamily: serif, fontSize: cq(22, 3.6, 26), lineHeight: 1.15, fontWeight: pesoTitular(700), color: 'var(--portal-ink)', margin: 0 }}>
             Selecciona tu cita
           </h2>
           <p style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--portal-muted)', marginTop: 6 }}>
@@ -144,7 +144,7 @@ export function SelectorCita({ servicios, inicial, foto, enfocar = false, onCont
                     width: 44, height: 44, flex: '0 0 auto', borderRadius: 12, display: 'grid', placeItems: 'center',
                     background: `color-mix(in srgb, ${color} 22%, var(--portal-surface))`,
                     color: `color-mix(in srgb, ${color} 35%, var(--portal-ink))`,
-                    fontFamily: serif, fontSize: 15, fontWeight: 700, letterSpacing: '.02em',
+                    fontFamily: serif, fontSize: 15, fontWeight: pesoTitular(700), letterSpacing: '.02em',
                   }}>
                     {monogramaServicio(s.nombre)}
                   </span>
