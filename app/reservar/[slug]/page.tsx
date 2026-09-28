@@ -17,7 +17,7 @@ import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
 import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva, type TipoPlan } from '@/lib/types';
-import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando, nombrePeriodo } from '@/lib/bono-logic';
+import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando } from '@/lib/bono-logic';
 import { planesComprablesParaReservar, planCubreTipo } from '@/lib/reserva-planes-comprables';
 import { resolutorCobertura, precioDeCobertura, textoCobertura, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
@@ -39,12 +39,13 @@ import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/porta
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
 import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe, escalaDensidad } from '@/lib/reservar/apariencia-widget';
-import { resolverConfigWidget } from '@/lib/reservar/config-widget';
+import { resolverConfigWidget, leerPresentacion } from '@/lib/reservar/config-widget';
 import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { FormularioContacto } from '@/components/reservar/formulario-contacto';
-import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
-import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
+import { PlanesPublicos } from '@/components/reservar/planes-publicos';
+import { EquipoPublico } from '@/components/reservar/equipo-publico';
+import { horarioPublico } from '@/lib/estudio-publico';
 import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget, sessionIdWidget } from '@/lib/reservar/eventos';
 import { precioClaseSuelta as precioSueltaDe } from '@/lib/student/precio-suelta';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, RESERVAR_PALETA, varsReservarModo, tokensCalendarioDeApariencia } from '@/lib/reservar-publico-tokens';
@@ -59,7 +60,7 @@ import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 import {
   Users, CheckCircle2, X, Calendar, ChevronLeft,
-  CreditCard, FileText, Download, ExternalLink, Mail,
+  FileText, Download, ExternalLink, Mail,
   Loader2, AlertTriangle, Hourglass, Menu,
 } from 'lucide-react';
 
@@ -94,6 +95,11 @@ const MiCuenta = dynamic(
 const CitasPublica = dynamic(
   () => import('@/components/reserva/citas-publica').then((m) => m.CitasPublica),
   { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando citas…</div> },
+);
+// Solo con `?presentacion=semana`: la lista de siempre no descarga este trozo.
+const HorarioSemana = dynamic(
+  () => import('@/components/reservar/horario-semana').then((m) => m.HorarioSemana),
+  { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando calendario…</div> },
 );
 
 
@@ -519,6 +525,18 @@ export default function ReservarPage() {
     () => (embedMode ? resolverConfigWidget(searchParams) : null),
     [embedMode, searchParams],
   );
+  // `?presentacion=semana` (calendario semanal) es la excepción: vale TAMBIÉN
+  // en la página suelta, porque el enlace y el botón del constructor de
+  // widgets llevan ahí. No es un filtro ni apariencia, es cómo se lee el mismo
+  // horario; sin el parámetro, la página es exactamente la de siempre.
+  const horarioEnSemana = leerPresentacion(searchParams) === 'semana';
+  // La semana a la vista del calendario semanal (`null` = la de siempre). Aquí
+  // y no dentro del componente: el componente se desmonta mientras se ve la
+  // ficha o el pago, y al volver la visitante tiene que seguir en su semana.
+  const [lunesHorarioSemana, setLunesHorarioSemana] = useState<string | null>(null);
+  // La clase del calendario semanal cuya ficha se acaba de pedir. Ver
+  // `abriendoFichaSemana`, junto a `slots`.
+  const [fichaSemanaPedida, setFichaSemanaPedida] = useState<string | null>(null);
   // `marca=` pisa `--portal-brand` en el subárbol del widget. El foreground se
   // deriva por luminancia — dejar el crema del tema sobre una marca clara
   // dejaría el texto de los botones ilegible.
@@ -671,23 +689,6 @@ export default function ReservarPage() {
   // quitado al adoptar el handoff design_handoff_widget_reservas), pero
   // `slots` sigue filtrando por él si algún día se reconecta un selector.
   const [filtroObjetivo] = useState('');
-  // Especialidades de cada instructora (P1 auditoría Momence-vs-Tentare) —
-  // NO es un campo nuevo, se deriva de qué tipos de clase imparte de verdad
-  // con los datos que esta página ya carga (sesiones/tiposClase) — nunca
-  // inventar una categoría.
-  const especialidadesPorInstructor = useMemo(() => {
-    const tiposById = new Map(tiposClase.map(t => [t.id, t.nombre]));
-    const porInstructor = new Map<string, Set<string>>();
-    for (const s of sesiones) {
-      if (!s.instructorId) continue;
-      const nombreTipo = tiposById.get(s.tipoClaseId);
-      if (!nombreTipo) continue;
-      const set = porInstructor.get(s.instructorId) ?? new Set<string>();
-      set.add(nombreTipo);
-      porInstructor.set(s.instructorId, set);
-    }
-    return porInstructor;
-  }, [sesiones, tiposClase]);
   const tabInicial = searchParams.get('tab');
   const [tab, setTab] = useState<Tab>(
     TAB_IDS.includes(tabInicial as Tab) && tabHabilitada(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
@@ -1416,6 +1417,18 @@ export default function ReservarPage() {
       });
   }, [sesionesRich, nowMs, configWidget, modoPrueba, ofertaPruebaPara, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
 
+  // Calendario semanal: entre el toque en una clase y que `ReservaCalendario`
+  // confirme la ficha abierta (`alCambiarFicha` llega en un efecto, un render
+  // después), la ficha YA se está pintando — y tiene que pintarse visible: al
+  // montarse enfoca su título, y dentro de un `display: none` no hay foco
+  // posible (el teclado y el lector de pantalla se quedarían en el vacío).
+  // Solo mientras la clase siga en `slots`: es lo que garantiza que
+  // `ReservaCalendario` (que recibe esos mismos `slots`) la vaya a abrir.
+  // Se ajusta en render, no en un efecto: mismo patrón que `irADia`.
+  if (fichaSemanaPedida !== null && fichaCalendarioAbierta) setFichaSemanaPedida(null);
+  const abriendoFichaSemana = fichaSemanaPedida !== null && slots.some(s => s.id === fichaSemanaPedida);
+  const verCalendarioSemanal = horarioEnSemana && !fichaCalendarioAbierta && !abriendoFichaSemana;
+
   // Efecto A — URL → estado. Cubre tres disparadores con el mismo código:
   // carga inicial/refresh con `?paso=` en la URL, y Atrás/Adelante del
   // navegador. Lee `searchParams` (Next) directamente en vez de un
@@ -1480,6 +1493,11 @@ export default function ReservarPage() {
       const existe = !!claseId && slots.some(s => s.id === claseId);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Sincroniza con la URL (sistema externo): abre la ficha que pide `?paso=ficha&clase=...` al volver con Atrás/Adelante o al refrescar. No es estado derivable de props/estado local.
       setAbrirFichaExterna(v => ({ slotId: existe ? claseId : null, nonce: v.nonce + 1 }));
+      // Calendario semanal: la ficha que reabre la URL (Adelante, refresco,
+      // Atrás desde el flujo) tiene que montarse ya visible, igual que tras un
+      // toque en la clase — si no, se monta dentro del `display: none`, su
+      // título no puede recibir el foco y asoma un fotograma del calendario.
+      if (existe && horarioEnSemana) setFichaSemanaPedida(claseId);
       // Un Atrás desde el flujo (login/datos/pago/...) aterriza aquí — hay
       // que cerrar el flujo TAMBIÉN, no solo abrir la ficha: sin esto,
       // `bookingSesionId` seguía sin `null` y el flujo se quedaba pintado
@@ -2303,6 +2321,19 @@ export default function ReservarPage() {
     return resultado;
   }
 
+  // Un toque en una clase del calendario semanal hace EXACTAMENTE lo que el
+  // toque en su tarjeta de la lista (`TarjetaClase.onOpen` con
+  // `saltarFichaSiInvitada={!autenticado}`, reserva-calendario.tsx): la
+  // invitada va directa a sus pasos; la socia abre la ficha — la de siempre,
+  // la que pinta `ReservaCalendario` —, que es donde ve qué bono se le
+  // descuenta antes de confirmar. Nunca reserva de un toque (ver el ⚠️ de
+  // arriba sobre el camino rápido).
+  function elegirClaseSemana(slot: ReservaSlot) {
+    if (!autenticado) { void handleReservarCalendario(slot, null); return; }
+    setFichaSemanaPedida(slot.id);
+    setAbrirFichaExterna(v => ({ slotId: slot.id, nonce: v.nonce + 1 }));
+  }
+
   async function handleContratarPlan(plan: PlanTarifa) {
     setStripeError(null);
     setStripeLoading(plan.id);
@@ -2470,7 +2501,11 @@ export default function ReservarPage() {
   const antelacionMaxima = fraseAntelacionMaxima(reglasEstudio, tiposClase);
 
   const tabsTodas = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio'], ['cuenta', 'Mi cuenta']] as const;
-  const tabs = tabsTodas.filter(([t]) => tabHabilitada(t));
+  // «Citas» sin ningún servicio activo es una pestaña que lleva a «no hay
+  // citas»: fuera de la barra. Incrustada sí se deja (el widget «Citas» y su
+  // vista previa enseñan ese estado vacío a propósito).
+  const hayCitas = citasServicios.some(sv => sv.activo);
+  const tabs = tabsTodas.filter(([t]) => tabHabilitada(t) && (t !== 'citas' || hayCitas || embedMode));
   // Diseño "Tentare Portal Reservas": sin barra de pestañas en la pantalla
   // de Clases — vacía del todo, no una sola píldora "Clases" (a diferencia
   // de `embedMode`/`soloPestana`, que sí dejan la píldora del único
@@ -2596,35 +2631,6 @@ export default function ReservarPage() {
     );
   }
 
-  // El equipo — la rejilla de «El estudio» y, tal cual, el widget
-  // «Instructoras» incrustado (`tab=equipo`). Mismo patrón que
-  // `contenidoPlanes`: un bloque, dos sitios.
-  const rejillaEquipo = (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 14 }}>
-      {queImparten(instructores).map(i => {
-        const especialidades = [...(especialidadesPorInstructor.get(i.id) ?? [])];
-        return (
-          <div key={i.id} style={{ borderRadius: R.chipCard, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', padding: '18px 14px', textAlign: 'center' }}>
-            {i.fotoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={i.fotoUrl} alt={i.nombre} loading="lazy" decoding="async" style={{ width: 46, height: 46, borderRadius: 999, objectFit: 'cover', marginInline: 'auto' }} />
-            ) : (
-              <div style={{ width: 46, height: 46, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: 'var(--portal-muted)', background: 'var(--portal-surface-2)', border: '1px solid var(--portal-line)', marginInline: 'auto' }}>
-                {i.nombre.split(' ').map(n => n[0]).join('')}
-              </div>
-            )}
-            <div style={{ fontFamily: serif, fontSize: 16.5, lineHeight: 1.2, marginTop: 10 }}>{i.nombre}</div>
-            {especialidades.length > 0 && (
-              <div style={{ fontSize: 11.5, color: 'var(--portal-muted)', marginTop: 4 }}>
-                {especialidades.join(' · ')}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-
   // Los planes a la venta: la sección «Bonos y membresías» de la página
   // completa y, tal cual, el widget «Planes y precios» / «Bonos y packs»
   // incrustado (`tab=planes`). Un solo bloque en dos sitios, mismo patrón que
@@ -2679,58 +2685,17 @@ export default function ReservarPage() {
           </div>
         )}
       </div>
-      {/* Rejilla de tres, no una pila a lo ancho: los planes se COMPARAN,
-          y apilados obligaban a recordar el precio anterior al bajar. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, marginTop: 16, alignItems: 'stretch' }}>
-        {planesEnVenta.map(p => {
-          const destacado = p.id === planDestacadoId;
-          const porClase = precioPorClase(p);
-          // Solo sale si significa algo: sin precio de clase suelta con
-          // el que comparar, no hay ahorro que enseñar (ver ahorro-plan.ts).
-          const ahorro = ahorroPorcentaje(p, precioClaseSuelta);
-          return (
-            <div key={p.id} style={{
-              borderRadius: R.cardSmall, background: destacado ? PRIMARY : 'var(--portal-surface)',
-              padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12,
-              boxShadow: destacado ? SH.ctaOscuroFuerte : SH.planClaro,
-            }}>
-              <div style={{ flex: '1 1 auto' }}>
-                {destacado && <div style={{ ...eyebrow(8.5), color: `color-mix(in srgb, ${PRIMARY_FG} 65%, transparent)` }}>EL MÁS ELEGIDO</div>}
-                <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, marginTop: destacado ? 9 : 0, color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.nombre}</div>
-                <div style={{ fontSize: 11, marginTop: 7, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 60%, transparent)` : 'var(--portal-muted-2)' }}>
-                  {/* «Mensual» era una etiqueta fija: una cuota
-                      trimestral se anunciaba como mensual y su precio,
-                      debajo, como «/mes». Decir cada cuánto se cobra es
-                      justo lo que decide la compra. */}
-                  {p.tipo === 'MENSUAL' ? `Cada ${nombrePeriodo(p)} · sin compromiso` : (porClase ?? p.descripcion ?? `Bono ${p.sesiones ?? ''} clases`)}
-                </div>
-                {ahorro !== null && (
-                  <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 80%, transparent)` : 'var(--portal-accent)' }}>
-                    Ahorras un {ahorro} % frente a clases sueltas
-                  </div>
-                )}
-              </div>
-              <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), whiteSpace: 'nowrap', color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>
-                {p.precio} €{p.tipo === 'MENSUAL' && <span style={{ fontFamily: sans, fontSize: 12 }}>/{nombrePeriodo(p)}</span>}
-              </div>
-              <button onClick={() => handleContratarPlan(p)}
-                disabled={stripeLoading === p.id}
-                style={{
-                  height: 46, padding: '0 24px', borderRadius: R.pillBtnXs, whiteSpace: 'nowrap', fontSize: 12.5, fontWeight: 500,
-                  display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', opacity: stripeLoading === p.id ? 0.6 : 1,
-                  border: destacado ? 'none' : '1px solid var(--portal-line)',
-                  background: destacado ? 'var(--portal-surface)' : 'transparent',
-                  color: destacado ? 'var(--portal-ink)' : 'var(--portal-ink)',
-                }}>
-                {stripeLoading === p.id
-                  ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'currentColor', borderRadius: 999, display: 'inline-block' }} className="animate-spin" />
-                  : <><CreditCard size={14} />Contratar</>}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-      <p style={{ fontSize: 10.5, color: 'var(--portal-muted)', marginTop: 14, textAlign: 'center' }}>Pago seguro con Stripe · IVA incluido</p>
+      {/* Maquetas «columnas» (comparar tipos) y «lista» (un solo tipo):
+          components/reservar/planes-publicos.tsx. El pago, el de siempre. */}
+      <PlanesPublicos
+        planes={planesEnVenta}
+        destacadoId={planDestacadoId}
+        precioClaseSuelta={precioClaseSuelta}
+        cargandoId={stripeLoading}
+        onContratar={handleContratarPlan}
+        fotoCabecera={embedMode && heroFoto ? heroFoto : null}
+      />
+      <p style={{ fontSize: 12, color: 'var(--portal-muted)', marginTop: 16, textAlign: 'center' }}>Pago seguro con Stripe · IVA incluido</p>
     </div>
   );
 
@@ -3348,8 +3313,32 @@ export default function ReservarPage() {
                 sin este guardia volvía a pintar su calendario de siempre por
                 debajo del flujo — encontrado con la propia captura de
                 verificación de esta fase. */}
+            {/* Calendario semanal (`?presentacion=semana`): ocupa el sitio de
+                la lista. La ficha de una clase la sigue pintando
+                `ReservaCalendario` de abajo, que por eso se queda MONTADO pero
+                oculto (`display: none`, fuera también del árbol accesible) —
+                recibe la orden de abrirla por `abrirSlotExterno`, igual que al
+                volver con Atrás. Sin el parámetro, nada de esto existe. */}
+            {verCalendarioSemanal && bookingSesionId === null && (
+              <div style={{ marginTop: 20 }}>
+                <HorarioSemana
+                  slots={slots}
+                  hoy={hoyEnEstudio(now)}
+                  lunes={lunesHorarioSemana}
+                  onCambiarSemana={setLunesHorarioSemana}
+                  onElegir={elegirClaseSemana}
+                  filtros={filtrosChipsClases}
+                  cargando={!dataLoaded}
+                  error={dataLoaded && errorPublico ? { onReintentar: recargarPublico } : undefined}
+                  vacio={{
+                    titulo: textosReservar.vacioTitulo || 'Sin clases disponibles',
+                    cuerpo: textosReservar.vacioTexto || 'Prueba con otra semana o cambia el filtro',
+                  }}
+                />
+              </div>
+            )}
             {bookingSesionId === null && (
-            <div style={{ marginTop: fichaCalendarioAbierta ? 0 : 20 }}>
+            <div style={{ marginTop: fichaCalendarioAbierta ? 0 : 20, display: verCalendarioSemanal ? 'none' : undefined }}>
               <ReservaCalendario
                 t={tokensCalendario}
                 slots={slots}
@@ -3455,11 +3444,10 @@ export default function ReservarPage() {
         )}
 
         {/* ── TAB: CITAS 1:1 ──────────────────────────────────────────────── */}
-        {/* Sin cabecera propia aquí: CitasPublica ya pinta "Citas" + el
-            subtítulo (calcando design_handoff_widget_reservas) tanto con
-            servicios configurados como en su estado vacío — una cabecera
-            aparte aquí quedaba duplicada en el primer caso y con el título
-            equivocado ("Citas privadas") en el segundo. */}
+        {/* Sin cabecera propia aquí: CitasPublica ya pinta su titular
+            («Selecciona tu cita», o «Citas» en su estado vacío) — una cabecera
+            aparte aquí quedaba duplicada. La foto va en la tarjeta solo si la
+            portada no la enseña ya justo encima (widget, o portada oculta). */}
         {tab === 'citas' && !enVistaReserva && (
           <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
             <CitasPublica
@@ -3476,6 +3464,7 @@ export default function ReservarPage() {
               onCancelar={cancelarCita}
               primary={PRIMARY}
               primaryFg={PRIMARY_FG}
+              foto={!embedMode && seccionVisible('portada') ? null : heroFoto}
             />
           </div>
         )}
@@ -3573,12 +3562,17 @@ export default function ReservarPage() {
 
             {/* El equipo — mismo criterio de arriba: `queImparten` ya filtra a
                 quien de verdad da clase. Fase 4: sin bio (respuesta 5 del brief
-                de diseño) — solo avatar, nombre, especialidad; una tarjeta
-                pensada para escanear el equipo de un vistazo, no para leerlo. */}
-            {queImparten(instructores).length > 0 && (<>
-              <div style={{ ...eyebrow(9), marginTop: 38 }}>EL EQUIPO</div>
-              <div style={{ marginTop: 16 }}>{rejillaEquipo}</div>
-            </>)}
+                de diseño) — solo foto, nombre y lo que imparte; una tarjeta
+                pensada para escanear el equipo de un vistazo, no para leerlo.
+                El mismo carrusel que el widget «Instructoras». */}
+            {queImparten(instructores).length > 0 && (
+              <div style={{ marginTop: 38 }}>
+                <EquipoPublico
+                  instructores={instructores} sesiones={sesiones} tiposClase={tiposClase}
+                  etiqueta="El equipo" cabecera={<div style={eyebrow(9)}>EL EQUIPO</div>} compacta
+                />
+              </div>
+            )}
 
             {/* Igual que en «Mis reservas»: fuera de `embedMode` saltar a
                 «Clases» tiene sentido (misma página, otra pestaña). El widget
@@ -3638,7 +3632,7 @@ export default function ReservarPage() {
         {/* ── VISTAS SOLO INCRUSTADAS («Tentare Widgets») ─────────────────
             «Planes y precios»/«Bonos y packs» y «Instructoras», widgets de un
             solo propósito (lib/widgets/catalogo.ts). Pintan los MISMOS bloques
-            que la página completa (`contenidoPlanes`, `rejillaEquipo`) — el
+            que la página completa (`contenidoPlanes`, `EquipoPublico`) — el
             pago, el código de descuento y las fichas son los de siempre.
             Vacíos lo dicen: la propietaria lo ve en la vista previa antes de
             pegarlo, y una visitante no se encuentra un recuadro en blanco. */}
@@ -3653,14 +3647,11 @@ export default function ReservarPage() {
         )}
         {tab === 'equipo' && (
           <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(36, 5, 64)}` }}>
-            <h2 style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Nuestro equipo</h2>
-            {queImparten(instructores).length > 0 ? (
-              <div style={{ marginTop: 20 }}>{rejillaEquipo}</div>
-            ) : (
-              <p role="status" style={{ fontSize: 14, color: 'var(--portal-muted)', marginTop: 14 }}>
-                Pronto conocerás a nuestro equipo.
-              </p>
-            )}
+            <EquipoPublico
+              instructores={instructores} sesiones={sesiones} tiposClase={tiposClase}
+              etiqueta="Nuestro equipo"
+              cabecera={<h2 style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Nuestro equipo</h2>}
+            />
           </div>
         )}
 
@@ -3676,6 +3667,10 @@ export default function ReservarPage() {
               origen={refCode}
               vistaPrevia={esVistaPrevia}
               onAbrirPrivacidad={() => setLegalDoc({ label: 'Política de privacidad', text: studioConfig.politicaPrivacidad })}
+              // Solo cuando la portada no la enseña ya (su condición, negada):
+              // a página completa saldría la misma foto dos veces seguidas.
+              fotoFondo={embedMode || enVistaReserva || !seccionVisible('portada') ? heroFoto : null}
+              noche={esNoche}
             />
           </div>
         )}
@@ -3881,16 +3876,24 @@ export default function ReservarPage() {
         // esta pantalla es un bloque más de la página, tan alta como su
         // contenido — el `min-h-` solo evita un salto al pasar de una fila
         // corta de "Mis reservas" a un formulario largo.
-        sheetClassName="w-full min-h-[50vh] px-6 pt-6"
+        // Acceder, registro y las confirmaciones son formularios de una
+        // columna: en escritorio iban a todo el ancho (campos de 1.232 px).
+        // Datos y pago no: <PantallaReserva> tiene su propia maqueta de dos.
+        sheetClassName={esPantallaReserva ? 'w-full min-h-[50vh] px-6 pt-6' : 'w-full max-w-[560px] mx-auto min-h-[50vh] px-6 pt-6'}
         // Sin `footer` (done/espera/pendiente/confirm/contrato), nada más
         // le pone aire por debajo — mismo `paddingBottom` con safe-area que
         // ya llevaba esta hoja antes del rediseño (#1365: el botón "Añadir a
         // tu calendario" quedaba a ras de la barra de gestos del iPhone).
         // Con `footer` esa hoja YA lleva su propio padding con safe-area
         // (public-sheet.tsx), así que aquí se omite para no duplicarlo.
+        // `order`: la página es una columna flex y la cabecera del estudio va
+        // con `order: orden('horario')`. Sin él la hoja (order 0) se pintaba
+        // ANTES que la cabecera y el nombre del estudio caía debajo del
+        // formulario de acceso, de datos y de pago. Con el mismo `order`,
+        // manda el orden del DOM: primero la cabecera, luego la hoja.
         sheetStyle={((loginStep === 'login' && !enlaceEnviado) || loginStep === 'registro')
-          ? undefined
-          : { paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+          ? { order: orden('horario') }
+          : { order: orden('horario'), paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
         // El CTA de 'login'/'registro' sigue con `footer`: separa la acción
         // del contenido con una línea de pelo, aunque ya no vaya "pegado
         // abajo" (no hay altura acotada que fijarlo) — sigue siendo lo
@@ -4287,6 +4290,7 @@ export default function ReservarPage() {
                 t={tokensCalendario}
                 onVolver={closeBooking}
                 estudioNombre={estudioNombre}
+                ocultarNombreEstudio={!embedMode}
                 estudioDireccion={estudioDireccion}
                 studioId={studio?.id ?? ''}
                 clase={{

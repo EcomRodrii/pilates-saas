@@ -67,6 +67,11 @@ const SOLO_MODO_A = new Set([
   // app/reservar/[slug]/page.tsx que ya justifica el resto de esta lista.
   'reserva-check-ring', 'reserva-check-pop',
   'reserva-confeti-a', 'reserva-confeti-b1', 'reserva-confeti-c', 'reserva-confeti-b2',
+  // El calendario semanal (`?presentacion=semana`, components/reservar/
+  // horario-semana.tsx) solo lo monta app/reservar/[slug]/page.tsx: la
+  // integración nativa no tiene esa presentación (lib/widgets/integracion.ts
+  // no la emite con `nativa`, y el bundle ni la importa).
+  'reserva-semana-foco', 'reserva-semana-chip',
 ]);
 
 test('toda clase reserva-*/animate-* de globals.css existe también en widget.css', () => {

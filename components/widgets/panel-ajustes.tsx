@@ -120,11 +120,13 @@ interface PropsPestana {
 
 const aPaginaCompleta = (m: MetodoIntegracion) => m === 'enlace' || m === 'boton';
 
-function AvisoPaginaCompleta() {
+function AvisoPaginaCompleta({ conPresentacion = false }: { conPresentacion?: boolean }) {
   return (
     <p className="rounded-xl bg-muted/60 px-3.5 py-2.5 text-[12px] leading-relaxed text-muted-foreground">
-      El enlace y el botón abren tu página de reservas completa, con todo tu horario. Estos
-      ajustes se aplican al widget incrustado y al popup.
+      El enlace y el botón abren tu página de reservas completa, con todo tu horario.{' '}
+      {conPresentacion
+        ? 'Se llevan la presentación; el resto de ajustes se aplica al widget incrustado y al popup.'
+        : 'Estos ajustes se aplican al widget incrustado y al popup.'}
     </p>
   );
 }
@@ -166,25 +168,48 @@ function Contenido({ w, c, metodo, cambiar, datos }: PropsPestana) {
   }
 
   if (w.contenido.includes('horario')) {
+    // El calendario semanal sustituye a la lista entera: con él, la vista de
+    // la lista y «al abrir» no hacen nada y no se enseñan. La integración
+    // nativa (el bundle) no lo tiene: ahí manda siempre la lista.
+    const semana = !nativa && c.presentacion === 'semana';
     bloques.push(
       <Grupo key="vista" titulo="Cómo se ve el horario">
-        {aPaginaCompleta(metodo) && <AvisoPaginaCompleta />}
-        <Ajuste etiqueta="Vista" descripcion="Por días: una tira con el día abierto. Semana: toda la semana en una rejilla.">
-          <Segmentado
-            etiqueta="Vista del horario"
-            valor={c.diseno ?? disenoDefecto}
-            onChange={v => cambiar({ diseno: v === disenoDefecto ? null : v })}
-            opciones={[{ valor: 'completo', nombre: 'Por días' }, { valor: 'ligero', nombre: 'Semana' }] as const}
-          />
-        </Ajuste>
-        <Ajuste etiqueta="Al abrir" descripcion="Qué días enseña nada más cargar.">
-          <Segmentado
-            etiqueta="Qué días enseña al abrir"
-            valor={c.vista}
-            onChange={v => cambiar({ vista: v })}
-            opciones={[{ valor: 'todo', nombre: 'Todos los próximos' }, { valor: 'hoy', nombre: 'Solo hoy' }] as const}
-          />
-        </Ajuste>
+        {!nativa && (
+          <Ajuste etiqueta="Presentación" descripcion="Lista: el horario de siempre, por días o en columnas. Calendario semanal: la semana entera de un vistazo, con los días en columnas y las horas en filas.">
+            <Segmentado
+              etiqueta="Presentación del horario"
+              valor={c.presentacion}
+              onChange={v => cambiar({ presentacion: v })}
+              opciones={[{ valor: 'lista', nombre: 'Lista' }, { valor: 'semana', nombre: 'Calendario semanal' }] as const}
+            />
+          </Ajuste>
+        )}
+        {nativa && c.presentacion === 'semana' && (
+          <p className="rounded-xl bg-muted/60 px-3.5 py-2.5 text-[12px] leading-relaxed text-muted-foreground">
+            La integración nativa enseña el horario en lista. El calendario semanal funciona incrustado, en popup, con el enlace y con el botón.
+          </p>
+        )}
+        {aPaginaCompleta(metodo) && <AvisoPaginaCompleta conPresentacion />}
+        {!semana && (
+          <>
+            <Ajuste etiqueta="Vista" descripcion="Por días: una tira con el día abierto. En columnas: los próximos siete días, uno al lado del otro.">
+              <Segmentado
+                etiqueta="Vista del horario"
+                valor={c.diseno ?? disenoDefecto}
+                onChange={v => cambiar({ diseno: v === disenoDefecto ? null : v })}
+                opciones={[{ valor: 'completo', nombre: 'Por días' }, { valor: 'ligero', nombre: 'En columnas' }] as const}
+              />
+            </Ajuste>
+            <Ajuste etiqueta="Al abrir" descripcion="Qué días enseña nada más cargar.">
+              <Segmentado
+                etiqueta="Qué días enseña al abrir"
+                valor={c.vista}
+                onChange={v => cambiar({ vista: v })}
+                opciones={[{ valor: 'todo', nombre: 'Todos los próximos' }, { valor: 'hoy', nombre: 'Solo hoy' }] as const}
+              />
+            </Ajuste>
+          </>
+        )}
       </Grupo>,
       <Grupo key="filtros" titulo="Qué clases">
         <Chips
@@ -416,8 +441,8 @@ function Diseno({ w, c, metodo, cambiar, datos }: PropsPestana) {
           <Ajuste etiqueta="Ancho" descripcion="Compacto se queda en una columna; a todo el ancho ocupa el hueco de tu página.">
             <Segmentado
               etiqueta="Ancho del widget"
-              valor={c.ancho ?? anchoPorDefecto(w)}
-              onChange={v => cambiar({ ancho: v === anchoPorDefecto(w) ? null : v })}
+              valor={c.ancho ?? anchoPorDefecto(w, c)}
+              onChange={v => cambiar({ ancho: v === anchoPorDefecto(w, c) ? null : v })}
               opciones={[{ valor: 'compacto', nombre: 'Compacto' }, { valor: 'completo', nombre: 'Todo el ancho' }] as const}
             />
           </Ajuste>

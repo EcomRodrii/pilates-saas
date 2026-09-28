@@ -8,7 +8,7 @@ import { authHeader } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { LEGAL } from '@/lib/legal-info';
 import { WIDGETS, widgetPorId, widgetsVisibles, esDisponible, type MetodoIntegracion, type WidgetDisponible } from '@/lib/widgets/catalogo';
-import { CONFIG_POR_DEFECTO, leerConfigs, metodoEfectivo, anchoPorDefecto, etiquetaEfectiva, type ConfigConstructor } from '@/lib/widgets/config';
+import { CONFIG_POR_DEFECTO, leerConfigs, metodoEfectivo, anchoPorDefecto, anchoPopupDe, etiquetaEfectiva, type ConfigConstructor } from '@/lib/widgets/config';
 import { embudoPorWidget, type EmbudoWidget } from '@/lib/widgets/embudo';
 import { dbEmbudoWidgetPorOrigen } from '@/lib/supabase-data';
 import { useRol } from '@/lib/permisos';
@@ -201,8 +201,8 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       };
   }
   const anchoWidget = metodo === 'iframe'
-    ? ((configEfectiva.ancho ?? anchoPorDefecto(w)) === 'compacto' ? 480 : null)
-    : metodo === 'popup' ? w.anchoPopup : null;
+    ? ((configEfectiva.ancho ?? anchoPorDefecto(w, configEfectiva)) === 'compacto' ? 480 : null)
+    : metodo === 'popup' ? anchoPopupDe(w, configEfectiva) : null;
 
   const ofertasPrueba = planesTarifa.filter(p => p.activo && p.esPrueba === true);
   const avisos = avisosDeDatos(w.id, {

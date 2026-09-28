@@ -8,7 +8,7 @@ import {
   conVistaPrevia, estiloBoton, faltaParaGenerar, generarCodigo, pasosInstalacion, plataformasDe, urlEmbebido, urlPagina,
   PLATAFORMAS, type EntradaIntegracion, type Plataforma,
 } from '@/lib/widgets/integracion';
-import { textoBotonEfectivo } from '@/lib/widgets/config';
+import { anchoPopupDe, textoBotonEfectivo } from '@/lib/widgets/config';
 
 // «Cómo integrarlo»: QUÉ widget ya está elegido arriba; aquí se decide CÓMO
 // entra en la web y se copia el código REAL (lib/widgets/integracion.ts, con
@@ -190,7 +190,7 @@ function MuestraBoton({ entrada, metodo }: { entrada: EntradaIntegracion; metodo
           type="button"
           data-tentare-popup={conVistaPrevia(urlEmbebido(entrada, 'popup'))}
           data-tentare-titulo={entrada.widget.nombre}
-          data-tentare-ancho={entrada.widget.anchoPopup}
+          data-tentare-ancho={anchoPopupDe(entrada.widget, entrada.config)}
           style={estilo}
         >
           {texto}
