@@ -3545,6 +3545,21 @@ export interface RowVerifactuRegistros {
   and: string | null;
 }
 
+export interface RowVerifactuDeclaracionesResponsables {
+  id: string;
+  version_sif: string;
+  id_sif: string;
+  texto: string;
+  texto_sha256: string;
+  productor_nombre: string;
+  productor_nif: string;
+  productor_direccion: string;
+  fecha_suscripcion: string;
+  lugar_suscripcion: string;
+  suscrita_por: string | null;
+  suscrita_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -9808,6 +9823,36 @@ export type VerifactuRegistrosUpdate = {
   and?: string | null | null;
 }
 
+export type VerifactuDeclaracionesResponsablesInsert = {
+  id?: string | null;
+  version_sif?: string | null;
+  id_sif?: string | null;
+  texto?: string | null;
+  texto_sha256?: string | null;
+  productor_nombre?: string | null;
+  productor_nif?: string | null;
+  productor_direccion?: string | null;
+  fecha_suscripcion?: string | null;
+  lugar_suscripcion?: string | null;
+  suscrita_por?: string | null | null;
+  suscrita_en?: string | null;
+}
+
+export type VerifactuDeclaracionesResponsablesUpdate = {
+  id?: string | null;
+  version_sif?: string | null;
+  id_sif?: string | null;
+  texto?: string | null;
+  texto_sha256?: string | null;
+  productor_nombre?: string | null;
+  productor_nif?: string | null;
+  productor_direccion?: string | null;
+  fecha_suscripcion?: string | null;
+  lugar_suscripcion?: string | null;
+  suscrita_por?: string | null | null;
+  suscrita_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -10920,6 +10965,11 @@ export type Database = {
         Row: RowVerifactuRegistros;
         Insert: VerifactuRegistrosInsert;
         Update: VerifactuRegistrosUpdate;
+      };
+      verifactu_declaraciones_responsables: {
+        Row: RowVerifactuDeclaracionesResponsables;
+        Insert: VerifactuDeclaracionesResponsablesInsert;
+        Update: VerifactuDeclaracionesResponsablesUpdate;
       };
     };
   };

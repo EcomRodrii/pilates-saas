@@ -18,7 +18,7 @@
 //                           transmite nada. Producción es opt-in explícito.
 //   CERTIFICATE_PFX        = el .p12/.pfx en base64.
 //   CERTIFICATE_PASSWORD   = su contraseña.
-//   VERIFACTU_PRODUCTOR_NIF / VERIFACTU_PRODUCTOR_NOMBRE = productor del SIF.
+//   VERIFACTU_PRODUCTOR_NOMBRE / _NIF / _DIRECCION = productor del SIF (sif.ts).
 //
 // ⚠️ VERIFACTU_ENTORNO (la variable antigua) sigue decidiendo el entorno del QR
 // en el sellado (`lib/billing/sellar-factura-server.ts`, que esta fase no toca).
@@ -28,7 +28,7 @@
 
 import type { DestinoAeat } from './endpoints.ts';
 import type { CertificadoCliente } from './envio.ts';
-import type { SistemaInformatico } from './xml.ts';
+import { productorDeEntorno, type Productor } from './sif.ts';
 
 export type EntornoVerifactu = 'preproduccion' | 'produccion';
 
@@ -57,28 +57,13 @@ export function qrEnProduccion(env: Env = process.env): boolean {
 }
 
 /**
- * Identificación del software ante la AEAT.
- *
- * ⚠️ `idSistemaInformatico` y `numeroInstalacion` NO se tocan a la ligera: el
- * ámbito de la cadena de huella es (obligado emisor + sistema informático), así
- * que cambiarlos inicia una cadena nueva a ojos de Hacienda. La AEAT tiene un
- * error admisible para ese escenario (2007), pero no es algo que se provoque
- * por un refactor.
+ * El productor del SIF (nombre, NIF, dirección), de la configuración del
+ * servidor. La identidad del software (id, versión, instalación por estudio)
+ * vive en `sif.ts`. Ya no hay «Tentare» por defecto como productor: el
+ * productor es una persona, y sin sus datos no se transmite.
  */
-export function sistemaInformatico(env: Env = process.env): SistemaInformatico {
-  return {
-    nombreRazon: env.VERIFACTU_PRODUCTOR_NOMBRE || 'Tentare',
-    nif: env.VERIFACTU_PRODUCTOR_NIF || '',
-    nombreSistemaInformatico: 'Tentare',
-    idSistemaInformatico: env.VERIFACTU_ID_SISTEMA || 'TE',
-    version: env.VERIFACTU_VERSION_SISTEMA || '1.0',
-    numeroInstalacion: env.VERIFACTU_NUM_INSTALACION || '001',
-    // Tentare solo emite en modalidad Veri*Factu, y un solo obligado tributario
-    // por instalación lógica.
-    soloVerifactu: true,
-    multiOT: false,
-    indicadorMultiplesOT: false,
-  };
+export function productor(env: Env = process.env): Productor | null {
+  return productorDeEntorno(env).productor;
 }
 
 export function certificadoDeEntorno(env: Env = process.env): CertificadoCliente | null {
@@ -105,7 +90,7 @@ export function queFaltaParaTransmitir(env: Env = process.env): string[] {
   if (!entorno) falta.push('el entorno (VERIFACTU_ENVIRONMENT = preproduction | production)');
   if (!env.CERTIFICATE_PFX) falta.push('el certificado (CERTIFICATE_PFX, en base64)');
   if (env.CERTIFICATE_PASSWORD === undefined) falta.push('la contraseña del certificado (CERTIFICATE_PASSWORD)');
-  if (!env.VERIFACTU_PRODUCTOR_NIF) falta.push('el NIF del productor del software (VERIFACTU_PRODUCTOR_NIF)');
+  for (const f of productorDeEntorno(env).falta) falta.push(f);
   if (entorno && entorno !== entornoDelQr(env)) {
     falta.push(`que VERIFACTU_ENTORNO (QR del sellado) coincida con VERIFACTU_ENVIRONMENT (${entorno})`);
   }
