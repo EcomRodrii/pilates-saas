@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 // ⚠️ Solo se afirma de DeporWeb lo que consta en su web pública (deporweb.es,
-// revisada el 23-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
+// revisada el 29-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
 // cual —«no consta en su web pública»— y nunca se rellena con «sí» ni con «no».
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
@@ -29,6 +29,12 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
+  // Nuevos ejes (deporweb.es/gestion-de-clientes, /pilates/ y
+  // /app-gestionar-gimnasio/, revisados el 29-sep-2026):
+  { feature: 'Aforo por sala individual', tentare: ['yes', 'Aforo propio por sala, no solo un aforo global por clase; en el reformer, capacidad por puesto'], them: ['partial', 'Menciona «reserva de zonas»; no consta un aforo propio por sala'] },
+  { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación, cancelación, bono exigido y lista de espera se fijan por tipo de clase; lo que no se toca hereda del estudio'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'App instalable con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador con el nombre, el icono y los colores del estudio; no pasa por App Store ni Google Play'], them: ['partial', 'Su app lleva «colores, logos y estética» propios del centro, según su web; no consta si se instala sin pasar por App Store/Google Play'] },
+  { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Una sola suscripción y un solo acceso, con datos aislados por sede (plan Cadena)'], them: ['partial', 'Ofrece una opción de «cadena de gimnasios» que remite a solicitar demo; no consta si es un panel único con una sola suscripción'] },
 ];
 
 const HONESTY: HonestyCard[] = [
@@ -63,7 +69,7 @@ export default function TentareVsDeporWebPage() {
       veredicto={<>Si gestionas un centro deportivo con muchas disciplinas y necesitas integrarlo con un ERP, DeporWeb está pensado para eso. Si tu negocio es un estudio de Pilates y quieres saber lo que vas a pagar antes de hablar con nadie, Tentare publica sus precios.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
-      footnote="Basado en la información pública de DeporWeb (deporweb.es) a 23 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. DeporWeb es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de DeporWeb (deporweb.es) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. DeporWeb es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );

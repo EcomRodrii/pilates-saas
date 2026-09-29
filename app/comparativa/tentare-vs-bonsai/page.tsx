@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 // ⚠️ Solo se afirma de Bonsai lo que consta en su web pública (mybonsai.app,
-// revisada el 23-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
+// revisada el 29-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
 // cual —«no consta en su web pública»— y nunca se rellena con «sí» ni con «no».
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
@@ -29,6 +29,11 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['yes', 'Servidores en la UE, según sus condiciones'] },
   { feature: 'Facturas con registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
+  // Nuevos ejes (mybonsai.app/precios y mybonsai.app/faqs, revisados el 29-sep-2026):
+  { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación, cancelación, bono exigido y lista de espera se fijan por tipo de clase; lo que no se toca hereda del estudio'], them: ['partial', 'Permite fijar cuántos cambios o recuperaciones puede hacer cada alumna y activar lista de espera automática; no consta que la antelación de reserva se configure por tipo de clase'] },
+  { feature: 'App instalable con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador con el nombre, el icono y los colores del estudio; no pasa por App Store ni Google Play'], them: ['partial', 'App nativa con marca propia solo en el plan Premium, según su web; en el resto de planes, app genérica de Bonsai para iOS y Android'] },
+  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta de crédito'], them: ['yes', '«No necesitas tarjeta de crédito para empezar tu prueba gratuita», según su web'] },
+  { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Una sola suscripción y un solo acceso, con datos aislados por sede (plan Cadena)'], them: ['partial', 'Según su FAQ, con el plan Premium «puedes gestionar múltiples ubicaciones desde una única cuenta»; no confirma si es una sola suscripción o si hay coste adicional por sede'] },
 ];
 
 const HONESTY: HonestyCard[] = [
@@ -67,7 +72,7 @@ export default function TentareVsBonsaiPage() {
       veredicto={<>Si estás empezando y tu volumen es pequeño, el plan gratuito de Bonsai puede bastarte, sabiendo que cobra un 3 % extra por transacción. Si ya vendes bonos y cuotas y quieres sustituciones de instructoras, plazas fijas y cobros que se reintentan solos, Tentare está pensado para eso, con precio público y sin comisión de la plataforma.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
-      footnote="Basado en la información pública de Bonsai (mybonsai.app) a 23 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Bonsai es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de Bonsai (mybonsai.app) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Bonsai es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );
