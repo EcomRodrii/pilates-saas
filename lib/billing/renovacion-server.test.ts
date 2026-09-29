@@ -128,23 +128,37 @@ test('mensual: extiende la fecha y guarda la de antes, que si no se pierde', asy
   assert.equal(r.tipo, 'MENSUAL');
   const s = snapshot(updates);
   assert.equal(s.entrega_fecha_fin_antes, '2026-01-15');
-  assert.ok(s.entrega_fecha_fin_despues, 'la fecha nueva tiene que quedar guardada');
-  assert.notEqual(s.entrega_fecha_fin_despues, s.entrega_fecha_fin_antes);
+  // Ancla al vencimiento, no a "ahora" (bug de auditoría corregido): el
+  // resultado es determinista, no depende de cuándo corre el test.
+  assert.equal(s.entrega_fecha_fin_despues, '2026-02-15');
   assert.equal(s.entrega_estado_antes, 'EXPIRADA');
 });
 
-test('mensual ya extendido: no vuelve a extender, y lo deja escrito', async () => {
+test('⚠️ un recibo de renovación SIEMPRE suma un ciclo desde el vencimiento, esté donde esté', async () => {
+  // Antes esto se llamaba "mensual ya extendido: no vuelve a extender" y
+  // esperaba `aplicada: false` para una `fecha_fin` lejana — pero eso solo
+  // pasaba por el bug de anclar a "ahora" (una fecha lejana siempre parecía
+  // "ya cubierta" frente a un cálculo hecho desde el reloj). Con el ancla
+  // correcta (vencimiento, nunca el reloj) un recibo de verdad SIEMPRE suma
+  // su ciclo, esté donde esté `fecha_fin` — «ya extendida por otro motivo»
+  // no es lo mismo que «esta entrega ya se aplicó», y confundir las dos cosas
+  // es precisamente cobrar sin entregar. La idempotencia real (esta MISMA
+  // entrega no se repite) la da el snapshot por recibo, no esta comparación
+  // — ver los tests B1/B1b más abajo.
   const lejos = new Date();
   lejos.setFullYear(lejos.getFullYear() + 1);
+  const finLejano = lejos.toISOString().slice(0, 10);
   const { admin, updates } = fakeAdmin({
-    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: null, fecha_fin: lejos.toISOString().slice(0, 10), estado: 'ACTIVA' },
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: null, fecha_fin: finLejano, estado: 'ACTIVA' },
     plan: MENSUAL,
   });
   const r = await aplicarRenovacionServidor(admin, params);
 
-  assert.equal(r.aplicada, false, 'el guard de idempotencia sigue vivo');
-  assert.equal(updates.suscripciones.length, 0);
-  assert.equal(snapshot(updates).entrega_aplicada, false);
+  assert.equal(r.aplicada, true);
+  assert.equal(updates.suscripciones.length, 1);
+  const s = snapshot(updates);
+  assert.equal(s.entrega_fecha_fin_antes, finLejano);
+  assert.notEqual(s.entrega_fecha_fin_despues, finLejano, 'tiene que sumar un ciclo, no quedarse igual');
 });
 
 // ── B1/B1b (revisión de D-6): idempotencia anclada al RECIBO ────────────────
@@ -342,16 +356,20 @@ test('créditos: la llamada repetida (webhook tras el cobro síncrono) vuelve a 
   assert.equal(updates.suscripciones.length, 0, 'no re-extiende');
 });
 
-test('créditos: una mensual pagada por adelantado (sin nada que extender) los pide igual', async () => {
+test('créditos: una mensual con fecha_fin ya lejana también los pide, y también extiende', async () => {
+  // Ver el test de arriba («un recibo de renovación SIEMPRE suma un ciclo»):
+  // una `fecha_fin` lejana no es «nada que extender», es una renovación
+  // legítima igual que cualquier otra.
   const lejos = new Date();
   lejos.setFullYear(lejos.getFullYear() + 1);
-  const { admin } = fakeAdmin({
+  const { admin, updates } = fakeAdmin({
     sus: { ...SUS_MENSUAL, fecha_fin: lejos.toISOString().slice(0, 10) }, plan: MENSUAL,
     recibo: { suscripcion_id: 'sus-1', es_renovacion: true },
   });
   const { efectos, pedidos } = efectosEspia();
   const r = await aplicarRenovacionServidor(admin, params, efectos);
-  assert.equal(r.aplicada, false);
+  assert.equal(r.aplicada, true);
+  assert.equal(updates.suscripciones.length, 1);
   assert.equal(pedidos.length, 1);
 });
 

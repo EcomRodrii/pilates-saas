@@ -8,7 +8,7 @@ import {
   calcularFechaFinBono, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
   saldoSesionesBono, avisaBonoAgotado, cicloInicialDe,
-  mesesDeCiclo, nombrePeriodo, proximoFinAlineadoDia1 } from './bono-logic.ts';
+  mesesDeCiclo, nombrePeriodo, proximoFinAlineadoDia1, proximoFinDesdeVencimiento } from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 function sus(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
@@ -723,6 +723,32 @@ test('⚠️ el fin de mes no se desborda al mes siguiente', () => {
     '2026-08-31T10:00:00Z',
   );
   assert.equal(ciclo.fechaFin, '2027-03-03');
+});
+
+// ── proximoFinDesdeVencimiento (ancla a fecha_fin, no a "ahora") ────────────
+//
+// Bug real de auditoría, confirmado en producción: la renovación ancla al
+// vencimiento, no a cuándo se consiguió cobrar — si no, cada retraso del
+// dunning regala días y desplaza el ciclo siguiente PARA SIEMPRE.
+
+test('⚠️ ancla al vencimiento, no a cuándo se cobró — caso real de producción', () => {
+  // rec-renov-sus-8-2026-08: fecha_vencimiento=2026-08-10, cobrado tarde el
+  // 2026-08-20 (10 días de dunning). El ciclo siguiente tiene que seguir
+  // siendo el 10 de cada mes, no el 20.
+  const mensual = { periodicidadMeses: 1 };
+  assert.equal(proximoFinDesdeVencimiento('2026-08-10', mensual), '2026-09-10');
+});
+
+test('un cobro que tarda meses en llegar no desplaza el aniversario', () => {
+  // Da igual "cuándo" se llama: el resultado solo depende del vencimiento
+  // anterior, nunca del reloj — a diferencia de `proximoFinNatural`.
+  const mensual = { periodicidadMeses: 1 };
+  assert.equal(proximoFinDesdeVencimiento('2026-01-14', mensual), '2026-02-14');
+});
+
+test('trimestral: tres meses desde el vencimiento, mismo desbordamiento ya aceptado en fin de mes', () => {
+  const trimestral = { periodicidadMeses: 3 };
+  assert.equal(proximoFinDesdeVencimiento('2026-08-31', trimestral), '2026-12-01'); // mismo quirk que cicloInicialDe
 });
 
 // ── proximoFinAlineadoDia1 (cobro_dia_1_activo) ──────────────────────────────
