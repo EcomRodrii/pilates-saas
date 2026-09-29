@@ -9,10 +9,10 @@ import { resolveBloquesPantalla } from '../lib/portal-home-bloques.ts';
 // de cifras — portada, horario y pie estaban clavados en el JSX. Se podía
 // arrastrar una sección, guardar, y no pasaba absolutamente nada.
 //
-// La portada acabó ANCLADA al arreglarlo, no movible: comparte un único
-// degradado con la barra de marca y las pestañas, y separarla para poder
-// moverla dejaba costuras a la vista. Se puede ocultar, que es lo que se pide
-// de verdad. Los dos casos tienen su test aquí abajo.
+// La portada acabó ANCLADA al arreglarlo, no movible: entonces compartía un
+// único degradado con la barra de marca y las pestañas, y desde la F3
+// (29-sep-2026) lleva la barra de la marca flotando encima. Se puede ocultar,
+// que es lo que se pide de verdad. Los dos casos tienen su test aquí abajo.
 //
 // ⚠️ Se comprueba por POSICIÓN EN PANTALLA (`boundingBox().y`), nunca por orden
 // del DOM: se reordena con `order` de CSS, así que el DOM no se mueve y un test
@@ -110,9 +110,9 @@ test('un orden guardado se cumple en pantalla: el pie sube por encima de las cif
 });
 
 test('⚠️ la portada NO se mueve aunque el orden guardado lo pida', async ({ page }) => {
-  // Comparte el degradado del hero con la barra y las pestañas; separarla deja
-  // costuras a la vista en la página de todos los estudios. Está anclada, y el
-  // rail tampoco la deja arrastrar — esto es la segunda puerta.
+  // Lleva la barra de la marca encima: moverla se la llevaría a mitad de
+  // página. Está anclada, y el rail tampoco la deja arrastrar — esto es la
+  // segunda puerta.
   await montar(page, { orden: ['contacto', 'portada'], ocultos: [] });
   await expect(page.locator('h1')).toBeVisible({ timeout: 30_000 });
   const [portada, horario] = await Promise.all([
@@ -125,7 +125,8 @@ test('⚠️ anclada no es obligatoria: la portada se oculta y desaparece', asyn
   await montar(page, { orden: [], ocultos: ['portada'] });
   await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('h1')).toHaveCount(0);
-  // Y lo que NO se oculta con ella: la barra de marca sigue arriba del todo.
+  // Y lo que NO se oculta con ella: la barra de marca sigue arriba del todo,
+  // ahora sobre el fondo de la página en vez de sobre la foto.
   await expect(page.getByText('Estudio Alma').first()).toBeVisible();
 });
 

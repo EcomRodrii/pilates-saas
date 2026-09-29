@@ -27,9 +27,9 @@ test('lo guardado manda para las secciones movibles', () => {
 });
 
 test('⚠️ ni el horario ni la portada se mueven, ni pidiéndolo explícitamente', () => {
-  // Una página de reservas sin horario está rota; y la portada comparte el
-  // degradado del hero con la barra y las pestañas, así que separarla deja
-  // costuras a la vista (ver SECCIONES_ANCLADAS).
+  // Una página de reservas sin horario está rota; y la portada lleva encima
+  // la barra de la marca, así que moverla se la llevaría a mitad de página
+  // (ver SECCIONES_ANCLADAS).
   const r = ids(ordenarSecciones({ orden: ['horario', 'portada', 'contacto'] }));
   assert.deepEqual(r.slice(0, 2), ['portada', 'horario']);
   assert.equal(esAnclada('horario'), true);
