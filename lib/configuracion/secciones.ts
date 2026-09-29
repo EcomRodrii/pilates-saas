@@ -161,6 +161,7 @@ export const SECCIONES = [
     tarjetas: [
       { id: 'datos-fiscales', titulo: 'Datos fiscales e IVA', frase: 'Razón social, NIF e IVA de tus facturas. Cambiar el IVA solo afecta a las facturas nuevas.', guardado: 'barra', palabras: ['nif', 'cif', 'razón social', 'facturas', 'impuestos'] },
       { id: 'integracion-stripe', titulo: 'Cobro con tarjeta (Stripe)', frase: 'Cobra bonos y cuotas con tarjeta en tu propia cuenta de Stripe: el dinero entra directo en ella.', guardado: 'accion', palabras: ['pago online', 'tarjeta'] },
+      { id: 'cuando-se-cobra-la-cuota', titulo: 'Cuándo se cobra la cuota mensual', frase: 'Cada alumna en su aniversario, o todas el día 1 de cada mes.', guardado: 'barra', palabras: ['día 1', 'fecha de cobro', 'aniversario', 'mensual'] },
       { id: 'domiciliaciones', titulo: 'Domiciliaciones bancarias', frase: 'Los datos que pide tu banco para cobrar recibos domiciliados. Con ellos generas la remesa en Cobros.', guardado: 'barra', palabras: ['sepa', 'banco', 'remesa', 'recibos'] },
       { id: 'devoluciones', titulo: 'Devoluciones', frase: 'Permite devolver un cobro desde la ficha de la alumna; el dinero vuelve a su tarjeta.', guardado: 'barra', palabras: ['reembolso', 'devolver'] },
       { id: 'si-se-cancela-una-cuota', titulo: 'Si se cancela una cuota', frase: 'Qué pasa con su recibo pendiente al cancelarla, y si la alumna puede renovarla sola desde su app.', guardado: 'barra', palabras: ['recibo pendiente', 'deuda', 'anular recibo', 'reintentos', 'impago', 'renovar'] },

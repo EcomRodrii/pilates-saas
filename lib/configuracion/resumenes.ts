@@ -749,6 +749,12 @@ export function resumenAlCancelarCuota(
   ]);
 }
 
+/** «Cada alumna en su aniversario» o «Todas el día 1 de cada mes». */
+export function resumenCobroDia1(s: Partial<Pick<Studio, 'cobroDia1Activo'>>): string | null {
+  if (s.cobroDia1Activo === undefined) return null;
+  return s.cobroDia1Activo ? 'Todas el día 1 de cada mes' : 'Cada alumna en su aniversario';
+}
+
 /**
  * De quién son los textos que acepta la alumna. Con unos términos PROPIOS no se
  * cobra ninguna penalización (`consentimientoCubrePenalizacion`: la cláusula del

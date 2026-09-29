@@ -1052,6 +1052,8 @@ export interface RowStudios {
   control_acceso_qr: boolean | null;
   // migr 20260928204621.
   zona_horaria: string | null;
+  // migr 20260929112340.
+  cobro_dia_1_activo: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -4922,6 +4924,7 @@ export type StudiosInsert = {
   preguntas_alta_activas?: boolean | null | null;
   control_acceso_qr?: boolean | null | null;
   zona_horaria?: string | null | null;
+  cobro_dia_1_activo?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5061,6 +5064,7 @@ export type StudiosUpdate = {
   preguntas_alta_activas?: boolean | null | null;
   control_acceso_qr?: boolean | null | null;
   zona_horaria?: string | null | null;
+  cobro_dia_1_activo?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {

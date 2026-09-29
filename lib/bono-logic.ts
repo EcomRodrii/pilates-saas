@@ -379,6 +379,17 @@ export function mesesDeCiclo(plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>
  * (`/${nombrePeriodo(p)}`, `al ${…}`, `cada ${…}`), y las cuatro palabras
  * funcionan con las tres. Tres tablas paralelas es como divergen las cosas.
  */
+// La extensión NATURAL (sin alinear) de una renovación MENSUAL: hoy + tantos
+// meses como dure el ciclo. Compartida entre `renovacion-server.ts` (cobro
+// automático) y `studio-context.tsx` (marcar cobrado a mano) — antes cada uno
+// tenía su propia copia, y este fichero ya avisa varias veces de qué pasa
+// cuando dos «espejos» divergen en silencio.
+export function proximoFinNatural(plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>>): string {
+  const nuevaFin = new Date();
+  nuevaFin.setMonth(nuevaFin.getMonth() + mesesDeCiclo(plan));
+  return nuevaFin.toISOString().slice(0, 10);
+}
+
 export function nombrePeriodo(plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>>): string {
   switch (mesesDeCiclo(plan)) {
     case 3: return 'trimestre';
@@ -386,6 +397,67 @@ export function nombrePeriodo(plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'
     case 12: return 'año';
     default: return 'mes';
   }
+}
+
+// ── Alineación del cobro mensual al día 1 (`studios.cobro_dia_1_activo`) ────
+//
+// Petición real de un estudio (2026-09-29): mueve plazas de plaza fija cada
+// mes y quiere que el cobro caiga siempre el día 1, no en el aniversario de
+// cada socia. Diseño elegido: NO tocar el alta (`cicloInicialDe` sigue
+// anclada al día en que se apuntó) — se realinea SOLO en cada renovación,
+// redondeando SIEMPRE hacia arriba (nunca antes de lo que ya pagó) al próximo
+// día 1. Converge en como mucho un ciclo, sin prorratear nada y sin migrar
+// ninguna suscripción existente: el mismo cron diario que ya recorre todas
+// las suscripciones vencidas la realinea sola en su próxima renovación.
+//
+// Se guarda como el ÚLTIMO día del mes ANTERIOR al cobro, nunca el propio
+// día 1: el cron de renovaciones dispara con `fecha_fin < hoy`
+// (lib/inngest/renovaciones.ts), así que guardar literalmente "día 1"
+// cobraría el día 2, no el 1.
+//
+// ⚠️ Una vez alineada, `fechaFinActualISO` es SIEMPRE "el día antes de un
+// día 1" (28, 29, 30 o 31 según el mes). Sumarle meses con `setUTCMonth`
+// directamente sobre ese día desborda en JS (31 ene + 1 mes = 3 mar, no
+// 28/29 feb, ver el test de `cicloInicialDe` de arriba) y se saltaría un mes
+// de cobro entero. Por eso SIEMPRE se avanza en aritmética de día 1 (nunca
+// desborda): se neutraliza el día del mes ANTES de sumar meses, tanto si ya
+// estaba alineada como si es la primera vez.
+//
+// ⚠️ Bug real encontrado en revisión (auditoría antes de mergear, no en
+// producción): una primera alineación desde un aniversario de día 29/30 (p.
+// ej. 30 de enero) desbordaba igual que `cicloInicialDe` sabe que puede pasar
+// — pero como aquí el resultado se redondeaba DESPUÉS a día 1, ese
+// desbordamiento de "unos días de propina" (el criterio ya aceptado en el
+// resto del fichero) se amplificaba a un MES ENTERO gratis: `setUTCMonth`
+// sobre el 30 de enero cae en el 2 de marzo (febrero no tiene día 30), y
+// redondear ESE resultado a día 1 daba el 1 de abril en vez del 1 de marzo.
+// La corrección: el número de meses a avanzar (incluido el `+1` de redondeo)
+// se decide ANTES de tocar la fecha, y se aplica sobre el día 1 del mes de
+// `fechaFinActualISO` — nunca sobre su día real.
+export function proximoFinAlineadoDia1(
+  fechaFinActualISO: string,
+  plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>>,
+): string {
+  const finActual = new Date(`${fechaFinActualISO.slice(0, 10)}T00:00:00Z`);
+  const diaSiguiente = new Date(finActual);
+  diaSiguiente.setUTCDate(diaSiguiente.getUTCDate() + 1);
+
+  // Ya alineada (`fechaFinActualISO` es el día antes de un día 1): el ciclo
+  // avanza tantos meses como dure, sin redondear más — el punto de partida
+  // (`diaSiguiente`) ya es un día 1. Sin alinear todavía: además de los
+  // meses del ciclo, hace falta UN mes más para no adelantar el cobro —
+  // salvo que el aniversario ya cayera en día 1 (ahí el ciclo natural
+  // también cae en día 1 sin desbordar nunca, y no hace falta ese extra).
+  const yaAlineada = diaSiguiente.getUTCDate() === 1;
+  const mesesAAvanzar = mesesDeCiclo(plan) + (yaAlineada || finActual.getUTCDate() === 1 ? 0 : 1);
+
+  const objetivo = yaAlineada ? new Date(diaSiguiente) : new Date(finActual);
+  objetivo.setUTCDate(1);
+  objetivo.setUTCMonth(objetivo.getUTCMonth() + mesesAAvanzar);
+
+  const fin = new Date(objetivo);
+  fin.setUTCDate(fin.getUTCDate() - 1);
+  return fin.toISOString().slice(0, 10);
 }
 
 

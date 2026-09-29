@@ -8,7 +8,7 @@ import {
   calcularFechaFinBono, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
   saldoSesionesBono, avisaBonoAgotado, cicloInicialDe,
-  mesesDeCiclo, nombrePeriodo } from './bono-logic.ts';
+  mesesDeCiclo, nombrePeriodo, proximoFinAlineadoDia1 } from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 function sus(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
@@ -723,4 +723,55 @@ test('⚠️ el fin de mes no se desborda al mes siguiente', () => {
     '2026-08-31T10:00:00Z',
   );
   assert.equal(ciclo.fechaFin, '2027-03-03');
+});
+
+// ── proximoFinAlineadoDia1 (cobro_dia_1_activo) ──────────────────────────────
+
+test('primera alineación: nunca cobra antes de lo que ya tenía pagado', () => {
+  const mensual = { periodicidadMeses: 1 };
+  // Se apuntó el 14: su fecha_fin natural (sin alinear) sería el 14 del mes
+  // siguiente. Redondear ABAJO al día 1 de ese mismo mes le quitaría días ya
+  // pagados — tiene que redondear ARRIBA, al día 1 del mes de después.
+  assert.equal(proximoFinAlineadoDia1('2026-10-14', mensual), '2026-11-30');
+});
+
+test('ya alineada: el ciclo siguiente cae justo un mes después, sin desviarse', () => {
+  const mensual = { periodicidadMeses: 1 };
+  assert.equal(proximoFinAlineadoDia1('2026-11-30', mensual), '2026-12-31');
+  assert.equal(proximoFinAlineadoDia1('2026-12-31', mensual), '2027-01-31');
+});
+
+test('⚠️ ya alineada y el mes tiene menos días: no se salta ningún mes de cobro', () => {
+  // Aquí es donde `setUTCMonth` a pelo sobre un día 31 desbordaría (31 ene + 1
+  // mes = 3 mar) y se saltaría febrero entero. La aritmética de día 1 no
+  // desborda nunca.
+  const mensual = { periodicidadMeses: 1 };
+  assert.equal(proximoFinAlineadoDia1('2027-01-31', mensual), '2027-02-28');
+  // Y en año bisiesto, el día 29 también sale solo del objeto Date, sin
+  // tabla de días-por-mes a mano.
+  assert.equal(proximoFinAlineadoDia1('2028-01-31', mensual), '2028-02-29');
+});
+
+test('⚠️ primera alineación desde un aniversario de día 29/30: no regala un mes entero', () => {
+  // Bug real encontrado en revisión: el 30 de enero desborda igual que
+  // `cicloInicialDe` (30 ene + 1 mes cae en el 2 de marzo, no existe el 30 de
+  // febrero) — unos días de propina, el criterio ya aceptado en este
+  // fichero. Pero redondear ESE resultado desbordado a día 1 lo amplificaba
+  // a un mes entero gratis (1 de abril en vez de 1 de marzo). Correcto: fin
+  // de febrero, cobro el 1 de marzo.
+  const mensual = { periodicidadMeses: 1 };
+  assert.equal(proximoFinAlineadoDia1('2026-01-30', mensual), '2026-02-28');
+  assert.equal(proximoFinAlineadoDia1('2026-04-29', mensual), '2026-05-31');
+});
+
+test('trimestral: la alineación respeta los tres meses del ciclo', () => {
+  const trimestral = { periodicidadMeses: 3 };
+  assert.equal(proximoFinAlineadoDia1('2026-10-14', trimestral), '2027-01-31');
+  assert.equal(proximoFinAlineadoDia1('2027-01-31', trimestral), '2027-04-30');
+});
+
+test('el natural ya cae en día 1: no hace falta redondear más', () => {
+  // 2026-11-01 + 1 mes natural = 2026-12-01, que ya es día 1: el objetivo es
+  // ese mismo día, sin saltar al mes siguiente.
+  assert.equal(proximoFinAlineadoDia1('2026-11-01', { periodicidadMeses: 1 }), '2026-11-30');
 });
