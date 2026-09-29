@@ -24,7 +24,7 @@ import {
 } from '@/lib/widgets/integracion';
 import { urlPopupPermitida } from '@/lib/widgets/popup-url';
 import { piezasAfectadas } from '@/lib/widgets/estilo-afectados';
-import { colorDeLaWeb } from '@/lib/reservar/estilo-web-tipos';
+import { colorDeLaWeb, esNeutro } from '@/lib/reservar/estilo-web-tipos';
 import { botonDeLaVentana } from '@/lib/reservar/estilo-web';
 import {
   direccionLegible, leerWeb, metodoEnWeb, nombrePlataforma, receta as recetaDe, usaBotonPropio, type EstadoWeb, type PlataformaWeb,
@@ -76,6 +76,17 @@ import { GestionDominios } from './dominios';
 // de ahora—. La vista previa, en cambio, pinta el borrador. Y al copiar se
 // marca si lo copiado lee esas variables (`copiado.botonVivo`), con el mismo
 // predicado que las emite: es lo único que dice si un botón pegado cambia solo.
+//
+// Sin marco (Fase E, 29-sep-2026) el estilo también llega, con sus datos: la
+// vista previa pinta el borrador con las mismas funciones que el bundle, y al
+// copiar se guarda la versión que dirá ver su web (`firmaContenidoDe`).
+//
+// ⚠️ El color del estudio es el del TEMA (`estiloWeb.base.colorPrimario`, lo que
+// elige en Marca), no la columna `studios.color_primario`: en casi todos los
+// estudios esa columna es el índigo que escribe el alta y no ha elegido nadie
+// (lib/emails/color-marca.ts). La columna, solo mientras carga el tema. Con él
+// se pintan el botón a su página en el código (su `style`, que `firmaCodigo` no
+// cuenta), la vista previa y las muestras.
 
 const ORIGEN_POR_DEFECTO = new URL(LEGAL.url).origin;
 const HORARIO = WIDGETS.find((x): x is WidgetDisponible => x.id === 'horario' && x.estado === 'disponible')!;
@@ -167,6 +178,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   }
 
   const plataforma = web.plataforma;
+  const colorEstudio = estiloWeb.base?.colorPrimario ?? studio?.colorPrimario ?? null;
   const receta = recetaDe(plataforma, w);
   const metodo = metodoEnWeb(config, w, plataforma);
   const elegirMetodo = (m: MetodoIntegracion) => cambiar({ metodo: m });
@@ -210,7 +222,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // `botonVivo`: el respaldo del botón del popup en el código, con lo PUBLICADO
   // (mientras carga, `null`: el de siempre, `colorBoton`).
   const entrada: EntradaIntegracion = {
-    widget: w, config: configEfectiva, origen, slug, colorEstudio: studio?.colorPrimario ?? null,
+    widget: w, config: configEfectiva, origen, slug, colorEstudio,
     botonVivo: estiloWeb.base ? botonDeLaVentana(estiloWeb.publicado, estiloWeb.base) : null,
   };
 
@@ -277,10 +289,10 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       salas: salas.map(s => ({ id: s.id, nombre: s.nombre })),
       proximasClases,
       planesPorTipo,
-      colorEstudio: studio?.colorPrimario ?? COLOR_POR_DEFECTO,
+      colorEstudio: colorEstudio ?? COLOR_POR_DEFECTO,
       reglas,
     };
-  }, [tiposClase, instructorasActivas, salas, proximasClases, planesContratables, studio]);
+  }, [tiposClase, instructorasActivas, salas, proximasClases, planesContratables, studio, colorEstudio]);
 
   // Los dominios del widget los valida y guarda el servidor (solo la
   // propietaria, migr 20260914011356); aquí se pinta lo que devolvió.
@@ -410,7 +422,11 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   let contenido: Contenido | null = null;
   if (!faltaPrevia) {
     contenido = metodo === 'nativa'
-      ? { tipo: 'componente', nodo: <PreviewNativa slug={slug} config={configEfectiva} colorEstudio={studio?.colorPrimario ?? null} /> }
+      ? {
+        tipo: 'componente',
+        // El estilo que está probando (o, sin borrador, lo que hay en su web): lo mismo que la previa del iframe.
+        nodo: <PreviewNativa slug={slug} config={configEfectiva} estilo={borradorWeb ?? estiloWeb.publicado} base={estiloWeb.base} colorEstudio={colorEstudio} />,
+      }
       : { tipo: 'iframe', src: srcPrevia, titulo: w.nombre, origen, slug, altoInicial: paginaCompleta ? 900 : w.alto };
   }
   const anchoWidget = metodo === 'iframe'
@@ -436,7 +452,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const suWeb = {
     direccion: direccionWeb,
     nombre: studio?.nombre ?? 'Tu estudio',
-    color: studio?.colorPrimario ?? COLOR_POR_DEFECTO,
+    color: colorEstudio ?? COLOR_POR_DEFECTO,
     // El de «¿Cómo es tu web?» (el borrador: lo está contestando ahora). Un
     // diseño propio para una web oscura manda sobre él: es de este widget.
     fondo: configEfectiva.identidad === 'propia' && configEfectiva.tema === 'oscuro' ? FONDO_WEB_OSCURA : colorDeLaWeb(estiloWeb.borrador),
@@ -445,7 +461,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // ahora, y a qué le llega el borrador que se va a aplicar (el botón de la
   // ventana, solo si se ve distinto que con lo publicado).
   const piezas = piezasAfectadas({
-    configs: configsCopiadas, copiados, plataforma, origen, slug, colorEstudio: studio?.colorPrimario ?? null,
+    configs: configsCopiadas, copiados, plataforma, origen, slug, colorEstudio,
     estilo: estiloWeb.borrador, publicado: estiloWeb.publicado, base: estiloWeb.base,
   });
 
@@ -653,6 +669,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               copiado={copia}
               desfase={desfase}
               estiloSinAplicar={estiloWeb.pendiente}
+              estiloAplicado={estiloWeb.fase === 'listo' ? !esNeutro(estiloWeb.publicado) : null}
               onCopiado={registrarCopia}
               onMetodo={elegirMetodo}
               cambiar={cambiar}

@@ -30,7 +30,10 @@
 //     en sus `data-*` (`tieneDisenoEnCodigo(c, 'nativa')`, que no es la regla
 //     del iframe: la nativa solo entiende marca, fondo, tinta y letra). Y salvo
 //     «Siete días en columnas» (lo de por defecto sin marco) con un estilo de
-//     NOCHE: como en el iframe, de él solo le llega la letra (`sinMarcoSoloLetra`).
+//     NOCHE: como en el iframe, de él solo le llega la letra (`sinMarcoSoloLetra`),
+//     y con «Como tu app» ni eso. ⚠️ Y solo si de verdad se ve distinta: la
+//     nativa no tiene pie, y la noche en columnas con la letra de su web no le
+//     llega; si lo que cambia es eso, no se nombra (`cambiaSinMarco`).
 //   · enlace y botón: abren la página suelta, que se ve como la app.
 // Un widget con diseño propio no cuenta en ninguno: la confirmación ya dice
 // que esos no cambian.
@@ -47,7 +50,7 @@ import { cambiaElBotonDeLaVentana, resolverEstiloWeb, urlTraeDisenoPropio, type 
 import type { WidgetWeb } from '../reservar/estilo-web-tipos.ts';
 import { paletaEfectivaReservar } from '../reservar/precedencia-tema.ts';
 import { temaAppParaReservar } from '../reservar/tema-app.ts';
-import { datosEstiloNativaDeBase, estiloDeLaNativa } from '../widget/estilo-nativa.ts';
+import { datosEstiloNativaDeBase, estiloDeLaNativa, type EstiloNativa } from '../widget/estilo-nativa.ts';
 
 export interface PiezasAfectadas {
   /** Los nombres de los widgets copiados que cambian, en el orden del catálogo. */
@@ -79,15 +82,10 @@ export interface PiezasAfectadas {
   sinMarco: string[];
   /**
    * Fase E: sin marco y en «Siete días en columnas» con un estilo de noche; de
-   * él solo les llega la letra (`sinMarcoSoloLetra`). Nunca en `cambian`.
+   * él solo les llega la letra (`sinMarcoSoloLetra`), y con «Como tu app»
+   * (`letra: null`) nada: se quedan con la de su web. Nunca en `cambian`.
    */
   sinMarcoSoloLetra: string[];
-  /**
-   * Alguno copiado va sin marco y sin diseño propio en su código (está en
-   * `sinMarco` o en `sinMarcoSoloLetra`). Se queda hasta que el panel deje de
-   * leerlo (pista 2 de la Fase E); entonces se borra, con su línea de test.
-   */
-  hayNativa: boolean;
   /** Alguno copiado es un enlace o un botón a la página: se ve como la app. */
   hayPagina: boolean;
 }
@@ -163,16 +161,36 @@ export function columnasSinPaleta(
  * es otra línea de la confirmación.
  */
 export function sinMarcoSoloLetra(w: WidgetDisponible, c: ConfigConstructor, estilo: WidgetWeb | null, base: BaseEstiloWeb): boolean {
+  return estiloSinMarco(w, c, estilo, base)?.soloLetra === true;
+}
+
+/** Lo que pintará el bundle con el código de este widget y este estilo; `null` con diseño propio o nada elegido. */
+function estiloSinMarco(w: WidgetDisponible, c: ConfigConstructor, estilo: WidgetWeb | null, base: BaseEstiloWeb): EstiloNativa | null {
   const params = lectorDePares(paresNativa({ widget: w, config: c, origen: ORIGEN_LOCAL, slug: 'estudio' }));
-  if (nativaTraeDisenoPropio(params)) return false;
+  if (nativaTraeDisenoPropio(params)) return null;
   const columnas = resolverConfigWidget(params).diseno !== 'completo';
-  return estiloDeLaNativa(datosEstiloNativaDeBase(estilo, base), { columnas })?.soloLetra === true;
+  return estiloDeLaNativa(datosEstiloNativaDeBase(estilo, base), { columnas });
+}
+
+/**
+ * ¿Se ve distinta esta nativa con `estilo` que con lo publicado? Por lo que le
+ * LLEGA, por valor: sin estilo y con la noche en columnas de «Como tu app» no
+ * le llega nada (se ve como siempre), y el pie o el color de su web en su
+ * recuadro no cambian nada en ella. Sin esto, la confirmación diría «también
+ * cambia» de una nativa que se queda igual (quitar el pie, que no tiene), o
+ * «vuelve a verse como antes» de una a la que nunca le llegó nada.
+ */
+function cambiaSinMarco(w: WidgetDisponible, c: ConfigConstructor, publicado: WidgetWeb | null, estilo: WidgetWeb | null, base: BaseEstiloWeb): boolean {
+  const llega = (x: WidgetWeb | null) => {
+    const e = estiloSinMarco(w, c, x, base);
+    return e && !(e.soloLetra && e.letra === null) ? JSON.stringify(e) : null;
+  };
+  return llega(estilo) !== llega(publicado);
 }
 
 export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
   const out: PiezasAfectadas = {
-    cambian: [], columnasSinPaleta: [], botonesVivos: [], botonesCongelados: [], sinMarco: [], sinMarcoSoloLetra: [],
-    hayNativa: false, hayPagina: false,
+    cambian: [], columnasSinPaleta: [], botonesVivos: [], botonesCongelados: [], sinMarco: [], sinMarcoSoloLetra: [], hayPagina: false,
   };
   // Sin base no se sabe cómo se ve (nadie enseña la confirmación así): no se afirma nada del botón.
   const botonCambia = !!d.base && cambiaElBotonDeLaVentana(d.publicado, d.estilo, d.base);
@@ -191,12 +209,11 @@ export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
       else out.cambian.push(w.nombre);
       if (metodo === 'popup' && botonCambia) (copiado.botonVivo === true ? out.botonesVivos : out.botonesCongelados).push(w.nombre);
     } else if (metodo === 'nativa') {
-      out.hayNativa = true;
       // Sin base (cargando) no se sabe si es de noche: cambia, el mismo
       // criterio que `columnasSinPaleta`. Un borrador neutro también cambia:
-      // vuelve a su aspecto de siempre.
+      // vuelve a su aspecto de siempre, si alguna vez le llegó otro.
       if (d.base && sinMarcoSoloLetra(w, c, d.estilo, d.base)) out.sinMarcoSoloLetra.push(w.nombre);
-      else {
+      else if (!d.base || cambiaSinMarco(w, c, d.publicado, d.estilo, d.base)) {
         out.cambian.push(w.nombre);
         out.sinMarco.push(w.nombre);
       }

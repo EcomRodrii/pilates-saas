@@ -5,6 +5,7 @@ import { AlertCircle, ArrowRight, CalendarDays, Info, Plus, TrendingUp } from 'l
 import { cn } from '@/lib/utils';
 import { btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
 import { estiloPorId } from '@/lib/student/apariencia';
+import { esNeutro } from '@/lib/reservar/estilo-web-tipos';
 import { METODOS } from '@/lib/widgets/catalogo';
 import { textoCambios, textosEnTuWeb, type PiezaCopiada } from '@/lib/widgets/en-tu-web';
 import { FOCO, TACTIL, Tarjeta, fechaCorta } from './piezas';
@@ -68,6 +69,11 @@ export function LoQueTienes({
   const nombreEstilo = estilo.fase === 'listo' && estilo.base
     ? (estilo.publicado?.estilo ? estiloPorId(estilo.publicado.estilo).nombre : `Igual que tu app · ${estiloPorId(estilo.base.app.estilo).nombre}`)
     : undefined;
+  // Sin marco (Fase E) el estilo llega con sus datos; mientras no hay ninguno
+  // aplicado, lo pegado sin marco se ve como siempre. Solo con lo publicado ya
+  // leído, y solo si alguna pieza va así y lo recibe (sin diseño propio).
+  const sinMarcoComoSiempre = estilo.fase === 'listo' && esNeutro(estilo.publicado)
+    && filas.some(f => f.pieza.metodo === 'nativa' && !f.pieza.disenoPropio);
 
   return (
     <div className="space-y-4">
@@ -97,8 +103,13 @@ export function LoQueTienes({
       <Tarjeta titulo="Estilo de tus widgets" etiqueta="vivo" subtitulo={nombreEstilo}>
         <div className="space-y-3">
           <p className="text-[12.5px] leading-relaxed text-foreground">
-            Llega a lo que tienes dentro de una página o en una ventana encima, salvo a lo que lleva su propio diseño en el código.
+            Llega a lo que tienes dentro de una página, sin marco o en una ventana encima, salvo a lo que lleva su propio diseño en el código.
           </p>
+          {sinMarcoComoSiempre && (
+            <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+              Lo que va sin marco sigue con su aspecto de siempre mientras no apliques ningún cambio de estilo.
+            </p>
+          )}
           {estilo.pendiente && (
             <p className="flex items-start gap-2 text-[12.5px] leading-relaxed text-foreground">
               <span aria-hidden className="mt-[7px] size-2 shrink-0 rounded-full bg-warning" />Tienes un estilo sin aplicar.

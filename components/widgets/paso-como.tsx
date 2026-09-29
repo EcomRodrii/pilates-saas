@@ -7,7 +7,8 @@ import { MODO_TOKENS } from '@/lib/portal-modo';
 import type { MetodoIntegracion, WidgetDisponible } from '@/lib/widgets/catalogo';
 import { anchoPorDefecto, type ConfigConstructor } from '@/lib/widgets/config';
 import { tieneDisenoEnCodigo } from '@/lib/widgets/integracion';
-import { columnasSinPaleta, type PiezasAfectadas } from '@/lib/widgets/estilo-afectados';
+import { columnasSinPaleta, sinMarcoSoloLetra, type PiezasAfectadas } from '@/lib/widgets/estilo-afectados';
+import { esNeutro } from '@/lib/reservar/estilo-web-tipos';
 import { botonDeSuWeb, usaBotonPropio, type PlataformaWeb } from '@/lib/widgets/recetas';
 import { Ajuste, AjusteInterruptor, Etiqueta, MuestraColor, Plegable, Segmentado, Tarjeta } from './piezas';
 import { EstiloWeb } from './estilo-web';
@@ -24,9 +25,12 @@ import type { EstiloWebPanel } from './usar-estilo-web';
 // el estilo de su web (lib/reservar/estilo-web.ts), y así se le dice.
 //
 // Lo que no sigue el estilo se dice arriba, antes de que elija nada: el enlace y
-// el botón a su página abren la página suelta (se ve como su app), y la
-// integración sin marco lleva su propio diseño. Y lo que lo sigue a medias,
-// en cuanto pasa: «Siete días en columnas» con un estilo de noche.
+// el botón a su página abren la página suelta (se ve como su app), y un diseño
+// propio en el código no lo recibe. La integración sin marco sí lo sigue desde
+// la Fase E, con sus datos y sin volver a pegar nada: mientras no hay nada
+// elegido se ve como siempre, y se dice. Y lo que lo sigue a medias, en cuanto
+// pasa: «Siete días en columnas» con un estilo de noche (sin marco, como mucho
+// la letra, y con «Como tu app» nada).
 
 const COLOR_DE_FONDO = '#F6F3EC';
 
@@ -63,16 +67,30 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
   // La misma cuenta que la confirmación de «Aplicar en mi web», con el borrador
   // que se está probando: lo que haría /reservar con el código de este widget.
   const sinPaleta = !!estilo.base && columnasSinPaleta(w, c, metodo, estilo.borrador, estilo.base);
+  // Sin marco, con la regla de SUS `data-*` (la nativa solo entiende marca,
+  // fondo, tinta y letra): «propia» con solo una superficie sigue el estilo.
+  const disenoEnSuCodigo = tieneDisenoEnCodigo(c, metodo);
+  const sinMarcoSinNada = nativa && estilo.fase === 'listo' && esNeutro(estilo.borrador);
+  const sinMarcoLetra = nativa && !!estilo.base && sinMarcoSoloLetra(w, c, estilo.borrador, estilo.base);
 
   const aviso: ReactNode = metodo === 'enlace' || soloBoton
     ? <>Con {metodo === 'enlace' ? 'un enlace' : 'un botón que lleva a tu página'}, tu página de reservas se ve <strong className="font-semibold">como tu app</strong>. Este estilo es para lo que pongas dentro de tu web o en una ventana encima.</>
-    : nativa
-      ? 'Sin marco, el widget no sigue este estilo: lleva su propio diseño, con la letra de tu web. Si quieres que cambie solo, ponlo dentro de tu página.'
-      : disenoEnCodigo
-        ? 'Este widget lleva un diseño propio en su código (abajo): este estilo no le llega.'
-        : sinPaleta
-          ? 'Con «Siete días en columnas», este widget no se pinta en oscuro: de este estilo solo le llegan la letra, las esquinas, la separación y el pie.'
-          : null;
+    : disenoEnSuCodigo
+      ? 'Este widget lleva un diseño propio en su código (abajo): este estilo no le llega.'
+      : sinMarcoSinNada
+        // Con la identidad del estudio, su color (el del tema) y la letra de su
+        // web; «propia» sin nada que la nativa entienda, su diseño de siempre.
+        ? propia
+          ? 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con su diseño de siempre. En cuanto apliques un cambio, lo toma entero, sin volver a pegar nada.'
+          : 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con tu color y la letra de tu web. En cuanto apliques un cambio, lo toma entero, sin volver a pegar nada.'
+        : sinMarcoLetra
+          // De noche en columnas solo le llegaría la letra; con «Como tu app», ni esa.
+          ? estilo.borrador.letra === null
+            ? 'Sin marco y con «Siete días en columnas», este widget no se pinta en oscuro: de este estilo no le llega nada, y se ve como si no hubieras elegido ninguno.'
+            : 'Sin marco y con «Siete días en columnas», este widget no se pinta en oscuro: de este estilo solo le llega la letra.'
+          : sinPaleta
+            ? 'Con «Siete días en columnas», este widget no se pinta en oscuro: de este estilo solo le llegan la letra, las esquinas, la separación y el pie.'
+            : null;
 
   const disenoDistinto = metodo !== 'enlace' && !botonPropio ? (
     <Plegable
@@ -116,6 +134,7 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
         <EstiloWeb
           estado={estilo}
           metodo={metodo}
+          letraSinMarco={nativa && !disenoEnSuCodigo ? (propia ? 'siempre' : 'web') : null}
           soloLectura={soloLectura}
           verApariencia={verApariencia}
           piezas={piezas}
