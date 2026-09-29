@@ -173,8 +173,10 @@ export function eyebrow(size = 9): CSSProperties {
  * Sin pareja elegida, sin widget y en el bundle de Modo B la variable no existe
  * y vale el número de siempre: cero cambio.
  *
- * `'normal'` es para los titulares que NO llevaban peso escrito (la portada,
- * «Mis reservas», «El estudio», las pestañas…): heredaban el 400 de la página
+ * `'normal'` es para los titulares que NO llevaban peso escrito («Mis
+ * reservas», «El estudio», las pestañas…; la portada también, hasta que la F3
+ * del rediseño la pasó a `pesoTitular(800)`, como el héroe de la app de la
+ * alumna — components/reservar/portada-reservar.tsx): heredaban el 400 de la página
  * y así seguían, finos, con una pareja cuyo titular la app pinta a 600-700.
  * Con «Moderna» o con fuente del widget (`initial`) cae a `normal`, que es lo
  * que ya salía. Solo FUERA de las tarjetas de clase: esas no se tocan.
