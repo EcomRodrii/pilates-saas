@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 // ⚠️ Solo se afirma de Mindbody lo que consta en su web pública (mindbodyonline.com,
-// revisada el 23-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
+// revisada el 29-sep-2026, con la URL de cada dato). Lo que no consta se dice tal
 // cual —«no consta en su web pública»— y nunca se rellena con «sí» ni con «no».
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
@@ -29,6 +29,10 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Facturas con registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir plaza en la sala', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Client Pick-a-Spot», en el plan Accelerate'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador, con tu nombre y tu icono'], them: ['partial', 'App de marca como complemento de pago (precio no publicado)'] },
+  { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'La antelación para cancelar puede ser distinta por tipo de clase (p. ej. reformer vs. mat)'], them: ['yes', '«Booking window» y «cancellation window» configurables por servicio, según su web de ayuda'] },
+  { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada sala tiene su propio aforo, independiente del de la clase'], them: ['partial', 'Asigna una sala o recurso a la clase o cita, pero el aforo se fija por clase, no por sala, según su ayuda'] },
+  { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Varias sedes con un solo acceso y una sola suscripción, desde el plan Cadena'], them: ['yes', '«Un panel corporativo único» para todas las sedes, según su web; solo en el nivel Enterprise, a consultar'] },
+  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta de crédito'], them: ['partial', 'No consta en su web pública'] },
 ];
 
 const HONESTY: HonestyCard[] = [
@@ -67,7 +71,7 @@ export default function TentareVsMindbodyPage() {
       veredicto={<>Si te interesa captar clientas nuevas a través de un marketplace con mucho tráfico, Mindbody puede compensar su comisión. Si prefieres saber lo que pagas por adelantado, no tener comisión por clienta nueva y un software pensado para un estudio de Pilates, Tentare publica su precio y no cobra comisión sobre tus cobros.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
-      footnote="Basado en la información pública de Mindbody (mindbodyonline.com) a 23 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Mindbody es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de Mindbody (mindbodyonline.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Mindbody es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );
