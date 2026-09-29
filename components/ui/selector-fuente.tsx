@@ -1,7 +1,7 @@
 'use client';
 
-// El selector de tipografía del widget: diez familias reales (seis sin marco),
-// cada una escrita en su propia letra.
+// El selector de tipografía del widget: las familias que sirve Tentare, cada
+// una escrita en su propia letra.
 //
 // Antes era un `<input type="text">` con el placeholder «Space Grotesk». Eso
 // obligaba a saberse de memoria el nombre EXACTO de una familia de Google
@@ -10,47 +10,29 @@
 // tan contento y la fuente simplemente no aparecía en el widget.
 //
 // Se conserva el texto libre de antes por debajo (`FUENTE_VALIDA` no cambia),
-// así que un estudio con una familia ya guardada fuera del catálogo la sigue
-// viendo y usando: aparece al final de la lista como «la tuya». Quitarla
-// habría cambiado la tipografía de un widget en producción sin avisar.
+// así que un estudio con una familia ya guardada fuera de la lista la sigue
+// viendo en su código: aparece al final como «la tuya», con lo que pasará con
+// ella. Quitarla habría cambiado el código de un widget en producción sin
+// avisar.
 //
-// Sin marco (`sinMarco`) solo se ofrecen las del catálogo que sirve Tentare
-// (`familiaServida`, lib/widget/fuentes-nativa.ts): la nativa vive en la web
-// del estudio y no le pide nada a Google, así que las otras no llegarían a
-// verse. Una ya elegida fuera de esas se enseña igual, y se dice por qué puede
-// no verse. Las muestras salen de las fuentes del panel (`next/font`): tampoco
-// se pide el catálogo a Google.
+// ⚠️ Solo se ofrecen las del catálogo que sirve Tentare (`familiaServida`,
+// lib/widget/fuentes-nativa.ts), en la página de reservas y sin marco: ninguna
+// de las dos le pide ya nada a Google (le daba la IP de cada visitante de su
+// web), así que Inter, DM Sans, Playfair Display y Fraunces no llegarían a
+// verse. Las muestras salen de las fuentes de la app (`next/font`): tampoco se
+// pide el catálogo a Google para enseñarlas.
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  FUENTES_WIDGET, familiaCssCatalogo, fuenteDelCatalogo, urlCatalogoGoogle,
-  type FuenteCatalogo,
-} from '@/lib/reservar/fuentes-catalogo';
+import { FUENTES_WIDGET, fuenteDelCatalogo, type FuenteCatalogo } from '@/lib/reservar/fuentes-catalogo';
 import { familiaServida, letraNativa } from '@/lib/widget/fuentes-nativa';
 
-/** Las del catálogo que sirve Tentare: las únicas que se ven sin marco. */
-const FUENTES_SIN_MARCO = FUENTES_WIDGET.filter(f => familiaServida(f.familia));
+/** Las del catálogo que sirve Tentare: las únicas que se ven. */
+const FUENTES_SERVIDAS = FUENTES_WIDGET.filter(f => familiaServida(f.familia));
 
-/**
- * Carga UNA vez por documento la hoja con las diez familias, para que la
- * muestra de cada opción se vea de verdad. Va por `document.head` y no por un
- * `<link>` en el JSX porque el selector se usa dos veces en la misma pantalla
- * (texto y titulares) y no tiene sentido pedirlo dos veces; el `id` hace de
- * candado. Sin marco no se llama: sus muestras son fuentes del panel.
- */
-function useCatalogoCargado(activo: boolean) {
-  useEffect(() => {
-    const ID = 'tentare-catalogo-fuentes';
-    if (!activo || document.getElementById(ID)) return;
-    const link = document.createElement('link');
-    link.id = ID;
-    link.rel = 'stylesheet';
-    link.href = urlCatalogoGoogle();
-    document.head.appendChild(link);
-  }, [activo]);
-}
+/** La muestra de cada una: las fuentes de la app, las mismas que pinta la vista previa. */
+const muestra = (f: FuenteCatalogo) => letraNativa(f.familia, 'app').pila;
 
 interface Props {
   etiqueta: string;
@@ -62,12 +44,14 @@ interface Props {
   etiquetaPorDefecto?: string;
   /** Lo que se lee bajo esa opción. Sin ella, nada. */
   pistaPorDefecto?: string;
-  /** Para la integración sin marco: solo las que sirve Tentare (ver arriba). */
+  /**
+   * Para la integración sin marco: cambia lo que se dice de una letra que
+   * Tentare no sirve (allí se ve si su web ya la carga; en la página, no).
+   */
   sinMarco?: boolean;
 }
 
 export function SelectorFuente({ etiqueta, ayuda, valor, onChange, etiquetaPorDefecto = 'La de Tentare', pistaPorDefecto, sinMarco = false }: Props) {
-  useCatalogoCargado(!sinMarco);
   const [abierto, setAbierto] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
   const idLista = useId();
@@ -86,25 +70,25 @@ export function SelectorFuente({ etiqueta, ayuda, valor, onChange, etiquetaPorDe
     };
   }, [abierto]);
 
-  const catalogo = sinMarco ? FUENTES_SIN_MARCO : FUENTES_WIDGET;
   const delCatalogo = fuenteDelCatalogo(valor);
-  const enCatalogo = delCatalogo && catalogo.includes(delCatalogo) ? delCatalogo : null;
-  // Una familia guardada a mano que no está en las diez (o, sin marco, una de
-  // las diez que Tentare no sirve): se respeta y se enseña, nunca se descarta
-  // en silencio.
+  const enCatalogo = delCatalogo && FUENTES_SERVIDAS.includes(delCatalogo) ? delCatalogo : null;
+  // Una familia guardada a mano que no está en la lista (o una de las del
+  // catálogo que Tentare no sirve, elegida antes de que dejáramos de pedirlas a
+  // Google): se respeta y se enseña, nunca se descarta en silencio.
   const propia: FuenteCatalogo | null = valor && !enCatalogo
     ? {
-        ...(delCatalogo ?? { familia: valor, etiqueta: valor, categoria: 'sans', pesos: [400, 500, 600, 700] }),
+        ...(delCatalogo ?? { familia: valor, etiqueta: valor, categoria: 'sans' }),
         // Figtree o Libre Caslon Text, escritas a mano, no están en la lista
-        // pero la hoja de Tentare sí las lleva: esas se ven.
-        pista: sinMarco && !familiaServida(valor) ? 'Sin marco no la servimos: solo se verá si tu web ya la carga.' : 'La que escribiste antes a mano.',
+        // pero Tentare sí las sirve: esas se ven.
+        pista: familiaServida(valor)
+          ? 'La que escribiste antes a mano.'
+          : sinMarco
+            ? 'No la servimos: solo se verá si tu web ya la carga.'
+            : 'No la servimos: en su lugar se verá una del sistema.',
       }
     : null;
-  const opciones = [...catalogo, ...(propia ? [propia] : [])];
+  const opciones = [...FUENTES_SERVIDAS, ...(propia ? [propia] : [])];
   const actual = enCatalogo ?? propia;
-  // La muestra de cada una: sin marco, las fuentes del panel (las mismas que
-  // pinta la vista previa); si no, las del catálogo de Google.
-  const muestra = (f: FuenteCatalogo) => (sinMarco ? letraNativa(f.familia, 'panel').pila : familiaCssCatalogo(f));
 
   return (
     <div className="space-y-1" ref={caja}>

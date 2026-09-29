@@ -1,5 +1,6 @@
 import { STRIPE_STUB } from './stripe-stub';
 import { test, expect, type Page } from '@playwright/test';
+import { contarGoogleFonts } from './letras-sin-google';
 
 // RES-7-f: la hora de una clase se enseña en la zona del ESTUDIO, no en la del
 // navegador. Los fixtures llevan la hora sin zona («10:00» del navegador), así que
@@ -72,7 +73,7 @@ function fixtureClaseConPlanPuntual() {
 // `checkout-casilla-legal.spec.ts`, y dos copias divergirían.
 
 
-async function pulsarPagar(page: Page, modoConfirm: 'succeeded' | 'throw' | 'reject' | 'pending' = 'succeeded') {
+async function pulsarPagar(page: Page, modoConfirm: 'succeeded' | 'throw' | 'reject' | 'pending' = 'succeeded', query = '') {
   await page.addInitScript((m) => { (window as unknown as Record<string, string>).__TENTARE_CONFIRM = m; }, modoConfirm);
   await page.clock.install({ time: new Date(`${AHORA}+02:00`) });
   await page.route('**/rest/v1/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: STUDIO_ID }) }));
@@ -85,7 +86,7 @@ async function pulsarPagar(page: Page, modoConfirm: 'succeeded' | 'throw' | 'rej
   await page.route('**/api/public/checkout-embebido', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientSecret: CLIENT_SECRET }) }));
 
   for (let intento = 0; intento < 3; intento++) {
-    await page.goto(`/reservar/${SLUG}?tab=clases`);
+    await page.goto(`/reservar/${SLUG}?tab=clases${query}`);
     if (await page.locator('#horario').waitFor({ timeout: 30_000 }).then(() => true).catch(() => false)) break;
   }
   // Petición explícita del fundador (2026-08-30, "no quiero que se coma 3
@@ -244,3 +245,50 @@ test('⚠️ si la promesa no resuelve NUNCA, el tope de tiempo devuelve el cont
   // Y el mensaje NO promete que no se haya cobrado: aquí no se sabe.
   await expect(page.getByText('Comprueba tu banco', { exact: false })).toBeVisible();
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La letra del iframe de pago. Stripe no ve las fuentes de la página: hay que
+// darle sus caras, y era Google (Instrument Sans por defecto, o la del
+// widget): la IP de quien paga, a un tercero. Ahora son los woff2 de Tentare.
+// Se mira lo que recibe `elements()` en el stub: es todo lo que el iframe
+// llegaría a ver.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type OpcionesElements = { fonts?: { family?: string; src?: string; cssSrc?: string }[]; appearance?: { variables?: { fontFamily?: string } } };
+const opcionesElements = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __TENTARE_STRIPE_ELEMENTS?: OpcionesElements[] }).__TENTARE_STRIPE_ELEMENTS ?? []);
+
+for (const [caso, query] of [
+  ['sin letra elegida, la de la página', ''],
+  ['incrustada con `?fuente=Poppins`, la del widget', '&embed=1&fuente=Poppins'],
+] as const) {
+  test(`⚠️ el pago no le pide la letra a Google (${caso}): sale de Tentare`, async ({ page }) => {
+    const google = await contarGoogleFonts(page);
+    await pulsarPagar(page, 'pending', query);
+    const opciones = await opcionesElements(page);
+    // El control: Elements se creó de verdad (en desarrollo, StrictMode lo
+    // crea dos veces; las dos con lo mismo).
+    expect(opciones.length).toBeGreaterThan(0);
+    // La letra que pinta la página alrededor del pago: la primera familia de
+    // `--font-ui` donde se monta, con el nombre que le da `next/font/local`
+    // («Plus_Jakarta_Sans»). Sin letra elegida es la de la pareja de la app;
+    // antes el pago no la reconocía y pedía Instrument Sans a Google.
+    // (El botón de pagar ya dice «Procesando…»: se mira la cabecera del pago.)
+    const enLaPagina = await page.getByText('Confirmar reserva', { exact: true }).first().evaluate(el =>
+      getComputedStyle(el).getPropertyValue('--font-ui').split(',')[0].trim().replace(/^["']|["']$/g, ''));
+    const familia = `Tentare ${enLaPagina.replace(/_/g, ' ')}`;
+    if (query.includes('Poppins')) expect(familia).toBe('Tentare Poppins');
+    const tentare = `url(${new URL(page.url()).origin}/widget-fuentes/v1/`;
+    for (const o of opciones) {
+      // `fonts` solo cuenta al crear Elements: tiene que nacer ya con sus caras,
+      // todas de esa familia y todas de Tentare.
+      expect(o.fonts?.length).toBeGreaterThan(0);
+      for (const cara of o.fonts ?? []) {
+        expect(cara.family).toBe(familia);
+        expect(cara.src?.startsWith(tentare), cara.src).toBe(true);
+      }
+      expect(o.appearance?.variables?.fontFamily).toBe(`'${familia}', system-ui, sans-serif`);
+    }
+    expect(google).toEqual([]);
+  });
+}

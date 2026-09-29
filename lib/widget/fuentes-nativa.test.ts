@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CARPETAS_FUENTES_NATIVA, FAMILIAS_SERVIDAS_NATIVA, HOJA_FUENTES_NATIVA, RUTA_FUENTES_NATIVA, VARS_FAMILIAS_NATIVA,
-  familiaServida, fuenteDelPago, letraNativa,
+  CARPETAS_FUENTES_NATIVA, FAMILIAS_SERVIDAS_NATIVA, FAMILIA_PAGO_POR_DEFECTO, HOJA_FUENTES_NATIVA, RANGO_EXTENDIDA,
+  RUTA_FUENTES_NATIVA, VARS_FAMILIAS_NATIVA, carasDelPago, familiaServida, fuenteDelPago, letraNativa,
 } from './fuentes-nativa.ts';
 import { varsPareja } from '../reservar/tema-app.ts';
 import { TIPOGRAFIA_IDS } from '../student/apariencia.ts';
-import { familiaCssDe, urlFuenteGoogle } from '../reservar/config-widget.ts';
+import { familiaCssDe } from '../reservar/config-widget.ts';
 import { FUENTES_WIDGET, RESERVA_SANS, RESERVA_SERIF } from '../reservar/fuentes-catalogo.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -274,7 +274,7 @@ test('una familia servida en su web: las «Tentare …» de la hoja, empezando p
   }
 });
 
-test('la misma familia en el panel: las variables de `next/font`, que la app ya tiene cargadas', () => {
+test('la misma familia en la app (panel y /reservar): las variables de `next/font`, que la app ya declara', () => {
   // Las públicas de fuentes.css (`--font-jakarta`) y las de cada `localFont` de fuentes.ts (`--font-ui-latin`).
   const definidas = new Set([
     ...[...fuentesCss.matchAll(/^\s*(--font-[a-z-]+):/gm)].map(m => m[1]),
@@ -282,22 +282,23 @@ test('la misma familia en el panel: las variables de `next/font`, que la app ya 
   ]);
   for (const familia of FAMILIAS_SERVIDAS_NATIVA) {
     const web = letraNativa(familia, 'web');
-    const panel = letraNativa(familia, 'panel');
-    assert.equal(panel.servida, true);
-    const vars = variablesDe(panel.pila);
+    const app = letraNativa(familia, 'app');
+    assert.equal(app.servida, true);
+    const vars = variablesDe(app.pila);
     assert.ok(vars.length > 0, familia);
     for (const v of vars) assert.ok(definidas.has(v), `${familia}: ${v} no la define la app`);
-    // ⚠️ Nunca `--font-ui`/`--font-display`: la vista previa las fija ella misma con esta pila.
-    assert.equal(vars.some(v => v === '--font-ui' || v === '--font-display'), false, panel.pila);
+    // ⚠️ Nunca `--font-ui`/`--font-display`: la vista previa y /reservar las
+    // fijan ellas mismas con esta pila (una variable que se nombra a sí misma).
+    assert.equal(vars.some(v => v === '--font-ui' || v === '--font-display'), false, app.pila);
     // Las mismas variables que en su web, allí con su valor de la hoja, y la
     // misma reserva detrás: la previa no puede decir otra letra que su web.
     const reserva = web.pila.endsWith(RESERVA_SERIF) ? RESERVA_SERIF : RESERVA_SANS;
     assert.equal(`${vars.map(v => VARS_FAMILIAS_NATIVA[v]).join(', ')}, ${reserva}`, web.pila, familia);
-    assert.ok(panel.pila.endsWith(reserva), familia);
+    assert.ok(app.pila.endsWith(reserva), familia);
   }
 });
 
-test('⚠️ del selector del diseño propio, Tentare sirve seis; las otras cuatro no se ofrecen sin marco', () => {
+test('⚠️ del catálogo del selector, Tentare sirve seis; las otras cuatro no se ofrecen (ni en la página ni sin marco)', () => {
   const servidas = FUENTES_WIDGET.filter(f => familiaServida(f.familia)).map(f => f.familia);
   assert.deepEqual(servidas, ['Instrument Sans', 'Plus Jakarta Sans', 'Poppins', 'Outfit', 'Instrument Serif', 'Cormorant Garamond']);
   assert.deepEqual(
@@ -321,7 +322,7 @@ test('el nombre se reconoce como en el catálogo: sin distinguir mayúsculas ni 
 
 test('⚠️ una que Tentare no sirve (un código de antes, o escrita a mano): se nombra con su reserva y no se pide a nadie', () => {
   for (const familia of ['Inter', 'Playfair Display', 'Space Grotesk', 'Lobster']) {
-    for (const donde of ['web', 'panel'] as const) {
+    for (const donde of ['web', 'app'] as const) {
       const r = letraNativa(familia, donde);
       assert.equal(r.servida, false, familia);
       // La misma pila de siempre (con la reserva de su tipo): si su web ya la carga, se ve.
@@ -331,27 +332,94 @@ test('⚠️ una que Tentare no sirve (un código de antes, o escrita a mano): s
   assert.ok(letraNativa('Playfair Display', 'web').pila.endsWith(RESERVA_SERIF));
 });
 
-test('el pago (iframe de Stripe): una «Tentare …» va con la hoja de Tentare, nunca a Google', () => {
-  const hoja = `https://www.tentare.app${HOJA_FUENTES_NATIVA}`;
-  assert.deepEqual(fuenteDelPago("'Tentare Poppins'", hoja), { familia: 'Tentare Poppins', cssSrc: hoja });
-  assert.deepEqual(fuenteDelPago(' "Tentare Figtree"', hoja), { familia: 'Tentare Figtree', cssSrc: hoja });
-  // Sin la hoja en la página no hay de dónde sacarla: el pago usa la de siempre.
-  assert.equal(fuenteDelPago("'Tentare Poppins'", null), null);
-  // Lo de siempre fuera de la nativa: un nombre limpio va a Google, un alias de next/font no.
-  assert.deepEqual(fuenteDelPago("'Space Grotesk'", hoja), { familia: 'Space Grotesk', cssSrc: urlFuenteGoogle('Space Grotesk') });
-  assert.equal(fuenteDelPago('Instrument_Sans', hoja), null);
-  assert.equal(fuenteDelPago('  ', hoja), null);
-  // Con la pila real de una letra servida, la primera familia es la de la hoja.
-  const primera = letraNativa('Poppins', 'web').pila.split(',')[0];
-  assert.equal(fuenteDelPago(primera, hoja)?.cssSrc, hoja);
+const ORIGEN = 'https://www.tentare.app';
+
+test('⚠️ el pago: las caras de cada familia son EXACTAMENTE las de la hoja sin cursiva, con URL absoluta de Tentare', () => {
+  // La hoja como `cssSrc` no le llega al iframe de Stripe (sus url() son
+  // relativas; medido): se le dan sus caras una a una. Si esta tabla se
+  // separara de la hoja, el pago pediría un woff2 que no existe o se dejaría
+  // un peso, y nadie lo vería.
+  for (const familia of FAMILIAS_SERVIDAS_NATIVA) {
+    const esperadas = reglas
+      .filter(r => familiaDe(r) === `Tentare ${familia}` || familiaDe(r) === `Tentare ${familia} Ext`)
+      .filter(r => propiedad(r, 'font-style') === 'normal')
+      .map(r => ({
+        family: `Tentare ${familia}`,
+        src: `url(${ORIGEN}${RUTA_FUENTES_NATIVA}/${urlDe(r)})`,
+        weight: propiedad(r, 'font-weight'),
+        style: 'normal',
+        display: 'swap',
+        ...(propiedad(r, 'unicode-range') ? { unicodeRange: propiedad(r, 'unicode-range') } : {}),
+      }));
+    const caras = carasDelPago(familia, ORIGEN);
+    const clave = (c: object) => JSON.stringify(c);
+    assert.deepEqual(caras.map(clave).sort(), esperadas.map(clave).sort(), familia);
+    assert.ok(caras.length > 0, familia);
+    for (const c of caras) {
+      assert.match(c.src, /^url\(https:\/\/www\.tentare\.app\/widget-fuentes\/v1\//, c.src);
+      assert.ok(existsSync(join(FUENTES, c.src.replace(/^url\(.*\/v1\/|\)$/g, ''))), `${familia}: ${c.src} no está en app/_fuentes`);
+    }
+  }
+  // La extendida, con el rango de siempre (el mismo en toda la hoja).
+  assert.ok(reglas.filter(r => propiedad(r, 'unicode-range')).every(r => propiedad(r, 'unicode-range') === RANGO_EXTENDIDA));
+  assert.deepEqual(carasDelPago('Inter', ORIGEN), []);
 });
 
-test('⚠️ el bundle no le pide fuentes a Google: ni la URL ni la función que la construye', () => {
-  // Pasó: `montarUno` metía un `<link>` a fonts.googleapis.com en la web del
-  // estudio con cualquier `data-fuente`. La guardia es de texto, como la de
-  // arriba: basta que alguien lo vuelva a importar para que se note aquí.
+test('el pago (iframe de Stripe): las caras de Tentare para lo que sirve Tentare, nada para lo demás, nunca Google', () => {
+  const de = (familia: string) => ({ familia: `Tentare ${familia}`, fuentes: carasDelPago(familia, ORIGEN) });
+  // Sin marco con una letra elegida: la «Tentare …» de la hoja.
+  assert.deepEqual(fuenteDelPago("'Tentare Poppins'", ORIGEN), de('Poppins'));
+  assert.deepEqual(fuenteDelPago(' "Tentare Figtree"', ORIGEN), de('Figtree'));
+  const primera = letraNativa('Poppins', 'web').pila.split(',')[0];
+  assert.deepEqual(fuenteDelPago(primera, ORIGEN), de('Poppins'));
+  // El nombre del catálogo (la prop de /reservar, o `'Instrument Sans'`, la
+  // base sin marco).
+  assert.deepEqual(fuenteDelPago('Plus Jakarta Sans', ORIGEN), de('Plus Jakarta Sans'));
+  assert.deepEqual(fuenteDelPago("'Instrument Sans'", ORIGEN), de('Instrument Sans'));
+  // ⚠️ La primera familia de `--font-ui` en la app es el nombre que le da
+  // `next/font/local`: el de la constante, con guiones bajos (fuentes.ts).
+  // Antes se descartaba (no pasa `fuenteValida`) y el pago pedía Instrument
+  // Sans a Google aunque la página fuera en Jakarta; ahora es la misma.
+  for (const constante of [...fuentesTs.matchAll(/^const (\w+) = localFont\(/gm)].map(m => m[1])) {
+    const familia = constante.replace(/_/g, ' ');
+    if (!FAMILIAS_SERVIDAS_NATIVA.includes(familia)) continue;
+    assert.deepEqual(fuenteDelPago(constante, ORIGEN), de(familia), constante);
+  }
+  // Una que no servimos (la letra de su web, un código de antes): se nombra y
+  // no se pide a nadie.
+  assert.deepEqual(fuenteDelPago("'Space Grotesk'", ORIGEN), { familia: 'Space Grotesk', fuentes: [] });
+  assert.deepEqual(fuenteDelPago('Inter', ORIGEN), { familia: 'Inter', fuentes: [] });
+  // Nada que sirva: la de siempre del widget, de Tentare.
+  for (const nada of ['  ', null, undefined, "Foo'; }", 'IBM_Plex_Mono_Ext']) {
+    assert.deepEqual(fuenteDelPago(nada, ORIGEN), de(FAMILIA_PAGO_POR_DEFECTO), String(nada));
+  }
+  assert.ok(FAMILIAS_SERVIDAS_NATIVA.includes(FAMILIA_PAGO_POR_DEFECTO));
+});
+
+test('⚠️ el bundle nombra la letra del código por `letraNativa`', () => {
   const bundle = readFileSync(join(raiz, 'app/widget-bundle/main.tsx'), 'utf8');
-  assert.equal(bundle.includes('urlFuenteGoogle'), false);
-  assert.equal(bundle.includes('googleapis'), false);
   assert.equal(bundle.includes('familiaCssDe'), false, 'la letra del código pasa por `letraNativa`');
+});
+
+/** Todos los .ts/.tsx de una carpeta, sin tests. */
+function fuentesDe(carpeta: string): string[] {
+  return (readdirSync(join(raiz, carpeta), { recursive: true }) as string[])
+    .filter(f => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f))
+    .map(f => join(carpeta, f));
+}
+
+test('⚠️ ninguna pantalla le pide letras a Google: ni la web del estudio, ni /reservar, ni el selector, ni el pago', () => {
+  // Pasó en cuatro sitios: `montarUno` (#2359), el `<link>` de /reservar con
+  // `?fuente=`, la hoja del catálogo del selector y el `cssSrc` del iframe de
+  // Stripe. Cada petición le daba a Google la IP de quien miraba. Se buscan
+  // los dos dominios fuera de comentarios (que sí los nombran, para contar
+  // por qué no se usan).
+  const culpables: string[] = [];
+  for (const fichero of ['app', 'components', 'lib'].flatMap(fuentesDe)) {
+    const codigo = readFileSync(join(raiz, fichero), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    if (/fonts\.(googleapis|gstatic)\.com/.test(codigo)) culpables.push(fichero);
+  }
+  assert.deepEqual(culpables, []);
 });

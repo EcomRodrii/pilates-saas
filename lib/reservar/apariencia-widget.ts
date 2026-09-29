@@ -14,21 +14,29 @@
 // ⚠️ **La tipografía no se puede HEREDAR de la web anfitriona.** Un iframe es
 // otro documento: `font-family: inherit` no cruza esa frontera, y no hay API
 // que lo permita sin que el anfitrión colabore. Lo que sí funciona es que el
-// estudio la NOMBRE («Space Grotesk») y la carguemos nosotros. La interfaz lo
-// dice con esas palabras en vez de prometer una herencia que no existe.
+// estudio la NOMBRE («Poppins») y la pongamos nosotros. La interfaz lo dice con
+// esas palabras en vez de prometer una herencia que no existe.
+//
+// ⚠️ Y la ponemos SIN Google: son las familias que la app ya sirve desde
+// Tentare (`next/font`, app/_fuentes) — las de `letraNativa`, las mismas que
+// sin marco. Pedirla a fonts.googleapis.com desde este iframe le daba a Google
+// la IP de cada visitante de la web del estudio por haber elegido una letra.
+// Otra familia (un código de antes con Inter, o escrita a mano) se nombra y no
+// se pide: solo se ve si quien mira la tiene instalada.
 
 // El regex de color Y el de fuente viven en config-widget.ts (módulo común de
 // los dos modos de embebido, sin dependencias) — una sola puerta anti-XSS, no
 // dos copias. `fuenteValida` se reexporta para no romper a quien ya lo
 // importaba de aquí.
-import { COLOR_VALIDO, fuenteValida, familiaCssDe, urlFuenteGoogle } from './config-widget.ts';
+import { COLOR_VALIDO, fuenteValida } from './config-widget.ts';
+import { letraNativa } from '../widget/fuentes-nativa.ts';
 
 export { fuenteValida };
 
 export interface AparienciaWidget {
   /** `null` = el fondo del portal, como hasta ahora. */
   fondo: 'transparente' | string | null;
-  /** Nombre de familia (Google Fonts) para el cuerpo/UI. `null` = la del tema. */
+  /** Nombre de familia (el del catálogo) para el cuerpo/UI. `null` = la del tema. */
   fuente: string | null;
   /** Radio de las esquinas de TARJETAS en px. `null` = el del tema. */
   radio: number | null;
@@ -238,30 +246,20 @@ export function fondoCss(a: AparienciaWidget): string | null {
  *
  * La fuente elegida puede tardar en cargar o no existir; sin reserva, ese rato
  * se ve en Times New Roman, que es peor que la tipografía de Tentare.
+ *
+ * ⚠️ Es para DENTRO de la app (/reservar): una familia que sirve Tentare sale
+ * como las variables de `next/font` (`letraNativa(…, 'app')`), que en la web
+ * de un estudio no existen. El bundle sin marco usa las suyas.
  */
 export function familiaCss(a: AparienciaWidget): string | null {
   if (!a.fuente) return null;
-  return familiaCssDe(a.fuente);
-}
-
-/**
- * La URL de Google Fonts para cargarla, o `null`. La construcción (y la
- * segunda puerta de validación, ver su comentario) vive en `urlFuenteGoogle`
- * (config-widget.ts) — compartida con el bundle de Modo B.
- */
-export function urlFuente(a: AparienciaWidget): string | null {
-  return urlFuenteGoogle(a.fuente);
+  return letraNativa(a.fuente, 'app').pila;
 }
 
 /** Igual que `familiaCss`, para la fuente de titulares/horas/precios. */
 export function familiaDisplayCss(a: AparienciaWidget): string | null {
   if (!a.fuenteDisplay) return null;
-  return familiaCssDe(a.fuenteDisplay);
-}
-
-/** Igual que `urlFuente`, para la fuente de titulares/horas/precios. */
-export function urlFuenteDisplay(a: AparienciaWidget): string | null {
-  return urlFuenteGoogle(a.fuenteDisplay);
+  return letraNativa(a.fuenteDisplay, 'app').pila;
 }
 
 /**

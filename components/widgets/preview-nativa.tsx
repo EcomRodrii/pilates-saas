@@ -72,8 +72,8 @@ export function PreviewNativa({ slug, config, estilo, base, colorEstudio, fuente
 
   const fuente = propia ? familia(config.fuente) : null;
   const fuenteDisplay = propia ? familia(config.fuenteDisplay) : null;
-  const cuerpo = fuente ? letraNativa(fuente, 'panel') : null;
-  const titular = fuenteDisplay ? letraNativa(fuenteDisplay, 'panel') : cuerpo;
+  const cuerpo = fuente ? letraNativa(fuente, 'app') : null;
+  const titular = fuenteDisplay ? letraNativa(fuenteDisplay, 'app') : cuerpo;
   const delPanel = !propia && fuenteDelPanel ? fuenteDelPanel : null;
   const fuenteUi = cuerpo?.pila ?? delPanel ?? FUENTE_UI_BASE;
   const display = titular?.pila ?? delPanel ?? FUENTE_DISPLAY_BASE;

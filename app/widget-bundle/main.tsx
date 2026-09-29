@@ -304,6 +304,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
       onCrearIntento: crearCheckoutEmbebido, onBizum: comprarConBizum,
       onCerrar: () => setPlanesAbiertos(false), onComprado: () => recargar({ silencioso: true }),
       onIniciarSesion: () => { setPlanesAbiertos(false); setAccesoAbierto(true); },
+      origenTentare: ORIGEN_TENTARE,
     };
     mod.mountListaPlanes(contenedor, props);
   });
