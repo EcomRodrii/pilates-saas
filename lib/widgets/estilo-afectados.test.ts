@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { isDeepStrictEqual } from 'node:util';
-import { columnasSinPaleta, piezasAfectadas, type DatosAfectados } from './estilo-afectados.ts';
+import { columnasSinPaleta, piezasAfectadas, sinMarcoSoloLetra, type DatosAfectados } from './estilo-afectados.ts';
 import { WIDGETS, esDisponible, type MetodoIntegracion, type WidgetDisponible } from './catalogo.ts';
 import { CONFIG_POR_DEFECTO, type ConfigConstructor, type Copiado } from './config.ts';
 import { firmaCodigo, urlEmbebido } from './integracion.ts';
@@ -20,7 +20,9 @@ const BASE = baseEstiloWeb('#343825', null);
 const GENERADO = { origen: 'https://tentare.example.com', slug: 'pilates-centro', colorEstudio: '#343825' };
 const widget = (id: string) => WIDGETS.find((x): x is WidgetDisponible => x.id === id && esDisponible(x))!;
 const HORARIO = widget('horario');
-const VACIO = { cambian: [], columnasSinPaleta: [], botonesVivos: [], botonesCongelados: [], hayNativa: false, hayPagina: false };
+const VACIO = {
+  cambian: [], columnasSinPaleta: [], botonesVivos: [], botonesCongelados: [], sinMarco: [], sinMarcoSoloLetra: [], hayPagina: false,
+};
 /** Un borrador que sí cambia cómo se ve el botón de la ventana (sus esquinas) frente a nada publicado. */
 const BOTON_NUEVO = ww({ forma: 'recto' });
 
@@ -52,16 +54,16 @@ test('solo lo COPIADO desde el constructor, por su nombre y en el orden del cat�
   assert.deepEqual(r.cambian, ['Horario y reservas', 'Planes y precios']);
 });
 
-test('la ventana encima cambia (su botón no); sin marco y los enlaces a la página, no', () => {
+test('la ventana encima cambia (su botón no) y sin marco también (Fase E); los enlaces a la página, no', () => {
   const r = piezasAfectadas(datos({ horario: c({ metodo: 'popup' }), planes: c({ metodo: 'boton' }), cuenta: c({ metodo: 'enlace' }) }, 'otra', { estilo: BOTON_NUEVO }));
   assert.deepEqual(r.cambian, ['Horario y reservas']);
   // Copiado sin la marca de la Fase D: su botón es de un código anterior.
   assert.deepEqual(r.botonesCongelados, ['Horario y reservas']);
   assert.deepEqual(r.botonesVivos, []);
   assert.equal(r.hayPagina, true);
-  assert.equal(r.hayNativa, false);
-  const nativa = piezasAfectadas(datos({ horario: c({ metodo: 'nativa' }) }, 'otra'));
-  assert.deepEqual(nativa, { ...VACIO, hayNativa: true });
+  assert.deepEqual(r.sinMarco, []);
+  const nativa = piezasAfectadas(datos({ horario: c({ metodo: 'nativa' }) }, 'otra', { estilo: ww({ estilo: 'arena' }) }));
+  assert.deepEqual(nativa, { ...VACIO, cambian: ['Horario y reservas'], sinMarco: ['Horario y reservas'] });
 });
 
 test('⚠️ un widget con diseño propio en su código no cuenta: a ese no le llega el estilo', () => {
@@ -249,4 +251,126 @@ test('el botón de la ventana: si este estilo cambia el color de los botones, s�
   assert.deepEqual(vuelta.botonesCongelados, ['Horario y reservas', 'Planes y precios']);
   // Sin base (cargando) no se sabe cómo se ve: no se afirma nada del botón.
   assert.deepEqual(piezasAfectadas({ ...sinMarca, base: null }).botonesCongelados, []);
+});
+
+// ── Fase E: sin marco ───────────────────────────────────────────────────────
+// El estilo le llega con sus datos, no con su código: una nativa pegada hace
+// tiempo también cambia. La regla del diseño propio es la de SUS `data-*`, y
+// «Siete días en columnas» (lo de por defecto sin marco) de noche solo toma la letra.
+
+const NATIVA = c({ metodo: 'nativa' });
+const cambiaSinMarco = { ...VACIO, cambian: ['Horario y reservas'], sinMarco: ['Horario y reservas'] };
+
+test('sin marco y sin diseño propio: cambia (en `cambian` y en `sinMarco`), con cualquier estilo que no sea de noche en columnas', () => {
+  for (const estilo of [ww({ estilo: 'arena' }), ww({ letra: 'editorial' }), ww({ forma: 'recto' }), ww({ boton: 'tinta' })]) {
+    assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { estilo })), cambiaSinMarco, JSON.stringify(estilo));
+  }
+  // Con un borrador neutro también: vuelve a verse como antes de aplicar uno.
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { estilo: ww(), publicado: ww({ estilo: 'arena' }) })), cambiaSinMarco);
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { estilo: null, publicado: ww({ estilo: 'arena' }) })), cambiaSinMarco);
+});
+
+test('⚠️ sin marco, el diseño propio es el de SUS `data-*`: marca sí; una superficie (que la nativa no entiende), no', () => {
+  const conMarca = c({ metodo: 'nativa', identidad: 'propia', marca: '#E11D48' });
+  assert.deepEqual(piezasAfectadas(datos({ horario: conMarca }, 'otra', { estilo: ww({ estilo: 'arena' }) })), VACIO);
+  for (const propia of [{ fondo: '#fafafa' }, { tinta: '#111111' }, { fuente: 'Poppins' }, { fuenteDisplay: 'Poppins' }]) {
+    assert.deepEqual(piezasAfectadas(datos({ horario: c({ metodo: 'nativa', identidad: 'propia', ...propia }) }, 'otra', { estilo: ww({ estilo: 'arena' }) })), VACIO, JSON.stringify(propia));
+  }
+  // «Propia» con solo lo que la nativa no emite: sin marco no lleva diseño propio y cambia...
+  const soloSuperficie = { identidad: 'propia' as const, superficie: '#1a1a1a', linea: '#333333', forma: 'recto' as const, densidad: 'compacta' as const, tema: 'oscuro' as const };
+  assert.deepEqual(piezasAfectadas(datos({ horario: c({ metodo: 'nativa', ...soloSuperficie }) }, 'otra', { estilo: ww({ estilo: 'arena' }) })), cambiaSinMarco);
+  // ...y en el iframe, con lo mismo, sí lo lleva: ahí no cambia.
+  assert.deepEqual(piezasAfectadas(datos({ horario: c({ metodo: 'iframe', ...soloSuperficie }) }, null, { estilo: ww({ estilo: 'arena' }) })), VACIO);
+});
+
+test('⚠️ sin marco en columnas con un estilo de noche: solo la letra, en su propia línea y nunca en `cambian`', () => {
+  const carbon = ww({ estilo: 'carbon' });
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { estilo: carbon })), { ...VACIO, sinMarcoSoloLetra: ['Horario y reservas'] });
+  // Crema fundida sobre una web oscura también se ve de noche.
+  const fundidaOscura = ww({ estilo: 'crema', fundido: true, web: 'oscura' });
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { estilo: fundidaOscura })).sinMarcoSoloLetra, ['Horario y reservas']);
+  // «Día a día» (`diseno=completo`) pinta sus tarjetas con la paleta: cambia entero.
+  assert.deepEqual(piezasAfectadas(datos({ horario: c({ metodo: 'nativa', diseno: 'completo' }) }, 'otra', { estilo: carbon })), cambiaSinMarco);
+  // Mientras carga el estilo (sin base) no se sabe si es de noche: cambia, como las columnas del iframe.
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { estilo: carbon, base: null })), cambiaSinMarco);
+});
+
+test('sin marco, cambiado después de copiarlo: en ninguna línea (no sabemos qué hay pegado)', () => {
+  const r = piezasAfectadas(datos({ horario: NATIVA }, 'otra', {
+    copiados: { horario: copiaDe('horario', c({ metodo: 'nativa', tipos: ['tc-r'] }), 'otra') }, estilo: ww({ estilo: 'carbon' }),
+  }));
+  assert.deepEqual(r, VACIO);
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { copiados: { horario: { firma: 'huella', en: '2026-09-28T10:00:00.000Z' } } })), VACIO);
+});
+
+test('⚠️ sinMarcoSoloLetra: lo que hará el bundle con sus `data-*`, y en columnas coincide con las columnas del iframe', () => {
+  let solo = 0;
+  let no = 0;
+  const bases = [BASE, baseEstiloWeb('#343825', { estilo: 'carbon' })];
+  const webs: [WebId | null, boolean][] = [[null, false], ['oscura', true], [null, true]];
+  for (const base of bases) for (const estilo of [null, ...ESTILO_IDS] as (EstiloId | null)[]) for (const [web, fundido] of webs) {
+    for (const boton of [null, 'tinta'] as const) {
+      const borrador = ww({ estilo, web, fundido, boton, letra: 'editorial' });
+      const caso = `${base.app.estilo}/${estilo}/${web}/${fundido}/${boton}`;
+      const columnas = sinMarcoSoloLetra(HORARIO, NATIVA, borrador, base);
+      // «Día a día» nunca; con diseño propio, tampoco (no le llega nada).
+      assert.equal(sinMarcoSoloLetra(HORARIO, c({ metodo: 'nativa', diseno: 'completo' }), borrador, base), false, caso);
+      assert.equal(sinMarcoSoloLetra(HORARIO, c({ metodo: 'nativa', identidad: 'propia', marca: '#E11D48' }), borrador, base), false, caso);
+      // Con colores del estilo elegidos, la misma respuesta que el iframe en «Siete días en columnas».
+      if (estilo != null || boton != null || fundido) {
+        assert.equal(columnas, columnasSinPaleta(HORARIO, c({ metodo: 'iframe', diseno: 'ligero' }), 'iframe', borrador, base), caso);
+      }
+      if (columnas) solo++;
+      else no++;
+    }
+  }
+  assert.ok(solo > 0 && no > 0, `${solo}/${no}`);
+  // Sin nada elegido no hay estilo que dar a medias.
+  assert.equal(sinMarcoSoloLetra(HORARIO, NATIVA, null, baseEstiloWeb('#343825', { estilo: 'carbon' })), false);
+  assert.equal(sinMarcoSoloLetra(HORARIO, NATIVA, ww(), baseEstiloWeb('#343825', { estilo: 'carbon' })), false);
+  // Con la app en Carbón, cualquier cambio sin colores propios (solo la separación) ya es de noche en la nativa.
+  assert.equal(sinMarcoSoloLetra(HORARIO, NATIVA, ww({ densidad: 'compacta' }), baseEstiloWeb('#343825', { estilo: 'carbon' })), true);
+});
+
+test('⚠️ sin marco, solo se nombra lo que de verdad se ve distinto: el pie (que no tiene) y la noche en columnas con la letra de su web, no', () => {
+  const arena = ww({ estilo: 'arena' });
+  // Solo el pie: la nativa no lleva pie, así que no cambia nada en ella.
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { publicado: arena, estilo: { ...arena, ocultarPie: true } })), VACIO);
+  // El color de su web con el widget en su recuadro: tampoco (lo mismo que se ve).
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { publicado: arena, estilo: { ...arena, web: 'crema' } })), VACIO);
+  // ...pero la separación, sí.
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { publicado: arena, estilo: { ...arena, densidad: 'compacta' } })), cambiaSinMarco);
+
+  // Volver a nada elegido desde Carbón en columnas con «Como tu app»: nunca le
+  // llegó nada, así que no «vuelve» a ningún sitio. En ninguna línea.
+  const carbon = ww({ estilo: 'carbon' });
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { publicado: carbon, estilo: null })), VACIO);
+  // Con una letra elegida sí le llegaba (la letra): al quitarlo, vuelve a la de su web.
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { publicado: { ...carbon, letra: 'editorial' }, estilo: null })), cambiaSinMarco);
+  // Y en «Día a día» Carbón le llegaba entero.
+  assert.deepEqual(piezasAfectadas(datos({ horario: c({ metodo: 'nativa', diseno: 'completo' }) }, 'otra', { publicado: carbon, estilo: null })), cambiaSinMarco);
+  // Sin base (cargando) no se puede comparar: cambia, como siempre.
+  assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { publicado: arena, estilo: { ...arena, ocultarPie: true }, base: null })), cambiaSinMarco);
+});
+
+test('⚠️ sin marco, quitar SOLO el pie desde nada (o volver a nada desde ahí) no la nombra: la nativa no lleva pie', () => {
+  const soloPie = ww({ ocultarPie: true });
+  for (const [publicado, estilo] of [[null, soloPie], [soloPie, null], [ww(), soloPie], [soloPie, ww()]] as const) {
+    for (const horario of [NATIVA, c({ metodo: 'nativa', diseno: 'completo' })]) {
+      const caso = JSON.stringify({ publicado, estilo, diseno: horario.diseno });
+      assert.deepEqual(piezasAfectadas(datos({ horario }, 'otra', { publicado, estilo })), VACIO, caso);
+      // Ni sin base: que no le llega nada se sabe sin saber si es de noche.
+      assert.deepEqual(piezasAfectadas(datos({ horario }, 'otra', { publicado, estilo, base: null })), VACIO, caso);
+    }
+  }
+  // Dentro de una página sí lleva pie: ahí quitarlo cambia.
+  assert.deepEqual(piezasAfectadas(datos({ horario: c({ metodo: 'iframe' }) }, null, { publicado: null, estilo: soloPie })).cambian, ['Horario y reservas']);
+});
+
+test('sin marco en columnas de noche: está en su línea pase lo que pase con la letra (el texto dice cuál de las dos)', () => {
+  // «Como tu app»: no le llega nada; con una letra elegida, esa letra. Las dos, en `sinMarcoSoloLetra`.
+  for (const letra of [null, 'editorial'] as const) {
+    const r = piezasAfectadas(datos({ horario: NATIVA }, 'otra', { estilo: ww({ estilo: 'carbon', letra }) }));
+    assert.deepEqual(r, { ...VACIO, sinMarcoSoloLetra: ['Horario y reservas'] }, String(letra));
+  }
 });

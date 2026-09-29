@@ -10,6 +10,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { DibujoEstilo } from '@/components/apariencia/muestra-estilo';
 import { ESTILOS, TIPOGRAFIAS, estiloPorId, tipografiaPorId, type EstiloId, type Tipografia } from '@/lib/student/apariencia';
 import { COLOR_OTRO_INICIAL, COLOR_WEB, colorDeLaWeb, type BotonWeb, type FormaWeb, type WebId, type WidgetWeb } from '@/lib/reservar/estilo-web-tipos';
+import { nadaParaSinMarco } from '@/lib/widget/estilo-nativa';
 import { botonPorDefecto, botonWeb, paletaWidget, type BaseEstiloWeb } from '@/lib/reservar/estilo-web';
 import type { MetodoIntegracion } from '@/lib/widgets/catalogo';
 import type { PiezasAfectadas } from '@/lib/widgets/estilo-afectados';
@@ -30,15 +31,63 @@ import type { EstiloWebPanel } from './usar-estilo-web';
 // ⚠️ El veredicto de contraste es el MISMO que el del servidor
 // (`validarEstiloWeb`): lo que aquí se deja aplicar, allí se acepta, y lo que
 // aquí se bloquea, allí da 422.
+//
+// Sin marco (Fase E) también lo sigue, con dos diferencias que se dicen donde
+// pasan: con «Como tu app» conserva la letra que ya tenía (la de su web, con la
+// identidad del estudio), y no lleva pie.
 
 /** «A», «A y B», «A, B y C». */
 function enLista(xs: readonly string[]): string {
   return xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`;
 }
 
-export function EstiloWeb({ estado, metodo, soloLectura, verApariencia, piezas, disenoPropio }: {
+/**
+ * Lo que la confirmación dice de lo copiado sin marco (`piezas.sinMarco` y
+ * `sinMarcoSoloLetra`, lib/widgets/estilo-afectados.ts). Hoy solo el horario
+ * va sin marco; el plural queda por si otro lo admite.
+ */
+function frasesSinMarco(piezas: PiezasAfectadas, borrador: WidgetWeb): string[] {
+  const out: string[] = [];
+  const { sinMarco, sinMarcoSoloLetra: soloLetra } = piezas;
+  if (sinMarco.length > 0) {
+    const varios = sinMarco.length > 1;
+    const quien = enLista(sinMarco);
+    out.push(nadaParaSinMarco(borrador)
+      // Nada que le llegue (quitar solo el pie tampoco: no lleva): vuelve a su
+      // aspecto de siempre (solo se nombra si alguna vez le llegó otro).
+      ? (varios
+        ? `${quien} van sin marco: sin ningún cambio de estilo, vuelven a verse como antes de que aplicaras uno.`
+        : `${quien} va sin marco: sin ningún cambio de estilo, vuelve a verse como antes de que aplicaras uno.`)
+      : (varios
+        ? `${quien} van sin marco y también cambian, aunque los pegaras hace tiempo: el estilo les llega con sus datos, no con su código.`
+        : `${quien} va sin marco y también cambia, aunque lo pegaras hace tiempo: el estilo le llega con sus datos, no con su código.`));
+  }
+  if (soloLetra.length > 0) {
+    const varios = soloLetra.length > 1;
+    const quien = enLista(soloLetra);
+    // «Siete días en columnas» de noche: de este estilo solo le llegaría la
+    // letra, y con «Como tu app» ni esa (sin marco conserva la suya).
+    out.push(borrador.letra === null
+      ? (varios
+        ? `${quien} van sin marco y en «Siete días en columnas»: no se pintan en oscuro, así que de este estilo no les llega nada y se ven como si no hubieras elegido ninguno.`
+        : `${quien} va sin marco y en «Siete días en columnas»: no se pinta en oscuro, así que de este estilo no le llega nada y se ve como si no hubieras elegido ninguno.`)
+      : (varios
+        ? `${quien} van sin marco y en «Siete días en columnas»: no se pintan en oscuro, así que de este estilo solo les llega la letra.`
+        : `${quien} va sin marco y en «Siete días en columnas»: no se pinta en oscuro, así que de este estilo solo le llega la letra.`));
+  }
+  return out;
+}
+
+export function EstiloWeb({ estado, metodo, letraSinMarco = null, soloLectura, verApariencia, piezas, disenoPropio }: {
   estado: EstiloWebPanel;
   metodo: MetodoIntegracion;
+  /**
+   * El widget abierto va sin marco y le llega este estilo: con «Como tu app»
+   * conserva la letra que ya tiene —la de su web con la identidad del estudio
+   * (`'web'`), la de siempre con un diseño propio que no toca nada de lo que
+   * entiende la nativa (`'siempre'`)—. `null`: no va sin marco, o no le llega.
+   */
+  letraSinMarco?: 'web' | 'siempre' | null;
   /** Una manager: ve lo que hay, pero solo la propietaria lo cambia (como en el servidor). */
   soloLectura: boolean;
   /** «Apariencia de tu app» es una pantalla solo de la propietaria. */
@@ -113,6 +162,13 @@ export function EstiloWeb({ estado, metodo, soloLectura, verApariencia, piezas, 
                 .map(t => ({ valor: t.id, titulo: t.nombre, dibujo: <Aa t={t} /> })),
             ]}
           />
+          {letraSinMarco && (
+            <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
+              {letraSinMarco === 'web'
+                ? 'Sin marco, «Como tu app» deja la letra de tu web; si eliges otra, la usa.'
+                : 'Sin marco, «Como tu app» le deja su letra de siempre; si eliges otra, la usa.'}
+            </p>
+          )}
         </Ajuste>
 
         <Ajuste etiqueta="¿Cómo es tu web?">
@@ -204,7 +260,9 @@ export function EstiloWeb({ estado, metodo, soloLectura, verApariencia, piezas, 
             </Ajuste>
             <AjusteInterruptor
               etiqueta="Dirección y aviso legal al pie"
-              descripcion="Quítalo si tu web ya los tiene abajo. La privacidad y las condiciones se siguen enseñando al reservar."
+              descripcion={metodo === 'nativa'
+                ? 'Quítalo si tu web ya los tiene abajo. La privacidad y las condiciones se siguen enseñando al reservar. Sin marco, el widget no lleva pie.'
+                : 'Quítalo si tu web ya los tiene abajo. La privacidad y las condiciones se siguen enseñando al reservar.'}
               on={!b.ocultarPie}
               onChange={v => cambiar({ ocultarPie: !v })}
             />
@@ -236,6 +294,12 @@ export function EstiloWeb({ estado, metodo, soloLectura, verApariencia, piezas, 
               // /reservar no pinta de noche la semana en columnas (`columnasSinPaleta`).
               <p>{enLista(piezas.columnasSinPaleta)}: con «Siete días en columnas» no se {piezas.columnasSinPaleta.length > 1 ? 'pintan' : 'pinta'} en oscuro, así que de este estilo solo {piezas.columnasSinPaleta.length > 1 ? 'les' : 'le'} llegan la letra, las esquinas, la separación y el pie.</p>
             )}
+            {/*
+              Sin marco (Fase E): el estilo le llega con sus datos, así que también
+              cambia lo pegado hace tiempo, sin volver a pegar nada; salvo las
+              columnas de noche, donde como mucho le llega la letra.
+            */}
+            {frasesSinMarco(piezas, b).map(f => <p key={f}>{f}</p>)}
             <p>Los widgets con un diseño propio dentro de su código no cambian.</p>
             {/*
               El botón que abre la ventana (Fase D), y solo si este estilo cambia cómo
@@ -260,7 +324,6 @@ export function EstiloWeb({ estado, metodo, soloLectura, verApariencia, piezas, 
                   : `El botón que abre la ventana de ${piezas.botonesCongelados[0]} es de un código anterior y se queda como está. Si quieres que también cambie solo, copia su código otra vez y pégalo en lugar del de antes.`}
               </p>
             )}
-            {piezas.hayNativa && <p>El widget sin marco no sigue este estilo.</p>}
             {piezas.hayPagina && <p>Los enlaces y botones que llevan a tu página no cambian: tu página se ve como tu app.</p>}
           </div>
           <DialogFooter>

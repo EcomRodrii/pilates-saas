@@ -52,14 +52,27 @@ test('⚠️ cualquier otro tipo no guarda nada, ni de la página ni de la nativ
 
 // ── La nativa ────────────────────────────────────────────────────────────────
 
-test('⚠️ la nativa sale de la cabecera Origin e ignora lo que diga el cuerpo', () => {
+test('⚠️ la nativa sale de la cabecera Origin: la forma y la web del cuerpo se ignoran (de él solo cuenta la firma)', () => {
   assert.deepEqual(deNativa(WEB), { forma: 'nativa', anfitrion: WEB, firma: null });
-  // Un cuerpo que se hace pasar por un iframe de otra web no cambia nada.
+  // Un cuerpo que se hace pasar por un iframe de otra web no cambia ni la forma ni la web.
   assert.deepEqual(
     deNativa(WEB, { forma: 'incrustado', anfitrion: 'https://otra.example.com', firma: FIRMA }),
-    { forma: 'nativa', anfitrion: WEB, firma: null },
+    { forma: 'nativa', anfitrion: WEB, firma: FIRMA },
   );
   assert.deepEqual(deNativa(WEB, { forma: 'nativa' }), { forma: 'nativa', anfitrion: WEB, firma: null });
+});
+
+test('Fase E: la nativa guarda la versión que calcula el bundle de sus `data-*`, si tiene la forma del CHECK', () => {
+  // La de un código sin marco de verdad: `firmaDeUrl` sobre su `dataset`.
+  const deSuCodigo = firmaDeUrl(new URLSearchParams('identidad=estudio&ref=web-horario'));
+  assert.deepEqual(deNativa(WEB, { firma: deSuCodigo }), { forma: 'nativa', anfitrion: WEB, firma: deSuCodigo });
+  assert.deepEqual(deNativa('http://albapilates.example.com', { firma: FIRMA }), { forma: 'nativa', anfitrion: 'http://albapilates.example.com', firma: FIRMA });
+  // Una firma rara no tira la visita: la nativa y su web se quedan, sin versión.
+  for (const firma of ['zz', 'c1', 'c1ABC', 'c1abcdefgh', ` ${FIRMA}`, 12345, {}, [FIRMA], null, undefined]) {
+    assert.deepEqual(deNativa(WEB, { firma }), { forma: 'nativa', anfitrion: WEB, firma: null }, JSON.stringify(firma));
+  }
+  // Y un anfitrión que no es una web tampoco se lleva la firma por delante.
+  assert.deepEqual(deNativa('http://192.168.1.10', { firma: FIRMA }), { forma: 'nativa', anfitrion: null, firma: FIRMA });
 });
 
 test('la nativa en una web http es su web (no «una web que no nos dice su dirección»)', () => {
@@ -95,9 +108,13 @@ test('⚠️ sin `?studioId=` no hay nativa, aunque la cabecera sea de otra web 
   assert.deepEqual(desde({ studioIdEnUrl: true, origenCabecera: '' }), NADA);
 });
 
-test('⚠️ la nativa desde una web que el estudio NO autorizó no cuenta: ni forma, ni web', () => {
+test('⚠️ la nativa desde una web que el estudio NO autorizó no cuenta: ni forma, ni web, ni firma', () => {
   assert.deepEqual(desde({ studioIdEnUrl: true, origenCabecera: WEB }), NADA);
   assert.deepEqual(desde({ studioIdEnUrl: true, origenCabecera: WEB, nativaAutorizada: false }), NADA);
+  // Aunque traiga una firma válida (Fase E): sin autorizar no se guarda nada.
+  assert.deepEqual(desde({ studioIdEnUrl: true, origenCabecera: WEB, nativaAutorizada: false, cuerpo: { firma: FIRMA } }), NADA);
+  // Y otro tipo de evento, tampoco: la versión solo viaja con la carga.
+  assert.deepEqual(deNativa(WEB, { firma: FIRMA }, 'widget_viewed'), NADA);
   // Ni aunque el cuerpo diga que es un iframe: con `?studioId=` y una web ajena
   // manda la cabecera, no el cuerpo.
   assert.deepEqual(

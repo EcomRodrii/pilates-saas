@@ -18,7 +18,7 @@
 // Con qué está hecha la web de la dueña y sus pasos viven en ./recetas.ts.
 
 import { luminancia } from '../reservar/apariencia-widget.ts';
-import { COLOR_VALIDO, fuenteValida } from '../reservar/config-widget.ts';
+import { COLOR_VALIDO, fuenteValida, nativaTraeDisenoPropio } from '../reservar/config-widget.ts';
 import { scriptSnippetIframe } from '../reservar/snippet-embed.ts';
 import { PARAM_BORRADOR, borradorAParam, type WidgetWeb } from '../reservar/estilo-web-tipos.ts';
 import { RADIO_BOTON, VAR_FONDO, VAR_RADIO, VAR_TEXTO, leerBotonVivo, type BotonVivo } from './boton-vivo.ts';
@@ -85,12 +85,20 @@ function paresContenido(e: EntradaIntegracion, metodo: MetodoIntegracion): Par[]
 
 /**
  * ¿Lleva su código un diseño propio? Entonces el estilo de los widgets de su
- * web no le llega: /reservar no lo resuelve para un código con parámetros de
- * diseño (`urlTraeDisenoPropio`, lib/reservar/estilo-web.ts). Es la misma
- * pregunta vista desde el panel, y sale de lo que de verdad se emite, no de
- * `identidad`: «propia» sin tocar nada no emite nada y sigue su estilo.
+ * web no le llega. Es la pregunta que se hace quien pinta, vista desde el
+ * panel, y sale de lo que de verdad se EMITE con ese método, no de `identidad`:
+ *  - dentro de una página y encima (y lo que no tiene método aquí: botón y
+ *    enlace), los parámetros de diseño de su URL, como /reservar
+ *    (`urlTraeDisenoPropio`, lib/reservar/estilo-web.ts);
+ *  - sin marco (Fase E), los `data-*` de diseño, como el bundle
+ *    (`nativaTraeDisenoPropio`, lib/reservar/config-widget.ts). No es lo mismo:
+ *    la nativa solo entiende marca, fondo, tinta y letra, así que «propia» con
+ *    solo una superficie no emite nada en ella y sigue el estilo, aunque en el
+ *    iframe sea un diseño propio.
+ * «Propia» sin tocar nada no emite nada en ningún método y sigue su estilo.
  */
-export function tieneDisenoEnCodigo(c: ConfigConstructor): boolean {
+export function tieneDisenoEnCodigo(c: ConfigConstructor, metodo: MetodoIntegracion = 'iframe'): boolean {
+  if (metodo === 'nativa') return nativaTraeDisenoPropio(lectorDePares(paresDisenoNativa(c)));
   return paresDiseno(c).length > 0;
 }
 
@@ -189,35 +197,70 @@ export function conVistaPrevia(url: string, opc?: { borradorWeb?: WidgetWeb }): 
   return `${sinAncla}${sinAncla.includes('?') ? '&' : '?'}vista-previa=1${borrador}${ancla ? `#${ancla}` : ''}`;
 }
 
-/** Atributos `data-*` de la integración nativa (sin el `data-studio`). */
-export function atributosNativa(e: EntradaIntegracion): string[] {
+/**
+ * La parte de diseño de los `data-*` de la nativa, solo con «propia». La
+ * nativa solo entiende marca, fondo, tinta (`negro`) y tipografías: el resto de
+ * ajustes de diseño no se ofrecen con este método. Un fondo `transparente` no
+ * se emite: sin atributo, el lienzo de la nativa ya deja ver su web.
+ */
+function paresDisenoNativa(c: ConfigConstructor): Par[] {
+  if (c.identidad !== 'propia') return [];
+  const p: Par[] = [];
+  const marca = color(c.marca);
+  const fondo = color(c.fondo);
+  const tinta = color(c.tinta);
+  const fuente = familia(c.fuente);
+  const fuenteDisplay = familia(c.fuenteDisplay);
+  if (marca) p.push(['marca', marca]);
+  if (fondo) p.push(['fondo', fondo]);
+  if (tinta) p.push(['negro', tinta]);
+  if (fuente) p.push(['fuente', fuente]);
+  if (fuenteDisplay) p.push(['fuente-display', fuenteDisplay]);
+  return p;
+}
+
+/**
+ * Los `data-*` de la nativa (sin el `data-studio`) como los leerá `dataset` en
+ * su web: el nombre en kebab, el valor SIN escapar y, un booleano a pelo
+ * (`data-ocultar-precio`), con valor `''`, que es lo que da el navegador y lo
+ * que el parser cuenta como «sí».
+ *
+ * Es la fuente de las dos cosas que tienen que coincidir: el código que se
+ * copia (`atributosNativa`) y la versión que el bundle dirá ver en su web
+ * (`firmaContenidoDe`, calculada allí con `firmaDeUrl` sobre su `dataset`).
+ */
+export function paresNativa(e: EntradaIntegracion): Par[] {
   const { widget: w, config: c } = e;
-  const a: string[] = [];
-  for (const [k, v] of paresContenido(e, 'nativa')) {
-    // Un booleano va a pelo (`data-ocultar-precio`): el parser lo cuenta como «sí».
-    a.push(v === '1' && k.startsWith('ocultar-') ? `data-${k}` : `data-${k}="${escaparAtributo(v)}"`);
-  }
-  if (c.identidad === 'propia') {
-    // La nativa solo entiende marca, fondo, tinta (`negro`) y tipografías: el
-    // resto de ajustes de diseño no se ofrecen con este método.
-    const marca = color(c.marca);
-    const fondo = color(c.fondo);
-    const tinta = color(c.tinta);
-    const fuente = familia(c.fuente);
-    const fuenteDisplay = familia(c.fuenteDisplay);
-    if (marca) a.push(`data-marca="${marca}"`);
-    if (fondo) a.push(`data-fondo="${fondo}"`);
-    if (tinta) a.push(`data-negro="${tinta}"`);
-    if (fuente) a.push(`data-fuente="${fuente}"`);
-    if (fuenteDisplay) a.push(`data-fuente-display="${fuenteDisplay}"`);
-  } else {
-    // Con la identidad del estudio, el propio widget toma el color de la marca
-    // y la letra de la web donde vive (app/widget-bundle/main.tsx).
-    a.push('data-identidad="estudio"');
-  }
+  const p: Par[] = [];
+  for (const [k, v] of paresContenido(e, 'nativa')) p.push([k, v === '1' && k.startsWith('ocultar-') ? '' : v]);
+  p.push(...paresDisenoNativa(c));
+  // Con la identidad del estudio, el propio widget toma el color de la marca
+  // y la letra de la web donde vive (app/widget-bundle/main.tsx).
+  if (c.identidad !== 'propia') p.push(['identidad', 'estudio']);
   const ref = etiquetaEfectiva(c, w);
-  if (ref) a.push(`data-ref="${ref}"`);
-  return a;
+  if (ref) p.push(['ref', ref]);
+  return p;
+}
+
+/**
+ * Unos pares como los lee `dataset` (o `URLSearchParams`): la primera
+ * aparición de cada nombre. Para preguntarle a las reglas del vocabulario
+ * (`nativaTraeDisenoPropio`, `resolverConfigWidget`, `firmaDeUrl`) por lo que
+ * se emite, sin montar un DOM.
+ */
+export function lectorDePares(p: readonly (readonly [string, string])[]): { get(k: string): string | null } {
+  return { get: (k: string) => p.find(([x]) => x === k)?.[1] ?? null };
+}
+
+/**
+ * Atributos `data-*` de la integración nativa (sin el `data-studio`), tal
+ * cual van en el código: los de `paresNativa`, escapados. Solo los booleanos
+ * `ocultar-*` van a pelo, como siempre: un `data-tipos=""` (una lista vacía
+ * escrita a mano) se queda con su `=""` y el código copiado no cambia ni un
+ * carácter. Para `dataset` los dos son `''`.
+ */
+export function atributosNativa(e: EntradaIntegracion): string[] {
+  return paresNativa(e).map(([k, v]) => (v === '' && k.startsWith('ocultar-') ? `data-${k}` : `data-${k}="${escaparAtributo(v)}"`));
 }
 
 // ── Utilidades de texto ───────────────────────────────────────────────────────
@@ -430,17 +473,23 @@ export function firmaCodigo(e: EntradaIntegracion, metodo: MetodoIntegracion): s
 
 /**
  * La huella de lo que la PÁGINA entiende de este código (`firmaDeUrl`,
- * ./firma-contenido.ts): la misma que /reservar calcula de su propia URL al
- * cargar dentro de su web. Es la que dice qué versión se ve allí; `firmaCodigo`
- * sigue diciendo si algo cambió aquí después de copiarlo.
+ * ./firma-contenido.ts): la misma que calcula quien pinta al cargar dentro de
+ * su web. Es la que dice qué versión se ve allí; `firmaCodigo` sigue diciendo
+ * si algo cambió aquí después de copiarlo.
  *
- * Solo dentro de una página y encima: los dos cargan `urlEmbebido`, que es lo
- * que llega entero a la página (el popup, reescrito por `urlPopupPermitida`,
- * pero con los mismos valores). La nativa no manda firma (el bundle no se toca
- * en esta fase) y el botón y el enlace no mandan nada a propósito: de dónde
- * llega quien pulsa un enlace no es la web del estudio.
+ *  - Dentro de una página y encima: /reservar, sobre su propia URL. Los dos
+ *    cargan `urlEmbebido`, que es lo que llega entero a la página (el popup,
+ *    reescrito por `urlPopupPermitida`, pero con los mismos valores).
+ *  - Sin marco (Fase E): el bundle, sobre el `dataset` de su `<div>`. Por eso
+ *    sale de `paresNativa`, que da los `data-*` como los leerá `dataset`, y no
+ *    del texto del código: el navegador ya ha deshecho el escapado y un
+ *    booleano a pelo le llega como `''`. `data-studio` y `data-tentare-booking`
+ *    no cuentan: no están en `CLAVES_FIRMA`.
+ *  - El botón y el enlace no mandan nada a propósito: de dónde llega quien
+ *    pulsa un enlace no es la web del estudio.
  */
 export function firmaContenidoDe(e: EntradaIntegracion, m: MetodoIntegracion): string | null {
+  if (m === 'nativa') return firmaDeUrl(lectorDePares(paresNativa(e)));
   if (m !== 'iframe' && m !== 'popup') return null;
   return firmaDeUrl(new URL(urlEmbebido(e, m)).searchParams);
 }

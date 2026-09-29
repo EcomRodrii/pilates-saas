@@ -260,9 +260,11 @@ export interface Copiado {
    */
   config?: ConfigConstructor;
   /**
-   * `firmaContenidoDe` de lo copiado: la versión que /reservar dirá ver en su
-   * web. Solo dentro de una página y encima; la nativa, el botón y el enlace no
-   * la mandan.
+   * `firmaContenidoDe` de lo copiado: la versión que se dirá ver en su web
+   * (/reservar dentro de una página y encima; el bundle sin marco, desde la
+   * Fase E). El botón y el enlace no la mandan. Una nativa copiada antes de la
+   * Fase E no la tiene: su versión en su web solo puede salir «al día» o
+   * «distinta», nunca «anterior».
    */
   contenido?: string;
   /**

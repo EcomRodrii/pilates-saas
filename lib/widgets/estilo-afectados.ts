@@ -25,7 +25,15 @@
 //     copió. ⚠️ Las dos, solo si ESTE borrador cambia cómo se ve ese botón
 //     (`cambiaElBotonDeLaVentana`): con solo la letra o la separación no hay
 //     nada que decir de él, y nombrarlo haría creer que cambia.
-//   · sin marco (nativa): no sigue el estilo, lleva su propio diseño.
+//   · sin marco (nativa, Fase E): cambia, aunque se pegara hace tiempo: el
+//     estilo le llega con sus datos, no con su código. Salvo con diseño propio
+//     en sus `data-*` (`tieneDisenoEnCodigo(c, 'nativa')`, que no es la regla
+//     del iframe: la nativa solo entiende marca, fondo, tinta y letra). Y salvo
+//     «Siete días en columnas» (lo de por defecto sin marco) con un estilo de
+//     NOCHE: como en el iframe, de él solo le llega la letra (`sinMarcoSoloLetra`),
+//     y con «Como tu app» ni eso. ⚠️ Y solo si de verdad se ve distinta: la
+//     nativa no tiene pie, y la noche en columnas con la letra de su web no le
+//     llega; si lo que cambia es eso, no se nombra (`cambiaSinMarco`).
 //   · enlace y botón: abren la página suelta, que se ve como la app.
 // Un widget con diseño propio no cuenta en ninguno: la confirmación ya dice
 // que esos no cambian.
@@ -34,14 +42,15 @@
 
 import { WIDGETS, esDisponible, type MetodoIntegracion, type WidgetDisponible } from './catalogo.ts';
 import { CONFIG_POR_DEFECTO, type ConfigConstructor, type Copiado } from './config.ts';
-import { firmaCodigo, tieneDisenoEnCodigo, urlEmbebido } from './integracion.ts';
+import { firmaCodigo, lectorDePares, paresNativa, tieneDisenoEnCodigo, urlEmbebido } from './integracion.ts';
 import { metodoEnWeb, type PlataformaWeb } from './recetas.ts';
 import { resolverApariencia } from '../reservar/apariencia-widget.ts';
-import { resolverConfigWidget } from '../reservar/config-widget.ts';
+import { nativaTraeDisenoPropio, resolverConfigWidget } from '../reservar/config-widget.ts';
 import { cambiaElBotonDeLaVentana, resolverEstiloWeb, urlTraeDisenoPropio, type BaseEstiloWeb } from '../reservar/estilo-web.ts';
 import type { WidgetWeb } from '../reservar/estilo-web-tipos.ts';
 import { paletaEfectivaReservar } from '../reservar/precedencia-tema.ts';
 import { temaAppParaReservar } from '../reservar/tema-app.ts';
+import { datosEstiloNativaDeBase, estiloDeLaNativa, nadaParaSinMarco, type EstiloNativa } from '../widget/estilo-nativa.ts';
 
 export interface PiezasAfectadas {
   /** Los nombres de los widgets copiados que cambian, en el orden del catálogo. */
@@ -64,8 +73,19 @@ export interface PiezasAfectadas {
    * `botonesVivos`, y vacía en el mismo caso.
    */
   botonesCongelados: string[];
-  /** Alguno copiado va sin marco: ese no sigue el estilo. */
-  hayNativa: boolean;
+  /**
+   * Fase E: los copiados sin marco a los que llega el estilo. Van TAMBIÉN en
+   * `cambian`: la frase de arriba ya los cuenta, y esta dice que les llega
+   * aunque se pegaran hace tiempo (o que vuelven a su aspecto de siempre, con
+   * un borrador neutro).
+   */
+  sinMarco: string[];
+  /**
+   * Fase E: sin marco y en «Siete días en columnas» con un estilo de noche; de
+   * él solo les llega la letra (`sinMarcoSoloLetra`), y con «Como tu app»
+   * (`letra: null`) nada: se quedan con la de su web. Nunca en `cambian`.
+   */
+  sinMarcoSoloLetra: string[];
   /** Alguno copiado es un enlace o un botón a la página: se ve como la app. */
   hayPagina: boolean;
 }
@@ -130,9 +150,54 @@ export function columnasSinPaleta(
   return config.diseno === 'ligero' && paleta.varsEnLinea !== web.varsEnLinea;
 }
 
+/**
+ * ¿Se queda esta nativa con solo la letra del estilo? Lo que hará el bundle con
+ * el código de este widget: sus `data-*` (`paresNativa`, como los leerá
+ * `dataset`) → `resolverConfigWidget` → columnas o días, y `estiloDeLaNativa`
+ * con el borrador. Pasa con «Siete días en columnas» (lo de por defecto sin
+ * marco) y un estilo que se ve de noche, como en el iframe (`columnasSinPaleta`).
+ *
+ * `false` con diseño propio en el código: a esa no le llega nada del estilo, y
+ * es otra línea de la confirmación.
+ */
+export function sinMarcoSoloLetra(w: WidgetDisponible, c: ConfigConstructor, estilo: WidgetWeb | null, base: BaseEstiloWeb): boolean {
+  return estiloSinMarco(w, c, estilo, base)?.soloLetra === true;
+}
+
+/** Lo que pintará el bundle con el código de este widget y este estilo; `null` con diseño propio o nada elegido. */
+function estiloSinMarco(w: WidgetDisponible, c: ConfigConstructor, estilo: WidgetWeb | null, base: BaseEstiloWeb): EstiloNativa | null {
+  const params = lectorDePares(paresNativa({ widget: w, config: c, origen: ORIGEN_LOCAL, slug: 'estudio' }));
+  if (nativaTraeDisenoPropio(params)) return null;
+  const columnas = resolverConfigWidget(params).diseno !== 'completo';
+  return estiloDeLaNativa(datosEstiloNativaDeBase(estilo, base), { columnas });
+}
+
+/**
+ * ¿Se ve distinta esta nativa con `estilo` que con lo publicado? Por lo que le
+ * LLEGA, por valor: sin estilo y con la noche en columnas de «Como tu app» no
+ * le llega nada (se ve como siempre), y el pie o el color de su web en su
+ * recuadro no cambian nada en ella. Sin esto, la confirmación diría «también
+ * cambia» de una nativa que se queda igual (quitar el pie, que no tiene), o
+ * «vuelve a verse como antes» de una a la que nunca le llegó nada.
+ *
+ * Si ni lo uno ni lo otro le llega (`nadaParaSinMarco`, la misma pregunta que
+ * hace el bundle), no cambia, y eso se sabe aun sin `base`. Sin `base`
+ * (cargando) y con algo que le llega, no se sabe si es de noche: cambia, el
+ * mismo criterio que `columnasSinPaleta`.
+ */
+function cambiaSinMarco(w: WidgetDisponible, c: ConfigConstructor, publicado: WidgetWeb | null, estilo: WidgetWeb | null, base: BaseEstiloWeb | null): boolean {
+  if (nadaParaSinMarco(estilo) && nadaParaSinMarco(publicado)) return false;
+  if (!base) return true;
+  const llega = (x: WidgetWeb | null) => {
+    const e = estiloSinMarco(w, c, x, base);
+    return e && !(e.soloLetra && e.letra === null) ? JSON.stringify(e) : null;
+  };
+  return llega(estilo) !== llega(publicado);
+}
+
 export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
   const out: PiezasAfectadas = {
-    cambian: [], columnasSinPaleta: [], botonesVivos: [], botonesCongelados: [], hayNativa: false, hayPagina: false,
+    cambian: [], columnasSinPaleta: [], botonesVivos: [], botonesCongelados: [], sinMarco: [], sinMarcoSoloLetra: [], hayPagina: false,
   };
   // Sin base no se sabe cómo se ve (nadie enseña la confirmación así): no se afirma nada del botón.
   const botonCambia = !!d.base && cambiaElBotonDeLaVentana(d.publicado, d.estilo, d.base);
@@ -144,13 +209,20 @@ export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
     const entrada = { widget: w, config: c, origen: d.origen, slug: d.slug, colorEstudio: d.colorEstudio };
     // Cambiado después de copiarlo: no sabemos qué hay pegado (cabecera).
     if (copiado.firma !== firmaCodigo(entrada, metodo)) continue;
-    if (tieneDisenoEnCodigo(c)) continue;
+    // Con la regla de SU método: la nativa solo entiende parte del diseño propio.
+    if (tieneDisenoEnCodigo(c, metodo)) continue;
     if (metodo === 'iframe' || metodo === 'popup') {
       if (d.base && columnasSinPaleta(w, c, metodo, d.estilo, d.base)) out.columnasSinPaleta.push(w.nombre);
       else out.cambian.push(w.nombre);
       if (metodo === 'popup' && botonCambia) (copiado.botonVivo === true ? out.botonesVivos : out.botonesCongelados).push(w.nombre);
     } else if (metodo === 'nativa') {
-      out.hayNativa = true;
+      // Un borrador neutro también cambia: vuelve a su aspecto de siempre, si
+      // alguna vez le llegó otro.
+      if (d.base && sinMarcoSoloLetra(w, c, d.estilo, d.base)) out.sinMarcoSoloLetra.push(w.nombre);
+      else if (cambiaSinMarco(w, c, d.publicado, d.estilo, d.base)) {
+        out.cambian.push(w.nombre);
+        out.sinMarco.push(w.nombre);
+      }
     } else {
       out.hayPagina = true;
     }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WIDGETS, type MetodoIntegracion, type WidgetDisponible } from './catalogo.ts';
-import { CONFIG_POR_DEFECTO, nuevaCopia, type ConfigConstructor, type Copiado } from './config.ts';
+import { CONFIG_POR_DEFECTO, claveDeCopia, nuevaCopia, type ConfigConstructor, type Copiado } from './config.ts';
 import { embudoPorWidget } from './embudo.ts';
 import {
   GRUPOS, MARGEN_MISMA_VERSION_MS, VENTANA_VERSION_MS, botonDeCodigoAnterior, estadoEnTuWeb, etiquetasDeCopia, gruposCambiados, hostDe, piezaCopiada,
@@ -239,8 +239,8 @@ test('⚠️ estadoEnTuWeb: solo cuenta lo visto en los últimos 7 días para la
 test('estadoEnTuWeb: sin veredicto de versión con ámbar, sin versión de ahora, sin firma o con otra versión de la firma', () => {
   assert.equal(version(estado([fila({ firma: 'c1vieja' })], { hayAmbar: true })), null);
   assert.equal(version(estado([fila({})], { claveAhora: null })), null);
-  // La nativa no manda firma.
-  assert.equal(version(estado([fila({ firma: null, forma: 'nativa' })], { metodoCopiado: 'nativa' })), null);
+  // La nativa SIN firma (una visita de antes de la Fase E, o con un widget.js en caché) no da veredicto.
+  assert.equal(version(estado([fila({ firma: null, forma: 'nativa' })], { metodoCopiado: 'nativa', claveAhora: 'nativa:c1ahora' })), null);
   // Una firma de otra forma de canonizar (`c2…`) no se compara con las de `c1`.
   assert.equal(version(estado([fila({ firma: 'c2vieja' })])), null);
 });
@@ -423,6 +423,63 @@ test('piezaCopiada: un diseño propio en lo pegado (dentro de una página o enci
   assert.equal(pieza(copiaDe(CONFIG_POR_DEFECTO, 'iframe'), BASE).disenoPropio, false);
   // «Propia» sin tocar nada no emite nada: sigue el estilo común.
   assert.equal(pieza(copiaDe({ ...CONFIG_POR_DEFECTO, identidad: 'propia' }, 'iframe'), BASE).disenoPropio, false);
+});
+
+// ── Fase E: la nativa dice qué versión tiene pegada ─────────────────────────
+
+const NATIVA = { metodoAhora: 'nativa' as const };
+const filaNativa = (firma: string | null, extra: Parameters<typeof fila>[0] = {}) => fila({ forma: 'nativa', firma, ...extra });
+
+test('Fase E: la nativa copiada da su versión (`nativa:…`), la que el bundle calcula de sus `data-*`', () => {
+  const copia = copiaDe(CONFIG_POR_DEFECTO, 'nativa');
+  const ahora = firmaDe(CONFIG_POR_DEFECTO, 'nativa');
+  assert.match(ahora, /^c1/);
+  assert.equal(claveDeCopia(copia), `nativa:${ahora}`);
+  // Al día, distinta o anterior, con las mismas reglas que dentro de una página.
+  assert.equal(version(pieza(copia, BASE, { ...NATIVA, vistos: [filaNativa(ahora)] }).estado), 'al-dia');
+  assert.equal(version(pieza(copia, BASE, { ...NATIVA, vistos: [filaNativa('c1zzzzz')] }).estado), 'distinta');
+  const vieja = { ...CONFIG_POR_DEFECTO, mostrarPrecio: false };
+  const conHistorial = copiaDe(CONFIG_POR_DEFECTO, 'nativa', copiaDe(vieja, 'nativa'));
+  assert.equal(version(pieza(conHistorial, BASE, { ...NATIVA, vistos: [filaNativa(firmaDe(vieja, 'nativa'))] }).estado), 'anterior');
+  // Sin firma, «Visto…» sin veredicto: nunca se inventa.
+  const sinFirma = pieza(copia, BASE, { ...NATIVA, vistos: [filaNativa(null)] });
+  assert.equal(sinFirma.estado.tipo, 'visto');
+  assert.equal(version(sinFirma.estado), null);
+});
+
+test('⚠️ Fase E: una nativa copiada antes (sin versión guardada) solo puede salir al día o distinta, nunca «anterior»', () => {
+  const vieja = { ...CONFIG_POR_DEFECTO, mostrarPrecio: false };
+  const e = { ...BASE, config: CONFIG_POR_DEFECTO };
+  // Como la guardaba el panel hasta ahora: con foto y forma, sin `contenido`.
+  const deAntes = nuevaCopia(undefined, { firma: firmaCodigo(e, 'nativa'), en: EN, metodo: 'nativa', config: CONFIG_POR_DEFECTO, contenido: null });
+  assert.equal(claveDeCopia(deAntes), null);
+  assert.equal(version(pieza(deAntes, BASE, { ...NATIVA, vistos: [filaNativa(firmaDe(CONFIG_POR_DEFECTO, 'nativa'))] }).estado), 'al-dia');
+  assert.equal(version(pieza(deAntes, BASE, { ...NATIVA, vistos: [filaNativa(firmaDe(vieja, 'nativa'))] }).estado), 'distinta');
+});
+
+test('Fase E: «lo que se ve manda» quita el ámbar también sin marco', () => {
+  const copia = copiaDe(CONFIG_POR_DEFECTO, 'nativa');
+  const ahora = { tipos: ['tc-r'] } satisfies Partial<ConfigConstructor>;
+  // Lo que cambia en sus `data-*` se ve; lo que la nativa no lleva en el código ni siquiera cambia.
+  assert.deepEqual(gruposCambiados(CONFIG_POR_DEFECTO, conConfig(ahora), 'nativa', 'nativa'), [{ nombre: 'qué clases salen', seVe: true }]);
+  assert.deepEqual(gruposCambiados(CONFIG_POR_DEFECTO, conConfig({ mostrarPie: false, cargaDiferida: false, ancho: 'completo' }), 'nativa', 'nativa'), []);
+  // Pegada a mano en su web: ni ámbar.
+  const pegadaAMano = pieza(copia, conConfig(ahora), { ...NATIVA, vistos: [filaNativa(firmaDe({ ...CONFIG_POR_DEFECTO, ...ahora }, 'nativa'))] });
+  assert.equal(pegadaAMano.desfasado, false);
+  assert.equal(version(pegadaAMano.estado), 'al-dia');
+  // Su web sigue con lo copiado: el ámbar entero.
+  const sinPegar = pieza(copia, conConfig(ahora), { ...NATIVA, vistos: [filaNativa(firmaDe(CONFIG_POR_DEFECTO, 'nativa'))] });
+  assert.deepEqual(sinPegar.cambios, ['qué clases salen']);
+});
+
+test('⚠️ Fase E: el diseño propio sin marco es el de sus `data-*` (marca sí; una superficie, que no emite, no)', () => {
+  const conMarca = { ...CONFIG_POR_DEFECTO, identidad: 'propia' as const, marca: '#112233' };
+  assert.equal(pieza(copiaDe(conMarca, 'nativa'), conConfig(conMarca), NATIVA).disenoPropio, true);
+  const soloSuperficie = { ...CONFIG_POR_DEFECTO, identidad: 'propia' as const, superficie: '#1a1a1a' };
+  assert.equal(pieza(copiaDe(soloSuperficie, 'nativa'), conConfig(soloSuperficie), NATIVA).disenoPropio, false);
+  // La misma config dentro de una página sí lleva diseño propio.
+  assert.equal(pieza(copiaDe(soloSuperficie, 'iframe'), conConfig(soloSuperficie)).disenoPropio, true);
+  assert.equal(pieza(copiaDe(CONFIG_POR_DEFECTO, 'nativa'), BASE, NATIVA).disenoPropio, false);
 });
 
 test('piezaCopiada: el botón de la ventana está congelado si se copió sin la marca de la Fase D', () => {

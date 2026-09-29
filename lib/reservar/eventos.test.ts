@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  TIPOS_EVENTO_WIDGET, esTipoEventoValido, fijarPegadoWidget, sessionIdWidget, silenciarEventosWidget, trackEventoWidget,
+  TIPOS_EVENTO_WIDGET, camposDePegado, esTipoEventoValido, fijarPegadoWidget, sessionIdWidget, silenciarEventosWidget, trackEventoWidget,
   visitaYaContada,
 } from './eventos.ts';
 
@@ -93,6 +93,43 @@ test('⚠️ la nativa (`baseUrl`) no lo manda aunque haya pegado: su web la pon
   });
   assert.equal(cargado.tipo, 'widget_loaded');
   assert.equal(lleva(cargado), false);
+});
+
+// ── Fase E: la nativa manda la versión de su código ──────────────────────────
+
+const TENTARE = 'https://www.tentare.app';
+
+test('camposDePegado: la nativa (`baseUrl`) solo la firma, y solo en `widget_loaded`', () => {
+  assert.deepEqual(camposDePegado('widget_loaded', { baseUrl: TENTARE, firma: 'c1abc123' }, null), { firma: 'c1abc123' });
+  // La forma y la web las pone el servidor desde `Origin`: aunque la página tuviera pegado, no se mezclan.
+  assert.deepEqual(camposDePegado('widget_loaded', { baseUrl: TENTARE, firma: 'c1abc123' }, PEGADO), { firma: 'c1abc123' });
+  // Sin firma (un bundle que no la calcula), nada: la carga sale como siempre.
+  for (const firma of [undefined, null, '']) assert.equal(camposDePegado('widget_loaded', { baseUrl: TENTARE, firma }, PEGADO), null, String(firma));
+  // Cualquier otro evento, nada: el embudo no sabe de qué web vino.
+  for (const tipo of TIPOS_EVENTO_WIDGET.filter(t => t !== 'widget_loaded')) {
+    assert.equal(camposDePegado(tipo, { baseUrl: TENTARE, firma: 'c1abc123' }, PEGADO), null, tipo);
+    assert.equal(camposDePegado(tipo, undefined, PEGADO), null, tipo);
+  }
+});
+
+test('camposDePegado: la página (sin `baseUrl`) manda lo que fijó al montar, como en la Fase C', () => {
+  assert.deepEqual(camposDePegado('widget_loaded', undefined, PEGADO), { forma: 'incrustado', anfitrion: 'http://albapilates.example.com', firma: 'c1abc123' });
+  assert.equal(camposDePegado('widget_loaded', undefined, null), null);
+  // Una `firma` en `extra` sin `baseUrl` no es de la nativa: manda lo de la página.
+  assert.deepEqual(camposDePegado('widget_loaded', { firma: 'c1otra99' }, PEGADO), { forma: 'incrustado', anfitrion: 'http://albapilates.example.com', firma: 'c1abc123' });
+  assert.equal(camposDePegado('widget_loaded', { firma: 'c1otra99' }, null), null);
+});
+
+test('⚠️ la nativa: `widget_loaded` sale con su firma y sin forma ni web; `widget_viewed`, sin nada', () => {
+  const [cargado, visto] = capturarCuerpos(() => {
+    trackEventoWidget('studio-1', 'widget_loaded', { baseUrl: TENTARE, origen: 'web-horario', firma: 'c1abc123' });
+    trackEventoWidget('studio-1', 'widget_viewed', { baseUrl: TENTARE, origen: 'web-horario', firma: 'c1abc123' });
+  });
+  assert.equal(cargado.tipo, 'widget_loaded');
+  assert.equal(cargado.firma, 'c1abc123');
+  assert.equal('forma' in cargado || 'anfitrion' in cargado, false);
+  assert.equal(visto.tipo, 'widget_viewed');
+  assert.equal(lleva(visto), false);
 });
 
 test('la vista previa silenciada no manda nada, tampoco el pegado', () => {

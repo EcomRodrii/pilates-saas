@@ -126,3 +126,41 @@ for (const fichero of ['widget.js', 'widget-checkout.js', 'widget-popup.js']) {
   }
 }
 console.log('✔ Ningún bundle público lleva los datos del titular');
+
+// Las fuentes de la integración sin marco (Fase E): con una letra elegida en
+// «Cómo se ve», widget.js mete en la web del estudio la hoja
+// public/widget-fuentes/v1/fuentes.css (lib/widget/fuentes-nativa.ts). Son los
+// MISMOS woff2 que sirve la app (app/_fuentes), copiados tal cual con su
+// OFL.txt: la licencia viaja al lado de cada familia. Se sirven desde Tentare,
+// no desde Google, para que elegir una letra en el panel no mande la IP de
+// cada visitante de su web a un tercero.
+//
+// La lista va escrita aquí porque este .mjs no importa TypeScript; la ata a
+// `CARPETAS_FUENTES_NATIVA` un test (lib/widget/fuentes-nativa.test.ts).
+const CARPETAS_FUENTES_NATIVA = [
+  'plusjakartasans', 'librecaslontext', 'figtree', 'cormorantgaramond', 'outfit', 'poppins', 'instrumentsans', 'instrumentserif',
+];
+const HOJA_FUENTES = path.join(raiz, 'app/widget-bundle/fuentes-nativa.css');
+const DESTINO_FUENTES = path.join(raiz, 'public/widget-fuentes/v1');
+// De cero en cada build: una fuente que ya no está en la lista no se queda
+// servida por haber estado alguna vez.
+fs.rmSync(DESTINO_FUENTES, { recursive: true, force: true });
+fs.mkdirSync(DESTINO_FUENTES, { recursive: true });
+fs.copyFileSync(HOJA_FUENTES, path.join(DESTINO_FUENTES, 'fuentes.css'));
+for (const carpeta of CARPETAS_FUENTES_NATIVA) {
+  const origen = path.join(raiz, 'app/_fuentes', carpeta);
+  const destino = path.join(DESTINO_FUENTES, carpeta);
+  fs.mkdirSync(destino, { recursive: true });
+  for (const f of fs.readdirSync(origen)) {
+    if (f.endsWith('.woff2') || f === 'OFL.txt') fs.copyFileSync(path.join(origen, f), path.join(destino, f));
+  }
+}
+// ⚠️ Una `url(...)` de la hoja sin su fichero no da ningún error en la web del
+// estudio: la letra cae a la de reserva y nadie se entera. Se para aquí.
+for (const [, url] of fs.readFileSync(HOJA_FUENTES, 'utf8').matchAll(/url\(([^)]+)\)/g)) {
+  if (!fs.existsSync(path.join(DESTINO_FUENTES, url))) {
+    console.error(`✖ app/widget-bundle/fuentes-nativa.css pide ${url} y no está en public/widget-fuentes/v1. Revisa CARPETAS_FUENTES_NATIVA.`);
+    process.exit(1);
+  }
+}
+console.log(`✔ public/widget-fuentes/v1 generado (${CARPETAS_FUENTES_NATIVA.length} familias)`);

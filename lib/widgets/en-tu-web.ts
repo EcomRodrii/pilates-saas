@@ -299,7 +299,7 @@ export interface PiezaCopiada {
   etiqueta: string | null;
   /** El mes de esa etiqueta; `null` si no ha cargado (o no se puede ver). */
   mes: EmbudoWidget | null;
-  /** Lo pegado lleva su propio diseño en el código: el estilo de sus widgets no le llega. */
+  /** Lo pegado (dentro de una página, encima o sin marco) lleva su propio diseño en el código: el estilo de sus widgets no le llega. */
   disenoPropio: boolean;
   /**
    * Fase D: un popup sin diseño propio copiado SIN la marca `botonVivo` (un
@@ -428,7 +428,9 @@ export function piezaCopiada(x: {
     estado = estadoEnTuWeb({ ...entrada, hayAmbar: desfasado });
   }
 
-  const disenoPropio = (metodo === 'iframe' || metodo === 'popup') && !!pegada && tieneDisenoEnCodigo(pegada);
+  // Con la regla de su método: sin marco (Fase E) el estilo también le llega, y
+  // lo que cuenta como diseño propio son sus `data-*`, no los parámetros de la URL.
+  const disenoPropio = (metodo === 'iframe' || metodo === 'popup' || metodo === 'nativa') && !!pegada && tieneDisenoEnCodigo(pegada, metodo);
   return {
     metodo, desfasado, cambios, etiqueta, mes, estado, disenoPropio,
     // Mientras se espera lo visto, el ámbar se calla (arriba) y este aviso

@@ -1,15 +1,17 @@
 // La huella de lo que la página ENTIENDE del código pegado (Fase C).
 //
-// La calculan los dos lados sobre lo mismo, sin ningún parámetro nuevo en el
-// código que se copia:
+// La calculan sobre lo mismo quien genera el código y quien lo pinta, sin
+// ningún parámetro nuevo en el código que se copia:
 //  - el panel, sobre la URL que genera (`firmaContenidoDe`, ./integracion.ts);
-//  - /reservar, sobre su propia URL al cargar dentro de la web del estudio.
+//  - /reservar, sobre su propia URL al cargar dentro de la web del estudio;
+//  - y, desde la Fase E, el bundle de la nativa sobre el `dataset` de su
+//    `<div>` (`fuenteDeDataset`), que el panel reproduce con `paresNativa`.
 // Si coinciden, lo que se ve en su web es lo que hay aquí. `firmaCodigo` no
 // sirve para esto: lleva el ancho, la carga diferida, el texto del botón y la
 // plantilla de Tentare, y nada de eso llega a la página.
 //
-// Solo importa ./huella.ts: /reservar lo carga y no tiene por qué arrastrar el
-// generador de código.
+// Solo importa ./huella.ts: /reservar y el bundle de la nativa lo cargan y no
+// tienen por qué arrastrar el generador de código.
 //
 // Cómo se canoniza, y por qué así:
 //  - Solo las claves de `CLAVES_FIRMA`. Lo demás se ignora: `utm_*` o `fbclid`

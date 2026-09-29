@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
   resolverConfigWidget, fuenteDeDataset, CONFIG_WIDGET_POR_DEFECTO,
   fuenteValida, familiaCssDe, urlFuenteGoogle, leerPresentacion,
+  PARAMS_DISENO_NATIVA, nativaTraeDisenoPropio,
 } from './config-widget.ts';
+import { PARAMS_DISENO_PROPIO } from './estilo-web.ts';
 
 test('sin parámetros devuelve exactamente los defaults (todo visible, sin filtros)', () => {
   const c = resolverConfigWidget(new URLSearchParams(''));
@@ -129,4 +131,47 @@ test('fuenteValida / familiaCssDe / urlFuenteGoogle: el trío compartido de los 
 test('fuenteDeDataset: atributo ausente es null, no cadena vacía', () => {
   const f = fuenteDeDataset({ studio: 'mi-estudio' });
   assert.equal(f.get('ocultar-precio'), null);
+});
+
+// ── Fase E: ¿lleva la nativa su propio diseño? ──────────────────────────────
+// La misma regla la leen el bundle (sobre `dataset`) y el panel (sobre lo que
+// emite): si divergieran, el panel prometería un estilo que el bundle no pinta.
+
+test('nativaTraeDisenoPropio: cualquiera de los seis con valor, también `data-color` (el primario de antes)', () => {
+  assert.deepEqual([...PARAMS_DISENO_NATIVA], ['marca', 'color', 'fondo', 'negro', 'fuente', 'fuente-display']);
+  for (const k of PARAMS_DISENO_NATIVA) {
+    assert.equal(nativaTraeDisenoPropio(new URLSearchParams({ [k]: '#112233' })), true, k);
+  }
+  // Por `dataset`, como lo ve el bundle: `data-fuente-display` llega como `fuenteDisplay`.
+  assert.equal(nativaTraeDisenoPropio(fuenteDeDataset({ color: '#E11D48' })), true);
+  assert.equal(nativaTraeDisenoPropio(fuenteDeDataset({ fuenteDisplay: 'Poppins' })), true);
+  assert.equal(nativaTraeDisenoPropio(fuenteDeDataset({ negro: '#111111', identidad: 'estudio' })), true);
+  // Un valor que el parser descarta sigue siendo un diseño que alguien escribió:
+  // la regla es la de Modo A (`urlTraeDisenoPropio`), que tampoco valida.
+  assert.equal(nativaTraeDisenoPropio(new URLSearchParams('marca=azul')), true);
+  assert.equal(nativaTraeDisenoPropio(new URLSearchParams('fondo=transparente')), true);
+});
+
+test('nativaTraeDisenoPropio: vacío o solo espacios no es diseño (un atributo a pelo, `data-marca`)', () => {
+  assert.equal(nativaTraeDisenoPropio(new URLSearchParams('')), false);
+  assert.equal(nativaTraeDisenoPropio(fuenteDeDataset({})), false);
+  assert.equal(nativaTraeDisenoPropio(fuenteDeDataset({ marca: '', color: '   ', fuente: '\t' })), false);
+});
+
+test('⚠️ nativaTraeDisenoPropio: lo que no es aspecto no cuenta (identidad, diseno, ref, filtros, ocultar-*)', () => {
+  const dataset = {
+    studio: 'mi-estudio', tentareBooking: '', identidad: 'estudio', diseno: 'completo', ref: 'web-horario',
+    tipos: 'tc-r', instructoras: 'ins-1', salas: 'sala-1', vista: 'hoy', ocultarPrecio: '', ocultarNivel: '1',
+  };
+  assert.equal(nativaTraeDisenoPropio(fuenteDeDataset(dataset)), false);
+  assert.equal(nativaTraeDisenoPropio(new URLSearchParams('identidad=estudio&diseno=completo&ref=x&tipos=a&ocultar-precio=1')), false);
+});
+
+test('guardián: lo que pinta la nativa es diseño también para /reservar (salvo `color` y `negro`, que Modo A no tiene)', () => {
+  // `negro` es la `tinta` de Modo A con su nombre de antes, y `color` el
+  // primario del bundle de antes del constructor: los dos solo existen aquí.
+  for (const k of PARAMS_DISENO_NATIVA) {
+    if (k === 'color' || k === 'negro') continue;
+    assert.ok((PARAMS_DISENO_PROPIO as readonly string[]).includes(k), k);
+  }
 });

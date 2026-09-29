@@ -31,8 +31,9 @@ import { esOrigenDeTentare } from '@/lib/widgets/pegado';
 // Fase C del constructor de widgets: `widget_loaded` dice además dónde está
 // pegado (forma, anfitrión y firma de la versión). Todo lo decide
 // `pegadoDelEvento` (lib/widgets/evento-pegado.ts): la nativa la reconoce aquí
-// el servidor por la cabecera Origin; el iframe y el popup los cuenta la
-// página en el cuerpo. Botón y enlace no mandan nada, a propósito.
+// el servidor por la cabecera Origin, y desde la Fase E manda en el cuerpo su
+// firma (la calcula el bundle de sus `data-*`); el iframe y el popup los
+// cuenta la página en el cuerpo. Botón y enlace no mandan nada, a propósito.
 //
 // Fire-and-forget desde el cliente (no espera la respuesta, usa `keepalive`):
 // este endpoint SIEMPRE responde 200 salvo un body claramente inválido — un
@@ -54,8 +55,9 @@ export async function POST(req: NextRequest) {
     // Fase 8 (CRO): solo poblado por el cliente en los eventos donde la
     // visitante ya está identificada — ver lib/reservar/eventos.ts.
     socioId?: string | null;
-    // Fase C: solo en `widget_loaded` de un iframe o un popup. Sin validar
-    // aquí: lo filtra `pegadoDelEvento`, que decide también cuándo no cuentan.
+    // Fase C: solo en `widget_loaded` de un iframe o un popup; la nativa, solo
+    // `firma` (Fase E). Sin validar aquí: lo filtra `pegadoDelEvento`, que
+    // decide también cuándo no cuentan.
     forma?: unknown;
     anfitrion?: unknown;
     firma?: unknown;

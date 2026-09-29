@@ -33,7 +33,7 @@ import { SelectorClase, type DatosPanel } from './paso-que';
 // «Lo copiaste aquí el…», que sale de lo guardado.
 
 export function PasoPonlo({
-  entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, estiloSinAplicar, onCopiado, onMetodo, cambiar,
+  entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, estiloSinAplicar, estiloAplicado, onCopiado, onMetodo, cambiar,
   proximasClases, dominiosAutorizados, dominios, verDominios, showToast,
 }: {
   entrada: EntradaIntegracion;
@@ -49,6 +49,12 @@ export function PasoPonlo({
    * dice aquí porque es donde se copia: podría creer que copiar se lo lleva.
    */
   estiloSinAplicar: boolean;
+  /**
+   * Hay un estilo de sus widgets aplicado en su web que le llega sin marco
+   * (`nadaParaSinMarco`: quitar solo el pie no cuenta). `null` mientras carga
+   * o si no se ha podido leer: no se dice nada que dependa de él.
+   */
+  estiloAplicado: boolean | null;
   onCopiado: (firma: string) => void;
   onMetodo: (m: MetodoIntegracion) => void;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
@@ -251,7 +257,7 @@ export function PasoPonlo({
         <div className="grid gap-2 @xl/config:grid-cols-2">
           <div className="rounded-xl border border-success/30 bg-success/5 p-3 text-[12.5px] leading-relaxed text-foreground">
             <p className="mb-0.5 flex items-center gap-1 font-semibold"><Check size={13} aria-hidden />Se actualiza solo</p>
-            Tus clases, precios y plazas{estiloVivo(metodo, metodo === 'nativa' ? c.identidad === 'estudio' : !tieneDisenoEnCodigo(c))}.
+            {estiloVivo(metodo, !tieneDisenoEnCodigo(c, metodo), { identidadEstudio: c.identidad === 'estudio', aplicado: estiloAplicado })}
           </div>
           <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-[12.5px] leading-relaxed text-foreground">
             <p className="mb-0.5 font-semibold">Si lo cambias, cópialo otra vez</p>
@@ -279,19 +285,28 @@ export function PasoPonlo({
 
 // Qué parte del aspecto llega sola a lo ya pegado: el estilo de sus widgets (el
 // que se aplica en «Cómo se ve», Fase B), salvo que su código lleve un diseño
-// propio —entonces /reservar no se lo pasa—; en la integración nativa, solo el
-// color de marca, y solo con la identidad del estudio (`data-identidad`). Con
-// el popup, desde la Fase D también el botón que abre la ventana: el código
-// que se copia AHORA lo pinta con variables que /widget-popup.js rellena con
-// ese estilo (color y esquinas). Habla de este código, el de aquí: un botón
-// pegado antes no las lleva, y eso se dice aparte («El botón que ya tienes
-// pegado…»).
-function estiloVivo(metodo: MetodoIntegracion, sigueElEstilo: boolean): string {
-  if (metodo === 'boton' || metodo === 'enlace') return ', y tu página de reservas entera';
-  if (!sigueElEstilo) return '';
-  if (metodo === 'popup') return ', y el estilo de tus widgets: dentro de la ventana y en el botón que la abre (su color y sus esquinas)';
-  if (metodo === 'nativa') return ', y tu color de marca';
-  return ', y el estilo de tus widgets';
+// propio —entonces no se lo pasa nadie (`tieneDisenoEnCodigo`, con la regla de
+// su método)—. Con el popup, desde la Fase D también el botón que abre la
+// ventana: el código que se copia AHORA lo pinta con variables que
+// /widget-popup.js rellena con ese estilo (color y esquinas). Habla de este
+// código, el de aquí: un botón pegado antes no las lleva, y eso se dice aparte
+// («El botón que ya tienes pegado…»).
+// Sin marco (Fase E), el estilo le llega con sus datos. Mientras no hay ninguno
+// aplicado se ve como siempre —con la identidad del estudio, su color y la letra
+// de su web; si no, su diseño de siempre— y se dice que tomará el que aplique.
+// Mientras carga lo aplicado (`aplicado: null`) no se afirma ninguna de las dos.
+function estiloVivo(metodo: MetodoIntegracion, sigueElEstilo: boolean, x: { identidadEstudio: boolean; aplicado: boolean | null }): string {
+  if (metodo === 'boton' || metodo === 'enlace') return 'Tus clases, precios y plazas, y tu página de reservas entera.';
+  if (!sigueElEstilo) return 'Tus clases, precios y plazas.';
+  if (metodo === 'popup') return 'Tus clases, precios y plazas, y el estilo de tus widgets: dentro de la ventana y en el botón que la abre (su color y sus esquinas).';
+  if (metodo === 'nativa') {
+    if (x.aplicado === null) return 'Tus clases, precios y plazas.';
+    if (x.aplicado) return 'Tus clases, precios y plazas, y el estilo de tus widgets.';
+    return x.identidadEstudio
+      ? 'Tus clases, precios y plazas, y tu color (con la letra de tu web). Si aplicas un estilo a tus widgets, lo toma también.'
+      : 'Tus clases, precios y plazas. Si aplicas un estilo a tus widgets, lo toma también.';
+  }
+  return 'Tus clases, precios y plazas, y el estilo de tus widgets.';
 }
 
 function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo, dominios, verDominios, botonPropio, onCopiarReact, reactCopiado }: {
