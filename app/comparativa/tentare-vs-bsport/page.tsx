@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 // ⚠️ Solo se afirma de bsport lo que consta en su web pública (pro.bsport.io,
-// revisada el 23-sep-2026). Lo que no consta se dice tal cual —«no consta en su
+// revisada el 29-sep-2026). Lo que no consta se dice tal cual —«no consta en su
 // web pública»—, nunca se rellena con «no» ni con «sí»: una comparativa que
 // atribuye al competidor lo que nadie ha comprobado es una afirmación
 // inventada. Hasta el 23-sep esta tabla decía «contrato anual» y «vía ERP
@@ -30,6 +30,12 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma desde el plan Estudio'], them: ['yes', 'Sustituciones automáticas, según su web'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador, con tu nombre y tu icono'], them: ['yes', 'App propia, en los planes superiores'] },
   { feature: 'Aviso de dependencia de una instructora', tentare: ['yes', 'Riesgo de concentración'], them: ['partial', 'No consta en su web pública'] },
+  // Nuevos ejes (pro.bsport.io/pricing, /studios/multilocations-franchises y su
+  // centro de ayuda en intercom.help/bsport-helpcenter, revisados el 29-sep-2026):
+  { feature: 'Aforo por sala individual', tentare: ['yes', 'Aforo propio por sala, no solo un aforo global por clase; en el reformer, capacidad por puesto'], them: ['partial', 'Su centro de ayuda distingue el aforo del establecimiento de la capacidad por sesión, pero no confirma un aforo propio por sala dentro del mismo local'] },
+  { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación, cancelación, bono exigido y lista de espera se fijan por tipo de clase; lo que no se toca hereda del estudio'], them: ['yes', 'Al crear cada tipo de cita se fija la antelación de cancelación gratuita y el plazo límite para reservar, según su centro de ayuda'] },
+  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta de crédito'], them: ['partial', 'No ofrece prueba de autoservicio; su web de precios habla de un «periodo inicial gratuito» integrado en el contrato para estudios nuevos'] },
+  { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Una sola suscripción y un solo acceso, con datos aislados por sede (plan Cadena)'], them: ['yes', 'Un solo panel para varias sedes o franquicias («one platform for every growth model»), con plan Scale a medida y sin precio público'] },
 ];
 
 const HONESTY: HonestyCard[] = [
@@ -76,7 +82,7 @@ export default function TentareVsBsportPage() {
       veredicto={<>Si lo que buscas es saber lo que vas a pagar antes de hablar con nadie, no atarte a un contrato y tener sustituciones, plazas fijas y cobros pensados para un estudio de Pilates, Tentare encaja bien. Si ya dependes de integraciones concretas que bsport lleva más tiempo puliendo, o necesitas estar en las tiendas de aplicaciones, bsport es hoy la opción más madura en esos puntos.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
-      footnote="Basado en la información pública de bsport (pro.bsport.io) a 23 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
+      footnote="Basado en la información pública de bsport (pro.bsport.io) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
   );
