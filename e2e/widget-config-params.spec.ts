@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { contarGoogleFonts, letraDeLaApp } from './letras-sin-google';
 
 // RES-7-f: la hora de una clase se enseña en la zona del ESTUDIO, no en la del
 // navegador. Los fixtures llevan la hora sin zona («10:00» del navegador), así que
@@ -168,9 +169,9 @@ test('marca= pisa el color primario del widget', async ({ page }) => {
   await expect(todas).toHaveCSS('background-color', 'rgb(17, 34, 51)');
 });
 
-test('fuente= y fuente-display= cambian la letra REAL (computada), cuerpo y titulares por separado', async ({ page }) => {
-  await abrir(page, '&fuente=Space%20Grotesk&fuente-display=Lobster');
-  const r = await page.evaluate(() => {
+/** La letra del cuerpo (la raíz) y la de un titular de verdad. */
+async function letras(page: Page) {
+  return page.evaluate(() => {
     const raiz = document.querySelector('#horario')!.closest('div[style*="min-height"]') as HTMLElement;
     // Los titulares llevan la pila `serif` (portal-design.ts), que empieza por
     // var(--portal-heading-font) — ese literal en el style en línea es la
@@ -181,28 +182,36 @@ test('fuente= y fuente-display= cambian la letra REAL (computada), cuerpo y titu
     return {
       cuerpo: getComputedStyle(raiz).fontFamily,
       titular: titular ? getComputedStyle(titular).fontFamily : null,
-      linksCuerpo: document.querySelectorAll('link[href*="Space+Grotesk"]').length,
-      linksTitular: document.querySelectorAll('link[href*="family=Lobster"]').length,
+      links: document.querySelectorAll('link[href*="fonts.googleapis"]').length,
     };
   });
-  expect(r.cuerpo).toContain('Space Grotesk');
-  expect(r.titular).toContain('Lobster');
-  expect(r.linksCuerpo).toBe(1);
-  expect(r.linksTitular).toBe(1);
+}
+
+test('fuente= y fuente-display= cambian la letra REAL (computada), cuerpo y titulares por separado', async ({ page }) => {
+  // Las dos las sirve Tentare: salen de las de la app (`next/font`), y ninguna
+  // se le pide a Google (antes: un `<link>` a fonts.googleapis.com por letra).
+  const google = await contarGoogleFonts(page);
+  await abrir(page, '&fuente=Poppins&fuente-display=Cormorant%20Garamond');
+  const r = await letras(page);
+  const poppins = await letraDeLaApp(page, '--font-poppins');
+  const cormorant = await letraDeLaApp(page, '--font-cormorant');
+  expect(r.cuerpo.startsWith(poppins.pila), `${r.cuerpo} ≠ ${poppins.pila}`).toBe(true);
+  expect(r.titular?.startsWith(cormorant.pila), `${r.titular} ≠ ${cormorant.pila}`).toBe(true);
+  // El control: las dos se descargan de verdad (de Tentare).
+  await expect.poll(async () => (await letraDeLaApp(page, '--font-poppins')).cargada).toBe(true);
+  await expect.poll(async () => (await letraDeLaApp(page, '--font-cormorant')).cargada).toBe(true);
+  expect(r.links).toBe(0);
+  expect(google).toEqual([]);
 });
 
 test('solo fuente=: los titulares la heredan (contrato «display null = la misma que fuente»)', async ({ page }) => {
-  await abrir(page, '&fuente=Lobster');
-  const r = await page.evaluate(() => {
-    const titular = document.querySelector('[style*="var(--portal-heading-font"]') as HTMLElement | null;
-    return {
-      titular: titular ? getComputedStyle(titular).fontFamily : null,
-      // Misma familia → UN solo <link>, no dos.
-      links: document.querySelectorAll('link[href*="family=Lobster"]').length,
-    };
-  });
-  expect(r.titular).toContain('Lobster');
-  expect(r.links).toBe(1);
+  const google = await contarGoogleFonts(page);
+  await abrir(page, '&fuente=Outfit');
+  const r = await letras(page);
+  const outfit = await letraDeLaApp(page, '--font-outfit');
+  expect(r.titular?.startsWith(outfit.pila), `${r.titular} ≠ ${outfit.pila}`).toBe(true);
+  expect(r.links).toBe(0);
+  expect(google).toEqual([]);
 });
 
 test('⚠️ Modo B (bundle real): data-fuente/data-fuente-display pintan el shadow, y sin pedirle nada a Google', async ({ page }) => {
