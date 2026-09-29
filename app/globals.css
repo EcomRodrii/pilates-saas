@@ -1090,6 +1090,15 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
   .pantalla-reserva-detalles { grid-area: detalles; }
 }
 
+/* La raíz de /reservar (app/reservar/[slug]/page.tsx). Recorta lo que se
+   salga, pero con `clip` y no con `hidden`: `hidden` la convierte en un
+   contenedor de scroll, y entonces todo `position: sticky` de dentro se pega a
+   ELLA —tan alta como su contenido— y no se pega nunca. Así estuvieron dormidos
+   el total y el botón de «Tus datos» en el móvil (aquí abajo) y el bloque de la
+   tira de días del horario, los dos pensados para quedarse a la vista al
+   bajar. `hidden` queda de respaldo para Safari < 16, que no entiende `clip`. */
+.reservar-raiz { overflow: hidden; overflow: clip; }
+
 /* Auditoría de conversión (2026-08-31): total+CTA de "Tus datos" pegados al
    fondo del viewport SOLO por debajo de 760px — el mismo corte que decide
    una columna vs. dos aquí arriba. En escritorio la tarjeta de pago ya es

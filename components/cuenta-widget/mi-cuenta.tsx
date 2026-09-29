@@ -31,7 +31,7 @@ const ETIQUETA: Record<Seccion, string> = { reservas: 'Reservas', bonos: 'Bonos'
 export function MiCuenta({
   t, secciones = ['reservas', 'bonos', 'perfil'],
   socio, reservas, sesiones, tiposClase, salas, instructores, suscripciones, planesTarifa,
-  cancelacionVentanaHoras, ventanaPorTipo,
+  cancelacionVentanaHoras, ventanaPorTipo, devolverBonoTardia = false,
   onCancelar, onAceptarOferta, onActualizarPerfil, onLogout,
   onReservar, onVerPlanes,
 }: {
@@ -47,6 +47,8 @@ export function MiCuenta({
   planesTarifa: PlanTarifa[];
   cancelacionVentanaHoras?: number;
   ventanaPorTipo?: Record<string, number>;
+  /** Si el estudio devuelve la sesión del bono aunque se cancele tarde (`cancelacionDevolverBonoTardia`). */
+  devolverBonoTardia?: boolean;
   onCancelar: (reservaId: string) => ResultadoEscritura | void | Promise<ResultadoEscritura | void>;
   onAceptarOferta?: (reservaId: string) => ResultadoEscritura | void | Promise<ResultadoEscritura | void>;
   onActualizarPerfil: (cambios: Record<string, unknown>) => ResultadoEscritura | void | Promise<ResultadoEscritura | void>;
@@ -87,7 +89,7 @@ export function MiCuenta({
         {seccion === 'reservas' && (
           <MisReservasLista
             t={t} reservas={reservas} sesiones={sesiones} tiposClase={tiposClase} salas={salas} instructores={instructores}
-            cancelacionVentanaHoras={cancelacionVentanaHoras} ventanaPorTipo={ventanaPorTipo}
+            cancelacionVentanaHoras={cancelacionVentanaHoras} ventanaPorTipo={ventanaPorTipo} devolverBonoTardia={devolverBonoTardia}
             onCancelar={onCancelar} onAceptarOferta={onAceptarOferta}
           />
         )}

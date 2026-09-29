@@ -20,7 +20,7 @@ import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaC
 import { planesComprablesParaReservar, planCubreTipo } from '@/lib/reserva-planes-comprables';
 import { resolutorCobertura, precioDeCobertura, notaCobertura, textoCoberturaCorto, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
-  contarReservasActivasFuturas, esCancelacionTardia,
+  contarReservasActivasFuturas,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
@@ -66,7 +66,9 @@ import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 import { esApple } from '@/lib/student/enlaces-clase';
 import { cuandoCorto } from '@/lib/reservar/ficha-clase';
-import { conQuienYDonde, estadoReservaSocia, momentoReserva } from '@/lib/reservar/mis-reservas';
+import {
+  conQuienYDonde, estadoReservaSocia, limiteOferta, momentoReserva, ofertaVigente, pierdeBonoAlCancelar, textoConfirmarCancelar,
+} from '@/lib/reservar/mis-reservas';
 import { BotonPildora, TarjetaReserva } from '@/components/cuenta-widget/tarjeta-reserva';
 import { Segmentado } from '@/components/cuenta-widget/segmentado';
 import {
@@ -815,6 +817,11 @@ export default function ReservarPage() {
   const [gateError, setGateError] = useState('');
   const [errorCancelar, setErrorCancelar] = useState<string | null>(null);
   const [cancelandoPlaza, setCancelandoPlaza] = useState(false);
+  // Aceptar una plaza de la lista de espera desde «Mis reservas». Antes solo se
+  // podía desde la ficha de la clase: quien abría sus reservas veía «Lista de
+  // espera · 2ª» con la plaza ya ofrecida y el reloj corriendo, sin botón.
+  const [aceptandoOferta, setAceptandoOferta] = useState<string | null>(null);
+  const [errorOferta, setErrorOferta] = useState<{ reservaId: string; texto: string } | null>(null);
   // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
   // 03): tabs Próximas/Pasadas sobre la MISMA lista ya cargada — sin fetch
   // aparte, `misReservas` ya trae ambas.
@@ -2905,12 +2912,29 @@ export default function ReservarPage() {
               const isFuture = !isPast && r.estado !== 'ASISTIDA';
               const espera = r.estado === 'LISTA_ESPERA';
               const abriendoCancel = cancelConfirm?.reservaId === r.id;
+              const conOferta = isFuture && ofertaVigente(r.estado, r.ofertaExpiraEn, nowMs);
               const pedirCancelar = () => {
                 const ventana = s.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0;
-                const tardia = r.estado === 'CONFIRMADA' && esCancelacionTardia(s.inicio, now, ventana);
-                const pierdeBono = tardia && !(studio?.cancelacionDevolverBonoTardia ?? false);
+                const pierdeBono = pierdeBonoAlCancelar(r.estado, s.inicio, now, ventana, studio?.cancelacionDevolverBonoTardia ?? false);
                 setErrorCancelar(null);
                 setCancelConfirm({ reservaId: r.id, pierdeBono, ventana });
+              };
+              const aceptar = async () => {
+                if (aceptandoOferta) return;
+                setErrorOferta(null);
+                setAceptandoOferta(r.id);
+                // Sin escritura optimista: la reserva pasa a CONFIRMADA cuando
+                // el servidor lo dice (`postPublico` vuelve a leer las reservas
+                // al terminar). Y si la llamada LANZA, el botón no se queda
+                // muerto: mismo try/finally que la ficha de la clase.
+                try {
+                  const res = await aceptarOfertaEspera(r.id);
+                  if (!res.ok) setErrorOferta({ reservaId: r.id, texto: res.error });
+                } catch {
+                  setErrorOferta({ reservaId: r.id, texto: 'No hemos podido conectar. Inténtalo de nuevo.' });
+                } finally {
+                  setAceptandoOferta(null);
+                }
               };
               return (
                 <li key={r.id}>
@@ -2921,7 +2945,7 @@ export default function ReservarPage() {
                     // estudio. Antes: «Miércoles, 12 De Agosto · 10:00» (el
                     // `capitalize` subía también el «De»).
                     cuando={cuandoCorto(s.inicio, hoyCuenta)}
-                    estado={estadoReservaSocia(r.estado, momentoReserva(s.inicio, s.fin, nowMs), r.posicionEspera)}
+                    estado={estadoReservaSocia(r.estado, momentoReserva(s.inicio, s.fin, nowMs), r.posicionEspera, conOferta)}
                     nombre={s.tipo?.nombre ?? 'Clase'}
                     detalle={conQuienYDonde(s.instructor?.nombre, s.sala?.nombre)}
                     apagada={isPast}
@@ -2943,6 +2967,34 @@ export default function ReservarPage() {
                       </>
                     ) : undefined}
                   >
+                    {/* La plaza ofrecida, lo primero: tiene hora de caducidad. */}
+                    {conOferta && !abriendoCancel && (
+                      <div className="reserva-banner-in" style={{
+                        marginTop: 12, padding: '12px 14px', borderRadius: 14,
+                        background: `color-mix(in oklab, ${ambarCuenta} 12%, var(--portal-surface))`,
+                      }}>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, lineHeight: 1.5, color: 'var(--portal-ink)' }}>
+                          ¡Se ha liberado una plaza! Tienes {limiteOferta(r.ofertaExpiraEn!, hoyCuenta)} para aceptarla.
+                        </p>
+                        {errorOferta?.reservaId === r.id && (
+                          <p role="alert" style={{ margin: '8px 0 0', fontSize: 12.5, lineHeight: 1.45, color: 'var(--portal-ink)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                            <AlertTriangle size={14} aria-hidden="true" style={{ color: rojoCuenta, flexShrink: 0, marginTop: 2 }} />
+                            {errorOferta.texto}
+                          </p>
+                        )}
+                        <button type="button" onClick={() => { void aceptar(); }} disabled={aceptandoOferta === r.id}
+                          aria-busy={aceptandoOferta === r.id || undefined} className="reservar-foco"
+                          style={{
+                            width: '100%', minHeight: 44, marginTop: 12, padding: '0 14px', border: 'none',
+                            borderRadius: 'var(--reservar-radio-boton, 999px)', background: PRIMARY, color: PRIMARY_FG,
+                            fontFamily: sans, fontWeight: 800, fontSize: 13.5,
+                            cursor: aceptandoOferta === r.id ? 'default' : 'pointer', opacity: aceptandoOferta === r.id ? 0.6 : 1,
+                          }}>
+                          {aceptandoOferta === r.id ? 'Aceptando…' : 'Aceptar plaza'}
+                        </button>
+                      </div>
+                    )}
+
                     {/* Confirmación en línea (no modal) — Fase 4 del rediseño.
                         Ámbar cuando cancelar cuesta la sesión del bono: es la
                         única de las tres que tiene consecuencia. */}
@@ -2962,11 +3014,7 @@ export default function ReservarPage() {
                           </p>
                         ) : (
                           <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--portal-ink)' }}>
-                            {espera
-                              ? '¿Quieres salir de la lista de espera de esta clase?'
-                              : cancelConfirm?.pierdeBono
-                              ? `¿Quieres cancelar esta reserva? Con menos de ${cancelConfirm.ventana}h de antelación no se te devolverá la sesión del bono.`
-                              : `¿Quieres cancelar esta reserva? Es gratis hasta ${cancelConfirm?.ventana ?? 0}h antes.`}
+                            {textoConfirmarCancelar({ espera, pierdeBono: cancelConfirm?.pierdeBono ?? false, ventana: cancelConfirm?.ventana ?? 0 })}
                           </p>
                         )}
                         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -3082,7 +3130,11 @@ export default function ReservarPage() {
     {embedMode && (
       <style>{cssDocumentoIncrustado(apariencia, paleta)}</style>
     )}
-    <div ref={rootRef} style={{
+    {/* `reservar-raiz` (app/globals.css) recorta lo que se salga, como hacía un
+        `overflow: hidden` en línea, pero con `clip`: sin ser un contenedor de
+        scroll. Con `hidden`, todo `position: sticky` de dentro se pegaba a esta
+        raíz —tan alta como su contenido— y no se pegaba nunca. */}
+    <div ref={rootRef} className="reservar-raiz" style={{
       // `dvh` y no `vh`: con la barra de Safari visible, `100vh` sobra y deja un
       // scroll fantasma — y como esta es justo la altura que se le anuncia al
       // anfitrión por `tentareEmbedAltura`, ese sobrante se convertía en un
@@ -3114,7 +3166,7 @@ export default function ReservarPage() {
       // pisa (aunque un código con fuente propia ni siquiera lo recibe).
       ...(paleta.varsLetra ?? {}),
       ...varsTipografiaWidget(fuenteWidget, fuenteDisplayWidget),
-      overflow: 'hidden', display: 'flex', flexDirection: 'column',
+      display: 'flex', flexDirection: 'column',
       // Custom properties en línea: cascadean a todo el subárbol, así que con
       // esto el widget entero pasa a letra clara sin tocar un solo componente.
       ...(varsTexto ?? {}),

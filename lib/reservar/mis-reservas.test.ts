@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { conQuienYDonde, estadoReservaSocia, momentoReserva } from './mis-reservas.ts';
+import {
+  conQuienYDonde, estadoReservaSocia, limiteOferta, momentoReserva, ofertaVigente, pierdeBonoAlCancelar, textoConfirmarCancelar,
+} from './mis-reservas.ts';
 import { cuandoCorto } from './ficha-clase.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -71,4 +73,45 @@ test('la fecha de la tarjeta es la de la app: solo la primera letra en mayúscul
   const lejos = cuandoCorto(INICIO, '2026-08-01');
   assert.match(lejos, /^Mié\.?, 12 ago\.? · 10:00$/);
   assert.doesNotMatch(lejos, / De /);
+});
+
+// ── Oferta de plaza de la lista de espera ───────────────────────────────────
+
+const AHORA = new Date('2026-08-12T08:00:00+02:00').getTime();
+
+test('ofertaVigente: solo en LISTA_ESPERA, con hora y todavía no pasada', () => {
+  assert.equal(ofertaVigente('LISTA_ESPERA', '2026-08-12T08:30:00+02:00', AHORA), true);
+  assert.equal(ofertaVigente('LISTA_ESPERA', '2026-08-12T07:59:00+02:00', AHORA), false, 'caducada: el cron aún no la ha retirado');
+  assert.equal(ofertaVigente('LISTA_ESPERA', null, AHORA), false);
+  assert.equal(ofertaVigente('CONFIRMADA', '2026-08-12T08:30:00+02:00', AHORA), false);
+});
+
+test('con una plaza ofrecida, la insignia dice «Plaza para ti» (y no su posición en la cola)', () => {
+  assert.deepEqual(estadoReservaSocia('LISTA_ESPERA', 'proxima', 2, true), { texto: 'Plaza para ti', tono: 'pendiente' });
+  assert.deepEqual(estadoReservaSocia('LISTA_ESPERA', 'proxima', 2, false), { texto: 'Lista de espera · 2ª', tono: 'espera' });
+  assert.equal(estadoReservaSocia('LISTA_ESPERA', 'pasada', 2, true).texto, 'Lista de espera');
+});
+
+test('limiteOferta: en la hora del estudio, con el día solo si no es hoy', () => {
+  assert.equal(limiteOferta('2026-08-12T09:40:00Z', '2026-08-12'), 'hasta las 11:40');
+  assert.equal(limiteOferta('2026-08-13T07:00:00Z', '2026-08-12'), 'hasta mañana a las 09:00');
+  assert.match(limiteOferta('2026-08-15T07:00:00Z', '2026-08-12'), /^hasta el s[aá]b, 15 ago a las 09:00$/);
+});
+
+// ── Confirmar la cancelación ────────────────────────────────────────────────
+
+test('pierdeBonoAlCancelar: la regla del servidor (tardía y sin devolución), y nunca en lista de espera', () => {
+  const ahora = new Date('2026-08-12T08:00:00+02:00');
+  assert.equal(pierdeBonoAlCancelar('CONFIRMADA', '2026-08-12T10:00:00+02:00', ahora, 12, false), true);
+  assert.equal(pierdeBonoAlCancelar('CONFIRMADA', '2026-08-12T10:00:00+02:00', ahora, 12, true), false, 'el estudio devuelve en tardías');
+  assert.equal(pierdeBonoAlCancelar('CONFIRMADA', '2026-08-14T10:00:00+02:00', ahora, 12, false), false, 'fuera de la ventana');
+  assert.equal(pierdeBonoAlCancelar('CONFIRMADA', '2026-08-12T10:00:00+02:00', ahora, 0, false), false, 'sin ventana');
+  assert.equal(pierdeBonoAlCancelar('LISTA_ESPERA', '2026-08-12T10:00:00+02:00', ahora, 12, false), false);
+});
+
+test('textoConfirmarCancelar: sin ventana no promete «gratis hasta 0h antes»', () => {
+  assert.equal(textoConfirmarCancelar({ espera: true, pierdeBono: false, ventana: 12 }), '¿Quieres salir de la lista de espera de esta clase?');
+  assert.equal(textoConfirmarCancelar({ espera: false, pierdeBono: true, ventana: 12 }), '¿Quieres cancelar esta reserva? Con menos de 12h de antelación no se te devolverá la sesión del bono.');
+  assert.equal(textoConfirmarCancelar({ espera: false, pierdeBono: false, ventana: 12 }), '¿Quieres cancelar esta reserva? Es gratis hasta 12h antes.');
+  assert.equal(textoConfirmarCancelar({ espera: false, pierdeBono: false, ventana: 0 }), '¿Quieres cancelar esta reserva?');
 });

@@ -57,12 +57,19 @@ interface DatosCrudos {
   // queda de último recurso: un servidor de antes, o un código con diseño
   // propio, que no pide el estilo (main.tsx).
   colorEstudio: string | null;
+  // La política de cancelación del estudio, para que «Mi cuenta → Reservas»
+  // del widget diga lo mismo que la página ANTES de cancelar: si es tardía y
+  // se pierde la sesión del bono. Sin ella, cancelaba al primer toque y el
+  // aviso de tardía no salía nunca (la ventana llegaba siempre a 0).
+  cancelacionVentanaHoras: number;
+  devolverBonoTardia: boolean;
 }
 
 const VACIO: DatosCrudos = {
   studioId: '', sesiones: [], tiposClase: [], salas: [], instructores: [], spots: [],
   reservas: [], planesTarifa: [], suscripciones: [], sustitucionesConfirmadas: [],
   politicaPrivacidad: '', terminosServicio: '', nombreEstudio: '', misReservas: [], socio: null, stripeAccountId: null, colorEstudio: null,
+  cancelacionVentanaHoras: 0, devolverBonoTardia: false,
 };
 
 // `baseUrl`: el bundle corre en el DOM de la web del ESTUDIO — todas las
@@ -134,6 +141,8 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
         socio: pub.socia?.socio ?? null,
         stripeAccountId: pub.studio?.stripeAccountId ?? null,
         colorEstudio: typeof pub.studio?.colorPrimario === 'string' ? pub.studio.colorPrimario : null,
+        cancelacionVentanaHoras: typeof pub.studio?.cancelacionVentanaHoras === 'number' ? pub.studio.cancelacionVentanaHoras : 0,
+        devolverBonoTardia: pub.studio?.cancelacionDevolverBonoTardia === true,
       });
       // Leído clave a clave antes de guardarlo: acaba en el `style` de un
       // elemento en la web de otro. Con la página oculta no se llega aquí, y
@@ -315,6 +324,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     misReservas: datos.misReservas, suscripciones: datos.suscripciones, planesTarifa: datos.planesTarifa, socio: datos.socio,
     stripeAccountId: datos.stripeAccountId,
     colorEstudio: datos.colorEstudio,
+    cancelacionVentanaHoras: datos.cancelacionVentanaHoras, devolverBonoTardia: datos.devolverBonoTardia,
     estiloWidget,
     onReservar, onCancelar, onAceptarOferta, onActualizarPerfil, logout, recargar,
     crearCheckoutEmbebido, comprarConBizum,

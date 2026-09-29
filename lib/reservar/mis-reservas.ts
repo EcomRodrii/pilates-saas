@@ -23,6 +23,10 @@
 // Relativo y con `.ts`: `node --test` no resuelve el alias `@/`.
 
 import type { EstadoReserva } from '../types.ts';
+import { debeDevolverBono } from '../booking-logic.ts';
+import { diaEnEstudio } from '../calendario-hora-estudio.ts';
+import { etiquetaDiaClave } from '../reserva-calendario-logic.ts';
+import { horaEstudio } from '../utils.ts';
 
 /** Dónde está la clase respecto a ahora. Solo para PINTAR: quién puede cancelar lo sigue decidiendo quien llama. */
 export type MomentoReserva = 'proxima' | 'en-curso' | 'pasada';
@@ -65,8 +69,13 @@ export function estadoReservaSocia(
   estado: EstadoReserva,
   momento: MomentoReserva,
   posicionEspera?: number | null,
+  /** Tiene una plaza ofrecida que aún puede aceptar (`ofertaVigente`). */
+  conOferta = false,
 ): EstadoReservaSocia {
   const pasada = momento === 'pasada';
+  // Una plaza esperándola pide que haga algo: «Lista de espera · 2ª» ya no es
+  // verdad —la plaza es suya si la acepta— y se leería como «aún no».
+  if (estado === 'LISTA_ESPERA' && conOferta && !pasada) return { texto: 'Plaza para ti', tono: 'pendiente' };
   switch (estado) {
     case 'CONFIRMADA':
       if (momento === 'en-curso') return { texto: 'En curso', tono: 'curso' };
@@ -98,4 +107,51 @@ export function conQuienYDonde(instructora?: string | null, sala?: string | null
   const quien = instructora?.trim() ? `con ${instructora.trim()}` : '';
   const donde = sala?.trim() ?? '';
   return [quien, donde].filter(Boolean).join(' · ') || null;
+}
+
+/**
+ * ¿Tiene una plaza ofrecida que aún puede aceptar? (Fase 2b: `ofertaExpiraEn`
+ * en una reserva que sigue en LISTA_ESPERA.) Pasada la hora ya no: el cron
+ * tarda hasta 5 minutos en retirarla, y en ese rato ofrecer un botón que el
+ * servidor va a rechazar es peor que no ofrecerlo.
+ */
+export function ofertaVigente(estado: EstadoReserva, ofertaExpiraEn: string | null | undefined, ahoraMs: number): boolean {
+  return estado === 'LISTA_ESPERA' && !!ofertaExpiraEn && new Date(ofertaExpiraEn).getTime() > ahoraMs;
+}
+
+/**
+ * Hasta cuándo puede aceptarla, en la hora del estudio: «hasta las 11:40»,
+ * «hasta mañana a las 09:00», «hasta el mié, 12 ago a las 09:00».
+ * `hoy`: 'YYYY-MM-DD' del estudio (`hoyEnEstudio()`).
+ */
+export function limiteOferta(expira: string, hoy: string): string {
+  const dia = etiquetaDiaClave(diaEnEstudio(expira), hoy);
+  const hora = horaEstudio(expira);
+  if (dia === 'Hoy') return `hasta las ${hora}`;
+  if (dia === 'Mañana') return `hasta mañana a las ${hora}`;
+  return `hasta el ${dia.charAt(0).toLowerCase()}${dia.slice(1)} a las ${hora}`;
+}
+
+/**
+ * ¿Cancelar ahora le cuesta la sesión del bono? La misma regla que aplica el
+ * servidor al cancelar (`debeDevolverBono`, lib/booking-logic.ts): solo una
+ * reserva CONFIRMADA, dentro de la ventana, y si el estudio no devuelve el
+ * bono en las tardías. La lista de espera nunca gastó sesión.
+ */
+export function pierdeBonoAlCancelar(
+  estado: EstadoReserva, inicio: string, ahora: Date, ventanaHoras: number, devuelveEnTardia: boolean,
+): boolean {
+  return estado === 'CONFIRMADA' && !debeDevolverBono(inicio, ahora, ventanaHoras, devuelveEnTardia);
+}
+
+/**
+ * Lo que pregunta la confirmación de cancelar, en la página y en el widget
+ * nativo con las mismas palabras. Sin ventana configurada (0 h) no se promete
+ * nada: antes salía «Es gratis hasta 0h antes».
+ */
+export function textoConfirmarCancelar(o: { espera: boolean; pierdeBono: boolean; ventana: number }): string {
+  if (o.espera) return '¿Quieres salir de la lista de espera de esta clase?';
+  if (o.pierdeBono) return `¿Quieres cancelar esta reserva? Con menos de ${o.ventana}h de antelación no se te devolverá la sesión del bono.`;
+  if (o.ventana > 0) return `¿Quieres cancelar esta reserva? Es gratis hasta ${o.ventana}h antes.`;
+  return '¿Quieres cancelar esta reserva?';
 }

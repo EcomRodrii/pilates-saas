@@ -136,7 +136,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
     politicaPrivacidad, terminosServicio, nombreEstudio, onReservar, onCancelar, onAceptarOferta,
     sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
     stripeAccountId, onActualizarPerfil, logout, crearCheckoutEmbebido, comprarConBizum, recargar,
-    colorEstudio, estiloWidget,
+    colorEstudio, estiloWidget, cancelacionVentanaHoras, devolverBonoTardia,
   } = useDatosWidget(slug, ORIGEN_TENTARE, filtros, { estilo: !disenoPropio });
   // El estilo de los widgets de su web (Fase E), o `null`: nada elegido, o un
   // diseño propio en su código. «Siete días en columnas» es lo de por defecto
@@ -402,6 +402,9 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
             t={t} socio={socio}
             reservas={misReservas} sesiones={sesiones} tiposClase={tiposClase} salas={salas} instructores={instructores}
             suscripciones={suscripciones} planesTarifa={planesTarifa}
+            cancelacionVentanaHoras={cancelacionVentanaHoras}
+            ventanaPorTipo={Object.fromEntries(tiposClase.filter(c => c.ventanaCancelacionHoras != null).map(c => [c.id, c.ventanaCancelacionHoras as number]))}
+            devolverBonoTardia={devolverBonoTardia}
             onCancelar={onCancelar} onAceptarOferta={onAceptarOferta}
             onActualizarPerfil={onActualizarPerfil}
             onLogout={() => { setCuentaAbierta(false); logout(); }}

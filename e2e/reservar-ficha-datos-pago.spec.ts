@@ -343,6 +343,19 @@ test('móvil: las flechas mueven la opción de lo que se compra (patrón «radio
   await expect(page.getByText('96 €', { exact: true }).last()).toBeVisible();
 });
 
+test('móvil: el total y «Continuar al pago» se quedan a la vista al bajar por «Tus datos»', async ({ page }) => {
+  // Estaban pensados para ir pegados al pie (`.pantalla-reserva-cta-pegada`),
+  // pero la raíz de /reservar llevaba `overflow: hidden` y ningún `sticky` de
+  // dentro se pegaba: el botón se quedaba al final de la tarjeta, bajo el borde.
+  await abrirDatos(page, 'tentare', MOVIL);
+  const boton = page.getByRole('button', { name: 'Continuar al pago' });
+  await page.getByRole('heading', { name: 'Tus datos' }).scrollIntoViewIfNeeded();
+  await expect(boton).toBeInViewport();
+  await expect(page.getByText('Total a pagar')).toBeInViewport();
+  const caja = (await boton.boundingBox())!;
+  expect(caja.y + caja.height, `«Continuar al pago» acaba en y=${Math.round(caja.y + caja.height)}`).toBeLessThanOrEqual(MOVIL.height);
+});
+
 test('escritorio (1280×800): la clase a la izquierda y los datos a la derecha', async ({ page }) => {
   await abrirDatos(page, 'tentare', ESCRITORIO);
   const foto = (await page.getByRole('heading', { level: 1, name: 'Reformer' }).boundingBox())!;
