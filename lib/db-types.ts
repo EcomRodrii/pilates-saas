@@ -3482,6 +3482,69 @@ export interface RowBillingCheckoutLocks {
   iniciado_en: string | null;
 }
 
+export interface RowVerifactuEnvios {
+  id: string;
+  studio_id: string;
+  nif_obligado: string;
+  operacion: string;
+  entorno: string;
+  endpoint: string;
+  certificado_sha256: string;
+  n_registros: number;
+  request_xml: string;
+  request_sha256: string;
+  iniciado_en: string;
+  terminado_en: string | null;
+  http_status: number | null;
+  fallo_transporte: string | null;
+  estado_envio: string | null;
+  fault_codigo: string | null;
+  respuesta_xml: string | null;
+  csv: string | null;
+  tiempo_espera_s: number | null;
+  error: string | null;
+}
+
+export interface RowVerifactuRegistros {
+  id: string;
+  studio_id: string;
+  factura_id: string;
+  tipo: string;
+  seq: number;
+  id_emisor: string;
+  num_serie: string;
+  fecha_expedicion: string;
+  tipo_factura: string | null;
+  cuota_total: number | null;
+  importe_total: number | null;
+  huella_anterior: string;
+  fecha_hora_huso_gen: string | null;
+  huella: string | null;
+  huella_verificada: boolean | null;
+  anterior_id_emisor: string | null;
+  anterior_num_serie: string | null;
+  anterior_fecha_expedicion: string | null;
+  subsanacion: boolean;
+  rechazo_previo: string | null;
+  sin_registro_previo: boolean;
+  registro_origen_id: string | null;
+  datos_corregidos: any | null;
+  xml_registro: string | null;
+  xml_sha256: string | null;
+  estado: string;
+  intentos: number;
+  proximo_intento_en: string | null;
+  envio_id: string | null;
+  csv: string | null;
+  codigo_error: string | null;
+  descripcion_error: string | null;
+  estado_duplicado: string | null;
+  revision_manual: boolean;
+  creado_en: string;
+  actualizado_en: string;
+  and: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -9619,6 +9682,132 @@ export type BillingCheckoutLocksUpdate = {
   iniciado_en?: string | null | null;
 }
 
+export type VerifactuEnviosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nif_obligado?: string | null;
+  operacion?: string | null;
+  entorno?: string | null;
+  endpoint?: string | null;
+  certificado_sha256?: string | null;
+  n_registros?: number | null;
+  request_xml?: string | null;
+  request_sha256?: string | null;
+  iniciado_en?: string | null;
+  terminado_en?: string | null | null;
+  http_status?: number | null | null;
+  fallo_transporte?: string | null | null;
+  estado_envio?: string | null | null;
+  fault_codigo?: string | null | null;
+  respuesta_xml?: string | null | null;
+  csv?: string | null | null;
+  tiempo_espera_s?: number | null | null;
+  error?: string | null | null;
+}
+
+export type VerifactuEnviosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nif_obligado?: string | null;
+  operacion?: string | null;
+  entorno?: string | null;
+  endpoint?: string | null;
+  certificado_sha256?: string | null;
+  n_registros?: number | null;
+  request_xml?: string | null;
+  request_sha256?: string | null;
+  iniciado_en?: string | null;
+  terminado_en?: string | null | null;
+  http_status?: number | null | null;
+  fallo_transporte?: string | null | null;
+  estado_envio?: string | null | null;
+  fault_codigo?: string | null | null;
+  respuesta_xml?: string | null | null;
+  csv?: string | null | null;
+  tiempo_espera_s?: number | null | null;
+  error?: string | null | null;
+}
+
+export type VerifactuRegistrosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  factura_id?: string | null;
+  tipo?: string | null;
+  seq?: number | null;
+  id_emisor?: string | null;
+  num_serie?: string | null;
+  fecha_expedicion?: string | null;
+  tipo_factura?: string | null | null;
+  cuota_total?: number | null | null;
+  importe_total?: number | null | null;
+  huella_anterior?: string | null;
+  fecha_hora_huso_gen?: string | null | null;
+  huella?: string | null | null;
+  huella_verificada?: boolean | null | null;
+  anterior_id_emisor?: string | null | null;
+  anterior_num_serie?: string | null | null;
+  anterior_fecha_expedicion?: string | null | null;
+  subsanacion?: boolean | null;
+  rechazo_previo?: string | null | null;
+  sin_registro_previo?: boolean | null;
+  registro_origen_id?: string | null | null;
+  datos_corregidos?: any | null | null;
+  xml_registro?: string | null | null;
+  xml_sha256?: string | null | null;
+  estado?: string | null;
+  intentos?: number | null;
+  proximo_intento_en?: string | null | null;
+  envio_id?: string | null | null;
+  csv?: string | null | null;
+  codigo_error?: string | null | null;
+  descripcion_error?: string | null | null;
+  estado_duplicado?: string | null | null;
+  revision_manual?: boolean | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  and?: string | null | null;
+}
+
+export type VerifactuRegistrosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  factura_id?: string | null;
+  tipo?: string | null;
+  seq?: number | null;
+  id_emisor?: string | null;
+  num_serie?: string | null;
+  fecha_expedicion?: string | null;
+  tipo_factura?: string | null | null;
+  cuota_total?: number | null | null;
+  importe_total?: number | null | null;
+  huella_anterior?: string | null;
+  fecha_hora_huso_gen?: string | null | null;
+  huella?: string | null | null;
+  huella_verificada?: boolean | null | null;
+  anterior_id_emisor?: string | null | null;
+  anterior_num_serie?: string | null | null;
+  anterior_fecha_expedicion?: string | null | null;
+  subsanacion?: boolean | null;
+  rechazo_previo?: string | null | null;
+  sin_registro_previo?: boolean | null;
+  registro_origen_id?: string | null | null;
+  datos_corregidos?: any | null | null;
+  xml_registro?: string | null | null;
+  xml_sha256?: string | null | null;
+  estado?: string | null;
+  intentos?: number | null;
+  proximo_intento_en?: string | null | null;
+  envio_id?: string | null | null;
+  csv?: string | null | null;
+  codigo_error?: string | null | null;
+  descripcion_error?: string | null | null;
+  estado_duplicado?: string | null | null;
+  revision_manual?: boolean | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+  and?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -10721,6 +10910,16 @@ export type Database = {
         Row: RowBillingCheckoutLocks;
         Insert: BillingCheckoutLocksInsert;
         Update: BillingCheckoutLocksUpdate;
+      };
+      verifactu_envios: {
+        Row: RowVerifactuEnvios;
+        Insert: VerifactuEnviosInsert;
+        Update: VerifactuEnviosUpdate;
+      };
+      verifactu_registros: {
+        Row: RowVerifactuRegistros;
+        Insert: VerifactuRegistrosInsert;
+        Update: VerifactuRegistrosUpdate;
       };
     };
   };

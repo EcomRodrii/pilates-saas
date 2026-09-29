@@ -16,7 +16,7 @@ test('con registro admitido por la AEAT y en producción, hay sello', () => {
   const sello = selloParaCliente(SELLADA, NIF, PROD);
   assert.ok(sello);
   assert.equal(sello.leyenda, LEYENDA_VERIFACTU);
-  assert.match(sello.url, /^https:\/\/www2\.agenciatributaria\.es\//);
+  assert.match(sello.url, /^https:\/\/www2\.agenciatributaria\.gob\.es\//);
   assert.match(sello.url, /nif=B00000000/);
   assert.match(sello.url, /fecha=01-08-2026/);
   assert.match(sello.url, /importe=100\.00/);

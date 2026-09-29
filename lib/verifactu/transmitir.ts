@@ -4,55 +4,50 @@
 // usuario: la AEAT impone control de flujo entre envíos y eso no cabe dentro de
 // un cobro.
 //
-// Lo que decide QUÉ se manda y qué significa la respuesta vive aparte, en
-// pendientes.ts, que es lógica pura con tests. Aquí solo está lo que toca la
-// base de datos y la red.
+// Lo que DECIDE vive aparte y es lógica pura con tests:
+//   · qué lote sale y en qué orden ........ pendientes.ts  (decidirLote)
+//   · qué significa cada respuesta ........ procesar.ts    (planificarResultado)
+//   · la máquina de estados ................ estado.ts
+//   · lo no confirmado por la AEAT ......... politica-cadena.ts
+// Aquí solo está lo que toca la base de datos y la red.
+//
+// Garantías:
+//   · El XML se congela al preparar y se reenvía byte a byte (`xml_registro`).
+//   · Un registro se RECLAMA (compare-and-set LISTO/REINTENTAR → ENVIANDO) y se
+//     anota en `verifactu_envios` ANTES de abrir la conexión. Si el proceso muere
+//     a mitad, queda ENVIANDO con su envío abierto y la siguiente pasada lo pasa
+//     a INCIERTO: nunca se reenvía sin preguntar antes a la AEAT.
+//   · Solo se transmite en PRODUCCIÓN y solo para estudios habilitados
+//     (habilitacion.ts). En preproducción el cron no manda nada de estudios: las
+//     pruebas se hacen con `scripts/verifactu-preproduccion.ts` y el NIF propio.
 
-import { descripcionAeatDeFactura } from '../facturas/concepto.ts';
 import * as Sentry from '@sentry/nextjs';
-import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { certificadoDeEntorno, destinoDeEntorno, sistemaInformatico, transmisionConfigurada, queFaltaParaTransmitir } from './config.ts';
-import { enviarSobreAeat } from './envio.ts';
-import { sobreSoapRegFactu, xmlRegistroAlta, type RegistroAltaXml } from './xml.ts';
-import {
-  casarRespuestas, esperaAntesDelSiguienteEnvioMs, hayHuecoAntesDe, loteAEnviar, yaNoSeReenvia,
-  type FacturaPendiente,
-} from './pendientes.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import {
+  certificadoDeEntorno, destinoDeEntorno, entornoTransmision, sistemaInformatico,
+  queFaltaParaTransmitir,
+} from './config.ts';
+import { llamarAeat, huellaCredencial, sha256Texto, type CertificadoCliente } from './envio.ts';
+import { endpointVerifactu, type DestinoAeat } from './endpoints.ts';
+import { sobreSoapRegFactu, sobreSoapConsulta, periodoDeFecha, type SistemaInformatico } from './xml.ts';
+import { decidirLote, type RegistroCola } from './pendientes.ts';
+import { planificarResultado } from './procesar.ts';
+import { parsearRespuestaConsulta } from './respuesta.ts';
+import { resolverConsulta, estadoParaFactura, type EstadoRegistroVerifactu } from './estado.ts';
+import { estudioHabilitado, pausarEstudio } from './habilitacion.ts';
+import { prepararRegistros, completarReservasHuerfanas, COLS_REGISTRO, type FilaRegistro } from './registros.ts';
 
 export interface ResumenTransmision {
   estudios: number;
   enviadas: number;
   registradas: number;
   rechazadas: number;
+  inciertas: number;
   pendientes: number;
   saltados: string[];
   motivo?: string;
 }
-
-interface FilaFactura {
-  /** Lo que se facturó. `null` = sellada antes de guardarse; cae a la
-   *  descripción genérica de la AEAT (ver `descripcionAeatDeFactura`). */
-  concepto: string | null;
-  id: string;
-  studio_id: string;
-  numero_completo: string;
-  fecha_emision: string;
-  verifactu_seq: number;
-  verifactu_hash: string;
-  verifactu_prev_hash: string | null;
-  verifactu_ts: string;
-  receptor_nombre: string | null;
-  receptor_nif: string | null;
-  base_imponible: string | number;
-  tipo_iva: string | number;
-  cuota_iva: string | number;
-  total: string | number;
-  tipo: string | null;
-  tipo_rectificativa: string | null;
-}
-
-const num = (v: string | number | null): number => (v === null ? 0 : typeof v === 'number' ? v : Number(v));
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -86,248 +81,286 @@ async function liberarCerrojo(admin: SupabaseClient): Promise<void> {
 // Deja margen sobre maxDuration=300s del endpoint (app/api/cron/
 // verifactu-transmitir/route.ts) para que el cron termine solo, sin que
 // Vercel lo mate a mitad de un envío — un estudio que no llegue a tiempo se
-// queda PENDIENTE, sin tocar nada, y lo coge el siguiente cron (10 min).
+// queda en cola, sin tocar nada, y lo coge el siguiente cron (10 min).
 const PRESUPUESTO_MS = 260_000;
 
-/** 'yyyy-mm-dd' → 'dd-mm-yyyy', que es como lo quiere el registro. */
-function fechaAeat(iso: string): string {
-  const [y, m, d] = iso.slice(0, 10).split('-');
-  return `${d}-${m}-${y}`;
+/** Un ENVIANDO más viejo que esto es de una ejecución que murió: pasa a INCIERTO. */
+const ENVIANDO_HUERFANO_MS = CERROJO_HUERFANO_MS;
+
+const ACTIVOS = ['RESERVADO', 'PENDIENTE', 'LISTO', 'ENVIANDO', 'REINTENTAR', 'INCIERTO'];
+
+/** El resumen de la factura sigue al registro vigente de su alta o subsanación. */
+async function sincronizarFactura(admin: SupabaseClient, facturaId: string, estado: EstadoRegistroVerifactu, csv: string | null) {
+  const resumen = estadoParaFactura(estado);
+  if (!resumen) return;
+  const campos: Record<string, unknown> = { verifactu_estado: resumen };
+  if (csv) campos.verifactu_csv = csv;
+  await admin.from('facturas').update(campos).eq('id', facturaId);
+}
+
+interface Contexto {
+  admin: SupabaseClient;
+  certificado: CertificadoCliente;
+  destino: DestinoAeat;
+  sistema: SistemaInformatico;
+  resumen: ResumenTransmision;
+  /** Control de flujo GLOBAL: ver pendientes.ts (ámbito NO CONFIRMADO). */
+  esperaMs: number;
+  inicio: number;
 }
 
 export async function transmitirPendientes(): Promise<ResumenTransmision> {
-  const vacio: ResumenTransmision = { estudios: 0, enviadas: 0, registradas: 0, rechazadas: 0, pendientes: 0, saltados: [] };
+  const resumen: ResumenTransmision = { estudios: 0, enviadas: 0, registradas: 0, rechazadas: 0, inciertas: 0, pendientes: 0, saltados: [] };
 
-  if (!transmisionConfigurada()) {
+  const falta = queFaltaParaTransmitir();
+  if (falta.length > 0) {
     // No es un error: es el estado normal hasta que haya certificado. Las
-    // facturas siguen numeradas, encadenadas y con su QR; solo esperan.
-    return { ...vacio, motivo: `Sin configurar: falta ${queFaltaParaTransmitir().join(' y ')}` };
+    // facturas siguen numeradas, encadenadas y con su registro; solo esperan.
+    return { ...resumen, motivo: `Sin configurar: falta ${falta.join(', ')}` };
+  }
+  if (entornoTransmision() !== 'produccion') {
+    return { ...resumen, motivo: 'Preproducción: el cron no manda registros de estudios. Las pruebas van con scripts/verifactu-preproduccion.ts y el NIF propio del apoderado.' };
   }
 
   const admin = getSupabaseAdmin();
-  if (!admin) return { ...vacio, motivo: 'Service role no configurada' };
-
+  if (!admin) return { ...resumen, motivo: 'Service role no configurada' };
   const certificado = certificadoDeEntorno();
-  if (!certificado) return { ...vacio, motivo: 'Sin certificado' };
   const destino = destinoDeEntorno();
-  const sistema = sistemaInformatico();
+  if (!certificado || !destino) return { ...resumen, motivo: 'Sin certificado o sin destino' };
 
-  // 50ª pasada de auditoría, H-1: sin este cerrojo, dos invocaciones
-  // solapadas (Vercel Cron no garantiza que no se solapen, y el endpoint
-  // también se dispara a mano con CRON_SECRET) podían mandar el mismo
-  // registro dos veces a la AEAT y pisarse el estado la una a la otra.
-  if (!(await adquirirCerrojo(admin))) {
-    return { ...vacio, motivo: 'Ya hay una transmisión en curso' };
-  }
+  if (!(await adquirirCerrojo(admin))) return { ...resumen, motivo: 'Ya hay una transmisión en curso' };
 
+  const ctx: Contexto = { admin, certificado, destino, sistema: sistemaInformatico(), resumen, esperaMs: 0, inicio: Date.now() };
   try {
-    // Solo lo que está en cola. `verifactu_estado` nulo = nunca se intentó.
-    const { data: filas, error } = await admin
-      .from('facturas')
-      .select('id, studio_id, numero_completo, fecha_emision, verifactu_seq, verifactu_hash, verifactu_prev_hash, verifactu_ts, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, tipo, tipo_rectificativa, concepto')
-      .in('verifactu_estado', ['PENDIENTE'])
-      .not('verifactu_hash', 'is', null)
-      .order('verifactu_seq', { ascending: true })
-      .limit(1000);
-
+    const { data: activos, error } = await admin.from('verifactu_registros')
+      .select('studio_id').in('estado', ACTIVOS).limit(5000);
     if (error) {
-      Sentry.captureException(error, { tags: { area: 'verifactu', paso: 'leer-pendientes' } });
-      return { ...vacio, motivo: 'No se pudieron leer las facturas pendientes' };
+      Sentry.captureException(error, { tags: { area: 'verifactu', paso: 'leer-cola' } });
+      return { ...resumen, motivo: 'No se pudo leer la cola' };
     }
-    if (!filas || filas.length === 0) return vacio;
+    const estudios = [...new Set((activos ?? []).map(r => r.studio_id as string))];
+    resumen.estudios = estudios.length;
 
-    // Un envío es de UN obligado tributario: la cabecera lleva su NIF. Así que se
-    // agrupa por estudio y se manda un sobre por cada uno.
-    const porEstudio = new Map<string, FilaFactura[]>();
-    for (const f of filas as FilaFactura[]) {
-      const lista = porEstudio.get(f.studio_id) ?? [];
-      lista.push(f);
-      porEstudio.set(f.studio_id, lista);
-    }
-
-    const resumen: ResumenTransmision = { ...vacio, estudios: porEstudio.size, saltados: [] };
-    const inicio = Date.now();
-    // 50ª pasada de auditoría, H-2: TiempoEsperaEnvio de la AEAT — el
-    // control de flujo es entre envíos, no por estudio (un único
-    // certificado/NIF productor para todos, lib/verifactu/config.ts).
-    let esperaMsAntesDelSiguiente = 0;
-
-    for (const [studioId, suyas] of porEstudio) {
-      // Deja el resto PENDIENTE para el siguiente cron en vez de arriesgarse
-      // a que Vercel mate la función a mitad de un envío.
-      if (Date.now() - inicio + esperaMsAntesDelSiguiente > PRESUPUESTO_MS) {
+    for (const studioId of estudios) {
+      if (Date.now() - ctx.inicio + ctx.esperaMs > PRESUPUESTO_MS) {
         resumen.saltados.push(`${studioId}: sin tiempo en este cron, queda para el siguiente`);
         continue;
       }
-      if (esperaMsAntesDelSiguiente > 0) await sleep(esperaMsAntesDelSiguiente);
-      const { data: studio } = await admin
-        .from('studios').select('nif, razon_social, nombre').eq('id', studioId).maybeSingle();
-      const nif = (studio?.nif as string | null) ?? '';
-      if (!nif) {
-        resumen.saltados.push(`${studioId}: sin NIF`);
+      const hab = await estudioHabilitado(admin, studioId);
+      if (!hab.habilitado) {
+        resumen.saltados.push(`${studioId}: no habilitado (${hab.motivo})`);
         continue;
       }
-
-      const pendientes: FacturaPendiente[] = suyas.map(f => ({
-        id: f.id, studioId: f.studio_id, numeroCompleto: f.numero_completo,
-        fechaExpedicion: fechaAeat(f.fecha_emision), verifactuSeq: Number(f.verifactu_seq),
-        huella: f.verifactu_hash, huellaAnterior: f.verifactu_prev_hash ?? '',
-      }));
-      const lote = loteAEnviar(pendientes);
-
-      // ¿Falta por enviar alguna anterior? Si la 7 nunca salió, mandar la 8 deja
-      // a la AEAT con una cadena que no puede seguir.
-      const { data: ultima } = await admin
-        .from('facturas')
-        .select('verifactu_seq')
-        .eq('studio_id', studioId)
-        .in('verifactu_estado', ['REGISTRADA', 'ACEPTADA_CON_ERRORES'])
-        .order('verifactu_seq', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const ultimaSeq = ultima?.verifactu_seq == null ? null : Number(ultima.verifactu_seq);
-
-      if (hayHuecoAntesDe(lote, ultimaSeq)) {
-        resumen.saltados.push(`${studioId}: hueco en la cadena antes de la ${lote[0].verifactuSeq}`);
-        continue;
-      }
-
-      // El `RegistroAnterior` exige número y fecha de la factura previa, no solo
-      // su huella: sin ellos el registro es inválido. Se traen de una vez, por
-      // secuencia, en lugar de una consulta por factura.
-      const seqsAnteriores = lote.map(p => p.verifactuSeq - 1).filter(n => n > 0);
-      const anteriorPorSeq = new Map<number, { numero: string; fecha: string }>();
-      if (seqsAnteriores.length > 0) {
-        const { data: previas } = await admin
-          .from('facturas')
-          .select('numero_completo, fecha_emision, verifactu_seq')
-          .eq('studio_id', studioId)
-          .in('verifactu_seq', seqsAnteriores);
-        for (const pv of previas ?? []) {
-          anteriorPorSeq.set(Number(pv.verifactu_seq), {
-            numero: pv.numero_completo as string,
-            fecha: fechaAeat(pv.fecha_emision as string),
-          });
-        }
-      }
-
-      const porId = new Map(suyas.map(f => [f.id, f]));
-      // Una factura encadenada cuya anterior no aparece no se manda: iría con un
-      // `RegistroAnterior` a medias y la AEAT la rechazaría entera.
-      const enviables = lote.filter(p => {
-        if (!p.huellaAnterior) return true;
-        if (anteriorPorSeq.has(p.verifactuSeq - 1)) return true;
-        resumen.saltados.push(`${studioId}: falta la factura anterior a la ${p.verifactuSeq}`);
-        resumen.pendientes += 1;
-        return false;
-      });
-      if (enviables.length === 0) continue;
-
-      const registros = enviables.map(p => {
-        const f = porId.get(p.id)!;
-        const anterior = p.huellaAnterior ? anteriorPorSeq.get(p.verifactuSeq - 1) : undefined;
-        const base = num(f.base_imponible);
-        const cuota = num(f.cuota_iva);
-        const reg: RegistroAltaXml = {
-          emisor: { nombreRazon: (studio?.razon_social as string | null) || (studio?.nombre as string | null) || 'Estudio', nif },
-          numSerieFactura: f.numero_completo,
-          fechaExpedicionFactura: fechaAeat(f.fecha_emision),
-          tipoFactura: f.tipo || (f.receptor_nif ? 'F1' : 'F2'),
-          ...(f.tipo_rectificativa ? { tipoRectificativa: f.tipo_rectificativa } : {}),
-          // El concepto REAL de la factura, no un literal. Las selladas antes de
-          // guardarlo no lo llevan y caen a la descripción de siempre: son las
-          // que están en esta cola AHORA, y no se le va a contar a Hacienda una
-          // operación pasada con un texto distinto del que le correspondía.
-          // `descripcionAeatDeFactura` acota al tope del XSD (500) — un registro
-          // RECHAZADO congela toda la cadena posterior de ese estudio.
-          descripcionOperacion: descripcionAeatDeFactura({ concepto: (f.concepto as string | null) ?? null }),
-          desglose: [{
-            calificacionOperacion: 'S1',
-            tipoImpositivo: num(f.tipo_iva),
-            baseImponible: base,
-            cuotaRepercutida: cuota,
-          }],
-          cuotaTotal: cuota,
-          importeTotal: num(f.total),
-          // La primera de la cadena no tiene anterior. El resto encadena con la
-          // huella que YA se guardó — nunca se recalcula.
-          encadenamiento: anterior
-            ? {
-                idEmisorFactura: nif,
-                numSerieFactura: anterior.numero,
-                fechaExpedicionFactura: anterior.fecha,
-                huella: p.huellaAnterior,
-              }
-            : null,
-          sistemaInformatico: sistema,
-          fechaHoraHusoGenRegistro: f.verifactu_ts,
-          huella: f.verifactu_hash,
-        };
-        return xmlRegistroAlta(reg);
-      });
-
-      const sobre = sobreSoapRegFactu({
-        obligado: { nombreRazon: (studio?.razon_social as string | null) || (studio?.nombre as string | null) || 'Estudio', nif },
-        registros,
-      });
-
-      const res = await enviarSobreAeat(sobre, certificado, destino);
-      resumen.enviadas += enviables.length;
-      // Se fija ANTES de mirar si hubo fault: el control de flujo lo consume
-      // el intento, no el éxito — reintentar demasiado rápido tras un rechazo
-      // es justo lo que este cerrojo temporal existe para evitar.
-      esperaMsAntesDelSiguiente = esperaAntesDelSiguienteEnvioMs(res.respuesta?.tiempoEsperaSegundos ?? null);
-
-      if (!res.respuesta || res.respuesta.fault) {
-        // Rechazo de cabecera o fallo de transporte: NINGUNA se marca. Se quedan
-        // en cola exactamente como estaban, con su misma huella.
-        Sentry.captureMessage('Veri*Factu: envío rechazado', {
-          level: 'error',
-          tags: { area: 'verifactu', studio: studioId },
-          extra: { error: res.error, status: res.status },
-        });
-        resumen.saltados.push(`${studioId}: ${res.error ?? 'envío rechazado'}`);
-        resumen.pendientes += enviables.length;
-        continue;
-      }
-
-      const csv = res.respuesta.csv;
-      const casadas = casarRespuestas(enviables, res.respuesta.registros);
-
-      for (const { factura, estado, error: errorRegistro } of casadas) {
-        if (estado === 'PENDIENTE') { resumen.pendientes += 1; continue; }
-        // El CSV solo se guarda en las que la AEAT admitió: es el acuse de ESA
-        // remisión, y no se puede recuperar más tarde.
-        const campos: Record<string, unknown> = { verifactu_estado: estado };
-        if (yaNoSeReenvia(estado) && csv) campos.verifactu_csv = csv;
-        // Compare-and-set (50ª pasada, H-1): solo se escribe si SEGUÍA
-        // PENDIENTE. Sin esto, una ejecución solapada podía sobrescribir un
-        // REGISTRADA ya resuelto por la otra con un RECHAZADA (o al revés).
-        await admin.from('facturas').update(campos).eq('id', factura.id).eq('verifactu_estado', 'PENDIENTE');
-
-        if (yaNoSeReenvia(estado)) resumen.registradas += 1;
-        else {
-          resumen.rechazadas += 1;
-          Sentry.captureMessage('Veri*Factu: registro rechazado por la AEAT', {
-            level: 'warning',
-            tags: { area: 'verifactu', studio: studioId },
-            extra: { factura: factura.numeroCompleto, error: errorRegistro },
-          });
-          // 34ª pasada de auditoría: sin esto, la propietaria (la obligada
-          // tributaria real) nunca se enteraba de un rechazo que congela para
-          // siempre la transmisión de toda factura posterior de su estudio —
-          // solo quedaba en un Sentry que solo ve Tentare. Best-effort: un
-          // fallo al notificar no puede impedir que el resumen del cron avance.
-          const { emitirFacturaRechazadaAeat } = await import('@/lib/notifications/emit');
-          await emitirFacturaRechazadaAeat(admin, {
-            studioId, facturaId: factura.id, numero: factura.numeroCompleto, motivo: errorRegistro ?? null,
-          });
-        }
-      }
+      const seguir = await procesarEstudio(ctx, studioId);
+      if (seguir === 'PARAR_TODO') break;
     }
-
     return resumen;
   } finally {
     await liberarCerrojo(admin);
   }
+}
+
+async function procesarEstudio(ctx: Contexto, studioId: string): Promise<'SEGUIR' | 'PARAR_TODO'> {
+  const { admin, resumen } = ctx;
+
+  await completarReservasHuerfanas(admin, studioId);
+
+  // ENVIANDO de una ejecución que murió: no sabemos si llegó → INCIERTO.
+  const huerfanoAntes = new Date(Date.now() - ENVIANDO_HUERFANO_MS).toISOString();
+  await admin.from('verifactu_registros')
+    .update({ estado: 'INCIERTO', codigo_error: 'ENVIO_INTERRUMPIDO', actualizado_en: new Date().toISOString() })
+    .eq('studio_id', studioId).eq('estado', 'ENVIANDO').lt('actualizado_en', huerfanoAntes);
+
+  const prep = await prepararRegistros(admin, studioId, ctx.sistema);
+  for (const r of prep.rechazados) {
+    resumen.rechazadas += 1;
+    Sentry.captureMessage('Veri*Factu: registro inválido en local, no se envía', {
+      level: 'warning', tags: { area: 'verifactu', studio: studioId }, extra: { registro: r.id, numero: r.numSerie, motivo: r.motivo },
+    });
+  }
+
+  const { data: cadena } = await admin.from('verifactu_registros')
+    .select('id, seq, tipo, estado, num_serie, fecha_expedicion, proximo_intento_en')
+    .eq('studio_id', studioId).order('seq', { ascending: true }).limit(20000);
+  const cola: RegistroCola[] = (cadena ?? []).map(r => ({
+    id: r.id as string, seq: Number(r.seq), tipo: r.tipo as RegistroCola['tipo'], estado: r.estado as EstadoRegistroVerifactu,
+    numSerieFactura: r.num_serie as string, fechaExpedicion: r.fecha_expedicion as string,
+    proximoIntentoEn: (r.proximo_intento_en as string | null) ?? null,
+  }));
+
+  const decision = decidirLote(cola);
+  if (decision.tipo === 'NADA') return 'SEGUIR';
+  if (decision.tipo === 'ESPERAR') {
+    resumen.saltados.push(`${studioId}: espera (${decision.motivo})`);
+    return 'SEGUIR';
+  }
+
+  const { data: studio } = await admin.from('studios').select('nif, razon_social, nombre').eq('id', studioId).maybeSingle();
+  const nombreObligado = ((studio?.razon_social as string | null) || (studio?.nombre as string | null) || '').trim();
+
+  if (ctx.esperaMs > 0) await sleep(ctx.esperaMs);
+
+  if (decision.tipo === 'CONCILIAR') {
+    return conciliar(ctx, studioId, decision.registro.id, nombreObligado);
+  }
+
+  // ── ENVIAR ────────────────────────────────────────────────────────────────
+  const ids = decision.lote.map(r => r.id);
+  const { data: filas } = await admin.from('verifactu_registros').select(COLS_REGISTRO).in('id', ids);
+  const porId = new Map(((filas ?? []) as unknown as FilaRegistro[]).map(f => [f.id, f]));
+  const lote = decision.lote.map(r => porId.get(r.id)).filter((f): f is FilaRegistro => !!f && !!f.xml_registro);
+  if (lote.length !== decision.lote.length) {
+    resumen.saltados.push(`${studioId}: lote incompleto (falta XML), se reintenta`);
+    return 'SEGUIR';
+  }
+  // Un sobre = un obligado: el emisor de los registros (no el NIF de hoy del estudio).
+  const nifObligado = lote[0].id_emisor;
+  if (lote.some(r => r.id_emisor !== nifObligado)) {
+    resumen.saltados.push(`${studioId}: registros con distinto emisor en la cadena; se envía solo el primero`);
+    lote.splice(1);
+  }
+
+  const sobre = sobreSoapRegFactu({ obligado: { nombreRazon: nombreObligado, nif: nifObligado }, registros: lote.map(r => r.xml_registro as string) });
+
+  // 1) El envío queda anotado ANTES de la conexión.
+  const { data: envio, error: eEnvio } = await admin.from('verifactu_envios').insert({
+    studio_id: studioId, nif_obligado: nifObligado, operacion: 'REG_FACTU', entorno: ctx.destino.entorno,
+    endpoint: endpointVerifactu(ctx.destino), certificado_sha256: huellaCredencial(ctx.certificado),
+    n_registros: lote.length, request_xml: sobre, request_sha256: sha256Texto(sobre),
+  }).select('id').single();
+  if (eEnvio || !envio) {
+    Sentry.captureException(eEnvio ?? new Error('sin envío'), { tags: { area: 'verifactu', paso: 'anotar-envio' } });
+    return 'SEGUIR';
+  }
+  const envioId = envio.id as string;
+
+  // 2) Reclamo atómico: solo lo que siga LISTO/REINTENTAR pasa a ENVIANDO.
+  const intentosPrevios = new Map(lote.map(r => [r.id, r.intentos]));
+  const reclamados: string[] = [];
+  for (const r of lote) {
+    const { data: ok } = await admin.from('verifactu_registros')
+      .update({ estado: 'ENVIANDO', envio_id: envioId, intentos: r.intentos + 1, actualizado_en: new Date().toISOString() })
+      .eq('id', r.id).in('estado', ['LISTO', 'REINTENTAR']).select('id');
+    if (ok?.length) reclamados.push(r.id);
+  }
+  if (reclamados.length !== lote.length) {
+    // Alguien más tocó el lote (no debería: hay cerrojo). No se manda nada; lo
+    // reclamado vuelve a LISTO, que es seguro porque no salió.
+    if (reclamados.length) {
+      await admin.from('verifactu_registros').update({ estado: 'LISTO', envio_id: null }).in('id', reclamados).eq('envio_id', envioId);
+    }
+    await admin.from('verifactu_envios').update({ terminado_en: new Date().toISOString(), error: 'Reclamo incompleto: no se envió' }).eq('id', envioId);
+    resumen.saltados.push(`${studioId}: no se pudo reclamar el lote entero`);
+    return 'SEGUIR';
+  }
+
+  // 3) La llamada.
+  const llamada = await llamarAeat(sobre, ctx.certificado, ctx.destino);
+  const plan = planificarResultado(
+    lote.map(r => ({ id: r.id, numSerieFactura: r.num_serie, tipo: r.tipo, intentos: intentosPrevios.get(r.id) ?? 0 })),
+    llamada,
+  );
+  resumen.enviadas += lote.length;
+  ctx.esperaMs = plan.esperaMs;
+
+  await admin.from('verifactu_envios').update({
+    terminado_en: llamada.terminadoEn.toISOString(), http_status: plan.envio.httpStatus,
+    fallo_transporte: plan.envio.falloTransporte, estado_envio: plan.envio.estadoEnvio, fault_codigo: plan.envio.faultCodigo,
+    respuesta_xml: llamada.cuerpo || null, csv: plan.envio.csv, tiempo_espera_s: plan.envio.tiempoEsperaS, error: plan.envio.error,
+  }).eq('id', envioId);
+
+  // 4) Aplicar: compare-and-set sobre ENVIANDO de ESTE envío.
+  for (const c of plan.registros) {
+    const fila = porId.get(c.id);
+    const campos: Record<string, unknown> = {
+      estado: c.estado, codigo_error: c.codigoError, descripcion_error: c.descripcionError,
+      estado_duplicado: c.estadoDuplicado, proximo_intento_en: c.proximoIntentoEn?.toISOString() ?? null,
+      actualizado_en: new Date().toISOString(),
+    };
+    if (c.csv) campos.csv = c.csv;
+    // LISTO (sin poder / suspensión) suelta el envío para poder reclamarlo otra vez.
+    if (c.estado === 'LISTO') campos.envio_id = null;
+    await admin.from('verifactu_registros').update(campos).eq('id', c.id).eq('estado', 'ENVIANDO').eq('envio_id', envioId);
+    if (fila && fila.tipo !== 'ANULACION') await sincronizarFactura(admin, fila.factura_id, c.estado, c.csv);
+    if (fila && fila.tipo === 'ANULACION' && (c.estado === 'REGISTRADA' || c.estado === 'ACEPTADA_CON_ERRORES')) {
+      await admin.from('facturas').update({ verifactu_estado: 'ANULADA' }).eq('id', fila.factura_id);
+    }
+
+    if (c.estado === 'REGISTRADA' || c.estado === 'ACEPTADA_CON_ERRORES' || c.estado === 'ANULADA_EN_AEAT') resumen.registradas += 1;
+    else if (c.estado === 'RECHAZADA') {
+      resumen.rechazadas += 1;
+      Sentry.captureMessage('Veri*Factu: registro rechazado por la AEAT', {
+        level: 'warning', tags: { area: 'verifactu', studio: studioId },
+        extra: { registro: c.id, numero: fila?.num_serie, codigo: c.codigoError },
+      });
+      if (fila) {
+        const { emitirFacturaRechazadaAeat } = await import('@/lib/notifications/emit');
+        await emitirFacturaRechazadaAeat(admin, {
+          studioId, facturaId: fila.factura_id, numero: fila.num_serie,
+          motivo: [c.codigoError, c.descripcionError].filter(Boolean).join(' · ') || null,
+        });
+      }
+    } else if (c.estado === 'INCIERTO') resumen.inciertas += 1;
+    else resumen.pendientes += 1;
+  }
+
+  if (plan.pausarEstudio) {
+    Sentry.captureMessage('Veri*Factu: estudio pausado por la AEAT', {
+      level: 'error', tags: { area: 'verifactu', studio: studioId }, extra: { fault: plan.envio.faultCodigo, clase: plan.claseFault },
+    });
+    await pausarEstudio(admin, studioId, `${plan.claseFault ?? 'FAULT'} ${plan.envio.faultCodigo ?? ''}`.trim());
+  }
+  if (plan.suspenderTodo) {
+    Sentry.captureMessage('Veri*Factu: la AEAT ha suspendido o no habilita el acceso; se para toda la transmisión', {
+      level: 'fatal', tags: { area: 'verifactu' }, extra: { fault: plan.envio.faultCodigo },
+    });
+    return 'PARAR_TODO';
+  }
+  return 'SEGUIR';
+}
+
+/** INCIERTO → preguntar a la AEAT si lo tiene, en vez de reenviar a ciegas. */
+async function conciliar(ctx: Contexto, studioId: string, registroId: string, nombreObligado: string): Promise<'SEGUIR' | 'PARAR_TODO'> {
+  const { admin, resumen } = ctx;
+  const { data } = await admin.from('verifactu_registros').select(COLS_REGISTRO).eq('id', registroId).maybeSingle();
+  if (!data) return 'SEGUIR';
+  const r = data as unknown as FilaRegistro;
+  const { ejercicio, periodo } = periodoDeFecha(r.fecha_expedicion);
+  const sobre = sobreSoapConsulta({ obligado: { nombreRazon: nombreObligado, nif: r.id_emisor }, ejercicio, periodo, numSerieFactura: r.num_serie });
+
+  const { data: envio } = await admin.from('verifactu_envios').insert({
+    studio_id: studioId, nif_obligado: r.id_emisor, operacion: 'CONSULTA', entorno: ctx.destino.entorno,
+    endpoint: endpointVerifactu(ctx.destino), certificado_sha256: huellaCredencial(ctx.certificado),
+    n_registros: 0, request_xml: sobre, request_sha256: sha256Texto(sobre),
+  }).select('id').single();
+
+  const llamada = await llamarAeat(sobre, ctx.certificado, ctx.destino);
+  // La consulta también cuenta para el control de flujo (ámbito NO CONFIRMADO: prudencia).
+  ctx.esperaMs = 60_000;
+  const respuesta = llamada.fallo ? null : parsearRespuestaConsulta(llamada.cuerpo);
+  if (envio) {
+    await admin.from('verifactu_envios').update({
+      terminado_en: llamada.terminadoEn.toISOString(), http_status: llamada.status, fallo_transporte: llamada.fallo,
+      estado_envio: respuesta?.fault ? 'FAULT' : null, fault_codigo: respuesta?.faultCodigo ?? null,
+      respuesta_xml: llamada.cuerpo || null, error: llamada.error ?? respuesta?.faultMensaje ?? null,
+    }).eq('id', envio.id);
+  }
+  if (!respuesta) {
+    resumen.inciertas += 1;
+    return 'SEGUIR';
+  }
+  const res = resolverConsulta({ tipo: r.tipo, numSerieFactura: r.num_serie, huella: r.huella ?? '' }, respuesta);
+  await admin.from('verifactu_registros').update({
+    estado: res.estado, revision_manual: res.revisionManual, descripcion_error: res.motivo,
+    envio_id: res.estado === 'LISTO' ? null : r.envio_id, actualizado_en: new Date().toISOString(),
+  }).eq('id', registroId).eq('estado', 'INCIERTO');
+  if (r.tipo !== 'ANULACION') await sincronizarFactura(admin, r.factura_id, res.estado, null);
+  if (res.estado === 'INCIERTO') resumen.inciertas += 1;
+  else if (res.estado === 'LISTO') resumen.pendientes += 1;
+  else resumen.registradas += 1;
+  if (respuesta.fault && (respuesta.faultCodigo === '4141' || respuesta.faultCodigo === '4139')) return 'PARAR_TODO';
+  if (respuesta.fault && (respuesta.faultCodigo === '4112' || respuesta.faultCodigo === '4140' || respuesta.faultCodigo === '4132')) {
+    await pausarEstudio(admin, studioId, `SIN_PODER ${respuesta.faultCodigo}`);
+  }
+  return 'SEGUIR';
 }

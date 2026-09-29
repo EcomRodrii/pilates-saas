@@ -409,17 +409,27 @@ const ROTURAS_VERIFACTU_CONOCIDAS: ReadonlySet<string> = new Set([
 // caso adyacente de las facturas legacy sin seq), pero hasta ahora NADA
 // comprobaba si volvía a pasar: se encontró con una consulta SQL manual, no
 // con ninguna alerta.
+//
+// 30-sep-2026: la cadena se lee de `verifactu_registros`, no de `facturas`. Un
+// registro de subsanación o de anulación ocupa su propia posición (`seq`) y la
+// factura siguiente se encadena detrás de él; leyendo solo `facturas`, cada
+// subsanación parecería una bifurcación. Las RESERVADAS (huella aún sin
+// calcular) no cuentan: son un sellado en curso, no una rotura.
 export async function vigilarCadenaVerifactu(admin: SupabaseClient): Promise<number> {
-  const { data: filas } = await fetchAllRows<FilaCadenaVerifactu>(
-    '(global)', 'facturas',
+  const { data: registros } = await fetchAllRows<{ studio_id: string; seq: number; num_serie: string; huella: string; huella_anterior: string }>(
+    '(global)', 'verifactu_registros',
     (from, to) => admin
-      .from('facturas')
-      .select('studio_id, verifactu_seq, numero_completo, verifactu_hash, verifactu_prev_hash')
-      .not('verifactu_seq', 'is', null)
+      .from('verifactu_registros')
+      .select('studio_id, seq, num_serie, huella, huella_anterior')
+      .neq('estado', 'RESERVADO')
       .order('studio_id', { ascending: true })
-      .order('verifactu_seq', { ascending: true })
+      .order('seq', { ascending: true })
       .range(from, to),
   );
+  const filas: FilaCadenaVerifactu[] = (registros ?? []).map(r => ({
+    studio_id: r.studio_id, verifactu_seq: Number(r.seq), numero_completo: r.num_serie,
+    verifactu_hash: r.huella, verifactu_prev_hash: r.huella_anterior,
+  }));
   // El filtro se aplica AQUÍ y no dentro de `detectarCadenaRotaVerifactu`: esa
   // función es pura, está testeada (lib/verifactu-cadena.test.ts) y debe seguir
   // diciendo la verdad sobre el estado real de la cadena. Lo que se exime es el

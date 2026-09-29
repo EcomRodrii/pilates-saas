@@ -326,10 +326,10 @@ export const EVENTOS = {
   DOCUMENTO_SOCIO_NUEVO: 'documento_socio.nuevo',
   // 34ª pasada de auditoría: la AEAT ha rechazado una factura Veri*Factu.
   // Antes esto solo quedaba en un Sentry.captureMessage (lo ve Tentare, no
-  // la propietaria, que es la obligada tributaria real) — y sin aviso, toda
-  // factura posterior de ese estudio se queda PENDIENTE para siempre (ver
-  // lib/verifactu/transmitir.ts: la "última secuencia registrada" nunca
-  // avanza más allá de una fila RECHAZADA).
+  // la propietaria, que es la obligada tributaria real). Desde sep-2026 un
+  // rechazo ya no congela las facturas posteriores (lib/verifactu/
+  // politica-cadena.ts): la rechazada se corrige con un registro de
+  // subsanación, o con una rectificativa si el motivo lo exige.
   FACTURA_RECHAZADA_AEAT: 'factura.rechazada_aeat',
 } as const;
 
@@ -1032,7 +1032,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // PAGO_PENALIZACION_BLOQUEADA, una única plantilla basta.
   [`${EVENTOS.FACTURA_RECHAZADA_AEAT}#PROPIETARIO`]: {
     title: 'Hacienda ha rechazado una factura',
-    body: 'La AEAT ha rechazado la factura {numero} ({motivo}). Mientras no se resuelva, ninguna factura posterior de tu estudio podrá transmitirse.',
+    body: 'La AEAT ha rechazado la factura {numero} ({motivo}). Hay que corregirla: con una subsanación o, si el motivo lo exige, con una rectificativa. Las facturas siguientes se siguen enviando.',
     deepLink: () => `/cobros?tab=facturas`,
   },
   // {tipoTexto} distingue total de parcial dentro del mismo evento — mismo

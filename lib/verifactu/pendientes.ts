@@ -1,7 +1,8 @@
-// Veri*Factu — decidir QUÉ se envía y qué se hace con la respuesta.
+// Veri*Factu — decidir QUÉ se envía y cómo se casa la respuesta con lo enviado.
 //
 // Lógica pura, sin base de datos ni red, para poder probarla entera. Quien la
-// llama (lib/verifactu/transmitir.ts) pone las filas y guarda el resultado.
+// llama (lib/verifactu/transmitir.ts) pone las filas de `verifactu_registros` y
+// guarda el resultado.
 //
 // ⚠️ POR QUÉ ESTO NO SE ENVÍA AL SELLAR.
 // La AEAT impone control de flujo: devuelve un `TiempoEsperaEnvio` que arranca
@@ -11,29 +12,44 @@
 // mandaría cinco envíos seguidos y la AEAT los rechazaría.
 //
 // Así que el sellado hace lo de siempre (numerar, encadenar, guardar la huella)
-// y deja la factura EN COLA. Un cron la transmite en lotes. Es la misma forma
-// que ya tiene el repo para el sellado que falla y se reintenta.
+// y el registro queda EN COLA. Un cron lo transmite en lotes.
 
-/** Estado de transmisión de una factura. NULL en base = todavía sin intentar. */
+import type { EstadoRegistroVerifactu, TipoRegistro } from './estado.ts';
+import type { RegistroRespondido } from './respuesta.ts';
+import { motivoEsperaPorAnterior, type MotivoEspera } from './politica-cadena.ts';
+
+/**
+ * Resumen que vive en `facturas.verifactu_estado` (y que usa el sello del QR).
+ * NULL en base = fuera de la cola (histórico). El detalle está en
+ * `verifactu_registros` — ver `estadoParaFactura` en estado.ts.
+ */
 export type EstadoTransmision =
   | 'PENDIENTE'
   | 'REGISTRADA'
   | 'ACEPTADA_CON_ERRORES'
-  | 'RECHAZADA';
+  | 'RECHAZADA'
+  | 'ANULADA';
 
-export interface FacturaPendiente {
+/** Admitida por la AEAT y vigente: lo único que justifica imprimir el QR. */
+export function yaNoSeReenvia(estado: EstadoTransmision): boolean {
+  return estado === 'REGISTRADA' || estado === 'ACEPTADA_CON_ERRORES';
+}
+
+/** Una fila de `verifactu_registros`, lo justo para decidir el lote. */
+export interface RegistroCola {
   id: string;
-  studioId: string;
-  numeroCompleto: string;
-  /** dd-mm-yyyy */
+  seq: number;
+  tipo: TipoRegistro;
+  estado: EstadoRegistroVerifactu;
+  numSerieFactura: string;
+  /** dd-mm-aaaa */
   fechaExpedicion: string;
-  verifactuSeq: number;
-  huella: string;
-  huellaAnterior: string;
+  /** ISO. Solo en REINTENTAR: no antes de esta hora. */
+  proximoIntentoEn: string | null;
 }
 
 /**
- * Cuántas caben en un envío.
+ * Cuántos caben en un envío.
  *
  * El XSD topa en 1000 `RegistroFactura`, pero el lote se queda bastante por
  * debajo a propósito: un envío rechazado por cabecera se pierde ENTERO, y
@@ -42,99 +58,127 @@ export interface FacturaPendiente {
  */
 export const TAMANO_LOTE = 200;
 
+export type DecisionLote =
+  | { tipo: 'ENVIAR'; lote: RegistroCola[] }
+  | { tipo: 'CONCILIAR'; registro: RegistroCola }
+  | { tipo: 'ESPERAR'; motivo: MotivoEspera | 'HUECO_EN_CADENA' | 'EN_REINTENTO' | 'SIN_PREPARAR' | 'ENVIO_EN_CURSO' }
+  | { tipo: 'NADA' };
+
+const ACTIVOS: ReadonlySet<EstadoRegistroVerifactu> = new Set(['RESERVADO', 'PENDIENTE', 'LISTO', 'ENVIANDO', 'REINTENTAR', 'INCIERTO']);
+
+function enviableAhora(r: RegistroCola, ahora: Date): boolean {
+  if (r.estado === 'LISTO') return true;
+  if (r.estado === 'REINTENTAR') return !r.proximoIntentoEn || new Date(r.proximoIntentoEn).getTime() <= ahora.getTime();
+  return false;
+}
+
 /**
- * Ordena y corta lo que va en el próximo envío.
+ * Qué hacer con la cadena de UN estudio en esta pasada.
  *
- * ⚠️ EL ORDEN ES POR `verifactu_seq`, NO POR FECHA. La cadena de huella es una
- * secuencia: mandar la 7 antes que la 6 le da a la AEAT una cadena que no
- * cuadra. Con fecha de emisión se ordenaría mal en cuanto dos facturas del
- * mismo día llegaran desordenadas.
+ * `registros` son TODOS los de la cadena del estudio (incluidos los finales: se
+ * necesitan para saber qué hay delante del primero pendiente).
+ *
+ * ⚠️ EL ORDEN ES POR `seq`, NO POR FECHA. La cadena de huella es una secuencia:
+ * mandar la 7 antes que la 6 le da a la AEAT una cadena que no cuadra.
+ *
+ * Reglas:
+ *  · El primer registro no terminado manda. Si está INCIERTO, antes de nada se
+ *    concilia (se pregunta a la AEAT); si está ENVIANDO/RESERVADO/PENDIENTE, se
+ *    espera.
+ *  · Lo que tiene delante lo decide `politica-cadena.ts` (rechazados e histórico).
+ *  · El lote coge registros consecutivos enviables, sin dos del mismo
+ *    `IDFactura` (la respuesta se casa por factura + operación y dos del mismo
+ *    número serían indistinguibles).
  */
-export function loteAEnviar(
-  pendientes: readonly FacturaPendiente[],
+export function decidirLote(
+  registros: readonly RegistroCola[],
+  ahora: Date = new Date(),
   tamano: number = TAMANO_LOTE,
-): FacturaPendiente[] {
-  return [...pendientes]
-    .sort((a, b) => a.verifactuSeq - b.verifactuSeq)
-    .slice(0, Math.max(1, tamano));
+): DecisionLote {
+  const orden = [...registros].sort((a, b) => a.seq - b.seq);
+  const i0 = orden.findIndex(r => ACTIVOS.has(r.estado));
+  if (i0 < 0) return { tipo: 'NADA' };
+
+  const primero = orden[i0];
+  // Hueco: falta la posición anterior en la cadena. No debería pasar nunca
+  // (UNIQUE(studio_id, seq) y relleno completo); si pasa, no se manda nada.
+  const anterior = i0 > 0 ? orden[i0 - 1] : null;
+  if (primero.seq > 1 && (!anterior || anterior.seq !== primero.seq - 1)) return { tipo: 'ESPERAR', motivo: 'HUECO_EN_CADENA' };
+
+  if (primero.estado === 'INCIERTO') return { tipo: 'CONCILIAR', registro: primero };
+  if (primero.estado === 'ENVIANDO') return { tipo: 'ESPERAR', motivo: 'ENVIO_EN_CURSO' };
+  if (primero.estado === 'RESERVADO') return { tipo: 'ESPERAR', motivo: 'ANTERIOR_RESERVADO' };
+  if (primero.estado === 'PENDIENTE') return { tipo: 'ESPERAR', motivo: 'SIN_PREPARAR' };
+  if (!enviableAhora(primero, ahora)) return { tipo: 'ESPERAR', motivo: 'EN_REINTENTO' };
+
+  const bloqueo = motivoEsperaPorAnterior(anterior ? { estado: anterior.estado } : null);
+  if (bloqueo) return { tipo: 'ESPERAR', motivo: bloqueo };
+
+  const lote: RegistroCola[] = [];
+  const facturasEnLote = new Set<string>();
+  let previo: RegistroCola | null = anterior;
+  for (let i = i0; i < orden.length && lote.length < Math.max(1, tamano); i++) {
+    const r = orden[i];
+    if (previo && r.seq !== previo.seq + 1) break; // hueco
+    if (!ACTIVOS.has(r.estado)) {
+      // Un final en medio (p. ej. un rechazo local al preparar): lo que venga
+      // detrás depende de la política para ese anterior.
+      if (motivoEsperaPorAnterior({ estado: r.estado })) break;
+      previo = r;
+      continue;
+    }
+    if (!enviableAhora(r, ahora)) break;
+    const clave = `${r.numSerieFactura}|${r.fechaExpedicion}`;
+    if (facturasEnLote.has(clave)) break;
+    facturasEnLote.add(clave);
+    lote.push(r);
+    previo = r;
+  }
+  return lote.length > 0 ? { tipo: 'ENVIAR', lote } : { tipo: 'NADA' };
 }
 
 /**
- * Un hueco en la secuencia significa que falta por enviar una factura anterior
- * a las que tenemos delante.
- *
- * Enviar la 8 cuando la 7 no ha salido nunca deja a la AEAT con una cadena
- * rota: la 8 declara como anterior una huella de la que Hacienda no tiene
- * registro. Mejor esperar a que la 7 se resuelva.
- */
-export function hayHuecoAntesDe(
-  lote: readonly FacturaPendiente[],
-  ultimaSeqRegistrada: number | null,
-): boolean {
-  if (lote.length === 0) return false;
-  const primera = lote[0].verifactuSeq;
-  // La primera de todas (seq 1) no tiene nada delante.
-  if (primera === 1) return false;
-  return primera !== (ultimaSeqRegistrada ?? 0) + 1;
-}
-
-export interface ResultadoRegistro {
-  numSerieFactura: string | null;
-  estado: 'Correcto' | 'AceptadoConErrores' | 'Incorrecto' | null;
-  codigoError: string | null;
-  descripcionError: string | null;
-}
-
-/** Traduce lo que dice la AEAT de cada registro a lo que guardamos. */
-export function estadoDesdeRespuesta(r: ResultadoRegistro): EstadoTransmision {
-  if (r.estado === 'Correcto') return 'REGISTRADA';
-  if (r.estado === 'AceptadoConErrores') return 'ACEPTADA_CON_ERRORES';
-  if (r.estado === 'Incorrecto') return 'RECHAZADA';
-  // Sin estado reconocible no se marca nada: se deja PENDIENTE y se reintenta.
-  // Inventar «REGISTRADA» aquí sería dar por buena una factura que no consta.
-  return 'PENDIENTE';
-}
-
-/**
- * Empareja lo enviado con lo respondido POR NÚMERO DE FACTURA, no por posición.
+ * Empareja lo enviado con lo respondido POR FACTURA Y OPERACIÓN, nunca por
+ * posición.
  *
  * La AEAT no garantiza que devuelva las líneas en el mismo orden en que se
  * mandaron, y confiar en el índice del array es exactamente cómo se acaba
  * marcando como registrada una factura que fue rechazada — y al revés.
- * Una factura sin línea de respuesta se queda PENDIENTE.
+ * La operación (Alta/Anulacion) separa el alta y la anulación de una misma
+ * factura. Un registro sin línea de respuesta recibe `null`.
  */
-export function casarRespuestas(
-  enviadas: readonly FacturaPendiente[],
-  respuestas: readonly ResultadoRegistro[],
-): { factura: FacturaPendiente; estado: EstadoTransmision; error: string | null }[] {
-  const porNumero = new Map<string, ResultadoRegistro>();
+export function casarRespuestas<T extends Pick<RegistroCola, 'numSerieFactura' | 'tipo'>>(
+  enviados: readonly T[],
+  respuestas: readonly RegistroRespondido[],
+): { registro: T; linea: RegistroRespondido | null }[] {
+  const clave = (num: string | null, op: string | null) => `${num ?? ''}|${op ?? '?'}`;
+  const porClave = new Map<string, RegistroRespondido>();
+  const porNumero = new Map<string, RegistroRespondido[]>();
   for (const r of respuestas) {
-    if (r.numSerieFactura) porNumero.set(r.numSerieFactura, r);
+    if (!r.numSerieFactura) continue;
+    porClave.set(clave(r.numSerieFactura, r.operacion), r);
+    porNumero.set(r.numSerieFactura, [...(porNumero.get(r.numSerieFactura) ?? []), r]);
   }
-  return enviadas.map(factura => {
-    const r = porNumero.get(factura.numeroCompleto);
-    if (!r) return { factura, estado: 'PENDIENTE' as const, error: null };
-    const estado = estadoDesdeRespuesta(r);
-    const error = r.codigoError
-      ? `${r.codigoError}${r.descripcionError ? ` · ${r.descripcionError}` : ''}`
-      : null;
-    return { factura, estado, error };
+  return enviados.map(registro => {
+    const op = registro.tipo === 'ANULACION' ? 'Anulacion' : 'Alta';
+    const exacta = porClave.get(clave(registro.numSerieFactura, op));
+    if (exacta) return { registro, linea: exacta };
+    // Sin `Operacion` en la línea: vale solo si hay UNA línea para ese número
+    // (un lote nunca lleva dos registros de la misma factura).
+    const candidatas = porNumero.get(registro.numSerieFactura) ?? [];
+    return { registro, linea: candidatas.length === 1 && candidatas[0].operacion === null ? candidatas[0] : null };
   });
-}
-
-/** Una factura registrada o aceptada con errores ya no se reenvía. */
-export function yaNoSeReenvia(estado: EstadoTransmision): boolean {
-  return estado === 'REGISTRADA' || estado === 'ACEPTADA_CON_ERRORES';
 }
 
 /**
  * 50ª pasada de auditoría, hallazgo H-2: la AEAT devuelve `TiempoEsperaEnvio`
- * en CADA respuesta y hay que respetarlo antes del SIGUIENTE envío — está
- * documentado en tres comentarios de este módulo pero nunca se aplicaba.
- * Cuando la AEAT no lo informa (primer envío, o un Fault que no llega a
- * `parsearRespuestaAeat`), se usa el mínimo que la propia AEAT documenta:
- * 60 segundos. Nunca 0 — un envío inmediato consume el control de flujo
- * igual que uno demasiado rápido.
+ * en CADA respuesta y hay que respetarlo antes del SIGUIENTE envío (Orden
+ * HAC/1177/2024, art. 16.2). Cuando la AEAT no lo informa (primer envío, o un
+ * Fault), se usa el valor inicial que fija la orden: 60 segundos. Nunca 0.
+ *
+ * ⚠️ ÁMBITO NO CONFIRMADO: si la espera cuenta por certificado remitente, por
+ * obligado o por sistema. Mientras no se aclare, Tentare la aplica GLOBAL
+ * (`verifactu_control_flujo`, clave 'global'): lo más prudente.
  */
 export const ESPERA_AEAT_POR_DEFECTO_SEGUNDOS = 60;
 
