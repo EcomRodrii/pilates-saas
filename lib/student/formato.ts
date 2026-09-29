@@ -55,9 +55,21 @@ export function horaAhora(ahora: Date = new Date()): string {
  * Se construye a mediodía y no a medianoche a propósito: con `T00:00:00` local,
  * el día del cambio de hora (marzo y octubre) el salto de una hora puede tirar
  * la fecha al día anterior. A las 12:00 sobra margen para los dos sentidos.
+ *
+ * ⚠️ Sentry JAVASCRIPT-NEXTJS-36/37 (29-sep, iPhone/Safari 17.3.1): sin esta
+ * guarda, una fecha que no reparsea (`clase.fecha` externa, o incluso el
+ * propio `hoyISO()` en un WebKit cuyo `Intl` no dé exactamente 'YYYY-MM-DD')
+ * deja `d` como `Invalid Date`, y `.format()` LANZA — tumbando toda la
+ * pantalla (`DateSelector`, `etiquetaDia`), no solo esa fecha. Mismo fallo de
+ * categoría que ya se documentó y cerró para `comoFecha`/`etiquetaDia` en
+ * #1797 («undefined NaN undefined»); `addDias` se quedó sin esa defensa.
+ * Devuelve el propio `iso` sin tocar: nunca fue una fecha válida, así que no
+ * hay ningún día que sumarle — y como valor de comparación (`iso ===
+ * addDias(...)`) nunca puede casar por accidente con una fecha real.
  */
 export function addDias(iso: string, n: number): string {
   const d = new Date(iso + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return iso;
   d.setDate(d.getDate() + n);
   return new Intl.DateTimeFormat('en-CA', { timeZone: ZONA }).format(d);
 }

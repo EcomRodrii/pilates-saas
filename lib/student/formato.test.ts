@@ -33,6 +33,25 @@ test('addDias cruza mes y año', () => {
   assert.equal(addDias('2026-03-01', -1), '2026-02-28');
 });
 
+// Sentry JAVASCRIPT-NEXTJS-36/37 (29-sep, iPhone/Safari 17.3.1): una fecha que
+// no reparsea tumbaba TODA la pantalla en `.format()` — no solo esa fecha, ni
+// siquiera solo la de `iso` (`etiquetaDia` llama a `addDias(hoy, 1)`, y si
+// `hoy` mismo saliera mal formado de `hoyISO()` en algún motor, antes no había
+// ninguna guarda). Mismo motivo por el que `comoFecha` ya era defensiva desde
+// #1797 — `addDias` se había quedado sin esa protección.
+test('addDias con una fecha que no reparsea no revienta: devuelve la entrada tal cual', () => {
+  for (const malo of ['', 'no-es-una-fecha', '2026-13-45']) {
+    assert.doesNotThrow(() => addDias(malo, 1), `addDias(${JSON.stringify(malo)}, 1)`);
+    assert.equal(addDias(malo, 1), malo, `addDias(${JSON.stringify(malo)}, 1)`);
+  }
+});
+
+test('etiquetaDia no revienta ni siquiera si el "hoy" que le pasan está mal formado', () => {
+  assert.doesNotThrow(() => etiquetaDia('2026-09-04', 'no-es-una-fecha'));
+  // `iso` sigue siendo una fecha válida: cae al camino normal (ni Hoy ni Mañana).
+  assert.equal(etiquetaDia('2026-09-04', 'no-es-una-fecha'), 'Vie 4');
+});
+
 test('etiquetaDia nombra hoy y mañana, y el resto por su día', () => {
   assert.equal(etiquetaDia('2026-09-03', '2026-09-03'), 'Hoy');
   assert.equal(etiquetaDia('2026-09-04', '2026-09-03'), 'Mañana');
