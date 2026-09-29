@@ -197,6 +197,20 @@ export async function completarReservasHuerfanas(admin: SupabaseClient, studioId
   return data?.length ?? 0;
 }
 
+/**
+ * El nombre del obligado tal y como lo confirmó la propietaria al dar de alta
+ * Veri*Factu (`verifactu_estudios.nombre_fiscal`). Si no lo hay, la razón
+ * social; el nombre comercial solo como último recurso (la AEAT puede no
+ * reconocerlo: se vería en la respuesta).
+ */
+export async function nombreFiscalDeEstudio(admin: SupabaseClient, studioId: string): Promise<string> {
+  const [{ data: vf }, { data: studio }] = await Promise.all([
+    admin.from('verifactu_estudios').select('nombre_fiscal').eq('studio_id', studioId).maybeSingle(),
+    admin.from('studios').select('razon_social, nombre').eq('id', studioId).maybeSingle(),
+  ]);
+  return ((vf?.nombre_fiscal as string | null) || (studio?.razon_social as string | null) || (studio?.nombre as string | null) || '').trim();
+}
+
 export function registroParaXml(r: FilaRegistro): RegistroParaXml {
   return {
     tipo: r.tipo,
@@ -234,10 +248,7 @@ export async function prepararRegistros(
   const filas = (data ?? []) as unknown as FilaRegistro[];
   if (filas.length === 0) return { preparados: 0, rechazados: [] };
 
-  const { data: studio } = await admin.from('studios').select('razon_social, nombre').eq('id', studioId).maybeSingle();
-  // La razón social manda: es quien emite. El nombre comercial solo si no hay
-  // otra cosa (y entonces la AEAT puede no reconocerlo: se verá en la respuesta).
-  const nombreEmisor = ((studio?.razon_social as string | null) || (studio?.nombre as string | null) || '').trim();
+  const nombreEmisor = await nombreFiscalDeEstudio(admin, studioId);
 
   const facturaIds = [...new Set(filas.map(f => f.factura_id))];
   const { data: facturas } = await admin.from('facturas')

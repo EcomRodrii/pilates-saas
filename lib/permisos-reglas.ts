@@ -48,6 +48,9 @@ const BLOQUEADO_MANAGER = [
   // «Apariencia de tu app» y la pantalla vieja de avisos. Sin nombrarlas,
   // abrir `/configuracion` las abriría por prefijo.
   '/configuracion/apariencia', '/configuracion/notificaciones',
+  // El alta del envío a la AEAT (poder IZ860): la otorga la obligada tributaria
+  // y su API es solo de propietaria (app/api/verifactu/estudio).
+  '/configuracion/verifactu',
   // El Notification Center enseña el TÍTULO Y EL CUERPO de todo lo enviado por
   // el estudio, y ahí van los avisos de `pagos` con importe (pago fallido,
   // disputa, penalización). Dejarlo abierto al manager sería una puerta lateral

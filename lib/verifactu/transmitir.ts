@@ -37,8 +37,8 @@ import { decidirLote, type RegistroCola } from './pendientes.ts';
 import { planificarResultado } from './procesar.ts';
 import { parsearRespuestaConsulta } from './respuesta.ts';
 import { resolverConsulta, estadoParaFactura, type EstadoRegistroVerifactu } from './estado.ts';
-import { estudioHabilitado, pausarEstudio } from './habilitacion.ts';
-import { prepararRegistros, completarReservasHuerfanas, COLS_REGISTRO, type FilaRegistro } from './registros.ts';
+import { estudioHabilitado, pausarEstudio, suspenderPorAeat, revisarCaducidades } from './habilitacion.ts';
+import { prepararRegistros, completarReservasHuerfanas, nombreFiscalDeEstudio, COLS_REGISTRO, type FilaRegistro } from './registros.ts';
 
 export interface ResumenTransmision {
   estudios: number;
@@ -114,6 +114,14 @@ interface Contexto {
 export async function transmitirPendientes(): Promise<ResumenTransmision> {
   const resumen: ResumenTransmision = { estudios: 0, enviadas: 0, registradas: 0, rechazadas: 0, inciertas: 0, pendientes: 0, saltados: [] };
 
+  // Los poderes caducan con o sin transmisión configurada: se revisan siempre.
+  const adminCaducidades = getSupabaseAdmin();
+  if (adminCaducidades) {
+    try { await revisarCaducidades(adminCaducidades); } catch (e) {
+      Sentry.captureException(e, { tags: { area: 'verifactu', paso: 'caducidades' } });
+    }
+  }
+
   const falta = queFaltaParaTransmitir();
   if (falta.length > 0) {
     // No es un error: es el estado normal hasta que haya certificado. Las
@@ -181,17 +189,26 @@ export async function contarFacturaciones(admin: SupabaseClient, studioId: strin
   if (!owner) return 1;
   const { data: suyos } = await admin.from('studios').select('id').eq('owner_auth_user_id', owner);
   const ids = (suyos ?? []).map(s => s.id as string);
+  // Una facturación «creada» = un estudio suyo dado de alta en Veri*Factu o con
+  // algún registro, esté como esté (la FAQ dice «independientemente del estado»).
+  const { data: altas } = await admin.from('verifactu_estudios').select('studio_id').in('studio_id', ids);
+  const conAlta = new Set((altas ?? []).map(a => a.studio_id as string));
   let n = 0;
   for (const id of ids) {
+    if (id === studioId || conAlta.has(id)) { n += 1; continue; }
     const { count } = await admin.from('verifactu_registros').select('id', { count: 'exact', head: true }).eq('studio_id', id);
-    if ((count ?? 0) > 0 || id === studioId) n += 1;
+    if ((count ?? 0) > 0) n += 1;
   }
   return n;
 }
 
 /** El bloque SistemaInformatico de los registros de UN estudio. */
 async function sistemaDeEstudio(admin: SupabaseClient, productor: Productor, studioId: string): Promise<SistemaInformatico> {
-  return sistemaInformaticoParaEstudio(productor, numeroInstalacionDeEstudio(studioId), await contarFacturaciones(admin, studioId));
+  // El número de instalación se guardó al dar de alta el estudio y no se
+  // recalcula: es parte de la identidad del SIF ante la AEAT.
+  const { data: vf } = await admin.from('verifactu_estudios').select('numero_instalacion').eq('studio_id', studioId).maybeSingle();
+  const instalacion = (vf?.numero_instalacion as string | null) ?? numeroInstalacionDeEstudio(studioId);
+  return sistemaInformaticoParaEstudio(productor, instalacion, await contarFacturaciones(admin, studioId));
 }
 
 async function procesarEstudio(ctx: Contexto, studioId: string): Promise<'SEGUIR' | 'PARAR_TODO'> {
@@ -230,8 +247,7 @@ async function procesarEstudio(ctx: Contexto, studioId: string): Promise<'SEGUIR
     return 'SEGUIR';
   }
 
-  const { data: studio } = await admin.from('studios').select('nif, razon_social, nombre').eq('id', studioId).maybeSingle();
-  const nombreObligado = ((studio?.razon_social as string | null) || (studio?.nombre as string | null) || '').trim();
+  const nombreObligado = await nombreFiscalDeEstudio(admin, studioId);
 
   if (ctx.esperaMs > 0) await sleep(ctx.esperaMs);
 
@@ -343,9 +359,10 @@ async function procesarEstudio(ctx: Contexto, studioId: string): Promise<'SEGUIR
     Sentry.captureMessage('Veri*Factu: estudio pausado por la AEAT', {
       level: 'error', tags: { area: 'verifactu', studio: studioId }, extra: { fault: plan.envio.faultCodigo, clase: plan.claseFault },
     });
-    await pausarEstudio(admin, studioId, `${plan.claseFault ?? 'FAULT'} ${plan.envio.faultCodigo ?? ''}`.trim());
+    await pausarEstudio(admin, studioId, `${plan.claseFault ?? 'FAULT'} ${plan.envio.faultCodigo ?? ''}`.trim(), { sinPoder: plan.claseFault === 'SIN_PODER' });
   }
   if (plan.suspenderTodo) {
+    await suspenderPorAeat(admin, `AEAT ${plan.envio.faultCodigo ?? ''}: ${plan.envio.error ?? ''}`.trim());
     Sentry.captureMessage('Veri*Factu: la AEAT ha suspendido o no habilita el acceso; se para toda la transmisión', {
       level: 'fatal', tags: { area: 'verifactu' }, extra: { fault: plan.envio.faultCodigo },
     });
@@ -393,9 +410,12 @@ async function conciliar(ctx: Contexto, studioId: string, registroId: string, no
   if (res.estado === 'INCIERTO') resumen.inciertas += 1;
   else if (res.estado === 'LISTO') resumen.pendientes += 1;
   else resumen.registradas += 1;
-  if (respuesta.fault && (respuesta.faultCodigo === '4141' || respuesta.faultCodigo === '4139')) return 'PARAR_TODO';
+  if (respuesta.fault && (respuesta.faultCodigo === '4141' || respuesta.faultCodigo === '4139')) {
+    await suspenderPorAeat(admin, `AEAT ${respuesta.faultCodigo}: ${respuesta.faultMensaje ?? ''}`.trim());
+    return 'PARAR_TODO';
+  }
   if (respuesta.fault && (respuesta.faultCodigo === '4112' || respuesta.faultCodigo === '4140' || respuesta.faultCodigo === '4132')) {
-    await pausarEstudio(admin, studioId, `SIN_PODER ${respuesta.faultCodigo}`);
+    await pausarEstudio(admin, studioId, `SIN_PODER ${respuesta.faultCodigo}`, { sinPoder: true });
   }
   return 'SEGUIR';
 }
