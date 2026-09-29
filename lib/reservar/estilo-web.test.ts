@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COLOR_PRIMARIO_POR_DEFECTO, MENSAJE_BOTON_ILEGIBLE, MENSAJE_FUNDIDO_ILEGIBLE, PARAMS_DISENO_PROPIO,
-  baseEstiloWeb, botonDeLaVentana, botonPorDefecto, botonWeb, leerBorradorWeb, paletaWidget, resolverEstiloWeb, resumenEstiloWeb,
+  baseEstiloWeb, botonDeLaVentana, botonPorDefecto, botonWeb, cambiaElBotonDeLaVentana, leerBorradorWeb, paletaWidget, resolverEstiloWeb, resumenEstiloWeb,
   textoActividadEstiloWeb, urlTraeDisenoPropio, validarEstiloWeb, type Contexto,
 } from './estilo-web.ts';
 import { COLOR_WEB, PARAM_BORRADOR, WIDGET_WEB_NEUTRO, borradorAParam, type WidgetWeb } from './estilo-web-tipos.ts';
@@ -298,6 +298,35 @@ test('⚠️ botonDeLaVentana: fundido no cuenta (el marco de la ventana es blan
   assert.deepEqual(fundido, botonDeLaVentana(w({ ...arena, fundido: false }), b));
   assert.deepEqual(fundido, { ...botonWeb('tinta', 'arena', b), esquinas: 'pill' });
   assert.notDeepEqual({ fondo: fundido.fondo, texto: fundido.texto }, resolverEstiloWeb(w({ ...arena, fundido: true }), b, 'dentro')!.boton);
+});
+
+test('cambiaElBotonDeLaVentana: la letra, la separación, el pie o su web no lo tocan; el color y las esquinas, sí', () => {
+  for (const estilo of [null, ...ESTILO_IDS]) for (const c of COLORES) {
+    const b = base(c);
+    const antes = w({ estilo });
+    const caso = `${estilo}/${c}`;
+    // Lo que no lee el código del popup: el botón se ve igual.
+    for (const parcial of [
+      { letra: 'editorial' }, { densidad: 'compacta' }, { ocultarPie: true }, { web: 'oscura' }, { web: 'oscura', fundido: true },
+      // «Las de siempre» son las redondas: las mismas esquinas por valor.
+      { forma: 'pill' },
+    ] as Partial<WidgetWeb>[]) {
+      assert.equal(cambiaElBotonDeLaVentana(antes, w({ estilo, ...parcial }), b), false, `${caso}/${JSON.stringify(parcial)}`);
+    }
+    // Nada publicado (`null`) es lo mismo que nada elegido.
+    if (estilo === null) assert.equal(cambiaElBotonDeLaVentana(null, w({ letra: 'editorial' }), b), false, caso);
+    // Las esquinas: siempre se ven distintas.
+    assert.equal(cambiaElBotonDeLaVentana(antes, w({ estilo, forma: 'recto' }), b), true, caso);
+    assert.equal(cambiaElBotonDeLaVentana(w({ estilo, forma: 'recto' }), w({ estilo, forma: 'redondeado' }), b), true, caso);
+  }
+  // El color de los botones, donde de verdad cambia: el color del estudio tal
+  // cual (por defecto, en Crema) frente a la tinta de Crema.
+  const b = base('#E11D48');
+  assert.notEqual(botonDeLaVentana(null, b).fondo, botonDeLaVentana(w({ boton: 'tinta' }), b).fondo);
+  assert.equal(cambiaElBotonDeLaVentana(null, w({ boton: 'tinta' }), b), true);
+  assert.equal(cambiaElBotonDeLaVentana(w({ boton: 'tinta' }), null, b), true);
+  // Y al revés: elegir un color que se ve igual que el de ahora no es un cambio.
+  assert.equal(cambiaElBotonDeLaVentana(w({ boton: 'tinta' }), w({ boton: 'tinta', letra: 'editorial' }), b), false);
 });
 
 test('la marca escrita en línea se lee como texto sobre lo que se ve, fundido incluido', () => {

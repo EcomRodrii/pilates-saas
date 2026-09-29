@@ -655,9 +655,10 @@ export default function ReservarPage() {
   // evento: los efectos corren en el orden en que se declaran.
   // `vista-previa=1`: el constructor de widgets del panel — no es una visita.
   const esVistaPrevia = searchParams.get('vista-previa') === '1';
-  // Fase D: la redirección de la integración nativa (`directo=1`) llega con la
-  // visita ya contada en la web del estudio. Se lee al montar, antes de que el
-  // router reescriba la URL; el resto del embudo sí se cuenta aquí.
+  // Fase D: la redirección de la integración nativa (`directo=1`, siempre a
+  // pantalla completa: con `embed=1` no es ella) llega con la visita ya contada
+  // en la web del estudio. Se lee al montar, antes de que el router reescriba
+  // la URL; el resto del embudo sí se cuenta aquí.
   const [visitaContada] = useState(() => visitaYaContada(searchParams));
   useEffect(() => {
     fijarOrigenWidget(refCode);

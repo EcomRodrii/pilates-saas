@@ -75,10 +75,13 @@ export function silenciarEventosWidget(si: boolean): void {
  * y `widget_viewed` daría dos visitas por una. El resto del embudo sí sigue en
  * la página, con la misma `ref`: es lo que dice si ese widget convierte.
  *
+ * Esa redirección es SIEMPRE a pantalla completa: con `embed=1` no es ella, y
+ * la visita cuenta como cualquier otra.
+ *
  * Se lee al montar, antes de que el router reescriba la URL.
  */
 export function visitaYaContada(p: { get(k: string): string | null }): boolean {
-  return p.get('directo') === '1';
+  return p.get('directo') === '1' && p.get('embed') !== '1';
 }
 
 /**

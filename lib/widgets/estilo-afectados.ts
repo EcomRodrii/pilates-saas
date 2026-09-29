@@ -22,7 +22,9 @@
 //     El BOTÓN que abre la ventana tiene sus propias listas (Fase D): sigue
 //     el estilo si el código copiado lee sus variables (`copiado.botonVivo`);
 //     si no, es de un código anterior y se queda con el color de cuando se
-//     copió.
+//     copió. ⚠️ Las dos, solo si ESTE borrador cambia cómo se ve ese botón
+//     (`cambiaElBotonDeLaVentana`): con solo la letra o la separación no hay
+//     nada que decir de él, y nombrarlo haría creer que cambia.
 //   · sin marco (nativa): no sigue el estilo, lleva su propio diseño.
 //   · enlace y botón: abren la página suelta, que se ve como la app.
 // Un widget con diseño propio no cuenta en ninguno: la confirmación ya dice
@@ -36,7 +38,7 @@ import { firmaCodigo, tieneDisenoEnCodigo, urlEmbebido } from './integracion.ts'
 import { metodoEnWeb, type PlataformaWeb } from './recetas.ts';
 import { resolverApariencia } from '../reservar/apariencia-widget.ts';
 import { resolverConfigWidget } from '../reservar/config-widget.ts';
-import { resolverEstiloWeb, urlTraeDisenoPropio, type BaseEstiloWeb } from '../reservar/estilo-web.ts';
+import { cambiaElBotonDeLaVentana, resolverEstiloWeb, urlTraeDisenoPropio, type BaseEstiloWeb } from '../reservar/estilo-web.ts';
 import type { WidgetWeb } from '../reservar/estilo-web-tipos.ts';
 import { paletaEfectivaReservar } from '../reservar/precedencia-tema.ts';
 import { temaAppParaReservar } from '../reservar/tema-app.ts';
@@ -52,13 +54,14 @@ export interface PiezasAfectadas {
   columnasSinPaleta: string[];
   /**
    * Fase D: los que van en una ventana encima cuyo botón sigue el estilo (se
-   * copió leyendo sus variables, `copiado.botonVivo`): también cambia.
+   * copió leyendo sus variables, `copiado.botonVivo`): también cambia. Vacía
+   * si este borrador no cambia cómo se ve ese botón.
    */
   botonesVivos: string[];
   /**
    * Los mismos, copiados sin esa marca: su botón lleva el color literal de
-   * cuando se copió y no cambia; lo de dentro de la ventana, sí. Nunca están
-   * también en `botonesVivos`.
+   * cuando se copió y se queda como está. Nunca están también en
+   * `botonesVivos`, y vacía en el mismo caso.
    */
   botonesCongelados: string[];
   /** Alguno copiado va sin marco: ese no sigue el estilo. */
@@ -82,6 +85,8 @@ export interface DatosAfectados {
   colorEstudio: string | null;
   /** El estilo que se va a aplicar (el borrador). */
   estilo: WidgetWeb | null;
+  /** Lo que hay en su web ahora (`null` = nada elegido): con él se sabe si el botón de la ventana cambia. */
+  publicado: WidgetWeb | null;
   /** Con qué se resuelve. `null` mientras carga: sin él no se sabe si es de noche. */
   base: BaseEstiloWeb | null;
 }
@@ -129,6 +134,8 @@ export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
   const out: PiezasAfectadas = {
     cambian: [], columnasSinPaleta: [], botonesVivos: [], botonesCongelados: [], hayNativa: false, hayPagina: false,
   };
+  // Sin base no se sabe cómo se ve (nadie enseña la confirmación así): no se afirma nada del botón.
+  const botonCambia = !!d.base && cambiaElBotonDeLaVentana(d.publicado, d.estilo, d.base);
   for (const w of WIDGETS) {
     const copiado = d.copiados[w.id];
     if (!esDisponible(w) || !copiado) continue;
@@ -141,7 +148,7 @@ export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
     if (metodo === 'iframe' || metodo === 'popup') {
       if (d.base && columnasSinPaleta(w, c, metodo, d.estilo, d.base)) out.columnasSinPaleta.push(w.nombre);
       else out.cambian.push(w.nombre);
-      if (metodo === 'popup') (copiado.botonVivo === true ? out.botonesVivos : out.botonesCongelados).push(w.nombre);
+      if (metodo === 'popup' && botonCambia) (copiado.botonVivo === true ? out.botonesVivos : out.botonesCongelados).push(w.nombre);
     } else if (metodo === 'nativa') {
       out.hayNativa = true;
     } else {

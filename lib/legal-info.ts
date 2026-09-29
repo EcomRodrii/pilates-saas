@@ -9,6 +9,11 @@
 // titular/nif/domicilio y volver a añadir los datos registrales.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// El origen canónico, suelto (ver `dominio` en LEGAL para el porqué del www).
+// `canonicalizarOrigen` lo lee de aquí y no de LEGAL: la usan los scripts que
+// se sirven en las webs de los estudios, y así no arrastran el resto del objeto.
+const URL_CANONICA = 'https://www.tentare.app';
+
 export const LEGAL = {
   marca: 'Tentare',
   // ⚠️ CON www, y no es un capricho de estilo.
@@ -26,7 +31,7 @@ export const LEGAL = {
   // esto vuelve a `https://tentare.app` — y con ese cambio se mueve el sitio
   // entero, porque de aquí salen canonicals, sitemap, robots y JSON-LD.
   dominio: 'www.tentare.app',
-  url: 'https://www.tentare.app',
+  url: URL_CANONICA,
   // Fecha de última revisión del contenido legal (no la de render).
   actualizado: '25 de septiembre de 2026',
 
@@ -74,7 +79,7 @@ export const PROVEEDORES: { nombre: string; uso: string; ubicacion: string }[] =
 // origen (hay un test que prohíbe escribir el dominio a mano en otro sitio);
 // el apex se DERIVA del canónico quitando el prefijo www, nunca se escribe.
 export function canonicalizarOrigen(origen: string): string {
-  const canonico = new URL(LEGAL.url);
+  const canonico = new URL(URL_CANONICA);
   const apex = canonico.hostname.replace(/^www\./, '');
   try {
     const u = new URL(origen);

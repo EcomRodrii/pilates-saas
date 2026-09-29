@@ -210,6 +210,23 @@ export function botonDeLaVentana(
 }
 
 /**
+ * ¿Se ve distinto el botón que abre la ventana con `despues` que con `antes`?
+ * Fondo, texto o esquinas de `botonDeLaVentana`: lo único que el código del
+ * popup lee del estilo. Cambiar la letra, la separación, el pie o «¿Cómo es tu
+ * web?» no lo toca, y la confirmación de «Aplicar» no debe hablar de él
+ * entonces. Por valor y no por lo elegido: «Las de siempre» y «Redondas» son
+ * las mismas esquinas.
+ */
+export function cambiaElBotonDeLaVentana(
+  antes: WidgetWeb | null | undefined, despues: WidgetWeb | null | undefined, base: BaseEstiloWeb,
+): boolean {
+  const a = botonDeLaVentana(antes, base);
+  const d = botonDeLaVentana(despues, base);
+  const distinto = (x: string, y: string) => x.toLowerCase() !== y.toLowerCase();
+  return distinto(a.fondo, d.fondo) || distinto(a.texto, d.texto) || a.esquinas !== d.esquinas;
+}
+
+/**
  * La opción que se ve IGUAL que la de por defecto (mismo hex de fondo y de
  * texto), para ponerle la insignia «Por defecto»: elegirla guarda `null`.
  * `null` si ninguna coincide (el panel ofrece entonces «Por defecto» aparte).

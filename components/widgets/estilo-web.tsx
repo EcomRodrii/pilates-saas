@@ -238,10 +238,13 @@ export function EstiloWeb({ estado, metodo, soloLectura, verApariencia, piezas, 
             )}
             <p>Los widgets con un diseño propio dentro de su código no cambian.</p>
             {/*
-              El botón que abre la ventana (Fase D): lo copiado leyendo sus variables
-              (`copiado.botonVivo`) sigue este estilo, aunque /api/public/widget-boton
-              lo cachea unos minutos; lo copiado antes lleva su color literal y no cambia
-              hasta que peguen el código de ahora en lugar del de antes.
+              El botón que abre la ventana (Fase D), y solo si este estilo cambia cómo
+              se ve (`cambiaElBotonDeLaVentana`): lo copiado leyendo sus variables
+              (`copiado.botonVivo`) lo sigue, aunque /api/public/widget-boton lo cachea
+              unos minutos; lo copiado antes lleva su color literal y se queda como está.
+              Volver a pegarlo es opcional y solo por el botón: no contradice «No tienes
+              que volver a pegar ningún código». Y nada de «lo de dentro de la ventana,
+              sí»: con las columnas de noche no le llega todo (la línea de arriba).
             */}
             {piezas.botonesVivos.length > 0 && (
               <p>
@@ -253,8 +256,8 @@ export function EstiloWeb({ estado, metodo, soloLectura, verApariencia, piezas, 
             {piezas.botonesCongelados.length > 0 && (
               <p>
                 {piezas.botonesCongelados.length > 1
-                  ? `Los botones que abren la ventana de ${enLista(piezas.botonesCongelados)} son de un código anterior y no cambian; lo de dentro de la ventana, sí. Si copias su código otra vez y lo pegas en lugar del de antes, desde entonces cambiarán solos.`
-                  : `El botón que abre la ventana de ${piezas.botonesCongelados[0]} es de un código anterior y no cambia; lo de dentro de la ventana, sí. Si copias su código otra vez y lo pegas en lugar del de antes, desde entonces cambiará solo.`}
+                  ? `Los botones que abren la ventana de ${enLista(piezas.botonesCongelados)} son de un código anterior y se quedan como están. Si quieres que también cambien solos, copia su código otra vez y pégalo en lugar del de antes.`
+                  : `El botón que abre la ventana de ${piezas.botonesCongelados[0]} es de un código anterior y se queda como está. Si quieres que también cambie solo, copia su código otra vez y pégalo en lugar del de antes.`}
               </p>
             )}
             {piezas.hayNativa && <p>El widget sin marco no sigue este estilo.</p>}

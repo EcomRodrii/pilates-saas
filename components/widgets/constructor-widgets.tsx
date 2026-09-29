@@ -442,10 +442,11 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     fondo: configEfectiva.identidad === 'propia' && configEfectiva.tema === 'oscuro' ? FONDO_WEB_OSCURA : colorDeLaWeb(estiloWeb.borrador),
   };
   // Lo que nombra la confirmación: solo lo copiado que sigue siendo el código de
-  // ahora, y a qué le llega el borrador que se va a aplicar.
+  // ahora, y a qué le llega el borrador que se va a aplicar (el botón de la
+  // ventana, solo si se ve distinto que con lo publicado).
   const piezas = piezasAfectadas({
     configs: configsCopiadas, copiados, plataforma, origen, slug, colorEstudio: studio?.colorPrimario ?? null,
-    estilo: estiloWeb.borrador, base: estiloWeb.base,
+    estilo: estiloWeb.borrador, publicado: estiloWeb.publicado, base: estiloWeb.base,
   });
 
   const ofertasPrueba = planesTarifa.filter(p => p.activo && p.esPrueba === true);

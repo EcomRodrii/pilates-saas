@@ -305,11 +305,33 @@ export interface PiezaCopiada {
    * Fase D: un popup sin diseño propio copiado SIN la marca `botonVivo` (un
    * código anterior, o copiado desde un panel sin actualizar): su botón lleva
    * el color literal de cuando se copió y no sigue el estilo de sus widgets;
-   * lo de dentro de la ventana, sí. Copiar el código de ahora lo arregla. Con
-   * diseño propio no: ese botón no cambia nunca, a propósito.
+   * lo de dentro de la ventana, sí. Copiar el código de ahora lo arregla, y
+   * por eso solo si el de ahora también es un popup (`botonDeCodigoAnterior`).
+   * Con diseño propio no: ese botón no cambia nunca, a propósito.
    */
   botonCongelado: boolean;
   estado: EstadoEnTuWeb;
+}
+
+/**
+ * ¿El botón pegado es de un popup de antes de la Fase D, y copiar el código de
+ * ahora lo arreglaría? Lo COPIADO era un popup sin diseño propio y sin la marca
+ * `botonVivo`, y la forma de AHORA también es un popup. Las dos cosas, porque
+ * el aviso pide copiar el código de ahora para que el botón cambie solo:
+ *  - copiado dentro de una página y ahora encima: lo pegado no tiene botón;
+ *  - copiado encima y ahora dentro de una página: copiar el de ahora quita el
+ *    botón, no hace que cambie.
+ * La usan la portada (`piezaCopiada`) y «Ponlo en tu web».
+ */
+export function botonDeCodigoAnterior(x: {
+  /** La forma que se copió (`null` si no se sabe). */
+  copiado: MetodoIntegracion | null;
+  ahora: MetodoIntegracion;
+  /** Lo pegado lleva su propio diseño en el código. */
+  disenoPropio: boolean;
+  botonVivo: boolean | undefined;
+}): boolean {
+  return x.copiado === 'popup' && x.ahora === 'popup' && !x.disenoPropio && x.botonVivo !== true;
 }
 
 /**
@@ -409,7 +431,10 @@ export function piezaCopiada(x: {
   const disenoPropio = (metodo === 'iframe' || metodo === 'popup') && !!pegada && tieneDisenoEnCodigo(pegada);
   return {
     metodo, desfasado, cambios, etiqueta, mes, estado, disenoPropio,
-    botonCongelado: metodo === 'popup' && !disenoPropio && k.botonVivo !== true,
+    // Mientras se espera lo visto, el ámbar se calla (arriba) y este aviso
+    // también: si no, saldría ahora y se iría al llegar el ámbar.
+    botonCongelado: !x.esperandoVistos
+      && botonDeCodigoAnterior({ copiado: metodo, ahora: metodoAhora, disenoPropio, botonVivo: k.botonVivo }),
   };
 }
 

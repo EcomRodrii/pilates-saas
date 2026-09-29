@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  RADIO_BOTON, RUTA_BOTON_VIVO, SLUG_POPUP, VAR_FONDO, VAR_RADIO, VAR_TEXTO,
-  cssBotonVivo, leerBotonVivo, slugDePopup, usaBotonVivo, type BotonVivo,
+  RADIO_BOTON, RUTA_BOTON_VIVO, SELECTOR_POPUP, SLUG_POPUP, VAR_FONDO, VAR_RADIO, VAR_TEXTO,
+  cssBotonVivo, leerBotonVivo, slugDePopup, traeBotonDePopup, usaBotonVivo, type BotonVivo, type NodoAnadido,
 } from './boton-vivo.ts';
 import { APARIENCIA_POR_DEFECTO, radiosDe } from '../reservar/apariencia-widget.ts';
 import { FORMAS_WEB } from '../reservar/estilo-web-tipos.ts';
@@ -109,6 +109,50 @@ test('usaBotonVivo: sí con la doble declaración; no si un filtro se comió los
   assert.equal(usaBotonVivo(''), false);
   // Contorno: el fondo no lleva variable, pero el color y el borde sí.
   assert.equal(usaBotonVivo('background:transparent;color:#343825;color:var(--tentare-boton,#343825);'), true);
+});
+
+// ── traeBotonDePopup (el filtro del MutationObserver) ─────────────────────────
+
+/**
+ * Un elemento de mentira con sus atributos e hijos: `matches` y
+ * `querySelector` como los del navegador para un selector de atributo.
+ */
+function el(atributos: string[] = [], hijos: NodoAnadido[] = []): NodoAnadido {
+  const coincide = (sel: string) => {
+    const m = /^\[([a-z-]+)\]$/.exec(sel);
+    return !!m && atributos.includes(m[1]);
+  };
+  const buscar = (sel: string): NodoAnadido | null => {
+    for (const h of hijos) {
+      if (h.nodeType !== 1) continue;
+      if (h.matches!(sel)) return h;
+      const dentro = h.querySelector!(sel) as NodoAnadido | null;
+      if (dentro) return dentro;
+    }
+    return null;
+  };
+  return { nodeType: 1, matches: coincide, querySelector: buscar };
+}
+const TEXTO: NodoAnadido = { nodeType: 3 };
+const COMENTARIO: NodoAnadido = { nodeType: 8 };
+
+test('traeBotonDePopup: el botón que llega, o un bloque que lo trae dentro (a cualquier profundidad)', () => {
+  assert.equal(SELECTOR_POPUP, '[data-tentare-popup]');
+  assert.equal(traeBotonDePopup(el(['data-tentare-popup', 'style'])), true);
+  assert.equal(traeBotonDePopup(el([], [TEXTO, el(['class'], [el(['data-tentare-popup'])])])), true);
+});
+
+test('⚠️ traeBotonDePopup: lo demás que añade su web, y lo que añade el propio script, no vuelve a barrer', () => {
+  // Un bloque cualquiera, un texto, un comentario.
+  assert.equal(traeBotonDePopup(el(['class'], [el(['class']), TEXTO])), false);
+  assert.equal(traeBotonDePopup(TEXTO), false);
+  assert.equal(traeBotonDePopup(COMENTARIO), false);
+  // La regla `<style data-tentare-boton>` que se añade tras pedir el color, y
+  // el anfitrión de la ventana: si contaran, cada pintado volvería a barrer.
+  assert.equal(traeBotonDePopup(el(['data-tentare-boton'])), false);
+  assert.equal(traeBotonDePopup(el(['data-tentare-popup-ventana'])), false);
+  // Un nodo sin `matches` ni `querySelector` (no es un elemento de verdad): no.
+  assert.equal(traeBotonDePopup({ nodeType: 1 }), false);
 });
 
 // ── Guardianes ───────────────────────────────────────────────────────────────

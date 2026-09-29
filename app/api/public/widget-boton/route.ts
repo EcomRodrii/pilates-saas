@@ -27,6 +27,11 @@ import { errorInterno } from '@/lib/errores-servidor';
 // 404 cacheado dejaría el respaldo después de crear el estudio o arreglar un
 // fallo. La misma respuesta sirve a cualquier visitante, así que nada por
 // persona puede entrar aquí sin quitar antes la caché compartida.
+//
+// Aceptado a propósito: si falla la lectura de su tema, `getThemePublicado` cae
+// al tema por defecto sin decirlo, y esto puede servir (y cachear) durante ese
+// minuto el botón por defecto en vez del suyo. Es un color; lo demás lo cubre
+// el respaldo que lleva el propio código.
 
 const PUBLICO = { 'Access-Control-Allow-Origin': '*' } as const;
 const CACHE_OK = 'public, max-age=60, s-maxage=60, stale-while-revalidate=600';

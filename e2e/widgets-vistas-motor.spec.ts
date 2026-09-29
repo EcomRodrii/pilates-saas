@@ -199,17 +199,27 @@ test('dentro de su web, `widget_loaded` dice dónde (solo el origen) y con qué 
 });
 
 // Fase D: `directo=1` solo lo pone la redirección de la integración nativa
-// (app/widget-bundle/main.tsx), que ya contó la visita en la web del estudio.
-// Aquí no se vuelve a contar: ni `widget_loaded` ni `widget_viewed`. El resto
-// del embudo sí, con la misma etiqueta, que es lo que dice si ese widget convierte.
+// (app/widget-bundle/main.tsx), que ya contó la visita en la web del estudio,
+// y SIEMPRE a pantalla completa. Ahí no se vuelve a contar: ni `widget_loaded`
+// ni `widget_viewed`. El resto del embudo sí, con la misma etiqueta, que es lo
+// que dice si ese widget convierte. Dentro de un marco (`embed=1`) no es ella,
+// y la visita cuenta como cualquier otra.
+//
+// Lo que no cambia con ningún parámetro que pone la propia Tentare
+// (`PARAMS_DE_EJECUCION`, lib/reservar/pegado-widget.ts): esa URL no es el
+// código de su web, así que la carga no dice dónde ni con qué versión. El
+// control es que `widget_loaded` SÍ sale: sin él, «no lleva nada» pasaría sin
+// mirar nada.
 
-test('⚠️ con `directo=1` (la redirección de la nativa) no cuenta otra visita ni dice dónde, aunque esté en su web', async ({ page, baseURL }) => {
+test('⚠️ `directo=1` dentro de su web no es la redirección de la nativa: cuenta la visita, pero sin decir dónde', async ({ page, baseURL }) => {
   const { eventos } = await enSuWeb(page, baseURL!, `${CODIGO}&directo=1`);
-  // El control: la página sí manda el resto del embudo. Sin esto, «no ha
-  // contado la visita» podría ser verdad por no haber mandado nada.
-  await expect.poll(() => eventos.filter(e => e.tipo === 'class_list_viewed').length, { timeout: 15_000 }).toBeGreaterThan(0);
-  await page.waitForTimeout(500);
-  expect(eventos.some(e => e.tipo === 'widget_loaded' || e.tipo === 'widget_viewed'), JSON.stringify(eventos)).toBe(false);
+  await expect.poll(() => eventos.filter(e => e.tipo === 'widget_loaded').length, { timeout: 15_000 }).toBeGreaterThan(0);
+  expect(eventos.some(lleva), JSON.stringify(eventos)).toBe(false);
+});
+
+test('⚠️ con otro parámetro que pone la propia Tentare (`clase=`), dentro de su web: cuenta la visita, sin decir dónde ni con qué versión', async ({ page, baseURL }) => {
+  const { eventos } = await enSuWeb(page, baseURL!, `${CODIGO}&clase=s1`);
+  await expect.poll(() => eventos.filter(e => e.tipo === 'widget_loaded').length, { timeout: 15_000 }).toBeGreaterThan(0);
   expect(eventos.some(lleva), JSON.stringify(eventos)).toBe(false);
 });
 

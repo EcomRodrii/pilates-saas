@@ -6,6 +6,7 @@ import { cn, copiarAlPortapapeles } from '@/lib/utils';
 import { btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { METODOS, type MetodoIntegracion } from '@/lib/widgets/catalogo';
 import { ETIQUETA_VALIDA, esCopiaCompleta, type ConfigConstructor, type Copiado } from '@/lib/widgets/config';
+import { botonDeCodigoAnterior } from '@/lib/widgets/en-tu-web';
 import {
   faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, tieneDisenoEnCodigo, urlPagina, type EntradaIntegracion,
 } from '@/lib/widgets/integracion';
@@ -139,7 +140,12 @@ export function PasoPonlo({
   // Lo pegado es este mismo popup, pero de antes de la Fase D (o copiado desde
   // un panel sin actualizar): su botón lleva el color literal y no sigue el
   // estilo. Con diseño propio no se dice: ese botón no cambia nunca, a propósito.
-  const botonDeAntes = metodo === 'popup' && !tieneDisenoEnCodigo(c) && !!copiado && !desfase && copiado.botonVivo !== true;
+  // Lo COPIADO también tiene que ser un popup: un iframe pegado no tiene botón.
+  // Una copia antigua sin la forma guardada se toma por la de ahora: sin
+  // desfase, su huella (que lleva la forma) coincide con la de ahora.
+  const botonDeAntes = !!copiado && !desfase && botonDeCodigoAnterior({
+    copiado: copiado.metodo ?? metodo, ahora: metodo, disenoPropio: tieneDisenoEnCodigo(c), botonVivo: copiado.botonVivo,
+  });
 
   const etiquetaCopiar = recienCopiado === 'codigo'
     ? 'Copiado'

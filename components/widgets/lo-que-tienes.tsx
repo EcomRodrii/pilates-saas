@@ -163,8 +163,12 @@ function FilaPieza({ f, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAu
             Lleva su propio diseño en el código, así que el estilo de tus widgets no le llega.
           </Nota>
         )}
-        {/* Fase D: un popup copiado antes de que su botón siguiera el estilo. Con ámbar o con otra versión a la vista ya se le pide copiarlo. */}
-        {p.botonCongelado && !p.desfasado && !textos.version && (
+        {/*
+          Fase D: un popup copiado antes de que su botón siguiera el estilo. Con ámbar o con
+          otra versión a la vista ya se le pide copiarlo; y sin `ahora` (antes de montar) aún
+          no se sabe si habrá versión: saldría y se iría.
+        */}
+        {p.botonCongelado && !p.desfasado && ahora !== null && !textos.version && (
           <Nota tono="info" accion="Ir a copiarlo" onAccion={onCopiarNuevo}>
             El botón que abre la ventana es de un código anterior y no cambia con el estilo de tus widgets. Lo de dentro de la ventana, sí. Si copias el código de ahora y lo pegas en lugar del de antes, el botón también cambiará solo.
           </Nota>

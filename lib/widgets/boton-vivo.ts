@@ -28,6 +28,9 @@ export const VAR_FONDO = '--tentare-boton';
 export const VAR_TEXTO = '--tentare-boton-texto';
 export const VAR_RADIO = '--tentare-boton-radio';
 
+/** Los botones del método «Popup» en la web del estudio. */
+export const SELECTOR_POPUP = '[data-tentare-popup]';
+
 /** Un slug de `/reservar/<slug>`: el mismo juego de caracteres que deja pasar ./popup-url.ts. */
 export const SLUG_POPUP = /^[A-Za-z0-9-]{1,100}$/;
 
@@ -112,4 +115,23 @@ export function cssBotonVivo(slug: string, b: BotonVivo): string | null {
   const v = leerBotonVivo(b);
   if (!v) return null;
   return `[data-tentare-popup*="/reservar/${slug}?"]{${VAR_FONDO}:${v.fondo};${VAR_TEXTO}:${v.texto};${VAR_RADIO}:${RADIO_BOTON[v.esquinas]}}`;
+}
+
+/** Lo que se mira de un nodo recién añadido (lo justo de `Node`/`Element`, para probarlo sin navegador). */
+export interface NodoAnadido {
+  nodeType: number;
+  matches?(selector: string): boolean;
+  querySelector?(selector: string): unknown;
+}
+
+/**
+ * ¿Trae este nodo recién añadido a la página un botón del popup, él mismo o
+ * dentro? Es el filtro del `MutationObserver` de `widget-popup.js`: la web del
+ * estudio añade nodos todo el rato (un carrusel, un chat, sus anuncios) y solo
+ * un botón nuestro merece volver a barrer. Solo elementos (`nodeType` 1): un
+ * texto o un comentario no pueden serlo.
+ */
+export function traeBotonDePopup(n: NodoAnadido): boolean {
+  if (n.nodeType !== 1) return false;
+  return n.matches?.(SELECTOR_POPUP) === true || (n.querySelector?.(SELECTOR_POPUP) ?? null) !== null;
 }

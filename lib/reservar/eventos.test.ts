@@ -122,3 +122,11 @@ test('visitaYaContada: solo la redirección de la nativa (`directo=1`), que ya c
   assert.equal(visitaYaContada(p('embed=1&tab=clases&ref=web-horario')), false);
   assert.equal(visitaYaContada(p('directo=true')), false);
 });
+
+test('⚠️ visitaYaContada: con `embed=1` no es la redirección de la nativa (va siempre a pantalla completa) y cuenta', () => {
+  const p = (q: string) => new URLSearchParams(q);
+  assert.equal(visitaYaContada(p('embed=1&tab=clases&ref=web-horario&directo=1')), false);
+  assert.equal(visitaYaContada(p('directo=1&embed=1')), false);
+  // `embed` con otro valor no es el modo incrustado: la redirección sigue siendo ella.
+  assert.equal(visitaYaContada(p('sesion=s1&directo=1&embed=0&ref=web-horario')), true);
+});
