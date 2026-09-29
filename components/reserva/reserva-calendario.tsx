@@ -16,19 +16,26 @@
 // que le pasa la página (la BD sigue siendo autoritativa).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useMemo, useState, useEffect, useId, useRef, memo, type CSSProperties } from 'react';
+import { useMemo, useState, useEffect, useId, useRef, memo, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  ChevronLeft, ChevronRight, Clock, MapPin, Users, X,
-  CheckCircle2, AlertCircle, AlertTriangle, CalendarDays, Ticket,
+  ArrowLeft, ChevronLeft, ChevronRight, Clock, X,
+  CheckCircle2, AlertCircle, AlertTriangle, Ticket,
 } from 'lucide-react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { NivelClase, EstadoReserva, Spot } from '@/lib/types';
 import type { ResultadoReserva } from '@/lib/studio-context';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { semantic } from '@/lib/portal-tokens';
-import { colorOcupacion, ratioOcupacion, etiquetaOcupacion } from '@/lib/ocupacion';
+import { colorOcupacion, ratioOcupacion, etiquetaOcupacion, OCUPACION_COLOR } from '@/lib/ocupacion';
 import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
-import { serif, sans, mono, cq, radius, EASE, densidadCss, pesoTitular, paletaOscura, textoSemantico } from '@/lib/reservar-publico-tokens';
+import { anfitrionPortal } from '@/lib/panel-portal';
+import { serif, sans, mono, cq, radius, shadow, EASE, densidadCss, paletaOscura, textoSemantico } from '@/lib/reservar-publico-tokens';
+import {
+  ALTO_FOTO_FICHA, cuandoCorto, disponibilidadFicha, filasFicha, rolInstructora, type TonoDisponibilidad,
+} from '@/lib/reservar/ficha-clase';
+import { COLUMNA_HORARIO } from '@/lib/reservar/portada';
+import { HeroeClase, estiloBotonSobreFoto } from './heroe-clase';
 import {
   localDayKey, addDays, diasSemana, contarSlotsPorDia, slotsDelDia,
   agruparPorDia, etiquetaDiaClave, fechaDeClave,
@@ -46,9 +53,6 @@ const FUENTE = sans;
 
 const NIVEL_LABEL: Record<NivelClase, string> = {
   TODOS: 'Todos los niveles', PRINCIPIANTE: 'Iniciación', MEDIO: 'Intermedio', AVANZADO: 'Avanzado',
-};
-const NIVEL_COLOR: Record<NivelClase, string> = {
-  TODOS: '#8E8E93', PRINCIPIANTE: 'var(--success)', MEDIO: 'var(--warning)', AVANZADO: 'var(--destructive)',
 };
 const DOW_CORTO = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
@@ -99,8 +103,19 @@ export interface ReservaSlot {
    * público configurado), y entonces no se pinta nada. Antes esto no existía:
    * con plan que cubre, el botón decía "Reservar" a secas y la alumna no sabía
    * qué se le iba a descontar.
+   *
+   * Desde la F4 del rediseño también es `null` cuando no añade nada a
+   * `coberturaCorta` (sin plan, «Clase suelta · 15 €» solo repetía el importe
+   * de la fila y del botón): ver `notaCobertura` en lib/reservar/cobertura.ts.
    */
   coberturaTexto?: string | null;
+  /**
+   * Lo mismo en dos palabras, para la fila «plazas · coste» de la ficha, como
+   * la de la app de la alumna: «Con tu bono · 1 sesión», «18 € clase suelta».
+   * Texto por el mismo motivo que `coberturaTexto` (el bundle embebido no
+   * arrastra la lógica de bonos). `null`/ausente = la fila solo dice las plazas.
+   */
+  coberturaCorta?: string | null;
   /** Misma cobertura, en futuro condicional — solo para cuando `lleno` (lista
    *  de espera): ver el docblock de `textoCoberturaListaEspera`. */
   coberturaTextoListaEspera?: string | null;
@@ -248,7 +263,13 @@ export interface ReservaCalendarioProps {
    * no lo exige es tan malo como no anunciarlo donde sí.
    */
   avisoRequisitoCompra?: ((tipoClaseId: string | null) => { texto: string; href: string; cta: string } | null) | null;
-  /** Quita el badge de nivel de la hoja. */
+  /**
+   * La calle del estudio, para la fila «Dónde» de la ficha («Calle Larios 1 ·
+   * Sala Mat», como en la app de la alumna). Ausente = «Dónde» es solo la sala;
+   * el bundle del widget nativo no la pasa y se queda así.
+   */
+  direccionEstudio?: string | null;
+  /** Quita el nivel de la clase de la ficha. */
   ocultarNivel?: boolean;
   /** Quita el aviso «Sustituye a X hoy» (queda el rótulo de rol de siempre). */
   ocultarSustituta?: boolean;
@@ -535,7 +556,7 @@ export function ReservaCalendario({
   ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false, saltarFichaSiInvitada = false, vistaInicial = 'todo',
   enIframe = false, franjaVisible = null, alCambiarFicha, origenTentare = '',
   estiloFicha = 'modal', abrirSlotExterno, onAntesDeAbrir,
-  avisoRequisitoCompra = null,
+  avisoRequisitoCompra = null, direccionEstudio = null,
 }: ReservaCalendarioProps) {
   // RES-7-f: «hoy» es el día del ESTUDIO (una fecha de calendario a medianoche
   // local), no el del navegador: con el visitante fuera de Madrid la tira de días
@@ -1133,6 +1154,8 @@ export function ReservaCalendario({
           enIframe={enIframe}
           franjaVisible={franjaVisible}
           origenTentare={origenTentare}
+          direccionEstudio={direccionEstudio}
+          radioBoton={radiosEsc.boton}
           avisoRequisitoCompra={avisoRequisitoCompra?.(openSlot.tipoClaseId ?? null) ?? null}
           onClose={cerrarHoja}
           onAceptarOferta={onAceptarOferta ? async () => {
@@ -1531,12 +1554,20 @@ const TarjetaClase = memo(TarjetaClaseImpl);
 function BookingSheet({
   t, slot, variantePresentacion = 'modal', selectedSpot, onSelectSpot, resultado, errorReserva, enviando, cancelacionVentanaHoras, ventanaPorTipo,
   fontFamily, ocultarPrecio = false, ocultarNivel = false, ocultarSustituta = false, ocultarSelectorSitio = false,
-  enIframe = false, franjaVisible = null, origenTentare = '',
+  enIframe = false, franjaVisible = null, origenTentare = '', direccionEstudio = null, radioBoton = radius.pill,
   avisoRequisitoCompra = null,
   onClose, onReservar, onCancelar, onAceptarOferta,
 }: {
   t: ModoTokens;
   slot: ReservaSlot;
+  /** Ver el docblock en `ReservaCalendarioProps`. */
+  direccionEstudio?: string | null;
+  /**
+   * El radio de los botones del widget, ya resuelto (`radiosEsc.boton`). Lo
+   * necesita la barra fija de la página suelta, que vive en `document.body` y
+   * por eso no hereda el `--reservar-radio-boton` de la raíz del calendario.
+   */
+  radioBoton?: number;
   /** Ver el docblock de `estiloFicha` en `ReservaCalendarioProps`. */
   variantePresentacion?: 'modal' | 'vista' | 'inline';
   selectedSpot: string | null;
@@ -1674,6 +1705,135 @@ function BookingSheet({
   // el padre), así que no hay ningún fondo que se pueda mover.
   useBloquearScrollFondo(!sinBackdrop);
 
+  // ── F4 del rediseño: la ficha con el lenguaje de la app de la alumna ──────
+  // Foto con velo y, encima, el nivel, el nombre y los chips; debajo, la fila
+  // «plazas · coste», la instructora, la descripción y las filas Cuándo /
+  // Dónde / Capacidad / Cancelación (lib/reservar/ficha-clase.ts, las mismas
+  // que «Tus datos»).
+  //
+  // «Hoy» es el del ESTUDIO, una vez por ficha: mismo patrón que el `hoy` del
+  // calendario de arriba.
+  const hoy = useMemo(() => hoyEnEstudio(), []);
+  const duracionMin = Math.round((new Date(slot.fin).getTime() - new Date(slot.inicio).getTime()) / 60000);
+  const chipsFoto = [cuandoCorto(slot.inicio, hoy), `${duracionMin} min`, ...(slot.salaNombre ? [slot.salaNombre] : [])];
+  const filas = filasFicha({
+    inicio: slot.inicio, fin: slot.fin, hoy,
+    salaNombre: slot.salaNombre, direccion: direccionEstudio,
+    aforoMaximo: slot.aforoMaximo, libres,
+    ventanaCancelacionHoras: ventanaEfectiva,
+  });
+  const disponibilidad = disponibilidadFicha(libres, slot.miEstado);
+  const colorDisponibilidad = colorDeTono(disponibilidad.tono, ratioOcupacion(slot.ocupadas, slot.aforoMaximo));
+  // Lo que cuesta, junto a las plazas. Con la reserva ya hecha no se dice: el
+  // saldo sería el de ANTES de descontar y sonaría a que se cobra otra vez (el
+  // mismo criterio que ya tenía la caja de cobertura). Y `ocultarPrecio` lo
+  // apaga entero: habla de importes.
+  const costeFila = !tieneReserva && !ocultarPrecio ? (slot.coberturaCorta ?? null) : null;
+  // §3 — qué consume la reserva, en largo. Solo al reservar (mismo motivo), y
+  // con la clase llena, en futuro condicional (`coberturaTextoListaEspera`).
+  const notaCoste = !tieneReserva && !ocultarPrecio
+    ? ((lleno ? slot.coberturaTextoListaEspera : slot.coberturaTexto) ?? null)
+    : null;
+
+  // La barra del CTA. En la página suelta (`vista` fuera de un iframe) va FIJA
+  // al pie de la ventana, como el «Reservar» de la app: la raíz de /reservar
+  // lleva `overflow: hidden` (app/reservar/[slug]/page.tsx), y eso convierte a
+  // la raíz en el contenedor de cualquier `position: sticky` de dentro, que
+  // entonces no se pega a nada. Medido: a 390×844 el «Reservar» del pie
+  // «pegado» quedaba por debajo del borde de la pantalla. Va por portal
+  // —`anfitrionPortal()`, que en /reservar es `document.body`, como el menú de
+  // la cabecera— para no depender de qué ancestro crea un bloque contenedor (la
+  // entrada `paso-anim` anima un `transform`, y con él un `fixed` se anclaría a
+  // la ficha, no a la ventana).
+  //
+  // En el iframe (su «ventana» es el iframe entero, que crece con el contenido)
+  // y en el widget nativo (vive a mitad de la web del estudio) una barra fija
+  // se anclaría lejos de lo que se ve: ahí sigue al final del contenido, con el
+  // `sticky` de siempre, que en la hoja con fondo oscurecido sí funciona.
+  const barraFija = variantePresentacion === 'vista' && !enIframe;
+  const barraRef = useRef<HTMLDivElement>(null);
+  // El alto de la barra (para dejarle hueco al final del contenido y que no
+  // tape lo último) y la columna de la ficha (para que el botón mida lo mismo
+  // que ella, y no la ventana entera). Se mide, no se supone: con un aviso
+  // encima del botón la barra crece.
+  const [geoBarra, setGeoBarra] = useState<{ alto: number; izquierda: number; ancho: number } | null>(null);
+  useEffect(() => {
+    if (!barraFija) return;
+    const barra = barraRef.current;
+    const raiz = raizRef.current;
+    if (!barra || !raiz || typeof ResizeObserver === 'undefined') return;
+    const medir = () => {
+      const caja = raiz.getBoundingClientRect();
+      const nueva = { alto: Math.round(barra.getBoundingClientRect().height), izquierda: Math.round(caja.left), ancho: Math.round(caja.width) };
+      setGeoBarra(prev => (prev && prev.alto === nueva.alto && prev.izquierda === nueva.izquierda && prev.ancho === nueva.ancho ? prev : nueva));
+    };
+    const observador = new ResizeObserver(medir);
+    observador.observe(barra);
+    observador.observe(raiz);
+    // La columna puede moverse sin cambiar de tamaño (en escritorio mide 720
+    // y se centra): al ensanchar la ventana, su borde izquierdo se desplaza y
+    // el observador no se entera. Por eso también al redimensionar.
+    window.addEventListener('resize', medir);
+    return () => {
+      observador.disconnect();
+      window.removeEventListener('resize', medir);
+    };
+  }, [barraFija]);
+
+  // Lo que va en la barra: el resultado de la última acción, el requisito de
+  // compra y el botón. El resultado va AQUÍ, junto al botón, y no en el cuerpo
+  // de la ficha: con la barra fija, un «¡Reserva confirmada!» pintado en el
+  // cuerpo podía quedar debajo del pliegue, lejos del dedo que acaba de pulsar.
+  const accion: ReactNode = (
+    <>
+      {errorReserva && <Banner t={t} tipo="warn" texto={errorReserva} />}
+      {resultado === 'CONFIRMADA' && <Banner t={t} tipo="ok" texto="¡Reserva confirmada! Te esperamos en clase." />}
+      {resultado === 'LISTA_ESPERA' && <Banner t={t} tipo="warn" texto="Estás en lista de espera. Te avisaremos si se libera una plaza." />}
+      {resultado === 'CANCELADA' && <Banner t={t} tipo="warn" texto="Reserva cancelada." />}
+      {!resultado && yaReservada && <Banner t={t} tipo="ok" texto="Ya tienes esta clase reservada." />}
+      {!resultado && enEspera && !hayOferta && <Banner t={t} tipo="warn" texto="Estás en lista de espera para esta clase." />}
+      {avisoRequisitoCompra && !tieneReserva && (
+        <p style={{ margin: 0, fontSize: 12.5, color: t.ink, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'baseline' }}>
+          <span>{avisoRequisitoCompra.texto}</span>
+          <a
+            href={avisoRequisitoCompra.href}
+            style={{ color: MARCA_TEXTO, fontWeight: 800, textDecoration: 'underline', textUnderlineOffset: 3 }}
+          >
+            {avisoRequisitoCompra.cta}
+          </a>
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={esCancelar ? onCancelar : onReservar}
+        disabled={resultado === 'CANCELADA' || enviando}
+        aria-busy={enviando}
+        className="reserva-cta-btn"
+        // El botón de la app: píldora (o la forma de botón del estudio) de 52,
+        // a todo el ancho, en la marca. Sin versales: «RESERVAR» gritaba al
+        // lado de todo lo demás, y la app lo escribe en minúsculas.
+        style={{
+          width: '100%', minHeight: 52, padding: '0 20px', borderRadius: 'var(--reservar-radio-boton, 999px)',
+          fontFamily, fontSize: 15, fontWeight: 800, letterSpacing: '-.005em', border: 'none',
+          cursor: resultado === 'CANCELADA' || enviando ? 'default' : 'pointer',
+          opacity: resultado === 'CANCELADA' ? 0.4 : enviando ? 0.7 : 1,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0,
+          ...(esCancelar
+            ? { background: semantic.danger.soft, color: textoSemantico('danger', t, t.bg) }
+            : { background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', boxShadow: shadow.ctaOscuro }),
+        }}
+      >
+        {enviando && (
+          <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: 999, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.85, flexShrink: 0 }} />
+        )}
+        {resultado === 'CANCELADA' ? 'Cancelada' : enviando ? 'Un momento…' : label}
+      </button>
+    </>
+  );
+
+  const radioFoto = sinBackdrop ? `var(--reservar-radio-tarjeta, ${radius.card}px)` : 16;
+  const radioBloque = `var(--reservar-radio-tarjeta, ${radius.card}px)`;
+
   return (
     <div
       ref={raizRef}
@@ -1740,9 +1900,13 @@ function BookingSheet({
           // hace falta acotar la altura de esta tarjeta ni darle su propio
           // scroll: es un bloque más de la página, tan alto como su
           // contenido.
+          // F4: sin relleno lateral. La foto va a todo el ancho de la columna
+          // —a sangre, como en la app— y el resto de la ficha se alinea con
+          // las tarjetas del horario, que miden lo mismo (antes la ficha iba
+          // 20 px más adentro que la lista de la que salía).
           ? {
             width: '100%', background: t.bg,
-            padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 14,
+            padding: 0, display: 'flex', flexDirection: 'column', gap: densidadCss(12),
           }
           : {
             width: '100%', maxWidth: 560, background: t.bg,
@@ -1754,110 +1918,169 @@ function BookingSheet({
             overscrollBehavior: 'contain',
           }}
       >
-        {/* En modo 'vista' no hay tirador de arrastre (no es una hoja que se
-            desliza) — un único "‹ Volver" arriba del todo, mismo patrón que
-            <PantallaReserva>: un solo punto de salida, nunca una X flotante
-            además de un "atrás". */}
-        {sinBackdrop ? (
-          <div style={{ display: 'flex', alignItems: 'center', padding: '16px 0 2px', flexShrink: 0 }}>
-            <button type="button" onClick={onClose} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
-              cursor: 'pointer', color: t.muted, fontSize: 13, fontWeight: 700, padding: 0,
-            }}>
-              <ChevronLeft size={16} strokeWidth={2.5} />
-              Volver a las clases
-            </button>
-          </div>
-        ) : (
+        {/* La hoja con fondo oscurecido conserva su tirador. En la página y el
+            widget no hay hoja que deslizar: la salida es el botón redondo de
+            volver sobre la foto, como en la app — un solo punto de salida,
+            nunca una X flotante además de un «atrás». */}
+        {!sinBackdrop && (
           <div style={{ width: 36, height: 4, borderRadius: 999, background: t.line, margin: '6px auto 4px', flexShrink: 0 }} />
         )}
 
-        {/* Foto de la clase — primer elemento del popup (orden pedido por el
-            fundador: foto, título, fecha/hora/duración, ubicación, descripción,
-            acción). Con fallback a la foto de catálogo de Tentare por familia
-            de clase (mismo criterio que ya usa el portal de la socia), y solo
-            si tampoco hay ninguna al color del tipo (ver FotoClase). */}
-        <FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho="100%" alto={sinBackdrop ? 220 : 150} radio={16} conFotoPorDefecto origenTentare={origenTentare} />
-
-        {/* Cabecera */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ minWidth: 0 }}>
-            {!ocultarNivel && <span style={{ ...nivelBadge(slot.nivel), marginBottom: 8 }}>{NIVEL_LABEL[slot.nivel]}</span>}
-            {/* `fontFamily: serif` (mismo token que el nombre de clase en
-                SlotRow/FilaFinalizada): era la única pieza de este archivo
-                donde el nombre de la clase NO llevaba la tipografía de
-                titulares del estudio — se notaba al pintar la foto de
-                catálogo por defecto en la hoja, sin ningún elemento de
-                verdad reflejando `data-fuente-display` ahí dentro. */}
-            <h2 id={titleId} ref={tituloRef} tabIndex={-1} style={{ fontFamily: serif, fontSize: 22, fontWeight: pesoTitular(800), color: t.ink, lineHeight: 1.1, textTransform: 'uppercase', letterSpacing: '-0.02em', marginTop: 8, outline: 'none' }}>
-              {slot.claseNombre}
-            </h2>
-          </div>
-          {!sinBackdrop && (
-            <button type="button" onClick={onClose} aria-label="Cerrar" style={{ ...navBtn(t), flexShrink: 0 }}>
-              <X size={18} style={{ color: t.ink }} />
+        {/* Foto a sangre con su velo y, encima, el nivel, el nombre y los
+            chips (components/reserva/heroe-clase.tsx). Con la foto de catálogo
+            de Tentare por familia de clase si el estudio no ha subido la suya
+            (ver FotoClase). El nombre sigue siendo el `h2` de la ficha y el que
+            recibe el foco al abrirla; ya no va en versales, como en la app. */}
+        <HeroeClase
+          foto={<FotoClase nombre={slot.claseNombre} color={slot.claseColor} fotoUrl={slot.claseFotoUrl} ancho="100%" alto={sinBackdrop ? ALTO_FOTO_FICHA.amplia : ALTO_FOTO_FICHA.hoja} radio={0} conFotoPorDefecto origenTentare={origenTentare} />}
+          alto={sinBackdrop ? ALTO_FOTO_FICHA.amplia : ALTO_FOTO_FICHA.hoja}
+          radio={radioFoto}
+          antetitulo={ocultarNivel ? null : NIVEL_LABEL[slot.nivel]}
+          titulo={slot.claseNombre}
+          nivelTitulo={2}
+          tituloId={titleId}
+          tituloRef={tituloRef}
+          tamanoTitulo={sinBackdrop ? 28 : 24}
+          chips={chipsFoto}
+          arribaIzquierda={sinBackdrop ? (
+            // Sin texto a la vista, como en la app; el nombre accesible es el
+            // de siempre («Volver a las clases», lo buscan los e2e).
+            <button type="button" onClick={onClose} aria-label="Volver a las clases" title="Volver a las clases" style={estiloBotonSobreFoto}>
+              <ArrowLeft size={20} strokeWidth={2.2} aria-hidden />
+            </button>
+          ) : undefined}
+          arribaDerecha={sinBackdrop ? undefined : (
+            <button type="button" onClick={onClose} aria-label="Cerrar" style={estiloBotonSobreFoto}>
+              <X size={19} strokeWidth={2.2} aria-hidden />
             </button>
           )}
-        </div>
+        />
 
-        {/* Datos */}
-        <div style={{ background: t.surface, border: `1px solid ${t.line}`, borderRadius: radius.card, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <FilaDato t={t} icon={<Clock size={14} />} label="Horario" valor={`${fmtHora(slot.inicio)} – ${fmtHora(slot.fin)}`} />
-          <FilaDato t={t} icon={<CalendarDays size={14} />} label="Fecha" valor={capitaliza(fmtDiaLargo(slot.inicio))} />
-          {slot.salaNombre && <FilaDato t={t} icon={<MapPin size={14} />} label="Sala" valor={slot.salaNombre} />}
-          <FilaDato
-            t={t}
-            icon={<Users size={14} />}
-            label="Plazas"
-            // Auditoría P1-confianza: «0/8 · 8 libres» se leía como «cero
-            // plazas» — el ratio ocupadas/aforo es jerga de panel, no de
-            // clienta. La cifra que importa es cuántas quedan, con el mismo
-            // copy que la tarjeta rica («X plazas libres»); la barra de abajo
-            // ya cuenta la ocupación de un vistazo.
-            valor={lleno ? 'Completa' : `${libres} ${libres === 1 ? 'plaza libre' : 'plazas libres'}`}
-            valorColor={lleno ? textoSemantico('danger', t) : (libres <= 2 ? textoSemantico('warning', t) : t.ink)}
-          />
-          {/* Barra de ocupación — la cifra de arriba ya lo dice, esto es para
-              leerlo de un vistazo sin hacer la resta mental. Mismo ratio/color
-              que el punto de SlotRow (lib/ocupacion.ts), nunca un número
-              inventado aparte. */}
-          <div style={{ height: 4, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
-            {/* `transform: scaleX` en vez de animar `width`: la misma barra,
-                pero sin forzar recálculo de layout en cada frame de la
-                transición de apertura — solo compositing. */}
-            <div style={{
-              height: '100%', width: '100%', transformOrigin: 'left',
-              transform: `scaleX(${ratioOcupacion(slot.ocupadas, slot.aforoMaximo)})`,
-              background: colorOcupacion(ratioOcupacion(slot.ocupadas, slot.aforoMaximo)), borderRadius: 999,
-              transition: `transform .5s ${EASE}`,
-            }} />
+        {/* Una plaza liberada con plazo va ARRIBA, justo bajo la foto: es lo
+            único de la ficha que caduca, y más abajo podía quedar fuera de la
+            primera pantalla. */}
+        {!resultado && hayOferta && (
+          <div style={{ padding: '13px 15px', borderRadius: radioBloque, background: semantic.warning.soft }}>
+            <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: t.ink, lineHeight: 1.4 }}>
+              ¡Se ha liberado una plaza! Tienes hasta {fmtHoraOferta(slot.miOfertaExpiraEn!)} para aceptarla.
+            </p>
+            <button
+              type="button"
+              disabled={enviando}
+              onClick={onAceptarOferta}
+              className="reserva-cta-btn"
+              style={{
+                width: '100%', minHeight: 44, borderRadius: 'var(--reservar-radio-boton, 999px)', border: 'none', fontFamily, fontSize: 14, fontWeight: 800,
+                background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+                cursor: enviando ? 'default' : 'pointer', opacity: enviando ? 0.6 : 1,
+              }}
+            >
+              {enviando ? 'Aceptando…' : 'Aceptar plaza'}
+            </button>
           </div>
-          {slot.instructorNombre && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4 }}>
-              <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={34} ring={t.surface2} />
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 13.5, fontWeight: 800, color: t.ink, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.instructorNombre}</p>
-                <p style={{ fontSize: 11.5, color: t.muted }}>
-                  {slot.instructorOriginalNombre && !ocultarSustituta
-                    ? `Sustituye a ${slot.instructorOriginalNombre} hoy`
-                    : (slot.instructorRol === 'PROPIETARIO' ? 'Directora' : 'Instructora')}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {slot.descripcion && (
-          <p style={{ fontSize: 13.5, color: t.muted2, lineHeight: 1.5 }}>{slot.descripcion}</p>
         )}
+
+        {/* Dos columnas cuando caben (escritorio: la de la app en grande) y una
+            en el móvil, sin media queries —esto también lo compila esbuild—:
+            `auto-fit` con un mínimo de 300 px. En una columna el orden es el de
+            la app: plazas y coste, instructora, descripción, filas y lo que
+            consume la reserva. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: densidadCss(12), alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: densidadCss(12), minWidth: 0 }}>
+            {/* La fila de la app bajo la foto: cuántas plazas quedan y qué le
+                cuesta a ella. La insignia lleva el color de la ocupación en un
+                punto y el texto en la tinta de la página: el color distingue,
+                la tinta se lee (con el texto en color, el ámbar de «Quedan 2»
+                no llegaba a AA sobre su propio tinte). */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', minHeight: 30 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px',
+                borderRadius: 'var(--reservar-radio-boton, 999px)',
+                background: `color-mix(in oklab, ${colorDisponibilidad} 14%, ${t.bg})`,
+                color: t.ink, fontSize: 12.5, fontWeight: 800, whiteSpace: 'nowrap',
+              }}>
+                {disponibilidad.tono === 'reservada'
+                  ? <CheckCircle2 size={14} aria-hidden style={{ color: textoSemantico('success', t, t.bg), flexShrink: 0 }} />
+                  : <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: colorDisponibilidad, flexShrink: 0 }} />}
+                {disponibilidad.texto}
+              </span>
+              {costeFila && (
+                <span style={{ fontSize: 13, fontWeight: 800, color: t.muted, textAlign: 'right' }}>{costeFila}</span>
+              )}
+            </div>
+
+            {slot.instructorNombre && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 12, minWidth: 0,
+                padding: `${densidadCss(8)} 16px ${densidadCss(8)} ${densidadCss(8)}`,
+                background: t.surface, border: `1px solid ${t.line}`, borderRadius: radioBloque,
+              }}>
+                <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={40} />
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: t.ink, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.instructorNombre}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: t.muted, lineHeight: 1.3 }}>
+                    {slot.instructorOriginalNombre && !ocultarSustituta
+                      ? `Sustituye a ${slot.instructorOriginalNombre} hoy`
+                      : rolInstructora(slot.instructorRol)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {slot.descripcion && (
+              <p style={{ margin: 0, fontSize: 13.5, color: t.muted2, lineHeight: 1.6 }}>{slot.descripcion}</p>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: densidadCss(12), minWidth: 0 }}>
+            {/* Cuándo / Dónde / Capacidad / Cancelación: las filas de la app.
+                La cancelación ya no es una frase suelta junto al botón: es una
+                fila más, con la ventana REAL de esta clase (P2-8). */}
+            <dl style={{
+              margin: 0, display: 'flex', flexDirection: 'column', gap: densidadCss(9),
+              padding: `${densidadCss(12)} ${densidadCss(16)}`,
+              background: t.surface, border: `1px solid ${t.line}`, borderRadius: radioBloque,
+            }}>
+              {filas.map(f => (
+                <div key={f.clave} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, fontSize: 13, lineHeight: 1.4 }}>
+                  <dt style={{ color: t.muted, flexShrink: 0 }}>{f.clave}</dt>
+                  <dd style={{ margin: 0, color: t.ink, fontWeight: 700, textAlign: 'right', minWidth: 0 }}>{f.valor}</dd>
+                </div>
+              ))}
+            </dl>
+
+            {/* §3 — Qué consume la reserva: el último dato antes de pulsar, y
+                la versión larga de la fila de arriba (de qué bono sale y cuánto
+                queda). `ocultarPrecio` también la apaga: habla de importes. */}
+            {notaCoste && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px 10px 10px',
+                borderRadius: radioBloque, border: `1px solid ${t.line}`,
+                // Cubierta por su bono o su plan (sin precio que pagar), con el
+                // tinte de la marca, como el aviso «ok» de la app; si hay que
+                // pagar, neutra.
+                background: slot.precio == null ? `color-mix(in oklab, var(--portal-brand) 8%, ${t.surface})` : t.surface,
+              }}>
+                <span aria-hidden style={{
+                  width: 28, height: 28, borderRadius: 999, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+                }}>
+                  <Ticket size={14} />
+                </span>
+                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: t.ink, lineHeight: 1.4 }}>{notaCoste}</p>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Selector de sitio. Con aforo grande (8+ plazas) la rejilla ocupa
             varias pantallas de scroll antes del botón "Reservar" — el atajo
             deja reservar sin bajar hasta el final para quien no quiere elegir. */}
         {mostrarSpots && !ocultarSelectorSitio && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
-              <p style={{ fontSize: 12, fontWeight: 800, color: t.ink }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: t.ink }}>
                 Elige tu sitio <span style={{ color: t.muted, fontWeight: 600 }}>(opcional)</span>
               </p>
               <button
@@ -1874,156 +2097,90 @@ function BookingSheet({
               </button>
             </div>
             {/* ⚠️ Auditoría de conversión (2026-08-31): "Reservar sin elegir"
-                dispara `onReservar()` en el sitio, saltándose la caja de
-                cobertura (§3, más abajo) — quien lo usa nunca llegaba a ver
-                "Descuenta 1 sesión de tu Bono X · te quedarán N" antes de
-                confirmar. Repetirla aquí, compacta, en vez de mover la caja
-                grande: esa sigue "justo encima del botón" para quien SÍ elige
-                sitio (decisión ya tomada y documentada ahí), y aquí solo hace
-                falta que el atajo no sea el único camino sin esa información. */}
-            {!tieneReserva && !ocultarPrecio && (
-              (!lleno && slot.coberturaTexto) || (lleno && slot.coberturaTextoListaEspera)
-            ) && (
-              <p style={{ fontSize: 11, color: t.muted, marginBottom: 8 }}>
-                {lleno ? slot.coberturaTextoListaEspera : slot.coberturaTexto}
-              </p>
+                dispara `onReservar()` en el sitio — quien lo usa podía no haber
+                llegado a leer "Descuenta 1 sesión de tu Bono X · te quedarán N".
+                Se repite aquí, compacta, junto al atajo: el atajo no puede ser
+                el único camino sin esa información. */}
+            {notaCoste && (
+              <p style={{ margin: '0 0 8px', fontSize: 11.5, color: t.muted }}>{notaCoste}</p>
             )}
             <SpotPicker t={t} spots={slot.spots} ocupados={ocupados} selected={selectedSpot} onSelect={onSelectSpot} />
           </div>
         )}
 
-        {/* Banner de resultado / estado actual */}
-        {errorReserva && <Banner t={t} tipo="warn" texto={errorReserva} />}
-        {resultado === 'CONFIRMADA' && <Banner t={t} tipo="ok" texto="¡Reserva confirmada! Te esperamos en clase." />}
-        {resultado === 'LISTA_ESPERA' && <Banner t={t} tipo="warn" texto="Estás en lista de espera. Te avisaremos si se libera una plaza." />}
-        {resultado === 'CANCELADA' && <Banner t={t} tipo="warn" texto="Reserva cancelada." />}
-        {!resultado && yaReservada && <Banner t={t} tipo="ok" texto="Ya tienes esta clase reservada." />}
-        {!resultado && enEspera && !hayOferta && <Banner t={t} tipo="warn" texto="Estás en lista de espera para esta clase." />}
-
-        {!resultado && hayOferta && (
-          <div style={{ padding: '13px 15px', borderRadius: radius.card, background: semantic.warning.soft }}>
-            <p style={{ fontSize: 12.5, fontWeight: 700, color: t.ink, marginBottom: 10, lineHeight: 1.4 }}>
-              ¡Se ha liberado una plaza! Tienes hasta {fmtHoraOferta(slot.miOfertaExpiraEn!)} para aceptarla.
-            </p>
-            <button
-              type="button"
-              disabled={enviando}
-              onClick={onAceptarOferta}
-              className="reserva-cta-btn"
-              style={{
-                width: '100%', height: 44, borderRadius: 14, border: 'none', fontSize: 13.5, fontWeight: 800,
-                background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-                cursor: enviando ? 'default' : 'pointer', opacity: enviando ? 0.6 : 1,
-              }}
-            >
-              {enviando ? 'Aceptando…' : 'Aceptar plaza'}
-            </button>
-          </div>
-        )}
-
-        {/* §3 — Qué consume la reserva, justo encima del botón y no perdido en
-            una esquina: es el último dato que ve antes de pulsar. Solo al
-            reservar — con la reserva ya hecha, el saldo que se enseñaría sería
-            el de ANTES de descontar, y sonaría a que se va a cobrar otra vez. */}
-        {/* `ocultarPrecio` también apaga esta caja: la cobertura habla de
-            importes («15 € como clase suelta») — dejarla con el CTA mudo
-            filtraría el precio por la puerta de atrás. */}
-        {!tieneReserva && !ocultarPrecio && (
-          (!lleno && slot.coberturaTexto) || (lleno && slot.coberturaTextoListaEspera)
-        ) && (
+        {barraFija ? (
+          <>
+            {/* El hueco que ocupa la barra fija, para que no tape lo último de
+                la ficha al llegar al final. Mide lo que mide la barra. */}
+            <div aria-hidden="true" style={{ height: geoBarra?.alto ?? 110, flexShrink: 0 }} />
+            {typeof document !== 'undefined' && createPortal(
+              <div
+                ref={barraRef}
+                style={{
+                  position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 45,
+                  // El contenido se funde por debajo en vez de cortarse en seco,
+                  // como el pie fijo de la app de la alumna.
+                  padding: '22px 0 calc(env(safe-area-inset-bottom, 0px) + 14px)',
+                  background: `linear-gradient(180deg, transparent 0px, ${t.bg} 22px)`,
+                  fontFamily, color: t.ink,
+                  '--reservar-radio-boton': `${radioBoton}px`,
+                } as CSSProperties}
+              >
+                <div style={{
+                  display: 'flex', flexDirection: 'column', gap: 10,
+                  // La columna de la ficha, medida; hasta medirla, la del horario.
+                  ...(geoBarra
+                    ? { marginLeft: geoBarra.izquierda, width: geoBarra.ancho }
+                    : { maxWidth: COLUMNA_HORARIO + 40, marginInline: 'auto', paddingInline: 20 }),
+                }}>
+                  {accion}
+                </div>
+              </div>,
+              anfitrionPortal(),
+            )}
+          </>
+        ) : (
+          // ── Pie pegado (P0-3) ─────────────────────────────────────────────
+          // En la hoja con fondo oscurecido, sticky dentro de su propio scroll:
+          // el CTA siempre a la vista, con el contenido pasando por debajo (los
+          // márgenes negativos lo llevan a sangre de la hoja, que lleva el
+          // relleno). En el iframe y en el widget nativo, al final del
+          // contenido, con el mismo `sticky` que funcione donde funcione.
+          // `flexShrink: 0`: sin él, con la hoja llena el flex lo comprimiría.
           <div
             style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
-              borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}`,
+              position: 'sticky', bottom: 0, zIndex: 1, flexShrink: 0,
+              margin: sinBackdrop ? 0 : '0 -20px',
+              padding: sinBackdrop ? '12px 0 calc(env(safe-area-inset-bottom, 0px) + 14px)' : '12px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)',
+              background: t.bg,
+              boxShadow: `0 -1px 0 ${t.line}, 0 -12px 18px -14px rgba(0,0,0,0.22)`,
+              display: 'flex', flexDirection: 'column', gap: 10,
             }}
           >
-            <Ticket size={15} style={{ color: t.muted, flexShrink: 0 }} aria-hidden />
-            <p style={{ fontSize: 12.5, fontWeight: 700, color: t.ink, lineHeight: 1.35 }}>
-              {lleno ? slot.coberturaTextoListaEspera : slot.coberturaTexto}
-            </p>
+            {accion}
           </div>
         )}
-
-        {/* ── Footer sticky (P0-3) ─────────────────────────────────────────
-            Aviso de cancelación + CTA, SIEMPRE visibles al abrir la hoja: el
-            contenido scrollea por debajo. `sticky bottom: 0` dentro del
-            scroller, fondo sólido y sombra superior sutil para separarlo del
-            contenido que pasa por detrás; los márgenes negativos lo llevan a
-            sangre (el scroller lleva el padding horizontal) para que no se
-            vea contenido asomando por los lados. `flexShrink: 0`: sin él, con
-            la hoja llena el flex lo comprimiría antes de activar el scroll. */}
-        <div
-          style={{
-            position: 'sticky', bottom: 0, zIndex: 1, flexShrink: 0,
-            margin: '0 -20px', padding: '12px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)',
-            background: t.bg,
-            boxShadow: `0 -1px 0 ${t.line}, 0 -12px 18px -14px rgba(0,0,0,0.22)`,
-            display: 'flex', flexDirection: 'column', gap: 10,
-          }}
-        >
-          {avisoRequisitoCompra && !tieneReserva && (
-            <p style={{ fontSize: 12.5, color: t.ink, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'baseline' }}>
-              <span>{avisoRequisitoCompra.texto}</span>
-              <a
-                href={avisoRequisitoCompra.href}
-                style={{ color: MARCA_TEXTO, fontWeight: 800, textDecoration: 'underline', textUnderlineOffset: 3 }}
-              >
-                {avisoRequisitoCompra.cta}
-              </a>
-            </p>
-          )}
-          {ventanaEfectiva != null && ventanaEfectiva > 0 && !tieneReserva && !lleno && (
-            <p style={{ fontSize: 12, color: t.muted }}>
-              Cancela con al menos {ventanaEfectiva}h de antelación para recuperar tu sesión.
-            </p>
-          )}
-
-          {/* Acción principal */}
-          <button
-            type="button"
-            onClick={esCancelar ? onCancelar : onReservar}
-            disabled={resultado === 'CANCELADA' || enviando}
-            aria-busy={enviando}
-            className="reserva-cta-btn"
-            // Más alto y con más cuerpo que antes (52→58): feedback literal del
-            // fundador — «los sitios son muy grandes y el botón de reservar es muy
-            // pequeño». La jerarquía se invierte: spots compactos, CTA protagonista.
-            style={{
-              width: '100%', height: 58, borderRadius: 16, fontSize: 15.5, fontWeight: 800,
-              textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none',
-              cursor: resultado === 'CANCELADA' || enviando ? 'default' : 'pointer',
-              opacity: resultado === 'CANCELADA' ? 0.4 : enviando ? 0.7 : 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0,
-              ...(esCancelar
-                ? { background: semantic.danger.soft, color: textoSemantico('danger', t, t.bg) }
-                : { background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' }),
-            }}
-          >
-            {enviando && (
-              <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: 999, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.85, flexShrink: 0 }} />
-            )}
-            {resultado === 'CANCELADA' ? 'Cancelada' : enviando ? 'Un momento…' : label}
-          </button>
-        </div>
       </div>
     </div>
   );
 }
 
-// ── Piezas menores ───────────────────────────────────────────────────────────
-
-function FilaDato({ t, icon, label, valor, valorColor }: {
-  t: ModoTokens; icon: React.ReactNode; label: string; valor: string; valorColor?: string;
-}) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: t.muted }}>
-        <span style={{ color: t.muted }}>{icon}</span>{label}
-      </span>
-      <span style={{ fontSize: 14, fontWeight: 800, color: valorColor ?? t.ink, textAlign: 'right' }}>{valor}</span>
-    </div>
-  );
+/**
+ * El color de la insignia de plazas de la ficha: el de la ocupación (la misma
+ * escala que la tarjeta del horario, lib/ocupacion.ts) y los de estado para lo
+ * suyo. Solo pinta el punto y un tinte suave; el texto va en la tinta.
+ */
+function colorDeTono(tono: TonoDisponibilidad, ratio: number): string {
+  switch (tono) {
+    case 'reservada': return semantic.success.text;
+    case 'espera': return semantic.warning.text;
+    case 'completa': return OCUPACION_COLOR.lleno;
+    case 'pocas': return OCUPACION_COLOR.alto;
+    case 'libre': return colorOcupacion(ratio);
+  }
 }
+
+// ── Piezas menores ───────────────────────────────────────────────────────────
 
 // Los colores de estado, legibles sobre la paleta que se ve (`textoSemantico`):
 // en claro, el mismo hex de siempre; sobre Carbón o un widget de noche, su
@@ -2153,13 +2310,6 @@ function navBtn(t: ModoTokens): CSSProperties {
   return {
     width: 40, height: 40, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
     background: t.surface, border: `1px solid ${t.line}`, cursor: 'pointer',
-  };
-}
-function nivelBadge(nivel: NivelClase): CSSProperties {
-  return {
-    display: 'inline-block', fontSize: 11, fontWeight: 800, color: '#fff',
-    padding: '4px 10px', borderRadius: 999, background: NIVEL_COLOR[nivel],
-    textTransform: 'uppercase', letterSpacing: '0.03em', whiteSpace: 'nowrap',
   };
 }
 function capitaliza(s: string): string {

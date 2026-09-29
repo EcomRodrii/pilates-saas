@@ -168,6 +168,44 @@ export function textoCobertura(c: Cobertura): string | null {
 }
 
 /**
+ * Lo que cuesta, en las pocas palabras de la fila «plazas · coste» de la ficha
+ * (F4 del rediseño de /reservar, 29-sep-2026): la misma fila que la app de la
+ * alumna pone bajo la foto de la clase — «Con tu bono · 1 sesión», «18 € clase
+ * suelta».
+ *
+ * `null` cuando no hay nada cierto que decir en corto: sin precio público, o con
+ * un bono que no cubre la clase y sin clase suelta a la venta (la nota larga ya
+ * explica eso, y en dos palabras sonaría a error).
+ */
+export function textoCoberturaCorto(c: Cobertura): string | null {
+  switch (c.estado) {
+    case 'MENSUAL':
+      return 'Incluida en tu plan';
+    case 'BONO':
+      return 'Con tu bono · 1 sesión';
+    case 'NO_CUBRE_ESTA_CLASE':
+    case 'SIN_PLAN':
+    case 'ANONIMA':
+      return c.precio != null ? `${c.precio} € clase suelta` : null;
+  }
+}
+
+/**
+ * La frase larga de la ficha (`textoCobertura`), SOLO cuando dice algo que la
+ * fila corta no dice ya.
+ *
+ * Sin plan, la frase larga era «Clase suelta · 15 €»: con la fila de arriba
+ * diciendo «15 € clase suelta» y el botón «Reservar por 15 €», el mismo importe
+ * salía tres veces en una pantalla, que se lee como un descuadre (el mismo
+ * motivo por el que `textoCobertura` ya no repite el precio cuando el bono no
+ * cubre la clase). Con bono, en cambio, la larga es la que dice de cuál sale y
+ * cuánto queda: esa se queda.
+ */
+export function notaCobertura(c: Cobertura): string | null {
+  return c.estado === 'SIN_PLAN' || c.estado === 'ANONIMA' ? null : textoCobertura(c);
+}
+
+/**
  * ⚠️ Auditoría de conversión (2026-08-31): la caja de cobertura (§3, "qué
  * consume la reserva") se ocultaba entera cuando la clase está llena — quien
  * se apuntaba a lista de espera no veía qué bono se descontaría SI se libera
