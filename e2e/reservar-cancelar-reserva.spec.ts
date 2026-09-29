@@ -112,14 +112,17 @@ test.describe('Cancelar una reserva desde el widget (/reservar/[slug])', () => {
 
     await page.goto(`/reservar/${SLUG}?embed=1&tab=misreservas`);
 
+    // F5 del rediseño (29-sep-2026): la reserva es una tarjeta (el nombre, su
+    // `h3`; su padre, la tarjeta; el de este, su fila de la lista), y su
+    // insignia dice «Reservada», como la app y la ficha de la clase — antes
+    // «Confirmada».
     const fila = page.getByText('Reformer', { exact: true }).locator('..').locator('..');
-    await expect(fila.getByText('Confirmada', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(fila.getByText('Reservada', { exact: true })).toBeVisible({ timeout: 30_000 });
 
     // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md): la
     // confirmación de cancelar ya no es un modal aparte, es una caja inline
-    // bajo la fila — pero HERMANA del contenedor que resuelve `fila` (que
-    // solo llega hasta la fila de datos+acciones), así que se busca en la
-    // página: hay una sola reserva en la fixture, sin ambigüedad posible.
+    // dentro de la tarjeta; se busca en la página igualmente: hay una sola
+    // reserva en la fixture, sin ambigüedad posible.
     await fila.getByRole('button', { name: 'Cancelar reserva' }).click();
     await expect(page.getByText(/¿Quieres cancelar esta reserva\?/)).toBeVisible();
 
@@ -148,7 +151,7 @@ test.describe('Cancelar una reserva desde el widget (/reservar/[slug])', () => {
     await page.goto(`/reservar/${SLUG}?embed=1&tab=misreservas`);
 
     const fila = page.getByText('Reformer', { exact: true }).locator('..').locator('..');
-    await expect(fila.getByText('Confirmada', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(fila.getByText('Reservada', { exact: true })).toBeVisible({ timeout: 30_000 });
     await fila.getByRole('button', { name: 'Cancelar reserva' }).click();
     await page.getByRole('button', { name: 'Sí, cancelar' }).click();
 
@@ -156,6 +159,6 @@ test.describe('Cancelar una reserva desde el widget (/reservar/[slug])', () => {
     // ese momento, así que el motivo se enseña ahí mismo, y la reserva sigue
     // en la lista (petición real: la reserva NO desaparece).
     await expect(page.getByText('Esa reserva ya no se puede cancelar.')).toBeVisible({ timeout: 30_000 });
-    await expect(fila.getByText('Confirmada', { exact: true })).toBeVisible();
+    await expect(fila.getByText('Reservada', { exact: true })).toBeVisible();
   });
 });
