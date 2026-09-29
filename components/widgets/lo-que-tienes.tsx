@@ -170,7 +170,7 @@ function FilaPieza({ f, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAu
         */}
         {p.botonCongelado && !p.desfasado && ahora !== null && !textos.version && (
           <Nota tono="info" accion="Ir a copiarlo" onAccion={onCopiarNuevo}>
-            El botón que abre la ventana es de un código anterior y no cambia con el estilo de tus widgets. Lo de dentro de la ventana, sí. Si copias el código de ahora y lo pegas en lugar del de antes, el botón también cambiará solo.
+            El botón que abre la ventana es de un código anterior y se queda como está. Si quieres que también cambie solo con el estilo de tus widgets, copia el código de ahora y pégalo en lugar del de antes.
           </Nota>
         )}
         {f.webSinAutorizar && (

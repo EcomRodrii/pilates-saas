@@ -1214,7 +1214,7 @@ const FIRMA_POPUP = firmaCodigo({
 /** Un popup copiado ANTES de la Fase D: la misma huella, sin la marca `botonVivo`. */
 const COPIA_POPUP_ANTERIOR = { firma: FIRMA_POPUP, en: '2026-09-12T10:00:00.000Z' };
 
-const NOTA_BOTON_ANTERIOR = 'El botón que abre la ventana es de un código anterior y no cambia con el estilo de tus widgets. Lo de dentro de la ventana, sí. Si copias el código de ahora y lo pegas en lugar del de antes, el botón también cambiará solo.';
+const NOTA_BOTON_ANTERIOR = 'El botón que abre la ventana es de un código anterior y se queda como está. Si quieres que también cambie solo con el estilo de tus widgets, copia el código de ahora y pégalo en lugar del de antes.';
 const LINEA_BOTON_ANTERIOR = 'El botón que ya tienes pegado es de un código anterior y no cambia con el estilo de tus widgets. Si copias este y lo pegas en lugar del de antes, cambiará solo.';
 const CONFIRMA_CONGELADO = 'El botón que abre la ventana de Horario y reservas es de un código anterior y se queda como está. Si quieres que también cambie solo, copia su código otra vez y pégalo en lugar del de antes.';
 const CONFIRMA_VIVO = 'El botón que abre la ventana de Horario y reservas también cambia, aunque puede tardar unos minutos más.';
