@@ -249,18 +249,31 @@ function DisenoPropio({ c, nativa, soloBoton, cambiar, colorEstudio }: {
           <SelectorFuente
             etiqueta="Letra"
             // Sin marco, la letra de su web solo llega con la identidad del
-            // estudio: con un diseño propio, la de siempre del widget (`montarUno`).
-            ayuda={nativa ? 'Sin tocar, la de siempre del widget: con un diseño propio ya no toma la de tu web.' : 'Sin tocar, la de tu página de reservas.'}
+            // estudio: con un diseño propio, la de siempre del widget
+            // (`montarUno`), que no descarga ninguna. Y solo se ofrecen las que
+            // sirve Tentare: la nativa no le pide nada a Google (`letraNativa`).
+            ayuda={nativa
+              ? 'Sin tocar, la de siempre del widget: con un diseño propio ya no toma la de tu web. Solo las que servimos desde Tentare, para que tu web no avise a Google de cada visita.'
+              : 'Sin tocar, la de tu página de reservas.'}
             valor={c.fuente}
             onChange={v => cambiar({ fuente: v })}
             etiquetaPorDefecto={nativa ? 'La de siempre' : 'La de tu página de reservas'}
+            pistaPorDefecto={nativa ? 'La del móvil u ordenador de quien la mira: no descarga ninguna.' : undefined}
+            sinMarco={nativa}
           />
+          {/*
+            Sin letra arriba, los titulares no son «igual que la de arriba»:
+            sin marco van en una con remates del sistema (`FUENTE_DISPLAY_BASE`,
+            app/widget-bundle/main.tsx), y en la página, en los suyos.
+          */}
           <SelectorFuente
             etiqueta="Letra de los titulares"
             ayuda="Nombres de clase, horas y precios."
             valor={c.fuenteDisplay}
             onChange={v => cambiar({ fuenteDisplay: v })}
-            etiquetaPorDefecto="Igual que la de arriba"
+            etiquetaPorDefecto={c.fuente ? 'Igual que la de arriba' : nativa ? 'La de siempre' : 'La de tu página de reservas'}
+            pistaPorDefecto={!c.fuente && nativa ? 'Una con remates del móvil u ordenador: no descarga ninguna.' : undefined}
+            sinMarco={nativa}
           />
         </>
       )}

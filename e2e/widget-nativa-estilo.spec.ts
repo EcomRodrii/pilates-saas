@@ -23,6 +23,7 @@ import { HOJA_FUENTES_NATIVA, RUTA_FUENTES_NATIVA } from '../lib/widget/fuentes-
 //   · con «Como tu app», la letra de su web y ni una petición de fuentes; con
 //     una letra elegida, la hoja de Tentare, una sola vez por página;
 //   · un diseño propio en sus atributos gana, y ni siquiera se pide el estilo;
+//     con una letra que sirve Tentare, su hoja; con otra, nada; Google, nunca;
 //   · `widget_loaded` lleva la firma de sus `data-*`, la misma que el panel.
 //
 // Todo en orígenes ficticios `http` servidos con `page.route`, como la Fase D:
@@ -117,11 +118,15 @@ type Cuerpo = Record<string, unknown>;
  * servidor en `estiloWidget` SI se lo piden (`undefined` = un servidor de antes,
  * que no lo manda nunca).
  */
-async function enSuWeb(page: Page, html: string, o: { estilo?: unknown; columna?: string; fondoWeb?: string } = {}) {
+async function enSuWeb(page: Page, html: string, o: { estilo?: unknown; columna?: string; fondoWeb?: string; letraDeSuWeb?: string } = {}) {
   const datos: Cuerpo[] = [];
   const preflights = { datos: 0, eventos: 0 };
   const eventos: Cuerpo[] = [];
   const fuentes: string[] = [];
+  // Todo lo que se le pida a Google Fonts (la hoja o sus ficheros), venga de
+  // donde venga: se cuenta y se contesta, para que un fallo sea un número y no
+  // una petición que se cae sola sin que nadie la vea.
+  const google: string[] = [];
   const cors = { 'access-control-allow-origin': ANFITRIONA, 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type, authorization' };
 
   await page.clock.install({ time: new Date('2026-08-12T08:00:00+02:00') });
@@ -161,17 +166,27 @@ async function enSuWeb(page: Page, html: string, o: { estilo?: unknown; columna?
     return r.fulfill({ status: 200, contentType: 'application/json', headers: cors, body: '{"ok":true}' });
   });
   await page.route(`${TENTARE}/api/public/session**`, r => r.fulfill({ status: 404, contentType: 'application/json', headers: cors, body: '{"error":"no"}' }));
+  await page.route(/^https?:\/\/fonts\.(googleapis|gstatic)\.com\//, r => {
+    google.push(r.request().url());
+    return r.fulfill({ status: 200, contentType: 'text/css', body: '' });
+  });
+  // `letraDeSuWeb`: una familia que SU web ya declara y carga (con los bytes de
+  // Figtree, para no depender de nada de fuera), como haría con su propia letra.
+  const cabeza = o.letraDeSuWeb
+    ? `<style>@font-face{font-family:'${o.letraDeSuWeb}';src:url(/su-letra.woff2) format('woff2');}</style>`
+    : '';
   await page.route(`${ANFITRIONA}/**`, r => r.fulfill({
     contentType: 'text/html',
     body: `<!doctype html><html><head><title>Alba Pilates</title>
 <style>body{font-family:${LETRA_WEB}, serif;margin:0;padding:24px;${o.fondoWeb ? `background:${o.fondoWeb};color:#EEE;` : ''}}</style>
-</head><body><h1>Horarios de Alba Pilates</h1>
+${cabeza}</head><body><h1>Horarios de Alba Pilates</h1>
 ${html}
 </body></html>`,
   }));
+  await page.route(`${ANFITRIONA}/su-letra.woff2`, r => r.fulfill({ path: path.join(FUENTES, 'v1/figtree/figtree-latin.woff2'), contentType: 'font/woff2' }));
   await page.setViewportSize({ width: 1100, height: 800 });
   await page.goto(`${ANFITRIONA}/horarios`);
-  return { datos, eventos, fuentes, preflights };
+  return { datos, eventos, fuentes, preflights, google };
 }
 
 /**
@@ -387,6 +402,67 @@ test('⚠️ el diseño propio del código gana: ni se pide el estilo, ni se pin
   expect(x.datos.some(d => d.estiloWidget === true)).toBe(false);
   expect((await medir(otra)).marca).toBe('#0E7490');
   expect(x.fuentes).toEqual([]);
+});
+
+test('⚠️ diseño propio con letras que sirve Tentare: su hoja una sola vez con dos widgets, y ni una petición a Google', async ({ page }) => {
+  // Lo que copia hoy el constructor con Poppins y Cormorant Garamond (antes,
+  // dos `<link>` a fonts.googleapis.com en su web). El segundo widget mezcla:
+  // Poppins servida y Playfair Display, que Tentare no sirve.
+  const html = `${divDe(entrada({ identidad: 'propia', fuente: 'Poppins', fuenteDisplay: 'Cormorant Garamond' }))}
+${divDe(entrada({ identidad: 'propia', fuente: 'Poppins', fuenteDisplay: 'Playfair Display', diseno: 'completo', etiqueta: 'portada' }))}
+${SCRIPT}`;
+  expect(html).toContain('data-fuente="Poppins"');
+  expect(html).toContain('data-fuente-display="Cormorant Garamond"');
+  const { datos, fuentes, google } = await enSuWeb(page, html, { estilo: estiloWidget(null) });
+  await pintado(page, 0);
+  await expect(page.locator('[data-tentare-booking]').nth(1).locator('.reserva-slot-row').first()).toBeVisible({ timeout: 30_000 });
+  // El control: los dos widgets leyeron su código (diseño propio: no piden el estilo).
+  expect(datos.length).toBeGreaterThan(1);
+  expect(datos.some(d => d.estiloWidget === true)).toBe(false);
+
+  // Una sola hoja, la de Tentare, y el navegador baja y CARGA de verdad las letras que usa.
+  await expect(linksFuentes(page)).toHaveCount(1);
+  await expect(linksFuentes(page)).toHaveAttribute('href', `${TENTARE}${HOJA_FUENTES_NATIVA}`);
+  expect(fuentes.filter(u => u === HOJA_FUENTES_NATIVA)).toHaveLength(1);
+  await expect.poll(() => fuentes.some(u => u.startsWith(`${RUTA_FUENTES_NATIVA}/poppins/`))).toBe(true);
+  await expect.poll(() => page.evaluate(() => document.fonts.check("12px 'Tentare Poppins'"))).toBe(true);
+  // La de titulares solo baja cuando algo la pinta (en columnas, nada): se
+  // pide a mano, y sale de Tentare como la otra.
+  expect(await page.evaluate(() => document.fonts.load("12px 'Tentare Cormorant Garamond'").then(f => f.length))).toBeGreaterThan(0);
+  expect(fuentes.some(u => u.startsWith(`${RUTA_FUENTES_NATIVA}/cormorantgaramond/`))).toBe(true);
+
+  const [uno, dos] = [await medir(page, 0), await medir(page, 1)];
+  expect(uno.letra).toContain('Tentare Poppins');
+  expect(uno.titular).toContain('Tentare Cormorant Garamond');
+  expect(uno.celda?.letra).toContain('Tentare Poppins');
+  expect(dos.letra).toContain('Tentare Poppins');
+  // La que no sirve Tentare se nombra tal cual (se vería si su web la cargara).
+  expect(dos.titular).toContain('Playfair Display');
+  expect(dos.titular).not.toContain('Tentare');
+
+  // Nada a Google: ni la hoja ni sus ficheros, ni en el <head> de su web.
+  expect(google).toEqual([]);
+  expect(await page.locator('link[href*="fonts.googleapis"]').count()).toBe(0);
+});
+
+test('⚠️ una letra que Tentare no sirve (un código de antes con Inter): ni Google ni la hoja; si su web la tiene, se ve', async ({ page }) => {
+  // Un código pegado antes de esto, con dos letras del selector de entonces.
+  const html = `<div data-tentare-booking data-studio="${SLUG}" data-fuente="Inter" data-fuente-display="Playfair Display"></div>${SCRIPT}`;
+  const { datos, fuentes, google } = await enSuWeb(page, html, { letraDeSuWeb: 'Inter' });
+  await pintado(page);
+  expect(datos.length).toBeGreaterThan(0);
+
+  const m = await medir(page);
+  // El control: leyó sus `data-fuente` (si no, «cero peticiones» sería verdad sin haber intentado nada).
+  expect(m.letra).toContain('Inter');
+  expect(m.titular).toContain('Playfair Display');
+  // Su web declara Inter: el widget la usa desde el documento, sin pedir nada más.
+  await expect.poll(() => page.evaluate(() => document.fonts.check("12px 'Inter'"))).toBe(true);
+
+  expect(google).toEqual([]);
+  expect(fuentes).toEqual([]);
+  await expect(linksFuentes(page)).toHaveCount(0);
+  expect(await page.locator('link[href*="fonts.googleapis"]').count()).toBe(0);
 });
 
 test('⚠️ una respuesta rara no rompe nada: se ve como sin nada elegido, con la columna de último recurso', async ({ page }) => {

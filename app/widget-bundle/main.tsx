@@ -23,10 +23,10 @@ import { esClavePublicable } from '@/lib/billing/modo-stripe';
 import { StrictMode, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { MODO_TOKENS, type ModoTokens } from '@/lib/portal-modo';
-import { resolverConfigWidget, fuenteDeDataset, familiaCssDe, urlFuenteGoogle, nativaTraeDisenoPropio, CONFIG_WIDGET_POR_DEFECTO, type ConfigWidget } from '@/lib/reservar/config-widget';
+import { resolverConfigWidget, fuenteDeDataset, nativaTraeDisenoPropio, CONFIG_WIDGET_POR_DEFECTO, type ConfigWidget } from '@/lib/reservar/config-widget';
 import { HEX6 } from '@/lib/reservar/estilo-web-tipos';
 import { colorDeDataColor, estiloDeLaNativa, marcaDeLaNativa } from '@/lib/widget/estilo-nativa';
-import { HOJA_FUENTES_NATIVA, VARS_FAMILIAS_NATIVA } from '@/lib/widget/fuentes-nativa';
+import { HOJA_FUENTES_NATIVA, VARS_FAMILIAS_NATIVA, letraNativa } from '@/lib/widget/fuentes-nativa';
 import { firmaDeUrl } from '@/lib/widgets/firma-contenido';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
@@ -45,37 +45,25 @@ import { AVISO_PAGINA_OCULTA } from '@/lib/publico/aviso-pagina-oculta';
 //  - un diseño propio en los atributos del snippet (config-widget.ts):
 //    `data-color`/`data-marca` para el primario, `data-fondo`/`data-negro`
 //    que derivan un tema desde este, `data-fuente`/`data-fuente-display` para
-//    la tipografía (ver montarUno). Con cualquiera de ellos, el estilo de sus
-//    widgets no le llega (`nativaTraeDisenoPropio`), como en el iframe.
+//    la tipografía (ver montarUno; nunca de Google). Con cualquiera de ellos,
+//    el estilo de sus widgets no le llega (`nativaTraeDisenoPropio`), como en
+//    el iframe.
 const TEMA = MODO_TOKENS.dia;
 
 // ── Tipografía del bundle (P1) ───────────────────────────────────────────────
 // ⚠️ `@font-face` DENTRO de un shadow root no carga de forma fiable: las
 // fuentes se resuelven contra el documento. La vía que funciona es inyectar el
-// `<link>` de Google Fonts en el <head> del ANFITRIÓN (la web del estudio) y
-// referenciar la familia desde el CSS del shadow. Dedupe por href: dos widgets
-// en la misma página (caso soportado, ver el comentario de data-tentare-booking)
-// no deben pedir la misma hoja dos veces.
-// La URL sale de `urlFuenteGoogle` (validación anti-XSS incluida) y ya lleva
-// `display=swap`: la carga nunca bloquea el pintado — mientras llega se ve la
-// pila de reserva.
-function inyectarFuenteGoogle(nombre: string | null) {
-  const url = urlFuenteGoogle(nombre);
-  if (!url) return;
-  if (document.head.querySelector(`link[href="${url}"]`)) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = url;
-  link.setAttribute('data-tentare-fuente', '');
-  document.head.appendChild(link);
-}
-
-// Las fuentes de una letra ELEGIDA en «Cómo se ve» (Fase E): la hoja que sirve
-// Tentare (lib/widget/fuentes-nativa.ts), no Google. Mismo motivo que arriba
-// para ir en el <head> del anfitrión, y mismo dedupe: con dos widgets en la
-// página, una sola hoja. Las familias se llaman 'Tentare …' para no pisar las
-// que ya declare su web. Con «Como tu app» no se llama: la nativa se queda con
-// la letra de su web y no pide nada.
+// `<link>` en el <head> del ANFITRIÓN (la web del estudio) y referenciar la
+// familia desde el CSS del shadow. Dedupe por href: dos widgets en la misma
+// página (caso soportado, ver el comentario de data-tentare-booking) no deben
+// pedir la misma hoja dos veces.
+//
+// La hoja es la que sirve Tentare (lib/widget/fuentes-nativa.ts), NUNCA Google
+// Fonts: la pide una letra ELEGIDA en «Cómo se ve» (Fase E) o un código con
+// diseño propio que nombra una familia que la hoja lleva (`letraNativa`). Las
+// familias se llaman 'Tentare …' para no pisar las que ya declare su web. Con
+// «Como tu app», o una letra que Tentare no sirve, no se llama: no se pide nada.
+// Sus reglas llevan `font-display: swap`: la carga nunca bloquea el pintado.
 function inyectarFuentesNativa() {
   const href = `${ORIGEN_TENTARE}${HOJA_FUENTES_NATIVA}`;
   const ya = Array.from(document.head.querySelectorAll<HTMLLinkElement>('link[data-tentare-fuentes]'))
@@ -563,16 +551,18 @@ function montarUno(host: HTMLElement) {
   // properties, así que sin esto un `--font-ui` de la web anfitriona se
   // colaría en el shadow — y sin ninguna definición, `var(--font-ui)`
   // invalidaba la declaración entera (el bug de "todo en system-ui").
-  inyectarFuenteGoogle(config.fuente);
-  if (config.fuenteDisplay !== config.fuente) inyectarFuenteGoogle(config.fuenteDisplay);
+  // Una familia que sirve Tentare sale de su hoja; cualquier otra se nombra y
+  // no se pide a nadie (`letraNativa`): se ve si su web ya la carga.
+  const cuerpo = config.fuente ? letraNativa(config.fuente, 'web') : null;
+  const titular = config.fuenteDisplay ? letraNativa(config.fuenteDisplay, 'web') : cuerpo;
+  if (cuerpo?.servida || titular?.servida) inyectarFuentesNativa();
   // `data-identidad="estudio"` (Tentare Widgets): sin fuente en el snippet, la
   // letra es la de la web donde vive — la que ya ha cargado la propia web, así
   // que no se pide nada más. Las fuentes del documento sí llegan al shadow
   // root (el problema de `@font-face` es DECLARARLAS dentro, no usarlas).
   const anfitrion = config.identidadEstudio ? letraDeLaWeb(host) : null;
-  const fuenteUi = config.fuente ? familiaCssDe(config.fuente) : (anfitrion?.cuerpo ?? FUENTE_UI_BASE);
-  const fuenteDisplay = config.fuenteDisplay ? familiaCssDe(config.fuenteDisplay)
-    : config.fuente ? familiaCssDe(config.fuente) : (anfitrion?.titulares ?? FUENTE_DISPLAY_BASE);
+  const fuenteUi = cuerpo?.pila ?? anfitrion?.cuerpo ?? FUENTE_UI_BASE;
+  const fuenteDisplay = titular?.pila ?? anfitrion?.titulares ?? FUENTE_DISPLAY_BASE;
   raiz.style.setProperty('--font-ui', fuenteUi);
   raiz.style.setProperty('--font-display', fuenteDisplay);
   // `serif` (portal-design.ts) mira primero --portal-heading-font: se fija
