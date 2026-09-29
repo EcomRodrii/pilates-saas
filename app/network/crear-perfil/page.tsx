@@ -45,6 +45,7 @@ import { subirDocumentoIdentidad, validarDocumentoIdentidad } from '@/lib/networ
 import type { PerfilNetwork, VerificacionIdentidadNetwork, CertificacionNetwork } from '@/lib/network/tipos';
 import { PASOS_ONBOARDING as PASOS, pasoIncompletoDe } from '@/lib/network/pasos-onboarding';
 import { NW_TINTA, NW_MUTED, NW_BORDE, NW_PRODUCTO, NW_ARENA, NW_VERDE_OSCURO, NW_FONDO, NW_GRIS_VERDOSO } from '@/components/network-v2/tokens';
+import { AvisoMantenimientoNetwork } from '@/components/network/aviso-mantenimiento';
 import type { FormState, IdentidadForm } from './form-state';
 import { formVacio, formDesdePerfil, identidadVacia, identidadDesdeApi } from './form-state';
 import { PasoIdentidad } from './pasos/paso-identidad';
@@ -292,19 +293,7 @@ export default function CrearPerfilNetworkPage() {
   // nulo) sigue pudiendo terminarlo: no es "creación de cuenta", y cerrarlo
   // dejaría perfiles a medias sin forma de completarse.
   if (!user) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center p-8" style={{ background: NW_FONDO }}>
-        <div className="max-w-[420px] w-full bg-white rounded-2xl p-8 text-center" style={{ border: `1px solid ${NW_BORDE}` }}>
-          <Link href="/network" className="inline-flex mb-6">
-            <LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={22} decorativo />
-          </Link>
-          <h1 className="text-[20px] font-extrabold" style={{ color: NW_TINTA }}>Estamos en mantenimiento</h1>
-          <p className="mt-2 text-[14px] leading-relaxed" style={{ color: NW_MUTED }}>
-            La creación de perfiles nuevos en Tentare Network está temporalmente cerrada. Vuelve a intentarlo más tarde.
-          </p>
-        </div>
-      </div>
-    );
+    return <AvisoMantenimientoNetwork mensaje="La creación de perfiles nuevos en Tentare Network está temporalmente cerrada. Vuelve a intentarlo más tarde." />;
   }
 
   // ⚠️ Antes esto era `i < paso` — "he pasado por aquí", no "este paso
