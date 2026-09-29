@@ -333,6 +333,7 @@ jobs:
             echo "SUPABASE_LOCAL_URL=$API_URL"
             echo "SUPABASE_LOCAL_ANON_KEY=$ANON_KEY"
             echo "SUPABASE_LOCAL_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "SUPABASE_LOCAL_DB_URL=$DB_URL"
           } >> "$GITHUB_ENV"
 
       - name: Tests de RLS contra la base de datos real
