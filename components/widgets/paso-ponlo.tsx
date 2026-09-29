@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertCircle, BookOpen, Check, Code2, Copy, Mail, Send } from 'lucide-react';
+import { AlertCircle, BookOpen, Check, Code2, Copy, Loader2, Mail, Send } from 'lucide-react';
 import { cn, copiarAlPortapapeles } from '@/lib/utils';
 import { btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { METODOS, type MetodoIntegracion } from '@/lib/widgets/catalogo';
@@ -34,7 +34,7 @@ import { SelectorClase, type DatosPanel } from './paso-que';
 
 export function PasoPonlo({
   entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, estiloSinAplicar, estiloAplicado, onCopiado, onMetodo, cambiar,
-  proximasClases, dominiosAutorizados, dominios, verDominios, showToast,
+  proximasClases, dominiosAutorizados, dominios, verDominios, showToast, preparando = false,
 }: {
   entrada: EntradaIntegracion;
   metodo: MetodoIntegracion;
@@ -56,6 +56,12 @@ export function PasoPonlo({
    */
   estiloAplicado: boolean | null;
   onCopiado: (firma: string) => void;
+  /**
+   * Se está creando lo publicado de este widget (su id, la primera vez que se
+   * abre este paso): hasta que llegue, el código de aquí no es el que se va a
+   * pegar, y no se deja copiar.
+   */
+  preparando?: boolean;
   onMetodo: (m: MetodoIntegracion) => void;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   proximasClases: DatosPanel['proximasClases'];
@@ -198,10 +204,11 @@ export function PasoPonlo({
             <button
               type="button"
               onClick={() => void copiar()}
+              disabled={preparando}
               className={cn(btnPrimary, 'min-h-12 w-full justify-center text-[14.5px] font-semibold [@media(pointer:fine)]:min-h-12')}
             >
-              {recienCopiado === 'codigo' ? <Check size={17} aria-hidden /> : <Copy size={17} aria-hidden />}
-              {etiquetaCopiar}
+              {preparando ? <Loader2 size={17} className="animate-spin" aria-hidden /> : recienCopiado === 'codigo' ? <Check size={17} aria-hidden /> : <Copy size={17} aria-hidden />}
+              {preparando ? 'Preparando tu código…' : etiquetaCopiar}
             </button>
             <p className="text-center text-[12px] text-muted-foreground">
               {copiado && !desfase ? `Lo copiaste aquí el ${fechaCorta(copiado.en)}.` : !copiado ? 'Aún no lo has copiado desde aquí.' : 'Lo que copiaste antes ya no es lo de ahora.'}

@@ -14,7 +14,8 @@ import {
   type ConfigConstructor, type Copiado,
 } from '@/lib/widgets/config';
 import { embudoPorWidget, textoMes, type EmbudoWidget } from '@/lib/widgets/embudo';
-import { etiquetasDeCopia, piezaCopiada, webSinAutorizar } from '@/lib/widgets/en-tu-web';
+import { etiquetasDeCopia, gruposSinAplicar, piezaCopiada, unirGrupos, webSinAutorizar } from '@/lib/widgets/en-tu-web';
+import { copiaTrasAplicar } from '@/lib/widgets/pieza-panel';
 import type { VistoWidget } from '@/lib/widgets/pegado';
 import { dbEmbudoWidgetPorOrigen, dbWidgetVistos } from '@/lib/supabase-data';
 import { useRol } from '@/lib/permisos';
@@ -39,6 +40,7 @@ import { PasoComo } from './paso-como';
 import { PasoPonlo } from './paso-ponlo';
 import { LoQueTienes, type FilaTienes } from './lo-que-tienes';
 import { useEstiloWeb } from './usar-estilo-web';
+import { usePiezas } from './usar-piezas';
 import { BotonEnTuWeb, VistaPrevia, type Contenido, type Dispositivo, type FormaPrevia } from './vista-previa';
 import { PreviewNativa } from './preview-nativa';
 import { GestionDominios } from './dominios';
@@ -82,6 +84,14 @@ import { GestionDominios } from './dominios';
 // vista previa pinta el borrador con las mismas funciones que el bundle, y al
 // copiar se guarda la versión que dirá ver su web (`firmaContenidoDe`).
 //
+// El código por ID (30-sep-2026, lib/widgets/pieza.ts): el código lleva solo el
+// id del widget, y su contenido lo pone Tentare con lo PUBLICADO (`widget_piezas`).
+// Lo publicado se crea al abrir «Ponlo en tu web» la primera vez (aún no hay
+// nada pegado con ese id: no cambia nada en su web) y después solo cambia con
+// «Aplicar en mi web» o al copiar el código. Lo que va en el propio HTML (el
+// ancho, la carga diferida, el botón) sigue pidiendo pegarlo otra vez. Si no hay
+// nada publicado y no se puede crear, el código congelado de siempre.
+//
 // ⚠️ El color del estudio es el del TEMA (`estiloWeb.base.colorPrimario`, lo que
 // elige en Marca), no la columna `studios.color_primario`: en casi todos los
 // estudios esa columna es el índigo que escribe el alta y no ha elegido nadie
@@ -124,6 +134,8 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const origen = typeof window !== 'undefined' ? window.location.origin : ORIGEN_POR_DEFECTO;
   const rol = useRol();
   const estiloWeb = useEstiloWeb();
+  // Lo publicado de cada widget por id. Solo lo lee y lo aplica la propietaria.
+  const publicacion = usePiezas(rol === 'PROPIETARIO');
 
   const [activoId, setActivoId] = useState('horario');
   const elegido = widgetPorId(activoId);
@@ -137,6 +149,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     return hayCopias(leerCopiados(studio?.widgetBuilder)) ? 'tienes' : 'que';
   });
   const config = configs[w.id] ?? CONFIG_POR_DEFECTO;
+  const publicada = publicacion.publicadas[w.id] ?? null;
 
   // ── Guardado ──
   const [guardado, setGuardado] = useState<EstadoGuardado>(null);
@@ -173,6 +186,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // Si abre «Cambiar» y se arrepiente, vuelve a donde estaba.
   const [pasoAnterior, setPasoAnterior] = useState<Paso>('que');
   function irA(p: Paso) {
+    if (p === 'ponlo') prepararCodigo(w.id);
     setPaso(p);
     // Al paso nuevo, con el foco: se anuncia y queda a la vista.
     requestAnimationFrame(() => contenedores.current[p]?.focus());
@@ -225,22 +239,86 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const entrada: EntradaIntegracion = {
     widget: w, config: configEfectiva, origen, slug, colorEstudio,
     botonVivo: estiloWeb.base ? botonDeLaVentana(estiloWeb.publicado, estiloWeb.base) : null,
+    pieza: publicada?.id ?? null,
   };
+
+  // ── Lo publicado (código por ID) ──
+  // Lo que cambió aquí y aún no ha llegado a su web: solo lo que llega con
+  // «Aplicar en mi web» (lo que va en el HTML lo dice el aviso de copiar otra vez).
+  const sinAplicar = publicada ? gruposSinAplicar(publicada.config, configEfectiva) : [];
+  // Crear lo publicado la primera vez que abre «Ponlo en tu web» con un widget:
+  // hasta entonces no hay id que poner en el código. Si falla, el código de
+  // siempre (y no se reintenta en esta visita: no se cambia el código a medias).
+  const [creando, setCreando] = useState<string | null>(null);
+  const creacionFallida = useRef(new Set<string>());
+  function prepararCodigo(id: string) {
+    if (rol !== 'PROPIETARIO' || publicacion.estado !== 'listo' || creando) return;
+    if (publicacion.publicadas[id] || creacionFallida.current.has(id)) return;
+    const otro = widgetPorId(id);
+    if (!esDisponible(otro)) return;
+    const c = sinHuerfanos(configs[id] ?? CONFIG_POR_DEFECTO, vigentes);
+    if (otro.contenido.includes('sesion') && !c.sesion) return;
+    setCreando(id);
+    void publicacion.publicar(id, c).then(r => {
+      if (!r.ok) creacionFallida.current.add(id);
+      setCreando(null);
+    });
+  }
+  const [aplicando, setAplicando] = useState(false);
+  /**
+   * «Aplicar en mi web»: publica lo de ahora de este widget. Sin escritura
+   * optimista: lo publicado solo cambia con lo que devuelve el servidor. La
+   * copia por id pasa a decir que su web enseña esto (lo de antes, «anterior»).
+   */
+  async function aplicarContenido(opc?: { copiados?: Record<string, Copiado>; alFallar?: string }): Promise<boolean> {
+    if (aplicando) return false;
+    setAplicando(true);
+    const r = await publicacion.publicar(w.id, configEfectiva);
+    setAplicando(false);
+    if (!r.ok) { showToast(opc?.alFallar ?? r.error); return false; }
+    const base = opc?.copiados ?? copiados;
+    const pegada = base[w.id];
+    if (pegada?.pieza) {
+      const contenido = firmaContenidoDe({ ...entrada, pieza: null, config: r.pieza.config }, pegada.metodo ?? metodo);
+      const siguiente = copiaTrasAplicar(pegada, contenido);
+      if (siguiente !== pegada) {
+        const siguientes = { ...base, [w.id]: siguiente };
+        setCopiados(siguientes);
+        guardar({ copiados: siguientes }, true);
+      }
+    }
+    showToast('Aplicado. Tu web lo enseñará en unos minutos.');
+    return true;
+  }
 
   // Al copiar se guarda, además de la huella, la forma, una foto de la config
   // (sin huérfanos), la versión que verá la página y si su botón sigue el
   // estilo: con eso la portada dice QUÉ cambió y qué hay en su web. Copiar otra
   // vez lo mismo en menos de un minuto (el botón y después a mano, o dos
   // Ctrl+C) no se vuelve a guardar.
+  //
+  // Con un código por id, copiar también APLICA lo de ahora: lo que copia es lo
+  // que su web va a enseñar. Se copia primero y se aplica después, a propósito:
+  // en Safari, esperar a la red antes de escribir en el portapapeles pierde el
+  // gesto y la copia falla; y el código por id es el mismo antes y después de
+  // aplicar. Si aplicar falla, se dice, y el aviso de «sin aplicar» se queda.
   function registrarCopia(firma: string) {
     const nueva = nuevaCopia(copiados[w.id], {
       firma, en: new Date().toISOString(), metodo, config: configEfectiva, contenido: firmaContenidoDe(entrada, metodo),
-      botonVivo: botonSigueElEstilo(configEfectiva, metodo),
+      botonVivo: botonSigueElEstilo(configEfectiva, metodo), pieza: entrada.pieza,
     });
-    if (esLaMismaCopia(copiados[w.id], nueva)) return;
-    const siguientes = { ...copiados, [w.id]: nueva };
-    setCopiados(siguientes);
-    guardar({ copiados: siguientes }, true);
+    let siguientes = copiados;
+    if (!esLaMismaCopia(copiados[w.id], nueva)) {
+      siguientes = { ...copiados, [w.id]: nueva };
+      setCopiados(siguientes);
+      guardar({ copiados: siguientes }, true);
+    }
+    if (entrada.pieza && sinAplicar.length) {
+      void aplicarContenido({
+        copiados: siguientes,
+        alFallar: 'El código está copiado, pero tus cambios no se han aplicado: tu web enseñará lo de antes hasta que pulses «Aplicar en mi web».',
+      });
+    }
   }
 
   // `Date.now()` no puede llamarse en render (pureza del React Compiler): se
@@ -333,13 +411,15 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     const c = id === w.id ? configEfectiva : sinHuerfanos(configs[id] ?? CONFIG_POR_DEFECTO, vigentes);
     configsCopiadas[id] = c;
     const m = metodoEnWeb(c, otro, plataforma);
-    const e: EntradaIntegracion = { ...entrada, widget: otro, config: c };
+    const suya = publicacion.publicadas[id] ?? null;
+    const e: EntradaIntegracion = { ...entrada, widget: otro, config: c, pieza: suya?.id ?? null };
     for (const t of etiquetasDeCopia(k, e)) pedir.add(t);
     const p = piezaCopiada({
       copia: k, base: e, metodoAhora: m, puedeGenerar: !faltaParaGenerar(e, m, { dominiosAutorizados }),
       vistos: vistos?.filas, leidas: vistos?.etiquetas,
       esperandoVistos: veResultados && vistos === undefined,
       mes: resultadosMes, ahora,
+      publicada: suya?.config ?? null,
     });
     copias[id] = { en: k.en, desfasado: p.desfasado };
     filasTienes.push({
@@ -471,6 +551,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const piezas = piezasAfectadas({
     configs: configsCopiadas, copiados, plataforma, origen, slug, colorEstudio,
     estilo: estiloWeb.borrador, publicado: estiloWeb.publicado, base: estiloWeb.base,
+    publicadas: Object.fromEntries(Object.entries(publicacion.publicadas).map(([id, p]) => [id, p.config])),
   });
 
   const ofertasPrueba = planesTarifa.filter(p => p.activo && p.esPrueba === true);
@@ -495,7 +576,9 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   // ── La portada: qué hace cada botón ──
   function abrirPieza(id: string, p: Paso) {
     setActivoId(id);
-    irA(p);
+    if (p === 'ponlo') prepararCodigo(id);
+    setPaso(p);
+    requestAnimationFrame(() => contenedores.current[p]?.focus());
   }
   // «Ir a las webs autorizadas»: la lista vive en «Ponlo en tu web», dentro del
   // pliegue «Para quien te hace la web» (y solo con la nativa, por eso la fila
@@ -506,6 +589,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   const [verDominios, setVerDominios] = useState(false);
   function irAWebsAutorizadas(id: string) {
     setActivoId(id);
+    prepararCodigo(id);
     setPaso('ponlo');
     setVerDominios(true);
     // Tras pintar el paso: el pliegue ya está abierto (su efecto corre al
@@ -584,7 +668,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               })}
             </nav>
           )}
-          {conPrevia && <EstadoGuardadoLinea estado={guardado} />}
+          {conPrevia && <EstadoGuardadoLinea estado={guardado} porId={!!publicada} />}
         </div>
       )}
 
@@ -595,6 +679,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
             <p>
               <strong>Has cambiado algo que va en el código después de copiarlo el {fechaCorta(copia.en)}.</strong>{' '}
               Tu web sigue con lo de antes hasta que copies el código nuevo y lo pegues en lugar del anterior.
+              {!copia.pieza && entrada.pieza && ' El código nuevo se pone al día solo: después, cambiar lo que enseña ya no te obligará a pegarlo otra vez.'}
             </p>
             {paso !== 'ponlo' && (
               <button type="button" onClick={() => irA('ponlo')} className={cn(TACTIL, 'font-semibold underline underline-offset-2 hover:no-underline', FOCO)}>
@@ -602,6 +687,18 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {conPrevia && copia?.pieza && sinAplicar.length > 0 && (
+        <div role="region" aria-label="Cambios sin aplicar" className="flex flex-wrap items-start gap-x-4 gap-y-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
+          <AlertCircle size={16} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+          <p className="min-w-0 flex-1">
+            <strong>Tienes cambios sin aplicar en tu web</strong> ({unirGrupos(sinAplicar)}). No hace falta volver a pegar nada: al aplicarlos, tu web los enseña en unos minutos.
+          </p>
+          <button type="button" onClick={() => void aplicarContenido()} disabled={aplicando} className={cn(btnPrimary, 'inline-flex items-center gap-1.5')}>
+            {aplicando && <Loader2 size={14} className="animate-spin" aria-hidden />}Aplicar en mi web
+          </button>
         </div>
       )}
 
@@ -644,6 +741,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               datos={datos}
               avisos={avisos}
               copias={copias}
+              porId={!!publicada}
               onElegirWidget={setActivoId}
               onMetodo={elegirMetodo}
             />
@@ -663,6 +761,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               soloLectura={rol !== 'PROPIETARIO'}
               verApariencia={puedeVer(rol, '/configuracion/apariencia')}
               piezas={piezas}
+              porId={!!publicada}
             />
           </div>
           <div ref={el => { contenedores.current.ponlo = el; }} tabIndex={-1} hidden={paso !== 'ponlo'} className="outline-none">
@@ -680,6 +779,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               // Solo lo lee la nativa: aplicado es que le llega algo (quitar solo el pie, no).
               estiloAplicado={estiloWeb.fase === 'listo' ? !nadaParaSinMarco(estiloWeb.publicado) : null}
               onCopiado={registrarCopia}
+              preparando={creando === w.id}
               onMetodo={elegirMetodo}
               cambiar={cambiar}
               proximasClases={datos.proximasClases}
@@ -754,11 +854,13 @@ function sinHuerfanos(c: ConfigConstructor, v: Vigentes): ConfigConstructor {
 // El estado de lo guardado, sin que parezca que su web ya ha cambiado: lo
 // guardado es lo de esta pantalla; lo que va en el código llega a su web cuando
 // lo pega. (El estilo de sus widgets no pasa por aquí: se aplica con su botón.)
-function EstadoGuardadoLinea({ estado }: { estado: EstadoGuardado }) {
+function EstadoGuardadoLinea({ estado, porId }: { estado: EstadoGuardado; porId: boolean }) {
   return (
     <p role="status" aria-live="polite" className={cn('flex min-h-5 items-center gap-1.5 text-[12px] text-muted-foreground', estado === 'error' && 'text-destructive')}>
       {estado === 'guardando' && <><Loader2 size={12} className="animate-spin" aria-hidden />Guardando tus ajustes…</>}
-      {estado === 'guardado' && <><CheckCircle2 size={12} className="text-success" aria-hidden />Tus ajustes están guardados. Lo que va en el código llega a tu web cuando lo pegues.</>}
+      {estado === 'guardado' && <><CheckCircle2 size={12} className="text-success" aria-hidden />{porId
+        ? 'Tus ajustes están guardados. Llegan a tu web al pulsar «Aplicar en mi web» o al copiar el código.'
+        : 'Tus ajustes están guardados. Lo que va en el código llega a tu web cuando lo pegues.'}</>}
       {estado === 'error' && 'No se han guardado tus ajustes. El código que copies sigue valiendo.'}
     </p>
   );

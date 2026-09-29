@@ -33,6 +33,11 @@ export default function Contenido() {
           otra persona, se lo mandas desde ahí mismo con el código y los pasos: está pensado para copiar y pegar,
           no para editarlo.
         </p>
+        <p style={{ margin: '10px 0 0' }}>
+          Si después cambias lo que enseña (qué clases salen, el precio, su diseño…), no hace falta volver a pegarlo:
+          pulsa «Aplicar en mi web» y tu web lo enseña en unos minutos. Solo lo que va en el propio código —el ancho,
+          cómo carga y el botón— pide copiarlo otra vez, y el constructor te lo avisa.
+        </p>
       </AyudaPaso>
 
       <AyudaResultado>

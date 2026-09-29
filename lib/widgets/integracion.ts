@@ -28,6 +28,7 @@ import {
 } from './config.ts';
 import { firmaDeUrl } from './firma-contenido.ts';
 import { huella } from './huella.ts';
+import { PARAM_PIEZA, esIdPieza } from './pieza.ts';
 
 export type Plataforma = 'html' | 'wordpress' | 'webflow' | 'react';
 
@@ -46,6 +47,28 @@ export interface EntradaIntegracion {
    * valor que no valida), el respaldo es el de siempre (`colorBoton`).
    */
   botonVivo?: BotonVivo | null;
+  /**
+   * El id de lo publicado de este widget (`widget_piezas`, ./pieza.ts). Con él,
+   * el código lleva SOLO el id y lo que va en el propio HTML (el ancho, la carga
+   * diferida, el botón…); el contenido lo pone Tentare al abrirlo, así que
+   * cambiarlo ya no obliga a pegarlo otra vez. Sin él (no hay nada publicado, o
+   * no se pudo crear), el código congelado de siempre, que funciona igual.
+   */
+  pieza?: string | null;
+}
+
+/** ¿Este código va por id? */
+export function codigoPorId(e: EntradaIntegracion): boolean {
+  return esIdPieza(e.pieza);
+}
+
+/**
+ * La URL de un código por id: solo `w=<id>` (y `embed=1` dentro de una página).
+ * El resto lo añade la ruta de Tentare al abrirla (lib/widgets/pieza-destino.ts).
+ * El popup no lleva `embed`: lo añade su runtime, como a cualquier código.
+ */
+function urlDePieza(e: EntradaIntegracion, embebido: boolean): string {
+  return `${e.origen}/reservar/${e.slug}?${embebido ? 'embed=1&' : ''}${PARAM_PIEZA}=${e.pieza}`;
 }
 
 const COLOR_POR_DEFECTO = '#343825';
@@ -287,6 +310,9 @@ function jsString(v: string): string {
 }
 
 export function idIframe(e: EntradaIntegracion): string {
+  // Por id, el del propio id: el de siempre lleva la clase elegida, y con él
+  // cambiar de clase obligaría a pegarlo otra vez.
+  if (codigoPorId(e)) return `tentare-widget-${e.slug}-${e.pieza}`;
   const base = `tentare-widget-${e.slug}-${e.widget.id}`;
   return e.widget.contenido.includes('sesion') && e.config.sesion ? `${base}-${e.config.sesion}` : base;
 }
@@ -499,10 +525,10 @@ export function generarCodigo(e: EntradaIntegracion, metodo: MetodoIntegracion, 
   const react = plataforma === 'react';
   switch (metodo) {
     case 'enlace':
-      return { codigo: urlPagina(e), lenguaje: 'url' };
+      return { codigo: codigoPorId(e) ? urlDePieza(e, false) : urlPagina(e), lenguaje: 'url' };
 
     case 'boton': {
-      const url = urlPagina(e);
+      const url = codigoPorId(e) ? urlDePieza(e, false) : urlPagina(e);
       const texto = textoBotonEfectivo(e.config, w);
       const nueva = e.config.abrirEn === 'nueva';
       if (react) {
@@ -525,7 +551,7 @@ export function ${nombreComponente(w)}Boton() {
     }
 
     case 'popup': {
-      const url = urlEmbebido(e, 'popup');
+      const url = codigoPorId(e) ? urlDePieza(e, false) : urlEmbebido(e, 'popup');
       const texto = textoBotonEfectivo(e.config, w);
       const script = `${e.origen}/widget-popup.js`;
       if (react) {
@@ -564,7 +590,7 @@ export function ${nombreComponente(w)}Popup() {
     }
 
     case 'nativa': {
-      const attrs = atributosNativa(e);
+      const attrs = codigoPorId(e) ? [`data-widget="${e.pieza}"`] : atributosNativa(e);
       const script = `${e.origen}/widget.js`;
       if (react) {
         const jsx = attrs.map(a => (a.includes('=') ? a : `${a}=""`)).map(a => `\n      ${a}`).join('');
@@ -599,7 +625,7 @@ export function ${nombreComponente(w)}() {
 
     case 'iframe':
     default: {
-      const url = urlEmbebido(e, 'iframe');
+      const url = codigoPorId(e) ? urlDePieza(e, true) : urlEmbebido(e, 'iframe');
       const id = idIframe(e);
       const max = anchoMaximoPx(e);
       const lazy = e.config.cargaDiferida;

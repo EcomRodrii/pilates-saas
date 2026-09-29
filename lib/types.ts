@@ -1681,7 +1681,10 @@ export type TipoActividad =
   | 'WIDGET_DOMINIOS_CAMBIADOS'
   // Estilo de los widgets en su web aplicado o deshecho. Solo
   // /api/estudio/widget-estilo.
-  | 'WIDGETS_ESTILO_CAMBIADO';
+  | 'WIDGETS_ESTILO_CAMBIADO'
+  // Lo publicado de un widget pegado con su id («Aplicar en mi web» del
+  // contenido). Solo /api/estudio/widget-pieza.
+  | 'WIDGET_APLICADO';
 
 export interface ActividadReciente {
   id: string;

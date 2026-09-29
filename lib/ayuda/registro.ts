@@ -479,7 +479,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
     slug: 'instalar-con-html', categoria: 'widget', tipo: 'guia',
     titulo: 'Instalar el widget con HTML o iframe',
     descripcion: 'El fragmento de código para pegar en cualquier web, y cómo hacerlo responsive.',
-    actualizado: '2026-09-15',
+    actualizado: '2026-09-30',
     relacionados: ['widget/que-es-el-widget', 'problemas/el-widget-no-carga'],
     estado: 'publicado',
   },
