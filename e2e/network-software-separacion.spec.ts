@@ -67,7 +67,11 @@ test.describe('Bloqueo cruzado al iniciar sesión (TEST 5 / TEST 6 del encargo)'
     await expect(page).not.toHaveURL(/\/dashboard/);
   });
 
-  test('credenciales de Software en /network/acceso: mensaje claro, nunca el autoservicio', async ({ page }) => {
+  // ⚠️ En mantenimiento (bd0ebb750, 29-sep): /network/acceso ya no tiene
+  // formulario de login (solo un aviso estático), así que este bloqueo
+  // cruzado no se puede probar ahí ahora mismo. Reactivar cuando se
+  // reabra el acceso — no borrar el test.
+  test.skip('credenciales de Software en /network/acceso: mensaje claro, nunca el autoservicio', async ({ page }) => {
     await mockLoginOk(page, 'propietaria@example.com');
     await page.route('**/api/auth/destino-post-login**', route => {
       expect(new URL(route.request().url()).searchParams.get('producto')).toBe('network');
@@ -101,7 +105,9 @@ test.describe('Identidad dual (self-claim): cada puerta respeta lo suyo', () => 
     await page.waitForURL(/\/dashboard/, { timeout: 30_000, waitUntil: 'commit' });
   });
 
-  test('la MISMA identidad entra a Network por /network/acceso, no al dashboard', async ({ page }) => {
+  // ⚠️ En mantenimiento (bd0ebb750, 29-sep): mismo motivo que el skip de
+  // arriba en este fichero — /network/acceso no tiene formulario ahora.
+  test.skip('la MISMA identidad entra a Network por /network/acceso, no al dashboard', async ({ page }) => {
     await mockLoginOk(page, 'dual@example.com');
     await page.route('**/api/auth/destino-post-login**', route => json(route, { tipo: 'entra', destino: '/network/inicio' }));
 
@@ -120,7 +126,10 @@ test.describe('El contexto de Google se conserva por producto', () => {
   // Google desde Network se procesaba con la lógica de Software. Se prueba
   // que cada botón pide a gotrue el redirect_to correcto, sin necesidad de
   // completar el viaje real a Google.
-  test('el botón de Google en /network/acceso pide volver a /network/acceso', async ({ page }) => {
+  // ⚠️ En mantenimiento (bd0ebb750, 29-sep): mismo motivo que los otros dos
+  // skips de este fichero — el botón de Google de /network/acceso no existe
+  // mientras la puerta esté cerrada.
+  test.skip('el botón de Google en /network/acceso pide volver a /network/acceso', async ({ page }) => {
     await page.route('**/rest/v1/**', route => json(route, []));
     let redirectTo: string | null = null;
     await page.route('**/auth/v1/authorize**', route => {
