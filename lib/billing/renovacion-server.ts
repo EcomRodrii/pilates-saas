@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { mesesDeCiclo } from '../bono-logic.ts';
+import { proximoFinAlineadoDia1, proximoFinNatural } from '../bono-logic.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 import * as Sentry from '@sentry/nextjs';
 
@@ -243,13 +243,24 @@ async function entregarRenovacion(
     }
 
     if (plan.tipo === 'MENSUAL') {
-      const nuevaFin = new Date();
-      // Tantos meses como dure el ciclo de esta cuota, no uno fijo: una
-      // trimestral que se renovara mes a mes le cobraría a la socia tres veces
-      // por el mismo trimestre. `mesesDeCiclo` cae a 1 con cualquier valor que
-      // no sea uno de los permitidos, así que las cuotas de siempre no cambian.
-      nuevaFin.setMonth(nuevaFin.getMonth() + mesesDeCiclo({ periodicidadMeses: plan.periodicidad_meses }));
-      const fechaFin = nuevaFin.toISOString().slice(0, 10);
+      // PAY-11: con `studios.cobro_dia_1_activo`, la extensión se realinea al
+      // día 1 en vez del aniversario de la socia — ver el comentario largo
+      // junto a `proximoFinAlineadoDia1` (lib/bono-logic.ts) para el porqué
+      // del cálculo. Sin la columna activa se mantiene el cálculo de siempre.
+      // Si la consulta falla (p. ej. la migración aún no está aplicada en
+      // este entorno), cae al cálculo de siempre en vez de tumbar el cobro
+      // ya hecho — pero se avisa, para que el fallo no sea invisible.
+      let fechaFin = proximoFinNatural({ periodicidadMeses: plan.periodicidad_meses });
+      if (sus.fecha_fin) {
+        const { data: est, error: errEst } = await admin.from('studios').select('cobro_dia_1_activo').eq('id', studioId).maybeSingle();
+        if (errEst) {
+          Sentry.captureException(new Error(`[cobroDia1Activo] ${errEst.message}`), {
+            level: 'warning', tags: { area: 'renovacion' }, extra: { reciboId, studioId },
+          });
+        } else if (est?.cobro_dia_1_activo) {
+          fechaFin = proximoFinAlineadoDia1(sus.fecha_fin as string, { periodicidadMeses: plan.periodicidad_meses });
+        }
+      }
       if (sus.fecha_fin && sus.fecha_fin >= fechaFin) {
         return guardar({ aplicada: false, tipo: 'MENSUAL', antes, despues: antes });
       }

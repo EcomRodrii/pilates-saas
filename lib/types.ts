@@ -268,6 +268,11 @@ export interface Studio {
   recibosAlCancelarCuota: 'MANTENER_CON_REINTENTOS' | 'MANTENER_SIN_REINTENTOS' | 'ANULAR';
   // Si la alumna puede renovar sola desde su app una cuota cancelada (por defecto, sí).
   renovarSolaCuotaCancelada: boolean;
+  // PAY-11 (migr `cobro_dia_1_alineado`): una cuota MENSUAL se cobra por
+  // aniversario (el día en que se apuntó) salvo que esto esté activo — ahí
+  // cada renovación se realinea al día 1, sin tocar el alta ni prorratear
+  // (ver `proximoFinAlineadoDia1`, lib/bono-logic.ts). Apagado de serie.
+  cobroDia1Activo: boolean;
   // true (default) = comportamiento de siempre: alguien del estudio marca su
   // asistencia (escaneando su QR de acceso o en la lista de la clase) antes de que
   // la reserva cuente como asistida. false = el estudio confía en que quien

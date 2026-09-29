@@ -229,6 +229,98 @@ export function FormDevoluciones({ onGuardado }: PropsFormularioCajon) {
   );
 }
 
+// ── Cuándo se cobra la cuota mensual ─────────────────────────────────────────
+// PAY-11: petición real de un estudio que mueve plazas de plaza fija cada mes
+// y quiere el cobro en una fecha fija, no en el aniversario de cada alumna
+// (por defecto). No toca el alta ni prorratea: cada suscripción se realinea
+// SOLA en su próxima renovación (converge en como mucho un ciclo). Es dinero:
+// «Guardar» pregunta antes, con lo que va a pasar.
+
+type CobroDiaForm = { dia1: boolean };
+
+function studioToCobroDia(s: Partial<Pick<Studio, 'cobroDia1Activo'>> | null): CobroDiaForm {
+  return { dia1: s?.cobroDia1Activo ?? false };
+}
+
+function confirmacionCobroDia(activar: boolean) {
+  if (activar) {
+    return {
+      titulo: '¿Cobrar todas las cuotas el día 1?',
+      descripcion: 'Cada cuota mensual se realinea sola en su PRÓXIMA renovación, sin prorratear ni tocarla ahora: para una alumna que ya tienes puede tardar hasta un ciclo en caer exactamente el día 1. Las cuotas nuevas siguen naciendo en el día en que se apuntan.',
+      textoConfirmar: 'Sí, cobrar el día 1',
+    };
+  }
+  return {
+    titulo: '¿Volver al aniversario de cada alumna?',
+    descripcion: 'Las próximas renovaciones vuelven a caer en el día en que cada alumna contrató su cuota.',
+    textoConfirmar: 'Sí, volver al aniversario',
+  };
+}
+
+export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
+  const { studio, updateStudio } = useStudio();
+  const [form, setForm] = useState<CobroDiaForm>(() => studioToCobroDia(studio));
+  const [base, setBase] = useState<CobroDiaForm>(() => studioToCobroDia(studio));
+
+  const [anterior, setAnterior] = useState(studio);
+  if (studio !== anterior) {
+    setAnterior(studio);
+    const servidor = studioToCobroDia(studio);
+    setForm(sincronizarFormulario(form, base, servidor));
+    setBase(servidor);
+  }
+
+  async function alGuardar(): Promise<string | null> {
+    const enviado = form;
+    const res = await updateStudio({ cobroDia1Activo: form.dia1 });
+    if (!res.ok) return res.error;
+    setForm(f => sincronizarFormulario(f, enviado, enviado));
+    setBase(enviado);
+    onGuardado('Guardado cuándo se cobra la cuota mensual');
+    return null;
+  }
+
+  return (
+    <>
+      <div className="space-y-2 pb-6">
+        <label
+          className={cn(
+            'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+            !form.dia1 ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+          )}
+        >
+          <input type="radio" name="cobro-dia" className="mt-1 accent-[var(--brand)]" checked={!form.dia1} onChange={() => setForm({ dia1: false })} />
+          <span>
+            <span className="block text-sm font-medium text-foreground">Cada alumna en su aniversario</span>
+            <span className="block text-sm text-muted-foreground text-pretty">Se le cobra el mismo día en que contrató su cuota, cada mes. Es como funciona hoy.</span>
+          </span>
+        </label>
+        <label
+          className={cn(
+            'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+            form.dia1 ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+          )}
+        >
+          <input type="radio" name="cobro-dia" className="mt-1 accent-[var(--brand)]" checked={form.dia1} onChange={() => setForm({ dia1: true })} />
+          <span>
+            <span className="block text-sm font-medium text-foreground">Todas el día 1 de cada mes</span>
+            <span className="block text-sm text-muted-foreground text-pretty">
+              Cada cuota se realinea sola en su próxima renovación, sin prorratear: una alumna a mitad de ciclo puede tardar hasta un mes en pasar a cobrarse el día 1.
+            </span>
+          </span>
+        </label>
+      </div>
+      <BarraGuardar
+        seccion="cobros"
+        cambios={hayCambios(form, base) ? ['Cuándo se cobra la cuota mensual'] : []}
+        confirmar={confirmacionCobroDia(form.dia1)}
+        onGuardar={alGuardar}
+        onDescartar={() => setForm(base)}
+      />
+    </>
+  );
+}
+
 // ── Si se cancela una cuota ──────────────────────────────────────────────────
 // Lo elige el estudio (decisión del fundador, 16-sep). Una cuota cancelada nunca
 // genera cobros nuevos; lo que se elige es qué pasa con el recibo que ya estaba
