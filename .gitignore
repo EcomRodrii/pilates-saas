@@ -32,6 +32,8 @@
 /public/widget.js
 /public/widget-checkout.js
 /public/widget-popup.js
+# Las fuentes de la nativa (Fase E): copia de app/_fuentes que hace build:widget.
+/public/widget-fuentes/
 
 # misc
 .DS_Store

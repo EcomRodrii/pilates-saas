@@ -77,6 +77,12 @@ const SPECS_WEBKIT = [
   // regla `<style>` y variables CSS con respaldo— es justo lo que un motor
   // puede resolver distinto. Mismo criterio de coste que el de arriba.
   '**/widget-popup-boton-vivo.spec.ts',
+  // La integración sin marco con el estilo de sus widgets (Fase E): vive en el
+  // DOM de la web del estudio, la mira su visitante desde el iPhone, y lo que
+  // prueba —fuentes de otro origen con CORS, `color-scheme` dentro del shadow,
+  // el POST con preflight— es justo lo que cambia de un motor a otro. Mismo
+  // criterio de coste que los dos de arriba.
+  '**/widget-nativa-estilo.spec.ts',
   '**/reservar-vista-mes.spec.ts',
   '**/reservar-citas-movil.spec.ts',
   '**/reservar-selector-fecha-movil.spec.ts',

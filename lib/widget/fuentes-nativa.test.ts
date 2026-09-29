@@ -176,3 +176,17 @@ test('⚠️ la hoja no pide nada fuera de Tentare: rutas relativas, sin `http` 
     if (url) assert.match(url, /^[a-z]+\/[a-z0-9-]+\.woff2$/, url);
   }
 });
+
+test('⚠️ `build:widget` copia exactamente las carpetas de CARPETAS_FUENTES_NATIVA', () => {
+  // El .mjs no importa TypeScript, así que lleva la lista escrita a mano. Si se
+  // separan, una letra elegida pide un woff2 que no se sirve (y cae a la de
+  // reserva sin ningún error en su web), o se publican fuentes que nadie usa.
+  const script = readFileSync(join(raiz, 'scripts/build-widget-bundle.mjs'), 'utf8');
+  const lista = /const CARPETAS_FUENTES_NATIVA = \[([\s\S]*?)\];/.exec(script)?.[1];
+  assert.ok(lista, 'no encuentro CARPETAS_FUENTES_NATIVA en scripts/build-widget-bundle.mjs');
+  const carpetas = [...lista.matchAll(/'([^']+)'/g)].map(m => m[1]);
+  assert.deepEqual(carpetas, [...CARPETAS_FUENTES_NATIVA]);
+  // Y deja la hoja donde la pide el bundle (`HOJA_FUENTES_NATIVA`).
+  assert.ok(script.includes(`path.join(raiz, 'public${RUTA_FUENTES_NATIVA}')`), 'la carpeta de destino no es RUTA_FUENTES_NATIVA');
+  assert.ok(HOJA_FUENTES_NATIVA.endsWith('/fuentes.css') && script.includes("'fuentes.css'"));
+});

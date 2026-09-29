@@ -418,7 +418,12 @@ export async function fetchHomePreviewToken(): Promise<{ token: string; slug: st
 // nunca lee vídeos/recompensas/niveles/logros/retos/contenido de portal — solo
 // el portal instalable (app/portal/[slug]) los usa. Sin esta señal el servidor
 // no puede distinguir quién llama al mismo endpoint compartido.
-export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boolean; baseUrl?: string }) {
+//
+// `estiloWidget` (Fase E del constructor de widgets): la nativa pide además el
+// estilo de los widgets de su web, en la MISMA petición y solo en su primera
+// carga (lib/widget/usar-datos-widget.ts). Solo viaja si se pide: el resto de
+// llamadores no lo necesita y el servidor no lee el tema por ellos.
+export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boolean; baseUrl?: string; estiloWidget?: boolean }) {
   // La identidad de la socia va en el JWT (Bearer), no en el body: el servidor
   // deriva sus datos del token. Sin sesión → solo catálogo público.
   //
@@ -437,7 +442,7 @@ export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boole
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
-    body: JSON.stringify({ slug, liviano: opts?.liviano ?? false }),
+    body: JSON.stringify({ slug, liviano: opts?.liviano ?? false, ...(opts?.estiloWidget ? { estiloWidget: true } : {}) }),
   });
   // 404 es la única respuesta que significa de verdad «no hay datos»: ese
   // estudio no existe. Las demás (500, 429, 503…) son fallos, y devolver null

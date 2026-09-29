@@ -400,8 +400,10 @@ jobs:
       # checkout-lazy-mount.tsx) es el mismo caso: sin él en el artefacto, el
       # `import()` que hace widget.js al abrir "Planes" muere en 404 y la hoja
       # se queda en "Cargando…" para siempre — mismo síntoma de "flake".
+      # public/widget-fuentes (Fase E, las fuentes de la nativa) igual: sin la
+      # carpeta, la spec que las pide vería un 404 y la letra de reserva.
       - name: Empaquetar salida del build
-        run: tar -cf build.tar --exclude=.next/cache .next public/widget.js public/widget-checkout.js public/widget-popup.js
+        run: tar -cf build.tar --exclude=.next/cache .next public/widget.js public/widget-checkout.js public/widget-popup.js public/widget-fuentes
 
       - name: Subir salida del build
         uses: actions/upload-artifact@v4
