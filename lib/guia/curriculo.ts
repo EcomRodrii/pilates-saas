@@ -599,23 +599,28 @@ export const CAPITULOS: CapituloGuia[] = [
     id: 'facturar',
     numero: '12',
     titulo: 'Facturas y contabilidad',
-    resumen: 'Tus datos fiscales, las facturas que se emiten solas y el cierre para tu gestoría.',
+    resumen: 'Si Tentare emite tus facturas o las haces fuera, tus datos fiscales y el cierre para tu gestoría.',
     nivel: 'recomendado',
     minutos: 6,
     queAprendes: [
+      'Si te conviene que Tentare emita tus facturas',
       'Qué datos hacen falta para poder facturar',
       'Cuándo se emite una factura sola y cuándo la haces tú',
       'Cómo se le manda todo a la gestoría',
     ],
-    porQue: 'Sin tu NIF no se emite ninguna factura, y las ventas se van acumulando sin factura sin que nadie te avise.',
+    porQue: 'Por defecto Tentare no emite facturas: cada cobro queda registrado y tu alumna recibe su justificante de pago. Si quieres que las emita, se activa en un paso, y sin tu NIF no se deja.',
     apartados: [
       {
+        titulo: 'Emitirlas o no',
+        texto: 'En Configuración → Cobros y facturas → «Facturación» eliges si Tentare emite una factura en cada cobro, con su registro para Veri*Factu, o si tus facturas las haces fuera (tu gestoría, otro programa). Por defecto está apagado. Si lo activas, confírmalo antes con tu asesoría.',
+      },
+      {
         titulo: 'Lo que hace falta',
-        texto: 'Tu NIF y tu razón social, en Configuración → Cobros y facturas, en «Datos fiscales e IVA». El NIF se valida: uno de relleno no cuela. Sin él, Tentare cobra igual pero no emite ninguna factura, y te lo avisa en rojo en la pantalla de Facturas.',
+        texto: 'Tu NIF y tu razón social, en la misma pantalla, en «Datos fiscales e IVA». El NIF se valida: uno de relleno no cuela. Sin él no se deja activar la facturación, y si lo quitas después, Tentare cobra igual pero no emite ninguna factura y te lo avisa en rojo en Facturas.',
       },
       {
         titulo: 'Se emiten solas',
-        texto: 'Al cobrar se emite la factura, con su numeración correlativa por año, salvo si cobraste en efectivo — ahí la decides tú, porque no todos los estudios facturan el efectivo igual. La vía manual sigue estando para cuando la quieras.',
+        texto: 'Con la facturación activada, al cobrar se emite la factura, con su numeración correlativa por año, salvo si cobraste en efectivo — ahí la decides tú, porque no todos los estudios facturan el efectivo igual. La vía manual sigue estando para cuando la quieras.',
       },
       {
         titulo: 'Rectificar',
@@ -627,6 +632,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
+      { label: 'Elegir si Tentare factura', href: '/configuracion?tab=cobros#facturacion' },
       { label: 'Poner mis datos fiscales', href: '/configuracion?tab=cobros#datos-fiscales' },
       { label: 'Ver mis facturas', href: '/cobros?tab=facturas' },
       { label: 'Cierre para la gestoría', href: '/cierre' },

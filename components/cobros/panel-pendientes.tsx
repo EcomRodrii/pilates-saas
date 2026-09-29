@@ -187,6 +187,9 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     crearFacturaDirecta,
     resetDatosPilates,
   } = useStudio();
+  // ¿Emite facturas este estudio? (`Studio.modoFacturacion`). Mientras carga,
+  // como si sí: sin que desaparezcan botones al cargar.
+  const emite = studio ? studio.modoFacturacion === 'verifactu' : true;
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
@@ -831,6 +834,8 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                 botón llama a `reintentarSelladoFactura` (nunca a
                 `crearFacturaDirecta`, que crearía un recibo
                 nuevo y duplicaría el cobro — I-11). */}
+            {/* Con el estudio sin facturas desde Tentare, un cobro sin factura
+                es lo normal: ni chip rojo ni «reintentar». */}
             {factura ? (
               <Link
                 href={`/facturas?ver=${factura.id}`}
@@ -840,7 +845,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                 <FileText size={icono} />
                 {factura.numeroCompleto}
               </Link>
-            ) : (
+            ) : !emite ? null : (
               <button
                 onClick={() => handleReintentarFactura(r.id)}
                 disabled={reintentandoFactura === r.id}
@@ -979,6 +984,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
 
       <div className="flex flex-wrap items-center justify-end gap-2">
             {acciones}
+            {emite && (
             <button
               onClick={() => {
                 setFacturaForm({ socioId: socios[0]?.id ?? '', concepto: '', importe: '' });
@@ -989,6 +995,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
               <FileText size={15} />
               Nueva factura
             </button>
+            )}
             <button
               onClick={() => {
                 setNuevoForm({

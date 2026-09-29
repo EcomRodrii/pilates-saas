@@ -318,8 +318,8 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'facturas', categoria: 'pagos', tipo: 'guia',
     titulo: 'Facturas y Veri*Factu',
-    descripcion: 'Cada cobro genera su factura — dónde encontrarlas, cómo descargarlas y en qué punto está el envío a la AEAT.',
-    actualizado: '2026-09-25',
+    descripcion: 'Si Tentare emite tus facturas o las haces fuera — cómo activarlo, dónde encontrarlas, cómo descargarlas y en qué punto está el envío a la AEAT.',
+    actualizado: '2026-09-30',
     relacionados: ['pagos/reembolsos', 'pagos/cobrar-en-la-caja'],
     estado: 'publicado',
   },
