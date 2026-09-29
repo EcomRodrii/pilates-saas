@@ -549,19 +549,19 @@ export function DetalleConexionConClave({ c, onGuardado }: { c: ConexionConClave
 // inicia Zapier, nunca un botón de aquí. Se lee de los consentimientos
 // (GET /api/oauth/consentimientos) y se puede quitar el acceso.
 
-// ⚠️ Esta es la ficha PÚBLICA del directorio de Zapier, no la app en sí: la
-// app real ya existe y funciona (developer.zapier.com, integration id
-// 245096 — ver supabase/migrations/20260814*_oauth_zapier_*.sql y
-// docs/oauth-arquitectura.md), pero esa ficha pública da 404 el 29-sep-2026:
-// Zapier no la ha aprobado/publicado todavía en su directorio (o el slug
-// cambió). Hasta que exista de verdad (publicada, o con el enlace privado de
-// invitación de developer.zapier.com → Manage → Sharing), la fila se enseña
-// «No disponible todavía» en vez de mandar a la propietaria a un enlace
-// roto — mismo patrón que Stripe/Gmail sin variable de servidor
-// (`resumenConexion`/`NO_DISPONIBLE_TODAVIA`). Decisión del fundador:
-// reactivar en cuanto tenga el enlace bueno.
-const ZAPIER_URL = 'https://zapier.com/apps/tentare/integrations';
-const ZAPIER_DISPONIBLE = false;
+// ⚠️ La ficha PÚBLICA del directorio de Zapier (zapier.com/apps/tentare/…)
+// daba 404 el 29-sep-2026: Zapier no la había aprobado/publicado todavía en
+// su directorio. La app real (developer.zapier.com, integration id 245096 —
+// ver supabase/migrations/20260814*_oauth_zapier_*.sql y
+// docs/oauth-arquitectura.md) ya funcionaba de verdad; lo que faltaba era el
+// sitio al que mandar a la propietaria. Desde el 29-sep-2026 se usa el
+// enlace PRIVADO de invitación (developer.zapier.com/app/245096/sharing →
+// «Invite your users to use your app with a link»), verificado en vivo
+// (título "You've Been Invited to Tentare | Zapier"): funciona sin esperar a
+// la revisión pública de Zapier. Si algún día se publica en el directorio,
+// cambiar esto por esa URL — comprobando antes en el navegador que carga.
+const ZAPIER_URL = 'https://zapier.com/developer/public-invite/245096/fab6aa3a08b2d024c6e75bf832360de9/';
+const ZAPIER_DISPONIBLE = true;
 
 export interface AppConAcceso {
   clienteId: string;
