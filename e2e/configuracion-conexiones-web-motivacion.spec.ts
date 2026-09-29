@@ -113,9 +113,9 @@ for (const vista of VISTAS) {
       await expect(valor(page, 'integracion-zoom')).toHaveText('estudio@example.com');
       await expect(estado(page, 'integracion-mailchimp')).toHaveText('Conectado');
       await expect(valor(page, 'integracion-mailchimp')).toHaveText(/^Funciona · última vez el 18 ago/);
-      // Zapier: la ficha pública de su directorio da 404 (29-sep-2026) hasta que
-      // Zapier la publique o el fundador tenga el enlace privado de invitación.
-      await expect(estado(page, 'integracion-zapier')).toHaveText('No disponible todavía');
+      // Zapier: reactivado el 29-sep-2026 con el enlace privado de invitación
+      // (la ficha pública del directorio seguía en 404).
+      await expect(estado(page, 'integracion-zapier')).toHaveText('Sin conectar');
       // Sin la clave de su app en el servidor, no hay nada que conectar: ese es su estado.
       for (const id of ['integracion-google_calendar', 'integracion-klaviyo']) {
         await expect(estado(page, id)).toHaveText(/^(Sin conectar|No disponible todavía)$/);
