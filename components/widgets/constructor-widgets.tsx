@@ -20,7 +20,7 @@ import { dbEmbudoWidgetPorOrigen, dbWidgetVistos } from '@/lib/supabase-data';
 import { useRol } from '@/lib/permisos';
 import { puedeGestionarPortalHome, puedeVer } from '@/lib/permisos-reglas';
 import {
-  botonSigueElEstilo, conVistaPrevia, faltaParaGenerar, firmaContenidoDe, urlEmbebido, urlPagina, type EntradaIntegracion,
+  botonSigueElEstilo, conVistaPrevia, faltaParaGenerar, firmaContenidoDe, tieneDisenoEnCodigo, urlEmbebido, urlPagina, type EntradaIntegracion,
 } from '@/lib/widgets/integracion';
 import { urlPopupPermitida } from '@/lib/widgets/popup-url';
 import { piezasAfectadas } from '@/lib/widgets/estilo-afectados';
@@ -434,6 +434,13 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     ? ((configEfectiva.ancho ?? anchoPorDefecto(w, configEfectiva)) === 'compacto' ? 480 : null)
     : metodo === 'popup' ? anchoPopupDe(w, configEfectiva) : null;
   const botonPropio = metodo === 'boton' && usaBotonPropio(plataforma);
+  // Lo que enseña la previa y NO cambia con el estilo de sus widgets: se dice
+  // encima (y arriba, en «Cómo se ve», con la salida). Mismas reglas que la página.
+  const noSigueElEstilo = paginaCompleta
+    ? 'Tu página de reservas se ve como tu app: el estilo de tus widgets no le llega.'
+    : tieneDisenoEnCodigo(configEfectiva, metodo)
+      ? `«${w.nombre}» tiene su propio diseño: el estilo de tus widgets no le llega.`
+      : null;
   // El botón de la previa, con el estilo que está PROBANDO (el código lleva lo publicado).
   const entradaPrevia: EntradaIntegracion = {
     ...entrada,
@@ -723,6 +730,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               abrirEn={urlPrevia}
               dispositivo={dispositivo}
               onDispositivo={setDispositivo}
+              noSigueElEstilo={noSigueElEstilo}
             />
           </div>
         )}
