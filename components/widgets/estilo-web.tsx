@@ -563,7 +563,21 @@ function BarraAplicar({ estado, onAplicar }: { estado: EstiloWebPanel; onAplicar
   const puedeDeshacer = anterior !== undefined && !pendiente && !aplicando && !sinSaber;
 
   return (
-    <div role="group" aria-label="Aplicar el estilo en tu web" className="space-y-2.5 rounded-xl border border-border bg-muted/40 p-3.5">
+    // Pegada al pie de la pantalla mientras hay cambios sin aplicar: la tarjeta
+    // de «Cómo se ve» es larga, y esta barra quedaba debajo de todo —estilo,
+    // letra, su web, el fundido, los botones, los ajustes finos y el diseño
+    // propio—. Medido con el vídeo del fundador (29-sep-2026): elegía y no veía
+    // dónde se aplicaba. Sin nada pendiente, vuelve a su sitio.
+    <div
+      role="group"
+      aria-label="Aplicar el estilo en tu web"
+      className={cn(
+        'space-y-2.5 rounded-xl border p-3.5',
+        pendiente || aplicando
+          ? 'sticky bottom-3 z-20 border-warning/40 bg-card shadow-lg'
+          : 'border-border bg-muted/40',
+      )}
+    >
       <p role="status" aria-live="polite" className="flex items-start gap-2 text-[12.5px] leading-relaxed text-foreground">
         <span aria-hidden className={cn('mt-[7px] size-2 shrink-0 rounded-full', pendiente || aplicando || sinSaber ? 'bg-warning' : 'bg-success')} />
         <span className="min-w-0">{texto}</span>

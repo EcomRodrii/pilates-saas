@@ -71,7 +71,7 @@ export type FormaPrevia =
   | { tipo: 'boton'; boton: ReactNode; pista: string; alPulsar: string; abrePagina: boolean }
   | { tipo: 'enlace' };
 
-export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, anchoWidget, abrirEn, dispositivo, onDispositivo, noSigueElEstilo = null }: {
+export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, anchoWidget, abrirEn, dispositivo, onDispositivo, noSigueElEstilo = null, alSeguirElEstilo = null }: {
   /** `null` cuando falta algo para poder enseñarlo (`falta`). */
   contenido: Contenido | null;
   falta: string | null;
@@ -91,6 +91,14 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
    * que elegir otro estilo y no ver nada no se lea como un fallo.
    */
   noSigueElEstilo?: string | null;
+  /**
+   * La salida, junto a la frase y no solo arriba de «Cómo se ve»: medido con el
+   * vídeo del fundador (29-sep-2026), la previa es lo que se tiene a la vista
+   * todo el rato, y el aviso con su botón quedaba por encima de «Estilo», fuera
+   * de la pantalla mientras elegía. Lo encontró al final, en el interruptor de
+   * abajo del todo.
+   */
+  alSeguirElEstilo?: (() => void) | null;
 }) {
   const movil = dispositivo === 'movil';
   const [grande, setGrande] = useState(false);
@@ -129,10 +137,21 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
       </div>
 
       {noSigueElEstilo && (
-        <p className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-[12px] leading-snug text-foreground">
-          <AlertTriangle size={13} aria-hidden className="mt-0.5 shrink-0 text-warning" />
-          <span className="min-w-0">{noSigueElEstilo}</span>
-        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2">
+          <p className="flex min-w-0 flex-1 basis-56 items-start gap-2 text-[12px] leading-snug text-foreground">
+            <AlertTriangle size={13} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+            <span className="min-w-0">{noSigueElEstilo}</span>
+          </p>
+          {alSeguirElEstilo && (
+            <button
+              type="button"
+              onClick={alSeguirElEstilo}
+              className={cn(TACTIL, 'shrink-0 rounded-md bg-foreground px-3 py-1.5 text-[12px] font-semibold text-background hover:bg-foreground/90', FOCO)}
+            >
+              Que siga el estilo
+            </button>
+          )}
+        </div>
       )}
 
       {forma.tipo === 'enlace' ? (
