@@ -216,6 +216,31 @@ export function leerPresentacion(fuente: FuenteConfig): 'lista' | 'semana' {
 }
 
 /**
+ * Los atributos de la nativa (Modo B) que son DISEÑO: los que pinta el bundle
+ * (app/widget-bundle/main.tsx), también `data-color`, el primario de antes del
+ * constructor, que el bundle sigue honrando sin validar. Con cualquiera con
+ * valor, el estilo de sus widgets no le llega: la regla es entera, como
+ * `urlTraeDisenoPropio` (lib/reservar/estilo-web.ts) en Modo A. Por eje no
+ * serviría: un snippet con solo `data-marca` sobre una web clara heredaría los
+ * neutros del estilo y quedaría una mezcla que nadie eligió.
+ *
+ * Fuera, a propósito, lo que no es aspecto: `identidad` (sin nada más, pide
+ * justo lo contrario: el color del estudio), `diseno`, los filtros y `ref`.
+ */
+export const PARAMS_DISENO_NATIVA = ['marca', 'color', 'fondo', 'negro', 'fuente', 'fuente-display'] as const;
+
+/**
+ * ¿Lleva el snippet de la nativa su propio diseño? Vive aquí, con el único
+ * parser del vocabulario, porque la misma pregunta la hacen el bundle (sobre el
+ * `dataset` que ve en la web del estudio) y el panel (sobre lo que emite,
+ * `tieneDisenoEnCodigo(c, 'nativa')`, lib/widgets/integracion.ts): si cada uno
+ * tuviera su regla, el panel podría prometer un estilo que el bundle no pinta.
+ */
+export function nativaTraeDisenoPropio(fuente: FuenteConfig): boolean {
+  return PARAMS_DISENO_NATIVA.some(k => (fuente.get(k) ?? '').trim() !== '');
+}
+
+/**
  * Parser único del snippet, para ambos modos. Nombres exactos del vocabulario
  * (query param en Modo A / `data-<nombre>` en Modo B):
  * `tipos`, `instructoras`, `salas` (ids separados por coma), `vista`

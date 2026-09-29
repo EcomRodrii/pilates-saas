@@ -2,11 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WIDGETS, esDisponible, widgetPorId, type MetodoIntegracion, type WidgetDisponible } from './catalogo.ts';
 import { CONFIG_POR_DEFECTO, type ConfigConstructor } from './config.ts';
-import { firmaContenidoDe, generarCodigo, urlEmbebido, type EntradaIntegracion } from './integracion.ts';
+import { firmaContenidoDe, generarCodigo, paresNativa, urlEmbebido, type EntradaIntegracion } from './integracion.ts';
 import { urlPopupPermitida } from './popup-url.ts';
 import { CLAVES_FIRMA, VERSION_FIRMA, firmaDeUrl } from './firma-contenido.ts';
 import { FIRMA_CONTENIDO_VALIDA } from './pegado.ts';
 import { PARAMS_DISENO_PROPIO } from '../reservar/estilo-web.ts';
+import { fuenteDeDataset } from '../reservar/config-widget.ts';
 
 const ORIGEN = 'https://www.tentare.app';
 const SLUG = 'pilates-centro';
@@ -112,8 +113,125 @@ test('la forma NO va en la firma: iframe y popup cargan la misma URL y dan la mi
   }
 });
 
-test('ni la nativa, ni el botón, ni el enlace tienen firma de contenido', () => {
-  for (const m of ['nativa', 'boton', 'enlace'] as const) assert.equal(firmaContenidoDe(entrada('horario'), m), null, m);
+test('ni el botón ni el enlace tienen firma de contenido; la nativa sí (Fase E), con el formato del CHECK', () => {
+  for (const m of ['boton', 'enlace'] as const) assert.equal(firmaContenidoDe(entrada('horario'), m), null, m);
+  const nativa = firmaContenidoDe(entrada('horario'), 'nativa');
+  assert.ok(nativa?.startsWith(VERSION_FIRMA), String(nativa));
+  assert.match(nativa!, FIRMA_CONTENIDO_VALIDA);
+  // No es la del iframe: la nativa no lleva `embed` ni `tab`, y sí `identidad`.
+  assert.notEqual(nativa, firmaContenidoDe(entrada('horario'), 'iframe'));
+});
+
+// ── Fase E: la nativa, desde su `dataset` ────────────────────────────────────
+// El bundle calcula la firma con `firmaDeUrl(fuenteDeDataset(host.dataset))`
+// al montarse en la web del estudio. Aquí se hace lo mismo con el `<div>` del
+// código que se copia, leído como lo lee el navegador.
+
+/**
+ * El `dataset` del `<div data-tentare-booking>` de un código, como lo daría el
+ * navegador: los `data-*` del primer `<div`, con las entidades deshechas (el
+ * HTML y el JSX las deshacen igual), el nombre en camelCase y un atributo a
+ * pelo o `=""` como `''`.
+ */
+function datasetDe(codigo: string): Record<string, string> {
+  const div = /<div\b([^>]*?)\/?>/.exec(codigo);
+  assert.ok(div, 'sin <div> en el código');
+  const ds: Record<string, string> = {};
+  for (const m of div[1].matchAll(/\s(data-[a-z0-9-]+)(?:=(?:"([^"]*)"|'([^']*)'))?/g)) {
+    const valor = (m[2] ?? m[3] ?? '')
+      .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    const camel = m[1].slice('data-'.length).replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+    if (!(camel in ds)) ds[camel] = valor;
+  }
+  return ds;
+}
+
+const CONFIGS_NATIVA: Record<string, Partial<ConfigConstructor>> = {
+  'por defecto': {},
+  tipos: { tipos: ['tc-r', 'tc-m'] },
+  'sin precio': { mostrarPrecio: false },
+  'sin nivel': { mostrarNivel: false },
+  'vista=hoy': { vista: 'hoy' },
+  completo: { diseno: 'completo' },
+  'propia con marca y una fuente con espacio': { identidad: 'propia', marca: '#123456', fuente: 'Playfair Display', fuenteDisplay: 'DM Serif Display' },
+  'etiqueta propia': { etiqueta: 'insta-bio' },
+  'sin etiqueta': { etiqueta: '' },
+  'todo el contenido': {
+    vista: 'hoy', tipos: ['tc-b', 'tc-a'], instructoras: ['ins-1', 'ins-2'], salas: ['sala-1'],
+    mostrarPrecio: false, mostrarNivel: false, mostrarSustituta: false, diseno: 'completo',
+  },
+  'propia con todo lo que entiende': { identidad: 'propia', marca: '#112233', fondo: '#fafafa', tinta: '#111111', fuente: 'Poppins' },
+  // Lo que no llega a la nativa (la semana, el pie, el ancho…) no cambia nada.
+  'lo que la nativa no lleva': { presentacion: 'semana', mostrarPie: false, ancho: 'completo', cargaDiferida: false, superficie: '#1a1a1a' },
+  'un id con lo que hay que escapar': { tipos: ['a"b<c>&d'] },
+};
+
+function* matrizNativa(): Generator<{ nombre: string; e: EntradaIntegracion }> {
+  for (const x of WIDGETS.filter(esDisponible)) {
+    if (!x.metodos.includes('nativa')) continue;
+    for (const [c, parcial] of Object.entries(CONFIGS_NATIVA)) yield { nombre: `${x.id}/${c}`, e: entrada(x, parcial) };
+  }
+}
+
+test('⚠️ ida y vuelta de la nativa: la firma del panel es la que el bundle calcula de su `dataset` (HTML y React)', () => {
+  let n = 0;
+  for (const { nombre, e } of matrizNativa()) {
+    const panel = firmaContenidoDe(e, 'nativa');
+    assert.ok(panel, nombre);
+    for (const plataforma of ['html', 'wordpress', 'webflow', 'react'] as const) {
+      const { codigo } = generarCodigo(e, 'nativa', plataforma);
+      assert.equal(firmaDeUrl(fuenteDeDataset(datasetDe(codigo))), panel, `${nombre}/${plataforma}`);
+    }
+    n++;
+  }
+  // Que la matriz no se quede corta en silencio.
+  assert.equal(n, WIDGETS.filter(x => esDisponible(x) && x.metodos.includes('nativa')).length * Object.keys(CONFIGS_NATIVA).length);
+  assert.ok(n > 0);
+});
+
+test('ida y vuelta de la nativa: `data-studio` y `data-tentare-booking` no cuentan (otro estudio, misma versión)', () => {
+  const e = entrada('horario', { tipos: ['tc-r'] });
+  const ds = datasetDe(generarCodigo(e, 'nativa', 'html').codigo);
+  assert.equal(ds.studio, 'pilates-centro');
+  assert.equal(ds.tentareBooking, '');
+  const sinEllos = { ...ds };
+  delete sinEllos.studio;
+  delete sinEllos.tentareBooking;
+  const firma = firmaDeUrl(fuenteDeDataset(ds));
+  assert.equal(firmaDeUrl(fuenteDeDataset(sinEllos)), firma);
+  assert.equal(firmaDeUrl(fuenteDeDataset({ ...ds, studio: 'otro-estudio' })), firma);
+});
+
+test('⚠️ la nativa retocada a mano es otra versión, como en el iframe', () => {
+  const e = entrada('horario', { mostrarPrecio: false });
+  const ds = datasetDe(generarCodigo(e, 'nativa', 'html').codigo);
+  const firma = firmaDeUrl(fuenteDeDataset(ds));
+  assert.equal(firma, firmaContenidoDe(e, 'nativa'));
+  // `data-ocultar-precio="1"` significa lo mismo que a pelo, pero no es lo que se copió.
+  for (const otro of [{ ...ds, ocultarPrecio: '1' }, { ...ds, diseno: 'ligero' }, { ...ds, ref: 'otra' }, { ...ds, marca: '#E11D48' }]) {
+    assert.notEqual(firmaDeUrl(fuenteDeDataset(otro)), firma, JSON.stringify(otro));
+  }
+  // ⚠️ Límite conocido: `data-color` (el primario de antes del constructor) no
+  // está en CLAVES_FIRMA, que esta fase no toca. Un código antiguo escrito a
+  // mano se firma sin él, aunque con él el estilo de sus widgets no le llegue.
+  assert.equal(firmaDeUrl(fuenteDeDataset({ ...ds, color: '#E11D48' })), firma);
+});
+
+test('⚠️ guardián: toda clave que emite la nativa está en CLAVES_FIRMA', () => {
+  // Un `data-*` nuevo sin entrar en la firma: el bundle lo pintaría distinto y
+  // la firma diría que es la misma versión.
+  const claves = new Set<string>(CLAVES_FIRMA);
+  const vistas = new Set<string>();
+  for (const { nombre, e } of matrizNativa()) {
+    for (const [k] of paresNativa(e)) {
+      vistas.add(k);
+      assert.ok(claves.has(k), `${nombre}: «${k}» no está en CLAVES_FIRMA`);
+    }
+  }
+  for (const k of ['tipos', 'instructoras', 'salas', 'vista', 'ocultar-precio', 'ocultar-nivel', 'ocultar-sustituta', 'diseno',
+    'identidad', 'ref', 'marca', 'fondo', 'negro', 'fuente', 'fuente-display']) {
+    assert.ok(vistas.has(k), `la matriz nunca emite «${k}»`);
+  }
 });
 
 // ── Robustez: lo que no es el código no la mueve ─────────────────────────────

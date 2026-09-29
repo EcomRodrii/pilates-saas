@@ -111,6 +111,26 @@ export function sessionIdWidget(): string {
 }
 
 /**
+ * Qué se manda de lo pegado con este evento, o `null` si nada. Solo con
+ * `widget_loaded`: basta una vez por visita, y el resto del embudo (donde la
+ * sesión acaba llevando el id de la socia) no tiene por qué saber de qué web
+ * vino.
+ *  - La nativa (`baseUrl`: llama desde la web del estudio): solo la versión que
+ *    el bundle calcula de sus `data-*` (Fase E). Su forma y su web las pone el
+ *    servidor a partir de la cabecera `Origin`; mandarlas sería inútil.
+ *  - La página (sin `baseUrl`): forma, anfitrión y versión, lo que fijó al montar.
+ */
+export function camposDePegado(
+  tipo: TipoEventoWidget,
+  extra: { baseUrl?: string; firma?: string | null } | undefined,
+  pegadoPagina: PegadoWidget | null,
+): { forma?: string; anfitrion?: string | null; firma?: string } | null {
+  if (tipo !== 'widget_loaded') return null;
+  if (extra?.baseUrl) return extra.firma ? { firma: extra.firma } : null;
+  return pegadoPagina ? { forma: pegadoPagina.forma, anfitrion: pegadoPagina.anfitrion, firma: pegadoPagina.firma } : null;
+}
+
+/**
  * Dispara un evento del funnel. Fire-and-forget a propósito: la analítica
  * NUNCA debe bloquear ni poder tumbar el flujo real de reserva/pago.
  * `keepalive` deja que la petición termine aunque la visitante navegue justo
@@ -124,7 +144,9 @@ export function trackEventoWidget(
   // booking_completed/booking_abandoned) — nunca en los anónimos. Habilita
   // la recuperación de un abandono conocido sin ampliar el diseño anónimo
   // de esta tabla más de lo justo. Ver docs/cro-analytics-widget-diseno.md §5.2.
-  extra?: { sesionClaseId?: string | null; origen?: string | null; baseUrl?: string; socioId?: string | null },
+  // `firma` (Fase E): la versión del código sin marco, solo con `baseUrl` y
+  // solo en `widget_loaded` (`camposDePegado`); en cualquier otro caso se ignora.
+  extra?: { sesionClaseId?: string | null; origen?: string | null; baseUrl?: string; socioId?: string | null; firma?: string | null },
 ): void {
   if (typeof window === 'undefined' || !studioId || silenciado) return;
   try {
@@ -137,12 +159,8 @@ export function trackEventoWidget(
       ? `${extra.baseUrl}/api/public/evento?studioId=${encodeURIComponent(studioId)}`
       : '/api/public/evento';
     const socioId = extra?.socioId ?? null;
-    // Sin `baseUrl`: la nativa llama desde la web del estudio y su anfitrión
-    // lo pone el servidor a partir de la cabecera `Origin`, no el cuerpo. Se
-    // lee YA, no dentro de `enviar`: es lo de esta llamada.
-    const pegadoAqui = tipo === 'widget_loaded' && !extra?.baseUrl && pegado
-      ? { forma: pegado.forma, anfitrion: pegado.anfitrion, firma: pegado.firma }
-      : null;
+    // Se lee YA, no dentro de `enviar`: es lo de esta llamada.
+    const pegadoAqui = camposDePegado(tipo, extra, pegado);
     const enviar = async () => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       // C-4 (auditoría 29-ago): solo se busca token cuando el evento va

@@ -139,7 +139,11 @@ export interface VistoWidget {
   forma: FormaPegada;
   /** El origen de su web, o `null` si no nos lo dijo. */
   anfitrion: string | null;
-  /** `firmaDeUrl` de lo que cargó, o `null` (la nativa no la manda). */
+  /**
+   * `firmaDeUrl` de lo que cargó, o `null` (visitas de antes de guardarla, o
+   * servidas con un `widget.js` en caché). La nativa, desde la Fase E, la
+   * calcula de sus `data-*`.
+   */
   firma: string | null;
   /** ISO. */
   primero: string;

@@ -5,12 +5,15 @@ import { CONFIG_POR_DEFECTO, leerConfig, leerConfigs, etiquetaEfectiva, anchoPor
 import {
   urlEmbebido, urlPagina, atributosNativa, generarCodigo, faltaParaGenerar, plataformasDe,
   estiloBoton, firmaCodigo, conVistaPrevia, botonSigueElEstilo, colorBoton, idIframe, type EntradaIntegracion,
+  paresNativa, lectorDePares, tieneDisenoEnCodigo,
 } from './integracion.ts';
+import { huella } from './huella.ts';
 import { usaBotonVivo, type BotonVivo } from './boton-vivo.ts';
 import { PARAM_BORRADOR, WIDGET_WEB_NEUTRO, leerWidgetWeb } from '../reservar/estilo-web-tipos.ts';
 import { baseEstiloWeb, botonDeLaVentana, leerBorradorWeb } from '../reservar/estilo-web.ts';
 import { scriptSnippetIframe } from '../reservar/snippet-embed.ts';
-import { resolverConfigWidget, fuenteDeDataset, leerPresentacion } from '../reservar/config-widget.ts';
+import { resolverConfigWidget, fuenteDeDataset, leerPresentacion, nativaTraeDisenoPropio } from '../reservar/config-widget.ts';
+import { urlTraeDisenoPropio } from '../reservar/estilo-web.ts';
 import { resolverApariencia } from '../reservar/apariencia-widget.ts';
 
 const ORIGEN = 'https://www.tentare.app';
@@ -210,7 +213,139 @@ test('nativa con la identidad del estudio: lo dice, y no congela colores', () =>
   assert.ok(!attrs.some(a => a.startsWith('data-diseno')));
 });
 
+// ── Fase E: los `data-*` de la nativa como los leerá `dataset` ──────────────
+
+test('paresNativa: kebab y sin escapar; un booleano a pelo vale `\'\'` (lo que da el navegador)', () => {
+  const e = entrada('horario', { mostrarPrecio: false, mostrarNivel: false, tipos: ['a"b<c>&d'], vista: 'hoy', diseno: 'completo' });
+  assert.deepEqual(paresNativa(e), [
+    ['vista', 'hoy'], ['tipos', 'a"b<c>&d'], ['ocultar-precio', ''], ['ocultar-nivel', ''], ['diseno', 'completo'],
+    ['identidad', 'estudio'], ['ref', 'web-horario'],
+  ]);
+  // Y el código los escapa y deja los booleanos a pelo, como siempre.
+  assert.deepEqual(atributosNativa(e), [
+    'data-vista="hoy"', 'data-tipos="a&quot;b&lt;c&gt;&amp;d"', 'data-ocultar-precio', 'data-ocultar-nivel', 'data-diseno="completo"',
+    'data-identidad="estudio"', 'data-ref="web-horario"',
+  ]);
+  const propia = paresNativa(entrada('horario', { identidad: 'propia', marca: '#112233', fondo: '#fafafa', tinta: '#111111', fuente: 'Playfair Display', fuenteDisplay: 'Poppins', etiqueta: '' }));
+  assert.deepEqual(propia, [['marca', '#112233'], ['fondo', '#fafafa'], ['negro', '#111111'], ['fuente', 'Playfair Display'], ['fuente-display', 'Poppins']]);
+});
+
+test('⚠️ atributosNativa no cambia ni un carácter: una lista vacía escrita a mano sigue con su `=""`', () => {
+  // `tipos: ['']` da un valor vacío que NO es un booleano: el código de antes
+  // lo escribía `data-tipos=""`, y así se queda (para `dataset`, los dos son '').
+  assert.deepEqual(atributosNativa(entrada('horario', { tipos: [''] })), ['data-tipos=""', 'data-identidad="estudio"', 'data-ref="web-horario"']);
+  assert.deepEqual(paresNativa(entrada('horario', { tipos: [''] }))[0], ['tipos', '']);
+});
+
+test('lectorDePares: como `dataset` o `URLSearchParams`, la primera aparición; ausente es null', () => {
+  const l = lectorDePares([['a', '1'], ['b', ''], ['a', '2']]);
+  assert.equal(l.get('a'), '1');
+  assert.equal(l.get('b'), '');
+  assert.equal(l.get('c'), null);
+});
+
+/** Configs que tocan todo lo que puede emitir la nativa, y lo que emite el iframe y la nativa no entiende. */
+const CONFIGS_DISENO: Record<string, Partial<ConfigConstructor>> = {
+  estudio: {},
+  'estudio con colores guardados': { marca: '#112233', superficie: '#1a1a1a' },
+  'propia sin tocar nada': { identidad: 'propia' },
+  'propia con marca': { identidad: 'propia', marca: '#112233' },
+  'propia con fondo': { identidad: 'propia', fondo: '#fafafa' },
+  'propia con fondo transparente': { identidad: 'propia', fondo: 'transparente' },
+  'propia con tinta': { identidad: 'propia', tinta: '#111111' },
+  'propia con letra': { identidad: 'propia', fuente: 'Playfair Display' },
+  'propia con letra de titulares': { identidad: 'propia', fuenteDisplay: 'Poppins' },
+  'propia con solo superficie': { identidad: 'propia', superficie: '#1a1a1a' },
+  'propia con línea, tema, forma y densidad': { identidad: 'propia', linea: '#333333', tema: 'oscuro', forma: 'recto', densidad: 'compacta' },
+  'propia con todo': {
+    identidad: 'propia', marca: '#112233', fondo: '#fafafa', tinta: '#111111', superficie: '#1a1a1a', linea: '#333333',
+    tema: 'claro', forma: 'pill', densidad: 'comoda', fuente: 'Playfair Display', fuenteDisplay: 'Poppins',
+  },
+};
+
+test('⚠️ tieneDisenoEnCodigo(c, \'nativa\') es la regla del bundle sobre lo que emite; sin método, la del iframe de siempre', () => {
+  for (const [nombre, parcial] of Object.entries(CONFIGS_DISENO)) {
+    const e = entrada('horario', parcial);
+    // La nativa: lo que diría el bundle al leer su `dataset`.
+    assert.equal(tieneDisenoEnCodigo(e.config, 'nativa'), nativaTraeDisenoPropio(lectorDePares(paresNativa(e))), nombre);
+    // El resto: lo que diría /reservar al leer su URL (lo de siempre).
+    for (const m of ['iframe', 'popup'] as const) {
+      assert.equal(tieneDisenoEnCodigo(e.config, m), urlTraeDisenoPropio(params(urlEmbebido(e, m))), `${nombre}/${m}`);
+    }
+    assert.equal(tieneDisenoEnCodigo(e.config), tieneDisenoEnCodigo(e.config, 'iframe'), nombre);
+  }
+  const c = (p: Partial<ConfigConstructor>) => ({ ...CONFIG_POR_DEFECTO, ...p });
+  // «Propia» con solo lo que la nativa no emite: diseño propio en el iframe, no sin marco.
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con solo superficie'])), true);
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con solo superficie']), 'nativa'), false);
+  // Con marca, en los dos.
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con marca'])), true);
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con marca']), 'nativa'), true);
+  // Con la identidad del estudio, en ninguno (aunque haya colores guardados de antes).
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['estudio con colores guardados'])), false);
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['estudio con colores guardados']), 'nativa'), false);
+  // El fondo transparente no se emite sin marco: sin atributo ya deja ver su web.
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con fondo transparente']), 'nativa'), false);
+  // Botón y enlace siguen con la regla de siempre.
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con marca']), 'boton'), true);
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con solo superficie']), 'enlace'), true);
+});
+
 // ── Código generado ──────────────────────────────────────────────────────────
+
+test('⚠️ literal fijo: el código por defecto de cada método, carácter a carácter', () => {
+  // Si esto falla, lo que copia una dueña cambia sin que ella toque nada (y lo
+  // ya pegado sale como «cambiado después de copiarlo»). O el cambio no quería
+  // tocar el código y hay que deshacerlo, o sí, y el literal se actualiza a la vez.
+  const e = entrada('horario');
+  const iframe = generarCodigo(e, 'iframe', 'html').codigo.split('\n');
+  assert.equal(iframe[0], `<iframe id="tentare-widget-${SLUG}-horario" src="${ORIGEN}/reservar/${SLUG}?embed=1&tab=clases&ref=web-horario" style="width:100%;max-width:480px;height:640px;border:0;border-radius:12px;" title="Horario y reservas" loading="lazy" allow="payment"></iframe>`);
+  assert.deepEqual(iframe.slice(1), [scriptSnippetIframe({ origen: ORIGEN, slug: SLUG, iframeId: `tentare-widget-${SLUG}-horario` })]);
+  assert.equal(generarCodigo(e, 'nativa', 'html').codigo, `<div data-tentare-booking data-studio="${SLUG}" data-identidad="estudio" data-ref="web-horario"></div>
+<script src="${ORIGEN}/widget.js" async></script>`);
+  assert.equal(generarCodigo(e, 'nativa', 'react').codigo, `import { useEffect } from 'react';
+
+// Horario y reservas — integración nativa de Tentare (sin marco).
+export function TentareHorarioYReservas() {
+  useEffect(() => {
+    if (document.querySelector('script[src="${ORIGEN}/widget.js"]')) return;
+    const s = document.createElement('script');
+    s.src = '${ORIGEN}/widget.js';
+    s.async = true;
+    document.body.appendChild(s);
+  }, []);
+  return (
+    <div
+      data-tentare-booking=""
+      data-studio='${SLUG}'
+      data-identidad="estudio"
+      data-ref="web-horario"
+    />
+  );
+}`);
+  assert.equal(generarCodigo(e, 'popup', 'html').codigo, `<button type="button" data-tentare-popup="${ORIGEN}/reservar/${SLUG}?embed=1&tab=clases&ref=web-horario" data-tentare-titulo="Horario y reservas" data-tentare-ancho="720" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 22px;font:inherit;font-weight:600;font-size:15px;line-height:1.2;text-decoration:none;cursor:pointer;background:#7A2E4F;background:var(--tentare-boton,#7A2E4F);color:#FFFFFF;color:var(--tentare-boton-texto,#FFFFFF);border:1.5px solid #7A2E4F;border:1.5px solid var(--tentare-boton,#7A2E4F);border-radius:999px;border-radius:var(--tentare-boton-radio,999px);">Reservar clase</button>
+<script src="${ORIGEN}/widget-popup.js" async></script>`);
+  assert.equal(generarCodigo(e, 'boton', 'html').codigo, `<a href="${ORIGEN}/reservar/${SLUG}?ref=web-horario" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 22px;font:inherit;font-weight:600;font-size:15px;line-height:1.2;text-decoration:none;cursor:pointer;background:#7A2E4F;color:#FFFFFF;border:1.5px solid #7A2E4F;border-radius:999px;">Reservar clase</a>`);
+  assert.equal(generarCodigo(e, 'enlace', 'html').codigo, `${ORIGEN}/reservar/${SLUG}?ref=web-horario`);
+});
+
+test('⚠️ literal fijo: el código por defecto de TODOS los widgets, métodos y plataformas no se mueve', () => {
+  // Una huella de los 164 códigos, calculada antes de la Fase E y comprobada
+  // contra el volcado de entonces. Si falla, el test de arriba (o un volcado
+  // de `generarCodigo`) dice cuál cambió; si el cambio era a propósito, se
+  // actualiza el literal en el mismo commit.
+  const partes: string[] = [];
+  for (const x of WIDGETS.filter(esDisponible)) {
+    for (const m of x.metodos) {
+      for (const p of ['html', 'wordpress', 'webflow', 'react'] as const) {
+        partes.push(`${x.id}/${m}/${p}\n${generarCodigo(entrada(x.id, { sesion: 'ses-1' }), m, p).codigo}`);
+      }
+    }
+  }
+  assert.equal(partes.length, 164);
+  assert.equal(huella(partes.join('\n\n')), '1pf0zfz');
+});
+
 
 test('iframe HTML: el src es la URL del motor, con auto-alto y carga diferida', () => {
   const { codigo, lenguaje } = generarCodigo(entrada('horario'), 'iframe', 'html');

@@ -21,6 +21,15 @@ export interface PegadoDelEvento {
 const NADA: PegadoDelEvento = { forma: null, anfitrion: null, firma: null };
 
 /**
+ * La versión que dice el cuerpo, si tiene la forma del CHECK de
+ * `widget_eventos.firma`. Una firma rara no invalida el resto: la visita y la
+ * web siguen siendo ciertas, solo no sabemos qué versión era.
+ */
+function firmaDelCuerpo(v: unknown): string | null {
+  return typeof v === 'string' && FIRMA_CONTENIDO_VALIDA.test(v) ? v : null;
+}
+
+/**
  * Los orígenes que son Tentare para esta petición: el canónico y el de la
  * propia petición (el despliegue que la atiende, `localhost` en desarrollo).
  * Aparte para que la ruta y el test usen exactamente la misma lista.
@@ -53,14 +62,17 @@ export function pegadoDelEvento(x: {
   // cabecera `Origin`, que pone el navegador y no la página. Tener la cabecera
   // no basta (un POST del mismo origen también la manda, según Fetch): hace
   // falta además el `?studioId=` que solo pone el bundle, y que el origen no
-  // sea de Tentare. Lo que diga el cuerpo aquí no cuenta.
+  // sea de Tentare. Del cuerpo aquí solo cuenta la FIRMA (Fase E): la calcula
+  // el bundle de los `data-*` de su código (`firmaDeUrl` sobre su `dataset`);
+  // la forma y la web que diga el cuerpo se ignoran. Una firma falsa escrita a
+  // mano solo cambia qué versión se enseña de ESA web, que ya es suya.
   //
   // ⚠️ Y esa web tiene que estar autorizada por ESTE estudio: «Visto en» solo
   // nombra webs que el propio estudio dio por suyas. La nativa de verdad solo
   // carga en webs autorizadas, así que no se pierde ninguna carga real.
   if (x.studioIdEnUrl && x.origenCabecera && !esOrigenDeTentare(x.origenCabecera, x.propios)) {
     if (!x.nativaAutorizada) return NADA;
-    return { forma: 'nativa', anfitrion: origenAnfitrion(x.origenCabecera), firma: null };
+    return { forma: 'nativa', anfitrion: origenAnfitrion(x.origenCabecera), firma: firmaDelCuerpo(x.cuerpo.firma) };
   }
 
   // Dentro de una página o encima: lo cuenta la página (/reservar), que es la
@@ -82,11 +94,5 @@ export function pegadoDelEvento(x: {
   const origen = origenAnfitrion(x.cuerpo.anfitrion);
   const anfitrion = origen && !esOrigenDeTentare(origen, x.propios) ? origen : null;
 
-  // Una firma rara no invalida el resto: la visita y la web siguen siendo
-  // ciertas, solo no sabemos qué versión era.
-  const firma = typeof x.cuerpo.firma === 'string' && FIRMA_CONTENIDO_VALIDA.test(x.cuerpo.firma)
-    ? x.cuerpo.firma
-    : null;
-
-  return { forma, anfitrion, firma };
+  return { forma, anfitrion, firma: firmaDelCuerpo(x.cuerpo.firma) };
 }
