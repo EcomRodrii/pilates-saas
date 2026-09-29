@@ -409,8 +409,11 @@ export function proximoFinDesdeVencimiento(
 // cobrado a mano) — antes cada uno tenía su propia copia, y este fichero ya
 // avisa varias veces de qué pasa cuando dos «espejos» divergen en silencio.
 export function proximoFinNatural(plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>>): string {
+  // UTC explícito, no local: los métodos locales (`setMonth`) asumen que el
+  // proceso corre en UTC, una asunción sin guardia en un fichero que en todo
+  // lo demás es cuidadoso con esto (hallazgo de auditoría, 2026-09-29).
   const nuevaFin = new Date();
-  nuevaFin.setMonth(nuevaFin.getMonth() + mesesDeCiclo(plan));
+  nuevaFin.setUTCMonth(nuevaFin.getUTCMonth() + mesesDeCiclo(plan));
   return nuevaFin.toISOString().slice(0, 10);
 }
 

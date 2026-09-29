@@ -13,7 +13,7 @@
 // perder el mes de caducidad es molesto; perder la confirmación de un cobro es
 // dinero.
 // ─────────────────────────────────────────────────────────────────────────────
-import type Stripe from 'stripe';
+import Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface CaducidadTarjeta {
@@ -87,6 +87,35 @@ export async function guardarCaducidadTarjeta(
   } catch (e) {
     // Ver la nota de arriba: esto nunca propaga.
     console.error('[caducidad-tarjeta] Stripe no devolvió el método', p.paymentMethodId, e);
+    // Auditoría de cobros recurrentes (2026-09-29): «resource_missing» es
+    // Stripe confirmando que este método YA NO EXISTE (tarjeta eliminada por
+    // la socia, cuenta Connect desconectada y reconectada…), no un fallo de
+    // red pasajero — el resto de errores (timeout, 5xx) no entra aquí y se
+    // reintenta solo mañana con el mismo id, como siempre. Sin este aviso, el
+    // sistema seguía creyendo que había una tarjeta válida hasta que un cobro
+    // de verdad fallaba contra ella — el hueco de "nadie verifica el método
+    // antes de que lo intente el dunning" que encontró la auditoría.
+    //
+    // Compare-and-set por el propio id: si `guardar-metodo-de-compra.ts` ya
+    // guardó una tarjeta NUEVA entre el fallo y este momento, este UPDATE no
+    // toca nada (la condición `stripe_payment_method_id = p.paymentMethodId`
+    // ya no se cumple) — nunca borra un método que ya no es el que falló.
+    //
+    // Limpiarlo (no solo avisar) reutiliza infraestructura ya existente sin
+    // eventos nuevos: `sociosConMetodoCobro` (lib/inngest/renovaciones.ts) deja
+    // de contar a esta socia, así que su próxima renovación entra sola por el
+    // camino de "sin tarjeta" (`emitirRenovacionSinTarjeta`, ya construido)
+    // en vez de fallar en silencio contra un método que Stripe ya rechazaba.
+    if (e instanceof Stripe.errors.StripeError && e.code === 'resource_missing') {
+      try {
+        await admin.from('socios').update({
+          stripe_payment_method_id: null,
+          tarjeta_exp_mes: null, tarjeta_exp_anio: null, tarjeta_marca: null, tarjeta_ultimos4: null,
+        }).eq('id', p.socioId).eq('studio_id', p.studioId).eq('stripe_payment_method_id', p.paymentMethodId);
+      } catch (e2) {
+        console.error('[caducidad-tarjeta] no se pudo limpiar el método muerto', p.socioId, e2);
+      }
+    }
     return null;
   }
 }
