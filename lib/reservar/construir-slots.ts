@@ -5,7 +5,7 @@ import type {
 } from '@/lib/types';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import type { SociaSesion } from '@/lib/use-socia-session';
-import { resolutorCobertura, precioDeCobertura, textoCobertura } from './cobertura.ts';
+import { resolutorCobertura, precioDeCobertura, notaCobertura, textoCoberturaCorto } from './cobertura.ts';
 import { claseSirvePara } from './objetivos.ts';
 
 import { franjaLocalDe } from '../utils.ts';
@@ -174,8 +174,11 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
         miOfertaExpiraEn: mia?.ofertaExpiraEn ?? null,
         precio: precioDeCobertura(cobertura(s.tipoClaseId)),
         // Lo que de verdad cierra "nunca llegar al checkout sin saber qué
-        // reservas": de qué bono sale y cuánto queda después.
-        coberturaTexto: textoCobertura(cobertura(s.tipoClaseId)),
+        // reservas": de qué bono sale y cuánto queda después. La ficha lo dice
+        // en dos sitios (F4 del rediseño): en corto junto a las plazas, y en
+        // largo solo cuando añade algo (ver `notaCobertura`).
+        coberturaCorta: textoCoberturaCorto(cobertura(s.tipoClaseId)),
+        coberturaTexto: notaCobertura(cobertura(s.tipoClaseId)),
       } satisfies ReservaSlot;
     });
 }

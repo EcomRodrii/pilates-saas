@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { coberturaDeClase, estaCubierta, textoCobertura, textoCoberturaListaEspera, precioDeCobertura } from './cobertura.ts';
+import { coberturaDeClase, estaCubierta, textoCobertura, textoCoberturaListaEspera, precioDeCobertura, textoCoberturaCorto, notaCobertura } from './cobertura.ts';
 import { tieneEntitlementActivo, bonoConsumible, bonoDevolvible } from '../bono-logic.ts';
 import type { PlanTarifa, Suscripcion } from '../types.ts';
 
@@ -376,4 +376,53 @@ test('invariante: si la cobertura dice MENSUAL, no se consume NI se devuelve bon
   assert.ok(vecesQueLaMensualGano >= 4, `la matriz no ejerció el caso MENSUAL (${vecesQueLaMensualGano})`);
   assert.ok(vecesQuePagoElBono >= 3, `la matriz no ejerció el caso BONO (${vecesQuePagoElBono})`);
   assert.equal(vecesSinTipo, escenarios.length, 'la matriz no ejerció el caso «sin tipo de clase»');
+});
+
+// ── La fila corta y la nota larga de la ficha (F4 del rediseño de /reservar) ──
+//
+// La fila de arriba dice lo que cuesta en dos palabras, como la app de la
+// alumna; la nota de abajo, de dónde sale. Juntas no pueden repetir el importe.
+
+test('la fila corta: con bono, con plan, o el precio de la clase suelta', () => {
+  const base = { socioId: SOCIA, planesTarifa: [BONO_REFORMER, MENSUAL_TODO], hoyISO: HOY, tipoClaseId: REFORMER, precioClaseSuelta: 15 };
+  assert.equal(textoCoberturaCorto(coberturaDeClase({ ...base, suscripciones: [sus({ planId: BONO_REFORMER.id, sesionesRestantes: 5 })] })), 'Con tu bono · 1 sesión');
+  assert.equal(textoCoberturaCorto(coberturaDeClase({ ...base, suscripciones: [sus({ planId: MENSUAL_TODO.id })] })), 'Incluida en tu plan');
+  assert.equal(textoCoberturaCorto(coberturaDeClase({ ...base, suscripciones: [] })), '15 € clase suelta');
+  assert.equal(textoCoberturaCorto(coberturaDeClase({ ...base, socioId: null, suscripciones: [] })), '15 € clase suelta');
+  // Bono que no cubre ESTA clase: se paga como suelta, y la fila da el importe.
+  assert.equal(textoCoberturaCorto(coberturaDeClase({ ...base, tipoClaseId: MAT, suscripciones: [sus({ planId: BONO_REFORMER.id, sesionesRestantes: 5 })] })), '15 € clase suelta');
+});
+
+test('la fila corta no inventa un importe que no hay', () => {
+  const c = coberturaDeClase({
+    socioId: SOCIA, suscripciones: [sus({ planId: BONO_REFORMER.id, sesionesRestantes: 5 })], planesTarifa: [BONO_REFORMER],
+    hoyISO: HOY, tipoClaseId: MAT, precioClaseSuelta: null,
+  });
+  assert.equal(c.estado, 'NO_CUBRE_ESTA_CLASE');
+  assert.equal(textoCoberturaCorto(c), null);
+  // Ahí la que habla es la nota larga.
+  assert.equal(notaCobertura(c), textoCobertura(c));
+});
+
+test('la nota larga se calla cuando solo repetiría el precio de la fila', () => {
+  const sinPlan = coberturaDeClase({ socioId: SOCIA, suscripciones: [], planesTarifa: [], hoyISO: HOY, tipoClaseId: REFORMER, precioClaseSuelta: 15 });
+  const anonima = coberturaDeClase({ socioId: null, suscripciones: [], planesTarifa: [], hoyISO: HOY, tipoClaseId: REFORMER, precioClaseSuelta: 15 });
+  assert.equal(notaCobertura(sinPlan), null);
+  assert.equal(notaCobertura(anonima), null);
+});
+
+test('la nota larga se queda cuando dice algo que la fila no dice', () => {
+  const conBono = coberturaDeClase({
+    socioId: SOCIA, suscripciones: [sus({ planId: BONO_REFORMER.id, sesionesRestantes: 5 })], planesTarifa: [BONO_REFORMER],
+    hoyISO: HOY, tipoClaseId: REFORMER, precioClaseSuelta: 15,
+  });
+  // De qué bono sale y cuánto queda: e2e/reservar-que-me-cuesta.spec.ts busca esta frase entera.
+  assert.equal(notaCobertura(conBono), 'Descuenta 1 sesión de tu Bono 10 Reformer · te quedarán 4');
+  const noCubre = coberturaDeClase({
+    socioId: SOCIA, suscripciones: [sus({ planId: BONO_REFORMER.id, sesionesRestantes: 5 })], planesTarifa: [BONO_REFORMER],
+    hoyISO: HOY, tipoClaseId: MAT, precioClaseSuelta: 15,
+  });
+  assert.match(notaCobertura(noCubre)!, /no cubre esta clase/);
+  // Y la nota nunca lleva el importe que ya dice la fila.
+  assert.doesNotMatch(notaCobertura(noCubre)!, /15/);
 });

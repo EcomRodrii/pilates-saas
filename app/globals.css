@@ -1066,8 +1066,28 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
    normal) — sortea el problema en vez de necesitar el sistema `cq(...)` de
    tokens, pensado para interpolar un número, no para cambiar de layout. */
 .pantalla-reserva-contenedor { container-type: inline-size; }
+/* F4 del rediseño (29-sep-2026): en el móvil, una columna en el orden del DOM
+   —la foto, los datos y el pago, y DESPUÉS los detalles de la clase—, para que
+   el formulario empiece en la primera pantalla. En escritorio, la clase a la
+   izquierda (foto y detalles) y los datos y el pago a la derecha, por áreas con
+   nombre: el orden del DOM (el del móvil) no cambia. Sin relleno lateral en el
+   móvil, porque la hoja que lo monta (PublicSheet, page.tsx) ya lleva el suyo:
+   con los dos, el formulario quedaba a 42 px del borde. */
+.pantalla-reserva-cabecera,
+.pantalla-reserva-grid { max-width: 1040px; margin-inline: auto; }
+.pantalla-reserva-grid { grid-template-columns: minmax(0, 1fr); }
 @container (min-width: 760px) {
-  .pantalla-reserva-grid { grid-template-columns: 1fr 1fr !important; align-items: start; }
+  .pantalla-reserva-cabecera,
+  .pantalla-reserva-grid { padding-inline: 28px; }
+  .pantalla-reserva-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "heroe tarjeta" "detalles tarjeta";
+    align-items: start;
+  }
+  .pantalla-reserva-heroe { grid-area: heroe; }
+  .pantalla-reserva-tarjeta { grid-area: tarjeta; }
+  .pantalla-reserva-detalles { grid-area: detalles; }
 }
 
 /* Auditoría de conversión (2026-08-31): total+CTA de "Tus datos" pegados al
@@ -1109,13 +1129,26 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
 /* prefers-reduced-motion ya se respeta globalmente (regla `*` más abajo en
    este fichero) — nada per-animación que añadir aquí. */
 
-/* Código promocional expandido — mismo criterio visual que el resto de
-   campos de la pantalla (línea + fondo sutil), auditado contra Momence. */
+/* Código promocional expandido — el mismo campo que los de «Tus datos» (F4:
+   el `.input` de la app, 50 px y las esquinas de input del widget). */
 .pantalla-reserva-codigo {
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px; border-radius: 12px;
-  border: 1.5px solid var(--portal-line); background: var(--portal-surface-2);
+  min-height: 50px; padding: 0 12px 0 14px; border-radius: var(--reservar-radio-input, 14px);
+  border: 1.5px solid var(--portal-line); background: var(--portal-surface);
+  transition: border-color .2s ease, box-shadow .2s ease;
 }
+
+/* Hover de los campos y de las opciones de «Qué compras» (solo con ratón: en
+   táctil el hover se queda pegado), y el foco de teclado de las opciones — son
+   botones con su borde en línea, así que el anillo va por fuera. `!important`
+   donde el borde viene en un `style` en línea, que de otro modo gana (el mismo
+   motivo que el `:focus` de los campos, más arriba). */
+@media (hover: hover) {
+  .pantalla-reserva-campo:hover:not(:focus) { border-color: var(--portal-muted) !important; }
+  .pantalla-reserva-codigo:hover:not(:focus-within) { border-color: var(--portal-muted); }
+  .pantalla-reserva-opcion[aria-checked='false']:hover { border-color: var(--portal-muted) !important; }
+}
+.pantalla-reserva-opcion:focus-visible { outline: 2px solid var(--portal-brand); outline-offset: 2px; }
 
 /* Fase 5 (QA): foco de teclado visible en TODOS los campos, no solo en
    "Nombre" — `CampoTexto` (pantalla-reserva.tsx) quita el `outline` nativo

@@ -18,7 +18,7 @@ import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva, type TipoPlan } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, seArreglaComprando } from '@/lib/bono-logic';
 import { planesComprablesParaReservar, planCubreTipo } from '@/lib/reserva-planes-comprables';
-import { resolutorCobertura, precioDeCobertura, textoCobertura, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
+import { resolutorCobertura, precioDeCobertura, notaCobertura, textoCoberturaCorto, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
@@ -1391,9 +1391,13 @@ export default function ReservarPage() {
           precio: modoPrueba
             ? ((ofertaPruebaPara(s.tipoClaseId)?.precio ?? 0) > 0 ? ofertaPruebaPara(s.tipoClaseId)!.precio : null)
             : precioDeCobertura(cobertura(s.tipoClaseId)),
+          // F4: la ficha dice lo que cuesta en corto, junto a las plazas, y en
+          // largo solo cuando añade algo (lib/reservar/cobertura.ts). En la
+          // vista de prueba lo explica la frase larga («Tu clase de prueba»).
           coberturaTexto: modoPrueba
             ? ((ofertaPruebaPara(s.tipoClaseId)?.precio ?? 0) > 0 ? 'Tu clase de prueba' : 'Tu clase de prueba, gratis')
-            : textoCobertura(cobertura(s.tipoClaseId)),
+            : notaCobertura(cobertura(s.tipoClaseId)),
+          coberturaCorta: modoPrueba ? null : textoCoberturaCorto(cobertura(s.tipoClaseId)),
           coberturaTextoListaEspera: textoCoberturaListaEspera(cobertura(s.tipoClaseId)),
         } satisfies ReservaSlot;
       });
@@ -3365,6 +3369,8 @@ export default function ReservarPage() {
                 // sobre qué le va a costar, no solo un paso de menos.
                 saltarFichaSiInvitada={!autenticado}
                 avisoRequisitoCompra={avisoRequisitoCompra}
+                // La fila «Dónde» de la ficha: la calle del estudio y la sala.
+                direccionEstudio={studio?.direccion ?? null}
                 loading={!dataLoaded}
                 onReservar={handleReservarCalendario}
                 onCancelar={cancelarReserva}
@@ -4277,7 +4283,7 @@ export default function ReservarPage() {
                 onVolver={closeBooking}
                 estudioNombre={estudioNombre}
                 ocultarNombreEstudio={!embedMode}
-                estudioDireccion={estudioDireccion}
+                estudioDireccion={studio?.direccion ?? ''}
                 studioId={studio?.id ?? ''}
                 clase={{
                   nombre: bookingSesion.tipo?.nombre ?? '',
@@ -4288,10 +4294,19 @@ export default function ReservarPage() {
                   fin: bookingSesion.fin,
                   duracionMinutos: bookingSesion.tipo?.duracionMinutos ?? null,
                   instructorNombre: bookingSesion.instructor?.nombre ?? null,
+                  instructorFotoUrl: bookingSesion.instructor?.fotoUrl ?? null,
+                  instructorRol: bookingSesion.instructor?.rol ?? null,
                   salaNombre: bookingSesion.sala?.nombre ?? null,
                   nivel: bookingSesion.tipo?.nivel ? NIVEL_LABEL[bookingSesion.tipo.nivel] : null,
                   plazasLibres: Math.max(0, bookingSesion.aforoMaximo - bookingSesion.ocupadas),
+                  aforoMaximo: bookingSesion.aforoMaximo,
                 }}
+                // F4: la fila «Cancelación» dice la ventana REAL de esta clase
+                // (la misma cifra que la línea de confianza del pago), y la
+                // forma y la densidad del widget incrustado mandan también aquí.
+                ventanaCancelacionHoras={bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0}
+                radios={radiosDe(apariencia, { tarjeta: R.card, boton: R.pill, input: 14 })}
+                densidadEsc={escalaDensidad(apariencia)}
                 precio={datosPlan.precio}
                 fase={loginStep === 'pago' ? 'pago' : 'datos'}
                 loginForm={loginForm}
@@ -4470,16 +4485,27 @@ export default function ReservarPage() {
             {/* ── CONFIRM ── */}
             {loginStep === 'confirm' && bookingSesion && (
               <div className="paso-anim">
-                <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-4">Confirmar reserva</h2>
-                <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: bookingSesion.tipo?.color ?? PRIMARY }} />
-                    <p className="text-[var(--portal-ink)] font-bold">{bookingSesion.tipo?.nombre}</p>
+                {/* F4 del rediseño: la hoja «Confirma tu plaza» de la app
+                    (`BookingSummary`): el título, la clase en una tarjeta con
+                    la instructora, y debajo lo que hay que saber. El botón de
+                    abajo sigue diciendo «Confirmar reserva». */}
+                <h2 style={{ margin: '0 0 14px', fontFamily: serif, fontWeight: pesoTitular(800), fontSize: 22, lineHeight: 1.15, letterSpacing: '-.02em', color: 'var(--portal-ink)' }}>
+                  Confirma tu plaza
+                </h2>
+                <div className="flex items-center gap-3 mb-3" style={{ padding: '12px 14px', borderRadius: R.chipCard, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)' }}>
+                  <span aria-hidden="true" className="shrink-0 flex items-center justify-center rounded-full" style={{ width: 40, height: 40, background: 'var(--portal-surface-2)', border: '1px solid var(--portal-line)', color: 'var(--portal-muted)', fontSize: 13, fontWeight: 800 }}>
+                    {(bookingSesion.instructor?.nombre ?? bookingSesion.tipo?.nombre ?? '·').trim().split(/\s+/).slice(0, 2).map(p => p[0] ?? '').join('').toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[var(--portal-ink)]" style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.25 }}>{bookingSesion.tipo?.nombre}</p>
+                    <p className="text-[var(--portal-muted-2)]" style={{ fontSize: 12.5, marginTop: 2, lineHeight: 1.4 }}>
+                      {fmtLong(new Date(bookingSesion.inicio))} · {fmtTime(bookingSesion.inicio)}{bookingSesion.instructor?.nombre ? ` · ${bookingSesion.instructor.nombre}` : ''}
+                    </p>
                   </div>
-                  <p className="text-[var(--portal-muted-2)] text-sm">{fmtLong(new Date(bookingSesion.inicio))}</p>
-                  <p className="text-[var(--portal-muted-2)] text-sm">{fmtTime(bookingSesion.inicio)} · {bookingSesion.instructor?.nombre}</p>
+                </div>
+                <div className="flex flex-col gap-2 mb-4">
                   {bookingSesion.ocupadas >= bookingSesion.aforoMaximo && (
-                    <p className="text-warning text-xs font-medium mt-2">
+                    <p className="text-warning text-xs font-medium">
                       Clase llena — te apuntaremos en lista de espera
                     </p>
                   )}
@@ -4487,12 +4513,12 @@ export default function ReservarPage() {
                     // Solo avisa: una fundadora o invitada sí puede reservarla, y
                     // eso lo decide el servidor (crearReservaPublica).
                     const suave = etiquetaAperturaSuave(bookingSesion.inicio, studio?.aperturaSuaveHasta);
-                    return suave && <p className="text-[var(--portal-ink)] text-xs font-medium mt-2">{suave}</p>;
+                    return suave && <p className="text-[var(--portal-ink)] text-xs font-medium">{suave}</p>;
                   })()}
                   {(() => {
                     const ventana = bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0;
                     return ventana > 0 && (
-                      <p className="text-[var(--portal-muted)] text-xs mt-2">
+                      <p className="text-[var(--portal-muted)] text-xs text-center">
                         Cancela con al menos {ventana}h de antelación para recuperar tu sesión.
                       </p>
                     );

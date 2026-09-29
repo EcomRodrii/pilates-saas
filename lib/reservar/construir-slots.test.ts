@@ -67,6 +67,10 @@ test('sin socia autenticada, nunca cubierta — siempre precio de clase suelta',
     socia: null, nowMs: NOW,
   });
   assert.equal(slots[0].precio, 15);
+  // La ficha lo dice una vez, en la fila de las plazas; la nota larga no lo
+  // repite (lib/reservar/cobertura.ts, `notaCobertura`).
+  assert.equal(slots[0].coberturaCorta, '15 € clase suelta');
+  assert.equal(slots[0].coberturaTexto, null);
 });
 
 test('horarioDeSesion clasifica por hora local', () => {

@@ -76,11 +76,10 @@ test('en móvil la hoja sigue ocupando todo el ancho', async ({ page }) => {
   await expect(hoja).toBeVisible({ timeout: 30_000 });
 
   const caja = await hoja.boundingBox();
-  // 390 - 40: el contenedor de la ficha lleva su propio padding horizontal
-  // de 20px por lado (BookingSheet en modo 'vista',
-  // components/reserva/reserva-calendario.tsx) en vez del padding de página
-  // que llevaba la vieja tarjeta modal — sigue siendo "todo el ancho
-  // disponible", solo que medido desde dentro del propio padding.
+  // 390 - 40: el margen de la página (`MARGEN_PAGINA`, 20 px por lado en el
+  // móvil), el mismo que llevan las tarjetas del horario. Desde la F4 la ficha
+  // no añade relleno propio por dentro: su foto va a todo ese ancho, como la
+  // de la app. Sigue siendo "todo el ancho disponible".
   expect(caja!.width).toBe(350);
 });
 
