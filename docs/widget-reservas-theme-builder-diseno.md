@@ -78,7 +78,7 @@ persistencia en `studios` (editados desde un panel — ver 1.4):
 | Campo | Rol | Parametro URL |
 |---|---|---|
 | fondo | null / 'transparente' / hex | ?fondo= |
-| fuente | Nombre de familia (Google Fonts) | ?fuente= |
+| fuente | Nombre de familia del catálogo (las que sirve Tentare; nunca se pide a Google) | ?fuente= |
 | radio | Radio en px, tope 32 | ?radio= |
 | ocultarPie | Oculta direccion/legales del widget | ?pie=0/1 (invertido) |
 | soloPestana | Ensena solo la pestana pedida, sin barra | ?solo-pestana= |

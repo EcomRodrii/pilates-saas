@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { SLUG, STUDIO_ID, SOCIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-lista';
 import { STRIPE_STUB } from './stripe-stub';
+import { contarGoogleFonts } from './letras-sin-google';
 
 // La hoja de compra: la ÚLTIMA pantalla antes de pagar.
 //
@@ -123,5 +124,37 @@ test.describe('Student PWA · hoja de compra', () => {
     await expect(hoja.getByText('Confirmar reserva')).toBeVisible({ timeout: 30_000 });
     await expect(hoja.getByText('96 €')).toHaveCount(0);
     await expect(hoja.getByText('89 €').first()).toBeVisible();
+  });
+
+  test('⚠️ el pago no le pide la letra a Google: la de su app, de Tentare', async ({ page }) => {
+    // El iframe de Stripe no ve las fuentes de la app: se le dan sus caras.
+    // Eran de Google (Instrument Sans), o sea la IP de la alumna a un tercero
+    // al pagar.
+    const google = await contarGoogleFonts(page);
+    await montar(page);
+    await page.route('https://js.stripe.com/**', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/javascript', body: STRIPE_STUB }));
+    await page.route((u) => u.pathname === '/api/public/checkout-embebido', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientSecret: 'pi_plan_secret_x', importe: 96 }) }));
+    await page.goto(`${base}/comprar`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: /^Comprar$/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Continuar al pago' }).click();
+    await expect(page.locator('[role="dialog"]').last().getByText('Confirmar reserva')).toBeVisible({ timeout: 30_000 });
+    // El control: Elements se creó (lo que apunta el stub) y con una letra.
+    await expect.poll(() => page.evaluate(() => ((window as unknown as { __TENTARE_STRIPE_ELEMENTS?: unknown[] }).__TENTARE_STRIPE_ELEMENTS ?? []).length)).toBeGreaterThan(0);
+    const opciones = await page.evaluate(() =>
+      (window as unknown as { __TENTARE_STRIPE_ELEMENTS: { fonts?: { family?: string; src?: string }[]; appearance?: { variables?: { fontFamily?: string } } }[] }).__TENTARE_STRIPE_ELEMENTS);
+    const tentare = `url(${new URL(page.url()).origin}/widget-fuentes/v1/`;
+    for (const o of opciones) {
+      // La de su pareja de letras, sea cual sea: de las que sirve Tentare.
+      const familia = /^'(Tentare [A-Za-z ]+)', system-ui, sans-serif$/.exec(o.appearance?.variables?.fontFamily ?? '')?.[1];
+      expect(familia, o.appearance?.variables?.fontFamily).toBeTruthy();
+      expect(o.fonts?.length).toBeGreaterThan(0);
+      for (const cara of o.fonts ?? []) {
+        expect(cara.family).toBe(familia);
+        expect(cara.src?.startsWith(tentare), cara.src).toBe(true);
+      }
+    }
+    expect(google).toEqual([]);
   });
 });

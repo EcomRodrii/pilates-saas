@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { contarGoogleFonts, letraDeLaApp } from './letras-sin-google';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Que el widget se pueda ACOPLAR a la web del estudio.
@@ -76,32 +77,58 @@ test('⚠️ fondo transparente: se ve el de la web anfitriona', async ({ page }
   expect(r.fondo).toBe('rgba(0, 0, 0, 0)');
 });
 
-test('la tipografía se NOMBRA y se carga de verdad', async ({ page }) => {
+test('⚠️ la tipografía se NOMBRA y la pone Tentare, sin pedirle nada a Google', async ({ page }) => {
   // Un iframe no puede heredar la fuente de la web anfitriona —son documentos
-  // distintos—, así que el estudio la nombra y la cargamos nosotros.
+  // distintos—, así que el estudio la nombra y la ponemos nosotros. Antes, con
+  // un `<link>` a fonts.googleapis.com: la IP de cada visitante de su web, a
+  // Google. Ahora, las que sirve Tentare salen de las de la app (`next/font`).
   await page.setViewportSize({ width: 1100, height: 760 });
   await mocks(page);
-  const r = await medir(page, '&fuente=Space%20Grotesk');
-  expect(r.fuente).toContain('Space Grotesk');
-  expect(r.linkFuente).toBe(true);
+  const google = await contarGoogleFonts(page);
+  const r = await medir(page, '&fuente=Poppins');
+  // El control: la raíz usa la letra de la app, y el navegador la descarga.
+  const poppins = await letraDeLaApp(page, '--font-poppins');
+  expect(r.fuente.startsWith(poppins.pila), `${r.fuente} ≠ ${poppins.pila}`).toBe(true);
+  await expect.poll(async () => (await letraDeLaApp(page, '--font-poppins')).cargada).toBe(true);
+  expect(r.linkFuente).toBe(false);
+  expect(google).toEqual([]);
 });
 
-test('la tipografía de TITULARES también se nombra y se carga (widgetFuenteDisplay resucitado)', async ({ page }) => {
+test('la tipografía de TITULARES también se nombra y la pone Tentare (widgetFuenteDisplay resucitado)', async ({ page }) => {
   // El control existía en el editor de temas y se guardaba… y la página nunca
   // lo consumía (auditoría P1): los titulares seguían en la serif fija.
   await page.setViewportSize({ width: 1100, height: 760 });
   await mocks(page);
-  await medir(page, '&fuente-display=Lobster');
-  const r = await page.evaluate(() => {
-    // Un titular real: su style en línea USA la var (la raíz solo la define).
-    const titular = document.querySelector('[style*="var(--portal-heading-font"]') as HTMLElement | null;
-    return {
-      titular: titular ? getComputedStyle(titular).fontFamily : null,
-      linkDisplay: !!document.querySelector('link[href*="family=Lobster"]'),
-    };
+  const google = await contarGoogleFonts(page);
+  await medir(page, '&fuente-display=Cormorant%20Garamond');
+  // Un titular real: su style en línea USA la var (la raíz solo la define).
+  const titular = await page.evaluate(() => {
+    const t = document.querySelector('[style*="var(--portal-heading-font"]') as HTMLElement | null;
+    return t ? getComputedStyle(t).fontFamily : null;
   });
-  expect(r.titular).toContain('Lobster');
-  expect(r.linkDisplay).toBe(true);
+  const cormorant = await letraDeLaApp(page, '--font-cormorant');
+  expect(titular?.startsWith(cormorant.pila), `${titular} ≠ ${cormorant.pila}`).toBe(true);
+  await expect.poll(async () => (await letraDeLaApp(page, '--font-cormorant')).cargada).toBe(true);
+  expect(google).toEqual([]);
+});
+
+test('⚠️ una letra que no servimos (un código de antes) se nombra tal cual y no se pide a nadie', async ({ page }) => {
+  // Space Grotesk y Lobster no las sirve Tentare. Se nombran con su reserva:
+  // en este iframe solo se ven si quien mira las tiene instaladas. Lo que no
+  // puede pasar es que se le pidan a Google.
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await mocks(page);
+  const google = await contarGoogleFonts(page);
+  const r = await medir(page, '&fuente=Space%20Grotesk&fuente-display=Lobster');
+  const titular = await page.evaluate(() => {
+    const t = document.querySelector('[style*="var(--portal-heading-font"]') as HTMLElement | null;
+    return t ? getComputedStyle(t).fontFamily : null;
+  });
+  // El control: las dos se leyeron.
+  expect(r.fuente).toContain('Space Grotesk');
+  expect(titular).toContain('Lobster');
+  expect(r.linkFuente).toBe(false);
+  expect(google).toEqual([]);
 });
 
 test('sin pie y con una sola pestaña', async ({ page }) => {

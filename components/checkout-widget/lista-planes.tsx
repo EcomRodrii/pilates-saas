@@ -22,7 +22,7 @@ type EstadoCompra =
 
 export function ListaPlanes({
   t, planes, socioId, publishableKey, stripeAccountId,
-  onCrearIntento, onBizum, onCerrar, onComprado, onIniciarSesion,
+  onCrearIntento, onBizum, onCerrar, onComprado, onIniciarSesion, origenTentare,
 }: {
   t: ModoTokens;
   planes: PlanTarifa[];
@@ -36,6 +36,8 @@ export function ListaPlanes({
   /** Refresca bonos/suscripciones tras una compra confirmada. */
   onComprado?: () => void;
   onIniciarSesion?: () => void;
+  /** El origen de Tentare (la página es la web del estudio): de ahí sale la letra del pago. */
+  origenTentare?: string;
 }) {
   const [estado, setEstado] = useState<EstadoCompra>({ fase: 'lista' });
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +97,7 @@ export function ListaPlanes({
         onExito={() => { setEstado({ fase: 'exito', plan: estado.plan }); onComprado?.(); }}
         onBizum={bizumPermitidoPara(estado.plan.tipo) ? (acepta) => onBizum(estado.plan, acepta) : undefined}
         onCerrar={() => setEstado({ fase: 'lista' })}
+        origenTentare={origenTentare}
       />
     );
   }

@@ -38,7 +38,7 @@ import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
-import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, radiosDe, escalaDensidad } from '@/lib/reservar/apariencia-widget';
+import { resolverApariencia, fondoCss, familiaCss, familiaDisplayCss, radiosDe, escalaDensidad } from '@/lib/reservar/apariencia-widget';
 import { resolverConfigWidget, leerPresentacion } from '@/lib/reservar/config-widget';
 import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
@@ -618,8 +618,10 @@ export default function ReservarPage() {
   // oscuro, su variante legible; en claro, `undefined` y mandan los de siempre.
   const colorPeligro = esNoche ? textoSemantico('danger', tokensCalendario) : undefined;
   const colorExito = esNoche ? textoSemantico('success', tokensCalendario) : 'var(--success)';
+  // Una familia que sirve Tentare sale de las de `next/font` que la app ya
+  // declara (se descargan de Tentare al pintarse); ninguna se pide a Google
+  // (`familiaCss`, lib/reservar/apariencia-widget.ts).
   const fuenteWidget = familiaCss(apariencia);
-  const cssFuente = urlFuente(apariencia);
   // Titulares/horas/precios (widgetFuenteDisplay). Contrato de AparienciaWidget:
   // `fuenteDisplay` a null hereda de `fuente` — el mismo fallback que ya
   // resuelve `resolverTokensReservar` (lib/reservar-publico-tokens.ts:101).
@@ -628,7 +630,6 @@ export default function ReservarPage() {
   // ~30 titulares de esta pantalla — cero cambios por titular, y el mismo
   // canal que ya usa el tema "Geométrico" del portal.
   const fuenteDisplayWidget = familiaDisplayCss(apariencia) ?? fuenteWidget;
-  const cssFuenteDisplay = urlFuenteDisplay(apariencia);
 
   const [mounted, setMounted] = useState(false);
   // `now` en estado, con reloj de un minuto. Antes era
@@ -2999,16 +3000,6 @@ export default function ReservarPage() {
       // con embed=1 (configWidget es null fuera), la página suelta no cambia.
       ...(varsMarca ?? {}),
     } as React.CSSProperties}>
-      {/* React 19 sube un `<link rel="stylesheet">` al `<head>` desde donde se
-          declare, así que la fuente se pide sin tocar el layout ni meter un
-          efecto. El nombre ya viene filtrado a letras, números y espacios —
-          ver `urlFuente`, que lo vuelve a comprobar antes de construir la URL. */}
-      {cssFuente && <link rel="stylesheet" href={cssFuente} />}
-      {/* La de titulares, si es OTRA familia — con la misma no hay nada más
-          que cargar (React 19 dedupe por href igual, pero no hace falta ni
-          llegar ahí). */}
-      {cssFuenteDisplay && cssFuenteDisplay !== cssFuente && <link rel="stylesheet" href={cssFuenteDisplay} />}
-
       {/* ── HERO ──────────────────────────────────────────────────────────────
           ⚠️ Aquí ponía que la foto del estudio «no existe hoy en la carga
           pública (`studioPublico()` no expone `fotoUrl` — solo `logoUrl`)».
@@ -4461,9 +4452,10 @@ export default function ReservarPage() {
                   // como "-1 €" (queja literal del fundador).
                   textoBoton: `Pagar ${datosPlan.precio} € y reservar`,
                   // La fuente REAL del widget para dentro del iframe de Stripe
-                  // (appearance no resuelve var(--font-ui)); sin fuente
-                  // personalizada, el componente cae a Instrument Sans.
-                  fuentePago: apariencia.fuente && cssFuente ? { familia: apariencia.fuente, cssSrc: cssFuente } : undefined,
+                  // (appearance no resuelve var(--font-ui)), por su nombre: el
+                  // componente la saca de la hoja de Tentare si la servimos
+                  // (`fuenteDelPago`); sin fuente personalizada, la de --font-ui.
+                  fuentePago: apariencia.fuente ?? undefined,
                   // El radio de input del Widget Builder, para que los campos
                   // de la tarjeta (iframe de Stripe) redondeen igual que los
                   // inputs del paso 'datos'. Mismos defaults que

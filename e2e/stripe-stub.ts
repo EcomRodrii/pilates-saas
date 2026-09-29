@@ -9,6 +9,10 @@
 // necesitarlo un segundo spec: dos copias de un stub acaban divergiendo, y la
 // que se quede vieja falla por un motivo que no tiene nada que ver con lo que
 // prueba.
+//
+// Apunta en `window.__TENTARE_STRIPE_ELEMENTS` las opciones con que se crea
+// cada Elements (`fonts` y `appearance` incluidos): es lo único que el iframe
+// de pago de verdad llegaría a ver de la página.
 export const STRIPE_STUB = `
 window.Stripe = function () {
   var mkElement = function () {
@@ -29,7 +33,8 @@ window.Stripe = function () {
     return el;
   };
   return {
-    elements: function () {
+    elements: function (opciones) {
+      (window.__TENTARE_STRIPE_ELEMENTS = window.__TENTARE_STRIPE_ELEMENTS || []).push(opciones || null);
       return {
         create: mkElement,
         getElement: function () { return null; },

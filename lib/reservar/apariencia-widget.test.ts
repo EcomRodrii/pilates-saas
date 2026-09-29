@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  resolverApariencia, fondoCss, familiaCss, urlFuente, fuenteValida,
-  modoTextoDe, luminancia, radiosDe, coloresDe, familiaDisplayCss, urlFuenteDisplay,
+  resolverApariencia, fondoCss, familiaCss, fuenteValida,
+  modoTextoDe, luminancia, radiosDe, coloresDe, familiaDisplayCss,
   escalaDensidad, APARIENCIA_POR_DEFECTO, type AparienciaWidget,
 } from './apariencia-widget.ts';
 
@@ -72,17 +72,21 @@ test('la familia CSS lleva su pila de reserva detrás', () => {
   assert.equal(familiaCss(r), "'Space Grotesk', system-ui, sans-serif");
 });
 
-test('⚠️ la URL de Google Fonts usa `+`, no `%2B`', () => {
-  // Codificar después de meter los `+` los convierte en `%2B` y Google
-  // devuelve un 400: estarías pidiendo una familia con un signo más literal.
-  const r = resolverApariencia(null, params('fuente=Space Grotesk'));
-  const u = urlFuente(r)!;
-  assert.ok(u.includes('family=Space+Grotesk'), u);
-  assert.ok(!u.includes('%2B'), u);
+test('⚠️ una letra que sirve Tentare sale de `next/font`, no de Google (ni con su nombre de Google delante)', () => {
+  // Antes /reservar pintaba un `<link>` a fonts.googleapis.com con cualquier
+  // `?fuente=`: la IP de cada visitante de la web del estudio, a Google. Las
+  // familias que sirve Tentare ya las declara la app (app/_fuentes).
+  const r = resolverApariencia(null, params('fuente=Poppins&fuente-display=cormorant garamond'));
+  assert.equal(familiaCss(r), 'var(--font-poppins), system-ui, sans-serif');
+  assert.equal(familiaDisplayCss(r), "var(--font-cormorant), Georgia, 'Times New Roman', serif");
+  // La de Tentare, sin `--font-ui`: /reservar redefine esa variable con la
+  // pareja de la app, y la del widget no puede referirse a sí misma.
+  const base = familiaCss(resolverApariencia(null, params('fuente=Instrument Sans')))!;
+  assert.ok(base.startsWith('var(--font-ui-latin), var(--font-ui-ext)'), base);
 });
 
-test('sin fuente elegida no se carga ninguna', () => {
-  assert.equal(urlFuente(APARIENCIA_POR_DEFECTO), null);
+test('sin fuente elegida no se nombra ninguna', () => {
+  assert.equal(familiaCss(APARIENCIA_POR_DEFECTO), null);
 });
 
 // ── Color del texto ─────────────────────────────────────────────────────────
@@ -139,7 +143,6 @@ test('sin tocar los campos nuevos, todo queda en null (aspecto de siempre)', () 
   assert.equal(APARIENCIA_POR_DEFECTO.radioBoton, null);
   assert.equal(APARIENCIA_POR_DEFECTO.radioInput, null);
   assert.equal(APARIENCIA_POR_DEFECTO.superficie, null);
-  assert.equal(urlFuenteDisplay(APARIENCIA_POR_DEFECTO), null);
   assert.equal(familiaDisplayCss(APARIENCIA_POR_DEFECTO), null);
 });
 

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { contarGoogleFonts, letraDeLaApp } from './letras-sin-google';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Que la tipografía elegida llegue A TODO el widget, no solo a la raíz.
@@ -12,6 +13,10 @@ import { test, expect, type Page } from '@playwright/test';
 // verde y la pantalla rota decían cosas distintas y ganaba el test.
 //
 // Por eso aquí NO se mide la raíz: se mide el sitio donde el estudio lo nota.
+//
+// ⚠️ Y en ninguno se le pide nada a Google: las que sirve Tentare salen de la
+// app (`next/font`) y las demás se nombran sin pedirse
+// (lib/reservar/apariencia-widget.ts). Cada test lleva su contador.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.setTimeout(180_000);
@@ -44,7 +49,8 @@ async function abrir(page: Page, q: string) {
 test('la fuente elegida llega al calendario, no solo al div de fuera', async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 760 });
   await mocks(page);
-  await abrir(page, '&fuente=Playfair+Display');
+  const google = await contarGoogleFonts(page);
+  await abrir(page, '&fuente=Cormorant+Garamond');
 
   // El contenedor del calendario declara su propia familia vía var(--font-ui):
   // es exactamente el nodo que antes se quedaba en Instrument Sans.
@@ -52,19 +58,27 @@ test('la fuente elegida llega al calendario, no solo al div de fuera', async ({ 
     const cal = document.querySelector('#horario');
     return cal ? getComputedStyle(cal).fontFamily : null;
   });
-  expect(enCalendario).toContain('Playfair Display');
+  const cormorant = await letraDeLaApp(page, '--font-cormorant');
+  expect(enCalendario?.startsWith(cormorant.pila), `${enCalendario} ≠ ${cormorant.pila}`).toBe(true);
 
   // Y la variable está puesta en la raíz, que es lo que lo hace posible.
   const varUi = await page.evaluate(() => {
     const raiz = document.querySelector('#horario')!.closest('div[style*="min-height"]') as HTMLElement;
     return getComputedStyle(raiz).getPropertyValue('--font-ui').trim();
   });
-  expect(varUi).toContain('Playfair Display');
+  // (Computada, la variable ya viene con el `var()` resuelto.)
+  expect(varUi).toContain('Cormorant');
+  // Servida por Tentare: se descarga de verdad, y no de Google.
+  await expect.poll(async () => (await letraDeLaApp(page, '--font-cormorant')).cargada).toBe(true);
+  expect(google).toEqual([]);
 });
 
 test('la fuente de titulares llega por --font-display, no solo por --portal-heading-font', async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 760 });
   await mocks(page);
+  const google = await contarGoogleFonts(page);
+  // Inter y Fraunces no las sirve Tentare (un código de antes): se nombran y
+  // llegan igual a las variables, pero no se piden a nadie.
   await abrir(page, '&fuente=Inter&fuente-display=Fraunces');
 
   const vars = await page.evaluate(() => {
@@ -81,6 +95,7 @@ test('la fuente de titulares llega por --font-display, no solo por --portal-head
   expect(vars.display).toContain('Fraunces');
   expect(vars.heading).toContain('Fraunces');
   expect(vars.ui).toContain('Inter');
+  expect(google).toEqual([]);
 });
 
 test('⚠️ la rejilla compacta también: tenía la fuente del sistema escrita a fuego', async ({ page }) => {
@@ -88,6 +103,7 @@ test('⚠️ la rejilla compacta también: tenía la fuente del sistema escrita 
   await mocks(page);
   // `diseno=ligero` es el que trae el bundle por defecto — o sea, el caso más
   // común del widget embebido, y el único que no cambiaba nunca de tipografía.
+  const google = await contarGoogleFonts(page);
   await abrir(page, '&fuente=Poppins&diseno=ligero');
 
   const familias = await page.evaluate(() => {
@@ -99,7 +115,9 @@ test('⚠️ la rejilla compacta también: tenía la fuente del sistema escrita 
   });
   expect(familias.length).toBeGreaterThan(0);
   // Ni uno solo puede quedarse en la pila del sistema sin la elegida delante.
-  for (const f of familias) expect(f).toContain('Poppins');
+  const poppins = await letraDeLaApp(page, '--font-poppins');
+  for (const f of familias) expect(f.startsWith(poppins.pila), `${f} ≠ ${poppins.pila}`).toBe(true);
+  expect(google).toEqual([]);
 });
 
 test('sin tocar nada, no se emite ninguna fuente (el widget de siempre)', async ({ page }) => {

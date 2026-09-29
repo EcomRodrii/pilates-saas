@@ -19,10 +19,23 @@ import { sans, serif, radius, textoSemantico } from '@/lib/reservar-publico-toke
 import { fuenteDelPago } from '@/lib/widget/fuentes-nativa';
 import { semantic } from '@/lib/portal-tokens';
 
+/**
+ * El origen de Tentare, de donde el iframe de Stripe pide las letras: el que
+ * pase quien monta el pago; sin marco, si no llega (un widget.js viejo en su
+ * caché), el de la hoja que ya está en su web (`<link data-tentare-fuentes>`,
+ * una letra elegida); y si no, el de la página, que en /reservar y en la app
+ * ya es Tentare.
+ */
+function origenDelPago(origenTentare: string | undefined): string {
+  if (origenTentare) return origenTentare;
+  const hoja = document.querySelector<HTMLLinkElement>('link[data-tentare-fuentes]')?.href;
+  return hoja ? new URL(hoja).origin : window.location.origin;
+}
+
 export function CheckoutEmbebido({
   t, plan, clientSecret, publishableKey, stripeAccountId, onExito, onBizum, onCerrar,
   resumenClase, textoBoton, ventanaCancelacionHoras, datosPago, fuentePago, radioInput,
-  onProcesando, importeTotal, textosLegales,
+  onProcesando, importeTotal, textosLegales, origenTentare,
 }: {
   t: ModoTokens;
   plan: PlanTarifa;
@@ -87,13 +100,21 @@ export function CheckoutEmbebido({
    */
   datosPago?: { nombre?: string; email?: string; telefono?: string };
   /**
-   * La fuente REAL del widget para dentro del iframe de Stripe. Su
+   * El NOMBRE de la fuente del widget para dentro del iframe de Stripe. Su
    * `appearance` no resuelve custom properties (`var(--font-ui)` ahí no
    * existe) ni ve las fuentes cargadas fuera del iframe: hacen falta nombres
-   * de familia literales + la URL de Google Fonts (`fonts[].cssSrc`) para que
-   * el bloque de tarjeta no salga en Times/serif del navegador.
+   * de familia literales + sus caras (`fonts`) para que el bloque de tarjeta
+   * no salga en Times/serif del navegador. Las caras son las de Tentare, nunca
+   * Google (`fuenteDelPago`). Sin prop, la primera familia de `--font-ui`.
    */
-  fuentePago?: { familia: string; cssSrc: string | null };
+  fuentePago?: string;
+  /**
+   * El origen de Tentare, de donde salen las letras del pago. Solo hace falta
+   * sin marco: allí la página es la web del estudio y una ruta relativa
+   * resolvería contra SU origen. Sin prop, el de la página, que en /reservar
+   * y en la app ya es Tentare (`origenDelPago`).
+   */
+  origenTentare?: string;
   /**
    * Radio de INPUT del Widget Builder (`radiosDe(...).input`) para que los
    * campos de la tarjeta dentro del iframe de Stripe redondeen igual que los
@@ -184,41 +205,43 @@ export function CheckoutEmbebido({
   // La fuente elegida por el estudio, deducida del DOM igual que el color de
   // marca y por el mismo motivo.
   //
-  // ⚠️ Existe la prop `fuentePago`, pero SOLO la pasaba un caller de tres
-  // (el checkout de clase de Modo A). El de planes/bonos y todo Modo B caían
-  // al literal de abajo, así que el bloque de tarjeta salía en Instrument Sans
+  // ⚠️ Existe la prop `fuentePago`, pero SOLO la pasa un caller de tres (el
+  // checkout de clase de Modo A). El de planes/bonos y todo Modo B caían al
+  // literal de siempre, así que el bloque de tarjeta salía en Instrument Sans
   // por mucho que el snippet llevara `data-fuente`. Leerlo de `--font-ui` —que
   // los dos modos ya fijan— arregla los tres de una vez y deja la prop como
   // lo que debe ser: un override explícito, no el único camino.
-  const [fuenteAuto, setFuenteAuto] = useState<{ familia: string; cssSrc: string | null } | null>(null);
-  const fuenteCheckout = fuentePago ?? fuenteAuto ?? {
-    // Último recurso: la fuente base del widget (Instrument Sans, la de
-    // `sans`), pedida a Google Fonts porque dentro del iframe la copia
-    // self-hosted de app/_fuentes no existe.
-    familia: 'Instrument Sans',
-    cssSrc: 'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap',
-  };
+  //
+  // Del `font-family` resuelto solo interesa la PRIMERA familia: la de la
+  // hoja en la nativa («Tentare Poppins»), la de `next/font` en la app
+  // («Instrument_Sans», con guion bajo: app/_fuentes/fuentes.ts) o un nombre
+  // cualquiera. `fuenteDelPago` decide qué familia de Tentare le corresponde
+  // (con sus caras, en URL absoluta: la hoja como `cssSrc` no le llega al
+  // iframe de Stripe, ver `carasDelPago`), y si ninguna, la nombra sin
+  // pedirla a nadie.
+  //
+  // ⚠️ Nunca Google: antes este iframe pedía Instrument Sans (o la letra
+  // elegida) a fonts.googleapis.com en /reservar, en la app de la alumna y
+  // sin marco.
+  //
+  // ⚠️ `null` hasta leerla, y `<Elements>` no recibe Stripe hasta entonces:
+  // react-stripe-js solo usa `fonts` al CREAR Elements (es inmutable; cambiarlo
+  // después solo deja un aviso en la consola). Si naciera con una letra
+  // provisional y la buena llegara tarde, la tarjeta nombraría una familia que
+  // su iframe no ha cargado.
+  const [fuenteCheckout, setFuenteCheckout] = useState<ReturnType<typeof fuenteDelPago> | null>(null);
   useEffect(() => {
     if (!marcaRef.current) return;
     const estilo = getComputedStyle(marcaRef.current);
     const valor = estilo.getPropertyValue('--portal-brand').trim();
     if (valor) setColorMarca(valor);
 
-    // Del `font-family` resuelto solo interesa la PRIMERA familia. Y se exige
-    // que sea un nombre limpio: sin fuente elegida, `--font-ui` la define
-    // next/font/local y vale `Instrument_Sans` —un alias local con guion bajo
-    // que Google Fonts no conoce (app/_fuentes/fuentes.ts)—, así que pedirle esa URL
-    // daría un 404 y el checkout se quedaría sin fuente. `fuenteValida` deja
-    // fuera justo esos alias, y entonces cae al literal de arriba, que es el
-    // comportamiento de siempre.
-    //
-    // En la nativa con una letra de la hoja de Tentare, la primera es una
-    // «Tentare …»: esa no existe en Google, así que se le da al iframe la hoja
-    // de Tentare que ya está en la página (`fuenteDelPago`).
-    const hojaTentare = document.querySelector<HTMLLinkElement>('link[data-tentare-fuentes]')?.href ?? null;
-    const fuente = fuenteDelPago(estilo.getPropertyValue('--font-ui').split(',')[0] ?? '', hojaTentare);
-    if (fuente) setFuenteAuto(fuente);
-  }, []);
+    const primera = fuentePago ?? estilo.getPropertyValue('--font-ui').split(',')[0];
+    const fuente = fuenteDelPago(primera, origenDelPago(origenTentare));
+    // Mismo nombre y mismas caras: el mismo objeto, para no resincronizar el
+    // iframe (ver `elementsOptions`).
+    setFuenteCheckout(prev => (prev?.familia === fuente.familia && prev.fuentes[0]?.src === fuente.fuentes[0]?.src ? prev : fuente));
+  }, [fuentePago, origenTentare]);
 
   // El rojo de los errores DENTRO del iframe de Stripe, legible sobre la
   // tarjeta de la paleta (en oscuro, su variante de noche). Un string: no
@@ -235,9 +258,8 @@ export function CheckoutEmbebido({
     locale: 'es' as const,
     // Ver el docblock de `fuentePago`: dentro del iframe de Stripe ni
     // existen las custom properties ni están cargadas nuestras fuentes.
-    // Sin prop se pide la base del widget (Instrument Sans) a Google
-    // Fonts, con system-ui de reserva mientras carga.
-    fonts: fuenteCheckout.cssSrc ? [{ cssSrc: fuenteCheckout.cssSrc }] : undefined,
+    // Las caras de Tentare, con system-ui de reserva mientras cargan.
+    fonts: fuenteCheckout?.fuentes.length ? fuenteCheckout.fuentes : undefined,
     // El PaymentElement ya trae su propio skeleton por campo — con
     // 'always' se pinta desde el primer frame en vez de dejar un hueco
     // en blanco mientras carga el iframe (P1-confianza; ver además el
@@ -261,7 +283,7 @@ export function CheckoutEmbebido({
         colorTextSecondary: t.muted,
         colorTextPlaceholder: t.muted,
         colorDanger: colorPeligro,
-        fontFamily: `'${fuenteCheckout.familia}', system-ui, sans-serif`,
+        fontFamily: fuenteCheckout ? `'${fuenteCheckout.familia}', system-ui, sans-serif` : 'system-ui, sans-serif',
         // Radio de INPUT (ver docblock de `radioInput`), nunca el de
         // tarjeta.
         borderRadius: `${radioInput ?? radius.spot}px`,
@@ -278,7 +300,7 @@ export function CheckoutEmbebido({
         '.TermsText': { color: t.muted, fontSize: '11.5px' },
       },
     },
-  }), [clientSecret, colorMarca, t.surface, t.ink, t.muted, t.line, colorPeligro, fuenteCheckout.cssSrc, fuenteCheckout.familia, radioInput]);
+  }), [clientSecret, colorMarca, t.surface, t.ink, t.muted, t.line, colorPeligro, fuenteCheckout, radioInput]);
 
   if (!stripePromise || stripeKo) {
     return (
@@ -319,7 +341,9 @@ export function CheckoutEmbebido({
         </div>
       </div>
       <Elements
-        stripe={stripePromise}
+        // Sin letra todavía, sin Stripe: ver `fuenteCheckout`. Pasar de `null`
+        // a la promesa es un cambio que Elements admite.
+        stripe={fuenteCheckout ? stripePromise : null}
         options={elementsOptions}
       >
         <FormularioPago

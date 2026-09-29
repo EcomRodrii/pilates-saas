@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { contarGoogleFonts, letraDeLaApp } from './letras-sin-google';
 import { firmaDeUrl } from '../lib/widgets/firma-contenido.ts';
 import { firmaCodigo, firmaContenidoDe } from '../lib/widgets/integracion.ts';
 import { esCopiaCompleta, leerConfigs } from '../lib/widgets/config.ts';
@@ -454,12 +455,15 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await abrir(page, 'Un diseño distinto');
     await page.getByRole('switch', { name: /Usar un diseño propio/ }).click();
     await elegirFuente(page, 'Letra', 'Poppins');
-    await elegirFuente(page, 'Letra de los titulares', 'Playfair Display');
+    await elegirFuente(page, 'Letra de los titulares', 'Cormorant Garamond');
     await expect(snippet(page)).toContainText('fuente=Poppins');
-    await expect(snippet(page)).toContainText('fuente-display=Playfair%20Display');
+    await expect(snippet(page)).toContainText('fuente-display=Cormorant%20Garamond');
 
+    // En la página también solo las que sirve Tentare (seis y «la de por
+    // defecto»): /reservar ya no le pide nada a Google.
     await page.getByRole('button', { name: 'Letra', exact: true }).click();
-    await expect(page.getByRole('option')).toHaveCount(11); // 10 + «la de por defecto»
+    await expect(page.getByRole('option')).toHaveCount(7);
+    await expect(page.getByRole('option', { name: /^Inter/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
 
     await expect.poll(() => JSON.stringify(ultimoBuilder(patches) ?? {}), { timeout: 10_000 }).toContain('Poppins');
@@ -467,41 +471,33 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     // El mismo widget sin marco lleva la misma letra.
     await sinMarco(page);
     await expect(snippet(page)).toContainText('data-fuente="Poppins"');
-    await expect(snippet(page)).toContainText('data-fuente-display="Playfair Display"');
+    await expect(snippet(page)).toContainText('data-fuente-display="Cormorant Garamond"');
     const boton = page.getByRole('button', { name: '10:00 Reformer' });
     await boton.waitFor();
     const fam = await boton.evaluate(el => getComputedStyle(el.closest('div[style*="--font-ui"]')!).fontFamily);
     expect(fam).toContain('Poppins');
 
-    // Sin marco solo se ofrecen las que sirve Tentare (seis y «la de siempre»):
-    // la nativa no le pide nada a Google. Playfair Display, ya elegida, no se
-    // quita del código: se enseña al final y se dice por qué puede no verse.
+    // Sin marco, la misma lista.
     await paso(page, 'Cómo se ve');
     await abrir(page, 'Un diseño distinto');
     await page.getByRole('button', { name: 'Letra', exact: true }).click();
     await expect(page.getByRole('option')).toHaveCount(7);
-    await expect(page.getByRole('option', { name: /^Inter/ })).toHaveCount(0);
     await expect(page.getByRole('option', { name: /Poppins/ })).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Letra de los titulares', exact: true }).click();
-    await expect(page.getByRole('option')).toHaveCount(8);
-    await expect(page.getByRole('option', { name: /Playfair Display/ })).toContainText('Sin marco no la servimos: solo se verá si tu web ya la carga.');
-    await expect(page.getByRole('option', { name: /Playfair Display/ })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('option')).toHaveCount(7);
+    await expect(page.getByRole('option', { name: /Cormorant Garamond/ })).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Escape');
   });
 
-  test('⚠️ sin marco, el selector de letras no le pide nada a Google (ni para enseñarlas) y la previa no carga ninguna fuente de fuera', async ({ page }) => {
-    const google: string[] = [];
-    await page.route(/^https?:\/\/fonts\.(googleapis|gstatic)\.com\//, r => {
-      google.push(r.request().url());
-      return r.fulfill({ status: 200, contentType: 'text/css', body: '' });
-    });
+  test('⚠️ el selector de letras no le pide nada a Google (ni para enseñarlas), ni la previa de la página ni la de sin marco', async ({ page }) => {
+    const google = await contarGoogleFonts(page);
     await montar(page, {
       plataforma: 'otra',
-      widgetBuilder: { clases: { metodo: 'nativa', identidad: 'propia', fuente: 'Cormorant Garamond', fuenteDisplay: 'Inter' } },
+      widgetBuilder: { clases: { identidad: 'propia', fuente: 'Cormorant Garamond', fuenteDisplay: 'Inter' } },
     });
-    await expect(snippet(page)).toContainText('data-fuente="Cormorant Garamond"');
-    await expect(snippet(page)).toContainText('data-fuente-display="Inter"');
+    await expect(snippet(page)).toContainText('fuente=Cormorant%20Garamond');
+    await expect(snippet(page)).toContainText('fuente-display=Inter');
     await paso(page, 'Cómo se ve');
     await abrir(page, 'Un diseño distinto');
     // El control: el selector se abrió y enseña sus muestras (si no, «cero peticiones» no diría nada).
@@ -509,10 +505,18 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await expect(page.getByRole('option')).toHaveCount(7);
     const muestra = await page.getByRole('option', { name: /Poppins/ }).locator('span span').first()
       .evaluate(el => getComputedStyle(el).fontFamily);
-    // Poppins de las fuentes del panel (`next/font`), no la de Google.
-    expect(muestra).toContain('Poppins');
+    // Poppins de las fuentes de la app (`next/font`), no la de Google.
+    expect(muestra.startsWith((await letraDeLaApp(page, '--font-poppins')).pila)).toBe(true);
     await page.keyboard.press('Escape');
+    // La previa de la página (el iframe de /reservar de verdad): la letra
+    // servida se pinta, y se descarga de Tentare.
+    const previa = page.frameLocator('iframe').first();
+    await previa.locator('#horario').waitFor({ timeout: 60_000 });
+    const enLaPrevia = await previa.locator('#horario').evaluate(el => getComputedStyle(el).fontFamily);
+    expect(enLaPrevia).toContain('Cormorant');
+
     // La previa sin marco, con su letra servida y la otra nombrada tal cual.
+    await sinMarco(page);
     const boton = page.getByRole('button', { name: '10:00 Reformer' });
     await boton.waitFor();
     const envoltorio = await boton.evaluate(el => {
@@ -521,11 +525,12 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     });
     expect(envoltorio.ui).toContain('Cormorant');
     expect(envoltorio.titular).toContain('Inter');
+    await expect.poll(async () => (await letraDeLaApp(page, '--font-cormorant')).cargada).toBe(true);
     expect(google).toEqual([]);
     expect(await page.locator('link[href*="fonts.googleapis"]').count()).toBe(0);
   });
 
-  test('al volver a entrar, una letra escrita a mano con el constructor viejo se conserva', async ({ page }) => {
+  test('al volver a entrar, una letra escrita a mano con el constructor viejo se conserva, y se dice que no la servimos', async ({ page }) => {
     await montar(page, {
       plataforma: 'otra',
       widgetBuilder: { clases: { fuente: 'Space Grotesk', fuenteDisplay: 'Lobster' } },
@@ -536,6 +541,20 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await paso(page, 'Cómo se ve');
     await expect(page.getByRole('button', { name: 'Letra', exact: true })).toContainText('Space Grotesk');
     await expect(page.getByRole('button', { name: 'Letra de los titulares', exact: true })).toContainText('Lobster');
+    // No se quita del código: se enseña al final (las seis y la suya) y se
+    // dice qué pasará con ella en la página, que es otro documento.
+    await page.getByRole('button', { name: 'Letra', exact: true }).click();
+    await expect(page.getByRole('option')).toHaveCount(8);
+    await expect(page.getByRole('option', { name: /Space Grotesk/ })).toContainText('No la servimos: en su lugar se verá una del sistema.');
+    await expect(page.getByRole('option', { name: /Space Grotesk/ })).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('Escape');
+    // Sin marco, en cambio, se ve si su web ya la carga.
+    await sinMarco(page);
+    await paso(page, 'Cómo se ve');
+    await abrir(page, 'Un diseño distinto');
+    await page.getByRole('button', { name: 'Letra de los titulares', exact: true }).click();
+    await expect(page.getByRole('option', { name: /Lobster/ })).toContainText('No la servimos: solo se verá si tu web ya la carga.');
+    await page.keyboard.press('Escape');
   });
 
   test('⚠️ autorizar su web: con y sin «www» en la MISMA petición, y dispara el registro de wallets (contador real, no fe)', async ({ page }) => {

@@ -27,11 +27,16 @@
 // (`letraNativa`, abajo). Antes esas dos se pedían a Google desde la web del
 // estudio; ahora la nativa no le pide nada a Google nunca.
 //
+// Y sus woff2 son también los que se le dan al iframe de pago de Stripe, en
+// cualquier página (`fuenteDelPago`): /reservar, la app de la alumna o la
+// nativa. Ese iframe no ve las fuentes de la página, y antes se las pedía a
+// Google.
+//
 // Solo importa las pilas de reserva y el nombre de familia de siempre (sin
 // Next ni React): lo carga el bundle, y lo lee un test que lo compara con
 // fuentes.ts, fuentes.css y la hoja (./fuentes-nativa.test.ts).
 
-import { familiaCssDe, fuenteValida, urlFuenteGoogle } from '../reservar/config-widget.ts';
+import { familiaCssDe, fuenteValida } from '../reservar/config-widget.ts';
 import { RESERVA_SANS, RESERVA_SERIF } from '../reservar/fuentes-catalogo.ts';
 
 /** Versionada: cambiar las fuentes algún día es servirlas en `v2/`, sin pelearse con la caché de un año. */
@@ -74,21 +79,31 @@ export const VARS_FAMILIAS_NATIVA: Readonly<Record<string, string>> = {
  * selector de letras): las variables de `VARS_FAMILIAS_NATIVA` que la escriben,
  * y si lleva remates (la reserva genérica que va detrás).
  *
+ * `carpeta`, `pesos` y `porPeso` son sus caras sin cursiva, para el pago
+ * (`carasDelPago`): un woff2 variable para todos los pesos
+ * (`figtree-latin.woff2`) o uno por peso (`poppins-latin-400.woff2`), con los
+ * mismos pesos en la extendida. Un test las ata regla a regla a la hoja.
+ *
  * Son las ocho de las parejas de la app. Del selector del diseño propio
  * (lib/reservar/fuentes-catalogo.ts) entran seis: Inter, DM Sans, Playfair
- * Display y Fraunces no están en la app, y sin marco no se ofrecen
+ * Display y Fraunces no están en la app, y no se ofrecen
  * (components/ui/selector-fuente.tsx).
  */
-const FAMILIAS_SERVIDAS: Readonly<Record<string, { variables: readonly string[]; serif: boolean }>> = {
-  'Plus Jakarta Sans': { variables: ['--font-jakarta'], serif: false },
-  'Figtree': { variables: ['--font-figtree'], serif: false },
-  'Outfit': { variables: ['--font-outfit'], serif: false },
-  'Poppins': { variables: ['--font-poppins'], serif: false },
-  'Instrument Sans': { variables: ['--font-ui-latin', '--font-ui-ext'], serif: false },
-  'Libre Caslon Text': { variables: ['--font-libre-caslon'], serif: true },
-  'Cormorant Garamond': { variables: ['--font-cormorant'], serif: true },
-  'Instrument Serif': { variables: ['--font-display-latin', '--font-display-ext'], serif: true },
+const FAMILIAS_SERVIDAS: Readonly<Record<string, {
+  variables: readonly string[]; serif: boolean; carpeta: string; pesos: readonly number[]; porPeso: boolean;
+}>> = {
+  'Plus Jakarta Sans': { variables: ['--font-jakarta'], serif: false, carpeta: 'plusjakartasans', pesos: [400, 500, 600, 700, 800], porPeso: false },
+  'Figtree': { variables: ['--font-figtree'], serif: false, carpeta: 'figtree', pesos: [300, 400, 500, 600, 700], porPeso: false },
+  'Outfit': { variables: ['--font-outfit'], serif: false, carpeta: 'outfit', pesos: [400, 500, 600, 700], porPeso: false },
+  'Poppins': { variables: ['--font-poppins'], serif: false, carpeta: 'poppins', pesos: [400, 500, 600, 700], porPeso: true },
+  'Instrument Sans': { variables: ['--font-ui-latin', '--font-ui-ext'], serif: false, carpeta: 'instrumentsans', pesos: [400, 500, 600, 700], porPeso: false },
+  'Libre Caslon Text': { variables: ['--font-libre-caslon'], serif: true, carpeta: 'librecaslontext', pesos: [400, 700], porPeso: true },
+  'Cormorant Garamond': { variables: ['--font-cormorant'], serif: true, carpeta: 'cormorantgaramond', pesos: [400, 500, 600], porPeso: false },
+  'Instrument Serif': { variables: ['--font-display-latin', '--font-display-ext'], serif: true, carpeta: 'instrumentserif', pesos: [400], porPeso: true },
 };
+
+/** El `unicode-range` de la extendida (latin-ext), el mismo en todas las familias de la hoja. */
+export const RANGO_EXTENDIDA = 'U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF';
 
 /** Los nombres que sirve Tentare, tal como van en un código. */
 export const FAMILIAS_SERVIDAS_NATIVA: readonly string[] = Object.keys(FAMILIAS_SERVIDAS);
@@ -104,23 +119,27 @@ export function familiaServida(nombre: string | null | undefined): string | null
 }
 
 /**
- * El `font-family` de una letra nombrada en el código de la nativa
- * (`data-fuente` o `data-fuente-display`), y si su web tiene que pedir la hoja
- * de Tentare para verla. Lo usan el bundle (`'web'`) y la vista previa del
- * panel (`'panel'`), así que no pueden decir cosas distintas.
+ * El `font-family` de una letra nombrada en un código (`data-fuente` /
+ * `data-fuente-display` sin marco, `?fuente=` / `?fuente-display=` en la
+ * página de reservas incrustada), y si su web tiene que pedir la hoja de
+ * Tentare para verla. Lo usan el bundle (`'web'`) y la app (`'app'`: la vista
+ * previa del panel, el selector de letras y /reservar), así que no pueden
+ * decir cosas distintas.
  *
  *  - Una que sirve Tentare: sus familias y la reserva de su tipo detrás. En su
  *    web, las «Tentare …» de la hoja (`servida: true`: quien la pinte, mete la
- *    hoja); en el panel, las de `next/font`, que ya están cargadas.
+ *    hoja); en la app, las de `next/font`, que ya están declaradas y se
+ *    descargan del propio Tentare al pintarse.
  *  - Cualquier otra (un código de antes con Inter o Playfair, o una escrita a
- *    mano): el nombre tal cual con su reserva, y no se pide NADA a nadie. Se ve
- *    si su web ya la carga (lo normal cuando alguien escribe la letra de su
- *    web), y si no, la reserva.
+ *    mano): el nombre tal cual con su reserva, y no se pide NADA a nadie. Sin
+ *    marco se ve si su web ya la carga (lo normal cuando alguien escribe la
+ *    letra de su web); en la página de reservas, que es otro documento, solo
+ *    si quien mira la tiene instalada. Si no, la reserva.
  *
- * ⚠️ Nunca Google: pedirle una fuente desde la web del estudio le da la IP de
- * cada visitante sin que la dueña lo sepa, por haber elegido una letra.
+ * ⚠️ Nunca Google: pedirle una fuente le da la IP de cada visitante sin que la
+ * dueña lo sepa, por haber elegido una letra — desde su web o desde el iframe.
  */
-export function letraNativa(nombre: string, donde: 'web' | 'panel'): { pila: string; servida: boolean } {
+export function letraNativa(nombre: string, donde: 'web' | 'app'): { pila: string; servida: boolean } {
   const familia = familiaServida(nombre);
   if (!familia) return { pila: familiaCssDe(nombre), servida: false };
   const { variables, serif } = FAMILIAS_SERVIDAS[familia];
@@ -129,21 +148,73 @@ export function letraNativa(nombre: string, donde: 'web' | 'panel'): { pila: str
 }
 
 /**
- * La letra del iframe de pago de Stripe (components/checkout-widget/
- * checkout-embebido.tsx), a partir de la PRIMERA familia de `--font-ui`. Ese
- * iframe no ve las `@font-face` de la página: hay que pasarle una hoja que
- * pida él.
- *
- * Una familia «Tentare …» (la nativa con una letra de la hoja) va con la hoja
- * de Tentare que ya está en su web (`hojaTentare`, el `href` del `<link
- * data-tentare-fuentes>`): pedírsela a Google era un 400 y la tarjeta salía sin
- * su letra. Sin esa hoja en la página, `null`, y el pago usa la de siempre.
- * Cualquier otro nombre limpio, como hasta ahora (/reservar y la nativa sin
- * letra servida).
+ * Una cara de la hoja tal como la quiere Stripe (`CustomFontSource` de
+ * @stripe/stripe-js; aquí sin importarlo: este módulo lo compila el bundle).
  */
-export function fuenteDelPago(primera: string, hojaTentare: string | null): { familia: string; cssSrc: string | null } | null {
-  const familia = primera.trim().replace(/^['"]|['"]$/g, '');
-  if (!familia) return null;
-  if (familia.startsWith('Tentare ')) return hojaTentare ? { familia, cssSrc: hojaTentare } : null;
-  return fuenteValida(familia) ? { familia, cssSrc: urlFuenteGoogle(familia) } : null;
+export interface CaraDelPago {
+  family: string;
+  src: string;
+  weight: string;
+  style: 'normal';
+  display: 'swap';
+  unicodeRange?: string;
+}
+
+/**
+ * Las caras sin cursiva de una familia servida, con su URL ABSOLUTA en
+ * `origen` (el de Tentare), para el iframe de pago. La extendida va con el
+ * mismo nombre de familia y su `unicode-range`, como las daba Google: así el
+ * pago nombra una sola familia.
+ *
+ * ⚠️ Por qué no la hoja como `cssSrc`, que era lo natural: medido en el
+ * navegador (29-sep-2026), el iframe de Stripe no carga NINGUNA de sus letras
+ * —sus `url()` son relativas a la hoja, y las de Google son absolutas—, y la
+ * misma woff2 con su URL absoluta sí. Y solo por https: en `http://localhost`
+ * no carga ni así, así que en desarrollo el pago sale en la del sistema.
+ */
+export function carasDelPago(familia: string, origen: string): CaraDelPago[] {
+  const datos = FAMILIAS_SERVIDAS[familia];
+  if (!datos) return [];
+  const { carpeta, pesos, porPeso } = datos;
+  return (['latin', 'latin-ext'] as const).flatMap(subconjunto => pesos.map(peso => {
+    const fichero = porPeso ? `${carpeta}-${subconjunto}-${peso}.woff2` : `${carpeta}-${subconjunto}.woff2`;
+    const cara: CaraDelPago = {
+      family: `Tentare ${familia}`,
+      src: `url(${new URL(`${RUTA_FUENTES_NATIVA}/${carpeta}/${fichero}`, origen).href})`,
+      weight: String(peso),
+      style: 'normal',
+      display: 'swap',
+    };
+    return subconjunto === 'latin-ext' ? { ...cara, unicodeRange: RANGO_EXTENDIDA } : cara;
+  }));
+}
+
+/** La letra del pago cuando la página no dice ninguna: la de siempre del widget, ahora de Tentare. */
+export const FAMILIA_PAGO_POR_DEFECTO = 'Instrument Sans';
+
+/**
+ * La letra del iframe de pago de Stripe (components/checkout-widget/
+ * checkout-embebido.tsx), a partir de la PRIMERA familia de `--font-ui` (o
+ * del nombre que pase quien lo monta). Ese iframe no ve las `@font-face` de la
+ * página: hay que darle sus caras (`carasDelPago`), y son siempre las de
+ * Tentare (en `origen`), nunca Google: sería mandarle a un tercero la IP de
+ * quien paga por enseñarle una letra.
+ *
+ *  - Una familia que sirve Tentare, se llame como en la hoja («Tentare
+ *    Poppins», la nativa con una letra elegida), como en el catálogo
+ *    («Poppins») o como la nombra `next/font/local` en la app
+ *    («Plus_Jakarta_Sans», «Instrument_Sans»: el nombre de la constante, con
+ *    guiones bajos, app/_fuentes/fuentes.ts): su «Tentare …» con sus caras.
+ *  - Cualquier otro nombre limpio (la letra de su web, un código de antes con
+ *    Inter): se nombra y no se pide. Dentro del iframe solo se ve si quien
+ *    paga la tiene instalada; si no, la del sistema.
+ *  - Nada que sirva (vacío, un alias raro): la de siempre del widget,
+ *    Instrument Sans, de Tentare.
+ */
+export function fuenteDelPago(primera: string | null | undefined, origen: string): { familia: string; fuentes: CaraDelPago[] } {
+  const familia = (primera ?? '').trim().replace(/^['"]|['"]$/g, '');
+  const servida = familiaServida(familia.replace(/^Tentare /, '').replace(/_/g, ' '));
+  if (servida) return { familia: `Tentare ${servida}`, fuentes: carasDelPago(servida, origen) };
+  if (familia && fuenteValida(familia)) return { familia, fuentes: [] };
+  return { familia: `Tentare ${FAMILIA_PAGO_POR_DEFECTO}`, fuentes: carasDelPago(FAMILIA_PAGO_POR_DEFECTO, origen) };
 }

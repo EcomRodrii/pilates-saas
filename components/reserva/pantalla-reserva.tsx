@@ -116,7 +116,8 @@ export function PantallaReserva({
     stripeAccountId: string;
     ventanaCancelacionHoras: number;
     textoBoton: string;
-    fuentePago?: { familia: string; cssSrc: string | null };
+    /** El nombre de la letra del widget (`?fuente=`), para el iframe de Stripe. */
+    fuentePago?: string;
     radioInput?: number;
     onExito: () => void;
     onVolverADatos: () => void;

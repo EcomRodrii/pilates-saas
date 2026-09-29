@@ -12,7 +12,7 @@
 // basura se IGNORA (queda el default), nunca rompe — estos parámetros llegan
 // por la URL de una página pública y cualquiera puede escribirlos.
 
-import { pesosDe, reservaDe } from './fuentes-catalogo.ts';
+import { reservaDe } from './fuentes-catalogo.ts';
 
 /**
  * Color `#rgb`/`#rrggbb`/`#rrggbbaa`. Vive aquí (módulo común sin dependencias)
@@ -26,7 +26,8 @@ export const COLOR_VALIDO = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$
  * un atributo `data-*` que cualquiera puede escribir (Modo B). Se acota a
  * letras, números y espacios: es lo que cabe en un nombre de familia de Google
  * Fonts, y deja fuera comillas, llaves y paréntesis — o sea, todo lo que haría
- * falta para salirse de la declaración CSS o del `<link>` que la carga.
+ * falta para salirse de la declaración CSS donde se escribe (la del widget o
+ * la que se le pasa al pago de Stripe).
  * Vive aquí (módulo común sin dependencias, compilado por esbuild para el
  * bundle) y `apariencia-widget.ts` lo importa — UNA puerta anti-XSS, no dos
  * copias que puedan divergir.
@@ -44,40 +45,6 @@ export function fuenteValida(v: string): boolean {
  */
 export function familiaCssDe(nombre: string): string {
   return `'${nombre.trim()}', ${reservaDe(nombre)}`;
-}
-
-/**
- * La URL de Google Fonts para cargar una familia nombrada, o `null`.
- *
- * Se valida el nombre aquí aunque el caller ya lo haya filtrado: son dos
- * puertas para lo mismo a propósito, porque esta cadena acaba en el `href` de
- * un `<link>` que se inyecta en un documento (el nuestro en Modo A) o en la
- * hoja que se le da al iframe de pago de Stripe.
- *
- * ⚠️ Modo B NO la usa para su letra: desde la web del estudio no se le pide
- * nada a Google (le daría la IP de cada visitante); una familia que sirve
- * Tentare sale de su hoja y las demás no se piden (`letraNativa`,
- * lib/widget/fuentes-nativa.ts). Lo que queda es el iframe de pago sin una
- * letra de la hoja (`fuenteDelPago`), que sigue como en Modo A.
- *
- * ⚠️ Se codifica PRIMERO y se cambian los `%20` por `+` DESPUÉS. Al revés
- * —meter los `+` y luego codificar— salen `%2B` y Google Fonts devuelve un 400:
- * pedirías la familia «Space+Grotesk» con un signo más literal en el nombre.
- * `display=swap` a propósito: la carga de la fuente nunca bloquea el pintado
- * del widget — mientras llega se ve la pila de reserva.
- *
- * ⚠️ Los pesos salen del catálogo (`pesosDe`), no de una lista fija. Pedir
- * `400;500;600;700` para todo parecía inofensivo porque Google responde 200
- * igual, pero solo devuelve los que existen: **Instrument Serif publica solo el
- * 400**, y es la fuente de titulares por defecto. El navegador no encontraba el
- * 600 del titular y lo falsificaba engordando el trazo. Para una familia que no
- * esté en el catálogo se piden los cuatro de siempre, así que nada de lo ya
- * guardado cambia.
- */
-export function urlFuenteGoogle(nombre: string | null | undefined): string | null {
-  if (!nombre || !fuenteValida(nombre)) return null;
-  const familia = encodeURIComponent(nombre.trim()).replace(/%20/g, '+');
-  return `https://fonts.googleapis.com/css2?family=${familia}:wght@${pesosDe(nombre).join(';')}&display=swap`;
 }
 
 // Ids del repo: UUIDs en producción, slugs cortos en fixtures/tests. Letras,
@@ -118,10 +85,11 @@ export interface ConfigWidget {
   /** La tinta del texto (Modo B; en Modo A ya existe `?tinta=`). */
   colorNegro: string | null;
   /**
-   * Nombre de familia (el de Google Fonts) para el cuerpo/UI (Modo B; en Modo A
+   * Nombre de familia (el del catálogo) para el cuerpo/UI (Modo B; en Modo A
    * ya existe `?fuente=`, resuelto por `resolverApariencia` con lo guardado en
-   * el tema debajo — mismo reparto que `fondo`/`tinta`). Modo B no la pide a
-   * Google: ver `urlFuenteGoogle`.
+   * el tema debajo — mismo reparto que `fondo`/`tinta`). Ningún modo la pide a
+   * Google: si la sirve Tentare sale de lo suyo, y si no, se nombra
+   * (`letraNativa`, lib/widget/fuentes-nativa.ts).
    */
   fuente: string | null;
   /** Fuente de titulares/horas/precios. `null` = la misma que `fuente`. */

@@ -46,6 +46,8 @@ export interface PropsListaPlanesLazy {
   onCerrar: () => void;
   onComprado?: () => void;
   onIniciarSesion?: () => void;
+  /** El origen de Tentare, para la hoja de fuentes del pago (ver `CheckoutEmbebido`). */
+  origenTentare?: string;
 }
 
 // Una raíz por contenedor — `main.tsx` reutiliza el MISMO nodo DOM cada vez

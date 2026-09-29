@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   resolverConfigWidget, fuenteDeDataset, CONFIG_WIDGET_POR_DEFECTO,
-  fuenteValida, familiaCssDe, urlFuenteGoogle, leerPresentacion,
+  fuenteValida, familiaCssDe, leerPresentacion,
   PARAMS_DISENO_NATIVA, nativaTraeDisenoPropio,
 } from './config-widget.ts';
 import { PARAMS_DISENO_PROPIO } from './estilo-web.ts';
@@ -113,19 +113,12 @@ test('fuente por data-* (Modo B): data-fuente-display llega como dataset.fuenteD
   assert.equal(c.fuenteDisplay, 'Lobster');
 });
 
-test('fuenteValida / familiaCssDe / urlFuenteGoogle: el trío compartido de los dos modos', () => {
+test('fuenteValida / familiaCssDe: el par compartido de los dos modos', () => {
   assert.equal(fuenteValida('Space Grotesk'), true);
   assert.equal(fuenteValida("Foo'; }"), false);
   assert.equal(fuenteValida(''), false);
   assert.equal(fuenteValida('a'.repeat(41)), false);
   assert.equal(familiaCssDe('Lobster'), "'Lobster', system-ui, sans-serif");
-  // %20 → '+' DESPUÉS de codificar (al revés, Google devuelve 400) y siempre
-  // con display=swap: la carga nunca bloquea el pintado.
-  const url = urlFuenteGoogle('Space Grotesk');
-  assert.ok(url!.includes('family=Space+Grotesk'));
-  assert.ok(url!.includes('display=swap'));
-  assert.equal(urlFuenteGoogle("Foo'; }"), null);
-  assert.equal(urlFuenteGoogle(null), null);
 });
 
 test('fuenteDeDataset: atributo ausente es null, no cadena vacía', () => {

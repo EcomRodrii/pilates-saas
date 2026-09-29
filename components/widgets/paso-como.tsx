@@ -250,11 +250,12 @@ function DisenoPropio({ c, nativa, soloBoton, cambiar, colorEstudio }: {
             etiqueta="Letra"
             // Sin marco, la letra de su web solo llega con la identidad del
             // estudio: con un diseño propio, la de siempre del widget
-            // (`montarUno`), que no descarga ninguna. Y solo se ofrecen las que
-            // sirve Tentare: la nativa no le pide nada a Google (`letraNativa`).
+            // (`montarUno`), que no descarga ninguna. Y en los dos modos solo
+            // se ofrecen las que sirve Tentare: ni la nativa ni la página le
+            // piden nada a Google (`letraNativa`).
             ayuda={nativa
               ? 'Sin tocar, la de siempre del widget: con un diseño propio ya no toma la de tu web. Solo las que servimos desde Tentare, para que tu web no avise a Google de cada visita.'
-              : 'Sin tocar, la de tu página de reservas.'}
+              : 'Sin tocar, la de tu página de reservas. Solo las que servimos desde Tentare, para que tu web no avise a Google de cada visita.'}
             valor={c.fuente}
             onChange={v => cambiar({ fuente: v })}
             etiquetaPorDefecto={nativa ? 'La de siempre' : 'La de tu página de reservas'}
