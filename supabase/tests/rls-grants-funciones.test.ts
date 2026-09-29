@@ -34,7 +34,11 @@ const CASOS: Caso[] = [
   // service-role, `lib/db/supabase-data-admin.ts`) — RES-6, reendurecido tras
   // reabrirse dos veces por cambios de firma (auditoría 19-sep).
   { firma: 'reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean, text)', anon: false, authenticated: false, serviceRole: true },
-  { firma: 'cancelar_reserva_plaza(text, text, text, boolean)', anon: false, authenticated: true, serviceRole: true },
+  // Revocado a `authenticated` en 20260902211300 (auditoría 21ª pasada, P-1):
+  // el panel llamaba a esta RPC directo desde el navegador, saltándose
+  // `ejecutarCancelacionReserva` (que sí dispara las notificaciones). Ya no
+  // queda ningún llamador fuera de `admin.rpc(...)` — solo service_role.
+  { firma: 'cancelar_reserva_plaza(text, text, text, boolean)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'mis_estudios()', anon: false, authenticated: true, serviceRole: true },
 ];
 
