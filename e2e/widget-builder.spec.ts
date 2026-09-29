@@ -1108,6 +1108,35 @@ test.describe('La vista previa enseña de verdad el estilo, y dice cuándo no le
     await expect.poll(() => fondoDeLaPrevia(page, '"estilo":"carbon"'), { timeout: 45_000 }).toBe('rgb(23, 24, 27)');
   });
 
+  test('la salida también está junto a la vista previa, que es lo que se tiene a la vista al elegir', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await montar(page, {
+      plataforma: 'wordpress',
+      widgetBuilder: { horario: { metodo: 'iframe', identidad: 'propia', marca: '#000000', densidad: 'compacta' } },
+    });
+    await paso(page, 'Cómo se ve');
+    const region = page.getByRole('region', { name: 'Vista previa' });
+    await estilos(page).getByRole('radio', { name: 'Carbón', exact: true }).click();
+    await region.getByRole('button', { name: 'Que siga el estilo' }).click();
+    await expect(page.getByRole('switch', { name: /Usar un diseño propio/ })).toHaveAttribute('aria-checked', 'false');
+    await expect(region).not.toContainText('tiene su propio diseño');
+    await expect.poll(() => fondoDeLaPrevia(page, '"estilo":"carbon"'), { timeout: 45_000 }).toBe('rgb(23, 24, 27)');
+  });
+
+  test('con cambios sin aplicar, «Aplicar en mi web» se ve sin bajar al final de la tarjeta', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await montar(page, { plataforma: 'otra' });
+    await paso(page, 'Cómo se ve');
+    const barra = page.getByRole('group', { name: 'Aplicar el estilo en tu web' });
+    await estilos(page).getByRole('radio', { name: 'Carbón', exact: true }).click();
+    await estilos(page).scrollIntoViewIfNeeded();
+    await expect(barra.getByRole('button', { name: 'Aplicar en mi web' })).toBeInViewport();
+    // Sin nada pendiente vuelve a su sitio, al final.
+    await barra.getByRole('button', { name: 'Descartar' }).click();
+    await estilos(page).scrollIntoViewIfNeeded();
+    await expect(barra).not.toBeInViewport();
+  });
+
   test('con un enlace, dice que su página se ve como su app (la previa no cambia con el estilo) y no ofrece quitar nada', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await montar(page, { plataforma: 'otra', widgetBuilder: { horario: { metodo: 'enlace' } } });

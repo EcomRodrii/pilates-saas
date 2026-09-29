@@ -731,6 +731,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               dispositivo={dispositivo}
               onDispositivo={setDispositivo}
               noSigueElEstilo={noSigueElEstilo}
+              alSeguirElEstilo={!paginaCompleta && noSigueElEstilo ? () => cambiar({ identidad: 'estudio' }) : null}
             />
           </div>
         )}
