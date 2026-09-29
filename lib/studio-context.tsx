@@ -212,7 +212,7 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoDevolvible, calcularReactivacion, cicloInicialDe, avisaBonoAgotado, proximoFinAlineadoDia1, proximoFinNatural } from '@/lib/bono-logic';
+import { bonoDevolvible, calcularReactivacion, cicloInicialDe, avisaBonoAgotado, proximoFinAlineadoDia1, proximoFinDesdeVencimiento, proximoFinNatural } from '@/lib/bono-logic';
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -4217,15 +4217,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         s.id === sus.id ? { ...s, sesionesRestantes: plan.sesiones, estado: 'ACTIVA' as const } : s
       ));
     } else if (plan.tipo === 'MENSUAL') {
-      // Espejo exacto de `renovacion-server.ts`, PAY-11 incluido: con
-      // `studios.cobro_dia_1_activo` la extensión se realinea al día 1 en vez
-      // del aniversario de la socia (ver `proximoFinAlineadoDia1` en
-      // lib/bono-logic.ts). Sin la columna activa, o sin `fecha_fin` previo,
-      // el cálculo de siempre (`proximoFinNatural`, compartida con el
-      // servidor para que los dos «espejos» no puedan divergir por separado).
-      const fechaFin = studio?.cobroDia1Activo && sus.fechaFin
-        ? proximoFinAlineadoDia1(sus.fechaFin, plan)
-        : proximoFinNatural(plan);
+      // Espejo exacto de `renovacion-server.ts`, bug de auditoría (ancla a
+      // vencimiento, no a "ahora") y PAY-11 incluidos — ver el comentario
+      // largo junto a `proximoFinDesdeVencimiento`/`proximoFinAlineadoDia1`
+      // en lib/bono-logic.ts. `proximoFinNatural` solo si de verdad no hay
+      // `fechaFin` previo (no debería pasar en un MENSUAL activo).
+      const fechaFin = !sus.fechaFin
+        ? proximoFinNatural(plan)
+        : studio?.cobroDia1Activo
+          ? proximoFinAlineadoDia1(sus.fechaFin, plan)
+          : proximoFinDesdeVencimiento(sus.fechaFin, plan);
       // ⚠️ Este guard FALTABA aquí, y sí está en el espejo de servidor
       // (`renovacion-server.ts`). Sin él, cobrar una renovación de una
       // suscripción cuya fecha_fin estaba MÁS LEJOS se la ACORTABA: la socia

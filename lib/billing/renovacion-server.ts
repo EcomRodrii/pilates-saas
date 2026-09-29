@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { proximoFinAlineadoDia1, proximoFinNatural } from '../bono-logic.ts';
+import { proximoFinAlineadoDia1, proximoFinDesdeVencimiento, proximoFinNatural } from '../bono-logic.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 import * as Sentry from '@sentry/nextjs';
 
@@ -243,23 +243,32 @@ async function entregarRenovacion(
     }
 
     if (plan.tipo === 'MENSUAL') {
+      // ⚠️ Bug de auditoría (previo a PAY-11, confirmado en producción): la
+      // extensión SIEMPRE tiene que anclar a `sus.fecha_fin` (el vencimiento),
+      // nunca a "ahora" — anclar a "ahora" regalaba a la socia cada día que
+      // tardara el dunning en cobrar, Y desplazaba su ciclo siguiente para
+      // siempre. `proximoFinNatural` (ancla a "ahora") se queda solo como
+      // fallback si de verdad no hubiera `fecha_fin` previo. Ver el
+      // comentario largo junto a ambas funciones en lib/bono-logic.ts.
+      //
       // PAY-11: con `studios.cobro_dia_1_activo`, la extensión se realinea al
-      // día 1 en vez del aniversario de la socia — ver el comentario largo
-      // junto a `proximoFinAlineadoDia1` (lib/bono-logic.ts) para el porqué
-      // del cálculo. Sin la columna activa se mantiene el cálculo de siempre.
+      // día 1 en vez del aniversario de la socia — ver `proximoFinAlineadoDia1`.
       // Si la consulta falla (p. ej. la migración aún no está aplicada en
-      // este entorno), cae al cálculo de siempre en vez de tumbar el cobro
-      // ya hecho — pero se avisa, para que el fallo no sea invisible.
-      let fechaFin = proximoFinNatural({ periodicidadMeses: plan.periodicidad_meses });
+      // este entorno), cae al aniversario en vez de tumbar el cobro ya
+      // hecho — pero se avisa, para que el fallo no sea invisible.
+      let fechaFin: string;
       if (sus.fecha_fin) {
         const { data: est, error: errEst } = await admin.from('studios').select('cobro_dia_1_activo').eq('id', studioId).maybeSingle();
         if (errEst) {
           Sentry.captureException(new Error(`[cobroDia1Activo] ${errEst.message}`), {
             level: 'warning', tags: { area: 'renovacion' }, extra: { reciboId, studioId },
           });
-        } else if (est?.cobro_dia_1_activo) {
-          fechaFin = proximoFinAlineadoDia1(sus.fecha_fin as string, { periodicidadMeses: plan.periodicidad_meses });
         }
+        fechaFin = est?.cobro_dia_1_activo
+          ? proximoFinAlineadoDia1(sus.fecha_fin as string, { periodicidadMeses: plan.periodicidad_meses })
+          : proximoFinDesdeVencimiento(sus.fecha_fin as string, { periodicidadMeses: plan.periodicidad_meses });
+      } else {
+        fechaFin = proximoFinNatural({ periodicidadMeses: plan.periodicidad_meses });
       }
       if (sus.fecha_fin && sus.fecha_fin >= fechaFin) {
         return guardar({ aplicada: false, tipo: 'MENSUAL', antes, despues: antes });

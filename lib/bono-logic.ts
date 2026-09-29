@@ -379,14 +379,41 @@ export function mesesDeCiclo(plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>
  * (`/${nombrePeriodo(p)}`, `al ${…}`, `cada ${…}`), y las cuatro palabras
  * funcionan con las tres. Tres tablas paralelas es como divergen las cosas.
  */
-// La extensión NATURAL (sin alinear) de una renovación MENSUAL: hoy + tantos
-// meses como dure el ciclo. Compartida entre `renovacion-server.ts` (cobro
-// automático) y `studio-context.tsx` (marcar cobrado a mano) — antes cada uno
-// tenía su propia copia, y este fichero ya avisa varias veces de qué pasa
-// cuando dos «espejos» divergen en silencio.
+// ⚠️ Bug real encontrado en auditoría (confirmado en producción, previo a
+// PAY-11 — nace con el fichero, commit `ba858aea7`/#271): la extensión de
+// una renovación MENSUAL ancla a `sus.fecha_fin` cuando existe, NUNCA a
+// "ahora". Anclar a "ahora" (lo que hacía esta función mal usada) significa
+// que cada retraso del dunning (+1/+3/+7 días, ver lib/billing/dunning.ts)
+// regala esos días Y DESPLAZA EL CICLO SIGUIENTE PARA SIEMPRE — el aniversario
+// de la socia deriva sin volver nunca atrás. Confirmado en real: los 4
+// recibos MENSUAL cobrados hoy en producción se cobraron tarde (media 13,25
+// días), y uno se extendió 41 días por un ciclo que debía valer ~30.
+//
+// `proximoFinDesdeVencimiento` es el cálculo correcto para una renovación:
+// vencimiento + N meses, con el mismo desbordamiento ya aceptado y probado
+// que usa `cicloInicialDe` (la socia gana un día o dos en fin de mes corto,
+// nunca pierde — nunca se cambia ESE comportamiento, solo el ANCLA).
+export function proximoFinDesdeVencimiento(
+  fechaFinActualISO: string,
+  plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>>,
+): string {
+  const fin = new Date(`${fechaFinActualISO.slice(0, 10)}T00:00:00Z`);
+  fin.setUTCMonth(fin.getUTCMonth() + mesesDeCiclo(plan));
+  return fin.toISOString().slice(0, 10);
+}
+
+// Fallback SOLO para cuando de verdad no hay `fecha_fin` previo que anclar
+// (no debería pasar en un MENSUAL activo, ver el guard de `cicloInicialDe`
+// más arriba: "sin ella no se cobra nunca más"). Compartida entre
+// `renovacion-server.ts` (cobro automático) y `studio-context.tsx` (marcar
+// cobrado a mano) — antes cada uno tenía su propia copia, y este fichero ya
+// avisa varias veces de qué pasa cuando dos «espejos» divergen en silencio.
 export function proximoFinNatural(plan: Partial<Pick<PlanTarifa, 'periodicidadMeses'>>): string {
+  // UTC explícito, no local: los métodos locales (`setMonth`) asumen que el
+  // proceso corre en UTC, una asunción sin guardia en un fichero que en todo
+  // lo demás es cuidadoso con esto (hallazgo de auditoría, 2026-09-29).
   const nuevaFin = new Date();
-  nuevaFin.setMonth(nuevaFin.getMonth() + mesesDeCiclo(plan));
+  nuevaFin.setUTCMonth(nuevaFin.getUTCMonth() + mesesDeCiclo(plan));
   return nuevaFin.toISOString().slice(0, 10);
 }
 
