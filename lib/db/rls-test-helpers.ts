@@ -10,6 +10,7 @@
 // pasarían en falso — no habría RLS de verdad que probar. Ver
 // `.github/workflows/ci.yml`, job `calidad-rls`.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import postgres from 'postgres';
 
 function env(nombre: string): string {
   const v = process.env[nombre];
@@ -35,6 +36,18 @@ function clienteAnonLocal(): SupabaseClient {
   return createClient(env('SUPABASE_LOCAL_URL'), env('SUPABASE_LOCAL_ANON_KEY'), {
     auth: { persistSession: false },
   });
+}
+
+/**
+ * Conexión directa a Postgres (no PostgREST) — solo para lo que PostgREST no
+ * puede responder, como `has_function_privilege`. `supabase-js` no ejecuta
+ * SQL arbitrario a propósito (sería el mismo agujero que este repo cierra en
+ * producción); esto es lo mismo que ya hace el propio `.claude/tentare-os.md`
+ * al verificar grants con `execute_sql` tras endurecer una RPC, pero contra el
+ * Postgres LOCAL de este job, nunca contra producción.
+ */
+export function sqlLocal() {
+  return postgres(env('SUPABASE_LOCAL_DB_URL'), { max: 1 });
 }
 
 let contador = 0;
@@ -93,11 +106,92 @@ export async function crearSocia(admin: SupabaseClient, studioId: string): Promi
   return socioId;
 }
 
-/** Limpia todo lo creado por `crearStudioConPropietaria`/`crearSocia` de una tacada. `ON DELETE CASCADE` se lleva el resto. */
+export interface InstructoraFixture {
+  instructorId: string;
+  authUserId: string;
+  /** Cliente `supabase-js` YA AUTENTICADO como esta instructora. */
+  comoInstructora: SupabaseClient;
+}
+
+/**
+ * Una instructora de verdad (usuario de Auth real + fila en `instructores`
+ * con `rol='INSTRUCTOR'`), con sesión ya iniciada. `current_studio_id()`
+ * (0130_baja_revoca_acceso.sql) la resuelve por su fila de `instructores`
+ * cuando no es propietaria — nada más hace falta.
+ */
+export async function crearInstructora(
+  admin: SupabaseClient, studioId: string, rol: 'INSTRUCTOR' | 'RECEPCION' | 'MANAGER' = 'INSTRUCTOR',
+): Promise<InstructoraFixture> {
+  const email = `${idUnico('instructora')}@rls-test.invalid`;
+  const password = 'rls-test-password-1234';
+  const { data: userData, error: errUser } = await admin.auth.admin.createUser({
+    email, password, email_confirm: true,
+  });
+  if (errUser || !userData.user) {
+    throw new Error(`No se pudo crear la instructora de fixture: ${errUser?.message ?? 'sin usuario'}`);
+  }
+
+  // `instructores` es la ficha de EQUIPO, no solo de instructoras — RECEPCION
+  // y MANAGER también son filas de esta tabla (`instructores.rol`).
+  const instructorId = idUnico('instructor');
+  const { error: errInstructor } = await admin.from('instructores').insert({
+    id: instructorId, studio_id: studioId, nombre: 'RLS Equipo', rol,
+    auth_user_id: userData.user.id, activo: true,
+  });
+  if (errInstructor) throw new Error(`No se pudo crear la ficha de instructora de fixture: ${errInstructor.message}`);
+
+  const comoInstructora = clienteAnonLocal();
+  const { error: errLogin } = await comoInstructora.auth.signInWithPassword({ email, password });
+  if (errLogin) throw new Error(`No se pudo autenticar la instructora de fixture: ${errLogin.message}`);
+
+  return { instructorId, authUserId: userData.user.id, comoInstructora };
+}
+
+/** Una sesión (clase) mínima, opcionalmente asignada a una instructora concreta. */
+export async function crearSesion(
+  admin: SupabaseClient, studioId: string, opts: { instructorId?: string } = {},
+): Promise<string> {
+  const sesionId = idUnico('sesion');
+  const ahora = new Date();
+  const { error } = await admin.from('sesiones').insert({
+    id: sesionId, studio_id: studioId, instructor_id: opts.instructorId ?? null,
+    inicio: ahora.toISOString(), fin: new Date(ahora.getTime() + 50 * 60_000).toISOString(),
+  });
+  if (error) throw new Error(`No se pudo crear la sesión de fixture: ${error.message}`);
+  return sesionId;
+}
+
+/** Una suscripción mínima — basta para probar que INSTRUCTOR no la ve (20260921221053). */
+export async function crearSuscripcion(admin: SupabaseClient, studioId: string, socioId: string): Promise<string> {
+  const id = idUnico('suscripcion');
+  const { error } = await admin.from('suscripciones').insert({
+    id, studio_id: studioId, socio_id: socioId, fecha_inicio: new Date().toISOString().slice(0, 10),
+  });
+  if (error) throw new Error(`No se pudo crear la suscripción de fixture: ${error.message}`);
+  return id;
+}
+
+/** Una notificación mínima del negocio — INSTRUCTOR tampoco la ve (20260921221053). */
+export async function crearNotificacion(admin: SupabaseClient, studioId: string): Promise<string> {
+  const id = idUnico('notificacion');
+  const { error } = await admin.from('notificaciones').insert({
+    id, studio_id: studioId, titulo: 'RLS test', texto: 'RLS test',
+  });
+  if (error) throw new Error(`No se pudo crear la notificación de fixture: ${error.message}`);
+  return id;
+}
+
+/** Limpia todo lo creado por `crearStudioConPropietaria`. `ON DELETE CASCADE` se lleva el resto (socios, sesiones, instructores, suscripciones, notificaciones…). */
 export async function limpiarFixtures(admin: SupabaseClient, fixtures: StudioFixture[]): Promise<void> {
   const studioIds = fixtures.map(f => f.studioId);
   if (studioIds.length > 0) await admin.from('studios').delete().in('id', studioIds);
   for (const f of fixtures) {
     await admin.auth.admin.deleteUser(f.authUserId).catch(() => {});
   }
+}
+
+/** Limpia una instructora de fixture suelta (cuando no viene de un studio ya limpiado). */
+export async function limpiarInstructora(admin: SupabaseClient, instructora: InstructoraFixture): Promise<void> {
+  await admin.from('instructores').delete().eq('id', instructora.instructorId);
+  await admin.auth.admin.deleteUser(instructora.authUserId).catch(() => {});
 }
