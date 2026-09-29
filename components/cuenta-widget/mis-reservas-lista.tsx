@@ -20,10 +20,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { Reserva, Sesion, TipoClase, Sala, Instructor } from '@/lib/types';
 import type { ResultadoEscritura } from '@/lib/errores';
-import { esCancelacionTardia } from '@/lib/booking-logic';
 import { cuandoCorto } from '@/lib/reservar/ficha-clase';
-import { conQuienYDonde, estadoReservaSocia, momentoReserva } from '@/lib/reservar/mis-reservas';
-import { hoyEnEstudio, horaEstudio } from '@/lib/utils';
+import {
+  conQuienYDonde, estadoReservaSocia, limiteOferta, momentoReserva, ofertaVigente, pierdeBonoAlCancelar, textoConfirmarCancelar,
+} from '@/lib/reservar/mis-reservas';
+import { hoyEnEstudio } from '@/lib/utils';
 import { semantic } from '@/lib/portal-tokens';
 import { sans, textoSemantico } from '@/lib/reservar-publico-tokens';
 import { Segmentado } from './segmentado';
@@ -32,7 +33,7 @@ import { BotonPildora, TarjetaReserva } from './tarjeta-reserva';
 type Filtro = 'proximas' | 'pasadas';
 
 export function MisReservasLista({
-  t, reservas, sesiones, tiposClase, salas, instructores, cancelacionVentanaHoras, ventanaPorTipo,
+  t, reservas, sesiones, tiposClase, salas, instructores, cancelacionVentanaHoras, ventanaPorTipo, devolverBonoTardia = false,
   onCancelar, onAceptarOferta,
 }: {
   t: ModoTokens;
@@ -43,12 +44,17 @@ export function MisReservasLista({
   instructores: Instructor[];
   cancelacionVentanaHoras?: number;
   ventanaPorTipo?: Record<string, number>;
+  /** Si el estudio devuelve la sesión del bono aunque se cancele tarde. */
+  devolverBonoTardia?: boolean;
   onCancelar: (reservaId: string) => ResultadoEscritura | void | Promise<ResultadoEscritura | void>;
   onAceptarOferta?: (reservaId: string) => ResultadoEscritura | void | Promise<ResultadoEscritura | void>;
 }) {
   const [filtro, setFiltro] = useState<Filtro>('proximas');
   const [enviando, setEnviando] = useState<string | null>(null);
   const [errorPorId, setErrorPorId] = useState<Record<string, string>>({});
+  // Cancelar pide confirmación, como en la página: antes cancelaba al primer
+  // toque, sin decir si la socia perdía la sesión del bono.
+  const [confirmando, setConfirmando] = useState<string | null>(null);
 
   // `Date.now()` es impuro — no puede llamarse dentro de un `useMemo` (regla
   // de pureza de React Compiler). Mismo patrón que `nowMs` en
@@ -95,7 +101,8 @@ export function MisReservasLista({
     setErrorPorId(e => ({ ...e, [reservaId]: '' }));
     const r = await onCancelar(reservaId);
     setEnviando(null);
-    if (r && !r.ok) setErrorPorId(e => ({ ...e, [reservaId]: r.error }));
+    if (r && !r.ok) { setErrorPorId(e => ({ ...e, [reservaId]: r.error })); return; }
+    setConfirmando(null);
   }
 
   async function aceptarOferta(reservaId: string) {
@@ -132,15 +139,14 @@ export function MisReservasLista({
         <ul role="list" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {visibles.map(({ reserva: r, sesion: s, tipoNombre, salaNombre, instructorNombre, pasada }, i) => {
             const futuraConfirmada = !pasada && r.estado === 'CONFIRMADA';
-            const tardia = futuraConfirmada && esCancelacionTardia(
-              s.inicio, new Date(nowMs),
-              (s.tipoClaseId && ventanaPorTipo?.[s.tipoClaseId] != null) ? ventanaPorTipo[s.tipoClaseId] : (cancelacionVentanaHoras ?? 0),
-            );
-            const hayOferta = r.estado === 'LISTA_ESPERA' && !!r.ofertaExpiraEn && !!onAceptarOferta;
-            const puedeSalir = futuraConfirmada || (r.estado === 'LISTA_ESPERA' && !pasada);
-            const salir = puedeSalir ? (
-              <BotonPildora t={t} tono="peligro" disabled={enviando === r.id} onClick={() => { void cancelar(r.id); }}>
-                {enviando === r.id ? 'Cancelando…' : (r.estado === 'LISTA_ESPERA' ? 'Salir de la lista de espera' : 'Cancelar reserva')}
+            const espera = r.estado === 'LISTA_ESPERA';
+            const ventana = (s.tipoClaseId && ventanaPorTipo?.[s.tipoClaseId] != null) ? ventanaPorTipo[s.tipoClaseId] : (cancelacionVentanaHoras ?? 0);
+            const hayOferta = !pasada && ofertaVigente(r.estado, r.ofertaExpiraEn, nowMs) && !!onAceptarOferta;
+            const puedeSalir = futuraConfirmada || (espera && !pasada);
+            const abierta = confirmando === r.id;
+            const salir = puedeSalir && !abierta ? (
+              <BotonPildora t={t} tono="peligro" disabled={enviando === r.id} onClick={() => { setErrorPorId(e => ({ ...e, [r.id]: '' })); setConfirmando(r.id); }}>
+                {espera ? 'Salir de la lista de espera' : 'Cancelar reserva'}
               </BotonPildora>
             ) : null;
             return (
@@ -149,7 +155,7 @@ export function MisReservasLista({
                   t={t}
                   orden={i}
                   cuando={cuandoCorto(s.inicio, hoy)}
-                  estado={estadoReservaSocia(r.estado, momentoReserva(s.inicio, s.fin, nowMs), r.posicionEspera)}
+                  estado={estadoReservaSocia(r.estado, momentoReserva(s.inicio, s.fin, nowMs), r.posicionEspera, hayOferta)}
                   nombre={tipoNombre}
                   detalle={conQuienYDonde(instructorNombre, salaNombre)}
                   apagada={pasada}
@@ -157,16 +163,40 @@ export function MisReservasLista({
                   // la lista va DESPUÉS de la oferta, no encima.
                   acciones={hayOferta ? undefined : salir ?? undefined}
                 >
-                  {puedeSalir && tardia && (
-                    <p style={{ margin: '6px 0 0', fontSize: 12, lineHeight: 1.45, color: t.muted }}>
-                      Cancelar ahora puede contar como cancelación tardía.
-                    </p>
+                  {abierta && (
+                    <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 14, background: t.surface2 }}>
+                      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: t.ink }}>
+                        {textoConfirmarCancelar({
+                          espera,
+                          pierdeBono: pierdeBonoAlCancelar(r.estado, s.inicio, new Date(nowMs), ventana, devolverBonoTardia),
+                          ventana,
+                        })}
+                      </p>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <button type="button" disabled={enviando === r.id} onClick={() => { void cancelar(r.id); }} style={{
+                          flex: '1 1 0', minHeight: 44, padding: '0 14px', border: 'none',
+                          borderRadius: 'var(--reservar-radio-boton, 999px)', background: rojo, color: t.surface,
+                          fontFamily: sans, fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap',
+                          cursor: enviando === r.id ? 'default' : 'pointer', opacity: enviando === r.id ? 0.6 : 1,
+                        }}>
+                          {enviando === r.id ? 'Cancelando…' : espera ? 'Sí, salir' : 'Sí, cancelar'}
+                        </button>
+                        <button type="button" disabled={enviando === r.id} onClick={() => { setConfirmando(null); setErrorPorId(e => ({ ...e, [r.id]: '' })); }} style={{
+                          flex: '1 1 0', minHeight: 44, padding: '0 14px',
+                          borderRadius: 'var(--reservar-radio-boton, 999px)', border: `1px solid ${t.line}`,
+                          background: t.surface, color: t.ink, fontFamily: sans, fontWeight: 800, fontSize: 13,
+                          whiteSpace: 'nowrap', cursor: 'pointer',
+                        }}>
+                          No, mantener
+                        </button>
+                      </div>
+                    </div>
                   )}
 
-                  {hayOferta && (
+                  {hayOferta && !abierta && (
                     <div style={{ marginTop: 10, padding: '12px 14px', borderRadius: 14, background: semantic.warning.soft }}>
                       <p style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, lineHeight: 1.45, color: t.ink }}>
-                        ¡Se ha liberado una plaza! Tienes hasta las {horaEstudio(r.ofertaExpiraEn!)} para aceptarla.
+                        ¡Se ha liberado una plaza! Tienes {limiteOferta(r.ofertaExpiraEn!, hoy)} para aceptarla.
                       </p>
                       <button type="button" disabled={enviando === r.id} onClick={() => { void aceptarOferta(r.id); }} style={{
                         width: '100%', minHeight: 44, borderRadius: 'var(--reservar-radio-boton, 999px)', border: 'none',

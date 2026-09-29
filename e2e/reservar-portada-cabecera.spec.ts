@@ -89,6 +89,22 @@ for (const slug of ['tentare', 'tentare-carbon']) {
   }
 }
 
+// ── Al bajar por el horario ─────────────────────────────────────────────────
+
+test('móvil: al bajar por el horario, la tira de días y los filtros se quedan arriba', async ({ page }) => {
+  // El bloque se diseñó pegado («todo pegado al borde superior al hacer
+  // scroll», components/reserva/reserva-calendario.tsx), pero la raíz de
+  // /reservar llevaba `overflow: hidden` y no se pegaba nunca.
+  await abrir(page, 'tentare', MOVIL);
+  const tira = page.getByRole('tablist', { name: 'Elegir día' });
+  const inicio = await tira.evaluate(el => el.getBoundingClientRect().top + window.scrollY);
+  await page.evaluate(y => window.scrollTo(0, y), inicio + 120);
+  await page.waitForTimeout(300);
+  const caja = (await tira.boundingBox())!;
+  expect(caja.y, `la tira está en y=${Math.round(caja.y)}`).toBeGreaterThanOrEqual(-1);
+  expect(caja.y).toBeLessThan(80);
+});
+
 // ── La cabecera ─────────────────────────────────────────────────────────────
 
 test('móvil: la cabecera va en UNA fila, y «Mis reservas» y el teléfono pasan al menú', async ({ page }) => {

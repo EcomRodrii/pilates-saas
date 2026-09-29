@@ -6,6 +6,11 @@ import globals from "globals";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // Un `// comentario` suelto entre etiquetas JSX no es un comentario: React lo
+  // pinta como TEXTO. Pasó el 29-sep-2026 en la raíz de /reservar (se veía
+  // «// `reservar-raiz` (app/globals.css) recorta…» encima de la página) y solo
+  // lo cazó una captura. Cero casos en el repo al activarla.
+  { rules: { "react/jsx-no-comment-textnodes": "error" } },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

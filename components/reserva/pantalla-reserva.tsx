@@ -316,16 +316,18 @@ export function PantallaReserva({
       {/* Único scroll natural de la pantalla — nada de overflow anidado ni
           `100vh` fijo: el contenedor padre (PublicSheet en modo pantalla
           completa) ya resuelve `dvh`/franja del iframe/safe-area. */}
-      {/* `overscrollBehavior: 'contain'` no es cosmético: sin `footer`,
-          `PublicSheet` no envuelve `children` en su wrapper de scroll de
-          siempre (ese sí lo lleva) — este div es el ÚNICO contenedor con
-          scroll, y sin contenerlo, al llegar al final el scroll encadena
-          hacia la página de debajo (el "doble scroll" que la Fase 4 pide
-          evitar explícitamente). */}
+      {/* Sin scroll propio (29-sep-2026). Llevaba `overflowY: 'auto'` de
+          cuando esto era una hoja a pantalla completa con su altura acotada;
+          desde el rediseño «sin popup» la hoja crece con el contenido y el
+          scroll es el de la página, así que aquello solo la convertía en un
+          contenedor de scroll sin límite en el que ningún `sticky` de dentro
+          podía pegarse: el total y «Continuar al pago» del móvil
+          (`.pantalla-reserva-cta-pegada`) se quedaban al final, bajo el borde.
+          `overflowX: 'clip'` recorta en horizontal sin volver a serlo. */}
       {/* La cabecera va DENTRO del contenedor (F4) para que la alcance su
           consulta de contenedor: en escritorio se alinea con las dos columnas
           de abajo, y en el móvil con el borde de la foto. */}
-      <div className="pantalla-reserva-contenedor" style={{ flex: '1 1 auto', overflowY: 'auto', overscrollBehavior: 'contain' }}>
+      <div className="pantalla-reserva-contenedor" style={{ flex: '1 1 auto', overflowX: 'clip' }}>
         {/* Cabecera minimalista — un único "‹ volver", nunca "‹ Datos"/"‹ Pago":
             es la pieza que más se nota cuando se compara con Momence, cuyo
             checkout entero es un scroll sin ningún control de "paso anterior"

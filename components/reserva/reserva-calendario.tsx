@@ -1736,11 +1736,11 @@ function BookingSheet({
     : null;
 
   // La barra del CTA. En la página suelta (`vista` fuera de un iframe) va FIJA
-  // al pie de la ventana, como el «Reservar» de la app: la raíz de /reservar
-  // lleva `overflow: hidden` (app/reservar/[slug]/page.tsx), y eso convierte a
-  // la raíz en el contenedor de cualquier `position: sticky` de dentro, que
-  // entonces no se pega a nada. Medido: a 390×844 el «Reservar» del pie
-  // «pegado» quedaba por debajo del borde de la pantalla. Va por portal
+  // al pie de la ventana, como el «Reservar» de la app. Nació porque la raíz
+  // de /reservar llevaba `overflow: hidden`, que dejaba sin efecto cualquier
+  // `position: sticky` de dentro (medido: a 390×844 el «Reservar» del pie
+  // «pegado» quedaba bajo el borde); desde el 29-sep-2026 la raíz usa `clip`
+  // (`.reservar-raiz`), pero la barra sigue siendo fija. Va por portal
   // —`anfitrionPortal()`, que en /reservar es `document.body`, como el menú de
   // la cabecera— para no depender de qué ancestro crea un bloque contenedor (la
   // entrada `paso-anim` anima un `transform`, y con él un `fixed` se anclaría a
