@@ -14,9 +14,10 @@
 // panel; la app ya dejó Google por eso y por los builds que fallaban. Son los
 // mismos bytes que sirve la app, con su licencia OFL al lado.
 //
-// Por qué `'Tentare …'` y no el nombre de la familia: la hoja vive en el
-// documento del estudio (un `@font-face` dentro del shadow no carga), y si su
-// web ya declara «Figtree» con otros pesos, las dos se pisarían.
+// Por qué `'Tentare …'` y no el nombre de la familia, también en las de
+// reserva: la hoja vive en el documento del estudio (un `@font-face` dentro del
+// shadow no carga), y si su web ya declara «Figtree» o «Poppins Fallback», las
+// dos se pisarían, y la nuestra le cambiaría la letra a su web.
 //
 // ⚠️ Solo con una letra ELEGIDA (`EstiloNativa.letra`, ./estilo-nativa.ts): con
 // «Como tu app» la nativa usa la de su web y no pide nada.
@@ -39,16 +40,21 @@ export const CARPETAS_FUENTES_NATIVA = [
  * métrica detrás, como allí. `--font-ui` y `--font-display` no van: los pone la
  * pareja (`varsPareja`, lib/reservar/tema-app.ts), que para «Serena» y «Nítida»
  * los compone con `-latin` y `-ext` (`FUENTE_BASE`).
+ *
+ * ⚠️ Esa composición es la de la app y nombra la reserva SIN prefijo
+ * («'Instrument Sans Fallback'»). Por eso la de Tentare va al final de `-ext`:
+ * queda delante de esa y es la que se usa. La otra, detrás, la hoja no la
+ * declara: si su web tiene una con ese nombre, no se la tocamos.
  */
 export const VARS_FAMILIAS_NATIVA: Readonly<Record<string, string>> = {
-  '--font-jakarta': "'Tentare Plus Jakarta Sans', 'Tentare Plus Jakarta Sans Ext', 'Plus Jakarta Sans Fallback'",
-  '--font-libre-caslon': "'Tentare Libre Caslon Text', 'Tentare Libre Caslon Text Ext', 'Libre Caslon Text Fallback'",
-  '--font-figtree': "'Tentare Figtree', 'Tentare Figtree Ext', 'Figtree Fallback'",
-  '--font-cormorant': "'Tentare Cormorant Garamond', 'Tentare Cormorant Garamond Ext', 'Cormorant Garamond Fallback'",
-  '--font-outfit': "'Tentare Outfit', 'Tentare Outfit Ext', 'Outfit Fallback'",
-  '--font-poppins': "'Tentare Poppins', 'Tentare Poppins Ext', 'Poppins Fallback'",
+  '--font-jakarta': "'Tentare Plus Jakarta Sans', 'Tentare Plus Jakarta Sans Ext', 'Tentare Plus Jakarta Sans Fallback'",
+  '--font-libre-caslon': "'Tentare Libre Caslon Text', 'Tentare Libre Caslon Text Ext', 'Tentare Libre Caslon Text Fallback'",
+  '--font-figtree': "'Tentare Figtree', 'Tentare Figtree Ext', 'Tentare Figtree Fallback'",
+  '--font-cormorant': "'Tentare Cormorant Garamond', 'Tentare Cormorant Garamond Ext', 'Tentare Cormorant Garamond Fallback'",
+  '--font-outfit': "'Tentare Outfit', 'Tentare Outfit Ext', 'Tentare Outfit Fallback'",
+  '--font-poppins': "'Tentare Poppins', 'Tentare Poppins Ext', 'Tentare Poppins Fallback'",
   '--font-ui-latin': "'Tentare Instrument Sans'",
-  '--font-ui-ext': "'Tentare Instrument Sans Ext'",
+  '--font-ui-ext': "'Tentare Instrument Sans Ext', 'Tentare Instrument Sans Fallback'",
   '--font-display-latin': "'Tentare Instrument Serif'",
-  '--font-display-ext': "'Tentare Instrument Serif Ext'",
+  '--font-display-ext': "'Tentare Instrument Serif Ext', 'Tentare Instrument Serif Fallback'",
 };

@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DibujoEstilo } from '@/components/apariencia/muestra-estilo';
 import { ESTILOS, TIPOGRAFIAS, estiloPorId, tipografiaPorId, type EstiloId, type Tipografia } from '@/lib/student/apariencia';
-import { COLOR_OTRO_INICIAL, COLOR_WEB, colorDeLaWeb, esNeutro, type BotonWeb, type FormaWeb, type WebId, type WidgetWeb } from '@/lib/reservar/estilo-web-tipos';
+import { COLOR_OTRO_INICIAL, COLOR_WEB, colorDeLaWeb, type BotonWeb, type FormaWeb, type WebId, type WidgetWeb } from '@/lib/reservar/estilo-web-tipos';
+import { nadaParaSinMarco } from '@/lib/widget/estilo-nativa';
 import { botonPorDefecto, botonWeb, paletaWidget, type BaseEstiloWeb } from '@/lib/reservar/estilo-web';
 import type { MetodoIntegracion } from '@/lib/widgets/catalogo';
 import type { PiezasAfectadas } from '@/lib/widgets/estilo-afectados';
@@ -51,8 +52,9 @@ function frasesSinMarco(piezas: PiezasAfectadas, borrador: WidgetWeb): string[] 
   if (sinMarco.length > 0) {
     const varios = sinMarco.length > 1;
     const quien = enLista(sinMarco);
-    out.push(esNeutro(borrador)
-      // Nada elegido: vuelve a su aspecto de siempre (solo se nombra si alguna vez le llegó otro).
+    out.push(nadaParaSinMarco(borrador)
+      // Nada que le llegue (quitar solo el pie tampoco: no lleva): vuelve a su
+      // aspecto de siempre (solo se nombra si alguna vez le llegó otro).
       ? (varios
         ? `${quien} van sin marco: sin ningún cambio de estilo, vuelven a verse como antes de que aplicaras uno.`
         : `${quien} va sin marco: sin ningún cambio de estilo, vuelve a verse como antes de que aplicaras uno.`)

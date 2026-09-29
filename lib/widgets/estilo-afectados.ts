@@ -50,7 +50,7 @@ import { cambiaElBotonDeLaVentana, resolverEstiloWeb, urlTraeDisenoPropio, type 
 import type { WidgetWeb } from '../reservar/estilo-web-tipos.ts';
 import { paletaEfectivaReservar } from '../reservar/precedencia-tema.ts';
 import { temaAppParaReservar } from '../reservar/tema-app.ts';
-import { datosEstiloNativaDeBase, estiloDeLaNativa, type EstiloNativa } from '../widget/estilo-nativa.ts';
+import { datosEstiloNativaDeBase, estiloDeLaNativa, nadaParaSinMarco, type EstiloNativa } from '../widget/estilo-nativa.ts';
 
 export interface PiezasAfectadas {
   /** Los nombres de los widgets copiados que cambian, en el orden del catálogo. */
@@ -179,8 +179,15 @@ function estiloSinMarco(w: WidgetDisponible, c: ConfigConstructor, estilo: Widge
  * recuadro no cambian nada en ella. Sin esto, la confirmación diría «también
  * cambia» de una nativa que se queda igual (quitar el pie, que no tiene), o
  * «vuelve a verse como antes» de una a la que nunca le llegó nada.
+ *
+ * Si ni lo uno ni lo otro le llega (`nadaParaSinMarco`, la misma pregunta que
+ * hace el bundle), no cambia, y eso se sabe aun sin `base`. Sin `base`
+ * (cargando) y con algo que le llega, no se sabe si es de noche: cambia, el
+ * mismo criterio que `columnasSinPaleta`.
  */
-function cambiaSinMarco(w: WidgetDisponible, c: ConfigConstructor, publicado: WidgetWeb | null, estilo: WidgetWeb | null, base: BaseEstiloWeb): boolean {
+function cambiaSinMarco(w: WidgetDisponible, c: ConfigConstructor, publicado: WidgetWeb | null, estilo: WidgetWeb | null, base: BaseEstiloWeb | null): boolean {
+  if (nadaParaSinMarco(estilo) && nadaParaSinMarco(publicado)) return false;
+  if (!base) return true;
   const llega = (x: WidgetWeb | null) => {
     const e = estiloSinMarco(w, c, x, base);
     return e && !(e.soloLetra && e.letra === null) ? JSON.stringify(e) : null;
@@ -209,11 +216,10 @@ export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
       else out.cambian.push(w.nombre);
       if (metodo === 'popup' && botonCambia) (copiado.botonVivo === true ? out.botonesVivos : out.botonesCongelados).push(w.nombre);
     } else if (metodo === 'nativa') {
-      // Sin base (cargando) no se sabe si es de noche: cambia, el mismo
-      // criterio que `columnasSinPaleta`. Un borrador neutro también cambia:
-      // vuelve a su aspecto de siempre, si alguna vez le llegó otro.
+      // Un borrador neutro también cambia: vuelve a su aspecto de siempre, si
+      // alguna vez le llegó otro.
       if (d.base && sinMarcoSoloLetra(w, c, d.estilo, d.base)) out.sinMarcoSoloLetra.push(w.nombre);
-      else if (!d.base || cambiaSinMarco(w, c, d.publicado, d.estilo, d.base)) {
+      else if (cambiaSinMarco(w, c, d.publicado, d.estilo, d.base)) {
         out.cambian.push(w.nombre);
         out.sinMarco.push(w.nombre);
       }

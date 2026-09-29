@@ -50,8 +50,9 @@ export function PasoPonlo({
    */
   estiloSinAplicar: boolean;
   /**
-   * Hay un estilo de sus widgets aplicado en su web (algo elegido). `null`
-   * mientras carga o si no se ha podido leer: no se dice nada que dependa de él.
+   * Hay un estilo de sus widgets aplicado en su web que le llega sin marco
+   * (`nadaParaSinMarco`: quitar solo el pie no cuenta). `null` mientras carga
+   * o si no se ha podido leer: no se dice nada que dependa de él.
    */
   estiloAplicado: boolean | null;
   onCopiado: (firma: string) => void;

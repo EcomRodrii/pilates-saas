@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   RECUADRO_NATIVA, datosEstiloNativaDeBase, datosEstiloNativaDeTema, estiloDeLaNativa, leerDatosEstiloNativa, marcaDeLaNativa,
-  type AppDeLaNativa, type DatosEstiloNativa, type EstiloNativa,
+  colorDeDataColor, nadaParaSinMarco, type AppDeLaNativa, type DatosEstiloNativa, type EstiloNativa,
 } from './estilo-nativa.ts';
 import { baseEstiloWeb, botonWeb, resolverEstiloWeb } from '../reservar/estilo-web.ts';
 import {
@@ -30,8 +30,9 @@ test('datosEstiloNativaDeTema: el color del TEMA gana a la columna; sin uno vál
   for (const primary of [undefined, null, '', 'red', '#12345', '#123456;}', 7]) {
     assert.equal(datosEstiloNativaDeTema({ primary }, COLUMNA).color, COLUMNA, String(primary));
   }
-  // `#rgb` no vale, igual que para /reservar y la app (`colorMarcaDelEstudio`): el mismo color en los tres sitios.
-  assert.equal(datosEstiloNativaDeTema({ primary: '#abc' }, COLUMNA).color, COLUMNA);
+  // `#rgb` (lo admite el tema) se expande, igual que para /reservar y los correos
+  // (`colorMarcaDelEstudio`): el color que eligió, y siempre con seis cifras.
+  assert.equal(datosEstiloNativaDeTema({ primary: '#abc' }, COLUMNA).color, '#aabbcc');
   assert.equal(datosEstiloNativaDeTema({ primary: undefined }, 'basura').color, null);
 });
 
@@ -60,6 +61,11 @@ const TEMAS: { primary: unknown; widgetWeb: unknown; appAlumna: unknown }[] = [
   { primary: TEMA, widgetWeb: null, appAlumna: { estilo: 'bosque' } },
   { primary: TEMA, widgetWeb: { web: 'oscura' }, appAlumna: {} },
   { primary: TEMA, widgetWeb: { estilo: 'x', letra: 'editorial' }, appAlumna: { estilo: 'nope', tipografia: 7 } },
+  // Un primario de tres cifras: la base del panel lo admite tal cual y el servidor lo validaba aparte.
+  { primary: '#a3c', widgetWeb: { estilo: 'arena' }, appAlumna: {} },
+  { primary: '#A3C', widgetWeb: null, appAlumna: {} },
+  // Solo quitar el pie: la nativa no lleva, así que no le llega nada.
+  { primary: TEMA, widgetWeb: { ocultarPie: true }, appAlumna: { estilo: 'carbon' } },
 ];
 
 test('ida y vuelta: lo que manda el servidor, pasado por JSON y leído en el bundle, es lo mismo', () => {
@@ -79,6 +85,12 @@ test('⚠️ panel = servidor: con el mismo tema, la vista previa y la web del e
   // Un borrador neutro (quitarlo todo) también: la previa vuelve a lo de siempre.
   assert.equal(datosEstiloNativaDeBase(ww(), baseEstiloWeb(TEMA, null)).web, null);
   assert.equal(datosEstiloNativaDeBase(null, baseEstiloWeb(TEMA, null)).web, null);
+  // Y lo que pintan con tres cifras, lo mismo en la previa y en su web (antes, dos mezclas distintas).
+  const tres = TEMAS.find(t => t.primary === '#a3c')!;
+  const panel = datosEstiloNativaDeBase(leerWidgetWeb(tres.widgetWeb), baseEstiloWeb(tres.primary, tres.appAlumna));
+  const bundle = leerDatosEstiloNativa(JSON.parse(JSON.stringify(datosEstiloNativaDeTema(tres, COLUMNA))));
+  assert.equal(bundle?.color, '#aa33cc');
+  for (const x of [COLUMNAS, DIAS]) assert.deepEqual(estiloDeLaNativa(panel, x), estiloDeLaNativa(bundle, x));
 });
 
 test('leerDatosEstiloNativa: lo que no es un objeto no es nada (un servidor de antes no lo manda)', () => {
@@ -124,6 +136,28 @@ test('⚠️ sin nada elegido, `null`: la nativa se ve EXACTAMENTE como hasta ah
       assert.equal(estiloDeLaNativa(conEstilo(w), x), null);
     }
   }
+});
+
+test('⚠️ solo quitar el pie no le cambia nada: la nativa no lleva pie', () => {
+  const soloPie = ww({ ocultarPie: true });
+  assert.equal(esNeutro(soloPie), false);
+  assert.equal(nadaParaSinMarco(soloPie), true);
+  for (const w of [null, undefined, ww()]) assert.equal(nadaParaSinMarco(w), true);
+  for (const x of [COLUMNAS, DIAS]) {
+    // Por las tres puertas, y también si se colara a mano (con la app en Carbón y en Crema).
+    assert.equal(estiloDeLaNativa(datosEstiloNativaDeTema({ primary: TEMA, widgetWeb: soloPie }, COLUMNA), x), null);
+    assert.equal(estiloDeLaNativa(datosEstiloNativaDeBase(soloPie, baseEstiloWeb(TEMA, null)), x), null);
+    assert.equal(estiloDeLaNativa(leerDatosEstiloNativa({ color: TEMA, web: { widgetWeb: soloPie, app: APP } }), x), null);
+    for (const estilo of ['crema', 'carbon'] as const) assert.equal(estiloDeLaNativa(conEstilo(soloPie, TEMA, { ...APP, estilo }), x), null);
+  }
+  // Con algo más elegido, el pie tampoco cuenta: lo mismo con él que sin él.
+  let n = 0;
+  for (const { w, app, color, columnas, e } of matriz()) {
+    const conPie = estiloDeLaNativa(datosEstiloNativaDeBase({ ...w, ocultarPie: true }, baseEstiloWeb(color, app)), { columnas });
+    assert.deepEqual(conPie, e);
+    n++;
+  }
+  assert.ok(n > 1000);
 });
 
 // ── Con algo elegido: lo del iframe ──────────────────────────────────────────
@@ -308,6 +342,29 @@ test('marcaDeLaNativa: la regla de `pintarMarca`, texto claro sobre un color osc
   // El de por defecto de la nativa, y `#rgb` (el `data-marca` corto también vale).
   assert.equal(marcaDeLaNativa('#343825')['--portal-brand-foreground'], '#FFFFFF');
   assert.equal(marcaDeLaNativa('#fff')['--portal-brand-foreground'], '#22261F');
-  // Lo que no es hex (el `data-color` de antes, sin validar): texto oscuro, como siempre.
+  // Lo que no es hex (el `data-color` de antes admite cualquier color CSS): texto oscuro, como siempre.
   assert.equal(marcaDeLaNativa('red')['--portal-brand-foreground'], '#22261F');
+});
+
+test('⚠️ colorDeDataColor: el `data-color` de antes, solo si es un color (lo decide el navegador)', () => {
+  // Un `CSS.supports('color', v)` de mentira: lo que el navegador tomaría por color.
+  const vistos: string[] = [];
+  const esColor = (v: string) => {
+    vistos.push(v);
+    return /^(#[0-9a-f]{3,8}|[a-z]+|rgba?\([\d\s,.%]+\))$/i.test(v) || /^var\(/i.test(v);
+  };
+  // Lo de siempre sigue valiendo, recortado: hex, nombres y funciones de color.
+  for (const [v, sale] of [['#0E7490', '#0E7490'], [' red ', 'red'], ['rgb(1, 2, 3)', 'rgb(1, 2, 3)'], ['#abc', '#abc']] as const) {
+    assert.equal(colorDeDataColor(v, esColor), sale, v);
+  }
+  // Lo que no es un color, no.
+  for (const v of ['url(x)', 'red; background: blue', 'nope(1)']) assert.equal(colorDeDataColor(v, esColor), null, v);
+  // Sin nada, nada (y sin preguntar).
+  vistos.length = 0;
+  for (const v of [undefined, '', '   ']) assert.equal(colorDeDataColor(v, esColor), null, String(v));
+  // `var()` y compañía, ni aunque el navegador diga que sí: ni se le pregunta.
+  for (const v of ['var(--x)', 'VAR(--x, red)', 'rgb(var(--x))', 'env(x)', 'attr(data-x)', 'v\\61r(--x)']) {
+    assert.equal(colorDeDataColor(v, esColor), null, v);
+  }
+  assert.deepEqual(vistos, []);
 });

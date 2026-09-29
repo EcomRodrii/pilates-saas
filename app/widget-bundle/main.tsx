@@ -25,7 +25,7 @@ import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserv
 import { MODO_TOKENS, type ModoTokens } from '@/lib/portal-modo';
 import { resolverConfigWidget, fuenteDeDataset, familiaCssDe, urlFuenteGoogle, nativaTraeDisenoPropio, CONFIG_WIDGET_POR_DEFECTO, type ConfigWidget } from '@/lib/reservar/config-widget';
 import { HEX6 } from '@/lib/reservar/estilo-web-tipos';
-import { estiloDeLaNativa, marcaDeLaNativa } from '@/lib/widget/estilo-nativa';
+import { colorDeDataColor, estiloDeLaNativa, marcaDeLaNativa } from '@/lib/widget/estilo-nativa';
 import { HOJA_FUENTES_NATIVA, VARS_FAMILIAS_NATIVA } from '@/lib/widget/fuentes-nativa';
 import { firmaDeUrl } from '@/lib/widgets/firma-contenido';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
@@ -525,8 +525,8 @@ function montarUno(host: HTMLElement) {
   // data-instructoras, data-salas, data-vista, data-ocultar-precio,
   // data-ocultar-nivel, data-ocultar-sustituta, data-diseno, data-fondo,
   // data-marca, data-negro. `data-color` sigue siendo el primario de siempre
-  // (retrocompatible, sin validar, como estaba); `data-marca` gana si vienen
-  // los dos porque pasa por el filtro anti-basura del parser.
+  // (retrocompatible: vale cualquier color CSS, no solo hex); `data-marca` gana
+  // si vienen los dos porque pasa por el filtro anti-basura del parser.
   const params = fuenteDeDataset(host.dataset as Record<string, string | undefined>);
   const config = resolverConfigWidget(params);
   // Con diseño en sus atributos, el estilo de sus widgets no le llega (la
@@ -536,7 +536,7 @@ function montarUno(host: HTMLElement) {
   // el panel con `paresNativa`, así que «Visto en» sabe si es la de ahora.
   // `firmaDeUrl` solo lee su lista blanca: `data-studio` no cuenta.
   const firma = firmaDeUrl(params);
-  const color = config.colorPrimario ?? host.dataset.color?.trim();
+  const color = config.colorPrimario ?? colorDeDataColor(host.dataset.color, v => CSS.supports('color', v));
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = widgetCss;
@@ -549,9 +549,10 @@ function montarUno(host: HTMLElement) {
   // esto por luminancia; Modo B nunca lo hizo — dos implementaciones del
   // mismo dato que divergieron. Mismo criterio aquí (`marcaDeLaNativa`, la
   // misma que pinta el color de identidad en WidgetApp): oscuro sobre marca
-  // clara, claro sobre marca oscura. Con `setProperty`, no como texto: el
-  // `data-color` de antes nunca se validó, y así un valor que no es un color se
-  // descarta sin salirse de su declaración.
+  // clara, claro sobre marca oscura. ⚠️ `setProperty` en una custom property no
+  // comprueba que sea un color, y `marcaDeLaNativa` tampoco: por eso `color` ya
+  // llega validado (`data-marca` en el parser, `data-color` con
+  // `colorDeDataColor`), y lo que no lo es cae al de siempre.
   for (const [k, v] of Object.entries(marcaDeLaNativa(color || '#343825'))) raiz.style.setProperty(k, v);
   raiz.style.setProperty('--success', '#2F6B4F');
   raiz.style.setProperty('--warning', '#8F6215');

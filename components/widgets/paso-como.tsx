@@ -8,7 +8,7 @@ import type { MetodoIntegracion, WidgetDisponible } from '@/lib/widgets/catalogo
 import { anchoPorDefecto, type ConfigConstructor } from '@/lib/widgets/config';
 import { tieneDisenoEnCodigo } from '@/lib/widgets/integracion';
 import { columnasSinPaleta, sinMarcoSoloLetra, type PiezasAfectadas } from '@/lib/widgets/estilo-afectados';
-import { esNeutro } from '@/lib/reservar/estilo-web-tipos';
+import { nadaParaSinMarco } from '@/lib/widget/estilo-nativa';
 import { botonDeSuWeb, usaBotonPropio, type PlataformaWeb } from '@/lib/widgets/recetas';
 import { Ajuste, AjusteInterruptor, Etiqueta, MuestraColor, Plegable, Segmentado, Tarjeta } from './piezas';
 import { EstiloWeb } from './estilo-web';
@@ -33,6 +33,8 @@ import type { EstiloWebPanel } from './usar-estilo-web';
 // la letra, y con «Como tu app» nada).
 
 const COLOR_DE_FONDO = '#F6F3EC';
+/** El primario de siempre de la nativa sin `data-marca` ni identidad del estudio (`montarUno`, app/widget-bundle/main.tsx). */
+const COLOR_WIDGET_NATIVA = '#343825';
 
 export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, estilo, soloLectura, verApariencia, piezas }: {
   w: WidgetDisponible;
@@ -70,7 +72,9 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
   // Sin marco, con la regla de SUS `data-*` (la nativa solo entiende marca,
   // fondo, tinta y letra): «propia» con solo una superficie sigue el estilo.
   const disenoEnSuCodigo = tieneDisenoEnCodigo(c, metodo);
-  const sinMarcoSinNada = nativa && estilo.fase === 'listo' && esNeutro(estilo.borrador);
+  // «Nada» es lo que no le llega sin marco, la misma pregunta que el bundle: quitar
+  // solo el pie no cuenta, porque la nativa no lleva.
+  const sinMarcoSinNada = nativa && estilo.fase === 'listo' && nadaParaSinMarco(estilo.borrador);
   const sinMarcoLetra = nativa && !!estilo.base && sinMarcoSoloLetra(w, c, estilo.borrador, estilo.base);
 
   const aviso: ReactNode = metodo === 'enlace' || soloBoton
@@ -81,8 +85,8 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
         // Con la identidad del estudio, su color (el del tema) y la letra de su
         // web; «propia» sin nada que la nativa entienda, su diseño de siempre.
         ? propia
-          ? 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con su diseño de siempre. En cuanto apliques un cambio, lo toma entero, sin volver a pegar nada.'
-          : 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con tu color y la letra de tu web. En cuanto apliques un cambio, lo toma entero, sin volver a pegar nada.'
+          ? 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con su diseño de siempre. En cuanto apliques un cambio, le llega solo, sin volver a pegar nada.'
+          : 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con tu color y la letra de tu web. En cuanto apliques un cambio, le llega solo, sin volver a pegar nada.'
         : sinMarcoLetra
           // De noche en columnas solo le llegaría la letra; con «Como tu app», ni esa.
           ? estilo.borrador.letra === null
@@ -190,7 +194,19 @@ function DisenoPropio({ c, nativa, soloBoton, cambiar, colorEstudio }: {
   const tema = c.tema === 'auto' && !segunFondo ? 'claro' : c.tema;
   return (
     <div className="space-y-5 rounded-xl border border-border p-3.5">
-      <MuestraColor etiqueta="Color principal" descripcion="Botones y acentos." valor={c.marca} muestra={colorEstudio} onChange={v => cambiar({ marca: v })} />
+      {/*
+        Sin marco y con un diseño propio, el bundle no toma el color del estudio
+        (`data-identidad` no va): sin `data-marca`, el de siempre del widget
+        (`montarUno`, app/widget-bundle/main.tsx, y la vista previa).
+      */}
+      <MuestraColor
+        etiqueta="Color principal"
+        descripcion="Botones y acentos."
+        valor={c.marca}
+        muestra={nativa ? COLOR_WIDGET_NATIVA : colorEstudio}
+        onChange={v => cambiar({ marca: v })}
+        porDefecto={nativa ? 'el de siempre del widget' : undefined}
+      />
       {!soloBoton && (
         <>
           <Ajuste etiqueta="Fondo">
@@ -204,7 +220,7 @@ function DisenoPropio({ c, nativa, soloBoton, cambiar, colorEstudio }: {
             />
             {fondo === 'color' && (
               <div className="mt-3">
-                <MuestraColor etiqueta="Color del fondo" valor={c.fondo} muestra={COLOR_DE_FONDO} onChange={v => cambiar({ fondo: v })} porDefecto="el de tu página de reservas" />
+                <MuestraColor etiqueta="Color del fondo" valor={c.fondo} muestra={COLOR_DE_FONDO} onChange={v => cambiar({ fondo: v })} porDefecto={nativa ? 'el de tu web' : 'el de tu página de reservas'} />
               </div>
             )}
           </Ajuste>
@@ -223,7 +239,7 @@ function DisenoPropio({ c, nativa, soloBoton, cambiar, colorEstudio }: {
               />
             </Ajuste>
           )}
-          <MuestraColor etiqueta="Texto" descripcion="El color de la letra." valor={c.tinta} muestra={MODO_TOKENS.dia.ink} onChange={v => cambiar({ tinta: v })} />
+          <MuestraColor etiqueta="Texto" descripcion="El color de la letra." valor={c.tinta} muestra={MODO_TOKENS.dia.ink} onChange={v => cambiar({ tinta: v })} porDefecto={nativa ? 'el de siempre del widget' : undefined} />
           {!nativa && (
             <>
               <MuestraColor etiqueta="Tarjetas" descripcion="El fondo de cada clase y de los campos." valor={c.superficie} muestra="#FFFFFF" onChange={v => cambiar({ superficie: v })} />
@@ -232,10 +248,12 @@ function DisenoPropio({ c, nativa, soloBoton, cambiar, colorEstudio }: {
           )}
           <SelectorFuente
             etiqueta="Letra"
-            ayuda={nativa ? 'Sin tocar, la de tu web.' : 'Sin tocar, la de tu página de reservas.'}
+            // Sin marco, la letra de su web solo llega con la identidad del
+            // estudio: con un diseño propio, la de siempre del widget (`montarUno`).
+            ayuda={nativa ? 'Sin tocar, la de siempre del widget: con un diseño propio ya no toma la de tu web.' : 'Sin tocar, la de tu página de reservas.'}
             valor={c.fuente}
             onChange={v => cambiar({ fuente: v })}
-            etiquetaPorDefecto={nativa ? 'La de tu web' : 'La de tu página de reservas'}
+            etiquetaPorDefecto={nativa ? 'La de siempre' : 'La de tu página de reservas'}
           />
           <SelectorFuente
             etiqueta="Letra de los titulares"

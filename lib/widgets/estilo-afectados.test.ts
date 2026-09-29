@@ -353,6 +353,20 @@ test('⚠️ sin marco, solo se nombra lo que de verdad se ve distinto: el pie (
   assert.deepEqual(piezasAfectadas(datos({ horario: NATIVA }, 'otra', { publicado: arena, estilo: { ...arena, ocultarPie: true }, base: null })), cambiaSinMarco);
 });
 
+test('⚠️ sin marco, quitar SOLO el pie desde nada (o volver a nada desde ahí) no la nombra: la nativa no lleva pie', () => {
+  const soloPie = ww({ ocultarPie: true });
+  for (const [publicado, estilo] of [[null, soloPie], [soloPie, null], [ww(), soloPie], [soloPie, ww()]] as const) {
+    for (const horario of [NATIVA, c({ metodo: 'nativa', diseno: 'completo' })]) {
+      const caso = JSON.stringify({ publicado, estilo, diseno: horario.diseno });
+      assert.deepEqual(piezasAfectadas(datos({ horario }, 'otra', { publicado, estilo })), VACIO, caso);
+      // Ni sin base: que no le llega nada se sabe sin saber si es de noche.
+      assert.deepEqual(piezasAfectadas(datos({ horario }, 'otra', { publicado, estilo, base: null })), VACIO, caso);
+    }
+  }
+  // Dentro de una página sí lleva pie: ahí quitarlo cambia.
+  assert.deepEqual(piezasAfectadas(datos({ horario: c({ metodo: 'iframe' }) }, null, { publicado: null, estilo: soloPie })).cambian, ['Horario y reservas']);
+});
+
 test('sin marco en columnas de noche: está en su línea pase lo que pase con la letra (el texto dice cuál de las dos)', () => {
   // «Como tu app»: no le llega nada; con una letra elegida, esa letra. Las dos, en `sinMarcoSoloLetra`.
   for (const letra of [null, 'editorial'] as const) {

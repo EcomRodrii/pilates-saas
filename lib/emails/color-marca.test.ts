@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { colorMarcaDelEstudio, colorSecundarioDelEstudio } from './color-marca.ts';
+import { colorMarcaDelEstudio, colorSecundarioDelEstudio, hexDeMarca } from './color-marca.ts';
 import { THEME_PRESETS } from '../theme-presets.ts';
 
 const ORIGINAL = THEME_PRESETS.find(p => p.id === 'original')!;
@@ -32,6 +32,18 @@ test('un hex a medio escribir nunca sale del resolver', () => {
   // Y un valor roto en un escalón no tapa al siguiente: se sigue bajando.
   assert.equal(colorMarcaDelEstudio('rosa', ORIGINAL.primary, INDIGO_DEL_ALTA), ORIGINAL.primary);
   assert.equal(colorMarcaDelEstudio('rosa', 'medio', '#7C9A82'), '#7C9A82');
+});
+
+test('un `#abc` del tema (lo admite `hexSchema`) se expande a `#aabbcc`, no se descarta', () => {
+  // Descartado, caía al preset o a la columna mientras el panel enseñaba el suyo.
+  assert.equal(colorMarcaDelEstudio('#a3c', ORIGINAL.primary, INDIGO_DEL_ALTA), '#aa33cc');
+  assert.equal(colorMarcaDelEstudio(' #FFF ', null, null), '#FFFFFF');
+  assert.equal(colorSecundarioDelEstudio('#0b7', ORIGINAL.secondary), '#00bb77');
+  // Siempre seis cifras a la salida, y lo de seis, tal cual.
+  for (const v of ['#a3c', '#A3C', '#aa33cc', '#7A2E4F']) assert.match(hexDeMarca(v)!, /^#[0-9a-fA-F]{6}$/, v);
+  assert.equal(hexDeMarca('#7A2E4F'), '#7A2E4F');
+  // Cuatro u ocho cifras (con transparencia) no son un color de marca.
+  for (const v of ['#abcd', '#aabbccdd', '#ab']) assert.equal(hexDeMarca(v), null, v);
 });
 
 test('el secundario sigue el mismo orden y no tiene columna donde caer', () => {

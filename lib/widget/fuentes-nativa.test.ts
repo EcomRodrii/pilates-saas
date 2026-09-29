@@ -61,35 +61,74 @@ test('⚠️ toda variable a la que llegan las nueve parejas está definida (sal
   assert.equal('--font-display' in VARS_FAMILIAS_NATIVA, false);
 });
 
-test('⚠️ cada familia que se nombra (las de la hoja y sus reservas) tiene su @font-face en la hoja', () => {
+test('⚠️ la hoja solo declara familias «Tentare …», también las de reserva: nada que pise una de su web', () => {
+  // Vive en el documento del estudio: una «Poppins Fallback» nuestra se sumaría a la suya y le cambiaría la letra.
+  assert.ok(reglas.length > 0);
+  for (const r of reglas) assert.match(familiaDe(r), /^Tentare /, r);
+});
+
+/** Una pila de la pareja, con las variables de la nativa sustituidas (las demás, tal cual). */
+const conVariablesNativa = (pila: string) =>
+  pila.replace(/var\((--[a-z0-9-]+)\)/g, (todo, v: string) => VARS_FAMILIAS_NATIVA[v] ?? todo);
+
+test('⚠️ cada familia que se nombra tiene su @font-face en la hoja; las que no son nuestras, nunca, y con la nuestra delante', () => {
   const declaradas = new Set(reglas.map(familiaDe));
   const nombradas = new Set<string>();
-  for (const v of Object.values(VARS_FAMILIAS_NATIVA)) for (const f of familiasDe(v)) nombradas.add(f);
-  for (const id of TIPOGRAFIA_IDS) {
-    for (const v of Object.values(varsPareja(id))) for (const f of familiasDe(v)) nombradas.add(f);
+  for (const v of Object.values(VARS_FAMILIAS_NATIVA)) {
+    for (const f of familiasDe(v)) {
+      assert.match(f, /^Tentare /, f);
+      nombradas.add(f);
+    }
   }
+  // La pareja es la de la app (`FUENTE_BASE` nombra «'Instrument Sans Fallback'» sin
+  // prefijo): esa no se declara, y en la pila de la nativa la de Tentare va antes.
+  let ajenas = 0;
+  for (const id of TIPOGRAFIA_IDS) {
+    for (const [k, v] of Object.entries(varsPareja(id))) {
+      const pila = familiasDe(conVariablesNativa(v));
+      for (const [i, f] of pila.entries()) {
+        if (f.startsWith('Tentare ')) {
+          nombradas.add(f);
+          continue;
+        }
+        ajenas++;
+        assert.equal(declaradas.has(f), false, `${id} ${k}: la hoja declara «${f}», que no es nuestra`);
+        assert.ok(pila.slice(0, i).includes(`Tentare ${f}`), `${id} ${k}: «${f}» sin «Tentare ${f}» delante`);
+      }
+    }
+  }
+  assert.ok(ajenas > 0, 'la pareja ya no nombra ninguna reserva sin prefijo: sobra la de Tentare al final de `-ext`');
   assert.ok(nombradas.size > 10);
   for (const f of nombradas) assert.ok(declaradas.has(f), `«${f}» se nombra y la hoja no la declara`);
 });
 
-test('las variables encadenan base, extendida y la MISMA reserva que en la app', () => {
+test('las variables encadenan base, extendida y la MISMA reserva que en la app (con el prefijo de Tentare)', () => {
   // `--font-jakarta: var(--font-jakarta-latin), var(--font-jakarta-ext), 'Plus Jakarta Sans Fallback'` en fuentes.css.
   const comparadas: string[] = [];
+  const instrument: string[] = [];
   for (const m of fuentesCss.matchAll(/^\s*(--font-[a-z-]+): var\(\1-latin\), var\(\1-ext\), '([^']+ Fallback)';/gm)) {
     const [, variable, reserva] = m;
+    if (variable === '--font-ui' || variable === '--font-display') {
+      // Las de Instrument (las que componen `--font-ui`/`--font-display`): base y
+      // extendida sueltas, como `-latin`/`-ext`, y la reserva de Tentare al final de `-ext`.
+      instrument.push(variable);
+      const [base, ...restoBase] = familiasDe(VARS_FAMILIAS_NATIVA[`${variable}-latin`]);
+      assert.equal(restoBase.length, 0, variable);
+      assert.match(base, /^Tentare /, variable);
+      assert.deepEqual(familiasDe(VARS_FAMILIAS_NATIVA[`${variable}-ext`]), [`${base} Ext`, `Tentare ${reserva}`], variable);
+      continue;
+    }
     if (!(variable in VARS_FAMILIAS_NATIVA)) continue;
     comparadas.push(variable);
     const [base, ext, suReserva, ...resto] = familiasDe(VARS_FAMILIAS_NATIVA[variable]);
     assert.equal(resto.length, 0, variable);
     assert.match(base, /^Tentare /, variable);
     assert.equal(ext, `${base} Ext`, variable);
-    assert.equal(suReserva, reserva, variable);
+    assert.equal(suReserva, `Tentare ${reserva}`, variable);
   }
-  // Las seis familias con nombre propio; si el formato de fuentes.css cambia, esto no se queda en nada.
+  // Las seis familias con nombre propio y las dos de Instrument; si el formato de fuentes.css cambia, esto no se queda en nada.
   assert.deepEqual(comparadas.sort(), ['--font-cormorant', '--font-figtree', '--font-jakarta', '--font-libre-caslon', '--font-outfit', '--font-poppins']);
-  // Las de Instrument (las que componen `--font-ui`/`--font-display`): base y extendida sueltas, como `-latin`/`-ext`.
-  assert.equal(VARS_FAMILIAS_NATIVA['--font-ui-ext'], VARS_FAMILIAS_NATIVA['--font-ui-latin'].replace(/'$/, " Ext'"));
-  assert.equal(VARS_FAMILIAS_NATIVA['--font-display-ext'], VARS_FAMILIAS_NATIVA['--font-display-latin'].replace(/'$/, " Ext'"));
+  assert.deepEqual(instrument.sort(), ['--font-display', '--font-ui']);
 });
 
 /** (fichero, peso, estilo, unicode-range) de cada entrada de las `localFont` de fuentes.ts, por familia de la hoja. */
@@ -135,13 +174,17 @@ test('⚠️ paridad: de cada familia, los ficheros, pesos, estilos y rangos son
   }
 });
 
-test('las reservas ajustadas en métrica son, carácter a carácter, las de la app (sin Plex Mono ni Sacramento)', () => {
+test('las reservas ajustadas en métrica son, carácter a carácter, las de la app salvo el prefijo (sin Plex Mono ni Sacramento)', () => {
   const lineasApp = fuentesCss.split('\n').filter(l => l.startsWith('@font-face'));
   const lineasHoja = hoja.split('\n').filter(l => l.startsWith('@font-face') && !l.includes('src: url('));
   assert.equal(lineasHoja.length, 8);
-  for (const l of lineasHoja) assert.ok(lineasApp.includes(l), l);
+  const sinPrefijo = lineasHoja.map(l => {
+    assert.ok(l.includes('font-family: "Tentare '), l);
+    return l.replace('font-family: "Tentare ', 'font-family: "');
+  });
+  for (const l of sinPrefijo) assert.ok(lineasApp.includes(l), l);
   assert.deepEqual(
-    lineasApp.filter(l => !lineasHoja.includes(l)).map(l => familiasDe(l)[0]).sort(),
+    lineasApp.filter(l => !sinPrefijo.includes(l)).map(l => familiasDe(l)[0]).sort(),
     ['IBM Plex Mono Fallback', 'Sacramento Fallback'],
   );
 });

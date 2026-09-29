@@ -5,7 +5,7 @@ import { AlertCircle, ArrowRight, CalendarDays, Info, Plus, TrendingUp } from 'l
 import { cn } from '@/lib/utils';
 import { btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
 import { estiloPorId } from '@/lib/student/apariencia';
-import { esNeutro } from '@/lib/reservar/estilo-web-tipos';
+import { nadaParaSinMarco } from '@/lib/widget/estilo-nativa';
 import { METODOS } from '@/lib/widgets/catalogo';
 import { textoCambios, textosEnTuWeb, type PiezaCopiada } from '@/lib/widgets/en-tu-web';
 import { FOCO, TACTIL, Tarjeta, fechaCorta } from './piezas';
@@ -70,9 +70,10 @@ export function LoQueTienes({
     ? (estilo.publicado?.estilo ? estiloPorId(estilo.publicado.estilo).nombre : `Igual que tu app · ${estiloPorId(estilo.base.app.estilo).nombre}`)
     : undefined;
   // Sin marco (Fase E) el estilo llega con sus datos; mientras no hay ninguno
-  // aplicado, lo pegado sin marco se ve como siempre. Solo con lo publicado ya
-  // leído, y solo si alguna pieza va así y lo recibe (sin diseño propio).
-  const sinMarcoComoSiempre = estilo.fase === 'listo' && esNeutro(estilo.publicado)
+  // aplicado que le llegue (solo quitar el pie no, porque no lo lleva), lo
+  // pegado sin marco se ve como siempre. Solo con lo publicado ya leído, y
+  // solo si alguna pieza va así y lo recibe (sin diseño propio).
+  const sinMarcoComoSiempre = estilo.fase === 'listo' && nadaParaSinMarco(estilo.publicado)
     && filas.some(f => f.pieza.metodo === 'nativa' && !f.pieza.disenoPropio);
 
   return (

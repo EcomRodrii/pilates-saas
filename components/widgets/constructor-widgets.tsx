@@ -24,7 +24,8 @@ import {
 } from '@/lib/widgets/integracion';
 import { urlPopupPermitida } from '@/lib/widgets/popup-url';
 import { piezasAfectadas } from '@/lib/widgets/estilo-afectados';
-import { colorDeLaWeb, esNeutro } from '@/lib/reservar/estilo-web-tipos';
+import { colorDeLaWeb } from '@/lib/reservar/estilo-web-tipos';
+import { nadaParaSinMarco } from '@/lib/widget/estilo-nativa';
 import { botonDeLaVentana } from '@/lib/reservar/estilo-web';
 import {
   direccionLegible, leerWeb, metodoEnWeb, nombrePlataforma, receta as recetaDe, usaBotonPropio, type EstadoWeb, type PlataformaWeb,
@@ -669,7 +670,8 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               copiado={copia}
               desfase={desfase}
               estiloSinAplicar={estiloWeb.pendiente}
-              estiloAplicado={estiloWeb.fase === 'listo' ? !esNeutro(estiloWeb.publicado) : null}
+              // Solo lo lee la nativa: aplicado es que le llega algo (quitar solo el pie, no).
+              estiloAplicado={estiloWeb.fase === 'listo' ? !nadaParaSinMarco(estiloWeb.publicado) : null}
               onCopiado={registrarCopia}
               onMetodo={elegirMetodo}
               cambiar={cambiar}

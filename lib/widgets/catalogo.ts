@@ -61,7 +61,8 @@ export type MetodoIntegracion = 'iframe' | 'nativa' | 'popup' | 'boton' | 'enlac
 // `studios.widget_builder`).
 export const METODOS: Record<MetodoIntegracion, { nombre: string; descripcion: string }> = {
   iframe: { nombre: 'Dentro de una página', descripcion: 'Por ejemplo, en tu página «Horarios». Se adapta sola a su alto.' },
-  nativa: { nombre: 'Sin marco', descripcion: 'Toma la letra de tu web, mientras no elijas otra en «Cómo se ve», y ocupa su hueco como si fuera suyo. Solo funciona en las webs que autorices.' },
+  // La letra de su web, solo con la identidad del estudio: con un diseño propio, la de siempre del widget.
+  nativa: { nombre: 'Sin marco', descripcion: 'Ocupa su hueco en tu web como si fuera suyo y, sin un diseño propio, toma la letra de tu web mientras no elijas otra en «Cómo se ve». Solo funciona en las webs que autorices.' },
   popup: { nombre: 'Un botón que se abre encima', descripcion: 'Tu alumna no sale de tu web.' },
   boton: { nombre: 'Un botón que lleva a tu página de reservas', descripcion: 'Se abre tu página de reservas.' },
   enlace: { nombre: 'Un enlace', descripcion: 'Para la bio de Instagram, WhatsApp o tu newsletter. Sin código.' },

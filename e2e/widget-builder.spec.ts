@@ -1513,8 +1513,8 @@ const CARBON = { ...ARENA, estilo: 'carbon' } as const;
 /** El tema de `montar()`: su color y su app sin tocar. */
 const BASE_MONTAR = baseEstiloWeb('#343825', undefined);
 
-const AVISO_SIN_NADA = 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con tu color y la letra de tu web. En cuanto apliques un cambio, lo toma entero, sin volver a pegar nada.';
-const AVISO_SIN_NADA_PROPIA = 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con su diseño de siempre. En cuanto apliques un cambio, lo toma entero, sin volver a pegar nada.';
+const AVISO_SIN_NADA = 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con tu color y la letra de tu web. En cuanto apliques un cambio, le llega solo, sin volver a pegar nada.';
+const AVISO_SIN_NADA_PROPIA = 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con su diseño de siempre. En cuanto apliques un cambio, le llega solo, sin volver a pegar nada.';
 const AVISO_COLUMNAS_NADA = 'Sin marco y con «Siete días en columnas», este widget no se pinta en oscuro: de este estilo no le llega nada, y se ve como si no hubieras elegido ninguno.';
 const AVISO_COLUMNAS_LETRA = 'Sin marco y con «Siete días en columnas», este widget no se pinta en oscuro: de este estilo solo le llega la letra.';
 const AVISO_DISENO_PROPIO = 'Este widget lleva un diseño propio en su código (abajo): este estilo no le llega.';
@@ -1581,7 +1581,7 @@ test.describe('Fase E: sin marco sigue el estilo de sus widgets y dice qué vers
     await montar(page, { plataforma: 'otra' });
     await sinMarco(page);
     await expect(seActualizaSolo(page)).toHaveText(/Tus clases, precios y plazas, y tu color \(con la letra de tu web\)\. Si aplicas un estilo a tus widgets, lo toma también\.$/);
-    await expect(page.getByText(/Toma la letra de tu web, mientras no elijas otra en «Cómo se ve», y ocupa su hueco/)).toBeVisible();
+    await expect(page.getByText(/Ocupa su hueco en tu web como si fuera suyo y, sin un diseño propio, toma la letra de tu web mientras no elijas otra en «Cómo se ve»/)).toBeVisible();
 
     await paso(page, 'Cómo se ve');
     await expect(tarjetaComo(page)).toContainText(AVISO_SIN_NADA);
@@ -1597,6 +1597,10 @@ test.describe('Fase E: sin marco sigue el estilo de sus widgets y dice qué vers
     await expect(tarjetaComo(page)).toContainText(AVISO_SIN_NADA_PROPIA);
     await expect(tarjetaComo(page)).toContainText(LETRA_DE_SIEMPRE);
     await expect(tarjetaComo(page)).not.toContainText(AVISO_SIN_NADA);
+    // Con un diseño propio, sin tocar, su color y su letra son los de siempre del widget, no los de su web.
+    await expect(tarjetaComo(page)).toContainText('Ahora: el de siempre del widget.');
+    await expect(tarjetaComo(page)).toContainText('Sin tocar, la de siempre del widget: con un diseño propio ya no toma la de tu web.');
+    await expect(tarjetaComo(page)).not.toContainText('Sin tocar, la de tu web.');
 
     // Con su color en el código ya lleva un diseño propio: no le llega nada, y ninguna promesa de la letra.
     await page.getByLabel('Color principal').fill('#112233');

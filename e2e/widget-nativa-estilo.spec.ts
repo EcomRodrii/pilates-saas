@@ -395,6 +395,8 @@ test('⚠️ una respuesta rara no rompe nada: se ve como sin nada elegido, con 
   });
   await pintado(page);
   expect(datos.length).toBeGreaterThan(0);
+  // El control: la pidió. Si no, «se ve como sin nada» sería verdad sin haber leído nada raro.
+  expect(datos[0]).toMatchObject({ estiloWidget: true });
   const m = await medir(page);
   expect(m.marca).toBe(INDIGO);
   expect(m.fondo).toBe(SIN_FONDO);

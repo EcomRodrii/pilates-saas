@@ -31,8 +31,9 @@ export async function OPTIONS(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'public-studio-data', { max: 60, windowSeconds: 60 });
   if (limited) return limited;
-  const body = await req.json().catch(() => null) as { slug?: string; liviano?: boolean; estiloWidget?: boolean } | null;
-  const slug = body?.slug?.trim();
+  const body = await req.json().catch(() => null) as { slug?: unknown; liviano?: unknown; estiloWidget?: unknown } | null;
+  // Un `slug` que no es texto es un 400, no un 500: el cuerpo lo escribe cualquiera.
+  const slug = typeof body?.slug === 'string' ? body.slug.trim() : '';
   if (!slug) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el slug del estudio' }, { status: 400 }));
   }

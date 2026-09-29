@@ -29,7 +29,7 @@
 // hex validado: lo que llega por la red se vuelve a leer clave a clave
 // (`leerDatosEstiloNativa`), nunca se pega.
 
-import { colorMarcaDelEstudio } from '../emails/color-marca.ts';
+import { colorMarcaDelEstudio, hexDeMarca } from '../emails/color-marca.ts';
 import { escalaDensidad, luminancia, radiosDe, resolverApariencia as resolverAparienciaWidget } from '../reservar/apariencia-widget.ts';
 import { baseEstiloWeb, resolverEstiloWeb, type BaseEstiloWeb } from '../reservar/estilo-web.ts';
 import { HEX6, esNeutro, leerWidgetWeb, type WidgetWeb } from '../reservar/estilo-web-tipos.ts';
@@ -56,9 +56,21 @@ function appDeLaNativa(a: AparienciaApp): AppDeLaNativa {
   return { estilo: a.estilo, tipografia: a.tipografia, marca: a.marca };
 }
 
-/** El estilo, solo si cambia algo: un estilo neutro es «nada elegido», igual que no tener ninguno. */
+/**
+ * ¿No le llega nada sin marco? Un estilo neutro y, además, uno que solo quita
+ * el pie: la nativa no lleva pie, así que quitarlo no puede cambiarla. Es la
+ * ÚNICA pregunta de «¿cambia algo sin marco?»: la hacen el bundle (por
+ * `webDe`), la vista previa y todos los textos del panel sobre la nativa, para
+ * que no puedan contar cosas distintas. Con `esNeutro` a secas, quitar el pie
+ * le ponía el recuadro con el estilo de su app sin que nadie lo eligiera.
+ */
+export function nadaParaSinMarco(w: WidgetWeb | null | undefined): boolean {
+  return esNeutro(w ? { ...w, ocultarPie: false } : w);
+}
+
+/** El estilo, solo si le cambia algo: lo que no le llega es «nada elegido», igual que no tener ninguno. */
 function webDe(w: WidgetWeb | null, app: AparienciaApp): DatosEstiloNativa['web'] {
-  return w && !esNeutro(w) ? { widgetWeb: w, app: appDeLaNativa(app) } : null;
+  return w && !nadaParaSinMarco(w) ? { widgetWeb: w, app: appDeLaNativa(app) } : null;
 }
 
 /**
@@ -83,10 +95,13 @@ export function datosEstiloNativaDeTema(
 /**
  * Panel: lo mismo, con el borrador (o lo publicado) y la base que ya tiene
  * (`useEstiloWeb`). Da lo mismo que el servidor con el mismo tema (lo ata un
- * test): es lo que deja a la vista previa enseñar lo que pintará su web.
+ * test): es lo que deja a la vista previa enseñar lo que pintará su web. El
+ * color pasa por el MISMO validador que en el servidor (`hexDeMarca`): la base
+ * admite `#abc`, y sin expandirlo aquí igual que allí, la previa y su web
+ * mezclarían colores distintos.
  */
 export function datosEstiloNativaDeBase(w: WidgetWeb | null | undefined, base: BaseEstiloWeb): DatosEstiloNativa {
-  return { color: base.colorPrimario, web: webDe(w ? leerWidgetWeb(w) : null, base.app) };
+  return { color: hexDeMarca(base.colorPrimario), web: webDe(w ? leerWidgetWeb(w) : null, base.app) };
 }
 
 /**
@@ -139,9 +154,10 @@ export const RECUADRO_NATIVA = { borderRadius: '12px', padding: '16px' } as cons
  *    recuadro: así «solo la letra» es literal.
  */
 export function estiloDeLaNativa(d: DatosEstiloNativa | null, x: { columnas: boolean }): EstiloNativa | null {
-  // Neutro también aquí, no solo al leer: con el estilo de la app forzado
-  // debajo, un neutro que se colara pintaría el recuadro sin que nadie lo eligiera.
-  if (!d?.web || esNeutro(d.web.widgetWeb)) return null;
+  // También aquí, no solo al leer: con el estilo de la app forzado debajo, un
+  // neutro (o solo quitar el pie) que se colara pintaría el recuadro sin que
+  // nadie lo eligiera.
+  if (!d?.web || nadaParaSinMarco(d.web.widgetWeb)) return null;
   const base = baseEstiloWeb(d.color, d.web.app);
   const w = d.web.widgetWeb;
   const r = resolverEstiloWeb({ ...w, estilo: w.estilo ?? base.app.estilo }, base, 'dentro');
@@ -169,12 +185,29 @@ export function estiloDeLaNativa(d: DatosEstiloNativa | null, x: { columnas: boo
 
 /**
  * La marca de siempre de la nativa: el color y su texto por luminancia (la
- * regla de `pintarMarca`, app/widget-bundle/main.tsx). No valida el color: el
- * de identidad llega ya validado, y el `data-color` de antes del constructor
- * (sin validar desde siempre) va por `setProperty`, que descarta un valor que
- * no es un color sin dejarlo salir de su declaración.
+ * regla de `pintarMarca`, app/widget-bundle/main.tsx).
+ *
+ * ⚠️ NO valida el color, y escribirlo con `setProperty` tampoco: en una custom
+ * property el navegador acepta casi cualquier cosa, no solo colores. Lo validan
+ * quienes la llaman: el de identidad, con `HEX6` (`WidgetApp`, y por la red
+ * `leerDatosEstiloNativa`); `data-marca`, con `COLOR_VALIDO`
+ * (`resolverConfigWidget`); `data-color`, con `colorDeDataColor` (`montarUno`);
+ * y en el panel, `PreviewNativa` con `COLOR_VALIDO`.
  */
 export function marcaDeLaNativa(hex: string): { '--portal-brand': string; '--portal-brand-foreground': string } {
   const l = luminancia(hex);
   return { '--portal-brand': hex, '--portal-brand-foreground': l != null && l < 0.45 ? '#FFFFFF' : '#22261F' };
+}
+
+/**
+ * El `data-color` de antes del constructor, que nunca se validó: solo si es un
+ * color para el navegador (`esColor`: `CSS.supports('color', v)` en el bundle),
+ * así que `red` o `rgb(…)` siguen valiendo y lo que no es un color, no.
+ * `var()`, `env()` y `attr()` fuera aunque pasen esa comprobación (se validan
+ * al usarse, no al escribirse), y un escape CSS, que podría escribirlas.
+ */
+export function colorDeDataColor(v: string | undefined, esColor: (v: string) => boolean): string | null {
+  const t = v?.trim();
+  if (!t || /\\|\b(?:var|env|attr)\(/i.test(t)) return null;
+  return esColor(t) ? t : null;
 }
