@@ -168,6 +168,176 @@ jobs:
       - name: Tests unitarios (dinero · reservas · aforo · fiscal)
         run: npm test
 
+  # ---------------------------------------------------------------------------
+  # CI-1 (auditoría 62ª pasada): "0 sobre BD/RLS". Todo lo de arriba (`npm
+  # test`) mockea la red entera — nunca toca Postgres de verdad, así que una
+  # política RLS borrada por error (como pasó con DB-1: dos políticas dejaban
+  # crear/borrar `reservas` saltándose el motor entero, colado hasta que se
+  # verificó A MANO contra producción) no la habría cazado ningún test.
+  #
+  # Job aparte, en paralelo, NO dentro de `calidad-test`: ese es 100% mockeado
+  # por diseño y está en el camino crítico de cada PR — mezclar aquí un stack
+  # de Docker Compose completo lo haría más lento y más frágil para algo que no
+  # necesita tocarlo.
+  #
+  # Por qué el CLI de Supabase y no un `postgres:16` a pelo: este repo depende
+  # de `auth.uid()`, de los roles `anon`/`authenticated`/`service_role` y de
+  # grants explícitos por rol y por columna (tres gotchas de grants ya
+  # documentados en .claude/tentare-os.md). Un Postgres desnudo no tiene el
+  # esquema `auth` ni esos roles — cualquier política que dependa de ellos
+  # pasaría en falso, sin probar nada de verdad (el mismo antipatrón de
+  # "botones que dicen que sí sin comprobar" que ya documenta este repo).
+  #
+  # Fase 0: solo los dos invariantes de mayor valor y menor coste de fixture
+  # (supabase/tests/rls-invariantes.test.ts). Ampliar ahí mismo, no aquí.
+  calidad-rls:
+    name: RLS — base de datos real
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
+      - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.114.0
+
+      # Descubierto en el primer run real de este job: `supabase db reset`
+      # aplica por ORDEN DE NOMBRE DE FICHERO, y `0135_equipo_interno_buscar_usuario.sql`
+      # crea una función que lee `plataforma_admin` — tabla que crea
+      # `20260725170000_panel_interno.sql`, cuyo nombre ordena DESPUÉS de
+      # "0135" (el esquema corto `0000`-`0140` es un bloque legado más antiguo
+      # que el de timestamps, y estos dos cruzan). En producción no falla
+      # porque cada migración se aplicó en su momento real, no de golpe desde
+      # cero — este job es la primera vez que se recorren las ~700 en fila.
+      #
+      # ⚠️ Se reordena SOLO en el checkout efímero de este job — nunca en
+      # `supabase/migrations/` de verdad. Renombrar un fichero YA APLICADO en
+      # dwqvdycjcffqwfkzapvi le haría creer a un futuro `supabase db push` que
+      # es una migración nueva pendiente y la reaplicaría con otro timestamp
+      # (regla de este repo: nunca tocar el nombre de una migración aplicada).
+      # Aquí no hay ese riesgo: este checkout se descarta al final del job.
+      - name: Reordenar panel_interno antes de 0135 (solo para este job)
+        run: mv supabase/migrations/20260725170000_panel_interno.sql supabase/migrations/01340_panel_interno.sql
+
+      # Mismo motivo que el paso de arriba: revoca EXECUTE sobre una función
+      # que crea 20260804201830_consentimiento_salud_revocacion_y_reconciliacion.sql,
+      # 6 días después por nombre. Aquí se mueve el fichero PEQUEÑO (un único
+      # `revoke`, sin más precondiciones) a sonar justo DESPUÉS del que crea la
+      # función, en vez de adelantar el fichero grande que la define — así no
+      # se arriesga a que ESE, al adelantarlo, dependa de algo de por medio.
+      - name: Reordenar el revoke de tiene_consentimiento_salud tras su creación (solo para este job)
+        run: mv supabase/migrations/20260729161000_tiene_consentimiento_salud_revoca_anon.sql supabase/migrations/20260804201831_tiene_consentimiento_salud_revoca_anon.sql
+
+      # Distinto de los dos de arriba: esto NO es un problema de orden.
+      # `respaldo_sereno_studio1` es, según su propio comentario, "un backup
+      # puntual del theme builder, huérfano" — creada directamente contra
+      # producción (un `execute_sql` de una sesión, nunca una migración
+      # `CREATE TABLE`) y esta migración solo le activa RLS después. NINGÚN
+      # fichero de `supabase/migrations/` la crea — confirmado con
+      # `grep -rl respaldo_sereno_studio1 supabase/migrations/*.sql`, un único
+      # resultado: este mismo fichero. En una BD nueva no existe nada que
+      # asegurar, así que se salta (no se reordena: no hay ningún sitio al
+      # que moverla). Solo en el checkout efímero, igual que los dos de
+      # arriba — no es una migración inútil en producción, solo irreproducible
+      # desde cero.
+      - name: Saltar el ALTER de RLS sobre la tabla huérfana respaldo_sereno_studio1 (solo para este job)
+        run: rm supabase/migrations/20260819211544_respaldo_sereno_studio1_rls.sql
+
+      # Cuarto hallazgo, ya documentado por el propio repo (la migración
+      # siguiente lo explica con evidencia forense): PAY-4
+      # (20260918000200_pay4_cobros_intentos.sql) figuraba «aplicada» en
+      # producción pero su DDL NUNCA pudo tener efecto — `studio_id uuid`
+      # (todo el resto de la BD usa `studios.id text`) y una policy que lee
+      # `sesion_activa_vista`, una vista que no existe en este proyecto.
+      # `20260919074730_pay4_cobros_intentos_de_verdad.sql` la sustituye
+      # entera con `create table if not exists` — mismo caso que ya documenta
+      # este repo en otro sitio: una migración prometida que nunca llegó a
+      # escribir nada de verdad. Se salta el original roto; el sustituto ya
+      # cubre todo lo que hacía falta.
+      - name: Saltar el PAY-4 original, roto de origen — el sustituto ya crea la tabla de verdad (solo para este job)
+        run: rm supabase/migrations/20260918000200_pay4_cobros_intentos.sql
+
+      # Quinto hallazgo: `20260919074101_...sql` revoca/concede sobre
+      # `reservar_plaza` con firma de 9 parámetros — pero NINGUNA migración
+      # crea esa firma exacta antes: la evolución real es 8 parámetros
+      # (20260917094717) → 10 (20260918000000, que su propio sucesor dice que
+      # "nunca llegó a aplicarse" en producción) → 9, creada por PRIMERA VEZ
+      # en `20260919074320_reservar_plaza_gate_de_plan_usa_el_parametro.sql`,
+      # el fichero SIGUIENTE. Ese mismo fichero termina con el idéntico
+      # `revoke`/`grant` sobre esa firma de 9 (su propio comentario: "create or
+      # replace sobre la MISMA firma conserva los grants, pero se repiten
+      # explícitos"), así que las dos líneas que fallan aquí son  además
+      # redundantes, no solo prematuras. Se quitan solo esas dos líneas —el
+      # resto del fichero (el `??`→`coalesce` de socio_tiene_entitlement_activo
+      # y el DROP de las firmas de 8/10 parámetros) se queda igual.
+      - name: Quitar el revoke/grant prematuro y redundante de reservar_plaza(9) en 20260919074101 (solo para este job)
+        run: |
+          sed -i \
+            -e '/^revoke execute on function public\.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean) from public, anon, authenticated;$/d' \
+            -e '/^grant execute on function public\.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean) to service_role, postgres;$/d' \
+            supabase/migrations/20260919074101_reservar_plaza_una_sola_firma_y_entitlement_sin_js.sql
+
+      # `--no-seed` en el `db reset` de abajo NO basta: en un volumen nuevo
+      # (como el de este runner, siempre), `supabase start` YA siembra
+      # `supabase/seed.sql` en su primer arranque, antes de que el `db reset`
+      # de después llegue a ejecutarse — comprobado, sigue fallando igual con
+      # el flag puesto. Apartar el fichero es lo único que de verdad lo evita.
+      # Solo en el checkout efímero de este job, igual que los reordenamientos
+      # de arriba.
+      - name: Apartar el seed de desarrollo antes de arrancar (solo para este job)
+        run: mv supabase/seed.sql supabase/seed.sql.deshabilitado-en-ci
+
+      # Arranca Postgres + GoTrue (Auth) + PostgREST + Kong (API Gateway) reales
+      # en Docker, dentro del propio runner — nunca contra dwqvdycjcffqwfkzapvi.
+      - name: Arrancar Supabase local
+        run: supabase start
+
+      # `start` puede reaprovechar un volumen ya inicializado; `reset` aplica
+      # TODAS las migraciones de `supabase/migrations/` desde cero, así que el
+      # estado de partida es siempre el mismo sin depender de qué haya hecho
+      # `start` por su cuenta. Es también la primera vez que las ~700
+      # migraciones de este repo se EJECUTAN de verdad en vez de solo leerse
+      # (scripts/gen-db-types.py, en `calidad-tipos`, solo las parsea) — si
+      # alguna asume un estado intermedio que ya no existe al recorrerlas
+      # todas de un tirón, es aquí donde se ve (5 casos encontrados y
+      # corregidos SOLO para este job, ver los pasos de arriba).
+      #
+      # `--no-seed` por cinturón y tirantes: el fichero ya está apartado (paso
+      # de arriba), así que aquí no hay nada que sembrar de todos modos.
+      - name: Aplicar migraciones desde cero (sin el seed de desarrollo)
+        run: supabase db reset --no-seed
+
+      # Nombres propios (`SUPABASE_LOCAL_*`), no `NEXT_PUBLIC_SUPABASE_URL`:
+      # ese ya lo usan (con valores dummy) el resto de jobs de este workflow, y
+      # mezclarlos sería fácil de confundir con "la app usa esto en producción".
+      - name: Exportar credenciales del Supabase local
+        run: |
+          eval "$(supabase status -o env)"
+          {
+            echo "SUPABASE_LOCAL_URL=$API_URL"
+            echo "SUPABASE_LOCAL_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_LOCAL_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Tests de RLS contra la base de datos real
+        run: node --import ./scripts/register-test-hooks.mjs --test --experimental-strip-types "supabase/tests/**/*.test.ts"
+
   build:
     name: Build de producción
     runs-on: ubuntu-latest
@@ -460,7 +630,7 @@ jobs:
   test:
     name: test
     if: always()
-    needs: [calidad-tipos, calidad-lint, calidad-test, build, e2e]
+    needs: [calidad-tipos, calidad-lint, calidad-test, calidad-rls, build, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -469,10 +639,11 @@ jobs:
           echo "calidad-tipos  = ${{ needs.calidad-tipos.result }}"
           echo "calidad-lint   = ${{ needs.calidad-lint.result }}"
           echo "calidad-test   = ${{ needs.calidad-test.result }}"
+          echo "calidad-rls    = ${{ needs.calidad-rls.result }}"
           echo "build          = ${{ needs.build.result }}"
           echo "e2e            = ${{ needs.e2e.result }}"
           fallo=0
-          for r in "${{ needs.calidad-tipos.result }}" "${{ needs.calidad-lint.result }}" "${{ needs.calidad-test.result }}" "${{ needs.build.result }}" "${{ needs.e2e.result }}"; do
+          for r in "${{ needs.calidad-tipos.result }}" "${{ needs.calidad-lint.result }}" "${{ needs.calidad-test.result }}" "${{ needs.calidad-rls.result }}" "${{ needs.build.result }}" "${{ needs.e2e.result }}"; do
             [ "$r" = "success" ] || fallo=1
           done
           if [ "$fallo" = "1" ]; then
