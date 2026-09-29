@@ -27,7 +27,8 @@ import { OfflineBanner } from './OfflineBanner';
  *
  * Envuelve en `GuardiaSesion`: toda pantalla que use este marco exige sesión.
  * Las de acceso no lo usan — tienen su propio layout, precisamente porque son
- * las únicas a las que se llega sin haber entrado.
+ * las únicas a las que se llega sin haber entrado. La única excepción es
+ * `vistaPrevia` (solo Inicio), y solo dentro de la vista previa del panel.
  *
  * `modo="instructora"` es el mismo marco para las pantallas de la instructora
  * (`/equipo/**`): una sola app para las dos (decisión del 14-sep-2026). Cambia
@@ -52,6 +53,7 @@ export function StudentShell({
   conLema = false,
   sinNav = false,
   modo = 'alumna',
+  vistaPrevia = false,
 }: {
   children: ReactNode;
   noLeidas?: number;
@@ -61,6 +63,8 @@ export function StudentShell({
   conLema?: boolean;
   sinNav?: boolean;
   modo?: 'alumna' | 'instructora';
+  /** Se deja ver sin sesión dentro de la vista previa del panel. Ver `GuardiaSesion`. */
+  vistaPrevia?: boolean;
 }) {
   // El punto de la campana era una rama muerta: ninguna pantalla pasaba
   // `noLeidas`. Lo pide el marco, una vez y compartido. Una pantalla puede
@@ -70,28 +74,28 @@ export function StudentShell({
   const estiloPage: CSSProperties = {};
   if (headerTransparente) estiloPage.paddingTop = 0;
   if (sinNav) estiloPage.paddingBottom = 'var(--safe-bottom)';
-  const Guardia = modo === 'instructora' ? GuardiaInstructora : GuardiaSesion;
-  return (
-    <Guardia>
-      <div className="shell">
-        <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
-        <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined}>
-          <OfflineBanner />
-          {children}
-        </main>
-        {!sinNav && <BottomNavigation badgeReservas={badgeReservas} modo={modo} />}
-        {/* Anfitrión de las hojas (`Sheet`). Existe por dos motivos a la vez, y
-            hacen falta LOS DOS:
-              · fuera de `main`, para que ningún `.a-up` —cuyo `transform`
-                queda en matriz identidad al terminar— le robe el
-                `position: fixed`;
-              · DENTRO de `.student-app`, porque todo el kit está scopeado ahí
-                (`.student-app .pill`, `.student-app .t-h2`, y los tokens de
-                color del estudio). Al portar a `document.body` la hoja salía
-                bien colocada y COMPLETAMENTE sin estilo: texto plano, sin
-                píldoras, sin el tono de la marca. */}
-        <div id="student-portal-host" />
-      </div>
-    </Guardia>
+  const contenido = (
+    <div className="shell">
+      <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
+      <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined}>
+        <OfflineBanner />
+        {children}
+      </main>
+      {!sinNav && <BottomNavigation badgeReservas={badgeReservas} modo={modo} />}
+      {/* Anfitrión de las hojas (`Sheet`). Existe por dos motivos a la vez, y
+          hacen falta LOS DOS:
+            · fuera de `main`, para que ningún `.a-up` —cuyo `transform`
+              queda en matriz identidad al terminar— le robe el
+              `position: fixed`;
+            · DENTRO de `.student-app`, porque todo el kit está scopeado ahí
+              (`.student-app .pill`, `.student-app .t-h2`, y los tokens de
+              color del estudio). Al portar a `document.body` la hoja salía
+              bien colocada y COMPLETAMENTE sin estilo: texto plano, sin
+              píldoras, sin el tono de la marca. */}
+      <div id="student-portal-host" />
+    </div>
   );
+  return modo === 'instructora'
+    ? <GuardiaInstructora>{contenido}</GuardiaInstructora>
+    : <GuardiaSesion vistaPrevia={vistaPrevia}>{contenido}</GuardiaSesion>;
 }

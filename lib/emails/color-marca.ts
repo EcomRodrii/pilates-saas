@@ -24,10 +24,23 @@
 // (arrastra el runtime del portal entero).
 // ─────────────────────────────────────────────────────────────────────────────
 
-const HEX = /^#[0-9a-fA-F]{6}$/;
+const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
-function valido(v: unknown): string | null {
-  return typeof v === 'string' && HEX.test(v.trim()) ? v.trim() : null;
+/**
+ * Un color de marca, siempre `#rrggbb`, o `null`. El tema admite `#abc`
+ * (`hexSchema`, lib/theme-schema.ts) y aquí se expande a `#aabbcc` en vez de
+ * descartarlo: descartado, /reservar, los correos y la integración sin marco
+ * caían a otro color mientras el panel enseñaba el que ella eligió. Es el
+ * único sitio que lo expande (la vista previa sin marco del panel lo usa
+ * también, ver lib/widget/estilo-nativa.ts). Sale siempre con seis cifras,
+ * como hasta ahora: el bundle de la nativa no acepta otra cosa
+ * (`leerDatosEstiloNativa`).
+ */
+export function hexDeMarca(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  if (!HEX.test(t)) return null;
+  return t.length === 4 ? `#${t[1]}${t[1]}${t[2]}${t[2]}${t[3]}${t[3]}` : t;
 }
 
 /**
@@ -40,7 +53,7 @@ export function colorMarcaDelEstudio(
   primaryDelPreset: unknown,
   colorColumna: unknown,
 ): string | null {
-  return valido(primaryDelTema) ?? valido(primaryDelPreset) ?? valido(colorColumna);
+  return hexDeMarca(primaryDelTema) ?? hexDeMarca(primaryDelPreset) ?? hexDeMarca(colorColumna);
 }
 
 /**
@@ -51,5 +64,5 @@ export function colorSecundarioDelEstudio(
   secondaryDelTema: unknown,
   secondaryDelPreset: unknown,
 ): string | null {
-  return valido(secondaryDelTema) ?? valido(secondaryDelPreset);
+  return hexDeMarca(secondaryDelTema) ?? hexDeMarca(secondaryDelPreset);
 }

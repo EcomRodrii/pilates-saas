@@ -65,6 +65,24 @@ const SPECS_WEBKIT = [
   // snippet embebido los sufre la visitante de la web del estudio.
   '**/widget-config-params.spec.ts',
   '**/reservar-el-servidor-dice-no.spec.ts',
+  // El estilo de los widgets en la web del estudio (Fase B del constructor):
+  // lo ve la visitante de su web, casi siempre desde un iPhone, y lo que mira
+  // es justo lo que cambia de un motor a otro —fondo transparente sobre la web,
+  // `color-scheme` de la raíz, variables en línea desde el primer fotograma—.
+  // Coste: medirlo sumando por test en los artefactos `timings-*`, no con el
+  // reloj del run entero.
+  '**/reservar-estilo-web.spec.ts',
+  // El botón del popup en la web del estudio (Fase D del constructor): lo ve
+  // la visitante de su web desde el iPhone, y lo que se prueba —CORS, una
+  // regla `<style>` y variables CSS con respaldo— es justo lo que un motor
+  // puede resolver distinto. Mismo criterio de coste que el de arriba.
+  '**/widget-popup-boton-vivo.spec.ts',
+  // La integración sin marco con el estilo de sus widgets (Fase E): vive en el
+  // DOM de la web del estudio, la mira su visitante desde el iPhone, y lo que
+  // prueba —fuentes de otro origen con CORS, `color-scheme` dentro del shadow,
+  // el POST con preflight— es justo lo que cambia de un motor a otro. Mismo
+  // criterio de coste que los dos de arriba.
+  '**/widget-nativa-estilo.spec.ts',
   '**/reservar-vista-mes.spec.ts',
   '**/reservar-citas-movil.spec.ts',
   '**/reservar-selector-fecha-movil.spec.ts',

@@ -549,7 +549,19 @@ export function DetalleConexionConClave({ c, onGuardado }: { c: ConexionConClave
 // inicia Zapier, nunca un botón de aquí. Se lee de los consentimientos
 // (GET /api/oauth/consentimientos) y se puede quitar el acceso.
 
-const ZAPIER_URL = 'https://zapier.com/apps/tentare/integrations';
+// ⚠️ La ficha PÚBLICA del directorio de Zapier (zapier.com/apps/tentare/…)
+// daba 404 el 29-sep-2026: Zapier no la había aprobado/publicado todavía en
+// su directorio. La app real (developer.zapier.com, integration id 245096 —
+// ver supabase/migrations/20260814*_oauth_zapier_*.sql y
+// docs/oauth-arquitectura.md) ya funcionaba de verdad; lo que faltaba era el
+// sitio al que mandar a la propietaria. Desde el 29-sep-2026 se usa el
+// enlace PRIVADO de invitación (developer.zapier.com/app/245096/sharing →
+// «Invite your users to use your app with a link»), verificado en vivo
+// (título "You've Been Invited to Tentare | Zapier"): funciona sin esperar a
+// la revisión pública de Zapier. Si algún día se publica en el directorio,
+// cambiar esto por esa URL — comprobando antes en el navegador que carga.
+const ZAPIER_URL = 'https://zapier.com/developer/public-invite/245096/fab6aa3a08b2d024c6e75bf832360de9/';
+const ZAPIER_DISPONIBLE = true;
 
 export interface AppConAcceso {
   clienteId: string;
@@ -605,6 +617,8 @@ export function useAppsConAcceso(): AppsConAcceso {
 
 export interface ConexionZapier {
   acceso: AppConAcceso | null;
+  /** `false` mientras la ficha pública de Zapier (`ZAPIER_URL`) siga en 404. */
+  disponible: boolean;
   resumen: ResumenFila | null;
 }
 
@@ -613,8 +627,9 @@ export function useZapier(a: AppsConAcceso): ConexionZapier {
   const acceso = a.apps?.find(x => x.clienteId === 'zapier') ?? null;
   return {
     acceso,
+    disponible: ZAPIER_DISPONIBLE,
     resumen: a.apps
-      ? resumenConexion({ cuenta: acceso ? `Con acceso desde el ${cuando(acceso.otorgadoEn)}` : null, salud, disponible: true, paraQue: 'Se conecta desde tu cuenta de Zapier' })
+      ? resumenConexion({ cuenta: acceso ? `Con acceso desde el ${cuando(acceso.otorgadoEn)}` : null, salud, disponible: ZAPIER_DISPONIBLE, paraQue: 'Se conecta desde tu cuenta de Zapier' })
       : null,
   };
 }
@@ -626,7 +641,7 @@ export function FilaZapier({ z, logo, onAbrir }: { z: ConexionZapier; logo: Reac
       id="integracion-zapier"
       logo={logo}
       resumen={z.resumen}
-      accion={z.resumen && (
+      accion={z.resumen && z.disponible && (
         <a href={ZAPIER_URL} target="_blank" rel="noopener noreferrer" className={cn(btnPrimary, 'shrink-0 no-underline')}>
           Ir a Zapier <ExternalLink size={14} aria-hidden />
         </a>
@@ -640,9 +655,11 @@ export function DetalleZapier({ z, a, onGuardado }: { z: ConexionZapier; a: Apps
   return (
     <div className={CUERPO}>
       <p className="text-sm text-foreground text-pretty">Zapier tiene acceso a los datos de tu estudio desde el {cuando(z.acceso.otorgadoEn)}.</p>
-      <a href={ZAPIER_URL} target="_blank" rel="noopener noreferrer" className={cn(btnSecondary, 'inline-flex items-center gap-1.5 self-start')}>
-        Abrir Zapier <ExternalLink size={14} aria-hidden />
-      </a>
+      {z.disponible && (
+        <a href={ZAPIER_URL} target="_blank" rel="noopener noreferrer" className={cn(btnSecondary, 'inline-flex items-center gap-1.5 self-start')}>
+          Abrir Zapier <ExternalLink size={14} aria-hidden />
+        </a>
+      )}
       <QuitarAcceso app={z.acceso} a={a} onQuitado={() => onGuardado('Acceso de Zapier quitado')} />
     </div>
   );

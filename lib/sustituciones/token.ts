@@ -15,6 +15,16 @@ import { createHmac, timingSafeEqual } from 'crypto';
 
 const TTL_DISPONIBILIDAD_MS = 30 * 24 * 60 * 60 * 1000; // 30 días: onboarding sin prisa
 const TTL_ACEPTAR_MS = 3 * 60 * 60 * 1000;             // 3 h: aceptar una sustitución concreta
+// 7 días, no 30: a diferencia de disponibilidad/reportar_baja (enlaces que la
+// propia instructora guarda y reutiliza), este activa una ficha de equipo —
+// mientras esté vivo es un bearer token que cualquiera que lo consiga puede
+// canjear (el diseño delibera lo hace SIN comprobar el email, ver
+// lib/equipo/reclamar-reglas.ts). Acortar la ventana no cambia ese modelo,
+// solo el tiempo que un enlace filtrado (correo reenviado, bandeja compartida)
+// sigue siendo válido. Reenviar la invitación revoca el anterior igualmente
+// (obtenerOFirmarEnlace), así que 7 días no penaliza a quien tarda: solo pide
+// pulsar "reenviar" en Equipo.
+const TTL_INVITACION_MS = 7 * 24 * 60 * 60 * 1000;
 
 // 'reportar_baja' es un enlace permanente-ish (como el de disponibilidad): la
 // instructora lo guarda en el móvil y lo usa el día que le toque. Scope APARTE
@@ -23,8 +33,7 @@ const TTL_ACEPTAR_MS = 3 * 60 * 60 * 1000;             // 3 h: aceptar una susti
 // 'invitacion' identifica a la persona invitada ANTES de que exista su cuenta:
 // es lo que convierte el correo en un enlace de verdad en vez de un /login
 // pelado, donde quien ya tuviera sesión abierta acababa en su propio panel sin
-// enterarse de nada. TTL largo (30 días): la dueña invita hoy y la instructora
-// entra cuando puede.
+// enterarse de nada.
 export type ScopeToken = 'disponibilidad' | 'aceptar_sustitucion' | 'reportar_baja' | 'invitacion';
 
 function secret(): string {
@@ -44,10 +53,13 @@ export function firmarTokenInstructora(
   ref: string | null = null,
   ahora: number = Date.now(),
 ): string {
-  // 'aceptar_sustitucion' es un enlace de un solo uso y ventana corta; el resto
+  // 'aceptar_sustitucion' es un enlace de un solo uso y ventana corta;
+  // 'invitacion' un bearer token de activación de cuenta (7 días); el resto
   // (disponibilidad, reportar baja) son enlaces que la instructora guarda en el
   // móvil y usa cuando le hace falta → 30 días.
-  const ttl = scope === 'aceptar_sustitucion' ? TTL_ACEPTAR_MS : TTL_DISPONIBILIDAD_MS;
+  const ttl = scope === 'aceptar_sustitucion' ? TTL_ACEPTAR_MS
+    : scope === 'invitacion' ? TTL_INVITACION_MS
+    : TTL_DISPONIBILIDAD_MS;
   const payloadB64 = Buffer.from(
     JSON.stringify({ instructorId, studioId, scope, ref, exp: ahora + ttl }),
   ).toString('base64url');

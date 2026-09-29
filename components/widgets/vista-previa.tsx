@@ -5,6 +5,8 @@ import { ExternalLink, Monitor, Smartphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { anchoPopupDe, textoBotonEfectivo } from '@/lib/widgets/config';
 import { conVistaPrevia, estiloBoton, urlEmbebido, urlPagina, type EntradaIntegracion } from '@/lib/widgets/integracion';
+import { luminancia } from '@/lib/reservar/apariencia-widget';
+import type { WidgetWeb } from '@/lib/reservar/estilo-web-tipos';
 import { FOCO, Segmentado, TACTIL } from './piezas';
 
 // La vista previa. ⚠️ El widget nunca es una imagen ni una maqueta: es el
@@ -15,9 +17,10 @@ import { FOCO, Segmentado, TACTIL } from './piezas';
 //
 // Lo de ALREDEDOR sí es un dibujo: su dominio, su nombre y unos bloques grises
 // en lugar del contenido de su web, sin inventar nada, para que vea dónde
-// queda. Y el fondo es el que ELLA dijo que tiene su web (un diseño propio
-// para una web oscura); no hay un conmutador que pinte de oscuro el lienzo
-// sin cambiar el widget, que solo servía para confundir.
+// queda. Y el fondo es el color que ELLA dijo que tiene su web («¿Cómo es tu
+// web?», en el estilo de sus widgets; o un diseño propio para una web oscura):
+// con un widget que se funde, es lo que se ve a través. No hay un conmutador
+// que pinte el lienzo sin cambiar el widget, que solo servía para confundir.
 //
 // Por debajo de las dos columnas (iPad en vertical, móvil) la previa va ANTES
 // del paso: ahí se enseña recortada y con un solo marco, o el paso quedaba a
@@ -39,8 +42,14 @@ export interface SuWeb {
   nombre: string;
   /** El color de su marca, para la inicial del dibujo. */
   color: string;
-  oscura: boolean;
+  /** El color del fondo de su web: el lienzo de la vista previa. */
+  fondo: string;
 }
+
+const BLANCO = '#FFFFFF';
+
+/** Sobre un fondo así, los bloques del dibujo y la letra van en claro. */
+const esOscuro = (fondo: string) => (luminancia(fondo) ?? 1) < 0.2;
 
 export type FormaPrevia =
   | { tipo: 'dentro' }
@@ -102,26 +111,28 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
       {forma.tipo === 'enlace' ? (
         <>
           <p className="text-[12px] text-muted-foreground">Al abrir el enlace, se abre tu página de reservas:</p>
-          <Marco movil={movil} direccion={paginaDeReservas} oscura={false} recortado={!grande}>{widget}</Marco>
+          <Marco movil={movil} direccion={paginaDeReservas} fondo={BLANCO} recortado={!grande}>{widget}</Marco>
         </>
       ) : forma.tipo === 'boton' ? (
         <>
-          <Marco movil={movil} direccion={web.direccion} oscura={web.oscura} recortado={!grande}>
+          <Marco movil={movil} direccion={web.direccion} fondo={web.fondo} recortado={!grande}>
             <CabeceraWeb web={web} movil={movil} />
             <div className="px-4 pb-6 pt-2">
               {forma.boton}
-              <p className={cn('mt-2 text-[11.5px]', web.oscura ? 'text-white/65' : 'text-black/55')}>{forma.pista}</p>
-              <BloquesGrises oscura={web.oscura} />
+              <p className={cn('mt-2 text-[11.5px]', esOscuro(web.fondo) ? 'text-white/65' : 'text-black/55')}>{forma.pista}</p>
+              <BloquesGrises oscura={esOscuro(web.fondo)} />
             </div>
           </Marco>
-          {/* Lo que se abre al pulsar: en pequeño, solo si lo pide. */}
+          {/* Lo que se abre al pulsar: en pequeño, solo si lo pide. El marco
+              de la ventana es blanco fijo (app/widget-bundle/popup.ts), y la
+              página suelta lleva su propio fondo: ninguno es su web. */}
           <div className={cn('space-y-3', !grande && 'hidden @4xl/config:block')}>
             <p className="text-[12px] text-muted-foreground">{forma.alPulsar}</p>
-            <Marco movil={movil} direccion={forma.abrePagina ? paginaDeReservas : web.direccion} oscura={false} recortado={false}>{widget}</Marco>
+            <Marco movil={movil} direccion={forma.abrePagina ? paginaDeReservas : web.direccion} fondo={BLANCO} recortado={false}>{widget}</Marco>
           </div>
         </>
       ) : (
-        <Marco movil={movil} direccion={web.direccion} oscura={web.oscura} recortado={!grande}>
+        <Marco movil={movil} direccion={web.direccion} fondo={web.fondo} recortado={!grande}>
           <CabeceraWeb web={web} movil={movil} />
           {widget}
         </Marco>
@@ -146,17 +157,25 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
 
 /**
  * El botón tal cual saldrá en su web: mismos atributos y mismo estilo que el
- * código (`estiloBoton`). Con el popup, pulsarlo abre la ventana REAL —el
- * runtime público /widget-popup.js se carga en el panel igual que en su web—;
- * con el botón, lleva a la página de verdad. Con el botón de su propia web
- * (WordPress, Wix…) no sabemos cómo es: se dibuja uno neutro y se dice.
+ * código (`estiloBoton`). El del popup que sigue el estilo de sus widgets
+ * (Fase D) se pinta con los LITERALES de `entrada.botonVivo`, que el
+ * constructor le pasa con el estilo que está probando; sin variables, así que
+ * la regla que pone /widget-popup.js en la página no lo toca (y con
+ * `vista-previa=1` ni la pide). Con el popup, pulsarlo abre la ventana REAL —el
+ * runtime público /widget-popup.js se carga en el panel igual que en su web—,
+ * con el estilo de sus widgets que está probando si aún no lo ha aplicado
+ * (`borradorWeb`); con el botón, lleva a la página de verdad, que se ve como su
+ * app. Con el botón de su propia web (WordPress, Wix…) no sabemos cómo es: se
+ * dibuja uno neutro y se dice.
  */
-export function BotonEnTuWeb({ entrada, metodo, botonPropio }: {
+export function BotonEnTuWeb({ entrada, metodo, botonPropio, borradorWeb }: {
   entrada: EntradaIntegracion;
   metodo: 'popup' | 'boton';
   botonPropio: boolean;
+  /** El estilo de sus widgets sin aplicar, para que la ventana lo enseñe. */
+  borradorWeb?: WidgetWeb;
 }) {
-  const s = estiloBoton(entrada);
+  const s = estiloBoton(entrada, metodo);
   const texto = textoBotonEfectivo(entrada.config, entrada.widget);
   useEffect(() => {
     if (metodo !== 'popup') return;
@@ -175,7 +194,7 @@ export function BotonEnTuWeb({ entrada, metodo, botonPropio }: {
     return (
       <button
         type="button"
-        data-tentare-popup={conVistaPrevia(urlEmbebido(entrada, 'popup'))}
+        data-tentare-popup={conVistaPrevia(urlEmbebido(entrada, 'popup'), borradorWeb ? { borradorWeb } : undefined)}
         data-tentare-titulo={entrada.widget.nombre}
         data-tentare-ancho={anchoPopupDe(entrada.widget, entrada.config)}
         style={{ ...base, background: s.background, color: s.color, border: s.border, borderRadius: s.borderRadius }}
@@ -197,10 +216,10 @@ export function BotonEnTuWeb({ entrada, metodo, botonPropio }: {
   );
 }
 
-function Marco({ movil, direccion, oscura, recortado, children }: {
+function Marco({ movil, direccion, fondo, recortado, children }: {
   movil: boolean;
   direccion: string | null;
-  oscura: boolean;
+  fondo: string;
   /** Más bajo por debajo de las dos columnas (ver la cabecera). */
   recortado: boolean;
   children: ReactNode;
@@ -226,7 +245,7 @@ function Marco({ movil, direccion, oscura, recortado, children }: {
       </div>
       <div
         className={cn('overflow-y-auto overflow-x-hidden @4xl/config:max-h-[640px]', recortado ? 'max-h-[260px]' : 'max-h-[440px]')}
-        style={{ background: oscura ? '#1C1D1A' : '#FFFFFF' }}
+        style={{ background: fondo }}
         data-vista-previa=""
       >
         {children}
@@ -236,11 +255,12 @@ function Marco({ movil, direccion, oscura, recortado, children }: {
 }
 
 function CabeceraWeb({ web, movil }: { web: SuWeb; movil: boolean }) {
-  const barra = web.oscura ? 'bg-white/15' : 'bg-black/10';
+  const oscura = esOscuro(web.fondo);
+  const barra = oscura ? 'bg-white/15' : 'bg-black/10';
   return (
     <div aria-hidden className="px-4 pb-2 pt-3">
       <div className="flex items-center justify-between gap-3">
-        <span className={cn('flex min-w-0 items-center gap-2 text-[12.5px] font-semibold', web.oscura ? 'text-white/90' : 'text-black/80')}>
+        <span className={cn('flex min-w-0 items-center gap-2 text-[12.5px] font-semibold', oscura ? 'text-white/90' : 'text-black/80')}>
           <span className="flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: web.color }}>
             {web.nombre.trim().charAt(0).toUpperCase() || 'T'}
           </span>

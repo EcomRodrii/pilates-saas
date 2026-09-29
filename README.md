@@ -562,6 +562,14 @@ La suite E2E está especialmente pensada para escenarios donde no resulta apropi
 
 Siempre que sea posible, los tests deben utilizar datos controlados y entornos aislados.
 
+Algunos specs ("Modo B (bundle real)", p. ej. `e2e/widget-config-params.spec.ts`) montan el widget embebible sirviendo `public/widget.js` / `public/widget-checkout.js` tal cual. Esos ficheros están gitignorados y NO se generan solos: en CI los produce `npm run build` (que encadena `build:widget`), pero un checkout local nuevo, o uno donde solo cambió algo bajo `components/checkout-widget` o el bundle de reserva, no los tiene actualizados. Si esos tests fallan por no encontrar `/widget.js` o por servir una versión vieja, corre primero:
+
+```bash
+npm run build:widget
+```
+
+(tarda segundos, no hace falta el `next build` completo).
+
 ---
 
 # Entornos

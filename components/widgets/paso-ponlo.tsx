@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { BookOpen, Check, Code2, Copy, Mail, Send } from 'lucide-react';
+import { AlertCircle, BookOpen, Check, Code2, Copy, Mail, Send } from 'lucide-react';
 import { cn, copiarAlPortapapeles } from '@/lib/utils';
 import { btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { METODOS, type MetodoIntegracion } from '@/lib/widgets/catalogo';
-import { ETIQUETA_VALIDA, type ConfigConstructor, type Copiado } from '@/lib/widgets/config';
-import { faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, urlPagina, type EntradaIntegracion } from '@/lib/widgets/integracion';
+import { ETIQUETA_VALIDA, esCopiaCompleta, type ConfigConstructor, type Copiado } from '@/lib/widgets/config';
+import { botonDeCodigoAnterior } from '@/lib/widgets/en-tu-web';
+import {
+  faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, tieneDisenoEnCodigo, urlPagina, type EntradaIntegracion,
+} from '@/lib/widgets/integracion';
 import {
   guiaDe, mensajeParaTuWeb, nombrePlataforma, pasosEnTuWeb, usaBotonPropio, type PlataformaWeb, type Receta,
 } from '@/lib/widgets/recetas';
@@ -21,10 +24,17 @@ import { SelectorClase, type DatosPanel } from './paso-que';
 // ⚠️ «Copiado» solo se dice si el portapapeles lo aceptó (#994: Safari puede
 // decir que sí sin copiar nada). Y solo entonces se guarda la huella de lo
 // copiado, que es lo que luego avisa de un código antiguo.
+//
+// Copiarlo A MANO (seleccionarlo en «Ver el código» y Ctrl+C) también cuenta
+// (Fase D): el `copy` del navegador sube hasta el pliegue, y se guarda solo si
+// lo seleccionado es el código ENTERO (`esCopiaCompleta`: un trozo no funciona
+// pegado). Nunca se dice «Copiado» por esa vía: es la copia del navegador, no
+// la nuestra, y no sabemos qué hizo con ella. Lo único que cambia es la línea
+// «Lo copiaste aquí el…», que sale de lo guardado.
 
 export function PasoPonlo({
-  entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, onCopiado, onMetodo, cambiar,
-  proximasClases, dominiosAutorizados, dominios, showToast,
+  entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, estiloSinAplicar, estiloAplicado, onCopiado, onMetodo, cambiar,
+  proximasClases, dominiosAutorizados, dominios, verDominios, showToast,
 }: {
   entrada: EntradaIntegracion;
   metodo: MetodoIntegracion;
@@ -34,6 +44,17 @@ export function PasoPonlo({
   origen: string;
   copiado: Copiado | null;
   desfase: boolean;
+  /**
+   * Cambió el estilo de sus widgets en «Cómo se ve» y no lo ha aplicado. Se
+   * dice aquí porque es donde se copia: podría creer que copiar se lo lleva.
+   */
+  estiloSinAplicar: boolean;
+  /**
+   * Hay un estilo de sus widgets aplicado en su web que le llega sin marco
+   * (`nadaParaSinMarco`: quitar solo el pie no cuenta). `null` mientras carga
+   * o si no se ha podido leer: no se dice nada que dependa de él.
+   */
+  estiloAplicado: boolean | null;
   onCopiado: (firma: string) => void;
   onMetodo: (m: MetodoIntegracion) => void;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
@@ -41,6 +62,11 @@ export function PasoPonlo({
   dominiosAutorizados: readonly string[];
   /** El gestor de webs autorizadas (integración sin marco). */
   dominios: ReactNode;
+  /**
+   * Viene de «Ir a las webs autorizadas» (la portada): abre «Para quien te hace
+   * la web», donde está la lista. Quien lo pide lleva allí el foco.
+   */
+  verDominios?: boolean;
   showToast: (m: string) => void;
 }) {
   const w = entrada.widget;
@@ -79,6 +105,13 @@ export function PasoPonlo({
     marcar('codigo');
   }
 
+  // La copia a mano. `navigator.clipboard.writeText` (el botón) no dispara
+  // `copy`, así que una misma acción nunca cuenta dos veces; y copiar lo mismo
+  // otra vez al rato tampoco se guarda de nuevo (`esLaMismaCopia`, en el constructor).
+  function alCopiarAMano() {
+    if (esCopiaCompleta(window.getSelection()?.toString() ?? '', copiable)) onCopiado(firma);
+  }
+
   async function copiarReact() {
     if (!(await copiarAlPortapapeles(generarCodigo(entrada, metodo, 'react').codigo))) {
       showToast('No se ha podido copiar el componente.');
@@ -110,6 +143,16 @@ export function PasoPonlo({
     await copiarMensaje();
   }
 
+  // Lo pegado es este mismo popup, pero de antes de la Fase D (o copiado desde
+  // un panel sin actualizar): su botón lleva el color literal y no sigue el
+  // estilo. Con diseño propio no se dice: ese botón no cambia nunca, a propósito.
+  // Lo COPIADO también tiene que ser un popup: un iframe pegado no tiene botón.
+  // Una copia antigua sin la forma guardada se toma por la de ahora: sin
+  // desfase, su huella (que lleva la forma) coincide con la de ahora.
+  const botonDeAntes = !!copiado && !desfase && botonDeCodigoAnterior({
+    copiado: copiado.metodo ?? metodo, ahora: metodo, disenoPropio: tieneDisenoEnCodigo(c), botonVivo: copiado.botonVivo,
+  });
+
   const etiquetaCopiar = recienCopiado === 'codigo'
     ? 'Copiado'
     : esEnlace
@@ -139,6 +182,12 @@ export function PasoPonlo({
         titulo={falta ? 'Te falta un dato' : plataforma === 'sinweb' ? 'Ya está. Ahora compártelo' : 'Ya está. Ahora ponlo en tu web'}
         subtitulo={`${w.respuesta} · ${forma.toLowerCase()}${plataforma ? ` · ${nombrePlataforma(plataforma)}` : ''}`}
       >
+        {estiloSinAplicar && (
+          <p className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3 text-[12.5px] leading-relaxed text-foreground">
+            <AlertCircle size={15} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+            <span className="min-w-0">Tienes cambios de estilo sin aplicar. No van en el código: aplícalos en «Cómo se ve».</span>
+          </p>
+        )}
         {falta ? (
           <div className="space-y-3 rounded-xl bg-muted/60 px-3.5 py-3">
             <p role="status" className="text-[13px] font-medium text-foreground">{falta}</p>
@@ -157,6 +206,11 @@ export function PasoPonlo({
             <p className="text-center text-[12px] text-muted-foreground">
               {copiado && !desfase ? `Lo copiaste aquí el ${fechaCorta(copiado.en)}.` : !copiado ? 'Aún no lo has copiado desde aquí.' : 'Lo que copiaste antes ya no es lo de ahora.'}
             </p>
+            {botonDeAntes && (
+              <p className="text-center text-[12px] leading-relaxed text-muted-foreground">
+                El botón que ya tienes pegado es de un código anterior y no cambia con el estilo de tus widgets. Si copias este y lo pegas en lugar del de antes, cambiará solo.
+              </p>
+            )}
             <span className="sr-only" role="status" aria-live="polite">{recienCopiado === 'codigo' ? 'Copiado al portapapeles' : ''}</span>
           </div>
         )}
@@ -178,7 +232,7 @@ export function PasoPonlo({
         ))}
 
         {!falta && (
-          <details ref={detalles} className="group rounded-xl border border-border">
+          <details ref={detalles} onCopy={alCopiarAMano} className="group rounded-xl border border-border">
             <summary className={cn('flex min-h-11 cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-medium text-foreground [&::-webkit-details-marker]:hidden', FOCO)}>
               <Code2 size={15} aria-hidden className="text-muted-foreground" />
               Ver {esEnlace ? 'el enlace' : 'el código'}
@@ -203,11 +257,11 @@ export function PasoPonlo({
         <div className="grid gap-2 @xl/config:grid-cols-2">
           <div className="rounded-xl border border-success/30 bg-success/5 p-3 text-[12.5px] leading-relaxed text-foreground">
             <p className="mb-0.5 flex items-center gap-1 font-semibold"><Check size={13} aria-hidden />Se actualiza solo</p>
-            Tus clases, precios y plazas{estiloVivo(metodo, c.identidad === 'estudio')}.
+            {estiloVivo(metodo, !tieneDisenoEnCodigo(c, metodo), { identidadEstudio: c.identidad === 'estudio', aplicado: estiloAplicado })}
           </div>
           <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-[12.5px] leading-relaxed text-foreground">
             <p className="mb-0.5 font-semibold">Si lo cambias, cópialo otra vez</p>
-            Lo que lleva la etiqueta «Va en el código»: qué enseña, la forma de ponerlo, el botón y un diseño propio.
+            Lo que lleva la etiqueta «Va en el código»: qué enseña, la forma de ponerlo, el texto y el tipo de botón, y un diseño propio.
           </div>
         </div>
       </Tarjeta>
@@ -220,6 +274,7 @@ export function PasoPonlo({
         cambiar={cambiar}
         onMetodo={onMetodo}
         dominios={dominios}
+        verDominios={!!verDominios}
         botonPropio={botonPropio}
         onCopiarReact={() => void copiarReact()}
         reactCopiado={recienCopiado === 'react'}
@@ -228,18 +283,33 @@ export function PasoPonlo({
   );
 }
 
-// Qué parte del aspecto llega sola a lo ya pegado: el estilo de la app (F1 del
-// rediseño de /reservar); en la integración nativa, solo el color de marca. El
-// color del botón del popup va en su `style`, dentro del código: ese no.
-function estiloVivo(metodo: MetodoIntegracion, delEstudio: boolean): string {
-  if (metodo === 'boton' || metodo === 'enlace') return ', y tu página de reservas entera';
-  if (!delEstudio) return '';
-  if (metodo === 'popup') return ', y el estilo de tu app dentro de la ventana (el color del botón va en el código)';
-  if (metodo === 'nativa') return ', y tu color de marca, el de Apariencia';
-  return ', y el estilo de tu app, el de Apariencia';
+// Qué parte del aspecto llega sola a lo ya pegado: el estilo de sus widgets (el
+// que se aplica en «Cómo se ve», Fase B), salvo que su código lleve un diseño
+// propio —entonces no se lo pasa nadie (`tieneDisenoEnCodigo`, con la regla de
+// su método)—. Con el popup, desde la Fase D también el botón que abre la
+// ventana: el código que se copia AHORA lo pinta con variables que
+// /widget-popup.js rellena con ese estilo (color y esquinas). Habla de este
+// código, el de aquí: un botón pegado antes no las lleva, y eso se dice aparte
+// («El botón que ya tienes pegado…»).
+// Sin marco (Fase E), el estilo le llega con sus datos. Mientras no hay ninguno
+// aplicado se ve como siempre —con la identidad del estudio, su color y la letra
+// de su web; si no, su diseño de siempre— y se dice que tomará el que aplique.
+// Mientras carga lo aplicado (`aplicado: null`) no se afirma ninguna de las dos.
+function estiloVivo(metodo: MetodoIntegracion, sigueElEstilo: boolean, x: { identidadEstudio: boolean; aplicado: boolean | null }): string {
+  if (metodo === 'boton' || metodo === 'enlace') return 'Tus clases, precios y plazas, y tu página de reservas entera.';
+  if (!sigueElEstilo) return 'Tus clases, precios y plazas.';
+  if (metodo === 'popup') return 'Tus clases, precios y plazas, y el estilo de tus widgets: dentro de la ventana y en el botón que la abre (su color y sus esquinas).';
+  if (metodo === 'nativa') {
+    if (x.aplicado === null) return 'Tus clases, precios y plazas.';
+    if (x.aplicado) return 'Tus clases, precios y plazas, y el estilo de tus widgets.';
+    return x.identidadEstudio
+      ? 'Tus clases, precios y plazas, y tu color (con la letra de tu web). Si aplicas un estilo a tus widgets, lo toma también.'
+      : 'Tus clases, precios y plazas. Si aplicas un estilo a tus widgets, lo toma también.';
+  }
+  return 'Tus clases, precios y plazas, y el estilo de tus widgets.';
 }
 
-function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo, dominios, botonPropio, onCopiarReact, reactCopiado }: {
+function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo, dominios, verDominios, botonPropio, onCopiarReact, reactCopiado }: {
   entrada: EntradaIntegracion;
   metodo: MetodoIntegracion;
   receta: Receta;
@@ -247,6 +317,7 @@ function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo,
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   onMetodo: (m: MetodoIntegracion) => void;
   dominios: ReactNode;
+  verDominios: boolean;
   botonPropio: boolean;
   onCopiarReact: () => void;
   reactCopiado: boolean;
@@ -261,7 +332,7 @@ function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo,
 
   return (
     <section className="rounded-2xl border border-border bg-card px-4 shadow-xs @md/config:px-5">
-      <Plegable titulo="Para quien te hace la web" abierto={metodo === 'nativa' && !!falta} className="py-1.5">
+      <Plegable titulo="Para quien te hace la web" abierto={metodo === 'nativa' && (!!falta || verDominios)} className="py-1.5">
         <div className="space-y-6 pb-3">
           {w.metodos.includes('nativa') && (
             <div className="space-y-3">

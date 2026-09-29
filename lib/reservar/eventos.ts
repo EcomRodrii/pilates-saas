@@ -3,6 +3,9 @@
 // forma de saber si un cambio del widget convierte mejor o peor — confirmado
 // por auditoría que no había NADA (ni GA/PostHog/Sentry-para-eventos/tabla
 // propia) antes de este módulo.
+import type { PegadoWidget } from './pegado-widget.ts';
+import { uuidV4 } from '../utils.ts';
+
 export const TIPOS_EVENTO_WIDGET = [
   'widget_loaded', 'widget_viewed', 'class_list_viewed', 'class_selected',
   'class_detail_viewed', 'recommendation_started', 'recommendation_completed',
@@ -43,6 +46,18 @@ export function fijarOrigenWidget(ref: string | null | undefined): void {
   origenPorDefecto = ref?.trim() ? ref.trim() : null;
 }
 
+// Dónde está pegado y con qué versión (Fase C del constructor,
+// lib/reservar/pegado-widget.ts). Lo fija la página una vez al montar, antes
+// de que el router toque la URL, y viaja SOLO en `widget_loaded`: basta una
+// vez por visita para decir «Visto en … hace 2 h», y el resto del embudo
+// (donde la sesión acaba llevando el id de la socia) no tiene por qué saber de
+// qué web vino. `null` = no se manda nada (botón, enlace, vista previa…).
+let pegado: PegadoWidget | null = null;
+
+export function fijarPegadoWidget(p: PegadoWidget | null): void {
+  pegado = p;
+}
+
 // La vista previa del constructor de widgets (`?vista-previa=1`) es la
 // propietaria mirando su propio widget, no una visita: contarla inflaría «Cómo
 // le va a tu página» cada vez que abre el panel.
@@ -53,15 +68,37 @@ export function silenciarEventosWidget(si: boolean): void {
 }
 
 /**
+ * ¿Llega esta visita ya contada? Pasa con la integración nativa (sin marco):
+ * cuenta la visita en la web del estudio con su etiqueta
+ * (app/widget-bundle/main.tsx) y, al pulsar una clase, redirige a /reservar
+ * con `directo=1`, que no emite nadie más. Contar aquí otra vez `widget_loaded`
+ * y `widget_viewed` daría dos visitas por una. El resto del embudo sí sigue en
+ * la página, con la misma `ref`: es lo que dice si ese widget convierte.
+ *
+ * Esa redirección es SIEMPRE a pantalla completa: con `embed=1` no es ella, y
+ * la visita cuenta como cualquier otra.
+ *
+ * Se lee al montar, antes de que el router reescriba la URL.
+ */
+export function visitaYaContada(p: { get(k: string): string | null }): boolean {
+  return p.get('directo') === '1' && p.get('embed') !== '1';
+}
+
+/**
  * Un id por pestaña/visita — sessionStorage, se pierde al cerrarla. Nunca se
  * cruza con `socios`: es anónimo por diseño, no un identificador de persona.
+ *
+ * ⚠️ `uuidV4`, nunca `crypto.randomUUID()` a secas: dentro del iframe de una
+ * web del estudio en `http` la página NO es un contexto seguro (lo es solo si
+ * toda la cadena de marcos lo es), `randomUUID` no existe, y el fallo se lo
+ * tragaba el `.catch` del envío: esa web no registraba ni una visita.
  */
 export function sessionIdWidget(): string {
   if (typeof window === 'undefined') return '';
   try {
     let id = window.sessionStorage.getItem(CLAVE_SESSION_ID);
     if (!id) {
-      id = crypto.randomUUID();
+      id = uuidV4();
       window.sessionStorage.setItem(CLAVE_SESSION_ID, id);
     }
     return id;
@@ -69,8 +106,28 @@ export function sessionIdWidget(): string {
     // Safari en modo privado (o cookies/storage bloqueados) puede lanzar al
     // tocar sessionStorage — un id nuevo cada vez no rompe nada, solo hace
     // que esa visitante cuente como varias "sesiones" en el funnel.
-    return crypto.randomUUID();
+    return uuidV4();
   }
+}
+
+/**
+ * Qué se manda de lo pegado con este evento, o `null` si nada. Solo con
+ * `widget_loaded`: basta una vez por visita, y el resto del embudo (donde la
+ * sesión acaba llevando el id de la socia) no tiene por qué saber de qué web
+ * vino.
+ *  - La nativa (`baseUrl`: llama desde la web del estudio): solo la versión que
+ *    el bundle calcula de sus `data-*` (Fase E). Su forma y su web las pone el
+ *    servidor a partir de la cabecera `Origin`; mandarlas sería inútil.
+ *  - La página (sin `baseUrl`): forma, anfitrión y versión, lo que fijó al montar.
+ */
+export function camposDePegado(
+  tipo: TipoEventoWidget,
+  extra: { baseUrl?: string; firma?: string | null } | undefined,
+  pegadoPagina: PegadoWidget | null,
+): { forma?: string; anfitrion?: string | null; firma?: string } | null {
+  if (tipo !== 'widget_loaded') return null;
+  if (extra?.baseUrl) return extra.firma ? { firma: extra.firma } : null;
+  return pegadoPagina ? { forma: pegadoPagina.forma, anfitrion: pegadoPagina.anfitrion, firma: pegadoPagina.firma } : null;
 }
 
 /**
@@ -87,7 +144,9 @@ export function trackEventoWidget(
   // booking_completed/booking_abandoned) — nunca en los anónimos. Habilita
   // la recuperación de un abandono conocido sin ampliar el diseño anónimo
   // de esta tabla más de lo justo. Ver docs/cro-analytics-widget-diseno.md §5.2.
-  extra?: { sesionClaseId?: string | null; origen?: string | null; baseUrl?: string; socioId?: string | null },
+  // `firma` (Fase E): la versión del código sin marco, solo con `baseUrl` y
+  // solo en `widget_loaded` (`camposDePegado`); en cualquier otro caso se ignora.
+  extra?: { sesionClaseId?: string | null; origen?: string | null; baseUrl?: string; socioId?: string | null; firma?: string | null },
 ): void {
   if (typeof window === 'undefined' || !studioId || silenciado) return;
   try {
@@ -100,6 +159,8 @@ export function trackEventoWidget(
       ? `${extra.baseUrl}/api/public/evento?studioId=${encodeURIComponent(studioId)}`
       : '/api/public/evento';
     const socioId = extra?.socioId ?? null;
+    // Se lee YA, no dentro de `enviar`: es lo de esta llamada.
+    const pegadoAqui = camposDePegado(tipo, extra, pegado);
     const enviar = async () => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       // C-4 (auditoría 29-ago): solo se busca token cuando el evento va
@@ -121,6 +182,7 @@ export function trackEventoWidget(
           sesionClaseId: extra?.sesionClaseId ?? null,
           origen: extra?.origen ?? origenPorDefecto,
           socioId,
+          ...pegadoAqui,
         }),
       });
     };

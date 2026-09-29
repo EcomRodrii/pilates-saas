@@ -184,13 +184,15 @@ export default function LayoutInterno({ children }: { children: React.ReactNode 
             </nav>
           </div>
         </header>
-        {/* Solo con `nivel: 'aal1'` explícito: mientras INTERNO_EXIGIR_MFA no
-            esté activa, es lo que empuja a cada admin a enrolarse antes. */}
+        {/* Con el default fail-closed (SEC-2 paso 2), aal1 solo llega hasta
+            aquí con INTERNO_EXIGIR_MFA=0 explícito (un entorno de
+            desarrollo) — en producción, `comprobarAdminInterno` ya habría
+            mandado a /interno/mfa antes de que este layout pintara nada. */}
         {sesion.nivel === 'aal1' && (
           <div className="bg-amber-500/10 border-b border-amber-500/20">
             <div className="mx-auto max-w-6xl px-4 sm:px-6 py-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-foreground">
               <ShieldAlert size={14} className="text-warning shrink-0" />
-              <span>Esta sesión no ha pasado la verificación en dos pasos. Pronto será obligatoria para entrar aquí.</span>
+              <span>Esta sesión no ha pasado la verificación en dos pasos.</span>
               <Link href={`/interno/mfa?volver=${encodeURIComponent(pathname)}`} className="font-bold underline">
                 Configurarla
               </Link>

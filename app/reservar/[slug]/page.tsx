@@ -46,10 +46,12 @@ import { FormularioContacto } from '@/components/reservar/formulario-contacto';
 import { PlanesPublicos } from '@/components/reservar/planes-publicos';
 import { EquipoPublico } from '@/components/reservar/equipo-publico';
 import { horarioPublico } from '@/lib/estudio-publico';
-import { trackEventoWidget, fijarOrigenWidget, silenciarEventosWidget, sessionIdWidget } from '@/lib/reservar/eventos';
+import { trackEventoWidget, fijarOrigenWidget, fijarPegadoWidget, silenciarEventosWidget, sessionIdWidget, visitaYaContada } from '@/lib/reservar/eventos';
+import { pegadoDesde } from '@/lib/reservar/pegado-widget';
 import { precioClaseSuelta as precioSueltaDe } from '@/lib/student/precio-suelta';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, pesoTitular, textoSemantico } from '@/lib/reservar-publico-tokens';
 import { cssDocumentoIncrustado, paletaEfectivaReservar, varsMarcaWidget, varsTipografiaWidget } from '@/lib/reservar/precedencia-tema';
+import { leerBorradorWeb, resolverEstiloWeb, urlTraeDisenoPropio, type Contexto as ContextoEstiloWeb } from '@/lib/reservar/estilo-web';
 import { useTemaAppReservar } from '@/components/reservar/tema-app-provider';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
@@ -396,7 +398,6 @@ export default function ReservarPage() {
     planesTarifa, suscripciones, studioConfig, studio, redesSociales, dataLoaded, errorPublico, recargarPublico,
     refrescarAforo,
     addReserva, updateSocio, cancelarReserva, aceptarOfertaEspera, addSocioFromPortal, darConsentimientoMarketingPublico, planMasElegidoId, sustitucionesConfirmadas, textosReservar, bloquesReservar,
-    aparienciaWidget,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
 
@@ -504,22 +505,41 @@ export default function ReservarPage() {
   // Cómo se ve DENTRO de la web del estudio. Solo en modo incrustado: la página
   // suelta `/reservar/<slug>` es de Tentare y sigue con su decorado.
   //
-  // Los ajustes que la propietaria guardó en Apariencia, con los `?params=` del
-  // iframe pisándolos. Fuera del modo incrustado no se aplica ninguno de los
-  // dos: `/reservar/<slug>` es la página de Tentare.
+  // El estilo de sus widgets en su web (Fase B del constructor, 28-sep-2026):
+  // el que la dueña aplica UNA vez desde el panel para todos sus widgets, y que
+  // cambia solo en los ya pegados (lib/reservar/estilo-web.ts). Llega del
+  // layout por el proveedor, resuelto en servidor, y aquí se decide solo lo que
+  // únicamente sabe la página, con `searchParams`, que en esta ruta dinámica ya
+  // existen durante el SSR —el esqueleto que sale del servidor ya lo lleva: sin
+  // destello—:
+  //   · un código con su propio diseño (`?marca=`, `?fondo=`, `?fuente=`…) no
+  //     lo recibe, ni siquiera en parte: es lo que el panel promete al aplicarlo
+  //     («los widgets con un diseño propio no cambian»), y eje por eje, con solo
+  //     `marca=` sobre una web clara, heredaría sus neutros;
+  //   · la vista previa del panel manda su borrador (`borrador-web=`, solo con
+  //     `vista-previa=1`), que sustituye a lo publicado mientras la dueña prueba;
+  //   · en la ventana que se abre encima (`ventana=1`, la pone el popup al
+  //     abrirla, lib/widgets/popup-url.ts) nunca se funde: su marco es blanco.
   //
-  // ⚠️ Hasta que llegan los datos públicos, los «Colores del widget» guardados
-  // salen del servidor (`temaApp.widgetGuardado`, los mismos): llegan tarde, y
-  // con la app en Carbón el primer fotograma del iframe era Carbón y luego
-  // saltaba a la paleta que el estudio había guardado para su web.
+  // ⚠️ Aquí se leían los «Colores del widget» antiguos del tema
+  // (`aparienciaWidget` + `temaApp.widgetGuardado`). Ya no: /reservar pide el
+  // catálogo `liviano`, que no lee el tema, así que una vez cargada la página
+  // siempre eran los de por defecto, y los del servidor solo pintaban el primer
+  // fotograma. Ignorarlos es como ya se veía.
   const temaApp = useTemaAppReservar();
-  const aparienciaGuardada = useMemo(
-    () => (dataLoaded || !temaApp.widgetGuardado ? aparienciaWidget : { ...aparienciaWidget, ...temaApp.widgetGuardado }),
-    [dataLoaded, aparienciaWidget, temaApp],
-  );
+  const disenoPropio = embedMode && urlTraeDisenoPropio(searchParams);
+  const contextoWeb: ContextoEstiloWeb = searchParams.get('ventana') === '1' ? 'ventana' : 'dentro';
+  const estiloWeb = useMemo(() => {
+    if (!embedMode || disenoPropio || !temaApp.web) return null;
+    const borrador = leerBorradorWeb(searchParams);
+    return resolverEstiloWeb(borrador !== undefined ? borrador : temaApp.web.guardado, temaApp.web.base, contextoWeb);
+  }, [embedMode, disenoPropio, temaApp, searchParams, contextoWeb]);
+  // Las esquinas, la separación y el pie del estilo de su web entran como lo
+  // «guardado»; los `?params=` del iframe los pisan (`?pie=1` vuelve a sacar
+  // el pie). Fuera del modo incrustado no se aplica ninguno de los dos.
   const apariencia = useMemo(
-    () => resolverApariencia(embedMode ? aparienciaGuardada : null, embedMode ? searchParams : null),
-    [embedMode, aparienciaGuardada, searchParams],
+    () => resolverApariencia(embedMode ? (estiloWeb?.capa ?? null) : null, embedMode ? searchParams : null),
+    [embedMode, estiloWeb, searchParams],
   );
   // El resto del snippet (filtros/vista/toggles/diseño/marca), también SOLO
   // incrustado — la página suelta /reservar/<slug> es de Tentare y no cambia.
@@ -543,14 +563,15 @@ export default function ReservarPage() {
   const [fichaSemanaPedida, setFichaSemanaPedida] = useState<string | null>(null);
   // Quién manda en los colores (lib/reservar/precedencia-tema.ts): suelta, el
   // estilo de la app de la alumna (llega del layout, en servidor); incrustada,
-  // el widget si toca algún color, y si no, también el de la app. Sobre un
-  // estilo oscuro, `marca=` y `diseno=ligero` también deciden: los dos están
-  // pensados para una web clara.
+  // el widget si toca algún color, si no el estilo de su web, y si no, también
+  // el de la app. Sobre un estilo oscuro —el de la app o el de su web—,
+  // `marca=` y `diseno=ligero` también deciden: los dos están pensados para una
+  // web clara.
   const paleta = useMemo(
     () => paletaEfectivaReservar(apariencia, embedMode, temaApp, {
       marca: configWidget?.colorPrimario, ligero: configWidget?.diseno === 'ligero',
-    }),
-    [apariencia, embedMode, temaApp, configWidget],
+    }, estiloWeb),
+    [apariencia, embedMode, temaApp, configWidget, estiloWeb],
   );
   // `marca=` pisa `--portal-brand` en el subárbol del widget, con su texto
   // encima y la marca como texto medidos contra la paleta que se ve.
@@ -634,20 +655,41 @@ export default function ReservarPage() {
   // evento: los efectos corren en el orden en que se declaran.
   // `vista-previa=1`: el constructor de widgets del panel — no es una visita.
   const esVistaPrevia = searchParams.get('vista-previa') === '1';
+  // Fase D: la redirección de la integración nativa (`directo=1`, siempre a
+  // pantalla completa: con `embed=1` no es ella) llega con la visita ya contada
+  // en la web del estudio. Se lee al montar, antes de que el router reescriba
+  // la URL; el resto del embudo sí se cuenta aquí.
+  const [visitaContada] = useState(() => visitaYaContada(searchParams));
   useEffect(() => {
     fijarOrigenWidget(refCode);
     silenciarEventosWidget(esVistaPrevia);
   }, [refCode, esVistaPrevia]);
+  // Fase C del constructor: dónde está pegado y con qué versión, para «Visto en
+  // … hace 2 h» en el panel (lib/reservar/pegado-widget.ts). Una sola vez y en
+  // su propio efecto, no en el de arriba (que se repite si cambia `ref`): la URL
+  // que cuenta es la del primer commit, antes de que el router la reescriba
+  // (`compra`, `tentare_pago`, los pasos de la reserva). Va antes que el de
+  // `widget_loaded`, que es el único evento que lo lleva.
+  useEffect(() => {
+    fijarPegadoWidget(pegadoDesde({
+      params: new URLSearchParams(location.search),
+      enMarco: window.parent !== window,
+      ancestros: location.ancestorOrigins ? Array.from(location.ancestorOrigins) : null,
+      referrer: document.referrer,
+      propio: location.origin,
+    }));
+  }, []);
   const widgetLoadedRef = useRef(false);
   useEffect(() => {
     if (widgetLoadedRef.current || !studio?.id) return;
     widgetLoadedRef.current = true;
+    if (visitaContada) return;
     trackEventoWidget(studio.id, 'widget_loaded', { origen: searchParams.get('ref') });
     // Fase 8 (CRO): en Modo A "cargado" y "visto" son el mismo instante
     // (página completa, visible al pintar) — Modo B ya dispara los dos
     // juntos (main.tsx), aquí faltaba este.
     trackEventoWidget(studio.id, 'widget_viewed', { origen: searchParams.get('ref') });
-  }, [studio?.id, searchParams]);
+  }, [studio?.id, searchParams, visitaContada]);
 
   const [filtroTipo, setFiltroTipo] = useState('');
   // Con `?tipos=` en el snippet, los chips solo enseñan ese subconjunto: un
@@ -2430,7 +2472,14 @@ export default function ReservarPage() {
       // `color-scheme: dark` (lienzo opaco oscuro dentro del iframe).
       <>
       {embedMode && <style>{cssDocumentoIncrustado(apariencia, paleta)}</style>}
-      <div className="min-h-dvh bg-[var(--portal-bg)]" style={{ ...(varsTexto ?? {}), ...(varsMarca ?? {}) } as React.CSSProperties}>
+      {/* El estilo de su web, también aquí: este esqueleto es lo ÚNICO que sale
+          en el HTML del servidor, y sin su letra y su fondo el primer
+          fotograma sería el de la app. Fundido, `transparent` en línea: si no,
+          la clase `bg-` pintaría el fondo del estilo, una losa sobre su web. */}
+      <div className="min-h-dvh bg-[var(--portal-bg)]" style={{
+        ...(paleta.fondoRaiz ? { background: paleta.fondoRaiz } : {}),
+        ...(paleta.varsLetra ?? {}), ...(varsTexto ?? {}), ...(varsMarca ?? {}),
+      } as React.CSSProperties}>
         <header className="sticky top-0 z-30 bg-[var(--portal-surface)] border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div className="max-w-2xl mx-auto px-4">
             <div className="flex items-center gap-3 py-3">
@@ -2627,11 +2676,13 @@ export default function ReservarPage() {
         )}
         <div style={{
           minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 24, background: fondoCss(apariencia) ?? 'var(--portal-bg)',
+          padding: 24, background: fondoCss(apariencia) ?? paleta.fondoRaiz ?? 'var(--portal-bg)',
           fontFamily: fuenteWidget ?? sans,
           // Esta pantalla vive FUERA de la raíz de abajo: sin sus variables,
           // `var(--portal-bg)` sería el `:root` (la app) y no la paleta que
           // decidió el widget — un fondo claro con la letra de noche encima.
+          // Lo mismo con la letra del estilo de su web.
+          ...(paleta.varsLetra ?? {}),
           ...(varsTexto ?? {}),
           ...(varsMarca ?? {}),
         } as React.CSSProperties}>
@@ -2917,7 +2968,8 @@ export default function ReservarPage() {
       ...containerRoot, width: '100%', minHeight: '100dvh',
       // `transparent` deja ver el fondo de la web anfitriona. Era el problema
       // gordo: un `#F6F7F9` opaco es una losa casi blanca sobre una web oscura.
-      background: fondoCss(apariencia) ?? 'var(--portal-bg)',
+      // El `?fondo=` del snippet gana; si no, el estilo de su web fundido.
+      background: fondoCss(apariencia) ?? paleta.fondoRaiz ?? 'var(--portal-bg)',
       color: 'var(--portal-ink)',
       fontFamily: fuenteWidget ?? sans,
       // ⚠️ `fontFamily` a secas SOLO alcanza al texto que hereda, y en esta
@@ -2934,6 +2986,10 @@ export default function ReservarPage() {
       // llega por `:root`) para quien no tocó nada. Con fuente del widget,
       // gana ella y se anula el peso de titular de la pareja
       // (lib/reservar/precedencia-tema.ts).
+      //
+      // La letra del estilo de su web va ANTES: la del snippet, si la hay, la
+      // pisa (aunque un código con fuente propia ni siquiera lo recibe).
+      ...(paleta.varsLetra ?? {}),
       ...varsTipografiaWidget(fuenteWidget, fuenteDisplayWidget),
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
       // Custom properties en línea: cascadean a todo el subárbol, así que con

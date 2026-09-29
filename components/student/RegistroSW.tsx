@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { renovarSuscripcionPush } from '@/lib/student/push';
+import { enVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
 
 /**
  * Registra el service worker para la app de la alumna.
@@ -29,7 +30,7 @@ export function RegistroSW({ slug, studioId }: { slug: string; studioId: string 
     // Dentro de la vista previa de «Apariencia de tu app» (un iframe del panel)
     // no: registraría la app en el navegador de la propietaria y su caché
     // podría servirle la versión de antes mientras prueba estilos.
-    if (window.self !== window.top) return;
+    if (enVistaPreviaDelPanel()) return;
 
     const scope = `/portal/${encodeURIComponent(slug)}/`;
     navigator.serviceWorker.register('/sw.js', { scope })

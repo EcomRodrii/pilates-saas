@@ -12,6 +12,7 @@ import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import type { ResultadoReserva } from '@/lib/studio-context';
 import { canalesWidget } from '@/lib/widget/canales-widget';
 import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
+import { leerDatosEstiloNativa, type DatosEstiloNativa } from '@/lib/widget/estilo-nativa';
 
 // Hook mínimo del bundle embebible (Modo B): trae SOLO lo que
 // <ReservaCalendario> necesita para pintar y reservar, sin montar
@@ -50,8 +51,11 @@ interface DatosCrudos {
   // `loadStripe(pk, {stripeAccount})` — ver comentario de `studioPublico()`
   // en lib/db/supabase-data-admin.ts.
   stripeAccountId: string | null;
-  // El color de marca del estudio: con `data-identidad="estudio"` el bundle
-  // lo usa como primario en vez del oliva por defecto (main.tsx).
+  // La COLUMNA `studios.color_primario` (en casi todos los estudios, el índigo
+  // que escribe el alta). Desde la Fase E, con `data-identidad="estudio"` el
+  // bundle pinta el color del TEMA que llega en `estiloWidget`; esta solo
+  // queda de último recurso: un servidor de antes, o un código con diseño
+  // propio, que no pide el estilo (main.tsx).
   colorEstudio: string | null;
 }
 
@@ -65,7 +69,15 @@ const VACIO: DatosCrudos = {
 // rutas relativas de siempre (`/api/public/...`) resolverían contra SU
 // origen si no se les da explícitamente el de Tentare. Ver
 // app/widget-bundle/main.tsx, que lo resuelve del propio <script src="...">.
-export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosSlots) {
+//
+// `opciones.estilo` (Fase E): pedir también el estilo de los widgets de su web
+// (`estiloWidget`, lib/widget/estilo-nativa.ts). Solo en la PRIMERA carga que
+// sale bien: el aforo en vivo, el tic de un minuto y la recarga tras reservar
+// no lo vuelven a pedir (cada petición con él es una lectura más del tema).
+// Llega en la misma respuesta que las clases y se guarda en el mismo callback
+// que ellas: se pinta en el mismo commit, nunca después.
+export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosSlots, opciones?: { estilo?: boolean }) {
+  const pedirEstilo = opciones?.estilo === true;
   const { socia, usuarioEmail, autenticado, isLoading: sesionCargando, refrescar: refrescarSesion } = useSesionWidget(slug, baseUrl);
   const [datos, setDatos] = useState<DatosCrudos>(VACIO);
   const [cargando, setCargando] = useState(true);
@@ -73,6 +85,9 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
   // Página oculta: el servidor no manda clases, solo el nombre para el aviso
   // (`catalogoPaginaOculta`). `null` = página visible.
   const [paginaOculta, setPaginaOculta] = useState<{ nombre: string } | null>(null);
+  // `null` = ni pedido ni recibido (o un servidor de antes): la nativa se ve como siempre.
+  const [estiloWidget, setEstiloWidget] = useState<DatosEstiloNativa | null>(null);
+  const estiloLeido = useRef(false);
 
   // `silencioso`: el tic de refresco periódico (más abajo) no debe tapar el
   // calendario con el estado de carga en cada pasada — eso convertiría "una
@@ -81,7 +96,8 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
   // pidiendo el loading visible, que sí tiene sentido ahí.
   const recargar = useCallback((opts?: { silencioso?: boolean }) => {
     if (!opts?.silencioso) setCargando(true);
-    cargarDatosPublicos(slug, { liviano: true, baseUrl }).then(pub => {
+    const conEstilo = pedirEstilo && !estiloLeido.current;
+    cargarDatosPublicos(slug, { liviano: true, baseUrl, estiloWidget: conEstilo }).then(pub => {
       if (!pub || pub.error) { setError('No se ha podido cargar el estudio.'); setCargando(false); return; }
       // Con la página oculta no hay nada que reservar: fuera lo que hubiera
       // (el tic de refresco puede traer esto con el calendario ya pintado).
@@ -119,10 +135,17 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
         stripeAccountId: pub.studio?.stripeAccountId ?? null,
         colorEstudio: typeof pub.studio?.colorPrimario === 'string' ? pub.studio.colorPrimario : null,
       });
+      // Leído clave a clave antes de guardarlo: acaba en el `style` de un
+      // elemento en la web de otro. Con la página oculta no se llega aquí, y
+      // la próxima carga que la encuentre visible lo vuelve a pedir.
+      if (conEstilo) {
+        estiloLeido.current = true;
+        setEstiloWidget(leerDatosEstiloNativa(pub.estiloWidget));
+      }
       setError(null);
       setCargando(false);
     }).catch(() => { setError('No se ha podido cargar el estudio.'); setCargando(false); });
-  }, [slug, baseUrl]);
+  }, [slug, baseUrl, pedirEstilo]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga inicial del catálogo público del estudio, sistema externo (fetch).
@@ -292,6 +315,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     misReservas: datos.misReservas, suscripciones: datos.suscripciones, planesTarifa: datos.planesTarifa, socio: datos.socio,
     stripeAccountId: datos.stripeAccountId,
     colorEstudio: datos.colorEstudio,
+    estiloWidget,
     onReservar, onCancelar, onAceptarOferta, onActualizarPerfil, logout, recargar,
     crearCheckoutEmbebido, comprarConBizum,
   };

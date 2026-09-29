@@ -16,6 +16,7 @@ import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import { normalizarNombreDeGoogle } from '@/lib/auth/normalizar-nombre-google';
 import { capturarAlLlegar } from '@/lib/posthog-cliente';
+import { MINIMO_PASSWORD } from '@/lib/student/password-regla';
 
 export default function LoginPage() {
   const uid = useId();
@@ -492,12 +493,23 @@ export default function LoginPage() {
               <input id={`${uid}-2`}
                 type="password"
                 required
-                minLength={6}
+                // ⚠️ Auditoría 62ª pasada (SEC-3): este campo es COMPARTIDO por
+                // entrar y crear cuenta, y llevaba un mínimo fijo de seis
+                // caracteres — por debajo del mínimo real del proyecto (`MINIMO_PASSWORD`, 8;
+                // ver el comentario de lib/student/password-regla.ts). Solo
+                // importa al CREAR: en modo entrar, exigir una longitud mínima
+                // bloquearía en el navegador a cualquier cuenta cuya contraseña
+                // ya sea correcta pero más corta — el servidor es quien decide
+                // si esa contraseña vale, nunca el HTML.
+                minLength={modo === 'crear' ? MINIMO_PASSWORD : undefined}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[14px] text-[#1A1A1A] placeholder:text-[#A8A89F] focus:outline-none focus:ring-2 focus:ring-brand/15 focus:border-brand transition-all"
               />
+              {modo === 'crear' && (
+                <p className="mt-1.5 text-[11.5px] text-[#A8A89F]">Al menos {MINIMO_PASSWORD} caracteres.</p>
+              )}
             </div>
 
             {error && (

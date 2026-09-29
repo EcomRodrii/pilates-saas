@@ -34,6 +34,10 @@ import {
   type CamposPublicables,
 } from '@/lib/theme-publicar-campos';
 import { esFaviconDelEstudio } from '@/lib/theme-favicon';
+import { mismoWidgetWeb, type WidgetWeb } from '@/lib/reservar/estilo-web-tipos';
+import type { ErrorEstiloWeb } from '@/lib/reservar/estilo-web';
+import { decidirEstiloWeb } from '@/lib/widgets/estilo-web-aplicar';
+import type { PedidoEstiloWeb } from '@/lib/widgets/estilo-web-pedido';
 
 type Admin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -330,6 +334,71 @@ export async function publicarCamposTheme(studioId: string, campos: CamposPublic
     if (campos.faviconUrl === null) await retirarFaviconPublicado(admin, studioId);
     invalidarCatalogoPublico(studioId);
     return { ok: true, theme: publicado };
+  }
+  throw new ConflictoTheme();
+}
+
+// ── El estilo de los widgets en su web (Fase B del constructor) ─────────────
+//
+// «Aplicar en mi web» y su Deshacer (/api/estudio/widget-estilo). El mismo
+// bucle que `publicarCamposTheme` —leer, decidir y escribir solo si nadie ha
+// escrito entre medias, en lo publicado y en el borrador—, con dos diferencias
+// a propósito:
+//   · El contraste se mide SOLO sobre el estilo de los widgets
+//     (`validarEstiloWeb`, dentro de `decidirEstiloWeb`), no sobre el tema
+//     entero con `validarContrasteTheme`: un tema publicado antiguo que ya lo
+//     incumpla bloquearía con un 422 un cambio que no toca ninguno de sus
+//     colores, y la dueña no sabría por qué.
+//   · La versión de la fila solo protege el hueco entre ESTA lectura y ESTA
+//     escritura, y lo que la dueña tiene en pantalla puede llevar minutos
+//     viejo. Por eso además se compara el estilo publicado con el que ella
+//     tenía (`esperado`): un Deshacer que llega tarde no pisa lo que otra
+//     pestaña aplicó entretanto.
+
+export type ResultadoEstiloWebTheme =
+  | { tipo: 'cambiado' }
+  | { tipo: 'contraste'; errores: ErrorEstiloWeb[] }
+  | {
+    tipo: 'aplicado';
+    aplicado: WidgetWeb | null;
+    /** Lo que había en la fila que se ha sobrescrito: con esto deshace el panel. */
+    anterior: WidgetWeb | null;
+    /** La línea de Actividad; `null` si ya estaba así y no se ha escrito nada. */
+    texto: string | null;
+  };
+
+export async function aplicarEstiloWebTheme(studioId: string, pedido: PedidoEstiloWeb): Promise<ResultadoEstiloWebTheme> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('THEME_SIN_ADMIN');
+
+  for (let intento = 0; intento < INTENTOS_ESCRITURA; intento++) {
+    const fila = await leerFila(admin, studioId);
+    const publicadoActual = fila?.config_published
+      ? sanearFavicon(resolveTheme(fila.config_published), studioId)
+      : await themeDesdePreset(admin, studioId);
+    const borradorActual = fila?.config_draft
+      ? sanearFavicon(resolveTheme(fila.config_draft), studioId)
+      : publicadoActual;
+
+    const decision = decidirEstiloWeb(publicadoActual, pedido);
+    if (decision.tipo !== 'escribir') return decision;
+    // Lo mismo que ya hay (mismo criterio que los dominios del widget): ni se
+    // escribe ni se apunta en Actividad una línea de algo que no ha cambiado.
+    if (mismoWidgetWeb(decision.aplicado, decision.anterior)) {
+      return { tipo: 'aplicado', aplicado: decision.anterior, anterior: decision.anterior, texto: null };
+    }
+
+    // `widgetWeb: undefined` —nada elegido— desaparece al guardar la fila como
+    // JSON: el tema vuelve a ser el de antes de aplicar nada.
+    const { publicado, borrador } = fusionarCampos(publicadoActual, borradorActual, decision.cambios);
+    const escrito = await escribirSiNoHaCambiado(admin, studioId, fila, {
+      config_draft: borrador,
+      config_published: publicado,
+      publicado_en: new Date().toISOString(),
+    });
+    if (!escrito) continue;
+    invalidarCatalogoPublico(studioId);
+    return { tipo: 'aplicado', aplicado: decision.aplicado, anterior: decision.anterior, texto: decision.texto };
   }
   throw new ConflictoTheme();
 }

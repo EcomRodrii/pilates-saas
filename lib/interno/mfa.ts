@@ -7,11 +7,17 @@
 // para probarlas con `node --test`. Las usan el servidor (`auth.ts`) y la
 // pantalla `/interno/mfa`.
 //
-// El despliegue va en dos tiempos para no dejar fuera a nadie:
-//   1. Sin `INTERNO_EXIGIR_MFA`, todo funciona igual que antes y cada admin
-//      puede enrolar su factor desde `/interno/mfa`.
-//   2. Con `INTERNO_EXIGIR_MFA=1`, cualquier sesión que no sea `aal2` recibe
-//      `MFA_REQUERIDO` y la UI la manda a verificar.
+// El despliegue fue en dos tiempos, y el segundo ya llegó (auditoría 62ª
+// pasada, SEC-2 paso 2): antes solo `INTERNO_EXIGIR_MFA=1` exigía el segundo
+// factor y CUALQUIER OTRO VALOR —sin definir, vacío, un typo al escribirla en
+// Vercel— lo dejaba desactivado. Fallaba ABIERTO: un olvido de configuración
+// se notaba porque NO pedía MFA, justo lo que no conviene en una zona con
+// service-role sobre todos los estudios. Ahora falla CERRADO: se exige
+// siempre, y solo `INTERNO_EXIGIR_MFA=0` explícito lo desactiva (para un
+// entorno de desarrollo, por ejemplo). Enrolar el primer factor
+// (`/interno/mfa`) no pasa por esta función — lee el nivel directo del
+// cliente de Supabase — así que nadie queda encerrado sin poder darse de alta
+// su propio TOTP.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type NivelAal = 'aal1' | 'aal2';
@@ -43,14 +49,14 @@ export function nivelAutenticacion(accessToken: string | null | undefined): Nive
   }
 }
 
-// Solo el valor exacto '1' activa la exigencia. Un 'true' o un ' 1' no:
-// preferible que un error al escribir la variable se note porque NO exige,
-// antes que dejar fuera a todo el equipo sin querer.
+// Solo el valor exacto '0' desactiva la exigencia. Cualquier otra cosa —sin
+// definir, vacía, un 'true' o un ' 1' mal escritos— la deja activada: un error
+// al configurar la variable ahora se nota porque SÍ exige MFA, no al revés.
 export function exigeMfa(
   env: Readonly<Record<string, string | undefined>>,
   nivel: NivelAal,
 ): boolean {
-  return env.INTERNO_EXIGIR_MFA === '1' && nivel !== 'aal2';
+  return env.INTERNO_EXIGIR_MFA !== '0' && nivel !== 'aal2';
 }
 
 // Sin aal2 solo se puede crear el PRIMER factor. Si ya hay uno verificado,

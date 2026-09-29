@@ -4,9 +4,16 @@ import { WIDGETS, CATEGORIAS, widgetPorId, esDisponible, widgetsVisibles, type W
 import { CONFIG_POR_DEFECTO, leerConfig, leerConfigs, etiquetaEfectiva, anchoPorDefecto, anchoPopupDe, type ConfigConstructor } from './config.ts';
 import {
   urlEmbebido, urlPagina, atributosNativa, generarCodigo, faltaParaGenerar, plataformasDe,
-  estiloBoton, firmaCodigo, type EntradaIntegracion,
+  estiloBoton, firmaCodigo, conVistaPrevia, botonSigueElEstilo, colorBoton, idIframe, type EntradaIntegracion,
+  paresNativa, lectorDePares, tieneDisenoEnCodigo,
 } from './integracion.ts';
-import { resolverConfigWidget, fuenteDeDataset, leerPresentacion } from '../reservar/config-widget.ts';
+import { huella } from './huella.ts';
+import { usaBotonVivo, type BotonVivo } from './boton-vivo.ts';
+import { PARAM_BORRADOR, WIDGET_WEB_NEUTRO, leerWidgetWeb } from '../reservar/estilo-web-tipos.ts';
+import { baseEstiloWeb, botonDeLaVentana, leerBorradorWeb } from '../reservar/estilo-web.ts';
+import { scriptSnippetIframe } from '../reservar/snippet-embed.ts';
+import { resolverConfigWidget, fuenteDeDataset, leerPresentacion, nativaTraeDisenoPropio } from '../reservar/config-widget.ts';
+import { urlTraeDisenoPropio } from '../reservar/estilo-web.ts';
 import { resolverApariencia } from '../reservar/apariencia-widget.ts';
 
 const ORIGEN = 'https://www.tentare.app';
@@ -206,7 +213,139 @@ test('nativa con la identidad del estudio: lo dice, y no congela colores', () =>
   assert.ok(!attrs.some(a => a.startsWith('data-diseno')));
 });
 
+// ── Fase E: los `data-*` de la nativa como los leerá `dataset` ──────────────
+
+test('paresNativa: kebab y sin escapar; un booleano a pelo vale `\'\'` (lo que da el navegador)', () => {
+  const e = entrada('horario', { mostrarPrecio: false, mostrarNivel: false, tipos: ['a"b<c>&d'], vista: 'hoy', diseno: 'completo' });
+  assert.deepEqual(paresNativa(e), [
+    ['vista', 'hoy'], ['tipos', 'a"b<c>&d'], ['ocultar-precio', ''], ['ocultar-nivel', ''], ['diseno', 'completo'],
+    ['identidad', 'estudio'], ['ref', 'web-horario'],
+  ]);
+  // Y el código los escapa y deja los booleanos a pelo, como siempre.
+  assert.deepEqual(atributosNativa(e), [
+    'data-vista="hoy"', 'data-tipos="a&quot;b&lt;c&gt;&amp;d"', 'data-ocultar-precio', 'data-ocultar-nivel', 'data-diseno="completo"',
+    'data-identidad="estudio"', 'data-ref="web-horario"',
+  ]);
+  const propia = paresNativa(entrada('horario', { identidad: 'propia', marca: '#112233', fondo: '#fafafa', tinta: '#111111', fuente: 'Playfair Display', fuenteDisplay: 'Poppins', etiqueta: '' }));
+  assert.deepEqual(propia, [['marca', '#112233'], ['fondo', '#fafafa'], ['negro', '#111111'], ['fuente', 'Playfair Display'], ['fuente-display', 'Poppins']]);
+});
+
+test('⚠️ atributosNativa no cambia ni un carácter: una lista vacía escrita a mano sigue con su `=""`', () => {
+  // `tipos: ['']` da un valor vacío que NO es un booleano: el código de antes
+  // lo escribía `data-tipos=""`, y así se queda (para `dataset`, los dos son '').
+  assert.deepEqual(atributosNativa(entrada('horario', { tipos: [''] })), ['data-tipos=""', 'data-identidad="estudio"', 'data-ref="web-horario"']);
+  assert.deepEqual(paresNativa(entrada('horario', { tipos: [''] }))[0], ['tipos', '']);
+});
+
+test('lectorDePares: como `dataset` o `URLSearchParams`, la primera aparición; ausente es null', () => {
+  const l = lectorDePares([['a', '1'], ['b', ''], ['a', '2']]);
+  assert.equal(l.get('a'), '1');
+  assert.equal(l.get('b'), '');
+  assert.equal(l.get('c'), null);
+});
+
+/** Configs que tocan todo lo que puede emitir la nativa, y lo que emite el iframe y la nativa no entiende. */
+const CONFIGS_DISENO: Record<string, Partial<ConfigConstructor>> = {
+  estudio: {},
+  'estudio con colores guardados': { marca: '#112233', superficie: '#1a1a1a' },
+  'propia sin tocar nada': { identidad: 'propia' },
+  'propia con marca': { identidad: 'propia', marca: '#112233' },
+  'propia con fondo': { identidad: 'propia', fondo: '#fafafa' },
+  'propia con fondo transparente': { identidad: 'propia', fondo: 'transparente' },
+  'propia con tinta': { identidad: 'propia', tinta: '#111111' },
+  'propia con letra': { identidad: 'propia', fuente: 'Playfair Display' },
+  'propia con letra de titulares': { identidad: 'propia', fuenteDisplay: 'Poppins' },
+  'propia con solo superficie': { identidad: 'propia', superficie: '#1a1a1a' },
+  'propia con línea, tema, forma y densidad': { identidad: 'propia', linea: '#333333', tema: 'oscuro', forma: 'recto', densidad: 'compacta' },
+  'propia con todo': {
+    identidad: 'propia', marca: '#112233', fondo: '#fafafa', tinta: '#111111', superficie: '#1a1a1a', linea: '#333333',
+    tema: 'claro', forma: 'pill', densidad: 'comoda', fuente: 'Playfair Display', fuenteDisplay: 'Poppins',
+  },
+};
+
+test('⚠️ tieneDisenoEnCodigo(c, \'nativa\') es la regla del bundle sobre lo que emite; sin método, la del iframe de siempre', () => {
+  for (const [nombre, parcial] of Object.entries(CONFIGS_DISENO)) {
+    const e = entrada('horario', parcial);
+    // La nativa: lo que diría el bundle al leer su `dataset`.
+    assert.equal(tieneDisenoEnCodigo(e.config, 'nativa'), nativaTraeDisenoPropio(lectorDePares(paresNativa(e))), nombre);
+    // El resto: lo que diría /reservar al leer su URL (lo de siempre).
+    for (const m of ['iframe', 'popup'] as const) {
+      assert.equal(tieneDisenoEnCodigo(e.config, m), urlTraeDisenoPropio(params(urlEmbebido(e, m))), `${nombre}/${m}`);
+    }
+    assert.equal(tieneDisenoEnCodigo(e.config), tieneDisenoEnCodigo(e.config, 'iframe'), nombre);
+  }
+  const c = (p: Partial<ConfigConstructor>) => ({ ...CONFIG_POR_DEFECTO, ...p });
+  // «Propia» con solo lo que la nativa no emite: diseño propio en el iframe, no sin marco.
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con solo superficie'])), true);
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con solo superficie']), 'nativa'), false);
+  // Con marca, en los dos.
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con marca'])), true);
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con marca']), 'nativa'), true);
+  // Con la identidad del estudio, en ninguno (aunque haya colores guardados de antes).
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['estudio con colores guardados'])), false);
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['estudio con colores guardados']), 'nativa'), false);
+  // El fondo transparente no se emite sin marco: sin atributo ya deja ver su web.
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con fondo transparente']), 'nativa'), false);
+  // Botón y enlace siguen con la regla de siempre.
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con marca']), 'boton'), true);
+  assert.equal(tieneDisenoEnCodigo(c(CONFIGS_DISENO['propia con solo superficie']), 'enlace'), true);
+});
+
 // ── Código generado ──────────────────────────────────────────────────────────
+
+test('⚠️ literal fijo: el código por defecto de cada método, carácter a carácter', () => {
+  // Si esto falla, lo que copia una dueña cambia sin que ella toque nada (y lo
+  // ya pegado sale como «cambiado después de copiarlo»). O el cambio no quería
+  // tocar el código y hay que deshacerlo, o sí, y el literal se actualiza a la vez.
+  const e = entrada('horario');
+  const iframe = generarCodigo(e, 'iframe', 'html').codigo.split('\n');
+  assert.equal(iframe[0], `<iframe id="tentare-widget-${SLUG}-horario" src="${ORIGEN}/reservar/${SLUG}?embed=1&tab=clases&ref=web-horario" style="width:100%;max-width:480px;height:640px;border:0;border-radius:12px;" title="Horario y reservas" loading="lazy" allow="payment"></iframe>`);
+  assert.deepEqual(iframe.slice(1), [scriptSnippetIframe({ origen: ORIGEN, slug: SLUG, iframeId: `tentare-widget-${SLUG}-horario` })]);
+  assert.equal(generarCodigo(e, 'nativa', 'html').codigo, `<div data-tentare-booking data-studio="${SLUG}" data-identidad="estudio" data-ref="web-horario"></div>
+<script src="${ORIGEN}/widget.js" async></script>`);
+  assert.equal(generarCodigo(e, 'nativa', 'react').codigo, `import { useEffect } from 'react';
+
+// Horario y reservas — integración nativa de Tentare (sin marco).
+export function TentareHorarioYReservas() {
+  useEffect(() => {
+    if (document.querySelector('script[src="${ORIGEN}/widget.js"]')) return;
+    const s = document.createElement('script');
+    s.src = '${ORIGEN}/widget.js';
+    s.async = true;
+    document.body.appendChild(s);
+  }, []);
+  return (
+    <div
+      data-tentare-booking=""
+      data-studio='${SLUG}'
+      data-identidad="estudio"
+      data-ref="web-horario"
+    />
+  );
+}`);
+  assert.equal(generarCodigo(e, 'popup', 'html').codigo, `<button type="button" data-tentare-popup="${ORIGEN}/reservar/${SLUG}?embed=1&tab=clases&ref=web-horario" data-tentare-titulo="Horario y reservas" data-tentare-ancho="720" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 22px;font:inherit;font-weight:600;font-size:15px;line-height:1.2;text-decoration:none;cursor:pointer;background:#7A2E4F;background:var(--tentare-boton,#7A2E4F);color:#FFFFFF;color:var(--tentare-boton-texto,#FFFFFF);border:1.5px solid #7A2E4F;border:1.5px solid var(--tentare-boton,#7A2E4F);border-radius:999px;border-radius:var(--tentare-boton-radio,999px);">Reservar clase</button>
+<script src="${ORIGEN}/widget-popup.js" async></script>`);
+  assert.equal(generarCodigo(e, 'boton', 'html').codigo, `<a href="${ORIGEN}/reservar/${SLUG}?ref=web-horario" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 22px;font:inherit;font-weight:600;font-size:15px;line-height:1.2;text-decoration:none;cursor:pointer;background:#7A2E4F;color:#FFFFFF;border:1.5px solid #7A2E4F;border-radius:999px;">Reservar clase</a>`);
+  assert.equal(generarCodigo(e, 'enlace', 'html').codigo, `${ORIGEN}/reservar/${SLUG}?ref=web-horario`);
+});
+
+test('⚠️ literal fijo: el código por defecto de TODOS los widgets, métodos y plataformas no se mueve', () => {
+  // Una huella de los 164 códigos, calculada antes de la Fase E y comprobada
+  // contra el volcado de entonces. Si falla, el test de arriba (o un volcado
+  // de `generarCodigo`) dice cuál cambió; si el cambio era a propósito, se
+  // actualiza el literal en el mismo commit.
+  const partes: string[] = [];
+  for (const x of WIDGETS.filter(esDisponible)) {
+    for (const m of x.metodos) {
+      for (const p of ['html', 'wordpress', 'webflow', 'react'] as const) {
+        partes.push(`${x.id}/${m}/${p}\n${generarCodigo(entrada(x.id, { sesion: 'ses-1' }), m, p).codigo}`);
+      }
+    }
+  }
+  assert.equal(partes.length, 164);
+  assert.equal(huella(partes.join('\n\n')), '1pf0zfz');
+});
+
 
 test('iframe HTML: el src es la URL del motor, con auto-alto y carga diferida', () => {
   const { codigo, lenguaje } = generarCodigo(entrada('horario'), 'iframe', 'html');
@@ -429,5 +568,177 @@ test('lo que falta para el código ya no manda a otra pestaña', () => {
   for (const m of [faltaParaGenerar(entrada('clase'), 'enlace', sinDominios), faltaParaGenerar(entrada('horario'), 'nativa', sinDominios)]) {
     assert.ok(m);
     assert.doesNotMatch(m, /«Contenido»|«Avanzado»/);
+  }
+});
+
+// ── El estilo de su web no entra en el código que se copia (Fase B) ─────────
+
+test('⚠️ nada de lo que se copia lleva el borrador, la marca de ventana ni la de vista previa', () => {
+  // El estilo de su web llega solo, sin volver a pegar: si algo de esto se
+  // colara en el código, un widget pegado se quedaría con el borrador de un
+  // día (o contando como vista previa) para siempre.
+  const configs: Partial<ConfigConstructor>[] = [
+    {}, { identidad: 'propia', marca: '#123456', forma: 'recto', fuente: 'Poppins' }, { mostrarPie: false, presentacion: 'semana' },
+  ];
+  for (const x of WIDGETS.filter(esDisponible)) for (const parcial of configs) for (const metodo of x.metodos) {
+    const e = entrada(x.id, { sesion: 'ses-1', ...parcial });
+    for (const plataforma of ['html', 'wordpress', 'webflow', 'react'] as const) {
+      const { codigo } = generarCodigo(e, metodo, plataforma);
+      for (const nunca of [PARAM_BORRADOR, 'ventana=', 'vista-previa']) assert.ok(!codigo.includes(nunca), `${x.id}/${metodo}/${plataforma}: ${nunca}`);
+    }
+    for (const url of [urlEmbebido(e, 'iframe'), urlEmbebido(e, 'popup'), urlPagina(e), atributosNativa(e).join(' ')]) {
+      for (const nunca of [PARAM_BORRADOR, 'ventana=', 'vista-previa']) assert.ok(!url.includes(nunca), `${x.id}: ${nunca}`);
+    }
+  }
+});
+
+test('conVistaPrevia: el borrador va detrás de `vista-previa=1`, y la página lo lee tal cual', () => {
+  const url = urlEmbebido(entrada('horario'));
+  assert.equal(conVistaPrevia(url), `${url}&vista-previa=1`);
+  const arena = { ...WIDGET_WEB_NEUTRO, estilo: 'arena' as const, web: 'otro' as const, colorWeb: '#E8E1D3', fundido: true };
+  const conBorrador = conVistaPrevia(url, { borradorWeb: arena });
+  assert.ok(conBorrador.startsWith(`${url}&vista-previa=1&${PARAM_BORRADOR}=`), conBorrador);
+  assert.deepEqual(leerBorradorWeb(new URL(conBorrador).searchParams), arena);
+  // «Nada elegido» también viaja: en la previa, sustituye a lo publicado.
+  assert.deepEqual(leerBorradorWeb(new URL(conVistaPrevia(url, { borradorWeb: { ...WIDGET_WEB_NEUTRO } })).searchParams), WIDGET_WEB_NEUTRO);
+  // El ancla se queda al final.
+  const conAncla = conVistaPrevia(`${ORIGEN}/reservar/${SLUG}?tab=clases#horario`, { borradorWeb: arena });
+  assert.match(conAncla, /&borrador-web=[^#]+#horario$/);
+  assert.deepEqual(leerWidgetWeb(JSON.parse(new URL(conAncla).searchParams.get(PARAM_BORRADOR)!)), arena);
+});
+
+// ── El botón que abre la ventana sigue el estilo (Fase D) ───────────────────
+
+const VIVO: BotonVivo = { fondo: '#1B2418', texto: '#F2F6EE', esquinas: 'recto' };
+const conVivo = (e: EntradaIntegracion, botonVivo: BotonVivo | null = VIVO): EntradaIntegracion => ({ ...e, botonVivo });
+/** El `style="…"` del botón en el código HTML. */
+const styleDe = (codigo: string) => /style="([^"]*)"/.exec(codigo)?.[1] ?? '';
+/** Las declaraciones de color y esquinas del `style` (las fijas de siempre, fuera). */
+const decl = (style: string) => style.split(';').filter(d => /^(background|color|border|border-radius):/.test(d));
+
+test('⚠️ popup por defecto (tema #343825, nada elegido): la cadena EXACTA, cada propiedad con su literal y después su var()', () => {
+  const botonVivo = botonDeLaVentana(null, baseEstiloWeb('#343825', null));
+  const e: EntradaIntegracion = { ...entrada('horario'), colorEstudio: '#343825', botonVivo };
+  const esperado = 'display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 22px;font:inherit;font-weight:600;font-size:15px;line-height:1.2;text-decoration:none;cursor:pointer;background:#343825;background:var(--tentare-boton,#343825);color:#FFFFFF;color:var(--tentare-boton-texto,#FFFFFF);border:1.5px solid #343825;border:1.5px solid var(--tentare-boton,#343825);border-radius:999px;border-radius:var(--tentare-boton-radio,999px);';
+  const codigo = generarCodigo(e, 'popup', 'html').codigo;
+  assert.equal(styleDe(codigo), esperado);
+  for (const par of [
+    'background:#343825;background:var(--tentare-boton,#343825);',
+    'color:#FFFFFF;color:var(--tentare-boton-texto,#FFFFFF);',
+    'border:1.5px solid #343825;border:1.5px solid var(--tentare-boton,#343825);',
+    'border-radius:999px;border-radius:var(--tentare-boton-radio,999px);',
+  ]) assert.ok(codigo.includes(par), par);
+  // Y el script de la página lo reconoce como un botón que sigue el estilo.
+  assert.equal(usaBotonVivo(styleDe(codigo)), true);
+});
+
+test('⚠️ guardián de la doble declaración: todo `var(--tentare-…,X)` va justo detrás de la misma propiedad con X', () => {
+  let conVariable = 0;
+  const vivos: (BotonVivo | null)[] = [null, VIVO, { fondo: '#abc', texto: '#000', esquinas: 'pill' }, { ...VIVO, esquinas: 'redondeado' }];
+  const configs: Partial<ConfigConstructor>[] = [
+    {}, { estiloBoton: 'contorno' }, { forma: 'recto' }, { estiloBoton: 'contorno', identidad: 'propia' },
+    { identidad: 'propia', marca: '#112233' }, { identidad: 'propia', marca: '#112233', estiloBoton: 'contorno' },
+  ];
+  for (const x of WIDGETS.filter(esDisponible)) for (const parcial of configs) for (const v of vivos) {
+    if (!x.metodos.includes('popup')) continue;
+    const e = conVivo(entrada(x.id, { sesion: 'ses-1', ...parcial }), v);
+    const caso = `${x.id}/${JSON.stringify(parcial)}/${JSON.stringify(v)}`;
+    const ds = styleDe(generarCodigo(e, 'popup', 'html').codigo).split(';');
+    for (const [i, d] of ds.entries()) {
+      if (!d.includes('var(')) continue;
+      conVariable++;
+      assert.match(d, /var\(--tentare-boton(-texto|-radio)?,(#[0-9a-fA-F]{3,6}|\d+px)\)/, caso);
+      // El literal inmediatamente anterior: la misma declaración con el respaldo en lugar del var().
+      assert.equal(ds[i - 1], d.replace(/var\(--tentare-[a-z-]+,([^)]+)\)/g, '$1'), `${caso}: ${d}`);
+    }
+    // Solo la sigue quien no lleva diseño propio en el código.
+    assert.equal(ds.some(d => d.includes('var(')), botonSigueElEstilo(e.config, 'popup'), caso);
+  }
+  assert.ok(conVariable > 0);
+});
+
+test('popup en contorno: el fondo transparente una sola vez y sin variable; el color y el borde, dobles', () => {
+  const style = styleDe(generarCodigo(conVivo(entrada('horario', { estiloBoton: 'contorno' })), 'popup').codigo);
+  assert.equal(style.match(/background:/g)?.length, 1);
+  assert.ok(style.includes('background:transparent;color:#1B2418;color:var(--tentare-boton,#1B2418);'));
+  assert.ok(style.includes('border:1.5px solid #1B2418;border:1.5px solid var(--tentare-boton,#1B2418);'));
+  assert.ok(style.includes('border-radius:6px;border-radius:var(--tentare-boton-radio,6px);'));
+  assert.ok(!/background:[^;]*var\(/.test(style));
+});
+
+test('⚠️ popup con diseño propio: literal, sin var() y sin ninguna propiedad repetida (lo de siempre)', () => {
+  for (const estiloBoton of ['relleno', 'contorno'] as const) {
+    const e = conVivo(entrada('horario', { identidad: 'propia', marca: '#112233', estiloBoton }));
+    assert.equal(botonSigueElEstilo(e.config, 'popup'), false);
+    const style = styleDe(generarCodigo(e, 'popup').codigo);
+    assert.ok(!style.includes('var('), style);
+    const props = decl(style).map(d => d.slice(0, d.indexOf(':')));
+    assert.deepEqual(props, ['background', 'color', 'border', 'border-radius'], estiloBoton);
+    // Su color, no el del estilo de su web.
+    assert.ok(style.includes('#112233'));
+    assert.ok(!style.includes(VIVO.fondo));
+  }
+});
+
+test('el botón a la página (`<a>`) no lleva variables: no carga ningún script que las rellene', () => {
+  for (const plataforma of ['html', 'react'] as const) {
+    const codigo = generarCodigo(conVivo(entrada('horario')), 'boton', plataforma).codigo;
+    assert.ok(!codigo.includes('var('), plataforma);
+    assert.ok(codigo.includes('#7A2E4F'), plataforma);
+  }
+  assert.equal(botonSigueElEstilo(CONFIG_POR_DEFECTO, 'boton'), false);
+  assert.deepEqual(estiloBoton(conVivo(entrada('horario'))), estiloBoton(entrada('horario')));
+});
+
+test('React: solo el var() con su respaldo, y ninguna clave repetida (un objeto no puede repetirlas)', () => {
+  const codigo = generarCodigo(conVivo(entrada('horario')), 'popup', 'react').codigo;
+  const estilo = /style=\{(\{[^}]*\})\}/.exec(codigo)?.[1] ?? '';
+  assert.ok(estilo.includes("background: 'var(--tentare-boton,#1B2418)'"), estilo);
+  assert.ok(estilo.includes("color: 'var(--tentare-boton-texto,#F2F6EE)'"), estilo);
+  assert.ok(estilo.includes("border: '1.5px solid var(--tentare-boton,#1B2418)'"), estilo);
+  assert.ok(estilo.includes("borderRadius: 'var(--tentare-boton-radio,6px)'"), estilo);
+  const claves = [...estilo.matchAll(/(\w+):/g)].map(m => m[1]);
+  assert.equal(new Set(claves).size, claves.length, estilo);
+  // Con diseño propio, literal como siempre.
+  const propio = generarCodigo(conVivo(entrada('horario', { identidad: 'propia', marca: '#112233' })), 'popup', 'react').codigo;
+  assert.ok(propio.includes("background: '#112233'") && !propio.includes('var('));
+});
+
+test('sin `botonVivo` (o con uno que no valida), el respaldo es el de siempre: el color del estudio', () => {
+  for (const v of [null, undefined, { fondo: 'red', texto: '#FFFFFF', esquinas: 'pill' } as unknown as BotonVivo]) {
+    const e: EntradaIntegracion = { ...entrada('horario'), botonVivo: v };
+    const style = styleDe(generarCodigo(e, 'popup').codigo);
+    assert.ok(style.includes(`background:${colorBoton(e)};background:var(--tentare-boton,${colorBoton(e)});`), style);
+    assert.ok(style.includes('border-radius:999px;border-radius:var(--tentare-boton-radio,999px);'), style);
+    assert.deepEqual(estiloBoton(e, 'popup'), estiloBoton(entrada('horario')));
+  }
+  // Con él, el literal (la vista previa del panel) es el botón de la ventana de hoy.
+  assert.deepEqual(estiloBoton(conVivo(entrada('horario')), 'popup'), {
+    background: '#1B2418', color: '#F2F6EE', border: '1.5px solid #1B2418', borderRadius: '6px',
+  });
+});
+
+test('⚠️ firma: el botón vivo no cambia la huella de un popup (las copias de antes no saltan a ámbar)', () => {
+  for (const parcial of [{}, { estiloBoton: 'contorno' as const }, { textoBoton: 'Ven' }]) {
+    const e = entrada('horario', parcial);
+    const f = firmaCodigo(e, 'popup');
+    assert.equal(firmaCodigo(conVivo(e), 'popup'), f);
+    assert.equal(firmaCodigo(conVivo(e, { fondo: '#FFFFFF', texto: '#000000', esquinas: 'pill' }), 'popup'), f);
+    assert.equal(firmaCodigo(conVivo(e, null), 'popup'), f);
+  }
+});
+
+test('⚠️ el código iframe por defecto no cambia ni un carácter (y ningún código fuera del popup nota `botonVivo`)', () => {
+  const e = entrada('horario');
+  const esperado = `<iframe id="${idIframe(e)}" src="${ORIGEN}/reservar/${SLUG}?embed=1&tab=clases&ref=web-horario" style="width:100%;max-width:480px;height:${w('horario').alto}px;border:0;border-radius:12px;" title="Horario y reservas" loading="lazy" allow="payment"></iframe>
+${scriptSnippetIframe({ origen: ORIGEN, slug: SLUG, iframeId: idIframe(e) })}`;
+  assert.equal(generarCodigo(e, 'iframe', 'html').codigo, esperado);
+  assert.equal(generarCodigo(conVivo(e), 'iframe', 'html').codigo, esperado);
+  for (const x of WIDGETS.filter(esDisponible)) for (const metodo of x.metodos) {
+    if (metodo === 'popup') continue;
+    for (const plataforma of ['html', 'react'] as const) {
+      const sin = entrada(x.id, { sesion: 'ses-1' });
+      assert.equal(generarCodigo(conVivo(sin), metodo, plataforma).codigo, generarCodigo(sin, metodo, plataforma).codigo, `${x.id}/${metodo}/${plataforma}`);
+    }
   }
 });

@@ -1050,6 +1050,8 @@ export interface RowStudios {
   preguntas_alta_activas: boolean | null;
   // migr 20260927235435.
   control_acceso_qr: boolean | null;
+  // migr 20260928204621.
+  zona_horaria: string | null;
   // migr 20260929112340.
   cobro_dia_1_activo: boolean | null;
 }
@@ -2453,6 +2455,12 @@ export interface RowWidgetEventos {
   creado_en: string;
   // migr 20260817013933.
   socio_id: string | null;
+  // migr 20260928203632.
+  anfitrion: string | null;
+  // migr 20260928203632.
+  forma: string | null;
+  // migr 20260928203632.
+  firma: string | null;
 }
 
 export interface RowTareas {
@@ -4915,6 +4923,7 @@ export type StudiosInsert = {
   es_demo?: boolean | null | null;
   preguntas_alta_activas?: boolean | null | null;
   control_acceso_qr?: boolean | null | null;
+  zona_horaria?: string | null | null;
   cobro_dia_1_activo?: boolean | null | null;
 }
 
@@ -5054,6 +5063,7 @@ export type StudiosUpdate = {
   es_demo?: boolean | null | null;
   preguntas_alta_activas?: boolean | null | null;
   control_acceso_qr?: boolean | null | null;
+  zona_horaria?: string | null | null;
   cobro_dia_1_activo?: boolean | null | null;
 }
 
@@ -7586,6 +7596,9 @@ export type WidgetEventosInsert = {
   origen?: string | null | null;
   creado_en?: string | null;
   socio_id?: string | null | null;
+  anfitrion?: string | null | null;
+  forma?: string | null | null;
+  firma?: string | null | null;
 }
 
 export type WidgetEventosUpdate = {
@@ -7597,6 +7610,9 @@ export type WidgetEventosUpdate = {
   origen?: string | null | null;
   creado_en?: string | null;
   socio_id?: string | null | null;
+  anfitrion?: string | null | null;
+  forma?: string | null | null;
+  firma?: string | null | null;
 }
 
 export type TareasInsert = {

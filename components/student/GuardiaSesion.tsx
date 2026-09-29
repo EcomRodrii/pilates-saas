@@ -7,6 +7,7 @@ import { useSesionStudent } from '@/lib/student/sesion';
 import { debeElegirComoEntrar, hayInvitacionParaEstaSesion, useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { alFaltarPreguntas, getPreguntasAlta, type EstadoPreguntasAltaRemoto } from '@/lib/student/preguntas-alta';
 import { PreguntasAlta } from '@/components/student/PreguntasAlta';
+import { enVistaPreviaDelPanel, useEnVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
 
 /**
  * Socias (estudio:socia) que ya no tienen nada que contestar en esta carga de la
@@ -39,14 +40,24 @@ const sinPreguntasPendientes = new Set<string>();
  * parte. Y si el estudio la tiene dada de alta como instructora pero aún no ha
  * entrado como tal, a elegir cómo entra (15-sep-2026). Solo se pregunta en esos
  * casos: una alumna con ficha no paga ninguna petición.
+ *
+ * `vistaPrevia` (solo Inicio lo pasa): dentro de la vista previa de «Apariencia
+ * de tu app» se deja ver la pantalla SIN sesión, como la vería una alumna recién
+ * llegada. La propietaria casi nunca es alumna de su propio estudio, y sin esto
+ * «Inicio» le enseñaba el login — lo mismo que «Entrada». No abre nada: sin JWT
+ * `/api/public/studio-data` da solo el catálogo público (el que ya enseña
+ * `/reservar`) y todo lo personal sale vacío. Fuera del marco, o en cualquier
+ * otra pantalla dentro de él, sigue mandando a entrar.
  */
-export function GuardiaSesion({ children }: { children: ReactNode }) {
+export function GuardiaSesion({ children, vistaPrevia = false }: { children: ReactNode; vistaPrevia?: boolean }) {
   const r = useRouter();
   const path = usePathname();
   const { slug, estudio } = useEstudio();
   const href = usePortalHref();
   const { socia, autenticado, isLoading } = useSesionStudent(slug);
   const sinFicha = !isLoading && autenticado && !socia;
+  const enMarco = useEnVistaPreviaDelPanel();
+  const verSinSesion = vistaPrevia && enMarco && !isLoading && !autenticado;
   const { instructora, isLoading: cargandoInstructora } = useSesionInstructora(slug, sinFicha);
 
   const preguntarEleccion = sinFicha && !cargandoInstructora && !instructora;
@@ -72,6 +83,9 @@ export function GuardiaSesion({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
     if (!autenticado) {
+      // Se mira el marco AQUÍ y no con `enMarco`: en el primer efecto tras
+      // hidratar ese valor aún es `false`, y mandaría a entrar igualmente.
+      if (vistaPrevia && enVistaPreviaDelPanel()) return;
       // `?next=` para volver justo a donde iba después de entrar. El destino se
       // valida en la pantalla de acceso: solo se acepta una ruta de ESTE estudio.
       const destino = `${href('/acceso/login')}?next=${encodeURIComponent(path)}`;
@@ -80,7 +94,7 @@ export function GuardiaSesion({ children }: { children: ReactNode }) {
     }
     if (instructora) { r.replace(href('/equipo')); return; }
     if (elegir) r.replace(href('/acceso/elegir'));
-  }, [isLoading, autenticado, instructora, elegir, href, path, r]);
+  }, [isLoading, autenticado, instructora, elegir, href, path, r, vistaPrevia]);
 
   // ── Las preguntas del estudio (Configuración → «Preguntar los datos extra en
   // su app»). Con el interruptor encendido y alguna sin contestar, la app le
@@ -124,7 +138,7 @@ export function GuardiaSesion({ children }: { children: ReactNode }) {
   const conPreguntas = mirarPreguntas && estadoPreguntas?.activa === true && estadoPreguntas.pendientes.length > 0
     ? estadoPreguntas : null;
 
-  const esperando = isLoading || !autenticado || (sinFicha && cargandoInstructora) || instructora
+  const esperando = isLoading || (!autenticado && !verSinSesion) || (sinFicha && cargandoInstructora) || instructora
     || (preguntarEleccion && elegir !== false) || cargandoPreguntas;
   if (esperando) {
     return (

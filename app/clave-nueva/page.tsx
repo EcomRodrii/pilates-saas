@@ -23,8 +23,7 @@ import { authHeader } from '@/lib/api-client';
 import {
   puedeFijarSinContrasenaActual, suscribirRecuperacion, tomarRecuperacion,
 } from '@/lib/auth/recuperacion-contrasena';
-
-const MIN_LEN = 8;
+import { MINIMO_PASSWORD } from '@/lib/student/password-regla';
 
 export default function ClaveNueva() {
   const router = useRouter();
@@ -84,8 +83,8 @@ export default function ClaveNueva() {
   }, [hecho, router]);
 
   async function guardar() {
-    if (nueva.length < MIN_LEN) {
-      setError(`La contraseña debe tener al menos ${MIN_LEN} caracteres.`);
+    if (nueva.length < MINIMO_PASSWORD) {
+      setError(`La contraseña debe tener al menos ${MINIMO_PASSWORD} caracteres.`);
       return;
     }
     if (nueva !== confirmar) {

@@ -522,9 +522,12 @@ export const PAGINAS: PaginaSeo[] = [
     etiqueta: `Tentare vs ${nombre}`,
     // Fecha de la última revisión contra la web pública del competidor (visible
     // en pantalla y en el JSON-LD). Se pone SOLO si se ha revisado de verdad:
-    // una fecha inventada es peor que ninguna (ver `actualizado`). Las 11
-    // comparativas de esta plantilla se revisaron el 23-sep-2026.
-    actualizado: '2026-09-23',
+    // una fecha inventada es peor que ninguna (ver `actualizado`). Las 12
+    // comparativas de esta plantilla se revisaron el 23-sep-2026, y de nuevo
+    // el 29-sep-2026 (ampliación de filas, PRs #2349-#2352) — las 12 se
+    // revisaron ese día, así que la fecha compartida sigue siendo exacta para
+    // todas y no hace falta partir esta entrada.
+    actualizado: '2026-09-29',
     prioridad: 0.7,
     changeFrequency: 'monthly',
     // /precios sigue alcanzable desde el footer de estas páginas — aquí el
@@ -547,7 +550,8 @@ export const PAGINAS: PaginaSeo[] = [
     etiqueta: 'Tentare vs Glofox',
     prioridad: 0.7,
     changeFrequency: 'monthly',
-    actualizado: '2026-08-18',
+    // Revisada de nuevo el 29-sep-2026 (corrección de la fila Stripe/GoCardless, PR #2349).
+    actualizado: '2026-09-29',
     relacionadas: ['/funcionalidades/sustituciones', '/precios', '/soluciones/cambiar-de-software'],
   },
   {

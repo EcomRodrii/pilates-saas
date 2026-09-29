@@ -20,11 +20,14 @@
 // <head> del documento anfitrión.
 import { createRoot } from 'react-dom/client';
 import { esClavePublicable } from '@/lib/billing/modo-stripe';
-import { StrictMode, useCallback, useEffect, useRef, useState } from 'react';
+import { StrictMode, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { MODO_TOKENS, type ModoTokens } from '@/lib/portal-modo';
-import { resolverConfigWidget, fuenteDeDataset, familiaCssDe, urlFuenteGoogle, CONFIG_WIDGET_POR_DEFECTO, type ConfigWidget } from '@/lib/reservar/config-widget';
-import { luminancia } from '@/lib/reservar/apariencia-widget';
+import { resolverConfigWidget, fuenteDeDataset, nativaTraeDisenoPropio, CONFIG_WIDGET_POR_DEFECTO, type ConfigWidget } from '@/lib/reservar/config-widget';
+import { HEX6 } from '@/lib/reservar/estilo-web-tipos';
+import { colorDeDataColor, estiloDeLaNativa, marcaDeLaNativa } from '@/lib/widget/estilo-nativa';
+import { HOJA_FUENTES_NATIVA, VARS_FAMILIAS_NATIVA, letraNativa } from '@/lib/widget/fuentes-nativa';
+import { firmaDeUrl } from '@/lib/widgets/firma-contenido';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
@@ -35,32 +38,41 @@ import widgetCss from './widget.css';
 import { canonicalizarOrigen } from '@/lib/legal-info';
 import { AVISO_PAGINA_OCULTA } from '@/lib/publico/aviso-pagina-oculta';
 
-// Tema base (modo día): el widget no lee el editor de Apariencia del panel —
-// eso pinta /reservar/[slug] entero (fondo, tipografía, textos), un alcance
-// mucho mayor que "un calendario embebido". La personalización viaja CONGELADA
-// en los atributos del snippet (config-widget.ts): `data-color`/`data-marca`
-// para el primario, `data-fondo`/`data-negro` que derivan un tema desde este,
-// `data-fuente`/`data-fuente-display` para la tipografía (ver montarUno).
+// Tema base (modo día): el de siempre, sin nada elegido. Dos caminos lo cambian:
+//  - el estilo de los widgets de su web («Cómo se ve», Fase E): viaja en los
+//    DATOS, no en el código, así que un código pegado hace tiempo lo toma sin
+//    volver a pegarlo (`estiloDeLaNativa`, lib/widget/estilo-nativa.ts);
+//  - un diseño propio en los atributos del snippet (config-widget.ts):
+//    `data-color`/`data-marca` para el primario, `data-fondo`/`data-negro`
+//    que derivan un tema desde este, `data-fuente`/`data-fuente-display` para
+//    la tipografía (ver montarUno; nunca de Google). Con cualquiera de ellos,
+//    el estilo de sus widgets no le llega (`nativaTraeDisenoPropio`), como en
+//    el iframe.
 const TEMA = MODO_TOKENS.dia;
 
 // ── Tipografía del bundle (P1) ───────────────────────────────────────────────
 // ⚠️ `@font-face` DENTRO de un shadow root no carga de forma fiable: las
 // fuentes se resuelven contra el documento. La vía que funciona es inyectar el
-// `<link>` de Google Fonts en el <head> del ANFITRIÓN (la web del estudio) y
-// referenciar la familia desde el CSS del shadow. Dedupe por href: dos widgets
-// en la misma página (caso soportado, ver el comentario de data-tentare-booking)
-// no deben pedir la misma hoja dos veces.
-// La URL sale de `urlFuenteGoogle` (validación anti-XSS incluida) y ya lleva
-// `display=swap`: la carga nunca bloquea el pintado — mientras llega se ve la
-// pila de reserva.
-function inyectarFuenteGoogle(nombre: string | null) {
-  const url = urlFuenteGoogle(nombre);
-  if (!url) return;
-  if (document.head.querySelector(`link[href="${url}"]`)) return;
+// `<link>` en el <head> del ANFITRIÓN (la web del estudio) y referenciar la
+// familia desde el CSS del shadow. Dedupe por href: dos widgets en la misma
+// página (caso soportado, ver el comentario de data-tentare-booking) no deben
+// pedir la misma hoja dos veces.
+//
+// La hoja es la que sirve Tentare (lib/widget/fuentes-nativa.ts), NUNCA Google
+// Fonts: la pide una letra ELEGIDA en «Cómo se ve» (Fase E) o un código con
+// diseño propio que nombra una familia que la hoja lleva (`letraNativa`). Las
+// familias se llaman 'Tentare …' para no pisar las que ya declare su web. Con
+// «Como tu app», o una letra que Tentare no sirve, no se llama: no se pide nada.
+// Sus reglas llevan `font-display: swap`: la carga nunca bloquea el pintado.
+function inyectarFuentesNativa() {
+  const href = `${ORIGEN_TENTARE}${HOJA_FUENTES_NATIVA}`;
+  const ya = Array.from(document.head.querySelectorAll<HTMLLinkElement>('link[data-tentare-fuentes]'))
+    .some(l => l.getAttribute('href') === href);
+  if (ya) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = url;
-  link.setAttribute('data-tentare-fuente', '');
+  link.href = href;
+  link.setAttribute('data-tentare-fuentes', '');
   document.head.appendChild(link);
 }
 
@@ -112,25 +124,45 @@ const ORIGEN_TENTARE = (() => {
 // `tema`/`config`/`filtros` llegan resueltos desde montarUno (una vez por
 // montaje, así que son referencias estables — importa para el useMemo de
 // `slots` en useDatosWidget, que tiene `filtros` en sus deps).
-function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filtros, aplicarMarca }: {
+function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filtros, disenoPropio = false, firma = null }: {
   slug: string; tema?: ModoTokens; config?: ConfigWidget; filtros?: FiltrosSlots;
-  /** Pinta un primario en la raíz del shadow (ver `data-identidad` en montarUno). */
-  aplicarMarca?: (hex: string) => void;
+  /** Su código lleva diseño en los atributos: el estilo de sus widgets no le llega (ni se pide). */
+  disenoPropio?: boolean;
+  /** La versión de su código (`firmaDeUrl` de sus `data-*`), para «Visto en» del panel. */
+  firma?: string | null;
 }) {
   const {
     slots, cargando, error, paginaOculta, studioId, socia, autenticado, sesionCargando, refrescarSesion,
     politicaPrivacidad, terminosServicio, nombreEstudio, onReservar, onCancelar, onAceptarOferta,
     sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
     stripeAccountId, onActualizarPerfil, logout, crearCheckoutEmbebido, comprarConBizum, recargar,
-    colorEstudio,
-  } = useDatosWidget(slug, ORIGEN_TENTARE, filtros);
-  // `data-identidad="estudio"` sin `data-marca`: el primario es el color de
-  // marca del estudio, que llega con sus datos públicos. Con `data-marca`
-  // manda el snippet, como siempre.
-  useEffect(() => {
-    if (!config.identidadEstudio || config.colorPrimario || !colorEstudio || !aplicarMarca) return;
-    if (/^#[0-9a-fA-F]{6}$/.test(colorEstudio)) aplicarMarca(colorEstudio);
-  }, [config.identidadEstudio, config.colorPrimario, colorEstudio, aplicarMarca]);
+    colorEstudio, estiloWidget,
+  } = useDatosWidget(slug, ORIGEN_TENTARE, filtros, { estilo: !disenoPropio });
+  // El estilo de los widgets de su web (Fase E), o `null`: nada elegido, o un
+  // diseño propio en su código. «Siete días en columnas» es lo de por defecto
+  // aquí (`estiloDias='grid'`, más abajo).
+  const estilo = disenoPropio ? null : estiloDeLaNativa(estiloWidget, { columnas: config.diseno !== 'completo' });
+  // Los tokens del estilo, o los de siempre (con `data-fondo`/`data-negro`).
+  const t = estilo?.tokens ?? tema;
+  // `data-identidad="estudio"` sin `data-marca`: el primario es el color del
+  // estudio. El del TEMA (el que ven /reservar y su app), no la columna, que en
+  // casi todos es el índigo del alta; la columna solo si no llega el del tema
+  // (un servidor de antes, o un código con diseño propio, que no lo pide). Con
+  // `data-marca` manda el snippet, como siempre. Va en el `style` del
+  // envoltorio, en el mismo commit que el calendario: sin fotograma en oliva.
+  const colorIdentidad = config.identidadEstudio && !config.colorPrimario ? (estiloWidget?.color ?? colorEstudio) : null;
+  const marca = colorIdentidad && HEX6.test(colorIdentidad) ? marcaDeLaNativa(colorIdentidad) : null;
+  // Las familias de la hoja de Tentare solo con una letra ELEGIDA: con «Como tu
+  // app» (`letra: null`) se queda la de su web y no se pide ninguna fuente.
+  const conLetra = estilo?.letra != null;
+  // Con el estilo entero, su botón es la marca (`raiz` la lleva); con solo la
+  // letra, la marca de siempre sigue debajo. Todo son valores de catálogo o
+  // hex validados: nada de la respuesta llega crudo a este `style`.
+  const envoltorio: Record<string, string> | undefined = estilo
+    ? { ...(estilo.soloLetra ? marca : null), ...(conLetra ? VARS_FAMILIAS_NATIVA : null), ...estilo.raiz }
+    : marca ?? undefined;
+  // Antes de pintar: la hoja empieza a bajar a la vez que el calendario aparece.
+  useLayoutEffect(() => { if (conLetra) inyectarFuentesNativa(); }, [conLetra]);
   // Cuántas columnas va a tener DE VERDAD el calendario, para que el esqueleto
   // reserve ese ancho y no siete siempre (ver el comentario de abajo).
   const columnasEsqueleto = config.vistaInicial === 'hoy' ? 1 : 7;
@@ -139,9 +171,10 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
     if (!studioId || trackedRef.current) return;
     trackedRef.current = true;
     // `data-ref`: la etiqueta de este widget, para distinguirlo en el embudo.
-    trackEventoWidget(studioId, 'widget_loaded', { baseUrl: ORIGEN_TENTARE, origen: config.ref });
+    // `firma`: la versión de su código, solo con la carga (lib/reservar/eventos.ts).
+    trackEventoWidget(studioId, 'widget_loaded', { baseUrl: ORIGEN_TENTARE, origen: config.ref, firma });
     trackEventoWidget(studioId, 'widget_viewed', { baseUrl: ORIGEN_TENTARE, origen: config.ref });
-  }, [studioId, config.ref]);
+  }, [studioId, config.ref, firma]);
 
   // El formulario se pinta solo (sin toggle) cuando hay un JWT válido pero
   // sin ficha de socia todavía — walk-in que acaba de demostrar su email por
@@ -266,7 +299,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
     const contenedor = checkoutContainerRef.current;
     if (!planesAbiertos || checkoutEstado !== 'listo' || !mod || !contenedor) return;
     const props: PropsListaPlanesLazy = {
-      t: tema, planes: planesTarifa, socioId: socia?.socioId ?? null,
+      t, planes: planesTarifa, socioId: socia?.socioId ?? null,
       publishableKey: STRIPE_PUBLISHABLE_KEY ?? '', stripeAccountId,
       onCrearIntento: crearCheckoutEmbebido, onBizum: comprarConBizum,
       onCerrar: () => setPlanesAbiertos(false), onComprado: () => recargar({ silencioso: true }),
@@ -330,12 +363,14 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
       </div>
     );
   }
+  // El esqueleto y la página oculta, de arriba, no llevan envoltorio: siguen
+  // neutros, como siempre (el esqueleto no sabe aún el estilo).
   return (
-    <div>
+    <div style={envoltorio as CSSProperties | undefined}>
       {avisoPago === 'retorno' && (
-        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: tema.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: t.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span>Si has confirmado el pago con tu banco, en unos segundos verás el plan activo en Mi cuenta.</span>
-          <button type="button" onClick={() => setAvisoPago(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: tema.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+          <button type="button" onClick={() => setAvisoPago(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: t.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14, marginBottom: 10 }}>
@@ -350,7 +385,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
           </button>
         ) : mostrarFormulario ? (
           !walkInSinFicha && (
-            <button type="button" onClick={() => setAccesoAbierto(false)} style={{ background: 'none', border: 'none', color: tema.muted, fontSize: 12.5, cursor: 'pointer' }}>
+            <button type="button" onClick={() => setAccesoAbierto(false)} style={{ background: 'none', border: 'none', color: t.muted, fontSize: 12.5, cursor: 'pointer' }}>
               Ver clases sin iniciar sesión
             </button>
           )
@@ -361,9 +396,9 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
         )}
       </div>
       {cuentaAbierta && socio && (
-        <HojaCuentaWidget t={tema} onClose={() => setCuentaAbierta(false)}>
+        <HojaCuentaWidget t={t} onClose={() => setCuentaAbierta(false)}>
           <MiCuenta
-            t={tema} socio={socio}
+            t={t} socio={socio}
             reservas={misReservas} sesiones={sesiones} tiposClase={tiposClase} salas={salas} instructores={instructores}
             suscripciones={suscripciones} planesTarifa={planesTarifa}
             onCancelar={onCancelar} onAceptarOferta={onAceptarOferta}
@@ -378,7 +413,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
           ver la confirmación de una compra que ya está cobrada. Mismo fallo que
           en onReservar, en el camino donde además hay dinero. */}
       {planesAbiertos && (
-        <HojaCuentaWidget t={tema} onClose={() => setPlanesAbiertos(false)}>
+        <HojaCuentaWidget t={t} onClose={() => setPlanesAbiertos(false)}>
           {/* Auditoría de rendimiento (2026-08-31): `<ListaPlanes>` (Stripe
               incluido) se monta en su PROPIA raíz de React dentro de este
               `<div>`, cargada bajo demanda — ver checkout-lazy-mount.tsx.
@@ -387,10 +422,10 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
               necesita el nodo montado ANTES de poder pintar dentro de él. */}
           <div ref={checkoutContainerRef} />
           {checkoutEstado === 'cargando' && (
-            <p style={{ textAlign: 'center', fontSize: 12.5, color: tema.muted, padding: '24px 0' }}>Cargando…</p>
+            <p style={{ textAlign: 'center', fontSize: 12.5, color: t.muted, padding: '24px 0' }}>Cargando…</p>
           )}
           {checkoutEstado === 'error' && (
-            <p style={{ textAlign: 'center', fontSize: 12.5, color: tema.muted, padding: '24px 0' }}>
+            <p style={{ textAlign: 'center', fontSize: 12.5, color: t.muted, padding: '24px 0' }}>
               No hemos podido cargar la compra online. Comprueba tu conexión e inténtalo de nuevo.
             </p>
           )}
@@ -399,7 +434,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
       {mostrarFormulario && (
         <div style={{ marginBottom: 16 }}>
           <FormularioAccesoWidget
-            t={tema}
+            t={t}
             slug={slug}
             baseUrl={ORIGEN_TENTARE}
             studioId={studioId ?? ''}
@@ -412,7 +447,11 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
         </div>
       )}
       <ReservaCalendario
-        t={tema}
+        t={t}
+        // Las esquinas y la separación del estilo, por las props de siempre
+        // (como /reservar); sin nada elegido, las de por defecto.
+        radiosEsc={estilo?.radiosEsc ?? undefined}
+        densidadEsc={estilo?.densidadEsc ?? undefined}
         slots={slots}
         onReservar={onReservar}
         onAntesDeAbrir={irAPaginaDeTentare}
@@ -474,10 +513,18 @@ function montarUno(host: HTMLElement) {
   // data-instructoras, data-salas, data-vista, data-ocultar-precio,
   // data-ocultar-nivel, data-ocultar-sustituta, data-diseno, data-fondo,
   // data-marca, data-negro. `data-color` sigue siendo el primario de siempre
-  // (retrocompatible, sin validar, como estaba); `data-marca` gana si vienen
-  // los dos porque pasa por el filtro anti-basura del parser.
-  const config = resolverConfigWidget(fuenteDeDataset(host.dataset as Record<string, string | undefined>));
-  const color = config.colorPrimario ?? host.dataset.color?.trim();
+  // (retrocompatible: vale cualquier color CSS, no solo hex); `data-marca` gana
+  // si vienen los dos porque pasa por el filtro anti-basura del parser.
+  const params = fuenteDeDataset(host.dataset as Record<string, string | undefined>);
+  const config = resolverConfigWidget(params);
+  // Con diseño en sus atributos, el estilo de sus widgets no le llega (la
+  // regla entera, como en el iframe): ni se pide.
+  const disenoPropio = nativaTraeDisenoPropio(params);
+  // La versión de lo pegado, de sus `data-*` (Fase E): la misma cuenta que hace
+  // el panel con `paresNativa`, así que «Visto en» sabe si es la de ahora.
+  // `firmaDeUrl` solo lee su lista blanca: `data-studio` no cuenta.
+  const firma = firmaDeUrl(params);
+  const color = config.colorPrimario ?? colorDeDataColor(host.dataset.color, v => CSS.supports('color', v));
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = widgetCss;
@@ -488,14 +535,13 @@ function montarUno(host: HTMLElement) {
   // marca real — resultado, botón blanco con texto beige sobre página
   // blanca, invisible. Modo A (app/reservar/[slug]/page.tsx) ya calculaba
   // esto por luminancia; Modo B nunca lo hizo — dos implementaciones del
-  // mismo dato que divergieron. Mismo criterio aquí: oscuro sobre marca
-  // clara, claro sobre marca oscura.
-  const pintarMarca = (hex: string) => {
-    raiz.style.setProperty('--portal-brand', hex);
-    const l = luminancia(hex);
-    raiz.style.setProperty('--portal-brand-foreground', l != null && l < 0.45 ? '#FFFFFF' : '#22261F');
-  };
-  pintarMarca(color || '#343825');
+  // mismo dato que divergieron. Mismo criterio aquí (`marcaDeLaNativa`, la
+  // misma que pinta el color de identidad en WidgetApp): oscuro sobre marca
+  // clara, claro sobre marca oscura. ⚠️ `setProperty` en una custom property no
+  // comprueba que sea un color, y `marcaDeLaNativa` tampoco: por eso `color` ya
+  // llega validado (`data-marca` en el parser, `data-color` con
+  // `colorDeDataColor`), y lo que no lo es cae al de siempre.
+  for (const [k, v] of Object.entries(marcaDeLaNativa(color || '#343825'))) raiz.style.setProperty(k, v);
   raiz.style.setProperty('--success', '#2F6B4F');
   raiz.style.setProperty('--warning', '#8F6215');
   raiz.style.setProperty('--destructive', '#A8442A');
@@ -505,16 +551,18 @@ function montarUno(host: HTMLElement) {
   // properties, así que sin esto un `--font-ui` de la web anfitriona se
   // colaría en el shadow — y sin ninguna definición, `var(--font-ui)`
   // invalidaba la declaración entera (el bug de "todo en system-ui").
-  inyectarFuenteGoogle(config.fuente);
-  if (config.fuenteDisplay !== config.fuente) inyectarFuenteGoogle(config.fuenteDisplay);
+  // Una familia que sirve Tentare sale de su hoja; cualquier otra se nombra y
+  // no se pide a nadie (`letraNativa`): se ve si su web ya la carga.
+  const cuerpo = config.fuente ? letraNativa(config.fuente, 'web') : null;
+  const titular = config.fuenteDisplay ? letraNativa(config.fuenteDisplay, 'web') : cuerpo;
+  if (cuerpo?.servida || titular?.servida) inyectarFuentesNativa();
   // `data-identidad="estudio"` (Tentare Widgets): sin fuente en el snippet, la
   // letra es la de la web donde vive — la que ya ha cargado la propia web, así
   // que no se pide nada más. Las fuentes del documento sí llegan al shadow
   // root (el problema de `@font-face` es DECLARARLAS dentro, no usarlas).
   const anfitrion = config.identidadEstudio ? letraDeLaWeb(host) : null;
-  const fuenteUi = config.fuente ? familiaCssDe(config.fuente) : (anfitrion?.cuerpo ?? FUENTE_UI_BASE);
-  const fuenteDisplay = config.fuenteDisplay ? familiaCssDe(config.fuenteDisplay)
-    : config.fuente ? familiaCssDe(config.fuente) : (anfitrion?.titulares ?? FUENTE_DISPLAY_BASE);
+  const fuenteUi = cuerpo?.pila ?? anfitrion?.cuerpo ?? FUENTE_UI_BASE;
+  const fuenteDisplay = titular?.pila ?? anfitrion?.titulares ?? FUENTE_DISPLAY_BASE;
   raiz.style.setProperty('--font-ui', fuenteUi);
   raiz.style.setProperty('--font-display', fuenteDisplay);
   // `serif` (portal-design.ts) mira primero --portal-heading-font: se fija
@@ -539,7 +587,7 @@ function montarUno(host: HTMLElement) {
   // Referencia estable a propósito (ver comentario de WidgetApp).
   const filtros: FiltrosSlots = { tipos: config.tipos, instructoras: config.instructoras, salas: config.salas };
   shadow.appendChild(raiz);
-  createRoot(raiz).render(<StrictMode><WidgetApp slug={slug} tema={tema} config={config} filtros={filtros} aplicarMarca={pintarMarca} /></StrictMode>);
+  createRoot(raiz).render(<StrictMode><WidgetApp slug={slug} tema={tema} config={config} filtros={filtros} disenoPropio={disenoPropio} firma={firma} /></StrictMode>);
 }
 
 // ⚠️ Bug real en producción (2026-08-30): un estudio con el snippet insertado

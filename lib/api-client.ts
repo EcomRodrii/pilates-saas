@@ -8,6 +8,8 @@ import type { Factura } from '@/lib/types';
 import type { CambioClaseSerie } from '@/lib/avisos-serie';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { ErrorContraste } from '@/lib/theme-runtime';
+import { leerWidgetWeb, type WidgetWeb } from '@/lib/reservar/estilo-web-tipos';
+import type { ErrorEstiloWeb } from '@/lib/reservar/estilo-web';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_IDS } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp, type ResultadoEscritura } from '@/lib/errores';
@@ -129,6 +131,83 @@ export async function publicarThemeApi(campos?: CamposPublicables): Promise<Resu
     throw new Error(await mensajeDe(res, 'No se ha podido publicar la marca. Vuelve a intentarlo.'));
   }
   return { ok: true, theme: await res.json() };
+}
+
+// ── Estilo de los widgets en su web (Fase B del constructor) ─────────────────
+// Va por su propio endpoint y no por `publicarThemeApi`: aquel lleva el candado
+// del plan con marca, y los widgets no tienen candado de plan.
+
+export type ResultadoAplicarEstiloWeb =
+  | { ok: true; aplicado: WidgetWeb | null; anterior: WidgetWeb | null }
+  | { ok: false; motivo: 'contraste'; errores: ErrorEstiloWeb[] }
+  | { ok: false; motivo: 'cambiado' | 'sesion' | 'permiso' | 'error'; mensaje: string };
+
+const MENSAJES_ESTILO_WEB = {
+  cambiado: 'El estilo de tus widgets acaba de cambiar desde otra pestaña. Recarga la página para ver el de ahora.',
+  permiso: 'Solo la propietaria puede cambiar el estilo de tus widgets.',
+  sesion: 'Tu sesión ha caducado. Vuelve a entrar para aplicar los cambios.',
+  aplicar: 'No se ha aplicado. Tu web sigue como estaba. Vuelve a intentarlo.',
+  deshacer: 'No se ha podido deshacer. Tu web sigue con el estilo que aplicaste.',
+} as const;
+
+/** `null`, o un estilo que `leerWidgetWeb` deja TAL CUAL (nada reparado por el camino); `undefined` si no vale. */
+function estiloDeRespuesta(v: unknown): WidgetWeb | null | undefined {
+  if (v === null) return null;
+  const w = leerWidgetWeb(v);
+  if (!w) return undefined;
+  const o = v as Record<string, unknown>;
+  return (Object.keys(w) as (keyof WidgetWeb)[]).every(k => o[k] === w[k]) ? w : undefined;
+}
+
+function erroresDeRespuesta(v: unknown): ErrorEstiloWeb[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((e): e is ErrorEstiloWeb => {
+    const x = e as Partial<ErrorEstiloWeb> | null;
+    return !!x && (x.campo === 'colorWeb' || x.campo === 'boton') && typeof x.mensaje === 'string' && x.mensaje.trim() !== '';
+  });
+}
+
+/**
+ * Aplica (o deshace) el estilo de los widgets en su web. NUNCA lanza: devuelve
+ * el motivo, y la pantalla decide qué enseña sin un `try` que se olvide.
+ *
+ * ⚠️ `ok: true` SOLO con la respuesta de verdad: un 2xx cuyo JSON trae
+ * `aplicado` y `anterior` como propiedades PROPIAS, cada una `null` o un
+ * estilo válido. Un `{}` —lo que devuelve el comodín `/api/**` de los e2e, o
+ * un proxy que responde algo— es un error, no un «Aplicado en tu web»: decir
+ * que se aplicó sin saberlo es el fallo que más se ha repetido en este repo
+ * (#500/#505/#560). Y `anterior` es lo que el servidor LEYÓ al escribir, que
+ * es lo único con lo que Deshacer puede volver atrás sin pisar a nadie.
+ */
+export async function aplicarEstiloWidgetsApi(p: {
+  estilo: WidgetWeb | null; esperado: WidgetWeb | null; motivo: 'aplicar' | 'deshacer';
+}): Promise<ResultadoAplicarEstiloWeb> {
+  const fallo: ResultadoAplicarEstiloWeb = { ok: false, motivo: 'error', mensaje: MENSAJES_ESTILO_WEB[p.motivo] };
+  try {
+    const res = await fetch('/api/estudio/widget-estilo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(p),
+    });
+    if (res.status === 401) return { ok: false, motivo: 'sesion', mensaje: MENSAJES_ESTILO_WEB.sesion };
+    if (res.status === 403) return { ok: false, motivo: 'permiso', mensaje: MENSAJES_ESTILO_WEB.permiso };
+    if (res.status === 409) return { ok: false, motivo: 'cambiado', mensaje: MENSAJES_ESTILO_WEB.cambiado };
+    const cuerpo: unknown = await res.json().catch(() => null);
+    if (res.status === 422) {
+      const errores = erroresDeRespuesta((cuerpo as { errores?: unknown } | null)?.errores);
+      return errores.length ? { ok: false, motivo: 'contraste', errores } : fallo;
+    }
+    if (!res.ok || !cuerpo || typeof cuerpo !== 'object') return fallo;
+    const propia = (k: string) => Object.prototype.hasOwnProperty.call(cuerpo, k);
+    if (!propia('aplicado') || !propia('anterior')) return fallo;
+    const { aplicado, anterior } = cuerpo as { aplicado: unknown; anterior: unknown };
+    const a = estiloDeRespuesta(aplicado);
+    const b = estiloDeRespuesta(anterior);
+    if (a === undefined || b === undefined) return fallo;
+    return { ok: true, aplicado: a, anterior: b };
+  } catch {
+    return fallo;
+  }
 }
 
 // ── Configuración de menú por estudio (Fase 4) ───────────────────────────────
@@ -339,7 +418,12 @@ export async function fetchHomePreviewToken(): Promise<{ token: string; slug: st
 // nunca lee vídeos/recompensas/niveles/logros/retos/contenido de portal — solo
 // el portal instalable (app/portal/[slug]) los usa. Sin esta señal el servidor
 // no puede distinguir quién llama al mismo endpoint compartido.
-export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boolean; baseUrl?: string }) {
+//
+// `estiloWidget` (Fase E del constructor de widgets): la nativa pide además el
+// estilo de los widgets de su web, en la MISMA petición y solo en su primera
+// carga (lib/widget/usar-datos-widget.ts). Solo viaja si se pide: el resto de
+// llamadores no lo necesita y el servidor no lee el tema por ellos.
+export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boolean; baseUrl?: string; estiloWidget?: boolean }) {
   // La identidad de la socia va en el JWT (Bearer), no en el body: el servidor
   // deriva sus datos del token. Sin sesión → solo catálogo público.
   //
@@ -358,7 +442,7 @@ export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boole
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
-    body: JSON.stringify({ slug, liviano: opts?.liviano ?? false }),
+    body: JSON.stringify({ slug, liviano: opts?.liviano ?? false, ...(opts?.estiloWidget ? { estiloWidget: true } : {}) }),
   });
   // 404 es la única respuesta que significa de verdad «no hay datos»: ese
   // estudio no existe. Las demás (500, 429, 503…) son fallos, y devolver null

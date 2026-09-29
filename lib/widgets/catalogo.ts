@@ -42,12 +42,13 @@ export const CATEGORIAS: readonly { id: CategoriaWidget; nombre: string }[] = [
  *   en cualquier web sin configurar nada.
  * - `nativa`: el bundle en Shadow DOM, sin marco (solo el horario, y solo con
  *   el dominio autorizado — CORS explícito por estudio).
- *   ⚠️ Hoy NO toma el estilo de la app de la alumna: `iframe` y `popup` sí
- *   (lib/reservar/tema-app.ts, 27-sep-2026), así que con el mismo snippet y
- *   una app en «Carbón» o con otra pareja tipográfica, `iframe` sale oscuro y
- *   en esa letra y `nativa` sigue en la crema y el Jakarta de siempre. Cerrarlo
- *   es exponer la apariencia de la app en los datos públicos que ya lee el
- *   bundle (public/widget.js); fase aparte, a propósito.
+ *   Desde la Fase E sigue el estilo de sus widgets, como `iframe` y `popup`:
+ *   le llega con sus datos públicos (`estiloWidget`, lib/widget/estilo-nativa.ts),
+ *   no con su código, así que también a una pegada hace tiempo. Con una
+ *   diferencia a propósito: con «Como tu app» conserva la letra de su web, que
+ *   es su gran ventaja frente al iframe; solo una letra elegida la cambia. Sin
+ *   nada elegido se ve como siempre, y con un diseño propio en sus `data-*` no
+ *   le llega nada (`nativaTraeDisenoPropio`, lib/reservar/config-widget.ts).
  * - `popup`: un botón de la web que abre el widget en una ventana encima.
  * - `boton`: un botón que lleva a la página de reservas. Cero JavaScript.
  * - `enlace`: la dirección tal cual, para la bio de Instagram, un newsletter o
@@ -60,7 +61,8 @@ export type MetodoIntegracion = 'iframe' | 'nativa' | 'popup' | 'boton' | 'enlac
 // `studios.widget_builder`).
 export const METODOS: Record<MetodoIntegracion, { nombre: string; descripcion: string }> = {
   iframe: { nombre: 'Dentro de una página', descripcion: 'Por ejemplo, en tu página «Horarios». Se adapta sola a su alto.' },
-  nativa: { nombre: 'Sin marco', descripcion: 'Toma la letra de tu web y ocupa su hueco como si fuera suyo. Solo funciona en las webs que autorices.' },
+  // La letra de su web, solo con la identidad del estudio: con un diseño propio, la de siempre del widget.
+  nativa: { nombre: 'Sin marco', descripcion: 'Ocupa su hueco en tu web como si fuera suyo y, sin un diseño propio, toma la letra de tu web mientras no elijas otra en «Cómo se ve». Solo funciona en las webs que autorices.' },
   popup: { nombre: 'Un botón que se abre encima', descripcion: 'Tu alumna no sale de tu web.' },
   boton: { nombre: 'Un botón que lleva a tu página de reservas', descripcion: 'Se abre tu página de reservas.' },
   enlace: { nombre: 'Un enlace', descripcion: 'Para la bio de Instagram, WhatsApp o tu newsletter. Sin código.' },

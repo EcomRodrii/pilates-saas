@@ -5,12 +5,12 @@ import { WhatsAppIcon } from '@/components/icons/brand-icons';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 
 // Versión de la landing del botón flotante de WhatsApp del panel
-// (components/layout/whatsapp-fab.tsx) — mismo número real del fundador
-// (SOPORTE_WHATSAPP, compartido con app/api/soporte/route.ts), mismo icono,
-// mismo criterio visual. La diferencia es el mensaje: el del panel mete el
-// nombre del estudio (`useCore()`), que aquí no existe — quien visita la
-// landing todavía no tiene estudio. Mensaje genérico en su lugar.
-const SOPORTE_WHATSAPP = '+34640515871';
+// (components/layout/whatsapp-fab.tsx) — mismo número (SOPORTE_WHATSAPP, el
+// WhatsApp Business de soporte), mismo icono, mismo criterio visual. La
+// diferencia es el mensaje: el del panel mete el nombre del estudio
+// (`useCore()`), que aquí no existe — quien visita la landing todavía no
+// tiene estudio. Mensaje genérico en su lugar.
+const SOPORTE_WHATSAPP = '+34603556580';
 const MENSAJE = 'Hola, tengo una duda sobre Tentare:';
 
 export function WhatsAppFab() {

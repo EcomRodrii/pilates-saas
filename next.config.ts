@@ -121,6 +121,20 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=300, stale-while-revalidate=86400' },
         ],
       },
+      // Las fuentes de la integración sin marco (Fase E, lib/widget/fuentes-nativa.ts),
+      // que se cargan desde la web del estudio. Una fuente de otro origen solo
+      // se usa si responde con CORS: sin la cabecera, la letra cae a la de
+      // reserva sin ningún error. `*` y sin credenciales: son ficheros públicos
+      // (los mismos que sirve la app). Aquí sí `immutable` y un año, a
+      // diferencia de widget.js: la ruta lleva la versión (`v1/`), y cambiarlas
+      // es servirlas en otra.
+      {
+        source: '/widget-fuentes/:ruta*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
     ];
   },
 };

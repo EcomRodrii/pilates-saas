@@ -205,11 +205,14 @@ test('solo fuente=: los titulares la heredan (contrato «display null = la misma
   expect(r.links).toBe(1);
 });
 
-test('⚠️ Modo B (bundle real): data-fuente/data-fuente-display pintan el shadow y el <link> va al HOST con dedupe', async ({ page }) => {
+test('⚠️ Modo B (bundle real): data-fuente/data-fuente-display pintan el shadow, y sin pedirle nada a Google', async ({ page }) => {
   // El bundle compilado de verdad (public/widget.js — `npm run build` lo
   // genera antes que Next), montado en una "web del estudio" servida por
-  // route(): DOS widgets con la misma fuente de cuerpo, para vigilar el
-  // dedupe del <link> en el <head> del anfitrión.
+  // route(): DOS widgets con la misma fuente de cuerpo. Space Grotesk y
+  // Lobster no las sirve Tentare: se nombran (se verían si su web las
+  // cargara) y no se piden a nadie. Antes iban a Google Fonts, con la IP de
+  // cada visitante; la hoja de Tentare y su dedupe los mira
+  // e2e/widget-nativa-estilo.spec.ts.
   await page.setViewportSize({ width: 1100, height: 760 });
   await mocks(page);
   await page.route('**/api/public/studio-data**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fx()) }));
@@ -252,16 +255,15 @@ test('⚠️ Modo B (bundle real): data-fuente/data-fuente-display pintan el sha
       // El segundo widget no pide `fuente-display` → sus titulares heredan la
       // de cuerpo (mismo contrato que Modo A).
       displaySegundo: getComputedStyle(raices[1]).getPropertyValue('--font-display'),
-      // Dedupe: DOS widgets nombrando Space Grotesk = UN solo <link>.
-      linksCuerpo: document.querySelectorAll('link[href*="Space+Grotesk"]').length,
-      linksTitular: document.querySelectorAll('link[href*="family=Lobster"]').length,
+      linksGoogle: document.querySelectorAll('link[href*="fonts.googleapis"]').length,
+      linksTentare: document.querySelectorAll('link[data-tentare-fuentes]').length,
     };
   });
   expect(r.cuerpo).toContain('Space Grotesk');
   expect(r.display).toContain('Lobster');
   expect(r.displaySegundo).toContain('Space Grotesk');
-  expect(r.linksCuerpo).toBe(1);
-  expect(r.linksTitular).toBe(1);
+  expect(r.linksGoogle).toBe(0);
+  expect(r.linksTentare).toBe(0);
   // Y un titular de carne y hueso dentro del shadow: cualquier elemento de la
   // hoja cuya pila EMPIEZA por var(--portal-heading-font) — la firma de
   // `serif` (portal-design.ts), sin atar el test a un tag concreto. El título

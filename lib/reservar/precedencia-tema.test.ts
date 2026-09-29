@@ -8,6 +8,8 @@ import { temaAppParaReservar } from './tema-app.ts';
 import { APARIENCIA_POR_DEFECTO, resolverApariencia } from './apariencia-widget.ts';
 import { RESERVAR_PALETA, tokensCalendarioDeApariencia, varsReservarModo } from '../reservar-publico-tokens.ts';
 import { ratioContraste } from '../wcag-contrast.ts';
+import { baseEstiloWeb, resolverEstiloWeb } from './estilo-web.ts';
+import { WIDGET_WEB_NEUTRO, type WidgetWeb } from './estilo-web-tipos.ts';
 
 const CARBON = temaAppParaReservar({ estilo: 'carbon', tipografia: 'editorial', marca: 'fiel' });
 const ARENA = temaAppParaReservar({ estilo: 'arena' });
@@ -216,4 +218,96 @@ test('solo fuente de titulares: el cuerpo sigue siendo el de la app', () => {
   assert.equal(v['--font-ui'], undefined);
   assert.equal(v['--portal-heading-font'], "'Fraunces', serif");
   assert.equal(v['--reservar-heading-weight'], 'initial');
+});
+
+// ── El estilo de los widgets en su web (Fase B) ─────────────────────────────
+// La regla de oro (sin nada elegido, F1 exacto) vive en ./estilo-web.test.ts,
+// contra una copia congelada de esta función. Aquí, cómo convive con el widget.
+
+const NEUTRO: WidgetWeb = { ...WIDGET_WEB_NEUTRO };
+const webDe = (x: Partial<WidgetWeb>, app: object | null = null) =>
+  resolverEstiloWeb({ ...NEUTRO, ...x }, baseEstiloWeb('#E11D48', app), 'dentro');
+
+test('sin estilo de su web, la paleta solo tiene las tres claves de siempre', () => {
+  for (const q of ['', 'fondo=%23ffffff', 'texto=claro']) for (const embed of [false, true]) {
+    assert.deepEqual(Object.keys(paletaEfectivaReservar(params(q), embed, CARBON)).sort(), ['noche', 'tokens', 'varsEnLinea'], q);
+  }
+});
+
+test('con estilo de su web, fuera de `embed=1` no cuenta: la página suelta es la app', () => {
+  const p = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, false, ARENA, {}, webDe({ estilo: 'carbon', letra: 'editorial', fundido: true }));
+  assert.deepEqual(p, { tokens: ARENA.tokens, noche: false, varsEnLinea: null });
+});
+
+test('incrustada, el estilo de su web va en línea, con su letra y, fundido, sin fondo', () => {
+  const web = webDe({ estilo: 'carbon', letra: 'editorial' })!;
+  const p = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, true, ARENA, {}, web);
+  assert.equal(p.noche, true);
+  assert.equal(p.tokens, web.tokens);
+  assert.equal(p.varsEnLinea, web.varsEnLinea);
+  assert.equal(p.varsLetra, web.varsLetra);
+  assert.equal('fondoRaiz' in p, false);
+  // Solo la letra: los colores y la paleta, los de la app.
+  const letra = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, true, CARBON, {}, webDe({ letra: 'serena' }));
+  assert.equal(letra.tokens, CARBON.tokens);
+  assert.equal(letra.varsEnLinea, null);
+  assert.match(letra.varsLetra!['--font-ui'], /^var\(--font-ui-latin\)/);
+});
+
+test('⚠️ el widget gana al estilo de su web: con `?fondo=`, su rama de siempre, y del estilo solo la letra', () => {
+  const a = params('fondo=%23ffffff');
+  const web = webDe({ estilo: 'carbon', letra: 'editorial', web: 'oscura', fundido: true })!;
+  const p = paletaEfectivaReservar(a, true, ARENA, {}, web);
+  assert.equal(p.noche, false);
+  assert.deepEqual(p.tokens, tokensCalendarioDeApariencia(a, 'dia'));
+  assert.deepEqual(p.varsEnLinea, { ...varsReservarModo('dia'), ...MARCA_DEL_ESTUDIO_EN_LINEA, colorScheme: 'light' });
+  assert.equal('fondoRaiz' in p, false);
+  assert.equal(p.varsLetra, web.varsLetra);
+  assert.match(cssDocumentoIncrustado(a, p), /^html,body\{background:#ffffff !important;\}/);
+});
+
+test('`diseno=ligero` sobre un estilo de su web Carbón decide el día, aunque la app sea clara', () => {
+  const p = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, true, ARENA, { ligero: true }, webDe({ estilo: 'carbon' }));
+  assert.equal(p.noche, false);
+  assert.deepEqual(p.tokens, RESERVAR_PALETA.dia);
+  // Y al revés: un estilo de su web claro sobre una app Carbón ya no es «oscuro».
+  const claro = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, true, CARBON, { ligero: true }, webDe({ estilo: 'luz' }, { estilo: 'carbon' }));
+  assert.equal(claro.noche, false);
+  assert.equal(claro.tokens.bg, '#FFFFFF');
+});
+
+test('⚠️ fundido, el documento del iframe también se queda sin fondo (y en `color-scheme: normal`)', () => {
+  const web = webDe({ estilo: 'arena', web: 'oscura', fundido: true })!;
+  const p = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, true, CARBON, {}, web);
+  assert.equal(p.fondoRaiz, 'transparent');
+  assert.equal(cssDocumentoIncrustado(APARIENCIA_POR_DEFECTO, p), 'html,body{background:transparent !important;}:root:root{color-scheme:normal;}');
+  // En su recuadro, el fondo de su estilo, no el de `:root`.
+  const recuadro = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, true, CARBON, {}, webDe({ estilo: 'arena' }));
+  assert.equal(cssDocumentoIncrustado(APARIENCIA_POR_DEFECTO, recuadro), 'html,body{background:#F4EEE5 !important;}:root:root{color-scheme:normal;}');
+});
+
+// ── Cómo lo compone la página (app/reservar/[slug]/page.tsx) ────────────────
+
+test('las esquinas, la separación y el pie del estilo de su web entran como «guardado»: nunca deciden la paleta, y la URL los pisa', () => {
+  const web = webDe({ estilo: 'arena', forma: 'recto', densidad: 'compacta', ocultarPie: true })!;
+  const a = resolverApariencia(web.capa, new URLSearchParams(''));
+  assert.equal(a.forma, 'recto');
+  assert.equal(a.densidad, 'compacta');
+  assert.equal(a.ocultarPie, true);
+  // Si la capa decidiera la paleta, la rama del widget taparía los colores del
+  // propio estilo de su web con el día de siempre.
+  assert.equal(widgetDecidePaleta(a), false);
+  assert.equal(paletaEfectivaReservar(a, true, ARENA, {}, web).varsEnLinea, web.varsEnLinea);
+  // `?pie=1` vuelve a sacar el pie: el snippet gana, como con todo lo guardado.
+  assert.equal(resolverApariencia(web.capa, new URLSearchParams('pie=1')).ocultarPie, false);
+});
+
+test('⚠️ en la ventana que se abre encima no se funde: el documento conserva su fondo opaco y la página es la app', () => {
+  const soloFundido: WidgetWeb = { ...NEUTRO, web: 'oscura', fundido: true };
+  const base = baseEstiloWeb('#E11D48', null);
+  const dentro = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, true, TEMA_APP_RESERVAR_POR_DEFECTO, {}, resolverEstiloWeb(soloFundido, base, 'dentro'));
+  assert.equal(cssDocumentoIncrustado(APARIENCIA_POR_DEFECTO, dentro), 'html,body{background:transparent !important;}:root:root{color-scheme:normal;}');
+  const ventana = paletaEfectivaReservar(APARIENCIA_POR_DEFECTO, true, TEMA_APP_RESERVAR_POR_DEFECTO, {}, resolverEstiloWeb(soloFundido, base, 'ventana'));
+  assert.deepEqual(ventana, { tokens: RESERVAR_PALETA.dia, noche: false, varsEnLinea: null });
+  assert.equal(cssDocumentoIncrustado(APARIENCIA_POR_DEFECTO, ventana), 'html,body{background:var(--portal-bg) !important;}');
 });

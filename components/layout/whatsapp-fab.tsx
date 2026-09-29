@@ -6,13 +6,13 @@ import { WhatsAppIcon } from '@/components/icons/brand-icons';
 import { useCore } from '@/lib/core-context';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 
-// Mismo número que app/api/soporte/route.ts (SOPORTE_WHATSAPP) — el WhatsApp
-// personal del fundador. A diferencia del HelpWidget del menú de perfil (que
-// abre un formulario y crea un ticket en soporte_solicitudes), esto es un
-// atajo directo: un clic abre WhatsApp con el mensaje ya escrito, sin pasar
-// por ningún backend propio. No sustituye al HelpWidget, es un segundo punto
-// de entrada más rápido para una duda puntual.
-const SOPORTE_WHATSAPP = '+34640515871';
+// SOPORTE_WHATSAPP — el WhatsApp Business de soporte. A diferencia del
+// HelpWidget del menú de perfil (que abre un formulario y crea un ticket en
+// soporte_solicitudes), esto es un atajo directo: un clic abre WhatsApp con
+// el mensaje ya escrito, sin pasar por ningún backend propio. No sustituye
+// al HelpWidget, es un segundo punto de entrada más rápido para una duda
+// puntual.
+const SOPORTE_WHATSAPP = '+34603556580';
 
 export function WhatsAppFab() {
   const { studio } = useCore();

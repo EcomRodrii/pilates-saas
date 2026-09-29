@@ -51,6 +51,7 @@ import {
 } from '@/lib/plazas-fijas-solicitudes';
 import type { PlazaFija as PlazaFijaServidor } from '@/lib/types';
 import type { MotivoPlazaNoMaterializada } from '@/lib/notifications/emit';
+import type { FormaPegada } from '@/lib/widgets/pegado';
 import { validarCanje } from '@/lib/engines/reward-engine';
 import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
@@ -2318,6 +2319,12 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
   // abandono si esto viene relleno, que la ruta solo rellena tras verificar
   // el JWT contra `socioId`. Nunca se deriva de `socioId` aquí.
   socioIdVerificado?: string | null;
+  // Fase C del constructor de widgets: dónde está pegado lo que se cargó. Ya
+  // validado por `pegadoDelEvento` (lib/widgets/evento-pegado.ts), que es
+  // quien sabe cuándo no cuenta; aquí solo se escribe.
+  forma?: FormaPegada | null;
+  anfitrion?: string | null;
+  firma?: string | null;
 }): void {
   void admin.from('widget_eventos').insert({
     id: `evt-${uid()}`,
@@ -2326,7 +2333,17 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
     tipo: params.tipo,
     sesion_clase_id: params.sesionClaseId ?? null,
     origen: params.origen ?? null,
-    socio_id: params.socioId ?? null,
+    // Una carga que dice dónde está pegado nunca lleva socia: atarían a una
+    // persona con una web (widget_eventos_pegado_sin_socia).
+    socio_id: params.forma ? null : (params.socioId ?? null),
+    // Las tres columnas SOLO con forma, nunca como `null` explícito: si este
+    // código llegara a producción antes que su migración, un insert con una
+    // columna desconocida fallaría entero, y así solo se perderían las cargas
+    // que la traen, no todo el embudo. Y sin forma no hay nada que decir
+    // (widget_eventos_pegado_solo_al_cargar).
+    ...(params.forma
+      ? { forma: params.forma, anfitrion: params.anfitrion ?? null, firma: params.firma ?? null }
+      : {}),
   }).then(({ error }) => {
     // FK inválida (studio_id/sesion_id/socio_id inexistentes desde un
     // cliente con datos corruptos) no es un fallo del sistema — no genera
@@ -5732,14 +5749,22 @@ export async function actualizarSociaPublica(params: {
   // una petición saliente a un tercero desde el panel del estudio, y el
   // proyecto no tiene CSP que la frene.
   //
-  // La subida legítima (`/api/public/foto-perfil`) SOLO devuelve URLs de
-  // nuestro propio Storage, así que exigir ese origen no quita ninguna vía
-  // real. Vaciarla sigue permitido: es cómo se quita la foto.
+  // ⚠️ Sentry JAVASCRIPT-NEXTJS-34 (29-sep): esto comprobaba que la URL
+  // empezara por `NEXT_PUBLIC_SUPABASE_URL`, pero SEC-01 (auditoría 23-sep)
+  // ya había movido la subida al bucket PRIVADO `avatars-privadas` — desde
+  // entonces `foto_url` guarda el PATH desnudo (`r.socioId`), nunca una URL,
+  // porque ya no hay ninguna URL pública que construir (ver el comentario de
+  // `app/api/public/foto-perfil/route.ts`). La comprobación por prefijo de URL
+  // quedó comprobando algo que ya no podía pasar nunca: TODA subida desde la
+  // app de la alumna fallaba con «Esa foto no es válida» desde ese commit.
+  // La subida legítima solo escribe la ID DE LA PROPIA SOCIA como path —
+  // exigir exactamente eso cierra el mismo hueco (no se puede apuntar a un
+  // path ni a un servidor ajenos) sin repetir el error. Vaciarla sigue
+  // permitido: es cómo se quita la foto.
   if ('foto_url' in db) {
     const url = db.foto_url;
-    const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
     if (url === null || url === '') db.foto_url = null;
-    else if (typeof url !== 'string' || !base || !url.startsWith(base)) {
+    else if (url !== params.socioId) {
       return { error: 'Esa foto no es válida. Súbela desde tu perfil.' as const };
     }
   }

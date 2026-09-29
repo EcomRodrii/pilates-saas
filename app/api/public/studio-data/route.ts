@@ -5,6 +5,8 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { nombreCookieAcceso } from '@/lib/publico/acceso-pagina';
+import { getThemePublicado } from '@/lib/theme-data';
+import { datosEstiloNativaDeTema } from '@/lib/widget/estilo-nativa';
 
 // Datos para las páginas públicas (reserva/portal/kiosk): catálogo público del
 // estudio + (si hay socia autenticada) SUS datos.
@@ -15,6 +17,13 @@ import { nombreCookieAcceso } from '@/lib/publico/acceso-pagina';
 // CORS: solo importa cuando llama el bundle embebible desde el dominio del
 // estudio (?slug= en la URL además del body) — el iframe existente es
 // same-origin y estas cabeceras no le afectan.
+//
+// `estiloWidget: true` en el cuerpo (Fase E del constructor de widgets): lo pide
+// la integración sin marco en su primera carga, para pintarse con el estilo de
+// los widgets de su web en el mismo fotograma que las clases. Se lee aquí, con
+// una función pura (`datosEstiloNativaDeTema`), y no dentro de
+// `fetchPublicStudioData`: nadie más lo necesita. Sale solo lo que ya pinta
+// /reservar para cualquiera: un hex del tema y ids de catálogo, validados.
 export async function OPTIONS(req: NextRequest) {
   return respuestaPreflightWidget(req);
 }
@@ -22,12 +31,14 @@ export async function OPTIONS(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'public-studio-data', { max: 60, windowSeconds: 60 });
   if (limited) return limited;
-  const body = await req.json().catch(() => null) as { slug?: string; liviano?: boolean } | null;
-  const slug = body?.slug?.trim();
+  const body = await req.json().catch(() => null) as { slug?: unknown; liviano?: unknown; estiloWidget?: unknown } | null;
+  // Un `slug` que no es texto es un 400, no un 500: el cuerpo lo escribe cualquiera.
+  const slug = typeof body?.slug === 'string' ? body.slug.trim() : '';
   if (!slug) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el slug del estudio' }, { status: 400 }));
   }
   const liviano = body?.liviano === true;
+  const conEstilo = body?.estiloWidget === true;
 
   // La resolución de estudio por slug (y la comprobación de si este JWT
   // pertenece a una socia de ese estudio) vive DENTRO de fetchPublicStudioData
@@ -45,6 +56,16 @@ export async function POST(req: NextRequest) {
     );
     if (!data) {
       return conCorsWidget(req, NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 }));
+    }
+    // Con la página oculta no hay `studio` (`catalogoPaginaOculta`): tampoco estilo.
+    const studio = (data as { studio?: { id?: unknown; colorPrimario?: unknown } }).studio;
+    if (conEstilo && typeof studio?.id === 'string') {
+      // Aparte y sin tumbar nada: si el tema no se puede leer, la nativa se
+      // pinta como siempre, con las clases igual.
+      const tema = await getThemePublicado(studio.id).catch(() => null);
+      if (tema) {
+        return conCorsWidget(req, NextResponse.json({ ...data, estiloWidget: datosEstiloNativaDeTema(tema, studio.colorPrimario) }));
+      }
     }
     return conCorsWidget(req, NextResponse.json(data));
   } catch (err) {

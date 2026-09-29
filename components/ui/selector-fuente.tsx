@@ -1,7 +1,7 @@
 'use client';
 
-// El selector de tipografía del widget: diez familias reales, cada una escrita
-// en su propia letra.
+// El selector de tipografía del widget: diez familias reales (seis sin marco),
+// cada una escrita en su propia letra.
 //
 // Antes era un `<input type="text">` con el placeholder «Space Grotesk». Eso
 // obligaba a saberse de memoria el nombre EXACTO de una familia de Google
@@ -13,6 +13,13 @@
 // así que un estudio con una familia ya guardada fuera del catálogo la sigue
 // viendo y usando: aparece al final de la lista como «la tuya». Quitarla
 // habría cambiado la tipografía de un widget en producción sin avisar.
+//
+// Sin marco (`sinMarco`) solo se ofrecen las del catálogo que sirve Tentare
+// (`familiaServida`, lib/widget/fuentes-nativa.ts): la nativa vive en la web
+// del estudio y no le pide nada a Google, así que las otras no llegarían a
+// verse. Una ya elegida fuera de esas se enseña igual, y se dice por qué puede
+// no verse. Las muestras salen de las fuentes del panel (`next/font`): tampoco
+// se pide el catálogo a Google.
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
@@ -21,24 +28,28 @@ import {
   FUENTES_WIDGET, familiaCssCatalogo, fuenteDelCatalogo, urlCatalogoGoogle,
   type FuenteCatalogo,
 } from '@/lib/reservar/fuentes-catalogo';
+import { familiaServida, letraNativa } from '@/lib/widget/fuentes-nativa';
+
+/** Las del catálogo que sirve Tentare: las únicas que se ven sin marco. */
+const FUENTES_SIN_MARCO = FUENTES_WIDGET.filter(f => familiaServida(f.familia));
 
 /**
  * Carga UNA vez por documento la hoja con las diez familias, para que la
  * muestra de cada opción se vea de verdad. Va por `document.head` y no por un
  * `<link>` en el JSX porque el selector se usa dos veces en la misma pantalla
  * (texto y titulares) y no tiene sentido pedirlo dos veces; el `id` hace de
- * candado.
+ * candado. Sin marco no se llama: sus muestras son fuentes del panel.
  */
-function useCatalogoCargado() {
+function useCatalogoCargado(activo: boolean) {
   useEffect(() => {
     const ID = 'tentare-catalogo-fuentes';
-    if (document.getElementById(ID)) return;
+    if (!activo || document.getElementById(ID)) return;
     const link = document.createElement('link');
     link.id = ID;
     link.rel = 'stylesheet';
     link.href = urlCatalogoGoogle();
     document.head.appendChild(link);
-  }, []);
+  }, [activo]);
 }
 
 interface Props {
@@ -49,10 +60,14 @@ interface Props {
   onChange: (v: string | null) => void;
   /** Texto de la opción que deja el valor sin fijar. */
   etiquetaPorDefecto?: string;
+  /** Lo que se lee bajo esa opción. Sin ella, nada. */
+  pistaPorDefecto?: string;
+  /** Para la integración sin marco: solo las que sirve Tentare (ver arriba). */
+  sinMarco?: boolean;
 }
 
-export function SelectorFuente({ etiqueta, ayuda, valor, onChange, etiquetaPorDefecto = 'La de Tentare' }: Props) {
-  useCatalogoCargado();
+export function SelectorFuente({ etiqueta, ayuda, valor, onChange, etiquetaPorDefecto = 'La de Tentare', pistaPorDefecto, sinMarco = false }: Props) {
+  useCatalogoCargado(!sinMarco);
   const [abierto, setAbierto] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
   const idLista = useId();
@@ -71,14 +86,25 @@ export function SelectorFuente({ etiqueta, ayuda, valor, onChange, etiquetaPorDe
     };
   }, [abierto]);
 
-  const enCatalogo = fuenteDelCatalogo(valor);
-  // Una familia guardada a mano que no está en las diez: se respeta y se
-  // enseña, nunca se descarta en silencio.
+  const catalogo = sinMarco ? FUENTES_SIN_MARCO : FUENTES_WIDGET;
+  const delCatalogo = fuenteDelCatalogo(valor);
+  const enCatalogo = delCatalogo && catalogo.includes(delCatalogo) ? delCatalogo : null;
+  // Una familia guardada a mano que no está en las diez (o, sin marco, una de
+  // las diez que Tentare no sirve): se respeta y se enseña, nunca se descarta
+  // en silencio.
   const propia: FuenteCatalogo | null = valor && !enCatalogo
-    ? { familia: valor, etiqueta: valor, categoria: 'sans', pesos: [400, 500, 600, 700], pista: 'La que escribiste antes a mano.' }
+    ? {
+        ...(delCatalogo ?? { familia: valor, etiqueta: valor, categoria: 'sans', pesos: [400, 500, 600, 700] }),
+        // Figtree o Libre Caslon Text, escritas a mano, no están en la lista
+        // pero la hoja de Tentare sí las lleva: esas se ven.
+        pista: sinMarco && !familiaServida(valor) ? 'Sin marco no la servimos: solo se verá si tu web ya la carga.' : 'La que escribiste antes a mano.',
+      }
     : null;
-  const opciones = [...FUENTES_WIDGET, ...(propia ? [propia] : [])];
+  const opciones = [...catalogo, ...(propia ? [propia] : [])];
   const actual = enCatalogo ?? propia;
+  // La muestra de cada una: sin marco, las fuentes del panel (las mismas que
+  // pinta la vista previa); si no, las del catálogo de Google.
+  const muestra = (f: FuenteCatalogo) => (sinMarco ? letraNativa(f.familia, 'panel').pila : familiaCssCatalogo(f));
 
   return (
     <div className="space-y-1" ref={caja}>
@@ -98,7 +124,7 @@ export function SelectorFuente({ etiqueta, ayuda, valor, onChange, etiquetaPorDe
         >
           <span
             className="truncate text-[14px] text-foreground"
-            style={actual ? { fontFamily: familiaCssCatalogo(actual) } : undefined}
+            style={actual ? { fontFamily: muestra(actual) } : undefined}
           >
             {actual ? actual.etiqueta : etiquetaPorDefecto}
           </span>
@@ -116,7 +142,7 @@ export function SelectorFuente({ etiqueta, ayuda, valor, onChange, etiquetaPorDe
               seleccionada={!actual}
               onClick={() => { onChange(null); setAbierto(false); }}
               nombre={etiquetaPorDefecto}
-              pista="Instrument Sans, la que trae el widget."
+              pista={pistaPorDefecto}
             />
             {opciones.map(f => (
               <Opcion
@@ -125,7 +151,7 @@ export function SelectorFuente({ etiqueta, ayuda, valor, onChange, etiquetaPorDe
                 onClick={() => { onChange(f.familia); setAbierto(false); }}
                 nombre={f.etiqueta}
                 pista={f.pista}
-                familiaCss={familiaCssCatalogo(f)}
+                familiaCss={muestra(f)}
               />
             ))}
           </div>
@@ -140,7 +166,7 @@ function Opcion({ seleccionada, onClick, nombre, pista, familiaCss }: {
   seleccionada: boolean;
   onClick: () => void;
   nombre: string;
-  pista: string;
+  pista?: string;
   familiaCss?: string;
 }) {
   return (
@@ -160,7 +186,7 @@ function Opcion({ seleccionada, onClick, nombre, pista, familiaCss }: {
         <span className="block truncate text-[15px] text-foreground" style={familiaCss ? { fontFamily: familiaCss } : undefined}>
           {nombre}
         </span>
-        <span className="block truncate text-[11px] text-muted-foreground">{pista}</span>
+        {pista && <span className="block truncate text-[11px] text-muted-foreground">{pista}</span>}
       </span>
       {seleccionada && <Check className="size-4 shrink-0 text-foreground" aria-hidden />}
     </button>

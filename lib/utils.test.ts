@@ -12,7 +12,11 @@
 // que un formateo que ignorase la zona fallaría en al menos uno de los dos.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana, compararVersiones, copiarAlPortapapeles, nombreCortoInstructora, masDias, claveSemanaEstudio } from './utils.ts';
+import {
+  cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana,
+  compararVersiones, copiarAlPortapapeles, nombreCortoInstructora, masDias, claveSemanaEstudio,
+  franjaLocalDe, hoyEnEstudio, instanteEnEstudio,
+} from './utils.ts';
 
 test('compararVersiones: doble cifra no se ordena como texto', () => {
   assert.ok(compararVersiones('0.10', '0.9') > 0, '0.10 es mayor que 0.9 numéricamente');
@@ -51,6 +55,35 @@ test('acepta las dos formas de escribir el mismo instante (Postgres y toISOStrin
     horaEstudio('2026-08-08T13:00:00+00:00'),
     horaEstudio('2026-08-08T13:00:00.000Z'),
   );
+});
+
+// CAL-5, Fase 0: el parámetro `tz` opcional no cambia nada por defecto (todo
+// lo de arriba sigue en Madrid sin pasarlo), pero SÍ hace algo real cuando se
+// pasa — Canarias va siempre 1h por detrás de Madrid, verano e invierno.
+test('el parámetro tz opcional no cambia el default (Madrid)', () => {
+  assert.equal(horaEstudio('2026-08-08T13:00:00Z', TZ_ESTUDIO), horaEstudio('2026-08-08T13:00:00Z'));
+  assert.equal(hoyEnEstudio(new Date('2026-08-08T22:30:00Z'), TZ_ESTUDIO), hoyEnEstudio(new Date('2026-08-08T22:30:00Z')));
+});
+
+test('tz=Atlantic/Canary va 1h por detrás de Madrid, en verano y en invierno', () => {
+  assert.equal(horaEstudio('2026-08-08T13:00:00Z', 'Atlantic/Canary'), '14:00'); // Madrid: 15:00
+  assert.equal(horaEstudio('2026-01-15T13:00:00Z', 'Atlantic/Canary'), '13:00'); // Madrid: 14:00
+});
+
+test('franjaLocalDe con tz distinto puede caer en otro día (medianoche cruzada)', () => {
+  // 23:30 en Madrid (verano) son las 22:30 en Canarias: mismo día. Se comprueba
+  // la HORA, que es donde de verdad se nota el desfase de 1h.
+  const madrid = franjaLocalDe('2026-08-08T21:30:00Z');
+  const canarias = franjaLocalDe('2026-08-08T21:30:00Z', 'Atlantic/Canary');
+  assert.equal(madrid.hora, 23);
+  assert.equal(canarias.hora, 22);
+});
+
+test('instanteEnEstudio con tz=Atlantic/Canary resuelve la misma hora de pared 1h más tarde en UTC', () => {
+  const madrid = instanteEnEstudio('2026-08-08', '10:00');
+  const canarias = instanteEnEstudio('2026-08-08', '10:00', 'Atlantic/Canary');
+  assert.ok(madrid && canarias);
+  assert.equal(new Date(canarias!).getTime() - new Date(madrid!).getTime(), 60 * 60 * 1000);
 });
 
 test('el día es el del estudio, no el de UTC', () => {

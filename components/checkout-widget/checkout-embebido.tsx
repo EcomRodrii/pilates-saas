@@ -16,7 +16,7 @@ import { Lock, AlertTriangle } from 'lucide-react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { PlanTarifa } from '@/lib/types';
 import { sans, serif, radius, textoSemantico } from '@/lib/reservar-publico-tokens';
-import { fuenteValida, urlFuenteGoogle } from '@/lib/reservar/config-widget';
+import { fuenteDelPago } from '@/lib/widget/fuentes-nativa';
 import { semantic } from '@/lib/portal-tokens';
 
 export function CheckoutEmbebido({
@@ -211,11 +211,13 @@ export function CheckoutEmbebido({
     // daría un 404 y el checkout se quedaría sin fuente. `fuenteValida` deja
     // fuera justo esos alias, y entonces cae al literal de arriba, que es el
     // comportamiento de siempre.
-    const familia = (estilo.getPropertyValue('--font-ui').split(',')[0] ?? '')
-      .trim().replace(/^['"]|['"]$/g, '');
-    if (familia && fuenteValida(familia)) {
-      setFuenteAuto({ familia, cssSrc: urlFuenteGoogle(familia) });
-    }
+    //
+    // En la nativa con una letra de la hoja de Tentare, la primera es una
+    // «Tentare …»: esa no existe en Google, así que se le da al iframe la hoja
+    // de Tentare que ya está en la página (`fuenteDelPago`).
+    const hojaTentare = document.querySelector<HTMLLinkElement>('link[data-tentare-fuentes]')?.href ?? null;
+    const fuente = fuenteDelPago(estilo.getPropertyValue('--font-ui').split(',')[0] ?? '', hojaTentare);
+    if (fuente) setFuenteAuto(fuente);
   }, []);
 
   // El rojo de los errores DENTRO del iframe de Stripe, legible sobre la

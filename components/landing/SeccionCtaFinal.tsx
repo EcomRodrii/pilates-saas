@@ -58,9 +58,9 @@ const MEDIA_APILADO = '(max-width: 860px)';
 const [ANCHO_MOVIL, ALTO_MOVIL] = FOTOS.cierre.recortes.movil.proporcion;
 const PROPORCION_MOVIL = `${ANCHO_MOVIL} / ${ALTO_MOVIL}`;
 
-// Mismo número que WhatsAppFab.tsx y app/api/soporte/route.ts
-// (SOPORTE_WHATSAPP) — el WhatsApp real del fundador.
-const SOPORTE_WHATSAPP = '+34640515871';
+// Mismo número que WhatsAppFab.tsx (SOPORTE_WHATSAPP) — el WhatsApp Business
+// de soporte.
+const SOPORTE_WHATSAPP = '+34603556580';
 const SOPORTE_EMAIL = 'soporte@tentare.app';
 
 function EnlacePie({ href, children }: { href: string; children: React.ReactNode }) {
