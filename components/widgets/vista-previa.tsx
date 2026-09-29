@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ExternalLink, Monitor, Smartphone } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Monitor, Smartphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { anchoPopupDe, textoBotonEfectivo } from '@/lib/widgets/config';
 import { conVistaPrevia, estiloBoton, urlEmbebido, urlPagina, type EntradaIntegracion } from '@/lib/widgets/integracion';
@@ -29,6 +29,20 @@ import { FOCO, Segmentado, TACTIL } from './piezas';
 export type Dispositivo = 'escritorio' | 'movil';
 
 const ANCHO: Record<Dispositivo, number> = { escritorio: 1200, movil: 390 };
+
+/**
+ * El ancho de la web dibujada. En «Ordenador», con un widget en una columna
+ * (480) o una ventana encima (~720), una web de 1200 escalada a la columna de
+ * la previa lo dejaba en ~210 px: ilegible, y casi igual que el móvil (medido
+ * el 29-sep-2026, «no se diferencia entre ordenador y móvil» y «un marco blanco
+ * al lado»). Alrededor de un widget estrecho se dibuja una ventana más justa
+ * —sigue siendo una web de ordenador, con el widget en medio y aire a los
+ * lados—; a todo el ancho, la de siempre.
+ */
+export function anchoLienzo(d: Dispositivo, anchoWidget: number | null): number {
+  if (d === 'movil') return ANCHO.movil;
+  return anchoWidget ? Math.min(ANCHO.escritorio, Math.max(760, anchoWidget + 280)) : ANCHO.escritorio;
+}
 // Sin que llegue nada del iframe en este tiempo, se dice y se ofrece otra vez.
 const TARDA_MS = 20_000;
 
@@ -57,7 +71,7 @@ export type FormaPrevia =
   | { tipo: 'boton'; boton: ReactNode; pista: string; alPulsar: string; abrePagina: boolean }
   | { tipo: 'enlace' };
 
-export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, anchoWidget, abrirEn, dispositivo, onDispositivo }: {
+export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, anchoWidget, abrirEn, dispositivo, onDispositivo, noSigueElEstilo = null }: {
   /** `null` cuando falta algo para poder enseñarlo (`falta`). */
   contenido: Contenido | null;
   falta: string | null;
@@ -71,11 +85,17 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
   abrirEn?: string;
   dispositivo: Dispositivo;
   onDispositivo: (d: Dispositivo) => void;
+  /**
+   * Lo que se ve NO cambia con el estilo de sus widgets (un diseño propio en su
+   * código, o la página suelta del enlace): se dice encima de la previa, para
+   * que elegir otro estilo y no ver nada no se lea como un fallo.
+   */
+  noSigueElEstilo?: string | null;
 }) {
   const movil = dispositivo === 'movil';
   const [grande, setGrande] = useState(false);
   const widget = contenido
-    ? <Lienzo ancho={ANCHO[dispositivo]} anchoWidget={anchoWidget} dispositivo={dispositivo} contenido={contenido} />
+    ? <Lienzo ancho={anchoLienzo(dispositivo, anchoWidget)} anchoWidget={anchoWidget} dispositivo={dispositivo} contenido={contenido} />
     : <p className="flex min-h-48 items-center justify-center px-6 text-center text-[13px] text-muted-foreground">{falta}</p>;
 
   return (
@@ -107,6 +127,13 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
           )}
         </div>
       </div>
+
+      {noSigueElEstilo && (
+        <p className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-[12px] leading-snug text-foreground">
+          <AlertTriangle size={13} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+          <span className="min-w-0">{noSigueElEstilo}</span>
+        </p>
+      )}
 
       {forma.tipo === 'enlace' ? (
         <>
@@ -244,7 +271,11 @@ function Marco({ movil, direccion, fondo, recortado, children }: {
         </span>
       </div>
       <div
-        className={cn('overflow-y-auto overflow-x-hidden @4xl/config:max-h-[640px]', recortado ? 'max-h-[260px]' : 'max-h-[440px]')}
+        // Alto suficiente para ver el widget y desplazarse por él con la rueda
+        // (el iframe mide lo que su contenido y es este marco el que hace
+        // scroll). Con 640 fijos y el widget escalado, no quedaba casi nada
+        // que desplazar y parecía que no dejaba; recortado, 260 era una rendija.
+        className={cn('overflow-y-auto overflow-x-hidden overscroll-contain @4xl/config:max-h-[min(78vh,860px)]', recortado ? 'max-h-[420px]' : 'max-h-[640px]')}
         style={{ background: fondo }}
         data-vista-previa=""
       >

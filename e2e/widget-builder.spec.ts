@@ -1060,6 +1060,79 @@ async function recargar(page: Page) {
 
 const VERSIONES = /versión anterior|versión distinta|dos versiones/;
 
+// ⚠️ Lo que se VE en la vista previa, no la URL que lleva (29-sep-2026). Los
+// tests de arriba solo miran que el `src` del iframe lleve `borrador-web=`: con
+// la página de dentro sin pintarlo, o con el widget ignorándolo por un diseño
+// propio, seguían en verde. Un estudio de verdad lo vivió como «los colores, el
+// Carbón y la letra no cambian» en todos los modos: su horario tenía
+// `identidad: 'propia'`, y lo único que lo decía era una nota gris.
+test.describe('La vista previa enseña de verdad el estilo, y dice cuándo no le llega', () => {
+  /** El fondo del documento que pinta el iframe de la previa, cuando ya carga `trozo`. */
+  async function fondoDeLaPrevia(page: Page, trozo: string): Promise<string> {
+    const marco = await previa(page).elementHandle();
+    const frame = marco ? await marco.contentFrame() : null;
+    if (!frame || !decodeURIComponent(frame.url()).includes(trozo)) return '';
+    return frame.evaluate(() => getComputedStyle(document.body).backgroundColor).catch(() => '');
+  }
+
+  test('elegir Carbón pinta la previa en oscuro (el documento de dentro, no solo su URL)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await montar(page, { plataforma: 'otra' });
+    await paso(page, 'Cómo se ve');
+    await expect(page.getByRole('note', { name: 'Este widget no cambia con el estilo' })).toHaveCount(0);
+    await estilos(page).getByRole('radio', { name: 'Carbón', exact: true }).click();
+    await expect.poll(() => fondoDeLaPrevia(page, '"estilo":"carbon"'), { timeout: 45_000 }).toBe('rgb(23, 24, 27)');
+  });
+
+  test('con un diseño propio lo dice en grande, y «Que siga el estilo de tus widgets» hace que la previa lo siga', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await montar(page, {
+      plataforma: 'wordpress',
+      widgetBuilder: { horario: { metodo: 'iframe', identidad: 'propia', marca: '#000000', fuente: 'DM Sans', fuenteDisplay: 'DM Sans' } },
+    });
+    await paso(page, 'Cómo se ve');
+    const nota = page.getByRole('note', { name: 'Este widget no cambia con el estilo' });
+    await expect(nota).toBeVisible();
+    await expect(nota).toContainText('«Horario y reservas» no cambia con este estilo');
+    await expect(nota).toContainText(AVISO_DISENO_PROPIO);
+    await expect(page.getByRole('region', { name: 'Vista previa' })).toContainText('«Horario y reservas» tiene su propio diseño: el estilo de tus widgets no le llega.');
+    // Con su diseño, elegir Carbón no le cambia la previa: lleva su color en la URL y la página lo respeta.
+    await estilos(page).getByRole('radio', { name: 'Carbón', exact: true }).click();
+    await expect(previa(page)).toHaveAttribute('src', /marca=%23000000/);
+
+    await nota.getByRole('button', { name: 'Que siga el estilo de tus widgets' }).click();
+    await expect(nota).toHaveCount(0);
+    await expect(snippet(page)).not.toContainText('marca=');
+    await expect(previa(page)).not.toHaveAttribute('src', /marca=/);
+    await expect(page.getByRole('switch', { name: /Usar un diseño propio/ })).toHaveAttribute('aria-checked', 'false');
+    await expect.poll(() => fondoDeLaPrevia(page, '"estilo":"carbon"'), { timeout: 45_000 }).toBe('rgb(23, 24, 27)');
+  });
+
+  test('con un enlace, dice que su página se ve como su app (la previa no cambia con el estilo) y no ofrece quitar nada', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await montar(page, { plataforma: 'otra', widgetBuilder: { horario: { metodo: 'enlace' } } });
+    await paso(page, 'Cómo se ve');
+    const nota = page.getByRole('note', { name: 'Este widget no cambia con el estilo' });
+    await expect(nota).toContainText('Tu página de reservas no cambia con este estilo');
+    await expect(nota.getByRole('button')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Vista previa' })).toContainText('Tu página de reservas se ve como tu app');
+  });
+
+  test('en «Ordenador», el widget en una columna se ve a un tamaño que se lee, y distinto del móvil', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await montar(page, { plataforma: 'otra' });
+    await paso(page, 'Cómo se ve');
+    await expect(previa(page)).toBeVisible();
+    const escritorio = (await previa(page).boundingBox())!;
+    // Antes: una web de 1200 escalada a la columna dejaba el widget de 480 en ~210 px.
+    expect(escritorio.width, `el widget mide ${Math.round(escritorio.width)} px en «Ordenador»`).toBeGreaterThan(300);
+    await page.getByRole('group', { name: 'Dispositivo de la vista previa' }).getByRole('button', { name: /Móvil/ }).click();
+    await expect(page.locator('[data-vista-previa]').first()).toBeVisible();
+    const movil = (await previa(page).boundingBox())!;
+    expect(Math.abs(movil.width - escritorio.width), 'Ordenador y Móvil no pueden medir lo mismo').toBeGreaterThan(20);
+  });
+});
+
 test.describe('Lo que tienes en tu web: lo copiado, qué cambió y dónde se ve, sin decir lo que no sabe', () => {
 
   test('lo visto en su web: aún no, visto hace 2 h y, si la lectura falla, nada', async ({ page }) => {
@@ -1587,7 +1660,7 @@ const AVISO_SIN_NADA = 'Sin marco, mientras no cambies nada de este estilo, el w
 const AVISO_SIN_NADA_PROPIA = 'Sin marco, mientras no cambies nada de este estilo, el widget se ve con su diseño de siempre. En cuanto apliques un cambio, le llega solo, sin volver a pegar nada.';
 const AVISO_COLUMNAS_NADA = 'Sin marco y con «Siete días en columnas», este widget no se pinta en oscuro: de este estilo no le llega nada, y se ve como si no hubieras elegido ninguno.';
 const AVISO_COLUMNAS_LETRA = 'Sin marco y con «Siete días en columnas», este widget no se pinta en oscuro: de este estilo solo le llega la letra.';
-const AVISO_DISENO_PROPIO = 'Este widget lleva un diseño propio en su código (abajo): este estilo no le llega.';
+const AVISO_DISENO_PROPIO = 'Mientras lo tenga, ni el estilo ni la letra de aquí le llegan: por eso la vista previa no cambia.';
 const LETRA_DE_SU_WEB = 'Sin marco, «Como tu app» deja la letra de tu web; si eliges otra, la usa.';
 const LETRA_DE_SIEMPRE = 'Sin marco, «Como tu app» le deja su letra de siempre; si eliges otra, la usa.';
 const CONFIRMA_SIN_MARCO = 'Horario y reservas va sin marco y también cambia, aunque lo pegaras hace tiempo: el estilo le llega con sus datos, no con su código.';

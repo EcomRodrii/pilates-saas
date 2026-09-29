@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Info } from 'lucide-react';
+import { AlertTriangle, Info } from 'lucide-react';
+import { btnSecondary } from '@/components/configuracion/estilos';
 import { SelectorFuente } from '@/components/ui/selector-fuente';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import type { MetodoIntegracion, WidgetDisponible } from '@/lib/widgets/catalogo';
@@ -77,11 +78,17 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
   const sinMarcoSinNada = nativa && estilo.fase === 'listo' && nadaParaSinMarco(estilo.borrador);
   const sinMarcoLetra = nativa && !!estilo.base && sinMarcoSoloLetra(w, c, estilo.borrador, estilo.base);
 
-  const aviso: ReactNode = metodo === 'enlace' || soloBoton
-    ? <>Con {metodo === 'enlace' ? 'un enlace' : 'un botón que lleva a tu página'}, tu página de reservas se ve <strong className="font-semibold">como tu app</strong>. Este estilo es para lo que pongas dentro de tu web o en una ventana encima.</>
-    : disenoEnSuCodigo
-      ? 'Este widget lleva un diseño propio en su código (abajo): este estilo no le llega.'
-      : sinMarcoSinNada
+  // ⚠️ Lo que NO sigue el estilo de arriba se dice en grande y con salida, no en
+  // una nota gris: con un diseño propio en su código, las nueve tarjetas y la
+  // letra siguen ahí, se pueden pulsar, dicen «Cambios sin aplicar»… y la vista
+  // previa de ESTE widget no se mueve. Medido el 29-sep-2026 en un estudio de
+  // verdad (el horario, la clase y los precios con `identidad: 'propia'`): se
+  // leía como «los colores, el Carbón y la letra no cambian», en todos los
+  // modos, y no había nada roto salvo que no se veía por qué.
+  const noLeLlega = metodo === 'enlace' || soloBoton || disenoEnSuCodigo;
+  const aviso: ReactNode = noLeLlega
+    ? null
+    : sinMarcoSinNada
         // Con la identidad del estudio, su color (el del tema) y la letra de su
         // web; «propia» sin nada que la nativa entienda, su diseño de siempre.
         ? propia
@@ -123,6 +130,32 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
         etiqueta="vivo"
         subtitulo="Es el mismo estilo para todos tus widgets. Cuando lo cambies, cambia solo en tu web: no hace falta volver a pegar nada."
       >
+        {noLeLlega && (
+          <div role="note" aria-label="Este widget no cambia con el estilo" className="space-y-2.5 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3">
+            <p className="flex items-start gap-2 text-[13px] font-semibold text-foreground">
+              <AlertTriangle size={15} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+              <span className="min-w-0">{metodo === 'enlace' || soloBoton ? 'Tu página de reservas no cambia con este estilo' : `«${w.nombre}» no cambia con este estilo`}</span>
+            </p>
+            {metodo === 'enlace' || soloBoton ? (
+              <p className="text-[12.5px] leading-relaxed text-foreground">
+                Con {metodo === 'enlace' ? 'un enlace' : 'un botón que lleva a tu página'}, se abre tu página de reservas, que se ve <strong className="font-semibold">como tu app</strong>: por eso la vista previa no cambia al elegir aquí. Este estilo es para lo que pongas dentro de tu web o en una ventana encima. Para cambiar tu página, cambia el estilo de tu app.
+              </p>
+            ) : (
+              <>
+                <p className="text-[12.5px] leading-relaxed text-foreground">
+                  Tiene <strong className="font-semibold">su propio diseño</strong> (color, letra…) guardado en su código, en «Un diseño distinto solo para este widget». Mientras lo tenga, ni el estilo ni la letra de aquí le llegan: por eso la vista previa no cambia. Sí cambian el resto de tus widgets.
+                </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <button type="button" onClick={() => cambiar({ identidad: 'estudio' })} className={btnSecondary}>
+                    Que siga el estilo de tus widgets
+                  </button>
+                  <span className="text-[12px] text-muted-foreground">Cambia su código: tendrás que copiarlo otra vez.</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {aviso && (
           <p className="flex items-start gap-2 rounded-xl bg-muted/60 px-3.5 py-3 text-[12.5px] leading-relaxed text-foreground">
             <Info size={15} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" /><span className="min-w-0">{aviso}</span>
