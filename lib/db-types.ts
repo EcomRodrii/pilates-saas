@@ -3620,6 +3620,13 @@ export interface RowVerifactuRepresentacionEventos {
   creado_en: string;
 }
 
+export interface RowVerifactuControlFlujo {
+  clave: string;
+  proximo_envio_permitido_en: string;
+  ultimo_tiempo_espera_s: number | null;
+  actualizado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -10033,6 +10040,20 @@ export type VerifactuRepresentacionEventosUpdate = {
   creado_en?: string | null;
 }
 
+export type VerifactuControlFlujoInsert = {
+  clave?: string | null;
+  proximo_envio_permitido_en?: string | null;
+  ultimo_tiempo_espera_s?: number | null | null;
+  actualizado_en?: string | null;
+}
+
+export type VerifactuControlFlujoUpdate = {
+  clave?: string | null;
+  proximo_envio_permitido_en?: string | null;
+  ultimo_tiempo_espera_s?: number | null | null;
+  actualizado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -11165,6 +11186,11 @@ export type Database = {
         Row: RowVerifactuRepresentacionEventos;
         Insert: VerifactuRepresentacionEventosInsert;
         Update: VerifactuRepresentacionEventosUpdate;
+      };
+      verifactu_control_flujo: {
+        Row: RowVerifactuControlFlujo;
+        Insert: VerifactuControlFlujoInsert;
+        Update: VerifactuControlFlujoUpdate;
       };
     };
   };
