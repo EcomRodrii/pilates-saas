@@ -145,23 +145,23 @@ test('sin pie y con una sola pestaña', async ({ page }) => {
 test('⚠️ la página SUELTA no cambia, aunque le pases los parámetros', async ({ page }) => {
   // Sin `embed=1` no se aplica nada: `/reservar/<slug>` es la página de Tentare
   // y ahí es el único sitio donde viven los legales.
-  // ⚠️ `&tab=estudio`, no el `clases` por defecto: el diseño "Tentare Portal
-  // Reservas" oculta la barra de pestañas A PROPÓSITO en la pantalla de
-  // Clases de la página suelta (navegación real repuesta en el menú de la
-  // cabecera, `MenuSecciones`) — eso ya NO es el parámetro `solo-pestana=1`
-  // haciendo efecto, es el diseño por defecto de esa pantalla. Esta prueba
-  // sigue comprobando lo que de verdad le importa: que los parámetros del
-  // snippet no cambian nada en la página suelta, en una pestaña donde la
-  // barra completa SÍ se pinta.
+  // ⚠️ `&tab=estudio`, no el `clases` por defecto: una sección que no es la
+  // del horario, donde el widget sí pintaría su píldora de un solo propósito.
+  //
+  // Desde la F5 del rediseño (29-sep-2026) la página suelta no lleva barra de
+  // pestañas en NINGUNA sección —la navegación es la cabecera de la F3, con esas
+  // secciones en su menú—, así que ya no se cuentan cuatro botones: lo que se
+  // comprueba es lo que de verdad le importa a esta prueba, que los parámetros
+  // del snippet no la convierten en el widget. Sigue con su pie, su cabecera y
+  // su portada, y sin la píldora del widget (`solo-pestana=1`).
   await page.setViewportSize({ width: 1100, height: 760 });
   await mocks(page);
   await page.goto(`/reservar/${SLUG}?tab=estudio&fondo=transparente&pie=0&solo-pestana=1`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await expect(page.locator('footer')).toBeVisible();
-  // 4 y no 5: sin ningún servicio de cita activo, «Citas» ya no sale en la
-  // barra de la página suelta (llevaba a «no hay citas»). Lo que se comprueba
-  // sigue igual: la barra está entera, `solo-pestana=1` no la ha recortado.
-  await expect(page.locator('#horario button')).toHaveCount(4);
+  await expect(page.getByRole('banner')).toBeVisible();
+  await expect(page.locator('.reservar-portada')).toHaveCount(1);
+  await expect(page.locator('#horario button')).toHaveCount(0);
 });
 
 // ── Color del texto ─────────────────────────────────────────────────────────
