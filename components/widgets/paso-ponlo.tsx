@@ -5,7 +5,8 @@ import { AlertCircle, BookOpen, Check, Code2, Copy, Mail, Send } from 'lucide-re
 import { cn, copiarAlPortapapeles } from '@/lib/utils';
 import { btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { METODOS, type MetodoIntegracion } from '@/lib/widgets/catalogo';
-import { ETIQUETA_VALIDA, type ConfigConstructor, type Copiado } from '@/lib/widgets/config';
+import { ETIQUETA_VALIDA, esCopiaCompleta, type ConfigConstructor, type Copiado } from '@/lib/widgets/config';
+import { botonDeCodigoAnterior } from '@/lib/widgets/en-tu-web';
 import {
   faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, tieneDisenoEnCodigo, urlPagina, type EntradaIntegracion,
 } from '@/lib/widgets/integracion';
@@ -23,6 +24,13 @@ import { SelectorClase, type DatosPanel } from './paso-que';
 // ⚠️ «Copiado» solo se dice si el portapapeles lo aceptó (#994: Safari puede
 // decir que sí sin copiar nada). Y solo entonces se guarda la huella de lo
 // copiado, que es lo que luego avisa de un código antiguo.
+//
+// Copiarlo A MANO (seleccionarlo en «Ver el código» y Ctrl+C) también cuenta
+// (Fase D): el `copy` del navegador sube hasta el pliegue, y se guarda solo si
+// lo seleccionado es el código ENTERO (`esCopiaCompleta`: un trozo no funciona
+// pegado). Nunca se dice «Copiado» por esa vía: es la copia del navegador, no
+// la nuestra, y no sabemos qué hizo con ella. Lo único que cambia es la línea
+// «Lo copiaste aquí el…», que sale de lo guardado.
 
 export function PasoPonlo({
   entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, estiloSinAplicar, onCopiado, onMetodo, cambiar,
@@ -91,6 +99,13 @@ export function PasoPonlo({
     marcar('codigo');
   }
 
+  // La copia a mano. `navigator.clipboard.writeText` (el botón) no dispara
+  // `copy`, así que una misma acción nunca cuenta dos veces; y copiar lo mismo
+  // otra vez al rato tampoco se guarda de nuevo (`esLaMismaCopia`, en el constructor).
+  function alCopiarAMano() {
+    if (esCopiaCompleta(window.getSelection()?.toString() ?? '', copiable)) onCopiado(firma);
+  }
+
   async function copiarReact() {
     if (!(await copiarAlPortapapeles(generarCodigo(entrada, metodo, 'react').codigo))) {
       showToast('No se ha podido copiar el componente.');
@@ -121,6 +136,16 @@ export function PasoPonlo({
     }
     await copiarMensaje();
   }
+
+  // Lo pegado es este mismo popup, pero de antes de la Fase D (o copiado desde
+  // un panel sin actualizar): su botón lleva el color literal y no sigue el
+  // estilo. Con diseño propio no se dice: ese botón no cambia nunca, a propósito.
+  // Lo COPIADO también tiene que ser un popup: un iframe pegado no tiene botón.
+  // Una copia antigua sin la forma guardada se toma por la de ahora: sin
+  // desfase, su huella (que lleva la forma) coincide con la de ahora.
+  const botonDeAntes = !!copiado && !desfase && botonDeCodigoAnterior({
+    copiado: copiado.metodo ?? metodo, ahora: metodo, disenoPropio: tieneDisenoEnCodigo(c), botonVivo: copiado.botonVivo,
+  });
 
   const etiquetaCopiar = recienCopiado === 'codigo'
     ? 'Copiado'
@@ -175,6 +200,11 @@ export function PasoPonlo({
             <p className="text-center text-[12px] text-muted-foreground">
               {copiado && !desfase ? `Lo copiaste aquí el ${fechaCorta(copiado.en)}.` : !copiado ? 'Aún no lo has copiado desde aquí.' : 'Lo que copiaste antes ya no es lo de ahora.'}
             </p>
+            {botonDeAntes && (
+              <p className="text-center text-[12px] leading-relaxed text-muted-foreground">
+                El botón que ya tienes pegado es de un código anterior y no cambia con el estilo de tus widgets. Si copias este y lo pegas en lugar del de antes, cambiará solo.
+              </p>
+            )}
             <span className="sr-only" role="status" aria-live="polite">{recienCopiado === 'codigo' ? 'Copiado al portapapeles' : ''}</span>
           </div>
         )}
@@ -196,7 +226,7 @@ export function PasoPonlo({
         ))}
 
         {!falta && (
-          <details ref={detalles} className="group rounded-xl border border-border">
+          <details ref={detalles} onCopy={alCopiarAMano} className="group rounded-xl border border-border">
             <summary className={cn('flex min-h-11 cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-medium text-foreground [&::-webkit-details-marker]:hidden', FOCO)}>
               <Code2 size={15} aria-hidden className="text-muted-foreground" />
               Ver {esEnlace ? 'el enlace' : 'el código'}
@@ -225,7 +255,7 @@ export function PasoPonlo({
           </div>
           <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-[12.5px] leading-relaxed text-foreground">
             <p className="mb-0.5 font-semibold">Si lo cambias, cópialo otra vez</p>
-            Lo que lleva la etiqueta «Va en el código»: qué enseña, la forma de ponerlo, el botón y un diseño propio.
+            Lo que lleva la etiqueta «Va en el código»: qué enseña, la forma de ponerlo, el texto y el tipo de botón, y un diseño propio.
           </div>
         </div>
       </Tarjeta>
@@ -250,14 +280,16 @@ export function PasoPonlo({
 // Qué parte del aspecto llega sola a lo ya pegado: el estilo de sus widgets (el
 // que se aplica en «Cómo se ve», Fase B), salvo que su código lleve un diseño
 // propio —entonces /reservar no se lo pasa—; en la integración nativa, solo el
-// color de marca, y solo con la identidad del estudio (`data-identidad`). El
-// color del botón del popup va en su `style`, dentro del código, y sale de su
-// marca o de la del estudio (`estiloBoton`), nunca del estilo de sus widgets:
-// ese no cambia solo, ni al copiarlo otra vez por haber cambiado el estilo.
+// color de marca, y solo con la identidad del estudio (`data-identidad`). Con
+// el popup, desde la Fase D también el botón que abre la ventana: el código
+// que se copia AHORA lo pinta con variables que /widget-popup.js rellena con
+// ese estilo (color y esquinas). Habla de este código, el de aquí: un botón
+// pegado antes no las lleva, y eso se dice aparte («El botón que ya tienes
+// pegado…»).
 function estiloVivo(metodo: MetodoIntegracion, sigueElEstilo: boolean): string {
   if (metodo === 'boton' || metodo === 'enlace') return ', y tu página de reservas entera';
   if (!sigueElEstilo) return '';
-  if (metodo === 'popup') return ', y el estilo de tus widgets dentro de la ventana (el botón que la abre no: su color va en el código)';
+  if (metodo === 'popup') return ', y el estilo de tus widgets: dentro de la ventana y en el botón que la abre (su color y sus esquinas)';
   if (metodo === 'nativa') return ', y tu color de marca';
   return ', y el estilo de tus widgets';
 }

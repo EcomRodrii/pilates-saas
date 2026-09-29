@@ -4,7 +4,7 @@ import { WIDGETS, type MetodoIntegracion, type WidgetDisponible } from './catalo
 import { CONFIG_POR_DEFECTO, nuevaCopia, type ConfigConstructor, type Copiado } from './config.ts';
 import { embudoPorWidget } from './embudo.ts';
 import {
-  GRUPOS, MARGEN_MISMA_VERSION_MS, VENTANA_VERSION_MS, estadoEnTuWeb, etiquetasDeCopia, gruposCambiados, hostDe, piezaCopiada,
+  GRUPOS, MARGEN_MISMA_VERSION_MS, VENTANA_VERSION_MS, botonDeCodigoAnterior, estadoEnTuWeb, etiquetasDeCopia, gruposCambiados, hostDe, piezaCopiada,
   textoCambios, textosEnTuWeb, unirGrupos, webSinAutorizar, type EstadoEnTuWeb,
 } from './en-tu-web.ts';
 import { faltaParaGenerar, firmaCodigo, firmaContenidoDe, type EntradaIntegracion } from './integracion.ts';
@@ -423,6 +423,57 @@ test('piezaCopiada: un diseño propio en lo pegado (dentro de una página o enci
   assert.equal(pieza(copiaDe(CONFIG_POR_DEFECTO, 'iframe'), BASE).disenoPropio, false);
   // «Propia» sin tocar nada no emite nada: sigue el estilo común.
   assert.equal(pieza(copiaDe({ ...CONFIG_POR_DEFECTO, identidad: 'propia' }, 'iframe'), BASE).disenoPropio, false);
+});
+
+test('piezaCopiada: el botón de la ventana está congelado si se copió sin la marca de la Fase D', () => {
+  const popup = { metodoAhora: 'popup' as const };
+  const sinMarca = copiaDe(CONFIG_POR_DEFECTO, 'popup');
+  assert.equal(pieza(sinMarca, BASE, popup).botonCongelado, true);
+  assert.equal(pieza({ ...sinMarca, botonVivo: true }, BASE, popup).botonCongelado, false);
+  // Con diseño propio no cambia nunca: no es «un código anterior».
+  const propia = { ...CONFIG_POR_DEFECTO, identidad: 'propia' as const, marca: '#112233' };
+  assert.equal(pieza(copiaDe(propia, 'popup'), conConfig(propia), popup).botonCongelado, false);
+  // Dentro de una página (o un botón o un enlace a la página) no hay botón que abra una ventana.
+  assert.equal(pieza(copiaDe(CONFIG_POR_DEFECTO, 'iframe'), BASE).botonCongelado, false);
+  assert.equal(pieza(copiaDe(CONFIG_POR_DEFECTO, 'boton'), BASE, { metodoAhora: 'boton' }).botonCongelado, false);
+  // Lo que cuenta es lo COPIADO: un iframe copiado que ahora es popup no tiene botón pegado.
+  assert.equal(pieza(copiaDe(CONFIG_POR_DEFECTO, 'iframe'), BASE, popup).botonCongelado, false);
+});
+
+test('⚠️ piezaCopiada: un popup copiado que ahora va dentro de la página no pide copiarlo para que su botón cambie', () => {
+  // Caso B: copiar el código de ahora quitaría el botón, no lo haría cambiar.
+  const copia = copiaDe(CONFIG_POR_DEFECTO, 'popup');
+  assert.equal(pieza(copia, BASE, { metodoAhora: 'popup' }).botonCongelado, true);
+  assert.equal(pieza(copia, BASE, { metodoAhora: 'iframe' }).botonCongelado, false);
+  assert.equal(pieza(copia, BASE, { metodoAhora: 'boton' }).botonCongelado, false);
+  // Una copia de antes de la foto (solo la huella): la forma sale de la huella de ahora.
+  const vieja: Copiado = { firma: firmaCodigo(BASE, 'popup'), en: EN };
+  assert.equal(pieza(vieja, BASE, { metodoAhora: 'popup' }).botonCongelado, true);
+  assert.equal(pieza(vieja, BASE, { metodoAhora: 'iframe' }).botonCongelado, false);
+});
+
+test('⚠️ piezaCopiada: mientras se espera lo visto, el aviso del botón tampoco sale (si no, saldría y se iría con el ámbar)', () => {
+  const copia = copiaDe(CONFIG_POR_DEFECTO, 'popup');
+  const popup = { metodoAhora: 'popup' as const };
+  // El control: sin esperar, sí sale.
+  assert.equal(pieza(copia, BASE, { ...popup, vistos: undefined }).botonCongelado, true);
+  assert.equal(pieza(copia, BASE, { ...popup, vistos: undefined, esperandoVistos: true }).botonCongelado, false);
+  // Con cambios que llegan a la página, esperar calla el ámbar: el aviso del botón, con él.
+  const esperando = pieza(copia, conConfig({ tipos: ['tc-r'] }), { ...popup, vistos: undefined, esperandoVistos: true });
+  assert.equal(esperando.desfasado, false);
+  assert.equal(esperando.botonCongelado, false);
+});
+
+test('botonDeCodigoAnterior: lo copiado y lo de ahora, los dos popup; sin diseño propio y sin la marca', () => {
+  const x = { copiado: 'popup', ahora: 'popup', disenoPropio: false, botonVivo: undefined } as const;
+  assert.equal(botonDeCodigoAnterior(x), true);
+  // Caso A («Ponlo en tu web» con un iframe copiado y el popup de ahora): lo pegado no tiene botón.
+  assert.equal(botonDeCodigoAnterior({ ...x, copiado: 'iframe' }), false);
+  // Caso B: copiar el de ahora no haría cambiar ningún botón.
+  assert.equal(botonDeCodigoAnterior({ ...x, ahora: 'iframe' }), false);
+  assert.equal(botonDeCodigoAnterior({ ...x, copiado: null }), false);
+  assert.equal(botonDeCodigoAnterior({ ...x, botonVivo: true }), false);
+  assert.equal(botonDeCodigoAnterior({ ...x, disenoPropio: true }), false);
 });
 
 test('piezaCopiada: la clave de ahora sale de la forma de AHORA (lo copiado dentro de la página, ahora encima)', () => {

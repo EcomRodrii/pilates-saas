@@ -157,7 +157,11 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
 
 /**
  * El botón tal cual saldrá en su web: mismos atributos y mismo estilo que el
- * código (`estiloBoton`). Con el popup, pulsarlo abre la ventana REAL —el
+ * código (`estiloBoton`). El del popup que sigue el estilo de sus widgets
+ * (Fase D) se pinta con los LITERALES de `entrada.botonVivo`, que el
+ * constructor le pasa con el estilo que está probando; sin variables, así que
+ * la regla que pone /widget-popup.js en la página no lo toca (y con
+ * `vista-previa=1` ni la pide). Con el popup, pulsarlo abre la ventana REAL —el
  * runtime público /widget-popup.js se carga en el panel igual que en su web—,
  * con el estilo de sus widgets que está probando si aún no lo ha aplicado
  * (`borradorWeb`); con el botón, lleva a la página de verdad, que se ve como su
@@ -171,7 +175,7 @@ export function BotonEnTuWeb({ entrada, metodo, botonPropio, borradorWeb }: {
   /** El estilo de sus widgets sin aplicar, para que la ventana lo enseñe. */
   borradorWeb?: WidgetWeb;
 }) {
-  const s = estiloBoton(entrada);
+  const s = estiloBoton(entrada, metodo);
   const texto = textoBotonEfectivo(entrada.config, entrada.widget);
   useEffect(() => {
     if (metodo !== 'popup') return;

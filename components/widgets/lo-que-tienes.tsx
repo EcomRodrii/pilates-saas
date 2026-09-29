@@ -16,10 +16,11 @@ import type { EstiloWebPanel } from './usar-estilo-web';
 // widgets y el botón para poner otra cosa. Las frases salen de
 // lib/widgets/en-tu-web.ts, donde está también lo que NUNCA se dice.
 //
-// ⚠️ Solo lo copiado desde aquí: si lo pegó por otro camino (o lo copió a mano
-// porque el portapapeles falló), no sale, y el subtítulo lo dice. Su web se
-// nombra como TEXTO, nunca como enlace: el anfitrión llega de fuera y no se le
-// ofrece ir a una dirección que podría haber puesto cualquiera.
+// ⚠️ Solo lo copiado desde aquí: con el botón o a mano desde «Ver el código»
+// (Fase D: la copia a mano del código entero también se guarda). Si lo pegó
+// por otro camino, no sale, y el subtítulo lo dice. Su web se nombra como
+// TEXTO, nunca como enlace: el anfitrión llega de fuera y no se le ofrece ir a
+// una dirección que podría haber puesto cualquiera.
 
 export interface FilaTienes {
   id: string;
@@ -57,8 +58,8 @@ export function LoQueTienes({
   onWebsAutorizadas: (id: string) => void;
   onCambiarEstilo: () => void;
   onOtraCosa: () => void;
-  /** Solo si puede ver los resultados. */
-  onVerResultados?: () => void;
+  /** Solo si puede ver los resultados: lleva a los de la etiqueta con la que se copió. */
+  onVerResultados?: (etiqueta: string | null) => void;
 }) {
   // La más reciente, arriba.
   const ordenadas = [...filas].sort((a, b) => Date.parse(b.en) - Date.parse(a.en));
@@ -117,7 +118,7 @@ function FilaPieza({ f, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAu
   onCopiarNuevo: () => void;
   onEstiloComun: () => void;
   onWebsAutorizadas: () => void;
-  onVerResultados?: () => void;
+  onVerResultados?: (etiqueta: string | null) => void;
 }) {
   const { pieza: p } = f;
   const Icono = ICONOS[f.icono] ?? CalendarDays;
@@ -162,6 +163,16 @@ function FilaPieza({ f, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAu
             Lleva su propio diseño en el código, así que el estilo de tus widgets no le llega.
           </Nota>
         )}
+        {/*
+          Fase D: un popup copiado antes de que su botón siguiera el estilo. Con ámbar o con
+          otra versión a la vista ya se le pide copiarlo; y sin `ahora` (antes de montar) aún
+          no se sabe si habrá versión: saldría y se iría.
+        */}
+        {p.botonCongelado && !p.desfasado && ahora !== null && !textos.version && (
+          <Nota tono="info" accion="Ir a copiarlo" onAccion={onCopiarNuevo}>
+            El botón que abre la ventana es de un código anterior y se queda como está. Si quieres que también cambie solo con el estilo de tus widgets, copia el código de ahora y pégalo en lugar del de antes.
+          </Nota>
+        )}
         {f.webSinAutorizar && (
           <Nota tono="aviso" accion={f.conListaDeWebs ? 'Ir a las webs autorizadas' : undefined} onAccion={onWebsAutorizadas}>
             Tu web ({f.webSinAutorizar}) no está entre las webs autorizadas, y sin marco el widget solo carga en las que autorices.
@@ -172,7 +183,7 @@ function FilaPieza({ f, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAu
           {onVerResultados && (
             <button
               type="button"
-              onClick={onVerResultados}
+              onClick={() => onVerResultados(p.etiqueta)}
               aria-label={`Ver resultados de ${f.nombre}`}
               className={cn(TACTIL, 'gap-0.5 text-[12.5px] font-medium text-foreground underline underline-offset-2 hover:no-underline', FOCO)}
             >

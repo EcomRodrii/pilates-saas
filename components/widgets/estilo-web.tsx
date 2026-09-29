@@ -237,8 +237,29 @@ export function EstiloWeb({ estado, metodo, soloLectura, verApariencia, piezas, 
               <p>{enLista(piezas.columnasSinPaleta)}: con «Siete días en columnas» no se {piezas.columnasSinPaleta.length > 1 ? 'pintan' : 'pinta'} en oscuro, así que de este estilo solo {piezas.columnasSinPaleta.length > 1 ? 'les' : 'le'} llegan la letra, las esquinas, la separación y el pie.</p>
             )}
             <p>Los widgets con un diseño propio dentro de su código no cambian.</p>
-            {/* El color del botón sale de su marca o de la del estudio (`estiloBoton`), nunca de este estilo: ni copiándolo otra vez. */}
-            {piezas.hayPopup && <p>El botón que abre la ventana lleva su color dentro de su código: ese no cambia con este estilo, ni aunque lo copies otra vez. Lo de dentro de la ventana, sí.</p>}
+            {/*
+              El botón que abre la ventana (Fase D), y solo si este estilo cambia cómo
+              se ve (`cambiaElBotonDeLaVentana`): lo copiado leyendo sus variables
+              (`copiado.botonVivo`) lo sigue, aunque /api/public/widget-boton lo cachea
+              unos minutos; lo copiado antes lleva su color literal y se queda como está.
+              Volver a pegarlo es opcional y solo por el botón: no contradice «No tienes
+              que volver a pegar ningún código». Y nada de «lo de dentro de la ventana,
+              sí»: con las columnas de noche no le llega todo (la línea de arriba).
+            */}
+            {piezas.botonesVivos.length > 0 && (
+              <p>
+                {piezas.botonesVivos.length > 1
+                  ? `Los botones que abren la ventana de ${enLista(piezas.botonesVivos)} también cambian, aunque pueden tardar unos minutos más.`
+                  : `El botón que abre la ventana de ${piezas.botonesVivos[0]} también cambia, aunque puede tardar unos minutos más.`}
+              </p>
+            )}
+            {piezas.botonesCongelados.length > 0 && (
+              <p>
+                {piezas.botonesCongelados.length > 1
+                  ? `Los botones que abren la ventana de ${enLista(piezas.botonesCongelados)} son de un código anterior y se quedan como están. Si quieres que también cambien solos, copia su código otra vez y pégalo en lugar del de antes.`
+                  : `El botón que abre la ventana de ${piezas.botonesCongelados[0]} es de un código anterior y se queda como está. Si quieres que también cambie solo, copia su código otra vez y pégalo en lugar del de antes.`}
+              </p>
+            )}
             {piezas.hayNativa && <p>El widget sin marco no sigue este estilo.</p>}
             {piezas.hayPagina && <p>Los enlaces y botones que llevan a tu página no cambian: tu página se ve como tu app.</p>}
           </div>

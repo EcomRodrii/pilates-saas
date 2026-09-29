@@ -10,7 +10,7 @@ import { LEGAL } from '@/lib/legal-info';
 import { btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
 import { WIDGETS, widgetPorId, esDisponible, type MetodoIntegracion, type WidgetDisponible } from '@/lib/widgets/catalogo';
 import {
-  CONFIG_POR_DEFECTO, anchoPopupDe, anchoPorDefecto, etiquetaEfectiva, fusionarWidgetBuilder, leerConfigs, leerCopiados, nuevaCopia,
+  CONFIG_POR_DEFECTO, anchoPopupDe, anchoPorDefecto, esLaMismaCopia, etiquetaEfectiva, fusionarWidgetBuilder, leerConfigs, leerCopiados, nuevaCopia,
   type ConfigConstructor, type Copiado,
 } from '@/lib/widgets/config';
 import { embudoPorWidget, textoMes, type EmbudoWidget } from '@/lib/widgets/embudo';
@@ -20,11 +20,12 @@ import { dbEmbudoWidgetPorOrigen, dbWidgetVistos } from '@/lib/supabase-data';
 import { useRol } from '@/lib/permisos';
 import { puedeGestionarPortalHome, puedeVer } from '@/lib/permisos-reglas';
 import {
-  conVistaPrevia, faltaParaGenerar, firmaContenidoDe, urlEmbebido, urlPagina, type EntradaIntegracion,
+  botonSigueElEstilo, conVistaPrevia, faltaParaGenerar, firmaContenidoDe, urlEmbebido, urlPagina, type EntradaIntegracion,
 } from '@/lib/widgets/integracion';
 import { urlPopupPermitida } from '@/lib/widgets/popup-url';
 import { piezasAfectadas } from '@/lib/widgets/estilo-afectados';
 import { colorDeLaWeb } from '@/lib/reservar/estilo-web-tipos';
+import { botonDeLaVentana } from '@/lib/reservar/estilo-web';
 import {
   direccionLegible, leerWeb, metodoEnWeb, nombrePlataforma, receta as recetaDe, usaBotonPropio, type EstadoWeb, type PlataformaWeb,
 } from '@/lib/widgets/recetas';
@@ -68,6 +69,13 @@ import { GestionDominios } from './dominios';
 // lo copiado, que se sabe al montar: lo visto en su web llega después, y
 // decidir con eso haría saltar la pantalla. Se monta y se desmonta; los tres
 // pasos siguen montados debajo, ocultos, con el código en el DOM.
+//
+// El botón que abre la ventana (Fase D, 29-sep-2026) sigue ese estilo en vivo:
+// el código lleva variables CSS y, de respaldo, el botón como se ve HOY en su
+// web —lo PUBLICADO, nunca el borrador: es lo que pintará mientras no llegue el
+// de ahora—. La vista previa, en cambio, pinta el borrador. Y al copiar se
+// marca si lo copiado lee esas variables (`copiado.botonVivo`), con el mismo
+// predicado que las emite: es lo único que dice si un botón pegado cambia solo.
 
 const ORIGEN_POR_DEFECTO = new URL(LEGAL.url).origin;
 const HORARIO = WIDGETS.find((x): x is WidgetDisponible => x.id === 'horario' && x.estado === 'disponible')!;
@@ -94,8 +102,11 @@ const hayCopias = (copiados: Readonly<Record<string, Copiado>>) => Object.keys(c
 export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   slug: string;
   showToast: (m: string) => void;
-  /** Lleva a «Cómo le va a tu página». */
-  onVerResultados?: () => void;
+  /**
+   * Lleva a «Cómo le va a tu página», centrada en la fila de esa etiqueta
+   * (`null`: sin etiqueta que medir, se abre sin centrar en ninguna).
+   */
+  onVerResultados?: (etiqueta: string | null) => void;
 }) {
   const { sesiones, tiposClase, salas, instructores, planesTarifa, citasServicios, studio, updateStudio, reflejarStudioGuardado } = useStudio();
   const origen = typeof window !== 'undefined' ? window.location.origin : ORIGEN_POR_DEFECTO;
@@ -196,18 +207,25 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
 
   // Sin useMemo a mano: el React Compiler ya memoiza, y uno manual sobre `w`
   // (un objeto del catálogo) le impide optimizar el componente entero.
-  const entrada: EntradaIntegracion = { widget: w, config: configEfectiva, origen, slug, colorEstudio: studio?.colorPrimario ?? null };
+  // `botonVivo`: el respaldo del botón del popup en el código, con lo PUBLICADO
+  // (mientras carga, `null`: el de siempre, `colorBoton`).
+  const entrada: EntradaIntegracion = {
+    widget: w, config: configEfectiva, origen, slug, colorEstudio: studio?.colorPrimario ?? null,
+    botonVivo: estiloWeb.base ? botonDeLaVentana(estiloWeb.publicado, estiloWeb.base) : null,
+  };
 
   // Al copiar se guarda, además de la huella, la forma, una foto de la config
-  // (sin huérfanos) y la versión que verá la página: con eso la portada dice QUÉ
-  // cambió y qué hay en su web.
+  // (sin huérfanos), la versión que verá la página y si su botón sigue el
+  // estilo: con eso la portada dice QUÉ cambió y qué hay en su web. Copiar otra
+  // vez lo mismo en menos de un minuto (el botón y después a mano, o dos
+  // Ctrl+C) no se vuelve a guardar.
   function registrarCopia(firma: string) {
-    const siguientes = {
-      ...copiados,
-      [w.id]: nuevaCopia(copiados[w.id], {
-        firma, en: new Date().toISOString(), metodo, config: configEfectiva, contenido: firmaContenidoDe(entrada, metodo),
-      }),
-    };
+    const nueva = nuevaCopia(copiados[w.id], {
+      firma, en: new Date().toISOString(), metodo, config: configEfectiva, contenido: firmaContenidoDe(entrada, metodo),
+      botonVivo: botonSigueElEstilo(configEfectiva, metodo),
+    });
+    if (esLaMismaCopia(copiados[w.id], nueva)) return;
+    const siguientes = { ...copiados, [w.id]: nueva };
     setCopiados(siguientes);
     guardar({ copiados: siguientes }, true);
   }
@@ -399,10 +417,15 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     ? ((configEfectiva.ancho ?? anchoPorDefecto(w, configEfectiva)) === 'compacto' ? 480 : null)
     : metodo === 'popup' ? anchoPopupDe(w, configEfectiva) : null;
   const botonPropio = metodo === 'boton' && usaBotonPropio(plataforma);
+  // El botón de la previa, con el estilo que está PROBANDO (el código lleva lo publicado).
+  const entradaPrevia: EntradaIntegracion = {
+    ...entrada,
+    botonVivo: estiloWeb.base ? botonDeLaVentana(borradorWeb ?? estiloWeb.publicado, estiloWeb.base) : entrada.botonVivo,
+  };
   const forma: FormaPrevia = metodo === 'popup' || metodo === 'boton'
     ? {
       tipo: 'boton',
-      boton: <BotonEnTuWeb entrada={entrada} metodo={metodo} botonPropio={botonPropio} borradorWeb={borradorWeb} />,
+      boton: <BotonEnTuWeb entrada={entradaPrevia} metodo={metodo} botonPropio={botonPropio} borradorWeb={borradorWeb} />,
       pista: botonPropio
         ? 'Es el botón de tu propia web con tu enlace: se verá como el resto de tus botones.'
         : metodo === 'popup' ? 'Púlsalo: se abre encima, como pasará en tu web.' : 'Púlsalo: lleva a tu página de reservas.',
@@ -419,10 +442,11 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
     fondo: configEfectiva.identidad === 'propia' && configEfectiva.tema === 'oscuro' ? FONDO_WEB_OSCURA : colorDeLaWeb(estiloWeb.borrador),
   };
   // Lo que nombra la confirmación: solo lo copiado que sigue siendo el código de
-  // ahora, y a qué le llega el borrador que se va a aplicar.
+  // ahora, y a qué le llega el borrador que se va a aplicar (el botón de la
+  // ventana, solo si se ve distinto que con lo publicado).
   const piezas = piezasAfectadas({
     configs: configsCopiadas, copiados, plataforma, origen, slug, colorEstudio: studio?.colorPrimario ?? null,
-    estilo: estiloWeb.borrador, base: estiloWeb.base,
+    estilo: estiloWeb.borrador, publicado: estiloWeb.publicado, base: estiloWeb.base,
   });
 
   const ofertasPrueba = planesTarifa.filter(p => p.activo && p.esPrueba === true);
@@ -507,7 +531,9 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
                 Cambiar
               </button>
             </p>
-            {conPrevia && resultadosMes && etiquetaActiva && <ResumenMes resultado={resultadoActivo} onVer={onVerResultados} />}
+            {conPrevia && resultadosMes && etiquetaActiva && (
+              <ResumenMes resultado={resultadoActivo} onVer={onVerResultados ? () => onVerResultados(etiquetaActiva) : undefined} />
+            )}
           </div>
           {conPrevia && (
             <nav aria-label="Pasos" className="flex flex-wrap gap-2">
@@ -569,7 +595,6 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
                 onWebsAutorizadas={irAWebsAutorizadas}
                 onCambiarEstilo={() => irA('como')}
                 onOtraCosa={ponerOtraCosa}
-                // Sin filtrar por widget (Fase D): lleva a «Cómo le va a tu página».
                 onVerResultados={veResultados ? onVerResultados : undefined}
               />
             </div>

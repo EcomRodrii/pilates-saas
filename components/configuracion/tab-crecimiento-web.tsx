@@ -14,13 +14,13 @@
 // marketing/captación, no de finanzas, y RECEPCION no debe verlo. `/configuracion`
 // ya filtra por rol antes de llegar aquí — este gate en cliente es defensa en
 // profundidad, no el único candado (mismo criterio que TabCuestionarioSalud).
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { puedeGestionarPortalHome } from '@/lib/permisos-reglas';
 import { dbEmbudoWidget, dbEmbudoWidgetPorDia, dbEmbudoWidgetPorOrigen } from '@/lib/supabase-data';
-import { embudoPorWidget, type EmbudoWidget } from '@/lib/widgets/embudo';
+import { embudoPorWidget, nombreDeEtiqueta, type EmbudoWidget } from '@/lib/widgets/embudo';
 import { inicioDeSemana } from '@/lib/utils';
 import { cardCls } from '@/components/configuracion/estilos';
 import { ChartLine } from '@/components/dashboard/custom-charts';
@@ -49,7 +49,11 @@ function n(porTipo: Map<string, number>, tipo: TipoEventoWidget): number {
   return porTipo.get(tipo) ?? 0;
 }
 
-export function TabCrecimientoWeb({ showToast: _showToast }: { showToast: (m: string) => void }) {
+export function TabCrecimientoWeb({ showToast: _showToast, enfoque = null }: {
+  showToast: (m: string) => void;
+  /** La etiqueta del widget en el que centrarse («Ver resultados» de un widget); `null`, ninguno. */
+  enfoque?: string | null;
+}) {
   const { studio } = useStudio();
   const rol = useRol();
   const puedeVer = puedeGestionarPortalHome(rol);
@@ -133,7 +137,7 @@ export function TabCrecimientoWeb({ showToast: _showToast }: { showToast: (m: st
         )}
       </div>
 
-      <TablaPorWidget filas={porWidget} />
+      <TablaPorWidget filas={porWidget} enfoque={enfoque} />
 
       <div className={`${cardCls} divide-y divide-border`}>
         {filas.map(f => (
@@ -166,7 +170,22 @@ export function TabCrecimientoWeb({ showToast: _showToast }: { showToast: (m: st
 // «Tentare Widgets»: el mismo embudo, partido por la etiqueta de cada widget
 // (lib/widgets/embudo.ts). Solo cuenta lo que llegó con etiqueta: los códigos
 // pegados antes de las etiquetas salen juntos en «Sin etiqueta», y se dice.
-function TablaPorWidget({ filas }: { filas: EmbudoWidget[] | null }) {
+//
+// Con `enfoque` (llega de «Ver resultados» de un widget, Fase D) su fila se
+// resalta, lleva `aria-current` y se lleva el foco y el scroll UNA sola vez:
+// cambiar de periodo no le vuelve a mover la pantalla. Si en el periodo no
+// tiene fila, se dice en una línea, que se lleva el foco en su lugar.
+function TablaPorWidget({ filas, enfoque }: { filas: EmbudoWidget[] | null; enfoque: string | null }) {
+  // Antes de cualquier `return`: un hook no puede depender de lo que llegue.
+  const centrada = useRef(false);
+  // Ref de callback: corre al montar la fila (o la línea), nunca al pintar.
+  const centrar = (el: HTMLElement | null) => {
+    if (!el || centrada.current) return;
+    centrada.current = true;
+    el.scrollIntoView({ block: 'center' });
+    el.focus({ preventScroll: true });
+  };
+
   if (filas === null) {
     return (
       <div className={`${cardCls} p-5`}>
@@ -174,7 +193,8 @@ function TablaPorWidget({ filas }: { filas: EmbudoWidget[] | null }) {
       </div>
     );
   }
-  if (filas.length === 0) return null;
+  const sinFila = enfoque !== null && !filas.some(f => f.etiqueta === enfoque);
+  if (filas.length === 0 && !sinFila) return null;
   const soloSinEtiqueta = filas.every(f => f.etiqueta === null);
   const cols: { clave: keyof EmbudoWidget; titulo: string }[] = [
     { clave: 'visitas', titulo: 'Visitas' },
@@ -187,39 +207,57 @@ function TablaPorWidget({ filas }: { filas: EmbudoWidget[] | null }) {
     <section aria-labelledby="por-widget-titulo" className={`${cardCls} overflow-hidden`}>
       <div className="px-5 pt-4 pb-3">
         <h5 id="por-widget-titulo" className="text-[13px] font-semibold text-foreground">Por widget</h5>
-        <p className="mt-0.5 text-[12px] text-muted-foreground">
-          {soloSinEtiqueta
-            ? 'Tus visitas llegan por códigos sin etiqueta. Vuelve a copiar el código de cada widget y reemplázalo en tu web para verlas separadas aquí.'
-            : 'Cada código copiado desde «Widgets» lleva la etiqueta de su widget. Los pegados antes salen juntos en «Sin etiqueta». En planes y bonos la compra se confirma con el pago, fuera de este embudo: por eso no llevan conversión.'}
-        </p>
+        {filas.length > 0 && (
+          <p className="mt-0.5 text-[12px] text-muted-foreground">
+            {soloSinEtiqueta
+              ? 'Tus visitas llegan por códigos sin etiqueta. Vuelve a copiar el código de cada widget y reemplázalo en tu web para verlas separadas aquí.'
+              : 'Cada código copiado desde «Widgets» lleva la etiqueta de su widget. Los pegados antes salen juntos en «Sin etiqueta». En planes y bonos la compra se confirma con el pago, fuera de este embudo: por eso no llevan conversión.'}
+          </p>
+        )}
+        {sinFila && (
+          <p ref={centrar} tabIndex={-1} className="mt-2 text-[12.5px] font-medium text-foreground outline-none [overflow-wrap:anywhere]">
+            {nombreDeEtiqueta(enfoque).nombre}: aún no ha llegado nadie en este periodo.
+          </p>
+        )}
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-[12.5px]">
-          <thead>
-            <tr className="border-y border-border bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-              <th scope="col" className="px-5 py-2 font-semibold">Widget</th>
-              {cols.map(c => <th key={c.clave} scope="col" className="px-3 py-2 text-right font-semibold">{c.titulo}</th>)}
-              <th scope="col" className="px-5 py-2 text-right font-semibold">Conversión</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filas.map(f => (
-              <tr key={f.etiqueta ?? '—'}>
-                <th scope="row" className="px-5 py-2.5 text-left font-medium text-foreground">
-                  {f.nombre}
-                  {f.etiqueta && f.widgetId && <span className="ml-1.5 font-mono text-[11px] font-normal text-muted-foreground">{f.etiqueta}</span>}
-                </th>
-                {cols.map(c => (
-                  <td key={c.clave} className="px-3 py-2.5 text-right tabular-nums text-foreground">{(f[c.clave] as number).toLocaleString('es-ES')}</td>
-                ))}
-                <td className="px-5 py-2.5 text-right font-semibold tabular-nums text-foreground">
-                  {f.conversion === null ? '—' : `${f.conversion.toLocaleString('es-ES')} %`}
-                </td>
+      {filas.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-[12.5px]">
+            <thead>
+              <tr className="border-y border-border bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                <th scope="col" className="px-5 py-2 font-semibold">Widget</th>
+                {cols.map(c => <th key={c.clave} scope="col" className="px-3 py-2 text-right font-semibold">{c.titulo}</th>)}
+                <th scope="col" className="px-5 py-2 text-right font-semibold">Conversión</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filas.map(f => {
+                const actual = enfoque !== null && f.etiqueta === enfoque;
+                return (
+                  <tr
+                    key={f.etiqueta ?? '—'}
+                    ref={actual ? centrar : undefined}
+                    aria-current={actual ? 'true' : undefined}
+                    tabIndex={actual ? -1 : undefined}
+                    className={actual ? 'bg-brand/10 outline-none' : undefined}
+                  >
+                    <th scope="row" className="px-5 py-2.5 text-left font-medium text-foreground">
+                      {f.nombre}
+                      {f.etiqueta && f.widgetId && <span className="ml-1.5 font-mono text-[11px] font-normal text-muted-foreground">{f.etiqueta}</span>}
+                    </th>
+                    {cols.map(c => (
+                      <td key={c.clave} className="px-3 py-2.5 text-right tabular-nums text-foreground">{(f[c.clave] as number).toLocaleString('es-ES')}</td>
+                    ))}
+                    <td className="px-5 py-2.5 text-right font-semibold tabular-nums text-foreground">
+                      {f.conversion === null ? '—' : `${f.conversion.toLocaleString('es-ES')} %`}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }

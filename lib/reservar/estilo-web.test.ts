@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COLOR_PRIMARIO_POR_DEFECTO, MENSAJE_BOTON_ILEGIBLE, MENSAJE_FUNDIDO_ILEGIBLE, PARAMS_DISENO_PROPIO,
-  baseEstiloWeb, botonPorDefecto, botonWeb, leerBorradorWeb, paletaWidget, resolverEstiloWeb, resumenEstiloWeb,
+  baseEstiloWeb, botonDeLaVentana, botonPorDefecto, botonWeb, cambiaElBotonDeLaVentana, leerBorradorWeb, paletaWidget, resolverEstiloWeb, resumenEstiloWeb,
   textoActividadEstiloWeb, urlTraeDisenoPropio, validarEstiloWeb, type Contexto,
 } from './estilo-web.ts';
 import { COLOR_WEB, PARAM_BORRADOR, WIDGET_WEB_NEUTRO, borradorAParam, type WidgetWeb } from './estilo-web-tipos.ts';
@@ -20,6 +20,7 @@ import { ratioContraste } from '../wcag-contrast.ts';
 import { WIDGETS, esDisponible } from '../widgets/catalogo.ts';
 import { CONFIG_POR_DEFECTO, type ConfigConstructor } from '../widgets/config.ts';
 import { tieneDisenoEnCodigo, urlEmbebido } from '../widgets/integracion.ts';
+import { leerBotonVivo } from '../widgets/boton-vivo.ts';
 
 const r = (a: string, b: string) => ratioContraste(a, b) ?? 0;
 const w = (parcial: Partial<WidgetWeb> = {}): WidgetWeb => ({ ...WIDGET_WEB_NEUTRO, ...parcial });
@@ -251,6 +252,81 @@ test('botonPorDefecto: la opción que se ve igual que la de por defecto, o ningu
   // App en Crema + «fiel»: por defecto va el acento fiel de la app, y un rosa
   // pastel tal cual (con letra oscura) no se le parece: ninguna coincide.
   assert.equal(botonPorDefecto('crema', base('#F7A6C4', { marca: 'fiel' })), null);
+});
+
+// ── El botón que abre la ventana (Fase D) ────────────────────────────────────
+
+test('⚠️ botonDeLaVentana: los botones de DENTRO de la ventana, y el servidor nunca emite algo que el script rechace', () => {
+  // 8 estilos de la app × sus dos marcas × 9 colores (y sin color) × con y sin
+  // estilo solo para su web × 4 botones × 4 esquinas.
+  let casos = 0;
+  for (const [i, estilo] of ESTILO_IDS.entries()) for (const marca of ['suave', 'fiel'] as const) {
+    for (const c of [...COLORES, null]) {
+      const b = base(c, { estilo, marca });
+      for (const propio of [null, ESTILO_IDS[(i + 3) % ESTILO_IDS.length]]) {
+        for (const boton of [null, 'tinta', 'suave', 'fiel'] as const) for (const forma of [null, 'pill', 'redondeado', 'recto'] as const) {
+          const x = w({ estilo: propio, boton, forma });
+          const caso = `${estilo}/${marca}/${c}/${propio}/${boton}/${forma}`;
+          const dentro = resolverEstiloWeb(x, b, 'ventana')?.boton ?? botonWeb(null, b.app.estilo, b);
+          const vivo = botonDeLaVentana(x, b);
+          assert.deepEqual(vivo, { ...dentro, esquinas: forma ?? 'pill' }, caso);
+          assert.notEqual(leerBotonVivo(vivo), null, `${caso}: ${JSON.stringify(vivo)}`);
+          casos++;
+        }
+      }
+    }
+  }
+  assert.equal(casos, 8 * 2 * 10 * 2 * 4 * 4);
+});
+
+test('botonDeLaVentana: con nada elegido, los botones de F1 y las esquinas de siempre', () => {
+  for (const x of [null, undefined, w(), w({ web: 'oscura' })]) {
+    for (const c of COLORES) {
+      assert.deepEqual(botonDeLaVentana(x, base(c)), { ...botonWeb(null, 'crema', base(c)), esquinas: 'pill' }, `${c}/${JSON.stringify(x)}`);
+    }
+  }
+  // Sin color de estudio, el de por defecto.
+  assert.equal(botonDeLaVentana(null, base(null)).fondo, COLOR_PRIMARIO_POR_DEFECTO);
+});
+
+test('⚠️ botonDeLaVentana: fundido no cuenta (el marco de la ventana es blanco fijo)', () => {
+  // Arena fundida sobre una web oscura: dentro de su web pasa a Carbón y sus
+  // botones con ella; en la ventana, y por tanto en el botón que la abre, no.
+  const arena = { estilo: 'arena', boton: 'tinta', web: 'oscura' } as const;
+  const b = base('#1F4E79');
+  const fundido = botonDeLaVentana(w({ ...arena, fundido: true }), b);
+  assert.deepEqual(fundido, botonDeLaVentana(w({ ...arena, fundido: false }), b));
+  assert.deepEqual(fundido, { ...botonWeb('tinta', 'arena', b), esquinas: 'pill' });
+  assert.notDeepEqual({ fondo: fundido.fondo, texto: fundido.texto }, resolverEstiloWeb(w({ ...arena, fundido: true }), b, 'dentro')!.boton);
+});
+
+test('cambiaElBotonDeLaVentana: la letra, la separación, el pie o su web no lo tocan; el color y las esquinas, sí', () => {
+  for (const estilo of [null, ...ESTILO_IDS]) for (const c of COLORES) {
+    const b = base(c);
+    const antes = w({ estilo });
+    const caso = `${estilo}/${c}`;
+    // Lo que no lee el código del popup: el botón se ve igual.
+    for (const parcial of [
+      { letra: 'editorial' }, { densidad: 'compacta' }, { ocultarPie: true }, { web: 'oscura' }, { web: 'oscura', fundido: true },
+      // «Las de siempre» son las redondas: las mismas esquinas por valor.
+      { forma: 'pill' },
+    ] as Partial<WidgetWeb>[]) {
+      assert.equal(cambiaElBotonDeLaVentana(antes, w({ estilo, ...parcial }), b), false, `${caso}/${JSON.stringify(parcial)}`);
+    }
+    // Nada publicado (`null`) es lo mismo que nada elegido.
+    if (estilo === null) assert.equal(cambiaElBotonDeLaVentana(null, w({ letra: 'editorial' }), b), false, caso);
+    // Las esquinas: siempre se ven distintas.
+    assert.equal(cambiaElBotonDeLaVentana(antes, w({ estilo, forma: 'recto' }), b), true, caso);
+    assert.equal(cambiaElBotonDeLaVentana(w({ estilo, forma: 'recto' }), w({ estilo, forma: 'redondeado' }), b), true, caso);
+  }
+  // El color de los botones, donde de verdad cambia: el color del estudio tal
+  // cual (por defecto, en Crema) frente a la tinta de Crema.
+  const b = base('#E11D48');
+  assert.notEqual(botonDeLaVentana(null, b).fondo, botonDeLaVentana(w({ boton: 'tinta' }), b).fondo);
+  assert.equal(cambiaElBotonDeLaVentana(null, w({ boton: 'tinta' }), b), true);
+  assert.equal(cambiaElBotonDeLaVentana(w({ boton: 'tinta' }), null, b), true);
+  // Y al revés: elegir un color que se ve igual que el de ahora no es un cambio.
+  assert.equal(cambiaElBotonDeLaVentana(w({ boton: 'tinta' }), w({ boton: 'tinta', letra: 'editorial' }), b), false);
 });
 
 test('la marca escrita en línea se lee como texto sobre lo que se ve, fundido incluido', () => {

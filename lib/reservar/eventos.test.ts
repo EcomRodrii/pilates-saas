@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   TIPOS_EVENTO_WIDGET, esTipoEventoValido, fijarPegadoWidget, sessionIdWidget, silenciarEventosWidget, trackEventoWidget,
+  visitaYaContada,
 } from './eventos.ts';
 
 test('los tipos de evento son únicos', () => {
@@ -107,4 +108,25 @@ test('la vista previa silenciada no manda nada, tampoco el pegado', () => {
     trackEventoWidget('studio-1', 'widget_viewed');
   });
   assert.deepEqual(cuerpos.map(c => c.tipo), ['widget_viewed']);
+});
+
+// ── Fase D: la visita de la integración nativa no se cuenta dos veces ────────
+
+test('visitaYaContada: solo la redirección de la nativa (`directo=1`), que ya contó la visita en su web', () => {
+  const p = (q: string) => new URLSearchParams(q);
+  assert.equal(visitaYaContada(p('sesion=s1&directo=1&ref=web-horario')), true);
+  assert.equal(visitaYaContada(p('sesion=s1&directo=0&ref=web-horario')), false);
+  assert.equal(visitaYaContada(p('sesion=s1&ref=web-horario')), false);
+  assert.equal(visitaYaContada(p('')), false);
+  // Un enlace compartido a una clase, o el widget incrustado, cuentan como siempre.
+  assert.equal(visitaYaContada(p('embed=1&tab=clases&ref=web-horario')), false);
+  assert.equal(visitaYaContada(p('directo=true')), false);
+});
+
+test('⚠️ visitaYaContada: con `embed=1` no es la redirección de la nativa (va siempre a pantalla completa) y cuenta', () => {
+  const p = (q: string) => new URLSearchParams(q);
+  assert.equal(visitaYaContada(p('embed=1&tab=clases&ref=web-horario&directo=1')), false);
+  assert.equal(visitaYaContada(p('directo=1&embed=1')), false);
+  // `embed` con otro valor no es el modo incrustado: la redirección sigue siendo ella.
+  assert.equal(visitaYaContada(p('sesion=s1&directo=1&embed=0&ref=web-horario')), true);
 });

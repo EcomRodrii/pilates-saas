@@ -107,3 +107,22 @@ await esbuild.build({
   format: 'iife',
 });
 console.log('✔ public/widget-popup.js generado');
+
+// ⚠️ Los tres ficheros de arriba se sirven en las webs de los estudios: los
+// datos del titular de LEGAL (lib/legal-info.ts) no pintan nada en ellos. Se
+// colaban enteros detrás de un import de una sola función (el origen canónico),
+// y eso no lo ve nadie sin abrir el minificado. Se comprueba con el NIF, LEÍDO
+// de ese fichero y nunca copiado aquí; si no se encuentra, se para: una guarda
+// que no sabe qué buscar no guarda nada.
+const nifTitular = /\bnif:\s*(['"])([^'"]+)\1/.exec(fs.readFileSync(path.join(raiz, 'lib/legal-info.ts'), 'utf8'))?.[2];
+if (!nifTitular) {
+  console.error('✖ No se ha podido leer el NIF de lib/legal-info.ts para comprobar los bundles públicos.');
+  process.exit(1);
+}
+for (const fichero of ['widget.js', 'widget-checkout.js', 'widget-popup.js']) {
+  if (fs.readFileSync(path.join(raiz, 'public', fichero), 'utf8').includes(nifTitular)) {
+    console.error(`✖ public/${fichero} lleva los datos del titular (LEGAL, lib/legal-info.ts). Importa solo lo que haga falta, sin arrastrar LEGAL.`);
+    process.exit(1);
+  }
+}
+console.log('✔ Ningún bundle público lleva los datos del titular');

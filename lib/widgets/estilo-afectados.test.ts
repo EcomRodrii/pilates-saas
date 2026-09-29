@@ -20,7 +20,9 @@ const BASE = baseEstiloWeb('#343825', null);
 const GENERADO = { origen: 'https://tentare.example.com', slug: 'pilates-centro', colorEstudio: '#343825' };
 const widget = (id: string) => WIDGETS.find((x): x is WidgetDisponible => x.id === id && esDisponible(x))!;
 const HORARIO = widget('horario');
-const VACIO = { cambian: [], columnasSinPaleta: [], hayPopup: false, hayNativa: false, hayPagina: false };
+const VACIO = { cambian: [], columnasSinPaleta: [], botonesVivos: [], botonesCongelados: [], hayNativa: false, hayPagina: false };
+/** Un borrador que sí cambia cómo se ve el botón de la ventana (sus esquinas) frente a nada publicado. */
+const BOTON_NUEVO = ww({ forma: 'recto' });
 
 /** La copia que registra el constructor al copiar el código de esta config, tal como es ahora. */
 function copiaDe(id: string, config: ConfigConstructor, plataforma: PlataformaWeb | null): Copiado {
@@ -35,7 +37,7 @@ function datos(
 ): DatosAfectados {
   const copiados: Record<string, Copiado> = {};
   for (const [id, config] of Object.entries(configs)) copiados[id] = copiaDe(id, config, plataforma);
-  return { configs, copiados, plataforma, ...GENERADO, estilo: null, base: BASE, ...extra };
+  return { configs, copiados, plataforma, ...GENERADO, estilo: null, publicado: null, base: BASE, ...extra };
 }
 
 test('nada copiado desde aquí: nada que nombrar', () => {
@@ -51,9 +53,11 @@ test('solo lo COPIADO desde el constructor, por su nombre y en el orden del cat�
 });
 
 test('la ventana encima cambia (su botón no); sin marco y los enlaces a la página, no', () => {
-  const r = piezasAfectadas(datos({ horario: c({ metodo: 'popup' }), planes: c({ metodo: 'boton' }), cuenta: c({ metodo: 'enlace' }) }, 'otra'));
+  const r = piezasAfectadas(datos({ horario: c({ metodo: 'popup' }), planes: c({ metodo: 'boton' }), cuenta: c({ metodo: 'enlace' }) }, 'otra', { estilo: BOTON_NUEVO }));
   assert.deepEqual(r.cambian, ['Horario y reservas']);
-  assert.equal(r.hayPopup, true);
+  // Copiado sin la marca de la Fase D: su botón es de un código anterior.
+  assert.deepEqual(r.botonesCongelados, ['Horario y reservas']);
+  assert.deepEqual(r.botonesVivos, []);
   assert.equal(r.hayPagina, true);
   assert.equal(r.hayNativa, false);
   const nativa = piezasAfectadas(datos({ horario: c({ metodo: 'nativa' }) }, 'otra'));
@@ -144,7 +148,7 @@ test('⚠️ columnas + estilo de noche: sale de «cambian» a su propia línea,
             assert.equal(resolverEstiloWeb(borrador, base, metodo === 'popup' ? 'ventana' : 'dentro')!.noche, true, caso);
           }
           const r = piezasAfectadas({
-            configs: { [w.id]: config }, copiados: { [w.id]: copiaDe(w.id, config, null) }, plataforma: null, ...GENERADO, estilo: borrador, base,
+            configs: { [w.id]: config }, copiados: { [w.id]: copiaDe(w.id, config, null) }, plataforma: null, ...GENERADO, estilo: borrador, publicado: null, base,
           });
           assert.deepEqual(r.columnasSinPaleta, sin ? [w.nombre] : [], caso);
           assert.deepEqual(r.cambian, sin ? [] : [w.nombre], caso);
@@ -178,4 +182,71 @@ test('los casos que se ven: Carbón, y «Oscura» fundida, sí; en la ventana en
   assert.deepEqual(r, { ...VACIO, cambian: ['Planes y precios'], columnasSinPaleta: ['Horario y reservas'] });
   // Mientras carga el estilo (sin base) no se puede saber: nadie enseña la confirmación así.
   assert.deepEqual(piezasAfectadas(datos({ horario: columnas }, null, { estilo: carbon, base: null })).cambian, ['Horario y reservas']);
+});
+
+// ── Fase D: el botón que abre la ventana ────────────────────────────────────
+
+test('el botón de la ventana: sigue el estilo si se copió leyendo sus variables; si no, es de un código anterior', () => {
+  const popup = c({ metodo: 'popup' });
+  const sinMarca = datos({ horario: popup, planes: popup }, null, { estilo: BOTON_NUEVO });
+  const conMarca: DatosAfectados = {
+    ...sinMarca, copiados: { ...sinMarca.copiados, planes: { ...sinMarca.copiados.planes, botonVivo: true } },
+  };
+  const r = piezasAfectadas(conMarca);
+  assert.deepEqual(r.botonesVivos, ['Planes y precios']);
+  assert.deepEqual(r.botonesCongelados, ['Horario y reservas']);
+  // Lo de dentro de la ventana cambia en los dos.
+  assert.deepEqual(r.cambian, ['Horario y reservas', 'Planes y precios']);
+  assert.deepEqual(piezasAfectadas(sinMarca).botonesCongelados, ['Horario y reservas', 'Planes y precios']);
+});
+
+test('el botón de la ventana: con diseño propio, cambiado después de copiarlo o fuera del popup, en ninguna de las dos', () => {
+  // Diseño propio: esa línea ya dice que no cambia.
+  const propio = c({ metodo: 'popup', identidad: 'propia', marca: '#E11D48' });
+  const d = datos({ horario: propio }, null, { estilo: BOTON_NUEVO });
+  assert.deepEqual(piezasAfectadas({ ...d, copiados: { horario: { ...d.copiados.horario, botonVivo: true } } }), VACIO);
+  assert.deepEqual(piezasAfectadas(d), VACIO);
+  // Otra huella: no sabemos qué hay pegado.
+  const otra = piezasAfectadas(datos({ horario: c({ metodo: 'popup' }) }, null, {
+    copiados: { horario: { firma: 'huella', en: '2026-09-28T10:00:00.000Z', botonVivo: true } }, estilo: BOTON_NUEVO,
+  }));
+  assert.deepEqual(otra, VACIO);
+  // Dentro de una página no hay botón que abra nada.
+  const iframe = datos({ horario: c({ metodo: 'iframe' }) }, null, { estilo: BOTON_NUEVO });
+  const r = piezasAfectadas({ ...iframe, copiados: { horario: { ...iframe.copiados.horario, botonVivo: true } } });
+  assert.deepEqual([r.botonesVivos, r.botonesCongelados], [[], []]);
+});
+
+test('⚠️ el botón de la ventana: si este estilo no cambia cómo se ve (solo la letra), ninguna de las dos líneas habla de él', () => {
+  const popup = c({ metodo: 'popup' });
+  const sinMarca = datos({ horario: popup, planes: popup }, null, { estilo: ww({ letra: 'editorial' }) });
+  const conMarca: DatosAfectados = {
+    ...sinMarca, copiados: { ...sinMarca.copiados, planes: { ...sinMarca.copiados.planes, botonVivo: true } },
+  };
+  const r = piezasAfectadas(conMarca);
+  // Lo de dentro de la ventana sí cambia: la letra.
+  assert.deepEqual(r.cambian, ['Horario y reservas', 'Planes y precios']);
+  assert.deepEqual([r.botonesVivos, r.botonesCongelados], [[], []]);
+  // Lo mismo si el botón ya se veía así en su web: se compara con lo PUBLICADO.
+  const tinta = ww({ boton: 'tinta' });
+  const r2 = piezasAfectadas({ ...conMarca, publicado: tinta, estilo: { ...tinta, letra: 'editorial' } });
+  assert.deepEqual([r2.botonesVivos, r2.botonesCongelados], [[], []]);
+  // «Tu color tal cual» que se ve igual que el de por defecto: por valor, no hay cambio.
+  const r3 = piezasAfectadas({ ...conMarca, estilo: ww({ boton: 'fiel' }) });
+  assert.deepEqual([r3.botonesVivos, r3.botonesCongelados], [[], []]);
+});
+
+test('el botón de la ventana: si este estilo cambia el color de los botones, sí salen las dos líneas', () => {
+  const popup = c({ metodo: 'popup' });
+  const sinMarca = datos({ horario: popup, planes: popup }, null, { estilo: ww({ boton: 'tinta' }) });
+  const r = piezasAfectadas({
+    ...sinMarca, copiados: { ...sinMarca.copiados, planes: { ...sinMarca.copiados.planes, botonVivo: true } },
+  });
+  assert.deepEqual(r.botonesVivos, ['Planes y precios']);
+  assert.deepEqual(r.botonesCongelados, ['Horario y reservas']);
+  // Y al volver de ese color a nada elegido, también: el botón se ve distinto.
+  const vuelta = piezasAfectadas({ ...sinMarca, estilo: null, publicado: ww({ boton: 'tinta' }) });
+  assert.deepEqual(vuelta.botonesCongelados, ['Horario y reservas', 'Planes y precios']);
+  // Sin base (cargando) no se sabe cómo se ve: no se afirma nada del botón.
+  assert.deepEqual(piezasAfectadas({ ...sinMarca, base: null }).botonesCongelados, []);
 });

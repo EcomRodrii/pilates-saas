@@ -21,6 +21,7 @@ import { luminancia } from '../reservar/apariencia-widget.ts';
 import { COLOR_VALIDO, fuenteValida } from '../reservar/config-widget.ts';
 import { scriptSnippetIframe } from '../reservar/snippet-embed.ts';
 import { PARAM_BORRADOR, borradorAParam, type WidgetWeb } from '../reservar/estilo-web-tipos.ts';
+import { RADIO_BOTON, VAR_FONDO, VAR_RADIO, VAR_TEXTO, leerBotonVivo, type BotonVivo } from './boton-vivo.ts';
 import type { MetodoIntegracion, WidgetDisponible } from './catalogo.ts';
 import {
   anchoPopupDe, anchoPorDefecto, etiquetaEfectiva, textoBotonEfectivo, type ConfigConstructor,
@@ -38,6 +39,13 @@ export interface EntradaIntegracion {
   slug: string;
   /** El color de marca del estudio, para botones con su identidad. */
   colorEstudio?: string | null;
+  /**
+   * El botón de la ventana como se ve HOY (`botonDeLaVentana`,
+   * lib/reservar/estilo-web.ts): el respaldo del código de un popup que sigue
+   * el estilo de sus widgets (`botonSigueElEstilo`). Sin él (cargando, o un
+   * valor que no valida), el respaldo es el de siempre (`colorBoton`).
+   */
+  botonVivo?: BotonVivo | null;
 }
 
 const COLOR_POR_DEFECTO = '#343825';
@@ -258,31 +266,100 @@ export interface EstiloBoton {
   borderRadius: string;
 }
 
-export function estiloBoton(e: EntradaIntegracion): EstiloBoton {
-  const marca = colorBoton(e);
+/**
+ * ¿Sigue el botón de este código el estilo de sus widgets (Fase D)? Solo el que
+ * abre la ventana (popup) y sin diseño propio: la misma regla con la que el
+ * estilo le llega a lo de dentro (`tieneDisenoEnCodigo`). El botón a la página
+ * (`<a>`) no carga ningún script que lo pinte, y un diseño propio es un color
+ * congelado a propósito.
+ *
+ * Es el predicado que emite las variables en el código Y el que marca la copia
+ * (`copiado.botonVivo`, ./config.ts): lo que el panel dice de un botón pegado
+ * no puede contradecir lo que se copió.
+ */
+export function botonSigueElEstilo(c: ConfigConstructor, metodo: MetodoIntegracion): boolean {
+  return metodo === 'popup' && !tieneDisenoEnCodigo(c);
+}
+
+/**
+ * El botón pintado con LITERALES: el respaldo del código. Si sigue el estilo
+ * (`botonSigueElEstilo`) y hay `botonVivo` válido, el botón de la ventana como
+ * se ve hoy; si no, lo de siempre (su marca o la del estudio, texto por
+ * luminancia y el radio de su «forma»). Lo usan la vista previa del panel y los
+ * tests; el código lleva además las variables (`estiloBotonCodigo`).
+ */
+export function estiloBoton(e: EntradaIntegracion, metodo: MetodoIntegracion = 'boton'): EstiloBoton {
+  const vivo = botonSigueElEstilo(e.config, metodo) ? leerBotonVivo(e.botonVivo) : null;
+  const marca = vivo?.fondo ?? colorBoton(e);
   const l = luminancia(marca);
-  const sobreMarca = l != null && l < 0.45 ? '#FFFFFF' : '#22261F';
-  const radio = e.config.forma === 'recto' ? '6px' : e.config.forma === 'redondeado' ? '12px' : '999px';
+  const sobreMarca = vivo?.texto ?? (l != null && l < 0.45 ? '#FFFFFF' : '#22261F');
+  const radio = vivo ? RADIO_BOTON[vivo.esquinas]
+    : e.config.forma === 'recto' ? '6px' : e.config.forma === 'redondeado' ? '12px' : '999px';
   return e.config.estiloBoton === 'contorno'
     ? { background: 'transparent', color: marca, border: `1.5px solid ${marca}`, borderRadius: radio }
     : { background: marca, color: sobreMarca, border: `1.5px solid ${marca}`, borderRadius: radio };
 }
 
+/**
+ * Las cuatro propiedades de color y esquinas del botón: el literal y, si la
+ * tiene, su versión con variable y el MISMO literal de respaldo. El fondo del
+ * contorno es `transparent` en cualquier estilo: no lleva variable.
+ */
+function propiedadesBoton(e: EntradaIntegracion, metodo: MetodoIntegracion): { css: string; react: string; literal: string; vivo: string | null }[] {
+  const s = estiloBoton(e, metodo);
+  const contorno = e.config.estiloBoton === 'contorno';
+  // El color del botón: el fondo con relleno, el texto (y el borde) con contorno.
+  const marca = contorno ? s.color : s.background;
+  return [
+    { css: 'background', react: 'background', literal: s.background, vivo: contorno ? null : `var(${VAR_FONDO},${marca})` },
+    { css: 'color', react: 'color', literal: s.color, vivo: `var(${contorno ? VAR_FONDO : VAR_TEXTO},${s.color})` },
+    { css: 'border', react: 'border', literal: s.border, vivo: `1.5px solid var(${VAR_FONDO},${marca})` },
+    { css: 'border-radius', react: 'borderRadius', literal: s.borderRadius, vivo: `var(${VAR_RADIO},${s.borderRadius})` },
+  ];
+}
+
+/**
+ * Las declaraciones de color y esquinas del `style` HTML del botón.
+ *
+ * Sin seguir el estilo, una vez cada una y literales: lo de siempre, carácter
+ * por carácter. Siguiéndolo, CADA propiedad DOS veces: primero el hex literal y
+ * después el `var()` con el MISMO respaldo. El navegador se queda con la
+ * segunda (la que rellena `widget-popup.js`); un filtro de HTML que se coma las
+ * declaraciones con `var()` (KSES de un WordPress sin `unfiltered_html`) deja
+ * la primera, y el botón se ve como un código de antes: con su color, congelado.
+ * Y como ya no lee ninguna variable, el script no pide nada
+ * (`usaBotonVivo`, ./boton-vivo.ts).
+ */
+function estiloBotonCodigo(e: EntradaIntegracion, metodo: MetodoIntegracion): string {
+  const sigue = botonSigueElEstilo(e.config, metodo);
+  return propiedadesBoton(e, metodo)
+    .map(p => `${p.css}:${p.literal};${sigue && p.vivo ? `${p.css}:${p.vivo};` : ''}`)
+    .join('');
+}
+
 // `font:inherit` a propósito: el botón toma la letra de la web donde vive.
 // 44 px de alto mínimo: es un objetivo táctil.
-function cssBoton(e: EntradaIntegracion): string {
-  const s = estiloBoton(e);
+function cssBoton(e: EntradaIntegracion, metodo: MetodoIntegracion): string {
   return [
     'display:inline-flex', 'align-items:center', 'justify-content:center', 'min-height:44px',
     'padding:10px 22px', 'font:inherit', 'font-weight:600', 'font-size:15px', 'line-height:1.2',
-    'text-decoration:none', 'cursor:pointer', `background:${s.background}`, `color:${s.color}`,
-    `border:${s.border}`, `border-radius:${s.borderRadius}`,
-  ].join(';') + ';';
+    'text-decoration:none', 'cursor:pointer',
+  ].join(';') + ';' + estiloBotonCodigo(e, metodo);
 }
 
-function objetoEstiloReact(e: EntradaIntegracion): string {
-  const s = estiloBoton(e);
-  return `{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '10px 22px', font: 'inherit', fontWeight: 600, fontSize: 15, lineHeight: 1.2, textDecoration: 'none', cursor: 'pointer', background: ${jsString(s.background)}, color: ${jsString(s.color)}, border: ${jsString(s.border)}, borderRadius: ${jsString(s.borderRadius)} }`;
+/**
+ * El mismo botón, como objeto de estilo de React. Aquí NO hay doble
+ * declaración: un objeto no puede repetir claves. Siguiendo el estilo, SOLO el
+ * `var()` con su respaldo (`'var(--tentare-boton,#343825)'`), que en un
+ * navegador sin la variable vale el literal. No hace falta más: una web hecha
+ * en React no pasa su código por un filtro de HTML que se lo coma.
+ */
+function objetoEstiloReact(e: EntradaIntegracion, metodo: MetodoIntegracion): string {
+  const sigue = botonSigueElEstilo(e.config, metodo);
+  const colores = propiedadesBoton(e, metodo)
+    .map(p => `${p.react}: ${jsString(sigue && p.vivo ? p.vivo : p.literal)}`)
+    .join(', ');
+  return `{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '10px 22px', font: 'inherit', fontWeight: 600, fontSize: 15, lineHeight: 1.2, textDecoration: 'none', cursor: 'pointer', ${colores} }`;
 }
 
 /** Nombre de componente React para el widget: `TentareHorarioYReservas`. */
@@ -332,7 +409,12 @@ export function faltaParaGenerar(
  *    app es el mismo código);
  *  - el `style` del BOTÓN (popup y botón), que lleva el color de marca del
  *    estudio: ese se cambia en Apariencia, no aquí, y no debe saltar como «has
- *    cambiado algo». Lo que ella elige para el botón sí cuenta (abajo).
+ *    cambiado algo». Lo que ella elige para el botón sí cuenta (abajo). Con
+ *    más razón desde la Fase D: el `style` de un popup que sigue el estilo
+ *    lleva de respaldo el color de su botón el día que se copió
+ *    (`botonVivo`), que cambia al aplicar otro estilo en su web; contarlo
+ *    daría por «cambiado después de copiarlo» a todo popup ya copiado. La
+ *    doble declaración tampoco cambia la huella: va toda dentro del `style`.
  * ⚠️ El `style` del iframe sí va dentro: lleva el «Ancho» (`max-width`), que
  * es un ajuste suyo con la etiqueta «Va en el código».
  */
@@ -380,7 +462,7 @@ export function generarCodigo(e: EntradaIntegracion, metodo: MetodoIntegracion, 
           codigo: `// ${w.nombre} — botón de Tentare. Pégalo donde quieras que aparezca.
 export function ${nombreComponente(w)}Boton() {
   return (
-    <a href=${jsString(url)}${nueva ? ` target="_blank" rel="noopener"` : ''} style={${objetoEstiloReact(e)}}>
+    <a href=${jsString(url)}${nueva ? ` target="_blank" rel="noopener"` : ''} style={${objetoEstiloReact(e, 'boton')}}>
       {${jsString(texto)}}
     </a>
   );
@@ -389,7 +471,7 @@ export function ${nombreComponente(w)}Boton() {
       }
       return {
         lenguaje: 'html',
-        codigo: `<a href="${urlEnAtributo(url)}"${nueva ? ' target="_blank" rel="noopener"' : ''} style="${cssBoton(e)}">${escaparTexto(texto)}</a>`,
+        codigo: `<a href="${urlEnAtributo(url)}"${nueva ? ' target="_blank" rel="noopener"' : ''} style="${cssBoton(e, 'boton')}">${escaparTexto(texto)}</a>`,
       };
     }
 
@@ -417,7 +499,7 @@ export function ${nombreComponente(w)}Popup() {
       data-tentare-popup=${jsString(url)}
       data-tentare-titulo=${jsString(w.nombre)}
       data-tentare-ancho="${anchoPopupDe(w, e.config)}"
-      style={${objetoEstiloReact(e)}}
+      style={${objetoEstiloReact(e, 'popup')}}
     >
       {${jsString(texto)}}
     </button>
@@ -427,7 +509,7 @@ export function ${nombreComponente(w)}Popup() {
       }
       return {
         lenguaje: 'html',
-        codigo: `<button type="button" data-tentare-popup="${urlEnAtributo(url)}" data-tentare-titulo="${escaparAtributo(w.nombre)}" data-tentare-ancho="${anchoPopupDe(w, e.config)}" style="${cssBoton(e)}">${escaparTexto(texto)}</button>
+        codigo: `<button type="button" data-tentare-popup="${urlEnAtributo(url)}" data-tentare-titulo="${escaparAtributo(w.nombre)}" data-tentare-ancho="${anchoPopupDe(w, e.config)}" style="${cssBoton(e, 'popup')}">${escaparTexto(texto)}</button>
 <script src="${script}" async></script>`,
       };
     }

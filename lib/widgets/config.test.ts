@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CONFIG_POR_DEFECTO, MAX_ANTERIORES, claveDeCopia, fusionarWidgetBuilder, leerConfigs, leerCopiados, nuevaCopia,
+  CONFIG_POR_DEFECTO, MARGEN_MISMA_COPIA_MS, MAX_ANTERIORES, claveDeCopia, esCopiaCompleta, esLaMismaCopia, fusionarWidgetBuilder,
+  leerConfigs, leerCopiados, nuevaCopia, type Copiado,
 } from './config.ts';
 import { leerWeb } from './recetas.ts';
 
@@ -149,4 +150,71 @@ test('lo copiado con foto se guarda y se vuelve a leer IGUAL (ida y vuelta por e
     fusionarWidgetBuilder({}, { horario: CONFIG_POR_DEFECTO }, { horario: k }, leerWeb({})),
   )) as Record<string, unknown>;
   assert.deepEqual(leerCopiados(guardado).horario, k);
+});
+
+// ── Fase D: el botón vivo y la copia a mano ─────────────────────────────────
+
+test('nuevaCopia: `botonVivo` solo si el código copiado lee las variables; si no, ni la clave', () => {
+  const en = '2026-09-29T10:00:00.000Z';
+  const base = { firma: 'f1', en, metodo: 'popup' as const, config: FOTO, contenido: 'c1uno' };
+  assert.equal(nuevaCopia(undefined, { ...base, botonVivo: true }).botonVivo, true);
+  for (const botonVivo of [false, undefined]) {
+    assert.equal('botonVivo' in nuevaCopia(undefined, { ...base, botonVivo }), false, String(botonVivo));
+  }
+  // La marca no se hereda de la copia de antes: es de ESTE código.
+  assert.equal('botonVivo' in nuevaCopia(nuevaCopia(undefined, { ...base, botonVivo: true }), base), false);
+  // Y va y vuelve por el jsonb igual.
+  const k = nuevaCopia(undefined, { ...base, botonVivo: true });
+  const guardado = JSON.parse(JSON.stringify(fusionarWidgetBuilder({}, {}, { horario: k }, leerWeb({})))) as Record<string, unknown>;
+  assert.deepEqual(leerCopiados(guardado).horario, k);
+});
+
+test('leerCopiados: `botonVivo` solo con `true` exacto', () => {
+  assert.equal(leerCopiados({ horario: { copiado: { ...COPIA, botonVivo: true } } }).horario.botonVivo, true);
+  for (const raro of ['true', 1, false, null, {}, 'sí']) {
+    const k = leerCopiados({ horario: { copiado: { ...COPIA, botonVivo: raro } } }).horario;
+    assert.deepEqual(k, COPIA, JSON.stringify(raro));
+  }
+});
+
+const CODIGO = '<button type="button" data-tentare-popup="https://www.tentare.app/reservar/alba?embed=1" style="color:#FFFFFF;">Reservar</button>\n<script src="https://www.tentare.app/widget-popup.js" async></script>';
+
+test('esCopiaCompleta: el código entero, con los espacios que ponga el navegador', () => {
+  assert.equal(esCopiaCompleta(CODIGO, CODIGO), true);
+  assert.equal(esCopiaCompleta(CODIGO.replace('\n', '\r\n'), CODIGO), true);
+  assert.equal(esCopiaCompleta(`\n  ${CODIGO}  \n`, CODIGO), true);
+  // Un trozo no funciona pegado: no cuenta.
+  assert.equal(esCopiaCompleta(CODIGO.slice(0, 80), CODIGO), false);
+  assert.equal(esCopiaCompleta(CODIGO.split('\n')[0], CODIGO), false);
+  // «Seleccionar todo» en la página lleva el código dentro, pero no es él.
+  assert.equal(esCopiaCompleta(`Ponlo en tu web\nCopiar código\n${CODIGO}\nSi lo cambias, cópialo otra vez`, CODIGO), false);
+  // Sin código no hay nada que copiar, aunque la selección también esté vacía.
+  assert.equal(esCopiaCompleta('', ''), false);
+  assert.equal(esCopiaCompleta('  ', ' \n '), false);
+});
+
+test('esLaMismaCopia: la misma copia repetida en menos de un minuto no se vuelve a guardar', () => {
+  const t0 = Date.parse('2026-09-29T10:00:00.000Z');
+  const copia = (dt: number, x: Partial<Copiado> = {}): Copiado => ({
+    firma: 'f1', en: new Date(t0 + dt).toISOString(), metodo: 'popup', config: FOTO, contenido: 'c1uno', botonVivo: true, ...x,
+  });
+  const previa = copia(0);
+  assert.equal(MARGEN_MISMA_COPIA_MS, 60_000);
+  assert.equal(esLaMismaCopia(previa, copia(0)), true);
+  assert.equal(esLaMismaCopia(previa, copia(59_000)), true);
+  assert.equal(esLaMismaCopia(previa, copia(60_000)), false);
+  assert.equal(esLaMismaCopia(previa, copia(61_000)), false);
+  // Otra huella, otra forma, otra versión u otra marca del botón: es otra copia.
+  assert.equal(esLaMismaCopia(previa, copia(1000, { firma: 'f2' })), false);
+  assert.equal(esLaMismaCopia(previa, copia(1000, { metodo: 'iframe' })), false);
+  assert.equal(esLaMismaCopia(previa, copia(1000, { contenido: 'c1dos' })), false);
+  const sinMarca = copia(1000);
+  delete sinMarca.botonVivo;
+  assert.equal(esLaMismaCopia(previa, sinMarca), false);
+  // Una fecha anterior a la de la copia guardada (otro reloj, otra pestaña) se guarda.
+  assert.equal(esLaMismaCopia(previa, copia(-1000)), false);
+  // Sin copia de antes, o con una fecha que no se lee, siempre se guarda.
+  assert.equal(esLaMismaCopia(undefined, previa), false);
+  assert.equal(esLaMismaCopia(null, previa), false);
+  assert.equal(esLaMismaCopia(previa, { ...copia(1000), en: 'ayer' }), false);
 });
