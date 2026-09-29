@@ -109,8 +109,8 @@ export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSis
  * agarradera de arrastre ni ojo de ocultar: mentirían.
  */
 // «Portada» y «Horario» de /reservar son las ANCLADAS de
-// lib/reservar/secciones.ts (el fondo degradado compartido y el hecho de ser
-// la razón de existir del widget) — mismo motivo de fondo que las fijas de
+// lib/reservar/secciones.ts (la barra de la marca que va encima de la portada
+// y el hecho de ser la razón de existir del widget) — mismo motivo de fondo que las fijas de
 // Home, forma distinta de aplicarlo: aquí SÍ importa la posición relativa
 // entre ellas dos (portada antes que horario), así que viajan en ese orden.
 export const BLOQUES_FIJOS_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {

@@ -49,14 +49,14 @@ export const SECCIONES_RESERVAR: SeccionReservar[] = [
  * enterrado al final sería justo el desastre que esto evita.
  *
  * ⚠️ **La portada está anclada por una razón distinta, y de fuera del código:
- * el fondo.** Portada, barra de marca y pestañas comparten un único
- * `linear-gradient(175deg, …)` (`MODO_TOKENS.dia.hero`). Un degradado se pinta
- * por CAJA, así que separar la portada para poder moverla lo reinicia y deja
- * dos costuras horizontales visibles en la página de TODOS los estudios —
- * medido con capturas antes/después, no supuesto. Se probó y se descartó: pagar
- * una regresión visible para todos a cambio de un reordenado que casi nadie
- * quiere (una portada por debajo del pie no es una página, es un accidente) era
- * mal negocio.
+ * lleva encima la barra de la marca.** Desde la F3 del rediseño (29-sep-2026)
+ * la portada es la foto del estudio con la cabecera flotando sobre ella, como
+ * en la app de la alumna (components/reservar/portada-reservar.tsx): moverla
+ * se llevaría la marca y el acceso a mitad de página. Antes el motivo era el
+ * fondo —portada, barra y pestañas compartían un único degradado, y partirlo
+ * dejaba dos costuras visibles, medido con capturas—; el degradado se fue,
+ * pero la conclusión es la misma: una portada por debajo del pie no es una
+ * página, es un accidente, y casi nadie quiere ese reordenado.
  *
  * Anclada NO es lo mismo que obligatoria: la portada **sí se puede ocultar**,
  * que es lo que de verdad pide quien incrusta el widget en una web que ya tiene

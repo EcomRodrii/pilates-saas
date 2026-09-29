@@ -6,7 +6,6 @@ import { bizumPermitidoPara } from '@/lib/billing/bizum-permitido';
 import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
@@ -53,8 +52,11 @@ import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot, pes
 import { cssDocumentoIncrustado, paletaEfectivaReservar, varsMarcaWidget, varsTipografiaWidget } from '@/lib/reservar/precedencia-tema';
 import { leerBorradorWeb, resolverEstiloWeb, urlTraeDisenoPropio, type Contexto as ContextoEstiloWeb } from '@/lib/reservar/estilo-web';
 import { useTemaAppReservar } from '@/components/reservar/tema-app-provider';
+import { CabeceraReservar, MARGEN_PAGINA } from '@/components/reservar/cabecera-reservar';
+import { PortadaReservar } from '@/components/reservar/portada-reservar';
+import { ANCHO_PAGINA, COLUMNA_HORARIO, FONDO_SIN_FOTO } from '@/lib/reservar/portada';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
-import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
+import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
 import { PantallaReserva } from '@/components/reserva/pantalla-reserva';
 import { SpotPickerPublico } from '@/components/reserva/spot-picker-publico';
@@ -65,7 +67,7 @@ import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 import {
   Users, CheckCircle2, X, Calendar, ChevronLeft,
   FileText, Download, ExternalLink, Mail,
-  Loader2, AlertTriangle, Hourglass, Menu,
+  Loader2, AlertTriangle, Hourglass,
 } from 'lucide-react';
 
 // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
@@ -231,90 +233,9 @@ function LevelBadge({ nivel }: { nivel?: string }) {
   );
 }
 
-// Diseño "Tentare Portal Reservas": sin barra de pestañas, "Citas"/"El
-// estudio"/"Mi cuenta" no tienen sitio en el .dc.html — quedan en este menú
-// desplegable desde la cabecera (decisión de producto explícita, el diseño
-// no lo especifica). Un botón de icono + un `<div>` posicionado en vez de un
-// `<select>`: necesita pintar cada opción con su propia tipografía/estado
-// activo, que un `<select>` nativo no permite.
-function MenuSecciones({ tabs, tabActual, onIr }: {
-  tabs: readonly (readonly [Tab, string])[];
-  tabActual: string;
-  onIr: (t: Tab) => void;
-}) {
-  const [abierto, setAbierto] = useState(false);
-  // Posición en viewport del botón — el menú se porta a `document.body`
-  // (fixed, calculado desde aquí) en vez de `position: absolute` dentro de
-  // este `<div>`: el ancestro que pinta la barra+portada como una sola caja
-  // de degradado (comentario junto a `orden('horario')`, unas líneas más
-  // arriba) lleva `overflow: hidden` a propósito para esa costura, y
-  // cualquier hijo `absolute` de ahí dentro se recorta en el borde de la
-  // caja pase lo que pase con el z-index — encontrado en producción: el
-  // menú se veía cortado nada más abrirlo.
-  const [rect, setRect] = useState<{ top: number; right: number } | null>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!abierto) return;
-    function fuera(e: MouseEvent) {
-      const t = e.target as Node;
-      if (btnRef.current?.contains(t)) return;
-      if (menuRef.current && !menuRef.current.contains(t)) setAbierto(false);
-    }
-    document.addEventListener('mousedown', fuera);
-    return () => document.removeEventListener('mousedown', fuera);
-  }, [abierto]);
-  const otras = tabs.filter(([t]) => t !== 'clases' && t !== 'misreservas');
-  return (
-    <div style={{ position: 'relative' }}>
-      <button
-        ref={btnRef}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={abierto}
-        aria-label="Más secciones"
-        onClick={() => {
-          if (!abierto && btnRef.current) {
-            const r = btnRef.current.getBoundingClientRect();
-            setRect({ top: r.bottom + 8, right: window.innerWidth - r.right });
-          }
-          setAbierto(v => !v);
-        }}
-        style={{
-          width: 46, height: 46, borderRadius: 23, border: '1px solid var(--portal-line)',
-          background: 'var(--portal-surface)', color: 'var(--portal-ink)', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
-      >
-        <Menu size={17} />
-      </button>
-      {abierto && rect && typeof document !== 'undefined' && createPortal(
-        <div ref={menuRef} role="menu" style={{
-          position: 'fixed', top: rect.top, right: rect.right, zIndex: 100, minWidth: 160,
-          background: 'var(--portal-surface)', border: '1px solid var(--portal-line)', borderRadius: 14,
-          boxShadow: '0 14px 34px -12px rgba(15,15,15,.28)', padding: 6, display: 'flex', flexDirection: 'column', gap: 2,
-        }}>
-          {otras.map(([t, label]) => (
-            <button
-              key={t}
-              type="button"
-              role="menuitem"
-              onClick={() => { onIr(t); setAbierto(false); }}
-              style={{
-                textAlign: 'left', padding: '9px 12px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                background: tabActual === t ? 'var(--portal-velo)' : 'transparent',
-                color: 'var(--portal-ink)', fontFamily: sans, fontSize: 13, fontWeight: 600,
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
-    </div>
-  );
-}
+// El menú «Más secciones» de la cabecera (Citas, El estudio, Mi cuenta —y en
+// el móvil también «Mis reservas» y el teléfono—) vive desde la F3 del
+// rediseño con la cabecera, en components/reservar/cabecera-reservar.tsx.
 
 // Mapa de sitios (reformers) para que la socia elija el suyo al reservar (I-12).
 // Anónimo: los ocupados se muestran deshabilitados, sin revelar quién los tiene.
@@ -381,12 +302,16 @@ function claveDeVista(paso: VistaPaso | null, claseId: string): string {
 const OCUPA_PLAZA: Reserva['estado'][] = ['CONFIRMADA', 'ASISTIDA'];
 const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 
+/** El `id` del contenido principal: el destino de «Saltar al horario» y del botón de la portada. */
+const ID_CONTENIDO = 'reservar-contenido';
+
 // ⚠️ Aquí vivía `RT` (= `RESERVAR_PALETA.dia`, fijado a nivel de módulo) solo
 // para el degradado de la portada. Se fue el 27-sep-2026: un token de JS fijado
 // a `dia` no se entera del estilo de la app de la alumna (con «Carbón» dejaba
-// una portada crema sobre una página oscura). El degradado sale ahora de
-// `tokensCalendario.hero`, que es la paleta que de verdad se ve — y sin estilo
-// elegido es el mismo objeto de antes.
+// una portada crema sobre una página oscura). Y desde la F3 (29-sep-2026) ya no
+// hay degradado: la portada es la foto del estudio con su velo
+// (components/reservar/portada-reservar.tsx) y, sin portada, la cabecera va
+// sobre el fondo de la página.
 
 // Mínimo razonable de dígitos para un teléfono real (España: 9). No se valida
 // prefijo — el estudio contacta por WhatsApp/llamada, un formato demasiado
@@ -2480,17 +2405,31 @@ export default function ReservarPage() {
         ...(paleta.fondoRaiz ? { background: paleta.fondoRaiz } : {}),
         ...(paleta.varsLetra ?? {}), ...(varsTexto ?? {}), ...(varsMarca ?? {}),
       } as React.CSSProperties}>
-        <header className="sticky top-0 z-30 bg-[var(--portal-surface)] border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <div className="max-w-2xl mx-auto px-4">
-            <div className="flex items-center gap-3 py-3">
-              <div className="w-9 h-9 rounded-xl bg-[var(--portal-line)] shrink-0" />
-              <div className="space-y-1.5">
-                <div className="h-3 w-28 rounded bg-[var(--portal-line)]" />
-                <div className="h-2.5 w-40 rounded bg-[var(--portal-surface-2)]" />
+        {embedMode ? (
+          <header className="sticky top-0 z-30 bg-[var(--portal-surface)] border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <div className="max-w-2xl mx-auto px-4">
+              <div className="flex items-center gap-3 py-3">
+                <div className="w-9 h-9 rounded-xl bg-[var(--portal-line)] shrink-0" />
+                <div className="space-y-1.5">
+                  <div className="h-3 w-28 rounded bg-[var(--portal-line)]" />
+                  <div className="h-2.5 w-40 rounded bg-[var(--portal-surface-2)]" />
+                </div>
               </div>
             </div>
+          </header>
+        ) : (
+          // La página suelta arranca con la portada (F3): el esqueleto ocupa su
+          // hueco, oscuro como ella y más o menos de su alto, para que el primer
+          // fotograma no salte de una barra clara a una foto oscura al montar.
+          // (Si el estudio oculta la portada el salto es el contrario, pero es
+          // la excepción: viene puesta.) El widget incrustado, arriba, como siempre.
+          <div aria-hidden="true" style={{ background: FONDO_SIN_FOTO, minHeight: 'clamp(236px, 22vw, 292px)' }}>
+            <div style={{ maxWidth: ANCHO_PAGINA, marginInline: 'auto', padding: '14px clamp(20px, 3.8vw, 48px)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 999, background: 'rgba(250,249,245,.16)', flexShrink: 0 }} />
+              <div style={{ width: 112, height: 12, borderRadius: 6, background: 'rgba(250,249,245,.16)' }} />
+            </div>
           </div>
-        </header>
+        )}
         <div className="max-w-2xl mx-auto px-4 py-16 flex flex-col items-center gap-3 text-center">
           <span className="w-6 h-6 border-2 border-[var(--portal-line)] border-t-[var(--portal-ink)] rounded-full animate-spin" />
           <p className="text-[var(--portal-muted-2)] text-sm">Cargando horario…</p>
@@ -2585,7 +2524,8 @@ export default function ReservarPage() {
   // de `embedMode`/`soloPestana`, que sí dejan la píldora del único
   // propósito visible). Un intento anterior de esto rompió la navegación
   // real a "El estudio"/"Mi cuenta"/"Citas" — esta vez esas tres secciones
-  // tienen una salida real: `MenuSecciones` en la cabecera. Fuera de Clases
+  // tienen una salida real: el menú «Más secciones» de la cabecera
+  // (components/reservar/cabecera-reservar.tsx). Fuera de Clases
   // la barra se sigue pintando completa.
   // «Mi cuenta» del catálogo de widgets (`?cuenta=completa`): un solo widget
   // con sus dos caras, «Mis reservas» y «Mi cuenta» (bonos y perfil). Sin el
@@ -2934,6 +2874,44 @@ export default function ReservarPage() {
     </>
   );
 
+  // ── Cabecera y portada de la página suelta (F3 del rediseño, 29-sep-2026) ──
+  // La cabecera va SOBRE la foto mientras se ve la portada, y sobre el fondo de
+  // la página cuando no (portada oculta desde el editor, o la ficha, el acceso,
+  // los datos y el pago, donde la portada no se pinta). Es la misma pieza en
+  // las dos caras: components/reservar/cabecera-reservar.tsx.
+  const portadaVisible = !enVistaReserva && seccionVisible('portada');
+  const cabeceraPagina = (sobreFoto: boolean) => (
+    <CabeceraReservar
+      nombre={estudioNombre}
+      ciudad={studio?.ciudad}
+      logoUrl={estudioLogo}
+      sobreFoto={sobreFoto}
+      // Mientras se ve una reserva, ni el menú ni «Mis reservas»: lo de siempre
+      // (e2e/reservar-p6-callejones-y-doble-alta.spec.ts, caso A).
+      navegacion={enVistaReserva ? null : {
+        secciones: tabs
+          .filter(([t]) => t !== 'clases' && t !== 'misreservas')
+          .map(([t, label]) => ({ id: t, label, activa: tab === t, onElegir: () => setTab(t) })),
+        misReservas: { cuantas: misReservasCount, onAbrir: () => setMisReservasAbierta(true) },
+        telefono: estudioTelefono || null,
+      }}
+      socia={socia ? { nombre: socia.nombre } : null}
+      onAcceder={() => openBooking('')}
+      onCerrarSesion={logout}
+    />
+  );
+  // Baja al horario y deja el foco en el contenido: el botón de la portada y
+  // «Saltar al horario». Sin el foco, quien navega con teclado o con lector se
+  // quedaba arriba aunque la pantalla hubiera bajado.
+  const irAlHorario = () => {
+    const reducir = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById('horario')?.scrollIntoView({ behavior: reducir ? 'auto' : 'smooth', block: 'start' });
+    document.getElementById(ID_CONTENIDO)?.focus({ preventScroll: true });
+  };
+  // Landmark `main` solo en la página suelta: en el widget incrustado la web
+  // del estudio ya tiene el suyo, y ahí no cambia nada.
+  const Principal = embedMode ? 'div' : 'main';
+
   return (
     <>
     {/* ⚠️ **Sin esto, «transparente» NO es transparente.** El `background` del
@@ -3009,93 +2987,54 @@ export default function ReservarPage() {
           llegar ahí). */}
       {cssFuenteDisplay && cssFuenteDisplay !== cssFuente && <link rel="stylesheet" href={cssFuenteDisplay} />}
 
-      {/* ── HERO ──────────────────────────────────────────────────────────────
-          ⚠️ Aquí ponía que la foto del estudio «no existe hoy en la carga
-          pública (`studioPublico()` no expone `fotoUrl` — solo `logoUrl`)».
-          **Eso dejó de ser verdad y el comentario lo mantuvo enterrado**:
-          `studioPublico()` expone `fotoUrl` E `imagenBienvenidaUrl` desde que
-          se arregló la lista blanca para el hero del portal. O sea que la
-          fotografía del mockup se podía pintar desde hace tiempo y nadie la
-          pintaba porque este párrafo decía que no se podía.
-          Es el mismo fallo que ya costó un hero desplegado y muerto: un dato
-          que sí viaja, y una nota que asegura que no. */}
-      {/* ⚠️ UNA sola caja para barra + portada + pestañas, y no tres.
-          `tokensCalendario.hero` es un `linear-gradient(175deg, …)`, y un degradado se pinta
-          por CAJA: partirlo lo reinicia en cada trozo y deja dos costuras
-          horizontales en la página de todos los estudios. Se probó partido —
-          para poder mover la portada por separado— y las capturas antes/después
-          lo enseñaron sin lugar a dudas. Por eso la portada va ANCLADA al
-          horario (`SECCIONES_ANCLADAS`): se puede ocultar, no mover. */}
-      <div style={{ order: orden('horario'), position: 'relative', overflow: 'hidden', background: embedMode ? 'var(--portal-bg)' : tokensCalendario.hero }}>
-        {!embedMode && (
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 14, padding: `${cq(20, 2.4, 30)} ${cq(20, 3.8, 48)}` }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, minWidth: 0 }}>
-            {estudioLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={estudioLogo} alt={estudioNombre} style={{ width: 30, height: 30, borderRadius: 9, objectFit: 'contain', background: '#fff', flexShrink: 0 }} />
-            ) : null}
-            <span style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{estudioNombre}</span>
-            {studio?.ciudad && (
-              <>
-                <span style={{ width: 20, height: 1, background: 'rgba(34,38,31,.3)', flexShrink: 0 }} />
-                <span style={{ ...eyebrow(9), color: 'var(--portal-accent)', whiteSpace: 'nowrap' }}>{studio.ciudad.toUpperCase()}</span>
-              </>
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: cq(14, 2, 26) }}>
-            <span style={{ fontSize: 12, color: 'var(--portal-accent)', whiteSpace: 'nowrap' }}>{estudioTelefono}</span>
-            {/* Diseño "Tentare Portal Reservas": sin barra de pestañas — la
-                cabecera solo lleva "Mis reservas"/"Acceder". "Citas"/"El
-                estudio"/"Mi cuenta" no tienen sitio en el diseño (no existen
-                en el .dc.html), así que quedan aquí, en un menú que el
-                diseño no especifica — decisión de producto explícita del
-                fundador tras plantear el conflicto, no una invención propia. */}
-            {!enVistaReserva && tabs.filter(([t]) => t !== 'clases' && t !== 'misreservas').length > 0 && (
-              <MenuSecciones tabs={tabs} tabActual={tab} onIr={setTab} />
-            )}
-            {!enVistaReserva && (
-            <button
-              type="button"
-              onClick={() => setMisReservasAbierta(true)}
-              style={{
-                height: 46, padding: `0 ${cq(16, 1.8, 22)}`, borderRadius: 23, background: 'var(--portal-surface)',
-                border: '1px solid var(--portal-line)', color: 'var(--portal-ink)', fontSize: 12, fontWeight: 800,
-                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, position: 'relative',
-              }}
-            >
-              Mis reservas
-              {misReservasCount > 0 && (
-                <span aria-hidden="true" style={{
-                  minWidth: 17, height: 17, borderRadius: 99, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-                  fontSize: 9.5, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px',
-                }}>
-                  {misReservasCount}
-                </span>
-              )}
-            </button>
-            )}
-            {socia ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 46, padding: '0 8px 0 8px', borderRadius: 23, background: 'var(--portal-surface)', border: '1px solid var(--portal-line)' }}>
-                <div style={{ width: 24, height: 24, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, background: PRIMARY, color: PRIMARY_FG }}>
-                  {socia.nombre[0]}
-                </div>
-                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--portal-ink)', whiteSpace: 'nowrap' }}>{socia.nombre.split(' ')[0]}</span>
-                <button onClick={logout} aria-label="Cerrar sesión" style={{ color: 'var(--portal-muted)', display: 'flex', marginLeft: 2 }}><X size={12} /></button>
-              </div>
-            ) : (
-              <button
-                onClick={() => openBooking('')}
-                style={{
-                  height: 46, padding: `0 ${cq(18, 2, 26)}`, borderRadius: 23, background: PRIMARY, color: PRIMARY_FG,
-                  display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
-                  boxShadow: SH.headerBtn, border: 'none', cursor: 'pointer',
-                }}>
-                Acceder
-              </button>
-            )}
-          </div>
-        </div>
-        )}
+      {/* «Saltar al horario» (o al contenido, fuera de Clases): el primer
+          elemento del tabulador, invisible hasta que se le da el foco
+          (app/globals.css). Antes del horario hay la barra y la portada. */}
+      {!embedMode && (
+        <a
+          href={`#${ID_CONTENIDO}`}
+          className="reservar-saltar"
+          onClick={(e) => { e.preventDefault(); irAlHorario(); }}
+        >
+          {tab === 'clases' && !enVistaReserva ? 'Saltar al horario' : 'Saltar al contenido'}
+        </a>
+      )}
+
+      {/* ── CABECERA Y PORTADA ─────────────────────────────────────────────────
+          F3 del rediseño (29-sep-2026, decisión del fundador: /reservar con el
+          estilo de la app de la alumna). En la página suelta, la cabecera flota
+          sobre la foto del estudio y la portada es esa foto con su velo y el
+          titular del estudio encima — components/reservar/portada-reservar.tsx.
+          Sin portada (oculta desde el editor, o mientras se ve una reserva), la
+          misma cabecera va sobre el fondo de la página.
+          Aquí había una barra con el teléfono, el menú, «Mis reservas» y
+          «Acceder» en fila, sobre un degradado compartido con una portada de
+          dos columnas: ~620 px en escritorio antes de la primera clase, y en
+          el móvil «Mis reservas» partido en dos líneas.
+          ⚠️ La portada sigue ANCLADA al horario (`SECCIONES_ANCLADAS`): se
+          puede ocultar, no mover. Ya no por el degradado —que se fue—, sino
+          porque la barra de la marca viaja con ella y tiene que ir arriba.
+          La caja sigue siendo UNA, con el `order` del horario: la barra, la
+          portada, la cabecera compacta del widget y las pestañas se mueven
+          juntas. En el widget incrustado nada de esto cambia. */}
+      <div style={{ order: orden('horario'), position: 'relative', overflow: 'hidden', background: embedMode ? 'var(--portal-bg)' : undefined }}>
+        {!embedMode && (portadaVisible ? (
+          <PortadaReservar
+            // Sin estudio todavía, sin foto: la de por defecto y luego la suya
+            // era un salto de imagen en cada carga.
+            foto={studio ? heroFoto : null}
+            // ⚠️ Estos textos eran CONSTANTES del código: el mismo titular
+            // servido idéntico a TODOS los estudios, en la página que cada uno
+            // incrusta en su propia web. Ahora los escribe cada estudio en su
+            // tema; vacíos dejan los de siempre. El subtítulo propio gana a la
+            // descripción del estudio: se ha escrito para ESTA página.
+            titular={textosReservar.titular || 'Encuentra tu próxima clase'}
+            subtitulo={textosReservar.subtitulo || studio?.descripcion || null}
+            cta={textosReservar.cta || 'Ver el horario'}
+            onCta={() => { setTab('clases'); irAlHorario(); }}
+            cabecera={cabeceraPagina(true)}
+          />
+        ) : cabeceraPagina(false))}
 
         {/* ── CABECERA COMPACTA (embebido) ─────────────────────────────────
             Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md):
@@ -3137,84 +3076,13 @@ export default function ReservarPage() {
           </div>
         )}
 
-        {/* ── PORTADA ───────────────────────────────────────────────────────
-            Se OCULTA (lo que pide quien incrusta esto bajo la cabecera que ya
-            tiene su web), pero no se mueve — ver la nota del degradado arriba.
-            ⚠️ Bug real reportado por el fundador (2026-08-30, con vídeo): le
-            faltaba el guardia `!enVistaReserva` que ya llevan TODOS sus
-            vecinos (insignia de confianza, bonos, sobre, cifras, contacto —
-            ver los comentarios de esas secciones más abajo, mismo patrón
-            exacto que ya se corrigió una vez para la insignia el 2026-08-29).
-            Sin él, en la página SUELTA (no embebida) la portada entera —
-            titular, subtítulo, CTA y foto— se colaba DENTRO del flujo de
-            reserva, entre la cabecera y la ficha/confirmación, partiendo la
-            pantalla en dos con un hueco enorme. */}
-        {!embedMode && !enVistaReserva && seccionVisible('portada') && (
-        <div
-          className="reserva-hero-portada"
-          style={{
-            position: 'relative',
-            padding: `${cq(28, 4, 56)} ${cq(20, 3.8, 48)} ${cq(24, 3, 44)}`,
-            display: 'grid',
-            // Dos columnas siempre: `heroFoto` ya nunca viene vacío. La rama de
-            // una sola columna existía porque reservar la mitad del hero para un
-            // hueco gris era peor que el diseño de hoy — con foto por defecto
-            // ese hueco no llega a existir.
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
-            gap: cq(24, 3.4, 44),
-            alignItems: 'center',
-          }}
-        >
-          <div style={{ textAlign: 'left', minWidth: 0 }}>
-            <div style={eyebrow(9)}>{studio?.ciudad ? studio.ciudad.toUpperCase() : 'RESERVA TU CLASE'}</div>
-            {/* El NOMBRE del estudio deja de ser el titular y sube a la barra,
-                que es donde vive una marca. El titular pasa a decir para qué
-                sirve la página — es lo que separa una portada de un rótulo. */}
-            {/* ⚠️ Estos tres textos eran CONSTANTES del código: el mismo
-                titular servido idéntico a TODOS los estudios, en la página que
-                cada uno incrusta en su propia web. Ahora los escribe cada
-                estudio; vacío deja el de siempre, así que nadie cambia salvo
-                que quiera. */}
-            <h1 style={{ fontFamily: serif, fontWeight: pesoTitular('normal'), fontSize: cq(34, 5.4, 68), lineHeight: 1.02, marginTop: cq(12, 1.6, 20) }}>
-              {textosReservar.titular || <>Encuentra tu<br />próxima clase</>}
-            </h1>
-            {/* El subtítulo propio gana a la descripción del estudio: se ha
-                escrito para ESTA página, no para la ficha. */}
-            {(textosReservar.subtitulo || studio?.descripcion) && (
-              <p style={{ fontSize: cq(14, 1.4, 17), lineHeight: 1.5, color: 'var(--portal-muted)', marginTop: 14, maxWidth: 460 }}>
-                {textosReservar.subtitulo || studio?.descripcion}
-              </p>
-            )}
-            {/* Lleva al horario, que ya está en esta misma página: un botón de
-                portada que no promete nada que no exista. */}
-            <button
-              onClick={() => { setTab('clases'); document.getElementById('horario')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
-              style={{
-                marginTop: cq(20, 2.4, 30), height: 48, padding: `0 ${cq(22, 2.4, 30)}`, borderRadius: 24,
-                background: PRIMARY, color: PRIMARY_FG, border: 'none', cursor: 'pointer',
-                fontSize: 13, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase',
-                boxShadow: SH.headerBtn,
-              }}
-            >
-              {textosReservar.cta || 'Ver el horario'}
-            </button>
-          </div>
-
-          {
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={heroFoto}
-              alt=""
-              onError={alFallarImagen(IMAGENES_POR_DEFECTO.portada[0])}
-              className="reserva-hero-foto"
-              style={{
-                width: '100%', aspectRatio: '4 / 3', objectFit: 'cover',
-                borderRadius: R.card, display: 'block',
-              }}
-            />
-          }
-        </div>
-        )}
+        {/* La PORTADA vive arriba, con la cabecera (`PortadaReservar`).
+            ⚠️ Su guardia `!enVistaReserva` (dentro de `portadaVisible`) no es
+            opcional: bug real reportado por el fundador (2026-08-30, con
+            vídeo) — sin él, en la página suelta la portada entera se colaba
+            DENTRO del flujo de reserva, entre la cabecera y la ficha, partiendo
+            la pantalla en dos. Es el mismo guardia que llevan todos sus
+            vecinos (insignia de confianza, bonos, sobre, cifras, contacto). */}
 
         {/* ── TABS ───────────────────────────────────────────────────────────
             ⚠️ El `div#horario` se pinta SIEMPRE, con pestañas o sin ellas: es el
@@ -3306,8 +3174,14 @@ export default function ReservarPage() {
 
       {/* ── CONTENT ───────────────────────────────────────────────────────────
           El tercero de los hermanos de «Horario y reservas» — ver el comentario
-          del aviso de pago. */}
-      <div style={{ order: orden('horario'), padding: `0 ${cq(20, 3.8, 48)}`, maxWidth: 1280, marginInline: 'auto', width: '100%' }}>
+          del aviso de pago. En la página suelta es el `<main>`: el destino de
+          «Saltar al horario» (por eso `tabIndex={-1}`, para poder recibir el
+          foco sin entrar en el orden del tabulador). */}
+      <Principal
+        id={embedMode ? undefined : ID_CONTENIDO}
+        tabIndex={embedMode ? undefined : -1}
+        style={{ order: orden('horario'), padding: `0 ${MARGEN_PAGINA}`, maxWidth: 1280, marginInline: 'auto', width: '100%', ...(embedMode ? {} : { outline: 'none' }) }}
+      >
 
         {/* ── TAB: CLASES ─────────────────────────────────────────────────── */}
         {tab === 'clases' && fichaSesionId && (() => {
@@ -3352,13 +3226,26 @@ export default function ReservarPage() {
           // desmontaba `<ReservaCalendario>` en cuanto se abría su propia
           // ficha, y con ella la ficha misma — probado con la suite
           // completa, no solo con el caso de invitada que motivó el arreglo.
-          // Petición explícita del fundador: la columna de clases usaba
-          // `max-width: 760px` desde #1240 (columna de lectura centrada,
-          // como Momence) — en desktop dejaba un pasillo enorme de fondo
-          // vacío a los lados. Ahora ocupa el mismo ancho que la cabecera/
-          // portada (el contenedor de 1280px de siempre), sin tocar nada del
-          // propio ReservaCalendario.
-          <div style={{ width: '100%', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
+          // Ancho: historia en tres tiempos, todos pedidos por el fundador.
+          // 760 px desde #1240 (columna de lectura, como Momence); luego a
+          // todo el contenedor de 1280 («un pasillo enorme de fondo vacío»);
+          // y desde la F3 (decisión del 27-sep-2026) otra vez una COLUMNA CONTENIDA en la
+          // página suelta: «en escritorio el horario va en una columna de
+          // ~720 px, no a todo el ancho» (`COLUMNA_HORARIO`,
+          // lib/reservar/portada.ts). El titular de la portada va en la misma
+          // columna, así que los dos empiezan en el mismo borde. La ficha de
+          // una clase vive aquí dentro y la sigue: abrirla no cambia de ancho.
+          // Fuera de la columna, a propósito: el widget incrustado (su ancho
+          // lo decide la web del estudio, y ahí no cambia nada) y el
+          // calendario semanal (`?presentacion=semana`), siete columnas que
+          // en 720 px no caben. Nada del propio ReservaCalendario se toca.
+          // El aire de arriba baja un poco en la lista (la portada ya separa)
+          // y se queda como estaba con la ficha abierta.
+          <div style={{
+            width: '100%',
+            ...(!embedMode && !horarioEnSemana ? { maxWidth: COLUMNA_HORARIO, marginInline: 'auto' } : {}),
+            padding: `${embedMode || fichaCalendarioAbierta ? cq(28, 3.4, 44) : cq(16, 2.2, 28)} 0 ${cq(50, 7, 90)}`,
+          }}>
 
             {/* «Clase de prueba» (`?prueba=1`): la oferta, con las palabras del
                 estudio (nombre y descripción del plan), y la regla dicha antes de
@@ -3794,7 +3681,7 @@ export default function ReservarPage() {
           <LogoTentare formato="horizontal" tinta={esNoche ? 'blanco' : 'tinta'} alto={16} decorativo />
         </div>
         )}
-      </div>
+      </Principal>
 
       {/* ── FOOTER ──────────────────────────────────────────────────────────────
           Fase 3 del Theme Builder: antes los enlaces legales solo vivían dentro
