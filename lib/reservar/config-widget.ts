@@ -51,8 +51,14 @@ export function familiaCssDe(nombre: string): string {
  *
  * Se valida el nombre aquí aunque el caller ya lo haya filtrado: son dos
  * puertas para lo mismo a propósito, porque esta cadena acaba en el `href` de
- * un `<link>` que se inyecta en un documento (el nuestro en Modo A, el de la
- * WEB DEL ESTUDIO en Modo B).
+ * un `<link>` que se inyecta en un documento (el nuestro en Modo A) o en la
+ * hoja que se le da al iframe de pago de Stripe.
+ *
+ * ⚠️ Modo B NO la usa para su letra: desde la web del estudio no se le pide
+ * nada a Google (le daría la IP de cada visitante); una familia que sirve
+ * Tentare sale de su hoja y las demás no se piden (`letraNativa`,
+ * lib/widget/fuentes-nativa.ts). Lo que queda es el iframe de pago sin una
+ * letra de la hoja (`fuenteDelPago`), que sigue como en Modo A.
  *
  * ⚠️ Se codifica PRIMERO y se cambian los `%20` por `+` DESPUÉS. Al revés
  * —meter los `+` y luego codificar— salen `%2B` y Google Fonts devuelve un 400:
@@ -112,9 +118,10 @@ export interface ConfigWidget {
   /** La tinta del texto (Modo B; en Modo A ya existe `?tinta=`). */
   colorNegro: string | null;
   /**
-   * Nombre de familia (Google Fonts) para el cuerpo/UI (Modo B; en Modo A ya
-   * existe `?fuente=`, resuelto por `resolverApariencia` con lo guardado en el
-   * tema debajo — mismo reparto que `fondo`/`tinta`).
+   * Nombre de familia (el de Google Fonts) para el cuerpo/UI (Modo B; en Modo A
+   * ya existe `?fuente=`, resuelto por `resolverApariencia` con lo guardado en
+   * el tema debajo — mismo reparto que `fondo`/`tinta`). Modo B no la pide a
+   * Google: ver `urlFuenteGoogle`.
    */
   fuente: string | null;
   /** Fuente de titulares/horas/precios. `null` = la misma que `fuente`. */
@@ -247,7 +254,7 @@ export function nativaTraeDisenoPropio(fuente: FuenteConfig): boolean {
  * (`hoy`|`todo`), `ocultar-precio`, `ocultar-nivel`, `ocultar-sustituta`
  * (booleanos), `diseno` (`completo`|`ligero`), `presentacion` (`lista`|
  * `semana`, solo Modo A), `fondo`, `marca`, `negro`
- * (colores hex), `fuente`, `fuente-display` (familias de Google Fonts),
+ * (colores hex), `fuente`, `fuente-display` (nombres de familia de Google Fonts),
  * `ref` (etiqueta de seguimiento) e `identidad` (`estudio`, solo Modo B).
  *
  * ⚠️ En Modo A, `fondo` y `negro`/`tinta` los sigue resolviendo

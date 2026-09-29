@@ -472,6 +472,57 @@ test.describe('Tentare Widgets — cada control conectado al código y a la vist
     await boton.waitFor();
     const fam = await boton.evaluate(el => getComputedStyle(el.closest('div[style*="--font-ui"]')!).fontFamily);
     expect(fam).toContain('Poppins');
+
+    // Sin marco solo se ofrecen las que sirve Tentare (seis y «la de siempre»):
+    // la nativa no le pide nada a Google. Playfair Display, ya elegida, no se
+    // quita del código: se enseña al final y se dice por qué puede no verse.
+    await paso(page, 'Cómo se ve');
+    await abrir(page, 'Un diseño distinto');
+    await page.getByRole('button', { name: 'Letra', exact: true }).click();
+    await expect(page.getByRole('option')).toHaveCount(7);
+    await expect(page.getByRole('option', { name: /^Inter/ })).toHaveCount(0);
+    await expect(page.getByRole('option', { name: /Poppins/ })).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Letra de los titulares', exact: true }).click();
+    await expect(page.getByRole('option')).toHaveCount(8);
+    await expect(page.getByRole('option', { name: /Playfair Display/ })).toContainText('Sin marco no la servimos: solo se verá si tu web ya la carga.');
+    await expect(page.getByRole('option', { name: /Playfair Display/ })).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('Escape');
+  });
+
+  test('⚠️ sin marco, el selector de letras no le pide nada a Google (ni para enseñarlas) y la previa no carga ninguna fuente de fuera', async ({ page }) => {
+    const google: string[] = [];
+    await page.route(/^https?:\/\/fonts\.(googleapis|gstatic)\.com\//, r => {
+      google.push(r.request().url());
+      return r.fulfill({ status: 200, contentType: 'text/css', body: '' });
+    });
+    await montar(page, {
+      plataforma: 'otra',
+      widgetBuilder: { clases: { metodo: 'nativa', identidad: 'propia', fuente: 'Cormorant Garamond', fuenteDisplay: 'Inter' } },
+    });
+    await expect(snippet(page)).toContainText('data-fuente="Cormorant Garamond"');
+    await expect(snippet(page)).toContainText('data-fuente-display="Inter"');
+    await paso(page, 'Cómo se ve');
+    await abrir(page, 'Un diseño distinto');
+    // El control: el selector se abrió y enseña sus muestras (si no, «cero peticiones» no diría nada).
+    await page.getByRole('button', { name: 'Letra', exact: true }).click();
+    await expect(page.getByRole('option')).toHaveCount(7);
+    const muestra = await page.getByRole('option', { name: /Poppins/ }).locator('span span').first()
+      .evaluate(el => getComputedStyle(el).fontFamily);
+    // Poppins de las fuentes del panel (`next/font`), no la de Google.
+    expect(muestra).toContain('Poppins');
+    await page.keyboard.press('Escape');
+    // La previa sin marco, con su letra servida y la otra nombrada tal cual.
+    const boton = page.getByRole('button', { name: '10:00 Reformer' });
+    await boton.waitFor();
+    const envoltorio = await boton.evaluate(el => {
+      const cs = getComputedStyle(el.closest('div[style*="--font-ui"]')!);
+      return { ui: cs.fontFamily, titular: cs.getPropertyValue('--font-display') };
+    });
+    expect(envoltorio.ui).toContain('Cormorant');
+    expect(envoltorio.titular).toContain('Inter');
+    expect(google).toEqual([]);
+    expect(await page.locator('link[href*="fonts.googleapis"]').count()).toBe(0);
   });
 
   test('al volver a entrar, una letra escrita a mano con el constructor viejo se conserva', async ({ page }) => {

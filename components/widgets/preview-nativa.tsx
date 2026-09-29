@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, type CSSProperties } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { MODO_TOKENS } from '@/lib/portal-modo';
-import { COLOR_VALIDO, fuenteValida, familiaCssDe, urlFuenteGoogle } from '@/lib/reservar/config-widget';
+import { COLOR_VALIDO, fuenteValida } from '@/lib/reservar/config-widget';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 import type { BaseEstiloWeb } from '@/lib/reservar/estilo-web';
 import type { WidgetWeb } from '@/lib/reservar/estilo-web-tipos';
 import { datosEstiloNativaDeBase, estiloDeLaNativa, marcaDeLaNativa } from '@/lib/widget/estilo-nativa';
+import { letraNativa } from '@/lib/widget/fuentes-nativa';
 import type { ConfigConstructor } from '@/lib/widgets/config';
 import { tieneDisenoEnCodigo } from '@/lib/widgets/integracion';
 
@@ -36,6 +37,10 @@ const familia = (v: string | null) => (v && fuenteValida(v) ? v.trim() : null);
 // (lo que pone `montarUno`) y la de dentro con el estilo (el envoltorio del
 // bundle). Sin las familias de las fuentes (`VARS_FAMILIAS_NATIVA`): el panel
 // ya las tiene por `next/font`, y aquí no se inyecta ninguna hoja.
+//
+// Lo mismo con la letra de un diseño propio: la misma `letraNativa` que el
+// bundle, con las familias de `next/font` en vez de las «Tentare …». Una que
+// Tentare no sirve se nombra y no se pide (tampoco a Google), como en su web.
 export function PreviewNativa({ slug, config, estilo, base, colorEstudio, fuenteDelPanel }: {
   slug: string;
   config: ConfigConstructor;
@@ -67,19 +72,11 @@ export function PreviewNativa({ slug, config, estilo, base, colorEstudio, fuente
 
   const fuente = propia ? familia(config.fuente) : null;
   const fuenteDisplay = propia ? familia(config.fuenteDisplay) : null;
-  useEffect(() => {
-    for (const nombre of [fuente, fuenteDisplay]) {
-      const url = urlFuenteGoogle(nombre);
-      if (!url || document.head.querySelector(`link[href="${url}"]`)) continue;
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = url;
-      document.head.appendChild(link);
-    }
-  }, [fuente, fuenteDisplay]);
-  const fuenteUi = fuente ? familiaCssDe(fuente) : (!propia && fuenteDelPanel) ? fuenteDelPanel : FUENTE_UI_BASE;
-  const display = fuenteDisplay ? familiaCssDe(fuenteDisplay)
-    : fuente ? familiaCssDe(fuente) : (!propia && fuenteDelPanel) ? fuenteDelPanel : FUENTE_DISPLAY_BASE;
+  const cuerpo = fuente ? letraNativa(fuente, 'panel') : null;
+  const titular = fuenteDisplay ? letraNativa(fuenteDisplay, 'panel') : cuerpo;
+  const delPanel = !propia && fuenteDelPanel ? fuenteDelPanel : null;
+  const fuenteUi = cuerpo?.pila ?? delPanel ?? FUENTE_UI_BASE;
+  const display = titular?.pila ?? delPanel ?? FUENTE_DISPLAY_BASE;
 
   // El primario, como en su web: con un diseño propio, su marca (o la de
   // siempre, sin `data-identidad`); con la identidad del estudio, su color, del
