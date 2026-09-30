@@ -4611,7 +4611,7 @@ export async function dbDeleteTipoClase(id: string): Promise<ResultadoEscritura>
   if ((error as { code?: string }).code === '23503') {
     return {
       ok: false,
-      error: 'No puedes borrar un tipo de clase con clases programadas. Reasigna esas clases a otro tipo o elimínalas primero, y vuelve a intentarlo.',
+      error: 'No se puede eliminar: este tipo de clase tiene clases en tu horario o en tu historial, y se quedarían sin tipo. Si ya no la das, quítala de tu horario.',
     };
   }
   return falloEscritura('[dbDeleteTipoClase]', error);
