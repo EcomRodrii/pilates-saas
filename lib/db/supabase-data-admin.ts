@@ -1507,10 +1507,15 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
     });
     if (!efectosTrasConsumo(p.estado, consumo, true)) return false;
   } else if (p.estado === 'CONFIRMADA') {
+    // El bono que pagó puede no ser el que eligió TS: `reservar_plaza` lo vuelve
+    // a elegir bajo su candado (migr 20260930130000). El aviso de «bono
+    // agotado», con el de verdad.
+    const pagoOtro = !!p.consumoBono?.suscripcionId && p.consumoBono.suscripcionId !== p.consumibleBono?.suscripcion.id;
     const consumo = p.consumoBono
       ? await efectosPostBono(admin, {
           studioId: p.studioId, socioId: p.socioId, reservaId: p.reservaId,
-          consumible: p.consumibleBono ?? null, consumo: p.consumoBono,
+          consumible: pagoOtro ? await bonoDeSuscripcion(admin, p.studioId, p.consumoBono.suscripcionId!) : p.consumibleBono ?? null,
+          consumo: p.consumoBono,
         })
       : await consumirBonoServidor(admin, {
           studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId,
@@ -1590,19 +1595,24 @@ async function decisionDeLaConfirmacion(admin: SupabaseClient, studioId: string,
   const decidido = consumoYaDecidido(lectura.data, null);
   if (!decidido) return { tipo: 'sin-decidir' };
   if (!decidido.suscripcionId) return { tipo: 'decidida', consumo: decidido, consumible: null };
+  const consumible = await bonoDeSuscripcion(admin, studioId, decidido.suscripcionId);
+  return { tipo: 'decidida', consumo: { ...decidido, saldo: consumible?.sesionesRestantes ?? null }, consumible };
+}
+
+/**
+ * El bono (suscripción y su plan) que pagó una reserva, leído después de que la
+ * base de datos lo eligiera: para el aviso de «bono agotado» con el bono de
+ * verdad, que puede no ser el que eligió TS antes del candado.
+ */
+async function bonoDeSuscripcion(admin: SupabaseClient, studioId: string, suscripcionId: string): Promise<ConsumibleBono | null> {
   const { data: susRow } = await admin.from('suscripciones').select('*')
-    .eq('id', decidido.suscripcionId).eq('studio_id', studioId).maybeSingle();
+    .eq('id', suscripcionId).eq('studio_id', studioId).maybeSingle();
   const suscripcion = susRow ? mapSuscripcion(susRow as never) : null;
-  const { data: planRow } = suscripcion?.planId
-    ? await admin.from('planes_tarifa').select('*').eq('id', suscripcion.planId).eq('studio_id', studioId).maybeSingle()
-    : { data: null };
+  if (!suscripcion?.planId) return null;
+  const { data: planRow } = await admin.from('planes_tarifa').select('*')
+    .eq('id', suscripcion.planId).eq('studio_id', studioId).maybeSingle();
   const plan = planRow ? mapPlanTarifa(planRow as never) : null;
-  const saldo = suscripcion?.sesionesRestantes ?? null;
-  return {
-    tipo: 'decidida',
-    consumo: { ...decidido, saldo },
-    consumible: suscripcion && plan ? { suscripcion, plan, sesionesRestantes: saldo ?? 0 } : null,
-  };
+  return plan ? { suscripcion, plan, sesionesRestantes: suscripcion.sesionesRestantes ?? 0 } : null;
 }
 
 /**

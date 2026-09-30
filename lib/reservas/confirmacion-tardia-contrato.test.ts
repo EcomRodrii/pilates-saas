@@ -164,3 +164,22 @@ test('TS ordena los ids en binario (el `collate "C"` de la base de datos): «sus
   const plan: PlanTarifa = { id: 'p1', studioId: 'e1', tipo: 'BONO', nombre: 'Bono', descripcion: null, precio: 50, sesiones: 5, validezDias: null, limiteSemanal: null, activo: true };
   assert.equal(bonoConsumible('a', [sus('sus-a1'), sus('sus-B1')], [plan], '2026-09-30', 'tc')?.suscripcion.id, 'sus-B1');
 });
+
+// ── La reserva directa (migración 20260930130000) ────────────────────────────
+
+test('⚠️ reservar_plaza: si TS eligió un bono, la base de datos lo vuelve a elegir bajo el candado', () => {
+  const cuerpo = cuerpoVigente('reservar_plaza');
+  const candado = cuerpo.search(/pg_advisory_xact_lock\(hashtext\(p_studio_id \|\| ':' \|\| p_socio_id\)\)/);
+  const eleccion = cuerpo.search(/case when p_suscripcion_id is null then null\s+else public\.elegir_bono_consumible\(p_studio_id, p_socio_id, v_tipo_clase_id\) end/);
+  assert.ok(candado > -1 && eleccion > candado, 'la elección, dentro del candado');
+  assert.doesNotMatch(cuerpo, /consumir_bono_interno\(p_reserva_id, p_suscripcion_id, p_studio_id\)/, 'nunca el bono elegido fuera del candado');
+});
+
+test('la función de descuento antigua está retirada y nadie la llama', () => {
+  const retirada = MIGRACIONES.some(n => /drop function if exists public\.consumir_sesion_bono\(text, text, text\)/
+    .test(readFileSync(join(DIR, n), 'utf8')));
+  assert.ok(retirada);
+  for (const f of ['lib/supabase-data.ts', 'lib/reservas/consumo-bono-reserva.ts', 'lib/db/supabase-data-admin.ts']) {
+    assert.doesNotMatch(readFileSync(join(RAIZ, f), 'utf8'), /rpc\('consumir_sesion_bono'/, f);
+  }
+});
