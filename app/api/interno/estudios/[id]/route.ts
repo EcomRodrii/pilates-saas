@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
 import { registrar } from '@/lib/interno/auditoria';
+import { esDePago } from '@/lib/interno/salud-estudio';
+import { saludDe } from '@/lib/interno/salud-estudio-servidor';
 
 export const runtime = 'nodejs';
 
@@ -72,6 +74,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const duena = 'data' in duenaAuth ? duenaAuth.data?.user ?? null : null;
 
+  const salud = esDePago(studio.subscription_id as string | null)
+    ? await saludDe(db, {
+        id: studio.id as string,
+        owner_auth_user_id: (studio.owner_auth_user_id as string | null) ?? null,
+        subscription_status: (studio.subscription_status as string | null) ?? null,
+      })
+    : null;
+
   await registrar(db, req, {
     actor: g.admin,
     accion: 'estudio.ficha.abierta',
@@ -123,6 +133,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       conSuscripcionStripe: Boolean(studio.subscription_id),
       esSede: Boolean(studio.cadena_id),
     },
+    salud,
     reviewBoost: {
       elegibleEn: (studio.review_boost_elegible_en as string | null) ?? null,
       mostradoEn: (studio.review_boost_mostrado_en as string | null) ?? null,
