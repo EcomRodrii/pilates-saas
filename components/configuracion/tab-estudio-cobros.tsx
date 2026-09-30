@@ -15,6 +15,7 @@ import { Toggle, inputCls } from '@/components/configuracion/estilos';
 import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
 import { Campo } from '@/components/configuracion/formulario-estudio';
+import { ExportarRegistrosVerifactu } from '@/components/configuracion/exportar-registros-verifactu';
 
 // Los cajones de «Domiciliaciones bancarias» y «Devoluciones», en Cobros y
 // facturas. Cada uno se guarda con el «Guardar» de su barra, que solo aparece
@@ -565,6 +566,7 @@ export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
           {' '}— para verla o descargarla en PDF.
         </p>
       )}
+      <ExportarRegistrosVerifactu />
       <BarraGuardar
         seccion="cobros"
         cambios={hayCambios(form, base) ? ['Facturación'] : []}
