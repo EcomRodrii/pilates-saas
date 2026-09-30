@@ -693,7 +693,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       {conPrevia && copia?.pieza && sinAplicar.length > 0 && (
         <div role="region" aria-label="Cambios sin aplicar" className="flex flex-wrap items-start gap-x-4 gap-y-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
           <AlertCircle size={16} aria-hidden className="mt-0.5 shrink-0 text-warning" />
-          <p className="min-w-0 flex-1">
+          <p className="min-w-0 flex-[1_1_16rem]">
             <strong>Tienes cambios sin aplicar en tu web</strong> ({unirGrupos(sinAplicar)}). No hace falta volver a pegar nada: al aplicarlos, tu web los enseña en unos minutos.
           </p>
           <button type="button" onClick={() => void aplicarContenido()} disabled={aplicando} className={cn(btnPrimary, 'inline-flex items-center gap-1.5')}>

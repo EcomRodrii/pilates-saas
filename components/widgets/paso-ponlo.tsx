@@ -8,7 +8,7 @@ import { METODOS, type MetodoIntegracion } from '@/lib/widgets/catalogo';
 import { ETIQUETA_VALIDA, esCopiaCompleta, type ConfigConstructor, type Copiado } from '@/lib/widgets/config';
 import { botonDeCodigoAnterior } from '@/lib/widgets/en-tu-web';
 import {
-  faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, tieneDisenoEnCodigo, urlPagina, type EntradaIntegracion,
+  codigoPorId, faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, tieneDisenoEnCodigo, urlPagina, type EntradaIntegracion,
 } from '@/lib/widgets/integracion';
 import {
   guiaDe, mensajeParaTuWeb, nombrePlataforma, pasosEnTuWeb, usaBotonPropio, type PlataformaWeb, type Receta,
@@ -77,6 +77,8 @@ export function PasoPonlo({
 }) {
   const w = entrada.widget;
   const c = entrada.config;
+  // El código va por id (lib/widgets/pieza.ts): lo que enseña llega al aplicar, sin volver a pegarlo.
+  const porId = codigoPorId(entrada);
   const falta = faltaParaGenerar(entrada, metodo, { dominiosAutorizados });
   const botonPropio = metodo === 'boton' && usaBotonPropio(plataforma);
   const esEnlace = metodo === 'enlace' || botonPropio;
@@ -265,10 +267,13 @@ export function PasoPonlo({
           <div className="rounded-xl border border-success/30 bg-success/5 p-3 text-[12.5px] leading-relaxed text-foreground">
             <p className="mb-0.5 flex items-center gap-1 font-semibold"><Check size={13} aria-hidden />Se actualiza solo</p>
             {estiloVivo(metodo, !tieneDisenoEnCodigo(c, metodo), { identidadEstudio: c.identidad === 'estudio', aplicado: estiloAplicado })}
+            {porId && metodo !== 'enlace' && metodo !== 'boton' && ' Y lo que enseña (y su diseño propio, si lo tiene), al pulsar «Aplicar en mi web».'}
           </div>
           <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-[12.5px] leading-relaxed text-foreground">
             <p className="mb-0.5 font-semibold">Si lo cambias, cópialo otra vez</p>
-            Lo que lleva la etiqueta «Va en el código»: qué enseña, la forma de ponerlo, el texto y el tipo de botón, y un diseño propio.
+            {porId
+              ? `Solo lo que va en el propio código: la forma de ponerlo${metodo === 'iframe' ? ', el ancho y cómo carga' : ''}${metodo === 'popup' || metodo === 'boton' ? ', el texto y el tipo de botón' : ''}${metodo === 'popup' ? ' y, con un diseño propio, el color del botón' : ''}.`
+              : 'Lo que lleva la etiqueta «Va en el código»: qué enseña, la forma de ponerlo, el texto y el tipo de botón, y un diseño propio.'}
           </div>
         </div>
       </Tarjeta>
