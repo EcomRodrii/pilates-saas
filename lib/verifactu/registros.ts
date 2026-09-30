@@ -241,9 +241,11 @@ export async function prepararRegistros(
   admin: SupabaseClient,
   studioId: string,
   sistema: SistemaInformatico,
+  /** Solo los generados desde esta hora (la activación). Lo anterior no se toca: barrera-activacion.ts. */
+  creadosDesde: string,
 ): Promise<{ preparados: number; rechazados: { id: string; numSerie: string; motivo: string }[] }> {
   const { data } = await admin.from('verifactu_registros').select(COLS_REGISTRO)
-    .eq('studio_id', studioId).eq('estado', 'PENDIENTE').is('xml_registro', null)
+    .eq('studio_id', studioId).eq('estado', 'PENDIENTE').is('xml_registro', null).gte('creado_en', creadosDesde)
     .order('seq', { ascending: true }).limit(1000);
   const filas = (data ?? []) as unknown as FilaRegistro[];
   if (filas.length === 0) return { preparados: 0, rechazados: [] };

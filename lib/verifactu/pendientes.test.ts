@@ -134,3 +134,21 @@ test('sin TiempoEsperaEnvio (o 0/negativo) usa el valor inicial de la orden, nun
   assert.equal(esperaAntesDelSiguienteEnvioMs(0), ESPERA_AEAT_POR_DEFECTO_SEGUNDOS * 1000);
   assert.equal(esperaAntesDelSiguienteEnvioMs(-5), ESPERA_AEAT_POR_DEFECTO_SEGUNDOS * 1000);
 });
+
+// ── Barrera de activación (barrera-activacion.ts) ────────────────────────────
+test('barrera: un registro anterior a la activación no sale, y la cadena del estudio se para ahí', () => {
+  const d = decidirLote([r(1, 'LISTO', { anteriorAActivacion: true }), r(2, 'LISTO')], AHORA);
+  assert.deepEqual(d, { tipo: 'ESPERAR', motivo: 'ANTERIOR_A_LA_ACTIVACION' });
+});
+
+test('barrera: lo posterior a la activación sale con normalidad', () => {
+  const d = decidirLote([r(1, 'REGISTRADA'), r(2, 'LISTO', { anteriorAActivacion: false }), r(3, 'LISTO')], AHORA);
+  assert.equal(d.tipo, 'ENVIAR');
+  assert.deepEqual(d.tipo === 'ENVIAR' && d.lote.map(x => x.seq), [2, 3]);
+});
+
+test('barrera: un anterior a la activación en medio del lote lo corta, nunca viaja', () => {
+  const d = decidirLote([r(1, 'LISTO'), r(2, 'LISTO', { anteriorAActivacion: true }), r(3, 'LISTO')], AHORA);
+  assert.equal(d.tipo, 'ENVIAR');
+  assert.deepEqual(d.tipo === 'ENVIAR' && d.lote.map(x => x.seq), [1]);
+});

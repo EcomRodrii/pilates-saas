@@ -402,6 +402,8 @@ export const suscribirDeclaracionVerifactu = (fecha: string, lugar: string) =>
 export interface EstudioVerifactuInterno {
   studio_id: string; nif: string; nombre_fiscal: string; tipo_emisor: string; numero_instalacion: string;
   estado: string; estado_motivo: string | null; activado_produccion_en: string | null; actualizado_en: string;
+  /** Facturas anteriores a la activación que la AEAT no tiene: mientras haya, no se activa (barrera de activación). */
+  facturas_anteriores_sin_decidir: number;
 }
 export interface RepresentacionVerifactuInterna {
   id: string; studio_id: string; nif_representado: string; nombre_representado: string;
