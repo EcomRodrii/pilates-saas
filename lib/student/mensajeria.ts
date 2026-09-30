@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { mensajeSeguro } from '@/lib/errores';
 import type { RowMensajes } from '@/lib/db-types';

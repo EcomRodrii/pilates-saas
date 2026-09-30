@@ -5,7 +5,7 @@ import { EVENTOS_DE_ALUMNA, tipoDeAviso } from './tipo-aviso.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ⚠️ El guardia importante de este fichero es el ÚLTIMO, y no prueba una
-// función: cruza la tabla contra `lib/notifications/catalog.ts`.
+// función: cruza la tabla contra `lib/notifications/catalog.ts` (y eventos.ts).
 //
 // Sin él, escribir mal un `event_type` —«pago.fallido» donde el catálogo dice
 // otra cosa— no rompe nada visible: el aviso cae en la red de seguridad y sale
@@ -45,7 +45,9 @@ test('la categoría ya NO elige cara: es solo red de seguridad', () => {
 });
 
 test('todo evento que le llega a una alumna tiene cara propia en el catálogo', () => {
-  const fuente = readFileSync(new URL('../notifications/catalog.ts', import.meta.url), 'utf8');
+  // Los tipos (EVENTOS) viven en eventos.ts y las reglas en catalog.ts: se leen los dos.
+  const fuente = ['../notifications/eventos.ts', '../notifications/catalog.ts']
+    .map(f => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
 
   // 1) EVENTOS.CLAVE → 'valor.del.event_type'
   const valor = new Map<string, string>();

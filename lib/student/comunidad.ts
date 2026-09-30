@@ -1,6 +1,6 @@
 'use client';
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import type { ComentarioTablon, Post } from '@/lib/student/tipos';
 
 // El tablón del estudio, contra `/api/public/comunidad/posts` (que ya filtra

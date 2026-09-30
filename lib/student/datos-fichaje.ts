@@ -1,6 +1,6 @@
 'use client';
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import type { EstadoFichaje } from '@/lib/fichaje/fichaje-servidor';
 
 // Adaptador del fichaje de la instructora. Delgado, como `datos-instructora.ts`:

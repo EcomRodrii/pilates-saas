@@ -16,6 +16,7 @@ import { queImparten } from '@/lib/equipo';
 import { iniciales } from '@/lib/mensajeria/presentacion';
 import { colorSeguro, destinoCarrusel, tiposQueImparte, type TipoQueImparte, type Tramo } from '@/lib/reservar/equipo-publico';
 import { serif, pesoTitular } from '@/lib/reservar-publico-tokens';
+import { urlServida } from '@/lib/student/imagen-servida';
 
 interface Props {
   /** El staff tal cual: aquí se queda solo quien imparte (`queImparten`). */
@@ -57,8 +58,13 @@ function Retrato({ i }: { i: Instructor }) {
       // alt vacío: el nombre va justo debajo, leerlo dos veces no ayuda.
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={i.fotoUrl} alt="" width={FOTO} height={FOTO} loading="lazy" decoding="async"
-        onError={() => setFallo(true)}
+        src={urlServida(i.fotoUrl, FOTO * 2)} alt="" width={FOTO} height={FOTO} loading="lazy" decoding="async"
+        onError={(e) => {
+          // Primero la original (si falló la redimensionada); si también falla, la inicial.
+          const img = e.currentTarget;
+          if (img.dataset.originalPuesto !== '1' && i.fotoUrl) { img.dataset.originalPuesto = '1'; img.src = i.fotoUrl; return; }
+          setFallo(true);
+        }}
         style={{ display: 'block', width: `min(${FOTO}px, 100%)`, height: 'auto', aspectRatio: '1 / 1', borderRadius: 999, objectFit: 'cover', background: 'var(--portal-surface-2)', flex: '0 0 auto' }}
       />
     );

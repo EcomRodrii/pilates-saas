@@ -21,7 +21,7 @@
 
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { desenlaceDeRespuesta, esRechazoConocido, type DesenlaceReserva, type RespuestaReserva } from '@/lib/student/reserva-codigos';
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { avisarFaltanPreguntas } from '@/lib/student/preguntas-alta';
 // Diferido, como el resto de la app: ver `lib/sentry-cliente`.
 import { capturarMensaje } from '@/lib/sentry-cliente';

@@ -4,7 +4,7 @@
 // propósito: pide y proyecta, sin lógica propia — las reglas viven en
 // `lib/valoracion-inicial.ts` y las revalida el servidor.
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import type { Historial, Valoracion, IdPaso } from '@/lib/valoracion-inicial';
 import type { ConsentimientoSaludPorEdad } from '@/lib/datos-salud/edad';
 

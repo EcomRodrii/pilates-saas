@@ -21,7 +21,8 @@
 
 import type { ReactNode } from 'react';
 import { ArrowDown } from 'lucide-react';
-import { alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
+import { alFallarImagenServida, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
+import { srcSetPorAncho, urlServida } from '@/lib/student/imagen-servida';
 import { cq, pesoTitular, sans, serif } from '@/lib/reservar-publico-tokens';
 import {
   ANCHO_PAGINA, COLUMNA_HORARIO, FONDO_SIN_FOTO, TINTA_SOBRE_CREMA, TINTA_SOBRE_FOTO, veloPortadaCss,
@@ -54,13 +55,17 @@ export function PortadaReservar({ foto, titular, subtitulo, cta, onCta, cabecera
           // `reserva-hero-foto`: la clase de siempre, la cuenta
           // e2e/widget-contacto.spec.ts para no pintar la foto dos veces.
           className="reserva-hero-foto"
-          src={foto}
+          // Al ancho en que se ve (ocupa toda la pantalla): un móvil pedía el
+          // original de 1.600 px para un hueco de 390.
+          src={urlServida(foto, 1280)}
+          srcSet={srcSetPorAncho(foto) ?? undefined}
+          sizes="100vw"
           alt=""
           // Es lo más grande de la primera pantalla (su LCP) en una página que
           // se indexa. Sin fundido a propósito: un `opacity: 0` de partida la
           // saca del cálculo del LCP, y bajo el velo el salto apenas se ve.
           fetchPriority="high"
-          onError={alFallarImagen(IMAGENES_POR_DEFECTO.portada[0])}
+          onError={alFallarImagenServida(foto, IMAGENES_POR_DEFECTO.portada[0])}
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
             objectFit: 'cover', objectPosition: 'center 40%',

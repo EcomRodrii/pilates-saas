@@ -14,7 +14,7 @@
 // pagar, el cron de renovaciones ya NO adopta el recibo para cobro
 // off-session (`checkout_session_id` queda marcado en cuanto se llega aquí).
 
-import { portalAuthHeader, prepararRenovacionPlan } from '@/lib/api-client';
+import { portalAuthHeader, prepararRenovacionPlan } from '@/lib/student/api-publica';
 
 export type ResultadoRenovar =
   | { ok: true; url: string }

@@ -5,7 +5,7 @@
 // Las tres cosas que la alumna puede CAMBIAR de sí misma, y las tres tienen su
 // endpoint ya escrito. Aquí solo se traduce.
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import type { Notificacion } from '@/lib/student/tipos';
 import { traducirEnlace } from '@/lib/student/deep-links';

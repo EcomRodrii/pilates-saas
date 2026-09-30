@@ -1,6 +1,6 @@
 'use client';
 
-import { cargarAforoPublico, cargarDatosPublicos } from '@/lib/api-client';
+import { cargarAforoPublico, cargarDatosPublicos } from '@/lib/student/api-publica';
 import { aplicarAforo } from '@/lib/student/aforo-fresco';
 import { borrarPorSlug, claveCatalogo } from '@/lib/student/catalogo-clave';
 import { supabasePortal } from '@/lib/db/supabase-portal';

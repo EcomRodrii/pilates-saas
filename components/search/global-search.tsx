@@ -42,8 +42,11 @@ export function GlobalSearch({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // El cierre con Escape lo gestiona DashboardSheet (useDialogA11y) cuando
-  // está abierto — aquí solo el atajo global para abrir/alternar.
+  // está abierto — aquí solo el atajo global para abrir/alternar. Si lo abre
+  // otro (`renderTrigger={false}`, la barra del panel), el atajo es suyo: aquí
+  // se alternaría dos veces con la misma pulsación.
   useEffect(() => {
+    if (!renderTrigger) return;
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -53,7 +56,7 @@ export function GlobalSearch({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, renderTrigger]);
 
   // El foco SÍ se queda en un efecto: mover el cursor es tocar el DOM, que es
   // justo para lo que existen los efectos. Lo que sale de aquí es el reset del

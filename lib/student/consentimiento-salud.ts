@@ -1,6 +1,6 @@
 'use client';
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import type { EstadoConsentimientoSalud } from '@/lib/datos-salud/consentimiento';
 
 // La alumna consulta y retira su consentimiento de datos de salud. El servidor

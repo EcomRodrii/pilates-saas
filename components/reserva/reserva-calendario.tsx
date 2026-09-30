@@ -42,7 +42,8 @@ import {
 } from '@/lib/reserva-calendario-logic';
 import { SpotPicker } from './spot-picker';
 import { TiraDias } from './tira-dias';
-import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
+import { imagenDeClase, alFallarImagen, alFallarImagenServida, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
+import { urlServida } from '@/lib/student/imagen-servida';
 import { franjaLocalDe, horaEstudio, fechaLargaEstudio, hoyEnEstudio } from '@/lib/utils';
 import { diaEnEstudio } from '@/lib/calendario-hora-estudio';
 
@@ -473,7 +474,10 @@ function FotoClaseImpl({ nombre, color, fotoUrl, ancho, alto, radio, conFotoPorD
     return (
       // eslint-disable-next-line @next/next/no-img-element -- foto subida por el estudio, no un asset estático conocido en build (mismo criterio que RoundPhoto)
       <img
-        src={fotoUrl}
+        // Al doble de su hueco (una por fila del horario: con el original de
+        // 1.280 px, una lista de diez clases eran diez fotos grandes).
+        src={urlServida(fotoUrl, typeof ancho === 'number' ? ancho * 2 : 780)}
+        onError={alFallarImagenServida(fotoUrl)}
         alt=""
         loading="lazy"
         decoding="async"
@@ -526,7 +530,8 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
     return (
       // eslint-disable-next-line @next/next/no-img-element -- foto subida por la instructora, no un asset estático conocido en build (mismo criterio que components/ui/profile-avatar)
       <img
-        src={fotoUrl}
+        src={urlServida(fotoUrl, size * 2)}
+        onError={alFallarImagenServida(fotoUrl)}
         alt={nombre}
         loading="lazy"
         decoding="async"

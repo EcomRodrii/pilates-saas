@@ -5692,11 +5692,20 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     // resultado != FALLIDO: un envío fallido nunca cuenta como "ya enviado"
     // (mismo criterio que ya usan ambos motores fila a fila). fetchAllRows,
     // no `.limit(...)`: es justo la consulta que no puede volver a truncarse.
-    fetchAllRows<Pick<RowAutomationLogs, 'rule_id' | 'automatizacion_id' | 'socio_id' | 'accion' | 'resultado'>>(
-      sid, 'automation_logs_historico', (from, to) =>
-        db.from('automation_logs')
-          .select('rule_id, automatizacion_id, socio_id, accion, resultado')
-          .eq('studio_id', sid).neq('resultado', 'FALLIDO').range(from, to)),
+    //
+    // Solo el servidor ('columnas'): lo leen los dos motores que ejecutan
+    // automatizaciones (lib/inngest/automatizaciones.ts y
+    // /api/automatizaciones/run), y el navegador no ejecuta ninguna desde que
+    // eso pasó al servidor — ningún setter del panel lo guarda. Pedirlo en el
+    // arranque del panel era descargar todo el histórico, página a página y
+    // dentro de la espera, para tirarlo.
+    opciones.privadas === 'columnas'
+      ? fetchAllRows<Pick<RowAutomationLogs, 'rule_id' | 'automatizacion_id' | 'socio_id' | 'accion' | 'resultado'>>(
+        sid, 'automation_logs_historico', (from, to) =>
+          db.from('automation_logs')
+            .select('rule_id, automatizacion_id, socio_id, accion, resultado')
+            .eq('studio_id', sid).neq('resultado', 'FALLIDO').range(from, to))
+      : Promise.resolve({ data: [] as Pick<RowAutomationLogs, 'rule_id' | 'automatizacion_id' | 'socio_id' | 'accion' | 'resultado'>[], error: null }),
   ]);
 
   // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que

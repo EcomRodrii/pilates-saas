@@ -56,7 +56,8 @@ import { CabeceraReservar, MARGEN_PAGINA } from '@/components/reservar/cabecera-
 import { PortadaReservar } from '@/components/reservar/portada-reservar';
 import { ANCHO_PAGINA, COLUMNA_HORARIO, FONDO_SIN_FOTO } from '@/lib/reservar/portada';
 import { canalesDelEstudio } from '@/lib/canales-estudio';
-import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
+import { imagenDeEstudio, alFallarImagenServida } from '@/lib/imagenes-por-defecto';
+import { urlServida } from '@/lib/student/imagen-servida';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
 import { PantallaReserva } from '@/components/reserva/pantalla-reserva';
 import { SpotPickerPublico } from '@/components/reserva/spot-picker-publico';
@@ -3235,7 +3236,7 @@ export default function ReservarPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
               {estudioLogo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={estudioLogo} alt={estudioNombre} style={{ width: 36, height: 36, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
+                <img src={urlServida(estudioLogo, 72)} onError={alFallarImagenServida(estudioLogo)} alt={estudioNombre} style={{ width: 36, height: 36, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
               ) : (
                 <div style={{ width: 36, height: 36, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: serif, fontSize: 17, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' }}>
                   {estudioNombre[0]}
@@ -4057,7 +4058,7 @@ export default function ReservarPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--portal-muted-2)' }}>
             {estudioLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={estudioLogo} alt={estudioNombre} style={{ width: 22, height: 22, borderRadius: 7, objectFit: 'contain', background: '#fff', flexShrink: 0 }} />
+              <img src={urlServida(estudioLogo, 44)} onError={alFallarImagenServida(estudioLogo)} alt={estudioNombre} style={{ width: 22, height: 22, borderRadius: 7, objectFit: 'contain', background: '#fff', flexShrink: 0 }} />
             ) : null}
             <span style={{ fontFamily: serif, fontSize: 14 }}>{estudioNombre}</span>
             <span aria-hidden>·</span>

@@ -13,7 +13,7 @@
 // `setup_future_usage`— y se lo entrega a `CheckoutEmbebido`, el mismo
 // componente que usa `/reservar`.
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { avisarFaltanPreguntas } from '@/lib/student/preguntas-alta';
 
 export type InicioCobro =

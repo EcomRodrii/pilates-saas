@@ -1,6 +1,6 @@
 'use client';
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { catalogo, invalidarCatalogo } from '@/lib/student/catalogo';
 import { proyectarGamificacion } from '@/lib/student/mapeo';
 import { hoyISO } from '@/lib/student/formato';

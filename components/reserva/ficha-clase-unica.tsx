@@ -13,6 +13,8 @@
 
 import { serif, sans, cq, radius, shadow, pesoTitular } from '@/lib/reservar-publico-tokens';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { alFallarImagenServida } from '@/lib/imagenes-por-defecto';
+import { urlServida } from '@/lib/student/imagen-servida';
 
 export function FichaClaseUnica({
   claseNombre, inicio, fin, duracionMinutos, instructorNombre, instructorFotoUrl,
@@ -61,7 +63,7 @@ export function FichaClaseUnica({
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {instructorFotoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={instructorFotoUrl} alt="" style={{ width: 20, height: 20, borderRadius: 999, objectFit: 'cover' }} />
+                  <img src={urlServida(instructorFotoUrl, 40)} onError={alFallarImagenServida(instructorFotoUrl)} alt="" style={{ width: 20, height: 20, borderRadius: 999, objectFit: 'cover' }} />
                 ) : (
                   <span style={{ width: 20, height: 20, borderRadius: 999, background: 'var(--portal-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: 'var(--portal-muted)' }}>
                     {instructorNombre.charAt(0)}
