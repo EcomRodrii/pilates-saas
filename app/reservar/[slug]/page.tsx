@@ -421,14 +421,16 @@ export default function ReservarPage() {
   const canalesEstudio = canalesDelEstudio({ sitioWeb: studio?.sitioWeb, redesSociales });
   const estudioEmail = studio?.email ?? '';
   const estudioTelefono = studio?.telefono ?? '';
-  // La foto de portada. `fotoUrl` es la del estudio y `imagenBienvenidaUrl` la
-  // que ya se usa en la bienvenida del portal — se prefiere la primera y se cae
-  // a la segunda para no pedirle al estudio que suba dos veces lo mismo.
-  // Sin ninguna de las dos entra la de por defecto: antes el hero se quedaba a
-  // una columna, que es como se veía esta página el primer día de todo estudio.
-  const heroFoto = imagenDeEstudio('portada', [studio?.fotoUrl, studio?.imagenBienvenidaUrl]);
   const params = useParams();
   const slug = String(params?.slug ?? '');
+  // La foto de portada: `imagenBienvenidaUrl`, la misma que la app de la
+  // alumna (lib/student/estudio.ts). ⚠️ NUNCA `fotoUrl`: es la foto de perfil
+  // de LA PROPIETARIA (Configuración → Mi perfil). Esta página la prefería, y
+  // en cuanto la portada volvió a verse habría salido su cara — el mismo fallo
+  // que ya se corrigió en la app. Sin imagen propia entra la de por defecto,
+  // con el slug de semilla: siempre la misma para cada estudio, y la misma que
+  // en la app.
+  const heroFoto = imagenDeEstudio('portada', studio?.imagenBienvenidaUrl, slug);
   const { socia, usuarioEmail, autenticado, enviarEnlace, loginConPassword, logout, refrescar } = useSociaSession(slug);
   const searchParams = useSearchParams();
   const router = useRouter();

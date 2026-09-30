@@ -175,7 +175,10 @@ export default async function ReservarSlugLayout({ children, params }: { childre
             email: studio.email,
             descripcion: studio.descripcion,
             // La foto del local; el logo no sirve como `image` de un negocio.
-            imagenUrl: studio.fotoUrl,
+            // ⚠️ `imagenBienvenidaUrl`, no `fotoUrl` (la foto de perfil de la
+            // propietaria): si no, era su cara la que recibía Google como
+            // imagen del negocio.
+            imagenUrl: studio.imagenBienvenidaUrl,
           }}
         />
       )}
