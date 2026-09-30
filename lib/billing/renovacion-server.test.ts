@@ -18,7 +18,7 @@ type Fila = Record<string, unknown>;
 /** Supabase de mentira: sirve la suscripción y el plan, y guarda los updates.
  *  `rpcSaldo` es lo que devuelve `renovar_bono_idempotente`: el saldo nuevo, o
  *  null cuando este recibo ya había entregado (reintento). */
-function fakeAdmin(opts: { sus: Fila; plan: Fila; rpcSaldo?: number | null; recibo?: Fila }) {
+function fakeAdmin(opts: { sus: Fila; plan: Fila; rpcSaldo?: number | null; recibo?: Fila; rpcError?: string; errorAlExtender?: string }) {
   const updates: Record<string, Fila[]> = { recibos: [], suscripciones: [] };
   const rpcs: Array<{ nombre: string; args: Fila }> = [];
   const api = {
@@ -27,6 +27,7 @@ function fakeAdmin(opts: { sus: Fila; plan: Fila; rpcSaldo?: number | null; reci
       // tests los inyectan. Aquí solo interesa la recarga del bono.
       if (nombre === 'sincronizar_creditos_renovacion') return Promise.resolve({ data: [], error: null });
       rpcs.push({ nombre, args });
+      if (opts.rpcError) return Promise.resolve({ data: null, error: { message: opts.rpcError } });
       // La RPC recarga la suscripción por dentro, así que se refleja aquí para
       // que el test siga midiendo "¿se tocó la suscripción?".
       if (opts.rpcSaldo != null) updates.suscripciones.push({ sesiones_restantes: opts.rpcSaldo });
@@ -42,7 +43,15 @@ function fakeAdmin(opts: { sus: Fila; plan: Fila; rpcSaldo?: number | null; reci
           if (tabla === 'planes_tarifa') return Promise.resolve({ data: opts.plan, error: null });
           return Promise.resolve({ data: null, error: null });
         },
-        update(fila: Fila) { updates[tabla]?.push(fila); return this; },
+        update(fila: Fila) {
+          updates[tabla]?.push(fila);
+          if (tabla === 'suscripciones' && opts.errorAlExtender) {
+            // Un UPDATE que la base de datos rechaza: `await` recibe `{ error }`.
+            const rechazo = { eq() { return rechazo; }, then: (ok: (v: unknown) => void) => ok({ error: { message: opts.errorAlExtender } }) };
+            return rechazo as never;
+          }
+          return this;
+        },
       };
     },
   };
@@ -398,4 +407,37 @@ test('créditos: los tres confirmadores de cobro de servidor pasan por aplicarRe
   assert.match(fuente('./confirmar-cobro.ts'), /renovar: aplicarRenovacionServidor/, 'el dueño único renueva');
   assert.match(fuente('./stripe-cobros.ts'), /await cerrarCobroOffSession\(admin, \{/, 'tarjeta guardada / SEPA síncrono');
   assert.match(fuente('./dunning-server.ts'), /export \{ confirmarCobroExitoso \} from '\.\/confirmar-cobro\.ts'/, 'webhook y dunning');
+});
+
+// ── Cuando la entrega NO se pudo: quien cobra a mano tiene que saberlo ────────
+
+test('bono: si la recarga falla, el resultado lo dice (`fallo`) y NO se da por entregada', async () => {
+  const { admin } = fakeAdmin({
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: 0, fecha_fin: null, estado: 'ACTIVA' },
+    plan: BONO, rpcError: 'deadlock detected',
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+  assert.equal(r.aplicada, false);
+  assert.equal(r.fallo, true);
+});
+
+test('mensual: un UPDATE que la base de datos rechaza ya no se guarda como «entregado»', async () => {
+  const { admin, updates } = fakeAdmin({
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: null, fecha_fin: '2020-01-31', estado: 'ACTIVA' },
+    plan: { tipo: 'MENSUAL', sesiones: null, periodicidad_meses: 1 }, errorAlExtender: 'connection reset',
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+  assert.equal(r.aplicada, false, 'el UPDATE falló: no se entregó nada');
+  assert.equal(r.fallo, true);
+  assert.equal(snapshot(updates).entrega_aplicada, false, 'el recibo tampoco puede decir que se entregó');
+});
+
+test('lo que se entrega bien no lleva `fallo`', async () => {
+  const { admin } = fakeAdmin({
+    sus: { id: 'sus-1', plan_id: 'plan-1', sesiones_restantes: 0, fecha_fin: null, estado: 'ACTIVA' },
+    plan: BONO, rpcSaldo: 10,
+  });
+  const r = await aplicarRenovacionServidor(admin, params);
+  assert.equal(r.aplicada, true);
+  assert.equal('fallo' in r, false);
 });

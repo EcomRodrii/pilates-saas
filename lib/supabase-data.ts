@@ -3307,14 +3307,16 @@ export async function dbLeerEstadoRecibos(ids: string[]): Promise<Map<string, st
 }
 
 // Lo que `confirmarCobro` pudo cambiar al cobrar ESTOS recibos: el propio recibo
-// (fecha y método reales), su factura sellada y la suscripción que renovó.
+// (fecha y método reales), su factura sellada, la suscripción que renovó y el saldo
+// de créditos de «Renovar plan» que se dio a la socia.
 // Acotado a esos ids: releer medio panel (`fetchDatosTrasVentaPOS`, paginado) por
 // cada «Cobrar» sería un abanico de consultas. `null` si algo falla — quien llama
-// se queda con lo que ya pintó, que el servidor confirmó.
+// se queda con lo que ya pintó, que el servidor confirmó. Los créditos son un
+// añadido: si su lectura falla se devuelve lista vacía, no `null` (no tumba lo demás).
 export async function dbReleerTrasCobro(
   reciboIds: string[],
-): Promise<{ recibos: Recibo[]; facturas: Factura[]; suscripciones: Suscripcion[] } | null> {
-  if (reciboIds.length === 0) return { recibos: [], facturas: [], suscripciones: [] };
+): Promise<{ recibos: Recibo[]; facturas: Factura[]; suscripciones: Suscripcion[]; creditos: MemberCredits[] } | null> {
+  if (reciboIds.length === 0) return { recibos: [], facturas: [], suscripciones: [], creditos: [] };
   const [recibosRes, facturasRes] = await Promise.all([
     supabase.from('recibos').select(COLUMNAS_RECIBO_PANEL).in('id', reciboIds),
     supabase.from('facturas').select(COLUMNAS_FACTURA_PANEL).in('recibo_id', reciboIds),
@@ -3328,7 +3330,13 @@ export async function dbReleerTrasCobro(
     if (susRes.error) return null;
     suscripciones = (susRes.data ?? []).map(mapSuscripcion);
   }
-  return { recibos, facturas: (facturasRes.data ?? []).map(mapFactura), suscripciones };
+  const socioIds = [...new Set(recibos.map(r => r.socioId).filter((x): x is string => !!x))];
+  let creditos: MemberCredits[] = [];
+  if (socioIds.length) {
+    const credRes = await supabase.from('member_credits').select('*').in('socio_id', socioIds);
+    if (!credRes.error) creditos = (credRes.data ?? []).map(mapMemberCredits);
+  }
+  return { recibos, facturas: (facturasRes.data ?? []).map(mapFactura), suscripciones, creditos };
 }
 
 export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Promise<ResultadoEscritura> {

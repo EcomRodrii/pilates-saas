@@ -182,7 +182,7 @@ import type {
 } from '@/lib/types';
 import { emiteFacturaAutomatica, MENSAJE_SIN_FACTURAS } from '@/lib/factura-automatica';
 import {
-  RECIBOS_POR_LOTE_PANEL, desenlaceTrasReleer, esCobroConfirmado, leerRespuestaMarcarCobrado, resumenDeLote, trocear,
+  MENSAJE_COBRADO_SIN_RENOVAR, RECIBOS_POR_LOTE_PANEL, desenlaceTrasReleer, esCobroConfirmado, leerRespuestaMarcarCobrado, resumenDeLote, trocear,
   type DesenlaceCobroManual, type ResultadoMarcarCobrado, type ResumenCobroEnLote,
 } from '@/lib/cobros/marcar-cobrado';
 import type { TipoRebote } from '@/lib/emails/rebotes';
@@ -4281,11 +4281,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setRecibos(prev => prev.map(r => recPorId.get(r.id) ?? r));
     setSuscripciones(prev => prev.map(x => susPorId.get(x.id) ?? x));
     setFacturas(prev => [...prev.filter(f => !facIds.has(f.id)), ...releido.facturas]);
+    // Los créditos de «Renovar plan» los da el servidor al cobrar; el saldo pintado se
+    // pone al día con el de la base de datos (antes lo hacía una llamada aparte).
+    if (releido.creditos.length > 0) {
+      const credSocios = new Set(releido.creditos.map(c => c.socioId));
+      setMemberCredits(prev => [...prev.filter(m => !credSocios.has(m.socioId)), ...releido.creditos]);
+    }
   }
 
   async function marcarCobrado(reciboId: string, metodo?: MetodoCobro): Promise<ResultadoMarcarCobrado> {
     const [d] = await cobrarEnServidor([reciboId], metodo);
     if (d?.resultado === 'aplicada') {
+      // El dinero SÍ entró pero el plan (bono o mensual) no se pudo entregar: no es
+      // «no pasó nada» ni un éxito limpio. Mismo cauce que la factura pendiente
+      // (`cobroRegistrado`): el llamador enseña el aviso y no reintenta a ciegas.
+      if (d.renovacionFallida) {
+        return { ok: false, cobroRegistrado: true, numeroFactura: d.numeroFactura, error: MENSAJE_COBRADO_SIN_RENOVAR };
+      }
       // `numeroFactura` va al llamador: el justificante lo necesita y `facturas`
       // todavía es el array del render anterior.
       return d.selladoOk

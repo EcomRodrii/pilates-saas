@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
   facturaIdCheckout, facturaIdManual, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas, origenNotifica,
-  refIdCreditoRenovacion, resolverSinFilas, type OrigenCobro,
+  reentregaAplicaAlRecibo, refIdCreditoRenovacion, resolverSinFilas, type OrigenCobro,
 } from './cobro-confirmado-reglas.ts';
 import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
 
@@ -175,6 +175,23 @@ test('la caja solo cuenta lo que pasa por el mostrador', () => {
 test('reentrega: solo se repite el apunte de caja del mostrador', () => {
   for (const o of ORIGENES) {
     assert.deepEqual(efectosEnReentrega(o), o === 'manual' || o === 'tpv' ? ['caja'] : [], o);
+  }
+});
+
+test('reentrega a mano: solo repara un apunte de caja de un cobro que cerró un «marcar cobrado»', () => {
+  assert.equal(reentregaAplicaAlRecibo('manual', 'manual'), true);
+  // Ya cobrado por otro camino (la socia lo pagó online): el cajón no lo vio.
+  for (const otro of ['webhook', 'conciliador', 'tpv', null, undefined]) {
+    assert.equal(reentregaAplicaAlRecibo('manual', otro), false, String(otro));
+  }
+});
+
+test('reentrega del TPV: no depende de quién cerró el recibo (el primero en llegar puede ser el webhook)', () => {
+  for (const cerro of ['webhook', 'conciliador', 'tpv', 'manual', null]) {
+    assert.equal(reentregaAplicaAlRecibo('tpv', cerro), true, String(cerro));
+  }
+  for (const o of ORIGENES.filter(o => o !== 'manual' && o !== 'tpv')) {
+    assert.equal(reentregaAplicaAlRecibo(o, 'manual'), false, o);
   }
 });
 

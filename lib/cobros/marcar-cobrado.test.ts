@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { facturaIdManual } from '../billing/cobro-confirmado-reglas.ts';
 import {
-  MAX_RECIBOS_POR_PETICION, METODOS_COBRO_MANUAL, desenlaceTrasReleer, esCobroConfirmado, estadoHttpDeLote,
+  LONGITUD_MAXIMA_ID_RECIBO, MAX_RECIBOS_POR_PETICION, METODOS_COBRO_MANUAL, desenlaceTrasReleer, esCobroConfirmado, estadoHttpDeLote,
   leerRespuestaMarcarCobrado, parsearPeticionMarcarCobrado, penalizacionesDeLosRecibos, recibosDePenalizacionAnulada,
   resultadoDeConfirmacion, resultadoDeExcepcion, resultadoPenalizacionAnulada, resumenDeLote,
   textoLoteCobrado, trocear, type DesenlaceCobroManual, type ResultadoReciboMarcado,
@@ -47,9 +48,16 @@ test('rechaza SEPA, métodos inventados y minúsculas', () => {
 test('rechaza cuerpos e ids que no son lo que parecen', () => {
   for (const cuerpo of [null, undefined, 'rec-1', [], {}, { reciboIds: [] }, { reciboIds: 'rec-1' },
     { reciboIds: [1] }, { reciboIds: [''] }, { reciboIds: ['rec-1,rec-2'] }, { reciboIds: ['rec-1)'] },
-    { reciboIds: ['a'.repeat(129)] }]) {
+    { reciboIds: ['a'.repeat(LONGITUD_MAXIMA_ID_RECIBO + 1)] }]) {
     assert.equal(parsearPeticionMarcarCobrado(cuerpo).ok, false, `debería rechazar ${JSON.stringify(cuerpo)}`);
   }
+});
+
+test('el id de recibo más largo que se acepta cabe en el id de su factura (64 caracteres al sellar)', () => {
+  assert.equal(LONGITUD_MAXIMA_ID_RECIBO, 64 - 'fac-manual-'.length);
+  const justo = 'r'.repeat(LONGITUD_MAXIMA_ID_RECIBO);
+  assert.equal(parsearPeticionMarcarCobrado({ reciboIds: [justo] }).ok, true);
+  assert.ok(facturaIdManual(justo).length <= 64, 'un recibo aceptado no puede dejar sin sellar su factura');
 });
 
 test('tope de 50 recibos por petición; los repetidos cuentan una vez', () => {
@@ -150,6 +158,18 @@ test('ni «no cobrable» ni «no encontrado» ni «error» se pintan como cobro'
   }
 });
 
+test('cobrado pero sin poder entregar el plan: el servidor lo dice y el lote lo cuenta aparte', () => {
+  const base = { ok: true as const, transicion: 'aplicada' as const, selladoOk: true };
+  assert.deepEqual(resultadoDeConfirmacion('rec-1', { ...base, renovacionFallida: true }),
+    { reciboId: 'rec-1', resultado: 'aplicada', selladoOk: true, renovacionFallida: true });
+  assert.equal('renovacionFallida' in resultadoDeConfirmacion('rec-1', base), false);
+
+  const lote = resumenDeLote([d('aplicada', { renovacionFallida: true }), d('aplicada')]);
+  assert.equal(lote.ok, true, 'el dinero entró: no es un lote fallido');
+  assert.equal(lote.sinRenovar, 1);
+  assert.equal(textoLoteCobrado(lote), '2 recibos cobrados · 1 sin poder renovar el plan: renuévalo a mano desde la ficha');
+});
+
 test('trocear reparte en lotes sin perder ni repetir', () => {
   assert.deepEqual(trocear([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
   assert.deepEqual(trocear([], 10), []);
@@ -163,7 +183,7 @@ const d = (resultado: DesenlaceCobroManual['resultado'], extra: Partial<Desenlac
 
 test('un lote sale bien solo si ninguno quedó sin cobrar ni sin confirmar', () => {
   const bien = resumenDeLote([d('aplicada'), d('aplicada', { selladoOk: false }), d('ya_estaba'), d('cobrado_al_releer')]);
-  assert.deepEqual(bien, { ok: true, cobrados: 2, yaEstaban: 2, sinFactura: 1, noCobrados: 0, anulados: 0, sinConfirmar: 0 });
+  assert.deepEqual(bien, { ok: true, cobrados: 2, yaEstaban: 2, sinFactura: 1, sinRenovar: 0, noCobrados: 0, anulados: 0, sinConfirmar: 0 });
   assert.equal(textoLoteCobrado(bien), '2 recibos cobrados · 2 ya estaban cobrados · 1 con la factura pendiente de sellar');
   assert.equal(textoLoteCobrado(resumenDeLote([d('aplicada')])), '1 recibo cobrado');
 
@@ -221,11 +241,14 @@ test('un lote con una anulada sale bien y lo dice con su importe', () => {
   assert.equal(textoLoteCobrado(resumenDeLote([d('aplicada')]), []), '1 recibo cobrado');
 });
 
-test('el servidor lee las penalizaciones acotadas al estudio y antes de cobrar nada', () => {
+test('el servidor lee las penalizaciones acotadas al estudio y justo antes de cobrar cada recibo', () => {
   const ruta = sinComentarios(leer('app/api/cobros/marcar-cobrado/route.ts'));
-  const guardia = ruta.indexOf('await bloqueadosPorPenalizacion(admin, sesion.studioId, peticion.reciboIds)');
+  const bucle = ruta.indexOf('for (const reciboId of peticion.reciboIds)');
+  const guardia = ruta.indexOf('await bloqueadosPorPenalizacion(admin, sesion.studioId, [reciboId])');
   assert.ok(guardia > 0, 'la ruta no aplica la guardia de penalizaciones');
-  assert.ok(ruta.indexOf('await confirmarCobro(') > guardia, 'la guardia va ANTES de confirmar ningún cobro');
+  assert.ok(guardia > bucle, 'la guardia se lee UNA VEZ al principio: una penalización anulada a mitad del lote se cobraría');
+  assert.ok(ruta.indexOf('await confirmarCobro(') > guardia, 'la guardia va ANTES de confirmar el cobro de ese recibo');
+  assert.doesNotMatch(ruta, /bloqueadosPorPenalizacion\(admin, sesion\.studioId, peticion\.reciboIds\)/, 'lectura única de todo el lote');
   assert.match(ruta, /\.eq\('studio_id', studioId\)\.in\('id', penalizacionIds\)/, 'acotada al estudio de la sesión');
   assert.match(ruta, /catch \{\s*estados = null;/, 'un fallo de lectura no tumba el cobro');
 });
@@ -251,7 +274,11 @@ test('la ruta cobra por el dueño único, a mano, en serie y sin email extra', (
   assert.match(ruta, /avisarSocia: false/);
   assert.match(ruta, /facturaId: facturaIdManual\(/);
   assert.match(ruta, /for \(const reciboId of peticion\.reciboIds\)/, 'en serie: dos renovaciones de la misma suscripción no pueden cruzarse');
-  assert.doesNotMatch(ruta, /Promise\.all/);
+  // Los COBROS, nunca en paralelo. El libro de auditoría (leer antes / anotar después) sí puede ir
+  // en paralelo: no toca la suscripción ni el bono.
+  assert.doesNotMatch(ruta, /Promise\.all\([^;]*confirmarCobro/, 'los cobros van en serie');
+  const cobros = ruta.slice(ruta.indexOf('for (const reciboId of peticion.reciboIds)'), ruta.indexOf('await Promise.all(resultados'));
+  assert.doesNotMatch(cobros, /Promise\.all/, 'dentro del bucle de cobros no puede haber paralelismo');
 });
 
 test('el panel ya no escribe COBRADO en recibos desde el navegador', () => {
@@ -264,4 +291,12 @@ test('el panel ya no escribe COBRADO en recibos desde el navegador', () => {
   assert.doesNotMatch(ctx, /aplicarRenovacionSuscripcion/, 'la renovación la aplica el servidor');
   const datos = sinComentarios(leer('lib/supabase-data.ts'));
   assert.doesNotMatch(datos, /export async function dbMarcarCobrado/);
+});
+
+test('la ruta limita el ritmo por persona y avisa a Sentry cuando el cobro no se pudo escribir', () => {
+  const ruta = leer('app/api/cobros/marcar-cobrado/route.ts');
+  assert.match(ruta, /enforceRateLimit\(req, 'cobros-marcar-cobrado',[^)]*sesion\.userId\)/, 'sin limitador por persona');
+  // Después de saber quién es y de comprobar el rol: un anónimo no gasta cupo de nadie.
+  assert.ok(ruta.indexOf('puedeMoverDinero(sesion.rol)') < ruta.indexOf('enforceRateLimit('), 'el limitador va antes de comprobar el rol');
+  assert.match(ruta, /r\.codigo === 'PERSISTENCIA'[\s\S]{0,200}captureMessage/, 'un fallo de escritura no llega a Sentry');
 });

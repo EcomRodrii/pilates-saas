@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { COLUMNAS_DEL_COBRO, TIEMPO_LECTURA_MS, anotarCobroManual, leerReciboAntesDeCobrar } from './cobro-manual.ts';
+import {
+  COLUMNAS_DEL_COBRO, ORIGEN_MARCAR_COBRADO, TIEMPO_LECTURA_MS, anotarCobroManual, anotarCobroMarcadoAMano, leerReciboAntesDeCobrar,
+} from './cobro-manual.ts';
 import { filaDeAuditoriaServidor, type EntradaServidor } from './entrada-servidor.ts';
 
 const SESION = { userId: '00000000-0000-4000-8000-000000000001', studioId: 'studio-1', rol: 'RECEPCION' };
@@ -190,6 +192,71 @@ test('nunca lanza: ni si el registro falla ni si una lectura revienta', async ()
   const { admin: admin2 } = adminConLecturas([COBRADO]);
   const avisos2: string[] = [];
   await anotarCobroManual(admin2, { ...base, antes: PENDIENTE, resultado: { ok: true, status: 'succeeded' } },
+    async () => { throw new Error('el libro se cayó'); }, m => avisos2.push(m));
+  assert.deepEqual(avisos2, ['AUDITORIA_FALLO']);
+});
+
+// ── «Marcar cobrado» a mano ──────────────────────────────────────────────────
+
+const COBRADO_A_MANO = { ...PENDIENTE, estado: 'COBRADO', metodo_cobro: 'EFECTIVO', fecha_cobro: '2026-09-30' };
+
+test('marcar cobrado a mano anota quién, con la acción propia y sin resultado de Stripe', async () => {
+  const { admin, lecturas } = adminConLecturas([COBRADO_A_MANO]);
+  const r = registrador();
+  const avisos: string[] = [];
+  await anotarCobroMarcadoAMano(admin, { sesion: SESION, reciboId: 'rec-1', antes: PENDIENTE }, r.registrar, m => avisos.push(m));
+
+  assert.equal(r.entradas.length, 1);
+  const e = r.entradas[0];
+  assert.deepEqual(e.sesion, SESION);
+  assert.equal(e.tabla, 'recibos');
+  assert.equal(e.operacion, 'UPDATE');
+  assert.equal(e.socioId, 'soc-1');
+  assert.equal(e.contexto.accion, 'COBRO_MARCADO_A_MANO');
+  assert.equal(e.contexto.origen, ORIGEN_MARCAR_COBRADO);
+  assert.equal(e.contexto.importe, 85);
+  assert.equal('resultado_cobro' in e.contexto, false, 'a mano no hay resultado de Stripe');
+  const f = filaDeAuditoriaServidor(e);
+  assert.ok(f.ok);
+  assert.deepEqual(f.fila.cambios, ['estado', 'fecha_cobro', 'metodo_cobro']);
+  assert.deepEqual(lecturas.map(l => [l.tabla, l.filtros]), [['recibos', { id: 'rec-1', studio_id: 'studio-1' }]]);
+  assert.deepEqual(avisos, []);
+});
+
+test('marcar cobrado: no usa la acción del cobro con tarjeta guardada (el índice único es de esa)', async () => {
+  const { admin } = adminConLecturas([COBRADO_A_MANO]);
+  const r = registrador();
+  await anotarCobroMarcadoAMano(admin, { sesion: SESION, reciboId: 'rec-1', antes: PENDIENTE }, r.registrar, () => {});
+  assert.notEqual(r.entradas[0].contexto.accion, 'COBRO_LANZADO');
+});
+
+test('marcar cobrado: sin valor anterior la entrada sale igual y lo dice; si no se puede releer, se avisa', async () => {
+  const { admin } = adminConLecturas([COBRADO_A_MANO]);
+  const r = registrador();
+  await anotarCobroMarcadoAMano(admin, { sesion: SESION, reciboId: 'rec-1', antes: null }, r.registrar, () => {});
+  assert.equal(r.entradas[0].contexto.sin_valor_anterior, true);
+
+  for (const lectura of ['error', 'lanza', null] as const) {
+    const { admin: a } = adminConLecturas([lectura]);
+    const r2 = registrador();
+    const avisos: string[] = [];
+    await anotarCobroMarcadoAMano(a, { sesion: SESION, reciboId: 'rec-1', antes: PENDIENTE }, r2.registrar, m => avisos.push(m));
+    assert.equal(r2.entradas.length, 0, String(lectura));
+    assert.deepEqual(avisos, ['AUDITORIA_LECTURA_POSTERIOR_FALLO'], String(lectura));
+  }
+});
+
+test('marcar cobrado: un recibo que no cambió no lleva entrada vacía pero no se calla; y nunca lanza', async () => {
+  const { admin } = adminConLecturas([PENDIENTE]);
+  const r = registrador();
+  const avisos: string[] = [];
+  await anotarCobroMarcadoAMano(admin, { sesion: SESION, reciboId: 'rec-1', antes: PENDIENTE }, r.registrar, m => avisos.push(m));
+  assert.equal(r.entradas.length, 0);
+  assert.deepEqual(avisos, ['AUDITORIA_COBRO_SIN_CAMBIO_EN_EL_RECIBO']);
+
+  const { admin: admin2 } = adminConLecturas([COBRADO_A_MANO]);
+  const avisos2: string[] = [];
+  await anotarCobroMarcadoAMano(admin2, { sesion: SESION, reciboId: 'rec-1', antes: PENDIENTE },
     async () => { throw new Error('el libro se cayó'); }, m => avisos2.push(m));
   assert.deepEqual(avisos2, ['AUDITORIA_FALLO']);
 });

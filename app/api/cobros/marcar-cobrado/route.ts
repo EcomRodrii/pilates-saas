@@ -5,6 +5,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { confirmarCobro } from '@/lib/billing/confirmar-cobro';
 import { facturaIdManual } from '@/lib/billing/cobro-confirmado-reglas';
+import { enforceRateLimit } from '@/lib/rate-limit';
+import { anotarCobroMarcadoAMano, leerReciboAntesDeCobrar } from '@/lib/auditoria/cobro-manual';
 import {
   estadoHttpDeLote, parsearPeticionMarcarCobrado, penalizacionesDeLosRecibos, recibosDePenalizacionAnulada,
   resultadoDeConfirmacion, resultadoDeExcepcion, resultadoPenalizacionAnulada,
@@ -37,6 +39,10 @@ export const maxDuration = 60;
 //
 // El estudio sale SIEMPRE de la sesión; el `studio_id` va en el propio UPDATE,
 // así que un id de otro estudio es «no encontrado».
+//
+// Libro de auditoría: esta ruta escribe con service-role, así que el trigger no
+// ve quién marcó qué (`auth.uid()` es NULL) y hay que anotarlo aquí, con la sesión
+// como actor. Se lee el recibo antes y después, solo de los que de verdad cambian.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Los recibos del lote que NO se cobran por ser de una penalización anulada o
@@ -76,6 +82,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Tu rol no puede registrar cobros' }, { status: 403 });
   }
 
+  // Solo dinero, tope de 50 por petición y compare-and-set idempotente: esto no
+  // protege un cobro doble sino un bucle de reintentos (o una sesión robada) lanzando
+  // cientos de lotes. El cobro masivo del panel manda 10 por petición.
+  const limitado = await enforceRateLimit(req, 'cobros-marcar-cobrado', { max: 60, windowSeconds: 60 }, sesion.userId);
+  if (limitado) return limitado;
+
   const cuerpo = await req.json().catch(() => null);
   const parseo = parsearPeticionMarcarCobrado(cuerpo);
   if (!parseo.ok) return NextResponse.json({ error: parseo.error }, { status: 400 });
@@ -84,11 +96,19 @@ export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
-  const anulados = await bloqueadosPorPenalizacion(admin, sesion.studioId, peticion.reciboIds);
+  // El recibo de ANTES, para el libro. En paralelo y con tope de tiempo cada lectura;
+  // mejor esfuerzo: sin él el cobro sigue y la entrada sale sin el valor anterior.
+  const antes = new Map(await Promise.all(
+    peticion.reciboIds.map(async id => [id, await leerReciboAntesDeCobrar(admin, sesion.studioId, id)] as const),
+  ));
 
   const resultados: ResultadoReciboMarcado[] = [];
   for (const reciboId of peticion.reciboIds) {
-    if (anulados.has(reciboId)) {
+    // La guardia de penalizaciones se lee JUSTO antes de cobrar cada recibo, no una vez al
+    // principio: el lote va en serie (hasta ~20 s) y una penalización que alguien anula en
+    // mitad no puede cobrarse con la lectura vieja. Solo lee para los `rec-penaliz-*`.
+    if (penalizacionesDeLosRecibos([reciboId]).length > 0
+      && (await bloqueadosPorPenalizacion(admin, sesion.studioId, [reciboId])).has(reciboId)) {
       resultados.push(resultadoPenalizacionAnulada(reciboId));
       continue;
     }
@@ -103,6 +123,14 @@ export async function POST(req: NextRequest) {
         facturaId: facturaIdManual(reciboId),
         actor: { userId: sesion.userId, nombre: sesion.nombre },
       });
+      if (!r.ok && r.codigo === 'PERSISTENCIA') {
+        // La pantalla solo ve «no se ha podido guardar»: sin esto el motivo real
+        // (el error de la base de datos) no llegaba a ningún sitio.
+        Sentry.captureMessage('[cobros] marcar cobrado: no se pudo escribir el cobro', {
+          level: 'error', tags: { area: 'cobros', tipo: 'marcar-cobrado' },
+          extra: { reciboId, studioId: sesion.studioId, error: r.error },
+        });
+      }
       resultados.push(resultadoDeConfirmacion(reciboId, r));
     } catch (e) {
       // `confirmarCobro` no lanza por diseño; si lo hiciera, este recibo queda
@@ -114,6 +142,12 @@ export async function POST(req: NextRequest) {
       resultados.push(resultadoDeExcepcion(reciboId));
     }
   }
+
+  // Al libro, solo lo que ESTA petición cambió (`aplicada`): un `ya_estaba` no
+  // cambió nada. Después de todos los cobros y antes de responder; nunca lanza.
+  await Promise.all(resultados.filter(r => r.resultado === 'aplicada').map(r =>
+    anotarCobroMarcadoAMano(admin, { sesion, reciboId: r.reciboId, antes: antes.get(r.reciboId) ?? null }),
+  ));
 
   return NextResponse.json({ resultados }, { status: estadoHttpDeLote(resultados) });
 }

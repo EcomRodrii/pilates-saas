@@ -20,6 +20,7 @@ import {
   cobroManualDeRecibo, penalizacionDelRecibo, TEXTO_PENALIZACION_ANULADA,
 } from '../billing/penalizacion-aprobar-reglas.ts';
 import { fraseSaltados } from './texto-cobro-en-lote.ts';
+import { facturaIdManual } from '../billing/cobro-confirmado-reglas.ts';
 
 /**
  * Cómo se puede marcar un cobro a mano: exactamente los botones de «¿Cómo lo has
@@ -44,7 +45,14 @@ export const RECIBOS_POR_LOTE_PANEL = 10;
 
 // Ids de recibo: `rec-<uid>`, `rec-renov-…`, uuids de importación. Nada que no
 // sea esto viaja a un filtro PostgREST.
-const ID_RECIBO = /^[A-Za-z0-9_-]{1,128}$/;
+//
+// Y con un largo máximo que no es arbitrario: la factura de este canal se llama
+// `fac-manual-<recibo>` y quien la sella acepta ids de hasta 64 caracteres
+// (`sellar-factura-server.ts`). Un recibo más largo se cobraría y su factura no
+// se sellaría nunca. Hoy el más largo mide 50; el tope solo cierra el caso latente.
+const LIMITE_ID_FACTURA = 64;
+export const LONGITUD_MAXIMA_ID_RECIBO = LIMITE_ID_FACTURA - facturaIdManual('').length;
+const ID_RECIBO = new RegExp(`^[A-Za-z0-9_-]{1,${LONGITUD_MAXIMA_ID_RECIBO}}$`);
 
 export interface PeticionMarcarCobrado {
   reciboIds: string[];
@@ -88,10 +96,16 @@ export interface ResultadoReciboMarcado {
   /** `false` solo si ESTA petición cobró y la factura quedó sin sellar (se reintenta sola). */
   selladoOk: boolean;
   numeroFactura?: string;
+  /** `true` solo si ESTA petición cobró y no pudo entregar el plan (bono o mensual): hay que renovarlo a mano. */
+  renovacionFallida?: boolean;
   error?: string;
 }
 
 export const MENSAJE_YA_ESTABA = 'Ya estaba cobrado.';
+
+/** Cobrado, pero el plan no se entregó. Antes lo avisaba el navegador; ahora lo dice el servidor. */
+export const MENSAJE_COBRADO_SIN_RENOVAR =
+  'Cobro registrado, pero no se ha podido renovar el plan de la clienta. Renuévalo a mano desde su ficha.';
 
 function mensajeNoCobrable(estado: string | null | undefined): string {
   // El único que no es «ya no hay nada que cobrar»: hay dinero en camino y
@@ -106,7 +120,11 @@ function mensajeNoCobrable(estado: string | null | undefined): string {
 export function resultadoDeConfirmacion(reciboId: string, r: ResultadoConfirmarCobro): ResultadoReciboMarcado {
   if (r.ok) {
     if (r.transicion === 'aplicada') {
-      return { reciboId, resultado: 'aplicada', selladoOk: r.selladoOk, ...(r.numeroFactura ? { numeroFactura: r.numeroFactura } : {}) };
+      return {
+        reciboId, resultado: 'aplicada', selladoOk: r.selladoOk,
+        ...(r.numeroFactura ? { numeroFactura: r.numeroFactura } : {}),
+        ...(r.renovacionFallida ? { renovacionFallida: true } : {}),
+      };
     }
     if (r.transicion === 'ya_estaba') return { reciboId, resultado: 'ya_estaba', selladoOk: true };
     // `devuelto` exige un cargo entrante y a mano no lo hay: no debería darse.
@@ -119,8 +137,10 @@ export function resultadoDeConfirmacion(reciboId: string, r: ResultadoConfirmarC
     case 'NO_COBRABLE':
       return { reciboId, resultado: 'no_cobrable', selladoOk: true, error: mensajeNoCobrable(r.estado) };
     case 'PERSISTENCIA':
-      // El compare-and-set falló o no se pudo releer: no se escribió nada.
-      return { reciboId, resultado: 'error', selladoOk: true, error: 'No se ha podido guardar el cobro. No se ha marcado nada.' };
+      // El compare-and-set falló o no se pudo releer. NO se afirma que no se escribió
+      // nada: un corte de red o un timeout puede llegar después de que la base de datos
+      // guardara. Quien cobra comprueba el recibo antes de volver a intentarlo.
+      return { reciboId, resultado: 'error', selladoOk: true, error: 'No se ha podido confirmar el cobro. Comprueba el recibo antes de volver a cobrarlo.' };
   }
 }
 
@@ -297,6 +317,8 @@ export interface ConteoLote {
   yaEstaban: number;
   /** De los cobrados, con la factura pendiente de sellar. */
   sinFactura: number;
+  /** De los cobrados, sin poder entregar el plan (bono o mensual): hay que renovarlo a mano. */
+  sinRenovar: number;
   /** Seguro que NO se cobraron (por un fallo o porque ya no eran cobrables). */
   noCobrados: number;
   /** Se saltaron a propósito: son de una penalización anulada y no se cobran. */
@@ -308,13 +330,14 @@ export interface ConteoLote {
 export type ResumenCobroEnLote = ({ ok: true } | { ok: false; error: string }) & ConteoLote;
 
 export function resumenDeLote(desenlaces: DesenlaceCobroManual[]): ResumenCobroEnLote {
-  const c: ConteoLote = { cobrados: 0, yaEstaban: 0, sinFactura: 0, noCobrados: 0, anulados: 0, sinConfirmar: 0 };
+  const c: ConteoLote = { cobrados: 0, yaEstaban: 0, sinFactura: 0, sinRenovar: 0, noCobrados: 0, anulados: 0, sinConfirmar: 0 };
   let primerNo: string | undefined;
   let primerDuda: string | undefined;
   for (const d of desenlaces) {
     if (d.resultado === 'aplicada') {
       c.cobrados++;
       if (!d.selladoOk) c.sinFactura++;
+      if (d.renovacionFallida) c.sinRenovar++;
     } else if (d.resultado === 'ya_estaba' || d.resultado === 'cobrado_al_releer') {
       c.yaEstaban++;
     } else if (d.resultado === 'penalizacion_anulada') {
@@ -343,6 +366,7 @@ export function textoLoteCobrado(r: ConteoLote, saltados: readonly { importe: nu
   const partes = [`${r.cobrados} ${r.cobrados === 1 ? 'recibo cobrado' : 'recibos cobrados'}`];
   if (r.yaEstaban) partes.push(`${r.yaEstaban} ya ${r.yaEstaban === 1 ? 'estaba cobrado' : 'estaban cobrados'}`);
   if (r.sinFactura) partes.push(`${r.sinFactura} con la factura pendiente de sellar`);
+  if (r.sinRenovar) partes.push(`${r.sinRenovar} sin poder renovar el plan: renuévalo a mano desde la ficha`);
   const base = partes.join(' · ');
   return saltados.length > 0 ? `${base}. ${fraseSaltados(saltados)}.` : base;
 }

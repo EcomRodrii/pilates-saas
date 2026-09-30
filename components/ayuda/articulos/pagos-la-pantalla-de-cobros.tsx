@@ -76,7 +76,7 @@ export default function Contenido() {
       <p>
         Solo la propietaria la ve. Cada vez que alguien de tu equipo <strong>crea, cambia o borra</strong> un recibo,
         una cuota o bono, un plan o un ingreso manual, <strong>pide un reembolso</strong>, marca un recibo como
-        devuelto, <strong>lanza un cobro</strong> con el método de pago guardado, devuelve una venta de la caja, emite
+        devuelto o <strong>como cobrado a mano</strong>, <strong>lanza un cobro</strong> con el método de pago guardado, devuelve una venta de la caja, emite
         una factura rectificativa o aprueba cobrar una penalización, queda aquí: quién fue, cuándo, y qué valor había antes. Es lo que
         necesitas para explicar un descuadre sin preguntar a todo el mundo. Lo de una clienta concreta también sale en
         la pestaña «Pagos» de su ficha.

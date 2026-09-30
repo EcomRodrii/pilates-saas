@@ -571,6 +571,15 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
       setMasivoFallidos(desenlaces.filter(d => !esCobroConfirmado(d) && d.resultado !== 'sin_confirmar').map(d => d.reciboId));
       setMasivoSinConfirmar(desenlaces.filter(d => d.resultado === 'sin_confirmar').map(d => d.reciboId));
       setMasivoYaEstaban(desenlaces.filter(d => d.resultado === 'ya_estaba' || d.resultado === 'cobrado_al_releer').length);
+      // El dinero entró pero el plan (bono o mensual) no se pudo entregar: no es un fallo
+      // del cobro, pero alguien tiene que renovarlo a mano.
+      const sinRenovar = desenlaces.filter(d => d.resultado === 'aplicada' && d.renovacionFallida).length;
+      if (sinRenovar > 0) {
+        setStripeToast({
+          tipo: 'error',
+          msg: `${sinRenovar} ${sinRenovar === 1 ? 'cobro registrado' : 'cobros registrados'}, pero sin poder renovar el plan: renuévalo a mano desde la ficha de la clienta.`,
+        });
+      }
     } catch {
       // No debería lanzar (la red ya se trata dentro), pero si lo hiciera no se
       // puede afirmar nada de ninguno.

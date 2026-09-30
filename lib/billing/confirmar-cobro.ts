@@ -53,8 +53,8 @@ import { hoyEnEstudio } from '../utils.ts';
 import {
   conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
   facturaIdCheckout, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas,
-  refIdCreditoRenovacion, resolverSinFilas,
-  type OrigenCobro, type PasoEfecto,
+  reentregaAplicaAlRecibo, refIdCreditoRenovacion, resolverSinFilas,
+  type FilaReciboSinCambios, type OrigenCobro, type PasoEfecto,
 } from './cobro-confirmado-reglas.ts';
 
 export type { OrigenCobro } from './cobro-confirmado-reglas.ts';
@@ -106,6 +106,8 @@ export type ResultadoConfirmarCobro =
       numeroFactura?: string;
       /** `false` solo si en ESTA llamada se intentó sellar y falló. */
       selladoOk: boolean;
+      /** `true` solo si en ESTA llamada se intentó entregar el ciclo (bono/mensual) y no se pudo. */
+      renovacionFallida?: boolean;
     }
   | {
       ok: false;
@@ -199,6 +201,8 @@ export interface ResultadoEfectosCobro {
   pasos: PasoEfecto[];
   selladoOk: boolean;
   numeroFactura?: string;
+  /** La renovación se intentó y no se pudo: el dinero entró y el plan no se entregó. */
+  renovacionFallida?: boolean;
 }
 
 /**
@@ -233,6 +237,7 @@ export async function aplicarEfectosCobro(
 
   let selladoOk = true;
   let numeroFactura: string | undefined;
+  let renovacionFallida = false;
 
   const marcarFacturaPendiente = async (detalle: unknown) => {
     selladoOk = false;
@@ -268,9 +273,11 @@ export async function aplicarEfectosCobro(
   for (const paso of pasos) {
     try {
       switch (paso) {
-        case 'renovacion':
-          await d.renovar(admin, base);
+        case 'renovacion': {
+          const r = await d.renovar(admin, base);
+          if ((r as { fallo?: boolean } | null | undefined)?.fallo) renovacionFallida = true;
           break;
+        }
         case 'factura': {
           const r = await d.sellar(admin, { ...base, facturaId: p.facturaId });
           if (r.ok) {
@@ -304,6 +311,7 @@ export async function aplicarEfectosCobro(
         await marcarFacturaPendiente(e instanceof Error ? e.message : e);
         continue;
       }
+      if (paso === 'renovacion') renovacionFallida = true;
       Sentry.captureException(e instanceof Error ? e : new Error(`Fallo en el efecto ${paso} del cobro`), {
         level: 'warning', tags: { area: 'cobros', tipo: `efecto-${paso}` },
         extra: { reciboId: p.reciboId, studioId: p.studioId, origen: p.origen },
@@ -311,7 +319,7 @@ export async function aplicarEfectosCobro(
     }
   }
 
-  return { pasos, selladoOk, ...(numeroFactura ? { numeroFactura } : {}) };
+  return { pasos, selladoOk, ...(numeroFactura ? { numeroFactura } : {}), ...(renovacionFallida ? { renovacionFallida } : {}) };
 }
 
 /**
@@ -365,12 +373,9 @@ export async function confirmarCobro(
 
   if (!marcado) {
     const { data: fila, error: errLeer } = await admin.from('recibos')
-      .select('estado, stripe_payment_intent_id').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+      .select('estado, stripe_payment_intent_id, conciliado_por').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
     if (errLeer) return { ok: false, codigo: 'PERSISTENCIA', error: errLeer.message };
-    const decision = resolverSinFilas(
-      fila as { estado: string | null; stripe_payment_intent_id: string | null } | null,
-      p.paymentIntentId,
-    );
+    const decision = resolverSinFilas(fila as FilaReciboSinCambios, p.paymentIntentId);
     switch (decision.tipo) {
       case 'no_encontrado':
         return { ok: false, codigo: 'NO_ENCONTRADO', error: 'Recibo no encontrado' };
@@ -379,7 +384,8 @@ export async function confirmarCobro(
         // camino que llega (TPV o webhook) lo hacía siempre y reparaba así uno
         // fallido. Idempotente. Ni email ni créditos.
         const d: DependenciasEfectos = { ...DEPENDENCIAS, ...deps };
-        for (const paso of efectosEnReentrega(p.origen)) {
+        const conciliadoPor = (fila as FilaReciboSinCambios)?.conciliado_por ?? null;
+        for (const paso of reentregaAplicaAlRecibo(p.origen, conciliadoPor) ? efectosEnReentrega(p.origen) : []) {
           if (paso !== 'caja') continue;
           try {
             await d.apuntarCaja(admin, { studioId: p.studioId, reciboId: p.reciboId, actor: p.actor ?? null });
@@ -435,6 +441,7 @@ export async function confirmarCobro(
   return {
     ok: true, transicion: 'aplicada', selladoOk: efectos.selladoOk,
     ...(efectos.numeroFactura ? { numeroFactura: efectos.numeroFactura } : {}),
+    ...(efectos.renovacionFallida ? { renovacionFallida: true } : {}),
   };
 }
 

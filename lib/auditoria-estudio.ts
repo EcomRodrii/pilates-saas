@@ -276,6 +276,7 @@ export const ACCIONES: Readonly<Record<string, string>> = {
   RECIBO_MARCADO_DEVUELTO: 'Marcó un recibo como devuelto',
   ENTREGA_REVERTIDA: 'Revirtió la entrega de una devolución',
   COBRO_LANZADO: 'Lanzó el cobro de un recibo con el método de pago guardado',
+  COBRO_MARCADO_A_MANO: 'Marcó un recibo como cobrado a mano',
   FACTURA_RECTIFICATIVA_EMITIDA: 'Emitió una factura rectificativa',
   DEVOLUCION_CAJA: 'Devolvió una venta de la caja',
   PENALIZACION_APROBADA: 'Aprobó cobrar una penalización',

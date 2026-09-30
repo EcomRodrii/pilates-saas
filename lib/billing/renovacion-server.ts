@@ -46,6 +46,25 @@ export interface ResultadoRenovacion {
   tipo: 'BONO' | 'MENSUAL' | 'NINGUNA';
   antes: FotoSuscripcion | null;
   despues: FotoSuscripcion | null;
+  /**
+   * `true` = se intentó entregar y NO se pudo (la base de datos dijo que no, o algo
+   * lanzó). Distinto de `aplicada: false` a secas, que también es «no aplicaba»: quien
+   * cobra a mano tiene que poder decir «cobrado, pero renuévalo tú». Solo lo lee quien
+   * lo enseña en pantalla; no se guarda en el recibo.
+   */
+  fallo?: boolean;
+}
+
+/**
+ * Aviso a Sentry que NUNCA lanza. Esta función garantiza no lanzar (`confirmarCobro` sella la
+ * factura y avisa a la socia DESPUÉS: un throw aquí dejaría un cobro real sin factura), y un
+ * aviso que puede fallar dentro de un catch es cómo se rompe esa garantía. Además deja probar los
+ * caminos de fallo con `node --test`, donde Sentry no está disponible.
+ */
+function capturar(error: Error, opciones: Parameters<typeof Sentry.captureException>[1]): void {
+  try {
+    Sentry.captureException(error, opciones);
+  } catch { /* el aviso es best-effort; la garantía de no lanzar no lo es */ }
 }
 
 const SIN_ENTREGA: ResultadoRenovacion = { aplicada: false, tipo: 'NINGUNA', antes: null, despues: null };
@@ -93,7 +112,7 @@ export async function aplicarRenovacionServidor(
     // tests, y el test que protege el «NO lanza» se puso rojo al instante.
     console.error('[aplicarRenovacionServidor] créditos sin sincronizar', params.reciboId, e);
     try {
-      Sentry.captureException(e instanceof Error ? e : new Error('créditos sin sincronizar'), {
+      capturar(e instanceof Error ? e : new Error('créditos sin sincronizar'), {
         level: 'warning', tags: { area: 'renovacion', tipo: 'creditos' },
         extra: { reciboId: params.reciboId, studioId: params.studioId },
       });
@@ -125,7 +144,7 @@ async function entregarRenovacion(
         entrega_estado_antes: r.antes?.estado ?? null,
       }).eq('id', reciboId).eq('studio_id', studioId);
     } catch (e) {
-      Sentry.captureException(e instanceof Error ? e : new Error('Fallo al guardar el snapshot de entrega'), {
+      capturar(e instanceof Error ? e : new Error('Fallo al guardar el snapshot de entrega'), {
         level: 'warning', tags: { area: 'cobros', tipo: 'renovacion' }, extra: { reciboId, studioId },
       });
     }
@@ -226,10 +245,10 @@ async function entregarRenovacion(
         p_recibo_id: reciboId, p_studio_id: studioId, p_sesiones: plan.sesiones,
       });
       if (errRenov) {
-        Sentry.captureException(new Error(`[renovarBonoIdempotente] ${errRenov.message}`), {
+        capturar(new Error(`[renovarBonoIdempotente] ${errRenov.message}`), {
           tags: { area: 'renovacion' }, extra: { reciboId, studioId },
         });
-        return guardar({ aplicada: false, tipo: 'BONO', antes, despues: antes });
+        return guardar({ aplicada: false, tipo: 'BONO', antes, despues: antes, fallo: true });
       }
       // null = este recibo ya había entregado (reintento). No es un fallo, y no
       // se reescribe el snapshot para no pisar el de la entrega buena.
@@ -260,7 +279,7 @@ async function entregarRenovacion(
       if (sus.fecha_fin) {
         const { data: est, error: errEst } = await admin.from('studios').select('cobro_dia_1_activo').eq('id', studioId).maybeSingle();
         if (errEst) {
-          Sentry.captureException(new Error(`[cobroDia1Activo] ${errEst.message}`), {
+          capturar(new Error(`[cobroDia1Activo] ${errEst.message}`), {
             level: 'warning', tags: { area: 'renovacion' }, extra: { reciboId, studioId },
           });
         }
@@ -273,7 +292,7 @@ async function entregarRenovacion(
       if (sus.fecha_fin && sus.fecha_fin >= fechaFin) {
         return guardar({ aplicada: false, tipo: 'MENSUAL', antes, despues: antes });
       }
-      await admin
+      const { error: errExtension } = await admin
         .from('suscripciones')
         // `baja_al_vencer: false`: si se ha cobrado una renovación es que se
         // queda (p. ej. la renueva ella misma desde el portal), así que una baja
@@ -281,6 +300,15 @@ async function entregarRenovacion(
         .update({ fecha_fin: fechaFin, estado: 'ACTIVA', baja_al_vencer: false })
         .eq('id', sus.id)
         .eq('studio_id', studioId);
+      // Antes no se miraba el error y se guardaba `aplicada: true`: un UPDATE que
+      // falló quedaba registrado como una entrega hecha. Ahora se dice la verdad
+      // (no se aplicó) y quien cobra a mano lo sabe.
+      if (errExtension) {
+        capturar(new Error(`[renovarMensual] ${errExtension.message}`), {
+          level: 'error', tags: { area: 'renovacion' }, extra: { reciboId, studioId },
+        });
+        return guardar({ aplicada: false, tipo: 'MENSUAL', antes, despues: antes, fallo: true });
+      }
       return guardar({
         aplicada: true, tipo: 'MENSUAL', antes,
         despues: { sesionesRestantes: antes.sesionesRestantes, fechaFin, estado: 'ACTIVA' },
@@ -292,12 +320,12 @@ async function entregarRenovacion(
     // La renovación es post-cobro: un fallo aquí no debe deshacer ni bloquear
     // el cobro ya hecho, pero tampoco puede ser invisible (bono cobrado y no
     // recargado = clase sin poder reservar).
-    Sentry.captureException(e instanceof Error ? e : new Error('Fallo al aplicar renovación'), {
+    capturar(e instanceof Error ? e : new Error('Fallo al aplicar renovación'), {
       level: 'error', tags: { area: 'cobros', tipo: 'renovacion' }, extra: { reciboId, studioId },
     });
     // Se sale SIN snapshot a propósito: el recibo se queda con
     // `entrega_aplicada` NULL ("no lo sé"), que es lo que evitará que se ofrezca
     // revertir algo que no se sabe si llegó a pasar.
-    return { aplicada: false, tipo: 'NINGUNA', antes: null, despues: null };
+    return { aplicada: false, tipo: 'NINGUNA', antes: null, despues: null, fallo: true };
   }
 }

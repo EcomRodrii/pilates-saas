@@ -88,7 +88,7 @@ export function filtroCargoEnCas(paymentIntentId: string | null): string | null 
     + `and(estado.eq.EN_CURSO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.eq.${pi}))`;
 }
 
-export type FilaReciboSinCambios = { estado: string | null; stripe_payment_intent_id: string | null } | null;
+export type FilaReciboSinCambios = { estado: string | null; stripe_payment_intent_id: string | null; conciliado_por?: string | null } | null;
 
 export type DecisionSinFilas =
   | { tipo: 'no_encontrado' }
@@ -182,6 +182,19 @@ export function efectosEnOrden(p: {
  */
 export function efectosEnReentrega(origen: OrigenCobro): PasoEfecto[] {
   return origen === 'manual' || origen === 'tpv' ? ['caja'] : [];
+}
+
+/**
+ * ¿Se repite el apunte de caja sobre ESTE recibo ya cobrado? A mano, solo si lo
+ * cerró un «marcar cobrado» (`conciliado_por = 'manual'`): reparar un apunte
+ * fallido de ese mismo cobro. Sin esto, una pestaña con la lista vieja que marca
+ * a mano un recibo que la socia ya pagó online escribía un COBRO en la caja
+ * abierta por un dinero que nunca pasó por el cajón. El TPV no se toca: allí el
+ * primero en llegar puede ser el webhook y el apunte lo repara el segundo.
+ */
+export function reentregaAplicaAlRecibo(origen: OrigenCobro, conciliadoPor: string | null | undefined): boolean {
+  if (origen === 'manual') return conciliadoPor === 'manual';
+  return efectosEnReentrega(origen).length > 0;
 }
 
 /**
