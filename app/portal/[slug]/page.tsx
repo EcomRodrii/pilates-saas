@@ -154,12 +154,11 @@ export default function InicioPage() {
     .filter((c) => c.plazasLibres > 0);
   const huecos = libresHoy.slice(0, 3);
 
-  return (
-    // `vistaPrevia`: en la vista previa del panel se ve SIN sesión de alumna,
-    // como la vería una recién llegada (el catálogo del estudio es público; lo
-    // suyo —reservas, bono— sale vacío). Sin esto, la propietaria que no es
-    // alumna de su propio estudio —casi todas— veía el login en «Inicio».
-    <StudentShell headerTransparente conLema vistaPrevia>
+  // La portada va FUERA de la guardia (`heroe` de StudentShell): sale en el
+  // HTML y no espera a `/api/public/session`. El saludo arranca sin nombre (así
+  // en el servidor y en el primer render) y lo completa al resolverse la sesión.
+  const heroe = (
+    <>
       {/* Héroe fotográfico, con la cabecera FLOTANDO encima.
           ⚠️ Antes decía justo esto en el comentario y no era verdad: la home
           nunca pasaba `headerTransparente`, así que la barra salía opaca y se
@@ -275,14 +274,16 @@ export default function InicioPage() {
               vuelve a demostrar: sobre una imagen que sube cada estudio, atenuar
               es justo la herramienta que no controlamos. La jerarquía la marcan
               el tamaño y las versales. */}
-          <p className="t-label a-up" style={{ color: 'var(--on-dark)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {/* `suppressHydrationWarning`: se pinta en el servidor, y la fecha o la
+              franja del saludo pueden cambiar entre ese instante y el de hidratar. */}
+          <p className="t-label a-up" suppressHydrationWarning style={{ color: 'var(--on-dark)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {estudio.nombre} · {fechaLarga(hoy)}
           </p>
           {/* ⚠️ La JERARQUÍA se invierte respecto a lo que había: el saludo pasa
               a ser el titular y «¿Qué te apetece hoy?» baja a subtítulo. Antes
               el nombre de la alumna iba en 13 px y la pregunta genérica en 32:
               lo grande era lo que no la nombraba. */}
-          <h1 className="a-up" style={{ margin: '8px 0 0', fontSize: 30, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.035em', lineHeight: 1.06, animationDelay: '60ms' }}>
+          <h1 className="a-up" suppressHydrationWarning style={{ margin: '8px 0 0', fontSize: 30, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.035em', lineHeight: 1.06, animationDelay: '60ms' }}>
             {saludo(socia?.nombre ?? '')} 👋
           </h1>
           {/* Lo escribe el estudio; sin escribir nada, el del producto. ⚠️ Aquí
@@ -337,7 +338,15 @@ export default function InicioPage() {
           </p>
         )}
       </section>
+    </>
+  );
 
+  return (
+    // `vistaPrevia`: en la vista previa del panel se ve SIN sesión de alumna,
+    // como la vería una recién llegada (el catálogo del estudio es público; lo
+    // suyo —reservas, bono— sale vacío). Sin esto, la propietaria que no es
+    // alumna de su propio estudio —casi todas— veía el login en «Inicio».
+    <StudentShell headerTransparente conLema vistaPrevia heroe={heroe}>
       {/* Buscador. No decora: lleva a `/reservar?q=`, que busca en TODO el
           horario por nombre de clase, tipo o instructora, ignorando acentos. */}
       <form
