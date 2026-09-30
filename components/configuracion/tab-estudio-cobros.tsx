@@ -3,7 +3,8 @@
 import { useState, type ChangeEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
-import type { Studio } from '@/lib/types';
+import type { ModoFacturacion, Studio } from '@/lib/types';
+import { nifEmisorValido } from '@/lib/nif';
 import { authHeader } from '@/lib/api-client';
 import type { DatosSepa } from '@/lib/billing/cuenta-cobro';
 import { leerPlazoReembolso, PLAZO_REEMBOLSO_MAX_DIAS } from '@/lib/billing/politica-reembolso';
@@ -444,6 +445,120 @@ export function FormAlCancelarCuota({ onGuardado }: PropsFormularioCajon) {
         seccion="cobros"
         cambios={hayCambios(form, base) ? ['Si se cancela una cuota'] : []}
         confirmar={confirmacionCuotaCancelada(base, form)}
+        onGuardar={alGuardar}
+        onDescartar={() => setForm(base)}
+      />
+    </>
+  );
+}
+
+// ── Facturación ──────────────────────────────────────────────────────────────
+//
+// Si Tentare emite una factura por cobro (con su registro Veri*Factu) o no
+// emite facturas y el estudio factura fuera. Por defecto, no (decisión del
+// fundador, 29-sep-2026). Se puede cambiar en los dos sentidos: la base de datos
+// es la que impide que nazca una factura con el modo apagado
+// (`reservar_numero_factura`), y la cadena de cada estudio no se toca.
+//
+// ⚠️ Los textos no prometen lo que no depende de Tentare: ni «cumple», ni el
+// envío a la AEAT, ni el QR (ver lib/factura-sello-cliente.ts). Solo lo que
+// pasa de verdad al guardar.
+
+type FacturacionForm = { modo: ModoFacturacion };
+
+const MODOS_FACTURACION: { valor: ModoFacturacion; titulo: string; descripcion: string }[] = [
+  {
+    valor: 'sin_facturas',
+    titulo: 'No emitir facturas desde Tentare',
+    descripcion: 'Cada cobro deja su recibo y tu alumna recibe su justificante de pago. Tus facturas las haces con tu gestoría o con otro programa.',
+  },
+  {
+    valor: 'verifactu',
+    titulo: 'Emitir facturas con registro Veri*Factu',
+    descripcion: 'Cada cobro, salvo en efectivo, genera su factura con número correlativo y una huella encadenada a la anterior. El estado de su envío a la AEAT lo ves en Cobros → Facturas.',
+  },
+];
+
+function studioToFacturacion(s: Partial<Pick<Studio, 'modoFacturacion'>> | null): FacturacionForm {
+  return { modo: s?.modoFacturacion ?? 'sin_facturas' };
+}
+
+function confirmacionFacturacion(ahora: ModoFacturacion) {
+  if (ahora === 'verifactu') {
+    return {
+      titulo: '¿Emitir facturas desde Tentare?',
+      descripcion: 'Desde ahora, cada cobro —salvo en efectivo— genera su factura con número correlativo y su registro para Veri*Factu. Las facturas emitidas no se borran: se corrigen con una rectificativa. Para las sociedades es obligatorio desde el 1 de enero de 2027 y para las autónomas desde el 1 de julio de 2027: confírmalo con tu asesoría.',
+      textoConfirmar: 'Sí, emitir facturas',
+    };
+  }
+  return {
+    titulo: '¿Dejar de emitir facturas desde Tentare?',
+    descripcion: 'Desde ahora los cobros no generan factura: tus alumnas reciben su justificante de pago y tus facturas las haces fuera. Las facturas que ya emitiste se quedan como están y se pueden seguir rectificando. Si vuelves a activarlo, la numeración sigue donde se quedó.',
+    textoConfirmar: 'Sí, dejar de emitirlas',
+  };
+}
+
+export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
+  const { studio, updateStudio } = useStudio();
+  const [form, setForm] = useState<FacturacionForm>(() => studioToFacturacion(studio));
+  const [base, setBase] = useState<FacturacionForm>(() => studioToFacturacion(studio));
+
+  const [anterior, setAnterior] = useState(studio);
+  if (studio !== anterior) {
+    setAnterior(studio);
+    const servidor = studioToFacturacion(studio);
+    setForm(sincronizarFormulario(form, base, servidor));
+    setBase(servidor);
+  }
+
+  // Sin un NIF válido no se puede sellar ninguna factura (`sellarFacturaDeRecibo`):
+  // encenderlo así dejaría cada cobro con su factura pendiente. Se dice aquí.
+  const sinNif = form.modo === 'verifactu' && !nifEmisorValido(studio?.nif?.trim() ?? '');
+
+  async function alGuardar(): Promise<string | null> {
+    const enviado = form;
+    // «Guardada» solo con la fila confirmada (updateStudio cuenta filas).
+    const res = await updateStudio({ modoFacturacion: form.modo });
+    if (!res.ok) return res.error;
+    setForm(f => sincronizarFormulario(f, enviado, enviado));
+    setBase(enviado);
+    onGuardado(form.modo === 'verifactu' ? 'Tentare emitirá tus facturas' : 'Tentare ya no emite tus facturas');
+    return null;
+  }
+
+  return (
+    <>
+      <div role="radiogroup" aria-label="Facturación" className="space-y-3 pb-6">
+        {MODOS_FACTURACION.map(m => {
+          const elegido = form.modo === m.valor;
+          return (
+            <button
+              key={m.valor}
+              type="button"
+              role="radio"
+              aria-checked={elegido}
+              onClick={() => setForm({ modo: m.valor })}
+              className={cn(
+                'w-full rounded-xl border px-4 py-3 text-left transition-colors',
+                elegido ? 'border-foreground bg-muted/60' : 'border-border hover:bg-muted/40',
+              )}
+            >
+              <span className="flex items-start gap-3">
+                <span aria-hidden className={cn('mt-1 size-4 shrink-0 rounded-full border-2', elegido ? 'border-foreground bg-foreground shadow-[inset_0_0_0_3px_var(--background)]' : 'border-muted-foreground/50')} />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-foreground">{m.titulo}</span>
+                  <span className="mt-0.5 block text-sm text-muted-foreground text-pretty">{m.descripcion}</span>
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <BarraGuardar
+        seccion="cobros"
+        cambios={hayCambios(form, base) ? ['Facturación'] : []}
+        bloqueo={sinNif ? 'Pon un NIF válido en «Datos fiscales e IVA» para emitir facturas.' : null}
+        confirmar={confirmacionFacturacion(form.modo)}
         onGuardar={alGuardar}
         onDescartar={() => setForm(base)}
       />

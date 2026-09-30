@@ -200,7 +200,9 @@ export async function entregarVentaPOS(
       studioId, reciboId, facturaId: `fac-pos-${idBase}`,
     });
     facturaSellada = r.ok;
-    if (!r.ok) {
+    // Con el estudio en 'sin_facturas' no hay factura que esperar: ni marca de
+    // pendiente ni «se emitirá en unos minutos».
+    if (!r.ok && !r.desactivada) {
       // No se aborta: el dinero está cobrado y la clienta ya tiene su bono.
       // Se marca para que el conciliador lo reintente, igual que hacen
       // `confirmar-cobro` y `entregarPlanComprado`.

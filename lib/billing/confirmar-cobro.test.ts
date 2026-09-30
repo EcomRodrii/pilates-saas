@@ -86,7 +86,7 @@ function fakeAdmin(opts: {
 }
 
 /** Efectos de mentira: apuntan en qué orden se llamaron. */
-function efectos(opts: { selladoFalla?: boolean } = {}) {
+function efectos(opts: { selladoFalla?: boolean; desactivada?: boolean } = {}) {
   const orden: string[] = [];
   const creditos: Fila[] = [];
   const caja: Fila[] = [];
@@ -94,6 +94,7 @@ function efectos(opts: { selladoFalla?: boolean } = {}) {
     renovar: async () => { orden.push('renovacion'); },
     sellar: async () => {
       orden.push('factura');
+      if (opts.desactivada) return { ok: false, desactivada: true, error: 'Este estudio no emite facturas desde Tentare.' };
       return opts.selladoFalla
         ? { ok: false, error: 'Configura un NIF fiscal válido' }
         : { ok: true, sellada: true, factura: { numeroCompleto: 'F2026-0007' } };
@@ -150,6 +151,15 @@ test('sellada con éxito: se quita factura_pendiente_sellar, solo si estaba pues
   const limpia = updates.find(u => u.fila.factura_pendiente_sellar === false);
   assert.ok(limpia, 'la marca de un intento fallido anterior no puede quedarse puesta');
   assert.ok(tiene(limpia.filtros, 'eq', 'factura_pendiente_sellar', true), 'solo toca la fila si la marca estaba');
+});
+
+test('estudio sin facturas desde Tentare: el cobro sigue igual, sin marca de pendiente ni «sellado fallido»', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: GANA });
+  const { orden, deps } = efectos({ desactivada: true });
+  const r = await confirmarCobro(admin, BASE, deps);
+  assert.deepEqual(r, { ok: true, transicion: 'aplicada', selladoOk: true });
+  assert.deepEqual(orden, ['renovacion', 'factura', 'notificacion', 'email'], 'el resto de efectos no cambia');
+  assert.ok(!updates.some(u => u.fila.factura_pendiente_sellar === true), 'no es un fallo: no se marca para reintentar');
 });
 
 // ── 0 filas ──────────────────────────────────────────────────────────────────

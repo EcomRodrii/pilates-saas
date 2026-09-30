@@ -182,7 +182,7 @@ import type {
   SustitucionConfirmadaPublica,
   ValoracionSocia,
 } from '@/lib/types';
-import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
+import { emiteFacturaAutomatica, MENSAJE_SIN_FACTURAS } from '@/lib/factura-automatica';
 import type { TipoRebote } from '@/lib/emails/rebotes';
 import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados, marcarReciboDevueltoApi, sincronizarCreditosRecibosApi } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
@@ -2414,7 +2414,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // venta, y emitir su factura gastaría un número de la serie legal por
         // un dinero que puede no llegar nunca. Cuando se cobre, `marcarCobrado`
         // emite la factura entonces.
-        const facturaAlta = cobrado ? buildFactura(reciboAlta, facturas) : null;
+        // Con el método del cobro y el modo del estudio: en efectivo, o con el
+        // estudio en 'sin_facturas', no hay factura (`lib/factura-automatica.ts`).
+        // Antes el alta cobrada facturaba siempre, también en efectivo.
+        const facturaAlta = cobrado && emiteFacturaAutomatica(reciboAlta.metodoCobro, studio?.modoFacturacion ?? null)
+          ? buildFactura(reciboAlta, facturas) : null;
         if (facturaAlta) {
           setFacturas(prev => [...prev, facturaAlta]);
           void sellarFacturaYActualizar(facturaAlta);
@@ -2460,7 +2464,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           const resMat = await dbInsertRecibo(reciboMatricula);
           if (resMat.ok) {
             setRecibos(prev => [...prev, reciboMatricula]);
-            if (cobrado) {
+            if (cobrado && emiteFacturaAutomatica(reciboMatricula.metodoCobro, studio?.modoFacturacion ?? null)) {
               // Su propia factura, con su propio número: son dos ventas
               // distintas (una cuota y un alta) y Hacienda las quiere así.
               // Con la factura del plan ya incluida: `buildFactura` deriva el
@@ -4144,7 +4148,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const socio = socios.find(s => s.id === fields.socioId);
     addActividadReciente(
       'COBRO_MANUAL',
-      `${actorNombre ?? 'Alguien'} generó una factura de "${fields.concepto}" (${fields.importe} €) para ${socio?.nombre ?? 'una socia'}`,
+      fac
+        ? `${actorNombre ?? 'Alguien'} generó una factura de "${fields.concepto}" (${fields.importe} €) para ${socio?.nombre ?? 'una socia'}`
+        : `${actorNombre ?? 'Alguien'} registró un cobro de "${fields.concepto}" (${fields.importe} €) de ${socio?.nombre ?? 'una socia'}`,
       fields.socioId,
       `/socios/${fields.socioId}`
     );
@@ -4263,6 +4269,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // dentro del updater de setFacturas; el sellado corre ahora fuera, una sola
   // vez, para que el updater sea puro (ver comentario de sellarFacturaYActualizar).
   function construirFacturaCobro(reciboCobrado: Recibo, facturasActuales: Factura[]): Factura | null {
+    // Con el estudio en 'sin_facturas' no nace ninguna, ni en pantalla: la base
+    // de datos la rechazaría y la factura optimista aparecería y se esfumaría.
+    if (studio?.modoFacturacion !== 'verifactu') return null;
     if (facturasActuales.some(f => f.reciboId === reciboCobrado.id)) return null;
     return buildFactura(reciboCobrado, facturasActuales);
   }
@@ -4327,7 +4336,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // La vía MANUAL («generar factura») no pasa por aquí y sigue intacta: si
       // la clienta pide factura de un pago en efectivo, se le puede emitir.
       const metodoReal = metodo ?? recibo.metodoCobro ?? null;
-      const fac = emiteFacturaAutomatica(metodoReal)
+      const fac = emiteFacturaAutomatica(metodoReal, studio?.modoFacturacion ?? null)
         ? construirFacturaCobro(updatedRecibo, facturas)
         : null;
       if (fac) {
@@ -4404,6 +4413,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   async function reintentarSelladoFactura(reciboId: string): Promise<ResultadoEscritura> {
     const recibo = recibos.find(r => r.id === reciboId);
     if (!recibo || recibo.estado !== 'COBRADO') return { ok: false, error: 'Ese recibo no está cobrado.' };
+    if (studio?.modoFacturacion !== 'verifactu') return { ok: false, error: MENSAJE_SIN_FACTURAS };
     const fac = construirFacturaCobro(recibo, facturas);
     if (!fac) return { ok: true }; // ya tenía factura
     setFacturas(prev => [...prev, fac]);
@@ -4517,8 +4527,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       let current = facturas;
       for (const recibo of cobradosAhora) {
         // Con el método dentro: `factura-automatica` no emite sola la del efectivo.
+        // ⚠️ Lo decía este comentario y no lo hacía nadie: `construirFacturaCobro`
+        // no mira el método, así que el cobro en lote en efectivo facturaba.
         const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro, metodoCobro: metodo ?? recibo.metodoCobro ?? null };
-        const fac = construirFacturaCobro(cobrado, current);
+        const fac = emiteFacturaAutomatica(cobrado.metodoCobro, studio?.modoFacturacion ?? null)
+          ? construirFacturaCobro(cobrado, current)
+          : null;
         if (fac) { nuevasFacturas.push(fac); current = [...current, fac]; }
       }
     }
@@ -4698,9 +4712,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setRecibos(prev => [nuevoRecibo, ...prev]);
       // 2.2: sellado fuera del updater (ver comentario en sellarFacturaYActualizar).
       // Solo llega aquí si la venta Y el recibo ya existen de verdad en BD.
-      const fac = buildFactura(nuevoRecibo, facturas);
-      setFacturas(prev => [...prev, fac]);
-      void sellarFacturaYActualizar(fac);
+      const fac = construirFacturaCobro(nuevoRecibo, facturas);
+      if (fac) {
+        setFacturas(prev => [...prev, fac]);
+        void sellarFacturaYActualizar(fac);
+      }
     }
     return resVenta;
   }
