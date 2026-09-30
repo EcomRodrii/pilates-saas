@@ -133,6 +133,7 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   CUENTA_COBRO_CAMBIADA: { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Cuenta de cobro' },
   WIDGET_DOMINIOS_CAMBIADOS: { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Widget' },
   WIDGETS_ESTILO_CAMBIADO: { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Widget' },
+  WIDGET_APLICADO: { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Widget' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────
