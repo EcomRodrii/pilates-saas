@@ -1,33 +1,28 @@
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 
 import { ERROR_GENERICO } from '@/lib/errores';
+import { avisaASentry, capturaParaSentry, detalle } from '@/lib/errores-servidor-aviso';
 
 // Lado servidor de la política de errores (el porqué está en lib/errores.ts).
 //
 // La idea es que el detalle técnico SIEMPRE se conserva —en el log del
-// servidor, donde sirve para depurar— y NUNCA viaja al navegador. Antes se
-// hacía justo al revés: `{ error: error.message }` mandaba el texto de Postgres
-// a la pantalla y no lo registraba en ningún sitio, así que el mensaje era
-// inútil para la usuaria y encima se perdía para quien tenía que arreglarlo.
-
-/** Texto legible de cualquier cosa que se pueda lanzar, para el log. */
-function detalle(causa: unknown): string {
-  if (!causa) return '(sin detalle)';
-  if (causa instanceof Error) return causa.stack ?? causa.message;
-  if (typeof causa === 'object' && 'message' in causa) {
-    const c = causa as { message?: unknown; code?: unknown; details?: unknown; hint?: unknown };
-    // Los errores de Supabase traen code/details/hint, que suelen decir más que
-    // el propio message. Se registran todos.
-    return [c.message, c.code && `code=${c.code}`, c.details && `details=${c.details}`, c.hint && `hint=${c.hint}`]
-      .filter(Boolean)
-      .join(' · ');
-  }
-  return String(causa);
-}
+// servidor y en Sentry, donde sirve para depurar— y NUNCA viaja al navegador.
+// Antes se hacía justo al revés: `{ error: error.message }` mandaba el texto de
+// Postgres a la pantalla y no lo registraba en ningún sitio, así que el mensaje
+// era inútil para la usuaria y encima se perdía para quien tenía que arreglarlo.
 
 /**
  * Fallo inesperado. Registra el detalle completo y responde con una frase en
  * español que la usuaria pueda entender.
+ *
+ * Si el estado es 5xx, además lo manda a Sentry. ⚠️ Hasta que esto se añadió,
+ * un fallo de base de datos en cualquier endpoint devolvía su 500 amable y
+ * quedaba SOLO en el log de Vercel: `onRequestError` (instrumentation.ts)
+ * únicamente ve lo que una ruta lanza, no lo que devuelve. Con ~400 llamadas a
+ * esta función, Sentry callaba justo donde más falta hacía. No hay que
+ * capturar además a mano antes de llamar aquí: si es el mismo error, Sentry
+ * descarta el segundo aviso.
  *
  * @param contexto  Etiqueta para encontrarlo en el log: 'equipo:POST'.
  * @param causa     El error tal cual (de Supabase, de un catch, lo que sea).
@@ -43,6 +38,10 @@ export function errorInterno(
   extra?: Record<string, unknown>,
 ): NextResponse {
   console.error(`[${contexto}]`, detalle(causa));
+  if (avisaASentry(status)) {
+    const { error, opciones } = capturaParaSentry(contexto, causa);
+    Sentry.captureException(error, opciones);
+  }
   return NextResponse.json({ error: mensaje, ...extra }, { status });
 }
 
