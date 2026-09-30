@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { ACC } from '@/components/landing/theme';
+import { CAMPO_TRAMPA } from '@/lib/auth/trampa-bots';
 
 // Formulario de la migración "concierge": deja tu email y de qué software
 // vienes, y el equipo te monta el estudio a mano en Tentare.
@@ -10,15 +11,17 @@ import { ACC } from '@/components/landing/theme';
 // ya existía — guarda el lead en `plataforma_lead` y avisa a soporte@tentare.app —
 // pero no tenía NINGÚN formulario en el sitio que lo llamara. Este es el primero.
 //
-// Sin captcha: la propia ruta no lo comprueba (a diferencia de
-// /api/public/interes-lanzamiento, que sí lo exige) — solo rate-limit
-// (10/min por IP). No se añade uno aquí que el servidor no vaya a validar.
+// Sin captcha: la ruta no lo comprueba, y no se añade uno aquí que el servidor no
+// vaya a validar. Lo que sí lleva es el campo trampa de lib/auth/trampa-bots.ts,
+// que la ruta comprueba: protege sin depender de ninguna clave ni servicio externo.
+// El nombre del campo sale de ese módulo y no se escribe a mano en los dos lados.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ConciergeMigracionForm() {
   const uid = useId();
   const [email, setEmail] = useState('');
   const [software, setSoftware] = useState('');
+  const [trampa, setTrampa] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState('');
@@ -35,7 +38,7 @@ export function ConciergeMigracionForm() {
       const res = await fetch('/api/public/migracion-concierge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, software }),
+        body: JSON.stringify({ email, software, [CAMPO_TRAMPA]: trampa }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -84,6 +87,13 @@ export function ConciergeMigracionForm() {
             placeholder="bsport, Mindbody, una hoja de Excel…"
             style={{ width: '100%', fontSize: 15, padding: '11px 14px', border: '1px solid #D8D8D0', borderRadius: 10, fontFamily: 'inherit' }}
           />
+        </div>
+        {/* La trampa para bots: invisible, fuera del orden de tabulación y sin autorrelleno. */}
+        <div aria-hidden="true" style={{ position: 'absolute', left: -10000, width: 1, height: 1, overflow: 'hidden' }}>
+          <label>
+            Web
+            <input type="text" name={CAMPO_TRAMPA} tabIndex={-1} autoComplete="off" value={trampa} onChange={(e) => setTrampa(e.target.value)} />
+          </label>
         </div>
         {error && <p style={{ margin: 0, fontSize: 13.5, color: '#C2503A' }}>{error}</p>}
         <button

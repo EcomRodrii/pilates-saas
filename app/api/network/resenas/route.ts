@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
@@ -70,6 +71,13 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  // Una reseña es irrevocable y única por relación (no hay edición), así que no la
+  // deja cualquiera con sesión de staff: como en vacantes, candidaturas y
+  // formalización, hace falta poder gestionar el equipo. El contacto, en cambio,
+  // está abierto a todos los roles a propósito (ver /api/network/contacto).
+  if (!puedeGestionarEquipo(sesion.rol)) {
+    return NextResponse.json({ error: 'No tienes permiso para dejar reseñas del estudio.' }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => null)) as { perfilId?: unknown; puntuacion?: unknown; comentario?: unknown } | null;
   const perfilId = typeof body?.perfilId === 'string' ? body.perfilId : null;

@@ -3,6 +3,8 @@ import { LEGAL } from '@/lib/legal-info';
 import { Resend } from 'resend';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { cayoEnLaTrampa, CAMPO_TRAMPA } from '@/lib/auth/trampa-bots';
+import { guardarLeadConcierge } from '@/lib/leads/guardar-lead-concierge';
 
 // Concierge de migración (landing): la propietaria deja su email y de qué
 // software viene, y Tentare le hace la migración (48h).
@@ -22,7 +24,15 @@ export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'public-migracion-concierge', { max: 10, windowSeconds: 60 });
   if (limited) return limited;
 
-  const body = (await req.json().catch(() => null)) as { email?: string; software?: string } | null;
+  const body = (await req.json().catch(() => null)) as { email?: string; software?: string; [CAMPO_TRAMPA]?: unknown } | null;
+  // Un bot que rellena todo lo que ve en el DOM rellena el campo trampa: se
+  // responde «ok» sin guardar ni avisar, para no darle pistas (mismo criterio que
+  // /api/network/interes). Sin esto, este canal solo tenía el límite por IP y cada
+  // envío falso mandaba un correo a soporte.
+  if (cayoEnLaTrampa(body?.[CAMPO_TRAMPA])) {
+    console.warn('[public:migracion-concierge] campo trampa relleno: descartado en silencio');
+    return NextResponse.json({ ok: true });
+  }
   const email = typeof body?.email === 'string' ? body.email.trim() : '';
   const software = typeof body?.software === 'string' ? body.software.trim().slice(0, 120) : '';
   if (!EMAIL_RE.test(email) || email.length > 200) {
@@ -33,22 +43,24 @@ export async function POST(req: NextRequest) {
   let guardado = false;
   const db = getSupabaseAdmin();
   if (db) {
-    // `upsert` sobre el email: el formulario es público y recargarlo tres veces
-    // no puede crear tres leads. Si la misma persona vuelve se refresca el
-    // software y la fecha, pero NO se tocan `estado` ni `notas`: alguien pudo
-    // haberlo trabajado ya, y pisarlo lo devolvería a la bandeja de nuevos.
-    const { error } = await db.from('plataforma_lead').upsert(
+    // Se INSERTA, y solo si el email ya existe se refresca lo que ha cambiado: el
+    // formulario es público y recargarlo tres veces no puede crear tres leads. El
+    // porqué de no usar un `upsert` (reescribía `id` y `origen`, y chocaba con las
+    // tablas que referencian el lead) está en lib/leads/guardar-lead-concierge.ts.
+    const r = await guardarLeadConcierge(
       {
         id: `lead-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
         email: email.toLowerCase(),
-        software_actual: software || null,
-        origen: 'CONCIERGE',
-        actualizado_en: new Date().toISOString(),
+        software,
+        ahora: new Date().toISOString(),
       },
-      { onConflict: 'email', ignoreDuplicates: false },
+      {
+        insertar: async (fila) => (await db.from('plataforma_lead').insert(fila)).error,
+        refrescar: async (correo, cambios) => (await db.from('plataforma_lead').update(cambios).eq('email', correo)).error,
+      },
     );
-    if (error) console.error('[public:migracion-concierge] no se ha podido guardar el lead', error);
-    else guardado = true;
+    if (r.ok) guardado = true;
+    else console.error('[public:migracion-concierge] no se ha podido guardar el lead', r.error);
   }
 
   // ── 2. Avisar ─────────────────────────────────────────────────────────────
