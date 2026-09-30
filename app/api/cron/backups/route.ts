@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/nextjs';
 import { secretoValido } from '@/lib/salud/secreto';
 import { ejecutarCopiaDiariaDeTodos } from '@/lib/backups/ejecutar-copia-diaria';
 import { errorInterno } from '@/lib/errores-servidor';
-import { cifrarCredencialesPendientes } from '@/lib/db/supabase-data-admin';
+import { cifrarConfigsIntegracionPendientes, cifrarCredencialesPendientes } from '@/lib/db/supabase-data-admin';
 
 export const dynamic = 'force-dynamic';
 // Recorre todos los estudios en una sola invocación (fan-out colapsado) —
@@ -42,22 +42,25 @@ export async function POST(req: NextRequest) {
         extra: { ...resumen, queHacer: 'Un estudio sin copia diaria no es recuperable a esa fecha: mirar por qué falló ANTES de la noche siguiente.' },
       });
     }
-    // De paso, el mantenimiento nocturno: cifrar los tokens de integraciones que
-    // queden en claro (lib/integraciones/cifrado-credenciales.ts). Aparte de la
+    // De paso, el mantenimiento nocturno: cifrar los tokens y las claves de
+    // integraciones que queden en claro (lib/integraciones/cifrado-credenciales.ts
+    // y config-cifrada.ts). Aparte de la
     // copia: si falla, la copia sigue contando como hecha.
     let credenciales: Awaited<ReturnType<typeof cifrarCredencialesPendientes>> | null = null;
+    let configs: Awaited<ReturnType<typeof cifrarConfigsIntegracionPendientes>> | null = null;
     try {
       credenciales = await cifrarCredencialesPendientes();
-      if (credenciales.fallidas > 0) {
+      configs = await cifrarConfigsIntegracionPendientes();
+      if (credenciales.fallidas > 0 || configs.fallidas > 0) {
         Sentry.captureMessage('[backups] tokens de integraciones que no se pudieron cifrar', {
-          level: 'warning', tags: { cron: 'backups', tipo: 'credenciales' }, extra: { ...credenciales },
+          level: 'warning', tags: { cron: 'backups', tipo: 'credenciales' }, extra: { credenciales, configs },
         });
       }
     } catch (err) {
       Sentry.captureException(err, { tags: { cron: 'backups', tipo: 'credenciales' } });
     }
     return NextResponse.json(
-      { ejecutadoEn: new Date().toISOString(), ...resumen, credenciales },
+      { ejecutadoEn: new Date().toISOString(), ...resumen, credenciales, configs },
       resumen.fallidos > 0 ? { status: 500 } : undefined,
     );
   } catch (err) {

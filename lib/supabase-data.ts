@@ -4552,36 +4552,27 @@ export async function dbUpsertIntegracion(
   // Aparte del registro porque `Integracion` ya no las lleva (ver lib/types.ts):
   // las credenciales solo existen en el cliente mientras el modal está abierto.
   config: Record<string, string>,
+  // Sí se reinicia la salud cuando cambian las credenciales: un token nuevo no
+  // ha fallado todavía, y dejar el error del anterior pintaría en rojo algo
+  // recién arreglado. Vuelve a SIN_PROBAR, que es la verdad hasta que alguien
+  // hable con el servicio.
   reiniciarSalud = false,
 ): Promise<ResultadoEscritura> {
-  const row = {
-    id: intg.id,
-    studio_id: intg.studioId ?? STUDIO_ID,
-    tipo: intg.tipo,
-    activo: intg.activo,
-    config: config ?? {},
-    actualizado_en: intg.actualizadoEn,
-    // Solo WhatsApp tiene esta columna (Fase D, ver WHATSAPP_AUDIT.md): se
-    // mantiene en sync con `config.phoneId` en CUALQUIER escritura de este
-    // camino (manual o "Desconectar", que llama aquí con `config: {}`) — sin
-    // esto, "Desconectar" apagaba `activo` pero dejaba el `phone_number_id`
-    // de una conexión de Embedded Signup huérfano: el webhook seguía
-    // resolviendo eventos a un estudio "desconectado", y el índice único
-    // parcial de esa columna bloqueaba reconectar el mismo número después.
-    ...(intg.tipo === 'WHATSAPP' ? { phone_number_id: config?.phoneId || null } : {}),
-    // Las columnas de salud NO se listan salvo que haya que reiniciarlas: en un
-    // upsert, lo que no se nombra no se toca, y así una tanda del cron que haya
-    // escrito la salud entre que se cargó la pantalla y se pulsó Guardar no se
-    // pisa con el valor viejo que tuviera el navegador.
-    //
-    // Sí se reinician cuando cambian las credenciales: un token nuevo no ha
-    // fallado todavía, y dejar el error del anterior pintaría en rojo algo
-    // recién arreglado. Vuelve a SIN_PROBAR, que es la verdad hasta que alguien
-    // hable con el servicio.
-    ...(reiniciarSalud ? { ultimo_ok_en: null, ultimo_error: null, ultimo_error_en: null } : {}),
-  };
-  const { error } = await supabase.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
-  return error ? falloEscritura('[dbUpsertIntegracion]', error) : ESCRITURA_OK;
+  // Por el servidor, no directo contra la tabla: ahí los secretos (el token de
+  // WhatsApp, las claves de Kisi y Mailchimp) se guardan cifrados, con una
+  // clave que el navegador no tiene. El resto de reglas (phone_number_id de
+  // WhatsApp, no pisar la salud) viven con él: dbGuardarIntegracion.
+  try {
+    const res = await fetch('/api/integrations/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({ tipo: intg.tipo, activo: intg.activo, config: config ?? {}, reiniciarSalud }),
+    });
+    if (!res.ok) return falloEscritura('[dbUpsertIntegracion]', await cuerpoDeError(res));
+    return ESCRITURA_OK;
+  } catch (e) {
+    return falloEscritura('[dbUpsertIntegracion]', e);
+  }
 }
 
 // ─── Catálogo de tipos de clase de la cadena (plantilla, ver lib/types.ts) ───

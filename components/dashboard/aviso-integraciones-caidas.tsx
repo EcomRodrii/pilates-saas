@@ -49,7 +49,7 @@ export function AvisoIntegracionesCaidas() {
   const { integraciones } = useStudio();
 
   // Sin guardia de rol a propósito: la RLS de `integraciones`
-  // (`owner_integraciones`) solo devuelve filas a la PROPIETARIA del estudio,
+  // (`owner_integraciones_lectura`) solo devuelve filas a la PROPIETARIA del estudio,
   // así que para el resto del personal la lista llega vacía y esto no pinta
   // nada. El límite real es la cerradura, no un `if` en el cliente.
   // La selección es pura y está probada aparte (`integracionesCaidas`), incluido
