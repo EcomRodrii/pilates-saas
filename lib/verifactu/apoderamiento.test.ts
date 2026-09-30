@@ -139,6 +139,16 @@ test('el mandato nombra al apoderado, el NIF representado y el trámite IZ860, y
   assert.ok(t.includes('el poder real es el inscrito en la AEAT'));
 });
 
+test('revisión del asesor: el mandato no se hace pasar por el poder ni por el encargo de tratamiento', () => {
+  const t = textoMandato({ estudio: { nombreFiscal: 'Estudio de Ejemplo', nif: NIF }, apoderado: { nombre: 'Apoderado de Ejemplo', nif: APODERADO }, tramite: 'IZ860' });
+  assert.ok(t.includes('no constituye por sí mismo un apoderamiento'), 'dice que no es el poder de la AEAT');
+  assert.ok(t.includes('acuerdo de encargo de tratamiento aplicable entre las partes'), 'remite al encargo de tratamiento (art. 28 RGPD)');
+  assert.ok(!/Autoriza el tratamiento/.test(t), 'el mandato no «autoriza» tratamientos: eso lo regula el encargo');
+  assert.ok(t.includes('permanecerá vigente mientras se mantenga el servicio'), 'lleva duración');
+  assert.ok(t.includes('En caso de terminación del servicio'), 'dice qué pasa si termina el servicio');
+  assert.ok(!/revoca(rá|n)? (el|dicho) poder/i.test(t), 'no pretende revocar el poder: eso se hace en la AEAT');
+});
+
 test('el apoderado es por defecto el productor; se puede separar con VERIFACTU_APODERADO_*', () => {
   assert.deepEqual(apoderadoDeEntorno({ VERIFACTU_PRODUCTOR_NOMBRE: 'P', VERIFACTU_PRODUCTOR_NIF: APODERADO }), { nombre: 'P', nif: APODERADO });
   assert.deepEqual(apoderadoDeEntorno({ VERIFACTU_PRODUCTOR_NOMBRE: 'P', VERIFACTU_PRODUCTOR_NIF: APODERADO, VERIFACTU_APODERADO_NOMBRE: 'A', VERIFACTU_APODERADO_NIF: '11111111h' }), { nombre: 'A', nif: '11111111H' });

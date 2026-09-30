@@ -113,7 +113,7 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
     <Plegable
       abierto={propia}
       className="border-t border-border pt-2"
-      titulo={<span className="flex flex-wrap items-center gap-2">Un diseño distinto solo para {soloBoton ? 'este botón' : 'este widget'} <Etiqueta tipo={porId && !soloBoton ? 'vivo' : 'codigo'} /></span>}
+      titulo={<span className="flex flex-wrap items-center gap-2">Un diseño distinto solo para {soloBoton ? 'este botón' : 'este widget'} <Etiqueta tipo={porId && !soloBoton ? 'aplicar' : 'codigo'} /></span>}
     >
       <div className="space-y-5">
         <p className="text-[12.5px] leading-relaxed text-muted-foreground">
@@ -135,8 +135,8 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
     <div className="space-y-4">
       <Tarjeta
         titulo="¿Cómo quieres que se vea?"
-        etiqueta="vivo"
-        subtitulo="Es el mismo estilo para todos tus widgets. Cuando lo cambies, cambia solo en tu web: no hace falta volver a pegar nada."
+        etiqueta="aplicar"
+        subtitulo="Es el mismo estilo para todos tus widgets. Cuando lo cambies, pulsa «Aplicar en mi web»: no hace falta volver a pegar nada."
       >
         {noLeLlega && (
           <div role="note" aria-label="Este widget no cambia con el estilo" className="space-y-2.5 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-3">

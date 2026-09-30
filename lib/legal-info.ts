@@ -33,7 +33,7 @@ export const LEGAL = {
   dominio: 'www.tentare.app',
   url: URL_CANONICA,
   // Fecha de última revisión del contenido legal (no la de render).
-  actualizado: '25 de septiembre de 2026',
+  actualizado: '30 de septiembre de 2026',
 
   // ── Identificación del titular (LSSI-CE art. 10) ────────────────────────────
   // Persona física (autónomo). Sin datos registrales (ver cabecera).
@@ -61,7 +61,6 @@ export const PROVEEDORES: { nombre: string; uso: string; ubicacion: string }[] =
   { nombre: 'Anthropic', uso: 'Asistente de IA: redacción de mensajes, notas de sesión dictadas y análisis de ficheros importados', ubicacion: 'EE. UU.' },
   { nombre: 'PostHog', uso: 'Analítica de uso del producto y del sitio', ubicacion: 'UE' },
   { nombre: 'Ahrefs', uso: 'Analítica del sitio web público', ubicacion: 'Fuera de la UE' },
-  { nombre: 'Fiskaly', uso: 'Firma y registro de facturas (Veri*Factu)', ubicacion: 'UE' },
   { nombre: 'OpenStreetMap', uso: 'Mapas y ubicación aproximada en Tentare Network', ubicacion: 'Reino Unido / UE' },
   { nombre: 'Google', uso: 'Tipografías del widget de reservas (Google Fonts) e integración con Google Calendar / Gmail, si la activas', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Meta (opcional)', uso: 'WhatsApp Business, si el estudio lo activa', ubicacion: 'UE / EE. UU.' },

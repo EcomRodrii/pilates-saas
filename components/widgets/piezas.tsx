@@ -21,17 +21,25 @@ export function fechaCorta(iso: string): string {
 }
 
 /**
- * Lo que decide si un cambio llega solo a su web o hay que volver a copiar el
- * código. Se dice en cada bloque porque es LA duda de quien ya lo pegó.
+ * Cómo llega un cambio a su web. Se dice en cada bloque porque es LA duda de
+ * quien ya lo pegó, y con las MISMAS tres palabras en todo el constructor:
+ *  - `vivo`: siempre al día, sin hacer nada (sus clases, precios y plazas);
+ *  - `aplicar`: al pulsar «Aplicar en mi web» (el estilo; lo que enseña, con un
+ *    código por id), sin volver a pegar nada;
+ *  - `codigo`: va en el propio código, y cambiarlo pide pegarlo otra vez.
  */
-export function Etiqueta({ tipo }: { tipo: 'codigo' | 'vivo' }) {
-  return tipo === 'codigo' ? (
-    <span className="inline-flex shrink-0 items-center rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-foreground">
-      Va en el código
-    </span>
-  ) : (
+export type TipoEtiqueta = 'codigo' | 'aplicar' | 'vivo';
+export function Etiqueta({ tipo }: { tipo: TipoEtiqueta }) {
+  if (tipo === 'codigo') {
+    return (
+      <span className="inline-flex shrink-0 items-center rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-foreground">
+        Pegar el código otra vez
+      </span>
+    );
+  }
+  return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[11px] font-medium text-foreground">
-      <Check size={11} aria-hidden />Se actualiza solo
+      <Check size={11} aria-hidden />{tipo === 'aplicar' ? 'Con «Aplicar en mi web»' : 'Siempre al día'}
     </span>
   );
 }
@@ -39,7 +47,7 @@ export function Etiqueta({ tipo }: { tipo: 'codigo' | 'vivo' }) {
 /** Una tarjeta de un paso, con su título y, si toca, su etiqueta. */
 export function Tarjeta({ titulo, etiqueta, subtitulo, children, className }: {
   titulo: string;
-  etiqueta?: 'codigo' | 'vivo';
+  etiqueta?: TipoEtiqueta;
   subtitulo?: ReactNode;
   children?: ReactNode;
   className?: string;

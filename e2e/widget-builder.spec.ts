@@ -1176,9 +1176,11 @@ test.describe('Lo que tienes en tu web: lo copiado, qué cambió y dónde se ve,
     await expect(fila1).toContainText('Dentro de una página · copiado el 12 sep');
     await expect(fila1).toContainText('Aún no ha llegado nadie desde aquí este mes');
     await expect(fila1).toContainText('Aún no lo vemos en tu web. Cuando alguien abra la página donde lo pegaste, aparecerá aquí.');
-    // Sin cambios desde que lo copió: ni ámbar ni nada que volver a copiar.
+    // Sin cambios desde que lo copió: ni ámbar ni nada NUEVO que copiar. Es un código
+    // de antes del código por id: se le ofrece, sin alarma, pasarse al de ahora.
     await expect(fila1).not.toContainText('Lo cambiaste después de copiarlo');
-    await expect(fila1.getByRole('button', { name: /Copiar el/ })).toHaveCount(0);
+    await expect(fila1.getByRole('button', { name: /nuevo/ })).toHaveCount(0);
+    await expect(fila1).toContainText('Tu web tiene un código de antes: si cambias qué enseña, tendrás que pegarlo otra vez.');
     // Nada de pasos ni vista previa en la portada.
     await expect(page.getByRole('navigation', { name: 'Pasos' })).toHaveCount(0);
 
@@ -1280,7 +1282,9 @@ test.describe('Lo que tienes en tu web: lo copiado, qué cambió y dónde se ve,
     // «Cambiar el estilo», a «Cómo se ve».
     const tarjetaEstilo = page.getByRole('region', { name: 'Estilo de tus widgets' });
     await expect(tarjetaEstilo).toContainText('Igual que tu app · Crema');
-    await expect(tarjetaEstilo).toContainText('Llega a lo que tienes dentro de una página, sin marco o en una ventana encima, salvo a lo que lleva su propio diseño en el código.');
+    await expect(tarjetaEstilo).toContainText(PORTADA_ESTILO);
+    // Ninguno con diseño propio: no hay a quién nombrar como excepción.
+    await expect(tarjetaEstilo).not.toContainText('propio diseño');
     // Nada va sin marco: no hay aspecto «de siempre» que prometer.
     await expect(tarjetaEstilo).not.toContainText('Lo que va sin marco');
     await tarjetaEstilo.getByRole('button', { name: 'Cambiar el estilo', exact: true }).click();
@@ -1390,7 +1394,7 @@ const FIRMA_POPUP = firmaCodigo({
 /** Un popup copiado ANTES de la Fase D: la misma huella, sin la marca `botonVivo`. */
 const COPIA_POPUP_ANTERIOR = { firma: FIRMA_POPUP, en: '2026-09-12T10:00:00.000Z' };
 
-const NOTA_BOTON_ANTERIOR = 'El botón que abre la ventana es de un código anterior y se queda como está. Si quieres que también cambie solo con el estilo de tus widgets, copia el código de ahora y pégalo en lugar del de antes.';
+const NOTA_BOTON_ANTERIOR = 'Con el de ahora, el botón que abre la ventana también seguirá el estilo de tus widgets.';
 const LINEA_BOTON_ANTERIOR = 'El botón que ya tienes pegado es de un código anterior y no cambia con el estilo de tus widgets. Si copias este y lo pegas en lugar del de antes, cambiará solo.';
 const CONFIRMA_CONGELADO = 'El botón que abre la ventana de Horario y reservas es de un código anterior y se queda como está. Si quieres que también cambie solo, copia su código otra vez y pégalo en lugar del de antes.';
 const CONFIRMA_VIVO = 'El botón que abre la ventana de Horario y reservas también cambia, aunque puede tardar unos minutos más.';
@@ -1426,7 +1430,8 @@ test.describe('Fase D: el botón del popup sigue el estilo, la copia a mano cuen
     await expect(snippet(page)).toContainText('border-radius:999px;border-radius:var(--tentare-boton-radio,999px);');
 
     await paso(page, 'Ponlo en tu web');
-    await expect(page.getByText('Tus clases, precios y plazas, y el estilo de tus widgets: dentro de la ventana y en el botón que la abre (su color y sus esquinas).')).toBeVisible();
+    await expect(comoLlega(page)).toContainText('Siempre al día: Tus clases, precios y plazas.');
+    await expect(comoLlega(page)).toContainText('Con «Aplicar en mi web»: El estilo de tus widgets, dentro de la ventana y en el botón que la abre (su color y sus esquinas).');
     await page.getByRole('button', { name: 'Copiar código' }).click();
     await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
     await expect.poll(() => copiadoDe(patches)?.botonVivo, { timeout: 10_000 }).toBe(true);
@@ -1492,7 +1497,7 @@ test.describe('Fase D: el botón del popup sigue el estilo, la copia a mano cuen
     // Es lo de ahora (misma huella): ni ámbar ni «Copiar el código nuevo».
     await expect(fila1).not.toContainText('Lo cambiaste después de copiarlo');
 
-    await fila1.getByRole('button', { name: 'Ir a copiarlo', exact: true }).click();
+    await fila1.getByRole('button', { name: 'Copiar el código de ahora', exact: true }).click();
     await expect(page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: 'Ponlo en tu web', exact: true }))
       .toHaveAttribute('aria-current', 'step');
     await expect(page.getByText(/Lo copiaste aquí el 12 sept?\./)).toBeVisible();
@@ -1695,14 +1700,14 @@ const LETRA_DE_SIEMPRE = 'Sin marco, «Como tu app» le deja su letra de siempre
 const CONFIRMA_SIN_MARCO = 'Horario y reservas va sin marco y también cambia, aunque lo pegaras hace tiempo: el estilo le llega con sus datos, no con su código.';
 const CONFIRMA_SIN_MARCO_VUELVE = 'Horario y reservas va sin marco: sin ningún cambio de estilo, vuelve a verse como antes de que aplicaras uno.';
 const CONFIRMA_COLUMNAS_NADA = 'Horario y reservas va sin marco y en «Siete días en columnas»: no se pinta en oscuro, así que de este estilo no le llega nada y se ve como si no hubieras elegido ninguno.';
-const PORTADA_ESTILO = 'Llega a lo que tienes dentro de una página, sin marco o en una ventana encima, salvo a lo que lleva su propio diseño en el código.';
+const PORTADA_ESTILO = 'Llega a lo que tienes dentro de una página, sin marco o en una ventana encima.';
 const PORTADA_SIN_MARCO = 'Lo que va sin marco sigue con su aspecto de siempre mientras no apliques ningún cambio de estilo.';
 
 const previaSinMarco = (page: Page) => page.getByRole('region', { name: 'Vista previa' });
 const letras = (page: Page) => page.getByRole('radiogroup', { name: 'Letra de tus widgets' });
 const tarjetaComo = (page: Page) => page.getByRole('region', { name: '¿Cómo quieres que se vea?' });
-/** El recuadro «Se actualiza solo» de «Ponlo en tu web» (el más interior que lo contiene). */
-const seActualizaSolo = (page: Page) => page.locator('div').filter({ has: page.getByText('Se actualiza solo', { exact: true }) }).last();
+/** «Cómo llega cada cambio a tu web» de «Ponlo en tu web»: siempre al día, con «Aplicar», pegando otra vez. */
+const comoLlega = (page: Page) => page.getByRole('list', { name: 'Cómo llega cada cambio a tu web' });
 /** `#rrggbb` → lo que devuelve `getComputedStyle`. */
 function rgb(hex: string): string {
   expect(hex, `${hex} no es un #rrggbb`).toMatch(/^#[0-9a-fA-F]{6}$/);
@@ -1752,7 +1757,8 @@ test.describe('Fase E: sin marco sigue el estilo de sus widgets y dice qué vers
   test('E2 · sin nada elegido lo dice, igual que con un diseño propio; y «Ponlo en tu web» cuenta lo que se actualiza solo en cada caso', async ({ page }) => {
     await montar(page, { plataforma: 'otra' });
     await sinMarco(page);
-    await expect(seActualizaSolo(page)).toHaveText(/Tus clases, precios y plazas, y tu color \(con la letra de tu web\)\. Si aplicas un estilo a tus widgets, lo toma también\.$/);
+    await expect(comoLlega(page)).toContainText('Siempre al día: Tus clases, precios y plazas, y tu color (con la letra de tu web).');
+    await expect(comoLlega(page)).toContainText('Con «Aplicar en mi web»: El estilo de tus widgets, en cuanto apliques uno.');
     await expect(page.getByText(/Ocupa su hueco en tu web como si fuera suyo y, sin un diseño propio, toma la letra de tu web mientras no elijas otra en «Cómo se ve»/)).toBeVisible();
 
     await paso(page, 'Cómo se ve');
@@ -1781,7 +1787,9 @@ test.describe('Fase E: sin marco sigue el estilo de sus widgets y dice qué vers
     await expect(tarjetaComo(page)).not.toContainText(AVISO_SIN_NADA_PROPIA);
     await expect(page.getByText(/«Como tu app» (le )?deja/)).toHaveCount(0);
     await paso(page, 'Ponlo en tu web');
-    await expect(seActualizaSolo(page)).toHaveText(/Se actualiza solo\s*Tus clases, precios y plazas\.$/);
+    await expect(comoLlega(page)).toContainText('Siempre al día: Tus clases, precios y plazas.');
+    // Con su propio diseño, el estilo de sus widgets no le llega: nada que aplicar.
+    await expect(comoLlega(page)).not.toContainText('Con «Aplicar en mi web»');
   });
 
   test('E3 · el color es el del TEMA, no el de la columna: en la vista previa sin marco y en el botón que lleva a su página', async ({ page }) => {
@@ -1844,7 +1852,7 @@ test.describe('Fase E: sin marco sigue el estilo de sus widgets y dice qué vers
     await expect(estadoEstilo(page)).toHaveText('Aplicado en tu web · hace un momento');
     expect(cuerpos).toHaveLength(1);
     await paso(page, 'Ponlo en tu web');
-    await expect(seActualizaSolo(page)).toHaveText(/Tus clases, precios y plazas, y el estilo de tus widgets\.$/);
+    await expect(comoLlega(page)).toContainText('Con «Aplicar en mi web»: El estilo de tus widgets.');
 
     // Con Arena en su web, volver a «Igual que tu app»: vuelve a verse como antes.
     await paso(page, 'Cómo se ve');
@@ -1906,11 +1914,13 @@ test.describe('Fase E: sin marco sigue el estilo de sus widgets y dice qué vers
       widgetBuilder: { horario: { ...propia, copiado: { firma: 'abc123', en: '2026-09-12T10:00:00.000Z', metodo: 'nativa', config: propia } } },
     });
     const fila1 = portada(page).getByRole('listitem').filter({ hasText: 'Horario y reservas' });
-    await expect(fila1).toContainText('Lleva su propio diseño en el código, así que el estilo de tus widgets no le llega.');
+    await expect(fila1).toContainText('Tiene su propio diseño: el estilo, la letra y los colores que elijas para tus widgets no le llegan.');
     const tarjetaEstilo = page.getByRole('region', { name: 'Estilo de tus widgets' });
     // Control: lo aplicado ya está leído (sin eso la línea tampoco saldría).
     await expect(tarjetaEstilo).toContainText('Igual que tu app · Crema');
     await expect(tarjetaEstilo).toContainText(PORTADA_ESTILO);
+    // Y nombra a cuál no le llega, en vez de «lo que lleva su propio diseño» en abstracto.
+    await expect(tarjetaEstilo).toContainText('A Horario y reservas no, porque tiene su propio diseño.');
     await expect(tarjetaEstilo).not.toContainText(PORTADA_SIN_MARCO);
   });
 });
