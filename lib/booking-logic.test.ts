@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Reserva, RewardAction, Socio, Sesion, Suscripcion, PlanTarifa } from '@/lib/types';
 import {
+  contarClasesDelDia,
+  mensajeMaxPorDia,
   plazasOcupadas,
   confirmadasParaMinimo,
   debeCancelarPorMinimoNoAlcanzado,
@@ -550,4 +552,53 @@ test('topeAvisosHueco: sin plazas no se avisa a nadie, y se cuenta a todas como 
   // justo a las últimas cuatro.
   assert.deepEqual(topeAvisosHueco(5, 0), { caben: 0, saltadasPorTope: 5 });
   assert.deepEqual(topeAvisosHueco(5, -2), { caben: 0, saltadasPorTope: 5 });
+});
+
+// ─── Tope de clases al día (studios.reserva_max_por_dia) ─────────────────────
+
+test('contarClasesDelDia: el día es el del estudio, no el de UTC', () => {
+  // Jueves 1-oct-2026 a las 00:30 en Madrid = miércoles 30-sep 22:30 UTC.
+  const objetivo = { id: 's-obj', inicio: '2026-10-01T17:00:00+02:00' };
+  const sesiones = [
+    objetivo,
+    { id: 's-madrugada', inicio: '2026-10-01T00:30:00+02:00' },
+    { id: 's-dia-antes', inicio: '2026-09-30T23:30:00+02:00' },
+    { id: 's-dia-despues', inicio: '2026-10-02T00:10:00+02:00' },
+  ];
+  const r = (sesionId: string, estado: Reserva['estado'] = 'CONFIRMADA') => ({ socioId: 'soc-1', sesionId, estado });
+  assert.equal(contarClasesDelDia('soc-1', objetivo, [r('s-madrugada'), r('s-dia-antes'), r('s-dia-despues')], sesiones), 1);
+});
+
+test('contarClasesDelDia: cuenta todo lo no cancelado, salvo la propia clase y las clases canceladas', () => {
+  const objetivo = { id: 's-obj', inicio: '2026-10-01T18:00:00+02:00' };
+  const sesiones = [
+    objetivo,
+    { id: 's-1', inicio: '2026-10-01T09:00:00+02:00' },
+    { id: 's-2', inicio: '2026-10-01T10:00:00+02:00' },
+    { id: 's-3', inicio: '2026-10-01T11:00:00+02:00' },
+    { id: 's-4', inicio: '2026-10-01T12:00:00+02:00' },
+    { id: 's-5', inicio: '2026-10-01T13:00:00+02:00' },
+    { id: 's-cancelada', inicio: '2026-10-01T14:00:00+02:00', cancelada: true },
+  ];
+  const reservas = [
+    { socioId: 'soc-1', sesionId: 's-obj', estado: 'CONFIRMADA' as const },
+    { socioId: 'soc-1', sesionId: 's-1', estado: 'LISTA_ESPERA' as const },
+    { socioId: 'soc-1', sesionId: 's-2', estado: 'PENDIENTE_APROBACION' as const },
+    { socioId: 'soc-1', sesionId: 's-3', estado: 'NO_ASISTIO' as const },
+    { socioId: 'soc-1', sesionId: 's-4', estado: 'CANCELADA' as const },
+    { socioId: 'otra', sesionId: 's-5', estado: 'CONFIRMADA' as const },
+    { socioId: 'soc-1', sesionId: 's-cancelada', estado: 'CONFIRMADA' as const },
+  ];
+  assert.equal(contarClasesDelDia('soc-1', objetivo, reservas, sesiones), 3);
+});
+
+test('mensajeMaxPorDia dice el día y el tope', () => {
+  assert.equal(
+    mensajeMaxPorDia(1, 1, '2026-10-01T18:00:00+02:00'),
+    'Ya tienes una clase el jueves, 1 de octubre: en este estudio se reserva como mucho una al día.',
+  );
+  assert.equal(
+    mensajeMaxPorDia(2, 2, '2026-10-01T18:00:00+02:00'),
+    'Ya tienes 2 clases el jueves, 1 de octubre: en este estudio se reservan como mucho 2 al día.',
+  );
 });

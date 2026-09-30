@@ -34,6 +34,8 @@ export interface ReglasReserva {
   reservaVentanaMinimaMinutos: number;
   reservaAntelacionMaximaDias: number | null;
   reservaMaxSimultaneas: number | null;
+  /** Clases al día por alumna (hora del estudio). null = sin tope. */
+  reservaMaxPorDia: number | null;
   bloquearReservaImpago: boolean;
   requiereAprobacion: boolean;
   cancelacionVentanaHoras: number;
@@ -61,7 +63,7 @@ export interface ReglasReserva {
 
 /** En qué tarjeta vive cada columna. Cada columna, en una sola. */
 export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (keyof ReglasReserva)[]>> = {
-  reservar: ['reservaExigirPlan', 'reservaVentanaMinimaMinutos', 'reservaAntelacionMaximaDias', 'reservaMaxSimultaneas', 'bloquearReservaImpago', 'requiereAprobacion'],
+  reservar: ['reservaExigirPlan', 'reservaVentanaMinimaMinutos', 'reservaAntelacionMaximaDias', 'reservaMaxSimultaneas', 'reservaMaxPorDia', 'bloquearReservaImpago', 'requiereAprobacion'],
   'cancelar-y-recuperar': ['cancelacionVentanaHoras', 'cancelacionDevolverBonoTardia', 'recuperacionCaducidadTipo', 'recuperacionCaducidadDias', 'recuperacionAutoSemanal'],
   'si-se-cancela-una-clase': ['cancelacionClaseDevuelveBono', 'minimoAsistentesPorClase'],
   'lista-de-espera': ['permiteListaEspera', 'listaEsperaPlazoAceptacionMinutos'],
@@ -88,6 +90,7 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     reservaVentanaMinimaMinutos: s?.reservaVentanaMinimaMinutos ?? 0,
     reservaAntelacionMaximaDias: s?.reservaAntelacionMaximaDias ?? null,
     reservaMaxSimultaneas: s?.reservaMaxSimultaneas ?? null,
+    reservaMaxPorDia: s?.reservaMaxPorDia ?? null,
     bloquearReservaImpago: s?.bloquearReservaImpago ?? false,
     requiereAprobacion: s?.requiereAprobacion ?? false,
     cancelacionVentanaHoras: s?.cancelacionVentanaHoras ?? 12,
@@ -162,6 +165,14 @@ export function reglasDeTarjetaAGuardar(
 ): { ok: true; cambios: Partial<ReglasReserva> } | { ok: false; texto: string } {
   if (tarjeta === 'reservar' && antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias)) {
     return { ok: false, texto: 'La reserva se cerraría antes de abrirse: cambia los días o los minutos.' };
+  }
+  // Los mismos rangos que los CHECK de `studios`: un 0 no es «sin tope» (eso es
+  // dejarlo vacío) y la base de datos lo rechazaría con un error sin explicar.
+  if (tarjeta === 'reservar' && form.reservaMaxSimultaneas != null && (form.reservaMaxSimultaneas < 1 || form.reservaMaxSimultaneas > 50)) {
+    return { ok: false, texto: 'Las reservas a la vez van de 1 a 50. Déjalo vacío para no poner límite.' };
+  }
+  if (tarjeta === 'reservar' && form.reservaMaxPorDia != null && (form.reservaMaxPorDia < 1 || form.reservaMaxPorDia > 20)) {
+    return { ok: false, texto: 'Las clases al día van de 1 a 20. Déjalo vacío para no poner límite.' };
   }
   if (tarjeta === 'lista-de-espera') {
     const lista = valoresDeListaEspera(form.listaEspera, guardado);

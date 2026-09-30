@@ -584,6 +584,10 @@ test('reglas de reserva: lo principal delante, y los tipos que la cambian antes 
     resumenRegla('reservar', { ...r, reservaAntelacionMaximaDias: 2, reservaVentanaMinimaMinutos: 30, reservaMaxSimultaneas: 3, bloquearReservaImpago: true }, dosLineas),
     'Hasta 2 días antes · se cierra 30 min antes · máx. 3 a la vez · con plan o bono',
   );
+  assert.equal(
+    resumenRegla('reservar', { ...r, reservaAntelacionMaximaDias: 7, reservaMaxPorDia: 1 }, dosLineas),
+    'Hasta 7 días antes · máx. 1 al día · con plan o bono',
+  );
   assert.equal(resumenRegla('reservar', { ...r, bloquearReservaImpago: true }, dosLineas), 'Cualquier antelación · con plan o bono · no con un pago fallido');
   // Pide plan sin vender ninguno: el servidor no lo exige (`exigePlanAlReservar`).
   assert.equal(resumenRegla('reservar', r, { ...dosLineas, nadaALaVenta: true }), 'Cualquier antelación · sin plan ni bono hasta que vendas uno');

@@ -9,6 +9,8 @@
 import type { Reserva, EstadoReserva, Socio, RewardAction, Sesion, Suscripcion, PlanTarifa } from '@/lib/types';
 import { ratioOcupacion } from './ocupacion.ts';
 import { tieneEntitlementActivo } from './bono-logic.ts';
+import { diaEnEstudio } from './calendario-hora-estudio.ts';
+import { fechaLargaEstudio } from './utils.ts';
 
 // ─── Política de cancelación (C-2) y de reservas (C-4) ────────────────────────
 
@@ -108,6 +110,43 @@ export function contarReservasActivasFuturas(
       (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA') &&
       futuras.has(r.sesionId),
   ).length;
+}
+
+/**
+ * Cuántas clases tiene ya la socia el MISMO DÍA (hora del estudio) que la sesión
+ * que quiere reservar — lo que acota `studios.reserva_max_por_dia`.
+ *
+ * Cuenta toda reserva no cancelada (confirmada, en lista de espera, pendiente de
+ * aprobar, asistida o no asistida) en clases no canceladas. La regla se cumple
+ * AL APUNTARSE, no al confirmar: por eso la lista de espera cuenta (si no, «una
+ * al día» se rompería en cuanto la promocionaran) y la promoción, aceptar una
+ * oferta o aprobar una pendiente no vuelven a comprobarla. Y cuenta NO_ASISTIO:
+ * si no, faltar sería la forma de reservar dos. Para liberar el hueco, se cancela.
+ *
+ * La sesión objetivo no cuenta: si ya está apuntada a ESA clase, que salga el
+ * mensaje de «ya reservada», no este.
+ */
+export function contarClasesDelDia(
+  socioId: string,
+  objetivo: { id: string; inicio: string },
+  reservas: readonly Pick<Reserva, 'socioId' | 'sesionId' | 'estado'>[],
+  sesiones: readonly { id: string; inicio: string; cancelada?: boolean | null }[],
+): number {
+  const dia = diaEnEstudio(objetivo.inicio);
+  const delDia = new Set(
+    sesiones.filter(s => !s.cancelada && s.id !== objetivo.id && diaEnEstudio(s.inicio) === dia).map(s => s.id),
+  );
+  return reservas.filter(r => r.socioId === socioId && r.estado !== 'CANCELADA' && delDia.has(r.sesionId)).length;
+}
+
+/** Lo que lee la alumna cuando ya tiene su máximo ese día. Con la fecha: sin
+ *  ella, «ya tienes una clase ese día» obliga a adivinar cuál. */
+export function mensajeMaxPorDia(tiene: number, max: number, inicioISO: string): string {
+  const fecha = fechaLargaEstudio(inicioISO);
+  const cuantas = tiene === 1 ? 'una clase' : `${tiene} clases`;
+  return max === 1
+    ? `Ya tienes ${cuantas} el ${fecha}: en este estudio se reserva como mucho una al día.`
+    : `Ya tienes ${cuantas} el ${fecha}: en este estudio se reservan como mucho ${max} al día.`;
 }
 
 // Plazas realmente ocupadas en una sesión: solo cuentan las confirmadas o ya

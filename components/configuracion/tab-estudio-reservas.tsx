@@ -299,6 +299,15 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
             />
           )}
         </Campo>
+        <Campo label="Clases al día por alumna" ayuda="Clases el mismo día, contando la lista de espera. Vacío = sin límite. Las clases por semana las pone cada plan, en Paquetes.">
+          {id => (
+            <input
+              id={id} type="number" min={1} max={20} inputMode="numeric" className={inputCls} placeholder="Sin límite"
+              value={form.reservaMaxPorDia ?? ''}
+              onChange={e => cambiar('reservaMaxPorDia', numeroOVacio(e))}
+            />
+          )}
+        </Campo>
         <InterruptorCampo
           titulo="No dejar reservar con un pago fallido"
           detalle="Solo con un cobro rechazado o devuelto. Desde mostrador nunca bloquea."

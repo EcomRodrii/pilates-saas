@@ -27,7 +27,9 @@ const MUDADAS = ['compraPublicaModo', 'instructorasCreanClases'];
 // clases de su plaza fija cuando se queda sin cuota (la elige el estudio).
 const NUEVAS = ['plazaFijaSinCuota', 'plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp', 'plazaFijaPausaLiberaSitio', 'plazaFijaFinPausa',
   // 27-sep: el control de acceso con QR, en la tarjeta de Asistencia.
-  'controlAccesoQr'];
+  'controlAccesoQr',
+  // 30-sep: el tope de clases al día, en «Reservar».
+  'reservaMaxPorDia'];
 
 test('la sección guarda las columnas de antes, menos las dos que se fueron a su sitio, más las nuevas con nombre', () => {
   const r = reglasAGuardar(formularioReglas(null), reglasGuardadas(null));
@@ -44,7 +46,7 @@ test('cada columna vive en UNA tarjeta, y entre todas están todas', () => {
 test('sin dato del servidor, los mismos valores por defecto que el formulario de antes', () => {
   assert.deepEqual(reglasGuardadas(null), {
     reservaExigirPlan: true, reservaVentanaMinimaMinutos: 0, reservaAntelacionMaximaDias: null,
-    reservaMaxSimultaneas: null, bloquearReservaImpago: false, requiereAprobacion: false,
+    reservaMaxSimultaneas: null, reservaMaxPorDia: null, bloquearReservaImpago: false, requiereAprobacion: false,
     cancelacionVentanaHoras: 12, cancelacionDevolverBonoTardia: false, cancelacionClaseDevuelveBono: true,
     minimoAsistentesPorClase: 0, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null,
     recuperacionAutoSemanal: false, permiteListaEspera: true, listaEsperaPlazoAceptacionMinutos: 0,
@@ -233,4 +235,19 @@ test('la antelación, en una frase que dice lo que aplica la reserva', () => {
   assert.match(fraseAntelacion(90, 0), /se cerraría antes de abrirse/);
   assert.equal(antelacionImposible(1440, 1), false, 'justo un día: se abre y se cierra a la vez, pero no es imposible');
   assert.equal(antelacionImposible(1441, 1), true);
+});
+
+test('los topes de «Reservar» fuera del rango de la base de datos no se guardan y dicen por qué', () => {
+  const guardado = reglasGuardadas(null);
+  const form = formularioReglas(guardado);
+  const cero = reglasDeTarjetaAGuardar('reservar', { ...form, reservaMaxPorDia: 0 }, guardado);
+  assert.deepEqual(cero, { ok: false, texto: 'Las clases al día van de 1 a 20. Déjalo vacío para no poner límite.' });
+  assert.equal(reglasDeTarjetaAGuardar('reservar', { ...form, reservaMaxPorDia: 21 }, guardado).ok, false);
+  assert.equal(reglasDeTarjetaAGuardar('reservar', { ...form, reservaMaxSimultaneas: 0 }, guardado).ok, false);
+  const uno = reglasDeTarjetaAGuardar('reservar', { ...form, reservaMaxPorDia: 1 }, guardado);
+  assert.ok(uno.ok);
+  assert.equal(uno.cambios.reservaMaxPorDia, 1);
+  const vacio = reglasDeTarjetaAGuardar('reservar', { ...form, reservaMaxPorDia: null }, guardado);
+  assert.ok(vacio.ok);
+  assert.equal(vacio.cambios.reservaMaxPorDia, null);
 });

@@ -869,6 +869,7 @@ export function resumenRegla(
         // Lo que acota cuándo y cuánto reserva, antes que el requisito de bono.
         cierre > 0 ? `se cierra ${duracion(cierre)} antes` : null,
         r.reservaMaxSimultaneas ? `máx. ${r.reservaMaxSimultaneas} a la vez` : null,
+        r.reservaMaxPorDia ? `máx. ${r.reservaMaxPorDia} al día` : null,
         // Aprobar a mano cambia más la vida de la alumna que pedir bono: va antes.
         r.requiereAprobacion ? 'la apruebas tú' : null,
         !r.reservaExigirPlan ? 'sin plan ni bono' : e.nadaALaVenta ? 'sin plan ni bono hasta que vendas uno' : 'con plan o bono',

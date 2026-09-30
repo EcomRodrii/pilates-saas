@@ -38,6 +38,7 @@ const FILA: Record<string, unknown> = {
   reserva_ventana_minima_minutos: 60,
   reserva_antelacion_maxima_dias: 14,
   reserva_max_simultaneas: 4,
+  reserva_max_por_dia: null,
   bloquear_reserva_impago: false,
   requiere_aprobacion: false,
   cancelacion_ventana_horas: 24,
@@ -61,6 +62,7 @@ const FILA: Record<string, unknown> = {
 
 // Las columnas de cada cajón (lib/configuracion/reglas-reserva.ts).
 const CANCELAR = ['cancelacion_ventana_horas', 'cancelacion_devolver_bono_tardia', 'recuperacion_caducidad_tipo', 'recuperacion_caducidad_dias', 'recuperacion_auto_semanal'];
+const RESERVAR = ['reserva_exigir_plan', 'reserva_ventana_minima_minutos', 'reserva_antelacion_maxima_dias', 'reserva_max_simultaneas', 'reserva_max_por_dia', 'bloquear_reserva_impago', 'requiere_aprobacion'];
 const deFila = (columnas: string[]) => Object.fromEntries(columnas.map(c => [c, FILA[c]]));
 
 // Cómo está montado el panel: lo lee Tu panel al abrirse y lo devuelve al guardar.
@@ -178,6 +180,23 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
     // Guardado de verdad: el cajón se cierra y la fila dice lo nuevo.
     await expect(titulo(page, 'Cancelar y recuperar')).toHaveCount(0);
     await expect(valorFila(page, 'cancelar-y-recuperar')).toHaveText(/^Hasta 6 h antes/);
+  });
+
+  test('«Reservar»: el tope de clases al día viaja con sus columnas, y un 0 no se guarda', async ({ page }) => {
+    const { patches } = await cajonDe(page, 'reservar', 'Reservar');
+    const alDia = page.getByLabel('Clases al día por alumna');
+
+    await alDia.fill('0');
+    await expect(barra(page).getByRole('alert')).toHaveText('Las clases al día van de 1 a 20. Déjalo vacío para no poner límite.');
+    await expect(guardar(page)).toBeDisabled();
+
+    await alDia.fill('1');
+    await expect(guardar(page)).toBeEnabled();
+    await guardar(page).click();
+    await expect(page.getByText('Reglas de reserva guardadas')).toBeVisible({ timeout: 15_000 });
+    expect(patches).toHaveLength(1);
+    expect(patches[0]).toEqual({ ...deFila(RESERVAR), reserva_max_por_dia: 1 });
+    await expect(valorFila(page, 'reservar')).toContainText('máx. 1 al día');
   });
 
   const LISTA: { nombre: string; elegir: (page: Page) => Promise<void>; columnas: Record<string, unknown> }[] = [

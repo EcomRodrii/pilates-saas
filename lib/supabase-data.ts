@@ -4923,6 +4923,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;
   if ('compraPublicaModo' in changes) db.compra_publica_modo = changes.compraPublicaModo;
   if ('reservaMaxSimultaneas' in changes) db.reserva_max_simultaneas = changes.reservaMaxSimultaneas;
+  if ('reservaMaxPorDia' in changes) db.reserva_max_por_dia = changes.reservaMaxPorDia;
   if ('reservaVentanaMinimaMinutos' in changes) db.reserva_ventana_minima_minutos = changes.reservaVentanaMinimaMinutos;
   if ('reservaAntelacionMaximaDias' in changes) db.reserva_antelacion_maxima_dias = changes.reservaAntelacionMaximaDias;
   if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
@@ -5333,6 +5334,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
+    reservaMaxPorDia: r.reserva_max_por_dia ?? null,
     reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? 0,
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? true,

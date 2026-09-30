@@ -211,6 +211,9 @@ export interface Studio {
    *  la ficha se crea con el email verificado por Stripe. */
   compraPublicaModo: 'EXIGIR_REGISTRO' | 'CREAR_FICHA';
   reservaMaxSimultaneas: number | null;
+  /** Clases que cada alumna puede tener el mismo día (migr 20260930200000).
+   *  null = sin tope. Opcional: los fixtures de antes no la traen. */
+  reservaMaxPorDia?: number | null;
   // Fase 1 de reglas por tipo de clase (migr 20260730152516): estos son los
   // DEFAULTS de estudio; tipos_clase puede sobrescribirlos con NULL = hereda,
   // mismo patrón que cancelacionVentanaHoras/TipoClase.ventanaCancelacionHoras.
