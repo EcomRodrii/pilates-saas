@@ -612,7 +612,7 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Emitirlas o no',
-        texto: 'En Configuración → Cobros y facturas → «Facturación» eliges si Tentare emite una factura en cada cobro, con su registro para Veri*Factu, o si tus facturas las haces fuera (tu gestoría, otro programa). Por defecto está apagado. Si lo activas, confírmalo antes con tu asesoría.',
+        texto: 'En Configuración → Cobros y facturas → «Facturación» eliges si Tentare emite una factura en cada cobro, con su registro para Veri*Factu, o si tus facturas las haces fuera (tu gestoría, otro programa). Por defecto está apagado. Tentare solo las emite con tu envío a la AEAT activo, y una vez que facturas con Veri*Factu la norma obliga a seguir así hasta el 31 de diciembre de ese año: confírmalo antes con tu asesoría.',
       },
       {
         titulo: 'Lo que hace falta',

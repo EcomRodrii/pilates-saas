@@ -190,7 +190,7 @@ export default function VerifactuInternoPage() {
                   )}
                   <span className="flex gap-2">
                     {e.estado === 'VERIFICADO' && e.facturas_anteriores_sin_decidir === 0 && (
-                      <button type="button" onClick={() => { if (window.confirm(`¿Activar el envío REAL a la AEAT para ${e.nombre_fiscal}?`)) void accion({ accion: 'activar_produccion', studioId: e.studio_id }); }}
+                      <button type="button" onClick={() => { if (window.confirm(`¿Activar el envío REAL a la AEAT para ${e.nombre_fiscal}? Desde ese momento, sus cobros empiezan a generar facturas.`)) void accion({ accion: 'activar_produccion', studioId: e.studio_id }); }}
                         className="rounded-lg bg-brand px-3 py-1 text-[12.5px] font-bold text-brand-foreground">Activar producción</button>
                     )}
                     {(e.estado === 'PRODUCCION' || e.estado === 'VERIFICADO') && (
