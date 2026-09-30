@@ -89,6 +89,26 @@ export function gruposCambiados(
   return out;
 }
 
+/**
+ * Lo que va en el propio HTML del código: con un código por id (./pieza.ts) es
+ * lo ÚNICO que obliga a pegarlo otra vez. Todo lo demás llega con «Aplicar en
+ * mi web».
+ */
+export const GRUPOS_EN_EL_HTML: ReadonlySet<string> = new Set(['el ancho', 'cómo carga', 'el botón']);
+
+/**
+ * Qué cambió entre lo PUBLICADO de un widget por id y lo de ahora, por grupos:
+ * lo que llegará a su web al pulsar «Aplicar en mi web». Sin lo que va en el
+ * HTML (eso no lo cambia aplicar). Compara los valores, no el código: da igual
+ * con qué forma esté pegado, porque la pieza sirve a todas.
+ */
+export function gruposSinAplicar(publicada: ConfigConstructor, ahora: ConfigConstructor): string[] {
+  const igual = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  return GRUPOS
+    .filter(g => !GRUPOS_EN_EL_HTML.has(g.nombre) && g.campos.some(k => !igual(publicada[k], ahora[k])))
+    .map(g => g.nombre);
+}
+
 /** «a», «a y b», «a, b y c». */
 export function unirGrupos(nombres: readonly string[]): string {
   if (nombres.length <= 1) return nombres[0] ?? '';
@@ -136,6 +156,8 @@ export type EstadoEnTuWeb =
     version: Version | null;
     /** La otra versión que se ve (con `anterior`, `distinta` y `dos-versiones`). */
     laOtra?: { anfitrion: string | null; ultimo: string };
+    /** Lo pegado va por id: una versión anterior se pone al día sola. */
+    porId?: boolean;
   };
 
 const ms = (iso: string) => Date.parse(iso);
@@ -206,6 +228,8 @@ export function estadoEnTuWeb(x: {
   visitasMes: number | null;
   hayAmbar: boolean;
   ahora: number | null;
+  /** Lo pegado va por id (./pieza.ts). */
+  porId?: boolean;
 }): EstadoEnTuWeb {
   if (!x.vistos || x.ahora === null || !x.metodoCopiado || !x.etiquetas.length) return { tipo: 'oculto' };
   const forma = formaDeMetodo(x.metodoCopiado);
@@ -221,6 +245,7 @@ export function estadoEnTuWeb(x: {
     tipo: 'visto', forma: principal.forma, anfitrion: principal.anfitrion, ultimo: principal.ultimo, otrasWebs,
     version: v?.version ?? null,
     ...(v?.laOtra ? { laOtra: v.laOtra } : {}),
+    ...(x.porId ? { porId: true } : {}),
   };
 }
 
@@ -259,11 +284,20 @@ export function textosEnTuWeb(e: EstadoEnTuWeb, ahora: number): { linea: string 
       if (!e.version || e.version === 'al-dia' || !e.laOtra) return { linea, version: null };
       const cuando = hace(e.laOtra.ultimo);
       const donde = e.laOtra.anfitrion ? `, en ${hostDe(e.laOtra.anfitrion)}` : '';
-      const version = e.version === 'anterior'
-        ? `La última vez que lo vimos (${cuando}${donde}), tu web tenía una versión anterior. Pega el código de ahora en lugar del que hay; cuando alguien lo abra, cambiará aquí.`
-        : e.version === 'distinta'
-          ? `La última vez que lo vimos (${cuando}${donde}), tu web tenía una versión distinta de la de aquí. Si nadie la cambió a mano, pega el código de ahora en lugar del que hay.`
-          : `Esta semana tu web ha enseñado dos versiones: la de ahora y otra distinta (la última vez ${cuando}${donde}). Si lo pegaste en varias páginas, cambia el código también en las demás.`;
+      // Por id, lo pegado se pone al día solo: una versión anterior es la de
+      // antes de aplicar, aún en la caché unos minutos; lo que no se pone al
+      // día es un código de los de antes, pegado en otra página.
+      const version = e.porId
+        ? e.version === 'anterior'
+          ? `La última vez que lo vimos (${cuando}${donde}), tu web tenía una versión anterior. Se pondrá al día sola: tras aplicar un cambio, tu web tarda unos minutos en enseñarlo.`
+          : e.version === 'distinta'
+            ? `La última vez que lo vimos (${cuando}${donde}), tu web tenía una versión distinta de la de aquí. Si en alguna página sigue un código de antes, cámbialo por el de ahora: desde entonces se pondrá al día solo.`
+            : `Esta semana tu web ha enseñado dos versiones: la de ahora y otra distinta (la última vez ${cuando}${donde}). Si en alguna página sigue un código de antes, cámbialo por el de ahora.`
+        : e.version === 'anterior'
+          ? `La última vez que lo vimos (${cuando}${donde}), tu web tenía una versión anterior. Pega el código de ahora en lugar del que hay; cuando alguien lo abra, cambiará aquí.`
+          : e.version === 'distinta'
+            ? `La última vez que lo vimos (${cuando}${donde}), tu web tenía una versión distinta de la de aquí. Si nadie la cambió a mano, pega el código de ahora en lugar del que hay.`
+            : `Esta semana tu web ha enseñado dos versiones: la de ahora y otra distinta (la última vez ${cuando}${donde}). Si lo pegaste en varias páginas, cambia el código también en las demás.`;
       return { linea, version };
     }
   }
@@ -373,10 +407,25 @@ export function piezaCopiada(x: {
   /** El mes por etiqueta (`embudoPorWidget`), o `null` si no ha cargado. */
   mes: readonly EmbudoWidget[] | null;
   ahora: number | null;
+  /**
+   * Lo PUBLICADO de este widget (`widget_piezas`), si lo hay y se ha podido
+   * leer. Con una copia por id es lo que se ve en su web; sin él, de una copia
+   * por id no se dice qué versión enseña.
+   */
+  publicada?: ConfigConstructor | null;
 }): PiezaCopiada {
-  const { copia: k, base, metodoAhora } = x;
+  const { copia: k, metodoAhora } = x;
+  const porId = !!k.pieza;
+  // El código de ahora con el que se compara lo copiado: por id si lo copiado
+  // iba por id (lo único que cambia su texto es lo que va en el HTML), y el de
+  // siempre si no (un código de antes lleva el contenido dentro).
+  const base: EntradaIntegracion = porId ? x.base : { ...x.base, pieza: null };
   const formaAhora = formaDeMetodo(metodoAhora);
-  const contenidoAhora = x.puedeGenerar ? firmaContenidoDe(base, metodoAhora) : null;
+  // Lo que se ve en su web: por id, lo publicado; si no, lo de ahora.
+  const contenido: EntradaIntegracion | null = porId
+    ? (x.publicada ? { ...x.base, pieza: null, config: x.publicada } : null)
+    : base;
+  const contenidoAhora = x.puedeGenerar && contenido ? firmaContenidoDe(contenido, metodoAhora) : null;
   // Sin código de ahora no hay versión de ahora: «Reserva una clase» sin clase
   // elegida no es «otra versión» de lo que hay en su web.
   const claveAhora = formaAhora && contenidoAhora ? claveVista(formaAhora, contenidoAhora) : null;
@@ -401,6 +450,7 @@ export function piezaCopiada(x: {
     // Sin etiqueta, sus visitas no se distinguen de las de otros códigos.
     visitasMes: x.mes && etiqueta ? (mes?.visitas ?? 0) : null,
     ahora: x.ahora,
+    porId,
   };
 
   let cambios: string[] | null = null;
@@ -427,10 +477,19 @@ export function piezaCopiada(x: {
     desfasado = x.puedeGenerar && !coincide;
     estado = estadoEnTuWeb({ ...entrada, hayAmbar: desfasado });
   }
+  // Por id, el mismo id siempre (uno por widget): si el de ahora es otro, lo
+  // pegado apunta a algo que ya no se publica desde aquí.
+  if (porId && x.base.pieza && k.pieza !== x.base.pieza && x.puedeGenerar && !desfasado) {
+    desfasado = true;
+    cambios = null;
+    estado = estadoEnTuWeb({ ...entrada, hayAmbar: true });
+  }
 
   // Con la regla de su método: sin marco (Fase E) el estilo también le llega, y
   // lo que cuenta como diseño propio son sus `data-*`, no los parámetros de la URL.
-  const disenoPropio = (metodo === 'iframe' || metodo === 'popup' || metodo === 'nativa') && !!pegada && tieneDisenoEnCodigo(pegada, metodo);
+  // Por id, el diseño que se ve en su web es el PUBLICADO, no el de la foto.
+  const enSuWeb = porId ? (x.publicada ?? null) : pegada;
+  const disenoPropio = (metodo === 'iframe' || metodo === 'popup' || metodo === 'nativa') && !!enSuWeb && tieneDisenoEnCodigo(enSuWeb, metodo);
   return {
     metodo, desfasado, cambios, etiqueta, mes, estado, disenoPropio,
     // Mientras se espera lo visto, el ámbar se calla (arriba) y este aviso

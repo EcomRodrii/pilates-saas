@@ -46,7 +46,7 @@ export type EstadoCopias = Readonly<Record<string, { en: string; desfasado: bool
 type Donde = 'dentro' | 'boton' | 'enlace';
 const DONDE_DE: Record<MetodoIntegracion, Donde> = { iframe: 'dentro', nativa: 'dentro', popup: 'boton', boton: 'boton', enlace: 'enlace' };
 
-export function PasoQue({ w, c, metodo, plataforma, receta, cambiar, datos, avisos, copias, onElegirWidget, onMetodo }: {
+export function PasoQue({ w, c, metodo, plataforma, receta, cambiar, datos, avisos, copias, porId = false, onElegirWidget, onMetodo }: {
   w: WidgetDisponible;
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
@@ -56,6 +56,11 @@ export function PasoQue({ w, c, metodo, plataforma, receta, cambiar, datos, avis
   datos: DatosPanel;
   avisos: readonly AvisoDeDatos[];
   copias: EstadoCopias;
+  /**
+   * Su código va por id (lib/widgets/pieza.ts): lo que enseña llega a su web con
+   * «Aplicar en mi web», sin volver a pegar nada.
+   */
+  porId?: boolean;
   onElegirWidget: (id: string) => void;
   onMetodo: (m: MetodoIntegracion) => void;
 }) {
@@ -63,7 +68,7 @@ export function PasoQue({ w, c, metodo, plataforma, receta, cambiar, datos, avis
     <div className="space-y-4">
       <QueQuieres activo={w} avisos={avisos} copias={copias} onElegir={onElegirWidget} />
       <DondeLoQuieres w={w} c={c} metodo={metodo} plataforma={plataforma} receta={receta} cambiar={cambiar} onMetodo={onMetodo} />
-      <QueEnsena key={w.id} w={w} c={c} metodo={metodo} cambiar={cambiar} datos={datos} />
+      <QueEnsena key={w.id} w={w} c={c} metodo={metodo} cambiar={cambiar} datos={datos} porId={porId} />
     </div>
   );
 }
@@ -308,13 +313,19 @@ const SE_ACTUALIZA_SOLO: Record<string, ReactNode> = {
   contacto: <>Nombre, email y mensaje. Cada consulta te llega a <EnlaceA href="/clientas">Clientas</EnlaceA>.</>,
 };
 
-function QueEnsena({ w, c, metodo, cambiar, datos }: {
+function QueEnsena({ w, c, metodo, cambiar, datos, porId }: {
   w: WidgetDisponible;
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   datos: DatosPanel;
+  porId: boolean;
 }) {
+  // Lo que enseña va en el código, o (por id) llega con «Aplicar en mi web».
+  const etiqueta = porId ? 'vivo' : 'codigo';
+  const siCambia = porId
+    ? 'Si lo cambias después de pegarlo, pulsa «Aplicar en mi web»: no hace falta volver a pegar nada.'
+    : 'Si lo cambias después de pegarlo, tendrás que copiarlo otra vez.';
   const paginaCompleta = metodo === 'boton' || metodo === 'enlace';
   const reservas = w.categoria === 'reservas' && w.id !== 'cuenta';
   const reglas = reservas && datos.reglas.length > 0 && (
@@ -335,7 +346,7 @@ function QueEnsena({ w, c, metodo, cambiar, datos }: {
 
   if (w.contenido.includes('horario')) {
     return (
-      <Tarjeta titulo="Qué enseña" etiqueta="codigo" subtitulo="Si lo cambias después de pegarlo, tendrás que copiarlo otra vez.">
+      <Tarjeta titulo="Qué enseña" etiqueta={etiqueta} subtitulo={siCambia}>
         <ContenidoHorario c={c} metodo={metodo} cambiar={cambiar} datos={datos} />
         {reglas}
       </Tarjeta>
@@ -343,7 +354,7 @@ function QueEnsena({ w, c, metodo, cambiar, datos }: {
   }
   if (w.contenido.includes('sesion')) {
     return (
-      <Tarjeta titulo="¿Qué clase?" etiqueta="codigo">
+      <Tarjeta titulo="¿Qué clase?" etiqueta={etiqueta} subtitulo={porId ? siCambia : undefined}>
         <SelectorClase c={c} cambiar={cambiar} proximas={datos.proximasClases} />
         {reglas}
       </Tarjeta>
@@ -351,7 +362,7 @@ function QueEnsena({ w, c, metodo, cambiar, datos }: {
   }
   if (w.contenido.includes('cuentaInicio')) {
     return (
-      <Tarjeta titulo="Qué enseña" etiqueta="codigo">
+      <Tarjeta titulo="Qué enseña" etiqueta={etiqueta} subtitulo={porId ? siCambia : undefined}>
         <Ajuste etiqueta="Al abrir, enseña" descripcion="Tus alumnas pasan de una cosa a otra con un toque.">
           <Segmentado
             etiqueta="Con qué abre su cuenta"
@@ -371,7 +382,7 @@ function QueEnsena({ w, c, metodo, cambiar, datos }: {
         </p>
       </Tarjeta>
     ) : (
-      <Tarjeta titulo="¿Qué se vende?" etiqueta="codigo" subtitulo="Si lo cambias después de pegarlo, tendrás que copiarlo otra vez.">
+      <Tarjeta titulo="¿Qué se vende?" etiqueta={etiqueta} subtitulo={siCambia}>
         <QueSeVende c={c} cambiar={cambiar} planesPorTipo={datos.planesPorTipo} />
       </Tarjeta>
     );

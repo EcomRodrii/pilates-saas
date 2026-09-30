@@ -37,7 +37,7 @@ const COLOR_DE_FONDO = '#F6F3EC';
 /** El primario de siempre de la nativa sin `data-marca` ni identidad del estudio (`montarUno`, app/widget-bundle/main.tsx). */
 const COLOR_WIDGET_NATIVA = '#343825';
 
-export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, estilo, soloLectura, verApariencia, piezas }: {
+export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, estilo, soloLectura, verApariencia, piezas, porId = false }: {
   w: WidgetDisponible;
   c: ConfigConstructor;
   metodo: MetodoIntegracion;
@@ -49,6 +49,12 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
   soloLectura: boolean;
   verApariencia: boolean;
   piezas: PiezasAfectadas;
+  /**
+   * Su código va por id (lib/widgets/pieza.ts): el diseño propio y el pie llegan
+   * a su web con «Aplicar en mi web». El botón que abre la ventana, no: su color
+   * va en el HTML del código.
+   */
+  porId?: boolean;
 }) {
   const propia = c.identidad === 'propia';
   const nativa = metodo === 'nativa';
@@ -107,11 +113,13 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
     <Plegable
       abierto={propia}
       className="border-t border-border pt-2"
-      titulo={<span className="flex flex-wrap items-center gap-2">Un diseño distinto solo para {soloBoton ? 'este botón' : 'este widget'} <Etiqueta tipo="codigo" /></span>}
+      titulo={<span className="flex flex-wrap items-center gap-2">Un diseño distinto solo para {soloBoton ? 'este botón' : 'este widget'} <Etiqueta tipo={porId && !soloBoton ? 'vivo' : 'codigo'} /></span>}
     >
       <div className="space-y-5">
         <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-          Lo que cambies aquí va dentro de su código y, desde ese momento, este widget deja de seguir el estilo de tus widgets. Si lo tocas después de pegarlo, tendrás que copiar el código otra vez. Pensado para quien te hace la web.
+          {porId && !soloBoton
+            ? <>Lo que cambies aquí es solo de este widget y, desde ese momento, deja de seguir el estilo de tus widgets. Llega a tu web al pulsar «Aplicar en mi web», sin volver a pegar nada{metodo === 'popup' ? ' (salvo el color del botón que abre la ventana: ese va en el código)' : ''}. Pensado para quien te hace la web.</>
+            : 'Lo que cambies aquí va dentro de su código y, desde ese momento, este widget deja de seguir el estilo de tus widgets. Si lo tocas después de pegarlo, tendrás que copiar el código otra vez. Pensado para quien te hace la web.'}
         </p>
         <AjusteInterruptor
           etiqueta={`Usar un diseño propio en «${w.respuesta}»`}
@@ -149,7 +157,7 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
                   <button type="button" onClick={() => cambiar({ identidad: 'estudio' })} className={btnSecondary}>
                     Que siga el estilo de tus widgets
                   </button>
-                  <span className="text-[12px] text-muted-foreground">Cambia su código: tendrás que copiarlo otra vez.</span>
+                  <span className="text-[12px] text-muted-foreground">{porId ? 'Después, pulsa «Aplicar en mi web».' : 'Cambia su código: tendrás que copiarlo otra vez.'}</span>
                 </div>
               </>
             )}
@@ -198,9 +206,13 @@ export function PasoComo({ w, c, metodo, plataforma, cambiar, colorEstudio, esti
               // cosa: se explica cuál es este para que no parezca que se
               // contradicen. Con un diseño propio, el de «Ajustes finos» no le
               // llega, y remitir allí sería mandarla a un interruptor que no hace nada.
-              descripcion={disenoEnCodigo
-                ? 'Solo para este widget, y va en su código: con un diseño propio, el de «Ajustes finos» no le llega.'
-                : 'Solo para este widget, y va en su código. Para todos tus widgets a la vez, está en «Ajustes finos».'}
+              descripcion={porId
+                ? disenoEnCodigo
+                  ? 'Solo para este widget, y llega a tu web al pulsar «Aplicar en mi web»: con un diseño propio, el de «Ajustes finos» no le llega.'
+                  : 'Solo para este widget, y llega a tu web al pulsar «Aplicar en mi web». Para todos tus widgets a la vez, está en «Ajustes finos».'
+                : disenoEnCodigo
+                  ? 'Solo para este widget, y va en su código: con un diseño propio, el de «Ajustes finos» no le llega.'
+                  : 'Solo para este widget, y va en su código. Para todos tus widgets a la vez, está en «Ajustes finos».'}
               on={c.mostrarPie}
               onChange={v => { setPieTocado(true); cambiar({ mostrarPie: v }); }}
             />

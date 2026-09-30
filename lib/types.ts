@@ -31,6 +31,9 @@ export type EstadoReserva = 'CONFIRMADA' | 'LISTA_ESPERA' | 'ASISTIDA' | 'CANCEL
 export type NivelClase = 'TODOS' | 'PRINCIPIANTE' | 'MEDIO' | 'AVANZADO';
 export type TipoSpot = 'REFORMER' | 'MAT' | 'OTRO';
 
+/** Ver `Studio.modoFacturacion`. */
+export type ModoFacturacion = 'sin_facturas' | 'verifactu';
+
 export interface Studio {
   id: string;
   nombre: string;
@@ -259,6 +262,11 @@ export interface Studio {
   // false (default) = cada cargo espera aprobación manual antes de tocar la
   // tarjeta guardada. true = se cobra solo, como el cron de dunning.
   penalizacionCobroAutomatico: boolean;
+  // Si Tentare emite una factura por cobro con su registro Veri*Factu
+  // ('verifactu') o no emite facturas y el estudio factura fuera
+  // ('sin_facturas', por defecto). Migr 20260929214142. La base de datos es la
+  // que lo impide (`reservar_numero_factura` rechaza la serie A).
+  modoFacturacion: ModoFacturacion;
   // Qué pasa con las clases que su plaza fija ya tenía reservadas cuando la
   // alumna se queda sin cuota (migr 20260915215236). 'MANTENER' = como siempre.
   plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
@@ -1681,7 +1689,10 @@ export type TipoActividad =
   | 'WIDGET_DOMINIOS_CAMBIADOS'
   // Estilo de los widgets en su web aplicado o deshecho. Solo
   // /api/estudio/widget-estilo.
-  | 'WIDGETS_ESTILO_CAMBIADO';
+  | 'WIDGETS_ESTILO_CAMBIADO'
+  // Lo publicado de un widget pegado con su id («Aplicar en mi web» del
+  // contenido). Solo /api/estudio/widget-pieza.
+  | 'WIDGET_APLICADO';
 
 export interface ActividadReciente {
   id: string;

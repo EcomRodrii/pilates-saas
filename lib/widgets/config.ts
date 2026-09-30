@@ -15,6 +15,7 @@ import { COLOR_VALIDO, fuenteValida } from '../reservar/config-widget.ts';
 import type { TipoPlan } from '../types.ts';
 import { WIDGETS, type MetodoIntegracion, type WidgetDisponible } from './catalogo.ts';
 import { FIRMA_CONTENIDO_VALIDA, FORMAS_PEGADAS, claveVista, formaDeMetodo } from './pegado.ts';
+import { esIdPieza } from './pieza.ts';
 import type { EstadoWeb } from './recetas.ts';
 
 export interface ConfigConstructor {
@@ -287,6 +288,13 @@ export interface Copiado {
    * sigue copiando botones literales.
    */
   botonVivo?: true;
+  /**
+   * El código por id (30-sep-2026, ./pieza.ts): lo copiado lleva ESTE id y no
+   * el contenido. Con él, lo que se ve en su web es lo PUBLICADO, no la foto de
+   * `config` (que sigue sirviendo para lo que va en el propio HTML: el ancho, el
+   * botón…). Sin él, un código congelado de los de siempre.
+   */
+  pieza?: string;
 }
 
 const FIRMA_VALIDA = /^[0-9a-z]{1,32}$/;
@@ -322,6 +330,7 @@ export function leerCopiados(raw: Record<string, unknown> | null | undefined): R
     const anteriores = limpiarAnteriores(x.anteriores);
     if (anteriores.length) copia.anteriores = anteriores;
     if (x.botonVivo === true) copia.botonVivo = true;
+    if (esIdPieza(x.pieza)) copia.pieza = x.pieza;
     out[w.id] = copia;
   }
   return out;
@@ -349,6 +358,8 @@ export function nuevaCopia(anterior: Copiado | null | undefined, x: {
   config: ConfigConstructor;
   contenido: string | null;
   botonVivo?: boolean;
+  /** El id que lleva el código copiado, si va por id. */
+  pieza?: string | null;
 }): Copiado {
   const copia: Copiado = { firma: x.firma, en: x.en, metodo: x.metodo, config: x.config };
   if (x.contenido && FIRMA_CONTENIDO_VALIDA.test(x.contenido)) copia.contenido = x.contenido;
@@ -356,6 +367,7 @@ export function nuevaCopia(anterior: Copiado | null | undefined, x: {
   const anteriores = limpiarAnteriores([claveDeCopia(anterior), ...(anterior?.anteriores ?? [])].filter(k => k !== nueva));
   if (anteriores.length) copia.anteriores = anteriores;
   if (x.botonVivo) copia.botonVivo = true;
+  if (esIdPieza(x.pieza)) copia.pieza = x.pieza;
   return copia;
 }
 
@@ -389,6 +401,7 @@ export function esLaMismaCopia(previa: Copiado | null | undefined, nueva: Copiad
   if (!previa) return false;
   if (previa.firma !== nueva.firma || previa.metodo !== nueva.metodo || previa.contenido !== nueva.contenido) return false;
   if ((previa.botonVivo === true) !== (nueva.botonVivo === true)) return false;
+  if (previa.pieza !== nueva.pieza) return false;
   const dt = Date.parse(nueva.en) - Date.parse(previa.en);
   return dt >= 0 && dt < MARGEN_MISMA_COPIA_MS;
 }

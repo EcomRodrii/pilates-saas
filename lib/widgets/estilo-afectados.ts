@@ -109,6 +109,12 @@ export interface DatosAfectados {
   publicado: WidgetWeb | null;
   /** Con qué se resuelve. `null` mientras carga: sin él no se sabe si es de noche. */
   base: BaseEstiloWeb | null;
+  /**
+   * Lo PUBLICADO de cada widget por id (./pieza.ts). Una copia por id enseña
+   * esto en su web, no su foto ni lo de ahora; sin saberlo, de ella no se
+   * afirma nada.
+   */
+  publicadas?: Readonly<Record<string, ConfigConstructor>>;
 }
 
 /** El origen con el que se rehace la URL del widget: no se pide a nadie, solo se lee su `?…`. */
@@ -204,11 +210,15 @@ export function piezasAfectadas(d: DatosAfectados): PiezasAfectadas {
   for (const w of WIDGETS) {
     const copiado = d.copiados[w.id];
     if (!esDisponible(w) || !copiado) continue;
-    const c = d.configs[w.id] ?? CONFIG_POR_DEFECTO;
-    const metodo = metodoEnWeb(c, w, d.plataforma);
-    const entrada = { widget: w, config: c, origen: d.origen, slug: d.slug, colorEstudio: d.colorEstudio };
-    // Cambiado después de copiarlo: no sabemos qué hay pegado (cabecera).
+    const ahora = d.configs[w.id] ?? CONFIG_POR_DEFECTO;
+    const metodo = metodoEnWeb(ahora, w, d.plataforma);
+    const entrada = { widget: w, config: ahora, origen: d.origen, slug: d.slug, colorEstudio: d.colorEstudio, pieza: copiado.pieza ?? null };
+    // Cambiado después de copiarlo: no sabemos qué hay pegado (cabecera). Por
+    // id, solo lo que va en el HTML cambia el código.
     if (copiado.firma !== firmaCodigo(entrada, metodo)) continue;
+    // Lo que se ve en su web: por id, lo publicado; si no, lo de ahora (que es lo copiado).
+    const c = copiado.pieza ? d.publicadas?.[w.id] : ahora;
+    if (!c) continue;
     // Con la regla de SU método: la nativa solo entiende parte del diseño propio.
     if (tieneDisenoEnCodigo(c, metodo)) continue;
     if (metodo === 'iframe' || metodo === 'popup') {

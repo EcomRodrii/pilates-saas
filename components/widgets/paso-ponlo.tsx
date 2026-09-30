@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertCircle, BookOpen, Check, Code2, Copy, Mail, Send } from 'lucide-react';
+import { AlertCircle, BookOpen, Check, Code2, Copy, Loader2, Mail, Send } from 'lucide-react';
 import { cn, copiarAlPortapapeles } from '@/lib/utils';
 import { btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { METODOS, type MetodoIntegracion } from '@/lib/widgets/catalogo';
 import { ETIQUETA_VALIDA, esCopiaCompleta, type ConfigConstructor, type Copiado } from '@/lib/widgets/config';
 import { botonDeCodigoAnterior } from '@/lib/widgets/en-tu-web';
 import {
-  faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, tieneDisenoEnCodigo, urlPagina, type EntradaIntegracion,
+  codigoPorId, faltaParaGenerar, firmaCodigo, generarCodigo, plataformasDe, tieneDisenoEnCodigo, urlPagina, type EntradaIntegracion,
 } from '@/lib/widgets/integracion';
 import {
   guiaDe, mensajeParaTuWeb, nombrePlataforma, pasosEnTuWeb, usaBotonPropio, type PlataformaWeb, type Receta,
@@ -34,7 +34,7 @@ import { SelectorClase, type DatosPanel } from './paso-que';
 
 export function PasoPonlo({
   entrada, metodo, plataforma, receta, estudio, origen, copiado, desfase, estiloSinAplicar, estiloAplicado, onCopiado, onMetodo, cambiar,
-  proximasClases, dominiosAutorizados, dominios, verDominios, showToast,
+  proximasClases, dominiosAutorizados, dominios, verDominios, showToast, preparando = false,
 }: {
   entrada: EntradaIntegracion;
   metodo: MetodoIntegracion;
@@ -56,6 +56,12 @@ export function PasoPonlo({
    */
   estiloAplicado: boolean | null;
   onCopiado: (firma: string) => void;
+  /**
+   * Se está creando lo publicado de este widget (su id, la primera vez que se
+   * abre este paso): hasta que llegue, el código de aquí no es el que se va a
+   * pegar, y no se deja copiar.
+   */
+  preparando?: boolean;
   onMetodo: (m: MetodoIntegracion) => void;
   cambiar: (parcial: Partial<ConfigConstructor>) => void;
   proximasClases: DatosPanel['proximasClases'];
@@ -71,6 +77,8 @@ export function PasoPonlo({
 }) {
   const w = entrada.widget;
   const c = entrada.config;
+  // El código va por id (lib/widgets/pieza.ts): lo que enseña llega al aplicar, sin volver a pegarlo.
+  const porId = codigoPorId(entrada);
   const falta = faltaParaGenerar(entrada, metodo, { dominiosAutorizados });
   const botonPropio = metodo === 'boton' && usaBotonPropio(plataforma);
   const esEnlace = metodo === 'enlace' || botonPropio;
@@ -198,10 +206,11 @@ export function PasoPonlo({
             <button
               type="button"
               onClick={() => void copiar()}
+              disabled={preparando}
               className={cn(btnPrimary, 'min-h-12 w-full justify-center text-[14.5px] font-semibold [@media(pointer:fine)]:min-h-12')}
             >
-              {recienCopiado === 'codigo' ? <Check size={17} aria-hidden /> : <Copy size={17} aria-hidden />}
-              {etiquetaCopiar}
+              {preparando ? <Loader2 size={17} className="animate-spin" aria-hidden /> : recienCopiado === 'codigo' ? <Check size={17} aria-hidden /> : <Copy size={17} aria-hidden />}
+              {preparando ? 'Preparando tu código…' : etiquetaCopiar}
             </button>
             <p className="text-center text-[12px] text-muted-foreground">
               {copiado && !desfase ? `Lo copiaste aquí el ${fechaCorta(copiado.en)}.` : !copiado ? 'Aún no lo has copiado desde aquí.' : 'Lo que copiaste antes ya no es lo de ahora.'}
@@ -258,10 +267,13 @@ export function PasoPonlo({
           <div className="rounded-xl border border-success/30 bg-success/5 p-3 text-[12.5px] leading-relaxed text-foreground">
             <p className="mb-0.5 flex items-center gap-1 font-semibold"><Check size={13} aria-hidden />Se actualiza solo</p>
             {estiloVivo(metodo, !tieneDisenoEnCodigo(c, metodo), { identidadEstudio: c.identidad === 'estudio', aplicado: estiloAplicado })}
+            {porId && metodo !== 'enlace' && metodo !== 'boton' && ' Y lo que enseña (y su diseño propio, si lo tiene), al pulsar «Aplicar en mi web».'}
           </div>
           <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-[12.5px] leading-relaxed text-foreground">
             <p className="mb-0.5 font-semibold">Si lo cambias, cópialo otra vez</p>
-            Lo que lleva la etiqueta «Va en el código»: qué enseña, la forma de ponerlo, el texto y el tipo de botón, y un diseño propio.
+            {porId
+              ? `Solo lo que va en el propio código: la forma de ponerlo${metodo === 'iframe' ? ', el ancho y cómo carga' : ''}${metodo === 'popup' || metodo === 'boton' ? ', el texto y el tipo de botón' : ''}${metodo === 'popup' ? ' y, con un diseño propio, el color del botón' : ''}.`
+              : 'Lo que lleva la etiqueta «Va en el código»: qué enseña, la forma de ponerlo, el texto y el tipo de botón, y un diseño propio.'}
           </div>
         </div>
       </Tarjeta>

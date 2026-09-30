@@ -1,4 +1,4 @@
-import type { MetodoCobro } from '@/lib/types';
+import type { MetodoCobro, ModoFacturacion } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ¿Se emite factura SOLA al cobrar?
@@ -36,7 +36,21 @@ const SIN_FACTURA_AUTOMATICA: ReadonlySet<string> = new Set<MetodoCobro>(['EFECT
  * (cobros antiguos y de pasarela), y dejar de facturarlos por no saber el medio
  * sería un cambio mucho mayor que el que se ha pedido.
  */
-export function emiteFacturaAutomatica(metodo: MetodoCobro | string | null | undefined): boolean {
+export function emiteFacturaAutomatica(
+  metodo: MetodoCobro | string | null | undefined,
+  /**
+   * El modo del estudio (`Studio.modoFacturacion`). Con 'sin_facturas' no se
+   * emite nada, se cobre como se cobre. `null` = no se sabe todavía (el panel
+   * sin estudio cargado): no se emite. Sin pasarlo, como antes: los caminos de
+   * servidor lo resuelven en `sellarFacturaDeRecibo`, que lee el estudio.
+   */
+  modo: ModoFacturacion | null = 'verifactu',
+): boolean {
+  if (modo !== 'verifactu') return false;
   if (!metodo) return true;
   return !SIN_FACTURA_AUTOMATICA.has(metodo.toUpperCase());
 }
+
+/** Lo que se le dice a quien pide una factura con el estudio en 'sin_facturas'. */
+export const MENSAJE_SIN_FACTURAS =
+  'Este estudio no emite facturas desde Tentare. Puedes activarlo en Configuración → Cobros y facturas → Facturación.';

@@ -30,6 +30,7 @@ import { saldoVivo } from '@/lib/creditos-caducidad';
 // medianoche UTC — dos horas antes en verano — para todo el mundo.
 import { hoyISO } from '@/lib/student/formato';
 import { leerVistos, type VistoWidget } from '@/lib/widgets/pegado';
+import { leerPiezasGuardadas, type PiezaGuardada } from '@/lib/widgets/pieza-panel';
 import {
   cobroManualDeRecibo, penalizacionDelRecibo, TEXTO_PENALIZACION_ANULADA, type LecturaPenalizacionesDeRecibos,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
@@ -3908,6 +3909,16 @@ export async function dbEmbudoWidgetPorOrigen(desde: string): Promise<{ origen: 
 // y sin filtro las etiquetas que ya no usa nadie podían llenar el tope de
 // PostgREST y dejar fuera lo que sí se pinta. Si aun así se llega al tope,
 // `null` (`leerVistos`): puede faltar justo lo de una pieza.
+// Lo publicado de cada widget pegado con su id (migr 20260929225151). Solo lo
+// lee la propietaria (RLS); a cualquier otro rol le llega `{}`. `null` en el
+// fallo: sin saber qué hay publicado, el constructor da el código de siempre,
+// que funciona igual.
+export async function dbWidgetPiezas(): Promise<Record<string, PiezaGuardada> | null> {
+  const { data, error } = await supabase.from('widget_piezas').select('id, widget, config, actualizado_en');
+  if (error) { reportDbError('[dbWidgetPiezas]', error); return null; }
+  return leerPiezasGuardadas((data ?? []) as unknown[]);
+}
+
 export async function dbWidgetVistos(etiquetas: readonly string[]): Promise<VistoWidget[] | null> {
   // Sin etiquetas no hay nada que pueda verse: ni se pregunta.
   if (!etiquetas.length) return [];
@@ -5050,6 +5061,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('penalizacionAplicaCancelacionTardia' in changes) db.penalizacion_aplica_cancelacion_tardia = changes.penalizacionAplicaCancelacionTardia;
   if ('penalizacionAplicaNoShow' in changes) db.penalizacion_aplica_no_show = changes.penalizacionAplicaNoShow;
   if ('penalizacionCobroAutomatico' in changes) db.penalizacion_cobro_automatico = changes.penalizacionCobroAutomatico;
+  if ('modoFacturacion' in changes) db.modo_facturacion = changes.modoFacturacion;
   if ('plazaFijaSinCuota' in changes) db.plaza_fija_sin_cuota = changes.plazaFijaSinCuota;
   if ('plazaFijaSolicitarDesdeApp' in changes) db.plaza_fija_solicitar_desde_app = changes.plazaFijaSolicitarDesdeApp;
   if ('plazaFijaPausaDesdeApp' in changes) db.plaza_fija_pausa_desde_app = changes.plazaFijaPausaDesdeApp;
@@ -5459,6 +5471,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
+    // Sin columna (un servidor de antes) = como hasta ahora: emitía.
+    modoFacturacion: r.modo_facturacion === 'sin_facturas' ? 'sin_facturas' : 'verifactu',
     plazaFijaSinCuota: (r.plaza_fija_sin_cuota as PoliticaPlazaFijaSinCuota | null) ?? 'MANTENER',
     // Encendido de serie desde el 22-sep (antes apagado, 16-sep): ver el comentario en reglas-reserva.ts.
     plazaFijaSolicitarDesdeApp: (r.plaza_fija_solicitar_desde_app as boolean | null) ?? true,
