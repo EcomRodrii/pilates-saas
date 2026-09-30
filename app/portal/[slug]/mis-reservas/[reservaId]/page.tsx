@@ -15,6 +15,7 @@ import { etiquetaHistorial } from '@/lib/student/etiqueta-historial';
 import { Button } from '@/components/student/ui/Button';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
 import { ValorarClase } from '@/components/student/domain/ValorarClase';
+import { añadirAlCalendario } from '@/lib/student/enlaces-clase';
 
 // Detalle de reserva + su QR de acceso (§A.10).
 //
@@ -137,9 +138,17 @@ export default function DetalleReservaPage() {
         </div>
 
         {activa && (
-          <Button variant="ghost" full onClick={() => router.push(href('/mis-reservas'))}>
-            Gestionar o cancelar
-          </Button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* En «Mis clases» solo la PRÓXIMA lleva el botón del calendario; las
+                demás son filas de agenda que abren esta ficha. Aquí va para
+                todas. */}
+            <Button variant="light" full onClick={() => añadirAlCalendario(c, estudio.nombre, estudio.direccion, i?.nombre)}>
+              + Calendario
+            </Button>
+            <Button variant="ghost" full onClick={() => router.push(href('/mis-reservas'))}>
+              Gestionar o cancelar
+            </Button>
+          </div>
         )}
 
         {/* Solo tras asistir. El servidor lo vuelve a comprobar: la tarjeta

@@ -410,11 +410,13 @@ export function proyectarInstructoras(d: PayloadMin): Instructora[] {
       // `Instructor` no tiene especialidades en este backend: lo más parecido
       // es `especialidadNetwork`, que es de TipoClase y de otro producto.
       especialidades: [],
-      // ⚠️ La nota solo se enseña con AL MENOS 5 valoraciones. `valoracion`
-      // trae media Y total precisamente por esto: con dos votos, un «5,0» dice
-      // que es perfecta cuando lo que pasa es que la han puntuado dos veces.
-      rating: i.valoracion && i.valoracion.total >= 5 ? i.valoracion.media : undefined,
-      valoraciones: i.valoracion && i.valoracion.total >= 5 ? i.valoracion.total : undefined,
+      // ⚠️ La nota va SIEMPRE con su número de votos al lado («5,0/5 (2)»).
+      // Antes solo se enseñaba con 5 o más, porque un «5,0» a secas con dos
+      // votos decía «perfecta» cuando solo la habían puntuado dos veces. Con el
+      // total visible eso ya no engaña, y el fundador pidió verla desde la
+      // primera (30-sep). `notaCorta` no pinta la nota sin su total.
+      rating: i.valoracion && i.valoracion.total >= 1 ? i.valoracion.media : undefined,
+      valoraciones: i.valoracion && i.valoracion.total >= 1 ? i.valoracion.total : undefined,
       bio: i.bio ?? undefined,
     }));
 }

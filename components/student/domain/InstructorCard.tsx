@@ -1,10 +1,10 @@
 import type { Instructora } from '@/lib/student/tipos';
-import { notaTexto } from '@/lib/student/instructora';
+import { partesNota } from '@/lib/student/instructora';
 import { esUrlImagenValida } from '@/lib/imagen-url';
 import { Icono } from '@/components/student/ui/Icono';
 
 /** El círculo con su foto, o sus iniciales si no la ha subido. */
-function Cara({ i, lado }: { i: Instructora; lado: number }) {
+export function CaraInstructora({ i, lado }: { i: Instructora; lado: number }) {
   // ⚠️ La URL la teclea el staff y acaba DENTRO de un `url(...)` de CSS. Se
   // valida con el mismo `esUrlImagenValida` que ya usa «Descubre» —donde el
   // dato viene por la misma puerta— y se escapa lo único que puede salirse de
@@ -52,7 +52,18 @@ export function InstructorCard({ i, onClick, ancha = false, proxima }: {
    */
   proxima?: string | null;
 }) {
-  const nota = i.rating ? notaTexto(i.rating, undefined) : null;
+  const nota = partesNota(i.rating, i.valoraciones);
+  // «4,8/5 ★ (1)»: el total SIEMPRE al lado — sin él, un 5,0 de un solo voto
+  // se lee como «perfecta».
+  const Nota = nota && (
+    <span data-testid="nota-instructora" style={{ whiteSpace: 'nowrap' }}>
+      {nota.valor}{' '}
+      {/* `inline-block`: el preflight de Tailwind pone los `svg` en bloque, y
+          la estrella partía la nota en tres líneas. */}
+      <Icono nombre="estrella" tamano={12} fill="var(--warning)" stroke="var(--warning)" style={{ display: 'inline-block', verticalAlign: '-1px' }} />
+      {' '}{nota.votos}
+    </span>
+  );
 
   if (ancha) {
     return (
@@ -62,14 +73,14 @@ export function InstructorCard({ i, onClick, ancha = false, proxima }: {
         className="card card--tap"
         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16, textAlign: 'left' }}
       >
-        <Cara i={i} lado={44} />
+        <CaraInstructora i={i} lado={44} />
         <span style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontSize: 'var(--t-body)', fontWeight: 800, letterSpacing: '-.01em' }}>{i.nombre}</span>
           {/* Solo lo que hay: sin nota y sin especialidades no se pinta una
               segunda línea vacía para que la tarjeta «tenga dos líneas». */}
           {(nota || i.especialidades.length > 0) && (
             <span className="t-meta trunc">
-              {nota && <><Icono nombre="estrella" tamano={12} fill="var(--warning)" stroke="var(--warning)" style={{ verticalAlign: '-1px' }} /> {nota}</>}
+              {Nota}
               {nota && i.especialidades.length > 0 && ' · '}
               {i.especialidades.join(' · ')}
             </span>
@@ -93,8 +104,8 @@ export function InstructorCard({ i, onClick, ancha = false, proxima }: {
 
   return (
     <button type="button" onClick={onClick} className="card card--tap" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 9, padding: '6px 13px 6px 6px', borderRadius: 999, textAlign: 'left' }}>
-      <Cara i={i} lado={32} />
-      <span style={{ fontSize: 'var(--t-small)', fontWeight: 700 }}>{i.nombre}{nota && <span style={{ color: 'var(--muted-foreground)' }}> · <Icono nombre="estrella" tamano={12} fill="var(--warning)" stroke="var(--warning)" style={{ verticalAlign: '-1px' }} /> {nota}</span>}</span>
+      <CaraInstructora i={i} lado={32} />
+      <span style={{ fontSize: 'var(--t-small)', fontWeight: 700 }}>{i.nombre}{Nota && <span style={{ color: 'var(--muted-foreground)', fontWeight: 600 }}> · {Nota}</span>}</span>
     </button>
   );
 }
