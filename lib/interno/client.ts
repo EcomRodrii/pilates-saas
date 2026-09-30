@@ -385,3 +385,15 @@ export interface AyudaFeedbackArticulo { articulo: string; categoria: string; ti
 export interface AyudaFeedbackFila { id: string; articulo_slug: string; categoria_slug: string; valoracion: 'MALO' | 'REGULAR' | 'BUENO'; url: string; creado_en: string }
 export const fetchAyudaFeedback = () =>
   pedir<{ resumen: AyudaFeedbackResumen; articulos: AyudaFeedbackArticulo[]; recientes: AyudaFeedbackFila[] }>('/ayuda-feedback');
+
+// Veri*Factu — declaración responsable del SIF (ver app/api/interno/verifactu).
+export interface DeclaracionVerifactuInterna {
+  titulo: string;
+  version: string;
+  suscrita: { fecha: string; lugar: string; suscritaEn: string; sha256: string } | null;
+  apartados: Array<{ letra: string; etiqueta: string; valor: string | null }>;
+  falta: string[];
+}
+export const fetchDeclaracionVerifactu = () => pedir<DeclaracionVerifactuInterna>('/verifactu/declaracion');
+export const suscribirDeclaracionVerifactu = (fecha: string, lugar: string) =>
+  pedir<{ ok: true; id: string; version: string; sha256: string }>('/verifactu/declaracion', { method: 'POST', body: JSON.stringify({ fecha, lugar }) });

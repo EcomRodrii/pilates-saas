@@ -838,6 +838,9 @@ export const PREFIJOS_NO_INDEXABLES = [
   '/equipo', '/explorar-funciones', '/facturas', '/informes', '/libreta', '/marketing',
   '/mensajeria', '/mi-perfil', '/migracion', '/notificaciones', '/ondemand', '/pagos',
   '/pos', '/primeros-pasos', '/productos', '/socios', '/sustituciones', '/transacciones',
+  // Veri*Factu: la declaración responsable del SIF (lleva datos del productor)
+  // y cualquier pantalla futura del envío a la AEAT.
+  '/verifactu',
 
   // Tentare Network — autoservicio de la instructora y buscador privado de
   // la propietaria. `/network/` CON BARRA FINAL, no una lista de rutas

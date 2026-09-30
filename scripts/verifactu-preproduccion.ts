@@ -25,6 +25,7 @@ import { llamarAeat, huellaCredencial } from '../lib/verifactu/envio.ts';
 import { parsearRespuestaAeat, parsearRespuestaConsulta } from '../lib/verifactu/respuesta.ts';
 import { endpointVerifactu } from '../lib/verifactu/endpoints.ts';
 import { certificadoDeEntorno, entornoTransmision } from '../lib/verifactu/config.ts';
+import { sistemaInformaticoParaEstudio } from '../lib/verifactu/sif.ts';
 
 function salir(mensaje: string): never {
   console.error(`✖ ${mensaje}`);
@@ -86,11 +87,8 @@ const registro = xmlRegistroAlta({
   cuotaTotal: cuota,
   importeTotal: total,
   encadenamiento: anterior ? { idEmisorFactura: nif, ...anterior } : null,
-  sistemaInformatico: {
-    nombreRazon: nombre, nif, nombreSistemaInformatico: 'Tentare', idSistemaInformatico: 'TE',
-    version: 'preproduccion', numeroInstalacion: 'preproduccion-1',
-    soloVerifactu: true, multiOT: true, indicadorMultiplesOT: false,
-  },
+  // La misma identidad de SIF que en producción; instalación propia de pruebas.
+  sistemaInformatico: sistemaInformaticoParaEstudio({ nombre, nif }, 'preproduccion', 1),
   fechaHoraHusoGenRegistro: ts,
   huella,
 });

@@ -10,6 +10,7 @@ const COMPLETA = {
   VERIFACTU_ENVIRONMENT: 'production', VERIFACTU_ENTORNO: 'produccion',
   CERTIFICATE_PFX: Buffer.from('no-es-un-pfx-real').toString('base64'), CERTIFICATE_PASSWORD: 'x',
   VERIFACTU_PRODUCTOR_NIF: '00000000T', VERIFACTU_PRODUCTOR_NOMBRE: 'Productor de Ejemplo',
+  VERIFACTU_PRODUCTOR_DIRECCION: 'Calle de Ejemplo 1, 00000 Localidad',
 };
 
 test('sin VERIFACTU_ENVIRONMENT no hay entorno: no se transmite nada', () => {
@@ -54,4 +55,6 @@ test('cada pieza que falta se nombra, en cristiano', () => {
   assert.ok(falta.some(f => f.includes('CERTIFICATE_PFX')));
   assert.ok(falta.some(f => f.includes('CERTIFICATE_PASSWORD')));
   assert.ok(falta.some(f => f.includes('VERIFACTU_PRODUCTOR_NIF')));
+  assert.ok(falta.some(f => f.includes('VERIFACTU_PRODUCTOR_NOMBRE')), 'sin «Tentare» por defecto: el productor es una persona');
+  assert.ok(falta.some(f => f.includes('VERIFACTU_PRODUCTOR_DIRECCION')));
 });

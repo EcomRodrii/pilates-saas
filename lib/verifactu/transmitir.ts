@@ -25,12 +25,14 @@ import * as Sentry from '@sentry/nextjs';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
-  certificadoDeEntorno, destinoDeEntorno, entornoTransmision, sistemaInformatico,
+  certificadoDeEntorno, destinoDeEntorno, entornoTransmision, productor as productorDeConfig,
   queFaltaParaTransmitir,
 } from './config.ts';
 import { llamarAeat, huellaCredencial, sha256Texto, type CertificadoCliente } from './envio.ts';
 import { endpointVerifactu, type DestinoAeat } from './endpoints.ts';
 import { sobreSoapRegFactu, sobreSoapConsulta, periodoDeFecha, type SistemaInformatico } from './xml.ts';
+import { numeroInstalacionDeEstudio, sistemaInformaticoParaEstudio, SIF, type Productor } from './sif.ts';
+import { declaracionVigente } from './declaracion.ts';
 import { decidirLote, type RegistroCola } from './pendientes.ts';
 import { planificarResultado } from './procesar.ts';
 import { parsearRespuestaConsulta } from './respuesta.ts';
@@ -102,7 +104,7 @@ interface Contexto {
   admin: SupabaseClient;
   certificado: CertificadoCliente;
   destino: DestinoAeat;
-  sistema: SistemaInformatico;
+  productor: Productor;
   resumen: ResumenTransmision;
   /** Control de flujo GLOBAL: ver pendientes.ts (ámbito NO CONFIRMADO). */
   esperaMs: number;
@@ -126,11 +128,18 @@ export async function transmitirPendientes(): Promise<ResumenTransmision> {
   if (!admin) return { ...resumen, motivo: 'Service role no configurada' };
   const certificado = certificadoDeEntorno();
   const destino = destinoDeEntorno();
-  if (!certificado || !destino) return { ...resumen, motivo: 'Sin certificado o sin destino' };
+  const productor = productorDeConfig();
+  if (!certificado || !destino || !productor) return { ...resumen, motivo: 'Sin certificado, destino o productor' };
+
+  // RD 1007/2023 art. 13: el sistema tiene que estar certificado por su
+  // productor en ESTA versión. Sin declaración suscrita, no sale nada.
+  if (!(await declaracionVigente(admin, SIF.version))) {
+    return { ...resumen, motivo: `Declaración responsable sin suscribir para la versión ${SIF.version} (/interno/verifactu)` };
+  }
 
   if (!(await adquirirCerrojo(admin))) return { ...resumen, motivo: 'Ya hay una transmisión en curso' };
 
-  const ctx: Contexto = { admin, certificado, destino, sistema: sistemaInformatico(), resumen, esperaMs: 0, inicio: Date.now() };
+  const ctx: Contexto = { admin, certificado, destino, productor, resumen, esperaMs: 0, inicio: Date.now() };
   try {
     const { data: activos, error } = await admin.from('verifactu_registros')
       .select('studio_id').in('estado', ACTIVOS).limit(5000);
@@ -160,6 +169,31 @@ export async function transmitirPendientes(): Promise<ResumenTransmision> {
   }
 }
 
+/**
+ * Cuántas «facturaciones» tiene en Tentare la propietaria de este estudio:
+ * estudios suyos que facturan (tienen al menos un registro). Es lo que decide
+ * `IndicadorMultiplesOT` (FAQ de desarrolladores de la AEAT, §4: por usuario
+ * del SaaS, sin mirar el estado de cada facturación).
+ */
+export async function contarFacturaciones(admin: SupabaseClient, studioId: string): Promise<number> {
+  const { data: estudio } = await admin.from('studios').select('owner_auth_user_id').eq('id', studioId).maybeSingle();
+  const owner = estudio?.owner_auth_user_id as string | null | undefined;
+  if (!owner) return 1;
+  const { data: suyos } = await admin.from('studios').select('id').eq('owner_auth_user_id', owner);
+  const ids = (suyos ?? []).map(s => s.id as string);
+  let n = 0;
+  for (const id of ids) {
+    const { count } = await admin.from('verifactu_registros').select('id', { count: 'exact', head: true }).eq('studio_id', id);
+    if ((count ?? 0) > 0 || id === studioId) n += 1;
+  }
+  return n;
+}
+
+/** El bloque SistemaInformatico de los registros de UN estudio. */
+async function sistemaDeEstudio(admin: SupabaseClient, productor: Productor, studioId: string): Promise<SistemaInformatico> {
+  return sistemaInformaticoParaEstudio(productor, numeroInstalacionDeEstudio(studioId), await contarFacturaciones(admin, studioId));
+}
+
 async function procesarEstudio(ctx: Contexto, studioId: string): Promise<'SEGUIR' | 'PARAR_TODO'> {
   const { admin, resumen } = ctx;
 
@@ -171,7 +205,8 @@ async function procesarEstudio(ctx: Contexto, studioId: string): Promise<'SEGUIR
     .update({ estado: 'INCIERTO', codigo_error: 'ENVIO_INTERRUMPIDO', actualizado_en: new Date().toISOString() })
     .eq('studio_id', studioId).eq('estado', 'ENVIANDO').lt('actualizado_en', huerfanoAntes);
 
-  const prep = await prepararRegistros(admin, studioId, ctx.sistema);
+  const sistema = await sistemaDeEstudio(admin, ctx.productor, studioId);
+  const prep = await prepararRegistros(admin, studioId, sistema);
   for (const r of prep.rechazados) {
     resumen.rechazadas += 1;
     Sentry.captureMessage('Veri*Factu: registro inválido en local, no se envía', {
