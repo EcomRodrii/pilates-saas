@@ -137,16 +137,17 @@ async function nombresDe(admin: SupabaseClient, studioId: string, franjas: Franj
     ? admin.from(tabla).select(cols).eq('studio_id', studioId).in('id', lista)
     : Promise.resolve({ data: [] as unknown[], error: null });
   const [tipos, salas, instrs] = await Promise.all([
-    pide('tipos_clase', ids(f => f.tipoClaseId), 'id, nombre, logo_url, color'),
+    pide('tipos_clase', ids(f => f.tipoClaseId), 'id, nombre, logo_url, color, archivado_en'),
     pide('salas', ids(f => f.salaId), 'id, nombre'),
     pide('instructores', ids(f => f.instructorId), 'id, nombre'),
   ]);
   for (const r of [tipos, salas, instrs]) if (r.error) throw new Error(r.error.message);
   const mapa = (d: unknown[]) => new Map((d as { id: string; nombre: string }[]).map(x => [x.id, x.nombre]));
-  const filasTipos = (tipos.data ?? []) as { id: string; logo_url: string | null; color: string | null }[];
+  const filasTipos = (tipos.data ?? []) as { id: string; logo_url: string | null; color: string | null; archivado_en: string | null }[];
   const logos = new Map(filasTipos.map(x => [x.id, x.logo_url]));
   const colores = new Map(filasTipos.map(x => [x.id, x.color]));
-  return { tipos: mapa(tipos.data ?? []), salas: mapa(salas.data ?? []), instructores: mapa(instrs.data ?? []), logos, colores };
+  const archivados = new Set(filasTipos.filter(x => x.archivado_en).map(x => x.id));
+  return { tipos: mapa(tipos.data ?? []), salas: mapa(salas.data ?? []), instructores: mapa(instrs.data ?? []), logos, colores, archivados };
 }
 
 /**
@@ -204,7 +205,10 @@ async function franjasSueltas(admin: SupabaseClient, studioId: string): Promise<
   const sueltas = tarjetas.filter(t => !cubiertas.has(`${t.serieId}|${t.diaSemana}`));
   if (sueltas.length === 0) return [];
   const nombres = await nombresDe(admin, studioId, sueltas);
-  return sueltas.map((t): FranjaSuelta => ({
+  // Una clase de un tipo archivado no se ofrece como plaza fija: su serie ya no
+  // se renueva (lib/series/avisos-cron.ts), así que la plaza se quedaría sin
+  // clases en cuanto pasen las que tiene.
+  return sueltas.filter(t => !nombres.archivados.has(t.tipoClaseId)).map((t): FranjaSuelta => ({
     serieId: t.serieId, diaSemana: t.diaSemana, hora: t.hora, tipoClaseId: t.tipoClaseId, salaId: t.salaId, instructorId: t.instructorId,
     tipo: nombres.tipos.get(t.tipoClaseId) ?? 'Clase',
     sala: nombres.salas.get(t.salaId) ?? '',

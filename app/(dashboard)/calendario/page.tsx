@@ -110,6 +110,7 @@ import { ElegirClienta } from '@/components/calendario/elegir-clienta';
 import { pedirHorario } from '@/lib/horario-fijo-cliente';
 import { textoRepeticion, type HorarioFijo, type TarjetaHorario } from '@/lib/horario-fijo';
 import { nombreSerie } from '@/lib/series-renovacion';
+import { estaArchivado, tiposParaProgramar } from '@/lib/tipos-clase/orden-y-archivo';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -273,6 +274,8 @@ function ModalClasesRecurrentes({
   initial?: RecurringFormData;
 }) {
   const uid = useId();
+  // Solo se programa con tipos activos (un archivado lo rechaza la base de datos).
+  const programables = tiposParaProgramar(tiposClase);
 
   // Las dos fechas por defecto se calculan DENTRO de emptyForm(), no en el
   // cuerpo del componente: así solo se leen cuando el formulario se crea o se
@@ -280,7 +283,7 @@ function ModalClasesRecurrentes({
   // ser impuro, significaba que el diálogo abierto a las 23:59 proponía el día
   // de ayer si el usuario tardaba un minuto en pulsar.
   const emptyForm = (): RecurringFormData => initial ?? {
-    tipoClaseId: tiposClase[0]?.id ?? '',
+    tipoClaseId: programables[0]?.id ?? '',
     instructorId: instructores[0]?.id ?? '',
     salaId: salas[0]?.id ?? '',
     horaInicio: '10:00',
@@ -288,16 +291,18 @@ function ModalClasesRecurrentes({
     // la sala y de `aforoPorDefecto`; la duración era la única que se ignoraba,
     // así que un estudio con clases de 50 min programaba el trimestre entero a
     // 60 y se le solapaban las salas.
-    duracion: tiposClase[0]?.duracionMinutos ?? 60,
+    duracion: programables[0]?.duracionMinutos ?? 60,
     diasSemana: [1, 3],
     // Día del ESTUDIO, no de UTC: entre las 00:00 y las 02:00 de Madrid,
     // `toISOString()` proponía el día anterior.
     fechaInicio: hoyEnEstudio(),
     fechaFin: masDias(hoyEnEstudio(), 30),
-    aforoMaximo: aforoPorDefectoDeSesion(tiposClase[0]?.aforoPorDefecto, salas[0]?.capacidad),
+    aforoMaximo: aforoPorDefectoDeSesion(programables[0]?.aforoPorDefecto, salas[0]?.capacidad),
   };
 
   const [form, setForm] = useState<RecurringFormData>(emptyForm);
+  // «Duplicar serie» de un tipo archivado: se enseña lo que trae, sin dejar crearla.
+  const tipoArchivado = estaArchivado(tiposClase.find(t => t.id === form.tipoClaseId));
   const duracionInvalida = !form.duracion || form.duracion < 15;
   // Un <input type="time"> que se borra da '': sin esto el generador de abajo
   // pedía `.toISOString()` de una fecha inválida DURANTE EL RENDER y la pantalla
@@ -392,7 +397,10 @@ function ModalClasesRecurrentes({
           </p>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-1 pb-4 space-y-4">
-          <FormField label="Tipo de clase">
+          <FormField
+            label="Tipo de clase"
+            description={tipoArchivado ? 'Este tipo está archivado: ya no se programan clases nuevas suyas. Elige otro, o recupéralo en Configuración.' : undefined}
+          >
             <select className={s2} value={form.tipoClaseId} onChange={e => {
               const tipoClaseId = e.target.value;
               const tc = tiposClase.find(x => x.id === tipoClaseId);
@@ -407,7 +415,9 @@ function ModalClasesRecurrentes({
                 duracion: f.duracionTocada ? f.duracion : (tc?.duracionMinutos ?? f.duracion),
               }));
             }}>
-              {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+              {tiposParaProgramar(tiposClase, form.tipoClaseId).map(t => (
+                <option key={t.id} value={t.id} disabled={estaArchivado(t)}>{t.nombre}{estaArchivado(t) ? ' · archivado' : ''}</option>
+              ))}
             </select>
           </FormField>
           <FormField label="Instructora">
@@ -505,7 +515,7 @@ function ModalClasesRecurrentes({
           <button onClick={onClose} className="flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">Cancelar</button>
           <button
             onClick={handleSubmit}
-            disabled={form.diasSemana.length === 0 || estimatedCount === 0 || duracionInvalida || horaInvalida}
+            disabled={form.diasSemana.length === 0 || estimatedCount === 0 || duracionInvalida || horaInvalida || tipoArchivado}
             className="flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold bg-brand text-brand-foreground hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {estimatedCount > 0 ? `Crear ${estimatedCount} clases` : 'Crear clases'}
@@ -736,6 +746,10 @@ export default function Calendario() {
 
   // ── Form ─────────────────────────────────────────────────────────────────────
 
+  // Con un tipo archivado no se programan clases nuevas: el primero por defecto
+  // y los selectores de crear salen de aquí.
+  const tiposProgramables = useMemo(() => tiposParaProgramar(tiposClase), [tiposClase]);
+
   const finSegunDuracion = useCallback((horaInicio: string, tipoClaseId: string): string => {
     const dur = tiposClase.find(t => t.id === tipoClaseId)?.duracionMinutos;
     const [h, m] = horaInicio.split(':').map(Number);
@@ -746,17 +760,17 @@ export default function Calendario() {
   }, [tiposClase]);
 
   const emptyForm = useCallback((): FormData => ({
-    tipoClaseId: tiposClase[0]?.id ?? '',
+    tipoClaseId: tiposProgramables[0]?.id ?? '',
     salaId: salas[0]?.id ?? '',
     instructorId: queImparten(instructores)[0]?.id ?? '',
     fecha: diaEnEstudio(now),
     horaInicio: '09:00',
-    horaFin: tiposClase[0]?.duracionMinutos
-      ? `${String(9 + Math.floor(tiposClase[0].duracionMinutos / 60)).padStart(2, '0')}:${String(tiposClase[0].duracionMinutos % 60).padStart(2, '0')}`
+    horaFin: tiposProgramables[0]?.duracionMinutos
+      ? `${String(9 + Math.floor(tiposProgramables[0].duracionMinutos / 60)).padStart(2, '0')}:${String(tiposProgramables[0].duracionMinutos % 60).padStart(2, '0')}`
       : '10:00',
-    aforoMaximo: aforoPorDefectoDeSesion(tiposClase[0]?.aforoPorDefecto, salas[0]?.capacidad),
+    aforoMaximo: aforoPorDefectoDeSesion(tiposProgramables[0]?.aforoPorDefecto, salas[0]?.capacidad),
     notas: '',
-  }), [tiposClase, salas, instructores, now]);
+  }), [tiposProgramables, salas, instructores, now]);
 
   const [form, setForm] = useState<FormData>(() => emptyForm());
 
@@ -3002,7 +3016,7 @@ export default function Calendario() {
           <PrimerHorario
             horaApertura={datosVista.horaApertura}
             horaCierre={datosVista.horaCierre}
-            tiposClase={tiposClase.map(t => ({ nombre: t.nombre, duracionMinutos: t.duracionMinutos }))}
+            tiposClase={tiposProgramables.map(t => ({ nombre: t.nombre, duracionMinutos: t.duracionMinutos }))}
             salas={salas.map(s => ({ nombre: s.nombre, capacidad: s.capacidad }))}
             // Solo si el equipo es UNA persona (la propietaria que dijo «sí, yo
             // doy clases»): con más gente, repartir clases es decisión suya.
@@ -3647,7 +3661,11 @@ export default function Calendario() {
                     {!form.tipoClaseId && (
                       <option value="">{tiposClase.length ? 'Elige un tipo de clase' : 'Todavía no tienes tipos de clase'}</option>
                     )}
-                    {tiposClase.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                    {/* Los activos y el que la clase ya tiene: se puede editar una
+                        clase de un tipo archivado sin cambiárselo. */}
+                    {tiposParaProgramar(tiposClase, sesionActual?.tipoClaseId).map(t => (
+                      <option key={t.id} value={t.id}>{t.nombre}{estaArchivado(t) ? ' · archivado' : ''}</option>
+                    ))}
                   </select>
                 </FormField>
                 <FormField label="Sala">

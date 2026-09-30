@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       p_semanas: semanas, p_actor: sesion.userId, p_origen: 'manual', p_simular: accion === 'simular',
     });
     if (error) {
-      const conocido = ['SERIE_NO_ENCONTRADA', 'SERIE_SIN_CLASES', 'SEMANAS_INVALIDAS', 'DEMASIADAS_CLASES'].find(c => error.message.includes(c));
+      const conocido = ['SERIE_NO_ENCONTRADA', 'SERIE_SIN_CLASES', 'SEMANAS_INVALIDAS', 'DEMASIADAS_CLASES', 'TIPO_ARCHIVADO'].find(c => error.message.includes(c));
       if (!conocido) throw new Error(error.message);
       return NextResponse.json({ error: mensajeErrorRenovar(conocido) }, { status: conocido === 'SERIE_NO_ENCONTRADA' ? 404 : 400 });
     }

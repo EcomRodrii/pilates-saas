@@ -50,6 +50,7 @@ interface Opciones {
   horario?: { dia_semana: number; abierto: boolean; hora_apertura: string | null; hora_cierre: string | null }[];
   /** Cómo contesta la base de datos al crear. */
   insert?: { status: number; body: unknown };
+  tipos?: Record<string, unknown>[];
 }
 
 async function montar(page: Page, o: Opciones = {}) {
@@ -81,7 +82,7 @@ async function montar(page: Page, o: Opciones = {}) {
     await page.route('**/rest/v1/studio_horario**', route => json(route, horario.map(h => ({ studio_id: STUDIO_ID, ...h }))));
   }
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
-  await page.route('**/rest/v1/tipos_clase**', route => json(route, TIPOS));
+  await page.route('**/rest/v1/tipos_clase**', route => json(route, o.tipos ?? TIPOS));
   await page.route('**/rest/v1/salas**', route => json(route, SALAS));
   await page.route('**/rest/v1/instructores**', route => json(route, INSTRUCTORES));
 
@@ -225,5 +226,35 @@ test.describe('Nueva clase: lo que se lee es lo que pasa', () => {
 
     await cajon.getByRole('textbox', { name: 'Empieza' }).fill('10:00');
     await expect(cajon.getByTestId('aviso-horario')).toHaveCount(0);
+  });
+});
+
+// Un tipo archivado (migr 20260930215125) no programa clases nuevas: lo impide
+// un trigger en `sesiones`. El selector no lo ofrece, y si otra pestaña lo
+// archivó con este formulario abierto, lo que dice la base de datos se entiende.
+test.describe('Nueva clase: tipos archivados', () => {
+  // Primero en la lista a propósito: sin filtrar, sería el tipo por defecto.
+  const ARCHIVADO = { ...TIPO_BASE, id: 'tc-0', nombre: 'Barre', duracion_minutos: 50, archivado_en: '2026-08-01T10:00:00+02:00' };
+
+  test('no se ofrece, ni como tipo por defecto', async ({ page }) => {
+    const { cajon } = await montar(page, { tipos: [ARCHIVADO, ...TIPOS] });
+    const tipo = cajon.getByRole('combobox', { name: 'Tipo de clase' });
+    await expect(tipo).toHaveValue('tc-1');
+    await expect(tipo.locator('option')).toHaveText(['Reformer · 45 min · 8 plazas', 'Mat · 60 min']);
+  });
+
+  test('si lo archivaron mientras tanto, el aviso lo dice y no se anuncia nada', async ({ page }) => {
+    const { cajon, inserts } = await montar(page, {
+      insert: { status: 400, body: { code: 'P0001', message: 'TIPO_ARCHIVADO', details: null, hint: null } },
+    });
+
+    await cajon.getByRole('button', { name: 'Crear clase', exact: true }).click();
+
+    await expect(cajon.getByRole('alert').filter({ hasText: 'No se ha creado' })).toHaveText(
+      'No se ha creado. Ese tipo de clase está archivado: ya no se programan clases nuevas suyas. Elige otro, o recupéralo en Configuración → Mis clases y citas.',
+    );
+    expect(inserts.length, 'tiene que haberlo intentado').toBeGreaterThan(0);
+    await expect(page.getByText('Clase creada')).toHaveCount(0);
+    await expect(cajon.getByRole('button', { name: 'Crear clase', exact: true })).toBeEnabled();
   });
 });

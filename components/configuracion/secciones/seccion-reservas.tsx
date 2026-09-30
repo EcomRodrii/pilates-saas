@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Ban, Bell, BellRing, CalendarCheck, CalendarClock, CalendarX, ClipboardCheck, Coins, ListOrdered, Pause, RotateCcw, Smartphone, Undo2, type LucideIcon } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { setAvisarAlumnas } from '@/lib/api-client';
@@ -11,6 +12,7 @@ import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/c
 import { FilaAjuste, FilaExterna, FilaInterruptor, FilaOtraSeccion, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { AsiLoViveTuAlumna } from './asi-lo-vive-tu-alumna';
 import { hayAlgoQueContratar } from '@/lib/bono-logic';
+import { tiposConVida } from '@/lib/tipos-clase/orden-y-archivo';
 import {
   FormAsistencia, FormCancelarYRecuperar, FormClaseCancelada, FormRecuperaciones, FormListaEspera, FormPausaPlazaFija, FormPenalizacion,
   FormPlazaFijaDesdeApp, FormReservar, FormSinCuota,
@@ -71,7 +73,14 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
   // Sin cargar, cada fila enseña su descripción: nunca un valor de fábrica que no es el suyo.
   const cargado = dataLoaded ? studio : null;
   const reglas = cargado ? reglasGuardadas(cargado) : null;
-  const tipos: readonly TipoConReglas[] = dataLoaded ? tiposClase : [];
+  // Los tipos que la alumna aún puede encontrarse: los activos y los archivados
+  // a los que les quedan clases. Uno archivado sin ninguna ya no tiene excepción
+  // que contar ni clase sobre la que contarla.
+  const [ahora] = useState(() => Date.now());
+  const tipos: readonly TipoConReglas[] = useMemo(
+    () => (dataLoaded ? tiposConVida(tiposClase, sesiones, ahora) : []),
+    [dataLoaded, tiposClase, sesiones, ahora],
+  );
   const excepciones = excepcionesPorRegla(reglas ?? reglasGuardadas(null), tipos);
 
   // Con términos propios no se cobra ninguna penalización: lo mismo que dice

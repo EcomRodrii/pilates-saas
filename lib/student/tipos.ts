@@ -62,6 +62,12 @@ export interface Clase {
   id: string;
   /** Tipo de clase (Reformer, Mat…): es la unidad de «favorita». */
   tipoClaseId: string;
+  /**
+   * Puesto de su tipo en el orden que decidió el estudio (`ordenarTipos`), para
+   * que los filtros por tipo salgan en ese orden y no en el de la primera
+   * clase de cada uno. Opcional: ausente va al final.
+   */
+  tipoOrden?: number;
   /** Ventana de cancelación propia de este tipo de clase; `null` = la del estudio. */
   ventanaCancelacionHoras: number | null;
   /**

@@ -29,3 +29,10 @@ test('si existen pero no se ha elegido: pide elegir, sin mandar a ningún sitio'
 test('al editar no se exige instructora (el horario propuesto deja clases sin ella)', () => {
   assert.equal(faltaParaCrearClase({ ...base, instructorId: '', hayInstructoras: false, exigeInstructora: false }), null);
 });
+
+test('con todos los tipos archivados no dice «no tienes ninguno»: dice que están archivados', () => {
+  const r = faltaParaCrearClase({ ...base, tipoClaseId: '', hayTipos: false, hayArchivados: true })!;
+  assert.deepEqual(r.faltan, ['un tipo de clase']);
+  assert.equal(r.porCrear[0].texto, 'Todos tus tipos de clase están archivados.');
+  assert.equal(r.porCrear[0].href, '/configuracion?tab=clases&abrir=tipos-de-clase');
+});

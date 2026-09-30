@@ -42,8 +42,12 @@ export async function opcionesNuevaClase(p: { studioId: string }): Promise<Opcio
   if (!(await estudioPermite(admin, p.studioId))) return { puedeCrear: false, tipos: [], salas: [] };
 
   const [tipos, salas] = await Promise.all([
+    // Solo los activos: con uno archivado no se programan clases nuevas (lo
+    // rechaza un trigger en `sesiones`, migr 20260930215125). En el orden del
+    // estudio; los «sin colocar» (orden NULL), detrás y por nombre.
     admin.from('tipos_clase').select('id, nombre, color, duracion_minutos, aforo_por_defecto')
-      .eq('studio_id', p.studioId).order('nombre', { ascending: true }),
+      .eq('studio_id', p.studioId).is('archivado_en', null)
+      .order('orden', { ascending: true, nullsFirst: false }).order('nombre', { ascending: true }),
     admin.from('salas').select('id, nombre, capacidad')
       .eq('studio_id', p.studioId).order('nombre', { ascending: true }),
   ]);
@@ -65,6 +69,8 @@ export async function opcionesNuevaClase(p: { studioId: string }): Promise<Opcio
   };
 }
 
+const TIPO_ARCHIVADO = 'El estudio ha archivado ese tipo de clase: ya no se programan clases nuevas suyas. Elige otro.';
+
 export type ResultadoCrearClase =
   | { ok: true; sesionId: string; inicio: string }
   | { ok: false; status: 400 | 403 | 404 | 409; error: string };
@@ -77,7 +83,7 @@ export async function crearClasePropia(
   if (!(await estudioPermite(admin, p.studioId))) return { ok: false, status: 403, error: NO_PUEDE_CREAR };
 
   const [{ data: tipo, error: eTipo }, { data: sala, error: eSala }] = await Promise.all([
-    admin.from('tipos_clase').select('id, duracion_minutos, aforo_por_defecto')
+    admin.from('tipos_clase').select('id, duracion_minutos, aforo_por_defecto, archivado_en')
       .eq('id', p.tipoClaseId).eq('studio_id', p.studioId).maybeSingle(),
     admin.from('salas').select('id, capacidad')
       .eq('id', p.salaId).eq('studio_id', p.studioId).maybeSingle(),
@@ -86,6 +92,9 @@ export async function crearClasePropia(
   if (eSala) throw eSala;
   // De otro estudio responde igual que si no existiera.
   if (!tipo || !sala) return { ok: false, status: 404, error: 'Ese tipo de clase o esa sala ya no están en el estudio.' };
+  // Archivado mientras tenía la pantalla abierta: se dice sin intentarlo. El
+  // trigger lo rechazaría igual (y abajo se traduce, por si se archiva justo entre medias).
+  if ((tipo as { archivado_en: string | null }).archivado_en) return { ok: false, status: 409, error: TIPO_ARCHIVADO };
 
   const inicio = instanteEnEstudio(p.fecha, p.hora);
   if (!inicio) return { ok: false, status: 400, error: 'Elige un día y una hora que existan.' };
@@ -118,6 +127,8 @@ export async function crearClasePropia(
   });
   if (error) {
     if (error.code === '23P01') return { ok: false, status: 409, error: mensajeSolapeNuevaClase(error.message) };
+    // Archivado entre la lectura de arriba y el insert.
+    if (error.message?.includes('TIPO_ARCHIVADO')) return { ok: false, status: 409, error: TIPO_ARCHIVADO };
     throw error;
   }
 

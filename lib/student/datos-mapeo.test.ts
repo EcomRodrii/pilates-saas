@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // alias y descarta el fichero entero SIN fallar, así que el test dejaría de
 // existir sin que nadie se entere. Los `import type` sí pueden usar `@/`
 // porque se borran al compilar.
-import { nivelDe, estadoReservaDe, estadoPagoDe, bonoDeSuscripcion, proyectarClases, OCUPA_PLAZA } from './mapeo.ts';
+import { nivelDe, estadoReservaDe, estadoPagoDe, bonoDeSuscripcion, proyectarClases, tiposDeLasClases, OCUPA_PLAZA } from './mapeo.ts';
 
 // Los mapeos entre el vocabulario del backend y el del paquete de diseño.
 //
@@ -221,4 +221,33 @@ test('si el tipo trae foto propia, manda la suya y no la por defecto', () => {
     planesTarifa: [],
   };
   assert.equal(proyectarClases(d as never)[0].fotoUrl, 'https://cdn/estudio/mi-foto.webp');
+});
+
+test('los filtros por tipo salen en el orden del estudio, no en el de la primera clase de cada uno', () => {
+  // El Mat es la primera clase del día, pero el estudio puso Reformer delante.
+  // Barre no tiene orden guardado: va detrás.
+  const ses = (id: string, tipo: string, h: string) => ({
+    id, tipoClaseId: tipo, salaId: 's1', instructorId: 'i1', inicio: `2026-09-06T${h}:00:00+02:00`, fin: `2026-09-06T${h}:50:00+02:00`, aforoMaximo: 10,
+  });
+  const d = {
+    tiposClase: [
+      { id: 'mat', nombre: 'Mat', orden: 1 },
+      { id: 'barre', nombre: 'Barre', orden: null },
+      { id: 'reformer', nombre: 'Reformer', orden: 0 },
+    ],
+    salas: [{ id: 's1', nombre: 'Sala 1' }],
+    instructores: [{ id: 'i1', nombre: 'Ana', activo: true }],
+    sesiones: [ses('x1', 'mat', '08'), ses('x2', 'barre', '09'), ses('x3', 'reformer', '10'), ses('x4', 'mat', '11')],
+    planesTarifa: [],
+  };
+  const clases = proyectarClases(d as never);
+  assert.deepEqual(clases.map(c => c.tipoOrden), [1, 2, 0, 1]);
+  assert.deepEqual(tiposDeLasClases(clases), ['Reformer', 'Mat', 'Barre']);
+  // Sin puesto, el orden de aparición, al final.
+  assert.deepEqual(tiposDeLasClases([{ tipo: 'B' }, { tipo: 'A', tipoOrden: 0 }, { tipo: 'C' }, { tipo: 'B' }]), ['A', 'B', 'C']);
+
+  // Y si el estudio aún no ha colocado ninguno, como siempre: por la primera clase de cada tipo.
+  const sinOrden = proyectarClases({ ...d, tiposClase: d.tiposClase.map(t => ({ ...t, orden: null })) } as never);
+  assert.deepEqual(sinOrden.map(c => c.tipoOrden), [undefined, undefined, undefined, undefined]);
+  assert.deepEqual(tiposDeLasClases(sinOrden), ['Mat', 'Barre', 'Reformer']);
 });

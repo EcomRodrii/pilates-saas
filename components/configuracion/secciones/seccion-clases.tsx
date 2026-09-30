@@ -10,6 +10,7 @@ import { TabHorarioCitas } from '@/components/configuracion/tab-horario-citas';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import { FilasHerramienta } from '@/components/configuracion/shell/fila-herramienta';
 import { TabCatalogoCadena } from '@/components/configuracion/tab-catalogo-cadena';
+import { tiposParaProgramar } from '@/lib/tipos-clase/orden-y-archivo';
 
 // Mis clases y citas: lo que ofreces. El catálogo de tipos de clase, con el
 // cajón de cada uno, tiene su propia pantalla.
@@ -24,7 +25,7 @@ export function SeccionClases({ showToast }: { showToast: (m: string) => void })
   return (
     <>
       <FilasHerramienta
-        filas={[{ id: 'tipos-de-clase', valor: resumenHerramienta('tipos-de-clase', { numTiposClase: dataLoaded ? tiposClase.length : null }) }]}
+        filas={[{ id: 'tipos-de-clase', valor: resumenHerramienta('tipos-de-clase', { numTiposClase: dataLoaded ? tiposParaProgramar(tiposClase).length : null }) }]}
       />
       {/* El catálogo de la cadena y los servicios de cita (que llevan precio)
           son de la propietaria: su RLS exige `puede_configurar_negocio()`, así

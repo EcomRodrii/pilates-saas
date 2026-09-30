@@ -17,6 +17,7 @@ import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/sen
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio, inicioDelDiaEstudio, finDelDiaEstudio } from '@/lib/utils';
 import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
 import { escaparLike } from '@/lib/escapar-like';
+import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { agregadoPublicable, type VotoValoracion } from '@/lib/valoraciones/agregado';
 import { primerError } from '@/lib/db/primer-error';
@@ -795,7 +796,9 @@ export async function fetchPublicStudioData(
     const reglasDeCreditosVivas = !liviano && !(await evaluarFeature(admin, studioId, 'gamificacion'));
 
     return {
-      tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
+      // En el orden que decidió el estudio (sin ninguno colocado, como llegan,
+      // igual que siempre): los chips de /reservar y de la app lo siguen tal cual.
+      tiposClase: ordenarTipos((tiposClaseRes.data ?? []).map(mapTipoClase)),
       salas: (salasRes.data ?? []).map(mapSala),
       instructores: instructoresPub,
       valoracionEstudio: valoracionEstudio(instructoresPub),

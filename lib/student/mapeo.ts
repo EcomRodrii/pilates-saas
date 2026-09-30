@@ -8,6 +8,7 @@ import { horaEstudio, hoyEnEstudio } from '../utils.ts';
 import { imagenDeClase } from '../imagenes-por-defecto.ts';
 import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
+import { hayOrdenGuardado, ordenarTipos } from '../tipos-clase/orden-y-archivo.ts';
 import { instanteDeApertura } from '../booking-logic.ts';
 import {
   plazaFijaEnClase as plazaFijaEnClaseDe, proyectarPlazasFijas as plazasFijasDe, proyectarRecuperaciones as recuperacionesDe,
@@ -234,7 +235,7 @@ export interface PayloadMin {
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null }[];
+  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; orden?: number | null }[];
   levelDefinitions?: NivelDef[];
   achievementDefinitions?: LogroDef[];
   challengeDefinitions?: RetoDef[];
@@ -311,6 +312,12 @@ function seAbreEl(
 
 export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
   const tipos = new Map((d.tiposClase ?? []).map((t) => [t.id, t]));
+  // El orden de los tipos que decidió el estudio, para los filtros por tipo.
+  // Si no ha colocado ninguno, sin puesto: los filtros siguen como siempre, en
+  // el orden en que aparece la primera clase de cada tipo.
+  const puesto = hayOrdenGuardado(d.tiposClase ?? [])
+    ? new Map(ordenarTipos(d.tiposClase ?? []).map((t, i) => [t.id, i]))
+    : new Map<string, number>();
   const salas = new Map((d.salas ?? []).map((s) => [s.id, s]));
 
   // Ocupadas por sesión, con el MISMO criterio que la RPC.
@@ -335,6 +342,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
     salida.push({
       id: s.id,
       tipoClaseId: s.tipoClaseId,
+      tipoOrden: puesto.get(s.tipoClaseId),
       ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null,
       permiteListaEspera: tipo?.permiteListaEspera ?? null,
       seAbreEl: seAbreEl(s.inicio, tipo?.reservaAntelacionMaximaDias, d.studio),
@@ -412,6 +420,22 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
 
   // Cronológico: el diseño pinta el horario en orden y no reordena.
   return salida.sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+}
+
+/**
+ * Los tipos que tienen clases, una vez cada uno y en el orden del estudio (sin
+ * `tipoOrden`, al final, en el orden en que aparecen). Es lo que pintan los
+ * filtros por tipo: antes salían en el orden de la primera clase de cada uno,
+ * que cambiaba de un día a otro.
+ */
+export function tiposDeLasClases(clases: readonly Pick<Clase, 'tipo' | 'tipoOrden'>[]): string[] {
+  const puesto = new Map<string, number>();
+  for (const c of clases) {
+    const p = c.tipoOrden ?? Number.MAX_SAFE_INTEGER;
+    if (!puesto.has(c.tipo) || p < puesto.get(c.tipo)!) puesto.set(c.tipo, p);
+  }
+  // `sort` es estable: a igual puesto, el orden de aparición.
+  return [...puesto.keys()].sort((a, b) => puesto.get(a)! - puesto.get(b)!);
 }
 
 export function proyectarInstructoras(d: PayloadMin): Instructora[] {

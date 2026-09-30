@@ -44,6 +44,7 @@ import { usePiezas } from './usar-piezas';
 import { BotonEnTuWeb, VistaPrevia, type Contenido, type Dispositivo, type FormaPrevia } from './vista-previa';
 import { PreviewNativa } from './preview-nativa';
 import { GestionDominios } from './dominios';
+import { estaArchivado, tiposActivos, tiposConVida } from '@/lib/tipos-clase/orden-y-archivo';
 
 // «Tentare Widgets»: el constructor, en el orden en que lo piensa la dueña de
 // un estudio —con qué está hecha su web (una vez), qué pone y dónde, cómo se
@@ -346,6 +347,8 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   }, [sesiones, ahora, tiposPorId]);
 
   const planesContratables = useMemo(() => planesTarifa.filter(p => p.activo && p.precio > 0 && p.esPrueba !== true), [planesTarifa]);
+  // Fuera del memo: el compilador infiere `config` entero si se lee dentro.
+  const tiposElegidos = config.tipos;
   const datos: DatosPanel = useMemo(() => {
     const planesPorTipo: Record<TipoPlan, number> = { MENSUAL: 0, BONO: 0, PUNTUAL: 0 };
     for (const p of planesContratables) planesPorTipo[p.tipo] += 1;
@@ -355,16 +358,23 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       reservaAntelacionMaximaDias: studio?.reservaAntelacionMaximaDias ?? null,
       reservaAntelacionHora: studio?.reservaAntelacionHora ?? null,
     };
+    // Las reglas, sobre los tipos que aún tienen clases (lo mismo que /reservar):
+    // la de uno archivado sin ninguna ya no le toca a nadie.
+    const vivos = ahora === null ? tiposActivos(tiposClase) : tiposConVida(tiposClase, sesiones, ahora);
     const reglas = [
-      frasePlazoCancelacion(reglasEstudio, tiposClase),
-      fraseAntelacionMinima(reglasEstudio, tiposClase),
-      fraseAntelacionMaxima(reglasEstudio, tiposClase),
+      frasePlazoCancelacion(reglasEstudio, vivos),
+      fraseAntelacionMinima(reglasEstudio, vivos),
+      fraseAntelacionMaxima(reglasEstudio, vivos),
       studio?.permiteListaEspera === false ? 'Sin lista de espera: una clase llena no admite más.' : 'Con la clase llena, se apuntan a la lista de espera.',
       studio?.requiereAprobacion ? 'Cada reserva espera tu visto bueno.' : null,
       studio?.reservaExigirPlan ? 'Para reservar hace falta un plan o bono activo.' : null,
     ].filter((r): r is string => !!r);
     return {
-      tiposClase: tiposClase.map(t => ({ id: t.id, nombre: t.nombre })),
+      // Para elegir, los activos. Uno archivado que ya estaba elegido se queda
+      // en la lista, marcado: quitarlo sin decir nada cambiaría el widget.
+      tiposClase: tiposClase
+        .filter(t => !estaArchivado(t) || tiposElegidos.includes(t.id))
+        .map(t => ({ id: t.id, nombre: estaArchivado(t) ? `${t.nombre} (archivado)` : t.nombre })),
       instructoras: instructorasActivas.map(i => ({ id: i.id, nombre: i.nombre })),
       salas: salas.map(s => ({ id: s.id, nombre: s.nombre })),
       proximasClases,
@@ -372,7 +382,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       colorEstudio: colorEstudio ?? COLOR_POR_DEFECTO,
       reglas,
     };
-  }, [tiposClase, instructorasActivas, salas, proximasClases, planesContratables, studio, colorEstudio]);
+  }, [tiposClase, sesiones, ahora, tiposElegidos, instructorasActivas, salas, proximasClases, planesContratables, studio, colorEstudio]);
 
   // Los dominios del widget los valida y guarda el servidor (solo la
   // propietaria, migr 20260914011356); aquí se pinta lo que devolvió.

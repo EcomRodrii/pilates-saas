@@ -18,6 +18,7 @@ import { ClassCard } from '@/components/student/domain/ClassCard';
 import { ClasesFijasEntrada } from '@/components/student/domain/ClasesFijasEntrada';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Icono } from '@/components/student/ui/Icono';
+import { tiposDeLasClases } from '@/lib/student/mapeo';
 
 // Horario (§A.6): días + filtros + lista de clases.
 //
@@ -76,7 +77,8 @@ export default function HorarioPage() {
   const tipos = useMemo(
     // «Favoritas» solo aparece cuando hay alguna: una píldora que filtra a
     // vacío para todo el mundo es ruido.
-    () => ['Todo', ...(data?.favoritos.size ? ['Favoritas'] : []), ...Array.from(new Set(data?.clases.map((c) => c.tipo) ?? [])), 'Con hueco'],
+    // Los tipos, en el orden que decidió el estudio (no en el de su primera clase).
+    () => ['Todo', ...(data?.favoritos.size ? ['Favoritas'] : []), ...tiposDeLasClases(data?.clases ?? []), 'Con hueco'],
     [data],
   );
 
