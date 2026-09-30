@@ -14,27 +14,43 @@ import { paginaDe, urlDe } from '@/lib/seo/paginas';
 // fuente que el sitemap y los tests: una sola frase, en un solo sitio.
 const pagina = paginaDe('/')!;
 
+const COMPARTIR = {
+  titulo: 'El software que lleva tu estudio de Pilates.',
+  descripcion: 'Reservas, cobros y equipo en un panel — y el único que cubre una baja de instructor solo.',
+  imagen: '/og-image.png',
+  alt: 'Tentare',
+};
+
 export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe('/') },
   // Un `openGraph` de página SUSTITUYE al del layout entero (no se fusiona por
   // claves), así que repite las que el layout ponía: tipo, idioma y nombre.
+  //
+  // Lo que sale en la vista previa al compartir el enlace (WhatsApp, iMessage,
+  // Telegram, LinkedIn...). El `<title>` y la descripción de arriba son los del
+  // buscador y se quedan como están; esto es otro texto, para otra situación.
+  //
+  // La imagen es una PNG estática (`public/og-image.png`, copia de
+  // `docs/marca/redes/publicaciones/tentare-compartir-1200x630.png`) y NO el
+  // `app/opengraph-image.tsx` que había (diseño anterior a la marca actual): con
+  // ese fichero-convención al lado habría dos `og:image` en la misma página. Se declara aquí con URL absoluta (`metadataBase` del layout).
   openGraph: {
     type: 'website',
     locale: 'es_ES',
     siteName: 'Tentare',
-    title: 'Tu estudio sigue funcionando aunque sueltes el móvil',
-    description:
-      'Reservas desde la app de tu estudio, bajas de instructoras que se cubren y cobros que se reintentan solos. Software de gestión para estudios de Pilates, desde 29 €/mes y sin permanencia.',
+    title: COMPARTIR.titulo,
+    description: COMPARTIR.descripcion,
     url: urlDe('/'),
+    images: [{ url: COMPARTIR.imagen, width: 1200, height: 630, alt: COMPARTIR.alt, type: 'image/png' }],
   },
   twitter: {
     card: 'summary_large_image',
     site: '@tentaresoftware',
-    title: 'Tu estudio sigue funcionando aunque sueltes el móvil',
-    description:
-      'Software de gestión para estudios de Pilates: reservas, bajas cubiertas y cobros que se reintentan solos.',
+    title: COMPARTIR.titulo,
+    description: COMPARTIR.descripcion,
+    images: [{ url: COMPARTIR.imagen, width: 1200, height: 630, alt: COMPARTIR.alt }],
   },
 };
 
