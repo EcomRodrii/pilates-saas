@@ -49,13 +49,14 @@ export function Topbar() {
     // iPad en vertical no hay botón que pulsar, y bajarlo ahí sería gastar su
     // datos en algo que no se usa (el atajo lo sigue cargando si hace falta).
     const seVe = window.matchMedia('(min-width: 1024px)').matches;
-    const precarga = !seVe ? null : typeof window.requestIdleCallback === 'function'
-      ? { idle: window.requestIdleCallback(() => { void cargarBuscador(); }, { timeout: 5000 }) }
-      : { timeout: window.setTimeout(() => { void cargarBuscador(); }, 3000) };
+    const precarga: { tipo: 'idle' | 'timeout'; id: number } | null = !seVe ? null
+      : typeof window.requestIdleCallback === 'function'
+        ? { tipo: 'idle', id: window.requestIdleCallback(() => { void cargarBuscador(); }, { timeout: 5000 }) }
+        : { tipo: 'timeout', id: window.setTimeout(() => { void cargarBuscador(); }, 3000) };
     return () => {
       window.removeEventListener('keydown', onKey);
-      if (precarga && 'idle' in precarga) window.cancelIdleCallback(precarga.idle);
-      else if (precarga) window.clearTimeout(precarga.timeout);
+      if (precarga?.tipo === 'idle') window.cancelIdleCallback(precarga.id);
+      else if (precarga) window.clearTimeout(precarga.id);
     };
   }, []);
 
