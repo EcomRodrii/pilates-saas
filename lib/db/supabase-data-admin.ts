@@ -854,7 +854,14 @@ export async function fetchPublicStudioData(
   // ya está envuelto en `cache()` de React (memoización solo de esta misma
   // petición), así que esto no reintroduce las 13 queries que este caché
   // existe para evitar — es una query, no trece.
-  const temaPublicado = liviano ? null : await getThemePublicado(studioId);
+  //
+  // ⚠️ También en modo `liviano`, y a la vez que los bloques (las dos van
+  // juntas, abajo): /reservar pide ese modo y decide con ellas qué secciones
+  // pinta (`bloquesReservar`) y los textos de su portada (`reservar*`). Sin
+  // ellas le llegaba una lista de bloques VACÍA y la página pública salía sin
+  // portada, sin bonos, sin «sobre» y sin contacto — solo el horario (visto en
+  // producción el 30-sep-2026). Lo que `liviano` ahorra es el catálogo pesado
+  // (vídeos, recompensas…), no esto.
 
   // Mismo motivo, mismo arreglo — pero para los BLOQUES (Inicio/Clases/Bonos/
   // Reservar), no el tema. Antes `getLayout` vivía DENTRO de `conCacheCatalogo`
@@ -867,14 +874,14 @@ export async function fetchPublicStudioData(
   // estaba editando" (2026-08-19): dependía de QUÉ se acabara de publicar.
   // `getLayout` ya está en `cache()` de React (mismo criterio que
   // `getThemePublicado`), así que esto tampoco reintroduce queries de más.
-  const layout = liviano ? null : await getLayout(studioId);
+  const [temaPublicado, layout] = await Promise.all([getThemePublicado(studioId), getLayout(studioId)]);
 
   // Solo lo que el portal necesita como VALOR JS (no CSS): el resto del tema
   // sigue siendo puramente CSS server-rendered (ThemeStyle), esto es la
   // excepción — cosas que portal-shell.tsx/reservar deciden con JS (iconos,
   // layout de barra, textos de la portada), no algo que una CSS var pueda
-  // decidir por sí sola. `null`/`false`/`'auto'` en modo `liviano` o sin tema:
-  // misma forma del objeto que en modo completo.
+  // decidir por sí sola. `null`/`false`/`'auto'` sin tema publicado: misma
+  // forma del objeto en los dos modos.
   const camposTema = {
     // Qué tema tiene instalado, no solo sus valores: el portal en React elige
     // con esto cuál de los tres juegos de tokens monta.
