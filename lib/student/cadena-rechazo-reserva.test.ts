@@ -24,7 +24,7 @@ const leer = (p: string) => readFileSync(join(raiz, p), 'utf8');
 
 test('salto 1: los rechazos de negocio de crearReservaPublica llevan `codigo`', () => {
   const fuente = leer('lib/db/supabase-data-admin.ts');
-  for (const codigo of ['sin-plan', 'bono-no-cubre', 'max-simultaneas']) {
+  for (const codigo of ['sin-plan', 'bono-no-cubre', 'max-simultaneas', 'max-por-dia']) {
     assert.match(
       fuente, new RegExp(`codigo: '${codigo}'`),
       `El rechazo '${codigo}' tiene que viajar con su codigo. Sin el, el switch de `

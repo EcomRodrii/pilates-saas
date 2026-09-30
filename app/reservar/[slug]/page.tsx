@@ -21,13 +21,14 @@ import { planesComprablesParaReservar, planCubreTipo } from '@/lib/reserva-plane
 import { resolutorCobertura, precioDeCobertura, notaCobertura, textoCoberturaCorto, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
   contarReservasActivasFuturas,
-  heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
+  aperturaPendiente, heredaOverride, instanteDeApertura, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { horarioDeSesion } from '@/lib/reservar/construir-slots';
 import { franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
 import { diaEnEstudio } from '@/lib/calendario-hora-estudio';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
+import { mensajeTodaviaNoSeAbre } from '@/lib/reservar/apertura-texto';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { IndicadorPasos } from '@/components/reserva/indicador-pasos';
 import { recorridoDe } from '@/lib/reservar/pasos-flujo';
@@ -1406,6 +1407,11 @@ export default function ReservarPage() {
           miReservaId: mia?.id ?? null,
           miEstado: mia ? (mia.estado as 'CONFIRMADA' | 'LISTA_ESPERA') : null,
           miOfertaExpiraEn: mia?.ofertaExpiraEn ?? null,
+          abreEl: aperturaPendiente(
+            s.inicio, nowMs,
+            heredaOverride(s.tipo?.reservaAntelacionMaximaDias, studio?.reservaAntelacionMaximaDias ?? null),
+            studio?.reservaAntelacionHora ?? null,
+          ),
           // En la vista de prueba, el precio de la oferta (0 € = gratis: sin cifra).
           precio: modoPrueba
             ? ((ofertaPruebaPara(s.tipoClaseId)?.precio ?? 0) > 0 ? ofertaPruebaPara(s.tipoClaseId)!.precio : null)
@@ -1420,7 +1426,7 @@ export default function ReservarPage() {
           coberturaTextoListaEspera: textoCoberturaListaEspera(cobertura(s.tipoClaseId)),
         } satisfies ReservaSlot;
       });
-  }, [sesionesRich, nowMs, configWidget, modoPrueba, ofertaPruebaPara, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
+  }, [sesionesRich, nowMs, configWidget, modoPrueba, ofertaPruebaPara, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura, studio?.reservaAntelacionMaximaDias, studio?.reservaAntelacionHora]);
 
   // Calendario semanal: entre el toque en una clase y que `ReservaCalendario`
   // confirme la ficha abierta (`alCambiarFicha` llega en un efecto, un render
@@ -1715,13 +1721,18 @@ export default function ReservarPage() {
     // el servidor (crearReservaPublica), aquí solo para avisar antes del click.
     const tipo = tipoClaseId ? tiposClase.find(t => t.id === tipoClaseId) : undefined;
     if (inicioISO) {
+      // La hora del CLIC, no `now`: `now` se refresca cada minuto, y con la
+      // reserva abriéndose a una hora fija ese minuto de retraso decide quién
+      // entra. El servidor manda igual; esto solo evita un «no» injusto.
+      const ahora = new Date();
       const ventanaMinima = heredaOverride(tipo?.reservaVentanaMinimaMinutos, studio.reservaVentanaMinimaMinutos);
-      if (!puedeReservarPorVentanaMinima(inicioISO, now, ventanaMinima)) {
+      if (!puedeReservarPorVentanaMinima(inicioISO, ahora, ventanaMinima)) {
         return 'Ya no se puede reservar esta clase: hace falta reservar con más antelación.';
       }
       const antelacionMaxima = heredaOverride(tipo?.reservaAntelacionMaximaDias, studio.reservaAntelacionMaximaDias);
-      if (!puedeReservarPorAntelacionMaxima(inicioISO, now, antelacionMaxima)) {
-        return 'Todavía no se puede reservar esta clase.';
+      const hora = studio.reservaAntelacionHora ?? null;
+      if (!puedeReservarPorAntelacionMaxima(inicioISO, ahora, antelacionMaxima, hora)) {
+        return mensajeTodaviaNoSeAbre(instanteDeApertura(inicioISO, antelacionMaxima!, hora), ahora);
       }
     }
     const exigirPlan = heredaOverride(tipo?.reservaExigirPlan, studio.reservaExigirPlan);
@@ -2531,6 +2542,7 @@ export default function ReservarPage() {
     cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? 0,
     reservaVentanaMinimaMinutos: studio?.reservaVentanaMinimaMinutos ?? 0,
     reservaAntelacionMaximaDias: studio?.reservaAntelacionMaximaDias ?? null,
+    reservaAntelacionHora: studio?.reservaAntelacionHora ?? null,
   };
   const plazoCancelacion = frasePlazoCancelacion(reglasEstudio, tiposClase);
   const antelacionMinima = fraseAntelacionMinima(reglasEstudio, tiposClase);

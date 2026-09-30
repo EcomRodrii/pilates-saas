@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COLUMNAS_POR_TARJETA, TARJETAS_REGLAS, antelacionImposible, confirmarPenalizacion, consecuenciaRegla, excepcionesPorRegla,
-  formularioReglas, fraseAntelacion, reglasAGuardar, reglasDeTarjetaAGuardar, reglasGuardadas, tarjetasConCambios,
+  formularioReglas, fraseAntelacion, fraseSeAbre, reglasAGuardar, reglasDeTarjetaAGuardar, reglasGuardadas, tarjetasConCambios,
   type TipoConReglas,
 } from './reglas-reserva.ts';
 
@@ -27,7 +27,11 @@ const MUDADAS = ['compraPublicaModo', 'instructorasCreanClases'];
 // clases de su plaza fija cuando se queda sin cuota (la elige el estudio).
 const NUEVAS = ['plazaFijaSinCuota', 'plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp', 'plazaFijaPausaLiberaSitio', 'plazaFijaFinPausa',
   // 27-sep: el control de acceso con QR, en la tarjeta de Asistencia.
-  'controlAccesoQr'];
+  'controlAccesoQr',
+  // 30-sep: el tope de clases al día y la hora a la que se abre, en «Reservar».
+  'reservaMaxPorDia', 'reservaAntelacionHora',
+  // 30-sep: el tope de recuperaciones sin usar (antes un 4 fijo), con su propia tarjeta.
+  'recuperacionMaxVivas'];
 
 test('la sección guarda las columnas de antes, menos las dos que se fueron a su sitio, más las nuevas con nombre', () => {
   const r = reglasAGuardar(formularioReglas(null), reglasGuardadas(null));
@@ -43,10 +47,10 @@ test('cada columna vive en UNA tarjeta, y entre todas están todas', () => {
 
 test('sin dato del servidor, los mismos valores por defecto que el formulario de antes', () => {
   assert.deepEqual(reglasGuardadas(null), {
-    reservaExigirPlan: true, reservaVentanaMinimaMinutos: 0, reservaAntelacionMaximaDias: null,
-    reservaMaxSimultaneas: null, bloquearReservaImpago: false, requiereAprobacion: false,
+    reservaExigirPlan: true, reservaVentanaMinimaMinutos: 0, reservaAntelacionMaximaDias: null, reservaAntelacionHora: null,
+    reservaMaxSimultaneas: null, reservaMaxPorDia: null, bloquearReservaImpago: false, requiereAprobacion: false,
     cancelacionVentanaHoras: 12, cancelacionDevolverBonoTardia: false, cancelacionClaseDevuelveBono: true,
-    minimoAsistentesPorClase: 0, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null,
+    minimoAsistentesPorClase: 0, recuperacionMaxVivas: 4, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null,
     recuperacionAutoSemanal: false, permiteListaEspera: true, listaEsperaPlazoAceptacionMinutos: 0,
     requiereCheckinQr: true, controlAccesoQr: true, penalizacionImporteEur: null, penalizacionAplicaCancelacionTardia: true,
     penalizacionAplicaNoShow: true, penalizacionCobroAutomatico: false,
@@ -76,7 +80,8 @@ test('cada cambio marca su tarjeta, y solo la suya', () => {
   const casos: [Partial<typeof base>, string[]][] = [
     [{ reservaMaxSimultaneas: 3 }, ['reservar']],
     [{ cancelacionVentanaHoras: 24 }, ['cancelar-y-recuperar']],
-    [{ recuperacionAutoSemanal: true }, ['cancelar-y-recuperar']],
+    [{ recuperacionAutoSemanal: true }, ['recuperaciones']],
+    [{ recuperacionMaxVivas: 6 }, ['recuperaciones']],
     [{ cancelacionClaseDevuelveBono: false }, ['si-se-cancela-una-clase']],
     [{ minimoAsistentesPorClase: 3 }, ['si-se-cancela-una-clase']],
     [{ listaEspera: { modo: 'con-plazo', minutos: '15' } }, ['lista-de-espera']],
@@ -132,7 +137,7 @@ test('el «Guardar» de un cajón manda SOLO las columnas de su tarjeta (#2027)'
   const cancelar = reglasDeTarjetaAGuardar('cancelar-y-recuperar', { ...form, cancelacionVentanaHoras: 6 }, guardado);
   assert.deepEqual(cancelar, {
     ok: true,
-    cambios: { cancelacionVentanaHoras: 6, cancelacionDevolverBonoTardia: false, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null, recuperacionAutoSemanal: false },
+    cambios: { cancelacionVentanaHoras: 6, cancelacionDevolverBonoTardia: false },
   });
   // «Sin lista» conserva el plazo guardado, también desde su cajón.
   assert.deepEqual(reglasDeTarjetaAGuardar('lista-de-espera', { ...form, listaEspera: { modo: 'sin-lista', minutos: '' } }, guardado), {
@@ -233,4 +238,56 @@ test('la antelación, en una frase que dice lo que aplica la reserva', () => {
   assert.match(fraseAntelacion(90, 0), /se cerraría antes de abrirse/);
   assert.equal(antelacionImposible(1440, 1), false, 'justo un día: se abre y se cierra a la vez, pero no es imposible');
   assert.equal(antelacionImposible(1441, 1), true);
+});
+
+test('los topes de «Reservar» fuera del rango de la base de datos no se guardan y dicen por qué', () => {
+  const guardado = reglasGuardadas(null);
+  const form = formularioReglas(guardado);
+  const cero = reglasDeTarjetaAGuardar('reservar', { ...form, reservaMaxPorDia: 0 }, guardado);
+  assert.deepEqual(cero, { ok: false, texto: 'Las clases al día van de 1 a 20. Déjalo vacío para no poner límite.' });
+  assert.equal(reglasDeTarjetaAGuardar('reservar', { ...form, reservaMaxPorDia: 21 }, guardado).ok, false);
+  assert.equal(reglasDeTarjetaAGuardar('reservar', { ...form, reservaMaxSimultaneas: 0 }, guardado).ok, false);
+  const uno = reglasDeTarjetaAGuardar('reservar', { ...form, reservaMaxPorDia: 1 }, guardado);
+  assert.ok(uno.ok);
+  assert.equal(uno.cambios.reservaMaxPorDia, 1);
+  const vacio = reglasDeTarjetaAGuardar('reservar', { ...form, reservaMaxPorDia: null }, guardado);
+  assert.ok(vacio.ok);
+  assert.equal(vacio.cambios.reservaMaxPorDia, null);
+});
+
+test('con hora fija, «imposible» es para cualquier clase, y la frase lo cuenta con la hora', () => {
+  // 1 día a las 20:00 y se cierra 30 min antes: la de las 21:00 del día siguiente
+  // tiene 25 h y media. Posible.
+  assert.equal(antelacionImposible(30, 1, '20:00'), false);
+  // 0 días a las 20:00 con 5 h de cierre: ni la de las 23:59 llega (se cerraría a
+  // las 18:59, antes de abrirse a las 20:00).
+  assert.equal(antelacionImposible(300, 0, '20:00'), true);
+  assert.equal(antelacionImposible(200, 0, '20:00'), false, 'la de las 23:59 aún tiene un rato');
+  assert.equal(fraseAntelacion(30, 2, '20:00'), 'Se puede reservar desde 2 días antes a las 20:00 hasta 30 min antes de que empiece la clase.');
+  assert.equal(fraseAntelacion(0, 0, '08:00'), 'Se puede reservar desde el mismo día a las 08:00 hasta que empieza la clase.');
+  assert.equal(fraseSeAbre(7, '20:00'), 'se abre 7 días antes a las 20:00');
+  assert.equal(fraseSeAbre(7, null), 'se abre 7 días antes');
+});
+
+test('«Reservar»: 0 días a la hora de la clase no se guarda; con hora fija, sí', () => {
+  const guardado = reglasGuardadas(null);
+  const form = formularioReglas(guardado);
+  const cero = reglasDeTarjetaAGuardar('reservar', { ...form, reservaAntelacionMaximaDias: 0, reservaAntelacionHora: null }, guardado);
+  assert.equal(cero.ok, false);
+  const ceroALas8 = reglasDeTarjetaAGuardar('reservar', { ...form, reservaAntelacionMaximaDias: 0, reservaAntelacionHora: '08:00' }, guardado);
+  assert.ok(ceroALas8.ok);
+  assert.equal(ceroALas8.cambios.reservaAntelacionHora, '08:00');
+  assert.equal(reglasDeTarjetaAGuardar('reservar', { ...form, reservaAntelacionMaximaDias: 2, reservaAntelacionHora: '25:00' }, guardado).ok, false);
+});
+
+test('«Recuperaciones»: el tope va de 1 a 20 y la fila y la consecuencia dicen el número', () => {
+  const guardado = reglasGuardadas(null);
+  const form = formularioReglas(guardado);
+  assert.equal(reglasDeTarjetaAGuardar('recuperaciones', { ...form, recuperacionMaxVivas: 0 }, guardado).ok, false);
+  assert.equal(reglasDeTarjetaAGuardar('recuperaciones', { ...form, recuperacionMaxVivas: 21 }, guardado).ok, false);
+  assert.equal(reglasDeTarjetaAGuardar('recuperaciones', { ...form, recuperacionMaxVivas: Number.NaN }, guardado).ok, false);
+  const seis = reglasDeTarjetaAGuardar('recuperaciones', { ...form, recuperacionMaxVivas: 6 }, guardado);
+  assert.deepEqual(seis, { ok: true, cambios: { recuperacionMaxVivas: 6, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null, recuperacionAutoSemanal: false } });
+  assert.equal(consecuenciaRegla('recuperaciones', { ...guardado, recuperacionMaxVivas: 2 }),
+    'Con 2 sin usar, no se le da otra hasta que use o le caduque una. Si bajas el número, quien ya tenga más las conserva.');
 });

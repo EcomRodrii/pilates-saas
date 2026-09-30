@@ -18,12 +18,12 @@ export const maxDuration = 60;
 //
 // ⚠️ Va por la RPC `crear_recuperacion`, una llamada por recuperación, y NO por
 // un INSERT en lotes como el resto de importadores. Es más lento a propósito:
-// el tope de 4 vivas por socia, la caducidad según la política del estudio y la
+// el tope de vivas por socia (studios.recuperacion_max_vivas), la caducidad según la política del estudio y la
 // validación de que la socia es de este estudio viven DENTRO de la RPC.
 // Insertando directo habría que reimplementar las tres aquí, y una regla
 // escrita dos veces es una regla que acabará diciendo cosas distintas. El
-// volumen lo permite: con tope de 4, un estudio de 200 socias tiene como mucho
-// 800 recuperaciones vivas.
+// volumen lo permite: con el tope de serie (4), un estudio de 200 socias tiene
+// como mucho 800 recuperaciones vivas; con el máximo (20), 4.000.
 
 const MAX_FILAS = 2000;
 const CONCURRENCIA = 8;
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
   for (const res of resultados) {
     if (res.estado === 'CREADA') { creadas.push(res.r.id); continue; }
     if (res.estado === 'TOPE') {
-      // No es un fallo del archivo: la socia ya tiene el máximo de 4 vivas. Se
+      // No es un fallo del archivo: la socia ya tiene el máximo de vivas del estudio. Se
       // cuenta aparte para poder decirlo tal cual en el acta, en vez de
       // esconderlo entre los errores.
       tope++;

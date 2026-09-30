@@ -353,6 +353,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? 0,
       reservaVentanaMinimaMinutos: studio?.reservaVentanaMinimaMinutos ?? 0,
       reservaAntelacionMaximaDias: studio?.reservaAntelacionMaximaDias ?? null,
+      reservaAntelacionHora: studio?.reservaAntelacionHora ?? null,
     };
     const reglas = [
       frasePlazoCancelacion(reglasEstudio, tiposClase),

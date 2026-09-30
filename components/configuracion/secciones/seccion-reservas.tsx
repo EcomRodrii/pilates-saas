@@ -1,6 +1,6 @@
 'use client';
 
-import { Ban, Bell, BellRing, CalendarCheck, CalendarClock, CalendarX, ClipboardCheck, Coins, ListOrdered, Pause, Smartphone, Undo2, type LucideIcon } from 'lucide-react';
+import { Ban, Bell, BellRing, CalendarCheck, CalendarClock, CalendarX, ClipboardCheck, Coins, ListOrdered, Pause, RotateCcw, Smartphone, Undo2, type LucideIcon } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { setAvisarAlumnas } from '@/lib/api-client';
 import { hayPenalizacionConfigurada } from '@/lib/configuracion/penalizacion-activa';
@@ -12,7 +12,7 @@ import { FilaAjuste, FilaExterna, FilaInterruptor, FilaOtraSeccion, GrupoFilas }
 import { AsiLoViveTuAlumna } from './asi-lo-vive-tu-alumna';
 import { hayAlgoQueContratar } from '@/lib/bono-logic';
 import {
-  FormAsistencia, FormCancelarYRecuperar, FormClaseCancelada, FormListaEspera, FormPausaPlazaFija, FormPenalizacion,
+  FormAsistencia, FormCancelarYRecuperar, FormClaseCancelada, FormRecuperaciones, FormListaEspera, FormPausaPlazaFija, FormPenalizacion,
   FormPlazaFijaDesdeApp, FormReservar, FormSinCuota,
   useConfirmacionRiesgo, type PropsCajonRegla,
 } from '@/components/configuracion/tab-estudio-reservas';
@@ -35,19 +35,20 @@ import {
 // decide cómo reserva y vive en otra pantalla —clases por semana de cada plan,
 // recordatorios— tiene aquí su fila-enlace.
 //
-// Lo que Tentare hace de serie y no se toca (el tope de 4 recuperaciones vivas,
-// el corte del mínimo a 2 h, la plaza libre a la primera de la lista) se cuenta
+// Lo que Tentare hace de serie y no se toca (el corte del mínimo a 2 h, la plaza
+// libre a la primera de la lista) se cuenta
 // DENTRO del cajón de su regla (tab-estudio-reservas.tsx, `NotaDeSerie`), no en
 // un grupo aparte que repetía lo que ya decía cada cajón.
 
 const CAJONES = [
-  'reservar', 'cancelar-y-recuperar', 'si-se-cancela-una-clase', 'lista-de-espera', 'asistencia', 'si-cancela-tarde-o-no-viene',
+  'reservar', 'cancelar-y-recuperar', 'recuperaciones', 'si-se-cancela-una-clase', 'lista-de-espera', 'asistencia', 'si-cancela-tarde-o-no-viene',
   'si-se-queda-sin-cuota', 'plaza-fija-desde-la-app', 'si-pausa-su-plaza-fija',
 ] as const satisfies readonly TarjetaReglasId[];
 
 const ICONOS: Record<TarjetaReglasId, LucideIcon> = {
   reservar: CalendarCheck,
   'cancelar-y-recuperar': Undo2,
+  recuperaciones: RotateCcw,
   'si-se-cancela-una-clase': Ban,
   'lista-de-espera': ListOrdered,
   asistencia: ClipboardCheck,
@@ -132,6 +133,7 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
 
       <GrupoFilas titulo="Si cambia de planes">
         {fila('cancelar-y-recuperar')}
+        {fila('recuperaciones')}
         {fila('si-cancela-tarde-o-no-viene')}
       </GrupoFilas>
 
@@ -166,6 +168,9 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
       </CajonAjuste>
       <CajonAjuste id="cancelar-y-recuperar" abierto={cajon === 'cancelar-y-recuperar'} onCerrar={cerrar}>
         <FormCancelarYRecuperar {...props('cancelar-y-recuperar')} />
+      </CajonAjuste>
+      <CajonAjuste id="recuperaciones" abierto={cajon === 'recuperaciones'} onCerrar={cerrar}>
+        <FormRecuperaciones {...props('recuperaciones')} />
       </CajonAjuste>
       <CajonAjuste id="si-se-cancela-una-clase" abierto={cajon === 'si-se-cancela-una-clase'} onCerrar={cerrar}>
         <FormClaseCancelada {...props('si-se-cancela-una-clase')} />

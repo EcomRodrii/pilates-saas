@@ -49,6 +49,8 @@ export type CodigoReserva =
   | 'sin-plan'
   | 'bono-no-cubre'
   | 'max-simultaneas'
+  // Tope de clases al día (studios.reserva_max_por_dia): el mensaje lleva la fecha.
+  | 'max-por-dia'
   // Niveles: la clase exige que el estudio autorice a esta alumna.
   | 'necesita-autorizacion'
   // Gate de impago (#1664, 5-sep-2026): el estudio puede bloquear la reserva a
@@ -78,7 +80,7 @@ const CODIGOS_DE_NEGOCIO: ReadonlySet<string> = new Set<CodigoReserva>([
   'ya-reservada', 'conflicto-horario', 'aforo-lleno', 'limite-semanal', 'limite-semanal-actividad',
   'spot-ocupado', 'spot-no-disponible', 'sesion-no-encontrada', 'no-autorizado',
   'clase-cancelada', 'clase-ya-empezada', 'fuera-ventana-minima', 'fuera-ventana-maxima',
-  'sin-plan', 'bono-no-cubre', 'max-simultaneas', 'necesita-autorizacion',
+  'sin-plan', 'bono-no-cubre', 'max-simultaneas', 'max-por-dia', 'necesita-autorizacion',
   'impago', 'estudio-cerrado', 'apertura-suave', 'faltan-preguntas',
 ]);
 
@@ -206,6 +208,7 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
     case 'sin-plan':
     case 'bono-no-cubre':
     case 'max-simultaneas':
+    case 'max-por-dia':
     case 'necesita-autorizacion':
     // Las cuatro guardias de la sesión: tampoco tienen estado propio, pero su
     // mensaje es justo lo que le falta a la alumna para saber que no hay nada

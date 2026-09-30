@@ -4,6 +4,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Reserva, RewardAction, Socio, Sesion, Suscripcion, PlanTarifa } from '@/lib/types';
 import {
+  aperturaPendiente,
+  contarClasesDelDia,
+  instanteDeApertura,
+  mensajeMaxPorDia,
   plazasOcupadas,
   confirmadasParaMinimo,
   debeCancelarPorMinimoNoAlcanzado,
@@ -550,4 +554,95 @@ test('topeAvisosHueco: sin plazas no se avisa a nadie, y se cuenta a todas como 
   // justo a las últimas cuatro.
   assert.deepEqual(topeAvisosHueco(5, 0), { caben: 0, saltadasPorTope: 5 });
   assert.deepEqual(topeAvisosHueco(5, -2), { caben: 0, saltadasPorTope: 5 });
+});
+
+// ─── Tope de clases al día (studios.reserva_max_por_dia) ─────────────────────
+
+test('contarClasesDelDia: el día es el del estudio, no el de UTC', () => {
+  // Jueves 1-oct-2026 a las 00:30 en Madrid = miércoles 30-sep 22:30 UTC.
+  const objetivo = { id: 's-obj', inicio: '2026-10-01T17:00:00+02:00' };
+  const sesiones = [
+    objetivo,
+    { id: 's-madrugada', inicio: '2026-10-01T00:30:00+02:00' },
+    { id: 's-dia-antes', inicio: '2026-09-30T23:30:00+02:00' },
+    { id: 's-dia-despues', inicio: '2026-10-02T00:10:00+02:00' },
+  ];
+  const r = (sesionId: string, estado: Reserva['estado'] = 'CONFIRMADA') => ({ socioId: 'soc-1', sesionId, estado });
+  assert.equal(contarClasesDelDia('soc-1', objetivo, [r('s-madrugada'), r('s-dia-antes'), r('s-dia-despues')], sesiones), 1);
+});
+
+test('contarClasesDelDia: cuenta todo lo no cancelado, salvo la propia clase y las clases canceladas', () => {
+  const objetivo = { id: 's-obj', inicio: '2026-10-01T18:00:00+02:00' };
+  const sesiones = [
+    objetivo,
+    { id: 's-1', inicio: '2026-10-01T09:00:00+02:00' },
+    { id: 's-2', inicio: '2026-10-01T10:00:00+02:00' },
+    { id: 's-3', inicio: '2026-10-01T11:00:00+02:00' },
+    { id: 's-4', inicio: '2026-10-01T12:00:00+02:00' },
+    { id: 's-5', inicio: '2026-10-01T13:00:00+02:00' },
+    { id: 's-cancelada', inicio: '2026-10-01T14:00:00+02:00', cancelada: true },
+  ];
+  const reservas = [
+    { socioId: 'soc-1', sesionId: 's-obj', estado: 'CONFIRMADA' as const },
+    { socioId: 'soc-1', sesionId: 's-1', estado: 'LISTA_ESPERA' as const },
+    { socioId: 'soc-1', sesionId: 's-2', estado: 'PENDIENTE_APROBACION' as const },
+    { socioId: 'soc-1', sesionId: 's-3', estado: 'NO_ASISTIO' as const },
+    { socioId: 'soc-1', sesionId: 's-4', estado: 'CANCELADA' as const },
+    { socioId: 'otra', sesionId: 's-5', estado: 'CONFIRMADA' as const },
+    { socioId: 'soc-1', sesionId: 's-cancelada', estado: 'CONFIRMADA' as const },
+  ];
+  assert.equal(contarClasesDelDia('soc-1', objetivo, reservas, sesiones), 3);
+});
+
+test('mensajeMaxPorDia dice el día y el tope', () => {
+  assert.equal(
+    mensajeMaxPorDia(1, 1, '2026-10-01T18:00:00+02:00'),
+    'Ya tienes una clase el jueves, 1 de octubre: en este estudio se reserva como mucho una al día.',
+  );
+  assert.equal(
+    mensajeMaxPorDia(2, 2, '2026-10-01T18:00:00+02:00'),
+    'Ya tienes 2 clases el jueves, 1 de octubre: en este estudio se reservan como mucho 2 al día.',
+  );
+});
+
+// ─── Cuándo se abre la reserva (studios.reserva_antelacion_hora) ─────────────
+
+test('instanteDeApertura a hora fija: el jueves 18:00 con 2 días a las 20:00 se abre el martes a las 20:00', () => {
+  assert.equal(instanteDeApertura('2026-10-01T18:00:00+02:00', 2, '20:00').toISOString(), '2026-09-29T18:00:00.000Z');
+  // La hora como la da Postgres ('HH:MM:SS') vale igual.
+  assert.equal(instanteDeApertura('2026-10-01T18:00:00+02:00', 2, '20:00:00').toISOString(), '2026-09-29T18:00:00.000Z');
+  // 0 días a las 08:00: el mismo día a las 8.
+  assert.equal(instanteDeApertura('2026-10-01T18:00:00+02:00', 0, '08:00').toISOString(), '2026-10-01T06:00:00.000Z');
+});
+
+test('instanteDeApertura cuenta el día del estudio, no el de UTC', () => {
+  // Jueves 1-oct a las 00:30 en Madrid (= miércoles 22:30 UTC): 1 día antes es el miércoles 30.
+  assert.equal(instanteDeApertura('2026-10-01T00:30:00+02:00', 1, '20:00').toISOString(), '2026-09-30T18:00:00.000Z');
+});
+
+test('instanteDeApertura a la hora de la clase no se mueve con el cambio de hora', () => {
+  // Otoño: el 25-oct-2026 se retrasa el reloj. Clase el lunes 26 a las 10:00
+  // (+01:00); 2 días antes, a la misma hora, es el sábado 24 a las 10:00 (+02:00).
+  assert.equal(instanteDeApertura('2026-10-26T10:00:00+01:00', 2, null).toISOString(), '2026-10-24T08:00:00.000Z');
+  // Con la resta de 48 h habría salido a las 09:00: justo lo que se arregla.
+  assert.notEqual(instanteDeApertura('2026-10-26T10:00:00+01:00', 2, null).getTime(), new Date('2026-10-26T10:00:00+01:00').getTime() - 2 * 86_400_000);
+});
+
+test('instanteDeApertura: la hora que no existe (salto de primavera) se abre a la siguiente', () => {
+  // El 29-mar-2026 el reloj salta de 02:00 a 03:00: las 02:30 no existen.
+  assert.equal(instanteDeApertura('2026-03-30T18:00:00+02:00', 1, '02:30').toISOString(), '2026-03-29T01:30:00.000Z');
+});
+
+test('puedeReservarPorAntelacionMaxima con hora fija', () => {
+  const clase = '2026-10-01T18:00:00+02:00';
+  assert.equal(puedeReservarPorAntelacionMaxima(clase, new Date('2026-09-29T19:59:00+02:00'), 2, '20:00'), false);
+  assert.equal(puedeReservarPorAntelacionMaxima(clase, new Date('2026-09-29T20:00:00+02:00'), 2, '20:00'), true);
+  assert.equal(puedeReservarPorAntelacionMaxima(clase, new Date('2026-09-29T20:00:00+02:00'), null, '20:00'), true, 'sin días no hay límite, con hora o sin ella');
+});
+
+test('aperturaPendiente: solo mientras falta para abrirse', () => {
+  const clase = '2026-10-01T18:00:00+02:00';
+  assert.equal(aperturaPendiente(clase, new Date('2026-09-29T19:00:00+02:00'), 2, '20:00'), '2026-09-29T18:00:00.000Z');
+  assert.equal(aperturaPendiente(clase, new Date('2026-09-29T20:00:00+02:00'), 2, '20:00'), null);
+  assert.equal(aperturaPendiente(clase, new Date('2026-09-20T10:00:00+02:00'), null, '20:00'), null, 'sin días, siempre abierta');
 });

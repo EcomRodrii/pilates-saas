@@ -52,6 +52,20 @@ test.describe('Student PWA · reservar', () => {
     await expect(page.getByText('Reserva confirmada')).toHaveCount(0);
   });
 
+  test('tope de clases al día → el motivo del servidor, con su fecha, y nada que celebrar', async ({ page }) => {
+    let intentos = 0;
+    const mensaje = 'Ya tienes una clase el jueves, 1 de octubre: en este estudio se reserva como mucho una al día.';
+    await page.route('**/api/public/reserva', (r) => {
+      if (r.request().method() !== 'POST') return r.continue();
+      intentos += 1;
+      return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: mensaje, codigo: 'max-por-dia' }) });
+    });
+    await abrirHoja(page);
+    await expect(page.getByText(mensaje)).toBeVisible({ timeout: 30_000 });
+    expect(intentos, 'la reserva no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
+    await expect(page.getByText('Reserva confirmada')).toHaveCount(0);
+  });
+
   test('solape con otra clase suya → conflict, con su copy propio', async ({ page }) => {
     await servidorResponde(page, { error: 'Ya tienes otra clase a esa hora', codigo: 'conflicto-horario' }, 400);
     await abrirHoja(page);

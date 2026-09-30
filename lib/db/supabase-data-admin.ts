@@ -14,7 +14,7 @@ import { getLayout } from '@/lib/layout-data';
 import { puertaPublica, catalogoPaginaOculta } from '@/lib/publico/acceso-pagina';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
+import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio, inicioDelDiaEstudio, finDelDiaEstudio } from '@/lib/utils';
 import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
 import { escaparLike } from '@/lib/escapar-like';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
@@ -41,9 +41,11 @@ import { decidirCierreDeEspera, suscripcionDeReservaWeb, PREFIJO_RESERVA_WEB } f
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
 import {
-  contarReservasActivasFuturas, esCancelacionTardia,
-  heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
+  contarClasesDelDia, contarReservasActivasFuturas, esCancelacionTardia, mensajeMaxPorDia,
+  heredaOverride, horaHHMM, instanteDeApertura, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
+import { mensajeTodaviaNoSeAbre } from '@/lib/reservar/apertura-texto';
+import { diaEnEstudio } from '@/lib/calendario-hora-estudio';
 import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, exigePlanAlReservar, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio, HORIZONTE_MATERIALIZAR_DIAS, HORIZONTE_AVISOS_PLAZA_FIJA_DIAS } from '@/lib/plazas-fijas-slot';
@@ -54,7 +56,7 @@ import {
   decidirVueltaDePausa, fechaLimiteDecidirVuelta, textoMotivoVuelta, tocaLiberarSitio,
   type HuecoParaVolver, type MotivoVueltaPendiente, type PoliticaFinPausa,
 } from '@/lib/plazas-fijas-solicitudes';
-import type { PlazaFija as PlazaFijaServidor } from '@/lib/types';
+import type { EstadoReserva, PlazaFija as PlazaFijaServidor } from '@/lib/types';
 import type { MotivoPlazaNoMaterializada } from '@/lib/notifications/emit';
 import type { FormaPegada } from '@/lib/widgets/pegado';
 import { validarCanje } from '@/lib/engines/reward-engine';
@@ -397,8 +399,10 @@ function studioPublico(r: RowStudios) {
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,
+    reservaMaxPorDia: r.reserva_max_por_dia ?? null,
     reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? 0,
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
+    reservaAntelacionHora: horaHHMM(r.reserva_antelacion_hora),
     permiteListaEspera: r.permite_lista_espera ?? true,
     // Plaza fija desde la app (migr 20260915231920): la app solo enseña «pedir
     // plaza fija» o «pedir una pausa» si el estudio lo permite. La puerta de
@@ -2290,20 +2294,63 @@ export async function barrerEsperasDeClasesPasadas(nowISO: string) {
 // si las columnas aún no existen o vienen nulas).
 
 async function cargarPoliticaEstudio(admin: SupabaseClient, studioId: string) {
-  const { data } = await admin
+  const { data, error } = await admin
     .from('studios')
-    .select('cancelacion_ventana_horas, cancelacion_devolver_bono_tardia, reserva_exigir_plan, reserva_max_simultaneas, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, permite_lista_espera, requiere_aprobacion')
+    .select('cancelacion_ventana_horas, cancelacion_devolver_bono_tardia, reserva_exigir_plan, reserva_max_simultaneas, reserva_max_por_dia, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, reserva_antelacion_hora, permite_lista_espera, requiere_aprobacion')
     .eq('id', studioId).maybeSingle();
+  // ⚠️ Un fallo aquí NO es «sin reglas»: con una columna que aún no existe (código
+  // desplegado antes que su migración), `data` llega `null` y TODAS las reglas de
+  // abajo caen a sus valores por defecto sin decir nada. No cambia el
+  // comportamiento, pero que se vea.
+  if (error) capturarExcepcion(new Error(`cargarPoliticaEstudio: ${error.message}`), { tags: { area: 'reservas' } });
   return {
     ventanaHoras: (data?.cancelacion_ventana_horas ?? 12) as number,
     devolverBonoTardia: (data?.cancelacion_devolver_bono_tardia ?? false) as boolean,
     exigirPlan: (data?.reserva_exigir_plan ?? true) as boolean,
     maxSimultaneas: (data?.reserva_max_simultaneas ?? null) as number | null,
+    maxPorDia: (data?.reserva_max_por_dia ?? null) as number | null,
     ventanaMinimaMinutos: (data?.reserva_ventana_minima_minutos ?? 0) as number,
     antelacionMaximaDias: (data?.reserva_antelacion_maxima_dias ?? null) as number | null,
+    // Sin override por tipo: el tipo cambia los días, la hora es la del estudio.
+    antelacionHora: horaHHMM(data?.reserva_antelacion_hora as string | null | undefined),
     permiteListaEspera: (data?.permite_lista_espera ?? true) as boolean,
     requiereAprobacion: (data?.requiere_aprobacion ?? false) as boolean,
   };
+}
+
+/**
+ * ¿Está abierta la reserva de esta clase AHORA? La ventana entera (cierre y
+ * apertura, con las reglas del tipo de clase), en un sitio: la usan la reserva
+ * de la alumna, la reserva tras pagar y las dos puertas de pago ANTES de cobrar
+ * —cobrar una clase que aún no se puede reservar era cobrar sin plaza—.
+ */
+export async function comprobarVentanaReserva(
+  admin: SupabaseClient,
+  params: { studioId: string; tipoClaseId: string | null | undefined; inicioISO: string },
+): Promise<null | { error: string; codigo: 'fuera-ventana-minima' | 'fuera-ventana-maxima' }> {
+  const pol = await cargarPoliticaEstudio(admin, params.studioId);
+  const reglasTipo = await cargarReglasReservaTipoClase(admin, params.studioId, params.tipoClaseId);
+  return ventanaCerrada(params.inicioISO, pol, reglasTipo);
+}
+
+function ventanaCerrada(
+  inicioISO: string,
+  pol: Awaited<ReturnType<typeof cargarPoliticaEstudio>>,
+  reglasTipo: Awaited<ReturnType<typeof cargarReglasReservaTipoClase>>,
+): null | { error: string; codigo: 'fuera-ventana-minima' | 'fuera-ventana-maxima' } {
+  const ahora = new Date();
+  const ventanaMinima = heredaOverride(reglasTipo.ventanaMinimaMinutos, pol.ventanaMinimaMinutos);
+  if (!puedeReservarPorVentanaMinima(inicioISO, ahora, ventanaMinima)) {
+    return { error: 'Ya no se puede reservar esta clase: hace falta reservar con más antelación', codigo: 'fuera-ventana-minima' };
+  }
+  const antelacionMaxima = heredaOverride(reglasTipo.antelacionMaximaDias, pol.antelacionMaximaDias);
+  if (!puedeReservarPorAntelacionMaxima(inicioISO, ahora, antelacionMaxima, pol.antelacionHora)) {
+    return {
+      error: mensajeTodaviaNoSeAbre(instanteDeApertura(inicioISO, antelacionMaxima!, pol.antelacionHora), ahora),
+      codigo: 'fuera-ventana-maxima',
+    };
+  }
+  return null;
 }
 
 // Fase 1 de reglas por tipo de clase (migr 20260730152516): mismo patrón que
@@ -2370,7 +2417,11 @@ type MotivoIntentoFallido =
   // RES-4: Verificación de entitlement dentro del lock. Si la socia no tiene
   // plan/bono activo, se registra como SIN_ENTITLEMENT aquí, siendo la
   // verificación ahora atómica en la RPC dentro de pg_advisory_xact_lock.
-  | 'SIN_ENTITLEMENT';
+  | 'SIN_ENTITLEMENT'
+  // Y el tope de clases al día (studios.reserva_max_por_dia). El mismo CHECK lo
+  // amplía 20260930215029, que de paso vuelve a meter SIN_ENTITLEMENT: la
+  // restricción viva lo había perdido y esas filas no se guardaban.
+  | 'MAX_POR_DIA';
 
 function registrarIntentoFallido(admin: SupabaseClient, params: {
   studioId: string; socioId: string; sesionId?: string | null; tipoClaseId?: string | null; motivo: MotivoIntentoFallido;
@@ -2509,15 +2560,13 @@ export async function crearReservaPublica(params: {
   const requiereAprobacionResuelto = heredaOverride(reglasTipo.requiereAprobacion, pol.requiereAprobacion);
 
   {
-    const ventanaMinima = heredaOverride(reglasTipo.ventanaMinimaMinutos, pol.ventanaMinimaMinutos);
-    if (!puedeReservarPorVentanaMinima(inicioISO, new Date(), ventanaMinima)) {
-      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'FUERA_VENTANA_MINIMA' });
-      return { error: 'Ya no se puede reservar esta clase: hace falta reservar con más antelación' as const, codigo: 'fuera-ventana-minima' as const };
-    }
-    const antelacionMaxima = heredaOverride(reglasTipo.antelacionMaximaDias, pol.antelacionMaximaDias);
-    if (!puedeReservarPorAntelacionMaxima(inicioISO, new Date(), antelacionMaxima)) {
-      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'FUERA_VENTANA_MAXIMA' });
-      return { error: 'Todavía no se puede reservar esta clase' as const, codigo: 'fuera-ventana-maxima' as const };
+    const cerrada = ventanaCerrada(inicioISO, pol, reglasTipo);
+    if (cerrada) {
+      registrarIntentoFallido(admin, {
+        studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId,
+        motivo: cerrada.codigo === 'fuera-ventana-minima' ? 'FUERA_VENTANA_MINIMA' : 'FUERA_VENTANA_MAXIMA',
+      });
+      return cerrada;
     }
   }
 
@@ -2597,6 +2646,38 @@ export async function crearReservaPublica(params: {
       if (activas >= pol.maxSimultaneas) {
         registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_SIMULTANEAS' });
         return { error: `Has alcanzado el máximo de ${pol.maxSimultaneas} reservas activas` as const, codigo: 'max-simultaneas' as const };
+      }
+    }
+  }
+
+  // Tope de clases al día (studios.reserva_max_por_dia; NULL = sin tope). Solo
+  // aquí, en la reserva de la propia alumna: el mostrador decide por su cuenta, y
+  // la reserva tras pagar sin cuenta (`reservarPlazaTrasPagoPublico`) no puede
+  // rechazar ya cobrada. Fuera del candado de `reservar_plaza`, como el máximo a
+  // la vez: dos pestañas a la vez podrían colarse, aceptado igual que allí.
+  if (pol.maxPorDia != null) {
+    const dia = diaEnEstudio(inicioISO);
+    const { data: sesDia, error: errSesDia } = await admin
+      .from('sesiones').select('id, inicio, cancelada')
+      .eq('studio_id', params.studioId)
+      .gte('inicio', inicioDelDiaEstudio(dia)).lt('inicio', finDelDiaEstudio(dia));
+    const ids = (sesDia ?? []).map(s => s.id as string);
+    const { data: resDia, error: errResDia } = ids.length === 0 ? { data: [], error: null } : await admin
+      .from('reservas').select('socio_id, sesion_id, estado')
+      .eq('studio_id', params.studioId).eq('socio_id', params.socioId).in('sesion_id', ids);
+    if (errSesDia || errResDia) {
+      // Sin poder contar no se inventa un «ya tienes una»: se deja pasar y se ve.
+      capturarExcepcion(new Error(`maxPorDia: ${(errSesDia ?? errResDia)?.message}`), { tags: { area: 'reservas' } });
+    } else {
+      const tiene = contarClasesDelDia(
+        params.socioId,
+        { id: params.sesionId, inicio: inicioISO },
+        (resDia ?? []).map(r => ({ socioId: r.socio_id as string, sesionId: r.sesion_id as string, estado: r.estado as EstadoReserva })),
+        (sesDia ?? []).map(s => ({ id: s.id as string, inicio: s.inicio as string, cancelada: (s.cancelada as boolean | null) ?? false })),
+      );
+      if (tiene >= pol.maxPorDia) {
+        registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_POR_DIA' });
+        return { error: mensajeMaxPorDia(tiene, pol.maxPorDia, inicioISO), codigo: 'max-por-dia' as const };
       }
     }
   }
@@ -2813,13 +2894,9 @@ export async function reservarPlazaTrasPagoPublico(params: {
   const requiereAprobacionResuelto = heredaOverride(reglasTipo.requiereAprobacion, pol.requiereAprobacion);
 
   {
-    const ventanaMinima = heredaOverride(reglasTipo.ventanaMinimaMinutos, pol.ventanaMinimaMinutos);
-    if (!puedeReservarPorVentanaMinima(inicioISO, new Date(), ventanaMinima)) {
-      return { ok: false, motivo: 'sesion-invalida', detalle: 'fuera de ventana mínima' };
-    }
-    const antelacionMaxima = heredaOverride(reglasTipo.antelacionMaximaDias, pol.antelacionMaximaDias);
-    if (!puedeReservarPorAntelacionMaxima(inicioISO, new Date(), antelacionMaxima)) {
-      return { ok: false, motivo: 'sesion-invalida', detalle: 'fuera de ventana máxima' };
+    const cerrada = ventanaCerrada(inicioISO, pol, reglasTipo);
+    if (cerrada) {
+      return { ok: false, motivo: 'sesion-invalida', detalle: cerrada.codigo === 'fuera-ventana-minima' ? 'fuera de ventana mínima' : 'fuera de ventana máxima' };
     }
   }
 

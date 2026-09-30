@@ -99,7 +99,10 @@ for (const vista of VISTAS) {
       await ir(page, 'configuracion?tab=reservas');
       await page.locator('#reservar').click({ timeout: 30_000 });
       const cajon = page.getByRole('dialog');
-      const primero = cajon.getByLabel('Días antes de la clase en que se abre la reserva');
+      // Los minutos de cierre están en cualquier forma de abrir la reserva; los días
+      // no si está «siempre abierta» (30-sep, hora fija). Sin tocar nada: con un
+      // cambio sale la barra de guardar y la burbuja se aparta sola.
+      const primero = cajon.getByLabel('Minutos antes de empezar en que se cierra la reserva');
       await expect(primero).toBeVisible({ timeout: 30_000 });
       await expect.poll(async () => {
         const b = await cajon.boundingBox();

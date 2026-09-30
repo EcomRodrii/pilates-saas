@@ -33,6 +33,8 @@ import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { FavoritoButton } from '@/components/student/domain/FavoritoButton';
 import { FichaClaseHero } from '@/components/student/domain/FichaClaseHero';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
+import { cuandoSeAbre, etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
+import { useAunNoAbre } from '@/lib/reservar/use-aun-no-abre';
 
 // Ficha de clase + hoja de reserva (§A.7). Es la pantalla donde la máquina de
 // estados del paquete se conecta al servidor real.
@@ -111,6 +113,9 @@ export default function FichaClasePage() {
   const enCurso = clase ? estaEnCurso(clase, ahoraMs) : false;
   const terminada = clase ? yaTermino(clase, ahoraMs) : false;
   const yaNoSeReserva = (enCurso || terminada) && disp !== 'reservada' && disp !== 'lista-espera';
+  // Hora fija del estudio: hasta que se abra, el botón espera y dice cuándo, y
+  // se enciende solo a la hora exacta (`useAunNoAbre`, un temporizador).
+  const aunNoAbre = useAunNoAbre(clase && disp !== 'reservada' && disp !== 'lista-espera' ? clase.seAbreEl : null);
   // El bono que de VERDAD cubre esta clase: un plan puede estar acotado a
   // ciertos tipos, y el servidor lo aplica al reservar. Elegir «el primero con
   // saldo» hacía que la hoja prometiera «no pagas nada hoy» y el servidor
@@ -245,7 +250,10 @@ export default function FichaClasePage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {yaNoSeReserva
             ? (enCurso ? <EnCursoBadge terminaA={horaFin(clase.hora, clase.duracionMin)} /> : <TerminadaBadge />)
-            : <AvailabilityBadge estado={disp} plazas={clase.plazasLibres} />}
+            // Sin reloj todavía (hidratación) no se dice «hoy» ni «mañana»: la fecha sola.
+            : aunNoAbre
+              ? <span data-se-abre="" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)' }}>{ahoraMs === null ? etiquetaSeAbre(aunNoAbre) : `La reserva se abre ${cuandoSeAbre(new Date(aunNoAbre), new Date(ahoraMs))}`}</span>
+              : <AvailabilityBadge estado={disp} plazas={clase.plazasLibres} />}
           <span style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)' }}>
             {bono ? 'Con tu bono · 1 sesión' : (clase.sinPrecioSuelto ? 'Solo con bono' : `${euros(clase.precioSuelto)} clase suelta`)}
           </span>
@@ -296,6 +304,10 @@ export default function FichaClasePage() {
         {yaNoSeReserva ? (
           <Button full disabled data-testid="reserva-cerrada">
             {enCurso ? 'La clase ya ha empezado' : 'La clase ya ha terminado'}
+          </Button>
+        ) : aunNoAbre ? (
+          <Button full disabled data-testid="reserva-aun-no-abre">
+            {etiquetaSeAbre(aunNoAbre)}
           </Button>
         ) : (
           <BookingButton

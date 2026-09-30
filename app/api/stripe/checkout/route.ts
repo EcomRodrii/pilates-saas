@@ -27,7 +27,7 @@ import {
 import { mapCodigoDescuento } from '@/lib/supabase-data';
 import type { RowCodigosDescuento } from '@/lib/db-types';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
-import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
@@ -401,6 +401,11 @@ export async function POST(req: NextRequest) {
       // Apertura suave: mismo criterio que checkout-embebido, antes de cobrar.
       const cierre = await cierreAperturaSuave(admin, body.studioId, socioId, sesion.inicio as string, { planQueCompra: body.planId });
       if (cierre) return conCorsWidget(req, NextResponse.json({ error: MENSAJE_APERTURA_SUAVE(cierre), codigo: 'apertura-suave' }, { status: 409 }));
+      // La ventana de reserva (cierre y apertura, también a hora fija): cobrar una
+      // clase que aún no se puede reservar —o que ya se cerró— era cobrar sin plaza,
+      // porque la reserva tras el pago (`reservarPlazaTrasPagoPublico`) la rechaza.
+      const ventana = await comprobarVentanaReserva(admin, { studioId: body.studioId, tipoClaseId: sesion.tipo_clase_id as string | null, inicioISO: sesion.inicio as string });
+      if (ventana) return conCorsWidget(req, NextResponse.json({ error: ventana.error, codigo: ventana.codigo }, { status: 409 }));
     }
 
     // 32ª pasada de auditoría: este camino (Modo A, redirección al Checkout

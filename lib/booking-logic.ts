@@ -9,6 +9,8 @@
 import type { Reserva, EstadoReserva, Socio, RewardAction, Sesion, Suscripcion, PlanTarifa } from '@/lib/types';
 import { ratioOcupacion } from './ocupacion.ts';
 import { tieneEntitlementActivo } from './bono-logic.ts';
+import { diaEnEstudio } from './calendario-hora-estudio.ts';
+import { fechaLargaEstudio, franjaLocalDe, instanteEnEstudio, masDias } from './utils.ts';
 
 // ─── Política de cancelación (C-2) y de reservas (C-4) ────────────────────────
 
@@ -42,15 +44,59 @@ export function heredaOverride<T>(override: T | null | undefined, valorEstudio: 
   return override ?? valorEstudio;
 }
 
+/** 'HH:MM' de una hora de la base de datos ('HH:MM:SS' en columnas `time`), o null. */
+export function horaHHMM(hora: string | null | undefined): string | null {
+  const m = hora ? /^(\d{2}):(\d{2})/.exec(hora) : null;
+  return m ? `${m[1]}:${m[2]}` : null;
+}
+
+/**
+ * Cuándo se abre la reserva de una clase: `dias` antes, en el CALENDARIO del
+ * estudio (Europe/Madrid), a la hora `hora` o, sin ella, a la misma hora que la
+ * clase.
+ *
+ * En calendario y no restando `dias × 24 h`: con la resta, entre la apertura y la
+ * clase un cambio de hora movía la apertura una hora, y la pantalla promete «2
+ * días antes, a la hora de la clase». Si esa hora no existe ese día (la madrugada
+ * del salto de primavera), se abre a la primera que sí: una hora más tarde.
+ */
+export function instanteDeApertura(inicioISO: string, dias: number, hora: string | null): Date {
+  const dia = masDias(diaEnEstudio(inicioISO), -dias);
+  let hhmm = horaHHMM(hora);
+  if (!hhmm) {
+    const f = franjaLocalDe(inicioISO);
+    hhmm = `${String(f.hora).padStart(2, '0')}:${String(f.minuto).padStart(2, '0')}`;
+  }
+  const iso = instanteEnEstudio(dia, hhmm);
+  if (iso) return new Date(iso);
+  const [h, m] = hhmm.split(':').map(Number);
+  const siguiente = instanteEnEstudio(dia, `${String(Math.min(h + 1, 23)).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  return new Date(siguiente ?? inicioISO);
+}
+
+/**
+ * Si la reserva de esta clase aún NO se ha abierto, cuándo se abre (ISO); si ya
+ * está abierta o no hay límite, null. Lo que pintan las pantallas públicas para
+ * decir «Se abre…» antes de que la alumna pulse; quien decide es el servidor.
+ */
+export function aperturaPendiente(
+  inicioISO: string, ahora: Date | number, antelacionMaximaDias: number | null, hora: string | null = null,
+): string | null {
+  if (antelacionMaximaDias == null) return null;
+  const abre = instanteDeApertura(inicioISO, antelacionMaximaDias, hora);
+  const t = typeof ahora === 'number' ? ahora : ahora.getTime();
+  return t < abre.getTime() ? abre.toISOString() : null;
+}
+
 // ¿Se puede reservar ya, o falta para que se abra la reserva? antelacionMaximaDias
 // null = sin límite (siempre se puede reservar, por adelantado que sea).
+// `hora` (studios.reserva_antelacion_hora): se abre a esa hora del día que toca;
+// null = a la misma hora que la clase.
 export function puedeReservarPorAntelacionMaxima(
-  inicioISO: string, ahora: Date, antelacionMaximaDias: number | null,
+  inicioISO: string, ahora: Date, antelacionMaximaDias: number | null, hora: string | null = null,
 ): boolean {
   if (antelacionMaximaDias == null) return true;
-  const inicio = new Date(inicioISO).getTime();
-  const abreEl = inicio - antelacionMaximaDias * 86_400_000;
-  return ahora.getTime() >= abreEl;
+  return ahora.getTime() >= instanteDeApertura(inicioISO, antelacionMaximaDias, hora).getTime();
 }
 
 // Apertura suave (Opening OS): con el interruptor puesto, las clases ANTERIORES
@@ -108,6 +154,43 @@ export function contarReservasActivasFuturas(
       (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA') &&
       futuras.has(r.sesionId),
   ).length;
+}
+
+/**
+ * Cuántas clases tiene ya la socia el MISMO DÍA (hora del estudio) que la sesión
+ * que quiere reservar — lo que acota `studios.reserva_max_por_dia`.
+ *
+ * Cuenta toda reserva no cancelada (confirmada, en lista de espera, pendiente de
+ * aprobar, asistida o no asistida) en clases no canceladas. La regla se cumple
+ * AL APUNTARSE, no al confirmar: por eso la lista de espera cuenta (si no, «una
+ * al día» se rompería en cuanto la promocionaran) y la promoción, aceptar una
+ * oferta o aprobar una pendiente no vuelven a comprobarla. Y cuenta NO_ASISTIO:
+ * si no, faltar sería la forma de reservar dos. Para liberar el hueco, se cancela.
+ *
+ * La sesión objetivo no cuenta: si ya está apuntada a ESA clase, que salga el
+ * mensaje de «ya reservada», no este.
+ */
+export function contarClasesDelDia(
+  socioId: string,
+  objetivo: { id: string; inicio: string },
+  reservas: readonly Pick<Reserva, 'socioId' | 'sesionId' | 'estado'>[],
+  sesiones: readonly { id: string; inicio: string; cancelada?: boolean | null }[],
+): number {
+  const dia = diaEnEstudio(objetivo.inicio);
+  const delDia = new Set(
+    sesiones.filter(s => !s.cancelada && s.id !== objetivo.id && diaEnEstudio(s.inicio) === dia).map(s => s.id),
+  );
+  return reservas.filter(r => r.socioId === socioId && r.estado !== 'CANCELADA' && delDia.has(r.sesionId)).length;
+}
+
+/** Lo que lee la alumna cuando ya tiene su máximo ese día. Con la fecha: sin
+ *  ella, «ya tienes una clase ese día» obliga a adivinar cuál. */
+export function mensajeMaxPorDia(tiene: number, max: number, inicioISO: string): string {
+  const fecha = fechaLargaEstudio(inicioISO);
+  const cuantas = tiene === 1 ? 'una clase' : `${tiene} clases`;
+  return max === 1
+    ? `Ya tienes ${cuantas} el ${fecha}: en este estudio se reserva como mucho una al día.`
+    : `Ya tienes ${cuantas} el ${fecha}: en este estudio se reservan como mucho ${max} al día.`;
 }
 
 // Plazas realmente ocupadas en una sesión: solo cuentan las confirmadas o ya

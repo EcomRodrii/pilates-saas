@@ -584,6 +584,14 @@ test('reglas de reserva: lo principal delante, y los tipos que la cambian antes 
     resumenRegla('reservar', { ...r, reservaAntelacionMaximaDias: 2, reservaVentanaMinimaMinutos: 30, reservaMaxSimultaneas: 3, bloquearReservaImpago: true }, dosLineas),
     'Hasta 2 días antes · se cierra 30 min antes · máx. 3 a la vez · con plan o bono',
   );
+  assert.equal(
+    resumenRegla('reservar', { ...r, reservaAntelacionMaximaDias: 7, reservaMaxPorDia: 1 }, dosLineas),
+    'Hasta 7 días antes · máx. 1 al día · con plan o bono',
+  );
+  assert.equal(
+    resumenRegla('reservar', { ...r, reservaAntelacionMaximaDias: 2, reservaAntelacionHora: '20:00' }, dosLineas),
+    'Se abre 2 días antes a las 20:00 · con plan o bono',
+  );
   assert.equal(resumenRegla('reservar', { ...r, bloquearReservaImpago: true }, dosLineas), 'Cualquier antelación · con plan o bono · no con un pago fallido');
   // Pide plan sin vender ninguno: el servidor no lo exige (`exigePlanAlReservar`).
   assert.equal(resumenRegla('reservar', r, { ...dosLineas, nadaALaVenta: true }), 'Cualquier antelación · sin plan ni bono hasta que vendas uno');
@@ -605,6 +613,9 @@ test('reglas de reserva: lo principal delante, y los tipos que la cambian antes 
 
   // Los tipos que la cambian no se pierden nunca por falta de sitio.
   assert.equal(resumenRegla('cancelar-y-recuperar', r, { excepciones: 2 }), 'Hasta 12 h antes · 2 tipos lo cambian');
+  assert.equal(resumenRegla('recuperaciones', r, dosLineas), 'Hasta 4 sin usar · caducan a final del mes siguiente');
+  assert.equal(resumenRegla('recuperaciones', { ...r, recuperacionMaxVivas: 6, recuperacionCaducidadTipo: 'DIAS', recuperacionCaducidadDias: 45, recuperacionAutoSemanal: true }, dosLineas),
+    'Hasta 6 sin usar · caducan a los 45 días · se dan solas los lunes');
   assert.equal(resumenRegla('lista-de-espera', r, { excepciones: 1 }), 'Plaza al momento · 1 tipo lo cambia');
   // El cargo propio de un tipo no se cobra: la fila no puede decir que «lo cambia».
   assert.equal(resumenRegla('si-cancela-tarde-o-no-viene', r, { excepciones: 2 }), 'Sin cargo · 2 tipos: su cargo no se cobra');

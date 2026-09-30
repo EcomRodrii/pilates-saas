@@ -20,7 +20,8 @@ function mensajeRecuperacion(nombre: string, caducaEl: string | null): string {
 }
 
 export function BotonBajaRecuperacion({ reserva, socio }: { reserva: Reserva; socio: Socio }) {
-  const { bajaConRecuperacion } = useStudio();
+  const { studio, bajaConRecuperacion } = useStudio();
+  const tope = studio?.recuperacionMaxVivas ?? 4;
   const [open, setOpen] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [waUrl, setWaUrl] = useState<string | null>(null);
@@ -50,7 +51,7 @@ export function BotonBajaRecuperacion({ reserva, socio }: { reserva: Reserva; so
       </a>
     );
   }
-  if (estado === 'tope') return <span className="text-[11px] font-medium text-warning shrink-0">Ya tiene 4 recuperaciones</span>;
+  if (estado === 'tope') return <span className="text-[11px] font-medium text-warning shrink-0">Ya tiene {tope} {tope === 1 ? 'recuperación' : 'recuperaciones'}</span>;
   if (estado === 'sin-tel') return <span className="text-[11px] font-medium text-success shrink-0">Recuperación guardada</span>;
   if (estado === 'error') return <span className="text-[11px] font-medium text-destructive shrink-0">Error, reintenta</span>;
 

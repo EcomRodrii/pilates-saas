@@ -21,7 +21,7 @@
 import type { DiaHorario, Studio, TipoIntegracion } from '../types.ts';
 import { avisoVentaOnline } from '../onboarding.ts';
 import { cuando, saludIntegracion, type FilaSalud, type SaludIntegracion } from '../integraciones/salud.ts';
-import type { ReglasReserva, TarjetaReglasId } from './reglas-reserva.ts';
+import { fraseCaducidadRecuperacion, fraseSeAbre, type ReglasReserva, type TarjetaReglasId } from './reglas-reserva.ts';
 import { nifEmisorValido, nifValido } from '../nif.ts';
 import { PLAN_INFO, tieneFeature, type Plan } from '../billing/entitlements.ts';
 import { urlAppInstructora } from '../avisos/app-instructora.ts';
@@ -864,11 +864,15 @@ export function resumenRegla(
       const dias = r.reservaAntelacionMaximaDias;
       const cierre = r.reservaVentanaMinimaMinutos;
       return u([
-        dias == null ? 'cualquier antelación' : dias === 0 ? 'se abre al empezar' : `hasta ${contar(dias, 'día', 'días')} antes`,
+        // Con hora fija se dice cuándo se abre; sin ella, el texto de siempre.
+        dias == null ? 'cualquier antelación'
+          : r.reservaAntelacionHora ? fraseSeAbre(dias, r.reservaAntelacionHora)
+            : dias === 0 ? 'se abre al empezar' : `hasta ${contar(dias, 'día', 'días')} antes`,
         excepciones,
         // Lo que acota cuándo y cuánto reserva, antes que el requisito de bono.
         cierre > 0 ? `se cierra ${duracion(cierre)} antes` : null,
         r.reservaMaxSimultaneas ? `máx. ${r.reservaMaxSimultaneas} a la vez` : null,
+        r.reservaMaxPorDia ? `máx. ${r.reservaMaxPorDia} al día` : null,
         // Aprobar a mano cambia más la vida de la alumna que pedir bono: va antes.
         r.requiereAprobacion ? 'la apruebas tú' : null,
         !r.reservaExigirPlan ? 'sin plan ni bono' : e.nadaALaVenta ? 'sin plan ni bono hasta que vendas uno' : 'con plan o bono',
@@ -883,6 +887,14 @@ export function resumenRegla(
         v > 0 ? (r.cancelacionDevolverBonoTardia ? 'después también recupera' : 'después pierde la sesión') : null,
       ]);
     }
+    case 'recuperaciones':
+      return u([
+        `hasta ${r.recuperacionMaxVivas} sin usar`,
+        // Hoy ningún tipo de clase la cambia (va sobre la alumna); se deja por el contrato de todas las filas.
+        excepciones,
+        fraseCaducidadRecuperacion(r.recuperacionCaducidadTipo, r.recuperacionCaducidadDias),
+        r.recuperacionAutoSemanal ? 'se dan solas los lunes' : null,
+      ]);
     case 'si-se-cancela-una-clase':
       return u([
         r.cancelacionClaseDevuelveBono ? 'devuelve la sesión' : 'no devuelve la sesión',

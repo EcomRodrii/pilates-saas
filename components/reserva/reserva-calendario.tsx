@@ -28,6 +28,8 @@ import type { ResultadoReserva } from '@/lib/studio-context';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { semantic } from '@/lib/portal-tokens';
 import { colorOcupacion, ratioOcupacion, etiquetaOcupacion, OCUPACION_COLOR } from '@/lib/ocupacion';
+import { cuandoSeAbre, etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
+import { useAunNoAbre } from '@/lib/reservar/use-aun-no-abre';
 import { useBloquearScrollFondo } from '@/components/ui/use-dialog-a11y';
 import { anfitrionPortal } from '@/lib/panel-portal';
 import { serif, sans, mono, cq, radius, shadow, EASE, densidadCss, paletaOscura, textoSemantico } from '@/lib/reservar-publico-tokens';
@@ -91,6 +93,13 @@ export interface ReservaSlot {
    * ninguna de las dos superficies públicas (Modo A/B) lo tenía.
    */
   miOfertaExpiraEn?: string | null;
+  /**
+   * Si la reserva de esta clase aún no se ha abierto, cuándo se abre (ISO;
+   * `aperturaPendiente`, lib/booking-logic.ts). La clase se enseña igual, con
+   * «Se abre…» en vez de las plazas, y la ficha no deja pulsar hasta entonces.
+   * Quien decide es el servidor; esto evita el «no» después de pulsar.
+   */
+  abreEl?: string | null;
   precio?: number | null;     // se muestra en el CTA si no hay cobertura de plan
   /**
    * §3 — Qué le cuesta a la alumna reservar ESTA clase, en una frase, ya
@@ -1086,7 +1095,7 @@ export function ReservaCalendario({
                           perder transparencia real sobre el coste, no solo
                           un paso de menos. */}
                       {g.items.map(slot => (
-                        <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => { if (saltarFichaSiInvitada) void onReservar(slot, null); else abrirSlot(slot); }} ocultarPrecio={ocultarPrecio} origenTentare={origenTentare} />
+                        <TarjetaClase key={slot.id} t={t} slot={slot} onOpen={() => { if (saltarFichaSiInvitada && !slot.abreEl) void onReservar(slot, null); else abrirSlot(slot); }} ocultarPrecio={ocultarPrecio} origenTentare={origenTentare} />
                       ))}
                     </div>
                   </div>
@@ -1396,7 +1405,13 @@ function SlotRowImpl({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; on
             <span style={{ fontSize: 12.5, color: t.muted }}>{slot.instructorNombre}</span>
           </div>
         )}
-        {!yaMia && (
+        {!yaMia && slot.abreEl && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: t.muted, flexShrink: 0 }} />
+            <span data-se-abre="" style={{ fontSize: 12, fontWeight: 600, color: t.muted, letterSpacing: '.01em' }}>{etiquetaSeAbre(slot.abreEl)}</span>
+          </div>
+        )}
+        {!yaMia && !slot.abreEl && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8 }}>
             <span style={{ width: 6, height: 6, borderRadius: 999, background: lleno ? t.muted : capColor, flexShrink: 0 }} />
             <span style={{ fontSize: 12, fontWeight: ratio >= 0.85 && !lleno ? 700 : 500, color: lleno ? t.muted : capColor, letterSpacing: '.01em' }}>
@@ -1473,6 +1488,7 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio, origenTentare = '' }
   // también, redundante.
   const plazasTxt = slot.miEstado === 'CONFIRMADA' ? 'Tu plaza'
     : slot.miEstado === 'LISTA_ESPERA' ? 'Completa'
+    : slot.abreEl ? etiquetaSeAbre(slot.abreEl)
     : lleno ? 'Completa'
     : libres <= 2 ? `Quedan ${libres}`
     : `${libres} plazas libres`;
@@ -1481,12 +1497,14 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio, origenTentare = '' }
   // Carbón daba 3,1:1 en un texto de 11,5 px.
   const plazasColor = slot.miEstado === 'CONFIRMADA' ? MARCA_TEXTO
     : slot.miEstado === 'LISTA_ESPERA' ? textoSemantico('warning', t)
+    : slot.abreEl ? t.muted
     : lleno ? t.muted
     : libres <= 2 ? textoSemantico('warning', t)
     : capColor;
 
   const ctaTxt = slot.miEstado === 'CONFIRMADA' ? 'Reservada'
     : slot.miEstado === 'LISTA_ESPERA' ? 'En espera'
+    : slot.abreEl ? 'Ver clase'
     : lleno ? 'Lista de espera'
     : 'Reservar';
 
@@ -1673,6 +1691,9 @@ function BookingSheet({
       : (slot.precio && !ocultarPrecio ? `Reservar por ${slot.precio} €` : 'Reservar');
 
   const esCancelar = tieneReserva;
+  // Aún no se abre: el botón espera, y se enciende SOLO a la hora exacta (un
+  // único temporizador, no el refresco de cada minuto de la página).
+  const aunNoAbre = useAunNoAbre(tieneReserva ? null : slot.abreEl ?? null);
 
   // Fase 5 (Booking Engine): oferta de plaza liberada, con plazo. `onAceptarOferta`
   // ausente (Modo B sin endpoint público wireado todavía) cae al aviso pasivo.
@@ -1797,6 +1818,7 @@ function BookingSheet({
       {resultado === 'CANCELADA' && <Banner t={t} tipo="warn" texto="Reserva cancelada." />}
       {!resultado && yaReservada && <Banner t={t} tipo="ok" texto="Ya tienes esta clase reservada." />}
       {!resultado && enEspera && !hayOferta && <Banner t={t} tipo="warn" texto="Estás en lista de espera para esta clase." />}
+      {!resultado && aunNoAbre && <Banner t={t} tipo="warn" texto={`La reserva de esta clase se abre ${cuandoSeAbre(new Date(aunNoAbre), new Date())}.`} />}
       {avisoRequisitoCompra && !tieneReserva && (
         <p style={{ margin: 0, fontSize: 12.5, color: t.ink, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'baseline' }}>
           <span>{avisoRequisitoCompra.texto}</span>
@@ -1811,7 +1833,7 @@ function BookingSheet({
       <button
         type="button"
         onClick={esCancelar ? onCancelar : onReservar}
-        disabled={resultado === 'CANCELADA' || enviando}
+        disabled={resultado === 'CANCELADA' || enviando || !!aunNoAbre}
         aria-busy={enviando}
         className="reserva-cta-btn"
         // El botón de la app: píldora (o la forma de botón del estudio) de 52,
@@ -1820,8 +1842,8 @@ function BookingSheet({
         style={{
           width: '100%', minHeight: 52, padding: '0 20px', borderRadius: 'var(--reservar-radio-boton, 999px)',
           fontFamily, fontSize: 15, fontWeight: 800, letterSpacing: '-.005em', border: 'none',
-          cursor: resultado === 'CANCELADA' || enviando ? 'default' : 'pointer',
-          opacity: resultado === 'CANCELADA' ? 0.4 : enviando ? 0.7 : 1,
+          cursor: resultado === 'CANCELADA' || enviando || aunNoAbre ? 'default' : 'pointer',
+          opacity: resultado === 'CANCELADA' || aunNoAbre ? 0.4 : enviando ? 0.7 : 1,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0,
           ...(esCancelar
             ? { background: semantic.danger.soft, color: textoSemantico('danger', t, t.bg) }
@@ -1831,7 +1853,7 @@ function BookingSheet({
         {enviando && (
           <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: 999, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.85, flexShrink: 0 }} />
         )}
-        {resultado === 'CANCELADA' ? 'Cancelada' : enviando ? 'Un momento…' : label}
+        {resultado === 'CANCELADA' ? 'Cancelada' : enviando ? 'Un momento…' : aunNoAbre ? etiquetaSeAbre(aunNoAbre) : label}
       </button>
     </>
   );

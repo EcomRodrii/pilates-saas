@@ -248,10 +248,30 @@ const CUERPO = 'flex flex-col gap-5 pb-6';
 
 // ── Reservar ────────────────────────────────────────────────────────────────
 
+type ModoApertura = 'siempre' | 'hora-de-la-clase' | 'hora-fija';
+
+const OPCIONES_APERTURA: { modo: ModoApertura; titulo: string; detalle: string }[] = [
+  { modo: 'siempre', titulo: 'Siempre abierta', detalle: 'En cuanto la clase está en tu horario.' },
+  { modo: 'hora-de-la-clase', titulo: 'Unos días antes, a la hora de la clase', detalle: 'La del jueves 18:00, con 2 días, se abre el martes a las 18:00.' },
+  { modo: 'hora-fija', titulo: 'Unos días antes, a una hora fija', detalle: 'Todas a la vez: la del jueves 18:00, con 2 días a las 20:00, se abre el martes a las 20:00.' },
+];
+
+/** Cambiar de forma no borra los días: se quedan los que había (o 7 si no había). */
+function setFormApertura(setForm: ReturnType<typeof useRegla>['setForm'], modo: ModoApertura) {
+  setForm(f => {
+    if (modo === 'siempre') return { ...f, reservaAntelacionMaximaDias: null, reservaAntelacionHora: null };
+    const dias = f.reservaAntelacionMaximaDias ?? 7;
+    if (modo === 'hora-de-la-clase') return { ...f, reservaAntelacionMaximaDias: dias, reservaAntelacionHora: null };
+    return { ...f, reservaAntelacionMaximaDias: dias, reservaAntelacionHora: f.reservaAntelacionHora ?? '20:00' };
+  });
+}
+
 export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
   const r = useRegla('reservar', props);
   const { form, cambiar } = r;
-  const imposible = antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias);
+  const imposible = antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias, form.reservaAntelacionHora);
+  const modo: ModoApertura = form.reservaAntelacionMaximaDias == null ? 'siempre' : form.reservaAntelacionHora ? 'hora-fija' : 'hora-de-la-clase';
+  const elegirModo = (m: ModoApertura) => setFormApertura(r.setForm, m);
   return (
     <>
       <div className={CUERPO}>
@@ -261,22 +281,60 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
           on={form.reservaExigirPlan}
           onChange={v => cambiar('reservaExigirPlan', v)}
         />
-        {/* Dos cifras con unidades distintas (días y minutos), dichas en una
-            frase para que no haya que adivinar cuál es cuál. */}
+        {/* Cuándo se abre: tres formas, cada una dicha entera. La hora fija es la
+            misma para todas («la del jueves 18:00 se abre el martes a las 20:00»);
+            un tipo de clase puede cambiar los días, nunca la hora. */}
         <fieldset className="space-y-2">
-          <legend className="mb-1 text-sm font-medium text-foreground">Con cuánta antelación se puede reservar</legend>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
-            <span>Desde</span>
-            <input
-              type="number" min={0} inputMode="numeric" className={cn(inputCls, 'w-28')}
-              placeholder="Sin límite"
-              aria-label="Días antes de la clase en que se abre la reserva"
-              aria-invalid={imposible}
-              value={form.reservaAntelacionMaximaDias ?? ''}
-              onChange={e => cambiar('reservaAntelacionMaximaDias', numeroOVacio(e))}
-            />
-            <span>días antes</span>
-          </div>
+          <legend className="mb-1 text-sm font-medium text-foreground">¿Cuándo se abre la reserva?</legend>
+          {OPCIONES_APERTURA.map(o => {
+            const elegida = modo === o.modo;
+            return (
+              <label
+                key={o.modo}
+                className={cn(
+                  'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                  elegida ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+                )}
+              >
+                <input
+                  type="radio" name="apertura-reserva" className="mt-1 accent-[var(--brand)]"
+                  checked={elegida}
+                  onChange={() => elegirModo(o.modo)}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">{o.titulo}</span>
+                  <span className="block text-sm text-muted-foreground text-pretty">{o.detalle}</span>
+                </span>
+              </label>
+            );
+          })}
+          {modo !== 'siempre' && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-sm text-foreground">
+              <input
+                type="number" min={0} inputMode="numeric" className={cn(inputCls, 'w-24')}
+                aria-label="Días antes de la clase en que se abre la reserva"
+                aria-invalid={imposible}
+                value={form.reservaAntelacionMaximaDias ?? ''}
+                onChange={e => cambiar('reservaAntelacionMaximaDias', numeroOVacio(e))}
+              />
+              <span>días antes,</span>
+              {modo === 'hora-fija' ? (
+                <>
+                  <span>a las</span>
+                  <input
+                    type="time" step={60} className={cn(inputCls, 'w-32')}
+                    aria-label="Hora a la que se abre la reserva"
+                    aria-invalid={imposible}
+                    value={form.reservaAntelacionHora ?? ''}
+                    onChange={e => cambiar('reservaAntelacionHora', e.target.value || null)}
+                  />
+                </>
+              ) : <span>a la hora de la clase</span>}
+            </div>
+          )}
+        </fieldset>
+        <fieldset className="space-y-2">
+          <legend className="mb-1 text-sm font-medium text-foreground">¿Hasta cuándo puede reservar?</legend>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
             <span>Hasta</span>
             <input
@@ -288,7 +346,7 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
             />
             <span>minutos antes</span>
           </div>
-          <p className="text-xs text-muted-foreground">Días vacío = sin límite. Minutos a 0 = hasta que empieza.</p>
+          <p className="text-xs text-muted-foreground">0 minutos = hasta que empieza.</p>
         </fieldset>
         <Campo label="Reservas a la vez por alumna" ayuda="Reservas activas en clases futuras. Vacío = sin límite.">
           {id => (
@@ -296,6 +354,15 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
               id={id} type="number" min={0} max={99} inputMode="numeric" className={inputCls} placeholder="Sin límite"
               value={form.reservaMaxSimultaneas ?? ''}
               onChange={e => cambiar('reservaMaxSimultaneas', numeroOVacio(e))}
+            />
+          )}
+        </Campo>
+        <Campo label="Clases al día por alumna" ayuda="Clases el mismo día, contando la lista de espera. Vacío = sin límite. Las clases por semana las pone cada plan, en Paquetes.">
+          {id => (
+            <input
+              id={id} type="number" min={1} max={20} inputMode="numeric" className={inputCls} placeholder="Sin límite"
+              value={form.reservaMaxPorDia ?? ''}
+              onChange={e => cambiar('reservaMaxPorDia', numeroOVacio(e))}
             />
           )}
         </Campo>
@@ -313,7 +380,7 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
         />
         <Consecuencia
           alerta={imposible}
-          texto={consecuenciaRegla('reservar', { ...r.guardado, reservaVentanaMinimaMinutos: form.reservaVentanaMinimaMinutos, reservaAntelacionMaximaDias: form.reservaAntelacionMaximaDias })}
+          texto={consecuenciaRegla('reservar', { ...r.guardado, reservaVentanaMinimaMinutos: form.reservaVentanaMinimaMinutos, reservaAntelacionMaximaDias: form.reservaAntelacionMaximaDias, reservaAntelacionHora: form.reservaAntelacionHora })}
         />
         {!imposible && (
           <EjemploConHoras
@@ -358,6 +425,45 @@ export function FormCancelarYRecuperar({ excepciones, ...props }: PropsCajonRegl
           on={form.cancelacionDevolverBonoTardia}
           onChange={v => cambiar('cancelacionDevolverBonoTardia', v)}
         />
+<Consecuencia texto={consecuenciaRegla('cancelar-y-recuperar', r.enPantalla)} />
+        <EjemploConHoras
+          reglas={r.enPantalla}
+          excepciones={excepciones}
+          frase={paso => {
+            const aTiempo = paso('cancela-a-tiempo');
+            if (!aTiempo) return null;
+            const tarde = paso('cancela-tarde');
+            return tarde ? `cancela gratis ${minuscula(aTiempo.cuando)}; después, ${minuscula(tarde.detalle.replace(/^Si cancela con menos de \d+ h, /, ''))}` : 'cancela gratis hasta que empieza.';
+          }}
+        />
+        <TiposDeClaseQueLaCambian tipos={excepciones} />
+      </div>
+      <Barra tarjeta="cancelar-y-recuperar" r={r} />
+    </>
+  );
+}
+
+// ── Recuperaciones ──────────────────────────────────────────────────────────
+
+/** El tope (antes un 4 fijo), la caducidad y el reparto de los lunes. Van sobre la
+ *  alumna, no sobre la clase: sin reglas propias por tipo de clase. */
+export function FormRecuperaciones(props: PropsCajonRegla) {
+  const r = useRegla('recuperaciones', props);
+  const { form, cambiar } = r;
+  return (
+    <>
+      <div className={CUERPO}>
+        {/* Lo aplica `crear_recuperacion` bajo su candado (migr 20260930215106). */}
+        <Campo label="Recuperaciones sin usar a la vez, por alumna" ayuda="De 1 a 20. Con esas, no se le da otra hasta que use o le caduque una.">
+          {id => (
+            <input
+              id={id} type="number" min={1} max={20} inputMode="numeric" className={cn(inputCls, 'max-w-40')}
+              aria-invalid={r.bloqueo != null}
+              value={Number.isFinite(form.recuperacionMaxVivas) ? form.recuperacionMaxVivas : ''}
+              onChange={e => cambiar('recuperacionMaxVivas', e.target.value === '' ? Number.NaN : Number(e.target.value))}
+            />
+          )}
+        </Campo>
         {/* Migr 0086: la política la aplica `calcular_caduca_recuperacion` dentro de `crear_recuperacion`. */}
         <Campo label="Cuándo caduca una recuperación" ayuda="Se cuenta desde que se concede, no desde la clase perdida.">
           {id => (
@@ -389,21 +495,9 @@ export function FormCancelarYRecuperar({ excepciones, ...props }: PropsCajonRegl
           on={form.recuperacionAutoSemanal}
           onChange={v => cambiar('recuperacionAutoSemanal', v)}
         />
-        <Consecuencia texto={consecuenciaRegla('cancelar-y-recuperar', r.enPantalla)} />
-        <EjemploConHoras
-          reglas={r.enPantalla}
-          excepciones={excepciones}
-          frase={paso => {
-            const aTiempo = paso('cancela-a-tiempo');
-            if (!aTiempo) return null;
-            const tarde = paso('cancela-tarde');
-            return tarde ? `cancela gratis ${minuscula(aTiempo.cuando)}; después, ${minuscula(tarde.detalle.replace(/^Si cancela con menos de \d+ h, /, ''))}` : 'cancela gratis hasta que empieza.';
-          }}
-        />
-        <NotaDeSerie>cada alumna guarda hasta 4 recuperaciones sin usar a la vez; con 4, no se le da otra hasta que use o le caduque una.</NotaDeSerie>
-        <TiposDeClaseQueLaCambian tipos={excepciones} />
+        <Consecuencia texto={consecuenciaRegla('recuperaciones', r.enPantalla)} />
       </div>
-      <Barra tarjeta="cancelar-y-recuperar" r={r} />
+      <Barra tarjeta="recuperaciones" r={r} />
     </>
   );
 }

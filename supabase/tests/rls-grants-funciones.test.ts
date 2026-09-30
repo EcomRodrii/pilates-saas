@@ -40,6 +40,9 @@ const CASOS: Caso[] = [
   // queda ningún llamador fuera de `admin.rpc(...)` — solo service_role.
   { firma: 'cancelar_reserva_plaza(text, text, text, boolean)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'mis_estudios()', anon: false, authenticated: true, serviceRole: true },
+  // 20260930215106 la redefine (tope configurable) con la misma firma: la llama
+  // el panel (ficha, importación) con su sesión y el servidor con service_role.
+  { firma: 'crear_recuperacion(text, text, text, text, text, date)', anon: false, authenticated: true, serviceRole: true },
 ];
 
 for (const caso of CASOS) {
