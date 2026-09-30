@@ -97,10 +97,8 @@ export async function descargarSnapshot(key: string): Promise<BackupSnapshot> {
 /** Sube un fichero binario a R2. Mismo motivo de Content-Length manual que
  *  `subirSnapshot` (aws4fetch + Vercel/undici → 411 sin esto). */
 export async function subirObjetoR2(key: string, bytes: Uint8Array, contentType: string): Promise<void> {
-  // Segunda capa: el importador de temas ya rechaza el ZIP con travesía
-  // (lib/theme-import/zip-parser.ts), pero este es el ÚNICO punto por el que
-  // pasan TODAS las subidas a R2 — la defensa de verdad va aquí, no en cada
-  // llamante. Ver lib/ruta-segura.ts.
+  // Este es el ÚNICO punto por el que pasan TODAS las subidas a R2 — la defensa
+  // contra la travesía de ruta va aquí, no en cada llamante. Ver lib/ruta-segura.ts.
   if (rutaConTravesia(key)) {
     throw new Error(`Clave de R2 con travesía de ruta rechazada: ${key}`);
   }
