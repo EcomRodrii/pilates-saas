@@ -2,7 +2,7 @@
 
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import { puedeActivarAccesoDelRol, puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
 import { leerSnapshotParaBaja, registrarBajaCartera } from '@/lib/instructor-dependency';
 import { obtenerOFirmarEnlace, marcarEnlaceEnviadoPorEmail } from '@/lib/sustituciones/enlaces';
 import { enviarEmailSolicitudDisponibilidad } from '@/lib/emails/solicitud-disponibilidad-server';
@@ -115,6 +115,13 @@ async function crearInstructora(
         .limit(1)
         .maybeSingle();
       authUserIdVinculado = (existente as { auth_user_id: string | null } | null)?.auth_user_id ?? null;
+      // Un manager da de alta a su recepcionista, pero no le deja la cuenta en
+      // marcha: vincularla aquí saltaría el paso de quien puede mover dinero (el
+      // enlace firmado, `emisorPuedeDarlo`). La ficha se crea igualmente, sin
+      // cuenta, y su acceso lo activa quien puede.
+      if (authUserIdVinculado && !puedeActivarAccesoDelRol(sesion.rol, rol as Rol)) {
+        authUserIdVinculado = null;
+      }
     }
   }
 
@@ -200,6 +207,16 @@ async function editarInstructora(
   if (!esPropietario && 'rol' in update
       && !rolesQuePuedeAsignar(sesion.rol).includes(update.rol as never)) {
     throw new ErrorAccion('No puedes dar ese nivel de acceso. Pídeselo a la propietaria.', 403);
+  }
+
+  // Cambiar el rol de una ficha SIN cuenta es preparar un alta (un manager
+  // puede). Cambiarlo en una ficha CON cuenta es activar ese acceso ahora mismo:
+  // si el rol nuevo mueve dinero, lo decide quien puede moverlo, igual que en el
+  // enlace firmado. La misma regla la aplica en base de datos el trigger
+  // `instructores_rol_dinero_exige_permiso`.
+  if ('rol' in update && ficha.auth_user_id && update.rol !== ficha.rol
+      && !puedeActivarAccesoDelRol(sesion.rol, update.rol as Rol)) {
+    throw new ErrorAccion('Esa persona ya tiene acceso al panel: darle un rol que cobra lo decide la propietaria.', 403);
   }
 
   if ('nombre' in update && !String(update.nombre).trim()) {

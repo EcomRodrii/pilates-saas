@@ -3,7 +3,7 @@
 // app/api/equipo/reclamar/route.ts, que corre con service-role y por tanto se
 // salta la RLS entera: aquí no hay red de seguridad debajo, esto ES la cerradura.
 
-import { puedeMoverDinero } from '../permisos-reglas.ts';
+import { puedeActivarAccesoDelRol, puedeMoverDinero } from '../permisos-reglas.ts';
 import type { Rol } from '../types';
 
 // ── Por qué hace falta el enlace firmado, y no basta el email ────────────────
@@ -78,9 +78,14 @@ function reclamable(rol: Rol): boolean {
 // `rolEmisor` null = token antiguo, de antes de que se firmara quién invitaba.
 // Se trata como "no consta", no como "propietaria": la duda no puede resolverse
 // a favor de dar más permisos.
+//
+// La regla en sí (`puedeActivarAccesoDelRol`) vive en permisos-reglas.ts porque
+// no es solo de este enlace: el alta entre sedes y el cambio de rol sobre una
+// ficha con cuenta la aplican también, y una copia por sitio es como se abren
+// huecos.
 function emisorPuedeDarlo(rolFicha: Rol, rolEmisor: Rol | null): boolean {
-  if (!puedeMoverDinero(rolFicha)) return true;
-  return rolEmisor !== null && puedeMoverDinero(rolEmisor);
+  if (rolEmisor === null) return !puedeMoverDinero(rolFicha);
+  return puedeActivarAccesoDelRol(rolEmisor, rolFicha);
 }
 
 // Devuelve null si se puede vincular, o el motivo por el que no.
