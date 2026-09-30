@@ -255,7 +255,9 @@ jobs:
       # asegurar, así que se salta (no se reordena: no hay ningún sitio al
       # que moverla). Solo en el checkout efímero, igual que los dos de
       # arriba — no es una migración inútil en producción, solo irreproducible
-      # desde cero.
+      # desde cero. La tabla se retira en 20260930140000 (un `drop ... if
+      # exists`, que en una BD nueva no hace nada), pero este `rm` se queda:
+      # el ALTER de esta migración seguiría fallando sin la tabla.
       - name: Saltar el ALTER de RLS sobre la tabla huérfana respaldo_sereno_studio1 (solo para este job)
         run: rm supabase/migrations/20260819211544_respaldo_sereno_studio1_rls.sql
 
