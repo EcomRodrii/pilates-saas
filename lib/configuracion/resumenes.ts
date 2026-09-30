@@ -30,6 +30,8 @@ import { SECCIONES, seccionDeTarjeta, tarjetaVisible, type HerramientaId, type R
 import { nombreCreditos } from '../creditos-nombre.ts';
 
 export const MAX_RESUMEN = 44;
+/** Las filas de «Cómo reservan mis alumnas»: a dos líneas (ver `resumenRegla`). */
+export const MAX_RESUMEN_REGLA = 88;
 export const MAX_REVISA = 3;
 
 export type TonoAviso = 'problema' | 'pendiente';
@@ -847,43 +849,53 @@ const euros = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2).replace('
 export function resumenRegla(
   tarjeta: TarjetaReglasId,
   r: ReglasReserva,
-  e: { excepciones: number; pideConfirmacion?: boolean | null },
+  // `max`: la sección «Cómo reservan mis alumnas» pinta cada fila a dos líneas
+  // (MAX_RESUMEN_REGLA), porque una regla que se calla un ajuste activo —«máx.
+  // 3 a la vez», «se cierra 30 min antes»— dice algo que no es. En cualquier
+  // otro sitio, una línea (MAX_RESUMEN).
+  e: { excepciones: number; pideConfirmacion?: boolean | null; max?: number },
 ): string | null {
   const excepciones = tiposQueLaCambian(e.excepciones);
+  const u = (partes: readonly (string | null | undefined)[]) => unir(partes, e.max);
   switch (tarjeta) {
     case 'reservar': {
       const dias = r.reservaAntelacionMaximaDias;
-      return unir([
+      const cierre = r.reservaVentanaMinimaMinutos;
+      return u([
         dias == null ? 'cualquier antelación' : dias === 0 ? 'se abre al empezar' : `hasta ${contar(dias, 'día', 'días')} antes`,
         excepciones,
+        // Lo que acota cuándo y cuánto reserva, antes que el requisito de bono.
+        cierre > 0 ? `se cierra ${duracion(cierre)} antes` : null,
+        r.reservaMaxSimultaneas ? `máx. ${r.reservaMaxSimultaneas} a la vez` : null,
         // Aprobar a mano cambia más la vida de la alumna que pedir bono: va antes.
         r.requiereAprobacion ? 'la apruebas tú' : null,
         r.reservaExigirPlan ? 'con plan o bono' : 'sin plan ni bono',
+        r.bloquearReservaImpago ? 'no con un pago fallido' : null,
       ]);
     }
     case 'cancelar-y-recuperar': {
       const v = r.cancelacionVentanaHoras;
-      return unir([
+      return u([
         v > 0 ? `hasta ${numero(v)} h antes` : 'cancela hasta el último momento',
         excepciones,
         v > 0 ? (r.cancelacionDevolverBonoTardia ? 'después también recupera' : 'después pierde la sesión') : null,
       ]);
     }
     case 'si-se-cancela-una-clase':
-      return unir([
+      return u([
         r.cancelacionClaseDevuelveBono ? 'devuelve la sesión' : 'no devuelve la sesión',
         excepciones,
         r.minimoAsistentesPorClase > 0 ? `mínimo ${contar(r.minimoAsistentesPorClase, 'alumna', 'alumnas')}` : 'sin mínimo',
       ]);
     case 'lista-de-espera': {
       const plazo = r.listaEsperaPlazoAceptacionMinutos;
-      return unir([
+      return u([
         !r.permiteListaEspera ? 'sin lista de espera' : plazo > 0 ? `oferta de ${duracion(plazo)}` : 'plaza al momento',
         excepciones,
       ]);
     }
     case 'asistencia':
-      return unir([
+      return u([
         r.requiereCheckinQr ? 'se pasa lista' : 'sin pasar lista',
         r.controlAccesoQr === false ? 'sin QR de acceso' : null,
         excepciones,
@@ -894,10 +906,10 @@ export function resumenRegla(
       // Un tipo con otro cargo no se cobra nunca: el consentimiento exige el
       // importe del estudio (penalizacion-consentimiento.ts). «Lo cambian» diría que sí.
       const conOtroCargo = e.excepciones > 0 ? `${contar(e.excepciones, 'tipo', 'tipos')}: su cargo no se cobra` : null;
-      if (importe <= 0) return unir(['sin cargo', conOtroCargo]);
+      if (importe <= 0) return u(['sin cargo', conOtroCargo]);
       const tarde = r.penalizacionAplicaCancelacionTardia;
       const falta = r.penalizacionAplicaNoShow;
-      return unir([
+      return u([
         euros(importe),
         conOtroCargo,
         r.penalizacionCobroAutomatico ? 'se cobra solo' : 'lo apruebas tú',
@@ -905,7 +917,7 @@ export function resumenRegla(
       ]);
     }
     case 'si-se-queda-sin-cuota':
-      return unir([
+      return u([
         // Cortos a propósito: con «12 tipos lo cambian» detrás tiene que caber en MAX_RESUMEN.
         r.plazaFijaSinCuota === 'LIBERAR' ? 'se liberan sus clases'
           : r.plazaFijaSinCuota === 'MANTENER_SIN_PENALIZAR' ? 'conserva, sin cargo'
@@ -913,7 +925,7 @@ export function resumenRegla(
         excepciones,
       ]);
     case 'plaza-fija-desde-la-app':
-      return unir([
+      return u([
         r.plazaFijaSolicitarDesdeApp && r.plazaFijaPausaDesdeApp ? 'piden plaza y pausa'
           : r.plazaFijaSolicitarDesdeApp ? 'piden plaza fija'
           : r.plazaFijaPausaDesdeApp ? 'piden pausas'
@@ -921,7 +933,7 @@ export function resumenRegla(
         excepciones,
       ]);
     case 'si-pausa-su-plaza-fija':
-      return unir([
+      return u([
         !r.plazaFijaPausaLiberaSitio ? 'conserva su sitio'
           : r.plazaFijaFinPausa === 'PENDIENTE_CONFIRMAR' ? 'sitio libre, te pregunta'
           : 'sitio libre, vuelve sola',

@@ -1,13 +1,15 @@
 'use client';
 
-import { Ban, BellRing, CalendarCheck, CalendarX, ClipboardCheck, Coins, ListOrdered, Pause, RotateCcw, Smartphone, Timer, Undo2, Users, type LucideIcon } from 'lucide-react';
+import { Ban, Bell, BellRing, CalendarCheck, CalendarClock, CalendarX, ClipboardCheck, Coins, ListOrdered, Pause, Smartphone, Undo2, type LucideIcon } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { setAvisarAlumnas } from '@/lib/api-client';
 import { hayPenalizacionConfigurada } from '@/lib/configuracion/penalizacion-activa';
-import { excepcionesPorRegla, reglasGuardadas, type TarjetaReglasId } from '@/lib/configuracion/reglas-reserva';
-import { resumenContrato, resumenRegla } from '@/lib/configuracion/resumenes';
+import { excepcionesPorRegla, queCambiaElTipo, reglasGuardadas, type ReglasReserva, type TarjetaReglasId, type TipoConReglas } from '@/lib/configuracion/reglas-reserva';
+import { MAX_RESUMEN_REGLA, resumenContrato, resumenRegla } from '@/lib/configuracion/resumenes';
+import { resumenClasesPorSemana } from '@/lib/configuracion/linea-de-tiempo-reserva';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
-import { FilaAjuste, FilaInformativa, FilaInterruptor, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { FilaAjuste, FilaExterna, FilaInterruptor, FilaOtraSeccion, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { AsiLoViveTuAlumna } from './asi-lo-vive-tu-alumna';
 import {
   FormAsistencia, FormCancelarYRecuperar, FormClaseCancelada, FormListaEspera, FormPausaPlazaFija, FormPenalizacion,
   FormPlazaFijaDesdeApp, FormReservar, FormSinCuota,
@@ -15,7 +17,8 @@ import {
 } from '@/components/configuracion/tab-estudio-reservas';
 
 // Cómo reservan mis alumnas: cada regla, una fila con su valor de hoy
-// («Hasta 12 h antes · 2 tipos lo cambian») que se cambia en su cajón
+// («Hasta 12 h antes · después pierde la sesión», y debajo «Reformer: cancela
+// gratis hasta 24 h antes») que se cambia en su cajón
 // (tab-estudio-reservas.tsx). Los ids de las filas son las anclas de siempre
 // (`#asistencia` desde el pase de lista, `#lista-de-espera` desde ⌘K): abren su
 // cajón.
@@ -24,11 +27,17 @@ import {
 // único escritor (`/api/sustituciones`, el mismo que usa Sustituciones), y
 // vuelve atrás si dice que no.
 //
-// «Tentare lo hace así» cuenta lo que es de serie y no se toca, comprobado en el
-// código: el tope de 4 recuperaciones vivas (`crear_recuperacion`), el corte a
-// 2 h del mínimo de asistentes (`cancelar-por-minimo.ts`) y que la plaza libre
-// pasa sola a la primera en apuntarse (`promocionar_siguiente_espera`, por
-// `creado_en`).
+// Arriba, «Así lo vive tu alumna»: las reglas contadas sobre una clase de verdad,
+// con horas (asi-lo-vive-tu-alumna.tsx). Debajo, las filas agrupadas por MOMENTO
+// de la alumna (antes de reservar, si cambia de planes, el día de la clase, plaza
+// fija), cada una con los tipos de clase que la cambian y QUÉ cambian. Lo que
+// decide cómo reserva y vive en otra pantalla —clases por semana de cada plan,
+// recordatorios— tiene aquí su fila-enlace.
+//
+// Lo que Tentare hace de serie y no se toca (el tope de 4 recuperaciones vivas,
+// el corte del mínimo a 2 h, la plaza libre a la primera de la lista) se cuenta
+// DENTRO del cajón de su regla (tab-estudio-reservas.tsx, `NotaDeSerie`), no en
+// un grupo aparte que repetía lo que ya decía cada cajón.
 
 const CAJONES = [
   'reservar', 'cancelar-y-recuperar', 'si-se-cancela-una-clase', 'lista-de-espera', 'asistencia', 'si-cancela-tarde-o-no-viene',
@@ -48,7 +57,7 @@ const ICONOS: Record<TarjetaReglasId, LucideIcon> = {
 };
 
 export function SeccionReservas({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, dataLoaded, tiposClase, textosLegalesPropios, reflejarStudioGuardado } = useStudio();
+  const { studio, dataLoaded, tiposClase, sesiones, planesTarifa, textosLegalesPropios, reflejarStudioGuardado } = useStudio();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
   const confirmacion = useConfirmacionRiesgo();
 
@@ -60,7 +69,8 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
   // Sin cargar, cada fila enseña su descripción: nunca un valor de fábrica que no es el suyo.
   const cargado = dataLoaded ? studio : null;
   const reglas = cargado ? reglasGuardadas(cargado) : null;
-  const excepciones = excepcionesPorRegla(reglas ?? reglasGuardadas(null), dataLoaded ? tiposClase : []);
+  const tipos: readonly TipoConReglas[] = dataLoaded ? tiposClase : [];
+  const excepciones = excepcionesPorRegla(reglas ?? reglasGuardadas(null), tipos);
 
   // Con términos propios no se cobra ninguna penalización: lo mismo que dice
   // «Contrato y privacidad» en Alta de alumnas, con las mismas palabras.
@@ -71,8 +81,9 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
 
   function fila(id: TarjetaReglasId) {
     const problema = id === 'si-cancela-tarde-o-no-viene' && contrato.estado ? contrato : null;
+    // A dos líneas y sin «N tipos lo cambian»: debajo va QUÉ tipo y QUÉ cambia.
     const valor = problema?.valor ?? (reglas
-      ? resumenRegla(id, reglas, { excepciones: excepciones[id].length, pideConfirmacion: confirmacion.guardada })
+      ? resumenRegla(id, reglas, { excepciones: 0, pideConfirmacion: confirmacion.guardada, max: MAX_RESUMEN_REGLA })
       : null);
     return (
       <FilaAjuste
@@ -81,7 +92,8 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
         icono={ICONOS[id]}
         valor={valor}
         estado={problema?.estado}
-        entero={excepciones[id].length > 0}
+        entero
+        extra={reglas ? <Excepciones tarjeta={id} reglas={reglas} tipos={tipos} ids={excepciones[id].map(t => t.id)} /> : null}
         onAbrir={abrir}
       />
     );
@@ -99,19 +111,38 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
 
   return (
     <>
-      <GrupoFilas titulo="Reservar y cancelar">
+      <AsiLoViveTuAlumna reglas={reglas} tipos={tipos} sesiones={dataLoaded ? sesiones : []} />
+
+      <GrupoFilas titulo="Antes de reservar">
         {fila('reservar')}
-        {fila('cancelar-y-recuperar')}
-        {fila('si-se-cancela-una-clase')}
-      </GrupoFilas>
-
-      <GrupoFilas titulo="Clases llenas y asistencia">
         {fila('lista-de-espera')}
-        {fila('asistencia')}
+        <FilaExterna
+          id="fila-clases-por-semana"
+          icono={CalendarClock}
+          titulo="Clases por semana"
+          valor={dataLoaded ? resumenClasesPorSemana(planesTarifa) : null}
+          descripcion="Cuántas clases a la semana puede hacer con cada plan. Se pone en cada plan, en Paquetes."
+          href="/productos"
+        />
       </GrupoFilas>
 
-      <GrupoFilas titulo="Cargos y avisos">
+      <GrupoFilas titulo="Si cambia de planes">
+        {fila('cancelar-y-recuperar')}
         {fila('si-cancela-tarde-o-no-viene')}
+      </GrupoFilas>
+
+      <GrupoFilas titulo="El día de la clase">
+        {fila('asistencia')}
+        <FilaOtraSeccion
+          id="fila-recordatorios"
+          icono={Bell}
+          titulo="Recordatorios"
+          valor={null}
+          descripcion="Cuándo le llega el recordatorio de su clase. Se cambia en Avisos en el móvil."
+          seccion="comunicacion"
+          ancla="avisos-del-movil"
+        />
+        {fila('si-se-cancela-una-clase')}
         <FilaInterruptor
           id="ajuste-avisar-alumnas"
           icono={BellRing}
@@ -124,12 +155,6 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
         {fila('si-se-queda-sin-cuota')}
         {fila('plaza-fija-desde-la-app')}
         {fila('si-pausa-su-plaza-fija')}
-      </GrupoFilas>
-
-      <GrupoFilas titulo="Tentare lo hace así">
-        <FilaInformativa icono={Users} titulo="La plaza que se libera va a la primera de la lista" detalle="Por orden de llegada: al momento, o con el plazo para aceptarla que pongas en Lista de espera." />
-        <FilaInformativa icono={Timer} titulo="Una clase sin su mínimo de alumnas se cancela 2 h antes" detalle="Solo si le pones un mínimo. Avisa a quien tenía plaza." />
-        <FilaInformativa icono={RotateCcw} titulo="Cada alumna guarda hasta 4 recuperaciones" detalle="Sin usar a la vez: con 4, no se le da otra hasta que use o le caduque una." />
       </GrupoFilas>
 
       <CajonAjuste id="reservar" abierto={cajon === 'reservar'} onCerrar={cerrar}>
@@ -159,6 +184,25 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
       <CajonAjuste id="si-pausa-su-plaza-fija" abierto={cajon === 'si-pausa-su-plaza-fija'} onCerrar={cerrar}>
         <FormPausaPlazaFija {...props('si-pausa-su-plaza-fija')} />
       </CajonAjuste>
+    </>
+  );
+}
+
+/** «HIIT Reformer: cancela gratis hasta 24 h antes»: qué tipo la cambia y qué cambia (hasta tres). */
+function Excepciones({ tarjeta, reglas, tipos, ids }: {
+  tarjeta: TarjetaReglasId; reglas: ReglasReserva; tipos: readonly TipoConReglas[]; ids: readonly string[];
+}) {
+  if (ids.length === 0) return null;
+  const lineas = ids
+    .map(id => tipos.find(t => t.id === id))
+    .filter((t): t is TipoConReglas => !!t)
+    .map(t => ({ id: t.id, texto: `${t.nombre}: ${queCambiaElTipo(tarjeta, t, reglas) ?? 'su propia regla'}` }));
+  return (
+    <>
+      {lineas.slice(0, 3).map(l => (
+        <span key={l.id} data-excepcion="" className="inline-flex max-w-full rounded-lg border border-border bg-card px-2 py-0.5 text-[12px] text-foreground">{l.texto}</span>
+      ))}
+      {lineas.length > 3 && <span className="inline-flex px-1 py-0.5 text-[12px] text-muted-foreground">y {lineas.length - 3} más</span>}
     </>
   );
 }

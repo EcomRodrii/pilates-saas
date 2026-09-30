@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
 import Link from 'next/link';
+import { CalendarClock, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { Toggle, inputCls } from '@/components/configuracion/estilos';
@@ -12,6 +13,7 @@ import { Campo, useFormularioEstudio } from '@/components/configuracion/formular
 import { obtenerConfirmacionRiesgo, actualizarConfirmacionRiesgo } from '@/lib/api-client';
 import { hrefDeHerramienta } from '@/lib/configuracion/destino';
 import { tarjetaPorId } from '@/lib/configuracion/secciones';
+import { claseDeEjemplo, instante, lineaDeTiempoReserva, type PasoReserva } from '@/lib/configuracion/linea-de-tiempo-reserva';
 import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import {
   antelacionImposible, confirmarPenalizacion, confirmarPlazaFijaSinCuota, consecuenciaRegla, EXPLICACION_PAUSA_PLAZA_FIJA,
@@ -114,6 +116,47 @@ function Consecuencia({ texto, alerta }: { texto: string; alerta?: boolean }) {
   );
 }
 
+/** Lo que Tentare hace de serie en esta regla y no se configura: dicho donde se decide lo demás. */
+function NotaDeSerie({ children }: { children: ReactNode }) {
+  return (
+    <p data-nota-de-serie="" className="flex items-start gap-2 text-[12.5px] text-muted-foreground text-pretty">
+      <Info size={14} aria-hidden className="mt-0.5 shrink-0" />
+      <span><strong className="font-semibold text-foreground">De serie:</strong> {children}</span>
+    </p>
+  );
+}
+
+/**
+ * La regla que hay en pantalla, contada sobre la próxima clase que la sigue (sin
+ * reglas propias de su tipo para esta tarjeta) o una de ejemplo: cambia al
+ * tocar un número, antes de guardar. La cuenta es `lineaDeTiempoReserva`, la
+ * misma de «Así lo vive tu alumna».
+ */
+function EjemploConHoras({ reglas, excepciones, frase }: {
+  reglas: ReglasReserva;
+  excepciones: TiposQueLaCambian;
+  frase: (paso: (id: PasoReserva['id']) => PasoReserva | undefined) => string | null;
+}) {
+  const { sesiones, tiposClase } = useStudio();
+  const [ahora] = useState(() => new Date());
+  const conPropia = new Set(excepciones.map(t => t.id));
+  const clase = claseDeEjemplo(sesiones, id => tiposClase.find(t => t.id === id)?.nombre ?? null, ahora, id => !conPropia.has(id));
+  const pasos = lineaDeTiempoReserva(reglas, clase.inicio);
+  const texto = frase(id => pasos.find(p => p.id === id));
+  if (!texto) return null;
+  return (
+    <p data-ejemplo="" className="flex items-start gap-2 rounded-lg border border-border px-3 py-2.5 text-sm text-foreground text-pretty">
+      <CalendarClock size={15} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" />
+      <span>
+        <strong className="font-semibold">Ejemplo</strong>{' '}
+        <span className="text-muted-foreground">({clase.nombre ? `${clase.nombre}, ` : 'una clase el '}{instante(clase.inicio)})</span>: {texto}
+      </span>
+    </p>
+  );
+}
+
+const minuscula = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+
 function enumerar(nombres: readonly string[]): string {
   if (nombres.length <= 1) return nombres[0] ?? '';
   if (nombres.length > 3) return `${nombres.slice(0, 2).join(', ')} y ${nombres.length - 2} más`;
@@ -129,7 +172,9 @@ function TiposDeClaseQueLaCambian({ tipos, cargo = false }: { tipos: TiposQueLaC
     <div data-excepciones="" className="text-sm text-muted-foreground text-pretty">
       <p>
         {enumerar(tipos.map(t => t.nombre))} {tipos.length === 1 ? 'tiene' : 'tienen'}{' '}
-        {cargo ? 'su propio cargo, y no se cobra: tus alumnas solo aceptaron el del estudio.' : 'su propia regla: no siguen esta.'}
+        {cargo
+          ? 'su propio cargo, y no se cobra: tus alumnas solo aceptaron el del estudio.'
+          : `su propia regla: no ${tipos.length === 1 ? 'sigue' : 'siguen'} esta.`}
       </p>
       <Link
         href={hrefDeHerramienta('tipos-de-clase')}
@@ -270,6 +315,19 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
           alerta={imposible}
           texto={consecuenciaRegla('reservar', { ...r.guardado, reservaVentanaMinimaMinutos: form.reservaVentanaMinimaMinutos, reservaAntelacionMaximaDias: form.reservaAntelacionMaximaDias })}
         />
+        {!imposible && (
+          <EjemploConHoras
+            reglas={r.enPantalla}
+            excepciones={excepciones}
+            frase={paso => {
+              const abre = paso('abre');
+              const cierra = paso('cierra');
+              if (!abre || !cierra) return null;
+              const desde = r.enPantalla.reservaAntelacionMaximaDias == null ? 'desde ya' : minuscula(abre.cuando);
+              return `puede reservar ${desde} ${minuscula(cierra.cuando)}.`;
+            }}
+          />
+        )}
         <TiposDeClaseQueLaCambian tipos={excepciones} />
       </div>
       <Barra tarjeta="reservar" r={r} />
@@ -332,6 +390,17 @@ export function FormCancelarYRecuperar({ excepciones, ...props }: PropsCajonRegl
           onChange={v => cambiar('recuperacionAutoSemanal', v)}
         />
         <Consecuencia texto={consecuenciaRegla('cancelar-y-recuperar', r.enPantalla)} />
+        <EjemploConHoras
+          reglas={r.enPantalla}
+          excepciones={excepciones}
+          frase={paso => {
+            const aTiempo = paso('cancela-a-tiempo');
+            if (!aTiempo) return null;
+            const tarde = paso('cancela-tarde');
+            return tarde ? `cancela gratis ${minuscula(aTiempo.cuando)}; después, ${minuscula(tarde.detalle.replace(/^Si cancela con menos de \d+ h, /, ''))}` : 'cancela gratis hasta que empieza.';
+          }}
+        />
+        <NotaDeSerie>cada alumna guarda hasta 4 recuperaciones sin usar a la vez; con 4, no se le da otra hasta que use o le caduque una.</NotaDeSerie>
         <TiposDeClaseQueLaCambian tipos={excepciones} />
       </div>
       <Barra tarjeta="cancelar-y-recuperar" r={r} />
@@ -366,6 +435,7 @@ export function FormClaseCancelada({ excepciones, ...props }: PropsCajonRegla) {
           )}
         </Campo>
         <Consecuencia texto={consecuenciaRegla('si-se-cancela-una-clase', r.enPantalla)} />
+        <NotaDeSerie>con un mínimo, la clase que no lo alcanza se cancela sola 2 h antes y avisa a quien tenía plaza. Sin mínimo, nunca se cancela sola.</NotaDeSerie>
         <TiposDeClaseQueLaCambian tipos={excepciones} />
       </div>
       <Barra tarjeta="si-se-cancela-una-clase" r={r} />
@@ -434,6 +504,7 @@ export function FormListaEspera({ excepciones, ...props }: PropsCajonRegla) {
           </Campo>
         )}
         {lista.ok && <Consecuencia texto={consecuenciaRegla('lista-de-espera', r.enPantalla)} />}
+        <NotaDeSerie>la plaza que se libera va a la primera de la lista, por orden de llegada.</NotaDeSerie>
         <TiposDeClaseQueLaCambian tipos={excepciones} />
       </div>
       <Barra tarjeta="lista-de-espera" r={r} />

@@ -4,7 +4,7 @@ import type { DiaHorario } from '../types.ts';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_REVISA, NO_DISPONIBLE_TODAVIA, TARJETA_DE_INTEGRACION, agruparConexiones, estadoDelPlan,
+  CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_RESUMEN_REGLA, MAX_REVISA, NO_DISPONIBLE_TODAVIA, TARJETA_DE_INTEGRACION, agruparConexiones, estadoDelPlan,
   resumenAppsConAcceso, resumenConexion, resumenCreditosPorAccion, resumenDireccion, resumenPaginaPublica, resumenReglasCreditos,
   avisosDeConfiguracion, rangoDeFechas, resumenCierres, resumenCompraPublica,
   resumenContacto, resumenContrato, resumenCuestionarioSalud, resumenDatosExtra, resumenDatosFiscales, resumenDevoluciones, resumenFacturacion,
@@ -576,6 +576,15 @@ test('reglas de reserva: lo principal delante, y los tipos que la cambian antes 
   const sin = { excepciones: 0 };
   assert.equal(resumenRegla('reservar', r, sin), 'Cualquier antelación · con plan o bono');
   assert.equal(resumenRegla('reservar', { ...r, reservaAntelacionMaximaDias: 30, requiereAprobacion: true }, sin), 'Hasta 30 días antes · la apruebas tú');
+  // A dos líneas (la sección de reglas) caben los que acotan cuándo y cuánto
+  // reserva; lo que no cabe se cae por el final (el detalle completo lo cuenta
+  // «Así lo vive tu alumna»).
+  const dosLineas = { excepciones: 0, max: MAX_RESUMEN_REGLA };
+  assert.equal(
+    resumenRegla('reservar', { ...r, reservaAntelacionMaximaDias: 2, reservaVentanaMinimaMinutos: 30, reservaMaxSimultaneas: 3, bloquearReservaImpago: true }, dosLineas),
+    'Hasta 2 días antes · se cierra 30 min antes · máx. 3 a la vez · con plan o bono',
+  );
+  assert.equal(resumenRegla('reservar', { ...r, bloquearReservaImpago: true }, dosLineas), 'Cualquier antelación · con plan o bono · no con un pago fallido');
   assert.equal(resumenRegla('cancelar-y-recuperar', r, sin), 'Hasta 12 h antes · después pierde la sesión');
   assert.equal(resumenRegla('cancelar-y-recuperar', { ...r, cancelacionVentanaHoras: 0 }, sin), 'Cancela hasta el último momento');
   assert.equal(resumenRegla('si-se-cancela-una-clase', r, sin), 'Devuelve la sesión · sin mínimo');

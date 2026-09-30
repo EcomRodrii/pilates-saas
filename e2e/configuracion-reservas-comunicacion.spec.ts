@@ -116,14 +116,17 @@ for (const vista of VISTAS) {
       await abrir(page, 'configuracion?tab=reservas');
       await expect(valor(page, 'reservar')).toHaveText('Hasta 30 días antes · con plan o bono', { timeout: 30_000 });
       // Reformer (24 h) y Mat (6 h); Suelo pone lo mismo y Barre está apagado.
-      await expect(valor(page, 'cancelar-y-recuperar')).toHaveText('Hasta 12 h antes · 2 tipos lo cambian');
+      await expect(valor(page, 'cancelar-y-recuperar')).toHaveText('Hasta 12 h antes · después pierde la sesión');
+      // Debajo, qué tipo la cambia y QUÉ cambia (no solo cuántos).
+      await expect(page.locator('#cancelar-y-recuperar [data-excepcion]'))
+        .toHaveText(['Reformer: cancela gratis hasta 24 h antes', 'Mat: cancela gratis hasta 6 h antes']);
       await expect(valor(page, 'si-se-cancela-una-clase')).toHaveText('Devuelve la sesión · sin mínimo');
       await expect(valor(page, 'lista-de-espera')).toHaveText('Oferta de 30 min');
       await expect(valor(page, 'asistencia')).toHaveText('Se pasa lista');
       await expect(valor(page, 'si-cancela-tarde-o-no-viene')).toHaveText('5 € · lo apruebas tú');
       await expect(page.getByRole('switch', { name: 'Avisos a las alumnas' })).toHaveAttribute('aria-checked', 'true');
-      // Lo que es de serie se cuenta, sin chevron ni interruptor.
-      await expect(page.locator('[data-fila-informativa]')).toHaveCount(3);
+      // Lo que es de serie ya no es un grupo de filas aparte: va en el cajón de su regla.
+      await expect(page.locator('[data-fila-informativa]')).toHaveCount(0);
       await expect(page.getByText('Cuando algo cambia, Tentare…')).toHaveCount(0);
       expect(await desborde(page), 'Reservas se sale de lado').toBeLessThanOrEqual(0);
 
@@ -141,6 +144,7 @@ for (const vista of VISTAS) {
       await expect(page.getByRole('spinbutton', { name: 'Plazo para cancelar sin perder la sesión (horas antes)' })).toHaveValue('12');
       await expect(cajon(page).locator('[data-consecuencia]')).toHaveText('Si cancela con menos de 12 h, no recupera la sesión.');
       await expect(cajon(page).locator('[data-excepciones]')).toContainText('Reformer y Mat tienen su propia regla');
+      await expect(cajon(page).locator('[data-nota-de-serie]')).toContainText('hasta 4 recuperaciones sin usar a la vez');
       await expect(cajon(page).getByRole('link', { name: 'Ver tipos de clase' })).toHaveAttribute('href', '/configuracion?tab=clases&abrir=tipos-de-clase');
       // Sin cambios, ni barra ni «Guardar» gris en reposo.
       await expect(guardar(page)).toHaveCount(0);
