@@ -15,11 +15,13 @@ type SesionMin = { inicio: string; cancelada: boolean; tipoClaseId: string };
  * selector por tipo de clase: la forma de ver qué cambia cada uno sin abrirlo.
  * La cuenta la hace `lineaDeTiempoReserva` (lib/configuracion/linea-de-tiempo-reserva.ts).
  */
-export function AsiLoViveTuAlumna({ reglas, tipos, sesiones }: {
+export function AsiLoViveTuAlumna({ reglas, tipos, sesiones, planes }: {
   /** `null` mientras carga: no se cuenta nada con valores de fábrica. */
   reglas: ReglasReserva | null;
   tipos: readonly TipoConReglas[];
   sesiones: readonly SesionMin[];
+  /** Para «pide plan o bono» como el servidor: sin nada a la venta no se exige. */
+  planes: { activo: boolean; esPrueba?: boolean }[];
 }) {
   const [elegido, setElegido] = useState<string | null>(null);
   // El instante se fija al montar: calcularlo en cada render movería la clase de
@@ -38,7 +40,7 @@ export function AsiLoViveTuAlumna({ reglas, tipos, sesiones }: {
 
   const conPropias = new Set(propias.map(p => p.t.id));
   const tipo = elegido ? tipos.find(t => t.id === elegido) ?? null : null;
-  const efectivas = reglasEfectivasDeTipo(reglas, tipo);
+  const efectivas = reglasEfectivasDeTipo(reglas, tipo, planes);
   const nombreDe = (id: string) => tipos.find(t => t.id === id)?.nombre ?? null;
   // «Todo el estudio» se cuenta sobre una clase que siga SUS reglas: una de un
   // tipo con reglas propias contaría otra cosa.

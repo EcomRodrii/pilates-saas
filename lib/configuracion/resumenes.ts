@@ -853,7 +853,9 @@ export function resumenRegla(
   // (MAX_RESUMEN_REGLA), porque una regla que se calla un ajuste activo —«máx.
   // 3 a la vez», «se cierra 30 min antes»— dice algo que no es. En cualquier
   // otro sitio, una línea (MAX_RESUMEN).
-  e: { excepciones: number; pideConfirmacion?: boolean | null; max?: number },
+  // `nadaALaVenta`: pide plan pero no vende ninguno. El servidor no lo exige
+  // entonces (`exigePlanAlReservar`): «con plan o bono» diría lo que no es.
+  e: { excepciones: number; pideConfirmacion?: boolean | null; max?: number; nadaALaVenta?: boolean },
 ): string | null {
   const excepciones = tiposQueLaCambian(e.excepciones);
   const u = (partes: readonly (string | null | undefined)[]) => unir(partes, e.max);
@@ -869,7 +871,7 @@ export function resumenRegla(
         r.reservaMaxSimultaneas ? `máx. ${r.reservaMaxSimultaneas} a la vez` : null,
         // Aprobar a mano cambia más la vida de la alumna que pedir bono: va antes.
         r.requiereAprobacion ? 'la apruebas tú' : null,
-        r.reservaExigirPlan ? 'con plan o bono' : 'sin plan ni bono',
+        !r.reservaExigirPlan ? 'sin plan ni bono' : e.nadaALaVenta ? 'sin plan ni bono hasta que vendas uno' : 'con plan o bono',
         r.bloquearReservaImpago ? 'no con un pago fallido' : null,
       ]);
     }

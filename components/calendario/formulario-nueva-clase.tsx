@@ -36,7 +36,6 @@ import {
   instantesDe, minutosEntre, motivoSalto, planDeFechas, planesQueLaIncluyen, textoDuracion, tituloSaltos,
 } from '@/lib/calendario/nueva-clase';
 import { diaSemanaLocal, esHoraHHMM } from '@/lib/citas/slots';
-import { exigePlanAlReservar } from '@/lib/bono-logic';
 import { TARJETAS_REGLAS, queCambiaElTipo, reglasGuardadas } from '@/lib/configuracion/reglas-reserva';
 import { instante, lineaDeTiempoReserva, reglasEfectivasDeTipo } from '@/lib/configuracion/linea-de-tiempo-reserva';
 import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
@@ -231,13 +230,11 @@ export function FormularioNuevaClase({
     : [];
 
   // «Cómo se reserva esta clase»: las reglas del tipo resueltas como al reservar
-  // (`reglasEfectivasDeTipo`) y contadas sobre la primera clase que se va a crear,
-  // con la misma línea de tiempo que «Así lo vive tu alumna» en Configuración.
+  // (`reglasEfectivasDeTipo`, con los planes: sin nada a la venta no se exige
+  // plan) y contadas sobre la primera clase que se va a crear, con la misma línea
+  // de tiempo que «Así lo vive tu alumna» en Configuración.
   const reglasEstudio = reglasGuardadas(studio);
-  const efectivas = reglasEfectivasDeTipo(reglasEstudio, tipo);
-  // Exigir plan sin nada a la venta no exige nada: es lo que aplica el servidor
-  // (`exigePlanAlReservar`), y sin esto la línea diría «con un plan o bono».
-  const reglasDeLaClase = { ...efectivas, reservaExigirPlan: exigePlanAlReservar(efectivas.reservaExigirPlan, planes) };
+  const reglasDeLaClase = reglasEfectivasDeTipo(reglasEstudio, tipo, planes);
   const inicioPrimera = plan.crear[0]?.inicio
     ?? (fecha && esHoraHHMM(horaInicio) ? instantesDe(fecha, horaInicio, horaInicio).inicio : null);
   const pasosReserva = inicioPrimera ? lineaDeTiempoReserva(reglasDeLaClase, new Date(inicioPrimera)) : [];
@@ -482,7 +479,7 @@ export function FormularioNuevaClase({
               </span>
             </summary>
             <div className="space-y-2 border-t border-border px-4 py-3 text-xs text-muted-foreground">
-              {inicioPrimera && <p>Así lo vive tu alumna en la del {instante(new Date(inicioPrimera))}:</p>}
+              {inicioPrimera && <p>Así lo vive tu alumna en la clase del {instante(new Date(inicioPrimera))}:</p>}
               <ol className="space-y-1.5">
                 {pasosReserva.map(p => (
                   <li key={p.id} className="text-pretty">

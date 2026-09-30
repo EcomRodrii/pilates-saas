@@ -585,6 +585,9 @@ test('reglas de reserva: lo principal delante, y los tipos que la cambian antes 
     'Hasta 2 días antes · se cierra 30 min antes · máx. 3 a la vez · con plan o bono',
   );
   assert.equal(resumenRegla('reservar', { ...r, bloquearReservaImpago: true }, dosLineas), 'Cualquier antelación · con plan o bono · no con un pago fallido');
+  // Pide plan sin vender ninguno: el servidor no lo exige (`exigePlanAlReservar`).
+  assert.equal(resumenRegla('reservar', r, { ...dosLineas, nadaALaVenta: true }), 'Cualquier antelación · sin plan ni bono hasta que vendas uno');
+  assert.equal(resumenRegla('reservar', { ...r, reservaExigirPlan: false }, { ...dosLineas, nadaALaVenta: true }), 'Cualquier antelación · sin plan ni bono');
   assert.equal(resumenRegla('cancelar-y-recuperar', r, sin), 'Hasta 12 h antes · después pierde la sesión');
   assert.equal(resumenRegla('cancelar-y-recuperar', { ...r, cancelacionVentanaHoras: 0 }, sin), 'Cancela hasta el último momento');
   assert.equal(resumenRegla('si-se-cancela-una-clase', r, sin), 'Devuelve la sesión · sin mínimo');
