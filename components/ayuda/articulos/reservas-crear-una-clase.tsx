@@ -13,7 +13,7 @@ export default function Contenido() {
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Abre el Calendario y crea una clase nueva">
-        <p>Desde el panel, en Calendario, el botón &ldquo;Nueva clase&rdquo; abre este formulario.</p>
+        <p>Desde el panel, en Calendario, el botón &ldquo;Crear clase&rdquo; → &ldquo;Clase&rdquo; abre este formulario.</p>
         <AyudaCaptura
           src="/help/reservas/calendario-nueva-clase.png"
           alt="Formulario de nueva clase: tipo, sala, instructora, fecha, horario, aforo máximo y repetición semanal"
@@ -23,15 +23,22 @@ export default function Contenido() {
 
       <AyudaPaso numero={2} titulo="Elige tipo de clase, sala e instructora">
         <p style={{ margin: 0 }}>
-          El aforo máximo es un campo que tú fijas —normalmente igual a la capacidad de la sala, pero puedes bajarlo
-          para una clase concreta (por ejemplo, si una máquina está averiada ese día). Al llenarse, las siguientes
-          reservas entran en lista de espera; no se bloquean.
+          Las plazas son las del tipo de clase o, si no tiene, las de la sala; puedes bajarlas para una clase concreta
+          (por ejemplo, si una máquina está averiada ese día). Debajo se lee qué pasa cuando se llena, con las reglas
+          de ese tipo de clase: si tiene lista de espera, las siguientes entran en ella; si no, nadie más puede
+          reservarla. La hora de fin sale de la duración del tipo de clase hasta que la cambias a mano, y si la clase
+          cae fuera del horario de tu estudio ese día o en un cierre del centro te lo avisa, aunque puedes crearla
+          igual. En &ldquo;Cómo se reserva esta clase&rdquo; ves sus reglas: cuándo se abre y se cierra la reserva,
+          qué bono o plan hace falta, hasta cuándo se cancela sin perder la sesión y la lista de espera.
         </p>
       </AyudaPaso>
 
       <AyudaPaso numero={3} titulo="Clase suelta o serie recurrente">
         <p>
-          El interruptor &ldquo;Repetir semanalmente&rdquo; convierte la clase en una serie. Al editar después una
+          El interruptor &ldquo;Se repite&rdquo; convierte la clase en una serie: marcas los días de la semana y hasta
+          qué fecha, y te dice cuántas clases salen. Si alguna fecha choca con otra clase —la sala ocupada o la
+          instructora dando otra— o cae en un cierre del centro, te la enseña con el motivo, se la salta y crea las
+          demás. Al editar después una
           clase de la serie eliges si el cambio vale solo para esa clase o para esa y las siguientes, y
           &ldquo;Serie&rdquo; → &ldquo;Cancelar serie&rdquo; cancela esa clase y las que vienen detrás — ver <Link href="/ayuda/reservas/editar-o-cancelar-una-clase" style={{ color: 'inherit', textDecoration: 'underline' }}>editar o cancelar una clase</Link>.
           {' '}Una serie dura las semanas que elijas. Cuando le queda un mes aparece en Resumen para que la renueves (o
@@ -43,7 +50,7 @@ export default function Contenido() {
           semanas y te avisa.
         </p>
         <p>
-          Para crear una serie directamente, usa el botón &ldquo;Clase recurrente&rdquo; de la cabecera del Calendario.
+          También puedes crearla desde &ldquo;Crear clase&rdquo; → &ldquo;Clase fija&rdquo;.
           Las clases de una serie llevan la marca ↻ y, al abrirlas, dicen hasta cuándo se repiten. Y la vista
           &ldquo;Horario&rdquo; (junto a Día, Semana y Mes) reúne todas las que se repiten por día de la semana:
           hasta cuándo va cada una, si se renueva sola y cuántas alumnas tienen plaza fija, con los botones para

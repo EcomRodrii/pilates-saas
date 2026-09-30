@@ -112,9 +112,9 @@ test.describe('Duplicar clase', () => {
     await expect(cajon.getByRole('combobox', { name: 'Sala' })).toHaveValue('sala-1');
     await expect(cajon.getByRole('combobox', { name: 'Instructora' })).toHaveValue('ins-1');
     await expect(cajon.locator('input[type="date"]')).toHaveValue(DUPLICADO_FECHA);
-    await expect(cajon.getByRole('textbox', { name: 'Hora inicio' })).toHaveValue('10:00');
-    await expect(cajon.getByRole('textbox', { name: 'Hora fin' })).toHaveValue('10:50');
-    await expect(cajon.getByRole('spinbutton', { name: /Aforo/i })).toHaveValue('12');
+    await expect(cajon.getByRole('textbox', { name: 'Empieza' })).toHaveValue('10:00');
+    await expect(cajon.getByRole('textbox', { name: 'Termina' })).toHaveValue('10:50');
+    await expect(cajon.getByRole('spinbutton', { name: /Plazas/i })).toHaveValue('12');
 
     // La nota es de la instancia de origen, no de la plantilla — no se copia.
     await expect(cajon.getByLabel(/Notas/i)).toHaveValue('');

@@ -3,8 +3,7 @@
 import { precioClaseSuelta as precioSueltaDelEstudio } from '@/lib/student/precio-suelta';
 import { ETIQUETA_INSTRUCTORA_NO_DISPONIBLE, nombreInstructoraDeClase } from '@/lib/equipo/clases-sin-instructora';
 import * as Sentry from '@sentry/nextjs';
-import { useState, useMemo, useEffect, useRef, useCallback, useId, useSyncExternalStore, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
-import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
+import { useState, useMemo, useEffect, useRef, useCallback, useId, useSyncExternalStore } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { capturarMensaje } from '@/lib/sentry-cliente';
 import { useStudio } from '@/lib/studio-context';
@@ -16,7 +15,7 @@ import { queImparten } from '@/lib/equipo';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias, puedeGestionarCalendario } from '@/lib/permisos';
 import { semaforo, alertaPreClase, resumenSaludClase, RESPUESTAS_ORDEN, RESPUESTA_META, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { authHeader } from '@/lib/api-client';
-import type { ReservaEnriquecida, Sesion } from '@/lib/types';
+import type { ReservaEnriquecida, Sesion, Studio, TipoClase } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
@@ -27,7 +26,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
-import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera, TZ_ESTUDIO } from '@/lib/utils';
+import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera, hoyEnEstudio, masDias, TZ_ESTUDIO } from '@/lib/utils';
 import { horaParedAInstante, fechaLocalDe, esHoraHHMM } from '@/lib/citas/slots';
 import { calcularImpactoEdicionSerie, cambiosPorClase, type EdicionDeSerie, type ImpactoEdicionSerie } from '@/lib/series-impacto-edicion';
 import { DialogoImpactoEdicion, type CambioVisible } from '@/components/series/dialogo-impacto-edicion';
@@ -48,6 +47,12 @@ import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
+import { AvisoAforoSala, DIA_PILLS, DiaPill, FormField, inputCls, selectCls } from '@/components/calendario/campos-clase';
+import { FormularioNuevaClase, type InicialNuevaClase, type SesionNueva, type SlotConTipo } from '@/components/calendario/formulario-nueva-clase';
+import { finConDuracion, fraseAlLlenarse } from '@/lib/calendario/nueva-clase';
+import { dbListCierres } from '@/lib/supabase-data';
+import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
+import type { ResultadoEscritura } from '@/lib/errores';
 import { Toast, useToast } from '@/components/ui/toast';
 import { PageHeader } from '@/components/ui/page-header';
 
@@ -113,6 +118,8 @@ import { nombreSerie } from '@/lib/series-renovacion';
 // componente: dentro era un objeto nuevo en cada render, y es el valor inicial
 // de cuatro estados.
 const FALLBACK = new Date('2026-01-01T12:00:00');
+/** Mientras no se han leído los cierres del centro: el mismo array siempre, para no recalcular. */
+const SIN_CIERRES: CierreGuardado[] = [];
 /** El ajuste «Peticiones desde su app», al que lleva el aviso de la vista Horario. */
 const HREF_PETICIONES_PLAZA_FIJA = '/configuracion?tab=reservas#plaza-fija-desde-la-app';
 
@@ -182,11 +189,6 @@ function buscarSesionSemanaSiguiente(
   ) ?? null;
 }
 
-// ─── Shared input styles ──────────────────────────────────────────────────────
-
-const inputCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground transition-colors';
-const selectCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground transition-colors appearance-none';
-
 // ─── SesionEnriquecida local type ─────────────────────────────────────────────
 // Sigue viva: toda la lógica de formulario/edición/conflictos (existentesSlot,
 // detectarConflictos, cobertura...) necesita ver TODO el estudio, no solo lo
@@ -225,8 +227,6 @@ type FormData = {
   aforoMaximo: number;
   aforoTocado?: boolean;
   notas: string;
-  repetir: boolean;
-  repetirSemanas: number;
 };
 
 // ─── RecurringFormData ────────────────────────────────────────────────────────
@@ -247,83 +247,6 @@ type RecurringFormData = {
   duracionTocada?: boolean;
 };
 
-// ─── Aviso de aforo mayor que la sala ─────────────────────────────────────────
-
-function AvisoAforoSala({ salas, salaId, aforo }: {
-  salas: { id: string; nombre: string; capacidad: number }[];
-  salaId: string;
-  aforo: number;
-}) {
-  const sala = salas.find(s => s.id === salaId);
-  if (!sala || !Number.isFinite(aforo) || aforo <= sala.capacidad) return null;
-  return (
-    <p role="alert" className="mt-1.5 text-[11px] leading-snug text-[var(--warning)]">
-      «{sala.nombre}» tiene {sala.capacidad} plaza{sala.capacidad === 1 ? '' : 's'}.
-      Con {aforo} estarías vendiendo {aforo - sala.capacidad} más de las que caben.
-    </p>
-  );
-}
-
-// ─── FormField wrapper ────────────────────────────────────────────────────────
-
-function FormField({
-  label,
-  description,
-  children,
-}: {
-  label: string;
-  description?: ReactNode;
-  children: ReactNode;
-}) {
-  const { htmlFor, control } = useCampoAsociado(children);
-  const descAutoId = useId();
-  const idDesc = description ? `${descAutoId}-desc` : undefined;
-  const controlDescrito = idDesc && isValidElement(control)
-    ? cloneElement(control as ReactElement<{ 'aria-describedby'?: string }>, { 'aria-describedby': idDesc })
-    : control;
-
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</label>
-      {description && (
-        <p id={idDesc} className="text-xs leading-relaxed text-muted-foreground text-balance">
-          {description}
-        </p>
-      )}
-      {controlDescrito}
-    </div>
-  );
-}
-
-// ─── DiaPill ─────────────────────────────────────────────────────────────────
-
-function DiaPill({ label, nombre, active, onClick }: { label: string; nombre: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      // La letra sola («M», «X») no dice qué día es a un lector de pantalla, ni
-      // si está marcado.
-      aria-label={nombre}
-      aria-pressed={active}
-      className={cn(
-        // Con el dedo, 44 px de alto y el ancho que le toque en la fila de siete;
-        // con ratón, el círculo de 36 px de siempre.
-        'h-11 w-full rounded-full text-[13px] font-bold transition-colors pointer-fine:h-9 pointer-fine:w-9 pointer-fine:text-[12px]',
-        active ? 'bg-brand text-brand-foreground' : 'bg-muted text-muted-foreground hover:bg-border'
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
-const DIA_PILLS: { label: string; nombre: string; day: number }[] = [
-  { label: 'L', nombre: 'Lunes', day: 1 }, { label: 'M', nombre: 'Martes', day: 2 }, { label: 'X', nombre: 'Miércoles', day: 3 },
-  { label: 'J', nombre: 'Jueves', day: 4 }, { label: 'V', nombre: 'Viernes', day: 5 }, { label: 'S', nombre: 'Sábado', day: 6 },
-  { label: 'D', nombre: 'Domingo', day: 0 },
-];
-
 // Botones Día · Semana · Mes · Horario. En el móvil reparten el ancho, miden
 // 44 px y van sin icono (con él, «Semana» no cabía en su cuarto de 375 px).
 const BOTON_VISTA = 'flex items-center justify-center gap-1.5 px-1.5 md:px-3 py-1.5 min-h-11 md:min-h-0 rounded-lg text-sm md:text-xs font-bold transition-colors [&>svg]:hidden sm:[&>svg]:block';
@@ -332,11 +255,13 @@ const BOTON_VENTANA = 'flex size-7 items-center justify-center rounded-md text-m
 // ─── ModalClasesRecurrentes ───────────────────────────────────────────────────
 
 function ModalClasesRecurrentes({
-  open, onClose, tiposClase, instructores, salas, onCrear, sesionesExistentes, ausencias = [], initial,
+  open, onClose, tiposClase, instructores, salas, onCrear, sesionesExistentes, ausencias = [], initial, studio,
 }: {
   open: boolean;
   onClose: () => void;
-  tiposClase: { id: string; nombre: string; aforoPorDefecto?: number | null; duracionMinutos?: number | null }[];
+  tiposClase: TipoClase[];
+  /** Para decir qué pasa al llenarse con la lista de espera que se aplica de verdad. */
+  studio: Studio | null;
   instructores: { id: string; nombre: string }[];
   ausencias?: AusenciaInstructora[];
   salas: { id: string; nombre: string; capacidad: number }[];
@@ -365,8 +290,10 @@ function ModalClasesRecurrentes({
     // 60 y se le solapaban las salas.
     duracion: tiposClase[0]?.duracionMinutos ?? 60,
     diasSemana: [1, 3],
-    fechaInicio: new Date().toISOString().slice(0, 10),
-    fechaFin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    // Día del ESTUDIO, no de UTC: entre las 00:00 y las 02:00 de Madrid,
+    // `toISOString()` proponía el día anterior.
+    fechaInicio: hoyEnEstudio(),
+    fechaFin: masDias(hoyEnEstudio(), 30),
     aforoMaximo: aforoPorDefectoDeSesion(tiposClase[0]?.aforoPorDefecto, salas[0]?.capacidad),
   };
 
@@ -554,7 +481,7 @@ function ModalClasesRecurrentes({
               <input type="date" className={f2} value={form.fechaFin} onChange={e => setForm(f => ({ ...f, fechaFin: e.target.value }))} />
             </FormField>
           </div>
-          <FormField label="Aforo máximo" description="Al llenarse, las siguientes reservas entran en lista de espera; no se bloquean.">
+          <FormField label="Aforo máximo" description={fraseAlLlenarse(studio, tiposClase.find(t => t.id === form.tipoClaseId))}>
             <input type="number" min={1} max={300} className={f2} value={form.aforoMaximo}
               onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value), aforoTocado: true }))} />
           </FormField>
@@ -743,6 +670,18 @@ export default function Calendario() {
 
   // ── Modals ──────────────────────────────────────────────────────────────────
   const [showForm, setShowForm] = useState<'nueva' | 'editar' | null>(null);
+  // Lo que se pinta en el cajón mientras se cierra: sin esto, al cerrar «Nueva
+  // clase» se veía el formulario de editar durante la animación de salida.
+  const [modoCajon, setModoCajon] = useState<'nueva' | 'editar'>('nueva');
+  if (showForm && showForm !== modoCajon) setModoCajon(showForm);
+  // «Nueva clase» es su propio componente, con su estado (teclear ya no vuelve a
+  // pintar el calendario entero). La página le da el punto de partida —hueco
+  // pulsado, duplicar— y una clave nueva en cada apertura, que lo reinicia.
+  const [inicialNueva, setInicialNueva] = useState<InicialNuevaClase | null>(null);
+  const [claveNueva, setClaveNueva] = useState(0);
+  // Cierres del centro, para que el formulario avise (y una clase que se repite
+  // se los salte, como `renovar_serie`). Se piden al abrirlo, no con la página.
+  const [cierres, setCierres] = useState<CierreGuardado[] | null>(null);
   const [showRecurrentes, setShowRecurrentes] = useState(false);
   // «Crear clase» pregunta primero qué: una clase de un día o una clase fija. Eran
   // dos botones («Nueva clase» y «Clase recurrente») y los estudios no sabían
@@ -777,7 +716,6 @@ export default function Calendario() {
       email: { clase: string; fecha: string; hora: string; sala: string; instructora: string; anterior: string };
     } | null
   >(null);
-  const [errorSesion, setErrorSesion] = useState<string | null>(null);
   const [avisoSinBono, setAvisoSinBono] = useState<
     { sesionId: string; socioId: string; motivo: MotivoSinBono } | null
   >(null);
@@ -818,8 +756,6 @@ export default function Calendario() {
       : '10:00',
     aforoMaximo: aforoPorDefectoDeSesion(tiposClase[0]?.aforoPorDefecto, salas[0]?.capacidad),
     notas: '',
-    repetir: false,
-    repetirSemanas: 4,
   }), [tiposClase, salas, instructores, now]);
 
   const [form, setForm] = useState<FormData>(() => emptyForm());
@@ -883,14 +819,15 @@ export default function Calendario() {
     [sesionActual, reservas, socios, spots]
   );
 
-  const horaInvalida = !!(showForm && form.horaInicio && form.horaFin && form.horaFin <= form.horaInicio);
+  // Solo para EDITAR: «Nueva clase» calcula lo suyo en su propio componente.
+  const editando = showForm === 'editar';
+  const horaInvalida = !!(editando && form.horaInicio && form.horaFin && form.horaFin <= form.horaInicio);
   // Un <input type="time"> borrado da '': sin hora no hay clase que guardar (y la
   // conversión a instante lanzaría). Mismo criterio que el formulario de series.
-  const horaVacia = !!(showForm && (!form.horaInicio || !form.horaFin));
-  const repetirInvalido = !!(showForm === 'nueva' && form.repetir && (!form.repetirSemanas || form.repetirSemanas < 2));
+  const horaVacia = !!(editando && (!form.horaInicio || !form.horaFin));
 
   const faltaConfigurar = useMemo(() => {
-    if (!showForm) return null;
+    if (!editando) return null;
     // La instructora solo se exige al CREAR. El horario propuesto deja clases
     // «Sin instructora» y, al editar una para cambiarle la sala, el formulario
     // obligaba a elegir instructora antes de dejar guardar (evaluación del
@@ -898,13 +835,14 @@ export default function Calendario() {
     return faltaParaCrearClase({
       tipoClaseId: form.tipoClaseId, salaId: form.salaId, instructorId: form.instructorId,
       hayTipos: tiposClase.length > 0, haySalas: salas.length > 0, hayInstructoras: instructores.length > 0,
-      exigeInstructora: showForm === 'nueva',
+      exigeInstructora: false,
     });
-  }, [showForm, form.tipoClaseId, form.salaId, form.instructorId, tiposClase.length, salas.length, instructores.length]);
+  }, [editando, form.tipoClaseId, form.salaId, form.instructorId, tiposClase.length, salas.length, instructores.length]);
 
-  const existentesSlot = useMemo<SlotSesion[]>(() => sesiones.map(s => ({
+  // Con el tipo de clase: «Nueva clase» dice qué clase ocupa el hueco que choca.
+  const existentesSlot = useMemo<SlotConTipo[]>(() => sesiones.map(s => ({
     id: s.id, salaId: s.salaId, instructorId: s.instructorId,
-    inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
+    inicio: s.inicio, fin: s.fin, cancelada: s.cancelada, tipoClaseId: s.tipoClaseId,
   })), [sesiones]);
 
   // ── Buscador rápido (Fase 2): sobre TODO el estudio, no solo `datosVista`,
@@ -962,26 +900,26 @@ export default function Calendario() {
   }, [sesiones]);
 
   const conflictosForm = useMemo(() => {
-    if (!showForm || !form.fecha || !form.horaInicio || !form.horaFin) return null;
+    if (!editando || !form.fecha || !form.horaInicio || !form.horaFin) return null;
     const inicio = toISO(form.fecha, form.horaInicio);
     const fin = toISO(form.fecha, form.horaFin);
     if (new Date(fin).getTime() <= new Date(inicio).getTime()) return null;
     const c = detectarConflictos(
       { salaId: form.salaId, instructorId: form.instructorId, inicio, fin },
       existentesSlot,
-      showForm === 'editar' ? sesionId ?? undefined : undefined,
+      sesionId ?? undefined,
     );
     return hayConflicto(c) ? c : null;
-  }, [showForm, form.fecha, form.horaInicio, form.horaFin, form.salaId, form.instructorId, existentesSlot, sesionId]);
+  }, [editando, form.fecha, form.horaInicio, form.horaFin, form.salaId, form.instructorId, existentesSlot, sesionId]);
 
   // Instructora con ausencia vigente ese día (I-1 no lo cubre: una ausencia no
   // es un solape de horario que la BD rechace, así que antes solo se veía
   // como un sufijo de texto en el desplegable, fácil de no ver). Avisa, no
   // bloquea: puede ser una sustitución deliberada.
   const ausenciaInstructorForm = useMemo(() => {
-    if (!showForm || !form.fecha || !form.instructorId) return null;
+    if (!editando || !form.fecha || !form.instructorId) return null;
     return ausenciaEnFecha(ausencias, form.instructorId, form.fecha);
-  }, [showForm, form.fecha, form.instructorId, ausencias]);
+  }, [editando, form.fecha, form.instructorId, ausencias]);
 
   // I-2: al editar, cuántas confirmadas quedarían fuera si se baja el aforo.
   const aforoSobrante = useMemo(() => {
@@ -1034,21 +972,31 @@ export default function Calendario() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Abre «Nueva clase» con este punto de partida. La clave nueva reinicia el
+  // formulario (su estado es suyo), y los cierres se piden la primera vez.
+  function abrirNueva(inicial: InicialNuevaClase) {
+    setInicialNueva(inicial);
+    setClaveNueva(k => k + 1);
+    setShowForm('nueva');
+    if (cierres === null && studio?.id) {
+      // `null` = no se han podido leer: se vuelve a intentar la próxima vez.
+      void dbListCierres(studio.id).then(r => { if (r) setCierres(r); });
+    }
+  }
+
   function openNueva(prefillFecha?: string, prefillHoraInicio?: string, prefillSalaId?: string) {
     const base = emptyForm();
-    const fecha = prefillFecha ?? diaEnEstudio(now);
-    // La duración se conserva (misma diferencia que ya traía emptyForm entre
-    // horaInicio/horaFin), solo se desplaza al hueco donde se hizo clic.
-    const duracionMin = (Number(base.horaFin.slice(0, 2)) * 60 + Number(base.horaFin.slice(3, 5)))
-      - (Number(base.horaInicio.slice(0, 2)) * 60 + Number(base.horaInicio.slice(3, 5)));
+    // Hoy en hora del ESTUDIO y con el reloj de este momento: abierta al montar
+    // (`?nueva=1`), `now` todavía era la fecha fija de hidratación.
+    const fecha = prefillFecha ?? hoyEnEstudio();
     const horaInicio = prefillHoraInicio ?? base.horaInicio;
-    const inicioTotalMin = Number(horaInicio.slice(0, 2)) * 60 + Number(horaInicio.slice(3, 5));
-    const horaFin = `${String(Math.floor((inicioTotalMin + duracionMin) / 60)).padStart(2, '0')}:${String((inicioTotalMin + duracionMin) % 60).padStart(2, '0')}`;
+    // La duración del tipo, desplazada al hueco donde se hizo clic.
+    const horaFin = finConDuracion(horaInicio, tiposClase.find(t => t.id === base.tipoClaseId)?.duracionMinutos || 60) ?? base.horaFin;
     const inicio = toISO(fecha, horaInicio);
     const fin = toISO(fecha, horaFin);
     const salaId = prefillSalaId ?? elegirLibre(salas.map(s => s.id), 'salaId', inicio, fin, existentesSlot);
-    setForm({
-      ...base,
+    abrirNueva({
+      tipoClaseId: base.tipoClaseId,
       fecha,
       horaInicio,
       horaFin,
@@ -1061,9 +1009,8 @@ export default function Calendario() {
         salas.find(s => s.id === salaId)?.capacidad,
         base.aforoMaximo,
       ),
+      notas: '',
     });
-    setErrorSesion(null);
-    setShowForm('nueva');
   }
 
   function openEdit() {
@@ -1083,8 +1030,6 @@ export default function Calendario() {
       horaFin: horaEstudio(fin),
       aforoMaximo: sesionActual.aforoMaximo,
       notas: sesionActual.notas ?? '',
-      repetir: false,
-      repetirSemanas: 4,
     });
     setShowForm('editar');
   }
@@ -1092,11 +1037,11 @@ export default function Calendario() {
   // Duplicar: mismo tipo/sala/instructora/aforo, +7 días (nunca el mismo
   // instante — chocaría consigo misma). Nace como clase suelta: sin notas
   // (son de la instancia de origen, no de la plantilla) y sin precio puntual
-  // ni serie (emptyForm/crearSesion no llevan esos campos).
+  // ni serie (el formulario de nueva clase no lleva esos campos).
   function openDuplicar(origen: SesionEnr) {
     const ini = new Date(origen.inicio);
     const fin = new Date(origen.fin);
-    setForm({
+    abrirNueva({
       tipoClaseId: origen.tipoClaseId,
       salaId: origen.salaId,
       instructorId: origen.instructorId,
@@ -1107,11 +1052,7 @@ export default function Calendario() {
       horaFin: horaEstudio(fin),
       aforoMaximo: origen.aforoMaximo,
       notas: '',
-      repetir: false,
-      repetirSemanas: 4,
     });
-    setErrorSesion(null);
-    setShowForm('nueva');
   }
 
   // Duplicar la SERIE completa (no una instancia suelta): deriva
@@ -1201,48 +1142,28 @@ export default function Calendario() {
     return { navego: !dentroDeLaVentana };
   }
 
-  async function crearSesion() {
-    if (horaInvalida || horaVacia || faltaConfigurar || repetirInvalido || guardandoSesion) return;
-    const semanas = form.repetir ? form.repetirSemanas : 1;
+  // Crea lo que «Nueva clase» ha dejado listo: una clase, o una serie con las
+  // fechas que no chocan. Escribe primero (`addSesion`/`addSesionesSerie` solo
+  // pintan lo que la base de datos aceptó) y solo entonces lo anuncia. Una serie
+  // entra en UN insert: o se crean todas o ninguna, nunca media.
+  async function crearClases(nuevas: SesionNueva[], saltadas: string[]): Promise<ResultadoEscritura> {
+    if (nuevas.length === 0) return { ok: false, error: 'No hay ninguna fecha libre que crear.' };
     const eraLaPrimera = sinNingunaClase;
-    setGuardandoSesion(true);
-    setErrorSesion(null);
+    const res = nuevas.length > 1 ? await addSesionesSerie(nuevas) : await addSesion(nuevas[0]);
+    if (!res.ok) return res;
 
-    const aCrear = Array.from({ length: semanas }, (_, i) => {
-      const base = new Date(`${form.fecha}T${form.horaInicio}:00`);
-      base.setDate(base.getDate() + i * 7);
-      return {
-        tipoClaseId: form.tipoClaseId,
-        salaId: form.salaId,
-        instructorId: form.instructorId,
-        inicio: toISO(localDate(base), form.horaInicio),
-        fin: toISO(localDate(base), form.horaFin),
-        aforoMaximo: form.aforoMaximo,
-        cancelada: false,
-        notas: form.notas || null,
-        precioPuntual: null,
-      };
-    });
-
-    const res = semanas > 1
-      ? await addSesionesSerie(aCrear)
-      : await addSesion(aCrear[0]);
-    if (!res.ok) {
-      setGuardandoSesion(false);
-      setErrorSesion(res.error);
-      return;
-    }
-    const creadas = semanas;
-    setGuardandoSesion(false);
-
-    const { navego: otraSemana } = invalidarCacheSerieYNavegarSiHaceFalta(aCrear.map(s => new Date(s.inicio)));
+    if (nuevas.length > 1) invalidarHorario();
+    const { navego: otraSemana } = invalidarCacheSerieYNavegarSiHaceFalta(nuevas.map(s => new Date(s.inicio)));
     if (!otraSemana) void refrescarVista();
-    setDiaSeleccionado(new Date(`${form.fecha}T12:00:00`));
+    setDiaSeleccionado(new Date(`${diaEnEstudio(nuevas[0].inicio)}T12:00:00`));
 
-    const cuantas = semanas > 1 ? `Serie creada · ${creadas} clases` : 'Clase creada';
-    showToast(otraSemana ? `${cuantas} — te llevo a esa semana` : cuantas);
+    const cuantas = nuevas.length > 1 ? `Serie creada · ${nuevas.length} clases` : 'Clase creada';
+    const saltos = saltadas.length === 0 ? ''
+      : ` · ${saltadas.length === 1 ? 'se ha saltado el' : 'se han saltado:'} ${saltadas.slice(0, 3).join(', ')}${saltadas.length > 3 ? ` y ${saltadas.length - 3} más` : ''}`;
+    showToast(`${cuantas}${saltos}${otraSemana ? ' — te llevo a esa semana' : ''}`);
     setShowForm(null);
-    if (eraLaPrimera && studio?.slug) setPrimeraClaseCreada(creadas);
+    if (eraLaPrimera && studio?.slug) setPrimeraClaseCreada(nuevas.length);
+    return res;
   }
 
   function cuantasApuntadas(id: string): number {
@@ -3676,12 +3597,30 @@ export default function Calendario() {
       />
 
       {/* ── Panel lateral crear / editar ────────────────────────────────────────── */}
-      <DashboardDrawer open={!!showForm} onClose={() => setShowForm(null)} label={showForm === 'nueva' ? 'Nueva clase' : 'Editar clase'}>
+      <DashboardDrawer open={!!showForm} onClose={() => setShowForm(null)} label={modoCajon === 'nueva' ? 'Nueva clase' : 'Editar clase'}>
+        {modoCajon === 'nueva' ? (
+          inicialNueva && (
+            <FormularioNuevaClase
+              key={claveNueva}
+              inicial={inicialNueva}
+              tiposClase={tiposClase}
+              salas={salas}
+              instructores={instructores}
+              ausencias={ausencias}
+              existentes={existentesSlot}
+              studio={studio}
+              planes={planesTarifa}
+              cierres={cierres ?? SIN_CIERRES}
+              rol={rolActual}
+              esInstructora={esInstructorTop}
+              onCrear={crearClases}
+              onCerrar={() => setShowForm(null)}
+            />
+          )
+        ) : (
         <>
             <div className="px-6 py-5 flex items-center justify-between border-b border-border shrink-0">
-              <h2 className="text-lg font-extrabold text-foreground tracking-tight">
-                {showForm === 'nueva' ? 'Nueva clase' : 'Editar clase'}
-              </h2>
+              <h2 className="text-lg font-extrabold text-foreground tracking-tight">Editar clase</h2>
               <button onClick={() => setShowForm(null)} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-border transition-colors">
                 <X size={16} className="text-foreground" />
               </button>
@@ -3742,7 +3681,7 @@ export default function Calendario() {
               <FormField label="Instructora">
                 <select className={selectCls} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
                   {!form.instructorId && (
-                    <option value="">{!instructoresForm.length ? 'Todavía no tienes instructoras' : showForm === 'editar' ? 'Sin instructora' : 'Elige una instructora'}</option>
+                    <option value="">{!instructoresForm.length ? 'Todavía no tienes instructoras' : 'Sin instructora'}</option>
                   )}
                   {instructoresForm.map(i => { const au = ausenciaEnFecha(ausencias, i.id, form.fecha || new Date()); return <option key={i.id} value={i.id}>{i.nombre}{i.activo ? '' : ' · ya no está en el equipo'}{sufijoAusencia(au)}</option>; })}
                 </select>
@@ -3768,59 +3707,11 @@ export default function Calendario() {
                   <input type="time" className={inputCls} value={form.horaFin} onChange={e => setForm(f => ({ ...f, horaFin: e.target.value }))} />
                 </FormField>
               </div>
-              {esInstructorTop && showForm === 'nueva' ? (
-                <FormField label="Aforo máximo" description="Lo fija el tipo de clase o, si no tiene, la sala elegida.">
-                  <input type="number" className={inputCls + ' opacity-60'} value={form.aforoMaximo} disabled readOnly />
-                </FormField>
-              ) : (
-                <FormField label="Aforo máximo" description="Al llenarse, las siguientes reservas entran en lista de espera; no se bloquean.">
-                  <input type="number" min={1} max={300} className={inputCls} value={form.aforoMaximo}
-                    onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value), aforoTocado: true }))} />
-                </FormField>
-              )}
+              <FormField label="Aforo máximo" description={fraseAlLlenarse(studio, tiposClase.find(t => t.id === form.tipoClaseId))}>
+                <input type="number" min={1} max={300} className={inputCls} value={form.aforoMaximo}
+                  onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value), aforoTocado: true }))} />
+              </FormField>
               <AvisoAforoSala salas={salas} salaId={form.salaId} aforo={form.aforoMaximo} />
-              {showForm === 'nueva' && !esInstructorTop && (
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={form.repetir}
-                  onClick={() => setForm(f => ({ ...f, repetir: !f.repetir }))}
-                  className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-muted/60 border border-border cursor-pointer text-left"
-                >
-                  <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <RefreshCw size={14} className="text-brand-medio" />
-                    Repetir semanalmente
-                  </span>
-                  <span
-                    className="w-11 h-6 rounded-full flex items-center px-0.5 transition-colors shrink-0"
-                    style={{ backgroundColor: form.repetir ? 'var(--primary)' : 'var(--muted-foreground)' }}
-                  >
-                    <span
-                      className="w-5 h-5 bg-card rounded-full shadow transition-transform"
-                      style={{ transform: form.repetir ? 'translateX(20px)' : 'translateX(0)' }}
-                    />
-                  </span>
-                </button>
-              )}
-              {showForm === 'nueva' && form.repetir && (
-                <div className="flex items-center gap-3 pl-1">
-                  <span className="text-sm text-muted-foreground">durante</span>
-                  <input
-                    type="number" min={2} max={52}
-                    aria-invalid={repetirInvalido}
-                    className="w-20 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground text-center"
-                    value={form.repetirSemanas}
-                    onChange={e => {
-                      const n = Number(e.target.value);
-                      setForm(f => ({ ...f, repetirSemanas: Number.isNaN(n) ? f.repetirSemanas : Math.min(52, n) }));
-                    }}
-                  />
-                  <span className="text-sm text-muted-foreground">semanas</span>
-                  {repetirInvalido && (
-                    <span className="text-xs text-warning">Mínimo 2 semanas.</span>
-                  )}
-                </div>
-              )}
               <FormField label="Notas (opcional)">
                 <textarea
                   className={inputCls + ' resize-none h-20'}
@@ -3920,32 +3811,24 @@ export default function Calendario() {
               </div>
             ) : (
               <div className="px-6 py-5 border-t border-border shrink-0">
-                {errorSesion && (
-                  <p role="alert" className="mb-3 text-[13px] text-destructive">
-                    No se ha creado. {errorSesion}
-                  </p>
-                )}
                 <div className="flex gap-3">
                   <button onClick={() => setShowForm(null)} disabled={guardandoSesion} className="flex-1 py-3 rounded-2xl text-sm font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50">
                     Cancelar
                   </button>
                   <button
-                    onClick={showForm === 'nueva' ? crearSesion : editarSesion}
-                    disabled={horaInvalida || horaVacia || !!faltaConfigurar || repetirInvalido || !!conflictosForm || guardandoSesion}
+                    onClick={editarSesion}
+                    disabled={horaInvalida || horaVacia || !!faltaConfigurar || !!conflictosForm || guardandoSesion}
                     className="flex-[2] py-3 rounded-2xl text-sm font-extrabold text-brand-foreground transition-opacity hover:opacity-90 bg-brand disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {guardandoSesion
                       ? 'Guardando…'
-                      : showForm === 'nueva'
-                        ? form.repetir
-                          ? `Crear ${form.repetirSemanas} ${form.repetirSemanas === 1 ? 'clase' : 'clases'}`
-                          : 'Crear clase'
-                        : 'Guardar cambios'}
+                      : 'Guardar cambios'}
                   </button>
                 </div>
               </div>
             )}
         </>
+        )}
       </DashboardDrawer>
 
       {primeraClaseCreada != null && studio?.slug && (
@@ -3974,7 +3857,7 @@ export default function Calendario() {
               <span className="min-w-0">
                 <span className="block text-sm font-bold text-foreground">Clase</span>
                 <span className="block text-xs text-muted-foreground text-pretty">
-                  Un día concreto: una clase suelta, un taller o una clase extra. Tus clientas la reservan.
+                  Un día concreto, o varios si la repites: una clase suelta, un taller o una clase extra. Tus clientas la reservan.
                 </span>
               </span>
             </button>
@@ -4005,11 +3888,9 @@ export default function Calendario() {
         instructores={instructoresActivos}
         salas={salas}
         onCrear={crearClasesRecurrentes}
-        sesionesExistentes={sesiones.map(s => ({
-          id: s.id, salaId: s.salaId, instructorId: s.instructorId,
-          inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
-        }))}
+        sesionesExistentes={existentesSlot}
         initial={initialRecurrente}
+        studio={studio}
       />
 
       {renovarSerieDe && (
