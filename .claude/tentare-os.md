@@ -284,7 +284,7 @@ abrir a INSTRUCTOR una vía que ya existía para el resto de roles (RLS acotada 
 5. **#561 — "Valorar a la alumna" → NO construido tal cual**: `tentare-producto`
    recomendó no hacerlo — `notas_progreso` ya cubre ese propósito de negocio
    (progreso/alertas/plan próxima sesión) y ningún competidor (Bsport/Momence/
-   Eversports/Un Respiro) expone que la instructora "valore" a la socia. En su
+   Eversports) expone que la instructora "valore" a la socia. En su
    lugar se corrigió el bug real encontrado al investigarlo: la UI de esa
    tabla (`app/(dashboard)/clientas/[id]/page.tsx`, "Nota de sesión IA") era
    visible a CUALQUIER rol, incluida RECEPCIÓN, que no debe ver detalle

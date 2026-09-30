@@ -105,11 +105,10 @@ type Paso = {
 };
 
 // ── De dónde viene el estudio ───────────────────────────────────────────────
-// ⚠️ Solo plataformas de GESTIÓN de estudio, que es lo que se está preguntando.
-// Aquí estuvo «Un Respiro», que no lo es: es un marketplace donde la clienta
-// compra bonos de clases sueltas, no el sistema con el que un estudio lleva su
-// agenda, sus alumnas y sus cobros. Ofrecerlo como respuesta a «¿con qué llevas
-// tu estudio?» invita a contestar algo que después no se puede migrar.
+// ⚠️ Solo plataformas de GESTIÓN de estudio, que es lo que se está preguntando:
+// con qué lleva HOY su agenda, sus alumnas y sus cobros. Cualquier otra cosa
+// (un marketplace de bonos sueltos, una red social, etc.) invita a contestar
+// algo que después no se puede migrar.
 //
 // La lista sale de los competidores que el propio negocio sigue de verdad —los
 // que tienen su página en /comparativa— más las dos respuestas honestas que no
