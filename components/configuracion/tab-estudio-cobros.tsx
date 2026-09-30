@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ChangeEvent } from 'react';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { ModoFacturacion, Studio } from '@/lib/types';
@@ -554,6 +555,16 @@ export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
           );
         })}
       </div>
+      {form.modo === 'verifactu' && (
+        // Orden HAC/1177/2024, art. 15.3: la declaración responsable del sistema
+        // tiene que estar accesible para el cliente de forma rápida y fácil.
+        <p className="-mt-3 pb-6 text-sm text-muted-foreground">
+          <Link href="/verifactu/declaracion-responsable" className="font-medium text-foreground underline underline-offset-2">
+            Declaración responsable del sistema de facturación
+          </Link>
+          {' '}— para verla o descargarla en PDF.
+        </p>
+      )}
       <BarraGuardar
         seccion="cobros"
         cambios={hayCambios(form, base) ? ['Facturación'] : []}

@@ -10,9 +10,10 @@
 // rellena con datos inventados.
 
 import { useEffect, useState } from 'react';
-import { FileCheck2 } from 'lucide-react';
+import { Download, FileCheck2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { authHeader } from '@/lib/api-client';
+import { abrirDeclaracionPDF } from '@/lib/verifactu/declaracion-pdf';
 
 interface Apartado { letra: string; etiqueta: string; valor: string | null }
 interface Estado {
@@ -71,10 +72,23 @@ export default function DeclaracionResponsablePage() {
           )}
 
           <article className="rounded-2xl border border-border bg-card px-4 py-5 sm:px-6 sm:py-6">
-            <div className="flex items-center gap-2">
-              <FileCheck2 className="size-5 text-muted-foreground" aria-hidden />
-              <h2 className="text-[15px] font-bold tracking-wide">{estado.titulo}</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <FileCheck2 className="size-5 text-muted-foreground" aria-hidden />
+                <h2 className="text-[15px] font-bold tracking-wide">{estado.titulo}</h2>
+              </div>
+              {estado.suscrita && (
+                <button
+                  type="button"
+                  onClick={() => { if (estado.suscrita) abrirDeclaracionPDF({ ...estado, suscrita: estado.suscrita }); }}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-border px-3 text-[13px] font-semibold hover:bg-muted"
+                >
+                  <Download className="size-4" aria-hidden />
+                  Descargar PDF
+                </button>
+              )}
             </div>
+            <p className="mt-1 text-[12.5px] text-muted-foreground">Versión del sistema {estado.version}</p>
             <dl className="mt-5 space-y-4">
               {estado.apartados.map((a, i) => (
                 <div key={`${a.letra}-${i}`}>

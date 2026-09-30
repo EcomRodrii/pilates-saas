@@ -56,9 +56,18 @@ export function apoderadoDeEntorno(env: Env): Apoderado | null {
 /**
  * Versión del texto. Si cambia el texto, cambia la versión: cada aceptación
  * guarda versión y huella del texto EXACTO que se aceptó.
- * TODO(asesor): texto pendiente de revisión legal antes del primer estudio real.
+ *
+ * Versión .2 (30-sep-2026), tras la revisión del asesor fiscal:
+ *   · el punto de datos personales ya no «autoriza» nada: remite al acuerdo de
+ *     encargo de tratamiento (art. 28 RGPD), que es donde debe regularse;
+ *   · dice expresamente que este mandato no es el apoderamiento ante la AEAT;
+ *   · añade duración y qué pasa si termina el servicio. La revocación del poder
+ *     se hace en la AEAT, nunca aquí.
+ * ⚠️ TODO(fundador): el punto 6 remite a un acuerdo de encargo de tratamiento
+ * que hoy es solo una frase de /terminos (§5). El asesor pide un DPA completo
+ * (art. 28) antes del primer estudio real.
  */
-export const MANDATO_VERSION = '2026-09-30';
+export const MANDATO_VERSION = '2026-09-30.2';
 
 export function textoMandato(p: {
   estudio: { nombreFiscal: string; nif: string };
@@ -75,9 +84,12 @@ export function textoMandato(p: {
     '',
     `1. Declara que ha otorgado en el Registro de apoderamientos de la Agencia Estatal de Administración Tributaria un poder a favor de ${p.apoderado.nombre}, con NIF ${p.apoderado.nif}, para ${alcance}, y que los datos de ese poder que comunica a Tentare son ciertos.`,
     '2. Encarga al apoderado que, con su propio certificado electrónico cualificado, remita a la sede electrónica de la AEAT los registros de facturación que genera Tentare para el obligado tributario, y que consulte su estado, exclusivamente a esos efectos.',
-    '3. Sabe que el poder real es el inscrito en la AEAT; que puede revocarlo en cualquier momento en la sede electrónica, con efecto desde que la AEAT lo recibe; y que debe comunicarlo a Tentare para que deje de remitir.',
-    '4. Sabe que el apoderamiento no le exime de su responsabilidad como obligado a expedir facturas.',
-    '5. Autoriza el tratamiento de sus datos a los exclusivos efectos de esa remisión, conforme al Reglamento (UE) 2016/679 y a la Ley Orgánica 3/2018.',
+    '3. Este mandato no constituye por sí mismo un apoderamiento ante la Agencia Estatal de Administración Tributaria ni sustituye al poder inscrito en su Registro de Apoderamientos.',
+    '4. Sabe que el poder real es el inscrito en la AEAT; que puede revocarlo en cualquier momento en la sede electrónica, con efecto desde que la AEAT lo recibe; y que debe comunicarlo a Tentare para que deje de remitir.',
+    '5. Sabe que el apoderamiento no le exime de su responsabilidad como obligado a expedir facturas.',
+    '6. Declara que el tratamiento de datos personales realizado por Tentare en el marco de este servicio queda sujeto al acuerdo de encargo de tratamiento aplicable entre las partes.',
+    '7. El presente mandato permanecerá vigente mientras se mantenga el servicio de remisión de registros de facturación y no sea revocado por el obligado tributario, sin perjuicio de que el poder otorgado ante la AEAT se regirá exclusivamente por las condiciones y efectos establecidos por la propia AEAT.',
+    '8. En caso de terminación del servicio, Tentare dejará de realizar nuevas remisiones y pondrá a disposición del obligado tributario la información necesaria para la continuidad de sus obligaciones de facturación, sin perjuicio de los efectos y obligaciones derivados del poder inscrito ante la AEAT.',
   ].join('\n');
 }
 
