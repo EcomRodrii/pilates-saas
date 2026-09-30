@@ -1054,6 +1054,8 @@ export interface RowStudios {
   zona_horaria: string | null;
   // migr 20260929112340.
   cobro_dia_1_activo: boolean | null;
+  // migr 20260929214142.
+  modo_facturacion: string | null;
 }
 
 export interface RowSuscripciones {
@@ -3482,6 +3484,15 @@ export interface RowBillingCheckoutLocks {
   iniciado_en: string | null;
 }
 
+export interface RowWidgetPiezas {
+  id: string;
+  studio_id: string;
+  widget: string;
+  config: any;
+  creado_en: string;
+  actualizado_en: string;
+}
+
 export interface RowVerifactuEnvios {
   id: string;
   studio_id: string;
@@ -5063,6 +5074,7 @@ export type StudiosInsert = {
   control_acceso_qr?: boolean | null | null;
   zona_horaria?: string | null | null;
   cobro_dia_1_activo?: boolean | null | null;
+  modo_facturacion?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5203,6 +5215,7 @@ export type StudiosUpdate = {
   control_acceso_qr?: boolean | null | null;
   zona_horaria?: string | null | null;
   cobro_dia_1_activo?: boolean | null | null;
+  modo_facturacion?: string | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -9757,6 +9770,24 @@ export type BillingCheckoutLocksUpdate = {
   iniciado_en?: string | null | null;
 }
 
+export type WidgetPiezasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  widget?: string | null;
+  config?: any | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type WidgetPiezasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  widget?: string | null;
+  config?: any | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
 export type VerifactuEnviosInsert = {
   id?: string | null;
   studio_id?: string | null;
@@ -11135,6 +11166,11 @@ export type Database = {
         Row: RowBillingCheckoutLocks;
         Insert: BillingCheckoutLocksInsert;
         Update: BillingCheckoutLocksUpdate;
+      };
+      widget_piezas: {
+        Row: RowWidgetPiezas;
+        Insert: WidgetPiezasInsert;
+        Update: WidgetPiezasUpdate;
       };
       verifactu_envios: {
         Row: RowVerifactuEnvios;
