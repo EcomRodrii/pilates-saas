@@ -28,7 +28,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Sin `npm ci`: el script es Node pelado, sin dependencias. Y sin cliente
       # de Postgres en npm — `psql` ya viene en la imagen de ubuntu-latest, así
