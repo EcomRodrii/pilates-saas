@@ -25,8 +25,25 @@ import {
 import { registrarEvento, transitarEstudio } from './habilitacion.ts';
 import { declaracionVigente } from './declaracion.ts';
 import { sha256Texto } from './envio.ts';
+import { ESTADOS_ADMITIDOS_EN_AEAT, registrosQueBloqueanActivacion, mensajeBloqueoActivacion } from './barrera-activacion.ts';
+import type { EstadoRegistroVerifactu } from './estado.ts';
 
 type Env = Record<string, string | undefined>;
+
+/**
+ * Cuántos registros de este estudio impiden activarlo: anteriores a su primera
+ * activación y que la AEAT no tiene (ver barrera-activacion.ts). Si no se puede
+ * leer, no se activa: la barrera falla cerrada.
+ */
+export async function contarBloqueoActivacion(admin: SupabaseClient, studioId: string, activadoEn: string | null): Promise<number> {
+  const { data, error } = await admin.from('verifactu_registros').select('estado, creado_en')
+    .eq('studio_id', studioId).not('estado', 'in', `(${ESTADOS_ADMITIDOS_EN_AEAT.join(',')})`).limit(20000);
+  if (error) throw new AltaVerifactuError(['No se pudo comprobar si el estudio tiene facturas anteriores a la activación.'], 500);
+  return registrosQueBloqueanActivacion(
+    (data ?? []).map(r => ({ estado: r.estado as EstadoRegistroVerifactu, creadoEn: r.creado_en as string })),
+    activadoEn,
+  );
+}
 
 export class AltaVerifactuError extends Error {
   readonly errores: string[];
@@ -180,7 +197,21 @@ export async function listarParaTentare(admin: SupabaseClient): Promise<{ estudi
     admin.from('verifactu_estudios').select('studio_id, nif, nombre_fiscal, tipo_emisor, numero_instalacion, estado, estado_motivo, activado_produccion_en, actualizado_en').order('actualizado_en', { ascending: false }).limit(500),
     admin.from('verifactu_representaciones').select(COLS_REPR).in('estado', ['EN_REVISION', 'VERIFICADA', 'SIN_PODER_AEAT']).order('creado_en', { ascending: false }).limit(500),
   ]);
-  return { estudios: estudios ?? [], representaciones: representaciones ?? [] };
+  // Cuántas facturas anteriores a la activación bloquean cada estudio, para
+  // verlo antes de pulsar «Activar» (la barrera la impone activarProduccion).
+  const ids = (estudios ?? []).map(e => e.studio_id as string);
+  const { data: sinAeat } = ids.length
+    ? await admin.from('verifactu_registros').select('studio_id, estado, creado_en').in('studio_id', ids)
+      .not('estado', 'in', `(${ESTADOS_ADMITIDOS_EN_AEAT.join(',')})`).limit(20000)
+    : { data: [] };
+  const conBloqueo = (estudios ?? []).map(e => ({
+    ...e,
+    facturas_anteriores_sin_decidir: registrosQueBloqueanActivacion(
+      (sinAeat ?? []).filter(r => r.studio_id === e.studio_id).map(r => ({ estado: r.estado as EstadoRegistroVerifactu, creadoEn: r.creado_en as string })),
+      (e.activado_produccion_en as string | null) ?? null,
+    ),
+  }));
+  return { estudios: conBloqueo, representaciones: representaciones ?? [] };
 }
 
 /**
@@ -228,10 +259,15 @@ export async function activarProduccion(admin: SupabaseClient, studioId: string,
   if (!(await declaracionVigente(admin))) throw new AltaVerifactuError(['Falta suscribir la declaración responsable de esta versión.'], 409);
   const [{ data: studio }, { data: vf }, { data: repr }] = await Promise.all([
     admin.from('studios').select('nif, es_demo').eq('id', studioId).maybeSingle(),
-    admin.from('verifactu_estudios').select('estado, nif').eq('studio_id', studioId).maybeSingle(),
+    admin.from('verifactu_estudios').select('estado, nif, activado_produccion_en').eq('studio_id', studioId).maybeSingle(),
     admin.from('verifactu_representaciones').select('estado, vigente_hasta, nif_representado, apoderado_nif').eq('studio_id', studioId).eq('estado', 'VERIFICADA').maybeSingle(),
   ]);
   if (!vf || vf.estado !== 'VERIFICADO') throw new AltaVerifactuError(['El estudio no está verificado.'], 409);
+  // Barrera de activación (lib/verifactu/barrera-activacion.ts): con facturas
+  // anteriores a la activación que la AEAT no tiene, no se activa.
+  const activadoEn = (vf.activado_produccion_en as string | null) ?? null;
+  const bloquean = await contarBloqueoActivacion(admin, studioId, activadoEn);
+  if (bloquean > 0) throw new AltaVerifactuError([mensajeBloqueoActivacion(bloquean)], 409);
   // Se comprueba como si ya estuviera en producción: si así no pudiera enviar, no se activa.
   const hab = habilitacionDe({
     estudio: { estado: 'PRODUCCION', nif: vf.nif as string },
@@ -239,7 +275,8 @@ export async function activarProduccion(admin: SupabaseClient, studioId: string,
     esDemo: Boolean(studio?.es_demo), nifActual: (studio?.nif as string | null) ?? '', apoderadoNif: apoderadoDeEntorno(env)?.nif ?? null, hoy: new Date(),
   });
   if (!hab.habilitado) throw new AltaVerifactuError([`No se puede activar: ${hab.motivo}`], 409);
-  const nuevo = await transitarEstudio(admin, studioId, 'ACTIVAR_PRODUCCION', null, { activado_produccion_en: new Date().toISOString(), activado_por: userId });
+  // La fecha que cuenta es la de la PRIMERA activación: si se reactiva, no se mueve.
+  const nuevo = await transitarEstudio(admin, studioId, 'ACTIVAR_PRODUCCION', null, { activado_produccion_en: activadoEn ?? new Date().toISOString(), activado_por: userId });
   if (!nuevo) throw new AltaVerifactuError(['No se pudo activar (¿ha cambiado el estado?).'], 409);
   await registrarEvento(admin, { studioId, evento: 'envio.produccion_activada', actorTipo: 'tentare', actorUserId: userId });
 }

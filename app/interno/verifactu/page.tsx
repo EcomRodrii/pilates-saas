@@ -182,8 +182,14 @@ export default function VerifactuInternoPage() {
               {vf.estudios.map(e => (
                 <li key={e.studio_id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-[13px]">
                   <span><strong>{e.nombre_fiscal}</strong> · {e.nif} · <span className="font-mono">{e.estado}</span>{e.estado_motivo ? ` · ${e.estado_motivo}` : ''}</span>
+                  {e.facturas_anteriores_sin_decidir > 0 && (
+                    <span className="basis-full text-[12.5px] text-amber-700 dark:text-amber-400">
+                      {e.facturas_anteriores_sin_decidir === 1 ? '1 factura emitida' : `${e.facturas_anteriores_sin_decidir} facturas emitidas`} antes de activar VERI*FACTU que la AEAT no tiene.
+                      No se puede activar hasta que haya criterio escrito sobre ellas: no se envían solas.
+                    </span>
+                  )}
                   <span className="flex gap-2">
-                    {e.estado === 'VERIFICADO' && (
+                    {e.estado === 'VERIFICADO' && e.facturas_anteriores_sin_decidir === 0 && (
                       <button type="button" onClick={() => { if (window.confirm(`¿Activar el envío REAL a la AEAT para ${e.nombre_fiscal}?`)) void accion({ accion: 'activar_produccion', studioId: e.studio_id }); }}
                         className="rounded-lg bg-brand px-3 py-1 text-[12.5px] font-bold text-brand-foreground">Activar producción</button>
                     )}
