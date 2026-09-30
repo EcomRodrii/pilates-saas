@@ -12,8 +12,8 @@
 // N días".
 //
 // `fechaFin` en un plan MENSUAL representa el PRÓXIMO ciclo de cobro, no una
-// caducidad — lo confirma `renovacion-server.ts` (`aplicarRenovacionSuscripcion`
-// del cliente es su espejo exacto): al renovar un MENSUAL, SIEMPRE empuja
+// caducidad — lo confirma `renovacion-server.ts` (desde el PR 3 del dueño único
+// es el ÚNICO que la aplica; el panel ya no tiene espejo propio): al renovar un MENSUAL, SIEMPRE empuja
 // `fecha_fin` un mes hacia delante y nunca lo deja caducar, tanto si el cobro
 // llegó por un webhook de Stripe como si una recepcionista lo marcó "cobrado"
 // a mano — el campo significa lo mismo en ambos casos. `plan.tipo`, no

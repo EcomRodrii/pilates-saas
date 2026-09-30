@@ -53,8 +53,8 @@ import { hoyEnEstudio } from '../utils.ts';
 import {
   conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
   facturaIdCheckout, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas,
-  refIdCreditoRenovacion, resolverSinFilas,
-  type OrigenCobro, type PasoEfecto,
+  reentregaAplicaAlRecibo, refIdCreditoRenovacion, resolverSinFilas,
+  type FilaReciboSinCambios, type OrigenCobro, type PasoEfecto,
 } from './cobro-confirmado-reglas.ts';
 
 export type { OrigenCobro } from './cobro-confirmado-reglas.ts';
@@ -80,8 +80,13 @@ export interface ActorCobro { userId: string | null; nombre: string | null }
 export interface ParamsConfirmarCobro {
   studioId: string;
   reciboId: string;
-  /** Con qué se cobró de verdad (va a `recibos.metodo_cobro`). */
-  metodo: string;
+  /**
+   * Con qué se cobró de verdad (va a `recibos.metodo_cobro`). `null` = no consta
+   * («marcar cobrado sin especificar» del panel): no se toca la columna, y los
+   * efectos deciden con el método que ya tuviera el recibo — lo mismo que hacía
+   * el panel cuando cobraba desde el navegador.
+   */
+  metodo: string | null;
   origen: OrigenCobro;
   /** El cargo real, para poder devolverlo desde el panel. Solo se escribe si viene. */
   paymentIntentId: string | null;
@@ -101,6 +106,8 @@ export type ResultadoConfirmarCobro =
       numeroFactura?: string;
       /** `false` solo si en ESTA llamada se intentó sellar y falló. */
       selladoOk: boolean;
+      /** `true` solo si en ESTA llamada se intentó entregar el ciclo (bono/mensual) y no se pudo. */
+      renovacionFallida?: boolean;
     }
   | {
       ok: false;
@@ -194,6 +201,8 @@ export interface ResultadoEfectosCobro {
   pasos: PasoEfecto[];
   selladoOk: boolean;
   numeroFactura?: string;
+  /** La renovación se intentó y no se pudo: el dinero entró y el plan no se entregó. */
+  renovacionFallida?: boolean;
 }
 
 /**
@@ -228,6 +237,7 @@ export async function aplicarEfectosCobro(
 
   let selladoOk = true;
   let numeroFactura: string | undefined;
+  let renovacionFallida = false;
 
   const marcarFacturaPendiente = async (detalle: unknown) => {
     selladoOk = false;
@@ -263,9 +273,11 @@ export async function aplicarEfectosCobro(
   for (const paso of pasos) {
     try {
       switch (paso) {
-        case 'renovacion':
-          await d.renovar(admin, base);
+        case 'renovacion': {
+          const r = await d.renovar(admin, base);
+          if ((r as { fallo?: boolean } | null | undefined)?.fallo) renovacionFallida = true;
           break;
+        }
         case 'factura': {
           const r = await d.sellar(admin, { ...base, facturaId: p.facturaId });
           if (r.ok) {
@@ -299,6 +311,7 @@ export async function aplicarEfectosCobro(
         await marcarFacturaPendiente(e instanceof Error ? e.message : e);
         continue;
       }
+      if (paso === 'renovacion') renovacionFallida = true;
       Sentry.captureException(e instanceof Error ? e : new Error(`Fallo en el efecto ${paso} del cobro`), {
         level: 'warning', tags: { area: 'cobros', tipo: `efecto-${paso}` },
         extra: { reciboId: p.reciboId, studioId: p.studioId, origen: p.origen },
@@ -306,7 +319,7 @@ export async function aplicarEfectosCobro(
     }
   }
 
-  return { pasos, selladoOk, ...(numeroFactura ? { numeroFactura } : {}) };
+  return { pasos, selladoOk, ...(numeroFactura ? { numeroFactura } : {}), ...(renovacionFallida ? { renovacionFallida } : {}) };
 }
 
 /**
@@ -327,7 +340,8 @@ export async function confirmarCobro(
   let consulta = admin
     .from('recibos')
     .update({
-      estado: 'COBRADO', fecha_cobro: hoy, metodo_cobro: p.metodo,
+      estado: 'COBRADO', fecha_cobro: hoy,
+      ...(p.metodo !== null ? { metodo_cobro: p.metodo } : {}),
       ...(p.metodo === 'SEPA' ? { sepa_estado: 'succeeded' } : {}),
       ...(p.paymentIntentId ? { stripe_payment_intent_id: p.paymentIntentId } : {}),
       // Pagado: deja de haber una sesión abierta que reutilizar.
@@ -352,17 +366,16 @@ export async function confirmarCobro(
   const filtroCargo = filtroCargoEnCas(p.paymentIntentId);
   if (filtroCargo) consulta = consulta.or(filtroCargo);
 
-  const { data: marcado, error } = await consulta.select('id, socio_id, es_renovacion').maybeSingle();
+  // `metodo_cobro` vuelve del MISMO UPDATE: con `metodo: null` es el que ya
+  // tenía el recibo, sin una lectura aparte que pudiera cruzarse con otra.
+  const { data: marcado, error } = await consulta.select('id, socio_id, es_renovacion, metodo_cobro').maybeSingle();
   if (error) return { ok: false, codigo: 'PERSISTENCIA', error: error.message };
 
   if (!marcado) {
     const { data: fila, error: errLeer } = await admin.from('recibos')
-      .select('estado, stripe_payment_intent_id').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+      .select('estado, stripe_payment_intent_id, conciliado_por').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
     if (errLeer) return { ok: false, codigo: 'PERSISTENCIA', error: errLeer.message };
-    const decision = resolverSinFilas(
-      fila as { estado: string | null; stripe_payment_intent_id: string | null } | null,
-      p.paymentIntentId,
-    );
+    const decision = resolverSinFilas(fila as FilaReciboSinCambios, p.paymentIntentId);
     switch (decision.tipo) {
       case 'no_encontrado':
         return { ok: false, codigo: 'NO_ENCONTRADO', error: 'Recibo no encontrado' };
@@ -371,7 +384,8 @@ export async function confirmarCobro(
         // camino que llega (TPV o webhook) lo hacía siempre y reparaba así uno
         // fallido. Idempotente. Ni email ni créditos.
         const d: DependenciasEfectos = { ...DEPENDENCIAS, ...deps };
-        for (const paso of efectosEnReentrega(p.origen)) {
+        const conciliadoPor = (fila as FilaReciboSinCambios)?.conciliado_por ?? null;
+        for (const paso of reentregaAplicaAlRecibo(p.origen, conciliadoPor) ? efectosEnReentrega(p.origen) : []) {
           if (paso !== 'caja') continue;
           try {
             await d.apuntarCaja(admin, { studioId: p.studioId, reciboId: p.reciboId, actor: p.actor ?? null });
@@ -415,8 +429,9 @@ export async function confirmarCobro(
   }
 
   const efectos = await aplicarEfectosCobro(admin, {
-    studioId: p.studioId, reciboId: p.reciboId, metodo: p.metodo, origen: p.origen,
-    facturaId: p.facturaId, avisarSocia: p.avisarSocia, actor: p.actor,
+    studioId: p.studioId, reciboId: p.reciboId,
+    metodo: p.metodo ?? (marcado.metodo_cobro as string | null | undefined) ?? null,
+    origen: p.origen, facturaId: p.facturaId, avisarSocia: p.avisarSocia, actor: p.actor,
     recibo: {
       socioId: (marcado.socio_id as string | null) ?? null,
       esRenovacion: esRenovacion(marcado as { es_renovacion?: boolean | null }),
@@ -426,6 +441,7 @@ export async function confirmarCobro(
   return {
     ok: true, transicion: 'aplicada', selladoOk: efectos.selladoOk,
     ...(efectos.numeroFactura ? { numeroFactura: efectos.numeroFactura } : {}),
+    ...(efectos.renovacionFallida ? { renovacionFallida: true } : {}),
   };
 }
 

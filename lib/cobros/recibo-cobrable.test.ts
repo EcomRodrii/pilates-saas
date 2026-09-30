@@ -48,25 +48,27 @@ const sinComentarios = (fuente: string) =>
  */
 const COBRABLES: readonly string[] = ESTADOS_COBRABLES;
 
-test('el escritor de «marcar cobrado» acepta los tres estados de deuda', () => {
-  const fuente = leer('lib/supabase-data.ts');
-  const bloque = fuente.slice(fuente.indexOf('export async function dbMarcarCobrado'));
-  const cuerpo = bloque.slice(0, bloque.indexOf('\n}\n'));
-  for (const estado of COBRABLES) {
-    assert.match(cuerpo, new RegExp(`'${estado}'`),
-      `dbMarcarCobrado tiene que casar '${estado}': es deuda viva y el panel ofrece cobrarlo.`);
-  }
-  assert.doesNotMatch(cuerpo, /\.eq\('estado', 'PENDIENTE'\)/,
-    'Volver a filtrar solo PENDIENTE deja los recibos fallidos y devueltos sin salida.');
+test('«marcar cobrado» a mano acepta los tres estados de deuda', () => {
+  // Hasta el PR 3 del dueño único esto miraba el UPDATE de `dbMarcarCobrado`
+  // (navegador). Ahora marcar cobrado es `POST /api/cobros/marcar-cobrado` →
+  // `confirmarCobro(origen: 'manual')`, y los estados salen de la regla
+  // compartida: si mañana se añade uno de deuda, entra aquí sin tocar nada.
+  assert.deepEqual([...estadosAdmitidosPorOrigen('manual')], [...COBRABLES],
+    'Lo que el panel ofrece cobrar y lo que el servidor deja cobrar a mano tienen que ser lo mismo.');
+  const ruta = sinComentarios(leer('app/api/cobros/marcar-cobrado/route.ts'));
+  assert.match(ruta, /origen: 'manual'/,
+    'Con otro origen la ruta admitiría EN_CURSO (cargo en vuelo) o dejaría fuera DEVUELTO.');
 });
 
-test('el cobro en lote alcanza los mismos estados que el individual', () => {
-  const fuente = leer('lib/supabase-data.ts');
-  const bloque = fuente.slice(fuente.indexOf('export async function dbUpdateRecibosBatch'));
-  const cuerpo = bloque.slice(0, bloque.indexOf('\n}\n'));
-  for (const estado of COBRABLES) {
-    assert.match(cuerpo, new RegExp(`'${estado}'`),
-      `El cobro masivo saltaba en silencio los '${estado}' — justo los recibos por los que se usa.`);
+test('el cobro en lote va por la misma ruta que el individual', () => {
+  // `cobrarTodosPendientes` hacía un UPDATE en lote propio con su lista de
+  // estados. Ahora los dos caminos del panel llaman a la misma función.
+  const ctx = sinComentarios(leer('lib/studio-context.tsx'));
+  for (const fn of ['async function marcarCobrado(', 'async function cobrarTodosPendientes(']) {
+    const i = ctx.indexOf(fn);
+    assert.ok(i > 0, `no se encontró ${fn}`);
+    const cuerpo = ctx.slice(i, ctx.indexOf('\n  }\n', i));
+    assert.match(cuerpo, /cobrarEnServidor\(/, `${fn} tiene que cobrar por el servidor`);
   }
 });
 

@@ -7,6 +7,7 @@ import { formatEuro } from '@/lib/utils';
 import { cobrarReciboEnMostrador, confirmarCobroRecibo, esError } from '@/lib/pos/cliente';
 import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import { bizumPermitidoPara, tipoDeReciboParaBizum } from '@/lib/billing/bizum-permitido';
+import { MENSAJE_YA_ESTABA } from '@/lib/cobros/marcar-cobrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Vengo a pagar la cuota.»
@@ -20,8 +21,9 @@ import { bizumPermitidoPara, tipoDeReciboParaBizum } from '@/lib/billing/bizum-p
 //
 // **Efectivo** lo confirma quien cobra: hay alguien contándolo y el recuento
 // del cierre lo verifica. Reutiliza `marcarCobrado` del contexto —la MISMA que
-// usa /cobros, con su compare-and-set, su sellado fiscal y su renovación de
-// bono— en vez de duplicarla.
+// usa /cobros, que va a `/api/cobros/marcar-cobrado`: compare-and-set, sellado
+// fiscal, renovación de bono y apunte de caja en el servidor— en vez de
+// duplicarla. El recibo solo desaparece de aquí cuando el servidor lo confirma.
 //
 // **Datáfono y Bizum** los confirma STRIPE. El mostrador arranca el cobro y
 // luego PREGUNTA; hasta que el proveedor dice que sí, aquí no se marca nada.
@@ -109,6 +111,10 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
       const selladoAparte = 'cobroRegistrado' in r && r.cobroRegistrado;
       setError(selladoAparte ? 'Cobrado. La factura se emitirá en unos minutos.' : r.error);
       if (!selladoAparte) return;
+    } else if (r.yaEstaba) {
+      // Lo cobró otra pestaña o el webhook entre medias: no es un fallo, y no hay
+      // que volver a cobrarlo.
+      setError(MENSAJE_YA_ESTABA);
     }
     onCobrado();
   }

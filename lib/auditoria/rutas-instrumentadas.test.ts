@@ -75,6 +75,23 @@ test('cobro con el método guardado: se lee ANTES del cargo, se anota DESPUÉS, 
   assert.ok('COBRO_LANZADO' in ACCIONES);
 });
 
+test('marcar cobrado a mano: la sesión entera es el actor, se lee ANTES del cobro, se anota DESPUÉS y solo lo que se aplicó', () => {
+  const f = leer('app/api/cobros/marcar-cobrado/route.ts');
+  const antes = f.indexOf('leerReciboAntesDeCobrar(');
+  const cobro = f.indexOf('await confirmarCobro(');
+  const anota = f.indexOf('anotarCobroMarcadoAMano(admin', cobro);
+  assert.ok(antes > 0 && cobro > 0 && anota > 0, 'no se encuentran los tres hitos');
+  assert.ok(antes < cobro, 'el recibo se lee después del cobro, y ya no es «antes»');
+  assert.ok(cobro < anota, 'se anota un cobro que aún no ha ocurrido');
+  assert.ok(anota < f.indexOf('return NextResponse.json({ resultados }'), 'se anota después de responder');
+  assert.match(f, /anotarCobroMarcadoAMano\(admin,\s*\{\s*sesion,/, 'no le pasa la sesión entera');
+  assert.doesNotMatch(f, /anotarCobroMarcadoAMano\([^)]*\b(cuerpo|peticion)\.(userId|rol|actor)/, 'el actor sale del cuerpo');
+  // Solo lo que esta petición cambió: un `ya_estaba` o un rechazo no cambian el recibo.
+  assert.match(f, /\.filter\(r => r\.resultado === 'aplicada'\)\.map\(/, 'anota más que los cobros aplicados');
+  assert.ok('COBRO_MARCADO_A_MANO' in ACCIONES);
+  assert.match(leer('lib/auditoria/cobro-manual.ts'), /accion:\s*'COBRO_MARCADO_A_MANO'/);
+});
+
 test('devolución de la caja: se anota DESPUÉS de que el dinero salga y el libro de la venta se aplique, y sin el motivo (texto libre)', () => {
   const f = leer('app/api/pos/devolucion/route.ts');
   const reembolso = f.indexOf('stripe.refunds.create');

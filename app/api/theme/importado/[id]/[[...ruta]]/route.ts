@@ -43,7 +43,7 @@ export const runtime = 'nodejs';
 // ⚠️ SEGURIDAD — por qué esto NO usa la sesión de staff normal (cookies):
 // este endpoint sirve código que subió la PROPIETARIA de un ZIP externo, y el
 // iframe que lo carga va SIN `allow-same-origin` (ver
-// `components/theme/importar-tema-zip.tsx`) precisamente para que un script
+// `components/theme/editor-zip.tsx`) precisamente para que un script
 // del ZIP no pueda leer las cookies de sesión de este dominio ni hacer fetch
 // autenticado contra el resto de la API. Este endpoint, en su lado servidor,
 // se protege con el MISMO token firmado y de corta duración que ya usa
@@ -96,9 +96,9 @@ export async function GET(
   );
 }
 
-// Gate de escritura compartido por PATCH/DELETE — mismo trío que ya usa
-// `POST /api/theme/importar-zip`: sesión de staff, solo PROPIETARIO, y el
-// plan tiene que incluir la app de marca. Es la MISMA feature, otra acción.
+// Gate de escritura compartido por PATCH/DELETE: sesión de staff, solo
+// PROPIETARIO, y el plan tiene que incluir la app de marca — el mismo trío que
+// `PUT /api/theme`. Es la MISMA feature, otra acción.
 async function autorizarEscritura(req: NextRequest): Promise<
   { ok: true; studioId: string } | { ok: false; res: NextResponse }
 > {

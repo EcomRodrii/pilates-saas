@@ -74,7 +74,7 @@ export function HistorialDinero({ studioId, socioId }: { studioId: string; socio
     <div className="space-y-4" data-testid="historial-dinero">
       <p className="text-xs text-muted-foreground max-w-prose">
         Cada vez que alguien de tu equipo crea, cambia o borra un recibo, una cuota o bono, un plan o un ingreso
-        manual, pide un reembolso, marca un recibo como devuelto, lanza un cobro con el método de pago guardado
+        manual, pide un reembolso, marca un recibo como devuelto o como cobrado a mano, lanza un cobro con el método de pago guardado
         («Cobrar online» o aprobar una propuesta en Automatizaciones), devuelve una venta de la caja, emite una
         factura rectificativa o aprueba cobrar una penalización, queda aquí: quién, cuándo y qué valor había antes.
         No incluye los cobros automáticos ni lo que confirma Stripe, ni un intento de cobro que el banco rechaza

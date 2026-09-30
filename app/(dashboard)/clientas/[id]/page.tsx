@@ -32,6 +32,7 @@ import { DerechosRgpdFicha } from '@/components/socios/derechos-rgpd-ficha';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { BotonDevolverRecibo } from '@/components/socios/boton-devolver-recibo';
 import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
+import { MENSAJE_YA_ESTABA, textoLoteCobrado } from '@/lib/cobros/marcar-cobrado';
 import { BotonRectificarFactura } from '@/components/socios/boton-rectificar-factura';
 import { estadoReembolso } from '@/lib/billing/estado-reembolso';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
@@ -52,7 +53,6 @@ import {
   Bot, Loader2, Mic, RefreshCw, XCircle, CalendarClock,
 } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
-import { textoCobroEnLote } from '@/lib/cobros/texto-cobro-en-lote';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { Toast } from '@/components/ui/toast';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
@@ -1504,11 +1504,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       {pendientes.length > 0 && (
                         <BotonCobrarConMetodo
                           detalle={<>{pendientes.length} {pendientes.length === 1 ? 'recibo' : 'recibos'} — <span className="font-semibold text-foreground">{formatEuro(pendientes.reduce((t, r) => t + r.importe, 0))}</span></>}
-                          onCobrar={metodo => {
-                            return cobrarTodosPendientes(id, metodo).then(res => {
-                              setToast(res.ok ? textoCobroEnLote(res.cobrados ?? 0, res.saltados ?? []) : res.error);
-                            });
-                          }}
+                          onCobrar={metodo => cobrarTodosPendientes(id, metodo).then(res => {
+                            setToast(res.ok ? textoLoteCobrado(res, res.saltados) : res.error);
+                          })}
                           className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg transition-colors"
                           style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
                         >
@@ -1586,7 +1584,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                     <BotonCobrarConMetodo
                                       detalle={<>{r.concepto} — <span className="font-semibold text-foreground">{formatEuro(r.importe)}</span></>}
                                       onCobrar={metodo => marcarCobrado(r.id, metodo).then(res => {
-                                        setToast(res.ok ? `Cobro registrado: ${formatEuro(r.importe)}` : res.error);
+                                        setToast(res.ok ? (res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${formatEuro(r.importe)}`) : res.error);
                                       })}
                                       className="text-xs font-bold px-2.5 py-1 rounded-lg transition-colors"
                                       style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}

@@ -9,6 +9,11 @@
 // recibo antes y después y anota la diferencia, con las mismas reglas que el resto
 // del libro (solo las columnas que cambian).
 //
+// «Marcar cobrado» del panel (efectivo, datáfono propio, Bizum al móvil, transferencia) es
+// el mismo problema con otra acción: `POST /api/cobros/marcar-cobrado` escribe con
+// service-role y desde que el cobro dejó de escribirlo el navegador el trigger ya no ve
+// quién lo hizo. `anotarCobroMarcadoAMano` lo deja en el libro, con la sesión como actor.
+//
 // Qué NO se anota, y por qué:
 //   · un cobro que el banco rechaza, pide 3DS, o un fallo transitorio de Stripe: la
 //     función no toca el recibo, así que no hay ningún cambio que contar (Stripe y
@@ -33,6 +38,9 @@ export const TIEMPO_LECTURA_MS = 3000;
 
 /** Desde dónde se lanzó: la pantalla de Cobros, o la propuesta aprobada en Automatizaciones. */
 export type OrigenDelCobro = 'COBRAR_ONLINE' | 'AUTOMATIZACIONES';
+
+/** El origen que lleva el contexto de una entrada de «marcar cobrado» a mano. */
+export const ORIGEN_MARCAR_COBRADO = 'MARCAR_COBRADO';
 
 type Fila = Record<string, unknown>;
 
@@ -132,6 +140,58 @@ export async function anotarCobroManual(
         // 'succeeded' = cobrado ya; 'processing' = adeudo SEPA en marcha (tarda días y puede devolverse).
         resultado_cobro: p.resultado.status ?? null,
         origen: p.origen,
+        // Sin la lectura de antes, el «antes» de cada columna sale vacío: no significa que no hubiera valor.
+        ...(p.antes ? {} : { sin_valor_anterior: true }),
+      },
+    });
+  } catch (e) {
+    informar('AUDITORIA_FALLO', { tabla: 'recibos', filaId: p.reciboId, error: e instanceof Error ? e.message : String(e) });
+  }
+}
+
+/**
+ * Anota un recibo que una persona del equipo acaba de MARCAR cobrado a mano (`confirmarCobro`
+ * con transición `aplicada`). Nunca lanza. Lee el recibo de después y anota lo que cambió con
+ * el valor de antes que trajo `leerReciboAntesDeCobrar`. Solo se llama con `aplicada`: un
+ * `ya_estaba` no cambió nada y un rechazo tampoco.
+ */
+export async function anotarCobroMarcadoAMano(
+  admin: SupabaseClient,
+  p: {
+    sesion: SesionAuditoria;
+    reciboId: string;
+    /** Lo que devolvió `leerReciboAntesDeCobrar`. */
+    antes: Fila | null;
+  },
+  registrar: RegistrarAuditoria = registrarAuditoriaServidor,
+  informar: Informar = avisarAuditoria,
+): Promise<void> {
+  try {
+    const { fila: despues, error } = await leerRecibo(admin, p.sesion.studioId, p.reciboId);
+    if (error || !despues) {
+      // Sin esto, un cobro real quedaría sin rastro Y sin aviso: no se puede saber cómo quedó el recibo.
+      informar('AUDITORIA_LECTURA_POSTERIOR_FALLO', { tabla: 'recibos', filaId: p.reciboId, error: error ?? 'recibo no encontrado' });
+      return;
+    }
+
+    const antesCobro = soloCobro(p.antes);
+    const despuesCobro = soloCobro(despues);
+    if (antesCobro && JSON.stringify(antesCobro) === JSON.stringify(despuesCobro)) {
+      informar('AUDITORIA_COBRO_SIN_CAMBIO_EN_EL_RECIBO', { tabla: 'recibos', filaId: p.reciboId, userId: p.sesion.userId, rol: p.sesion.rol, origen: ORIGEN_MARCAR_COBRADO });
+      return;
+    }
+
+    await registrar(admin, {
+      sesion: p.sesion,
+      tabla: 'recibos', filaId: p.reciboId, operacion: 'UPDATE',
+      socioId: (despues.socio_id as string | null) ?? null,
+      antes: antesCobro,
+      despues: despuesCobro,
+      contexto: {
+        accion: 'COBRO_MARCADO_A_MANO',
+        concepto: (despues.concepto as string | null) ?? null,
+        importe: Number(despues.importe) || null,
+        origen: ORIGEN_MARCAR_COBRADO,
         // Sin la lectura de antes, el «antes» de cada columna sale vacío: no significa que no hubiera valor.
         ...(p.antes ? {} : { sin_valor_anterior: true }),
       },

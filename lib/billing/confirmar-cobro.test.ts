@@ -86,12 +86,16 @@ function fakeAdmin(opts: {
 }
 
 /** Efectos de mentira: apuntan en qué orden se llamaron. */
-function efectos(opts: { selladoFalla?: boolean; desactivada?: boolean } = {}) {
+function efectos(opts: { selladoFalla?: boolean; desactivada?: boolean; renovacion?: 'fallo' | 'lanza' } = {}) {
   const orden: string[] = [];
   const creditos: Fila[] = [];
   const caja: Fila[] = [];
   const deps: DependenciasEfectos = {
-    renovar: async () => { orden.push('renovacion'); },
+    renovar: async () => {
+      orden.push('renovacion');
+      if (opts.renovacion === 'lanza') throw new Error('RPC caída');
+      return opts.renovacion === 'fallo' ? { aplicada: false, tipo: 'BONO', antes: null, despues: null, fallo: true } : undefined;
+    },
     sellar: async () => {
       orden.push('factura');
       if (opts.desactivada) return { ok: false, desactivada: true, error: 'Este estudio no emite facturas desde Tentare.' };
@@ -153,6 +157,25 @@ test('sellada con éxito: se quita factura_pendiente_sellar, solo si estaba pues
   assert.ok(tiene(limpia.filtros, 'eq', 'factura_pendiente_sellar', true), 'solo toca la fila si la marca estaba');
 });
 
+test('la renovación no se pudo entregar: el cobro sigue y el resultado lo dice (no es un éxito limpio)', async () => {
+  for (const renovacion of ['fallo', 'lanza'] as const) {
+    const { admin } = fakeAdmin({ trasCas: { ...GANA, es_renovacion: true } });
+    const { orden, deps } = efectos({ renovacion });
+    const r = await confirmarCobro(admin, BASE, deps);
+    assert.equal(r.ok && r.transicion, 'aplicada', renovacion);
+    assert.equal(r.ok && r.renovacionFallida, true, renovacion);
+    // Y el resto de efectos no se pierde por eso.
+    assert.ok(orden.includes('factura'), renovacion);
+  }
+});
+
+test('la renovación entregada no lleva `renovacionFallida`', async () => {
+  const { admin } = fakeAdmin({ trasCas: GANA });
+  const { deps } = efectos();
+  const r = await confirmarCobro(admin, BASE, deps);
+  assert.equal(r.ok && 'renovacionFallida' in r, false);
+});
+
 test('estudio sin facturas desde Tentare: el cobro sigue igual, sin marca de pendiente ni «sellado fallido»', async () => {
   const { admin, updates } = fakeAdmin({ trasCas: GANA });
   const { orden, deps } = efectos({ desactivada: true });
@@ -179,6 +202,32 @@ test('TPV que llega segundo: repite solo el apunte de caja (idempotente), nada m
   assert.equal(r.ok && r.transicion, 'ya_estaba');
   assert.deepEqual(orden, ['caja']);
   assert.deepEqual(caja[0], { studioId: 'studio-1', reciboId: 'rec-1', actor: { userId: 'u-1', nombre: 'Recepción' } });
+});
+
+test('a mano sobre un recibo que ya cobró un «marcar cobrado»: repara el apunte de caja', async () => {
+  const { admin } = fakeAdmin({ trasCas: null, actual: { estado: 'COBRADO', stripe_payment_intent_id: null, conciliado_por: 'manual' } });
+  const { orden, caja, deps } = efectos();
+  const r = await confirmarCobro(admin, {
+    ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false,
+    facturaId: 'fac-manual-rec-1', actor: { userId: 'u-1', nombre: 'Cloe' },
+  }, deps);
+  assert.equal(r.ok && r.transicion, 'ya_estaba');
+  assert.deepEqual(orden, ['caja']);
+  assert.equal(caja.length, 1);
+});
+
+test('a mano sobre un recibo que la socia ya pagó online: NO se escribe en la caja', async () => {
+  for (const conciliadoPor of ['webhook', 'conciliador', null]) {
+    const { admin } = fakeAdmin({ trasCas: null, actual: { estado: 'COBRADO', stripe_payment_intent_id: 'pi_online', conciliado_por: conciliadoPor } });
+    const { orden, caja, deps } = efectos();
+    const r = await confirmarCobro(admin, {
+      ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false,
+      facturaId: 'fac-manual-rec-1', actor: { userId: 'u-1', nombre: 'Cloe' },
+    }, deps);
+    assert.equal(r.ok && r.transicion, 'ya_estaba', String(conciliadoPor));
+    assert.deepEqual(orden, [], `cerrado por ${conciliadoPor}: el dinero no pasó por el cajón`);
+    assert.deepEqual(caja, []);
+  }
 });
 
 test('DEVUELTO con el mismo cargo: no se resucita ni se repiten efectos', async () => {
@@ -217,6 +266,34 @@ test('a mano no se cierra un EN_CURSO', async () => {
   assert.equal(r.ok, false);
   assert.equal(!r.ok && r.codigo, 'NO_COBRABLE');
   assert.deepEqual(orden, []);
+});
+
+test('a mano «sin especificar»: no pisa el método del recibo y factura según el que tenía', async () => {
+  // El panel antes decidía la factura con `metodo ?? recibo.metodoCobro`. Si el
+  // recibo ya decía EFECTIVO, no se emitía; con null tampoco puede emitirse aquí.
+  for (const [metodoGuardado, factura] of [['EFECTIVO', false], ['BIZUM', true], [null, true]] as const) {
+    const { admin, updates } = fakeAdmin({ trasCas: { ...GANA, metodo_cobro: metodoGuardado } });
+    const { orden, deps } = efectos();
+    const r = await confirmarCobro(admin, {
+      ...BASE, origen: 'manual', metodo: null, paymentIntentId: null, avisarSocia: false, facturaId: 'fac-manual-rec-1',
+    }, deps);
+    assert.equal(r.ok && r.transicion, 'aplicada');
+    assert.equal('metodo_cobro' in updates[0].fila, false, 'sin método no se escribe la columna');
+    assert.equal(orden.includes('factura'), factura, `metodo guardado ${metodoGuardado}`);
+    assert.deepEqual(orden.filter(p => p === 'email' || p === 'notificacion'), [], 'a mano ni email ni aviso');
+  }
+});
+
+test('a mano con método: lo escribe en el mismo UPDATE y apunta la caja', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: { ...GANA, metodo_cobro: 'EFECTIVO' } });
+  const { orden, deps, caja } = efectos();
+  await confirmarCobro(admin, {
+    ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false,
+    facturaId: 'fac-manual-rec-1', actor: { userId: 'u-1', nombre: 'Cloe' },
+  }, deps);
+  assert.equal(updates[0].fila.metodo_cobro, 'EFECTIVO');
+  assert.deepEqual(orden, ['renovacion', 'caja']);
+  assert.deepEqual(caja, [{ studioId: 'studio-1', reciboId: 'rec-1', actor: { userId: 'u-1', nombre: 'Cloe' } }]);
 });
 
 test('no existe (u otro estudio): NO_ENCONTRADO y ningún efecto', async () => {

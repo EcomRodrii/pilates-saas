@@ -998,11 +998,18 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     (`lib/db/supabase-data-admin.ts`) terminan en `trasReservaCreada`,
     `trasPlazaConfirmada` o `trasPromocionDeEspera`; cualquier camino nuevo que
     confirme plaza llama a su dueño.
-  - **«Cobro confirmado»: a medias.** Webhook/conciliador/POS-confirmar, SEPA/dunning
-    y off-session convergen en `confirmarCobro` (`lib/billing/confirmar-cobro.ts`).
-    Quedan fuera el cobro manual del panel (`marcarCobrado` y `cobrarTodosPendientes`
-    en `lib/studio-context.tsx`, que escriben desde el navegador y renuevan el bono
-    con una copia a mano) y el POS, que inserta el recibo ya COBRADO por su cuenta.
+  - **«Cobro confirmado»: casi.** Webhook/conciliador/POS-confirmar, SEPA/dunning,
+    off-session y, desde el 30-sep-2026, el «marcar cobrado» del panel
+    (`POST /api/cobros/marcar-cobrado`, `origen: 'manual'`) convergen en
+    `confirmarCobro` (`lib/billing/confirmar-cobro.ts`). Queda fuera el POS, que
+    inserta el recibo ya COBRADO por su cuenta, y otros escritores del navegador que
+    insertan `estado: 'COBRADO'` (alta de socia con cobro, `crearFacturaDirecta`).
+    ⚠️ Cerrar la UI no cierra la base de datos: la RLS de `recibos` sigue dejando a
+    quien mueve dinero escribir `COBRADO` por PostgREST, saltándose la guardia de
+    penalización, el sellado y la renovación. Cerrarlo es un trigger, o un REVOKE de
+    tabla con GRANT por columnas (un REVOKE de columna no resta de un grant de tabla).
+    ⚠️ El servidor solo renueva un recibo con `es_renovacion = true`; el navegador
+    renovaba también por tener suscripción.
 - **De serie ≠ personalizable.** Recordatorio de clase, confirmación, lista de
   espera, bono agotado, reintento de cobro, valoración y búsqueda de sustituta son
   producto, no reglas. `CLASE_MANANA` ya no se ofrece (duplicaba el recordatorio

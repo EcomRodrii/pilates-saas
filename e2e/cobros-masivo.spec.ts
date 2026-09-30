@@ -12,6 +12,10 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 //
 // Esta suite fija las dos garantías: no hay nada preseleccionado, y no se cobra
 // nada sin pasar por una confirmación que dice lo que va a ocurrir.
+//
+// Desde el PR 3 del dueño único el cobro NO se escribe desde el navegador: va a
+// `POST /api/cobros/marcar-cobrado`. Así que lo que se cuenta son esos POST, y
+// además que no llega NI UNA escritura directa a `rest/v1/recibos`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -52,9 +56,19 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-/** Devuelve los PATCH que llegaron a `recibos`: si está vacío, no se ha cobrado nada. */
-async function montarCobros(page: Page, suscripciones: unknown[] = SUSCRIPCIONES, opts: { rechazarEscritura?: boolean } = {}) {
-  const escrituras: { metodo: string; body: string }[] = [];
+interface Contadores {
+  /** Cuerpos de los POST a /api/cobros/marcar-cobrado. */
+  cobros: { reciboIds: string[]; metodo: string | null }[];
+  /** Cualquier escritura directa a `rest/v1/recibos` desde el navegador. Tiene que ser 0. */
+  escriturasDirectas: number;
+}
+
+async function montarCobros(
+  page: Page,
+  suscripciones: unknown[] = SUSCRIPCIONES,
+  opts: { rechazar?: boolean } = {},
+): Promise<Contadores> {
+  const c: Contadores = { cobros: [], escriturasDirectas: 0 };
 
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -75,6 +89,16 @@ async function montarCobros(page: Page, suscripciones: unknown[] = SUSCRIPCIONES
   await page.route('**/api/billing/estado**', route => json(route, { bloqueado: false }));
   await page.route('**/api/theme**', route =>
     json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
+  await page.route('**/api/cobros/marcar-cobrado', route => {
+    const cuerpo = JSON.parse(route.request().postData() ?? '{}') as { reciboIds: string[]; metodo: string | null };
+    c.cobros.push(cuerpo);
+    // Simula que el servidor rechaza antes de tocar nada (sesión, rol): el camino
+    // que antes se tragaba en silencio y aun así pintaba facturas y renovaciones.
+    if (opts.rechazar) return json(route, { error: 'Tu rol no puede registrar cobros' }, 403);
+    return json(route, {
+      resultados: cuerpo.reciboIds.map(reciboId => ({ reciboId, resultado: 'aplicada', selladoOk: true })),
+    });
+  });
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID, nif: 'B00000000' }));
@@ -83,32 +107,15 @@ async function montarCobros(page: Page, suscripciones: unknown[] = SUSCRIPCIONES
   await page.route('**/rest/v1/planes_tarifa**', route => json(route, PLANES));
   await page.route('**/rest/v1/suscripciones**', route => json(route, suscripciones));
   await page.route('**/rest/v1/recibos**', route => {
-    const req = route.request();
-    if (req.method() !== 'GET') {
-      escrituras.push({ metodo: req.method(), body: req.postData() ?? '' });
-      // Simula que la BD rechaza (RLS, red, lo que sea): el camino que antes se
-      // tragaba en silencio y aun así pintaba facturas y renovaciones.
-      if (opts.rechazarEscritura) {
-        return json(route, { message: 'new row violates row-level security policy' }, 403);
-      }
-      // dbMarcarCobrado/dbUpdateRecibosBatch (auditoría M-2) exigen
-      // `estado = 'PENDIENTE'` en el propio UPDATE y miran las filas
-      // devueltas por `.select('id')` para saber si de verdad cobraron algo
-      // -- antes esto devolvía [] siempre porque el código nunca inspeccionaba
-      // el cuerpo de una escritura con éxito. Se simulan las filas que un
-      // UPDATE condicional real devolvería: los ids que venían en el filtro.
-      const url = new URL(req.url());
-      const idParam = url.searchParams.get('id') ?? '';
-      const ids = idParam.startsWith('in.(')
-        ? idParam.slice(4, -1).split(',').filter(Boolean)
-        : idParam.startsWith('eq.') ? [idParam.slice(3)] : [];
-      return json(route, ids.map(id => ({ id })));
+    if (route.request().method() !== 'GET') {
+      c.escriturasDirectas++;
+      return json(route, { message: 'el panel no debería escribir recibos directamente' }, 400);
     }
     return json(route, RECIBOS);
   });
 
   await page.goto('/cobros');
-  return escrituras;
+  return c;
 }
 
 test.describe('Cobrar varias a la vez', () => {
@@ -143,7 +150,7 @@ test.describe('Cobrar varias a la vez', () => {
   });
 
   test('no cobra nada hasta confirmar, y la confirmación avisa de lo irreversible', async ({ page }) => {
-    const escrituras = await montarCobros(page);
+    const c = await montarCobros(page);
 
     await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
     const dialogo = page.getByRole('dialog');
@@ -160,12 +167,13 @@ test.describe('Cobrar varias a la vez', () => {
     await expect(dialogo).toContainText('Esto no se puede deshacer');
 
     // Hasta aquí no se ha tocado ni un recibo.
-    expect(escrituras).toHaveLength(0);
+    expect(c.cobros).toHaveLength(0);
 
     // Y volverse atrás tampoco cobra.
     await dialogo.getByRole('button', { name: 'Volver a la lista' }).click();
     await expect(dialogo).toContainText('2 recibos seleccionados');
-    expect(escrituras).toHaveLength(0);
+    expect(c.cobros).toHaveLength(0);
+    expect(c.escriturasDirectas).toBe(0);
   });
 
   test('con una socia de dos suscripciones, "Marcar todas" sigue funcionando', async ({ page }) => {
@@ -189,13 +197,13 @@ test.describe('Cobrar varias a la vez', () => {
     await expect(dialogo).toContainText('0 recibos seleccionados');
   });
 
-  // ── Cuando la base de datos dice que no ──────────────────────────────────────
+  // ── Cuando el servidor dice que no ───────────────────────────────────────────
   // `marcarCobrado` escribía de forma optimista y SIN await: marcaba el recibo
   // como COBRADO en pantalla, emitía una factura con número fiscal y renovaba el
   // bono, todo antes de saber si la escritura había funcionado. Si fallaba, nadie
   // se enteraba: el resumen decía "2 cobros procesados" igual.
-  test('si la BD rechaza, lo dice y no da los cobros por buenos', async ({ page }) => {
-    await montarCobros(page, SUSCRIPCIONES, { rechazarEscritura: true });
+  test('si el servidor rechaza, lo dice y no da los cobros por buenos', async ({ page }) => {
+    const c = await montarCobros(page, SUSCRIPCIONES, { rechazar: true });
 
     await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
     const dialogo = page.getByRole('dialog');
@@ -205,15 +213,19 @@ test.describe('Cobrar varias a la vez', () => {
 
     // Ni un solo cobro dado por bueno, y se explica qué ha pasado.
     await expect(dialogo).toContainText('0 cobros guardados', { timeout: 15_000 });
+    // Sin contador esto sería hueco: «no mintió» puede ser verdad por no haber
+    // intentado nada.
+    expect(c.cobros.length, 'el cobro no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
     await expect(dialogo).toContainText('no se han podido guardar');
     await expect(dialogo).toContainText('siguen como pendientes');
     // Lo que más importa: no se ha emitido factura fiscal contra un cobro que no existe.
     await expect(dialogo).toContainText('No se han emitido sus facturas');
     await expect(dialogo).not.toContainText('2 cobros guardados');
+    expect(c.escriturasDirectas, 'el panel no puede caer a escribir el recibo él mismo').toBe(0);
   });
 
-  test('si la BD acepta, el resumen cuadra con lo guardado', async ({ page }) => {
-    const escrituras = await montarCobros(page);
+  test('si el servidor acepta, el resumen cuadra con lo que dijo', async ({ page }) => {
+    const c = await montarCobros(page);
 
     await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
     const dialogo = page.getByRole('dialog');
@@ -223,7 +235,10 @@ test.describe('Cobrar varias a la vez', () => {
 
     await expect(dialogo).toContainText('2 cobros guardados', { timeout: 15_000 });
     await expect(dialogo).not.toContainText('no se han podido guardar');
-    // Y se escribió de verdad, una vez por recibo.
-    expect(escrituras.filter(e => e.metodo === 'PATCH').length).toBeGreaterThanOrEqual(2);
+    // Se pidió al servidor, con los dos recibos y sin repetir ninguno.
+    expect(c.cobros.length).toBeGreaterThan(0);
+    expect(c.cobros.flatMap(x => x.reciboIds).sort()).toEqual(['rec-1', 'rec-2']);
+    // Y el navegador no escribió el recibo por su cuenta.
+    expect(c.escriturasDirectas).toBe(0);
   });
 });

@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
-  facturaIdCheckout, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas, origenNotifica,
-  refIdCreditoRenovacion, resolverSinFilas, type OrigenCobro,
+  facturaIdCheckout, facturaIdManual, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas, origenNotifica,
+  reentregaAplicaAlRecibo, refIdCreditoRenovacion, resolverSinFilas, type OrigenCobro,
 } from './cobro-confirmado-reglas.ts';
 import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
 
@@ -178,6 +178,23 @@ test('reentrega: solo se repite el apunte de caja del mostrador', () => {
   }
 });
 
+test('reentrega a mano: solo repara un apunte de caja de un cobro que cerró un «marcar cobrado»', () => {
+  assert.equal(reentregaAplicaAlRecibo('manual', 'manual'), true);
+  // Ya cobrado por otro camino (la socia lo pagó online): el cajón no lo vio.
+  for (const otro of ['webhook', 'conciliador', 'tpv', null, undefined]) {
+    assert.equal(reentregaAplicaAlRecibo('manual', otro), false, String(otro));
+  }
+});
+
+test('reentrega del TPV: no depende de quién cerró el recibo (el primero en llegar puede ser el webhook)', () => {
+  for (const cerro of ['webhook', 'conciliador', 'tpv', 'manual', null]) {
+    assert.equal(reentregaAplicaAlRecibo('tpv', cerro), true, String(cerro));
+  }
+  for (const o of ORIGENES.filter(o => o !== 'manual' && o !== 'tpv')) {
+    assert.equal(reentregaAplicaAlRecibo(o, 'manual'), false, o);
+  }
+});
+
 test('créditos solo para una renovación', () => {
   assert.ok(efectosEnOrden({ origen: 'off_session', metodo: 'TARJETA', avisarSocia: false, esRenovacion: true }).includes('creditos'));
   assert.equal(efectosEnOrden({ origen: 'off_session', metodo: 'TARJETA', avisarSocia: false, esRenovacion: false }).includes('creditos'), false);
@@ -215,6 +232,15 @@ test('cada canal sella con su propio id', () => {
   assert.equal(facturaIdCheckout('rec-1'), 'fac-checkout-rec-1');
   assert.equal(facturaIdMetodoGuardado('rec-1', 'SEPA'), 'fac-sepa-rec-1');
   assert.equal(facturaIdMetodoGuardado('rec-1', 'TARJETA'), 'fac-off-rec-1');
+  assert.equal(facturaIdManual('rec-1'), 'fac-manual-rec-1');
+});
+
+test('el reintento de un cobro a mano sella con el id del panel, aunque el recibo diga SEPA', () => {
+  assert.equal(facturaIdParaReintento({ id: 'rec-1', metodo_cobro: 'EFECTIVO', conciliado_por: 'manual' }), 'fac-manual-rec-1');
+  assert.equal(facturaIdParaReintento({ id: 'rec-1', metodo_cobro: 'SEPA', conciliado_por: 'manual' }), 'fac-manual-rec-1');
+  // El sellado valida el id con /^[A-Za-z0-9_-]{1,64}$/: el prefijo no puede
+  // dejar fuera un recibo que ya cabía con `fac-checkout-`.
+  assert.ok(facturaIdManual('x').length <= facturaIdCheckout('x').length);
 });
 
 test('el reintento de sellado ya no fuerza fac-checkout- para todo', () => {

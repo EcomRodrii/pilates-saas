@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
 import { cn, inicioDeSemana, finDeSemana, capitalizarPrimera } from '@/lib/utils';
-import { textoCobroEnLote } from '@/lib/cobros/texto-cobro-en-lote';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +30,7 @@ import { HOME_SECCIONES, ordenarSeccionesHome } from '@/lib/home-sections';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
+import { MENSAJE_YA_ESTABA, textoLoteCobrado } from '@/lib/cobros/marcar-cobrado';
 import { useRol, puedeVerFinanzas, puedeVer, puedeGestionarClientas, puedeMoverDinero, puedeGestionarCalendario } from '@/lib/permisos';
 import { Toast, useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth-context';
@@ -1020,7 +1020,7 @@ export default function Dashboard() {
                         setCobrandoTodos(true);
                         void cobrarTodosPendientes()
                           .then(res => {
-                            showToast(res.ok ? textoCobroEnLote(res.cobrados ?? 0, res.saltados ?? []) : res.error);
+                            showToast(res.ok ? textoLoteCobrado(res, res.saltados) : res.error);
                           })
                           .finally(() => setCobrandoTodos(false));
                       }}
@@ -1053,7 +1053,7 @@ export default function Dashboard() {
                         <BotonCobrarConMetodo
                           detalle={<>{r.socio!.nombre} {r.socio!.apellidos} — <span className="font-semibold text-foreground">{r.importe} €</span></>}
                           onCobrar={metodo => marcarCobrado(r.id, metodo).then(res => {
-                            showToast(res.ok ? `Cobro registrado: ${r.importe} €` : res.error);
+                            showToast(res.ok ? (res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${r.importe} €`) : res.error);
                           })}
                           className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors"
                         />

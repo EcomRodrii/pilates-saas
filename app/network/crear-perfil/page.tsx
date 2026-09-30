@@ -46,7 +46,7 @@ import type { PerfilNetwork, VerificacionIdentidadNetwork, CertificacionNetwork 
 import { PASOS_ONBOARDING as PASOS, pasoIncompletoDe } from '@/lib/network/pasos-onboarding';
 import { NW_TINTA, NW_MUTED, NW_BORDE, NW_PRODUCTO, NW_ARENA, NW_VERDE_OSCURO, NW_FONDO, NW_GRIS_VERDOSO } from '@/components/network-v2/tokens';
 import { AvisoMantenimientoNetwork } from '@/components/network/aviso-mantenimiento';
-import { ACCESO_NETWORK_EN_MANTENIMIENTO } from '@/lib/network/mantenimiento';
+import { ACCESO_NETWORK_EN_MANTENIMIENTO, MENSAJE_ALTA_NETWORK_CERRADA } from '@/lib/network/mantenimiento';
 import type { FormState, IdentidadForm } from './form-state';
 import { formVacio, formDesdePerfil, identidadVacia, identidadDesdeApi } from './form-state';
 import { PasoCuenta } from './pasos/paso-cuenta';
@@ -297,7 +297,7 @@ export default function CrearPerfilNetworkPage() {
   // medias sin forma de completarse.
   if (!user) {
     if (ACCESO_NETWORK_EN_MANTENIMIENTO) {
-      return <AvisoMantenimientoNetwork mensaje="La creación de perfiles nuevos en Tentare Network está temporalmente cerrada. Vuelve a intentarlo más tarde." />;
+      return <AvisoMantenimientoNetwork mensaje={MENSAJE_ALTA_NETWORK_CERRADA} />;
     }
     return (
       <PasoCuenta

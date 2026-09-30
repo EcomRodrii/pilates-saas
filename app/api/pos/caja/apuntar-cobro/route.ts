@@ -15,10 +15,10 @@ export const dynamic = 'force-dynamic';
 // lo esperado exactamente por esa cantidad, cada vez, sin ninguna pista de
 // dónde venía.
 //
-// Se llama DESPUÉS de que el cobro ya esté registrado, nunca antes: quien
-// decide si el recibo pasa a COBRADO sigue siendo `marcarCobrado`, con su
-// compare-and-set y su sellado fiscal. Esto solo anota que el dinero pasó por
-// el mostrador.
+// ⚠️ Desde el PR 3 del dueño único el panel ya no la llama: el apunte lo hace
+// `confirmarCobro` (origen `manual`) con la misma RPC, dentro de
+// `/api/cobros/marcar-cobrado`. Se deja la ruta (idempotente por
+// `mov-rec-<recibo>`) hasta decidir si se retira.
 //
 // No recibe importe ni método: los lee la RPC de la base. Un apunte de caja
 // cuyo importe viniera del navegador sería un descuadre a un `fetch` de

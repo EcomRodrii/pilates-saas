@@ -6,7 +6,6 @@ import { fijarEtiqueta, capturarExcepcion, capturarMensaje } from '@/lib/sentry-
 import { CoreProvider } from '@/lib/core-context';
 import { Toast, useToast } from '@/components/ui/toast';
 import { supabase } from '@/lib/db/supabase';
-import { apuntarCobroEnCaja } from '@/lib/pos/cliente';
 import { debeReleerAlVolver } from '@/lib/panel-refresco';
 import { puedeProgramarBaja } from '@/lib/billing/baja-al-vencer';
 import type { RowInstructores } from '@/lib/db-types';
@@ -22,7 +21,6 @@ import {
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
   dbSocioTieneAlgunPlan,
   dbReservarMatricula,
-  dbGuardarEntrega,
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
   dbListPlazasFijas,
   dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion, dbAmpliarCaducidades,
@@ -33,7 +31,7 @@ import {
   dbReasignarInstructora,
   dbCancelarReservasPorSesiones,
   dbUpdateReserva,
-  dbInsertRecibo, dbUpdateRecibo, dbMarcarCobrado, dbUpdateRecibosBatch, dbEliminarRecibo,
+  dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbEliminarRecibo, dbLeerEstadoRecibos, dbReleerTrasCobro,
   dbInsertCita, dbUpdateCita,
   dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
   dbInsertVentaPOS,
@@ -66,7 +64,7 @@ import {
   dbUpdateStudio, dbUpdateHorarioEstudio, dbUpdateStudioConfig, resolverEstudioDeLaSesion, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
-import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
+import { mensajeDeFalloAlGuardar, mensajeHttp, mensajeSeguro, type ResultadoEscritura } from '@/lib/errores';
 
 /**
  * Lo que de verdad ha pasado al intentar reservar.
@@ -183,8 +181,12 @@ import type {
   ValoracionSocia,
 } from '@/lib/types';
 import { emiteFacturaAutomatica, MENSAJE_SIN_FACTURAS } from '@/lib/factura-automatica';
+import {
+  MENSAJE_COBRADO_SIN_RENOVAR, RECIBOS_POR_LOTE_PANEL, desenlaceTrasReleer, esCobroConfirmado, leerRespuestaMarcarCobrado, resumenDeLote, trocear,
+  type DesenlaceCobroManual, type ResultadoMarcarCobrado, type ResumenCobroEnLote,
+} from '@/lib/cobros/marcar-cobrado';
 import type { TipoRebote } from '@/lib/emails/rebotes';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados, marcarReciboDevueltoApi, sincronizarCreditosRecibosApi } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
@@ -212,7 +214,7 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoDevolvible, calcularReactivacion, cicloInicialDe, avisaBonoAgotado, proximoFinAlineadoDia1, proximoFinDesdeVencimiento, proximoFinNatural } from '@/lib/bono-logic';
+import { bonoDevolvible, calcularReactivacion, cicloInicialDe, avisaBonoAgotado } from '@/lib/bono-logic';
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -491,16 +493,23 @@ interface StudioContextValue {
   // Recibos
   addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => Promise<ResultadoEscritura>;
   crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }) => Promise<ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }>;
-  /** Devuelve `numeroFactura` cuando el cobro emitió factura: el llamador NO
-   *  debe buscarla en el estado — todavía no está ahí (ver marcarCobrado). */
-  marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<(ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }) & { numeroFactura?: string }>;
+  /** Marca un recibo cobrado POR EL SERVIDOR (`/api/cobros/marcar-cobrado`).
+   *  Devuelve `numeroFactura` cuando el cobro emitió factura: el llamador NO
+   *  debe buscarla en el estado — todavía no está ahí. `yaEstaba` no es un error. */
+  marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoMarcarCobrado>;
+  /** Varios a la vez (cobro masivo), con el desenlace de cada uno. */
+  marcarCobradoVarios: (ids: string[], metodo?: MetodoCobro, onProgreso?: (hechos: number) => void) => Promise<DesenlaceCobroManual[]>;
   marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentarSelladoFactura: (reciboId: string) => Promise<ResultadoEscritura>;
   /** Elimina un recibo con un motivo (lista cerrada); el servidor decide si se puede. */
   deleteRecibo: (id: string, motivo: string) => Promise<ResultadoEscritura>;
-  /** `cobrados`: los que esta llamada cobró; `saltados`: penalizaciones anuladas que no se cobran. */
-  cobrarTodosPendientes: (socioId?: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura & { cobrados?: number; saltados?: Recibo[] }>;
+  /**
+   * Cobra los pendientes por el servidor. El resumen dice cuántos se cobraron y
+   * cuáles no; `saltados` son los que se dejaron fuera a propósito (penalización
+   * anulada), para decir su importe.
+   */
+  cobrarTodosPendientes: (socioId?: string, metodo?: MetodoCobro) => Promise<ResumenCobroEnLote & { saltados: Recibo[] }>;
   /** `idsActualizados`: los que se marcaron de verdad. Solo esos van en la remesa. */
   marcarRecibosEnviadosAlBanco: (ids: string[]) => Promise<ResultadoEscritura & { idsActualizados?: string[] }>;
   /** Deshace la marca de la remesa (EN_CURSO → PENDIENTE) si el fichero no se llegó a generar. */
@@ -4161,108 +4170,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return resSellado.ok ? resSellado : { ...resSellado, cobroRegistrado: true };
   }
 
-  // I15: lógica de cobro extraída para que marcarCobrado y cobrarTodosPendientes
-  // NO dupliquen el refill de bono / extensión mensual ni el build+sellado de
-  // factura (antes copiados en ambas, con riesgo de divergencia — p. ej. el guard
-  // `sesionesRestantes === 0`). Ambos helpers operan sobre UN recibo ya cobrado y
-  // leen `suscripciones`/`planesTarifa`/`facturas` del snapshot actual, igual que
-  // antes, así que el comportamiento es idéntico.
-
-  // Refill del bono agotado o extensión del mensual al cobrar su renovación.
-  // Se llama DESPUÉS de que el recibo ya está confirmado como COBRADO — si el
-  // refill del bono / extensión del mensual falla aquí, el cobro en sí ya pasó
-  // de verdad y no hay nada que deshacer. Fingir que no ha pasado nada sería
-  // otra mentira (mismo criterio que asignarPlan, más arriba): se avisa
-  // siempre, para que la propietaria no descubra semanas después que cobró
-  // una renovación que nunca llegó a recargar el bono.
-  async function aplicarRenovacionSuscripcion(recibo: Recibo) {
-    if (!recibo.suscripcionId) return;
-    // Deuda que quedó pendiente al cancelar la cuota: cobrarla no la reactiva ni
-    // entrega otro ciclo (mismo criterio que `aplicarRenovacionServidor`).
-    if (recibo.trasCancelarCuota) return;
-    const sus = suscripciones.find(s => s.id === recibo.suscripcionId);
-    if (!sus) return;
-    const plan = planesTarifa.find(p => p.id === sus.planId);
-    if (!plan) return;
-    const socio = socios.find(s => s.id === sus.socioId);
-    const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'la socia';
-    const avisarFallo = (error: string) => {
-      capturarMensaje('[aplicarRenovacionSuscripcion] cobro confirmado pero la suscripción no se pudo renovar', 'error', {
-        extra: { socioId: sus.socioId, suscripcionId: sus.id, reciboId: recibo.id, error },
-      });
-      toastAviso.show(`Cobrado, pero sin renovar: se cobró la renovación de ${nombreSocio} (${plan.nombre}), pero no se ha podido actualizar su bono/plan. Revísalo a mano.`);
-    };
-    // Se guarda QUÉ entregó este cobro (ver `dbGuardarEntrega` y la migración
-    // 20260806160000). Sin esto, si el dinero se devuelve no hay forma de saber
-    // qué habría que deshacer. Es best-effort: un fallo aquí no puede tumbar una
-    // renovación ya aplicada, solo deja el recibo sin snapshot ("no lo sé").
-    const anotarEntrega = (e: Parameters<typeof dbGuardarEntrega>[1]) =>
-      void dbGuardarEntrega(recibo.id, e);
-
-    if (plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') {
-      if (sus.sesionesRestantes !== 0) {
-        anotarEntrega({
-          tipo: 'BONO', aplicada: false,
-          sesionesAntes: sus.sesionesRestantes ?? null, sesionesDespues: sus.sesionesRestantes ?? null,
-          fechaFinAntes: sus.fechaFin ?? null, fechaFinDespues: sus.fechaFin ?? null,
-          estadoAntes: sus.estado ?? null,
-        });
-        return;
-      }
-      const res = await dbUpdateSuscripcion(sus.id, { sesionesRestantes: plan.sesiones, estado: 'ACTIVA' });
-      if (!res.ok) { avisarFallo(res.error); return; }
-      anotarEntrega({
-        tipo: 'BONO', aplicada: true,
-        sesionesAntes: 0, sesionesDespues: plan.sesiones ?? null,
-        // Esta rama no toca fechaFin: antes y después iguales, o la
-        // comprobación de interferencia daría un falso positivo.
-        fechaFinAntes: sus.fechaFin ?? null, fechaFinDespues: sus.fechaFin ?? null,
-        estadoAntes: sus.estado ?? null,
-      });
-      setSuscripciones(prev => prev.map(s =>
-        s.id === sus.id ? { ...s, sesionesRestantes: plan.sesiones, estado: 'ACTIVA' as const } : s
-      ));
-    } else if (plan.tipo === 'MENSUAL') {
-      // Espejo exacto de `renovacion-server.ts`, bug de auditoría (ancla a
-      // vencimiento, no a "ahora") y PAY-11 incluidos — ver el comentario
-      // largo junto a `proximoFinDesdeVencimiento`/`proximoFinAlineadoDia1`
-      // en lib/bono-logic.ts. `proximoFinNatural` solo si de verdad no hay
-      // `fechaFin` previo (no debería pasar en un MENSUAL activo).
-      const fechaFin = !sus.fechaFin
-        ? proximoFinNatural(plan)
-        : studio?.cobroDia1Activo
-          ? proximoFinAlineadoDia1(sus.fechaFin, plan)
-          : proximoFinDesdeVencimiento(sus.fechaFin, plan);
-      // ⚠️ Este guard FALTABA aquí, y sí está en el espejo de servidor
-      // (`renovacion-server.ts`). Sin él, cobrar una renovación de una
-      // suscripción cuya fecha_fin estaba MÁS LEJOS se la ACORTABA: la socia
-      // pagaba y perdía días. Y de paso, sin el guard el snapshot habría
-      // registrado como entrega algo que en realidad quitó tiempo.
-      if (sus.fechaFin && sus.fechaFin >= fechaFin) {
-        anotarEntrega({
-          tipo: 'MENSUAL', aplicada: false,
-          sesionesAntes: sus.sesionesRestantes ?? null, sesionesDespues: sus.sesionesRestantes ?? null,
-          fechaFinAntes: sus.fechaFin, fechaFinDespues: sus.fechaFin,
-          estadoAntes: sus.estado ?? null,
-        });
-        return;
-      }
-      // `bajaAlVencer: false`: espejo de `renovacion-server.ts` — si se cobra
-      // la renovación, se queda, y una baja programada deja de aplicar.
-      const res = await dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA', bajaAlVencer: false });
-      if (!res.ok) { avisarFallo(res.error); return; }
-      anotarEntrega({
-        tipo: 'MENSUAL', aplicada: true,
-        sesionesAntes: sus.sesionesRestantes ?? null, sesionesDespues: sus.sesionesRestantes ?? null,
-        fechaFinAntes: sus.fechaFin ?? null, fechaFinDespues: fechaFin,
-        estadoAntes: sus.estado ?? null,
-      });
-      setSuscripciones(prev => prev.map(s =>
-        s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const, bajaAlVencer: false } : s
-      ));
-    }
-  }
-
   // Construye la factura de un recibo cobrado si aún no existe (dedup por
   // reciboId sobre las facturas actuales). Devuelve la factura nueva, o null si
   // ya había una. PURA a propósito — 2.2: antes sellaba (llamada de red) desde
@@ -4276,136 +4183,141 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return buildFactura(reciboCobrado, facturasActuales);
   }
 
-  async function marcarCobrado(reciboId: string, metodo?: MetodoCobro): Promise<(ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }) & { numeroFactura?: string }> {
-    // Re-entrada: si este recibo ya se está cobrando (doble clic), no se repite
-    // el sellado de factura ni la renovación del bono. Se responde ok para no
-    // marcar como fallido el segundo intento del mismo recibo en el cobro masivo.
-    if (cobrosEnCursoRef.current.has(reciboId)) return { ok: true };
-    cobrosEnCursoRef.current.add(reciboId);
+  // ── Marcar cobrado a mano: por el servidor, nunca desde el navegador ────────
+  // PR 3 del dueño único de «recibo cobrado». Aquí había un UPDATE a COBRADO
+  // desde el navegador y, detrás y por separado, el sellado de la factura, la
+  // renovación del bono (`aplicarRenovacionSuscripcion`, un espejo a mano de
+  // `renovacion-server.ts`), el apunte de caja y los créditos de renovación:
+  // cinco escrituras que fallaban cada una por su lado. Ahora las hace
+  // `/api/cobros/marcar-cobrado` con `confirmarCobro(origen: 'manual')`, y la
+  // pantalla SOLO cambia con su respuesta. Nada optimista.
+  //
+  // Lotes de `RECIBOS_POR_LOTE_PANEL`, en serie. Si un lote no tiene respuesta
+  // clara (red caída, timeout, 5xx sin detalle) se avisa «Comprobando…», se
+  // relee el estado real de esos recibos y NO se mandan los lotes siguientes:
+  // con la conexión caída, mandar más solo multiplica lo que no se sabe. Nunca
+  // se reintenta solo: el servidor es idempotente (compare-and-set), pero quien
+  // cobra tiene que ver qué hay antes de volver a pulsar.
+  async function cobrarEnServidor(
+    ids: string[], metodo?: MetodoCobro, onProgreso?: (hechos: number) => void,
+  ): Promise<DesenlaceCobroManual[]> {
+    // Re-entrada (doble clic, el mismo recibo en dos botones a la vez): el que
+    // ya está en vuelo no se vuelve a mandar.
+    const enVuelo = cobrosEnCursoRef.current;
+    const unicos = [...new Set(ids)];
+    const propios = unicos.filter(id => !enVuelo.has(id));
+    const desenlaces: DesenlaceCobroManual[] = unicos.filter(id => enVuelo.has(id)).map(reciboId => ({
+      reciboId, resultado: 'sin_confirmar' as const, selladoOk: true, error: 'Este cobro ya se está guardando. Espera a que termine.',
+    }));
+    propios.forEach(id => enVuelo.add(id));
     try {
-    // P-9 (auditoría 21ª pasada): `fecha_cobro` es `date`, no `timestamptz` —
-    // con un ISO en UTC un cobro manual a la 01:30 de Madrid se fechaba el día
-    // anterior al que lo vivió la clienta (mismo bug que ya documenta
-    // `hoyEnEstudio`).
-    const fechaCobro = hoyEnEstudio();
-    // F2 (B2.6): cobro sin pasarela de primera clase. La dueña marca cómo cobró de
-    // verdad (Bizum/efectivo/transferencia…), no solo "cobrado". La suscripción vive
-    // por fechas: el cobro manual es tan válido como el de Stripe.
-    //
-    // Se ESCRIBE PRIMERO y solo después se toca la pantalla (mismo criterio que
-    // addSala/updateSala). Antes era al revés y sin await: si la BD rechazaba, el
-    // recibo salía como COBRADO, se emitía una factura con número fiscal y se
-    // renovaba el bono... con la base de datos intacta. En el cobro masivo eso
-    // pasaba con N recibos y la pantalla decía "listo" igualmente.
-    //
-    // dbMarcarCobrado (no dbUpdateRecibo): auditoría 2026-07-29, M-2. Sin
-    // cerrojo alguno, dos pestañas o dispositivos cobrando el MISMO recibo a
-    // la vez pasarían las dos con un UPDATE incondicional -- dos facturas
-    // fiscales selladas para un único cobro. dbMarcarCobrado exige
-    // `estado = 'PENDIENTE'` en el propio UPDATE: solo la primera tiene efecto.
-    const res = await dbMarcarCobrado(reciboId, { fechaCobro, ...(metodo ? { metodoCobro: metodo } : {}) });
-    if (!res.ok) return res;
-
-    setRecibos(prev => prev.map(r =>
-      r.id === reciboId ? { ...r, estado: 'COBRADO' as const, fechaCobro, metodoCobro: metodo ?? r.metodoCobro ?? null } : r
-    ));
-    // 2.2: construirFacturaCobro es pura; el sellado va fuera del updater.
-    //
-    // ⚠️ SE ESPERA el sellado (antes `void`, fire-and-forget): el llamador de
-    // "Cobrar" (un solo recibo) devolvía éxito en cuanto se marcaba COBRADO, y
-    // si el sellado fallaba después (NIF del estudio inválido/vacío, red...) el
-    // aviso llegaba por el toast global `dbError`, que se autodescarta a los 6s
-    // y no tiene ninguna relación visible con el clic que se acaba de hacer —
-    // el recibo pasaba a la pestaña "Cobrado" (correcto, el dinero SÍ se
-    // registró) mientras el toast de éxito seguía en pantalla, y a quien no
-    // llegó a ver el toast de error le parecía que el pago había desaparecido
-    // sin más. Mismo patrón ya usado por `crearFacturaDirecta`: se espera
-    // aquí porque es una acción manual de un solo recibo, no el cobro masivo
-    // (que sigue en fire-and-forget para no bloquearse recibo a recibo).
-    let resSellado: ResultadoEscritura = { ok: true };
-    let numeroFacturaEmitida: string | undefined;
-    {
-      const recibo = recibos.find(r => r.id === reciboId) ??
-        { id: reciboId, importe: 0, socioId: '', studioId: getCurrentStudioId(), suscripcionId: null, concepto: '', estado: 'PENDIENTE' as const, fechaVencimiento: new Date().toISOString(), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0 };
-      const updatedRecibo = { ...recibo, estado: 'COBRADO' as const, fechaCobro };
-      // ⚠️ El efectivo no emite factura sola (`lib/factura-automatica.ts`).
-      // `metodo` es lo que acaba de elegir quien cobra; si no viene, se usa el
-      // que ya tuviera el recibo — es el mismo criterio con el que dos líneas
-      // más arriba se actualiza `metodoCobro` en el estado.
-      //
-      // La vía MANUAL («generar factura») no pasa por aquí y sigue intacta: si
-      // la clienta pide factura de un pago en efectivo, se le puede emitir.
-      const metodoReal = metodo ?? recibo.metodoCobro ?? null;
-      const fac = emiteFacturaAutomatica(metodoReal, studio?.modoFacturacion ?? null)
-        ? construirFacturaCobro(updatedRecibo, facturas)
-        : null;
-      if (fac) {
-        setFacturas(prev => [...prev, fac]);
-        resSellado = await sellarFacturaYActualizar(fac);
-        // ⚠️ Se devuelve al llamador, no se le deja buscarla en el estado.
-        // `panel-pendientes` hacía `facturas.find(...)` JUSTO DESPUÉS de este
-        // await, leyendo el array del render anterior —React todavía no ha
-        // re-renderizado— así que la factura recién creada no estaba y el email
-        // de justificante salía SIN número de factura, segundos después de
-        // haberla emitido. Quien la crea es el único que la conoce con certeza.
-        numeroFacturaEmitida = fac.numeroCompleto;
+      const lotes = trocear(propios, RECIBOS_POR_LOTE_PANEL);
+      for (let i = 0; i < lotes.length; i++) {
+        const lote = lotes[i];
+        const lectura = leerRespuestaMarcarCobrado(await marcarCobradoEnServidor(lote, metodo ?? null), lote);
+        let errorResto: string | null = null;
+        if (lectura.tipo === 'resultados') {
+          desenlaces.push(...lectura.resultados);
+        } else if (lectura.tipo === 'rechazada') {
+          // Rechazada antes de tocar ningún recibo (sesión, rol, petición).
+          const error = mensajeSeguro(lectura.error, mensajeHttp(lectura.status));
+          desenlaces.push(...lote.map(reciboId => ({ reciboId, resultado: 'error' as const, selladoOk: true, error })));
+          errorResto = error;
+        } else {
+          toastAviso.show('Comprobando si el cobro se ha guardado…');
+          desenlaces.push(...desenlaceTrasReleer(lote, await dbLeerEstadoRecibos(lote)));
+          errorResto = 'No se ha intentado: se perdió la conexión con el servidor. Sigue sin cobrar.';
+        }
+        if (errorResto !== null) {
+          const error = errorResto;
+          desenlaces.push(...lotes.slice(i + 1).flat().map(reciboId => ({ reciboId, resultado: 'error' as const, selladoOk: true, error })));
+        }
+        onProgreso?.(desenlaces.length);
+        if (errorResto !== null) break;
       }
+      await reflejarCobrosConfirmados(desenlaces, metodo);
+    } finally {
+      propios.forEach(id => enVuelo.delete(id));
     }
-    // ── El apunte de caja que faltaba ────────────────────────────────────
-    // Hasta ahora las ÚNICAS escrituras en `movimientos_caja` venían del TPV.
-    // Este camino —la dueña marcando un cobro a mano— es por donde entra el
-    // efectivo de mostrador, y no apuntaba nada: al cerrar la caja, el
-    // recuento salía por encima de lo esperado exactamente por esa cantidad,
-    // cada vez y sin ninguna pista de dónde venía.
-    //
-    // Va DESPUÉS del cobro y no puede tumbarlo: el dinero ya está registrado
-    // en `recibos`, que es donde vive. Si el apunte falla, la caja descuadra
-    // —que es lo que pasaba siempre hasta hoy— pero el cobro no se pierde.
-    // El servidor decide si procede: sin caja abierta, o cobrado por
-    // transferencia o SEPA, no apunta nada y responde con el motivo.
-    // `apuntarCobroEnCaja` va por `pedir()`, que NUNCA rechaza: devuelve
-    // {error}. Así que el `.catch()` que había aquí era código muerto y el
-    // fallo real (500, RLS, red) se descartaba sin toast, sin Sentry y sin
-    // consola — justo el descuadre «sin ninguna pista de dónde venía» que
-    // este bloque dice haber cerrado. No se bloquea el cobro; se deja rastro.
-    void apuntarCobroEnCaja(reciboId).then(r => {
-      if (r && 'error' in r) {
-        capturarMensaje('[caja] el cobro manual no se apuntó en la caja', 'error', {
-          extra: { reciboId, error: r.error },
-        });
-      }
-    });
+    return desenlaces;
+  }
 
-    // Refill bono or extend mensual when renewal payment is collected
-    const recibo = recibos.find(r => r.id === reciboId);
-    if (recibo) await aplicarRenovacionSuscripcion(recibo);
-    // Créditos de «Renovar plan»: los decide el servidor, sin esperar.
-    void reflejarCreditosDeRecibos([reciboId]);
-    if (recibo) {
-      const socio = socios.find(s => s.id === recibo.socioId);
+  // La pantalla, DESPUÉS de la respuesta. El COBRADO se pinta ya, con la fecha
+  // del estudio (no UTC); lo demás que hizo el servidor —la factura sellada, el
+  // bono recargado, la nueva `fecha_fin`— se relee de la BD en vez de imitarlo
+  // aquí, que es justo lo que divergía.
+  async function reflejarCobrosConfirmados(desenlaces: DesenlaceCobroManual[], metodo?: MetodoCobro) {
+    const confirmados = desenlaces.filter(esCobroConfirmado);
+    if (confirmados.length === 0) return;
+    const todos = new Set(confirmados.map(d => d.reciboId));
+    const aplicados = new Set(confirmados.filter(d => d.resultado === 'aplicada').map(d => d.reciboId));
+    const fechaCobro = hoyEnEstudio();
+    setRecibos(prev => prev.map(r => {
+      if (!todos.has(r.id)) return r;
+      // Solo se rellena lo que ESTA petición escribió; lo que ya estaba cobrado
+      // espera a la relectura para no inventarle fecha ni método.
+      return aplicados.has(r.id)
+        ? { ...r, estado: 'COBRADO' as const, fechaCobro, metodoCobro: metodo ?? r.metodoCobro ?? null }
+        : { ...r, estado: 'COBRADO' as const };
+    }));
+    for (const id of aplicados) {
+      const recibo = recibos.find(r => r.id === id);
+      if (!recibo) continue;
+      const socio = socios.find(x => x.id === recibo.socioId);
       addActividadReciente(
         'COBRO_MANUAL',
         `${actorNombre ?? 'Alguien'} marcó como cobrado "${recibo.concepto}" (${recibo.importe} €) de ${socio?.nombre ?? 'una socia'}`,
         recibo.socioId ?? undefined,
-        recibo.socioId ? `/socios/${recibo.socioId}` : undefined
+        recibo.socioId ? `/socios/${recibo.socioId}` : undefined,
       );
     }
-    // `cobroRegistrado` distingue el fallo del SELLADO fiscal (el dinero ya se
-    // registró como cobrado, solo falta la factura) de un fallo real al
-    // escribir el cobro (nada pasó todavía) — mismo criterio que
-    // `crearFacturaDirecta`. El llamador nunca debe tratar esto como "vuelve a
-    // intentarlo": el cobro ya está hecho, reintentarlo duplicaría la
-    // atestación; lo que hay que reintentar es solo el sellado
-    // (`reintentarSelladoFactura`, ya expuesto en la pestaña "Cobrado").
-    return resSellado.ok
-      ? { ...res, numeroFactura: numeroFacturaEmitida }
-      : { ...resSellado, cobroRegistrado: true, numeroFactura: numeroFacturaEmitida };
-    } finally {
-      cobrosEnCursoRef.current.delete(reciboId);
+    const releido = await dbReleerTrasCobro([...todos]);
+    // Sin relectura se queda lo pintado: el servidor YA confirmó el cobro, y que
+    // la factura tarde en verse no puede parecer que no se cobró.
+    if (!releido) return;
+    const recPorId = new Map(releido.recibos.map(r => [r.id, r]));
+    const susPorId = new Map(releido.suscripciones.map(x => [x.id, x]));
+    const facIds = new Set(releido.facturas.map(f => f.id));
+    setRecibos(prev => prev.map(r => recPorId.get(r.id) ?? r));
+    setSuscripciones(prev => prev.map(x => susPorId.get(x.id) ?? x));
+    setFacturas(prev => [...prev.filter(f => !facIds.has(f.id)), ...releido.facturas]);
+    // Los créditos de «Renovar plan» los da el servidor al cobrar; el saldo pintado se
+    // pone al día con el de la base de datos (antes lo hacía una llamada aparte).
+    if (releido.creditos.length > 0) {
+      const credSocios = new Set(releido.creditos.map(c => c.socioId));
+      setMemberCredits(prev => [...prev.filter(m => !credSocios.has(m.socioId)), ...releido.creditos]);
     }
   }
 
-  // Si el sellado de `marcarCobrado` falló (NIF inválido, red...), el recibo
+  async function marcarCobrado(reciboId: string, metodo?: MetodoCobro): Promise<ResultadoMarcarCobrado> {
+    const [d] = await cobrarEnServidor([reciboId], metodo);
+    if (d?.resultado === 'aplicada') {
+      // El dinero SÍ entró pero el plan (bono o mensual) no se pudo entregar: no es
+      // «no pasó nada» ni un éxito limpio. Mismo cauce que la factura pendiente
+      // (`cobroRegistrado`): el llamador enseña el aviso y no reintenta a ciegas.
+      if (d.renovacionFallida) {
+        return { ok: false, cobroRegistrado: true, numeroFactura: d.numeroFactura, error: MENSAJE_COBRADO_SIN_RENOVAR };
+      }
+      // `numeroFactura` va al llamador: el justificante lo necesita y `facturas`
+      // todavía es el array del render anterior.
+      return d.selladoOk
+        ? { ok: true, numeroFactura: d.numeroFactura }
+        // `cobroRegistrado`: el dinero SÍ quedó registrado, solo falta la factura
+        // (el servidor la dejó pendiente y la reintenta). Nunca «no pasó nada».
+        : {
+            ok: false, cobroRegistrado: true, numeroFactura: d.numeroFactura,
+            error: 'Cobro registrado, pero la factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Mi estudio.',
+          };
+    }
+    if (d && esCobroConfirmado(d)) return { ok: true, yaEstaba: true };
+    return { ok: false, error: d?.error ?? 'No se ha podido cobrar este recibo.' };
+  }
+
+  function marcarCobradoVarios(ids: string[], metodo?: MetodoCobro, onProgreso?: (hechos: number) => void) {
+    return cobrarEnServidor(ids, metodo, onProgreso);
+  }
+
+  // Si el sellado de un cobro falló (NIF inválido, red...), el recibo
   // queda COBRADO sin factura y sin ningún botón para arreglarlo — el único
   // aviso era un toast (`dbError`) que se autodescarta. `construirFacturaCobro`
   // ya dedupea por reciboId, así que reintentar aquí es seguro: si ya existe
@@ -4490,76 +4402,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true, idsActualizados: [...devueltos] };
   }
 
-  async function cobrarTodosPendientes(socioId?: string, metodo?: MetodoCobro): Promise<ResultadoEscritura & { cobrados?: number; saltados?: Recibo[] }> {
+  async function cobrarTodosPendientes(socioId?: string, metodo?: MetodoCobro): Promise<ResumenCobroEnLote & { saltados: Recibo[] }> {
     // Con socioId, cobra SOLO los pendientes de esa socia (botón de la ficha de
-    // socia). Sin él, cobra todos los del estudio (dashboard / página de Pagos).
-    // Antes ignoraba cualquier filtro y desde la ficha cobraba —y sellaba una
-    // factura irreversible de— TODO el estudio (hallazgo C-3).
-    const pendientes = recibos.filter(r => r.estado === 'PENDIENTE' && (!socioId || r.socioId === socioId));
-    // `fecha_cobro` es `date`, no `timestamptz`: con un ISO en UTC un cobro
-    // masivo a la 01:30 de Madrid se fechaba el día anterior, y de esa fecha
-    // sale la de la factura (a caballo de un trimestre, el trimestre). Es la
-    // misma corrección P-9 que ya llevaba `marcarCobrado`; esta copia se quedó
-    // atrás. Un solo día del estudio para las dos: `hoyEnEstudio`.
-    const fechaCobro = hoyEnEstudio();
-    // Un solo UPDATE en lote (antes: un dbUpdateRecibo por recibo — hasta ~120
-    // round-trips secuenciales para cobrar 40 recibos pendientes).
-    // Se espera el resultado ANTES de dar nada por cobrado: si la BD rechaza, no
-    // se emiten facturas ni se renuevan bonos contra un cobro que no existe.
-    // El método, si se eligió: mismo criterio que `marcarCobrado` (el cobro de
-    // la ficha de la clienta lo pregunta desde la evaluación del 13-sep).
-    const res = await dbUpdateRecibosBatch(
-      pendientes.map(r => r.id),
-      { estado: 'COBRADO', fechaCobro, ...(metodo ? { metodoCobro: metodo } : {}) },
-    );
-    if (!res.ok) return res;
-
-    // M-2 (auditoría 2026-07-29): dbUpdateRecibosBatch ahora exige
-    // `estado = 'PENDIENTE'` en el propio UPDATE, así que `idsActualizados`
-    // solo trae los que ESTA llamada cobró de verdad -- los que otra sesión ya
-    // hubiera cobrado en paralelo no vuelven a facturarse aquí.
-    const idsCobrados = new Set(res.idsActualizados ?? pendientes.map(r => r.id));
-    const cobradosAhora = pendientes.filter(r => idsCobrados.has(r.id));
-
-    setRecibos(prev => prev.map(r =>
-      idsCobrados.has(r.id) ? { ...r, estado: 'COBRADO' as const, fechaCobro, metodoCobro: metodo ?? r.metodoCobro ?? null } : r
-    ));
-    // 2.2: se construye el lote de facturas puro (el acumulador `current` numera
-    // en orden dentro del propio lote), y el sellado —red, uno por factura— va
-    // fuera del updater de setFacturas.
-    const nuevasFacturas: Factura[] = [];
-    {
-      let current = facturas;
-      for (const recibo of cobradosAhora) {
-        // Con el método dentro: `factura-automatica` no emite sola la del efectivo.
-        // ⚠️ Lo decía este comentario y no lo hacía nadie: `construirFacturaCobro`
-        // no mira el método, así que el cobro en lote en efectivo facturaba.
-        const cobrado = { ...recibo, estado: 'COBRADO' as const, fechaCobro, metodoCobro: metodo ?? recibo.metodoCobro ?? null };
-        const fac = emiteFacturaAutomatica(cobrado.metodoCobro, studio?.modoFacturacion ?? null)
-          ? construirFacturaCobro(cobrado, current)
-          : null;
-        if (fac) { nuevasFacturas.push(fac); current = [...current, fac]; }
-      }
-    }
-    if (nuevasFacturas.length > 0) {
-      setFacturas(prev => [...prev, ...nuevasFacturas]);
-      for (const fac of nuevasFacturas) void sellarFacturaYActualizar(fac);
-    }
-    // Refill de bonos / extensión del mensual de cada recibo cobrado.
+    // socia). Sin él, cobra todos los del estudio (dashboard). Antes ignoraba
+    // cualquier filtro y desde la ficha cobraba —y sellaba una factura
+    // irreversible de— TODO el estudio (hallazgo C-3).
     //
-    // ⚠️ EN SERIE y con `await`. Sin él, dos recibos MENSUALES de la MISMA
-    // suscripción cobrados a la vez leían los dos la misma `fechaFin` y ambos
-    // escribían hoy+1mes: la socia pagaba dos meses y recibía uno. Además ahora
-    // cada pasada escribe el snapshot de la entrega, y concurrentes se pisarían
-    // entre sí dejando un registro que no describe lo que pasó.
-    for (const recibo of cobradosAhora) {
-      await aplicarRenovacionSuscripcion(recibo);
-    }
-    // Créditos de «Renovar plan» de lo cobrado: los decide el servidor. Antes el
-    // cobro en lote no daba ninguno.
-    void reflejarCreditosDeRecibos(cobradosAhora.map(r => r.id));
-    const saltados = new Set(res.idsSaltados ?? []);
-    return { ...res, cobrados: cobradosAhora.length, saltados: pendientes.filter(r => saltados.has(r.id)) };
+    // Mismo camino que `marcarCobrado`: antes era un UPDATE en lote desde el
+    // navegador, con la fecha en UTC (un cobro a la 01:30 de Madrid se fechaba
+    // el día anterior) y el sellado de cada factura sin esperar.
+    const pendientes = recibos.filter(r => r.estado === 'PENDIENTE' && (!socioId || r.socioId === socioId));
+    const desenlaces = await cobrarEnServidor(pendientes.map(r => r.id), metodo);
+    const anulados = new Set(desenlaces.filter(d => d.resultado === 'penalizacion_anulada').map(d => d.reciboId));
+    return { ...resumenDeLote(desenlaces), saltados: pendientes.filter(r => anulados.has(r.id)) };
   }
 
   // ── Citas ────────────────────────────────────────────────────────────────────
@@ -4903,26 +4758,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // El valor de cada acción SIEMPRE sale de rewardRules (configurable por el
   // estudio) — otorgarCreditos nunca usa un número fijo.
 
-  // Créditos de «Renovar plan» tras cobrar a mano. El cobro se escribe desde
-  // aquí, pero QUÉ recibo da créditos lo decide el servidor
-  // (`/api/cobros/creditos-recibos` → `sincronizar_creditos_renovacion`): una
-  // renovación marcada o la recompra del mismo plan, con el recibo como clave, la
-  // misma que usan el webhook y los crons. Aquí solo se refleja el saldo que
-  // devuelve. Antes lo decidía esta pantalla por el texto del concepto.
-  async function reflejarCreditosDeRecibos(reciboIds: string[]) {
-    const resultados = await sincronizarCreditosRecibosApi(reciboIds);
-    for (const r of resultados) {
-      if (r.accion !== 'OTORGADO' || !r.socioId || r.saldo == null) continue;
-      const { socioId, saldo, creditos } = r;
-      const now = new Date().toISOString();
-      setMemberCredits(prev => {
-        const existente = prev.find(m => m.socioId === socioId);
-        return existente
-          ? prev.map(m => m.socioId === socioId ? { ...m, saldo, totalGanado: m.totalGanado + creditos, actualizadoEn: now } : m)
-          : [...prev, { socioId, studioId: getCurrentStudioId(), saldo, totalGanado: creditos, totalCanjeado: 0, caducaEl: null, actualizadoEn: now }];
-      });
-    }
-  }
 
   function otorgarCreditos(socioId: string, trigger: RewardTrigger, refId: string | null) {
     // Gate de plan (espejo del servidor en lib/supabase-data.ts): sin la
@@ -5739,6 +5574,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addRecibo,
     crearFacturaDirecta,
     marcarCobrado,
+    marcarCobradoVarios,
     marcarDevuelto,
     reintentar,
     reintentarSelladoFactura,

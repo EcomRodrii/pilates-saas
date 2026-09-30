@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
+import { ACCESO_NETWORK_EN_MANTENIMIENTO, MENSAJE_ALTA_NETWORK_CERRADA } from '@/lib/network/mantenimiento';
 import { uid } from '@/lib/utils';
 import { mapFilaAPerfil, type FilaRedPerfil } from '@/lib/network/mapeo';
 import {
@@ -148,6 +149,12 @@ export async function PUT(req: NextRequest) {
     .eq('auth_user_id', usuario.userId)
     .maybeSingle();
   if (errLeer) return errorInterno('network:perfil:PUT:leer', errLeer, 'No se ha podido guardar tu perfil.');
+
+  // Cierre de Tentare Network (lib/network/mantenimiento.ts): crear un perfil NUEVO
+  // está cerrado también aquí, no solo en la pantalla. Editar el que ya existe
+  // (borrador o publicado) sigue funcionando. Va ANTES de geocodificar: no se
+  // consulta a un tercero para un alta que se va a rechazar.
+  if (!existente && ACCESO_NETWORK_EN_MANTENIMIENTO) return errorPeticion(MENSAJE_ALTA_NETWORK_CERRADA, 503);
 
   // Este endpoint usa getSupabaseAdmin() (service_role): la RLS que bloquea
   // el UPDATE de un perfil suspendido (20260813112713) no se aplica aquí, la
