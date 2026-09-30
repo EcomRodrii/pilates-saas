@@ -1,13 +1,13 @@
 'use client';
 
-import { Ban, CalendarClock, Landmark, Package, Receipt, RotateCcw, Wallet } from 'lucide-react';
+import { Ban, CalendarClock, FileText, Landmark, Package, Receipt, RotateCcw, Wallet } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import {
-  resumenAlCancelarCuota, resumenCobroDia1, resumenDatosFiscales, resumenDevoluciones, resumenDomiciliaciones, resumenPlanesActivos,
+  resumenAlCancelarCuota, resumenCobroDia1, resumenDatosFiscales, resumenDevoluciones, resumenDomiciliaciones, resumenFacturacion, resumenPlanesActivos,
 } from '@/lib/configuracion/resumenes';
 import { FILAS_A_OTRA_PANTALLA, type TarjetaId } from '@/lib/configuracion/secciones';
 import { FormDatosFiscales } from '@/components/configuracion/tab-datos-fiscales';
-import { FormAlCancelarCuota, FormCobroDia1, FormDevoluciones, FormDomiciliaciones } from '@/components/configuracion/tab-estudio-cobros';
+import { FormAlCancelarCuota, FormCobroDia1, FormDevoluciones, FormDomiciliaciones, FormFacturacion } from '@/components/configuracion/tab-estudio-cobros';
 import { DetalleCobroConTarjeta, FilaCobroConTarjeta, useCobroConTarjeta } from '@/components/configuracion/cobro-con-tarjeta';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
@@ -25,8 +25,8 @@ import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/
 // cajón. Stripe solo tiene cajón cuando está conectado: sin conectar, su acción
 // va en la misma fila.
 
-type CajonId = Extract<TarjetaId, 'datos-fiscales' | 'integracion-stripe' | 'cuando-se-cobra-la-cuota' | 'domiciliaciones' | 'devoluciones' | 'si-se-cancela-una-cuota'>;
-const CAJONES = ['datos-fiscales', 'integracion-stripe', 'cuando-se-cobra-la-cuota', 'domiciliaciones', 'devoluciones', 'si-se-cancela-una-cuota'] as const satisfies readonly CajonId[];
+type CajonId = Extract<TarjetaId, 'facturacion' | 'datos-fiscales' | 'integracion-stripe' | 'cuando-se-cobra-la-cuota' | 'domiciliaciones' | 'devoluciones' | 'si-se-cancela-una-cuota'>;
+const CAJONES = ['facturacion', 'datos-fiscales', 'integracion-stripe', 'cuando-se-cobra-la-cuota', 'domiciliaciones', 'devoluciones', 'si-se-cancela-una-cuota'] as const satisfies readonly CajonId[];
 
 type FilaDeCobros = Extract<(typeof FILAS_A_OTRA_PANTALLA)[number], { seccion: 'cobros' }>;
 const esDeCobros = (f: (typeof FILAS_A_OTRA_PANTALLA)[number]): f is FilaDeCobros => f.seccion === 'cobros';
@@ -54,6 +54,7 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
   return (
     <>
       <GrupoFilas titulo="Tus facturas">
+        <FilaAjuste id="facturacion" icono={FileText} valor={cargado ? resumenFacturacion(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="datos-fiscales" icono={Receipt} valor={fiscales?.valor ?? null} estado={fiscales?.estado} onAbrir={abrir} />
       </GrupoFilas>
 
@@ -79,6 +80,9 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
         ))}
       </GrupoFilas>
 
+      <CajonAjuste id="facturacion" abierto={cajon === 'facturacion'} onCerrar={cerrar}>
+        <FormFacturacion {...props} />
+      </CajonAjuste>
       <CajonAjuste id="datos-fiscales" abierto={cajon === 'datos-fiscales'} onCerrar={cerrar}>
         <FormDatosFiscales {...props} />
       </CajonAjuste>

@@ -272,6 +272,10 @@ export async function aplicarEfectosCobro(
             const n = r.factura?.numeroCompleto;
             if (typeof n === 'string') numeroFactura = n;
             await limpiarFacturaPendiente();
+          } else if (r.desactivada) {
+            // El estudio no emite facturas desde Tentare: no hay nada pendiente
+            // que reintentar ni que avisar. El cobro es el mismo.
+            await limpiarFacturaPendiente();
           } else {
             await marcarFacturaPendiente(r.error);
           }
@@ -650,10 +654,12 @@ export async function reintentarFacturasPendientesDeSellar(
     const res = await sellarFacturaDeRecibo(admin, {
       studioId: rec.studio_id, reciboId: rec.id, facturaId: facturaIdParaReintento(rec),
     });
-    if (res.ok) {
+    if (res.ok || res.desactivada) {
+      // Apagado después del cobro: ya no hay factura que emitir, y la marca se
+      // quita para que el conciliador deje de intentarlo.
       await admin.from('recibos').update({ factura_pendiente_sellar: false })
         .eq('id', rec.id).eq('studio_id', rec.studio_id);
-      selladas++;
+      if (res.ok) selladas++;
     } else {
       Sentry.captureMessage('[reintentarFacturasPendientesDeSellar] sigue sin poder sellar', {
         level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },

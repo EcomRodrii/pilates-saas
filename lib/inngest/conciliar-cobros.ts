@@ -475,8 +475,18 @@ export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): P
       .from('facturas').select('recibo_id').not('recibo_id', 'is', null).range(from, to),
   );
   const idsConFactura = new Set(facturadas.map(f => f.recibo_id as string));
+  // Solo los estudios que emiten facturas desde Tentare. Con 'sin_facturas' (el
+  // valor por defecto desde el 29-sep-2026) un cobro sin factura es lo normal,
+  // no una avería: sin este filtro, Sentry saltaría con cada cobro.
+  const { data: conFacturas } = await fetchAllRows<{ id: string }>(
+    '(global)', 'studios',
+    (from, to) => admin.from('studios').select('id').eq('modo_facturacion', 'verifactu').range(from, to),
+  );
+  const emiten = new Set(conFacturas.map(s => s.id));
 
-  const filas = cobrados.map(r => ({ id: r.id, studioId: r.studio_id, fechaCobro: r.fecha_cobro, metodoCobro: r.metodo_cobro }));
+  const filas = cobrados
+    .filter(r => emiten.has(r.studio_id))
+    .map(r => ({ id: r.id, studioId: r.studio_id, fechaCobro: r.fecha_cobro, metodoCobro: r.metodo_cobro }));
   // Dos preguntas distintas, dos cifras (C-3, 60ª pasada). Antes esta
   // vigilancia filtraba por `emiteFacturaAutomatica` y por eso NUNCA podía
   // avisar de un cobro en efectivo sin factura: 3 en producción, invisibles
