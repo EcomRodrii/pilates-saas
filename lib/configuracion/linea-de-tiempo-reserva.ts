@@ -14,7 +14,7 @@
 //
 // Puro: se prueba con `node --test`.
 
-import { heredaOverride } from '../booking-logic.ts';
+import { heredaOverride, instanteDeApertura } from '../booking-logic.ts';
 import { exigePlanAlReservar } from '../bono-logic.ts';
 import { frasesPoliticaEstudio } from '../politica-estudio-textos.ts';
 import type { ReglasReserva, TipoConReglas } from './reglas-reserva.ts';
@@ -96,16 +96,26 @@ export function lineaDeTiempoReserva(r: ReglasReserva, inicio: Date): PasoReserv
   const politica = frasesPoliticaEstudio({ ...r, avisarAlumnas: null });
   const frase = (id: string) => politica.find(f => f.id === id)?.texto ?? '';
 
-  // 1 · Se abre.
+  // 1 · Se abre. El instante es el mismo que aplica el servidor (`instanteDeApertura`).
   const dias = r.reservaAntelacionMaximaDias;
-  pasos.push(dias == null
-    ? { id: 'abre', cuando: 'Desde que está en tu horario', que: 'Se abre la reserva', detalle: 'Sin límite de antelación' }
-    : dias === 0
-      ? { id: 'abre', cuando: `Desde el ${instante(inicio)}`, que: 'Se abre la reserva', detalle: 'No se abre hasta que empieza la clase', tono: 'aviso' }
-      : { id: 'abre', cuando: `Desde el ${instante(menos(inicio, dias * 24 * 60))}`, que: 'Se abre la reserva', detalle: `${dias === 1 ? '1 día' : `${dias} días`} antes, a la hora de la clase` });
+  const hora = r.reservaAntelacionHora ?? null;
+  const cierre = cifra(r.reservaVentanaMinimaMinutos);
+  if (dias == null) {
+    pasos.push({ id: 'abre', cuando: 'Desde que está en tu horario', que: 'Se abre la reserva', detalle: 'Sin límite de antelación' });
+  } else if (dias === 0 && hora == null) {
+    pasos.push({ id: 'abre', cuando: `Desde el ${instante(inicio)}`, que: 'Se abre la reserva', detalle: 'No se abre hasta que empieza la clase', tono: 'aviso' });
+  } else {
+    const abre = instanteDeApertura(inicio.toISOString(), dias, hora);
+    const cuantos = dias === 0 ? 'El mismo día' : `${dias === 1 ? '1 día' : `${dias} días`} antes`;
+    // Con hora fija, una clase temprana puede no llegar a abrirse nunca («0 días
+    // a las 20:00» y la clase a las 18:00): se dice sobre ESTA clase.
+    const nunca = abre.getTime() >= menos(inicio, cierre).getTime();
+    pasos.push(nunca
+      ? { id: 'abre', cuando: `Desde el ${instante(abre)}`, que: 'Se abre la reserva', detalle: 'Esta clase no se llega a abrir: se abriría después de cerrarse', tono: 'aviso' }
+      : { id: 'abre', cuando: `Desde el ${instante(abre)}`, que: 'Se abre la reserva', detalle: hora ? `${cuantos}, a las ${hora}` : `${cuantos}, a la hora de la clase` });
+  }
 
   // 2 · Puede reservar hasta.
-  const cierre = cifra(r.reservaVentanaMinimaMinutos);
   const condiciones = [
     cierre > 0 ? `Se cierra ${duracion(cierre)} antes` : 'Hasta que empieza',
     cifra(r.reservaMaxSimultaneas) > 0 ? `como mucho ${r.reservaMaxSimultaneas} a la vez` : null,

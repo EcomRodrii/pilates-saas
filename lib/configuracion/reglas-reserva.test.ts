@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COLUMNAS_POR_TARJETA, TARJETAS_REGLAS, antelacionImposible, confirmarPenalizacion, consecuenciaRegla, excepcionesPorRegla,
-  formularioReglas, fraseAntelacion, reglasAGuardar, reglasDeTarjetaAGuardar, reglasGuardadas, tarjetasConCambios,
+  formularioReglas, fraseAntelacion, fraseSeAbre, reglasAGuardar, reglasDeTarjetaAGuardar, reglasGuardadas, tarjetasConCambios,
   type TipoConReglas,
 } from './reglas-reserva.ts';
 
@@ -28,8 +28,8 @@ const MUDADAS = ['compraPublicaModo', 'instructorasCreanClases'];
 const NUEVAS = ['plazaFijaSinCuota', 'plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp', 'plazaFijaPausaLiberaSitio', 'plazaFijaFinPausa',
   // 27-sep: el control de acceso con QR, en la tarjeta de Asistencia.
   'controlAccesoQr',
-  // 30-sep: el tope de clases al día, en «Reservar».
-  'reservaMaxPorDia'];
+  // 30-sep: el tope de clases al día y la hora a la que se abre, en «Reservar».
+  'reservaMaxPorDia', 'reservaAntelacionHora'];
 
 test('la sección guarda las columnas de antes, menos las dos que se fueron a su sitio, más las nuevas con nombre', () => {
   const r = reglasAGuardar(formularioReglas(null), reglasGuardadas(null));
@@ -45,7 +45,7 @@ test('cada columna vive en UNA tarjeta, y entre todas están todas', () => {
 
 test('sin dato del servidor, los mismos valores por defecto que el formulario de antes', () => {
   assert.deepEqual(reglasGuardadas(null), {
-    reservaExigirPlan: true, reservaVentanaMinimaMinutos: 0, reservaAntelacionMaximaDias: null,
+    reservaExigirPlan: true, reservaVentanaMinimaMinutos: 0, reservaAntelacionMaximaDias: null, reservaAntelacionHora: null,
     reservaMaxSimultaneas: null, reservaMaxPorDia: null, bloquearReservaImpago: false, requiereAprobacion: false,
     cancelacionVentanaHoras: 12, cancelacionDevolverBonoTardia: false, cancelacionClaseDevuelveBono: true,
     minimoAsistentesPorClase: 0, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null,
@@ -250,4 +250,29 @@ test('los topes de «Reservar» fuera del rango de la base de datos no se guarda
   const vacio = reglasDeTarjetaAGuardar('reservar', { ...form, reservaMaxPorDia: null }, guardado);
   assert.ok(vacio.ok);
   assert.equal(vacio.cambios.reservaMaxPorDia, null);
+});
+
+test('con hora fija, «imposible» es para cualquier clase, y la frase lo cuenta con la hora', () => {
+  // 1 día a las 20:00 y se cierra 30 min antes: la de las 21:00 del día siguiente
+  // tiene 25 h y media. Posible.
+  assert.equal(antelacionImposible(30, 1, '20:00'), false);
+  // 0 días a las 20:00 con 5 h de cierre: ni la de las 23:59 llega (se cerraría a
+  // las 18:59, antes de abrirse a las 20:00).
+  assert.equal(antelacionImposible(300, 0, '20:00'), true);
+  assert.equal(antelacionImposible(200, 0, '20:00'), false, 'la de las 23:59 aún tiene un rato');
+  assert.equal(fraseAntelacion(30, 2, '20:00'), 'Se puede reservar desde 2 días antes a las 20:00 hasta 30 min antes de que empiece la clase.');
+  assert.equal(fraseAntelacion(0, 0, '08:00'), 'Se puede reservar desde el mismo día a las 08:00 hasta que empieza la clase.');
+  assert.equal(fraseSeAbre(7, '20:00'), 'se abre 7 días antes a las 20:00');
+  assert.equal(fraseSeAbre(7, null), 'se abre 7 días antes');
+});
+
+test('«Reservar»: 0 días a la hora de la clase no se guarda; con hora fija, sí', () => {
+  const guardado = reglasGuardadas(null);
+  const form = formularioReglas(guardado);
+  const cero = reglasDeTarjetaAGuardar('reservar', { ...form, reservaAntelacionMaximaDias: 0, reservaAntelacionHora: null }, guardado);
+  assert.equal(cero.ok, false);
+  const ceroALas8 = reglasDeTarjetaAGuardar('reservar', { ...form, reservaAntelacionMaximaDias: 0, reservaAntelacionHora: '08:00' }, guardado);
+  assert.ok(ceroALas8.ok);
+  assert.equal(ceroALas8.cambios.reservaAntelacionHora, '08:00');
+  assert.equal(reglasDeTarjetaAGuardar('reservar', { ...form, reservaAntelacionMaximaDias: 2, reservaAntelacionHora: '25:00' }, guardado).ok, false);
 });

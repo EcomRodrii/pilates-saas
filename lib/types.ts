@@ -219,6 +219,10 @@ export interface Studio {
   // mismo patrón que cancelacionVentanaHoras/TipoClase.ventanaCancelacionHoras.
   reservaVentanaMinimaMinutos: number;
   reservaAntelacionMaximaDias: number | null;
+  /** 'HH:MM': la reserva se abre a esa hora del día que marcan los días de
+   *  antelación (migr 20260930201000). null = a la misma hora que la clase.
+   *  Opcional: los fixtures de antes no la traen. */
+  reservaAntelacionHora?: string | null;
   permiteListaEspera: boolean;
   // Rediseño del Calendario: eje de horas de la rejilla (antes hardcodeado
   // 08:00–22:00). 'HH:MM:SS' tal cual lo da Postgres para columnas `time`.

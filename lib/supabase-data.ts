@@ -18,6 +18,7 @@ import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos'
 // de esas funciones aquí para enganchar `resend` + `@react-email` al grafo del
 // layout raíz, que es cliente.)
 import { uid, inicioDelDiaEstudio, finDelDiaEstudio } from '@/lib/utils';
+import { horaHHMM } from '@/lib/booking-logic';
 import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
@@ -4926,6 +4927,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('reservaMaxPorDia' in changes) db.reserva_max_por_dia = changes.reservaMaxPorDia;
   if ('reservaVentanaMinimaMinutos' in changes) db.reserva_ventana_minima_minutos = changes.reservaVentanaMinimaMinutos;
   if ('reservaAntelacionMaximaDias' in changes) db.reserva_antelacion_maxima_dias = changes.reservaAntelacionMaximaDias;
+  if ('reservaAntelacionHora' in changes) db.reserva_antelacion_hora = changes.reservaAntelacionHora;
   if ('permiteListaEspera' in changes) db.permite_lista_espera = changes.permiteListaEspera;
   if ('horaApertura' in changes) db.hora_apertura = changes.horaApertura;
   if ('horaCierre' in changes) db.hora_cierre = changes.horaCierre;
@@ -5337,6 +5339,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     reservaMaxPorDia: r.reserva_max_por_dia ?? null,
     reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? 0,
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
+    reservaAntelacionHora: horaHHMM(r.reserva_antelacion_hora),
     permiteListaEspera: r.permite_lista_espera ?? true,
     horaApertura: r.hora_apertura ?? '08:00:00',
     horaCierre: r.hora_cierre ?? '22:00:00',

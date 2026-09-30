@@ -37,6 +37,7 @@ const FILA: Record<string, unknown> = {
   reserva_exigir_plan: true,
   reserva_ventana_minima_minutos: 60,
   reserva_antelacion_maxima_dias: 14,
+  reserva_antelacion_hora: null,
   reserva_max_simultaneas: 4,
   reserva_max_por_dia: null,
   bloquear_reserva_impago: false,
@@ -62,7 +63,7 @@ const FILA: Record<string, unknown> = {
 
 // Las columnas de cada cajón (lib/configuracion/reglas-reserva.ts).
 const CANCELAR = ['cancelacion_ventana_horas', 'cancelacion_devolver_bono_tardia', 'recuperacion_caducidad_tipo', 'recuperacion_caducidad_dias', 'recuperacion_auto_semanal'];
-const RESERVAR = ['reserva_exigir_plan', 'reserva_ventana_minima_minutos', 'reserva_antelacion_maxima_dias', 'reserva_max_simultaneas', 'reserva_max_por_dia', 'bloquear_reserva_impago', 'requiere_aprobacion'];
+const RESERVAR = ['reserva_exigir_plan', 'reserva_ventana_minima_minutos', 'reserva_antelacion_maxima_dias', 'reserva_antelacion_hora', 'reserva_max_simultaneas', 'reserva_max_por_dia', 'bloquear_reserva_impago', 'requiere_aprobacion'];
 const deFila = (columnas: string[]) => Object.fromEntries(columnas.map(c => [c, FILA[c]]));
 
 // Cómo está montado el panel: lo lee Tu panel al abrirse y lo devuelve al guardar.
@@ -197,6 +198,31 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
     expect(patches).toHaveLength(1);
     expect(patches[0]).toEqual({ ...deFila(RESERVAR), reserva_max_por_dia: 1 });
     await expect(valorFila(page, 'reservar')).toContainText('máx. 1 al día');
+  });
+
+  test('«Reservar» a una hora fija: manda los días y la hora con sus columnas, y la fila lo dice', async ({ page }) => {
+    const { patches } = await cajonDe(page, 'reservar', 'Reservar');
+
+    await page.getByRole('radio', { name: /Unos días antes, a una hora fija/ }).check();
+    await page.getByLabel('Días antes de la clase en que se abre la reserva').fill('2');
+    await page.getByLabel('Hora a la que se abre la reserva').fill('20:00');
+    // El ejemplo cuenta el instante antes de guardar.
+    await expect(page.getByRole('dialog').locator('[data-ejemplo]')).toContainText('20:00');
+    await guardar(page).click();
+
+    await expect(page.getByText('Reglas de reserva guardadas')).toBeVisible({ timeout: 15_000 });
+    expect(patches).toHaveLength(1);
+    expect(patches[0]).toEqual({ ...deFila(RESERVAR), reserva_antelacion_maxima_dias: 2, reserva_antelacion_hora: '20:00' });
+    await expect(valorFila(page, 'reservar')).toContainText('Se abre 2 días antes a las 20:00');
+  });
+
+  test('«Reservar» siempre abierta: días y hora a null a la vez, para que ninguna hora oculta quede puesta', async ({ page }) => {
+    const { patches } = await cajonDe(page, 'reservar', 'Reservar');
+    await page.getByRole('radio', { name: /Siempre abierta/ }).check();
+    await expect(page.getByLabel('Días antes de la clase en que se abre la reserva')).toHaveCount(0);
+    await guardar(page).click();
+    await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
+    expect(patches[0]).toEqual({ ...deFila(RESERVAR), reserva_antelacion_maxima_dias: null, reserva_antelacion_hora: null });
   });
 
   const LISTA: { nombre: string; elegir: (page: Page) => Promise<void>; columnas: Record<string, unknown> }[] = [

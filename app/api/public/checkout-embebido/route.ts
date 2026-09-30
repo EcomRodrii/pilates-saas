@@ -9,7 +9,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
-import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { claveCheckoutEmbebido } from '@/lib/billing/clave-checkout-embebido';
 import { setupFutureUsageCheckout } from '@/lib/billing/uso-futuro-tarjeta';
@@ -358,6 +358,11 @@ export async function POST(req: NextRequest) {
     // que compra es un plan de etapa (fundadora…), con él entra en el grupo.
     const cierre = await cierreAperturaSuave(admin, body.studioId, socioId, sesion.inicio as string, { planQueCompra: body.planId });
     if (cierre) return conCorsWidget(req, NextResponse.json({ error: MENSAJE_APERTURA_SUAVE(cierre), codigo: 'apertura-suave' }, { status: 409 }));
+    // La ventana de reserva (cierre y apertura, también a hora fija): cobrar una
+    // clase que aún no se puede reservar —o que ya se cerró— era cobrar sin plaza,
+    // porque la reserva tras el pago (`reservarPlazaTrasPagoPublico`) la rechaza.
+    const ventana = await comprobarVentanaReserva(admin, { studioId: body.studioId, tipoClaseId: sesion.tipo_clase_id as string | null, inicioISO: sesion.inicio as string });
+    if (ventana) return conCorsWidget(req, NextResponse.json({ error: ventana.error, codigo: ventana.codigo }, { status: 409 }));
   }
 
   const { data: studio } = await admin

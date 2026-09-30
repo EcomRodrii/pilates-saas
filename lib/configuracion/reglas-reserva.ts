@@ -33,6 +33,9 @@ export interface ReglasReserva {
   reservaExigirPlan: boolean;
   reservaVentanaMinimaMinutos: number;
   reservaAntelacionMaximaDias: number | null;
+  /** 'HH:MM': la reserva se abre a esa hora del día que marcan los días; null = a
+   *  la hora de la clase. Del estudio: el tipo de clase solo cambia los días. */
+  reservaAntelacionHora: string | null;
   reservaMaxSimultaneas: number | null;
   /** Clases al día por alumna (hora del estudio). null = sin tope. */
   reservaMaxPorDia: number | null;
@@ -63,7 +66,7 @@ export interface ReglasReserva {
 
 /** En qué tarjeta vive cada columna. Cada columna, en una sola. */
 export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (keyof ReglasReserva)[]>> = {
-  reservar: ['reservaExigirPlan', 'reservaVentanaMinimaMinutos', 'reservaAntelacionMaximaDias', 'reservaMaxSimultaneas', 'reservaMaxPorDia', 'bloquearReservaImpago', 'requiereAprobacion'],
+  reservar: ['reservaExigirPlan', 'reservaVentanaMinimaMinutos', 'reservaAntelacionMaximaDias', 'reservaAntelacionHora', 'reservaMaxSimultaneas', 'reservaMaxPorDia', 'bloquearReservaImpago', 'requiereAprobacion'],
   'cancelar-y-recuperar': ['cancelacionVentanaHoras', 'cancelacionDevolverBonoTardia', 'recuperacionCaducidadTipo', 'recuperacionCaducidadDias', 'recuperacionAutoSemanal'],
   'si-se-cancela-una-clase': ['cancelacionClaseDevuelveBono', 'minimoAsistentesPorClase'],
   'lista-de-espera': ['permiteListaEspera', 'listaEsperaPlazoAceptacionMinutos'],
@@ -89,6 +92,7 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     reservaExigirPlan: s?.reservaExigirPlan ?? true,
     reservaVentanaMinimaMinutos: s?.reservaVentanaMinimaMinutos ?? 0,
     reservaAntelacionMaximaDias: s?.reservaAntelacionMaximaDias ?? null,
+    reservaAntelacionHora: s?.reservaAntelacionHora ?? null,
     reservaMaxSimultaneas: s?.reservaMaxSimultaneas ?? null,
     reservaMaxPorDia: s?.reservaMaxPorDia ?? null,
     bloquearReservaImpago: s?.bloquearReservaImpago ?? false,
@@ -129,9 +133,21 @@ export function formularioReglas(s: Partial<Studio> | null | undefined): ReglasR
   return { ...resto, listaEspera: listaEsperaDesdeValores({ permiteListaEspera, listaEsperaPlazoAceptacionMinutos }) };
 }
 
-/** La reserva se cerraría antes de abrirse. Mismo criterio que el tipo de clase (#867): en minutos. */
-export function antelacionImposible(minimaMinutos: number, maximaDias: number | null): boolean {
-  return maximaDias != null && minimaMinutos > maximaDias * 24 * 60;
+const minutosDelDia = (hora: string) => {
+  const [h, m] = hora.split(':').map(Number);
+  return h * 60 + m;
+};
+
+/**
+ * La reserva se cerraría antes de abrirse. Mismo criterio que el tipo de clase
+ * (#867): en minutos. Con hora fija, «imposible» es para CUALQUIER clase, hasta
+ * la de las 23:59: una clase temprana puede no abrirse nunca con «0 días a las
+ * 20:00» y aun así servir para las de la tarde (eso lo avisa la línea de tiempo).
+ */
+export function antelacionImposible(minimaMinutos: number, maximaDias: number | null, hora: string | null = null): boolean {
+  if (maximaDias == null) return false;
+  if (hora == null) return minimaMinutos > maximaDias * 24 * 60;
+  return minimaMinutos > maximaDias * 24 * 60 + 1439 - minutosDelDia(hora);
 }
 
 export type Problema = { tarjeta: TarjetaReglasId; texto: string };
@@ -144,7 +160,7 @@ export function reglasAGuardar(
   form: ReglasReservaForm,
   guardado: ReglasReserva,
 ): { ok: true; reglas: ReglasReserva } | { ok: false; problema: Problema } {
-  if (antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias)) {
+  if (antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias, form.reservaAntelacionHora)) {
     return { ok: false, problema: { tarjeta: 'reservar', texto: 'Revisa «Reservar»: la reserva se cerraría antes de abrirse.' } };
   }
   const lista = valoresDeListaEspera(form.listaEspera, guardado);
@@ -163,8 +179,16 @@ export function reglasDeTarjetaAGuardar(
   form: ReglasReservaForm,
   guardado: ReglasReserva,
 ): { ok: true; cambios: Partial<ReglasReserva> } | { ok: false; texto: string } {
-  if (tarjeta === 'reservar' && antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias)) {
+  if (tarjeta === 'reservar' && antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias, form.reservaAntelacionHora)) {
     return { ok: false, texto: 'La reserva se cerraría antes de abrirse: cambia los días o los minutos.' };
+  }
+  // 0 días a la hora de la clase: se abriría cuando ya ha empezado. Con hora fija
+  // sí vale («el mismo día a las 08:00»).
+  if (tarjeta === 'reservar' && form.reservaAntelacionMaximaDias === 0 && form.reservaAntelacionHora == null) {
+    return { ok: false, texto: 'Con 0 días a la hora de la clase, la reserva se abriría cuando ya ha empezado: pon al menos 1 día o una hora fija.' };
+  }
+  if (tarjeta === 'reservar' && form.reservaAntelacionHora != null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(form.reservaAntelacionHora)) {
+    return { ok: false, texto: 'Pon la hora a la que se abre, como 20:00.' };
   }
   // Los mismos rangos que los CHECK de `studios`: un 0 no es «sin tope» (eso es
   // dejarlo vacío) y la base de datos lo rechazaría con un error sin explicar.
@@ -211,14 +235,25 @@ function duracion(minutos: number): string {
  * (se abre `dias` antes del inicio; null = sin límite) y `puedeReservarPorVentanaMinima`
  * (se cierra `minutos` antes; 0 = hasta el inicio), en lib/booking-logic.ts.
  */
-export function fraseAntelacion(minimaMinutos: number, maximaDias: number | null): string {
-  if (antelacionImposible(minimaMinutos, maximaDias)) {
+export function fraseAntelacion(minimaMinutos: number, maximaDias: number | null, hora: string | null = null): string {
+  if (antelacionImposible(minimaMinutos, maximaDias, hora)) {
     return 'Así la reserva se cerraría antes de abrirse: nunca habría un momento para reservar.';
   }
   const hasta = minimaMinutos > 0 ? `hasta ${duracion(minimaMinutos)} antes de que empiece la clase` : 'hasta que empieza la clase';
   if (maximaDias == null) return `Se puede reservar con cualquier antelación, ${hasta}.`;
+  if (hora != null) {
+    const desde = maximaDias === 0 ? `el mismo día a las ${hora}` : `${maximaDias === 1 ? '1 día' : `${maximaDias} días`} antes a las ${hora}`;
+    return `Se puede reservar desde ${desde} ${hasta}.`;
+  }
   if (maximaDias === 0) return 'La reserva no se abre hasta que empieza la clase.';
   return `Se puede reservar desde ${maximaDias === 1 ? '1 día' : `${maximaDias} días`} antes ${hasta}.`;
+}
+
+/** «se abre 2 días antes» / «se abre 2 días antes a las 20:00»: los días del estudio o del tipo, la hora del estudio. */
+export function fraseSeAbre(dias: number | null, hora: string | null): string {
+  if (dias == null) return 'sin límite para reservar';
+  if (hora != null) return dias === 0 ? `se abre el mismo día a las ${hora}` : `se abre ${dias === 1 ? '1 día' : `${dias} días`} antes a las ${hora}`;
+  return dias === 0 ? 'se abre al empezar' : `se abre ${dias === 1 ? '1 día' : `${dias} días`} antes`;
 }
 
 // ─── Los tipos de clase que cambian una regla ────────────────────────────────
@@ -286,7 +321,7 @@ export function queCambiaElTipo(tarjeta: TarjetaReglasId, t: TipoConReglas, e: R
     case 'reservar': {
       const partes: string[] = [];
       const dias = heredaOverride(t.reservaAntelacionMaximaDias, e.reservaAntelacionMaximaDias);
-      if (dias !== e.reservaAntelacionMaximaDias) partes.push(dias == null ? 'sin límite para reservar' : dias === 0 ? 'se abre al empezar' : `se abre ${dias === 1 ? '1 día' : `${dias} días`} antes`);
+      if (dias !== e.reservaAntelacionMaximaDias) partes.push(fraseSeAbre(dias, e.reservaAntelacionHora));
       const min = heredaOverride(t.reservaVentanaMinimaMinutos, e.reservaVentanaMinimaMinutos);
       if (min !== e.reservaVentanaMinimaMinutos) partes.push(min > 0 ? `se cierra ${duracion(min)} antes` : 'se reserva hasta que empieza');
       const plan = heredaOverride(t.reservaExigirPlan, e.reservaExigirPlan);
@@ -344,7 +379,7 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
   const frase = (id: string) => politica.find(f => f.id === id)?.texto ?? '';
   switch (tarjeta) {
     case 'reservar':
-      return fraseAntelacion(r.reservaVentanaMinimaMinutos, r.reservaAntelacionMaximaDias);
+      return fraseAntelacion(r.reservaVentanaMinimaMinutos, r.reservaAntelacionMaximaDias, r.reservaAntelacionHora);
     case 'cancelar-y-recuperar':
       return frase('cancela-tarde') || frase('cancela-a-tiempo');
     case 'si-se-cancela-una-clase': {

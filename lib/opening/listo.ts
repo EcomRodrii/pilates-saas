@@ -1,5 +1,6 @@
 import { nifValido } from '../nif.ts';
 import { inicioDelDiaEstudio } from '../utils.ts';
+import { instanteDeApertura } from '../booking-logic.ts';
 import type { EstadoCobroCuenta } from '../billing/cuenta-puede-cobrar.ts';
 
 // «¿Lista para abrir?» Cada punto mira el estado REAL (lo que usan el checkout,
@@ -49,6 +50,8 @@ export interface DatosListo {
   stripe: EstadoCobroCuenta | 'SIN_CUENTA';
   fiscal: { nif: string | null; razonSocial: string | null; direccion: string | null; codigoPostal: string | null; ciudad: string | null };
   antelacionMaximaDias: number | null;
+  /** 'HH:MM' a la que se abre (studios.reserva_antelacion_hora); null/ausente = a la hora de la clase. */
+  antelacionHora?: string | null;
   /** Apertura suave puesta y nadie en el grupo: sus clases no las puede reservar nadie desde la app. */
   aperturaSuaveSinGrupo?: boolean;
 }
@@ -156,7 +159,8 @@ export function evaluarListo(d: DatosListo, now: Date, puedeAbrir: (href: string
   // 6 · La primera clase ya se puede reservar hoy (solo si hay clase que mirar).
   const primera = [...reservables].sort((a, b) => a.inicio.localeCompare(b.inicio))[0];
   if (primera && d.antelacionMaximaDias !== null) {
-    const abre = new Date(new Date(primera.inicio).getTime() - d.antelacionMaximaDias * DIA);
+    // El mismo instante que aplica el servidor (`instanteDeApertura`), no una resta aparte.
+    const abre = instanteDeApertura(primera.inicio, d.antelacionMaximaDias, d.antelacionHora ?? null);
     const falta = abre.getTime() > now.getTime();
     out.push({
       id: 'antelacion', titulo: 'Reservas abiertas', bloquea: false,

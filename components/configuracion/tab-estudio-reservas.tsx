@@ -248,10 +248,30 @@ const CUERPO = 'flex flex-col gap-5 pb-6';
 
 // ── Reservar ────────────────────────────────────────────────────────────────
 
+type ModoApertura = 'siempre' | 'hora-de-la-clase' | 'hora-fija';
+
+const OPCIONES_APERTURA: { modo: ModoApertura; titulo: string; detalle: string }[] = [
+  { modo: 'siempre', titulo: 'Siempre abierta', detalle: 'En cuanto la clase está en tu horario.' },
+  { modo: 'hora-de-la-clase', titulo: 'Unos días antes, a la hora de la clase', detalle: 'La del jueves 18:00, con 2 días, se abre el martes a las 18:00.' },
+  { modo: 'hora-fija', titulo: 'Unos días antes, a una hora fija', detalle: 'Todas a la vez: la del jueves 18:00, con 2 días a las 20:00, se abre el martes a las 20:00.' },
+];
+
+/** Cambiar de forma no borra los días: se quedan los que había (o 7 si no había). */
+function setFormApertura(setForm: ReturnType<typeof useRegla>['setForm'], modo: ModoApertura) {
+  setForm(f => {
+    if (modo === 'siempre') return { ...f, reservaAntelacionMaximaDias: null, reservaAntelacionHora: null };
+    const dias = f.reservaAntelacionMaximaDias ?? 7;
+    if (modo === 'hora-de-la-clase') return { ...f, reservaAntelacionMaximaDias: dias, reservaAntelacionHora: null };
+    return { ...f, reservaAntelacionMaximaDias: dias, reservaAntelacionHora: f.reservaAntelacionHora ?? '20:00' };
+  });
+}
+
 export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
   const r = useRegla('reservar', props);
   const { form, cambiar } = r;
-  const imposible = antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias);
+  const imposible = antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias, form.reservaAntelacionHora);
+  const modo: ModoApertura = form.reservaAntelacionMaximaDias == null ? 'siempre' : form.reservaAntelacionHora ? 'hora-fija' : 'hora-de-la-clase';
+  const elegirModo = (m: ModoApertura) => setFormApertura(r.setForm, m);
   return (
     <>
       <div className={CUERPO}>
@@ -261,22 +281,60 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
           on={form.reservaExigirPlan}
           onChange={v => cambiar('reservaExigirPlan', v)}
         />
-        {/* Dos cifras con unidades distintas (días y minutos), dichas en una
-            frase para que no haya que adivinar cuál es cuál. */}
+        {/* Cuándo se abre: tres formas, cada una dicha entera. La hora fija es la
+            misma para todas («la del jueves 18:00 se abre el martes a las 20:00»);
+            un tipo de clase puede cambiar los días, nunca la hora. */}
         <fieldset className="space-y-2">
-          <legend className="mb-1 text-sm font-medium text-foreground">Con cuánta antelación se puede reservar</legend>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
-            <span>Desde</span>
-            <input
-              type="number" min={0} inputMode="numeric" className={cn(inputCls, 'w-28')}
-              placeholder="Sin límite"
-              aria-label="Días antes de la clase en que se abre la reserva"
-              aria-invalid={imposible}
-              value={form.reservaAntelacionMaximaDias ?? ''}
-              onChange={e => cambiar('reservaAntelacionMaximaDias', numeroOVacio(e))}
-            />
-            <span>días antes</span>
-          </div>
+          <legend className="mb-1 text-sm font-medium text-foreground">¿Cuándo se abre la reserva?</legend>
+          {OPCIONES_APERTURA.map(o => {
+            const elegida = modo === o.modo;
+            return (
+              <label
+                key={o.modo}
+                className={cn(
+                  'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                  elegida ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+                )}
+              >
+                <input
+                  type="radio" name="apertura-reserva" className="mt-1 accent-[var(--brand)]"
+                  checked={elegida}
+                  onChange={() => elegirModo(o.modo)}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">{o.titulo}</span>
+                  <span className="block text-sm text-muted-foreground text-pretty">{o.detalle}</span>
+                </span>
+              </label>
+            );
+          })}
+          {modo !== 'siempre' && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-sm text-foreground">
+              <input
+                type="number" min={0} inputMode="numeric" className={cn(inputCls, 'w-24')}
+                aria-label="Días antes de la clase en que se abre la reserva"
+                aria-invalid={imposible}
+                value={form.reservaAntelacionMaximaDias ?? ''}
+                onChange={e => cambiar('reservaAntelacionMaximaDias', numeroOVacio(e))}
+              />
+              <span>días antes,</span>
+              {modo === 'hora-fija' ? (
+                <>
+                  <span>a las</span>
+                  <input
+                    type="time" step={60} className={cn(inputCls, 'w-32')}
+                    aria-label="Hora a la que se abre la reserva"
+                    aria-invalid={imposible}
+                    value={form.reservaAntelacionHora ?? ''}
+                    onChange={e => cambiar('reservaAntelacionHora', e.target.value || null)}
+                  />
+                </>
+              ) : <span>a la hora de la clase</span>}
+            </div>
+          )}
+        </fieldset>
+        <fieldset className="space-y-2">
+          <legend className="mb-1 text-sm font-medium text-foreground">¿Hasta cuándo puede reservar?</legend>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
             <span>Hasta</span>
             <input
@@ -288,7 +346,7 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
             />
             <span>minutos antes</span>
           </div>
-          <p className="text-xs text-muted-foreground">Días vacío = sin límite. Minutos a 0 = hasta que empieza.</p>
+          <p className="text-xs text-muted-foreground">0 minutos = hasta que empieza.</p>
         </fieldset>
         <Campo label="Reservas a la vez por alumna" ayuda="Reservas activas en clases futuras. Vacío = sin límite.">
           {id => (
@@ -322,7 +380,7 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
         />
         <Consecuencia
           alerta={imposible}
-          texto={consecuenciaRegla('reservar', { ...r.guardado, reservaVentanaMinimaMinutos: form.reservaVentanaMinimaMinutos, reservaAntelacionMaximaDias: form.reservaAntelacionMaximaDias })}
+          texto={consecuenciaRegla('reservar', { ...r.guardado, reservaVentanaMinimaMinutos: form.reservaVentanaMinimaMinutos, reservaAntelacionMaximaDias: form.reservaAntelacionMaximaDias, reservaAntelacionHora: form.reservaAntelacionHora })}
         />
         {!imposible && (
           <EjemploConHoras

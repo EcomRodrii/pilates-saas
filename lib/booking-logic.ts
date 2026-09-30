@@ -10,7 +10,7 @@ import type { Reserva, EstadoReserva, Socio, RewardAction, Sesion, Suscripcion, 
 import { ratioOcupacion } from './ocupacion.ts';
 import { tieneEntitlementActivo } from './bono-logic.ts';
 import { diaEnEstudio } from './calendario-hora-estudio.ts';
-import { fechaLargaEstudio } from './utils.ts';
+import { fechaLargaEstudio, franjaLocalDe, instanteEnEstudio, masDias } from './utils.ts';
 
 // ─── Política de cancelación (C-2) y de reservas (C-4) ────────────────────────
 
@@ -44,15 +44,45 @@ export function heredaOverride<T>(override: T | null | undefined, valorEstudio: 
   return override ?? valorEstudio;
 }
 
+/** 'HH:MM' de una hora de la base de datos ('HH:MM:SS' en columnas `time`), o null. */
+export function horaHHMM(hora: string | null | undefined): string | null {
+  const m = hora ? /^(\d{2}):(\d{2})/.exec(hora) : null;
+  return m ? `${m[1]}:${m[2]}` : null;
+}
+
+/**
+ * Cuándo se abre la reserva de una clase: `dias` antes, en el CALENDARIO del
+ * estudio (Europe/Madrid), a la hora `hora` o, sin ella, a la misma hora que la
+ * clase.
+ *
+ * En calendario y no restando `dias × 24 h`: con la resta, entre la apertura y la
+ * clase un cambio de hora movía la apertura una hora, y la pantalla promete «2
+ * días antes, a la hora de la clase». Si esa hora no existe ese día (la madrugada
+ * del salto de primavera), se abre a la primera que sí: una hora más tarde.
+ */
+export function instanteDeApertura(inicioISO: string, dias: number, hora: string | null): Date {
+  const dia = masDias(diaEnEstudio(inicioISO), -dias);
+  let hhmm = horaHHMM(hora);
+  if (!hhmm) {
+    const f = franjaLocalDe(inicioISO);
+    hhmm = `${String(f.hora).padStart(2, '0')}:${String(f.minuto).padStart(2, '0')}`;
+  }
+  const iso = instanteEnEstudio(dia, hhmm);
+  if (iso) return new Date(iso);
+  const [h, m] = hhmm.split(':').map(Number);
+  const siguiente = instanteEnEstudio(dia, `${String(Math.min(h + 1, 23)).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  return new Date(siguiente ?? inicioISO);
+}
+
 // ¿Se puede reservar ya, o falta para que se abra la reserva? antelacionMaximaDias
 // null = sin límite (siempre se puede reservar, por adelantado que sea).
+// `hora` (studios.reserva_antelacion_hora): se abre a esa hora del día que toca;
+// null = a la misma hora que la clase.
 export function puedeReservarPorAntelacionMaxima(
-  inicioISO: string, ahora: Date, antelacionMaximaDias: number | null,
+  inicioISO: string, ahora: Date, antelacionMaximaDias: number | null, hora: string | null = null,
 ): boolean {
   if (antelacionMaximaDias == null) return true;
-  const inicio = new Date(inicioISO).getTime();
-  const abreEl = inicio - antelacionMaximaDias * 86_400_000;
-  return ahora.getTime() >= abreEl;
+  return ahora.getTime() >= instanteDeApertura(inicioISO, antelacionMaximaDias, hora).getTime();
 }
 
 // Apertura suave (Opening OS): con el interruptor puesto, las clases ANTERIORES

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import type { Reserva, RewardAction, Socio, Sesion, Suscripcion, PlanTarifa } from '@/lib/types';
 import {
   contarClasesDelDia,
+  instanteDeApertura,
   mensajeMaxPorDia,
   plazasOcupadas,
   confirmadasParaMinimo,
@@ -601,4 +602,39 @@ test('mensajeMaxPorDia dice el día y el tope', () => {
     mensajeMaxPorDia(2, 2, '2026-10-01T18:00:00+02:00'),
     'Ya tienes 2 clases el jueves, 1 de octubre: en este estudio se reservan como mucho 2 al día.',
   );
+});
+
+// ─── Cuándo se abre la reserva (studios.reserva_antelacion_hora) ─────────────
+
+test('instanteDeApertura a hora fija: el jueves 18:00 con 2 días a las 20:00 se abre el martes a las 20:00', () => {
+  assert.equal(instanteDeApertura('2026-10-01T18:00:00+02:00', 2, '20:00').toISOString(), '2026-09-29T18:00:00.000Z');
+  // La hora como la da Postgres ('HH:MM:SS') vale igual.
+  assert.equal(instanteDeApertura('2026-10-01T18:00:00+02:00', 2, '20:00:00').toISOString(), '2026-09-29T18:00:00.000Z');
+  // 0 días a las 08:00: el mismo día a las 8.
+  assert.equal(instanteDeApertura('2026-10-01T18:00:00+02:00', 0, '08:00').toISOString(), '2026-10-01T06:00:00.000Z');
+});
+
+test('instanteDeApertura cuenta el día del estudio, no el de UTC', () => {
+  // Jueves 1-oct a las 00:30 en Madrid (= miércoles 22:30 UTC): 1 día antes es el miércoles 30.
+  assert.equal(instanteDeApertura('2026-10-01T00:30:00+02:00', 1, '20:00').toISOString(), '2026-09-30T18:00:00.000Z');
+});
+
+test('instanteDeApertura a la hora de la clase no se mueve con el cambio de hora', () => {
+  // Otoño: el 25-oct-2026 se retrasa el reloj. Clase el lunes 26 a las 10:00
+  // (+01:00); 2 días antes, a la misma hora, es el sábado 24 a las 10:00 (+02:00).
+  assert.equal(instanteDeApertura('2026-10-26T10:00:00+01:00', 2, null).toISOString(), '2026-10-24T08:00:00.000Z');
+  // Con la resta de 48 h habría salido a las 09:00: justo lo que se arregla.
+  assert.notEqual(instanteDeApertura('2026-10-26T10:00:00+01:00', 2, null).getTime(), new Date('2026-10-26T10:00:00+01:00').getTime() - 2 * 86_400_000);
+});
+
+test('instanteDeApertura: la hora que no existe (salto de primavera) se abre a la siguiente', () => {
+  // El 29-mar-2026 el reloj salta de 02:00 a 03:00: las 02:30 no existen.
+  assert.equal(instanteDeApertura('2026-03-30T18:00:00+02:00', 1, '02:30').toISOString(), '2026-03-29T01:30:00.000Z');
+});
+
+test('puedeReservarPorAntelacionMaxima con hora fija', () => {
+  const clase = '2026-10-01T18:00:00+02:00';
+  assert.equal(puedeReservarPorAntelacionMaxima(clase, new Date('2026-09-29T19:59:00+02:00'), 2, '20:00'), false);
+  assert.equal(puedeReservarPorAntelacionMaxima(clase, new Date('2026-09-29T20:00:00+02:00'), 2, '20:00'), true);
+  assert.equal(puedeReservarPorAntelacionMaxima(clase, new Date('2026-09-29T20:00:00+02:00'), null, '20:00'), true, 'sin días no hay límite, con hora o sin ella');
 });

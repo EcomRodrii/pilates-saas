@@ -133,3 +133,21 @@ test('⚠️ tope de clases al día: el «no» dice qué día ya tiene clase, no
   expect(txt).not.toContain('¡Reserva confirmada!');
   expect(txt).toContain('se reserva como mucho una al día');
 });
+
+test('⚠️ todavía no se abre: el «no» dice cuándo volver', async ({ page }) => {
+  let intentos = 0;
+  const mensaje = 'Todavía no se puede reservar esta clase: se abre mañana a las 20:00.';
+  await page.route('**/api/public/reserva', (r) => {
+    intentos += 1;
+    return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: mensaje, codigo: 'fuera-ventana-maxima' }) });
+  });
+
+  await abrirHojaDeClase(page);
+  await pulsarReservar(page);
+  await page.waitForTimeout(3000);
+
+  expect(intentos, 'la reserva no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
+  const txt = await page.evaluate(() => document.body.innerText);
+  expect(txt).not.toContain('¡Reserva confirmada!');
+  expect(txt).toContain('se abre mañana a las 20:00');
+});
