@@ -43,13 +43,22 @@ function queryDe({ ambito, studioId }: AmbitoNotif): string {
 }
 
 export async function fetchNotificaciones(getHeaders: Headers, scope: AmbitoNotif): Promise<{ items: NotifItem[]; unread: number }> {
-  const res = await fetch(`/api/notifications${queryDe(scope)}`, { headers: await getHeaders(), cache: 'no-store' });
-  if (!res.ok) return { items: [], unread: 0 };
-  // Un cuerpo sin `items` (proxy, respuesta recortada) dejaba la lista en
-  // `undefined` y la pantalla se caía al recorrerla. Vacío no es lo mismo que
-  // roto, pero pintar "no hay nada" es mejor que no pintar nada.
-  const body = await res.json();
-  return { items: body?.items ?? [], unread: body?.unread ?? 0 };
+  // El propio `fetch()` puede lanzar (red caída, móvil sin cobertura un
+  // instante) antes de que exista ningún `res` que mirar — eso no lo cubre
+  // `!res.ok`. Sin este try/catch, ese lanzamiento sube como promesa sin
+  // capturar (JAVASCRIPT-NEXTJS-1Y, «TypeError: Load failed» en iOS): mismo
+  // criterio que ya usa `guardarPreferencia` en este fichero.
+  try {
+    const res = await fetch(`/api/notifications${queryDe(scope)}`, { headers: await getHeaders(), cache: 'no-store' });
+    if (!res.ok) return { items: [], unread: 0 };
+    // Un cuerpo sin `items` (proxy, respuesta recortada) dejaba la lista en
+    // `undefined` y la pantalla se caía al recorrerla. Vacío no es lo mismo que
+    // roto, pero pintar "no hay nada" es mejor que no pintar nada.
+    const body = await res.json();
+    return { items: body?.items ?? [], unread: body?.unread ?? 0 };
+  } catch {
+    return { items: [], unread: 0 };
+  }
 }
 
 export async function accionNotificacion(
@@ -65,10 +74,16 @@ export async function accionNotificacion(
 }
 
 export async function fetchPreferencias(getHeaders: Headers): Promise<Record<string, { inapp: boolean; push: boolean }>> {
-  const res = await fetch('/api/notifications/preferences', { headers: await getHeaders(), cache: 'no-store' });
-  if (!res.ok) return {};
-  const { prefs } = await res.json();
-  return prefs ?? {};
+  // Mismo fallo que fetchNotificaciones (ver su comentario): el propio
+  // `fetch()` puede lanzar antes de tener un `res`.
+  try {
+    const res = await fetch('/api/notifications/preferences', { headers: await getHeaders(), cache: 'no-store' });
+    if (!res.ok) return {};
+    const { prefs } = await res.json();
+    return prefs ?? {};
+  } catch {
+    return {};
+  }
 }
 
 // Devuelve `false` si el guardado NO llegó a la BD. Antes era `Promise<void>`
