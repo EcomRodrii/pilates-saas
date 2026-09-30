@@ -25,7 +25,10 @@ import {
 import { registrarEvento, transitarEstudio } from './habilitacion.ts';
 import { declaracionVigente } from './declaracion.ts';
 import { sha256Texto } from './envio.ts';
-import { ESTADOS_ADMITIDOS_EN_AEAT, registrosQueBloqueanActivacion, mensajeBloqueoActivacion } from './barrera-activacion.ts';
+import {
+  ESTADOS_ADMITIDOS_EN_AEAT, registrosQueBloqueanActivacion, mensajeBloqueoActivacion, noRemitirHastaSeq,
+  noRemitidoPorDecision, type DecisionAnteriores,
+} from './barrera-activacion.ts';
 import type { EstadoRegistroVerifactu } from './estado.ts';
 
 type Env = Record<string, string | undefined>;
@@ -36,13 +39,127 @@ type Env = Record<string, string | undefined>;
  * leer, no se activa: la barrera falla cerrada.
  */
 export async function contarBloqueoActivacion(admin: SupabaseClient, studioId: string, activadoEn: string | null): Promise<number> {
-  const { data, error } = await admin.from('verifactu_registros').select('estado, creado_en')
-    .eq('studio_id', studioId).not('estado', 'in', `(${ESTADOS_ADMITIDOS_EN_AEAT.join(',')})`).limit(20000);
+  const [{ data, error }, decisiones] = await Promise.all([
+    admin.from('verifactu_registros').select('seq, estado, creado_en')
+      .eq('studio_id', studioId).not('estado', 'in', `(${ESTADOS_ADMITIDOS_EN_AEAT.join(',')})`).limit(20000),
+    leerDecisionesAnteriores(admin, [studioId]),
+  ]);
   if (error) throw new AltaVerifactuError(['No se pudo comprobar si el estudio tiene facturas anteriores a la activación.'], 500);
   return registrosQueBloqueanActivacion(
-    (data ?? []).map(r => ({ estado: r.estado as EstadoRegistroVerifactu, creadoEn: r.creado_en as string })),
+    (data ?? []).map(r => ({ estado: r.estado as EstadoRegistroVerifactu, creadoEn: r.creado_en as string, seq: Number(r.seq) })),
     activadoEn,
+    noRemitirHastaSeq(decisiones.get(studioId) ?? []),
   );
+}
+
+// ── La decisión sobre las facturas anteriores a la activación ────────────────
+//
+// Criterio del fiscalista (30-sep-2026): no se remiten retroactivamente, la
+// cadena continúa y no se borra nada (migración 20260930180000). Se decide en
+// /interno, solo antes de activar el estudio, y queda escrita con su evidencia.
+
+interface FilaDecision { studio_id: string; decision: string; hasta_seq: number; criterio: string; motivo: string; creado_en: string }
+
+/** Las decisiones de estos estudios. Si no se pueden leer, lanza: quien decide si activar falla cerrado. */
+async function leerDecisionesAnteriores(
+  admin: SupabaseClient, studioIds: string[],
+): Promise<Map<string, (DecisionAnteriores & { criterio: string; motivo: string })[]>> {
+  const porEstudio = new Map<string, (DecisionAnteriores & { criterio: string; motivo: string })[]>();
+  if (!studioIds.length) return porEstudio;
+  const { data, error } = await admin.from('verifactu_decisiones_anteriores')
+    .select('studio_id, decision, hasta_seq, criterio, motivo, creado_en').in('studio_id', studioIds);
+  if (error) throw new AltaVerifactuError(['No se pudo leer la decisión sobre las facturas anteriores a la activación.'], 500);
+  for (const d of (data ?? []) as FilaDecision[]) {
+    const lista = porEstudio.get(d.studio_id) ?? [];
+    lista.push({
+      decision: d.decision as DecisionAnteriores['decision'], hastaSeq: Number(d.hasta_seq), creadoEn: d.creado_en,
+      criterio: d.criterio, motivo: d.motivo,
+    });
+    porEstudio.set(d.studio_id, lista);
+  }
+  return porEstudio;
+}
+
+const VERSION_ANTERIOR_A_LA_DECLARADA =
+  'Una versión de Tentare anterior a la 1.0.0, sin declaración responsable suscrita cuando se generaron.';
+
+/**
+ * Deja fuera de la remisión TODOS los registros anteriores a la activación que
+ * hay hoy (posiciones 1..la última). No toca ninguno: los registros siguen
+ * inmutables y la cadena continúa desde el último. La evidencia se calcula aquí,
+ * no la manda la pantalla.
+ */
+export async function decidirNoRemitirAnteriores(
+  admin: SupabaseClient, studioId: string, entrada: { motivo: string; criterio: string }, userId: string,
+): Promise<void> {
+  const motivo = entrada.motivo.trim();
+  const criterio = entrada.criterio.trim();
+  const errores: string[] = [];
+  if (motivo.length < 10) errores.push('Explica el motivo (al menos 10 caracteres).');
+  if (criterio.length < 5) errores.push('Indica el criterio escrito en que se apoya (quién y cuándo).');
+  if (errores.length) throw new AltaVerifactuError(errores, 400);
+
+  const [{ data: vf }, { data: regs, error }, { data: drs }] = await Promise.all([
+    admin.from('verifactu_estudios').select('activado_produccion_en').eq('studio_id', studioId).maybeSingle(),
+    admin.from('verifactu_registros').select('seq, estado, num_serie, fecha_expedicion, fecha_hora_huso_gen, huella, creado_en')
+      .eq('studio_id', studioId).order('seq', { ascending: true }).limit(20000),
+    admin.from('verifactu_declaraciones_responsables').select('suscrita_en').order('suscrita_en', { ascending: true }).limit(1),
+  ]);
+  if (error) throw new AltaVerifactuError(['No se pudieron leer los registros del estudio.'], 500);
+  if (vf?.activado_produccion_en) throw new AltaVerifactuError(['Este estudio ya ha activado VERI*FACTU: esto se decide antes de activar.'], 409);
+  const registros = regs ?? [];
+  const pendientes = registros.filter(r => !ESTADOS_ADMITIDOS_EN_AEAT.includes(r.estado as EstadoRegistroVerifactu));
+  if (!pendientes.length) throw new AltaVerifactuError(['Este estudio no tiene facturas anteriores sin remitir.'], 409);
+
+  // Por instante, no por texto: las fechas llevan huso y el de verano no es el de invierno.
+  const instante = (iso: string) => new Date(iso).getTime();
+  const generadas = registros.map(r => (r.fecha_hora_huso_gen as string | null) ?? '').filter(Boolean)
+    .sort((a, b) => instante(a) - instante(b));
+  const primeraDr = (drs?.[0]?.suscrita_en as string | undefined) ?? null;
+  const hastaSeq = Number(registros[registros.length - 1].seq);
+  const evidencia = {
+    registros: registros.length,
+    seq_desde: Number(registros[0].seq),
+    seq_hasta: hastaSeq,
+    primera_generacion: generadas[0] ?? null,
+    ultima_generacion: generadas[generadas.length - 1] ?? null,
+    envio_activado_alguna_vez: false,
+    declaracion_responsable_suscrita_al_generarlas: primeraDr !== null && generadas.length > 0 && instante(primeraDr) <= instante(generadas[0]),
+    version_generadora: VERSION_ANTERIOR_A_LA_DECLARADA,
+    xml_generado: false,
+    detalle: registros.map(r => ({
+      seq: Number(r.seq), num_serie: r.num_serie, fecha_expedicion: r.fecha_expedicion, huella: r.huella, estado: r.estado,
+    })),
+  };
+
+  const { error: eIns } = await admin.from('verifactu_decisiones_anteriores').insert({
+    studio_id: studioId, decision: 'NO_REMITIR', hasta_seq: hastaSeq, motivo, criterio, evidencia, decidido_por: userId,
+  });
+  if (eIns) throw new AltaVerifactuError([`No se pudo registrar la decisión: ${eIns.message}`], 409);
+  await registrarEvento(admin, {
+    studioId, evento: 'anteriores.no_remitir', actorTipo: 'tentare', actorUserId: userId,
+    datos: { hasta_seq: hastaSeq, registros: registros.length, criterio },
+  });
+}
+
+/** Deshace la decisión vigente (otra fila, no un borrado). Solo antes de activar. */
+export async function deshacerNoRemitirAnteriores(
+  admin: SupabaseClient, studioId: string, motivoEntrada: string, userId: string,
+): Promise<void> {
+  const motivo = motivoEntrada.trim();
+  if (motivo.length < 10) throw new AltaVerifactuError(['Explica por qué se deshace (al menos 10 caracteres).'], 400);
+  const decisiones = (await leerDecisionesAnteriores(admin, [studioId])).get(studioId) ?? [];
+  const hastaSeq = noRemitirHastaSeq(decisiones);
+  if (hastaSeq === null) throw new AltaVerifactuError(['No hay ninguna decisión vigente que deshacer.'], 409);
+  const vigente = [...decisiones].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0];
+  const { error } = await admin.from('verifactu_decisiones_anteriores').insert({
+    studio_id: studioId, decision: 'DESHECHA', hasta_seq: hastaSeq, motivo,
+    criterio: `Deshace la decisión del ${vigente.creadoEn.slice(0, 10)}`,
+    evidencia: { deshace: { creado_en: vigente.creadoEn, criterio: vigente.criterio } }, decidido_por: userId,
+  });
+  // La base rechaza deshacerla con el estudio ya activado (VERIFACTU_DECISION_TRAS_ACTIVACION).
+  if (error) throw new AltaVerifactuError([`No se pudo deshacer: ${error.message}`], 409);
+  await registrarEvento(admin, { studioId, evento: 'anteriores.no_remitir_deshecha', actorTipo: 'tentare', actorUserId: userId, datos: { hasta_seq: hastaSeq, motivo } });
 }
 
 export class AltaVerifactuError extends Error {
@@ -203,17 +320,29 @@ export async function listarParaTentare(admin: SupabaseClient): Promise<{ estudi
   // Cuántas facturas anteriores a la activación bloquean cada estudio, para
   // verlo antes de pulsar «Activar» (la barrera la impone activarProduccion).
   const ids = (estudios ?? []).map(e => e.studio_id as string);
-  const { data: sinAeat } = ids.length
-    ? await admin.from('verifactu_registros').select('studio_id, estado, creado_en').in('studio_id', ids)
-      .not('estado', 'in', `(${ESTADOS_ADMITIDOS_EN_AEAT.join(',')})`).limit(20000)
-    : { data: [] };
-  const conBloqueo = (estudios ?? []).map(e => ({
-    ...e,
-    facturas_anteriores_sin_decidir: registrosQueBloqueanActivacion(
-      (sinAeat ?? []).filter(r => r.studio_id === e.studio_id).map(r => ({ estado: r.estado as EstadoRegistroVerifactu, creadoEn: r.creado_en as string })),
-      (e.activado_produccion_en as string | null) ?? null,
-    ),
-  }));
+  const [{ data: sinAeat }, decisiones] = await Promise.all([
+    ids.length
+      ? admin.from('verifactu_registros').select('studio_id, seq, estado, creado_en').in('studio_id', ids)
+        .not('estado', 'in', `(${ESTADOS_ADMITIDOS_EN_AEAT.join(',')})`).limit(20000)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    leerDecisionesAnteriores(admin, ids),
+  ]);
+  const conBloqueo = (estudios ?? []).map(e => {
+    const activadoEn = (e.activado_produccion_en as string | null) ?? null;
+    const delEstudio = decisiones.get(e.studio_id as string) ?? [];
+    const hastaSeq = noRemitirHastaSeq(delEstudio);
+    const vigente = [...delEstudio].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0] ?? null;
+    const regs = (sinAeat ?? []).filter(r => r.studio_id === e.studio_id)
+      .map(r => ({ estado: r.estado as EstadoRegistroVerifactu, creadoEn: r.creado_en as string, seq: Number(r.seq) }));
+    return {
+      ...e,
+      facturas_anteriores_sin_decidir: registrosQueBloqueanActivacion(regs, activadoEn, hastaSeq),
+      facturas_anteriores_no_remitidas: regs.filter(r => noRemitidoPorDecision(r, activadoEn, hastaSeq)).length,
+      decision_anteriores: vigente?.decision === 'NO_REMITIR'
+        ? { creado_en: vigente.creadoEn, criterio: vigente.criterio, hasta_seq: vigente.hastaSeq }
+        : null,
+    };
+  });
   return { estudios: conBloqueo, representaciones: representaciones ?? [] };
 }
 

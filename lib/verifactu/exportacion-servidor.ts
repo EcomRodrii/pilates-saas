@@ -6,6 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { numeroInstalacionDeEstudio } from './sif.ts';
 import type { EstadoRegistroVerifactu, TipoRegistro } from './estado.ts';
+import { noRemitidoPorDecision, noRemitirHastaSeq, type DecisionAnteriores } from './barrera-activacion.ts';
 import type { CabeceraExportacion, RegistroExportable } from './exportacion.ts';
 
 /**
@@ -18,7 +19,7 @@ import type { CabeceraExportacion, RegistroExportable } from './exportacion.ts';
 const PAGINA = 1000;
 
 const COLS = 'seq, tipo, id_emisor, num_serie, fecha_expedicion, tipo_factura, cuota_total, importe_total, ' +
-  'huella_anterior, huella, fecha_hora_huso_gen, estado, csv, codigo_error, descripcion_error';
+  'huella_anterior, huella, fecha_hora_huso_gen, estado, csv, codigo_error, descripcion_error, creado_en';
 
 interface Fila {
   seq: number;
@@ -36,6 +37,7 @@ interface Fila {
   csv: string | null;
   codigo_error: string | null;
   descripcion_error: string | null;
+  creado_en: string;
   xml_registro?: string | null;
   xml_sha256?: string | null;
 }
@@ -44,6 +46,18 @@ export async function leerRegistrosParaExportar(
   admin: SupabaseClient, studioId: string, conXml: boolean,
 ): Promise<RegistroExportable[]> {
   const cols = conXml ? `${COLS}, xml_registro, xml_sha256` : COLS;
+  // Qué anteriores quedan fuera de la remisión por decisión escrita: sin poder
+  // leerlo, no se exporta (la etiqueta de su estado saldría equivocada).
+  const [{ data: vf, error: eVf }, { data: decisiones, error: eDec }] = await Promise.all([
+    admin.from('verifactu_estudios').select('activado_produccion_en').eq('studio_id', studioId).maybeSingle(),
+    admin.from('verifactu_decisiones_anteriores').select('decision, hasta_seq, creado_en').eq('studio_id', studioId),
+  ]);
+  if (eVf) throw new Error(`verifactu_estudios: ${eVf.message}`);
+  if (eDec) throw new Error(`verifactu_decisiones_anteriores: ${eDec.message}`);
+  const activadoEn = (vf?.activado_produccion_en as string | null | undefined) ?? null;
+  const hastaSeq = noRemitirHastaSeq((decisiones ?? []).map(d => ({
+    decision: d.decision as DecisionAnteriores['decision'], hastaSeq: Number(d.hasta_seq), creadoEn: d.creado_en as string,
+  })));
   const registros: RegistroExportable[] = [];
   let desde = 0;
   for (;;) {
@@ -58,6 +72,7 @@ export async function leerRegistrosParaExportar(
         tipoFactura: f.tipo_factura, cuotaTotal: f.cuota_total, importeTotal: f.importe_total,
         huellaAnterior: f.huella_anterior, huella: f.huella, fechaHoraHusoGen: f.fecha_hora_huso_gen,
         estado: f.estado, csv: f.csv, codigoError: f.codigo_error, descripcionError: f.descripcion_error,
+        noRemitido: noRemitidoPorDecision({ seq: f.seq, creadoEn: f.creado_en }, activadoEn, hastaSeq),
         ...(conXml ? { xmlRegistro: f.xml_registro ?? null, xmlSha256: f.xml_sha256 ?? null } : {}),
       });
     }

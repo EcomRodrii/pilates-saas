@@ -91,3 +91,11 @@ test('nombreFichero: con el día del estudio, no el UTC', () => {
   assert.equal(nombreFichero('csv', new Date('2026-09-30T23:30:00Z')), 'registros-verifactu-2026-10-01.csv');
   assert.equal(nombreFichero('xml', new Date('2026-09-30T10:00:00Z')), 'registros-verifactu-2026-09-30.xml');
 });
+
+test('una anterior no remitida por decisión se dice como tal, en el CSV y en el XML', () => {
+  const csv = [...csvRegistros([reg(1, { estado: 'PENDIENTE', csv: null, noRemitido: true })])].join('');
+  const [, fila] = lineas(csv);
+  assert.equal(fila[col('Estado')], 'No remitido: anterior a VERI*FACTU');
+  const xml = [...xmlRegistros([reg(1, { estado: 'PENDIENTE', csv: null, noRemitido: true })], CAB)].join('');
+  assert.match(xml, /estado="PENDIENTE" remision="NO_REMITIDO_ANTERIOR_A_VERIFACTU"/);
+});

@@ -51,6 +51,11 @@ export interface RegistroCola {
    * Nunca sale solo: la cadena del estudio se para ahí hasta que se decida.
    */
   anteriorAActivacion?: boolean;
+  /**
+   * Anterior a la activación y cubierto por una decisión NO_REMITIR
+   * (barrera-activacion.ts): no se envía nunca y no para la cadena.
+   */
+  noRemitido?: boolean;
 }
 
 /**
@@ -101,7 +106,8 @@ export function decidirLote(
   tamano: number = TAMANO_LOTE,
 ): DecisionLote {
   const orden = [...registros].sort((a, b) => a.seq - b.seq);
-  const i0 = orden.findIndex(r => ACTIVOS.has(r.estado));
+  // Lo no remitido por decisión no cuenta como pendiente: queda en la cadena, fuera de la remisión.
+  const i0 = orden.findIndex(r => ACTIVOS.has(r.estado) && !r.noRemitido);
   if (i0 < 0) return { tipo: 'NADA' };
 
   const primero = orden[i0];
@@ -119,7 +125,7 @@ export function decidirLote(
   if (primero.estado === 'PENDIENTE') return { tipo: 'ESPERAR', motivo: 'SIN_PREPARAR' };
   if (!enviableAhora(primero, ahora)) return { tipo: 'ESPERAR', motivo: 'EN_REINTENTO' };
 
-  const bloqueo = motivoEsperaPorAnterior(anterior ? { estado: anterior.estado } : null);
+  const bloqueo = motivoEsperaPorAnterior(anterior ? { estado: anterior.estado, noRemitido: anterior.noRemitido } : null);
   if (bloqueo) return { tipo: 'ESPERAR', motivo: bloqueo };
 
   const lote: RegistroCola[] = [];
@@ -128,10 +134,10 @@ export function decidirLote(
   for (let i = i0; i < orden.length && lote.length < Math.max(1, tamano); i++) {
     const r = orden[i];
     if (previo && r.seq !== previo.seq + 1) break; // hueco
-    if (!ACTIVOS.has(r.estado)) {
-      // Un final en medio (p. ej. un rechazo local al preparar): lo que venga
-      // detrás depende de la política para ese anterior.
-      if (motivoEsperaPorAnterior({ estado: r.estado })) break;
+    if (!ACTIVOS.has(r.estado) || r.noRemitido) {
+      // Un final en medio (p. ej. un rechazo local al preparar), o uno no
+      // remitido por decisión: lo que venga detrás depende de la política.
+      if (motivoEsperaPorAnterior({ estado: r.estado, noRemitido: r.noRemitido })) break;
       previo = r;
       continue;
     }
