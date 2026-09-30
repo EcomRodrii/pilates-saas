@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { fetchEstudios, type EstudioFila } from '@/lib/interno/client';
+import { PildoraSalud, SaludDetalle, textoSuscripcion } from './salud';
 
 const fecha = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
@@ -23,8 +24,9 @@ export default function EstudiosInterno() {
 
   if (error) return <p className="text-[13.5px] text-muted-foreground">{error}</p>;
 
-  const conActividad = (filas ?? []).filter(f => !f.vacio);
-  const vacios = (filas ?? []).filter(f => f.vacio);
+  const dePago = (filas ?? []).filter(f => f.dePago);
+  const conActividad = (filas ?? []).filter(f => !f.vacio && !f.dePago);
+  const vacios = (filas ?? []).filter(f => f.vacio && !f.dePago);
 
   return (
     <div className="flex flex-col gap-4">
@@ -39,6 +41,7 @@ export default function EstudiosInterno() {
 
       {!filas ? <p className="text-[13.5px] text-muted-foreground">Cargando…</p> : (
         <>
+          <ClientesDePago filas={dePago} />
           <Tabla titulo="Con actividad" filas={conActividad} />
           {/* Separados a propósito: mezclar 12 altas de prueba vacías con los
               clientes reales hace que la lista mienta sobre su tamaño. */}
@@ -91,6 +94,39 @@ function Tabla({ titulo, filas, pie, apagado }: {
           </Link>
         ))}
       </div>
+    </section>
+  );
+}
+
+// Los que pagan, con su salud a la vista: la pregunta de «este cliente, ¿lo usa
+// y le va bien?» no debería exigir abrir la ficha ni cruzar la base con Sentry.
+// Los que peor van, primero.
+function ClientesDePago({ filas }: { filas: EstudioFila[] }) {
+  const orden = { riesgo: 0, atencion: 1, bien: 2 } as const;
+  const lista = [...filas].sort((a, b) => orden[a.salud?.nivel ?? 'bien'] - orden[b.salud?.nivel ?? 'bien']);
+  return (
+    <section data-testid="clientes-de-pago">
+      <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2">Clientes de pago ({filas.length})</h2>
+      {lista.length === 0 ? (
+        <p className="text-[13px] text-muted-foreground">Nadie con suscripción de Stripe todavía.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {lista.map(f => (
+            <article key={f.id} className="rounded-2xl border border-border bg-card px-4 py-3.5 flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <Link href={`/interno/estudios/${f.id}`} className="text-[15px] font-bold text-foreground hover:underline">{f.nombre}</Link>
+                  <p className="text-[12px] text-muted-foreground truncate">
+                    /{f.slug} · plan {f.plan} · {textoSuscripcion(f.estadoSuscripcion)} · {f.socias} socias · alta el {fecha(f.creadoEn)}
+                  </p>
+                </div>
+                {f.salud && <PildoraSalud nivel={f.salud.nivel} />}
+              </div>
+              {f.salud && <SaludDetalle salud={f.salud} />}
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

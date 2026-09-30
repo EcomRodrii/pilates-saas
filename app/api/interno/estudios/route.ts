@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
 import { catalogo } from '@/lib/migracion/catalogo';
+import { esDePago } from '@/lib/interno/salud-estudio';
+import { saludDe } from '@/lib/interno/salud-estudio-servidor';
 
 export const runtime = 'nodejs';
 
@@ -25,7 +27,7 @@ export async function GET(req: NextRequest) {
   // creciendo, socios/sesiones/instructores de todos los estudios juntos ya
   // pueden superar ese corte y dar conteos/"última clase" falsos.
   const [studios, socios, sesiones, staff] = await Promise.all([
-    db.from('studios').select('id, slug, nombre, plan, email, telefono, creado_en, stripe_customer_id'),
+    db.from('studios').select('id, slug, nombre, plan, email, telefono, creado_en, stripe_customer_id, subscription_id, subscription_status, owner_auth_user_id'),
     catalogo<{ studio_id: string }>((d, h) => db.from('socios').select('studio_id').range(d, h)),
     catalogo<{ studio_id: string; inicio: string | null }>((d, h) => db.from('sesiones').select('studio_id, inicio').range(d, h)),
     catalogo<{ studio_id: string; auth_user_id: string | null; activo: boolean }>((d, h) => db.from('instructores').select('studio_id, auth_user_id, activo').range(d, h)),
@@ -70,6 +72,9 @@ export async function GET(req: NextRequest) {
       clases,
       equipo: nStaff.get(id) ?? 0,
       ultimaClase: ultimaClase.get(id) ?? null,
+      dePago: esDePago(s.subscription_id as string | null),
+      estadoSuscripcion: (s.subscription_status as string | null) ?? null,
+      ownerAuthUserId: (s.owner_auth_user_id as string | null) ?? null,
       // Distinguir "alta que nunca se usó" de "cliente real" es la primera
       // pregunta que uno se hace mirando esta lista.
       vacio: socias === 0 && clases === 0,
@@ -86,5 +91,14 @@ export async function GET(req: NextRequest) {
   // Los que más se usan primero; los vacíos al fondo.
   lista.sort((a, b) => Number(a.vacio) - Number(b.vacio) || b.socias - a.socias || b.clases - a.clases);
 
-  return NextResponse.json({ estudios: lista });
+  // La salud solo de los que PAGAN: son pocos, y es la pregunta que importa
+  // («este cliente, ¿lo usa y le va bien?»). Para el resto no se pide nada.
+  const conSalud = await Promise.all(lista.map(async ({ ownerAuthUserId, ...e }) => ({
+    ...e,
+    salud: e.dePago
+      ? await saludDe(db, { id: e.id, owner_auth_user_id: ownerAuthUserId, subscription_status: e.estadoSuscripcion })
+      : null,
+  })));
+
+  return NextResponse.json({ estudios: conSalud });
 }

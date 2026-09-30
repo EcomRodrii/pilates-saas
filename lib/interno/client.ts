@@ -3,6 +3,7 @@
 // de 403 importa: "no eres del equipo" y "esto no te toca" se arreglan de forma
 // muy distinta.
 import { authHeader } from '../api-client.ts';
+import type { SaludEstudio } from './salud-estudio.ts';
 
 export class SinAcceso extends Error {
   constructor(public readonly tipo: 'no-eres-del-equipo' | 'te-falta-permiso' | 'mfa-requerido', mensaje: string) {
@@ -90,6 +91,11 @@ export interface EstudioFila {
   email: string | null; telefono: string | null; creadoEn: string;
   tieneClienteStripe: boolean; socias: number; clases: number; equipo: number;
   ultimaClase: string | null; vacio: boolean;
+  /** Tiene una suscripción de Stripe (ni la prueba local ni el acceso a mano). */
+  dePago: boolean;
+  estadoSuscripcion: string | null;
+  /** Solo en los de pago. */
+  salud: SaludEstudio | null;
 }
 
 export interface FichaEstudio {
@@ -113,6 +119,8 @@ export interface FichaEstudio {
   };
   /** Prueba gratuita local. `estado` es `studios.subscription_status` tal cual. */
   prueba: { finaliza: string | null; estado: string | null; conSuscripcionStripe: boolean; esSede: boolean };
+  /** Solo si es de pago. */
+  salud: SaludEstudio | null;
 }
 
 export const fetchSesionInterna = () => pedir<SesionInterna>('/sesion');
