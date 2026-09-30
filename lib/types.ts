@@ -985,6 +985,14 @@ export interface TipoClase {
    * significa lo mismo que `null`.
    */
   archivadoEn?: string | null;
+  /**
+   * Posición en que la alumna ve los tipos, menor primero (migr 20260930203000).
+   * `null`/ausente = «sin colocar»: detrás de los colocados, por nombre. Lo
+   * resuelve `ordenarTipos` (lib/tipos-clase/orden-y-archivo.ts), y las dos
+   * cargas del catálogo ya lo devuelven así ordenado. Opcional por lo mismo
+   * que `archivadoEn`.
+   */
+  orden?: number | null;
 }
 
 export interface FavoritoClase {

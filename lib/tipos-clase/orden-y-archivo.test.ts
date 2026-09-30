@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  estaArchivado, frasesImpactoArchivar, impactoDeArchivar, tiposActivos, tiposConVida, tiposParaProgramar,
+  cambiosDeOrden, estaArchivado, frasesImpactoArchivar, hayOrdenGuardado, impactoDeArchivar, ordenarTipos, tiposActivos,
+  tiposConVida, tiposParaProgramar,
 } from './orden-y-archivo.ts';
 
 // Fechas con desfase explícito: en Madrid el 1-oct-2026 es +02:00.
@@ -104,7 +105,59 @@ test('frasesImpactoArchivar: con cifras, fecha en hora de Madrid y en singular/p
   assert.match(f[2], /desactívalo en Paquetes\.$/);
 
   const una = frasesImpactoArchivar({ clasesFuturas: 1, ultimaClase: '2026-10-02T18:00:00+02:00', alumnas: 0, series: 1, planesSoloDeEste: ['A', 'B'] });
-  assert.match(una[0], /^Tiene 1 clase programada, la última el 2 de octubre, sin alumnas apuntadas todavía\./);
+  assert.match(una[0], /^Tiene 1 clase programada, el 2 de octubre, sin alumnas apuntadas todavía\./);
   assert.match(una[1], /^Su clase que se repite deja de renovarse/);
   assert.match(una[2], /^«A» y «B» solo sirven para este tipo/);
+});
+
+// ─── El orden ────────────────────────────────────────────────────────────────
+
+test('ordenarTipos: sin NINGUNO colocado no reordena nada (lo de siempre, sin backfill)', () => {
+  const t = [{ id: 'r', nombre: 'Reformer' }, { id: 'b', nombre: 'Barre' }, { id: 'm', nombre: 'Mat', orden: null }];
+  assert.equal(hayOrdenGuardado(t), false);
+  assert.deepEqual(ordenarTipos(t).map(x => x.id), ['r', 'b', 'm']);
+  // Y devuelve una copia: no toca la de entrada.
+  assert.notEqual(ordenarTipos(t), t);
+});
+
+test('ordenarTipos: con alguno colocado, los «sin colocar» van detrás y por nombre en español', () => {
+  const t = [{ id: 'r', nombre: 'Reformer' }, { id: 'b', nombre: 'Barre' }, { id: 'a', nombre: 'Ábdomen' }, { id: 'y', nombre: 'Yoga', orden: 0 }];
+  assert.equal(hayOrdenGuardado(t), true);
+  // `localeCompare` en español: la tilde no manda al final.
+  assert.deepEqual(ordenarTipos(t).map(x => x.id), ['y', 'a', 'b', 'r']);
+});
+
+test('ordenarTipos: los colocados primero (menor antes) y los «sin colocar» detrás, por nombre', () => {
+  const t = [
+    { id: 'nuevo-z', nombre: 'Zumba', orden: null },
+    { id: 'mat', nombre: 'Mat', orden: 2 },
+    { id: 'nuevo-a', nombre: 'Aéreo' },
+    { id: 'reformer', nombre: 'Reformer', orden: 0 },
+    { id: 'barre', nombre: 'Barre', orden: 1 },
+  ];
+  assert.deepEqual(ordenarTipos(t).map(x => x.id), ['reformer', 'barre', 'mat', 'nuevo-a', 'nuevo-z']);
+});
+
+test('ordenarTipos: a igual orden decide el nombre, y no toca el array de entrada', () => {
+  const t = [{ id: 'y', nombre: 'Yoga', orden: 1 }, { id: 'b', nombre: 'Barre', orden: 1 }, { id: 'a', nombre: 'Aéreo', orden: 0 }];
+  const copia = t.map(x => x.id);
+  assert.deepEqual(ordenarTipos(t).map(x => x.id), ['a', 'b', 'y']);
+  assert.deepEqual(t.map(x => x.id), copia);
+});
+
+test('cambiosDeOrden: la primera vez (todos sin colocar) se colocan todos', () => {
+  const t = [{ id: 'b', nombre: 'Barre' }, { id: 'm', nombre: 'Mat', orden: null }, { id: 'r', nombre: 'Reformer' }];
+  assert.deepEqual(cambiosDeOrden(t, ['r', 'b', 'm']), [{ id: 'r', orden: 0 }, { id: 'b', orden: 1 }, { id: 'm', orden: 2 }]);
+});
+
+test('cambiosDeOrden: después, solo las filas que cambian', () => {
+  const t = [{ id: 'a', nombre: 'A', orden: 0 }, { id: 'b', nombre: 'B', orden: 1 }, { id: 'c', nombre: 'C', orden: 2 }, { id: 'd', nombre: 'D', orden: 3 }];
+  // Subir C un puesto: cambian C y B, no A ni D.
+  assert.deepEqual(cambiosDeOrden(t, ['a', 'c', 'b', 'd']), [{ id: 'c', orden: 1 }, { id: 'b', orden: 2 }]);
+  // Sin mover nada, nada que escribir.
+  assert.deepEqual(cambiosDeOrden(t, ['a', 'b', 'c', 'd']), []);
+});
+
+test('cambiosDeOrden: un id que no es de la lista no se escribe', () => {
+  assert.deepEqual(cambiosDeOrden([{ id: 'a', nombre: 'A', orden: 0 }], ['x', 'a']), [{ id: 'a', orden: 1 }]);
 });

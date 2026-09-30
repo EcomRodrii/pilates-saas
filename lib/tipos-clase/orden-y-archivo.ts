@@ -1,4 +1,5 @@
-// Tipos de clase archivados: qué pantalla los enseña y qué pasa al archivar uno.
+// Tipos de clase: en qué orden los ve la alumna, qué pantalla enseña los
+// archivados y qué pasa al archivar uno.
 //
 // La REGLA («un tipo archivado no programa clases nuevas») vive en la base de
 // datos, como trigger en `sesiones` (migr 20260930203000): hay demasiadas vías
@@ -136,7 +137,7 @@ export function frasesImpactoArchivar(i: ImpactoArchivar): string[] {
   if (i.clasesFuturas === 0) {
     frases.push('No tiene clases programadas.');
   } else {
-    const ultima = i.ultimaClase ? `, la última el ${fechaCortaEstudio(i.ultimaClase)}` : '';
+    const ultima = i.ultimaClase ? `, ${i.clasesFuturas === 1 ? 'el' : 'la última el'} ${fechaCortaEstudio(i.ultimaClase)}` : '';
     const quien = i.alumnas === 0 ? 'sin alumnas apuntadas todavía' : `con ${plural(i.alumnas, 'alumna apuntada', 'alumnas apuntadas')}`;
     frases.push(`Tiene ${plural(i.clasesFuturas, 'clase programada', 'clases programadas')}${ultima}, ${quien}. Se quedan como están y se pueden seguir reservando.`);
   }
@@ -151,4 +152,65 @@ export function frasesImpactoArchivar(i: ImpactoArchivar): string[] {
       : `${enumerar(i.planesSoloDeEste)} solo sirven para este tipo: cuando pasen sus clases no servirán para reservar ninguna. Si ya no los vas a vender, desactívalos en Paquetes.`);
   }
   return frases;
+}
+
+// ─── El orden ────────────────────────────────────────────────────────────────
+//
+// `tipos_clase.orden` (migr 20260930203000): lo decide el estudio arrastrando
+// en Configuración. NULL es «sin colocar» — un tipo nuevo, duplicado, del
+// catálogo de la cadena… — y va detrás, por nombre.
+//
+// ⚠️ Mientras el estudio no haya colocado NINGUNO, no se reordena nada: cada
+// pantalla sigue enseñándolos como hasta ahora (el catálogo público, en el
+// orden en que llegan de la base de datos; Configuración, por nombre). Sin
+// backfill y sin cambios que nadie ha pedido: el orden nuevo aparece con el
+// primer arrastre, que coloca a todos a la vez (`cambiosDeOrden`).
+
+export interface TipoOrdenable {
+  id: string;
+  nombre: string;
+  orden?: number | null;
+}
+
+/** ¿Ha colocado el estudio alguno? Hasta entonces, nada se reordena. */
+export function hayOrdenGuardado(tipos: readonly { orden?: number | null }[]): boolean {
+  return tipos.some(t => t.orden != null);
+}
+
+/**
+ * El orden en que la alumna ve los tipos: el guardado (menor primero) y detrás
+ * los «sin colocar», por nombre. A igual `orden` (un tipo recuperado que
+ * conservaba el suyo), también por nombre: nunca depende de cómo llegaron.
+ * Sin ninguno colocado, los devuelve como llegan (ver arriba).
+ */
+export function ordenarTipos<T extends TipoOrdenable>(tipos: readonly T[]): T[] {
+  if (!hayOrdenGuardado(tipos)) return [...tipos];
+  return [...tipos].sort((a, b) => {
+    const oa = a.orden ?? null;
+    const ob = b.orden ?? null;
+    if (oa !== ob) {
+      if (oa === null) return 1;
+      if (ob === null) return -1;
+      return oa - ob;
+    }
+    return a.nombre.localeCompare(b.nombre, 'es');
+  });
+}
+
+/**
+ * Lo que hay que escribir para que los tipos queden como `idsEnOrden`:
+ * posiciones 0, 1, 2… y SOLO los que cambian (un PATCH por fila). La primera
+ * vez que se ordena, con todos «sin colocar», se colocan todos: si se guardara
+ * solo el que se movió, al releer se mezclaría con los NULL por nombre.
+ */
+export function cambiosDeOrden(
+  tipos: readonly TipoOrdenable[],
+  idsEnOrden: readonly string[],
+): { id: string; orden: number }[] {
+  const actual = new Map(tipos.map(t => [t.id, t.orden ?? null]));
+  const cambios: { id: string; orden: number }[] = [];
+  idsEnOrden.forEach((id, i) => {
+    if (actual.has(id) && actual.get(id) !== i) cambios.push({ id, orden: i });
+  });
+  return cambios;
 }

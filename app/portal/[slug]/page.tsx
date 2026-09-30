@@ -37,6 +37,7 @@ import { useRouter } from 'next/navigation';
 import { Foto, precargarFoto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
 import { enVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
+import { tiposDeLasClases } from '@/lib/student/mapeo';
 
 // Cuánto mide el héroe en cada ancho. Lo leen el `<img>` y su precarga: si
 // dijeran cosas distintas, el navegador bajaría la portada dos veces.
@@ -383,7 +384,7 @@ export default function InicioPage() {
           />
         </div>
         <FiltrosRapidos
-          tipos={Array.from(new Set((data?.clases ?? []).map((c) => c.tipo)))}
+          tipos={tiposDeLasClases(data?.clases ?? [])}
           conFavoritas={(data?.favoritos.size ?? 0) > 0}
           hrefReservar={href('/reservar')}
         />

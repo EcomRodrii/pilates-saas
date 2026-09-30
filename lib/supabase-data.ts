@@ -26,6 +26,7 @@ import { idEstudioDe } from '@/lib/id-estudio';
 import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
 import { saldoVivo } from '@/lib/creditos-caducidad';
+import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
 // `hoyISO` fija la zona del negocio (Madrid). Sin eso, el saldo caducaría a
 // medianoche UTC — dos horas antes en verano — para todo el mundo.
 import { hoyISO } from '@/lib/student/formato';
@@ -1012,6 +1013,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     esOnline: r.es_online ?? false,
     aforoPorDefecto: r.aforo_por_defecto ?? null,
     archivadoEn: r.archivado_en ?? null,
+    orden: r.orden ?? null,
   } as TipoClase;
 }
 
@@ -4586,6 +4588,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('esOnline' in changes) db.es_online = changes.esOnline;
   if ('aforoPorDefecto' in changes) db.aforo_por_defecto = changes.aforoPorDefecto;
   if ('archivadoEn' in changes) db.archivado_en = changes.archivadoEn ?? null;
+  if ('orden' in changes) db.orden = changes.orden ?? null;
   // Alta y edición: `puede_gestionar_sede()`. Las reglas de dinero (penalización,
   // ventana de cancelación, exigir plan) las rechaza un trigger con 42501 si no
   // es la propietaria, y eso sí llega como error.
@@ -5745,7 +5748,10 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     suscripciones: (suscripcionesRes.data ?? []).map(mapSuscripcion),
     salas: (salasRes.data ?? []).map(mapSala),
     spots: (spotsRes.data ?? []).map(mapSpot),
-    tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
+    // En el orden que ve la alumna (el guardado, y los «sin colocar» detrás por
+    // nombre; sin ninguno colocado, como llegan, igual que siempre): todo
+    // selector y lista del panel sale de aquí.
+    tiposClase: ordenarTipos((tiposClaseRes.data ?? []).map(mapTipoClase)),
     contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
     bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
     novedadesEstudio: (novedadesEstudioRes.data ?? []).map((r) => mapNovedadEstudio(r as RowNovedadesEstudio)),

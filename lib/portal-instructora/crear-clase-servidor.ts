@@ -43,9 +43,11 @@ export async function opcionesNuevaClase(p: { studioId: string }): Promise<Opcio
 
   const [tipos, salas] = await Promise.all([
     // Solo los activos: con uno archivado no se programan clases nuevas (lo
-    // rechaza un trigger en `sesiones`, migr 20260930203000).
+    // rechaza un trigger en `sesiones`, migr 20260930203000). En el orden del
+    // estudio; los «sin colocar» (orden NULL), detrás y por nombre.
     admin.from('tipos_clase').select('id, nombre, color, duracion_minutos, aforo_por_defecto')
-      .eq('studio_id', p.studioId).is('archivado_en', null).order('nombre', { ascending: true }),
+      .eq('studio_id', p.studioId).is('archivado_en', null)
+      .order('orden', { ascending: true, nullsFirst: false }).order('nombre', { ascending: true }),
     admin.from('salas').select('id, nombre, capacidad')
       .eq('studio_id', p.studioId).order('nombre', { ascending: true }),
   ]);

@@ -198,6 +198,7 @@ import { calcularRacha, claveMesActual, objetivoMensualAlcanzado, type RachaInfo
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, hoyEnEstudio } from '@/lib/utils';
+import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
 import type { DatosPlazaFija, ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
 import type { Pausa, ResultadoPausaPlazaFija } from '@/lib/plazas-fijas-pausa';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
@@ -1105,7 +1106,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         pub.studio as { politicaPrivacidad?: string | null; terminosServicio?: string | null } | null,
       ));
       setSesiones(pub.sesiones ?? []);
-      setTiposClase(pub.tiposClase ?? []);
+      // El servidor ya los manda en orden; se reordena igual por si llega un
+      // catálogo cacheado de antes, que costaría un chip fuera de sitio.
+      setTiposClase(ordenarTipos(pub.tiposClase ?? []));
       setSalas(pub.salas ?? []);
       setInstructores(pub.instructores ?? []);
       setSpots(pub.spots ?? []);
@@ -2045,13 +2048,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const nuevo: TipoClase = { ...fields, id: `tc-${uid()}`, studioId: getCurrentStudioId() };
     const res = await dbInsertTipoClase(nuevo);
     if (!res.ok) return res;
-    setTiposClase(prev => [...prev, nuevo]);
+    // Siempre en el orden que ve la alumna: el nuevo nace «sin colocar».
+    setTiposClase(prev => ordenarTipos([...prev, nuevo]));
     return res;
   }
   async function updateTipoClase(id: string, changes: Partial<Omit<TipoClase, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
     const res = await dbUpdateTipoClase(id, changes);
     if (!res.ok) return res;
-    setTiposClase(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
+    setTiposClase(prev => ordenarTipos(prev.map(t => t.id === id ? { ...t, ...changes } : t)));
     return res;
   }
   // Escribe primero y solo quita de pantalla si la BD lo acepta (igual que
