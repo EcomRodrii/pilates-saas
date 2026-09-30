@@ -49,6 +49,7 @@ const FILA: Record<string, unknown> = {
   recuperacion_caducidad_tipo: 'DIAS',
   recuperacion_caducidad_dias: 45,
   recuperacion_auto_semanal: false,
+  recuperacion_max_vivas: 4,
   permite_lista_espera: true,
   lista_espera_plazo_aceptacion_minutos: 15,
   requiere_checkin_qr: true,
@@ -62,7 +63,8 @@ const FILA: Record<string, unknown> = {
 };
 
 // Las columnas de cada cajón (lib/configuracion/reglas-reserva.ts).
-const CANCELAR = ['cancelacion_ventana_horas', 'cancelacion_devolver_bono_tardia', 'recuperacion_caducidad_tipo', 'recuperacion_caducidad_dias', 'recuperacion_auto_semanal'];
+const CANCELAR = ['cancelacion_ventana_horas', 'cancelacion_devolver_bono_tardia'];
+const RECUPERACIONES = ['recuperacion_max_vivas', 'recuperacion_caducidad_tipo', 'recuperacion_caducidad_dias', 'recuperacion_auto_semanal'];
 const RESERVAR = ['reserva_exigir_plan', 'reserva_ventana_minima_minutos', 'reserva_antelacion_maxima_dias', 'reserva_antelacion_hora', 'reserva_max_simultaneas', 'reserva_max_por_dia', 'bloquear_reserva_impago', 'requiere_aprobacion'];
 const deFila = (columnas: string[]) => Object.fromEntries(columnas.map(c => [c, FILA[c]]));
 
@@ -157,12 +159,12 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
     await expect(barra(page)).toHaveCount(0);
 
     await ventana(page).fill('6');
-    await page.getByRole('switch', { name: /Dar recuperaciones solas al cerrar la semana/ }).click();
+    await page.getByRole('switch', { name: /Devolver la sesión del bono en cancelaciones tardías/ }).click();
     await expect(barra(page)).toContainText('Cambios sin guardar en: Cancelar y recuperar');
 
     // Volver a lo guardado a mano también cuenta.
     await ventana(page).fill('24');
-    await page.getByRole('switch', { name: /Dar recuperaciones solas al cerrar la semana/ }).click();
+    await page.getByRole('switch', { name: /Devolver la sesión del bono en cancelaciones tardías/ }).click();
     await expect(barra(page)).toHaveCount(0);
     expect(patches).toHaveLength(0);
   });
@@ -223,6 +225,34 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
     await guardar(page).click();
     await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
     expect(patches[0]).toEqual({ ...deFila(RESERVAR), reserva_antelacion_maxima_dias: null, reserva_antelacion_hora: null });
+  });
+
+  test('«Recuperaciones»: el tope viaja con la caducidad y el reparto de los lunes, y un 0 no se guarda', async ({ page }) => {
+    const { patches } = await cajonDe(page, 'recuperaciones', 'Recuperaciones');
+    const tope = page.getByLabel('Recuperaciones sin usar a la vez, por alumna');
+    await expect(tope).toHaveValue('4');
+
+    await tope.fill('0');
+    await expect(barra(page).getByRole('alert')).toHaveText('Las recuperaciones sin usar a la vez van de 1 a 20.');
+    await expect(guardar(page)).toBeDisabled();
+
+    await tope.fill('6');
+    await expect(page.getByRole('dialog').locator('[data-consecuencia]')).toContainText('Con 6 sin usar, no se le da otra');
+    await guardar(page).click();
+    await expect(page.getByText('Reglas de reserva guardadas')).toBeVisible({ timeout: 15_000 });
+    expect(patches).toHaveLength(1);
+    expect(patches[0]).toEqual({ ...deFila(RECUPERACIONES), recuperacion_max_vivas: 6 });
+    await expect(valorFila(page, 'recuperaciones')).toHaveText(/^Hasta 6 sin usar/);
+  });
+
+  test('«Recuperaciones»: si el servidor dice que no, el cajón se queda con lo escrito', async ({ page }) => {
+    const { patches } = await cajonDe(page, 'recuperaciones', 'Recuperaciones', { fallo: 500 });
+    await page.getByLabel('Recuperaciones sin usar a la vez, por alumna').fill('2');
+    await guardar(page).click();
+    await expect.poll(() => patches.length, { timeout: 15_000 }).toBeGreaterThan(0);
+    await expect(barra(page).getByRole('alert')).toContainText(/No se ha guardado/, { timeout: 15_000 });
+    await expect(page.getByLabel('Recuperaciones sin usar a la vez, por alumna')).toHaveValue('2');
+    await expect(valorFila(page, 'recuperaciones')).toHaveText(/^Hasta 4 sin usar/);
   });
 
   const LISTA: { nombre: string; elegir: (page: Page) => Promise<void>; columnas: Record<string, unknown> }[] = [

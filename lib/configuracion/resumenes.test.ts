@@ -613,6 +613,9 @@ test('reglas de reserva: lo principal delante, y los tipos que la cambian antes 
 
   // Los tipos que la cambian no se pierden nunca por falta de sitio.
   assert.equal(resumenRegla('cancelar-y-recuperar', r, { excepciones: 2 }), 'Hasta 12 h antes · 2 tipos lo cambian');
+  assert.equal(resumenRegla('recuperaciones', r, dosLineas), 'Hasta 4 sin usar · caducan a final del mes siguiente');
+  assert.equal(resumenRegla('recuperaciones', { ...r, recuperacionMaxVivas: 6, recuperacionCaducidadTipo: 'DIAS', recuperacionCaducidadDias: 45, recuperacionAutoSemanal: true }, dosLineas),
+    'Hasta 6 sin usar · caducan a los 45 días · se dan solas los lunes');
   assert.equal(resumenRegla('lista-de-espera', r, { excepciones: 1 }), 'Plaza al momento · 1 tipo lo cambia');
   // El cargo propio de un tipo no se cobra: la fila no puede decir que «lo cambia».
   assert.equal(resumenRegla('si-cancela-tarde-o-no-viene', r, { excepciones: 2 }), 'Sin cargo · 2 tipos: su cargo no se cobra');

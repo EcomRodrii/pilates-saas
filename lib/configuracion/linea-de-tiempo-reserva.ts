@@ -119,7 +119,7 @@ export function lineaDeTiempoReserva(r: ReglasReserva, inicio: Date): PasoReserv
   const condiciones = [
     cierre > 0 ? `Se cierra ${duracion(cierre)} antes` : 'Hasta que empieza',
     cifra(r.reservaMaxSimultaneas) > 0 ? `como mucho ${r.reservaMaxSimultaneas} a la vez` : null,
-    cifra(r.reservaMaxPorDia) > 0 ? `${r.reservaMaxPorDia === 1 ? 'una' : r.reservaMaxPorDia} al día como mucho` : null,
+    cifra(r.reservaMaxPorDia) > 0 ? `como mucho ${r.reservaMaxPorDia === 1 ? 'una' : r.reservaMaxPorDia} al día` : null,
     r.reservaExigirPlan ? 'con un plan o bono que la cubra' : 'sin plan ni bono',
     r.requiereAprobacion ? 'la apruebas tú' : null,
     r.bloquearReservaImpago ? 'nunca con un pago fallido' : null,

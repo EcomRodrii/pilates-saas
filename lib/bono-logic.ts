@@ -34,7 +34,7 @@ export function planCubreTipoClase(plan: PlanTarifa, tipoClaseId?: string | null
 // Solo si el plan le limita las clases por semana y cubre esa clase:
 // `reservar_plaza` únicamente gasta una recuperación al toparse con el límite.
 // Sin límite puede volver a reservar sin tope, y una recuperación le ocuparía el
-// tope de 4 vivas con algo que nunca va a poder usar.
+// tope de vivas del estudio (4 de serie) con algo que nunca va a poder usar.
 //
 // Mismo criterio en los dos sitios que reparten recuperaciones sin que nadie las
 // pida: el barrido de fin de semana (lib/recuperaciones/otorgar-semanales.ts) y

@@ -25,7 +25,7 @@ import { frasesPoliticaEstudio } from '../politica-estudio-textos.ts';
 import { listaEsperaDesdeValores, valoresDeListaEspera, type ListaEsperaElegida } from './lista-espera-modo.ts';
 
 export type TarjetaReglasId =
-  | 'reservar' | 'cancelar-y-recuperar' | 'si-se-cancela-una-clase' | 'lista-de-espera' | 'asistencia' | 'si-cancela-tarde-o-no-viene'
+  | 'reservar' | 'cancelar-y-recuperar' | 'recuperaciones' | 'si-se-cancela-una-clase' | 'lista-de-espera' | 'asistencia' | 'si-cancela-tarde-o-no-viene'
   | 'si-se-queda-sin-cuota' | 'plaza-fija-desde-la-app' | 'si-pausa-su-plaza-fija';
 
 /** Las columnas de `studios` que guarda esta sección. */
@@ -45,6 +45,8 @@ export interface ReglasReserva {
   cancelacionDevolverBonoTardia: boolean;
   cancelacionClaseDevuelveBono: boolean;
   minimoAsistentesPorClase: number;
+  /** Recuperaciones sin usar que puede tener a la vez cada alumna (1–20; 4 = lo de siempre). */
+  recuperacionMaxVivas: number;
   recuperacionCaducidadTipo: 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE';
   recuperacionCaducidadDias: number | null;
   recuperacionAutoSemanal: boolean;
@@ -67,7 +69,10 @@ export interface ReglasReserva {
 /** En qué tarjeta vive cada columna. Cada columna, en una sola. */
 export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (keyof ReglasReserva)[]>> = {
   reservar: ['reservaExigirPlan', 'reservaVentanaMinimaMinutos', 'reservaAntelacionMaximaDias', 'reservaAntelacionHora', 'reservaMaxSimultaneas', 'reservaMaxPorDia', 'bloquearReservaImpago', 'requiereAprobacion'],
-  'cancelar-y-recuperar': ['cancelacionVentanaHoras', 'cancelacionDevolverBonoTardia', 'recuperacionCaducidadTipo', 'recuperacionCaducidadDias', 'recuperacionAutoSemanal'],
+  'cancelar-y-recuperar': ['cancelacionVentanaHoras', 'cancelacionDevolverBonoTardia'],
+  // 30-sep: la caducidad y el reparto semanal se mudaron aquí desde «Cancelar y
+  // recuperar», junto al tope, que antes era un 4 fijo.
+  recuperaciones: ['recuperacionMaxVivas', 'recuperacionCaducidadTipo', 'recuperacionCaducidadDias', 'recuperacionAutoSemanal'],
   'si-se-cancela-una-clase': ['cancelacionClaseDevuelveBono', 'minimoAsistentesPorClase'],
   'lista-de-espera': ['permiteListaEspera', 'listaEsperaPlazoAceptacionMinutos'],
   asistencia: ['requiereCheckinQr', 'controlAccesoQr'],
@@ -79,7 +84,7 @@ export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (ke
 
 /** El orden en que se pintan las filas. */
 export const TARJETAS_REGLAS: readonly TarjetaReglasId[] = [
-  'reservar', 'cancelar-y-recuperar', 'si-se-cancela-una-clase', 'lista-de-espera', 'asistencia', 'si-cancela-tarde-o-no-viene',
+  'reservar', 'cancelar-y-recuperar', 'recuperaciones', 'si-se-cancela-una-clase', 'lista-de-espera', 'asistencia', 'si-cancela-tarde-o-no-viene',
   'si-se-queda-sin-cuota', 'plaza-fija-desde-la-app', 'si-pausa-su-plaza-fija',
 ];
 
@@ -101,6 +106,7 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     cancelacionDevolverBonoTardia: s?.cancelacionDevolverBonoTardia ?? false,
     cancelacionClaseDevuelveBono: s?.cancelacionClaseDevuelveBono ?? true,
     minimoAsistentesPorClase: s?.minimoAsistentesPorClase ?? 0,
+    recuperacionMaxVivas: s?.recuperacionMaxVivas ?? 4,
     recuperacionCaducidadTipo: s?.recuperacionCaducidadTipo ?? 'FIN_MES_SIGUIENTE',
     recuperacionCaducidadDias: s?.recuperacionCaducidadDias ?? null,
     recuperacionAutoSemanal: s?.recuperacionAutoSemanal ?? false,
@@ -195,6 +201,9 @@ export function reglasDeTarjetaAGuardar(
   if (tarjeta === 'reservar' && form.reservaMaxSimultaneas != null && (form.reservaMaxSimultaneas < 1 || form.reservaMaxSimultaneas > 50)) {
     return { ok: false, texto: 'Las reservas a la vez van de 1 a 50. Déjalo vacío para no poner límite.' };
   }
+  if (tarjeta === 'recuperaciones' && !(Number.isInteger(form.recuperacionMaxVivas) && form.recuperacionMaxVivas >= 1 && form.recuperacionMaxVivas <= 20)) {
+    return { ok: false, texto: 'Las recuperaciones sin usar a la vez van de 1 a 20.' };
+  }
   if (tarjeta === 'reservar' && form.reservaMaxPorDia != null && (form.reservaMaxPorDia < 1 || form.reservaMaxPorDia > 20)) {
     return { ok: false, texto: 'Las clases al día van de 1 a 20. Déjalo vacío para no poner límite.' };
   }
@@ -249,6 +258,13 @@ export function fraseAntelacion(minimaMinutos: number, maximaDias: number | null
   return `Se puede reservar desde ${maximaDias === 1 ? '1 día' : `${maximaDias} días`} antes ${hasta}.`;
 }
 
+/** Cuándo caduca una recuperación, en pocas palabras. Lo aplica `calcular_caduca_recuperacion`. */
+export function fraseCaducidadRecuperacion(tipo: ReglasReserva['recuperacionCaducidadTipo'], dias: number | null): string {
+  if (tipo === 'DIAS') return `caducan a los ${dias ?? 30} días`;
+  if (tipo === 'FIN_MES') return 'caducan a final de mes';
+  return 'caducan a final del mes siguiente';
+}
+
 /** «se abre 2 días antes» / «se abre 2 días antes a las 20:00»: los días del estudio o del tipo, la hora del estudio. */
 export function fraseSeAbre(dias: number | null, hora: string | null): string {
   if (dias == null) return 'sin límite para reservar';
@@ -299,6 +315,8 @@ function cambiaRegla(tarjeta: TarjetaReglasId, t: TipoConReglas, e: ReglasReserv
     case 'si-cancela-tarde-o-no-viene':
       // `coalesce(tc.penalizacion_importe_eur, st.penalizacion_importe_eur)`: un 0 propio apaga el cargo.
       return cifra(heredaOverride(t.penalizacionImporteEur, e.penalizacionImporteEur)) !== cifra(e.penalizacionImporteEur);
+    case 'recuperaciones':
+      // Van sobre la alumna, no sobre la clase: sin override por tipo.
     case 'si-se-queda-sin-cuota':
       // Sin override por tipo de clase: va sobre la cuota de la alumna, no sobre la clase.
       return false;
@@ -382,6 +400,10 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
       return fraseAntelacion(r.reservaVentanaMinimaMinutos, r.reservaAntelacionMaximaDias, r.reservaAntelacionHora);
     case 'cancelar-y-recuperar':
       return frase('cancela-tarde') || frase('cancela-a-tiempo');
+    case 'recuperaciones': {
+      const n = r.recuperacionMaxVivas;
+      return `Con ${n} sin usar, no se le da otra hasta que use o le caduque una. Si bajas el número, quien ya tenga más las conserva.`;
+    }
     case 'si-se-cancela-una-clase': {
       const minimo = cifra(r.minimoAsistentesPorClase);
       if (minimo === 0) return frase('estudio-cancela');

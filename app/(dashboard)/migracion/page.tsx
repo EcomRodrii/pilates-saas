@@ -281,7 +281,7 @@ export default function MigracionPage() {
         out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas ?? 0, incidencias: r.sinSocia + r.errores.length, error: r.error, batchAviso: r.batchAviso });
       } else {
         // `duplicadas` aquí son las que no caben: la socia ya tenía el máximo
-        // de 4 recuperaciones vivas. No es un error del archivo, así que no
+        // de recuperaciones vivas del estudio. No es un error del archivo, así que no
         // puede contarse como incidencia.
         const r = await importarRecuperaciones(filas as FilaRecuperacion[], id);
         out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.errores.length, error: r.error, batchAviso: r.batchAviso });

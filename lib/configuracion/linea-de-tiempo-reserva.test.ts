@@ -49,8 +49,8 @@ test('a hora fija: se abre ese día a esa hora, y si en esta clase no llega a ab
 });
 
 test('el tope de clases al día sale en «Puede reservar»', () => {
-  assert.match(paso(lineaDeTiempoReserva({ ...estudio, reservaMaxPorDia: 1 }, JUEVES_18), 'cierra').detalle, /una al día como mucho/);
-  assert.match(paso(lineaDeTiempoReserva({ ...estudio, reservaMaxPorDia: 2 }, JUEVES_18), 'cierra').detalle, /2 al día como mucho/);
+  assert.match(paso(lineaDeTiempoReserva({ ...estudio, reservaMaxPorDia: 1 }, JUEVES_18), 'cierra').detalle, /como mucho una al día/);
+  assert.match(paso(lineaDeTiempoReserva({ ...estudio, reservaMaxPorDia: 2 }, JUEVES_18), 'cierra').detalle, /como mucho 2 al día/);
 });
 
 test('se abre 2 días antes y se cierra 30 min antes, con máximo a la vez y aprobación', () => {

@@ -1060,6 +1060,8 @@ export interface RowStudios {
   reserva_max_por_dia: number | null;
   // migr 20260930201000.
   reserva_antelacion_hora: string | null;
+  // migr 20260930202000.
+  recuperacion_max_vivas: number | null;
 }
 
 export interface RowSuscripciones {
@@ -5088,6 +5090,7 @@ export type StudiosInsert = {
   modo_facturacion?: string | null | null;
   reserva_max_por_dia?: number | null | null;
   reserva_antelacion_hora?: string | null | null;
+  recuperacion_max_vivas?: number | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5231,6 +5234,7 @@ export type StudiosUpdate = {
   modo_facturacion?: string | null | null;
   reserva_max_por_dia?: number | null | null;
   reserva_antelacion_hora?: string | null | null;
+  recuperacion_max_vivas?: number | null | null;
 }
 
 export type SuscripcionesInsert = {

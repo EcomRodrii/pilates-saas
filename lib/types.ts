@@ -205,6 +205,9 @@ export interface Studio {
   recuperacionCaducidadTipo: 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE';
   /** Solo se usa con tipo DIAS. null = 30 (el default de la propia RPC). */
   recuperacionCaducidadDias: number | null;
+  /** Recuperaciones sin usar que puede tener a la vez cada alumna (migr
+   *  20260930202000; 4 = lo de siempre). Opcional: los fixtures de antes no la traen. */
+  recuperacionMaxVivas?: number;
   reservaExigirPlan: boolean;
   /** Compra desde el enlace público sin ficha previa (migr 0110).
    *  EXIGIR_REGISTRO = se registra antes de pagar. CREAR_FICHA = se cobra y
@@ -1923,7 +1926,7 @@ export type EstadoRecompensaCanjeable = 'DISPONIBLE' | 'BLOQUEADA' | 'CANJEADA';
  *
  * `CLASE_GRATIS` no crea un vale nuevo: concede una RECUPERACIÓN, que es el
  * derecho a una clase suelta que ya existe en el producto (se gasta reservando
- * por el camino normal, cuenta contra el tope de 4 vivas y caduca con la
+ * por el camino normal, cuenta contra el tope de vivas del estudio (4 de serie) y caduca con la
  * política del estudio). Un vale paralelo tendría que reimplementar las tres
  * cosas y se desincronizaría de todas.
  */

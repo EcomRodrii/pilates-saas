@@ -425,6 +425,45 @@ export function FormCancelarYRecuperar({ excepciones, ...props }: PropsCajonRegl
           on={form.cancelacionDevolverBonoTardia}
           onChange={v => cambiar('cancelacionDevolverBonoTardia', v)}
         />
+<Consecuencia texto={consecuenciaRegla('cancelar-y-recuperar', r.enPantalla)} />
+        <EjemploConHoras
+          reglas={r.enPantalla}
+          excepciones={excepciones}
+          frase={paso => {
+            const aTiempo = paso('cancela-a-tiempo');
+            if (!aTiempo) return null;
+            const tarde = paso('cancela-tarde');
+            return tarde ? `cancela gratis ${minuscula(aTiempo.cuando)}; después, ${minuscula(tarde.detalle.replace(/^Si cancela con menos de \d+ h, /, ''))}` : 'cancela gratis hasta que empieza.';
+          }}
+        />
+        <TiposDeClaseQueLaCambian tipos={excepciones} />
+      </div>
+      <Barra tarjeta="cancelar-y-recuperar" r={r} />
+    </>
+  );
+}
+
+// ── Recuperaciones ──────────────────────────────────────────────────────────
+
+/** El tope (antes un 4 fijo), la caducidad y el reparto de los lunes. Van sobre la
+ *  alumna, no sobre la clase: sin reglas propias por tipo de clase. */
+export function FormRecuperaciones(props: PropsCajonRegla) {
+  const r = useRegla('recuperaciones', props);
+  const { form, cambiar } = r;
+  return (
+    <>
+      <div className={CUERPO}>
+        {/* Lo aplica `crear_recuperacion` bajo su candado (migr 20260930202000). */}
+        <Campo label="Recuperaciones sin usar a la vez, por alumna" ayuda="De 1 a 20. Con esas, no se le da otra hasta que use o le caduque una.">
+          {id => (
+            <input
+              id={id} type="number" min={1} max={20} inputMode="numeric" className={cn(inputCls, 'max-w-40')}
+              aria-invalid={r.bloqueo != null}
+              value={Number.isFinite(form.recuperacionMaxVivas) ? form.recuperacionMaxVivas : ''}
+              onChange={e => cambiar('recuperacionMaxVivas', e.target.value === '' ? Number.NaN : Number(e.target.value))}
+            />
+          )}
+        </Campo>
         {/* Migr 0086: la política la aplica `calcular_caduca_recuperacion` dentro de `crear_recuperacion`. */}
         <Campo label="Cuándo caduca una recuperación" ayuda="Se cuenta desde que se concede, no desde la clase perdida.">
           {id => (
@@ -456,21 +495,9 @@ export function FormCancelarYRecuperar({ excepciones, ...props }: PropsCajonRegl
           on={form.recuperacionAutoSemanal}
           onChange={v => cambiar('recuperacionAutoSemanal', v)}
         />
-        <Consecuencia texto={consecuenciaRegla('cancelar-y-recuperar', r.enPantalla)} />
-        <EjemploConHoras
-          reglas={r.enPantalla}
-          excepciones={excepciones}
-          frase={paso => {
-            const aTiempo = paso('cancela-a-tiempo');
-            if (!aTiempo) return null;
-            const tarde = paso('cancela-tarde');
-            return tarde ? `cancela gratis ${minuscula(aTiempo.cuando)}; después, ${minuscula(tarde.detalle.replace(/^Si cancela con menos de \d+ h, /, ''))}` : 'cancela gratis hasta que empieza.';
-          }}
-        />
-        <NotaDeSerie>cada alumna guarda hasta 4 recuperaciones sin usar a la vez; con 4, no se le da otra hasta que use o le caduque una.</NotaDeSerie>
-        <TiposDeClaseQueLaCambian tipos={excepciones} />
+        <Consecuencia texto={consecuenciaRegla('recuperaciones', r.enPantalla)} />
       </div>
-      <Barra tarjeta="cancelar-y-recuperar" r={r} />
+      <Barra tarjeta="recuperaciones" r={r} />
     </>
   );
 }

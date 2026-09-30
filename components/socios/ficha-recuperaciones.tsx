@@ -38,7 +38,9 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
   // ganada, y no se puede deshacer. Antes se ejecutaba con un solo clic en un
   // icono de papelera, sin preguntar nada.
   const [anulando, setAnulando] = useState<string | null>(null);
-  const { recuperaciones, darRecuperacion, anularRecuperacion } = useStudio();
+  const { studio, recuperaciones, darRecuperacion, anularRecuperacion } = useStudio();
+  // El tope lo pone el estudio (Configuración → Recuperaciones); 4 si no lo ha tocado.
+  const tope = studio?.recuperacionMaxVivas ?? 4;
   // Conceder o anular una recuperación es una clase gratis: desde la 0122 lo
   // rechaza la base de datos a quien no gestiona clientas. Se ocultan los
   // botones para no ofrecer algo que va a fallar — el mismo error que ya se
@@ -68,7 +70,7 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
     setAviso(null);
     const r = await darRecuperacion(socioId, motivo.trim() || null, caducaEl || null);
     setGuardando(false);
-    if (r === 'TOPE') { setAviso('Ya tiene 4 recuperaciones vivas (el máximo).'); return; }
+    if (r === 'TOPE') { setAviso(`Ya tiene ${tope} ${tope === 1 ? 'recuperación viva' : 'recuperaciones vivas'} (el máximo de tu estudio).`); return; }
     if (r === 'ERROR') { setAviso('No se pudo crear. Inténtalo de nuevo.'); return; }
     setMotivo('');
     setCaducaEl('');

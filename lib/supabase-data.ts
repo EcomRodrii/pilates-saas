@@ -4920,6 +4920,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
   if ('recuperacionCaducidadTipo' in changes) db.recuperacion_caducidad_tipo = changes.recuperacionCaducidadTipo;
   if ('recuperacionCaducidadDias' in changes) db.recuperacion_caducidad_dias = changes.recuperacionCaducidadDias;
+  if ('recuperacionMaxVivas' in changes) db.recuperacion_max_vivas = changes.recuperacionMaxVivas;
   if ('cancelacionClaseDevuelveBono' in changes) db.cancelacion_clase_devuelve_bono = changes.cancelacionClaseDevuelveBono;
   if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;
   if ('compraPublicaModo' in changes) db.compra_publica_modo = changes.compraPublicaModo;
@@ -5333,6 +5334,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     modoAutonomia: typeof r.modo_autonomia === 'string' ? r.modo_autonomia : null,
     recuperacionCaducidadTipo: (r.recuperacion_caducidad_tipo as 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE') ?? 'FIN_MES_SIGUIENTE',
     recuperacionCaducidadDias: r.recuperacion_caducidad_dias ?? null,
+    recuperacionMaxVivas: r.recuperacion_max_vivas ?? 4,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',
     reservaMaxSimultaneas: r.reserva_max_simultaneas ?? null,

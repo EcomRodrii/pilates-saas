@@ -89,8 +89,8 @@ test('el interruptor de recuperaciones automáticas también llega a la columna'
   const patches: string[] = [];
   await abrirReservas(page, patches);
 
-  // Vive en el cajón de «Cancelar y recuperar».
-  await page.locator('#cancelar-y-recuperar').click({ timeout: 30_000 });
+  // Vive en el cajón de «Recuperaciones» (30-sep; antes en «Cancelar y recuperar»).
+  await page.locator('#recuperaciones').click({ timeout: 30_000 });
   const toggle = page.getByRole('dialog').getByText('Dar recuperaciones solas al cerrar la semana');
   await expect(toggle).toBeVisible({ timeout: 30_000 });
   await toggle.click();

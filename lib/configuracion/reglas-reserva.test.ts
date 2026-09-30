@@ -29,7 +29,9 @@ const NUEVAS = ['plazaFijaSinCuota', 'plazaFijaSolicitarDesdeApp', 'plazaFijaPau
   // 27-sep: el control de acceso con QR, en la tarjeta de Asistencia.
   'controlAccesoQr',
   // 30-sep: el tope de clases al día y la hora a la que se abre, en «Reservar».
-  'reservaMaxPorDia', 'reservaAntelacionHora'];
+  'reservaMaxPorDia', 'reservaAntelacionHora',
+  // 30-sep: el tope de recuperaciones sin usar (antes un 4 fijo), con su propia tarjeta.
+  'recuperacionMaxVivas'];
 
 test('la sección guarda las columnas de antes, menos las dos que se fueron a su sitio, más las nuevas con nombre', () => {
   const r = reglasAGuardar(formularioReglas(null), reglasGuardadas(null));
@@ -48,7 +50,7 @@ test('sin dato del servidor, los mismos valores por defecto que el formulario de
     reservaExigirPlan: true, reservaVentanaMinimaMinutos: 0, reservaAntelacionMaximaDias: null, reservaAntelacionHora: null,
     reservaMaxSimultaneas: null, reservaMaxPorDia: null, bloquearReservaImpago: false, requiereAprobacion: false,
     cancelacionVentanaHoras: 12, cancelacionDevolverBonoTardia: false, cancelacionClaseDevuelveBono: true,
-    minimoAsistentesPorClase: 0, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null,
+    minimoAsistentesPorClase: 0, recuperacionMaxVivas: 4, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null,
     recuperacionAutoSemanal: false, permiteListaEspera: true, listaEsperaPlazoAceptacionMinutos: 0,
     requiereCheckinQr: true, controlAccesoQr: true, penalizacionImporteEur: null, penalizacionAplicaCancelacionTardia: true,
     penalizacionAplicaNoShow: true, penalizacionCobroAutomatico: false,
@@ -78,7 +80,8 @@ test('cada cambio marca su tarjeta, y solo la suya', () => {
   const casos: [Partial<typeof base>, string[]][] = [
     [{ reservaMaxSimultaneas: 3 }, ['reservar']],
     [{ cancelacionVentanaHoras: 24 }, ['cancelar-y-recuperar']],
-    [{ recuperacionAutoSemanal: true }, ['cancelar-y-recuperar']],
+    [{ recuperacionAutoSemanal: true }, ['recuperaciones']],
+    [{ recuperacionMaxVivas: 6 }, ['recuperaciones']],
     [{ cancelacionClaseDevuelveBono: false }, ['si-se-cancela-una-clase']],
     [{ minimoAsistentesPorClase: 3 }, ['si-se-cancela-una-clase']],
     [{ listaEspera: { modo: 'con-plazo', minutos: '15' } }, ['lista-de-espera']],
@@ -134,7 +137,7 @@ test('el «Guardar» de un cajón manda SOLO las columnas de su tarjeta (#2027)'
   const cancelar = reglasDeTarjetaAGuardar('cancelar-y-recuperar', { ...form, cancelacionVentanaHoras: 6 }, guardado);
   assert.deepEqual(cancelar, {
     ok: true,
-    cambios: { cancelacionVentanaHoras: 6, cancelacionDevolverBonoTardia: false, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null, recuperacionAutoSemanal: false },
+    cambios: { cancelacionVentanaHoras: 6, cancelacionDevolverBonoTardia: false },
   });
   // «Sin lista» conserva el plazo guardado, también desde su cajón.
   assert.deepEqual(reglasDeTarjetaAGuardar('lista-de-espera', { ...form, listaEspera: { modo: 'sin-lista', minutos: '' } }, guardado), {
@@ -275,4 +278,16 @@ test('«Reservar»: 0 días a la hora de la clase no se guarda; con hora fija, s
   assert.ok(ceroALas8.ok);
   assert.equal(ceroALas8.cambios.reservaAntelacionHora, '08:00');
   assert.equal(reglasDeTarjetaAGuardar('reservar', { ...form, reservaAntelacionMaximaDias: 2, reservaAntelacionHora: '25:00' }, guardado).ok, false);
+});
+
+test('«Recuperaciones»: el tope va de 1 a 20 y la fila y la consecuencia dicen el número', () => {
+  const guardado = reglasGuardadas(null);
+  const form = formularioReglas(guardado);
+  assert.equal(reglasDeTarjetaAGuardar('recuperaciones', { ...form, recuperacionMaxVivas: 0 }, guardado).ok, false);
+  assert.equal(reglasDeTarjetaAGuardar('recuperaciones', { ...form, recuperacionMaxVivas: 21 }, guardado).ok, false);
+  assert.equal(reglasDeTarjetaAGuardar('recuperaciones', { ...form, recuperacionMaxVivas: Number.NaN }, guardado).ok, false);
+  const seis = reglasDeTarjetaAGuardar('recuperaciones', { ...form, recuperacionMaxVivas: 6 }, guardado);
+  assert.deepEqual(seis, { ok: true, cambios: { recuperacionMaxVivas: 6, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null, recuperacionAutoSemanal: false } });
+  assert.equal(consecuenciaRegla('recuperaciones', { ...guardado, recuperacionMaxVivas: 2 }),
+    'Con 2 sin usar, no se le da otra hasta que use o le caduque una. Si bajas el número, quien ya tenga más las conserva.');
 });
