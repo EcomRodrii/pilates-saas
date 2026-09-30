@@ -222,7 +222,7 @@ function CitaCard({
             ) : puedeCobrar ? (
               <button
                 onClick={() => onCobrar(cita.id)}
-                title="Pendiente de cobro — clic para registrar el cobro y generar la factura"
+                title="Pendiente de cobro — clic para registrar el cobro"
                 aria-label="Registrar cobro"
                 className="shrink-0 rounded-full hover:opacity-80 transition-opacity"
               >
@@ -274,7 +274,10 @@ function CitaCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CitasPage() {
-  const { socios, instructores, citas, sesiones, addCita, updateCita, completarCita, cancelarCita, crearFacturaDirecta } = useStudio();
+  const { socios, instructores, citas, sesiones, addCita, updateCita, completarCita, cancelarCita, crearFacturaDirecta, studio } = useStudio();
+  // Con el estudio sin facturas desde Tentare, cobrar una cita deja su recibo y
+  // nada más: los textos no pueden prometer una factura.
+  const emiteFacturas = studio?.modoFacturacion === 'verifactu';
   const rol = useRol();
   // Todo lo de esta pantalla escribe en `citas`, y su RLS exige
   // `puede_gestionar_clientas()` — eso sigue valiendo para gestionar la cita
@@ -510,7 +513,9 @@ export default function CitasPage() {
     }
     if (!rCita.ok) {
       setAvisoDineroMovido(true);
-      setErrorLista(`Se generó la factura, pero no se pudo marcar la cita como cobrada. La cita seguirá viéndose "pendiente" — no la vuelvas a cobrar, ya tiene factura. ${rCita.error}`);
+      setErrorLista(emiteFacturas
+        ? `Se generó la factura, pero no se pudo marcar la cita como cobrada. La cita seguirá viéndose "pendiente" — no la vuelvas a cobrar, ya tiene factura. ${rCita.error}`
+        : `El cobro se registró, pero no se pudo marcar la cita como cobrada. La cita seguirá viéndose "pendiente" — no la vuelvas a cobrar. ${rCita.error}`);
     }
   }
 
@@ -874,7 +879,7 @@ export default function CitasPage() {
             return (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Se generará un recibo cobrado y una factura al contado por{' '}
+                  {emiteFacturas ? 'Se generará un recibo cobrado y una factura al contado por' : 'Se registrará un recibo cobrado por'}{' '}
                   <span className="font-semibold text-foreground">{cita.precio != null ? formatEuro(cita.precio) : ''}</span>
                   {' '}a nombre de <span className="font-semibold text-foreground">{socio ? `${socio.nombre} ${socio.apellidos}` : 'esta clienta'}</span>.
                   No se puede deshacer con un clic — si te has equivocado, gestiónalo después desde Cobros.

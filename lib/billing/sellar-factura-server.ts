@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/nextjs';
 import { calcularHuellaAlta, type RegistroAltaVerifactu } from '../verifactu.ts';
 import { fechaExpedicionDesdeISO, fechaHoraHusoMadrid, urlQrVerifactu } from '../verifactu-qr.ts';
 import { nifEmisorValido } from '../nif.ts';
+import { MENSAJE_SIN_FACTURAS } from '../factura-automatica.ts';
 
 // Núcleo del sellado Veri*Factu, extraído de app/api/facturas/sellar para que lo
 // puedan invocar TANTO la ruta (staff autenticado) COMO el webhook de Stripe
@@ -39,9 +40,18 @@ import { nifEmisorValido } from '../nif.ts';
 // concurrente para la MISMA factura ya la completó mientras tanto, se
 // devuelve SU resultado en vez de pisarlo).
 
+/** Lo que se le dice a quien pide una factura con el estudio en 'sin_facturas'. */
+export const MENSAJE_FACTURACION_DESACTIVADA = MENSAJE_SIN_FACTURAS;
+
 export interface ResultadoSellado {
   ok: boolean;
   error?: string;
+  /**
+   * El estudio está en `modo_facturacion = 'sin_facturas'`: no emite facturas
+   * desde Tentare (Configuración → Facturación). No es un fallo: quien llama no
+   * debe marcar la factura como pendiente ni avisar a Sentry por ello.
+   */
+  desactivada?: boolean;
   yaExistia?: boolean;
   sellada?: boolean;
   aviso?: string | null;
@@ -108,9 +118,17 @@ export async function sellarFacturaDeRecibo(
 
   const { data: studio } = await admin
     .from('studios')
-    .select('nif, iva_por_defecto, razon_social, nombre, direccion, ciudad, codigo_postal, email')
+    .select('nif, iva_por_defecto, razon_social, nombre, direccion, ciudad, codigo_postal, email, modo_facturacion')
     .eq('id', studioId)
     .maybeSingle();
+  // Con el estudio en 'sin_facturas' no se emite nada NUEVO. Solo aquí, sin una
+  // reserva a medias: si `existente` ya tiene número (crash entre la reserva y
+  // la huella), esa factura ya nació y hay que terminarla aunque después se
+  // haya apagado. La base de datos lo cierra igual (`reservar_numero_factura`
+  // rechaza la serie A), esto evita la llamada y el error.
+  if (!existente && studio?.modo_facturacion !== 'verifactu') {
+    return { ok: false, desactivada: true, error: MENSAJE_FACTURACION_DESACTIVADA };
+  }
   const nifEmisor = studio?.nif?.trim() || '';
   // F0 · CFG-1: no sellar con un NIF vacío o de relleno (p. ej. el 'B12345678' del
   // demo) — crearía una cadena Veri*Factu con identidad fiscal falsa. Se bloquea la
@@ -235,6 +253,11 @@ export async function sellarFacturaDeRecibo(
         existente = await cargarExistente();
       }
       if (!existente) {
+        // Apagado entre la lectura de arriba y la reserva: la base de datos lo
+        // rechaza y se trata igual que si ya estuviera apagado.
+        if (errorReserva.message?.includes('FACTURACION_DESACTIVADA')) {
+          return { ok: false, desactivada: true, error: MENSAJE_FACTURACION_DESACTIVADA };
+        }
         console.error('[sellarFacturaDeRecibo] reservar_numero_factura:', errorReserva.message);
         return { ok: false, error: 'No se ha podido reservar el número de factura.' };
       }

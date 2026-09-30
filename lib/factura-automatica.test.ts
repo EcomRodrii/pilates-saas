@@ -30,3 +30,17 @@ test('un método nuevo factura hasta que alguien decida lo contrario', () => {
   assert.equal(emiteFacturaAutomatica('DATAFONO'), true);
   assert.equal(emiteFacturaAutomatica('CRIPTO'), true);
 });
+
+test('con el estudio en «sin facturas», no se emite nada, se cobre como se cobre (29-sep-2026)', () => {
+  for (const m of ['TARJETA', 'SEPA', 'BIZUM', 'EFECTIVO', null]) {
+    assert.equal(emiteFacturaAutomatica(m, 'sin_facturas'), false, String(m));
+  }
+  // Sin estudio cargado todavía (el panel): tampoco. Una factura optimista que la
+  // base de datos rechazaría aparecería y se esfumaría.
+  assert.equal(emiteFacturaAutomatica('TARJETA', null), false);
+  // Emitiendo: la regla de siempre (el efectivo, fuera).
+  assert.equal(emiteFacturaAutomatica('TARJETA', 'verifactu'), true);
+  assert.equal(emiteFacturaAutomatica('EFECTIVO', 'verifactu'), false);
+  // Sin pasar el modo (los caminos de servidor, que lo resuelve el sellado): como antes.
+  assert.equal(emiteFacturaAutomatica('TARJETA'), true);
+});
