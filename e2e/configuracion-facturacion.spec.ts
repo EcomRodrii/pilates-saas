@@ -235,3 +235,16 @@ test('si no se puede comprobar el envío, no deja encender (0 peticiones)', asyn
   await page.waitForTimeout(400);
   expect(patches).toHaveLength(0);
 });
+
+test('con el envío activado pero el poder ya no vigente, no se enciende y dice por qué (0 peticiones)', async ({ page }) => {
+  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', {
+    fila: { ...FILA, nif: NIF }, envio: { estado: 'PENDIENTE_AUTORIZACION', activadoEn: '2026-10-01T10:00:00.000Z' },
+  });
+  await expect(emitir(page)).toBeVisible({ timeout: 30_000 });
+  await emitir(page).click();
+  await expect(page.getByText('Tu autorización a la AEAT ya no está vigente.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ver tu alta en la AEAT' })).toHaveAttribute('href', '/configuracion/verifactu');
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
+  await page.waitForTimeout(400);
+  expect(patches).toHaveLength(0);
+});

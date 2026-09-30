@@ -129,3 +129,14 @@ test('decisiones sobre las anteriores: RLS, sin cliente, sin borrar, solo añadi
   assert.match(DECISIONES, /revoke execute on function public\.verifactu_decisiones_anteriores_guardia\(\) from public, anon, authenticated/);
   assert.doesNotMatch(DECISIONES, /grant [^;]* to [^;]*\b(anon|authenticated)\b/i);
 });
+
+// Sin poder, sin facturas (criterio del fiscalista, 30-sep-2026: perder el poder no es una incidencia técnica).
+const SIN_PODER = readFileSync(join(DIR, '20260930190000_verifactu_sin_poder_sin_facturas.sql'), 'utf8')
+  .replace(/--[^\n]*/g, '');
+
+test('sin poder, sin facturas: perderlo las para, una pausa no, y encender exige poder vigente', () => {
+  assert.match(SIN_PODER, /create trigger trg_verifactu_sin_poder_para_facturas\s+after update of estado on public\.verifactu_estudios/);
+  assert.match(SIN_PODER, /v\.estado in \('PRODUCCION', 'PAUSADO', 'SUSPENDIDO_AEAT', 'VERIFICADO'\)/);
+  assert.match(SIN_PODER, /revoke execute on function public\.verifactu_sin_poder_para_facturas\(\) from public, anon, authenticated/);
+  assert.doesNotMatch(SIN_PODER, /grant [^;]* to [^;]*\b(anon|authenticated)\b/i);
+});

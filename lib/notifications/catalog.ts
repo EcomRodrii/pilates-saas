@@ -801,7 +801,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   [`${EVENTOS.VERIFACTU_PODER_CADUCA}#PROPIETARIO`]: {
     title: 'El poder para enviar tus facturas a la AEAT caduca pronto',
-    body: 'El poder que diste en la AEAT para enviar tus registros de facturación termina el {vigenteHasta}. Puedes prorrogarlo en la sede de la AEAT en los dos meses previos; si no, el envío se detendrá ese día.',
+    body: 'El poder que diste en la AEAT para enviar tus registros de facturación termina el {vigenteHasta}. Puedes prorrogarlo en la sede de la AEAT en los dos meses previos; si no, ese día Tentare dejará de enviar y de emitir tus facturas.',
     deepLink: () => `/configuracion/verifactu`,
   },
   // {tipoTexto} distingue total de parcial dentro del mismo evento — mismo

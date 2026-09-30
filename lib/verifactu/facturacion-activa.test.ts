@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  envioActivado, ofrecerAlta, pasoDelAlta, finDePermanencia, avisoPermanencia, ALTA_ABIERTA_A_ESTUDIOS,
+  envioActivado, ofrecerAlta, pasoDelAlta, finDePermanencia, avisoPermanencia, ALTA_ABIERTA_A_ESTUDIOS, puedeEmitir,
 } from './facturacion-activa.ts';
 
 test('envioActivado: solo con fecha de primera activación', () => {
@@ -32,4 +32,15 @@ test('avisoPermanencia: cita el artículo y dice qué hacer', () => {
   assert.match(t, /31 de diciembre de 2026/);
   assert.match(t, /art\. 17\.2/);
   assert.match(t, /otro sistema Veri\*Factu/);
+});
+
+test('puedeEmitir: activado y con poder vigente; una pausa o una suspensión no lo quitan', () => {
+  const ACT = '2026-10-01T10:00:00Z';
+  for (const e of ['PRODUCCION', 'PAUSADO', 'SUSPENDIDO_AEAT', 'VERIFICADO'] as const) assert.equal(puedeEmitir(ACT, e), true, e);
+});
+
+test('puedeEmitir: sin poder (revocado, caducado, datos cambiados) o sin activar nunca, no', () => {
+  const ACT = '2026-10-01T10:00:00Z';
+  for (const e of ['PENDIENTE_AUTORIZACION', 'AUTORIZACION_EN_REVISION', 'SIN_CONFIGURAR'] as const) assert.equal(puedeEmitir(ACT, e), false, e);
+  assert.equal(puedeEmitir(null, 'PRODUCCION'), false, 'sin activar nunca');
 });

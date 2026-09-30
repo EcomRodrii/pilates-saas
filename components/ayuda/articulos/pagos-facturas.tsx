@@ -13,7 +13,8 @@ export default function Contenido() {
         antes de emitirlas, tu envío a la AEAT tiene que estar activo: lo autorizas en la propia AEAT y Tentare lo
         comprueba y lo activa. En «Facturación» ves en qué punto está. Desde ese día, cada cobro que se completa
         (salvo en efectivo) genera su factura automáticamente — no tienes que crearlas tú una a una. La encuentras
-        en Facturas, con opción de descargarla en PDF.
+        en Facturas, con opción de descargarla en PDF. Si retiras tu autorización en la AEAT o caduca, Tentare deja de
+        emitirlas hasta que la renueves, porque ya no puede enviarlas.
       </p>
       <p>
         Puedes dejar de emitirlas cuando quieras, y las que ya emitiste se quedan como están. Pero la norma obliga a

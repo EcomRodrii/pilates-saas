@@ -25,6 +25,21 @@ export function envioActivado(activadoEn: string | null | undefined): boolean {
   return !!activadoEn;
 }
 
+/**
+ * Estados con el poder IZ860 vigente. Una pausa o una suspensión de la AEAT son
+ * incidencias: se sigue emitiendo y se remite al volver. VERIFICADO es donde
+ * vuelve un estudio al reanudar. Fuera de aquí (poder revocado, caducado o datos
+ * fiscales cambiados) Tentare no puede remitir, así que no emite (migración
+ * 20260930190000; criterio del fiscalista, 30-sep-2026: perder el poder no es una
+ * incidencia técnica).
+ */
+const CON_PODER_VIGENTE: ReadonlySet<EstadoEstudioVerifactu> = new Set(['PRODUCCION', 'PAUSADO', 'SUSPENDIDO_AEAT', 'VERIFICADO']);
+
+/** Si Tentare puede emitir facturas para este estudio: envío activado alguna vez Y poder vigente. */
+export function puedeEmitir(activadoEn: string | null | undefined, estado: EstadoEstudioVerifactu): boolean {
+  return envioActivado(activadoEn) && CON_PODER_VIGENTE.has(estado);
+}
+
 /** Si la pantalla de Facturación enseña el camino al alta. */
 export function ofrecerAlta(estado: EstadoEstudioVerifactu): boolean {
   return ALTA_ABIERTA_A_ESTUDIOS || estado !== 'SIN_CONFIGURAR';
@@ -43,6 +58,9 @@ export function pasoDelAlta(estado: EstadoEstudioVerifactu): string {
 
 export const SOLO_CON_ENVIO_ACTIVO =
   'Tentare solo emite facturas enviando el registro de cada una a la AEAT (Veri*Factu): empiezan el día que se activa tu envío.';
+
+export const SIN_PODER_VIGENTE =
+  'Tu autorización a la AEAT ya no está vigente. Sin ella Tentare no puede enviar tus facturas, así que no las emite hasta que la renueves. Mientras tanto, tienen que salir por otro sistema Veri*Factu.';
 
 export const ALTA_AUN_CERRADA =
   'Tentare solo emite facturas enviando el registro de cada una a la AEAT (Veri*Factu), y ese envío todavía no está abierto a los estudios. Mientras tanto, tus cobros dejan su justificante de pago.';

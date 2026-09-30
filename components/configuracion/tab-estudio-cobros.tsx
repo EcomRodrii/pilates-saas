@@ -18,7 +18,7 @@ import { Campo } from '@/components/configuracion/formulario-estudio';
 import { ExportarRegistrosVerifactu } from '@/components/configuracion/exportar-registros-verifactu';
 import type { EstadoEstudioVerifactu } from '@/lib/verifactu/apoderamiento';
 import {
-  ALTA_AUN_CERRADA, SOLO_CON_ENVIO_ACTIVO, avisoPermanencia, envioActivado, ofrecerAlta, pasoDelAlta,
+  ALTA_AUN_CERRADA, SIN_PODER_VIGENTE, SOLO_CON_ENVIO_ACTIVO, avisoPermanencia, envioActivado, ofrecerAlta, pasoDelAlta, puedeEmitir,
 } from '@/lib/verifactu/facturacion-activa';
 
 // Los cajones de «Domiciliaciones bancarias» y «Devoluciones», en Cobros y
@@ -553,7 +553,10 @@ export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
   const sinNif = form.modo === 'verifactu' && !nifEmisorValido(studio?.nif?.trim() ?? '');
 
   const alta = useAltaEnvio();
-  const activo = typeof alta === 'object' && envioActivado(alta.activadoEn);
+  // Emitir exige el envío activado Y el poder vigente; avisar de la permanencia
+  // (art. 17.2) basta con haberlo activado alguna vez.
+  const activo = typeof alta === 'object' && puedeEmitir(alta.activadoEn, alta.estado);
+  const activadoAlgunaVez = typeof alta === 'object' && envioActivado(alta.activadoEn);
   // Encenderlo sin el envío activo lo rechaza la base (VERIFACTU_SIN_ACTIVAR):
   // aquí se dice antes, sin mandar nada.
   const enciende = form.modo === 'verifactu' && base.modo !== 'verifactu';
@@ -603,7 +606,9 @@ export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
       </div>
       {form.modo === 'verifactu' && !activo && typeof alta === 'object' && (
         <div className="-mt-3 mb-6 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
-          <p className="text-foreground text-pretty">{ofrecerAlta(alta.estado) ? SOLO_CON_ENVIO_ACTIVO : ALTA_AUN_CERRADA}</p>
+          <p className="text-foreground text-pretty">
+            {activadoAlgunaVez ? SIN_PODER_VIGENTE : ofrecerAlta(alta.estado) ? SOLO_CON_ENVIO_ACTIVO : ALTA_AUN_CERRADA}
+          </p>
           {ofrecerAlta(alta.estado) && (
             <p className="mt-2 text-muted-foreground text-pretty">
               {pasoDelAlta(alta.estado)}{' '}
@@ -629,7 +634,7 @@ export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
         seccion="cobros"
         cambios={hayCambios(form, base) ? ['Facturación'] : []}
         bloqueo={sinNif ? 'Pon un NIF válido en «Datos fiscales e IVA» para emitir facturas.' : bloqueoEnvio}
-        confirmar={confirmacionFacturacion(form.modo, activo)}
+        confirmar={confirmacionFacturacion(form.modo, activadoAlgunaVez)}
         onGuardar={alGuardar}
         onDescartar={() => setForm(base)}
       />
