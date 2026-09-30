@@ -150,22 +150,6 @@ export function devolverVenta(p: { ventaId: string; lineas?: { lineaId: string; 
   );
 }
 
-/**
- * Apunta en el libro de caja un recibo que se acaba de cobrar a mano.
- *
- * No lleva importe ni método: los lee el servidor de la base. Un apunte de
- * caja cuyo importe viniera del navegador sería un descuadre a un `fetch` de
- * distancia.
- *
- * `apuntado: false` no es un fallo — sin caja abierta, o cobrado por
- * transferencia o SEPA, no hay nada que apuntar y el motivo lo dice.
- */
-export function apuntarCobroEnCaja(reciboId: string) {
-  return pedir<{ apuntado: boolean; importe: number; motivo: string | null }>(
-    '/api/pos/caja/apuntar-cobro', { method: 'POST', body: JSON.stringify({ reciboId }) },
-  );
-}
-
 export interface MovimientoStock {
   id: string; fecha: string;
   tipo: 'ENTRADA' | 'MERMA' | 'AJUSTE' | 'VENTA' | 'DEVOLUCION';
@@ -199,8 +183,8 @@ export function moverStock(p: {
 }
 
 // ─── Cobrar un recibo desde el mostrador ─────────────────────────────────────
-// Efectivo NO pasa por aquí: lo cierra `marcarCobrado` del contexto (y lo
-// apunta en caja el servidor). Esto es solo para lo que confirma un tercero.
+// Efectivo NO pasa por aquí: lo cierra `marcarCobrado` del contexto, que va a
+// `/api/cobros/marcar-cobrado` (y el servidor lo apunta en caja). Esto es solo para lo que confirma un tercero.
 
 export function cobrarReciboEnMostrador(reciboId: string, metodo: 'DATAFONO' | 'BIZUM') {
   return pedir<{ reciboId: string; referencia: string; url: string | null; pagoEstado: EstadoPagoPOS; importe: number }>(

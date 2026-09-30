@@ -1001,6 +1001,36 @@ export async function marcarReciboDevueltoApi(reciboId: string): Promise<{ ok: t
 }
 
 /**
+ * «Marcar cobrado» a mano (`POST /api/cobros/marcar-cobrado`). Devuelve la
+ * respuesta CRUDA (status + cuerpo) o `{ red: true }`: quien decide qué
+ * significa es `leerRespuestaMarcarCobrado` (lib/cobros/marcar-cobrado.ts),
+ * que nunca da un cobro por bueno sin el detalle por recibo.
+ *
+ * Con timeout: una petición colgada no puede dejar el botón en «Cobrando…» para
+ * siempre. Al vencer se trata como red caída — quien llama relee el recibo.
+ */
+export async function marcarCobradoEnServidor(
+  reciboIds: string[], metodo: string | null, timeoutMs = 45_000,
+): Promise<{ status: number; cuerpo: unknown } | { red: true }> {
+  const abortar = new AbortController();
+  const t = setTimeout(() => abortar.abort(), timeoutMs);
+  try {
+    const res = await fetch('/api/cobros/marcar-cobrado', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ reciboIds, metodo }),
+      signal: abortar.signal,
+    });
+    const cuerpo: unknown = await res.json().catch(() => null);
+    return { status: res.status, cuerpo };
+  } catch {
+    return { red: true };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/**
  * Enlace para que una socia AUTORICE una tarjeta sin pagar nada (Stripe
  * Checkout en `mode: 'setup'`). Es la salida cuando un cobro off-session
  * responde `SIN_TARJETA`: la propietaria le manda este enlace y, en cuanto la

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import type { EstadoRecibo, Socio, MetodoCobro } from '@/lib/types';
 import { DialogoMetodoCobro } from '@/components/cobros/dialogo-metodo-cobro';
+import { MENSAJE_YA_ESTABA, esCobroConfirmado } from '@/lib/cobros/marcar-cobrado';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn, copiarAlPortapapeles, formatEuro, hoyEnEstudio } from '@/lib/utils';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
@@ -179,6 +180,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     planesTarifa,
     facturas,
     marcarCobrado,
+    marcarCobradoVarios,
     marcarDevuelto,
     reintentar,
     reintentarSelladoFactura,
@@ -305,6 +307,9 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
   const [masivoTotal, setMasivoTotal]             = useState(0);
   // Los que la BD rechazó: sin esto el resumen final daba por cobrado todo.
   const [masivoFallidos, setMasivoFallidos]       = useState<string[]>([]);
+  // La respuesta no llegó y al releer no figuran cobrados: ni «guardado» ni «fallido».
+  const [masivoSinConfirmar, setMasivoSinConfirmar] = useState<string[]>([]);
+  const [masivoYaEstaban, setMasivoYaEstaban]     = useState(0);
 
   // ── Nueva factura modal ─────────────────────────────────────────────────────
   const [showFactura, setShowFactura] = useState(false);
@@ -551,36 +556,33 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     setMasivoTotal(ids.length);
     setMasivoCobrando(0);
     setMasivoFallidos([]);
+    setMasivoSinConfirmar([]);
+    setMasivoYaEstaban(0);
     setMasivoProgress('running');
-    // P0-23: por lotes, cediendo el hilo entre ellos para pintar la barra y no
-    // bloquear el UI. Antes se esperaba 120ms ARTIFICIALES por recibo, así que
-    // cobrar 1000 recibos tardaba 2+ minutos de pura espera.
+    // Por el servidor, en lotes y en serie (`marcarCobradoVarios`), y se cuenta
+    // lo que DIJO de cada recibo. Antes se llamaba a `marcarCobrado` sin await y
+    // sin mirar el resultado: la pantalla decía "N cobros procesados" con la base
+    // de datos intacta, con sus facturas y renovaciones pintadas encima.
     //
-    // Ahora se ESPERA cada cobro y se recogen los que fallan. Antes se llamaba a
-    // `marcarCobrado` sin await y sin mirar el resultado: si la base de datos
-    // rechazaba, la pantalla decía "N cobros procesados" igualmente, con sus
-    // facturas y sus renovaciones pintadas sobre un cobro que no existía.
-    const CHUNK = 25;
-    const fallidos: string[] = [];
+    // Un cobro con la factura pendiente de sellar cuenta como guardado: el dinero
+    // SÍ se registró, y la fila queda con su botón "Sin factura" en Cobrado.
     try {
-      for (let i = 0; i < ids.length; i += CHUNK) {
-        const lote = ids.slice(i, i + CHUNK);
-        const res = await Promise.all(lote.map(id => marcarCobrado(id)));
-        // `cobroRegistrado` (ver comentario de marcarCobrado): el dinero SÍ se
-        // registró, solo falló el sellado de la factura — contarlo aquí como
-        // "fallido" mentiría al resumen final ("N cobros no se pudieron
-        // procesar" sobre cobros que sí se procesaron). Esas filas quedan
-        // igual con su botón "Sin factura" en la pestaña Cobrado.
-        res.forEach((r, j) => { if (!r.ok && !('cobroRegistrado' in r)) fallidos.push(lote[j]); });
-        setMasivoCobrando(Math.min(i + CHUNK, ids.length));
-        await new Promise(r => setTimeout(r, 0));
-      }
-      setMasivoFallidos(fallidos);
-      setMasivoProgress('done');
+      const desenlaces = await marcarCobradoVarios(ids, undefined, setMasivoCobrando);
+      setMasivoFallidos(desenlaces.filter(d => !esCobroConfirmado(d) && d.resultado !== 'sin_confirmar').map(d => d.reciboId));
+      setMasivoSinConfirmar(desenlaces.filter(d => d.resultado === 'sin_confirmar').map(d => d.reciboId));
+      setMasivoYaEstaban(desenlaces.filter(d => d.resultado === 'ya_estaba' || d.resultado === 'cobrado_al_releer').length);
+    } catch {
+      // No debería lanzar (la red ya se trata dentro), pero si lo hiciera no se
+      // puede afirmar nada de ninguno.
+      setMasivoSinConfirmar(ids);
     } finally {
+      setMasivoProgress('done');
       masivoEnCursoRef.current = false;
     }
   }
+
+  const masivoConProblemas = masivoFallidos.length + masivoSinConfirmar.length > 0;
+  const masivoGuardados = masivoTotal - masivoFallidos.length - masivoSinConfirmar.length - masivoYaEstaban;
 
   const masivoImporteTotal = useMemo(() => {
     return recibos
@@ -664,6 +666,12 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
       setStripeToast({ tipo: 'error', msg: marcado.error });
       return;
     }
+    // Ya estaba cobrado (otra pestaña, otro dispositivo, Stripe): no es un error
+    // y no se manda otro justificante por un cobro que no ha hecho este clic.
+    if (marcado.ok && marcado.yaEstaba) {
+      setStripeToast({ tipo: 'ok', msg: MENSAJE_YA_ESTABA });
+      return;
+    }
     const r = recibos.find(x => x.id === reciboId);
     const socio = r ? socios.find(s => s.id === r.socioId) : null;
     // Sin esto la fila desaparecía de "Quién me debe" en silencio y parecía
@@ -674,7 +682,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     // de arriba) que un "ok" normal.
     setStripeToast(marcado.ok
       ? { tipo: 'ok', msg: r ? `Cobro registrado: ${formatEuro(r.importe)} de ${socioName(r.socioId)}.` : 'Cobro registrado.' }
-      : { tipo: 'error', msg: `Cobro registrado, pero la factura no se pudo sellar: ${marcado.error}. Reintenta desde "Sin factura" en la pestaña Cobrado.` });
+      : { tipo: 'error', msg: `${marcado.error} Si no aparece, reintenta desde "Sin factura" en la pestaña Cobrado.` });
     if (socio?.email && r) {
       // Concepto, importe y número de factura los lee el servidor del recibo ya
       // cobrado (y de su factura, si se selló): no los del estado de esta pantalla.
@@ -1696,22 +1704,33 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
             <div className="flex flex-col items-center text-center gap-4 py-8">
               <div className={cn(
                 'w-16 h-16 rounded-2xl flex items-center justify-center',
-                masivoFallidos.length > 0 ? 'bg-warning/10' : 'bg-success/10',
+                masivoConProblemas ? 'bg-warning/10' : 'bg-success/10',
               )}>
-                {masivoFallidos.length > 0
+                {masivoConProblemas
                   ? <AlertTriangle size={32} className="text-warning" />
                   : <CheckCheck size={32} className="text-success" />}
               </div>
               <div>
                 <p className="text-lg font-bold text-foreground">
-                  {masivoTotal - masivoFallidos.length} cobro{masivoTotal - masivoFallidos.length !== 1 ? 's' : ''} guardado{masivoTotal - masivoFallidos.length !== 1 ? 's' : ''}
+                  {masivoGuardados} cobro{masivoGuardados !== 1 ? 's' : ''} guardado{masivoGuardados !== 1 ? 's' : ''}
                 </p>
+                {masivoYaEstaban > 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {masivoYaEstaban} ya {masivoYaEstaban === 1 ? 'estaba cobrado' : 'estaban cobrados'}.
+                  </p>
+                )}
+                {masivoSinConfirmar.length > 0 && (
+                  <p className="text-sm text-warning mt-1 max-w-sm">
+                    {masivoSinConfirmar.length} no se {masivoSinConfirmar.length === 1 ? 'ha' : 'han'} podido confirmar.
+                    Comprueba si {masivoSinConfirmar.length === 1 ? 'figura cobrado' : 'figuran cobrados'} antes de volver a intentarlo.
+                  </p>
+                )}
                 {masivoFallidos.length > 0 ? (
                   <p className="text-sm text-warning mt-1 max-w-sm">
                     {masivoFallidos.length} no se {masivoFallidos.length === 1 ? 'ha podido guardar' : 'han podido guardar'} y {masivoFallidos.length === 1 ? 'sigue' : 'siguen'} como pendiente{masivoFallidos.length !== 1 ? 's' : ''}.
                     No se {masivoFallidos.length === 1 ? 'ha emitido su factura' : 'han emitido sus facturas'} ni se {masivoFallidos.length === 1 ? 'ha renovado su bono' : 'han renovado sus bonos'}. Vuelve a intentarlo.
                   </p>
-                ) : (
+                ) : !masivoConProblemas && (
                   <p className="text-sm text-muted-foreground mt-1">
                     <CifraPrivada inline>{formatEuro(masivoImporteTotal)}</CifraPrivada> marcados como cobrados
                   </p>

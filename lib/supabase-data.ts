@@ -32,7 +32,7 @@ import { hoyISO } from '@/lib/student/formato';
 import { leerVistos, type VistoWidget } from '@/lib/widgets/pegado';
 import { leerPiezasGuardadas, type PiezaGuardada } from '@/lib/widgets/pieza-panel';
 import {
-  cobroManualDeRecibo, penalizacionDelRecibo, TEXTO_PENALIZACION_ANULADA, type LecturaPenalizacionesDeRecibos,
+  penalizacionDelRecibo, type LecturaPenalizacionesDeRecibos,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { COLUMNAS_COBRO_EN_MARCHA, type FilaReciboRemesa, type LecturaRecibosRemesa } from '@/lib/billing/remesa-sepa-reglas';
 import { reservasPorAprobarDe, type FilaReservaPorAprobar, type ReservaPorAprobar } from '@/lib/reservas-por-aprobar';
@@ -136,7 +136,6 @@ import type {
   MemberCredits,
   MensajeEquipo,
   CanalEquipo,
-  MetodoCobro,
   CondicionSalud,
   PlantillaCuestionarioSalud,
   RespuestaCuestionarioSalud,
@@ -3247,49 +3246,6 @@ export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
   return error ? falloEscritura('[dbInsertRecibo]', error) : ESCRITURA_OK;
 }
 
-// Guardia del mostrador para «Marcar cobrado» (uno o en lote): de `ids`, los
-// recibos de una penalización anulada (OMITIDA_*) o reembolsada, que no se cobran
-// (`cobroManualDeRecibo` con `'mostrador'`). El trigger que anula la penalización
-// no toca su recibo, y hasta que el barrido del cron lo suelta sigue PENDIENTE.
-//
-// Lee la penalización por su id con la sesión del personal: la RLS de
-// `penalizaciones` deja leer a PROPIETARIO y RECEPCION, los mismos roles que
-// `puedeMoverDinero`. ⚠️ Si no se puede leer, deja cobrar y lo registra: hay una
-// persona cobrando delante de la alumna, y parar el cobro por un fallo de lectura
-// deja sin cobrar cuotas de verdad por un caso raro que el cron suelta cada hora.
-async function recibosDePenalizacionAnulada(ids: string[], origen: string): Promise<Set<string>> {
-  const bloqueados = new Set<string>();
-  const dePenalizacion = ids.filter(id => !cobroManualDeRecibo(id).ok);
-  if (dePenalizacion.length === 0) return bloqueados;
-  const penalizacionIds = dePenalizacion.map(penalizacionDelRecibo).filter((id): id is string => !!id);
-  let estados: Map<string, string> | null = new Map();
-  if (penalizacionIds.length > 0) {
-    try {
-      const { data, error } = await supabase.from('penalizaciones').select('id, estado').in('id', penalizacionIds);
-      if (error) estados = null;
-      else for (const fila of data ?? []) estados.set(fila.id as string, fila.estado as string);
-    } catch {
-      estados = null;
-    }
-  }
-  let sinComprobar = false;
-  for (const reciboId of dePenalizacion) {
-    const penalizacionId = penalizacionDelRecibo(reciboId);
-    const lectura = estados ? { ok: true as const, estado: (penalizacionId && estados.get(penalizacionId)) || null } : { ok: false as const };
-    const veredicto = cobroManualDeRecibo(reciboId, lectura, 'mostrador');
-    if (!veredicto.ok) bloqueados.add(reciboId);
-    else if (veredicto.sinComprobar) sinComprobar = true;
-  }
-  if (sinComprobar) {
-    // Solo ids.
-    capturarMensaje('[penalizaciones] cobro en mostrador sin poder comprobar la penalización', 'warning', {
-      tags: { area: 'cobros', tipo: 'penalizacion-mostrador' },
-      extra: { origen, reciboIds: dePenalizacion },
-    });
-  }
-  return bloqueados;
-}
-
 // Remesa de domiciliaciones: estado de la penalización de cada recibo
 // `rec-penaliz-*` de `ids`, solo si apunta a ESE recibo (el mismo criterio que
 // `leerPenalizacionDelRecibo` en servidor). Lo decide `recibosParaRemesa`. La
@@ -3334,85 +3290,45 @@ export async function dbLeerRecibosParaRemesa(ids: string[]): Promise<LecturaRec
   }
 }
 
-// Marca un recibo como COBRADO de forma condicional (auditoría 2026-07-29,
-// M-2): dbUpdateRecibo hace un UPDATE incondicional, sin comprobar el estado
-// actual. El cerrojo de re-entrada en marcarCobrado (studio-context.tsx) frena
-// el doble clic en la MISMA pestaña, pero dos pestañas/dispositivos distintos
-// cobrando el mismo recibo a la vez pasarían igual las dos, sellando DOS
-// facturas fiscales para un único cobro. `WHERE estado = 'PENDIENTE'` hace que
-// solo la primera escritura tenga efecto; `.select('id')` dice si de verdad
-// tocó algo.
-export async function dbMarcarCobrado(
-  id: string,
-  changes: { fechaCobro: string; metodoCobro?: MetodoCobro },
-): Promise<ResultadoEscritura & { yaEstaba?: boolean }> {
-  if ((await recibosDePenalizacionAnulada([id], 'marcar-cobrado')).has(id)) {
-    return { ok: false, error: TEXTO_PENALIZACION_ANULADA };
-  }
-  const db: Record<string, unknown> = { estado: 'COBRADO', fecha_cobro: changes.fechaCobro };
-  if (changes.metodoCobro) db.metodo_cobro = changes.metodoCobro;
-  // ⚠️ PENDIENTE, FALLIDO y DEVUELTO — los tres son deuda viva y los tres se
-  // pueden cobrar en mano.
-  //
-  // Antes era `.eq('estado','PENDIENTE')` a secas, y eso dejaba un callejón sin
-  // salida: la fila de un recibo FALLIDO SÍ ofrece el botón «Cobrar» (con un
-  // comentario al lado explicando que se cobra igual que un PENDIENTE), pero
-  // este escritor no casaba ninguna fila y devolvía «ya no está pendiente». La
-  // socia pagaba en efectivo, la propietaria pulsaba Cobrar, leía un error que
-  // no venía a cuento, y el recibo seguía en rojo. Con el bloqueo por impago
-  // encendido (#1664) eso además la dejaba SIN PODER RESERVAR, sin ninguna vía
-  // de UI para arreglarlo: «Cobrar online» exige tarjeta guardada y volvería a
-  // cobrar un dinero ya cobrado.
-  //
-  // DEVUELTO es el caso más claro de los tres: el banco devolvió el recibo, o
-  // sea que el dinero NO está. Que no se pudiera marcar cobrado a mano era
-  // dejar la deuda sin ninguna salida.
-  //
-  // El filtro por estado se mantiene (no se quita, se amplía): sigue siendo un
-  // compare-and-set que impide re-cobrar algo ya COBRADO o anulado.
-  const { data, error } = await supabase
-    .from('recibos')
-    .update(db)
-    .eq('id', id)
-    .in('estado', ['PENDIENTE', 'FALLIDO', 'DEVUELTO'])
-    .select('id');
-  if (error) return falloEscritura('[dbMarcarCobrado]', error);
-  if (!data || data.length === 0) {
-    return { ok: false, error: 'Este recibo ya no se puede cobrar (puede que ya esté cobrado o anulado).', yaEstaba: true };
-  }
-  return ESCRITURA_OK;
+// Estado ACTUAL de unos recibos, leído de la BD. Lo usa «marcar cobrado» del
+// panel cuando la respuesta de `/api/cobros/marcar-cobrado` no llega (red caída,
+// timeout, 5xx sin detalle): antes de decir nada, se mira qué hay de verdad.
+// `null` si la lectura también falla — quien llama NO puede tomarlo por «sin
+// cobrar».
+//
+// Aquí vivían `dbMarcarCobrado` y `dbGuardarEntrega`, los escritores de COBRADO
+// y de la entrega desde el navegador. Desde el PR 3 del dueño único los hace el
+// servidor (`confirmarCobro`, origen `manual`).
+export async function dbLeerEstadoRecibos(ids: string[]): Promise<Map<string, string> | null> {
+  if (ids.length === 0) return new Map();
+  const { data, error } = await supabase.from('recibos').select('id, estado').in('id', ids);
+  if (error || !Array.isArray(data)) return null;
+  return new Map(data.map(r => [r.id as string, r.estado as string]));
 }
 
-/**
- * Guarda en el recibo QUÉ entregó su cobro. Escritor dedicado en vez de ampliar
- * `dbUpdateRecibo` con ocho campos que no usa nadie más: esto lo escribe UNA
- * vez cada camino de entrega y no se vuelve a tocar.
- *
- * El espejo de servidor vive en `lib/billing/renovacion-server.ts` (que lo
- * escribe con service-role); esta es la del panel. Los dos tienen que guardar lo
- * mismo o la reversión leerá dos formas distintas del mismo hecho.
- */
-export async function dbGuardarEntrega(reciboId: string, entrega: {
-  tipo: 'BONO' | 'MENSUAL' | 'ALTA_WEB' | 'NINGUNA';
-  aplicada: boolean;
-  sesionesAntes: number | null;
-  sesionesDespues: number | null;
-  fechaFinAntes: string | null;
-  fechaFinDespues: string | null;
-  estadoAntes: string | null;
-}): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('recibos').update({
-    entrega_tipo: entrega.tipo,
-    entrega_aplicada: entrega.aplicada,
-    entrega_aplicada_en: new Date().toISOString(),
-    entrega_sesiones_antes: entrega.sesionesAntes,
-    entrega_sesiones_despues: entrega.sesionesDespues,
-    entrega_fecha_fin_antes: entrega.fechaFinAntes,
-    entrega_fecha_fin_despues: entrega.fechaFinDespues,
-    entrega_estado_antes: entrega.estadoAntes,
-  }).eq('id', reciboId);
-  if (error) return falloEscritura('[dbGuardarEntrega]', error);
-  return ESCRITURA_OK;
+// Lo que `confirmarCobro` pudo cambiar al cobrar ESTOS recibos: el propio recibo
+// (fecha y método reales), su factura sellada y la suscripción que renovó.
+// Acotado a esos ids: releer medio panel (`fetchDatosTrasVentaPOS`, paginado) por
+// cada «Cobrar» sería un abanico de consultas. `null` si algo falla — quien llama
+// se queda con lo que ya pintó, que el servidor confirmó.
+export async function dbReleerTrasCobro(
+  reciboIds: string[],
+): Promise<{ recibos: Recibo[]; facturas: Factura[]; suscripciones: Suscripcion[] } | null> {
+  if (reciboIds.length === 0) return { recibos: [], facturas: [], suscripciones: [] };
+  const [recibosRes, facturasRes] = await Promise.all([
+    supabase.from('recibos').select(COLUMNAS_RECIBO_PANEL).in('id', reciboIds),
+    supabase.from('facturas').select(COLUMNAS_FACTURA_PANEL).in('recibo_id', reciboIds),
+  ]);
+  if (recibosRes.error || facturasRes.error) return null;
+  const recibos = (recibosRes.data ?? []).map(mapRecibo);
+  const susIds = [...new Set(recibos.map(r => r.suscripcionId).filter((x): x is string => !!x))];
+  let suscripciones: Suscripcion[] = [];
+  if (susIds.length) {
+    const susRes = await supabase.from('suscripciones').select(COLUMNAS_SUSCRIPCION_PANEL).in('id', susIds);
+    if (susRes.error) return null;
+    suscripciones = (susRes.data ?? []).map(mapSuscripcion);
+  }
+  return { recibos, facturas: (facturasRes.data ?? []).map(mapFactura), suscripciones };
 }
 
 export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Promise<ResultadoEscritura> {
@@ -3451,39 +3367,27 @@ export async function dbUpdateRecibosBatch(
   ids: string[], changes: Partial<Recibo>, soloSiEstadoActual?: Recibo['estado'],
   // Remesa SEPA: solo los que no tienen un cobro en marcha, en el propio UPDATE.
   opciones: { sinCobroEnMarcha?: boolean } = {},
-): Promise<ResultadoEscritura & { idsActualizados?: string[]; idsSaltados?: string[] }> {
+): Promise<ResultadoEscritura & { idsActualizados?: string[] }> {
   if (ids.length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
+  // Cobrar NO se escribe desde el navegador: la transición a COBRADO la hace
+  // `confirmarCobro` en el servidor (`/api/cobros/marcar-cobrado`). Esta función
+  // solo mueve recibos entre estados que no dan dinero (remesa, reintento).
+  if (changes.estado === 'COBRADO') {
+    return falloEscritura('[dbUpdateRecibosBatch]', new Error('COBRADO no se escribe desde el navegador: pasa por el servidor.'));
+  }
   const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
   if ('fechaCobro' in changes) db.fecha_cobro = changes.fechaCobro;
   if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
-  // Sin esta línea, «Cobrar pendientes» con método elegido lo perdía en silencio.
   if ('metodoCobro' in changes) db.metodo_cobro = changes.metodoCobro;
   if (Object.keys(db).length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
-  // Al cobrar, fuera los recibos de una penalización anulada: no se cobran, y no
-  // tumban el resto del lote. Quedan fuera de `idsActualizados` y vuelven en
-  // `idsSaltados`: quien cobra en el mostrador tiene que saber que ESE no se cobra.
-  let idsACambiar = ids;
-  let idsSaltados: string[] = [];
-  if (changes.estado === 'COBRADO') {
-    const anulados = await recibosDePenalizacionAnulada(ids, 'cobrar-en-lote');
-    idsSaltados = ids.filter(id => anulados.has(id));
-    idsACambiar = ids.filter(id => !anulados.has(id));
-    if (idsACambiar.length === 0) return { ...ESCRITURA_OK, idsActualizados: [], idsSaltados };
-  }
-  let q = supabase.from('recibos').update(db).in('id', idsACambiar);
-  // Mismo criterio que dbMarcarCobrado: cobrar en lote también alcanza a los
-  // FALLIDO y DEVUELTO, que son deuda viva. Antes solo casaba PENDIENTE, así
-  // que un cobro masivo saltaba en silencio justo los recibos problemáticos —
-  // los únicos por los que alguien usaría el masivo.
-  const filtroEstado = soloSiEstadoActual;
-  if (filtroEstado) q = q.eq('estado', filtroEstado);
-  else if (changes.estado === 'COBRADO') q = q.in('estado', ['PENDIENTE', 'FALLIDO', 'DEVUELTO']);
+  let q = supabase.from('recibos').update(db).in('id', ids);
+  if (soloSiEstadoActual) q = q.eq('estado', soloSiEstadoActual);
   if (opciones.sinCobroEnMarcha) for (const col of COLUMNAS_COBRO_EN_MARCHA) q = q.is(col, null);
   const { data, error } = await q.select('id');
   if (error) return falloEscritura('[dbUpdateRecibosBatch]', error);
-  return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string), idsSaltados };
+  return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string) };
 }
 
 // Eliminar un recibo pasa SIEMPRE por la RPC `eliminar_recibo`: el DELETE directo
@@ -5931,6 +5835,13 @@ export async function fetchCriticalStudioData(studioId?: string) {
 // Mismos `select` y mismos mapeadores que la carga grande, a propósito: dos
 // listas de columnas para la misma tabla divergen a la primera.
 // ─────────────────────────────────────────────────────────────────────────────
+// Columnas que el panel lee de recibos/facturas/suscripciones al refrescar tras
+// un cobro. Compartidas por `fetchDatosTrasVentaPOS` y `dbReleerTrasCobro`: dos
+// listas escritas a mano acaban leyendo cosas distintas del mismo recibo.
+const COLUMNAS_RECIBO_PANEL = 'id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota' as const;
+const COLUMNAS_FACTURA_PANEL = 'id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto' as const;
+const COLUMNAS_SUSCRIPCION_PANEL = 'id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer' as const;
+
 export async function fetchDatosTrasVentaPOS(studioId?: string) {
   const sid = studioId ?? getCurrentStudioId();
   // Solo cliente (P-7, 26ª pasada): nadie de servidor llama a esta función —
@@ -5940,9 +5851,9 @@ export async function fetchDatosTrasVentaPOS(studioId?: string) {
   // cadena de imports estática.
   const db = supabase;
   const [recibosRes, facturasRes, suscripcionesRes, ventasPOSRes, productosPOSRes] = await Promise.all([
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).range(from, to)),
-    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select(COLUMNAS_RECIBO_PANEL).eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select(COLUMNAS_FACTURA_PANEL).eq('studio_id', sid).range(from, to)),
+    db.from('suscripciones').select(COLUMNAS_SUSCRIPCION_PANEL).eq('studio_id', sid),
     fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
     db.from('productos_pos').select('*').eq('studio_id', sid),
   ]);

@@ -219,6 +219,34 @@ test('a mano no se cierra un EN_CURSO', async () => {
   assert.deepEqual(orden, []);
 });
 
+test('a mano «sin especificar»: no pisa el método del recibo y factura según el que tenía', async () => {
+  // El panel antes decidía la factura con `metodo ?? recibo.metodoCobro`. Si el
+  // recibo ya decía EFECTIVO, no se emitía; con null tampoco puede emitirse aquí.
+  for (const [metodoGuardado, factura] of [['EFECTIVO', false], ['BIZUM', true], [null, true]] as const) {
+    const { admin, updates } = fakeAdmin({ trasCas: { ...GANA, metodo_cobro: metodoGuardado } });
+    const { orden, deps } = efectos();
+    const r = await confirmarCobro(admin, {
+      ...BASE, origen: 'manual', metodo: null, paymentIntentId: null, avisarSocia: false, facturaId: 'fac-manual-rec-1',
+    }, deps);
+    assert.equal(r.ok && r.transicion, 'aplicada');
+    assert.equal('metodo_cobro' in updates[0].fila, false, 'sin método no se escribe la columna');
+    assert.equal(orden.includes('factura'), factura, `metodo guardado ${metodoGuardado}`);
+    assert.deepEqual(orden.filter(p => p === 'email' || p === 'notificacion'), [], 'a mano ni email ni aviso');
+  }
+});
+
+test('a mano con método: lo escribe en el mismo UPDATE y apunta la caja', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: { ...GANA, metodo_cobro: 'EFECTIVO' } });
+  const { orden, deps, caja } = efectos();
+  await confirmarCobro(admin, {
+    ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false,
+    facturaId: 'fac-manual-rec-1', actor: { userId: 'u-1', nombre: 'Cloe' },
+  }, deps);
+  assert.equal(updates[0].fila.metodo_cobro, 'EFECTIVO');
+  assert.deepEqual(orden, ['renovacion', 'caja']);
+  assert.deepEqual(caja, [{ studioId: 'studio-1', reciboId: 'rec-1', actor: { userId: 'u-1', nombre: 'Cloe' } }]);
+});
+
 test('no existe (u otro estudio): NO_ENCONTRADO y ningún efecto', async () => {
   const { admin } = fakeAdmin({ trasCas: null, actual: null });
   const { orden, deps } = efectos();

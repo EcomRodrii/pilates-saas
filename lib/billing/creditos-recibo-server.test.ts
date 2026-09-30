@@ -108,11 +108,14 @@ test('la ruta del panel exige sesión de staff y puedeMoverDinero, y el estudio 
   assert.ok(!/body\??\.studioId/.test(ruta));
 });
 
-test('el panel ya no da RENOVACION_PLAN por su cuenta: avisa al servidor', () => {
+test('el panel ya no da RENOVACION_PLAN ni pide sincronizarlos: los da el servidor al confirmar el cobro', () => {
   const panel = fuente('../studio-context.tsx');
   assert.ok(!/'RENOVACION_PLAN'/.test(panel), 'ni RPC directa ni decisión por el concepto en el navegador');
-  assert.match(panel, /void reflejarCreditosDeRecibos\(\[reciboId\]\)/, '«marcar cobrado»');
-  assert.match(panel, /void reflejarCreditosDeRecibos\(cobradosAhora\.map\(r => r\.id\)\)/, '«cobrar pendientes»');
+  // Antes el panel escribía COBRADO y luego le pedía al servidor que decidiera los
+  // créditos (`reflejarCreditosDeRecibos`). Ahora el cobro a mano entra por
+  // `confirmarCobro` (paso `creditos` de sus efectos): un solo camino.
+  assert.ok(!/reflejarCreditosDeRecibos|sincronizarCreditosRecibosApi/.test(panel),
+    'el panel no puede volver a pedir créditos por su cuenta tras cobrar');
 });
 
 // ── Cada camino que mueve un recibo dentro o fuera de COBRADO la llama ──────

@@ -5,9 +5,9 @@
 // lo que esa transición decide, en funciones puras, para poder fijarlo con
 // `node --test` (confirmar-cobro y dunning-server no tenían ni un test).
 //
-// Módulo aparte y sin dependencias de servidor a propósito: el panel importa
-// `refIdCreditoRenovacion` (lib/studio-context.tsx) y no puede arrastrar al
-// bundle de cliente nada que acabe en `supabase-data-admin`.
+// Módulo aparte y sin dependencias de servidor a propósito: lo leen tests y
+// módulos compartidos con el panel, que no pueden arrastrar al bundle de
+// cliente nada que acabe en `supabase-data-admin`.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { EstadoRecibo } from '../types.ts';
 import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
@@ -137,7 +137,8 @@ export type PasoEfecto = 'renovacion' | 'factura' | 'caja' | 'creditos' | 'notif
  *  · checkout (webhook y conciliador), TPV y compra web: sí;
  *  · cobro automático con tarjeta guardada (dunning, charge-off-session,
  *    cobrar-online, penalizaciones, ejecutor de decisiones): no;
- *  · a mano: el panel no lo emitía; cuando pase por aquí (PR 3) se decide.
+ *  · a mano (`/api/cobros/marcar-cobrado`, PR 3): no, igual que cuando lo
+ *    marcaba el panel desde el navegador.
  */
 export function origenNotifica(origen: OrigenCobro): boolean {
   return origen === 'webhook' || origen === 'conciliador' || origen === 'tpv';
@@ -221,6 +222,13 @@ export const facturaIdMetodoGuardado = (reciboId: string, metodo: string) =>
   metodo === 'SEPA' ? `fac-sepa-${reciboId}` : `fac-off-${reciboId}`;
 
 /**
+ * Cobro marcado a mano desde el panel (`/api/cobros/marcar-cobrado`). Antes el
+ * panel sellaba con un id aleatorio (`fac-auto-<uid>`), así que dos pestañas
+ * cobrando el mismo recibo no chocaban por PK; ahora el id sale del recibo.
+ */
+export const facturaIdManual = (reciboId: string) => `fac-manual-${reciboId}`;
+
+/**
  * Qué id usar al REINTENTAR el sellado de un recibo marcado
  * `factura_pendiente_sellar`. Antes se forzaba `fac-checkout-` para todos.
  *
@@ -232,6 +240,9 @@ export const facturaIdMetodoGuardado = (reciboId: string, metodo: string) =>
  */
 export function facturaIdParaReintento(r: { id: string; metodo_cobro: string | null; conciliado_por: string | null }): string {
   if (r.id.startsWith('rec-pos-')) return `fac-pos-${r.id.slice('rec-pos-'.length)}`;
+  // Antes que SEPA: un DEVUELTO de SEPA cobrado luego a mano «sin especificar»
+  // conserva `metodo_cobro = 'SEPA'`, pero lo selló el panel.
+  if (r.conciliado_por === 'manual') return facturaIdManual(r.id);
   if (r.metodo_cobro === 'SEPA') return `fac-sepa-${r.id}`;
   // Tarjeta guardada confirmada por el camino síncrono: no escribe
   // `conciliado_por` (ver `conciliadoPorDe`).

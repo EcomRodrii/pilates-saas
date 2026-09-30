@@ -1647,25 +1647,20 @@ test('⚠️ el guardia del mostrador falla ABIERTO y lo registra: lee la penali
   assert.doesNotMatch(cuerpo, /recibo_id/, 'el barrido suelta `recibo_id` antes de borrar: el guardia no puede depender de él');
 });
 
-test('⚠️ «Marcar cobrado» (uno y en lote) pasa por el guardia del mostrador antes de escribir', () => {
+test('⚠️ «Marcar cobrado» (uno y en lote) pasa por el guardia del mostrador antes de cobrar, en el servidor', () => {
+  // La guardia vivía en el navegador (`recibosDePenalizacionAnulada` en
+  // supabase-data.ts, con `dbMarcarCobrado` y el UPDATE en lote). El cobro a mano
+  // ahora lo hace `/api/cobros/marcar-cobrado`, y la regla se aplica ahí. Su
+  // comportamiento está en `lib/cobros/marcar-cobrado.test.ts`; aquí se fija que
+  // el navegador YA NO PUEDE cobrar saltándosela.
+  const regla = readFileSync(join(import.meta.dirname, '../..', 'lib/cobros/marcar-cobrado.ts'), 'utf8');
+  assert.match(regla, /cobroManualDeRecibo\(reciboId, lectura, 'mostrador'\)/, 'la misma regla pura, contexto mostrador');
+
   const fuente = readFileSync(join(import.meta.dirname, '../..', 'lib/supabase-data.ts'), 'utf8');
-  const helper = fuente.slice(fuente.indexOf('async function recibosDePenalizacionAnulada('));
-  const cuerpoHelper = helper.slice(0, helper.indexOf('\n}\n'));
-  assert.match(cuerpoHelper, /cobroManualDeRecibo\(reciboId, lectura, 'mostrador'\)/);
-  assert.match(cuerpoHelper, /catch \{\s*estados = null;/);
-  assert.match(cuerpoHelper, /if \(error\) estados = null;/);
-
-  const marcar = fuente.slice(fuente.indexOf('export async function dbMarcarCobrado('));
-  const cuerpoMarcar = marcar.slice(0, marcar.indexOf('\n}\n'));
-  const guardia = cuerpoMarcar.indexOf("(await recibosDePenalizacionAnulada([id], 'marcar-cobrado')).has(id)");
-  assert.ok(guardia > 0 && cuerpoMarcar.indexOf('.update(db)') > guardia, 'guardia antes del UPDATE');
-  assert.match(cuerpoMarcar, /return \{ ok: false, error: TEXTO_PENALIZACION_ANULADA \};/);
-
+  assert.doesNotMatch(fuente, /export async function dbMarcarCobrado\(/, 'el navegador ya no marca COBRADO por su cuenta');
   const lote = fuente.slice(fuente.indexOf('export async function dbUpdateRecibosBatch('));
   const cuerpoLote = lote.slice(0, lote.indexOf('\n}\n'));
-  const guardiaLote = cuerpoLote.indexOf("await recibosDePenalizacionAnulada(ids, 'cobrar-en-lote')");
-  assert.ok(guardiaLote > 0 && cuerpoLote.indexOf(".update(db).in('id', idsACambiar)") > guardiaLote, 'filtro antes del UPDATE');
-  assert.match(cuerpoLote, /if \(changes\.estado === 'COBRADO'\) \{/);
+  assert.match(cuerpoLote, /if \(changes\.estado === 'COBRADO'\) \{\s*return falloEscritura/, 'el UPDATE en lote rechaza COBRADO');
 });
 
 // ── El barrido: el recibo de una penalización anulada se suelta ─────────────

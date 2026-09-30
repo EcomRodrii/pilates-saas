@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
-  facturaIdCheckout, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas, origenNotifica,
+  facturaIdCheckout, facturaIdManual, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas, origenNotifica,
   refIdCreditoRenovacion, resolverSinFilas, type OrigenCobro,
 } from './cobro-confirmado-reglas.ts';
 import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
@@ -215,6 +215,15 @@ test('cada canal sella con su propio id', () => {
   assert.equal(facturaIdCheckout('rec-1'), 'fac-checkout-rec-1');
   assert.equal(facturaIdMetodoGuardado('rec-1', 'SEPA'), 'fac-sepa-rec-1');
   assert.equal(facturaIdMetodoGuardado('rec-1', 'TARJETA'), 'fac-off-rec-1');
+  assert.equal(facturaIdManual('rec-1'), 'fac-manual-rec-1');
+});
+
+test('el reintento de un cobro a mano sella con el id del panel, aunque el recibo diga SEPA', () => {
+  assert.equal(facturaIdParaReintento({ id: 'rec-1', metodo_cobro: 'EFECTIVO', conciliado_por: 'manual' }), 'fac-manual-rec-1');
+  assert.equal(facturaIdParaReintento({ id: 'rec-1', metodo_cobro: 'SEPA', conciliado_por: 'manual' }), 'fac-manual-rec-1');
+  // El sellado valida el id con /^[A-Za-z0-9_-]{1,64}$/: el prefijo no puede
+  // dejar fuera un recibo que ya cabía con `fac-checkout-`.
+  assert.ok(facturaIdManual('x').length <= facturaIdCheckout('x').length);
 });
 
 test('el reintento de sellado ya no fuerza fac-checkout- para todo', () => {

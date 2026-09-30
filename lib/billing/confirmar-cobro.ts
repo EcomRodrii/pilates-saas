@@ -80,8 +80,13 @@ export interface ActorCobro { userId: string | null; nombre: string | null }
 export interface ParamsConfirmarCobro {
   studioId: string;
   reciboId: string;
-  /** Con qué se cobró de verdad (va a `recibos.metodo_cobro`). */
-  metodo: string;
+  /**
+   * Con qué se cobró de verdad (va a `recibos.metodo_cobro`). `null` = no consta
+   * («marcar cobrado sin especificar» del panel): no se toca la columna, y los
+   * efectos deciden con el método que ya tuviera el recibo — lo mismo que hacía
+   * el panel cuando cobraba desde el navegador.
+   */
+  metodo: string | null;
   origen: OrigenCobro;
   /** El cargo real, para poder devolverlo desde el panel. Solo se escribe si viene. */
   paymentIntentId: string | null;
@@ -327,7 +332,8 @@ export async function confirmarCobro(
   let consulta = admin
     .from('recibos')
     .update({
-      estado: 'COBRADO', fecha_cobro: hoy, metodo_cobro: p.metodo,
+      estado: 'COBRADO', fecha_cobro: hoy,
+      ...(p.metodo !== null ? { metodo_cobro: p.metodo } : {}),
       ...(p.metodo === 'SEPA' ? { sepa_estado: 'succeeded' } : {}),
       ...(p.paymentIntentId ? { stripe_payment_intent_id: p.paymentIntentId } : {}),
       // Pagado: deja de haber una sesión abierta que reutilizar.
@@ -352,7 +358,9 @@ export async function confirmarCobro(
   const filtroCargo = filtroCargoEnCas(p.paymentIntentId);
   if (filtroCargo) consulta = consulta.or(filtroCargo);
 
-  const { data: marcado, error } = await consulta.select('id, socio_id, es_renovacion').maybeSingle();
+  // `metodo_cobro` vuelve del MISMO UPDATE: con `metodo: null` es el que ya
+  // tenía el recibo, sin una lectura aparte que pudiera cruzarse con otra.
+  const { data: marcado, error } = await consulta.select('id, socio_id, es_renovacion, metodo_cobro').maybeSingle();
   if (error) return { ok: false, codigo: 'PERSISTENCIA', error: error.message };
 
   if (!marcado) {
@@ -415,8 +423,9 @@ export async function confirmarCobro(
   }
 
   const efectos = await aplicarEfectosCobro(admin, {
-    studioId: p.studioId, reciboId: p.reciboId, metodo: p.metodo, origen: p.origen,
-    facturaId: p.facturaId, avisarSocia: p.avisarSocia, actor: p.actor,
+    studioId: p.studioId, reciboId: p.reciboId,
+    metodo: p.metodo ?? (marcado.metodo_cobro as string | null | undefined) ?? null,
+    origen: p.origen, facturaId: p.facturaId, avisarSocia: p.avisarSocia, actor: p.actor,
     recibo: {
       socioId: (marcado.socio_id as string | null) ?? null,
       esRenovacion: esRenovacion(marcado as { es_renovacion?: boolean | null }),

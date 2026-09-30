@@ -52,13 +52,16 @@ test('el número de factura sale de la factura emitida, no del estado del panel'
     'El servidor tiene que leer el número de la factura de ESE recibo.');
 });
 
-test('marcarCobrado devuelve el número que acaba de emitir', () => {
+test('marcarCobrado devuelve el número que emitió el servidor', () => {
+  // La factura ya no la sella el panel: la sella `confirmarCobro` y la ruta
+  // devuelve `numeroFactura` por recibo. El contexto tiene que pasarlo tal cual.
   const ctx = leer('lib/studio-context.tsx');
   const i = ctx.indexOf('async function marcarCobrado(');
-  const cuerpo = ctx.slice(i, ctx.indexOf('\n  }\n', ctx.indexOf('finally', i)));
-  assert.match(cuerpo, /numeroFacturaEmitida = fac\.numeroCompleto/,
-    'Si no se captura al crearla, el llamador no tiene de dónde sacarla.');
-  assert.match(cuerpo, /numeroFactura: numeroFacturaEmitida/,
+  assert.ok(i > 0, 'no se encontró marcarCobrado');
+  const cuerpo = ctx.slice(i, ctx.indexOf('\n  }\n', i));
+  assert.match(cuerpo, /numeroFactura: d\.numeroFactura/,
     'Y hay que devolverlo en AMBAS salidas: el cobro puede registrarse aunque '
     + 'el sellado falle, y al revés.');
+  const reglas = leer('lib/cobros/marcar-cobrado.ts');
+  assert.match(reglas, /numeroFactura: r\.numeroFactura/, 'la ruta tiene que devolver el número que selló');
 });
