@@ -15,14 +15,30 @@
 // Puro: se prueba con `node --test`.
 
 import { heredaOverride } from '../booking-logic.ts';
+import { exigePlanAlReservar } from '../bono-logic.ts';
 import { frasesPoliticaEstudio } from '../politica-estudio-textos.ts';
 import type { ReglasReserva, TipoConReglas } from './reglas-reserva.ts';
 
 const ZONA = 'Europe/Madrid';
 
-/** Las reglas que se le aplican a una clase de ese tipo (sin tipo: las del estudio). */
-export function reglasEfectivasDeTipo(e: ReglasReserva, t: TipoConReglas | null | undefined): ReglasReserva {
-  if (!t) return e;
+/**
+ * Las reglas que se le aplican a una clase de ese tipo (sin tipo: las del estudio).
+ *
+ * `planes`: con ellos, «pedir plan o bono» se resuelve como en el servidor
+ * (`exigePlanAlReservar`): sin nada que contratar NO se exige, porque exigir lo que
+ * no se puede comprar solo bloquea. Sin pasarlos, «con un plan o bono» saldría en
+ * un estudio que aún no vende nada, donde reserva cualquiera.
+ */
+export function reglasEfectivasDeTipo(
+  e: ReglasReserva,
+  t: TipoConReglas | null | undefined,
+  planes?: { activo: boolean; esPrueba?: boolean }[],
+): ReglasReserva {
+  const r = t ? reglasDelTipo(e, t) : e;
+  return planes ? { ...r, reservaExigirPlan: exigePlanAlReservar(r.reservaExigirPlan, planes) } : r;
+}
+
+function reglasDelTipo(e: ReglasReserva, t: TipoConReglas): ReglasReserva {
   return {
     ...e,
     reservaExigirPlan: heredaOverride(t.reservaExigirPlan, e.reservaExigirPlan),

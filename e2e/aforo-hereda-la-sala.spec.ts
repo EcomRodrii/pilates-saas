@@ -106,7 +106,7 @@ test.describe('El aforo sabe cuántas plazas tiene la sala', () => {
     await abrirNuevaClase(page);
 
     const sala = page.getByRole('combobox', { name: 'Sala' });
-    const aforo = page.getByRole('spinbutton', { name: /Aforo/i });
+    const aforo = page.getByRole('spinbutton', { name: /Plazas/i });
     await expect(sala).toBeVisible();
 
     await sala.selectOption('sala-reformer');
@@ -126,7 +126,7 @@ test.describe('El aforo sabe cuántas plazas tiene la sala', () => {
     await abrirNuevaClase(page);
 
     const sala = page.getByRole('combobox', { name: 'Sala' });
-    const aforo = page.getByRole('spinbutton', { name: /Aforo/i });
+    const aforo = page.getByRole('spinbutton', { name: /Plazas/i });
 
     await sala.selectOption('sala-mat');
     await expect(aforo).toHaveValue('25');
@@ -142,7 +142,7 @@ test.describe('El aforo sabe cuántas plazas tiene la sala', () => {
     await abrirNuevaClase(page);
 
     const sala = page.getByRole('combobox', { name: 'Sala' });
-    const aforo = page.getByRole('spinbutton', { name: /Aforo/i });
+    const aforo = page.getByRole('spinbutton', { name: /Plazas/i });
 
     await sala.selectOption('sala-reformer');
     // Acotado al aviso propio: `role="alert"` lo usa también el anunciador de

@@ -13,7 +13,7 @@ import { Campo, useFormularioEstudio } from '@/components/configuracion/formular
 import { obtenerConfirmacionRiesgo, actualizarConfirmacionRiesgo } from '@/lib/api-client';
 import { hrefDeHerramienta } from '@/lib/configuracion/destino';
 import { tarjetaPorId } from '@/lib/configuracion/secciones';
-import { claseDeEjemplo, instante, lineaDeTiempoReserva, type PasoReserva } from '@/lib/configuracion/linea-de-tiempo-reserva';
+import { claseDeEjemplo, instante, lineaDeTiempoReserva, reglasEfectivasDeTipo, type PasoReserva } from '@/lib/configuracion/linea-de-tiempo-reserva';
 import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import {
   antelacionImposible, confirmarPenalizacion, confirmarPlazaFijaSinCuota, consecuenciaRegla, EXPLICACION_PAUSA_PLAZA_FIJA,
@@ -137,11 +137,11 @@ function EjemploConHoras({ reglas, excepciones, frase }: {
   excepciones: TiposQueLaCambian;
   frase: (paso: (id: PasoReserva['id']) => PasoReserva | undefined) => string | null;
 }) {
-  const { sesiones, tiposClase } = useStudio();
+  const { sesiones, tiposClase, planesTarifa } = useStudio();
   const [ahora] = useState(() => new Date());
   const conPropia = new Set(excepciones.map(t => t.id));
   const clase = claseDeEjemplo(sesiones, id => tiposClase.find(t => t.id === id)?.nombre ?? null, ahora, id => !conPropia.has(id));
-  const pasos = lineaDeTiempoReserva(reglas, clase.inicio);
+  const pasos = lineaDeTiempoReserva(reglasEfectivasDeTipo(reglas, null, planesTarifa), clase.inicio);
   const texto = frase(id => pasos.find(p => p.id === id));
   if (!texto) return null;
   return (

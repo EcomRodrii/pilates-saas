@@ -10,6 +10,7 @@ import { resumenClasesPorSemana } from '@/lib/configuracion/linea-de-tiempo-rese
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaExterna, FilaInterruptor, FilaOtraSeccion, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { AsiLoViveTuAlumna } from './asi-lo-vive-tu-alumna';
+import { hayAlgoQueContratar } from '@/lib/bono-logic';
 import {
   FormAsistencia, FormCancelarYRecuperar, FormClaseCancelada, FormListaEspera, FormPausaPlazaFija, FormPenalizacion,
   FormPlazaFijaDesdeApp, FormReservar, FormSinCuota,
@@ -83,7 +84,10 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
     const problema = id === 'si-cancela-tarde-o-no-viene' && contrato.estado ? contrato : null;
     // A dos líneas y sin «N tipos lo cambian»: debajo va QUÉ tipo y QUÉ cambia.
     const valor = problema?.valor ?? (reglas
-      ? resumenRegla(id, reglas, { excepciones: 0, pideConfirmacion: confirmacion.guardada, max: MAX_RESUMEN_REGLA })
+      ? resumenRegla(id, reglas, {
+        excepciones: 0, pideConfirmacion: confirmacion.guardada, max: MAX_RESUMEN_REGLA,
+        nadaALaVenta: !hayAlgoQueContratar(planesTarifa),
+      })
       : null);
     return (
       <FilaAjuste
@@ -111,7 +115,7 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
 
   return (
     <>
-      <AsiLoViveTuAlumna reglas={reglas} tipos={tipos} sesiones={dataLoaded ? sesiones : []} />
+      <AsiLoViveTuAlumna reglas={reglas} tipos={tipos} sesiones={dataLoaded ? sesiones : []} planes={dataLoaded ? planesTarifa : []} />
 
       <GrupoFilas titulo="Antes de reservar">
         {fila('reservar')}

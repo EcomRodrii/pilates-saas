@@ -79,9 +79,10 @@ function TarjetaTipoClase({
 }) {
   const chips = estudio ? reglasPropias(tc, estudio) : [];
   const cubren = planesQueLaCubren(tc, planes);
-  // Solo avisa si hace falta plan para reservarla: sin ese requisito, que ningún
-  // plan la incluya no le impide nada a nadie.
-  const exigePlan = estudio ? reglasEfectivasDeTipo(estudio, tc).reservaExigirPlan : false;
+  // Solo avisa si hace falta plan para reservarla, resuelto como en el servidor:
+  // sin ese requisito, o sin nada a la venta (solo planes inactivos o la clase de
+  // prueba), que ningún plan la incluya no le impide nada a nadie.
+  const exigePlan = estudio ? reglasEfectivasDeTipo(estudio, tc, [...planes]).reservaExigirPlan : false;
   const visibles = chips.slice(0, 3);
   const ocultos = chips.length - visibles.length;
   // Las plazas solo si esta clase fija las suyas: si las hereda de la sala, la
@@ -133,7 +134,7 @@ function TarjetaTipoClase({
           <span className="inline-flex items-center gap-1 rounded bg-background px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
             <Ticket size={11} aria-hidden />Entra en: {enumerarCorto(cubren)}
           </span>
-        ) : planes.length > 0 && exigePlan ? (
+        ) : exigePlan ? (
           <span className="inline-flex items-center gap-1 rounded bg-warning/15 px-1.5 py-0.5 text-xs font-medium text-foreground">
             <AlertTriangle size={11} aria-hidden />Ningún plan ni bono activo la incluye
           </span>
