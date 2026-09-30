@@ -34,6 +34,7 @@ import { sobreSoapRegFactu, sobreSoapConsulta, periodoDeFecha, type SistemaInfor
 import { numeroInstalacionDeEstudio, sistemaInformaticoParaEstudio, SIF, type Productor } from './sif.ts';
 import { declaracionVigente } from './declaracion.ts';
 import { decidirLote, type RegistroCola } from './pendientes.ts';
+import { anteriorALaActivacion } from './barrera-activacion.ts';
 import { planificarResultado } from './procesar.ts';
 import { parsearRespuestaConsulta } from './respuesta.ts';
 import { resolverConsulta, estadoParaFactura, type EstadoRegistroVerifactu } from './estado.ts';
@@ -244,8 +245,14 @@ async function procesarEstudio(ctx: Contexto, studioId: string): Promise<'SEGUIR
     .update({ estado: 'INCIERTO', codigo_error: 'ENVIO_INTERRUMPIDO', actualizado_en: new Date().toISOString() })
     .eq('studio_id', studioId).eq('estado', 'ENVIANDO').lt('actualizado_en', huerfanoAntes);
 
+  // Barrera de activación (barrera-activacion.ts): lo generado antes de que el
+  // estudio empezara VERI*FACTU ni se prepara ni se envía. Sin fecha de
+  // activación (no debería pasar en PRODUCCION), todo cuenta como anterior.
+  const { data: vfEstudio } = await admin.from('verifactu_estudios').select('activado_produccion_en').eq('studio_id', studioId).maybeSingle();
+  const activadoEn = (vfEstudio?.activado_produccion_en as string | null | undefined) ?? null;
+
   const sistema = await sistemaDeEstudio(admin, ctx.productor, studioId);
-  const prep = await prepararRegistros(admin, studioId, sistema);
+  const prep = activadoEn ? await prepararRegistros(admin, studioId, sistema, activadoEn) : { preparados: 0, rechazados: [] };
   for (const r of prep.rechazados) {
     resumen.rechazadas += 1;
     Sentry.captureMessage('Veri*Factu: registro inválido en local, no se envía', {
@@ -254,12 +261,13 @@ async function procesarEstudio(ctx: Contexto, studioId: string): Promise<'SEGUIR
   }
 
   const { data: cadena } = await admin.from('verifactu_registros')
-    .select('id, seq, tipo, estado, num_serie, fecha_expedicion, proximo_intento_en')
+    .select('id, seq, tipo, estado, num_serie, fecha_expedicion, proximo_intento_en, creado_en')
     .eq('studio_id', studioId).order('seq', { ascending: true }).limit(20000);
   const cola: RegistroCola[] = (cadena ?? []).map(r => ({
     id: r.id as string, seq: Number(r.seq), tipo: r.tipo as RegistroCola['tipo'], estado: r.estado as EstadoRegistroVerifactu,
     numSerieFactura: r.num_serie as string, fechaExpedicion: r.fecha_expedicion as string,
     proximoIntentoEn: (r.proximo_intento_en as string | null) ?? null,
+    anteriorAActivacion: anteriorALaActivacion(r.creado_en as string, activadoEn),
   }));
 
   const decision = decidirLote(cola);

@@ -46,6 +46,11 @@ export interface RegistroCola {
   fechaExpedicion: string;
   /** ISO. Solo en REINTENTAR: no antes de esta hora. */
   proximoIntentoEn: string | null;
+  /**
+   * Generado antes de que el estudio empezara VERI*FACTU (barrera-activacion.ts).
+   * Nunca sale solo: la cadena del estudio se para ahí hasta que se decida.
+   */
+  anteriorAActivacion?: boolean;
 }
 
 /**
@@ -61,7 +66,7 @@ export const TAMANO_LOTE = 200;
 export type DecisionLote =
   | { tipo: 'ENVIAR'; lote: RegistroCola[] }
   | { tipo: 'CONCILIAR'; registro: RegistroCola }
-  | { tipo: 'ESPERAR'; motivo: MotivoEspera | 'HUECO_EN_CADENA' | 'EN_REINTENTO' | 'SIN_PREPARAR' | 'ENVIO_EN_CURSO' }
+  | { tipo: 'ESPERAR'; motivo: MotivoEspera | 'HUECO_EN_CADENA' | 'EN_REINTENTO' | 'SIN_PREPARAR' | 'ENVIO_EN_CURSO' | 'ANTERIOR_A_LA_ACTIVACION' }
   | { tipo: 'NADA' };
 
 const ACTIVOS: ReadonlySet<EstadoRegistroVerifactu> = new Set(['RESERVADO', 'PENDIENTE', 'LISTO', 'ENVIANDO', 'REINTENTAR', 'INCIERTO']);
@@ -104,6 +109,9 @@ export function decidirLote(
   // (UNIQUE(studio_id, seq) y relleno completo); si pasa, no se manda nada.
   const anterior = i0 > 0 ? orden[i0 - 1] : null;
   if (primero.seq > 1 && (!anterior || anterior.seq !== primero.seq - 1)) return { tipo: 'ESPERAR', motivo: 'HUECO_EN_CADENA' };
+  // Barrera de activación: lo generado antes de empezar VERI*FACTU no sale solo,
+  // y lo posterior tampoco pasa por delante (la cadena va en orden).
+  if (primero.anteriorAActivacion) return { tipo: 'ESPERAR', motivo: 'ANTERIOR_A_LA_ACTIVACION' };
 
   if (primero.estado === 'INCIERTO') return { tipo: 'CONCILIAR', registro: primero };
   if (primero.estado === 'ENVIANDO') return { tipo: 'ESPERAR', motivo: 'ENVIO_EN_CURSO' };
@@ -127,6 +135,7 @@ export function decidirLote(
       previo = r;
       continue;
     }
+    if (r.anteriorAActivacion) break;
     if (!enviableAhora(r, ahora)) break;
     const clave = `${r.numSerieFactura}|${r.fechaExpedicion}`;
     if (facturasEnLote.has(clave)) break;
