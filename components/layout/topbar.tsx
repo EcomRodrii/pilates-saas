@@ -44,14 +44,18 @@ export function Topbar() {
       }
     }
     window.addEventListener('keydown', onKey);
-    // Con el navegador libre se trae ya: la primera apertura no espera a la red.
-    const precarga = typeof window.requestIdleCallback === 'function'
-      ? window.requestIdleCallback(() => { void cargarBuscador(); }, { timeout: 5000 })
-      : window.setTimeout(() => { void cargarBuscador(); }, 3000);
+    // Con el navegador libre se trae ya, para que la primera apertura no espere
+    // a la red — pero solo donde esta barra se ve (`lg`): en el móvil y en el
+    // iPad en vertical no hay botón que pulsar, y bajarlo ahí sería gastar su
+    // datos en algo que no se usa (el atajo lo sigue cargando si hace falta).
+    const seVe = window.matchMedia('(min-width: 1024px)').matches;
+    const precarga = !seVe ? null : typeof window.requestIdleCallback === 'function'
+      ? { idle: window.requestIdleCallback(() => { void cargarBuscador(); }, { timeout: 5000 }) }
+      : { timeout: window.setTimeout(() => { void cargarBuscador(); }, 3000) };
     return () => {
       window.removeEventListener('keydown', onKey);
-      if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(precarga);
-      else window.clearTimeout(precarga);
+      if (precarga && 'idle' in precarga) window.cancelIdleCallback(precarga.idle);
+      else if (precarga) window.clearTimeout(precarga.timeout);
     };
   }, []);
 
