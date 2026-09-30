@@ -74,12 +74,14 @@ export interface EstadoAltaPropietaria {
   mandato: { version: string; texto: string } | null;
   representacion: Record<string, unknown> | null;
   habilitadoParaEnviar: boolean;
+  /** Primera activación del envío. Solo desde entonces emite facturas (facturacion-activa.ts). */
+  activadoEn: string | null;
 }
 
 export async function estadoAltaPropietaria(admin: SupabaseClient, studioId: string, env: Env = process.env): Promise<EstadoAltaPropietaria> {
   const [{ data: studio }, { data: vf }, { data: reprs }] = await Promise.all([
     admin.from('studios').select('nif, razon_social, es_demo').eq('id', studioId).maybeSingle(),
-    admin.from('verifactu_estudios').select('estado, estado_motivo, nif, nombre_fiscal, tipo_emisor').eq('studio_id', studioId).maybeSingle(),
+    admin.from('verifactu_estudios').select('estado, estado_motivo, nif, nombre_fiscal, tipo_emisor, activado_produccion_en').eq('studio_id', studioId).maybeSingle(),
     admin.from('verifactu_representaciones').select(COLS_REPR).eq('studio_id', studioId).order('creado_en', { ascending: false }).limit(1),
   ]);
   const nif = ((studio?.nif as string | null) ?? '').trim().toUpperCase() || null;
@@ -108,6 +110,7 @@ export async function estadoAltaPropietaria(admin: SupabaseClient, studioId: str
       : null,
     representacion: repr,
     habilitadoParaEnviar: hab.habilitado,
+    activadoEn: (vf?.activado_produccion_en as string | null | undefined) ?? null,
   };
 }
 

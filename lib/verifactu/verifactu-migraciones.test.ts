@@ -92,3 +92,26 @@ test('la punta de la cadena de reservar_numero_factura incluye los registros de 
   // Y conserva la cerradura del modo de facturación (PR #2370), que ya está en producción.
   assert.match(rnf, /FACTURACION_DESACTIVADA/);
 });
+
+// Solo VERI*FACTU (declaración responsable, 1.e = S): ninguna factura nueva
+// nace para un estudio cuyo envío no se ha activado nunca. La prueba en vivo de
+// los triggers se hizo contra un Postgres local desechable (ver el PR).
+const SOLO_CON_ENVIO = readFileSync(join(DIR, '20260930170000_verifactu_facturas_solo_con_envio_activo.sql'), 'utf8')
+  .replace(/--[^\n]*/g, '');
+
+test('solo VERI*FACTU: emitir facturas exige el envío activado, y la primera activación las enciende', () => {
+  assert.match(SOLO_CON_ENVIO, /create trigger trg_studios_facturas_exigen_envio_activo\s+before insert or update of modo_facturacion on public\.studios/);
+  assert.match(SOLO_CON_ENVIO, /activado_produccion_en is not null/);
+  assert.match(SOLO_CON_ENVIO, /create trigger trg_verifactu_activacion_enciende_facturas\s+after update of activado_produccion_en on public\.verifactu_estudios/);
+  // Solo la PRIMERA activación (NULL → fecha): una reactivación no enciende lo que el estudio apagó.
+  assert.match(SOLO_CON_ENVIO, /old\.activado_produccion_en is null and new\.activado_produccion_en is not null/);
+  // Los estudios que ya emitían sin envío dejan de emitir en la misma migración.
+  assert.match(SOLO_CON_ENVIO, /update public\.studios s\s+set modo_facturacion = 'sin_facturas'/);
+});
+
+test('solo VERI*FACTU: las funciones de trigger nuevas no se ejecutan desde el cliente', () => {
+  for (const f of ['studios_facturas_exigen_envio_activo', 'verifactu_activacion_enciende_facturas']) {
+    assert.match(SOLO_CON_ENVIO, new RegExp(`revoke execute on function public\\.${f}\\(\\) from public, anon, authenticated`), f);
+  }
+  assert.doesNotMatch(SOLO_CON_ENVIO, /grant [^;]* to [^;]*\b(anon|authenticated)\b/i);
+});

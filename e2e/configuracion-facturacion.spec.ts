@@ -37,11 +37,17 @@ function json(route: Route, body: unknown, status = 200) {
 }
 
 interface Exportacion { total: number; fichero?: 'ok' | 'error' }
+/** El alta del envío a la AEAT (`/api/verifactu/estudio`). 'error' = la ruta falla. */
+type Envio = { estado: string; activadoEn: string | null } | 'error';
 
-async function montar(page: Page, ruta: string, opts: { fila?: Record<string, unknown>; respuesta?: Respuesta; exportacion?: Exportacion } = {}) {
+// Tentare solo emite facturas con el envío a la AEAT ya activado (migración
+// 20260930170000): encenderlas exige esto.
+const ENVIO_ACTIVO: Envio = { estado: 'PRODUCCION', activadoEn: '2026-10-01T10:00:00.000Z' };
+
+async function montar(page: Page, ruta: string, opts: { fila?: Record<string, unknown>; respuesta?: Respuesta; exportacion?: Exportacion; envio?: Envio } = {}) {
   const patches: Record<string, unknown>[] = [];
   const descargas: string[] = [];
-  const { fila = FILA, respuesta = 'ok', exportacion } = opts;
+  const { fila = FILA, respuesta = 'ok', exportacion, envio } = opts;
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -68,6 +74,11 @@ async function montar(page: Page, ruta: string, opts: { fila?: Record<string, un
     // Lo que devuelve PostgREST con `select=id`; `[]` es «la RLS no casó».
     return json(route, respuesta === 'cero-filas' ? [] : [{ id: STUDIO_ID }]);
   });
+  if (envio) {
+    await page.route('**/api/verifactu/estudio', route => envio === 'error'
+      ? json(route, { error: 'No se ha podido leer el estado del envío a la AEAT.' }, 500)
+      : json(route, envio));
+  }
   if (exportacion) {
     // Antes del goto: el panel pregunta cuántos registros hay al montarse.
     await page.route('**/api/verifactu/exportacion**', route => {
@@ -98,7 +109,7 @@ test('por defecto no emite, y la fila lo dice sin prometer el envío a la AEAT',
 });
 
 test('encenderlo pregunta antes, con la consecuencia, y manda solo su campo', async ({ page }) => {
-  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF } });
+  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF }, envio: ENVIO_ACTIVO });
   await expect(emitir(page)).toBeVisible({ timeout: 30_000 });
   await emitir(page).click();
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
@@ -125,7 +136,7 @@ test('sin un NIF válido no se deja encender (0 peticiones)', async ({ page }) =
 });
 
 test('si el servidor no lo guarda, no dice que Tentare emitirá tus facturas', async ({ page }) => {
-  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF }, respuesta: 'cero-filas' });
+  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF }, respuesta: 'cero-filas', envio: ENVIO_ACTIVO });
   await expect(emitir(page)).toBeVisible({ timeout: 30_000 });
   await emitir(page).click();
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
@@ -137,14 +148,16 @@ test('si el servidor no lo guarda, no dice que Tentare emitirá tus facturas', a
   await expect(emitir(page)).toHaveAttribute('aria-checked', 'true');
 });
 
-test('apagarlo después de haber facturado se deja, y dice qué pasa con lo ya emitido', async ({ page }) => {
-  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF, modo_facturacion: 'verifactu' } });
+test('apagarlo después de haber facturado se deja, y avisa de lo ya emitido y de la permanencia hasta el 31-dic', async ({ page }) => {
+  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF, modo_facturacion: 'verifactu' }, envio: ENVIO_ACTIVO });
   const noEmitir = page.getByRole('radiogroup', { name: 'Facturación' }).getByRole('radio', { name: /No emitir facturas desde Tentare/ });
   await expect(noEmitir).toBeVisible({ timeout: 30_000 });
   await noEmitir.click();
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   const pregunta = page.getByRole('dialog', { name: '¿Dejar de emitir facturas desde Tentare?' });
   await expect(pregunta).toContainText('se quedan como están');
+  await expect(pregunta).toContainText('art. 17.2');
+  await expect(pregunta).toContainText(/hasta el 31 de diciembre de \d{4}/);
   await pregunta.getByRole('button', { name: 'Sí, dejar de emitirlas' }).click();
   await expect.poll(() => patches.length, { timeout: 10_000 }).toBe(1);
   expect(patches[0]).toEqual({ modo_facturacion: 'sin_facturas' });
@@ -185,4 +198,40 @@ test('si el servidor no puede leerlos, lo dice y no descarga nada', async ({ pag
   await expect(page.getByRole('alert').filter({ hasText: 'No se han podido leer tus registros de facturación.' })).toBeVisible();
   expect(descargas.length).toBeGreaterThan(0);
   expect(huboDescarga).toBe(false);
+});
+
+// Solo VERI*FACTU: sin el envío a la AEAT activo no se enciende. La base lo
+// rechaza igual (VERIFACTU_SIN_ACTIVAR); la pantalla lo dice antes y no manda nada.
+
+test('sin el envío activo no se deja encender y dice por qué (0 peticiones)', async ({ page }) => {
+  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF }, envio: { estado: 'SIN_CONFIGURAR', activadoEn: null } });
+  await expect(emitir(page)).toBeVisible({ timeout: 30_000 });
+  await emitir(page).click();
+  await expect(page.getByText('ese envío todavía no está abierto a los estudios')).toBeVisible();
+  await expect(page.getByText('Se podrá activar cuando tu envío a la AEAT esté activo.').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
+  // Con el alta cerrada, no se ofrece el camino a quien no la ha empezado.
+  await expect(page.getByRole('link', { name: 'Ver tu alta en la AEAT' })).toHaveCount(0);
+  await page.waitForTimeout(400);
+  expect(patches).toHaveLength(0);
+});
+
+test('con el alta empezada, dice en qué punto está y lleva a ella', async ({ page }) => {
+  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF }, envio: { estado: 'PENDIENTE_AUTORIZACION', activadoEn: null } });
+  await expect(emitir(page)).toBeVisible({ timeout: 30_000 });
+  await emitir(page).click();
+  await expect(page.getByText('Falta tu autorización en la AEAT.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ver tu alta en la AEAT' })).toHaveAttribute('href', '/configuracion/verifactu');
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
+  expect(patches).toHaveLength(0);
+});
+
+test('si no se puede comprobar el envío, no deja encender (0 peticiones)', async ({ page }) => {
+  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF }, envio: 'error' });
+  await expect(emitir(page)).toBeVisible({ timeout: 30_000 });
+  await emitir(page).click();
+  await expect(page.getByText('No se ha podido comprobar tu envío a la AEAT.').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
+  await page.waitForTimeout(400);
+  expect(patches).toHaveLength(0);
 });

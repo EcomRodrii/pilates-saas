@@ -38,11 +38,11 @@ interface Estado {
 }
 
 const TEXTO_ESTADO: Record<EstadoEstudio, { titulo: string; detalle: string }> = {
-  SIN_CONFIGURAR: { titulo: 'Sin dar de alta', detalle: 'Tus facturas se generan con su registro, pero no se envían a la AEAT.' },
-  PENDIENTE_AUTORIZACION: { titulo: 'Falta tu autorización', detalle: 'Otorga el poder en la AEAT y trae aquí su justificante.' },
-  AUTORIZACION_EN_REVISION: { titulo: 'Comprobando tu autorización', detalle: 'Tentare está comprobando en la AEAT el poder que otorgaste. Todavía no se envía nada.' },
-  VERIFICADO: { titulo: 'Autorización comprobada', detalle: 'Tu poder está verificado. Tentare activará el envío; hasta entonces no se envía nada.' },
-  PRODUCCION: { titulo: 'Enviando a la AEAT', detalle: 'Tus registros de facturación se envían a la AEAT.' },
+  SIN_CONFIGURAR: { titulo: 'Sin dar de alta', detalle: 'Tentare solo emite tus facturas cuando el envío a la AEAT está activo. Hasta entonces, tus cobros dejan su justificante de pago.' },
+  PENDIENTE_AUTORIZACION: { titulo: 'Falta tu autorización', detalle: 'Otorga el poder en la AEAT y trae aquí su justificante. Hasta que se active el envío, Tentare no emite tus facturas.' },
+  AUTORIZACION_EN_REVISION: { titulo: 'Comprobando tu autorización', detalle: 'Tentare está comprobando en la AEAT el poder que otorgaste. Todavía no se emiten facturas desde Tentare.' },
+  VERIFICADO: { titulo: 'Autorización comprobada', detalle: 'Tu poder está verificado. Tentare activará el envío: desde ese día, cada cobro genera su factura y su registro se envía a la AEAT.' },
+  PRODUCCION: { titulo: 'Enviando a la AEAT', detalle: 'Tus facturas se emiten desde Tentare y sus registros se envían a la AEAT.' },
   PAUSADO: { titulo: 'Envío en pausa', detalle: 'Tus facturas se siguen emitiendo, pero ahora no se envían.' },
   SUSPENDIDO_AEAT: { titulo: 'Envío suspendido por la AEAT', detalle: 'La AEAT ha suspendido temporalmente el envío. Tentare se está ocupando.' },
 };
@@ -124,7 +124,7 @@ export default function VerifactuAltaPage() {
     <div className="space-y-6 pb-10">
       <PageHeader
         title="Envío a la AEAT"
-        description="Para que Tentare envíe tus registros de facturación a la AEAT (Veri*Factu), tienes que autorizarlo en la propia AEAT. Aquí te decimos cómo y guardamos la prueba."
+        description="Tentare solo emite tus facturas enviando su registro a la AEAT (Veri*Factu), y ese envío tienes que autorizarlo en la propia AEAT. Aquí te decimos cómo y guardamos la prueba."
       />
 
       {error && <p role="alert" className="rounded-2xl border border-red-500/30 bg-red-500/[0.05] px-4 py-3 text-[13.5px]">{error}</p>}
@@ -148,7 +148,7 @@ export default function VerifactuAltaPage() {
           </section>
 
           {e.esDemo && (
-            <p className="rounded-2xl border border-border bg-muted/40 px-4 py-3 text-[13.5px]">Este es el estudio de demostración: sus facturas no son reales y nunca se envían a la AEAT.</p>
+            <p className="rounded-2xl border border-border bg-muted/40 px-4 py-3 text-[13.5px]">Este es el estudio de demostración: su envío a la AEAT no se puede activar, así que no emite facturas nuevas. Las que tiene no son reales.</p>
           )}
 
           {errores.length > 0 && (
