@@ -121,6 +121,14 @@ test('urlQrVerifactu construye la URL de la AEAT con los 4 parámetros y "/" sin
   assert.ok(url.includes('importe=241.40'));
 });
 
+test('el QR de producción apunta al dominio oficial agenciatributaria.GOB.es (spec QR AEAT §8)', () => {
+  assert.equal(QR_ENDPOINT_PRODUCCION, 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR');
+  const url = urlQrVerifactu({ nif: '89890001K', numSerie: 'A-1', fecha: '01-01-2024', importeTotal: 1 }, { produccion: true });
+  assert.ok(url.startsWith('https://www2.agenciatributaria.gob.es/'), url);
+  // El error que había: el dominio sin «.gob». No debe volver por ningún camino.
+  assert.doesNotMatch(url, /\/\/www2\.agenciatributaria\.es\//);
+});
+
 test('urlQrVerifactu apunta a preproducción cuando produccion=false', () => {
   const url = urlQrVerifactu({ nif: 'X', numSerie: 'S1', fecha: '01-01-2024', importeTotal: 10 }, { produccion: false });
   assert.ok(url.startsWith(QR_ENDPOINT_PRUEBAS + '?'));

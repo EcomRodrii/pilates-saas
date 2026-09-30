@@ -29,7 +29,7 @@ import {
 import { LEGAL } from '@/lib/legal-info';
 import { selloParaCliente, type SelloCliente } from '@/lib/factura-sello-cliente';
 import type { FacturaImprimible } from '@/lib/factura-pdf';
-import { destinoDeEntorno } from '@/lib/verifactu/config';
+import { qrEnProduccion } from '@/lib/verifactu/config';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { decidirCierreDeEspera, suscripcionDeReservaWeb, PREFIJO_RESERVA_WEB } from '@/lib/lista-espera/esperas-sin-plaza';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
@@ -5394,7 +5394,7 @@ export async function facturaDeSociaPublica(params: {
       direccion: [e.direccion, e.codigo_postal, e.ciudad].filter(Boolean).join(', '),
     },
     receptor: { telefono: (socia?.telefono as string | null) ?? null, email: (socia?.email as string | null) ?? null },
-    sello: selloParaCliente(completa, nif, { produccion: destinoDeEntorno().entorno === 'produccion' }),
+    sello: selloParaCliente(completa, nif, { produccion: qrEnProduccion() }),
   };
 }
 

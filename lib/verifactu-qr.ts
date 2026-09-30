@@ -5,7 +5,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Endpoints oficiales del servicio de cotejo (QR) de la AEAT.
-export const QR_ENDPOINT_PRODUCCION = 'https://www2.agenciatributaria.es/wlpl/TIKE-CONT/ValidarQR';
+//
+// ⚠️ Producción es `agenciatributaria.GOB.es`, no `agenciatributaria.es`: así lo
+// fija la especificación del QR de la AEAT (DetalleEspecificacTecnCodigoQRfactura,
+// §8) y el QR es contenido normativo de la factura. Hasta sep-2026 aquí ponía
+// `.es` a secas; `lib/verifactu.test.ts` impide que vuelva.
+export const QR_ENDPOINT_PRODUCCION = 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR';
 export const QR_ENDPOINT_PRUEBAS = 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR';
 
 // Importe con punto decimal y 2 decimales (formato de la cadena de huella AEAT).

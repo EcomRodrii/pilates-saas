@@ -59,7 +59,7 @@ test('sin sello, la factura de la clienta no menciona Veri*Factu por ninguna par
 });
 
 test('con sello, aparece el QR y la leyenda — y sigue sin aparecer nada interno', () => {
-  const sello = { url: 'https://www2.agenciatributaria.es/wlpl/TIKE-CONT/ValidarQR?nif=B00000000', leyenda: LEYENDA_VERIFACTU };
+  const sello = { url: 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=B00000000', leyenda: LEYENDA_VERIFACTU };
   const html = generarFacturaHTML(factura, EMISOR, null, sello);
   assert.ok(html.includes('<svg'), 'el QR se pinta');
   assert.ok(html.includes(LEYENDA_VERIFACTU));
