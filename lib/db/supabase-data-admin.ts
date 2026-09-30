@@ -1563,7 +1563,7 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
 /**
  * Lo que la base de datos ya decidió del bono al confirmar la plaza MÁS TARDE
  * (aprobar, aceptar una oferta, subir de la lista de espera): desde la migr
- * 20260930120000 el descuento va en la misma transacción que la confirmación,
+ * 20260930084105 el descuento va en la misma transacción que la confirmación,
  * como en `reservar_plaza`. Con el bono que lo pagó, para el aviso de «bono
  * agotado».
  *  · `sin-decidir`: la migración aún no aplicada, o un rechazo defensivo
@@ -1654,7 +1654,7 @@ async function trasPromocionDeEspera(admin: SupabaseClient, p: {
   const reservaId = (activa?.id as string | undefined) ?? null;
   let bonoConsumido = false;
   if (reservaId) {
-    // La promoción ya lo decidió en su transacción (migr 20260930120000); si
+    // La promoción ya lo decidió en su transacción (migr 20260930084105); si
     // no, como siempre.
     const d = await decisionDeLaConfirmacion(admin, p.studioId, reservaId);
     const consumo = d.tipo === 'decidida'

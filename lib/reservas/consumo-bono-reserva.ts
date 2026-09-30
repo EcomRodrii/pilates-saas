@@ -105,7 +105,7 @@ export function ocupaPlaza(estado: string | null | undefined): boolean {
 /**
  * La decisión que la base de datos ya dejó escrita en la reserva al confirmarla
  * más tarde (aprobar una pendiente, aceptar una plaza ofrecida o subir de la
- * lista de espera: desde la migración 20260930120000 el descuento va en la
+ * lista de espera: desde la migración 20260930084105 el descuento va en la
  * MISMA transacción que la confirmación, como en `reservar_plaza`).
  *
  * Es una decisión NUEVA de esa confirmación, no «otra llamada ya lo hizo»: por

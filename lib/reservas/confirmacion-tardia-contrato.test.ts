@@ -10,7 +10,7 @@ import { comoDecisionPropia, conReintentoPorInterbloqueo, consumoYaDecidido, efe
 // Las confirmaciones tardías (aprobar una pendiente, aceptar una plaza ofrecida,
 // subir de la lista de espera) descuentan el bono en la MISMA transacción y bajo
 // el MISMO candado por socia que la confirmación, como `reservar_plaza`
-// (migración 20260930120000). Y la base de datos elige el bono igual que TS.
+// (migración 20260930084105). Y la base de datos elige el bono igual que TS.
 //
 // Estructural sobre el ÚLTIMO cuerpo de cada función en las migraciones; el
 // ensayo en vivo (bloque que termina en RAISE, nada persiste) va en el PR.
