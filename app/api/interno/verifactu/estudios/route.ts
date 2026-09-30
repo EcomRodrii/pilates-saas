@@ -5,7 +5,7 @@ import { registrar } from '@/lib/interno/auditoria';
 import { errorInterno } from '@/lib/errores-servidor';
 import {
   listarParaTentare, verificarRepresentacion, rechazarRepresentacion, activarProduccion,
-  pausarPorTentare, reanudarPorTentare, AltaVerifactuError,
+  pausarPorTentare, reanudarPorTentare, decidirNoRemitirAnteriores, deshacerNoRemitirAnteriores, AltaVerifactuError,
 } from '@/lib/verifactu/estudio-servidor';
 
 export const runtime = 'nodejs';
@@ -65,6 +65,15 @@ export async function POST(req: NextRequest) {
       case 'reanudar':
         objetivo = String(body?.studioId ?? '');
         await reanudarPorTentare(admin, objetivo, userId);
+        break;
+      // Las facturas anteriores a la activación (criterio del fiscalista, 30-sep-2026).
+      case 'no_remitir_anteriores':
+        objetivo = String(body?.studioId ?? '');
+        await decidirNoRemitirAnteriores(admin, objetivo, { motivo: String(body?.motivo ?? ''), criterio: String(body?.criterio ?? '') }, userId);
+        break;
+      case 'deshacer_no_remitir':
+        objetivo = String(body?.studioId ?? '');
+        await deshacerNoRemitirAnteriores(admin, objetivo, String(body?.motivo ?? ''), userId);
         break;
       default:
         return NextResponse.json({ error: 'Acción desconocida' }, { status: 400 });

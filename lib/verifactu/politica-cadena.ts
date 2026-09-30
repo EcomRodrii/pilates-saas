@@ -42,21 +42,33 @@ export const TRAS_ANTERIOR_RECHAZADO: 'continuar' | 'esperar_subsanacion' = 'con
  */
 export const TRAS_ANTERIOR_HISTORICO: 'continuar' | 'esperar_decision' = 'esperar_decision';
 
+/**
+ * 3 · N-1 NO REMITIDO por decisión (anterior a la activación, fuera de la remisión).
+ *
+ * 'continuar' por criterio del fiscalista (30-sep-2026): la cadena continúa con
+ * el registro inmediatamente anterior por orden de generación (Orden HAC/1177/2024,
+ * art. 7), aunque la AEAT no lo tenga; nunca una cadena nueva. En preproducción
+ * la AEAT ya admitió un registro encadenado a otro que no tenía (uno rechazado).
+ */
+export const TRAS_ANTERIOR_NO_REMITIDO: 'continuar' | 'esperar' = 'continuar';
+
 export type MotivoEspera =
   | 'ANTERIOR_EN_CURSO'
   | 'ANTERIOR_INCIERTO'
   | 'ANTERIOR_RESERVADO'
   | 'ANTERIOR_RECHAZADO_SIN_SUBSANAR'
-  | 'ANTERIOR_HISTORICO_SIN_DECIDIR';
+  | 'ANTERIOR_HISTORICO_SIN_DECIDIR'
+  | 'ANTERIOR_NO_REMITIDO';
 
 /**
  * ¿Puede salir un registro, a la vista de su ANTERIOR en la cadena?
  * `anterior` null = es el primero de la cadena. Devuelve null si puede salir.
  */
 export function motivoEsperaPorAnterior(
-  anterior: { estado: EstadoRegistroVerifactu; subsanadoEnAeat?: boolean } | null,
+  anterior: { estado: EstadoRegistroVerifactu; subsanadoEnAeat?: boolean; noRemitido?: boolean } | null,
 ): MotivoEspera | null {
   if (!anterior) return null;
+  if (anterior.noRemitido) return TRAS_ANTERIOR_NO_REMITIDO === 'continuar' ? null : 'ANTERIOR_NO_REMITIDO';
   switch (anterior.estado) {
     case 'REGISTRADA':
     case 'ACEPTADA_CON_ERRORES':

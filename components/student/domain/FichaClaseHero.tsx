@@ -20,7 +20,19 @@ export function FichaClaseHero({ clase, chips, derecha }: { clase: Clase; chips:
     // héroe degradaba a crema — título y cabecera en blanco sobre claro,
     // ilegibles. `#0F0F0C` es la misma tinta que el kit pone bajo la foto del
     // layout de acceso (`.st-auth-hero`).
-    <section style={{ position: 'relative', height: 290, overflow: 'hidden', background: '#0F0F0C' }}>
+    // ⚠️ `minHeight` y el texto EN FLUJO, no una altura fija con el bloque
+    // anclado abajo. Con 290 px fijos y el logo apilado encima de la etiqueta,
+    // el bloque crecía hacia ARRIBA hasta pisar el botón de volver (visto en un
+    // iPhone el 30-sep: el logo tapaba la flecha y cortaba «MAT + CIRCUITO»).
+    // El `paddingTop` reserva la cabecera flotante + el botón de volver, así
+    // que un título de dos líneas empuja la foto hacia abajo en vez de subir.
+    <section
+      style={{
+        position: 'relative', minHeight: 290, overflow: 'hidden', background: '#0F0F0C',
+        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+        padding: 'calc(56px + var(--safe-top) + 34px + 18px) 16px 13px',
+      }}
+    >
       <Foto
         src={clase.fotoUrl}
         ancho={640}
@@ -43,23 +55,29 @@ export function FichaClaseHero({ clase, chips, derecha }: { clase: Clase; chips:
         <Icono nombre="flecha-izquierda" tamano={18} />
       </button>
       {derecha && <div style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', right: 14 }}>{derecha}</div>}
-      <div style={{ position: 'absolute', left: 16, right: 16, bottom: 13, color: '#fff' }}>
-        {/* El LOGO de la clase: el banner HEREDA (tipo → sala → estudio), así que a
-            menudo es la misma foto para todas y el logo es lo único que la
-            identifica. No hereda a propósito: sin logo propio no se pinta nada. */}
-        {clase.logoUrl && (
-          <span
-            aria-hidden
-            data-testid="logo-clase"
-            style={{
-              display: 'block', width: 44, height: 44, borderRadius: 12, marginBottom: 9,
-              background: `url(${clase.logoUrl}) center/cover`,
-              border: '1px solid rgba(255,255,255,.5)',
-            }}
-          />
-        )}
-        <p className="t-label" style={{ color: 'rgba(255,255,255,.82)' }}>{clase.tipo} · nivel {clase.nivel.toLowerCase()}</p>
-        <h1 style={{ margin: '3px 0 0', fontSize: 'var(--t-h1)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.nombre}</h1>
+      <div style={{ position: 'relative', color: '#fff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* El LOGO de la clase: el banner HEREDA (tipo → sala → estudio), así
+              que a menudo es la misma foto para todas y el logo es lo único que
+              la identifica. No hereda a propósito: sin logo propio no se pinta
+              nada. Al lado del título y no encima: apilado subía el bloque. */}
+          {clase.logoUrl && (
+            <span
+              aria-hidden
+              data-testid="logo-clase"
+              style={{
+                display: 'block', flexShrink: 0, width: 48, height: 48, borderRadius: 13,
+                background: `url(${clase.logoUrl}) center/cover`,
+                border: '1.5px solid rgba(255,255,255,.7)',
+                boxShadow: '0 4px 14px rgba(0,0,0,.28)',
+              }}
+            />
+          )}
+          <div style={{ minWidth: 0 }}>
+            <p className="t-label" style={{ color: 'rgba(255,255,255,.82)' }}>{clase.tipo} · nivel {clase.nivel.toLowerCase()}</p>
+            <h1 style={{ margin: '3px 0 0', fontSize: 'var(--t-h1)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.05 }}>{clase.nombre}</h1>
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           {chips.map((t) => (
             <span key={t} className="badge" style={{ background: 'rgba(250,249,245,.2)', border: '1px solid rgba(255,255,255,.45)', color: '#fff' }}>{t}</span>

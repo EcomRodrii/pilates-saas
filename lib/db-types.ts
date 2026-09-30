@@ -3638,6 +3638,18 @@ export interface RowVerifactuControlFlujo {
   actualizado_en: string;
 }
 
+export interface RowVerifactuDecisionesAnteriores {
+  id: string;
+  studio_id: string;
+  decision: string;
+  hasta_seq: number;
+  motivo: string;
+  criterio: string;
+  evidencia: any;
+  decidido_por: string;
+  creado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -10085,6 +10097,30 @@ export type VerifactuControlFlujoUpdate = {
   actualizado_en?: string | null;
 }
 
+export type VerifactuDecisionesAnterioresInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  decision?: string | null;
+  hasta_seq?: number | null;
+  motivo?: string | null;
+  criterio?: string | null;
+  evidencia?: any | null;
+  decidido_por?: string | null;
+  creado_en?: string | null;
+}
+
+export type VerifactuDecisionesAnterioresUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  decision?: string | null;
+  hasta_seq?: number | null;
+  motivo?: string | null;
+  criterio?: string | null;
+  evidencia?: any | null;
+  decidido_por?: string | null;
+  creado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -11227,6 +11263,11 @@ export type Database = {
         Row: RowVerifactuControlFlujo;
         Insert: VerifactuControlFlujoInsert;
         Update: VerifactuControlFlujoUpdate;
+      };
+      verifactu_decisiones_anteriores: {
+        Row: RowVerifactuDecisionesAnteriores;
+        Insert: VerifactuDecisionesAnterioresInsert;
+        Update: VerifactuDecisionesAnterioresUpdate;
       };
     };
   };

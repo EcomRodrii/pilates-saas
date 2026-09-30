@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { fetchFichaEstudio, type FichaEstudio } from '@/lib/interno/client';
 import { AccionesEstudio } from './acciones';
+import { PildoraSalud, SaludDetalle, textoSuscripcion } from '../salud';
 
 const fecha = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
@@ -60,6 +61,16 @@ export default function FichaEstudioInterno({ params }: { params: Promise<{ id: 
         <p className="text-[13px] text-muted-foreground">/{f.estudio.slug} · plan {f.estudio.plan} · alta el {fecha(f.estudio.creadoEn)}</p>
       </header>
 
+      {f.salud && (
+        <section data-testid="salud-estudio" className="rounded-2xl border border-border bg-card px-4 py-3.5">
+          <div className="flex items-center justify-between gap-3 mb-2.5">
+            <h2 className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Salud · cliente de pago</h2>
+            <PildoraSalud nivel={f.salud.nivel} />
+          </div>
+          <SaludDetalle salud={f.salud} />
+        </section>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
         <Bloque titulo="Contacto">
           <Dato etiqueta="Email del estudio">{f.estudio.email ?? '—'}</Dato>
@@ -77,6 +88,9 @@ export default function FichaEstudioInterno({ params }: { params: Promise<{ id: 
         </Bloque>
 
         <Bloque titulo="Pagos">
+          <Dato etiqueta="Suscripción a Tentare">
+            {f.prueba.conSuscripcionStripe ? textoSuscripcion(f.prueba.estado) : `Sin suscripción de Stripe (${textoSuscripcion(f.prueba.estado)})`}
+          </Dato>
           <Dato etiqueta="Cliente en Stripe">{f.pagos.tieneClienteStripe ? 'Sí' : 'No'}</Dato>
           <Dato etiqueta="Cobra a sus socias (Connect)">{f.pagos.cobraConStripeConnect ? 'Sí' : 'No'}</Dato>
           {/* 37ª pasada de auditoría: una sede de cadena factura con el
@@ -88,9 +102,13 @@ export default function FichaEstudioInterno({ params }: { params: Promise<{ id: 
               Esta sede pertenece a una cadena: factura con el cliente de Stripe de la cadena, no uno propio.
             </p>
           )}
-          {/* No se finge saber si está al día: eso lo sabe Stripe y solo Stripe. */}
+          {/* ⚠️ Este texto decía que el estado de la suscripción «no se guarda
+              aquí». Sí se guarda: el webhook de Stripe lo escribe en
+              `studios.subscription_status` a cada cambio. Lo que no está aquí
+              es el importe exacto ni la próxima renovación: eso, en Stripe o en
+              /interno/facturacion, que lo lee de Stripe. */}
           <p className="mt-2 text-[12px] text-muted-foreground leading-snug">
-            El estado de la suscripción (al día, impagada, cancelada) y la próxima renovación no se guardan aquí.
+            El estado es el del último aviso de Stripe. El importe y la próxima renovación, en Facturación o en Stripe.
             {f.pagos.clienteStripeId && (
               <>
                 {' '}

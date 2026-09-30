@@ -16,7 +16,22 @@ export function proximasClasesDe<T extends ClaseMin>(clases: T[], instructoraId:
     .slice(0, max);
 }
 
-/** «4,8 · 23 valoraciones». `null` sin nota publicable (menos de 5 votos). */
+/**
+ * «4,8/5 (23)» — la versión corta, para el chip junto a su foto. El número de
+ * votos va SIEMPRE: un «5,0/5» sin él no dice si es una o cien.
+ */
+export function notaCorta(rating: number | undefined, total: number | undefined): string | null {
+  const p = partesNota(rating, total);
+  return p ? `${p.valor} ${p.votos}` : null;
+}
+
+/** Las dos mitades de `notaCorta`, para pintar la estrella entre ellas. */
+export function partesNota(rating: number | undefined, total: number | undefined): { valor: string; votos: string } | null {
+  if (rating == null || !total) return null;
+  return { valor: `${rating.toFixed(1).replace('.', ',')}/5`, votos: `(${total})` };
+}
+
+/** «4,8 · 23 valoraciones». `null` sin nota publicable. */
 export function notaTexto(rating: number | undefined, total: number | undefined): string | null {
   if (rating == null) return null;
   const n = rating.toFixed(1).replace('.', ',');

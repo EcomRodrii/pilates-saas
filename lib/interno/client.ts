@@ -3,6 +3,7 @@
 // de 403 importa: "no eres del equipo" y "esto no te toca" se arreglan de forma
 // muy distinta.
 import { authHeader } from '../api-client.ts';
+import type { SaludEstudio } from './salud-estudio.ts';
 
 export class SinAcceso extends Error {
   constructor(public readonly tipo: 'no-eres-del-equipo' | 'te-falta-permiso' | 'mfa-requerido', mensaje: string) {
@@ -90,6 +91,11 @@ export interface EstudioFila {
   email: string | null; telefono: string | null; creadoEn: string;
   tieneClienteStripe: boolean; socias: number; clases: number; equipo: number;
   ultimaClase: string | null; vacio: boolean;
+  /** Tiene una suscripción de Stripe (ni la prueba local ni el acceso a mano). */
+  dePago: boolean;
+  estadoSuscripcion: string | null;
+  /** Solo en los de pago. */
+  salud: SaludEstudio | null;
 }
 
 export interface FichaEstudio {
@@ -113,6 +119,8 @@ export interface FichaEstudio {
   };
   /** Prueba gratuita local. `estado` es `studios.subscription_status` tal cual. */
   prueba: { finaliza: string | null; estado: string | null; conSuscripcionStripe: boolean; esSede: boolean };
+  /** Solo si es de pago. */
+  salud: SaludEstudio | null;
 }
 
 export const fetchSesionInterna = () => pedir<SesionInterna>('/sesion');
@@ -404,6 +412,10 @@ export interface EstudioVerifactuInterno {
   estado: string; estado_motivo: string | null; activado_produccion_en: string | null; actualizado_en: string;
   /** Facturas anteriores a la activación que la AEAT no tiene: mientras haya, no se activa (barrera de activación). */
   facturas_anteriores_sin_decidir: number;
+  /** Las que una decisión NO_REMITIR deja fuera de la remisión (siguen en la cadena). */
+  facturas_anteriores_no_remitidas: number;
+  /** La decisión vigente sobre las anteriores, si la hay. */
+  decision_anteriores: { creado_en: string; criterio: string; hasta_seq: number } | null;
 }
 export interface RepresentacionVerifactuInterna {
   id: string; studio_id: string; nif_representado: string; nombre_representado: string;
