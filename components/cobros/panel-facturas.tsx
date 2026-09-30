@@ -29,6 +29,9 @@ type AgrupadorFact = 'mes' | 'cliente';
 
 export function PanelFacturas() {
   const { facturas, recibos, socios, studio } = useStudio();
+  // ¿Emite facturas este estudio? (`Studio.modoFacturacion`). Mientras carga,
+  // como si sí: la pantalla de siempre, sin un aviso que parpadee.
+  const emite = studio ? studio.modoFacturacion === 'verifactu' : true;
   const emisorNombre = studio?.nombre ?? 'Tentare';
   const emisorNif = studio?.nif ?? '—';
   const emisorDireccion = [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || '—';
@@ -263,7 +266,7 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
 
       {/* Falta el NIF: sin él no se emite ni una factura. Va ANTES del banner
           de Verifactu porque es lo único accionable de esta pantalla. */}
-      {faltaNif && (
+      {emite && faltaNif && (
         <div role="alert" className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/25">
           <AlertTriangle size={16} className="text-destructive shrink-0 mt-0.5" />
           <div className="flex-1">
@@ -283,7 +286,33 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
         </div>
       )}
 
+      {/* El estudio no emite facturas desde Tentare (Configuración → Facturación,
+          por defecto desde el 29-sep-2026): se dice, y a dónde ir para cambiarlo.
+          Lo ya emitido, si lo hay, sigue en la lista de abajo. */}
+      {!emite && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/60 border border-border">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-card">
+            <FileText size={15} className="text-muted-foreground" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-foreground">Tentare no emite tus facturas</p>
+            <p className="text-xs font-medium mt-0.5 text-muted-foreground">
+              Tus alumnas reciben su justificante de pago y tus facturas las haces con tu gestoría o con otro programa.
+              {facturas.length > 0 ? ' Las que ya emitiste desde aquí siguen en la lista.' : ''}
+            </p>
+            <Link
+              href="/configuracion?tab=cobros#facturacion"
+              className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold text-foreground hover:underline"
+            >
+              Emitir facturas desde Tentare
+              <ChevronRight size={13} />
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Verifactu banner */}
+      {emite && (
       <div className="flex items-center gap-3 p-4 rounded-xl bg-brand/10 border border-info/10">
         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-info/10">
           {verifactuActivo ? <ShieldCheck size={15} className="text-brand-medio" /> : <FileText size={15} className="text-brand-medio" />}
@@ -304,6 +333,7 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
           </p>
         </div>
       </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">

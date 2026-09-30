@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Printer, Plus, Pencil, Trash2, Info, ShieldCheck, Mail, Send, Check } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
@@ -285,6 +286,19 @@ export default function CierreDeAnoPage() {
           </div>
         }
       />
+
+      {/* Sin facturas desde Tentare (Configuración → Facturación): este cierre
+          solo recoge lo que se facturó aquí. Lo que sí tiene es el registro de
+          cobros, y se dice dónde exportarlo para la gestoría. */}
+      {studio && studio.modoFacturacion !== 'verifactu' && (
+        <div role="note" className="rounded-xl border border-border bg-muted/60 p-4 text-sm">
+          <p className="font-bold text-foreground m-0">Tentare no emite tus facturas</p>
+          <p className="text-muted-foreground mt-1 mb-0">
+            Este cierre solo recoge las facturas emitidas desde aquí. Para pasarle a tu gestoría lo que has cobrado,
+            exporta tus cobros en <Link href="/cobros?tab=cobrado" className="font-semibold text-foreground underline underline-offset-2 hover:no-underline">Cobros → Lo que he cobrado → Exportar</Link>.
+          </p>
+        </div>
+      )}
 
       {/* Selector de año */}
       <div className="flex items-center gap-1 p-1 rounded-xl w-fit" style={{ backgroundColor: 'var(--border)' }}>

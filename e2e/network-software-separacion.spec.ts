@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { fragmentoDeRecuperacion, tokenDeSesion } from './enlace-de-correo';
+import { ACCESO_NETWORK_EN_MANTENIMIENTO } from '../lib/network/mantenimiento';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tentare Software y Tentare Network como dos productos independientes
@@ -41,6 +42,14 @@ function sesionOk(email: string, id = 'auth-e2e-usuario') {
   };
 }
 
+// Los tests que rellenan el formulario de /network/acceso no tienen qué
+// rellenar mientras esa puerta esté en mantenimiento: se saltan, no se
+// borran, y vuelven a correr solos en cuanto el interruptor pase a `false`.
+const MOTIVO_ACCESO_CERRADO =
+  'Login de Tentare Network en mantenimiento desde el 29-sep-2026 (decisión del fundador): '
+  + '/network/acceso enseña el aviso y no el formulario. Vuelve a correr cuando '
+  + 'ACCESO_NETWORK_EN_MANTENIMIENTO (lib/network/mantenimiento.ts) sea false.';
+
 async function mockLoginOk(page: Page, email: string) {
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/auth/v1/token**', route => json(route, sesionOk(email)));
@@ -68,6 +77,7 @@ test.describe('Bloqueo cruzado al iniciar sesión (TEST 5 / TEST 6 del encargo)'
   });
 
   test('credenciales de Software en /network/acceso: mensaje claro, nunca el autoservicio', async ({ page }) => {
+    test.skip(ACCESO_NETWORK_EN_MANTENIMIENTO, MOTIVO_ACCESO_CERRADO);
     await mockLoginOk(page, 'propietaria@example.com');
     await page.route('**/api/auth/destino-post-login**', route => {
       expect(new URL(route.request().url()).searchParams.get('producto')).toBe('network');
@@ -102,6 +112,7 @@ test.describe('Identidad dual (self-claim): cada puerta respeta lo suyo', () => 
   });
 
   test('la MISMA identidad entra a Network por /network/acceso, no al dashboard', async ({ page }) => {
+    test.skip(ACCESO_NETWORK_EN_MANTENIMIENTO, MOTIVO_ACCESO_CERRADO);
     await mockLoginOk(page, 'dual@example.com');
     await page.route('**/api/auth/destino-post-login**', route => json(route, { tipo: 'entra', destino: '/network/inicio' }));
 
@@ -121,6 +132,7 @@ test.describe('El contexto de Google se conserva por producto', () => {
   // que cada botón pide a gotrue el redirect_to correcto, sin necesidad de
   // completar el viaje real a Google.
   test('el botón de Google en /network/acceso pide volver a /network/acceso', async ({ page }) => {
+    test.skip(ACCESO_NETWORK_EN_MANTENIMIENTO, MOTIVO_ACCESO_CERRADO);
     await page.route('**/rest/v1/**', route => json(route, []));
     let redirectTo: string | null = null;
     await page.route('**/auth/v1/authorize**', route => {
@@ -147,6 +159,36 @@ test.describe('El contexto de Google se conserva por producto', () => {
 
     await expect.poll(() => redirectTo).toContain('/login');
     expect(redirectTo, 'el retorno de Network no debe colarse en el de Software').not.toContain('/network');
+  });
+});
+
+test.describe('Login y alta de Network en mantenimiento (29-sep-2026)', () => {
+  // La otra cara de los test.skip de arriba: mientras las dos puertas estén
+  // cerradas, lo que se ve es el aviso y NINGÚN formulario — si una de ellas
+  // volviera a pintar el login o el alta sin haber tocado el interruptor, la
+  // decisión del fundador se estaría saltando en producción.
+  test.beforeEach(async ({ page }) => {
+    test.skip(!ACCESO_NETWORK_EN_MANTENIMIENTO, 'Las puertas de Network están abiertas: no hay aviso que comprobar.');
+    await page.route('**/rest/v1/**', route => json(route, []));
+  });
+
+  test('/network/acceso enseña el aviso, sin formulario, y manda a Software a /login', async ({ page }) => {
+    await page.goto('/network/acceso');
+
+    await expect(page.getByRole('heading', { name: 'Estamos en mantenimiento' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('El acceso a Tentare Network está temporalmente cerrado.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'inicia sesión aquí' })).toHaveAttribute('href', '/login');
+    await expect(page.locator('input[type="password"]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Continuar con Google/ })).toHaveCount(0);
+  });
+
+  test('/network/crear-perfil sin sesión enseña el aviso en vez del alta', async ({ page }) => {
+    await page.goto('/network/crear-perfil');
+
+    await expect(page.getByRole('heading', { name: 'Estamos en mantenimiento' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('La creación de perfiles nuevos en Tentare Network está temporalmente cerrada.')).toBeVisible();
+    await expect(page.locator('input[type="password"]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Continuar con Google/ })).toHaveCount(0);
   });
 });
 

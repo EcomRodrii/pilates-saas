@@ -47,6 +47,11 @@ function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fal
         maybeSingle() {
           if (tabla === 'planes_tarifa') return Promise.resolve({ data: opts.plan === undefined ? PLAN : opts.plan, error: null });
           if (tabla === 'socios') return Promise.resolve({ data: opts.socioExistente ?? null, error: null });
+          // Un estudio que EMITE facturas desde Tentare, pero sin NIF: el camino
+          // que este fichero prueba es el del sellado que falla. Sin
+          // `modo_facturacion` (29-sep-2026) contaría como «sin facturas» y el
+          // sellado ni se intentaría.
+          if (tabla === 'studios') return Promise.resolve({ data: { nif: '', modo_facturacion: 'verifactu' }, error: null });
           return Promise.resolve({ data: null, error: null });
         },
         insert(fila: Fila) {
