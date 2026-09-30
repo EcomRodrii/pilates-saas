@@ -47,8 +47,7 @@ const TIPOS = [
 ];
 
 const COLUMNAS_CANCELAR = [
-  'cancelacion_devolver_bono_tardia', 'cancelacion_ventana_horas', 'recuperacion_auto_semanal',
-  'recuperacion_caducidad_dias', 'recuperacion_caducidad_tipo',
+  'cancelacion_devolver_bono_tardia', 'cancelacion_ventana_horas',
 ];
 
 const json = (r: Route, b: unknown, s = 200) =>
@@ -144,7 +143,8 @@ for (const vista of VISTAS) {
       await expect(page.getByRole('spinbutton', { name: 'Plazo para cancelar sin perder la sesión (horas antes)' })).toHaveValue('12');
       await expect(cajon(page).locator('[data-consecuencia]')).toHaveText('Si cancela con menos de 12 h, no recupera la sesión.');
       await expect(cajon(page).locator('[data-excepciones]')).toContainText('Reformer y Mat tienen su propia regla');
-      await expect(cajon(page).locator('[data-nota-de-serie]')).toContainText('hasta 4 recuperaciones sin usar a la vez');
+      // El tope de recuperaciones ya no es «de serie»: tiene su propio cajón (30-sep).
+      await expect(cajon(page).locator('[data-nota-de-serie]')).toHaveCount(0);
       await expect(cajon(page).getByRole('link', { name: 'Ver tipos de clase' })).toHaveAttribute('href', '/configuracion?tab=clases&abrir=tipos-de-clase');
       // Sin cambios, ni barra ni «Guardar» gris en reposo.
       await expect(guardar(page)).toHaveCount(0);

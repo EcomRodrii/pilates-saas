@@ -48,11 +48,12 @@ export default function Contenido() {
         cupo.
       </p>
 
-      <h2 style={h2}>El tope de cuatro</h2>
+      <h2 style={h2}>Cuántas puede guardar</h2>
       <p>
-        Una alumna puede tener <strong>como máximo cuatro recuperaciones vivas a la vez</strong>. Al intentar
-        darle la quinta te avisa y no la crea. No es un capricho: si alguien acumula cinco clases pendientes, el
-        problema ya no se arregla con otra recuperación.
+        De serie, una alumna puede tener <strong>como máximo cuatro recuperaciones vivas a la vez</strong>. Al
+        intentar darle una más te avisa y no la crea. Lo cambias en Configuración → Cómo reservan mis alumnas →
+        Recuperaciones, de 1 a 20. Si bajas el número, quien ya tenga más las conserva; solo no se le da otra
+        hasta que baje del tope.
       </p>
 
       <AyudaResultado>

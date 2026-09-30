@@ -66,7 +66,7 @@ test('I1: franja llena 3 semanas + lista de espera + sala libre → ABRIR_SESION
 
 test('I1: la misma franja llena, pero de un tipo ARCHIVADO → no propone abrir otra', () => {
   // No se pueden programar clases nuevas de un tipo archivado (trigger de
-  // `sesiones`, migr 20260930203000): «abre otra» sería un consejo imposible.
+  // `sesiones`, migr 20260930215125): «abre otra» sería un consejo imposible.
   const sesiones = [slot(7), slot(14), slot(21)];
   const reservasLlenas = sesiones.flatMap(se => Array.from({ length: 8 }, (_, i) => reserva({ socioId: `s${se.id}${i}`, estado: 'CONFIRMADA', sesionId: se.id })));
   const listaEspera = sesiones.flatMap(se => [0, 1].map(i => reserva({ socioId: `w${se.id}${i}`, estado: 'LISTA_ESPERA', sesionId: se.id })));

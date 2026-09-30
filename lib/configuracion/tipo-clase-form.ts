@@ -288,9 +288,15 @@ export function resumenAntelacionMinima(min: number): string {
   return min <= 0 ? 'se puede reservar hasta el último momento' : `cierra ${enPalabrasMinutos(min)} antes`;
 }
 
-export function resumenAntelacionMaxima(dias: number | null): string {
+/**
+ * `hora`: la del estudio (studios.reserva_antelacion_hora); un tipo de clase
+ * cambia los días, nunca la hora. Sin hora, 0 días no es «el mismo día»: la
+ * reserva se abriría a la hora de la clase, cuando ya ha empezado.
+ */
+export function resumenAntelacionMaxima(dias: number | null, hora: string | null = null): string {
   if (dias == null) return 'sin límite, se puede reservar con toda la antelación';
-  if (dias <= 0) return 'solo el mismo día';
+  if (hora) return dias <= 0 ? `se abre el mismo día a las ${hora}` : `se abre ${dias} ${dias === 1 ? 'día' : 'días'} antes a las ${hora}`;
+  if (dias <= 0) return 'no se abre hasta que empieza la clase';
   return `se abre ${dias} ${dias === 1 ? 'día' : 'días'} antes`;
 }
 

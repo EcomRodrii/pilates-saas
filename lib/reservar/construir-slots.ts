@@ -10,6 +10,7 @@ import { claseSirvePara } from './objetivos.ts';
 
 import { franjaLocalDe } from '../utils.ts';
 import { diaEnEstudio } from '../calendario-hora-estudio.ts';
+import { aperturaPendiente, heredaOverride } from '../booking-logic.ts';
 
 // Proyección pura sesiones-crudas → ReservaSlot[], sacada de
 // app/reservar/[slug]/page.tsx para que el bundle embebible (Modo B) pueda
@@ -67,13 +68,15 @@ export interface EntradaConstruirSlots {
   // dejar un parámetro que parece influir en algo y no influye.
   nowMs: number;
   filtros?: FiltrosSlots;
+  /** Cuándo se abre la reserva, del estudio (el tipo de clase puede cambiar los días). Sin él, nada dice «Se abre». */
+  apertura?: { dias: number | null; hora: string | null };
 }
 
 export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
   const {
     sesiones, tiposClase, salas, instructores, reservas, spots,
     sustitucionesConfirmadas, suscripciones, planesTarifa, socia,
-    nowMs, filtros = {},
+    nowMs, filtros = {}, apertura,
   } = entrada;
 
   const tiposById = new Map(tiposClase.map(t => [t.id, t]));
@@ -172,6 +175,9 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
         miReservaId: mia?.id ?? null,
         miEstado: mia ? (mia.estado as 'CONFIRMADA' | 'LISTA_ESPERA') : null,
         miOfertaExpiraEn: mia?.ofertaExpiraEn ?? null,
+        abreEl: apertura
+          ? aperturaPendiente(s.inicio, nowMs, heredaOverride(s.tipo?.reservaAntelacionMaximaDias, apertura.dias), apertura.hora)
+          : null,
         precio: precioDeCobertura(cobertura(s.tipoClaseId)),
         // Lo que de verdad cierra "nunca llegar al checkout sin saber qué
         // reservas": de qué bono sale y cuánto queda después. La ficha lo dice

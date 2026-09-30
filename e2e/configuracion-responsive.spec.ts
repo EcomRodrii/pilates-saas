@@ -168,6 +168,8 @@ for (const vista of VISTAS) {
         const b = await cajon.boundingBox();
         return b ? Math.round(b.x + b.width) : null;
       }).toBe(vista.uso.viewport.width);
+      // Los días solo salen si la reserva no está «siempre abierta» (30-sep, hora fija).
+      await cajon.getByRole('radio', { name: /Unos días antes, a la hora de la clase/ }).check();
       await cajon.getByLabel('Días antes de la clase en que se abre la reserva').fill('30');
       const barra = cajon.locator('[data-barra-guardar]');
       await expect(barra).toContainText('Cambios sin guardar en: Reservar');

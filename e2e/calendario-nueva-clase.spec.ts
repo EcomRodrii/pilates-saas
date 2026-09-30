@@ -229,7 +229,7 @@ test.describe('Nueva clase: lo que se lee es lo que pasa', () => {
   });
 });
 
-// Un tipo archivado (migr 20260930203000) no programa clases nuevas: lo impide
+// Un tipo archivado (migr 20260930215125) no programa clases nuevas: lo impide
 // un trigger en `sesiones`. El selector no lo ofrece, y si otra pestaña lo
 // archivó con este formulario abierto, lo que dice la base de datos se entiende.
 test.describe('Nueva clase: tipos archivados', () => {

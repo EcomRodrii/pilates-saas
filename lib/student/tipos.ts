@@ -71,6 +71,13 @@ export interface Clase {
   /** Ventana de cancelación propia de este tipo de clase; `null` = la del estudio. */
   ventanaCancelacionHoras: number | null;
   /**
+   * Cuándo se abre la reserva de esta clase (ISO), con los días del tipo o del
+   * estudio y la hora fija del estudio; `null`/ausente = sin límite. Es el
+   * INSTANTE, no «si ya está abierta»: eso lo decide la pantalla con su reloj
+   * (`useAunNoAbre`). Quien manda es el servidor.
+   */
+  seAbreEl?: string | null;
+  /**
    * ¿Este tipo de clase admite lista de espera? `null` = lo que diga el estudio.
    *
    * ⚠️ Es una de las cuatro reglas de reserva sobrescribibles por tipo (migr

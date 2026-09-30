@@ -9,6 +9,7 @@ import { imagenDeClase } from '../imagenes-por-defecto.ts';
 import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
 import { hayOrdenGuardado, ordenarTipos } from '../tipos-clase/orden-y-archivo.ts';
+import { instanteDeApertura } from '../booking-logic.ts';
 import {
   plazaFijaEnClase as plazaFijaEnClaseDe, proyectarPlazasFijas as plazasFijasDe, proyectarRecuperaciones as recuperacionesDe,
   proximasDeUnaPlaza, tieneCuotaQueCubre,
@@ -225,13 +226,16 @@ export interface PayloadMin {
   // ⚠️ `imagenBienvenidaUrl` es la portada del PORTAL. `fotoUrl` es la foto de
   // perfil de la propietaria (bucket `avatars`) y NO se hereda a nada que vea
   // una alumna — ver la nota de `proyectarClases`.
-  studio?: { fotoUrl?: string | null; imagenBienvenidaUrl?: string | null } | null;
+  studio?: {
+    fotoUrl?: string | null; imagenBienvenidaUrl?: string | null;
+    reservaAntelacionMaximaDias?: number | null; reservaAntelacionHora?: string | null;
+  } | null;
   sesiones?: {
     id: string; inicio: string; fin: string; aforoMaximo: number;
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; orden?: number | null }[];
+  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; orden?: number | null }[];
   levelDefinitions?: NivelDef[];
   achievementDefinitions?: LogroDef[];
   challengeDefinitions?: RetoDef[];
@@ -296,6 +300,16 @@ export interface PayloadMin {
  * reformer averiado este número es optimista y el servidor devolverá `full`.
  * Es el comportamiento correcto, no un fallo a tapar en el cliente.
  */
+/** El instante de apertura de la reserva (mismo cálculo que el servidor), o null sin límite. */
+function seAbreEl(
+  inicioISO: string, diasTipo: number | null | undefined,
+  studio: PayloadMin['studio'],
+): string | null {
+  const dias = diasTipo ?? studio?.reservaAntelacionMaximaDias ?? null;
+  if (dias == null) return null;
+  return instanteDeApertura(inicioISO, dias, studio?.reservaAntelacionHora ?? null).toISOString();
+}
+
 export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
   const tipos = new Map((d.tiposClase ?? []).map((t) => [t.id, t]));
   // El orden de los tipos que decidió el estudio, para los filtros por tipo.
@@ -331,6 +345,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       tipoOrden: puesto.get(s.tipoClaseId),
       ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null,
       permiteListaEspera: tipo?.permiteListaEspera ?? null,
+      seAbreEl: seAbreEl(s.inicio, tipo?.reservaAntelacionMaximaDias, d.studio),
       creditosAlAsistir: porAsistir,
       fecha: f,
       hora: horaLocal(s.inicio),

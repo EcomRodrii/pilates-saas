@@ -117,7 +117,7 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
   // Cupo exacto de una etapa de lanzamiento (trigger de suscripciones, migr
   // 20260921195853): la venta desde el mostrador se para con la etapa llena.
   // Un tipo de clase archivado no programa clases nuevas (trigger en `sesiones`,
-  // migr 20260930203000). Pasa si otra pestaña lo archivó mientras esta tenía el
+  // migr 20260930215125). Pasa si otra pestaña lo archivó mientras esta tenía el
   // selector abierto: se dice qué hacer, no «revisa los datos».
   if (/TIPO_ARCHIVADO/.test(msg)) {
     return 'Ese tipo de clase está archivado: ya no se programan clases nuevas suyas. Elige otro, o recupéralo en Configuración → Mis clases y citas.';

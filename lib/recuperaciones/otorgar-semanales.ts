@@ -15,7 +15,7 @@
 // ⚠️ SOLO PLANES CON LÍMITE SEMANAL. Una recuperación no sirve para otra cosa
 // que saltarse ese límite: quien va con bono ya recupera sola (se le devuelve la
 // sesión) y quien no tiene límite puede volver a reservar sin tope. Dárselas
-// sería ocuparles el tope de 4 vivas con algo que no pueden gastar.
+// sería ocuparles el tope de vivas del estudio (4 de serie) con algo que no pueden gastar.
 // ─────────────────────────────────────────────────────────────────────────────
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { mapPlanTarifa, mapSuscripcion, hidratarTiposDePlanes } from '@/lib/supabase-data';
@@ -31,7 +31,7 @@ export { semanaCerrada };
 export interface ResumenSemana {
   estudios: number;
   otorgadas: number;
-  /** Detectadas pero no otorgadas: tope de 4 vivas, o ya existía una por esa reserva. */
+  /** Detectadas pero no otorgadas: tope de vivas del estudio (4 de serie), o ya existía una por esa reserva. */
   saltadas: number;
   semana: { desde: string; hasta: string };
 }
@@ -118,7 +118,7 @@ export async function otorgarRecuperacionesSemanales(
         for (const r of canceladas.slice(0, derecho)) {
           // `origen_reserva_id` es la reserva cancelada: la RPC dedupe por él,
           // así que repetir el barrido no otorga dos veces. También aplica el
-          // tope de 4 vivas y la política de caducidad del estudio.
+          // tope de vivas del estudio (4 de serie) y la política de caducidad del estudio.
           const idNuevo = `recup-${uid()}`;
           const { data: res } = await admin.rpc('crear_recuperacion', {
             p_id: idNuevo,

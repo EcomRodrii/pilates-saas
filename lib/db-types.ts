@@ -1056,6 +1056,12 @@ export interface RowStudios {
   cobro_dia_1_activo: boolean | null;
   // migr 20260929214142.
   modo_facturacion: string | null;
+  // migr 20260930215029.
+  reserva_max_por_dia: number | null;
+  // migr 20260930215043.
+  reserva_antelacion_hora: string | null;
+  // migr 20260930215106.
+  recuperacion_max_vivas: number | null;
 }
 
 export interface RowSuscripciones {
@@ -1117,9 +1123,9 @@ export interface RowTiposClase {
   logo_url: string | null;
   // migr 20260909210000.
   requiere_checkin_qr: boolean | null;
-  // migr 20260930203000.
+  // migr 20260930215125.
   orden: number | null;
-  // migr 20260930203000.
+  // migr 20260930215125.
   archivado_en: string | null;
 }
 
@@ -5086,6 +5092,9 @@ export type StudiosInsert = {
   zona_horaria?: string | null | null;
   cobro_dia_1_activo?: boolean | null | null;
   modo_facturacion?: string | null | null;
+  reserva_max_por_dia?: number | null | null;
+  reserva_antelacion_hora?: string | null | null;
+  recuperacion_max_vivas?: number | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5227,6 +5236,9 @@ export type StudiosUpdate = {
   zona_horaria?: string | null | null;
   cobro_dia_1_activo?: boolean | null | null;
   modo_facturacion?: string | null | null;
+  reserva_max_por_dia?: number | null | null;
+  reserva_antelacion_hora?: string | null | null;
+  recuperacion_max_vivas?: number | null | null;
 }
 
 export type SuscripcionesInsert = {

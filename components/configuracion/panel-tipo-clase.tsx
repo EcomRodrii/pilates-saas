@@ -821,7 +821,7 @@ export function PanelTipoClase({
             onPersonalizar={() =>
               setForm(f => ({ ...f, reservaAntelacionMaximaDias: String(studio?.reservaAntelacionMaximaDias ?? 30) }))
             }
-            resumenEstudio={resumenAntelacionMaxima(studio?.reservaAntelacionMaximaDias ?? null)}
+            resumenEstudio={resumenAntelacionMaxima(studio?.reservaAntelacionMaximaDias ?? null, studio?.reservaAntelacionHora ?? null)}
             error={
               ventanaImposible
                 ? `No cuadra con el cierre de reservas: se cerraría (${form.reservaVentanaMinimaMinutos} min antes) sin haberse llegado a abrir. Nunca habría un momento válido para reservar esta clase.`
@@ -839,7 +839,9 @@ export function PanelTipoClase({
                 aria-label="Antelación máxima para reservar, en días"
                 aria-invalid={ventanaImposible}
               />
-              <span className="text-[12.5px] text-muted-foreground">días antes</span>
+              <span className="text-[12.5px] text-muted-foreground">
+                {studio?.reservaAntelacionHora ? `días antes, a las ${studio.reservaAntelacionHora} (la hora de tu estudio)` : 'días antes'}
+              </span>
             </div>
           </CampoHeredado>
 

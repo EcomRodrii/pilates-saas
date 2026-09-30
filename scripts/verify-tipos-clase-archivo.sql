@@ -1,5 +1,5 @@
 -- Drill: un tipo de clase archivado no programa clases nuevas (migr
--- 20260930203000). TODO dentro de una transacción que termina en ROLLBACK: no
+-- 20260930215125). TODO dentro de una transacción que termina en ROLLBACK: no
 -- deja nada. Fixture con prefijo `zzdrill-`.
 --
 -- Cómo correrlo (Supabase local, desde la raíz del repo):
@@ -15,7 +15,7 @@
 \set ON_ERROR_STOP on
 begin;
 
-\i supabase/migrations/20260930203000_tipos_clase_orden_y_archivo.sql
+\i supabase/migrations/20260930215125_tipos_clase_orden_y_archivo.sql
 
 insert into studios (id, nombre) values ('zzdrill-st', 'Estudio tipos archivados');
 insert into salas (id, studio_id, nombre, capacidad) values ('zzdrill-sala-a', 'zzdrill-st', 'Sala A', 6);

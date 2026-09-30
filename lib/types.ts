@@ -205,17 +205,27 @@ export interface Studio {
   recuperacionCaducidadTipo: 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE';
   /** Solo se usa con tipo DIAS. null = 30 (el default de la propia RPC). */
   recuperacionCaducidadDias: number | null;
+  /** Recuperaciones sin usar que puede tener a la vez cada alumna (migr
+   *  20260930215106; 4 = lo de siempre). Opcional: los fixtures de antes no la traen. */
+  recuperacionMaxVivas?: number;
   reservaExigirPlan: boolean;
   /** Compra desde el enlace público sin ficha previa (migr 0110).
    *  EXIGIR_REGISTRO = se registra antes de pagar. CREAR_FICHA = se cobra y
    *  la ficha se crea con el email verificado por Stripe. */
   compraPublicaModo: 'EXIGIR_REGISTRO' | 'CREAR_FICHA';
   reservaMaxSimultaneas: number | null;
+  /** Clases que cada alumna puede tener el mismo día (migr 20260930215029).
+   *  null = sin tope. Opcional: los fixtures de antes no la traen. */
+  reservaMaxPorDia?: number | null;
   // Fase 1 de reglas por tipo de clase (migr 20260730152516): estos son los
   // DEFAULTS de estudio; tipos_clase puede sobrescribirlos con NULL = hereda,
   // mismo patrón que cancelacionVentanaHoras/TipoClase.ventanaCancelacionHoras.
   reservaVentanaMinimaMinutos: number;
   reservaAntelacionMaximaDias: number | null;
+  /** 'HH:MM': la reserva se abre a esa hora del día que marcan los días de
+   *  antelación (migr 20260930215043). null = a la misma hora que la clase.
+   *  Opcional: los fixtures de antes no la traen. */
+  reservaAntelacionHora?: string | null;
   permiteListaEspera: boolean;
   // Rediseño del Calendario: eje de horas de la rejilla (antes hardcodeado
   // 08:00–22:00). 'HH:MM:SS' tal cual lo da Postgres para columnas `time`.
@@ -976,7 +986,7 @@ export interface TipoClase {
   // no es un ajuste del estudio sino la sala donde se programe.
   aforoPorDefecto: number | null;
   /**
-   * Archivado (migr 20260930203000): `null`/ausente = activo. Con fecha, ya no
+   * Archivado (migr 20260930215125): `null`/ausente = activo. Con fecha, ya no
    * se programan clases nuevas suyas — lo impide un trigger en `sesiones` — y
    * deja de salir en los selectores para programar. Su historial y las clases
    * que ya tenía se quedan. Qué pantalla lo enseña: `lib/tipos-clase/orden-y-archivo.ts`.
@@ -986,7 +996,7 @@ export interface TipoClase {
    */
   archivadoEn?: string | null;
   /**
-   * Posición en que la alumna ve los tipos, menor primero (migr 20260930203000).
+   * Posición en que la alumna ve los tipos, menor primero (migr 20260930215125).
    * `null`/ausente = «sin colocar»: detrás de los colocados, por nombre. Lo
    * resuelve `ordenarTipos` (lib/tipos-clase/orden-y-archivo.ts), y las dos
    * cargas del catálogo ya lo devuelven así ordenado. Opcional por lo mismo
@@ -1934,7 +1944,7 @@ export type EstadoRecompensaCanjeable = 'DISPONIBLE' | 'BLOQUEADA' | 'CANJEADA';
  *
  * `CLASE_GRATIS` no crea un vale nuevo: concede una RECUPERACIÓN, que es el
  * derecho a una clase suelta que ya existe en el producto (se gasta reservando
- * por el camino normal, cuenta contra el tope de 4 vivas y caduca con la
+ * por el camino normal, cuenta contra el tope de vivas del estudio (4 de serie) y caduca con la
  * política del estudio). Un vale paralelo tendría que reimplementar las tres
  * cosas y se desincronizaría de todas.
  */

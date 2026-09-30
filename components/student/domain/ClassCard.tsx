@@ -7,6 +7,7 @@ import { AvailabilityBadge, EnCursoBadge, TerminadaBadge } from '@/components/st
 import { precioClaseTexto, horaFin } from '@/lib/student/formato';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
+import { etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
 // ⚠️ Los enlaces del paquete son absolutos ('/reservar/…') porque allí la app
 // es la única del proyecto. Aquí cuelgan del slug del estudio, así que pasan
 // por `usePortalHref()`: dejarlos absolutos mandaría a la alumna a la landing
@@ -21,6 +22,11 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
   const ahoraMs = useAhoraMs();
   const enCurso = estaEnCurso(clase, ahoraMs);
   const terminada = yaTermino(clase, ahoraMs);
+  // Aún no se abre (hora fija del estudio): se dice en vez de las plazas, para
+  // que no pulse y se encuentre el «no». Si ya es suya, no aplica.
+  // Sin reloj todavía (hidratación) no se pinta nada temporal, como «en curso».
+  const seAbre = clase.seAbreEl && ahoraMs !== null && estado !== 'reservada' && estado !== 'lista-espera' && ahoraMs < Date.parse(clase.seAbreEl)
+    ? clase.seAbreEl : null;
   return (
     <Link href={href('/reservar/' + clase.id)} className="card card--tap a-up" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', animationDelay: delay + 'ms', borderColor: estado === 'reservada' ? 'var(--accent)' : undefined, borderWidth: estado === 'reservada' ? 1.5 : 1 }}>
       {/* El bloque de la izquierda: LOGO de la clase sobre la hora.
@@ -92,7 +98,9 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
             «Quedan 2» sobre una clase que está dándose es una plaza que el
             servidor niega. El precio también sobra por lo mismo. Si es SUYA, el
             borde de acento de la tarjeta sigue diciéndolo. */}
-        {enCurso ? <EnCursoBadge terminaA={horaFin(clase.hora, clase.duracionMin)} /> : terminada ? <TerminadaBadge /> : (
+        {enCurso ? <EnCursoBadge terminaA={horaFin(clase.hora, clase.duracionMin)} /> : terminada ? <TerminadaBadge /> : seAbre ? (
+          <p data-se-abre="" className="t-meta" style={{ margin: 0, fontWeight: 700, color: 'var(--muted-foreground)', whiteSpace: 'nowrap' }}>{etiquetaSeAbre(seAbre)}</p>
+        ) : (
           <>
             <AvailabilityBadge estado={estado} plazas={clase.plazasLibres} />
             <p style={{ margin: '5px 0 0', fontSize: 'var(--t-meta)', fontWeight: 800, color: 'var(--muted-foreground)' }}>{conBono ? '1 sesión' : precioClaseTexto(clase)}</p>

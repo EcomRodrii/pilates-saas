@@ -141,7 +141,8 @@ export const SECCIONES = [
     // salió a su propia fila.
     tarjetas: [
       { id: 'reservar', titulo: 'Reservar', frase: 'Quién puede reservar, con cuánta antelación y cuántas reservas a la vez.', guardado: 'barra', palabras: ['antelación', 'bono', 'plan', 'aprobar reservas', 'impago'] },
-      { id: 'cancelar-y-recuperar', titulo: 'Cancelar y recuperar', frase: 'Hasta cuándo se cancela sin perder la sesión y cuánto dura una recuperación.', guardado: 'barra', palabras: ['cancelación', 'plazo', 'recuperaciones'] },
+      { id: 'cancelar-y-recuperar', titulo: 'Cancelar y recuperar', frase: 'Hasta cuándo se cancela sin perder la sesión, y si la recupera cuando cancela tarde.', guardado: 'barra', palabras: ['cancelación', 'plazo', 'cancelar tarde'] },
+      { id: 'recuperaciones', titulo: 'Recuperaciones', frase: 'Cuántas recuperaciones sin usar guarda cada alumna, cuándo caducan y si se dan solas al cerrar la semana.', guardado: 'barra', palabras: ['caducidad', 'tope', 'recuperar clase', 'clases pendientes'] },
       { id: 'si-se-cancela-una-clase', titulo: 'Si se cancela una clase entera', frase: 'Si tus alumnas recuperan la sesión cuando una clase no sale, y cuántas hacen falta para que salga.', guardado: 'barra', palabras: ['mínimo de asistentes', 'clase cancelada'] },
       { id: 'lista-de-espera', titulo: 'Lista de espera', frase: 'Si una clase llena admite lista de espera y cuánto tiempo hay para aceptar una plaza que se libera.', guardado: 'barra', palabras: ['plaza libre', 'clase llena'] },
       { id: 'asistencia', titulo: 'Asistencia y acceso', frase: 'Si pasas lista, si tus alumnas entran con su QR y si pides confirmación a quien suele faltar.', guardado: 'barra', palabras: ['pasar lista', 'check-in', 'qr', 'control de acceso', 'escanear'] },

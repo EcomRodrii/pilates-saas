@@ -41,6 +41,8 @@ export interface ReglasEstudio {
   reservaVentanaMinimaMinutos: number;
   /** `null` = sin límite: se puede reservar por adelantado que sea. */
   reservaAntelacionMaximaDias: number | null;
+  /** 'HH:MM': se abre a esa hora del día que toca; null/ausente = a la hora de la clase. */
+  reservaAntelacionHora?: string | null;
 }
 
 /**
@@ -152,7 +154,8 @@ export function fraseAntelacionMaxima(
   const min = Math.min(...topes);
   const varia = new Set(efectivos.map((d) => String(d))).size > 1;
   const cuanto = min === 1 ? '1 día' : `${min} días`;
+  const aLas = estudio.reservaAntelacionHora ? `, a las ${estudio.reservaAntelacionHora}` : '';
   return varia
-    ? `El horario se abre ${cuanto} antes, según la clase.`
-    : `El horario se abre ${cuanto} antes.`;
+    ? `El horario se abre ${cuanto} antes${aLas}, según la clase.`
+    : `El horario se abre ${cuanto} antes${aLas}.`;
 }

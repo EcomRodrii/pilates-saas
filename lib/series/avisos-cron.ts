@@ -85,7 +85,7 @@ async function barrerEstudio(admin: Admin, studioId: string, hoy: string): Promi
     admin.from('tipos_clase').select('id, nombre, archivado_en').eq('studio_id', studioId),
   ]);
   // Una serie de un tipo archivado ni se renueva ni se avisa: el trigger de
-  // `sesiones` rechazaría sus clases nuevas (migr 20260930203000), y avisar
+  // `sesiones` rechazaría sus clases nuevas (migr 20260930215125), y avisar
   // «renuévala» de algo que ya no se da es ruido. Al recuperar el tipo, vuelve
   // sola al barrido: `series.no_renovar` no se toca.
   const archivados = new Set((tipos ?? []).filter(t => t.archivado_en).map(t => t.id as string));

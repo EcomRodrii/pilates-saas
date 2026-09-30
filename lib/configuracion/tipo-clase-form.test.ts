@@ -151,9 +151,12 @@ test('los minutos se cuentan en la unidad en la que se piensan', () => {
 test('cero y null no dicen lo mismo, y ninguno se enseña como "0"', () => {
   assert.equal(resumenAntelacionMinima(0), 'se puede reservar hasta el último momento');
   assert.equal(resumenAntelacionMinima(120), 'cierra 2 horas antes');
-  // null = sin límite; 0 = solo el mismo día. Confundirlos cambia la regla.
+  // null = sin límite; 0 = no se abre (se abriría a la hora de la clase, ya
+  // empezada). Confundirlos cambia la regla. Decía «solo el mismo día»: no era verdad.
   assert.equal(resumenAntelacionMaxima(null), 'sin límite, se puede reservar con toda la antelación');
-  assert.equal(resumenAntelacionMaxima(0), 'solo el mismo día');
+  assert.equal(resumenAntelacionMaxima(0), 'no se abre hasta que empieza la clase');
+  assert.equal(resumenAntelacionMaxima(0, '08:00'), 'se abre el mismo día a las 08:00');
+  assert.equal(resumenAntelacionMaxima(2, '20:00'), 'se abre 2 días antes a las 20:00');
   assert.equal(resumenAntelacionMaxima(1), 'se abre 1 día antes');
   assert.equal(resumenAntelacionMaxima(30), 'se abre 30 días antes');
   assert.equal(resumenHoras(0), 'puede cancelar hasta el último momento');

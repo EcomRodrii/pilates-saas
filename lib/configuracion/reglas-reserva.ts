@@ -25,7 +25,7 @@ import { frasesPoliticaEstudio } from '../politica-estudio-textos.ts';
 import { listaEsperaDesdeValores, valoresDeListaEspera, type ListaEsperaElegida } from './lista-espera-modo.ts';
 
 export type TarjetaReglasId =
-  | 'reservar' | 'cancelar-y-recuperar' | 'si-se-cancela-una-clase' | 'lista-de-espera' | 'asistencia' | 'si-cancela-tarde-o-no-viene'
+  | 'reservar' | 'cancelar-y-recuperar' | 'recuperaciones' | 'si-se-cancela-una-clase' | 'lista-de-espera' | 'asistencia' | 'si-cancela-tarde-o-no-viene'
   | 'si-se-queda-sin-cuota' | 'plaza-fija-desde-la-app' | 'si-pausa-su-plaza-fija';
 
 /** Las columnas de `studios` que guarda esta sección. */
@@ -33,13 +33,20 @@ export interface ReglasReserva {
   reservaExigirPlan: boolean;
   reservaVentanaMinimaMinutos: number;
   reservaAntelacionMaximaDias: number | null;
+  /** 'HH:MM': la reserva se abre a esa hora del día que marcan los días; null = a
+   *  la hora de la clase. Del estudio: el tipo de clase solo cambia los días. */
+  reservaAntelacionHora: string | null;
   reservaMaxSimultaneas: number | null;
+  /** Clases al día por alumna (hora del estudio). null = sin tope. */
+  reservaMaxPorDia: number | null;
   bloquearReservaImpago: boolean;
   requiereAprobacion: boolean;
   cancelacionVentanaHoras: number;
   cancelacionDevolverBonoTardia: boolean;
   cancelacionClaseDevuelveBono: boolean;
   minimoAsistentesPorClase: number;
+  /** Recuperaciones sin usar que puede tener a la vez cada alumna (1–20; 4 = lo de siempre). */
+  recuperacionMaxVivas: number;
   recuperacionCaducidadTipo: 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE';
   recuperacionCaducidadDias: number | null;
   recuperacionAutoSemanal: boolean;
@@ -61,8 +68,11 @@ export interface ReglasReserva {
 
 /** En qué tarjeta vive cada columna. Cada columna, en una sola. */
 export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (keyof ReglasReserva)[]>> = {
-  reservar: ['reservaExigirPlan', 'reservaVentanaMinimaMinutos', 'reservaAntelacionMaximaDias', 'reservaMaxSimultaneas', 'bloquearReservaImpago', 'requiereAprobacion'],
-  'cancelar-y-recuperar': ['cancelacionVentanaHoras', 'cancelacionDevolverBonoTardia', 'recuperacionCaducidadTipo', 'recuperacionCaducidadDias', 'recuperacionAutoSemanal'],
+  reservar: ['reservaExigirPlan', 'reservaVentanaMinimaMinutos', 'reservaAntelacionMaximaDias', 'reservaAntelacionHora', 'reservaMaxSimultaneas', 'reservaMaxPorDia', 'bloquearReservaImpago', 'requiereAprobacion'],
+  'cancelar-y-recuperar': ['cancelacionVentanaHoras', 'cancelacionDevolverBonoTardia'],
+  // 30-sep: la caducidad y el reparto semanal se mudaron aquí desde «Cancelar y
+  // recuperar», junto al tope, que antes era un 4 fijo.
+  recuperaciones: ['recuperacionMaxVivas', 'recuperacionCaducidadTipo', 'recuperacionCaducidadDias', 'recuperacionAutoSemanal'],
   'si-se-cancela-una-clase': ['cancelacionClaseDevuelveBono', 'minimoAsistentesPorClase'],
   'lista-de-espera': ['permiteListaEspera', 'listaEsperaPlazoAceptacionMinutos'],
   asistencia: ['requiereCheckinQr', 'controlAccesoQr'],
@@ -74,7 +84,7 @@ export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (ke
 
 /** El orden en que se pintan las filas. */
 export const TARJETAS_REGLAS: readonly TarjetaReglasId[] = [
-  'reservar', 'cancelar-y-recuperar', 'si-se-cancela-una-clase', 'lista-de-espera', 'asistencia', 'si-cancela-tarde-o-no-viene',
+  'reservar', 'cancelar-y-recuperar', 'recuperaciones', 'si-se-cancela-una-clase', 'lista-de-espera', 'asistencia', 'si-cancela-tarde-o-no-viene',
   'si-se-queda-sin-cuota', 'plaza-fija-desde-la-app', 'si-pausa-su-plaza-fija',
 ];
 
@@ -87,13 +97,16 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     reservaExigirPlan: s?.reservaExigirPlan ?? true,
     reservaVentanaMinimaMinutos: s?.reservaVentanaMinimaMinutos ?? 0,
     reservaAntelacionMaximaDias: s?.reservaAntelacionMaximaDias ?? null,
+    reservaAntelacionHora: s?.reservaAntelacionHora ?? null,
     reservaMaxSimultaneas: s?.reservaMaxSimultaneas ?? null,
+    reservaMaxPorDia: s?.reservaMaxPorDia ?? null,
     bloquearReservaImpago: s?.bloquearReservaImpago ?? false,
     requiereAprobacion: s?.requiereAprobacion ?? false,
     cancelacionVentanaHoras: s?.cancelacionVentanaHoras ?? 12,
     cancelacionDevolverBonoTardia: s?.cancelacionDevolverBonoTardia ?? false,
     cancelacionClaseDevuelveBono: s?.cancelacionClaseDevuelveBono ?? true,
     minimoAsistentesPorClase: s?.minimoAsistentesPorClase ?? 0,
+    recuperacionMaxVivas: s?.recuperacionMaxVivas ?? 4,
     recuperacionCaducidadTipo: s?.recuperacionCaducidadTipo ?? 'FIN_MES_SIGUIENTE',
     recuperacionCaducidadDias: s?.recuperacionCaducidadDias ?? null,
     recuperacionAutoSemanal: s?.recuperacionAutoSemanal ?? false,
@@ -126,9 +139,21 @@ export function formularioReglas(s: Partial<Studio> | null | undefined): ReglasR
   return { ...resto, listaEspera: listaEsperaDesdeValores({ permiteListaEspera, listaEsperaPlazoAceptacionMinutos }) };
 }
 
-/** La reserva se cerraría antes de abrirse. Mismo criterio que el tipo de clase (#867): en minutos. */
-export function antelacionImposible(minimaMinutos: number, maximaDias: number | null): boolean {
-  return maximaDias != null && minimaMinutos > maximaDias * 24 * 60;
+const minutosDelDia = (hora: string) => {
+  const [h, m] = hora.split(':').map(Number);
+  return h * 60 + m;
+};
+
+/**
+ * La reserva se cerraría antes de abrirse. Mismo criterio que el tipo de clase
+ * (#867): en minutos. Con hora fija, «imposible» es para CUALQUIER clase, hasta
+ * la de las 23:59: una clase temprana puede no abrirse nunca con «0 días a las
+ * 20:00» y aun así servir para las de la tarde (eso lo avisa la línea de tiempo).
+ */
+export function antelacionImposible(minimaMinutos: number, maximaDias: number | null, hora: string | null = null): boolean {
+  if (maximaDias == null) return false;
+  if (hora == null) return minimaMinutos > maximaDias * 24 * 60;
+  return minimaMinutos > maximaDias * 24 * 60 + 1439 - minutosDelDia(hora);
 }
 
 export type Problema = { tarjeta: TarjetaReglasId; texto: string };
@@ -141,7 +166,7 @@ export function reglasAGuardar(
   form: ReglasReservaForm,
   guardado: ReglasReserva,
 ): { ok: true; reglas: ReglasReserva } | { ok: false; problema: Problema } {
-  if (antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias)) {
+  if (antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias, form.reservaAntelacionHora)) {
     return { ok: false, problema: { tarjeta: 'reservar', texto: 'Revisa «Reservar»: la reserva se cerraría antes de abrirse.' } };
   }
   const lista = valoresDeListaEspera(form.listaEspera, guardado);
@@ -160,8 +185,27 @@ export function reglasDeTarjetaAGuardar(
   form: ReglasReservaForm,
   guardado: ReglasReserva,
 ): { ok: true; cambios: Partial<ReglasReserva> } | { ok: false; texto: string } {
-  if (tarjeta === 'reservar' && antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias)) {
+  if (tarjeta === 'reservar' && antelacionImposible(form.reservaVentanaMinimaMinutos, form.reservaAntelacionMaximaDias, form.reservaAntelacionHora)) {
     return { ok: false, texto: 'La reserva se cerraría antes de abrirse: cambia los días o los minutos.' };
+  }
+  // 0 días a la hora de la clase: se abriría cuando ya ha empezado. Con hora fija
+  // sí vale («el mismo día a las 08:00»).
+  if (tarjeta === 'reservar' && form.reservaAntelacionMaximaDias === 0 && form.reservaAntelacionHora == null) {
+    return { ok: false, texto: 'Con 0 días a la hora de la clase, la reserva se abriría cuando ya ha empezado: pon al menos 1 día o una hora fija.' };
+  }
+  if (tarjeta === 'reservar' && form.reservaAntelacionHora != null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(form.reservaAntelacionHora)) {
+    return { ok: false, texto: 'Pon la hora a la que se abre, como 20:00.' };
+  }
+  // Los mismos rangos que los CHECK de `studios`: un 0 no es «sin tope» (eso es
+  // dejarlo vacío) y la base de datos lo rechazaría con un error sin explicar.
+  if (tarjeta === 'reservar' && form.reservaMaxSimultaneas != null && (form.reservaMaxSimultaneas < 1 || form.reservaMaxSimultaneas > 50)) {
+    return { ok: false, texto: 'Las reservas a la vez van de 1 a 50. Déjalo vacío para no poner límite.' };
+  }
+  if (tarjeta === 'recuperaciones' && !(Number.isInteger(form.recuperacionMaxVivas) && form.recuperacionMaxVivas >= 1 && form.recuperacionMaxVivas <= 20)) {
+    return { ok: false, texto: 'Las recuperaciones sin usar a la vez van de 1 a 20.' };
+  }
+  if (tarjeta === 'reservar' && form.reservaMaxPorDia != null && (form.reservaMaxPorDia < 1 || form.reservaMaxPorDia > 20)) {
+    return { ok: false, texto: 'Las clases al día van de 1 a 20. Déjalo vacío para no poner límite.' };
   }
   if (tarjeta === 'lista-de-espera') {
     const lista = valoresDeListaEspera(form.listaEspera, guardado);
@@ -200,14 +244,32 @@ function duracion(minutos: number): string {
  * (se abre `dias` antes del inicio; null = sin límite) y `puedeReservarPorVentanaMinima`
  * (se cierra `minutos` antes; 0 = hasta el inicio), en lib/booking-logic.ts.
  */
-export function fraseAntelacion(minimaMinutos: number, maximaDias: number | null): string {
-  if (antelacionImposible(minimaMinutos, maximaDias)) {
+export function fraseAntelacion(minimaMinutos: number, maximaDias: number | null, hora: string | null = null): string {
+  if (antelacionImposible(minimaMinutos, maximaDias, hora)) {
     return 'Así la reserva se cerraría antes de abrirse: nunca habría un momento para reservar.';
   }
   const hasta = minimaMinutos > 0 ? `hasta ${duracion(minimaMinutos)} antes de que empiece la clase` : 'hasta que empieza la clase';
   if (maximaDias == null) return `Se puede reservar con cualquier antelación, ${hasta}.`;
+  if (hora != null) {
+    const desde = maximaDias === 0 ? `el mismo día a las ${hora}` : `${maximaDias === 1 ? '1 día' : `${maximaDias} días`} antes a las ${hora}`;
+    return `Se puede reservar desde ${desde} ${hasta}.`;
+  }
   if (maximaDias === 0) return 'La reserva no se abre hasta que empieza la clase.';
   return `Se puede reservar desde ${maximaDias === 1 ? '1 día' : `${maximaDias} días`} antes ${hasta}.`;
+}
+
+/** Cuándo caduca una recuperación, en pocas palabras. Lo aplica `calcular_caduca_recuperacion`. */
+export function fraseCaducidadRecuperacion(tipo: ReglasReserva['recuperacionCaducidadTipo'], dias: number | null): string {
+  if (tipo === 'DIAS') return `caducan a los ${dias ?? 30} días`;
+  if (tipo === 'FIN_MES') return 'caducan a final de mes';
+  return 'caducan a final del mes siguiente';
+}
+
+/** «se abre 2 días antes» / «se abre 2 días antes a las 20:00»: los días del estudio o del tipo, la hora del estudio. */
+export function fraseSeAbre(dias: number | null, hora: string | null): string {
+  if (dias == null) return 'sin límite para reservar';
+  if (hora != null) return dias === 0 ? `se abre el mismo día a las ${hora}` : `se abre ${dias === 1 ? '1 día' : `${dias} días`} antes a las ${hora}`;
+  return dias === 0 ? 'se abre al empezar' : `se abre ${dias === 1 ? '1 día' : `${dias} días`} antes`;
 }
 
 // ─── Los tipos de clase que cambian una regla ────────────────────────────────
@@ -253,6 +315,8 @@ function cambiaRegla(tarjeta: TarjetaReglasId, t: TipoConReglas, e: ReglasReserv
     case 'si-cancela-tarde-o-no-viene':
       // `coalesce(tc.penalizacion_importe_eur, st.penalizacion_importe_eur)`: un 0 propio apaga el cargo.
       return cifra(heredaOverride(t.penalizacionImporteEur, e.penalizacionImporteEur)) !== cifra(e.penalizacionImporteEur);
+    case 'recuperaciones':
+      // Van sobre la alumna, no sobre la clase: sin override por tipo.
     case 'si-se-queda-sin-cuota':
       // Sin override por tipo de clase: va sobre la cuota de la alumna, no sobre la clase.
       return false;
@@ -275,7 +339,7 @@ export function queCambiaElTipo(tarjeta: TarjetaReglasId, t: TipoConReglas, e: R
     case 'reservar': {
       const partes: string[] = [];
       const dias = heredaOverride(t.reservaAntelacionMaximaDias, e.reservaAntelacionMaximaDias);
-      if (dias !== e.reservaAntelacionMaximaDias) partes.push(dias == null ? 'sin límite para reservar' : dias === 0 ? 'se abre al empezar' : `se abre ${dias === 1 ? '1 día' : `${dias} días`} antes`);
+      if (dias !== e.reservaAntelacionMaximaDias) partes.push(fraseSeAbre(dias, e.reservaAntelacionHora));
       const min = heredaOverride(t.reservaVentanaMinimaMinutos, e.reservaVentanaMinimaMinutos);
       if (min !== e.reservaVentanaMinimaMinutos) partes.push(min > 0 ? `se cierra ${duracion(min)} antes` : 'se reserva hasta que empieza');
       const plan = heredaOverride(t.reservaExigirPlan, e.reservaExigirPlan);
@@ -333,9 +397,13 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
   const frase = (id: string) => politica.find(f => f.id === id)?.texto ?? '';
   switch (tarjeta) {
     case 'reservar':
-      return fraseAntelacion(r.reservaVentanaMinimaMinutos, r.reservaAntelacionMaximaDias);
+      return fraseAntelacion(r.reservaVentanaMinimaMinutos, r.reservaAntelacionMaximaDias, r.reservaAntelacionHora);
     case 'cancelar-y-recuperar':
       return frase('cancela-tarde') || frase('cancela-a-tiempo');
+    case 'recuperaciones': {
+      const n = r.recuperacionMaxVivas;
+      return `Con ${n} sin usar, no se le da otra hasta que use o le caduque una. Si bajas el número, quien ya tenga más las conserva.`;
+    }
     case 'si-se-cancela-una-clase': {
       const minimo = cifra(r.minimoAsistentesPorClase);
       if (minimo === 0) return frase('estudio-cancela');

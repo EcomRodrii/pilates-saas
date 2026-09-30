@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
   // Un tipo ARCHIVADO cuenta como existente (no se crea otro con su nombre),
   // pero pierde frente a uno activo que se llame igual. Y con él solo se
   // importa historial: una clase futura suya la rechazaría el trigger de
-  // `sesiones` (migr 20260930203000), así que se avisa en su fila.
+  // `sesiones` (migr 20260930215125), así que se avisa en su fila.
   const tipoPorNombre = new Map<string, { id: string; duracion: number; archivado: boolean }>();
   for (const t of tipos ?? []) {
     const clave = norm(t.nombre);

@@ -35,6 +35,24 @@ test('pedir plan o bono se resuelve como en el servidor: sin nada a la venta no 
   assert.match(paso(lineaDeTiempoReserva(reglasEfectivasDeTipo(pide, null, []), JUEVES_18), 'cierra').detalle, /sin plan ni bono/);
 });
 
+test('a hora fija: se abre ese día a esa hora, y si en esta clase no llega a abrirse lo avisa', () => {
+  const abre = paso(lineaDeTiempoReserva({ ...estudio, reservaAntelacionMaximaDias: 2, reservaAntelacionHora: '20:00' }, JUEVES_18), 'abre');
+  assert.equal(abre.cuando, 'Desde el mar 29 · 20:00');
+  assert.equal(abre.detalle, '2 días antes, a las 20:00');
+  assert.equal(abre.tono, undefined);
+  // 0 días a las 20:00 y la clase a las 18:00: se abriría después de empezar.
+  const nunca = paso(lineaDeTiempoReserva({ ...estudio, reservaAntelacionMaximaDias: 0, reservaAntelacionHora: '20:00' }, JUEVES_18), 'abre');
+  assert.equal(nunca.tono, 'aviso');
+  assert.match(nunca.detalle, /no se llega a abrir/);
+  // 0 días a las 08:00: el mismo día a las 8.
+  assert.equal(paso(lineaDeTiempoReserva({ ...estudio, reservaAntelacionMaximaDias: 0, reservaAntelacionHora: '08:00' }, JUEVES_18), 'abre').detalle, 'El mismo día, a las 08:00');
+});
+
+test('el tope de clases al día sale en «Puede reservar»', () => {
+  assert.match(paso(lineaDeTiempoReserva({ ...estudio, reservaMaxPorDia: 1 }, JUEVES_18), 'cierra').detalle, /como mucho una al día/);
+  assert.match(paso(lineaDeTiempoReserva({ ...estudio, reservaMaxPorDia: 2 }, JUEVES_18), 'cierra').detalle, /como mucho 2 al día/);
+});
+
 test('se abre 2 días antes y se cierra 30 min antes, con máximo a la vez y aprobación', () => {
   const pasos = lineaDeTiempoReserva({ ...estudio, reservaAntelacionMaximaDias: 2, reservaVentanaMinimaMinutos: 30, reservaMaxSimultaneas: 3, requiereAprobacion: true }, JUEVES_18);
   assert.equal(paso(pasos, 'abre').cuando, 'Desde el mar 29 · 18:00');

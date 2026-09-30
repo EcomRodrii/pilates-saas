@@ -161,7 +161,7 @@ test('el trigger de las reglas de dinero de un tipo de clase dice quién decide,
 });
 
 test('un tipo de clase archivado dice qué hacer, no «revisa los datos»', () => {
-  // Lo lanza el trigger de `sesiones` (migr 20260930203000) al programar una
+  // Lo lanza el trigger de `sesiones` (migr 20260930215125) al programar una
   // clase futura de un tipo archivado: otra pestaña lo archivó, o una serie.
   const m = mensajeDeFalloAlGuardar({ code: 'P0001', message: 'TIPO_ARCHIVADO' });
   assert.match(m, /está archivado/);

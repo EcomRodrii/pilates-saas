@@ -2,7 +2,7 @@
 // archivados y qué pasa al archivar uno.
 //
 // La REGLA («un tipo archivado no programa clases nuevas») vive en la base de
-// datos, como trigger en `sesiones` (migr 20260930203000): hay demasiadas vías
+// datos, como trigger en `sesiones` (migr 20260930215125): hay demasiadas vías
 // que crean clases para confiarla a los selectores. Esto es lo que decide qué
 // ve cada pantalla, en un solo sitio, para que no diverjan:
 //
@@ -156,7 +156,7 @@ export function frasesImpactoArchivar(i: ImpactoArchivar): string[] {
 
 // ─── El orden ────────────────────────────────────────────────────────────────
 //
-// `tipos_clase.orden` (migr 20260930203000): lo decide el estudio arrastrando
+// `tipos_clase.orden` (migr 20260930215125): lo decide el estudio arrastrando
 // en Configuración. NULL es «sin colocar» — un tipo nuevo, duplicado, del
 // catálogo de la cadena… — y va detrás, por nombre.
 //

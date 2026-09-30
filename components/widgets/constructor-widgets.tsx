@@ -356,6 +356,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? 0,
       reservaVentanaMinimaMinutos: studio?.reservaVentanaMinimaMinutos ?? 0,
       reservaAntelacionMaximaDias: studio?.reservaAntelacionMaximaDias ?? null,
+      reservaAntelacionHora: studio?.reservaAntelacionHora ?? null,
     };
     // Las reglas, sobre los tipos que aún tienen clases (lo mismo que /reservar):
     // la de uno archivado sin ninguna ya no le toca a nadie.

@@ -1,7 +1,7 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Archivar un tipo de clase (Fase 2 · D1, migr 20260930203000).
+// Archivar un tipo de clase (Fase 2 · D1, migr 20260930215125).
 //
 // Un tipo con historial no se puede borrar (la FK de `sesiones` lo impide), así
 // que el sitio de una clase que ya no se da es «Archivados». Lo que se fija:
