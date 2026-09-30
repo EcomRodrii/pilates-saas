@@ -45,7 +45,7 @@ const VIAS = [
   { t: 'Tarjeta guardada', d: 'Cobro automático el día del vencimiento, sin que la socia tenga que hacer nada.', pie: 'Vía Stripe, con la cuenta del estudio' },
   { t: 'Pago en el momento', d: 'La socia compra su bono o su plan desde el portal y paga ahí mismo.', pie: 'Tarjeta' },
   { t: 'Remesa SEPA 19.14', d: 'Se genera el fichero de adeudos para presentarlo en tu banco de siempre.', pie: 'Sin pasarela de por medio' },
-  { t: 'Cobro de mostrador', d: 'Lo que se paga en efectivo o por Bizum queda registrado igual, con su factura.', pie: 'Registro manual' },
+  { t: 'Cobro de mostrador', d: 'Lo que se paga en efectivo o por Bizum queda registrado igual que el resto.', pie: 'Registro manual' },
 ];
 
 export function ViasDeCobro() {

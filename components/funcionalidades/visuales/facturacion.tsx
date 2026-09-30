@@ -19,7 +19,7 @@ export function DelCobroALaFactura() {
   return (
     <PanelClaro
       titulo="Del cobro a la factura sellada"
-      nota="Estas cuatro etapas ocurren siempre, en cada cobro. La firma con certificado y el envío del registro a la AEAT están en construcción: cuando lleguen, se suman al final de este mismo flujo, y con ellos el QR de cotejo, sin cambiar nada de lo anterior."
+      nota="Con la facturación activada, estas cuatro etapas ocurren en cada cobro. La firma con certificado y el envío del registro a la AEAT están en construcción: cuando lleguen, se suman al final de este mismo flujo, y con ellos el QR de cotejo, sin cambiar nada de lo anterior."
     >
       <div className="fac-flujo">
         {ETAPAS.map((e, i) => (

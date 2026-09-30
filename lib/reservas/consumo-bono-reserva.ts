@@ -8,13 +8,11 @@
 // transacción —«se descontó de tal bono» o «no había bono que cobrar»—, así que
 // volver a llamar es seguro: decide si falta y, si no, no hace nada.
 //
-// Mientras la migración no esté aplicada (mergear no la aplica) se cae al
-// descuento viejo con el comportamiento de siempre: la primera vez descuenta, y
-// un reintento NO descuenta —sin marca no hay forma de saber si ya se hizo, y
-// descontar dos veces es peor que no descontar—.
+// El descuento viejo se retiró el 30-sep-2026 (migr 20260930094536): ya no hay
+// nada a lo que caer si la RPC por reserva falla. Un fallo es un fallo, y lo
+// cierra el reparador de bonos sin decidir.
 //
 // Sin imports con alias: `node --test` no resuelve `@/`.
-import { rpcNoDesplegada } from '../aceptacion-contrato.ts';
 
 export type ResultadoConsumo =
   /** Se ha descontado AHORA, en esta llamada. */
@@ -220,26 +218,8 @@ export async function descontarSesionDeReserva(cliente: ClienteConsumo, p: {
     p_reintento: p.reintento,
   });
   if (!error) return interpretarFilaConsumo(Array.isArray(data) ? data[0] : data);
-  // Cualquier otro error NO cae al descuento viejo: un tiempo agotado pudo
-  // confirmar la transacción sin que llegara la respuesta.
-  if (!rpcNoDesplegada(error)) return { ...SIN_CONSUMO('FALLO'), via: 'reserva', error };
-
-  // Legado: la RPC por reserva aún no existe (o PostgREST aún no la ve).
-  //
-  // No se intenta escribir la marca a mano: las columnas llegan en el mismo DDL
-  // que la RPC, así que si no se ve la una tampoco se ven las otras. Lo que
-  // evita el doble cobro aquí es el orden de aplicación: hasta confirmar que la
-  // RPC se ve, las reservas nacen NO rastreadas (sin default), y un reintento
-  // sobre ellas no cobra.
-  if (p.reintento) return { ...SIN_CONSUMO('NO_VERIFICABLE'), via: 'legado' };
-  if (!p.suscripcionId) return { ...SIN_CONSUMO('SIN_BONO'), via: 'legado' };
-
-  const { data: saldo, error: errorViejo } = await cliente.rpc('consumir_sesion_bono', {
-    p_suscripcion_id: p.suscripcionId,
-    p_studio_id: p.studioId,
-    p_sesion_id: p.sesionId,
-  });
-  if (errorViejo) return { ...SIN_CONSUMO('FALLO'), via: 'legado', error: errorViejo };
-  if (saldo == null) return { ...SIN_CONSUMO('SIN_SALDO'), via: 'legado' };
-  return { resultado: 'CONSUMIDA', saldo: saldo as number, suscripcionId: p.suscripcionId, via: 'legado' };
+  // Cualquier error es un FALLO, nunca un «no se cobró»: un tiempo agotado pudo
+  // confirmar la transacción sin que llegara la respuesta. Ya no hay descuento
+  // viejo al que caer (migr 20260930094536).
+  return { ...SIN_CONSUMO('FALLO'), via: 'reserva', error };
 }

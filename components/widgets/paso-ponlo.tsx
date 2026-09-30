@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertCircle, BookOpen, Check, Code2, Copy, Loader2, Mail, Send } from 'lucide-react';
+import { AlertCircle, BookOpen, Check, Code2, Copy, Info, Loader2, Mail, Send } from 'lucide-react';
 import { cn, copiarAlPortapapeles } from '@/lib/utils';
 import { btnPrimary, btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { METODOS, type MetodoIntegracion } from '@/lib/widgets/catalogo';
@@ -161,11 +161,20 @@ export function PasoPonlo({
     copiado: copiado.metodo ?? metodo, ahora: metodo, disenoPropio: tieneDisenoEnCodigo(c), botonVivo: copiado.botonVivo,
   });
 
+  // Lo pegado es un código de antes del código por id: cada cambio le pide
+  // pegarlo otra vez hasta que lo cambie UNA vez por este.
+  const codigoAntiguo = !!copiado && !copiado.pieza && porId;
+  // Ya lo tiene pegado con el código de ahora: no hay nada que volver a pegar
+  // (lo que enseña llega con «Aplicar en mi web»). Copiar sigue a mano, para
+  // ponerlo en otra página.
+  const yaPegado = !!copiado?.pieza && copiado.pieza === entrada.pieza && !desfase;
   const etiquetaCopiar = recienCopiado === 'codigo'
     ? 'Copiado'
-    : esEnlace
-      ? (desfase ? 'Copiar el enlace nuevo' : 'Copiar enlace')
-      : (desfase ? 'Copiar el código nuevo' : 'Copiar código');
+    : yaPegado
+      ? (esEnlace ? 'Copiar el enlace (para otro sitio)' : 'Copiar el código (para otra página)')
+      : esEnlace
+        ? (desfase ? 'Copiar el enlace nuevo' : codigoAntiguo ? 'Copiar el enlace de ahora' : 'Copiar enlace')
+        : (desfase ? 'Copiar el código nuevo' : codigoAntiguo ? 'Copiar el código de ahora' : 'Copiar código');
 
   const envio = (
     <div className="space-y-2">
@@ -187,7 +196,7 @@ export function PasoPonlo({
   return (
     <div className="space-y-4">
       <Tarjeta
-        titulo={falta ? 'Te falta un dato' : plataforma === 'sinweb' ? 'Ya está. Ahora compártelo' : 'Ya está. Ahora ponlo en tu web'}
+        titulo={falta ? 'Te falta un dato' : yaPegado ? 'Ya lo tienes en tu web' : plataforma === 'sinweb' ? 'Ya está. Ahora compártelo' : 'Ya está. Ahora ponlo en tu web'}
         subtitulo={`${w.respuesta} · ${forma.toLowerCase()}${plataforma ? ` · ${nombrePlataforma(plataforma)}` : ''}`}
       >
         {estiloSinAplicar && (
@@ -203,19 +212,29 @@ export function PasoPonlo({
           </div>
         ) : (
           <div className="space-y-2">
+            {codigoAntiguo && (
+              <p className="flex items-start gap-2 rounded-xl border border-border bg-muted/50 px-3.5 py-3 text-[12.5px] leading-relaxed text-foreground">
+                <Info size={15} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0">
+                  Tu web tiene {esEnlace ? 'un enlace' : 'un código'} de antes: si cambias qué enseña, tendrás que pegarlo otra vez. Cópialo aquí y pégalo en lugar del anterior una sola vez; desde entonces, esos cambios llegarán con «Aplicar en mi web».
+                  {botonDeAntes && ' Con este, el botón que abre la ventana también seguirá el estilo de tus widgets.'}
+                </span>
+              </p>
+            )}
             <button
               type="button"
               onClick={() => void copiar()}
               disabled={preparando}
-              className={cn(btnPrimary, 'min-h-12 w-full justify-center text-[14.5px] font-semibold [@media(pointer:fine)]:min-h-12')}
+              className={cn(yaPegado ? btnSecondary : btnPrimary, 'min-h-12 w-full justify-center text-[14.5px] font-semibold [@media(pointer:fine)]:min-h-12')}
             >
               {preparando ? <Loader2 size={17} className="animate-spin" aria-hidden /> : recienCopiado === 'codigo' ? <Check size={17} aria-hidden /> : <Copy size={17} aria-hidden />}
               {preparando ? 'Preparando tu código…' : etiquetaCopiar}
             </button>
             <p className="text-center text-[12px] text-muted-foreground">
               {copiado && !desfase ? `Lo copiaste aquí el ${fechaCorta(copiado.en)}.` : !copiado ? 'Aún no lo has copiado desde aquí.' : 'Lo que copiaste antes ya no es lo de ahora.'}
+              {yaPegado && ' No hace falta pegarlo otra vez: lo que enseña llega con «Aplicar en mi web».'}
             </p>
-            {botonDeAntes && (
+            {botonDeAntes && !codigoAntiguo && (
               <p className="text-center text-[12px] leading-relaxed text-muted-foreground">
                 El botón que ya tienes pegado es de un código anterior y no cambia con el estilo de tus widgets. Si copias este y lo pegas en lugar del de antes, cambiará solo.
               </p>
@@ -263,19 +282,11 @@ export function PasoPonlo({
           </div>
         )}
 
-        <div className="grid gap-2 @xl/config:grid-cols-2">
-          <div className="rounded-xl border border-success/30 bg-success/5 p-3 text-[12.5px] leading-relaxed text-foreground">
-            <p className="mb-0.5 flex items-center gap-1 font-semibold"><Check size={13} aria-hidden />Se actualiza solo</p>
-            {estiloVivo(metodo, !tieneDisenoEnCodigo(c, metodo), { identidadEstudio: c.identidad === 'estudio', aplicado: estiloAplicado })}
-            {porId && metodo !== 'enlace' && metodo !== 'boton' && ' Y lo que enseña (y su diseño propio, si lo tiene), al pulsar «Aplicar en mi web».'}
-          </div>
-          <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-[12.5px] leading-relaxed text-foreground">
-            <p className="mb-0.5 font-semibold">Si lo cambias, cópialo otra vez</p>
-            {porId
-              ? `Solo lo que va en el propio código: la forma de ponerlo${metodo === 'iframe' ? ', el ancho y cómo carga' : ''}${metodo === 'popup' || metodo === 'boton' ? ', el texto y el tipo de botón' : ''}${metodo === 'popup' ? ' y, con un diseño propio, el color del botón' : ''}.`
-              : 'Lo que lleva la etiqueta «Va en el código»: qué enseña, la forma de ponerlo, el texto y el tipo de botón, y un diseño propio.'}
-          </div>
-        </div>
+        <ComoLlegaCadaCambio
+          siempre={siempreAlDia(metodo, { sigue: !tieneDisenoEnCodigo(c, metodo), identidadEstudio: c.identidad === 'estudio', aplicado: estiloAplicado })}
+          aplicar={conAplicar(metodo, { sigue: !tieneDisenoEnCodigo(c, metodo), aplicado: estiloAplicado, porId })}
+          pegar={alPegarOtraVez(metodo, porId)}
+        />
       </Tarjeta>
 
       <ParaQuienHaceLaWeb
@@ -295,8 +306,9 @@ export function PasoPonlo({
   );
 }
 
-// Qué parte del aspecto llega sola a lo ya pegado: el estilo de sus widgets (el
-// que se aplica en «Cómo se ve», Fase B), salvo que su código lleve un diseño
+// Cómo llega cada cambio a lo pegado (30-sep-2026: en tres líneas, con las
+// mismas palabras que las etiquetas). El estilo de sus widgets (el
+// que se aplica en «Cómo se ve», Fase B) llega al aplicarlo, salvo que su código lleve un diseño
 // propio —entonces no se lo pasa nadie (`tieneDisenoEnCodigo`, con la regla de
 // su método)—. Con el popup, desde la Fase D también el botón que abre la
 // ventana: el código que se copia AHORA lo pinta con variables que
@@ -307,18 +319,48 @@ export function PasoPonlo({
 // aplicado se ve como siempre —con la identidad del estudio, su color y la letra
 // de su web; si no, su diseño de siempre— y se dice que tomará el que aplique.
 // Mientras carga lo aplicado (`aplicado: null`) no se afirma ninguna de las dos.
-function estiloVivo(metodo: MetodoIntegracion, sigueElEstilo: boolean, x: { identidadEstudio: boolean; aplicado: boolean | null }): string {
-  if (metodo === 'boton' || metodo === 'enlace') return 'Tus clases, precios y plazas, y tu página de reservas entera.';
-  if (!sigueElEstilo) return 'Tus clases, precios y plazas.';
-  if (metodo === 'popup') return 'Tus clases, precios y plazas, y el estilo de tus widgets: dentro de la ventana y en el botón que la abre (su color y sus esquinas).';
-  if (metodo === 'nativa') {
-    if (x.aplicado === null) return 'Tus clases, precios y plazas.';
-    if (x.aplicado) return 'Tus clases, precios y plazas, y el estilo de tus widgets.';
-    return x.identidadEstudio
-      ? 'Tus clases, precios y plazas, y tu color (con la letra de tu web). Si aplicas un estilo a tus widgets, lo toma también.'
-      : 'Tus clases, precios y plazas. Si aplicas un estilo a tus widgets, lo toma también.';
+function siempreAlDia(metodo: MetodoIntegracion, x: { sigue: boolean; identidadEstudio: boolean; aplicado: boolean | null }): string {
+  if (metodo === 'boton' || metodo === 'enlace') return 'tus clases, precios y plazas, y tu página de reservas entera';
+  if (metodo === 'nativa' && x.sigue && x.aplicado === false && x.identidadEstudio) return 'tus clases, precios y plazas, y tu color (con la letra de tu web)';
+  return 'tus clases, precios y plazas';
+}
+
+function conAplicar(metodo: MetodoIntegracion, x: { sigue: boolean; aplicado: boolean | null; porId: boolean }): string | null {
+  const pagina = metodo === 'boton' || metodo === 'enlace';
+  const partes: string[] = [];
+  if (!pagina && x.sigue) {
+    if (metodo === 'popup') partes.push('el estilo de tus widgets, dentro de la ventana y en el botón que la abre (su color y sus esquinas)');
+    else if (metodo === 'nativa' && x.aplicado === false) partes.push('el estilo de tus widgets, en cuanto apliques uno');
+    else if (!(metodo === 'nativa' && x.aplicado === null)) partes.push('el estilo de tus widgets');
   }
-  return 'Tus clases, precios y plazas, y el estilo de tus widgets.';
+  if (x.porId && !pagina) partes.push('lo que enseña (y su diseño propio, si lo tiene)');
+  return partes.length ? partes.join('; y ') : null;
+}
+
+function alPegarOtraVez(metodo: MetodoIntegracion, porId: boolean): string {
+  if (!porId) return 'qué enseña, la forma de ponerlo, el texto y el tipo de botón, y un diseño propio';
+  const partes = ['la forma de ponerlo'];
+  if (metodo === 'iframe') partes.push('el ancho', 'cómo carga');
+  if (metodo === 'popup' || metodo === 'boton') partes.push('el texto y el tipo de botón');
+  if (metodo === 'popup') partes.push('con un diseño propio, el color del botón');
+  return partes.length > 1 ? `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}` : partes[0];
+}
+
+const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/**
+ * Cómo llega a su web cada tipo de cambio, con las mismas tres palabras que las
+ * etiquetas de las tarjetas (`Etiqueta`, ./piezas.tsx). Habla del código de
+ * AQUÍ: lo que ya tenga pegado de antes lo dicen sus avisos.
+ */
+function ComoLlegaCadaCambio({ siempre, aplicar, pegar }: { siempre: string; aplicar: string | null; pegar: string }) {
+  return (
+    <ul aria-label="Cómo llega cada cambio a tu web" className="space-y-1.5 rounded-xl border border-border p-3 text-[12.5px] leading-relaxed text-foreground">
+      <li><strong className="font-semibold">Siempre al día:</strong> {mayuscula(siempre)}.</li>
+      {aplicar && <li><strong className="font-semibold">Con «Aplicar en mi web»:</strong> {mayuscula(aplicar)}.</li>}
+      <li><strong className="font-semibold">Pegando el código otra vez:</strong> {mayuscula(pegar)}.</li>
+    </ul>
+  );
 }
 
 function ParaQuienHaceLaWeb({ entrada, metodo, receta, falta, cambiar, onMetodo, dominios, verDominios, botonPropio, onCopiarReact, reactCopiado }: {

@@ -26,6 +26,7 @@ test('el XML se congela una vez: LISTO no vuelve a PENDIENTE', () => {
   assert.equal(transicionPermitida('LISTO', 'PENDIENTE'), false);
   assert.ok(transicionPermitida('PENDIENTE', 'LISTO'));
   assert.ok(transicionPermitida('REINTENTAR', 'LISTO'));
+  assert.ok(transicionPermitida('REINTENTAR', 'ENVIANDO'), 'el reintento que ya toca se reclama directamente');
 });
 
 const consulta = (estado: 'Correcto' | 'AceptadoConErrores' | 'Anulado' | null, huella: string): RespuestaConsulta => ({

@@ -7,7 +7,7 @@ import { btnPrimary, btnSecondary } from '@/components/configuracion/estilos';
 import { estiloPorId } from '@/lib/student/apariencia';
 import { nadaParaSinMarco } from '@/lib/widget/estilo-nativa';
 import { METODOS } from '@/lib/widgets/catalogo';
-import { textoCambios, textosEnTuWeb, type PiezaCopiada } from '@/lib/widgets/en-tu-web';
+import { textoCambios, textosEnTuWeb, unirGrupos, type PiezaCopiada } from '@/lib/widgets/en-tu-web';
 import { FOCO, TACTIL, Tarjeta, fechaCorta } from './piezas';
 import { ICONOS } from './paso-que';
 import type { EstiloWebPanel } from './usar-estilo-web';
@@ -43,6 +43,12 @@ export interface FilaTienes {
    * (lo pegado sí va sin marco), pero no hay adónde llevarla.
    */
   conListaDeWebs: boolean;
+  /**
+   * Lo pegado es un código de ANTES del código por id (lib/widgets/pieza.ts), y
+   * ella puede pasarse al de ahora: cada cambio le pide pegarlo otra vez hasta
+   * que lo cambie una sola vez.
+   */
+  codigoAntiguo: boolean;
 }
 
 export function LoQueTienes({
@@ -75,6 +81,9 @@ export function LoQueTienes({
   // solo si alguna pieza va así y lo recibe (sin diseño propio).
   const sinMarcoComoSiempre = estilo.fase === 'listo' && nadaParaSinMarco(estilo.publicado)
     && filas.some(f => f.pieza.metodo === 'nativa' && !f.pieza.disenoPropio);
+  // A cuáles no les llega el estilo, por su nombre: «salvo a lo que lleva su
+  // propio diseño» en abstracto no le dice que son SUS precios.
+  const conDisenoPropio = ordenadas.filter(f => f.pieza.disenoPropio).map(f => f.nombre);
 
   return (
     <div className="space-y-4">
@@ -101,10 +110,11 @@ export function LoQueTienes({
         </button>
       </Tarjeta>
 
-      <Tarjeta titulo="Estilo de tus widgets" etiqueta="vivo" subtitulo={nombreEstilo}>
+      <Tarjeta titulo="Estilo de tus widgets" etiqueta="aplicar" subtitulo={nombreEstilo}>
         <div className="space-y-3">
           <p className="text-[12.5px] leading-relaxed text-foreground">
-            Llega a lo que tienes dentro de una página, sin marco o en una ventana encima, salvo a lo que lleva su propio diseño en el código.
+            Llega a lo que tienes dentro de una página, sin marco o en una ventana encima.
+            {conDisenoPropio.length > 0 && <> A <strong className="font-semibold">{unirGrupos(conDisenoPropio)}</strong> no, porque {conDisenoPropio.length === 1 ? 'tiene' : 'tienen'} su propio diseño.</>}
           </p>
           {sinMarcoComoSiempre && (
             <p className="text-[12.5px] leading-relaxed text-muted-foreground">
@@ -170,9 +180,19 @@ function FilaPieza({ f, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAu
         {p.desfasado && (
           <Nota tono="aviso" accion={copiarNuevo} onAccion={onCopiarNuevo}>{textoCambios(p.cambios)}</Nota>
         )}
+        {/*
+          No es un fallo (lo de antes sigue funcionando): una mejora que se hace una vez.
+          Con un popup de antes, incluye su botón, que tampoco sigue el estilo.
+        */}
+        {f.codigoAntiguo && !p.desfasado && !textos.version && (
+          <Nota tono="info" accion={f.esEnlace ? 'Copiar el enlace de ahora' : 'Copiar el código de ahora'} onAccion={onCopiarNuevo}>
+            Tu web tiene {f.esEnlace ? 'un enlace' : 'un código'} de antes: si cambias qué enseña, tendrás que pegarlo otra vez. Cámbialo una sola vez por el de ahora y esos cambios llegarán con «Aplicar en mi web».
+            {p.botonCongelado && ' Con el de ahora, el botón que abre la ventana también seguirá el estilo de tus widgets.'}
+          </Nota>
+        )}
         {p.disenoPropio && (
-          <Nota tono="info" accion="Pasarlo al estilo común" onAccion={onEstiloComun}>
-            Lleva su propio diseño en el código, así que el estilo de tus widgets no le llega.
+          <Nota tono="aviso" accion="Que siga el estilo de tus widgets" onAccion={onEstiloComun}>
+            Tiene su propio diseño: el estilo, la letra y los colores que elijas para tus widgets no le llegan.
           </Nota>
         )}
         {/*
@@ -180,7 +200,7 @@ function FilaPieza({ f, ahora, onCambiar, onCopiarNuevo, onEstiloComun, onWebsAu
           otra versión a la vista ya se le pide copiarlo; y sin `ahora` (antes de montar) aún
           no se sabe si habrá versión: saldría y se iría.
         */}
-        {p.botonCongelado && !p.desfasado && ahora !== null && !textos.version && (
+        {p.botonCongelado && !f.codigoAntiguo && !p.desfasado && ahora !== null && !textos.version && (
           <Nota tono="info" accion="Ir a copiarlo" onAccion={onCopiarNuevo}>
             El botón que abre la ventana es de un código anterior y se queda como está. Si quieres que también cambie solo con el estilo de tus widgets, copia el código de ahora y pégalo en lugar del de antes.
           </Nota>
