@@ -23,8 +23,8 @@ import { primerError } from '@/lib/db/primer-error';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { esCodigoReserva, mensajeDeErrorReserva, MENSAJE_RESERVA_RPC } from '@/lib/reservas/errores-rpc';
 import {
-  descontarSesionDeReserva, devolucionPermitida, efectosTrasConsumo, esColumnaInexistente, ocupaPlaza, interpretarBonoDeReservarPlaza,
-  sesionDescontada, type ConsumoBono,
+  conReintentoPorInterbloqueo, consumoYaDecidido, descontarSesionDeReserva, devolucionPermitida, efectosTrasConsumo, esColumnaInexistente,
+  ocupaPlaza, interpretarBonoDeReservarPlaza, sesionDescontada, type ConsumoBono,
 } from '@/lib/reservas/consumo-bono-reserva';
 import { LEGAL } from '@/lib/legal-info';
 import { selloParaCliente, type SelloCliente } from '@/lib/factura-sello-cliente';
@@ -1560,6 +1560,36 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
   return true;
 }
 
+/**
+ * Lo que la base de datos ya decidió del bono al confirmar la plaza MÁS TARDE
+ * (aprobar, aceptar una oferta, subir de la lista de espera): desde la migr
+ * 20260930120000 el descuento va en la misma transacción que la confirmación,
+ * como en `reservar_plaza`. Con el bono que lo pagó, para el aviso de «bono
+ * agotado». `null` = sin decidir (la migración aún no aplicada, o un rechazo
+ * defensivo tragado): quien llama decide como siempre, con `consumirBonoServidor`.
+ */
+async function decisionDeLaConfirmacion(admin: SupabaseClient, studioId: string, reservaId: string): Promise<{
+  consumo: ConsumoBono; consumible: ConsumibleBono | null;
+} | null> {
+  const { data: fila, error } = await admin.from('reservas')
+    .select('bono_decidido_en, bono_suscripcion_id').eq('id', reservaId).eq('studio_id', studioId).maybeSingle();
+  if (error || !fila) return null;
+  const decidido = consumoYaDecidido(fila, null);
+  if (!decidido || !decidido.suscripcionId) return decidido ? { consumo: decidido, consumible: null } : null;
+  const { data: susRow } = await admin.from('suscripciones').select('*')
+    .eq('id', decidido.suscripcionId).eq('studio_id', studioId).maybeSingle();
+  const suscripcion = susRow ? mapSuscripcion(susRow as never) : null;
+  const { data: planRow } = suscripcion?.planId
+    ? await admin.from('planes_tarifa').select('*').eq('id', suscripcion.planId).eq('studio_id', studioId).maybeSingle()
+    : { data: null };
+  const plan = planRow ? mapPlanTarifa(planRow as never) : null;
+  const saldo = suscripcion?.sesionesRestantes ?? null;
+  return {
+    consumo: { ...decidido, saldo },
+    consumible: suscripcion && plan ? { suscripcion, plan, sesionesRestantes: saldo ?? 0 } : null,
+  };
+}
+
 async function trasPlazaConfirmada(admin: SupabaseClient, p: {
   studioId: string; socioId: string; sesionId: string; reservaId: string;
   /** Reintento sobre una reserva que YA está CONFIRMADA (lo garantiza quien llama). */
@@ -1568,9 +1598,18 @@ async function trasPlazaConfirmada(admin: SupabaseClient, p: {
   // Mismo criterio que una reserva normal: la clase decide de qué bono se
   // descuenta (0111). El spot elegido al pedir no se conserva: no hay spot
   // guardado mientras se espera, se asigna solo al confirmar.
-  const consumo = await consumirBonoServidor(admin, {
-    studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId, reintento: p.reintento,
-  });
+  //
+  // Si la confirmación ya lo decidió en su transacción, se usa eso. En un
+  // reintento no: sin saber si los avisos ya salieron, manda la regla de
+  // siempre (`consumirBonoServidor` verá YA_* y no repetirá nada).
+  const yaDecidido = p.reintento ? null : await decisionDeLaConfirmacion(admin, p.studioId, p.reservaId);
+  const consumo = yaDecidido
+    ? await efectosPostBono(admin, {
+      studioId: p.studioId, socioId: p.socioId, reservaId: p.reservaId, consumible: yaDecidido.consumible, consumo: yaDecidido.consumo,
+    })
+    : await consumirBonoServidor(admin, {
+      studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId: p.reservaId, reintento: p.reintento,
+    });
   if (!efectosTrasConsumo('CONFIRMADA', consumo, p.reintento ?? false)) return;
   const { emitirReserva } = await import('@/lib/notifications/emit');
   await emitirReserva(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, estado: 'CONFIRMADA' });
@@ -1596,9 +1635,12 @@ async function trasPromocionDeEspera(admin: SupabaseClient, p: {
   const reservaId = (activa?.id as string | undefined) ?? null;
   let bonoConsumido = false;
   if (reservaId) {
-    const consumo = await consumirBonoServidor(admin, {
-      studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId,
-    });
+    // La promoción ya lo decidió en su transacción (migr 20260930120000); si
+    // no, como siempre.
+    const yaDecidido = await decisionDeLaConfirmacion(admin, p.studioId, reservaId);
+    const consumo = yaDecidido
+      ? await efectosPostBono(admin, { studioId: p.studioId, socioId: p.socioId, reservaId, consumible: yaDecidido.consumible, consumo: yaDecidido.consumo })
+      : await consumirBonoServidor(admin, { studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId, reservaId });
     bonoConsumido = sesionDescontada(consumo);
     // Otra llamada ya decidió el cobro de esta reserva: es ella la que avisa.
     if (!efectosTrasConsumo('CONFIRMADA', consumo, false)) return { bonoConsumido };
@@ -3155,9 +3197,10 @@ export async function ofrecerPlazaLibre(params: {
   const plazoMinutos = (tipoRow?.lista_espera_plazo_aceptacion_minutos as number | null)
     ?? (studioRow?.lista_espera_plazo_aceptacion_minutos as number | null) ?? 0;
 
-  const { data, error } = await admin.rpc('promocionar_siguiente_espera', {
+  // Interbloqueo cortado por Postgres (ver `conReintentoPorInterbloqueo`): se repite una vez.
+  const { data, error } = await conReintentoPorInterbloqueo(() => admin.rpc('promocionar_siguiente_espera', {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId, p_plazo_minutos: plazoMinutos,
-  });
+  }));
   if (error) return { error: error.message };
   const row = Array.isArray(data) ? data[0] : data;
   if (!row?.promovida_socio_id && !row?.oferta_socio_id) return { error: 'No hay nadie en lista de espera para esta clase' };
@@ -3331,9 +3374,9 @@ export async function expirarOfertaListaEspera(params: {
 }): Promise<boolean> {
   const admin = getSupabaseAdmin();
   if (!admin) return false;
-  const { data, error } = await admin.rpc('expirar_oferta_lista_espera', {
+  const { data, error } = await conReintentoPorInterbloqueo(() => admin.rpc('expirar_oferta_lista_espera', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId
-  });
+  }));
   if (error) {
     capturarExcepcion(error, {
       tags: { contexto: 'expirarOfertaListaEspera' },
@@ -3614,10 +3657,10 @@ export async function ejecutarCancelacionReserva(
     seguiaActiva = previa?.estado === 'CONFIRMADA' || previa?.estado === 'LISTA_ESPERA';
   }
 
-  const { data, error } = await admin.rpc('cancelar_reserva_plaza', {
+  const { data, error } = await conReintentoPorInterbloqueo(() => admin.rpc('cancelar_reserva_plaza', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
     p_omitir_penalizacion: params.omitirPenalizacion ?? false
-  });
+  }));
   if (error) {
     if (error.message.includes('NO_AUTORIZADO')) return { error: 'No autorizado' as const };
     if (error.message.includes('RESERVA_NO_ENCONTRADA')) return { error: 'Reserva no encontrada' as const };

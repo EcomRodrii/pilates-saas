@@ -103,6 +103,49 @@ export function ocupaPlaza(estado: string | null | undefined): boolean {
 }
 
 /** ¿Se descontó una sesión para esta reserva (ahora o antes)? Para no mentir en un aviso. */
+/**
+ * La decisión que la base de datos ya dejó escrita en la reserva al confirmarla
+ * más tarde (aprobar una pendiente, aceptar una plaza ofrecida o subir de la
+ * lista de espera: desde la migración 20260930120000 el descuento va en la
+ * MISMA transacción que la confirmación, como en `reservar_plaza`).
+ *
+ * Es una decisión NUEVA de esa confirmación, no «otra llamada ya lo hizo»: por
+ * eso sale como CONSUMIDA o SIN_BONO y no como YA_*, y los avisos siguen
+ * (`efectosTrasConsumo`). `null` = sin decidir (la migración aún no aplicada,
+ * o un rechazo defensivo tragado): quien llama decide como siempre.
+ *
+ * `saldo`: lo que le queda al bono después, leído aparte (para «bono agotado»).
+ */
+export function consumoYaDecidido(
+  fila: { bono_decidido_en?: unknown; bono_suscripcion_id?: unknown } | null | undefined,
+  saldo: number | null,
+): ConsumoBono | null {
+  if (!fila || typeof fila.bono_decidido_en !== 'string' || !fila.bono_decidido_en) return null;
+  const sus = typeof fila.bono_suscripcion_id === 'string' && fila.bono_suscripcion_id ? fila.bono_suscripcion_id : null;
+  return sus
+    ? { resultado: 'CONSUMIDA', saldo, suscripcionId: sus, via: 'reserva' }
+    : { resultado: 'SIN_BONO', saldo: null, suscripcionId: null, via: 'reserva' };
+}
+
+/**
+ * Un interbloqueo que Postgres ha cortado (`40P01`). Con la confirmación y el
+ * descuento en la misma transacción, la promoción de la lista de espera toma el
+ * candado de la socia DESPUÉS de la sesión; si esa socia pedía esa misma clase
+ * a la vez, Postgres corta una de las dos en un segundo. Todo se ha revertido,
+ * así que repetir una vez es seguro.
+ */
+export function esInterbloqueo(error: { code?: string | null } | null | undefined): boolean {
+  return error?.code === '40P01';
+}
+
+/** Llama y, si Postgres cortó un interbloqueo, repite UNA vez. */
+export async function conReintentoPorInterbloqueo<T extends { error: { code?: string | null } | null }>(
+  llamar: () => PromiseLike<T>,
+): Promise<T> {
+  const primera = await llamar();
+  return esInterbloqueo(primera.error) ? await llamar() : primera;
+}
+
 export function sesionDescontada(c: ConsumoBono): boolean {
   return c.resultado === 'CONSUMIDA' || c.resultado === 'YA_CONSUMIDA';
 }
