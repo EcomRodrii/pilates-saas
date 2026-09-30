@@ -271,7 +271,7 @@ export default function VerifactuAltaPage() {
           {tieneRepresentacionViva && (
             <section className="rounded-2xl border border-border bg-card px-4 py-4 sm:px-5 space-y-2">
               <h2 className="text-[15px] font-bold">¿Has revocado el poder en la AEAT?</h2>
-              <p className="text-[13px] text-muted-foreground">Si lo has retirado en la sede, díselo también a Tentare: dejamos de enviar al momento.</p>
+              <p className="text-[13px] text-muted-foreground">Si lo has retirado en la sede, díselo también a Tentare: dejamos de enviar al momento y, si ya emitías facturas con Tentare, de emitirlas.</p>
               <Button variant="outline" disabled={enviando} onClick={() => void enviar({ accion: 'revocar' })}>He revocado el poder</Button>
             </section>
           )}

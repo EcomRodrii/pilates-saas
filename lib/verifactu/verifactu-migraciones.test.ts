@@ -115,3 +115,14 @@ test('solo VERI*FACTU: las funciones de trigger nuevas no se ejecutan desde el c
   }
   assert.doesNotMatch(SOLO_CON_ENVIO, /grant [^;]* to [^;]*\b(anon|authenticated)\b/i);
 });
+
+// Sin poder, sin facturas (pregunta 6 de la consulta al fiscalista, pendiente).
+const SIN_PODER = readFileSync(join(DIR, '20260930190000_verifactu_sin_poder_sin_facturas.sql'), 'utf8')
+  .replace(/--[^\n]*/g, '');
+
+test('sin poder, sin facturas: perderlo las para, una pausa no, y encender exige poder vigente', () => {
+  assert.match(SIN_PODER, /create trigger trg_verifactu_sin_poder_para_facturas\s+after update of estado on public\.verifactu_estudios/);
+  assert.match(SIN_PODER, /v\.estado in \('PRODUCCION', 'PAUSADO', 'SUSPENDIDO_AEAT', 'VERIFICADO'\)/);
+  assert.match(SIN_PODER, /revoke execute on function public\.verifactu_sin_poder_para_facturas\(\) from public, anon, authenticated/);
+  assert.doesNotMatch(SIN_PODER, /grant [^;]* to [^;]*\b(anon|authenticated)\b/i);
+});
