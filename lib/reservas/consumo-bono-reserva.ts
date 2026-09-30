@@ -102,7 +102,6 @@ export function ocupaPlaza(estado: string | null | undefined): boolean {
   return estado === 'CONFIRMADA' || estado === 'ASISTIDA' || estado === 'NO_ASISTIO';
 }
 
-/** ¿Se descontó una sesión para esta reserva (ahora o antes)? Para no mentir en un aviso. */
 /**
  * La decisión que la base de datos ya dejó escrita en la reserva al confirmarla
  * más tarde (aprobar una pendiente, aceptar una plaza ofrecida o subir de la
@@ -146,6 +145,20 @@ export async function conReintentoPorInterbloqueo<T extends { error: { code?: st
   return esInterbloqueo(primera.error) ? await llamar() : primera;
 }
 
+/**
+ * Un YA_* que llega justo después de que ESTA petición confirmara la plaza (sin
+ * ser un reintento) y sin haber podido leer la decisión de la reserva: solo
+ * puede venir de la propia confirmación, que ya lo decidió en su transacción.
+ * Es su decisión, así que los avisos siguen (`efectosTrasConsumo`); el cobro no
+ * se repite porque no se toca nada. El resto pasa tal cual.
+ */
+export function comoDecisionPropia(c: ConsumoBono): ConsumoBono {
+  if (c.resultado === 'YA_CONSUMIDA') return { ...c, resultado: 'CONSUMIDA', via: 'reserva' };
+  if (c.resultado === 'YA_DECIDIDA') return { ...c, resultado: 'SIN_BONO', via: 'reserva' };
+  return c;
+}
+
+/** ¿Se descontó una sesión para esta reserva (ahora o antes)? Para no mentir en un aviso. */
 export function sesionDescontada(c: ConsumoBono): boolean {
   return c.resultado === 'CONSUMIDA' || c.resultado === 'YA_CONSUMIDA';
 }

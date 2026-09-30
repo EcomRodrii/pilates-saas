@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PlanTarifa, Suscripcion } from '../types.ts';
 import { bonoConsumible } from '../bono-logic.ts';
-import { conReintentoPorInterbloqueo, consumoYaDecidido, efectosTrasConsumo, esInterbloqueo } from './consumo-bono-reserva.ts';
+import { comoDecisionPropia, conReintentoPorInterbloqueo, consumoYaDecidido, efectosTrasConsumo, esInterbloqueo } from './consumo-bono-reserva.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Las confirmaciones tardías (aprobar una pendiente, aceptar una plaza ofrecida,
@@ -98,11 +98,19 @@ test('la migración no borra ni cambia la firma de nada, y cierra los permisos',
 
 test('TS usa la decisión de la confirmación, y repite ante un interbloqueo', () => {
   const ts = readFileSync(join(RAIZ, 'lib/db/supabase-data-admin.ts'), 'utf8');
+  // Los dos dueños leen primero lo que decidió la confirmación.
   const plaza = ts.slice(ts.indexOf('async function trasPlazaConfirmada('), ts.indexOf('async function trasPromocionDeEspera('));
-  assert.ok(plaza.indexOf('decisionDeLaConfirmacion(') > -1 && plaza.indexOf('decisionDeLaConfirmacion(') < plaza.indexOf('consumirBonoServidor('));
   const promocion = ts.slice(ts.indexOf('async function trasPromocionDeEspera('), ts.indexOf('export async function completarConfirmacionTrasReintento('));
-  assert.ok(promocion.indexOf('decisionDeLaConfirmacion(') > -1 && promocion.indexOf('decisionDeLaConfirmacion(') < promocion.indexOf('consumirBonoServidor('));
-  for (const rpc of ['promocionar_siguiente_espera', 'expirar_oferta_lista_espera', 'cancelar_reserva_plaza']) {
+  for (const [nombre, cuerpo] of [['trasPlazaConfirmada', plaza], ['trasPromocionDeEspera', promocion]] as const) {
+    const lee = cuerpo.indexOf('decisionDeLaConfirmacion(');
+    assert.ok(lee > -1 && lee < cuerpo.indexOf('consumirBonoServidor('), `${nombre}: lee la decisión antes de decidir`);
+    assert.match(cuerpo, /segunLaConfirmacion\(d, await consumirBonoServidor\(/, `${nombre}: sin poder leer, sus avisos siguen`);
+  }
+  assert.match(plaza, /const d = p\.reintento \? null : await decisionDeLaConfirmacion/, 'un reintento, siempre por la regla de siempre');
+  assert.match(ts, /function segunLaConfirmacion\([^)]*\): ConsumoBono \{\s+return d\?\.tipo === 'desconocida' \? comoDecisionPropia\(consumo\) : consumo;/);
+  // Y la lectura se repite una vez antes de darla por desconocida.
+  assert.match(ts, /if \(lectura\.error\) lectura = await leer\(\);\s+if \(lectura\.error\) return \{ tipo: 'desconocida' \};/);
+  for (const rpc of ['promocionar_siguiente_espera', 'expirar_oferta_lista_espera', 'cancelar_reserva_plaza', 'aceptar_oferta_lista_espera']) {
     assert.match(ts, new RegExp(`conReintentoPorInterbloqueo\\(\\(\\) => admin\\.rpc\\('${rpc}'`), rpc);
   }
 });
@@ -119,6 +127,16 @@ test('consumoYaDecidido: la decisión escrita en la reserva, como decisión NUEV
   // Y con ella siguen los avisos: no es «otra llamada ya lo hizo».
   assert.equal(efectosTrasConsumo('CONFIRMADA', pagada!, false), true);
   assert.equal(efectosTrasConsumo('CONFIRMADA', sinBono!, false), true);
+});
+
+test('comoDecisionPropia: un YA_* de la propia confirmación es su decisión; lo demás, tal cual', () => {
+  const ya = { resultado: 'YA_CONSUMIDA' as const, saldo: 2, suscripcionId: 'sus-1', via: 'reserva' as const };
+  assert.equal(comoDecisionPropia(ya).resultado, 'CONSUMIDA');
+  assert.equal(comoDecisionPropia({ ...ya, resultado: 'YA_DECIDIDA', suscripcionId: null }).resultado, 'SIN_BONO');
+  assert.equal(efectosTrasConsumo('CONFIRMADA', comoDecisionPropia(ya), false), true);
+  for (const r of ['CONSUMIDA', 'SIN_BONO', 'SIN_SALDO', 'NO_OCUPA_PLAZA', 'FALLO'] as const) {
+    assert.equal(comoDecisionPropia({ ...ya, resultado: r }).resultado, r);
+  }
 });
 
 test('interbloqueo: se repite UNA vez, y solo por 40P01', async () => {
