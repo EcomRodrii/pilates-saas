@@ -1508,7 +1508,7 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
     if (!efectosTrasConsumo(p.estado, consumo, true)) return false;
   } else if (p.estado === 'CONFIRMADA') {
     // El bono que pagó puede no ser el que eligió TS: `reservar_plaza` lo vuelve
-    // a elegir bajo su candado (migr 20260930130000). El aviso de «bono
+    // a elegir bajo su candado (migr 20260930094536). El aviso de «bono
     // agotado», con el de verdad.
     const pagoOtro = !!p.consumoBono?.suscripcionId && p.consumoBono.suscripcionId !== p.consumibleBono?.suscripcion.id;
     const consumo = p.consumoBono

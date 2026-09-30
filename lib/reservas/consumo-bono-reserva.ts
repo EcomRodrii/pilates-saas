@@ -8,7 +8,7 @@
 // transacción —«se descontó de tal bono» o «no había bono que cobrar»—, así que
 // volver a llamar es seguro: decide si falta y, si no, no hace nada.
 //
-// El descuento viejo se retiró el 30-sep-2026 (migr 20260930130000): ya no hay
+// El descuento viejo se retiró el 30-sep-2026 (migr 20260930094536): ya no hay
 // nada a lo que caer si la RPC por reserva falla. Un fallo es un fallo, y lo
 // cierra el reparador de bonos sin decidir.
 //
@@ -220,6 +220,6 @@ export async function descontarSesionDeReserva(cliente: ClienteConsumo, p: {
   if (!error) return interpretarFilaConsumo(Array.isArray(data) ? data[0] : data);
   // Cualquier error es un FALLO, nunca un «no se cobró»: un tiempo agotado pudo
   // confirmar la transacción sin que llegara la respuesta. Ya no hay descuento
-  // viejo al que caer (migr 20260930130000).
+  // viejo al que caer (migr 20260930094536).
   return { ...SIN_CONSUMO('FALLO'), via: 'reserva', error };
 }
