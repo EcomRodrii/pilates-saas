@@ -202,10 +202,10 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     // cosa y la página diga otra es la peor forma de perder la confianza de
     // quien te está evaluando. Aquí solo va lo que hoy es cierto.
     descripcion:
-      'Cada cobro, salvo el efectivo, genera su factura con numeración correlativa y huella encadenada, y el cierre de año sale listo para tu gestoría.',
+      'Si lo activas, cada cobro, salvo el efectivo, genera su factura con numeración correlativa y huella encadenada, y el cierre de año sale listo para tu gestoría.',
     grupo: 'funcionalidades',
     etiqueta: 'Facturación',
-    resumen: 'Del cobro a la factura sellada, sin tocar nada.',
+    resumen: 'Del cobro a la factura sellada, si la activas.',
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,

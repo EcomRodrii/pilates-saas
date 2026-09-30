@@ -18,7 +18,11 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: '¿Tengo que emitir yo las facturas una a una?',
-    a: 'No. Cada cobro genera su factura: la cuota mensual que se cobra sola, el bono que compra una alumna desde el portal, la venta de mostrador con tarjeta. La excepción es el efectivo, que no la emite solo: la generas desde el recibo si te la piden.',
+    a: 'No. Con la facturación activada, cada cobro genera su factura: la cuota mensual que se cobra sola, el bono que compra una alumna desde el portal, la venta de mostrador con tarjeta. La excepción es el efectivo, que no la emite solo: la generas desde el recibo si te la piden.',
+  },
+  {
+    q: '¿Y si mis facturas ya las hace mi gestoría?',
+    a: 'Déjalo apagado, que es como viene. Tentare registra cada cobro y tu alumna recibe su justificante de pago; las facturas las seguís haciendo como hasta ahora. Cuando quieras que las emita Tentare, se activa en un paso desde Configuración.',
   },
   {
     q: '¿Qué pasa si me equivoco en una factura ya emitida?',
@@ -43,8 +47,8 @@ export default function FacturacionPage() {
     <FeatureShell
       path={PATH}
       eyebrow="España · Ley Antifraude"
-      h1={<>Cada cobro, su factura. Sin que tengas que saber cómo.</>}
-      intro={<>Cada cobro —salvo el efectivo— genera su factura con número correlativo y huella encadenada, calculada como fija la AEAT. Sin que abras nada.</>}
+      h1={<>Cada cobro, su factura, si la quieres. Sin que tengas que saber cómo.</>}
+      intro={<>Actívalo y cada cobro —salvo el efectivo— genera su factura con número correlativo y huella encadenada, calculada como fija la AEAT. Sin que abras nada. Si tus facturas las lleva tu gestoría, déjalo apagado: tus alumnas reciben su justificante de pago.</>}
       chips={['Huella encadenada', 'Numeración a prueba de carreras', 'Cierre anual para la gestoría']}
       visual={<LoQueLlevaLaFactura />}
     >
@@ -70,7 +74,8 @@ export default function FacturacionPage() {
         <p>
           La relación entre <Link href="/funcionalidades/cobros-recurrentes">cobros</Link> y facturas es donde la mayoría de
           estudios pierde horas: se cobra en un sitio y se factura en otro, y a fin de mes hay que cuadrar los dos. Aquí es
-          una sola cosa. Un recibo que pasa a cobrado dispara su factura (en efectivo, solo si la pides desde el recibo).
+          una sola cosa. Con la facturación activada, un recibo que pasa a cobrado dispara su factura (en efectivo, solo si
+          la pides desde el recibo).
         </p>
         <DelCobroALaFactura />
         <p>
@@ -103,6 +108,7 @@ export default function FacturacionPage() {
         <Tabla
           cabeceras={['Paso', 'Estado hoy']}
           filas={[
+            ['Emitir las facturas desde Tentare', 'Si lo activas: viene apagado'],
             ['Numeración correlativa y a prueba de carreras', 'Sí, siempre'],
             ['Huella SHA-256 encadenada', 'Sí, siempre'],
             ['QR de cotejo AEAT', 'Cuando la AEAT tenga el registro: llega con el envío'],
