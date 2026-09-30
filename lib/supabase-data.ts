@@ -3790,34 +3790,7 @@ export async function dbEntregarCanje(
   return { ok: true, id: data as string };
 }
 
-// R2 (ruta panel): decremento ATÓMICO de una sesión de bono vía la misma RPC
-// `consumir_sesion_bono` que usa el servidor. UPDATE condicional serializado por
-// lock de fila (`sesiones_restantes = sesiones_restantes - 1 WHERE > 0`). Devuelve
-// el saldo AUTORITATIVO tras el descuento, o { error } si no había sesión que
-// descontar (otra reserva concurrente ya agotó el bono) o falló la RPC. El panel
-// debe decidir `agotado` (recibo de renovación) sobre este saldo, NO sobre el
-// snapshot local (que puede estar obsoleto). Espejo de consumirBonoServidor.
-export async function dbConsumirSesionBono(
-  suscripcionId: string, studioId: string, sesionId: string,
-): Promise<{ ok: true; saldo: number } | { error: string }> {
-  // `p_sesion_id` no es decorativo: con él, la BD comprueba que el plan de esa
-  // suscripción cubra el tipo de clase (migr 0129) y rechaza con
-  // BONO_NO_CUBRE_CLASE. Es la única capa por la que pasan todas las
-  // superficies, así que la regla deja de depender de que cada cliente se
-  // acuerde de aplicarla. Obligatorio desde la 0132: un parámetro opcional
-  // era una puerta que ya no usaba nadie pero que seguía abierta.
-  const { data, error } = await supabase.rpc('consumir_sesion_bono', {
-    p_suscripcion_id: suscripcionId, p_studio_id: studioId, p_sesion_id: sesionId,
-  });
-  if (error) {
-    reportDbError('[dbConsumirSesionBono]', error);
-    return { error: error.message };
-  }
-  if (data == null) return { error: 'SIN_SESION' };
-  return { ok: true, saldo: data as number };
-}
-
-// I-10 · espejo exacto del anterior para DEVOLVER. El consumo ya era atómico y
+// I-10 · DEVOLVER una sesión de bono, atómico en la RPC. El consumo ya era atómico y
 // la devolución no: se leía el saldo del snapshot local, se calculaba
 // `min(tope, restantes+1)` en JS y se escribía el resultado, así que dos
 // cancelaciones concurrentes escribían el mismo número y una devolución se

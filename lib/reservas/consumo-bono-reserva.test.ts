@@ -133,12 +133,6 @@ function crearBD(inicial: { migracion: 'aplicada' | 'sin-aplicar' }) {
         decidir(r, sus);
         return fila('CONSUMIDA', saldo.get(sus)!, sus);
       }
-      if (fn === 'consumir_sesion_bono') {
-        const sus = a.p_suscripcion_id as string;
-        if ((saldo.get(sus) ?? 0) <= 0) return ok(null);
-        saldo.set(sus, saldo.get(sus)! - 1);
-        return ok(saldo.get(sus));
-      }
       throw new Error(`RPC inesperada: ${fn}`);
     },
   };
@@ -208,25 +202,13 @@ test('⚠️ carrera: un reintento gana y la llamada normal no repite avisos, an
   assert.equal(bd.saldo(), 4);
 });
 
-test('⚠️ sin la migración, todo sigue como hoy: la primera vez descuenta y el reintento no', async () => {
+test('⚠️ si la RPC por reserva no está, es un FALLO: ya no hay descuento viejo al que caer', async () => {
   const bd = crearBD({ migracion: 'sin-aplicar' });
   bd.insertarReserva('res-1');
-
-  const primera = await descontarSesionDeReserva(bd.cliente, { ...PEDIDO, reservaId: 'res-1', reintento: false });
-  assert.deepEqual(
-    { resultado: primera.resultado, saldo: primera.saldo, via: primera.via },
-    { resultado: 'CONSUMIDA', saldo: 4, via: 'legado' },
-  );
-  // Sin escribir la marca a mano: si no se ve la RPC, tampoco se ven sus columnas.
-  assert.deepEqual(bd.llamadas, ['consumir_sesion_bono_reserva', 'consumir_sesion_bono']);
-
-  const reintento = await descontarSesionDeReserva(bd.cliente, { ...PEDIDO, reservaId: 'res-1', reintento: true });
-  assert.equal(reintento.resultado, 'NO_VERIFICABLE');
-  assert.equal(bd.saldo(), 4);
-
-  const sinBono = await descontarSesionDeReserva(bd.cliente, { ...PEDIDO, suscripcionId: null, reservaId: 'res-1', reintento: false });
-  assert.deepEqual({ r: sinBono.resultado, via: sinBono.via }, { r: 'SIN_BONO', via: 'legado' });
-  assert.equal(bd.llamadas.filter(l => l === 'consumir_sesion_bono').length, 1, 'sin bono no llama a nada que descuente');
+  const r = await descontarSesionDeReserva(bd.cliente, { ...PEDIDO, reservaId: 'res-1', reintento: false });
+  assert.equal(r.resultado, 'FALLO');
+  assert.equal(bd.saldo(), 5, 'no se descuenta nada');
+  assert.deepEqual(bd.llamadas, ['consumir_sesion_bono_reserva']);
 });
 
 test('⚠️ «sin bono» se registra: si compra un bono después, el reintento no le cobra esa clase', async () => {
