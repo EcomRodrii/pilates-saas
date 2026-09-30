@@ -24,6 +24,9 @@ test.describe('Student PWA · lo que enseñó el iPhone', () => {
     await page.emulateMedia({ reducedMotion: null });
     await page.goto(base, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30_000 });
+    // La portada (y su h1) sale ya en el HTML, antes que el resto: los campos
+    // —el buscador— llegan cuando la guardia de sesión termina.
+    await expect(page.locator('main[aria-busy="true"]')).toHaveCount(0, { timeout: 30_000 });
 
     const pequenos = await page.evaluate(() => {
       // `pointer: coarse` no se puede emular desde Playwright, así que se

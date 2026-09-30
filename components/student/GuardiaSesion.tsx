@@ -50,6 +50,39 @@ const sinPreguntasPendientes = new Set<string>();
  * otra pantalla dentro de él, sigue mandando a entrar.
  */
 export function GuardiaSesion({ children, vistaPrevia = false }: { children: ReactNode; vistaPrevia?: boolean }) {
+  const { esperando, conPreguntas, completarPreguntas } = useGuardiaSesion(vistaPrevia);
+  if (esperando) {
+    return (
+      <div className="shell" aria-busy="true">
+        <div className="page px" style={{ paddingTop: 'calc(72px + var(--safe-top))' }}>
+          <EsqueletoTarjetas />
+        </div>
+      </div>
+    );
+  }
+  if (conPreguntas) return <PreguntasAlta estado={conPreguntas} onCompletada={completarPreguntas} />;
+  return <>{children}</>;
+}
+
+/** Lo que se ve mientras la guardia resuelve: tres tarjetas, como cualquier lista del diseño. */
+export function EsqueletoTarjetas() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <span className="sr-only">Cargando…</span>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="skel" style={{ height: 84, borderRadius: 'var(--radius-card)' }} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * La decisión de la guardia, sin pintar nada: si hay que esperar (sesión aún
+ * sin resolver, o de camino a otra pantalla) y si hay preguntas del alta que
+ * contestar. La usa `GuardiaSesion` y el marco con portada de Inicio
+ * (`StudentShell` con `heroe`), que pinta la portada sin esperar a esto.
+ */
+export function useGuardiaSesion(vistaPrevia: boolean) {
   const r = useRouter();
   const path = usePathname();
   const { slug, estudio } = useEstudio();
@@ -140,31 +173,9 @@ export function GuardiaSesion({ children, vistaPrevia = false }: { children: Rea
 
   const esperando = isLoading || (!autenticado && !verSinSesion) || (sinFicha && cargandoInstructora) || instructora
     || (preguntarEleccion && elegir !== false) || cargandoPreguntas;
-  if (esperando) {
-    return (
-      <div className="shell" aria-busy="true">
-        <div className="page px" style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 'calc(72px + var(--safe-top))' }}>
-          <span className="sr-only">Cargando…</span>
-          {/* Esqueleto del kit: tres tarjetas, como cualquier lista del diseño. */}
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="skel" style={{ height: 84, borderRadius: 'var(--radius-card)' }} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (conPreguntas) {
-    return (
-      <PreguntasAlta
-        estado={conPreguntas}
-        onCompletada={(nuevo) => {
-          if (nuevo.pendientes.length === 0) sinPreguntasPendientes.add(base);
-          setPreguntas({ clave, estado: nuevo });
-        }}
-      />
-    );
-  }
-
-  return <>{children}</>;
+  const completarPreguntas = (nuevo: EstadoPreguntasAltaRemoto) => {
+    if (nuevo.pendientes.length === 0) sinPreguntasPendientes.add(base);
+    setPreguntas({ clave, estado: nuevo });
+  };
+  return { esperando: !!esperando, conPreguntas, completarPreguntas };
 }

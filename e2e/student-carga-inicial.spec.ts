@@ -47,6 +47,10 @@ test('la respuesta de Inicio ya pide la portada, igual que la pide el <img>', as
   });
   const precargas = [...deHtml, ...deCabecera].filter((p) => p.rel === 'preload' && p.as === 'image');
 
+  // Y la portada ya viene en el HTML, no solo precargada: sale fuera de la
+  // guardia de sesión (StudentShell → ShellConHeroe).
+  expect(html).toMatch(/<img\b[^>]*fetchpriority="high"/i);
+
   const suya = precargas.find((p) => p.href === src);
   expect(suya, `ninguna precarga de imagen apunta a ${src}:\n${JSON.stringify(precargas, null, 2)}`).toBeTruthy();
   expect(suya!.fetchpriority).toBe('high');
