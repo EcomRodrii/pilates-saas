@@ -1422,6 +1422,40 @@ export async function emitirFacturaRechazadaAeat(
   }
 }
 
+// Veri*Factu: el envío de un estudio se ha pausado. `dedupKey` por estudio y
+// día: una pausa que se repite en cada pasada del cron no inunda a la propietaria.
+export async function emitirVerifactuEnvioPausado(
+  _admin: SupabaseClient, p: { studioId: string; motivo: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.VERIFACTU_ENVIO_PAUSADO, studioId: p.studioId,
+      data: { motivo: p.motivo },
+      resource: { type: 'verifactu_estudio', id: p.studioId },
+      dedupKey: `verifactu-pausado:${p.studioId}:${new Date().toISOString().slice(0, 10)}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirVerifactuEnvioPausado:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Veri*Factu: el poder IZ860 caduca en ≤ 60 días. Un aviso por representación.
+export async function emitirVerifactuPoderCaduca(
+  _admin: SupabaseClient, p: { studioId: string; representacionId: string; vigenteHasta: string },
+): Promise<void> {
+  try {
+    const [y, m, d] = p.vigenteHasta.split('-');
+    await publish({
+      type: EVENTOS.VERIFACTU_PODER_CADUCA, studioId: p.studioId,
+      data: { vigenteHasta: `${d}/${m}/${y}` },
+      resource: { type: 'verifactu_representacion', id: p.representacionId },
+      dedupKey: `verifactu-poder-caduca:${p.representacionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirVerifactuPoderCaduca:', e instanceof Error ? e.message : e);
+  }
+}
+
 // RGPD: una alumna ha pedido desde su app eliminar sus datos o limitar/oponerse
 // a su uso. Al mostrador, con el plazo legal. ⚠️ Nada de salud en el aviso: ni
 // motivo ni ficha, solo quién lo pide, qué pide y hasta cuándo. `dedupKey` por

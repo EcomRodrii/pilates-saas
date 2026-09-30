@@ -276,6 +276,8 @@ const COLUMNAS_NOMBRE_DECIDIDAS: Record<string, string> = {
   'plataforma_auditoria.actor_nombre': 'fuera: equipo de Tentare, no del estudio',
   'sales_leads.estudio_nombre': 'fuera: prospección de Tentare', 'studios.creditos_nombre': 'fuera: ajuste del estudio',
   'verifactu_declaraciones_responsables.productor_nombre': 'fuera: el productor del SIF (Tentare), no del estudio; declaración de solo añadir',
+  'verifactu_representaciones.apoderado_nombre': 'fuera: el apoderado de Tentare ante la AEAT, no del estudio',
+  'verifactu_representaciones.otorgante_nombre': 'fuera: quien otorgó el poder IZ860 en la AEAT; evidencia de representación que se conserva por obligación legal',
 };
 
 test('toda columna *_nombre de texto tiene decidido qué pasa con ella (una nueva no pasa CI hasta decidirlo)', () => {

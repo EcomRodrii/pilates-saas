@@ -331,6 +331,12 @@ export const EVENTOS = {
   // politica-cadena.ts): la rechazada se corrige con un registro de
   // subsanación, o con una rectificativa si el motivo lo exige.
   FACTURA_RECHAZADA_AEAT: 'factura.rechazada_aeat',
+  // Veri*Factu (envío directo con poder IZ860): el envío de un estudio se ha
+  // pausado (la AEAT dice que no hay poder, o un fallo de datos) y el poder
+  // que dio en la AEAT está a punto de caducar (máx. 5 años; la prórroga solo
+  // se puede hacer en los dos meses previos).
+  VERIFACTU_ENVIO_PAUSADO: 'verifactu.envio_pausado',
+  VERIFACTU_PODER_CADUCA: 'verifactu.poder_caduca',
 } as const;
 
 // Reglas por evento. La 1ª tanda cableada de la Fase 1 cubre los 3 roles.
@@ -436,6 +442,8 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // RECHAZADA congela para siempre la transmisión de las posteriores (34ª
   // pasada de auditoría).
   [EVENTOS.FACTURA_RECHAZADA_AEAT]: { category: 'pagos', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
+  [EVENTOS.VERIFACTU_ENVIO_PAUSADO]: { category: 'pagos', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
+  [EVENTOS.VERIFACTU_PODER_CADUCA]: { category: 'pagos', priority: 'MEDIA', canales: ['EMAIL'], audiencia: 'propietaria' },
   // CRÍTICAS: declaran TODOS sus canales explícitamente. Antes bastaba con ser
   // CRÍTICA para que el motor forzara email/WA/SMS aunque la regla solo pusiera
   // PUSH; ahora que la regla manda, lo que no se declara no sale.
@@ -1034,6 +1042,16 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Hacienda ha rechazado una factura',
     body: 'La AEAT ha rechazado la factura {numero} ({motivo}). Hay que corregirla: con una subsanación o, si el motivo lo exige, con una rectificativa. Las facturas siguientes se siguen enviando.',
     deepLink: () => `/cobros?tab=facturas`,
+  },
+  [`${EVENTOS.VERIFACTU_ENVIO_PAUSADO}#PROPIETARIO`]: {
+    title: 'Se ha pausado el envío de tus facturas a la AEAT',
+    body: '{motivo} Mientras esté pausado, tus facturas se siguen emitiendo pero no se envían. Revísalo en Configuración → Envío a la AEAT.',
+    deepLink: () => `/configuracion/verifactu`,
+  },
+  [`${EVENTOS.VERIFACTU_PODER_CADUCA}#PROPIETARIO`]: {
+    title: 'El poder para enviar tus facturas a la AEAT caduca pronto',
+    body: 'El poder que diste en la AEAT para enviar tus registros de facturación termina el {vigenteHasta}. Puedes prorrogarlo en la sede de la AEAT en los dos meses previos; si no, el envío se detendrá ese día.',
+    deepLink: () => `/configuracion/verifactu`,
   },
   // {tipoTexto} distingue total de parcial dentro del mismo evento — mismo
   // patrón que {motivoTexto} en RESERVA_CANCELADA. Lo que NO se puede meter en

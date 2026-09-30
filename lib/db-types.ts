@@ -3571,6 +3571,66 @@ export interface RowVerifactuDeclaracionesResponsables {
   suscrita_en: string;
 }
 
+export interface RowVerifactuEstudios {
+  studio_id: string;
+  nif: string;
+  nombre_fiscal: string;
+  tipo_emisor: string;
+  numero_instalacion: string;
+  estado: string;
+  estado_motivo: string | null;
+  activado_produccion_en: string | null;
+  activado_por: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowVerifactuRepresentaciones {
+  id: string;
+  studio_id: string;
+  nif_representado: string;
+  nombre_representado: string;
+  otorgante_nombre: string;
+  otorgante_nif: string;
+  otorgante_cargo: string;
+  apoderado_nombre: string;
+  apoderado_nif: string;
+  tramite: string;
+  via_aeat: string;
+  csv_aeat: string;
+  otorgado_en: string;
+  vigente_hasta: string;
+  mandato_version: string;
+  mandato_sha256: string;
+  aceptado_por: string;
+  aceptado_en: string;
+  aceptado_ip: string | null;
+  aceptado_user_agent: string | null;
+  referencia_aeat: string | null;
+  csv_cotejado: boolean;
+  verificado_por: string | null;
+  verificado_en: string | null;
+  estado: string;
+  estado_motivo: string | null;
+  revocada_en: string | null;
+  aviso_caducidad_en: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowVerifactuRepresentacionEventos {
+  id: number;
+  studio_id: string;
+  representacion_id: string | null;
+  evento: string;
+  actor_user_id: string | null;
+  actor_tipo: string;
+  ip: string | null;
+  user_agent: string | null;
+  datos: any | null;
+  creado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -9884,6 +9944,126 @@ export type VerifactuDeclaracionesResponsablesUpdate = {
   suscrita_en?: string | null;
 }
 
+export type VerifactuEstudiosInsert = {
+  studio_id?: string | null;
+  nif?: string | null;
+  nombre_fiscal?: string | null;
+  tipo_emisor?: string | null;
+  numero_instalacion?: string | null;
+  estado?: string | null;
+  estado_motivo?: string | null | null;
+  activado_produccion_en?: string | null | null;
+  activado_por?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type VerifactuEstudiosUpdate = {
+  studio_id?: string | null;
+  nif?: string | null;
+  nombre_fiscal?: string | null;
+  tipo_emisor?: string | null;
+  numero_instalacion?: string | null;
+  estado?: string | null;
+  estado_motivo?: string | null | null;
+  activado_produccion_en?: string | null | null;
+  activado_por?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type VerifactuRepresentacionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nif_representado?: string | null;
+  nombre_representado?: string | null;
+  otorgante_nombre?: string | null;
+  otorgante_nif?: string | null;
+  otorgante_cargo?: string | null;
+  apoderado_nombre?: string | null;
+  apoderado_nif?: string | null;
+  tramite?: string | null;
+  via_aeat?: string | null;
+  csv_aeat?: string | null;
+  otorgado_en?: string | null;
+  vigente_hasta?: string | null;
+  mandato_version?: string | null;
+  mandato_sha256?: string | null;
+  aceptado_por?: string | null;
+  aceptado_en?: string | null;
+  aceptado_ip?: string | null | null;
+  aceptado_user_agent?: string | null | null;
+  referencia_aeat?: string | null | null;
+  csv_cotejado?: boolean | null;
+  verificado_por?: string | null | null;
+  verificado_en?: string | null | null;
+  estado?: string | null;
+  estado_motivo?: string | null | null;
+  revocada_en?: string | null | null;
+  aviso_caducidad_en?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type VerifactuRepresentacionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nif_representado?: string | null;
+  nombre_representado?: string | null;
+  otorgante_nombre?: string | null;
+  otorgante_nif?: string | null;
+  otorgante_cargo?: string | null;
+  apoderado_nombre?: string | null;
+  apoderado_nif?: string | null;
+  tramite?: string | null;
+  via_aeat?: string | null;
+  csv_aeat?: string | null;
+  otorgado_en?: string | null;
+  vigente_hasta?: string | null;
+  mandato_version?: string | null;
+  mandato_sha256?: string | null;
+  aceptado_por?: string | null;
+  aceptado_en?: string | null;
+  aceptado_ip?: string | null | null;
+  aceptado_user_agent?: string | null | null;
+  referencia_aeat?: string | null | null;
+  csv_cotejado?: boolean | null;
+  verificado_por?: string | null | null;
+  verificado_en?: string | null | null;
+  estado?: string | null;
+  estado_motivo?: string | null | null;
+  revocada_en?: string | null | null;
+  aviso_caducidad_en?: string | null | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type VerifactuRepresentacionEventosInsert = {
+  id?: number | null;
+  studio_id?: string | null;
+  representacion_id?: string | null | null;
+  evento?: string | null;
+  actor_user_id?: string | null | null;
+  actor_tipo?: string | null;
+  ip?: string | null | null;
+  user_agent?: string | null | null;
+  datos?: any | null | null;
+  creado_en?: string | null;
+}
+
+export type VerifactuRepresentacionEventosUpdate = {
+  id?: number | null;
+  studio_id?: string | null;
+  representacion_id?: string | null | null;
+  evento?: string | null;
+  actor_user_id?: string | null | null;
+  actor_tipo?: string | null;
+  ip?: string | null | null;
+  user_agent?: string | null | null;
+  datos?: any | null | null;
+  creado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -11006,6 +11186,21 @@ export type Database = {
         Row: RowVerifactuDeclaracionesResponsables;
         Insert: VerifactuDeclaracionesResponsablesInsert;
         Update: VerifactuDeclaracionesResponsablesUpdate;
+      };
+      verifactu_estudios: {
+        Row: RowVerifactuEstudios;
+        Insert: VerifactuEstudiosInsert;
+        Update: VerifactuEstudiosUpdate;
+      };
+      verifactu_representaciones: {
+        Row: RowVerifactuRepresentaciones;
+        Insert: VerifactuRepresentacionesInsert;
+        Update: VerifactuRepresentacionesUpdate;
+      };
+      verifactu_representacion_eventos: {
+        Row: RowVerifactuRepresentacionEventos;
+        Insert: VerifactuRepresentacionEventosInsert;
+        Update: VerifactuRepresentacionEventosUpdate;
       };
     };
   };

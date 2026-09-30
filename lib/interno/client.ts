@@ -397,3 +397,20 @@ export interface DeclaracionVerifactuInterna {
 export const fetchDeclaracionVerifactu = () => pedir<DeclaracionVerifactuInterna>('/verifactu/declaracion');
 export const suscribirDeclaracionVerifactu = (fecha: string, lugar: string) =>
   pedir<{ ok: true; id: string; version: string; sha256: string }>('/verifactu/declaracion', { method: 'POST', body: JSON.stringify({ fecha, lugar }) });
+
+// Veri*Factu — alta de estudios y verificación del poder IZ860.
+export interface EstudioVerifactuInterno {
+  studio_id: string; nif: string; nombre_fiscal: string; tipo_emisor: string; numero_instalacion: string;
+  estado: string; estado_motivo: string | null; activado_produccion_en: string | null; actualizado_en: string;
+}
+export interface RepresentacionVerifactuInterna {
+  id: string; studio_id: string; nif_representado: string; nombre_representado: string;
+  otorgante_nombre: string; otorgante_nif: string; otorgante_cargo: string;
+  apoderado_nombre: string; apoderado_nif: string; tramite: 'IZ860' | 'GENERAL_46_2';
+  csv_aeat: string; otorgado_en: string; vigente_hasta: string; estado: string; estado_motivo: string | null;
+  referencia_aeat: string | null; creado_en: string;
+}
+export interface VerifactuEstudiosInterno { estudios: EstudioVerifactuInterno[]; representaciones: RepresentacionVerifactuInterna[] }
+export const fetchVerifactuEstudios = () => pedir<VerifactuEstudiosInterno>('/verifactu/estudios');
+export const accionVerifactuEstudios = (cuerpo: Record<string, unknown>) =>
+  pedir<VerifactuEstudiosInterno>('/verifactu/estudios', { method: 'POST', body: JSON.stringify(cuerpo) });
