@@ -31,6 +31,8 @@ import { selloParaCliente, type SelloCliente } from '@/lib/factura-sello-cliente
 import {
   cifrarCredencial, clavesDelEntorno, contextoCredencial, descifrarCredencial, paraGuardar, pideCifrarse, type ClavesCredenciales,
 } from '@/lib/integraciones/cifrado-credenciales';
+import { cifrarConfigIntegracion, configPideCifrarse } from '@/lib/integraciones/config-cifrada';
+import { descifrarConfigDeFila } from '@/lib/integraciones/config-cifrada-servidor';
 import type { FacturaImprimible } from '@/lib/factura-pdf';
 import { qrEnProduccion } from '@/lib/verifactu/config';
 import type { ResultadoEscritura } from '@/lib/errores';
@@ -6687,6 +6689,10 @@ export async function dbDeleteZoomCredenciales(studioId: string) {
 // Config guardada por el propio estudio para una integración "campos" (Kisi,
 // WhatsApp Business) — cada negocio pega su propia clave/token, no hay
 // secreto compartido de plataforma. Lo usan las rutas de "Probar conexión".
+//
+// Sus secretos (token, apiKey) van cifrados (lib/integraciones/config-cifrada.ts):
+// quien lea `config` de una fila lo pasa por `descifrarConfigDeFila`
+// (lib/integraciones/config-cifrada-servidor.ts).
 
 export async function dbGetIntegracionConfig(studioId: string, tipo: TipoIntegracion): Promise<{ activo: boolean; config: Record<string, string> } | null> {
   const admin = getSupabaseAdmin();
@@ -6699,7 +6705,80 @@ export async function dbGetIntegracionConfig(studioId: string, tipo: TipoIntegra
     .maybeSingle();
   if (error) { reportDbError('[dbGetIntegracionConfig]', error); return null; }
   if (!data) return null;
-  return { activo: !!data.activo, config: (data.config as Record<string, string>) ?? {} };
+  return { activo: !!data.activo, config: descifrarConfigDeFila(studioId, tipo, data.config) };
+}
+
+/**
+ * Guarda la config que la propietaria escribe en Configuración (antes lo hacía
+ * el navegador directo contra la tabla). `studioId` SIEMPRE de la sesión.
+ * Mismas reglas que tenía el camino del cliente:
+ *  - WhatsApp: `phone_number_id` sigue a `config.phoneId` en toda escritura
+ *    (también «Desconectar», que manda `{}`), o el webhook seguiría resolviendo
+ *    eventos a un estudio desconectado.
+ *  - La salud solo se reinicia si cambiaron las credenciales: en un upsert lo
+ *    que no se nombra no se toca, y así no se pisa lo que el cron acabe de anotar.
+ */
+export async function dbGuardarIntegracion(
+  studioId: string,
+  datos: { tipo: TipoIntegracion; activo: boolean; config: Record<string, string>; reiniciarSalud: boolean },
+): Promise<{ ok: true } | { ok: false; error: string; conflict?: boolean }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return { ok: false, error: 'Service role no configurada' };
+  const { data: existente, error: errorLeer } = await admin
+    .from('integraciones').select('id').eq('studio_id', studioId).eq('tipo', datos.tipo).maybeSingle();
+  if (errorLeer) { reportDbError('[dbGuardarIntegracion]', errorLeer); return { ok: false, error: 'No se ha podido guardar.' }; }
+  const claves = clavesDelEntorno();
+  avisarSiSinClave(claves);
+  const { config } = cifrarConfigIntegracion(studioId, datos.tipo, datos.config, claves);
+  const row = {
+    // El id de la fila que ya hay: un upsert con otro id cambiaría su clave primaria.
+    id: existente?.id ?? `intg-${datos.tipo.toLowerCase()}-${uid()}`,
+    studio_id: studioId,
+    tipo: datos.tipo,
+    activo: datos.activo,
+    config,
+    actualizado_en: new Date().toISOString(),
+    ...(datos.tipo === 'WHATSAPP' ? { phone_number_id: datos.config.phoneId || null } : {}),
+    ...(datos.reiniciarSalud ? { ultimo_ok_en: null, ultimo_error: null, ultimo_error_en: null } : {}),
+  };
+  const { error } = await admin.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
+  if (error) {
+    if (error.code === '23505') {
+      return { ok: false, conflict: true, error: 'Ese número de WhatsApp ya está conectado a otro estudio en Tentare.' };
+    }
+    reportDbError('[dbGuardarIntegracion]', error);
+    return { ok: false, error: 'No se ha podido guardar.' };
+  }
+  return { ok: true };
+}
+
+/**
+ * El barrido que cifra los secretos de `integraciones.config` que quedaron en
+ * claro (de antes de la clave, o con la anterior tras rotarla). Mismo sitio y
+ * mismo criterio que `cifrarCredencialesPendientes`: compare-and-set por
+ * `actualizado_en`, que cambia con cada guardado de la config (la salud no lo toca).
+ */
+export async function cifrarConfigsIntegracionPendientes(limite = 25): Promise<{ cifradas: number; fallidas: number; sinClave: boolean }> {
+  const admin = getSupabaseAdmin();
+  const claves = clavesDelEntorno();
+  if (!admin || !claves.actual) return { cifradas: 0, fallidas: 0, sinClave: !claves.actual };
+  const { data, error } = await admin
+    .from('integraciones')
+    .select('id, studio_id, tipo, config, actualizado_en')
+    .order('id')
+    .limit(2000);
+  if (error) { reportDbError('[cifrarConfigsIntegracionPendientes]', error); return { cifradas: 0, fallidas: 1, sinClave: false }; }
+  let cifradas = 0;
+  let fallidas = 0;
+  for (const f of (data ?? []).filter(f => configPideCifrarse(f.config, claves)).slice(0, limite)) {
+    const { config } = cifrarConfigIntegracion(f.studio_id, f.tipo, f.config as Record<string, string>, claves);
+    if (configPideCifrarse(config, claves)) { fallidas++; continue; }
+    let q = admin.from('integraciones').update({ config }).eq('id', f.id);
+    q = f.actualizado_en === null ? q.is('actualizado_en', null) : q.eq('actualizado_en', f.actualizado_en);
+    const { error: e } = await q;
+    if (e) { reportDbError('[cifrarConfigsIntegracionPendientes]', e); fallidas++; } else cifradas++;
+  }
+  return { cifradas, fallidas, sinClave: false };
 }
 
 // WhatsApp Embedded Signup v4 (ver WHATSAPP_AUDIT.md / META_SETUP.md): guarda
@@ -6729,7 +6808,9 @@ export async function dbGuardarConexionWhatsappEmbeddedSignup(
     .eq('studio_id', studioId)
     .eq('tipo', 'WHATSAPP')
     .maybeSingle();
-  const configAnterior = (existente?.config as Record<string, string>) ?? {};
+  const configAnterior = existente ? descifrarConfigDeFila(studioId, 'WHATSAPP', existente.config) : {};
+  const claves = clavesDelEntorno();
+  avisarSiSinClave(claves);
 
   const row = {
     id: existente?.id ?? `intg-whatsapp-${uid()}`,
@@ -6737,7 +6818,7 @@ export async function dbGuardarConexionWhatsappEmbeddedSignup(
     tipo: 'WHATSAPP',
     activo: true,
     phone_number_id: datos.phoneNumberId,
-    config: {
+    config: cifrarConfigIntegracion(studioId, 'WHATSAPP', {
       ...configAnterior,
       token: datos.token,
       phoneId: datos.phoneNumberId,
@@ -6749,7 +6830,7 @@ export async function dbGuardarConexionWhatsappEmbeddedSignup(
       // plantilla está aprobada en Meta); por defecto 'false' para una
       // conexión nueva, igual que hoy hace el formulario manual.
       plantillaAprobada: configAnterior.plantillaAprobada ?? 'false',
-    },
+    }, claves).config,
     actualizado_en: new Date().toISOString(),
     // Credenciales nuevas: la salud del token anterior ya no vale (ver mismo
     // criterio en dbUpsertIntegracion). Quien llama marca el éxito real con

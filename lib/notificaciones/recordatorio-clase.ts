@@ -34,6 +34,8 @@ import type { NotificationEvent } from '../notifications/types.ts';
 import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO } from '../whatsapp.ts';
 import { whatsappDelEstudio, type WhatsAppDelEstudio } from '../whatsapp-estudio.ts';
 import { acumuladorSalud } from '../integraciones/salud.ts';
+import { clavesDelEntorno } from '../integraciones/cifrado-credenciales.ts';
+import { descifrarConfigIntegracion } from '../integraciones/config-cifrada.ts';
 import { exigirLectura } from '../exigir-lectura.ts';
 import { mapLimit } from '../concurrency.ts';
 import { fechaLargaEstudio, horaEstudio } from '../utils.ts';
@@ -537,8 +539,13 @@ export async function barrerRecordatoriosClase(
         .select('studio_id').eq('tipo', 'recordatorio').eq('enviar', false).in('studio_id', studiosContacto).order('studio_id').range(from, to)),
     ]);
     if (integracionesR.error) degradada('integraciones de WhatsApp', integracionesR.error);
+    const claves = clavesDelEntorno();
     for (const row of integracionesR.data) {
-      const creds = whatsappDelEstudio({ activo: !!row.activo, config: row.config });
+      // El token va cifrado (lib/integraciones/config-cifrada.ts). Sin poder
+      // descifrarlo, el estudio queda sin WhatsApp en esta tanda: el correo sale.
+      const { config, fallidos } = descifrarConfigIntegracion(row.studio_id, 'WHATSAPP', row.config, claves);
+      if (fallidos.length) degradada('token de WhatsApp sin descifrar', { message: row.studio_id });
+      const creds = whatsappDelEstudio({ activo: !!row.activo, config });
       if (creds) whatsappPorStudio.set(row.studio_id, creds);
     }
     // Fail-OPEN, como `envioDesactivado`: sin poder leerla, el correo sale; y

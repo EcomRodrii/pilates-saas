@@ -11,7 +11,7 @@ import { probarWhatsApp } from '@/lib/whatsapp';
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  // Mismo límite que la RLS de `integraciones` (`owner_integraciones`) y que el
+  // Mismo límite que la RLS de `integraciones` (`owner_integraciones_lectura`) y que el
   // resto de endpoints de integraciones: PROPIETARIO. Aquí faltaba, y como se
   // lee la config con el cliente de servicio, la RLS no lo cubría — cualquier
   // miembro del personal podía disparar pruebas contra la cuenta de Meta del

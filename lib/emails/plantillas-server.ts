@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { descifrarConfigDeFila } from '@/lib/integraciones/config-cifrada-servidor';
 import type { PersonalizacionCorreo } from './estudio/plantilla.ts';
 import { marcaDesdeFila, type MarcaEstudio } from './marca.ts';
 import { colorMarcaDelEstudio, colorSecundarioDelEstudio } from './color-marca.ts';
@@ -202,7 +203,7 @@ async function resolverRemitenteResend(
     .eq('studio_id', studioId).eq('tipo', 'RESEND')
     .maybeSingle();
   if (!data?.activo) return {};
-  const cfg = (data.config ?? {}) as { fromEmail?: unknown; fromName?: unknown };
+  const cfg = descifrarConfigDeFila(studioId, 'RESEND', data.config) as { fromEmail?: unknown; fromName?: unknown };
   const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '') || undefined;
   const fromEmail = texto(cfg.fromEmail);
   return {

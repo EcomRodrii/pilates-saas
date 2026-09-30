@@ -11,6 +11,7 @@ import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { emailDeLaPropietaria } from '@/lib/notifications/recipients';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
+import { descifrarConfigDeFila } from '@/lib/integraciones/config-cifrada-servidor';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import {
   cuerpoNudgeCandidata,
@@ -247,7 +248,7 @@ export async function recordatorioPorMensaje(
   // `skipped`, no `fallido`. Anotarlo como fallo llenaría la traza que ve la
   // propietaria de rojo por algo que ella no ha roto — mismo criterio que tenía
   // el «Twilio no configurado» de antes.
-  const whatsapp = whatsappDelEstudio(intg as { activo: boolean; config: Record<string, string> | null } | null);
+  const whatsapp = whatsappDelEstudio(intg ? { activo: !!intg.activo, config: descifrarConfigDeFila(studioId, 'WHATSAPP', intg.config) } : null);
   if (!whatsapp) return { enviado: false, skipped: true };
 
   const { data: tipo } = await admin

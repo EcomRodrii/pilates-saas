@@ -22,7 +22,7 @@ function json(route: Route, body: unknown, status = 200) {
 
 async function montarIntegraciones(page: Page, opts: {
   config: Record<string, string>;
-  contadorDesconexion?: { intentos: number };
+  contadorDesconexion?: { intentos: number; cuerpo?: Record<string, unknown> };
 }) {
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -47,13 +47,6 @@ async function montarIntegraciones(page: Page, opts: {
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
   await page.route('**/rest/v1/integraciones**', route => {
-    // El upsert de "Desconectar" también pasa por aquí (PATCH/POST) — cuenta
-    // cualquier intento que no sea el GET inicial, siguiendo el mismo
-    // criterio que test-4xx-necesita-contador-de-intentos: sin esto, un
-    // "Desconectar" que no llega a mandar nada seguiría pasando el test.
-    if (opts.contadorDesconexion && route.request().method() !== 'GET') {
-      opts.contadorDesconexion.intentos += 1;
-    }
     if (route.request().method() === 'GET') {
       return json(route, [{
         id: 'intg-whatsapp', studio_id: STUDIO_ID, tipo: 'WHATSAPP', activo: true,
@@ -64,7 +57,19 @@ async function montarIntegraciones(page: Page, opts: {
     return json(route, {});
   });
   // Registrada al final para ganar al comodín `**/api/**`.
-  await page.route('**/api/integrations/config**', route => json(route, { config: opts.config }));
+  await page.route('**/api/integrations/config**', route => {
+    // "Desconectar" guarda por aquí (PUT: el servidor escribe la tabla, 30-sep):
+    // se cuenta cada intento, siguiendo test-4xx-necesita-contador-de-intentos —
+    // sin esto, un "Desconectar" que no llega a mandar nada seguiría pasando.
+    if (route.request().method() === 'PUT') {
+      if (opts.contadorDesconexion) {
+        opts.contadorDesconexion.intentos += 1;
+        opts.contadorDesconexion.cuerpo = route.request().postDataJSON() as Record<string, unknown>;
+      }
+      return json(route, { ok: true });
+    }
+    return json(route, { config: opts.config });
+  });
 
   // WhatsApp está en «Cómo me comunico» desde el 15-sep.
   await page.goto('/configuracion?tab=comunicacion');
@@ -108,6 +113,8 @@ test.describe('WhatsApp conectado por Embedded Signup: modal de solo lectura', (
     await page.getByRole('button', { name: 'Sí, desconectar' }).click();
 
     await expect.poll(() => contador.intentos, { timeout: 15_000 }).toBeGreaterThan(0);
+    // Lo que manda: apagada y sin credenciales (el servidor suelta el número).
+    expect(contador.cuerpo).toMatchObject({ tipo: 'WHATSAPP', activo: false, config: {} });
   });
 
   test('una fila SIN wabaId (flujo manual) sigue abriendo el formulario de siempre', async ({ page }) => {
