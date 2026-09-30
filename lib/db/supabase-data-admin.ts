@@ -28,6 +28,9 @@ import {
 } from '@/lib/reservas/consumo-bono-reserva';
 import { LEGAL } from '@/lib/legal-info';
 import { selloParaCliente, type SelloCliente } from '@/lib/factura-sello-cliente';
+import {
+  cifrarCredencial, clavesDelEntorno, contextoCredencial, descifrarCredencial, paraGuardar, pideCifrarse, type ClavesCredenciales,
+} from '@/lib/integraciones/cifrado-credenciales';
 import type { FacturaImprimible } from '@/lib/factura-pdf';
 import { qrEnProduccion } from '@/lib/verifactu/config';
 import type { ResultadoEscritura } from '@/lib/errores';
@@ -1505,7 +1508,7 @@ async function trasReservaCreada(admin: SupabaseClient, p: {
     if (!efectosTrasConsumo(p.estado, consumo, true)) return false;
   } else if (p.estado === 'CONFIRMADA') {
     // El bono que pagó puede no ser el que eligió TS: `reservar_plaza` lo vuelve
-    // a elegir bajo su candado (migr 20260930130000). El aviso de «bono
+    // a elegir bajo su candado (migr 20260930094536). El aviso de «bono
     // agotado», con el de verdad.
     const pagoOtro = !!p.consumoBono?.suscripcionId && p.consumoBono.suscripcionId !== p.consumibleBono?.suscripcion.id;
     const consumo = p.consumoBono
@@ -6447,95 +6450,165 @@ export async function dbSetGoogleCalendarEmail(studioId: string, email: string |
 }
 
 
-export interface GoogleCalendarCredenciales {
+// ── Credenciales OAuth de las integraciones (Gmail, Calendar, Zoom, Klaviyo) ──
+// Cifradas en la app (lib/integraciones/cifrado-credenciales.ts). Toda lectura
+// y escritura de `integracion_credenciales` pasa por estos ayudantes: un
+// `.from()` suelto se saltaría el cifrado (lo vigila su test).
+type ProveedorCredenciales = 'google_calendar' | 'klaviyo' | 'gmail' | 'zoom';
+
+interface CredencialesOAuth {
   accessToken: string;
   refreshToken: string;
   expiresAt: string;
 }
 
-
-export async function dbGetGoogleCalendarCredenciales(studioId: string): Promise<GoogleCalendarCredenciales | null> {
-  const admin = getSupabaseAdmin();
-  if (!admin) return null;
-  const { data, error } = await admin
-    .from('integracion_credenciales')
-    .select('access_token, refresh_token, expires_at')
-    .eq('studio_id', studioId)
-    .eq('provider', 'google_calendar')
-    .maybeSingle();
-  if (error) { reportDbError('[dbGetGoogleCalendarCredenciales]', error); return null; }
-  if (!data || !data.refresh_token) return null;
-  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at };
+let avisoSinClave = false;
+/** Una vez por instancia: sin clave en producción, lo nuevo se guarda en claro. */
+function avisarSiSinClave(claves: ClavesCredenciales) {
+  if (avisoSinClave || process.env.VERCEL_ENV !== 'production') return;
+  if (claves.actual && !claves.malformada) return;
+  avisoSinClave = true;
+  capturarMensaje('[credenciales] INTEGRACIONES_CLAVE_CIFRADO falta o no mide 32 bytes: los tokens se guardan sin cifrar', 'warning', {
+    tags: { area: 'integraciones', tipo: 'sin-clave-cifrado' },
+  });
 }
 
-
-export async function dbSaveGoogleCalendarCredenciales(studioId: string, c: GoogleCalendarCredenciales) {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
-  const { error } = await admin.from('integracion_credenciales').upsert({
-    studio_id: studioId,
-    provider: 'google_calendar',
-    access_token: c.accessToken,
-    refresh_token: c.refreshToken,
-    expires_at: c.expiresAt,
-    actualizado_en: new Date().toISOString(),
-  }, { onConflict: 'studio_id,provider' });
-  if (error) reportDbError('[dbSaveGoogleCalendarCredenciales]', error);
-}
-
-
-export async function dbDeleteGoogleCalendarCredenciales(studioId: string) {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
-  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'google_calendar');
-  if (error) reportDbError('[dbDeleteGoogleCalendarCredenciales]', error);
-}
-
-// Klaviyo (paso 7, docs/marketing-integrations-arquitectura.md §6) — mismo
-// patrón exacto que Google Calendar, con `listId` extra (metadata jsonb: la
-// lista donde caen las socias sincronizadas, se crea una vez por estudio).
-export interface KlaviyoCredenciales {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: string;
-  listId: string | null;
-}
-
-export async function dbGetKlaviyoCredenciales(studioId: string): Promise<KlaviyoCredenciales | null> {
+/**
+ * Las credenciales de un proveedor, descifradas. Un valor cifrado que no se
+ * puede descifrar (sin clave, otra clave, alterado) NO se devuelve: es `null`,
+ * y la integración se trata como no conectada hasta reconectarla.
+ */
+async function leerCredencialesOAuth(studioId: string, provider: ProveedorCredenciales, etiqueta: string): Promise<(CredencialesOAuth & { metadata: unknown }) | null> {
   const admin = getSupabaseAdmin();
   if (!admin) return null;
   const { data, error } = await admin
     .from('integracion_credenciales')
     .select('access_token, refresh_token, expires_at, metadata')
     .eq('studio_id', studioId)
-    .eq('provider', 'klaviyo')
+    .eq('provider', provider)
     .maybeSingle();
-  if (error) { reportDbError('[dbGetKlaviyoCredenciales]', error); return null; }
+  if (error) { reportDbError(etiqueta, error); return null; }
   if (!data || !data.refresh_token) return null;
-  const metadata = data.metadata as { listId?: string } | null;
-  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at, listId: metadata?.listId ?? null };
+  const claves = clavesDelEntorno();
+  // Un access token vacío se devuelve igual que antes (vacío): lo renueva quien lo use.
+  const acceso = data.access_token === null
+    ? { ok: true as const, valor: null }
+    : descifrarCredencial(data.access_token, contextoCredencial(studioId, provider, 'access_token'), claves);
+  const renovar = descifrarCredencial(data.refresh_token, contextoCredencial(studioId, provider, 'refresh_token'), claves);
+  if (!acceso.ok || !renovar.ok) {
+    capturarMensaje('[credenciales] token de integración que no se puede descifrar', 'error', {
+      tags: { area: 'integraciones', provider, motivo: !acceso.ok ? acceso.motivo : !renovar.ok ? renovar.motivo : '' },
+      extra: { queHacer: 'Si se cambió la clave, poner la de antes en INTEGRACIONES_CLAVE_CIFRADO_ANTERIOR; si se perdió, el estudio tiene que reconectar la integración.' },
+    });
+    return null;
+  }
+  // Los mismos tipos que se devolvían antes de cifrar: sin reinterpretar nulos.
+  return { accessToken: acceso.valor as string, refreshToken: renovar.valor, expiresAt: data.expires_at as string, metadata: data.metadata };
+}
+
+async function guardarCredencialesOAuth(studioId: string, provider: ProveedorCredenciales, c: CredencialesOAuth, etiqueta: string, metadata?: Record<string, unknown> | null) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const claves = clavesDelEntorno();
+  avisarSiSinClave(claves);
+  const { error } = await admin.from('integracion_credenciales').upsert({
+    studio_id: studioId,
+    provider,
+    access_token: paraGuardar(c.accessToken, contextoCredencial(studioId, provider, 'access_token'), claves).valor,
+    refresh_token: paraGuardar(c.refreshToken, contextoCredencial(studioId, provider, 'refresh_token'), claves).valor,
+    expires_at: c.expiresAt,
+    ...(metadata !== undefined ? { metadata } : {}),
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'studio_id,provider' });
+  if (error) reportDbError(etiqueta, error);
+}
+
+async function borrarCredencialesOAuth(studioId: string, provider: ProveedorCredenciales, etiqueta: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', provider);
+  if (error) reportDbError(etiqueta, error);
+}
+
+/**
+ * El barrido que cifra lo que quedó en claro (filas de antes de la clave, o
+ * cifradas con la anterior tras rotarla). Lo llama el cron nocturno: una
+ * integración que nadie usa no pasaría nunca por `guardarCredencialesOAuth`.
+ * Compare-and-set por el valor leído: si justo se renovó el token, no se pisa.
+ */
+export async function cifrarCredencialesPendientes(limite = 25): Promise<{ cifradas: number; fallidas: number; sinClave: boolean }> {
+  const admin = getSupabaseAdmin();
+  const claves = clavesDelEntorno();
+  if (!admin || !claves.actual) return { cifradas: 0, fallidas: 0, sinClave: !claves.actual };
+  const { data, error } = await admin
+    .from('integracion_credenciales')
+    .select('studio_id, provider, access_token, refresh_token')
+    .order('studio_id');
+  if (error) { reportDbError('[cifrarCredencialesPendientes]', error); return { cifradas: 0, fallidas: 1, sinClave: false }; }
+  let cifradas = 0;
+  let fallidas = 0;
+  const pendientes = (data ?? []).filter(f =>
+    (f.access_token && pideCifrarse(f.access_token, claves)) || (f.refresh_token && pideCifrarse(f.refresh_token, claves)),
+  ).slice(0, limite);
+  for (const f of pendientes) {
+    const recifrar = (valor: string | null, campo: 'access_token' | 'refresh_token'): string | null | undefined => {
+      if (!valor) return valor;
+      const ctx = contextoCredencial(f.studio_id, f.provider, campo);
+      const leido = descifrarCredencial(valor, ctx, claves);
+      return leido.ok ? cifrarCredencial(leido.valor, ctx, claves.actual!) : undefined;
+    };
+    const acceso = recifrar(f.access_token, 'access_token');
+    const renovar = recifrar(f.refresh_token, 'refresh_token');
+    if (acceso === undefined || renovar === undefined) { fallidas++; continue; }
+    let q = admin.from('integracion_credenciales')
+      .update({ access_token: acceso, refresh_token: renovar })
+      .eq('studio_id', f.studio_id).eq('provider', f.provider);
+    q = f.access_token === null ? q.is('access_token', null) : q.eq('access_token', f.access_token);
+    q = f.refresh_token === null ? q.is('refresh_token', null) : q.eq('refresh_token', f.refresh_token);
+    const { error: e } = await q;
+    if (e) { reportDbError('[cifrarCredencialesPendientes]', e); fallidas++; } else cifradas++;
+  }
+  return { cifradas, fallidas, sinClave: false };
+}
+
+export type GoogleCalendarCredenciales = CredencialesOAuth;
+
+
+export async function dbGetGoogleCalendarCredenciales(studioId: string): Promise<GoogleCalendarCredenciales | null> {
+  const c = await leerCredencialesOAuth(studioId, 'google_calendar', '[dbGetGoogleCalendarCredenciales]');
+  return c && { accessToken: c.accessToken, refreshToken: c.refreshToken, expiresAt: c.expiresAt };
+}
+
+
+export async function dbSaveGoogleCalendarCredenciales(studioId: string, c: GoogleCalendarCredenciales) {
+  await guardarCredencialesOAuth(studioId, 'google_calendar', c, '[dbSaveGoogleCalendarCredenciales]');
+}
+
+
+export async function dbDeleteGoogleCalendarCredenciales(studioId: string) {
+  await borrarCredencialesOAuth(studioId, 'google_calendar', '[dbDeleteGoogleCalendarCredenciales]');
+}
+
+// Klaviyo (paso 7, docs/marketing-integrations-arquitectura.md §6) — mismo
+// patrón exacto que Google Calendar, con `listId` extra (metadata jsonb: la
+// lista donde caen las socias sincronizadas, se crea una vez por estudio).
+export interface KlaviyoCredenciales extends CredencialesOAuth {
+  listId: string | null;
+}
+
+export async function dbGetKlaviyoCredenciales(studioId: string): Promise<KlaviyoCredenciales | null> {
+  const c = await leerCredencialesOAuth(studioId, 'klaviyo', '[dbGetKlaviyoCredenciales]');
+  if (!c) return null;
+  const metadata = c.metadata as { listId?: string } | null;
+  return { accessToken: c.accessToken, refreshToken: c.refreshToken, expiresAt: c.expiresAt, listId: metadata?.listId ?? null };
 }
 
 export async function dbSaveKlaviyoCredenciales(studioId: string, c: KlaviyoCredenciales) {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
-  const { error } = await admin.from('integracion_credenciales').upsert({
-    studio_id: studioId,
-    provider: 'klaviyo',
-    access_token: c.accessToken,
-    refresh_token: c.refreshToken,
-    expires_at: c.expiresAt,
-    metadata: c.listId ? { listId: c.listId } : null,
-    actualizado_en: new Date().toISOString(),
-  }, { onConflict: 'studio_id,provider' });
-  if (error) reportDbError('[dbSaveKlaviyoCredenciales]', error);
+  await guardarCredencialesOAuth(studioId, 'klaviyo', c, '[dbSaveKlaviyoCredenciales]', c.listId ? { listId: c.listId } : null);
 }
 
 export async function dbDeleteKlaviyoCredenciales(studioId: string) {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
-  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'klaviyo');
-  if (error) reportDbError('[dbDeleteKlaviyoCredenciales]', error);
+  await borrarCredencialesOAuth(studioId, 'klaviyo', '[dbDeleteKlaviyoCredenciales]');
 }
 
 export async function dbSetKlaviyoAccountName(studioId: string, nombre: string | null) {
@@ -6562,48 +6635,22 @@ export async function dbSetGmailEmail(studioId: string, email: string | null) {
 }
 
 
-export interface GmailCredenciales {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: string;
-}
+export type GmailCredenciales = CredencialesOAuth;
 
 
 export async function dbGetGmailCredenciales(studioId: string): Promise<GmailCredenciales | null> {
-  const admin = getSupabaseAdmin();
-  if (!admin) return null;
-  const { data, error } = await admin
-    .from('integracion_credenciales')
-    .select('access_token, refresh_token, expires_at')
-    .eq('studio_id', studioId)
-    .eq('provider', 'gmail')
-    .maybeSingle();
-  if (error) { reportDbError('[dbGetGmailCredenciales]', error); return null; }
-  if (!data || !data.refresh_token) return null;
-  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at };
+  const c = await leerCredencialesOAuth(studioId, 'gmail', '[dbGetGmailCredenciales]');
+  return c && { accessToken: c.accessToken, refreshToken: c.refreshToken, expiresAt: c.expiresAt };
 }
 
 
 export async function dbSaveGmailCredenciales(studioId: string, c: GmailCredenciales) {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
-  const { error } = await admin.from('integracion_credenciales').upsert({
-    studio_id: studioId,
-    provider: 'gmail',
-    access_token: c.accessToken,
-    refresh_token: c.refreshToken,
-    expires_at: c.expiresAt,
-    actualizado_en: new Date().toISOString(),
-  }, { onConflict: 'studio_id,provider' });
-  if (error) reportDbError('[dbSaveGmailCredenciales]', error);
+  await guardarCredencialesOAuth(studioId, 'gmail', c, '[dbSaveGmailCredenciales]');
 }
 
 
 export async function dbDeleteGmailCredenciales(studioId: string) {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
-  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'gmail');
-  if (error) reportDbError('[dbDeleteGmailCredenciales]', error);
+  await borrarCredencialesOAuth(studioId, 'gmail', '[dbDeleteGmailCredenciales]');
 }
 
 // Zoom: mismo patrón exacto que Google Calendar/Gmail (una app de Zoom para
@@ -6619,48 +6666,22 @@ export async function dbSetZoomEmail(studioId: string, email: string | null) {
 }
 
 
-export interface ZoomCredenciales {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: string;
-}
+export type ZoomCredenciales = CredencialesOAuth;
 
 
 export async function dbGetZoomCredenciales(studioId: string): Promise<ZoomCredenciales | null> {
-  const admin = getSupabaseAdmin();
-  if (!admin) return null;
-  const { data, error } = await admin
-    .from('integracion_credenciales')
-    .select('access_token, refresh_token, expires_at')
-    .eq('studio_id', studioId)
-    .eq('provider', 'zoom')
-    .maybeSingle();
-  if (error) { reportDbError('[dbGetZoomCredenciales]', error); return null; }
-  if (!data || !data.refresh_token) return null;
-  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at };
+  const c = await leerCredencialesOAuth(studioId, 'zoom', '[dbGetZoomCredenciales]');
+  return c && { accessToken: c.accessToken, refreshToken: c.refreshToken, expiresAt: c.expiresAt };
 }
 
 
 export async function dbSaveZoomCredenciales(studioId: string, c: ZoomCredenciales) {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
-  const { error } = await admin.from('integracion_credenciales').upsert({
-    studio_id: studioId,
-    provider: 'zoom',
-    access_token: c.accessToken,
-    refresh_token: c.refreshToken,
-    expires_at: c.expiresAt,
-    actualizado_en: new Date().toISOString(),
-  }, { onConflict: 'studio_id,provider' });
-  if (error) reportDbError('[dbSaveZoomCredenciales]', error);
+  await guardarCredencialesOAuth(studioId, 'zoom', c, '[dbSaveZoomCredenciales]');
 }
 
 
 export async function dbDeleteZoomCredenciales(studioId: string) {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
-  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'zoom');
-  if (error) reportDbError('[dbDeleteZoomCredenciales]', error);
+  await borrarCredencialesOAuth(studioId, 'zoom', '[dbDeleteZoomCredenciales]');
 }
 
 // Config guardada por el propio estudio para una integración "campos" (Kisi,

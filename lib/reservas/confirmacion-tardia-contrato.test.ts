@@ -165,7 +165,7 @@ test('TS ordena los ids en binario (el `collate "C"` de la base de datos): «sus
   assert.equal(bonoConsumible('a', [sus('sus-a1'), sus('sus-B1')], [plan], '2026-09-30', 'tc')?.suscripcion.id, 'sus-B1');
 });
 
-// ── La reserva directa (migración 20260930130000) ────────────────────────────
+// ── La reserva directa (migración 20260930094536) ────────────────────────────
 
 test('⚠️ reservar_plaza: si TS eligió un bono, la base de datos lo vuelve a elegir bajo el candado', () => {
   const cuerpo = cuerpoVigente('reservar_plaza');
