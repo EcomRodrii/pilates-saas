@@ -250,7 +250,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
   const configuracionInicial: PasoOnboarding[] = [
     // Se da por hecho con el NIF, que vive en «Datos fiscales e IVA»: el paso
     // llevaba a Mi estudio y prometía «nombre y contacto», que no cuentan.
-    { id: 'estudio', label: 'Pon tus datos fiscales', descripcion: 'Razón social y NIF: salen en cada factura de tus cobros.', minutos: 2, done: !!d.nif, href: '/configuracion?tab=cobros#datos-fiscales' },
+    { id: 'estudio', label: 'Pon tus datos fiscales', descripcion: 'Razón social y NIF: salen en tus facturas si Tentare las emite.', minutos: 2, done: !!d.nif, href: '/configuracion?tab=cobros#datos-fiscales' },
     { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en tu página de reservas y en la app de tus alumnas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion?tab=marca' },
     { id: 'salas', label: 'Configura tus salas', descripcion: 'El aforo de cada sala limita cuántas clientas caben en cada clase.', minutos: 2, done: d.numSalas > 0, href: '/configuracion?tab=estudio&abrir=salas' },
     // Mismo criterio que «clientas»: el panel usa una sola palabra para la

@@ -58,7 +58,12 @@ test('el número de factura solo aparece cuando existe', () => {
 test('sin enlace a su app, el justificante sale sin botón', () => {
   const base = { socioNombre: 'Ana', concepto: 'Cuota', importe: 45, fechaCobro: '2026-08-04T10:00:00.000Z', marca: MARCA };
   assert.ok(!correoRecibo(base).includes('mso-padding-alt'));
-  assert.match(correoRecibo({ ...base, url: 'https://app.example.com/portal/casa/pagos' }), /Ver mi factura/);
+  assert.match(correoRecibo({ ...base, url: 'https://app.example.com/portal/casa/pagos', numeroFactura: 'A-2026-0042' }), /Ver mi factura/);
+  // Sin factura (el estudio no factura desde Tentare, o aún no está sellada), no
+  // se promete un documento que no existe.
+  const sinFactura = correoRecibo({ ...base, url: 'https://app.example.com/portal/casa/pagos' });
+  assert.match(sinFactura, /Ver mis pagos/);
+  assert.ok(!sinFactura.includes('Ver mi factura'));
 });
 
 test('el impago admite la personalización del estudio; el justificante no', () => {

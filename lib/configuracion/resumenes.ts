@@ -59,7 +59,7 @@ export type EstudioResumible = Partial<Pick<Studio,
   | 'cancelacionVentanaHoras' | 'permiteListaEspera' | 'listaEsperaPlazoAceptacionMinutos'
   | 'reservaExigirPlan' | 'logoUrl' | 'visibleEnNetwork' | 'instructorasCreanClases'
   | 'compraPublicaModo' | 'valoracionInicialActiva' | 'preguntasAltaActivas' | 'gmailEmail'
-  | 'googleCalendarEmail' | 'zoomEmail' | 'klaviyoAccountName'
+  | 'googleCalendarEmail' | 'zoomEmail' | 'klaviyoAccountName' | 'modoFacturacion'
 >>;
 
 export type IntegracionResumible = { tipo: TipoIntegracion } & Partial<FilaSalud>;
@@ -225,7 +225,10 @@ export function avisosDeConfiguracion(d: DatosConfiguracion): AvisoConfiguracion
 
   // 1. El NIF. Con uno vacío o de relleno no se emite ninguna factura: es el
   //    mismo criterio que el aviso de Cobros → Facturas (`nifEmisorValido`).
-  const nif = s.nif === undefined ? null : avisoNif(s.nif);
+  //    Solo si el estudio emite facturas desde Tentare: con 'sin_facturas' (el
+  //    valor por defecto desde el 29-sep-2026) un NIF que falta no deja nada
+  //    sin factura. Sin saber el modo (datos de antes), como siempre.
+  const nif = s.nif === undefined || s.modoFacturacion === 'sin_facturas' ? null : avisoNif(s.nif);
   if (nif) avisos.push({ id: 'nif', ...nif, ...en('datos-fiscales') });
 
   // 2. Una conexión que falló la última vez que se usó (lib/integraciones/salud.ts).
@@ -673,9 +676,14 @@ const NADA: ResumenFila = { valor: null, estado: null };
  * «Pilates Centro SL · B12345674 · IVA 21 %». Con el NIF mal, lo que pasa con
  * tus facturas y la misma pastilla que en «Revisa esto».
  */
-export function resumenDatosFiscales(s: Partial<Pick<Studio, 'razonSocial' | 'nif' | 'ivaPorDefecto'>>): ResumenFila {
+export function resumenDatosFiscales(s: Partial<Pick<Studio, 'razonSocial' | 'nif' | 'ivaPorDefecto' | 'modoFacturacion'>>): ResumenFila {
   if (s.nif === undefined) return NADA;
   const aviso = avisoNif(s.nif);
+  // Sin facturas desde Tentare, un NIF que falta no deja nada sin factura: se
+  // dice para qué hace falta, sin ponerlo en rojo.
+  if (aviso && s.modoFacturacion === 'sin_facturas') {
+    return { valor: 'Sin NIF válido · solo hace falta si Tentare emite tus facturas', estado: null };
+  }
   if (aviso) {
     return {
       valor: aviso.tono === 'pendiente' ? 'Revisa el NIF: tus facturas salen con uno que Hacienda no reconoce' : aviso.texto,
@@ -725,6 +733,18 @@ export function resumenDomiciliaciones(s: Partial<Pick<Studio, 'sepaAcreedorId' 
 }
 
 /** «Hasta 14 días · bonos, solo sin empezar», o que se devuelve desde Stripe. */
+/**
+ * «Facturación»: si Tentare emite facturas (`Studio.modoFacturacion`). Sin
+ * prometer el envío a la AEAT, que hoy depende de algo que no está en su mano:
+ * su estado se ve en Cobros → Facturas.
+ */
+export function resumenFacturacion(s: Partial<Pick<Studio, 'modoFacturacion'>>): string | null {
+  if (s.modoFacturacion === undefined) return null;
+  return s.modoFacturacion === 'verifactu'
+    ? 'Emite facturas con registro Veri*Factu'
+    : 'No se emiten desde Tentare: tus alumnas reciben su justificante de pago';
+}
+
 export function resumenDevoluciones(s: Partial<Pick<Studio, 'reembolsosActivos' | 'reembolsoPlazoDias' | 'reembolsoSoloSinUsar'>>): string | null {
   if (s.reembolsosActivos === undefined) return null;
   if (!s.reembolsosActivos) return 'Apagadas: devuelves desde Stripe';
