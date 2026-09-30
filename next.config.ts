@@ -124,6 +124,22 @@ const nextConfig: NextConfig = {
   // mundo en minutos, no en horas.
   async headers() {
     return [
+      // Cabeceras de seguridad a nivel de sitio (auditoría SEO/técnica,
+      // 30-sep-2026). HSTS ya lo pone Vercel por delante (`curl -I` en
+      // producción: `strict-transport-security: max-age=63072000`), así que no
+      // se repite aquí. Estas tres no las ponía nadie.
+      // ⚠️ Nada de `X-Frame-Options`/`frame-ancestors`: `/reservar/:slug` se
+      // embebe a propósito en un `<iframe>` dentro de la web de cada estudio
+      // (components/ayuda/articulos/widget-instalar-con-html.tsx) — bloquearlo
+      // habría roto ese widget para todos los estudios que lo usan así.
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
       {
         source: '/widget.js',
         headers: [
