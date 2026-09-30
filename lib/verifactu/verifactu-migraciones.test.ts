@@ -115,3 +115,17 @@ test('solo VERI*FACTU: las funciones de trigger nuevas no se ejecutan desde el c
   }
   assert.doesNotMatch(SOLO_CON_ENVIO, /grant [^;]* to [^;]*\b(anon|authenticated)\b/i);
 });
+
+// La decisión sobre las anteriores: solo añadir, solo antes de activar, y fuera del cliente.
+const DECISIONES = readFileSync(join(DIR, '20260930180000_verifactu_decisiones_anteriores.sql'), 'utf8')
+  .replace(/--[^\n]*/g, '');
+
+test('decisiones sobre las anteriores: RLS, sin cliente, sin borrar, solo añadir y solo antes de activar', () => {
+  assert.match(DECISIONES, /alter table public\.verifactu_decisiones_anteriores enable row level security/);
+  assert.match(DECISIONES, /revoke all on public\.verifactu_decisiones_anteriores from public, anon, authenticated/);
+  assert.match(DECISIONES, /revoke update, delete, truncate on public\.verifactu_decisiones_anteriores from service_role/);
+  assert.match(DECISIONES, /before insert or update or delete on public\.verifactu_decisiones_anteriores/);
+  assert.match(DECISIONES, /activado_produccion_en is not null/);
+  assert.match(DECISIONES, /revoke execute on function public\.verifactu_decisiones_anteriores_guardia\(\) from public, anon, authenticated/);
+  assert.doesNotMatch(DECISIONES, /grant [^;]* to [^;]*\b(anon|authenticated)\b/i);
+});

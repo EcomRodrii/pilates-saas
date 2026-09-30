@@ -404,6 +404,10 @@ export interface EstudioVerifactuInterno {
   estado: string; estado_motivo: string | null; activado_produccion_en: string | null; actualizado_en: string;
   /** Facturas anteriores a la activación que la AEAT no tiene: mientras haya, no se activa (barrera de activación). */
   facturas_anteriores_sin_decidir: number;
+  /** Las que una decisión NO_REMITIR deja fuera de la remisión (siguen en la cadena). */
+  facturas_anteriores_no_remitidas: number;
+  /** La decisión vigente sobre las anteriores, si la hay. */
+  decision_anteriores: { creado_en: string; criterio: string; hasta_seq: number } | null;
 }
 export interface RepresentacionVerifactuInterna {
   id: string; studio_id: string; nif_representado: string; nombre_representado: string;

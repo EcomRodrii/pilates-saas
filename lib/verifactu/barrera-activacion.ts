@@ -18,6 +18,11 @@
 // «La activación» es la PRIMERA: `activado_produccion_en` se fija una vez y no
 // se mueve al pausar y reanudar, o las facturas emitidas durante una pausa
 // (que sí son VERI*FACTU) pasarían por anteriores.
+//
+// La salida de la barrera es una DECISIÓN escrita (tabla
+// `verifactu_decisiones_anteriores`, criterio del fiscalista del 30-sep-2026):
+// las anteriores cubiertas por una decisión NO_REMITIR ni bloquean la
+// activación ni se envían nunca, y la cadena continúa desde la última de ellas.
 
 import type { EstadoRegistroVerifactu } from './estado.ts';
 
@@ -31,16 +36,47 @@ export function anteriorALaActivacion(creadoEn: string, activadoEn: string | nul
   return new Date(creadoEn).getTime() < new Date(activadoEn).getTime();
 }
 
-/** Cuántos registros impiden activar: anteriores a la activación y que la AEAT no tiene. */
+/** Una fila de `verifactu_decisiones_anteriores`. */
+export interface DecisionAnteriores {
+  decision: 'NO_REMITIR' | 'DESHECHA';
+  hastaSeq: number;
+  creadoEn: string;
+}
+
+/**
+ * Hasta qué posición de la cadena queda fuera de la remisión, según la decisión
+ * VIGENTE (la última del estudio). `null` = ninguna: o no hay decisión o se deshizo.
+ */
+export function noRemitirHastaSeq(decisiones: readonly DecisionAnteriores[]): number | null {
+  const vigente = [...decisiones].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0];
+  return vigente?.decision === 'NO_REMITIR' ? vigente.hastaSeq : null;
+}
+
+/** ¿Este registro queda fuera de la remisión por la decisión vigente? Solo si es anterior a la activación. */
+export function noRemitidoPorDecision(
+  r: { seq: number; creadoEn: string }, activadoEn: string | null, hastaSeq: number | null,
+): boolean {
+  return hastaSeq !== null && r.seq <= hastaSeq && anteriorALaActivacion(r.creadoEn, activadoEn);
+}
+
+/**
+ * Cuántos registros impiden activar: anteriores a la activación, que la AEAT no
+ * tiene y que ninguna decisión NO_REMITIR cubre.
+ */
 export function registrosQueBloqueanActivacion(
-  registros: readonly { estado: EstadoRegistroVerifactu; creadoEn: string }[],
+  registros: readonly { estado: EstadoRegistroVerifactu; creadoEn: string; seq?: number }[],
   activadoEn: string | null,
+  hastaSeq: number | null = null,
 ): number {
-  return registros.filter(r => !ADMITIDOS_EN_AEAT.has(r.estado) && anteriorALaActivacion(r.creadoEn, activadoEn)).length;
+  return registros.filter(r =>
+    !ADMITIDOS_EN_AEAT.has(r.estado)
+    && anteriorALaActivacion(r.creadoEn, activadoEn)
+    && !(r.seq !== undefined && noRemitidoPorDecision({ seq: r.seq, creadoEn: r.creadoEn }, activadoEn, hastaSeq)),
+  ).length;
 }
 
 export function mensajeBloqueoActivacion(n: number): string {
   const facturas = n === 1 ? '1 factura emitida' : `${n} facturas emitidas`;
   return `Este estudio tiene ${facturas} antes de activar VERI*FACTU que la AEAT no tiene. `
-    + 'No se activa hasta que haya criterio escrito sobre qué se hace con ellas: no se envían solas.';
+    + 'No se activa hasta registrar la decisión sobre ellas, con su criterio escrito: no se envían solas.';
 }

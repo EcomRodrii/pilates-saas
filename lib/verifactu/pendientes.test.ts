@@ -152,3 +152,27 @@ test('barrera: un anterior a la activación en medio del lote lo corta, nunca vi
   assert.equal(d.tipo, 'ENVIAR');
   assert.deepEqual(d.tipo === 'ENVIAR' && d.lote.map(x => x.seq), [1]);
 });
+
+// Las anteriores no remitidas por decisión (criterio del fiscalista, 30-sep-2026):
+// se quedan en la cadena, no salen nunca, y la siguiente encadena con la última.
+
+test('no remitidas: la primera posterior a la activación sale, encadenada a la última no remitida', () => {
+  const anteriores = [1, 2, 3].map(s => r(s, 'PENDIENTE', { anteriorAActivacion: true, noRemitido: true }));
+  const d = decidirLote([...anteriores, r(4, 'LISTO'), r(5, 'LISTO')], AHORA);
+  assert.equal(d.tipo, 'ENVIAR');
+  assert.deepEqual(d.tipo === 'ENVIAR' && d.lote.map(x => x.seq), [4, 5]);
+});
+
+test('no remitidas: una anterior que la decisión NO cubre sigue parando la cadena', () => {
+  const d = decidirLote([
+    r(1, 'PENDIENTE', { anteriorAActivacion: true, noRemitido: true }),
+    r(2, 'PENDIENTE', { anteriorAActivacion: true }),
+    r(3, 'LISTO'),
+  ], AHORA);
+  assert.deepEqual(d, { tipo: 'ESPERAR', motivo: 'ANTERIOR_A_LA_ACTIVACION' });
+});
+
+test('no remitidas: si solo hay esas, no hay nada que enviar', () => {
+  const d = decidirLote([1, 2].map(s => r(s, 'PENDIENTE', { anteriorAActivacion: true, noRemitido: true })), AHORA);
+  assert.deepEqual(d, { tipo: 'NADA' });
+});

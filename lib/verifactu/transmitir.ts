@@ -34,7 +34,7 @@ import { sobreSoapRegFactu, sobreSoapConsulta, periodoDeFecha, type SistemaInfor
 import { numeroInstalacionDeEstudio, sistemaInformaticoParaEstudio, SIF, type Productor } from './sif.ts';
 import { declaracionVigente } from './declaracion.ts';
 import { decidirLote, type RegistroCola } from './pendientes.ts';
-import { anteriorALaActivacion } from './barrera-activacion.ts';
+import { anteriorALaActivacion, noRemitidoPorDecision, noRemitirHastaSeq, type DecisionAnteriores } from './barrera-activacion.ts';
 import { planificarResultado } from './procesar.ts';
 import { parsearRespuestaConsulta } from './respuesta.ts';
 import { resolverConsulta, estadoParaFactura, type EstadoRegistroVerifactu } from './estado.ts';
@@ -250,6 +250,14 @@ async function procesarEstudio(ctx: Contexto, studioId: string): Promise<'SEGUIR
   // activación (no debería pasar en PRODUCCION), todo cuenta como anterior.
   const { data: vfEstudio } = await admin.from('verifactu_estudios').select('activado_produccion_en').eq('studio_id', studioId).maybeSingle();
   const activadoEn = (vfEstudio?.activado_produccion_en as string | null | undefined) ?? null;
+  // La decisión sobre las anteriores (NO_REMITIR): esas se quedan en la cadena
+  // pero fuera de la remisión. Si no se puede leer, no se asume ninguna: siguen
+  // parando la cadena como ANTERIOR_A_LA_ACTIVACION (falla cerrada).
+  const { data: decisiones } = await admin.from('verifactu_decisiones_anteriores')
+    .select('decision, hasta_seq, creado_en').eq('studio_id', studioId);
+  const hastaSeq = noRemitirHastaSeq((decisiones ?? []).map(d => ({
+    decision: d.decision as DecisionAnteriores['decision'], hastaSeq: Number(d.hasta_seq), creadoEn: d.creado_en as string,
+  })));
 
   const sistema = await sistemaDeEstudio(admin, ctx.productor, studioId);
   const prep = activadoEn ? await prepararRegistros(admin, studioId, sistema, activadoEn) : { preparados: 0, rechazados: [] };
@@ -268,6 +276,7 @@ async function procesarEstudio(ctx: Contexto, studioId: string): Promise<'SEGUIR
     numSerieFactura: r.num_serie as string, fechaExpedicion: r.fecha_expedicion as string,
     proximoIntentoEn: (r.proximo_intento_en as string | null) ?? null,
     anteriorAActivacion: anteriorALaActivacion(r.creado_en as string, activadoEn),
+    noRemitido: noRemitidoPorDecision({ seq: Number(r.seq), creadoEn: r.creado_en as string }, activadoEn, hastaSeq),
   }));
 
   const decision = decidirLote(cola);

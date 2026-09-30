@@ -12,6 +12,7 @@ import { FileCheck2 } from 'lucide-react';
 import {
   fetchDeclaracionVerifactu, suscribirDeclaracionVerifactu, type DeclaracionVerifactuInterna,
   fetchVerifactuEstudios, accionVerifactuEstudios, type VerifactuEstudiosInterno, type RepresentacionVerifactuInterna,
+  type EstudioVerifactuInterno,
 } from '@/lib/interno/client';
 
 /** Una autorización en revisión: el apoderado la comprueba en la sede y la verifica o la rechaza. */
@@ -44,6 +45,54 @@ function Revision({ r, onAccion }: { r: RepresentacionVerifactuInterna; onAccion
           className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-bold disabled:opacity-50">No verificar</button>
       </div>
     </li>
+  );
+}
+
+/**
+ * Las facturas anteriores a la activación: se registra la decisión, con su
+ * criterio escrito, antes de activar (criterio del fiscalista, 30-sep-2026: no se
+ * remiten retroactivamente y la cadena continúa desde la última). No se borra
+ * ni se toca ningún registro; deshacerla es otra decisión, también antes de activar.
+ */
+function DecisionAnteriores({ e, onAccion }: { e: EstudioVerifactuInterno; onAccion: (c: Record<string, unknown>) => Promise<void> }) {
+  const [criterio, setCriterio] = useState('');
+  const [motivo, setMotivo] = useState('Facturas expedidas antes de que el estudio iniciara VERI*FACTU. No se remiten retroactivamente; siguen en la cadena, que continúa desde la última.');
+  const n = e.facturas_anteriores_sin_decidir;
+  if (e.decision_anteriores && n === 0) {
+    const cuantas = e.facturas_anteriores_no_remitidas === 1 ? '1 factura anterior' : `${e.facturas_anteriores_no_remitidas} facturas anteriores`;
+    return (
+      <div className="basis-full space-y-1 text-[12.5px]">
+        <p>
+          {cuantas} a VERI*FACTU, fuera de la remisión desde el {e.decision_anteriores.creado_en.slice(0, 10).split('-').reverse().join('/')} · criterio: {e.decision_anteriores.criterio}.
+          Siguen en la cadena y no se envían.
+        </p>
+        <button type="button" onClick={() => {
+          const m = window.prompt('¿Por qué se deshace? Queda escrito.');
+          if (m) void onAccion({ accion: 'deshacer_no_remitir', studioId: e.studio_id, motivo: m });
+        }} className="rounded-lg border border-border px-3 py-1 text-[12.5px] font-bold">Deshacer la decisión</button>
+      </div>
+    );
+  }
+  const facturas = n === 1 ? '1 factura emitida' : `${n} facturas emitidas`;
+  return (
+    <div className="basis-full space-y-2 rounded-lg border border-amber-500/40 px-3 py-2 text-[12.5px]">
+      <p className="text-amber-700 dark:text-amber-400">
+        {facturas} antes de activar VERI*FACTU que la AEAT no tiene. No se puede activar hasta registrar la decisión sobre ellas: no se envían solas.
+      </p>
+      <label className="block text-[12px] font-semibold">Criterio escrito en que se apoya (quién y cuándo)
+        <input value={criterio} onChange={ev => setCriterio(ev.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-2 py-1.5 text-[13px] font-normal" />
+      </label>
+      <label className="block text-[12px] font-semibold">Motivo
+        <textarea value={motivo} onChange={ev => setMotivo(ev.target.value)} rows={2} className="mt-1 block w-full rounded-lg border border-border bg-background px-2 py-1.5 text-[13px] font-normal" />
+      </label>
+      <button type="button" disabled={criterio.trim().length < 5 || motivo.trim().length < 10}
+        onClick={() => {
+          if (window.confirm(`¿Dejar fuera de la remisión las ${n} facturas anteriores de ${e.nombre_fiscal}? No se borran ni se tocan: siguen en la cadena, y la siguiente factura encadena con la última.`)) {
+            void onAccion({ accion: 'no_remitir_anteriores', studioId: e.studio_id, motivo, criterio });
+          }
+        }}
+        className="rounded-lg bg-brand px-3 py-1.5 text-[12.5px] font-bold text-brand-foreground disabled:opacity-50">No remitirlas</button>
+    </div>
   );
 }
 
@@ -182,11 +231,8 @@ export default function VerifactuInternoPage() {
               {vf.estudios.map(e => (
                 <li key={e.studio_id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-[13px]">
                   <span><strong>{e.nombre_fiscal}</strong> · {e.nif} · <span className="font-mono">{e.estado}</span>{e.estado_motivo ? ` · ${e.estado_motivo}` : ''}</span>
-                  {e.facturas_anteriores_sin_decidir > 0 && (
-                    <span className="basis-full text-[12.5px] text-amber-700 dark:text-amber-400">
-                      {e.facturas_anteriores_sin_decidir === 1 ? '1 factura emitida' : `${e.facturas_anteriores_sin_decidir} facturas emitidas`} antes de activar VERI*FACTU que la AEAT no tiene.
-                      No se puede activar hasta que haya criterio escrito sobre ellas: no se envían solas.
-                    </span>
+                  {!e.activado_produccion_en && (e.facturas_anteriores_sin_decidir > 0 || e.decision_anteriores) && (
+                    <DecisionAnteriores e={e} onAccion={accion} />
                   )}
                   <span className="flex gap-2">
                     {e.estado === 'VERIFICADO' && e.facturas_anteriores_sin_decidir === 0 && (

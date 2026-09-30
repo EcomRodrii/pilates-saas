@@ -35,6 +35,8 @@ export interface RegistroExportable {
   csv: string | null;
   codigoError: string | null;
   descripcionError: string | null;
+  /** Anterior a la activación y fuera de la remisión por decisión escrita (barrera-activacion.ts). */
+  noRemitido?: boolean;
   /** Solo en la exportación XML. NULL mientras no se ha preparado para el envío. */
   xmlRegistro?: string | null;
   xmlSha256?: string | null;
@@ -95,6 +97,9 @@ const ETIQUETA_ESTADO: Record<EstadoRegistroVerifactu, string> = {
 
 const ETIQUETA_ENCADENADO: Record<Encadenado, string> = { SI: 'Sí', NO: 'No', SIN_HUELLA: '' };
 
+/** Lo que se dice de una factura anterior a VERI*FACTU que, por decisión escrita, no se remite. */
+export const NO_REMITIDO = 'No remitido: anterior a VERI*FACTU';
+
 function importe(n: number | null): string {
   return n == null ? '' : Number(n).toFixed(2).replace('.', ',');
 }
@@ -136,7 +141,7 @@ export function* csvRegistros(registros: readonly RegistroExportable[]): Generat
       r.huella ?? '',
       r.huellaAnterior,
       ETIQUETA_ENCADENADO[cadena[i]],
-      ETIQUETA_ESTADO[r.estado] ?? r.estado,
+      r.noRemitido ? NO_REMITIDO : (ETIQUETA_ESTADO[r.estado] ?? r.estado),
       r.csv ?? '',
       r.codigoError ?? '',
       r.descripcionError ?? '',
@@ -175,7 +180,9 @@ export function* xmlRegistros(registros: readonly RegistroExportable[], c: Cabec
   for (let i = 0; i < orden.length; i++) {
     const r = orden[i];
     const attrs = atributos({
-      posicion: r.seq, tipo: r.tipo, estado: r.estado, numSerie: r.numSerie, fechaExpedicion: r.fechaExpedicion,
+      posicion: r.seq, tipo: r.tipo, estado: r.estado,
+      remision: r.noRemitido ? 'NO_REMITIDO_ANTERIOR_A_VERIFACTU' : null,
+      numSerie: r.numSerie, fechaExpedicion: r.fechaExpedicion,
       huella: r.huella,
       encadenaConAnterior: cadena[i] === 'SIN_HUELLA' ? null : String(cadena[i] === 'SI'),
       csvAeat: r.csv, codigoError: r.codigoError, descripcionError: r.descripcionError,
