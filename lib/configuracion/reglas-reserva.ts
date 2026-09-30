@@ -263,6 +263,50 @@ function cambiaRegla(tarjeta: TarjetaReglasId, t: TipoConReglas, e: ReglasReserv
   }
 }
 
+/**
+ * QUÉ cambia un tipo de clase en una regla, en pocas palabras («cancela gratis
+ * hasta 24 h antes»), o `null` si no la cambia. Lo leen las filas de «Cómo
+ * reservan mis alumnas» y la tarjeta «Así lo vive tu alumna»: nombrar el tipo sin
+ * decir qué cambia obligaba a abrirlo para saberlo.
+ */
+export function queCambiaElTipo(tarjeta: TarjetaReglasId, t: TipoConReglas, e: ReglasReserva): string | null {
+  if (!cambiaRegla(tarjeta, t, e)) return null;
+  switch (tarjeta) {
+    case 'reservar': {
+      const partes: string[] = [];
+      const dias = heredaOverride(t.reservaAntelacionMaximaDias, e.reservaAntelacionMaximaDias);
+      if (dias !== e.reservaAntelacionMaximaDias) partes.push(dias == null ? 'sin límite para reservar' : dias === 0 ? 'se abre al empezar' : `se abre ${dias === 1 ? '1 día' : `${dias} días`} antes`);
+      const min = heredaOverride(t.reservaVentanaMinimaMinutos, e.reservaVentanaMinimaMinutos);
+      if (min !== e.reservaVentanaMinimaMinutos) partes.push(min > 0 ? `se cierra ${duracion(min)} antes` : 'se reserva hasta que empieza');
+      const plan = heredaOverride(t.reservaExigirPlan, e.reservaExigirPlan);
+      if (plan !== e.reservaExigirPlan) partes.push(plan ? 'con plan o bono' : 'sin plan ni bono');
+      const aprobar = heredaOverride(t.requiereAprobacion, e.requiereAprobacion);
+      if (aprobar !== e.requiereAprobacion) partes.push(aprobar ? 'la apruebas tú' : 'sin aprobarla');
+      return partes.join(', ');
+    }
+    case 'cancelar-y-recuperar': {
+      const v = cifra(heredaOverride(t.ventanaCancelacionHoras, e.cancelacionVentanaHoras));
+      return v > 0 ? `cancela gratis hasta ${v} h antes` : 'cancela gratis hasta que empieza';
+    }
+    case 'si-se-cancela-una-clase': {
+      const m = cifra(heredaOverride(t.minimoAsistentesPorClase, e.minimoAsistentesPorClase));
+      return m > 0 ? `mínimo ${m === 1 ? '1 alumna' : `${m} alumnas`}` : 'sin mínimo';
+    }
+    case 'lista-de-espera': {
+      if (!heredaOverride(t.permiteListaEspera, e.permiteListaEspera)) return 'sin lista de espera';
+      const plazo = cifra(heredaOverride(t.listaEsperaPlazoAceptacionMinutos, e.listaEsperaPlazoAceptacionMinutos));
+      return plazo > 0 ? `${duracion(plazo)} para aceptar la plaza` : 'plaza al momento';
+    }
+    case 'asistencia':
+      return heredaOverride(t.requiereCheckinQr, e.requiereCheckinQr) ? 'se pasa lista' : 'sin pasar lista';
+    case 'si-cancela-tarde-o-no-viene':
+      // Un importe propio DISTINTO del del estudio no se cobra nunca (consentimiento).
+      return cifra(t.penalizacionImporteEur) === 0 ? 'sin cargo en esta clase' : 'su cargo propio no se cobra';
+    default:
+      return null;
+  }
+}
+
 /** Qué tipos de clase cambian cada regla del estudio, en el orden de su lista. */
 export function excepcionesPorRegla(
   estudio: ReglasReserva,

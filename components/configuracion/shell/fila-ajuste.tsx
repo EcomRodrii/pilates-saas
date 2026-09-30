@@ -62,7 +62,12 @@ export function ValorFila({ valor, descripcion, entero, title }: {
     <span
       data-resumen={valor ? 'valor' : 'descripcion'}
       title={title}
-      className={cn('block text-sm text-muted-foreground', valor && !entero ? 'truncate' : 'line-clamp-2 text-pretty')}
+      className={cn(
+        'block text-sm text-muted-foreground',
+        // `entero` a 375 px llega a tres: «Hasta 14 días antes · se cierra 1 h antes ·
+        // con plan o bono · no con un pago fallido» cortado en «no con un pago…» dice otra cosa.
+        valor && !entero ? 'truncate' : entero ? 'line-clamp-3 text-pretty sm:line-clamp-2' : 'line-clamp-2 text-pretty',
+      )}
     >
       {valor ?? descripcion}
     </span>
@@ -71,7 +76,7 @@ export function ValorFila({ valor, descripcion, entero, title }: {
 
 /**
  * `valor`: cómo está (lib/configuracion/resumenes.ts); `null` = no se sabe, y va su descripción.
- * `entero`: el valor puede ocupar dos líneas (con estado, o si lleva «2 tipos lo cambian», que cortado no se ve).
+ * `entero`: el valor puede ocupar dos líneas, tres en el móvil (con estado, o un resumen que cortado dice otra cosa).
  */
 export function FilaAjuste({
   id,
@@ -79,6 +84,7 @@ export function FilaAjuste({
   valor,
   estado,
   entero,
+  extra,
   onAbrir,
 }: {
   id: TarjetaId;
@@ -86,6 +92,8 @@ export function FilaAjuste({
   valor: string | null;
   estado?: ResumenFila['estado'];
   entero?: boolean;
+  /** Debajo del valor, sin interacción propia (va dentro del botón): p. ej. qué tipos de clase la cambian. */
+  extra?: ReactNode;
   onAbrir: (id: TarjetaId) => void;
 }) {
   const tarjeta = tarjetaPorId(id);
@@ -102,6 +110,7 @@ export function FilaAjuste({
         <span className="min-w-0 flex-1">
           <TituloFila titulo={tarjeta.titulo} estado={estado} />
           <ValorFila valor={valor} descripcion={tarjeta.frase} entero={entero || !!estado} />
+          {extra && <span className="mt-1.5 flex flex-wrap gap-1.5">{extra}</span>}
         </span>
         <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
       </button>
