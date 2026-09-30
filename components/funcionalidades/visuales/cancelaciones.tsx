@@ -94,7 +94,7 @@ const ESTADOS = [
   { e: 'Revertida', d: 'Marcaste el no-show por error y lo deshiciste.', c: '#8E8E86', omite: true },
   { e: 'Pendiente de aprobación', d: 'El modo por defecto: aparece en tu panel y se cobra si tú lo apruebas.', c: '#C79A2E' },
   { e: 'Recibo creado', d: 'Se ha emitido el cargo.', c: '#3E7C86' },
-  { e: 'Cobrada / Fallida', d: 'Resultado real del cobro, con su factura si entró.', c: '#4E9E7F' },
+  { e: 'Cobrada / Fallida', d: 'Resultado real del cobro, y su factura si entró y facturas desde Tentare.', c: '#4E9E7F' },
 ];
 
 export function CicloDeLaPenalizacion() {
