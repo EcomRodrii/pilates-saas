@@ -1,15 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 import { Inbox, Zap, Search, Eye, EyeOff } from 'lucide-react';
-import { GlobalSearch } from '@/components/search/global-search';
 import { ProfileMenu } from '@/components/layout/profile-menu';
 import { IconButton } from '@/components/ui/icon-button';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { usePanelPrivacy } from '@/lib/panel-privacy';
 import { useAtajoBuscar } from '@/lib/use-atajo-buscar';
+
+// El buscador trae el índice de Configuración y de tareas (~15 KB con gzip) y
+// esta barra va en TODAS las pantallas del panel — también en móvil y en el
+// iPad en vertical, donde ni se ve. Se descarga aparte, al abrirlo o cuando el
+// navegador queda libre, y el atajo ⌘K vive aquí para funcionar antes.
+const cargarBuscador = () => import('@/components/search/global-search');
+const GlobalSearch = dynamic(() => cargarBuscador().then(m => m.GlobalSearch), { ssr: false });
 
 export function Topbar() {
   const { oculto, setOculto } = usePanelPrivacy();
@@ -20,6 +27,33 @@ export function Topbar() {
   // ⌘K no lo descubre quien no sabe que existe, y el objetivo es justamente que
   // alguien sin formación encuentre las cosas el primer día.
   const [lanzadorAbierto, setLanzadorAbierto] = useState(false);
+  // Montado desde la primera apertura y para siempre: cerrarlo no lo desmonta
+  // (y reabrirlo no vuelve a esperar a nada).
+  const [buscadorMontado, setBuscadorMontado] = useState(false);
+  const abrirBuscador = (v: boolean) => {
+    if (v) setBuscadorMontado(true);
+    setLanzadorAbierto(v);
+  };
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setBuscadorMontado(true);
+        setLanzadorAbierto(v => !v);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    // Con el navegador libre se trae ya: la primera apertura no espera a la red.
+    const precarga = typeof window.requestIdleCallback === 'function'
+      ? window.requestIdleCallback(() => { void cargarBuscador(); }, { timeout: 5000 })
+      : window.setTimeout(() => { void cargarBuscador(); }, 3000);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(precarga);
+      else window.clearTimeout(precarga);
+    };
+  }, []);
 
   return (
     // ⚠️ Con un desplegable abierto (perfil, cambio de sede, píldora de prueba) la
@@ -47,7 +81,7 @@ export function Topbar() {
     <div data-panel-topbar className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 has-[[aria-expanded=true]]:z-40 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-sm">
       <div className="flex items-center gap-2 flex-1 max-w-md">
         <button
-          onClick={() => setLanzadorAbierto(true)}
+          onClick={() => abrirBuscador(true)}
           className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-all w-full"
         >
           <Zap size={14} aria-hidden="true" className="shrink-0" />
@@ -55,12 +89,14 @@ export function Topbar() {
           <span className="flex-1 text-left">¿Qué quieres hacer o buscar?</span>
           <kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono leading-none bg-white/15 text-white/70">{atajo}</kbd>
         </button>
-        <GlobalSearch
-          variant="light"
-          renderTrigger={false}
-          abierto={lanzadorAbierto}
-          onAbiertoChange={setLanzadorAbierto}
-        />
+        {buscadorMontado && (
+          <GlobalSearch
+            variant="light"
+            renderTrigger={false}
+            abierto={lanzadorAbierto}
+            onAbiertoChange={abrirBuscador}
+          />
+        )}
       </div>
       <div className="flex items-center gap-1.5">
         <PildoraPrueba className="mr-1" />

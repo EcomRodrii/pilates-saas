@@ -1,6 +1,6 @@
 'use client';
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 
 // Valorar una clase desde la app. Contra `/api/public/valorar-clase`, que es
 // quien decide si se puede (solo tras ASISTIDA) — aquí solo se traduce.

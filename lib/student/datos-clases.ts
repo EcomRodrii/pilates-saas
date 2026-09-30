@@ -1,6 +1,6 @@
 'use client';
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import type { EstadoClases, ModoConfirmar } from '@/lib/fichaje/clases-impartidas';
 
 // Adaptador de las clases impartidas en la app de la instructora. Delgado: pide y

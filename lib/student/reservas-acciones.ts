@@ -8,7 +8,7 @@
 // minutos, no una imagen que podamos guardar.
 
 import { invalidarCatalogo } from '@/lib/student/catalogo';
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 
 export type ResultadoCancelar =
   | {

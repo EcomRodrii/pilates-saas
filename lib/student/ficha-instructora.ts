@@ -4,7 +4,7 @@
 // `datos-instructora.ts`: pide y devuelve; lo que decide vive en el servidor
 // (`/api/portal/instructora/perfil/datos` y `/api/portal/instructora/foto`).
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { redimensionarImagen, LADO_AVATAR } from '@/lib/imagen-cliente';
 import { motivoFotoInvalida } from '@/lib/foto-perfil-regla';
 import type { ResultadoFoto } from '@/lib/student/foto-perfil';

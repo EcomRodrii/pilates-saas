@@ -33,6 +33,8 @@ import { inicialDe } from '@/lib/monograma-estudio';
 import {
   ANCHO_PAGINA, BORDE_CRISTAL_SOBRE_FOTO, CRISTAL_SOBRE_FOTO, TINTA_SOBRE_CREMA, TINTA_SOBRE_FOTO, TINTA_SUAVE_SOBRE_FOTO,
 } from '@/lib/reservar/portada';
+import { alFallarImagenServida } from '@/lib/imagenes-por-defecto';
+import { urlServida } from '@/lib/student/imagen-servida';
 
 /** El margen lateral de la página: el mismo que las pestañas, el contenido y el pie. */
 export const MARGEN_PAGINA = cq(20, 3.8, 48);
@@ -224,7 +226,9 @@ function MarcaEstudio({ logoUrl, nombre, sobreFoto }: { logoUrl: string | null; 
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={logoUrl}
+        // Al doble de su lado (pantallas retina), no el original de 1.280 px.
+        src={urlServida(logoUrl, LADO_MARCA * 2)}
+        onError={alFallarImagenServida(logoUrl)}
         // Decorativo: el nombre va escrito justo al lado. Con `alt` se leía dos veces.
         alt=""
         decoding="async"

@@ -6,7 +6,7 @@
 // y deja reintentar, no pinta «tu estudio no tiene clases fijas» cuando lo que pasa
 // es que no ha cargado.
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import type { CatalogoClasesFijas } from '@/lib/clases-fijas-reglas';
 import { anularPeticionPlazaFija } from '@/lib/student/plaza-fija-peticion';

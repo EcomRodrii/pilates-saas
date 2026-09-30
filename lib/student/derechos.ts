@@ -4,7 +4,7 @@
 // estudio que los elimine (o limite/deje de usarlos) y oponerse al perfilado.
 // Cada función dice lo que respondió el SERVIDOR — ninguna da nada por hecho.
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { descargarBlob, nombreDeDescarga } from '@/lib/descargar-blob';
 import type { SolicitudDerechosVista, TipoSolicitudDerechos } from '@/lib/socios/solicitudes-derechos';
 

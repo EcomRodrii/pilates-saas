@@ -1,6 +1,6 @@
 'use client';
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { getClases, getReservas } from '@/lib/student/datos';
 import type {
   BajaConClase, ClaseQueDa, ClaseQueReserva, EstadoEnLista, ListaDeClase, OfertaSustitucion,

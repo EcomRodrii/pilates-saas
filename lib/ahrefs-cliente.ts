@@ -13,7 +13,7 @@
 // tracker de terceros sobre personal autenticado, sobre socias de un producto
 // del sector salud, y dentro de la web de cada estudio.
 //
-// El límite es `esNoIndexable()` (lib/seo/paginas.ts), el MISMO registro del
+// El límite es `esNoIndexable()` (lib/seo/no-indexables.ts), el MISMO registro del
 // que ya salen `robots.ts` y el sitemap. No una lista nueva a mano: una
 // herramienta de SEO tiene que medir exactamente lo que Google puede ver, y si
 // mañana alguien abre o cierra una ruta a indexación, esto la sigue sin que
@@ -36,7 +36,7 @@
 // nombrarlo en la política de privacidad como encargado de tratamiento.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { esNoIndexable } from './seo/paginas.ts';
+import { esNoIndexable } from './seo/no-indexables.ts';
 
 const SRC = 'https://analytics.ahrefs.com/analytics.js';
 const enNavegador = typeof window !== 'undefined';

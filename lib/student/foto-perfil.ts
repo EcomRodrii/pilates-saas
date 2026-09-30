@@ -8,7 +8,7 @@
 // va por `/api/public/*` con la cabecera de sesión, que es como escribe todo lo
 // demás de esta app.
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { redimensionarImagen, LADO_AVATAR } from '@/lib/imagen-cliente';
 import { motivoFotoInvalida } from '@/lib/foto-perfil-regla';
 

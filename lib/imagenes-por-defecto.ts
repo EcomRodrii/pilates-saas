@@ -220,3 +220,26 @@ export function alFallarImagen(respaldo: string) {
     img.src = respaldo;
   };
 }
+
+/**
+ * Como `alFallarImagen`, para una imagen pedida ya redimensionada
+ * (`urlServida`, lib/student/imagen-servida.ts): si falla la versión
+ * redimensionada —el endpoint que las sirve caído, o un objeto recién subido—
+ * primero se prueba la ORIGINAL tal cual; solo si también falla, `respaldo` (si
+ * lo hay). Una foto grande se ve; una rota, no.
+ */
+export function alFallarImagenServida(original: string, respaldo?: string) {
+  return (evento: { currentTarget: HTMLImageElement }) => {
+    const img = evento.currentTarget;
+    if (img.dataset.originalPuesto !== '1') {
+      img.dataset.originalPuesto = '1';
+      img.removeAttribute('srcset');
+      img.removeAttribute('sizes');
+      img.src = original;
+      return;
+    }
+    if (!respaldo || img.dataset.respaldoPuesto === '1') return;
+    img.dataset.respaldoPuesto = '1';
+    img.src = respaldo;
+  };
+}

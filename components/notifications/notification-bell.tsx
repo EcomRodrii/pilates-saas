@@ -12,7 +12,7 @@ import { avisarAncla } from '@/lib/estado-estudio-cliente';
 import { fetchNotificaciones, accionNotificacion, type NotifItem, type AmbitoNotif } from '@/lib/notifications/client';
 import { supabase } from '@/lib/db/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { EVENTOS } from '@/lib/notifications/catalog';
+import { EVENTOS } from '@/lib/notifications/eventos';
 import { reproducirChaChing, sonidoVentaSilenciado, alternarSonidoVenta } from '@/lib/notifications/sound';
 import { fetchMisEstudios } from '@/lib/supabase-data';
 

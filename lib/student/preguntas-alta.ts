@@ -4,7 +4,7 @@
 // y guarda; las reglas viven en `lib/preguntas-alta.ts` y las decide el servidor
 // (`/api/public/preguntas-alta`).
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import type { PreguntaAlta, ValorRespuesta } from '@/lib/preguntas-alta';
 
 export interface EstadoPreguntasAltaRemoto {

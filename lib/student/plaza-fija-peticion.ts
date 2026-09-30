@@ -8,7 +8,7 @@
 // solo si el servidor dice que sí, invalida el catálogo para que la pantalla lo vea.
 
 import { invalidarCatalogo } from '@/lib/student/catalogo';
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import type { Pausa } from '@/lib/plazas-fijas-pausa';
 
 export type ResultadoPeticionPlazaFija =

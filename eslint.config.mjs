@@ -102,10 +102,16 @@ const eslintConfig = defineConfig([
     files: ["app/portal/**/*.{ts,tsx}", "components/student/**/*.{ts,tsx}", "lib/student/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": ["error", {
-        paths: ["@/lib/studio-context", "@/lib/auth-context", "@/lib/core-context", "@/lib/permisos"].map((name) => ({
-          name,
-          message: "La app de la alumna no monta los providers del panel: ver components/raiz/proveedores-raiz.tsx.",
-        })),
+        paths: [
+          ...["@/lib/studio-context", "@/lib/auth-context", "@/lib/core-context", "@/lib/permisos"].map((name) => ({
+            name,
+            message: "La app de la alumna no monta los providers del panel: ver components/raiz/proveedores-raiz.tsx.",
+          })),
+          {
+            name: "@/lib/api-client",
+            message: "Es el cliente del panel (~3.800 líneas): lo de la alumna está en @/lib/student/api-publica.",
+          },
+        ],
       }],
     },
   },

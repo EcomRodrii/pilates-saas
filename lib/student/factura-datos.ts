@@ -1,6 +1,6 @@
 'use client';
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import type { EmisorFactura, FacturaImprimible, ReceptorFactura } from '@/lib/factura-pdf';
 import type { SelloCliente } from '@/lib/factura-sello-cliente';
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
@@ -15,18 +16,27 @@ import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { TourProvider } from '@/lib/tour-context';
 import { Spotlight } from '@/components/tour/spotlight';
 import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
-import { PrimeraVezAqui } from '@/components/guia/primera-vez-aqui';
 import { PanelPageTransition } from '@/components/layout/panel-page-transition';
 import { VentanaCalendario } from '@/components/calendario/ventana-calendario';
 import { ControlAmpliado } from '@/components/layout/control-ampliado';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
-import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida';
 import { ReviewBoostModal } from '@/components/growth/review-boost-modal';
 import { estadoBilling } from '@/lib/api-client';
 import { precargarAgenda } from '@/lib/agenda-precarga';
 import { asociarEstudio } from '@/lib/posthog-cliente';
 import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
 import { navSections } from '@/lib/nav-config';
+
+// Aparte del armazón, que se descarga en TODAS las pantallas del panel: la
+// bienvenida sale una vez en la vida del estudio (con la mascota, ~80 KB), y
+// la tira de la guía trae el currículo entero para enseñar una línea — y ya
+// aparecía después de leer localStorage, así que cargarla aparte no la retrasa
+// a la vista.
+const PantallaBienvenida = dynamic(
+  () => import('@/components/onboarding/pantalla-bienvenida').then(m => m.PantallaBienvenida),
+  { loading: () => <PanelSkeleton /> },
+);
+const PrimeraVezAqui = dynamic(() => import('@/components/guia/primera-vez-aqui').then(m => m.PrimeraVezAqui), { ssr: false });
 
 // Antes vivía todo esto directo en app/(dashboard)/layout.tsx, pero ese
 // archivo necesita exportar `metadata` (manifest del panel instalable) y eso

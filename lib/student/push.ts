@@ -11,7 +11,7 @@
 // `push_subscription`, misma clave VAPID, mismo motor. No hay un segundo
 // sistema de push.
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { confirmarSuscripcion, esIOS, esStandalone, estadoPermiso, pushSoportado, soltarDispositivoEnServidor, urlBase64ToUint8Array } from '@/lib/notifications/push-client';
 import { tocaRenovarPush, type ContextoPush } from '@/lib/student/push-estado';
 

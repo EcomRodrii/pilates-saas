@@ -1,6 +1,6 @@
 'use client';
 
-import { borrarTarjetaPublica } from '@/lib/api-client';
+import { borrarTarjetaPublica } from '@/lib/student/api-publica';
 import { catalogo, invalidarCatalogo } from '@/lib/student/catalogo';
 
 // El método de pago guardado de la alumna. Sale del payload que ya se pide

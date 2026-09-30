@@ -1,4 +1,4 @@
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 
 // El QR de acceso de la alumna, desde su app. Permanente: no caduca ni depende
 // de ninguna reserva, así que se pide una vez por pantalla y no hay que

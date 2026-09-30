@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { activarPushStudent, contextoPushStudent } from '@/lib/student/push';
 import { estadoPush, textoPush, type EstadoPush } from '@/lib/student/push-estado';
 import { debeInvitar } from '@/lib/student/push-invitacion';

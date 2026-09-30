@@ -1,6 +1,6 @@
 'use client';
 
-import { portalAuthHeader } from '@/lib/api-client';
+import { portalAuthHeader } from '@/lib/student/api-publica';
 import { catalogo, invalidarCatalogo } from '@/lib/student/catalogo';
 import { proyectarFavoritos } from '@/lib/student/mapeo';
 
