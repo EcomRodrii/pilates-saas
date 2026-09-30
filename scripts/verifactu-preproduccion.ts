@@ -21,6 +21,9 @@
 //                              tras una anulación, rechazo provocado y su
 //                              corrección encadenada al rechazado, N facturas
 //                              seguidas (20 por defecto) y el QR de cotejo
+//   revisar BASE [dd-mm-aaaa]  solo consultas: qué tiene la AEAT de cada factura
+//                              de una bateria2 ya enviada (BASE =
+//                              PRUEBA-TENTARE-AAAAMMDDhhmmss); no envía nada
 //
 // La cadena (el último registro admitido) se guarda en
 // ~/.tentare/verifactu-preproduccion.json, fuera del repo: cada ejecución
@@ -48,7 +51,7 @@ import {
   CLAVE_REGIMEN_GENERAL, RegistroInvalidoError, type EncadenamientoAnterior, type IdFacturaXml,
 } from '../lib/verifactu/xml.ts';
 import { llamarAeat, huellaCredencial } from '../lib/verifactu/envio.ts';
-import { parsearRespuestaAeat, parsearRespuestaConsulta, CODIGO_DUPLICADO } from '../lib/verifactu/respuesta.ts';
+import { parsearRespuestaAeat, parsearRespuestaConsulta, CODIGO_DUPLICADO, type RegistroConsultado } from '../lib/verifactu/respuesta.ts';
 import { marcasSubsanacion, marcasAnulacion } from '../lib/verifactu/subsanacion.ts';
 import { endpointVerifactu } from '../lib/verifactu/endpoints.ts';
 import { certificadoDeEntorno, entornoTransmision } from '../lib/verifactu/config.ts';
@@ -279,6 +282,50 @@ async function consultar(numSerie: string, fecha: string) {
   return r.fallo ? null : parsearRespuestaConsulta(r.cuerpo);
 }
 
+/**
+ * Lo que la AEAT tiene de UNA factura, y si no lo devuelve, POR QUÉ.
+ *
+ * En la tanda 2 del 30-sep, 24 consultas seguidas sin pausa dejaron 6 sin
+ * respuesta útil (las 20 facturas se habían admitido con justificante) y el
+ * script no decía el motivo. Ahora: una pausa entre consultas, un segundo
+ * intento, y el motivo siempre (transporte, error de la AEAT o «SinDatos»).
+ */
+const PAUSA_CONSULTA_MS = 2000;
+
+/** Para `informe`: sin factura, el motivo en lugar de un «sin respuesta» mudo. */
+function resultadoDeConsulta(c: { reg: RegistroConsultado | null; motivo: string | null }): Resultado {
+  return c.reg
+    ? { estado: c.reg.estado, codigo: null, descripcion: null, duplicado: null }
+    : { estado: null, codigo: 'no la devuelve:', descripcion: c.motivo, duplicado: null };
+}
+async function consultarUna(numSerie: string, fecha: string): Promise<{ reg: RegistroConsultado | null; motivo: string | null }> {
+  if (!certificado) {
+    await consultar(numSerie, fecha);
+    return { reg: null, motivo: 'simulación' };
+  }
+  const sobre = sobreSoapConsulta({ obligado, ...periodoDeFecha(fecha), numSerieFactura: numSerie });
+  let motivo: string | null = null;
+  for (let intento = 1; intento <= 2; intento++) {
+    await dormir(intento === 1 ? PAUSA_CONSULTA_MS : 10_000);
+    const r = await llamarAeat(sobre, certificado, destino);
+    if (r.fallo) {
+      motivo = `sin respuesta (${r.fallo}${r.error ? `: ${r.error}` : ''})`;
+      continue;
+    }
+    const c = parsearRespuestaConsulta(r.cuerpo);
+    if (c.fault) {
+      motivo = `la AEAT devolvió un error: ${c.faultCodigo ?? ''} ${c.faultMensaje ?? ''}`.trim();
+      continue;
+    }
+    const reg = c.registros.find(x => x.numSerieFactura === numSerie) ?? null;
+    if (reg) return { reg, motivo: null };
+    motivo = c.resultado === 'SinDatos'
+      ? 'la AEAT dice que no tiene esa factura (SinDatos)'
+      : `respuesta sin esa factura (resultado ${c.resultado ?? 'ilegible'}, ${c.registros.length} registros)`;
+  }
+  return { reg: null, motivo };
+}
+
 function fechaDeHoy(): string {
   const [y, m, d] = fechaHoraHusoMadrid(new Date()).slice(0, 10).split('-');
   return `${d}-${m}-${y}`;
@@ -336,14 +383,11 @@ try {
       console.log(`\n${oks.filter(Boolean).length} de ${oks.length} registros válidos según el XSD (simulación: no se ha enviado nada).`);
       process.exit(0);
     }
-    const cF1 = await consultar(f1.numSerieFactura, fecha);
-    const regF1 = cF1?.registros.find(x => x.numSerieFactura === f1.numSerieFactura);
-    const f1TieneSubsanacion = regF1?.huella === huellaSubsanacion;
+    const cF1 = await consultarUna(f1.numSerieFactura, fecha);
+    const f1TieneSubsanacion = cF1.reg?.huella === huellaSubsanacion;
     oks.push(informe(`F1 en la AEAT (se espera la huella de la subsanación: ${f1TieneSubsanacion ? 'coincide' : 'NO coincide'})`,
-      regF1 ? { estado: regF1.estado, codigo: null, descripcion: null, duplicado: null } : null, r => r.estado === 'Correcto' && f1TieneSubsanacion));
-    const cF2 = await consultar(f2.numSerieFactura, fecha);
-    const regF2 = cF2?.registros.find(x => x.numSerieFactura === f2.numSerieFactura);
-    oks.push(informe('F2 en la AEAT (se espera Anulado)', regF2 ? { estado: regF2.estado, codigo: null, descripcion: null, duplicado: null } : null, r => r.estado === 'Anulado'));
+      resultadoDeConsulta(cF1), r => r.estado === 'Correcto' && f1TieneSubsanacion));
+    oks.push(informe('F2 en la AEAT (se espera Anulado)', resultadoDeConsulta(await consultarUna(f2.numSerieFactura, fecha)), r => r.estado === 'Anulado'));
 
     console.log(`\n${oks.filter(Boolean).length} de ${oks.length} pasos como se esperaba.`);
   } else if (modo === 'bateria2') {
@@ -418,20 +462,19 @@ try {
       console.log(`\n${oks.filter(Boolean).length} de ${oks.length} pasos válidos según el XSD (simulación: no se ha enviado nada).`);
       process.exit(0);
     }
-    const enAeat = async (numSerie: string) => (await consultar(numSerie, fecha))?.registros.find(x => x.numSerieFactura === numSerie) ?? null;
-    const comoResultado = (x: { estado: string | null } | null): Resultado | null => (x ? { estado: x.estado, codigo: null, descripcion: null, duplicado: null } : null);
-    oks.push(informe('F1 en la AEAT', comoResultado(await enAeat(f1.numSerieFactura)), r => r.estado === 'Correcto'));
-    oks.push(informe('F2 anulada en la AEAT (se espera Anulado)', comoResultado(await enAeat(f2a.numSerieFactura)), r => r.estado === 'Anulado'));
-    const cF2b = await enAeat(f2b.numSerieFactura);
-    oks.push(informe('F2 posterior a la anulación, con su huella', comoResultado(cF2b), r => r.estado === 'Correcto' && cF2b?.huella === huellaF2b));
+    oks.push(informe('F1 en la AEAT', resultadoDeConsulta(await consultarUna(f1.numSerieFactura, fecha)), r => r.estado === 'Correcto'));
+    oks.push(informe('F2 anulada en la AEAT (se espera Anulado)', resultadoDeConsulta(await consultarUna(f2a.numSerieFactura, fecha)), r => r.estado === 'Anulado'));
+    const cF2b = await consultarUna(f2b.numSerieFactura, fecha);
+    oks.push(informe('F2 posterior a la anulación, con su huella', resultadoDeConsulta(cF2b), r => r.estado === 'Correcto' && cF2b.reg?.huella === huellaF2b));
     if (corregido) {
-      const cSub = await enAeat(sub.numSerieFactura);
-      oks.push(informe('Corrección en la AEAT, con su huella', comoResultado(cSub), r => r.estado === 'Correcto' && cSub?.huella === huellaCorreccion));
+      const cSub = await consultarUna(sub.numSerieFactura, fecha);
+      oks.push(informe('Corrección en la AEAT, con su huella', resultadoDeConsulta(cSub), r => r.estado === 'Correcto' && cSub.reg?.huella === huellaCorreccion));
     }
     let coinciden = 0;
     for (const c of cadena) {
-      const x = await enAeat(c.numSerie);
-      if (x?.estado === 'Correcto' && x.huella === c.huella) coinciden += 1;
+      const x = await consultarUna(c.numSerie, fecha);
+      if (x.reg?.estado === 'Correcto' && x.reg.huella === c.huella) coinciden += 1;
+      else console.log(`  ❌ ${c.numSerie}: ${x.reg ? `${x.reg.estado}, huella ${x.reg.huella === c.huella ? 'igual' : 'DISTINTA'}` : x.motivo}`);
     }
     console.log(`  cadena: ${coinciden} de ${cadena.length} con la misma huella en la AEAT`);
     oks.push(cadena.length > 0 && coinciden === cadena.length);
@@ -440,8 +483,26 @@ try {
     console.log(`  ${urlQrVerifactu({ nif, numSerie: f2b.numSerieFactura, fecha, importeTotal: importesDe(7).total }, { produccion: false })}`);
 
     console.log(`\n${oks.filter(Boolean).length} de ${oks.length} pasos como se esperaba.`);
+  } else if (modo === 'revisar') {
+    // Solo consultas: qué tiene la AEAT de cada factura de una tanda 2 ya
+    // enviada. No envía nada ni mueve la cadena.
+    const base = resto[0];
+    if (!base?.startsWith('PRUEBA-TENTARE-')) salir('Uso: revisar PRUEBA-TENTARE-AAAAMMDDhhmmss [dd-mm-aaaa] [--cadena N]');
+    const fecha = /^\d{2}-\d{2}-\d{4}$/.test(resto[1] ?? '') ? resto[1] : fechaDeHoy();
+    const iC = resto.indexOf('--cadena');
+    const n = iC >= 0 ? Math.max(1, Math.min(50, Number(resto[iC + 1]) || 20)) : 20;
+    const esperado: Record<string, string> = { F1: 'Correcto', R1S: 'Correcto', F2A: 'Anulado', F2B: 'Correcto', SUB: 'Correcto' };
+    const sufijos = [...Object.keys(esperado), ...Array.from({ length: n }, (_, k) => `C${String(k + 1).padStart(2, '0')}`)];
+    let bien = 0;
+    for (const s of sufijos) {
+      const { reg, motivo } = await consultarUna(`${base}-${s}`, fecha);
+      const ok = reg?.estado === (esperado[s] ?? 'Correcto');
+      if (ok) bien += 1;
+      console.log(`${ok ? '✅' : '❌'} ${s}: ${reg ? `${reg.estado} · huella ${reg.huella?.slice(0, 12) ?? '—'}…` : motivo}`);
+    }
+    console.log(`\n${bien} de ${sufijos.length} como se esperaba.`);
   } else {
-    salir(`Modo desconocido: ${modo} (alta | consulta | bateria | bateria2)`);
+    salir(`Modo desconocido: ${modo} (alta | consulta | bateria | bateria2 | revisar)`);
   }
 } catch (e) {
   if (e instanceof RegistroInvalidoError) salir(`Tentare paró el registro en local, antes de enviarlo: ${e.errores.join('; ')}`);
