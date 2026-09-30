@@ -80,6 +80,26 @@ async function liberarCerrojo(admin: SupabaseClient): Promise<void> {
     .eq('id', 'global');
 }
 
+// Control de flujo PERSISTIDO (Orden HAC/1177/2024, art. 16.2). Clave global:
+// si la espera de la AEAT cuenta por certificado, por obligado o por SIF está
+// PENDIENTE DE CONFIRMACIÓN AEAT, y hasta entonces lo prudente es global.
+const CLAVE_FLUJO = 'global';
+
+async function esperaPendienteMs(admin: SupabaseClient): Promise<number> {
+  const { data } = await admin.from('verifactu_control_flujo').select('proximo_envio_permitido_en').eq('clave', CLAVE_FLUJO).maybeSingle();
+  const proximo = data?.proximo_envio_permitido_en ? new Date(data.proximo_envio_permitido_en as string).getTime() : 0;
+  return Math.max(0, proximo - Date.now());
+}
+
+async function anotarEspera(admin: SupabaseClient, esperaMs: number): Promise<void> {
+  await admin.from('verifactu_control_flujo').upsert({
+    clave: CLAVE_FLUJO,
+    proximo_envio_permitido_en: new Date(Date.now() + esperaMs).toISOString(),
+    ultimo_tiempo_espera_s: Math.round(esperaMs / 1000),
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'clave' });
+}
+
 // Deja margen sobre maxDuration=300s del endpoint (app/api/cron/
 // verifactu-transmitir/route.ts) para que el cron termine solo, sin que
 // Vercel lo mate a mitad de un envío — un estudio que no llegue a tiempo se
@@ -149,6 +169,8 @@ export async function transmitirPendientes(): Promise<ResumenTransmision> {
 
   const ctx: Contexto = { admin, certificado, destino, productor, resumen, esperaMs: 0, inicio: Date.now() };
   try {
+    // La espera que dejó la ejecución anterior (o una llamada a mano) cuenta.
+    ctx.esperaMs = await esperaPendienteMs(admin);
     const { data: activos, error } = await admin.from('verifactu_registros')
       .select('studio_id').in('estado', ACTIVOS).limit(5000);
     if (error) {
@@ -313,6 +335,7 @@ async function procesarEstudio(ctx: Contexto, studioId: string): Promise<'SEGUIR
   );
   resumen.enviadas += lote.length;
   ctx.esperaMs = plan.esperaMs;
+  await anotarEspera(admin, plan.esperaMs);
 
   await admin.from('verifactu_envios').update({
     terminado_en: llamada.terminadoEn.toISOString(), http_status: plan.envio.httpStatus,
@@ -389,6 +412,7 @@ async function conciliar(ctx: Contexto, studioId: string, registroId: string, no
   const llamada = await llamarAeat(sobre, ctx.certificado, ctx.destino);
   // La consulta también cuenta para el control de flujo (ámbito NO CONFIRMADO: prudencia).
   ctx.esperaMs = 60_000;
+  await anotarEspera(admin, ctx.esperaMs);
   const respuesta = llamada.fallo ? null : parsearRespuestaConsulta(llamada.cuerpo);
   if (envio) {
     await admin.from('verifactu_envios').update({

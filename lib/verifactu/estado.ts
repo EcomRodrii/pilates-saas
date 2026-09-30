@@ -63,7 +63,8 @@ const TRANSICIONES: Record<EstadoRegistroVerifactu, readonly EstadoRegistroVerif
   PENDIENTE: ['LISTO', 'RECHAZADA'],
   LISTO: ['ENVIANDO'],
   ENVIANDO: ['REGISTRADA', 'ACEPTADA_CON_ERRORES', 'ANULADA_EN_AEAT', 'RECHAZADA', 'REINTENTAR', 'INCIERTO', 'LISTO'],
-  REINTENTAR: ['LISTO'],
+  // Un reintento que ya toca se reclama directamente (mismo XML congelado).
+  REINTENTAR: ['LISTO', 'ENVIANDO'],
   INCIERTO: ['REGISTRADA', 'ACEPTADA_CON_ERRORES', 'ANULADA_EN_AEAT', 'LISTO'],
   REGISTRADA: [],
   ACEPTADA_CON_ERRORES: [],
