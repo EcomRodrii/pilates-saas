@@ -7,7 +7,7 @@ import {
   puedeModerarComunidad, puedeVerFichaClinica, puedeVerSemaforo,
   puedeGestionarFichaDe, puedeVerRetribucionDe, filtrarRetribucionVisible,
   puedeGestionarCamposPersonalizados, puedeVerDetalleAusencias, puedeVerSolicitudesSoporte, puedeVerDatosPrivadosSocia,
-  puedeVerAuditoriaFinanciera,
+  puedeVerAuditoriaFinanciera, puedeActivarAccesoDelRol,
   puedeOperarClase, puedeEnviarEmail, TIPOS_EMAIL_PANEL, TIPOS_EMAIL_DE_CLASE,
   puedeGestionarAutomatizaciones, puedeVerContactoEquipo,
   puedeVerValoracionesDe, puedeVerResumenValoracionDe, puedeGestionarCalendario,
@@ -600,4 +600,38 @@ test('el historial de cambios de dinero lo ve solo la propietaria: ni recepción
   }
   // Recepción puede tocar el dinero pero no leer el registro de lo que toca.
   assert.equal(puedeMoverDinero('RECEPCION'), true);
+});
+
+// ── Activar el acceso de un rol que mueve dinero ─────────────────────────────
+//
+// `rolesQuePuedeAsignar('MANAGER')` incluye RECEPCION a propósito (un manager da
+// de alta a su recepcionista: decisión tomada). Lo que NO puede es dejar en
+// marcha una cuenta con ese rol, porque RECEPCION cobra y devuelve y MANAGER no.
+
+test('activar acceso: un manager no puede activar un rol que mueve dinero', () => {
+  assert.equal(puedeActivarAccesoDelRol('MANAGER', 'RECEPCION'), false);
+  assert.equal(puedeActivarAccesoDelRol('MANAGER', 'PROPIETARIO'), false);
+});
+
+test('activar acceso: los roles sin poder sobre el dinero los activa cualquiera que gestione', () => {
+  assert.equal(puedeActivarAccesoDelRol('MANAGER', 'INSTRUCTOR'), true);
+  assert.equal(puedeActivarAccesoDelRol('MANAGER', 'MANAGER'), true);
+  assert.equal(puedeActivarAccesoDelRol('PROPIETARIO', 'INSTRUCTOR'), true);
+});
+
+test('activar acceso: quien mueve dinero puede activar a quien lo mueve', () => {
+  assert.equal(puedeActivarAccesoDelRol('PROPIETARIO', 'RECEPCION'), true);
+  assert.equal(puedeActivarAccesoDelRol('PROPIETARIO', 'PROPIETARIO'), true);
+  assert.equal(puedeActivarAccesoDelRol('RECEPCION', 'RECEPCION'), true);
+});
+
+test('activar acceso: nadie reparte poderes de dinero que no tiene (recorre todos los pares)', () => {
+  const roles = ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const;
+  for (const actor of roles) {
+    for (const ficha of roles) {
+      if (puedeMoverDinero(ficha) && !puedeMoverDinero(actor)) {
+        assert.equal(puedeActivarAccesoDelRol(actor, ficha), false, `${actor} no debería poder activar ${ficha}`);
+      }
+    }
+  }
 });

@@ -319,6 +319,23 @@ export function puedeGestionarFichaDe(rolActor: Rol, rolFicha: Rol): boolean {
   return rolesQuePuedeAsignar(rolActor).includes(rolFicha);
 }
 
+// «¿Puede rolActor DEJAR EN MARCHA el acceso de una cuenta con el rol rolFicha?»
+// Distinta de `rolesQuePuedeAsignar`: aquella dice qué fichas se pueden CREAR o
+// EDITAR (un manager da de alta a su recepcionista, y eso es decisión tomada);
+// esta dice quién puede convertir esa ficha en una cuenta que ya entra y opera.
+// Nadie reparte poderes que no tiene: un rol con poder sobre el dinero solo lo
+// activa quien lo tiene. Lo aplican, cada uno donde le toca:
+//   · el enlace firmado de invitación (`lib/equipo/reclamar-reglas.ts`);
+//   · el alta que vincula una cuenta ya existente de otra sede, y el cambio de
+//     `rol` sobre una ficha con cuenta (`lib/actions/equipo/equipoAction.ts`);
+//   · el trigger `instructores_rol_dinero_exige_permiso` de la base de datos,
+//     que cubre lo mismo cuando se escribe sin pasar por el servidor.
+// Si cambia la lista de roles que mueven dinero (`puedeMoverDinero`), cambia
+// aquí sola; el trigger la lleva copiada y tiene su propio test.
+export function puedeActivarAccesoDelRol(rolActor: Rol, rolFicha: Rol): boolean {
+  return !puedeMoverDinero(rolFicha) || puedeMoverDinero(rolActor);
+}
+
 // VER la retribución (tarifa, base, horas de contrato, liquidación) de una ficha
 // del equipo. Espejo de la RLS de `instructor_tarifas`/`liquidaciones_instructoras`:
 // `*_gestion` (`puede_gestionar_ficha_instructor`, migr 20260908184657) más la
