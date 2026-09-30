@@ -4496,7 +4496,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Antes ignoraba cualquier filtro y desde la ficha cobraba —y sellaba una
     // factura irreversible de— TODO el estudio (hallazgo C-3).
     const pendientes = recibos.filter(r => r.estado === 'PENDIENTE' && (!socioId || r.socioId === socioId));
-    const fechaCobro = new Date().toISOString();
+    // `fecha_cobro` es `date`, no `timestamptz`: con un ISO en UTC un cobro
+    // masivo a la 01:30 de Madrid se fechaba el día anterior, y de esa fecha
+    // sale la de la factura (a caballo de un trimestre, el trimestre). Es la
+    // misma corrección P-9 que ya llevaba `marcarCobrado`; esta copia se quedó
+    // atrás. Un solo día del estudio para las dos: `hoyEnEstudio`.
+    const fechaCobro = hoyEnEstudio();
     // Un solo UPDATE en lote (antes: un dbUpdateRecibo por recibo — hasta ~120
     // round-trips secuenciales para cobrar 40 recibos pendientes).
     // Se espera el resultado ANTES de dar nada por cobrado: si la BD rechaza, no

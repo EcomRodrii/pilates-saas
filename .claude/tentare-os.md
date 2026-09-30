@@ -154,7 +154,11 @@ así que todo lo que se versiona lo lee cualquiera:
 
 - No trocear los "god files" (`lib/supabase-data.ts`, `studio-context.tsx`...) — propuesto y
   rechazado dos veces.
-- Feature-freeze activo sobre Kiosko/POS/VOD/Comunidad (`lib/frozen-features.ts`).
+- Feature-freeze activo sobre Kiosko, VOD y Chat de equipo (`lib/frozen-features.ts`,
+  `RUTAS_CONGELADAS`). POS/Caja y Comunidad ya NO están congelados: el POS se
+  reconstruyó server-authoritative (7-sep-2026) y Comunidad se descongeló con
+  decisión explícita (Community & Messaging OS). El fichero es la fuente de
+  verdad; si esto y él discrepan, manda él.
 - `suscripciones` con RLS abierta a todo el personal de mostrador y gestión es decisión de
   producto deliberada, no agujero pendiente (INSTRUCTOR fuera desde el 22-sep-2026: ya no
   trabaja en el panel). `sesiones`/`reservas` **YA NO** son "sin cerrar del todo" — probando en
@@ -989,8 +993,16 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
 
 - **Un dueño por hecho de negocio.** Si un efecto (consumir bono, avisar, sellar
   factura) ya tiene función dueña, el cambio va ahí; si hay copias, se unifican
-  antes de añadir otra. Pendiente P1: «reserva confirmada» (5 copias + panel en
-  cliente) y «cobro confirmado» (3 dueños + `marcarCobrado`).
+  antes de añadir otra. Estado a 30-sep-2026:
+  - **«Reserva confirmada»: resuelto** (#1980). Las tres llamadas a `reservar_plaza`
+    (`lib/db/supabase-data-admin.ts`) terminan en `trasReservaCreada`,
+    `trasPlazaConfirmada` o `trasPromocionDeEspera`; cualquier camino nuevo que
+    confirme plaza llama a su dueño.
+  - **«Cobro confirmado»: a medias.** Webhook/conciliador/POS-confirmar, SEPA/dunning
+    y off-session convergen en `confirmarCobro` (`lib/billing/confirmar-cobro.ts`).
+    Quedan fuera el cobro manual del panel (`marcarCobrado` y `cobrarTodosPendientes`
+    en `lib/studio-context.tsx`, que escriben desde el navegador y renuevan el bono
+    con una copia a mano) y el POS, que inserta el recibo ya COBRADO por su cuenta.
 - **De serie ≠ personalizable.** Recordatorio de clase, confirmación, lista de
   espera, bono agotado, reintento de cobro, valoración y búsqueda de sustituta son
   producto, no reglas. `CLASE_MANANA` ya no se ofrece (duplicaba el recordatorio

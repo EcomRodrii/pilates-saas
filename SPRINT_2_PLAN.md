@@ -1,5 +1,14 @@
 # SPRINT 2 — VERCEL API ROUTES → SERVER ACTIONS
 
+> ⚠️ **Plan histórico, no es una tarea vigente.** Estado a 30-sep-2026: solo se
+> llegó al piloto (`lib/actions/equipo/*`, `lib/actions/layout.ts`,
+> `lib/actions/theme.ts`). Hoy hay 387 rutas API, no 247, y el resto siguen siendo
+> rutas: los 217 «candidatos» de abajo ya no son una cifra real. Convertir más
+> por este plan añadiría un segundo mecanismo cliente↔servidor junto al que ya
+> usan `lib/api-client.ts` y las rutas, así que retomarlo exige decidirlo antes,
+> no seguir la lista. Las cifras de ahorro (15-20 % de cold starts, $200-500/mes)
+> eran una estimación: no consta ninguna medición.
+
 **Objetivo:** Reducir cold starts y latencia HTTP eliminando 217 API route wrappers  
 **Impacto esperado:** 15-20% reducción en cold starts, ~$200-500/mes en costos  
 **Esfuerzo:** 3-4 semanas  
