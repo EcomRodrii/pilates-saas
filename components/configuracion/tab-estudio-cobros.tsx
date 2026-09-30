@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -16,6 +16,10 @@ import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
 import { Campo } from '@/components/configuracion/formulario-estudio';
 import { ExportarRegistrosVerifactu } from '@/components/configuracion/exportar-registros-verifactu';
+import type { EstadoEstudioVerifactu } from '@/lib/verifactu/apoderamiento';
+import {
+  ALTA_AUN_CERRADA, SOLO_CON_ENVIO_ACTIVO, avisoPermanencia, envioActivado, ofrecerAlta, pasoDelAlta,
+} from '@/lib/verifactu/facturacion-activa';
 
 // Los cajones de «Domiciliaciones bancarias» y «Devoluciones», en Cobros y
 // facturas. Cada uno se guarda con el «Guardar» de su barra, que solo aparece
@@ -458,13 +462,18 @@ export function FormAlCancelarCuota({ onGuardado }: PropsFormularioCajon) {
 //
 // Si Tentare emite una factura por cobro (con su registro Veri*Factu) o no
 // emite facturas y el estudio factura fuera. Por defecto, no (decisión del
-// fundador, 29-sep-2026). Se puede cambiar en los dos sentidos: la base de datos
-// es la que impide que nazca una factura con el modo apagado
-// (`reservar_numero_factura`), y la cadena de cada estudio no se toca.
+// fundador, 29-sep-2026). La base de datos es la que impide que nazca una
+// factura con el modo apagado (`reservar_numero_factura`), y la cadena de cada
+// estudio no se toca.
 //
-// ⚠️ Los textos no prometen lo que no depende de Tentare: ni «cumple», ni el
-// envío a la AEAT, ni el QR (ver lib/factura-sello-cliente.ts). Solo lo que
-// pasa de verdad al guardar.
+// ⚠️ Encenderlo exige el envío a la AEAT ya activado (30-sep-2026): Tentare solo
+// funciona como VERI*FACTU, así que no emite una factura cuyo registro no vaya a
+// enviarse (migración 20260930170000, lib/verifactu/facturacion-activa.ts). La
+// pantalla lo dice antes de que la base lo rechace. Apagarlo con el envío
+// activo se deja, pero avisando de la permanencia (art. 17.2).
+//
+// ⚠️ Los textos no prometen lo que no depende de Tentare: ni «cumple», ni el QR
+// (ver lib/factura-sello-cliente.ts). Solo lo que pasa de verdad al guardar.
 
 type FacturacionForm = { modo: ModoFacturacion };
 
@@ -477,7 +486,7 @@ const MODOS_FACTURACION: { valor: ModoFacturacion; titulo: string; descripcion: 
   {
     valor: 'verifactu',
     titulo: 'Emitir facturas con registro Veri*Factu',
-    descripcion: 'Cada cobro, salvo en efectivo, genera su factura con número correlativo y una huella encadenada a la anterior. El estado de su envío a la AEAT lo ves en Cobros → Facturas.',
+    descripcion: 'Cada cobro, salvo en efectivo, genera su factura con número correlativo y una huella encadenada a la anterior, y su registro se envía a la AEAT. Lo ves en Cobros → Facturas.',
   },
 ];
 
@@ -485,19 +494,45 @@ function studioToFacturacion(s: Partial<Pick<Studio, 'modoFacturacion'>> | null)
   return { modo: s?.modoFacturacion ?? 'sin_facturas' };
 }
 
-function confirmacionFacturacion(ahora: ModoFacturacion) {
+function confirmacionFacturacion(ahora: ModoFacturacion, envioActivo: boolean) {
   if (ahora === 'verifactu') {
     return {
       titulo: '¿Emitir facturas desde Tentare?',
-      descripcion: 'Desde ahora, cada cobro —salvo en efectivo— genera su factura con número correlativo y su registro para Veri*Factu. Las facturas emitidas no se borran: se corrigen con una rectificativa. Para las sociedades es obligatorio desde el 1 de enero de 2027 y para las autónomas desde el 1 de julio de 2027: confírmalo con tu asesoría.',
+      descripcion: 'Desde ahora, cada cobro —salvo en efectivo— genera su factura con número correlativo y su registro, que se envía a la AEAT. Las facturas emitidas no se borran: se corrigen con una rectificativa. Para las sociedades es obligatorio desde el 1 de enero de 2027 y para las autónomas desde el 1 de julio de 2027: confírmalo con tu asesoría.',
       textoConfirmar: 'Sí, emitir facturas',
     };
   }
+  const base = 'Desde ahora los cobros no generan factura: tus alumnas reciben su justificante de pago y tus facturas las haces fuera. Las facturas que ya emitiste se quedan como están y se pueden seguir rectificando. Si vuelves a activarlo, la numeración sigue donde se quedó.';
   return {
     titulo: '¿Dejar de emitir facturas desde Tentare?',
-    descripcion: 'Desde ahora los cobros no generan factura: tus alumnas reciben su justificante de pago y tus facturas las haces fuera. Las facturas que ya emitiste se quedan como están y se pueden seguir rectificando. Si vuelves a activarlo, la numeración sigue donde se quedó.',
+    descripcion: envioActivo ? `${base} ${avisoPermanencia(new Date())}` : base,
     textoConfirmar: 'Sí, dejar de emitirlas',
   };
+}
+
+// El alta del envío a la AEAT, para saber si ya se puede emitir. El cajón es
+// solo de la propietaria, igual que la ruta.
+type AltaEnvio = { estado: EstadoEstudioVerifactu; activadoEn: string | null } | 'cargando' | 'error';
+
+function useAltaEnvio(): AltaEnvio {
+  const [alta, setAlta] = useState<AltaEnvio>('cargando');
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const res = await fetch('/api/verifactu/estudio', { headers: await authHeader(), cache: 'no-store' });
+        const datos = res.ok ? await res.json().catch(() => null) : null;
+        if (!vivo) return;
+        setAlta(datos && typeof datos.estado === 'string'
+          ? { estado: datos.estado as EstadoEstudioVerifactu, activadoEn: typeof datos.activadoEn === 'string' ? datos.activadoEn : null }
+          : 'error');
+      } catch {
+        if (vivo) setAlta('error');
+      }
+    })();
+    return () => { vivo = false; };
+  }, []);
+  return alta;
 }
 
 export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
@@ -516,6 +551,16 @@ export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
   // Sin un NIF válido no se puede sellar ninguna factura (`sellarFacturaDeRecibo`):
   // encenderlo así dejaría cada cobro con su factura pendiente. Se dice aquí.
   const sinNif = form.modo === 'verifactu' && !nifEmisorValido(studio?.nif?.trim() ?? '');
+
+  const alta = useAltaEnvio();
+  const activo = typeof alta === 'object' && envioActivado(alta.activadoEn);
+  // Encenderlo sin el envío activo lo rechaza la base (VERIFACTU_SIN_ACTIVAR):
+  // aquí se dice antes, sin mandar nada.
+  const enciende = form.modo === 'verifactu' && base.modo !== 'verifactu';
+  const bloqueoEnvio = !enciende || activo ? null
+    : alta === 'cargando' ? 'Comprobando tu envío a la AEAT…'
+    : alta === 'error' ? 'No se ha podido comprobar tu envío a la AEAT. Vuelve a intentarlo en un momento.'
+    : 'Se podrá activar cuando tu envío a la AEAT esté activo.';
 
   async function alGuardar(): Promise<string | null> {
     const enviado = form;
@@ -556,7 +601,20 @@ export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
           );
         })}
       </div>
-      {form.modo === 'verifactu' && (
+      {form.modo === 'verifactu' && !activo && typeof alta === 'object' && (
+        <div className="-mt-3 mb-6 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
+          <p className="text-foreground text-pretty">{ofrecerAlta(alta.estado) ? SOLO_CON_ENVIO_ACTIVO : ALTA_AUN_CERRADA}</p>
+          {ofrecerAlta(alta.estado) && (
+            <p className="mt-2 text-muted-foreground text-pretty">
+              {pasoDelAlta(alta.estado)}{' '}
+              <Link href="/configuracion/verifactu" className="font-medium text-foreground underline underline-offset-2">
+                Ver tu alta en la AEAT
+              </Link>
+            </p>
+          )}
+        </div>
+      )}
+      {form.modo === 'verifactu' && activo && (
         // Orden HAC/1177/2024, art. 15.3: la declaración responsable del sistema
         // tiene que estar accesible para el cliente de forma rápida y fácil.
         <p className="-mt-3 pb-6 text-sm text-muted-foreground">
@@ -570,8 +628,8 @@ export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
       <BarraGuardar
         seccion="cobros"
         cambios={hayCambios(form, base) ? ['Facturación'] : []}
-        bloqueo={sinNif ? 'Pon un NIF válido en «Datos fiscales e IVA» para emitir facturas.' : null}
-        confirmar={confirmacionFacturacion(form.modo)}
+        bloqueo={sinNif ? 'Pon un NIF válido en «Datos fiscales e IVA» para emitir facturas.' : bloqueoEnvio}
+        confirmar={confirmacionFacturacion(form.modo, activo)}
         onGuardar={alGuardar}
         onDescartar={() => setForm(base)}
       />

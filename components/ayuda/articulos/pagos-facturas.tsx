@@ -9,23 +9,25 @@ export default function Contenido() {
         justificante de pago y tus facturas las haces con tu gestoría o con otro programa.
       </p>
       <p>
-        Si lo activas, cada cobro que se completa (salvo en efectivo) genera su factura automáticamente — no tienes
-        que crearlas tú una a una. La encuentras en Facturas, con opción de descargarla en PDF. Puedes desactivarlo
-        cuando quieras: las facturas que ya emitiste se quedan como están.
+        Tentare solo emite facturas con Veri*Factu, es decir, enviando el registro de cada una a la AEAT. Por eso,
+        antes de emitirlas, tu envío a la AEAT tiene que estar activo: lo autorizas en la propia AEAT y Tentare lo
+        comprueba y lo activa. En «Facturación» ves en qué punto está. Desde ese día, cada cobro que se completa
+        (salvo en efectivo) genera su factura automáticamente — no tienes que crearlas tú una a una. La encuentras
+        en Facturas, con opción de descargarla en PDF.
+      </p>
+      <p>
+        Puedes dejar de emitirlas cuando quieras, y las que ya emitiste se quedan como están. Pero la norma obliga a
+        quien ya factura con Veri*Factu a seguir así hasta el 31 de diciembre de ese año: hasta entonces, tus
+        facturas tendrán que salir por otro sistema Veri*Factu. Háblalo antes con tu asesoría.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Veri*Factu</h2>
       <p>
-        Si Tentare emite tus facturas, cada una lleva numeración correlativa y una huella que la encadena con la anterior — el mecanismo que
-        exige Veri*Factu para que nadie pueda editar o borrar una factura después sin que se note. Eso se hace solo,
-        en cuanto se cobra. El código QR de verificación se imprime en la factura cuando la AEAT ya tiene su
-        registro: un QR que la AEAT no puede cotejar le diría a tu clienta que su factura no consta.
-      </p>
-      <p>
-        El <strong>envío del registro a la AEAT está en camino</strong>: la parte que firma y encadena ya funciona, y
-        la que transmite está construida pero todavía no activada. Te avisaremos cuando puedas encenderla. Mientras
-        tanto, cada factura queda numerada y encadenada a la anterior, que es lo que evita que se pueda tocar
-        después sin que se note; el QR aparecerá en tus facturas cuando el envío esté activo.
+        Cada factura que emite Tentare lleva numeración correlativa y una huella que la encadena con la anterior — el mecanismo que
+        exige Veri*Factu para que nadie pueda editar o borrar una factura después sin que se note — y su registro se
+        envía a la AEAT. Eso se hace solo, en cuanto se cobra. El código QR de verificación se imprime en la factura
+        cuando la AEAT ya tiene su registro: un QR que la AEAT no puede cotejar le diría a tu clienta que su factura
+        no consta.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Datos fiscales</h2>
