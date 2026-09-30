@@ -15,4 +15,26 @@
 // Los tests e2e del formulario de acceso
 // (e2e/network-software-separacion.spec.ts) se saltan mientras esto sea
 // `true` y vuelven a correr solos al reabrir.
+//
+// Qué cierra el SERVIDOR y qué no. El login y el registro los hace el navegador
+// contra el servicio de autenticación (`signIn`/`signUp`/Google de
+// `lib/auth-context.tsx`), no una ruta de la app: desde aquí no se pueden cerrar,
+// y el cierre de esas dos pantallas es solo de interfaz. Lo que sí es de servidor
+// es CREAR un perfil nuevo (`PUT /api/network/perfil` sin perfil previo), que
+// devuelve 503 con el mismo aviso: sin eso, cualquiera con una cuenta podía saltarse
+// la pantalla y crearlo llamando a la ruta. Editar el perfil que ya existe
+// (borrador o publicado) sigue funcionando: cerrarlo dejaría perfiles a medias sin
+// forma de completarse.
+//
+// ⚠️ Lo que NO cierra: el INSERT directo contra la base de datos con la clave
+// pública y una sesión (la política `red_perfiles_insert_propio` y los grants por
+// columna siguen abiertos). Esta constante es de aplicación y la RLS no la lee.
+// Ninguna pantalla de la app inserta así, pero quien sepa hacerlo puede. Cerrarlo
+// del todo es una migración (y reabrir, otra): decisión aparte, no incluida aquí.
 export const ACCESO_NETWORK_EN_MANTENIMIENTO = true;
+
+// Los avisos, en un solo sitio: los enseñan las dos pantallas y el servidor.
+export const MENSAJE_ACCESO_NETWORK_CERRADO =
+  'El acceso a Tentare Network está temporalmente cerrado. Vuelve a intentarlo más tarde.';
+export const MENSAJE_ALTA_NETWORK_CERRADA =
+  'La creación de perfiles nuevos en Tentare Network está temporalmente cerrada. Vuelve a intentarlo más tarde.';

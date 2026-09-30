@@ -8,14 +8,14 @@
 // esta puerta y la de alta (/network/crear-perfil) están cerradas.
 import Link from 'next/link';
 import { AvisoMantenimientoNetwork } from '@/components/network/aviso-mantenimiento';
-import { ACCESO_NETWORK_EN_MANTENIMIENTO } from '@/lib/network/mantenimiento';
+import { ACCESO_NETWORK_EN_MANTENIMIENTO, MENSAJE_ACCESO_NETWORK_CERRADO } from '@/lib/network/mantenimiento';
 import { FormularioAccesoNetwork } from './formulario-acceso';
 
 export default function AccesoNetworkPage() {
   if (!ACCESO_NETWORK_EN_MANTENIMIENTO) return <FormularioAccesoNetwork />;
   return (
     <AvisoMantenimientoNetwork
-      mensaje="El acceso a Tentare Network está temporalmente cerrado. Vuelve a intentarlo más tarde."
+      mensaje={MENSAJE_ACCESO_NETWORK_CERRADO}
       pieAdicional={<>¿Gestionas un estudio con Tentare Software? Esto no te afecta — <Link href="/login" className="font-bold underline">inicia sesión aquí</Link>.</>}
     />
   );
