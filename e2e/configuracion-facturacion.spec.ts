@@ -36,9 +36,12 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page, ruta: string, opts: { fila?: Record<string, unknown>; respuesta?: Respuesta } = {}) {
+interface Exportacion { total: number; fichero?: 'ok' | 'error' }
+
+async function montar(page: Page, ruta: string, opts: { fila?: Record<string, unknown>; respuesta?: Respuesta; exportacion?: Exportacion } = {}) {
   const patches: Record<string, unknown>[] = [];
-  const { fila = FILA, respuesta = 'ok' } = opts;
+  const descargas: string[] = [];
+  const { fila = FILA, respuesta = 'ok', exportacion } = opts;
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -65,8 +68,22 @@ async function montar(page: Page, ruta: string, opts: { fila?: Record<string, un
     // Lo que devuelve PostgREST con `select=id`; `[]` es «la RLS no casó».
     return json(route, respuesta === 'cero-filas' ? [] : [{ id: STUDIO_ID }]);
   });
+  if (exportacion) {
+    // Antes del goto: el panel pregunta cuántos registros hay al montarse.
+    await page.route('**/api/verifactu/exportacion**', route => {
+      const formato = new URL(route.request().url()).searchParams.get('formato');
+      if (!formato) return json(route, { total: exportacion.total });
+      descargas.push(formato);
+      if (exportacion.fichero === 'error') return json(route, { error: 'No se han podido leer tus registros de facturación.' }, 500);
+      return route.fulfill({
+        status: 200, contentType: 'text/csv; charset=utf-8',
+        headers: { 'Content-Disposition': 'attachment; filename="registros-verifactu-2026-09-30.csv"' },
+        body: '\uFEFFPosición;Tipo de registro\r\n1;Alta\r\n',
+      });
+    });
+  }
   await page.goto(ruta);
-  return { patches };
+  return { patches, descargas };
 }
 
 const emitir = (page: Page) => page.getByRole('radiogroup', { name: 'Facturación' })
@@ -138,4 +155,34 @@ test('Facturas, con el modo apagado: lo dice y lleva a activarlo, sin el aviso r
   await expect(page.getByText('Tentare no emite tus facturas')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('link', { name: 'Emitir facturas desde Tentare' })).toHaveAttribute('href', '/configuracion?tab=cobros#facturacion');
   await expect(page.getByText('No se está emitiendo ninguna factura')).toHaveCount(0);
+});
+
+// Exportación de los registros (mandato, cláusula 8). Se ofrece aunque el
+// estudio ya no emita con Tentare: es cuando más falta hace llevárselos.
+
+test('sin registros no ofrece exportar nada', async ({ page }) => {
+  await montar(page, '/configuracion?tab=cobros#facturacion', { exportacion: { total: 0 } });
+  await expect(emitir(page)).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(400);
+  await expect(page.getByText(/registros? de facturación/)).toHaveCount(0);
+});
+
+test('con registros, aunque ya no emita, descarga el CSV con el nombre del servidor', async ({ page }) => {
+  const { descargas } = await montar(page, '/configuracion?tab=cobros#facturacion', { exportacion: { total: 20 } });
+  await expect(page.getByText('20 registros de facturación')).toBeVisible({ timeout: 30_000 });
+  const descarga = page.waitForEvent('download');
+  await page.getByRole('button', { name: /CSV/ }).click();
+  expect((await descarga).suggestedFilename()).toBe('registros-verifactu-2026-09-30.csv');
+  expect(descargas).toEqual(['csv']);
+});
+
+test('si el servidor no puede leerlos, lo dice y no descarga nada', async ({ page }) => {
+  const { descargas } = await montar(page, '/configuracion?tab=cobros#facturacion', { exportacion: { total: 3, fichero: 'error' } });
+  await expect(page.getByText('3 registros de facturación')).toBeVisible({ timeout: 30_000 });
+  let huboDescarga = false;
+  page.on('download', () => { huboDescarga = true; });
+  await page.getByRole('button', { name: /XML/ }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'No se han podido leer tus registros de facturación.' })).toBeVisible();
+  expect(descargas.length).toBeGreaterThan(0);
+  expect(huboDescarga).toBe(false);
 });
