@@ -125,7 +125,13 @@ export interface ApartadoDeclaracion {
   valor: string | null;
 }
 
-/** 1.d: qué es Tentare y qué hace. Descripción de lo que existe en el código. */
+/**
+ * 1.d: qué es Tentare y qué hace. Descripción de lo que existe en el código.
+ * La frase de la remisión es la redacción que propuso el asesor fiscal
+ * (30-sep-2026). Que las subsanaciones y anulaciones las lance Tentare y no un
+ * botón del estudio no impide declararlas: la AEAT pide que el SIF las genere,
+ * preferentemente de forma transparente para el usuario.
+ */
 export const COMPONENTES_Y_FUNCIONALIDADES =
   'Software ofrecido como servicio (SaaS) al que cada usuario accede por navegador web o por su aplicación; ' +
   'no requiere instalar hardware ni software propio del usuario. Se ejecuta en servidores en la nube del ' +
@@ -133,8 +139,9 @@ export const COMPONENTES_Y_FUNCIONALIDADES =
   'Funcionalidades principales: gestión de un estudio (clientes, reservas, planes y bonos), cobro de recibos, ' +
   'expedición de facturas completas y simplificadas y de facturas rectificativas a partir de esos cobros, ' +
   'generación simultánea de su registro de facturación encadenado mediante huella SHA-256, código QR ' +
-  'tributario en la factura, y remisión automática de los registros a la sede electrónica de la AEAT, con ' +
-  'altas de subsanación y anulaciones. Permite gestionar de forma independiente la facturación de varios ' +
+  'tributario en la factura, y generación y remisión automática a la sede electrónica de la AEAT de ' +
+  'registros de facturación de alta, incluidos, cuando proceda, registros de alta de subsanación y ' +
+  'registros de anulación. Permite gestionar de forma independiente la facturación de varios ' +
   'obligados tributarios, cumpliendo separadamente la normativa para cada uno de ellos, como si se tratara ' +
   'de sistemas informáticos de facturación distintos.';
 
