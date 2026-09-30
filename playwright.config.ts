@@ -83,6 +83,12 @@ const SPECS_WEBKIT = [
   // el POST con preflight— es justo lo que cambia de un motor a otro. Mismo
   // criterio de coste que los dos de arriba.
   '**/widget-nativa-estilo.spec.ts',
+  // El código del widget por ID: la nativa pide lo publicado con un GET de otro
+  // origen antes de montarse, y el iframe llega por un 307. Lo sufre la
+  // visitante de la web del estudio, y el que un motor siga la redirección o
+  // el fetch con CORS igual que otro es justo lo que no se puede dar por hecho.
+  // Tres tests; mismo criterio de coste que los de arriba.
+  '**/widget-codigo-por-id.spec.ts',
   '**/reservar-vista-mes.spec.ts',
   '**/reservar-citas-movil.spec.ts',
   '**/reservar-selector-fecha-movil.spec.ts',

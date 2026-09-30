@@ -82,14 +82,28 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
+    // El código del widget por ID (lib/widgets/pieza.ts): `/reservar/<slug>`
+    // con `w=<id>` va a la ruta que responde con un 307 a la URL completa de lo
+    // publicado. Solo con `w`: sin él, /reservar sigue exactamente igual. En
+    // forma de lista se aplica antes de las rutas dinámicas, que es donde vive
+    // /reservar/[slug]; la query llega entera a la ruta.
+    const reglas = [
+      {
+        source: '/reservar/:slug',
+        has: [{ type: 'query' as const, key: 'w' }],
+        destination: '/api/public/widget-pieza/:slug',
+      },
+    ];
     const host = process.env.NEXT_PUBLIC_IMPORTS_HOST;
-    if (!host) return [];
+    if (!host) return reglas;
     return [
+      // Primero la del host de temas: en ese dominio todo sigue yendo al tema.
       {
         source: '/:slug/:ruta*',
-        has: [{ type: 'host', value: host }],
+        has: [{ type: 'host' as const, value: host }],
         destination: '/tema-publicado/:slug/:ruta*',
       },
+      ...reglas,
     ];
   },
   // ⚠️ Auditoría de rendimiento (2026-08-31, `tentare-performance`): sin esto,

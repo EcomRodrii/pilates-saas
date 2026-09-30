@@ -50,7 +50,7 @@ export function familiaCssDe(nombre: string): string {
 // Ids del repo: UUIDs en producción, slugs cortos en fixtures/tests. Letras,
 // números y guiones basta para ambos y deja fuera todo lo que serviría para
 // salirse de un atributo o un selector.
-const ID_VALIDO = /^[A-Za-z0-9-]{1,64}$/;
+export const ID_VALIDO = /^[A-Za-z0-9-]{1,64}$/;
 
 export interface ConfigWidget {
   /** Ids de tipos de clase a los que se limita el horario. Vacío = todos. */

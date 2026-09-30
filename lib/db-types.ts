@@ -3484,6 +3484,15 @@ export interface RowBillingCheckoutLocks {
   iniciado_en: string | null;
 }
 
+export interface RowWidgetPiezas {
+  id: string;
+  studio_id: string;
+  widget: string;
+  config: any;
+  creado_en: string;
+  actualizado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -9623,6 +9632,24 @@ export type BillingCheckoutLocksUpdate = {
   iniciado_en?: string | null | null;
 }
 
+export type WidgetPiezasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  widget?: string | null;
+  config?: any | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type WidgetPiezasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  widget?: string | null;
+  config?: any | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -10725,6 +10752,11 @@ export type Database = {
         Row: RowBillingCheckoutLocks;
         Insert: BillingCheckoutLocksInsert;
         Update: BillingCheckoutLocksUpdate;
+      };
+      widget_piezas: {
+        Row: RowWidgetPiezas;
+        Insert: WidgetPiezasInsert;
+        Update: WidgetPiezasUpdate;
       };
     };
   };
