@@ -430,6 +430,8 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       webSinAutorizar: p.metodo === 'nativa' ? webSinAutorizar(direccionWeb, dominiosAutorizados) : null,
       // La lista solo se pinta con la nativa de AHORA («Ponlo en tu web»).
       conListaDeWebs: m === 'nativa',
+      // Un código de antes, y ella puede pasarse al de ahora (solo la propietaria publica).
+      codigoAntiguo: !k.pieza && rol === 'PROPIETARIO' && publicacion.estado === 'listo',
     });
   }
   // Una cadena y no la lista, para que el efecto dependa de lo que se pide y no
@@ -457,6 +459,10 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
   }, [veResultados, etiquetasVistas]);
   const copia = copiados[w.id] ?? null;
   const desfase = !!copias[w.id]?.desfasado;
+  // ¿Llega lo que enseña con «Aplicar en mi web»? Solo si su código es por id:
+  // con uno de antes pegado, cambiarlo sigue pidiendo pegarlo otra vez, y
+  // decirle «pulsa Aplicar» sería prometer algo que no pasa.
+  const porId = !!publicada && (!copia || !!copia.pieza);
   const conCopias = filasTienes.length > 0;
 
   // El mes del widget abierto, por la etiqueta con la que se COPIÓ: es la que
@@ -606,6 +612,19 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
       setVerDominios(false);
     });
   }
+  // «Que siga el estilo de tus widgets» desde la portada: lo HACE (quita el
+  // diseño propio de ese widget) y abre «Cómo se ve», donde se ve el cambio y
+  // se aplica (o se copia, si su código es de antes). Antes solo navegaba y
+  // tenía que volver a encontrar el botón.
+  function pasarAlEstiloComun(id: string) {
+    const actual = configs[id] ?? CONFIG_POR_DEFECTO;
+    if (actual.identidad !== 'estudio') {
+      const siguientes = { ...configs, [id]: { ...actual, identidad: 'estudio' as const } };
+      setConfigs(siguientes);
+      guardar({ configs: siguientes });
+    }
+    abrirPieza(id, 'como');
+  }
   function ponerOtraCosa() {
     // Lo primero que aún no tiene: lo más probable es que venga a por eso.
     const libre = WIDGETS.find((x): x is WidgetDisponible => esDisponible(x) && !!x.principal && !(x.id in copiados));
@@ -668,7 +687,13 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               })}
             </nav>
           )}
-          {conPrevia && <EstadoGuardadoLinea estado={guardado} porId={!!publicada} />}
+          {conPrevia && (
+            <EstadoGuardadoLinea
+              estado={guardado}
+              porId={porId}
+              pendiente={copia?.pieza && sinAplicar.length > 0 ? 'aplicar' : desfase ? 'pegar' : null}
+            />
+          )}
         </div>
       )}
 
@@ -712,7 +737,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
                 estilo={estiloWeb}
                 onCambiar={id => abrirPieza(id, 'que')}
                 onCopiarNuevo={id => abrirPieza(id, 'ponlo')}
-                onEstiloComun={id => abrirPieza(id, 'como')}
+                onEstiloComun={pasarAlEstiloComun}
                 onWebsAutorizadas={irAWebsAutorizadas}
                 onCambiarEstilo={() => irA('como')}
                 onOtraCosa={ponerOtraCosa}
@@ -741,7 +766,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               datos={datos}
               avisos={avisos}
               copias={copias}
-              porId={!!publicada}
+              porId={porId}
               onElegirWidget={setActivoId}
               onMetodo={elegirMetodo}
             />
@@ -761,7 +786,7 @@ export function ConstructorWidgets({ slug, showToast, onVerResultados }: {
               soloLectura={rol !== 'PROPIETARIO'}
               verApariencia={puedeVer(rol, '/configuracion/apariencia')}
               piezas={piezas}
-              porId={!!publicada}
+              porId={porId}
             />
           </div>
           <div ref={el => { contenedores.current.ponlo = el; }} tabIndex={-1} hidden={paso !== 'ponlo'} className="outline-none">
@@ -854,11 +879,19 @@ function sinHuerfanos(c: ConfigConstructor, v: Vigentes): ConfigConstructor {
 // El estado de lo guardado, sin que parezca que su web ya ha cambiado: lo
 // guardado es lo de esta pantalla; lo que va en el código llega a su web cuando
 // lo pega. (El estilo de sus widgets no pasa por aquí: se aplica con su botón.)
-function EstadoGuardadoLinea({ estado, porId }: { estado: EstadoGuardado; porId: boolean }) {
+function EstadoGuardadoLinea({ estado, porId, pendiente }: {
+  estado: EstadoGuardado;
+  porId: boolean;
+  /** Lo guardado aquí aún no está en su web: qué falta para que llegue. */
+  pendiente: 'aplicar' | 'pegar' | null;
+}) {
   return (
     <p role="status" aria-live="polite" className={cn('flex min-h-5 items-center gap-1.5 text-[12px] text-muted-foreground', estado === 'error' && 'text-destructive')}>
       {estado === 'guardando' && <><Loader2 size={12} className="animate-spin" aria-hidden />Guardando tus ajustes…</>}
-      {estado === 'guardado' && <><CheckCircle2 size={12} className="text-success" aria-hidden />{porId
+      {/* «Guardado» con un ✓ verde se lee como «ya está en mi web»: con algo pendiente, se dice que aquí sí y allí aún no. */}
+      {estado === 'guardado' && pendiente === 'aplicar' && 'Guardado aquí. En tu web, aún no: pulsa «Aplicar en mi web».'}
+      {estado === 'guardado' && pendiente === 'pegar' && 'Guardado aquí. En tu web, aún no: copia el código y pégalo en lugar del de antes.'}
+      {estado === 'guardado' && !pendiente && <><CheckCircle2 size={12} className="text-success" aria-hidden />{porId
         ? 'Tus ajustes están guardados. Llegan a tu web al pulsar «Aplicar en mi web» o al copiar el código.'
         : 'Tus ajustes están guardados. Lo que va en el código llega a tu web cuando lo pegues.'}</>}
       {estado === 'error' && 'No se han guardado tus ajustes. El código que copies sigue valiendo.'}

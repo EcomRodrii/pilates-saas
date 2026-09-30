@@ -50,6 +50,7 @@ async function montar(page: Page, opts: { piezas?: unknown[]; widgetBuilder?: Re
     widget_builder: { ...(opts.widgetBuilder ?? {}), _web: { plataforma: 'otra' } },
   };
   const pedidos: Record<string, unknown>[] = [];
+  const patches: Record<string, unknown>[] = [];
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh', expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
@@ -70,7 +71,9 @@ async function montar(page: Page, opts: { piezas?: unknown[]; widgetBuilder?: Re
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route => {
     if (route.request().method() === 'PATCH') {
-      Object.assign(studioRow, route.request().postDataJSON() as Record<string, unknown>);
+      const cuerpo = route.request().postDataJSON() as Record<string, unknown>;
+      patches.push(cuerpo);
+      Object.assign(studioRow, cuerpo);
       return json(route, [{ id: STUDIO_ID }]);
     }
     return json(route, studioRow);
@@ -90,13 +93,19 @@ async function montar(page: Page, opts: { piezas?: unknown[]; widgetBuilder?: Re
 
   await page.goto('/configuracion?tab=api');
   await expect(page.getByText('Widgets para tu web')).toBeVisible({ timeout: 60_000 });
-  return { pedidos };
+  return { pedidos, patches };
 }
 
 const snippet = (page: Page) => page.locator('pre');
 const paso = (page: Page, nombre: 'Qué y dónde' | 'Cómo se ve' | 'Ponlo en tu web') =>
   page.getByRole('navigation', { name: 'Pasos' }).getByRole('button', { name: nombre, exact: true }).click();
 const sinAplicar = (page: Page) => page.getByRole('region', { name: 'Cambios sin aplicar' });
+
+/** La copia de un código ANTIGUO (congelado, sin id) del horario. */
+function copiaAntigua(config: Record<string, unknown> = {}) {
+  const firma = firmaCodigo({ widget: HORARIO as never, config: { ...CONFIG_POR_DEFECTO, ...config } as never, origen: '', slug: SLUG, pieza: null }, 'iframe');
+  return { firma, en: '2026-09-28T10:05:00.000Z', metodo: 'iframe' };
+}
 
 /** Desde la portada, al horario ya pegado por id, y a enseñar solo Mat. */
 async function soloMat(page: Page) {
@@ -113,7 +122,7 @@ test('pegado por id: cambiar qué clases salen NO pide pegarlo otra vez; «Aplic
   await expect(snippet(page)).toContainText(`/reservar/${SLUG}?embed=1&w=${ID}`);
   await expect(snippet(page)).not.toContainText('tipos=');
   await expect(page.getByText(/Has cambiado algo que va en el código/)).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Qué enseña' })).toContainText('Se actualiza solo');
+  await expect(page.getByRole('region', { name: 'Qué enseña' })).toContainText('Con «Aplicar en mi web»');
 
   await expect(sinAplicar(page)).toContainText('qué clases salen');
   await sinAplicar(page).getByRole('button', { name: 'Aplicar en mi web' }).click();
@@ -137,7 +146,9 @@ test('copiar con cambios sin aplicar copia el código por id y aplica; si aplica
   const { pedidos } = await montar(page, { piezas: PUBLICADA, widgetBuilder: { horario: { copiado: copiaPorId() } }, respuesta: '500' });
   await soloMat(page);
   await paso(page, 'Ponlo en tu web');
-  await page.getByRole('button', { name: 'Copiar código' }).click();
+  // Ya lo tiene pegado con el código de ahora: copiar es para otra página, y también aplica.
+  await expect(page.getByRole('region', { name: 'Ya lo tienes en tu web' })).toBeVisible();
+  await page.getByRole('button', { name: 'Copiar el código (para otra página)' }).click();
   await expect.poll(() => pedidos.length).toBeGreaterThan(0);
   const copiado = await page.evaluate(() => (window as unknown as { __copiado?: string }).__copiado);
   expect(copiado).toContain(`w=${ID}`);
@@ -157,4 +168,29 @@ test('la primera vez en «Ponlo en tu web» se crea lo publicado, y el código p
   await expect(page.getByRole('button', { name: 'Copiar código' })).toBeEnabled();
   // Crearlo no es aplicar nada: no hay aviso, ni constancia que dar.
   await expect(page.getByText('Aplicado. Tu web lo enseñará en unos minutos.')).toHaveCount(0);
+});
+
+test('con un código de ANTES pegado: lo dice, lleva a copiar el de ahora, y no promete «Aplicar»', async ({ page }) => {
+  await montar(page, { piezas: PUBLICADA, widgetBuilder: { horario: { copiado: copiaAntigua() } } });
+  const fila = page.getByRole('region', { name: 'Lo que tienes en tu web' }).getByRole('listitem').filter({ hasText: 'Horario' });
+  await expect(fila).toContainText('Tu web tiene un código de antes: si cambias qué enseña, tendrás que pegarlo otra vez.');
+  await fila.getByRole('button', { name: 'Copiar el código de ahora' }).click();
+  // En «Ponlo en tu web», el mismo aviso junto al botón, y el código ya lleva el id.
+  await expect(page.getByRole('button', { name: 'Copiar el código de ahora' })).toBeVisible();
+  await expect(page.getByText(/Cópialo aquí y pégalo en lugar del anterior una sola vez/)).toBeVisible();
+  await expect(snippet(page)).toContainText(`w=${ID}`);
+  // Mientras siga pegado el de antes, lo que enseña pide pegarlo otra vez: nada de «pulsa Aplicar».
+  await paso(page, 'Qué y dónde');
+  await expect(page.getByRole('region', { name: 'Qué enseña' })).toContainText('Pegar el código otra vez');
+  await expect(page.getByRole('region', { name: 'Qué enseña' })).not.toContainText('Aplicar en mi web');
+});
+
+test('«Que siga el estilo de tus widgets» desde la portada HACE el cambio, no solo lleva a otro sitio', async ({ page }) => {
+  const propia = { identidad: 'propia', marca: '#E11D48' };
+  const { patches } = await montar(page, { piezas: PUBLICADA, widgetBuilder: { horario: { ...propia, copiado: copiaAntigua(propia) } } });
+  const fila = page.getByRole('region', { name: 'Lo que tienes en tu web' }).getByRole('listitem').filter({ hasText: 'Horario' });
+  await expect(fila).toContainText('Tiene su propio diseño');
+  await fila.getByRole('button', { name: 'Que siga el estilo de tus widgets' }).click();
+  await expect(page.getByRole('region', { name: '¿Cómo quieres que se vea?' })).toBeVisible();
+  await expect.poll(() => patches.some(p => (p.widget_builder as { horario?: { identidad?: string } } | undefined)?.horario?.identidad === 'estudio'), { timeout: 10_000 }).toBe(true);
 });

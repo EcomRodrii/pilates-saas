@@ -322,7 +322,7 @@ function QueEnsena({ w, c, metodo, cambiar, datos, porId }: {
   porId: boolean;
 }) {
   // Lo que enseña va en el código, o (por id) llega con «Aplicar en mi web».
-  const etiqueta = porId ? 'vivo' : 'codigo';
+  const etiqueta = porId ? 'aplicar' : 'codigo';
   const siCambia = porId
     ? 'Si lo cambias después de pegarlo, pulsa «Aplicar en mi web»: no hace falta volver a pegar nada.'
     : 'Si lo cambias después de pegarlo, tendrás que copiarlo otra vez.';
