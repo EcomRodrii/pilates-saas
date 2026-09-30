@@ -1117,6 +1117,10 @@ export interface RowTiposClase {
   logo_url: string | null;
   // migr 20260909210000.
   requiere_checkin_qr: boolean | null;
+  // migr 20260930203000.
+  orden: number | null;
+  // migr 20260930203000.
+  archivado_en: string | null;
 }
 
 export interface RowUsuarios {
@@ -5276,6 +5280,8 @@ export type TiposClaseInsert = {
   requiere_autorizacion?: boolean | null | null;
   logo_url?: string | null | null;
   requiere_checkin_qr?: boolean | null | null;
+  orden?: number | null | null;
+  archivado_en?: string | null | null;
 }
 
 export type TiposClaseUpdate = {
@@ -5303,6 +5309,8 @@ export type TiposClaseUpdate = {
   requiere_autorizacion?: boolean | null | null;
   logo_url?: string | null | null;
   requiere_checkin_qr?: boolean | null | null;
+  orden?: number | null | null;
+  archivado_en?: string | null | null;
 }
 
 export type UsuariosInsert = {

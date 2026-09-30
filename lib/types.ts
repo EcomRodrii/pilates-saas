@@ -975,6 +975,16 @@ export interface TipoClase {
   // hereda" que el resto de reglas de arriba, solo que aquí lo que se hereda
   // no es un ajuste del estudio sino la sala donde se programe.
   aforoPorDefecto: number | null;
+  /**
+   * Archivado (migr 20260930203000): `null`/ausente = activo. Con fecha, ya no
+   * se programan clases nuevas suyas — lo impide un trigger en `sesiones` — y
+   * deja de salir en los selectores para programar. Su historial y las clases
+   * que ya tenía se quedan. Qué pantalla lo enseña: `lib/tipos-clase/orden-y-archivo.ts`.
+   *
+   * ⚠️ OPCIONAL a propósito: los tests construyen `TipoClase` a mano y ausente
+   * significa lo mismo que `null`.
+   */
+  archivadoEn?: string | null;
 }
 
 export interface FavoritoClase {

@@ -226,7 +226,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
    * renovar (lo impide también un trigger en la base).
    */
   yaVendida?: boolean;
-  tiposClase: { id: string; nombre: string }[];
+  tiposClase: { id: string; nombre: string; archivadoEn?: string | null }[];
   // Al crear desde una pestaña concreta (Suscripciones/Paquetes/Bajo demanda),
   // el formulario arranca con ese tipo ya puesto en vez de MENSUAL siempre —
   // si no, "Añadir" desde "Paquetes" abría un formulario que decía Mensual.
@@ -601,7 +601,9 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
 
                   {modoClases === 'algunas' && (
                     <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
-                      {tiposClase.map(tc => {
+                      {/* Los activos, y un archivado solo si este plan ya lo
+                          tenía: se ve (y se puede quitar), pero no se ofrece. */}
+                      {tiposClase.filter(tc => !tc.archivadoEn || inicial.tiposClaseIds.includes(tc.id)).map(tc => {
                         const puesto = form.tiposClaseIds.includes(tc.id);
                         return (
                           <label key={tc.id}
@@ -613,6 +615,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose, yaVendid
                                 : [...form.tiposClaseIds, tc.id])}
                               className="w-4 h-4 rounded accent-[var(--brand)] shrink-0" />
                             <span className="text-sm text-foreground">{tc.nombre}</span>
+                            {tc.archivadoEn && <span className="text-[12px] text-muted-foreground">archivado</span>}
                           </label>
                         );
                       })}

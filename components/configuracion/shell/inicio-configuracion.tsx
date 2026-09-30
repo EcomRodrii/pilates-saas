@@ -21,6 +21,7 @@ import { calcularProgresoGuia } from '@/lib/guia/progreso';
 import { EstadoAjuste } from './estado-ajuste';
 import { ICONOS_EXTERNAS, ICONOS_SECCION } from './lista-secciones';
 import { esClicNormal } from './contexto';
+import { tiposParaProgramar } from '@/lib/tipos-clase/orden-y-archivo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El inicio de Configuración: cómo está tu estudio, de un vistazo.
@@ -107,7 +108,8 @@ export function InicioConfiguracion({
     // «no se sabe».
     studio: { ...studio, instructorasCreanClases: studio.instructorasCreanClases ?? true },
     numSalas: salas.length,
-    numTiposClase: tiposClase.length,
+    // Los que se programan: un archivado ya no es parte de lo que ofreces.
+    numTiposClase: tiposParaProgramar(tiposClase).length,
     numPlanesActivos: planesTarifa.filter(p => p.activo).length,
     integraciones,
     // El mismo criterio que la fila de Stripe (cobro-con-tarjeta.tsx).

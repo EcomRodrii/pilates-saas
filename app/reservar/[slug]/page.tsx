@@ -77,6 +77,7 @@ import {
   FileText, Download, ExternalLink, Mail,
   Loader2, AlertTriangle, Hourglass,
 } from 'lucide-react';
+import { tiposActivos, tiposConVida } from '@/lib/tipos-clase/orden-y-archivo';
 
 // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
 // mismo patrón que app/widget-bundle/main.tsx — Modo A (esta página) nunca
@@ -631,16 +632,19 @@ export default function ReservarPage() {
   }, [studio?.id, searchParams, visitaContada]);
 
   const [filtroTipo, setFiltroTipo] = useState('');
+  // Un tipo archivado sale mientras le queden clases por dar (se pueden seguir
+  // reservando); sin ninguna, su chip daría siempre cero resultados.
+  const tiposVivos = useMemo(() => tiposConVida(tiposClase, sesiones), [tiposClase, sesiones]);
   // Con `?tipos=` en el snippet, los chips solo enseñan ese subconjunto: un
   // chip de un tipo que el snippet excluye daría siempre cero resultados.
   const tiposClaseVisibles = useMemo(() => {
-    const delSnippet = configWidget?.tipos.length ? tiposClase.filter(t => configWidget.tipos.includes(t.id)) : tiposClase;
+    const delSnippet = configWidget?.tipos.length ? tiposVivos.filter(t => configWidget.tipos.includes(t.id)) : tiposVivos;
     // Clase de prueba (`?prueba=1`): solo los tipos que cubre alguna oferta —
     // por el mismo motivo, un chip de un tipo sin oferta daría cero clases.
     if (searchParams.get('prueba') !== '1') return delSnippet;
     const ofertas = planesTarifa.filter(p => p.activo && p.esPrueba === true);
     return delSnippet.filter(t => ofertas.some(p => planCubreTipo(p, t.id)));
-  }, [tiposClase, configWidget, searchParams, planesTarifa]);
+  }, [tiposVivos, configWidget, searchParams, planesTarifa]);
   // Filtros de nivel/horario/día/instructora/sala — sin UI propia hoy (vivían
   // en el rail lateral y el quiz de descubrimiento, quitados al adoptar el
   // handoff design_handoff_widget_reservas), pero `slots` sigue filtrando por
@@ -2532,9 +2536,11 @@ export default function ReservarPage() {
     reservaVentanaMinimaMinutos: studio?.reservaVentanaMinimaMinutos ?? 0,
     reservaAntelacionMaximaDias: studio?.reservaAntelacionMaximaDias ?? null,
   };
-  const plazoCancelacion = frasePlazoCancelacion(reglasEstudio, tiposClase);
-  const antelacionMinima = fraseAntelacionMinima(reglasEstudio, tiposClase);
-  const antelacionMaxima = fraseAntelacionMaxima(reglasEstudio, tiposClase);
+  // Sobre los tipos que aún tienen clases: la regla de uno archivado sin
+  // ninguna ya no le toca a nadie, y anunciarla sería prometer de más.
+  const plazoCancelacion = frasePlazoCancelacion(reglasEstudio, tiposVivos);
+  const antelacionMinima = fraseAntelacionMinima(reglasEstudio, tiposVivos);
+  const antelacionMaxima = fraseAntelacionMaxima(reglasEstudio, tiposVivos);
 
   const tabsTodas = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio'], ['cuenta', 'Mi cuenta']] as const;
   // «Citas» sin ningún servicio activo es una pestaña que lleva a «no hay
@@ -3776,10 +3782,11 @@ export default function ReservarPage() {
 
             {/* ⚠️ El rótulo solo sale si hay algo debajo — un estudio recién
                 dado de alta no se encuentra un encabezado sobre nada. */}
-            {tiposClase.length > 0 && (<>
+            {/* Lo que el estudio ofrece HOY: un tipo archivado ya no se anuncia. */}
+            {tiposActivos(tiposClase).length > 0 && (<>
               <div style={{ ...eyebrow(9), marginTop: 38 }}>TIPOS DE CLASE</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 16 }}>
-                {tiposClase.map(t => (
+                {tiposActivos(tiposClase).map(t => (
                   <div key={t.id} style={{ borderRadius: R.chipCard, background: 'var(--portal-velo-fuerte)', border: `1px solid ${t.color}20`, padding: 22 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                       <span style={{ width: 6, height: 6, borderRadius: 999, background: t.color, flexShrink: 0 }} />

@@ -40,6 +40,7 @@ import { TARJETAS_REGLAS, queCambiaElTipo, reglasGuardadas } from '@/lib/configu
 import { instante, lineaDeTiempoReserva, reglasEfectivasDeTipo } from '@/lib/configuracion/linea-de-tiempo-reserva';
 import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 import { queImparten } from '@/lib/equipo';
+import { estaArchivado, tiposParaProgramar } from '@/lib/tipos-clase/orden-y-archivo';
 import { cn, horaEstudio, masDias } from '@/lib/utils';
 import type { AusenciaInstructora } from '@/lib/api-client';
 import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
@@ -116,6 +117,12 @@ export function FormularioNuevaClase({
 
   const tipo = tiposClase.find(t => t.id === form.tipoClaseId) ?? null;
   const sala = salas.find(s => s.id === form.salaId) ?? null;
+  // Solo se programa con tipos activos. El elegido se enseña aunque esté
+  // archivado (duplicar una clase suya): el selector no puede mentir sobre lo
+  // que hay puesto, pero no deja crearla — lo rechazaría la base de datos.
+  const programables = useMemo(() => tiposParaProgramar(tiposClase), [tiposClase]);
+  const opcionesTipo = tiposParaProgramar(tiposClase, form.tipoClaseId);
+  const tipoArchivado = estaArchivado(tipo);
 
   const activas = useMemo(() => queImparten(instructores), [instructores]);
   const actual = instructores.find(i => i.id === form.instructorId);
@@ -200,8 +207,8 @@ export function FormularioNuevaClase({
 
   const faltaConfigurar = faltaParaCrearClase({
     tipoClaseId, salaId, instructorId,
-    hayTipos: tiposClase.length > 0, haySalas: salas.length > 0, hayInstructoras: instructores.length > 0,
-    exigeInstructora: true,
+    hayTipos: programables.length > 0, haySalas: salas.length > 0, hayInstructoras: instructores.length > 0,
+    exigeInstructora: true, hayArchivados: tiposClase.length > programables.length,
   });
 
   // Una sola clase que choca BLOQUEA (la base de datos la rechazaría igual:
@@ -250,7 +257,7 @@ export function FormularioNuevaClase({
   // Un campo de número vacío da 0: una clase sin plazas no se puede reservar.
   const plazasInvalidas = !(aforoMaximo >= 1);
 
-  const bloqueado = !!faltaConfigurar || horaVacia || horaInvalida || !!choqueUnico || plazasInvalidas
+  const bloqueado = !!faltaConfigurar || tipoArchivado || horaVacia || horaInvalida || !!choqueUnico || plazasInvalidas
     || (repite && (!!problemaRepeticion || aCrear === 0)) || guardando;
 
   async function crear() {
@@ -289,14 +296,17 @@ export function FormularioNuevaClase({
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-        <FormField label="Tipo de clase">
+        <FormField
+          label="Tipo de clase"
+          description={tipoArchivado ? 'Este tipo está archivado: ya no se programan clases nuevas suyas. Elige otro, o recupéralo en Configuración.' : undefined}
+        >
           <select className={selectCls} value={tipoClaseId} onChange={e => cambiarTipo(e.target.value)}>
             {!tipoClaseId && (
-              <option value="">{tiposClase.length ? 'Elige un tipo de clase' : 'Todavía no tienes tipos de clase'}</option>
+              <option value="">{programables.length ? 'Elige un tipo de clase' : tiposClase.length ? 'Todos tus tipos de clase están archivados' : 'Todavía no tienes tipos de clase'}</option>
             )}
-            {tiposClase.map(t => (
-              <option key={t.id} value={t.id}>
-                {[t.nombre, t.duracionMinutos ? `${t.duracionMinutos} min` : null, t.aforoPorDefecto != null ? `${t.aforoPorDefecto} plazas` : null]
+            {opcionesTipo.map(t => (
+              <option key={t.id} value={t.id} disabled={estaArchivado(t)}>
+                {[t.nombre, t.duracionMinutos ? `${t.duracionMinutos} min` : null, t.aforoPorDefecto != null ? `${t.aforoPorDefecto} plazas` : null, estaArchivado(t) ? 'archivado' : null]
                   .filter(Boolean).join(' · ')}
               </option>
             ))}

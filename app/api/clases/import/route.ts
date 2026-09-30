@@ -109,8 +109,8 @@ export async function POST(req: NextRequest) {
   // salas/instructores recibía un catálogo incompleto y se le creaban tipos de
   // clase duplicados por no encontrar los que ya tenía.
   const [{ data: tipos, error: eT }, { data: instructores, error: eI }, { data: salas, error: eS }] = await Promise.all([
-    catalogo<{ id: string; nombre: string; duracion_minutos: number | null }>(
-      (d, h) => admin.from('tipos_clase').select('id, nombre, duracion_minutos').eq('studio_id', sesion.studioId).order('id').range(d, h)),
+    catalogo<{ id: string; nombre: string; duracion_minutos: number | null; archivado_en: string | null }>(
+      (d, h) => admin.from('tipos_clase').select('id, nombre, duracion_minutos, archivado_en').eq('studio_id', sesion.studioId).order('id').range(d, h)),
     catalogo<{ id: string; nombre: string }>(
       (d, h) => admin.from('instructores').select('id, nombre').eq('studio_id', sesion.studioId).order('id').range(d, h)),
     catalogo<{ id: string; nombre: string; capacidad: number | null }>(
@@ -118,8 +118,18 @@ export async function POST(req: NextRequest) {
   ]);
   if (eT || eI || eS) return NextResponse.json({ error: 'No se pudo leer la base de datos' }, { status: 500 });
 
-  const tipoPorNombre = new Map<string, { id: string; duracion: number }>();
-  for (const t of tipos ?? []) tipoPorNombre.set(norm(t.nombre), { id: t.id, duracion: t.duracion_minutos ?? 60 });
+  // Un tipo ARCHIVADO cuenta como existente (no se crea otro con su nombre),
+  // pero pierde frente a uno activo que se llame igual. Y con él solo se
+  // importa historial: una clase futura suya la rechazaría el trigger de
+  // `sesiones` (migr 20260930203000), así que se avisa en su fila.
+  const tipoPorNombre = new Map<string, { id: string; duracion: number; archivado: boolean }>();
+  for (const t of tipos ?? []) {
+    const clave = norm(t.nombre);
+    const archivado = !!t.archivado_en;
+    const previo = tipoPorNombre.get(clave);
+    if (previo && (archivado || !previo.archivado)) continue;
+    tipoPorNombre.set(clave, { id: t.id, duracion: t.duracion_minutos ?? 60, archivado });
+  }
   const instructorPorNombre = new Map<string, string>();
   for (const i of instructores ?? []) instructorPorNombre.set(norm(i.nombre), i.id);
   const salaPorNombre = new Map<string, { id: string; capacidad: number }>();
@@ -136,7 +146,7 @@ export async function POST(req: NextRequest) {
       ? (Number(f.horaFin.slice(0, 2)) * 60 + Number(f.horaFin.slice(3))) - (Number(f.horaInicio.slice(0, 2)) * 60 + Number(f.horaInicio.slice(3)))
       : 60);
     const id = `tc-${uid()}`;
-    tipoPorNombre.set(norm(nombre), { id, duracion: dur > 0 ? dur : 60 });
+    tipoPorNombre.set(norm(nombre), { id, duracion: dur > 0 ? dur : 60, archivado: false });
     nuevosTipos.push({
       id, studio_id: sesion.studioId, nombre,
       color: COLORES[colorIdx++ % COLORES.length],
@@ -167,6 +177,7 @@ export async function POST(req: NextRequest) {
   // ── Expansión de filas → sesiones concretas ────────────────────────────────
   interface Pendiente { tipoId: string; salaId: string | null; instructorId: string | null; inicio: string; fin: string; aforo: number; serieId: string | null }
   const pendientes: Pendiente[] = [];
+  const ahoraMs = Date.now();
   const errores: { fila: number; motivo: string }[] = [];
   let sinInstructor = 0, sinSala = 0;
 
@@ -197,13 +208,22 @@ export async function POST(req: NextRequest) {
     }
 
     const serieId = fechas.length > 1 ? `serie-${uid()}` : null;
+    let futurasDeArchivado = 0;
     for (const fecha of fechas) {
       if (pendientes.length >= MAX_SESIONES) break;
+      const inicio = horaParedAInstante(fecha, f.horaInicio, TZ);
+      if (tipo.archivado && inicio.getTime() > ahoraMs) { futurasDeArchivado++; continue; }
       pendientes.push({
         tipoId: tipo.id, salaId: sala?.id ?? null, instructorId,
-        inicio: horaParedAInstante(fecha, f.horaInicio, TZ).toISOString(),
+        inicio: inicio.toISOString(),
         fin: horaParedAInstante(fecha, horaFin, TZ).toISOString(),
         aforo, serieId,
+      });
+    }
+    if (futurasDeArchivado > 0) {
+      errores.push({
+        fila: i + 1,
+        motivo: `«${nombre}» está archivada en tu estudio: ${futurasDeArchivado === 1 ? 'su clase futura no se ha creado' : `sus ${futurasDeArchivado} clases futuras no se han creado`}. Recupérala en Configuración → Mis clases y citas y vuelve a importar.`,
       });
     }
   });

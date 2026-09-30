@@ -78,6 +78,9 @@ function reglaI1(clave: string, franja: FranjaRecurrente, s: SnapshotEstudio, id
 
   const referencia = franja.sesionesOrdenadas[0];
   const tipo = idx.tipoClasePorId.get(referencia.tipoClaseId);
+  // «Abre otra clase» de un tipo archivado es una propuesta que no se puede
+  // seguir: la base de datos no deja programar clases nuevas suyas.
+  if (tipo?.archivadoEn) return null;
   const inicioRef = new Date(referencia.inicio);
   const diaSemana = inicioRef.toLocaleDateString('es-ES', { weekday: 'long', timeZone: 'UTC' });
   const hora = inicioRef.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });

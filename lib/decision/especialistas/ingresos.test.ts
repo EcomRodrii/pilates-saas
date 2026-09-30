@@ -64,6 +64,22 @@ test('I1: franja llena 3 semanas + lista de espera + sala libre → ABRIR_SESION
   assert.ok(abrir.impacto && abrir.impacto.valor > 0);
 });
 
+test('I1: la misma franja llena, pero de un tipo ARCHIVADO → no propone abrir otra', () => {
+  // No se pueden programar clases nuevas de un tipo archivado (trigger de
+  // `sesiones`, migr 20260930203000): «abre otra» sería un consejo imposible.
+  const sesiones = [slot(7), slot(14), slot(21)];
+  const reservasLlenas = sesiones.flatMap(se => Array.from({ length: 8 }, (_, i) => reserva({ socioId: `s${se.id}${i}`, estado: 'CONFIRMADA', sesionId: se.id })));
+  const listaEspera = sesiones.flatMap(se => [0, 1].map(i => reserva({ socioId: `w${se.id}${i}`, estado: 'LISTA_ESPERA', sesionId: se.id })));
+  const salas = [sala({ id: 's1', capacidad: 8 }), sala({ id: 's2', capacidad: 8 })];
+  const base = { sesiones, reservas: [...reservasLlenas, ...listaEspera], salas };
+  const tipo = { id: 'tc1', studioId: 'e1', nombre: 'Reformer', color: '#000', duracionMinutos: 50, descripcion: null, nivel: 'TODOS', fotoUrl: null, logoUrl: null, ventanaCancelacionHoras: null, reservaExigirPlan: null, reservaVentanaMinimaMinutos: null, reservaAntelacionMaximaDias: null, permiteListaEspera: null, requiereAprobacion: null, requiereAutorizacion: false, listaEsperaPlazoAceptacionMinutos: null, minimoAsistentesPorClase: null, requiereCheckinQr: null, penalizacionImporteEur: null, especialidadNetwork: null, esOnline: false, aforoPorDefecto: null } as const;
+  // Control: activo, sí la propone…
+  assert.ok(ingresos.detectar(snapshot({ ...base, tiposClase: [{ ...tipo }] }), memoriaVacia(), NOW).some(c => c.tipo === 'ABRIR_SESION'));
+  // …archivado, no.
+  const archivado = snapshot({ ...base, tiposClase: [{ ...tipo, archivadoEn: diasAntes(2) }] });
+  assert.equal(ingresos.detectar(archivado, memoriaVacia(), NOW).find(c => c.tipo === 'ABRIR_SESION'), undefined);
+});
+
 test('I1: sin sala libre (una sola sala, ya ocupada) → sin candidata', () => {
   const sesiones = [slot(7), slot(14), slot(21)];
   const reservasLlenas = sesiones.flatMap(se => Array.from({ length: 8 }, (_, i) => reserva({ socioId: `s${se.id}${i}`, estado: 'CONFIRMADA', sesionId: se.id })));

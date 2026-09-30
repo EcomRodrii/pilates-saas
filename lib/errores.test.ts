@@ -160,6 +160,14 @@ test('el trigger de las reglas de dinero de un tipo de clase dice quién decide,
   assert.doesNotMatch(r, /vuelve a entrar/i);
 });
 
+test('un tipo de clase archivado dice qué hacer, no «revisa los datos»', () => {
+  // Lo lanza el trigger de `sesiones` (migr 20260930203000) al programar una
+  // clase futura de un tipo archivado: otra pestaña lo archivó, o una serie.
+  const m = mensajeDeFalloAlGuardar({ code: 'P0001', message: 'TIPO_ARCHIVADO' });
+  assert.match(m, /está archivado/);
+  assert.match(m, /Elige otro, o recupéralo/);
+});
+
 test('una etapa de lanzamiento llena se explica en cristiano, con qué hacer', () => {
   const m = mensajeDeFalloAlGuardar({ code: 'P0001', message: 'ETAPA_AGOTADA' });
   assert.match(m, /plazas de esa oferta se han agotado/);

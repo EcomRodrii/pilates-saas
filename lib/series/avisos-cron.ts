@@ -82,8 +82,13 @@ async function barrerEstudio(admin: Admin, studioId: string, hoy: string): Promi
 
   const [{ data: salas }, { data: tipos }] = await Promise.all([
     admin.from('salas').select('id, nombre').eq('studio_id', studioId),
-    admin.from('tipos_clase').select('id, nombre').eq('studio_id', studioId),
+    admin.from('tipos_clase').select('id, nombre, archivado_en').eq('studio_id', studioId),
   ]);
+  // Una serie de un tipo archivado ni se renueva ni se avisa: el trigger de
+  // `sesiones` rechazaría sus clases nuevas (migr 20260930203000), y avisar
+  // «renuévala» de algo que ya no se da es ruido. Al recuperar el tipo, vuelve
+  // sola al barrido: `series.no_renovar` no se toca.
+  const archivados = new Set((tipos ?? []).filter(t => t.archivado_en).map(t => t.id as string));
   const nombre = (s: SeriePorRenovar) => nombreSerie(
     s,
     id => (tipos ?? []).find(t => t.id === id)?.nombre as string | undefined,
@@ -95,6 +100,7 @@ async function barrerEstudio(admin: Admin, studioId: string, hoy: string): Promi
   let fallidas = 0;
 
   for (const s of series) {
+    if (s.tipoClaseId && archivados.has(s.tipoClaseId)) continue;
     let nota: string | null = null;
     if (s.renovacionAutomatica && !s.terminada) {
       const { data: respuesta, error: errorRpc } = await admin.rpc('renovar_serie', {

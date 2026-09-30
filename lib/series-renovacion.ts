@@ -167,6 +167,9 @@ const ERRORES: Record<string, string> = {
   SERIE_SIN_CLASES: 'Todas las clases de esta serie están canceladas: no hay nada que renovar.',
   SEMANAS_INVALIDAS: `Elige entre 1 y ${MAX_SEMANAS_RENOVACION} semanas.`,
   DEMASIADAS_CLASES: 'Son demasiadas clases de una vez (más de 400): renueva menos semanas.',
+  // El trigger de `sesiones` (migr 20260930203000): una serie de un tipo
+  // archivado no crea clases nuevas. Al recuperarlo, la renovación vuelve sola.
+  TIPO_ARCHIVADO: 'El tipo de esta clase está archivado: recupéralo en Configuración → Mis clases y citas para renovarla.',
 };
 
 /** El código que lanza la RPC, traducido. Cualquier otro error, un mensaje genérico. */

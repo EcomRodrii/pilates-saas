@@ -1011,6 +1011,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     especialidadNetwork: (r.especialidad_network as TipoClase['especialidadNetwork']) ?? null,
     esOnline: r.es_online ?? false,
     aforoPorDefecto: r.aforo_por_defecto ?? null,
+    archivadoEn: r.archivado_en ?? null,
   } as TipoClase;
 }
 
@@ -4584,6 +4585,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('especialidadNetwork' in changes) db.especialidad_network = changes.especialidadNetwork;
   if ('esOnline' in changes) db.es_online = changes.esOnline;
   if ('aforoPorDefecto' in changes) db.aforo_por_defecto = changes.aforoPorDefecto;
+  if ('archivadoEn' in changes) db.archivado_en = changes.archivadoEn ?? null;
   // Alta y edición: `puede_gestionar_sede()`. Las reglas de dinero (penalización,
   // ventana de cancelación, exigir plan) las rechaza un trigger con 42501 si no
   // es la propietaria, y eso sí llega como error.
@@ -4611,7 +4613,7 @@ export async function dbDeleteTipoClase(id: string): Promise<ResultadoEscritura>
   if ((error as { code?: string }).code === '23503') {
     return {
       ok: false,
-      error: 'No se puede eliminar: este tipo de clase tiene clases en tu horario o en tu historial, y se quedarían sin tipo. Si ya no la das, quítala de tu horario.',
+      error: 'No se puede eliminar: este tipo de clase tiene clases en tu horario o en tu historial, y se quedarían sin tipo. Si ya no la das, archívalo: no se podrán programar clases nuevas suyas y su historial se conserva.',
     };
   }
   return falloEscritura('[dbDeleteTipoClase]', error);
