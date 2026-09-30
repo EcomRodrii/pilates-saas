@@ -1046,36 +1046,41 @@ export function PanelTipoClase({
               valor={valorReglaDeDinero('penalizacionImporteEur', form, studio ?? {})}
             />
           )}
+          {/* Un sí/no, no un importe: el contrato que aceptan las alumnas lleva el
+              importe del ESTUDIO, y un importe propio distinto no se cobra nunca
+              (lib/billing/penalizacion-consentimiento.ts). Lo único que decide un
+              tipo de clase es si en él NO se cobra: 0. Heredar = como el estudio. */}
           {reglasDeDinero && <CampoHeredado
-            label="¿Se le cobra algo por cancelar tarde o no venir?"
+            label="¿Se cobra el cargo por cancelar tarde o no venir?"
             hint={
-              <InfoTip label="Qué implica poner un importe aquí">
-                Se cobra a la tarjeta guardada de la alumna, si tiene una. Aquí solo cambias el IMPORTE para este
-                tipo de clase: a qué se aplica (cancelar tarde, no venir sin avisar, o ambos) y si el cobro es
-                automático o espera tu aprobación se decide en Configuración → Cómo reservan mis alumnas, y
-                afecta también a esta clase.
+              <InfoTip label="Qué decides aquí">
+                El importe, a qué se aplica (cancelar tarde, no venir sin avisar, o ambos) y si se cobra solo o
+                espera tu aprobación se deciden en Configuración → Cómo reservan mis alumnas. Aquí solo eliges si en
+                esta clase se aplica o no.
               </InfoTip>
             }
             heredado={form.penalizacionImporteEur.trim() === ''}
             onHeredar={() => setForm(f => ({ ...f, penalizacionImporteEur: '' }))}
-            onPersonalizar={() =>
-              setForm(f => ({ ...f, penalizacionImporteEur: String(studio?.penalizacionImporteEur ?? 0) }))
-            }
+            onPersonalizar={() => setForm(f => ({ ...f, penalizacionImporteEur: '0' }))}
             resumenEstudio={resumenPenalizacion(studio?.penalizacionImporteEur ?? null)}
           >
-            <div className="flex items-center gap-2">
-              <input
-                className={cn(inputCls, 'w-28')}
-                type="number"
-                min={0}
-                step="0.01"
-                placeholder="Ajuste del estudio"
-                value={form.penalizacionImporteEur}
-                onChange={e => setForm(f => ({ ...f, penalizacionImporteEur: e.target.value }))}
-                aria-label="Cargo por cancelar tarde o no venir sin avisar, en euros"
-              />
-              <span className="text-[12.5px] text-muted-foreground">€ · 0 = no se cobra nada</span>
-            </div>
+            {Number(form.penalizacionImporteEur) === 0 ? (
+              <p className="text-[12.5px] text-foreground">En esta clase no se cobra nada, aunque el estudio tenga un cargo.</p>
+            ) : (
+              // De antes: un importe propio que nunca se ha cobrado. Se dice y se ofrece dejarlo claro.
+              <div className="space-y-1.5">
+                <p className="text-[12.5px] text-foreground text-pretty">
+                  Tiene un importe propio ({form.penalizacionImporteEur} €) que no se cobra: tus alumnas solo aceptaron el del estudio.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, penalizacionImporteEur: '0' }))}
+                  className="text-[12.5px] font-semibold text-foreground underline underline-offset-2 hover:no-underline"
+                >
+                  Dejar «en esta clase no se cobra»
+                </button>
+              </div>
+            )}
           </CampoHeredado>}
           {/* Verdad del cobro (lib/billing/penalizacion-consentimiento.ts): el
               contrato que aceptan las alumnas lleva el plazo y el importe del

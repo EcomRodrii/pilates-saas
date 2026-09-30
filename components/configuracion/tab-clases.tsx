@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { btnPrimary, cardCls } from '@/components/configuracion/estilos';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PanelTipoClase } from '@/components/configuracion/panel-tipo-clase';
@@ -8,6 +8,9 @@ import { eliminarFotoClase, subirFotoClase, eliminarLogoClase, subirLogoClase } 
 import { colorSalaPorDefecto } from '@/components/configuracion/tab-salas';
 import { useStudio } from '@/lib/studio-context';
 import { imagenDeClase } from '@/lib/imagenes-por-defecto';
+import { urlServida } from '@/lib/student/imagen-servida';
+import { TARJETAS_REGLAS, queCambiaElTipo, reglasGuardadas, type ReglasReserva } from '@/lib/configuracion/reglas-reserva';
+import { reglasEfectivasDeTipo } from '@/lib/configuracion/linea-de-tiempo-reserva';
 import { useRol } from '@/lib/permisos';
 import {
   NIVEL_LABELS,
@@ -17,28 +20,31 @@ import {
   plazasSiPropias,
   type ClaseForm,
 } from '@/lib/configuracion/tipo-clase-form';
-import type { TipoClase } from '@/lib/types';
-import { cn, formatEuro } from '@/lib/utils';
-import { Pencil, Plus, Trash2, Video } from 'lucide-react';
+import type { PlanTarifa, TipoClase } from '@/lib/types';
+import { cn } from '@/lib/utils';
+import { AlertTriangle, Copy, Pencil, Plus, Ticket, Trash2, Video } from 'lucide-react';
 
-// P2 (auditoría "Veredicto de Marta"): la card solo enseñaba la ventana de
-// cancelación de las 8 reglas configurables — con 3-5 tipos de clase, tocaba
-// reabrir cada modal para ver qué se había fijado en cada uno. Un chip por
-// regla ACTIVA (null = hereda del estudio, no se enseña aquí: la card es solo
-// para lo que este tipo de clase SOBRESCRIBE).
-function overridesDeTipoClase(tc: TipoClase): string[] {
-  const chips: string[] = [];
-  if (tc.ventanaCancelacionHoras != null) chips.push(`Cancela ${tc.ventanaCancelacionHoras}h antes`);
-  if (tc.reservaExigirPlan != null) chips.push(tc.reservaExigirPlan ? 'Exige plan/bono' : 'No exige plan/bono');
-  if (tc.reservaVentanaMinimaMinutos != null) chips.push(`Reserva hasta ${tc.reservaVentanaMinimaMinutos} min antes`);
-  if (tc.reservaAntelacionMaximaDias != null) chips.push(`Se abre ${tc.reservaAntelacionMaximaDias}d antes`);
-  if (tc.permiteListaEspera != null) chips.push(tc.permiteListaEspera ? 'Con lista de espera' : 'Sin lista de espera');
-  if (tc.requiereAprobacion) chips.push('Aprobación manual');
-  if (tc.listaEsperaPlazoAceptacionMinutos != null) chips.push(`Plazo espera: ${tc.listaEsperaPlazoAceptacionMinutos} min`);
-  if (tc.minimoAsistentesPorClase != null) chips.push(`Mín. ${tc.minimoAsistentesPorClase} asistentes`);
-  if (tc.requiereCheckinQr != null) chips.push(tc.requiereCheckinQr ? 'Se pasa lista' : 'Sin pasar lista');
-  if (tc.penalizacionImporteEur != null) chips.push(`Penalización ${formatEuro(tc.penalizacionImporteEur)}`);
-  return chips;
+// Las reglas propias de un tipo, dichas como en «Cómo reservan mis alumnas»:
+// UNA fuente (`queCambiaElTipo`), la misma que usa esa pantalla. Solo lo que
+// CAMBIA de verdad: un valor propio igual al del estudio no le lleva la contraria
+// a nadie, y un cargo propio distinto del del estudio se dice como es («no se
+// cobra»), no como «Penalización 8 €» (el consentimiento es sobre el del estudio).
+function reglasPropias(tc: TipoClase, estudio: ReglasReserva): string[] {
+  return TARJETAS_REGLAS
+    .map(id => queCambiaElTipo(id, tc, estudio))
+    .filter((t): t is string => !!t)
+    .map(t => t.charAt(0).toUpperCase() + t.slice(1));
+}
+
+/** Los planes y bonos activos que sirven para esta clase (sin clases marcadas = todas). */
+function planesQueLaCubren(tc: TipoClase, planes: readonly PlanTarifa[]): string[] {
+  return planes
+    .filter(p => p.activo !== false && (!p.tiposClaseIds?.length || p.tiposClaseIds.includes(tc.id)))
+    .map(p => p.nombre);
+}
+
+function enumerarCorto(nombres: readonly string[]): string {
+  return nombres.length > 3 ? `${nombres.slice(0, 3).join(', ')} y ${nombres.length - 3} más` : nombres.join(', ');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -56,15 +62,26 @@ function overridesDeTipoClase(tc: TipoClase): string[] {
 // ─────────────────────────────────────────────────────────────────────────────
 function TarjetaTipoClase({
   tc,
+  estudio,
+  planes,
   onEditar,
+  onDuplicar,
   onEliminar,
 }: {
   tc: TipoClase;
+  /** Las reglas del estudio; `null` sin cargar (no se dice qué cambia). */
+  estudio: ReglasReserva | null;
+  planes: readonly PlanTarifa[];
   onEditar: () => void;
+  onDuplicar: () => void;
   /** Sin esto no se enseña «Eliminar»: borrar un tipo es de la propietaria. */
   onEliminar?: () => void;
 }) {
-  const chips = overridesDeTipoClase(tc);
+  const chips = estudio ? reglasPropias(tc, estudio) : [];
+  const cubren = planesQueLaCubren(tc, planes);
+  // Solo avisa si hace falta plan para reservarla: sin ese requisito, que ningún
+  // plan la incluya no le impide nada a nadie.
+  const exigePlan = estudio ? reglasEfectivasDeTipo(estudio, tc).reservaExigirPlan : false;
   const visibles = chips.slice(0, 3);
   const ocultos = chips.length - visibles.length;
   // Las plazas solo si esta clase fija las suyas: si las hereda de la sala, la
@@ -77,10 +94,16 @@ function TarjetaTipoClase({
     <div className={cn(cardCls, 'flex flex-col overflow-hidden')}>
       <div className="flex items-start gap-3 p-4 pb-3">
         <div className="relative shrink-0">
-          {/* eslint-disable-next-line @next/next/no-img-element -- respaldo local ya optimizado, sin pasar por next/image */}
+          {/* El logo si lo hay (es cuadrado, como el hueco) y si no la foto;
+              pedida al doble de su lado, no el banner entero de hasta 1600 px. */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- ya redimensionada por Storage (urlServida), sin pasar por next/image */}
           <img
-            src={imagenDeClase(tc)}
+            src={urlServida(tc.logoUrl || imagenDeClase(tc), 88)}
             alt=""
+            loading="lazy"
+            decoding="async"
+            width={44}
+            height={44}
             className="h-11 w-11 rounded-lg border border-black/5 object-cover"
           />
           {/* El color sigue siendo el código con el que se lee la agenda: va
@@ -105,20 +128,31 @@ function TarjetaTipoClase({
         </div>
       </div>
 
-      {chips.length > 0 && (
-        <div className="flex flex-wrap gap-1 px-4 pb-3">
-          {visibles.map(chip => (
-            <span key={chip} className="rounded bg-background px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-              {chip}
-            </span>
-          ))}
-          {ocultos > 0 && (
-            <span className="rounded bg-background px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-              +{ocultos} regla{ocultos === 1 ? '' : 's'} propia{ocultos === 1 ? '' : 's'}
-            </span>
-          )}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-1 px-4 pb-3">
+        {cubren.length > 0 ? (
+          <span className="inline-flex items-center gap-1 rounded bg-background px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+            <Ticket size={11} aria-hidden />Entra en: {enumerarCorto(cubren)}
+          </span>
+        ) : planes.length > 0 && exigePlan ? (
+          <span className="inline-flex items-center gap-1 rounded bg-warning/15 px-1.5 py-0.5 text-xs font-medium text-foreground">
+            <AlertTriangle size={11} aria-hidden />Ningún plan ni bono activo la incluye
+          </span>
+        ) : null}
+        {estudio && (chips.length === 0 ? (
+          <span className="rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground">Reglas del estudio</span>
+        ) : (
+          <>
+            {visibles.map(chip => (
+              <span key={chip} className="rounded border border-border px-1.5 py-0.5 text-xs font-medium text-foreground">{chip}</span>
+            ))}
+            {ocultos > 0 && (
+              <span className="rounded px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+                +{ocultos} regla{ocultos === 1 ? '' : 's'} propia{ocultos === 1 ? '' : 's'}
+              </span>
+            )}
+          </>
+        ))}
+      </div>
 
       <div className="mt-auto flex items-center gap-1 border-t border-background px-3 py-2">
         <button
@@ -127,6 +161,14 @@ function TarjetaTipoClase({
         >
           <Pencil size={11} />
           Editar
+        </button>
+        <button
+          onClick={onDuplicar}
+          aria-label={`Duplicar ${tc.nombre}`}
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+        >
+          <Copy size={11} />
+          Duplicar
         </button>
         {onEliminar && (
           <button
@@ -143,7 +185,11 @@ function TarjetaTipoClase({
 }
 
 export function TabClases({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, tiposClase, addTipoClase, updateTipoClase, deleteTipoClase } = useStudio();
+  const { studio, dataLoaded, tiposClase, planesTarifa, sesiones, addTipoClase, updateTipoClase, deleteTipoClase } = useStudio();
+  const estudio = dataLoaded ? reglasGuardadas(studio) : null;
+  // En orden alfabético: sin orden guardado, la base de datos los devolvía en el
+  // que le venía bien, y cada carga podía cambiarlo.
+  const ordenados = useMemo(() => [...tiposClase].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')), [tiposClase]);
   // La gerencia da de alta y edita tipos de clase, pero no borra ninguno ni toca
   // las tres reglas que acaban en dinero: un trigger las rechaza con 42501
   // (`tipos_clase_dinero_solo_propietaria`). La cerradura es esa, no esto.
@@ -216,6 +262,16 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     setModal('nueva');
   }, [tiposClase.length]);
 
+  // Duplicar: el mismo formulario con sus datos y «(copia)», como uno NUEVO. Sin
+  // imágenes a propósito: apuntarían al mismo archivo, y quitárselas a una
+  // borraría el de la otra.
+  const openDuplicar = useCallback((t: TipoClase) => {
+    setForm({ ...claseToForm(t), nombre: `${t.nombre} (copia)` });
+    setEditId(null);
+    setErrorGuardar(null);
+    setModal('nueva');
+  }, []);
+
   const openEditar = useCallback((t: TipoClase) => {
     setForm(claseToForm(t));
     setEditId(t.id);
@@ -250,6 +306,9 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     setModal(null);
   }, [modal, editId, form, reglasDeDinero, addTipoClase, updateTipoClase, showToast]);
 
+  const nombreABorrar = confirmDel ? tiposClase.find(t => t.id === confirmDel)?.nombre ?? '' : '';
+  const clasesDelTipo = confirmDel ? sesiones.filter(se => se.tipoClaseId === confirmDel).length : 0;
+
   const handleDelete = useCallback(async () => {
     if (!confirmDel) return;
     const res = await deleteTipoClase(confirmDel);
@@ -280,11 +339,14 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       )}
 
       <div className="grid grid-cols-1 gap-4 @xl/config:grid-cols-2 @4xl/config:grid-cols-3">
-        {tiposClase.map(tc => (
+        {ordenados.map(tc => (
           <TarjetaTipoClase
             key={tc.id}
             tc={tc}
+            estudio={estudio}
+            planes={dataLoaded ? planesTarifa : []}
             onEditar={() => openEditar(tc)}
+            onDuplicar={() => openDuplicar(tc)}
             onEliminar={reglasDeDinero ? () => setConfirmDel(tc.id) : undefined}
           />
         ))}
@@ -310,14 +372,20 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
         onCerrar={closeModal}
       />
 
+      {/* Un tipo con clases no se puede borrar: `sesiones.tipo_clase_id` lo
+          referencia (FK sin ON DELETE), también las pasadas. Se dice ANTES de
+          pulsar, con las que hay cargadas; si hubiera más en el historial, el
+          servidor lo rechaza igual y dice por qué (dbDeleteTipoClase). */}
       <ConfirmDialog
         open={!!confirmDel}
         onOpenChange={open => !open && setConfirmDel(null)}
-        titulo="¿Eliminar tipo de clase?"
-        descripcion="Se eliminará este tipo de clase. Las sesiones existentes no se verán afectadas."
-        textoConfirmar="Eliminar"
-        destructivo
-        onConfirm={handleDelete}
+        titulo={clasesDelTipo > 0 ? `«${nombreABorrar}» tiene clases` : `¿Eliminar «${nombreABorrar}»?`}
+        descripcion={clasesDelTipo > 0
+          ? `Tiene ${clasesDelTipo === 1 ? '1 clase' : `${clasesDelTipo} clases`} en tu horario o en tu historial, y eliminarlo las dejaría sin tipo: por eso no se puede. Si ya no la das, quítala de tu horario; su historial se conserva.`
+          : 'No tiene clases en tu horario. Se eliminará y dejará de salir al programar clases.'}
+        textoConfirmar={clasesDelTipo > 0 ? 'Entendido' : 'Eliminar'}
+        destructivo={clasesDelTipo === 0}
+        onConfirm={clasesDelTipo > 0 ? () => setConfirmDel(null) : handleDelete}
       />
     </div>
   );

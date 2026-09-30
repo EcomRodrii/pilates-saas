@@ -125,12 +125,12 @@ test.describe('Ventana de cancelación por tipo de clase', () => {
     expect(tipos[0]).toMatchObject({ nombre: 'Reformer', ventana_cancelacion_horas: 24 });
 
     // Y se ve en la tarjeta sin tener que abrir la clase.
-    await expect(page.getByText('Cancela 24h antes')).toBeVisible();
+    await expect(page.getByText('Cancela gratis hasta 24 h antes')).toBeVisible();
 
     // La comprobación de la dueña: recargar y ver si le dijimos la verdad.
     await page.reload();
     await expect(page.getByRole('button', { name: 'Nuevo tipo de clase' })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Cancela 24h antes')).toBeVisible();
+    await expect(page.getByText('Cancela gratis hasta 24 h antes')).toBeVisible();
   });
 
   test('sin marcar nada, sigue heredando la ventana del estudio', async ({ page }) => {
@@ -142,7 +142,7 @@ test.describe('Ventana de cancelación por tipo de clase', () => {
 
     // Ningún chip de "Cancela Xh antes" para Mat: hereda la del estudio.
     await expect(page.getByText('Mat')).toBeVisible();
-    await expect(page.getByText(/Cancela \d+h antes/)).toHaveCount(0);
+    await expect(page.getByText(/Cancela gratis hasta \d+ h antes/)).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Editar' }).first().click();
     await page.getByRole('button', { name: new RegExp(SECCION_CANCELACIONES) }).click();
@@ -164,7 +164,7 @@ test.describe('Ventana de cancelación por tipo de clase', () => {
     await seedSesionDeDuena(page);
     await abrirClases(page);
 
-    await expect(page.getByText('Cancela 24h antes')).toBeVisible();
+    await expect(page.getByText('Cancela gratis hasta 24 h antes')).toBeVisible();
 
     await page.getByRole('button', { name: 'Editar' }).first().click();
     await page.getByRole('button', { name: new RegExp(SECCION_CANCELACIONES) }).click();
@@ -176,6 +176,6 @@ test.describe('Ventana de cancelación por tipo de clase', () => {
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(page.getByText('Tipo de clase actualizado')).toBeVisible({ timeout: 15_000 });
     expect(tipos[0].ventana_cancelacion_horas).toBeNull();
-    await expect(page.getByText(/Cancela \d+h antes/)).toHaveCount(0);
+    await expect(page.getByText(/Cancela gratis hasta \d+ h antes/)).toHaveCount(0);
   });
 });
