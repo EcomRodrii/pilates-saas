@@ -119,7 +119,12 @@ export default function LayoutInterno({ children }: { children: React.ReactNode 
               </p>
               <button
                 type="button"
-                onClick={() => { void signOut().then(() => { window.location.href = '/login?destino=/interno'; }); }}
+                onClick={() => {
+                  void signOut().then(() => {
+                    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito: al cambiar de cuenta no puede quedar en memoria nada de la anterior.
+                    window.location.href = '/login?destino=/interno';
+                  });
+                }}
                 className="mt-1 px-3.5 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold">
                 Cambiar de cuenta
               </button>

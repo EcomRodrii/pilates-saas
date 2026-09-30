@@ -247,7 +247,8 @@ export function useWhatsapp(showToast: (m: string) => void): CanalWhatsapp {
     }
     // El aviso viaja en la URL: recargar tira la página antes de que React
     // pinte un toast, y el resto del panel lee las integraciones al arrancar.
-    window.location.href = `${hrefDeSeccion(seccionDeTarjeta('integracion-whatsapp'))}&whatsapp_connected=1`;
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito (ver arriba): el panel solo lee las integraciones al arrancar.
+    window.location.href =`${hrefDeSeccion(seccionDeTarjeta('integracion-whatsapp'))}&whatsapp_connected=1`;
   }
 
   return {

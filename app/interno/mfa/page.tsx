@@ -231,7 +231,12 @@ export default function PantallaMfaInterno() {
             Con la cuenta <strong className="text-foreground">{user.email}</strong>.{' '}
             <button
               type="button"
-              onClick={() => { void signOut().then(() => { window.location.href = '/login?destino=/interno'; }); }}
+              onClick={() => {
+                void signOut().then(() => {
+                  // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito: al cambiar de cuenta no puede quedar en memoria nada de la anterior, y `router.push` conservaría el estado del cliente.
+                  window.location.href = '/login?destino=/interno';
+                });
+              }}
               className="font-semibold underline"
             >
               Cambiar de cuenta

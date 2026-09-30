@@ -239,7 +239,11 @@ export function PrimerHorario({
           // Si el catálogo se ha creado aquí, el panel aún no lo conoce (tipos de
           // clase y salas salen del contexto, que solo se carga al entrar): sin
           // recargar, el formulario de «nueva clase» saldría sin tipos.
-          if (montado || recargar) { window.location.assign('/calendario'); return; }
+          if (montado || recargar) {
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito: es lo que hace que el contexto vuelva a cargar el catálogo recién creado; una navegación suave no lo recargaría.
+            window.location.assign('/calendario');
+            return;
+          }
           const n = reciénCreadas; setReciénCreadas(null); onCreado(n);
         }}
       />

@@ -111,6 +111,7 @@ export function FormularioAccesoNetwork() {
         // Sin estudio y sin perfil de Network: alta por Google recién hecha,
         // sin fila en red_perfiles todavía — se manda a crear el perfil en
         // vez de a un /dashboard que no le pertenece (fallback de siempre).
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito: tras autenticar, la página siguiente tiene que leer la sesión recién creada desde el servidor.
         window.location.href = '/network/crear-perfil';
         return;
       }

@@ -250,6 +250,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
     // `ref`: la etiqueta viaja con ella — la reserva y, si es nueva, su ficha
     // (`origen_lead`) siguen diciendo que llegó por este widget.
     const ref = config.ref ? `&ref=${encodeURIComponent(config.ref)}` : '';
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- falso positivo: el destino es ABSOLUTO (ORIGEN_TENTARE se calcula en ejecución a partir del <script src>) y va de la web del estudio a tentare.app, un cambio de origen que el router de Next no puede hacer.
     window.location.href = `${ORIGEN_TENTARE}/reservar/${slug}?sesion=${encodeURIComponent(slot.id)}&directo=1${ref}`;
     return true;
   }, [socia, sesionCargando, slug, config.ref]);

@@ -153,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             extra: { refreshOk, ultimaRecargaMs: ultima },
           });
           try { await supabase.auth.signOut(); } catch { /* la sesión ya no vale */ }
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito: con la sesión muerta no puede quedar en memoria nada de ella (contextos, cachés), y `router.push` lo conservaría todo.
           window.location.assign('/login?motivo=sesion-caducada');
           setTimeout(() => { recuperacionJwtEnCurso = false; }, 15_000);
           return;

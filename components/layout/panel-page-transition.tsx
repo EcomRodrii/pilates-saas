@@ -8,8 +8,8 @@ import { TIPO_SECCION } from '@/lib/panel/transiciones';
 // fundiéndose y lo nuevo sube a su sitio. Menú y barra superior no se mueven —
 // son la referencia de que lo que ha cambiado es el contenido, no la pantalla.
 //
-// Con View Transitions (React `<ViewTransition>` + `experimental.viewTransition`)
-// y solo para las navegaciones con el tipo `panel-seccion` (ver
+// Con View Transitions (React `<ViewTransition>`; sin configuración en Next 16.3,
+// donde `experimental.viewTransition` ya no existe) y solo para las navegaciones con el tipo `panel-seccion` (ver
 // lib/panel/transiciones.ts: el menú y el buscador ⌘K). `update` y no `enter`:
 // este envoltorio no se desmonta al navegar, lo que cambia es lo de dentro. Por
 // eso tampoco lleva `key` — remontar `children` perdería estado y dispararía

@@ -22,9 +22,11 @@ const nextConfig: NextConfig = {
   // Transiciones de vista de React en las navegaciones: el contenido del panel se
   // anima al cambiar de sección (components/layout/panel-page-transition.tsx).
   // Solo se anima lo que lleva el tipo `panel-seccion`; ver lib/panel/transiciones.ts.
-  experimental: {
-    viewTransition: true,
-  },
+  // Sin configuración: aquí vivía `experimental: { viewTransition: true }`, y
+  // Next 16.3 quitó esa clave de `ExperimentalConfig` (el typecheck la rechaza).
+  // Su guía dice que las View Transitions «funcionan en el App Router sin
+  // configuración» (node_modules/next/dist/docs/01-app/02-guides/view-transitions.md).
+  //
   // ⚠️ Aquí vivía un bloque `experimental` con dos claves que tampoco hacían
   // nada, y se retira entero en vez de "arreglarse":
   //
