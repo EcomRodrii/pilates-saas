@@ -16,6 +16,11 @@
 //                              rectificativa por diferencias, alta de
 //                              subsanación, F2 y su anulación, un duplicado a
 //                              propósito y las consultas que lo comprueban
+//   bateria2 [--cadena N]      lo que el asesor pidió además: reenvío idéntico
+//                              (reintento), rectificativa por sustitución, factura
+//                              tras una anulación, rechazo provocado y su
+//                              corrección encadenada al rechazado, N facturas
+//                              seguidas (20 por defecto) y el QR de cotejo
 //
 // La cadena (el último registro admitido) se guarda en
 // ~/.tentare/verifactu-preproduccion.json, fuera del repo: cada ejecución
@@ -37,7 +42,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { calcularHuellaAlta, calcularHuellaAnulacion } from '../lib/verifactu.ts';
-import { fechaHoraHusoMadrid } from '../lib/verifactu-qr.ts';
+import { fechaHoraHusoMadrid, urlQrVerifactu } from '../lib/verifactu-qr.ts';
 import {
   xmlRegistroAlta, xmlRegistroAnulacion, sobreSoapRegFactu, sobreSoapConsulta, periodoDeFecha,
   CLAVE_REGIMEN_GENERAL, RegistroInvalidoError, type EncadenamientoAnterior, type IdFacturaXml,
@@ -146,13 +151,17 @@ interface Resultado { estado: string | null; codigo: string | null; descripcion:
  * construye (su marca de hora y su enlace con la cadena salen del momento real
  * del envío). La cadena avanza solo si la AEAT lo admite.
  */
-async function enviar(construir: () => { xml: string; huella: string }, numSerie: string, fecha: string): Promise<{ res: Resultado | null; huella: string }> {
+async function enviar(construir: () => { xml: string; huella: string }, numSerie: string, fecha: string): Promise<{ res: Resultado | null; huella: string; xml: string }> {
+  await esperarTurno();
+  const { xml: registroXml, huella } = construir();
+  return { res: await enviarXml(registroXml, { numSerie, fecha, huella }), huella, xml: registroXml };
+}
+
+async function esperarTurno() {
   if (esperaMs > 0) {
     console.log(`  (esperando ${Math.round(esperaMs / 1000)} s: lo pide la AEAT entre envíos)`);
     await dormir(esperaMs);
   }
-  const { xml: registroXml, huella } = construir();
-  return { res: await enviarXml(registroXml, { numSerie, fecha, huella }), huella };
 }
 
 async function enviarXml(registroXml: string, nuevaPunta: Omit<Punta, 'nif'>): Promise<Resultado | null> {
@@ -198,13 +207,21 @@ interface Alta {
   base: number;
   conDestinatario: boolean;
   rectifica?: IdFacturaXml;
-  subsanacion?: boolean;
+  /** Rectificativa por SUSTITUCIÓN: base y cuota de la factura sustituida (ImporteRectificacion). Sin esto, por diferencias. */
+  sustituye?: { base: number; cuota: number };
+  /** Alta de subsanación: 'existe' si la AEAT tiene el registro (S + N), 'no_existe' si no (S + X). */
+  subsanacion?: 'existe' | 'no_existe';
+}
+
+/** IVA general sobre la base: la misma cuenta para el registro y para el QR. */
+function importesDe(base: number): { cuota: number; total: number } {
+  const cuota = Math.round(base * 21) / 100;
+  return { cuota, total: Math.round((base + cuota) * 100) / 100 };
 }
 
 function registroAlta(a: Alta, fecha: string): { xml: string; huella: string } {
   const ts = fechaHoraHusoMadrid(new Date());
-  const cuota = Math.round(a.base * 21) / 100;
-  const total = Math.round((a.base + cuota) * 100) / 100;
+  const { cuota, total } = importesDe(a.base);
   const huella = calcularHuellaAlta({
     idEmisorFactura: nif, numSerieFactura: a.numSerie, fechaExpedicionFactura: fecha,
     tipoFactura: a.tipo, cuotaTotal: cuota, importeTotal: total, fechaHoraHusoGenRegistro: ts,
@@ -213,9 +230,13 @@ function registroAlta(a: Alta, fecha: string): { xml: string; huella: string } {
     emisor: obligado,
     numSerieFactura: a.numSerie,
     fechaExpedicionFactura: fecha,
-    ...(a.subsanacion ? marcasSubsanacion({ existeEnAeat: true, subsanacionAnteriorRechazada: false }) : {}),
+    ...(a.subsanacion ? marcasSubsanacion({ existeEnAeat: a.subsanacion === 'existe', subsanacionAnteriorRechazada: false }) : {}),
     tipoFactura: a.tipo,
-    ...(a.rectifica ? { tipoRectificativa: 'I', facturasRectificadas: [a.rectifica] } : {}),
+    ...(a.rectifica ? {
+      tipoRectificativa: a.sustituye ? 'S' : 'I',
+      facturasRectificadas: [a.rectifica],
+      ...(a.sustituye ? { importeRectificacion: { baseRectificada: a.sustituye.base, cuotaRectificada: a.sustituye.cuota } } : {}),
+    } : {}),
     descripcionOperacion: a.descripcion,
     // Destinatario de la prueba: el propio obligado (no hay otro NIF que usar sin datos ajenos).
     ...(a.conDestinatario ? { destinatarios: [obligado] } : {}),
@@ -293,7 +314,7 @@ try {
     oks.push(informe('R1', e.res, r => r.estado === 'Correcto'));
 
     console.log('\n3) Alta de subsanación de la F1 (Subsanacion=S)');
-    e = await enviar(() => registroAlta({ numSerie: f1.numSerieFactura, tipo: 'F1', descripcion: 'Prueba F1 con destinatario (subsanada)', base: 10, conDestinatario: true, subsanacion: true }, fecha), f1.numSerieFactura, fecha);
+    e = await enviar(() => registroAlta({ numSerie: f1.numSerieFactura, tipo: 'F1', descripcion: 'Prueba F1 con destinatario (subsanada)', base: 10, conDestinatario: true, subsanacion: 'existe' }, fecha), f1.numSerieFactura, fecha);
     const huellaSubsanacion = e.huella;
     oks.push(informe('Subsanación', e.res, r => r.estado === 'Correcto'));
 
@@ -325,8 +346,102 @@ try {
     oks.push(informe('F2 en la AEAT (se espera Anulado)', regF2 ? { estado: regF2.estado, codigo: null, descripcion: null, duplicado: null } : null, r => r.estado === 'Anulado'));
 
     console.log(`\n${oks.filter(Boolean).length} de ${oks.length} pasos como se esperaba.`);
+  } else if (modo === 'bateria2') {
+    // Segunda tanda: lo que el asesor pidió probar además de la primera (30-sep).
+    const iC = resto.indexOf('--cadena');
+    const nCadena = iC >= 0 ? Math.max(1, Math.min(50, Number(resto[iC + 1]) || 20)) : 20;
+    const fecha = fechaDeHoy();
+    const base = `PRUEBA-TENTARE-${sello()}`;
+    const id = (sufijo: string): IdFacturaXml => ({ idEmisorFactura: nif, numSerieFactura: `${base}-${sufijo}`, fechaExpedicionFactura: fecha });
+    const f1 = id('F1'), r1s = id('R1S'), f2a = id('F2A'), f2b = id('F2B'), sub = id('SUB');
+    const oks: boolean[] = [];
+    const cuenta = (r: Resultado | null, esperado: string) => (simular ? r?.estado === 'XSD_OK' : r?.estado === esperado);
+    if (!simular) console.log(`  (dura unos ${8 + nCadena} minutos: la AEAT pide un minuto entre envíos)`);
+
+    console.log('\n1) F1 con destinatario');
+    let e = await enviar(() => registroAlta({ numSerie: f1.numSerieFactura, tipo: 'F1', descripcion: 'Prueba F1 (tanda 2)', base: 10, conDestinatario: true }, fecha), f1.numSerieFactura, fecha);
+    const primeraF1 = e;
+    oks.push(informe('F1', e.res, r => r.estado === 'Correcto'));
+
+    console.log('\n2) Reintento: el MISMO registro otra vez, idéntico (lo que haría Tentare tras un corte)');
+    await esperarTurno();
+    const reenvio = await enviarXml(primeraF1.xml, { numSerie: f1.numSerieFactura, fecha, huella: primeraF1.huella });
+    oks.push(informe(`Reenvío idéntico (se espera ${CODIGO_DUPLICADO} con el original «Correcta»: no cuenta dos veces)`, reenvio,
+      r => r.estado === 'Incorrecto' && r.codigo === CODIGO_DUPLICADO && (r.duplicado as { estado?: string } | null)?.estado === 'Correcta'));
+
+    console.log('\n3) Rectificativa por sustitución (R1, tipo S) de la F1');
+    e = await enviar(() => registroAlta({ numSerie: r1s.numSerieFactura, tipo: 'R1', descripcion: 'Prueba R1 por sustitución', base: 8, conDestinatario: true, rectifica: f1, sustituye: { base: 10, cuota: importesDe(10).cuota } }, fecha), r1s.numSerieFactura, fecha);
+    oks.push(informe('R1 por sustitución', e.res, r => r.estado === 'Correcto'));
+
+    console.log('\n4) F2, 5) su anulación y 6) otra F2 después de anular');
+    e = await enviar(() => registroAlta({ numSerie: f2a.numSerieFactura, tipo: 'F2', descripcion: 'Prueba F2 que se anulará', base: 5, conDestinatario: false }, fecha), f2a.numSerieFactura, fecha);
+    oks.push(informe('F2', e.res, r => r.estado === 'Correcto'));
+    e = await enviar(() => registroAnulacion(f2a), f2a.numSerieFactura, fecha);
+    oks.push(informe('Anulación', e.res, r => r.estado === 'Correcto'));
+    e = await enviar(() => registroAlta({ numSerie: f2b.numSerieFactura, tipo: 'F2', descripcion: 'Prueba F2 después de una anulación', base: 7, conDestinatario: false }, fecha), f2b.numSerieFactura, fecha);
+    const huellaF2b = e.huella;
+    oks.push(informe('F2 después de la anulación', e.res, r => r.estado === 'Correcto'));
+
+    console.log('\n7) Rechazo provocado: subsanación (S + N) de una factura que la AEAT no tiene');
+    e = await enviar(() => registroAlta({ numSerie: sub.numSerieFactura, tipo: 'F2', descripcion: 'Prueba de rechazo', base: 3, conDestinatario: false, subsanacion: 'existe' }, fecha), sub.numSerieFactura, fecha);
+    const rechazado = { numSerie: sub.numSerieFactura, fecha, huella: e.huella };
+    oks.push(informe('Rechazo (se espera Incorrecto)', e.res, r => r.estado === 'Incorrecto'));
+
+    console.log('\n8) Corrección: alta S + X, encadenada al registro RECHAZADO (como hace Tentare en producción)');
+    const puntaAdmitida = punta;
+    punta = { nif, ...rechazado };
+    e = await enviar(() => registroAlta({ numSerie: sub.numSerieFactura, tipo: 'F2', descripcion: 'Prueba de rechazo (corregida)', base: 3, conDestinatario: false, subsanacion: 'no_existe' }, fecha), sub.numSerieFactura, fecha);
+    const corregido = e.res?.estado === 'Correcto' || e.res?.estado === 'AceptadoConErrores' || e.res?.estado === 'XSD_OK';
+    if (!corregido) {
+      // La AEAT no acepta ese enlace: la cadena sigue desde el último admitido.
+      punta = puntaAdmitida;
+      if (punta) guardarPunta(punta);
+    }
+    const huellaCorreccion = e.huella;
+    oks.push(informe('Corrección encadenada al rechazado', e.res, r => r.estado === 'Correcto'));
+
+    console.log(`\n9) Cadena de ${nCadena} facturas seguidas`);
+    const cadena: { numSerie: string; huella: string }[] = [];
+    for (let k = 1; k <= nCadena; k++) {
+      const numSerie = `${base}-C${String(k).padStart(2, '0')}`;
+      e = await enviar(() => registroAlta({ numSerie, tipo: 'F2', descripcion: `Prueba de cadena ${k}/${nCadena}`, base: 1 + k, conDestinatario: false }, fecha), numSerie, fecha);
+      const ok = cuenta(e.res, 'Correcto');
+      console.log(`  ${ok ? '✅' : '❌'} ${k}/${nCadena}: ${e.res?.estado ?? 'sin respuesta'}${e.res?.codigo ? ` · ${e.res.codigo} ${e.res.descripcion ?? ''}` : ''}`);
+      if (!ok) break;
+      cadena.push({ numSerie, huella: e.huella });
+    }
+    oks.push(cadena.length === nCadena);
+
+    console.log('\n10) Consultas');
+    if (simular) {
+      await consultar(f1.numSerieFactura, fecha);
+      console.log(`\n${oks.filter(Boolean).length} de ${oks.length} pasos válidos según el XSD (simulación: no se ha enviado nada).`);
+      process.exit(0);
+    }
+    const enAeat = async (numSerie: string) => (await consultar(numSerie, fecha))?.registros.find(x => x.numSerieFactura === numSerie) ?? null;
+    const comoResultado = (x: { estado: string | null } | null): Resultado | null => (x ? { estado: x.estado, codigo: null, descripcion: null, duplicado: null } : null);
+    oks.push(informe('F1 en la AEAT', comoResultado(await enAeat(f1.numSerieFactura)), r => r.estado === 'Correcto'));
+    oks.push(informe('F2 anulada en la AEAT (se espera Anulado)', comoResultado(await enAeat(f2a.numSerieFactura)), r => r.estado === 'Anulado'));
+    const cF2b = await enAeat(f2b.numSerieFactura);
+    oks.push(informe('F2 posterior a la anulación, con su huella', comoResultado(cF2b), r => r.estado === 'Correcto' && cF2b?.huella === huellaF2b));
+    if (corregido) {
+      const cSub = await enAeat(sub.numSerieFactura);
+      oks.push(informe('Corrección en la AEAT, con su huella', comoResultado(cSub), r => r.estado === 'Correcto' && cSub?.huella === huellaCorreccion));
+    }
+    let coinciden = 0;
+    for (const c of cadena) {
+      const x = await enAeat(c.numSerie);
+      if (x?.estado === 'Correcto' && x.huella === c.huella) coinciden += 1;
+    }
+    console.log(`  cadena: ${coinciden} de ${cadena.length} con la misma huella en la AEAT`);
+    oks.push(cadena.length > 0 && coinciden === cadena.length);
+
+    console.log('\n11) QR: ábrelo en el navegador; la AEAT tiene que decir que la factura está registrada');
+    console.log(`  ${urlQrVerifactu({ nif, numSerie: f2b.numSerieFactura, fecha, importeTotal: importesDe(7).total }, { produccion: false })}`);
+
+    console.log(`\n${oks.filter(Boolean).length} de ${oks.length} pasos como se esperaba.`);
   } else {
-    salir(`Modo desconocido: ${modo} (alta | consulta | bateria)`);
+    salir(`Modo desconocido: ${modo} (alta | consulta | bateria | bateria2)`);
   }
 } catch (e) {
   if (e instanceof RegistroInvalidoError) salir(`Tentare paró el registro en local, antes de enviarlo: ${e.errores.join('; ')}`);
