@@ -68,4 +68,78 @@ for (const caso of CASOS) {
   });
 }
 
+// ── Fase 2: el catálogo entero, no solo las RPCs de arriba ───────────────────
+//
+// La lista de CASOS cubre tres funciones, y el gotcha se ha pisado con las que
+// no estaban en ninguna lista: una RPC nueva, o con la firma cambiada, nace con
+// EXECUTE para PUBLIC (y por él para `anon`). Estos dos tests no miran funciones
+// concretas sino TODAS las SECURITY DEFINER de `public`, que son las que se
+// ejecutan con privilegios de su dueño y se saltan la RLS.
+
+/** SECURITY DEFINER de `public` ejecutables por `anon`, con la firma legible. */
+async function anonEjecutables(soloConEstudioOSocia: boolean): Promise<string[]> {
+  const filas = await sql<{ firma: string; toma_estudio_o_socia: boolean }[]>`
+    select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as firma,
+           (pg_get_function_identity_arguments(p.oid) like '%p_studio_id %'
+            or pg_get_function_identity_arguments(p.oid) like '%p_socio_id %') as toma_estudio_o_socia
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.prosecdef and p.prokind = 'f'
+      and has_function_privilege('anon', p.oid, 'EXECUTE')
+    order by 1
+  `;
+  return filas.filter(f => !soloConEstudioOSocia || f.toma_estudio_o_socia).map(f => f.firma);
+}
+
+test('ninguna función SECURITY DEFINER que recibe p_studio_id o p_socio_id es ejecutable por anon', async () => {
+  // El principio, sin lista: quien no ha iniciado sesión no puede pedirle a una
+  // función privilegiada que actúe sobre un estudio o una socia. Hoy no hay
+  // ninguna; si aparece una, la puerta está abierta a cualquiera con la clave pública.
+  assert.deepEqual(
+    await anonEjecutables(true), [],
+    'una función SECURITY DEFINER que recibe estudio o socia es ejecutable por anon. '
+    + 'Si es nueva o cambió de firma: REVOKE ... FROM PUBLIC + GRANT explícito a los roles que la necesitan '
+    + '(gotcha de grants, .claude/tentare-os.md), y comprueba con has_function_privilege.',
+  );
+});
+
+// Las únicas SECURITY DEFINER que `anon` puede ejecutar, y por qué es así. Una
+// nueva NO se añade aquí sin decidir que debe ser pública: lo normal es cerrarla.
+const ANON_EJECUTABLES_CONOCIDAS = [
+  // Trigger functions: nacen con EXECUTE por el ACL por defecto, pero no se pueden
+  // invocar como RPC («trigger functions can only be called as triggers»).
+  'member_credits_caducidad()',
+  'red_experiencias_proteger_verificacion()',
+  'red_perfiles_identidad_proteger_verificacion()',
+  'red_perfiles_proteger_verificacion()',
+  'red_referencias_proteger_estado()',
+  'red_verificaciones_proteger_estado()',
+  // Ayudantes de RLS: las políticas los llaman con los privilegios de quien
+  // consulta, así que `anon` tiene que poder ejecutarlos (devuelven false sin sesión).
+  'puede_configurar_negocio()',
+  'puede_gestionar_clientas()',
+  'puede_gestionar_equipo()',
+  'puede_gestionar_ficha_instructor(p_instructor_id text)',
+  'puede_mover_dinero()',
+  'puede_ver_finanzas()',
+  // La reserva pública (/reservar/:slug) resuelve el estudio por su slug sin sesión.
+  'studio_id_por_slug(p_slug text)',
+];
+
+test('las SECURITY DEFINER ejecutables por anon son solo las conocidas', async () => {
+  const actuales = await anonEjecutables(false);
+  const sobran = actuales.filter(f => !ANON_EJECUTABLES_CONOCIDAS.includes(f));
+  const faltan = ANON_EJECUTABLES_CONOCIDAS.filter(f => !actuales.includes(f));
+  assert.deepEqual(
+    sobran, [],
+    `nuevas funciones SECURITY DEFINER ejecutables por anon: ${sobran.join(', ')}. `
+    + 'Lo normal es que no deban serlo (REVOKE ... FROM PUBLIC + GRANT explícito). '
+    + 'Si debe ser pública a propósito, añádela a ANON_EJECUTABLES_CONOCIDAS con su motivo.',
+  );
+  assert.deepEqual(
+    faltan, [],
+    `ya no son ejecutables por anon (¿se cerraron o cambiaron de firma?): ${faltan.join(', ')}. `
+    + 'Quítalas de ANON_EJECUTABLES_CONOCIDAS, o si cambió la firma, actualízala.',
+  );
+});
+
 test.after(async () => { await sql.end(); });
