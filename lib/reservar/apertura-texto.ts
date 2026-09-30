@@ -1,5 +1,5 @@
 import { diaEnEstudio } from '../calendario-hora-estudio.ts';
-import { fechaLargaEstudio, horaEstudio, masDias } from '../utils.ts';
+import { fechaLargaEstudio, horaEstudio, masDias, TZ_ESTUDIO } from '../utils.ts';
 
 // Cuándo se abre la reserva de una clase, dicho para la alumna. Sin nada de
 // servidor: lo usan el rechazo de la API («todavía no se puede reservar») y las
@@ -19,4 +19,12 @@ export function cuandoSeAbre(abre: Date, ahora: Date): string {
 /** El motivo del «no» del servidor, con la fecha: sin ella, «todavía no» no dice cuándo volver. */
 export function mensajeTodaviaNoSeAbre(abre: Date, ahora: Date): string {
   return `Todavía no se puede reservar esta clase: se abre ${cuandoSeAbre(abre, ahora)}.`;
+}
+
+const CORTO = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', timeZone: TZ_ESTUDIO });
+
+/** «Se abre mar 29 · 20:00»: la etiqueta de una clase que aún no se puede reservar. */
+export function etiquetaSeAbre(abre: Date | string): string {
+  const d = new Date(abre);
+  return `Se abre ${CORTO.format(d).replace('.', '')} · ${horaEstudio(d)}`;
 }

@@ -74,6 +74,20 @@ export function instanteDeApertura(inicioISO: string, dias: number, hora: string
   return new Date(siguiente ?? inicioISO);
 }
 
+/**
+ * Si la reserva de esta clase aún NO se ha abierto, cuándo se abre (ISO); si ya
+ * está abierta o no hay límite, null. Lo que pintan las pantallas públicas para
+ * decir «Se abre…» antes de que la alumna pulse; quien decide es el servidor.
+ */
+export function aperturaPendiente(
+  inicioISO: string, ahora: Date | number, antelacionMaximaDias: number | null, hora: string | null = null,
+): string | null {
+  if (antelacionMaximaDias == null) return null;
+  const abre = instanteDeApertura(inicioISO, antelacionMaximaDias, hora);
+  const t = typeof ahora === 'number' ? ahora : ahora.getTime();
+  return t < abre.getTime() ? abre.toISOString() : null;
+}
+
 // ¿Se puede reservar ya, o falta para que se abra la reserva? antelacionMaximaDias
 // null = sin límite (siempre se puede reservar, por adelantado que sea).
 // `hora` (studios.reserva_antelacion_hora): se abre a esa hora del día que toca;

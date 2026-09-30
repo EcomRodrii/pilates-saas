@@ -63,12 +63,16 @@ interface DatosCrudos {
   // aviso de tardía no salía nunca (la ventana llegaba siempre a 0).
   cancelacionVentanaHoras: number;
   devolverBonoTardia: boolean;
+  // Cuándo se abre la reserva (días del estudio, que un tipo puede cambiar, y
+  // la hora fija si la hay): para decir «Se abre…» en la clase antes de pulsar.
+  apertura: { dias: number | null; hora: string | null };
 }
 
 const VACIO: DatosCrudos = {
   studioId: '', sesiones: [], tiposClase: [], salas: [], instructores: [], spots: [],
   reservas: [], planesTarifa: [], suscripciones: [], sustitucionesConfirmadas: [],
   politicaPrivacidad: '', terminosServicio: '', nombreEstudio: '', misReservas: [], socio: null, stripeAccountId: null, colorEstudio: null,
+  apertura: { dias: null, hora: null },
   cancelacionVentanaHoras: 0, devolverBonoTardia: false,
 };
 
@@ -143,6 +147,10 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
         colorEstudio: typeof pub.studio?.colorPrimario === 'string' ? pub.studio.colorPrimario : null,
         cancelacionVentanaHoras: typeof pub.studio?.cancelacionVentanaHoras === 'number' ? pub.studio.cancelacionVentanaHoras : 0,
         devolverBonoTardia: pub.studio?.cancelacionDevolverBonoTardia === true,
+        apertura: {
+          dias: typeof pub.studio?.reservaAntelacionMaximaDias === 'number' ? pub.studio.reservaAntelacionMaximaDias : null,
+          hora: typeof pub.studio?.reservaAntelacionHora === 'string' ? pub.studio.reservaAntelacionHora : null,
+        },
       });
       // Leído clave a clave antes de guardarlo: acaba en el `style` de un
       // elemento en la web de otro. Con la página oculta no se llega aquí, y
@@ -225,7 +233,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     sesiones: datos.sesiones, tiposClase: datos.tiposClase, salas: datos.salas, instructores: datos.instructores,
     reservas: datos.reservas, spots: datos.spots, sustitucionesConfirmadas: datos.sustitucionesConfirmadas,
     suscripciones: datos.suscripciones, planesTarifa: datos.planesTarifa, socia,
-    nowMs, filtros,
+    nowMs, filtros, apertura: datos.apertura,
   }), [datos, socia, filtros, nowMs]);
 
   const onReservar = useCallback(async (slot: ReservaSlot, spotId: string | null): Promise<ResultadoReserva> => {

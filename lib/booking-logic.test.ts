@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Reserva, RewardAction, Socio, Sesion, Suscripcion, PlanTarifa } from '@/lib/types';
 import {
+  aperturaPendiente,
   contarClasesDelDia,
   instanteDeApertura,
   mensajeMaxPorDia,
@@ -637,4 +638,11 @@ test('puedeReservarPorAntelacionMaxima con hora fija', () => {
   assert.equal(puedeReservarPorAntelacionMaxima(clase, new Date('2026-09-29T19:59:00+02:00'), 2, '20:00'), false);
   assert.equal(puedeReservarPorAntelacionMaxima(clase, new Date('2026-09-29T20:00:00+02:00'), 2, '20:00'), true);
   assert.equal(puedeReservarPorAntelacionMaxima(clase, new Date('2026-09-29T20:00:00+02:00'), null, '20:00'), true, 'sin días no hay límite, con hora o sin ella');
+});
+
+test('aperturaPendiente: solo mientras falta para abrirse', () => {
+  const clase = '2026-10-01T18:00:00+02:00';
+  assert.equal(aperturaPendiente(clase, new Date('2026-09-29T19:00:00+02:00'), 2, '20:00'), '2026-09-29T18:00:00.000Z');
+  assert.equal(aperturaPendiente(clase, new Date('2026-09-29T20:00:00+02:00'), 2, '20:00'), null);
+  assert.equal(aperturaPendiente(clase, new Date('2026-09-20T10:00:00+02:00'), null, '20:00'), null, 'sin días, siempre abierta');
 });

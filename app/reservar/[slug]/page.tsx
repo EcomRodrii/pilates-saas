@@ -21,7 +21,7 @@ import { planesComprablesParaReservar, planCubreTipo } from '@/lib/reserva-plane
 import { resolutorCobertura, precioDeCobertura, notaCobertura, textoCoberturaCorto, textoCoberturaListaEspera } from '@/lib/reservar/cobertura';
 import {
   contarReservasActivasFuturas,
-  heredaOverride, instanteDeApertura, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
+  aperturaPendiente, heredaOverride, instanteDeApertura, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { horarioDeSesion } from '@/lib/reservar/construir-slots';
@@ -1407,6 +1407,11 @@ export default function ReservarPage() {
           miReservaId: mia?.id ?? null,
           miEstado: mia ? (mia.estado as 'CONFIRMADA' | 'LISTA_ESPERA') : null,
           miOfertaExpiraEn: mia?.ofertaExpiraEn ?? null,
+          abreEl: aperturaPendiente(
+            s.inicio, nowMs,
+            heredaOverride(s.tipo?.reservaAntelacionMaximaDias, studio?.reservaAntelacionMaximaDias ?? null),
+            studio?.reservaAntelacionHora ?? null,
+          ),
           // En la vista de prueba, el precio de la oferta (0 € = gratis: sin cifra).
           precio: modoPrueba
             ? ((ofertaPruebaPara(s.tipoClaseId)?.precio ?? 0) > 0 ? ofertaPruebaPara(s.tipoClaseId)!.precio : null)
@@ -1421,7 +1426,7 @@ export default function ReservarPage() {
           coberturaTextoListaEspera: textoCoberturaListaEspera(cobertura(s.tipoClaseId)),
         } satisfies ReservaSlot;
       });
-  }, [sesionesRich, nowMs, configWidget, modoPrueba, ofertaPruebaPara, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
+  }, [sesionesRich, nowMs, configWidget, modoPrueba, ofertaPruebaPara, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura, studio?.reservaAntelacionMaximaDias, studio?.reservaAntelacionHora]);
 
   // Calendario semanal: entre el toque en una clase y que `ReservaCalendario`
   // confirme la ficha abierta (`alCambiarFicha` llega en un efecto, un render
