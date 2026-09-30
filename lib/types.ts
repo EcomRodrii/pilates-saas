@@ -206,7 +206,7 @@ export interface Studio {
   /** Solo se usa con tipo DIAS. null = 30 (el default de la propia RPC). */
   recuperacionCaducidadDias: number | null;
   /** Recuperaciones sin usar que puede tener a la vez cada alumna (migr
-   *  20260930202000; 4 = lo de siempre). Opcional: los fixtures de antes no la traen. */
+   *  20260930215106; 4 = lo de siempre). Opcional: los fixtures de antes no la traen. */
   recuperacionMaxVivas?: number;
   reservaExigirPlan: boolean;
   /** Compra desde el enlace público sin ficha previa (migr 0110).
@@ -214,7 +214,7 @@ export interface Studio {
    *  la ficha se crea con el email verificado por Stripe. */
   compraPublicaModo: 'EXIGIR_REGISTRO' | 'CREAR_FICHA';
   reservaMaxSimultaneas: number | null;
-  /** Clases que cada alumna puede tener el mismo día (migr 20260930200000).
+  /** Clases que cada alumna puede tener el mismo día (migr 20260930215029).
    *  null = sin tope. Opcional: los fixtures de antes no la traen. */
   reservaMaxPorDia?: number | null;
   // Fase 1 de reglas por tipo de clase (migr 20260730152516): estos son los
@@ -223,7 +223,7 @@ export interface Studio {
   reservaVentanaMinimaMinutos: number;
   reservaAntelacionMaximaDias: number | null;
   /** 'HH:MM': la reserva se abre a esa hora del día que marcan los días de
-   *  antelación (migr 20260930201000). null = a la misma hora que la clase.
+   *  antelación (migr 20260930215043). null = a la misma hora que la clase.
    *  Opcional: los fixtures de antes no la traen. */
   reservaAntelacionHora?: string | null;
   permiteListaEspera: boolean;

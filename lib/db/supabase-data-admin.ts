@@ -2419,7 +2419,7 @@ type MotivoIntentoFallido =
   // verificación ahora atómica en la RPC dentro de pg_advisory_xact_lock.
   | 'SIN_ENTITLEMENT'
   // Y el tope de clases al día (studios.reserva_max_por_dia). El mismo CHECK lo
-  // amplía 20260930200000, que de paso vuelve a meter SIN_ENTITLEMENT: la
+  // amplía 20260930215029, que de paso vuelve a meter SIN_ENTITLEMENT: la
   // restricción viva lo había perdido y esas filas no se guardaban.
   | 'MAX_POR_DIA';
 

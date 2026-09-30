@@ -1056,11 +1056,11 @@ export interface RowStudios {
   cobro_dia_1_activo: boolean | null;
   // migr 20260929214142.
   modo_facturacion: string | null;
-  // migr 20260930200000.
+  // migr 20260930215029.
   reserva_max_por_dia: number | null;
-  // migr 20260930201000.
+  // migr 20260930215043.
   reserva_antelacion_hora: string | null;
-  // migr 20260930202000.
+  // migr 20260930215106.
   recuperacion_max_vivas: number | null;
 }
 

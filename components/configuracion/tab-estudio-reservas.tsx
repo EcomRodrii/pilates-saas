@@ -453,7 +453,7 @@ export function FormRecuperaciones(props: PropsCajonRegla) {
   return (
     <>
       <div className={CUERPO}>
-        {/* Lo aplica `crear_recuperacion` bajo su candado (migr 20260930202000). */}
+        {/* Lo aplica `crear_recuperacion` bajo su candado (migr 20260930215106). */}
         <Campo label="Recuperaciones sin usar a la vez, por alumna" ayuda="De 1 a 20. Con esas, no se le da otra hasta que use o le caduque una.">
           {id => (
             <input
