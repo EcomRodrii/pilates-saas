@@ -241,7 +241,7 @@ export default function VerifactuInternoPage() {
                     )}
                     {(e.estado === 'PRODUCCION' || e.estado === 'VERIFICADO') && (
                       <button type="button" onClick={() => void accion({ accion: 'pausar', studioId: e.studio_id, motivo: 'Pausado por Tentare' })}
-                        className="rounded-lg border border-border px-3 py-1 text-[12.5px] font-bold">Pausar</button>
+                        className="rounded-lg border border-border px-3 py-1 text-[12.5px] font-bold">Pausar (incidencia técnica)</button>
                     )}
                     {(e.estado === 'PAUSADO' || e.estado === 'SUSPENDIDO_AEAT') && (
                       <button type="button" onClick={() => void accion({ accion: 'reanudar', studioId: e.studio_id })}

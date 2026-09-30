@@ -30,7 +30,8 @@ export function envioActivado(activadoEn: string | null | undefined): boolean {
  * incidencias: se sigue emitiendo y se remite al volver. VERIFICADO es donde
  * vuelve un estudio al reanudar. Fuera de aquí (poder revocado, caducado o datos
  * fiscales cambiados) Tentare no puede remitir, así que no emite (migración
- * 20260930190000, pregunta 6 de la consulta al fiscalista).
+ * 20260930190000; criterio del fiscalista, 30-sep-2026: perder el poder no es una
+ * incidencia técnica).
  */
 const CON_PODER_VIGENTE: ReadonlySet<EstadoEstudioVerifactu> = new Set(['PRODUCCION', 'PAUSADO', 'SUSPENDIDO_AEAT', 'VERIFICADO']);
 

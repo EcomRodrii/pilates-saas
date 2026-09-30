@@ -413,6 +413,14 @@ export async function activarProduccion(admin: SupabaseClient, studioId: string,
   await registrarEvento(admin, { studioId, evento: 'envio.produccion_activada', actorTipo: 'tentare', actorUserId: userId });
 }
 
+/**
+ * ⚠️ Pausar es SOLO para incidencias técnicas (certificado, caída de la AEAT…):
+ * el estudio sigue emitiendo y lo pendiente se remite al reanudar, que es lo que
+ * el fiscalista acepta para una incidencia (30-sep-2026). Si Tentare deja de poder
+ * remitir por una razón jurídica (poder revocado o caducado), eso no es una pausa:
+ * lo hace el estado del poder, y entonces las facturas se paran
+ * (migración 20260930190000).
+ */
 export async function pausarPorTentare(admin: SupabaseClient, studioId: string, motivo: string, userId: string): Promise<void> {
   const nuevo = await transitarEstudio(admin, studioId, 'PAUSAR', motivo.trim() || 'Pausado por Tentare');
   if (!nuevo) throw new AltaVerifactuError(['Ese estudio no se puede pausar ahora.'], 409);

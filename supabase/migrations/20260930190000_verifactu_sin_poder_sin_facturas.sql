@@ -1,7 +1,10 @@
 -- Veri*Factu — sin poder para remitir, Tentare no emite facturas.
 --
--- ⚠️ PENDIENTE DE CRITERIO: pregunta 6 de la consulta al fiscalista (30-sep-2026).
--- No se aplica hasta que responda.
+-- Criterio del fiscalista (30-sep-2026, cuestión 3.6 de la consulta): con el
+-- poder revocado o caducado, bloquear las facturas nuevas hasta recuperarlo, porque
+-- no es una incidencia técnica y un sistema «solo VERI*FACTU» no puede convertirse
+-- en uno que genera registros y no los remite. Una incidencia técnica temporal de
+-- la AEAT va aparte: se sigue emitiendo y se remite al restablecerse.
 --
 -- Por qué: Tentare se declara «solo VERI*FACTU» (Orden HAC/1177/2024, art.
 -- 15.1.e), y la nota de transición que propone el fiscalista dice que la
@@ -12,7 +15,7 @@
 -- devuelven a pedir autorización y, sin esto, Tentare seguiría emitiendo
 -- facturas que no puede remitir.
 --
--- Qué distingue (la propuesta, opción C de la consulta):
+-- Qué distingue (la opción C de la consulta, la que confirma el fiscalista):
 --   · Poder vigente: PRODUCCION, PAUSADO, SUSPENDIDO_AEAT y VERIFICADO (al que
 --     vuelve un estudio al reanudar tras una pausa). Una pausa o una suspensión
 --     de la AEAT es una incidencia: se sigue emitiendo y se remite al volver.
