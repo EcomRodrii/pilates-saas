@@ -28,6 +28,7 @@ import { HEX6 } from '@/lib/reservar/estilo-web-tipos';
 import { colorDeDataColor, estiloDeLaNativa, marcaDeLaNativa } from '@/lib/widget/estilo-nativa';
 import { HOJA_FUENTES_NATIVA, VARS_FAMILIAS_NATIVA, letraNativa } from '@/lib/widget/fuentes-nativa';
 import { firmaDeUrl } from '@/lib/widgets/firma-contenido';
+import { datasetConPares, esIdPieza, leerParesPieza, type ParPieza } from '@/lib/widgets/pieza';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
@@ -507,19 +508,55 @@ function letraDeLaWeb(host: HTMLElement): { cuerpo: string | null; titulares: st
   }
 }
 
+// El código por ID (lib/widgets/pieza.ts): lo publicado de ese widget, como los
+// `data-*` que habría llevado su código congelado. Cualquier fallo (red, 404,
+// una respuesta rara, más de 4 s) es `null`: se monta con lo que traiga su
+// `<div>`, que en un código por ID es el widget por defecto. Mejor el horario
+// entero que un hueco en su web.
+const ESPERA_PIEZA_MS = 4000;
+async function paresDePieza(slug: string, id: string): Promise<ParPieza[] | null> {
+  const ctrl = new AbortController();
+  const plazo = setTimeout(() => ctrl.abort(), ESPERA_PIEZA_MS);
+  try {
+    const url = `${ORIGEN_TENTARE}/api/public/widget-pieza?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(id)}`;
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) return null;
+    return leerParesPieza(await res.json());
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(plazo);
+  }
+}
+
 function montarUno(host: HTMLElement) {
   const slug = host.dataset.studio?.trim();
   if (!slug) {
     console.error('[tentare-widget] Falta data-studio en el contenedor.');
     return;
   }
+  const id = host.dataset.widget?.trim();
+  if (!esIdPieza(id)) {
+    montarConDataset(host, slug, host.dataset as Record<string, string | undefined>);
+    return;
+  }
+  void paresDePieza(slug, id).then((pares) => {
+    if (!pares) console.warn('[tentare-widget] No se ha podido leer este widget; se muestra con su contenido por defecto.');
+    montarConDataset(host, slug, pares
+      ? datasetConPares(host.dataset as Record<string, string | undefined>, pares)
+      : host.dataset as Record<string, string | undefined>);
+  });
+}
+
+function montarConDataset(host: HTMLElement, slug: string, dataset: Record<string, string | undefined>) {
   // Vocabulario nuevo del snippet (config-widget.ts): data-tipos,
   // data-instructoras, data-salas, data-vista, data-ocultar-precio,
   // data-ocultar-nivel, data-ocultar-sustituta, data-diseno, data-fondo,
   // data-marca, data-negro. `data-color` sigue siendo el primario de siempre
   // (retrocompatible: vale cualquier color CSS, no solo hex); `data-marca` gana
   // si vienen los dos porque pasa por el filtro anti-basura del parser.
-  const params = fuenteDeDataset(host.dataset as Record<string, string | undefined>);
+  // Con un código por ID, `dataset` ya lleva encima lo publicado.
+  const params = fuenteDeDataset(dataset);
   const config = resolverConfigWidget(params);
   // Con diseño en sus atributos, el estilo de sus widgets no le llega (la
   // regla entera, como en el iframe): ni se pide.
@@ -528,7 +565,7 @@ function montarUno(host: HTMLElement) {
   // el panel con `paresNativa`, así que «Visto en» sabe si es la de ahora.
   // `firmaDeUrl` solo lee su lista blanca: `data-studio` no cuenta.
   const firma = firmaDeUrl(params);
-  const color = config.colorPrimario ?? colorDeDataColor(host.dataset.color, v => CSS.supports('color', v));
+  const color = config.colorPrimario ?? colorDeDataColor(dataset.color, v => CSS.supports('color', v));
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = widgetCss;

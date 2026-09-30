@@ -7,7 +7,7 @@ import {
   CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_REVISA, NO_DISPONIBLE_TODAVIA, TARJETA_DE_INTEGRACION, agruparConexiones, estadoDelPlan,
   resumenAppsConAcceso, resumenConexion, resumenCreditosPorAccion, resumenDireccion, resumenPaginaPublica, resumenReglasCreditos,
   avisosDeConfiguracion, rangoDeFechas, resumenCierres, resumenCompraPublica,
-  resumenContacto, resumenContrato, resumenCuestionarioSalud, resumenDatosExtra, resumenDatosFiscales, resumenDevoluciones,
+  resumenContacto, resumenContrato, resumenCuestionarioSalud, resumenDatosExtra, resumenDatosFiscales, resumenDevoluciones, resumenFacturacion,
   resumenDomiciliaciones, resumenGmail, resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan,
   resumenPlanesActivos, resumenRegla, resumenRemitente, resumenSedes, resumenStripe, resumenWhatsapp, resumenesDeConfiguracion, revisaEsto, unir,
   resumenAppInstructoras, resumenAvisarAlumnas, resumenEquipo, resumenModoSustituciones, resumenTarifas,
@@ -861,4 +861,20 @@ test('las filas de Mi equipo caben en una línea del móvil y dicen «alumna» e
     assert.ok(v && v.length <= MAX_RESUMEN, `«${v}» no cabe`);
     assert.doesNotMatch(v, /\b(client|soci|profesor)as?\b/i, v);
   }
+});
+
+// ── Facturación (29-sep-2026) ───────────────────────────────────────────────
+
+test('«Facturación»: lo que hace cada modo, sin prometer el envío a la AEAT', () => {
+  assert.equal(resumenFacturacion({}), null);
+  assert.equal(resumenFacturacion({ modoFacturacion: 'sin_facturas' }), 'No se emiten desde Tentare: tus alumnas reciben su justificante de pago');
+  assert.equal(resumenFacturacion({ modoFacturacion: 'verifactu' }), 'Emite facturas con registro Veri*Factu');
+  for (const m of ['sin_facturas', 'verifactu'] as const) {
+    assert.doesNotMatch(resumenFacturacion({ modoFacturacion: m })!, /cumple|QR|env[ií]a/i);
+  }
+});
+
+test('sin facturas desde Tentare, un NIF que falta no sale en rojo ni como aviso', () => {
+  assert.deepEqual(resumenDatosFiscales({ nif: '', modoFacturacion: 'sin_facturas' }), { valor: 'Sin NIF válido · solo hace falta si Tentare emite tus facturas', estado: null });
+  assert.deepEqual(resumenDatosFiscales({ nif: '', modoFacturacion: 'verifactu' }).estado, { tono: 'problema', etiqueta: 'Falta el NIF' });
 });
