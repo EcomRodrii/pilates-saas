@@ -32,8 +32,6 @@ import {
 } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
-import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
-import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import {
   fetchMiPerfilNetwork, guardarPerfilNetwork, cambiarEstadoPerfilNetwork,
   fetchPerfilIdentidadNetwork, guardarPerfilIdentidadNetwork,
@@ -61,41 +59,7 @@ import { PasoRevisar } from './pasos/paso-revisar';
 import { PasoPublicar } from './pasos/paso-publicar';
 
 export default function CrearPerfilNetworkPage() {
-  const { user, loading: cargandoSesion, signUp, signInWithGoogle, verificarOtpSignup, reenviarConfirmacion } = useAuth();
-
-  // ── Paso 01: cuenta (sin sesión todavía) ──────────────────────────────
-  const [nombreCuenta, setNombreCuenta] = useState('');
-  const [emailCuenta, setEmailCuenta] = useState('');
-  const [passwordCuenta, setPasswordCuenta] = useState('');
-  const [errorCuenta, setErrorCuenta] = useState('');
-  const [infoCuenta, setInfoCuenta] = useState('');
-  // Distingue el caso "ya existe cuenta" para poder pintar /network/acceso
-  // como un <Link> real en vez de la ruta escrita a mano en texto plano —
-  // hallazgo de la auditoría UX: la misma pantalla ya tiene un Link
-  // idéntico dos líneas más abajo, esto solo evita duplicarlo como texto.
-  const [cuentaExistente, setCuentaExistente] = useState(false);
-  const [creandoCuenta, setCreandoCuenta] = useState(false);
-  const [conectandoGoogle, setConectandoGoogle] = useState(false);
-  const { widget: captcha, pedirToken } = useCaptcha();
-  // Alta recién creada, esperando el código de 6 dígitos — mismo patrón que
-  // app/login/page.tsx (única fuente de este componente, OtpVerificacion).
-  const [emailOtp, setEmailOtp] = useState<string | null>(null);
-  useEffect(() => {
-    const pendiente = leerEmailOtpPendiente();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (pendiente) setEmailOtp(pendiente);
-  }, []);
-
-  // Vuelve a /network/acceso — el punto de retorno propio de Network (ver
-  // lib/db/supabase.ts, RUTAS_RETORNO_AUTH_STAFF), no a /login. Ese efecto
-  // resuelve la cuenta con `producto=network` y, si es un alta nueva sin
-  // perfil todavía, manda de vuelta aquí mismo a seguir el asistente.
-  async function conectarConGoogle() {
-    setErrorCuenta('');
-    setConectandoGoogle(true);
-    const { error } = await signInWithGoogle('/network/acceso');
-    if (error) { setErrorCuenta(error); setConectandoGoogle(false); }
-  }
+  const { user, loading: cargandoSesion } = useAuth();
 
   const [paso, setPaso] = useState(0);
   const [pasoInicialElegido, setPasoInicialElegido] = useState(false);
@@ -161,43 +125,11 @@ export default function CrearPerfilNetworkPage() {
     setPasoInicialElegido(true);
   }, [cargando, pasoInicialElegido, user, perfil]);
 
-  async function crearCuenta(e: React.FormEvent) {
-    e.preventDefault();
-    setErrorCuenta(''); setInfoCuenta(''); setCuentaExistente(false); setCreandoCuenta(true);
-    const token = await pedirToken();
-    if (token === null) { setCreandoCuenta(false); setErrorCuenta(ERROR_CAPTCHA); return; }
-    const { error, needsConfirmation, yaRegistrado } = await signUp(
-      emailCuenta, passwordCuenta, { nombre: nombreCuenta.trim() }, token || undefined, '/network/crear-perfil',
-    );
-    if (error) { setErrorCuenta(error); setCreandoCuenta(false); return; }
-    if (yaRegistrado) {
-      setInfoCuenta('Ya existe una cuenta con ese email. Tu progreso te espera ahí.');
-      setCuentaExistente(true);
-      setCreandoCuenta(false);
-      return;
-    }
-    if (needsConfirmation) {
-      recordarEmailOtpPendiente(emailCuenta.trim());
-      setEmailOtp(emailCuenta.trim());
-      setCreandoCuenta(false);
-      return;
-    }
-    setCreandoCuenta(false);
-    setPaso(1);
-  }
-
-  function limpiarOtp() {
-    olvidarEmailOtpPendiente();
-    setEmailOtp(null);
-    setErrorCuenta('');
-    setInfoCuenta('');
-  }
-
   async function guardar(cambios: Partial<FormState> = {}): Promise<boolean> {
     setError(''); setGuardando(true);
     const f = { ...form, ...cambios };
     const res = await guardarPerfilNetwork({
-      ...(perfil ? {} : { nombre: nombreCuenta.trim() || user?.user_metadata?.nombre || 'Instructora' }),
+      ...(perfil ? {} : { nombre: user?.user_metadata?.nombre || 'Instructora' }),
       ciudad: f.ciudad || null, zona: f.zona || null, radioKm: f.radioKm ? Number(f.radioKm) : null,
       especialidades: f.especialidades, aniosExperiencia: f.aniosExperiencia ? Number(f.aniosExperiencia) : null,
       tarifaRango: f.tarifaRango ?? null, disponibilidadEstado: f.disponibilidadEstado,
