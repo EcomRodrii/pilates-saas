@@ -84,6 +84,7 @@ export function DerechosRgpdFicha({ socioId, nombreSocia, onToast }: {
           return;
         }
         // Ya no hay ficha que mostrar: la socia ha quedado anonimizada.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito: desmonta la ficha de una clienta ya anonimizada, igual que su baja desde la propia ficha.
         window.location.href = '/clientas';
         return;
       }

@@ -301,6 +301,7 @@ export default function LoginPage() {
       // que le falta es montar el estudio, y /crear-estudio reconoce la sesión y
       // le ahorra la cuenta.
       if (resultado?.tipo === 'cuenta-nueva') {
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito: tras autenticar, la página siguiente tiene que leer la sesión recién creada desde el servidor.
         window.location.href = '/crear-estudio';
         return;
       }

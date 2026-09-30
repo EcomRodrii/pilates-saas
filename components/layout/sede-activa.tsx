@@ -93,6 +93,7 @@ export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 't
     function onStorage(e: StorageEvent) {
       if (e.key !== CLAVE_CAMBIO_GLOBAL || !e.newValue) return;
       const [studioId] = e.newValue.split(':');
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito (ver arriba): al cambiar de sede el estado del cliente entero tiene que rehacerse.
       if (studioId && studioId !== studio?.id) window.location.href = '/dashboard';
     }
     window.addEventListener('storage', onStorage);
@@ -112,6 +113,7 @@ export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 't
       comprobando = true;
       void resolverEstudioDeLaSesion().then(({ studioId, fallo }) => {
         comprobando = false;
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito: la sede de esta pestaña ya no es la de la sesión, y el estado del cliente entero tiene que rehacerse.
         if (!fallo && sedeDesfasada(studio?.id, studioId)) window.location.href = '/dashboard';
       });
     }

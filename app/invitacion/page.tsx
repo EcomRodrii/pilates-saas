@@ -93,6 +93,7 @@ export default function PaginaInvitacion() {
     // parámetro no hacía nada salvo sugerir un contrato que no existe: quien
     // decide a dónde va esta cuenta es /api/auth/destino-post-login.
     const destino = `/login?${yaTieneCuenta ? '' : 'alta=1'}${token ? `${yaTieneCuenta ? '' : '&'}token=${encodeURIComponent(token)}` : ''}`;
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito: /login arranca desde cero, sin el estado de esta pantalla.
     window.location.href = destino;
   }
 

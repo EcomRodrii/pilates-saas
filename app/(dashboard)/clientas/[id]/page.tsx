@@ -635,6 +635,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       await deleteSocio(id);
       // La recarga dura desmonta la ficha; en el camino feliz no se suelta el
       // cerrojo a propósito (no debe volver a poder pulsarse).
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito (ver arriba): desmonta la ficha de una clienta que ya no existe.
       window.location.href = '/clientas';
     } catch {
       borrandoRef.current = false;
