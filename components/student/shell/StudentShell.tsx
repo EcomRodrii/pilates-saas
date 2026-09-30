@@ -102,7 +102,8 @@ interface PropsMarco {
 
 // Si en ESTE dispositivo no hay sesión de alumna (ni en localStorage ni en
 // sessionStorage, que es donde la deja `lib/db/portal-almacen-sesion.ts`), marca
-// el marco antes de pintar y el CSS esconde cabecera y portada: quien no ha
+// el marco antes de pintar y el CSS (student.css) deja a la vista solo el
+// esqueleto, sin cabecera ni portada: quien no ha
 // entrado sigue sin ver la app antes del acceso (ver `GuardiaSesion`). Dentro de
 // un marco (la vista previa del panel) no marca nada: allí se ve sin sesión.
 // Si el almacenamiento no se deja leer, tampoco hay sesión que valga: la guardia
@@ -137,12 +138,10 @@ function ShellConHeroe({ heroe, children, noLeidas, badgeReservas, headerTranspa
     // `suppressHydrationWarning`: el script puede haberle puesto `data-sin-sesion`.
     <div className="shell" suppressHydrationWarning>
       <ScriptEnLinea js={MARCAR_SIN_SESION} />
-      <div data-oculto-sin-sesion style={{ display: 'contents' }}>
-        <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
-      </div>
+      <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
       <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined} aria-busy={esperando || undefined}>
         <OfflineBanner />
-        <div data-oculto-sin-sesion style={{ display: 'contents' }}>{heroe}</div>
+        {heroe}
         {esperando ? <div className="px esqueleto-inicio"><EsqueletoTarjetas /></div> : children}
       </main>
       {!sinNav && !esperando && <BottomNavigation badgeReservas={badgeReservas} modo="alumna" />}

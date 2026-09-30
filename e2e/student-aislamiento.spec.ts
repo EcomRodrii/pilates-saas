@@ -21,10 +21,19 @@ test.describe('Student PWA · aislamiento', () => {
     // decirle a una clienta que su estudio no existe— y hace que el CÓDIGO no
     // sea comprobable sin base de datos. Lo que sí se comprueba, y es lo que
     // importa para el aislamiento, es que por ahí no se cuela contenido.
+    //
+    // ⚠️ Desde el 30-sep-2026 la PORTADA de Inicio sale sin esperar a la sesión
+    // (StudentShell → ShellConHeroe): es la cara pública del estudio que el
+    // SERVIDOR resolvió para ese slug —lo mismo que enseña /reservar—, y en
+    // producción un slug que no existe da 404 en el layout antes de pintar nada.
+    // Aquí, con el Supabase falso, cualquier slug se siembra con el estudio de
+    // prueba, así que su portada sale; lo que la guardia sigue sin dejar ver es
+    // el INTERIOR: ni la navegación ni nada de lo suyo.
     await sembrarSociaLista(page);
     await page.goto('/portal/estudio-que-no-existe');
-    await expect(page.getByText(/¿qué te apetece hoy\?/i)).toHaveCount(0);
+    await expect(page.locator('main[aria-busy="true"]')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('navigation')).toHaveCount(0);
+    await expect(page.getByText(/huecos de hoy|tu próxima clase|tu bono/i)).toHaveCount(0);
   });
 
   test('todos los enlaces de la app cuelgan del slug del estudio', async ({ page }) => {

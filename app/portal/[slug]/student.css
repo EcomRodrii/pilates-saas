@@ -574,7 +574,10 @@
    en línea marca el marco antes de pintar, y aquí se esconden cabecera y portada
    — quien no ha entrado no ve la app antes del acceso. El esqueleto, entonces,
    baja a donde estaría la cabecera, como en la guardia de siempre. */
-.student-app .shell[data-sin-sesion] [data-oculto-sin-sesion] { display: none !important; }
+/* Por estructura y no con envoltorios: los e2e (y el diseño) cuentan con que la
+   portada sea `main.page > section`. */
+.student-app .shell[data-sin-sesion] > :not(main),
+.student-app .shell[data-sin-sesion] > main > :not(.esqueleto-inicio) { display: none !important; }
 .student-app .esqueleto-inicio { padding-top: 16px; }
 .student-app .shell[data-sin-sesion] .esqueleto-inicio { padding-top: calc(72px + var(--safe-top)); }
 .student-app .skel { background: linear-gradient(90deg, var(--muted) 25%, #F6F4EC 45%, var(--muted) 65%); background-size: 400px 100%; animation: apSkel 1.1s linear infinite; border-radius: 10px; }
