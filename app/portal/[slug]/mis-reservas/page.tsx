@@ -25,6 +25,9 @@ import { estaEnCurso } from '@/lib/student/estado-clase';
 import { etiquetaHistorial } from '@/lib/student/etiqueta-historial';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+import { CaraInstructora } from '@/components/student/domain/InstructorCard';
+import { agruparAgenda, faltaTexto, tileFecha } from '@/lib/student/agenda-proximas';
+import type { Clase, Instructora, Reserva } from '@/lib/student/tipos';
 
 // Feedback real de una propietaria en prueba (14-sep): una socia no sabía que
 // podía cancelar SOLO un día de su clase fija sin perder el hueco semanal — esta
@@ -101,6 +104,17 @@ export default function MisReservasPage() {
   // primeras y se dice cuántas más hay, en vez de una lista de medio año.
   const { visibles: prox, ocultas: fijasOcultas } = acotarFijasProximas(proxTodas);
   const hist = items.filter((x) => !activa(x.r.estado) || x.c.fecha < hoy);
+  // P-5: la oferta vive hasta `ofertaExpiraEn` — pasado ese instante el cron
+  // ya la ha caducado y el sitio no es suyo, aunque el catálogo todavía no se
+  // haya recargado.
+  const ofertaViva = (r: { estado: string; ofertaExpiraEn?: string | null }) =>
+    r.estado === 'en-espera' && !!r.ofertaExpiraEn && ahoraMs !== null && new Date(r.ofertaExpiraEn).getTime() > ahoraMs;
+  const ofertas = prox.filter((x) => ofertaViva(x.r));
+  // Por fecha y hora: la agenda agrupa por semana, y un bloque solo es uno si
+  // sus clases llegan seguidas.
+  const [siguiente, ...agenda] = prox
+    .filter((x) => !ofertaViva(x.r))
+    .sort((a, b) => `${a.c.fecha} ${a.c.hora}`.localeCompare(`${b.c.fecha} ${b.c.hora}`));
 
   const sel = items.find((x) => x.r.id === cancelId);
   const aviso = sel ? avisoCancelacion(sel.c, estudio.politicaCancelacionHoras) : null;
@@ -254,99 +268,55 @@ export default function MisReservasPage() {
               />
             ) : (
               <>
-              {prox.map(({ r, c }) => {
-                const i = data.instructoras.find((x) => x.id === c.instructoraId);
-                const av = avisoCancelacion(c, estudio.politicaCancelacionHoras);
-                const espera = r.estado === 'en-espera';
-                const esFija = !espera && esClaseFija(r.id);
-                // P-5: la oferta vive hasta `ofertaExpiraEn` — pasado ese
-                // instante el cron ya la ha caducado y el sitio no es suyo,
-                // aunque el catálogo todavía no se haya recargado.
-                const ofertaViva = espera && !!r.ofertaExpiraEn && ahoraMs !== null && new Date(r.ofertaExpiraEn).getTime() > ahoraMs;
-                const enCurso = estaEnCurso(c, ahoraMs);
-                return (
-                  <div
-                    key={r.id}
-                    className="a-pop"
-                    style={{
-                      background: ofertaViva ? 'var(--warning-soft)' : espera ? 'var(--card)' : 'var(--accent-soft)',
-                      border: `1px solid ${ofertaViva ? 'var(--warning)' : espera ? 'var(--border)' : 'transparent'}`,
-                      borderRadius: 'var(--radius-card)', padding: '13px 15px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800, color: espera ? 'var(--foreground)' : 'var(--accent-soft-foreground)' }}>
-                        {etiquetaDia(c.fecha)} · {c.hora}
-                      </p>
-                      {/* En curso manda sobre el estado de la reserva: si la clase
-                          está dándose, «Lista de espera · 2ª» ya no es la noticia. */}
-                      {enCurso ? <EnCursoBadge terminaA={horaFin(c.hora, c.duracionMin)} /> : (
-                      <Badge tone={ofertaViva ? 'few' : espera ? 'wait' : 'ok'}>
-                        {ofertaViva
-                          ? '¡Plaza libre!'
-                          : espera
-                            ? `Lista de espera${r.posicionEspera ? ` · ${r.posicionEspera}ª` : ''}`
-                            : esFija ? 'Tu clase fija ✓' : 'Reservada ✓'}
-                      </Badge>
-                      )}
-                    </div>
-                    {ofertaViva && (
-                      <p style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--warning-foreground)' }}>
-                        Tienes hasta las {new Date(r.ofertaExpiraEn as string).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} para aceptarla — si no, pasa a la siguiente de la lista.
-                      </p>
-                    )}
-                    <p style={{ margin: '3px 0 0', fontSize: 'var(--t-body)', fontWeight: 700 }}>{c.nombre}</p>
-                    <p className="t-meta" style={{ marginTop: 2 }}>
-                      con {i?.nombre ?? '—'} · {c.sala}
-                    </p>
-                    <div style={{ display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap' }}>
-                      <Link href={href(`/mis-reservas/${r.id}`)} className="btn btn--light btn--sm tap" style={{ height: 34 }}>
-                        Detalle
-                      </Link>
-                      {/* ⚠️ Faltaba. El paquete pone TRES acciones en esta
-                          tarjeta —Detalle, + Calendario, Cancelar— y aquí solo
-                          había dos: comparando el render del paquete contra el
-                          nuestro se vio el hueco. En el paquete es un toast de
-                          maqueta; aquí abre el calendario de verdad, con los
-                          datos que ya trae la clase. */}
-                      {!espera && (
-                        <button
-                          type="button"
-                          className="btn btn--light btn--sm tap"
-                          style={{ height: 34 }}
-                          onClick={() => añadirAlCalendario(c, estudio.nombre, estudio.direccion, i?.nombre)}
-                        >
-                          + Calendario
-                        </button>
-                      )}
-                      {ofertaViva && (
-                        <button
-                          type="button"
-                          className="btn btn--primary btn--sm tap"
-                          style={{ height: 34 }}
-                          disabled={!online || aceptandoId === r.id}
-                          title={!online ? 'Necesitas conexión' : undefined}
-                          onClick={() => handleAceptarOferta(r.id)}
-                        >
-                          {aceptandoId === r.id ? 'Aceptando…' : 'Aceptar plaza'}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="btn btn--danger btn--sm tap"
-                        style={{ height: 34 }}
-                        disabled={!online || !av.puede || aceptandoId === r.id}
-                        title={!online ? 'Necesitas conexión' : !av.puede ? 'La clase ya ha empezado' : undefined}
-                        onClick={() => setCancelId(r.id)}
-                      >
-                        {espera ? 'Salir de la lista' : 'Cancelar'}
-                      </button>
-                    </div>
+              {/* ⚠️ Rediseño del 30-sep (el fundador: «muy pobre, poco
+                  intuitivo»). Antes cada clase era la MISMA tarjeta grande con
+                  tres botones, así que una clase fija semanal llenaba la
+                  pantalla de seis bloques idénticos con seis «Cancelar» rojos.
+                  Ahora: lo urgente arriba (una plaza ofrecida de la lista de
+                  espera), la próxima clase destacada con sus acciones, y el
+                  resto como agenda compacta agrupada por semana. La lógica de
+                  cancelar y aceptar es la de siempre: solo cambia cómo se pinta. */}
+              {ofertas.map(({ r, c }) => (
+                <TarjetaOferta
+                  key={r.id} c={c} r={r} instructora={data.instructoras.find((x) => x.id === c.instructoraId)?.nombre}
+                  online={online} aceptando={aceptandoId === r.id}
+                  onAceptar={() => handleAceptarOferta(r.id)} onSalir={() => setCancelId(r.id)}
+                />
+              ))}
+              {siguiente && (
+                <HeroProxima
+                  r={siguiente.r} c={siguiente.c}
+                  instructora={data.instructoras.find((x) => x.id === siguiente.c.instructoraId)}
+                  hrefDetalle={href(`/mis-reservas/${siguiente.r.id}`)}
+                  enCurso={estaEnCurso(siguiente.c, ahoraMs)}
+                  esFija={siguiente.r.estado !== 'en-espera' && esClaseFija(siguiente.r.id)}
+                  puedeCancelar={online && avisoCancelacion(siguiente.c, estudio.politicaCancelacionHoras).puede}
+                  motivoNoCancelar={!online ? 'Necesitas conexión' : 'La clase ya ha empezado'}
+                  onCalendario={() => añadirAlCalendario(siguiente.c, estudio.nombre, estudio.direccion, data.instructoras.find((x) => x.id === siguiente.c.instructoraId)?.nombre)}
+                  onCancelar={() => setCancelId(siguiente.r.id)}
+                />
+              )}
+              {agruparAgenda(agenda, hoy).map((g) => (
+                <section key={g.titulo} aria-label={g.titulo} style={{ marginTop: 8 }}>
+                  <p className="t-label" style={{ margin: '0 4px 7px' }}>{g.titulo}</p>
+                  <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    {g.items.map(({ r, c }, idx) => (
+                      <FilaAgenda
+                        key={r.id} r={r} c={c} primera={idx === 0}
+                        instructora={data.instructoras.find((x) => x.id === c.instructoraId)?.nombre}
+                        hrefDetalle={href(`/mis-reservas/${r.id}`)}
+                        enCurso={estaEnCurso(c, ahoraMs)}
+                        esFija={r.estado !== 'en-espera' && esClaseFija(r.id)}
+                        puedeCancelar={online && avisoCancelacion(c, estudio.politicaCancelacionHoras).puede}
+                        motivoNoCancelar={!online ? 'Necesitas conexión' : 'La clase ya ha empezado'}
+                        onCancelar={() => setCancelId(r.id)}
+                      />
+                    ))}
                   </div>
-                );
-              })}
+                </section>
+              ))}
               {fijasOcultas > 0 && (
-                <p data-testid="fijas-ocultas" className="t-meta" style={{ margin: '2px 4px 0', textAlign: 'center' }}>
+                <p data-testid="fijas-ocultas" className="t-meta" style={{ margin: '4px 4px 0', textAlign: 'center' }}>
                   {TEXTOS_PLAZA_FIJA.masReservadas(fijasOcultas)}
                 </p>
               )}
@@ -442,3 +412,149 @@ export default function MisReservasPage() {
 type Tab = 'prox' | 'fijas' | 'hist';
 const TABS: Tab[] = ['prox', 'fijas', 'hist'];
 const ETIQUETA_TAB: Record<Tab, string> = { prox: 'Próximas', fijas: 'Fijas', hist: 'Historial' };
+
+// ── Piezas de «Próximas» ─────────────────────────────────────────────────────
+
+const BOTON_OSCURO: React.CSSProperties = {
+  height: 34,
+  background: 'color-mix(in srgb, var(--accent-deep-foreground) 12%, transparent)',
+  color: 'var(--accent-deep-foreground)',
+  border: '1px solid color-mix(in srgb, var(--accent-deep-foreground) 35%, transparent)',
+};
+
+function Estado({ r, enCurso, esFija, c }: { r: Reserva; c: Clase; enCurso: boolean; esFija: boolean }) {
+  // En curso manda sobre el estado de la reserva: si la clase está dándose,
+  // «Lista de espera · 2ª» ya no es la noticia.
+  if (enCurso) return <EnCursoBadge terminaA={horaFin(c.hora, c.duracionMin)} />;
+  if (r.estado === 'en-espera') return <Badge tone="wait">{`Lista de espera${r.posicionEspera ? ` · ${r.posicionEspera}ª` : ''}`}</Badge>;
+  return <Badge tone="ok">{esFija ? 'Tu clase fija ✓' : 'Reservada ✓'}</Badge>;
+}
+
+/** Una plaza ofrecida de la lista de espera: lo único que caduca solo. Va arriba. */
+function TarjetaOferta({ r, c, instructora, online, aceptando, onAceptar, onSalir }: {
+  r: Reserva; c: Clase; instructora?: string; online: boolean; aceptando: boolean; onAceptar: () => void; onSalir: () => void;
+}) {
+  return (
+    <div className="a-pop" style={{ background: 'var(--warning-soft)', border: '1px solid var(--warning)', borderRadius: 'var(--radius-card)', padding: '13px 15px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800 }}>{etiquetaDia(c.fecha)} · {c.hora}</p>
+        <Badge tone="few">¡Plaza libre!</Badge>
+      </div>
+      <p style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--warning-foreground)' }}>
+        Tienes hasta las {new Date(r.ofertaExpiraEn as string).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} para aceptarla — si no, pasa a la siguiente de la lista.
+      </p>
+      <p style={{ margin: '6px 0 0', fontSize: 'var(--t-body)', fontWeight: 700 }}>{c.nombre}</p>
+      <p className="t-meta" style={{ marginTop: 2 }}>{unirMeta(instructora, c.sala)}</p>
+      <div style={{ display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap' }}>
+        <button type="button" className="btn btn--primary btn--sm tap" style={{ height: 34 }} disabled={!online || aceptando} title={!online ? 'Necesitas conexión' : undefined} onClick={onAceptar}>
+          {aceptando ? 'Aceptando…' : 'Aceptar plaza'}
+        </button>
+        <button type="button" className="btn btn--light btn--sm tap" style={{ height: 34 }} disabled={!online || aceptando} title={!online ? 'Necesitas conexión' : undefined} onClick={onSalir}>
+          Salir de la lista
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * La siguiente clase, destacada. Mismo lenguaje que «Tu próxima clase» de
+ * Inicio (`NextClassCard`): verde noche sobre la foto de la clase.
+ */
+function HeroProxima({ r, c, instructora, hrefDetalle, enCurso, esFija, puedeCancelar, motivoNoCancelar, onCalendario, onCancelar }: {
+  r: Reserva; c: Clase; instructora?: Instructora; hrefDetalle: string; enCurso: boolean; esFija: boolean;
+  puedeCancelar: boolean; motivoNoCancelar: string; onCalendario: () => void; onCancelar: () => void;
+}) {
+  const espera = r.estado === 'en-espera';
+  const falta = faltaTexto(c.fecha, hoyISO());
+  return (
+    <section
+      aria-label={enCurso ? 'Tu clase de ahora' : 'Tu próxima clase'}
+      data-testid="proxima-clase"
+      className="a-pop"
+      style={{ position: 'relative', borderRadius: 'var(--radius-hero)', overflow: 'hidden', boxShadow: 'var(--shadow-hero)', color: 'var(--accent-deep-foreground)' }}
+    >
+      {c.fotoUrl && <div aria-hidden style={{ position: 'absolute', inset: 0, background: `url(${c.fotoUrl}) center/cover` }} />}
+      <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(100deg, rgba(18,41,26,.96), rgba(18,41,26,.74))' }} />
+      <div style={{ position: 'relative', padding: '15px 16px 14px' }}>
+        <Link href={hrefDetalle} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <p className="t-label" style={{ color: 'var(--accent-deep-muted)' }}>
+              {/* «Hoy»/«Mañana» ya los dice el titular: cuánto falta solo se
+                  añade cuando aporta («En 5 días»). */}
+              {enCurso ? 'Tu clase, en curso' : unirMeta('Tu próxima clase', falta.startsWith('En ') ? falta : undefined)}
+            </p>
+            <Estado r={r} c={c} enCurso={enCurso} esFija={esFija} />
+          </div>
+          <p className="t-num" style={{ margin: '10px 0 0', fontSize: 'var(--t-h2)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.05, color: 'var(--on-dark)' }}>
+            {etiquetaDia(c.fecha)} · {c.hora}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 'var(--t-body)', fontWeight: 700, color: 'var(--on-dark)' }}>
+            {c.nombre} <span style={{ fontWeight: 500, color: 'var(--accent-deep-muted)' }}>· {c.duracionMin} min</span>
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+            {instructora && <CaraInstructora i={instructora} lado={26} />}
+            <span className="t-meta" style={{ color: 'color-mix(in srgb, var(--accent-deep-foreground) 85%, transparent)' }}>
+              {unirMeta(instructora ? `con ${instructora.nombre}` : undefined, c.sala)}
+            </span>
+          </div>
+        </Link>
+        <div style={{ display: 'flex', gap: 7, marginTop: 13, flexWrap: 'wrap' }}>
+          {!espera && (
+            <button type="button" onClick={onCalendario} className="btn btn--sm tap" style={{ height: 34, background: 'var(--on-dark)', color: 'var(--accent-deep)' }}>
+              + Calendario
+            </button>
+          )}
+          <button
+            type="button" onClick={onCancelar} className="btn btn--sm tap" style={BOTON_OSCURO}
+            disabled={!puedeCancelar} title={!puedeCancelar ? motivoNoCancelar : undefined}
+          >
+            {espera ? 'Salir de la lista' : 'Cancelar'}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Una fila de la agenda: fecha, qué y con quién. Tocarla abre la reserva. */
+function FilaAgenda({ r, c, instructora, hrefDetalle, primera, enCurso, esFija, puedeCancelar, motivoNoCancelar, onCancelar }: {
+  r: Reserva; c: Clase; instructora?: string; hrefDetalle: string; primera: boolean; enCurso: boolean; esFija: boolean;
+  puedeCancelar: boolean; motivoNoCancelar: string; onCancelar: () => void;
+}) {
+  const t = tileFecha(c.fecha);
+  const espera = r.estado === 'en-espera';
+  return (
+    <div data-testid="fila-agenda" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', borderTop: primera ? 'none' : '1px solid var(--border)' }}>
+      <Link href={hrefDetalle} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, color: 'inherit', textDecoration: 'none' }}>
+        <span
+          aria-hidden
+          style={{
+            width: 46, flexShrink: 0, borderRadius: 12, padding: '6px 0 7px', textAlign: 'center',
+            background: espera ? 'var(--muted)' : 'var(--accent-soft)',
+            color: espera ? 'var(--foreground)' : 'var(--accent-soft-foreground)',
+          }}
+        >
+          <span style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '.06em' }}>{t.semana}</span>
+          <span className="t-num" style={{ display: 'block', fontSize: 19, fontWeight: 800, lineHeight: 1.05 }}>{t.dia}</span>
+        </span>
+        <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span className="trunc" style={{ fontSize: 'var(--t-body)', fontWeight: 800, letterSpacing: '-.01em' }}>{c.nombre}</span>
+          <span className="t-meta trunc">{unirMeta(c.hora, instructora, c.sala)}</span>
+          <span style={{ display: 'flex' }}><Estado r={r} c={c} enCurso={enCurso} esFija={esFija} /></span>
+        </span>
+      </Link>
+      <button
+        type="button" onClick={onCancelar} className="btn btn--sm tap"
+        style={{ height: 30, flexShrink: 0, padding: '0 11px', background: 'transparent', color: 'var(--muted-foreground)', border: '1px solid var(--border)' }}
+        disabled={!puedeCancelar} title={!puedeCancelar ? motivoNoCancelar : undefined}
+      >
+        {espera ? 'Salir de la lista' : 'Cancelar'}
+      </button>
+    </div>
+  );
+}
+
+function unirMeta(...partes: Array<string | undefined>): string {
+  return partes.filter(Boolean).join(' · ');
+}

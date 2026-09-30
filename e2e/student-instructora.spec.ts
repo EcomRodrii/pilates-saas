@@ -28,10 +28,22 @@ test.describe('Student PWA · instructora', () => {
     await expect(page).toHaveURL(/\/reservar\/ses-12$/);
   });
 
-  test('sin bio ni nota publicable, la ficha no inventa nada', async ({ page }) => {
+  test('con una sola valoración, la nota sale con su número de votos al lado', async ({ page }) => {
+    // Antes hacía falta llegar a 5 votos: un «5,0» a secas con dos decía
+    // «perfecta». Con el total visible («4,8/5 ★ (1)») ya no engaña.
     await sembrarSociaLista(page);
     const f = fixtureSociaLista();
-    (f.instructores[0] as unknown as Record<string, unknown>).valoracion = { media: 5, total: 2 };
+    (f.instructores[0] as unknown as Record<string, unknown>).valoracion = { media: 4.8, total: 1 };
+    await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f) }));
+    await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) }));
+    await page.goto(`${base}/reservar/${SESION_ID}`);
+    await expect(page.getByTestId('nota-instructora').first()).toHaveText('4,8/5 (1)', { timeout: 30_000 });
+  });
+
+  test('sin bio ni valoraciones, la ficha no inventa nada', async ({ page }) => {
+    await sembrarSociaLista(page);
+    const f = fixtureSociaLista();
+    delete (f.instructores[0] as unknown as Record<string, unknown>).valoracion;
     await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f) }));
     await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [] }) }));
     await page.goto(`${base}/reservar/${SESION_ID}`);
