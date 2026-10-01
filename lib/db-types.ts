@@ -2477,7 +2477,7 @@ export interface RowOauthAuditoriaAccesos {
   status_code: number;
   ip: string | null;
   creado_en: string;
-  // migr 20261001150000.
+  // migr 20261001140538.
   api_clave_id: string | null;
 }
 
