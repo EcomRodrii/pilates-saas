@@ -38,6 +38,9 @@ export const COLUMNAS = {
   venta: 'id, numero, socio_id, recibo_id, realizada_en, estado, metodo_pago, subtotal, descuento, base_imponible, iva_total, total, importe_devuelto, devuelta_en, anulada_en, ventas_pos_lineas(id, tipo, nombre, cantidad, precio_unitario, descuento, iva_pct, base_imponible, iva_importe, total, devuelta_cantidad, orden)',
   devolucion: 'id, recibo_id, venta_pos_id, socio_id, origen, importe_cobrado, importe_devuelto, estado, stripe_charge_id, detectada_en, resuelta_en',
   suscripcion: 'id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, baja_al_vencer, planes_tarifa(nombre, tipo)',
+  // Sin `nombre_externo` (el nombre que manda ClassPass/USC) ni las marcas
+  // internas del motor (recordatorios, bono, confirmación de riesgo).
+  reserva: 'id, sesion_id, socio_id, estado, spot_id, creado_en, check_in_en, origen, cancelada_tardia, sesiones(inicio, fin, tipos_clase(nombre))',
   tarifa: 'id, nombre, descripcion, tipo, precio, sesiones, validez_dias, periodicidad_meses, matricula, activo',
 } as const;
 
@@ -140,6 +143,26 @@ export function suscripcionPublica(f: Fila) {
     tipoPlan: plan ? s(plan, 'tipo') : null,
     estado: s(f, 'estado'), fechaInicio: s(f, 'fecha_inicio'), fechaFin: s(f, 'fecha_fin'),
     sesionesRestantes: n(f, 'sesiones_restantes'), bajaAlVencer: f.baja_al_vencer === true,
+  };
+}
+
+/**
+ * Una reserva. Conserva la forma con la que nació `GET /reservas` para Zapier
+ * (`socioId`, `sesionId`, `spotId`, `creadoEn`): en v1 solo se AÑADEN campos.
+ * `clientaId` repite `socioId` con el nombre del resto de la API.
+ */
+export function reservaPublica(f: Fila) {
+  const sesion = (Array.isArray(f.sesiones) ? f.sesiones[0] : f.sesiones ?? null) as Fila | null;
+  const tipo = sesion ? ((Array.isArray(sesion.tipos_clase) ? sesion.tipos_clase[0] : sesion.tipos_clase ?? null) as Fila | null) : null;
+  return {
+    id: s(f, 'id'), sesionId: s(f, 'sesion_id'), socioId: s(f, 'socio_id'), clientaId: s(f, 'socio_id'),
+    /** CONFIRMADA, LISTA_ESPERA, PENDIENTE_APROBACION, CANCELADA, ASISTIDA o NO_ASISTIO. */
+    estado: s(f, 'estado'), spotId: s(f, 'spot_id'), creadoEn: s(f, 'creado_en'),
+    checkInEn: s(f, 'check_in_en'),
+    /** TENTARE, o la plataforma por la que entró (CLASSPASS, URBAN_SPORTS_CLUB…): esas no tienen clienta. */
+    origen: s(f, 'origen'),
+    canceladaTardia: f.cancelada_tardia === true,
+    clase: sesion ? { inicio: s(sesion, 'inicio'), fin: s(sesion, 'fin'), nombre: tipo ? s(tipo, 'nombre') : null } : null,
   };
 }
 

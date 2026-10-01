@@ -63,7 +63,7 @@ Todas las rutas cuelgan de `https://tentare.app/api/v1`. El antiguo prefijo `/ap
 | `GET /facturas`, `GET /facturas/{id}` | `facturas:leer` | Facturas, rectificativas incluidas |
 | `GET /suscripciones` | `planes:leer` | Cuotas y bonos (un bono tiene `tipoPlan: BONO` y `sesionesRestantes`) |
 | `GET /tarifas` | `planes:leer` | Catálogo de planes y bonos |
-| `GET/POST /reservas`, `POST /reservas/cancelar` | `reservas:*` | Reservas |
+| `GET/POST /reservas`, `POST /reservas/cancelar` | `reservas:*` | Reservas, con la clase (inicio, fin y tipo), el check-in y el origen |
 | `POST /clientas`, `POST /notas`, `POST /tareas` | `*:escribir` | Altas |
 | `GET /planes` | `planes:leer` | **Obsoleto**: es `/suscripciones` con la forma antigua. Se mantiene por Zapier. |
 | `GET /eventos` | el de cada recurso | Registro de lo que ha cambiado (ver «Eventos y webhooks») |
@@ -149,9 +149,15 @@ Los eventos se registran **solo en los estudios con la API activada**, y se guar
 | Venta de la caja | `venta.creada`, `venta.actualizada`, `venta.eliminada` | `pagos:leer` |
 | Factura | `factura.creada`, `factura.actualizada`, `factura.eliminada` | `facturas:leer` |
 | Clienta | `clienta.creada`, `clienta.actualizada`, `clienta.eliminada` | `clientas:leer` |
+| Reserva | `reserva.creada`, `reserva.actualizada`, `reserva.eliminada` | `reservas:leer` |
+| Suscripción (cuota o bono) | `suscripcion.creada`, `suscripcion.actualizada`, `suscripcion.eliminada` | `planes:leer` |
 
 - Hay un `*.actualizado` cuando cambia algún campo que la API enseña. Un recibo cobrado pasa a `estado: COBRADO`; mira `datos.situacion` para saber en qué ha quedado.
-- Un cambio interno que no se ve en la API (un reintento de cobro programado, por ejemplo) no genera evento.
+- Un cambio interno que no se ve en la API (un reintento de cobro programado, el recordatorio de una clase, la posición en la lista de espera) no genera evento.
+- Reservas y suscripciones sirven para automatizaciones (Zapier) y BI, no para la contabilidad.
+  - Una reserva cancelada es un `reserva.actualizada` con `datos.estado: CANCELADA`.
+  - Gastar una sesión de un bono es un `suscripcion.actualizada` (`sesionesRestantes` baja).
+  - Las reservas que llegan de ClassPass o Urban Sports Club también generan eventos, con `origen` de la plataforma y sin clienta. El nombre que manda la plataforma nunca sale.
 
 ### Forma de un evento
 
@@ -283,7 +289,7 @@ curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://tentare.app/api/v1/ev
   - Rutas `/api/integrations/api-publica/*`, solo para la propietaria (`puedeGestionarClavesApi`).
 - **Límite por plan.** `scopesDelPlan()` es el único sitio donde se pondrá cuando haya una decisión comercial. Hoy no recorta nada.
 - **Eventos y webhooks (F2).**
-  - Los registra el trigger `api_registrar_evento` (migr `20261001162731`), no el código: `recibos` tiene decenas de escritores.
+  - Los registra el trigger `api_registrar_evento`, no el código: `recibos` tiene decenas de escritores. F2 (migr `20261001162731`) cubre recibos, facturas, devoluciones, ventas y clientas; `20261001190000` añade reservas y suscripciones. La definición vigente de la función es la de la última migración que la redefine (`catalogo.test.ts` la busca así).
   - Un `UPDATE` solo es evento si cambia una columna de `COLUMNAS`. `lib/api-publica/webhooks/catalogo.test.ts` cruza la lista del trigger con `serializar.ts`.
   - El trabajador (`lib/api-publica/webhooks/trabajador.ts`) lo dispara el cron `api-webhooks`: cada minuto, pero **solo si hay algo que hacer** (el `where exists` va antes del POST).
   - El trabajador escribe `datos` con el mismo serializador que la API y entrega con firma HMAC (`firma.ts`).
@@ -298,6 +304,5 @@ curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://tentare.app/api/v1/ev
   - Borrar un webhook es un borrado lógico (`borrado_en`/`borrado_por`): queda el rastro de a qué URL apuntaba y quién lo creó y lo borró.
   - Cada fila del trigger abre una subtransacción (el `exception` que protege la escritura de negocio), solo en estudios con la API activa. Con más de 64 filas en una sola sentencia (importación masiva) desborda la caché de subtransacciones; es aceptable a esta escala, pero conviene tenerlo presente.
 - **Pendiente.**
-  - Eventos de reservas y suscripciones, para Zapier y BI: hoy solo los de contabilidad.
   - `Idempotency-Key` en los POST.
   - Claves a nivel de cadena.

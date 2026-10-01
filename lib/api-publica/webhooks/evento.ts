@@ -3,7 +3,7 @@
 // leyendo el registro y pasa a webhooks (o al revés) no cambia de parser.
 
 import {
-  COLUMNAS, clientaPublica, devolucionPublica, facturaPublica, reciboPublico, ventaPublica,
+  COLUMNAS, clientaPublica, devolucionPublica, facturaPublica, reciboPublico, reservaPublica, suscripcionPublica, ventaPublica,
 } from '../serializar.ts';
 import type { RecursoEvento } from './catalogo.ts';
 
@@ -46,6 +46,8 @@ export const COLUMNAS_EVENTO: Record<RecursoEvento, string> = {
   // Sin NIF ni dirección: el evento lo recibe cualquier webhook o credencial
   // con `clientas:leer`. Los datos fiscales se piden con GET /clientas.
   clienta: `${COLUMNAS.clienta}, studio_id`,
+  reserva: `${COLUMNAS.reserva}, studio_id`,
+  suscripcion: `${COLUMNAS.suscripcion}, studio_id`,
 };
 
 export function serializarRecurso(recurso: RecursoEvento, fila: Record<string, unknown>): Record<string, unknown> {
@@ -55,6 +57,8 @@ export function serializarRecurso(recurso: RecursoEvento, fila: Record<string, u
     case 'devolucion': return devolucionPublica(fila);
     case 'venta': return ventaPublica(fila);
     case 'clienta': return clientaPublica(fila, false);
+    case 'reserva': return reservaPublica(fila);
+    case 'suscripcion': return suscripcionPublica(fila);
   }
 }
 

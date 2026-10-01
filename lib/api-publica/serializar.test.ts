@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COLUMNAS, aCentimos, clientaPublica, devolucionPublica, estudioPublico, facturaPublica, reciboPublico,
-  suscripcionPublica, tarifaPublica, ventaPublica,
+  reservaPublica, suscripcionPublica, tarifaPublica, ventaPublica,
 } from './serializar.ts';
 import { ESQUEMAS } from './openapi.ts';
 
@@ -11,10 +11,18 @@ import { ESQUEMAS } from './openapi.ts';
 const INTERNAS = {
   hash: 'h', terminos_hash: 'x', checkout_session_id: 'cs_1', cobro_mostrador_pi: 'pi_x', studio_id: 'otro-estudio',
   aceptacion_firma: 'firma', stripe_customer_id: 'cus_1', idempotencia_clave: 'k', verifactu_hash: 'vh',
+  // El nombre que manda ClassPass/USC con la reserva: dato personal de fuera.
+  nombre_externo: 'Nombre de la plataforma',
+};
+// Quita las tablas embebidas (`sesiones(inicio, tipos_clase(nombre))`), también anidadas.
+const sinEmbebidos = (columnas: string) => {
+  let r = columnas;
+  while (/\w+\([^()]*\)/.test(r)) r = r.replace(/\w+\([^()]*\)/g, '');
+  return r;
 };
 const fila = (columnas: string, valores: Record<string, unknown> = {}) => {
   const f: Record<string, unknown> = { ...INTERNAS };
-  for (const c of columnas.replace(/\w+\([^)]*\)/g, '').split(',').map(s => s.trim()).filter(Boolean)) f[c] = null;
+  for (const c of sinEmbebidos(columnas).split(',').map(s => s.trim()).filter(Boolean)) f[c] = null;
   return { ...f, ...valores };
 };
 
@@ -27,6 +35,7 @@ const CASOS: [string, () => Record<string, unknown>][] = [
   ['Devolucion', () => devolucionPublica(fila(COLUMNAS.devolucion))],
   ['Suscripcion', () => suscripcionPublica(fila(COLUMNAS.suscripcion, { planes_tarifa: { nombre: 'Bono 10', tipo: 'BONO' } }))],
   ['Tarifa', () => tarifaPublica(fila(COLUMNAS.tarifa))],
+  ['Reserva', () => reservaPublica(fila(COLUMNAS.reserva, { sesiones: { inicio: null, fin: null, tipos_clase: { nombre: 'Reformer' } } }))],
 ];
 
 for (const [nombre, serializar] of CASOS) {

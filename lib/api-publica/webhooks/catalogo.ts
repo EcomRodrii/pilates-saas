@@ -11,7 +11,7 @@
 
 import type { ScopeOAuth } from '../catalogo-scopes.ts';
 
-export const RECURSOS_EVENTO = ['recibo', 'factura', 'devolucion', 'venta', 'clienta'] as const;
+export const RECURSOS_EVENTO = ['recibo', 'factura', 'devolucion', 'venta', 'clienta', 'reserva', 'suscripcion'] as const;
 export type RecursoEvento = (typeof RECURSOS_EVENTO)[number];
 
 export const TIPOS_EVENTO = [
@@ -20,6 +20,9 @@ export const TIPOS_EVENTO = [
   'devolucion.creada', 'devolucion.actualizada', 'devolucion.eliminada',
   'venta.creada', 'venta.actualizada', 'venta.eliminada',
   'clienta.creada', 'clienta.actualizada', 'clienta.eliminada',
+  // Para automatizaciones (Zapier) y BI, no para la contabilidad.
+  'reserva.creada', 'reserva.actualizada', 'reserva.eliminada',
+  'suscripcion.creada', 'suscripcion.actualizada', 'suscripcion.eliminada',
 ] as const;
 export type TipoEvento = (typeof TIPOS_EVENTO)[number];
 
@@ -38,6 +41,8 @@ export const TABLA_DE_RECURSO: Record<RecursoEvento, string> = {
   devolucion: 'devoluciones',
   venta: 'ventas_pos',
   clienta: 'socios',
+  reserva: 'reservas',
+  suscripcion: 'suscripciones',
 };
 
 /**
@@ -50,6 +55,8 @@ export const SCOPE_DE_RECURSO: Record<RecursoEvento, ScopeOAuth> = {
   venta: 'pagos:leer',
   factura: 'facturas:leer',
   clienta: 'clientas:leer',
+  reserva: 'reservas:leer',
+  suscripcion: 'planes:leer',
 };
 
 export function scopeDeTipo(tipo: TipoEvento): ScopeOAuth {
@@ -67,7 +74,12 @@ export const NOMBRE_RECURSO: Record<RecursoEvento, string> = {
   devolucion: 'Devoluciones',
   venta: 'Ventas de la caja',
   clienta: 'Alumnas',
+  reserva: 'Reservas',
+  suscripcion: 'Cuotas y bonos',
 };
 
+/** Los recursos de dinero: lo que necesita un programa de contabilidad. */
+export const RECURSOS_CONTABILIDAD: readonly RecursoEvento[] = ['recibo', 'factura', 'devolucion', 'venta'];
+
 /** Lo que propone el panel al crear un webhook «para la contabilidad»: todo lo de dinero. */
-export const TIPOS_CONTABILIDAD: readonly TipoEvento[] = TIPOS_EVENTO.filter(t => !t.startsWith('clienta.'));
+export const TIPOS_CONTABILIDAD: readonly TipoEvento[] = TIPOS_EVENTO.filter(t => RECURSOS_CONTABILIDAD.includes(recursoDeTipo(t)));

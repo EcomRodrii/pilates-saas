@@ -88,13 +88,23 @@ export const ESQUEMAS: Record<string, Esquema> = {
     precio: cent('Precio.'), sesiones: int(), validezDias: int(), periodicidadMeses: int(),
     matricula: cent('Matrícula.'), activa: bool(),
   }),
+  Reserva: obj({
+    id: strReq(), sesionId: str(), socioId: str('La clienta (nombre original de la v1). null en reservas de ClassPass/USC.'),
+    clientaId: str('Igual que `socioId`, con el nombre del resto de la API.'),
+    estado: str('CONFIRMADA, LISTA_ESPERA, PENDIENTE_APROBACION, CANCELADA, ASISTIDA o NO_ASISTIO.'),
+    spotId: str('Máquina o sitio, si la clase los numera.'), creadoEn: instante('Cuándo se reservó.'),
+    checkInEn: instante('Cuándo entró a la clase.'),
+    origen: str('TENTARE, o la plataforma por la que llegó (CLASSPASS, URBAN_SPORTS_CLUB…).'),
+    canceladaTardia: bool('Se canceló fuera de plazo.'),
+    clase: { type: ['object', 'null'], properties: { inicio: instante('Inicio.'), fin: instante('Fin.'), nombre: str('Tipo de clase.') }, required: ['inicio', 'fin', 'nombre'] },
+  }),
   Evento: obj({
     id: strReq('Único: úsalo para no procesar dos veces el mismo evento.'),
     tipo: { type: 'string', enum: [...TIPOS_EVENTO], description: '`<recurso>.<creado|actualizado|eliminado>` (en femenino para factura, devolución, venta y clienta).' },
     creadoEn: strReq('Cuándo ocurrió.'), estudioId: strReq(),
     recurso: { type: 'string', enum: Object.keys(SCOPE_DE_RECURSO) }, recursoId: strReq('Id del recibo, factura, devolución, venta o clienta.'),
     version: { type: 'string', enum: ['v1'] },
-    datos: { type: ['object', 'null'], description: 'El recurso con la misma forma que su endpoint (Recibo, Factura, Devolucion, Venta o Clienta sin datos fiscales), tal y como estaba segundos después del cambio. null si ya no existe.' },
+    datos: { type: ['object', 'null'], description: 'El recurso con la misma forma que su endpoint (Recibo, Factura, Devolucion, Venta, Clienta sin datos fiscales, Reserva o Suscripcion), tal y como estaba segundos después del cambio. null si ya no existe.' },
   }),
 };
 
@@ -163,7 +173,7 @@ export const RUTAS: Record<string, unknown> = {
   '/tarifas': { get: { summary: 'Catálogo de planes y bonos', security: [{ bearer: [] }], 'x-scope': 'planes:leer', parameters: [q('activas', 'true: solo las que se venden.')], responses: { 200: { description: 'Todas (sin paginar)', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Tarifa' } } } } }, ...ERRORES } } },
   '/planes': { get: { summary: 'Obsoleto: usa /suscripciones', deprecated: true, security: [{ bearer: [] }], 'x-scope': 'planes:leer', responses: { 200: { description: 'Suscripciones (forma antigua)' }, ...ERRORES } } },
   '/reservas': {
-    get: { summary: 'Reservas', security: [{ bearer: [] }], 'x-scope': 'reservas:leer', parameters: [...PARAMS_LISTADO, q('estado', 'CONFIRMADA por defecto.'), q('socioId', 'Filtra por clienta.')], responses: { 200: { description: 'Una página', headers: CABECERAS_PAGINA }, ...ERRORES } },
+    get: { summary: 'Reservas', security: [{ bearer: [] }], 'x-scope': 'reservas:leer', parameters: [q('estado', 'CONFIRMADA por defecto.'), q('socioId', 'Filtra por clienta.'), { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 25 } }], responses: { 200: { description: 'Las más recientes primero (sin paginar: es la forma con la que nació para Zapier). Solo reservas de clientas de Tentare.', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Reserva' } } } } }, ...ERRORES } },
     post: { summary: 'Crear una reserva', security: [{ bearer: [] }], 'x-scope': 'reservas:escribir', responses: { 201: { description: 'Creada' }, ...ERRORES } },
   },
   '/reservas/cancelar': { post: { summary: 'Cancelar una reserva', security: [{ bearer: [] }], 'x-scope': 'reservas:escribir', responses: { 200: { description: 'Cancelada' }, ...ERRORES } } },
