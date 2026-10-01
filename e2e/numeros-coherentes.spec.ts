@@ -121,6 +121,18 @@ test.describe('Los números dicen lo mismo entre pantallas', () => {
     await expect(page.locator('[data-estado-filtro="ACTIVA"]')).toContainText('2', { timeout: 30_000 });
   });
 
+  test('"Clientas activas" de Informes es el mismo número, y la «Tasa retención» de antes ya no está', async ({ page }) => {
+    // Informes contaba «no está de baja» con la RPC antigua (aquí sembrada con
+    // 12 activas de 20, a propósito): una tercera cifra para lo mismo.
+    await montar(page, '/informes');
+    const activas = page.locator('a[href="/clientas?estado=ACTIVA"]');
+    await expect(activas).toHaveText('2', { timeout: 30_000 });
+    await expect(page.getByText('Tasa retención')).toHaveCount(0);
+    await expect(page.getByText(/\d+ activas de \d+/)).toHaveCount(0);
+    // Y la tabla de cohortes cuenta por cuando EMPEZARON, no por la fecha de alta.
+    await expect(page.getByRole('heading', { name: 'Cuántas siguen viniendo, por mes en que empezaron' })).toBeVisible();
+  });
+
   test('las dos medias de dinero ya no se llaman igual', async ({ page }) => {
     await montar(page, '/cobros');
     await expect(page.getByText('Ingreso medio por clienta')).toBeVisible({ timeout: 30_000 });

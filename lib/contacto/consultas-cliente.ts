@@ -77,8 +77,17 @@ export async function marcarAtendida(id: string, authUserId: string): Promise<Re
       .eq('id', id).eq('estado', 'nueva')
       .select('id');
     if (error) return { ok: false, error: 'No se ha podido marcar como atendida.' };
-    if (!data || data.length !== 1) return { ok: false, error: 'No se ha podido marcar como atendida. Recarga la página por si ya lo hizo otra persona.' };
-    return { ok: true };
+    if (data && data.length === 1) return { ok: true };
+    // Cero filas no es siempre un fallo. Al dar de alta la ficha con el mismo
+    // email, la base de datos ya la ha cerrado y enlazado (trigger
+    // `socios_vincula_consulta`), y la RLS no deja tocar una enlazada: el alta
+    // desde una consulta decía «sigue como nueva» justo cuando ya no lo estaba.
+    // Y otra persona puede haberla atendido mientras tanto. Se mira cómo está.
+    const { data: actual, error: errorLeer } = await supabase.from('consultas_contacto')
+      .select('estado').eq('id', id).maybeSingle();
+    if (!errorLeer && actual?.estado === 'atendida') return { ok: true };
+    if (!errorLeer && actual?.estado === 'descartada') return { ok: false, error: 'Otra persona la había descartado.' };
+    return { ok: false, error: 'No se ha podido marcar como atendida. Recarga la página por si ya lo hizo otra persona.' };
   } catch {
     return { ok: false, error: 'Error de conexión' };
   }

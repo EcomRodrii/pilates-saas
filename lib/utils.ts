@@ -47,8 +47,12 @@ export function compararVersiones(a: string, b: string): number {
 // Formatea un importe en euros al estilo español: coma decimal + " €"
 // (p.ej. 22 → "22,00 €"). SOLO para mostrar en pantalla. NO usar para valores
 // de protocolo/QR (Verifactu, PayPal), que exigen punto decimal a propósito.
+// Uno reutilizado: `toLocaleString` con opciones construye un formateador en cada
+// llamada (ver `porZona`, más abajo), y esto se pinta una vez por fila.
+const FORMATO_EURO = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export function formatEuro(n: number): string {
-  return `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  return `${FORMATO_EURO.format(n)} €`;
 }
 
 // Formateadores de fecha/hora en español — estaban reimplementados (copy-paste
@@ -107,15 +111,37 @@ export function finDeSemana(fecha: Date | string): Date {
 // dos horas distintas. Un único sitio, y que no vuelva a pasar.
 export const TZ_ESTUDIO = 'Europe/Madrid';
 
+/**
+ * Un formateador por zona horaria, construido la primera vez y reutilizado.
+ *
+ * Construir un `Intl.DateTimeFormat` cuesta del orden de una décima de
+ * milisegundo; formatear con uno ya hecho, microsegundos. Y `hoyEnEstudio` se
+ * llama una vez por reserva: en un estudio de 300 clientas y dos años de clases
+ * (25.000 reservas), construirlos se comía medio segundo al abrir Clientas
+ * (perfil de CPU a ×2). La caché crece con las zonas, no con los datos.
+ */
+function porZona(crear: (tz: string) => Intl.DateTimeFormat): (tz: string) => Intl.DateTimeFormat {
+  const hechos = new Map<string, Intl.DateTimeFormat>();
+  return (tz) => {
+    let f = hechos.get(tz);
+    if (!f) {
+      f = crear(tz);
+      hechos.set(tz, f);
+    }
+    return f;
+  };
+}
+
+const formatoDesfase = porZona(tz => new Intl.DateTimeFormat('en-US', {
+  timeZone: tz, hour12: false,
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit',
+}));
+
 /** Desfase de la zona del estudio respecto a UTC, en milisegundos, para un
  *  instante dado. Cambia con el horario de verano, así que NO se puede fijar. */
 function desfaseEstudio(msUtc: number, tz: string = TZ_ESTUDIO): number {
-  const f = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz, hour12: false,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
-  const p = Object.fromEntries(f.formatToParts(new Date(msUtc)).map(x => [x.type, x.value]));
+  const p = Object.fromEntries(formatoDesfase(tz).formatToParts(new Date(msUtc)).map(x => [x.type, x.value]));
   // `hour` puede venir como '24' a medianoche en algunos entornos.
   const hora = Number(p.hour) % 24;
   const comoUtc = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), hora, Number(p.minute), Number(p.second));
@@ -150,6 +176,11 @@ export function inicioDelDiaEstudio(fechaISO: string, tz: string = TZ_ESTUDIO): 
  * primavera salía una hora antes. Y se comprueba a la vuelta: «31 de febrero» o
  * las 02:30 del día que el reloj salta de 02:00 a 03:00 no existen.
  */
+const formatoInstante = porZona(tz => new Intl.DateTimeFormat('en-CA', {
+  timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+}));
+
 export function instanteEnEstudio(fechaISO: string, hora: string, tz: string = TZ_ESTUDIO): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaISO) || !/^\d{2}:\d{2}$/.test(hora)) return null;
   const [a, m, d] = fechaISO.split('-').map(Number);
@@ -158,11 +189,7 @@ export function instanteEnEstudio(fechaISO: string, hora: string, tz: string = T
   const tentativo = Date.UTC(a, m - 1, d, h, min, 0);
   const primero = tentativo - desfaseEstudio(tentativo, tz);
   const ms = tentativo - desfaseEstudio(primero, tz);
-  const f = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  });
-  const p = Object.fromEntries(f.formatToParts(new Date(ms)).map(x => [x.type, x.value]));
+  const p = Object.fromEntries(formatoInstante(tz).formatToParts(new Date(ms)).map(x => [x.type, x.value]));
   if (`${p.year}-${p.month}-${p.day}` !== fechaISO || `${p.hour}:${p.minute}` !== hora) return null;
   return new Date(ms).toISOString();
 }
@@ -190,12 +217,14 @@ export function finDelDiaEstudio(fechaISO: string, tz: string = TZ_ESTUDIO): str
  * servidor ni la del navegador.
  */
 export function hoyEnEstudio(ahora: Date = new Date(), tz: string = TZ_ESTUDIO): string {
-  // 'en-CA' da exactamente 'YYYY-MM-DD', que es el formato que espera una
-  // columna `date` de Postgres.
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(ahora);
+  return formatoHoy(tz).format(ahora);
 }
+
+// 'en-CA' da exactamente 'YYYY-MM-DD', que es el formato que espera una columna
+// `date` de Postgres.
+const formatoHoy = porZona(tz => new Intl.DateTimeFormat('en-CA', {
+  timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+}));
 
 /**
  * Suma días a una fecha 'YYYY-MM-DD' y devuelve otra igual.
@@ -303,24 +332,25 @@ export function claveSemanaEstudio(instante: Date, tz: string = TZ_ESTUDIO): str
 
 /** "sábado, 25 de julio" en hora del estudio. */
 export function fechaLargaEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): string {
-  return new Date(fecha).toLocaleDateString('es-ES', {
-    weekday: 'long', day: 'numeric', month: 'long', timeZone: tz,
-  });
+  return formatoFechaLarga(tz).format(new Date(fecha));
 }
 
 /** "25 de julio" en hora del estudio (sin día de la semana). */
 export function fechaCortaEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): string {
-  return new Date(fecha).toLocaleDateString('es-ES', {
-    day: 'numeric', month: 'long', timeZone: tz,
-  });
+  return formatoFechaCorta(tz).format(new Date(fecha));
 }
 
 /** "09:00" en hora del estudio. */
 export function horaEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): string {
-  return new Date(fecha).toLocaleTimeString('es-ES', {
-    hour: '2-digit', minute: '2-digit', timeZone: tz,
-  });
+  return formatoHora(tz).format(new Date(fecha));
 }
+
+// Los mismos que daban `toLocaleDateString`/`toLocaleTimeString` con esas
+// opciones (con campos de fecha o de hora explícitos, el resultado es idéntico),
+// pero construidos una vez por zona.
+const formatoFechaLarga = porZona(tz => new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz }));
+const formatoFechaCorta = porZona(tz => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', timeZone: tz }));
+const formatoHora = porZona(tz => new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: tz }));
 
 /** "sábado, 25 de julio a las 09:00" en hora del estudio. */
 export function cuandoEstudio(fecha: Date | string, tz: string = TZ_ESTUDIO): string {

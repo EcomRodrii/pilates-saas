@@ -41,6 +41,7 @@ import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
+import { aCentimos, importeAdeudado } from '@/lib/billing/situacion-recibo';
 import { puedeProgramarBaja } from '@/lib/billing/baja-al-vencer';
 import { textoCobrosAlCancelar, type ReciboPendienteDeLaCuota } from '@/lib/billing/texto-cancelar-cuota';
 import { dbRecibosPendientesDeCuota } from '@/lib/supabase-data';
@@ -125,12 +126,19 @@ function localDate(d: Date | string): string {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 }
 
+// Construidos una vez: un `toLocale…String` con opciones construye uno en cada
+// llamada, y la ficha los usa por cada reserva y cada recibo en cada render.
+// Mismas opciones y misma zona (la del navegador) que antes.
+const FORMATO_FECHA = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+const FORMATO_HORA = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' });
+const FORMATO_FECHA_RESERVA = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+
 function fecha(iso: string) {
-  return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  return FORMATO_FECHA.format(new Date(iso));
 }
 
 function formatHora(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  return FORMATO_HORA.format(new Date(iso));
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -577,7 +585,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   const {
     suscripcion, plan, tags, proximasReservas, asistidas, estesMes,
     totalGastado, pendientes,
-    pendientesImporte, cumpleanos, pagosFallidos,
+    cumpleanos, pagosFallidos,
   } = resumen;
 
   // Filtered reservas for "Reservas" tab
@@ -601,7 +609,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     return {
       label: tipo?.nombre ?? 'Clase',
       color: tipo?.color ?? 'color-mix(in srgb, var(--info) 12%, var(--card))',
-      date: new Date(ses.inicio).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
+      date: FORMATO_FECHA_RESERVA.format(new Date(ses.inicio)),
       time: formatHora(ses.inicio),
       sala: sala?.nombre ?? '',
       instructor: instructor?.nombre ?? '',
@@ -1018,6 +1026,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     return { valor: plan.nombre, detalle: partes.join(' · ') || null };
   })();
 
+  const adeudado = aCentimos(misRecibos.reduce((acc, r) => acc + importeAdeudado(r), 0));
   const celdas: CeldaCabecera[] = [
     { icono: CircleDollarSign, etiqueta: 'Plan', valor: celdaPlan.valor, detalle: celdaPlan.detalle, tono: !plan ? 'aviso' : undefined },
     // Cuándo arriba (es lo que se busca de un vistazo) y qué clase debajo.
@@ -1035,8 +1044,12 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     verFinanzas
       ? {
           icono: CreditCard, etiqueta: 'Pendiente de cobro',
-          valor: pendientesImporte > 0 ? formatEuro(pendientesImporte) : 'Nada',
-          tono: pagosFallidos.length > 0 ? 'problema' : pendientesImporte > 0 ? 'aviso' : undefined,
+          // Lo que debe, como «Pendiente cobro» de Cobros (docs/cifras-financieras.md):
+          // por cobrar + impagado. Con solo lo pendiente, una clienta con un cobro
+          // fallido salía con «Nada» justo encima de «Tiene un pago fallido».
+          valor: adeudado > 0 ? formatEuro(adeudado) : 'Nada',
+          detalle: pagosFallidos.length > 0 ? (pagosFallidos.length === 1 ? '1 pago fallido' : `${pagosFallidos.length} pagos fallidos`) : null,
+          tono: pagosFallidos.length > 0 ? 'problema' : adeudado > 0 ? 'aviso' : undefined,
           onClick: () => setActiveTab('pagos'),
         }
       : { icono: CalendarClock, etiqueta: 'Este mes', valor: `${estesMes} ${estesMes === 1 ? 'clase' : 'clases'}` },
@@ -1305,7 +1318,14 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                     ? `Último correo del equipo: ${fechaCorta(hoyEnEstudio(new Date(ultimoCorreoDelEquipo.creadoEn)), hoyTxt)}${ultimoCorreoDelEquipo.creadoPorNombre ? ` (${ultimoCorreoDelEquipo.creadoPorNombre})` : ''}. `
                     : comunicacionesCargadas ? 'Nadie del equipo le ha escrito todavía. ' : '')}
                 {aviso.origen === 'CENTRO_DE_CONTROL' && (
-                  <Link href="/centro-de-control" className="font-semibold text-foreground underline-offset-2 hover:underline">Ver en el Centro de Control</Link>
+                  // Directo a SU situación, con el detalle abierto: el Centro sin más
+                  // la dejaba plegada entre todas las demás.
+                  <Link
+                    href={aviso.recomendacionId ? `/centro-de-control?rec=${encodeURIComponent(aviso.recomendacionId)}` : '/centro-de-control?detalle=1'}
+                    className="font-semibold text-foreground underline-offset-2 hover:underline"
+                  >
+                    Ver en el Centro de Control
+                  </Link>
                 )}
               </>
             }

@@ -2,11 +2,13 @@
 // domingo, hora del estudio) en las últimas N semanas, la actual incluida.
 //
 // Puro: se prueba con `node --test`.
+import { hoyEnEstudio } from '../utils.ts';
 
 const MS_DIA = 86_400_000;
 
+// El formateador de `hoyEnEstudio` se construye una vez; aquí era uno por clase.
 function diaEstudio(iso: string, tz: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
+  return hoyEnEstudio(new Date(iso), tz);
 }
 
 /** Lunes ('YYYY-MM-DD') de la semana de ese día. */
