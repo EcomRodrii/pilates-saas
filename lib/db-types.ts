@@ -2427,7 +2427,7 @@ export interface RowOauthClientes {
   logo_url: string | null;
   activo: boolean;
   creado_en: string;
-  // migr 20261001210000.
+  // migr 20261001194127.
   scopes_permitidos: string[] | null;
 }
 
