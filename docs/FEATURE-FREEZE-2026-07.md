@@ -108,6 +108,8 @@ Todo esto sigue en el repo y hace posible reactivar con pocos cambios:
   rpc `mis_likes_comunidad`.
 - **Estado** en `lib/studio-context.tsx`: `ventasPOS`, `videosOnDemand`,
   `postsComunidad` (y sus setters), cargados en el bootstrap del estudio.
+  (`addVentaPOS` y `dbInsertVentaPOS` se retiraron el 1-oct-2026: el POS se
+  reconstruyó en servidor, `lib/pos/venta-servidor.ts`, y nadie los llamaba.)
 - **Helpers**: `lib/stream.ts`, `lib/stream-playback.ts` (Cloudflare Stream para VOD).
 - **Tipos** en `lib/types.ts`: `VentaPOS`, `ItemVentaPOS`, `ProductoPOS`, `VideoOnDemand`,
   `PostComunidad`, etc.

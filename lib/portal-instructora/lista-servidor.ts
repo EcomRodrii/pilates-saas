@@ -30,7 +30,7 @@ import {
 
 interface FilaClase { id: string; inicio: string; fin: string; cancelada: boolean | null; tipo_clase_id: string | null }
 interface Socia { nombre: string | null; apellidos: string | null }
-interface FilaReserva { id: string; estado: string; socio_id: string; socios: Socia | Socia[] | null }
+interface FilaReserva { id: string; estado: string; socio_id: string | null; origen?: string | null; nombre_externo?: string | null; socios: Socia | Socia[] | null }
 
 type Admin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 type ClaseDeInstructora = { studioId: string; instructorId: string; sesionId: string };
@@ -65,7 +65,10 @@ export async function listaDeClase(p: ClaseDeInstructora): Promise<ListaDeClase 
       return (data?.nombre as string | undefined) || 'Clase';
     })(),
     (async () => {
-      const { data, error } = await admin.from('reservas').select('id, estado, socio_id, socios!inner(nombre, apellidos)')
+      // Sin `!inner`: las reservas de ClassPass/USC no tienen socia, y con el
+      // join obligatorio desaparecían de la lista aunque ocupan plaza (el
+      // contador de aforo sí las cuenta). Su nombre viene en `nombre_externo`.
+      const { data, error } = await admin.from('reservas').select('id, estado, socio_id, origen, nombre_externo, socios(nombre, apellidos)')
         .eq('studio_id', p.studioId).eq('sesion_id', clase.id)
         .in('estado', ['CONFIRMADA', 'ASISTIDA', 'NO_ASISTIO']);
       if (error) throw error;
@@ -73,9 +76,14 @@ export async function listaDeClase(p: ClaseDeInstructora): Promise<ListaDeClase 
     })(),
   ]);
 
-  const enLista = filas.flatMap((f) => {
+  type EnLista = { reservaId: string; socioId: string | undefined; estado: EstadoEnLista; persona: { nombre: string | null; apellidos: string | null } };
+  const enLista = filas.flatMap((f): EnLista[] => {
     const estado = estadoEnLista(f.estado);
     if (!estado) return [];
+    if (!f.socio_id) {
+      // De una plataforma: sin ficha a la que enlazar.
+      return [{ reservaId: f.id, socioId: undefined, estado, persona: { nombre: f.nombre_externo ?? null, apellidos: null } }];
+    }
     const socia = Array.isArray(f.socios) ? f.socios[0] : f.socios;
     return [{ reservaId: f.id, socioId: f.socio_id, estado, persona: { nombre: socia?.nombre ?? null, apellidos: socia?.apellidos ?? null } }];
   });

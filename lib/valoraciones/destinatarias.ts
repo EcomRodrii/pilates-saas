@@ -5,7 +5,8 @@
 // falta aquí: cuando el estudio pasa lista, las que fueron dejan de ser
 // CONFIRMADA y salían de la invitación, y las que no aparecieron seguían dentro.
 
-export interface ReservaMin { id: string; socio_id: string; estado: string }
+/** `socio_id` null: reserva de ClassPass/USC, que no es socia y no recibe la petición. */
+export interface ReservaMin { id: string; socio_id: string | null; estado: string }
 export interface SocioMin { id: string; nombre: string; apellidos: string | null; email: string | null; borrado_en: string | null; auth_user_id?: string | null }
 export interface Destinataria { socio_id: string; reserva_id: string; nombre: string; email: string | null; /** Sin cuenta reclamada no hay bandeja in-app ni push que ver. */ conCuenta: boolean }
 
@@ -14,7 +15,7 @@ export function destinatariasValoracion(reservas: ReservaMin[], socios: SocioMin
   const vistas = new Set<string>();
   const out: Destinataria[] = [];
   for (const r of reservas) {
-    if (r.estado !== 'ASISTIDA' || vistas.has(r.socio_id)) continue;
+    if (r.estado !== 'ASISTIDA' || !r.socio_id || vistas.has(r.socio_id)) continue;
     const s = porId.get(r.socio_id);
     if (!s || s.borrado_en) continue;
     vistas.add(r.socio_id);

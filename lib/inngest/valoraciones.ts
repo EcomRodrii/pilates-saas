@@ -150,7 +150,9 @@ export const procesarValoracionesEstudio = inngest.createFunction(
         const { data: reservasRaw } = await admin
           .from('reservas').select('id, socio_id, estado')
           .eq('studio_id', studioId).eq('sesion_id', c.id).eq('estado', 'ASISTIDA');
-        const idsSocias = Array.from(new Set((reservasRaw ?? []).map((r) => r.socio_id)));
+        // Las reservas de ClassPass/USC no tienen socia: no se les pide valoración
+        // (no es clienta del estudio) y un `null` dentro de `.in()` rompe la consulta.
+        const idsSocias = Array.from(new Set((reservasRaw ?? []).map((r) => r.socio_id).filter((id): id is string => !!id)));
         const { data: sociosRaw } = idsSocias.length
           ? await admin.from('socios').select('id, nombre, apellidos, email, borrado_en, auth_user_id').in('id', idsSocias)
           : { data: [] as { id: string; nombre: string; apellidos: string | null; email: string | null; borrado_en: string | null; auth_user_id: string | null }[] };
