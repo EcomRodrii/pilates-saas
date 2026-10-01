@@ -3,12 +3,13 @@
 //
 //   node --experimental-strip-types scripts/indexnow.mjs                 → todas las del sitemap
 //   node --experimental-strip-types scripts/indexnow.mjs /precios /recursos/x → solo esas rutas
+//   INDEXNOW_FICHEROS="lib/recursos/articulos/x.ts\n…" …                 → solo las que tocan esos ficheros
 //   INDEXNOW_SECO=1 …                                                     → enseña lo que mandaría
 //
 // Lo lanza .github/workflows/indexnow.yml cuando cambia contenido público y
 // Vercel ya ha desplegado ese commit: avisar antes de tiempo hace que el
 // buscador lea la versión vieja.
-import { INDEXNOW_ENDPOINT, INDEXNOW_HOST, cuerpoIndexNow, urlsDelSitemap } from '../lib/seo/indexnow.ts';
+import { INDEXNOW_ENDPOINT, INDEXNOW_HOST, cuerpoIndexNow, urlsAfectadas, urlsDelSitemap } from '../lib/seo/indexnow.ts';
 
 const rutas = process.argv.slice(2);
 let urls;
@@ -18,6 +19,17 @@ if (rutas.length > 0) {
   const res = await fetch(`https://${INDEXNOW_HOST}/sitemap.xml`, { headers: { 'cache-control': 'no-cache' } });
   if (!res.ok) throw new Error(`sitemap.xml respondió ${res.status}`);
   urls = urlsDelSitemap(await res.text());
+  // Desde el workflow llega la lista de ficheros del commit: solo se avisa de lo
+  // que ha cambiado (ver `urlsAfectadas`). A mano, sin ella, va el sitemap entero.
+  if (process.env.INDEXNOW_FICHEROS !== undefined) {
+    const ficheros = process.env.INDEXNOW_FICHEROS.split('\n').map((f) => f.trim()).filter(Boolean);
+    urls = urlsAfectadas(ficheros, urls);
+    if (urls.length === 0) {
+      console.log(`IndexNow: ninguna página pública cambiada en ${ficheros.length} ficheros; no se avisa.`);
+      process.exit(0);
+    }
+    for (const u of urls) console.log(`  ${u}`);
+  }
 }
 if (urls.length === 0) throw new Error('No hay ninguna URL que avisar');
 
