@@ -135,6 +135,8 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   un recurso nuevo con eventos lleva su trigger + su entrada en el catálogo (lo cruza
   `catalogo.test.ts`). Toda llamada saliente a una URL del estudio va por `enviarWebhook`
   (SSRF: IP comprobada al CONECTAR, sin redirecciones); nunca un `fetch` a pelo.
+  Los POST aceptan `Idempotency-Key` y lo resuelve `conApiPublica` (lib/api-publica/idempotencia.ts):
+  un POST nuevo en `app/api/v1` lo hereda sin hacer nada, y no debe saltarse esa puerta.
 - **Modo de Stripe**: el código es agnóstico (`sk_live_` y `sk_test_` funcionan igual), y
   `sk_test_XXXX` significa **«sin configurar»**, NO «modo test» — una clave de test real la
   pasa. Lo que está prohibido es mezclar: `lib/billing/modo-stripe.ts` bloquea clave live

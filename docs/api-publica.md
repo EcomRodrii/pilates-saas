@@ -107,8 +107,27 @@ curl -H "Authorization: Bearer $TENTARE_CLAVE" \
 | 403 | `api_no_activada` | La API no está activada para el estudio (solo claves) |
 | 403 | `estudio_sin_acceso` | El estudio está suspendido o no tiene suscripción activa |
 | 404 | `not_found` | El recurso no existe **en este estudio** |
+| 409 | `request_in_progress` | Otra petición con la misma `Idempotency-Key` sigue en marcha; reintenta tras `Retry-After` |
+| 422 | `idempotency_conflict` | Esa `Idempotency-Key` ya se usó con otra petición |
 | 429 | `rate_limited` | Demasiadas peticiones; espera lo que indica `Retry-After` |
 | 500 | `server_error` | Error nuestro; cita el `requestId` |
+
+### Reintentos seguros: `Idempotency-Key`
+
+Si un `POST` (crear una clienta, una reserva, una nota…) no te devuelve respuesta, no sabes si se hizo. Para poder reintentar sin duplicar, manda la cabecera `Idempotency-Key` con un valor único por operación, por ejemplo un UUID:
+
+```bash
+curl -X POST -H "Authorization: Bearer $TENTARE_CLAVE" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 6f1c2b8e-1d0a-4c55-9a51-0b7c2f3e9d10" \
+  -d '{"nombre":"…","email":"…"}' https://tentare.app/api/v1/clientas
+```
+
+- **Si reintentas con la misma clave y la misma petición**, recibes la respuesta del primer intento, con la cabecera `Idempotent-Replayed: true`, y no se crea nada dos veces.
+- **Si usas la misma clave con otra petición** (otra ruta u otro cuerpo), recibes un 422 `idempotency_conflict`.
+- **Si la primera petición todavía se está procesando**, recibes un 409 `request_in_progress`; reintenta tras `Retry-After`.
+- **Si la primera falló con un 5xx**, no se guarda: el reintento vuelve a ejecutarse.
+- **Ámbito y duración.** La clave vale para tu credencial (clave de API o app OAuth) y se guarda **24 horas**.
+- **Es opcional.** Sin la cabecera, todo funciona como siempre.
 
 ### Límites
 
@@ -297,6 +316,10 @@ curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://tentare.app/api/v1/ev
   - **SSRF** (`destino.ts`): https y puerto 443; nombres e IP no públicas fuera; la IP se vuelve a comprobar **al conectar** (`lookup` propio en `envio.ts`); sin redirecciones.
   - El secreto se guarda **cifrado** con la clave de las integraciones (`secretos.ts`) y falla cerrado: sin clave no hay webhooks. El barrido nocturno de copias lo vuelve a cifrar tras rotar la clave.
   - Desactivar la API desde `/interno` desactiva también los webhooks.
+- **`Idempotency-Key`** (`lib/api-publica/idempotencia.ts` y `conApiPublica`).
+  - En todos los POST: aparta la clave en `api_idempotencia` antes del handler y guarda la respuesta después. Un 5xx se borra, para que el reintento vuelva a ejecutarse.
+  - Si no puede comprobar la clave, responde 503 y **no ejecuta nada**, para no duplicar.
+  - El cron `api-idempotencia-purgar` borra cada hora lo que tiene más de 24 h. Por eso la tabla no va en la purga de estudios.
   - Avisos a la propietaria (`lib/api-publica/webhooks/salud.ts`): «no recibe» a las 12 h (ALTA), «desactivado» (CRÍTICA, siempre por correo) y «vuelve a funcionar» (cierra el primero). Uno por racha: `api_webhooks.aviso_fallando_en`, más escrituras condicionadas y una clave de deduplicación con el inicio de la racha.
   - El cursor de `/eventos` es `publicado` y no `seq`: se reparte al procesar, bajo un cerrojo que dura hasta el commit, así que su orden es el de confirmación.
   - Reparto justo: los dos «reclamar» limitan por estudio (eventos) y por webhook (entregas), y el cron repite tandas mientras le queda presupuesto.
@@ -304,5 +327,4 @@ curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://tentare.app/api/v1/ev
   - Borrar un webhook es un borrado lógico (`borrado_en`/`borrado_por`): queda el rastro de a qué URL apuntaba y quién lo creó y lo borró.
   - Cada fila del trigger abre una subtransacción (el `exception` que protege la escritura de negocio), solo en estudios con la API activa. Con más de 64 filas en una sola sentencia (importación masiva) desborda la caché de subtransacciones; es aceptable a esta escala, pero conviene tenerlo presente.
 - **Pendiente.**
-  - `Idempotency-Key` en los POST.
   - Claves a nivel de cadena.

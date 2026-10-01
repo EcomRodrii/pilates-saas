@@ -3844,6 +3844,19 @@ export interface RowApiWebhookEntregas {
   creada_en: string;
 }
 
+export interface RowApiIdempotencia {
+  studio_id: string;
+  credencial: string;
+  clave: string;
+  ruta: string;
+  huella: string;
+  estado: string;
+  status_http: number | null;
+  respuesta: any | null;
+  creado_en: string;
+  completado_en: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -10633,6 +10646,32 @@ export type ApiWebhookEntregasUpdate = {
   creada_en?: string | null;
 }
 
+export type ApiIdempotenciaInsert = {
+  studio_id?: string | null;
+  credencial?: string | null;
+  clave?: string | null;
+  ruta?: string | null;
+  huella?: string | null;
+  estado?: string | null;
+  status_http?: number | null | null;
+  respuesta?: any | null | null;
+  creado_en?: string | null;
+  completado_en?: string | null | null;
+}
+
+export type ApiIdempotenciaUpdate = {
+  studio_id?: string | null;
+  credencial?: string | null;
+  clave?: string | null;
+  ruta?: string | null;
+  huella?: string | null;
+  estado?: string | null;
+  status_http?: number | null | null;
+  respuesta?: any | null | null;
+  creado_en?: string | null;
+  completado_en?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -11825,6 +11864,11 @@ export type Database = {
         Row: RowApiWebhookEntregas;
         Insert: ApiWebhookEntregasInsert;
         Update: ApiWebhookEntregasUpdate;
+      };
+      api_idempotencia: {
+        Row: RowApiIdempotencia;
+        Insert: ApiIdempotenciaInsert;
+        Update: ApiIdempotenciaUpdate;
       };
     };
   };
