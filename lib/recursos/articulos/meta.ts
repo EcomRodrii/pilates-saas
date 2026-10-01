@@ -80,6 +80,44 @@ export const ARTICULOS_META: ArticuloMeta[] = [
     "palabras": 1974
   },
   {
+    "slug": "alternativas-a-bsport",
+    "titulo": "Alternativas a bsport para tu estudio de pilates en España (2026)",
+    "tituloSeo": "Alternativas a bsport en 2026: la Nº1 en pilates y 5 más",
+    "descripcion": "¿Quieres dejar bsport? Seis alternativas para estudios de pilates en España, con precio, permanencia, app con tu marca y qué pasa con tus datos.",
+    "resumen": "Para estudios que quieren dejar bsport: por qué cambian, seis alternativas lado a lado según su web pública y cómo cambiarte sin perder alumnas, bonos ni historial.",
+    "categoria": "software",
+    "seccion": "Elegir software",
+    "publicado": "2026-10-01",
+    "relacionadas": [
+      "/comparativa/tentare-vs-bsport",
+      "/recursos/bsport-vs-timp",
+      "/recursos/alternativas-a-timp",
+      "/soluciones/cambiar-de-software",
+      "/recursos/mejor-software-para-estudios-de-pilates",
+      "/funcionalidades/app-para-alumnas"
+    ],
+    "palabras": 2476
+  },
+  {
+    "slug": "alternativas-a-timp",
+    "titulo": "Alternativas a TIMP para estudios de pilates y yoga en España (2026)",
+    "tituloSeo": "Alternativas a TIMP en 2026: la Nº1 en pilates y 5 más",
+    "descripcion": "¿Quieres dejar TIMP? Seis alternativas para estudios de pilates y yoga, con precio, permanencia, app y sustituciones, y cómo llevarte tus datos.",
+    "resumen": "Para estudios que quieren dejar TIMP: qué empuja a cambiar, seis alternativas lado a lado según su web pública y cómo llevarte alumnas, bonos e historial sin perder nada.",
+    "categoria": "software",
+    "seccion": "Elegir software",
+    "publicado": "2026-10-01",
+    "relacionadas": [
+      "/comparativa/tentare-vs-timp",
+      "/recursos/bsport-vs-timp",
+      "/recursos/alternativas-a-bsport",
+      "/soluciones/cambiar-de-software",
+      "/recursos/mejor-software-para-estudios-de-pilates",
+      "/funcionalidades/sustituciones"
+    ],
+    "palabras": 2376
+  },
+  {
     "slug": "cuanto-cuesta-abrir-un-estudio-de-pilates",
     "titulo": "Cuánto cuesta abrir un estudio de pilates: presupuesto por partidas con precios reales",
     "tituloSeo": "Cuánto cuesta abrir un estudio de pilates: presupuesto 2026",

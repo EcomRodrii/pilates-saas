@@ -46,6 +46,13 @@ export const PORTADAS_ARTICULOS: Record<string, PortadaRecursos> = {
     'Una mujer revisa en el portátil una hoja con gráficos mientras hojea un cuaderno de planificación', 'Sincerely Media', 'XihOO7UOvy4'),
   'bsport-vs-timp': portada('escritorio-portatil-movil-bsport-vs-timp', '15-bsport-vs-timp.jpg',
     'Un hombre trabaja en un portátil con un panel de datos mientras sostiene el móvil en un escritorio de madera', 'Zan Lazarevic', 'AmEeEB1g3XQ'),
+  // Las dos de alternativas salen de originales que ya usan otras guías
+  // (1-oct-2026): no quedaba ninguno sin usar con 1600 px. Con id propio, como
+  // exige el test; cambiarlas es añadir el original nuevo y correr el script.
+  'alternativas-a-bsport': portada('portatil-escritorio-alternativas-a-bsport', '25-software-pilates-gratis.jpg',
+    'Una mujer trabaja con un portátil en un escritorio ordenado', 'Zulfugar Karimov', 'pzjeeyl5C38'),
+  'alternativas-a-timp': portada('portatil-hoja-calculo-alternativas-a-timp', '26-plantilla-control-de-asistencia-pilates.jpg',
+    'Unas manos teclean en un portátil que muestra una hoja de cálculo', 'Gorilla ROI Data Connector', '9fZuqBYlV1w'),
   'cuanto-cuesta-abrir-un-estudio-de-pilates': portada('reformer-torre-madera-cuanto-cuesta-estudio', '16-cuanto-cuesta-abrir-un-estudio-de-pilates.jpg',
     'Una mujer hace un ejercicio en un reformer con torre de madera en un estudio de pilates', 'Ahmet Kurt', '0xn-8kRWOhE'),
   'precio-clase-de-pilates': portada('clase-grupo-esterilla-precio-clase-pilates', '17-precio-clase-de-pilates.jpg',
