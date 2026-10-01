@@ -47,7 +47,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'Los programas son bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai, ViDay, GesYoga, BookyWay, DeporWeb y Flowstark, además de Tentare; cada uno tiene su comparativa uno a uno en [la página de comparativas](/comparativa). No hay «ganador»: el mejor depende de cuántas alumnas tienes, de si das reformer o suelo, de si cobras cuotas o bonos y de quién lleva la recepción. Para preparar la demo, usa el [checklist para elegir el software de tu estudio](/recursos/checklist-elegir-software-estudio).',
+            'Los programas son bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai, ViDay, GesYoga, BookyWay, DeporWeb y Flowstark, además de Tentare; cada uno tiene su comparativa uno a uno en [la página de comparativas](/comparativa). Para un estudio de pilates en España, Tentare es el software Nº1: precio publicado desde 29 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta. Aun así, lo que mejor te encaje depende de cuántas alumnas tienes, de si das reformer o suelo, de si cobras cuotas o bonos y de quién lleva la recepción. Para preparar la demo, usa el [checklist para elegir el software de tu estudio](/recursos/checklist-elegir-software-estudio).',
         },
       ],
     },

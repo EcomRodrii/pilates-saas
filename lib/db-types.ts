@@ -3861,6 +3861,23 @@ export interface RowApiIdempotencia {
   completado_en: string | null;
 }
 
+export interface RowAltasEstudio {
+  auth_user_id: string;
+  origen: string;
+  estudio_nombre: string | null;
+  iniciada_en: string;
+  plan_en: string | null;
+  error_estudio_en: string | null;
+  error_estudio_intentos: number;
+  recordatorio_reclamado_en: string | null;
+  recordatorio_enviado_en: string | null;
+  recordatorio_paso: string | null;
+  recordatorio_intentos: number;
+  recordatorio_error: string | null;
+  recordatorio_descartado: string | null;
+  actualizado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -10680,6 +10697,40 @@ export type ApiIdempotenciaUpdate = {
   completado_en?: string | null | null;
 }
 
+export type AltasEstudioInsert = {
+  auth_user_id?: string | null;
+  origen?: string | null;
+  estudio_nombre?: string | null | null;
+  iniciada_en?: string | null;
+  plan_en?: string | null | null;
+  error_estudio_en?: string | null | null;
+  error_estudio_intentos?: number | null;
+  recordatorio_reclamado_en?: string | null | null;
+  recordatorio_enviado_en?: string | null | null;
+  recordatorio_paso?: string | null | null;
+  recordatorio_intentos?: number | null;
+  recordatorio_error?: string | null | null;
+  recordatorio_descartado?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type AltasEstudioUpdate = {
+  auth_user_id?: string | null;
+  origen?: string | null;
+  estudio_nombre?: string | null | null;
+  iniciada_en?: string | null;
+  plan_en?: string | null | null;
+  error_estudio_en?: string | null | null;
+  error_estudio_intentos?: number | null;
+  recordatorio_reclamado_en?: string | null | null;
+  recordatorio_enviado_en?: string | null | null;
+  recordatorio_paso?: string | null | null;
+  recordatorio_intentos?: number | null;
+  recordatorio_error?: string | null | null;
+  recordatorio_descartado?: string | null | null;
+  actualizado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -11877,6 +11928,11 @@ export type Database = {
         Row: RowApiIdempotencia;
         Insert: ApiIdempotenciaInsert;
         Update: ApiIdempotenciaUpdate;
+      };
+      altas_estudio: {
+        Row: RowAltasEstudio;
+        Insert: AltasEstudioInsert;
+        Update: AltasEstudioUpdate;
       };
     };
   };

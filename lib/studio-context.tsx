@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { fijarEtiqueta, capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
+import { MENSAJE_CLASE_DADA, sesionYaEmpezada, sinEmpezar } from '@/lib/calendario-estado';
 import { CoreProvider } from '@/lib/core-context';
 import { Toast, useToast } from '@/components/ui/toast';
 import { supabase } from '@/lib/db/supabase';
@@ -3321,6 +3322,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // sesión en servidor por id, y si el DELETE le gana la carrera ya no
     // encontraría nada que notificar.
     const sesion = sesiones.find(s => s.id === id);
+    if (sesion && sesionYaEmpezada(sesion.inicio)) return { ok: false, error: MENSAJE_CLASE_DADA };
     // El servidor solo avisa de una cancelación que ya está en la BD, así que la
     // clase se marca cancelada antes de avisar y de borrar. Si el DELETE fallara
     // después, queda cancelada (coherente con lo que ya se ha avisado), no en pie.
@@ -3492,8 +3494,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // mismo circuito que «esta y las siguientes»: escribe primero, avisa después,
   // marca las reservas y devuelve el bono según la política del estudio.
   // La usa también la bandeja de clases de una instructora dada de baja (RES-8).
-  async function cancelarSesionesConAviso(objetivo: Sesion[]): Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }> {
-    if (objetivo.length === 0) return { ok: true };
+  async function cancelarSesionesConAviso(candidatas: Sesion[]): Promise<ResultadoEscritura & { avisoBono?: string; avisadas?: number; sinAvisar?: number; enApp?: boolean }> {
+    if (candidatas.length === 0) return { ok: true };
+    // Las que ya han empezado se quedan como están (lib/calendario-estado.ts): de
+    // una serie se cancelan solo las que faltan.
+    const objetivo = sinEmpezar(candidatas);
+    if (objetivo.length === 0) return { ok: false, error: MENSAJE_CLASE_DADA };
     const ids = objetivo.map(s => s.id);
     const idSet = new Set(ids);
     setSesiones(prev => prev.map(s => idSet.has(s.id) ? { ...s, cancelada: true } : s));

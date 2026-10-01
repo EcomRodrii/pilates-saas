@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
-import { cn, cuandoEstudio, fechaLargaEstudio, franjaLocalDe, horaEstudio, capitalizarPrimera, hoyEnEstudio, masDias, TZ_ESTUDIO } from '@/lib/utils';
+import { cn, cuandoEstudio, fechaLargaEstudio, formatEuro, franjaLocalDe, horaEstudio, capitalizarPrimera, hoyEnEstudio, masDias, TZ_ESTUDIO } from '@/lib/utils';
 import { horaParedAInstante, fechaLocalDe, esHoraHHMM } from '@/lib/citas/slots';
 import { calcularImpactoEdicionSerie, cambiosPorClase, type EdicionDeSerie, type ImpactoEdicionSerie } from '@/lib/series-impacto-edicion';
 import { DialogoImpactoEdicion, type CambioVisible } from '@/components/series/dialogo-impacto-edicion';
@@ -91,7 +91,7 @@ import { anfitrionPortal } from '@/lib/panel-portal';
 import { VistaMes } from '@/components/calendario/vista-mes';
 import { BuscadorRapido } from '@/components/calendario/buscador-rapido';
 import { PanelSesion, horaTextoSesion, type PestanaSesion } from '@/components/calendario/panel-sesion';
-import { estadoSesion, pideDecision, sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA, MENSAJE_CLASE_AUN_NO_EMPEZADA, type EstadoSesion } from '@/lib/calendario-estado';
+import { estadoSesion, pideDecision, sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA, MENSAJE_CLASE_AUN_NO_EMPEZADA, MENSAJE_CLASE_DADA, type EstadoSesion } from '@/lib/calendario-estado';
 import { prepararColumnasSalaDia, prepararColumnasDiaSemana, type SesionColumna, type SesionSemana } from '@/lib/calendario-columnas';
 import { agregarPorDiaMes, type SesionMes, type DiaMes } from '@/lib/calendario-mes';
 import { type SesionBuscable } from '@/lib/calendario-busqueda';
@@ -1558,7 +1558,7 @@ export default function Calendario() {
   // serie, sin contar las ya canceladas). Se calcula aquí para poder decirlo
   // ANTES en la confirmación, igual que "Cancelar"/"Eliminar" de una suelta.
   const sesionesSerieRestantes = sesionActual?.serieId
-    ? sesionesEnriquecidas.filter(s => s.serieId === sesionActual.serieId && s.inicio >= sesionActual.inicio && !s.cancelada)
+    ? sesionesEnriquecidas.filter(s => s.serieId === sesionActual.serieId && s.inicio >= sesionActual.inicio && !s.cancelada && !sesionYaEmpezada(s.inicio))
     : [];
   const idsSerieRestantes = new Set(sesionesSerieRestantes.map(s => s.id));
   const apuntadasSerieRestante = reservas.filter(
@@ -1567,6 +1567,8 @@ export default function Calendario() {
 
   async function cancelarSesion() {
     if (!sesionId) return;
+    const aCancelar = sesionesEnriquecidas.find(s => s.id === sesionId);
+    if (aCancelar && sesionYaEmpezada(aCancelar.inicio)) { showToast(MENSAJE_CLASE_DADA); return; }
     const guardado = await updateSesion(sesionId, { cancelada: true });
     if (!guardado.ok) { showToast(guardado.error); return; }
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
@@ -1764,15 +1766,15 @@ export default function Calendario() {
       const res = await addRecibo({ socioId, suscripcionId: null, concepto: 'Clase suelta', importe: precio, fechaVencimiento: new Date().toISOString().slice(0, 10) });
       reciboOk = res.ok;
     }
-    // También por aquí: cobrarle una clase suelta y dejarla en espera sin decirlo
-    // sería peor todavía, porque ya ha pagado. La reserva se añade igual aunque
+    // También por aquí: dejarle un recibo y mandarla a la lista de espera sin
+    // decirlo sería peor todavía. La reserva se añade igual aunque
     // el recibo haya fallado — son dos cosas distintas, y sin la reserva la
     // clienta se queda además sin plaza.
     anadirOPreguntarEspera(sesionId, socioId);
     setAvisoSinBono(null);
     showToast(
       !reciboOk ? 'Clienta añadida, pero no se pudo crear el recibo — créalo a mano en Cobros'
-        : precio ? 'Clase suelta cobrada (recibo pendiente) y clienta añadida' : 'Clienta añadida',
+        : precio ? `Clienta añadida · recibo de ${formatEuro(precio)} pendiente de cobro en Cobros` : 'Clienta añadida',
     );
   }
 
@@ -3223,11 +3225,22 @@ export default function Calendario() {
               >
                 <AlertTriangle size={12} />Incidencia de sala
               </button>
-              <button onClick={() => setConfirmCancelar(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">
+              <button
+                onClick={() => setConfirmCancelar(true)}
+                disabled={sesionYaEmpezada(sesionActual.inicio)}
+                title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_DADA : undefined}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
                 <X size={12} />Cancelar
               </button>
               {!esInstructor && (
-                <button onClick={() => setConfirmEliminar(true)} aria-label="Eliminar sesión" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors ml-auto">
+                <button
+                  onClick={() => setConfirmEliminar(true)}
+                  disabled={sesionYaEmpezada(sesionActual.inicio)}
+                  aria-label="Eliminar sesión"
+                  title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_DADA : undefined}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors ml-auto disabled:opacity-40 disabled:pointer-events-none"
+                >
                   <Trash2 size={12} />
                 </button>
               )}

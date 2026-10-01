@@ -23,6 +23,7 @@ import {
 } from '@/lib/interno/crecimiento';
 import type { ResumenReviewBoost } from '@/lib/interno/review-boost';
 import { Prospeccion } from './prospeccion';
+import { AltasSinTerminarSeccion } from './altas-sin-terminar';
 
 const fecha = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
@@ -272,6 +273,8 @@ export default function CrecimientoInterno() {
           </div>
         </section>
       )}
+
+      <AltasSinTerminarSeccion />
 
       <section>
         <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">

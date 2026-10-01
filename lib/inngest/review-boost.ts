@@ -10,7 +10,7 @@ import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { isEligibleForReviewBoost, type SenalesReviewBoost } from '@/lib/growth/review-boost';
 import { enviarAhora } from '@/lib/analytics';
-import { barrerCuentasSinEstudio, barrerEstudiosSinClases } from './embudo-alta';
+import { barrerEstudiosSinClases } from './embudo-alta';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const VENTANA_DIAS = 30;
@@ -73,21 +73,10 @@ export const reviewBoostDispatcher = inngest.createFunction(
       return { evaluados: studios.length };
     });
 
-    // Fase 3 del onboarding (embudo de alta): dos asuntos sin relación entre
-    // sí colgados del mismo hueco diario, cada uno con su propio try/catch —
-    // mismo patrón que ya usa app/api/cron/notif-trial con pg_cron. Un fallo
-    // en uno no debe tumbar el otro ni el `evaluar` de arriba.
-    const embudoCuentas = await step.run('embudo-cuentas-sin-estudio', async () => {
-      const admin = getSupabaseAdmin();
-      if (!admin) return { skipped: 'sin service-role' };
-      try {
-        return await barrerCuentasSinEstudio(admin);
-      } catch (e) {
-        console.error('[embudo-alta] cuentas sin estudio:', e instanceof Error ? e.message : e);
-        return { error: true };
-      }
-    });
-
+    // Fase 3 del onboarding (embudo de alta), con su propio try/catch — mismo
+    // patrón que app/api/cron/notif-trial. Un fallo aquí no tumba `evaluar`.
+    // El aviso a CUENTAS sin estudio salió de aquí (1-oct-2026): ahora es el
+    // cron de pg_cron `altas-sin-terminar`, con el paso exacto de cada alta.
     const embudoEstudios = await step.run('embudo-estudios-sin-clases', async () => {
       const admin = getSupabaseAdmin();
       if (!admin) return { skipped: 'sin service-role' };
@@ -99,6 +88,6 @@ export const reviewBoostDispatcher = inngest.createFunction(
       }
     });
 
-    return { evaluados, embudoCuentas, embudoEstudios };
+    return { evaluados, embudoEstudios };
   },
 );
