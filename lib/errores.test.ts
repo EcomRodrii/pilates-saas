@@ -160,6 +160,23 @@ test('el trigger de las reglas de dinero de un tipo de clase dice quién decide,
   assert.doesNotMatch(r, /vuelve a entrar/i);
 });
 
+// COBRADO lo escribe el servidor (trigger `recibos_cobrado_solo_servidor`). Un 42501 a secas sale como
+// «no tienes permiso, vuelve a entrar», y aquí el permiso está bien: el recibo cambió de estado por
+// otro canal, o la pestaña es una versión vieja. Se reconoce por el nombre del trigger en el mensaje.
+test('el trigger de recibos cobrados dice que recargue, no «vuelve a entrar»', () => {
+  for (const message of [
+    'recibos_cobrado_solo_servidor: un recibo no puede crearse ya cobrado desde el navegador, el cobro lo registra el servidor',
+    'recibos_cobrado_solo_servidor: el estado cobrado de un recibo lo cambia el servidor, no el navegador',
+    'recibos_cobrado_solo_servidor: un recibo ya cobrado no cambia su importe, su método ni su fecha de cobro desde el navegador',
+  ]) {
+    const r = mensajeDeFalloAlGuardar({ code: '42501', message });
+    assert.match(r, /Recarga la página/);
+    assert.doesNotMatch(r, /vuelve a entrar/i);
+  }
+  // Y un 42501 que NO es suyo sigue siendo el genérico.
+  assert.match(mensajeDeFalloAlGuardar({ code: '42501', message: 'permission denied for table recibos' }), /no tienes permiso/i);
+});
+
 test('un tipo de clase archivado dice qué hacer, no «revisa los datos»', () => {
   // Lo lanza el trigger de `sesiones` (migr 20260930215125) al programar una
   // clase futura de un tipo archivado: otra pestaña lo archivó, o una serie.

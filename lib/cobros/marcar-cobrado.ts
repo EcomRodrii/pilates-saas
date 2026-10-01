@@ -15,6 +15,7 @@
 // Sin dependencias de servidor: lo importan la ruta Y el contexto del panel.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { MetodoCobro } from '../types.ts';
+import type { ResultadoEscritura } from '../errores.ts';
 import type { ResultadoConfirmarCobro } from '../billing/confirmar-cobro.ts';
 import {
   cobroManualDeRecibo, penalizacionDelRecibo, TEXTO_PENALIZACION_ANULADA,
@@ -309,6 +310,22 @@ export type ResultadoMarcarCobrado =
   | { ok: true; yaEstaba?: boolean; numeroFactura?: string }
   | { ok: false; error: string }
   | { ok: false; error: string; cobroRegistrado: true; numeroFactura?: string };
+
+/**
+ * «Nueva factura» y el cobro de una cita: un cobro al contado de UN recibo. Se crea
+ * pendiente y se cobra por el servidor, así que hay cuatro desenlaces y quien llama
+ * tiene que distinguirlos:
+ *  · `{ ok: true }` — cobrado y con su factura;
+ *  · `{ ok: false, error }` — NO se creó nada (o ni siquiera se llegó a escribir):
+ *    reintentar es seguro;
+ *  · `cobroRegistrado` — el dinero SÍ entró y lo que falló es la factura: no reenviar;
+ *  · `cobroSinConfirmar` — el recibo EXISTE pero no consta cobrado (el servidor dijo
+ *    que no, o no se supo): está en «Quién me debe», y reenviar crearía otro.
+ */
+export type ResultadoFacturaDirecta =
+  | ResultadoEscritura
+  | { ok: false; error: string; cobroRegistrado: true }
+  | { ok: false; error: string; cobroSinConfirmar: true };
 
 export interface ConteoLote {
   /** Cobrados por ESTA acción. */
