@@ -3,9 +3,8 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'nombres-para-estudio-de-pilates',
   titulo: 'Nombres para estudio de pilates: más de 100 ideas y cómo comprobar que están libres',
-  tituloSeo: 'Nombres para estudio de pilates: 100+ ideas originales',
-  descripcion:
-    'Más de 100 ideas de nombres para tu estudio de pilates o de barre, por estilos, y cómo comprobar en la OEPM, el Registro Mercantil y los .es que están libres.',
+  tituloSeo: 'Nombres para estudio de pilates: 100+ ideas y cómo registrarlo',
+  descripcion: 'Más de 100 nombres para tu estudio de pilates o de barre, por estilos, y cómo comprobar gratis en la OEPM y en los .es que nadie los tiene ya.',
   resumen:
     'Ideas de nombres para un estudio de pilates o de barre agrupadas por estilo, criterios para elegir y los pasos para comprobar que el nombre está libre antes de pagar el logotipo.',
   categoria: 'abrir',

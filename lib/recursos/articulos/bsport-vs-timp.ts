@@ -3,9 +3,8 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'bsport-vs-timp',
   titulo: 'bsport vs TIMP: diferencias para un estudio de pilates boutique',
-  tituloSeo: 'bsport vs TIMP: diferencias para estudios boutique',
-  descripcion:
-    'bsport vs TIMP para tu estudio de pilates: precio, permanencia, prueba, app, cobros, Veri*Factu y sustituciones, con lo que dice hoy la web de cada uno.',
+  tituloSeo: 'bsport vs TIMP en 2026: precio, app y diferencias reales',
+  descripcion: 'bsport o TIMP para tu estudio de pilates: precio, permanencia, prueba, app, cobros, Veri*Factu y sustituciones, con lo que dice hoy la web de cada uno.',
   resumen:
     'bsport y TIMP comparados para un estudio boutique de pilates con lo que publica hoy la web de cada uno: tabla lado a lado, para quién encaja cada uno y qué preguntar en la demo.',
   categoria: 'software',
