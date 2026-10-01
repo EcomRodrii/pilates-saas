@@ -348,7 +348,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/precios',
     titulo: 'Precios de Tentare — Software para estudios de Pilates desde 29€/mes',
     descripcion:
-      'Tres planes con precio público y sin permanencia: Base 29€, Estudio 59€ y Cadena 149€ al mes. Qué incluye cada uno, qué límites tiene y qué se cobra aparte.',
+      'Tres planes con precio público y sin permanencia: Founding Studio 29€, Estudio 59€ y Cadena 149€ al mes. Qué incluye cada uno, qué límites tiene y qué se cobra aparte.',
     grupo: 'software',
     etiqueta: 'Precios',
     resumen: 'Tres planes, precio público, sin permanencia y con prueba de 7 días sin tarjeta.',

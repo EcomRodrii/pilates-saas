@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 const ROWS: ComparativaRow[] = [
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', '«Cancela cuando quieras», según su web'] },
   { feature: 'Comisión de la plataforma por cobro', tentare: ['yes', 'Ninguna de Tentare (solo la de Stripe)'], them: ['partial', 'Los cobros por Stripe llevan sus comisiones; no consta si Lorari añade la suya'] },
-  { feature: 'App con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador, con tu nombre y tu icono'], them: ['yes', '«Tu app con tu logo», según su web'] },
+  { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', '«Tu app con tu logo», según su web'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada sala tiene su propio aforo (y su mapa de puestos, si lo usas), no un número global por clase'], them: ['partial', 'Menciona «control de capacidad y espacios» sin detallar si el aforo se fija por sala'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'La antelación para cancelar puede ser distinta por tipo de clase (p. ej. reformer vs. mat)'], them: ['partial', 'Habla de reprogramar «según las políticas del centro», sin detallar si son distintas por tipo de clase'] },
@@ -39,7 +39,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Lorari?',
-    a: 'Según su web, pagando el año: Starter 12 €/mes (50 alumnos activos), Pro 27 €/mes (150) y Business 51 €/mes (ilimitados); mes a mes, 16, 36 y 68 €. IVA aparte y 14 días de prueba. Tentare: Base 29 €/mes (hasta 150 alumnas), Estudio 59 y Cadena 149 €/mes, IVA incluido.',
+    a: 'Según su web, pagando el año: Starter 12 €/mes (50 alumnos activos), Pro 27 €/mes (150) y Business 51 €/mes (ilimitados); mes a mes, 16, 36 y 68 €. IVA aparte y 14 días de prueba. Tentare: Founding Studio 29 €/mes (hasta 150 alumnas), Estudio 59 y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 

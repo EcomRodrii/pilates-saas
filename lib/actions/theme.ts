@@ -37,7 +37,7 @@ export async function guardarThemeAction(body: unknown) {
   }
 
   if (!(await featureDeEstudio(sesion.studioId, 'marca'))) {
-    throw new ErrorAccion('La app de marca personalizada está incluida a partir del plan Estudio. Mejora tu plan para editarla.', 403);
+    throw new ErrorAccion('La app con tu marca está incluida en todos los planes. Activa tu suscripción para editarla.', 403);
   }
 
   const parsed = themeDraftSchema.safeParse(body);

@@ -34,7 +34,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['yes', 'Desde 50 €/mes (1 profesional); no consta si incluye IVA'] },
   { feature: 'Compromiso mínimo', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', '«La contratación mínima en la mayoría de planes es de 3 meses»'] },
   { feature: 'Comisión por captar clientas', tentare: ['yes', 'Sin marketplace ni comisión'], them: ['partial', 'Con TIMPY, «comisión por la gestión del cobro»; el porcentaje no es público'] },
-  { feature: 'App con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador, con tu nombre y tu icono'], them: ['yes', 'Progressive Web App con tu logo, nombre y colores'] },
+  { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'Progressive Web App con tu logo, nombre y colores'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada clase pertenece a una sala con capacidad propia, no solo un aforo global de la clase'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación mínima, penalización y mínimo de asistentes se fijan por tipo de clase, heredando lo del estudio'], them: ['partial', 'No consta en su web pública'] },
@@ -47,7 +47,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta TIMP?',
-    a: 'Según su web, por centro y al mes: Starter 50 € (1 profesional), Basic 85 € (3), Pro 130 € (10) y Premium 170 € (15), con descuento en planes semestrales y anuales; la web no aclara si incluye IVA. Tentare: Base 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
+    a: 'Según su web, por centro y al mes: Starter 50 € (1 profesional), Basic 85 € (3), Pro 130 € (10) y Premium 170 € (15), con descuento en planes semestrales y anuales; la web no aclara si incluye IVA. Tentare: Founding Studio 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
   },
   {
     q: '¿TIMP tiene permanencia?',

@@ -59,7 +59,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/soluciones/cambiar-de-software",
       "/precios"
     ],
-    "palabras": 2865
+    "palabras": 2881
   },
   {
     "slug": "bsport-vs-timp",
@@ -77,7 +77,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/checklist-elegir-software-estudio",
       "/soluciones/cambiar-de-software"
     ],
-    "palabras": 1974
+    "palabras": 1983
   },
   {
     "slug": "alternativas-a-bsport",
@@ -96,7 +96,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/mejor-software-para-estudios-de-pilates",
       "/funcionalidades/app-para-alumnas"
     ],
-    "palabras": 2476
+    "palabras": 2457
   },
   {
     "slug": "alternativas-a-timp",
@@ -115,7 +115,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/mejor-software-para-estudios-de-pilates",
       "/funcionalidades/sustituciones"
     ],
-    "palabras": 2376
+    "palabras": 2391
   },
   {
     "slug": "cuanto-cuesta-abrir-un-estudio-de-pilates",
@@ -133,7 +133,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/informes-y-rentabilidad",
       "/precios"
     ],
-    "palabras": 2261
+    "palabras": 2262
   },
   {
     "slug": "precio-clase-de-pilates",

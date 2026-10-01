@@ -320,8 +320,8 @@ export function EditorAparienciaApp() {
         )}
         {soyPropietaria && !incluidoEnPlan && (
           <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-[13px] text-foreground">
-            Puedes probarlo todo. Para publicarlo, la app con tu marca está incluida a partir del plan Estudio.{' '}
-            <Link href="/suscripcion" className="font-medium underline underline-offset-2">Ver planes</Link>
+            Puedes probarlo todo. Para publicarlo necesitas una suscripción activa: la app con tu marca va incluida en todos los planes.{' '}
+            <Link href="/suscripcion" className="font-medium underline underline-offset-2">Elegir plan</Link>
           </p>
         )}
       </header>

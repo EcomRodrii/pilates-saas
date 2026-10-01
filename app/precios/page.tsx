@@ -66,7 +66,7 @@ const FAQ = [
     a: 'No. Tentare no añade ninguna comisión sobre tus cobros ni tiene un marketplace donde competir por tus clientas. Lo que sí pagas es la comisión de Stripe por procesar cada pago, que es de Stripe y la ves en su propio panel.',
   },
   {
-    q: '¿Qué pasa si supero las 150 alumnas del plan Base?',
+    q: '¿Qué pasa si supero las 150 alumnas del plan Founding Studio?',
     a: 'El tope se aplica sobre alumnas activas: al llegar al límite no puedes dar de alta a más hasta que pases al plan Estudio. No se corta nada de lo que ya tienes ni se borra a nadie.',
   },
   {

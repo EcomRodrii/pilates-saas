@@ -31,7 +31,7 @@ export const metadata: Metadata = {
 const ROWS: ComparativaRow[] = [
   { feature: 'Precio de entrada', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['partial', 'Desde 39 €/mes (Individual), IVA no incluido'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', 'Sí: «solo avísanos y te damos de baja»'] },
-  { feature: 'App con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador, con tu nombre y tu icono'], them: ['yes', 'App con tu marca, incluida desde el plan Estándar'] },
+  { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'App con tu marca, incluida desde el plan Estándar'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta; sí ofrece plazas fijas con recuperación'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada clase pertenece a una sala con capacidad propia, no solo un aforo global de la clase'], them: ['partial', 'No consta en su web pública'] },
@@ -45,7 +45,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta ViDay?',
-    a: 'Según su web (IVA no incluido): planes Individual Estándar 39 €/mes y Pro 59 €/mes, y planes de Equipo desde 44 €/mes (Estándar), 75 €/mes (Pro) y 129 €/mes (Empresa), con descuento por pago anual. Tentare: Base 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
+    a: 'Según su web (IVA no incluido): planes Individual Estándar 39 €/mes y Pro 59 €/mes, y planes de Equipo desde 44 €/mes (Estándar), 75 €/mes (Pro) y 129 €/mes (Empresa), con descuento por pago anual. Tentare: Founding Studio 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 

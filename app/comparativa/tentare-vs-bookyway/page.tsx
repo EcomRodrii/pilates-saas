@@ -40,7 +40,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta BookyWay?',
-    a: 'No tiene suscripción: según su web, tras 30 días de prueba se paga un único pago de 1,50 € por cada usuario adicional. Tentare funciona por cuota mensual: Base 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
+    a: 'No tiene suscripción: según su web, tras 30 días de prueba se paga un único pago de 1,50 € por cada usuario adicional. Tentare funciona por cuota mensual: Founding Studio 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 

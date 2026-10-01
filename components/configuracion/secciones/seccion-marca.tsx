@@ -51,7 +51,8 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
   const rol = useRol();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
 
-  // Editar la marca es de PROPIETARIO y de plan Estudio en adelante — lo exige
+  // Editar la marca es de PROPIETARIO con suscripción activa (va en todos los
+  // planes desde el 2-oct-2026) — lo exige
   // `guardarThemeAction` en el servidor. Se comprueba también aquí para no
   // ofrecer un botón que va a devolver 403: la RLS y la acción siguen siendo
   // el límite real, esto es solo no mentir en pantalla.

@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Solo el propietario puede publicar la marca' }, { status: 403 });
   // Gate de plan (mismo criterio que el PUT del borrador).
   if (!(await featureDeEstudio(sesion.studioId, 'marca')))
-    return NextResponse.json({ error: 'La app de marca personalizada está incluida a partir del plan Estudio. Mejora tu plan para publicarla.' }, { status: 403 });
+    return NextResponse.json({ error: 'La app con tu marca está incluida en todos los planes. Activa tu suscripción para publicarla.' }, { status: 403 });
 
   const cuerpo = (await req.json().catch(() => null)) as { campos?: unknown } | null;
   let campos: CamposPublicables | null = null;

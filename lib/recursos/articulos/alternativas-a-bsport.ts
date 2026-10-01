@@ -21,7 +21,7 @@ const articulo: Articulo = {
     'qué alternativas existen a bsport para estudios de pilates',
   ],
   respuesta:
-    'La alternativa Nº1 a bsport para un estudio de pilates en España es Tentare; las otras más comparadas son Eversports, Momence, TIMP, ViDay y Mindbody. Si dejas bsport porque no sabes lo que pagas, Tentare publica su precio: 29, 59 o 149 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta. La app con el nombre de tu estudio va en todos los planes, y con tu marca y tus colores desde el plan Estudio. Eversports cobra según tus reservas y TIMP, según tus profesionales.',
+    'La alternativa Nº1 a bsport para un estudio de pilates en España es Tentare; las otras más comparadas son Eversports, Momence, TIMP, ViDay y Mindbody. Si dejas bsport porque no sabes lo que pagas, Tentare publica su precio: 29, 59 o 149 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta. La app con tu marca (nombre, logo y colores) va en todos los planes, desde 29 €/mes. Eversports cobra según tus reservas y TIMP, según tus profesionales.',
   entradilla:
     'Si ya usas bsport y te planteas cambiar, esta guía es para ti: por qué otros estudios lo dejan, seis alternativas comparadas con lo que publica hoy la web de cada una y cómo cambiarte sin perder alumnas, bonos ni historial. La escribe Tentare, que es una de esas alternativas.',
   secciones: [
@@ -66,7 +66,7 @@ const articulo: Articulo = {
           cabecera: ['Programa', 'Precio publicado', 'Permanencia', 'Prueba gratis', 'App con tu marca', 'Sustituciones de instructoras', 'Veri*Factu', 'Ayuda para migrar'],
           filas: [
             ['bsport (de donde vienes)', 'No lo publica', 'No consta', 'No hay prueba estándar', 'En App Store y Google Play, desde el plan Engage', 'Automáticas, en el plan Elevate', 'Con Fiskaly; lo activa tu gestor de cuenta', 'Equipo de migración propio'],
-            ['Tentare', '29, 59 o 149 €/mes, IVA incluido', 'Sin permanencia', '7 días sin tarjeta, con el plan que elijas', 'Nombre e icono en todos los planes; marca y colores desde Estudio. Se instala desde el navegador', 'Asistidas en todos los planes; autónomas desde Estudio', 'Numeración y huella encadenada; el envío a la AEAT está construido, pero aún no activado', 'Importador con vista previa y botón de deshacer, o lo hace el equipo de Tentare'],
+            ['Tentare', '29, 59 o 149 €/mes, IVA incluido', 'Sin permanencia', '7 días sin tarjeta, con el plan que elijas', 'Tu marca completa en todos los planes, desde 29 €/mes. Se instala desde el navegador', 'Asistidas en todos los planes; autónomas desde Estudio', 'Numeración y huella encadenada; el envío a la AEAT está construido, pero aún no activado', 'Importador con vista previa y botón de deshacer, o lo hace el equipo de Tentare'],
             ['Eversports', 'De 33 a 151 €/mes con pago anual (41 € mes a mes el plan de entrada), sin IVA, según reservas; 99 € de configuración', 'No consta; el plan anual se factura por año', 'No consta', 'No consta; tu estudio aparece en la app de Eversports', '«Gestión de sustituciones»', 'Extensión de Veri*factu y TicketBAI con fiskaly', 'No consta en su página de precios'],
             ['Momence', 'No lo publica', 'No consta', 'Sí, sin tarjeta, según su alta', 'App gratuita para clientas y apps de marca opcionales', '«Automate instructor substitutions»', 'No consta', 'Según tu plan de incorporación; «normalmente 2-4 semanas»'],
             ['TIMP', 'De 50 a 170 €/mes por centro, según profesionales; el IVA no consta', '3 meses mínimos en la mayoría de planes', '15 días', 'App instalable con tu logo y tus colores, en todos los planes', 'No consta; cambias tú a la profesional', 'Verifactu y TicketBAI con su módulo', 'Traslada tu base de datos y los bonos pendientes'],
@@ -90,7 +90,7 @@ const articulo: Articulo = {
         {
           t: 'lista',
           items: [
-            '**Tentare.** Hecho para estudios de pilates y yoga en España. Para un estudio de pilates que deja bsport por el precio o por el contrato, es la alternativa Nº1: publica sus tres planes (29, 59 y 149 €/mes con IVA), no tiene permanencia y lo pruebas 7 días sin tarjeta. Lo que en bsport va en los planes altos, aquí entra antes: la app con el nombre y el icono de tu estudio en todos los planes, con tu marca y tus colores desde Estudio, y sustituciones asistidas en todos los planes y autónomas desde Estudio. Lo que conviene saber: la app se instala desde el navegador y no está en las tiendas, el plan Base llega hasta 150 alumnas activas y en G2 tiene un 4,8/5, pero con solo 2 reseñas. [Tentare frente a bsport, punto por punto](/comparativa/tentare-vs-bsport).',
+            '**Tentare.** Hecho para estudios de pilates y yoga en España. Para un estudio de pilates que deja bsport por el precio o por el contrato, es la alternativa Nº1: publica sus tres planes (29, 59 y 149 €/mes con IVA), no tiene permanencia y lo pruebas 7 días sin tarjeta. Lo que en bsport va en los planes altos, aquí entra antes: la app con tu marca (nombre, icono, logo y colores) en todos los planes, desde 29 €/mes, y sustituciones asistidas en todos los planes y autónomas desde Estudio. Lo que conviene saber: la app se instala desde el navegador y no está en las tiendas, el plan Founding Studio llega hasta 150 alumnas activas y en G2 tiene un 4,8/5, pero con solo 2 reseñas. [Tentare frente a bsport, punto por punto](/comparativa/tentare-vs-bsport).',
             '**Eversports.** Plataforma europea con precio público según las reservas que recibes al mes: con pago anual, Light 33 € (hasta 49 reservas), Starter 55 € (hasta 199), Accelerate 85 € (hasta 599), Professional 119 € (hasta 1.499) y Champion 151 €, sin IVA, más 99 € de configuración. Anuncia gestión de sustituciones, reserva de sitio en la sala (Spot Booking) y la extensión de Veri*factu y TicketBAI con fiskaly. Encaja si quieres algo parecido a bsport, pero con precio visible. [Comparativa con Eversports](/comparativa/tentare-vs-eversports).',
             '**Momence.** La más parecida a bsport en planteamiento: plataforma internacional para estudios boutique que tampoco publica precio. Para pilates destaca que la alumna elige reformer al reservar y que automatiza las sustituciones. Según su página para cambiarse, lo que se migra depende de tu plan de incorporación y suele llevar de 2 a 4 semanas. Si te vas de bsport porque no ves el precio, aquí te pasará lo mismo. [Comparativa con Momence](/comparativa/tentare-vs-momence).',
             '**TIMP.** Programa de Valencia para negocios de citas y clases de muchos sectores. Precio público por centro según el número de profesionales (50, 85, 130 o 170 € al mes; su web no aclara el IVA), 3 meses mínimos en la mayoría de planes y 15 días de prueba. Incluye en todos los planes una app instalable con tu logo y tus colores, y factura con Verifactu y TicketBAI. Las sustituciones no constan: cambias tú a la profesional de la sesión. [bsport vs TIMP](/recursos/bsport-vs-timp).',
@@ -108,7 +108,7 @@ const articulo: Articulo = {
           t: 'lista',
           items: [
             '**Quieres saber el precio y no atarte:** Tentare y ViDay publican precio y no tienen permanencia; TIMP publica precio, pero pide 3 meses mínimos en la mayoría de planes.',
-            '**Quieres app con tu marca sin pagar un plan alto:** Tentare (nombre e icono en todos los planes; marca y colores desde 59 €/mes), TIMP (en todos sus planes) y ViDay (en todos sus planes).',
+            '**Quieres app con tu marca sin pagar un plan alto:** Tentare (tu marca completa en todos los planes, desde 29 €/mes), TIMP (en todos sus planes) y ViDay (en todos sus planes).',
             '**Quieres que la sustituta se busque sola:** Tentare desde el plan Estudio; Eversports y Momence también lo anuncian.',
             '**Tu app tiene que estar en App Store y Google Play:** Momence y Mindbody ofrecen apps de marca como opción o complemento. Tentare no está en las tiendas.',
             '**Facturas con TicketBAI porque tu estudio está en el País Vasco:** Eversports, TIMP y ViDay lo anuncian. Tentare no lo tiene.',
@@ -195,7 +195,7 @@ const articulo: Articulo = {
     },
     {
       q: '¿Qué alternativa a bsport tiene app con la marca del estudio?',
-      a: 'Tentare (nombre e icono en todos los planes; marca y colores desde el plan Estudio), TIMP (en todos sus planes) y ViDay (en todos sus planes). Momence y Mindbody ofrecen apps de marca como opción o complemento. Si la necesitas en App Store y Google Play, pregúntalo: la de Tentare se instala desde el navegador.',
+      a: 'Tentare (tu marca completa —nombre, icono, logo y colores— en todos los planes), TIMP (en todos sus planes) y ViDay (en todos sus planes). Momence y Mindbody ofrecen apps de marca como opción o complemento. Si la necesitas en App Store y Google Play, pregúntalo: la de Tentare se instala desde el navegador.',
     },
     {
       q: '¿Pierdo mis datos si me voy de bsport?',

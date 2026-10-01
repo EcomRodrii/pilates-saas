@@ -27,7 +27,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['no', 'No publica cifras: hay que pedir presupuesto'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma desde el plan Estudio'], them: ['yes', 'Sustituciones automáticas, según su web'] },
-  { feature: 'App con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador, con tu nombre y tu icono'], them: ['yes', 'App propia, en los planes superiores'] },
+  { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'App propia, en los planes superiores'] },
   { feature: 'Aviso de dependencia de una instructora', tentare: ['yes', 'Riesgo de concentración'], them: ['partial', 'No consta en su web pública'] },
   // Nuevos ejes (pro.bsport.io/pricing, /studios/multilocations-franchises y su
   // centro de ayuda en intercom.help/bsport-helpcenter, revisados el 29-sep-2026):
@@ -43,7 +43,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta bsport?',
-    a: 'bsport no publica precios en su web: ofrece varios planes (con funciones distintas, como la app propia en los superiores) y hay que pedir un presupuesto para saber la cifra. Tentare publica los suyos: Base 29 €/mes, Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, con 7 días de prueba gratis sin tarjeta.',
+    a: 'bsport no publica precios en su web: ofrece varios planes (con funciones distintas, como la app propia en los superiores) y hay que pedir un presupuesto para saber la cifra. Tentare publica los suyos: Founding Studio 29 €/mes, con la app con tu marca incluida, Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, con 7 días de prueba gratis sin tarjeta.',
   },
   {
     q: '¿Qué alternativas a bsport hay para un estudio de Pilates en España?',

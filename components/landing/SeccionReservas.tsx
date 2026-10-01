@@ -34,7 +34,7 @@ import { SALIDAS } from './enlaces';
 //
 // ⚠️ Afirmaciones cruzadas con el código: la app se instala en la pantalla de
 // inicio con el nombre y el icono del estudio en TODOS los planes (manifest por
-// estudio); colores y estilo propios, desde el plan Estudio. La alumna reserva
+// estudio), y colores y estilo propios también en todos (2-oct-2026). La alumna reserva
 // y cancela sola; NO hay «cambiar de clase» (cancela y reserva otra). Comprar
 // bonos online exige tener Stripe conectado.
 
@@ -171,7 +171,7 @@ export function SeccionReservas() {
         <div className="v5-res-columnas lp-rv">
           <div className="v5-res-col">
             <h3 className="v5-res-h3">En su móvil</h3>
-            <p>La app de tu estudio: sus clases, sus bonos y el aviso de cada cambio. Con tus colores y tu estilo desde el plan Estudio.</p>
+            <p>La app de tu estudio: sus clases, sus bonos y el aviso de cada cambio. Con tus colores y tu estilo, en todos los planes.</p>
             <Link href={SALIDAS.app.href} className="v5-res-salida">{SALIDAS.app.label} →</Link>
           </div>
           <div className="v5-res-col">

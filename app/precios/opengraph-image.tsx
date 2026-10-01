@@ -5,5 +5,5 @@ export const size = OG_IMAGE_SIZE;
 export const contentType = OG_IMAGE_CONTENT_TYPE;
 
 export default async function Image() {
-  return generarOgImage('Precio público. Sin permanencia.', 'Base 29€, Estudio 59€ y Cadena 149€ al mes, con prueba de 7 días sin tarjeta.');
+  return generarOgImage('Precio público. Sin permanencia.', 'Founding Studio 29€, Estudio 59€ y Cadena 149€ al mes, con prueba de 7 días sin tarjeta.');
 }

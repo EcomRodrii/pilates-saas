@@ -111,7 +111,7 @@ async function autorizarEscritura(req: NextRequest): Promise<
     };
   }
   if (!(await featureDeEstudio(sesion.studioId, 'marca'))) {
-    return { ok: false, res: NextResponse.json({ error: 'Tu plan no incluye la app de marca personalizada' }, { status: 403 }) };
+    return { ok: false, res: NextResponse.json({ error: 'La app con tu marca necesita una suscripción activa' }, { status: 403 }) };
   }
   return { ok: true, studioId: sesion.studioId };
 }
