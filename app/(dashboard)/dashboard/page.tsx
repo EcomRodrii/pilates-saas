@@ -12,7 +12,8 @@ import {
   Clock, Activity,
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
-import { cn, inicioDeSemana, finDeSemana, capitalizarPrimera } from '@/lib/utils';
+import { cn, inicioDeSemana, finDeSemana, capitalizarPrimera, hoyEnEstudio } from '@/lib/utils';
+import { importeIngresado, mesAnterior, aCentimos } from '@/lib/billing/situacion-recibo';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,11 +67,6 @@ const CustomChartsSection = dynamic(() => import('@/components/dashboard/custom-
 function localDate(d: Date | string) {
   const dt = typeof d === 'string' ? new Date(d) : d;
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-}
-
-function monthKey(d: Date | string) {
-  const dt = typeof d === 'string' ? new Date(d) : d;
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function timeAgo(iso: string, now: Date) {
@@ -375,43 +371,49 @@ export default function Dashboard() {
   });
 
   // ── Revenue 6-month data (for sparkline) ────────────────────────────────────
-  const { sparkData, sparkLabels, sparkCurrentIdx, ingresosMes, ingresosMTD, ingresosMTDPrev } =
+  // F0 (cifras): lo ingresado NETO (`importeIngresado`, resta reembolsos
+  // parciales) y en el mes del ESTUDIO. Antes era el importe bruto y el mes se
+  // leía con `new Date('YYYY-MM-DD')` —medianoche UTC— más getters locales: en
+  // un navegador al oeste de UTC un cobro del día 1 caía en el mes anterior.
+  // Aquí todo es texto: el mes es `fechaCobro.slice(0, 7)`.
+  const { sparkData, sparkLabels, sparkCurrentIdx, ingresosMes, ingresosMTD, ingresosMTDPrev, idxMesAnterior } =
     useMemo(() => {
-      const months = Array.from({ length: 6 }, (_, i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-        return {
-          key: monthKey(d),
-          label: MONTH_LABELS[d.getMonth()],
-          isCurrent: i === 5,
-          total: 0,
-        };
-      });
+      const hoy = hoyEnEstudio(now);
+      const claveMesActual = hoy.slice(0, 7);
+      const claves = [claveMesActual];
+      for (let i = 0; i < 5; i++) claves.unshift(mesAnterior(claves[0]));
+      const months = claves.map((key, i) => ({
+        key,
+        label: MONTH_LABELS[Number(key.slice(5, 7)) - 1],
+        isCurrent: i === 5,
+        total: 0,
+      }));
       // MTD (Month-To-Date): compara el mismo tramo del mes (día 1 → hoy) contra
       // el mes anterior hasta el MISMO día. Sin esto, a mitad de mes se compara un
       // mes incompleto contra el mes anterior entero y salen caídas ficticias.
-      const diaHoy = now.getDate();
-      const claveMesActual = monthKey(now);
-      const claveMesPrev = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+      const diaHoy = Number(hoy.slice(8, 10));
+      const claveMesPrev = mesAnterior(claveMesActual);
       let ingresosMTD = 0;
       let ingresosMTDPrev = 0;
-      recibos
-        .filter(r => r.estado === 'COBRADO' && r.fechaCobro)
-        .forEach(r => {
-          const f = new Date(r.fechaCobro!);
-          const m = months.find(x => x.key === monthKey(f));
-          if (m) m.total += r.importe;
-          const clave = monthKey(f);
-          if (clave === claveMesActual && f.getDate() <= diaHoy) ingresosMTD += r.importe;
-          else if (clave === claveMesPrev && f.getDate() <= diaHoy) ingresosMTDPrev += r.importe;
-        });
+      for (const r of recibos) {
+        const neto = importeIngresado(r);
+        if (neto <= 0 || !r.fechaCobro) continue;
+        const clave = r.fechaCobro.slice(0, 7);
+        const dia = Number(r.fechaCobro.slice(8, 10));
+        const m = months.find(x => x.key === clave);
+        if (m) m.total += neto;
+        if (clave === claveMesActual && dia <= diaHoy) ingresosMTD += neto;
+        else if (clave === claveMesPrev && dia <= diaHoy) ingresosMTDPrev += neto;
+      }
       return {
-        sparkData: months.map(m => m.total),
+        sparkData: months.map(m => aCentimos(m.total)),
         sparkLabels: months.map(m => m.label),
         sparkCurrentIdx: 5,
-        ingresosMes: months[5].total,
-        ingresosMesAnterior: months[4].total,
-        ingresosMTD,
-        ingresosMTDPrev,
+        ingresosMes: aCentimos(months[5].total),
+        ingresosMesAnterior: aCentimos(months[4].total),
+        ingresosMTD: aCentimos(ingresosMTD),
+        ingresosMTDPrev: aCentimos(ingresosMTDPrev),
+        idxMesAnterior: Number(claveMesPrev.slice(5, 7)) - 1,
       };
     }, [recibos, now]);
 
@@ -872,6 +874,10 @@ export default function Dashboard() {
           <CardContent className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Ingresos cobrados este mes</p>
+              {/* Lo que dice el banco no cuadrará nunca con esta cifra si no se
+                  dice qué es: lleva el IVA y no resta comisiones (F0, «las
+                  cifras no cuadran»). Ya resta lo devuelto. */}
+              <p className="text-[11px] text-muted-foreground">Con IVA, ya restado lo devuelto, antes de comisiones</p>
               <div className="mt-1.5 flex items-end gap-2.5">
                 <CifraPrivada className="text-4xl font-semibold leading-none tracking-tight text-foreground">
                   {ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
@@ -897,7 +903,7 @@ export default function Dashboard() {
                 ) : (
                   <>
                     {pctChange > 0 ? 'Vas por delante' : pctChange < 0 ? 'Vas por detrás' : 'Vas igual'} del mismo día del mes pasado
-                    {' · '}<CifraPrivada inline className="font-semibold text-foreground">{ingresosMTDPrev.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €</CifraPrivada> a estas alturas de {MESES_LARGOS[new Date(now.getFullYear(), now.getMonth() - 1, 1).getMonth()]}
+                    {' · '}<CifraPrivada inline className="font-semibold text-foreground">{ingresosMTDPrev.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €</CifraPrivada> a estas alturas de {MESES_LARGOS[idxMesAnterior]}
                   </>
                 )}
               </p>

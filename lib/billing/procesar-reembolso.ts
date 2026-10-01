@@ -413,7 +413,8 @@ export async function procesarDisputeClosed(
  * 19ª auditoría · F-3: la columna `stripe_payment_intent_id` existe desde
  * `0036_pagos_espana_sepa_bizum`, pero durante un tiempo ningún mapper la
  * escribía y esta consulta no casaba NUNCA (19 filas, 0 con PaymentIntent en
- * producción). El mapper ya la escribe hoy; sigue documentado aquí porque el
+ * producción). Hoy la escribe el TPV de servidor (`app/api/pos/venta/route.ts`,
+ * al guardar la referencia del cobro); sigue documentado aquí porque el
  * predicado silencioso es el mismo tipo de riesgo si algún día deja de
  * escribirse.
  */

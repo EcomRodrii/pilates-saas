@@ -361,7 +361,14 @@ export async function confirmarCobro(
     .eq('id', p.reciboId).eq('studio_id', p.studioId)
     .in('estado', estadosAdmitidosPorOrigen(p.origen, { admitirDevuelto: p.admitirDevuelto }))
     .is('reembolso_stripe_id', null)
-    .is('reembolso_solicitado_en', null);
+    .is('reembolso_solicitado_en', null)
+    // Un DEVUELTO solo se cobra si lo devolvió el BANCO (`importe_devuelto = 0`):
+    // el que el estudio reembolsó —en la caja (trigger del TPV) o a mano— no
+    // lleva `reembolso_*` y se colaba por las dos guardas de arriba. Cobrarlo
+    // dejaba un COBRADO con todo devuelto: dinero cobrado que ninguna cifra
+    // cuenta (F0, lib/billing/situacion-recibo.ts). Un `or` más se suma con AND
+    // al de `filtroCargoEnCas`.
+    .or('estado.neq.DEVUELTO,importe_devuelto.eq.0');
   // DEVUELTO y EN_CURSO atados al cargo que llega (ver `filtroCargoEnCas`).
   const filtroCargo = filtroCargoEnCas(p.paymentIntentId);
   if (filtroCargo) consulta = consulta.or(filtroCargo);

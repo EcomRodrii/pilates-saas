@@ -137,6 +137,11 @@ export default function ReciboPage() {
               texto anterior decía justo lo contrario, y con el bloqueo por
               impago encendido la alumna leía «este importe se te devolvió»
               mientras el sistema no la dejaba reservar por deberlo. */}
+          {data.estado === 'reimbursed' && (
+            <p className="note note--info" style={{ marginTop: 'var(--s-3)', textAlign: 'left' }}>
+              El estudio te devolvió este importe. No tienes nada pendiente por este pago.
+            </p>
+          )}
           {data.estado === 'refunded' && (
             <p className="note note--danger" style={{ marginTop: 'var(--s-3)', textAlign: 'left' }}>
               El banco devolvió este recibo, así que el pago no llegó a completarse. Habla con el estudio para resolverlo.

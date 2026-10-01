@@ -1,5 +1,6 @@
 import type { Socio, Suscripcion, Recibo, DestinatariosCampana } from '@/lib/types';
 import { cumpleMesDia } from '../socios/datos-privados.ts';
+import { situacionRecibo } from '../billing/situacion-recibo.ts';
 import { ETIQUETA_ESTADO, estadosDeEtapa, type EstadoClienta, type ResultadoEstado } from '../clientas/estado.ts';
 
 const MS_DIA = 86400000;
@@ -159,7 +160,8 @@ export function resolverDestinatariasCampana(
     }
 
     case 'PAGO_FALLIDO': {
-      const idsPagoFallido = new Set(recibos.filter(r => r.estado === 'FALLIDO').map(r => r.socioId));
+      // Impagado: rechazado o devuelto por el banco (lib/billing/situacion-recibo.ts).
+      const idsPagoFallido = new Set(recibos.filter(r => situacionRecibo(r) === 'IMPAGADO').map(r => r.socioId));
       return socios.filter(s => idsPagoFallido.has(s.id));
     }
 

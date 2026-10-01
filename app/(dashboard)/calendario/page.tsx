@@ -826,7 +826,7 @@ export default function Calendario() {
           .filter(r => r.sesionId === sesionActual.id && r.estado !== 'CANCELADA')
           .map(r => ({
             ...r,
-            socio: socios.find(s => s.id === r.socioId)!,
+            socio: socios.find(s => s.id === r.socioId) ?? null,
             spot: spots.find(sp => sp.id === r.spotId) ?? null,
           }))
       : [],

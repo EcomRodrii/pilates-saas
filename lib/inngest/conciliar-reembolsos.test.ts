@@ -85,6 +85,7 @@ function fakeAdmin(opts: { reciboYaDevuelto?: boolean; devolucionYaExistia?: boo
         select() { if (updated) selectedAfterUpdate = true; return c; },
         eq() { return c; },
         neq() { return c; },
+        or() { return c; },
         insert(fila: Fila) { inserts.push({ tabla, fila }); updated = 'insert'; return c; },
         update(fila: Fila) { updates.push({ tabla, fila }); updated = true; filaUpdate = fila; return c; },
         maybeSingle() {

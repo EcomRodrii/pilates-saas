@@ -15,6 +15,17 @@ interface SpotMapProps {
   onCheckin?: (reservaId: string) => void;
 }
 
+// Quien ocupa el sitio: la socia, o el nombre que dio la plataforma si la
+// reserva viene de ClassPass/USC (no tienen socia; antes esto se rompía).
+function nombreDe(r: ReservaEnriquecida): string {
+  if (r.socio) return `${r.socio.nombre} ${r.socio.apellidos}`.trim();
+  return r.nombreExterno?.trim() || 'Clienta';
+}
+
+function inicialesDe(nombre: string): string {
+  return nombre.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+}
+
 export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQuitarSpot, onCheckin }: SpotMapProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [buscarSocia, setBuscarSocia] = useState('');
@@ -98,10 +109,10 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
                         ? { backgroundColor: '#C3D9B0', color: 'var(--foreground)' }
                         : { backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)' }}
                     >
-                      {asistida ? <Check size={14} /> : `${reserva.socio.nombre[0]}${reserva.socio.apellidos[0]}`}
+                      {asistida ? <Check size={14} /> : inicialesDe(nombreDe(reserva))}
                     </div>
                     <span className="text-[10px] font-semibold leading-tight text-foreground">
-                      {reserva.socio.nombre.split(' ')[0]}
+                      {nombreDe(reserva).split(' ')[0]}
                     </span>
                   </div>
                 ) : (
@@ -116,7 +127,7 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
       {selected && selectedSpot && !readOnly && (
         <div className="rounded-2xl p-4 space-y-3 bg-background" style={{ border: '1px solid var(--border)' }}>
           <p className="text-sm font-bold text-foreground">
-            {selectedSpot.nombre} — {selectedReserva ? `${selectedReserva.socio.nombre} ${selectedReserva.socio.apellidos}` : 'Libre'}
+            {selectedSpot.nombre} — {selectedReserva ? nombreDe(selectedReserva) : 'Libre'}
           </p>
           {selectedReserva ? (
             <div className="flex gap-2 flex-wrap">

@@ -35,7 +35,6 @@ import {
   dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbEliminarRecibo, dbLeerEstadoRecibos, dbReleerTrasCobro,
   dbInsertCita, dbUpdateCita,
   dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
-  dbInsertVentaPOS,
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
   dbInsertActividadReciente,
   dbInsertRewardRule, dbUpdateRewardRule,
@@ -549,7 +548,6 @@ interface StudioContextValue {
   addProductoPOS: (fields: Omit<ProductoPOS, 'id' | 'studioId'>, idPreferido?: string) => Promise<ResultadoEscritura>;
   updateProductoPOS: (id: string, changes: Partial<ProductoPOS>) => Promise<ResultadoEscritura>;
   deleteProductoPOS: (id: string) => Promise<ResultadoEscritura>;
-  addVentaPOS: (fields: Omit<VentaPOS, 'id' | 'studioId' | 'realizadaEn'>) => Promise<ResultadoEscritura>;
 
   // Campañas
   campanas: Campana[];
@@ -3996,6 +3994,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
     const reserva = base.find(r => r.id === reservaId);
     if (!reserva) return res;
+    // Reserva de ClassPass/USC: no hay socia a la que premiar. Créditos, logros,
+    // retos, racha y referido son cosas de las socias del estudio; llamar a sus
+    // RPC con `socioId` null solo daría errores.
+    if (!reserva.socioId) return res;
     otorgarCreditos(reserva.socioId, 'ASISTENCIA_CLASE', reservaId);
     evaluarLogrosSocio(reserva.socioId, reservasActualizadas);
     evaluarRetosSocio(reserva.socioId, reservasActualizadas);
@@ -4601,65 +4603,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (!res.ok) return res;
     setProductosPOS(prev => prev.filter(p => p.id !== id));
     return res;
-  }
-
-  // No optimista, y el orden importa: antes se sellaba la factura fiscal
-  // (Veri*Factu/AEAT, irreversible) sin comprobar que la venta y el recibo
-  // hubieran llegado a existir de verdad en BD — si cualquiera de los dos
-  // inserts fallaba, quedaba un documento fiscal firmado y enviado a la AEAT
-  // sin ninguna venta ni recibo real detrás. Ahora se escribe y se comprueba
-  // TODO antes de sellar nada.
-  async function addVentaPOS(fields: Omit<VentaPOS, 'id' | 'studioId' | 'realizadaEn'>): Promise<ResultadoEscritura> {
-    const nueva: VentaPOS = {
-      id: `vpos-${uid()}`,
-      studioId: getCurrentStudioId(),
-      realizadaEn: new Date().toISOString(),
-      ...fields,
-    };
-    const resVenta = await dbInsertVentaPOS(nueva);
-    if (!resVenta.ok) return resVenta;
-    setVentasPOS(prev => [...prev, nueva]);
-
-    // Toda venta con importe genera un recibo COBRADO + su factura (aparece en
-    // Pagos/Facturas). Sin socia es una venta de mostrador → factura
-    // simplificada (F2, sin NIF); con socia y NIF, factura completa (F1).
-    if (fields.total > 0) {
-      const concepto = fields.items.length > 0
-        ? fields.items.map(i => i.nombre).join(', ')
-        : 'Venta POS';
-      const hoy = new Date().toISOString().slice(0, 10);
-      const nuevoRecibo: Recibo = {
-        id: `rec-pos-${uid()}`,
-        studioId: getCurrentStudioId(),
-        socioId: fields.socioId ?? null,
-        suscripcionId: null,
-        concepto,
-        importe: fields.total,
-        estado: 'COBRADO',
-        fechaVencimiento: hoy,
-        fechaCobro: new Date().toISOString(),
-        fechaDevolucion: null,
-        intentosReintento: 0,
-      };
-      const resRecibo = await dbInsertRecibo(nuevoRecibo);
-      if (!resRecibo.ok) {
-        // La venta ya se guardó (resVenta.ok arriba) — no se deshace, pero
-        // tampoco se sella nada fiscal sin recibo real detrás.
-        capturarMensaje('[addVentaPOS] venta guardada pero el recibo no se pudo crear', 'error', {
-          extra: { ventaId: nueva.id, error: resRecibo.error },
-        });
-        return resRecibo;
-      }
-      setRecibos(prev => [nuevoRecibo, ...prev]);
-      // 2.2: sellado fuera del updater (ver comentario en sellarFacturaYActualizar).
-      // Solo llega aquí si la venta Y el recibo ya existen de verdad en BD.
-      const fac = construirFacturaCobro(nuevoRecibo, facturas);
-      if (fac) {
-        setFacturas(prev => [...prev, fac]);
-        void sellarFacturaYActualizar(fac);
-      }
-    }
-    return resVenta;
   }
 
   // ── Campañas ─────────────────────────────────────────────────────────────────
@@ -5687,7 +5630,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     updateProductoPOS,
     deleteProductoPOS,
     ventasPOS,
-    addVentaPOS,
     campanas,
     addCampana,
     deleteCampana,

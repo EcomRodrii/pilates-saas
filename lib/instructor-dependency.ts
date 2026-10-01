@@ -3,6 +3,7 @@ import { uid } from '@/lib/utils';
 import { mapLimit } from '@/lib/concurrency';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
+import { importeIngresado } from '@/lib/billing/situacion-recibo';
 import type { NivelRiesgoDependencia, AlumnaCautiva } from '@/lib/types';
 
 // Mismo límite que ya usa el resto del repo para abanicos contra Supabase
@@ -142,33 +143,25 @@ export async function calcularDependenciaEstudio(
     }
   }
 
-  // Ingresos por socia en la ventana (recibos COBRADO + ventas_pos).
+  // Ingresos por socia en la ventana: recibos cobrados, NETOS de reembolsos
+  // (lib/billing/situacion-recibo.ts). Antes se sumaba además `ventas_pos.total`
+  // —de cualquier estado, anuladas incluidas—, y cada venta del TPV crea su
+  // recibo `rec-pos-*`: toda venta de caja contaba DOS veces (F0, 1-oct-2026).
+  // Las ventas sin recibo no suman aquí, igual que en el resto de cifras.
   const gastoPorSocio = new Map<string, number>();
   let ingresosTotalEstudio = 0;
 
   const { data: recibos } = await admin
     .from('recibos')
-    .select('socio_id, importe')
+    .select('socio_id, importe, importe_devuelto, estado')
     .eq('studio_id', studioId)
     .eq('estado', 'COBRADO')
     .gte('fecha_cobro', periodoInicio)
     .lte('fecha_cobro', periodoFin);
   for (const rec of recibos ?? []) {
-    const imp = Number(rec.importe ?? 0);
+    const imp = importeIngresado({ estado: rec.estado as string, importe: rec.importe, importeDevuelto: rec.importe_devuelto });
     ingresosTotalEstudio += imp;
     if (rec.socio_id) gastoPorSocio.set(rec.socio_id as string, (gastoPorSocio.get(rec.socio_id as string) ?? 0) + imp);
-  }
-
-  const { data: ventas } = await admin
-    .from('ventas_pos')
-    .select('socio_id, total')
-    .eq('studio_id', studioId)
-    .gte('realizada_en', inicioISO)
-    .lt('realizada_en', finISO);
-  for (const v of ventas ?? []) {
-    const imp = Number(v.total ?? 0);
-    ingresosTotalEstudio += imp;
-    if (v.socio_id) gastoPorSocio.set(v.socio_id as string, (gastoPorSocio.get(v.socio_id as string) ?? 0) + imp);
   }
 
   // Nombres de las socias cautivas (para el detalle del modal).
