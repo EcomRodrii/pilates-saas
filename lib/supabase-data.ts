@@ -1714,24 +1714,6 @@ export function mapDisponibilidadCita(r: RowCitasDisponibilidad): Disponibilidad
   };
 }
 
-function ventaPOSToDb(venta: VentaPOS) {
-  return {
-    id: venta.id,
-    studio_id: venta.studioId ?? STUDIO_ID,
-    socio_id: venta.socioId ?? null,
-    items: venta.items ?? [],
-    subtotal: venta.subtotal,
-    descuento: venta.descuento,
-    total: venta.total,
-    metodo_pago: venta.metodoPago,
-    notas: venta.notas ?? null,
-    realizada_en: venta.realizadaEn,
-    // 19ª auditoría · F-3: sin esta línea la columna se quedaba a NULL siempre y
-    // `procesarReembolsoVentaPos` no encontraba nunca la venta que devolver.
-    stripe_payment_intent_id: venta.stripePaymentIntentId ?? null,
-  };
-}
-
 function actividadRecienteToDb(act: ActividadReciente) {
   return {
     id: act.id,
@@ -3238,6 +3220,12 @@ export async function dbUpdateReserva(
 }
 
 export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
+  // Un recibo nace PENDIENTE desde el navegador. Cobrarlo lo hace `confirmarCobro` en el
+  // servidor (`/api/cobros/marcar-cobrado`): la base de datos también lo exige
+  // (trigger `trg_recibos_cobrado_solo_servidor`), esto lo dice antes de ir a la red.
+  if (rec.estado === 'COBRADO') {
+    return falloEscritura('[dbInsertRecibo]', new Error('Un recibo no se crea cobrado desde el navegador: se crea pendiente y se cobra por el servidor.'));
+  }
   // assignPlan() encadena dbInsertSuscripcion + dbInsertRecibo con la suscripción
   // recién creada: mismo commit-race que socio_id (Sentry NEXTJS-W), pero antes
   // solo se reintentaba para socio_id — la FK de suscripcion_id fallaba a la primera.
@@ -3344,6 +3332,10 @@ export async function dbReleerTrasCobro(
 }
 
 export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Promise<ResultadoEscritura> {
+  // Entrar en COBRADO es del servidor, igual que en `dbUpdateRecibosBatch` (y que la base de datos).
+  if (changes.estado === 'COBRADO') {
+    return falloEscritura('[dbUpdateRecibo]', new Error('COBRADO no se escribe desde el navegador: pasa por el servidor.'));
+  }
   const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('suscripcionId' in changes) db.suscripcion_id = changes.suscripcionId;
@@ -3443,11 +3435,6 @@ export async function dbUpdateCita(id: string, changes: Partial<Cita>): Promise<
   if ('pagada' in changes) db.pagada = changes.pagada;
   const { error } = await supabase.from('citas').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateCita]', error) : ESCRITURA_OK;
-}
-
-export async function dbInsertVentaPOS(venta: VentaPOS): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('ventas_pos').insert(ventaPOSToDb(venta));
-  return error ? falloEscritura('[dbInsertVentaPOS]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertActividadReciente(act: ActividadReciente) {

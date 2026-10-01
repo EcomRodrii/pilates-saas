@@ -71,11 +71,15 @@ async function mockBackend(page: Page, opts: {
   fallaInsert?: { status: number; body: unknown };
   fallaUpdate?: { status: number; body: unknown };
   fallaRecibo?: { status: number; body: unknown };
+  /** Qué responde `/api/cobros/marcar-cobrado` (por defecto, que cobra). */
+  cobro?: 'aplicada' | 'sin_sellar' | 'no_cobrable' | 'caida' | 'sin_detalle';
   citasIniciales?: Record<string, unknown>[];
 } = {}) {
   const citasGuardadas: Record<string, unknown>[] = [...(opts.citasIniciales ?? [])];
   const parches: Record<string, unknown>[] = [];
   const recibosCreados: Record<string, unknown>[] = [];
+  /** Cuerpos enviados a `POST /api/cobros/marcar-cobrado`: el cobro lo cierra el servidor, no el navegador. */
+  const cobrosIntentados: Array<{ reciboIds: string[]; metodo: string | null }> = [];
 
   // Playwright resuelve las rutas en orden INVERSO al de registro: comodines
   // primero, específicas después.
@@ -85,11 +89,22 @@ async function mockBackend(page: Page, opts: {
   await page.route('**/api/billing/estado**', route => json(route, { bloqueado: false }));
   await page.route('**/api/theme**', route =>
     json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
-  // Cobrar una cita sella factura de verdad (crearFacturaDirecta): sin este
-  // mock, sellarFactura recibe `{}` del comodín `**/api/**` de arriba, que se
-  // lee como sellado fallido (r.ok/r.factura ambos undefined) — el camino
-  // "cobroRegistrado" se probaría siempre, nunca el de éxito limpio.
-  await page.route('**/api/facturas/sellar', route => json(route, { ok: true, sellada: true, factura: {} }));
+  // El cobro de una cita crea el recibo PENDIENTE y lo cobra el SERVIDOR: la base de datos
+  // ya no deja que el navegador cree un recibo cobrado. Registrado DESPUÉS del comodín `**/api/**`.
+  await page.route('**/api/cobros/marcar-cobrado', route => {
+    const cuerpo = JSON.parse(route.request().postData() || '{}') as { reciboIds: string[]; metodo: string | null };
+    cobrosIntentados.push(cuerpo);
+    switch (opts.cobro ?? 'aplicada') {
+      case 'caida': return route.abort('failed');
+      case 'sin_detalle': return json(route, {});
+      case 'no_cobrable':
+        return json(route, { resultados: cuerpo.reciboIds.map(reciboId => ({ reciboId, resultado: 'no_cobrable', selladoOk: true, error: 'Este recibo ya no se puede cobrar.' })) }, 409);
+      case 'sin_sellar':
+        return json(route, { resultados: cuerpo.reciboIds.map(reciboId => ({ reciboId, resultado: 'aplicada', selladoOk: false })) });
+      default:
+        return json(route, { resultados: cuerpo.reciboIds.map(reciboId => ({ reciboId, resultado: 'aplicada', selladoOk: true })) });
+    }
+  });
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route => json(route, STUDIO_ROW));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
@@ -123,7 +138,7 @@ async function mockBackend(page: Page, opts: {
     return json(route, citasGuardadas);
   });
 
-  return { citasGuardadas, parches, recibosCreados };
+  return { citasGuardadas, parches, recibosCreados, cobrosIntentados };
 }
 
 /** Una cita futura ya guardada, para probar las acciones de la fila. */
@@ -201,7 +216,7 @@ test.describe('Cobrar una cita (genera recibo y factura reales)', () => {
   test('si el recibo no se puede crear, no se cobra ni se pinta como pagada', async ({ page }) => {
     // El peor de los silencios: el estudio da por cobrados 45 € que nunca se
     // registraron, así que nadie va a reclamarlos.
-    await mockBackend(page, {
+    const { cobrosIntentados } = await mockBackend(page, {
       citasIniciales: [citaRow('cita-1', false)],
       fallaRecibo: { status: 403, body: { code: '42501', message: 'permission denied for table recibos' } },
     });
@@ -217,12 +232,13 @@ test.describe('Cobrar una cita (genera recibo y factura reales)', () => {
     // diálogo abierto el fondo queda `inert` y un aviso ahí sería invisible.
     const aviso = page.getByRole('dialog').getByRole('alert');
     await expect(aviso).toContainText('permiso');
+    expect(cobrosIntentados, 'sin recibo no hay nada que cobrar: no se pide el cobro').toHaveLength(0);
     await page.getByRole('button', { name: 'Cancelar' }).click();
     await expect(page.getByRole('button', { name: 'Registrar cobro' }).first()).toBeVisible();
   });
 
   test('si el recibo se crea y la factura se sella, la cita queda cobrada', async ({ page }) => {
-    const { parches, recibosCreados } = await mockBackend(page, { citasIniciales: [citaRow('cita-1', false)] });
+    const { parches, recibosCreados, cobrosIntentados } = await mockBackend(page, { citasIniciales: [citaRow('cita-1', false)] });
     await seedSesionDeDuena(page);
     await abrirCitas(page);
 
@@ -233,7 +249,11 @@ test.describe('Cobrar una cita (genera recibo y factura reales)', () => {
     await page.getByRole('button', { name: 'Confirmar cobro' }).click();
 
     await expect.poll(() => recibosCreados.length, { timeout: 15_000 }).toBe(1);
-    expect(recibosCreados[0]).toMatchObject({ socio_id: 'soc-1', importe: 45, estado: 'COBRADO' });
+    // El recibo nace PENDIENTE (la base de datos no deja crearlo cobrado desde el navegador) y
+    // se cobra por el servidor, con el mismo id.
+    expect(recibosCreados[0]).toMatchObject({ socio_id: 'soc-1', importe: 45, estado: 'PENDIENTE' });
+    await expect.poll(() => cobrosIntentados.length, { timeout: 15_000 }).toBe(1);
+    expect(cobrosIntentados[0]).toEqual({ reciboIds: [recibosCreados[0].id], metodo: null });
     await expect.poll(() => parches.length, { timeout: 15_000 }).toBe(1);
     expect(parches[0]).toMatchObject({ pagada: true });
     // Sin texto de error visible. (No se filtra por "ningún role=alert en el
@@ -245,4 +265,65 @@ test.describe('Cobrar una cita (genera recibo y factura reales)', () => {
     // La fila deja de ofrecer "Registrar cobro" — ya está cobrada.
     await expect(page.getByRole('button', { name: 'Registrar cobro' })).toHaveCount(0);
   });
+
+  test('cobrado pero con la factura sin sellar: la cita SÍ queda cobrada y se avisa de la factura', async ({ page }) => {
+    const { parches, cobrosIntentados } = await mockBackend(page, { citasIniciales: [citaRow('cita-1', false)], cobro: 'sin_sellar' });
+    await seedSesionDeDuena(page);
+    await abrirCitas(page);
+
+    await expect(page.getByText('marta@example.com')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Registrar cobro' }).first().click();
+    await page.getByRole('button', { name: 'Confirmar cobro' }).click();
+
+    await expect.poll(() => cobrosIntentados.length, { timeout: 15_000, message: 'el cobro no llegó a pedirse' }).toBe(1);
+    // El dinero entró: la cita se marca cobrada igual, y se dice qué falló.
+    await expect.poll(() => parches.length, { timeout: 15_000 }).toBe(1);
+    expect(parches[0]).toMatchObject({ pagada: true });
+    await expect(page.getByText(/problema al sellar la factura/i)).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('un doble clic en «Confirmar cobro» crea UN recibo y pide UN cobro', async ({ page }) => {
+    const { recibosCreados, cobrosIntentados } = await mockBackend(page, { citasIniciales: [citaRow('cita-1', false)] });
+    await seedSesionDeDuena(page);
+    await abrirCitas(page);
+
+    await expect(page.getByText('marta@example.com')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Registrar cobro' }).first().click();
+    await page.getByRole('button', { name: 'Confirmar cobro' }).dblclick();
+
+    await expect.poll(() => cobrosIntentados.length, { timeout: 15_000, message: 'el cobro no llegó a pedirse' }).toBeGreaterThan(0);
+    await page.waitForTimeout(1500);
+    expect(recibosCreados, 'el doble clic creó dos recibos').toHaveLength(1);
+    expect(cobrosIntentados, 'el doble clic pidió el cobro dos veces').toHaveLength(1);
+  });
+
+  // El recibo se crea pendiente y el servidor es quien cobra: si no lo confirma, la cita NO
+  // se marca pagada (el dinero no consta) y no se deja reintentar (el recibo ya existe y
+  // otro clic crearía otro). Cada test exige que el cobro SÍ se pidiera: «no se marcó
+  // pagada» sin haberlo intentado sería verdad por no haber hecho nada.
+  for (const [nombre, cobro] of [
+    ['el servidor dice que no se puede cobrar', 'no_cobrable'],
+    ['la red se cae', 'caida'],
+    ['un 200 sin detalle', 'sin_detalle'],
+  ] as const) {
+    test(`⚠️ ${nombre}: la cita NO queda cobrada y se dice dónde está el recibo`, async ({ page }) => {
+      const { parches, recibosCreados, cobrosIntentados } = await mockBackend(page, {
+        citasIniciales: [citaRow('cita-1', false)], cobro,
+      });
+      await seedSesionDeDuena(page);
+      await abrirCitas(page);
+
+      await expect(page.getByText('marta@example.com')).toBeVisible({ timeout: 30_000 });
+      await page.getByRole('button', { name: 'Registrar cobro' }).first().click();
+      await page.getByRole('button', { name: 'Confirmar cobro' }).click();
+
+      await expect.poll(() => cobrosIntentados.length, { timeout: 15_000, message: 'el cobro no llegó a pedirse' }).toBeGreaterThan(0);
+      expect(recibosCreados).toHaveLength(1);
+      await expect(page.getByText(/No se ha podido confirmar el cobro de esta cita/)).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText(/Quién me debe/)).toBeVisible();
+      expect(parches, 'la cita se marcó pagada sin que el servidor confirmara el cobro').toHaveLength(0);
+      // Una sola petición por un clic: nada de reintentos a ciegas.
+      expect(cobrosIntentados).toHaveLength(1);
+    });
+  }
 });

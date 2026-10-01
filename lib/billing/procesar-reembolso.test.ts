@@ -107,21 +107,11 @@ test('un reembolso parcial anota el acumulado real, no un delta', async () => {
   assert.equal(espejo?.fila.importe_devuelto, 10);
 });
 
-// ── 19ª auditoría · F-3 (sigue vigente tras F-12/F-13) ──────────────────────
-
-test('F-3: el mapper de ventas POS escribe stripe_payment_intent_id', () => {
-  // La columna existe en la BD desde la migración 0036 y es por la que busca
-  // `procesarReembolsoVentaPos`. `ventaPOSToDb` no la incluía, así que se
-  // quedaba a NULL en todas las ventas (prod: 19 filas, 0 informadas) y el
-  // predicado del UPDATE de abajo no casaba jamás: procesador entero muerto.
-  const datos = readFileSync(new URL('../supabase-data.ts', import.meta.url), 'utf8');
-  const mapper = datos.slice(datos.indexOf('function ventaPOSToDb'));
-  const cuerpo = mapper.slice(0, mapper.indexOf('\n}'));
-  assert.ok(
-    cuerpo.includes('stripe_payment_intent_id'),
-    'ventaPOSToDb debe escribir stripe_payment_intent_id, o el reembolso de POS no encuentra nunca la venta',
-  );
-});
+// ── 19ª auditoría · F-3 ─────────────────────────────────────────────────────
+// Aquí había un test de que `ventaPOSToDb` (el mapper del NAVEGADOR) escribía
+// `stripe_payment_intent_id`. Ese mapper y su único llamador (`addVentaPOS`) se
+// borraron en el PR4 de «recibo cobrado»: no tenían ningún caller, y una venta de
+// mostrador la registra `registrar_venta_pos` en la base de datos, no el navegador.
 
 // F-6 (guard de reentrada por `importe_devuelto` monótono) ahora vive dentro
 // de `registrarDevolucion` (UNIQUE de `devoluciones.referencia`, que ya

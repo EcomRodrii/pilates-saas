@@ -4,7 +4,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // "Si no se ha guardado, no me digas que sí."
 //
 // `addSocio` era optimista y fire-and-forget: metía la socia en el estado, y si
-// llevaba plan creaba además su suscripción, un recibo COBRADO y una factura que
+// llevaba plan creaba además su suscripción, un recibo (cobrado) y una factura que
 // se SELLABA (Veri*Factu, cadena de hashes) — todo ANTES de saber si el insert
 // había funcionado. El `.then(ok => { if (!ok) return; ... })` se limitaba a no
 // insertar las hijas: la pantalla se quedaba con una clienta que no existía, con

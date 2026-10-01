@@ -327,10 +327,23 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     importe: '',
   });
   const [generandoFactura, setGenerandoFactura] = useState(false);
+  // Cerrojo SÍNCRONO (como el del cobro masivo): `generandoFactura` no llega a tiempo de parar un segundo
+  // clic, y cada envío acuña un recibo con id nuevo.
+  const facturaEnCursoRef = useRef(false);
 
   async function generarFacturaDirecta() {
+    if (generandoFactura || facturaEnCursoRef.current) return;
     const baseImponible = parseFloat(facturaForm.importe);
     if (isNaN(baseImponible) || baseImponible <= 0) return;
+    facturaEnCursoRef.current = true;
+    try {
+      await crearYCobrarFacturaDirecta(baseImponible);
+    } finally {
+      facturaEnCursoRef.current = false;
+    }
+  }
+
+  async function crearYCobrarFacturaDirecta(baseImponible: number) {
     const iva = studio?.ivaPorDefecto ?? 21;
     const total = Math.round(baseImponible * (1 + iva / 100) * 100) / 100;
     setGenerandoFactura(true);
@@ -340,12 +353,13 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
       importe: total,
     });
     setGenerandoFactura(false);
-    // `cobroRegistrado` distingue el fallo del SELLADO fiscal (el recibo ya
-    // se cobró) de un fallo al insertar el recibo en sí (nada se ha
-    // registrado todavía). Solo en el primer caso se cierra el formulario:
-    // reenviarlo tras un fallo de recibo real es seguro (nada se duplica);
-    // reenviarlo tras un cobro ya registrado duplicaría el cobro.
-    if (!res.ok && !('cobroRegistrado' in res)) {
+    // Tres desenlaces con el recibo YA creado, y solo el cuarto deja reenviar:
+    //  · `cobroRegistrado`: el dinero entró y falló el SELLADO fiscal;
+    //  · `cobroSinConfirmar`: el recibo existe pero el servidor no confirmó el cobro
+    //    (está en «Quién me debe»);
+    //  · sin ninguno de los dos, no se creó nada: reenviar el formulario es seguro.
+    // En los dos primeros se cierra el formulario: reenviarlo duplicaría el cobro.
+    if (!res.ok && !('cobroRegistrado' in res) && !('cobroSinConfirmar' in res)) {
       setStripeToast({ tipo: 'error', msg: `No se ha podido generar la factura: ${res.error}` });
       return;
     }
@@ -353,7 +367,9 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     setFacturaForm({ socioId: '', concepto: '', importe: '' });
     setStripeToast(res.ok
       ? { tipo: 'ok', msg: 'Factura generada.' }
-      : { tipo: 'error', msg: `Cobro registrado, pero la factura no se pudo sellar: ${res.error}. Contacta con soporte si no se resuelve sola.` });
+      : 'cobroSinConfirmar' in res
+        ? { tipo: 'error', msg: `La factura no se ha generado. ${res.error}` }
+        : { tipo: 'error', msg: `Cobro registrado. ${res.error}` });
   }
 
   // ── Historial state ─────────────────────────────────────────────────────────

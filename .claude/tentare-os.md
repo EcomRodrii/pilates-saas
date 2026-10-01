@@ -998,16 +998,24 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     (`lib/db/supabase-data-admin.ts`) terminan en `trasReservaCreada`,
     `trasPlazaConfirmada` o `trasPromocionDeEspera`; cualquier camino nuevo que
     confirme plaza llama a su dueño.
-  - **«Cobro confirmado»: casi.** Webhook/conciliador/POS-confirmar, SEPA/dunning,
-    off-session y, desde el 30-sep-2026, el «marcar cobrado» del panel
-    (`POST /api/cobros/marcar-cobrado`, `origen: 'manual'`) convergen en
-    `confirmarCobro` (`lib/billing/confirmar-cobro.ts`). Queda fuera el POS, que
-    inserta el recibo ya COBRADO por su cuenta, y otros escritores del navegador que
-    insertan `estado: 'COBRADO'` (alta de socia con cobro, `crearFacturaDirecta`).
-    ⚠️ Cerrar la UI no cierra la base de datos: la RLS de `recibos` sigue dejando a
-    quien mueve dinero escribir `COBRADO` por PostgREST, saltándose la guardia de
-    penalización, el sellado y la renovación. Cerrarlo es un trigger, o un REVOKE de
-    tabla con GRANT por columnas (un REVOKE de columna no resta de un grant de tabla).
+  - **«Cobro confirmado»: el navegador, cerrado** (#2399 + PR4, 1-oct-2026). Webhook/
+    conciliador/POS-confirmar, SEPA/dunning, off-session y el «marcar cobrado» del panel
+    (`POST /api/cobros/marcar-cobrado`, `origen: 'manual'`) convergen en `confirmarCobro`
+    (`lib/billing/confirmar-cobro.ts`), y **COBRADO desde el navegador lo veda la base de
+    datos**: el trigger `trg_recibos_cobrado_solo_servidor` (migr `20261001131500`) rechaza
+    (42501), para quien no es `es_llamada_servicio()`, crear un recibo cobrado, pasarlo a
+    cobrado, sacarlo de cobrado y cambiar el importe, el método, la fecha o el cargo de uno
+    cobrado. El alta de socia con «ya está cobrado» (y su matrícula), «Nueva factura» y el
+    cobro de una cita crean el recibo PENDIENTE y lo cobra `cobrarEnServidor`.
+    ⚠️ Un flujo nuevo que necesite un recibo cobrado va por el servidor (`confirmarCobro`),
+    nunca por `dbInsertRecibo`: la base de datos lo rechaza y `dbInsertRecibo`/`dbUpdateRecibo`
+    lo dicen antes de ir a la red. ⚠️ Lo que SÍ sigue escribiendo COBRADO, y es legítimo, es
+    el servidor por su cuenta, sin pasar por `confirmarCobro`: el POS (`lib/pos/venta-servidor.ts`),
+    `entregar-plan-comprado` y el webhook al revertir una devolución. ⚠️ NO está cerrado el
+    resto de columnas de un recibo (`entrega_*`, `conciliado_*`, `factura_pendiente_sellar`…),
+    ni nada sobre uno DEVUELTO: el navegador puede escribirlas. Cerrarlas es un REVOKE de
+    tabla con GRANT por columnas (un REVOKE de columna no resta de un grant de tabla) y
+    exige tocar `aplicar_politica_recibos_al_cancelar_cuota`, que corre como el usuario.
     ⚠️ El servidor solo renueva un recibo con `es_renovacion = true`; el navegador
     renovaba también por tener suscripción. Por eso «Nuevo cobro» (Cobros y la ficha
     de la clienta) lleva la casilla «Es la renovación de su plan»
