@@ -4,6 +4,8 @@ import { secretoValido } from '@/lib/salud/secreto';
 import { ejecutarCopiaDiariaDeTodos } from '@/lib/backups/ejecutar-copia-diaria';
 import { errorInterno } from '@/lib/errores-servidor';
 import { cifrarConfigsIntegracionPendientes, cifrarCredencialesPendientes } from '@/lib/db/supabase-data-admin';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { recifrarSecretosWebhooks } from '@/lib/api-publica/webhooks/trabajador';
 
 export const dynamic = 'force-dynamic';
 // Recorre todos los estudios en una sola invocación (fan-out colapsado) —
@@ -48,19 +50,24 @@ export async function POST(req: NextRequest) {
     // copia: si falla, la copia sigue contando como hecha.
     let credenciales: Awaited<ReturnType<typeof cifrarCredencialesPendientes>> | null = null;
     let configs: Awaited<ReturnType<typeof cifrarConfigsIntegracionPendientes>> | null = null;
+    let webhooks: Awaited<ReturnType<typeof recifrarSecretosWebhooks>> | null = null;
     try {
       credenciales = await cifrarCredencialesPendientes();
       configs = await cifrarConfigsIntegracionPendientes();
-      if (credenciales.fallidas > 0 || configs.fallidas > 0) {
+      // Los secretos de firma de los webhooks de la API (ya nacen cifrados: aquí
+      // solo se pasan de la clave anterior a la actual tras rotarla).
+      const admin = getSupabaseAdmin();
+      if (admin) webhooks = await recifrarSecretosWebhooks(admin);
+      if (credenciales.fallidas > 0 || configs.fallidas > 0 || (webhooks?.fallidos ?? 0) > 0) {
         Sentry.captureMessage('[backups] tokens de integraciones que no se pudieron cifrar', {
-          level: 'warning', tags: { cron: 'backups', tipo: 'credenciales' }, extra: { credenciales, configs },
+          level: 'warning', tags: { cron: 'backups', tipo: 'credenciales' }, extra: { credenciales, configs, webhooks },
         });
       }
     } catch (err) {
       Sentry.captureException(err, { tags: { cron: 'backups', tipo: 'credenciales' } });
     }
     return NextResponse.json(
-      { ejecutadoEn: new Date().toISOString(), ...resumen, credenciales, configs },
+      { ejecutadoEn: new Date().toISOString(), ...resumen, credenciales, configs, webhooks },
       resumen.fallidos > 0 ? { status: 500 } : undefined,
     );
   } catch (err) {

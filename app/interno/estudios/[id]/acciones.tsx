@@ -209,13 +209,13 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, api
           <p className="text-[12.5px] font-semibold text-foreground mb-1">API pública</p>
           <p className="text-[12px] text-muted-foreground mb-2">
             {apiPublica.activa
-              ? `Activada${apiPublica.activadaEn ? ` el ${dia(apiPublica.activadaEn)}` : ''} · ${apiPublica.clavesActivas} ${apiPublica.clavesActivas === 1 ? 'clave activa' : 'claves activas'}. Desactivarla REVOCA sus claves al momento; si se vuelve a activar, tendrá que crear claves nuevas. Zapier no depende de esto.`
-              : 'Sin activar. Con la API activada, la propietaria puede crear claves para su contabilidad en Configuración → Conexiones.'}
+              ? `Activada${apiPublica.activadaEn ? ` el ${dia(apiPublica.activadaEn)}` : ''} · ${apiPublica.clavesActivas} ${apiPublica.clavesActivas === 1 ? 'clave activa' : 'claves activas'}. Desactivarla REVOCA sus claves y desactiva sus webhooks al momento; si se vuelve a activar, tendrá que crear claves nuevas y reactivar sus webhooks. Zapier no depende de esto.`
+              : 'Sin activar. Con la API activada, la propietaria puede crear claves y webhooks para su contabilidad en Configuración → Conexiones.'}
           </p>
           <button type="button" disabled={ocupado}
             onClick={() => ejecutar(
               { accion: apiPublica.activa ? 'desactivar-api' : 'activar-api' },
-              apiPublica.activa ? 'API desactivada y sus claves revocadas.' : 'API activada: ya puede crear claves.',
+              apiPublica.activa ? 'API desactivada: claves revocadas y webhooks desactivados.' : 'API activada: ya puede crear claves y webhooks.',
             )}
             className={apiPublica.activa
               ? 'px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border border-border text-foreground hover:bg-muted disabled:opacity-50'

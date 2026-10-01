@@ -276,3 +276,20 @@ test.describe('Ficha · recordatorios', () => {
     await expect(page.getByText(/^Te lo recordamos/)).toHaveCount(0);
   });
 });
+
+// ─── Cabecera ────────────────────────────────────────────────────────────────
+
+test.describe('Ficha · cabecera', () => {
+  // «Pendiente de cobro» es lo que DEBE, como en Cobros (docs/cifras-financieras.md):
+  // por cobrar + impagado. Antes sumaba solo lo pendiente, y una clienta con un
+  // cobro fallido salía con «Nada» justo encima de «Tiene un pago fallido».
+  // Bea Ortega (soc-4) tiene un recibo FALLIDO de 89 € y nada más pendiente.
+  test('un cobro fallido cuenta en «Pendiente de cobro», no sale «Nada»', async ({ page }) => {
+    await montar(page);
+    await ir(page, 'clientas/soc-4');
+    const valor = page.locator('dt:has-text("Pendiente de cobro") + dd');
+    await expect(valor).toContainText('89,00 €', { timeout: 30_000 });
+    await expect(valor).toContainText('1 pago fallido');
+    await expect(valor).not.toContainText('Nada');
+  });
+});

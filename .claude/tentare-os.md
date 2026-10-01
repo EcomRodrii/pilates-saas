@@ -130,6 +130,11 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   Una credencial nunca ve más que el rol que la concedió, comprobado en cada petición. Claves: solo
   PROPIETARIO; la API se activa por estudio desde /interno; el límite por plan va SOLO en
   `scopesDelPlan()` (hoy no recorta: no inventar límites comerciales).
+  Eventos y webhooks (F2, `lib/api-publica/webhooks/`): los registra un TRIGGER
+  (`api_registrar_evento`), nunca el código, y solo cuando cambia una columna de `COLUMNAS`;
+  un recurso nuevo con eventos lleva su trigger + su entrada en el catálogo (lo cruza
+  `catalogo.test.ts`). Toda llamada saliente a una URL del estudio va por `enviarWebhook`
+  (SSRF: IP comprobada al CONECTAR, sin redirecciones); nunca un `fetch` a pelo.
 - **Modo de Stripe**: el código es agnóstico (`sk_live_` y `sk_test_` funcionan igual), y
   `sk_test_XXXX` significa **«sin configurar»**, NO «modo test» — una clave de test real la
   pasa. Lo que está prohibido es mezclar: `lib/billing/modo-stripe.ts` bloquea clave live

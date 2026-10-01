@@ -41,8 +41,9 @@ export function ActionCenter() {
   const eurGanancia = fraseEuros(r.eurMesOportunidad, r.eurPuntualOportunidad);
 
   return (
+    // `?detalle=1`: llega con la lista abierta, que es lo que esta tarjeta cuenta.
     <Link
-      href="/centro-de-control"
+      href="/centro-de-control?detalle=1"
       className="flex flex-col gap-3 rounded-xl border p-4 transition-colors hover:bg-muted"
       style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card)' }}
     >

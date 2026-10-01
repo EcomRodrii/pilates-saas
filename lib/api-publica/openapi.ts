@@ -7,6 +7,7 @@
 // app/api/v1 tiene que estar aquí (y al revés).
 
 import { DESCRIPCION_SCOPE, SCOPES_VALIDOS } from './catalogo-scopes.ts';
+import { SCOPE_DE_RECURSO, TIPOS_EVENTO } from './webhooks/catalogo.ts';
 
 type Esquema = Record<string, unknown>;
 const str = (description?: string, extra: Esquema = {}): Esquema => ({ type: ['string', 'null'], ...(description ? { description } : {}), ...extra });
@@ -87,6 +88,14 @@ export const ESQUEMAS: Record<string, Esquema> = {
     precio: cent('Precio.'), sesiones: int(), validezDias: int(), periodicidadMeses: int(),
     matricula: cent('Matrícula.'), activa: bool(),
   }),
+  Evento: obj({
+    id: strReq('Único: úsalo para no procesar dos veces el mismo evento.'),
+    tipo: { type: 'string', enum: [...TIPOS_EVENTO], description: '`<recurso>.<creado|actualizado|eliminado>` (en femenino para factura, devolución, venta y clienta).' },
+    creadoEn: strReq('Cuándo ocurrió.'), estudioId: strReq(),
+    recurso: { type: 'string', enum: Object.keys(SCOPE_DE_RECURSO) }, recursoId: strReq('Id del recibo, factura, devolución, venta o clienta.'),
+    version: { type: 'string', enum: ['v1'] },
+    datos: { type: ['object', 'null'], description: 'El recurso con la misma forma que su endpoint (Recibo, Factura, Devolucion, Venta o Clienta sin datos fiscales), tal y como estaba segundos después del cambio. null si ya no existe.' },
+  }),
 };
 
 const PARAMS_LISTADO = [
@@ -160,7 +169,48 @@ export const RUTAS: Record<string, unknown> = {
   '/reservas/cancelar': { post: { summary: 'Cancelar una reserva', security: [{ bearer: [] }], 'x-scope': 'reservas:escribir', responses: { 200: { description: 'Cancelada' }, ...ERRORES } } },
   '/notas': { post: { summary: 'Crear una nota operativa', security: [{ bearer: [] }], 'x-scope': 'notas:escribir', responses: { 201: { description: 'Creada' }, ...ERRORES } } },
   '/tareas': { post: { summary: 'Crear una tarea', security: [{ bearer: [] }], 'x-scope': 'tareas:escribir', responses: { 201: { description: 'Creada' }, ...ERRORES } } },
+  '/eventos': {
+    get: {
+      summary: 'Registro de eventos (lo que ha cambiado)',
+      description: 'Los mismos eventos que mandan los webhooks, de más antiguo a más nuevo (se guardan 30 días). '
+        + 'Guarda X-Siguiente-Cursor —viene también cuando ya no hay más— y vuelve a preguntar con él. '
+        + 'Cada tipo exige el permiso de su recurso (recibo, venta y devolución: pagos:leer; factura: facturas:leer; clienta: clientas:leer).',
+      security: [{ bearer: [] }],
+      parameters: [
+        q('cursor', 'El de la cabecera X-Siguiente-Cursor de la respuesta anterior. Sin él, desde el principio.'),
+        q('tipos', 'Lista separada por comas, p. ej. recibo.creado,recibo.actualizado.'),
+        { name: 'limite', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 200, default: 100 } },
+      ],
+      responses: {
+        200: {
+          description: 'Una página, en orden de llegada',
+          headers: { ...CABECERAS_PAGINA, 'X-Siguiente-Cursor': { schema: { type: 'string' }, description: 'Desde dónde seguir. Guárdalo aunque X-Hay-Mas sea false.' } },
+          content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Evento' } } } },
+        },
+        ...ERRORES,
+      },
+    },
+  },
 };
+
+/** Los webhooks (OpenAPI 3.1): lo que Tentare manda a la URL del estudio. */
+export const WEBHOOKS: Record<string, unknown> = Object.fromEntries(TIPOS_EVENTO.map((tipo) => [tipo, {
+  post: {
+    summary: `Aviso «${tipo}»`,
+    description: 'POST firmado. Comprueba la cabecera Tentare-Firma (t=<segundos>,v1=<HMAC-SHA256 en hex de "<t>.<cuerpo>" con tu secreto whsec_…>) '
+      + 'y rechaza un t de hace más de 5 minutos. Contesta 2xx en menos de 8 segundos; cualquier otra cosa se reintenta durante casi 3 días. '
+      + 'Puede llegar más de una vez y desordenado: usa el id del evento.',
+    parameters: [
+      { name: 'Tentare-Firma', in: 'header', required: true, schema: { type: 'string' } },
+      { name: 'Tentare-Evento-Id', in: 'header', required: true, schema: { type: 'string' } },
+      { name: 'Tentare-Evento-Tipo', in: 'header', required: true, schema: { type: 'string' } },
+      { name: 'Tentare-Entrega-Id', in: 'header', required: true, schema: { type: 'string' } },
+      { name: 'Tentare-Intento', in: 'header', required: true, schema: { type: 'string' } },
+    ],
+    requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/Evento' } } } },
+    responses: { 200: { description: 'Recibido (cualquier 2xx vale)' } },
+  },
+}]));
 
 // `nif` y `direccion` solo salen con clientas:datos_fiscales: no son obligatorias.
 ESQUEMAS.Clienta.required = (ESQUEMAS.Clienta.required as string[]).filter(k => k !== 'nif' && k !== 'direccion');
@@ -181,5 +231,6 @@ export function documentoOpenApi(servidor: string) {
       schemas: ESQUEMAS,
     },
     paths: RUTAS,
+    webhooks: WEBHOOKS,
   };
 }

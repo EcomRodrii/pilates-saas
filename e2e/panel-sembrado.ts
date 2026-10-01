@@ -209,6 +209,9 @@ const DECISIONES = {
     id: 'rd-1', studioId: STUDIO_ID, fecha: fecha(dia(0)),
     ingresosMes: 4820, sociasActivas: 3, altasMes: 1, bajasMes: 0,
     ocupacionMedia: 0.72, clasesSemana: 7, creadoEn: iso(dia(0), 6, 0),
+    // La columna es `NOT NULL DEFAULT '[]'`: el detalle del Centro de Control lo
+    // lee sin comprobar, y sin él la pantalla entera caía en «Algo ha ido mal».
+    mientrasDormias: [],
   },
   // `tipo: 'MENSAJE'` + `recomendacion` = hay veredicto del día (el Umbral).
   veredicto: {
@@ -228,7 +231,9 @@ const DECISIONES = {
       especialista,
       pendientes: recs.length,
       impactoTotal: recs.length ? { valor: recs.length * 40, unidad: 'EUR_MES', formula: '' } : null,
-      estado: recs.length ? 'ATENCION' : 'EN_ORDEN',
+      // Los que emite el director (`EstadoEspecialista`): sin pendientes es
+      // EXCELENTE. Un valor inventado tumbaba el detalle del Centro de Control.
+      estado: recs.length ? 'ATENCION' : 'EXCELENTE',
     };
   }),
   actividad: [

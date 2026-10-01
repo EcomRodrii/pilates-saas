@@ -2,6 +2,7 @@
 // relativas de la lista. Puro: se prueba con `node --test`.
 import type { EstadoClienta, ResultadoEstado } from './estado.ts';
 import { ETIQUETA_MOTIVO_BAJA, esMotivoBaja } from '../socios/baja.ts';
+import { hoyEnEstudio } from '../utils.ts';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -66,7 +67,7 @@ export function textoDesde(
     DE_BAJA: () => {
       const b = extra?.baja;
       if (!b) return null;
-      const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date(b.bajaEn));
+      const dia = hoyEnEstudio(new Date(b.bajaEn));
       const motivo = esMotivoBaja(b.motivo) ? ETIQUETA_MOTIVO_BAJA[b.motivo].toLowerCase() : null;
       return [`desde ${fechaCorta(dia, hoyISO)}`, motivo].filter(Boolean).join(' · ');
     },
@@ -76,14 +77,26 @@ export function textoDesde(
 
 const DIAS_SEMANA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
+// Uno por zona, construido una vez: construirlo cuesta mucho más que usarlo, y
+// esto se pinta en cada fila con una clase reservada.
+const formatosClase = new Map<string, Intl.DateTimeFormat>();
+function formatoClase(tz: string): Intl.DateTimeFormat {
+  let f = formatosClase.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short',
+    });
+    formatosClase.set(tz, f);
+  }
+  return f;
+}
+
 /**
  * Cuándo es una clase, en corto y en hora del estudio: «hoy 18:00», «mañana
  * 9:30», «jue 18:00» (esta semana), «14 oct 18:00».
  */
 export function cuandoClase(inicioIso: string, hoyISO: string, tz = 'Europe/Madrid'): string {
-  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short',
-  }).formatToParts(new Date(inicioIso)).map(x => [x.type, x.value]));
+  const p = Object.fromEntries(formatoClase(tz).formatToParts(new Date(inicioIso)).map(x => [x.type, x.value]));
   const ymd = `${p.year}-${p.month}-${p.day}`;
   const hora = `${Number(p.hour)}:${p.minute}`;
   const n = diasEntre(hoyISO, ymd);

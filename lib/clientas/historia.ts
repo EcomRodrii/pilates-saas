@@ -7,6 +7,7 @@
 // permisos, solo no incluye lo que no se le pide.
 //
 // Puro: se prueba con `node --test`.
+import { hoyEnEstudio } from '../utils.ts';
 
 export type GrupoHistoria = 'CONTACTOS' | 'CLASES' | 'PAGOS' | 'AVISOS' | 'NOTAS';
 
@@ -224,8 +225,12 @@ export type ItemHistoria =
 const MESES_LARGOS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
+// Con el formateador de `hoyEnEstudio`, que se construye una vez: aquí se
+// construía uno por evento (dos por clase al juntarlas por semana, y en cada
+// render), y con una clienta de 119 clases eso eran 0,7 s al abrir su ficha
+// (perfil de CPU a ×2).
 function diaDeEvento(cuando: string, tz: string): string {
-  return cuando.length === 10 ? cuando : new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(cuando));
+  return cuando.length === 10 ? cuando : hoyEnEstudio(new Date(cuando), tz);
 }
 
 function lunesDe(ymd: string): string {
