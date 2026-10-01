@@ -1,38 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { enforceRateLimit } from '@/lib/rate-limit';
-import { verificarTokenOAuth, auditarAccesoOAuth } from '@/lib/oauth-server';
-import { clientIp } from '@/lib/rate-limit-core';
+import { NextRequest } from 'next/server';
+import { conApiPublica } from '@/lib/api-publica/servidor';
 
-// Endpoint que Zapier llama para "Probar la conexión" (Test Trigger de
-// autenticación de la plataforma). Lista blanca de campos — mismo criterio
-// que studioPublico(): nunca el objeto crudo de studios/instructores, que
-// llevaría columnas internas.
+// GET /api/oauth/me — «Probar conexión» de Zapier. Pasa por la MISMA puerta que
+// /api/v1 (conApiPublica): antes iba por su cuenta y decía «conectado» aunque el
+// estudio estuviera suspendido o quien autorizó ya no tuviera rol, mientras
+// todas las llamadas reales daban 401. Lista blanca: nunca el objeto crudo de
+// studios/instructores. Los scopes son los que valen HOY.
 export async function GET(req: NextRequest) {
-  const limited = await enforceRateLimit(req, 'oauth-me', { max: 60, windowSeconds: 60 });
-  if (limited) return limited;
-
-  const ctx = await verificarTokenOAuth(req);
-  if (!ctx) return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
-
-  const admin = getSupabaseAdmin();
-  if (!admin) return NextResponse.json({ error: 'server_error' }, { status: 503 });
-
-  const [{ data: studio }, { data: instructor }] = await Promise.all([
-    admin.from('studios').select('id, nombre').eq('id', ctx.studioId).maybeSingle(),
-    admin.from('instructores').select('rol, nombre').eq('auth_user_id', ctx.authUserId).eq('studio_id', ctx.studioId).maybeSingle(),
-  ]);
-
-  const respuesta = {
-    estudio: { id: ctx.studioId, nombre: studio?.nombre ?? null },
-    usuario: { nombre: instructor?.nombre ?? null, rol: instructor?.rol ?? 'PROPIETARIO' },
-    scopes: ctx.scopes,
-  };
-
-  auditarAccesoOAuth(admin, {
-    tokenId: ctx.tokenId, studioId: ctx.studioId, clienteId: ctx.clienteId, scopeUsado: null,
-    metodo: 'GET', ruta: '/api/oauth/me', statusCode: 200, ip: clientIp(req),
+  return conApiPublica(req, { scope: null, ruta: '/api/oauth/me' }, async (ctx, admin) => {
+    const [{ data: studio }, { data: instructor }] = await Promise.all([
+      admin.from('studios').select('id, nombre').eq('id', ctx.studioId).maybeSingle(),
+      admin.from('instructores').select('nombre').eq('auth_user_id', ctx.concedidaPor).eq('studio_id', ctx.studioId).maybeSingle(),
+    ]);
+    return {
+      status: 200,
+      body: {
+        estudio: { id: ctx.studioId, nombre: studio?.nombre ?? null },
+        usuario: { nombre: instructor?.nombre ?? null, rol: ctx.rolDeQuienConcedio },
+        scopes: ctx.scopes,
+      },
+    };
   });
-
-  return NextResponse.json(respuesta);
 }

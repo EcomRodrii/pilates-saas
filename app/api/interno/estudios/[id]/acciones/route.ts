@@ -23,7 +23,9 @@ type Accion =
   | { accion: 'suspender'; motivo: string }
   | { accion: 'reactivar' }
   | { accion: 'activar-review-boost' }
-  | { accion: 'ampliar-prueba' };
+  | { accion: 'ampliar-prueba' }
+  | { accion: 'activar-api'; nota?: string }
+  | { accion: 'desactivar-api' };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const g = await exigirPermiso(req, 'studios.update');
@@ -173,6 +175,50 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       despues: { trialEndsAt: r.hasta, subscriptionStatus: 'trialing' },
     });
     return NextResponse.json({ ok: true, pruebaHasta: r.hasta });
+  }
+
+  // API pública (F1, 1-oct-2026): se activa estudio a estudio. Decisión del
+  // fundador: no queda abierta a todos los planes, pero tampoco se inventan
+  // límites comerciales todavía. Sin activar, el estudio no puede crear claves
+  // y las que tuviera dejan de valer (lib/api-publica/servidor.ts). Los tokens
+  // OAuth de Zapier no dependen de esto.
+  if (cuerpo.accion === 'activar-api' || cuerpo.accion === 'desactivar-api') {
+    const { data: acceso } = await db.from('api_acceso_estudios')
+      .select('activada_en, desactivada_en').eq('studio_id', id).maybeSingle();
+    const activaAntes = !!acceso && !acceso.desactivada_en;
+    const activar = cuerpo.accion === 'activar-api';
+    if (activar === activaAntes) {
+      return NextResponse.json({ error: activar ? 'La API ya está activada.' : 'La API no está activada.' }, { status: 409 });
+    }
+    const nota = activar ? (cuerpo.nota ?? '').trim().slice(0, 500) || null : undefined;
+    const { error } = activar
+      ? await db.from('api_acceso_estudios').upsert({
+          studio_id: id, activada_en: new Date().toISOString(), activada_por: g.admin.userId,
+          desactivada_en: null, nota,
+        }, { onConflict: 'studio_id' })
+      : await db.from('api_acceso_estudios').update({ desactivada_en: new Date().toISOString() }).eq('studio_id', id);
+    if (error) return NextResponse.json({ error: 'No se ha podido cambiar el acceso a la API.' }, { status: 500 });
+
+    // Desactivar REVOCA sus claves. Si no, volver a activar la API (meses
+    // después, o tras desactivarla por un abuso) resucitaría en silencio todas
+    // las que no se revocaron. Tras reactivar, la propietaria crea claves nuevas.
+    let revocadas = 0;
+    if (!activar) {
+      const { data: filas, error: errRevocar } = await db.from('api_claves')
+        .update({ revocada_en: new Date().toISOString(), revocada_por: g.admin.userId })
+        .eq('studio_id', id).is('revocada_en', null).select('id');
+      if (errRevocar) return NextResponse.json({ error: 'API desactivada, pero no se han podido revocar sus claves. Vuelve a intentarlo.' }, { status: 500 });
+      revocadas = filas?.length ?? 0;
+    }
+
+    await registrar(db, req, {
+      actor: g.admin,
+      accion: activar ? 'estudio.api.activada' : 'estudio.api.desactivada',
+      objetivoTipo: 'studio', objetivoId: id,
+      resumen: `${nombre}: API pública ${activar ? 'activada' : `desactivada (${revocadas} claves revocadas)`}${nota ? ` (${nota})` : ''}`,
+      antes: { apiActiva: activaAntes }, despues: { apiActiva: activar, clavesRevocadas: revocadas },
+    });
+    return NextResponse.json({ ok: true, apiActiva: activar, clavesRevocadas: revocadas });
   }
 
   return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 });

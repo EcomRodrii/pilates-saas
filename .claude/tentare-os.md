@@ -123,6 +123,13 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   sumando `importe` en bruto. Lo ingresado es neto de `importe_devuelto`, cuenta en su mes
   de COBRO y `DEVUELTO` puede ser deuda (banco) o reembolso. Mapa de cada cifra y su
   fuente en `docs/cifras-financieras.md` (F0, 1-oct-2026: «las cifras no cuadran»).
+- **API pública** (`docs/api-publica.md`): UNA puerta, `conApiPublica` (lib/api-publica/servidor.ts),
+  para tokens OAuth y claves de API; rutas en `app/api/v1` (`/api/oauth/v1` es alias permanente:
+  no romper Zapier). Corre con service-role: cada consulta filtra `ctx.studioId` (lo exige
+  `lib/api-publica/rutas.test.ts`) y sale por un serializador con lista blanca, nunca `select('*')`.
+  Una credencial nunca ve más que el rol que la concedió, comprobado en cada petición. Claves: solo
+  PROPIETARIO; la API se activa por estudio desde /interno; el límite por plan va SOLO en
+  `scopesDelPlan()` (hoy no recorta: no inventar límites comerciales).
 - **Modo de Stripe**: el código es agnóstico (`sk_live_` y `sk_test_` funcionan igual), y
   `sk_test_XXXX` significa **«sin configurar»**, NO «modo test» — una clave de test real la
   pasa. Lo que está prohibido es mezclar: `lib/billing/modo-stripe.ts` bloquea clave live

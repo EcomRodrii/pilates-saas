@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server';
-import { conOAuth } from '@/lib/oauth-server';
+import { conApiPublica } from '@/lib/api-publica/servidor';
 import { crearTareaAdmin } from '@/lib/tareas-admin';
 import { TITULO_SEGUIMIENTO_MAX } from '@/lib/clientas/seguimientos';
 
-// POST /api/oauth/v1/tareas — action "Crear tarea" de Zapier. `socioId` es
+// POST /api/v1/tareas — action "Crear tarea" de Zapier. `socioId` es
 // opcional (una tarea no tiene por qué estar ligada a una clienta concreta).
 // Requiere `tareas:escribir`.
 export async function POST(req: NextRequest) {
-  return conOAuth(req, { scope: 'tareas:escribir', metodo: 'POST', ruta: '/api/oauth/v1/tareas', rateLimitKey: 'oauth-v1-tareas-post', rateLimitMax: 20 }, async (ctx, admin) => {
+  return conApiPublica(req, { scope: 'tareas:escribir', ruta: '/api/v1/tareas', limitePorMinuto: 20 }, async (ctx, admin) => {
     const body = await req.json().catch(() => null) as { titulo?: string; descripcion?: string; socioId?: string; socio_id?: string } | null;
     if (!body?.titulo?.trim()) {
       return { status: 400, body: { error: 'invalid_request', detalle: 'titulo es obligatorio' } };

@@ -47,7 +47,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const hace30 = new Date(Date.now() - 30 * 864e5).toISOString();
 
-  const [equipo, nSocias, nClases, reservas30, recibos, duenaAuth, reviewBoostFeedback, reviewBoostRecompensa] = await Promise.all([
+  const [equipo, nSocias, nClases, reservas30, recibos, duenaAuth, reviewBoostFeedback, reviewBoostRecompensa, apiAcceso, apiClaves] = await Promise.all([
     db.from('instructores').select('id, nombre, rol, activo, auth_user_id').eq('studio_id', id),
     db.from('socios').select('id', { count: 'exact', head: true }).eq('studio_id', id),
     db.from('sesiones').select('id', { count: 'exact', head: true }).eq('studio_id', id),
@@ -58,6 +58,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       : Promise.resolve({ data: { user: null } }),
     db.from('review_boost_feedback').select('rating, creado_en').eq('studio_id', id).maybeSingle(),
     db.from('review_boost_recompensas').select('canjeada_en').eq('studio_id', id).maybeSingle(),
+    db.from('api_acceso_estudios').select('activada_en, desactivada_en').eq('studio_id', id).maybeSingle(),
+    db.from('api_claves').select('id', { count: 'exact', head: true }).eq('studio_id', id).is('revocada_en', null),
   ]);
 
   // Facturación DEL ESTUDIO a sus socias (su negocio), no lo que nos paga a
@@ -134,6 +136,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       esSede: Boolean(studio.cadena_id),
     },
     salud,
+    apiPublica: {
+      activa: !!apiAcceso.data && !apiAcceso.data.desactivada_en,
+      activadaEn: (apiAcceso.data?.activada_en as string | null) ?? null,
+      clavesActivas: apiClaves.count ?? 0,
+    },
     reviewBoost: {
       elegibleEn: (studio.review_boost_elegible_en as string | null) ?? null,
       mostradoEn: (studio.review_boost_mostrado_en as string | null) ?? null,

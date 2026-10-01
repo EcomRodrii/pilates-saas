@@ -21,12 +21,14 @@ import { tienePermiso } from '@/lib/interno/permisos';
 const dia = (iso: string) =>
   new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
 
-export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, prueba, alTerminar }: {
+export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, apiPublica, prueba, alTerminar }: {
   id: string; plan: string; suspendido: boolean; motivo: string | null;
   prueba: FichaEstudio['prueba'];
   /** Recarga la ficha: es de cliente, así que `router.refresh()` no la repinta. */
   alTerminar?: () => void;
   reviewBoost: { elegibleEn: string | null; mostradoEn: string | null; feedback: { rating: number; creadoEn: string } | null; recompensaCanjeada: boolean };
+  /** Opcional: sin el dato (respuesta de una versión anterior) el bloque no se pinta, en vez de tumbar la ficha. */
+  apiPublica?: FichaEstudio['apiPublica'] | null;
 }) {
   const sesion = useSesionInterna();
   const router = useRouter();
@@ -201,6 +203,27 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, pru
             </>
           )}
         </div>
+
+        {apiPublica && (
+        <div className="border-t border-border/60 pt-3">
+          <p className="text-[12.5px] font-semibold text-foreground mb-1">API pública</p>
+          <p className="text-[12px] text-muted-foreground mb-2">
+            {apiPublica.activa
+              ? `Activada${apiPublica.activadaEn ? ` el ${dia(apiPublica.activadaEn)}` : ''} · ${apiPublica.clavesActivas} ${apiPublica.clavesActivas === 1 ? 'clave activa' : 'claves activas'}. Desactivarla REVOCA sus claves al momento; si se vuelve a activar, tendrá que crear claves nuevas. Zapier no depende de esto.`
+              : 'Sin activar. Con la API activada, la propietaria puede crear claves para su contabilidad en Configuración → Conexiones.'}
+          </p>
+          <button type="button" disabled={ocupado}
+            onClick={() => ejecutar(
+              { accion: apiPublica.activa ? 'desactivar-api' : 'activar-api' },
+              apiPublica.activa ? 'API desactivada y sus claves revocadas.' : 'API activada: ya puede crear claves.',
+            )}
+            className={apiPublica.activa
+              ? 'px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border border-border text-foreground hover:bg-muted disabled:opacity-50'
+              : 'px-3 py-1.5 rounded-lg text-[12.5px] font-bold bg-brand text-brand-foreground disabled:opacity-50'}>
+            {apiPublica.activa ? 'Desactivar la API' : 'Activar la API'}
+          </button>
+        </div>
+        )}
 
         {error && <p className="text-[12.5px] text-red-600">{error}</p>}
         {aviso && <p className="text-[12.5px] text-emerald-700">{aviso}</p>}

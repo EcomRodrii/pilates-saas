@@ -1,5 +1,11 @@
 # Fase 9 — "API pública v1": diagnóstico y alcance recomendado
 
+> ⚠️ **Superado el 1-oct-2026.** La señal que este documento pedía para reabrirlo (§5: «un estudio
+> real pidiendo integrar algo que Zapier no cubre») llegó: un estudio pidió conectar su software
+> de contabilidad. Se construyeron las claves de API por estudio y `/api/v1` como ruta oficial,
+> **sobre** el servidor OAuth (misma puerta, mismos scopes, misma auditoría: no es una API
+> paralela). Estado actual: `docs/api-publica.md`.
+
 > Estado del repo auditado: `origin/main` @ `effc1d30` (17 ago 2026). Fotografía para
 > decisión, no código — este documento es de diseño, no hay implementación aquí.
 >

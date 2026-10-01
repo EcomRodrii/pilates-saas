@@ -406,6 +406,15 @@ export function puedeGestionarAppsOAuth(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'MANAGER';
 }
 
+// Claves de API del estudio y sus webhooks: SOLO la propietaria (decisión del
+// fundador, 1-oct-2026). Una clave puede leer cobros, facturas y datos
+// fiscales de las clientas, y nadie más reúne «ve las finanzas» y «gestiona
+// apps conectadas». Espejo de /api/integrations/api-publica/*, que es la
+// cerradura (las tablas api_* no tienen política RLS para authenticated).
+export function puedeGestionarClavesApi(rol: Rol): boolean {
+  return rol === 'PROPIETARIO';
+}
+
 // ── Reglas de rutas de servidor que solo pedían sesión de staff ─────────────
 // Todas estas rutas corren con service-role, así que la RLS no está debajo:
 // la regla de aquí es la cerradura de la ruta, no solo la de la UI.

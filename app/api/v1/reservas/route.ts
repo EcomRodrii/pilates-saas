@@ -1,15 +1,15 @@
 import { NextRequest } from 'next/server';
-import { conOAuth } from '@/lib/oauth-server';
+import { conApiPublica } from '@/lib/api-publica/servidor';
 import { crearReservaPublica } from '@/lib/db/supabase-data-admin';
 
-// GET /api/oauth/v1/reservas — triggers "Nueva reserva"/"Reserva cancelada"
+// GET /api/v1/reservas — triggers "Nueva reserva"/"Reserva cancelada"
 // de Zapier (polling). `?estado=` filtra (CONFIRMADA por defecto; pasar
 // CANCELADA para el segundo trigger). `?socioId=` filtra además por clienta
 // (Fase 9 — extensión incremental, docs/api-publica-v1-diseno.md §3.1): sin
 // esto, "las reservas de esta clienta" exigía traer toda la página y filtrar
 // en el cliente. Requiere `reservas:leer`.
 export async function GET(req: NextRequest) {
-  return conOAuth(req, { scope: 'reservas:leer', metodo: 'GET', ruta: '/api/oauth/v1/reservas', rateLimitKey: 'oauth-v1-reservas', rateLimitMax: 60 }, async (ctx, admin) => {
+  return conApiPublica(req, { scope: 'reservas:leer', ruta: '/api/v1/reservas' }, async (ctx, admin) => {
     const limit = Math.min(Number(req.nextUrl.searchParams.get('limit')) || 25, 100);
     const estado = req.nextUrl.searchParams.get('estado') ?? 'CONFIRMADA';
     const socioId = req.nextUrl.searchParams.get('socioId');
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// POST /api/oauth/v1/reservas — action "Crear reserva" de Zapier. Reutiliza
+// POST /api/v1/reservas — action "Crear reserva" de Zapier. Reutiliza
 // crearReservaPublica (mismo camino que /reservar, con todas sus reglas:
 // ventana, gate de plan/bono, aforo transaccional). Esa función exige el
 // auth_user_id de la socia para validarla (pensada para JWT de magic link);
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 // (que puede ser NULL si la socia nunca reclamó su cuenta, y eso no bloquea
 // nada aquí). Requiere `reservas:escribir`.
 export async function POST(req: NextRequest) {
-  return conOAuth(req, { scope: 'reservas:escribir', metodo: 'POST', ruta: '/api/oauth/v1/reservas', rateLimitKey: 'oauth-v1-reservas-post', rateLimitMax: 20 }, async (ctx, admin) => {
+  return conApiPublica(req, { scope: 'reservas:escribir', ruta: '/api/v1/reservas', limitePorMinuto: 20 }, async (ctx, admin) => {
     const body = await req.json().catch(() => null) as {
       socioId?: string; sesionId?: string; spotId?: string;
       socio_id?: string; sesion_id?: string; spot_id?: string;

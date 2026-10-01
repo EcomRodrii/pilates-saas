@@ -303,6 +303,7 @@ export const SECCIONES = [
       { id: 'plataformas-externas', titulo: 'ClassPass, Urban Sports Club y Wellhub', frase: 'Si vendes plazas en estas plataformas, apunta sus reservas en la clase para no vender dos veces el mismo hueco.', guardado: 'accion', palabras: ['classpass', 'urban sports club', 'usc', 'wellhub', 'gympass', 'plataformas', 'agregadores'] },
       { id: 'integracion-zapier', titulo: 'Zapier', frase: 'Conecta Tentare con miles de apps. La conexión se autoriza desde Zapier, no desde aquí.', guardado: 'accion', palabras: ['automatizar', 'apps'] },
       { id: 'aplicaciones-con-acceso', titulo: 'Aplicaciones con acceso', frase: 'Apps como Zapier con permiso para ver datos de tu estudio; puedes quitárselo.', guardado: 'accion', palabras: ['zapier', 'permisos'] },
+      { id: 'api-publica', titulo: 'API para tu contabilidad', frase: 'Claves para que tu programa de contabilidad (u otro) lea tus cobros, facturas y alumnas.', guardado: 'accion', palabras: ['api', 'contabilidad', 'gestoría', 'clave', 'integración', 'holded', 'a3', 'sage'] },
     ],
   },
   {
