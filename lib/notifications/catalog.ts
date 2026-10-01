@@ -258,6 +258,15 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Email fallido: ALTA (no CRÍTICA) y sin EMAIL declarado a propósito — avisar
   // por correo de que el correo falla sería absurdo y podría realimentarse.
   [EVENTOS.SISTEMA_EMAIL_FALLIDO]: { category: 'sistema', priority: 'ALTA', canales: [], audiencia: 'propietaria' },
+  // Webhooks de la API (lib/api-publica/webhooks/salud.ts). El de «no recibe»
+  // es ALTA: avisa a tiempo de arreglarlo y el email depende de sus
+  // preferencias. «Desactivado» es CRÍTICA, como Stripe desconectado: su
+  // contabilidad deja de recibir datos en silencio, y tiene que enterarse
+  // aunque no abra el panel. «Vuelve a funcionar» cierra el primero, solo push.
+  // Solo a la propietaria: los webhooks son suyos (puedeGestionarClavesApi).
+  [EVENTOS.WEBHOOK_FALLANDO]: { category: 'sistema', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
+  [EVENTOS.WEBHOOK_DESACTIVADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
+  [EVENTOS.WEBHOOK_RECUPERADO]: { category: 'sistema', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'propietaria' },
   // Prueba a punto de acabar: ALTA + PUSH/EMAIL (no CRÍTICA — todavía hay
   // acceso). Una vez bloqueado sí es CRÍTICA, mismo criterio que
   // SISTEMA_STRIPE_DESCONECTADO: bloquea el panel, no deja de cobrar dinero
@@ -949,6 +958,22 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Stripe desconectado — no puedes cobrar',
     body: 'Se ha desconectado tu cuenta de Stripe: los cobros automáticos están parados. Vuelve a conectarla para seguir cobrando.',
     deepLink: () => `/configuracion?tab=cobros#integracion-stripe`,
+  },
+  // El cajón «API para tu contabilidad», donde están sus webhooks.
+  [`${EVENTOS.WEBHOOK_FALLANDO}#PROPIETARIO`]: {
+    title: 'Tu programa no está recibiendo los avisos de Tentare',
+    body: '«{nombre}» no consigue entregar nada desde el {desde} ({error}). Tentare sigue reintentando, pero si no se arregla se desactivará solo en unos días.',
+    deepLink: () => `/configuracion?tab=conexiones#api-publica`,
+  },
+  [`${EVENTOS.WEBHOOK_DESACTIVADO}#PROPIETARIO`]: {
+    title: 'Webhook desactivado: tu programa ya no recibe avisos',
+    body: '«{nombre}» se ha desactivado porque {motivo}. Lo que pase a partir de ahora no le llegará hasta que lo arregles y lo reactives.',
+    deepLink: () => `/configuracion?tab=conexiones#api-publica`,
+  },
+  [`${EVENTOS.WEBHOOK_RECUPERADO}#PROPIETARIO`]: {
+    title: 'Tu programa vuelve a recibir los avisos',
+    body: '«{nombre}» vuelve a entregar con normalidad. Lo que falló mientras tanto se ha reintentado solo.',
+    deepLink: () => `/configuracion?tab=conexiones#api-publica`,
   },
   [`${EVENTOS.SISTEMA_EMAIL_FALLIDO}#PROPIETARIO`]: {
     title: 'Fallan los envíos de email',

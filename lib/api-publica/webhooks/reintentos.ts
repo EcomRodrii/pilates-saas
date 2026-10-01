@@ -7,8 +7,8 @@
 //     desactiva y no se insiste;
 //   · el destino resuelve a una dirección interna → tampoco se insiste (no va a
 //     dejar de serlo solo).
-// Un webhook que lleva DIAS_PARA_DESACTIVAR días fallando sin un solo éxito se
-// desactiva: seguir mandando a un destino muerto solo gasta y no avisa a nadie.
+// Cuándo se desactiva el webhook entero, y qué se le avisa a la propietaria,
+// vive en salud.ts.
 
 import type { ResultadoEnvio } from './envio.ts';
 
@@ -16,14 +16,17 @@ import type { ResultadoEnvio } from './envio.ts';
 export const ESPERAS_MINUTOS = [1, 5, 30, 120, 360, 720, 1440, 1440] as const;
 /** El primer intento más un reintento por cada espera. */
 export const MAX_INTENTOS = ESPERAS_MINUTOS.length + 1;
-export const DIAS_PARA_DESACTIVAR = 3;
 
 export type Decision =
   | { estado: 'ENTREGADA' }
   | { estado: 'PENDIENTE'; proximoIntentoEn: Date }
   | { estado: 'FALLIDA' };
 
-export type EfectoEnWebhook = 'ninguno' | 'desactivar_destino_retirado';
+/**
+ * Lo que este intento dice del webhook entero: `agotado` = esta entrega ha
+ * gastado todos sus reintentos sin entregar (salud.ts decide si eso lo apaga).
+ */
+export type EfectoEnWebhook = 'ninguno' | 'desactivar_destino_retirado' | 'agotado';
 
 export function esExito(r: ResultadoEnvio): boolean {
   return r.tipo === 'respuesta' && r.estadoHttp >= 200 && r.estadoHttp < 300;
@@ -38,7 +41,7 @@ export function decidirTrasIntento(r: ResultadoEnvio, intentos: number, ahora: D
   if (r.tipo === 'error' && r.destinoNoPermitido) {
     return { decision: { estado: 'FALLIDA' }, efecto: 'ninguno' };
   }
-  if (intentos >= MAX_INTENTOS) return { decision: { estado: 'FALLIDA' }, efecto: 'ninguno' };
+  if (intentos >= MAX_INTENTOS) return { decision: { estado: 'FALLIDA' }, efecto: 'agotado' };
   const espera = ESPERAS_MINUTOS[Math.max(0, intentos - 1)] ?? ESPERAS_MINUTOS[ESPERAS_MINUTOS.length - 1];
   return { decision: { estado: 'PENDIENTE', proximoIntentoEn: new Date(ahora.getTime() + espera * 60_000) }, efecto: 'ninguno' };
 }
@@ -50,10 +53,4 @@ export function describirFallo(r: ResultadoEnvio): string | null {
   if (r.estadoHttp >= 300 && r.estadoHttp < 400) return `Respondió ${r.estadoHttp} (redirección): no se siguen, usa la dirección final.`;
   if (r.estadoHttp === 410) return 'Respondió 410: el destino dice que esa dirección ya no existe.';
   return `Respondió ${r.estadoHttp}.`;
-}
-
-/** ¿Hay que desactivar el webhook por llevar días fallando? */
-export function debeDesactivarsePorFallos(fallandoDesde: string | null, ahora: Date): boolean {
-  if (!fallandoDesde) return false;
-  return ahora.getTime() - Date.parse(fallandoDesde) >= DIAS_PARA_DESACTIVAR * 86_400_000;
 }
