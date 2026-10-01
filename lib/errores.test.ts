@@ -174,7 +174,21 @@ test('el trigger de recibos cobrados dice que recargue, no «vuelve a entrar»',
     assert.doesNotMatch(r, /vuelve a entrar/i);
   }
   // Y un 42501 que NO es suyo sigue siendo el genérico.
-  assert.match(mensajeDeFalloAlGuardar({ code: '42501', message: 'permission denied for table recibos' }), /no tienes permiso/i);
+  assert.match(mensajeDeFalloAlGuardar({ code: '42501', message: 'new row violates row-level security policy for table "recibos"' }), /no tienes permiso/i);
+});
+
+// El navegador solo escribe ciertas columnas de `recibos` (GRANT por columnas). Una pestaña con la versión
+// anterior de la app manda columnas que ya no puede escribir y sale «permission denied for table recibos»:
+// el permiso está bien, lo que falla es la versión de la pestaña. «Vuelve a entrar» sería un mal consejo.
+test('una pestaña de una versión anterior que escribe recibos dice que recargue', () => {
+  for (const message of ['permission denied for table recibos', 'permission denied for column "importe" of relation "recibos"']) {
+    const r = mensajeDeFalloAlGuardar({ code: '42501', message });
+    assert.match(r, /versión anterior/);
+    assert.match(r, /Recarga la página/);
+    assert.doesNotMatch(r, /vuelve a entrar/i);
+  }
+  // Otras tablas siguen con el genérico.
+  assert.match(mensajeDeFalloAlGuardar({ code: '42501', message: 'permission denied for table socios' }), /no tienes permiso/i);
 });
 
 test('un tipo de clase archivado dice qué hacer, no «revisa los datos»', () => {

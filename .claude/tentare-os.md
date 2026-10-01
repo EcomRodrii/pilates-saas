@@ -1046,16 +1046,36 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     nunca por `dbInsertRecibo`: la base de datos lo rechaza y `dbInsertRecibo`/`dbUpdateRecibo`
     lo dicen antes de ir a la red. ⚠️ Lo que SÍ sigue escribiendo COBRADO, y es legítimo, es
     el servidor por su cuenta, sin pasar por `confirmarCobro`: el POS (`lib/pos/venta-servidor.ts`),
-    `entregar-plan-comprado` y el webhook al revertir una devolución. ⚠️ NO está cerrado el
-    resto de columnas de un recibo (`entrega_*`, `conciliado_*`, `factura_pendiente_sellar`…),
-    ni nada sobre uno DEVUELTO: el navegador puede escribirlas. Cerrarlas es un REVOKE de
-    tabla con GRANT por columnas (un REVOKE de columna no resta de un grant de tabla) y
-    exige tocar `aplicar_politica_recibos_al_cancelar_cuota`, que corre como el usuario.
+    `entregar-plan-comprado` y el webhook al revertir una devolución.
+    **Y el resto del recibo también** (migr `20261001210000`): `authenticated` no tiene
+    INSERT/UPDATE de TABLA sobre `recibos`, solo las columnas de
+    `lib/cobros/recibo-escritura-navegador.ts` (crear: id, estudio, socia, suscripción,
+    concepto, importe, estado, vencimiento, `es_renovacion`; actualizar: `estado` e
+    `intentos_reintento`, que son la remesa SEPA y «Reintentar»). ⚠️ Una columna NUEVA de
+    `recibos` nace NO escribible desde el navegador: añadirla a esa lista y al GRANT es una
+    decisión, y un test cruza lista y migración. ⚠️ Un REVOKE de columna no resta de un
+    grant de tabla: por eso es REVOKE de tabla + GRANT por columnas, en ese orden.
+    `aplicar_politica_recibos_al_cancelar_cuota` es SECURITY DEFINER por esto (era lo único
+    que escribía recibos con el rol de quien cancela una cuota). El trigger cierra también
+    DEVUELTO: no se crea ni se pasa a devuelto desde el navegador, y de un devuelto solo se
+    sale con «Reintentar» (→ EN_CURSO) si lo devolvió el BANCO (mismo criterio que
+    `esReciboCobrable`); uno reembolsado por Stripe o por la caja no se reabre (la socia
+    volvería a pagarlo). ⚠️ Límite conocido: una devolución MANUAL de un cobro en efectivo o
+    transferencia deja los mismos campos que un retorno bancario y sigue pudiendo
+    reintentarse; cerrarlo es decidir qué escribe `marcar-devuelto`. Y un recibo NACE
+    pendiente desde el navegador, y un EN_CURSO con un cobro en vuelo (cargo, sesión de pago
+    o reintento programado) no vuelve a pendiente a mano: cambiaría la clave de idempotencia
+    del siguiente cobro.
     ⚠️ El servidor solo renueva un recibo con `es_renovacion = true`; el navegador
     renovaba también por tener suscripción. Por eso «Nuevo cobro» (Cobros y la ficha
     de la clienta) lleva la casilla «Es la renovación de su plan»
     (`components/cobros/casilla-renovacion.tsx`): sin marcar, el cobro es una venta y
-    no toca el plan.
+    no toca el plan. ⚠️ El recibo del cobro de una CITA lleva el id de la cita,
+    `rec-cita-<cita>` (`lib/cobros/recibo-de-cita.ts`): cobrar la misma cita dos veces —un
+    intento sin confirmar, recargar la página, otro clic— encuentra el recibo y sigue con
+    él en vez de crear otro. Si el recibo que ya había no cuadra (otro importe, anulado,
+    devuelto) no se cobra ni se marca la cita pagada: se manda a revisarlo. Lo que se
+    cobra una vez por motivo lleva el motivo en el id (`rec-penaliz-…`, `rec-renov-…`).
 - **De serie ≠ personalizable.** Recordatorio de clase, confirmación, lista de
   espera, bono agotado, reintento de cobro, valoración y búsqueda de sustituta son
   producto, no reglas. `CLASE_MANANA` ya no se ofrece (duplicaba el recordatorio

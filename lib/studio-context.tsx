@@ -32,7 +32,7 @@ import {
   dbReasignarInstructora,
   dbCancelarReservasPorSesiones,
   dbUpdateReserva,
-  dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbEliminarRecibo, dbLeerEstadoRecibos, dbReleerTrasCobro,
+  dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbEliminarRecibo, dbLeerEstadoRecibos, dbLeerReciboDeCita, dbReleerTrasCobro,
   dbInsertCita, dbUpdateCita,
   dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
@@ -185,6 +185,8 @@ import {
   MENSAJE_COBRADO_SIN_RENOVAR, RECIBOS_POR_LOTE_PANEL, desenlaceTrasReleer, esCobroConfirmado, leerRespuestaMarcarCobrado, resumenDeLote, trocear,
   type DesenlaceCobroManual, type ResultadoFacturaDirecta, type ResultadoMarcarCobrado, type ResumenCobroEnLote,
 } from '@/lib/cobros/marcar-cobrado';
+import { decidirReciboPrevioDeCita, type ReciboPrevioDeCita } from '@/lib/cobros/recibo-de-cita';
+import type { DatosReciboNuevo } from '@/lib/cobros/recibo-escritura-navegador';
 import type { TipoRebote } from '@/lib/emails/rebotes';
 import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
@@ -504,8 +506,14 @@ interface StudioContextValue {
   asignarSpot: (sesionId: string, socioId: string, spotId: string) => Promise<ResultadoEscritura>;
 
   // Recibos
-  addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => Promise<ResultadoEscritura>;
-  crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }) => Promise<ResultadoFacturaDirecta>;
+  addRecibo: (fields: DatosReciboNuevo) => Promise<ResultadoEscritura>;
+  /**
+   * Un cobro al contado de UN recibo (cuatro desenlaces, ver `ResultadoFacturaDirecta`). Con `reciboId`
+   * el recibo tiene un id propio y es IDEMPOTENTE: si ya existe (un intento anterior cuya respuesta
+   * no llegó, o desde otra pestaña) se sigue con ese en vez de crear otro. Lo usa el cobro de una
+   * cita (`idReciboDeCita`); «Nueva factura» no lo pasa porque no tiene nada que lo identifique.
+   */
+  crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }, opciones?: { reciboId?: string }) => Promise<ResultadoFacturaDirecta>;
   /** Marca un recibo cobrado POR EL SERVIDOR (`/api/cobros/marcar-cobrado`).
    *  Devuelve `numeroFactura` cuando el cobro emitió factura: el llamador NO
    *  debe buscarla en el estado — todavía no está ahí. `yaEstaba` no es un error. */
@@ -4175,7 +4183,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Recibos ──────────────────────────────────────────────────────────────────
 
-  async function addRecibo(fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>): Promise<ResultadoEscritura> {
+  async function addRecibo(fields: DatosReciboNuevo): Promise<ResultadoEscritura> {
     const nuevo: Recibo = {
       id: `rec-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -4208,9 +4216,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // llama no puede reenviar el formulario sin duplicarlo.
   async function crearFacturaDirecta(
     fields: { socioId: string; concepto: string; importe: number },
+    opciones: { reciboId?: string } = {},
   ): Promise<ResultadoFacturaDirecta> {
     const rec: Recibo = {
-      id: `rec-${uid()}`,
+      id: opciones.reciboId ?? `rec-${uid()}`,
       studioId: getCurrentStudioId(),
       socioId: fields.socioId,
       suscripcionId: null,
@@ -4222,9 +4231,36 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       fechaDevolucion: null,
       intentosReintento: 0,
     };
-    const res = await dbInsertRecibo(rec);
-    if (!res.ok) return res;
-    setRecibos(prev => [...prev, rec]);
+
+    // Con un id propio (el cobro de una cita) el recibo puede YA existir: un intento anterior
+    // que no llegó a confirmarse y que la recarga de la página dejó atrás, u otra pestaña. Se
+    // sigue con ese —el servidor decide si se cobra, ya estaba cobrado o hay un cobro en vuelo—
+    // y no se crea otro. Mirarlo ANTES del INSERT y no esperar al fallo de clave duplicada: ese
+    // fallo sería un error en Sentry por algo que es normal. Sin poder mirar no se escribe nada
+    // (reintentar es seguro, el id es el mismo).
+    let existente: ReciboPrevioDeCita | null = null;
+    if (opciones.reciboId) {
+      const lectura = await dbLeerReciboDeCita(rec.id);
+      if (!lectura.ok) {
+        return { ok: false, error: 'No hemos podido comprobar si esta cita ya tenía un recibo. No se ha cobrado nada: vuelve a intentarlo.' };
+      }
+      existente = lectura.recibo;
+    }
+    if (!existente) {
+      const res = await dbInsertRecibo(rec);
+      if (res.ok) {
+        setRecibos(prev => [...prev, rec]);
+      } else {
+        // Otra pestaña lo creó entre la lectura y este INSERT: es el mismo recibo, no un fallo.
+        const releido = opciones.reciboId ? await dbLeerReciboDeCita(rec.id) : null;
+        if (!releido?.ok || !releido.recibo) return res;
+        existente = releido.recibo;
+      }
+    }
+    if (existente) {
+      const decision = decidirReciboPrevioDeCita(existente, { socioId: fields.socioId, importe: fields.importe });
+      if (decision.tipo === 'revisar') return { ok: false, cobroSinConfirmar: true, error: decision.error };
+    }
 
     const [d] = await cobrarEnServidor([rec.id]);
     if (!d || !esCobroConfirmado(d)) {
@@ -4233,17 +4269,25 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         error: `${d?.error ?? 'No se ha podido registrar el cobro.'} El recibo está en «Quién me debe»: márcalo cobrado desde allí.`,
       };
     }
-    const socio = socios.find(s => s.id === fields.socioId);
-    // Con factura si el estudio la emite (la sella el servidor al cobrar); sin ella, «registró un cobro».
-    const conFactura = emiteFacturaAutomatica(null, studio?.modoFacturacion ?? null);
-    addActividadReciente(
-      'COBRO_MANUAL',
-      conFactura
-        ? `${actorNombre ?? 'Alguien'} generó una factura de "${fields.concepto}" (${fields.importe} €) para ${socio?.nombre ?? 'una socia'}`
-        : `${actorNombre ?? 'Alguien'} registró un cobro de "${fields.concepto}" (${fields.importe} €) de ${socio?.nombre ?? 'una socia'}`,
-      fields.socioId,
-      `/socios/${fields.socioId}`
-    );
+    // Se apunta una vez, y solo si pasó algo ahora:
+    //  · «ya estaba cobrado» (el primer intento sí cobró y solo se perdió la respuesta): no pasó nada
+    //    ahora, no se apunta;
+    //  · si el recibo YA estaba en pantalla (un intento anterior, tras recargar), `reflejarCobrosConfirmados`
+    //    apunta «marcó como cobrado» al cerrar el cobro: apuntar también aquí lo duplicaría. Esta función
+    //    ve el `recibos` de ANTES de crearlo, así que solo lo apunta cuando lo ha creado ella.
+    if (d.resultado !== 'ya_estaba' && !recibos.some(r => r.id === rec.id)) {
+      const socio = socios.find(s => s.id === fields.socioId);
+      // Con factura si el estudio la emite (la sella el servidor al cobrar); sin ella, «registró un cobro».
+      const conFactura = emiteFacturaAutomatica(null, studio?.modoFacturacion ?? null);
+      addActividadReciente(
+        'COBRO_MANUAL',
+        conFactura
+          ? `${actorNombre ?? 'Alguien'} generó una factura de "${fields.concepto}" (${fields.importe} €) para ${socio?.nombre ?? 'una socia'}`
+          : `${actorNombre ?? 'Alguien'} registró un cobro de "${fields.concepto}" (${fields.importe} €) de ${socio?.nombre ?? 'una socia'}`,
+        fields.socioId,
+        `/socios/${fields.socioId}`
+      );
+    }
     // El dinero ya está confirmado en este punto — un fallo de aquí en adelante es
     // del sellado fiscal, no del cobro. `cobroRegistrado` para que quien llama nunca
     // lo trate como «nada pasó, reintenta»: reenviar el formulario duplicaría el cobro.
