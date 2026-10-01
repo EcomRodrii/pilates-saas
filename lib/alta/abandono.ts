@@ -3,7 +3,7 @@
 // `abandono.test.ts` pruebe exactamente lo que corre en el cron y en /interno.
 //
 // De dónde salen los datos: `public.altas_estudio` (una fila por cuenta que
-// empezó un alta de estudio; ver la migración 20261001190000) cruzada por
+// empezó un alta de estudio; ver la migración 20261001195938) cruzada por
 // `altas_estudio_detalle()` con `auth.users` (¿confirmó el email?) y `studios`
 // (¿llegó a tener estudio?). El PASO no se guarda: se deriva aquí, de una sola
 // forma, para que el correo y la lista del fundador no puedan contar dos

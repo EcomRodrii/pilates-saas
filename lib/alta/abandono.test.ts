@@ -247,8 +247,8 @@ test('altaDesdeFila traduce la fila de la RPC', () => {
 // ── La migración y el cron dicen lo mismo que este fichero ───────────────────
 
 const RAIZ = join(import.meta.dirname, '..', '..');
-const M = readFileSync(join(RAIZ, 'supabase/migrations/20261001190000_altas_estudio_registro.sql'), 'utf8');
-const CRON = readFileSync(join(RAIZ, 'supabase/migrations/20261001190100_pg_cron_altas_sin_terminar.sql'), 'utf8');
+const M = readFileSync(join(RAIZ, 'supabase/migrations/20261001195938_altas_estudio_registro.sql'), 'utf8');
+const CRON = readFileSync(join(RAIZ, 'supabase/migrations/20261001195953_pg_cron_altas_sin_terminar.sql'), 'utf8');
 
 test('el trigger de auth.users nunca puede tumbar un registro', () => {
   const ini = M.indexOf('function public.altas_estudio_registrar_cuenta');

@@ -11,7 +11,7 @@ export const maxDuration = 60;
 // Correo a las 24 h a quien empezó el alta de su estudio y no la terminó (uno
 // por persona, con el texto según el paso en que se quedó). Disparado por
 // pg_cron + pg_net cada hora, y solo si hay altas pendientes (migración
-// 20261001190100) — mismo patrón bucket A que zoom-sync.
+// 20261001195953) — mismo patrón bucket A que zoom-sync.
 export async function POST(req: NextRequest) {
   const secret = process.env.SUPABASE_CRON_SECRET;
   if (!secret) {
