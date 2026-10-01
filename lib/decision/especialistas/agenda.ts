@@ -6,7 +6,7 @@ import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '.
 import type { Sesion } from '@/lib/types';
 import {
   construirIndices, agruparFranjasRecurrentes, hayProximaSesionEnFranja, precioMedioSesion,
-  variacionOcupacionFranja, claveFranjaDe, pronosticarFranja, candidatasPorAfinidad, franjaLocalDe,
+  variacionOcupacionFranja, claveFranjaDe, pronosticarFranja, candidatasPorAfinidad,
   type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
 import {
