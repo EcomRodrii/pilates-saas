@@ -28,7 +28,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "como-abrir-un-estudio-de-yoga",
     "titulo": "Cómo abrir un estudio de yoga: estilos, local, material, trámites, titulación y precios",
-    "tituloSeo": "Cómo abrir un estudio de yoga: qué necesitas y cuánto cuesta",
+    "tituloSeo": "Cómo abrir un estudio de yoga en 2026: requisitos y costes",
     "descripcion": "Qué pide cada estilo al local (aéreo, sala caliente), material con precios reales, epígrafe e IVA, titulación oficial y lo que cobran 14 estudios españoles.",
     "resumen": "Lo propio de montar un estudio de yoga en España: qué pide cada estilo al local, material con precios, epígrafe, CNAE e IVA, titulación oficial y lo que cobran 14 estudios.",
     "categoria": "abrir",
@@ -46,8 +46,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "mejor-software-para-estudios-de-pilates",
     "titulo": "Mejor software para estudios de pilates: comparativa honesta 2026",
-    "tituloSeo": "Mejor software para estudios de pilates: comparativa 2026",
-    "descripcion": "Qué necesita de verdad un estudio de pilates y cómo quedan 13 programas en precio, permanencia, Veri*Factu y sustituciones, según su propia web.",
+    "tituloSeo": "Mejor software para estudios de pilates 2026: 13 comparados",
+    "descripcion": "Precio, permanencia, comisiones, Veri*Factu y sustituciones de 13 programas para estudios de pilates, comparados con lo que dice la web de cada uno.",
     "resumen": "Guía comparativa escrita por Tentare: lo que necesita un estudio de pilates, una tabla con 13 programas según su web pública y una ficha breve de cada uno.",
     "categoria": "software",
     "seccion": "Elegir software",
@@ -82,7 +82,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "cuanto-cuesta-abrir-un-estudio-de-pilates",
     "titulo": "Cuánto cuesta abrir un estudio de pilates: presupuesto por partidas con precios reales",
-    "tituloSeo": "Cuánto cuesta abrir un estudio de pilates en 2026",
+    "tituloSeo": "Cuánto cuesta abrir un estudio de pilates: presupuesto 2026",
     "descripcion": "Precio real de un reformer con y sin IVA, fianza del local, cuota de autónoma, seguro, marca, software y un presupuesto de ejemplo con 6 reformers.",
     "resumen": "Lo que cuesta cada partida de un estudio de pilates en España, con precios publicados por fabricantes, tiendas y organismos oficiales, y un presupuesto de ejemplo para seis reformers.",
     "categoria": "abrir",
@@ -100,8 +100,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "precio-clase-de-pilates",
     "titulo": "Precio de una clase de pilates en 2026: lo que cobran 32 estudios en España",
-    "tituloSeo": "Precio de una clase de pilates en 2026: 32 estudios",
-    "descripcion": "Clase suelta de reformer: 25 € de mediana; de suelo, 16 €; privada, 53,50 €. Precios reales de 32 estudios de 8 ciudades y cómo fijar el tuyo.",
+    "tituloSeo": "Precio de una clase de pilates: reformer 25 €, suelo 16 €",
+    "descripcion": "¿Cuánto cuesta una clase de pilates? Reformer suelta: 25 € de mediana; suelo: 16 €; privada: 53,50 €. Precios reales de 32 estudios de 8 ciudades.",
     "resumen": "Lo que cobran 32 estudios de Madrid, Barcelona, Valencia, Sevilla, Bilbao, Málaga, Zaragoza y Alicante: clase suelta, cuotas y bonos de reformer, suelo y privada, con medianas y rangos.",
     "categoria": "rentabilidad",
     "seccion": "Rentabilidad",
@@ -134,8 +134,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "requisitos-para-abrir-un-estudio-de-pilates",
     "titulo": "Requisitos para abrir un estudio de pilates: trámites, licencia, epígrafe y titulación",
-    "tituloSeo": "Requisitos para abrir un estudio de pilates en España",
-    "descripcion": "Modelo 036 y epígrafe IAE, CNAE, Seguridad Social, licencia o declaración responsable, seguro, datos de salud y titulación: cada requisito con su fuente.",
+    "tituloSeo": "Requisitos para abrir un estudio de pilates: lista en orden",
+    "descripcion": "Licencia o declaración responsable, epígrafe IAE, Seguridad Social, seguro, datos de salud y titulación: los 9 trámites en orden y con su norma oficial.",
     "resumen": "Todos los trámites para abrir un estudio de pilates en España, en orden y con su norma: Hacienda, Seguridad Social, ayuntamiento, seguro, protección de datos y titulación de quien da clase.",
     "categoria": "abrir",
     "seccion": "Abrir un estudio",
@@ -206,7 +206,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "como-ser-instructora-de-pilates",
     "titulo": "Cómo ser instructora de pilates en España: formación, cualificación oficial y trabajo",
-    "tituloSeo": "Cómo ser instructora de pilates: formación y trabajo",
+    "tituloSeo": "Cómo ser instructora de pilates: cursos, horas y precios",
     "descripcion": "La cualificación oficial de 510 horas, las formaciones de Polestar, STOTT, BASI y Balanced Body con horas y precio, suelo o reformer y cómo encontrar trabajo.",
     "resumen": "El camino para ser instructora de pilates en España: qué es la cualificación oficial AFD805_3, qué formaciones hay con sus horas y precios, suelo o reformer y cómo encontrar trabajo.",
     "categoria": "sustituciones",

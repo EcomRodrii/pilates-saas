@@ -3,8 +3,8 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'requisitos-para-abrir-un-estudio-de-pilates',
   titulo: 'Requisitos para abrir un estudio de pilates: trámites, licencia, epígrafe y titulación',
-  tituloSeo: 'Requisitos para abrir un estudio de pilates en España',
-  descripcion: 'Modelo 036 y epígrafe IAE, CNAE, Seguridad Social, licencia o declaración responsable, seguro, datos de salud y titulación: cada requisito con su fuente.',
+  tituloSeo: 'Requisitos para abrir un estudio de pilates: lista en orden',
+  descripcion: 'Licencia o declaración responsable, epígrafe IAE, Seguridad Social, seguro, datos de salud y titulación: los 9 trámites en orden y con su norma oficial.',
   resumen: 'Todos los trámites para abrir un estudio de pilates en España, en orden y con su norma: Hacienda, Seguridad Social, ayuntamiento, seguro, protección de datos y titulación de quien da clase.',
   categoria: 'abrir',
   seccion: 'Abrir un estudio',
