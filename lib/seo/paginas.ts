@@ -484,7 +484,7 @@ export const PAGINAS: PaginaSeo[] = [
     ['tentare-vs-eversports', 'Eversports', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
       'Eversports publica desde 33 €/mes (anual) o 41 €/mes (mensual), sin IVA y según reservas. Frente a Tentare (desde 29 €/mes con IVA), punto por punto.'],
     ['tentare-vs-lorari', 'Lorari', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'Lorari publica desde 12 €/mes + IVA (hasta 50 alumnos activos). Frente a Tentare (desde 29 €/mes con IVA, sin permanencia): funciones y límites.'],
+      'Lorari: 16 €/mes + IVA mes a mes, o 12 € pagando el año (hasta 50 alumnos). Frente a Tentare (desde 29 €/mes con IVA, sin permanencia).'],
     ['tentare-vs-bonsai', 'Bonsai', ['/funcionalidades/facturacion', '/funcionalidades/sustituciones'],
       'Bonsai: plan gratis (con un 3 % extra por cobro) o desde 29 €/mes + IVA con pago anual. Frente a Tentare (29 €/mes con IVA, sin permanencia), punto por punto.'],
     // Estos 5 no salieron de una lista genérica de "competidores conocidos"

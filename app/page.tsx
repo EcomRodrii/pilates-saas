@@ -47,7 +47,6 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    site: '@tentaresoftware',
     title: COMPARTIR.titulo,
     description: COMPARTIR.descripcion,
     images: [{ url: COMPARTIR.imagen, width: 1200, height: 630, alt: COMPARTIR.alt }],

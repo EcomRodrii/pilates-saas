@@ -124,7 +124,7 @@ const articulo: Articulo = {
             ['Eversports', '41 €/mes (33 € con pago anual) + IVA, hasta 49 reservas al mes; 99 € de configuración', 'No consta; con pago anual se factura por año', 'Extensión de Veri*factu y TicketBAI con fiskaly', '«Gestión de sustituciones»'],
             ['Mindbody', 'Desde 99 €/mes por ubicación', 'Depende del plan; la baja puede requerir preaviso', 'No consta', 'No consta'],
             ['TIMP', '50 €/mes por centro (1 profesional); no consta si incluye IVA', 'Mínimo de 3 meses en la mayoría de planes', 'Facturación electrónica con Verifactu y TicketBAI', 'No consta'],
-            ['Lorari', '12 €/mes + IVA (hasta 50 alumnos activos)', '«Cancela cuando quieras»', 'No consta', 'No consta'],
+            ['Lorari', '16 €/mes + IVA mes a mes, 12 € pagando el año (hasta 50 alumnos activos)', '«Cancela cuando quieras»', 'No consta', 'No consta'],
             ['Bonsai', 'Plan gratuito con un 3 % extra por cobro; Starter 39 €/mes o 29 € con pago anual, + IVA', 'Mensual sin compromiso; el anual se paga por adelantado', 'No consta', 'No consta'],
             ['ViDay', '39 €/mes + IVA (Individual Estándar)', 'Sin permanencia', 'VERIFACTU incluido en el plan Pro', 'No consta'],
             ['GesYoga', '12 €/mes + IVA (Personal)', 'No consta', '«Facturación (verifactu para España)»', 'No consta'],
@@ -158,7 +158,7 @@ const articulo: Articulo = {
             '**Eversports.** Cobra según las reservas al mes: de 41 € a 189 € (de 33 € a 151 € con pago anual), más IVA. Salas con Spot Booking, sustituciones y extensión de Veri*factu y TicketBAI; tu estudio aparece además en su app. [Comparativa con Eversports](/comparativa/tentare-vs-eversports).',
             '**Mindbody.** Sin cuota de alta; elegir sitio va en el plan Accelerate y la app de marca es un complemento. Su marketplace, que según su web ven más de 3 millones de consumidores, cobra un 20 % (tope de 30 en moneda local) en la primera compra de cada clienta nueva que te trae. [Comparativa con Mindbody](/comparativa/tentare-vs-mindbody).',
             '**TIMP.** Empresa de Valencia con software para fitness, salud, belleza y academias. De 50 € a 170 € al mes según el número de profesionales, con descuento semestral y anual. Facturación con Verifactu y TicketBAI y app progresiva. [Comparativa con TIMP](/comparativa/tentare-vs-timp).',
-            '**Lorari.** Reservas para yoga y pilates, operada desde Barcelona: 12, 27 o 51 € al mes más IVA según alumnos activos, con 14 días de prueba. App con el logo del centro y, desde el plan Pro, lista de espera que se rellena sola. [Comparativa con Lorari](/comparativa/tentare-vs-lorari).',
+            '**Lorari.** Reservas para yoga y pilates, operada desde Barcelona: 16, 36 o 68 € al mes más IVA según alumnos activos (12, 27 o 51 € pagando el año), con 14 días de prueba. App con el logo del centro y, desde el plan Pro, lista de espera que se rellena sola. [Comparativa con Lorari](/comparativa/tentare-vs-lorari).',
             '**Bonsai.** De Valencia, para yoga, pilates y barre. Plan Seed gratuito para siempre (hasta 100 reservas grupales al mes) y Pro a 69 € al mes o 49 € con pago anual, más IVA. Un mes de prueba sin tarjeta y soporte en español por teléfono o WhatsApp. [Comparativa con Bonsai](/comparativa/tentare-vs-bonsai).',
             '**ViDay.** Reservas y clases con app de marca y soporte desde España. Plan Pro a 59 € al mes y planes de equipo desde 44 € con dos profesionales, sin IVA; la migración va incluida. [Comparativa con ViDay](/comparativa/tentare-vs-viday).',
             '**GesYoga.** Para centros de yoga y pilates: 12, 45 o 65 € al mes sin IVA, con 30 días de prueba sin tarjeta. App para alumnos opcional en el plan Profesional y app web en Enterprise. [Comparativa con GesYoga](/comparativa/tentare-vs-gesyoga).',
@@ -251,11 +251,11 @@ const articulo: Articulo = {
   faq: [
     {
       q: '¿Cuál es el mejor software para un estudio de pilates pequeño?',
-      a: 'Si tienes pocas alumnas y solo necesitas reservas y bonos, te pueden bastar los planes de entrada: Lorari y GesYoga empiezan en 12 €/mes + IVA y Bonsai tiene un plan gratuito con límite de reservas. Si cobras cuotas o tienes varias instructoras, pesan más los cobros, las sustituciones y la lista de espera que el precio.',
+      a: 'Si tienes pocas alumnas y solo necesitas reservas y bonos, te pueden bastar los planes de entrada: GesYoga empieza en 12 €/mes + IVA, Lorari en 16 € (12 € pagando el año) y Bonsai tiene un plan gratuito con límite de reservas. Si cobras cuotas o tienes varias instructoras, pesan más los cobros, las sustituciones y la lista de espera que el precio.',
     },
     {
       q: '¿Cuánto cuesta un software de gestión de pilates?',
-      a: 'Según sus webs, a 25 de septiembre de 2026, hay planes gratuitos con límites (Bonsai, Flowstark) y entradas de pago de 12 €/mes + IVA (Lorari, GesYoga) a 99 €/mes por ubicación (Mindbody); bsport, Momence y DeporWeb no publican precio. Suma el IVA, el alta y las comisiones por cobro antes de comparar.',
+      a: 'Según sus webs, a 25 de septiembre de 2026, hay planes gratuitos con límites (Bonsai, Flowstark) y entradas de pago de 12 €/mes + IVA (GesYoga; Lorari, pagando el año) a 99 €/mes por ubicación (Mindbody); bsport, Momence y DeporWeb no publican precio. Suma el IVA, el alta y las comisiones por cobro antes de comparar.',
     },
     {
       q: '¿Hay software de pilates gratis?',

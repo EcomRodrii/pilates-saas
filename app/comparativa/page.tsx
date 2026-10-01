@@ -92,7 +92,7 @@ const ROWS: {
     eversports: ['yes', 'Desde 33 €/mes + IVA'],
     mindbody: ['partial', 'Desde 99 €/mes por ubicación'],
     timp: ['yes', 'Desde 50 €/mes'],
-    lorari: ['yes', 'Desde 12 €/mes + IVA'],
+    lorari: ['yes', '16 €/mes + IVA (12 € pagando el año)'],
     bonsai: ['yes', 'Gratis (3 % extra) o 29 €/mes + IVA'],
     glofox: ['partial', 'Desde 99 USD/mes'],
     viday: ['yes', 'Desde 39 €/mes + IVA'],
