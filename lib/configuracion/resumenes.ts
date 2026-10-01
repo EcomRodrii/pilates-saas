@@ -1040,7 +1040,10 @@ export function resumenPlan(e: EstadoPlanResumible | null | undefined): ResumenS
     case 'ULTIMO_DIA': {
       const quedan = diasRestantes === 1 ? 'queda 1 día' : `quedan ${diasRestantes} días`;
       return {
-        valor: unir([nombre ? `prueba del plan ${nombre}` : 'en prueba', quedan]),
+        // «Founding Studio en prueba» y no «prueba del plan Founding Studio»:
+        // con el nombre largo, la segunda no cabía en `MAX_RESUMEN` y se perdían
+        // los días que quedan, que es justo lo que importa.
+        valor: unir([nombre ? `${nombre} en prueba` : 'en prueba', quedan]),
         // Solo el último día: antes la píldora de la barra ya lo cuenta sin alarmar.
         estado: fase === 'ULTIMO_DIA' ? { tono: 'pendiente', etiqueta: 'Elige tu plan' } : null,
       };

@@ -119,9 +119,9 @@ test('cambiar un valor guardado cambia su resumen', () => {
 test('el plan de Tentare: prueba con sus días, activo o terminado; y sin estado del servidor, nada', () => {
   const trial = (fase: 'PLENA' | 'HOLGADA' | 'AVISO' | 'ULTIMO_DIA' | 'EXPIRADA' | 'SIN_PRUEBA' | 'SUSCRITO', diasRestantes = 0) =>
     ({ fase, diasRestantes });
-  assert.deepEqual(resumenPlan({ plan: 'ESTUDIO', subscriptionStatus: 'trialing', trial: trial('HOLGADA', 5) }), { valor: 'Prueba del plan Estudio · quedan 5 días', estado: null });
+  assert.deepEqual(resumenPlan({ plan: 'ESTUDIO', subscriptionStatus: 'trialing', trial: trial('HOLGADA', 5) }), { valor: 'Estudio en prueba · quedan 5 días', estado: null });
   assert.deepEqual(resumenPlan({ plan: 'BASE', subscriptionStatus: 'trialing', trial: trial('ULTIMO_DIA', 1) }), {
-    valor: 'Prueba del plan Base · queda 1 día', estado: { tono: 'pendiente', etiqueta: 'Elige tu plan' },
+    valor: 'Founding Studio en prueba · queda 1 día', estado: { tono: 'pendiente', etiqueta: 'Elige tu plan' },
   });
   assert.deepEqual(resumenPlan({ plan: 'ESTUDIO', subscriptionStatus: 'trial_expirado', trial: trial('EXPIRADA') }), {
     valor: 'Prueba terminada', estado: { tono: 'problema', etiqueta: 'Elige un plan' },
