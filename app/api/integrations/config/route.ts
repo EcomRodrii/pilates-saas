@@ -50,7 +50,11 @@ export async function GET(req: NextRequest) {
 // Las integraciones que se configuran pegando datos en Configuración. Las de
 // OAuth (Gmail, Calendar, Zoom, Klaviyo) guardan lo suyo en su callback, y
 // WhatsApp por Embedded Signup en su propia ruta.
-const TIPOS_CON_CAMPOS: readonly TipoIntegracion[] = ['RESEND', 'WHATSAPP', 'KISI', 'MAILCHIMP'];
+const TIPOS_CON_CAMPOS: readonly TipoIntegracion[] = [
+  'RESEND', 'WHATSAPP', 'KISI', 'MAILCHIMP',
+  // Plataformas externas: hoy solo se encienden («vendo aquí, apunto yo»).
+  'CLASSPASS', 'URBAN_SPORTS_CLUB', 'WELLHUB',
+];
 const CAMPO = /^[A-Za-z][A-Za-z0-9_]{0,40}$/;
 
 function configValida(config: unknown): config is Record<string, string> {

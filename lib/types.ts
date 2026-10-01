@@ -25,7 +25,10 @@ export type MetodoCobro = 'TARJETA' | 'SEPA' | 'BIZUM' | 'EFECTIVO' | 'TRANSFERE
  */
 export type CobroAlta =
   | { pagado: false }
-  | { pagado: true; metodo: MetodoCobro };
+  // Sin SEPA: un adeudo lo confirma el banco, no el mostrador. «Ya pagado» con
+  // domiciliación se queda pendiente y va por la remesa (`/api/cobros/marcar-cobrado`
+  // tampoco lo admite).
+  | { pagado: true; metodo: Exclude<MetodoCobro, 'SEPA'> };
 // PENDIENTE_APROBACION (Fase 2a, migr 20260730192445): no ocupa aforo ni
 // consume bono, mismo criterio que LISTA_ESPERA — se decide al aprobar.
 export type EstadoReserva = 'CONFIRMADA' | 'LISTA_ESPERA' | 'ASISTIDA' | 'CANCELADA' | 'NO_ASISTIO' | 'PENDIENTE_APROBACION';
@@ -404,7 +407,11 @@ export interface MandatoSEPA {
 // ─── Integraciones por negocio ───────────────────────────────────────────────
 export type TipoIntegracion =
   | 'STRIPE' | 'RESEND' | 'GOOGLE_CALENDAR' | 'GMAIL' | 'WHATSAPP'
-  | 'ZOOM' | 'KISI' | 'MAILCHIMP' | 'KLAVIYO' | 'ZAPIER';
+  | 'ZOOM' | 'KISI' | 'MAILCHIMP' | 'KLAVIYO' | 'ZAPIER'
+  // Plataformas que venden plazas del estudio. Por ahora en modo manual
+  // (`config.modo = 'manual'`: recepción apunta sus ventas); con la API, la
+  // misma fila guardará los ids de la plataforma.
+  | 'CLASSPASS' | 'URBAN_SPORTS_CLUB' | 'WELLHUB';
 
 export interface Integracion {
   id: string;

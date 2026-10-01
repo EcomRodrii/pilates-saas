@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed, Upload, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -216,7 +216,7 @@ function CitaCard({
                 <CheckCircle2 size={16} className="text-success" />
               </span>
             ) : yaGenerado ? (
-              <span title="Cobro ya registrado, actualiza la página — no vuelvas a pulsar cobrar" aria-label="Cobro registrado, pendiente de confirmar">
+              <span title="Cobro pendiente de confirmar: míralo en Cobros antes de volver a cobrar esta cita" aria-label="Cobro pendiente de confirmar">
                 <Loader2 size={16} className="text-warning animate-spin" />
               </span>
             ) : puedeCobrar ? (
@@ -310,6 +310,9 @@ export default function CitasPage() {
   // confirmación explícita — no es un toggle de un clic como antes).
   const [cobrandoId, setCobrandoId] = useState<string | null>(null);
   const [procesandoCobro, setProcesandoCobro] = useState(false);
+  // Cerrojo SÍNCRONO: `procesandoCobro` no llega a tiempo de parar un segundo clic, y cada cobro acuña un
+  // recibo con id nuevo (dos clics, dos recibos).
+  const cobroEnCursoRef = useRef(false);
   // Guarda de re-intento dentro de esta sesión de navegador: en cuanto
   // crearFacturaDirecta confirma que el recibo/factura YA se creó (éxito o
   // fallo parcial tras el cobro), esta cita deja de poder volver a cobrarse
@@ -469,6 +472,16 @@ export default function CitasPage() {
   // nunca al revés, para no repetir el bug que este cambio corrige (una cita
   // "pagada" sin ningún rastro fiscal detrás).
   async function handleConfirmarCobro() {
+    if (cobroEnCursoRef.current) return;
+    cobroEnCursoRef.current = true;
+    try {
+      await confirmarCobroDeLaCita();
+    } finally {
+      cobroEnCursoRef.current = false;
+    }
+  }
+
+  async function confirmarCobroDeLaCita() {
     const cita = citas.find((c) => c.id === cobrandoId);
     if (!cita || procesandoCobro || recibosGenerados.has(cita.id)) return;
     if (cita.precio == null) {
@@ -488,7 +501,7 @@ export default function CitasPage() {
       concepto: `Cita — ${tipoLabel} (${formatFecha(cita.inicio)})`,
       importe: cita.precio,
     });
-    if (!res.ok && !('cobroRegistrado' in res)) {
+    if (!res.ok && !('cobroRegistrado' in res) && !('cobroSinConfirmar' in res)) {
       // Nada se llegó a crear (fallo antes de tocar `recibos`) — seguro
       // reintentar, el diálogo se queda abierto. Dentro del diálogo, no en
       // errorLista: con el diálogo abierto el fondo está `inert`.
@@ -496,11 +509,20 @@ export default function CitasPage() {
       setProcesandoCobro(false);
       return;
     }
-    // A partir de aquí el recibo YA EXISTE (éxito, o fallo parcial con
-    // cobroRegistrado=true al sellar la factura) — se bloquea el reintento
-    // de esta cita en esta sesión pase lo que pase con el updateCita de
+    // A partir de aquí el recibo YA EXISTE (éxito, fallo parcial con
+    // cobroRegistrado=true al sellar la factura, o cobroSinConfirmar=true: el
+    // servidor no confirmó el cobro y el recibo quedó pendiente) — se bloquea el
+    // reintento de esta cita en esta sesión pase lo que pase con el updateCita de
     // abajo, para no arriesgar un segundo recibo/factura con otro clic.
     setRecibosGenerados((prev) => new Set(prev).add(cita.id));
+    if (!res.ok && 'cobroSinConfirmar' in res) {
+      // La cita NO se marca pagada: no consta que el dinero haya entrado.
+      setProcesandoCobro(false);
+      setCobrandoId(null);
+      setAvisoDineroMovido(true);
+      setErrorLista(`No se ha podido confirmar el cobro de esta cita. ${res.error} No vuelvas a pulsar "Confirmar cobro".`);
+      return;
+    }
     const rCita = await updateCita(cita.id, { pagada: true });
     setProcesandoCobro(false);
     setCobrandoId(null);

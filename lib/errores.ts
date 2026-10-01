@@ -133,6 +133,13 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
   if (code === '42501' && /tipos_clase_dinero_solo_propietaria/i.test(msg)) {
     return 'Esa regla la cambia la propietaria del estudio.';
   }
+  // COBRADO lo escribe el servidor (trigger `recibos_cobrado_solo_servidor`, migr 20261001131500).
+  // Es un 42501, pero «vuelve a entrar» sería un mal consejo y falso: el permiso está bien. Lo que
+  // pasa es que el recibo ya había cambiado de estado (lo cobró otro canal) o esta pestaña es una
+  // versión vieja que todavía intenta cobrar desde el navegador.
+  if (code === '42501' && /recibos_cobrado_solo_servidor/i.test(msg)) {
+    return 'Ese cobro lo registra el servidor y el recibo ya no está como lo tenías en pantalla. Recarga la página y mira cómo ha quedado en Cobros.';
+  }
   if (status === 401 || status === 403 || code === '42501' || /row-level security|permission denied/i.test(msg)) {
     return 'No tienes permiso para hacer este cambio. Vuelve a entrar e inténtalo otra vez.';
   }
