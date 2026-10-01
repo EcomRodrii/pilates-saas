@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { rellenarPaso1 } from './alta-paso1';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El alta pública y el CÓDIGO de verificación.
@@ -41,9 +42,7 @@ const SESION_OK = {
 
 async function llegarAlCodigo(page: Page, email = 'ana@example.com') {
   await page.goto('/crear-estudio');
-  await page.getByRole('textbox', { name: 'Nombre de tu estudio' }).fill('Estudio Aurora');
-  await page.getByRole('button', { name: 'Continuar' }).click();
-  await expect(page.getByRole('heading', { name: 'Tu plan' })).toBeVisible();
+  await rellenarPaso1(page);
   await page.getByRole('button', { name: 'Continuar' }).click();
   await expect(page.getByRole('heading', { name: 'Tu cuenta' })).toBeVisible();
   await page.getByRole('textbox', { name: 'Tu nombre' }).fill('Ana');
