@@ -8,7 +8,7 @@ import { HistorialSesion } from './historial-sesion';
 import { PINTA, type EstadoSesion } from '@/lib/calendario-estado';
 import { cn, horaEstudio } from '@/lib/utils';
 import type { EventoHistorial } from '@/lib/calendario-historial';
-import type { Reserva, Socio, Spot } from '@/lib/types';
+import type { ReservaEnriquecida, Socio, Spot } from '@/lib/types';
 
 // Rediseño del Calendario — punto 5: panel lateral (no modal), 3 pestañas.
 // Plazas reutiliza SpotMap tal cual (mismo componente que ya usan otras
@@ -49,7 +49,7 @@ export interface PanelSesionProps {
 
   // Plazas — null cuando la sala no tiene mapa de spots configurado.
   spots: Spot[] | null;
-  reservasConSocio: (Reserva & { socio: Socio; spot: Spot | null })[];
+  reservasConSocio: ReservaEnriquecida[];
   socios: Socio[];
   onCheckinSpot?: (reservaId: string) => void;
   onLiberarSpot?: (reservaId: string) => void;

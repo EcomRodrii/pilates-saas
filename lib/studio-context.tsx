@@ -3996,6 +3996,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
     const reserva = base.find(r => r.id === reservaId);
     if (!reserva) return res;
+    // Reserva de ClassPass/USC: no hay socia a la que premiar. Créditos, logros,
+    // retos, racha y referido son cosas de las socias del estudio; llamar a sus
+    // RPC con `socioId` null solo daría errores.
+    if (!reserva.socioId) return res;
     otorgarCreditos(reserva.socioId, 'ASISTENCIA_CLASE', reservaId);
     evaluarLogrosSocio(reserva.socioId, reservasActualizadas);
     evaluarRetosSocio(reserva.socioId, reservasActualizadas);

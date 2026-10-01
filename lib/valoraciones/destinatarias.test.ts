@@ -34,3 +34,11 @@ test('una socia con dos reservas en la misma sesión cuenta una vez', () => {
 test('nadie asistió → lista vacía (la clase NO se marca como pedida: se reintenta en el siguiente barrido)', () => {
   assert.deepEqual(destinatariasValoracion([{ id: 'r-a', socio_id: 'a', estado: 'CONFIRMADA' }], socios), []);
 });
+
+test('una reserva de ClassPass/USC (sin socia) no recibe la petición de valoración', () => {
+  const lista = destinatariasValoracion(
+    [{ id: 'r-ext', socio_id: null, estado: 'ASISTIDA' }, { id: 'r-1', socio_id: 's-1', estado: 'ASISTIDA' }],
+    [{ id: 's-1', nombre: 'Ana', apellidos: null, email: 'ana@example.com', borrado_en: null, auth_user_id: null }],
+  );
+  assert.deepEqual(lista.map((d) => d.reserva_id), ['r-1']);
+});
