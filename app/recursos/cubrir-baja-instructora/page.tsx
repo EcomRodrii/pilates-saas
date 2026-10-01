@@ -35,7 +35,7 @@ const TOC = [
 ];
 
 const FAQ = [
-  { q: '¿Y si ninguna instructora puede cubrirla?', a: 'Te avisa enseguida con las opciones sobre la mesa: volver a buscar, reprogramar, cancelar avisando a las alumnas o pedir una instructora de Tentare Network. Nunca te deja descubrir el hueco a última hora.' },
+  { q: '¿Y si ninguna instructora puede cubrirla?', a: 'Te avisa enseguida con las opciones sobre la mesa: volver a buscar, reprogramar o cancelar avisando a las alumnas. Nunca te deja descubrir el hueco a última hora.' },
   { q: '¿La instructora tiene que instalar una app?', a: 'No. Avisa de su baja desde la app del estudio o desde un enlace en el móvil, sin instalar nada. Cuanto más fácil sea avisar, antes te enteras.' },
   { q: '¿Puedo seguir aprobando cada sustitución?', a: 'Claro. En modo asistido apruebas cada candidata con un toque. Solo pasas a autónomo cuando tú quieras.' },
 ];

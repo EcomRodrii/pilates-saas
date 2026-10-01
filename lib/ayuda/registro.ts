@@ -256,15 +256,6 @@ export const ARTICULOS: ArticuloAyuda[] = [
     estado: 'publicado',
   },
   {
-    slug: 'tentare-network', categoria: 'instructores', tipo: 'guia',
-    titulo: 'Tentare Network: buscar instructoras fuera de tu estudio',
-    descripcion: 'El listado de profesionales disponibles, las vacantes que publicas tú, y en qué se diferencia de una sustitución.',
-    terminos: ['network', 'marketplace', 'contratar', 'vacante', 'buscar instructora', 'candidata'],
-    actualizado: '2026-09-14',
-    relacionados: ['instructores/sustituciones', 'instructores/dar-de-alta-una-instructora'],
-    estado: 'publicado',
-  },
-  {
     slug: 'permisos-por-rol', categoria: 'instructores', tipo: 'guia',
     titulo: 'Qué puede hacer cada rol: propietaria, responsable de sede, recepción e instructora',
     descripcion: 'Quién ve qué en el panel — y por qué la ficha de salud no la ve cualquiera.',

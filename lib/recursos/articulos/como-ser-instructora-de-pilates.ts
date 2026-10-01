@@ -241,11 +241,6 @@ const articulo: Articulo = {
             'Ten a mano tu seguro y, si tu comunidad lo pide, tu titulación o habilitación.',
           ],
         },
-        {
-          t: 'p',
-          texto:
-            '**Tentare Network** es un directorio público de instructoras de Pilates y Yoga en España, gratuito para instructoras y estudios. Estar en él es una forma más de que los estudios que buscan instructora sepan que existes: lo tienes en [Tentare Network](/network).',
-        },
       ],
     },
   ],
@@ -276,7 +271,7 @@ const articulo: Articulo = {
     },
     {
       q: '¿Dónde encuentro trabajo de profesora de pilates?',
-      a: 'En los estudios y gimnasios de tu zona, en portales de empleo como JobToday o Talent.com y en directorios como Tentare Network, gratuito para instructoras y estudios.',
+      a: 'En los estudios y gimnasios de tu zona, y en portales de empleo como JobToday o Talent.com.',
     },
   ],
   fuentes: [
@@ -311,17 +306,16 @@ const articulo: Articulo = {
     { titulo: 'Talent.com: ofertas de instructor de pilates', url: 'https://es.talent.com/jobs?k=instructor+de+pilates', consultada: '2026-09-25' },
   ],
   relacionadas: [
-    '/network',
     '/recursos/requisitos-para-abrir-un-estudio-de-pilates',
     '/recursos/cuanto-cobra-una-instructora-de-pilates',
     '/recursos/iva-clases-de-pilates',
     '/recursos/cubrir-baja-instructora',
   ],
   cta: {
-    titulo: 'Deja que los estudios de pilates te encuentren',
+    titulo: 'Y si algún día abres tu propio estudio',
     texto:
-      'Tentare Network es un directorio público de instructoras de Pilates y Yoga en España, gratuito para instructoras y estudios. Súmate para que los estudios que buscan instructora puedan encontrarte.',
-    enlace: { href: '/network', texto: 'Ver Tentare Network →' },
+      'Muchas instructoras acaban montando el suyo. Antes de dar el paso, repasa licencias, seguro, local y lo que vas a necesitar para empezar.',
+    enlace: { href: '/recursos/requisitos-para-abrir-un-estudio-de-pilates', texto: 'Qué necesitas para abrir tu estudio →' },
   },
   revision: [
     'Comprobar antes de publicar que sigue sin existir certificado profesional ni título de FP para AFD805_3 (buscador de TodoFP y Repertorio Nacional de Certificados Profesionales, edición del 13-abr-2026, revisados el 25-sep-2026).',

@@ -37,7 +37,6 @@ const CONTENIDO: Record<string, () => Promise<{ default: ComponentType }>> = {
   'pagos/cierre-de-ano': () => import('@/components/ayuda/articulos/pagos-cierre-de-ano'),
   'reservas/citas': () => import('@/components/ayuda/articulos/reservas-citas'),
   'clientes/la-libreta': () => import('@/components/ayuda/articulos/clientes-la-libreta'),
-  'instructores/tentare-network': () => import('@/components/ayuda/articulos/instructores-tentare-network'),
   'automatizaciones/mensajeria': () => import('@/components/ayuda/articulos/automatizaciones-mensajeria'),
   'automatizaciones/registro-de-envios': () => import('@/components/ayuda/articulos/automatizaciones-registro-de-envios'),
   'app/comunidad': () => import('@/components/ayuda/articulos/app-comunidad'),
