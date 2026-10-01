@@ -3824,7 +3824,7 @@ export interface RowApiWebhooks {
   ultimo_intento_en: string | null;
   ultimo_estado_http: number | null;
   ultimo_error: string | null;
-  // migr 20261001180000.
+  // migr 20261001165134.
   aviso_fallando_en: string | null;
 }
 
