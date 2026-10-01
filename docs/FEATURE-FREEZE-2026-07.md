@@ -102,12 +102,14 @@ Todo esto sigue en el repo y hace posible reactivar con pocos cambios:
 - **Wrappers de API** en `lib/api-client.ts`: `terminalCobrar`, `terminalEstadoCobro`,
   `terminalRegistrarLector`, `terminalEstadoLector`, `terminalReconciliacionesPendientes`,
   `terminalMarcarReconciliado`, `posBizumCheckout`, `pedirSubidaVideo`, `subirVideoAStream`.
-- **Capa de datos** en `lib/supabase-data.ts`: `dbInsertVentaPOS`, `validarKioskToken`,
+- **Capa de datos** en `lib/supabase-data.ts`: `validarKioskToken`,
   `checkinPublico`, `dbSetTerminalReader`, `dbInsert/Update/DeleteVideoOnDemand`,
   `dbList/AddComentarioComunidad`, `dbInsert/Update/ToggleLikePost/DeletePostComunidad`,
   rpc `mis_likes_comunidad`.
-- **Estado** en `lib/studio-context.tsx`: `ventasPOS`/`addVentaPOS`, `videosOnDemand`,
+- **Estado** en `lib/studio-context.tsx`: `ventasPOS`, `videosOnDemand`,
   `postsComunidad` (y sus setters), cargados en el bootstrap del estudio.
+  (`addVentaPOS` y `dbInsertVentaPOS` se retiraron el 1-oct-2026: el POS se
+  reconstruyó en servidor, `lib/pos/venta-servidor.ts`, y nadie los llamaba.)
 - **Helpers**: `lib/stream.ts`, `lib/stream-playback.ts` (Cloudflare Stream para VOD).
 - **Tipos** en `lib/types.ts`: `VentaPOS`, `ItemVentaPOS`, `ProductoPOS`, `VideoOnDemand`,
   `PostComunidad`, etc.

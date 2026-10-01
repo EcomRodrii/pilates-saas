@@ -109,17 +109,19 @@ test('un reembolso parcial anota el acumulado real, no un delta', async () => {
 
 // ── 19ª auditoría · F-3 (sigue vigente tras F-12/F-13) ──────────────────────
 
-test('F-3: el mapper de ventas POS escribe stripe_payment_intent_id', () => {
+test('F-3: el TPV guarda stripe_payment_intent_id al lanzar el cobro', () => {
   // La columna existe en la BD desde la migración 0036 y es por la que busca
-  // `procesarReembolsoVentaPos`. `ventaPOSToDb` no la incluía, así que se
-  // quedaba a NULL en todas las ventas (prod: 19 filas, 0 informadas) y el
-  // predicado del UPDATE de abajo no casaba jamás: procesador entero muerto.
-  const datos = readFileSync(new URL('../supabase-data.ts', import.meta.url), 'utf8');
-  const mapper = datos.slice(datos.indexOf('function ventaPOSToDb'));
-  const cuerpo = mapper.slice(0, mapper.indexOf('\n}'));
+  // `procesarReembolsoVentaPos`. El mapper del TPV antiguo (`ventaPOSToDb`) no
+  // la incluía, así que se quedaba a NULL en todas las ventas (prod: 19 filas,
+  // 0 informadas) y el predicado del UPDATE de abajo no casaba jamás:
+  // procesador entero muerto. Hoy la única vía que crea ventas es la de
+  // servidor, que la escribe al guardar la referencia del cobro.
+  const ruta = readFileSync(new URL('../../app/api/pos/venta/route.ts', import.meta.url), 'utf8');
+  const guardado = ruta.slice(ruta.indexOf(".from('ventas_pos').update({"));
+  const cuerpo = guardado.slice(0, guardado.indexOf('})'));
   assert.ok(
-    cuerpo.includes('stripe_payment_intent_id'),
-    'ventaPOSToDb debe escribir stripe_payment_intent_id, o el reembolso de POS no encuentra nunca la venta',
+    cuerpo.includes('stripe_payment_intent_id: inicio.referencia'),
+    'la venta debe guardar stripe_payment_intent_id, o el reembolso de POS no la encuentra nunca',
   );
 });
 

@@ -1729,24 +1729,6 @@ export function mapDisponibilidadCita(r: RowCitasDisponibilidad): Disponibilidad
   };
 }
 
-function ventaPOSToDb(venta: VentaPOS) {
-  return {
-    id: venta.id,
-    studio_id: venta.studioId ?? STUDIO_ID,
-    socio_id: venta.socioId ?? null,
-    items: venta.items ?? [],
-    subtotal: venta.subtotal,
-    descuento: venta.descuento,
-    total: venta.total,
-    metodo_pago: venta.metodoPago,
-    notas: venta.notas ?? null,
-    realizada_en: venta.realizadaEn,
-    // 19ª auditoría · F-3: sin esta línea la columna se quedaba a NULL siempre y
-    // `procesarReembolsoVentaPos` no encontraba nunca la venta que devolver.
-    stripe_payment_intent_id: venta.stripePaymentIntentId ?? null,
-  };
-}
-
 function actividadRecienteToDb(act: ActividadReciente) {
   return {
     id: act.id,
@@ -3464,11 +3446,6 @@ export async function dbUpdateCita(id: string, changes: Partial<Cita>): Promise<
   if ('pagada' in changes) db.pagada = changes.pagada;
   const { error } = await supabase.from('citas').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateCita]', error) : ESCRITURA_OK;
-}
-
-export async function dbInsertVentaPOS(venta: VentaPOS): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('ventas_pos').insert(ventaPOSToDb(venta));
-  return error ? falloEscritura('[dbInsertVentaPOS]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertActividadReciente(act: ActividadReciente) {
