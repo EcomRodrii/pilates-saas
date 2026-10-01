@@ -64,7 +64,9 @@ Reglas de los permisos:
 
 ## Recursos
 
-Todas las rutas cuelgan de `https://tentare.app/api/v1`. El antiguo prefijo `/api/oauth/v1` sigue funcionando, con las mismas rutas.
+Todas las rutas cuelgan de `https://www.tentare.app/api/v1`. El antiguo prefijo `/api/oauth/v1` sigue funcionando, con las mismas rutas.
+
+**Usa `www.tentare.app`, no `tentare.app`.** El dominio sin `www` redirige (308) al que lo lleva, y casi todos los clientes HTTP (`curl -L`, `fetch`, `requests`…) **quitan la cabecera `Authorization` al seguir una redirección a otro host**: la petición llega sin credencial y responde 401 `invalid_token` («Falta la cabecera Authorization»), aunque la clave sea buena.
 
 | Ruta | Scope | Qué devuelve |
 |---|---|---|
@@ -104,7 +106,7 @@ Cabeceras de la respuesta: `X-Hay-Mas: true|false`, `X-Siguiente-Cursor` y `X-Re
 
 ```bash
 curl -H "Authorization: Bearer $TENTARE_CLAVE" \
-  "https://tentare.app/api/v1/recibos?fecha=cobro&desde=2026-09-01&hasta=2026-09-30&orden=asc&limite=200"
+  "https://www.tentare.app/api/v1/recibos?fecha=cobro&desde=2026-09-01&hasta=2026-09-30&orden=asc&limite=200"
 ```
 
 ### Errores
@@ -133,7 +135,7 @@ Si un `POST` (crear una clienta, una reserva, una nota…) no te devuelve respue
 ```bash
 curl -X POST -H "Authorization: Bearer $TENTARE_CLAVE" -H "Content-Type: application/json" \
   -H "Idempotency-Key: 6f1c2b8e-1d0a-4c55-9a51-0b7c2f3e9d10" \
-  -d '{"nombre":"…","email":"…"}' https://tentare.app/api/v1/clientas
+  -d '{"nombre":"…","email":"…"}' https://www.tentare.app/api/v1/clientas
 ```
 
 - **Si reintentas con la misma clave y la misma petición**, recibes la respuesta del primer intento, con la cabecera `Idempotent-Replayed: true`, y no se crea nada dos veces.
@@ -284,7 +286,7 @@ def firma_valida(cuerpo: bytes, cabecera: str, secreto: str) -> bool:
 ### Registro: `GET /eventos`
 
 ```bash
-curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://tentare.app/api/v1/eventos?limite=200"
+curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://www.tentare.app/api/v1/eventos?limite=200"
 ```
 
 - Devuelve los eventos **de más antiguo a más nuevo**.
