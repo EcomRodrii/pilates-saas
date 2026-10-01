@@ -37,13 +37,13 @@ export interface RowReservas {
   bono_devuelto_en: string | null;
   // migr 20260925132205.
   bono_devolucion_debida_en: string | null;
-  // migr 20261001200000.
+  // migr 20261001115953.
   origen: string | null;
-  // migr 20261001200000.
+  // migr 20261001115953.
   nombre_externo: string | null;
-  // migr 20261001200000.
+  // migr 20261001115953.
   id_reserva_externa: string | null;
-  // migr 20261001200000.
+  // migr 20261001115953.
   id_cliente_externo: string | null;
 }
 

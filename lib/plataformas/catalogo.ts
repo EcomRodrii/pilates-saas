@@ -2,7 +2,7 @@
 //
 // Una reserva de estas ocupa plaza en la clase, pero la persona no es socia del
 // estudio: va en `reservas` con `socio_id = null`, su `origen` y el nombre que
-// da la plataforma (migr 20261001200000). Las vías propias son todas 'TENTARE'.
+// da la plataforma (migr 20261001115953). Las vías propias son todas 'TENTARE'.
 //
 // Sin alias `@/`: lo leen `node --test` y los módulos de servidor.
 
