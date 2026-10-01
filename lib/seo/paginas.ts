@@ -342,7 +342,7 @@ export const PAGINAS: PaginaSeo[] = [
     etiqueta: 'Inicio',
     prioridad: 1,
     changeFrequency: 'weekly',
-    relacionadas: ['/funcionalidades', '/precios', '/comparativa', '/network'],
+    relacionadas: ['/funcionalidades', '/precios', '/comparativa'],
   },
   {
     path: '/precios',

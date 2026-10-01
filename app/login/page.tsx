@@ -564,17 +564,8 @@ export default function LoginPage() {
           )}
         </p>
 
-        {/* Segunda vía, no la primera — esta pantalla es la puerta de un
-            equipo con invitación (ver el copy de "Crear cuenta" arriba), no
-            el sitio donde alguien sin estudio empieza. Enlace recíproco al
-            de NAV_NETWORK (components/landing/enlaces.ts) y al que ya tenía
-            /network/acceso hacia aquí — antes solo funcionaba en un sentido. */}
-        <p className="text-center text-[12px] text-[#A8A89F] mt-3">
-          ¿Das clases de Pilates o Yoga?{' '}
-          <Link href="/network/crear-perfil" className="font-semibold text-[#3A3A34] hover:underline">
-            Crea tu perfil en Tentare Network
-          </Link>
-        </p>
+        {/* El enlace «Crea tu perfil en Tentare Network» salió el 2-oct-2026:
+            Network está congelado (lib/frozen-features.ts). */}
         </>
         )}
       </div>

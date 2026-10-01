@@ -30,6 +30,7 @@ import { EliminarPersonaDialog } from '@/components/equipo/eliminar-persona-dial
 import { NOMBRE_PERSONA_ELIMINADA, puedeEliminarDefinitivamente } from '@/lib/equipo/eliminar-persona-reglas';
 import { seAnotanSusCambios } from '@/lib/auditoria/aviso-equipo';
 import { EmptyState } from '@/components/ui/empty-state';
+import { esRutaCongelada } from '@/lib/frozen-features';
 import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
@@ -513,9 +514,13 @@ export default function EquipoPage() {
           <div className="flex items-center gap-2">
             {puedeGestionarEquipo(miRol) && (
               <>
-                <Link href="/network/buscar" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
-                  <Network size={16} /> Buscar en Tentare Network
-                </Link>
+                {/* Tentare Network está congelado en el panel (lib/frozen-features.ts):
+                    el botón vuelve solo al quitarlo de RUTAS_CONGELADAS. */}
+                {!esRutaCongelada('/network/buscar') && (
+                  <Link href="/network/buscar" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
+                    <Network size={16} /> Buscar en Tentare Network
+                  </Link>
+                )}
                 <Link href="/equipo/rendimiento" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
                   <TrendingUp size={16} /> Rendimiento
                 </Link>

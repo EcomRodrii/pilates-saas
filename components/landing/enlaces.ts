@@ -55,6 +55,9 @@ export const NAV_V5: EnlaceNav[] = [
  * destino nuevo. Antes apuntaba a /network/unirse (alta directa); ahora a
  * /network, la landing de descubrimiento — /network/unirse se queda viva
  * sin enlazar desde aquí (decisión explícita, no borrar sin pedirlo).
+ *
+ * ⚠️ CONGELADO (2-oct-2026): ningún menú lo usa. Se queda la constante para
+ * volver a enlazarlo en un sitio cuando se descongele.
  */
 export const NAV_NETWORK: EnlaceNav = { href: '/network', label: 'Tentare Network' };
 
@@ -85,9 +88,8 @@ export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
       { href: '/precios', label: 'Precios' },
       { href: '/comparativa', label: 'Comparativa' },
       { href: '/seguridad', label: 'Seguridad' },
-      // El enlace a /instructora/alta (Feature #9) se quitó de aquí porque esa
-      // experiencia se sustituyó por Tentare Network — este es su sitio ahora.
-      NAV_NETWORK,
+      // Tentare Network salió del pie y del menú el 2-oct-2026: está congelado
+      // (lib/frozen-features.ts). Su web pública sigue viva, sin enlazar.
     ],
   },
   {
