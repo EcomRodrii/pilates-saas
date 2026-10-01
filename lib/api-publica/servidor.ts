@@ -12,6 +12,10 @@ import type { Rol } from '@/lib/types';
 import type { ScopeOAuth } from './catalogo-scopes';
 import { esClaveApi, hashClaveApi } from './claves';
 import { scopesEfectivos } from './scopes';
+import {
+  CABECERA_IDEMPOTENCIA, credencialDeIdempotencia, decidirConClaveUsada, huellaPeticion, leerClaveIdempotencia, seGuarda,
+  type FilaIdempotencia,
+} from './idempotencia';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La puerta de la API pública v1 (/api/v1/*, y su alias /api/oauth/v1/*).
@@ -48,7 +52,8 @@ export interface ResultadoApi { status: number; body: unknown; headers?: Record<
 /** Códigos de error estables (los mismos que ya veía Zapier) + un mensaje legible. */
 export type CodigoError =
   | 'invalid_token' | 'insufficient_scope' | 'invalid_request' | 'not_found'
-  | 'rate_limited' | 'api_no_activada' | 'estudio_sin_acceso' | 'server_error';
+  | 'rate_limited' | 'api_no_activada' | 'estudio_sin_acceso' | 'server_error'
+  | 'idempotency_conflict' | 'request_in_progress';
 
 export function error(status: number, codigo: CodigoError, mensaje: string, requestId?: string): ResultadoApi {
   return { status, body: { error: codigo, mensaje, ...(requestId ? { requestId } : {}) } };
@@ -199,7 +204,8 @@ const LIMITE_POR_IP = 600;
 /**
  * Envoltorio de cada endpoint de /api/v1. El handler solo lleva la lógica de
  * negocio; esto hace límite por IP → autenticación → límite por credencial →
- * scope → handler → auditoría, y responde siempre con `X-Request-Id`.
+ * scope → Idempotency-Key (POST) → handler → auditoría, y responde siempre con
+ * `X-Request-Id`.
  */
 export async function conApiPublica(
   req: NextRequest,
@@ -244,6 +250,27 @@ export async function conApiPublica(
     return responder(error(403, 'insufficient_scope', `Esta credencial no tiene el permiso «${opts.scope}».`, requestId));
   }
 
+  // Idempotency-Key, solo en los POST (idempotencia.ts): un reintento con la
+  // misma clave no vuelve a crear nada, recibe la respuesta del primero.
+  let idem: Idem | null = null;
+  if (req.method === 'POST') {
+    const clave = leerClaveIdempotencia(req.headers.get(CABECERA_IDEMPOTENCIA));
+    if (clave === 'invalida') {
+      auditar(ctx, 400);
+      return responder(error(400, 'invalid_request', 'Idempotency-Key tiene que ser texto ASCII visible, de 1 a 255 caracteres.', requestId));
+    }
+    if (clave) {
+      // `clone()`: el handler vuelve a leer el cuerpo con `req.json()`.
+      const cuerpo = await req.clone().text();
+      idem = { studioId: ctx.studioId, credencial: credencialDeIdempotencia(ctx.credencial), clave, huella: huellaPeticion(opts.ruta, cuerpo), ruta: opts.ruta };
+      const previa = await reservarIdempotencia(admin, idem, requestId);
+      if (previa) {
+        auditar(ctx, previa.status);
+        return responder(previa);
+      }
+    }
+  }
+
   let resultado: ResultadoApi;
   try {
     resultado = await handler(ctx, admin);
@@ -251,6 +278,60 @@ export async function conApiPublica(
     Sentry.captureException(e, { tags: { area: 'api-publica' }, extra: { ruta: opts.ruta, requestId } });
     resultado = error(500, 'server_error', 'Error interno. Si se repite, cita este requestId.', requestId);
   }
+  if (idem) await cerrarIdempotencia(admin, idem, resultado);
   auditar(ctx, resultado.status);
   return responder(resultado);
+}
+
+interface Idem { studioId: string; credencial: string; clave: string; huella: string; ruta: string }
+
+/**
+ * Aparta la clave antes de ejecutar. `null` = adelante (la petición es la
+ * primera con esta clave); si no, la respuesta que hay que dar sin ejecutar
+ * nada: la guardada, un conflicto o «sigue en marcha».
+ */
+async function reservarIdempotencia(admin: SupabaseClient, idem: Idem, requestId: string, intento = 0): Promise<ResultadoApi | null> {
+  const id = { studio_id: idem.studioId, credencial: idem.credencial, clave: idem.clave };
+  const { error: errInsert } = await admin.from('api_idempotencia').insert({ ...id, ruta: idem.ruta, huella: idem.huella });
+  if (!errInsert) return null;
+  // Si no se puede comprobar, no se ejecuta: hacerlo podría duplicar justo lo
+  // que la clave existe para evitar.
+  const noComprobable = () => error(503, 'server_error', 'No se ha podido comprobar la Idempotency-Key. Reintenta con la misma clave.', requestId);
+  if (errInsert.code !== '23505') {
+    Sentry.captureException(new Error(`api_idempotencia insert: ${errInsert.message}`), { tags: { area: 'api-publica' } });
+    return noComprobable();
+  }
+  const { data: fila, error: errLeer } = await admin.from('api_idempotencia')
+    .select('huella, estado, status_http, respuesta, creado_en').match(id).maybeSingle();
+  if (errLeer) return noComprobable();
+  // Borrada entre medias (caducó): se vuelve a intentar apartarla, una vez.
+  if (!fila) return intento === 0 ? reservarIdempotencia(admin, idem, requestId, 1) : noComprobable();
+
+  const d = decidirConClaveUsada(fila as FilaIdempotencia, idem.huella, new Date());
+  if (d.tipo === 'repetir') return { status: d.status, body: d.cuerpo, headers: { 'Idempotent-Replayed': 'true' } };
+  if (d.tipo === 'conflicto') {
+    return error(422, 'idempotency_conflict', 'Esta Idempotency-Key ya se usó con otra petición (otra ruta u otro cuerpo). Usa una clave nueva.', requestId);
+  }
+  const enCurso = () => ({
+    ...error(409, 'request_in_progress', 'Una petición con esta Idempotency-Key sigue en marcha. Reintenta en un momento.', requestId),
+    headers: { 'Retry-After': '1' },
+  });
+  if (d.tipo === 'en_curso') return enCurso();
+  // Caducada o abandonada: se reemplaza solo si sigue siendo la misma fila
+  // (otro reintento simultáneo puede habérsela quedado).
+  const { data: tomada } = await admin.from('api_idempotencia')
+    .update({ ruta: idem.ruta, huella: idem.huella, estado: 'EN_CURSO', status_http: null, respuesta: null, creado_en: new Date().toISOString(), completado_en: null })
+    .match(id).eq('creado_en', (fila as FilaIdempotencia).creado_en).select('clave');
+  return tomada?.length ? null : enCurso();
+}
+
+/** Guarda la respuesta para los reintentos; un 5xx no se guarda (el reintento debe ejecutarse). */
+async function cerrarIdempotencia(admin: SupabaseClient, idem: Idem, r: ResultadoApi): Promise<void> {
+  const id = { studio_id: idem.studioId, credencial: idem.credencial, clave: idem.clave };
+  const { error: e } = seGuarda(r.status)
+    ? await admin.from('api_idempotencia')
+        .update({ estado: 'COMPLETADA', status_http: r.status, respuesta: r.body ?? null, completado_en: new Date().toISOString() })
+        .match(id).eq('huella', idem.huella)
+    : await admin.from('api_idempotencia').delete().match(id).eq('huella', idem.huella);
+  if (e) Sentry.captureException(new Error(`api_idempotencia cerrar: ${e.message}`), { tags: { area: 'api-publica' } });
 }

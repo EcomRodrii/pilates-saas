@@ -24,7 +24,7 @@ const obj = (properties: Record<string, Esquema>, description?: string): Esquema
 
 export const ESQUEMAS: Record<string, Esquema> = {
   Error: obj({
-    error: strReq('Código estable: invalid_token, insufficient_scope, invalid_request, not_found, rate_limited, api_no_activada, estudio_sin_acceso, server_error.'),
+    error: strReq('Código estable: invalid_token, insufficient_scope, invalid_request, not_found, rate_limited, api_no_activada, estudio_sin_acceso, idempotency_conflict, request_in_progress, server_error.'),
     mensaje: strReq('Explicación legible.'),
     requestId: strReq('Cítalo si escribes a soporte.'),
   }),
@@ -120,6 +120,16 @@ const CABECERAS_PAGINA = {
   'X-Siguiente-Cursor': { schema: { type: 'string' }, description: 'Solo si X-Hay-Mas es true.' },
   'X-Request-Id': { schema: { type: 'string' } },
 };
+/** En los POST: reintentar con la misma clave no vuelve a crear nada (lib/api-publica/idempotencia.ts). */
+const IDEMPOTENCIA = {
+  name: 'Idempotency-Key', in: 'header', required: false, schema: { type: 'string', minLength: 1, maxLength: 255 },
+  description: 'Opcional y recomendada. Un valor único por operación (p. ej. un UUID). Si reintentas con la misma clave y la misma petición, '
+    + 'recibes la respuesta del primer intento (cabecera Idempotent-Replayed: true) y no se crea nada dos veces. Se guarda 24 h.',
+};
+const ERRORES_IDEMPOTENCIA = {
+  409: { description: 'Otra petición con la misma Idempotency-Key sigue en marcha (mira Retry-After)' },
+  422: { description: 'Esa Idempotency-Key ya se usó con otra petición' },
+};
 const ERRORES = Object.fromEntries(
   ([['400', 'Petición no válida'], ['401', 'Credencial no válida'], ['403', 'Sin permiso, API no activada o estudio sin acceso'], ['429', 'Demasiadas peticiones (mira Retry-After)']] as const)
     .map(([c, d]) => [c, { description: d, content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } }]),
@@ -157,7 +167,7 @@ export const RUTAS: Record<string, unknown> = {
   '/estudio': uno('El estudio de la credencial', null, 'Estudio', false),
   '/clientas': {
     ...lista('Clientas', 'clientas:leer', 'Clienta', [], 'Con clientas:datos_fiscales incluye NIF y dirección.'),
-    post: { summary: 'Crear una clienta', security: [{ bearer: [] }], 'x-scope': 'clientas:escribir', responses: { 201: { description: 'Creada' }, 409: { description: 'Ya existe una clienta con ese email' }, ...ERRORES } },
+    post: { summary: 'Crear una clienta', security: [{ bearer: [] }], 'x-scope': 'clientas:escribir', parameters: [IDEMPOTENCIA], responses: { 201: { description: 'Creada' }, ...ERRORES_IDEMPOTENCIA, 409: { description: 'Ya existe una clienta con ese email, u otra petición con la misma Idempotency-Key sigue en marcha' }, ...ERRORES } },
   },
   '/recibos': lista('Recibos (cobros)', 'pagos:leer', 'Recibo', [
     q('fecha', '`cobro` lista por fecha de cobro (solo lo cobrado); `vencimiento` (por defecto) lista todo.', { type: 'string', enum: ['vencimiento', 'cobro'] }),
@@ -174,11 +184,11 @@ export const RUTAS: Record<string, unknown> = {
   '/planes': { get: { summary: 'Obsoleto: usa /suscripciones', deprecated: true, security: [{ bearer: [] }], 'x-scope': 'planes:leer', responses: { 200: { description: 'Suscripciones (forma antigua)' }, ...ERRORES } } },
   '/reservas': {
     get: { summary: 'Reservas', security: [{ bearer: [] }], 'x-scope': 'reservas:leer', parameters: [q('estado', 'CONFIRMADA por defecto.'), q('socioId', 'Filtra por clienta.'), { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 25 } }], responses: { 200: { description: 'Las más recientes primero (sin paginar: es la forma con la que nació para Zapier). Solo reservas de clientas de Tentare.', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Reserva' } } } } }, ...ERRORES } },
-    post: { summary: 'Crear una reserva', security: [{ bearer: [] }], 'x-scope': 'reservas:escribir', responses: { 201: { description: 'Creada' }, ...ERRORES } },
+    post: { summary: 'Crear una reserva', security: [{ bearer: [] }], 'x-scope': 'reservas:escribir', parameters: [IDEMPOTENCIA], responses: { 201: { description: 'Creada' }, ...ERRORES_IDEMPOTENCIA, ...ERRORES } },
   },
-  '/reservas/cancelar': { post: { summary: 'Cancelar una reserva', security: [{ bearer: [] }], 'x-scope': 'reservas:escribir', responses: { 200: { description: 'Cancelada' }, ...ERRORES } } },
-  '/notas': { post: { summary: 'Crear una nota operativa', security: [{ bearer: [] }], 'x-scope': 'notas:escribir', responses: { 201: { description: 'Creada' }, ...ERRORES } } },
-  '/tareas': { post: { summary: 'Crear una tarea', security: [{ bearer: [] }], 'x-scope': 'tareas:escribir', responses: { 201: { description: 'Creada' }, ...ERRORES } } },
+  '/reservas/cancelar': { post: { summary: 'Cancelar una reserva', security: [{ bearer: [] }], 'x-scope': 'reservas:escribir', parameters: [IDEMPOTENCIA], responses: { 200: { description: 'Cancelada' }, ...ERRORES_IDEMPOTENCIA, ...ERRORES } } },
+  '/notas': { post: { summary: 'Crear una nota operativa', security: [{ bearer: [] }], 'x-scope': 'notas:escribir', parameters: [IDEMPOTENCIA], responses: { 201: { description: 'Creada' }, ...ERRORES_IDEMPOTENCIA, ...ERRORES } } },
+  '/tareas': { post: { summary: 'Crear una tarea', security: [{ bearer: [] }], 'x-scope': 'tareas:escribir', parameters: [IDEMPOTENCIA], responses: { 201: { description: 'Creada' }, ...ERRORES_IDEMPOTENCIA, ...ERRORES } } },
   '/eventos': {
     get: {
       summary: 'Registro de eventos (lo que ha cambiado)',
