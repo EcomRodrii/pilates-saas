@@ -12,6 +12,8 @@ import { ESPECIALIDADES_NETWORK, ESPECIALIDAD_LABEL } from '@/lib/network/catalo
 import { imagenDeClase, IMAGENES_CLASE, type FamiliaClase } from '@/lib/imagenes-por-defecto';
 import type { Studio, TipoClase } from '@/lib/types';
 import { cn, formatEuro } from '@/lib/utils';
+import { PlazasPlataformasTipo } from '@/components/configuracion/plazas-plataformas-tipo';
+import { usePlataformasActivas } from '@/components/configuracion/plataformas-externas';
 import {
   DURACIONES_HABITUALES,
   NIVEL_LABELS,
@@ -461,6 +463,7 @@ export function PanelTipoClase({
   // a partir de ahí, se corrigen en vivo. Un "Ponle un nombre" en rojo antes de
   // haber podido teclear la primera letra es ruido, no ayuda.
   const [intentado, setIntentado] = useState(false);
+  const plataformasActivas = usePlataformasActivas();
   // La sección de imágenes se abre también desde la previsualización, así que
   // va controlada. Se despliega Y se trae a la vista: abrirla sin desplazar
   // deja el cambio fuera de pantalla en un panel que ya viene con scroll.
@@ -1095,6 +1098,20 @@ export function PanelTipoClase({
             </p>
           )}
         </Seccion>
+
+        {/* Plataformas que venden plazas (ClassPass, USC…): solo si hay alguna activa. */}
+        {plataformasActivas.length > 0 && (
+          <Seccion
+            titulo="Plataformas que venden esta clase"
+            ayuda="Cuántas plazas de cada clase de este tipo pones a la venta en ClassPass, Urban Sports Club o Wellhub."
+          >
+            <PlazasPlataformasTipo
+              tipoClaseId={editando?.id ?? null}
+              requiereAutorizacion={form.requiereAutorizacion}
+              aforoPorDefecto={form.aforoPorDefecto.trim() === '' ? null : Number(form.aforoPorDefecto)}
+            />
+          </Seccion>
+        )}
 
         {/* NIVEL 4 — online */}
         <Seccion titulo="Clase online" resumen={form.esOnline ? 'Se da por Zoom' : 'Presencial'}>
