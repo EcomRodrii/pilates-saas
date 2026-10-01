@@ -59,7 +59,6 @@ export default function OcupacionClasesVallePage() {
       <FaqStructuredData items={FAQ} />
       <ArticleShell
         category={GUIA.seccion}
-        coverGradient="linear-gradient(140deg,#1f3d42,#3E7C86)"
         title="Cómo subir la ocupación de tus clases valle"
         intro="Las 10:00 de un martes vacías cuestan lo mismo que llenas: sala, instructora, luz. Esto es lo que hacen las plataformas grandes con el precio dinámico — y lo que puedes copiar sin depender de ninguna de ellas."
         readTime={`${GUIA.lectura} min de lectura`}

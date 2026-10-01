@@ -57,7 +57,6 @@ export default function WidgetVsIframePage() {
       />
       <ArticleShell
         category={GUIA.seccion}
-        coverGradient="linear-gradient(140deg,#173a40,#3E7C86)"
         title={TITLE}
         intro="¿Tu botón de «Reserva aquí» lleva a las alumnas fuera de tu web justo cuando están a punto de confirmar la clase? El método que elijas determina directamente cuántas de esas alumnas potenciales llegan al final del proceso sin abandonar."
         readTime={`${GUIA.lectura} min de lectura`}

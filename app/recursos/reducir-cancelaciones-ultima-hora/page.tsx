@@ -58,7 +58,6 @@ export default function ReducirCancelacionesPage() {
       <FaqStructuredData items={FAQ} />
       <ArticleShell
         category={GUIA.seccion}
-        coverGradient="linear-gradient(140deg,#5e2318,#C2503A)"
         title="Reduce las cancelaciones de última hora"
         intro="Una plaza que se cancela a las 18:45 para una clase de las 19:00 es peor que una que nunca se reservó: ya no hay tiempo de ofrecérsela a nadie más. Esto es lo que cobran las grandes cadenas de fitness por eso — y lo que dice la evidencia sobre por qué un simple recordatorio cambia el comportamiento."
         readTime={`${GUIA.lectura} min de lectura`}

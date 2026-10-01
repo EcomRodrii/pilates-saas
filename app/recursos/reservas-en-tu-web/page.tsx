@@ -52,7 +52,6 @@ export default function ReservasEnTuWebPage() {
       />
       <ArticleShell
         category={GUIA.seccion}
-        coverGradient="linear-gradient(140deg,#1C1F14,#343825)"
         title={TITLE}
         intro="La alumna llega a tu web, pulsa «Reservar» y aparece en una pantalla con otro logo y otro diseño. No sabe si sigue en tu web o no. La mayoría cierra esa ventana y no vuelve — y eso no es un problema de diseño, es una fuga de confianza."
         readTime={`${GUIA.lectura} min de lectura`}

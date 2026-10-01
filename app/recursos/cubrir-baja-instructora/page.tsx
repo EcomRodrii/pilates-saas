@@ -51,7 +51,6 @@ export default function CubrirBajaPage() {
       <FaqStructuredData items={FAQ} />
       <ArticleShell
         category={GUIA.seccion}
-        coverGradient="linear-gradient(140deg,#191C11,#343825)"
         title="Cómo cubrir una baja de instructora sin hacer una llamada"
         intro="El proceso que roba noches a las propietarias de estudios — y cómo convertirlo en algo que ocurre solo, paso a paso."
         readTime={`${GUIA.lectura} min de lectura`}
