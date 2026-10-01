@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { dbGetIntegracionConfig, dbGuardarIntegracion } from '@/lib/db/supabase-data-admin';
 import type { TipoIntegracion } from '@/lib/types';
+import { credencialesUsc } from '@/lib/plataformas/usc/cliente';
 
 // Las credenciales de UNA integración, solo cuando de verdad hacen falta.
 //
@@ -44,6 +45,11 @@ export async function GET(req: NextRequest) {
     const { token: _token, ...resto } = config;
     return NextResponse.json({ config: resto });
   }
+  // USC por API solo existe cuando Tentare tiene sus credenciales de
+  // integrador: hasta entonces la pantalla no pide datos que no servirían.
+  if (tipo === 'URBAN_SPORTS_CLUB') {
+    return NextResponse.json({ config, apiDisponible: credencialesUsc() !== null });
+  }
   return NextResponse.json({ config });
 }
 
@@ -52,7 +58,8 @@ export async function GET(req: NextRequest) {
 // WhatsApp por Embedded Signup en su propia ruta.
 const TIPOS_CON_CAMPOS: readonly TipoIntegracion[] = [
   'RESEND', 'WHATSAPP', 'KISI', 'MAILCHIMP',
-  // Plataformas externas: hoy solo se encienden («vendo aquí, apunto yo»).
+  // Plataformas externas: se encienden («vendo aquí, apunto yo») y USC guarda
+  // además su providerId/locationId para la conexión por API.
   'CLASSPASS', 'URBAN_SPORTS_CLUB', 'WELLHUB',
 ];
 const CAMPO = /^[A-Za-z][A-Za-z0-9_]{0,40}$/;
