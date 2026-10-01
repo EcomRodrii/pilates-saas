@@ -3252,6 +3252,12 @@ export async function dbUpdateReserva(
 }
 
 export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
+  // Un recibo nace PENDIENTE desde el navegador. Cobrarlo lo hace `confirmarCobro` en el
+  // servidor (`/api/cobros/marcar-cobrado`): la base de datos también lo exige
+  // (trigger `trg_recibos_cobrado_solo_servidor`), esto lo dice antes de ir a la red.
+  if (rec.estado === 'COBRADO') {
+    return falloEscritura('[dbInsertRecibo]', new Error('Un recibo no se crea cobrado desde el navegador: se crea pendiente y se cobra por el servidor.'));
+  }
   // assignPlan() encadena dbInsertSuscripcion + dbInsertRecibo con la suscripción
   // recién creada: mismo commit-race que socio_id (Sentry NEXTJS-W), pero antes
   // solo se reintentaba para socio_id — la FK de suscripcion_id fallaba a la primera.
@@ -3358,6 +3364,10 @@ export async function dbReleerTrasCobro(
 }
 
 export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Promise<ResultadoEscritura> {
+  // Entrar en COBRADO es del servidor, igual que en `dbUpdateRecibosBatch` (y que la base de datos).
+  if (changes.estado === 'COBRADO') {
+    return falloEscritura('[dbUpdateRecibo]', new Error('COBRADO no se escribe desde el navegador: pasa por el servidor.'));
+  }
   const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('suscripcionId' in changes) db.suscripcion_id = changes.suscripcionId;
