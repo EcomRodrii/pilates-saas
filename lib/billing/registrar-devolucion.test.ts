@@ -87,11 +87,13 @@ type Fila = Record<string, unknown>;
 function fakeAdmin(opts: { recibo?: Fila | null; ventaPos?: Fila | null; yaExistia?: boolean } = {}) {
   const insertado: Fila[] = [];
   const actualizado: { tabla: string; fila: Fila }[] = [];
+  const filtrosOr: string[] = [];
   const api = {
     from(tabla: string) {
       return {
         select() { return this; },
         eq() { return this; },
+        or(expr: string) { filtrosOr.push(expr); return this; },
         maybeSingle() {
           if (tabla === 'recibos') {
             return Promise.resolve({ data: opts.recibo === undefined ? RECIBO : opts.recibo, error: null });
@@ -111,7 +113,7 @@ function fakeAdmin(opts: { recibo?: Fila | null; ventaPos?: Fila | null; yaExist
       };
     },
   };
-  return { admin: api as never, insertado, actualizado };
+  return { admin: api as never, insertado, actualizado, filtrosOr };
 }
 
 const RECIBO = {
@@ -175,13 +177,17 @@ test('⚠️ un reembolso PARCIAL de venta POS NO la marca como devuelta entera'
   // pone a null en cuanto el cargo deja de estarlo. Escribirla en un parcial
   // daba por devuelta entera una venta de la que solo volvió una parte del
   // dinero: caja y cierre diario descuadrados, y sin nada que lo delatara.
-  const { admin, actualizado } = fakeAdmin();
+  const { admin, actualizado, filtrosOr } = fakeAdmin();
   const r = await registrarDevolucion(admin, { ...BASE_POS, origen: 'REEMBOLSO_PARCIAL' as const, devueltoCentimos: 1500 });
 
   assert.equal(r?.importeDevuelto, 15);
   assert.equal(actualizado[0].tabla, 'ventas_pos');
   assert.equal(actualizado[0].fila.importe_devuelto, 15, 'el acumulado sí se anota, total o parcial');
-  assert.equal(actualizado[0].fila.devuelta_en, null, 'solo el REEMBOLSO_TOTAL marca la venta como devuelta');
+  // Ni la marca ni la quita (F0): un parcial que llega TARDE, después del total,
+  // no puede «des-devolver» la venta. Quitarla es cosa de `refund.failed`.
+  assert.ok(!('devuelta_en' in actualizado[0].fila), 'un parcial no toca devuelta_en');
+  // Y el acumulado solo sube: un evento atrasado con menos importe no casa.
+  assert.ok(filtrosOr.includes('importe_devuelto.is.null,importe_devuelto.lt.15'), 'el acumulado nunca baja por aquí');
 });
 
 test('una devolución de venta POS que no existe en este estudio no se anota', async () => {

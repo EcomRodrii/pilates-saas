@@ -118,6 +118,11 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
 - **Dinero**: cero escritura optimista sin comprobar el resultado real (`await` la
   confirmación, maneja el camino de fallo, sé idempotente ante webhooks repetidos). Es el
   patrón de bug más repetido en los flujos de Stripe/cobros de este repo.
+- **Cifras de dinero**: un recibo se lee SIEMPRE con `lib/billing/situacion-recibo.ts`
+  (mitad SQL: `recibo_importe_ingresado`), nunca con `estado === 'COBRADO'` a mano ni
+  sumando `importe` en bruto. Lo ingresado es neto de `importe_devuelto`, cuenta en su mes
+  de COBRO y `DEVUELTO` puede ser deuda (banco) o reembolso. Mapa de cada cifra y su
+  fuente en `docs/cifras-financieras.md` (F0, 1-oct-2026: «las cifras no cuadran»).
 - **Modo de Stripe**: el código es agnóstico (`sk_live_` y `sk_test_` funcionan igual), y
   `sk_test_XXXX` significa **«sin configurar»**, NO «modo test» — una clave de test real la
   pasa. Lo que está prohibido es mezclar: `lib/billing/modo-stripe.ts` bloquea clave live

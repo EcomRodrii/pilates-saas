@@ -1460,6 +1460,13 @@ export interface VentaPOS {
   // reembolso de POS no casaba jamás. Solo la informan los cobros con Stripe
   // (Bizum/datáfono); en efectivo es null.
   stripePaymentIntentId?: string | null;
+  /** PENDIENTE_PAGO | PAGADA | ANULADA. Las ventas anteriores al TPV de servidor ya vienen PAGADA. */
+  estado?: string | null;
+  /**
+   * El recibo `rec-pos-*` que la cuenta en los ingresos. Sin él, una venta
+   * PAGADA no aparece en ninguna cifra (`lib/pos/ventas-sin-recibo.ts`).
+   */
+  reciboId?: string | null;
 }
 
 export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIANDO' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';

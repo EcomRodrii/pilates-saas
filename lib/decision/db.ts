@@ -5,6 +5,7 @@
 import * as Sentry from '@sentry/nextjs';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
+import { importeIngresado } from '@/lib/billing/situacion-recibo';
 import type {
   AccionDecision, Confianza, DecisionFeatureFlag, DecisionFlag, DecisionSession, EspecialistaId,
   EstadoRecomendacion, HechoMemoria, Impacto, ItemMientrasDormias, MemoriaEstudio, MensajeDia, Outcome,
@@ -633,13 +634,14 @@ export async function dbSemanaFueSilenciosa(studioId: string, lunes: string, dom
 export async function dbIngresosEnRango(studioId: string, desde: string, hasta: string): Promise<number> {
   const { data, error } = await db()
     .from('recibos')
-    .select('importe')
+    .select('estado, importe, importe_devuelto')
     .eq('studio_id', studioId)
     .eq('estado', 'COBRADO')
     .gte('fecha_cobro', desde)
     .lte('fecha_cobro', hasta);
   if (error) { reportError('[dbIngresosEnRango]', error); return 0; }
-  return (data ?? []).reduce((sum, r) => sum + Number(r.importe ?? 0), 0);
+  // Neto de reembolsos, igual que Inicio e Informes (lib/billing/situacion-recibo.ts).
+  return (data ?? []).reduce((sum, r) => sum + importeIngresado({ estado: r.estado, importe: r.importe, importeDevuelto: r.importe_devuelto }), 0);
 }
 
 // Tasa de seguimiento por tipo — base del Umbral adaptativo (Fase 2, ver

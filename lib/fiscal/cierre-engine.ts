@@ -1,4 +1,5 @@
 import type { Factura, IngresoManual } from '@/lib/types';
+import { situacionRecibo, type ReciboParaCifras } from '../billing/situacion-recibo.ts';
 import type { RowIngresosManuales, RowFacturas } from '@/lib/db-types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,6 +40,14 @@ export interface CierreMes { mes: number; total: number; }         // mes 1–12
 export interface Cierre347 { nombre: string; nif: string | null; total: number; }
 export interface CierreSellado { totalFacturas: number; selladas: number; }
 
+/**
+ * Factura de un cobro cuyo dinero se devolvió (entero o en parte) y que no
+ * tiene ninguna rectificativa. Sigue sumando en el cierre —la factura existe y
+ * no se borra—, pero el IVA repercutido de ese cobro ya no se cobró: hay que
+ * emitir la rectificativa antes de presentar el 303.
+ */
+export interface FacturaSinRectificar { id: string; numero: string; fecha: string; total: number; devuelto: number; socioId: string | null; }
+
 export interface CierreAnual {
   anio: number;
   // null = año completo. Con `trimestre` en el input, todo lo demás (totales,
@@ -53,6 +62,12 @@ export interface CierreAnual {
   candidatos347: Cierre347[];
   sellado: CierreSellado;
   lineas: CierreLinea[];          // todas las líneas del año (facturas + manuales), por fecha
+  /**
+   * Facturas del periodo con su registro ANULADO en la AEAT (Veri*Factu): el
+   * registro de anulación las da por no emitidas, así que no suman. Se cuentan
+   * para decirlo en pantalla, no para esconderlas.
+   */
+  excluidasAnuladasAeat: number;
 }
 
 function facturaALinea(f: Factura): CierreLinea {
@@ -98,17 +113,21 @@ export function computeCierreAnual(input: {
 }): CierreAnual {
   const { facturas, ingresosManuales, anio, trimestre = null } = input;
   const yr = String(anio);
+  const enPeriodo = (fecha: string) => {
+    if (fecha.slice(0, 4) !== yr) return false;
+    return trimestre == null || Math.ceil(Number(fecha.slice(5, 7)) / 3) === trimestre;
+  };
+
+  // Una factura con el registro de ANULACIÓN aceptado en la AEAT se da por no
+  // emitida (lib/verifactu/transmitir.ts): no puede seguir sumando IVA.
+  const anulada = (f: Factura) => f.verifactuEstado === 'ANULADA';
+  const excluidasAnuladasAeat = facturas.filter((f) => anulada(f) && enPeriodo((f.fechaEmision ?? '').slice(0, 10))).length;
 
   const lineas = [
-    ...facturas.map(facturaALinea),
+    ...facturas.filter((f) => !anulada(f)).map(facturaALinea),
     ...ingresosManuales.map(manualALinea),
   ]
-    .filter((l) => {
-      if (l.fecha.slice(0, 4) !== yr) return false;
-      if (trimestre == null) return true;
-      const mes = Number(l.fecha.slice(5, 7));
-      return Math.ceil(mes / 3) === trimestre;
-    })
+    .filter((l) => enPeriodo(l.fecha))
     .sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0));
 
   const totales: CierreTotales = { base: 0, cuota: 0, total: 0, numFacturas: 0, numManuales: 0 };
@@ -156,7 +175,49 @@ export function computeCierreAnual(input: {
     .map((c) => ({ ...c, total: round2(c.total) }))
     .sort((a, b) => b.total - a.total);
 
-  return { anio, trimestre, totales, trimestres, porIva, meses, candidatos347, sellado, lineas };
+  return { anio, trimestre, totales, trimestres, porIva, meses, candidatos347, sellado, lineas, excluidasAnuladasAeat };
+}
+
+/**
+ * Facturas (no rectificativas) de cobros reembolsados —entera o parcialmente—
+ * que no tienen ninguna rectificativa que las corrija. Medido el 1-oct-2026:
+ * dos facturas selladas del T3 cuyo dinero se devolvió, sin rectificar, con el
+ * 303 a punto de vencer. Las cifras no se tocan (la factura existe); se avisa.
+ *
+ * Un recibo devuelto POR EL BANCO no entra: la clienta sigue debiendo ese
+ * servicio y la factura sigue siendo correcta.
+ */
+export function facturasSinRectificarDeCobrosDevueltos(input: {
+  facturas: Factura[];
+  recibos: (ReciboParaCifras & { id: string })[];
+  anio: number;
+  trimestre?: 1 | 2 | 3 | 4;
+}): FacturaSinRectificar[] {
+  const { facturas, recibos, anio, trimestre } = input;
+  const rectificadas = new Set(facturas.map((f) => f.rectificaA).filter((x): x is string => !!x));
+  const devueltoPorRecibo = new Map<string, number>();
+  const socioPorRecibo = new Map(recibos.map((r) => [r.id, r.socioId ?? null]));
+  for (const r of recibos) {
+    const devuelto = N(r.importeDevuelto);
+    const reembolsado = situacionRecibo(r) === 'REEMBOLSADO';
+    if (reembolsado || (situacionRecibo(r) === 'COBRADO' && devuelto > 0)) {
+      devueltoPorRecibo.set(r.id, reembolsado ? Math.max(devuelto, N(r.importe)) : devuelto);
+    }
+  }
+  return facturas
+    .filter((f) => !(f.tipo ?? '').startsWith('R') && f.verifactuEstado !== 'ANULADA')
+    .filter((f) => devueltoPorRecibo.has(f.reciboId) && !rectificadas.has(f.id))
+    .filter((f) => {
+      const fecha = (f.fechaEmision ?? '').slice(0, 10);
+      if (fecha.slice(0, 4) !== String(anio)) return false;
+      return trimestre == null || Math.ceil(Number(fecha.slice(5, 7)) / 3) === trimestre;
+    })
+    .map((f) => ({
+      id: f.id, numero: f.numeroCompleto, fecha: (f.fechaEmision ?? '').slice(0, 10),
+      total: round2(N(f.total)), devuelto: round2(devueltoPorRecibo.get(f.reciboId) ?? 0),
+      socioId: socioPorRecibo.get(f.reciboId) ?? null,
+    }))
+    .sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
 }
 
 // Mapea una fila de `facturas` a Factura. Existe aquí (además del mapper interno
@@ -179,6 +240,9 @@ export function mapFacturaRow(r: RowFacturas): Factura {
     verifactuPrevHash: r.verifactu_prev_hash,
     verifactuTs: r.verifactu_ts,
     verifactuSeq: r.verifactu_seq,
+    verifactuEstado: r.verifactu_estado,
+    tipo: r.tipo ?? undefined,
+    rectificaA: r.rectifica_a,
   };
 }
 

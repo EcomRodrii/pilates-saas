@@ -12,6 +12,8 @@ import { CasillaRenovacion } from '@/components/cobros/casilla-renovacion';
 import { MENSAJE_YA_ESTABA, esCobroConfirmado } from '@/lib/cobros/marcar-cobrado';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn, copiarAlPortapapeles, formatEuro, hoyEnEstudio } from '@/lib/utils';
+import { situacionRecibo, estaSinCobrar, importeIngresado, mesDelRecibo, resumirRecibos } from '@/lib/billing/situacion-recibo';
+import { resumenVentasSinRecibo } from '@/lib/pos/ventas-sin-recibo';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cobrarOnlineDirecto, crearEnlaceTarjeta, enviarEmailRecibo } from '@/lib/api-client';
@@ -116,10 +118,6 @@ function fecha(iso: string) {
   });
 }
 
-function isoToYearMonth(iso: string) {
-  return iso.slice(0, 7);
-}
-
 function monthLabel(ym: string) {
   const [y, m] = ym.split('-');
   const d = new Date(Number(y), Number(m) - 1, 1);
@@ -136,6 +134,8 @@ const BADGE: Record<string, { bg: string; text: string; label: string }> = {
   FALLIDO:   { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)', label: 'No se pudo cobrar' },
 };
 
+const BADGE_REEMBOLSADO = { bg: 'var(--muted)', text: 'var(--muted-foreground)', label: 'Reembolsado' };
+
 type SortKey = 'reciente' | 'antiguo' | 'mayor' | 'menor';
 const SORT_OPTIONS: { label: string; value: SortKey }[] = [
   { label: 'Más reciente', value: 'reciente' },
@@ -147,8 +147,18 @@ const SORT_OPTIONS: { label: string; value: SortKey }[] = [
 type MainTab = 'cobros' | 'suscripciones' | 'historial';
 
 // Un recibo que no está cobrado sigue siendo dinero que le deben, esté donde
-// esté del camino: sin enviar, en el banco, o rebotado.
-const ESTADOS_SIN_COBRAR: EstadoRecibo[] = ['PENDIENTE', 'EN_CURSO', 'FALLIDO'];
+// esté del camino: sin enviar, en el banco, o rebotado. La regla vive en
+// `estaSinCobrar` (lib/billing/situacion-recibo.ts), no aquí: antes era una
+// lista de estados que se dejaba fuera el recibo DEVUELTO POR EL BANCO —deuda
+// otra vez, la misma que bloquea las reservas por impago— porque `DEVUELTO`
+// también es el estado de un reembolso, que no es deuda.
+
+// El badge de un DEVUELTO depende de quién devolvió el dinero: el banco (la
+// clienta sigue debiendo) o el estudio (reembolso). El estado solo no lo dice.
+function badgeDe(r: Parameters<typeof situacionRecibo>[0]) {
+  if (r.estado === 'DEVUELTO' && situacionRecibo(r) === 'REEMBOLSADO') return BADGE_REEMBOLSADO;
+  return BADGE[r.estado] ?? BADGE.PENDIENTE;
+}
 
 // Las palabras de la máquina no son las suyas. "En curso" y "Pendientes" le
 // sonaban igual; "Devuelto" y "Fallido" también. Cada estado se nombra por lo
@@ -160,7 +170,9 @@ const ETIQUETA_ESTADO: Record<EstadoRecibo | 'TODOS' | 'SIN_COBRAR', string> = {
   EN_CURSO:   'Enviado al banco',
   FALLIDO:    'No se pudo cobrar',
   COBRADO:    'Cobrado',
-  DEVUELTO:   'Devuelto por el banco',
+  // DEVUELTO es dos cosas: el banco rechazó el adeudo (se sigue debiendo) o el
+  // estudio reembolsó el dinero. Cada fila lo distingue con su badge.
+  DEVUELTO:   'Devuelto (banco o reembolso)',
   ANULADO:    'Anulado al cancelar la cuota',
 };
 
@@ -187,6 +199,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     suscripciones,
     planesTarifa,
     facturas,
+    ventasPOS,
     marcarCobrado,
     marcarCobradoVarios,
     marcarDevuelto,
@@ -404,32 +417,34 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
 
   // ── KPIs ─────────────────────────────────────────────────────────────────────
 
-  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  // El mes del ESTUDIO, no el del navegador (F0).
+  const thisMonth = hoyEnEstudio(now).slice(0, 7);
 
   const kpis = useMemo(() => {
-    const cobradoMes = recibos
-      .filter(r => r.estado === 'COBRADO' && r.fechaCobro && isoToYearMonth(r.fechaCobro) === thisMonth)
-      .reduce((s, r) => s + r.importe, 0);
+    // Una sola cuenta para todo (lib/billing/situacion-recibo.ts): lo cobrado es
+    // NETO de reembolsos y cuenta en su mes de cobro; lo que se debe y lo que
+    // está en el banco van por separado.
+    const delMes = resumirRecibos(recibos.filter(r => r.fechaCobro?.slice(0, 7) === thisMonth));
+    const total = resumirRecibos(recibos);
 
-    // ⚠️ MISMA lista que la tabla de abajo (`ESTADOS_SIN_COBRAR`), no solo
-    // 'PENDIENTE'. Contaban distinto y se veía: la tarjeta decía «89 € · 1
-    // recibo pendiente · 1 cliente con deuda» mientras la lista de debajo
-    // enseñaba DOS recibos, 178 €, de dos clientas. Y la que se caía de la
-    // cuenta era la del recibo FALLIDO — la tarjeta rechazada, justo la deuda
-    // que más urge perseguir.
-    //
-    // Dos criterios de «quién me debe» en la misma pantalla no son un matiz de
-    // presentación: es la cifra por la que se decide a quién llamar hoy.
-    const sinCobrar = recibos.filter(r => ESTADOS_SIN_COBRAR.includes(r.estado));
-
-    const pendienteTotal = sinCobrar.reduce((s, r) => s + r.importe, 0);
-
-    const sociosConDeuda = new Set(sinCobrar.map(r => r.socioId)).size;
-
+    // ⚠️ La lista de abajo («Todo lo que me deben», `estaSinCobrar`) enseña lo
+    // que se debe Y lo que está en el banco, cada recibo con su estado. Antes
+    // esta tarjeta sumaba las dos cosas como «pendiente»; ahora la cifra grande
+    // es solo lo que se debe (sin cobrar, rechazado o devuelto por el banco), y
+    // lo enviado al banco va debajo con su nombre: aún no es deuda, puede
+    // entrar mañana. Las dos cifras juntas suman exactamente la lista.
     const activasCount = socios.filter(s => s.activo).length;
-    const mediaXSocia = activasCount > 0 ? cobradoMes / activasCount : 0;
+    // Lo cobrado a CLIENTAS: una venta de mostrador sin clienta no se reparte
+    // entre las clientas activas.
+    const mediaXSocia = activasCount > 0 ? delMes.ingresadoClientas / activasCount : 0;
 
-    return { cobradoMes, pendienteTotal, sociosConDeuda, mediaXSocia };
+    return {
+      cobradoMes: delMes.ingresado,
+      pendienteTotal: total.porCobrar + total.impagado,
+      enCursoTotal: total.enCurso,
+      sociosConDeuda: total.nClientasConDeuda,
+      mediaXSocia,
+    };
   }, [recibos, socios, thisMonth]);
 
   // Una sola cuenta para los dos sitios que la enseñan (el enlace de arriba y
@@ -442,13 +457,14 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     const q = search.trim().toLowerCase();
     let list = recibos.filter(r => {
       if (statusTab === 'SIN_COBRAR') {
-        if (!ESTADOS_SIN_COBRAR.includes(r.estado)) return false;
+        if (!estaSinCobrar(r)) return false;
       } else if (statusTab !== 'TODOS' && r.estado !== statusTab) return false;
       if (q) {
         const name = socioName(r.socioId).toLowerCase();
         if (!r.concepto.toLowerCase().includes(q) && !name.includes(q)) return false;
       }
-      const ym = isoToYearMonth(r.fechaVencimiento);
+      // Lo cobrado se filtra por su mes de cobro; lo demás, por el de vencimiento.
+      const ym = mesDelRecibo(r);
       if (desde && ym < desde) return false;
       if (hasta && ym > hasta) return false;
       return true;
@@ -472,11 +488,15 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
 
   // ── Historial grouped ──────────────────────────────────────────────────────
 
+  // Ventas del TPV cobradas sin recibo: no suman en este historial ni en
+  // ninguna cifra. Se dice cuántas son en vez de dejar que falten en silencio.
+  const ventasSinRecibo = useMemo(() => resumenVentasSinRecibo(ventasPOS), [ventasPOS]);
+
   const historialAgrupado = useMemo(() => {
     const q = histSearch.trim().toLowerCase();
     const filtered = recibos.filter(r => {
       if (histEstado !== 'TODOS' && r.estado !== histEstado) return false;
-      const ym = isoToYearMonth(r.fechaVencimiento);
+      const ym = mesDelRecibo(r);
       if (histMes && ym !== histMes) return false;
       if (q) {
         const name = socioName(r.socioId).toLowerCase();
@@ -485,21 +505,27 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
       return true;
     });
 
-    // Group by month of fechaVencimiento descending
+    // ⚠️ Agrupado por el mes de COBRO de lo cobrado (y por el de vencimiento de
+    // lo demás), no por vencimiento a secas. La cabecera de cada mes dice
+    // «X € cobrado»: con vencimiento, una renovación cobrada en agosto con
+    // vencimiento en octubre sumaba en octubre, y este historial daba 206 € de
+    // agosto mientras el KPI de arriba, Inicio e Informes daban 424 €.
     const map = new Map<string, typeof recibos>();
     for (const r of filtered) {
-      const ym = isoToYearMonth(r.fechaVencimiento);
+      const ym = mesDelRecibo(r);
       if (!map.has(ym)) map.set(ym, []);
       map.get(ym)!.push(r);
     }
 
+    const fechaOrden = (r: (typeof recibos)[number]) => (r.fechaCobro && situacionRecibo(r) !== 'POR_COBRAR' ? r.fechaCobro : r.fechaVencimiento);
     return Array.from(map.entries())
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([ym, items]) => ({
         ym,
         label: monthLabel(ym),
-        items: items.sort((a, b) => b.fechaVencimiento.localeCompare(a.fechaVencimiento)),
-        total: items.filter(i => i.estado === 'COBRADO').reduce((s, i) => s + i.importe, 0),
+        items: items.sort((a, b) => fechaOrden(b).localeCompare(fechaOrden(a))),
+        // Neto: un reembolso parcial ya no cuenta como cobrado.
+        total: items.reduce((s, i) => s + importeIngresado(i), 0),
       }));
   }, [recibos, histSearch, histMes, histEstado, socioName]);
 
@@ -758,12 +784,13 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
 
   function exportCSV() {
     setExportState('loading');
-    const header = ['Concepto', 'Clienta', 'Importe', 'Estado', 'Vencimiento', 'Cobrado el'];
+    const header = ['Concepto', 'Clienta', 'Importe', 'Devuelto', 'Estado', 'Vencimiento', 'Cobrado el'];
     const rows = filtradosCobros.map(r => [
       `"${r.concepto.replace(/"/g, '""')}"`,
       `"${socioName(r.socioId).replace(/"/g, '""')}"`,
       r.importe.toFixed(2),
-      BADGE[r.estado]?.label ?? r.estado,
+      (r.importeDevuelto ?? 0).toFixed(2),
+      badgeDe(r).label,
       r.fechaVencimiento,
       r.fechaCobro ?? '',
     ]);
@@ -772,7 +799,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pagos-${now.toISOString().slice(0, 10)}.csv`;
+    a.download = `pagos-${hoyEnEstudio(now)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     setTimeout(() => setExportState('done'), 800);
@@ -783,14 +810,18 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
 
   function tabCount(value: EstadoRecibo | 'TODOS' | 'SIN_COBRAR') {
     if (value === 'TODOS') return recibos.length;
-    if (value === 'SIN_COBRAR') return recibos.filter(r => ESTADOS_SIN_COBRAR.includes(r.estado)).length;
+    if (value === 'SIN_COBRAR') return recibos.filter(estaSinCobrar).length;
     return recibos.filter(r => r.estado === value).length;
   }
 
-  // Mismo criterio que la cifra que acompaña y que la lista de abajo: si el
-  // importe suma los fallidos, el recuento tiene que sumarlos también, o la
-  // tarjeta se contradice consigo misma («178 € en 1 recibo»).
-  const pendientesCount = recibos.filter(r => ESTADOS_SIN_COBRAR.includes(r.estado)).length;
+  // Mismo criterio que la cifra que acompaña: lo que se DEBE (sin el dinero
+  // que está en el banco, que va en su propia línea). Si el importe suma los
+  // rechazados, el recuento tiene que sumarlos también, o la tarjeta se
+  // contradice consigo misma («178 € en 1 recibo»).
+  const pendientesCount = recibos.filter(r => {
+    const s = situacionRecibo(r);
+    return s === 'POR_COBRAR' || s === 'IMPAGADO';
+  }).length;
 
   // ── Acciones de un recibo ─────────────────────────────────────────────────
   // Las mismas en las dos maquetas: pequeñas en la fila del ordenador, y a
@@ -823,8 +854,12 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
             sea que el dinero NO está y sigue siendo deuda. Sin este
             botón, un recibo devuelto no tenía NINGUNA vía de UI para
             resolverse — y con el bloqueo por impago encendido dejaba a
-            la socia sin poder reservar indefinidamente. */}
-        {(r.estado === 'PENDIENTE' || r.estado === 'FALLIDO' || r.estado === 'DEVUELTO') && (
+            la socia sin poder reservar indefinidamente.
+            ⚠️ Pero solo el devuelto POR EL BANCO. Un DEVUELTO también puede
+            ser un REEMBOLSO del estudio (Stripe o devolución en la caja), y
+            ofrecer «Cobrar» ahí cobraba otra vez un dinero que se acababa de
+            devolver. Se decide por la situación, no por el estado. */}
+        {(situacionRecibo(r) === 'POR_COBRAR' || situacionRecibo(r) === 'IMPAGADO') && (
           <>
             <button
               onClick={() => setCobrandoRecibo(r.id)}
@@ -909,7 +944,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
             </button>
           </>
         )}
-        {r.estado === 'DEVUELTO' && (
+        {r.estado === 'DEVUELTO' && situacionRecibo(r) === 'IMPAGADO' && (
           <button
             onClick={async () => {
               const res = await reintentar(r.id);
@@ -1061,7 +1096,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
           <CifraPrivada className="text-2xl font-extrabold text-success">
             {formatEuro(kpis.cobradoMes)}
           </CifraPrivada>
-          <p className="text-xs text-muted-foreground mt-1">{monthLabel(thisMonth)}</p>
+          <p className="text-xs text-muted-foreground mt-1">{monthLabel(thisMonth)} · con IVA, ya restado lo devuelto</p>
         </div>
 
         {/* Pendiente de cobro */}
@@ -1078,6 +1113,11 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
             {formatEuro(kpis.pendienteTotal)}
           </CifraPrivada>
           <p className="text-xs text-muted-foreground mt-1">{pendientesCount} recibo{pendientesCount !== 1 ? 's' : ''} sin cobrar</p>
+          {kpis.enCursoTotal > 0 && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              y <CifraPrivada inline className="font-semibold text-foreground">{formatEuro(kpis.enCursoTotal)}</CifraPrivada> enviados al banco, sin confirmar
+            </p>
+          )}
         </div>
 
         {/* Clientas con deuda */}
@@ -1116,7 +1156,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
               Con 850 clientas y 65 pagadoras salían 10 € y 130 €, las dos
               correctas, y la dueña dejó de fiarse de las dos. Cada una dice
               ahora sobre quién se calcula. */}
-          <p className="text-xs text-muted-foreground mt-1">lo cobrado este mes repartido entre todas las clientas activas</p>
+          <p className="text-xs text-muted-foreground mt-1">lo cobrado a clientas este mes repartido entre todas las clientas activas</p>
         </div>
       </div>
 
@@ -1230,7 +1270,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
             ) : (
               <div className="divide-y divide-background">
                 {filtradosCobros.map(r => {
-                  const badge    = BADGE[r.estado] ?? BADGE.PENDIENTE;
+                  const badge    = badgeDe(r);
                   const initials = socioInitials(r.socioId);
                   const name     = socioName(r.socioId);
                   const expanded = expandedId === r.id;
@@ -1615,6 +1655,15 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
             </div>
           </div>
 
+          {ventasSinRecibo.n > 0 && (
+            <p role="note" className="text-xs text-muted-foreground m-0 px-1">
+              {ventasSinRecibo.n === 1 ? 'Una venta' : `${ventasSinRecibo.n} ventas`} de la caja
+              {' '}(<CifraPrivada inline className="font-semibold text-foreground">{formatEuro(ventasSinRecibo.total)}</CifraPrivada>)
+              {' '}{ventasSinRecibo.n === 1 ? 'se cobró sin recibo y no cuenta' : 'se cobraron sin recibo y no cuentan'} en estas cifras
+              {' '}ni en Inicio o Informes: no {ventasSinRecibo.n === 1 ? 'la sumamos' : 'las sumamos'} para no inventar un cobro que nadie registró.
+            </p>
+          )}
+
           {/* Grouped by month */}
           {historialAgrupado.length === 0 ? (
             <div className="bg-card border border-border rounded-xl">
@@ -1640,7 +1689,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                 {/* Items */}
                 <div className="divide-y divide-background">
                   {group.items.map(r => {
-                    const badge = BADGE[r.estado] ?? BADGE.PENDIENTE;
+                    const badge = badgeDe(r);
                     // El cobro se registró pero la factura no llegó a sellarse
                     // (NIF del estudio inválido/vacío en el momento del cobro,
                     // red...) — "Lo que he cobrado" es el sitio natural donde

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Factura, IngresoManual } from '@/lib/types';
-import { computeCierreAnual, desglosarIvaDesdeTotal, UMBRAL_347 } from './cierre-engine.ts';
+import { computeCierreAnual, desglosarIvaDesdeTotal, facturasSinRectificarDeCobrosDevueltos, UMBRAL_347 } from './cierre-engine.ts';
 
 let seq = 0;
 const factura = (p: Partial<Factura> & Pick<Factura, 'fechaEmision' | 'baseImponible' | 'tipoIVA' | 'cuotaIVA' | 'total'>): Factura => ({
@@ -140,4 +140,41 @@ test('desglosarIvaDesdeTotal reparte un total IVA-incluido', () => {
   assert.deepEqual(desglosarIvaDesdeTotal(121, 21), { base: 100, cuota: 21 });
   assert.deepEqual(desglosarIvaDesdeTotal(60, 21), { base: 49.59, cuota: 10.41 });
   assert.deepEqual(desglosarIvaDesdeTotal(100, 0), { base: 100, cuota: 0 });
+});
+
+// ── F0 (1-oct-2026): lo que el cierre no puede dar por bueno sin avisar ──────
+
+const fac = (p: Partial<Factura>): Factura => factura({ baseImponible: 0, tipoIVA: 21, cuotaIVA: 0, total: 0, fechaEmision: '2026-08-01', ...p });
+
+test('una factura ANULADA en la AEAT no suma, y se cuenta aparte', () => {
+  const cierre = computeCierreAnual({
+    facturas: [
+      fac({ id: 'f-ok', fechaEmision: '2026-08-10', baseImponible: 100, cuotaIVA: 21, total: 121 }),
+      fac({ id: 'f-anulada', fechaEmision: '2026-08-11', baseImponible: 50, cuotaIVA: 10.5, total: 60.5, verifactuEstado: 'ANULADA' }),
+    ],
+    ingresosManuales: [], anio: 2026, trimestre: 3,
+  });
+  assert.equal(cierre.totales.total, 121);
+  assert.equal(cierre.totales.numFacturas, 1);
+  assert.equal(cierre.excluidasAnuladasAeat, 1);
+});
+
+test('avisa de facturas de cobros reembolsados sin rectificativa; no de los devueltos por el banco', () => {
+  const facturas = [
+    fac({ id: 'f1', reciboId: 'r-reemb', numeroCompleto: 'A-1', fechaEmision: '2026-08-02', total: 25 }),
+    fac({ id: 'f2', reciboId: 'r-parcial', numeroCompleto: 'A-2', fechaEmision: '2026-08-03', total: 30 }),
+    fac({ id: 'f3', reciboId: 'r-banco', numeroCompleto: 'A-3', fechaEmision: '2026-08-04', total: 40 }),
+    fac({ id: 'f4', reciboId: 'r-rect', numeroCompleto: 'A-4', fechaEmision: '2026-08-05', total: 50 }),
+    fac({ id: 'f4r', reciboId: 'r-rect', numeroCompleto: 'R-1', fechaEmision: '2026-08-06', total: -50, tipo: 'R1', rectificaA: 'f4' }),
+    fac({ id: 'f5', reciboId: 'r-reemb-julio', numeroCompleto: 'A-0', fechaEmision: '2026-06-30', total: 10 }),
+  ];
+  const recibos = [
+    { id: 'r-reemb', estado: 'DEVUELTO', importe: 25, importeDevuelto: 25 },
+    { id: 'r-parcial', estado: 'COBRADO', importe: 30, importeDevuelto: 12 },
+    { id: 'r-banco', estado: 'DEVUELTO', importe: 40, importeDevuelto: 0 },
+    { id: 'r-rect', estado: 'DEVUELTO', importe: 50, importeDevuelto: 50 },
+    { id: 'r-reemb-julio', estado: 'DEVUELTO', importe: 10, importeDevuelto: 10 },
+  ];
+  const avisos = facturasSinRectificarDeCobrosDevueltos({ facturas, recibos, anio: 2026, trimestre: 3 });
+  assert.deepEqual(avisos.map(a => [a.numero, a.devuelto]), [['A-1', 25], ['A-2', 12]]);
 });

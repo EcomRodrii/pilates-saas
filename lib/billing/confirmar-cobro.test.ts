@@ -142,10 +142,13 @@ test('gana: renovación → factura → notificación → email, en un UPDATE co
   assert.deepEqual(estadosDelCas(cas), ['PENDIENTE', 'FALLIDO', 'DEVUELTO', 'EN_CURSO']);
   assert.ok(tiene(cas.filtros, 'is', 'reembolso_stripe_id', null));
   assert.ok(tiene(cas.filtros, 'is', 'reembolso_solicitado_en', null));
-  const or = String(cas.filtros.find(([o]) => o === 'or')?.[2]);
-  assert.ok(or.includes('and(estado.eq.DEVUELTO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.neq.pi_nuevo))'),
+  // Dos `or` independientes (PostgREST los suma con AND): el del cargo y el del reembolso.
+  const ors = cas.filtros.filter(([o]) => o === 'or').map(([, , v]) => String(v));
+  assert.ok(ors.some(or => or.includes('and(estado.eq.DEVUELTO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.neq.pi_nuevo))')),
     'un DEVUELTO con este mismo cargo no puede volver a COBRADO');
-  assert.ok(or.includes('and(estado.eq.EN_CURSO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.eq.pi_nuevo))'),
+  // F0: un DEVUELTO que el estudio REEMBOLSÓ (importe_devuelto > 0) no se cobra otra vez.
+  assert.ok(ors.includes('estado.neq.DEVUELTO,importe_devuelto.eq.0'), 'un reembolso no se puede volver a cobrar');
+  assert.ok(ors.some(or => or.includes('and(estado.eq.EN_CURSO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.eq.pi_nuevo))')),
     'un EN_CURSO solo lo cierra su propio cargo');
 });
 

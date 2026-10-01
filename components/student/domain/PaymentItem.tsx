@@ -19,6 +19,8 @@ export const ESTADO_PAGO: Record<Pago['estado'], { txt: string; tone: 'ok' | 'fe
   // alumna leía que le habían devuelto el dinero mientras el sistema no la
   // dejaba reservar por deberlo. Mismo texto que el panel, a propósito.
   refunded: { txt: 'Devuelto por el banco', tone: 'full' },
+  // El dinero que el estudio le devolvió (reembolso o devolución en la caja).
+  reimbursed: { txt: 'Reembolsado', tone: 'neutral' },
 };
 export function PaymentItem({ p, delay = 0 }: { p: Pago; delay?: number }) {
   const href = usePortalHref();
