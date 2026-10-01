@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { COLUMNAS_EVENTO, codificarCursorEventos, decodificarCursorEventos, eventoPublico, serializarRecurso } from './evento.ts';
 import { RECURSOS_EVENTO } from './catalogo.ts';
 import { ESQUEMAS } from '../openapi.ts';
-import { clientaPublica, devolucionPublica, facturaPublica, reciboPublico, ventaPublica } from '../serializar.ts';
+import { clientaPublica, devolucionPublica, facturaPublica, reciboPublico, reservaPublica, suscripcionPublica, ventaPublica } from '../serializar.ts';
 
 const fila = { id: 'evt_1', tipo: 'recibo.creado', recurso: 'recibo', recurso_id: 'rec-1', studio_id: 'std-1', creado_en: '2026-10-01T10:00:00Z', datos: { id: 'rec-1' }, procesado_en: 'x', reclamado_hasta: null, seq: 7, publicado: 9 };
 
@@ -26,6 +26,21 @@ test('datos es la misma forma que el endpoint del recurso (clienta, sin datos fi
   const clienta = serializarRecurso('clienta', f);
   assert.deepEqual(clienta, clientaPublica(f, false));
   assert.ok(!JSON.stringify(clienta).includes('00000000T'), 'el NIF no viaja en un evento');
+});
+
+test('reservas y cuotas: la misma forma que sus endpoints, y una reserva no lleva datos personales', () => {
+  const reserva = {
+    id: 'res-1', studio_id: 's', sesion_id: 'ses-1', socio_id: null, estado: 'CONFIRMADA', origen: 'CLASSPASS',
+    nombre_externo: 'Nombre que manda la plataforma', recordatorio_confirmacion_en: 'x', bono_suscripcion_id: 'sus-9',
+    sesiones: { inicio: '2026-10-02T08:00:00Z', fin: '2026-10-02T08:50:00Z', tipos_clase: { nombre: 'Reformer' } },
+  };
+  const datos = serializarRecurso('reserva', reserva);
+  assert.deepEqual(datos, reservaPublica(reserva));
+  assert.deepEqual(datos.clase, { inicio: '2026-10-02T08:00:00Z', fin: '2026-10-02T08:50:00Z', nombre: 'Reformer' });
+  const json = JSON.stringify(datos);
+  for (const fuera of ['Nombre que manda la plataforma', 'recordatorio', 'bono', 'studio_id']) assert.ok(!json.includes(fuera), fuera);
+  const cuota = { id: 'sus-1', studio_id: 's', socio_id: 'soc-1', estado: 'ACTIVA', planes_tarifa: { nombre: 'Bono 10', tipo: 'BONO' }, sesiones_restantes: 7 };
+  assert.deepEqual(serializarRecurso('suscripcion', cuota), suscripcionPublica(cuota));
 });
 
 test('cada recurso lee también studio_id, para comprobar que la fila es del estudio del evento', () => {

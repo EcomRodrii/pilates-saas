@@ -1,13 +1,15 @@
 import { NextRequest } from 'next/server';
 import { conApiPublica } from '@/lib/api-publica/servidor';
 import { crearReservaPublica } from '@/lib/db/supabase-data-admin';
+import { COLUMNAS, reservaPublica } from '@/lib/api-publica/serializar';
 
 // GET /api/v1/reservas — triggers "Nueva reserva"/"Reserva cancelada"
 // de Zapier (polling). `?estado=` filtra (CONFIRMADA por defecto; pasar
 // CANCELADA para el segundo trigger). `?socioId=` filtra además por clienta
 // (Fase 9 — extensión incremental, docs/api-publica-v1-diseno.md §3.1): sin
 // esto, "las reservas de esta clienta" exigía traer toda la página y filtrar
-// en el cliente. Requiere `reservas:leer`.
+// en el cliente. Requiere `reservas:leer`. La forma es `reservaPublica`: la de
+// siempre más campos nuevos (la clase, el check-in…), nunca un nombre cambiado.
 export async function GET(req: NextRequest) {
   return conApiPublica(req, { scope: 'reservas:leer', ruta: '/api/v1/reservas' }, async (ctx, admin) => {
     const limit = Math.min(Number(req.nextUrl.searchParams.get('limit')) || 25, 100);
@@ -16,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     let query = admin
       .from('reservas')
-      .select('id, sesion_id, socio_id, estado, spot_id, creado_en')
+      .select(COLUMNAS.reserva)
       .eq('studio_id', ctx.studioId)
       // Solo las reservas de socias: las de ClassPass/USC no tienen socia y el
       // contrato de esta API (y de los zaps que la usan) da `socio_id` siempre.
@@ -26,13 +28,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query.order('creado_en', { ascending: false }).limit(limit);
 
     if (error) return { status: 500, body: { error: 'server_error' } };
-    return {
-      status: 200,
-      body: (data ?? []).map(r => ({
-        id: r.id, sesionId: r.sesion_id, socioId: r.socio_id, estado: r.estado,
-        spotId: r.spot_id, creadoEn: r.creado_en,
-      })),
-    };
+    return { status: 200, body: ((data ?? []) as unknown as Record<string, unknown>[]).map(reservaPublica) };
   });
 }
 

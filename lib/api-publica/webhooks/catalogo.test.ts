@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   RECURSOS_EVENTO, SCOPE_DE_RECURSO, TABLA_DE_RECURSO, TIPOS_CONTABILIDAD, TIPOS_EVENTO,
@@ -14,10 +14,28 @@ import { COLUMNAS } from '../serializar.ts';
 // cambia una columna que la API enseña y no avisa nadie.
 
 const RAIZ = join(import.meta.dirname, '..', '..', '..');
-const MIGRACION = readFileSync(join(RAIZ, 'supabase/migrations/20261001162731_api_webhooks.sql'), 'utf8');
+const DIR = join(RAIZ, 'supabase/migrations');
+const leerMigr = (n: string) => readFileSync(join(DIR, n), 'utf8');
+/** La migración de F2: tablas, reparto, publicación, olvido. */
+const MIGRACION = leerMigr('20261001162731_api_webhooks.sql');
+// Lo que se amplía con el catálogo (la función del trigger y los CHECKs) vive en
+// la ÚLTIMA migración que lo redefine: se busca, como hace supresion-cobertura.
+const MIGRACIONES = readdirSync(DIR).filter((n) => n.endsWith('.sql')).sort();
+const ultimaCon = (patron: RegExp) => {
+  const n = [...MIGRACIONES].reverse().find((f) => patron.test(leerMigr(f)));
+  assert.ok(n, `ninguna migración contiene ${patron}`);
+  return leerMigr(n!);
+};
+const FUNCION_VIGENTE = (() => {
+  const m = ultimaCon(/create or replace function public\.api_registrar_evento\(\)/);
+  return m.slice(m.indexOf('create or replace function public.api_registrar_evento()'));
+})();
+const CHECK_TIPO = ultimaCon(/tipo ~ '\^\(recibo/);
+const CHECK_TIPOS_WEBHOOK = ultimaCon(/tipos <@ array\[/);
+const TODAS = MIGRACIONES.filter((n) => n >= '20261001162731').map(leerMigr).join('\n');
 
 test('cada tipo cumple el CHECK de api_eventos.tipo', () => {
-  const m = /tipo\s+text not null check \(tipo ~ '([^']+)'\)/.exec(MIGRACION);
+  const m = /tipo ~ '([^']+)'/.exec(CHECK_TIPO);
   assert.ok(m, 'no encuentro el CHECK de api_eventos.tipo');
   const re = new RegExp(m![1]);
   for (const t of TIPOS_EVENTO) assert.match(t, re);
@@ -26,23 +44,29 @@ test('cada tipo cumple el CHECK de api_eventos.tipo', () => {
 });
 
 test('api_webhooks.tipos admite exactamente el catálogo', () => {
-  const m = /tipos <@ array\[([\s\S]*?)\]::text\[\]/.exec(MIGRACION);
+  const m = /tipos <@ array\[([\s\S]*?)\]::text\[\]/.exec(CHECK_TIPOS_WEBHOOK);
   assert.ok(m);
   const enSql = [...m![1].matchAll(/'([a-z.]+)'/g)].map((x) => x[1]).sort();
   assert.deepEqual(enSql, [...TIPOS_EVENTO].sort());
 });
 
 test('el trigger vigila exactamente las columnas que la API enseña', () => {
-  const columnasDe = (lista: string) => lista.replace(/\w+\([^)]*\)/g, '').split(',').map((c) => c.trim()).filter((c) => c && c !== 'id');
+  const columnasDe = (lista: string) => {
+    let r = lista;
+    while (/\w+\([^()]*\)/.test(r)) r = r.replace(/\w+\([^()]*\)/g, '');
+    return r.split(',').map((c) => c.trim()).filter((c) => c && c !== 'id');
+  };
   const esperadas: Record<string, string[]> = {
     recibos: columnasDe(COLUMNAS.recibo),
     facturas: columnasDe(COLUMNAS.factura),
     devoluciones: columnasDe(COLUMNAS.devolucion),
     ventas_pos: columnasDe(COLUMNAS.venta),
     socios: columnasDe(COLUMNAS.clientaFiscal),
+    reservas: columnasDe(COLUMNAS.reserva),
+    suscripciones: columnasDe(COLUMNAS.suscripcion),
   };
   for (const [tabla, cols] of Object.entries(esperadas)) {
-    const m = new RegExp(`when '${tabla}' then array\\[([\\s\\S]*?)\\]`).exec(MIGRACION.slice(MIGRACION.indexOf('if tg_op = \'UPDATE\'')));
+    const m = new RegExp(`when '${tabla}' then array\\[([\\s\\S]*?)\\]`).exec(FUNCION_VIGENTE.slice(FUNCION_VIGENTE.indexOf('if tg_op = \'UPDATE\'')));
     assert.ok(m, `el trigger no vigila ${tabla}`);
     const enSql = [...m![1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
     assert.deepEqual(enSql, [...cols].sort(), `${tabla}: el trigger y COLUMNAS no coinciden`);
@@ -52,8 +76,8 @@ test('el trigger vigila exactamente las columnas que la API enseña', () => {
 test('hay un trigger en cada tabla del catálogo, y el nombre del recurso cuadra', () => {
   for (const r of RECURSOS_EVENTO) {
     const tabla = TABLA_DE_RECURSO[r];
-    assert.match(MIGRACION, new RegExp(`create trigger trg_api_evento after insert or update or delete on public\\.${tabla}\\b`));
-    assert.match(MIGRACION, new RegExp(`when '${tabla}' then '${r}'`));
+    assert.match(TODAS, new RegExp(`create trigger trg_api_evento after insert or update or delete on public\\.${tabla}\\b`));
+    assert.match(FUNCION_VIGENTE, new RegExp(`when '${tabla}' then '${r}'`));
   }
 });
 
@@ -63,6 +87,8 @@ test('el permiso de cada evento es el mismo que para leer el recurso', () => {
   assert.equal(scopeDeTipo('devolucion.creada'), 'pagos:leer');
   assert.equal(scopeDeTipo('factura.creada'), 'facturas:leer');
   assert.equal(scopeDeTipo('clienta.actualizada'), 'clientas:leer');
+  assert.equal(scopeDeTipo('reserva.creada'), 'reservas:leer');
+  assert.equal(scopeDeTipo('suscripcion.actualizada'), 'planes:leer');
   assert.deepEqual(Object.keys(SCOPE_DE_RECURSO).sort(), [...RECURSOS_EVENTO].sort());
 });
 
@@ -70,14 +96,16 @@ test('tiposPermitidos: sin pagos:leer no se ve ningún evento de dinero', () => 
   const t = tiposPermitidos(['clientas:leer', 'facturas:leer']);
   assert.ok(t.every((x) => x.startsWith('clienta.') || x.startsWith('factura.')));
   assert.equal(tiposPermitidos([]).length, 0);
-  assert.equal(tiposPermitidos(['pagos:leer', 'facturas:leer', 'clientas:leer']).length, TIPOS_EVENTO.length);
+  assert.ok(!tiposPermitidos(['pagos:leer', 'facturas:leer', 'clientas:leer']).some((x) => x.startsWith('reserva.') || x.startsWith('suscripcion.')));
+  assert.equal(tiposPermitidos(['pagos:leer', 'facturas:leer', 'clientas:leer', 'reservas:leer', 'planes:leer']).length, TIPOS_EVENTO.length);
 });
 
 test('esTipoEvento y la propuesta de contabilidad', () => {
   assert.ok(esTipoEvento('recibo.creado'));
   assert.ok(!esTipoEvento('webhook.prueba'));
   assert.ok(!esTipoEvento(42));
-  assert.ok(TIPOS_CONTABILIDAD.length > 0 && TIPOS_CONTABILIDAD.every((t) => !t.startsWith('clienta.')));
+  // La propuesta «para la contabilidad» es solo lo de dinero: ni alumnas, ni reservas, ni cuotas.
+  assert.deepEqual([...new Set(TIPOS_CONTABILIDAD.map((t) => t.split('.')[0]))].sort(), ['devolucion', 'factura', 'recibo', 'venta']);
 });
 
 // ── Lo que encontró la revisión de seguridad (1-oct-2026) ────────────────────
