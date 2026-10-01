@@ -144,6 +144,17 @@ export function sesionYaEmpezada(inicio: string | Date, ahora: Date = new Date()
 
 export const MENSAJE_CLASE_YA_EMPEZADA = 'Esta clase ya ha empezado';
 
+// Una clase que ya ha empezado no se cancela ni se borra. Cancelarla avisaba de
+// la cancelación a quien ya había venido y le devolvía la sesión del bono; y
+// borrarla se llevaba su asistencia (las reservas caen en cascada). La regla la
+// aplican las funciones que cancelan o borran (studio-context), no solo el botón.
+export const MENSAJE_CLASE_DADA = 'Esta clase ya ha empezado: no se cancela ni se borra';
+
+/** Las que todavía se pueden cancelar o borrar: las que no han empezado. */
+export function sinEmpezar<T extends { inicio: string | Date }>(sesiones: readonly T[], ahora: Date = new Date()): T[] {
+  return sesiones.filter(s => !sesionYaEmpezada(s.inicio, ahora));
+}
+
 // Guardia inversa (#870): antes se podía marcar "Asistida" a una clienta en
 // una clase todavía futura — nada comprobaba `sesionYaEmpezada` en sentido
 // contrario para el check-in. Consecuencia visible: "Última asistencia: Hace

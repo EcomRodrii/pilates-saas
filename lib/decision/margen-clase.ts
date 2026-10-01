@@ -54,7 +54,7 @@ function suscripcionParaClase(socioId: string, tipoClaseId: string, s: SnapshotE
  *  precio/sesiones de su plan, PUNTUAL por el precio del plan.
  *
  *  Límite v1 conocido, sin resolver: una clase suelta cobrada por el flujo
- *  "Cobrar clase suelta" (`addRecibo` con `suscripcionId: null`,
+ *  "Clase suelta con recibo" (`addRecibo` con `suscripcionId: null`,
  *  `app/(dashboard)/calendario/page.tsx:handleCobrarSuelta`) no crea
  *  suscripción ni queda ligada a la sesión — esa asistente no aporta
  *  ingreso aquí aunque haya pagado de verdad. Casar un Recibo suelto con
