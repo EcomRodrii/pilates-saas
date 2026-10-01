@@ -6,7 +6,7 @@ import {
   Ban, BellRing, CalendarX, Check, CheckCheck, CircleDollarSign, UserCheck, UserMinus, Mail, MessageCircle, MoreHorizontal, StickyNote, UserPlus,
   RotateCcw, Sparkles, type LucideIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 import { anfitrionPortal } from '@/lib/panel-portal';
 import type { EventoHistoria, ItemHistoria } from '@/lib/clientas/historia';
 import type { AvisoClienta } from '@/lib/clientas/avisos';
@@ -347,13 +347,14 @@ const ICONO_EVENTO: Record<EventoHistoria['tipo'], LucideIcon> = {
   VUELTA: UserCheck,
 };
 
+// Con los formateadores de `lib/utils`, que se construyen una vez: aquí se
+// construían dos por línea de la Historia en cada render.
 function cuandoEvento(cuando: string, hoyISO: string | null, soloDia = false): string {
-  const dia = cuando.length === 10 ? cuando : new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date(cuando));
+  const dia = cuando.length === 10 ? cuando : hoyEnEstudio(new Date(cuando));
   const fecha = hoyISO ? (dia === hoyISO ? 'Hoy' : fechaCorta(dia, hoyISO)) : dia;
   // Una semana de clases juntas: la hora de la última no dice nada.
   if (cuando.length === 10 || soloDia) return soloDia ? `Semana del ${fechaCorta(lunesDeDia(dia), hoyISO ?? dia)}` : fecha;
-  const hora = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }).format(new Date(cuando));
-  return `${fecha} · ${hora}`;
+  return `${fecha} · ${horaEstudio(cuando)}`;
 }
 
 export function LineaHistoria({ items, hoyISO, vacio, accion }: {

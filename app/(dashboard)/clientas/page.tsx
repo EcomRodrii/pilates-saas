@@ -782,11 +782,12 @@ export default function Socios() {
     }
     setGuardando(false);
 
-    // Alta abierta desde una consulta de la web: la consulta queda atendida. La
-    // ficha ya existe, así que si esto falla se dice, pero no se deshace nada.
+    // Alta abierta desde una consulta de la web: la consulta queda atendida (si
+    // la ficha lleva su mismo email, ya la ha cerrado la base de datos al crearla).
+    // La ficha ya existe, así que si esto falla se dice, pero no se deshace nada.
     if (consultaEnAlta && user?.id) {
       const cierre = await marcarAtendida(consultaEnAlta, user.id);
-      if (!cierre.ok) setErrorFila(`La clienta se ha creado, pero su consulta sigue como nueva: ${cierre.error}`);
+      if (!cierre.ok) setErrorFila(`La clienta se ha creado, pero no se ha podido cerrar su consulta: ${cierre.error}`);
       setRecargaConsultas(n => n + 1);
     }
 

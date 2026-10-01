@@ -125,12 +125,19 @@ function localDate(d: Date | string): string {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 }
 
+// Construidos una vez: un `toLocale…String` con opciones construye uno en cada
+// llamada, y la ficha los usa por cada reserva y cada recibo en cada render.
+// Mismas opciones y misma zona (la del navegador) que antes.
+const FORMATO_FECHA = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+const FORMATO_HORA = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' });
+const FORMATO_FECHA_RESERVA = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+
 function fecha(iso: string) {
-  return new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  return FORMATO_FECHA.format(new Date(iso));
 }
 
 function formatHora(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  return FORMATO_HORA.format(new Date(iso));
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -601,7 +608,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     return {
       label: tipo?.nombre ?? 'Clase',
       color: tipo?.color ?? 'color-mix(in srgb, var(--info) 12%, var(--card))',
-      date: new Date(ses.inicio).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
+      date: FORMATO_FECHA_RESERVA.format(new Date(ses.inicio)),
       time: formatHora(ses.inicio),
       sala: sala?.nombre ?? '',
       instructor: instructor?.nombre ?? '',
@@ -1305,7 +1312,14 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                     ? `Último correo del equipo: ${fechaCorta(hoyEnEstudio(new Date(ultimoCorreoDelEquipo.creadoEn)), hoyTxt)}${ultimoCorreoDelEquipo.creadoPorNombre ? ` (${ultimoCorreoDelEquipo.creadoPorNombre})` : ''}. `
                     : comunicacionesCargadas ? 'Nadie del equipo le ha escrito todavía. ' : '')}
                 {aviso.origen === 'CENTRO_DE_CONTROL' && (
-                  <Link href="/centro-de-control" className="font-semibold text-foreground underline-offset-2 hover:underline">Ver en el Centro de Control</Link>
+                  // Directo a SU situación, con el detalle abierto: el Centro sin más
+                  // la dejaba plegada entre todas las demás.
+                  <Link
+                    href={aviso.recomendacionId ? `/centro-de-control?rec=${encodeURIComponent(aviso.recomendacionId)}` : '/centro-de-control?detalle=1'}
+                    className="font-semibold text-foreground underline-offset-2 hover:underline"
+                  >
+                    Ver en el Centro de Control
+                  </Link>
                 )}
               </>
             }

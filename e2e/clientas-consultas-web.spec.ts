@@ -29,9 +29,16 @@ const json = (route: Route, body: unknown, status = 200) =>
 
 type Escritura = { status: number; body: unknown };
 
-async function montar(page: Page, o: { patch?: Escritura; nuevas?: unknown[]; lecturaFalla?: boolean } = {}) {
+/**
+ * `cerradaYa`: alguien la cerró antes que este clic —la base de datos al crear la
+ * ficha con su mismo email (trigger `socios_vincula_consulta`), u otra persona—.
+ * El PATCH vuelve 0 filas (la RLS no deja tocar una cerrada) y la relectura de la
+ * consulta dice cómo quedó.
+ */
+async function montar(page: Page, o: { patch?: Escritura; nuevas?: unknown[]; lecturaFalla?: boolean; cerradaYa?: 'atendida' | 'descartada' } = {}) {
   const patches: string[] = [];
   const cuerpos: Record<string, unknown>[] = [];
+  let relecturas = 0;
   let nuevas = o.nuevas ?? [CONSULTA];
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/api/layout**', route => json(route, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
@@ -47,11 +54,16 @@ async function montar(page: Page, o: { patch?: Escritura; nuevas?: unknown[]; le
     if (req.method() === 'HEAD') return route.fulfill({ status: 200, headers: { 'content-range': '*/0' }, body: '' });
     if (req.method() === 'GET') {
       if (o.lecturaFalla) return json(route, { message: 'boom' }, 500);
+      if (o.cerradaYa && req.url().includes(`id=eq.${CONSULTA.id}`)) {
+        relecturas++;
+        nuevas = [];
+        return json(route, [{ estado: o.cerradaYa }]);
+      }
       return json(route, req.url().includes('estado=eq.nueva') ? nuevas : []);
     }
     patches.push(req.url());
     cuerpos.push(JSON.parse(req.postData() ?? '{}'));
-    const r = o.patch ?? { status: 200, body: [{ id: CONSULTA.id }] };
+    const r = o.cerradaYa ? { status: 200, body: [] } : o.patch ?? { status: 200, body: [{ id: CONSULTA.id }] };
     if (r.status === 200 && Array.isArray(r.body) && r.body.length === 1) nuevas = [];
     return json(route, r.body, r.status);
   });
@@ -63,7 +75,7 @@ async function montar(page: Page, o: { patch?: Escritura; nuevas?: unknown[]; le
     }));
   }, [STORAGE_KEY, AUTH_UID] as const);
   await page.goto('/clientas');
-  return { patches: () => patches.length, cuerpos };
+  return { patches: () => patches.length, relecturas: () => relecturas, cuerpos };
 }
 
 // Las consultas viven en su pestaña, con su recuento en la etiqueta.
@@ -154,6 +166,41 @@ for (const [nombre, patch] of [
     await expect(page.getByText('¿Tenéis clases para principiantes?')).toBeVisible();
   });
 }
+
+test('marcar como atendida cuando otra persona ya la atendió: sale de la lista sin error', async ({ page }) => {
+  const api = await montar(page, { cerradaYa: 'atendida' });
+  await abrirInteresadas(page);
+  await (await menuDeLaConsulta(page)).getByRole('menuitem', { name: 'Ya la he atendido' }).click();
+  await expect.poll(api.patches, { timeout: 15_000 }).toBeGreaterThan(0);
+  await expect.poll(api.relecturas, { timeout: 15_000 }).toBeGreaterThan(0);
+  await expect(page.getByText('¿Tenéis clases para principiantes?')).toHaveCount(0);
+  await expect(page.getByText(/No se ha podido marcar como atendida/)).toHaveCount(0);
+});
+
+test('⚠️ marcar como atendida cuando otra persona la descartó: se dice', async ({ page }) => {
+  const api = await montar(page, { cerradaYa: 'descartada' });
+  await abrirInteresadas(page);
+  await (await menuDeLaConsulta(page)).getByRole('menuitem', { name: 'Ya la he atendido' }).click();
+  await expect.poll(api.relecturas, { timeout: 15_000 }).toBeGreaterThan(0);
+  await expect(page.getByText('Otra persona la había descartado.')).toBeVisible();
+});
+
+// Lo que pasaba en producción: al dar de alta la ficha con el email de la
+// consulta, la base de datos ya la cerraba, el cierre del panel volvía 0 filas y
+// la lista decía «su consulta sigue como nueva» cuando ya no lo estaba.
+test('dar de alta con su mismo email: la consulta ya la cerró la base de datos y no sale ningún error', async ({ page }) => {
+  const api = await montar(page, { cerradaYa: 'atendida' });
+  await abrirInteresadas(page);
+  await page.getByRole('button', { name: 'Dar de alta' }).click();
+  await expect(page.getByRole('textbox', { name: 'Email' })).toHaveValue('nueva@example.com');
+  await page.getByRole('dialog').getByRole('checkbox').check();
+  await page.getByPlaceholder(/Nombre completo de la clienta/i).fill('Nueva Visitante');
+  await page.getByRole('button', { name: /Crear clienta/ }).click();
+  await expect(page.getByRole('dialog')).toBeHidden({ timeout: 15_000 });
+  await expect.poll(api.patches, { timeout: 15_000 }).toBeGreaterThan(0);
+  await expect.poll(api.relecturas, { timeout: 15_000 }).toBeGreaterThan(0);
+  await expect(page.getByText(/no se ha podido cerrar su consulta|sigue como nueva/i)).toHaveCount(0);
+});
 
 test('dar de alta: abre el alta de siempre con sus datos, sin crear nada solo', async ({ page }) => {
   const api = await montar(page);
