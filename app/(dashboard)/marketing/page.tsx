@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send, Play, Pause, Flag, ArrowRight, ArrowUpRight, Pencil, UserPlus, Calendar, CreditCard } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
+import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas'
 import { authHeader } from '@/lib/api-client'
 import type { Campana, Automatizacion, TipoCampana, LeadStage, DestinatariosCampana } from '@/lib/types'
 import { FlowBuilder, ACCIONES } from '@/components/marketing/flow-builder'
@@ -487,6 +488,8 @@ export default function MarketingPage() {
     suscripciones,
     recibos, planesTarifa, sesiones, reservas, tiposClase,
   } = useStudio()
+  // El estado de cada clienta (el mismo que enseña Clientas) para las audiencias.
+  const { porSocio: estadosClientas } = useEstadosClientas()
   const router = useRouter()
   // Módulo oculto temporalmente: redirige el acceso directo a /dashboard.
   useEffect(() => {
@@ -661,7 +664,7 @@ export default function MarketingPage() {
   // (ver docs/marketing-integrations-arquitectura.md §5/§6).
   const recipientCount: Record<string, number> = Object.fromEntries(
     (Object.keys(destinatariosLabel) as DestinatariosCampana[]).map(key =>
-      [key, resolverDestinatariasCampanaCompartido(key, { socios, suscripciones, recibos }).length]
+      [key, resolverDestinatariasCampanaCompartido(key, { socios, suscripciones, recibos, estados: estadosClientas }).length]
     )
   )
 

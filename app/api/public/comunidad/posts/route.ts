@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
-import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
+import { resolverDestinatariasCampana, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
+import { cargarEstadosClientas } from '@/lib/clientas/estado-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import type { Socio, Suscripcion, Recibo, DestinatariosCampana } from '@/lib/types';
@@ -80,10 +81,17 @@ export async function GET(req: NextRequest) {
   if (error) return errorInterno('public/comunidad/posts:GET', error, 'No se ha podido cargar el tablón.');
 
   const now = new Date();
-  const visibles = ((data ?? []) as RowPostsComunidad[]).filter(row => {
-    const audiencia = (row.audiencia as DestinatariosCampana | null) ?? 'TODAS';
-    return resolverDestinatariasCampana(audiencia, misDatos, now).length > 0;
-  }).slice(0, limite);
+  const filas = (data ?? []) as RowPostsComunidad[];
+  const audienciaDe = (row: RowPostsComunidad) => (row.audiencia as DestinatariosCampana | null) ?? 'TODAS';
+  // Su estado (Activa, Sin renovar…) solo si algún post de la página va a un
+  // segmento que lo usa: el caso común (todo «Todas») no lee nada más. Si no se
+  // puede leer, esos posts no se le enseñan (mejor que enseñarle lo que no toca).
+  const estados = filas.some(r => segmentoNecesitaEstado(audienciaDe(r)))
+    ? await cargarEstadosClientas(admin, studioId, { ahora: now, socioIds: [socioId] })
+    : null;
+  const visibles = filas.filter(row =>
+    resolverDestinatariasCampana(audienciaDe(row), { ...misDatos, estados }, now).length > 0,
+  ).slice(0, limite);
 
   // Eventos como entidad propia dentro del Feed (P2): conteo de asistentes
   // por evento, una sola query agregada sobre los posts de esta página —

@@ -13,6 +13,7 @@ import {
 import type { AlCompletar, EtapaVista, TipoEtapa } from './etapas.ts';
 import type { AlertaApertura } from './alertas.ts';
 import { leerRespuestas, type RespuestasOnboarding } from './onboarding.ts';
+import { cargarEstadosClientas } from '../clientas/estado-servidor.ts';
 
 // Cargas de Opening OS con cliente service-role, compartidas por la API de la
 // home y el cron de alertas. ⚠️ La RLS no filtra: quien llama ya ha decidido
@@ -76,17 +77,21 @@ export async function cargarAnalisis(
   admin: SupabaseClient, studioId: string, config: ConfigOpening, now: Date,
 ): Promise<AnalisisCapacidad> {
   const hasta = new Date(now.getTime() + config.ventanaAnalisisDias * DIA).toISOString();
-  const [sesionesR, suscripcionesR, planesR, leadsR] = await Promise.all([
+  const [sesionesR, suscripcionesR, planesR, estados] = await Promise.all([
     admin.from('sesiones').select('inicio, aforo_maximo, cancelada')
       .eq('studio_id', studioId).gte('inicio', now.toISOString()).lt('inicio', hasta).limit(5000),
     admin.from('suscripciones').select('socio_id, plan_id, estado, fecha_fin, sesiones_restantes')
       .eq('studio_id', studioId).eq('estado', 'ACTIVA').limit(5000),
     admin.from('planes_tarifa').select('id, tipo, sesiones, limite_semanal, validez_dias').eq('studio_id', studioId),
-    admin.from('socios').select('id', { count: 'exact', head: true })
-      .eq('studio_id', studioId).is('borrado_en', null).in('lead_stage', ['LEAD', 'INTERESADA']),
+    // Las interesadas: fichas que aún no han venido ni comprado (su ESTADO, el
+    // mismo que enseña Clientas). Antes se contaba `lead_stage`, que solo
+    // cambiaba un selector a mano y casi nunca estaba puesto: salía cero.
+    cargarEstadosClientas(admin, studioId, { ahora: now }),
   ]);
-  const error = sesionesR.error ?? suscripcionesR.error ?? planesR.error ?? leadsR.error;
+  const error = sesionesR.error ?? suscripcionesR.error ?? planesR.error;
   if (error) throw error;
+  if (!estados) throw new Error('No se ha podido calcular el estado de las clientas');
+  const interesadas = [...estados.values()].filter(e => e.estado === 'INTERESADA').length;
 
   const suscripciones: SuscripcionDemanda[] = (suscripcionesR.data ?? []).map(s => ({
     socioId: s.socio_id as string,
@@ -129,7 +134,7 @@ export async function cargarAnalisis(
       limiteSemanal: (p.limite_semanal as number | null) ?? null,
       validezDias: (p.validez_dias as number | null) ?? null,
     }) satisfies PlanDemanda),
-    leads: leadsR.count ?? 0,
+    leads: interesadas,
     asistidasPorSocio,
     config,
     now,

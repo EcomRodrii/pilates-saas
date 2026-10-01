@@ -5,6 +5,7 @@
 /** Lo mínimo de una suscripción vencida que el cron necesita para decidir. */
 export interface SuscripcionVencida {
   id: string;
+  socio_id?: string;
   baja_al_vencer?: boolean | null;
 }
 
@@ -12,11 +13,23 @@ export interface SuscripcionVencida {
  * Reparte las cuotas vencidas: las marcadas con baja se CANCELAN (y no se les
  * genera recibo); el resto se renueva como siempre. Una suscripción nunca cae
  * en las dos listas.
+ *
+ * `sociasDeBaja` (`socios.activo = false`): su cuota tampoco se renueva, aunque
+ * nadie le haya programado la baja. «Dar de baja» ya la programa
+ * (`lib/socios/baja.ts`), pero la marca de baja se puede poner por otros caminos
+ * —la API, un panel abierto con código anterior— y una clienta de baja no puede
+ * recibir el cargo del mes siguiente porque alguien no pasó por esa ventana.
  */
-export function repartirVencidas<T extends SuscripcionVencida>(vencidas: readonly T[]): { renovar: T[]; cancelar: T[] } {
+export function repartirVencidas<T extends SuscripcionVencida>(
+  vencidas: readonly T[],
+  sociasDeBaja: ReadonlySet<string> = new Set(),
+): { renovar: T[]; cancelar: T[] } {
   const renovar: T[] = [];
   const cancelar: T[] = [];
-  for (const s of vencidas) (s.baja_al_vencer === true ? cancelar : renovar).push(s);
+  for (const s of vencidas) {
+    const deBaja = s.socio_id !== undefined && sociasDeBaja.has(s.socio_id);
+    (s.baja_al_vencer === true || deBaja ? cancelar : renovar).push(s);
+  }
   return { renovar, cancelar };
 }
 

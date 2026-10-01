@@ -201,6 +201,27 @@ export function puedeGestionarClientas(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'RECEPCION' || rol === 'MANAGER';
 }
 
+// BORRAR los datos de una clienta (supresión del art. 17 RGPD): irreversible.
+// Solo la propietaria, que es la responsable del tratamiento. Antes cualquiera
+// de mostrador podía hacerlo desde la papelera de cada fila de la lista, con un
+// diálogo que decía «Dar de baja»: quien quería apuntar que una alumna se ha ido
+// le borraba los datos en dos toques. Dar de baja (reversible) sigue siendo
+// `puedeGestionarClientas`. La cerradura real es la ruta
+// (app/api/socios/eliminar): `anonimizar_socio` solo la ejecuta service_role.
+export function puedeBorrarDatosClienta(rol: Rol): boolean {
+  return rol === 'PROPIETARIO';
+}
+
+// Las NOTAS del equipo sobre una clienta. Espejo de la RLS de `notas_internas`
+// (migr …_notas_internas_autora_y_visibilidad): las escriben y leen quienes
+// gestionan clientas —propietaria, gerencia y recepción—. QUÉ notas ve cada una
+// lo decide cada nota (lib/clientas/notas.ts, `notaVisiblePara`): las de equipo,
+// todas; las privadas, su autora y la propietaria. Antes era solo PROPIETARIO, y
+// la tarjeta se enseñaba vacía a quien no podía guardar en ella.
+export function puedeVerNotasInternas(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER' || rol === 'RECEPCION';
+}
+
 // Crear una clase nueva ASIGNADA A UNO MISMO. Distinto de `puedeGestionarClientas`
 // (que sigue siendo "puede tocar/crear la clase de cualquiera, en cualquier
 // sala, con instructora libre") — INSTRUCTOR entra aquí porque la migración

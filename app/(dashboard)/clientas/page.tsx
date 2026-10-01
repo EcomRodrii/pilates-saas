@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
-import { dbStatsClientas } from '@/lib/supabase-data';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation';
@@ -15,26 +14,37 @@ import { sellarAceptacionMostrador } from '@/lib/aceptacion-contrato-cliente';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
 import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
-import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, LeadStage, MetodoCobro } from '@/lib/types';
+import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { EtiquetaFija } from '@/components/clientas/etiqueta-fija';
-import { ETIQUETA_GENERO, GENEROS, generoDe, type Genero } from '@/lib/genero';
+import { ETIQUETA_GENERO, GENEROS, generoDe, trato, type Genero } from '@/lib/genero';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
-  ListChecks, Search, Plus, Users, UserCheck, AlertCircle, Clock,
+  ListChecks, Search, Plus, Users,
   ChevronUp, ChevronDown, ChevronsUpDown, Mail, Pencil,
-  Trash2, AlertTriangle, CheckCircle2, Upload, X, UserX,
-  Tag, Bookmark, FileText, PenLine, ShieldCheck, Loader2,
-  CircleDashed, CalendarPlus,
+  AlertTriangle, CheckCircle2, Upload, X,
+  Tag, FileText, PenLine, ShieldCheck, Loader2,
+  CalendarPlus, CreditCard, Download, ArrowUpRight, SlidersHorizontal, MoreHorizontal,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { cn, hoyEnEstudio } from '@/lib/utils';
+import { useEsAncho } from '@/lib/hooks/use-es-ancho';
+import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
+import { useAvisosClientas } from '@/lib/clientas/use-avisos-clientas';
+import { useSeguimientosParaHoy } from '@/lib/clientas/use-seguimientos';
+import { useBajasAbiertas } from '@/lib/clientas/use-bajas';
+import { DEFINICION_ESTADO, ESTADOS_CLIENTA, ETIQUETA_ESTADO, sinVenir, type EstadoClienta } from '@/lib/clientas/estado';
+import { colorDeAvatar as avatarColor, cuandoClase, fechaCorta, haceCuanto, textoDesde } from '@/lib/clientas/textos';
+import { PastillaAviso, PastillaEstado, PastillaSeguimiento, PuntoEstado } from '@/components/clientas/piezas';
+import { FichaClienta } from '@/components/clientas/ficha-clienta';
+import { MenuAcciones, type AccionMenu } from '@/components/clientas/ficha/piezas-ficha';
+import { InteresadasYPruebas } from '@/components/clientas/interesadas-y-pruebas';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { PageHeader } from '@/components/ui/page-header';
 import { SolicitudesDerechosPendientes } from '@/components/socios/solicitudes-derechos-pendientes';
-import { ConsultasContacto } from '@/components/clientas/consultas-contacto';
-import { marcarAtendida, type ConsultaContacto } from '@/lib/contacto/consultas-cliente';
+import { listarConsultas, marcarAtendida, type ConsultaContacto } from '@/lib/contacto/consultas-cliente';
 import { useAuth } from '@/lib/auth-context';
 import { ConstructorSegmentos } from '@/components/segmentos/constructor-segmento';
 import { construirContextoSegmento, evaluarSegmento } from '@/lib/segmentos/evaluador';
@@ -46,7 +56,21 @@ const inputCls =
 const selectCls = inputCls + ' appearance-none';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type SmartFilter = 'todas' | 'activas' | 'sin_bono' | 'bono_expirado' | 'inactivas_30d' | 'sin_consentimiento_mkt';
+// El filtro principal es el ESTADO de la clienta (lib/clientas/estado.ts): el
+// mismo número en el chip, en las filas y en Resumen. «Más» son cortes que no
+// son un estado: quién lleva 30 días sin venir, quién no ha dado el
+// consentimiento de marketing, con o sin plan.
+type FiltroEstado = 'TODAS' | EstadoClienta;
+type FiltroMas = '' | 'seguimiento_hoy' | 'sin_venir_30d' | 'sin_consentimiento_mkt' | 'con_plan' | 'sin_plan';
+const FILTROS_MAS: { id: Exclude<FiltroMas, ''>; label: string }[] = [
+  // Los «Recuérdamelo» de hoy o atrasados (de quien mira o de nadie): el enlace
+  // de «Por decidir» del Resumen llega aquí.
+  { id: 'seguimiento_hoy', label: 'Con seguimiento para hoy' },
+  { id: 'sin_venir_30d', label: 'Sin venir en 30 días' },
+  { id: 'con_plan', label: 'Con plan o bono' },
+  { id: 'sin_plan', label: 'Sin plan ni bono' },
+  { id: 'sin_consentimiento_mkt', label: 'Sin consentimiento de marketing' },
+];
 type SortKey = 'nombre' | 'ultima_visita' | 'sesiones_restantes' | 'fecha_registro';
 type SortDir = 'asc' | 'desc';
 
@@ -92,23 +116,7 @@ function normalizaBusqueda(s: string): string {
 // el primer par mezclaba un fondo índigo con una tinta VERDE LIMA (#6E9E0A),
 // que era el único que no compartía familia con su fondo. Nueve tonos en vez de
 // seis, además, reparten mejor una lista larga.
-function avatarColor(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  return `var(--cat-${(Math.abs(hash) % 9) + 1})`;
-}
 
-function relativeTime(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  const diff = Date.now() - new Date(iso).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return 'Hoy';
-  if (days === 1) return 'Ayer';
-  if (days < 7) return `Hace ${days} días`;
-  if (days < 30) return `Hace ${Math.floor(days / 7)} sem.`;
-  if (days < 365) { const meses = Math.floor(days / 30); return `Hace ${meses} ${meses > 1 ? 'meses' : 'mes'}`; }
-  return `Hace ${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? 's' : ''}`;
-}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 // `description` es lo que faltaba: antes este wrapper solo aceptaba
@@ -149,30 +157,6 @@ function FF({
   );
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  color,
-}: {
-  icon: ElementType;
-  label: string;
-  /** `null` = todavía no ha llegado. NO es cero: ver el comentario de `stats`. */
-  value: number | null;
-  color: string;
-}) {
-  return (
-    <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 min-w-0">
-      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: color + '1A' }}>
-        <Icon size={16} style={{ color }} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[22px] font-bold text-foreground leading-tight">{value ?? '—'}</p>
-        <p className="text-[11px] text-muted-foreground truncate">{label}</p>
-      </div>
-    </div>
-  );
-}
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <ChevronsUpDown size={11} className="text-muted-foreground ml-1 inline" />;
@@ -185,9 +169,9 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 export default function Socios() {
   const router = useRouter();
   const {
-    socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados,
+    socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados,
     segmentosClientes, addSegmentoCliente, updateSegmentoCliente, deleteSegmentoCliente,
-    ampliarCaducidades,
+    ampliarCaducidades, addTagSocio,
     // `studio` solo para PINTAR el texto legal en el diálogo de consentimiento.
     // Quien lo escribe de verdad es `registrarConsentimientoMarketing`, que lo
     // compone en el contexto con el mismo helper: el diálogo tiene que enseñar
@@ -243,13 +227,16 @@ export default function Socios() {
 
   // Filter & sort state
   const [busqueda, setBusqueda] = useState('');
-  const [smartFilter, setSmartFilter] = useState<SmartFilter>('todas');
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('TODAS');
+  const [filtroMas, setFiltroMas] = useState<FiltroMas>('');
+  const [filtroPlan, setFiltroPlan] = useState('');
   const [segmentoAplicado, setSegmentoAplicado] = useState<SegmentoCliente | null>(null);
-  // P1 (auditoría "Veredicto de Marta"): la etapa del embudo y las etiquetas
-  // solo se veían/editaban dentro de cada ficha — sin forma de ver "todas mis
-  // Interesadas" juntas. '' = sin filtrar por esa dimensión.
-  const [filtroEtapa, setFiltroEtapa] = useState<LeadStage | ''>('');
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
+  const [vista, setVista] = useState<'clientas' | 'interesadas'>('clientas');
+  // La clienta abierta al lado de la lista (pantallas anchas). En la URL, para
+  // que volver atrás o recargar la deje donde estaba.
+  const [abierta, setAbierta] = useState<string | null>(null);
+  const ancho = useEsAncho();
   // P0-34: paginación — no montar miles de filas (× 2 variantes responsive) a la
   // vez en el DOM. Se muestran de PAGE en PAGE con "Ver más".
   const PAGE = 50;
@@ -258,7 +245,12 @@ export default function Socios() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   // Bulk selection
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Lo marcado a mano. Las acciones en bloque trabajan sobre `selected` (más
+  // abajo): lo marcado QUE SE VE con los filtros de ahora.
+  const [seleccionMarcada, setSelected] = useState<Set<string>>(new Set());
+  const [showAcceso, setShowAcceso] = useState(false);
+  const [enviandoAcceso, setEnviandoAcceso] = useState(false);
+  const [resultadoAcceso, setResultadoAcceso] = useState<string | null>(null);
   const [showAsignarPlan, setShowAsignarPlan] = useState(false);
   const [asignarPlanId, setAsignarPlanId] = useState('');
   const [asignando, setAsignando] = useState(false);
@@ -287,9 +279,6 @@ export default function Socios() {
   const [consultaEnAlta, setConsultaEnAlta] = useState<string | null>(null);
   const [recargaConsultas, setRecargaConsultas] = useState(0);
   const { user } = useAuth();
-  const [confirmEliminar, setConfirmEliminar] = useState<string | null>(null);
-  const [eliminando, setEliminando] = useState(false);
-  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
 
   // Multi-step "nueva clienta" contract flow
   const [firma, setFirma] = useState('');
@@ -374,11 +363,6 @@ export default function Socios() {
     }
     return m;
   }, [suscripciones, planesTarifa]);
-  const expiradaPorSocio = useMemo(() => {
-    const m = new Set<string>();
-    for (const s of suscripciones) if (s.estado === 'EXPIRADA') m.add(s.socioId);
-    return m;
-  }, [suscripciones]);
   const ultimaVisitaPorSocio = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of reservas) {
@@ -405,42 +389,63 @@ export default function Socios() {
     return ultimaVisitaPorSocio.get(socioId) ?? null;
   }
 
-  // El "ahora" con el que se decide quién lleva 30 días sin venir se fija una
-  // vez al montar, en vez de leer el reloj en cada render. Sin intervalo a
-  // propósito: el umbral es de 30 días, no se cruza mientras la pantalla está
-  // abierta. `0` = todavía sin montar, y entonces nadie sale como inactiva
-  // (mejor no marcar a nadie que marcar a todas durante un frame).
-  const [ahoraMs, setAhoraMs] = useState(0);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: leer el reloj en render daría valores distintos en servidor y cliente.
-    setAhoraMs(Date.now());
-  }, []);
+  // El estado de cada clienta (uno, calculado con sus datos) y su aviso (como
+  // mucho uno). La hora con la que se calcula se fija al montar.
+  const estados = useEstadosClientas();
+  const ahoraMs = estados.ahora?.getTime() ?? 0;
+  const hoyISO = estados.ahora ? hoyEnEstudio(estados.ahora) : null;
+  const { avisoDe, atendido } = useAvisosClientas(hoyISO);
+  // Los «Recuérdamelo» de hoy o atrasados, por clienta (para el filtro y la marca de su fila).
+  const seguimientosHoy = useSeguimientosParaHoy(gestionaClientas, hoyISO, user?.id ?? null);
+  // El motivo de las bajas abiertas («De baja · desde 12 sep · se muda»).
+  const bajasAbiertas = useBajasAbiertas(gestionaClientas);
 
-  // Mismo criterio que el contador del servidor (migr 0128): quien no tiene
-  // ninguna reserva ASISTIDA no se cuenta desde 1970, se cuenta desde su alta.
-  // Antes esto marcaba "Sin asistencia" a CUALQUIER clienta recién creada
-  // (sin visitas todavía) igual que a una que llevaba 30 días sin venir —
-  // exactamente el "todas aparecen como Sin asistencia" que reportó el
-  // fundador, porque una base nueva tiene casi solo altas recientes.
+  // «Sin venir en 30 días»: la misma regla (`sinVenir`) que la cifra de Resumen,
+  // que enlaza a este filtro.
   function isInactiva30d(socioId: string, s?: Socio): boolean {
-    if (!ahoraMs) return false;
-    const last = getLastVisit(socioId);
-    const desde = last ?? s?.fechaAlta;
-    if (!desde) return true;
-    return ahoraMs - new Date(desde).getTime() > 30 * 86400000;
+    if (!estados.ahora) return false;
+    return sinVenir(estados.porSocio.get(socioId), estados.hechos.get(socioId), s?.fechaAlta, estados.ahora);
   }
 
-  // Distingue "todavía no le ha dado tiempo a venir" (dada de alta hace poco,
-  // sin visitas) de "llevaba viniendo y dejó de asistir" — antes ambas
-  // compartían la misma etiqueta "Sin asistencia" y la primera es la mayoría
-  // en cualquier estudio con altas recientes.
-  function sinDatosDeAsistencia(socioId: string, s: Socio): boolean {
-    return isInactiva30d(socioId, s) && !getLastVisit(socioId);
-  }
+  // Su próxima clase reservada (confirmada), para la fila.
+  const proximaPorSocio = useMemo(() => {
+    const m = new Map<string, string>();
+    if (!ahoraMs) return m;
+    const ahoraIso = new Date(ahoraMs).toISOString();
+    for (const r of reservas) {
+      if (r.estado !== 'CONFIRMADA') continue;
+      const ses = sesionById.get(r.sesionId);
+      if (!ses || ses.cancelada || ses.inicio < ahoraIso) continue;
+      const prev = m.get(r.socioId);
+      if (!prev || ses.inicio < prev) m.set(r.socioId, ses.inicio);
+    }
+    return m;
+  }, [reservas, sesionById, ahoraMs]);
 
-  function isBonoExpirado(socioId: string): boolean {
-    return expiradaPorSocio.has(socioId) && !getActiveSus(socioId);
-  }
+  // Lo que ha comprado de verdad cada una, por plan: el filtro «Plan» mira las
+  // suscripciones vivas (activas o pausadas), no una cualquiera.
+  // Su último plan, si ya no tiene ninguno vivo (el que acabó más tarde).
+  const ultimoPlanPorSocio = useMemo(() => {
+    const m = new Map<string, Suscripcion>();
+    for (const s of suscripciones) {
+      if (s.estado === 'ACTIVA' || s.estado === 'PAUSADA') continue;
+      const previo = m.get(s.socioId);
+      const clave = (x: Suscripcion) => x.fechaFin ?? x.fechaInicio;
+      if (!previo || clave(s) > clave(previo)) m.set(s.socioId, s);
+    }
+    return m;
+  }, [suscripciones]);
+
+  const planesVivosPorSocio = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const s of suscripciones) {
+      if (s.estado !== 'ACTIVA' && s.estado !== 'PAUSADA') continue;
+      const set = m.get(s.socioId) ?? new Set<string>();
+      set.add(s.planId);
+      m.set(s.socioId, set);
+    }
+    return m;
+  }, [suscripciones]);
 
   // "Caduca en N días"/"Próxima renovación en N días" para la fila de la
   // tabla y la card móvil — mismo cálculo puro que la ficha de la clienta
@@ -457,81 +462,36 @@ export default function Socios() {
     return 'var(--muted-foreground)';
   }
 
-  // Estados por orden de prioridad: baja de staff > bono caducado > (recién
-  // dada de alta sin visitas todavía) > (llevaba viniendo y dejó) > activa.
-  // "Sin datos" e "Inactiva" (30d) comparten el mismo hecho (isInactiva30d),
-  // pero son causas distintas para la propietaria — una no es un problema,
-  // la otra puede que sí.
-  function estadoBadgeInfo(s: Socio): { label: string; bg: string; color: string; Icon?: typeof AlertCircle; title?: string } {
-    if (!s.activo) return { label: 'De baja', bg: 'var(--muted)', color: 'var(--muted-foreground)', title: 'Dada de baja por el estudio.' };
-    if (isBonoExpirado(s.id)) return { label: 'Bono expirado', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)', Icon: AlertCircle };
-    if (isInactiva30d(s.id, s)) {
-      if (sinDatosDeAsistencia(s.id, s)) {
-        return { label: 'Sin datos', bg: 'var(--muted)', color: 'var(--muted-foreground)', Icon: CircleDashed, title: 'Esta alumna todavía no ha registrado ninguna asistencia.' };
-      }
-      return { label: 'Sin asistencia reciente', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)', Icon: Clock, title: 'Más de 30 días desde su última clase asistida.' };
-    }
-    return { label: 'Activa', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' };
-  }
-
-  function EstadoBadge({ s }: { s: Socio }) {
-    const { label, bg, color, Icon, title } = estadoBadgeInfo(s);
-    return (
-      <span title={title} className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: bg, color }}>
-        {Icon ? <Icon size={10} /> : <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />}
-        {label}
-      </span>
-    );
-  }
-
-  // ── Stats (F1 · B1: contadores del SERVIDOR, count() SQL sin cap 1000) ───────
-  // ⚠️ `null` mientras `stats_clientas()` no responde, NO ceros. Arrancando en
-  // cero, la pantalla enseñaba «0 total clientas» encima de una tabla que
-  // listaba cuatro y remataba con «Mostrando 4 de 4» — se contradecía sola. Y
-  // si la llamada falla, ese cero se queda para siempre pareciendo un dato
-  // medido. Ausente no es cero.
-  const [stats, setStats] = useState<{ total: number; activas: number; conBono: number; inactivas30d: number } | null>(null);
-  useEffect(() => {
-    let cancel = false;
-    void dbStatsClientas().then((r) => { if (!cancel) setStats(r); });
-    return () => { cancel = true; };
-    // re-fetch cuando cambian los datos locales (alta/edición/reserva)
-  }, [socios, suscripciones, reservas]);
-
   // ── Filtered + sorted list ─────────────────────────────────────────────────
   const lista = useMemo(() => {
     // Sin normalizar acentos, buscar "maria" no encontraba a "María" (y
     // viceversa) — el gesto más natural de escribir rápido en el buscador.
     const q = normalizaBusqueda(busqueda);
     const ctxSegmento = segmentoAplicado
-      ? construirContextoSegmento(socios, suscripciones, reservas, sesiones, camposPersonalizados, ahoraMs ? new Date(ahoraMs) : new Date())
+      ? construirContextoSegmento(socios, suscripciones, reservas, sesiones, camposPersonalizados, ahoraMs ? new Date(ahoraMs) : new Date(), estados.porSocio)
       : null;
     const filtered = socios.filter((s) => {
       // Search
       const matchB =
         !q ||
         normalizaBusqueda(`${s.nombre} ${s.apellidos} ${s.email} ${s.telefono ?? ''}`).includes(q);
-      // Smart filter
-      let matchF = true;
-      if (smartFilter === 'activas') matchF = s.activo;
-      if (smartFilter === 'sin_bono') matchF = !getActiveSus(s.id);
-      if (smartFilter === 'bono_expirado') matchF = isBonoExpirado(s.id);
-      if (smartFilter === 'inactivas_30d') matchF = isInactiva30d(s.id, s);
+      // Estado: el mismo cálculo que cuenta el chip y la cifra de Resumen.
+      const estado = estados.porSocio.get(s.id);
+      const matchEstado = filtroEstado === 'TODAS' || estado?.estado === filtroEstado;
+      let matchMas = true;
+      if (filtroMas === 'seguimiento_hoy') matchMas = seguimientosHoy?.has(s.id) ?? false;
+      if (filtroMas === 'sin_venir_30d') matchMas = isInactiva30d(s.id, s);
+      if (filtroMas === 'con_plan') matchMas = estado?.derecho === true;
+      if (filtroMas === 'sin_plan') matchMas = estado?.derecho !== true;
       // Presencia, no vigencia: el panel no trae el texto del consentimiento,
       // así que una socia con uno ANTIGUO (el estudio se renombró) no sale
       // aquí aunque haya que renovarlo. La RPC sí lo distingue y lo cuenta
       // como registrada — ver sinConsentimientoMarketing en lib/marketing.
-      if (smartFilter === 'sin_consentimiento_mkt') matchF = !tieneConsentimientoMarketingAlgunaVez(s);
-      const matchEtapa = !filtroEtapa || s.leadStage === filtroEtapa;
+      if (filtroMas === 'sin_consentimiento_mkt') matchMas = !tieneConsentimientoMarketingAlgunaVez(s);
+      const matchPlan = !filtroPlan || (planesVivosPorSocio.get(s.id)?.has(filtroPlan) ?? false);
       const matchEtiqueta = !filtroEtiqueta || (s.tags ?? []).includes(filtroEtiqueta);
       const matchSegmento = !segmentoAplicado || !ctxSegmento || evaluarSegmento(segmentoAplicado.condiciones, s, ctxSegmento);
-      // Mismo criterio que stats_clientas() (migr 20260731004515): un LEAD/
-      // INTERESADA aún no es clienta, así que no cuenta por defecto — ni en
-      // las tarjetas ni en esta tabla. Elegir esa etapa a propósito en el
-      // filtro de arriba es la vía explícita para verlas.
-      const esLeadSinConvertir = s.leadStage === 'LEAD' || s.leadStage === 'INTERESADA';
-      const matchLead = Boolean(filtroEtapa) || !esLeadSinConvertir;
-      return matchB && matchF && matchEtapa && matchEtiqueta && matchSegmento && matchLead;
+      return matchB && matchEstado && matchMas && matchPlan && matchEtiqueta && matchSegmento;
     });
 
     return [...filtered].sort((a, b) => {
@@ -552,18 +512,34 @@ export default function Socios() {
         const sb = saldoBonosPorSocio.get(b.id) ?? getActiveSus(b.id)?.sesionesRestantes ?? -1;
         cmp = sb - sa;
       } else if (sortKey === 'fecha_registro') {
-        cmp = new Date(b.fechaAlta).getTime() - new Date(a.fechaAlta).getTime();
+        // Sin fecha de alta (la columna admite nulos), al final: NaN rompería el orden.
+        cmp = (Date.parse(b.fechaAlta ?? '') || 0) - (Date.parse(a.fechaAlta ?? '') || 0);
       }
       return sortDir === 'asc' ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socios, suscripciones, reservas, sesiones, camposPersonalizados, busqueda, smartFilter, filtroEtapa, filtroEtiqueta, segmentoAplicado, sortKey, sortDir, ahoraMs]);
+  }, [socios, suscripciones, reservas, sesiones, camposPersonalizados, busqueda, filtroEstado, filtroMas, filtroPlan, filtroEtiqueta, segmentoAplicado, sortKey, sortDir, ahoraMs, estados.porSocio, planesVivosPorSocio, seguimientosHoy]);
 
   // Auditoría PR #1276 (QA): el estado vacío y "Limpiar filtros" solo miraban
   // busqueda/smartFilter — con filtroEtapa/filtroEtiqueta/segmentoAplicado
   // vaciando la lista, se veía "Aún no hay clientas" (mensaje de cuenta
   // nueva) sin ningún botón para salir del filtro.
-  const hayFiltrosActivos = Boolean(busqueda || smartFilter !== 'todas' || filtroEtapa || filtroEtiqueta || segmentoAplicado);
+  const hayFiltrosActivos = Boolean(busqueda || filtroEstado !== 'TODAS' || filtroMas || filtroPlan || filtroEtiqueta || segmentoAplicado);
+  function limpiarFiltros() {
+    setBusqueda(''); setFiltroEstado('TODAS'); setFiltroMas(''); setFiltroPlan(''); setFiltroEtiqueta(''); setSegmentoAplicado(null);
+  }
+  // Los que viven detrás del botón «Filtros» del móvil (el estado y la búsqueda se ven siempre).
+  const nFiltrosPuestos = [filtroPlan, filtroEtiqueta, filtroMas, segmentoAplicado].filter(Boolean).length;
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+
+  // Una acción en bloque solo puede caer sobre clientas que se están viendo.
+  // Antes la selección sobrevivía a un segmento o a un filtro: se marcaban 20,
+  // se aplicaba un segmento que enseñaba 3, y «Cambiar plan» les anotaba el
+  // cobro a las 20 — 17 de ellas fuera de la vista.
+  const selected = useMemo(() => {
+    const visibles = new Set(lista.map((s) => s.id));
+    return new Set([...seleccionMarcada].filter((id) => visibles.has(id)));
+  }, [seleccionMarcada, lista]);
 
   // ── Sort toggle ────────────────────────────────────────────────────────────
   function toggleSort(key: SortKey) {
@@ -580,7 +556,7 @@ export default function Socios() {
   // todavía la paginación y la selección viejas, y el reset entraba en un
   // segundo render. Así React descarta el render en curso y rehace antes de
   // tocar el DOM: ese frame intermedio no llega a existir.
-  const filtroActual = `${busqueda}\x00${smartFilter}\x00${filtroEtapa}\x00${filtroEtiqueta}\x00${sortKey}\x00${sortDir}`;
+  const filtroActual = `${busqueda}\x00${filtroEstado}\x00${filtroMas}\x00${filtroPlan}\x00${filtroEtiqueta}\x00${segmentoAplicado?.id ?? ''}\x00${sortKey}\x00${sortDir}`;
   const [filtroPrevio, setFiltroPrevio] = useState(filtroActual);
   if (filtroActual !== filtroPrevio) {
     setFiltroPrevio(filtroActual);
@@ -610,12 +586,36 @@ export default function Socios() {
     });
   }
 
-  function handleEnviarEmail() {
-    const recipients = socios.filter((s) => selected.has(s.id) && s.email);
-    recipients.forEach((s) => {
-      enviarEmailBienvenida({ to: s.email, toName: `${s.nombre} ${s.apellidos}`, socioId: s.id });
-    });
-    setSelected(new Set());
+  // «Enviar email» mandaba, sin preguntar y sin mirar si salía, el correo de
+  // BIENVENIDA con el enlace de acceso a la app: el nombre no decía lo que hacía.
+  // Ahora se llama por lo que es, se confirma con el recuento (quién no tiene
+  // email no lo recibe) y se cuenta lo que el servidor ha aceptado de verdad.
+  async function handleEnviarAcceso() {
+    if (enviandoAcceso) return;
+    setEnviandoAcceso(true);
+    const destinatarias = socios.filter((s) => selected.has(s.id) && s.email);
+    let enviados = 0;
+    // A quién NO le ha salido, con nombre: «1 no ha salido» no dice a quién reintentar.
+    const sinSalir: string[] = [];
+    for (const s of destinatarias) {
+      const nombre = `${s.nombre} ${s.apellidos}`.trim();
+      if (await enviarEmailBienvenida({ to: s.email, toName: nombre, socioId: s.id })) enviados++;
+      else sinSalir.push(nombre);
+    }
+    setEnviandoAcceso(false);
+    const quienes = sinSalir.length <= 3
+      ? sinSalir.join(', ').replace(/, ([^,]*)$/, ' y $1')
+      : `${sinSalir.slice(0, 3).join(', ')} y ${sinSalir.length - 3} más`;
+    setResultadoAcceso(sinSalir.length === 0
+      ? `Enviado a ${enviados} clienta${enviados === 1 ? '' : 's'}.`
+      : `Enviado a ${enviados}. No ${sinSalir.length === 1 ? 'ha salido el' : 'han salido los'} de ${quienes}: vuelve a intentarlo.`);
+  }
+
+  function cerrarAcceso() {
+    if (enviandoAcceso) return;
+    if (resultadoAcceso) setSelected(new Set());
+    setShowAcceso(false);
+    setResultadoAcceso(null);
   }
 
   // Asignar en bloque es la venta más cara de la pantalla: son N cobros a la vez.
@@ -867,39 +867,236 @@ export default function Socios() {
     [socios],
   );
 
+  // ── Selección en el móvil, búsqueda con «/», consultas, etiqueta en bloque ──
+  const [seleccionando, setSeleccionando] = useState(false);
+  const buscadorRef = useRef<HTMLInputElement>(null);
+  const [showEtiqueta, setShowEtiqueta] = useState(false);
+  const [etiquetaBloque, setEtiquetaBloque] = useState('');
+  const [aplicandoEtiqueta, setAplicandoEtiqueta] = useState(false);
+  const [resultadoEtiqueta, setResultadoEtiqueta] = useState<string | null>(null);
+
+  // Consultas de su web sin atender: van en «Interesadas y pruebas» y cuentan en
+  // su pestaña. `null` = todavía no han llegado (no es «ninguna»).
+  const studioIdConsultas = studio?.id ?? null;
+  // 'error' = no se pudieron leer: se dice, no se pinta «nadie preguntó».
+  const [consultasCargadas, setConsultasCargadas] = useState<ConsultaContacto[] | 'error' | null>(null);
+  useEffect(() => {
+    if (!studioIdConsultas || !gestionaClientas) return;
+    let vivo = true;
+    void listarConsultas(studioIdConsultas, 'nueva').then((r) => { if (vivo) setConsultasCargadas(r ?? 'error'); });
+    return () => { vivo = false; };
+  }, [studioIdConsultas, gestionaClientas, recargaConsultas]);
+  const consultasNuevas = gestionaClientas && Array.isArray(consultasCargadas) ? consultasCargadas : [];
+  const consultasNuevasCargando = gestionaClientas && consultasCargadas === null;
+  const consultasConError = gestionaClientas && consultasCargadas === 'error';
+
+  // Los filtros, la vista y la clienta abierta viven también en la URL: al volver
+  // de una ficha (o recargar) la lista sigue donde estaba, y un enlace de Resumen
+  // puede llegar ya filtrado (`/clientas?estado=SIN_RENOVAR`).
+  const [urlLeida, setUrlLeida] = useState(false);
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const est = p.get('estado');
+    /* eslint-disable react-hooks/set-state-in-effect -- Guarda de hidratación: la URL solo existe en el navegador; leerla en el render daría otra cosa en servidor y cliente. */
+    if (est && (ESTADOS_CLIENTA as readonly string[]).includes(est)) setFiltroEstado(est as EstadoClienta);
+    if (p.get('vista') === 'interesadas') setVista('interesadas');
+    if (p.get('q')) setBusqueda(p.get('q') ?? '');
+    if (p.get('plan')) setFiltroPlan(p.get('plan') ?? '');
+    if (p.get('etiqueta')) setFiltroEtiqueta(p.get('etiqueta') ?? '');
+    const mas = p.get('mas');
+    if (mas && FILTROS_MAS.some((f) => f.id === mas)) setFiltroMas(mas as FiltroMas);
+    if (p.get('seguimientos') === 'hoy') setFiltroMas('seguimiento_hoy');
+    const orden = p.get('orden');
+    if (orden === 'ultima_visita' || orden === 'sesiones_restantes' || orden === 'fecha_registro') setSortKey(orden);
+    if (p.get('dir') === 'desc') setSortDir('desc');
+    if (p.get('c')) setAbierta(p.get('c'));
+    setUrlLeida(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+  useEffect(() => {
+    if (!urlLeida) return;
+    const p = new URLSearchParams();
+    if (vista !== 'clientas') p.set('vista', vista);
+    if (filtroEstado !== 'TODAS') p.set('estado', filtroEstado);
+    if (busqueda) p.set('q', busqueda);
+    if (filtroPlan) p.set('plan', filtroPlan);
+    if (filtroEtiqueta) p.set('etiqueta', filtroEtiqueta);
+    if (filtroMas) p.set('mas', filtroMas);
+    if (sortKey !== 'nombre') p.set('orden', sortKey);
+    if (sortDir !== 'asc') p.set('dir', sortDir);
+    if (abierta) p.set('c', abierta);
+    const qs = p.toString();
+    const url = `/clientas${qs ? `?${qs}` : ''}`;
+    if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
+  }, [urlLeida, vista, filtroEstado, busqueda, filtroPlan, filtroEtiqueta, filtroMas, sortKey, sortDir, abierta]);
+
+  // Teclado: «/» busca; con una clienta abierta al lado, ↑ ↓ pasan a la de
+  // arriba o abajo y Esc la cierra. Nunca mientras se escribe ni con una
+  // ventana abierta encima.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      const escribiendo = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+      if (e.key === '/' && !escribiendo && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        buscadorRef.current?.focus();
+        return;
+      }
+      if (escribiendo || document.querySelector('[role="dialog"]')) return;
+      if (e.key === 'Escape' && abierta) { setAbierta(null); return; }
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && ancho && abierta) {
+        const idx = listaVisible.findIndex((x) => x.id === abierta);
+        const siguiente = listaVisible[idx + (e.key === 'ArrowDown' ? 1 : -1)];
+        if (!siguiente) return;
+        e.preventDefault();
+        setAbierta(siguiente.id);
+        document.querySelector(`[data-fila-clienta="${siguiente.id}"]`)?.scrollIntoView({ block: 'nearest' });
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [abierta, ancho, listaVisible]);
+
+  // Una etiqueta a varias a la vez, de una en una y contando lo que ha salido.
+  async function handleEtiquetaBloque() {
+    const tag = etiquetaBloque.trim();
+    if (!tag || aplicandoEtiqueta) return;
+    setAplicandoEtiqueta(true);
+    let puestas = 0;
+    let yaLaTenian = 0;
+    const fallos: string[] = [];
+    for (const id of selected) {
+      const s = socios.find((x) => x.id === id);
+      if (!s) continue;
+      if ((s.tags ?? []).includes(tag)) { yaLaTenian++; continue; }
+      const r = await addTagSocio(id, tag);
+      if (r.ok) puestas++;
+      else fallos.push(`${s.nombre} ${s.apellidos}`.trim());
+    }
+    setAplicandoEtiqueta(false);
+    setResultadoEtiqueta([
+      `«${tag}» puesta a ${puestas} clienta${puestas === 1 ? '' : 's'}`,
+      yaLaTenian ? `${yaLaTenian} ya la tenía${yaLaTenian === 1 ? '' : 'n'}` : null,
+      fallos.length ? `no se ha podido con ${fallos.join(', ')}` : null,
+    ].filter(Boolean).join(' · '));
+  }
+
+  function cerrarEtiqueta() {
+    if (aplicandoEtiqueta) return;
+    if (resultadoEtiqueta) setSelected(new Set());
+    setShowEtiqueta(false);
+    setResultadoEtiqueta(null);
+    setEtiquetaBloque('');
+  }
+
+  // CSV de las seleccionadas, para abrirlo en una hoja de cálculo (separado por
+  // «;» y con BOM: Excel en español lo abre bien a la primera).
+  // Lo que toca planes o consentimientos va en «Más» de la barra de selección.
+  // Cambiar plan y ampliar caducidad mueven producto vendido (`mueveDinero`);
+  // anotar un consentimiento, no — mismo permiso que la tarjeta «Marketing» de
+  // la ficha (puedeGestionarClientas).
+  const accionesBloqueMas: AccionMenu[] = [
+    ...(mueveDinero ? [
+      { texto: 'Cambiar plan', icono: CreditCard, onClick: () => { setAsignarPlanId(''); setShowAsignarPlan(true); } },
+      { texto: 'Ampliar caducidad', icono: CalendarPlus, onClick: () => { setResultadoAmpliar(null); setErrorAmpliar(null); setShowAmpliar(true); } },
+    ] : []),
+    ...(gestionaClientas ? [
+      { texto: 'Anotar consentimiento de marketing', icono: ShieldCheck, onClick: () => { setResultadoConsentMkt(null); setErrorConsentMkt(null); setAfirmadoConsentMkt(false); setShowConsentMkt(true); } },
+    ] : []),
+  ];
+
+  function exportarSeleccionadas() {
+    const filas = socios.filter((s) => selected.has(s.id));
+    const cabecera = ['Nombre', 'Apellidos', 'Email', 'Teléfono', 'Estado', 'Plan', 'Última clase'];
+    const celda = (v: string) => (/[";\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const lineas = [cabecera, ...filas.map((s) => {
+      const e = estados.porSocio.get(s.id);
+      const ultima = getLastVisit(s.id);
+      return [s.nombre, s.apellidos ?? '', s.email ?? '', s.telefono ?? '', e ? ETIQUETA_ESTADO[e.estado] : '', planYSaldo(s.id).plan ?? '', ultima ? hoyEnEstudio(new Date(ultima)) : ''];
+    })];
+    const csv = '\uFEFF' + lineas.map((l) => l.map(celda).join(';')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clientas-${hoyISO ?? 'lista'}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
-  const SMART_FILTERS: { id: SmartFilter; label: string }[] = [
-    { id: 'todas', label: 'Todas' },
-    { id: 'activas', label: 'Activas' },
-    { id: 'sin_bono', label: 'Sin bono' },
-    { id: 'bono_expirado', label: 'Bono expirado' },
-    { id: 'inactivas_30d', label: 'Sin asistencia 30d' },
-    { id: 'sin_consentimiento_mkt', label: 'Sin consentimiento marketing' },
-  ];
-
-  // Mismas etiquetas de texto que el selector de la ficha individual
-  // (clientas/[id]/page.tsx) — una propietaria que vea "Interesada" en un
-  // sitio y "INTERESADA" en otro pensaría que son cosas distintas.
-  const ETAPA_OPTIONS: { id: LeadStage; label: string }[] = [
-    { id: 'LEAD', label: 'Lead (primer contacto)' },
-    { id: 'INTERESADA', label: 'Interesada' },
-    { id: 'PRUEBA', label: 'En prueba' },
-    { id: 'ACTIVA', label: 'Activa (convertida)' },
-    { id: 'EN_RIESGO', label: 'En riesgo' },
-    { id: 'PERDIDA', label: 'Perdida' },
-  ];
-
   const SORT_OPTIONS: { key: SortKey; label: string }[] = [
     { key: 'nombre', label: 'Nombre' },
-    { key: 'ultima_visita', label: 'Última visita' },
-    { key: 'sesiones_restantes', label: 'Sesiones rest.' },
-    { key: 'fecha_registro', label: 'Fecha registro' },
+    { key: 'ultima_visita', label: 'Última clase' },
+    { key: 'sesiones_restantes', label: 'Sesiones que le quedan' },
+    { key: 'fecha_registro', label: 'Fecha de alta' },
   ];
+  const conteos = estados.conteos;
+  // En el filtro «Plan» salen los que están a la venta y los que alguna tiene
+  // vivos aunque ya no se vendan: si no, no habría forma de encontrarlas.
+  const planesFiltrables = planesTarifa.filter(
+    (p) => p.activo || [...planesVivosPorSocio.values()].some((set) => set.has(p.id)),
+  );
+  const panelAbierto = ancho && vista === 'clientas' && abierta !== null && socios.some((s) => s.id === abierta);
+  const nInteresadas = (conteos?.DE_PRUEBA ?? 0) + (conteos?.INTERESADA ?? 0) + consultasNuevas.length;
+  const hoyTxt = hoyISO ?? '';
+
+  function abrirClienta(id: string, e?: MouseEvent) {
+    if (seleccionando) { e?.preventDefault(); toggleSelect(id); return; }
+    // ⌘/Ctrl/Mayús-clic: lo hace el propio enlace (pestaña o ventana nueva).
+    if (e && (e.metaKey || e.ctrlKey || e.shiftKey)) return;
+    e?.preventDefault();
+    if (ancho) { setAbierta(id); return; }
+    router.push(`/clientas/${id}`);
+  }
+
+  // «Quedan 6 · Caduca en 29 días», «Renueva en 21 días», «Pausada».
+  function planYSaldo(socioId: string): { plan: string | null; detalle: string | null; color: string } {
+    const sus = getActiveSus(socioId);
+    const plan = getPlan(sus?.planId);
+    if (!sus || !plan) {
+      // Sin plan ahora: cuál tuvo, para ofrecerle lo mismo sin abrir su ficha.
+      const ultimo = ultimoPlanPorSocio.get(socioId);
+      const nombre = ultimo ? getPlan(ultimo.planId)?.nombre : null;
+      const fin = ultimo?.fechaFin?.slice(0, 10) ?? null;
+      return {
+        plan: null,
+        detalle: nombre ? `Tuvo ${nombre}${fin && hoyISO && fin <= hoyISO ? ` hasta el ${fechaCorta(fin, hoyISO)}` : ''}` : null,
+        color: 'var(--muted-foreground)',
+      };
+    }
+    const otros = (planesVivosPorSocio.get(socioId)?.size ?? 1) - 1;
+    const saldo = saldoBonosPorSocio.get(socioId);
+    const detalle = sus.estado === 'PAUSADA'
+      ? 'Pausada'
+      : [saldo != null ? `Quedan ${saldo}` : null, textoCaducidadFila(sus, plan)].filter(Boolean).join(' · ');
+    return {
+      plan: plan.nombre + (otros > 0 ? ` +${otros}` : ''),
+      detalle: detalle || null,
+      color: sus.estado === 'PAUSADA' ? 'var(--muted-foreground)' : colorCaducidadFila(sus, plan),
+    };
+  }
+
+  function ultimaTexto(socioId: string): string {
+    const ultima = getLastVisit(socioId);
+    return ultima && hoyISO ? haceCuanto(hoyEnEstudio(new Date(ultima)), hoyISO) : 'Nunca';
+  }
+
+  function proximaTexto(socioId: string): string | null {
+    const iso = proximaPorSocio.get(socioId);
+    return iso && hoyISO ? cuandoClase(iso, hoyISO) : null;
+  }
+
+  const fila = (s: Socio, i: number) => {
+    const estado = estados.porSocio.get(s.id);
+    const aviso = avisoDe(s.id);
+    const ps = planYSaldo(s.id);
+    return { s, i, estado, aviso, atendido: atendido(s.id), ps, seguimiento: seguimientosHoy?.get(s.id)?.[0] ?? null };
+  };
 
   return (
-    <div data-tour="clientas-lista" className="space-y-5 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+    <div data-tour="clientas-lista" className="space-y-4 min-h-screen pb-24" style={{ backgroundColor: 'var(--background)' }}>
       {errorFila && (
-        <p role="alert" className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-700">
+        <p role="alert" className="flex items-start gap-2 p-2.5 rounded-lg bg-destructive/10 text-[12.5px] text-destructive">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
           <span>{errorFila}</span>
         </p>
@@ -912,9 +1109,18 @@ export default function Socios() {
           </button>
         </p>
       )}
+
+      {/* En el móvil, el «+» va en la fila del título (no una fila entera para el botón). */}
       <PageHeader
+        className="max-sm:flex-row max-sm:items-start max-sm:justify-between"
         title="Clientas"
-        description="Gestiona y haz seguimiento de todas tus clientas"
+        description={conteos
+          ? [
+              `${conteos.ACTIVA} ${conteos.ACTIVA === 1 ? 'activa' : 'activas'}`,
+              conteos.DE_PRUEBA > 0 && `${conteos.DE_PRUEBA} de prueba`,
+              conteos.SIN_RENOVAR > 0 && `${conteos.SIN_RENOVAR} sin renovar`,
+            ].filter(Boolean).join(' · ')
+          : 'Gestiona y haz seguimiento de todas tus clientas'}
         actions={
           gestionaClientas ? (
           <>
@@ -922,131 +1128,195 @@ export default function Socios() {
             {camposPersonalizados.some(c => c.activo) && (
               <button
                 onClick={() => router.push('/clientas/respuestas')}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-foreground bg-card border border-border hover:bg-muted transition-colors"
+                className="hidden sm:flex items-center gap-1.5 px-3.5 min-h-10 rounded-xl text-[13px] font-semibold text-foreground bg-card border border-border hover:bg-muted transition-colors"
               >
-                <ListChecks size={14} />
+                <ListChecks size={15} />
                 Respuestas
               </button>
             )}
             <button
               onClick={() => router.push('/clientas/importar')}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-foreground bg-card border border-border hover:bg-muted transition-colors"
+              className="hidden sm:flex items-center gap-1.5 px-3.5 min-h-10 rounded-xl text-[13px] font-semibold text-foreground bg-card border border-border hover:bg-muted transition-colors"
             >
-              <Upload size={14} />
+              <Upload size={15} />
               Importar
             </button>
             <button
               onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors shadow-sm"
+              aria-label="Nueva clienta"
+              className="flex size-11 items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors shadow-sm sm:size-auto sm:min-h-10 sm:rounded-xl sm:px-3.5"
             >
-              <Plus size={14} />
-              Nueva clienta
+              <Plus size={18} className="sm:size-[15px]" aria-hidden />
+              <span className="hidden sm:inline">Nueva clienta</span>
             </button>
           </>
           ) : null
         }
       />
 
+      {/* Dos vistas: las clientas y quienes todavía están entrando (preguntaron,
+          tienen su prueba o vinieron a ella). Con la URL, para volver a la misma. */}
+      <div role="tablist" aria-label="Vista" className="flex gap-1 border-b border-border">
+        {([['clientas', 'Clientas', conteos?.TOTAL], ['interesadas', 'Interesadas y pruebas', nInteresadas]] as const).map(([id, nombre, n]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={vista === id}
+            onClick={() => { setVista(id); setAbierta(null); setSelected(new Set()); setSeleccionando(false); }}
+            className={cn(
+              '-mb-px flex min-h-11 items-center gap-2 border-b-2 px-3 text-[14px] font-medium transition-colors',
+              vista === id ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {nombre}
+            {n != null && (
+              <span className={cn('rounded-full px-1.5 text-[11.5px] tabular-nums', vista === id ? 'bg-foreground text-background' : 'bg-muted text-foreground')}>{n}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* RGPD: solicitudes de las clientas desde su app, por plazo. Se atienden en la ficha. */}
       {gestionaClientas && <SolicitudesDerechosPendientes />}
 
-      {/* Consultas del formulario de contacto de su web (aún no son clientas). */}
-      {gestionaClientas && (
-        <ConsultasContacto
-          recarga={recargaConsultas}
+      {vista === 'interesadas' ? (
+        <InteresadasYPruebas
+          consultas={consultasNuevas}
+          cargandoConsultas={consultasNuevasCargando}
+          errorConsultas={consultasConError}
+          estados={estados.porSocio}
+          hoyISO={hoyISO}
+          puedeGestionar={gestionaClientas}
+          onAbrirClienta={(id) => router.push(`/clientas/${id}`)}
           onDarDeAlta={(c: ConsultaContacto) => {
             const [nombre = '', ...apellidos] = c.nombre.trim().split(/\s+/);
-            setForm({ ...emptyForm(), nombre, apellidos: apellidos.join(' '), email: c.email, telefono: c.telefono ?? '' });
+            setForm({ ...emptyForm(), nombre, apellidos: apellidos.join(' '), email: c.email ?? '', telefono: c.telefono ?? '' });
             setConsultaEnAlta(c.id);
             setShowForm('nueva');
           }}
+          onRecargar={() => setRecargaConsultas((n) => n + 1)}
         />
-      )}
-
-      {/* ── Stats row ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={Users} label="Total clientas" value={stats?.total ?? null} color="var(--muted-foreground)" />
-        <StatCard icon={UserCheck} label="Activas" value={stats?.activas ?? null} color="var(--success)" />
-        <StatCard icon={Bookmark} label="Con bono vigente" value={stats?.conBono ?? null} color="#6E9E0A" />
-        <StatCard icon={Clock} label="Sin venir 30d" value={stats?.inactivas30d ?? null} color="var(--warning)" />
+      ) : (
+      <>
+      {/* ── Estado: un chip por estado con su recuento ──────────────────────── */}
+      <div className="space-y-2">
+        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0" role="radiogroup" aria-label="Estado">
+          {(['TODAS', ...ESTADOS_CLIENTA] as const)
+            .filter((e) => e === 'TODAS' || e === filtroEstado || (conteos?.[e] ?? 0) > 0 || e === 'ACTIVA')
+            .map((e) => {
+              const activo = filtroEstado === e;
+              const n = e === 'TODAS' ? conteos?.TOTAL : conteos?.[e];
+              return (
+                <button
+                  key={e}
+                  role="radio"
+                  aria-checked={activo}
+                  data-estado-filtro={e}
+                  onClick={() => setFiltroEstado(e)}
+                  className={cn(
+                    'inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors [@media(pointer:fine)]:min-h-9',
+                    activo ? 'border-transparent bg-foreground text-background' : 'border-border bg-card text-foreground hover:border-muted-foreground',
+                  )}
+                >
+                  {e !== 'TODAS' && <PuntoEstado estado={e} />}
+                  {e === 'TODAS' ? 'Todas' : ETIQUETA_ESTADO[e]}
+                  <span className={cn('tabular-nums', activo ? 'text-background/70' : 'text-muted-foreground')}>{n ?? '—'}</span>
+                </button>
+              );
+            })}
+        </div>
+        {filtroEstado !== 'TODAS' && (
+          <p className="text-[12.5px] text-muted-foreground text-pretty">
+            <strong className="font-semibold text-foreground">{ETIQUETA_ESTADO[filtroEstado]}:</strong> {DEFINICION_ESTADO[filtroEstado]}
+          </p>
+        )}
       </div>
 
-      {/* ── Search + filters ────────────────────────────────────────────────── */}
-      <div className="space-y-3">
-        {/* Search bar */}
-        <div className="relative">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      {/* ── Buscar y filtrar ─────────────────────────────────────────────────── */}
+      {/* En el móvil, lo primero es buscar: los filtros van plegados detrás de un
+          botón que dice cuántos hay puestos. En pantallas grandes, en la misma
+          fila; ordenar ahí es pinchar en la cabecera de la columna. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-0 flex-1 sm:w-72 sm:flex-none lg:w-80">
+          <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <input
-            type="text"
-            placeholder="Buscar por nombre, email o teléfono…"
+            ref={buscadorRef}
+            type="search"
+            placeholder="Buscar por nombre, email o teléfono"
+            aria-label="Buscar clientas"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-10 pr-10 py-2.5 text-[13px] bg-card rounded-xl border border-border focus:outline-none focus:border-muted-foreground transition-colors placeholder:text-muted-foreground shadow-sm"
+            className="w-full min-h-11 rounded-xl border border-input bg-card pl-10 pr-10 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [@media(pointer:fine)]:min-h-10 [@media(pointer:fine)]:text-[13.5px]"
           />
-          {busqueda && (
+          {busqueda ? (
             <button
               onClick={() => setBusqueda('')}
               aria-label="Borrar búsqueda"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
             >
-              <X size={14} />
+              <X size={15} />
             </button>
+          ) : (
+            <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-border px-1.5 text-[11px] text-muted-foreground [@media(pointer:fine)]:inline">/</kbd>
           )}
         </div>
 
-        {/* Smart filter chips + sort */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* `flex-1` solo desde `sm`: en un teléfono las pastillas ocupan
-              varias líneas y, con `flex-1`, el bloque se quedaba con el ancho
-              entero de su fila y dejaba «Toda etapa» descolgada contra el
-              borde derecho, sin nada al lado. Sin el prefijo, los desplegables
-              caen justo detrás de la última pastilla. En escritorio caben en
-              una línea y `flex-1` sigue empujándolos a la derecha, que es lo
-              que se buscaba. */}
-          <div className="flex items-center gap-1.5 flex-wrap sm:flex-1">
-            {SMART_FILTERS.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setSmartFilter(f.id)}
-                className={cn(
-                  'px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border',
-                  smartFilter === f.id
-                    ? 'bg-brand text-brand-foreground border-foreground shadow-sm'
-                    : 'bg-card text-muted-foreground border-border hover:border-muted-foreground hover:text-foreground',
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Filtro por etapa del embudo y por etiqueta — antes solo se veían
-              dentro de cada ficha, sin forma de ver "todas mis Interesadas"
-              juntas (P1, auditoría "Veredicto de Marta"). */}
-          <select
-            value={filtroEtapa}
-            onChange={(e) => setFiltroEtapa(e.target.value as LeadStage | '')}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground focus:outline-none appearance-none cursor-pointer shrink-0"
-            aria-label="Filtrar por etapa del embudo"
-          >
-            <option value="">Toda etapa</option>
-            {ETAPA_OPTIONS.map((o) => (
-              <option key={o.id} value={o.id}>{o.label}</option>
-            ))}
-          </select>
-          {etiquetasDisponibles.length > 0 && (
-            <select
-              value={filtroEtiqueta}
-              onChange={(e) => setFiltroEtiqueta(e.target.value)}
-              className="rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground focus:outline-none appearance-none cursor-pointer shrink-0"
-              aria-label="Filtrar por etiqueta"
-            >
-              <option value="">Toda etiqueta</option>
-              {etiquetasDisponibles.map((tag) => (
-                <option key={tag} value={tag}>{tag}</option>
-              ))}
-            </select>
+        <button
+          type="button"
+          onClick={() => setFiltrosAbiertos((v) => !v)}
+          aria-expanded={filtrosAbiertos}
+          className={cn(
+            'inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3.5 text-[13.5px] font-medium sm:hidden',
+            nFiltrosPuestos > 0 ? 'border-foreground bg-card text-foreground' : 'border-border bg-card text-foreground',
           )}
+        >
+          <SlidersHorizontal size={16} aria-hidden />
+          Filtros
+          {nFiltrosPuestos > 0 && (
+            <span className="rounded-full bg-foreground px-1.5 text-[11.5px] tabular-nums text-background">{nFiltrosPuestos}</span>
+          )}
+        </button>
+
+        <div className={cn('basis-full flex-wrap items-center gap-2 sm:flex sm:basis-auto', filtrosAbiertos ? 'flex' : 'hidden')}>
+          <SelectFiltro
+            etiqueta="Plan"
+            valor={filtroPlan}
+            onCambiar={setFiltroPlan}
+            opciones={planesFiltrables.map((p) => ({ valor: p.id, texto: p.nombre }))}
+            todos="Todos los planes"
+          />
+          {etiquetasDisponibles.length > 0 && (
+            <SelectFiltro
+              etiqueta="Etiqueta"
+              valor={filtroEtiqueta}
+              onCambiar={setFiltroEtiqueta}
+              opciones={etiquetasDisponibles.map((t) => ({ valor: t, texto: t }))}
+              todos="Todas las etiquetas"
+            />
+          )}
+          <SelectFiltro
+            etiqueta="Más filtros"
+            valor={filtroMas}
+            onCambiar={(v) => setFiltroMas(v as FiltroMas)}
+            opciones={FILTROS_MAS.map((f) => ({ valor: f.id, texto: f.label }))}
+            todos="Sin más filtros"
+          />
+          {/* Ordenar: en la tabla se hace desde la cabecera de cada columna. */}
+          <div className="flex shrink-0 items-center gap-1 md:hidden">
+            <SelectFiltro
+              etiqueta="Orden"
+              valor={sortKey}
+              onCambiar={(v) => setSortKey(v as SortKey)}
+              opciones={SORT_OPTIONS.map((o) => ({ valor: o.key, texto: o.label }))}
+            />
+            <button
+              onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+              className="flex size-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:bg-muted [@media(pointer:fine)]:size-9"
+              aria-label={sortDir === 'asc' ? 'Orden ascendente: cambiar a descendente' : 'Orden descendente: cambiar a ascendente'}
+            >
+              {sortDir === 'asc' ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            </button>
+          </div>
 
           {/* Seguridad (auditoría PR #1276): crear/editar/borrar un segmento es
               escritura sobre una audiencia compartida del estudio, mismo
@@ -1062,319 +1332,229 @@ export default function Socios() {
               onCrear={addSegmentoCliente}
               onActualizar={(id, changes) => updateSegmentoCliente(id, changes)}
               onEliminar={deleteSegmentoCliente}
-              onAplicar={setSegmentoAplicado}
+              onAplicar={(seg) => { setSegmentoAplicado(seg); setSelected(new Set()); }}
             />
           )}
           {segmentoAplicado && (
             <button
               type="button"
-              onClick={() => setSegmentoAplicado(null)}
-              className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium bg-brand text-brand-foreground border border-foreground shadow-sm inline-flex items-center gap-1 shrink-0"
+              onClick={() => { setSegmentoAplicado(null); setSelected(new Set()); }}
+              className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl border border-transparent bg-foreground px-3 text-[12.5px] font-medium text-background [@media(pointer:fine)]:min-h-9"
             >
-              {segmentoAplicado.nombre} <X size={12} />
+              {segmentoAplicado.nombre} <X size={13} aria-label="Quitar vista" />
             </button>
           )}
-
-          {/* Sort select */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[11px] font-medium text-muted-foreground hidden sm:inline">Ordenar:</span>
-            <select
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground focus:outline-none appearance-none cursor-pointer"
-            >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.key} value={o.key}>{o.label}</option>
-              ))}
-            </select>
+          {hayFiltrosActivos && (
             <button
-              onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
-              className="p-1.5 rounded-lg border border-border bg-card hover:bg-muted transition-colors"
-              title={sortDir === 'asc' ? 'Ascendente' : 'Descendente'}
+              type="button"
+              onClick={limpiarFiltros}
+              className="min-h-10 shrink-0 rounded-xl px-2.5 text-[13px] font-medium text-muted-foreground hover:text-foreground [@media(pointer:fine)]:min-h-9"
             >
-              {sortDir === 'asc'
-                ? <ChevronUp size={14} className="text-muted-foreground" />
-                : <ChevronDown size={14} className="text-muted-foreground" />}
+              Quitar filtros
             </button>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* ── Bulk action bar ─────────────────────────────────────────────────── */}
-      {selected.size > 0 && (
-        <div className="flex items-center gap-2 px-4 py-3 bg-brand text-brand-foreground rounded-xl shadow-lg">
-          <span className="text-[12px] font-medium text-muted-foreground mr-1">
-            {selected.size} seleccionada{selected.size !== 1 ? 's' : ''}
-          </span>
-          <div className="flex-1" />
-          <button
-            onClick={handleEnviarEmail}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-card/10 hover:bg-card/20 transition-colors"
-          >
-            <Mail size={12} />
-            Enviar email
-          </button>
-          {mueveDinero && (
-          <button
-            onClick={() => { setAsignarPlanId(''); setShowAsignarPlan(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-card/10 hover:bg-card/20 transition-colors"
-          >
-            <Tag size={12} />
-            Cambiar plan
-          </button>
-          )}
-          {mueveDinero && (
-          <button
-            onClick={() => { setResultadoAmpliar(null); setErrorAmpliar(null); setShowAmpliar(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-card/10 hover:bg-card/20 transition-colors"
-          >
-            <CalendarPlus size={12} />
-            Ampliar caducidad
-          </button>
-          )}
-          {/* Mismo permiso que la tarjeta «Marketing» de la ficha
-              (puedeGestionarClientas), no `mueveDinero`: anotar un
-              consentimiento no mueve producto vendido. */}
+      {/* Cuántas salen y, en el móvil, el modo de elegir varias. */}
+      {lista.length > 0 && (
+        <div className="-mt-1 flex items-center justify-between gap-2 md:hidden">
+          <p className="text-[12.5px] text-muted-foreground" aria-live="polite">
+            {lista.length === 1 ? '1 clienta' : `${lista.length} clientas`}
+          </p>
           {gestionaClientas && (
-          <button
-            onClick={() => { setResultadoConsentMkt(null); setErrorConsentMkt(null); setAfirmadoConsentMkt(false); setShowConsentMkt(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-card/10 hover:bg-card/20 transition-colors"
-          >
-            <ShieldCheck size={12} />
-            Consentimiento marketing
-          </button>
+            <button
+              onClick={() => { setSeleccionando((v) => !v); if (seleccionando) setSelected(new Set()); }}
+              className="min-h-10 rounded-lg px-2 text-[13.5px] font-semibold text-foreground"
+            >
+              {seleccionando ? 'Listo' : 'Seleccionar'}
+            </button>
           )}
-          <button
-            onClick={() => setSelected(new Set())}
-            aria-label="Quitar selección"
-            className="ml-1 text-muted-foreground hover:text-white transition-colors p-1"
-          >
-            <X size={14} />
-          </button>
         </div>
       )}
 
-      {/* ── Table ──────────────────────────────────────────────────────────── */}
-      <div className="bg-card rounded-xl border border-border overflow-x-auto shadow-sm">
+      {/* ── La lista, y al lado la clienta abierta (pantallas anchas) ────────── */}
+      <div className={cn(panelAbierto && 'grid grid-cols-[minmax(320px,380px)_minmax(0,1fr)] items-start gap-4')}>
+      <div className={cn('overflow-hidden rounded-2xl border border-border bg-card shadow-xs', panelAbierto && 'sticky top-4')}>
         {lista.length === 0 ? (
           // P2 (auditoría de producto): migrado a `EmptyState`, la primitiva
           // extraída en la auditoría del 20-ago (~90 estados vacíos con 6
-          // implementaciones distintas) — esta pantalla se había quedado con
-          // su propia copia hecha a mano, cero veces usada en calendario ni
-          // aquí.
+          // implementaciones distintas).
           <EmptyState
             icono={Users}
-            titulo={hayFiltrosActivos ? 'No hay resultados' : 'Aún no hay clientas'}
+            titulo={hayFiltrosActivos ? 'Nadie cumple estos filtros' : 'Aún no hay clientas'}
             descripcion={hayFiltrosActivos
-              ? 'Prueba con otros filtros o términos de búsqueda.'
-              : 'Añade tu primera clienta para empezar a gestionar el estudio.'}
+              ? 'Prueba con otros filtros, o quítalos para ver a todas.'
+              : 'Añade tu primera clienta o tráelas de tu programa anterior.'}
             cta={hayFiltrosActivos
-              ? { label: 'Limpiar filtros', onClick: () => { setBusqueda(''); setSmartFilter('todas'); setFiltroEtapa(''); setFiltroEtiqueta(''); setSegmentoAplicado(null); } }
+              ? { label: 'Quitar filtros', onClick: limpiarFiltros }
               : { label: 'Añadir primera clienta', icono: Plus, onClick: () => { setForm(emptyForm()); setShowForm('nueva'); } }}
           />
+        ) : panelAbierto ? (
+          // Lista compacta junto a la ficha: nombre, plan y su aviso.
+          <ul aria-label="Clientas" className="max-h-[calc(100dvh-14rem)] divide-y divide-border overflow-y-auto">
+            {listaVisible.map((s, i) => {
+              const f = fila(s, i);
+              const activa = abierta === s.id;
+              return (
+                <li key={s.id}>
+                  <Link
+                    href={`/clientas/${s.id}`}
+                    onClick={(e) => abrirClienta(s.id, e)}
+                    aria-current={activa ? 'true' : undefined}
+                    data-fila-clienta={s.id}
+                    className={cn(
+                      'flex gap-3 px-3.5 py-2.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:bg-muted',
+                      activa && 'bg-accent shadow-[inset_3px_0_0_var(--brand)]',
+                    )}
+                  >
+                    <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarColor(`${s.nombre}${s.apellidos}`)} size="sm" />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="truncate text-[13.5px] font-semibold text-foreground">{s.nombre} {s.apellidos}</span>
+                        <span className="shrink-0 text-[11.5px] text-muted-foreground">{ultimaTexto(s.id)}</span>
+                      </span>
+                      <span className="block truncate text-[12.5px] text-muted-foreground">
+                        {f.ps.plan ? `${f.ps.plan}${f.ps.detalle ? ` · ${f.ps.detalle}` : ''}` : `Sin plan${f.ps.detalle ? ` · ${f.ps.detalle.charAt(0).toLowerCase()}${f.ps.detalle.slice(1)}` : ''}`}
+                      </span>
+                      <span className="mt-1 flex flex-wrap gap-1">
+                        {f.aviso ? <PastillaAviso aviso={f.aviso} atendido={f.atendido} ella={trato(s.genero).ella} /> : f.estado && <PastillaEstado estado={f.estado.estado} />}
+                        {f.seguimiento && hoyISO && <PastillaSeguimiento titulo={f.seguimiento.titulo} atrasado={(f.seguimiento.venceEl ?? hoyISO) < hoyISO} className="ml-1" />}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+            {visibles < lista.length && (
+              <li className="p-2">
+                <button onClick={() => setVisibles((v) => v + PAGE)} className="w-full rounded-lg py-2 text-[12.5px] font-semibold text-foreground hover:bg-muted">
+                  Ver {Math.min(PAGE, lista.length - visibles)} más
+                </button>
+              </li>
+            )}
+          </ul>
         ) : (
           <>
-          <table className="w-full hidden sm:table">
+          <table className="hidden w-full md:table">
             <thead>
-              <tr className="border-b border-muted bg-muted">
-                {/* Checkbox */}
-                <th className="pl-4 pr-2 py-3 w-9">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleSelectAll}
-                    className="rounded border-muted-foreground accent-foreground cursor-pointer"
-                  />
-                </th>
-                {/* Clienta */}
-                <th className="text-left px-4 py-3">
-                  <button
-                    onClick={() => toggleSort('nombre')}
-                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Clienta
-                    <SortIcon active={sortKey === 'nombre'} dir={sortDir} />
+              <tr className="border-b border-border text-left text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {gestionaClientas && (
+                  <th className="w-11 py-3 pl-4">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                      aria-label={allSelected ? 'Quitar la selección de todas' : `Seleccionar las ${lista.length} clientas de la lista`}
+                      className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
+                    />
+                  </th>
+                )}
+                <th className="py-3 pl-4 pr-3">
+                  <button onClick={() => toggleSort('nombre')} className="inline-flex items-center uppercase hover:text-foreground">
+                    Clienta <SortIcon active={sortKey === 'nombre'} dir={sortDir} />
                   </button>
                 </th>
-                {/* Plan */}
-                <th className="text-left px-4 py-3 hidden sm:table-cell">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Plan actual
-                  </span>
-                </th>
-                {/* Sesiones restantes */}
-                <th className="text-left px-4 py-3 hidden md:table-cell">
-                  <button
-                    onClick={() => toggleSort('sesiones_restantes')}
-                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Ses. rest.
-                    <SortIcon active={sortKey === 'sesiones_restantes'} dir={sortDir} />
+                <th className="py-3 pr-3">Estado</th>
+                <th className="py-3 pr-3">
+                  <button onClick={() => toggleSort('sesiones_restantes')} className="inline-flex items-center uppercase hover:text-foreground">
+                    Plan y saldo <SortIcon active={sortKey === 'sesiones_restantes'} dir={sortDir} />
                   </button>
                 </th>
-                {/* Última asistencia */}
-                <th className="text-left px-4 py-3 hidden lg:table-cell">
-                  <button
-                    onClick={() => toggleSort('ultima_visita')}
-                    className="flex items-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Última asistencia
-                    <SortIcon active={sortKey === 'ultima_visita'} dir={sortDir} />
+                <th className="hidden py-3 pr-3 lg:table-cell">
+                  <button onClick={() => toggleSort('ultima_visita')} className="inline-flex items-center uppercase hover:text-foreground">
+                    Última clase <SortIcon active={sortKey === 'ultima_visita'} dir={sortDir} />
                   </button>
                 </th>
-                {/* Estado */}
-                <th className="text-left px-4 py-3 hidden md:table-cell">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Estado
-                  </span>
-                </th>
-                {/* Actions */}
-                <th className="px-4 py-3 w-24" />
+                <th className="py-3 pr-3">Aviso</th>
+                <th className="w-12 py-3 pr-3"><span className="sr-only">Editar</span></th>
               </tr>
             </thead>
-
-            <tbody className="divide-y divide-muted">
-              {listaVisible.map((s) => {
-                const sus = getActiveSus(s.id);
-                const plan = getPlan(sus?.planId);
-                const lastVisit = getLastVisit(s.id);
-                const sesRest = saldoBonosPorSocio.get(s.id) ?? sus?.sesionesRestantes;
+            <tbody className="divide-y divide-border">
+              {listaVisible.map((s, i) => {
+                const f = fila(s, i);
                 const isSelected = selected.has(s.id);
-                const avatarText = avatarColor(`${s.nombre}${s.apellidos}`);
-
-                // Sesiones badge color
-                let sesColor = 'var(--success)';
-                let sesBg = 'color-mix(in srgb, var(--success) 12%, var(--card))';
-                if (sesRest != null) {
-                  if (sesRest <= 0) { sesColor = 'var(--destructive)'; sesBg = 'color-mix(in srgb, var(--destructive) 12%, var(--card))'; }
-                  else if (sesRest <= 2) { sesColor = 'var(--warning)'; sesBg = 'color-mix(in srgb, var(--warning) 12%, var(--card))'; }
-                }
-
+                const proxima = proximaTexto(s.id);
                 return (
                   <tr
                     key={s.id}
-                    onClick={() => router.push(`/clientas/${s.id}`)}
-                    className={cn(
-                      'hover:bg-muted transition-colors group cursor-pointer',
-                      isSelected && 'bg-brand/10',
-                    )}
+                    onClick={(e) => abrirClienta(s.id, e)}
+                    data-fila-clienta={s.id}
+                    className={cn('group cursor-pointer transition-colors hover:bg-muted/60', isSelected && 'bg-accent')}
                   >
-                    {/* Checkbox */}
-                    <td className="pl-4 pr-2 py-3.5" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelect(s.id)}
-                        className="rounded border-muted-foreground accent-foreground cursor-pointer"
-                      />
-                    </td>
-
-                    {/* Avatar + nombre */}
-                    <td className="px-4 py-3.5">
+                    {gestionaClientas && (
+                      <td className="py-3 pl-4" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(s.id)}
+                          aria-label={`Seleccionar a ${s.nombre} ${s.apellidos}`}
+                          className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
+                        />
+                      </td>
+                    )}
+                    <td className="py-3 pl-4 pr-3">
                       <div className="flex items-center gap-3">
-                        <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarText} size="sm" />
+                        <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarColor(`${s.nombre}${s.apellidos}`)} size="sm" />
                         <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-foreground truncate flex items-center gap-1.5">
+                          <p className="flex items-center gap-1.5 text-[14px] font-semibold text-foreground">
                             {semaforoParaMostrar.has(s.id) && (
-                              <span className="w-2 h-2 rounded-full shrink-0" title={SEMAFORO_META[semaforoParaMostrar.get(s.id)!].label}
+                              <span className="size-2 shrink-0 rounded-full" title={SEMAFORO_META[semaforoParaMostrar.get(s.id)!].label}
                                 style={{ backgroundColor: SEMAFORO_META[semaforoParaMostrar.get(s.id)!].color }} />
                             )}
-                            <span className="truncate">{s.nombre} {s.apellidos}</span>
+                            {/* Enlace de verdad: ⌘-clic la abre en otra pestaña. */}
+                            <Link href={`/clientas/${s.id}`} onClick={(e) => { e.stopPropagation(); abrirClienta(s.id, e); }} className="truncate hover:underline underline-offset-2">
+                              {s.nombre} {s.apellidos}
+                            </Link>
                             {idsFijas.has(s.id) && <EtiquetaFija genero={s.genero} />}
                           </p>
-                          <p className="text-[11px] text-muted-foreground truncate">{s.email}</p>
+                          <p className="truncate text-[12.5px] text-muted-foreground">{s.telefono || s.email || '—'}</p>
                         </div>
                       </div>
                     </td>
-
-                    {/* Plan */}
-                    <td className="px-4 py-3.5 hidden sm:table-cell">
-                      {plan ? (
-                        <div>
-                          <p className="text-[12px] font-medium text-foreground">{plan.nombre}</p>
-                          {sus?.estado === 'PAUSADA' && (
-                            <p className="text-[10px] font-medium text-warning">Pausada</p>
+                    <td className="py-3 pr-3">
+                      {f.estado ? (
+                        <>
+                          <PastillaEstado estado={f.estado.estado} />
+                          {hoyISO && textoDesde(f.estado, hoyTxt, { baja: bajasAbiertas.get(s.id) }) && (
+                            <span className="mt-0.5 block text-[12px] text-muted-foreground">{textoDesde(f.estado, hoyTxt, { baja: bajasAbiertas.get(s.id) })}</span>
                           )}
-                        </div>
+                        </>
+                      ) : <span className="text-[12px] text-muted-foreground">—</span>}
+                    </td>
+                    <td className="py-3 pr-3">
+                      {f.ps.plan ? (
+                        <>
+                          <span className="block text-[13.5px] text-foreground">{f.ps.plan}</span>
+                          {f.ps.detalle && <span className="block text-[12.5px]" style={{ color: f.ps.color }}>{f.ps.detalle}</span>}
+                        </>
                       ) : (
-                        <span className="text-[12px] text-muted-foreground">—</span>
+                        <>
+                          <span className="block text-[13px] text-muted-foreground">Sin plan</span>
+                          {f.ps.detalle && <span className="block text-[12.5px] text-muted-foreground">{f.ps.detalle}</span>}
+                        </>
                       )}
                     </td>
-
-                    {/* Sesiones restantes + caducidad/renovación */}
-                    <td className="px-4 py-3.5 hidden md:table-cell">
-                      {sesRest != null ? (
-                        <div className="flex flex-col gap-1 items-start">
-                          <span
-                            className="inline-block text-[12px] font-semibold px-2 py-0.5 rounded-md"
-                            style={{ backgroundColor: sesBg, color: sesColor }}
-                          >
-                            {sesRest}
-                          </span>
-                          {textoCaducidadFila(sus, plan) && (
-                            <span className="text-[10.5px] font-medium" style={{ color: colorCaducidadFila(sus, plan) }}>
-                              {textoCaducidadFila(sus, plan)}
-                            </span>
-                          )}
-                        </div>
-                      ) : sus && plan ? (
-                        // Mensual/plan recurrente sin contador de sesiones: no hay "—" vacío,
-                        // se enseña la renovación (o "Activo" si no hay fecha).
-                        <div className="flex flex-col gap-0.5 items-start">
-                          <span className="text-[11px] font-semibold text-success">Activo</span>
-                          {textoCaducidadFila(sus, plan) && (
-                            <span className="text-[10.5px] font-medium" style={{ color: colorCaducidadFila(sus, plan) }}>
-                              {textoCaducidadFila(sus, plan)}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[12px] text-muted-foreground">—</span>
-                      )}
+                    <td className="hidden py-3 pr-3 lg:table-cell">
+                      <span className="block text-[13px] text-foreground">{ultimaTexto(s.id)}</span>
+                      {proxima && <span className="block text-[12.5px] text-muted-foreground">Próxima: {proxima}</span>}
                     </td>
-
-                    {/* Última asistencia */}
-                    <td className="px-4 py-3.5 text-[12px] text-muted-foreground hidden lg:table-cell">
-                      {relativeTime(lastVisit)}
+                    <td className="py-3 pr-3">
+                      <span className="flex flex-wrap gap-1">
+                        {f.aviso && <PastillaAviso aviso={f.aviso} atendido={f.atendido} ella={trato(s.genero).ella} />}
+                        {f.seguimiento && hoyISO && <PastillaSeguimiento titulo={f.seguimiento.titulo} atrasado={(f.seguimiento.venceEl ?? hoyISO) < hoyISO} />}
+                      </span>
                     </td>
-
-                    {/* Estado */}
-                    <td className="px-4 py-3.5 hidden md:table-cell"><EstadoBadge s={s} /></td>
-
-                    {/* Row actions */}
-                    <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                        {gestionaClientas && (<>
+                    <td className="py-3 pr-3" onClick={(e) => e.stopPropagation()}>
+                      {gestionaClientas && (
                         <button
                           onClick={(e) => openEdit(s, e)}
-                          className="p-1.5 rounded-md hover:bg-muted transition-colors"
-                          title="Editar"
+                          className="rounded-lg p-2 text-muted-foreground opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-hover:opacity-100"
+                          aria-label={`Editar a ${s.nombre} ${s.apellidos}`}
                         >
-                          <Pencil size={14} className="text-muted-foreground" />
+                          <Pencil size={15} />
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void updateSocio(s.id, { activo: !s.activo }).then(res => {
-                              if (!res.ok) setErrorFila(res.error);
-                            });
-                          }}
-                          className="p-1.5 rounded-md hover:bg-muted transition-colors"
-                          title={s.activo ? 'Desactivar' : 'Activar'}
-                        >
-                          {s.activo
-                            ? <UserX size={14} className="text-muted-foreground" />
-                            : <UserCheck size={14} className="text-success" />}
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setConfirmEliminar(s.id); }}
-                          className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={14} className="text-destructive" />
-                        </button>
-                        </>)}
-                      </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -1382,88 +1562,130 @@ export default function Socios() {
             </tbody>
           </table>
 
-          {/* Mobile card list */}
-          <div className="sm:hidden divide-y divide-muted">
-            {listaVisible.map(s => {
-              const sus = getActiveSus(s.id);
-              const plan = getPlan(sus?.planId);
-              const lastVisit = getLastVisit(s.id);
-              const sesRest = saldoBonosPorSocio.get(s.id) ?? sus?.sesionesRestantes;
-              const avatarText = avatarColor(`${s.nombre}${s.apellidos}`);
+          {/* Móvil: una fila por clienta, con su plan y su estado o su aviso. */}
+          <ul aria-label="Clientas" className="divide-y divide-border md:hidden">
+            {listaVisible.map((s, i) => {
+              const f = fila(s, i);
+              const isSelected = selected.has(s.id);
               return (
-                <div
-                  key={s.id}
-                  onClick={() => router.push(`/clientas/${s.id}`)}
-                  className="flex items-start gap-3 px-4 py-3.5 active:bg-muted transition-colors cursor-pointer"
-                >
-                  <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarText} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-foreground truncate flex items-center gap-1.5">
+                <li key={s.id}>
+                  <Link
+                    href={`/clientas/${s.id}`}
+                    onClick={(e) => abrirClienta(s.id, e)}
+                    aria-pressed={seleccionando ? isSelected : undefined}
+                    className={cn('flex min-h-16 items-center gap-3 px-4 py-3 active:bg-muted', isSelected && 'bg-accent')}
+                  >
+                    {seleccionando && (
+                      <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full border text-[12px]', isSelected ? 'border-foreground bg-foreground text-background' : 'border-input')} aria-hidden>
+                        {isSelected && <CheckCircle2 size={14} />}
+                      </span>
+                    )}
+                    <ProfileAvatar avatarId={s.avatar} nombre={s.nombre} apellidos={s.apellidos} color={avatarColor(`${s.nombre}${s.apellidos}`)} size="sm" />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5">
                           {semaforoParaMostrar.has(s.id) && (
-                            <span className="w-2 h-2 rounded-full shrink-0" title={SEMAFORO_META[semaforoParaMostrar.get(s.id)!].label}
-                              style={{ backgroundColor: SEMAFORO_META[semaforoParaMostrar.get(s.id)!].color }} />
+                            <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: SEMAFORO_META[semaforoParaMostrar.get(s.id)!].color }} aria-hidden />
                           )}
-                          <span className="truncate">{s.nombre} {s.apellidos}</span>
-                            {idsFijas.has(s.id) && <EtiquetaFija genero={s.genero} />}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground truncate">{s.email}</p>
-                      </div>
-                      {gestionaClientas && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setConfirmEliminar(s.id); }}
-                        className="p-1.5 -mr-1.5 rounded-md hover:bg-destructive/10 shrink-0"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={14} className="text-destructive" />
-                      </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap mt-2">
-                      <EstadoBadge s={s} />
-                      {plan && <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-muted text-foreground">{plan.nombre}</span>}
-                      {sesRest != null && (
-                        <span
-                          className="text-[11px] font-semibold px-2 py-0.5 rounded-md"
-                          style={{ backgroundColor: sesRest <= 0 ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : sesRest <= 2 ? 'color-mix(in srgb, var(--warning) 12%, var(--card))' : 'color-mix(in srgb, var(--success) 12%, var(--card))', color: sesRest <= 0 ? 'var(--destructive)' : sesRest <= 2 ? 'var(--warning)' : 'var(--success)' }}
-                        >
-                          {sesRest} ses.
+                          <span className="truncate text-[15px] font-semibold text-foreground">{s.nombre} {s.apellidos}</span>
                         </span>
-                      )}
-                      {textoCaducidadFila(sus, plan) && (
-                        <span className="text-[11px] font-medium" style={{ color: colorCaducidadFila(sus, plan) }}>
-                          {textoCaducidadFila(sus, plan)}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-1.5">Última visita: {relativeTime(lastVisit)}</p>
-                  </div>
-                </div>
+                        <span className="shrink-0 text-[12px] text-muted-foreground">{ultimaTexto(s.id)}</span>
+                      </span>
+                      <span className="block truncate text-[12.5px] text-muted-foreground">
+                        {f.ps.plan ? `${f.ps.plan}${f.ps.detalle ? ` · ${f.ps.detalle}` : ''}` : `Sin plan${f.ps.detalle ? ` · ${f.ps.detalle.charAt(0).toLowerCase()}${f.ps.detalle.slice(1)}` : ''}`}
+                      </span>
+                      <span className="mt-1 flex flex-wrap gap-1">
+                        {f.aviso ? <PastillaAviso aviso={f.aviso} atendido={f.atendido} ella={trato(s.genero).ella} /> : f.estado && <PastillaEstado estado={f.estado.estado} />}
+                        {f.seguimiento && hoyISO && <PastillaSeguimiento titulo={f.seguimiento.titulo} atrasado={(f.seguimiento.venceEl ?? hoyISO) < hoyISO} className="ml-1" />}
+                        {idsFijas.has(s.id) && <EtiquetaFija genero={s.genero} />}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
               );
             })}
-          </div>
+          </ul>
           </>
         )}
 
-        {/* Table footer — paginación (P0-34) */}
-        {lista.length > 0 && (
-          <div className="px-5 py-3 border-t border-muted bg-muted flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-[11px] text-muted-foreground">
+        {/* Pie: cuántas se ven y «ver más» (P0-34: no montar miles de filas). */}
+        {lista.length > 0 && !panelAbierto && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-2.5">
+            <p className="text-[12.5px] text-muted-foreground">
               Mostrando {listaVisible.length} de {lista.length}
               {lista.length !== socios.length ? ` (de ${socios.length})` : ''} clientas
             </p>
             {visibles < lista.length && (
               <button
                 onClick={() => setVisibles((v) => v + PAGE)}
-                className="text-[12px] font-semibold text-brand-medio hover:underline"
+                className="min-h-9 rounded-lg px-3 text-[13px] font-semibold text-foreground hover:bg-muted"
               >
-                Ver más ({Math.min(PAGE, lista.length - visibles)})
+                Ver {Math.min(PAGE, lista.length - visibles)} más
               </button>
             )}
           </div>
         )}
       </div>
+
+      {panelAbierto && abierta && (
+        <section aria-label="Ficha de la clienta" className="min-w-0">
+          <div className="mb-2 flex items-center justify-end gap-3 text-[13px] font-medium text-foreground">
+            <span className="hidden text-[12px] text-muted-foreground xl:inline">↑ ↓ para moverte · Esc cierra</span>
+            <Link href={`/clientas/${abierta}`} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-muted">
+              Abrir en página completa <ArrowUpRight size={14} aria-hidden />
+            </Link>
+            <button onClick={() => setAbierta(null)} aria-label="Cerrar la ficha" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+              <X size={17} />
+            </button>
+          </div>
+          <FichaClienta key={abierta} id={abierta} modo="panel" />
+        </section>
+      )}
+      </div>
+      </>
+      )}
+
+      {/* ── Barra de lo seleccionado: flota abajo, sin tapar la última fila ─── */}
+      {/* Lo de todos los días a la vista (etiqueta, acceso, exportar); lo que
+          toca planes o consentimientos, en «Más». */}
+      {vista === 'clientas' && selected.size > 0 && (
+        // En el móvil, por encima de la barra de navegación de abajo (56 px + zona segura).
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+64px)] lg:pb-[calc(env(safe-area-inset-bottom,0px)+12px)] lg:pl-[var(--sidebar-w)]">
+          <div role="toolbar" data-barra-seleccion aria-label="Acciones con las seleccionadas" className="pointer-events-auto flex w-full max-w-xl items-center gap-1 rounded-2xl bg-sidebar px-2 py-2 text-sidebar-foreground shadow-xl md:w-auto md:max-w-none md:px-3">
+            <strong className="shrink-0 px-2 text-[13px] font-semibold tabular-nums">
+              {selected.size}<span className="hidden md:inline"> seleccionada{selected.size !== 1 ? 's' : ''}</span>
+            </strong>
+            <span className="mx-1 hidden h-5 w-px bg-sidebar-foreground/25 md:block" aria-hidden />
+            <div className="flex flex-1 items-center justify-around gap-1 md:flex-none md:justify-start">
+              {gestionaClientas && (
+                <AccionBloque icono={Tag} onClick={() => { setResultadoEtiqueta(null); setEtiquetaBloque(''); setShowEtiqueta(true); }}>Etiqueta</AccionBloque>
+              )}
+              {gestionaClientas && (
+                <AccionBloque icono={Mail} onClick={() => { setResultadoAcceso(null); setShowAcceso(true); }}><span className="md:hidden">Acceso</span><span className="hidden md:inline">Acceso a la app</span></AccionBloque>
+              )}
+              {gestionaClientas && (
+                <AccionBloque icono={Download} onClick={exportarSeleccionadas}>Exportar</AccionBloque>
+              )}
+              {accionesBloqueMas.length > 0 && (
+                <MenuAcciones
+                  arriba
+                  etiqueta="Más acciones con las seleccionadas"
+                  acciones={accionesBloqueMas}
+                  claseBoton="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 text-[11.5px] font-medium text-sidebar-foreground/90 transition-colors hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground md:min-h-9 md:flex-row md:gap-1.5 md:text-[13px]"
+                  boton={<><MoreHorizontal size={16} aria-hidden />Más</>}
+                />
+              )}
+            </div>
+            <button
+              onClick={() => { setSelected(new Set()); setSeleccionando(false); }}
+              aria-label="Quitar la selección"
+              className="ml-auto shrink-0 rounded-lg p-2 text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal: Nueva / Editar clienta ─────────────────────────────────────── */}
       <Dialog
@@ -1820,6 +2042,95 @@ export default function Socios() {
         />
       )}
 
+      {/* ── Modal: Etiqueta en bloque ──────────────────────────────────────── */}
+      <Dialog open={showEtiqueta} onOpenChange={(open) => { if (!open) cerrarEtiqueta(); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold text-foreground">
+              Poner una etiqueta — {selected.size} clienta{selected.size !== 1 ? 's' : ''}
+            </DialogTitle>
+          </DialogHeader>
+          {resultadoEtiqueta ? (
+            <div className="space-y-4 mt-2">
+              <p role="status" className="text-[13px] text-foreground">{resultadoEtiqueta}.</p>
+              <button onClick={cerrarEtiqueta} className="w-full min-h-10 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary hover:brightness-95">Cerrar</button>
+            </div>
+          ) : (
+            <div className="space-y-4 mt-2">
+              {etiquetasDisponibles.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {etiquetasDisponibles.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setEtiquetaBloque(t)}
+                      className={cn('rounded-full border px-3 py-1.5 text-[12.5px] font-medium', etiquetaBloque === t ? 'border-transparent bg-foreground text-background' : 'border-border bg-card text-foreground hover:bg-muted')}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <FF label="O escribe una nueva">
+                <input className={inputCls} value={etiquetaBloque} onChange={(e) => setEtiquetaBloque(e.target.value.slice(0, 40))} placeholder="Por ejemplo: Mañanas" />
+              </FF>
+              <div className="flex gap-2">
+                <button onClick={cerrarEtiqueta} disabled={aplicandoEtiqueta} className="flex-1 min-h-10 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted disabled:opacity-40">Cancelar</button>
+                <button
+                  onClick={() => void handleEtiquetaBloque()}
+                  disabled={!etiquetaBloque.trim() || aplicandoEtiqueta}
+                  className="flex-1 min-h-10 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95"
+                >
+                  {aplicandoEtiqueta ? 'Poniendo…' : `Poner a ${selected.size}`}
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal: Enviar acceso a la app (bulk) ────────────────────────────── */}
+      <Dialog open={showAcceso} onOpenChange={(open) => { if (!open) cerrarAcceso(); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold text-foreground">
+              Enviar el acceso a la app — {selected.size} clienta{selected.size !== 1 ? 's' : ''}
+            </DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const conEmail = socios.filter((s) => selected.has(s.id) && s.email).length;
+            const sinEmail = selected.size - conEmail;
+            return resultadoAcceso ? (
+              <div className="space-y-4 mt-2">
+                <p role="status" className="text-[13px] text-foreground">{resultadoAcceso}</p>
+                <button onClick={cerrarAcceso} className="w-full py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary hover:brightness-95">
+                  Cerrar
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4 mt-2">
+                <p className="text-[13px] text-muted-foreground text-pretty">
+                  Les llega el correo de bienvenida del estudio con el enlace para entrar en su app, sin contraseña.
+                  {sinEmail > 0 && <> <strong className="font-semibold text-foreground">{sinEmail} no tiene{sinEmail === 1 ? '' : 'n'} email</strong> y no lo recibirá{sinEmail === 1 ? '' : 'n'}.</>}
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={cerrarAcceso} disabled={enviandoAcceso} className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted disabled:opacity-40">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => void handleEnviarAcceso()}
+                    disabled={conEmail === 0 || enviandoAcceso}
+                    className="flex-1 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95"
+                  >
+                    {enviandoAcceso ? 'Enviando…' : `Enviar a ${conEmail}`}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* ── Modal: Asignar plan (bulk) ──────────────────────────────────────── */}
       <Dialog
         open={showAsignarPlan}
@@ -1845,6 +2156,30 @@ export default function Socios() {
                 ))}
               </select>
             </FF>
+            {/* Lo que va a pasar con el dinero, ANTES de pulsar: asignar en bloque
+                son N ventas. No cobra en el momento (anota un recibo pendiente por
+                clienta, como `assignPlan`), y eso también hay que decirlo. */}
+            {(() => {
+              const p = planesTarifa.find(x => x.id === asignarPlanId);
+              if (!p) return null;
+              const n = selected.size;
+              const euros = (v: number) => `${Number.isInteger(v) ? v : v.toFixed(2).replace('.', ',')} €`;
+              return (
+                <div className="rounded-xl bg-muted px-3.5 py-3 text-[12.5px] text-foreground space-y-1">
+                  {p.precio > 0 ? (
+                    <p>
+                      <strong className="font-semibold">Se anota{n === 1 ? '' : 'n'} {n} recibo{n === 1 ? '' : 's'} de {euros(p.precio)}{n > 1 ? ` (${euros(p.precio * n)} en total)` : ''}</strong> en «Quién me debe». {n === 1 ? 'No se cobra solo: lo cobras tú o lo paga ella.' : 'No se cobran solos: los cobras tú o los paga cada una.'}
+                    </p>
+                  ) : (
+                    <p>Es un plan gratis: no se anota ningún cobro.</p>
+                  )}
+                  {(p.matricula ?? 0) > 0 && (
+                    <p className="text-muted-foreground">A quien sea su primer plan en el estudio se le anota también la matrícula ({euros(p.matricula ?? 0)}), salvo que entre en una promoción de matrícula gratis.</p>
+                  )}
+                  <p className="text-muted-foreground">La cuota que tengan ahora se sustituye; los bonos con sesiones se conservan.</p>
+                </div>
+              );
+            })()}
             {errorAsignar && (
               <p className="text-[12.5px] text-destructive">{errorAsignar}</p>
             )}
@@ -1861,7 +2196,7 @@ export default function Socios() {
                 disabled={!asignarPlanId || asignando}
                 className="flex-1 py-2 rounded-xl text-[13px] font-medium text-primary-foreground bg-primary disabled:opacity-40 hover:brightness-95 transition-colors"
               >
-                {asignando ? 'Asignando…' : 'Asignar plan'}
+                {asignando ? 'Asignando…' : `Asignar a ${selected.size} clienta${selected.size !== 1 ? 's' : ''}`}
               </button>
             </div>
           </div>
@@ -2006,59 +2341,61 @@ export default function Socios() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Modal: Confirmar eliminar ───────────────────────────────────────── */}
-      <Dialog
-        open={!!confirmEliminar}
-        onOpenChange={(open) => !open && setConfirmEliminar(null)}
-      >
-        <DialogContent className="max-w-sm">
-          <div className="flex flex-col items-center text-center gap-3 py-2">
-            <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center">
-              <AlertTriangle size={22} className="text-destructive" />
-            </div>
-            <div>
-              <h3 className="text-[14px] font-semibold text-foreground mb-1">
-                ¿Dar de baja a esta clienta?
-              </h3>
-              <p className="text-[13px] text-muted-foreground">
-                Se anonimizan sus datos personales y su ficha de salud. Las facturas y recibos se conservan por obligación fiscal. Esta acción no se puede deshacer.
-              </p>
-            </div>
-            {errorEliminar && (
-              <p className="w-full text-[12.5px] text-destructive text-center">{errorEliminar}</p>
-            )}
-            <div className="flex gap-2 w-full">
-              <button
-                onClick={() => { setConfirmEliminar(null); setErrorEliminar(null); }}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                disabled={eliminando}
-                onClick={async () => {
-                  if (!confirmEliminar) return;
-                  // Se ESPERA al servidor y solo se cierra el diálogo si la baja
-                  // ha ido bien. Antes se cerraba siempre y la clienta parecía
-                  // borrada aunque el servidor lo hubiera rechazado.
-                  setEliminando(true); setErrorEliminar(null);
-                  try {
-                    await deleteSocio(confirmEliminar);
-                    setConfirmEliminar(null);
-                  } catch (e) {
-                    setErrorEliminar(e instanceof Error ? e.message : 'No se ha podido dar de baja.');
-                  } finally {
-                    setEliminando(false);
-                  }
-                }}
-                className="flex-1 py-2 rounded-xl text-[13px] font-medium text-white bg-destructive hover:bg-destructive transition-colors"
-              >
-                {eliminando ? 'Dando de baja…' : 'Eliminar'}
-              </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
+  );
+}
+
+// Un desplegable de filtro que enseña lo que tiene elegido («Plan: Mensual»):
+// un <select> nativo encima, invisible, para que en el móvil salga la rueda del
+// sistema y con teclado funcione como cualquier select.
+function SelectFiltro({ etiqueta, valor, onCambiar, opciones, todos }: {
+  etiqueta: string;
+  valor: string;
+  onCambiar: (v: string) => void;
+  opciones: { valor: string; texto: string }[];
+  /** Texto de «sin filtrar»; sin él, el select siempre tiene un valor (ordenar). */
+  todos?: string;
+}) {
+  const elegido = opciones.find((o) => o.valor === valor)?.texto;
+  const filtrando = todos !== undefined && !!valor;
+  // Sin filtrar dice solo qué filtra («Plan»); filtrando, lo elegido («Plan: Mensual»).
+  const conValor = todos === undefined || filtrando;
+  return (
+    <label className={cn(
+      'relative inline-flex min-h-10 shrink-0 items-center rounded-xl border bg-card pl-3 pr-8 text-[13px] font-medium text-foreground transition-colors hover:border-muted-foreground [@media(pointer:fine)]:min-h-9',
+      filtrando ? 'border-foreground bg-muted/60' : 'border-border',
+    )}>
+      {conValor ? (
+        <>
+          <span className="mr-1 text-muted-foreground">{etiqueta}:</span>
+          <span className="max-w-[11rem] truncate">{elegido ?? ''}</span>
+        </>
+      ) : (
+        <span>{etiqueta}</span>
+      )}
+      <ChevronDown size={14} className="pointer-events-none absolute right-2.5 text-muted-foreground" aria-hidden />
+      <select
+        value={valor}
+        onChange={(e) => onCambiar(e.target.value)}
+        aria-label={etiqueta}
+        className="absolute inset-0 cursor-pointer appearance-none opacity-0"
+      >
+        {todos !== undefined && <option value="">{todos}</option>}
+        {opciones.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function AccionBloque({ icono: Icono, onClick, children }: { icono: ElementType; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 text-[11.5px] font-medium text-sidebar-foreground/90 transition-colors hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground md:min-h-9 md:flex-row md:gap-1.5 md:text-[13px]"
+    >
+      <Icono size={16} aria-hidden />
+      {children}
+    </button>
   );
 }

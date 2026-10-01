@@ -98,7 +98,8 @@ async function montar(page: Page, ruta: string) {
 
 test.describe('Mandato SEPA: se ve al entrar', () => {
   test('la ficha enseña el mandato vigente que ya estaba en la base de datos', async ({ page }) => {
-    const { lecturas } = await montar(page, '/clientas/soc-1');
+    // El mandato vive en la pestaña «Pagos» de la ficha.
+    const { lecturas } = await montar(page, '/clientas/soc-1?pestana=pagos');
     await expect(page.getByText('Ana Gil')).toBeVisible({ timeout: 30_000 });
 
     // Llega en la 2ª ola: hay un instante de «Sin mandato» antes. Se espera el

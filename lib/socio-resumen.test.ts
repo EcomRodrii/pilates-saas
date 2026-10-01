@@ -66,6 +66,15 @@ test('resumenSocio: próximas reservas = futuras confirmadas', () => {
   assert.equal(r.proximasReservas[0].sesionId, 's-future');
 });
 
+test('resumenSocio: las próximas van por orden de clase, no por orden de llegada', () => {
+  const tarde = { ...sesionById.get('s-future')!, id: 's-tarde', inicio: '2026-08-20T16:00:00Z' };
+  const pronto = { ...sesionById.get('s-future')!, id: 's-pronto', inicio: '2026-07-17T08:00:00Z' };
+  const mapa = new Map([...sesionById, [tarde.id, tarde], [pronto.id, pronto]]);
+  const reservaDe = (sesionId: string) => ({ ...misReservas.find(r => r.sesionId === 's-future')!, id: `r-${sesionId}`, sesionId });
+  const r = resumenSocio({ ...base, sesionById: mapa, misReservas: [reservaDe('s-tarde'), ...misReservas, reservaDe('s-pronto')] });
+  assert.deepEqual(r.proximasReservas.map(x => x.sesionId), ['s-pronto', 's-future', 's-tarde']);
+});
+
 test('resumenSocio: diasSinVenir desde la última asistida', () => {
   const r = resumenSocio(base);
   assert.equal(r.diasSinVenir, 2); // 2026-07-14 → 2026-07-16

@@ -2,7 +2,7 @@
 
 import { requireAuthInServerAction } from '@/lib/auth-server-action';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeActivarAccesoDelRol, puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import { puedeActivarAccesoDelRol, puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
 import { leerSnapshotParaBaja, registrarBajaCartera } from '@/lib/instructor-dependency';
 import { obtenerOFirmarEnlace, marcarEnlaceEnviadoPorEmail } from '@/lib/sustituciones/enlaces';
 import { enviarEmailSolicitudDisponibilidad } from '@/lib/emails/solicitud-disponibilidad-server';
@@ -262,6 +262,15 @@ async function editarInstructora(
     throw new ErrorAccion('No se ha podido guardar la ficha.', 500);
   }
 
+  // Sus seguimientos de clientas pendientes pasan a no ser de nadie (los ve todo
+  // el mostrador en «Por decidir»): si no, nadie los vería nunca. También si su
+  // rol nuevo ya no gestiona clientas (p. ej. de recepción a instructora).
+  const dejaDeGestionarClientas = 'rol' in update && update.rol !== ficha.rol
+    && !puedeGestionarClientas(update.rol as Rol);
+  if ((pasaAInactiva || accesoReiniciado || dejaDeGestionarClientas) && ficha.auth_user_id) {
+    await desasignarSeguimientos(admin, sesion.studioId, ficha.auth_user_id as string);
+  }
+
   if (pasaAInactiva && ficha.nombre) {
     const snapshotBaja = await leerSnapshotParaBaja(admin, sesion.studioId, id).catch(() => null);
     if (snapshotBaja) {
@@ -277,6 +286,22 @@ async function editarInstructora(
   return { ok: true, accesoReiniciado };
 }
 
+/**
+ * Los seguimientos de clientas pendientes de una cuenta que deja el equipo (o
+ * pierde su acceso) pasan a «de nadie», que los ve todo el mostrador. Lo que
+ * falle aquí no deshace la baja: se avisa a Sentry y la baja sigue.
+ */
+async function desasignarSeguimientos(
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+  studioId: string,
+  cuenta: string,
+) {
+  const { error } = await admin.from('tareas')
+    .update({ asignada_a: null })
+    .eq('studio_id', studioId).eq('estado', 'PENDIENTE').eq('asignada_a', cuenta);
+  if (error) Sentry.captureException(error, { tags: { area: 'equipo', accion: 'desasignar-seguimientos' } });
+}
+
 async function bajaInstructora(
   admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   sesion: Awaited<ReturnType<typeof requireAuthInServerAction>>,
@@ -286,7 +311,7 @@ async function bajaInstructora(
   if (!id) throw new ErrorAccion('Falta el id', 400);
 
   const { data: victima } = await admin
-    .from('instructores').select('rol, nombre').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
+    .from('instructores').select('rol, nombre, auth_user_id').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
 
   if (sesion.rol !== 'PROPIETARIO') {
     if (!victima || !rolesQuePuedeAsignar(sesion.rol).includes(victima.rol as never)) {
@@ -315,6 +340,8 @@ async function bajaInstructora(
     Sentry.captureException(error, { tags: { area: 'equipo', accion: 'baja' } });
     throw new ErrorAccion('No se ha podido dar de baja.', 500);
   }
+
+  if (victima?.auth_user_id) await desasignarSeguimientos(admin, sesion.studioId, victima.auth_user_id as string);
 
   if (snapshotBaja && victima?.nombre) {
     await registrarBajaCartera(admin, {

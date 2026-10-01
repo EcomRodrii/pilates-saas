@@ -398,6 +398,14 @@ export interface RowNotasInternas {
   texto: string;
   tipo: string | null;
   creado_en: string | null;
+  // migr 20261001105603.
+  autor_uid: string | null;
+  // migr 20261001105603.
+  visibilidad: string | null;
+  // migr 20261001105603.
+  fijada: boolean | null;
+  // migr 20261001105603.
+  editada_en: string | null;
 }
 
 export interface RowNotasProgreso {
@@ -1988,6 +1996,12 @@ export interface RowComunicacionesSocio {
   creado_por: string | null;
   creado_por_nombre: string | null;
   creado_en: string;
+  // migr 20261001105529.
+  canal: string | null;
+  // migr 20261001105529.
+  resultado: string | null;
+  // migr 20261001105529.
+  nota: string | null;
 }
 
 export interface RowChangelogVersiones {
@@ -2485,6 +2499,16 @@ export interface RowTareas {
   origen: string;
   creado_en: string;
   completado_en: string | null;
+  // migr 20261001105623.
+  vence_el: string | null;
+  // migr 20261001105623.
+  asignada_a: string | null;
+  // migr 20261001105623.
+  creada_por: string | null;
+  // migr 20261001105623.
+  hecha_por: string | null;
+  // migr 20261001105623.
+  recomendacion_id: string | null;
 }
 
 export interface RowRedFormalizaciones {
@@ -3448,6 +3472,18 @@ export interface RowConsultasContacto {
   creada_en: string;
   atendida_en: string | null;
   atendida_por: string | null;
+  // migr 20261001105825.
+  canal: string | null;
+  // migr 20261001105825.
+  registrada_por: string | null;
+  // migr 20261001105825.
+  convertida_en: string | null;
+  // migr 20261001105825.
+  descartada_en: string | null;
+  // migr 20261001105825.
+  descartada_por: string | null;
+  // migr 20261001105825.
+  socio_id: string | null;
 }
 
 export interface RowSupresionesEquipo {
@@ -3658,6 +3694,17 @@ export interface RowVerifactuDecisionesAnteriores {
   evidencia: any;
   decidido_por: string;
   creado_en: string;
+}
+
+export interface RowBajasClienta {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  motivo: string;
+  baja_en: string;
+  baja_por: string | null;
+  alta_en: string | null;
+  alta_por: string | null;
 }
 
 
@@ -4346,6 +4393,10 @@ export type NotasInternasInsert = {
   texto?: string | null;
   tipo?: string | null | null;
   creado_en?: string | null | null;
+  autor_uid?: string | null | null;
+  visibilidad?: string | null | null;
+  fijada?: boolean | null | null;
+  editada_en?: string | null | null;
 }
 
 export type NotasInternasUpdate = {
@@ -4355,6 +4406,10 @@ export type NotasInternasUpdate = {
   texto?: string | null;
   tipo?: string | null | null;
   creado_en?: string | null | null;
+  autor_uid?: string | null | null;
+  visibilidad?: string | null | null;
+  fijada?: boolean | null | null;
+  editada_en?: string | null | null;
 }
 
 export type NotasProgresoInsert = {
@@ -6909,6 +6964,9 @@ export type ComunicacionesSocioInsert = {
   creado_por?: string | null | null;
   creado_por_nombre?: string | null | null;
   creado_en?: string | null;
+  canal?: string | null | null;
+  resultado?: string | null | null;
+  nota?: string | null | null;
 }
 
 export type ComunicacionesSocioUpdate = {
@@ -6923,6 +6981,9 @@ export type ComunicacionesSocioUpdate = {
   creado_por?: string | null | null;
   creado_por_nombre?: string | null | null;
   creado_en?: string | null;
+  canal?: string | null | null;
+  resultado?: string | null | null;
+  nota?: string | null | null;
 }
 
 export type ChangelogVersionesInsert = {
@@ -7815,6 +7876,11 @@ export type TareasInsert = {
   origen?: string | null;
   creado_en?: string | null;
   completado_en?: string | null | null;
+  vence_el?: string | null | null;
+  asignada_a?: string | null | null;
+  creada_por?: string | null | null;
+  hecha_por?: string | null | null;
+  recomendacion_id?: string | null | null;
 }
 
 export type TareasUpdate = {
@@ -7827,6 +7893,11 @@ export type TareasUpdate = {
   origen?: string | null;
   creado_en?: string | null;
   completado_en?: string | null | null;
+  vence_el?: string | null | null;
+  asignada_a?: string | null | null;
+  creada_por?: string | null | null;
+  hecha_por?: string | null | null;
+  recomendacion_id?: string | null | null;
 }
 
 export type RedFormalizacionesInsert = {
@@ -9704,6 +9775,12 @@ export type ConsultasContactoInsert = {
   creada_en?: string | null;
   atendida_en?: string | null | null;
   atendida_por?: string | null | null;
+  canal?: string | null | null;
+  registrada_por?: string | null | null;
+  convertida_en?: string | null | null;
+  descartada_en?: string | null | null;
+  descartada_por?: string | null | null;
+  socio_id?: string | null | null;
 }
 
 export type ConsultasContactoUpdate = {
@@ -9719,6 +9796,12 @@ export type ConsultasContactoUpdate = {
   creada_en?: string | null;
   atendida_en?: string | null | null;
   atendida_por?: string | null | null;
+  canal?: string | null | null;
+  registrada_por?: string | null | null;
+  convertida_en?: string | null | null;
+  descartada_en?: string | null | null;
+  descartada_por?: string | null | null;
+  socio_id?: string | null | null;
 }
 
 export type SupresionesEquipoInsert = {
@@ -10139,6 +10222,28 @@ export type VerifactuDecisionesAnterioresUpdate = {
   evidencia?: any | null;
   decidido_por?: string | null;
   creado_en?: string | null;
+}
+
+export type BajasClientaInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  motivo?: string | null;
+  baja_en?: string | null;
+  baja_por?: string | null | null;
+  alta_en?: string | null | null;
+  alta_por?: string | null | null;
+}
+
+export type BajasClientaUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null;
+  motivo?: string | null;
+  baja_en?: string | null;
+  baja_por?: string | null | null;
+  alta_en?: string | null | null;
+  alta_por?: string | null | null;
 }
 
 export type Database = {
@@ -11288,6 +11393,11 @@ export type Database = {
         Row: RowVerifactuDecisionesAnteriores;
         Insert: VerifactuDecisionesAnterioresInsert;
         Update: VerifactuDecisionesAnterioresUpdate;
+      };
+      bajas_clienta: {
+        Row: RowBajasClienta;
+        Insert: BajasClientaInsert;
+        Update: BajasClientaUpdate;
       };
     };
   };
