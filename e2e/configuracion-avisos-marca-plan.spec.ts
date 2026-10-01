@@ -263,7 +263,7 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     await ir(page, 'configuracion');
 
     const plan = page.locator('#inicio-plan');
-    await expect(plan.locator('[data-resumen="valor"]')).toHaveText('Prueba del plan Estudio · quedan 5 días', { timeout: 30_000 });
+    await expect(plan.locator('[data-resumen="valor"]')).toHaveText('Estudio en prueba · quedan 5 días', { timeout: 30_000 });
     await expect(plan).toHaveAttribute('href', '/suscripcion');
     await expect(plan.locator('[data-estado-ajuste]')).toHaveCount(0);
 

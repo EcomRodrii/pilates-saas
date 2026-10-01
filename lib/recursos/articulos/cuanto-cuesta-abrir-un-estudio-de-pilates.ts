@@ -138,7 +138,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'El software de reservas y cobros pesa poco al lado del alquiler, pero decide cuántas horas pasas contestando mensajes. Si buscas opciones gratuitas, las repasamos en [software de pilates gratis](/recursos/software-pilates-gratis); las de pago, comparadas, en [el mejor software para estudios de pilates](/recursos/mejor-software-para-estudios-de-pilates). Tentare cuesta 29 € al mes en el plan Base, 59 € en el Estudio y 149 € en el Cadena, con IVA y sin permanencia ([precios](/precios)).',
+          texto: 'El software de reservas y cobros pesa poco al lado del alquiler, pero decide cuántas horas pasas contestando mensajes. Si buscas opciones gratuitas, las repasamos en [software de pilates gratis](/recursos/software-pilates-gratis); las de pago, comparadas, en [el mejor software para estudios de pilates](/recursos/mejor-software-para-estudios-de-pilates). Tentare cuesta 29 € al mes en el plan Founding Studio, 59 € en el Estudio y 149 € en el Cadena, con IVA y sin permanencia ([precios](/precios)).',
         },
         {
           t: 'p',

@@ -28,7 +28,9 @@ export interface Entitlements {
     decisiones: boolean;   // Decision OS / Centro de Control — gate de plan; el
                             // encendido operativo real por estudio vive en
                             // decision_feature_flags (DECISION-OS-MODELO-DATOS.md §2.11)
-    marca: boolean;        // app de marca: tema white-label del portal (editor + publicar)
+    marca: boolean;        // app de marca: tema white-label del portal (editor + publicar).
+                           // En TODOS los planes desde el 2-oct-2026 (decisión del fundador):
+                           // el plan de entrada pasó a llamarse Founding Studio y la incluye.
     sustitucionesAutonomas: boolean; // modos autónomo/vacaciones del motor de
                                      // sustituciones (Base se queda en manual/asistido)
   };
@@ -37,7 +39,7 @@ export interface Entitlements {
 export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
   BASE: {
     maxSocios: 150,
-    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false, decisiones: false, marca: false, sustitucionesAutonomas: false },
+    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false, decisiones: false, marca: true, sustitucionesAutonomas: false },
   },
   ESTUDIO: {
     maxSocios: Infinity,
@@ -49,10 +51,17 @@ export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
   },
 };
 
-/** Info de cada plan para la UI de precios (los price IDs de Stripe van aparte). */
+/**
+ * Info de cada plan para la UI de precios (los price IDs de Stripe van aparte).
+ *
+ * ⚠️ `nombre` es lo que se ENSEÑA; el id (`BASE`) es lo que se guarda en
+ * `studios.plan` (CHECK `studios_plan_valido`) y lo que mapean los price IDs.
+ * El plan de entrada se llama «Founding Studio» desde el 2-oct-2026 sin cambiar
+ * su id: renombrarlo exigiría migrar la columna y los precios de Stripe.
+ */
 export const PLAN_INFO: Record<Plan, { nombre: string; precioMes: number; resumen: string }> = {
-  BASE: { nombre: 'Base', precioMes: 29, resumen: 'Reservas, cobros y check-in. Hasta 150 socias.' },
-  ESTUDIO: { nombre: 'Estudio', precioMes: 59, resumen: 'Socias ilimitadas, sustituciones autónomas, Centro de Control y app con tu marca.' },
+  BASE: { nombre: 'Founding Studio', precioMes: 29, resumen: 'Reservas, cobros, check-in y app con tu marca. Hasta 150 socias.' },
+  ESTUDIO: { nombre: 'Estudio', precioMes: 59, resumen: 'Socias ilimitadas, sustituciones autónomas y Centro de Control.' },
   CADENA: { nombre: 'Cadena', precioMes: 149, resumen: 'Multi-centro y todo incluido.' },
 };
 

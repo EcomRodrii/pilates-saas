@@ -41,7 +41,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Eversports Manager?',
-    a: 'Según su web, depende de las reservas al mes y no incluye IVA. Con pago mensual: Light (hasta 49 reservas) 41 €, Starter (hasta 199) 69 €, Accelerate (hasta 599) 106 €, Professional (hasta 1.499) 149 € y Champion 189 €; con pago anual salen a 33, 55, 85, 119 y 151 € al mes. Hay una configuración de 99 € (pago único). Tentare: Base 29, Estudio 59 y Cadena 149 €/mes, IVA incluido, sin cuota de alta.',
+    a: 'Según su web, depende de las reservas al mes y no incluye IVA. Con pago mensual: Light (hasta 49 reservas) 41 €, Starter (hasta 199) 69 €, Accelerate (hasta 599) 106 €, Professional (hasta 1.499) 149 € y Champion 189 €; con pago anual salen a 33, 55, 85, 119 y 151 € al mes. Hay una configuración de 99 € (pago único). Tentare: Founding Studio 29, Estudio 59 y Cadena 149 €/mes, IVA incluido, sin cuota de alta.',
   },
   {
     q: '¿Puedo pasar mis datos de Eversports a Tentare?',

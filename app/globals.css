@@ -1442,3 +1442,16 @@ body:has([data-barra-seleccion]) .panel-wa-fab { display: none; }
   .tarjeta-metrica .tm-pie { grid-column: 1 / -1; margin-top: 0 !important; }
   .tarjeta-metrica .tm-barra { display: none !important; }
 }
+
+/* «Founding Studio» (components/planes/nombre-plan.tsx). `em` a propósito: la
+   Cormorant tiene el ojo pequeño y a igual cuerpo se ve un punto más chica que
+   la letra de alrededor, así que se agranda respecto a donde caiga. */
+.nombre-plan-founding {
+  font-family: var(--font-cormorant);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.3em;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+}

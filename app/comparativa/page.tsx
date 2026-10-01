@@ -292,7 +292,7 @@ export default function ComparativaPage() {
           <div className="cmp-two">
             <Reveal style={{ background: '#171717', border: '1px solid rgba(255,255,255,.07)', borderRadius: 18, padding: 24 }}>
               <h3 style={{ fontSize: 17, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>App nativa para tus alumnas</h3>
-              <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Hoy tus alumnas usan una app web (funciona en cualquier móvil, sin pasar por la App Store). Bsport, Eversports, Mindbody y otros ofrecen apps propias para los clientes del estudio; la de Tentare se instala desde el navegador, con el nombre y el icono de tu estudio, pero no está en las tiendas de aplicaciones.</p>
+              <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Hoy tus alumnas usan una app web (funciona en cualquier móvil, sin pasar por la App Store). Bsport, Eversports, Mindbody y otros ofrecen apps propias para los clientes del estudio; la de Tentare se instala desde el navegador, con el nombre, el icono, el logo y los colores de tu estudio en todos los planes, pero no está en las tiendas de aplicaciones.</p>
             </Reveal>
             <Reveal delay={90} style={{ background: '#171717', border: '1px solid rgba(255,255,255,.07)', borderRadius: 18, padding: 24 }}>
               <h3 style={{ fontSize: 17, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>Un marketplace que te traiga clientas</h3>

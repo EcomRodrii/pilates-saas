@@ -42,7 +42,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta DeporWeb?',
-    a: 'DeporWeb no publica precios en su web: hay que contactar con ellos. Tentare sí: Base 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
+    a: 'DeporWeb no publica precios en su web: hay que contactar con ellos. Tentare sí: Founding Studio 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 

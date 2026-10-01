@@ -34,7 +34,7 @@ const FAQ = [
   },
   {
     q: '¿Aparece Tentare por algún lado?',
-    a: 'Apenas. El nombre de la app instalada, el icono, el color y los correos que recibe son de tu estudio; Tentare solo aparece en una línea discreta al pie de su perfil y de la página de reservas. La app de marca está incluida a partir del plan Estudio.',
+    a: 'Apenas. El nombre de la app instalada, el icono, el color y los correos que recibe son de tu estudio; Tentare solo aparece en una línea discreta al pie de su perfil y de la página de reservas. La app de marca está incluida en todos los planes, también en el Founding Studio de 29 €/mes.',
   },
   {
     q: '¿Puede gestionar su plaza fija ella sola?',

@@ -75,7 +75,7 @@ test.describe('Crear un estudio de principio a fin', () => {
     expect(pendiente).toMatchObject({ nombre: 'Estudio Aurora', plan: 'ESTUDIO' });
   });
 
-  test('elegir plan Base lo lleva hasta el final', async ({ page }) => {
+  test('elegir el plan Founding Studio lo lleva hasta el final', async ({ page }) => {
     let metadata: Record<string, unknown> | null = null;
     await page.route('**/auth/v1/signup**', route => {
       metadata = (route.request().postDataJSON() as { data?: Record<string, unknown> })?.data ?? null;
@@ -84,7 +84,7 @@ test.describe('Crear un estudio de principio a fin', () => {
 
     await page.goto('/crear-estudio');
     await rellenarPaso1(page);
-    await page.getByRole('radio', { name: /Plan Base/ }).click();
+    await page.getByRole('radio', { name: /Plan Founding Studio/ }).click();
     await pasarDelPlan(page);
     await rellenarPaso3(page);
     await page.getByRole('button', { name: /días gratis/ }).click();
@@ -215,7 +215,7 @@ test.describe('En el móvil', () => {
     await rellenarPaso1(page);
 
     // Las tres tarjetas de plan se apilan; todas tienen que ser alcanzables.
-    for (const plan of ['Plan Base', 'Plan Estudio', 'Plan Cadena']) {
+    for (const plan of ['Plan Founding Studio', 'Plan Estudio', 'Plan Cadena']) {
       await expect(page.getByRole('radio', { name: new RegExp(plan) })).toBeVisible();
     }
     await page.getByRole('button', { name: 'Continuar' }).click();

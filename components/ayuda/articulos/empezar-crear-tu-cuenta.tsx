@@ -32,7 +32,7 @@ export default function Contenido() {
         </p>
         <AyudaCaptura
           src="/help/empezar/crear-estudio-paso-2.png"
-          alt="Selector de plan durante el alta: Base 29€, Estudio 59€ y Cadena 149€, los tres con 7 días gratis"
+          alt="Selector de plan durante el alta: Founding Studio 29€, Estudio 59€ y Cadena 149€, los tres con 7 días gratis"
           caption="Paso 2 de 3 — los tres planes, todos con 7 días gratis."
         />
       </AyudaPaso>

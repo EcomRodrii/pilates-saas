@@ -158,7 +158,7 @@ export function DetalleLogoYFavicon({ favicon, puedeEditarFavicon, soyPropietari
         ) : (
           <p className="text-[11.5px] leading-relaxed text-muted-foreground">
             {soyPropietaria
-              ? 'El favicon forma parte de la app con tu marca, incluida a partir del plan Estudio.'
+              ? 'El favicon forma parte de la app con tu marca: va en todos los planes y se activa con tu suscripción.'
               : 'Solo la propietaria puede cambiar el favicon.'}
           </p>
         )}

@@ -4,6 +4,7 @@ import { useEffect, useId } from 'react';
 import { Check, Minus, ChevronDown } from 'lucide-react';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { CATEGORIAS, type ValorPlan } from '@/lib/billing/catalogo-planes';
+import { NombrePlan } from '@/components/planes/nombre-plan';
 
 // Comparativa completa por categorías. La usan /precios (pública), la hoja
 // «ver todo lo que incluye» del alta y /suscripcion — una sola tabla, no tres
@@ -77,7 +78,7 @@ export function ComparativaPlanes({
                   p === destacado ? 'text-brand-medio' : 'text-muted-foreground'
                 }`}
               >
-                {PLAN_INFO[p].nombre}
+                <NombrePlan plan={p} />
                 <span className="block text-[10px] font-medium tabular-nums opacity-70">
                   {PLAN_INFO[p].precioMes}€
                 </span>

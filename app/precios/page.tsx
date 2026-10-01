@@ -11,6 +11,7 @@ import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLANES, PLAN_ENTITLEMENTS, PLAN_INFO, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
 import { funcionalidades, paginaDe, urlDe, BASE_URL } from '@/lib/seo/paginas';
 import { LEGAL } from '@/lib/legal-info';
+import { NombrePlan } from '@/components/planes/nombre-plan';
 
 const PATH = '/precios';
 const pagina = paginaDe(PATH)!;
@@ -66,8 +67,8 @@ const FAQ = [
     a: 'No. Tentare no añade ninguna comisión sobre tus cobros ni tiene un marketplace donde competir por tus clientas. Lo que sí pagas es la comisión de Stripe por procesar cada pago, que es de Stripe y la ves en su propio panel.',
   },
   {
-    q: '¿Qué pasa si supero las 150 alumnas del plan Base?',
-    a: 'El tope se aplica sobre alumnas activas: al llegar al límite no puedes dar de alta a más hasta que pases al plan Estudio. No se corta nada de lo que ya tienes ni se borra a nadie.',
+    q: '¿Qué pasa si supero las 150 alumnas del plan Founding Studio?',
+    a: 'El tope cuenta alumnas activas. No se bloquea ninguna alta ni se borra a nadie: en Suscripción ves cuántas llevas, y pasas al plan Estudio cuando te encaje.',
   },
   {
     q: '¿Y si un mes falla el cobro de mi suscripción?',
@@ -148,7 +149,7 @@ export default function PreciosPage() {
                   boxShadow: destacado ? '0 34px 66px -26px rgba(26,26,26,.45)' : undefined,
                 }}
               >
-                <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginBottom: 12 }}>{PLAN_INFO[p].nombre}</div>
+                <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginBottom: 12 }}>{p === 'BASE' ? <NombrePlan plan={p} tamano={26} /> : PLAN_INFO[p].nombre}</div>
                 <div style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-.035em', color: destacado ? '#fff' : undefined, lineHeight: 1 }}>
                   {PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: '#6B6B63' }}>/mes</span>
                 </div>

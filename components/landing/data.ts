@@ -31,26 +31,29 @@ export const INTEGRACIONES = [
 // no existe en los entitlements, y «EL MÁS ELEGIDO» también (0 estudios de pago).
 export const PLANS = [
   {
-    name: 'Base',
+    id: 'BASE' as const,
+    name: 'Founding Studio',
     price: '29€',
     desc: 'Para empezar. Hasta 150 alumnas.',
-    features: ['Reservas y calendario', 'Cobros, bonos y facturas', 'Sustituciones asistidas'],
+    features: ['Reservas y calendario', 'Cobros, bonos y facturas', 'App con tu marca', 'Sustituciones asistidas'],
     cta: 'Probar 7 días gratis',
     dark: false,
     popular: false,
     contacto: false,
   },
   {
+    id: 'ESTUDIO' as const,
     name: 'Estudio',
     price: '59€',
     desc: 'El plan completo. Alumnas ilimitadas.',
-    features: ['Todo lo de Base', 'Alumnas ilimitadas', 'Sustituciones autónomas', 'App con tu marca'],
+    features: ['Todo lo de Founding Studio', 'Alumnas ilimitadas', 'Sustituciones autónomas', 'Centro de Control'],
     cta: 'Probar 7 días gratis',
     dark: true,
     popular: true,
     contacto: false,
   },
   {
+    id: 'CADENA' as const,
     name: 'Cadena',
     price: '149€',
     desc: 'Varias sedes en un mismo panel.',
