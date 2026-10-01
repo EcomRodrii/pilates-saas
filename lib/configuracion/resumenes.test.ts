@@ -235,8 +235,11 @@ test('una conexión que falla lleva a su tarjeta, y una que se recuperó no avis
   const [kisi] = avisosDeConfiguracion(con({}, { integraciones: [fallando('KISI')] }));
   assert.deepEqual([kisi.seccion, kisi.ancla], ['conexiones', 'integracion-kisi']);
   // Todas tienen su fila: ninguna aviso cae en una sección sin nada que tocar.
+  // Salvo las plataformas que venden clases (ClassPass, USC, Wellhub), que
+  // comparten una sola fila: hoy solo se encienden, no tienen nada propio.
+  const PLATAFORMAS_DE_VENTA = new Set(['CLASSPASS', 'URBAN_SPORTS_CLUB', 'WELLHUB']);
   for (const [tipo, tarjeta] of Object.entries(TARJETA_DE_INTEGRACION)) {
-    assert.equal(tarjeta, `integracion-${tipo.toLowerCase()}`, tipo);
+    assert.equal(tarjeta, PLATAFORMAS_DE_VENTA.has(tipo) ? 'plataformas-externas' : `integracion-${tipo.toLowerCase()}`, tipo);
   }
   const recuperada = { ...fallando('WHATSAPP'), ultimoOkEn: '2026-09-03T10:00:00Z' };
   assert.deepEqual(avisosDeConfiguracion(con({}, { integraciones: [recuperada] })), []);

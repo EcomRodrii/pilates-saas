@@ -404,7 +404,11 @@ export interface MandatoSEPA {
 // ─── Integraciones por negocio ───────────────────────────────────────────────
 export type TipoIntegracion =
   | 'STRIPE' | 'RESEND' | 'GOOGLE_CALENDAR' | 'GMAIL' | 'WHATSAPP'
-  | 'ZOOM' | 'KISI' | 'MAILCHIMP' | 'KLAVIYO' | 'ZAPIER';
+  | 'ZOOM' | 'KISI' | 'MAILCHIMP' | 'KLAVIYO' | 'ZAPIER'
+  // Plataformas que venden plazas del estudio. Por ahora en modo manual
+  // (`config.modo = 'manual'`: recepción apunta sus ventas); con la API, la
+  // misma fila guardará los ids de la plataforma.
+  | 'CLASSPASS' | 'URBAN_SPORTS_CLUB' | 'WELLHUB';
 
 export interface Integracion {
   id: string;
