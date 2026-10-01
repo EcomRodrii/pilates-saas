@@ -45,6 +45,7 @@ La API se activa estudio a estudio: si el estudio no la tiene activada, no se pu
 Reglas de los permisos:
 
 - **Una credencial nunca ve más que quien la concedió.** Un MANAGER no puede dar `pagos:leer`, `facturas:leer` ni `clientas:datos_fiscales`, porque en el panel tampoco ve esos datos. Si una app OAuth los pide y autoriza un MANAGER, la pantalla de consentimiento dice qué queda fuera y el token sale sin esos permisos (el campo `scope` de `/api/oauth/token` lo indica).
+- **Cada app OAuth tiene una lista de permisos que puede pedir.** Lo que pida fuera de esa lista no se le da, autorice quien autorice: la pantalla de consentimiento lo dice. La lista se comprueba también en cada petición, así que recortarla vale al momento, incluso para los tokens ya emitidos. Hoy Zapier puede pedir lo que ya usaba y no los datos fiscales de las clientas ni las facturas.
 - **Se comprueban en cada petición**, con el rol que esa persona tiene ese día. Si deja el estudio, o se queda sin ningún permiso que pueda dar, sus credenciales dejan de valer.
 - **Las claves de API solo dan permisos de lectura**, y solo puede crearlas la propietaria.
 - **Mover dinero no es posible.** No existe `pagos:escribir`.
@@ -328,3 +329,6 @@ curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://tentare.app/api/v1/ev
   - Cada fila del trigger abre una subtransacción (el `exception` que protege la escritura de negocio), solo en estudios con la API activa. Con más de 64 filas en una sola sentencia (importación masiva) desborda la caché de subtransacciones; es aceptable a esta escala, pero conviene tenerlo presente.
 - **Pendiente.**
   - Claves a nivel de cadena.
+- **Permisos por app OAuth** (`oauth_clientes.scopes_permitidos`, `repartirScopesConsentimiento` en `lib/api-publica/scopes.ts`).
+  - Se aplican al autorizar (recortando) y en cada petición (`scopesEfectivos` con `app`).
+  - Una app nueva nace sin permisos: su lista va en la misma migración que la registra.

@@ -115,7 +115,11 @@ del producto — cero lógica de reglas nueva:
   `tentare-stripe`, no es extensión trivial de lo anterior.
 - **Self-service de registro de apps** — v1 es un catálogo cerrado
   (`oauth_clientes`), Zapier es la única fila. Registrar una app nueva es una
-  migración de datos, no un flujo de producto.
+  migración de datos, no un flujo de producto. Esa migración incluye su lista de
+  permisos (`scopes_permitidos`): sin ella la app no puede pedir nada. Desde
+  el 1-oct-2026 la lista se aplica al autorizar y en cada petición
+  (`lib/api-publica/scopes.ts`); la de Zapier es exactamente lo que ya tenía
+  concedido, sin `clientas:datos_fiscales` ni `facturas:leer`.
 - **Triggers/actions restantes** del pedido original (nuevo lead, pago
   realizado/fallido, cliente dado de baja, lista de espera, sustitución,
   clase completada) — el patrón ya está establecido en `app/api/oauth/v1/*`

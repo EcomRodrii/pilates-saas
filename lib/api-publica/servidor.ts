@@ -110,6 +110,8 @@ export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClie
   let credencial: CredencialApi;
   let scopesCredencial: string[];
   let concedidaPor: string;
+  /** Solo con un token OAuth: lo que su app puede pedir HOY. */
+  let scopesDeLaApp: string[] | undefined;
 
   if (esClaveApi(token)) {
     const { data: clave } = await admin
@@ -145,10 +147,12 @@ export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClie
 
     // Una app que Tentare da de baja deja de entrar al momento, no cuando
     // caduque su token (1 h).
-    const { data: app } = await admin.from('oauth_clientes').select('activo').eq('id', fila.cliente_id).maybeSingle();
+    const { data: app } = await admin.from('oauth_clientes').select('activo, scopes_permitidos').eq('id', fila.cliente_id).maybeSingle();
     if (!app?.activo) {
       return { ok: false, studioId, credencial, resultado: error(401, 'invalid_token', 'Esta aplicación ya no está autorizada.', requestId) };
     }
+    // Recortar la lista de una app vale al momento, también para sus tokens vivos.
+    scopesDeLaApp = (app.scopes_permitidos as string[] | null) ?? [];
   }
 
   const acceso = await accesoVigente(admin, studioId, concedidaPor);
@@ -160,12 +164,19 @@ export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClie
     return { ok: false, studioId, credencial, resultado: error(401, 'invalid_token', 'Quien concedió este acceso ya no forma parte del estudio.', requestId) };
   }
   const { rol, plan } = acceso;
-  const scopes = scopesEfectivos({ credencial: scopesCredencial, rolDeQuienConcedio: rol, plan });
+  const scopes = scopesEfectivos({ credencial: scopesCredencial, rolDeQuienConcedio: rol, plan, app: scopesDeLaApp });
   if (scopes.length === 0) {
-    // Quien la concedió sigue en el estudio pero ya no puede dar nada (p. ej.
-    // bajó de MANAGER a RECEPCIÓN): sin un solo permiso, la credencial no
-    // autentica, ni siquiera para /v1/estudio.
-    return { ok: false, studioId, credencial, resultado: error(401, 'invalid_token', 'Quien concedió este acceso ya no puede darlo.', requestId) };
+    // Sin un solo permiso, la credencial no autentica, ni siquiera para
+    // /v1/estudio. O quien la concedió ya no puede dar nada (p. ej. bajó de
+    // MANAGER a RECEPCIÓN), o a su app ya no se le deja pedir lo que tenía.
+    const porLaApp = scopesDeLaApp !== undefined
+      && scopesEfectivos({ credencial: scopesCredencial, rolDeQuienConcedio: rol, plan }).length > 0;
+    return {
+      ok: false, studioId, credencial,
+      resultado: error(401, 'invalid_token', porLaApp
+        ? 'Esta aplicación ya no puede pedir ninguno de los permisos que tenía.'
+        : 'Quien concedió este acceso ya no puede darlo.', requestId),
+    };
   }
 
   if (credencial.tipo === 'clave') {
