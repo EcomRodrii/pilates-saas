@@ -28,6 +28,7 @@ import {
   OPCIONES_COMO_NOS_CONOCIO,
   type BorradorAlta,
 } from '@/lib/alta/borrador';
+import { avisarProgresoAlta } from '@/lib/alta/progreso-cliente';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Alta pública de un estudio. Tres pasos, prueba de 7 días y sin tarjeta.
@@ -185,6 +186,11 @@ export default function CrearEstudioPage() {
       if (!r) return;
       setSesionSinEstudio(true);
       capturarEvento('alta_estudio_con_sesion');
+      // Lo mismo, en el servidor (altas_estudio): está aunque PostHog no
+      // cargue. Esto solo lo APUNTA; el correo de las 24 h exige que pase del
+      // paso 1 — /login manda aquí a cualquiera que entre con Google sin
+      // estudio, y eso todavía no es querer montar uno.
+      avisarProgresoAlta('inicio');
     })();
     return () => { cancelado = true; };
   }, [cargandoSesion, usuarioId, fase]);
@@ -212,6 +218,10 @@ export default function CrearEstudioPage() {
     if (!puedeSeguir) return;
     setTocado(false);
     setError('');
+    // Con sesión, pasar del nombre al plan es la primera señal de que quiere
+    // montar un estudio. Sin sesión no hay cuenta a la que apuntarlo: ese
+    // tramo lo apunta el servidor al crearse la cuenta (trigger de auth.users).
+    if (conSesion && paso === 1) avisarProgresoAlta('plan', datos.estudio);
     setPaso((p) => Math.min(ultimoPaso, p + 1));
   }
 
@@ -261,6 +271,9 @@ export default function CrearEstudioPage() {
         ownerAuthUserId: user.id,
       });
       if (!estudio) {
+        // El paso exacto en que se queda, en el servidor: «falló al montar»
+        // no es lo mismo que «cerró la pestaña», y el correo de las 24 h lo dice.
+        avisarProgresoAlta('error_estudio');
         setError(conSesion
           ? 'No hemos podido montar el estudio todavía. Vuelve a pulsar el botón para intentarlo otra vez.'
           : 'Tu cuenta está creada, pero no hemos podido montar el estudio todavía. Pulsa «Reintentar».');

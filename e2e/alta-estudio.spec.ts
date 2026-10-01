@@ -474,3 +474,78 @@ test.describe('Con la sesión ya abierta, montar el estudio no pide otra cuenta'
     await expect(page).toHaveURL(/\/crear-estudio/, { timeout: 15_000 });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El paso exacto en que se queda cada alta, contado al SERVIDOR
+// (/api/alta/progreso → `altas_estudio`), para el correo de las 24 h y para
+// /interno. Dos cosas que no pueden pasar: que no se cuente (sin contador, un
+// test «no rompió nada» pasaría también si no se llamara nunca), y que la
+// pantalla dependa de ello (un 500 de este endpoint no puede cambiar el alta).
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('El servidor sabe en qué paso se quedó el alta', () => {
+  const STORAGE_KEY = 'sb-example-auth-token';
+
+  async function seedSesion(page: Page) {
+    await page.addInitScript((key) => {
+      localStorage.setItem(key, JSON.stringify({
+        access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
+        expires_at: 4102444800, expires_in: 999999999, token_type: 'bearer',
+        user: {
+          id: 'auth-e2e-lucia', email: 'lucia@example.com', aud: 'authenticated', role: 'authenticated',
+          app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z',
+        },
+      }));
+    }, STORAGE_KEY);
+  }
+
+  test('con sesión: cuenta el inicio, el paso del plan y el fallo al montar, aunque el servidor diga que no', async ({ page }) => {
+    const eventos: Array<{ evento?: string; estudio?: string }> = [];
+    let intentosEstudio = 0;
+    await seedSesion(page);
+    await page.route('**/api/auth/destino-post-login**', route => json(route, { tipo: 'cuenta-nueva' }));
+    await page.route('**/rest/v1/rpc/slug_estudio_disponible**', route => json(route, true));
+    await page.route('**/rest/v1/**', route => json(route, []));
+    await page.route('**/rest/v1/studios**', route => {
+      if (route.request().method() !== 'POST') return json(route, []);
+      intentosEstudio += 1;
+      // Un error que `dbCreateStudio` no reintenta por dentro: falla a la primera.
+      return json(route, { code: '55000', message: 'object not in prerequisite state' }, 500);
+    });
+    // El endpoint de diagnóstico CAÍDO: la pantalla tiene que seguir igual.
+    await page.route('**/api/alta/progreso', route => {
+      eventos.push(route.request().postDataJSON() as { evento?: string; estudio?: string });
+      return json(route, { error: 'caído' }, 500);
+    });
+
+    await page.goto('/crear-estudio');
+    await expect(page.getByLabel('Paso 1 de 2')).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => eventos.map(e => e.evento)).toContain('inicio');
+
+    await rellenarPaso1(page);
+    await expect.poll(() => eventos.find(e => e.evento === 'plan')).toEqual({ evento: 'plan', estudio: 'Estudio Aurora' });
+
+    await page.getByRole('button', { name: /días gratis/ }).click();
+    await expect(page.getByText(/No hemos podido montar el estudio todavía/)).toBeVisible({ timeout: 15_000 });
+    expect(intentosEstudio, 'se intentó crear el estudio de verdad').toBeGreaterThan(0);
+    await expect.poll(() => eventos.filter(e => e.evento === 'error_estudio').length).toBeGreaterThan(0);
+    // Sigue pudiendo reintentar: el 500 del diagnóstico no ha roto nada.
+    await expect(page.getByRole('button', { name: /días gratis/ })).toBeEnabled();
+  });
+
+  test('sin sesión no se llama: ese tramo lo apunta el servidor al crear la cuenta', async ({ page }) => {
+    let llamadas = 0;
+    let altas = 0;
+    await page.route('**/api/alta/progreso', route => { llamadas += 1; return json(route, { ok: true }); });
+    await page.route('**/auth/v1/signup**', route => { altas += 1; return json(route, ALTA_PENDIENTE_DE_EMAIL); });
+
+    await page.goto('/crear-estudio');
+    await rellenarPaso1(page);
+    await pasarDelPlan(page);
+    await rellenarPaso3(page);
+    await page.getByRole('button', { name: /días gratis/ }).click();
+    await expect(page.getByRole('heading', { name: /Escribe el código/ })).toBeVisible();
+
+    expect(altas, 'la cuenta se pidió de verdad').toBe(1);
+    expect(llamadas, 'sin sesión no hay cuenta a la que apuntar nada').toBe(0);
+  });
+});
