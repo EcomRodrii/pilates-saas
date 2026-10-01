@@ -251,3 +251,20 @@ test('los filtros por tipo salen en el orden del estudio, no en el de la primera
   assert.deepEqual(sinOrden.map(c => c.tipoOrden), [undefined, undefined, undefined, undefined]);
   assert.deepEqual(tiposDeLasClases(sinOrden), ['Mat', 'Barre', 'Reformer']);
 });
+
+// F0 (1-oct-2026): el estado que ve la alumna sale de la misma regla que las
+// cifras del panel (lib/billing/situacion-recibo.ts), no de `estado` a secas.
+test('un reembolso del estudio no le sale como deuda, ni un recibo anulado', async () => {
+  const { estadoPagoDeRecibo } = await import('./mapeo.ts');
+  const { totalPendiente } = await import('./pagos-agrupados.ts');
+  // Devuelto POR EL BANCO: se sigue debiendo.
+  assert.equal(estadoPagoDeRecibo({ estado: 'DEVUELTO', importe: 50, importeDevuelto: 0 }), 'refunded');
+  // El estudio devolvió el dinero entero (caja o Stripe).
+  assert.equal(estadoPagoDeRecibo({ estado: 'DEVUELTO', importe: 50, importeDevuelto: 50 }), 'reimbursed');
+  assert.equal(estadoPagoDeRecibo({ estado: 'DEVUELTO', importe: 50, importeDevuelto: 0, reembolsoSolicitadoEn: '2026-09-01T10:00:00Z' }), 'reimbursed');
+  assert.equal(estadoPagoDeRecibo({ estado: 'ANULADO', importe: 50 }), 'cancelled');
+  assert.equal(estadoPagoDeRecibo({ estado: 'COBRADO', importe: 50, importeDevuelto: 10 }), 'success');
+  const pago = (estado: 'reimbursed' | 'cancelled' | 'refunded') => ({ id: estado, concepto: 'x', importe: 50, fecha: '2026-09-01', estado, metodo: '' });
+  assert.equal(totalPendiente([pago('reimbursed'), pago('cancelled')]), 0);
+  assert.equal(totalPendiente([pago('refunded')]), 50);
+});

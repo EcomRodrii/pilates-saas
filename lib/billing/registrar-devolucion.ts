@@ -244,15 +244,28 @@ export async function registrarDevolucion(admin: SupabaseClient, p: {
   // que el equivalente de `recibos`, que solo marca DEVUELTO en el TOTAL
   // (lib/billing/procesar-reembolso.ts). El importe acumulado sí se anota
   // siempre, total o parcial.
+  //
+  // ⚠️ El acumulado SOLO SUBE por aquí (F0, 1-oct-2026). Stripe no garantiza el
+  // orden de los eventos: el `charge.refunded` de una primera devolución
+  // parcial puede llegar DESPUÉS del de la segunda (o del total), y escribirlo
+  // tal cual bajaba el acumulado y quitaba `devuelta_en`. Desde el trigger
+  // `trg_venta_pos_devolucion_a_recibo` eso devolvería además el recibo a
+  // COBRADO, contando como ingreso dinero ya devuelto. Lo que de verdad baja
+  // el acumulado —un reembolso que FALLA— tiene su propio camino
+  // (`refund.failed` en el webhook) y no pasa por aquí.
+  //
+  // Por eso un parcial ya no escribe `devuelta_en = null`: si la venta estaba
+  // devuelta entera, un evento parcial atrasado no la «des-devuelve».
   const camposActualizados = p.ventaPosId
     ? {
         importe_devuelto: importeDevuelto,
-        devuelta_en: p.origen === 'REEMBOLSO_TOTAL' ? new Date().toISOString() : null,
+        ...(p.origen === 'REEMBOLSO_TOTAL' ? { devuelta_en: new Date().toISOString() } : {}),
       }
     : { importe_devuelto: importeDevuelto };
   const { error: errImporte } = await admin.from(tabla)
     .update(camposActualizados)
-    .eq('id', id).eq('studio_id', p.studioId);
+    .eq('id', id).eq('studio_id', p.studioId)
+    .or(`importe_devuelto.is.null,importe_devuelto.lt.${importeDevuelto}`);
   if (errImporte) {
     console.error('[devoluciones] devolución anotada pero sin actualizar el acumulado', id, errImporte.message);
   }

@@ -2,6 +2,14 @@ import type {
   DashboardChart, MetricaGraficoDashboard, AgrupacionGraficoDashboard,
   Recibo, Socio, Reserva, Sesion, CreditTransaction,
 } from '@/lib/types';
+import { importeIngresado } from '@/lib/billing/situacion-recibo';
+
+// Día local 'YYYY-MM-DD' de un `Date` del periodo. Las fechas de cobro son
+// texto de una columna `date`: se comparan como texto contra los bordes del
+// periodo, nunca con `new Date('YYYY-MM-DD')` (medianoche UTC, que al oeste
+// de UTC cae el día anterior).
+const diaLocal = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export const METRICAS_GRAFICO: { metric: MetricaGraficoDashboard; nombre: string }[] = [
   { metric: 'INGRESOS_COBRADOS', nombre: 'Ingresos cobrados' },
@@ -76,9 +84,11 @@ export function computeSerieGrafico(chart: DashboardChart, data: ChartData, now:
     let value = 0;
     switch (chart.metrica) {
       case 'INGRESOS_COBRADOS':
+        // Neto de reembolsos y por fecha de cobro: la misma cuenta que la
+        // tarjeta de ingresos de Inicio (lib/billing/situacion-recibo.ts).
         value = data.recibos
-          .filter(r => r.estado === 'COBRADO' && r.fechaCobro && new Date(r.fechaCobro) >= start && new Date(r.fechaCobro) < end)
-          .reduce((sum, r) => sum + r.importe, 0);
+          .filter(r => r.fechaCobro && r.fechaCobro.slice(0, 10) >= diaLocal(start) && r.fechaCobro.slice(0, 10) < diaLocal(end))
+          .reduce((sum, r) => sum + importeIngresado(r), 0);
         break;
       case 'NUEVAS_SOCIAS':
         value = data.socios.filter(s => new Date(s.fechaAlta) >= start && new Date(s.fechaAlta) < end).length;

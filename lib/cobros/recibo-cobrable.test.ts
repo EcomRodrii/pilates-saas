@@ -19,6 +19,7 @@ import { join } from 'node:path';
 
 import { ESTADOS_COBRABLES } from '../billing/deuda-recibo.ts';
 import { estadosAdmitidosPorOrigen } from '../billing/cobro-confirmado-reglas.ts';
+import { situacionRecibo } from '../billing/situacion-recibo.ts';
 
 const raiz = join(import.meta.dirname, '..', '..');
 const leer = (p: string) => readFileSync(join(raiz, p), 'utf8');
@@ -73,9 +74,17 @@ test('el cobro en lote va por la misma ruta que el individual', () => {
 });
 
 test('el panel ofrece «Cobrar» en los tres estados de deuda, no en dos', () => {
+  // F0 (1-oct-2026): el botón ya no se decide por `r.estado` literal sino por
+  // la situación del recibo (lib/billing/situacion-recibo.ts), porque DEVUELTO
+  // también es un REEMBOLSO del estudio y ahí «Cobrar» cobraba dos veces. Lo
+  // que este test protege sigue igual: cada estado cobrable, tal como lo deja
+  // la deuda (sin reembolso), cae en una situación que tiene el botón.
   const fuente = leer('components/cobros/panel-pendientes.tsx');
+  assert.match(fuente, /situacionRecibo\(r\) === 'POR_COBRAR' \|\| situacionRecibo\(r\) === 'IMPAGADO'/,
+    'El botón «Cobrar» tiene que salir para lo que se debe: por cobrar e impagado.');
   for (const estado of COBRABLES) {
-    assert.match(fuente, new RegExp(`r\\.estado === '${estado}'`),
+    const s = situacionRecibo({ estado, importe: 50, importeDevuelto: 0 });
+    assert.ok(s === 'POR_COBRAR' || s === 'IMPAGADO',
       `Sin el botón para '${estado}', ese recibo no tiene NINGUNA vía de UI para resolverse.`);
   }
 });
@@ -83,8 +92,10 @@ test('el panel ofrece «Cobrar» en los tres estados de deuda, no en dos', () =>
 // La otra mitad del mismo bug: lo que la alumna lee.
 test('a la alumna no se le dice que le devolvieron el dinero cuando lo debe', () => {
   const item = leer('components/student/domain/PaymentItem.tsx');
-  assert.doesNotMatch(item, /txt: 'Reembolsado'/,
-    "'DEVUELTO' es «devuelto por el banco» (deuda), no un reembolso a su favor.");
+  // `refunded` (DEVUELTO por el banco) nunca puede decir «Reembolsado». El
+  // reembolso de verdad es otro estado (`reimbursed`, F0) y ese sí lo dice.
+  assert.doesNotMatch(item, /refunded: \{ txt: 'Reembolsado'/,
+    "'DEVUELTO' por el banco es deuda, no un reembolso a su favor.");
   assert.match(item, /Devuelto por el banco/,
     'La app y el panel tienen que llamarlo igual: es el mismo hecho.');
 

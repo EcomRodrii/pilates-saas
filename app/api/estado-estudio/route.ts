@@ -7,6 +7,7 @@ import {
   puedeGestionarEquipo, puedeMoverDinero, puedeVer, puedeVerFinanzas,
 } from '@/lib/permisos-reglas';
 import { construirEstadoEstudio, contarConCandidatosNetwork, type ConteosEstudio } from '@/lib/estado-estudio';
+import { situacionRecibo } from '@/lib/billing/situacion-recibo';
 import { HORAS_LIMITE_POR_DEFECTO, instructorasGestionables } from '@/lib/fichaje/jornadas-equipo';
 import type { Rol } from '@/lib/types';
 
@@ -105,10 +106,25 @@ export async function GET(req: NextRequest) {
     si(gestionaCalendario, () => contar('reservas-aprobar', admin.from('reservas')
       .select('id, sesiones!inner(inicio)', HEAD).eq('studio_id', studioId)
       .eq('estado', 'PENDIENTE_APROBACION').gt('sesiones.inicio', ahoraISO))),
-    // FALLIDO = el dunning agotó sus reintentos: a partir de aquí ya no lo
-    // intenta nadie más que ella.
-    si(verFinanzas, () => contar('recibos-fallidos', admin.from('recibos')
-      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'FALLIDO'))),
+    // Impagados (lib/billing/situacion-recibo.ts): FALLIDO —el dunning agotó
+    // sus reintentos, ya no lo intenta nadie más que ella— y DEVUELTO POR EL
+    // BANCO, que es deuda otra vez y ya bloqueaba las reservas por impago
+    // (`socio_tiene_impago`) sin salir en este contador. No es un HEAD: un
+    // DEVUELTO también puede ser un reembolso, y eso solo se distingue con las
+    // columnas del reembolso. Son pocas filas por estudio.
+    si(verFinanzas, async () => {
+      const { data, error } = await admin.from('recibos')
+        .select('estado, importe, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en')
+        .eq('studio_id', studioId).in('estado', ['FALLIDO', 'DEVUELTO']).limit(2000);
+      if (error) {
+        console.error('[estado-estudio:recibos-impagados]', error);
+        return null;
+      }
+      return (data ?? []).filter(r => situacionRecibo({
+        estado: r.estado, importe: r.importe, importeDevuelto: r.importe_devuelto,
+        reembolsoStripeId: r.reembolso_stripe_id, reembolsoSolicitadoEn: r.reembolso_solicitado_en,
+      }) === 'IMPAGADO').length;
+    }),
     // Misma definición que `esRenovacionSinCobroAutomatico`: renovación PENDIENTE
     // sin reintento programado (nadie la va a cobrar sola).
     si(verFinanzas, () => contar('renovaciones-sin-cobro', admin.from('recibos')

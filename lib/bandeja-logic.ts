@@ -24,6 +24,7 @@ import type {
 } from '@/lib/types';
 import { aforoEfectivoSesion } from './aforo-logic.ts';
 import { sociosConExcepcion } from './excepciones.ts';
+import { situacionRecibo } from './billing/situacion-recibo.ts';
 import { plazasFijasSinSesion, nombreDiaSemana } from './plazas-fijas-slot.ts';
 
 // Euro en formato ES, idéntico a formatEuro de utils; inline para no arrastrar
@@ -138,7 +139,10 @@ function recuperacionesPorVencer(e: EntradaBandeja, nombreSocia: (id: string | n
 // recibo → item con nombre; varios → un item agregado para no inundar la bandeja.
 function cobrosPendientes(e: EntradaBandeja, nombreSocia: (id: string | null) => string): ItemBandeja[] {
   const exentas = sociosConExcepcion(e.excepciones, 'SIN_RECORDATORIO');
-  const pend = e.recibos.filter(r => r.estado === 'PENDIENTE' && !(r.socioId && exentas.has(r.socioId)));
+  // POR_COBRAR (lib/billing/situacion-recibo.ts): lo emitido y sin cobrar, que
+  // es lo que se resuelve cobrando. Lo rechazado o devuelto por el banco no va
+  // aquí: es «impagado» y lo cuenta la bandeja única (`recibosFallidos`).
+  const pend = e.recibos.filter(r => situacionRecibo(r) === 'POR_COBRAR' && !(r.socioId && exentas.has(r.socioId)));
   if (pend.length === 0) return [];
 
   // dias negativo = vencido; urgencia sube con lo vencido, tope 88 (por debajo de una avería inminente).

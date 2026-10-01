@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { Search, Download, FileText, ChevronDown, ChevronRight, X, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { nifEmisorValido } from '@/lib/nif';
-import { cn } from '@/lib/utils';
+import { cn, hoyEnEstudio } from '@/lib/utils';
+import { mesAnterior } from '@/lib/billing/situacion-recibo';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { urlQrVerifactu, fechaExpedicionDesdeISO } from '@/lib/verifactu-qr';
 import { conceptoDeFactura } from '@/lib/facturas/concepto';
@@ -68,12 +69,12 @@ export function PanelFacturas() {
     );
   }
 
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const lastMonth = (() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    return d.toISOString().slice(0, 7);
-  })();
+  // Mes del ESTUDIO y su anterior por texto (F0). Antes: `toISOString()` daba
+  // el mes en UTC (entre las 00:00 y las 02:00 del día 1 seguía siendo el mes
+  // anterior) y `setMonth(-1)` un 31 de octubre caía en el 1 de octubre, así
+  // que «frente al mes anterior» comparaba el mes consigo mismo: «+0,0 %».
+  const currentMonth = hoyEnEstudio().slice(0, 7);
+  const lastMonth = mesAnterior(currentMonth);
 
   // ── derived ───────────────────────────────────────────────────────────────────
 

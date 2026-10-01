@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Printer, Plus, Pencil, Trash2, Info, ShieldCheck, Mail, Send, Check } from 'lucide-react';
+import { Download, Printer, Plus, Pencil, Trash2, Info, ShieldCheck, Mail, Send, Check, AlertTriangle } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { authHeader } from '@/lib/api-client';
@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { serializeCsv } from '@/lib/csv';
-import { computeCierreAnual, desglosarIvaDesdeTotal, type CierreLinea } from '@/lib/fiscal/cierre-engine';
+import { computeCierreAnual, desglosarIvaDesdeTotal, facturasSinRectificarDeCobrosDevueltos, type CierreLinea } from '@/lib/fiscal/cierre-engine';
 import type { IngresoManual } from '@/lib/types';
 
 const eur = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
@@ -42,7 +42,7 @@ const emptyForm = (anio: number, ivaDef: number): FormState => ({
 });
 
 export default function CierreDeAnoPage() {
-  const { facturas, studio, updateStudio } = useStudio();
+  const { facturas, recibos, studio, updateStudio } = useStudio();
   const ivaDef = studio?.ivaPorDefecto ?? 21;
   const rol = useRol();
   // La RLS de studios (owner_studios) solo deja escribir a PROPIETARIO — se
@@ -115,6 +115,13 @@ export default function CierreDeAnoPage() {
   const cierre = useMemo(
     () => computeCierreAnual({ facturas, ingresosManuales: manuales, anio }),
     [facturas, manuales, anio],
+  );
+  // Facturas de cobros cuyo dinero se devolvió y que nadie ha rectificado: el
+  // cierre las suma (existen), pero ese IVA ya no se cobró. Se avisa antes de
+  // que la gestoría presente el 303 con ellas dentro.
+  const sinRectificar = useMemo(
+    () => facturasSinRectificarDeCobrosDevueltos({ facturas, recibos, anio }),
+    [facturas, recibos, anio],
   );
 
   // ── Guardar / editar ────────────────────────────────────────────────────────
@@ -277,7 +284,7 @@ export default function CierreDeAnoPage() {
     <div className="space-y-6" style={{ minHeight: '100%', padding: '0 0 40px' }}>
       <PageHeader
         title="Cierre de año"
-        description="Todo lo facturado y el IVA que repercutiste en el año, cuadrado y listo para tu gestoría. Sale de tus facturas ya selladas — no tienes que rehacer ningún Excel."
+        description="Todo lo facturado y el IVA que repercutiste en el año, cuadrado y listo para tu gestoría. Sale de las facturas emitidas desde Tentare y de los ingresos que añades a mano — no tienes que rehacer ningún Excel."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={descargarCsv}><Download className="size-4" /> CSV</Button>
@@ -321,6 +328,41 @@ export default function CierreDeAnoPage() {
           <b>Esto recopila tus ingresos y el IVA repercutido</b>, no es tu declaración. No incluye gastos ni IVA soportado, y no se presenta a Hacienda — el cierre lo valida y presenta tu gestoría. Tentare te da el paquete hecho.
         </p>
       </div>
+
+      {sinRectificar.length > 0 && (
+        <div role="alert" className="flex gap-2.5 items-start rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+          <AlertTriangle className="size-4 shrink-0 mt-0.5 text-warning" aria-hidden />
+          <div className="text-foreground/85 leading-relaxed">
+            <p className="m-0 font-semibold text-foreground">
+              {sinRectificar.length === 1
+                ? 'Una factura de un cobro que devolviste no tiene rectificativa'
+                : `${sinRectificar.length} facturas de cobros que devolviste no tienen rectificativa`}
+            </p>
+            <p className="m-0 mt-1">
+              {sinRectificar.length === 1 ? 'Sigue' : 'Siguen'} sumando en este cierre, IVA incluido, aunque ese dinero ya no es tuyo,
+              y {sinRectificar.length === 1 ? 'necesita' : 'necesitan'} una factura rectificativa antes de que tu gestoría presente el IVA del trimestre.
+              Si el cobro se devolvió entero, la emites desde los pagos de la ficha de la clienta; si se devolvió solo una parte,
+              pídesela a tu gestoría:{' '}
+              {sinRectificar.map((f, i) => (
+                <span key={f.id}>
+                  {i > 0 ? ', ' : ''}
+                  {f.socioId && f.devuelto >= f.total
+                    ? <Link href={`/clientas/${f.socioId}`} className="font-semibold underline underline-offset-2 hover:no-underline">{f.numero}</Link>
+                    : <b>{f.numero}</b>}
+                  {' '}({f.fecha}, devuelto {eur(f.devuelto)}{f.devuelto < f.total ? ` de ${eur(f.total)}` : ''})
+                </span>
+              ))}.
+            </p>
+          </div>
+        </div>
+      )}
+      {cierre.excluidasAnuladasAeat > 0 && (
+        <p role="note" className="text-xs text-muted-foreground m-0">
+          {cierre.excluidasAnuladasAeat === 1
+            ? 'Una factura con su registro anulado en la AEAT no cuenta en este cierre.'
+            : `${cierre.excluidasAnuladasAeat} facturas con su registro anulado en la AEAT no cuentan en este cierre.`}
+        </p>
+      )}
 
       {/* Tiles */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
