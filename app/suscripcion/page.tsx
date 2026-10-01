@@ -16,6 +16,7 @@ import { SelectorPlan } from '@/components/planes/selector-plan';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { ExportarDatosEstudio } from '@/components/billing/exportar-datos-estudio';
 import { TZ_ESTUDIO } from '@/lib/utils';
+import { NombrePlan } from '@/components/planes/nombre-plan';
 
 // Suscripción del estudio a Tentare.
 //
@@ -251,7 +252,7 @@ export default function SuscripcionPage() {
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Plan actual</div>
                 <div className="mt-1 flex items-baseline gap-2">
                   <span className="text-[26px] font-extrabold tracking-tight text-foreground">
-                    {PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].nombre}
+                    <NombrePlan plan={(estado?.plan as Plan) ?? 'BASE'} />
                   </span>
                   <span className="text-[15px] font-semibold text-muted-foreground tabular-nums">
                     {PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].precioMes}€

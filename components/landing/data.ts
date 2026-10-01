@@ -31,6 +31,7 @@ export const INTEGRACIONES = [
 // no existe en los entitlements, y «EL MÁS ELEGIDO» también (0 estudios de pago).
 export const PLANS = [
   {
+    id: 'BASE' as const,
     name: 'Founding Studio',
     price: '29€',
     desc: 'Para empezar. Hasta 150 alumnas.',
@@ -41,6 +42,7 @@ export const PLANS = [
     contacto: false,
   },
   {
+    id: 'ESTUDIO' as const,
     name: 'Estudio',
     price: '59€',
     desc: 'El plan completo. Alumnas ilimitadas.',
@@ -51,6 +53,7 @@ export const PLANS = [
     contacto: false,
   },
   {
+    id: 'CADENA' as const,
     name: 'Cadena',
     price: '149€',
     desc: 'Varias sedes en un mismo panel.',

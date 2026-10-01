@@ -3,6 +3,7 @@ import { PLANS } from '@/components/landing/data';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { ALTA, SALIDAS, WHATSAPP_SOPORTE } from './enlaces';
+import { NombrePlan } from '@/components/planes/nombre-plan';
 
 // Sección 11 de la landing v5 — "Precio". Los tres planes se importan de
 // PLANS (components/landing/data.ts), la misma fuente que usa la landing en
@@ -30,7 +31,7 @@ export function SeccionPrecio() {
         <div className="v5-pre-grid">
           {PLANS.map((plan, n) => (
             <div key={plan.name} className={plan.dark ? 'v5-pre-card v5-pre-card-dark lp-rv' : 'v5-pre-card lp-rv'} style={{ ['--lp-r' as string]: n * 6 }}>
-              <div className="v5-pre-nombre" style={{ color: plan.dark ? '#D9C29E' : '#6B6B63' }}>{plan.name.toUpperCase()}</div>
+              <div className="v5-pre-nombre" style={{ color: plan.dark ? '#D9C29E' : '#6B6B63' }}>{plan.id === 'BASE' ? <NombrePlan plan="BASE" tamano={26} /> : plan.name.toUpperCase()}</div>
               <div className="v5-pre-precio" style={{ color: plan.dark ? '#fff' : '#1A1A1A' }}>
                 {plan.price}<span className="v5-pre-mes">/mes</span>
               </div>

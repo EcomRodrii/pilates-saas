@@ -11,6 +11,7 @@ import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLANES, PLAN_ENTITLEMENTS, PLAN_INFO, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
 import { funcionalidades, paginaDe, urlDe, BASE_URL } from '@/lib/seo/paginas';
 import { LEGAL } from '@/lib/legal-info';
+import { NombrePlan } from '@/components/planes/nombre-plan';
 
 const PATH = '/precios';
 const pagina = paginaDe(PATH)!;
@@ -148,7 +149,7 @@ export default function PreciosPage() {
                   boxShadow: destacado ? '0 34px 66px -26px rgba(26,26,26,.45)' : undefined,
                 }}
               >
-                <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginBottom: 12 }}>{PLAN_INFO[p].nombre}</div>
+                <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginBottom: 12 }}>{p === 'BASE' ? <NombrePlan plan={p} tamano={26} /> : PLAN_INFO[p].nombre}</div>
                 <div style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-.035em', color: destacado ? '#fff' : undefined, lineHeight: 1 }}>
                   {PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: '#6B6B63' }}>/mes</span>
                 </div>
