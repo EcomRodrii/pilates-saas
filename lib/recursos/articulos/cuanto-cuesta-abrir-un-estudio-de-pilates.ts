@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'cuanto-cuesta-abrir-un-estudio-de-pilates',
   titulo: 'Cuánto cuesta abrir un estudio de pilates: presupuesto por partidas con precios reales',
-  tituloSeo: 'Cuánto cuesta abrir un estudio de pilates en 2026',
+  tituloSeo: 'Cuánto cuesta abrir un estudio de pilates: presupuesto 2026',
   descripcion: 'Precio real de un reformer con y sin IVA, fianza del local, cuota de autónoma, seguro, marca, software y un presupuesto de ejemplo con 6 reformers.',
   resumen: 'Lo que cuesta cada partida de un estudio de pilates en España, con precios publicados por fabricantes, tiendas y organismos oficiales, y un presupuesto de ejemplo para seis reformers.',
   categoria: 'abrir',
