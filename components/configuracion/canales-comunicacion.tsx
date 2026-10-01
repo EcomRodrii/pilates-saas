@@ -495,8 +495,8 @@ export function DetalleGmail({ g, onGuardado }: { g: CanalGmail } & PropsFormula
   return (
     <div className={CUERPO}>
       <p className="text-sm text-muted-foreground text-pretty">
-        Tentare ya no trae los contactos de Gmail como clientas. Desconéctalo y dejaremos de guardar el permiso
-        para entrar en tu cuenta de Google. Las clientas que trajiste se quedan.
+        Al desconectarlo dejamos de guardar el permiso para entrar en tu cuenta de Google. Las clientas que
+        trajiste se quedan.
       </p>
       <div className="flex flex-col gap-2 @sm/config:flex-row @sm/config:flex-wrap">
         <button type="button" onClick={() => setPreguntando(true)} disabled={desconectando} className={cn(btnSecondary, 'text-destructive')}>
