@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio de entrada', tentare: ['partial', 'Desde 29 €/mes, IVA incluido'], them: ['yes', 'Desde 12 €/mes + IVA (hasta 50 alumnos activos)'] },
+  { feature: 'Precio de entrada', tentare: ['partial', 'Desde 29 €/mes, IVA incluido'], them: ['yes', '12 €/mes + IVA pagando el año (144 €); mes a mes, 16 € + IVA (hasta 50 alumnos activos)'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', '«Cancela cuando quieras», según su web'] },
   { feature: 'Comisión de la plataforma por cobro', tentare: ['yes', 'Ninguna de Tentare (solo la de Stripe)'], them: ['partial', 'Los cobros por Stripe llevan sus comisiones; no consta si Lorari añade la suya'] },
   { feature: 'Facturas con registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['partial', 'No consta en su web pública'] },
@@ -38,7 +38,7 @@ const ROWS: ComparativaRow[] = [
 const HONESTY: HonestyCard[] = [
   {
     title: 'Un plan de entrada más barato',
-    body: 'El plan Starter de Lorari cuesta 12 €/mes + IVA (hasta 50 alumnos activos), menos que la entrada de Tentare. Si tu estudio es muy pequeño y solo necesitas reservas y bonos, esa diferencia pesa.',
+    body: 'El plan Starter de Lorari cuesta 16 €/mes + IVA mes a mes, o 12 €/mes pagando el año entero (hasta 50 alumnos activos): menos que la entrada de Tentare. Si tu estudio es muy pequeño y solo necesitas reservas y bonos, esa diferencia pesa.',
   },
   {
     title: 'Prueba más larga',
@@ -51,7 +51,7 @@ const HONESTY: HonestyCard[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Lorari?',
-    a: 'Según su web: Starter 12 €/mes (50 alumnos activos), Pro 27 €/mes (150) y Business 51 €/mes (ilimitados), con IVA aparte y 14 días de prueba. Tentare: Base 29 €/mes (hasta 150 alumnas), Estudio 59 y Cadena 149 €/mes, IVA incluido.',
+    a: 'Según su web, pagando el año: Starter 12 €/mes (50 alumnos activos), Pro 27 €/mes (150) y Business 51 €/mes (ilimitados); mes a mes, 16, 36 y 68 €. IVA aparte y 14 días de prueba. Tentare: Base 29 €/mes (hasta 150 alumnas), Estudio 59 y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 
