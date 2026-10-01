@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-momence';
@@ -27,24 +27,12 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['yes', '«Automate instructor substitutions», según su web'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Spot scheduling», según su web'] },
   { feature: 'Marketplace de consumidores', tentare: ['yes', 'Sin marketplace'], them: ['yes', 'Sin marketplace: «strictly a booking app», según su web'] },
-  { feature: 'Facturas con registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Vídeo bajo demanda', tentare: ['no', 'No, fuera de nuestro foco hoy'], them: ['yes', 'Biblioteca de vídeo y cursos'] },
   { feature: 'Reglas de cancelación por tipo de clase', tentare: ['yes', 'La antelación para cancelar puede ser distinta por tipo de clase (p. ej. reformer vs. mat)'], them: ['yes', 'Política de cancelación con «override» por plantilla de clase, según su centro de ayuda'] },
   { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta de crédito'], them: ['yes', '«No se requiere tarjeta de crédito» en su alta, según su web'] },
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada sala tiene su propio aforo, independiente del de la clase'], them: ['partial', 'No consta en su web pública que el aforo se fije por sala y no por clase'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Varias sedes con un solo acceso y una sola suscripción, sin mínimo de sedes'], them: ['partial', 'Su «panel corporativo» es solo para franquicias: exige un documento FDD firmado y mínimo 6 sedes, según su centro de ayuda'] },
 ];
 
-const HONESTY: HonestyCard[] = [
-  {
-    title: 'Más funciones y vídeo bajo demanda',
-    body: 'Momence ofrece hoy sustituciones automáticas, spot scheduling, biblioteca de vídeo y cursos, y app propia con opciones de marca. Tentare no tiene vídeo bajo demanda.',
-  },
-  {
-    title: 'Una plataforma internacional',
-    body: 'Momence está pensada para el mercado global (en inglés). Tentare está hecho para España: facturas con numeración legal, soporte en español y precio en euros.',
-  },
-];
 
 // Las preguntas que de verdad se buscan de Momence (precio, permanencia,
 // migrar), respondidas solo con lo que se puede comprobar.
@@ -66,10 +54,9 @@ export default function TentareVsMomencePage() {
       slug="tentare-vs-momence"
       logo={{ src: '/comparativa/logos/momence.svg', alt: 'Logo de Momence', height: 15, width: 122, cardBg: '#171717' }}
       h1={<>¿Momence o Tentare? Para tu estudio de Pilates, Tentare.</>}
-      intro={<>Momence es una plataforma internacional de reservas para estudios, con sustituciones automáticas, elección de reformer y biblioteca de vídeo. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, es una de las comparaciones más parejas en funciones; la diferencia está en el precio público y en el mercado para el que está pensada.</>}
+      intro={<>Momence es una plataforma internacional de reservas para estudios. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare tiene precio público, soporte en español y un producto pensado para ti.</>}
       rows={ROWS}
-      veredicto={<>Para un estudio de Pilates en España, Tentare: precio público, soporte en español y un producto hecho para ti. Momence solo encaja si necesitas vídeo bajo demanda y no te importa un producto y un soporte pensados para un mercado internacional.</>}
-      honesty={HONESTY}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates en España: precio público, soporte en español y un producto hecho para estudios como el tuyo. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de Momence.</>}
       footnote="Basado en la información pública de Momence (momence.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Momence es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

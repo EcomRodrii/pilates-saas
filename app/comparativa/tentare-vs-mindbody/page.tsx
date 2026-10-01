@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-mindbody';
@@ -26,7 +26,6 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['partial', 'Desde 99 € al mes por ubicación; el resto de planes, «hablemos»'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'Depende del plan y de las condiciones que contrates; la baja puede requerir preaviso'] },
   { feature: 'Comisión por clientas nuevas del marketplace', tentare: ['yes', 'Sin marketplace ni comisión'], them: ['partial', '20 % (tope de 30 $ o su equivalente) en la primera compra de una clienta nueva'] },
-  { feature: 'Facturas con registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir plaza en la sala', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Client Pick-a-Spot», en el plan Accelerate'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador, con tu nombre y tu icono'], them: ['partial', 'App de marca como complemento de pago (precio no publicado)'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'La antelación para cancelar puede ser distinta por tipo de clase (p. ej. reformer vs. mat)'], them: ['yes', '«Booking window» y «cancellation window» configurables por servicio, según su web de ayuda'] },
@@ -35,16 +34,6 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta de crédito'], them: ['partial', 'No consta en su web pública'] },
 ];
 
-const HONESTY: HonestyCard[] = [
-  {
-    title: 'Un marketplace con clientas nuevas',
-    body: 'Mindbody tiene su propia app de consumidores, con tráfico real buscando clase. Listarse es gratis y solo se paga una comisión de hasta el 20 % (con tope) en la primera compra de cada clienta nueva. Tentare no tiene marketplace.',
-  },
-  {
-    title: 'Escala',
-    body: 'Declara más de 40.000 negocios y más de 3 millones de consumidores. Tentare es un producto mucho más reciente.',
-  },
-];
 
 // Las preguntas que de verdad se buscan de Mindbody (precio, permanencia,
 // migrar), respondidas solo con lo que se puede comprobar.
@@ -66,10 +55,9 @@ export default function TentareVsMindbodyPage() {
       slug="tentare-vs-mindbody"
       logo={{ src: '/comparativa/logos/mindbody.svg', alt: 'Logo de Mindbody', height: 24, width: 115 }}
       h1={<>¿Mindbody o Tentare? Para tu estudio de Pilates, Tentare.</>}
-      intro={<>Mindbody es una de las plataformas más grandes del mundo para fitness y bienestar, con su propio marketplace de consumidores. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la pregunta es qué se gana y qué se paga por ese ecosistema.</>}
+      intro={<>Mindbody es una plataforma internacional de fitness y bienestar con su propio marketplace de consumidores. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare te da lo que necesitas sin comisiones por clienta nueva ni sobre tus cobros.</>}
       rows={ROWS}
-      veredicto={<>Para un estudio de Pilates, Tentare: sabes lo que pagas por adelantado, sin comisión por clienta nueva ni sobre tus cobros. Mindbody solo compensa si quieres captar clientas en su marketplace y aceptas pagar su comisión por ello.</>}
-      honesty={HONESTY}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: sabes lo que pagas por adelantado, sin comisión por clienta nueva ni sobre tus cobros, y con un producto hecho para Pilates. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de Mindbody.</>}
       footnote="Basado en la información pública de Mindbody (mindbodyonline.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Mindbody es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

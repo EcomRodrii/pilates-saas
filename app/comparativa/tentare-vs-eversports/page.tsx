@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-eversports';
@@ -26,7 +26,6 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29 €/mes, IVA incluido, según alumnas'], them: ['yes', 'Desde 33 €/mes (anual) o 41 €/mes (mensual), sin IVA, según reservas al mes'] },
   { feature: 'Cuota de alta', tentare: ['yes', 'Sin cuota de alta'], them: ['partial', '99 € de configuración (pago único)'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública; el plan anual se factura por año'] },
-  { feature: 'Facturas con registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['yes', 'Extensión de Veri*factu y TicketBAI (con fiskaly); no consta su coste'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['yes', '«Gestión de sustituciones», según su web'] },
   { feature: 'Elegir plaza en la sala', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Gestión de salas y Spot Booking», según su web'] },
   // Ejes añadidos el 29-sep-2026 (eversportsmanager.com/es, /es-ES/precios y
@@ -36,16 +35,6 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Con una sola suscripción (plan Cadena)'], them: ['yes', '«Gestionarlos desde un solo panel», según su web'] },
 ];
 
-const HONESTY: HonestyCard[] = [
-  {
-    title: 'Ya cubre lo que aquí sigue en desarrollo',
-    body: 'Eversports ofrece hoy Veri*factu y TicketBAI (con fiskaly), spot booking, gestión de sustituciones, app con la imagen de tu negocio, clases online y vídeos a la carta. En varios de esos puntos, Tentare aún no llega.',
-  },
-  {
-    title: 'Escala y su propio marketplace',
-    body: 'Declara más de 9.000 estudios y centros en Europa, y tiene marketplace propio. Según su web, no aplica comisión a las reservas hechas por su app o su web.',
-  },
-];
 
 // Las preguntas que de verdad se buscan de Eversports (precio, permanencia,
 // migrar), respondidas solo con lo que se puede comprobar.
@@ -67,10 +56,9 @@ export default function TentareVsEversportsPage() {
       slug="tentare-vs-eversports"
       logo={{ src: '/comparativa/logos/eversports.svg', alt: 'Logo de Eversports', height: 24, width: 118 }}
       h1={<>¿Eversports o Tentare? Para tu estudio de Pilates, Tentare.</>}
-      intro={<>Eversports Manager es una plataforma europea muy extendida en estudios de fitness y yoga, con sustituciones, elección de plaza y cumplimiento fiscal español. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la comparación honesta es de precio y de cómo se calcula.</>}
+      intro={<>Eversports Manager es una plataforma europea de fitness y yoga que cobra según el número de reservas. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare tiene un precio fijo por plan, sin cuota de alta, y está pensado para Pilates.</>}
       rows={ROWS}
-      veredicto={<>Para un estudio de Pilates, Tentare: precio fijo por plan (no por número de reservas), sin cuota de alta y un producto pensado para Pilates. Eversports solo compensa si necesitas ya hoy Veri*factu y TicketBAI funcionando, o clases online y vídeo a la carta.</>}
-      honesty={HONESTY}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: precio fijo por plan (no por número de reservas), sin cuota de alta y un producto pensado para Pilates. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de Eversports.</>}
       footnote="Basado en la información pública de Eversports (eversportsmanager.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Eversports es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />
