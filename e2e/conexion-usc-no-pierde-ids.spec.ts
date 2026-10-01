@@ -74,6 +74,8 @@ test.describe('Urban Sports Club: los IDs de la conexión no se pierden', () => 
     await expect(page.getByTestId('conexion-usc')).toBeVisible();
     // USC ya se puede conectar: «próximamente» solo en ClassPass y Wellhub.
     await expect(proximamente(page)).toHaveCount(2);
+    // Y en Conexiones, su fila (con su logo, como el resto) dice que está conectada.
+    await expect(page.locator('#plataformas-externas-urban_sports_club')).toContainText('Conectado');
     await expect(interruptorUsc(page)).toBeEnabled();
     await interruptorUsc(page).click();
 
@@ -116,5 +118,10 @@ test.describe('Urban Sports Club: los IDs de la conexión no se pierden', () => 
     // manual sigue a mano.
     await expect(proximamente(page)).toHaveCount(3);
     await expect(page.getByText(/Hasta entonces, apúntalas tú/)).toBeVisible();
+    // En Conexiones, una fila por plataforma, cada una con su «Próximamente».
+    for (const id of ['#plataformas-externas', '#plataformas-externas-urban_sports_club', '#plataformas-externas-wellhub']) {
+      await expect(page.locator(id)).toContainText('Próximamente');
+    }
+    await expect(page.locator('#plataformas-externas')).toContainText('ClassPass');
   });
 });

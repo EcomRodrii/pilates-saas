@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, type ReactNode } from 'react';
-import { Code2, CreditCard, KeyRound, MessageCircle, Ticket } from 'lucide-react';
+import { Code2, CreditCard, KeyRound, MessageCircle } from 'lucide-react';
 import { useRol, puedeGestionarAppsOAuth, puedeGestionarClavesApi } from '@/lib/permisos';
 import { agruparConexiones, resumenAppsConAcceso, type ResumenFila } from '@/lib/configuracion/resumenes';
 import { seccionPorId, tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
@@ -14,7 +14,7 @@ import {
   useAppsConAcceso, useConexionConClave, useConexionOAuth, useZapier,
 } from '@/components/configuracion/conexiones';
 import { DetalleApiPublica, resumenApiPublica, useApiPublica } from '@/components/configuracion/api-publica';
-import { DetallePlataformasExternas, resumenPlataformasActivas, usePlataformasActivas } from '@/components/configuracion/plataformas-externas';
+import { DetallePlataformasExternas, FilasPlataformas } from '@/components/configuracion/plataformas-externas';
 
 // Conexiones: Tentare con otras herramientas que ya usas (15-sep, v2).
 //
@@ -42,7 +42,6 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
   const mailchimp = useConexionConClave('MAILCHIMP');
   const apps = useAppsConAcceso();
   const zapier = useZapier(apps);
-  const plataformas = usePlataformasActivas();
   const api = useApiPublica();
 
   function guardado(texto: string) {
@@ -68,13 +67,9 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
         </GrupoFilas>
       ))}
 
+      {/* Una fila por plataforma, con su logo, como el resto de conexiones. */}
       <GrupoFilas titulo="Plataformas que venden tus clases">
-        <FilaAjuste
-          id="plataformas-externas"
-          icono={Ticket}
-          valor={resumenPlataformasActivas(plataformas) ?? 'Ninguna'}
-          onAbrir={abrir}
-        />
+        <FilasPlataformas onAbrir={() => abrir('plataformas-externas')} />
       </GrupoFilas>
 
       {/* Quién puede autorizarlas es quien puede quitarlas (puedeGestionarAppsOAuth). */}

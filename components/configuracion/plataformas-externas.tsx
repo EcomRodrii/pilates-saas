@@ -1,9 +1,16 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type ComponentType, type FormEvent } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { NOMBRE_PLATAFORMA, PLATAFORMAS, type Plataforma } from '@/lib/plataformas/catalogo';
 import { uscPublicaPorApi } from '@/lib/plataformas/usc/horario';
+import { resumenPlataformaVenta } from '@/lib/configuracion/resumenes';
+import { ClassPassIcon, UrbanSportsClubIcon, WellhubIcon } from '@/components/icons/brand-icons';
+import { LogoConexion } from '@/components/configuracion/canales-comunicacion';
+import { TituloFila, ValorFila } from '@/components/configuracion/shell/fila-ajuste';
+import { FILA } from '@/components/configuracion/shell/fila-herramienta';
 
 // Qué plataformas venden plazas de este estudio (ClassPass, Urban Sports Club,
 // Wellhub). En modo manual, encenderla deja apuntar sus ventas desde la hoja de
@@ -18,13 +25,6 @@ import { uscPublicaPorApi } from '@/lib/plataformas/usc/horario';
 // ⚠️ Encender/apagar reescribe la config entera: se reenvía la que ya había,
 // o un simple interruptor borraría los IDs de USC.
 
-/** «ClassPass y USC», o null si no hay ninguna. */
-export function resumenPlataformasActivas(activas: Plataforma[]): string | null {
-  if (activas.length === 0) return null;
-  const nombres = activas.map(p => NOMBRE_PLATAFORMA[p]);
-  return nombres.length === 1 ? nombres[0] : `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
-}
-
 export function usePlataformasActivas(): Plataforma[] {
   const { integraciones } = useStudio();
   return PLATAFORMAS.filter(p => integraciones.some(i => i.tipo === p && i.activo));
@@ -32,17 +32,28 @@ export function usePlataformasActivas(): Plataforma[] {
 
 const USC: Plataforma = 'URBAN_SPORTS_CLUB';
 
+/** El logo de cada plataforma, en la misma placa que el resto de conexiones. */
+const LOGO_PLATAFORMA: Record<Plataforma, ComponentType<{ size?: number }>> = {
+  CLASSPASS: ClassPassIcon,
+  URBAN_SPORTS_CLUB: UrbanSportsClubIcon,
+  WELLHUB: WellhubIcon,
+};
+
+function LogoPlataforma({ p }: { p: Plataforma }) {
+  const Icono = LOGO_PLATAFORMA[p];
+  return <LogoConexion><Icono size={20} /></LogoConexion>;
+}
+
 interface EstadoUsc { config: Record<string, string>; apiDisponible: boolean }
 
-export function DetallePlataformasExternas({ showToast }: { showToast: (m: string) => void }) {
-  const { upsertIntegracion } = useStudio();
-  const activas = usePlataformasActivas();
-  const [guardando, setGuardando] = useState<Plataforma | null>(null);
-  // null = cargando; si falla la lectura, se trabaja en manual sin perder nada
-  // (el interruptor de USC espera a saber qué config hay para no pisarla).
+/**
+ * La config de USC y si Tentare tiene sus credenciales de integrador. `usc`
+ * null = cargando; si falla la lectura, `error` y se trabaja en manual sin
+ * perder nada (el interruptor de USC espera a saber qué config hay para no pisarla).
+ */
+function useEstadoUsc() {
   const [usc, setUsc] = useState<EstadoUsc | null>(null);
-  const [errorUsc, setErrorUsc] = useState(false);
-
+  const [error, setError] = useState(false);
   useEffect(() => {
     let vivo = true;
     fetch('/api/integrations/config?tipo=URBAN_SPORTS_CLUB')
@@ -50,9 +61,59 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
       .then((j: { config?: Record<string, string>; apiDisponible?: boolean }) => {
         if (vivo) setUsc({ config: j.config ?? {}, apiDisponible: j.apiDisponible === true });
       })
-      .catch(() => { if (vivo) setErrorUsc(true); });
+      .catch(() => { if (vivo) setError(true); });
     return () => { vivo = false; };
   }, []);
+  return { usc, setUsc, errorUsc: error };
+}
+
+/** Hoy solo USC se puede conectar, y solo con las credenciales de Tentare. */
+function conexionDe(p: Plataforma, usc: EstadoUsc | null): { disponible: boolean; conectada: boolean } {
+  const disponible = p === USC && usc?.apiDisponible === true;
+  return { disponible, conectada: disponible && !!usc && uscPublicaPorApi(usc.config) };
+}
+
+/**
+ * Una fila por plataforma en Conexiones, como el resto de conexiones: su logo,
+ * su estado y lo que hace el estudio con ella. Las tres abren el mismo cajón.
+ * La primera lleva el ancla de siempre (`#plataformas-externas`).
+ */
+export function FilasPlataformas({ onAbrir }: { onAbrir: () => void }) {
+  const activas = usePlataformasActivas();
+  const { usc } = useEstadoUsc();
+  return (
+    <>
+      {PLATAFORMAS.map((p, i) => {
+        const c = conexionDe(p, usc);
+        const resumen = resumenPlataformaVenta({ activa: activas.includes(p), conexionDisponible: c.disponible, conectada: c.conectada });
+        return (
+          <li key={p}>
+            <button
+              id={i === 0 ? 'plataformas-externas' : `plataformas-externas-${p.toLowerCase()}`}
+              type="button"
+              aria-haspopup="dialog"
+              onClick={onAbrir}
+              className={cn(FILA, 'w-full scroll-mt-32 scroll-mb-32 text-left')}
+            >
+              <LogoPlataforma p={p} />
+              <span className="min-w-0 flex-1">
+                <TituloFila titulo={NOMBRE_PLATAFORMA[p]} estado={resumen.estado} />
+                <ValorFila valor={resumen.valor} descripcion="" entero />
+              </span>
+              <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+            </button>
+          </li>
+        );
+      })}
+    </>
+  );
+}
+
+export function DetallePlataformasExternas({ showToast }: { showToast: (m: string) => void }) {
+  const { upsertIntegracion } = useStudio();
+  const activas = usePlataformasActivas();
+  const [guardando, setGuardando] = useState<Plataforma | null>(null);
+  const { usc, setUsc, errorUsc } = useEstadoUsc();
 
   async function cambiar(p: Plataforma, activo: boolean) {
     const anterior = p === USC ? usc?.config ?? null : { modo: 'manual' };
@@ -77,14 +138,13 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
       <ul className="divide-y divide-border rounded-2xl border border-border">
         {PLATAFORMAS.map(p => {
           const activa = activas.includes(p);
-          const porApi = p === USC && usc?.apiDisponible === true && uscPublicaPorApi(usc.config);
+          const { disponible: conexionDisponible, conectada: porApi } = conexionDe(p, usc);
           const esperandoUsc = p === USC && !usc && !errorUsc;
-          // Hoy solo USC puede conectarse, y solo con las credenciales de Tentare.
-          const conexionDisponible = p === USC && usc?.apiDisponible === true;
           return (
             <li key={p} className="px-4 py-3">
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
+              <LogoPlataforma p={p} />
+              <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-foreground">
                   {NOMBRE_PLATAFORMA[p]}
                   {!conexionDisponible && (
