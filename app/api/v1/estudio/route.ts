@@ -2,9 +2,10 @@ import { NextRequest } from 'next/server';
 import { conApiPublica, error } from '@/lib/api-publica/servidor';
 import { COLUMNAS, estudioPublico } from '@/lib/api-publica/serializar';
 
-// GET /api/v1/estudio — el estudio de la credencial: datos fiscales del emisor,
-// zona horaria, moneda e IVA por defecto. Singular a propósito: cada
-// credencial es de UN estudio (una sede), y no hay forma de pedir otro.
+// GET /api/v1/estudio — el estudio de la petición: datos fiscales del emisor,
+// zona horaria, moneda e IVA por defecto. Singular a propósito: cada petición
+// va a UNA sede (la de la credencial o, con una clave de cadena, la de la
+// cabecera Tentare-Estudio). Las sedes de una cadena: GET /api/v1/estudios.
 // Vale con cualquier credencial válida.
 //
 // `studios` es la única tabla de la API sin columna `studio_id`: su clave ES el

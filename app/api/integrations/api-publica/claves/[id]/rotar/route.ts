@@ -3,12 +3,13 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { uid } from '@/lib/utils';
 import { generarClaveApi } from '@/lib/api-publica/claves';
 import { exigirGestorApi, clavePanel, COLUMNAS_CLAVE } from '@/lib/api-publica/gestion';
-import { HORAS_SOLAPE_ROTACION, estadoClave, expiraTrasRotar } from '@/lib/api-publica/gestion-reglas';
+import { HORAS_SOLAPE_ROTACION, estadoClave, expiraTrasRotar, filtroClaves } from '@/lib/api-publica/gestion-reglas';
 
 // POST: rota una clave. Crea otra con el mismo nombre y permisos (recortados a
 // lo que hoy se puede dar) y deja la vieja viva HORAS_SOLAPE_ROTACION para
 // cambiarla en el programa sin cortar la sincronización. Devuelve la nueva en
-// claro una sola vez.
+// claro una sola vez. Una clave de cadena sigue siéndolo, y solo la rota la
+// dueña de la cadena.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const limited = await enforceRateLimit(req, 'api-claves-rotar', { max: 10, windowSeconds: 60 });
   if (limited) return limited;
@@ -18,9 +19,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const { data: vieja } = await g.admin.from('api_claves')
-    .select('id, nombre, scopes, expira_en, revocada_en, creada_en')
-    .eq('id', id).eq('studio_id', g.studioId).maybeSingle();
+    .select('id, nombre, scopes, expira_en, revocada_en, creada_en, cadena_id')
+    .eq('id', id).or(filtroClaves(g)).maybeSingle();
   if (!vieja) return NextResponse.json({ error: 'Clave no encontrada' }, { status: 404 });
+  // Creada aquí cuando era la dueña de la cadena, y hoy ya no lo es: puede
+  // revocarla, pero no sacar otra de cadena.
+  if (vieja.cadena_id && vieja.cadena_id !== g.cadenaId) {
+    return NextResponse.json({ error: 'Solo la dueña de la cadena puede cambiar una clave de toda la cadena.' }, { status: 403 });
+  }
   if (estadoClave(vieja, new Date()) !== 'activa') {
     return NextResponse.json({ error: 'Solo se puede rotar una clave activa.' }, { status: 409 });
   }
@@ -33,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const nueva = generarClaveApi();
   const { data, error } = await g.admin.from('api_claves').insert({
     id: `apik-${uid()}`, studio_id: g.studioId, nombre: vieja.nombre, prefijo: nueva.prefijo, hash: nueva.hash,
-    scopes, creada_por: g.userId, rotada_desde: vieja.id,
+    scopes, creada_por: g.userId, rotada_desde: vieja.id, cadena_id: vieja.cadena_id ?? null,
     expira_en: vidaMs ? new Date(ahora.getTime() + vidaMs).toISOString() : null,
   }).select(COLUMNAS_CLAVE).single();
   if (error || !data) return NextResponse.json({ error: 'No se pudo crear la clave nueva.' }, { status: 500 });
@@ -42,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // valer en 24 h») y quedarían DOS claves vivas, la vieja quizá para siempre.
   // Se deshace la nueva y se dice.
   const { error: errVieja } = await g.admin.from('api_claves').update({ expira_en: expiraTrasRotar(ahora, vieja.expira_en) })
-    .eq('id', vieja.id).eq('studio_id', g.studioId);
+    .eq('id', vieja.id).or(filtroClaves(g));
   if (errVieja) {
     await g.admin.from('api_claves').update({ revocada_en: new Date().toISOString(), revocada_por: g.userId })
       .eq('id', data.id).eq('studio_id', g.studioId);

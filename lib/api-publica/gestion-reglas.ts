@@ -8,11 +8,15 @@ export const CADUCIDADES_DIAS = [30, 90, 365] as const;
 /** Al rotar, la clave vieja sigue viva este tiempo para cambiarla sin cortar. */
 export const HORAS_SOLAPE_ROTACION = 24;
 
+/** `cadena`: llega a todas las sedes de la cadena (cadena.ts). Solo la dueña de la cadena. */
+export type AlcanceClave = 'sede' | 'cadena';
+
 export interface NuevaClave {
   nombre: string;
   scopes: ScopeOAuth[];
   /** null = no caduca. */
   caducaEnDias: number | null;
+  alcance: AlcanceClave;
 }
 
 export type Validacion = { ok: true; valor: NuevaClave } | { ok: false; error: string };
@@ -45,9 +49,53 @@ export function validarNuevaClave(cuerpo: unknown, permitidos: readonly ScopeOAu
     caducaEnDias = Number(c.caducaEnDias);
   }
 
+  if (c.alcance !== undefined && c.alcance !== 'sede' && c.alcance !== 'cadena') {
+    return { ok: false, error: 'La clave es para esta sede o para toda la cadena.' };
+  }
+  const alcance: AlcanceClave = c.alcance === 'cadena' ? 'cadena' : 'sede';
+
   // Orden del catálogo: dos claves con los mismos permisos se leen igual.
   const scopes = SCOPES_VALIDOS.filter((s) => pedidos.includes(s));
-  return { ok: true, valor: { nombre, scopes, caducaEnDias } };
+  return { ok: true, valor: { nombre, scopes, caducaEnDias, alcance } };
+}
+
+const RE_ID = /^[A-Za-z0-9_-]{1,100}$/;
+
+/** Los ids salen de la base de datos o de la sesión, pero van dentro de un filtro de texto: se validan igual. */
+function idSeguro(nombre: string, id: string): string {
+  if (!RE_ID.test(id)) throw new Error(`${nombre} con forma inesperada`);
+  return id;
+}
+
+/**
+ * Las claves que se gestionan desde el panel de una sede (filtro `or` de
+ * PostgREST):
+ *   · las de la sede (sin cadena);
+ *   · si quien gestiona es la dueña de la cadena (`cadenaId`), las de su cadena,
+ *     creadas desde cualquier sede;
+ *   · las de cadena que creó ella misma en esta sede (p. ej. cuando era la
+ *     dueña), para poder revocarlas.
+ * Una clave de cadena creada aquí por OTRA persona no aparece: otra propietaria
+ * de la sede la cortaría en toda la cadena.
+ */
+export function filtroClaves(g: { studioId: string; cadenaId: string | null; userId: string }): string {
+  const sede = idSeguro('studioId', g.studioId);
+  const yo = idSeguro('userId', g.userId);
+  return [
+    `and(studio_id.eq.${sede},cadena_id.is.null)`,
+    ...(g.cadenaId ? [`cadena_id.eq.${idSeguro('cadenaId', g.cadenaId)}`] : []),
+    `and(studio_id.eq.${sede},creada_por.eq.${yo})`,
+  ].join(',');
+}
+
+/**
+ * Las claves que LLEGAN a una sede, para revocarlas al desactivar su API desde
+ * /interno: todas las creadas en ella y las de su cadena. Más amplio que el del
+ * panel a propósito: al cortar, sobra antes que falte.
+ */
+export function filtroClavesQueLleganA(s: { studioId: string; cadenaId: string | null }): string {
+  const sede = idSeguro('studioId', s.studioId);
+  return s.cadenaId ? `studio_id.eq.${sede},cadena_id.eq.${idSeguro('cadenaId', s.cadenaId)}` : `studio_id.eq.${sede}`;
 }
 
 /** Cuándo caduca una clave creada `ahora` con `dias` de vida (null = nunca). */

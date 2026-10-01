@@ -28,6 +28,7 @@ export const ESQUEMAS: Record<string, Esquema> = {
     mensaje: strReq('Explicación legible.'),
     requestId: strReq('Cítalo si escribes a soporte.'),
   }),
+  Sede: obj({ id: strReq('Lo que va en la cabecera Tentare-Estudio.'), nombre: str() }),
   Estudio: obj({
     id: strReq(), nombre: str(), razonSocial: str(), nif: str(), direccion: str(),
     zonaHoraria: strReq('Zona horaria de las fechas del estudio, p. ej. Europe/Madrid.'), moneda,
@@ -164,7 +165,19 @@ const q = (name: string, description: string, schema: Esquema = { type: 'string'
 
 /** Rutas documentadas (sin el prefijo /api/v1). `openapi.test.ts` las cruza con app/api/v1. */
 export const RUTAS: Record<string, unknown> = {
-  '/estudio': uno('El estudio de la credencial', null, 'Estudio', false),
+  '/estudio': uno('El estudio de la petición', null, 'Estudio', false),
+  '/estudios': {
+    get: {
+      summary: 'Las sedes a las que llega la credencial',
+      description: 'Con una clave de sede o un token OAuth, solo la suya. Con una clave de cadena, las sedes de la cadena a las que llega ahora '
+        + '(API activada y estudio con acceso): pide cada una con la cabecera Tentare-Estudio. La única ruta que una clave de cadena puede llamar sin esa cabecera.',
+      security: [{ bearer: [] }],
+      responses: {
+        200: { description: 'Todas (sin paginar)', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Sede' } } } } },
+        ...ERRORES,
+      },
+    },
+  },
   '/clientas': {
     ...lista('Clientas', 'clientas:leer', 'Clienta', [], 'Con clientas:datos_fiscales incluye NIF y dirección.'),
     post: { summary: 'Crear una clienta', security: [{ bearer: [] }], 'x-scope': 'clientas:escribir', parameters: [IDEMPOTENCIA], responses: { 201: { description: 'Creada' }, ...ERRORES_IDEMPOTENCIA, 409: { description: 'Ya existe una clienta con ese email, u otra petición con la misma Idempotency-Key sigue en marcha' }, ...ERRORES } },
@@ -213,6 +226,17 @@ export const RUTAS: Record<string, unknown> = {
   },
 };
 
+/** En todas menos /estudios: a qué sede va la petición (lib/api-publica/cadena.ts). */
+const ESTUDIO = {
+  name: 'Tentare-Estudio', in: 'header', required: false, schema: { type: 'string', maxLength: 100 },
+  description: 'Obligatoria con una clave de cadena: el id de la sede (GET /estudios). Con otra credencial sobra; si va, tiene que ser su sede. '
+    + 'Si la credencial no llega a esa sede: 404.',
+};
+for (const [ruta, operaciones] of Object.entries(RUTAS as Record<string, Record<string, { parameters?: unknown[] }>>)) {
+  if (ruta === '/estudios') continue;
+  for (const op of Object.values(operaciones)) op.parameters = [...(op.parameters ?? []), ESTUDIO];
+}
+
 /** Los webhooks (OpenAPI 3.1): lo que Tentare manda a la URL del estudio. */
 export const WEBHOOKS: Record<string, unknown> = Object.fromEntries(TIPOS_EVENTO.map((tipo) => [tipo, {
   post: {
@@ -242,12 +266,13 @@ export function documentoOpenApi(servidor: string) {
       title: 'API de Tentare',
       version: '1',
       description: 'API pública v1. Autenticación con `Authorization: Bearer <clave de API del estudio o token OAuth>`. '
+        + 'Una clave de cadena llega a todas sus sedes: cada petición lleva la cabecera `Tentare-Estudio` con la sede (GET /estudios las lista). '
         + 'Importes en céntimos, fechas del estudio en AAAA-MM-DD. Guía completa: docs/api-publica.md.\n\n'
         + 'Permisos (scopes):\n' + SCOPES_VALIDOS.map(s => `- \`${s}\`: ${DESCRIPCION_SCOPE[s]}`).join('\n'),
     },
     servers: [{ url: `${servidor}/api/v1` }],
     components: {
-      securitySchemes: { bearer: { type: 'http', scheme: 'bearer', description: 'Clave de API (tnt_sk_…) o token de acceso OAuth.' } },
+      securitySchemes: { bearer: { type: 'http', scheme: 'bearer', description: 'Clave de API (tnt_sk_…, de una sede o de toda la cadena) o token de acceso OAuth.' } },
       schemas: ESQUEMAS,
     },
     paths: RUTAS,

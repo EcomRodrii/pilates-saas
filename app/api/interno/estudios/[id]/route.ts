@@ -4,6 +4,7 @@ import { exigirPermiso } from '@/lib/interno/auth';
 import { registrar } from '@/lib/interno/auditoria';
 import { esDePago } from '@/lib/interno/salud-estudio';
 import { saludDe } from '@/lib/interno/salud-estudio-servidor';
+import { filtroClavesQueLleganA } from '@/lib/api-publica/gestion-reglas';
 
 export const runtime = 'nodejs';
 
@@ -59,7 +60,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     db.from('review_boost_feedback').select('rating, creado_en').eq('studio_id', id).maybeSingle(),
     db.from('review_boost_recompensas').select('canjeada_en').eq('studio_id', id).maybeSingle(),
     db.from('api_acceso_estudios').select('activada_en, desactivada_en').eq('studio_id', id).maybeSingle(),
-    db.from('api_claves').select('id', { count: 'exact', head: true }).eq('studio_id', id).is('revocada_en', null),
+    // Las que llegan a la sede: las suyas y las de su cadena.
+    db.from('api_claves').select('id', { count: 'exact', head: true })
+      .or(filtroClavesQueLleganA({ studioId: id, cadenaId: (studio.cadena_id as string | null) ?? null })).is('revocada_en', null),
   ]);
 
   // Facturación DEL ESTUDIO a sus socias (su negocio), no lo que nos paga a
