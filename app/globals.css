@@ -1226,6 +1226,12 @@ body:has([data-barra-guardar]) .panel-wa-fab { display: none; }
 /* Lo mismo con la barra de lo seleccionado de Clientas: va pegada abajo y la
    burbuja tapaba «Más» y la «×» para quitar la selección. */
 body:has([data-barra-seleccion]) .panel-wa-fab { display: none; }
+/* La ficha de la clase que va AL LADO en el Calendario ocupa la esquina de la
+   burbuja, y en el mostrador está abierta casi siempre: ahí la burbuja no se
+   aparta (es la línea con el fundador). Es la lista la que le deja sitio al
+   final, para que la última clienta —y su ⋯— suba por encima. */
+[data-sitio-burbuja] { height: 0; }
+[data-ficha-al-lado] [data-sitio-burbuja] { height: 4.5rem; }
 /* Y mientras se escribe en un campo de Configuración en el móvil o el iPad: con
    el teclado abierto queda poco alto, y un campo alto (el lema de Marca) caía
    debajo de la burbuja aunque no hubiera cambios todavía. En escritorio no:

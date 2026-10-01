@@ -276,6 +276,9 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
           );
         })}
       </ul>
+      {/* Sitio para que la última fila suba por encima de la burbuja de soporte
+          cuando la ficha va al lado (lo mide globals.css; en otro sitio, 0). */}
+      <div aria-hidden data-sitio-burbuja />
 
       {p.pasarLista && p.onGuardarLista && porMarcar > 0 && (
         <div className="sticky bottom-0 border-t border-border bg-card/95 px-5 py-3 backdrop-blur-sm">

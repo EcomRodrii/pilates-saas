@@ -166,6 +166,7 @@ export function FichaClase(p: FichaClaseProps) {
       <aside
         aria-label={`Clase: ${p.titulo}`}
         data-testid="ficha-clase"
+        data-ficha-al-lado=""
         // Al lado no es un diálogo (no atrapa el foco), pero Esc la cierra igual
         // si el foco está dentro: es lo que espera quien va con el teclado. Y
         // solo a ella: `preventDefault` es lo que mira la vista ampliada para no
