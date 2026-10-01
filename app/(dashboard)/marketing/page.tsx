@@ -8,12 +8,12 @@ import { useRouter } from 'next/navigation'
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags'
 import { cn, hoyEnEstudio, masDias } from '@/lib/utils'
 import { importeIngresado } from '@/lib/billing/situacion-recibo'
-import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send, Play, Pause, Flag, ArrowRight, ArrowUpRight, Pencil, UserPlus, Calendar, CreditCard } from 'lucide-react'
+import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send, Play, Pause, Flag, ArrowRight, ArrowUpRight, Pencil, Calendar, CreditCard } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas'
 import { authHeader } from '@/lib/api-client'
-import type { Campana, Automatizacion, TipoCampana, LeadStage, DestinatariosCampana } from '@/lib/types'
+import type { Campana, Automatizacion, TipoCampana, DestinatariosCampana } from '@/lib/types'
 import { FlowBuilder, ACCIONES } from '@/components/marketing/flow-builder'
 import { leerPublicacionesContenido } from '@/lib/contenido/read-publicaciones'
 import type { PublicacionAsociada } from '@/lib/types'
@@ -213,129 +213,6 @@ function WidgetCard({ icon: Icon, title, action, children, className }: {
   )
 }
 
-// ─── Mini sparkline used by the KPI cards ──────────────────────────────────────
-
-function MiniSparkline({ points, color }: { points: number[]; color: string }) {
-  if (points.length < 2) return null
-  const w = 200, h = 56
-  const max = Math.max(...points, 1)
-  const min = Math.min(...points, 0)
-  const range = max - min || 1
-  const step = w / (points.length - 1)
-  const coords = points.map((p, i) => [i * step, h - ((p - min) / range) * (h - 8) - 4] as const)
-  const line = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
-  const area = `${line} L${w},${h} L0,${h} Z`
-  const gid = `spark-${color.replace('#', '')}`
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-14" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill={`url(#${gid})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function KpiTrendCard({ title, value, deltaPct, points, color, axisLabels }: {
-  title: string; value: string; deltaPct: number | null; points: number[]; color: string; axisLabels: string[]
-}) {
-  const positive = (deltaPct ?? 0) >= 0
-  return (
-    <div className="bg-card border border-border rounded-3xl p-5 flex flex-col">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-[26px] font-extrabold text-foreground leading-none tabular-nums">{value}</span>
-        {deltaPct !== null && (
-          <span className={cn(
-            'text-[11px] font-bold px-2 py-0.5 rounded-full',
-            positive ? 'bg-brand/10 text-brand-secondary' : 'bg-warning/10 text-warning'
-          )}>
-            {positive ? '+' : ''}{deltaPct.toFixed(1)}%
-          </span>
-        )}
-      </div>
-      <p className="text-[12px] text-muted-foreground mb-2">{title}</p>
-      <MiniSparkline points={points} color={color} />
-      <div className="flex justify-between mt-1">
-        {axisLabels.map((l, i) => <span key={i} className="text-[10px] text-muted-foreground">{l}</span>)}
-      </div>
-    </div>
-  )
-}
-
-function ConversionRatioCard({ activas, total }: { activas: number; total: number }) {
-  const pct = total > 0 ? Math.round((activas / total) * 100) : 0
-  return (
-    <div className="bg-card border border-border rounded-3xl p-5 flex flex-col">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-[26px] font-extrabold text-foreground leading-none tabular-nums">{pct}%</span>
-      </div>
-      <p className="text-[12px] text-muted-foreground mb-3">Tasa de conversión</p>
-      <div className="h-2.5 bg-muted rounded-full overflow-hidden mt-auto">
-        <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
-      </div>
-      <p className="text-[11px] text-muted-foreground mt-2">{activas} activas de {total} con etapa asignada</p>
-    </div>
-  )
-}
-
-// ─── Embudo de captación (real funnel from Socio.leadStage) ───────────────────
-
-const FUNNEL_STAGES: { stage: LeadStage[]; label: string }[] = [
-  { stage: ['LEAD', 'INTERESADA', 'PRUEBA', 'ACTIVA', 'EN_RIESGO', 'PERDIDA'], label: 'Leads captados' },
-  { stage: ['INTERESADA', 'PRUEBA', 'ACTIVA', 'EN_RIESGO', 'PERDIDA'], label: 'Interesadas' },
-  { stage: ['PRUEBA', 'ACTIVA', 'EN_RIESGO'], label: 'En prueba' },
-  { stage: ['ACTIVA'], label: 'Convertidas' },
-]
-
-function ConversionFunnelCard({ socios }: { socios: { leadStage?: LeadStage }[] }) {
-  const counts = FUNNEL_STAGES.map(({ stage, label }) => ({
-    label,
-    value: socios.filter(s => s.leadStage && stage.includes(s.leadStage)).length,
-  }))
-  const total = counts[0]?.value ?? 0
-
-  if (total === 0) {
-    return (
-      <WidgetCard icon={Filter} title="Embudo de captación" className="lg:col-span-2">
-        <EmptyState
-          compacto
-          icono={UserPlus}
-          titulo="Aún no hay leads en el embudo"
-          descripcion="Asigna una etapa (lead, interesada, prueba…) a tus clientas en su ficha para ver la conversión real aquí."
-        />
-      </WidgetCard>
-    )
-  }
-
-  return (
-    <WidgetCard icon={Filter} title="Embudo de captación" action={<span className="text-[11px] font-semibold text-muted-foreground px-2">Todo el histórico</span>} className="lg:col-span-2">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {counts.map((c, i) => {
-          const widthPct = total > 0 ? Math.max(8, (c.value / total) * 100) : 0
-          const pctOfPrev = i === 0 ? 100 : counts[i - 1].value > 0 ? Math.round((c.value / counts[i - 1].value) * 100) : 0
-          return (
-            <div key={c.label}>
-              <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums">{c.value}</p>
-              <p className="text-[11px] text-muted-foreground mt-1 mb-3">{c.label}</p>
-              <div className="h-16 flex items-end">
-                <div
-                  className={cn('w-full rounded-t-md', i === counts.length - 1 ? 'bg-brand' : 'bg-border')}
-                  style={{ height: `${widthPct}%` }}
-                />
-              </div>
-              <p className="text-[11px] font-semibold text-muted-foreground mt-1.5">{i === 0 ? '100%' : `${pctOfPrev}%`}</p>
-            </div>
-          )
-        })}
-      </div>
-    </WidgetCard>
-  )
-}
-
 // ─── Clases más demandadas (reemplaza el mapa — un estudio de un solo local no
 // tiene "top ubicaciones", pero sí clases con más reservas reales) ────────────
 
@@ -518,29 +395,21 @@ export default function MarketingPage() {
     toggleAutomatizacion(a.id).then(res => { if (!res.ok) showToast(res.error) })
   }
 
-  // ── Resumen: leads captados por mes (últimos 6 meses, para el sparkline) ────
-  const leadsPorMes = (() => {
-    const now = new Date()
-    const meses: { key: string; label: string }[] = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
-      return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString('es-ES', { month: 'short' }) }
-    })
-    return meses.map(({ key, label }) => {
-      const [y, m] = key.split('-').map(Number)
-      const count = socios.filter(s => {
-        const d = new Date(s.fechaAlta)
-        return d.getFullYear() === y && d.getMonth() === m
-      }).length
-      return { label, count }
-    })
-  })()
-  const totalLeadsActual = leadsPorMes[leadsPorMes.length - 1]?.count ?? 0
-  const totalLeadsPrev = leadsPorMes[leadsPorMes.length - 2]?.count ?? 0
-  const leadsDeltaPct = totalLeadsPrev > 0 ? ((totalLeadsActual - totalLeadsPrev) / totalLeadsPrev) * 100 : null
-
-  const totalConLeadStage = socios.filter(s => s.leadStage).length
-  const activas = socios.filter(s => s.leadStage === 'ACTIVA').length
-  const tasaConversion = totalConLeadStage > 0 ? (activas / totalConLeadStage) * 100 : 0
+  // ── Resumen: fichas dadas de alta este mes y el anterior ─────────────────
+  // «Altas», no «leads»: cuenta toda ficha nueva, sea quien sea. La conversión y
+  // el embudo que había aquí leían la etapa antigua (`lead_stage`), que ya no
+  // rellena nadie: la conversión de pruebas vive en Clientas → «Interesadas y pruebas».
+  const altasDelMes = (atras: number) => {
+    const ahora = new Date()
+    const d = new Date(ahora.getFullYear(), ahora.getMonth() - atras, 1)
+    return socios.filter(s => {
+      if (!s.fechaAlta) return false
+      const a = new Date(s.fechaAlta)
+      return a.getFullYear() === d.getFullYear() && a.getMonth() === d.getMonth()
+    }).length
+  }
+  const altasEsteMes = altasDelMes(0)
+  const altasMesPasado = altasDelMes(1)
 
   // Campañas modal
   const [showCampanaModal, setShowCampanaModal] = useState(false)
@@ -860,7 +729,7 @@ export default function MarketingPage() {
           {[
             { label: 'Ingresos (30 días)', value: `${ingresos30d.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €`, sub: 'recibos cobrados' },
             { label: 'Campañas activas', value: String(campanasActivas), sub: `${enviadas.length} enviadas` },
-            { label: 'Conversión a clienta', value: `${Math.round(tasaConversion)}%`, sub: `${activas} de ${totalConLeadStage} leads` },
+            { label: 'Altas este mes', value: String(altasEsteMes), sub: `${altasMesPasado} el mes pasado` },
             { label: 'Automatizaciones activas', value: String(autoActivas), sub: `${totalEjecuciones} ejecuciones` },
             ...(hayDatosApertura
               ? [{ label: 'Apertura media (envíos)', value: `${tasaApertura}%`, sub: `${enviadas.length} campañas` }]
@@ -875,16 +744,6 @@ export default function MarketingPage() {
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <ConversionFunnelCard socios={socios} />
-          <KpiTrendCard
-            title="Leads captados (este mes)"
-            value={String(totalLeadsActual)}
-            deltaPct={leadsDeltaPct}
-            points={leadsPorMes.map(m => m.count)}
-            color="var(--brand)"
-            axisLabels={leadsPorMes.map(m => m.label)}
-          />
-          <ConversionRatioCard activas={activas} total={totalConLeadStage} />
           <TopClasesCard sesiones={sesiones} reservas={reservas} tiposClase={tiposClase} />
           <RevenueDonutCard recibos={recibos} suscripciones={suscripciones} planesTarifa={planesTarifa} />
         </div>

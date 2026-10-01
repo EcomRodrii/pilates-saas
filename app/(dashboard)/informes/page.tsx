@@ -2,7 +2,11 @@
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
-import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClientas, dbRecibosCobradosParaExport, dbVentasPorTipo } from '@/lib/supabase-data';
+import Link from 'next/link';
+import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbRecibosCobradosParaExport, dbVentasPorTipo } from '@/lib/supabase-data';
+import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
+import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
+import { cohortesPorPrimeraCompra, MUESTRA_MINIMA_COHORTE, type FilaCohorte, type TramoCohorte } from '@/lib/informes/cohortes.ts';
 import { fetchTarifasEquipo, type TarifaInstructor } from '@/lib/api-client';
 import { margenSesiones, type MargenSesion } from '@/lib/decision/margen-clase.ts';
 import { combinarConVariacion, type VentaTipoConVariacion } from '@/lib/informes/ventas-por-tipo.ts';
@@ -126,13 +130,29 @@ function getBucketKey(period: Period, date: Date): string {
 
 // ─── Cohort retention helpers ─────────────────────────────────────────────────
 
-interface CohortRow {
-  mes: string;
-  total: number;
-  active30: number;
-  active90: number;
-  pct30: number;
-  pct90: number;
+// «may 26»: el mes de una cohorte ('YYYY-MM'), sin depender de la zona del navegador.
+const FORMATO_MES_COHORTE = new Intl.DateTimeFormat('es-ES', { month: 'short', year: '2-digit', timeZone: 'UTC' });
+function etiquetaMes(ym: string): string {
+  return FORMATO_MES_COHORTE.format(new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1, 15)));
+}
+
+/** Una celda de cohorte: «3 · 60 %», solo «3» con pocas, o «—» si todavía no se sabe. */
+function CeldaCohorte({ tramo }: { tramo: TramoCohorte | null }) {
+  if (!tramo) {
+    return <span title="Todavía no ha pasado ese mes entero para todas las que empezaron entonces" style={{ color: 'var(--muted-foreground)' }}>—</span>;
+  }
+  if (tramo.pct === null) {
+    return <span className="tabular-nums" title={`Menos de ${MUESTRA_MINIMA_COHORTE}: pocas para sacar un porcentaje`} style={{ color: 'var(--foreground)' }}>{tramo.siguen}</span>;
+  }
+  const tono = tramo.pct >= 70 ? 'var(--success)' : tramo.pct >= 40 ? 'var(--warning)' : 'var(--destructive)';
+  return (
+    <span className="tabular-nums" style={{ color: 'var(--foreground)' }}>
+      {tramo.siguen}{' '}
+      <span className="inline-block px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: `color-mix(in srgb, ${tono} 12%, var(--card))`, color: tono }}>
+        {tramo.pct}%
+      </span>
+    </span>
+  );
 }
 
 // ─── Export state type ────────────────────────────────────────────────────────
@@ -162,13 +182,13 @@ export default function Informes() {
   const [mounted, setMounted] = useState(false);
   // F1 (B1-B4): agregados de dinero calculados en el SERVIDOR (RPC, sin cap 1000).
   const [agg, setAgg] = useState<{ total: number; totalSocias: number; nSocias: number; mrr: number; porDia: { dia: string; total: number }[] } | null>(null);
-  // F1 (B4/B1): ocupación por tipo y retención también del servidor.
+  // F1 (B4): ocupación por tipo también del servidor.
   const [ocupData, setOcupData] = useState<{ tipoClaseId: string | null; nSesiones: number; aforo: number; ocupadas: number }[]>([]);
-  // ⚠️ `null` mientras no ha llegado, NO cero. Arrancando en 0 la tarjeta
-  // pintaba «0 %» en rojo —con su color de alarma— junto a su propio pie,
-  // «3 activas de 4», que dice 75 %. Un dato que aún no está no es un dato
-  // malo: ausente no es cero.
-  const [retencion, setRetencion] = useState<number | null>(null);
+  // «Clientas activas»: el MISMO número que el Resumen y el chip «Activa» de
+  // Clientas (lib/clientas/estado.ts). Antes aquí había una «Tasa retención» que
+  // contaba las no dadas de baja (casi siempre ~95 %) con su «N activas de M»,
+  // y decía otra cifra que el Resumen. `null` mientras no hay datos enteros.
+  const { listo: estadosListos, conteos: conteosClientas } = useEstadosClientas();
   // Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) + variación
   // vs. el período anterior de igual duración — pedido explícito del fundador.
   const [ventasTipo, setVentasTipo] = useState<VentaTipoConVariacion[] | null>(null);
@@ -249,10 +269,10 @@ export default function Informes() {
     let cancel = false;
     void Promise.all([
       dbInformeIngresos(desde), dbInformeIngresos(mesInicio), dbIngresosPorDia(desde),
-      dbOcupacionPorTipo(desde), dbStatsClientas(),
+      dbOcupacionPorTipo(desde),
       dbVentasPorTipo(desde, hasta), dbVentasPorTipo(anteriorDesde, anteriorHasta),
     ])
-      .then(([per, mes, dias, ocup, stc, ventasActual, ventasAnterior]) => {
+      .then(([per, mes, dias, ocup, ventasActual, ventasAnterior]) => {
         if (cancel) return;
         // ⚠️ Si el servidor no ha contestado, esta pantalla NO puede escribir
         // «0,00 €»: es una afirmación sobre la caja del estudio y quien la lee
@@ -266,12 +286,6 @@ export default function Informes() {
           setAgg({ total: per.total, totalSocias: per.totalSocias, nSocias: per.nSocias, mrr: mes.total, porDia: dias });
         }
         if (ocup) setOcupData(ocup);
-        // ⚠️ Sin clientas NO hay una retención del 0 %: no hay retención que
-        // medir. Devolver 0 pintaba un «0 %» en rojo de alarma —con su color
-        // de «esto va mal»— para un estudio que simplemente no tiene datos
-        // todavía, y también cuando la consulta volvía vacía por un fallo.
-        // Mismo criterio que el resto: ausente no es cero.
-        setRetencion(stc && stc.total > 0 ? Math.round((stc.activas / stc.total) * 100) : null);
         // `null` aquí es «no lo sé»; el bloque de abajo lo distingue de
         // «todavía cargando» mirando `fallo`, para no dejar el esqueleto
         // girando eternamente.
@@ -342,15 +356,6 @@ export default function Informes() {
   // lo de sus clientas era 87,10 €.
   const ticketMedio = agg == null ? null : agg.nSocias > 0 ? agg.totalSocias / agg.nSocias : 0;
 
-  // ─── KPI: Tasa retención (server-side, F1) ──────────────────────────────────
-  const tasaRetencion = retencion;
-  // Para el color: sin dato no se pinta ni bien ni mal, se pinta neutro.
-  const tonoRetencion = tasaRetencion == null
-    ? 'var(--muted-foreground)'
-    : tasaRetencion >= 80 ? 'var(--success)'
-    : tasaRetencion >= 60 ? 'var(--warning)'
-    : 'var(--destructive)';
-
   // ─── Ocupación por tipo de clase ────────────────────────────────────────────
   const ocupacionPorTipo = useMemo(() => {
     // P0-28: ocupadas por sesión en UNA pasada, en vez de reservas.filter() por
@@ -374,51 +379,18 @@ export default function Informes() {
     }).filter(t => t.sesiones > 0).sort((a, b) => b.pct - a.pct);
   }, [ocupData, tiposClase]);
 
-  // ─── Cohort retention table ─────────────────────────────────────────────────
-  const cohortRows = useMemo((): CohortRow[] => {
-    const monthsBack = period === 'week' ? 3 : period === 'month' ? 4 : period === 'quarter' ? 6 : 12;
-    const rows: CohortRow[] = [];
-    for (let i = Math.min(monthsBack, 6) - 1; i >= 0; i--) {
-      const cohortStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const cohortEnd   = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
-      const label = cohortStart.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
-
-      const cohortSocios = socios.filter(s => {
-        const fa = new Date(s.fechaAlta);
-        return fa >= cohortStart && fa <= cohortEnd;
-      });
-
-      const d30 = new Date(cohortStart); d30.setDate(d30.getDate() + 30);
-      const d90 = new Date(cohortStart); d90.setDate(d90.getDate() + 90);
-
-      const sesionIds30 = new Set(sesiones.filter(s => new Date(s.inicio) >= cohortStart && new Date(s.inicio) <= d30).map(s => s.id));
-      const sesionIds90 = new Set(sesiones.filter(s => new Date(s.inicio) >= cohortStart && new Date(s.inicio) <= d90).map(s => s.id));
-
-      // P0-28: socias con reserva activa en la ventana, en UNA pasada sobre
-      // reservas, en vez de reservas.some() por cada socia de la cohorte
-      // (O(cohortes × socias × reservas)).
-      const activos30 = new Set<string>();
-      const activos90 = new Set<string>();
-      for (const r of reservas) {
-        if (r.estado !== 'CONFIRMADA' && r.estado !== 'ASISTIDA') continue;
-        if (sesionIds30.has(r.sesionId)) activos30.add(r.socioId);
-        if (sesionIds90.has(r.sesionId)) activos90.add(r.socioId);
-      }
-
-      const active30 = cohortSocios.filter(s => activos30.has(s.id)).length;
-      const active90 = d90 <= now ? cohortSocios.filter(s => activos90.has(s.id)).length : -1;
-
-      rows.push({
-        mes: label,
-        total: cohortSocios.length,
-        active30,
-        active90,
-        pct30: cohortSocios.length > 0 ? Math.round((active30 / cohortSocios.length) * 100) : 0,
-        pct90: active90 >= 0 && cohortSocios.length > 0 ? Math.round((active90 / cohortSocios.length) * 100) : -1,
-      });
-    }
-    return rows;
-  }, [socios, sesiones, reservas, period, now]);
+  // ─── Cohortes: cuántas siguen viniendo, por mes en que empezaron ────────────
+  // Por su primera compra de verdad y por clases a las que VINO (lib/informes/
+  // cohortes.ts). La tabla de antes agrupaba por fecha de alta, contaba reservas
+  // confirmadas y medía desde el día 1 del mes: no medía lo que decía.
+  // Se recalcula al cambiar de día, no cada minuto que avanza el reloj.
+  const hoyTxt = hoyEnEstudio(now);
+  const cohortes = useMemo(
+    (): FilaCohorte[] => (mounted && estadosListos
+      ? cohortesPorPrimeraCompra({ socios, suscripciones, planesTarifa, reservas, sesiones }, hoyTxt)
+      : []),
+    [mounted, estadosListos, socios, suscripciones, planesTarifa, reservas, sesiones, hoyTxt],
+  );
 
   // ─── Top 5 socias ───────────────────────────────────────────────────────────
   const topSocias = useMemo(() => {
@@ -668,22 +640,39 @@ export default function Informes() {
           </>
         )}
 
-        {/* Retención */}
+        {/* Clientas activas: el mismo número que el Resumen y el chip de Clientas */}
         <div className="bg-card border border-border rounded-xl p-5">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-            style={{ backgroundColor: `color-mix(in srgb, ${tonoRetencion} 12%, var(--card))` }}
+            style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 10%, var(--card))' }}
           >
-            <Users size={17} style={{ color: tonoRetencion }} />
+            <Users size={17} style={{ color: 'var(--primary)' }} />
           </div>
-          <p className="text-xs font-semibold" style={{ color: 'var(--muted-foreground)' }}>Tasa retención</p>
-          <p className="text-[11px] mb-1" style={{ color: 'var(--muted-foreground)' }}>Cuántas de tus clientas siguen activas hoy</p>
-          <p className="text-2xl font-extrabold leading-none" style={{ color: tonoRetencion }}>
-            {tasaRetencion == null ? '—' : `${tasaRetencion}%`}
-          </p>
-          <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>
-            {socios.filter(s => s.activo).length} activas de {socios.length}
-          </p>
+          <p className="text-xs font-semibold" style={{ color: 'var(--muted-foreground)' }}>Clientas activas</p>
+          <p className="text-[11px] mb-1" style={{ color: 'var(--muted-foreground)' }}>Pueden reservar ahora (cuota vigente o bono con sesiones) o han venido en los últimos {DIAS_VINO_HACE_POCO} días: el mismo número que en Resumen</p>
+          {conteosClientas ? (
+            <Link href="/clientas?estado=ACTIVA" className="text-2xl font-extrabold leading-none hover:underline underline-offset-4" style={{ color: 'var(--foreground)' }}>
+              {conteosClientas.ACTIVA}
+            </Link>
+          ) : (
+            <p className="text-2xl font-extrabold leading-none" style={{ color: 'var(--muted-foreground)' }}>—</p>
+          )}
+          {conteosClientas && (conteosClientas.PAUSADA > 0 || conteosClientas.SIN_RENOVAR > 0) && (
+            <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>
+              y{' '}
+              {conteosClientas.PAUSADA > 0 && (
+                <Link href="/clientas?estado=PAUSADA" className="underline-offset-2 hover:underline">
+                  {conteosClientas.PAUSADA} {conteosClientas.PAUSADA === 1 ? 'pausada' : 'pausadas'}
+                </Link>
+              )}
+              {conteosClientas.PAUSADA > 0 && conteosClientas.SIN_RENOVAR > 0 && ' · '}
+              {conteosClientas.SIN_RENOVAR > 0 && (
+                <Link href="/clientas?estado=SIN_RENOVAR" className="underline-offset-2 hover:underline">
+                  {conteosClientas.SIN_RENOVAR} sin renovar
+                </Link>
+              )}
+            </p>
+          )}
         </div>
       </div>
 
@@ -1005,14 +994,21 @@ export default function Informes() {
           )}
         </div>
 
-        {/* Right: Cohort retention table */}
+        {/* Right: cuántas siguen viniendo, por mes en que empezaron */}
         <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Cuántas siguen viniendo, por mes de alta</h2>
-          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>De las clientas dadas de alta cada mes, cuántas volvieron a los 30/90 días de su alta — no confundir con la tasa de retención de arriba, que mide quién sigue activa hoy</p>
+          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Cuántas siguen viniendo, por mes en que empezaron</h2>
+          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>
+            De las clientas que compraron su primer plan o bono cada mes, cuántas vinieron a alguna clase en su segundo mes y en su tercero.
+            No cuentan las importadas ni las que ya venían de antes. «—»: ese mes aún no ha pasado entero para todas.
+          </p>
 
-          {cohortRows.every(r => r.total === 0) ? (
+          {!estadosListos ? (
             <div className="flex items-center justify-center h-40">
-              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Sin datos de cohortes suficientes</p>
+              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Cargando…</p>
+            </div>
+          ) : cohortes.every(f => f.empezaron === 0) ? (
+            <div className="flex items-center justify-center h-40">
+              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Nadie ha empezado en estos seis meses: no hay nada que medir todavía</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -1020,36 +1016,21 @@ export default function Informes() {
                 <thead>
                   <tr>
                     <th className="text-left font-semibold pb-2 pr-3" style={{ color: 'var(--muted-foreground)' }}>Mes</th>
-                    <th className="text-right font-semibold pb-2 pr-3" style={{ color: 'var(--muted-foreground)' }}>Altas</th>
-                    <th className="text-right font-semibold pb-2 pr-3" style={{ color: 'var(--muted-foreground)' }}>Act. 30d</th>
-                    <th className="text-right font-semibold pb-2 pr-3" style={{ color: 'var(--muted-foreground)' }}>Act. 90d</th>
-                    <th className="text-right font-semibold pb-2" style={{ color: 'var(--muted-foreground)' }}>% 30d</th>
+                    <th className="text-right font-semibold pb-2 pr-3" style={{ color: 'var(--muted-foreground)' }}>Empezaron</th>
+                    <th className="text-right font-semibold pb-2 pr-3" style={{ color: 'var(--muted-foreground)' }}>Siguen en su 2.º mes</th>
+                    <th className="text-right font-semibold pb-2" style={{ color: 'var(--muted-foreground)' }}>En su 3.er mes</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {cohortRows.map((row, i) => (
+                  {cohortes.map((fila, i) => (
                     <tr
-                      key={row.mes}
+                      key={fila.mes}
                       style={{ borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}
                     >
-                      <td className="py-2 pr-3 font-semibold capitalize" style={{ color: 'var(--foreground)' }}>{row.mes}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{row.total}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{row.active30}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums" style={{ color: row.active90 < 0 ? 'var(--muted-foreground)' : 'var(--foreground)' }} title={row.active90 < 0 ? 'Todavía no ha pasado suficiente tiempo desde el alta para saberlo' : undefined}>
-                        {row.active90 < 0 ? '—' : row.active90}
-                      </td>
-                      <td className="py-2 text-right">
-                        <span
-                          className="inline-block px-1.5 py-0.5 rounded font-bold tabular-nums"
-                          style={{
-                            backgroundColor: row.pct30 >= 70 ? 'color-mix(in srgb, var(--success) 12%, var(--card))' : row.pct30 >= 40 ? 'color-mix(in srgb, var(--warning) 12%, var(--card))' : 'color-mix(in srgb, var(--destructive) 12%, var(--card))',
-                            color: row.pct30 >= 70 ? 'var(--success)' : row.pct30 >= 40 ? 'var(--warning)' : 'var(--destructive)',
-                          }}
-                          title={row.total === 0 ? 'Sin altas ese mes: no hay nada que medir' : undefined}
-                        >
-                          {row.total > 0 ? `${row.pct30}%` : '—'}
-                        </span>
-                      </td>
+                      <td className="py-2 pr-3 font-semibold capitalize" style={{ color: 'var(--foreground)' }}>{etiquetaMes(fila.mes)}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{fila.empezaron}</td>
+                      <td className="py-2 pr-3 text-right">{fila.empezaron > 0 ? <CeldaCohorte tramo={fila.segundoMes} /> : <span style={{ color: 'var(--muted-foreground)' }}>—</span>}</td>
+                      <td className="py-2 text-right">{fila.empezaron > 0 ? <CeldaCohorte tramo={fila.tercerMes} /> : <span style={{ color: 'var(--muted-foreground)' }}>—</span>}</td>
                     </tr>
                   ))}
                 </tbody>
