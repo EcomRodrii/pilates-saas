@@ -200,7 +200,9 @@ así que todo lo que se versiona lo lee cualquiera:
 - **Gmail retirado (1-oct-2026).** Solo traía la agenda personal de la dueña como fichas de
   clientas, y choca con «las interesadas viven en consultas, no en fichas». Ya no se puede
   conectar; quien la tenía conectada la ve en Configuración solo para desconectarla, y eso
-  revoca el permiso y borra la credencial. No reintroducir sin pedirlo.
+  borra la credencial. ⚠️ Revoca el permiso en Google **solo si Calendar no está en la misma
+  cuenta**: comparten app de Google, y Google retira TODOS los permisos de la app a la vez
+  (`lib/integraciones/desconectar-gmail.ts`). No reintroducir sin pedirlo.
 
 ## El logotipo: un componente en línea, y `docs/marca/` como única fuente
 

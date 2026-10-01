@@ -2574,7 +2574,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (cpub) {
       // Alta pública vía endpoint (service-role). Se AWAITea para que la reserva
       // posterior encuentre a la socia ya creada. El resultado se PROPAGA: antes
-      // se descartaba y un rechazo del servidor (tope de plan, red, timeout) se
+      // se descartaba y un rechazo del servidor (un dato no válido, red, timeout) se
       // trataba como éxito silencioso — handleConfirm seguía adelante con una
       // socia que no existía y se quedaba colgado sin ningún aviso.
       return postPublico('/api/public/socio', {

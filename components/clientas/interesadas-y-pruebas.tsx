@@ -158,7 +158,7 @@ export function InteresadasYPruebas({
         <Bloque
           titulo="Preguntaron"
           cuantas={consultas.length + interesadas.length}
-          nota="Las que preguntaron (por tu web o apuntadas a mano) no tienen ficha: no ocupan plaza de tu plan ni reciben nada automático hasta que las das de alta."
+          nota="Las que preguntaron (por tu web o apuntadas a mano) no tienen ficha ni cuentan como alumnas activas de tu plan. No reciben nada automático hasta que las das de alta."
           accion={puedeGestionar ? (
             <button type="button" onClick={() => setApuntando(true)} className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-xl border border-border bg-card px-3 text-[13px] font-semibold text-foreground hover:bg-muted">
               <Plus size={14} aria-hidden /> Apuntar interesada

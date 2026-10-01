@@ -117,7 +117,6 @@ const REDIRECCION_TAB: Record<string, string> = {
 // sección venga el `tab=` que venga — si no, el aviso no sale nunca.
 const PARAMS_DE_CONEXION: [string, TarjetaId][] = [
   ['stripe_connected', 'integracion-stripe'], ['stripe_connect_error', 'integracion-stripe'],
-  ['gmail_connected', 'integracion-gmail'], ['gmail_error', 'integracion-gmail'],
   ['google_calendar_connected', 'integracion-google_calendar'], ['google_calendar_error', 'integracion-google_calendar'],
   ['zoom_connected', 'integracion-zoom'], ['zoom_error', 'integracion-zoom'],
   ['klaviyo_connected', 'integracion-klaviyo'], ['klaviyo_error', 'integracion-klaviyo'],

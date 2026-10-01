@@ -56,9 +56,11 @@ const ESPERA_CONFIRMACION_MS = 3000;
  * «Clientas activas» del Resumen. Se enseña y no bloquea ninguna alta (decisión
  * del 1-oct-2026, `.claude/tentare-os.md`): aquí no se promete ningún bloqueo.
  */
-function UsoDelPlan({ plan, className }: { plan: string | null | undefined; className?: string }) {
+function UsoDelPlan({ estado, className }: { estado: EstadoBilling | null; className?: string }) {
   const { conteos } = useEstadosClientas();
-  const uso = usoDelTope(conteos?.ACTIVA ?? null, entitlementsDe({ plan }).maxSocios);
+  // Sin el estado de la suscripción no se sabe el plan, y caer a Base le
+  // pintaría «de 150» a un estudio en Estudio, que no tiene límite.
+  const uso = estado ? usoDelTope(conteos?.ACTIVA ?? null, entitlementsDe({ plan: estado.plan }).maxSocios) : null;
   if (!uso) return null;
   return (
     <div data-uso-tope className={className}>
@@ -265,7 +267,7 @@ export default function SuscripcionPage() {
               </span>
             </div>
 
-            <UsoDelPlan plan={estado?.plan} className="mt-4 border-t border-border pt-4" />
+            <UsoDelPlan estado={estado} className="mt-4 border-t border-border pt-4" />
 
             {fecha(estado?.periodoTermina) && (
               <p className="mt-4 border-t border-border pt-4 text-[13.5px] text-muted-foreground">
@@ -295,7 +297,7 @@ export default function SuscripcionPage() {
         ) : (
           /* ── Elegir plan ──────────────────────────────────────────────── */
           <>
-            <UsoDelPlan plan={estado?.plan} className="mb-4 rounded-xl border border-border bg-card px-4 py-3" />
+            <UsoDelPlan estado={estado} className="mb-4 rounded-xl border border-border bg-card px-4 py-3" />
             <SelectorPlan valor={elegido} onCambio={setElegido} enPrueba={enPrueba} />
 
             <div className="mt-6 rounded-2xl border border-border bg-card p-4 sm:p-5">

@@ -9,6 +9,7 @@ import { saludIntegracion } from '@/lib/integraciones/salud';
 import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import { hayCambios } from '@/lib/configuracion/formulario-sincronizado';
 import { resumenGmail, resumenRemitente, resumenWhatsapp, type ResumenFila } from '@/lib/configuracion/resumenes';
+import { revocarGmailEnGoogle } from '@/lib/integraciones/desconectar-gmail';
 import { seccionDeTarjeta, tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
 import type { TipoIntegracion } from '@/lib/types';
 import { useWhatsappEmbeddedSignup } from '@/lib/hooks/use-whatsapp-embedded-signup';
@@ -444,6 +445,8 @@ export function DetalleWhatsapp({ w, showToast, onGuardado }: { w: CanalWhatsapp
 export interface CanalGmail {
   resumen: ResumenFila | null;
   conectado: boolean;
+  /** Google Calendar está en la misma cuenta: desconectar Gmail no lo toca (y por eso no se revoca en Google). */
+  calendarSigue: boolean;
   /** `null` = desconectado de verdad; un texto = no, y por qué. */
   desconectar: () => Promise<string | null>;
 }
@@ -466,9 +469,12 @@ export function useGmail(): CanalGmail {
   }
 
   const email = studio?.gmailEmail ?? null;
+  const calendarEmail = studio?.googleCalendarEmail ?? null;
   return {
     resumen: dataLoaded && studio ? resumenGmail({ email }) : null,
     conectado: !!email,
+    // La misma regla que aplica la ruta al desconectar: lo que se dice aquí es lo que pasa.
+    calendarSigue: !!calendarEmail && !revocarGmailEnGoogle({ gmailEmail: email, calendarConectado: true, calendarEmail }),
     desconectar,
   };
 }
@@ -492,11 +498,14 @@ export function DetalleGmail({ g, onGuardado }: { g: CanalGmail } & PropsFormula
     else onGuardado('Gmail desconectado');
   }
 
+  const queSeBorra = g.calendarSigue
+    ? 'el permiso para entrar en tu Gmail. Google Calendar sigue conectado con la misma cuenta y no se toca.'
+    : 'el permiso para entrar en tu cuenta de Google.';
+
   return (
     <div className={CUERPO}>
       <p className="text-sm text-muted-foreground text-pretty">
-        Al desconectarlo dejamos de guardar el permiso para entrar en tu cuenta de Google. Las clientas que
-        trajiste se quedan.
+        Al desconectarlo dejamos de guardar {queSeBorra} Las clientas que trajiste se quedan.
       </p>
       <div className="flex flex-col gap-2 @sm/config:flex-row @sm/config:flex-wrap">
         <button type="button" onClick={() => setPreguntando(true)} disabled={desconectando} className={cn(btnSecondary, 'text-destructive')}>
@@ -508,7 +517,7 @@ export function DetalleGmail({ g, onGuardado }: { g: CanalGmail } & PropsFormula
         open={preguntando}
         onOpenChange={setPreguntando}
         titulo="¿Desconectar Gmail?"
-        descripcion="Dejaremos de guardar el permiso para entrar en tu cuenta de Google. Las clientas que trajiste se quedan."
+        descripcion={`Dejaremos de guardar ${queSeBorra} Las clientas que trajiste se quedan.`}
         textoConfirmar="Sí, desconectar"
         destructivo
         onConfirm={() => { void desconectar(); }}

@@ -40,8 +40,6 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     // pinta HOY su tarjeta, que es la única que enseña el aviso.
     ['/configuracion?stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
     ['/configuracion?stripe_connect_error=Stripe%20no%20configurado', { tab: 'cobros', ancla: 'integracion-stripe' }],
-    ['/configuracion?gmail_connected=1', { tab: 'comunicacion', ancla: 'integracion-gmail' }],
-    ['/configuracion?gmail_error=x', { tab: 'comunicacion', ancla: 'integracion-gmail' }],
     ['/configuracion?google_calendar_connected=1', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?google_calendar_error=x', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?zoom_connected=1', { tab: 'conexiones', ancla: 'integracion-zoom' }],
@@ -53,14 +51,12 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
     // Lo que mandaban los cinco callbacks y el Embedded Signup hasta el 15-sep.
     ['/configuracion?tab=integraciones&stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
-    ['/configuracion?tab=integraciones&gmail_connected=1', { tab: 'comunicacion', ancla: 'integracion-gmail' }],
     ['/configuracion?tab=integraciones&google_calendar_connected=1', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?tab=integraciones&zoom_error=x', { tab: 'conexiones', ancla: 'integracion-zoom' }],
     ['/configuracion?tab=integraciones&klaviyo_connected=1', { tab: 'conexiones', ancla: 'integracion-klaviyo' }],
     ['/configuracion?tab=conexiones&whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
     // Lo que mandan hoy.
     ['/configuracion?tab=cobros&stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
-    ['/configuracion?tab=comunicacion&gmail_connected=1', { tab: 'comunicacion', ancla: 'integracion-gmail' }],
     ['/configuracion?tab=comunicacion&whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
     // Tarjetas que cambiaron de sección el 15-sep: su ancla las sigue.
     ['/configuracion?tab=conexiones#integracion-stripe', { tab: 'cobros', ancla: 'integracion-stripe' }],

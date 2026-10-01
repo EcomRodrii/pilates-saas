@@ -29,10 +29,30 @@ function ficheros(dir: string): string[] {
   });
 }
 
+const CODIGO = () => ['app', 'lib', 'components'].flatMap(d => ficheros(join(RAIZ, d)));
+
 test('ninguna ruta ni módulo bloquea altas por el tope del plan', () => {
-  const conTope = ['app', 'lib', 'components']
-    .flatMap(d => ficheros(join(RAIZ, d)))
+  const conTope = CODIGO()
     .filter(f => /LIMITE_SOCIAS|evaluarLimiteSocias|bloqueoPorLimiteSocias|verificar-limite/.test(readFileSync(f, 'utf8')))
     .map(f => relative(RAIZ, f));
   assert.deepEqual(conTope, [], `Vuelve a haber una puerta del tope en: ${conTope.join(', ')}. Hoy no bloquea (1-oct-2026); si hay que frenar, en todas las acciones que hacen Activa a alguien y contando por estado.`);
+});
+
+// Los nombres de arriba son los de las puertas que hubo; una nueva podría
+// llamarse de otra forma. Por eso, además, una lista cerrada de quién lee el
+// tope, cada uno con su motivo: hoy solo se lee para ENSEÑARLO.
+const LEEN_EL_TOPE: Record<string, string> = {
+  'lib/billing/entitlements.ts': 'lo define, por plan',
+  'lib/billing/catalogo-planes.ts': 'la comparativa de planes y el resumen corto del alta',
+  'lib/billing/uso-tope.ts': '«N de 150 clientas activas»',
+  'app/precios/page.tsx': 'el tope de cada tarjeta de /precios',
+  'app/suscripcion/page.tsx': 'enseña cuántas lleva el estudio',
+};
+
+test('el tope del plan solo se lee para enseñarlo', () => {
+  const nuevos = CODIGO()
+    .filter(f => /\bmaxSocios\b/.test(readFileSync(f, 'utf8')))
+    .map(f => relative(RAIZ, f))
+    .filter(f => !(f in LEEN_EL_TOPE));
+  assert.deepEqual(nuevos, [], `Leen el tope del plan (maxSocios) sin estar en LEEN_EL_TOPE: ${nuevos.join(', ')}. Si es para enseñarlo, añádelos con su motivo; si es para frenar altas, eso no se hace hoy (decisión del 1-oct-2026, .claude/tentare-os.md).`);
 });

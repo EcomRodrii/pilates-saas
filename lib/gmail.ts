@@ -5,8 +5,9 @@
 // la agenda personal en la base de clientas choca con «las interesadas viven en
 // consultas, no en fichas» y es difícil de justificar por minimización de datos.
 // Nadie puede conectarla ya; quien la tenía conectada la ve en Configuración
-// para desconectarla, y eso revoca el permiso en Google y borra la credencial
-// (`integracion_credenciales`, provider='gmail').
+// para desconectarla, y eso borra la credencial (`integracion_credenciales`,
+// provider='gmail') y revoca el permiso en Google salvo que Calendar esté en la
+// misma cuenta (lib/integraciones/desconectar-gmail.ts).
 
 import { fetchExterno } from '@/lib/fetch-externo';
 

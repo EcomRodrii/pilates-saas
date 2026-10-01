@@ -22,7 +22,7 @@ test('ninguna fila promete menos en un plan caro que en uno barato', () => {
   }
 });
 
-test('el tope de alumnas que se anuncia es el que aplica el servidor', () => {
+test('el tope de alumnas que se anuncia es el que enseña el panel', () => {
   // El fallo más caro de una página de precios: prometer un límite distinto
   // del que cuenta el panel (`entitlementsDe().maxSocios`). Aquí se comprueba contra la MISMA
   // constante, no contra un número escrito a mano.
