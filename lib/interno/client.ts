@@ -112,7 +112,7 @@ export interface FichaEstudio {
   uso: { socias: number; clases: number; reservas30d: number; facturacionPropia30d: number };
   equipo: Array<{ nombre: string; rol: string; activo: boolean; tieneCuenta: boolean }>;
   /** API pública (F1): se activa estudio a estudio desde aquí. */
-  apiPublica: { activa: boolean; activadaEn: string | null; clavesActivas: number };
+  apiPublica?: { activa: boolean; activadaEn: string | null; clavesActivas: number };
   reviewBoost: {
     elegibleEn: string | null;
     mostradoEn: string | null;

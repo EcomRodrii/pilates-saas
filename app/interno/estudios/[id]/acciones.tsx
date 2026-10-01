@@ -27,7 +27,8 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, api
   /** Recarga la ficha: es de cliente, así que `router.refresh()` no la repinta. */
   alTerminar?: () => void;
   reviewBoost: { elegibleEn: string | null; mostradoEn: string | null; feedback: { rating: number; creadoEn: string } | null; recompensaCanjeada: boolean };
-  apiPublica: FichaEstudio['apiPublica'];
+  /** Opcional: sin el dato (respuesta de una versión anterior) el bloque no se pinta, en vez de tumbar la ficha. */
+  apiPublica?: FichaEstudio['apiPublica'] | null;
 }) {
   const sesion = useSesionInterna();
   const router = useRouter();
@@ -203,6 +204,7 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, api
           )}
         </div>
 
+        {apiPublica && (
         <div className="border-t border-border/60 pt-3">
           <p className="text-[12.5px] font-semibold text-foreground mb-1">API pública</p>
           <p className="text-[12px] text-muted-foreground mb-2">
@@ -221,6 +223,7 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, api
             {apiPublica.activa ? 'Desactivar la API' : 'Activar la API'}
           </button>
         </div>
+        )}
 
         {error && <p className="text-[12.5px] text-red-600">{error}</p>}
         {aviso && <p className="text-[12.5px] text-emerald-700">{aviso}</p>}
