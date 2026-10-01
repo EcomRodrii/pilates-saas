@@ -143,6 +143,9 @@ TIPOS_MANUALES = {
     # Ídem, migr 20260925001354 (D-5): el intento de cobro sobrevive al recibo
     # borrado, con ON DELETE SET NULL.
     ('cobros_intentos', 'recibo_id'): 'string | null',
+    # Ídem, migr 20261001140635: borrar la sesión deja el evento de la
+    # plataforma sin sesión (ON DELETE SET NULL) para poder cancelarlo allí.
+    ('plataforma_eventos', 'sesion_id'): 'string | null',
 }
 for (tabla, col), ts in TIPOS_MANUALES.items():
     if tabla in tables and col in tables[tabla]:

@@ -3734,12 +3734,29 @@ export interface RowPlataformaEventos {
   id: string;
   studio_id: string;
   plataforma: string;
-  sesion_id: string;
+  sesion_id: string | null;
   evento_externo_id: string;
   estado_sync: string;
   error: string | null;
   sincronizado_en: string | null;
   creado_en: string;
+  // migr 20261001140635.
+  huella_fija: string | null;
+  // migr 20261001140635.
+  huella: string | null;
+  // migr 20261001140635.
+  ocupadas_enviadas: number | null;
+}
+
+export interface RowPlataformaInstructoras {
+  id: string;
+  studio_id: string;
+  plataforma: string;
+  instructor_id: string;
+  id_externo: string;
+  creado_en: string;
+  // migr 20261001141324.
+  nombre_enviado: string | null;
 }
 
 
@@ -10319,24 +10336,50 @@ export type PlataformaEventosInsert = {
   id?: string | null;
   studio_id?: string | null;
   plataforma?: string | null;
-  sesion_id?: string | null;
+  sesion_id?: string | null | null;
   evento_externo_id?: string | null;
   estado_sync?: string | null;
   error?: string | null | null;
   sincronizado_en?: string | null | null;
   creado_en?: string | null;
+  huella_fija?: string | null | null;
+  huella?: string | null | null;
+  ocupadas_enviadas?: number | null | null;
 }
 
 export type PlataformaEventosUpdate = {
   id?: string | null;
   studio_id?: string | null;
   plataforma?: string | null;
-  sesion_id?: string | null;
+  sesion_id?: string | null | null;
   evento_externo_id?: string | null;
   estado_sync?: string | null;
   error?: string | null | null;
   sincronizado_en?: string | null | null;
   creado_en?: string | null;
+  huella_fija?: string | null | null;
+  huella?: string | null | null;
+  ocupadas_enviadas?: number | null | null;
+}
+
+export type PlataformaInstructorasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  instructor_id?: string | null;
+  id_externo?: string | null;
+  creado_en?: string | null;
+  nombre_enviado?: string | null | null;
+}
+
+export type PlataformaInstructorasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  instructor_id?: string | null;
+  id_externo?: string | null;
+  creado_en?: string | null;
+  nombre_enviado?: string | null | null;
 }
 
 export type Database = {
@@ -11501,6 +11544,11 @@ export type Database = {
         Row: RowPlataformaEventos;
         Insert: PlataformaEventosInsert;
         Update: PlataformaEventosUpdate;
+      };
+      plataforma_instructoras: {
+        Row: RowPlataformaInstructoras;
+        Insert: PlataformaInstructorasInsert;
+        Update: PlataformaInstructorasUpdate;
       };
     };
   };

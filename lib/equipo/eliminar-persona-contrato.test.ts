@@ -82,6 +82,7 @@ const DESTINO_PERSONA: Record<string, { destino: Destino; motivo: string }> = {
   novedades_estudio: { destino: 'fuera', motivo: 'contenido del estudio; created_by solo es autoría' },
   videos_on_demand: { destino: 'fuera', motivo: 'el asset vive en Stream y nadie lo borra: la fila no se borra antes que él' },
   red_formalizaciones: { destino: 'fuera', motivo: 'Network, de terceros; ON DELETE SET NULL' },
+  plataforma_instructoras: { destino: 'conservar', motivo: 'solo ids; el cron de USC la necesita para reescribir allí su nombre anonimizado (renombrarTrainers)' },
 };
 
 // Tablas con FK a instructores según las migraciones (create table y alter table).
