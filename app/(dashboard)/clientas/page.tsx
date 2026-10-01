@@ -87,7 +87,7 @@ type FormSocia = {
   // recibo nace PENDIENTE. Antes el alta lo daba por cobrado siempre y sin
   // método, y «Cobrado este mes» contaba dinero que no había entrado.
   cobroPagado: boolean;
-  cobroMetodo: MetodoCobro;
+  cobroMetodo: Exclude<MetodoCobro, 'SEPA'>;
   camposExtra: Record<string, string | number | boolean | null>;
 };
 
@@ -286,6 +286,9 @@ export default function Socios() {
   // El alta escribe en la BD y puede fallar: hasta ahora se cerraba el diálogo
   // igualmente y la clienta salía en la lista sin existir de verdad.
   const [guardando, setGuardando] = useState(false);
+  // Cerrojo SÍNCRONO del alta: el estado `guardando` no llega a tiempo de parar un segundo clic, y
+  // cada envío acuña recibos con ids nuevos (dos altas, dos recibos, dos cobros).
+  const altaEnCursoRef = useRef(false);
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
   // Aviso de las acciones de FILA (activar/desactivar). Aparte de `errorGuardar`
   // a propósito: aquel se pinta dentro del modal de alta/edición, así que
@@ -733,7 +736,16 @@ export default function Socios() {
   }
 
   async function handleCrear() {
-    if (guardando) return;
+    if (guardando || altaEnCursoRef.current) return;
+    altaEnCursoRef.current = true;
+    try {
+      await crearAlta();
+    } finally {
+      altaEnCursoRef.current = false;
+    }
+  }
+
+  async function crearAlta() {
     setGuardando(true);
     setErrorGuardar(null);
     const versionTexto = textoLegalCompleto(studioConfig);
@@ -776,9 +788,14 @@ export default function Socios() {
     // texto vigente, quién la introdujo, huella de IP y user-agent (plan RGPD
     // 3.17). La clienta ya existe, así que un fallo aquí no deshace el alta,
     // pero se dice en la lista en vez de dar la firma por registrada.
+    //
+    // Todo lo que no salió del todo bien con el alta ya hecha (la matrícula, el cobro, la
+    // factura, la firma, la consulta) se junta y se dice UNA vez, en la lista: antes cada aviso
+    // pisaba al anterior y los del contexto eran un toast de 6 s fácil de perder.
+    const avisos: string[] = [...(res.avisos ?? [])];
     if (firma.trim() && res.id) {
       const sello = await sellarAceptacionMostrador(res.id, firma.trim(), versionTexto);
-      if (!sello.ok) setErrorFila(`La clienta se ha creado, pero su firma no ha quedado registrada: ${sello.error}`);
+      if (!sello.ok) avisos.push(`La firma no ha quedado registrada: ${sello.error}`);
     }
     setGuardando(false);
 
@@ -787,9 +804,12 @@ export default function Socios() {
     // La ficha ya existe, así que si esto falla se dice, pero no se deshace nada.
     if (consultaEnAlta && user?.id) {
       const cierre = await marcarAtendida(consultaEnAlta, user.id);
-      if (!cierre.ok) setErrorFila(`La clienta se ha creado, pero no se ha podido cerrar su consulta: ${cierre.error}`);
+      // «No se ha podido cerrar», no «sigue como nueva»: si otra persona la
+      // descartó entretanto, ya no está como nueva.
+      if (!cierre.ok) avisos.push(`No se ha podido cerrar su consulta: ${cierre.error}`);
       setRecargaConsultas(n => n + 1);
     }
+    if (avisos.length > 0) setErrorFila(`La clienta se ha creado, pero hay algo que revisar. ${avisos.join(' ')}`);
 
     // La bienvenida la manda addSocio (lib/studio-context.tsx) — así cubre
     // también las altas que no pasan por esta pantalla (import CSV, alta
@@ -1841,13 +1861,12 @@ export default function Socios() {
                       className={`${selectCls} mt-2`}
                       aria-label="Cómo te lo ha pagado"
                       value={form.cobroMetodo}
-                      onChange={(e) => setForm((f) => ({ ...f, cobroMetodo: e.target.value as MetodoCobro }))}
+                      onChange={(e) => setForm((f) => ({ ...f, cobroMetodo: e.target.value as Exclude<MetodoCobro, 'SEPA'> }))}
                     >
                       <option value="EFECTIVO">Efectivo</option>
                       <option value="TARJETA">Tarjeta (datáfono)</option>
                       <option value="BIZUM">Bizum</option>
                       <option value="TRANSFERENCIA">Transferencia</option>
-                      <option value="SEPA">Domiciliación bancaria</option>
                     </select>
                   )}
                 </FF>

@@ -300,6 +300,7 @@ export const SECCIONES = [
       { id: 'integracion-kisi', titulo: 'Kisi', frase: 'Abre la puerta de tu estudio sola con cada check-in de tus alumnas.', guardado: 'accion', palabras: ['puerta', 'cerradura'] },
       { id: 'integracion-klaviyo', titulo: 'Klaviyo', frase: 'Lleva a Klaviyo las alumnas que aceptaron recibir marketing, cada vez que pulsas «Sincronizar ahora».', guardado: 'accion', palabras: ['marketing', 'listas'] },
       { id: 'integracion-mailchimp', titulo: 'Mailchimp', frase: 'Lleva a tu audiencia de Mailchimp las alumnas que aceptaron recibir marketing, al pulsar «Sincronizar ahora».', guardado: 'accion', palabras: ['marketing', 'newsletter', 'audiencia'] },
+      { id: 'plataformas-externas', titulo: 'ClassPass, Urban Sports Club y Wellhub', frase: 'Si vendes plazas en estas plataformas, apunta sus reservas en la clase para no vender dos veces el mismo hueco.', guardado: 'accion', palabras: ['classpass', 'urban sports club', 'usc', 'wellhub', 'gympass', 'plataformas', 'agregadores'] },
       { id: 'integracion-zapier', titulo: 'Zapier', frase: 'Conecta Tentare con miles de apps. La conexión se autoriza desde Zapier, no desde aquí.', guardado: 'accion', palabras: ['automatizar', 'apps'] },
       { id: 'aplicaciones-con-acceso', titulo: 'Aplicaciones con acceso', frase: 'Apps como Zapier con permiso para ver datos de tu estudio; puedes quitárselo.', guardado: 'accion', palabras: ['zapier', 'permisos'] },
     ],

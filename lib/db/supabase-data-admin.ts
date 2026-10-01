@@ -106,6 +106,9 @@ import {
   type IntervaloOcupado, type HuecoCita,
 } from '@/lib/citas/slots';
 
+import { mensajeErrorReservaExterna } from '@/lib/plataformas/reserva-externa';
+import type { Plataforma } from '@/lib/plataformas/catalogo';
+import { trasReservaExterna } from '@/lib/plataformas/tras-reserva-externa';
 import {
   fetchAllRows,
   getCurrentStudioId,
@@ -3168,6 +3171,71 @@ export async function crearReservaMostrador(params: {
   // tres caminos de creación de reserva (RES-9).
 
   return { ok: true, estado, posicionEspera, reservaId: params.reservaId, repetida: false };
+}
+
+// ─── Reserva de una plataforma externa (ClassPass, Urban Sports Club…) ──────
+// Cuarto hecho de reserva; su dueño, `trasReservaExterna`, vive en un módulo
+// ligero (lib/plataformas/tras-reserva-externa.ts) porque también lo usa el
+// Instant Booking de USC, que tiene menos de un segundo para contestar.
+
+// Recepción apunta una venta de ClassPass/USC/Wellhub desde la hoja de la clase.
+// La plaza la decide `reservar_plaza_externa`, con el MISMO candado de sesión y
+// el mismo recuento de aforo que la de una socia (no abre otra vía de
+// overbooking). En modo manual no se exige el cupo: la venta ya ocurrió y la
+// persona va a venir, así que pasarse de las plazas cedidas se avisa, no se
+// bloquea. Idempotente por id de reserva (lo genera el panel) y, si recepción
+// lo apunta, por código de la plataforma.
+export async function crearReservaExterna(params: {
+  studioId: string; sesionId: string; reservaId: string;
+  plataforma: Plataforma; nombre: string; codigo: string | null;
+}): Promise<
+  | { ok: true; reservaId: string; repetida: boolean; cupo: number | null; cupoUsado: number; plazasLibres: number | null }
+  | { ok: false; status: 400 | 404 | 409 | 500; error: string }
+> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const { data, error } = await admin.rpc('reservar_plaza_externa', {
+    p_studio_id: params.studioId,
+    p_sesion_id: params.sesionId,
+    p_reserva_id: params.reservaId,
+    p_origen: params.plataforma,
+    p_nombre: params.nombre,
+    p_id_reserva_externa: params.codigo,
+    p_id_cliente_externo: null,
+    p_exigir_cupo: false,
+  });
+  if (error) {
+    // Reintento del MISMO intento (mismo id de reserva, el panel lo repite tras
+    // un corte): si esa fila ya existe en esta clase y es de esta plataforma,
+    // la primera vez entró. Se contesta con lo que hay, sin repetir efectos.
+    if (/duplicate key|reservas_pkey/i.test(error.message)) {
+      const { data: existente } = await admin
+        .from('reservas').select('sesion_id, origen')
+        .eq('id', params.reservaId).eq('studio_id', params.studioId).maybeSingle();
+      if (existente && existente.sesion_id === params.sesionId && existente.origen === params.plataforma) {
+        return { ok: true, reservaId: params.reservaId, repetida: true, cupo: null, cupoUsado: 0, plazasLibres: null };
+      }
+    }
+    const traducido = mensajeErrorReservaExterna(error.message, params.plataforma);
+    if (traducido) return { ok: false, ...traducido };
+    reportDbError('[crearReservaExterna]', error);
+    return { ok: false, status: 500, error: 'No se ha podido apuntar. Inténtalo otra vez.' };
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as {
+    reserva_id: string; repetida: boolean; plazas_libres: number | null; cupo: number | null; cupo_usado: number;
+  } | null;
+  const repetida = row?.repetida === true;
+  // Una repetición (mismo código de la plataforma) no es un hecho nuevo.
+  if (!repetida) await trasReservaExterna(admin, { studioId: params.studioId, sesionId: params.sesionId });
+  return {
+    ok: true,
+    reservaId: row?.reserva_id ?? params.reservaId,
+    repetida,
+    cupo: row?.cupo ?? null,
+    cupoUsado: row?.cupo_usado ?? 0,
+    plazasLibres: row?.plazas_libres ?? null,
+  };
 }
 
 // Créditos de «Primera reserva». Los daba el panel en cliente mirando su lista

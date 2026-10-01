@@ -1,5 +1,5 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
-import { origenDe } from '@/lib/plataformas/catalogo';
+import { esPlataforma, origenDe, type Plataforma } from '@/lib/plataformas/catalogo';
 import { conReintentoTransitorio } from '@/lib/reintento-transitorio';
 import { unaVez } from '@/lib/una-vez';
 import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion';
@@ -3252,6 +3252,12 @@ export async function dbUpdateReserva(
 }
 
 export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
+  // Un recibo nace PENDIENTE desde el navegador. Cobrarlo lo hace `confirmarCobro` en el
+  // servidor (`/api/cobros/marcar-cobrado`): la base de datos también lo exige
+  // (trigger `trg_recibos_cobrado_solo_servidor`), esto lo dice antes de ir a la red.
+  if (rec.estado === 'COBRADO') {
+    return falloEscritura('[dbInsertRecibo]', new Error('Un recibo no se crea cobrado desde el navegador: se crea pendiente y se cobra por el servidor.'));
+  }
   // assignPlan() encadena dbInsertSuscripcion + dbInsertRecibo con la suscripción
   // recién creada: mismo commit-race que socio_id (Sentry NEXTJS-W), pero antes
   // solo se reintentaba para socio_id — la FK de suscripcion_id fallaba a la primera.
@@ -3358,6 +3364,10 @@ export async function dbReleerTrasCobro(
 }
 
 export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Promise<ResultadoEscritura> {
+  // Entrar en COBRADO es del servidor, igual que en `dbUpdateRecibosBatch` (y que la base de datos).
+  if (changes.estado === 'COBRADO') {
+    return falloEscritura('[dbUpdateRecibo]', new Error('COBRADO no se escribe desde el navegador: pasa por el servidor.'));
+  }
   const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
   if ('suscripcionId' in changes) db.suscripcion_id = changes.suscripcionId;
@@ -4645,6 +4655,50 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if (!tocadas?.length) {
     return sinFilasTocadas('tipos_clase', id, 'No tienes permiso para cambiar los tipos de clase. Pídeselo a la propietaria o a la responsable de sede.');
   }
+  return ESCRITURA_OK;
+}
+
+// ─── Plazas que el estudio cede a cada plataforma (ClassPass, USC…) ───────────
+// `plataforma_cupos` (migr 20261001115955): por tipo de clase, con excepción por
+// sesión. Aquí solo el nivel de tipo de clase. Sin fila = sin límite propio:
+// manda el aforo de la clase. RLS: escribe `puede_gestionar_sede()`.
+
+export async function dbListarCuposPlataformaTipo(tipoClaseId: string): Promise<Partial<Record<Plataforma, number>>> {
+  const { data, error } = await supabase
+    .from('plataforma_cupos').select('plataforma, plazas').eq('tipo_clase_id', tipoClaseId);
+  if (error) { reportDbError('[dbListarCuposPlataformaTipo]', error); return {}; }
+  const out: Partial<Record<Plataforma, number>> = {};
+  for (const r of data ?? []) {
+    if (esPlataforma(r.plataforma)) out[r.plataforma] = r.plazas as number;
+  }
+  return out;
+}
+
+/** `plazas = null` quita el límite (borra la fila). */
+export async function dbGuardarCupoPlataformaTipo(tipoClaseId: string, plataforma: Plataforma, plazas: number | null): Promise<ResultadoEscritura> {
+  const sinPermiso = 'No tienes permiso para cambiar las plazas que se ceden. Pídeselo a la propietaria o a la responsable de sede.';
+  if (plazas == null) {
+    const { error } = await supabase.from('plataforma_cupos').delete()
+      .eq('tipo_clase_id', tipoClaseId).eq('plataforma', plataforma);
+    if (error) return falloEscritura('[dbGuardarCupoPlataformaTipo]', error);
+    return ESCRITURA_OK;
+  }
+  // El índice único es parcial (solo filas por tipo de clase), así que no sirve
+  // para un upsert de PostgREST: se busca la fila y se actualiza o se crea.
+  const { data: existente, error: errLeer } = await supabase.from('plataforma_cupos').select('id')
+    .eq('tipo_clase_id', tipoClaseId).eq('plataforma', plataforma).maybeSingle();
+  if (errLeer) return falloEscritura('[dbGuardarCupoPlataformaTipo]', errLeer);
+  if (existente) {
+    const { data: tocadas, error } = await supabase.from('plataforma_cupos')
+      .update({ plazas, actualizado_en: new Date().toISOString() }).eq('id', existente.id).select('id');
+    if (error) return falloEscritura('[dbGuardarCupoPlataformaTipo]', error);
+    if (!tocadas?.length) return sinFilasTocadas('plataforma_cupos', existente.id as string, sinPermiso);
+    return ESCRITURA_OK;
+  }
+  const { data: creadas, error } = await supabase.from('plataforma_cupos')
+    .insert({ studio_id: getCurrentStudioId(), plataforma, tipo_clase_id: tipoClaseId, plazas }).select('id');
+  if (error) return falloEscritura('[dbGuardarCupoPlataformaTipo]', error);
+  if (!creadas?.length) return sinFilasTocadas('plataforma_cupos', tipoClaseId, sinPermiso);
   return ESCRITURA_OK;
 }
 

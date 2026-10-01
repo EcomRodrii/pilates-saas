@@ -183,7 +183,7 @@ import type {
 import { emiteFacturaAutomatica, MENSAJE_SIN_FACTURAS } from '@/lib/factura-automatica';
 import {
   MENSAJE_COBRADO_SIN_RENOVAR, RECIBOS_POR_LOTE_PANEL, desenlaceTrasReleer, esCobroConfirmado, leerRespuestaMarcarCobrado, resumenDeLote, trocear,
-  type DesenlaceCobroManual, type ResultadoMarcarCobrado, type ResumenCobroEnLote,
+  type DesenlaceCobroManual, type ResultadoFacturaDirecta, type ResultadoMarcarCobrado, type ResumenCobroEnLote,
 } from '@/lib/cobros/marcar-cobrado';
 import type { TipoRebote } from '@/lib/emails/rebotes';
 import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor } from '@/lib/api-client';
@@ -392,7 +392,9 @@ interface StudioContextValue {
   valoracionesSocias: ValoracionSocia[];
 
   // Socios
-  addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato; cobroAlta?: CobroAlta }) => Promise<ResultadoEscritura & { id?: string }>;
+  /** `avisos`: lo que NO salió del todo bien con el alta ya hecha (la matrícula sin anotar, un cobro sin confirmar,
+   *  una factura sin sellar). No es un fallo del alta —la socia existe—, y quien llama tiene que enseñarlos. */
+  addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato; cobroAlta?: CobroAlta }) => Promise<ResultadoEscritura & { id?: string; avisos?: string[] }>;
   addSocioFromPortal: (fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null; origenLead?: string | null; marketing?: boolean }) => Promise<ResultadoEscritura>;
   /** Consentimiento de marketing de la propia socia en /reservar (solo el «sí» de la casilla del alta). */
   darConsentimientoMarketingPublico: () => Promise<ResultadoEscritura>;
@@ -503,7 +505,7 @@ interface StudioContextValue {
 
   // Recibos
   addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => Promise<ResultadoEscritura>;
-  crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }) => Promise<ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }>;
+  crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }) => Promise<ResultadoFacturaDirecta>;
   /** Marca un recibo cobrado POR EL SERVIDOR (`/api/cobros/marcar-cobrado`).
    *  Devuelve `numeroFactura` cuando el cobro emitió factura: el llamador NO
    *  debe buscarla en el estado — todavía no está ahí. `yaEstaba` no es un error. */
@@ -2331,7 +2333,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Socios ────────────────────────────────────────────────────────────────────
 
-  async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato; cobroAlta?: CobroAlta }): Promise<ResultadoEscritura & { id?: string }> {
+  async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato; cobroAlta?: CobroAlta }): Promise<ResultadoEscritura & { id?: string; avisos?: string[] }> {
     // El insert de más abajo va directo a Supabase desde el navegador (RLS, sin
     // ruta de servidor de por medio) — el tope de socias del plan se comprueba
     // aquí, antes, porque si no el alta manual lo saltaba entero (el importador
@@ -2373,6 +2375,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
 
     let planNombreAlta: string | undefined;
+    // Lo que no salió del todo bien con el alta YA hecha. Se devuelve (no se pinta aquí): un toast
+    // que se autodescarta a los 6 s es fácil de perder, y dos avisos con la misma clave se pisaban.
+    const avisos: string[] = [];
 
     if (planId) {
       const plan = planesTarifa.find(p => p.id === planId);
@@ -2397,8 +2402,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // siempre `COBRADO` con `metodo_cobro` a null: sin Stripe, sin tarjeta y
         // sin que nadie tocara un euro, «Cobrado este mes» subía en Cobros, en
         // el Dashboard y en Informes, y a fin de mes no cuadraba con el banco.
-        // Ahora el estado sale de lo que diga el mostrador: cobrado de verdad
-        // (con su método) o pendiente de cobro, que es el valor por defecto.
+        // Ahora el recibo nace SIEMPRE pendiente, y si el mostrador dice que ya
+        // se pagó (con su método) se cobra DESPUÉS por el servidor, que es quien
+        // sella la factura, apunta la caja y deja el cobro bien cerrado
+        // (`cobrarEnServidor`). Un recibo no puede crearse ya cobrado desde el
+        // navegador: lo impide la base de datos.
         const cobrado = cobroAlta?.pagado === true;
         const reciboId = `rec-${uid()}`;
         const reciboAlta: Recibo = {
@@ -2408,12 +2416,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           suscripcionId: susId,
           concepto: `Alta — ${plan.nombre}`,
           importe: plan.precio,
-          estado: cobrado ? 'COBRADO' : 'PENDIENTE',
+          estado: 'PENDIENTE',
           fechaVencimiento: hoy,
-          fechaCobro: cobrado ? hoy : null,
+          fechaCobro: null,
           fechaDevolucion: null,
           intentosReintento: 0,
-          ...(cobrado ? { metodoCobro: cobroAlta.metodo } : {}),
         };
 
         // Suscripción y recibo, en orden y esperados. La socia ya existe, así
@@ -2425,26 +2432,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         const resRec = await dbInsertRecibo(reciboAlta);
         if (!resRec.ok) return resRec;
         setRecibos(prev => [...prev, reciboAlta]);
-
-        // La factura se SELLA (Veri*Factu, cadena de hashes) y no se puede
-        // borrar: solo se emite cuando el cobro que la respalda está guardado.
-        // Antes se sellaba antes incluso de insertar a la socia.
-        // 2.2: el sellado (llamada de red) se saca del updater de setFacturas —
-        // ahí dentro debe ser puro, o React lo duplica en StrictMode/reintentos
-        // concurrentes y se sella la misma factura fiscal dos veces.
-        // Y solo se factura lo COBRADO: un recibo pendiente todavía no es una
-        // venta, y emitir su factura gastaría un número de la serie legal por
-        // un dinero que puede no llegar nunca. Cuando se cobre, `marcarCobrado`
-        // emite la factura entonces.
-        // Con el método del cobro y el modo del estudio: en efectivo, o con el
-        // estudio en 'sin_facturas', no hay factura (`lib/factura-automatica.ts`).
-        // Antes el alta cobrada facturaba siempre, también en efectivo.
-        const facturaAlta = cobrado && emiteFacturaAutomatica(reciboAlta.metodoCobro, studio?.modoFacturacion ?? null)
-          ? buildFactura(reciboAlta, facturas) : null;
-        if (facturaAlta) {
-          setFacturas(prev => [...prev, facturaAlta]);
-          void sellarFacturaYActualizar(facturaAlta);
-        }
+        // Lo que se cobra al final, por el servidor: el alta y, si la hay, su matrícula.
+        const recibosACobrar: string[] = [reciboAlta.id];
 
         // ── Matrícula ───────────────────────────────────────────────────────
         //
@@ -2476,27 +2465,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
             suscripcionId: null,
             concepto: `Matrícula — ${plan.nombre}`,
             importe: matricula,
-            estado: cobrado ? 'COBRADO' : 'PENDIENTE',
+            estado: 'PENDIENTE',
             fechaVencimiento: hoy,
-            fechaCobro: cobrado ? hoy : null,
+            fechaCobro: null,
             fechaDevolucion: null,
             intentosReintento: 0,
-            ...(cobrado ? { metodoCobro: cobroAlta.metodo } : {}),
           };
           const resMat = await dbInsertRecibo(reciboMatricula);
           if (resMat.ok) {
             setRecibos(prev => [...prev, reciboMatricula]);
-            if (cobrado && emiteFacturaAutomatica(reciboMatricula.metodoCobro, studio?.modoFacturacion ?? null)) {
-              // Su propia factura, con su propio número: son dos ventas
-              // distintas (una cuota y un alta) y Hacienda las quiere así.
-              // Con la factura del plan ya incluida: `buildFactura` deriva el
-              // número de la lista que se le pasa, y con `facturas` a secas
-              // las dos saldrían con el MISMO número en pantalla hasta que el
-              // servidor las renumerase al sellarlas.
-              const facMat = buildFactura(reciboMatricula, facturaAlta ? [...facturas, facturaAlta] : facturas);
-              setFacturas(prev => [...prev, facMat]);
-              void sellarFacturaYActualizar(facMat);
-            }
+            // Su propia factura, con su propio número, la sella el servidor al
+            // cobrarla: son dos ventas distintas (una cuota y un alta) y Hacienda
+            // las quiere así.
+            recibosACobrar.push(reciboMatricula.id);
           } else {
             // El alta ya está hecha y no se deshace por esto: se avisa de que
             // falta anotar la matrícula, que es lo único que se puede hacer.
@@ -2504,7 +2485,25 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
             // única para este aviso, y el compilador de React da la llamada
             // impura por error aquí dentro (el resto del fichero la usa desde
             // sitios que sí analiza).
-            setDbError({ msg: `El alta se ha guardado, pero la matrícula de ${matricula} € no ha quedado anotada: añádela a mano en Cobros.`, key: new Date(ahora).getTime() });
+            avisos.push(`La matrícula de ${matricula} € no ha quedado anotada: añádela a mano en Cobros.`);
+          }
+        }
+
+        // El cobro, DESPUÉS de que existan los recibos y por el servidor. Si no se
+        // confirma, el alta ya está hecha y no se deshace: los recibos se quedan
+        // pendientes en «Quién me debe» (que es la verdad) y se avisa. Nunca se
+        // da por cobrado lo que el servidor no ha confirmado.
+        if (cobrado) {
+          const desenlaces = await cobrarEnServidor(recibosACobrar, cobroAlta.metodo);
+          const sinCobrar = desenlaces.filter(d => !esCobroConfirmado(d));
+          if (sinCobrar.length > 0) {
+            const motivo = sinCobrar[0].error?.trim().replace(/\.?$/, '.') ?? 'No se ha podido confirmar.';
+            avisos.push(`El cobro no ha quedado registrado: ${motivo} ${sinCobrar.length === 1 ? 'El recibo está' : 'Los recibos están'} en «Quién me debe»: márcalo cobrado desde Cobros.`);
+          }
+          // Cobrado, pero la factura no se pudo sellar (NIF inválido, red…): el recibo queda COBRADO con la
+          // factura pendiente, y quien cobra tiene que saberlo para arreglarlo (Cobros → «Sin factura»).
+          if (desenlaces.some(d => d.resultado === 'aplicada' && !d.selladoOk)) {
+            avisos.push('Cobrado, pero la factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Cobros y facturas → Datos fiscales e IVA.');
           }
         }
       }
@@ -2525,7 +2524,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       }).catch(() => { /* fallo suave: el alta ya está hecha */ });
     }
 
-    return { ...resSocia, id: nuevaSocia.id };
+    return { ...resSocia, id: nuevaSocia.id, ...(avisos.length > 0 ? { avisos } : {}) };
   }
 
   // En ruta pública, las escrituras van por los endpoints de servidor (service-
@@ -4195,17 +4194,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  // Factura al contado desde el modal "Nueva factura" (cobros/panel-pendientes):
-  // a diferencia de addRecibo (PENDIENTE, se cobra más tarde), aquí el cobro es
-  // inmediato — no hay fecha de vencimiento en el formulario porque no hay nada
-  // que esperar. Se ESCRIBE PRIMERO y se espera confirmación (mismo criterio que
-  // marcarCobrado/addSala): antes este botón era un placeholder sin cablear que
-  // cerraba el modal sin llamar a ninguna API — "se genera" pero nunca existió
-  // ni en BD ni en el estado local.
+  // Factura al contado desde el modal "Nueva factura" (cobros/panel-pendientes) y
+  // el cobro de una cita: a diferencia de addRecibo (PENDIENTE, se cobra más
+  // tarde), aquí el cobro es inmediato — no hay fecha de vencimiento en el
+  // formulario porque no hay nada que esperar.
+  //
+  // El recibo se crea PENDIENTE y se cobra por el servidor (`cobrarEnServidor`),
+  // que es quien lo cierra bien: compare-and-set, factura sellada, caja. Un recibo
+  // no puede crearse ya cobrado desde el navegador (lo impide la base de datos).
+  // Se ESCRIBE PRIMERO y se espera confirmación en cada paso (mismo criterio que
+  // marcarCobrado): antes este botón era un placeholder sin cablear que cerraba
+  // el modal sin llamar a ninguna API.
+  //
+  // Los cuatro desenlaces están en `ResultadoFacturaDirecta`: si el servidor no
+  // confirma el cobro, el recibo YA existe (pendiente, en «Quién me debe») y quien
+  // llama no puede reenviar el formulario sin duplicarlo.
   async function crearFacturaDirecta(
     fields: { socioId: string; concepto: string; importe: number },
-  ): Promise<ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }> {
-    const fechaCobro = new Date().toISOString();
+  ): Promise<ResultadoFacturaDirecta> {
     const rec: Recibo = {
       id: `rec-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -4213,44 +4219,40 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       suscripcionId: null,
       concepto: fields.concepto,
       importe: fields.importe,
-      estado: 'COBRADO',
-      fechaVencimiento: fechaCobro,
-      fechaCobro,
+      estado: 'PENDIENTE',
+      fechaVencimiento: hoyEnEstudio(),
+      fechaCobro: null,
       fechaDevolucion: null,
       intentosReintento: 0,
     };
     const res = await dbInsertRecibo(rec);
     if (!res.ok) return res;
     setRecibos(prev => [...prev, rec]);
-    // Mismo patrón que marcarCobrado: construir con el snapshot ya conocido
-    // (`rec`, no el `recibos` del closure, que todavía no lo tiene) y sellar
-    // fuera del updater. A diferencia de marcarCobrado (que puede correr en un
-    // cobro masivo y no debe bloquearse por cada sellado), esta es una acción
-    // manual de un solo recibo: SÍ se espera el sellado antes de decir
-    // "factura generada" — antes el toast de éxito llegaba en cuanto se
-    // guardaba el recibo, y si el sellado fallaba después (NIF inválido, red),
-    // la factura desaparecía de la lista sin que el mensaje de éxito ya
-    // mostrado se corrigiera.
-    const fac = construirFacturaCobro(rec, facturas);
-    let resSellado: ResultadoEscritura = { ok: true };
-    if (fac) {
-      setFacturas(prev => [...prev, fac]);
-      resSellado = await sellarFacturaYActualizar(fac);
+
+    const [d] = await cobrarEnServidor([rec.id]);
+    if (!d || !esCobroConfirmado(d)) {
+      return {
+        ok: false, cobroSinConfirmar: true,
+        error: `${d?.error ?? 'No se ha podido registrar el cobro.'} El recibo está en «Quién me debe»: márcalo cobrado desde allí.`,
+      };
     }
     const socio = socios.find(s => s.id === fields.socioId);
+    // Con factura si el estudio la emite (la sella el servidor al cobrar); sin ella, «registró un cobro».
+    const conFactura = emiteFacturaAutomatica(null, studio?.modoFacturacion ?? null);
     addActividadReciente(
       'COBRO_MANUAL',
-      fac
+      conFactura
         ? `${actorNombre ?? 'Alguien'} generó una factura de "${fields.concepto}" (${fields.importe} €) para ${socio?.nombre ?? 'una socia'}`
         : `${actorNombre ?? 'Alguien'} registró un cobro de "${fields.concepto}" (${fields.importe} €) de ${socio?.nombre ?? 'una socia'}`,
       fields.socioId,
       `/socios/${fields.socioId}`
     );
-    // El recibo (dinero) ya está confirmado en este punto — un fallo de aquí
-    // en adelante es del sellado fiscal, no del cobro. Se marca con
-    // `cobroRegistrado` para que el llamador nunca lo trate como "nada pasó,
-    // reintenta": reenviar el mismo formulario duplicaría el cobro.
-    return resSellado.ok ? resSellado : { ...resSellado, cobroRegistrado: true };
+    // El dinero ya está confirmado en este punto — un fallo de aquí en adelante es
+    // del sellado fiscal, no del cobro. `cobroRegistrado` para que quien llama nunca
+    // lo trate como «nada pasó, reintenta»: reenviar el formulario duplicaría el cobro.
+    return d.selladoOk
+      ? { ok: true }
+      : { ok: false, cobroRegistrado: true, error: 'La factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Cobros y facturas → Datos fiscales e IVA.' };
   }
 
   // Construye la factura de un recibo cobrado si aún no existe (dedup por
@@ -4389,7 +4391,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // (el servidor la dejó pendiente y la reintenta). Nunca «no pasó nada».
         : {
             ok: false, cobroRegistrado: true, numeroFactura: d.numeroFactura,
-            error: 'Cobro registrado, pero la factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Mi estudio.',
+            error: 'Cobro registrado, pero la factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Cobros y facturas → Datos fiscales e IVA.',
           };
     }
     if (d && esCobroConfirmado(d)) return { ok: true, yaEstaba: true };

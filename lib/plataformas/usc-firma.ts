@@ -22,7 +22,7 @@
 //
 // Sin `server-only`: lo importan solo rutas de servidor y así corre con
 // `node --test`.
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 /** Margen de reloj aceptado entre USC y nosotros. */
 export const VENTANA_TIMESTAMP_MS = 5 * 60 * 1000;
@@ -73,4 +73,24 @@ export function verificarFirmaUsc(args: {
     return { ok: false, motivo: 'firma-no-coincide' };
   }
   return { ok: true };
+}
+
+/**
+ * Webhooks de USC (estados de reserva): NO van firmados como el Instant
+ * Booking. Al registrar el endpoint se les da un secreto compartido
+ * (`USC_WEBHOOK_SECRET`, distinto del client secret) y cada webhook trae en la
+ * cabecera `x-signature-256` el SHA-256 de ese secreto (docs: endpoint/webhooks).
+ * Su documentación no dice si en hex o en base64: se aceptan las dos, siempre
+ * comparando en tiempo constante.
+ */
+export function verificarSecretoWebhookUsc(secreto: string | null | undefined, cabecera: string | null): boolean {
+  if (!secreto || !cabecera) return false;
+  const hash = createHash('sha256').update(secreto, 'utf8').digest();
+  const recibida = cabecera.trim();
+  for (const esperada of [hash.toString('hex'), hash.toString('base64')]) {
+    const a = Buffer.from(esperada);
+    const b = Buffer.from(recibida.length === esperada.length && /^[0-9A-F]+$/.test(recibida) ? recibida.toLowerCase() : recibida);
+    if (a.length === b.length && timingSafeEqual(a, b)) return true;
+  }
+  return false;
 }

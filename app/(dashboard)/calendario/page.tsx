@@ -44,6 +44,9 @@ import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { marcaReserva, textoTrasQuitar } from '@/lib/plazas-fijas-cancelacion';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
+import { AnadirReservaPlataforma } from '@/components/calendario/anadir-reserva-plataforma';
+import { usePlataformasActivas } from '@/components/configuracion/plataformas-externas';
+import { NOMBRE_PLATAFORMA, type Plataforma } from '@/lib/plataformas/catalogo';
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
@@ -2685,6 +2688,10 @@ export default function Calendario() {
   const [prepIAError, setPrepIAError] = useState(false);
   const [buscarSocia, setBuscarSocia] = useState('');
   const [showAnadir, setShowAnadir] = useState(false);
+  // «Añadir» a una socia o una plaza vendida por ClassPass/USC/Wellhub (solo
+  // las plataformas activadas en Conexiones).
+  const [anadirDe, setAnadirDe] = useState<'CLIENTA' | Plataforma>('CLIENTA');
+  const plataformasActivas = usePlataformasActivas();
 
   // Al cambiar de sesión (o cerrar el drawer) se limpia todo lo que colgaba de
   // la anterior: el socio de la nota de voz y el panel de preparación con IA.
@@ -3406,13 +3413,50 @@ export default function Calendario() {
               )}
               {gestionaClientas && (!showAnadir ? (
                 <button
-                  onClick={() => { setAvisarAlumna(true); setShowAnadir(true); }}
+                  onClick={() => { setAvisarAlumna(true); setAnadirDe('CLIENTA'); setShowAnadir(true); }}
                   className="w-full flex items-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-border text-xs font-bold text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors mb-3"
                 >
                   <UserPlus size={14} />Añadir clienta a la clase
                 </button>
               ) : (
                 <div className="mb-3 space-y-2">
+                  {plataformasActivas.length > 0 && (
+                    <div role="tablist" aria-label="Qué añadir" className="flex flex-wrap gap-1">
+                      {(['CLIENTA', ...plataformasActivas] as const).map(o => (
+                        <button
+                          key={o}
+                          type="button"
+                          role="tab"
+                          aria-selected={anadirDe === o}
+                          onClick={() => setAnadirDe(o)}
+                          className={cn(
+                            'rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors',
+                            anadirDe === o ? 'border-brand bg-brand/10 text-brand' : 'border-border text-muted-foreground hover:text-foreground',
+                          )}
+                        >
+                          {o === 'CLIENTA' ? 'Clienta' : NOMBRE_PLATAFORMA[o]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {anadirDe !== 'CLIENTA' && sesionActual ? (
+                    <>
+                      {sesionActual.confirmadas >= sesionActual.aforoMaximo && (
+                        <p className="text-[11px] font-semibold text-warning">
+                          Clase llena ({sesionActual.confirmadas}/{sesionActual.aforoMaximo}): no queda plaza para {NOMBRE_PLATAFORMA[anadirDe]}. Si ya la han vendido, cancélala allí.
+                        </p>
+                      )}
+                      <AnadirReservaPlataforma
+                        sesionId={sesionActual.id}
+                        plataforma={anadirDe}
+                        showToast={showToast}
+                        onHecho={async () => { await refrescarVista(); setShowAnadir(false); }}
+                      />
+                      <button onClick={() => setShowAnadir(false)} className="w-full py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted">
+                        Cancelar
+                      </button>
+                    </>
+                  ) : (<>
                   {sesionActual && sesionActual.confirmadas >= sesionActual.aforoMaximo && (
                     <p className="text-[11px] font-semibold text-warning">
                       Clase llena ({sesionActual.confirmadas}/{sesionActual.aforoMaximo}) — quien añadas entrará en lista de espera.
@@ -3472,6 +3516,7 @@ export default function Calendario() {
                   <button onClick={() => { setShowAnadir(false); setBuscarSocia(''); }} className="w-full py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted">
                     Cancelar
                   </button>
+                  </>)}
                 </div>
               ))}
               {/* El lector ya no depende de «Pasar lista»: comprobar quién entra
