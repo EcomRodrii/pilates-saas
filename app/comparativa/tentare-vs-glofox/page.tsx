@@ -7,14 +7,16 @@ import { Callout, CtaBlock, RelatedLinks } from '@/components/recursos/ArticlePr
 import { ComparativaBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { LEGAL } from '@/lib/legal-info';
 import { ACC } from '@/components/landing/theme';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const pagina = paginaDe('/comparativa/tentare-vs-glofox')!;
 
 const TITLE = 'Glofox vs. Tentare: cuál conviene a tu estudio de Pilates';
 const SLUG = 'tentare-vs-glofox';
 
 export const metadata: Metadata = {
-  title: `${TITLE} — Tentare`,
-  description: 'Precio real en euros, permanencia, gestión por reformer individual y sustitución de instructoras — Glofox frente a Tentare, sin folletos de marketing.',
+  title: pagina.titulo,
+  description: pagina.descripcion,
   alternates: { canonical: urlDe(`/comparativa/${SLUG}`) },
   openGraph: {
     type: 'article',
