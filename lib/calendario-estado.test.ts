@@ -186,3 +186,17 @@ test('una clase que ya ha empezado no se cancela ni se borra: solo quedan las qu
   assert.deepEqual(sinEmpezar([], ahora), []);
 });
 
+test('una clase con su instructora de vacaciones sale sin instructora hasta que termina', () => {
+  const antes = new Date('2026-07-13T07:00:00.000Z');
+  const durante = new Date('2026-07-13T08:30:00.000Z');
+  const despues = new Date('2026-07-13T09:30:00.000Z');
+  assert.equal(estadoSesion(sesion(), antes, ctx({ sinCubrir: true })), 'SIN_INSTRUCTORA');
+  assert.equal(estadoSesion(sesion(), durante, ctx({ sinCubrir: true })), 'SIN_INSTRUCTORA');
+  // Pasada, ya no hay nada que cubrir: vuelve a lo de siempre (aquí, pasar lista).
+  assert.equal(estadoSesion(sesion(), despues, ctx({ sinCubrir: true, confirmadasSinCheckin: 2 })), 'SIN_PASAR_LISTA');
+  // Cancelada manda sobre todo.
+  assert.equal(estadoSesion(sesion({ cancelada: true }), antes, ctx({ sinCubrir: true })), 'CANCELADA');
+  // Sin la señal, nada cambia.
+  assert.equal(estadoSesion(sesion(), antes, ctx()), 'PROGRAMADA');
+});
+

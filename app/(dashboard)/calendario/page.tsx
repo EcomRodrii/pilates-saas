@@ -92,6 +92,7 @@ import { VistaMes } from '@/components/calendario/vista-mes';
 import { BuscadorRapido } from '@/components/calendario/buscador-rapido';
 import { PanelSesion, horaTextoSesion, type PestanaSesion } from '@/components/calendario/panel-sesion';
 import { estadoSesion, pideDecision, sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA, MENSAJE_CLASE_AUN_NO_EMPEZADA, MENSAJE_CLASE_DADA, type EstadoSesion } from '@/lib/calendario-estado';
+import type { SesionCalendario } from '@/lib/calendario-datos';
 import { prepararColumnasSalaDia, prepararColumnasDiaSemana, type SesionColumna, type SesionSemana } from '@/lib/calendario-columnas';
 import { agregarPorDiaMes, type SesionMes, type DiaMes } from '@/lib/calendario-mes';
 import { type SesionBuscable } from '@/lib/calendario-busqueda';
@@ -542,7 +543,10 @@ interface SustitucionVista {
 }
 
 interface DatosVista {
-  sesiones: (Sesion & { sustitucionAbierta: boolean; motivoBaja: string | null; sustitucionId: string | null })[];
+  // Lo nuevo de /api/calendario va opcional: un payload antiguo (o un mock) no lo
+  // trae, y entonces la clase no está ni sin cubrir ni floja.
+  sesiones: (Sesion & { sustitucionAbierta: boolean; motivoBaja: string | null; sustitucionId: string | null }
+    & Partial<Pick<SesionCalendario, 'sustitucionEstado' | 'ausencia' | 'instructoraInactiva' | 'floja'>>)[];
   reservas: import('@/lib/types').Reserva[];
   sustituciones: SustitucionVista[];
   salas: import('@/lib/types').Sala[];
@@ -550,6 +554,8 @@ interface DatosVista {
   horaApertura: string;
   horaCierre: string;
   horarioSemana: { dia: number; abierto: boolean }[];
+  /** false = no se pudieron leer las ausencias: ninguna clase se da por cubierta por ello. */
+  ausenciasCargadas?: boolean;
   rol: string;
 }
 
@@ -1966,6 +1972,7 @@ export default function Calendario() {
         r.sesionId === s.id && r.estado === 'CONFIRMADA' && !r.checkInEn).length;
       m.set(s.id, estadoSesion(s, now, {
         sustitucionAbierta: s.sustitucionAbierta, conflicto, confirmadasSinCheckin,
+        sinCubrir: !!s.ausencia || !!s.instructoraInactiva,
       }));
     }
     return m;

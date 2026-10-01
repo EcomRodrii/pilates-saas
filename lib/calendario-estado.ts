@@ -94,6 +94,11 @@ export interface ContextoEstadoSesion {
   conflicto: boolean;
   /** Reservas CONFIRMADA sin check-in. Solo importa una vez terminada la clase. */
   confirmadasSinCheckin: number;
+  /** Su instructora no puede darla y nadie la está buscando todavía: ausencia
+   *  grabada (vacaciones, baja, bloqueo de agenda; lib/calendario/ausencias.ts)
+   *  o instructora dada de baja en el equipo. Solo cuenta mientras la clase no ha
+   *  terminado: después ya no hay nada que cubrir. */
+  sinCubrir?: boolean;
 }
 
 export function estadoSesion(
@@ -103,6 +108,7 @@ export function estadoSesion(
 ): EstadoSesion {
   if (s.cancelada) return 'CANCELADA';
   if (ctx.sustitucionAbierta) return 'SIN_INSTRUCTORA';
+  if (ctx.sinCubrir && ahora.getTime() < new Date(s.fin).getTime()) return 'SIN_INSTRUCTORA';
   if (s.incidenciaTexto) return 'INCIDENCIA';
   if (ctx.conflicto) return 'CONFLICTO';
 
