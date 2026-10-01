@@ -63,11 +63,10 @@ export default function TentareVsDeporWebPage() {
       name="DeporWeb"
       slug="tentare-vs-deporweb"
       logo={{ src: '/comparativa/logos/deporweb.svg', alt: 'Logo de DeporWeb', height: 20, width: 130 }}
-      h1={<>Tentare frente a DeporWeb.</>}
+      h1={<>¿DeporWeb o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>DeporWeb es un software español de gestión para centros deportivos, con una página dedicada al pilates. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la diferencia está en el enfoque (centros deportivos frente a estudios boutique) y en la transparencia de precios.</>}
       rows={ROWS}
-      veredicto={<>Si gestionas un centro deportivo con muchas disciplinas y necesitas integrarlo con un ERP, DeporWeb está pensado para eso. Si tu negocio es un estudio de Pilates y quieres saber lo que vas a pagar antes de hablar con nadie, Tentare publica sus precios.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para un estudio de Pilates, Tentare: un producto hecho para tu estudio y con precios públicos, sin tener que hablar con nadie para saber lo que pagas. DeporWeb está pensado para otra cosa: centros deportivos con muchas disciplinas que necesitan integrarse con un ERP.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de DeporWeb (deporweb.es) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. DeporWeb es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

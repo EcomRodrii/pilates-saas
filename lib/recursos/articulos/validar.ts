@@ -45,6 +45,7 @@ function textosDe(b: Bloque): string[] {
     case 'pasos': return b.items.flatMap((i) => [i.titulo, i.texto]);
     case 'tabla': return [...b.cabecera, ...b.filas.flat(), b.nota ?? ''];
     case 'nota': return [b.titulo, b.texto];
+    case 'producto': return [b.titulo, b.texto];
     case 'cifras': return [b.titulo, b.nota, ...b.cifras.flatMap((c) => [c.valor, c.etiqueta])];
     case 'herramienta': return [];
     case 'descarga': return [];

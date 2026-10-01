@@ -66,11 +66,10 @@ export default function TentareVsBonsaiPage() {
       name="Bonsai"
       slug="tentare-vs-bonsai"
       logo={{ src: '/comparativa/logos/bonsai.svg', alt: 'Logo de Bonsai', height: 26, width: 109 }}
-      h1={<>Tentare frente a Bonsai.</>}
+      h1={<>¿Bonsai o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>Bonsai es una app española de gestión para estudios de yoga, pilates y barre, con un plan gratuito. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, lo que más pesa al comparar es el precio real (comisiones incluidas), el compromiso y cómo se cubren las bajas.</>}
       rows={ROWS}
-      veredicto={<>Si estás empezando y tu volumen es pequeño, el plan gratuito de Bonsai puede bastarte, sabiendo que cobra un 3 % extra por transacción. Si ya vendes bonos y cuotas y quieres sustituciones de instructoras, plazas fijas y cobros que se reintentan solos, Tentare está pensado para eso, con precio público y sin comisión de la plataforma.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para un estudio de Pilates que ya vende bonos y cuotas, Tentare: sustituciones de instructoras, plazas fijas y cobros que se reintentan solos, con precio público y sin comisión de la plataforma. Bonsai solo compensa si estás empezando con muy poco volumen y te basta su plan gratuito, que cobra un 3 % extra por transacción.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de Bonsai (mybonsai.app) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Bonsai es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

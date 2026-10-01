@@ -66,11 +66,10 @@ export default function TentareVsVidayPage() {
       name="ViDay"
       slug="tentare-vs-viday"
       logo={{ src: '/comparativa/logos/viday.svg', alt: 'Logo de ViDay', height: 22, width: 100 }}
-      h1={<>Tentare frente a ViDay.</>}
+      h1={<>¿ViDay o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>ViDay es un software español (VIDAYAPPS S.L., Valladolid) de gestión de reservas y clases, con página para estudios de pilates. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, es una alternativa muy cercana: la diferencia está en el precio de entrada, el modelo de planes y la sustitución de instructoras.</>}
       rows={ROWS}
-      veredicto={<>ViDay es una alternativa española muy cercana, con Veri*factu y TicketBAI ya incluidos. Si valoras el precio de entrada más bajo, la plaza por reformer y las sustituciones de instructoras de un producto pensado para Pilates, Tentare está más enfocado en eso.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para un estudio de Pilates, Tentare: precio de entrada más bajo, plaza por reformer y sustituciones de instructoras. ViDay es una alternativa española cercana; te encaja si necesitas ya incluidos Veri*factu y TicketBAI.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de ViDay (viday.es) a 23 de septiembre de 2026, ampliada el 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. ViDay es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

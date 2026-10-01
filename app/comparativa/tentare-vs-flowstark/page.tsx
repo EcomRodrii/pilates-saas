@@ -64,11 +64,10 @@ export default function TentareVsFlowstarkPage() {
       name="Flowstark"
       slug="tentare-vs-flowstark"
       logo={{ src: '/comparativa/logos/flowstark.svg', alt: 'Logo de Flowstark', height: 20, width: 120 }}
-      h1={<>Tentare frente a Flowstark.</>}
+      h1={<>¿Flowstark o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>Flowstark es una herramienta española de gestión de cobros recurrentes y suscripciones, con página para centros de yoga y pilates. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, es más una herramienta de cobros y cuotas que un software completo de reservas de clases con sala y reformer.</>}
       rows={ROWS}
-      veredicto={<>Si lo que necesitas es cobrar cuotas recurrentes con el menor coste posible, Flowstark es una opción ligera y barata. Si buscas un software para gestionar el estudio entero —reservas con plaza por reformer, plazas fijas, bonos y sustituciones—, Tentare está pensado para eso.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para gestionar un estudio de Pilates entero —reservas con plaza por reformer, plazas fijas, bonos y sustituciones—, Tentare. Flowstark se queda en cobrar cuotas recurrentes al menor coste: si solo necesitas eso, es ligero y barato.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de Flowstark (flowstark.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Flowstark es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

@@ -90,6 +90,8 @@ function BloqueArticulo({ b }: { b: Bloque }) {
       );
     case 'nota':
       return <Callout title={b.titulo}><TextoMarcado texto={b.texto} /></Callout>;
+    case 'producto':
+      return <CtaBlock title={b.titulo} body={textoPlano(b.texto)} cta="Probar 7 días gratis →" />;
     case 'cifras':
       return <StatBlock eyebrow={b.titulo} stats={b.cifras.map((c) => ({ value: c.valor, label: c.etiqueta }))} note={textoPlano(b.nota)} />;
     case 'herramienta':

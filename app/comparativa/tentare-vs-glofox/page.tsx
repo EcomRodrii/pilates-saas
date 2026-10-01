@@ -125,8 +125,8 @@ export default function GlofoxVsTentarePage() {
       <ArticleShell
         category="Tentare vs Glofox"
         kind="Comparativa"
-        backHref="/comparativa"
-        backLabel="Toda la comparativa"
+        backHref="/"
+        backLabel="Inicio"
         coverGradient="linear-gradient(140deg,#1C1F14,#343825)"
         title={TITLE}
         intro="Si estás valorando Glofox frente a Tentare para gestionar tu estudio de Pilates, esta comparativa va al grano: qué hace cada plataforma, cuánto cuesta de verdad y cuál encaja con tu situación concreta. Sin folletos de marketing ni letra pequeña."

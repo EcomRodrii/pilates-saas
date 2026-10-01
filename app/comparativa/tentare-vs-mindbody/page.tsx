@@ -65,11 +65,10 @@ export default function TentareVsMindbodyPage() {
       name="Mindbody"
       slug="tentare-vs-mindbody"
       logo={{ src: '/comparativa/logos/mindbody.svg', alt: 'Logo de Mindbody', height: 24, width: 115 }}
-      h1={<>Tentare frente a Mindbody.</>}
+      h1={<>¿Mindbody o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>Mindbody es una de las plataformas más grandes del mundo para fitness y bienestar, con su propio marketplace de consumidores. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la pregunta es qué se gana y qué se paga por ese ecosistema.</>}
       rows={ROWS}
-      veredicto={<>Si te interesa captar clientas nuevas a través de un marketplace con mucho tráfico, Mindbody puede compensar su comisión. Si prefieres saber lo que pagas por adelantado, no tener comisión por clienta nueva y un software pensado para un estudio de Pilates, Tentare publica su precio y no cobra comisión sobre tus cobros.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para un estudio de Pilates, Tentare: sabes lo que pagas por adelantado, sin comisión por clienta nueva ni sobre tus cobros. Mindbody solo compensa si quieres captar clientas en su marketplace y aceptas pagar su comisión por ello.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de Mindbody (mindbodyonline.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Mindbody es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

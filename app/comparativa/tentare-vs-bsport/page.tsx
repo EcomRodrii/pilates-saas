@@ -76,11 +76,10 @@ export default function TentareVsBsportPage() {
       name="bsport"
       slug="tentare-vs-bsport"
       logo={{ src: '/comparativa/logos/bsport.svg', alt: 'Logo de bsport', height: 24, width: 69 }}
-      h1={<>Tentare frente a bsport.</>}
+      h1={<>¿bsport o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>bsport es una de las plataformas europeas más usadas por estudios de fitness boutique. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, lo que más pesa al comparar es saber cuánto cuesta, qué compromiso hay y cómo se cubren las bajas de las instructoras.</>}
       rows={ROWS}
-      veredicto={<>Si lo que buscas es saber lo que vas a pagar antes de hablar con nadie, no atarte a un contrato y tener sustituciones, plazas fijas y cobros pensados para un estudio de Pilates, Tentare encaja bien. Si ya dependes de integraciones concretas que bsport lleva más tiempo puliendo, o necesitas estar en las tiendas de aplicaciones, bsport es hoy la opción más madura en esos puntos.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para un estudio de Pilates en España, Tentare: sabes lo que vas a pagar antes de hablar con nadie, sin contrato, y con sustituciones, plazas fijas y cobros pensados para Pilates. bsport solo compensa si dependes de integraciones concretas que lleva más tiempo puliendo o necesitas estar en las tiendas de aplicaciones.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de bsport (pro.bsport.io) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

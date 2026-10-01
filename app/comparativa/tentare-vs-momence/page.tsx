@@ -65,11 +65,10 @@ export default function TentareVsMomencePage() {
       name="Momence"
       slug="tentare-vs-momence"
       logo={{ src: '/comparativa/logos/momence.svg', alt: 'Logo de Momence', height: 15, width: 122, cardBg: '#171717' }}
-      h1={<>Tentare frente a Momence.</>}
+      h1={<>¿Momence o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>Momence es una plataforma internacional de reservas para estudios, con sustituciones automáticas, elección de reformer y biblioteca de vídeo. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, es una de las comparaciones más parejas en funciones; la diferencia está en el precio público y en el mercado para el que está pensada.</>}
       rows={ROWS}
-      veredicto={<>Entre las funciones de una y otra hay más coincidencias que diferencias. Si necesitas vídeo bajo demanda y no te importa que el producto y el soporte estén pensados para un mercado internacional, Momence encaja. Si prefieres precio público, soporte en español y un producto hecho para estudios de Pilates en España, Tentare.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para un estudio de Pilates en España, Tentare: precio público, soporte en español y un producto hecho para ti. Momence solo encaja si necesitas vídeo bajo demanda y no te importa un producto y un soporte pensados para un mercado internacional.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de Momence (momence.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Momence es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
