@@ -28,6 +28,8 @@ import plantillaAsistencia from './plantilla-control-de-asistencia-pilates.ts';
 import franquicia from './franquicia-de-pilates.ts';
 import nombres from './nombres-para-estudio-de-pilates.ts';
 import bsportVsTimp from './bsport-vs-timp.ts';
+import alternativasBsport from './alternativas-a-bsport.ts';
+import alternativasTimp from './alternativas-a-timp.ts';
 import abrirYoga from './como-abrir-un-estudio-de-yoga.ts';
 import politicaCancelacion from './politica-de-cancelacion-de-clases.ts';
 import serInstructora from './como-ser-instructora-de-pilates.ts';
@@ -37,6 +39,8 @@ export const ARTICULOS: Articulo[] = [
   abrirYoga,
   mejorSoftware,
   bsportVsTimp,
+  alternativasBsport,
+  alternativasTimp,
   cuantoCuesta,
   precioClase,
   rentabilidad,
