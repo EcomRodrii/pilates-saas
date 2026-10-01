@@ -52,20 +52,28 @@ function fijar(siguiente: boolean) {
  *
  * `animar: false` para apagarlo al cambiar de pantalla: ahí no hay nada que
  * animar y una transición encima de la navegación se pisaría con la suya.
+ *
+ * ⚠️ Sin animación no hay foto que esperar, y el `flushSync` no solo sobra:
+ * estorba. `ControlAmpliado` apaga desde un efecto, y ahí React ya está a mitad
+ * de su trabajo — no puede adelantar el render y lo avisa en la consola
+ * («flushSync was called from inside a lifecycle method»). El icono llega igual
+ * con el render normal, antes de pintar. La medida inmediata sí se queda: el
+ * menú y la barra entran o salen en el acto (`data-panel-ampliado`), y con la
+ * medida normal la rejilla llegaría un fotograma tarde.
  */
 export function cambiarAmpliado(siguiente: boolean, { animar = true }: { animar?: boolean } = {}): void {
   if (typeof document === 'undefined' || siguiente === ampliado) return;
-  const aplicar = () => {
-    flushSync(() => fijar(siguiente));
-    window.dispatchEvent(new Event(EVENTO_MEDIR_ALTO));
-  };
   const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
   if (!animar || !doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    aplicar();
+    fijar(siguiente);
+    window.dispatchEvent(new Event(EVENTO_MEDIR_ALTO));
     return;
   }
   const raiz = document.documentElement;
   raiz.setAttribute('data-vt-ampliar', siguiente ? 'ampliar' : 'reducir');
-  const transicion = doc.startViewTransition(aplicar);
+  const transicion = doc.startViewTransition(() => {
+    flushSync(() => fijar(siguiente));
+    window.dispatchEvent(new Event(EVENTO_MEDIR_ALTO));
+  });
   transicion.finished.finally(() => raiz.removeAttribute('data-vt-ampliar'));
 }
