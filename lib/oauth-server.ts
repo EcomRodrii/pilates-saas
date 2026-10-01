@@ -26,12 +26,14 @@ export interface ClienteOAuth {
   esConfidencial: boolean;
   logoUrl: string | null;
   activo: boolean;
+  /** Lo que esta app puede pedir. Vacío = nada: una app nueva no pide nada hasta que se le da su lista. */
+  scopesPermitidos: string[];
 }
 
 export async function buscarClienteOAuth(admin: SupabaseClient, clienteId: string): Promise<ClienteOAuth | null> {
   const { data } = await admin
     .from('oauth_clientes')
-    .select('id, nombre, descripcion, client_secret_hash, redirect_uris, es_confidencial, logo_url, activo')
+    .select('id, nombre, descripcion, client_secret_hash, redirect_uris, es_confidencial, logo_url, activo, scopes_permitidos')
     .eq('id', clienteId)
     .eq('activo', true)
     .maybeSingle();
@@ -40,6 +42,7 @@ export async function buscarClienteOAuth(admin: SupabaseClient, clienteId: strin
     id: data.id, nombre: data.nombre, descripcion: data.descripcion,
     clientSecretHash: data.client_secret_hash, redirectUris: data.redirect_uris ?? [],
     esConfidencial: data.es_confidencial, logoUrl: data.logo_url, activo: data.activo,
+    scopesPermitidos: data.scopes_permitidos ?? [],
   };
 }
 

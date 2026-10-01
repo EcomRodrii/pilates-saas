@@ -2427,6 +2427,8 @@ export interface RowOauthClientes {
   logo_url: string | null;
   activo: boolean;
   creado_en: string;
+  // migr 20261001194127.
+  scopes_permitidos: string[] | null;
 }
 
 export interface RowOauthConsentimientos {
@@ -7878,6 +7880,7 @@ export type OauthClientesInsert = {
   logo_url?: string | null | null;
   activo?: boolean | null;
   creado_en?: string | null;
+  scopes_permitidos?: string[] | null | null;
 }
 
 export type OauthClientesUpdate = {
@@ -7890,6 +7893,7 @@ export type OauthClientesUpdate = {
   logo_url?: string | null | null;
   activo?: boolean | null;
   creado_en?: string | null;
+  scopes_permitidos?: string[] | null | null;
 }
 
 export type OauthConsentimientosInsert = {

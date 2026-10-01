@@ -46,14 +46,41 @@ export function scopesDelPlan(_plan: Plan): readonly ScopeOAuth[] {
 
 /**
  * Los scopes que valen en ESTA petición: lo que tiene la credencial, recortado
- * a lo que hoy puede ver quien la concedió y a lo que da el plan del estudio.
+ * a lo que hoy puede ver quien la concedió, a lo que da el plan del estudio y,
+ * si es un token OAuth, a lo que hoy puede pedir su app
+ * (`oauth_clientes.scopes_permitidos`). Recortar la lista de una app tiene
+ * efecto en la petición siguiente, también para los tokens ya emitidos.
  */
 export function scopesEfectivos(p: {
   credencial: readonly string[];
   rolDeQuienConcedio: Rol | null | undefined;
   plan: Plan;
+  /** Solo para tokens OAuth: los scopes que la app puede pedir. `undefined` = no aplica (clave de API). */
+  app?: readonly string[];
 }): ScopeOAuth[] {
   const rol = new Set<string>(scopesQuePuedeConceder(p.rolDeQuienConcedio));
   const plan = new Set<string>(scopesDelPlan(p.plan));
-  return SCOPES_VALIDOS.filter((s) => p.credencial.includes(s) && rol.has(s) && plan.has(s));
+  const app = p.app === undefined ? null : new Set<string>(p.app);
+  return SCOPES_VALIDOS.filter((s) => p.credencial.includes(s) && rol.has(s) && plan.has(s) && (!app || app.has(s)));
+}
+
+/**
+ * Lo que sale de una pantalla de consentimiento OAuth: lo que la app pide,
+ * recortado a lo que ESA app puede pedir y a lo que el rol de quien autoriza
+ * puede dar. No se rechaza la autorización entera por un permiso de más (Zapier
+ * seguiría funcionando con el resto): lo que queda fuera se enseña, y por qué.
+ */
+export function repartirScopesConsentimiento(p: {
+  rol: Rol | null | undefined;
+  /** `oauth_clientes.scopes_permitidos`. */
+  app: readonly string[];
+  pedidos: readonly string[];
+}): { concedibles: ScopeOAuth[]; fueraPorApp: ScopeOAuth[]; fueraPorRol: ScopeOAuth[] } {
+  const delRol = new Set<string>(scopesQuePuedeConceder(p.rol));
+  const deLaApp = new Set<string>(p.app);
+  const pedidos = SCOPES_VALIDOS.filter((s) => p.pedidos.includes(s));
+  const fueraPorApp = pedidos.filter((s) => !deLaApp.has(s));
+  const fueraPorRol = pedidos.filter((s) => deLaApp.has(s) && !delRol.has(s));
+  const concedibles = pedidos.filter((s) => deLaApp.has(s) && delRol.has(s));
+  return { concedibles, fueraPorApp, fueraPorRol };
 }
