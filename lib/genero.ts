@@ -51,18 +51,20 @@ export interface Trato {
   deLa: string;
   /** «ella» / «él» */
   ella: string;
+  /** Pronombre átono: «la» / «lo» (llamarla / llamarlo, darla / darlo de baja). */
+  lo: string;
   /** Terminación de los adjetivos: «a» / «o» (actualizada / actualizado). */
   fin: string;
 }
 
 const FEMENINO: Trato = {
   clienta: 'clienta', alumna: 'alumna', socia: 'socia', fija: 'fija',
-  la: 'la', esta: 'esta', una: 'una', alA: 'a la', deLa: 'de la', ella: 'ella', fin: 'a',
+  la: 'la', esta: 'esta', una: 'una', alA: 'a la', deLa: 'de la', ella: 'ella', lo: 'la', fin: 'a',
 };
 
 const MASCULINO: Trato = {
   clienta: 'cliente', alumna: 'alumno', socia: 'socio', fija: 'fijo',
-  la: 'el', esta: 'este', una: 'un', alA: 'al', deLa: 'del', ella: 'él', fin: 'o',
+  la: 'el', esta: 'este', una: 'un', alA: 'al', deLa: 'del', ella: 'él', lo: 'lo', fin: 'o',
 };
 
 export function trato(genero: Genero | null | undefined): Trato {

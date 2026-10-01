@@ -2,7 +2,8 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeModerarComunidad } from '@/lib/permisos-reglas';
-import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
+import { resolverDestinatariasCampana, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
+import { cargarEstadosClientas } from '@/lib/clientas/estado-servidor';
 import { emitirPostComunidadNuevo } from '@/lib/notifications/emit';
 import { mapPostComunidad } from '@/lib/supabase-data';
 import { uuidV4 } from '@/lib/utils';
@@ -151,7 +152,14 @@ export async function POST(req: NextRequest) {
       })) as unknown as Suscripcion[];
       const recibos = (recRaw ?? []).map(r => ({ socioId: r.socio_id, estado: r.estado })) as unknown as Recibo[];
 
-      const destinatarias = resolverDestinatariasCampana(audiencia, { socios, suscripciones, recibos }, new Date());
+      const ahora = new Date();
+      // El estado de cada una (Activa, Sin renovar…), solo si la audiencia lo usa.
+      // Si no se puede leer, no se avisa a nadie antes que a quien no toca.
+      const estados = segmentoNecesitaEstado(audiencia)
+        ? await cargarEstadosClientas(adminAfter, studioId, { ahora })
+        : null;
+      if (segmentoNecesitaEstado(audiencia) && !estados) return;
+      const destinatarias = resolverDestinatariasCampana(audiencia, { socios, suscripciones, recibos, estados }, ahora);
       if (destinatarias.length === 0) return;
       await emitirPostComunidadNuevo(adminAfter, {
         studioId, postId, autorNombre: sesion.nombre,

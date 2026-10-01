@@ -233,7 +233,7 @@ test.describe('Ficha de la clienta · «Cambios de dinero en esta ficha»', () =
   test('la propietaria ve solo lo de esa clienta, sin repetirle su nombre en cada fila', async ({ page }) => {
     const p = await montarPanel(page);
     await ir(page, 'clientas/soc-1');
-    await page.getByRole('button', { name: 'Pagos', exact: true }).click();
+    await page.getByRole('tab', { name: 'Pagos', exact: true }).click();
 
     await expect(page.getByRole('region', { name: 'Cambios de dinero en esta ficha' })).toBeVisible({ timeout: 30_000 });
     // Dos cambios de ESTA clienta: el de un recibo (panel) y el reembolso que pidió una ruta de servidor.
@@ -250,7 +250,7 @@ test.describe('Ficha de la clienta · «Cambios de dinero en esta ficha»', () =
   test('recepción abre la misma ficha y no ve la sección, ni la pide', async ({ page }) => {
     const p = await montarPanel(page, { rol: 'RECEPCION' });
     await ir(page, 'clientas/soc-1');
-    await page.getByRole('button', { name: 'Pagos', exact: true }).click();
+    await page.getByRole('tab', { name: 'Pagos', exact: true }).click();
 
     // La pestaña de pagos cargó (recepción sí ve el dinero)...
     await expect(page.getByRole('button', { name: 'Nuevo cobro' })).toBeVisible({ timeout: 30_000 });

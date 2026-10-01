@@ -44,3 +44,9 @@ test('lo que llega de la base se reduce a lo que se sabe: cualquier otra cosa es
 test('cada valor tiene su etiqueta para el selector', () => {
   assert.deepEqual(GENEROS.map(g => ETIQUETA_GENERO[g]), ['Mujer', 'Hombre']);
 });
+
+test('el pronombre átono sigue el género: llamarla / llamarlo', () => {
+  assert.equal(`llamar${trato('MUJER').lo}`, 'llamarla');
+  assert.equal(`llamar${trato('HOMBRE').lo}`, 'llamarlo');
+  assert.equal(`llamar${trato(null).lo}`, 'llamarla');
+});

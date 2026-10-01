@@ -90,6 +90,9 @@ export const renovacionesDispatcher = inngest.createFunction(
 // creando/adoptando igual (PENDIENTE, visible en /cobros para marcarlo a
 // mano), solo se le deja `proximo_reintento` en null para que el dunning
 // no lo vuelva a mirar.
+//
+// Una clienta DE BAJA (`activo = false`) tampoco cuenta: sin estar en este
+// conjunto, ningún recibo suyo entra al cobro automático por esta vía.
 async function sociosConMetodoCobro(studioId: string): Promise<string[]> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -97,6 +100,7 @@ async function sociosConMetodoCobro(studioId: string): Promise<string[]> {
     .from('socios')
     .select('id')
     .eq('studio_id', studioId)
+    .not('activo', 'is', false)
     .or('stripe_payment_method_id.not.is.null,sepa_payment_method_id.not.is.null');
   if (error) throw new Error(error.message);
   return (data ?? []).map(s => s.id as string);
@@ -196,7 +200,7 @@ async function generarRecibosRenovacion(studioId: string, nowISO: string, conMet
   if (!admin) throw new Error('Service role no configurada');
   const hoy = nowISO.slice(0, 10);
 
-  const [{ data: susRows, error: susErr }, { data: planRows, error: planErr }] = await Promise.all([
+  const [{ data: susRows, error: susErr }, { data: planRows, error: planErr }, { data: bajaRows, error: bajaLeerErr }] = await Promise.all([
     admin.from('suscripciones')
       .select('id, socio_id, plan_id, fecha_fin, baja_al_vencer')
       .eq('studio_id', studioId)
@@ -207,9 +211,17 @@ async function generarRecibosRenovacion(studioId: string, nowISO: string, conMet
       .select('id, nombre, precio, tipo')
       .eq('studio_id', studioId)
       .eq('tipo', 'MENSUAL'),
+    // Clientas DE BAJA: su cuota vencida se cancela en vez de renovarse
+    // (`repartirVencidas`).
+    admin.from('socios')
+      .select('id')
+      .eq('studio_id', studioId)
+      .eq('activo', false),
   ]);
   if (susErr) throw new Error(susErr.message);
   if (planErr) throw new Error(planErr.message);
+  if (bajaLeerErr) throw new Error(bajaLeerErr.message);
+  const sociasDeBaja = new Set((bajaRows ?? []).map(r => r.id as string));
 
   const planById = new Map((planRows ?? []).map(p => [p.id as string, p]));
   const todasVencidas = (susRows ?? []).filter(s => planById.has(s.plan_id as string));
@@ -220,16 +232,32 @@ async function generarRecibosRenovacion(studioId: string, nowISO: string, conMet
   // de crear nada, y con la condición de estado en el UPDATE para no pisar
   // una suscripción que alguien haya tocado entre la lectura y la escritura.
   const { renovar: vencidas, cancelar } = repartirVencidas(
-    todasVencidas.map(s => ({ ...s, id: s.id as string, baja_al_vencer: s.baja_al_vencer as boolean | null })),
+    todasVencidas.map(s => ({ ...s, id: s.id as string, socio_id: s.socio_id as string, baja_al_vencer: s.baja_al_vencer as boolean | null })),
+    sociasDeBaja,
   );
   if (cancelar.length > 0) {
-    const { error: bajaErr } = await admin.from('suscripciones')
-      .update({ estado: 'CANCELADA' })
-      .eq('studio_id', studioId)
-      .eq('estado', 'ACTIVA')
-      .eq('baja_al_vencer', true)
-      .in('id', cancelar.map(s => s.id));
-    if (bajaErr) throw new Error(bajaErr.message);
+    // Dos escrituras porque la condición que se vuelve a comprobar al escribir
+    // es distinta: la baja programada (que nadie la haya quitado entretanto) y la
+    // clienta de baja (la cuota sigue ACTIVA).
+    const programadas = cancelar.filter(s => s.baja_al_vencer === true).map(s => s.id);
+    const deClientasDeBaja = cancelar.filter(s => s.baja_al_vencer !== true).map(s => s.id);
+    if (programadas.length > 0) {
+      const { error: bajaErr } = await admin.from('suscripciones')
+        .update({ estado: 'CANCELADA' })
+        .eq('studio_id', studioId)
+        .eq('estado', 'ACTIVA')
+        .eq('baja_al_vencer', true)
+        .in('id', programadas);
+      if (bajaErr) throw new Error(bajaErr.message);
+    }
+    if (deClientasDeBaja.length > 0) {
+      const { error: bajaErr } = await admin.from('suscripciones')
+        .update({ estado: 'CANCELADA' })
+        .eq('studio_id', studioId)
+        .eq('estado', 'ACTIVA')
+        .in('id', deClientasDeBaja);
+      if (bajaErr) throw new Error(bajaErr.message);
+    }
     // Sin cuota, fuera las clases que su plaza fija ya tenía reservadas (el cron
     // nocturno también lo haría, pero puede haber una clase mañana). Best-effort:
     // un fallo aquí no puede tumbar las renovaciones del resto.

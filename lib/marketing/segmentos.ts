@@ -1,5 +1,6 @@
 import type { Socio, Suscripcion, Recibo, DestinatariosCampana } from '@/lib/types';
 import { cumpleMesDia } from '../socios/datos-privados.ts';
+import { ETIQUETA_ESTADO, estadosDeEtapa, type EstadoClienta, type ResultadoEstado } from '../clientas/estado.ts';
 
 const MS_DIA = 86400000;
 
@@ -27,10 +28,12 @@ export const SEGMENTOS_AUDIENCIA: {
   id: DestinatariosCampana; etiqueta: string; descripcion: string;
 }[] = [
   { id: 'TODAS', etiqueta: 'Todas', descripcion: 'Cualquier clienta de tu ficha, esté activa o no' },
-  { id: 'ACTIVAS', etiqueta: 'Solo socias activas', descripcion: 'Las que siguen viniendo al estudio' },
-  { id: 'INACTIVAS', etiqueta: 'Las que se enfriaron', descripcion: 'Dadas de baja o sin actividad' },
-  { id: 'SIN_PLAN', etiqueta: 'Sin plan ni bono', descripcion: 'No tienen nada activo ahora mismo' },
-  { id: 'BONO', etiqueta: 'Con plan o bono', descripcion: 'Tienen una suscripción activa' },
+  // Las cuatro siguientes cuentan con el ESTADO de cada clienta (el mismo que
+  // enseña Clientas): «activas» son sus «Activa», no «las que no están de baja».
+  { id: 'ACTIVAS', etiqueta: 'Solo socias activas', descripcion: 'Las que pueden reservar con su plan o han venido en el último mes' },
+  { id: 'INACTIVAS', etiqueta: 'Las que se enfriaron', descripcion: 'Sin renovar, inactivas o dadas de baja' },
+  { id: 'SIN_PLAN', etiqueta: 'Sin plan ni bono', descripcion: 'No tienen ningún plan ni bono con el que reservar ahora mismo' },
+  { id: 'BONO', etiqueta: 'Con plan o bono', descripcion: 'Pueden reservar ahora mismo con un plan o bono' },
   { id: 'VIP', etiqueta: 'VIP', descripcion: 'Las que has marcado con la etiqueta VIP' },
   { id: 'BONO_CADUCA_PRONTO', etiqueta: 'Se les caduca el bono', descripcion: 'Les quedan sesiones y menos de 14 días' },
   { id: 'PAGO_FALLIDO', etiqueta: 'Con un pago fallido', descripcion: 'Tienen algún recibo sin cobrar' },
@@ -39,7 +42,7 @@ export const SEGMENTOS_AUDIENCIA: {
 
 // ─── Segmentos con parámetro ────────────────────────────────────────────────
 //
-// `ETAPA:<leadStage>` y `ETIQUETA:<tag>`. No son un segment builder genérico
+// `ETAPA:<estado>` y `ETIQUETA:<tag>`. No son un segment builder genérico
 // (ver el corte del §4 del documento de arquitectura): son las DOS formas de
 // elegir destinatarias que la pantalla de Mensajería ya ofrecía por su cuenta,
 // mandando los emails uno a uno desde el navegador —sin filtro de
@@ -56,19 +59,21 @@ export function etiquetaDeSegmento(id: DestinatariosCampana): string | null {
   return id.startsWith('ETIQUETA:') ? id.slice('ETIQUETA:'.length) : null;
 }
 
-const ETAPAS_LEGIBLES: Record<string, string> = {
-  LEAD: 'Lead (primer contacto)',
-  INTERESADA: 'Interesada',
-  PRUEBA: 'En prueba',
-  ACTIVA: 'Activa (convertida)',
-  EN_RIESGO: 'En riesgo',
-  PERDIDA: 'Perdida',
+// `ETAPA:<x>` lleva hoy un ESTADO (Activa, De prueba…). Las campañas guardadas
+// con la etapa antigua (`lead_stage`) se siguen entendiendo: `estadosDeEtapa`
+// las traduce (LEAD → Interesada, PRUEBA → De prueba, PERDIDA → Inactiva o De
+// baja); «En riesgo» no tiene equivalente y se sigue leyendo de la columna.
+const ETAPAS_ANTIGUAS_LEGIBLES: Record<string, string> = {
+  LEAD: 'Interesada',
+  PRUEBA: 'De prueba',
+  PERDIDA: 'Inactiva o de baja',
+  EN_RIESGO: 'En riesgo (marcada a mano)',
 };
 
 /** La etiqueta humana de un segmento; el propio código si alguna vez no está. */
 export function etiquetaSegmento(id: DestinatariosCampana): string {
   const etapa = etapaDeSegmento(id);
-  if (etapa) return `Etapa: ${ETAPAS_LEGIBLES[etapa] ?? etapa}`;
+  if (etapa) return `Estado: ${ETIQUETA_ESTADO[etapa as EstadoClienta] ?? ETAPAS_ANTIGUAS_LEGIBLES[etapa] ?? etapa}`;
   const tag = etiquetaDeSegmento(id);
   if (tag) return `Etiqueta: ${tag}`;
   return SEGMENTOS_AUDIENCIA.find(s => s.id === id)?.etiqueta ?? id;
@@ -80,32 +85,64 @@ export function etiquetaSegmento(id: DestinatariosCampana): string {
 // vivía solo en el cliente, y el envío server-side habría tenido que
 // reimplementar el mismo criterio por separado, con riesgo de divergir en
 // silencio. Ver docs/marketing-integrations-arquitectura.md §5.
+/**
+ * ¿Hace falta el estado de cada clienta para resolver este segmento? Así quien
+ * llama solo lo calcula cuando hace falta (la app de la socia, en cada carga).
+ */
+export function segmentoNecesitaEstado(destinatarios: DestinatariosCampana): boolean {
+  return etapaDeSegmento(destinatarios) !== null
+    || destinatarios === 'ACTIVAS' || destinatarios === 'INACTIVAS'
+    || destinatarios === 'SIN_PLAN' || destinatarios === 'BONO';
+}
+
+const SE_ENFRIARON = new Set<EstadoClienta>(['SIN_RENOVAR', 'INACTIVA', 'DE_BAJA']);
+
 export function resolverDestinatariasCampana(
   destinatarios: DestinatariosCampana,
-  datos: { socios: Socio[]; suscripciones: Suscripcion[]; recibos?: Recibo[] },
+  datos: {
+    socios: Socio[];
+    suscripciones: Suscripcion[];
+    recibos?: Recibo[];
+    /**
+     * El estado de cada clienta (lib/clientas/estado.ts). Obligatorio a
+     * propósito: sin él, «activas» volvía a significar «las que no están de
+     * baja». `null` solo si quien llama sabe que su segmento no lo usa
+     * (`segmentoNecesitaEstado`); si aun así lo usa, no resuelve a NADIE —
+     * nunca a quien no toca.
+     */
+    estados: ReadonlyMap<string, ResultadoEstado> | null;
+  },
   now: Date = new Date(),
 ): Socio[] {
-  const { socios, suscripciones, recibos = [] } = datos;
+  const { socios, recibos = [], estados } = datos;
+  const estadoDe = (s: Socio) => estados?.get(s.id);
 
   // Los dos con parámetro van ANTES del switch: no son valores del enum, así
   // que el `default` los trataría como TODAS — mandar una campaña pensada para
   // seis personas «En riesgo» a las 300 socias del estudio.
   const etapa = etapaDeSegmento(destinatarios);
-  if (etapa) return socios.filter(s => s.leadStage === etapa);
+  if (etapa) {
+    const queEstados = estadosDeEtapa(etapa);
+    // «En riesgo» se marcaba a mano y no tiene estado: se sigue leyendo de la columna.
+    if (queEstados === 'COLUMNA_LEGADA') return socios.filter(s => s.leadStage === etapa);
+    if (!estados) return [];
+    return socios.filter(s => { const e = estadoDe(s); return !!e && queEstados.has(e.estado); });
+  }
   const tag = etiquetaDeSegmento(destinatarios);
   if (tag) return socios.filter(s => (s.tags ?? []).includes(tag));
 
-  const conSusActiva = new Set(
-    suscripciones.filter(s => s.estado === 'ACTIVA').map(s => s.socioId)
-  );
+  if (segmentoNecesitaEstado(destinatarios) && !estados) return [];
   switch (destinatarios) {
-    case 'ACTIVAS': return socios.filter(s => s.activo !== false);
-    case 'INACTIVAS': return socios.filter(s => s.activo === false);
-    case 'SIN_PLAN': return socios.filter(s => !conSusActiva.has(s.id));
-    case 'BONO': return socios.filter(s => conSusActiva.has(s.id));
+    case 'ACTIVAS': return socios.filter(s => estadoDe(s)?.estado === 'ACTIVA');
+    case 'INACTIVAS': return socios.filter(s => { const e = estadoDe(s); return !!e && SE_ENFRIARON.has(e.estado); });
+    // «Con plan o bono» = puede reservar ahora mismo con alguno (incluida su
+    // prueba): la misma regla que decide si reserva, no «tiene una fila ACTIVA».
+    case 'SIN_PLAN': return socios.filter(s => estadoDe(s)?.derecho !== true);
+    case 'BONO': return socios.filter(s => estadoDe(s)?.derecho === true);
     case 'VIP': return socios.filter(s => s.tags?.includes('VIP'));
 
     case 'BONO_CADUCA_PRONTO': {
+      const { suscripciones } = datos;
       // sesionesRestantes !== null: mismo proxy "es un bono por sesiones, no
       // un plan mensual ilimitado" que ya usan BONO_AGOTADO/BONO_QUEDA_1 en
       // lib/engines/marketing-automation-engine.ts, sin necesitar planesTarifa.

@@ -32,7 +32,7 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Enviar mensaje</h2>
       <p style={{ margin: 0 }}>
         Escribir tú a un grupo: a las que están en prueba, a las que llevan tiempo sin venir, a las que se han
-        dado de baja. Las etapas son las mismas que ves en Clientas, así que lo que filtras aquí es exactamente
+        dado de baja. Los estados son los mismos que ves en Clientas, así que lo que filtras aquí es exactamente
         lo que ves allí.
       </p>
 

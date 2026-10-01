@@ -36,7 +36,7 @@ const FK_PRODUCCION: Record<string, string[]> = {
   salas: ['bloqueos_maquina', 'plazas_fijas', 'sesiones', 'spots'],
   sesiones: ['conversaciones', 'intentos_reserva_fallidos', 'recordatorio_envios', 'respuestas_sesion',
     'sustituciones', 'valoraciones', 'widget_eventos', 'reservas'],
-  socios: ['codigos_descuento_consumos', 'comunicaciones_socio', 'condiciones_salud', 'conversacion_participantes',
+  socios: ['bajas_clienta', 'codigos_descuento_consumos', 'comunicaciones_socio', 'condiciones_salud', 'consultas_contacto', 'conversacion_participantes',
     'devoluciones', 'documentos_socio', 'favoritos_clase', 'intentos_reserva_fallidos', 'lecturas_ficha_salud',
     'mandatos_sepa', 'memoria_socio', 'pagos_historicos', 'plazas_fijas', 'post_evento_asistentes',
     'recomendaciones', 'recordatorio_envios', 'recuperaciones', 'respuestas_cuestionario_salud',

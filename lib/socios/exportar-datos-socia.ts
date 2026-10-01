@@ -81,6 +81,10 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   solicitudes_derechos: { seccion: 'otros' },
   // Cada vez que el estudio leyó su QR en la puerta y qué salió (migr 20260927235435).
   accesos_escaneos: { seccion: 'otros' },
+  // Por qué se dio de baja y cuándo volvió (migr 20261001105825).
+  bajas_clienta: { seccion: 'otros' },
+  // Lo que preguntó antes de ser clienta, enlazado a su ficha (migr 20261001105825).
+  consultas_contacto: { seccion: 'otros' },
   socios_qr_acceso: { excluida: 'Solo la huella del código de su QR de acceso, que no se puede leer ni contiene nada suyo; su QR lo ve siempre en su app.' },
   consentimientos_salud_eventos: { seccion: 'consentimientos' },
   aceptaciones_contrato_eventos: { seccion: 'consentimientos' },
@@ -241,7 +245,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     saldo, movimientos, canjes, recompensas, logros, progresoLogros, retos, progresoRetos, participacionesRetos,
     participaciones, valoraciones, preferenciasClase, favoritos, documentos,
     comunicaciones, excepciones, autorizadas, eventos, solicitudes, consentimientosSalud, aceptacionesContrato, consentimientosMarketing, memoria, recomendaciones,
-    accesos, avisos, camposPersonalizados,
+    accesos, bajas, consultasSuyas, avisos, camposPersonalizados,
     valoracionesIniciales, valoracionesInicialesSalud, condiciones, respuestasCuestionario, respuestasSesion, notasProgreso,
   ] = await Promise.all([
     tabla('reservas', 'id, sesion_id, estado, posicion_espera, check_in_en, creado_en, cancelada_tardia, valoracion_experiencia'),
@@ -291,6 +295,9 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('recomendaciones', 'id, tipo, titulo, motivo, estado, creado_en'),
     // Sin quién escaneó (`actor_uid`): es la cuenta del personal.
     tabla('accesos_escaneos', 'id, ocurrido_en, sesion_id, resultado, motivo, decision', 'ocurrido_en'),
+    // Sin quién la dio de baja ni quién la apuntó: son cuentas del personal.
+    tabla('bajas_clienta', 'id, motivo, baja_en, alta_en', 'baja_en'),
+    tabla('consultas_contacto', 'id, canal, mensaje, estado, creada_en', 'creada_en'),
     authUserId
       ? leer(db, 'notification_preference', 'category, inapp, push, email, push_eventos', [['eq', 'studio_id', studioId], ['eq', 'user_id', authUserId]], 'category')
       : sinFilas,
@@ -517,6 +524,10 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
           motivo: str(p.motivo_sistema), motivoDelEstudio: str(p.motivo_rechazo),
           pedidaEn: str(p.creada_en), resueltaEn: str(p.resuelta_en),
         })),
+        // Sus bajas: por qué y, si volvió, cuándo.
+        bajas: bajas.map(b => ({ motivo: str(b.motivo), fecha: str(b.baja_en), volvio: str(b.alta_en) })),
+        // Lo que preguntó al estudio antes de ser clienta.
+        consultas: consultasSuyas.map(c => ({ canal: str(c.canal), mensaje: str(c.mensaje), estado: str(c.estado), fecha: str(c.creada_en) })),
         // Su historial de accesos: cada lectura de su QR y lo que decidió el estudio.
         accesos: porFecha(accesos, 'ocurrido_en').map(a => ({
           fecha: str(a.ocurrido_en), clase: clase(a.sesion_id)?.clase ?? null,

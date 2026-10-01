@@ -4,8 +4,9 @@
 // NO se importa desde ningún archivo de lib/decision cubierto por node --test:
 // usa imports de valor (`@/lib/db/supabase-data-admin`) que solo resuelven
 // bajo el bundler de Next.js, nunca bajo el runner de tests bare-node.
-import { fetchAllStudioDataServidor, fetchSustitucionesRecientes, contarSedesCadena, fetchInstructorTarifas, fetchIntentosFallidosRecientes, fetchBloqueosAgendaFuturos, fetchAbandonoCheckoutReciente } from '@/lib/db/supabase-data-admin';
+import { fetchAllStudioDataServidor, fetchSustitucionesRecientes, contarSedesCadena, fetchInstructorTarifas, fetchIntentosFallidosRecientes, fetchBloqueosAgendaFuturos, fetchAbandonoCheckoutReciente, fetchContactosManualesRecientes } from '@/lib/db/supabase-data-admin';
 import type { SnapshotEstudio } from './tipos.ts';
+import { hechosDeAsistencia } from '@/lib/clientas/estado';
 
 const MS_DIA = 86400000;
 
@@ -24,13 +25,14 @@ export async function construirSnapshot(studioId: string, now: Date): Promise<Sn
   // Los bloqueos van por DÍA (columna `date`), no por instante: se acota con la
   // misma ventana futura que las sesiones para no traerse el histórico entero.
   const diaDe = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-  const [sustituciones, nSedesCadena, instructorTarifas, intentosFallidos, bloqueosAgenda, widgetEventosCheckout] = await Promise.all([
+  const [sustituciones, nSedesCadena, instructorTarifas, intentosFallidos, bloqueosAgenda, widgetEventosCheckout, contactosManuales] = await Promise.all([
     fetchSustitucionesRecientes(studioId, new Date(desde90).toISOString()),
     cadenaId ? contarSedesCadena(cadenaId) : Promise.resolve(1),
     fetchInstructorTarifas(studioId),
     fetchIntentosFallidosRecientes(studioId, new Date(desde90).toISOString()),
     fetchBloqueosAgendaFuturos(studioId, diaDe(now.getTime()), diaDe(hastaSesiones)),
     fetchAbandonoCheckoutReciente(studioId, new Date(desde60).toISOString()),
+    fetchContactosManualesRecientes(studioId, new Date(desde90).toISOString()),
   ]);
   const antiguedadDatosDias = data.studio?.creadoEn
     ? Math.max(0, Math.floor((now.getTime() - new Date(data.studio.creadoEn).getTime()) / MS_DIA))
@@ -64,6 +66,9 @@ export async function construirSnapshot(studioId: string, now: Date): Promise<Sn
     intentosFallidos,
     bloqueosAgenda,
     widgetEventosCheckout,
+    contactosManuales,
+    // Antes de recortar: el estado de cada socia mira todo su historial.
+    hechosClientas: Object.fromEntries(hechosDeAsistencia(data.reservas, data.sesiones, now)),
     contexto: {
       nSociasActivas: data.socios.filter(s => s.activo).length,
       antiguedadDatosDias,

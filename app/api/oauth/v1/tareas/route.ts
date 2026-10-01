@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { conOAuth } from '@/lib/oauth-server';
 import { crearTareaAdmin } from '@/lib/tareas-admin';
+import { TITULO_SEGUIMIENTO_MAX } from '@/lib/clientas/seguimientos';
 
 // POST /api/oauth/v1/tareas — action "Crear tarea" de Zapier. `socioId` es
 // opcional (una tarea no tiene por qué estar ligada a una clienta concreta).
@@ -10,6 +11,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null) as { titulo?: string; descripcion?: string; socioId?: string; socio_id?: string } | null;
     if (!body?.titulo?.trim()) {
       return { status: 400, body: { error: 'invalid_request', detalle: 'titulo es obligatorio' } };
+    }
+    // El mismo tope que la tabla (CHECK `tareas_titulo_largo`): dicho aquí, con
+    // su motivo, en vez de un «No se pudo crear la tarea» sin explicación.
+    if (body.titulo.trim().length > TITULO_SEGUIMIENTO_MAX) {
+      return { status: 400, body: { error: 'invalid_request', detalle: `titulo admite como mucho ${TITULO_SEGUIMIENTO_MAX} caracteres` } };
     }
 
     // Zapier envía "" (no lo omite) para un campo de texto opcional dejado en

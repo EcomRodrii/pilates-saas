@@ -86,3 +86,61 @@ export function asuntoRespuesta(nombreEstudio: string): string {
 export function enlaceRespuesta(email: string, nombreEstudio: string): string {
   return `mailto:${encodeURIComponent(email).replace(/%40/g, '@')}?subject=${encodeURIComponent(asuntoRespuesta(nombreEstudio))}`;
 }
+
+// ── Interesadas apuntadas a mano (migr 20261001105825) ───────────────────────
+//
+// Alguien que llamó, escribió por Instagram o pasó por la puerta preguntando.
+// Va a `consultas_contacto`, como las del formulario, con `canal` diciendo de
+// dónde vino y quién la apuntó. Mismo trato: no es clienta, no ocupa plaza del
+// plan, no recibe nada automático. Base legal: contestar a lo que preguntó
+// (art. 6.1.b RGPD), nada más.
+
+export const CANALES_CONSULTA_MANUAL = ['INSTAGRAM', 'LLAMADA', 'WHATSAPP', 'EN_PERSONA', 'RECOMENDADA', 'OTRO'] as const;
+export type CanalConsultaManual = (typeof CANALES_CONSULTA_MANUAL)[number];
+export type CanalConsulta = 'FORMULARIO' | CanalConsultaManual;
+
+export const ETIQUETA_CANAL_CONSULTA: Record<CanalConsulta, string> = {
+  FORMULARIO: 'Formulario de tu web',
+  INSTAGRAM: 'Por Instagram',
+  LLAMADA: 'Llamó por teléfono',
+  WHATSAPP: 'Por WhatsApp',
+  EN_PERSONA: 'Pasó por el estudio',
+  RECOMENDADA: 'Se lo recomendaron',
+  OTRO: 'Otra vía',
+};
+
+/** Lo que se le dice a quien la apunta (y lo que hay que contarle a ella si pregunta). */
+export const BASE_LEGAL_CONSULTA_MANUAL =
+  'Solo para contestarle a lo que preguntó: no recibe publicidad ni ocupa plaza de tu plan hasta que la des de alta.';
+
+export interface ConsultaManualValida {
+  nombre: string;
+  email: string | null;
+  telefono: string | null;
+  canal: CanalConsultaManual;
+  mensaje: string;
+}
+
+/** Una interesada apuntada desde el panel: nombre, un email o un teléfono, de dónde vino y qué preguntó. */
+export function validarConsultaManual(body: Record<string, unknown>): { ok: true; consulta: ConsultaManualValida } | { ok: false; error: string } {
+  const nombre = texto(body.nombre).replace(/\s+/g, ' ');
+  if (!nombre) return { ok: false, error: 'Escribe su nombre.' };
+  if (nombre.length > LIMITES_CONSULTA.nombre) return { ok: false, error: 'El nombre es demasiado largo.' };
+
+  const emailBruto = texto(body.email).toLowerCase();
+  if (emailBruto && (!EMAIL_VALIDO.test(emailBruto) || emailBruto.length > LIMITES_CONSULTA.email)) {
+    return { ok: false, error: 'Ese email no parece válido.' };
+  }
+  const tel = texto(body.telefono);
+  if (tel && !TELEFONO_VALIDO.test(tel)) return { ok: false, error: 'Ese teléfono no parece válido.' };
+  if (!emailBruto && !tel) return { ok: false, error: 'Hace falta un teléfono o un email para poder contestarle.' };
+
+  const canal = CANALES_CONSULTA_MANUAL.find(c => c === body.canal);
+  if (!canal) return { ok: false, error: 'Elige por dónde llegó.' };
+
+  const mensaje = texto(body.mensaje);
+  if (!mensaje) return { ok: false, error: 'Apunta qué preguntó.' };
+  if (mensaje.length > LIMITES_CONSULTA.mensaje) return { ok: false, error: `Como mucho ${LIMITES_CONSULTA.mensaje} caracteres.` };
+
+  return { ok: true, consulta: { nombre, email: emailBruto || null, telefono: tel || null, canal, mensaje } };
+}

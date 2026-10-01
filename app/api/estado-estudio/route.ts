@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { hoyEnEstudio } from '@/lib/utils';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
@@ -76,6 +77,7 @@ export async function GET(req: NextRequest) {
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
     alertasApertura, equipoPorRevisar, clasesSinInstructora, doblesCobrosPorRevisar,
+    seguimientosParaHoy,
   ] = await Promise.all([
     // ── Decidir ──
     // Solo clases que aún no han empezado: una que ya pasó sin cubrir la cierra
@@ -239,6 +241,12 @@ export async function GET(req: NextRequest) {
     // PAY-5: detecciones abiertas del detector de dobles cobros (solo de servidor).
     si(mueveDinero, () => contar('dobles-cobros', admin.from('dobles_cobros_detectados')
       .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'DETECTADA'))),
+    // Seguimientos de clientas para hoy o atrasados: los de quien mira y los de
+    // nadie (si la persona a la que se asignó ya no está), no los de otra.
+    si(gestionaClientas, () => contar('seguimientos-hoy', admin.from('tareas')
+      .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE')
+      .not('socio_id', 'is', null).lte('vence_el', hoyEnEstudio(ahora))
+      .or(`asignada_a.is.null,asignada_a.eq.${sesion.userId}`))),
   ]);
 
   const jornadasPorRevisar = equipoPorRevisar === undefined ? undefined : (equipoPorRevisar?.jornadas ?? null);
@@ -246,7 +254,7 @@ export async function GET(req: NextRequest) {
   const conteos: ConteosEstudio = {
     sustitucionesPorDecidir, sustitucionesConNetwork, reservasPorAprobar, clasesSinInstructora, recibosFallidos, renovacionesSinCobro, penalizacionesPorAprobar,
     devolucionesPorRevisar, automatizacionesEsperando, canjesPorEntregar, bajasPorRevisar, seriesPorRenovar,
-    plazasFijasPorDecidir, reconciliacionesPorRevisar, doblesCobrosPorRevisar,
+    plazasFijasPorDecidir, reconciliacionesPorRevisar, doblesCobrosPorRevisar, seguimientosParaHoy,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
     alertasApertura, jornadasPorRevisar, clasesNoDadasPorRevisar,

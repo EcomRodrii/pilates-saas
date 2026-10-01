@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeGestionarClientas } from '@/lib/permisos-reglas';
+import { puedeBorrarDatosClienta } from '@/lib/permisos-reglas';
 import { ejecutarCancelacionReserva } from '@/lib/db/supabase-data-admin';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { borrarCuentaSiQuedaSuelta } from '@/lib/socios/cuenta-acceso-servidor';
@@ -48,7 +48,9 @@ import {
 //
 // Se CONSERVA `lecturas_ficha_salud` (quién del estudio leyó su ficha y cuándo):
 // es trazabilidad del acceso del staff. ⚠️ Pendiente de revisión legal su plazo.
-// Solo PROPIETARIO/RECEPCIÓN/MANAGER del propio estudio.
+// Solo la PROPIETARIA del propio estudio (`puedeBorrarDatosClienta`): es
+// irreversible y ella es la responsable del tratamiento. Dar de baja, que sí se
+// deshace, es otra ruta (app/api/socios/[id]/baja).
 
 const STRIPE_SIN_CONFIGURAR = 'sk_test_XXXX';
 
@@ -58,8 +60,8 @@ export async function POST(req: NextRequest) {
 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (!puedeGestionarClientas(sesion.rol)) {
-    return NextResponse.json({ error: 'No tienes permiso para dar de baja a una socia' }, { status: 403 });
+  if (!puedeBorrarDatosClienta(sesion.rol)) {
+    return NextResponse.json({ error: 'Solo la propietaria del estudio puede borrar los datos de una clienta.' }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as { socioId?: unknown } | null;

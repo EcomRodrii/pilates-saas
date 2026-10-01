@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useRol, puedeBorrarDatosClienta } from '@/lib/permisos';
 import {
   cerrarSolicitudDerechos, descargarDatosSocia, ejecutarSupresionSocia, listarSolicitudesDerechos, type SolicitudConSocia,
 } from '@/lib/socios/derechos-cliente';
@@ -31,6 +32,11 @@ const ESTADO_TEXTO = { pendiente: 'Pendiente', resuelta: 'Atendida', rechazada: 
 export function DerechosRgpdFicha({ socioId, nombreSocia, onToast }: {
   socioId: string; nombreSocia: string; onToast: (mensaje: string) => void;
 }) {
+  // Ejecutar la supresión borra sus datos para siempre: solo la propietaria
+  // (`puedeBorrarDatosClienta`, que la ruta vuelve a comprobar). El resto del
+  // equipo ve la solicitud y puede rechazarla con motivo.
+  const rol = useRol();
+  const borraDatos = puedeBorrarDatosClienta(rol);
   const [datos, setDatos] = useState<{ solicitudes: SolicitudConSocia[]; excluirDePerfilado: boolean | null } | null>(null);
   const [error, setError] = useState(false);
   // `Date.now()` no puede ir en render (React Compiler): se fija al cargar.
@@ -124,7 +130,9 @@ export function DerechosRgpdFicha({ socioId, nombreSocia, onToast }: {
           </p>
           <div className="flex flex-wrap gap-2 mt-2.5">
             {s.tipo === 'supresion' ? (
-              <button onClick={() => abrir('suprimir', s)} className={`${btn} text-destructive`}>Ejecutar supresión</button>
+              borraDatos
+                ? <button onClick={() => abrir('suprimir', s)} className={`${btn} text-destructive`}>Ejecutar supresión</button>
+                : <span className="text-[12px] text-muted-foreground">La supresión la ejecuta la propietaria del estudio.</span>
             ) : (
               <button onClick={() => abrir('resolver', s)} className={btn}>Marcar como atendida</button>
             )}

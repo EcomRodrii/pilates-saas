@@ -1203,6 +1203,9 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
    la barra se ve, que es mientras hay cambios sin guardar
    (shell/barra-guardar.tsx): una sección entera sin tocar no esconde la burbuja. */
 body:has([data-barra-guardar]) .panel-wa-fab { display: none; }
+/* Lo mismo con la barra de lo seleccionado de Clientas: va pegada abajo y la
+   burbuja tapaba «Más» y la «×» para quitar la selección. */
+body:has([data-barra-seleccion]) .panel-wa-fab { display: none; }
 /* Y mientras se escribe en un campo de Configuración en el móvil o el iPad: con
    el teclado abierto queda poco alto, y un campo alto (el lema de Marca) caía
    debajo de la burbuja aunque no hubiera cambios todavía. En escritorio no:
