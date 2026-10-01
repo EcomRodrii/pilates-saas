@@ -13,9 +13,12 @@ import type { Socio, Suscripcion, Reserva, Sesion, CampoPersonalizado } from '@/
 import { cumpleMesDia, diasHastaCumple } from '../socios/datos-privados.ts';
 import { ultimaAsistidaPorSocio } from '../engines/senales-inactividad.ts';
 import type { CampoSegmento, Comparador, CondicionSegmento, DefinicionSegmento } from './tipos.ts';
+import { estadosDeEtapa, type ResultadoEstado } from '../clientas/estado.ts';
 
 export interface ContextoSegmento {
   now: Date;
+  /** El estado de cada clienta (el mismo que enseña Clientas). */
+  estados: ReadonlyMap<string, ResultadoEstado>;
   ultimaAsistidaPorSocio: Map<string, string>;
   suscripcionActivaPorSocio: Map<string, Suscripcion>;
   tieneReservaFuturaPorSocio: Set<string>;
@@ -31,6 +34,7 @@ export function construirContextoSegmento(
   sesiones: Sesion[],
   camposPersonalizados: CampoPersonalizado[],
   now: Date,
+  estados: ReadonlyMap<string, ResultadoEstado>,
 ): ContextoSegmento {
   const suscripcionActivaPorSocio = new Map<string, Suscripcion>();
   for (const sus of suscripciones) {
@@ -51,6 +55,7 @@ export function construirContextoSegmento(
 
   return {
     now,
+    estados,
     ultimaAsistidaPorSocio: ultimaAsistidaPorSocio(reservas),
     suscripcionActivaPorSocio,
     tieneReservaFuturaPorSocio,
@@ -130,10 +135,21 @@ export function evaluarCondicion(cond: CondicionSegmento, socio: Socio, ctx: Con
     return compararNumero(dias, cond.comparador, Number(cond.valor));
   }
   if (campo === 'sin_bono_activo') {
-    return compararBooleano(!ctx.suscripcionActivaPorSocio.has(socio.id), cond.comparador);
+    // «Con plan o bono» = puede reservar ahora mismo con alguno: la misma regla
+    // que la audiencia «Con plan o bono» y el chip de Clientas.
+    return compararBooleano(ctx.estados.get(socio.id)?.derecho !== true, cond.comparador);
+  }
+  if (campo === 'estado') {
+    return compararTexto(ctx.estados.get(socio.id)?.estado ?? null, cond.comparador, String(cond.valor));
   }
   if (campo === 'lead_stage') {
-    return compararTexto(socio.leadStage ?? null, cond.comparador, String(cond.valor));
+    // Segmento guardado con la etapa antigua: se traduce a estados (LEAD →
+    // Interesada…). «En riesgo» se marcaba a mano y se sigue leyendo de la columna.
+    const equivale = estadosDeEtapa(String(cond.valor));
+    if (equivale === 'COLUMNA_LEGADA') return compararTexto(socio.leadStage ?? null, cond.comparador, String(cond.valor));
+    const estado = ctx.estados.get(socio.id)?.estado;
+    const dentro = estado !== undefined && equivale.has(estado);
+    return cond.comparador === 'distinto' ? !dentro : dentro;
   }
   if (campo.startsWith('campo_extra:')) {
     const campoId = campo.slice('campo_extra:'.length);

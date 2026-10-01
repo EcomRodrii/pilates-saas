@@ -5,7 +5,7 @@ import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '.
 import type { Socio } from '@/lib/types';
 import {
   construirIndices, frecuenciaHabitual, diasSinVenir, umbralAnomalo, ausenciaAnomala,
-  renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, riesgoNoShowDeSocio,
+  renovacionProxima, valorMensual, diasDesdeUltimoContacto, noQuiereSeguir, emailsSinRespuesta, riesgoNoShowDeSocio,
   diasDesdeVencimientoSinRenovar, totalAsistencias, intentosFallidosRecientes,
   type IndicesSenal,
 } from '../senales.ts';
@@ -368,6 +368,14 @@ export const retencion: Especialista = {
     const idx = construirIndices(s);
     const candidatas: Candidata[] = [];
     for (const socio of s.socios) {
+      // Dijo que no quiere seguir (contacto apuntado en su ficha): ninguna regla
+      // que la persiga —llamarla, escribirle, ofrecerle congelar— insiste. R7 sí
+      // corre: si intenta reservar y no puede, es ella la que vuelve.
+      if (noQuiereSeguir(socio.id, idx)) {
+        const c = reglaR7(socio, idx, now);
+        if (c) candidatas.push(c);
+        continue;
+      }
       // Rama sin suscripción ACTIVA: la socia que no renovó, o que nunca llegó
       // a tener plan (el caso SIN_PLAN de R7 — ver comentario de reglaR7).
       // Antes se descartaba aquí y quedaba invisible; ahora R5/R7 la recuperan.

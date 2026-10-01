@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { validarConsulta, enlaceRespuesta, CONSERVACION_MESES, LIMITES_CONSULTA } from './consulta.ts';
+import { validarConsulta, validarConsultaManual, enlaceRespuesta, CONSERVACION_MESES, LIMITES_CONSULTA } from './consulta.ts';
 
 const base = {
   slug: 'estudio-alma', nombre: '  Ana   Pérez ', email: ' Ana@Example.com ', telefono: '+34 600 000 000',
@@ -86,4 +86,27 @@ test('⚠️ la purga de un estudio vencido borra sus consultas (la fila de stud
   const ultima = todas.filter(s => /create or replace function public\.purgar_estudio_vencido\s*\(/.test(s)).at(-1)!;
   const cBorrar = ultima.match(/c_borrar constant text\[\] := array\[([\s\S]*?)\];/)?.[1] ?? '';
   assert.ok(cBorrar.includes("'consultas_contacto'"));
+});
+
+test('la purga VIGENTE (la última que la programa) borra también las descartadas y mantiene el tope del formulario', () => {
+  const ultima = readdirSync(MIGRACIONES).filter(n => n.endsWith('.sql')).sort()
+    .map(n => readFileSync(join(MIGRACIONES, n), 'utf8').replace(/--.*$/gm, '').toLowerCase())
+    .filter(s => s.includes("cron.schedule(\n  'purgar-consultas-contacto'") || /cron\.schedule\(\s*'purgar-consultas-contacto'/.test(s))
+    .at(-1)!;
+  assert.ok(ultima, 'alguna migración programa la purga');
+  assert.ok(ultima.includes(`creada_en < now() - interval '${CONSERVACION_MESES * 30} days'`), 'el tope no cuadra con CONSERVACION_MESES');
+  assert.ok(ultima.includes("estado = 'descartada' and descartada_en < now() - interval '90 days'"), 'las descartadas no se purgan');
+  // Las apuntadas a mano tampoco se dan de alta desde el cliente.
+  assert.ok(!/grant\s+insert[^;]*on table public\.consultas_contacto to authenticated/.test(ultima));
+});
+
+test('una interesada apuntada a mano: nombre, un teléfono o un email, de dónde vino y qué preguntó', () => {
+  const ok = validarConsultaManual({ nombre: '  Rocío   Lara ', telefono: '600 111 222', canal: 'INSTAGRAM', mensaje: ' ¿Hay clases por la tarde? ' });
+  assert.deepEqual(ok, { ok: true, consulta: { nombre: 'Rocío Lara', email: null, telefono: '600 111 222', canal: 'INSTAGRAM', mensaje: '¿Hay clases por la tarde?' } });
+  // Sin ninguna forma de contestarle, no.
+  assert.equal(validarConsultaManual({ nombre: 'Ana', canal: 'LLAMADA', mensaje: 'x' }).ok, false);
+  // «Formulario» no se apunta a mano: esas llegan con su aceptación de privacidad.
+  assert.equal(validarConsultaManual({ nombre: 'Ana', email: 'a@example.com', canal: 'FORMULARIO', mensaje: 'x' }).ok, false);
+  assert.equal(validarConsultaManual({ nombre: 'Ana', email: 'no-es-email', canal: 'LLAMADA', mensaje: 'x' }).ok, false);
+  assert.equal(validarConsultaManual({ nombre: 'Ana', email: 'a@example.com', canal: 'LLAMADA', mensaje: '' }).ok, false);
 });

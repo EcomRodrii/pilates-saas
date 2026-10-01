@@ -12,7 +12,9 @@ import {
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
-import type { Socio, LeadStage, DestinatariosCampana, TipoCampana } from '@/lib/types';
+import type { Socio, DestinatariosCampana, TipoCampana } from '@/lib/types';
+import { ESTADOS_CLIENTA, ETIQUETA_ESTADO, estadosDeEtapa, type EstadoClienta } from '@/lib/clientas/estado';
+import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { SEGMENTOS_AUDIENCIA, resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
 import { fetchNotificaciones, accionNotificacion, type NotifItem, type AmbitoNotif } from '@/lib/notifications/client';
 import { ConversacionesTab } from '@/components/mensajeria/conversaciones-tab';
@@ -25,20 +27,19 @@ import { ComunidadFeed } from '@/components/comunidad/comunidad-feed';
 // con lo que la campana mostraba de verdad.
 const AMBITO_STAFF: AmbitoNotif = { ambito: 'staff' };
 
-// P2 (auditoría "Veredicto de Marta"): mismas etiquetas de etapa que
-// /clientas (app/(dashboard)/clientas/page.tsx) — un texto por rol en cada
-// sitio sería fácil de dejar divergir.
-const ETAPA_OPTIONS: { id: LeadStage; label: string }[] = [
-  { id: 'LEAD', label: 'Lead (primer contacto)' },
-  { id: 'INTERESADA', label: 'Interesada' },
-  { id: 'PRUEBA', label: 'En prueba' },
-  { id: 'ACTIVA', label: 'Activa (convertida)' },
-  { id: 'EN_RIESGO', label: 'En riesgo' },
-  { id: 'PERDIDA', label: 'Perdida' },
-];
+/**
+ * Un estado elegible desde el valor de un segmento `ETAPA:<x>`: un estado tal
+ * cual, o una etapa antigua que equivale a uno solo (LEAD → Interesada). Si no
+ * (borrador viejo, «En riesgo»), nada elegido.
+ */
+function estadoDesdeEtapa(valor: string): EstadoClienta | '' {
+  if ((ESTADOS_CLIENTA as readonly string[]).includes(valor)) return valor as EstadoClienta;
+  const equivale = estadosDeEtapa(valor);
+  return equivale !== 'COLUMNA_LEGADA' && equivale.size === 1 ? [...equivale][0] : '';
+}
 
 // La ficha COMPLETA, no un subconjunto a medida. `resolverDestinatariasCampana`
-// mira `activo`, `tags`, `leadStage` y `fechaNacimiento` según el segmento: con
+// mira `tags`, `fechaNacimiento` (y el estado de cada una) según el segmento: con
 // un tipo recortado el compilador dejaba pasar un objeto sin `activo` y los
 // segmentos «Solo socias activas» o «Cumpleañeras del mes» habrían devuelto
 // cualquier cosa sin que nada avisara.
@@ -84,11 +85,14 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
   // clase del jueves» es transaccional, no comercial, y pasarlo por el filtro
   // de consentimiento lo haría desaparecer en silencio.
   const { addCampana, enviarCampana, suscripciones, recibos } = useStudio();
+  // El estado de cada clienta (el mismo que enseña Clientas): «Por estado…» y
+  // los grupos «activas», «se enfriaron» y «con plan o bono» salen de aquí.
+  const { porSocio: estadosClientas, conteos } = useEstadosClientas();
 
   const [canal, setCanal] = useState<TipoCampana>('EMAIL');
   const [modo, setModo] = useState<ModoDestinatario>('todos');
   const [segmentoSel, setSegmentoSel] = useState<DestinatariosCampana>('TODAS');
-  const [etapaSel, setEtapaSel] = useState<LeadStage | ''>('');
+  const [etapaSel, setEtapaSel] = useState<EstadoClienta | ''>('');
   const [etiquetaSel, setEtiquetaSel] = useState('');
   const [personaSel, setPersonaSel] = useState('');
   const [asunto, setAsunto] = useState('');
@@ -106,7 +110,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
     const [tipo, valor] = b.segmento.split(':');
     /* eslint-disable react-hooks/set-state-in-effect -- Lee window.location.search (?segmento=…). La URL no existe durante el render en servidor, así que esto NO se puede derivar en render. */
     setCanal('EMAIL');
-    if (tipo === 'ETAPA' && valor) { setModo('etapa'); setEtapaSel(valor as LeadStage); }
+    if (tipo === 'ETAPA' && valor) { setModo('etapa'); setEtapaSel(estadoDesdeEtapa(valor)); }
     else if (tipo === 'ETIQUETA' && valor) { setModo('etiqueta'); setEtiquetaSel(valor); }
     else { setModo('todos'); setSegmentoSel(b.segmento); }
     setAsunto(b.asunto);
@@ -138,11 +142,11 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
   const destinatarias = useMemo(() => {
     if (modo === 'persona') return socios.filter(s => s.id === personaSel);
     if (!segmento) return [];
-    const base = resolverDestinatariasCampana(segmento, { socios, suscripciones, recibos });
+    const base = resolverDestinatariasCampana(segmento, { socios, suscripciones, recibos, estados: estadosClientas });
     return canal === 'EMAIL'
       ? base.filter(s => s.email && s.email.includes('@'))
       : base.filter(s => !!s.telefono?.trim());
-  }, [modo, personaSel, segmento, socios, suscripciones, recibos, canal]);
+  }, [modo, personaSel, segmento, socios, suscripciones, recibos, canal, estadosClientas]);
 
   const esUnaPersona = modo === 'persona';
   const faltaAsunto = canal === 'EMAIL' && !asunto.trim();
@@ -272,7 +276,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
           className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
         >
           <option value="todos">Un grupo de clientas…</option>
-          <option value="etapa">Por etapa del embudo…</option>
+          <option value="etapa">Por estado…</option>
           {etiquetasDisponibles.length > 0 && <option value="etiqueta">Por etiqueta…</option>}
           {canal === 'EMAIL' && <option value="persona">Una persona…</option>}
         </select>
@@ -295,13 +299,13 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
         {modo === 'etapa' && (
           <select
             value={etapaSel}
-            onChange={e => setEtapaSel(e.target.value as LeadStage | '')}
+            onChange={e => setEtapaSel(e.target.value as EstadoClienta | '')}
             className="w-full mt-2 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
           >
-            <option value="">Elige una etapa</option>
-            {ETAPA_OPTIONS.map(o => (
-              <option key={o.id} value={o.id}>
-                {o.label} ({socios.filter(s => s.leadStage === o.id).length})
+            <option value="">Elige un estado</option>
+            {ESTADOS_CLIENTA.map(e => (
+              <option key={e} value={e}>
+                {ETIQUETA_ESTADO[e]}{conteos ? ` (${conteos[e]})` : ''}
               </option>
             ))}
           </select>

@@ -1458,14 +1458,25 @@ export function mapPostComunidad(r: RowPostsComunidad): PostComunidad {
   } as PostComunidad;
 }
 
+// Las columnas de autora y visibilidad (migr …_notas_internas_autora_y_visibilidad)
+// se leen con respaldo: una fila sin ellas es una nota antigua, privada y sin autora.
+type FilaNotaInterna = RowNotasInternas & { autor_uid?: string | null; visibilidad?: string | null; fijada?: boolean | null; editada_en?: string | null };
+
 export function mapNotaInterna(r: RowNotasInternas): NotaInterna {
+  const f = r as FilaNotaInterna;
   return {
-    id: r.id,
-    studioId: r.studio_id,
-    socioId: r.socio_id,
-    texto: r.texto,
-    tipo: r.tipo,
-    creadoEn: r.creado_en,
+    id: f.id,
+    studioId: f.studio_id,
+    socioId: f.socio_id,
+    texto: f.texto,
+    tipo: f.tipo,
+    creadoEn: f.creado_en,
+    autorUid: f.autor_uid ?? null,
+    // Lo que no dice PRIVADA es de todo el equipo (el valor por defecto de la
+    // columna): una fila sin el campo no se esconde a quien sí podía leerla.
+    visibilidad: f.visibilidad === 'PRIVADA' ? 'PRIVADA' : 'EQUIPO',
+    fijada: f.fijada === true,
+    editadaEn: f.editada_en ?? null,
   } as NotaInterna;
 }
 
@@ -1739,6 +1750,8 @@ function mensajeEquipoToDb(m: MensajeEquipo) {
   };
 }
 
+// Sin `autor_uid`, a propósito: la autora la pone la base de datos (trigger) con
+// la sesión de quien escribe; el navegador ni siquiera tiene permiso de columna.
 function notaInternaToDb(nota: NotaInterna) {
   return {
     id: nota.id,
@@ -1747,6 +1760,8 @@ function notaInternaToDb(nota: NotaInterna) {
     texto: nota.texto,
     tipo: nota.tipo,
     creado_en: nota.creadoEn,
+    visibilidad: nota.visibilidad,
+    fijada: nota.fijada,
   };
 }
 
@@ -1993,13 +2008,15 @@ export async function dbDeleteSocio(id: string): Promise<{ error: string | null 
     });
     if (!res.ok) {
       const cuerpo = await cuerpoDeError(res);
-      reportDbError('[dbDeleteSocio]', cuerpo);
-      return { error: (cuerpo as { error?: string }).error || 'No se ha podido dar de baja a la clienta.' };
+      // Un «no» con motivo (403: solo la propietaria) lo enseña la ventana que
+      // lo pidió; el aviso global es para lo que falla sin explicación.
+      if (res.status >= 500) reportDbError('[dbDeleteSocio]', cuerpo);
+      return { error: (cuerpo as { error?: string }).error || 'No se han podido borrar los datos de la clienta.' };
     }
     return { error: null };
   } catch (e) {
     reportDbError('[dbDeleteSocio]', e);
-    return { error: 'No se ha podido dar de baja a la clienta. Revisa tu conexión.' };
+    return { error: 'No se han podido borrar los datos de la clienta. Revisa tu conexión.' };
   }
 }
 
@@ -4200,14 +4217,38 @@ export async function dbDeleteCodigoDescuento(id: string): Promise<ResultadoEscr
   return error ? falloEscritura('[dbDeleteCodigoDescuento]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertNotaInterna(nota: NotaInterna): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('notas_internas').insert(notaInternaToDb(nota));
-  return error ? falloEscritura('[dbInsertNotaInterna]', error) : ESCRITURA_OK;
+// Devuelve la nota tal como quedó guardada (con su autora, que pone la base de
+// datos): lo que se pinta es lo que hay, no lo que se mandó.
+export async function dbInsertNotaInterna(nota: NotaInterna): Promise<{ ok: true; nota: NotaInterna } | { ok: false; error: string }> {
+  const { data, error } = await supabase.from('notas_internas').insert(notaInternaToDb(nota)).select('*').maybeSingle();
+  if (error) return falloEscritura('[dbInsertNotaInterna]', error) as { ok: false; error: string };
+  if (!data) return { ok: false, error: 'No se ha podido guardar la nota. Vuelve a intentarlo.' };
+  return { ok: true, nota: mapNotaInterna(data as RowNotasInternas) };
+}
+
+// Cambiar texto, para quién es, o fijarla. Un UPDATE que la RLS no deja pasar
+// NO da error: afecta a 0 filas. Por eso se pide la fila de vuelta y, si no
+// vuelve, es un error (no se puede pintar «guardado»).
+export async function dbUpdateNotaInterna(
+  id: string,
+  cambios: Partial<Pick<NotaInterna, 'texto' | 'visibilidad' | 'fijada'>>,
+): Promise<{ ok: true; nota: NotaInterna } | { ok: false; error: string }> {
+  const fila: Record<string, unknown> = {};
+  if (cambios.texto !== undefined) fila.texto = cambios.texto;
+  if (cambios.visibilidad !== undefined) fila.visibilidad = cambios.visibilidad;
+  if (cambios.fijada !== undefined) fila.fijada = cambios.fijada;
+  const { data, error } = await supabase.from('notas_internas').update(fila).eq('id', id).select('*').maybeSingle();
+  if (error) return falloEscritura('[dbUpdateNotaInterna]', error) as { ok: false; error: string };
+  if (!data) return { ok: false, error: 'Esta nota no se puede cambiar: solo la cambia quien la escribió.' };
+  return { ok: true, nota: mapNotaInterna(data as RowNotasInternas) };
 }
 
 export async function dbDeleteNotaInterna(id: string): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('notas_internas').delete().eq('id', id);
-  return error ? falloEscritura('[dbDeleteNotaInterna]', error) : ESCRITURA_OK;
+  // `.select('id')`: un DELETE que la RLS no deja pasar afecta a 0 filas sin error.
+  const { data, error } = await supabase.from('notas_internas').delete().eq('id', id).select('id');
+  if (error) return falloEscritura('[dbDeleteNotaInterna]', error);
+  if (!data || data.length === 0) return { ok: false, error: 'Esta nota no se puede borrar: solo la borra quien la escribió o la propietaria.' };
+  return ESCRITURA_OK;
 }
 
 export async function dbInsertCondicion(c: CondicionSalud): Promise<ResultadoEscritura> {
@@ -5598,7 +5639,10 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
       ? fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, genero, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, cumple_mm_dd, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to))
       : fetchSociosPanel(db, sid),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
-    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid),
+    // Paginadas como sus hermanas: sin `fetchAllRows`, PostgREST corta en 1.000
+    // filas sin avisar, y el estado de cada clienta (lib/clientas/estado.ts) se
+    // calcula con TODAS sus suscripciones — una cortada es un estado falso.
+    fetchAllRows(sid, 'suscripciones', (from, to) => db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid).order('id').range(from, to)),
     db.from('salas').select('*').eq('studio_id', sid),
     db.from('spots').select('*').eq('studio_id', sid),
     db.from('tipos_clase').select('*').eq('studio_id', sid),
@@ -5721,7 +5765,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
   // verdad. Solo las tablas que se traen con `fetchAllRows` pueden truncarse
   // así (las demás no paginan); son justo las seis rutas de dinero.
   const datosIncompletos = ([
-    ['socios', sociosRes], ['sesiones', sesionesRes], ['reservas', reservasRes],
+    ['socios', sociosRes], ['suscripciones', suscripcionesRes], ['sesiones', sesionesRes], ['reservas', reservasRes],
     ['recibos', recibosRes], ['facturas', facturasRes], ['citas', citasRes],
     ['ventas_pos', ventasPOSRes],
   ] as const)
@@ -5836,7 +5880,7 @@ export async function fetchDatosTrasVentaPOS(studioId?: string) {
   const [recibosRes, facturasRes, suscripcionesRes, ventasPOSRes, productosPOSRes] = await Promise.all([
     fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select(COLUMNAS_RECIBO_PANEL).eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select(COLUMNAS_FACTURA_PANEL).eq('studio_id', sid).range(from, to)),
-    db.from('suscripciones').select(COLUMNAS_SUSCRIPCION_PANEL).eq('studio_id', sid),
+    fetchAllRows(sid, 'suscripciones', (from, to) => db.from('suscripciones').select(COLUMNAS_SUSCRIPCION_PANEL).eq('studio_id', sid).order('id').range(from, to)),
     fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
     db.from('productos_pos').select('*').eq('studio_id', sid),
   ]);
@@ -5863,7 +5907,7 @@ export async function fetchTarifasYSuscripciones(studioId?: string) {
   const db = supabase;
   const [planesRes, suscripcionesRes] = await Promise.all([
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
-    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid),
+    fetchAllRows(sid, 'suscripciones', (from, to) => db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid).order('id').range(from, to)),
   ]);
   if (planesRes.error || suscripcionesRes.error) return null;
   return {

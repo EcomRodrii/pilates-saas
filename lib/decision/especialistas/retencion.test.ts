@@ -27,7 +27,7 @@ function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
   return {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
     suscripciones: [suscripcion({ socioId: 'a', planId: 'p1' })], planesTarifa: [plan({ id: 'p1' })],
-    tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contactosManuales: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
     ...over,
   };
 }
@@ -51,6 +51,30 @@ test('R1: ausencia anomala moderada, socia 3x/semana, 18 dias sin venir → RECU
   assert.equal(c.tipo, 'RECUPERAR_SOCIA');
   assert.equal(c.accion.tipo, 'CONTACTO_MANUAL');
   assert.equal(c.riesgo, 'PERDIDA');
+});
+
+test('un contacto apuntado a mano hace 3 días cuenta como contacto: R1 no vuelve a pedir que se le escriba', () => {
+  const socios = [socio({ id: 'a' })];
+  const reservas = asistenciasHabituales('a', 2, 24, 18);
+  const snap = snapshot({ socios, reservas, contactosManuales: [{ socioId: 'a', en: diasAntes(3), resultado: 'SE_LO_PIENSA' }] });
+  assert.deepEqual(retencion.detectar(snap, memoriaVacia(), NOW), []);
+  // El de OTRA socia no la silencia.
+  const ajeno = snapshot({ socios, reservas, contactosManuales: [{ socioId: 'b', en: diasAntes(3), resultado: 'SE_LO_PIENSA' }] });
+  assert.equal(retencion.detectar(ajeno, memoriaVacia(), NOW).length, 1);
+});
+
+test('si su último contacto apuntado dice que no quiere seguir, ninguna regla de retención insiste; si después cambió de idea, sí', () => {
+  const socios = [socio({ id: 'a' })];
+  // R2 (ausencia crítica) no mira los 14 días de R1: aquí lo que la calla es el «no quiere seguir».
+  const reservas = asistenciasHabituales('a', 2, 24, 40);
+  const suscripciones = [suscripcion({ socioId: 'a', planId: 'p1', fechaFin: diasAntes(-10) })];
+  const noQuiere = snapshot({ socios, reservas, suscripciones, contactosManuales: [{ socioId: 'a', en: diasAntes(35), resultado: 'NO_QUIERE_SEGUIR' }] });
+  assert.deepEqual(retencion.detectar(noQuiere, memoriaVacia(), NOW), []);
+  const cambio = snapshot({ socios, reservas, suscripciones, contactosManuales: [
+    { socioId: 'a', en: diasAntes(35), resultado: 'NO_QUIERE_SEGUIR' },
+    { socioId: 'a', en: diasAntes(31), resultado: 'SE_LO_PIENSA' },
+  ] });
+  assert.equal(retencion.detectar(cambio, memoriaVacia(), NOW).length, 1);
 });
 
 test('R2: ausencia critica + renovacion en 10 dias → ENVIAR_REACTIVACION', () => {

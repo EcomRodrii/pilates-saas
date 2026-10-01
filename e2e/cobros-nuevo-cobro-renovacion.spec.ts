@@ -56,7 +56,7 @@ async function abrirNuevoCobroDeCobros(page: Page) {
 
 async function abrirNuevoCobroDeLaFicha(page: Page) {
   await ir(page, 'clientas/soc-1');
-  await page.getByRole('button', { name: 'Pagos', exact: true }).click();
+  await page.getByRole('tab', { name: 'Pagos', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Nuevo cobro' }).first()).toBeVisible({ timeout: 30_000 });
   return abrirYRellenar(page, 'Mensual Jul 2026');
 }

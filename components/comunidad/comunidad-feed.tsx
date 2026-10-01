@@ -24,6 +24,7 @@ import { useRol } from '@/lib/permisos';
 import { puedeModerarComunidad } from '@/lib/permisos-reglas';
 import { dbListComentariosComunidad, dbAddComentarioComunidad } from '@/lib/supabase-data';
 import { resolverDestinatariasCampana, SEGMENTOS_AUDIENCIA } from '@/lib/marketing/segmentos';
+import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { subirImagenPostComunidad } from '@/lib/portal-storage';
 import type { DestinatariosCampana } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -47,6 +48,9 @@ export function ComunidadFeed() {
     socios, suscripciones, recibos, sesiones, reservas, tiposClase, dataLoaded, studio,
   } = useStudio();
   const { user } = useAuth();
+  // El estado de cada clienta (el mismo que enseña Clientas) para contar las
+  // audiencias «activas», «se enfriaron» y «con plan o bono».
+  const { porSocio: estadosClientas, conteos: conteosClientas } = useEstadosClientas();
   const authUserId = user?.id ?? null;
   const rol = useRol();
   // F-18: editar/borrar es solo del autor o de quien modera — la RLS
@@ -105,12 +109,13 @@ export function ComunidadFeed() {
     if (!dataLoaded) return {};
     const mapa: Partial<Record<DestinatariosCampana, number>> = {};
     for (const seg of SEGMENTOS_AUDIENCIA) {
-      mapa[seg.id] = resolverDestinatariasCampana(seg.id, { socios, suscripciones, recibos }).length;
+      mapa[seg.id] = resolverDestinatariasCampana(seg.id, { socios, suscripciones, recibos, estados: estadosClientas }).length;
     }
     return mapa;
-  }, [dataLoaded, socios, suscripciones, recibos]);
+  }, [dataLoaded, socios, suscripciones, recibos, estadosClientas]);
 
-  const activeSocias = socios.filter(s => s.activo).slice(0, 8);
+  // Las del chip «Activa» de Clientas (no «las que no están de baja»).
+  const activeSocias = socios.filter(s => estadosClientas.get(s.id)?.estado === 'ACTIVA').slice(0, 8);
   const inicialesEstudio = studio?.nombre ? getInitials(studio.nombre) : 'TE';
 
   // ── Próximos eventos (derivados de sesiones reales) ────────────────────────
@@ -143,14 +148,14 @@ export function ComunidadFeed() {
       const tipo = tiposClase.find(t => t.id === top[0]);
       out.push({ emoji: '🏆', titulo: 'Clase más popular', subtitulo: `${tipo?.nombre ?? 'Clase'} · ${top[1]} asistencia${top[1] !== 1 ? 's' : ''}` });
     }
-    if (socios.length > 0) {
-      const activas = socios.filter(s => s.activo).length;
+    if (socios.length > 0 && conteosClientas) {
+      const activas = conteosClientas.ACTIVA;
       out.push({ emoji: '🎯', titulo: 'Tasa de clientas activas', subtitulo: `${Math.round((activas / socios.length) * 100)}% (${activas} de ${socios.length})` });
     }
     const nueva = [...socios].sort((a, b) => (b.fechaAlta ?? '').localeCompare(a.fechaAlta ?? ''))[0];
     if (nueva) out.push({ emoji: '⭐', titulo: 'Última alta', subtitulo: `${nueva.nombre} ${nueva.apellidos}` });
     return out;
-  }, [reservas, sesiones, tiposClase, socios, ahora]);
+  }, [reservas, sesiones, tiposClase, socios, ahora, conteosClientas]);
 
   const topMiembros = useMemo(() => [...posts]
     .filter(p => p.autorId !== null)

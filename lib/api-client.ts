@@ -1698,13 +1698,14 @@ export async function enviarEmailRecibo(params: {
   });
 }
 
+/** `true` si el servidor ha aceptado el envío; `false` si lo ha rechazado o no ha llegado. */
 export async function enviarEmailBienvenida(params: {
   to: string;
   toName: string;
   planNombre?: string;
   socioId?: string;
-}) {
-  await fetch('/api/emails/send', {
+}): Promise<boolean> {
+  const res = await fetch('/api/emails/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
     body: JSON.stringify({
@@ -1714,7 +1715,8 @@ export async function enviarEmailBienvenida(params: {
       data: { planNombre: params.planNombre },
       socioId: params.socioId,
     }),
-  });
+  }).catch(() => null);
+  return res?.ok === true;
 }
 
 // Envía un email de campaña de marketing a una destinataria. Reutiliza la
@@ -1749,17 +1751,81 @@ export async function enviarEmailCampana(params: {
 // socia no tiene comunicaciones", que es una respuesta distinta de "no se
 // pudo comprobar". El caller decide qué hacer con null (normalmente: no
 // pisar la lista que ya tenía en pantalla).
-export async function obtenerComunicacionesSocio(socioId: string): Promise<Array<{
+export interface ComunicacionFicha {
   id: string; tipo: string; asunto: string; estado: 'ENVIADO' | 'FALLIDO';
   error: string | null; creadoEn: string; creadoPorNombre: string | null;
-}> | null> {
+  /** Contactos apuntados a mano (tipo 'contacto'): quién, cómo y qué dijo. */
+  creadoPor?: string | null; canal?: string | null; resultado?: string | null; nota?: string | null;
+}
+
+export async function obtenerComunicacionesSocio(socioId: string): Promise<ComunicacionFicha[] | null> {
   try {
     const res = await fetch(`/api/socios/${socioId}/comunicaciones`, { headers: await authHeader() });
     if (!res.ok) return null;
-    return await res.json();
+    // Una respuesta con otra forma no es «sin correos»: es no saberlo.
+    const data: unknown = await res.json();
+    return Array.isArray(data) ? data : null;
   } catch {
     return null;
   }
+}
+
+// Apuntar un contacto con una clienta («la llamé y se lo piensa»). Solo dice
+// «apuntado» si el servidor lo ha guardado (201); si no, devuelve su motivo.
+export async function apuntarContacto(socioId: string, contacto: {
+  canal: string; resultado: string | null; nota: string | null; en?: string | null;
+}): Promise<{ ok: true; id: string; en: string } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`/api/socios/${encodeURIComponent(socioId)}/contactos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(contacto),
+    });
+    const cuerpo = await res.json().catch(() => null) as { id?: string; en?: string; error?: string } | null;
+    if (res.status === 201 && typeof cuerpo?.id === 'string' && typeof cuerpo.en === 'string') return { ok: true, id: cuerpo.id, en: cuerpo.en };
+    return { ok: false, error: cuerpo?.error ?? 'No se ha podido apuntar el contacto. Vuelve a intentarlo.' };
+  } catch {
+    return { ok: false, error: 'Sin conexión: no se ha apuntado el contacto. Vuelve a intentarlo.' };
+  }
+}
+
+export async function borrarContacto(socioId: string, contactoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`/api/socios/${encodeURIComponent(socioId)}/contactos/${encodeURIComponent(contactoId)}`, {
+      method: 'DELETE', headers: await authHeader(),
+    });
+    if (res.ok) return { ok: true };
+    const cuerpo = await res.json().catch(() => null) as { error?: string } | null;
+    return { ok: false, error: cuerpo?.error ?? 'No se ha podido borrar el contacto.' };
+  } catch {
+    return { ok: false, error: 'Sin conexión: no se ha borrado el contacto.' };
+  }
+}
+
+// Seguimientos de clientas («Recuérdamelo»): escribe el servidor
+// (app/api/seguimientos); leer, el panel con su sesión. Solo dicen «hecho» si el
+// servidor lo confirma.
+async function llamarSeguimientos(url: string, init: RequestInit, fallo: string): Promise<{ ok: true; id?: string } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...(await authHeader()), ...(init.headers ?? {}) } });
+    const cuerpo = await res.json().catch(() => null) as { id?: string; error?: string } | null;
+    if (res.ok) return { ok: true, id: typeof cuerpo?.id === 'string' ? cuerpo.id : undefined };
+    return { ok: false, error: cuerpo?.error ?? fallo };
+  } catch {
+    return { ok: false, error: `Sin conexión: ${fallo.charAt(0).toLowerCase()}${fallo.slice(1)}` };
+  }
+}
+
+export function crearSeguimiento(datos: { socioId: string; titulo: string; venceEl: string; asignadaA?: string | null; recomendacionId?: string | null }) {
+  return llamarSeguimientos('/api/seguimientos', { method: 'POST', body: JSON.stringify(datos) }, 'No se ha podido crear el seguimiento.');
+}
+
+export function cambiarSeguimiento(id: string, cambios: { hecha?: boolean; venceEl?: string; asignadaA?: string }) {
+  return llamarSeguimientos(`/api/seguimientos/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(cambios) }, 'No se ha podido guardar el cambio.');
+}
+
+export function borrarSeguimiento(id: string) {
+  return llamarSeguimientos(`/api/seguimientos/${encodeURIComponent(id)}`, { method: 'DELETE' }, 'No se ha podido borrar el seguimiento.');
 }
 
 // Pagos históricos importados de la plataforma anterior para una socia
@@ -1772,7 +1838,8 @@ export async function obtenerPagosHistoricosSocio(socioId: string): Promise<Arra
   try {
     const res = await fetch(`/api/socios/${socioId}/pagos-historicos`, { headers: await authHeader() });
     if (!res.ok) return null;
-    return await res.json();
+    const data: unknown = await res.json();
+    return Array.isArray(data) ? data : null;
   } catch {
     return null;
   }

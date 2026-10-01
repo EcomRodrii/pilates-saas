@@ -147,7 +147,7 @@ test.describe('Historial de accesos y QR de una alumna en el panel', () => {
         : json(route, { qrDesde: '2026-09-28T10:00:00Z' });
     });
     await ir(page, 'clientas/soc-1');
-    await page.getByRole('button', { name: 'Reservas', exact: true }).click();
+    await page.getByRole('tab', { name: 'Reservas', exact: true }).click();
 
     const bloque = page.getByTestId('accesos-clienta');
     await expect(bloque).toContainText('Su QR vale desde el 20 de septiembre', { timeout: 30_000 });

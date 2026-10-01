@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Socio, Suscripcion } from '@/lib/types';
+import type { PlanTarifa, Socio, Suscripcion } from '@/lib/types';
 import type { SnapshotEstudio, MemoriaEstudio } from '../tipos.ts';
 import { captacion } from './captacion.ts';
 
@@ -13,10 +13,18 @@ const socio = (p: Partial<Socio> & Pick<Socio, 'id'>): Socio =>
 const suscripcion = (socioId: string): Suscripcion =>
   ({ id: `sus-${++n}`, studioId: 'e1', socioId, planId: 'p', estado: 'ACTIVA', fechaInicio: diasAntes(5), fechaFin: null, sesionesRestantes: null, stripeSubscriptionId: null });
 
-function snap(socios: Socio[], suscripciones: Suscripcion[] = [], widgetEventosCheckout: SnapshotEstudio['widgetEventosCheckout'] = []): SnapshotEstudio {
+// El plan de la clase de prueba (`es_prueba`): lo que hace a una socia «De prueba».
+const PLAN_PRUEBA = { id: 'prueba', studioId: 'e1', nombre: 'Clase de prueba', descripcion: null, precio: 10, tipo: 'PUNTUAL', sesiones: 1, activo: true, esPrueba: true } as PlanTarifa;
+const prueba = (socioId: string, diasDesdeCompra: number): Suscripcion =>
+  ({ id: `sus-${++n}`, studioId: 'e1', socioId, planId: 'prueba', estado: 'ACTIVA', fechaInicio: diasAntes(diasDesdeCompra).slice(0, 10), fechaFin: null, sesionesRestantes: 0, stripeSubscriptionId: null });
+
+function snap(
+  socios: Socio[], suscripciones: Suscripcion[] = [], widgetEventosCheckout: SnapshotEstudio['widgetEventosCheckout'] = [],
+  extra: Partial<Pick<SnapshotEstudio, 'hechosClientas' | 'contactosManuales'>> = {},
+): SnapshotEstudio {
   return {
     studioId: 'e1', socios, reservas: [], sesiones: [], salas: [], recibos: [],
-    suscripciones, planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout, contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    suscripciones, planesTarifa: [PLAN_PRUEBA], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout, contactosManuales: extra.contactosManuales ?? [], hechosClientas: extra.hechosClientas ?? {}, contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
 }
 
@@ -90,53 +98,76 @@ test('CAPTACION C3: ventana base justo en el mínimo (5) sí puede disparar con 
 });
 const detectar = (s: SnapshotEstudio) => captacion.detectar(s, new Map() as MemoriaEstudio, NOW);
 
-test('CAPTACION: lead sin seguimiento (10 días, sin contacto) → CONTACTAR_LEAD', () => {
-  const c = detectar(snap([socio({ id: 'l1', nombre: 'Lea', leadStage: 'LEAD' })]));
+// C1/C2 trabajan con el ESTADO de cada socia (lib/clientas/estado.ts), el mismo
+// que enseña Clientas, no con `lead_stage`.
+
+test('CAPTACION: interesada (ficha sin venir ni comprar, 10 días, sin contacto) → CONTACTAR_LEAD', () => {
+  const c = detectar(snap([socio({ id: 'l1', nombre: 'Lea' })]));
   assert.equal(c.length, 1);
   assert.equal(c[0].tipo, 'CONTACTAR_LEAD');
   assert.equal(c[0].especialista, 'CAPTACION');
   assert.equal(c[0].socioId, 'l1');
+  assert.match(c[0].motivoMotor, /se dio de alta hace 10 días y todavía no ha venido ni comprado/);
 });
 
-test('CAPTACION: interesada también dispara CONTACTAR_LEAD', () => {
-  const c = detectar(snap([socio({ id: 'i1', nombre: 'Ina', leadStage: 'INTERESADA' })]));
-  assert.equal(c[0]?.tipo, 'CONTACTAR_LEAD');
-});
-
-test('CAPTACION: prueba sin plan → CONVERTIR_PRUEBA', () => {
-  const c = detectar(snap([socio({ id: 'p1', nombre: 'Pru', leadStage: 'PRUEBA' })]));
-  assert.equal(c.length, 1);
-  assert.equal(c[0].tipo, 'CONVERTIR_PRUEBA');
-});
-
-test('CAPTACION: prueba que YA convirtió (suscripción activa) no dispara', () => {
-  const c = detectar(snap([socio({ id: 'p2', nombre: 'Pru2', leadStage: 'PRUEBA' })], [suscripcion('p2')]));
+test('CAPTACION: la etapa antigua ya no decide — una «LEAD» que ya viene a clase no es interesada', () => {
+  const c = detectar(snap([socio({ id: 'l4', nombre: 'Viene', leadStage: 'LEAD' })], [], [], {
+    hechosClientas: { l4: { ultimaAsistencia: diasAntes(3), primeraReserva: diasAntes(20) } },
+  }));
   assert.equal(c.length, 0);
 });
 
-test('CAPTACION: lead con suscripción activa ya está dentro → no es captación', () => {
+test('CAPTACION: tuvo su prueba hace 8 días y no compró → CONVERTIR_PRUEBA, contando desde la prueba', () => {
+  const c = detectar(snap([socio({ id: 'p1', nombre: 'Pru', fechaAlta: diasAntes(40) })], [prueba('p1', 12)], [], {
+    hechosClientas: { p1: { ultimaAsistencia: diasAntes(8), primeraReserva: diasAntes(8) } },
+  }));
+  assert.equal(c.length, 1);
+  assert.equal(c[0].tipo, 'CONVERTIR_PRUEBA');
+  // Desde su clase de prueba, no desde que se creó su ficha (hace 40 días).
+  assert.match(c[0].motivoMotor, /vino a su clase de prueba hace 8 días/);
+});
+
+test('CAPTACION: su clase de prueba aún no ha llegado → nada que cerrar todavía', () => {
+  const c = detectar(snap([socio({ id: 'p3', nombre: 'Pronto' })], [prueba('p3', 2)], [], {
+    hechosClientas: { p3: { ultimaAsistencia: null, primeraReserva: new Date(NOW.getTime() + 3 * 86400000).toISOString() } },
+  }));
+  assert.equal(c.length, 0);
+});
+
+test('CAPTACION: prueba que YA convirtió (compró un plan de verdad) no dispara', () => {
+  const c = detectar(snap([socio({ id: 'p2', nombre: 'Pru2' })], [prueba('p2', 12), suscripcion('p2')], [], {
+    hechosClientas: { p2: { ultimaAsistencia: diasAntes(4), primeraReserva: diasAntes(8) } },
+  }));
+  assert.equal(c.length, 0);
+});
+
+test('CAPTACION: con un plan ya está dentro → no es captación', () => {
   const c = detectar(snap([socio({ id: 'l2', nombre: 'Lea2', leadStage: 'LEAD' })], [suscripcion('l2')]));
   assert.equal(c.length, 0);
 });
 
-test('CAPTACION: socia ACTIVA sin etapa de entrada no genera nada', () => {
-  const c = detectar(snap([socio({ id: 'a1', nombre: 'Act', leadStage: 'ACTIVA' })], [suscripcion('a1')]));
-  assert.equal(c.length, 0);
-});
-
-test('CAPTACION: lead recién creado (2 días) aún no madura, pero sin contacto → BAJA (dispara)', () => {
+test('CAPTACION: interesada recién creada (2 días) aún no madura, pero sin contacto → BAJA (dispara)', () => {
   // leadMadurado=false, sinContactoReciente=true → confianza BAJA → sí genera candidata (visible, prioridad baja).
-  const c = detectar(snap([socio({ id: 'l3', nombre: 'Nueva', leadStage: 'LEAD', fechaAlta: diasAntes(2) })]));
+  const c = detectar(snap([socio({ id: 'l3', nombre: 'Nueva', fechaAlta: diasAntes(2) })]));
   assert.equal(c[0]?.tipo, 'CONTACTAR_LEAD');
   assert.equal(c[0]?.confianza.nivel, 'BAJA');
 });
 
-// P2-5: leadStage vacío tras una migración desde otra plataforma (el
-// importador antiguo no lo rellenaba) — el especialista NO debe romper ni
-// tratar a estas socias como leads nuevos. El fix real vive en el
-// importador (app/api/socios/import/route.ts, rellena 'ACTIVA'); esto es el
-// test de regresión que blinda el especialista si el fix llegara a fallar.
-test('CAPTACION: leadStage indefinido (dato ya migrado sin rellenar) no dispara ni rompe', () => {
-  const c = detectar(snap([socio({ id: 'm1', nombre: 'Migrada' })]));
+test('CAPTACION: si dijo que no quiere seguir (contacto apuntado), no se le insiste', () => {
+  const c = detectar(snap([socio({ id: 'l5', nombre: 'No' })], [], [], {
+    contactosManuales: [{ socioId: 'l5', en: diasAntes(2), resultado: 'NO_QUIERE_SEGUIR' }],
+  }));
+  assert.equal(c.length, 0);
+});
+
+// Migrada desde otra plataforma CON historial (el importador marca `lead_stage`
+// 'ACTIVA'): no es una interesada aunque aquí no tenga clases ni compras.
+test('CAPTACION: una migrada con historial no es una interesada: no dispara', () => {
+  const c = detectar(snap([socio({ id: 'm1', nombre: 'Migrada', leadStage: 'ACTIVA' })]));
+  assert.equal(c.length, 0);
+});
+
+test('CAPTACION: una ficha sin fecha de alta no rompe ni inventa cuánto lleva', () => {
+  const c = detectar(snap([socio({ id: 'm2', nombre: 'SinFecha', fechaAlta: null as unknown as string })]));
   assert.equal(c.length, 0);
 });

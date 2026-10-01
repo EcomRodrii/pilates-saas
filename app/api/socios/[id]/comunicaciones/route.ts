@@ -16,5 +16,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id: socioId } = await params;
   const comunicaciones = await dbListComunicacionesSocio(sesion.studioId, socioId);
+  if (comunicaciones === null) {
+    return NextResponse.json({ error: 'No se ha podido cargar su historial de mensajes.' }, { status: 500 });
+  }
   return NextResponse.json(comunicaciones);
 }

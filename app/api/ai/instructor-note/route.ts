@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const { texto, socioId, instructorId, sesionId } = body as {
       texto: string;
       socioId: string;
-      instructorId: string;
+      instructorId: string | null;
       sesionId?: string;
     };
 
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       socioId,
-      instructorId,
+      instructorId: instructorId ?? null,
       sesionId: sesionId ?? null,
       textoLibre: texto,
       progreso: parsed.progreso ?? null,

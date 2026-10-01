@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parsearSnapshotCacheado } from './snapshot-cache-parse.ts';
 
-const snap = { studioId: 'studio-1', socios: [], reservas: [] };
+const snap = { studioId: 'studio-1', socios: [], reservas: [], hechosClientas: {} };
 
 test('un jsonb ya parseado (objeto) se acepta tal cual — el caso real de supabase-js', () => {
   const r = parsearSnapshotCacheado(snap);
@@ -26,3 +26,10 @@ test('basura → null, sin lanzar', () => {
   assert.equal(parsearSnapshotCacheado({ studioId: 'x' }), null);
   assert.equal(parsearSnapshotCacheado({ socios: [] }), null);
 });
+
+test('una foto guardada antes de los hechos de cada socia se descarta (se rehace)', () => {
+  // Sin ellos, todas las socias saldrían «Interesada» en el Centro de Control.
+  assert.equal(parsearSnapshotCacheado({ studioId: 'studio-1', socios: [], reservas: [] }), null);
+  assert.equal(parsearSnapshotCacheado({ ...snap, hechosClientas: null }), null);
+});
+

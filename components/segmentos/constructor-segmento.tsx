@@ -17,8 +17,10 @@ const ETIQUETA_COMPARADOR: Record<Comparador, string> = {
   es_verdadero: 'sí', es_falso: 'no',
 };
 
-function opcionesCampo(camposPersonalizados: CampoPersonalizado[]): { valor: CampoSegmento; etiqueta: string }[] {
+/** Los campos que se ofrecen; uno ya retirado solo si es el de esta condición (segmento guardado). */
+function opcionesCampo(camposPersonalizados: CampoPersonalizado[], actual?: CampoSegmento): { valor: CampoSegmento; etiqueta: string }[] {
   const fijos = (Object.keys(CAMPOS_FIJOS_META) as (keyof typeof CAMPOS_FIJOS_META)[])
+    .filter(k => !CAMPOS_FIJOS_META[k].oculto || k === actual)
     .map(k => ({ valor: k as CampoSegmento, etiqueta: CAMPOS_FIJOS_META[k].etiqueta }));
   const extra = camposPersonalizados
     .filter(c => c.activo)
@@ -26,7 +28,7 @@ function opcionesCampo(camposPersonalizados: CampoPersonalizado[]): { valor: Cam
   return [...fijos, ...extra];
 }
 
-function metaDeCampo(campo: CampoSegmento, camposPersonalizados: CampoPersonalizado[]): { tipo: 'numero' | 'booleano' | 'texto'; comparadores: Comparador[]; opciones?: string[] } {
+function metaDeCampo(campo: CampoSegmento, camposPersonalizados: CampoPersonalizado[]): { tipo: 'numero' | 'booleano' | 'texto'; comparadores: Comparador[]; opciones?: (string | { valor: string; etiqueta: string })[] } {
   if (campo.startsWith('campo_extra:')) {
     const campoId = campo.slice('campo_extra:'.length);
     const def = camposPersonalizados.find(c => c.id === campoId);
@@ -51,7 +53,7 @@ function FilaCondicion({
   onEliminar: () => void;
   camposPersonalizados: CampoPersonalizado[];
 }) {
-  const opciones = opcionesCampo(camposPersonalizados);
+  const opciones = opcionesCampo(camposPersonalizados, cond.campo);
   const meta = metaDeCampo(cond.campo, camposPersonalizados);
 
   function cambiarCampo(campo: CampoSegmento) {
@@ -76,7 +78,10 @@ function FilaCondicion({
       {meta.tipo === 'booleano' ? null : meta.opciones ? (
         <select className={selectCls + ' w-40 shrink-0'} value={String(cond.valor ?? '')} onChange={e => onChange({ ...cond, valor: e.target.value })}>
           <option value="">Elige…</option>
-          {meta.opciones.map(o => <option key={o} value={o}>{o}</option>)}
+          {meta.opciones.map(o => {
+            const { valor, etiqueta } = typeof o === 'string' ? { valor: o, etiqueta: o } : o;
+            return <option key={valor} value={valor}>{etiqueta}</option>;
+          })}
         </select>
       ) : (
         <input

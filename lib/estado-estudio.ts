@@ -62,6 +62,11 @@ export interface ConteosEstudio {
   seriesPorRenovar?: number | null;
   /** Peticiones de plaza fija (plaza, pausa o la vuelta de una pausa) que esperan al estudio. */
   plazasFijasPorDecidir?: number | null;
+  /**
+   * Seguimientos de clientas («Recuérdamelo») para hoy o ya atrasados, de quien
+   * mira o de nadie: lo que te espera a TI, no lo que tiene asignado otra persona.
+   */
+  seguimientosParaHoy?: number | null;
   /** Cobros por datáfono confirmados en Stripe sin venta registrada (A-14, backstop). */
   reconciliacionesPorRevisar?: number | null;
   /** PAY-5: recibos con más de un cargo que tomó dinero. Hay que devolver uno. */
@@ -172,6 +177,10 @@ const LINEAS: DefLinea[] = [
   // Nada cambia hasta que decide: la alumna sigue sin su plaza o sin su pausa.
   { id: 'plazasFijasPorDecidir', bandeja: 'decidir', href: null,
     uno: 'Una petición de plaza fija espera tu respuesta', varios: n => `${n} peticiones de plaza fija esperan tu respuesta` },
+  // «Recuérdamelo» de una ficha: hoy toca llamarla o escribirle. Se ve en la
+  // lista de Clientas con ese filtro, y cada uno en su ficha.
+  { id: 'seguimientosParaHoy', bandeja: 'decidir', href: '/clientas?mas=seguimiento_hoy',
+    uno: 'Un seguimiento de una clienta para hoy', varios: n => `${n} seguimientos de clientas para hoy o atrasados` },
   { id: 'canjesPorEntregar', bandeja: 'decidir', href: null,
     uno: 'Una recompensa canjeada por entregar', varios: n => `${n} recompensas canjeadas por entregar` },
   // Backstop A-14: cobro confirmado en Stripe sin venta registrada. Se resuelve

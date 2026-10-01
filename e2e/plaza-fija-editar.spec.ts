@@ -134,7 +134,8 @@ async function montar(page: Page, opts: {
     return json(route, opts.estadoBody ?? { ok: true, canceladas: [], mantenidas: [], fallidas: 0 }, opts.estadoStatus ?? 200);
   });
 
-  await page.goto('/clientas/soc-1');
+  // La plaza fija vive en la pestaña «Reservas» de la ficha (con su URL).
+  await page.goto('/clientas/soc-1?pestana=reservas');
   await expect(page.getByText('Ana Gil')).toBeVisible({ timeout: 30_000 });
   // Las plazas llegan en la 2ª ola de carga (fetchDeferredStudioData): hay un
   // instante de "Sin plaza fija" antes. Se espera la plaza, nunca se aserta

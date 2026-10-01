@@ -10,7 +10,7 @@ export interface NotaIAEstructurada {
 export async function estructurarNotaIA(params: {
   texto: string;
   socioId: string;
-  instructorId: string;
+  instructorId: string | null;
   sesionId?: string | null;
 }): Promise<NotaIAEstructurada> {
   const res = await fetch('/api/ai/instructor-note', {

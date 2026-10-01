@@ -24,5 +24,8 @@ export function parsearSnapshotCacheado(data: unknown): SnapshotEstudio | null {
   // Sanidad mínima: un snapshot siempre lleva studioId y la lista de socias.
   const s = valor as Partial<SnapshotEstudio>;
   if (typeof s.studioId !== 'string' || !Array.isArray(s.socios)) return null;
+  // Una foto guardada antes de que existieran los hechos de cada socia no sirve:
+  // sin ellos, todas saldrían «Interesada». Se rehace.
+  if (typeof s.hechosClientas !== 'object' || s.hechosClientas === null) return null;
   return valor as SnapshotEstudio;
 }

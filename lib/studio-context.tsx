@@ -8,6 +8,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { supabase } from '@/lib/db/supabase';
 import { debeReleerAlVolver } from '@/lib/panel-refresco';
 import { puedeProgramarBaja } from '@/lib/billing/baja-al-vencer';
+import type { RespuestaBaja, MotivoBaja } from '@/lib/socios/baja';
 import type { RowInstructores } from '@/lib/db-types';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchGamificacionStudio,
@@ -47,7 +48,7 @@ import {
   dbInsertLevelDefinition, dbUpdateLevelDefinition, dbDeleteLevelDefinition,
   dbInsertChallengeDefinition, dbUpdateChallengeDefinition, dbDeleteChallengeDefinition,
   dbUpsertChallengeProgress, dbInsertChallengeHistory,
-  dbInsertNotaInterna, dbDeleteNotaInterna,
+  dbInsertNotaInterna, dbUpdateNotaInterna, dbDeleteNotaInterna,
   dbInsertCondicion, dbUpdateCondicion, dbDeleteCondicion,
   dbFetchPlantillasCuestionarioSalud, dbInsertPlantillaCuestionarioSalud, dbUpdatePlantillaCuestionarioSalud, dbDeletePlantillaCuestionarioSalud,
   dbFetchRespuestasCuestionarioSalud, dbUpsertRespuestaCuestionarioSalud,
@@ -187,7 +188,8 @@ import {
 import type { TipoRebote } from '@/lib/emails/rebotes';
 import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
-import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
+import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
+import { estadosDeClientas } from '@/lib/clientas/estado';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
 import { useAuth } from '@/lib/auth-context';
 import { reglaActivaPara, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
@@ -398,6 +400,14 @@ interface StudioContextValue {
   darConsentimientoMarketingPublico: () => Promise<ResultadoEscritura>;
   updateSocio: (id: string, changes: Partial<Socio>) => Promise<ResultadoEscritura>;
   deleteSocio: (id: string) => Promise<void>;
+  /**
+   * Dar de baja de verdad (app/api/socios/[id]/baja): su cuota deja de
+   * renovarse, su plaza fija se quita y, si se pide, sus reservas futuras se
+   * cancelan. Solo pinta lo que el servidor dice haber hecho.
+   */
+  darDeBajaSocia: (id: string, opciones: { cancelarReservas: boolean; motivo: MotivoBaja }) => Promise<RespuestaBaja | { ok: false; error: string }>;
+  /** Deshace la baja. `cuotasSinRenovar`: cuotas que la baja dejó sin renovar y siguen así. */
+  volverADarDeAlta: (id: string) => Promise<{ ok: true; cuotasSinRenovar: number } | { ok: false; error: string }>;
   addTagSocio: (socioId: string, tag: string) => Promise<ResultadoEscritura>;
   removeTagSocio: (socioId: string, tag: string) => Promise<ResultadoEscritura>;
 
@@ -411,7 +421,8 @@ interface StudioContextValue {
   programarBajaSuscripcion: (susId: string, programar: boolean) => Promise<ResultadoEscritura>;
 
   // Notas internas
-  addNota: (socioId: string, texto: string) => Promise<ResultadoEscritura>;
+  addNota: (socioId: string, texto: string, opciones?: { visibilidad?: NotaInterna['visibilidad']; fijada?: boolean }) => Promise<ResultadoEscritura>;
+  updateNota: (notaId: string, cambios: Partial<Pick<NotaInterna, 'texto' | 'visibilidad' | 'fijada'>>) => Promise<ResultadoEscritura>;
   deleteNota: (notaId: string) => Promise<ResultadoEscritura>;
 
   // Ficha clínica — condiciones de salud (FICHA-CLINICA.md)
@@ -2677,7 +2688,57 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setNotasInternas(prev => prev.filter(n => n.socioId !== id));
     setCondicionesSalud(prev => prev.filter(c => c.socioId !== id));
     setRespuestasSesion(prev => prev.filter(r => r.socioId !== id));
-    if (socio) addActividadReciente('SOCIA_ELIMINADA', `${actorNombre ?? 'Alguien'} dio de baja a ${socio.nombre} ${socio.apellidos}`);
+    if (socio) addActividadReciente('SOCIA_ELIMINADA', `${actorNombre ?? 'Alguien'} borró los datos de ${socio.nombre} ${socio.apellidos}`);
+  }
+
+  async function darDeBajaSocia(id: string, { cancelarReservas, motivo }: { cancelarReservas: boolean; motivo: MotivoBaja }): Promise<RespuestaBaja | { ok: false; error: string }> {
+    const respuesta = await fetch(`/api/socios/${encodeURIComponent(id)}/baja`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ cancelarReservas, motivo }),
+    }).catch(() => null);
+    const datos = await respuesta?.json().catch(() => null) as (RespuestaBaja | { error?: string }) | null;
+    if (!respuesta?.ok || !datos || !('ok' in datos) || datos.ok !== true) {
+      const error = datos && 'error' in datos && typeof datos.error === 'string' ? datos.error : null;
+      return { ok: false, error: error ?? 'No se ha podido dar de baja. Revisa tu conexión y vuelve a intentarlo.' };
+    }
+
+    const alVencer = new Set(datos.cuotasAlVencer.map(c => c.id));
+    const canceladas = new Set(datos.cuotasCanceladas.map(c => c.id));
+    const plazas = new Set(datos.plazasDadasDeBaja);
+    const retiradas = new Set([...datos.reservasDePlazaRetiradas, ...datos.reservasCanceladas.map(r => r.id)]);
+    setSocios(prev => prev.map(s => s.id === id ? { ...s, activo: false } : s));
+    setSuscripciones(prev => prev.map(s =>
+      alVencer.has(s.id) ? { ...s, bajaAlVencer: true }
+        : canceladas.has(s.id) ? { ...s, estado: 'CANCELADA' as const }
+          : s));
+    setPlazasFijas(prev => prev.map(p => plazas.has(p.id) ? { ...p, estado: 'BAJA' as const } : p));
+    // Sus reservas canceladas, y quién ha entrado en su lugar (lo decidió y lo
+    // avisó el servidor; aquí solo se refleja, como en `cancelarReserva`).
+    setReservas(prev => prev.map(r => {
+      if (retiradas.has(r.id)) return { ...r, estado: 'CANCELADA' as const, posicionEspera: null };
+      if (r.estado !== 'LISTA_ESPERA') return r;
+      for (const c of datos.reservasCanceladas) {
+        if (r.sesionId !== c.sesionId) continue;
+        if (c.promovidaSocioId === r.socioId) return { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null };
+        if (c.ofertaSocioId === r.socioId) return { ...r, ofertaExpiraEn: c.ofertaExpiraEn ?? null };
+      }
+      return r;
+    }));
+    return datos;
+  }
+
+  async function volverADarDeAlta(id: string): Promise<{ ok: true; cuotasSinRenovar: number } | { ok: false; error: string }> {
+    const respuesta = await fetch(`/api/socios/${encodeURIComponent(id)}/baja`, {
+      method: 'DELETE',
+      headers: { ...(await authHeader()) },
+    }).catch(() => null);
+    const datos = await respuesta?.json().catch(() => null) as { ok?: boolean; cuotasSinRenovar?: number; error?: string } | null;
+    if (!respuesta?.ok || datos?.ok !== true) {
+      return { ok: false, error: datos?.error ?? 'No se ha podido dar de alta. Revisa tu conexión y vuelve a intentarlo.' };
+    }
+    setSocios(prev => prev.map(s => s.id === id ? { ...s, activo: true } : s));
+    return { ok: true, cuotasSinRenovar: typeof datos.cuotasSinRenovar === 'number' ? datos.cuotasSinRenovar : 0 };
   }
 
   async function addTagSocio(socioId: string, tag: string): Promise<ResultadoEscritura> {
@@ -2701,7 +2762,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Notas internas ───────────────────────────────────────────────────────────
 
-  async function addNota(socioId: string, texto: string): Promise<ResultadoEscritura> {
+  // Lo que se pinta es lo que devuelve la base de datos (con la autora que pone
+  // ella), no lo que se mandó.
+  async function addNota(socioId: string, texto: string, opciones?: { visibilidad?: NotaInterna['visibilidad']; fijada?: boolean }): Promise<ResultadoEscritura> {
     const nueva: NotaInterna = {
       id: `nota-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -2709,11 +2772,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       texto: texto.trim(),
       tipo: 'NOTA',
       creadoEn: new Date().toISOString(),
+      autorUid: null,
+      visibilidad: opciones?.visibilidad ?? 'EQUIPO',
+      fijada: opciones?.fijada ?? false,
+      editadaEn: null,
     };
     const res = await dbInsertNotaInterna(nueva);
     if (!res.ok) return res;
-    setNotasInternas(prev => [nueva, ...prev]);
-    return res;
+    setNotasInternas(prev => [res.nota, ...prev]);
+    return { ok: true };
+  }
+
+  async function updateNota(notaId: string, cambios: Partial<Pick<NotaInterna, 'texto' | 'visibilidad' | 'fijada'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateNotaInterna(notaId, cambios);
+    if (!res.ok) return res;
+    setNotasInternas(prev => prev.map(n => (n.id === notaId ? res.nota : n)));
+    return { ok: true };
   }
 
   async function deleteNota(notaId: string): Promise<ResultadoEscritura> {
@@ -3995,11 +4069,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // se renueva. Sin esto, abrir el panel antes del cron de las 08:00 le
       // creaba el recibo de renovación y el dunning se lo cobraba igual.
       if (sus.bajaAlVencer) return;
+      const socio = socios.find(s => s.id === sus.socioId);
+      // Clienta de baja: tampoco se le genera la renovación (el cron cancela su
+      // cuota en vez de renovarla, `repartirVencidas`).
+      if (socio?.activo === false) return;
       const yaHayReciboPendiente = recibos.some(
         r => r.socioId === sus.socioId && r.suscripcionId === sus.id && r.estado === 'PENDIENTE'
       );
       if (yaHayReciboPendiente) return;
-      const socio = socios.find(s => s.id === sus.socioId);
       const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
       const reciboVencido: Recibo = {
         id: `rec-venc-${uid()}`,
@@ -4596,7 +4673,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // el texto y decide de verdad; este número puede ser ligeramente optimista
   // si el texto de consentimiento cambió desde que alguna socia lo dio.
   function contarDestinatariasCampana(campana: Campana): number {
-    const base = resolverDestinatariasCampanaCompartido(campana.destinatarios, { socios, suscripciones, recibos })
+    // El estado de cada clienta (lib/clientas/estado.ts) solo si el segmento lo usa.
+    const estados = segmentoNecesitaEstado(campana.destinatarios)
+      ? estadosDeClientas({ socios, suscripciones, planesTarifa, reservas, sesiones }, new Date())
+      : null;
+    const base = resolverDestinatariasCampanaCompartido(campana.destinatarios, { socios, suscripciones, recibos, estados })
       .filter(tieneConsentimientoMarketingAlgunaVez);
     return campana.tipo === 'EMAIL'
       ? base.filter(s => s.email && s.email.includes('@')).length
@@ -5471,6 +5552,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     darConsentimientoMarketingPublico,
     updateSocio,
     deleteSocio,
+    darDeBajaSocia,
+    volverADarDeAlta,
     addTagSocio,
     removeTagSocio,
     assignPlan,
@@ -5480,6 +5563,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     cancelarSuscripcion,
     programarBajaSuscripcion,
     addNota,
+    updateNota,
     deleteNota,
     condicionesSalud,
     addCondicion,

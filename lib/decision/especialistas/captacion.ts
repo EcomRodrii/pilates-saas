@@ -1,31 +1,29 @@
 // Especialista en Captación / Conversión — ¿a quién dejamos escapar antes de
-// que entre? Trabaja el embudo de leads (Socio.leadStage): LEAD/INTERESADA que
-// se enfrían sin seguimiento, y PRUEBA que no llega a comprar plan. Cubre un
-// punto ciego total: Retención mira a las socias YA activas, nadie miraba la
-// entrada del embudo.
+// que entre? Trabaja con el ESTADO de cada socia (el mismo que enseña Clientas,
+// lib/clientas/estado.ts): las «Interesada» (ficha sin venir ni comprar) que se
+// enfrían sin seguimiento, y las «De prueba» que vinieron a su clase y no
+// compran. Antes leía `lead_stage`, que solo cambiaba un selector manual (ya
+// retirado) y por eso casi nunca decía la verdad. Cubre un punto ciego total:
+// Retención mira a las socias YA activas, nadie miraba la entrada.
 import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
-import { construirIndices, diasDesdeUltimoContacto, tasaAbandonoCheckout, type IndicesSenal } from '../senales.ts';
+import { construirIndices, diasDesdeUltimoContacto, estadosDelSnapshot, noQuiereSeguir, tasaAbandonoCheckout, type IndicesSenal } from '../senales.ts';
+import { diasEntre, type ResultadoEstado } from '../../clientas/estado.ts';
+import { hoyEnEstudio } from '../../utils.ts';
 import { confianzaContactarLead, confianzaConvertirPrueba, confianzaAbandonoCheckout } from '../confianza.ts';
 import { estimarProbabilidad, tasaBase, MUESTRA_MINIMA } from '../prediccion.ts';
 
-const MS_DIA = 86400000;
-const DIAS_LEAD_MADURO = 7;      // un lead sin avanzar tras 7 días se está enfriando
+const DIAS_LEAD_MADURO = 7;      // una interesada sin avanzar tras 7 días se está enfriando
 const DIAS_SIN_CONTACTO = 7;     // sin contacto en 7+ días (o ninguno) = descuidado
-const DIAS_PRUEBA_MADURA = 7;    // una prueba de 7+ días sin comprar hay que cerrarla
+const DIAS_PRUEBA_MADURA = 7;    // 7+ días desde su clase de prueba sin comprar: hay que cerrarla
 
-const LEAD_STAGES_ENTRADA = new Set(['LEAD', 'INTERESADA']);
+/** C1 · Interesada (ficha sin venir ni comprar) sin seguimiento → CONTACTAR_LEAD. */
+function reglaC1(socio: SnapshotEstudio['socios'][number], estado: ResultadoEstado | undefined, idx: IndicesSenal, now: Date): Candidata | null {
+  // `desde` es su día de alta: sin él no se puede decir cuánto lleva.
+  if (estado?.estado !== 'INTERESADA' || !estado.desde) return null;
+  // Dijo que no quiere seguir (contacto apuntado en su ficha): no se insiste.
+  if (noQuiereSeguir(socio.id, idx)) return null;
 
-function diasDesde(fechaISO: string, now: Date): number {
-  return Math.floor((now.getTime() - new Date(fechaISO).getTime()) / MS_DIA);
-}
-
-/** C1 · Lead/interesada sin seguimiento → CONTACTAR_LEAD. */
-function reglaC1(socio: SnapshotEstudio['socios'][number], idx: IndicesSenal, now: Date): Candidata | null {
-  if (!socio.leadStage || !LEAD_STAGES_ENTRADA.has(socio.leadStage)) return null;
-  // Una lead con suscripción activa ya está dentro: no es trabajo de captación.
-  if (idx.suscripcionActivaPorSocio.has(socio.id)) return null;
-
-  const diasAntiguedad = diasDesde(socio.fechaAlta, now);
+  const diasAntiguedad = diasEntre(estado.desde, hoyEnEstudio(now));
   const leadMadurado = diasAntiguedad >= DIAS_LEAD_MADURO;
 
   const diasContacto = diasDesdeUltimoContacto(socio.id, idx, now);
@@ -34,8 +32,7 @@ function reglaC1(socio: SnapshotEstudio['socios'][number], idx: IndicesSenal, no
   const confianza = confianzaContactarLead({ leadMadurado, sinContactoReciente });
   if (!confianza) return null;
 
-  const etapa = socio.leadStage === 'LEAD' ? 'contactó por primera vez' : 'mostró interés';
-  const motivoMotor = `${socio.nombre} ${etapa} hace ${diasAntiguedad} días y sigue sin dar el paso. Un mensaje ahora, mientras aún se acuerda de ti, marca la diferencia.`;
+  const motivoMotor = `${socio.nombre} se dio de alta hace ${diasAntiguedad} días y todavía no ha venido ni comprado nada. Un mensaje ahora, mientras aún se acuerda de ti, marca la diferencia.`;
 
   return {
     especialista: 'CAPTACION',
@@ -43,7 +40,7 @@ function reglaC1(socio: SnapshotEstudio['socios'][number], idx: IndicesSenal, no
     dedupeKey: `CAPTACION:CONTACTAR_LEAD:${socio.id}`,
     tituloMotor: `${socio.nombre} sigue en el aire — yo la contactaría`,
     motivoMotor,
-    datosUsados: { nombre: socio.nombre, etapa: socio.leadStage, diasAntiguedad, diasSinContacto: diasContacto ?? -1 },
+    datosUsados: { nombre: socio.nombre, estado: 'INTERESADA', diasAntiguedad, diasSinContacto: diasContacto ?? -1 },
     riesgo: 'PERDIDA',
     confianza,
     accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: motivoMotor },
@@ -55,23 +52,28 @@ function reglaC1(socio: SnapshotEstudio['socios'][number], idx: IndicesSenal, no
   };
 }
 
-/** C2 · Prueba que no convierte → CONVERTIR_PRUEBA. */
-function reglaC2(socio: SnapshotEstudio['socios'][number], idx: IndicesSenal, now: Date): Candidata | null {
-  if (socio.leadStage !== 'PRUEBA') return null;
-  const sinSuscripcion = !idx.suscripcionActivaPorSocio.has(socio.id);
-  // Si ya tiene suscripción activa es que convirtió — nada que hacer.
-  if (!sinSuscripcion) return null;
-
-  const diasAntiguedad = diasDesde(socio.fechaAlta, now);
+/** C2 · De prueba: tuvo su clase de prueba y no ha comprado → CONVERTIR_PRUEBA. */
+function reglaC2(socio: SnapshotEstudio['socios'][number], estado: ResultadoEstado | undefined, vino: boolean, idx: IndicesSenal, now: Date): Candidata | null {
+  // «De prueba» ya es «sin ninguna compra de verdad»; `desde` es el día de su prueba.
+  if (estado?.estado !== 'DE_PRUEBA' || !estado.desde) return null;
+  if (noQuiereSeguir(socio.id, idx)) return null;
+  const diasAntiguedad = diasEntre(estado.desde, hoyEnEstudio(now));
+  // Su prueba aún no ha llegado: no hay nada que cerrar todavía.
+  if (diasAntiguedad < 0) return null;
   const pruebaMadura = diasAntiguedad >= DIAS_PRUEBA_MADURA;
 
-  const confianza = confianzaConvertirPrueba({ pruebaMadura, sinSuscripcion });
+  const confianza = confianzaConvertirPrueba({ pruebaMadura, sinSuscripcion: true });
   if (!confianza) return null;
 
+  // «Vino» sale de sus hechos (todo su historial); cuántas veces, de las reservas
+  // de la foto. Sin asistencia marcada no se afirma que no viniera: muchos
+  // estudios no pasan lista.
   const asistidas = idx.asistidasPorSocio.get(socio.id)?.length ?? 0;
-  const motivoMotor = asistidas > 0
-    ? `${socio.nombre} lleva ${diasAntiguedad} días de prueba y ya ha venido ${asistidas} ${asistidas === 1 ? 'vez' : 'veces'}, pero no ha cogido plan. Es el momento de proponérselo.`
-    : `${socio.nombre} lleva ${diasAntiguedad} días desde que empezó la prueba y aún no ha cogido plan. Un empujón amable antes de que se enfríe.`;
+  const motivoMotor = asistidas > 1
+    ? `${socio.nombre} vino a su clase de prueba hace ${diasAntiguedad} días y ya ha venido ${asistidas} veces, pero no ha cogido plan. Es el momento de proponérselo.`
+    : vino || asistidas === 1
+      ? `${socio.nombre} vino a su clase de prueba hace ${diasAntiguedad} días y aún no ha cogido plan. Es el momento de proponérselo.`
+      : `${socio.nombre} tenía su clase de prueba hace ${diasAntiguedad} días y aún no ha cogido plan. Un empujón amable antes de que se enfríe.`;
 
   return {
     especialista: 'CAPTACION',
@@ -157,10 +159,13 @@ export const captacion: Especialista = {
   pregunta: '¿A quién estamos dejando escapar antes de que entre?',
   detectar(s: SnapshotEstudio, _m: MemoriaEstudio, now: Date): Candidata[] {
     const idx = construirIndices(s);
+    const estados = estadosDelSnapshot(s, now);
     const candidatas: Candidata[] = [];
     for (const socio of s.socios) {
-      // Una candidata por socia: la prueba pesa más que el lead frío.
-      const c = reglaC2(socio, idx, now) ?? reglaC1(socio, idx, now);
+      // Una candidata por socia (cada una tiene un solo estado).
+      const estado = estados.get(socio.id);
+      const vino = Boolean(s.hechosClientas?.[socio.id]?.ultimaAsistencia);
+      const c = reglaC2(socio, estado, vino, idx, now) ?? reglaC1(socio, estado, idx, now);
       if (c) candidatas.push(c);
     }
     const c3 = reglaC3(s, now);

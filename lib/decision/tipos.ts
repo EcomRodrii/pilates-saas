@@ -7,6 +7,7 @@ import type {
   Instructor, Campana, AutomationLog,
 } from '@/lib/types';
 import type { Prediccion } from './prediccion.ts';
+import type { HechosAsistencia } from '../clientas/estado.ts';
 
 export type EspecialistaId = 'RETENCION' | 'INGRESOS' | 'AGENDA' | 'CAPTACION' | 'MARKETING' | 'FINANZAS' | 'EQUIPO' | 'ONBOARDING';
 
@@ -333,6 +334,19 @@ export interface WidgetEventoAbandonoSnapshot {
   creadoEn: string;
 }
 
+// Un contacto que alguien del equipo apuntó a mano desde la ficha de la
+// clienta (comunicaciones_socio, tipo 'contacto'): «la llamé», «le escribí por
+// WhatsApp». Cuenta como contacto igual que un envío automático, y su
+// resultado importa: a quien dijo que no quiere seguir no se le vuelve a
+// proponer recuperarla. Array (no Map) por lo mismo que IntentoFallidoSnapshot:
+// el snapshot cruza un step.run de Inngest serializado a JSON.
+export interface ContactoManualSnapshot {
+  socioId: string;
+  /** Instante del contacto (ISO). */
+  en: string;
+  resultado: 'VA_A_VOLVER' | 'SE_LO_PIENSA' | 'NO_CONTESTA' | 'NO_QUIERE_SEGUIR' | null;
+}
+
 // Contexto de "tamaño" del estudio — pensado para que los especialistas
 // puedan calibrar umbrales según estudio pequeño/grande/cadena en vez de un
 // umbral único para todos (feedback P2-5, cadena de 2 sedes/850 clientas
@@ -370,5 +384,12 @@ export interface SnapshotEstudio {
   // 60d, ver WidgetEventoAbandonoSnapshot arriba (por qué array, no Map, y
   // por qué solo estos dos tipos de widget_eventos).
   widgetEventosCheckout: WidgetEventoAbandonoSnapshot[];
+  // 90d, ver ContactoManualSnapshot arriba.
+  contactosManuales: ContactoManualSnapshot[];
+  // Primera reserva y última clase de cada socia sobre TODO su historial (no la
+  // ventana de 180 días de `reservas`): de ahí sale su estado (Activa, De
+  // prueba, Interesada…), el mismo que enseña Clientas (lib/clientas/estado.ts).
+  // Record y no Map: el snapshot cruza un step.run de Inngest como JSON.
+  hechosClientas: Record<string, HechosAsistencia>;
   contexto: ContextoEstudio;
 }

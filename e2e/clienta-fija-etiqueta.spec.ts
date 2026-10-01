@@ -106,7 +106,9 @@ test.describe('Género: cambia las palabras de la persona', () => {
     const { parches } = await montar(page, '/clientas/soc-ana');
     await expect(page.getByTestId('etiqueta-clienta-fija')).toHaveText('Clienta fija', { timeout: 30_000 });
 
-    await page.getByRole('button', { name: 'Editar clienta' }).click();
+    // Editar vive en «Más acciones» de la cabecera de la ficha.
+    await page.getByRole('button', { name: 'Más acciones' }).click();
+    await page.getByRole('menuitem', { name: 'Editar sus datos' }).click();
     const dialogo = page.getByRole('dialog', { name: 'Editar clienta' });
     await expect(dialogo.getByLabel('Género')).toHaveValue('');
     await dialogo.getByLabel('Género').selectOption('HOMBRE');
@@ -117,12 +119,19 @@ test.describe('Género: cambia las palabras de la persona', () => {
     expect(parches.some(p => p.genero === 'HOMBRE')).toBe(true);
     await expect(page.getByText('Cliente actualizado')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('etiqueta-clienta-fija')).toHaveText('Cliente fijo');
-    await expect(page.getByRole('button', { name: 'Editar cliente' })).toBeVisible();
+    // Y las palabras de la ficha pasan a masculino: la tarjeta «Sobre él» y el diálogo.
+    await expect(page.getByRole('heading', { name: 'Sobre él' })).toBeVisible();
+    await page.getByRole('button', { name: 'Más acciones' }).click();
+    await page.getByRole('menuitem', { name: 'Editar sus datos' }).click();
+    await expect(page.getByRole('dialog', { name: 'Editar cliente' })).toBeVisible();
   });
 
   test('sin género indicado, todo se escribe en femenino como siempre', async ({ page }) => {
     await montar(page, '/clientas/soc-dani');
-    await expect(page.getByRole('button', { name: 'Editar clienta' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Sobre ella' })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Más acciones' }).click();
+    await page.getByRole('menuitem', { name: 'Editar sus datos' }).click();
+    await expect(page.getByRole('dialog', { name: 'Editar clienta' })).toBeVisible();
     await expect(page.getByTestId('etiqueta-clienta-fija')).toHaveCount(0);
   });
 });

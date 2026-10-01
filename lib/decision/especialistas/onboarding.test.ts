@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Socio, Reserva } from '@/lib/types';
+import type { PlanTarifa, Socio, Reserva, Suscripcion } from '@/lib/types';
 import type { SnapshotEstudio, MemoriaEstudio, IntentoFallidoSnapshot } from '../tipos.ts';
 import { onboarding } from './onboarding.ts';
 
@@ -13,27 +13,35 @@ const socio = (p: Partial<Socio> & Pick<Socio, 'id'>): Socio =>
 const reserva = (p: Partial<Reserva> & Pick<Reserva, 'socioId' | 'sesionId' | 'creadoEn'>): Reserva =>
   ({ id: `res-${++n}`, studioId: 'e1', estado: 'ASISTIDA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, ...p });
 
-function snap(socios: Socio[], reservas: Reserva[] = [], intentosFallidos: IntentoFallidoSnapshot[] = []): SnapshotEstudio {
+// Sus 30 días cuentan desde su PRIMERA COMPRA (su estado, lib/clientas/estado.ts),
+// no desde que se creó su ficha.
+const PLAN_MENSUAL = { id: 'mensual', studioId: 'e1', nombre: 'Mensual', descripcion: null, precio: 60, tipo: 'MENSUAL', sesiones: null, activo: true } as PlanTarifa;
+const cuota = (socioId: string, diasDesdeCompra: number): Suscripcion =>
+  ({ id: `sus-${++n}`, studioId: 'e1', socioId, planId: 'mensual', estado: 'ACTIVA', fechaInicio: diasAntes(diasDesdeCompra).slice(0, 10), fechaFin: diasAntes(diasDesdeCompra - 30).slice(0, 10), sesionesRestantes: null, stripeSubscriptionId: null });
+
+function snap(socios: Socio[], reservas: Reserva[] = [], intentosFallidos: IntentoFallidoSnapshot[] = [], suscripciones: Suscripcion[] = []): SnapshotEstudio {
   return {
     studioId: 'e1', socios, reservas, sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos, bloqueosAgenda: [], widgetEventosCheckout: [],
+    suscripciones, planesTarifa: [PLAN_MENSUAL], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos, bloqueosAgenda: [], widgetEventosCheckout: [], contactosManuales: [], hechosClientas: {},
     contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
 }
 const detectar = (s: SnapshotEstudio) => onboarding.detectar(s, new Map() as MemoriaEstudio, NOW);
 
-test('ONBOARDING: alta reciente sin visitas, ventana casi cerrada (día 25) → IMPULSAR_ONBOARDING', () => {
-  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(25) })]));
+test('ONBOARDING: empezó hace 25 días sin venir, ventana casi cerrada → IMPULSAR_ONBOARDING (desde la compra, no desde la ficha)', () => {
+  // La ficha es de hace 60 días; empezó (primera compra) hace 25.
+  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(60) })], [], [], [cuota('s1', 25)]));
   assert.equal(c.length, 1);
   assert.equal(c[0].tipo, 'IMPULSAR_ONBOARDING');
   assert.equal(c[0].especialista, 'ONBOARDING');
   assert.equal(c[0].socioId, 's1');
   assert.equal(c[0].datosUsados.visitas, 0);
   assert.equal(c[0].datosUsados.diasRestantes, 5);
+  assert.match(c[0].motivoMotor, /empezó hace 25 días/);
 });
 
 test('ONBOARDING: día 10 (ventana lejos de cerrar) aunque sin visitas → sin candidata todavía', () => {
-  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(10) })]));
+  const c = detectar(snap([socio({ id: 's1' })], [], [], [cuota('s1', 10)]));
   assert.equal(c.length, 0);
 });
 
@@ -46,7 +54,7 @@ test('ONBOARDING: ya cumplió las 4 visitas Y las 2 conocidas → sin candidata 
     reserva({ socioId: 'c1', sesionId: 'sesC1', creadoEn: diasAntes(20) }),
     reserva({ socioId: 'c2', sesionId: 'sesC2', creadoEn: diasAntes(19) }),
   ];
-  const c = detectar(snap([s, c1, c2], reservas));
+  const c = detectar(snap([s, c1, c2], reservas, [], [cuota('s1', 25)]));
   assert.equal(c.filter(x => x.socioId === 's1').length, 0);
 });
 
@@ -58,32 +66,47 @@ test('ONBOARDING: trajo 2 conocidas con su primera asistencia dentro de la venta
     reserva({ socioId: 'c1', sesionId: 'sesA', creadoEn: diasAntes(18) }),
     reserva({ socioId: 'c2', sesionId: 'sesB', creadoEn: diasAntes(12) }),
   ];
-  const c = detectar(snap([referidora, conocida1, conocida2], reservas));
-  // Sigue faltando visitas propias (0 &lt; 4), pero conocidas ya llegan a 2.
+  const c = detectar(snap([referidora, conocida1, conocida2], reservas, [], [cuota('ref', 25)]));
+  // Sigue faltando visitas propias (0 < 4), pero conocidas ya llegan a 2.
   assert.equal(c.length, 1);
   assert.equal(c[0].datosUsados.conocidas, 2);
 });
 
-test('ONBOARDING: lead/prueba (nunca convirtió) no es competencia de este especialista', () => {
-  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(25), leadStage: 'PRUEBA' })]));
+test('ONBOARDING: quien nunca compró (interesada o de prueba) no es de este especialista', () => {
+  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(25) })]));
   assert.equal(c.length, 0);
 });
 
-test('ONBOARDING: socia inactiva no genera candidata', () => {
-  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(25), activo: false })]));
+test('ONBOARDING: una veterana migrada con historial que compra aquí por primera vez no es «nueva»', () => {
+  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(25), leadStage: 'ACTIVA' })], [], [], [cuota('s1', 25)]));
   assert.equal(c.length, 0);
 });
 
-test('ONBOARDING: pasados los 30 días ya no es ventana de onboarding', () => {
-  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(35) })]));
+test('ONBOARDING: socia de baja no genera candidata', () => {
+  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(25), activo: false })], [], [], [cuota('s1', 25)]));
+  assert.equal(c.length, 0);
+});
+
+test('ONBOARDING: pasados los 30 días desde que empezó ya no es ventana de onboarding', () => {
+  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(35) })], [], [], [cuota('s1', 35)]));
   assert.equal(c.length, 0);
 });
 
 test('ONBOARDING: nunca sube a confianza ALTA (autonomía máxima 1)', () => {
-  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(29) })]));
+  const c = detectar(snap([socio({ id: 's1', fechaAlta: diasAntes(29) })], [], [], [cuota('s1', 29)]));
   assert.equal(c.length, 1);
   assert.notEqual(c[0].confianza.nivel, 'ALTA');
   assert.ok(c[0].confianza.autonomiaMaxima <= 1);
+});
+
+test('O2: una interesada (aún sin plan) que intenta reservar y no puede también avisa — quiere venir', () => {
+  const s1 = socio({ id: 's1', fechaAlta: diasAntes(5), leadStage: 'LEAD' });
+  const intentos: IntentoFallidoSnapshot[] = [
+    { id: 'if-1', socioId: 's1', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(1) },
+    { id: 'if-2', socioId: 's1', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(2) },
+  ];
+  const c = detectar(snap([s1], [], intentos));
+  assert.equal(c[0]?.tipo, 'RIESGO_RESERVA_FALLIDA');
 });
 
 test('O2: socia nueva (día 5) con 2 intentos de reserva fallidos → RIESGO_RESERVA_FALLIDA', () => {

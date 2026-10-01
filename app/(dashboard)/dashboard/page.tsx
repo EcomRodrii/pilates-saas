@@ -23,7 +23,8 @@ import { EstadoDelEstudio } from '@/components/dashboard/estado-del-estudio';
 import { TentareOrb } from '@/components/marca/tentare-orb';
 import { ActionCenter } from '@/components/decision/action-center';
 import { fetchLayout } from '@/lib/api-client';
-import { dbStatsClientas } from '@/lib/supabase-data';
+import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
+import { contarSinVenir } from '@/lib/clientas/estado';
 import { aplicarLayout, DEFAULT_LAYOUT } from '@/lib/layout-runtime';
 import type { LayoutConfig } from '@/lib/layout-schema';
 import { HOME_SECCIONES, ordenarSeccionesHome } from '@/lib/home-sections';
@@ -421,7 +422,11 @@ export default function Dashboard() {
       : 0;
 
   // ── KPIs ────────────────────────────────────────────────────────────────────
-  const sociasActivas = useMemo(() => socios.filter(s => s.activo).length, [socios]);
+  // Las cifras de clientas salen del MISMO estado que la pantalla de Clientas
+  // (`lib/clientas/estado.ts`): «activas» es su chip «Activa», no «no está de
+  // baja». `null` hasta que los datos han llegado enteros: ausente no es cero.
+  const { listo: estadosListos, porSocio: estadoPorSocio, hechos: hechosPorSocio, conteos: conteosClientas, ahora: ahoraEstados } = useEstadosClientas();
+  const sociasActivas = conteosClientas?.ACTIVA ?? null;
   const reservasHoy = useMemo(() => reservas.filter(
     r => r.estado !== 'CANCELADA' && sesionesHoyIds.has(r.sesionId)
   ).length, [reservas, sesionesHoyIds]);
@@ -589,25 +594,22 @@ export default function Dashboard() {
         .filter(r => r.estado !== 'CANCELADA' && sesionesHoyIds.has(r.sesionId))
         .map(r => r.socioId)
     );
-    const bonosCaducanHoy = suscripciones.filter(s => s.estado === 'ACTIVA' && s.fechaFin === hoyStr).length;
+    // Solo BONOS: una cuota mensual con fecha de hoy no caduca, se renueva. Antes
+    // contaba cualquier suscripción que acabara hoy y la cifra decía «bonos».
+    const bonosCaducanHoy = suscripciones.filter(s =>
+      s.estado === 'ACTIVA' && s.fechaFin === hoyStr && planById.get(s.planId)?.tipo !== 'MENSUAL',
+    ).length;
 
     return { alumnosHoy: alumnosHoyIds.size, bonosCaducanHoy };
-  }, [reservas, sesionesHoyIds, hoyStr, suscripciones]);
+  }, [reservas, sesionesHoyIds, hoyStr, suscripciones, planById]);
 
-  // "Sin venir 30d" sale de la MISMA fuente que /clientas, que es a donde lleva
-  // la tarjeta. Antes se recalculaba aquí con OTRA definición —exigía `activo` y
-  // descartaba a quien no ha venido NUNCA, dos criterios que la RPC no aplica—,
-  // así que el número de la tarjeta y el de la página a la que te manda no
-  // coincidían. Compartir la fuente hace imposible que vuelvan a divergir.
-  // `null` mientras no haya respuesta, y también si la RPC falla: un «0 sin
-  // venir en 30 días» es una noticia buena que el panel no puede dar sin
-  // haberla comprobado. Ver `dbStatsClientas`.
-  const [statsClientas, setStatsClientas] = useState<{ total: number; activas: number; conBono: number; inactivas30d: number } | null>(null);
-  useEffect(() => {
-    let vivo = true;
-    void dbStatsClientas().then(r => { if (vivo) setStatsClientas(r); });
-    return () => { vivo = false; };
-  }, []);
+  // "Sin venir 30d" con la MISMA regla (`sinVenir`) que el filtro de Clientas al
+  // que lleva la tarjeta: con dos definiciones, enseñaba un número y te llevaba
+  // a otro. `null` mientras los datos no estén enteros: un «0 sin venir» es una
+  // noticia buena que el panel no puede dar sin haberla comprobado.
+  const sinVenir30d = useMemo(() => (
+    estadosListos && ahoraEstados ? contarSinVenir(socios, estadoPorSocio, hechosPorSocio, ahoraEstados) : null
+  ), [estadosListos, ahoraEstados, socios, estadoPorSocio, hechosPorSocio]);
 
   // ── Trend direction ──────────────────────────────────────────────────────────
   const TrendIcon =
@@ -752,8 +754,8 @@ export default function Dashboard() {
           {[
             { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Clientas hoy', alert: false, privada: false },
             ...(verFinanzas ? [{ href: '/cobros', Icon: CreditCard, value: pendientesTotal as number | string, label: 'Pagos pendientes', alert: pendientesTotal > 0, privada: false }] : []),
-            { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0, privada: false },
-            { href: '/clientas', Icon: Clock, value: statsClientas?.inactivas30d ?? '—', label: 'Sin venir 30d', alert: (statsClientas?.inactivas30d ?? 0) > 0, privada: false },
+            { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos que caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0, privada: false },
+            { href: '/clientas?mas=sin_venir_30d', Icon: Clock, value: sinVenir30d ?? '—', label: 'Sin venir 30d', alert: (sinVenir30d ?? 0) > 0, privada: false },
             // Ocupación semana e Ingresos del mes ya NO van aquí: se repetían
             // tal cual (mismo número, mismo enlace a /informes) en la tarjeta
             // de Ingresos y en la fila de KPIs de más abajo, sin aportar nada
@@ -928,10 +930,10 @@ export default function Dashboard() {
               pendientes" falso, porque la RLS ya no le sirve los recibos. */}
           <KpiCard
             label="Clientas activas"
-            value={sociasActivas}
+            value={sociasActivas ?? '—'}
             sub={verFinanzas
               ? `${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`
-              : statsClientas ? `${statsClientas.inactivas30d} sin venir en 30 días` : 'Sin venir en 30 días: —'}
+              : sinVenir30d !== null ? `${sinVenir30d} sin venir en 30 días` : 'Sin venir en 30 días: —'}
             Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
           {/* Único KPI de esta fila con click-through a /informes: era la única
               función que perdía la fila "Hoy de un vistazo" al quitar de ahí

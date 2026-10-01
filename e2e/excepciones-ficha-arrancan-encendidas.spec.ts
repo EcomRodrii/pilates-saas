@@ -74,7 +74,8 @@ async function montar(page: Page) {
     return json(route, [EXCEPCION_ROW]);
   });
 
-  await page.goto('/clientas/soc-1');
+  // Las excepciones viven en la pestaña «Datos y permisos» de la ficha.
+  await page.goto('/clientas/soc-1?pestana=datos');
   await expect(page.getByText('Ana Gil')).toBeVisible({ timeout: 30_000 });
   return { lecturas, escrituras };
 }

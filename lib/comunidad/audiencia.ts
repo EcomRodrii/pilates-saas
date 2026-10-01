@@ -1,5 +1,6 @@
 import type { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
+import { resolverDestinatariasCampana, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
+import { cargarEstadosClientas } from '@/lib/clientas/estado-servidor';
 import type { Socio, Suscripcion, Recibo, DestinatariosCampana } from '@/lib/types';
 
 type Admin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
@@ -36,6 +37,13 @@ export async function socioEnLaAudiencia(
     admin.from('recibos').select('socio_id, estado').eq('socio_id', p.socioId).eq('studio_id', p.studioId).eq('estado', 'FALLIDO'),
   ]);
   if (!socioRaw) return false;
+  // Su estado (Activa, Sin renovar…), solo si el segmento lo usa. Si no se puede
+  // leer, no entra: mejor no dejarla pasar que dejar pasar a quien no toca.
+  let estados = null;
+  if (segmentoNecesitaEstado(p.audiencia)) {
+    estados = await cargarEstadosClientas(admin, p.studioId, { ahora: new Date(), socioIds: [p.socioId] });
+    if (!estados) return false;
+  }
   const socios = [{
     id: socioRaw.id, activo: socioRaw.activo, tags: socioRaw.tags ?? undefined, fechaNacimiento: socioRaw.fecha_nacimiento ?? undefined,
   }] as unknown as Socio[];
@@ -43,7 +51,7 @@ export async function socioEnLaAudiencia(
     socioId: r.socio_id, estado: r.estado, sesionesRestantes: r.sesiones_restantes, fechaFin: r.fecha_fin,
   }))) as unknown as Suscripcion[];
   const recibos = ((recRaw ?? []).map(r => ({ socioId: r.socio_id, estado: r.estado }))) as unknown as Recibo[];
-  return resolverDestinatariasCampana(p.audiencia, { socios, suscripciones, recibos }).some(s => s.id === p.socioId);
+  return resolverDestinatariasCampana(p.audiencia, { socios, suscripciones, recibos, estados }).some(s => s.id === p.socioId);
 }
 
 /**

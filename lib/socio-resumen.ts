@@ -59,10 +59,13 @@ export function resumenSocio({
   const plan = suscripcion ? planesTarifa.find(p => p.id === suscripcion.planId) ?? null : null;
   const tags = socio?.tags ?? [];
 
+  // Por orden de clase: las reservas llegan en el orden de la base de datos, y
+  // sin ordenar, «la próxima» podía ser la del lunes con otra el viernes.
   const proximasReservas = misReservas.filter(r => {
     const ses = sesionById.get(r.sesionId);
     return ses && new Date(ses.inicio) > now && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA');
-  }).slice(0, 3);
+  }).sort((a, b) => (sesionById.get(a.sesionId)?.inicio ?? '').localeCompare(sesionById.get(b.sesionId)?.inicio ?? ''))
+    .slice(0, 3);
 
   const asistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
   const estesMes = misReservas.filter(r => {
