@@ -53,8 +53,8 @@ test('pasarse de las plazas cedidas avisa, pero no lo impide', () => {
 // arrastra los efectos de la reserva de una socia (bono, aviso a la alumna,
 // créditos, gamificación). Si alguien los añade, que esto lo pare.
 test('el dueño de la reserva externa no consume bono ni avisa a la alumna', () => {
-  const fuente = readFileSync(new URL('../db/supabase-data-admin.ts', import.meta.url), 'utf8');
-  const inicio = fuente.indexOf('async function trasReservaExterna');
+  const fuente = readFileSync(new URL('./tras-reserva-externa.ts', import.meta.url), 'utf8');
+  const inicio = fuente.indexOf('export async function trasReservaExterna');
   assert.ok(inicio > 0, 'no se encuentra trasReservaExterna');
   const cuerpo = fuente.slice(inicio, fuente.indexOf('\n}\n', inicio));
   for (const prohibida of ['consumirBonoServidor', 'emitirReserva', 'otorgarPrimeraReservaSiToca', 'evaluarGamificacionServidor', 'capturar(']) {

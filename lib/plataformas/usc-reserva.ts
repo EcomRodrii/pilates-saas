@@ -99,3 +99,18 @@ export function respuestaRechazoUsc(motivo: RechazoReservaExterna): RespuestaErr
       return { status: 500, cuerpo: { code: 'E006', message: 'Booking could not be completed' } };
   }
 }
+
+/**
+ * Lo que contesta `reservar_plaza_externa`, en el vocabulario de arriba. Una
+ * clase que exige autorización nunca debería estar publicada en USC; si lo
+ * está, es un error nuestro (`error-interno`), no algo que la socia pueda
+ * arreglar.
+ */
+export function motivoDeErrorRpcUsc(mensaje: string): RechazoReservaExterna {
+  if (mensaje.includes('AFORO_LLENO') || mensaje.includes('CUPO_PLATAFORMA_AGOTADO')) return 'completa';
+  if (mensaje.includes('SESION_NO_ENCONTRADA')) return 'clase-no-existe';
+  if (mensaje.includes('SESION_CANCELADA') || mensaje.includes('ESTUDIO_CERRADO')) return 'clase-cancelada';
+  if (mensaje.includes('SESION_TERMINADA')) return 'fuera-de-plazo';
+  if (mensaje.includes('YA_RESERVADA')) return 'ya-reservada';
+  return 'error-interno';
+}
