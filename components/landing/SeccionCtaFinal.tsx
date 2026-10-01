@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { X } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
@@ -9,8 +8,10 @@ import { FotoLanding } from './FotoLanding';
 
 // Redes sociales de Tentare (la marca, no las del estudio — esas son
 // per-estudio en el Theme Builder, ver REDES_SOCIALES en /reservar/[slug]).
+// X (@tentaresoftware) se quitó el 1-oct-2026: la cuenta no tenía ni una
+// publicación y enlazarla daba imagen de abandono. Si se activa, vuelve aquí
+// y a OrganizationStructuredData.
 const REDES_TENTARE = [
-  { href: 'https://x.com/tentaresoftware', label: 'X (Twitter)', Icono: X },
   { href: 'https://www.instagram.com/tentareapp/', label: 'Instagram', Icono: IconoInstagram },
   { href: 'https://www.linkedin.com/company/tentare/', label: 'LinkedIn', Icono: IconoLinkedIn },
 ];

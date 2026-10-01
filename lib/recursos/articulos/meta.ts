@@ -10,8 +10,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "como-abrir-un-estudio-de-pilates",
     "titulo": "Cómo abrir un estudio de pilates: guía paso a paso, de la idea a la primera semana abierta",
-    "tituloSeo": "Cómo abrir un estudio de pilates: guía paso a paso",
-    "descripcion": "Los pasos para abrir un estudio de pilates en España: concepto, números, local, máquinas, trámites, precios, equipo y lanzamiento. Con checklist.",
+    "tituloSeo": "Cómo abrir un estudio de pilates en 2026: guía paso a paso",
+    "descripcion": "De la idea a la primera clase: inversión, local, máquinas, trámites, precios y equipo para abrir tu estudio de pilates en España. Con checklist.",
     "resumen": "La guía completa para montar un estudio de pilates en España: concepto, números, local, reformers, trámites, precios, equipo, reservas y los primeros 90 días, con una checklist de todo el proceso.",
     "categoria": "abrir",
     "seccion": "Abrir un estudio",
@@ -28,7 +28,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "como-abrir-un-estudio-de-yoga",
     "titulo": "Cómo abrir un estudio de yoga: estilos, local, material, trámites, titulación y precios",
-    "tituloSeo": "Cómo abrir un estudio de yoga: qué necesitas y cuánto cuesta",
+    "tituloSeo": "Cómo abrir un estudio de yoga en 2026: requisitos y costes",
     "descripcion": "Qué pide cada estilo al local (aéreo, sala caliente), material con precios reales, epígrafe e IVA, titulación oficial y lo que cobran 14 estudios españoles.",
     "resumen": "Lo propio de montar un estudio de yoga en España: qué pide cada estilo al local, material con precios, epígrafe, CNAE e IVA, titulación oficial y lo que cobran 14 estudios.",
     "categoria": "abrir",
@@ -46,8 +46,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "mejor-software-para-estudios-de-pilates",
     "titulo": "Mejor software para estudios de pilates: comparativa honesta 2026",
-    "tituloSeo": "Mejor software para estudios de pilates: comparativa 2026",
-    "descripcion": "Qué necesita de verdad un estudio de pilates y cómo quedan 13 programas en precio, permanencia, Veri*Factu y sustituciones, según su propia web.",
+    "tituloSeo": "Mejor software para estudios de pilates 2026: 13 comparados",
+    "descripcion": "Precio, permanencia, comisiones, Veri*Factu y sustituciones de 13 programas para estudios de pilates, comparados con lo que dice la web de cada uno.",
     "resumen": "Guía comparativa escrita por Tentare: lo que necesita un estudio de pilates, una tabla con 13 programas según su web pública y una ficha breve de cada uno.",
     "categoria": "software",
     "seccion": "Elegir software",
@@ -59,13 +59,13 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/soluciones/cambiar-de-software",
       "/precios"
     ],
-    "palabras": 2795
+    "palabras": 2821
   },
   {
     "slug": "bsport-vs-timp",
     "titulo": "bsport vs TIMP: diferencias para un estudio de pilates boutique",
-    "tituloSeo": "bsport vs TIMP: diferencias para estudios boutique",
-    "descripcion": "bsport vs TIMP para tu estudio de pilates: precio, permanencia, prueba, app, cobros, Veri*Factu y sustituciones, con lo que dice hoy la web de cada uno.",
+    "tituloSeo": "bsport vs TIMP en 2026: precio, app y diferencias reales",
+    "descripcion": "bsport o TIMP para tu estudio de pilates: precio, permanencia, prueba, app, cobros, Veri*Factu y sustituciones, con lo que dice hoy la web de cada uno.",
     "resumen": "bsport y TIMP comparados para un estudio boutique de pilates con lo que publica hoy la web de cada uno: tabla lado a lado, para quién encaja cada uno y qué preguntar en la demo.",
     "categoria": "software",
     "seccion": "Elegir software",
@@ -82,7 +82,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "cuanto-cuesta-abrir-un-estudio-de-pilates",
     "titulo": "Cuánto cuesta abrir un estudio de pilates: presupuesto por partidas con precios reales",
-    "tituloSeo": "Cuánto cuesta abrir un estudio de pilates en 2026",
+    "tituloSeo": "Cuánto cuesta abrir un estudio de pilates: presupuesto 2026",
     "descripcion": "Precio real de un reformer con y sin IVA, fianza del local, cuota de autónoma, seguro, marca, software y un presupuesto de ejemplo con 6 reformers.",
     "resumen": "Lo que cuesta cada partida de un estudio de pilates en España, con precios publicados por fabricantes, tiendas y organismos oficiales, y un presupuesto de ejemplo para seis reformers.",
     "categoria": "abrir",
@@ -100,8 +100,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "precio-clase-de-pilates",
     "titulo": "Precio de una clase de pilates en 2026: lo que cobran 32 estudios en España",
-    "tituloSeo": "Precio de una clase de pilates en 2026: 32 estudios",
-    "descripcion": "Clase suelta de reformer: 25 € de mediana; de suelo, 16 €; privada, 53,50 €. Precios reales de 32 estudios de 8 ciudades y cómo fijar el tuyo.",
+    "tituloSeo": "Precio de una clase de pilates: reformer 25 €, suelo 16 €",
+    "descripcion": "¿Cuánto cuesta una clase de pilates? Reformer suelta: 25 € de mediana; suelo: 16 €; privada: 53,50 €. Precios reales de 32 estudios de 8 ciudades.",
     "resumen": "Lo que cobran 32 estudios de Madrid, Barcelona, Valencia, Sevilla, Bilbao, Málaga, Zaragoza y Alicante: clase suelta, cuotas y bonos de reformer, suelo y privada, con medianas y rangos.",
     "categoria": "rentabilidad",
     "seccion": "Rentabilidad",
@@ -117,8 +117,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "rentabilidad-estudio-de-pilates",
     "titulo": "¿Es rentable un estudio de pilates? Cómo calcularlo con tus números",
-    "tituloSeo": "¿Es rentable un estudio de pilates? Cómo calcularlo",
-    "descripcion": "Fórmula de ingresos, costes fijos y punto de equilibrio de un estudio de pilates, con tres escenarios de ejemplo y precios reales de 32 estudios.",
+    "tituloSeo": "¿Es rentable un estudio de pilates? Números y calculadora",
+    "descripcion": "Cuánto gana un estudio de pilates: ingresos, costes y punto de equilibrio con 3 escenarios, precios de 32 estudios y una calculadora gratis.",
     "resumen": "La cuenta que dice si tu estudio gana dinero: plazas, clases, ocupación y precio medio por plaza, costes fijos y variables, punto de equilibrio y tres escenarios de ejemplo.",
     "categoria": "rentabilidad",
     "seccion": "Rentabilidad",
@@ -134,8 +134,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "requisitos-para-abrir-un-estudio-de-pilates",
     "titulo": "Requisitos para abrir un estudio de pilates: trámites, licencia, epígrafe y titulación",
-    "tituloSeo": "Requisitos para abrir un estudio de pilates en España",
-    "descripcion": "Modelo 036 y epígrafe IAE, CNAE, Seguridad Social, licencia o declaración responsable, seguro, datos de salud y titulación: cada requisito con su fuente.",
+    "tituloSeo": "Requisitos para abrir un estudio de pilates: lista en orden",
+    "descripcion": "Licencia o declaración responsable, epígrafe IAE, Seguridad Social, seguro, datos de salud y titulación: los 9 trámites en orden y con su norma oficial.",
     "resumen": "Todos los trámites para abrir un estudio de pilates en España, en orden y con su norma: Hacienda, Seguridad Social, ayuntamiento, seguro, protección de datos y titulación de quien da clase.",
     "categoria": "abrir",
     "seccion": "Abrir un estudio",
@@ -170,8 +170,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "politica-de-cancelacion-de-clases",
     "titulo": "Política de cancelación de clases: plantilla para tu estudio y lo que dice la ley",
-    "tituloSeo": "Política de cancelación de clases: plantilla y ley",
-    "descripcion": "Plantilla de política de cancelación para un estudio de pilates o yoga, cláusula a cláusula, con ventanas reales y lo que permite la ley sobre penalizaciones.",
+    "tituloSeo": "Política de cancelación de clases: plantilla gratis y ley",
+    "descripcion": "Plantilla de política de cancelación lista para copiar en tu estudio de pilates o yoga: ventanas reales, no-shows y qué penalizaciones permite la ley.",
     "resumen": "Qué tiene que decir la política de cancelación de tu estudio, cuántas horas piden estudios reales, qué permite la ley (penalizaciones y desistimiento) y una plantilla lista para adaptar.",
     "categoria": "operacion",
     "seccion": "Operación",
@@ -206,7 +206,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "como-ser-instructora-de-pilates",
     "titulo": "Cómo ser instructora de pilates en España: formación, cualificación oficial y trabajo",
-    "tituloSeo": "Cómo ser instructora de pilates: formación y trabajo",
+    "tituloSeo": "Cómo ser instructora de pilates: cursos, horas y precios",
     "descripcion": "La cualificación oficial de 510 horas, las formaciones de Polestar, STOTT, BASI y Balanced Body con horas y precio, suelo o reformer y cómo encontrar trabajo.",
     "resumen": "El camino para ser instructora de pilates en España: qué es la cualificación oficial AFD805_3, qué formaciones hay con sus horas y precios, suelo o reformer y cómo encontrar trabajo.",
     "categoria": "sustituciones",
@@ -293,8 +293,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
   {
     "slug": "nombres-para-estudio-de-pilates",
     "titulo": "Nombres para estudio de pilates: más de 100 ideas y cómo comprobar que están libres",
-    "tituloSeo": "Nombres para estudio de pilates: 100+ ideas originales",
-    "descripcion": "Más de 100 ideas de nombres para tu estudio de pilates o de barre, por estilos, y cómo comprobar en la OEPM, el Registro Mercantil y los .es que están libres.",
+    "tituloSeo": "Nombres para estudio de pilates: 100+ ideas y cómo registrarlo",
+    "descripcion": "Más de 100 nombres para tu estudio de pilates o de barre, por estilos, y cómo comprobar gratis en la OEPM y en los .es que nadie los tiene ya.",
     "resumen": "Ideas de nombres para un estudio de pilates o de barre agrupadas por estilo, criterios para elegir y los pasos para comprobar que el nombre está libre antes de pagar el logotipo.",
     "categoria": "abrir",
     "seccion": "Abrir un estudio",

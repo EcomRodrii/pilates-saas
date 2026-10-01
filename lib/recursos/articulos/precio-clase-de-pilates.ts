@@ -5,8 +5,8 @@ const NOTA_MUESTRA = 'Muestra de 32 estudios con precios publicados en su web, c
 const articulo: Articulo = {
   slug: 'precio-clase-de-pilates',
   titulo: 'Precio de una clase de pilates en 2026: lo que cobran 32 estudios en España',
-  tituloSeo: 'Precio de una clase de pilates en 2026: 32 estudios',
-  descripcion: 'Clase suelta de reformer: 25 € de mediana; de suelo, 16 €; privada, 53,50 €. Precios reales de 32 estudios de 8 ciudades y cómo fijar el tuyo.',
+  tituloSeo: 'Precio de una clase de pilates: reformer 25 €, suelo 16 €',
+  descripcion: '¿Cuánto cuesta una clase de pilates? Reformer suelta: 25 € de mediana; suelo: 16 €; privada: 53,50 €. Precios reales de 32 estudios de 8 ciudades.',
   resumen: 'Lo que cobran 32 estudios de Madrid, Barcelona, Valencia, Sevilla, Bilbao, Málaga, Zaragoza y Alicante: clase suelta, cuotas y bonos de reformer, suelo y privada, con medianas y rangos.',
   categoria: 'rentabilidad',
   seccion: 'Rentabilidad',

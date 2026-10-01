@@ -452,9 +452,9 @@ export const PAGINAS: PaginaSeo[] = [
   // ── Ya existían antes de este registro ────────────────────────────────────
   {
     path: '/comparativa',
-    titulo: 'Comparativa: Tentare frente a los 13 software de gestión de Pilates',
+    titulo: 'Comparativa de software para estudios de Pilates (2026) | Tentare',
     descripcion:
-      'Compara Tentare con los 13 software con los que más se compara en estudios de Pilates: facturación Veri*factu, precio público, permanencia, datos en la UE y sustitución de instructoras.',
+      'Precio, permanencia, Veri*Factu y sustituciones de bsport, Eversports, Mindbody, TIMP, Lorari y 8 más frente a Tentare, con lo que publica cada uno.',
     grupo: 'software',
     etiqueta: 'Comparativa',
     resumen: 'Tentare frente a las trece plataformas con las que más se compara.',
@@ -484,7 +484,7 @@ export const PAGINAS: PaginaSeo[] = [
     ['tentare-vs-eversports', 'Eversports', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
       'Eversports publica desde 33 €/mes (anual) o 41 €/mes (mensual), sin IVA y según reservas. Frente a Tentare (desde 29 €/mes con IVA), punto por punto.'],
     ['tentare-vs-lorari', 'Lorari', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'Lorari publica desde 12 €/mes + IVA (hasta 50 alumnos activos). Frente a Tentare (desde 29 €/mes con IVA, sin permanencia): funciones y límites.'],
+      'Lorari: 16 €/mes + IVA mes a mes, o 12 € pagando el año (hasta 50 alumnos). Frente a Tentare (desde 29 €/mes con IVA, sin permanencia).'],
     ['tentare-vs-bonsai', 'Bonsai', ['/funcionalidades/facturacion', '/funcionalidades/sustituciones'],
       'Bonsai: plan gratis (con un 3 % extra por cobro) o desde 29 €/mes + IVA con pago anual. Frente a Tentare (29 €/mes con IVA, sin permanencia), punto por punto.'],
     // Estos 5 no salieron de una lista genérica de "competidores conocidos"
@@ -543,9 +543,11 @@ export const PAGINAS: PaginaSeo[] = [
   // literal en vez de heredar la plantilla genérica.
   {
     path: '/comparativa/tentare-vs-glofox',
-    titulo: 'Glofox vs. Tentare: cuál conviene a tu estudio de Pilates',
+    // El <title> sigue la plantilla del resto («X: precios y alternativa…»),
+    // que es la que se pincha; el titular del artículo no cambia.
+    titulo: 'Glofox: precios y alternativa para estudios de Pilates | Tentare',
     descripcion:
-      'Precio real en euros, permanencia, gestión por reformer individual y sustitución de instructoras — Glofox frente a Tentare, sin folletos de marketing.',
+      'Glofox en euros: precio real, permanencia, plaza por reformer y sustitución de instructoras, frente a Tentare (desde 29 €/mes con IVA, sin permanencia).',
     grupo: 'software',
     etiqueta: 'Tentare vs Glofox',
     prioridad: 0.7,

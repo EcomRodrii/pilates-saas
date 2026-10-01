@@ -11,7 +11,7 @@ import { urlDe } from '@/lib/seo/paginas';
 const GUIA = guia('estudios-pilates-de-exito');
 
 export const metadata: Metadata = {
-  title: 'Qué aprender de los estudios de pilates que más crecen — Tentare',
+  title: 'Estudios de pilates de éxito: 4 lecciones de los que más crecen — Tentare',
   description:
     'Datos reales de Club Pilates, SLT, BASI y el mercado español (Eversports, Statista): qué hacen distinto los estudios de pilates que más crecen, y qué puede copiar mañana un estudio pequeño.',
   alternates: { canonical: urlDe('/recursos/estudios-pilates-de-exito') },
