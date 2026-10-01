@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { RefreshCw, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useStudio } from '@/lib/studio-context';
 import { mensajeParaSocia, enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
@@ -67,6 +68,19 @@ function diasAbierta(creadoEn: string, fechaHoy: string): number {
   return Math.round((Date.parse(fechaHoy) - Date.parse(creadoEn.slice(0, 10))) / 86400000);
 }
 
+/** Cada situación de la lista, localizable por su id para llegar a ella desde un enlace. */
+function AnclaSituacion({ id, resaltada, children }: { id: string; resaltada: boolean; children: ReactNode }) {
+  return (
+    <div
+      data-recomendacion={id}
+      data-resaltada={resaltada || undefined}
+      className={cn('scroll-mt-24 rounded-2xl transition-shadow', resaltada && 'ring-2 ring-primary ring-offset-2 ring-offset-background')}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function CentroDeControlPage() {
   const { data, loading, error, aprobar, rechazar, posponer, analizarAhora, recargar } = useDecisiones();
   const { socios, studio } = useStudio();
@@ -127,6 +141,57 @@ export default function CentroDeControlPage() {
       document.getElementById('recomendaciones')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
   }
+
+  // Llegar a por algo concreto: `?rec=<id>` (el «Ver en el Centro de Control» de
+  // la ficha de una clienta) o `?detalle=1` (el «Ver y decidir» del Resumen). Abre
+  // el detalle y baja hasta ello: antes se llegaba con todo plegado y había que
+  // buscar a esa clienta a mano entre todas las situaciones. Se lee una vez y se
+  // quita de la dirección, para que volver o recargar no lo repita.
+  const [pedida, setPedida] = useState<{ rec: string | null } | null>(null);
+  const [resaltada, setResaltada] = useState<string | null>(null);
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const rec = p.get('rec');
+    if (!rec && p.get('detalle') !== '1') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search: la URL no existe durante el render en servidor.
+    setPedida({ rec });
+    setDetalleAbierto(true);
+    p.delete('rec');
+    p.delete('detalle');
+    const resto = p.toString();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${resto ? `?${resto}` : ''}`);
+  }, []);
+
+  useEffect(() => {
+    if (!pedida || !data) return;
+    const rec = pedida.rec;
+    const t = setTimeout(() => {
+      setPedida(null);
+      if (!rec) {
+        document.getElementById('recomendaciones')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      // La del mensaje del día no se repite en la lista: está arriba del todo.
+      if (rec === data.veredicto.recomendacion?.id) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      const fila = document.querySelector(`[data-recomendacion="${CSS.escape(rec)}"]`);
+      if (!fila) {
+        toast.show('Esa situación ya no está pendiente: se resolvió o el Centro de Control la retiró.');
+        return;
+      }
+      fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setResaltada(rec);
+    }, 50);
+    return () => clearTimeout(t);
+  }, [pedida, data, toast]);
+
+  useEffect(() => {
+    if (!resaltada) return;
+    const t = setTimeout(() => setResaltada(null), 2500);
+    return () => clearTimeout(t);
+  }, [resaltada]);
 
   // Reorganización §3: recomendaciones pendientes que el piloto automático
   // ejecutaría en el próximo ciclo si sigue encendido — SOLO una referencia
@@ -299,34 +364,37 @@ export default function CentroDeControlPage() {
         ) : (
             <div id="recomendaciones" className="flex flex-col gap-3">
               {prioridadesParaTarjetas.map(r => (
-                <FilaSituacion
-                  key={r.id}
-                  variante="completo"
-                  recomendacion={r}
-                  onAprobar={() => handleAprobar(r.id)}
-                  onRechazar={() => handleRechazar(r.id)}
-                  procesando={procesandoId === r.id}
-                  whatsappHref={whatsappHref(r)}
-                />
+                <AnclaSituacion key={r.id} id={r.id} resaltada={resaltada === r.id}>
+                  <FilaSituacion
+                    variante="completo"
+                    recomendacion={r}
+                    onAprobar={() => handleAprobar(r.id)}
+                    onRechazar={() => handleRechazar(r.id)}
+                    procesando={procesandoId === r.id}
+                    whatsappHref={whatsappHref(r)}
+                  />
+                </AnclaSituacion>
               ))}
               {situacionesNuevas.map(r => (
-                <FilaSituacion
-                  key={r.id}
-                  variante="completo"
-                  recomendacion={r}
-                  onAprobar={() => handleAprobar(r.id)}
-                  onRechazar={() => handleRechazar(r.id)}
-                  procesando={procesandoId === r.id}
-                  whatsappHref={whatsappHref(r)}
-                />
+                <AnclaSituacion key={r.id} id={r.id} resaltada={resaltada === r.id}>
+                  <FilaSituacion
+                    variante="completo"
+                    recomendacion={r}
+                    onAprobar={() => handleAprobar(r.id)}
+                    onRechazar={() => handleRechazar(r.id)}
+                    procesando={procesandoId === r.id}
+                    whatsappHref={whatsappHref(r)}
+                  />
+                </AnclaSituacion>
               ))}
               {enSeguimiento.map(r => (
-                <FilaSituacion
-                  key={r.id}
-                  variante="seguimiento"
-                  recomendacion={r}
-                  diasAbierta={diasAbierta(r.creadoEn, fechaHoy)}
-                />
+                <AnclaSituacion key={r.id} id={r.id} resaltada={resaltada === r.id}>
+                  <FilaSituacion
+                    variante="seguimiento"
+                    recomendacion={r}
+                    diasAbierta={diasAbierta(r.creadoEn, fechaHoy)}
+                  />
+                </AnclaSituacion>
               ))}
             </div>
         )}

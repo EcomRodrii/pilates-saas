@@ -50,6 +50,7 @@ Ninguna cifra va a coincidir con el banco sin restar esas comisiones.
 | Facturado este mes y % frente al anterior | Cobros › Facturas | `facturas.fecha_emision` del mes del estudio y su anterior (`mesAnterior`) |
 | Cierre anual/trimestral, IVA, 347 | Cierre y correo a la gestoría | todas las facturas emitidas (selladas o no) + ingresos manuales; **fuera** las que tienen el registro ANULADO en la AEAT |
 | Gasto total | Ficha de la clienta | suma de `importeIngresado` |
+| Pendiente de cobro | Ficha de la clienta (cabecera) | suma de `importeAdeudado` (por cobrar + impagado), como «Pendiente cobro» de Cobros; debajo, cuántos pagos fallidos lleva |
 | Cobros pendientes | Centro de Control (bandeja) | `POR_COBRAR` (se resuelve cobrando) |
 | Cobros sin cobrar | Bandeja única («decidir») | `IMPAGADO` |
 
