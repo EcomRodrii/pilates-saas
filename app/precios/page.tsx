@@ -67,7 +67,7 @@ const FAQ = [
   },
   {
     q: '¿Qué pasa si supero las 150 alumnas del plan Founding Studio?',
-    a: 'El tope se aplica sobre alumnas activas: al llegar al límite no puedes dar de alta a más hasta que pases al plan Estudio. No se corta nada de lo que ya tienes ni se borra a nadie.',
+    a: 'El tope cuenta alumnas activas. No se bloquea ninguna alta ni se borra a nadie: en Suscripción ves cuántas llevas, y pasas al plan Estudio cuando te encaje.',
   },
   {
     q: '¿Y si un mes falla el cobro de mi suscripción?',
