@@ -97,7 +97,7 @@ export default function RecursosPage() {
       <OrganizationStructuredData />
       <RecursosBreadcrumb />
       <RecursosBlogStructuredData />
-      <SiteNav backHref="/recursos" backLabel="Recursos" />
+      <SiteNav backHref="/" backLabel="Inicio" />
 
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,48px)' }}>
         <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
