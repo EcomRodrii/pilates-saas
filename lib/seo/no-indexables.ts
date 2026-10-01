@@ -19,6 +19,9 @@
 export const PREFIJOS_NO_INDEXABLES = [
   // Infraestructura y autenticación
   '/api', '/login', '/crear-estudio', '/suscripcion', '/invitacion', '/clave-nueva', '/interno',
+  // Aterrizaje para el enlace de la bio de TikTok (app/empieza): repite las
+  // promesas de la home y competiría con ella en el buscador.
+  '/empieza',
   // Puente del magic link para el widget embebido (Modo B) — se abre en una
   // pestaña emergente y se cierra sola, nunca contenido a visitar (Fase 2 del
   // Booking Engine, docs/auth-widget-diseno.md §2/§6).

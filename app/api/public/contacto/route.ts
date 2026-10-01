@@ -21,8 +21,8 @@ import { emitirConsultaContacto } from '@/lib/notifications/emit';
 // el slug.
 //
 // Lo que NO hace, a propósito:
-// - Nunca crea una ficha en `socios` (ocuparía plaza del plan y le mandaría la
-//   bienvenida del portal): pasar a clienta lo decide el mostrador.
+// - Nunca crea una ficha en `socios` (le mandaría la bienvenida del portal):
+//   pasar a clienta lo decide el mostrador.
 // - Nunca manda un correo a la dirección escrita: sería el mismo vector de
 //   abuso que obligó a poner topes en /api/public/descargas.
 // - Nunca registra el cuerpo ni la fila en los logs (datos de terceros, a veces

@@ -344,7 +344,7 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
           : estado === 'SIN_PROBAR' ? 'WhatsApp sin probar'
           : estado === 'FALLANDO' ? 'WhatsApp con problemas' : 'WhatsApp sin conectar';
       }
-      return unir([whatsapp, s.gmailEmail ? 'Gmail conectado' : null]);
+      return unir([whatsapp, s.gmailEmail ? 'Gmail sin uso' : null]);
     }
 
     case 'equipo':
@@ -985,12 +985,14 @@ export function resumenWhatsapp(s: SaludIntegracion): ResumenFila {
   }
 }
 
-/** «Contactos de Gmail»: conectado (con qué cuenta), sin conectar, o nada que conectar todavía. */
-export function resumenGmail(e: { email: string | null | undefined; disponible: boolean }): ResumenFila {
+/**
+ * Gmail ya no se usa (se retiró el 1-oct-2026: lib/gmail.ts). La fila solo sale
+ * si un estudio la tenía conectada, para que la desconecte; sin conectar, nada.
+ */
+export function resumenGmail(e: { email: string | null | undefined }): ResumenFila {
   const email = limpio(e.email);
-  if (email) return { valor: email, estado: { tono: 'activo', etiqueta: 'Conectado' } };
-  if (e.disponible) return { valor: 'Conéctalo para traer tus contactos', estado: { tono: 'neutro', etiqueta: 'Sin conectar' } };
-  return { valor: 'Lo estamos terminando de conectar por nuestro lado', estado: { tono: 'neutro', etiqueta: 'No disponible todavía' } };
+  if (!email) return NADA;
+  return { valor: `${email} · ya no se usa: desconéctalo`, estado: { tono: 'pendiente', etiqueta: 'Sin uso' } };
 }
 
 const EMAIL_VALIDO = /^[^@\s]+@[^@\s.]+\.[^@\s]+$/;

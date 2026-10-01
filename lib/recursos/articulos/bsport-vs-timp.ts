@@ -16,9 +16,10 @@ const articulo: Articulo = {
     'diferencias entre bsport y timp',
     'bsport vs timp para estudios boutique',
     'bsport o timp para un estudio de pilates',
+    'alternativa a bsport con app personalizada',
   ],
   respuesta:
-    'bsport vs TIMP, en corto: los dos cubren reservas, bonos, cobros y app para tus alumnas, con enfoques distintos. bsport, con sede en París, está hecho para estudios boutique: no publica precios, presupuesta tras una demo y reserva la app con tu marca y la sustitución automática de instructoras a sus planes superiores. TIMP, de Valencia, sirve a muchos negocios de clases y citas: publica precios por centro, de 50 a 170 € al mes, pide 3 meses mínimos en la mayoría de planes y da 15 días de prueba.',
+    'bsport vs TIMP: los dos cubren reservas, bonos, cobros y app para tus alumnas. bsport está hecho para estudios boutique: no publica precios y reserva la app con tu marca y las sustituciones automáticas a sus planes altos. TIMP sirve a muchos negocios de clases y citas: de 50 a 170 € al mes por centro, 3 meses mínimos en la mayoría de planes y 15 días de prueba. Como alternativa con precio publicado, Tentare cuesta desde 29 €/mes con IVA, sin permanencia, y la app con tu marca va desde el plan Estudio (59 €/mes).',
   entradilla:
     'Si estás evaluando bsport para tu estudio de pilates y te han hablado de TIMP, aquí tienes bsport vs TIMP lado a lado, con lo que consta hoy en la web de cada uno, para quién encaja cada uno y qué preguntar en la demo. Lo escribe Tentare, que no es ninguno de los dos.',
   secciones: [
@@ -245,7 +246,7 @@ const articulo: Articulo = {
   faq: [
     {
       q: '¿Qué diferencias hay entre bsport y TIMP?',
-      a: 'bsport, de París, está hecho para estudios boutique: no publica precios y reserva la app con tu marca y las sustituciones automáticas a sus planes superiores. TIMP, de Valencia, sirve a muchos negocios de citas y clases, publica precios por centro (de 50 a 170 € al mes), pide 3 meses mínimos en la mayoría de planes y da 15 días de prueba.',
+      a: 'bsport está hecho para estudios boutique: no publica precios y reserva la app con tu marca y las sustituciones automáticas a sus planes superiores. TIMP sirve a muchos negocios de citas y clases, publica precios por centro (de 50 a 170 € al mes), pide 3 meses mínimos en la mayoría de planes y da 15 días de prueba.',
     },
     {
       q: '¿bsport o TIMP para un estudio de pilates boutique?',

@@ -185,6 +185,24 @@ así que todo lo que se versiona lo lee cualquiera:
   RECEPCION mantienen control total, sin cambios.
 - El menú de una cadena es por cadena, no por sede (migración 0103) — no reintroducir el
   toggle antiguo.
+- **Tope de clientas del plan (decisión del fundador, 1-oct-2026): cuenta el chip «Activa» y
+  NO bloquea.** El número es el estado de `lib/clientas/estado.ts`, el mismo que «Clientas
+  activas» del Resumen. Se enseña en /suscripcion: «N de 150 clientas activas»
+  (`lib/billing/uso-tope.ts`).
+  - **Ninguna alta se frena:** ni la manual, ni la importación, ni la pública, ni la de OAuth.
+    Lo que había contaba fichas no dadas de baja (interesadas e inactivas de hace años
+    incluidas) y solo en algunas puertas. Las Activas nacen al asignar plan, vender en caja,
+    importar cuotas, reactivar o descongelar, y ahí no había ninguna.
+  - **Si algún día hay que frenar:** una sola función dueña que cuente por estado, en TODAS
+    esas acciones de mostrador y nunca en el autoservicio de la alumna. Antes, revisión de
+    `tentare-stripe`.
+  - `lib/tope-plan-no-bloquea.test.ts` falla si vuelve una puerta suelta.
+- **Gmail retirado (1-oct-2026).** Solo traía la agenda personal de la dueña como fichas de
+  clientas, y choca con «las interesadas viven en consultas, no en fichas». Ya no se puede
+  conectar; quien la tenía conectada la ve en Configuración solo para desconectarla, y eso
+  borra la credencial. ⚠️ Revoca el permiso en Google **solo si Calendar no está en la misma
+  cuenta**: comparten app de Google, y Google retira TODOS los permisos de la app a la vez
+  (`lib/integraciones/desconectar-gmail.ts`). No reintroducir sin pedirlo.
 
 ## El logotipo: un componente en línea, y `docs/marca/` como única fuente
 

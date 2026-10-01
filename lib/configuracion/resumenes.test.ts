@@ -151,7 +151,7 @@ test('comunicación y conexiones: solo lo que se sabe conectado, y cómo va', ()
   assert.equal(whatsapp({ tipo: 'WHATSAPP', activo: true, ultimoOkEn: '2026-09-02T10:00:00Z', ultimoErrorEn: null, ultimoError: null }), 'WhatsApp funcionando');
   assert.equal(whatsapp({ tipo: 'WHATSAPP', activo: true, ultimoOkEn: null, ultimoErrorEn: null, ultimoError: null }), 'WhatsApp sin probar');
   assert.equal(whatsapp(fallando('WHATSAPP')), 'WhatsApp con problemas');
-  assert.equal(valor(con({ gmailEmail: 'estudio@example.com' }), 'comunicacion'), 'WhatsApp sin conectar · Gmail conectado');
+  assert.equal(valor(con({ gmailEmail: 'estudio@example.com' }), 'comunicacion'), 'WhatsApp sin conectar · Gmail sin uso');
 
   assert.equal(valor(con({ googleCalendarEmail: 'estudio@example.com' }), 'conexiones'), 'Google Calendar conectado');
   assert.equal(valor(con({ googleCalendarEmail: 'estudio@example.com', zoomEmail: 'estudio@example.com' }), 'conexiones'), 'Google Calendar y Zoom conectados');
@@ -645,12 +645,12 @@ test('WhatsApp: un solo estado, y guardado sin usar no es «Conectado»', () => 
   assert.match(mal.valor!, /Session has expired$/);
 });
 
-test('Gmail: conectado con su cuenta, sin conectar, o nada que conectar todavía', () => {
-  assert.deepEqual(resumenGmail({ email: 'estudio@example.com', disponible: false }), { valor: 'estudio@example.com', estado: { tono: 'activo', etiqueta: 'Conectado' } });
-  assert.deepEqual(resumenGmail({ email: null, disponible: true }).estado, { tono: 'neutro', etiqueta: 'Sin conectar' });
-  assert.deepEqual(resumenGmail({ email: ' ', disponible: false }), {
-    valor: 'Lo estamos terminando de conectar por nuestro lado', estado: { tono: 'neutro', etiqueta: 'No disponible todavía' },
+test('Gmail ya no se usa: conectada, pide desconectarla; sin conectar, no hay fila que pintar', () => {
+  assert.deepEqual(resumenGmail({ email: 'estudio@example.com' }), {
+    valor: 'estudio@example.com · ya no se usa: desconéctalo', estado: { tono: 'pendiente', etiqueta: 'Sin uso' },
   });
+  assert.deepEqual(resumenGmail({ email: null }), { valor: null, estado: null });
+  assert.deepEqual(resumenGmail({ email: ' ' }), { valor: null, estado: null });
 });
 
 test('remitente: lo tuyo si está activo, un email a medio escribir no cuenta, y lo que falta sale del estudio', () => {

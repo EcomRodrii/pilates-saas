@@ -59,8 +59,7 @@ export async function POST(req: NextRequest) {
       if (/uq_socios_studio_email/i.test(mensajeError)) {
         return { status: 409, body: { error: 'Ya existe una clienta con ese email', requestId: ctx.requestId } };
       }
-      const status = resultado.code === 'LIMITE_SOCIAS' ? 403 : 400;
-      return { status, body: { error: mensajeError || 'No se pudo crear la clienta', requestId: ctx.requestId } };
+      return { status: 400, body: { error: mensajeError || 'No se pudo crear la clienta', requestId: ctx.requestId } };
     }
     return { status: 201, body: { id: resultado.socioId ?? id, nombre: body.nombre, email: body.email } };
   });

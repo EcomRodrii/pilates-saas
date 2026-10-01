@@ -101,14 +101,6 @@ export function tieneFeature(
   return accesoProducto(studio) && entitlementsDe(studio).features[feature];
 }
 
-/** ¿Puede añadir una socia más sin superar el tope de su plan? */
-export function puedeAnadirSocia(
-  studio: { plan?: string | null },
-  sociasActuales: number,
-): boolean {
-  return sociasActuales < entitlementsDe(studio).maxSocios;
-}
-
 /**
  * El plan más barato que ya incluye esta feature, para poder decir "Disponible
  * en el plan Estudio" en un bloqueo suave de UI. `null` si ningún plan la

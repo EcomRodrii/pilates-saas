@@ -47,5 +47,18 @@ jobs:
           done
           echo "::error::Vercel no terminó en ~26 min"
           exit 1
+      # Solo las URLs que ha cambiado este push (scripts/indexnow.mjs →
+      # urlsAfectadas). Mandar el sitemap entero en cada despliegue era ruido
+      # para Bing. Lanzado a mano (workflow_dispatch) sí manda el sitemap entero.
+      - name: Ficheros que cambia este push
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo 'INDEXNOW_FICHEROS<<FIN_FICHEROS'
+            gh api "repos/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.sha }}" --paginate -q '.files[].filename'
+            echo 'FIN_FICHEROS'
+          } >> "$GITHUB_ENV"
       - name: Avisar a IndexNow
         run: node --experimental-strip-types scripts/indexnow.mjs

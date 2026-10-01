@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { G2_NOTA, G2_URL } from '@/lib/seo/g2';
 import { ACC, ACC_SOFT, DARK, MUTED, MUTED_DARK } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
@@ -21,10 +22,7 @@ function Mark({ v, label }: { v: Verdict; label: string }) {
   return <><span style={{ color, fontWeight: 800 }}>{symbol}</span> {label}</>;
 }
 
-// La nota pública del perfil de G2 (g2.com/products/tentare): se enseña porque
-// cualquiera puede comprobarla. Si cambia, se cambia aquí.
-const G2_URL = 'https://www.g2.com/products/tentare/reviews';
-const G2_NOTA = '4,8/5';
+// La nota pública de G2 (lib/seo/g2.ts): se enseña porque cualquiera puede comprobarla.
 
 /** Lo que distingue a Tentare frente a cualquiera de la lista. Solo cosas que el producto hace hoy. */
 const POR_QUE = [

@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
       // Una instructora del estudio NO se da de alta como alumna por esta vía
       // (la app del estudio es también la de la instructora, 14-sep-2026).
       // `acceso/verificar` lo intentaba en cuanto entraba: le firmaba el
-      // consentimiento de ALUMNA y le ocupaba cupo del plan del estudio. Si
+      // consentimiento de ALUMNA y le creaba una ficha de clienta. Si
       // además quiere ser alumna, el estudio le crea la ficha y se vincula sola
       // al entrar (claim por email en `resolverSociaAutenticada`).
       //
@@ -182,8 +182,6 @@ export async function POST(req: NextRequest) {
       // a fijar y apunta el evento.
       const aceptacion = { fecha: new Date().toISOString(), firma, versionTexto: texto, origen: 'PORTAL' as const };
 
-      // El tope de socias del plan lo comprueba `registrarSociaPublica`, pegado
-      // al insert y DESPUÉS de su salida temprana por idempotencia.
       // ⚠️ EL REFERIDOR SE COMPRUEBA, y no es una cortesía: `socios.referido_por`
       // tiene clave foránea a `socios(id)`, así que un valor que no exista hace
       // fallar el INSERT y deja a la invitada SIN PODER DARSE DE ALTA. Se exige
@@ -204,9 +202,7 @@ export async function POST(req: NextRequest) {
         origenLead: body.origenLead ?? null,
       });
       if ('error' in r) {
-        // 403 para el tope de plan (lo distingue el portal), 400 para el resto.
-        const status = 'code' in r && r.code === 'LIMITE_SOCIAS' ? 403 : 400;
-        return conCorsWidget(req, NextResponse.json(r, { status }));
+        return conCorsWidget(req, NextResponse.json(r, { status: 400 }));
       }
 
       // Sello con historial. Si falla, se responde error: el reintento del

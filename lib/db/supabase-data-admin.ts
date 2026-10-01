@@ -66,7 +66,7 @@ import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado } from '@/lib/engines/streak-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
-import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules';
+import { evaluarFeature } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import { planMasElegido } from '@/lib/estudio-publico';
 import { esRetoKeyValida } from '@/lib/retos-portal';
@@ -5785,20 +5785,6 @@ export async function toggleRetoParticipacion(params: {
 
 // Registra una socia nueva desde el portal/reserva (alta pública). Valida que
 // el estudio existe; el id lo genera el cliente (primera reserva).
-// Socias que cuentan para el tope del plan: activas y no borradas. Mismo
-// criterio que el alta manual y el importador, para que los tres den el mismo
-// número — si divergen, el tope depende de por dónde entres.
-
-async function contarSociasActivas(admin: SupabaseClient, studioId: string): Promise<number> {
-  const { count } = await admin
-    .from('socios')
-    .select('id', { count: 'exact', head: true })
-    .eq('studio_id', studioId)
-    .eq('activo', true)
-    .is('borrado_en', null);
-  return count ?? 0;
-}
-
 
 export async function registrarSociaPublica(params: {
   studioId: string; id: string; nombre: string; email: string;
@@ -5886,17 +5872,9 @@ export async function registrarSociaPublica(params: {
     return { ok: true as const, socioId: fantasma.id as string };
   }
 
-  // Tope de socias del plan. Va AQUÍ, después de la idempotencia y pegado al
-  // insert, y no en la ruta que llama: allí corría ANTES de la salida temprana
-  // de arriba, así que un simple reintento de una socia que YA existe se comía
-  // el bloqueo aunque no fuese a crear ninguna fila. Y ese error lo lee la
-  // CLIENTA, no la dueña — «Tu plan permite hasta N socias, mejóralo» es un
-  // mensaje de facturación que no tiene por qué salir del panel del estudio.
-  //
-  // Separadas, las dos comprobaciones se vuelven a desincronizar; juntas, el
-  // tope solo se aplica cuando de verdad va a entrar una socia nueva.
-  const denegacion = await evaluarLimiteSocias(admin, params.studioId, await contarSociasActivas(admin, params.studioId), 1);
-  if (denegacion) return { error: denegacion.error, code: denegacion.code };
+  // Sin tope del plan: una alta del portal nace «Interesada» y no cuenta como
+  // alumna activa. El tope se enseña en Suscripción y hoy no bloquea
+  // (`.claude/tentare-os.md`, 1-oct-2026).
 
   const { error } = await admin.from('socios').insert({
     id: params.id, studio_id: params.studioId, nombre: params.nombre, apellidos: '',
@@ -6695,11 +6673,13 @@ async function guardarCredencialesOAuth(studioId: string, provider: ProveedorCre
   if (error) reportDbError(etiqueta, error);
 }
 
-async function borrarCredencialesOAuth(studioId: string, provider: ProveedorCredenciales, etiqueta: string) {
+/** `false` = no se ha borrado (sin service role, o la base de datos ha dicho que no). */
+async function borrarCredencialesOAuth(studioId: string, provider: ProveedorCredenciales, etiqueta: string): Promise<boolean> {
   const admin = getSupabaseAdmin();
-  if (!admin) return;
+  if (!admin) return false;
   const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', provider);
-  if (error) reportDbError(etiqueta, error);
+  if (error) { reportDbError(etiqueta, error); return false; }
+  return true;
 }
 
 /**
@@ -6794,16 +6774,19 @@ export async function dbSetKlaviyoAccountName(studioId: string, nombre: string |
 // serverPrefix del estudio viven en la tabla genérica `integraciones`,
 // leídas con dbGetIntegracionConfig(studioId, 'MAILCHIMP') igual que Kisi.
 
-// Gmail: mismo patrón exacto que Google Calendar (misma app de Google,
-// mismo `integracion_credenciales` genérico por proveedor — solo cambia el
-// valor de `provider` a 'gmail' para no mezclar los tokens de las dos
-// integraciones, que un estudio puede tener conectadas independientemente).
+// Gmail: retirado el 1-oct-2026 (lib/gmail.ts). Ya no se conecta; queda lo
+// justo para desconectarlo: leer su token, borrarlo y limpiar el email. Mismo
+// `integracion_credenciales` que Google Calendar con `provider = 'gmail'`, y
+// misma app de Google — por eso desconectarlo no siempre revoca
+// (lib/integraciones/desconectar-gmail.ts).
 
-export async function dbSetGmailEmail(studioId: string, email: string | null) {
+/** `false` = no se ha guardado: la desconexión lo dice en vez de dar un «ok». */
+export async function dbSetGmailEmail(studioId: string, email: string | null): Promise<boolean> {
   const admin = getSupabaseAdmin();
-  if (!admin) return;
+  if (!admin) return false;
   const { error } = await admin.from('studios').update({ gmail_email: email }).eq('id', studioId);
-  if (error) reportDbError('[dbSetGmailEmail]', error);
+  if (error) { reportDbError('[dbSetGmailEmail]', error); return false; }
+  return true;
 }
 
 
@@ -6816,13 +6799,8 @@ export async function dbGetGmailCredenciales(studioId: string): Promise<GmailCre
 }
 
 
-export async function dbSaveGmailCredenciales(studioId: string, c: GmailCredenciales) {
-  await guardarCredencialesOAuth(studioId, 'gmail', c, '[dbSaveGmailCredenciales]');
-}
-
-
-export async function dbDeleteGmailCredenciales(studioId: string) {
-  await borrarCredencialesOAuth(studioId, 'gmail', '[dbDeleteGmailCredenciales]');
+export async function dbDeleteGmailCredenciales(studioId: string): Promise<boolean> {
+  return borrarCredencialesOAuth(studioId, 'gmail', '[dbDeleteGmailCredenciales]');
 }
 
 // Zoom: mismo patrón exacto que Google Calendar/Gmail (una app de Zoom para

@@ -10,7 +10,7 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 //
 // 15-sep-2026: Configuración se reorganizó por preguntas y cada integración
 // está en la sección de lo que hace: Stripe en «Cobros y facturas», el
-// remitente, WhatsApp y Gmail en «Cómo me comunico», y el resto en
+// remitente y WhatsApp en «Cómo me comunico», y el resto en
 // «Conexiones». Llevarte tus datos no es una integración: está en «Datos y
 // seguridad» («Exportar mis datos»). Los nombres y frases de abajo son los de la pantalla
 // (lib/configuracion/secciones.ts): desde el 15-sep (v2) cada integración es una fila
@@ -28,7 +28,6 @@ const GRUPOS: { seccion: string; tarjetas: [string, string][] }[] = [
     tarjetas: [
       ['Nombre y respuesta de tus correos', 'El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas.'],
       ['WhatsApp', 'Recordatorios y avisos desde tu número de WhatsApp Business.'],
-      ['Contactos de Gmail', 'Trae los contactos de tu Gmail como alumnas nuevas. Los correos no salen desde tu Gmail.'],
     ],
   },
   {
@@ -69,7 +68,7 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo se conectan</h2>
       <p>
-        La mayoría se conecta entrando con tu cuenta (Google Calendar, Gmail, Klaviyo, Stripe, Zoom): das permiso en
+        La mayoría se conecta entrando con tu cuenta (Google Calendar, Klaviyo, Stripe, Zoom): das permiso en
         la ventana del propio servicio, sin copiar ninguna clave. Mailchimp y Kisi piden tu clave API, y WhatsApp los
         datos de tu cuenta de Meta. Zapier funciona al revés: la conexión se autoriza desde Zapier, no desde Tentare.
       </p>

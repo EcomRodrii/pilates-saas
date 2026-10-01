@@ -15,16 +15,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { accesoProducto, tieneFeature, entitlementsDe, type Entitlements } from './entitlements.ts';
+import { accesoProducto, tieneFeature, type Entitlements } from './entitlements.ts';
 import { estadoTrial } from './trial.ts';
 
 /** Motivo de denegación (sin acoplar a HTTP: el status es orientativo del código). */
 export type Denegacion = {
   status: number;
   error: string;
-  code: 'SUSCRIPCION_INACTIVA' | 'PLAN_SIN_FEATURE' | 'LIMITE_SOCIAS' | 'ESTUDIO_SUSPENDIDO';
+  code: 'SUSCRIPCION_INACTIVA' | 'PLAN_SIN_FEATURE' | 'ESTUDIO_SUSPENDIDO';
   feature?: keyof Entitlements['features'];
-  max?: number | null;
 };
 
 export function billingEnforced(): boolean {
@@ -125,25 +124,5 @@ export async function evaluarFeature(
     error: 'Tu plan no incluye esta función. Mejóralo en Suscripción.',
     code: 'PLAN_SIN_FEATURE',
     feature,
-  };
-}
-
-/** Denegación si añadir `aAnadir` socias superaría el tope del plan. `null` = puede seguir. */
-export async function evaluarLimiteSocias(
-  admin: SupabaseClient | null,
-  studioId: string,
-  sociasActuales: number,
-  aAnadir: number,
-): Promise<Denegacion | null> {
-  if (!billingEnforced()) return null;
-  const billing = await cargarBilling(admin, studioId);
-  if (!billing) return null;
-  const max = entitlementsDe({ plan: billing.plan }).maxSocios;
-  if (sociasActuales + aAnadir <= max) return null;
-  return {
-    status: 403,
-    error: `Tu plan permite hasta ${max === Infinity ? 'ilimitadas' : max} socias activas. Mejóralo para añadir más.`,
-    code: 'LIMITE_SOCIAS',
-    max: max === Infinity ? null : max,
   };
 }

@@ -28,3 +28,36 @@ test('el cuerpo lleva host, clave y dónde está la clave', () => {
   assert.equal(c.keyLocation, `https://${INDEXNOW_HOST}/${INDEXNOW_CLAVE}.txt`);
   assert.deepEqual(c.urlList, [`https://${INDEXNOW_HOST}/`]);
 });
+
+const H = `https://${INDEXNOW_HOST}`;
+const SITEMAP = ['/', '/precios', '/recursos', '/recursos/bsport-vs-timp', '/recursos/precio-clase-de-pilates',
+  '/comparativa', '/comparativa/tentare-vs-lorari', '/funcionalidades/facturacion'].map((r) => `${H}${r === '/' ? '/' : r}`);
+
+test('una guía cambiada avisa solo de esa guía', async () => {
+  const { urlsAfectadas } = await import('./indexnow.ts');
+  assert.deepEqual(urlsAfectadas(['lib/recursos/articulos/bsport-vs-timp.ts'], SITEMAP), [`${H}/recursos/bsport-vs-timp`]);
+  assert.deepEqual(urlsAfectadas(['lib/recursos/articulos/articulos.test.ts'], SITEMAP), []);
+});
+
+test('una página de app/ avisa de su ruta, sin grupos de rutas', async () => {
+  const { urlsAfectadas } = await import('./indexnow.ts');
+  assert.deepEqual(urlsAfectadas(['app/comparativa/tentare-vs-lorari/page.tsx'], SITEMAP), [`${H}/comparativa/tentare-vs-lorari`]);
+  assert.deepEqual(urlsAfectadas(['app/(marketing)/precios/page.tsx'], SITEMAP), [`${H}/precios`]);
+});
+
+test('un segmento dinámico o un fichero compartido avisa de su sección, no del sitio', async () => {
+  const { urlsAfectadas } = await import('./indexnow.ts');
+  const recursos = [`${H}/recursos`, `${H}/recursos/bsport-vs-timp`, `${H}/recursos/precio-clase-de-pilates`];
+  assert.deepEqual(urlsAfectadas(['app/recursos/[slug]/page.tsx'], SITEMAP).sort(), recursos.sort());
+  assert.deepEqual(urlsAfectadas(['lib/recursos/articulos/tipos.ts'], SITEMAP).sort(), recursos.sort());
+});
+
+test('el registro de SEO puede cambiar cualquier página: avisa de todas', async () => {
+  const { urlsAfectadas } = await import('./indexnow.ts');
+  assert.equal(urlsAfectadas(['lib/seo/paginas.ts'], SITEMAP).length, SITEMAP.length);
+});
+
+test('lo que no es una página pública no avisa de nada', async () => {
+  const { urlsAfectadas } = await import('./indexnow.ts');
+  assert.deepEqual(urlsAfectadas(['app/(dashboard)/clientas/page.tsx', 'lib/billing/x.ts', 'app/api/x/route.ts'], SITEMAP), []);
+});

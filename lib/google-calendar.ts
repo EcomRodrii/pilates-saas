@@ -72,6 +72,13 @@ export async function exchangeCodeForTokens(code: string): Promise<{ accessToken
   };
 }
 
+/**
+ * Google ya no acepta el token: la dueña quitó el permiso desde su cuenta de
+ * Google, se revocó o caducó. Reintentar no lo arregla; hay que volver a
+ * conectar. Sin distinguirlo, «Sincronizar ahora» acababa en un 500 mudo.
+ */
+export class PermisoGoogleRetirado extends Error {}
+
 async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; expiresAt: string }> {
   const { clientId, clientSecret } = env();
   if (!clientId || !clientSecret) throw new Error('Google Calendar no configurado');
@@ -87,6 +94,7 @@ async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: 
     }),
   });
   const data = (await res.json()) as TokenResponse;
+  if (data.error === 'invalid_grant') throw new PermisoGoogleRetirado(data.error_description ?? data.error);
   if (!res.ok || !data.access_token) {
     throw new Error(data.error_description ?? data.error ?? 'No se pudo renovar el token de Google');
   }

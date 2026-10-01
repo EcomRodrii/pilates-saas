@@ -91,13 +91,12 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     });
   }
 
-  // La vuelta de cada conexión: los cinco callbacks de OAuth y el Embedded
+  // La vuelta de cada conexión: los callbacks de OAuth y el Embedded
   // Signup de WhatsApp. Cada aviso lo pinta la sección que tiene su tarjeta; si
   // la URL llevara a otra, el aviso no saldría nunca. Con el `tab=` que
   // mandaban hasta el 15-sep, con el de hoy y sin ninguno.
   const VUELTAS: [string, string, string, string, string][] = [
     ['/configuracion?stripe_connected=1', 'Cobros y facturas', 'Stripe conectado — ya puedes cobrar en tu propia cuenta', '#integracion-stripe', 'cobros'],
-    ['/configuracion?tab=integraciones&gmail_connected=1', 'Cómo me comunico', 'Gmail conectado', '#integracion-gmail', 'comunicacion'],
     ['/configuracion?tab=conexiones&google_calendar_connected=1', 'Conexiones', 'Google Calendar conectado', '#integracion-google_calendar', 'conexiones'],
     ['/configuracion?tab=integraciones&zoom_error=denegado', 'Conexiones', 'Error al conectar Zoom: denegado', '#integracion-zoom', 'conexiones'],
     // Klaviyo tiene su fila desde el 15-sep (v2): antes vivía en «Más integraciones».

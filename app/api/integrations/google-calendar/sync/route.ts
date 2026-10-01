@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { getValidAccessToken, upsertEventoClase, eliminarEventoClase } from '@/lib/google-calendar';
+import { getValidAccessToken, upsertEventoClase, eliminarEventoClase, PermisoGoogleRetirado } from '@/lib/google-calendar';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Guardar el id del evento de Google en la sesión. Antes esto llamaba a
@@ -63,7 +63,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Solo la propietaria puede sincronizar integraciones' }, { status: 403 });
   }
 
-  const accessToken = await getValidAccessToken(sesion.studioId);
+  let accessToken: string | null;
+  try {
+    accessToken = await getValidAccessToken(sesion.studioId);
+  } catch (e) {
+    // El cajón tiene «Desconectar» justo debajo de este botón.
+    if (e instanceof PermisoGoogleRetirado) {
+      return NextResponse.json({
+        error: 'Google ya no deja a Tentare entrar en tu calendario. Desconéctalo aquí abajo y vuelve a conectarlo.',
+      }, { status: 409 });
+    }
+    return errorInterno('google-calendar:sync', e, 'No hemos podido hablar con Google. Vuelve a intentarlo en un rato.', 502);
+  }
   if (!accessToken) {
     return NextResponse.json({ error: 'Este estudio no tiene Google Calendar conectado' }, { status: 400 });
   }

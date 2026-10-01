@@ -17,9 +17,10 @@ const articulo: Articulo = {
     'programa para gestionar un estudio de pilates',
     'app para estudio de pilates',
     'software de pilates',
+    'cómo elegir un software para un estudio de pilates o yoga',
   ],
   respuesta:
-    'El mejor software para estudios de pilates es el que cubre tu día a día sin atarte: reservas con aforo por clase o por máquina, bonos con caducidad, cobros recurrentes con tarjeta o SEPA, lista de espera, sustituciones, facturación preparada para Veri*Factu y una app para tus alumnas. Mira también el precio y la permanencia: hay planes gratuitos con límites y, entre los de pago que publican tarifa, la entrada va de 12 € + IVA a 99 € al mes por sede.',
+    'Para elegir software para un estudio de pilates o yoga, comprueba cuatro cosas: que reserve con aforo por clase o por máquina, que cobre bonos y cuotas solo (con tarjeta o SEPA), que tus alumnas tengan app para reservar y cancelar, y que publique precio y permanencia. Entre los 13 programas comparados, los de pago con tarifa pública van de 12 € + IVA a 99 € al mes por sede. Tentare, que escribe esta guía, cuesta desde 29 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta.',
   entradilla:
     'Esta comparativa del mejor software para estudios de pilates la escribe Tentare, que también aparece en la tabla. Para que te sirva aunque no nos elijas, de cada programa solo contamos lo que consta hoy en su web pública, con la fuente enlazada, y cuando algo no consta, lo decimos tal cual.',
   secciones: [

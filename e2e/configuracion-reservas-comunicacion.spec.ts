@@ -151,7 +151,7 @@ for (const vista of VISTAS) {
       expect(await seSaleDelCajon(page)).toEqual([]);
     });
 
-    test('Cómo me comunico: filas con su valor, y WhatsApp y Gmail con un solo estado', async ({ page }) => {
+    test('Cómo me comunico: filas con su valor, WhatsApp con un solo estado, y Gmail solo si sigue conectado', async ({ page }) => {
       await abrir(page, 'configuracion?tab=comunicacion');
       // Sin nombre ni email propios: los del estudio, que es con lo que salen.
       await expect(valor(page, 'integracion-resend')).toHaveText('Pilates Centro · responde a cloe@example.com', { timeout: 30_000 });
@@ -161,10 +161,8 @@ for (const vista of VISTAS) {
       await expect(estado(page, 'integracion-whatsapp')).toHaveText('Sin conectar');
       await expect(page.locator('#integracion-whatsapp').getByRole('button', { name: 'Conectar' })).toBeVisible();
 
-      await expect(estado(page, 'integracion-gmail')).toHaveCount(1);
-      const gmail = await estado(page, 'integracion-gmail').textContent();
-      expect(gmail).toMatch(/^(Sin conectar|No disponible todavía)$/);
-      await expect(page.locator('#integracion-gmail').getByRole('button', { name: 'Conectar' })).toHaveCount(gmail === 'Sin conectar' ? 1 : 0);
+      // Gmail se retiró (1-oct-2026): sin conectar no hay fila, ni nada que conectar.
+      await expect(page.locator('#integracion-gmail')).toHaveCount(0);
       await expect(page.getByText('No conectado', { exact: true })).toHaveCount(0);
 
       // El recordatorio ya no es un texto fijo: es la fila de «Avisos en el móvil», con la antelación del estudio.

@@ -159,9 +159,10 @@ export function GlobalSearch({
   // busca por lo que dice el plan, igual que en el inicio de Configuración.
   const haySedes = !!studio && (tieneFeature(studio, 'multiCentro') || !!studio.cadenaId);
   const esCadena = !!studio?.cadenaId;
+  const gmailConectado = !!studio?.gmailEmail;
   const ajustesRes = useMemo(
-    () => ajustesParaBuscadorGlobal(q, { rol, haySedes, esCadena }),
-    [q, rol, haySedes, esCadena],
+    () => ajustesParaBuscadorGlobal(q, { rol, haySedes, esCadena, gmailConectado }),
+    [q, rol, haySedes, esCadena, gmailConectado],
   );
   // Una tarea que lleva a la misma tarjeta que un ajuste de la lista sobra.
   const tareasSinRepetir = useMemo(() => sinTareasRepetidas(tareasRes, ajustesRes), [tareasRes, ajustesRes]);

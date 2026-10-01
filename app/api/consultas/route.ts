@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 // Apuntar a mano a una interesada (llamó, escribió por Instagram, pasó por la
 // puerta). Va a `consultas_contacto`, como las del formulario de la web: no es
-// una ficha, no ocupa plaza del plan y no recibe nada automático. La ficha la
+// una ficha y no recibe nada automático. La ficha la
 // crean los caminos de siempre (darla de alta, que reserve o compre), y al
 // crearse un trigger la enlaza con esta consulta.
 //

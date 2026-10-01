@@ -20,8 +20,9 @@ import { DetallePlataformasExternas, resumenPlataformasActivas, usePlataformasAc
 //
 // Una fila por conexión con UN estado (conexiones.tsx), agrupadas por cómo
 // están: lo que falla arriba, luego lo conectado y lo que falta por conectar
-// (`agruparConexiones`). Stripe, WhatsApp y Gmail no se repiten aquí: viven en
-// Cobros y facturas y en Cómo me comunico, y aquí solo hay una fila que lleva.
+// (`agruparConexiones`). Stripe y WhatsApp no se repiten aquí: viven en Cobros
+// y facturas y en Cómo me comunico, y aquí solo hay una fila que lleva. Gmail
+// (retirado) sale solo en Cómo me comunico, y solo a quien lo tiene conectado.
 //
 // Las anclas de siempre (`#integracion-zoom`, y la vuelta de cada conexión)
 // llevan a su fila; si está conectada, abren su cajón.
@@ -100,7 +101,7 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
         <FilaOtraSeccion
           id="fila-a-comunicacion"
           icono={MessageCircle}
-          titulo="WhatsApp y Gmail"
+          titulo="WhatsApp"
           valor={`En «${seccionPorId('comunicacion').titulo}»`}
           seccion="comunicacion"
           ancla="integracion-whatsapp"
