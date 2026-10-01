@@ -27,6 +27,15 @@ test('ninguna suscripción cae en las dos listas', () => {
   assert.ok(!r.renovar.some(x => r.cancelar.includes(x)));
 });
 
+test('la cuota de una clienta dada de baja no se renueva aunque nadie le programara la baja', () => {
+  const r = repartirVencidas(
+    [{ id: 'de-baja', socio_id: 'soc-baja' }, { id: 'activa', socio_id: 'soc-activa' }],
+    new Set(['soc-baja']),
+  );
+  assert.deepEqual(r.cancelar.map(s => s.id), ['de-baja']);
+  assert.deepEqual(r.renovar.map(s => s.id), ['activa']);
+});
+
 test('solo se programa en una cuota activa con fecha de fin', () => {
   const cuota = { tipo: 'MENSUAL' };
   assert.equal(puedeProgramarBaja({ estado: 'ACTIVA', fechaFin: '2026-09-30' }, cuota), true);

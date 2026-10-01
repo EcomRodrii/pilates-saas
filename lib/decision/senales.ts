@@ -3,11 +3,12 @@
 // (patrón P0-19 de lib/engines/automation-engine.ts) — nadie vuelve a iterar las
 // colecciones completas por socia.
 import type { Reserva, Suscripcion, PlanTarifa, AutomationLog, Recibo, Socio, Sesion, TipoClase } from '@/lib/types';
-import type { SnapshotEstudio, IntentoFallidoSnapshot } from './tipos.ts';
+import type { SnapshotEstudio, IntentoFallidoSnapshot, ContactoManualSnapshot } from './tipos.ts';
 import { riesgoNoShow, type RiesgoNoShow, type ReservaHistorica } from '../no-show.ts';
 import { franjaLocalDe } from '../utils.ts';
 import { tieneEntitlementActivo } from '../bono-logic.ts';
 import { PREFIJO_RECIBO_PENALIZACION } from '../billing/penalizacion-aprobar-reglas.ts';
+import { estadosDeClientas, type ResultadoEstado } from '../clientas/estado.ts';
 
 export interface IndicesSenal {
   socioPorId: Map<string, Socio>;
@@ -40,6 +41,8 @@ export interface IndicesSenal {
   referidosPorSocio: Map<string, Socio[]>;
   // Intentos de reserva self-service rechazados por socia, 90d (informe fila 14).
   intentosFallidosPorSocio: Map<string, IntentoFallidoSnapshot[]>;
+  // Contactos apuntados a mano desde su ficha, 90d, del más reciente al más antiguo.
+  contactosPorSocio: Map<string, ContactoManualSnapshot[]>;
 }
 
 function agrupar<T>(items: T[], claveDe: (item: T) => string | null | undefined): Map<string, T[]> {
@@ -76,6 +79,27 @@ function ordenarDesc(reservas: Reserva[]): Reserva[] {
 // construirlo. Si algún día hiciera falta, hay que clonar el snapshot, no
 // modificarlo en sitio — si no, los índices quedarían viejos en silencio.
 const INDICES_POR_SNAPSHOT = new WeakMap<SnapshotEstudio, IndicesSenal>();
+
+const ESTADOS_POR_SNAPSHOT = new WeakMap<SnapshotEstudio, { t: number; m: ReadonlyMap<string, ResultadoEstado> }>();
+
+/**
+ * El estado de cada socia (Activa, De prueba, Interesada…): el MISMO que enseña
+ * Clientas, con `lib/clientas/estado.ts` y los hechos de todo su historial
+ * (`hechosClientas`), no con `lead_stage`, que solo lo cambiaba un selector a
+ * mano y ya no existe. Se calcula una vez por foto y momento.
+ */
+export function estadosDelSnapshot(s: SnapshotEstudio, now: Date): ReadonlyMap<string, ResultadoEstado> {
+  const previo = ESTADOS_POR_SNAPSHOT.get(s);
+  if (previo && previo.t === now.getTime()) return previo.m;
+  const hechos = new Map(Object.entries(s.hechosClientas ?? {}));
+  const m = estadosDeClientas(
+    { socios: s.socios, suscripciones: s.suscripciones, planesTarifa: s.planesTarifa, reservas: [], sesiones: [] },
+    now,
+    hechos,
+  );
+  ESTADOS_POR_SNAPSHOT.set(s, { t: now.getTime(), m });
+  return m;
+}
 
 export function construirIndices(s: SnapshotEstudio): IndicesSenal {
   const cacheado = INDICES_POR_SNAPSHOT.get(s);
@@ -145,6 +169,7 @@ function calcularIndices(s: SnapshotEstudio): IndicesSenal {
     tarifaHoraPorInstructor,
     referidosPorSocio,
     intentosFallidosPorSocio,
+    contactosPorSocio: new Map([...agrupar(s.contactosManuales ?? [], c => c.socioId)].map(([k, v]) => [k, [...v].sort((a, b) => b.en.localeCompare(a.en))])),
   };
 }
 
@@ -247,12 +272,28 @@ export function valorMensual(socioId: string, idx: IndicesSenal, now: Date): num
   return recibos.reduce((acc, r) => acc + r.importe, 0) / 3;
 }
 
-/** Días desde el último contacto registrado (cualquier acción de automation_logs). null = nunca. */
+/**
+ * Días desde el último contacto: cualquier acción de automation_logs, o un
+ * contacto que alguien del equipo apuntó a mano en su ficha («la llamé»). Sin
+ * los apuntados, el motor seguía proponiendo «escríbele» a quien la
+ * recepcionista acababa de llamar. null = nunca.
+ */
 export function diasDesdeUltimoContacto(socioId: string, idx: IndicesSenal, now: Date): number | null {
   const logs = idx.logsPorSocio.get(socioId) ?? [];
-  if (logs.length === 0) return null;
-  const masReciente = logs.reduce((max, l) => (l.ejecutadoEn > max.ejecutadoEn ? l : max));
-  return Math.floor((now.getTime() - new Date(masReciente.ejecutadoEn).getTime()) / MS_DIA);
+  const apuntado = idx.contactosPorSocio.get(socioId)?.[0]?.en ?? null;
+  const automatico = logs.length > 0 ? logs.reduce((max, l) => (l.ejecutadoEn > max.ejecutadoEn ? l : max)).ejecutadoEn : null;
+  const ultimo = [automatico, apuntado].filter((x): x is string => !!x).sort().pop() ?? null;
+  if (!ultimo) return null;
+  return Math.max(0, Math.floor((now.getTime() - new Date(ultimo).getTime()) / MS_DIA));
+}
+
+/**
+ * Su último contacto apuntado (90 días) dice que no quiere seguir: no se le
+ * vuelve a proponer recuperarla. Si después se le apuntó otro contacto con otro
+ * resultado (cambió de idea), manda el último.
+ */
+export function noQuiereSeguir(socioId: string, idx: IndicesSenal): boolean {
+  return idx.contactosPorSocio.get(socioId)?.[0]?.resultado === 'NO_QUIERE_SEGUIR';
 }
 
 /** Días desde el alta de la socia. null si no se encuentra en el índice. */
@@ -262,11 +303,20 @@ export function diasDesdeAlta(socioId: string, idx: IndicesSenal, now: Date): nu
   return Math.floor((now.getTime() - new Date(socio.fechaAlta).getTime()) / MS_DIA);
 }
 
-/** Asistencias (ASISTIDA) dentro de los primeros 30 días desde el alta. */
-export function visitasEnOnboarding(socioId: string, idx: IndicesSenal): number {
+/**
+ * Inicio de sus primeros 30 días: el día que empezó de verdad (`desdeDia`,
+ * 'YYYY-MM-DD': su primera compra) o, si no se da, su alta.
+ */
+function inicioOnboarding(socio: Socio, desdeDia?: string | null): number {
+  if (desdeDia) return Date.UTC(Number(desdeDia.slice(0, 4)), Number(desdeDia.slice(5, 7)) - 1, Number(desdeDia.slice(8, 10)));
+  return new Date(socio.fechaAlta).getTime();
+}
+
+/** Asistencias (ASISTIDA) dentro de sus primeros 30 días (desde `desdeDia`, o desde el alta). */
+export function visitasEnOnboarding(socioId: string, idx: IndicesSenal, desdeDia?: string | null): number {
   const socio = idx.socioPorId.get(socioId);
   if (!socio) return 0;
-  const desde = new Date(socio.fechaAlta).getTime();
+  const desde = inicioOnboarding(socio, desdeDia);
   const hasta = desde + 30 * MS_DIA;
   const asistidas = idx.asistidasPorSocio.get(socioId) ?? [];
   return asistidas.filter(r => {
@@ -283,10 +333,10 @@ export function visitasEnOnboarding(socioId: string, idx: IndicesSenal): number 
  * que `esPrimeraAsistencia` (lib/booking-logic.ts) usa para el premio de
  * referidos — no se reinventa el criterio, solo se consulta con fecha.
  */
-export function conocidasEnOnboarding(socioId: string, idx: IndicesSenal): number {
+export function conocidasEnOnboarding(socioId: string, idx: IndicesSenal, desdeDia?: string | null): number {
   const socio = idx.socioPorId.get(socioId);
   if (!socio) return 0;
-  const desde = new Date(socio.fechaAlta).getTime();
+  const desde = inicioOnboarding(socio, desdeDia);
   const hasta = desde + 30 * MS_DIA;
   const referidos = idx.referidosPorSocio.get(socioId) ?? [];
   let n = 0;

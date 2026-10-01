@@ -38,7 +38,7 @@ function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
   return {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
     suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [],
-    campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [],
+    campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contactosManuales: [],
     contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
     ...over,
   };

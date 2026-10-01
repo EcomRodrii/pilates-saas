@@ -100,6 +100,7 @@ import type {
   Socio,
   Suscripcion,
 } from '@/lib/types';
+import type { ContactoManualSnapshot } from '@/lib/decision/tipos';
 import {
   generarHuecosDia, dentroDeDisponibilidad, horaParedAInstante,
   type IntervaloOcupado, type HuecoCita,
@@ -180,6 +181,12 @@ export type ComunicacionSocio = {
   error: string | null;
   creadoEn: string;
   creadoPorNombre: string | null;
+  /** Cuenta de quien lo apuntó (contactos): para que solo ella o la propietaria lo borren. */
+  creadoPor: string | null;
+  /** Solo en los contactos apuntados a mano (tipo 'contacto'). */
+  canal: string | null;
+  resultado: string | null;
+  nota: string | null;
 };
 
 // Registra el resultado REAL de un envío (éxito o fallo) a `comunicaciones_socio`
@@ -225,17 +232,21 @@ export async function registrarComunicacion(params: {
 // Historial de comunicaciones de una socia concreta, para la ficha de
 // clienta. Filtrado explícito por studio_id + socio_id aunque se use
 // service-role (bypasa RLS) — el caller (API route) ya comprueba el rol.
-export async function dbListComunicacionesSocio(studioId: string, socioId: string): Promise<ComunicacionSocio[]> {
+//
+// `null` si no se ha podido leer (la ruta responde 500): un historial vacío
+// significa «nadie le ha escrito», y decirlo cuando en realidad la lectura
+// falló hacía pensar a la recepcionista que nadie la había llamado.
+export async function dbListComunicacionesSocio(studioId: string, socioId: string): Promise<ComunicacionSocio[] | null> {
   const admin = getSupabaseAdmin();
-  if (!admin) return [];
+  if (!admin) return null;
   const { data, error } = await admin
     .from('comunicaciones_socio')
-    .select('id, tipo, asunto, estado, error, creado_en, creado_por_nombre')
+    .select('id, tipo, asunto, estado, error, creado_en, creado_por, creado_por_nombre, canal, resultado, nota')
     .eq('studio_id', studioId)
     .eq('socio_id', socioId)
     .order('creado_en', { ascending: false })
-    .limit(50);
-  if (error) { reportDbError('[dbListComunicacionesSocio]', error); return []; }
+    .limit(100);
+  if (error) { reportDbError('[dbListComunicacionesSocio]', error); return null; }
   return (data ?? []).map(r => ({
     id: r.id as string,
     tipo: r.tipo as string,
@@ -244,6 +255,10 @@ export async function dbListComunicacionesSocio(studioId: string, socioId: strin
     error: r.error as string | null,
     creadoEn: r.creado_en as string,
     creadoPorNombre: r.creado_por_nombre as string | null,
+    creadoPor: (r.creado_por as string | null) ?? null,
+    canal: (r.canal as string | null) ?? null,
+    resultado: (r.resultado as string | null) ?? null,
+    nota: (r.nota as string | null) ?? null,
   }));
 }
 
@@ -7106,6 +7121,25 @@ export async function fetchAbandonoCheckoutReciente(studioId: string, desdeISO: 
     .limit(1000) as { data: { session_id: string; tipo: 'checkout_started' | 'booking_completed'; creado_en: string }[] | null; error: { message: string } | null };
   if (error) { reportDbError('[fetchAbandonoCheckoutReciente]', error); return []; }
   return (data ?? []).map(r => ({ sessionId: r.session_id, tipo: r.tipo, creadoEn: r.creado_en }));
+}
+
+// Contactos apuntados a mano desde la ficha (comunicaciones_socio, tipo
+// 'contacto') en la ventana del Decision OS. Paginado por id: PostgREST corta en
+// 1.000 filas sin avisar, y un estudio grande con la recepción apuntando cada
+// llamada puede pasar de ahí en 90 días.
+export async function fetchContactosManualesRecientes(studioId: string, desdeISO: string): Promise<ContactoManualSnapshot[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  type Fila = { socio_id: string; creado_en: string; resultado: ContactoManualSnapshot['resultado'] };
+  const { data, error } = await fetchAllRows<Fila>(studioId, 'comunicaciones_socio', (desde, hasta) => db
+    .from('comunicaciones_socio')
+    .select('socio_id, creado_en, resultado')
+    .eq('studio_id', studioId)
+    .eq('tipo', 'contacto')
+    .gte('creado_en', desdeISO)
+    .order('id')
+    .range(desde, hasta) as unknown as PromiseLike<{ data: Fila[] | null; error: { message: string } | null }>);
+  if (error) { reportDbError('[fetchContactosManualesRecientes]', error); return []; }
+  return data.map(r => ({ socioId: r.socio_id, en: r.creado_en, resultado: r.resultado ?? null }));
 }
 
 // Fase A1 (Decision OS): nº de sedes de la cadena a la que pertenece el

@@ -603,6 +603,13 @@ export interface NotaInterna {
   texto: string;
   tipo: 'NOTA' | 'SISTEMA';
   creadoEn: string;
+  /** Cuenta de quien la escribió (la pone la base de datos). null = nota antigua, sin autora. */
+  autorUid: string | null;
+  /** EQUIPO: la lee todo el mostrador. PRIVADA: su autora y la propietaria. */
+  visibilidad: 'EQUIPO' | 'PRIVADA';
+  /** Fijada arriba de su ficha. */
+  fijada: boolean;
+  editadaEn: string | null;
 }
 
 // ─── Ficha clínica operativa (FICHA-CLINICA.md) ──────────────────────────────
@@ -1462,9 +1469,10 @@ export type SegmentoFijo =
 /**
  * A quién va una campaña.
  *
- * Los fijos de arriba, más dos con parámetro: `ETAPA:<leadStage>` y
- * `ETIQUETA:<tag>`. Existen porque la pantalla de Mensajería ya sabía filtrar
- * por etapa del embudo y por etiqueta, pero lo hacía por su cuenta y mandaba
+ * Los fijos de arriba, más dos con parámetro: `ETAPA:<estado>` (el estado de
+ * Clientas; las etapas antiguas guardadas se traducen) y `ETIQUETA:<tag>`.
+ * Existen porque la pantalla de Mensajería ya sabía filtrar por etapa y por
+ * etiqueta, pero lo hacía por su cuenta y mandaba
  * los emails uno a uno desde el navegador — sin filtro de consentimiento, sin
  * enlace de baja y sin quedar registrado en ninguna parte. Al unificarlo con el
  * motor de campañas había que traerse esas dos formas de elegir, no tirarlas.
@@ -1657,7 +1665,8 @@ export interface NotaProgreso {
   id: string;
   studioId: string;
   socioId: string;
-  instructorId: string;
+  /** Quien la escribió, si tiene ficha de instructora; `null` = la propietaria sin ficha. */
+  instructorId: string | null;
   sesionId: string | null;
   textoLibre: string;
   progreso: string | null;

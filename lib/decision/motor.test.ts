@@ -83,7 +83,7 @@ test('fixture del mockup: Laura + Marta + martes 19h + 2 pagos → Prioridades =
     studioId: 'e1',
     socios, reservas: [...reservasHistoricas, ...reservasLlenas, ...listaEspera],
     sesiones, salas, recibos, suscripciones, planesTarifa: planes,
-    tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contactosManuales: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
   const memoria: MemoriaEstudio = new Map();
 
@@ -139,7 +139,7 @@ test('fixture del mockup: Laura + Marta + martes 19h + 2 pagos → Prioridades =
 test('silencio: estudio sin ninguna señal → cero candidatas, estado EXCELENTE, saludo sin decisiones', () => {
   const snapshot: SnapshotEstudio = {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contactosManuales: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
   const resultado = ejecutarAnalisis({
     snapshot, memoria: new Map(), pendientesActuales: [], resueltas90d: [],
@@ -162,7 +162,7 @@ test('flagsEspecialistas: FINANZAS=false apaga ese especialista sin tocar los de
     recibos: [],
     suscripciones: [suscripcion({ socioId: 's1', planId: 'bono1', sesionesRestantes: 1 })],
     planesTarifa: [plan({ id: 'bono1', tipo: 'BONO', sesiones: 8, precio: 64 })],
-    tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [],
+    tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contactosManuales: [],
     contexto: { nSociasActivas: 1, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
   const base = {
@@ -190,7 +190,7 @@ test('MARKETING no genera candidatas con el módulo congelado, aunque el flag de
   const reservas = socios.flatMap(s => asistencias(s.id, 1, 1, 35));
   const snapshot: SnapshotEstudio = {
     studioId: 'e1', socios, reservas, sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [],
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contactosManuales: [],
     contexto: { nSociasActivas: 6, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
   const resultado = ejecutarAnalisis({
@@ -204,7 +204,7 @@ test('MARKETING no genera candidatas con el módulo congelado, aunque el flag de
 test('expiración: PENDIENTE vencida se marca VENCIDA; PENDIENTE resuelta sola se marca RESUELTA_SOLA', () => {
   const snapshot: SnapshotEstudio = {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contactosManuales: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
   const pendientes = [
     { id: 'p1', studioId: 'e1', decisionSessionId: 'ds', algorithmVersion: '1.0.0', especialista: 'RETENCION' as const,

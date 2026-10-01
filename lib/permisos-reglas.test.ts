@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
-  puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
+  puedeGestionarClientas, puedeBorrarDatosClienta, puedeVerNotasInternas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
   puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCentroNotificaciones,
   puedeModerarComunidad, puedeVerFichaClinica, puedeVerSemaforo,
   puedeGestionarFichaDe, puedeVerRetribucionDe, filtrarRetribucionVisible,
@@ -297,6 +297,9 @@ test('los helpers de UI reparten igual que las funciones de la RLS', () => {
     // planes_tarifa.
     { tabla: 'operación de sede (horario, cierres, salas, averías, tipos, horario de citas)', helper: puedeGestionarSede, rls: ['PROPIETARIO', 'MANAGER'] },
     { tabla: 'plan_tipos_clase', helper: puedeMoverDinero, rls: ['PROPIETARIO', 'RECEPCION'] },
+    // notas_internas → puede_gestionar_clientas() (migr …_notas_internas_autora_y_visibilidad);
+    // qué nota ve cada una lo decide la nota (visibilidad + autora).
+    { tabla: 'notas_internas', helper: puedeVerNotasInternas, rls: ['PROPIETARIO', 'RECEPCION', 'MANAGER'] },
   ];
 
   for (const { tabla, helper, rls } of ESPEJO) {
@@ -634,4 +637,15 @@ test('activar acceso: nadie reparte poderes de dinero que no tiene (recorre todo
       }
     }
   }
+});
+
+test('borrar los datos de una clienta (RGPD) es solo de la propietaria; darla de baja, de todo el mostrador', () => {
+  assert.equal(puedeBorrarDatosClienta('PROPIETARIO'), true);
+  for (const rol of ['MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const) assert.equal(puedeBorrarDatosClienta(rol), false, rol);
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) assert.equal(puedeGestionarClientas(rol), true, rol);
+});
+
+test('las notas del equipo las leen y escriben quienes gestionan clientas, como su RLS (notas_internas_*)', () => {
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) assert.equal(puedeVerNotasInternas(rol), true, rol);
+  assert.equal(puedeVerNotasInternas('INSTRUCTOR'), false);
 });

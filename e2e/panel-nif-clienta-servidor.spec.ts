@@ -31,7 +31,9 @@ async function espiarSocios(page: Page) {
 
 async function editarNif(page: Page, telefono: string) {
   await ir(page, 'clientas/soc-1');
-  await page.getByRole('button', { name: 'Editar clienta' }).click({ timeout: 30_000 });
+  // Editar vive en «Más acciones» de la cabecera de la ficha.
+  await page.getByRole('button', { name: 'Más acciones' }).click({ timeout: 30_000 });
+  await page.getByRole('menuitem', { name: 'Editar sus datos' }).click();
   const dialogo = page.getByRole('dialog', { name: 'Editar clienta' });
   await dialogo.getByLabel('Teléfono').fill(telefono);
   await dialogo.getByLabel('NIF (opcional)').fill(NIF);

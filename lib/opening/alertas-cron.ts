@@ -12,6 +12,7 @@ import type { AnalisisCapacidad } from './capacidad.ts';
 import { cargarAnalisis, cargarDatosListo, cargarEstadoApertura, cargarEtapas, sincronizarAlertas, type EstadoAperturaServidor, type PlanVenta } from './servidor.ts';
 import { ACCION_LISTO, bloqueantesPendientes, evaluarListo, type DatosListo } from './listo.ts';
 import type { EtapaVista } from './etapas.ts';
+import { cargarEstadosClientas } from '../clientas/estado-servidor.ts';
 
 /** Margen tras la ventana de la sección para resolver alertas que se queden abiertas. */
 const DIAS_LIMPIEZA = DIAS_TRAS_APERTURA + 30;
@@ -65,16 +66,22 @@ function horaEnEstudio(now: Date): number {
 async function novedadesDeAyer(admin: SupabaseClient, studioId: string, now: Date) {
   const hoy = hoyEnEstudio(now);
   const ayer = hoyEnEstudio(new Date(new Date(inicioDelDiaEstudio(hoy)).getTime() - 1));
-  const [ventas, interesadas] = await Promise.all([
+  const [ventas, altasAyer] = await Promise.all([
     admin.from('suscripciones').select('id', { count: 'exact', head: true })
       .eq('studio_id', studioId).eq('fecha_inicio', ayer),
-    admin.from('socios').select('id', { count: 'exact', head: true })
-      .eq('studio_id', studioId).is('borrado_en', null).in('lead_stage', ['LEAD', 'INTERESADA'])
-      .gte('fecha_alta', inicioDelDiaEstudio(ayer)).lt('fecha_alta', inicioDelDiaEstudio(hoy)),
+    admin.from('socios').select('id')
+      .eq('studio_id', studioId).is('borrado_en', null)
+      .gte('fecha_alta', inicioDelDiaEstudio(ayer)).lt('fecha_alta', inicioDelDiaEstudio(hoy)).limit(1000),
   ]);
   if (ventas.error) throw ventas.error;
-  if (interesadas.error) throw interesadas.error;
-  return { ventasAyer: ventas.count ?? 0, interesadasAyer: interesadas.count ?? 0 };
+  if (altasAyer.error) throw altasAyer.error;
+  // De las fichas creadas ayer, las que siguen «Interesada» (sin venir ni
+  // comprar): su ESTADO, no `lead_stage`, que casi nunca estaba puesto.
+  const ids = (altasAyer.data ?? []).map(s => s.id as string);
+  const estados = ids.length > 0 ? await cargarEstadosClientas(admin, studioId, { ahora: now, socioIds: ids }) : new Map();
+  if (!estados) throw new Error('No se ha podido calcular el estado de las altas de ayer');
+  const interesadasAyer = [...estados.values()].filter(e => e.estado === 'INTERESADA').length;
+  return { ventasAyer: ventas.count ?? 0, interesadasAyer };
 }
 
 /**

@@ -8,6 +8,7 @@ import { anotarEnviosCampana, type EnvioCampana } from '@/lib/marketing/campana-
 import { mapCampana } from '@/lib/supabase-data';
 import { fetchAllStudioDataServidor } from '@/lib/db/supabase-data-admin';
 import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
+import { estadosDeClientas } from '@/lib/clientas/estado';
 import { filtrarPorConsentimientoMarketing } from '@/lib/marketing/consentimiento';
 import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import { resendEmailProvider } from '@/lib/marketing/providers/email-resend';
@@ -131,12 +132,23 @@ export const procesarEnvioCampana = inngest.createFunction(
     // El recorte va DENTRO del step (mismo criterio que procesarEstudioAutomatizaciones):
     // solo se devuelve lo que hace falta, aunque fetchAllStudioData consulte
     // el arranque completo del panel por dentro.
-    const { socios, suscripciones, recibos } = await step.run('fetch-destinatarias', async () => {
+    // Con el ESTADO de cada clienta (lib/clientas/estado.ts), el mismo que ve la
+    // propietaria en Clientas: «activas» son sus «Activa», no «las que no están
+    // de baja». Se calcula DENTRO del paso, con los datos completos, y viaja
+    // como Record (un Map se serializa como {} en el replay de Inngest). Paso
+    // con id nuevo a propósito: un envío que empezó antes de este cambio no
+    // reutiliza un resultado memorizado sin estados.
+    const { socios, suscripciones, recibos, estadosPorSocio } = await step.run('fetch-destinatarias-con-estado', async () => {
       const d = await fetchAllStudioDataServidor(studioId);
-      return { socios: d.socios, suscripciones: d.suscripciones, recibos: d.recibos };
+      const estados = estadosDeClientas(d, now);
+      return { socios: d.socios, suscripciones: d.suscripciones, recibos: d.recibos, estadosPorSocio: Object.fromEntries(estados) };
     });
 
-    const base = resolverDestinatariasCampana(campana.destinatarios, { socios, suscripciones, recibos }, now);
+    const base = resolverDestinatariasCampana(
+      campana.destinatarios,
+      { socios, suscripciones, recibos, estados: new Map(Object.entries(estadosPorSocio)) },
+      now,
+    );
     const porCanal = campana.tipo === 'EMAIL'
       ? base.filter(s => s.email && s.email.includes('@'))
       : base.filter(s => s.telefono && s.telefono.trim());

@@ -1,22 +1,23 @@
 // Especialista en Marketing — ¿a quién deberíamos estar escribiendo en grupo?
-// MVP: M1 · bolsa de socias inactivas / leads sin convertir suficientemente
-// grande → proponer una campaña de reactivación. Cubre PREPARAR_CAMPANA, que
-// existía en el catálogo sin generador. Es un aviso a nivel de estudio (la
-// campaña la lanza el propietario desde Marketing), no un contacto individual.
+// MVP: M1 · bolsa de socias que dejaron de venir / interesadas que nunca
+// vinieron suficientemente grande → proponer una campaña de reactivación. Cubre
+// PREPARAR_CAMPANA, que existía en el catálogo sin generador. Es un aviso a
+// nivel de estudio (la campaña la lanza el propietario desde Marketing), no un
+// contacto individual.
 import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
-import { construirIndices } from '../senales.ts';
+import { construirIndices, estadosDelSnapshot } from '../senales.ts';
 import { confianzaPrepararCampana } from '../confianza.ts';
 
 const MS_DIA = 86400000;
 const MIN_PUBLICO = 5;         // por debajo de esto una campaña no compensa
 const DIAS_INACTIVA = 30;      // sin asistir desde hace 30 días
-const LEADS_ENTRADA = new Set(['LEAD', 'INTERESADA']);
 
 export const marketing: Especialista = {
   id: 'MARKETING',
   pregunta: '¿A quién deberíamos estar escribiendo en grupo?',
   detectar(s: SnapshotEstudio, _m: MemoriaEstudio, now: Date): Candidata[] {
     const idx = construirIndices(s);
+    const estados = estadosDelSnapshot(s, now);
 
     const publico = new Set<string>();
     // Socias activas que llevan 30+ días sin asistir.
@@ -25,8 +26,8 @@ export const marketing: Especialista = {
       const asistidas = idx.asistidasPorSocio.get(socio.id);
       const ultima = asistidas?.[0]?.creadoEn;
       if (ultima && (now.getTime() - new Date(ultima).getTime()) / MS_DIA >= DIAS_INACTIVA) publico.add(socio.id);
-      // Leads sin convertir (sin suscripción activa) también son público de campaña.
-      if (socio.leadStage && LEADS_ENTRADA.has(socio.leadStage) && !idx.suscripcionActivaPorSocio.has(socio.id)) publico.add(socio.id);
+      // Las interesadas (ficha sin venir ni comprar) también son público de campaña.
+      if (estados.get(socio.id)?.estado === 'INTERESADA') publico.add(socio.id);
     }
 
     const n = publico.size;
@@ -37,7 +38,7 @@ export const marketing: Especialista = {
     const confianza = confianzaPrepararCampana({ volumenSuficiente: n >= MIN_PUBLICO, sinCampanaReciente });
     if (!confianza) return [];
 
-    const motivoMotor = `Tienes ${n} socias inactivas o leads sin convertir. Una campaña de reactivación bien redactada podría traer de vuelta a unas cuantas — te la puedo preparar.`;
+    const motivoMotor = `Tienes ${n} clientas que llevan un mes sin venir o que se apuntaron y nunca han venido. Una campaña de reactivación bien redactada podría traer de vuelta a unas cuantas — te la puedo preparar.`;
     return [{
       especialista: 'MARKETING',
       tipo: 'PREPARAR_CAMPANA',
