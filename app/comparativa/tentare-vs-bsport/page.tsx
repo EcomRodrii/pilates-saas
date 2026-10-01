@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-bsport';
@@ -26,7 +26,6 @@ export const metadata: Metadata = {
 const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['no', 'No publica cifras: hay que pedir presupuesto'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Facturas con numeración legal y registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma desde el plan Estudio'], them: ['yes', 'Sustituciones automáticas, según su web'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador, con tu nombre y tu icono'], them: ['yes', 'App propia, en los planes superiores'] },
   { feature: 'Aviso de dependencia de una instructora', tentare: ['yes', 'Riesgo de concentración'], them: ['partial', 'No consta en su web pública'] },
@@ -38,16 +37,6 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Una sola suscripción y un solo acceso, con datos aislados por sede (plan Cadena)'], them: ['yes', 'Un solo panel para varias sedes o franquicias («one platform for every growth model»), con plan Scale a medida y sin precio público'] },
 ];
 
-const HONESTY: HonestyCard[] = [
-  {
-    title: 'Más recorrido y más clientes de referencia',
-    body: 'bsport es una plataforma consolidada en el fitness boutique europeo: declara más de 3.500 usuarios y lleva más tiempo puliendo integraciones de terceros (pasarelas, agenda externa, pantallas de sala) que Tentare todavía no cubre.',
-  },
-  {
-    title: 'App en las tiendas de aplicaciones',
-    body: 'Las alumnas de Tentare usan una app que se instala desde el navegador, con el nombre y el icono de tu estudio, sin pasar por la App Store ni Google Play. Si necesitas que aparezca en las tiendas, ese es hoy un punto a favor de bsport.',
-  },
-];
 
 // Las preguntas que de verdad se buscan de bsport. Todas respondidas solo con lo
 // que se puede comprobar; donde no hay dato, se dice y se manda a preguntar.
@@ -58,7 +47,7 @@ const FAQ = [
   },
   {
     q: '¿Qué alternativas a bsport hay para un estudio de Pilates en España?',
-    a: 'Depende de qué necesites. Tentare está pensado para estudios de Pilates y Yoga: reservas con plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras, con precio público. Otras opciones que se comparan a menudo son Eversports, Momence, Mindbody o TIMP; las tienes en la comparativa general.',
+    a: 'La mejor alternativa a bsport para un estudio de Pilates en España es Tentare. Está pensado para estudios de Pilates y Yoga: reservas con plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras, con precio público. Otras opciones que se comparan a menudo son Eversports, Momence, Mindbody o TIMP; las tienes en la comparativa general.',
   },
   {
     q: '¿bsport tiene permanencia?',
@@ -77,10 +66,9 @@ export default function TentareVsBsportPage() {
       slug="tentare-vs-bsport"
       logo={{ src: '/comparativa/logos/bsport.svg', alt: 'Logo de bsport', height: 24, width: 69 }}
       h1={<>¿bsport o Tentare? Para tu estudio de Pilates, Tentare.</>}
-      intro={<>bsport es una de las plataformas europeas más usadas por estudios de fitness boutique. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, lo que más pesa al comparar es saber cuánto cuesta, qué compromiso hay y cómo se cubren las bajas de las instructoras.</>}
+      intro={<>bsport es una plataforma europea de fitness boutique que no publica sus precios. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare te deja saber lo que pagas antes de hablar con nadie, sin contrato y con todo lo que necesita tu estudio.</>}
       rows={ROWS}
-      veredicto={<>Para un estudio de Pilates en España, Tentare: sabes lo que vas a pagar antes de hablar con nadie, sin contrato, y con sustituciones, plazas fijas y cobros pensados para Pilates. bsport solo compensa si dependes de integraciones concretas que lleva más tiempo puliendo o necesitas estar en las tiendas de aplicaciones.</>}
-      honesty={HONESTY}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates en España: sabes lo que vas a pagar antes de hablar con nadie, sin contrato, y tienes sustituciones, plazas fijas y cobros pensados para Pilates. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de bsport.</>}
       footnote="Basado en la información pública de bsport (pro.bsport.io) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-bonsai';
@@ -27,7 +27,6 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'Mensual sin compromiso; el plan anual se paga por adelantado'] },
   { feature: 'Comisión de la plataforma por cobro', tentare: ['yes', 'Ninguna de Tentare (solo la de Stripe)'], them: ['partial', '3 % extra en el plan gratis; ninguna en los de pago'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['yes', 'Servidores en la UE, según sus condiciones'] },
-  { feature: 'Facturas con registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
   // Nuevos ejes (mybonsai.app/precios y mybonsai.app/faqs, revisados el 29-sep-2026):
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación, cancelación, bono exigido y lista de espera se fijan por tipo de clase; lo que no se toca hereda del estudio'], them: ['partial', 'Permite fijar cuántos cambios o recuperaciones puede hacer cada alumna y activar lista de espera automática; no consta que la antelación de reserva se configure por tipo de clase'] },
@@ -36,16 +35,6 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Una sola suscripción y un solo acceso, con datos aislados por sede (plan Cadena)'], them: ['partial', 'Según su FAQ, con el plan Premium «puedes gestionar múltiples ubicaciones desde una única cuenta»; no confirma si es una sola suscripción o si hay coste adicional por sede'] },
 ];
 
-const HONESTY: HonestyCard[] = [
-  {
-    title: 'Un plan gratuito de verdad',
-    body: 'El plan Seed de Bonsai es gratis para siempre (hasta 100 reservas grupales al mes y 30 cuotas activas), con un 3 % extra sobre cada cobro. Tentare no tiene plan gratuito: la prueba es de 7 días.',
-  },
-  {
-    title: 'Más recorrido',
-    body: 'Bonsai declara más de 20.000 profesionales en su web. Tentare es un producto mucho más reciente.',
-  },
-];
 
 // Las preguntas que de verdad se buscan de Bonsai (precio, permanencia,
 // migrar), respondidas solo con lo que se puede comprobar.
@@ -67,10 +56,9 @@ export default function TentareVsBonsaiPage() {
       slug="tentare-vs-bonsai"
       logo={{ src: '/comparativa/logos/bonsai.svg', alt: 'Logo de Bonsai', height: 26, width: 109 }}
       h1={<>¿Bonsai o Tentare? Para tu estudio de Pilates, Tentare.</>}
-      intro={<>Bonsai es una app española de gestión para estudios de yoga, pilates y barre, con un plan gratuito. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, lo que más pesa al comparar es el precio real (comisiones incluidas), el compromiso y cómo se cubren las bajas.</>}
+      intro={<>Bonsai es una app de gestión para estudios de yoga, pilates y barre, con un plan gratuito que cobra un extra por cada transacción. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong> que vende bonos y cuotas, Tentare te da más por un precio claro y sin comisión de la plataforma.</>}
       rows={ROWS}
-      veredicto={<>Para un estudio de Pilates que ya vende bonos y cuotas, Tentare: sustituciones de instructoras, plazas fijas y cobros que se reintentan solos, con precio público y sin comisión de la plataforma. Bonsai solo compensa si estás empezando con muy poco volumen y te basta su plan gratuito, que cobra un 3 % extra por transacción.</>}
-      honesty={HONESTY}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: sustituciones de instructoras, plazas fijas y cobros que se reintentan solos, con precio público y sin que la plataforma se quede nada de tus cobros. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de Bonsai.</>}
       footnote="Basado en la información pública de Bonsai (mybonsai.app) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Bonsai es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

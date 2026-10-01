@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-bookyway';
@@ -23,9 +23,7 @@ export const metadata: Metadata = {
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Modelo de precio', tentare: ['partial', 'Suscripción mensual con precio público'], them: ['partial', 'Sin suscripción: 1,50 € por usuario adicional tras 30 días'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', 'Sin suscripción ni cancelación, según su web'] },
-  { feature: 'Facturas con registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', '«Reformer» es un tipo de actividad; no consta elegir máquina'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
@@ -36,16 +34,6 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta de crédito'], them: ['partial', '30 días de prueba, según su web («Prueba BookyWay gratis durante 30 días»); no consta si pide tarjeta de crédito'] },
 ];
 
-const HONESTY: HonestyCard[] = [
-  {
-    title: 'Sin cuota fija',
-    body: 'BookyWay no cobra suscripción: pagas 1,50 € por cada usuario adicional después de los 30 primeros días. Para un estudio muy pequeño o con poca rotación puede salir más barato que una cuota mensual.',
-  },
-  {
-    title: 'Escala y apps móviles',
-    body: 'Declara más de 2.300 actividades y más de 1 millón de usuarios, con app gratuita para iOS y Android. Tentare no tiene apps en las tiendas.',
-  },
-];
 
 // Las preguntas que de verdad se buscan de BookyWay (precio, permanencia,
 // migrar), respondidas solo con lo que se puede comprobar.
@@ -63,10 +51,9 @@ export default function TentareVsBookyWayPage() {
       slug="tentare-vs-bookyway"
       logo={{ src: '/comparativa/logos/bookyway.svg', alt: 'Logo de BookyWay', height: 20, width: 120 }}
       h1={<>¿BookyWay o Tentare? Para tu estudio de Pilates, Tentare.</>}
-      intro={<>BookyWay es una plataforma italiana de reservas para estudios y gimnasios que no cobra suscripción: solo un pago por cada usuario adicional. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, es un modelo de precio distinto, no comparable euro a euro con una cuota mensual.</>}
+      intro={<>BookyWay es una plataforma italiana de reservas para estudios y gimnasios que cobra por cada usuario adicional. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare es un software hecho para Pilates, con un precio mensual fijo que sabes desde el primer día.</>}
       rows={ROWS}
-      veredicto={<>Para un estudio de Pilates, Tentare: plaza por reformer, plazas fijas, cobros recurrentes y sustituciones de instructoras, con un precio mensual fijo y público. BookyWay solo encaja si prefieres no tener cuota y pagar por usuario.</>}
-      honesty={HONESTY}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: plaza por reformer, plazas fijas, cobros recurrentes y sustituciones de instructoras, con un precio mensual fijo y público. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos.</>}
       footnote="Basado en la información pública de BookyWay (bookyway.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. BookyWay es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { CompetitorPage, type ComparativaRow } from '@/components/comparativa/CompetitorPage';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/comparativa/tentare-vs-deporweb';
@@ -25,7 +25,6 @@ export const metadata: Metadata = {
 const ROWS: ComparativaRow[] = [
   { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['no', 'No publica cifras'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Facturas con registro Veri*Factu', tentare: ['partial', 'Sí; el envío automático a la AEAT, en desarrollo'], them: ['partial', 'Publica artículos y webinars sobre VeriFactu; no consta que su producto esté certificado'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
@@ -37,16 +36,6 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Una sola suscripción y un solo acceso, con datos aislados por sede (plan Cadena)'], them: ['partial', 'Ofrece una opción de «cadena de gimnasios» que remite a solicitar demo; no consta si es un panel único con una sola suscripción'] },
 ];
 
-const HONESTY: HonestyCard[] = [
-  {
-    title: 'Pensado para centros deportivos grandes',
-    body: 'DeporWeb declara más de 600 centros deportivos y ofrece contabilidad y facturación, remesas SEPA e integración con los principales ERP de contabilidad. Si gestionas un centro con muchas actividades, eso pesa.',
-  },
-  {
-    title: 'Una app corporativa',
-    body: 'Ofrece una app para los clientes del centro. Tentare ofrece una app instalable desde el navegador con la marca del estudio, no una app en las tiendas.',
-  },
-];
 
 // Las preguntas que de verdad se buscan de DeporWeb (precio, permanencia,
 // migrar), respondidas solo con lo que se puede comprobar.
@@ -64,10 +53,9 @@ export default function TentareVsDeporWebPage() {
       slug="tentare-vs-deporweb"
       logo={{ src: '/comparativa/logos/deporweb.svg', alt: 'Logo de DeporWeb', height: 20, width: 130 }}
       h1={<>¿DeporWeb o Tentare? Para tu estudio de Pilates, Tentare.</>}
-      intro={<>DeporWeb es un software español de gestión para centros deportivos, con una página dedicada al pilates. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la diferencia está en el enfoque (centros deportivos frente a estudios boutique) y en la transparencia de precios.</>}
+      intro={<>DeporWeb es un software de gestión para centros deportivos con muchas disciplinas. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare es un producto hecho para tu estudio, con precios públicos desde el primer día.</>}
       rows={ROWS}
-      veredicto={<>Para un estudio de Pilates, Tentare: un producto hecho para tu estudio y con precios públicos, sin tener que hablar con nadie para saber lo que pagas. DeporWeb está pensado para otra cosa: centros deportivos con muchas disciplinas que necesitan integrarse con un ERP.</>}
-      honesty={HONESTY}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: un producto hecho para estudios como el tuyo y con precios públicos, sin tener que hablar con nadie para saber lo que pagas. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos.</>}
       footnote="Basado en la información pública de DeporWeb (deporweb.es) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. DeporWeb es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

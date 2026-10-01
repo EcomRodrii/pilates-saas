@@ -32,7 +32,6 @@ const POR_QUE = [
 ];
 
 export type ComparativaRow ={ feature: string; tentare: [Verdict, string]; them: [Verdict, string] };
-export type HonestyCard = { title: string; body: string };
 
 // Página 1-vs-1 en /comparativa/tentare-vs-X. Comparte estructura y estilos con
 // app/comparativa/page.tsx (la tabla general), pero enfrenta el logo real de
@@ -46,7 +45,6 @@ export function CompetitorPage({
   intro,
   rows,
   veredicto,
-  honesty,
   footnote,
   faq,
   ctaBody = 'Te ayudamos a traer tus datos. Sin permanencia. Sin sorpresas.',
@@ -57,10 +55,8 @@ export function CompetitorPage({
   h1: React.ReactNode;
   intro: React.ReactNode;
   rows: ComparativaRow[];
-  /** Párrafo corto: para qué estudio concreto tiene sentido cada opción. Sintetiza `rows`/`honesty`, no añade datos nuevos del competidor. */
+  /** Párrafo corto: para qué estudio concreto tiene sentido cada opción. Sintetiza `rows`, no añade datos nuevos del competidor. */
   veredicto: React.ReactNode;
-  /** Para qué estudio concreto encaja el competidor. Va al final y en pequeño: es contexto, no el mensaje de la página. */
-  honesty: HonestyCard[];
   footnote: string;
   /** Preguntas que la gente hace de VERDAD sobre este competidor («¿cuánto cuesta?», «¿alternativas?»). Opcional: sin ellas no se pinta ni se declara nada. */
   faq?: { q: string; a: string }[];
@@ -196,22 +192,6 @@ export function CompetitorPage({
           <div style={{ maxWidth: 640, margin: '0 auto' }}>
             <h2 className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#6B6B63', margin: '0 0 16px' }}>Lo que se pregunta sobre {name}</h2>
             <ArticleFaq items={faq} />
-          </div>
-        </section>
-      )}
-
-      {honesty.length > 0 && (
-        <section style={{ padding: 'clamp(40px,5vw,56px) clamp(20px,4vw,44px) 0' }}>
-          <div style={{ maxWidth: 640, margin: '0 auto' }}>
-            <h2 className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#6B6B63', margin: '0 0 16px' }}>Cuándo puede encajarte {name}</h2>
-            <div className="cmp1-two">
-              {honesty.map((h) => (
-                <div key={h.title} style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14, padding: '16px 18px' }}>
-                  <h3 style={{ fontSize: 14.5, fontWeight: 700, color: '#1A1A1A', margin: '0 0 6px' }}>{h.title}</h3>
-                  <p style={{ fontSize: 13.5, lineHeight: 1.55, color: MUTED, margin: 0 }}>{h.body}</p>
-                </div>
-              ))}
-            </div>
           </div>
         </section>
       )}
