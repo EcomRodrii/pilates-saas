@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { mapSesion, mapReserva, mapSala, mapInstructor } from '@/lib/supabase-data';
-import { enriquecerSesiones, ocultarImporteSiCorresponde, instructoresVisiblesPorRol } from '@/lib/calendario-datos';
+import {
+  enriquecerSesiones, ocultarImporteSiCorresponde, instructoresVisiblesPorRol, completarSesiones, flojaDeRecomendacion,
+  type FlojaDeClase,
+} from '@/lib/calendario-datos';
+import { diaLocalDe, type BloqueoAgenda } from '@/lib/calendario/ausencias';
 import type { RowSesiones, RowReservas, RowSalas, RowInstructores, RowStudios, RowSustituciones, RowStudioHorario } from '@/lib/db-types';
-import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { puedeGestionarEquipo, puedeVer } from '@/lib/permisos-reglas';
 
 // Rediseño del Calendario — endpoint propio, separado a propósito de
 // fetchAllStudioData() (lib/studio-context.tsx). Ese fetch genérico carga TODO
@@ -42,8 +46,10 @@ export async function GET(req: NextRequest) {
 
   const sesionesRaw = (sesionesRows ?? []) as RowSesiones[];
   const sesionIds = sesionesRaw.map(s => s.id);
+  const instructorIds = [...new Set(sesionesRaw.map(s => s.instructor_id).filter((id): id is string => !!id))];
+  const verFlojas = puedeVer(sesion.rol, '/centro-de-control');
 
-  const [{ data: reservasRows }, { data: sustitucionesRows }] = await Promise.all([
+  const [{ data: reservasRows }, { data: sustitucionesRows }, bloqueosRes, inactivasRes, flojasRes] = await Promise.all([
     sesionIds.length > 0
       ? admin.from('reservas').select('*').in('sesion_id', sesionIds)
       : Promise.resolve({ data: [] as RowReservas[] }),
@@ -52,7 +58,46 @@ export async function GET(req: NextRequest) {
           .select('id, sesion_id, estado, motivo, sustituta_final_id, creado_en, resuelto_en')
           .in('sesion_id', sesionIds).order('creado_en', { ascending: true })
       : Promise.resolve({ data: [] as Pick<RowSustituciones, 'id' | 'sesion_id' | 'estado' | 'motivo' | 'sustituta_final_id' | 'creado_en' | 'resuelto_en'>[] }),
+    // Vacaciones, bajas y bloqueos que pisan clases ya programadas
+    // (lib/calendario/ausencias.ts). Un día de margen por cada lado: el rango
+    // llega en UTC y los bloqueos se guardan por día del estudio.
+    instructorIds.length > 0
+      ? admin.from('instructora_disponibilidad_excepciones')
+          .select('instructor_id, fecha, hora_inicio, hora_fin, ausencia_id')
+          .eq('studio_id', studioId).eq('tipo', 'bloqueo').in('instructor_id', instructorIds)
+          .gte('fecha', diaLocalDe(new Date(Date.parse(desde) - 86_400_000).toISOString()))
+          .lte('fecha', diaLocalDe(new Date(Date.parse(hasta) + 86_400_000).toISOString()))
+      : Promise.resolve({ data: [], error: null }),
+    // La instructora de la clase ya no está en el equipo (RES-8): `instructores`
+    // de arriba solo trae las activas, así que sin esto no se sabría.
+    instructorIds.length > 0
+      ? admin.from('instructores').select('id').eq('studio_id', studioId).eq('activo', false).in('id', instructorIds)
+      : Promise.resolve({ data: [], error: null }),
+    // «Floja» = la regla A4 del Decision OS ya la ha detectado (con sus cifras).
+    verFlojas && sesionIds.length > 0
+      ? admin.from('recomendaciones').select('id, sesion_id, datos_usados')
+          .eq('studio_id', studioId).eq('tipo', 'LLENAR_PLAZAS').eq('estado', 'PENDIENTE')
+          .in('sesion_id', sesionIds).gt('expira_en', new Date().toISOString())
+      : Promise.resolve({ data: [], error: null }),
   ]);
+
+  // No saber no es lo mismo que «no hay»: si los bloqueos no llegan, el payload
+  // lo dice (`ausenciasCargadas`) en vez de dar por cubiertas todas las clases.
+  const bloqueosRows = (bloqueosRes.data ?? []) as { instructor_id: string; fecha: string; hora_inicio: string | null; hora_fin: string | null; ausencia_id: string | null }[];
+  const ausenciaIds = [...new Set(bloqueosRows.map(b => b.ausencia_id).filter((id): id is string => !!id))];
+  const ausenciasRes = ausenciaIds.length > 0
+    ? await admin.from('instructora_ausencias').select('id, tipo, desde, hasta').eq('studio_id', studioId).in('id', ausenciaIds)
+    : { data: [] as { id: string; tipo: string; desde: string; hasta: string }[], error: null };
+  const ausenciasCargadas = !bloqueosRes.error && !ausenciasRes.error;
+  const bloqueos: BloqueoAgenda[] = ausenciasCargadas
+    ? bloqueosRows.map(b => ({ instructorId: b.instructor_id, fecha: b.fecha, horaInicio: b.hora_inicio, horaFin: b.hora_fin, ausenciaId: b.ausencia_id }))
+    : [];
+  const ausencias = new Map(((ausenciasRes.data ?? []) as { id: string; tipo: string; desde: string; hasta: string }[]).map(a => [a.id, a]));
+  const flojas = new Map<string, FlojaDeClase>();
+  for (const r of (flojasRes.data ?? []) as { id: string; sesion_id: string | null; datos_usados: unknown }[]) {
+    const floja = r.sesion_id ? flojaDeRecomendacion(r) : null;
+    if (floja && r.sesion_id) flojas.set(r.sesion_id, floja);
+  }
 
   // El motivo de una baja puede hablar de la salud de quien la pidió: solo para
   // quien gestiona el equipo (mismo criterio que `puedeVerDetalleAusencias`).
@@ -60,7 +105,10 @@ export async function GET(req: NextRequest) {
   const verMotivo = puedeGestionarEquipo(sesion.rol);
   const sustitucionesVisibles = (sustitucionesRows ?? []).map(s => (verMotivo ? s : { ...s, motivo: null }));
 
-  const enriquecidas = enriquecerSesiones(sesionesRaw.map(mapSesion), sustitucionesVisibles);
+  const enriquecidas = completarSesiones(enriquecerSesiones(sesionesRaw.map(mapSesion), sustitucionesVisibles), {
+    rol: sesion.rol, bloqueos, ausencias, flojas,
+    instructorasInactivas: new Set(((inactivasRes.data ?? []) as { id: string }[]).map(i => i.id)),
+  });
   // Todo el estudio: la instructora ya no llega aquí (403 arriba) y el resto de
   // roles ve todas las clases.
   const sesionesFinal = ocultarImporteSiCorresponde(enriquecidas, sesion.rol);
@@ -119,6 +167,7 @@ export async function GET(req: NextRequest) {
     horaApertura,
     horaCierre,
     horarioSemana,
+    ausenciasCargadas,
     rol: sesion.rol,
   });
 }

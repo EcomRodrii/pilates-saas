@@ -6,7 +6,7 @@ import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '.
 import type { Sesion } from '@/lib/types';
 import {
   construirIndices, agruparFranjasRecurrentes, hayProximaSesionEnFranja, precioMedioSesion,
-  variacionOcupacionFranja, claveFranjaDe, pronosticarFranja, candidatasPorAfinidad, franjaLocalDe,
+  variacionOcupacionFranja, claveFranjaDe, pronosticarFranja, candidatasPorAfinidad,
   type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../confianza.ts';
 import { estimarProbabilidad, tasaBase, nivelPrediccion } from '../prediccion.ts';
 import { TZ_ESTUDIO } from '../../utils.ts';
+import { bloqueoPisaSesion, diaLocalDe } from '../../calendario/ausencias.ts';
 
 const MS_DIA = 86400000;
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
@@ -393,22 +394,6 @@ function reglaA4(
 // justo lo que faltaba.
 
 const A5_DIAS_MAX = 30; // más allá, la propietaria todavía tiene margen de sobra
-
-/** ¿El bloqueo pisa a la sesión? Sin horas = el día entero. */
-function bloqueoPisaSesion(b: SnapshotEstudio['bloqueosAgenda'][number], inicio: Date, fin: Date): boolean {
-  if (!b.horaInicio || !b.horaFin) return true;
-  const hhmm = (t: string) => { const [h, m] = t.split(':'); return Number(h) * 60 + Number(m); };
-  const { hora: hIni, minuto: mIni } = franjaLocalDe(inicio.toISOString());
-  const { hora: hFin, minuto: mFin } = franjaLocalDe(fin.toISOString());
-  const sesIni = hIni * 60 + mIni;
-  const sesFin = hFin * 60 + mFin;
-  return hhmm(b.horaInicio) < sesFin && hhmm(b.horaFin) > sesIni;
-}
-
-/** Día local del estudio en YYYY-MM-DD (las excepciones se guardan por día). */
-function diaLocalDe(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-CA', { timeZone: TZ_ESTUDIO });
-}
 
 function reglaA5(s: SnapshotEstudio, idx: IndicesSenal, now: Date): Candidata[] {
   const t = now.getTime();

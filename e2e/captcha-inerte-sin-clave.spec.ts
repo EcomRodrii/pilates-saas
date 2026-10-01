@@ -1,4 +1,5 @@
 import { test, expect, type Route } from '@playwright/test';
+import { rellenarPaso1 } from './alta-paso1';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El widget de Turnstile (login de equipo + alta de estudio) solo se pinta y
@@ -41,8 +42,7 @@ test('crear-estudio: sin clave de Turnstile, el alta llega hasta el backend', as
 
   await page.goto('/crear-estudio');
 
-  await page.getByRole('textbox', { name: 'Nombre de tu estudio' }).fill('Estudio Ana');
-  await page.getByRole('button', { name: 'Continuar' }).click();
+  await rellenarPaso1(page, 'Estudio Ana');
 
   // Paso 2: el plan ya viene elegido por defecto, así que solo hay que seguir.
   await expect(page.getByRole('radiogroup', { name: 'Plan' })).toBeVisible();

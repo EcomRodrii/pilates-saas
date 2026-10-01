@@ -145,6 +145,15 @@ test('sin instructora es el problema más grave, y manda sobre el resto', () => 
   assert.equal(c.accion, 'CUBRIR');
 });
 
+test('una clase con su instructora de vacaciones sale sin instructora, y dice por qué', () => {
+  const c = resumirClaseDelDia({ ...A_LAS_10, ausencia: { tipo: 'VACACIONES' } }, [], AHORA);
+  assert.equal(c.estado, 'SIN_INSTRUCTORA');
+  assert.equal(c.motivos[0].texto, 'Sin instructora · de vacaciones');
+  assert.equal(c.accion, 'CUBRIR');
+  const deBaja = resumirClaseDelDia({ ...A_LAS_10, instructoraInactiva: true }, [], AHORA);
+  assert.equal(deBaja.motivos[0].texto, 'Sin instructora · ya no está en el equipo');
+});
+
 // Regresión del bug que ya documenta `pideDecision`: nadie puede cubrir una
 // clase de hace tres horas. Se sigue viendo, pero deja de gritar.
 test('una clase que YA pasó sin instructora no sigue pidiendo cubrirla', () => {

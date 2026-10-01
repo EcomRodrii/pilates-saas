@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  enriquecerSesiones, ocultarImporteSiCorresponde, instructoresVisiblesPorRol,
+  enriquecerSesiones, ocultarImporteSiCorresponde, instructoresVisiblesPorRol, completarSesiones, flojaDeRecomendacion,
+  type FlojaDeClase,
 } from './calendario-datos.ts';
 import type { Sesion, Instructor } from './types.ts';
 
@@ -113,3 +114,52 @@ test('quien organiza el calendario recibe el contacto de todo el equipo', () => 
     assert.equal(maria.telefono, '600000000', rol);
   }
 });
+
+// ── completarSesiones: ausencias, instructora dada de baja y «floja» ─────────
+
+const VACACIONES = new Map([['aus-1', { tipo: 'BAJA_MEDICA', desde: '2026-07-10', hasta: '2026-07-20' }]]);
+const BLOQUEO = [{ instructorId: 'julia', fecha: '2026-07-13', horaInicio: null, horaFin: null, ausenciaId: 'aus-1' }];
+const FLOJA: FlojaDeClase = { recomendacionId: 'rec-1', reservasAhora: 2, aforo: 8, referenciaHabitual: 5, diasVista: 4, ocurrencias: 6 };
+const completar = (rol: 'PROPIETARIO' | 'MANAGER' | 'RECEPCION') => completarSesiones(
+  enriquecerSesiones([sesion({ id: 's1', instructorId: 'julia' }), sesion({ id: 's2', instructorId: 'ana' })], []),
+  { rol, bloqueos: BLOQUEO, ausencias: VACACIONES, instructorasInactivas: new Set(['ana']), flojas: new Map([['s2', FLOJA]]) },
+);
+
+test('completarSesiones: la ausencia y la instructora dada de baja llegan a su clase', () => {
+  const [s1, s2] = completar('PROPIETARIO');
+  assert.deepEqual(s1.ausencia, { tipo: 'BAJA_MEDICA', desde: '2026-07-10', hasta: '2026-07-20' });
+  assert.equal(s1.instructoraInactiva, false);
+  assert.equal(s2.ausencia, null);
+  assert.equal(s2.instructoraInactiva, true);
+});
+
+test('completarSesiones: el tipo de ausencia (puede hablar de salud) solo lo ve quien gestiona el equipo', () => {
+  assert.equal(completar('MANAGER')[0].ausencia?.tipo, 'BAJA_MEDICA');
+  const recepcion = completar('RECEPCION')[0].ausencia;
+  assert.equal(recepcion?.tipo, 'OTRO');
+  // Que no está, sí lo sabe: es lo que necesita para no apuntar a nadie con ella.
+  assert.equal(recepcion?.desde, '2026-07-10');
+});
+
+test('completarSesiones: «floja» sale del Centro de Control y solo la ve quien lo ve', () => {
+  assert.deepEqual(completar('PROPIETARIO')[1].floja, FLOJA);
+  assert.equal(completar('RECEPCION')[1].floja, null);
+  assert.equal(completar('PROPIETARIO')[0].floja, null);
+});
+
+test('flojaDeRecomendacion: sin sus cifras no hay «floja» que pintar', () => {
+  const datos = { reservasAhora: 2, aforo: 8, referenciaHabitual: 5, diasVista: 4, ocurrenciasComparadas: 6 };
+  assert.deepEqual(flojaDeRecomendacion({ id: 'rec-1', datos_usados: datos }), FLOJA);
+  assert.equal(flojaDeRecomendacion({ id: 'rec-1', datos_usados: { ...datos, referenciaHabitual: undefined } }), null);
+  assert.equal(flojaDeRecomendacion({ id: 'rec-1', datos_usados: null }), null);
+});
+
+test('enriquecerSesiones: el estado de la sustitución viaja con ella', () => {
+  const [r] = enriquecerSesiones(
+    [sesion({ id: 's1', instructorId: 'julia' })],
+    [{ id: 'sus-1', sesion_id: 's1', estado: 'pendiente_aprobacion', motivo: null }],
+  );
+  assert.equal(r.sustitucionEstado, 'pendiente_aprobacion');
+  assert.equal(enriquecerSesiones([sesion({ id: 's2', instructorId: 'julia' })], [])[0].sustitucionEstado, null);
+});
+
