@@ -3775,6 +3775,8 @@ export interface RowApiClaves {
   revocada_en: string | null;
   revocada_por: string | null;
   rotada_desde: string | null;
+  // migr 20261001204440.
+  cadena_id: string | null;
 }
 
 export interface RowPlataformaInstructoras {
@@ -10514,6 +10516,7 @@ export type ApiClavesInsert = {
   revocada_en?: string | null | null;
   revocada_por?: string | null | null;
   rotada_desde?: string | null | null;
+  cadena_id?: string | null | null;
 }
 
 export type ApiClavesUpdate = {
@@ -10531,6 +10534,7 @@ export type ApiClavesUpdate = {
   revocada_en?: string | null | null;
   revocada_por?: string | null | null;
   rotada_desde?: string | null | null;
+  cadena_id?: string | null | null;
 }
 
 export type PlataformaInstructorasInsert = {

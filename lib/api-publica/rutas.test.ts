@@ -41,7 +41,9 @@ for (const f of ficheros) {
     const consultas = (codigo.match(/admin\s*\.from\(/g) ?? []).length;
     // `studios` se acota por su clave (`id`): es la única tabla sin `studio_id`.
     const acotadas = (codigo.match(/\.eq\('studio_id', ctx\.studioId\)|from\('studios'\)[^;]*\.eq\('id', ctx\.studioId\)/g) ?? []).length;
-    const porAyudante = /\b(listar|obtener)\(req|\bobtener\(admin/.test(codigo);
+    // `sedesDeLaCredencial` (servidor.ts) acota por la cadena DE LA CREDENCIAL,
+    // no por `ctx.studioId`: es lo que lista GET /estudios para una clave de cadena.
+    const porAyudante = /\b(listar|obtener)\(req|\bobtener\(admin|\bsedesDeLaCredencial\(admin, ctx\)/.test(codigo);
     assert.ok(consultas === 0 || acotadas >= consultas, `${consultas} consultas y solo ${acotadas} filtran por ctx.studioId`);
     assert.ok(consultas > 0 || porAyudante || /registrarSociaPublica|crearReservaPublica|cancelarReservaPublica|crearNotaInternaAdmin|crearTareaAdmin/.test(codigo),
       'ni consulta acotada ni ayudante que la acote');
@@ -52,6 +54,15 @@ for (const f of ficheros) {
   });
 }
 
+test('sedesDeLaCredencial acota por la cadena de la credencial, nunca por algo del cliente', () => {
+  const src = sinComentarios(readFileSync(join(RAIZ, 'lib', 'api-publica', 'servidor.ts'), 'utf8'));
+  const cuerpo = src.slice(src.indexOf('export async function sedesDeLaCredencial'), src.indexOf('export function auditarAccesoApi'));
+  assert.ok(cuerpo.length > 0);
+  assert.doesNotMatch(cuerpo, /req\b|headers/, 'no lee nada de la petición');
+  assert.match(cuerpo, /\.eq\('cadena_id', ctx\.cadenaId\)/);
+  assert.match(cuerpo, /\.eq\('id', ctx\.studioId\)/);
+});
+
 test('los ayudantes de listado acotan SIEMPRE al estudio', () => {
   const src = sinComentarios(readFileSync(join(RAIZ, 'lib', 'api-publica', 'listado.ts'), 'utf8'));
   assert.match(src, /\.select\(o\.columnas\)\.eq\('studio_id', ctx\.studioId\)/);
@@ -61,4 +72,13 @@ test('los ayudantes de listado acotan SIEMPRE al estudio', () => {
 test('cada ruta de app/api/v1 está en la especificación OpenAPI, y al revés', () => {
   const enCodigo = ficheros.map(f => f.ruta).filter(r => r !== '/openapi.json').sort();
   assert.deepEqual(enCodigo, Object.keys(RUTAS).sort());
+});
+
+test('toda operación menos /estudios documenta la cabecera Tentare-Estudio, una sola vez', () => {
+  for (const [ruta, ops] of Object.entries(RUTAS as Record<string, Record<string, { parameters?: { name: string }[] }>>)) {
+    for (const [metodo, op] of Object.entries(ops)) {
+      const n = (op.parameters ?? []).filter((p) => p.name === 'Tentare-Estudio').length;
+      assert.equal(n, ruta === '/estudios' ? 0 : 1, `${metodo.toUpperCase()} ${ruta}`);
+    }
+  }
 });

@@ -7,11 +7,15 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit, rateLimit } from '@/lib/rate-limit';
 import { clientIp, retryAfterSeconds } from '@/lib/rate-limit-core';
 import { sha256Hex } from '@/lib/oauth-crypto';
-import { suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
+import type { Plan } from '@/lib/billing/entitlements';
 import type { Rol } from '@/lib/types';
 import type { ScopeOAuth } from './catalogo-scopes';
 import { esClaveApi, hashClaveApi } from './claves';
 import { scopesEfectivos } from './scopes';
+import {
+  CABECERA_ESTUDIO, MENSAJE_NO_LLEGA, claveDeCadenaLlega, estudioConAcceso, leerEstudioPedido, resolverSede, sedesAlcanzables,
+  type AlcanceCredencial, type SedeDeCadena,
+} from './cadena';
 import {
   CABECERA_IDEMPOTENCIA, credencialDeIdempotencia, decidirConClaveUsada, huellaPeticion, leerClaveIdempotencia, seGuarda,
   type FilaIdempotencia,
@@ -27,9 +31,10 @@ import {
 // scopes, mismo límite de peticiones, misma auditoría (docs/api-publica.md).
 //
 // ⚠️ Corre con service-role, así que la RLS NO está debajo: el aislamiento
-// entre estudios es `ctx.studioId`, que solo sale de la credencial, y TODA
-// consulta de un endpoint lo filtra a mano. `lib/api-publica/rutas.test.ts`
-// lo comprueba en cada fichero de app/api/v1.
+// entre estudios es `ctx.studioId`, que solo sale de la credencial (o, con una
+// clave de cadena, de la cabecera Tentare-Estudio comprobada contra ella:
+// cadena.ts), y TODA consulta de un endpoint lo filtra a mano.
+// `lib/api-publica/rutas.test.ts` lo comprueba en cada fichero de app/api/v1.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type CredencialApi =
@@ -37,7 +42,10 @@ export type CredencialApi =
   | { tipo: 'clave'; claveId: string };
 
 export interface ContextoApi {
+  /** La sede de ESTA petición: la de la credencial, o la que pide una clave de cadena. */
   studioId: string;
+  /** Solo con una clave de cadena: la cadena a la que llega. */
+  cadenaId: string | null;
   credencial: CredencialApi;
   /** Lo que vale EN ESTA PETICIÓN: credencial ∩ rol actual de quien la concedió ∩ plan. */
   scopes: ScopeOAuth[];
@@ -89,7 +97,7 @@ export async function accesoVigente(admin: SupabaseClient, studioId: string, con
   const { data: studio } = await admin
     .from('studios').select('plan, subscription_status, suspendido_en, owner_auth_user_id')
     .eq('id', studioId).maybeSingle();
-  if (!studio || studio.suspendido_en || !suscripcionActiva(studio.subscription_status)) {
+  if (!studio || !estudioConAcceso(studio)) {
     return { ok: false, motivo: 'estudio_sin_acceso' };
   }
   const rol = await rolActual(admin, studioId, concedidaPor, studio.owner_auth_user_id ?? null);
@@ -102,11 +110,12 @@ type Autenticacion =
   | { ok: true; ctx: ContextoApi }
   | { ok: false; resultado: ResultadoApi; studioId?: string; credencial?: CredencialApi };
 
-export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClient, requestId: string): Promise<Autenticacion> {
+/** `sinSede`: la ruta no lee datos de una sede concreta (solo GET /api/v1/estudios). */
+export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClient, requestId: string, sinSede = false): Promise<Autenticacion> {
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim();
   if (!token) return { ok: false, resultado: error(401, 'invalid_token', 'Falta la cabecera Authorization: Bearer <credencial>.', requestId) };
 
-  let studioId: string;
+  let alcance: AlcanceCredencial;
   let credencial: CredencialApi;
   let scopesCredencial: string[];
   let concedidaPor: string;
@@ -116,21 +125,16 @@ export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClie
   if (esClaveApi(token)) {
     const { data: clave } = await admin
       .from('api_claves')
-      .select('id, studio_id, scopes, creada_por, expira_en, revocada_en')
+      .select('id, studio_id, cadena_id, scopes, creada_por, expira_en, revocada_en')
       .eq('hash', hashClaveApi(token))
       .maybeSingle();
     if (!clave || clave.revocada_en || (clave.expira_en && Date.parse(clave.expira_en) <= Date.now())) {
       return { ok: false, resultado: error(401, 'invalid_token', 'La clave no existe, está revocada o ha caducado.', requestId) };
     }
-    studioId = clave.studio_id;
+    alcance = { estudioId: clave.studio_id, cadenaId: clave.cadena_id ?? null };
     credencial = { tipo: 'clave', claveId: clave.id };
     scopesCredencial = clave.scopes ?? [];
     concedidaPor = clave.creada_por;
-
-    // La API se activa estudio a estudio (decisión del fundador, 1-oct-2026).
-    if (!(await apiActivada(admin, studioId))) {
-      return { ok: false, studioId, credencial, resultado: error(403, 'api_no_activada', 'La API no está activada para este estudio.', requestId) };
-    }
   } else {
     const { data: fila } = await admin
       .from('oauth_tokens')
@@ -140,7 +144,10 @@ export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClie
     if (!fila || fila.revocado_en || Date.parse(fila.access_token_expira_en) < Date.now()) {
       return { ok: false, resultado: error(401, 'invalid_token', 'El token no existe, está revocado o ha caducado.', requestId) };
     }
-    studioId = fila.studio_id;
+    // ⚠️ `oauth_tokens.cadena_id` es la familia de refresh tokens
+    // (oauth-server.ts), no una cadena de estudios: un token OAuth es siempre de
+    // una sede.
+    alcance = { estudioId: fila.studio_id, cadenaId: null };
     credencial = { tipo: 'oauth', tokenId: fila.id, clienteId: fila.cliente_id };
     scopesCredencial = fila.scopes ?? [];
     concedidaPor = fila.auth_user_id;
@@ -149,10 +156,38 @@ export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClie
     // caduque su token (1 h).
     const { data: app } = await admin.from('oauth_clientes').select('activo, scopes_permitidos').eq('id', fila.cliente_id).maybeSingle();
     if (!app?.activo) {
-      return { ok: false, studioId, credencial, resultado: error(401, 'invalid_token', 'Esta aplicación ya no está autorizada.', requestId) };
+      return { ok: false, studioId: alcance.estudioId, credencial, resultado: error(401, 'invalid_token', 'Esta aplicación ya no está autorizada.', requestId) };
     }
     // Recortar la lista de una app vale al momento, también para sus tokens vivos.
     scopesDeLaApp = (app.scopes_permitidos as string[] | null) ?? [];
+  }
+
+  // A qué sede va la petición (cadena.ts). Mientras no se sepa que la
+  // credencial llega a ella, un fallo se audita en SU sede: la pedida puede
+  // ser de otro estudio.
+  const sede = resolverSede(alcance, leerEstudioPedido(req.headers.get(CABECERA_ESTUDIO)), sinSede);
+  if (!sede.ok) {
+    return { ok: false, studioId: alcance.estudioId, credencial, resultado: error(sede.status, sede.codigo, sede.mensaje, requestId) };
+  }
+  const studioId = sede.studioId;
+  if (sede.deCadena && alcance.cadenaId) {
+    const [{ data: s }, { data: cadena }] = await Promise.all([
+      admin.from('studios').select('cadena_id, owner_auth_user_id').eq('id', studioId).maybeSingle(),
+      admin.from('cadenas').select('owner_auth_user_id').eq('id', alcance.cadenaId).maybeSingle(),
+    ]);
+    const llega = claveDeCadenaLlega({ sede: s, cadenaId: alcance.cadenaId, duenaCadena: cadena?.owner_auth_user_id ?? null, creadaPor: concedidaPor });
+    if (llega === 'ya_no_es_duena') {
+      return { ok: false, studioId: alcance.estudioId, credencial, resultado: error(401, 'invalid_token', 'Quien creó esta clave ya no es la dueña de la cadena.', requestId) };
+    }
+    if (llega === 'no_llega') {
+      return { ok: false, studioId: alcance.estudioId, credencial, resultado: error(404, 'not_found', MENSAJE_NO_LLEGA, requestId) };
+    }
+  }
+
+  // La API se activa estudio a estudio (decisión del fundador, 1-oct-2026), y
+  // una clave de cadena solo llega a las sedes que la tienen activada.
+  if (credencial.tipo === 'clave' && !(await apiActivada(admin, studioId))) {
+    return { ok: false, studioId, credencial, resultado: error(403, 'api_no_activada', 'La API no está activada para este estudio.', requestId) };
   }
 
   const acceso = await accesoVigente(admin, studioId, concedidaPor);
@@ -190,7 +225,38 @@ export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClie
       .then(() => {}, () => {});
   }
 
-  return { ok: true, ctx: { studioId, credencial, scopes, concedidaPor, rolDeQuienConcedio: rol, requestId } };
+  return { ok: true, ctx: { studioId, cadenaId: alcance.cadenaId, credencial, scopes, concedidaPor, rolDeQuienConcedio: rol, requestId } };
+}
+
+export interface SedeApi { id: string; nombre: string }
+
+/**
+ * Las sedes a las que llega la credencial de esta petición: la suya, o las de
+ * su cadena que la puerta dejaría pasar (cadena.ts). `null` si no se pudo leer.
+ * Acota por la cadena DE LA CREDENCIAL, nunca por algo que mande el cliente.
+ */
+export async function sedesDeLaCredencial(admin: SupabaseClient, ctx: ContextoApi): Promise<SedeApi[] | null> {
+  if (!ctx.cadenaId) {
+    const { data, error: e } = await admin.from('studios').select('id, nombre').eq('id', ctx.studioId).maybeSingle();
+    if (e) return null;
+    return data ? [{ id: data.id, nombre: data.nombre }] : [];
+  }
+  const [{ data: sedes, error: eSedes }, { data: cadena, error: eCadena }] = await Promise.all([
+    admin.from('studios').select('id, nombre, cadena_id, owner_auth_user_id, suspendido_en, subscription_status')
+      .eq('cadena_id', ctx.cadenaId).order('nombre'),
+    admin.from('cadenas').select('owner_auth_user_id').eq('id', ctx.cadenaId).maybeSingle(),
+  ]);
+  if (eSedes || eCadena) return null;
+  const ids = (sedes ?? []).map((s) => s.id as string);
+  const { data: accesos, error: eAccesos } = ids.length
+    ? await admin.from('api_acceso_estudios').select('studio_id').in('studio_id', ids).is('desactivada_en', null)
+    : { data: [], error: null };
+  if (eAccesos) return null;
+  return sedesAlcanzables({
+    sedes: (sedes ?? []) as SedeDeCadena[],
+    conApiActivada: new Set((accesos ?? []).map((a) => a.studio_id as string)),
+    cadenaId: ctx.cadenaId, duenaCadena: cadena?.owner_auth_user_id ?? null, creadaPor: ctx.concedidaPor,
+  }).map((s) => ({ id: s.id, nombre: s.nombre }));
 }
 
 /** Una fila por llamada autenticada (fire-and-forget: no bloquea la respuesta). */
@@ -220,8 +286,12 @@ const LIMITE_POR_IP = 600;
  */
 export async function conApiPublica(
   req: NextRequest,
-  /** `scope: null`: basta con una credencial válida del estudio (p. ej. /v1/estudio). */
-  opts: { scope: ScopeOAuth | null; ruta: string; limitePorMinuto?: number },
+  /**
+   * `scope: null`: basta con una credencial válida del estudio (p. ej. /v1/estudio).
+   * `sinSede`: la ruta no lee datos de una sede (solo /v1/estudios): una clave de
+   * cadena puede llamarla sin la cabecera Tentare-Estudio.
+   */
+  opts: { scope: ScopeOAuth | null; ruta: string; limitePorMinuto?: number; sinSede?: boolean },
   handler: (ctx: ContextoApi, admin: SupabaseClient) => Promise<ResultadoApi>,
 ): Promise<Response> {
   const requestId = randomUUID();
@@ -238,23 +308,36 @@ export async function conApiPublica(
   const auditar = (ctx: { studioId: string; credencial: CredencialApi }, status: number) =>
     auditarAccesoApi(admin, { studioId: ctx.studioId, credencial: ctx.credencial, scope: opts.scope, metodo: req.method, ruta: opts.ruta, status, ip });
 
-  const auth = await autenticarApiPublica(req, admin, requestId);
+  // Límite por CREDENCIAL, no por IP: una integración que llama desde varias
+  // máquinas comparte su cupo, y dos estudios detrás de la misma IP no se pisan.
+  // `null` = puede seguir; si no, la respuesta 429 (ya auditada).
+  const ventana = 60;
+  const limitar = async (quien: { studioId: string; credencial: CredencialApi }): Promise<Response | null> => {
+    const idCredencial = quien.credencial.tipo === 'clave' ? `k:${quien.credencial.claveId}` : `t:${quien.credencial.tokenId}`;
+    const limite = await rateLimit(`api-v1:${idCredencial}`, { max: opts.limitePorMinuto ?? LIMITE_POR_MINUTO, windowSeconds: ventana });
+    if (limite.allowed) return null;
+    auditar(quien, 429);
+    const r = error(429, 'rate_limited', 'Demasiadas peticiones con esta credencial. Espera y reintenta.', requestId);
+    return responder({ ...r, headers: { 'Retry-After': String(retryAfterSeconds(limite.resetAt, ventana)) } });
+  };
+
+  const auth = await autenticarApiPublica(req, admin, requestId, opts.sinSede === true);
   if (!auth.ok) {
-    if (auth.studioId && auth.credencial) auditar({ studioId: auth.studioId, credencial: auth.credencial }, auth.resultado.status);
+    if (auth.studioId && auth.credencial) {
+      // Una credencial válida que falla después (sede ajena o mal escrita en
+      // Tentare-Estudio, API sin activar…) gasta su cupo igual: si no, podría
+      // llenar el registro de su estudio de fallos a voluntad.
+      const quien = { studioId: auth.studioId, credencial: auth.credencial };
+      const limitada = await limitar(quien);
+      if (limitada) return limitada;
+      auditar(quien, auth.resultado.status);
+    }
     return responder(auth.resultado);
   }
   const { ctx } = auth;
 
-  // Límite por CREDENCIAL, no por IP: una integración que llama desde varias
-  // máquinas comparte su cupo, y dos estudios detrás de la misma IP no se pisan.
-  const idCredencial = ctx.credencial.tipo === 'clave' ? `k:${ctx.credencial.claveId}` : `t:${ctx.credencial.tokenId}`;
-  const ventana = 60;
-  const limite = await rateLimit(`api-v1:${idCredencial}`, { max: opts.limitePorMinuto ?? LIMITE_POR_MINUTO, windowSeconds: ventana });
-  if (!limite.allowed) {
-    auditar(ctx, 429);
-    const r = error(429, 'rate_limited', 'Demasiadas peticiones con esta credencial. Espera y reintenta.', requestId);
-    return responder({ ...r, headers: { 'Retry-After': String(retryAfterSeconds(limite.resetAt, ventana)) } });
-  }
+  const limitada = await limitar(ctx);
+  if (limitada) return limitada;
 
   if (opts.scope && !ctx.scopes.includes(opts.scope)) {
     auditar(ctx, 403);

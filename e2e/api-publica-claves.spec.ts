@@ -10,7 +10,10 @@ import { montar, ir } from './panel-sembrado';
 //   · crear una clave la enseña UNA vez, con «Copiar» y el texto seleccionable;
 //   · si el servidor dice que no, se dice por qué y NO aparece ninguna clave —
 //     contando que la petición SÍ salió (un test de fallo sin contador puede
-//     pasar sin haber intentado nada).
+//     pasar sin haber intentado nada);
+//   · a la dueña de una cadena se le ofrece una clave para todas sus sedes, y al
+//     crearla ve el código de cada sede (la cabecera Tentare-Estudio); a quien
+//     no, ni se le pregunta.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const json = (r: Route, b: unknown, s = 200) =>
@@ -18,7 +21,12 @@ const json = (r: Route, b: unknown, s = 200) =>
 
 const CLAVE = `tnt_sk_${'a'.repeat(43)}`;
 
-async function abrir(page: Page, opts: { activada: boolean; falloCrear?: boolean }) {
+const SEDES = [
+  { id: 'sede-centro', nombre: 'Centro', apiActivada: true, esEsta: true },
+  { id: 'sede-norte', nombre: 'Norte', apiActivada: false, esEsta: false },
+];
+
+async function abrir(page: Page, opts: { activada: boolean; falloCrear?: boolean; sedesCadena?: typeof SEDES }) {
   const posts: unknown[] = [];
   await montar(page);
   // Después de montar(): Playwright prueba las rutas en orden inverso al registro.
@@ -26,13 +34,20 @@ async function abrir(page: Page, opts: { activada: boolean; falloCrear?: boolean
   await page.route(u => u.pathname === '/api/integrations/api-publica/actividad', r => json(r, { llamadas: [] }));
   await page.route(u => u.pathname === '/api/integrations/api-publica/claves', r => {
     if (r.request().method() === 'GET') {
-      return json(r, { activada: opts.activada, permitidos: ['clientas:leer', 'clientas:datos_fiscales', 'pagos:leer', 'facturas:leer', 'planes:leer'], claves: [] });
+      return json(r, {
+        activada: opts.activada, permitidos: ['clientas:leer', 'clientas:datos_fiscales', 'pagos:leer', 'facturas:leer', 'planes:leer'], claves: [],
+        sedesCadena: opts.sedesCadena ?? null,
+      });
     }
-    posts.push(r.request().postDataJSON());
+    const cuerpo = r.request().postDataJSON() as { alcance?: string };
+    posts.push(cuerpo);
     if (opts.falloCrear) return json(r, { error: 'No puedes dar estos permisos: pagos:leer.' }, 400);
     return json(r, {
       clave: CLAVE,
-      detalle: { id: 'apik-1', nombre: 'Contabilidad', prefijo: 'tnt_sk_aaaaaa', scopes: ['pagos:leer'], creadaEn: '2026-10-01T10:00:00Z', expiraEn: null, ultimoUsoEn: null, revocadaEn: null, estado: 'activa' },
+      detalle: {
+        id: 'apik-1', nombre: 'Contabilidad', prefijo: 'tnt_sk_aaaaaa', scopes: ['pagos:leer'], creadaEn: '2026-10-01T10:00:00Z', expiraEn: null,
+        ultimoUsoEn: null, revocadaEn: null, estado: 'activa', alcance: cuerpo.alcance === 'cadena' ? 'cadena' : 'sede',
+      },
     }, 201);
   });
   await ir(page, 'configuracion?tab=conexiones');
@@ -57,8 +72,11 @@ test('crear una clave la enseña una vez, con los permisos de contabilidad por d
   await expect(cajon(page).getByText(/Cópiala ahora: no la volverás a ver/)).toBeVisible();
   await expect(cajon(page).getByLabel('Clave de API')).toHaveValue(CLAVE);
   expect(posts.length, 'la petición de crear tiene que salir').toBeGreaterThan(0);
-  const cuerpo = posts[0] as { nombre: string; scopes: string[]; caducaEnDias: number | null };
+  const cuerpo = posts[0] as { nombre: string; scopes: string[]; caducaEnDias: number | null; alcance: string };
   expect(cuerpo.nombre).toBe('Contabilidad');
+  // Sin cadena no se pregunta por las sedes, y la clave es de esta.
+  await expect(cajon(page).getByText('Para qué sedes')).toHaveCount(0);
+  expect(cuerpo.alcance).toBe('sede');
   expect(cuerpo.scopes.sort()).toEqual(['clientas:datos_fiscales', 'clientas:leer', 'facturas:leer', 'pagos:leer', 'planes:leer']);
   expect(cuerpo.caducaEnDias).toBe(365);
 
@@ -76,4 +94,22 @@ test('si el servidor dice que no, se dice por qué y no aparece ninguna clave', 
   expect(posts.length, 'la petición tiene que haber salido: si no, este test no prueba nada').toBeGreaterThan(0);
   await expect(cajon(page).getByLabel('Clave de API')).toHaveCount(0);
   await expect(cajon(page).getByText(/no la volverás a ver/)).toHaveCount(0);
+});
+
+test('la dueña de una cadena puede crear una clave para todas sus sedes y ve el código de cada una', async ({ page }) => {
+  const { posts } = await abrir(page, { activada: true, sedesCadena: SEDES });
+  await cajon(page).getByRole('button', { name: /Crear una clave/ }).click();
+  // Por defecto, solo esta sede: una clave de cadena se elige a propósito.
+  await expect(cajon(page).getByRole('radio', { name: /Solo esta sede \(Centro\)/ })).toBeChecked();
+  await cajon(page).getByRole('radio', { name: /Todas tus sedes \(2\)/ }).check();
+  await cajon(page).getByRole('button', { name: 'Crear la clave' }).click();
+
+  await expect(cajon(page).getByLabel('Clave de API')).toHaveValue(CLAVE);
+  expect(posts.length, 'la petición de crear tiene que salir').toBeGreaterThan(0);
+  expect((posts[0] as { alcance: string }).alcance).toBe('cadena');
+  // Quien conecte la clave necesita el código de cada sede, y saber a cuál no llega todavía.
+  await expect(cajon(page).getByText('Tentare-Estudio').first()).toBeVisible();
+  await expect(cajon(page).getByText('sede-centro')).toBeVisible();
+  await expect(cajon(page).getByText('sede-norte')).toBeVisible();
+  await expect(cajon(page).getByText(/la API no está activada aquí/)).toHaveCount(1);
 });

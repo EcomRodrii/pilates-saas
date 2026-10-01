@@ -26,9 +26,21 @@ Cómo funciona una clave de API:
 - **Se puede rotar.** Se crea otra con los mismos permisos y la antigua sigue valiendo 24 horas, para cambiarla en el programa sin cortar la sincronización.
 - **Puede caducar** a los 30, 90 o 365 días, o no caducar nunca.
 
-La API se activa estudio a estudio: si el estudio no la tiene activada, no se pueden crear claves. Desactivarla revoca todas sus claves; si se vuelve a activar, hay que crear claves nuevas. Los tokens OAuth (Zapier) no dependen de esta activación.
+La API se activa estudio a estudio: si el estudio no la tiene activada, no se pueden crear claves. Desactivarla revoca todas las claves que llegan a esa sede, incluidas las de su cadena; si se vuelve a activar, hay que crear claves nuevas. Los tokens OAuth (Zapier) no dependen de esta activación.
 
-**Una credencial pertenece a un solo estudio (una sede).** No hay ninguna forma de pedir datos de otro.
+**Cada petición va a una sola sede.** Un token OAuth o una clave de sede solo llegan a la suya. No hay ninguna forma de pedir datos de otro estudio.
+
+### Claves de cadena
+
+La dueña de una cadena puede crear una clave para **todas sus sedes**, en vez de una por sede. Con ella:
+
+- **Cada petición dice a qué sede va**, con la cabecera `Tentare-Estudio: <id de la sede>`. Sin la cabecera, la petición se rechaza (400): leer en silencio una sola sede dejaría la contabilidad con un hueco que nadie ve.
+- **`GET /estudios` lista las sedes** a las que llega la clave ahora mismo. Es la única ruta que no necesita la cabecera. El panel enseña también el código de cada sede.
+- **Llega solo a las sedes de la cadena de las que la creadora es dueña y que tienen la API activada.** Una sede sin activar responde 403 `api_no_activada`; una sede que no es de la cadena, 404, sin decir si existe.
+- **Si la creadora deja de ser la dueña de la cadena**, la clave deja de valer en todas las sedes.
+- Los permisos, el límite de peticiones y la `Idempotency-Key` son los de cualquier clave. El límite es de la clave, no de cada sede (y cuentan también las peticiones rechazadas), y cada llamada queda en el registro de actividad de su sede.
+
+Con un token OAuth o una clave de sede, la cabecera sobra. Si se manda, tiene que ser su propia sede.
 
 ## Permisos (scopes)
 
@@ -57,6 +69,7 @@ Todas las rutas cuelgan de `https://tentare.app/api/v1`. El antiguo prefijo `/ap
 | Ruta | Scope | Qué devuelve |
 |---|---|---|
 | `GET /estudio` | cualquiera | Datos fiscales del emisor, zona horaria, moneda, IVA por defecto y `modoFacturacion` |
+| `GET /estudios` | cualquiera | Las sedes a las que llega la credencial (`id` y `nombre`). Con una clave de cadena, las de la cadena |
 | `GET /clientas` | `clientas:leer` | Clientas |
 | `GET /recibos`, `GET /recibos/{id}` | `pagos:leer` | Cobros (ver «Contabilidad» más abajo) |
 | `GET /devoluciones` | `pagos:leer` | Reembolsos y contracargos, uno por cada hecho |
@@ -102,12 +115,12 @@ curl -H "Authorization: Bearer $TENTARE_CLAVE" \
 
 | HTTP | `error` | Cuándo |
 |---|---|---|
-| 400 | `invalid_request` | Parámetro mal (fecha, cursor, estado…) |
+| 400 | `invalid_request` | Parámetro mal (fecha, cursor, estado…), o una clave de cadena sin la cabecera `Tentare-Estudio` |
 | 401 | `invalid_token` | Falta la credencial, o está revocada o caducada, o quien la concedió ya no está en el estudio |
 | 403 | `insufficient_scope` | La credencial no tiene ese permiso |
 | 403 | `api_no_activada` | La API no está activada para el estudio (solo claves) |
 | 403 | `estudio_sin_acceso` | El estudio está suspendido o no tiene suscripción activa |
-| 404 | `not_found` | El recurso no existe **en este estudio** |
+| 404 | `not_found` | El recurso no existe **en este estudio**, o la credencial no llega a la sede de `Tentare-Estudio` |
 | 409 | `request_in_progress` | Otra petición con la misma `Idempotency-Key` sigue en marcha; reintenta tras `Retry-After` |
 | 422 | `idempotency_conflict` | Esa `Idempotency-Key` ya se usó con otra petición |
 | 429 | `rate_limited` | Demasiadas peticiones; espera lo que indica `Retry-After` |
@@ -291,13 +304,14 @@ curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://tentare.app/api/v1/ev
 - **Entrada única: `conApiPublica`** (`lib/api-publica/servidor.ts`). Hace, en orden:
   1. límite por IP;
   2. autenticación con token OAuth o con clave;
-  3. comprobación del estudio (suspendido, sin suscripción);
-  4. rol actual de quien concedió la credencial;
-  5. scopes efectivos (credencial ∩ rol ∩ plan, en `lib/api-publica/scopes.ts`);
-  6. límite por credencial;
-  7. scope del endpoint;
-  8. el handler;
-  9. auditoría en `oauth_auditoria_accesos`, que admite `cliente_id` o `api_clave_id`.
+  3. la sede de la petición (`lib/api-publica/cadena.ts`): la de la credencial o, con una clave de cadena, la de `Tentare-Estudio`, comprobada contra la cadena y su dueña;
+  4. comprobación del estudio (suspendido, sin suscripción);
+  5. rol actual de quien concedió la credencial;
+  6. scopes efectivos (credencial ∩ rol ∩ plan, en `lib/api-publica/scopes.ts`);
+  7. límite por credencial;
+  8. scope del endpoint;
+  9. el handler;
+  10. auditoría en `oauth_auditoria_accesos`, que admite `cliente_id` o `api_clave_id`.
 - **Sin RLS debajo.** La API corre con service-role, así que el aislamiento entre estudios es `ctx.studioId`. `lib/api-publica/rutas.test.ts` exige que cada ruta de `app/api/v1` filtre por él, use `conApiPublica` y no haga `select('*')`.
 - **Forma pública: `lib/api-publica/serializar.ts`.** Lista blanca de columnas y de campos. `serializar.test.ts` comprueba que cada serializador devuelve exactamente lo que dice `openapi.ts` y que ninguna columna interna sale.
 - **Cifras.** Las de dinero usan `lib/billing/situacion-recibo.ts`, la misma lectura que el panel (`docs/cifras-financieras.md`).
@@ -327,8 +341,12 @@ curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://tentare.app/api/v1/ev
   - Suprimir o borrar a una clienta vacía sus copias en `api_eventos.datos` (trigger `api_eventos_olvidar_clienta`). El registro no apunta a ella por `socio_id`, así que no lo cubre `supresion-cobertura.test.ts`; lo cubre `webhooks/catalogo.test.ts`.
   - Borrar un webhook es un borrado lógico (`borrado_en`/`borrado_por`): queda el rastro de a qué URL apuntaba y quién lo creó y lo borró.
   - Cada fila del trigger abre una subtransacción (el `exception` que protege la escritura de negocio), solo en estudios con la API activa. Con más de 64 filas en una sola sentencia (importación masiva) desborda la caché de subtransacciones; es aceptable a esta escala, pero conviene tenerlo presente.
-- **Pendiente.**
-  - Claves a nivel de cadena.
+- **Claves de cadena** (`api_claves.cadena_id`, migr `20261001204440`; `lib/api-publica/cadena.ts`).
+  - No cambian el aislamiento: cada petición sigue teniendo UNA sede (`ctx.studioId`), y la cabecera solo se acepta si la clave llega a ella. Mientras no se sabe, un fallo se audita en la sede de la clave, porque la pedida puede ser de otro estudio.
+  - `studio_id` es la sede desde la que se creó o se rotó. Solo se usa para `GET /estudios` sin cabecera: esa llamada pasa las comprobaciones de esa sede y se audita allí. Límite conocido: si esa sede queda suspendida, `/estudios` sin cabecera falla aunque las demás sedes funcionen. Rotar la clave desde otra sede la cambia de origen.
+  - Desde el panel las gestiona la dueña de la cadena desde cualquiera de sus sedes (`filtroClaves`, `Gestor.cadenaId`). Si deja de serlo, puede revocar las que creó en esa sede, pero no rotarlas. Otra propietaria de la sede no ve las claves de cadena que creó la dueña allí: revocarlas cortaría toda la cadena.
+  - Las peticiones que una credencial válida hace fallar después de identificarse (sede ajena en la cabecera, API sin activar…) gastan su cupo por minuto igual que las buenas.
+  - `/interno` revoca las claves de cadena al desactivar la API de cualquiera de sus sedes. Es la opción que falla cerrada: una clave revocada no vuelve a entrar en la sede si alguien reactiva su API.
 - **Permisos por app OAuth** (`oauth_clientes.scopes_permitidos`, `repartirScopesConsentimiento` en `lib/api-publica/scopes.ts`).
   - Se aplican al autorizar (recortando) y en cada petición (`scopesEfectivos` con `app`).
   - Una app nueva nace sin permisos: su lista va en la misma migración que la registra.

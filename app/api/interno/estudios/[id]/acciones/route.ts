@@ -5,6 +5,7 @@ import { registrar } from '@/lib/interno/auditoria';
 import { PLANES } from '@/lib/billing/entitlements';
 import { DIAS_AMPLIACION_PRUEBA } from '@/lib/billing/trial';
 import { ampliarPruebaEstudio } from '@/lib/interno/ampliar-prueba';
+import { filtroClavesQueLleganA } from '@/lib/api-publica/gestion-reglas';
 
 export const runtime = 'nodejs';
 
@@ -199,14 +200,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       : await db.from('api_acceso_estudios').update({ desactivada_en: new Date().toISOString() }).eq('studio_id', id);
     if (error) return NextResponse.json({ error: 'No se ha podido cambiar el acceso a la API.' }, { status: 500 });
 
-    // Desactivar REVOCA sus claves. Si no, volver a activar la API (meses
+    // Desactivar REVOCA las claves que llegan a la sede: las suyas y las de su
+    // cadena (lib/api-publica/cadena.ts). Si no, volver a activar la API (meses
     // después, o tras desactivarla por un abuso) resucitaría en silencio todas
-    // las que no se revocaron. Tras reactivar, la propietaria crea claves nuevas.
+    // las que no se revocaron. Tras reactivar, la propietaria crea claves
+    // nuevas. Una clave de cadena revocada deja de valer también en las otras
+    // sedes: preferible a que siga entrando en esta sin que nadie lo decida.
     let revocadas = 0;
     if (!activar) {
       const { data: filas, error: errRevocar } = await db.from('api_claves')
         .update({ revocada_en: new Date().toISOString(), revocada_por: g.admin.userId })
-        .eq('studio_id', id).is('revocada_en', null).select('id');
+        .or(filtroClavesQueLleganA({ studioId: id, cadenaId: (antes.cadena_id as string | null) ?? null })).is('revocada_en', null).select('id');
       if (errRevocar) return NextResponse.json({ error: 'API desactivada, pero no se han podido revocar sus claves. Vuelve a intentarlo.' }, { status: 500 });
       revocadas = filas?.length ?? 0;
     }

@@ -137,6 +137,9 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   (SSRF: IP comprobada al CONECTAR, sin redirecciones); nunca un `fetch` a pelo.
   Los POST aceptan `Idempotency-Key` y lo resuelve `conApiPublica` (lib/api-publica/idempotencia.ts):
   un POST nuevo en `app/api/v1` lo hereda sin hacer nada, y no debe saltarse esa puerta.
+  Claves de cadena (`lib/api-publica/cadena.ts`): una clave para todas las sedes de la dueña, pero
+  cada petición sigue yendo a UNA sede, la de la cabecera `Tentare-Estudio`, que comprueba la
+  puerta. Nunca un endpoint que lea varias sedes de golpe: rompería el filtro por `ctx.studioId`.
 - **Modo de Stripe**: el código es agnóstico (`sk_live_` y `sk_test_` funcionan igual), y
   `sk_test_XXXX` significa **«sin configurar»**, NO «modo test» — una clave de test real la
   pasa. Lo que está prohibido es mezclar: `lib/billing/modo-stripe.ts` bloquea clave live
