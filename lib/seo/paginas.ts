@@ -335,9 +335,9 @@ export const PAGINAS: PaginaSeo[] = [
     // /funcionalidades y /comparativa. La intención local la cubre ahora
     // /network/instructoras/ciudad/barcelona.
     path: '/',
-    titulo: 'Software de gestión para estudios de Pilates | Tentare',
+    titulo: 'Software y programa de gestión para estudios de Pilates | Tentare',
     descripcion:
-      'Reservas desde la app de tu estudio, cobros que se reintentan solos y bajas que se cubren. Software de gestión para estudios de Pilates, desde 29 €/mes.',
+      'El software Nº1 para estudios y centros de Pilates: reservas, bonos, cobros y sustituciones en un solo programa. Desde 29 €/mes, 7 días gratis.',
     grupo: 'home',
     etiqueta: 'Inicio',
     prioridad: 1,
