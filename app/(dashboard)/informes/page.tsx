@@ -6,12 +6,14 @@ import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClienta
 import { fetchTarifasEquipo, type TarifaInstructor } from '@/lib/api-client';
 import { margenSesiones, type MargenSesion } from '@/lib/decision/margen-clase.ts';
 import { combinarConVariacion, type VentaTipoConVariacion } from '@/lib/informes/ventas-por-tipo.ts';
+import { rangoDelInforme } from '@/lib/informes/periodo.ts';
+import { esVentaSinRecibo, resumenVentasSinRecibo } from '@/lib/pos/ventas-sin-recibo';
 import { etiquetaEuros as fmtEur, techoDelEje, marcasDelEje } from '@/lib/informes/eje-euros.ts';
 import type { Sesion } from '@/lib/types';
 import { TrendingUp, Users, CreditCard, Activity, Download, FileText, Scale, Package } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
-import { inicioDeSemana, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { inicioDeSemana, fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 import { useRol, puedeVerFinanzas, puedeGestionarEquipo } from '@/lib/permisos';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -138,7 +140,7 @@ type ExportState = 'idle' | 'loading' | 'done';
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Informes() {
-  const { recibos, socios, sesiones, reservas, tiposClase, suscripciones, planesTarifa, instructores, datosIncompletos } = useStudio();
+  const { recibos, socios, sesiones, reservas, tiposClase, suscripciones, planesTarifa, instructores, ventasPOS, datosIncompletos } = useStudio();
   // Sin esto, una instructora o un manager veían aquí las tarjetas de
   // ingresos/ticket medio — la RLS real (migración 0114) sí bloquea los datos
   // (ven un 0 € falso, no el número real), pero mostrar la tarjeta igual es
@@ -157,7 +159,7 @@ export default function Informes() {
   const [pdfState, setPdfState] = useState<ExportState>('idle');
   const [mounted, setMounted] = useState(false);
   // F1 (B1-B4): agregados de dinero calculados en el SERVIDOR (RPC, sin cap 1000).
-  const [agg, setAgg] = useState<{ total: number; nSocias: number; mrr: number; porDia: { dia: string; total: number }[] } | null>(null);
+  const [agg, setAgg] = useState<{ total: number; totalSocias: number; nSocias: number; mrr: number; porDia: { dia: string; total: number }[] } | null>(null);
   // F1 (B4/B1): ocupación por tipo y retención también del servidor.
   const [ocupData, setOcupData] = useState<{ tipoClaseId: string | null; nSesiones: number; aforo: number; ocupadas: number }[]>([]);
   // ⚠️ `null` mientras no ha llegado, NO cero. Arrancando en 0 la tarjeta
@@ -238,19 +240,15 @@ export default function Informes() {
   // F1: trae los ingresos agregados del servidor al montar y al cambiar de período.
   useEffect(() => {
     if (!mounted) return;
-    const desde = localDate(periodStart);
-    const hasta = localDate(now);
-    const mesInicio = localDate(new Date(now.getFullYear(), now.getMonth(), 1));
-    // Período anterior de IGUAL duración, inmediatamente antes de periodStart —
-    // mismo criterio de "periodo" que ya usa esta pantalla (periodStart..now).
-    const duracionDias = Math.max(1, Math.round((now.getTime() - periodStart.getTime()) / 86400000));
-    const prevHasta = new Date(periodStart); prevHasta.setDate(prevHasta.getDate() - 1);
-    const prevDesde = new Date(prevHasta); prevDesde.setDate(prevDesde.getDate() - duracionDias + 1);
+    // Días del ESTUDIO, no del navegador: las RPC filtran `fecha_cobro`, que es
+    // una fecha de Madrid (lib/informes/periodo.ts). El periodo anterior dura lo
+    // mismo y acaba el día antes de `desde`.
+    const { desde, hasta, inicioMes: mesInicio, anteriorDesde, anteriorHasta } = rangoDelInforme(period, hoyEnEstudio(now));
     let cancel = false;
     void Promise.all([
       dbInformeIngresos(desde), dbInformeIngresos(mesInicio), dbIngresosPorDia(desde),
       dbOcupacionPorTipo(desde), dbStatsClientas(),
-      dbVentasPorTipo(desde, hasta), dbVentasPorTipo(localDate(prevDesde), localDate(prevHasta)),
+      dbVentasPorTipo(desde, hasta), dbVentasPorTipo(anteriorDesde, anteriorHasta),
     ])
       .then(([per, mes, dias, ocup, stc, ventasActual, ventasAnterior]) => {
         if (cancel) return;
@@ -263,7 +261,7 @@ export default function Informes() {
           setFallo(true);
         } else {
           setFallo(false);
-          setAgg({ total: per.total, nSocias: per.nSocias, mrr: mes.total, porDia: dias });
+          setAgg({ total: per.total, totalSocias: per.totalSocias, nSocias: per.nSocias, mrr: mes.total, porDia: dias });
         }
         if (ocup) setOcupData(ocup);
         // ⚠️ Sin clientas NO hay una retención del 0 %: no hay retención que
@@ -308,6 +306,17 @@ export default function Informes() {
     return buckets.map(b => ({ ...b, value: map[b.key] ?? 0 }));
   }, [agg, period, now]);
 
+  // Ventas de la caja cobradas sin recibo dentro del periodo: no están en los
+  // ingresos (las RPC cuentan recibos) y se dice, en vez de faltar en silencio.
+  const ventasSinReciboPeriodo = useMemo(() => {
+    const { desde, hasta } = rangoDelInforme(period, hoyEnEstudio(now));
+    return resumenVentasSinRecibo(ventasPOS.filter(v => {
+      if (!esVentaSinRecibo(v) || !v.realizadaEn) return false;
+      const dia = hoyEnEstudio(new Date(v.realizadaEn));
+      return dia >= desde && dia <= hasta;
+    }));
+  }, [ventasPOS, period, now]);
+
   // ─── KPI: Total ingresos del período (server-side, F1) ──────────────────────
   // ⚠️ `null` = no lo sabemos, y se pinta «—». Antes era `?? 0`: con la RPC
   // caída, las tres cifras de dinero de esta pantalla decían 0,00 € con la
@@ -320,7 +329,12 @@ export default function Informes() {
   // ─── KPI: Ticket medio (server-side, F1) ────────────────────────────────────
   // Sin `agg` no hay ticket; con `agg` y cero pagadoras, el ticket es 0 de
   // verdad (nadie pagó), que es distinto y sí se puede escribir.
-  const ticketMedio = agg == null ? null : agg.nSocias > 0 ? agg.total / agg.nSocias : 0;
+  //
+  // ⚠️ Lo pagado por CLIENTAS entre las clientas que pagaron. Antes el
+  // numerador era todo lo cobrado, ventas de mostrador sin clienta incluidas, y
+  // el denominador no podía contarlas: en un estudio real salía 197,50 € cuando
+  // lo de sus clientas era 87,10 €.
+  const ticketMedio = agg == null ? null : agg.nSocias > 0 ? agg.totalSocias / agg.nSocias : 0;
 
   // ─── KPI: Tasa retención (server-side, F1) ──────────────────────────────────
   const tasaRetencion = retencion;
@@ -447,11 +461,12 @@ export default function Informes() {
   const exportCSV = useCallback(async () => {
     setCsvState('loading');
     // F1: TODOS los recibos cobrados por keyset (sin cap 1000), no el array del cliente.
-    const cobrados = await dbRecibosCobradosParaExport(localDate(periodStart));
+    const cobrados = await dbRecibosCobradosParaExport(rangoDelInforme(period, hoyEnEstudio(now)).desde);
     cobrados.sort((a, b) => (a.fechaCobro < b.fechaCobro ? -1 : a.fechaCobro > b.fechaCobro ? 1 : 0));
+    // Bruto, devuelto y neto: la suma de «Neto» es la cifra «Ingresos período».
     const rows = [
-      ['Fecha', 'Clienta', 'Concepto', 'Importe (€)', 'Estado'],
-      ...cobrados.map(r => [r.fechaCobro, r.nombre, r.concepto, r.importe.toFixed(2), r.estado]),
+      ['Fecha', 'Clienta', 'Concepto', 'Cobrado (€)', 'Devuelto (€)', 'Neto (€)', 'Método', 'Estado'],
+      ...cobrados.map(r => [r.fechaCobro, r.nombre, r.concepto, r.importe.toFixed(2), r.importeDevuelto.toFixed(2), r.neto.toFixed(2), r.metodo ?? '', r.estado]),
     ];
     const csv = rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -462,7 +477,7 @@ export default function Informes() {
     a.click();
     URL.revokeObjectURL(url);
     setTimeout(() => { setCsvState('done'); setTimeout(() => setCsvState('idle'), 2500); }, 600);
-  }, [periodStart, now]);
+  }, [period, now]);
 
   // Export real: abre el diálogo de impresión del navegador, desde el que se
   // puede "Guardar como PDF". Sin dependencias externas y funciona en todos los
@@ -587,7 +602,13 @@ export default function Informes() {
               <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
                 {totalIngresos === null ? '—' : fmtEurFull(totalIngresos)}
               </CifraPrivada>
-              <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>cobrados en el periodo</p>
+              <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>cobrados en el periodo · con IVA, ya restado lo devuelto</p>
+              {ventasSinReciboPeriodo.n > 0 && (
+                <p className="text-[11px] mt-1" style={{ color: 'var(--muted-foreground)' }}>
+                  No incluye {ventasSinReciboPeriodo.n === 1 ? 'una venta' : `${ventasSinReciboPeriodo.n} ventas`} de la caja
+                  {' '}({fmtEurFull(ventasSinReciboPeriodo.total)}) cobrada{ventasSinReciboPeriodo.n === 1 ? '' : 's'} sin recibo.
+                </p>
+              )}
             </div>
 
             {/* MRR */}

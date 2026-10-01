@@ -37,6 +37,7 @@ import {
   penalizacionDelRecibo, type LecturaPenalizacionesDeRecibos,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { COLUMNAS_COBRO_EN_MARCHA, type FilaReciboRemesa, type LecturaRecibosRemesa } from '@/lib/billing/remesa-sepa-reglas';
+import { importeIngresado } from '@/lib/billing/situacion-recibo';
 import { reservasPorAprobarDe, type FilaReservaPorAprobar, type ReservaPorAprobar } from '@/lib/reservas-por-aprobar';
 import { fusionarDatosPrivados, CAMPOS_PRIVADOS_SOCIO, type ColumnaPrivadaSocia, type FilaDatosPrivadosSocia } from '@/lib/socios/datos-privados';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -501,6 +502,10 @@ export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancel
 // ofrecer devolver un bono ya usado y que el endpoint lo rechazara después de
 // confirmar. Si algún día hay que quitarlo, hay que quitar también esa regla de
 // la pantalla, no dejarla decidiendo con datos que no tiene.
+//
+// ⚠️ Y `importe_devuelto` también (F0, 1-oct-2026): es un numérico por fila y
+// sin él ninguna cifra de dinero podía restar un reembolso parcial. Las cifras
+// lo leen a través de `lib/billing/situacion-recibo.ts`.
 export type FilaReciboPanel = Omit<RowRecibos,
   | 'proximo_reintento'
   // Metadata de SERVIDOR: decide si cobrar este recibo entrega algo
@@ -513,7 +518,7 @@ export type FilaReciboPanel = Omit<RowRecibos,
   | 'entrega_tipo' | 'entrega_aplicada' | 'entrega_aplicada_en'
   | 'entrega_sesiones_antes'
   | 'entrega_fecha_fin_antes' | 'entrega_fecha_fin_despues'
-  | 'entrega_estado_antes' | 'importe_devuelto'
+  | 'entrega_estado_antes'
   // Solo la usa /api/stripe/checkout en servidor, para reutilizar la sesión ya
   // abierta de un recibo (20260817214500). El panel no la pinta ni la decide.
   | 'checkout_session_id'
@@ -1150,6 +1155,10 @@ export function mapRecibo(r: FilaReciboPanel): Recibo {
     reembolsoFallidoEn: r.reembolso_fallido_en ?? null,
     reembolsoFalloMotivo: r.reembolso_fallo_motivo ?? null,
     reembolsoStripeId: r.reembolso_stripe_id ?? null,
+    // Acumulado devuelto (parciales incluidos). Sin él ninguna cifra del panel
+    // podía restar un reembolso parcial: el recibo sigue COBRADO y solo esta
+    // columna dice que parte del dinero volvió (lib/billing/situacion-recibo.ts).
+    importeDevuelto: r.importe_devuelto ?? 0,
   } as Recibo;
 }
 
@@ -1237,6 +1246,8 @@ export function mapVentaPOS(r: RowVentasPos): VentaPOS {
     notas: r.notas ?? null,
     realizadaEn: r.realizada_en,
     stripePaymentIntentId: r.stripe_payment_intent_id ?? null,
+    estado: r.estado ?? null,
+    reciboId: r.recibo_id ?? null,
   } as VentaPOS;
 }
 
@@ -3759,12 +3770,18 @@ export async function dbDevolverSesionBono(
 // — «sin fila» solo pasa si algo va mal.
 export async function dbInformeIngresos(
   desde: string | null,
-): Promise<{ total: number; nCobrados: number; nSocias: number } | null> {
-  const { data, error } = await supabase.rpc('informe_ingresos', { p_desde: desde });
+): Promise<{ total: number; nCobrados: number; nSocias: number; totalSocias: number } | null> {
+  // `informe_ingresos_neto` (F0): neto de reembolsos parciales, y con lo pagado
+  // por clientas aparte — el ticket medio no puede repartir entre clientas las
+  // ventas de mostrador que no tienen clienta.
+  const { data, error } = await supabase.rpc('informe_ingresos_neto', { p_desde: desde });
   if (error) { reportDbError('[dbInformeIngresos]', error); return null; }
-  const row = (Array.isArray(data) ? data[0] : data) as { total_ingresos: number; n_cobrados: number; n_socias_unicas: number } | undefined;
+  const row = (Array.isArray(data) ? data[0] : data) as { total_ingresos: number; n_cobrados: number; n_socias_unicas: number; total_socias: number } | undefined;
   if (!row) return null;
-  return { total: Number(row.total_ingresos ?? 0), nCobrados: Number(row.n_cobrados ?? 0), nSocias: Number(row.n_socias_unicas ?? 0) };
+  return {
+    total: Number(row.total_ingresos ?? 0), nCobrados: Number(row.n_cobrados ?? 0),
+    nSocias: Number(row.n_socias_unicas ?? 0), totalSocias: Number(row.total_socias ?? 0),
+  };
 }
 
 // Igual: `[]` significa «no hubo ni un cobro en el periodo» y es una respuesta
@@ -3886,22 +3903,30 @@ export async function dbOcupacionPorTipo(
 // va embebido (join socios) para no depender del array de socios (también capado).
 export async function dbRecibosCobradosParaExport(
   desde: string,
-): Promise<{ fechaCobro: string; nombre: string; concepto: string; importe: number; estado: string }[]> {
-  const out: { fechaCobro: string; nombre: string; concepto: string; importe: number; estado: string }[] = [];
+): Promise<{ fechaCobro: string; nombre: string; concepto: string; importe: number; importeDevuelto: number; neto: number; metodo: string | null; estado: string }[]> {
+  const out: { fechaCobro: string; nombre: string; concepto: string; importe: number; importeDevuelto: number; neto: number; metodo: string | null; estado: string }[] = [];
   let lastId = '';
   for (let i = 0; i < 200; i++) { // tope de seguridad: 200×1000 = 200k filas
     let q = supabase
       .from('recibos')
-      .select('id, fecha_cobro, concepto, importe, estado, socios(nombre, apellidos)')
+      .select('id, fecha_cobro, concepto, importe, importe_devuelto, metodo_cobro, estado, socios(nombre, apellidos)')
       .eq('estado', 'COBRADO').gte('fecha_cobro', desde)
       .order('id', { ascending: true }).limit(1000);
     if (lastId) q = q.gt('id', lastId);
     const { data, error } = await q;
     if (error) { reportDbError('[dbRecibosCobradosParaExport]', error); break; }
     if (!data || data.length === 0) break;
-    for (const r of data as unknown as { id: string; fecha_cobro: string; concepto: string; importe: number; estado: string; socios: { nombre: string; apellidos: string } | null }[]) {
+    for (const r of data as unknown as { id: string; fecha_cobro: string; concepto: string; importe: number; importe_devuelto: number | null; metodo_cobro: string | null; estado: string; socios: { nombre: string; apellidos: string } | null }[]) {
       const s = r.socios;
-      out.push({ fechaCobro: r.fecha_cobro, nombre: s ? `${s.nombre} ${s.apellidos}` : '—', concepto: r.concepto, importe: Number(r.importe), estado: r.estado });
+      // Mismas filas y misma cuenta que «Ingresos período» (informe_ingresos_neto):
+      // un COBRADO devuelto entero no es ingreso y no sale.
+      const neto = importeIngresado({ estado: r.estado, importe: r.importe, importeDevuelto: r.importe_devuelto });
+      if (neto <= 0) continue;
+      out.push({
+        fechaCobro: r.fecha_cobro, nombre: s ? `${s.nombre} ${s.apellidos}` : '—', concepto: r.concepto,
+        importe: Number(r.importe), importeDevuelto: Number(r.importe_devuelto ?? 0), neto,
+        metodo: r.metodo_cobro, estado: r.estado,
+      });
     }
     lastId = (data[data.length - 1] as unknown as { id: string }).id;
     if (data.length < 1000) break;
@@ -5662,7 +5687,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     db.from('instructores').select('*').eq('studio_id', sid),
     fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia, cancelada_tardia').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota, importe_devuelto').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus
     // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a
@@ -5878,7 +5903,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
 // Columnas que el panel lee de recibos/facturas/suscripciones al refrescar tras
 // un cobro. Compartidas por `fetchDatosTrasVentaPOS` y `dbReleerTrasCobro`: dos
 // listas escritas a mano acaban leyendo cosas distintas del mismo recibo.
-const COLUMNAS_RECIBO_PANEL = 'id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota' as const;
+const COLUMNAS_RECIBO_PANEL = 'id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota, importe_devuelto' as const;
 const COLUMNAS_FACTURA_PANEL = 'id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto' as const;
 const COLUMNAS_SUSCRIPCION_PANEL = 'id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer' as const;
 

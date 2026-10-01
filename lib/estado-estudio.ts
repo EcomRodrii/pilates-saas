@@ -158,7 +158,8 @@ const LINEAS: DefLinea[] = [
   { id: 'alertasApertura', bandeja: 'decidir', href: null,
     uno: 'Tu apertura tiene un aviso', varios: n => `Tu apertura tiene ${n} avisos` },
   { id: 'recibosFallidos', bandeja: 'decidir', href: '/cobros?tab=deudas',
-    uno: 'Un cobro que Tentare no ha conseguido cobrar', varios: n => `${n} cobros que Tentare no ha conseguido cobrar` },
+    // Incluye el recibo devuelto por el banco: también es deuda (F0).
+    uno: 'Un cobro sin cobrar: rechazado o devuelto por el banco', varios: n => `${n} cobros sin cobrar: rechazados o devueltos por el banco` },
   // Sin tarjeta guardada (cuota cobrada en recepción) la renovación no se cobra
   // sola: o la cobras tú, o ella la paga desde su app, que ya se lo ha avisado.
   { id: 'renovacionesSinCobro', bandeja: 'decidir', href: '/cobros?tab=deudas',

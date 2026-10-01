@@ -7,6 +7,7 @@
 
 import type { Socio, Reserva, Recibo, Suscripcion, PlanTarifa, Sesion } from '@/lib/types';
 import { cumpleMesDia, formatearCumple } from './socios/datos-privados.ts';
+import { importeIngresado, aCentimos } from './billing/situacion-recibo.ts';
 
 export interface ResumenSocioInput {
   socio: Socio | undefined;
@@ -75,7 +76,9 @@ export function resumenSocio({
     return r.estado === 'ASISTIDA' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
   const bonosComprados = propiasSocio.length;
-  const totalGastado = misRecibos.filter(r => r.estado === 'COBRADO').reduce((acc, r) => acc + r.importe, 0);
+  // Neto de reembolsos (lib/billing/situacion-recibo.ts): lo que de verdad ha
+  // pagado. Un reembolso parcial dejaba el recibo COBRADO y se sumaba entero.
+  const totalGastado = aCentimos(misRecibos.reduce((acc, r) => acc + importeIngresado(r), 0));
   const pendientes = misRecibos.filter(r => r.estado === 'PENDIENTE');
   const pagosFallidos = misRecibos.filter(r => r.estado === 'FALLIDO');
 

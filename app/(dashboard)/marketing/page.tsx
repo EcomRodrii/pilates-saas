@@ -6,7 +6,8 @@ import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useRouter } from 'next/navigation'
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags'
-import { cn } from '@/lib/utils'
+import { cn, hoyEnEstudio, masDias } from '@/lib/utils'
+import { importeIngresado } from '@/lib/billing/situacion-recibo'
 import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send, Play, Pause, Flag, ArrowRight, ArrowUpRight, Pencil, UserPlus, Calendar, CreditCard } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
@@ -390,17 +391,19 @@ const PLAN_TIPO_COLOR: Record<string, string> = { MENSUAL: 'var(--brand)', BONO:
 const PLAN_TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bonos', PUNTUAL: 'Clase suelta' }
 
 function RevenueDonutCard({ recibos, suscripciones, planesTarifa }: {
-  recibos: { suscripcionId: string | null; importe: number; estado: string }[]
+  recibos: { suscripcionId: string | null; importe: number; importeDevuelto?: number | null; estado: string }[]
   suscripciones: { id: string; planId: string }[]
   planesTarifa: { id: string; tipo: string }[]
 }) {
   const totals: Record<string, number> = { MENSUAL: 0, BONO: 0, PUNTUAL: 0 }
   for (const r of recibos) {
-    if (r.estado !== 'COBRADO') continue
+    // Neto de reembolsos, igual que el resto de cifras (lib/billing/situacion-recibo.ts).
+    const neto = importeIngresado(r)
+    if (neto <= 0) continue
     const sus = suscripciones.find(s => s.id === r.suscripcionId)
     const plan = sus ? planesTarifa.find(p => p.id === sus.planId) : null
     const tipo = plan?.tipo ?? 'PUNTUAL'
-    totals[tipo] = (totals[tipo] ?? 0) + r.importe
+    totals[tipo] = (totals[tipo] ?? 0) + neto
   }
   const total = Object.values(totals).reduce((a, b) => a + b, 0)
   const R = 70, C = 2 * Math.PI * R
@@ -652,11 +655,13 @@ export default function MarketingPage() {
   const utilizacion = utilizacionCodigos(codigos)
   const codigoTop = [...codigos].sort((a, b) => (b.usos ?? 0) - (a.usos ?? 0))[0]
 
-  // Ingresos generados en los últimos 30 días (recibos cobrados).
-  const hace30d = new Date(); hace30d.setDate(hace30d.getDate() - 30)
+  // Ingresos generados en los últimos 30 días (recibos cobrados, netos de
+  // reembolsos). La fecha de cobro es texto 'YYYY-MM-DD' del estudio: se
+  // compara como texto, sin pasarla por `new Date()` (medianoche UTC).
+  const desde30d = masDias(hoyEnEstudio(), -30)
   const ingresos30d = recibos
-    .filter(r => r.estado === 'COBRADO' && r.fechaCobro && new Date(r.fechaCobro) >= hace30d)
-    .reduce((acc, r) => acc + (r.importe ?? 0), 0)
+    .filter(r => r.fechaCobro && r.fechaCobro.slice(0, 10) >= desde30d)
+    .reduce((acc, r) => acc + importeIngresado(r), 0)
 
   // Recuento por segmento — vía el resolutor compartido (lib/marketing/segmentos.ts)
   // en vez de reimplementar cada regla aquí: antes este mapa duplicaba la
