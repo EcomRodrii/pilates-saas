@@ -5,6 +5,7 @@ import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed, Upload, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
+import { idReciboDeCita } from '@/lib/cobros/recibo-de-cita';
 import { useRol, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calendar-logic';
 import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
@@ -310,16 +311,15 @@ export default function CitasPage() {
   // confirmación explícita — no es un toggle de un clic como antes).
   const [cobrandoId, setCobrandoId] = useState<string | null>(null);
   const [procesandoCobro, setProcesandoCobro] = useState(false);
-  // Cerrojo SÍNCRONO: `procesandoCobro` no llega a tiempo de parar un segundo clic, y cada cobro acuña un
-  // recibo con id nuevo (dos clics, dos recibos).
+  // Cerrojo SÍNCRONO: `procesandoCobro` no llega a tiempo de parar un segundo clic y el servidor
+  // aún no ha dicho nada (el segundo clic leería «no existe» y lo intentaría a la vez que el primero).
   const cobroEnCursoRef = useRef(false);
-  // Guarda de re-intento dentro de esta sesión de navegador: en cuanto
-  // crearFacturaDirecta confirma que el recibo/factura YA se creó (éxito o
-  // fallo parcial tras el cobro), esta cita deja de poder volver a cobrarse
-  // aunque el updateCita posterior falle y cita.pagada se quede en false —
-  // sin esto, un fallo de red justo ahí permitiría un doble cobro con un
-  // segundo clic. No sobrevive a un recargo de página (para eso haría falta
-  // persistir el vínculo cita→recibo, fuera de alcance de este cambio).
+  // Cerrojo de PANTALLA, solo para no ofrecer un botón que no debe pulsarse: en cuanto
+  // crearFacturaDirecta confirma que el recibo YA existe (éxito, fallo parcial tras el cobro o cobro
+  // sin confirmar), esta cita deja de poder volver a cobrarse en esta sesión aunque el updateCita
+  // posterior falle y cita.pagada se quede en false. NO es lo que impide el doble recibo: eso es el
+  // id del recibo, `rec-cita-<cita>` (`idReciboDeCita`), que sobrevive a recargar la página y a otras
+  // pestañas — un segundo intento encuentra el recibo y sigue con él en vez de crear otro.
   const [recibosGenerados, setRecibosGenerados] = useState<Set<string>>(new Set());
   // Error del cobro cuando el diálogo se queda ABIERTO (nada se llegó a crear,
   // es seguro reintentar): el banner de errorLista vive en el fondo de la
@@ -491,6 +491,14 @@ export default function CitasPage() {
       setErrorCobro('Esta cita ya no tiene precio fijado. Ciérralo y edítala antes de cobrar.');
       return;
     }
+    // El id del recibo sale de la cita: así «esta cita ya tiene su recibo» lo sabe la base de datos y no
+    // solo esta pantalla. Si el id de la cita no cabe en uno válido NO se inventa otro al azar (volvería
+    // el doble recibo): se dice que esa cita no se cobra desde aquí.
+    const reciboId = idReciboDeCita(cita.id);
+    if (!reciboId) {
+      setErrorCobro('Esta cita no se puede cobrar desde aquí. Cóbrala desde «Nuevo cobro» en Cobros.');
+      return;
+    }
     setProcesandoCobro(true);
     setErrorCobro(null);
     setErrorLista(null);
@@ -500,7 +508,7 @@ export default function CitasPage() {
       socioId: cita.socioId,
       concepto: `Cita — ${tipoLabel} (${formatFecha(cita.inicio)})`,
       importe: cita.precio,
-    });
+    }, { reciboId });
     if (!res.ok && !('cobroRegistrado' in res) && !('cobroSinConfirmar' in res)) {
       // Nada se llegó a crear (fallo antes de tocar `recibos`) — seguro
       // reintentar, el diálogo se queda abierto. Dentro del diálogo, no en

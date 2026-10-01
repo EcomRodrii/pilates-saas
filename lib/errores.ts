@@ -140,6 +140,14 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
   if (code === '42501' && /recibos_cobrado_solo_servidor/i.test(msg)) {
     return 'Ese cobro lo registra el servidor y el recibo ya no está como lo tenías en pantalla. Recarga la página y mira cómo ha quedado en Cobros.';
   }
+  // El navegador solo puede escribir ciertas columnas de `recibos` (GRANT por columnas, migr
+  // 20261001210000). Una columna sin permiso sale como «permission denied for table recibos», sin
+  // ninguna mención a la RLS: la persona SÍ tiene permiso, es una pestaña abierta con una versión
+  // anterior de la app que manda columnas que ya no se escriben desde aquí. «Vuelve a entrar» no lo
+  // arregla; recargar sí.
+  if (code === '42501' && /permission denied for (table recibos|column "\w+" of relation "recibos")/i.test(msg)) {
+    return 'Esta pestaña es de una versión anterior y ya no puede guardar este cambio. Recarga la página e inténtalo de nuevo.';
+  }
   if (status === 401 || status === 403 || code === '42501' || /row-level security|permission denied/i.test(msg)) {
     return 'No tienes permiso para hacer este cambio. Vuelve a entrar e inténtalo otra vez.';
   }

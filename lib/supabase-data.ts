@@ -39,6 +39,8 @@ import {
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { COLUMNAS_COBRO_EN_MARCHA, type FilaReciboRemesa, type LecturaRecibosRemesa } from '@/lib/billing/remesa-sepa-reglas';
 import { importeIngresado } from '@/lib/billing/situacion-recibo';
+import type { ColumnaReciboActualizable, ColumnaReciboInsertable } from '@/lib/cobros/recibo-escritura-navegador';
+import type { ReciboPrevioDeCita } from '@/lib/cobros/recibo-de-cita';
 import { reservasPorAprobarDe, type FilaReservaPorAprobar, type ReservaPorAprobar } from '@/lib/reservas-por-aprobar';
 import { fusionarDatosPrivados, CAMPOS_PRIVADOS_SOCIO, type ColumnaPrivadaSocia, type FilaDatosPrivadosSocia } from '@/lib/socios/datos-privados';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -511,7 +513,7 @@ export type FilaReciboPanel = Omit<RowRecibos,
   | 'proximo_reintento'
   // Metadata de SERVIDOR: decide si cobrar este recibo entrega algo
   // (`aplicarRenovacionServidor`). El panel la ESCRIBE al crear un recibo de
-  // renovación —vía `reciboToDb`— pero no la lee ni la pinta, igual que el
+  // renovación —vía `reciboNuevoToDb`— pero no la lee ni la pinta, igual que el
   // snapshot de entrega de la línea siguiente.
   | 'es_renovacion'
   // Cuándo se anuló: basta con el estado ANULADO y `tras_cancelar_cuota` (migr 20260915215311).
@@ -1671,7 +1673,15 @@ function sesionToDb(ses: Sesion) {
   };
 }
 
-function reciboToDb(rec: Recibo) {
+// Lo que el navegador fija al CREAR un recibo. Solo las columnas que `authenticated`
+// puede insertar (`COLUMNAS_RECIBO_INSERTABLES`, y el GRANT de la migración
+// 20261001210000): fecha de cobro, método, entrega, Stripe… nacen con su valor por
+// defecto y las escribe el servidor. El tipo de retorno lo ata a esa lista: una columna
+// de más o de menos no compila.
+type ReciboNuevo = Pick<Recibo,
+  'id' | 'studioId' | 'socioId' | 'suscripcionId' | 'concepto' | 'importe' | 'estado' | 'fechaVencimiento' | 'esRenovacion'>;
+
+function reciboNuevoToDb(rec: ReciboNuevo): Record<ColumnaReciboInsertable, unknown> {
   return {
     id: rec.id,
     studio_id: rec.studioId ?? STUDIO_ID,
@@ -1681,12 +1691,6 @@ function reciboToDb(rec: Recibo) {
     importe: rec.importe,
     estado: rec.estado,
     fecha_vencimiento: rec.fechaVencimiento,
-    fecha_cobro: rec.fechaCobro ?? null,
-    fecha_devolucion: rec.fechaDevolucion ?? null,
-    intentos_reintento: rec.intentosReintento,
-    metodo_cobro: rec.metodoCobro ?? null,
-    sepa_estado: rec.sepaEstado ?? null,
-    proximo_reintento: rec.proximoReintento ?? null,
     // Por defecto FALSE: un recibo nuevo es una venta, no una renovación. Solo
     // los tres caminos que renuevan de verdad lo ponen a true.
     es_renovacion: rec.esRenovacion ?? false,
@@ -3251,12 +3255,13 @@ export async function dbUpdateReserva(
   return ESCRITURA_OK;
 }
 
-export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
+export async function dbInsertRecibo(rec: ReciboNuevo): Promise<ResultadoEscritura> {
   // Un recibo nace PENDIENTE desde el navegador. Cobrarlo lo hace `confirmarCobro` en el
-  // servidor (`/api/cobros/marcar-cobrado`): la base de datos también lo exige
-  // (trigger `trg_recibos_cobrado_solo_servidor`), esto lo dice antes de ir a la red.
-  if (rec.estado === 'COBRADO') {
-    return falloEscritura('[dbInsertRecibo]', new Error('Un recibo no se crea cobrado desde el navegador: se crea pendiente y se cobra por el servidor.'));
+  // servidor (`/api/cobros/marcar-cobrado`) y devolverlo, `marcar-devuelto` y los reembolsos:
+  // la base de datos también lo exige (trigger `trg_recibos_cobrado_solo_servidor`), esto lo
+  // dice antes de ir a la red.
+  if (rec.estado === 'COBRADO' || rec.estado === 'DEVUELTO') {
+    return falloEscritura('[dbInsertRecibo]', new Error('Un recibo no se crea cobrado ni devuelto desde el navegador: se crea pendiente y lo cierra el servidor.'));
   }
   // assignPlan() encadena dbInsertSuscripcion + dbInsertRecibo con la suscripción
   // recién creada: mismo commit-race que socio_id (Sentry NEXTJS-W), pero antes
@@ -3265,7 +3270,7 @@ export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
   // referencia una suscripción con la misma carrera de visibilidad (Sentry
   // dbInsertRecibo 23503, recibos_suscripcion_id_fkey, visto en producción).
   const { error } = await conReintentoFK(['recibos_socio_id_fkey', 'recibos_suscripcion_id_fkey'], () =>
-    supabase.from('recibos').insert(reciboToDb(rec)),
+    supabase.from('recibos').insert(reciboNuevoToDb(rec)),
   );
   return error ? falloEscritura('[dbInsertRecibo]', error) : ESCRITURA_OK;
 }
@@ -3330,6 +3335,31 @@ export async function dbLeerEstadoRecibos(ids: string[]): Promise<Map<string, st
   return new Map(data.map(r => [r.id as string, r.estado as string]));
 }
 
+// El recibo de una cita, si YA existe (`rec-cita-<cita>`, ver `lib/cobros/recibo-de-cita.ts`).
+// `{ ok: false }` = no se pudo leer: quien llama NO puede tomarlo por «no existe» y crear
+// otro. Una consulta normal con límite 1 y no `maybeSingle()`: no hay nada que parsear si
+// no está.
+export async function dbLeerReciboDeCita(
+  id: string,
+): Promise<{ ok: true; recibo: ReciboPrevioDeCita | null } | { ok: false }> {
+  const { data, error } = await supabase.from('recibos')
+    .select('id, estado, importe, socio_id, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en').eq('id', id).limit(1);
+  if (error || !Array.isArray(data)) return { ok: false };
+  const fila = data[0];
+  if (!fila) return { ok: true, recibo: null };
+  return {
+    ok: true,
+    recibo: {
+      estado: fila.estado as string,
+      importe: Number(fila.importe),
+      socioId: (fila.socio_id as string | null) ?? null,
+      importeDevuelto: fila.importe_devuelto == null ? null : Number(fila.importe_devuelto),
+      reembolsoStripeId: (fila.reembolso_stripe_id as string | null) ?? null,
+      reembolsoSolicitadoEn: (fila.reembolso_solicitado_en as string | null) ?? null,
+    },
+  };
+}
+
 // Lo que `confirmarCobro` pudo cambiar al cobrar ESTOS recibos: el propio recibo
 // (fecha y método reales), su factura sellada, la suscripción que renovó y el saldo
 // de créditos de «Renovar plan» que se dio a la socia.
@@ -3363,24 +3393,27 @@ export async function dbReleerTrasCobro(
   return { recibos, facturas: (facturasRes.data ?? []).map(mapFactura), suscripciones, creditos };
 }
 
-export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Promise<ResultadoEscritura> {
-  // Entrar en COBRADO es del servidor, igual que en `dbUpdateRecibosBatch` (y que la base de datos).
-  if (changes.estado === 'COBRADO') {
-    return falloEscritura('[dbUpdateRecibo]', new Error('COBRADO no se escribe desde el navegador: pasa por el servidor.'));
-  }
-  const db: Record<string, unknown> = {};
-  if ('socioId' in changes) db.socio_id = changes.socioId;
-  if ('suscripcionId' in changes) db.suscripcion_id = changes.suscripcionId;
-  if ('concepto' in changes) db.concepto = changes.concepto;
-  if ('importe' in changes) db.importe = changes.importe;
+// Lo único que el navegador cambia de un recibo ya creado: su estado entre los que no son
+// dinero (remesa SEPA, «Reintentar») y el contador de reintentos. Es lo que `authenticated`
+// puede actualizar (`COLUMNAS_RECIBO_ACTUALIZABLES`, y el GRANT de la migración
+// 20261001210000): el resto de un recibo —concepto, importe, fecha, método, entrega, lo
+// devuelto— no se edita desde aquí, y si alguna pantalla lo necesitara, es un endpoint.
+type CambiosRecibo = Partial<Pick<Recibo, 'estado' | 'intentosReintento'>>;
+
+function cambiosReciboToDb(changes: CambiosRecibo): Partial<Record<ColumnaReciboActualizable, unknown>> {
+  const db: Partial<Record<ColumnaReciboActualizable, unknown>> = {};
   if ('estado' in changes) db.estado = changes.estado;
-  if ('fechaVencimiento' in changes) db.fecha_vencimiento = changes.fechaVencimiento;
-  if ('fechaCobro' in changes) db.fecha_cobro = changes.fechaCobro;
-  if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
   if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
-  if ('metodoCobro' in changes) db.metodo_cobro = changes.metodoCobro;
-  if ('sepaEstado' in changes) db.sepa_estado = changes.sepaEstado;
-  if ('proximoReintento' in changes) db.proximo_reintento = changes.proximoReintento;
+  return db;
+}
+
+export async function dbUpdateRecibo(id: string, changes: CambiosRecibo): Promise<ResultadoEscritura> {
+  // Entrar en COBRADO o DEVUELTO es del servidor, igual que en `dbUpdateRecibosBatch` (y que la base de datos).
+  if (changes.estado === 'COBRADO' || changes.estado === 'DEVUELTO') {
+    return falloEscritura('[dbUpdateRecibo]', new Error('COBRADO y DEVUELTO no se escriben desde el navegador: pasan por el servidor.'));
+  }
+  const db = cambiosReciboToDb(changes);
+  if (Object.keys(db).length === 0) return ESCRITURA_OK;
   const { error } = await supabase.from('recibos').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateRecibo]', error) : ESCRITURA_OK;
 }
@@ -3400,23 +3433,19 @@ export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Prom
 // resto ya estaba en otro estado (otra sesión se adelantó) y no debe generar
 // una factura duplicada en el llamante.
 export async function dbUpdateRecibosBatch(
-  ids: string[], changes: Partial<Recibo>, soloSiEstadoActual?: Recibo['estado'],
+  ids: string[], changes: CambiosRecibo, soloSiEstadoActual?: Recibo['estado'],
   // Remesa SEPA: solo los que no tienen un cobro en marcha, en el propio UPDATE.
   opciones: { sinCobroEnMarcha?: boolean } = {},
 ): Promise<ResultadoEscritura & { idsActualizados?: string[] }> {
   if (ids.length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   // Cobrar NO se escribe desde el navegador: la transición a COBRADO la hace
-  // `confirmarCobro` en el servidor (`/api/cobros/marcar-cobrado`). Esta función
-  // solo mueve recibos entre estados que no dan dinero (remesa, reintento).
-  if (changes.estado === 'COBRADO') {
-    return falloEscritura('[dbUpdateRecibosBatch]', new Error('COBRADO no se escribe desde el navegador: pasa por el servidor.'));
+  // `confirmarCobro` en el servidor (`/api/cobros/marcar-cobrado`), y la de DEVUELTO,
+  // `marcar-devuelto`. Esta función solo mueve recibos entre estados que no dan dinero
+  // (remesa, reintento).
+  if (changes.estado === 'COBRADO' || changes.estado === 'DEVUELTO') {
+    return falloEscritura('[dbUpdateRecibosBatch]', new Error('COBRADO y DEVUELTO no se escriben desde el navegador: pasan por el servidor.'));
   }
-  const db: Record<string, unknown> = {};
-  if ('estado' in changes) db.estado = changes.estado;
-  if ('fechaCobro' in changes) db.fecha_cobro = changes.fechaCobro;
-  if ('fechaDevolucion' in changes) db.fecha_devolucion = changes.fechaDevolucion;
-  if ('intentosReintento' in changes) db.intentos_reintento = changes.intentosReintento;
-  if ('metodoCobro' in changes) db.metodo_cobro = changes.metodoCobro;
+  const db = cambiosReciboToDb(changes);
   if (Object.keys(db).length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   let q = supabase.from('recibos').update(db).in('id', ids);
   if (soloSiEstadoActual) q = q.eq('estado', soloSiEstadoActual);

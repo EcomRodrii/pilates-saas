@@ -10,6 +10,13 @@
 // este fixture sí pasa la RLS de `recibos`, pero un rechazo por otra razón (una FK, otra
 // política) también sería un error y el test seguiría en verde sin que el trigger hiciera nada.
 //
+// ⚠️ Desde la migración 20261001210000 hay OTRA cerradura por delante: `authenticated` solo
+// puede escribir las columnas de `COLUMNAS_RECIBO_*` (GRANT por columnas). Tocar cualquier otra
+// —el importe, el método, la fecha del cobro— ya no llega al trigger: falla con
+// «permission denied for table recibos». Esos casos se prueban en
+// `rls-recibos-columnas-escribibles.test.ts`, y la segunda cerradura del trigger sobre el dinero
+// (por si un GRANT futuro reabre esas columnas) se prueba allí sin pasar por el GRANT.
+//
 // Ver `supabase/tests/rls-invariantes.test.ts` para por qué este fichero vive en
 // `supabase/tests/` y no en `lib/`.
 import { test } from 'node:test';
@@ -72,9 +79,10 @@ test('la remesa SEPA sigue funcionando: PENDIENTE -> EN_CURSO -> PENDIENTE desde
     assert.ok(!e1, `no pudo marcarlo EN_CURSO: ${e1?.message}`);
     const { error: e2 } = await studio.comoPropietaria.from('recibos').update({ estado: 'PENDIENTE' }).eq('id', id);
     assert.ok(!e2, `no pudo devolverlo a PENDIENTE: ${e2?.message}`);
-    // Y editar un pendiente sigue siendo suyo.
+    // Editar el importe o el concepto de un pendiente YA no es del navegador (GRANT por columnas).
     const { error: e3 } = await studio.comoPropietaria.from('recibos').update({ importe: 12, concepto: 'editado' }).eq('id', id);
-    assert.ok(!e3, `no pudo editar un pendiente: ${e3?.message}`);
+    assert.ok(e3, 'el navegador pudo editar el importe/concepto de un pendiente: el GRANT por columnas está abierto');
+    assert.match(e3.message, /permission denied for (table recibos|column "\w+" of relation "recibos")/, `bloqueó otra cosa: ${e3.message}`);
   } finally {
     await limpiarFixtures(admin, [studio]);
   }
@@ -91,23 +99,25 @@ test('sobre un recibo ya cobrado, el navegador no reabre ni cambia el dinero; el
     assert.ok(!errCobra, `el servidor no pudo cobrar un recibo: ${errCobra?.message}`);
     assert.equal(await estadoDe(id), 'COBRADO');
 
-    const intentos: Array<[string, Record<string, unknown>, RegExp]> = [
-      ['reabrirlo', { estado: 'PENDIENTE' }, /recibos_cobrado_solo_servidor.*cobrado de un recibo lo cambia el servidor/],
-      ['cambiar el importe', { importe: 1 }, /recibos_cobrado_solo_servidor.*ya cobrado no cambia su importe/],
-      ['cambiar el método', { metodo_cobro: 'BIZUM' }, /recibos_cobrado_solo_servidor.*ya cobrado no cambia su importe/],
-      ['cambiar la fecha del cobro', { fecha_cobro: '2020-01-01' }, /recibos_cobrado_solo_servidor.*ya cobrado no cambia su importe/],
-      ['cambiar el cargo de Stripe', { stripe_payment_intent_id: 'pi_otro' }, /recibos_cobrado_solo_servidor.*ya cobrado no cambia su importe/],
+    // Reabrirlo lo veda el TRIGGER (`estado` sí es una columna escribible: lo prohibido es un valor).
+    const { error: errReabre } = await studio.comoPropietaria.from('recibos').update({ estado: 'PENDIENTE' }).eq('id', id);
+    assert.ok(errReabre, 'el navegador pudo reabrir un recibo cobrado — guardia abierta');
+    assert.match(errReabre.message, /recibos_cobrado_solo_servidor.*cobrado de un recibo lo cambia el servidor/, `al reabrirlo, bloqueó otra cosa: ${errReabre.message}`);
+
+    // Lo demás ni llega al trigger: no son columnas del navegador.
+    const intentos: Array<[string, Record<string, unknown>]> = [
+      ['cambiar el importe', { importe: 1 }],
+      ['cambiar el método', { metodo_cobro: 'BIZUM' }],
+      ['cambiar la fecha del cobro', { fecha_cobro: '2020-01-01' }],
+      ['cambiar el cargo de Stripe', { stripe_payment_intent_id: 'pi_otro' }],
+      ['cambiar la descripción', { concepto: 'otra descripción' }],
     ];
-    for (const [que, cambio, mensaje] of intentos) {
+    for (const [que, cambio] of intentos) {
       const { error } = await studio.comoPropietaria.from('recibos').update(cambio).eq('id', id);
-      assert.ok(error, `el navegador pudo ${que} de un recibo cobrado — guardia abierta`);
-      assert.match(error.message, mensaje, `al ${que}, bloqueó otra cosa: ${error.message}`);
+      assert.ok(error, `el navegador pudo ${que} de un recibo cobrado — GRANT por columnas abierto`);
+      assert.match(error.message, /permission denied for (table recibos|column "\w+" of relation "recibos")/, `al ${que}, bloqueó otra cosa: ${error.message}`);
     }
     assert.equal(await estadoDe(id), 'COBRADO', 'el recibo cobrado cambió de estado');
-
-    // Lo que no es dinero sigue siendo editable (la descripción).
-    const { error: errTexto } = await studio.comoPropietaria.from('recibos').update({ concepto: 'otra descripción' }).eq('id', id);
-    assert.ok(!errTexto, `no pudo cambiar la descripción de un cobrado: ${errTexto?.message}`);
 
     // Y el servidor sigue pudiendo devolverlo (marcar-devuelto, reembolsos, disputas).
     const { error: errDevuelve } = await admin.from('recibos').update({ estado: 'DEVUELTO' }).eq('id', id);
@@ -117,6 +127,10 @@ test('sobre un recibo ya cobrado, el navegador no reabre ni cambia el dinero; el
   }
 });
 
+// ⚠️ Estos upserts de supabase-js fallan hoy por el GRANT por columnas (el `ON CONFLICT DO UPDATE` de PostgREST pone
+// TODAS las columnas del payload, y casi ninguna es actualizable), así que no ejercitan el trigger. Lo que SÍ
+// ejercita el trigger —`ON CONFLICT … DO UPDATE SET estado`, que pasa el GRANT a nivel SQL— está en
+// `rls-recibos-columnas-escribibles.test.ts` (último test). Aquí se fija que ninguno de los tres llega a escribir.
 test('un upsert tampoco lo esquiva: ni crear cobrado ni pisar un pendiente/cobrado con otro estado', async () => {
   const studio = await crearStudioConPropietaria(admin);
   try {
@@ -125,7 +139,9 @@ test('un upsert tampoco lo esquiva: ni crear cobrado ni pisar un pendiente/cobra
     const { error: e1 } = await studio.comoPropietaria.from('recibos')
       .upsert(filaRecibo(studio.studioId, nuevo, 'COBRADO'), { onConflict: 'id' });
     assert.ok(e1, 'un upsert creó un recibo cobrado — guardia abierta');
-    assert.match(e1.message, /recibos_cobrado_solo_servidor/, `bloqueó otra cosa: ${e1.message}`);
+    // Un upsert exige además UPDATE de las columnas del `ON CONFLICT DO UPDATE`, que el navegador ya
+    // no tiene: falla por el GRANT antes de llegar al trigger. Cualquiera de las dos cerraduras vale.
+    assert.match(e1.message, /permission denied for (table recibos|column "\w+" of relation "recibos")|recibos_cobrado_solo_servidor/, `bloqueó otra cosa: ${e1.message}`);
     assert.equal(await estadoDe(nuevo), null);
 
     // 2) upsert que pisa un pendiente existente con COBRADO.
@@ -167,7 +183,8 @@ test('un INSERT de varias filas con una cobrada se rechaza entero', async () => 
 
 test('la política de cancelar una cuota (corre como el usuario) sigue pudiendo anular los pendientes', async () => {
   // `aplicar_politica_recibos_al_cancelar_cuota` es el único camino que escribe recibos «por debajo»
-  // con el rol de quien cancela: solo toca PENDIENTE, y el trigger no tiene que estorbarle.
+  // al cancelar una cuota: solo toca PENDIENTE, y ni el trigger ni el GRANT por columnas tienen que
+  // estorbarle (corre como su dueño, no como quien cancela).
   const studio = await crearStudioConPropietaria(admin);
   try {
     await admin.from('studios').update({ recibos_al_cancelar_cuota: 'ANULAR' }).eq('id', studio.studioId);
@@ -179,6 +196,11 @@ test('la política de cancelar una cuota (corre como el usuario) sigue pudiendo 
     const { error } = await studio.comoPropietaria.from('suscripciones').update({ estado: 'CANCELADA' }).eq('id', susId);
     assert.ok(!error, `no pudo cancelar la cuota: ${error?.message}`);
     assert.equal(await estadoDe(id), 'ANULADO', 'la política de cancelación no pudo anular el pendiente');
+    // Escribe `anulado_en` y `tras_cancelar_cuota`, columnas que el navegador ya no puede escribir: la
+    // función corre como su dueño (SECURITY DEFINER) y no como quien cancela.
+    const { data: anulado } = await admin.from('recibos').select('anulado_en, tras_cancelar_cuota').eq('id', id).single();
+    assert.ok((anulado as { anulado_en: string | null }).anulado_en, 'el recibo anulado no lleva `anulado_en`');
+    assert.equal((anulado as { tras_cancelar_cuota: string | null }).tras_cancelar_cuota, 'ANULADO');
   } finally {
     await limpiarFixtures(admin, [studio]);
   }
