@@ -11,7 +11,9 @@ import { uscPublicaPorApi } from '@/lib/plataformas/usc/horario';
 // Urban Sports Club tiene además conexión por API: con su ID de proveedor y de
 // ubicación guardados en esta misma fila, el cron publica el horario y sus
 // reservas entran solas (lib/plataformas/usc/). El formulario solo aparece
-// cuando Tentare tiene las credenciales de integrador de USC.
+// cuando Tentare tiene las credenciales de integrador de USC; mientras no haya
+// conexión automática, cada plataforma lo dice con «próximamente» (decisión del
+// fundador, 1-oct-2026): el modo manual sigue funcionando igual.
 //
 // ⚠️ Encender/apagar reescribe la config entera: se reenvía la que ya había,
 // o un simple interruptor borraría los IDs de USC.
@@ -77,11 +79,20 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
           const activa = activas.includes(p);
           const porApi = p === USC && usc?.apiDisponible === true && uscPublicaPorApi(usc.config);
           const esperandoUsc = p === USC && !usc && !errorUsc;
+          // Hoy solo USC puede conectarse, y solo con las credenciales de Tentare.
+          const conexionDisponible = p === USC && usc?.apiDisponible === true;
           return (
             <li key={p} className="px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">{NOMBRE_PLATAFORMA[p]}</p>
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-foreground">
+                  {NOMBRE_PLATAFORMA[p]}
+                  {!conexionDisponible && (
+                    <span className="rounded-full border border-border px-1.5 py-px text-[10px] font-medium text-muted-foreground">
+                      Conexión automática: próximamente
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {!activa ? 'No vendo aquí' : porApi ? 'Vendo aquí · conectada: el horario y las reservas van solos' : 'Vendo aquí · apunto yo las reservas'}
                 </p>
@@ -115,7 +126,7 @@ export function DetallePlataformasExternas({ showToast }: { showToast: (m: strin
       </ul>
       {!usc?.apiDisponible && (
         <p className="text-xs text-muted-foreground">
-          La conexión automática (que las reservas entren solas) llegará con el acceso a la API de cada plataforma.
+          Cuando llegue la conexión automática, las reservas de cada plataforma entrarán solas en la clase. Hasta entonces, apúntalas tú.
         </p>
       )}
     </div>

@@ -66,11 +66,14 @@ async function montar(page: Page, opts: { apiDisponible: boolean }) {
 }
 
 const interruptorUsc = (page: Page) => page.getByRole('switch', { name: 'Vendo en Urban Sports Club' });
+const proximamente = (page: Page) => page.getByText('Conexión automática: próximamente');
 
 test.describe('Urban Sports Club: los IDs de la conexión no se pierden', () => {
   test('apagar «Vendo aquí» conserva el proveedor y la ubicación', async ({ page }) => {
     const guardados = await montar(page, { apiDisponible: true });
     await expect(page.getByTestId('conexion-usc')).toBeVisible();
+    // USC ya se puede conectar: «próximamente» solo en ClassPass y Wellhub.
+    await expect(proximamente(page)).toHaveCount(2);
     await expect(interruptorUsc(page)).toBeEnabled();
     await interruptorUsc(page).click();
 
@@ -109,6 +112,9 @@ test.describe('Urban Sports Club: los IDs de la conexión no se pierden', () => 
     await montar(page, { apiDisponible: false });
     await expect(interruptorUsc(page)).toBeEnabled();
     await expect(page.getByTestId('conexion-usc')).toHaveCount(0);
-    await expect(page.getByText(/La conexión automática .* llegará/)).toBeVisible();
+    // Las tres dicen que la conexión automática llega más adelante, y el modo
+    // manual sigue a mano.
+    await expect(proximamente(page)).toHaveCount(3);
+    await expect(page.getByText(/Hasta entonces, apúntalas tú/)).toBeVisible();
   });
 });
