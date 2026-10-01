@@ -16,7 +16,6 @@ import {
   evaluarSuscripcion,
   evaluarSuspension,
   evaluarFeature,
-  evaluarLimiteSocias,
   type Denegacion,
 } from '@/lib/billing/billing-rules';
 import type { Entitlements } from '@/lib/billing/entitlements';
@@ -51,12 +50,4 @@ export async function bloqueoPorFeature(
   feature: keyof Entitlements['features'],
 ): Promise<NextResponse | null> {
   return aRespuesta(await evaluarFeature(getSupabaseAdmin(), studioId, feature));
-}
-
-export async function bloqueoPorLimiteSocias(
-  studioId: string,
-  sociasActuales: number,
-  aAnadir: number,
-): Promise<NextResponse | null> {
-  return aRespuesta(await evaluarLimiteSocias(getSupabaseAdmin(), studioId, sociasActuales, aAnadir));
 }

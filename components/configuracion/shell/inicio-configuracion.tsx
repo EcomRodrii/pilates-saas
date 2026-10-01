@@ -140,7 +140,7 @@ export function InicioConfiguracion({
   // estudio» al abrirse: el buscador no espera a ninguna sección.
   const haySedes = !!studio && (tieneFeature(studio, 'multiCentro') || !!studio.cadenaId);
   const resultados = consulta.trim()
-    ? buscarAjustes(consulta, { secciones, externas, haySedes, esCadena: !!studio?.cadenaId })
+    ? buscarAjustes(consulta, { secciones, externas, haySedes, esCadena: !!studio?.cadenaId, gmailConectado: !!studio?.gmailEmail })
     : null;
 
   const abrir = (tab: SeccionId, origen: string, ancla?: string, herramienta?: HerramientaId) => (e: MouseEvent) => {

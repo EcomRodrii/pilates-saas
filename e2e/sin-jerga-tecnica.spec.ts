@@ -74,12 +74,15 @@ test.describe('Nada de jerga técnica en pantalla', () => {
   // Desde el 15-sep las integraciones están repartidas en tres secciones: se
   // barren las tres. El ancla es el título de una tarjeta de cada una: está
   // tanto si el mensaje es el bueno como si alguien vuelve a colar la variable.
-  const SECCIONES_CON_INTEGRACIONES: [string, RegExp][] = [
-    ['/configuracion?tab=integraciones', /Google Calendar/],
-    ['/configuracion?tab=cobros', /Cobro con tarjeta \(Stripe\)/],
-    ['/configuracion?tab=comunicacion', /Contactos de Gmail/],
+  // El tercer valor dice si en esa sección hay alguna que dependa de nuestra
+  // configuración y deba explicarlo: en «Cómo me comunico» era Gmail, que se
+  // retiró el 1-oct-2026; ahí solo queda barrer que no se cuele la jerga.
+  const SECCIONES_CON_INTEGRACIONES: [string, RegExp, boolean][] = [
+    ['/configuracion?tab=integraciones', /Google Calendar/, true],
+    ['/configuracion?tab=cobros', /Cobro con tarjeta \(Stripe\)/, true],
+    ['/configuracion?tab=comunicacion', /WhatsApp/, false],
   ];
-  for (const [ruta, ancla] of SECCIONES_CON_INTEGRACIONES) {
+  for (const [ruta, ancla, hayAlgunaSinConfigurar] of SECCIONES_CON_INTEGRACIONES) {
     test(`Integraciones en ${ruta}: las que no están listas se explican sin variables de entorno`, async ({ page }) => {
       await montar(page, ruta);
 
@@ -89,7 +92,9 @@ test.describe('Nada de jerga técnica en pantalla', () => {
       }
 
       // Y lo que sí ve: algo que entiende y que le dice de quién es el problema.
-      await expect(page.getByText(/Lo estamos terminando de conectar por nuestro lado/).first()).toBeVisible();
+      if (hayAlgunaSinConfigurar) {
+        await expect(page.getByText(/Lo estamos terminando de conectar por nuestro lado/).first()).toBeVisible();
+      }
     });
   }
 

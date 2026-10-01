@@ -3,8 +3,8 @@
 // (app/api/public/contacto), el formulario y los tests de `node --test`.
 //
 // ⚠️ Quien escribe aquí aún NO es clienta: la consulta va a
-// `consultas_contacto` y nunca crea una ficha en `socios` (ocuparía plaza del
-// plan y le mandaría el correo de bienvenida del portal).
+// `consultas_contacto` y nunca crea una ficha en `socios` (le mandaría el
+// correo de bienvenida del portal).
 
 import { EMAIL_VALIDO } from '../recursos/descargas.ts';
 import { ETIQUETA_VALIDA } from '../widgets/config.ts';
@@ -91,7 +91,7 @@ export function enlaceRespuesta(email: string, nombreEstudio: string): string {
 //
 // Alguien que llamó, escribió por Instagram o pasó por la puerta preguntando.
 // Va a `consultas_contacto`, como las del formulario, con `canal` diciendo de
-// dónde vino y quién la apuntó. Mismo trato: no es clienta, no ocupa plaza del
+// dónde vino y quién la apuntó. Mismo trato: no es clienta, no cuenta para el
 // plan, no recibe nada automático. Base legal: contestar a lo que preguntó
 // (art. 6.1.b RGPD), nada más.
 
@@ -111,7 +111,7 @@ export const ETIQUETA_CANAL_CONSULTA: Record<CanalConsulta, string> = {
 
 /** Lo que se le dice a quien la apunta (y lo que hay que contarle a ella si pregunta). */
 export const BASE_LEGAL_CONSULTA_MANUAL =
-  'Solo para contestarle a lo que preguntó: no recibe publicidad ni ocupa plaza de tu plan hasta que la des de alta.';
+  'Solo para contestarle a lo que preguntó: no recibe publicidad ni cuenta como alumna activa de tu plan.';
 
 export interface ConsultaManualValida {
   nombre: string;

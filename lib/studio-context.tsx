@@ -186,7 +186,7 @@ import {
   type DesenlaceCobroManual, type ResultadoFacturaDirecta, type ResultadoMarcarCobrado, type ResumenCobroEnLote,
 } from '@/lib/cobros/marcar-cobrado';
 import type { TipoRebote } from '@/lib/emails/rebotes';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
 import { estadosDeClientas } from '@/lib/clientas/estado';
@@ -2334,13 +2334,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // ── Socios ────────────────────────────────────────────────────────────────────
 
   async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato; cobroAlta?: CobroAlta }): Promise<ResultadoEscritura & { id?: string; avisos?: string[] }> {
-    // El insert de más abajo va directo a Supabase desde el navegador (RLS, sin
-    // ruta de servidor de por medio) — el tope de socias del plan se comprueba
-    // aquí, antes, porque si no el alta manual lo saltaba entero (el importador
-    // masivo sí lo comprobaba, este camino no).
-    const motivoBloqueo = await verificarLimiteSocias();
-    if (motivoBloqueo) return { ok: false, error: motivoBloqueo };
-
+    // Sin comprobar el tope del plan: hoy se enseña en Suscripción y no bloquea
+    // (decisión del 1-oct-2026, ver `.claude/tentare-os.md`). Lo que comprobaba
+    // aquí contaba las fichas no dadas de baja, que no son las «alumnas activas»
+    // que promete el plan.
     const { planId, aceptacionContrato, cobroAlta, ...socioFields } = fields;
     const ahora = new Date().toISOString();
     // P-9 (auditoría 21ª pasada): `recibos.fecha_vencimiento`/`fecha_cobro` son
@@ -2577,7 +2574,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (cpub) {
       // Alta pública vía endpoint (service-role). Se AWAITea para que la reserva
       // posterior encuentre a la socia ya creada. El resultado se PROPAGA: antes
-      // se descartaba y un rechazo del servidor (tope de plan, red, timeout) se
+      // se descartaba y un rechazo del servidor (un dato no válido, red, timeout) se
       // trataba como éxito silencioso — handleConfirm seguía adelante con una
       // socia que no existía y se quedaba colgado sin ningún aviso.
       return postPublico('/api/public/socio', {

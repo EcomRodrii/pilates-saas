@@ -20,10 +20,10 @@ test('round-trip: con la cookie del mismo flujo devuelve el studioId', () => {
 
 test('H-1: sin cookie (enlace abierto en OTRO navegador) → rechazado', () => {
   const cookie = crearCookieOAuth();
-  const s = firmarEstadoOAuth('studio-atacante', 'gmail', NOW, cookie);
-  assert.equal(verificarEstadoOAuth(s, 'gmail', NOW + 1000, undefined), null);
-  assert.equal(verificarEstadoOAuth(s, 'gmail', NOW + 1000, null), null);
-  assert.equal(verificarEstadoOAuth(s, 'gmail', NOW + 1000, ''), null);
+  const s = firmarEstadoOAuth('studio-atacante', 'google', NOW, cookie);
+  assert.equal(verificarEstadoOAuth(s, 'google', NOW + 1000, undefined), null);
+  assert.equal(verificarEstadoOAuth(s, 'google', NOW + 1000, null), null);
+  assert.equal(verificarEstadoOAuth(s, 'google', NOW + 1000, ''), null);
 });
 
 test('H-1: cookie de OTRO flujo (la víctima tiene la suya propia) → rechazado', () => {
@@ -104,16 +104,16 @@ test('el nonce es aleatorio y de al menos 32 bytes', () => {
   const b = crearCookieOAuth();
   assert.notEqual(a, b);
   assert.ok(Buffer.from(a, 'base64url').length >= 32);
-  assert.ok(!decodificarPayload(firmarEstadoOAuth('s', 'gmail', NOW, a)).includes(a));
+  assert.ok(!decodificarPayload(firmarEstadoOAuth('s', 'google', NOW, a)).includes(a));
 });
 
 test('cookie: HttpOnly, SameSite=Lax, acotada al callback de su proveedor y con TTL del state', () => {
-  for (const p of ['stripe', 'google', 'gmail', 'zoom', 'klaviyo'] as const) {
+  for (const p of ['stripe', 'google', 'zoom', 'klaviyo'] as const) {
     const o = opcionesCookieOAuth(p, true);
     assert.deepEqual(o, { httpOnly: true, secure: true, sameSite: 'lax', path: RUTA_CALLBACK_OAUTH[p], maxAge: 600 });
   }
   assert.equal(RUTA_CALLBACK_OAUTH.stripe, '/api/stripe/connect/callback');
-  assert.notEqual(nombreCookieOAuth('gmail'), nombreCookieOAuth('google'));
+  assert.notEqual(nombreCookieOAuth('zoom'), nombreCookieOAuth('google'));
 });
 
 test('borrarCookieOAuth vacía la cookie con la MISMA ruta y Max-Age 0', () => {

@@ -128,6 +128,10 @@ test('las tarjetas condicionales solo salen donde toca', () => {
   assert.equal(cumpleCondicion('multiSede', { haySedes: true, esCadena: false }), true);
   assert.equal(cumpleCondicion('cadena', { haySedes: true, esCadena: false }), false);
   assert.equal(cumpleCondicion('cadena', { haySedes: true, esCadena: true }), true);
+  // Gmail (retirado): solo lo ve quien lo tiene conectado, para desconectarlo.
+  assert.equal(cumpleCondicion('gmailConectado', { haySedes: false, esCadena: false }), false);
+  assert.equal(cumpleCondicion('gmailConectado', { haySedes: false, esCadena: false, gmailConectado: false }), false);
+  assert.equal(cumpleCondicion('gmailConectado', { haySedes: false, esCadena: false, gmailConectado: true }), true);
 });
 
 test('«Mi cuenta» lleva a su propia pantalla', () => {

@@ -61,11 +61,12 @@ export function buscarAjustes(
     externas?: readonly FilaExterna[];
     haySedes?: boolean;
     esCadena?: boolean;
+    gmailConectado?: boolean;
   } = {},
 ): ResultadoAjuste[] {
   const buscadas = trocear(consulta);
   if (buscadas.length === 0) return [];
-  const { secciones = SECCIONES, externas = Object.values(FILAS_EXTERNAS), haySedes = false, esCadena = false } = opciones;
+  const { secciones = SECCIONES, externas = Object.values(FILAS_EXTERNAS), haySedes = false, esCadena = false, gmailConectado = false } = opciones;
 
   const resultados: ResultadoAjuste[] = [];
   // `SECCIONES` es `as const`: vista con su tipo ancho, `palabras` existe en todas.
@@ -74,7 +75,7 @@ export function buscarAjustes(
       resultados.push({ id: `seccion-${s.id}`, titulo: s.titulo, donde: null, seccion: s.id });
     }
     for (const t of s.tarjetas as readonly TarjetaConfiguracion[]) {
-      if (!cumpleCondicion(t.condicion, { haySedes, esCadena })) continue;
+      if (!cumpleCondicion(t.condicion, { haySedes, esCadena, gmailConectado })) continue;
       if (casa(buscadas, [t.titulo, ...(t.palabras ?? [])])) {
         // Una tarjeta de una herramienta abre su pantalla: en la sección solo está su fila.
         const { abrir, ancla } = lugarDeTarjeta(t.id as TarjetaId);
@@ -118,11 +119,11 @@ export const MAX_AJUSTES_EN_BUSCADOR_GLOBAL = 5;
  */
 export function ajustesParaBuscadorGlobal(
   consulta: string,
-  opciones: { rol: RolConfiguracion | string; haySedes?: boolean; esCadena?: boolean },
+  opciones: { rol: RolConfiguracion | string; haySedes?: boolean; esCadena?: boolean; gmailConectado?: boolean },
 ): AjusteEnBuscadorGlobal[] {
   const secciones = seccionesVisibles(opciones.rol);
   if (secciones.length === 0) return [];
-  return buscarAjustes(consulta, { secciones, externas: [], haySedes: opciones.haySedes, esCadena: opciones.esCadena })
+  return buscarAjustes(consulta, { secciones, externas: [], haySedes: opciones.haySedes, esCadena: opciones.esCadena, gmailConectado: opciones.gmailConectado })
     .flatMap(r => r.seccion
       ? [{ id: r.id, titulo: r.titulo, donde: r.donde ?? 'Configuración', href: hrefDeLugar({ tab: r.seccion, abrir: r.abrir, ancla: r.ancla }) }]
       : [])

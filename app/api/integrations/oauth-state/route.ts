@@ -8,7 +8,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { puedeCambiarCuentaDeCobro } from '@/lib/billing/cuenta-cobro';
 
-const PROVIDERS: readonly ProveedorOAuth[] = ['stripe', 'google', 'gmail', 'zoom', 'klaviyo'];
+// Sin 'gmail': la integración se retiró el 1-oct-2026 (lib/gmail.ts).
+const PROVIDERS: readonly ProveedorOAuth[] = ['stripe', 'google', 'zoom', 'klaviyo'];
 
 // C-8: emite el `state` firmado para iniciar un flujo OAuth (Stripe Connect /
 // Google Calendar / Gmail / Zoom / Klaviyo). Solo el PROPIETARIO autenticado,
