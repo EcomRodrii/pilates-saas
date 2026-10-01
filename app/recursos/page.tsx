@@ -25,14 +25,9 @@ type Category = 'todos' | CategoriaRecursos;
 
 const CATEGORIES: { key: Category; label: string }[] = [{ key: 'todos', label: 'Todos' }, ...CATEGORIAS_RECURSOS];
 
-const CATEGORY_GRADIENTS: Record<CategoriaRecursos, string> = {
-  abrir: 'linear-gradient(140deg,#2b2a1d,#6E7650)',
-  sustituciones: 'linear-gradient(140deg,#22463a,#4E9E7F)',
-  rentabilidad: 'linear-gradient(140deg,#1f3d42,#3E7C86)',
-  operacion: 'linear-gradient(140deg,#5e2318,#C2503A)',
-  espana: 'linear-gradient(140deg,#22251A,#5A6142)',
-  software: 'linear-gradient(140deg,#1C1F14,#343825)',
-};
+// Sin colores por categoría (1-oct-2026, el fundador): la foto manda; sin foto,
+// el mismo gris claro para todas.
+const FONDO_SIN_FOTO = '#E7E7E0';
 
 type Article = {
   category: CategoriaRecursos;
@@ -149,7 +144,7 @@ export default function RecursosPage() {
               {/* La portada a su tamaño (480 px como mucho), enmarcada en el
                   degradado de su categoría: estirarla para rellenar la columna
                   la ampliaría por encima de su original. */}
-              <div className="rec-feat-media" style={{ background: CATEGORY_GRADIENTS[FEATURED.category] }}>
+              <div className="rec-feat-media" style={{ background: FONDO_SIN_FOTO }}>
                 <div className="rec-feat-foto">
                   <PortadaRecursos portada={FEATURED.portada} sizes={SIZES_DESTACADA} prioritaria className="rec-portada" />
                   <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'flex-end', padding: 18, background: 'linear-gradient(to top, rgba(15,15,15,.62), transparent 60%)' }}>
@@ -178,7 +173,7 @@ export default function RecursosPage() {
           {filtered.map((a) => {
             const card = (
               <>
-                <div style={{ position: 'relative', aspectRatio: '2/1', background: CATEGORY_GRADIENTS[a.category], overflow: 'hidden' }}>
+                <div style={{ position: 'relative', aspectRatio: '2/1', background: FONDO_SIN_FOTO, overflow: 'hidden' }}>
                   {a.portada && <PortadaRecursos portada={a.portada} sizes={SIZES_TARJETA} className="rec-portada" />}
                   <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: 14, background: 'linear-gradient(to top, rgba(15,15,15,.55), transparent 60%)' }}>
                     <span className="lp-mono" style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: '#fff', background: 'rgba(15,15,15,.42)', padding: '5px 10px', borderRadius: 999 }}>

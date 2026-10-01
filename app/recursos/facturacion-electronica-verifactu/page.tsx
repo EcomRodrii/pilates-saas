@@ -69,7 +69,6 @@ export default function VerifactuPage() {
       <FaqStructuredData items={FAQ} />
       <ArticleShell
         category={GUIA.seccion}
-        coverGradient="linear-gradient(140deg,#22251A,#5A6142)"
         title="Facturación electrónica: qué cambia con Veri*factu"
         intro="Qué es, cuándo te obliga según seas sociedad o autónoma y qué debe tener cada factura de tu estudio. Sin letra pequeña."
         readTime={`${GUIA.lectura} min de lectura`}

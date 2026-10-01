@@ -58,7 +58,6 @@ export default function ChecklistSoftwarePage() {
       <FaqStructuredData items={FAQ} />
       <ArticleShell
         category={GUIA.seccion}
-        coverGradient="linear-gradient(140deg,#1C1F14,#343825)"
         title="Checklist: cómo elegir el software de tu estudio"
         intro="Cambiar de software una vez ya duele. Cambiarlo dos veces por no haber preguntado lo correcto en la demo, duele el doble. Esto es lo que ya han encontrado miles de reseñas públicas — antes de que tengas que descubrirlo tú."
         readTime={`${GUIA.lectura} min de lectura`}

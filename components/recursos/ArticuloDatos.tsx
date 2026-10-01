@@ -20,15 +20,6 @@ import type { Articulo, Bloque } from '@/lib/recursos/articulos/tipos';
 // Todo lo que no es contenido —JSON-LD, índice, «En resumen», FAQ, fuentes,
 // enlaces relacionados y llamada a la acción— sale de aquí, igual en todos.
 
-const GRADIENTES: Record<string, string> = {
-  abrir: 'linear-gradient(140deg,#2b2a1d,#6E7650)',
-  sustituciones: 'linear-gradient(140deg,#22463a,#4E9E7F)',
-  rentabilidad: 'linear-gradient(140deg,#1f3d42,#3E7C86)',
-  operacion: 'linear-gradient(140deg,#5e2318,#C2503A)',
-  espana: 'linear-gradient(140deg,#22251A,#5A6142)',
-  software: 'linear-gradient(140deg,#1C1F14,#343825)',
-};
-
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const fechaLarga = (f: string) => { const [a, m, d] = f.split('-'); return `${Number(d)} de ${MESES[Number(m) - 1]} de ${a}`; };
 
@@ -50,14 +41,10 @@ function BloqueArticulo({ b }: { b: Bloque }) {
     }
     case 'pasos':
       return (
-        <ol style={{ listStyle: 'none', padding: 0, margin: '20px 0', display: 'grid', gap: 12 }}>
+        <ol style={{ paddingLeft: 22, margin: '14px 0 22px' }}>
           {b.items.map((it, i) => (
-            <li key={i} style={{ display: 'flex', gap: 14, background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '16px 18px' }}>
-              <span aria-hidden="true" style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 999, background: '#343825', color: '#fff', fontWeight: 800, fontSize: 13, display: 'grid', placeItems: 'center' }}>{i + 1}</span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 15.5, marginBottom: 4 }}>{it.titulo}</div>
-                <div style={{ fontSize: 15, lineHeight: 1.6, color: '#3A3A34' }}><TextoMarcado texto={it.texto} /></div>
-              </div>
+            <li key={i} style={{ margin: '0 0 12px' }}>
+              <strong>{it.titulo}.</strong> <TextoMarcado texto={it.texto} />
             </li>
           ))}
         </ol>
@@ -128,7 +115,6 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
       <Ld data={faqLd(a)} />
       <ArticleShell
         category={a.seccion}
-        coverGradient={GRADIENTES[a.categoria] ?? GRADIENTES.software}
         title={a.titulo}
         intro={textoPlano(a.entradilla)}
         readTime={`${minutosLectura(contarPalabras(a))} min de lectura`}
@@ -137,9 +123,10 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
       >
         {portadaArticulo(a.slug) && <PortadaCabecera portada={portadaArticulo(a.slug)!} />}
 
-        <section aria-label="En resumen" style={{ background: '#fff', border: '1px solid #E0E5D0', borderLeft: '4px solid #6E7650', borderRadius: 16, padding: '18px 20px', margin: '0 0 28px' }}>
-          <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#6E7650', marginBottom: 8 }}>En resumen</div>
-          <p style={{ margin: 0, fontSize: 16.5, lineHeight: 1.6, color: '#1A1A1A' }}><TextoMarcado texto={a.respuesta} /></p>
+        {/* La respuesta directa, arriba del todo: es lo que citan los fragmentos
+            destacados y las IA. Sin caja ni etiqueta: un primer párrafo. */}
+        <section aria-label="En resumen">
+          <p className="art-lead"><TextoMarcado texto={a.respuesta} /></p>
         </section>
 
         {a.secciones.map((s) => (

@@ -73,7 +73,6 @@ export default function PreciosReformerPage() {
       <FaqStructuredData items={FAQ} />
       <ArticleShell
         category={GUIA.seccion}
-        coverGradient="linear-gradient(140deg,#173a40,#3E7C86)"
         title="Reformer vs. mat: cómo poner precio a cada clase"
         intro="Dos formatos, dos costes, dos techos de ingresos. Cómo fijar precios que reflejen la diferencia — sin dejar dinero sobre la mesa."
         readTime={`${GUIA.lectura} min de lectura`}

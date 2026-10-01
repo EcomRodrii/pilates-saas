@@ -60,7 +60,6 @@ export default function EstudiosPilatesExitoPage() {
       <FaqStructuredData items={FAQ} />
       <ArticleShell
         category={GUIA.seccion}
-        coverGradient="linear-gradient(140deg,#1f3d42,#3E7C86)"
         title="Qué puedes aprender de los estudios de pilates que más crecen"
         intro="Con datos reales de las cadenas que más facturan en EE. UU. y del mercado español: qué hacen distinto — y qué puede aplicar mañana un estudio con dos salas y un equipo de cuatro personas."
         readTime={`${GUIA.lectura} min de lectura`}

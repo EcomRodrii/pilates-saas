@@ -1,8 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 import { ACC } from '@/components/landing/theme';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { SiteNav } from './SiteNav';
@@ -13,21 +11,19 @@ export type TocItem = { id: string; label: string };
 
 export function ArticleShell({
   category,
-  kind = 'Guía',
-  coverGradient,
   title,
   intro,
   readTime,
   actualizado,
-  toc,
   backHref,
   backLabel,
   children,
 }: {
   category: string;
-  /** Etiqueta junto al badge de categoría — "Guía" por defecto, "Comparativa" en /comparativa/*. */
+  /** Ya no se pinta: se mantiene para no romper a quien lo pasa. */
   kind?: string;
-  coverGradient: string;
+  /** Ya no se pinta (1-oct-2026, el fundador: «quita los fondos de colores»). */
+  coverGradient?: string;
   title: string;
   intro: string;
   readTime: string;
@@ -37,41 +33,17 @@ export function ArticleShell({
    * ella se queda el texto que llevaba antes (la comparativa de Glofox).
    */
   actualizado?: string;
-  toc: TocItem[];
+  /** Ya no se pinta un índice lateral; los anclajes de cada sección siguen. */
+  toc?: TocItem[];
   backHref?: string;
   backLabel?: string;
   children: React.ReactNode;
 }) {
-  const barRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(toc[0]?.id ?? '');
-
-  useEffect(() => {
-    const sections = toc
-      .map((t) => document.getElementById(t.id))
-      .filter(Boolean) as HTMLElement[];
-    let ticking = false;
-    function update() {
-      ticking = false;
-      const doc = document.documentElement;
-      const max = doc.scrollHeight - doc.clientHeight || 1;
-      if (barRef.current) barRef.current.style.width = `${Math.min(100, (window.scrollY / max) * 100)}%`;
-      let activo = sections[0]?.id ?? '';
-      for (const s of sections) {
-        if (s.getBoundingClientRect().top <= 140) activo = s.id;
-      }
-      setActive(activo);
-    }
-    function onScroll() {
-      if (!ticking) {
-        ticking = true;
-        requestAnimationFrame(update);
-      }
-    }
-    window.addEventListener('scroll', onScroll, { passive: true });
-    update();
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [toc]);
-
+  // Diseño editorial (1-oct-2026). El fundador: los fondos de colores por
+  // categoría y la estructura de «web hecha con IA» (cabecera de color con
+  // destello, etiquetas en máquina de escribir, índice lateral fijo, cajas de
+  // colores) fuera. Ahora es un artículo de blog normal: título y autor sobre el
+  // fondo de la página, la foto y una sola columna de texto.
   return (
     <>
       {/* Todas las páginas que usan este armazón (9 guías de /recursos + la
@@ -79,83 +51,45 @@ export function ArticleShell({
           ninguna Organization/WebSite — auditoría SEO 2026-08-18. Un único
           punto, no 10 imports repetidos. */}
       <OrganizationStructuredData />
-      <div ref={barRef} style={{ position: 'fixed', top: 0, left: 0, height: 3, width: 0, background: ACC, zIndex: 120, boxShadow: '0 0 10px rgba(90,97,66,.5)' }} />
       <SiteNav {...(backHref ? { backHref, backLabel } : {})} />
 
-      <header style={{ position: 'relative', background: coverGradient, color: '#fff', overflow: 'hidden', padding: 'clamp(48px,7vw,84px) clamp(20px,4vw,44px) clamp(40px,5vw,60px)' }}>
-        <div style={{ position: 'absolute', top: '-20%', right: '-6%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,.14), transparent 62%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', maxWidth: 820, margin: '0 auto' }}>
-          <div className="lp-mono" style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.8)', marginBottom: 20 }}>
-            <span style={{ background: 'rgba(255,255,255,.16)', padding: '5px 12px', borderRadius: 999 }}>{category}</span>
-            <span>{kind}</span>
-          </div>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(30px,5vw,54px)', lineHeight: 1.04, letterSpacing: '-.035em', margin: '0 0 22px', maxWidth: '17ch' }}>{title}</h1>
-          <p style={{ fontSize: 'clamp(17px,1.6vw,20px)', lineHeight: 1.55, color: 'rgba(255,255,255,.86)', maxWidth: 600, margin: '0 0 28px' }}>{intro}</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 15, color: '#fff' }}>MR</span>
-              {/* Autor visible con nombre real (no "Equipo Tentare") — señal de
-                  E-E-A-T explícita, auditoría GEO 2026-08-20. Mismo nombre que
-                  ya consta en /legal (Marcos Roca Rodríguez), en su forma
-                  pública/informal habitual. */}
-              <div><div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>Marcos Roca</div><div className="lp-mono" style={{ fontSize: 11, color: 'rgba(255,255,255,.7)' }}>Fundador de Tentare</div></div>
-            </div>
-            <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(255,255,255,.4)' }} />
-            <span className="lp-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,.8)' }}>{readTime}</span>
-            <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(255,255,255,.4)' }} />
-            <span className="lp-mono" style={{ fontSize: 12, color: 'rgba(255,255,255,.8)' }}>Actualizado {actualizado ? mesCorto(actualizado) : 'jul 2026'}</span>
-          </div>
-        </div>
+      <header className="art-head">
+        <p className="art-kicker"><Link href="/recursos">{category}</Link></p>
+        <h1>{title}</h1>
+        <p className="art-dek">{intro}</p>
+        {/* Autor visible con nombre real (no "Equipo Tentare") — señal de
+            E-E-A-T explícita, auditoría GEO 2026-08-20. Mismo nombre que ya
+            consta en /legal (Marcos Roca Rodríguez), en su forma pública. */}
+        <p className="art-byline">
+          Por <strong>Marcos Roca</strong>, fundador de Tentare · {readTime} · Actualizado {actualizado ? mesCorto(actualizado) : 'jul 2026'}
+        </p>
       </header>
 
-      <div style={{ padding: 'clamp(40px,6vw,72px) 0 clamp(60px,8vw,96px)' }}>
-        <div className="art-wrap">
-          <aside className="art-toc">
-            <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#A8A89F', marginBottom: 14 }}>En esta guía</div>
-            <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, borderLeft: '2px solid #E1E1D9' }}>
-              {toc.map((t) => {
-                const on = active === t.id;
-                return (
-                  <a
-                    key={t.id}
-                    href={`#${t.id}`}
-                    style={{ fontSize: 13.5, lineHeight: 1.4, color: on ? ACC : '#5A5A52', fontWeight: on ? 700 : 400, padding: '7px 0 7px 14px', marginLeft: -2, borderLeft: `2px solid ${on ? ACC : 'transparent'}`, transition: 'color .2s, border-color .2s' }}
-                  >
-                    {t.label}
-                  </a>
-                );
-              })}
-            </nav>
-            <Link href="/#precio" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 24, fontSize: 13, fontWeight: 700, color: ACC }}>
-              Ver Tentare <ArrowRight size={14} />
-            </Link>
-          </aside>
-
-          <article className="art-body">{children}</article>
-        </div>
-      </div>
+      <article className="art-body">{children}</article>
 
       <SiteFooter />
 
-      {/* En móvil la columna es minmax(0,1fr) y no 1fr: 1fr (= minmax(auto,1fr))
-          dejaba que una tabla ancha la estirase más allá del margen, y como el
-          body recorta el overflow-x, el texto y la foto llegaban al borde derecho. */}
       <style>{`
-        .art-wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 230px minmax(0,1fr); gap: clamp(28px,5vw,64px); padding: 0 clamp(20px,4vw,44px); }
-        .art-toc { position: sticky; top: 96px; align-self: start; }
-        .art-body { max-width: 720px; }
-        .art-body h2 { font-weight: 800; font-size: clamp(24px,3vw,32px); line-height: 1.12; letter-spacing: -.03em; margin: 44px 0 14px; scroll-margin-top: 96px; }
-        .art-body h3 { font-weight: 700; font-size: 19px; letter-spacing: -.01em; margin: 26px 0 8px; }
-        .art-body p { font-size: 17px; line-height: 1.68; color: #3A3A34; margin: 0 0 18px; }
+        .art-head { max-width: 720px; margin: 0 auto; padding: clamp(40px,6vw,72px) clamp(20px,4vw,24px) 8px; }
+        .art-kicker { margin: 0 0 14px; font-size: 14px; font-weight: 600; }
+        .art-kicker a { color: ${ACC}; text-decoration: none; }
+        .art-kicker a:hover { text-decoration: underline; text-underline-offset: 3px; }
+        .art-head h1 { font-weight: 800; font-size: clamp(30px,4.6vw,46px); line-height: 1.08; letter-spacing: -.03em; color: #1A1A1A; margin: 0 0 18px; }
+        .art-dek { font-size: clamp(18px,1.7vw,20px); line-height: 1.55; color: #4A4A44; margin: 0 0 22px; }
+        .art-byline { font-size: 14px; color: #6B6B63; margin: 0; padding-bottom: 28px; border-bottom: 1px solid #E1E1D9; }
+        .art-byline strong { color: #1A1A1A; font-weight: 600; }
+        .art-body { max-width: 720px; margin: 0 auto; padding: 28px clamp(20px,4vw,24px) clamp(60px,8vw,96px); }
+        .art-body h2 { font-weight: 800; font-size: clamp(24px,3vw,30px); line-height: 1.15; letter-spacing: -.025em; color: #1A1A1A; margin: 48px 0 14px; scroll-margin-top: 96px; }
+        .art-body h3 { font-weight: 700; font-size: 19px; letter-spacing: -.01em; margin: 28px 0 8px; }
+        .art-body p { font-size: 18px; line-height: 1.7; color: #33332D; margin: 0 0 20px; }
+        .art-body li { font-size: 18px; line-height: 1.65; color: #33332D; }
         .art-body strong { color: #1A1A1A; font-weight: 700; }
+        .art-body a { color: ${ACC}; text-decoration: underline; text-underline-offset: 3px; }
+        .art-lead { font-size: 20px !important; line-height: 1.6 !important; color: #1A1A1A !important; }
         .art-cta2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
         .art-related-card { transition: transform .2s, box-shadow .2s; }
         .art-related-card:hover { transform: translateY(-4px); box-shadow: 0 26px 50px -30px rgba(26,26,26,.3); }
-        @media (max-width: 900px) {
-          .art-wrap { grid-template-columns: minmax(0,1fr); }
-          .art-toc { display: none; }
-          .art-cta2 { grid-template-columns: 1fr; }
-        }
+        @media (max-width: 900px) { .art-cta2 { grid-template-columns: 1fr; } }
       `}</style>
     </>
   );
