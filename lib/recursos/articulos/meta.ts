@@ -59,7 +59,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/soluciones/cambiar-de-software",
       "/precios"
     ],
-    "palabras": 2821
+    "palabras": 2830
   },
   {
     "slug": "bsport-vs-timp",
@@ -77,7 +77,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/checklist-elegir-software-estudio",
       "/soluciones/cambiar-de-software"
     ],
-    "palabras": 1972
+    "palabras": 1974
   },
   {
     "slug": "cuanto-cuesta-abrir-un-estudio-de-pilates",
