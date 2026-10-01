@@ -181,6 +181,9 @@ const NOMBRE_INTEGRACION: Record<TipoIntegracion, string> = {
   MAILCHIMP: 'Mailchimp',
   KLAVIYO: 'Klaviyo',
   ZAPIER: 'Zapier',
+  CLASSPASS: 'ClassPass',
+  URBAN_SPORTS_CLUB: 'Urban Sports Club',
+  WELLHUB: 'Wellhub',
 };
 
 /**
@@ -199,6 +202,10 @@ export const TARJETA_DE_INTEGRACION: Readonly<Record<TipoIntegracion, TarjetaId>
   KLAVIYO: 'integracion-klaviyo',
   MAILCHIMP: 'integracion-mailchimp',
   ZAPIER: 'integracion-zapier',
+  // Las tres viven en la misma fila: «Plataformas que venden tus clases».
+  CLASSPASS: 'plataformas-externas',
+  URBAN_SPORTS_CLUB: 'plataformas-externas',
+  WELLHUB: 'plataformas-externas',
 };
 
 // ─── Lo que hay que revisar ──────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, type ReactNode } from 'react';
-import { CreditCard, KeyRound, MessageCircle } from 'lucide-react';
+import { CreditCard, KeyRound, MessageCircle, Ticket } from 'lucide-react';
 import { useRol, puedeGestionarAppsOAuth } from '@/lib/permisos';
 import { agruparConexiones, resumenAppsConAcceso, type ResumenFila } from '@/lib/configuracion/resumenes';
 import { seccionPorId, tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
@@ -13,6 +13,7 @@ import {
   FilaConexionConClave, FilaConexionOAuth, FilaZapier, SincronizarGoogleCalendar, SincronizarKlaviyo,
   useAppsConAcceso, useConexionConClave, useConexionOAuth, useZapier,
 } from '@/components/configuracion/conexiones';
+import { DetallePlataformasExternas, resumenPlataformasActivas, usePlataformasActivas } from '@/components/configuracion/plataformas-externas';
 
 // Conexiones: Tentare con otras herramientas que ya usas (15-sep, v2).
 //
@@ -26,7 +27,7 @@ import {
 
 const CAJONES = [
   'integracion-google_calendar', 'integracion-zoom', 'integracion-kisi', 'integracion-klaviyo',
-  'integracion-mailchimp', 'integracion-zapier', 'aplicaciones-con-acceso',
+  'integracion-mailchimp', 'integracion-zapier', 'aplicaciones-con-acceso', 'plataformas-externas',
 ] as const satisfies readonly TarjetaId[];
 
 export function SeccionConexiones({ showToast }: { showToast: (m: string) => void }) {
@@ -39,6 +40,7 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
   const mailchimp = useConexionConClave('MAILCHIMP');
   const apps = useAppsConAcceso();
   const zapier = useZapier(apps);
+  const plataformas = usePlataformasActivas();
 
   function guardado(texto: string) {
     cerrar();
@@ -62,6 +64,15 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
           {g.filas.map(f => <Fragment key={f.id}>{f.fila}</Fragment>)}
         </GrupoFilas>
       ))}
+
+      <GrupoFilas titulo="Plataformas que venden tus clases">
+        <FilaAjuste
+          id="plataformas-externas"
+          icono={Ticket}
+          valor={resumenPlataformasActivas(plataformas) ?? 'Ninguna'}
+          onAbrir={abrir}
+        />
+      </GrupoFilas>
 
       {/* Quién puede autorizarlas es quien puede quitarlas (puedeGestionarAppsOAuth). */}
       {puedeGestionarAppsOAuth(rol) && (
@@ -108,6 +119,9 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
       </CajonAjuste>
       <CajonAjuste id="integracion-zapier" abierto={cajon === 'integracion-zapier' && !!zapier.acceso} onCerrar={cerrar}>
         <DetalleZapier z={zapier} a={apps} onGuardado={guardado} />
+      </CajonAjuste>
+      <CajonAjuste id="plataformas-externas" abierto={cajon === 'plataformas-externas'} onCerrar={cerrar}>
+        <DetallePlataformasExternas showToast={showToast} />
       </CajonAjuste>
       <CajonAjuste id="aplicaciones-con-acceso" abierto={cajon === 'aplicaciones-con-acceso'} onCerrar={cerrar}>
         <DetalleAppsConAcceso a={apps} showToast={showToast} />
