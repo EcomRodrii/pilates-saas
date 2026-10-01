@@ -1,5 +1,9 @@
 # OAuth 2.0 para terceros (Zapier) — Fases 0-4, extensiones Fase 9
 
+> **1-oct-2026:** los endpoints `/api/oauth/v1/*` viven ahora en `app/api/v1` (`/api/oauth/v1` es su
+> alias permanente, un rewrite) y pasan por `conApiPublica`, que acepta también claves de API del
+> estudio. Los scopes concedidos se recortan al rol de quien autoriza. Ver `docs/api-publica.md`.
+
 Servidor OAuth 2.0 Authorization Code + PKCE + refresh tokens para que apps
 externas actúen en nombre de un estudio, con consentimiento explícito del
 `PROPIETARIO`/`MANAGER` y aislamiento estricto por `studio_id`.

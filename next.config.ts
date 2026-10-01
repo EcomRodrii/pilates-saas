@@ -95,6 +95,11 @@ const nextConfig: NextConfig = {
         has: [{ type: 'query' as const, key: 'w' }],
         destination: '/api/public/widget-pieza/:slug',
       },
+      // API pública: la ruta oficial es /api/v1 y /api/oauth/v1 es su alias
+      // PERMANENTE (lo usa Zapier y cualquier integración anterior). Los
+      // ficheros viven en app/api/v1; en forma de lista se aplica después de
+      // mirar el sistema de ficheros, y en /api/oauth/v1 ya no queda ninguno.
+      { source: '/api/oauth/v1/:ruta*', destination: '/api/v1/:ruta*' },
     ];
     const host = process.env.NEXT_PUBLIC_IMPORTS_HOST;
     if (!host) return reglas;

@@ -1,9 +1,5 @@
-import { NextResponse, type NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
-import { enforceRateLimit } from '@/lib/rate-limit';
-import { clientIp } from '@/lib/rate-limit-core';
 import {
   generarTokenAleatorio, sha256Hex, compararEnTiempoConstante, verificarPkce,
   type ScopeOAuth,
@@ -260,92 +256,9 @@ export async function revocarConsentimiento(admin: SupabaseClient, studioId: str
     .eq('studio_id', studioId).eq('cliente_id', clienteId).is('revocado_en', null);
 }
 
-// ─── Middleware Bearer para /api/oauth/v1/* ──────────────────────────────────
-
-export interface ContextoOAuth {
-  tokenId: string;
-  studioId: string;
-  clienteId: string;
-  authUserId: string;
-  scopes: ScopeOAuth[];
-}
-
-// Autentica una request de la API pública vía `Authorization: Bearer <token>`.
-// Nunca usa RLS (service-role) — el aislamiento por studio_id es el que cada
-// endpoint /api/oauth/v1/* aplica manualmente en su query, con este contexto
-// como única fuente de verdad de a qué estudio pertenece el token.
-export async function verificarTokenOAuth(req: NextRequest): Promise<ContextoOAuth | null> {
-  const authHeader = req.headers.get('authorization');
-  const token = authHeader?.replace(/^Bearer /, '');
-  if (!token) return null;
-
-  const admin = getSupabaseAdmin();
-  if (!admin) return null;
-
-  const { data: fila } = await admin
-    .from('oauth_tokens')
-    .select('id, studio_id, cliente_id, auth_user_id, scopes, revocado_en, access_token_expira_en')
-    .eq('access_token_hash', sha256Hex(token))
-    .maybeSingle();
-
-  if (!fila || fila.revocado_en) return null;
-  if (new Date(fila.access_token_expira_en).getTime() < Date.now()) return null;
-
-  return {
-    tokenId: fila.id, studioId: fila.studio_id, clienteId: fila.cliente_id,
-    authUserId: fila.auth_user_id, scopes: fila.scopes,
-  };
-}
-
-export function tieneScope(ctx: ContextoOAuth, scope: ScopeOAuth): boolean {
-  return ctx.scopes.includes(scope);
-}
-
-// Auditoría de cada llamada autenticada con Bearer de terceros — fire-and-forget
-// (no bloquea la respuesta al cliente por un fallo de logging), mismo criterio
-// que el resto de logs de auditoría del repo.
-export function auditarAccesoOAuth(
-  admin: SupabaseClient,
-  p: { tokenId: string | null; studioId: string; clienteId: string; scopeUsado: string | null; metodo: string; ruta: string; statusCode: number; ip: string | null },
-): void {
-  admin.from('oauth_auditoria_accesos').insert({
-    token_id: p.tokenId, studio_id: p.studioId, cliente_id: p.clienteId, scope_usado: p.scopeUsado,
-    metodo: p.metodo, ruta: p.ruta, status_code: p.statusCode, ip: p.ip,
-  }).then(() => {}, () => {});
-}
-
-// ─── Wrapper compartido para /api/oauth/v1/* ─────────────────────────────────
-//
-// Los 6 endpoints repetían, copiado casi verbatim, el mismo cableado:
-// rate limit → verificarTokenOAuth → getSupabaseAdmin → comprobar scope
-// (auditando el 403) → lógica de negocio → auditar el resultado final
-// (auditoría de esta sesión, docs/api-publica-v1-diseno.md). `conOAuth`
-// deja al handler SOLO la lógica de negocio — decide su propio
-// `{ status, body }`, y el wrapper se encarga de las cuatro comprobaciones
-// y de las dos auditorías (403 de scope insuficiente, y la de cierre con
-// el status code real que decidió el handler).
-export interface ResultadoOAuth { status: number; body: unknown }
-
-export async function conOAuth(
-  req: NextRequest,
-  opts: { scope: ScopeOAuth; metodo: string; ruta: string; rateLimitKey: string; rateLimitMax: number; rateLimitWindowSeconds?: number },
-  handler: (ctx: ContextoOAuth, admin: SupabaseClient) => Promise<ResultadoOAuth>,
-): Promise<Response> {
-  const limited = await enforceRateLimit(req, opts.rateLimitKey, { max: opts.rateLimitMax, windowSeconds: opts.rateLimitWindowSeconds ?? 60 });
-  if (limited) return limited;
-
-  const ctx = await verificarTokenOAuth(req);
-  if (!ctx) return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
-
-  const admin = getSupabaseAdmin();
-  if (!admin) return NextResponse.json({ error: 'server_error' }, { status: 503 });
-
-  if (!tieneScope(ctx, opts.scope)) {
-    auditarAccesoOAuth(admin, { tokenId: ctx.tokenId, studioId: ctx.studioId, clienteId: ctx.clienteId, scopeUsado: opts.scope, metodo: opts.metodo, ruta: opts.ruta, statusCode: 403, ip: clientIp(req) });
-    return NextResponse.json({ error: 'insufficient_scope' }, { status: 403 });
-  }
-
-  const { status, body } = await handler(ctx, admin);
-  auditarAccesoOAuth(admin, { tokenId: ctx.tokenId, studioId: ctx.studioId, clienteId: ctx.clienteId, scopeUsado: opts.scope, metodo: opts.metodo, ruta: opts.ruta, statusCode: status, ip: clientIp(req) });
-  return NextResponse.json(body, { status });
-}
+// ─── Peticiones con Bearer ───────────────────────────────────────────────────
+// Autenticar una petición (token OAuth o clave de API), recortar sus scopes al
+// rol de quien la concedió y auditarla vive en UN sitio: `conApiPublica`
+// (lib/api-publica/servidor.ts). Aquí quedaba una segunda puerta
+// (`verificarTokenOAuth`/`conOAuth`) sin esas comprobaciones; se retiró para que
+// nadie la vuelva a usar por error.

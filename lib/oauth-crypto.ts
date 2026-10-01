@@ -38,42 +38,7 @@ export function verificarPkce(codeVerifier: string, codeChallenge: string): bool
   return compararEnTiempoConstante(challengeCalculado, codeChallenge);
 }
 
-// Los 7 scopes de v1 (Fases 0-4: solo lectura + /me). `pagos:escribir`
-// deliberadamente no existe — ver docs/oauth-arquitectura.md.
-export const SCOPES_VALIDOS = [
-  'clientas:leer',
-  'clientas:escribir',
-  'reservas:leer',
-  'reservas:escribir',
-  'pagos:leer',
-  'planes:leer',
-  'instructores:leer',
-  'notas:leer',
-  'notas:escribir',
-  'tareas:leer',
-  'tareas:escribir',
-  'leads:leer',
-  'leads:escribir',
-] as const;
-export type ScopeOAuth = (typeof SCOPES_VALIDOS)[number];
-
-export function scopesValidos(scopes: string[]): scopes is ScopeOAuth[] {
-  return scopes.length > 0 && scopes.every(s => (SCOPES_VALIDOS as readonly string[]).includes(s));
-}
-
-// Descripción en español para la pantalla de consentimiento.
-export const DESCRIPCION_SCOPE: Record<ScopeOAuth, string> = {
-  'clientas:leer': 'Leer tus clientas',
-  'clientas:escribir': 'Crear y editar clientas',
-  'reservas:leer': 'Leer tus reservas',
-  'reservas:escribir': 'Crear y cancelar reservas',
-  'pagos:leer': 'Leer tus pagos y recibos',
-  'planes:leer': 'Leer los planes y bonos de tus clientas',
-  'instructores:leer': 'Leer tu equipo de instructoras',
-  'notas:leer': 'Leer notas operativas',
-  'notas:escribir': 'Crear notas operativas',
-  'tareas:leer': 'Leer tareas',
-  'tareas:escribir': 'Crear tareas',
-  'leads:leer': 'Leer tus leads',
-  'leads:escribir': 'Crear leads',
-};
+// El catálogo de scopes vive en lib/api-publica/catalogo-scopes.ts (sin
+// `crypto`, para que lo pueda importar el panel); aquí se reexporta para no
+// cambiar a quien ya lo importaba de este módulo.
+export { SCOPES_VALIDOS, scopesValidos, DESCRIPCION_SCOPE, type ScopeOAuth } from './api-publica/catalogo-scopes.ts';

@@ -1,8 +1,8 @@
 'use client';
 
 import { Fragment, type ReactNode } from 'react';
-import { CreditCard, KeyRound, MessageCircle } from 'lucide-react';
-import { useRol, puedeGestionarAppsOAuth } from '@/lib/permisos';
+import { Code2, CreditCard, KeyRound, MessageCircle } from 'lucide-react';
+import { useRol, puedeGestionarAppsOAuth, puedeGestionarClavesApi } from '@/lib/permisos';
 import { agruparConexiones, resumenAppsConAcceso, type ResumenFila } from '@/lib/configuracion/resumenes';
 import { seccionPorId, tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { GoogleCalendarIcon, KisiIcon, KlaviyoIcon, MailchimpIcon, ZapierIcon, ZoomIcon } from '@/components/icons/brand-icons';
@@ -13,6 +13,7 @@ import {
   FilaConexionConClave, FilaConexionOAuth, FilaZapier, SincronizarGoogleCalendar, SincronizarKlaviyo,
   useAppsConAcceso, useConexionConClave, useConexionOAuth, useZapier,
 } from '@/components/configuracion/conexiones';
+import { DetalleApiPublica, resumenApiPublica, useApiPublica } from '@/components/configuracion/api-publica';
 
 // Conexiones: Tentare con otras herramientas que ya usas (15-sep, v2).
 //
@@ -26,7 +27,7 @@ import {
 
 const CAJONES = [
   'integracion-google_calendar', 'integracion-zoom', 'integracion-kisi', 'integracion-klaviyo',
-  'integracion-mailchimp', 'integracion-zapier', 'aplicaciones-con-acceso',
+  'integracion-mailchimp', 'integracion-zapier', 'aplicaciones-con-acceso', 'api-publica',
 ] as const satisfies readonly TarjetaId[];
 
 export function SeccionConexiones({ showToast }: { showToast: (m: string) => void }) {
@@ -39,6 +40,7 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
   const mailchimp = useConexionConClave('MAILCHIMP');
   const apps = useAppsConAcceso();
   const zapier = useZapier(apps);
+  const api = useApiPublica();
 
   function guardado(texto: string) {
     cerrar();
@@ -67,6 +69,11 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
       {puedeGestionarAppsOAuth(rol) && (
         <GrupoFilas titulo="Quién puede ver tus datos">
           <FilaAjuste id="aplicaciones-con-acceso" icono={KeyRound} valor={resumenAppsConAcceso(apps.apps)} onAbrir={abrir} />
+          {/* Claves de API: solo la propietaria (puedeGestionarClavesApi). La
+              sección ya es solo suya; el servidor lo vuelve a comprobar. */}
+          {puedeGestionarClavesApi(rol) && (
+            <FilaAjuste id="api-publica" icono={Code2} valor={resumenApiPublica(api)} onAbrir={abrir} />
+          )}
         </GrupoFilas>
       )}
 
@@ -111,6 +118,9 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
       </CajonAjuste>
       <CajonAjuste id="aplicaciones-con-acceso" abierto={cajon === 'aplicaciones-con-acceso'} onCerrar={cerrar}>
         <DetalleAppsConAcceso a={apps} showToast={showToast} />
+      </CajonAjuste>
+      <CajonAjuste id="api-publica" abierto={cajon === 'api-publica'} onCerrar={cerrar}>
+        <DetalleApiPublica a={api} showToast={showToast} />
       </CajonAjuste>
     </>
   );

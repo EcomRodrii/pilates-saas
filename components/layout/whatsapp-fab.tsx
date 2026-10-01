@@ -12,7 +12,7 @@ import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 // el mensaje ya escrito, sin pasar por ningún backend propio. No sustituye
 // al HelpWidget, es un segundo punto de entrada más rápido para una duda
 // puntual.
-const SOPORTE_WHATSAPP = '+34603556580';
+export const SOPORTE_WHATSAPP = '+34603556580';
 
 export function WhatsAppFab() {
   const { studio } = useCore();

@@ -14,7 +14,7 @@ import { authHeader } from '@/lib/api-client';
 type EstadoConsentimiento =
   | { paso: 'cargando' }
   | { paso: 'error'; mensaje: string }
-  | { paso: 'listo'; enviando: boolean; cliente: { nombre: string; descripcion: string | null; logoUrl: string | null }; estudioNombre: string; scopes: { scope: string; descripcion: string }[] };
+  | { paso: 'listo'; enviando: boolean; cliente: { nombre: string; descripcion: string | null; logoUrl: string | null }; estudioNombre: string; scopes: { scope: string; descripcion: string }[]; fuera: { scope: string; descripcion: string }[] };
 
 // useSearchParams() exige un límite de Suspense alrededor (si no, Next
 // desactiva la generación estática de toda la página en build) — el
@@ -54,7 +54,7 @@ function OAuthAuthorizeContenido() {
         setEstado({ paso: 'error', mensaje: mensajeError(data?.error, data?.detalle) });
         return;
       }
-      setEstado({ paso: 'listo', enviando: false, cliente: data.cliente, estudioNombre: data.estudioNombre, scopes: data.scopes });
+      setEstado({ paso: 'listo', enviando: false, cliente: data.cliente, estudioNombre: data.estudioNombre, scopes: data.scopes, fuera: Array.isArray(data.fuera) ? data.fuera : [] });
     })();
     return () => { cancelado = true; };
   }, [loading, user, qs, router]);
@@ -122,6 +122,12 @@ function OAuthAuthorizeContenido() {
                 </div>
               ))}
             </div>
+            {/* Lo que la app pide y tu rol no puede dar: se dice, y no se le da. */}
+            {estado.fuera.length > 0 && (
+              <p className="text-[12px] text-muted-foreground text-pretty">
+                No incluye, porque solo puede darlo la propietaria del estudio: {estado.fuera.map(s => s.descripcion.toLowerCase()).join('; ')}.
+              </p>
+            )}
             <div className="flex gap-2">
               <button
                 onClick={cancelar}

@@ -5,6 +5,25 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { puedeGestionarAppsOAuth } from '@/lib/permisos-reglas';
 import { buscarClienteOAuth, redirectUriPermitida, crearCodigoAutorizacion } from '@/lib/oauth-server';
 import { scopesValidos, DESCRIPCION_SCOPE, type ScopeOAuth } from '@/lib/oauth-crypto';
+import { scopesQuePuedeConceder } from '@/lib/api-publica/scopes';
+import type { Rol } from '@/lib/types';
+
+// Una app nunca recibe más de lo que ve quien la autoriza. Antes bastaba con ser
+// PROPIETARIO o MANAGER y se aceptaba cualquier scope del catálogo: un MANAGER,
+// que no ve las finanzas, podía darle `pagos:leer` a una app externa.
+//
+// Se RECORTA, a la vista, en vez de rechazar entera: la app de Zapier pide
+// `pagos:leer` y un MANAGER tiene que poder seguir conectándola para lo que sí
+// puede dar (clientas, reservas…). La pantalla de consentimiento enseña lo que
+// queda fuera y el token sale solo con el resto (`scope` en /token lo dice).
+// Si no queda nada que dar, entonces sí se rechaza.
+function repartirScopes(rol: Rol, scopes: string[]): { concedibles: ScopeOAuth[]; fuera: ScopeOAuth[] } {
+  const permitidos = new Set<string>(scopesQuePuedeConceder(rol));
+  return {
+    concedibles: scopes.filter(s => permitidos.has(s)) as ScopeOAuth[],
+    fuera: scopes.filter(s => !permitidos.has(s)) as ScopeOAuth[],
+  };
+}
 import { uid } from '@/lib/utils';
 
 // La pantalla /oauth/authorize (cliente) llama a esta ruta en dos tiempos:
@@ -62,13 +81,22 @@ export async function GET(req: NextRequest) {
   if (!puedeGestionarAppsOAuth(sesion.rol)) {
     return NextResponse.json({ error: 'access_denied', detalle: 'Solo la propietaria o un manager pueden conectar aplicaciones' }, { status: 403 });
   }
+  const { concedibles, fuera } = repartirScopes(sesion.rol, v.scopes);
+  if (concedibles.length === 0) {
+    return NextResponse.json({
+      error: 'access_denied',
+      detalle: 'Tu rol no puede dar ninguno de los permisos que pide esta app. Pídeselo a la propietaria del estudio.',
+    }, { status: 403 });
+  }
 
   const { data: studio } = await admin.from('studios').select('nombre').eq('id', sesion.studioId).maybeSingle();
 
   return NextResponse.json({
     cliente: { nombre: cliente.nombre, descripcion: cliente.descripcion, logoUrl: cliente.logoUrl },
     estudioNombre: studio?.nombre ?? 'tu estudio',
-    scopes: v.scopes.map(s => ({ scope: s, descripcion: DESCRIPCION_SCOPE[s as ScopeOAuth] })),
+    scopes: concedibles.map(s => ({ scope: s, descripcion: DESCRIPCION_SCOPE[s] })),
+    // Lo que la app pide y este rol no puede dar: se enseña, y el token sale sin ello.
+    fuera: fuera.map(s => ({ scope: s, descripcion: DESCRIPCION_SCOPE[s] })),
   });
 }
 
@@ -105,10 +133,15 @@ export async function POST(req: NextRequest) {
   if (!puedeGestionarAppsOAuth(sesion.rol)) {
     return NextResponse.json({ error: 'access_denied' }, { status: 403 });
   }
+  // Lo mismo que se enseñó en GET: solo lo que este rol puede dar.
+  const { concedibles } = repartirScopes(sesion.rol, v.scopes);
+  if (concedibles.length === 0) {
+    return NextResponse.json({ error: 'access_denied' }, { status: 403 });
+  }
 
   const codigo = await crearCodigoAutorizacion(admin, {
     studioId: sesion.studioId, clienteId: cliente.id, authUserId: sesion.userId,
-    scopes: v.scopes as ScopeOAuth[], redirectUri: v.redirectUri, codeChallenge: v.codeChallenge,
+    scopes: concedibles, redirectUri: v.redirectUri, codeChallenge: v.codeChallenge,
   });
 
   // Registrar/renovar el consentimiento — un consentimiento por (estudio,
@@ -116,7 +149,7 @@ export async function POST(req: NextRequest) {
   // previa.
   await admin.from('oauth_consentimientos').upsert({
     id: uid(), studio_id: sesion.studioId, cliente_id: cliente.id, otorgado_por: sesion.userId,
-    scopes: v.scopes, otorgado_en: new Date().toISOString(), revocado_en: null,
+    scopes: concedibles, otorgado_en: new Date().toISOString(), revocado_en: null,
   }, { onConflict: 'studio_id,cliente_id' });
 
   const redirectUrl = new URL(v.redirectUri);

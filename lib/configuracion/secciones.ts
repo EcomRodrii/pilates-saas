@@ -302,6 +302,7 @@ export const SECCIONES = [
       { id: 'integracion-mailchimp', titulo: 'Mailchimp', frase: 'Lleva a tu audiencia de Mailchimp las alumnas que aceptaron recibir marketing, al pulsar «Sincronizar ahora».', guardado: 'accion', palabras: ['marketing', 'newsletter', 'audiencia'] },
       { id: 'integracion-zapier', titulo: 'Zapier', frase: 'Conecta Tentare con miles de apps. La conexión se autoriza desde Zapier, no desde aquí.', guardado: 'accion', palabras: ['automatizar', 'apps'] },
       { id: 'aplicaciones-con-acceso', titulo: 'Aplicaciones con acceso', frase: 'Apps como Zapier con permiso para ver datos de tu estudio; puedes quitárselo.', guardado: 'accion', palabras: ['zapier', 'permisos'] },
+      { id: 'api-publica', titulo: 'API para tu contabilidad', frase: 'Claves para que tu programa de contabilidad (u otro) lea tus cobros, facturas y alumnas.', guardado: 'accion', palabras: ['api', 'contabilidad', 'gestoría', 'clave', 'integración', 'holded', 'a3', 'sage'] },
     ],
   },
   {

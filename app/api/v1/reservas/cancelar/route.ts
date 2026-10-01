@@ -1,15 +1,15 @@
 import { NextRequest } from 'next/server';
-import { conOAuth } from '@/lib/oauth-server';
+import { conApiPublica } from '@/lib/api-publica/servidor';
 import { cancelarReservaPublica } from '@/lib/db/supabase-data-admin';
 
-// POST /api/oauth/v1/reservas/cancelar — action "Cancelar reserva" de
+// POST /api/v1/reservas/cancelar — action "Cancelar reserva" de
 // Zapier. Reutiliza cancelarReservaPublica (mismo camino que /reservar:
 // devuelve bono si procede, promueve lista de espera, APLICA la penalización
 // por cancelación tardía si el estudio la tiene activada — nunca
 // omitirPenalizacion, esto es una cancelación real, no un corte automático
 // del sistema). Requiere `reservas:escribir`.
 export async function POST(req: NextRequest) {
-  return conOAuth(req, { scope: 'reservas:escribir', metodo: 'POST', ruta: '/api/oauth/v1/reservas/cancelar', rateLimitKey: 'oauth-v1-reservas-cancelar', rateLimitMax: 20 }, async (ctx, admin) => {
+  return conApiPublica(req, { scope: 'reservas:escribir', ruta: '/api/v1/reservas/cancelar', limitePorMinuto: 20 }, async (ctx, admin) => {
     const body = await req.json().catch(() => null) as { reservaId?: string; reserva_id?: string } | null;
     const reservaId = body?.reservaId ?? body?.reserva_id;
     if (!reservaId) return { status: 400, body: { error: 'invalid_request', detalle: 'reservaId es obligatorio' } };

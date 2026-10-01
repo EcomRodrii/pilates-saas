@@ -143,6 +143,7 @@ export default function FichaEstudioInterno({ params }: { params: Promise<{ id: 
           id={f.estudio.id} plan={f.estudio.plan}
           suspendido={f.suspension.suspendido} motivo={f.suspension.motivo}
           reviewBoost={f.reviewBoost}
+          apiPublica={f.apiPublica}
           prueba={f.prueba}
           alTerminar={cargar}
         />

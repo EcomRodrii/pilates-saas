@@ -2470,13 +2470,15 @@ export interface RowOauthAuditoriaAccesos {
   id: number;
   token_id: string | null;
   studio_id: string;
-  cliente_id: string;
+  cliente_id: string | null;
   scope_usado: string | null;
   metodo: string;
   ruta: string;
   status_code: number;
   ip: string | null;
   creado_en: string;
+  // migr 20261001150000.
+  api_clave_id: string | null;
 }
 
 export interface RowWidgetEventos {
@@ -3724,6 +3726,31 @@ export interface RowPlataformaCupos {
   plazas: number;
   creado_en: string;
   actualizado_en: string;
+}
+
+export interface RowApiAccesoEstudios {
+  studio_id: string;
+  activada_en: string;
+  activada_por: string;
+  desactivada_en: string | null;
+  nota: string | null;
+}
+
+export interface RowApiClaves {
+  id: string;
+  studio_id: string;
+  nombre: string;
+  prefijo: string;
+  hash: string;
+  scopes: string[];
+  creada_por: string;
+  creada_en: string;
+  expira_en: string | null;
+  ultimo_uso_en: string | null;
+  ultimo_uso_ip: string | null;
+  revocada_en: string | null;
+  revocada_por: string | null;
+  rotada_desde: string | null;
 }
 
 
@@ -7843,26 +7870,28 @@ export type OauthAuditoriaAccesosInsert = {
   id?: number | null;
   token_id?: string | null | null;
   studio_id?: string | null;
-  cliente_id?: string | null;
+  cliente_id?: string | null | null;
   scope_usado?: string | null | null;
   metodo?: string | null;
   ruta?: string | null;
   status_code?: number | null;
   ip?: string | null | null;
   creado_en?: string | null;
+  api_clave_id?: string | null | null;
 }
 
 export type OauthAuditoriaAccesosUpdate = {
   id?: number | null;
   token_id?: string | null | null;
   studio_id?: string | null;
-  cliente_id?: string | null;
+  cliente_id?: string | null | null;
   scope_usado?: string | null | null;
   metodo?: string | null;
   ruta?: string | null;
   status_code?: number | null;
   ip?: string | null | null;
   creado_en?: string | null;
+  api_clave_id?: string | null | null;
 }
 
 export type WidgetEventosInsert = {
@@ -10295,6 +10324,56 @@ export type PlataformaCuposUpdate = {
   actualizado_en?: string | null;
 }
 
+export type ApiAccesoEstudiosInsert = {
+  studio_id?: string | null;
+  activada_en?: string | null;
+  activada_por?: string | null;
+  desactivada_en?: string | null | null;
+  nota?: string | null | null;
+}
+
+export type ApiAccesoEstudiosUpdate = {
+  studio_id?: string | null;
+  activada_en?: string | null;
+  activada_por?: string | null;
+  desactivada_en?: string | null | null;
+  nota?: string | null | null;
+}
+
+export type ApiClavesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  prefijo?: string | null;
+  hash?: string | null;
+  scopes?: string[] | null;
+  creada_por?: string | null;
+  creada_en?: string | null;
+  expira_en?: string | null | null;
+  ultimo_uso_en?: string | null | null;
+  ultimo_uso_ip?: string | null | null;
+  revocada_en?: string | null | null;
+  revocada_por?: string | null | null;
+  rotada_desde?: string | null | null;
+}
+
+export type ApiClavesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  prefijo?: string | null;
+  hash?: string | null;
+  scopes?: string[] | null;
+  creada_por?: string | null;
+  creada_en?: string | null;
+  expira_en?: string | null | null;
+  ultimo_uso_en?: string | null | null;
+  ultimo_uso_ip?: string | null | null;
+  revocada_en?: string | null | null;
+  revocada_por?: string | null | null;
+  rotada_desde?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -11452,6 +11531,16 @@ export type Database = {
         Row: RowPlataformaCupos;
         Insert: PlataformaCuposInsert;
         Update: PlataformaCuposUpdate;
+      };
+      api_acceso_estudios: {
+        Row: RowApiAccesoEstudios;
+        Insert: ApiAccesoEstudiosInsert;
+        Update: ApiAccesoEstudiosUpdate;
+      };
+      api_claves: {
+        Row: RowApiClaves;
+        Insert: ApiClavesInsert;
+        Update: ApiClavesUpdate;
       };
     };
   };
