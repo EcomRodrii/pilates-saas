@@ -8,8 +8,9 @@ import { formatEuro } from '@/lib/utils';
 
 // F0 · E1 — cuando se añade a una socia SIN bono válido a una clase desde el panel
 // (bono agotado/caducado o sin plan de sesiones), en vez de colarla gratis y en
-// silencio se PARA y se pide una decisión consciente: cobrar clase suelta, vender/
-// renovar bono, o dejarla como cortesía registrada. Las socias de tarifa MENSUAL
+// silencio se PARA y se pide una decisión consciente: dejarle un recibo de clase
+// suelta (queda PENDIENTE: se cobra en Cobros), vender/renovar bono, o dejarla
+// como cortesía registrada. Las socias de tarifa MENSUAL
 // no llegan aquí (tienen entitlement) — esto solo salta sin bono válido.
 /**
  * Por qué no puede entrar. Se distinguen porque la salida es distinta: con un
@@ -62,8 +63,13 @@ export function AvisoSinBono({
               explicación se lee como un fallo del programa, no como un límite. */}
           {permiteCobrar && (
             <Button onClick={onCobrarSuelta} disabled={!puedeCobrar} className="justify-start">
-              <Ticket size={15} /> Cobrar clase suelta{puedeCobrar ? ` · ${formatEuro(precioSuelta!)}` : ''}
+              <Ticket size={15} /> Clase suelta con recibo{puedeCobrar ? ` · ${formatEuro(precioSuelta!)}` : ''}
             </Button>
+          )}
+          {puedeCobrar && (
+            // El recibo queda pendiente: decía «Cobrar» y el aviso «cobrada» sin
+            // que nadie hubiera cobrado nada.
+            <p className="-mt-1 text-[11px] text-muted-foreground">El recibo queda pendiente: lo cobras en Cobros.</p>
           )}
           {!hayPrecio && permiteCobrar && (
             // «Un plan de tipo PUNTUAL» es el nombre interno de la tabla, no una

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estadoSesion, pideDecision, PINTA, type SesionParaEstado, type ContextoEstadoSesion } from './calendario-estado.ts';
+import { estadoSesion, pideDecision, sinEmpezar, PINTA, type SesionParaEstado, type ContextoEstadoSesion } from './calendario-estado.ts';
 
 const INICIO = '2026-07-13T08:00:00.000Z';
 const FIN = '2026-07-13T09:00:00.000Z';
@@ -172,3 +172,17 @@ test('pideDecision: lista de espera/sobreaforo de una clase finalizada tampoco p
   assert.equal(pideDecision('PROGRAMADA', { enEspera: 2, sobreaforo: 0, huecosLibres: 1, finalizada: true }), false);
   assert.equal(pideDecision('EN_CURSO', { enEspera: 0, sobreaforo: 1, huecosLibres: 0, finalizada: true }), false);
 });
+
+test('una clase que ya ha empezado no se cancela ni se borra: solo quedan las que no han empezado', () => {
+  const ahora = new Date('2026-07-13T08:00:00.000Z');
+  const clases = [
+    { id: 'pasada', inicio: '2026-07-13T07:00:00.000Z' },
+    { id: 'empieza-ahora', inicio: '2026-07-13T08:00:00.000Z' },
+    { id: 'en-un-minuto', inicio: '2026-07-13T08:01:00.000Z' },
+    { id: 'la-semana-que-viene', inicio: new Date('2026-07-20T08:00:00.000Z') },
+  ];
+  // La que empieza justo ahora ya cuenta como empezada: el mismo corte que «Editar».
+  assert.deepEqual(sinEmpezar(clases, ahora).map(c => c.id), ['en-un-minuto', 'la-semana-que-viene']);
+  assert.deepEqual(sinEmpezar([], ahora), []);
+});
+
