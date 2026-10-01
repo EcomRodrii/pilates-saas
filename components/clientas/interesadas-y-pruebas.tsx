@@ -6,7 +6,7 @@ import {
   AlertTriangle, AtSign, CalendarCheck, Check, CircleHelp, Globe, Mail, MessageCircle, Phone, Plus,
   Smartphone, Sparkles, Store, Trash2, UserPlus, Users, XCircle, type LucideIcon,
 } from 'lucide-react';
-import { MenuAcciones, type AccionMenu } from '@/components/clientas/ficha/piezas-ficha';
+import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';

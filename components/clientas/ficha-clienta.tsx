@@ -77,8 +77,9 @@ import { nombreAutora, notaVisiblePara } from '@/lib/clientas/notas';
 import { PastillaAviso, PastillaEstado, TarjetaFicha, BotonTarjeta } from '@/components/clientas/piezas';
 import {
   AccionGrande, BarrasConstancia, CabeceraFicha, LineaHistoria, PorQueTeAviso,
-  type AccionMenu, type AlertaCabecera, type CeldaCabecera,
+  type AlertaCabecera, type CeldaCabecera,
 } from '@/components/clientas/ficha/piezas-ficha';
+import type { AccionMenu } from '@/components/ui/menu-acciones';
 import { ReservarClase } from '@/components/clientas/ficha/reservar-clase';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { Toast } from '@/components/ui/toast';

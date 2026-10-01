@@ -60,6 +60,9 @@ const SOLO_MODO_A = new Set([
   // bundle público no lo incluye ni puede incluirlo.
   'animate-drawer-sheet-in', 'animate-drawer-sheet-out',
   'animate-drawer-backdrop-in', 'animate-drawer-backdrop-out',
+  // El mismo cajón cuando sube desde abajo (`desdeAbajo`): la ficha de la clase
+  // del Calendario en el móvil.
+  'animate-drawer-up-in', 'animate-drawer-up-out',
   // `components/layout/whatsapp-fab.tsx` — botón flotante del panel.
   'animate-wa-fab-ring',
   // Icono de éxito del paso 'done' (diseño "Tentare Portal Reservas": anillo +

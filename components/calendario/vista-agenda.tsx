@@ -5,6 +5,8 @@ import { colorOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import { PINTA } from '@/lib/calendario-estado';
 import { cn, horaEstudio } from '@/lib/utils';
 import type { DatoSesion } from '@/components/calendario/vista-dia-salas';
+import { AvisoDeMarca } from '@/components/calendario/tarjeta-clase';
+import type { MarcaClase } from '@/lib/calendario/marca-clase';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El calendario en el móvil: Día y Semana como una lista por hora.
@@ -56,12 +58,13 @@ export interface VistaAgendaProps {
   marcadas?: ReadonlySet<string>;
   onSeleccionar: (id: string) => void;
   atenuada?: (d: DatoSesion) => boolean;
-  accionPara?: (d: DatoSesion) => { texto: string; onClick: () => void } | null;
+  /** Lo que dice la clase (la misma marca que en la rejilla). */
+  marcaDe?: (id: string) => MarcaClase | undefined;
 }
 
 const DIA_SEMANA = new Intl.DateTimeFormat('es-ES', { weekday: 'long' });
 
-export function VistaAgenda({ modo, dias, seleccionadaId, marcadas, onSeleccionar, atenuada, accionPara }: VistaAgendaProps) {
+export function VistaAgenda({ modo, dias, seleccionadaId, marcadas, onSeleccionar, atenuada, marcaDe }: VistaAgendaProps) {
   const total = dias.reduce((n, d) => n + d.sesiones.length, 0);
 
   return (
@@ -103,7 +106,7 @@ export function VistaAgenda({ modo, dias, seleccionadaId, marcadas, onSelecciona
                   seleccionada={seleccionadaId === c.sesion.id}
                   marcada={marcadas?.has(c.sesion.id) ?? false}
                   atenuada={atenuada?.(c) ?? false}
-                  accion={accionPara?.(c) ?? null}
+                  marca={marcaDe?.(c.sesion.id) ?? null}
                   onSeleccionar={() => onSeleccionar(c.sesion.id)}
                 />
               ))}
@@ -115,12 +118,12 @@ export function VistaAgenda({ modo, dias, seleccionadaId, marcadas, onSelecciona
   );
 }
 
-function Clase({ clase, seleccionada, marcada, atenuada, accion, onSeleccionar }: {
+function Clase({ clase, seleccionada, marcada, atenuada, marca, onSeleccionar }: {
   clase: ClaseDeAgenda;
   seleccionada: boolean;
   marcada: boolean;
   atenuada: boolean;
-  accion: { texto: string; onClick: () => void } | null;
+  marca: MarcaClase | null;
   onSeleccionar: () => void;
 }) {
   const { sesion, tipo, instructor, reservasSesion, estado } = clase;
@@ -145,13 +148,14 @@ function Clase({ clase, seleccionada, marcada, atenuada, accion, onSeleccionar }
         className={cn(
           'relative flex min-h-16 w-full items-stretch gap-3 overflow-hidden rounded-2xl border py-3 pl-4 pr-3 text-left transition-colors active:bg-muted',
           seleccionada ? 'border-foreground bg-muted' : 'border-border bg-card',
+          marca?.aviso?.tipo === 'en-curso' && !seleccionada && 'border-[var(--success)] ring-1 ring-[var(--success)]',
           marcada && 'ring-2 ring-brand ring-offset-1 ring-offset-card',
         )}
       >
         {/* El color del tipo de clase va en la barra, no en el fondo: con el fondo
             teñido el texto apagado dejaba de medirse contra la tarjeta. Fuera de
             PROGRAMADA, la barra lleva el color del estado (aviso, conflicto…). */}
-        <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ background: estado === 'PROGRAMADA' ? tipo.color : p.barra }} />
+        <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ background: marca || estado === 'PROGRAMADA' ? tipo.color : p.barra }} />
 
         <span className="flex w-12 shrink-0 flex-col tabular-nums">
           <span className="text-base font-bold leading-tight text-foreground">{horaEstudio(sesion.inicio)}</span>
@@ -170,7 +174,7 @@ function Clase({ clase, seleccionada, marcada, atenuada, accion, onSeleccionar }
             )}
           </span>
           <span className="truncate text-sm text-muted-foreground">{donde}</span>
-          {estado !== 'PROGRAMADA' && (
+          {marca ? <AvisoDeMarca marca={marca} className="mt-0.5" /> : estado !== 'PROGRAMADA' && (
             <span className="text-sm font-semibold" style={{ color: p.tinta }}>{p.label}</span>
           )}
         </span>
@@ -190,16 +194,6 @@ function Clase({ clase, seleccionada, marcada, atenuada, accion, onSeleccionar }
         </span>
       </button>
 
-      {accion && (
-        <button
-          type="button"
-          onClick={accion.onClick}
-          className="mt-1.5 flex min-h-11 items-center self-end rounded-full px-4 text-sm font-bold text-white transition-[filter] hover:brightness-110"
-          style={{ background: p.tinta }}
-        >
-          {accion.texto}
-        </button>
-      )}
     </li>
   );
 }

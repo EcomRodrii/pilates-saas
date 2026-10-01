@@ -38,7 +38,8 @@ const CON_ORB = [
   'components/decision/piloto-automatico.tsx',
   'app/(dashboard)/automatizaciones/page.tsx',
   'app/(dashboard)/dashboard/page.tsx',
-  'app/(dashboard)/calendario/page.tsx',
+  // «Preparar clase con IA» vive en las Adaptaciones de la ficha de la clase.
+  'components/calendario/adaptaciones-clase.tsx',
   'components/socios/ficha-salud.tsx',
   'components/socios/modal-nota-voz.tsx',
   'app/(dashboard)/migracion/page.tsx',
@@ -59,7 +60,7 @@ const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // momento en que Tentare esté decidiendo nada. Poner el Orb también ahí
 // diluiría lo que significa.
 const BOTONES_IA: { fichero: string; cargando: string; sinSpinner: boolean }[] = [
-  { fichero: 'app/(dashboard)/calendario/page.tsx', cargando: 'prepIALoading', sinSpinner: true },
+  { fichero: 'components/calendario/adaptaciones-clase.tsx', cargando: 'preparando', sinSpinner: true },
   { fichero: 'components/socios/ficha-salud.tsx', cargando: 'adaptacionIALoading', sinSpinner: true },
   { fichero: 'components/socios/modal-nota-voz.tsx', cargando: 'procesando', sinSpinner: true },
   { fichero: 'app/(dashboard)/migracion/page.tsx', cargando: "paso === 'analizando'", sinSpinner: false },

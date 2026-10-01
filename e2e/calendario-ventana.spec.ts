@@ -14,7 +14,7 @@ import { montar, ir } from './panel-sembrado';
 test.use({ timezoneId: 'Europe/Madrid', viewport: { width: 1440, height: 900 } });
 test.describe.configure({ timeout: 120_000 });
 
-const rejilla = (page: Page) => page.getByTestId('grid-semana-scroll');
+const rejilla = (page: Page) => page.getByTestId('semana-franjas');
 const ventana = (page: Page) => page.getByTestId('ventana-calendario');
 const menu = (page: Page) => page.locator('aside[data-panel-menu]');
 
@@ -69,9 +69,10 @@ test('ampliar esconde el menú y la barra, la rejilla gana sitio, y Escape lo de
   await page.getByRole('button', { name: 'Ampliar a toda la pantalla' }).click();
   await expect(menu(page)).toBeHidden();
   // Con espera: el hueco del menú se cierra con una transición de 200 ms.
-  // Medido en 1440×900: la rejilla pasa de 1084×515 a 1364×609 (antes de «Crear
-  // clase» —un botón menos en la cabecera— partía de 465 y el umbral era +100).
-  await expect.poll(async () => (await rejilla(page).boundingBox())!.height).toBeGreaterThan(antes.height + 60);
+  // Medido en 1440×900 con la semana por franjas (1-oct-2026): pasa de 594 a 642
+  // de alto. Gana menos que la rejilla de antes (515 → 609) porque la cabecera
+  // nueva ya le deja más sitio de entrada; lo que se vigila es que GANE.
+  await expect.poll(async () => (await rejilla(page).boundingBox())!.height).toBeGreaterThan(antes.height + 40);
   await expect.poll(async () => (await rejilla(page).boundingBox())!.width, { message: 'también gana ancho' }).toBeGreaterThan(antes.width + 200);
   expect(await page.evaluate(() => document.documentElement.scrollHeight - innerHeight), 'la página no se desplaza').toBeLessThanOrEqual(1);
   await page.screenshot({ path: 'test-results/ventana-calendario-1-ampliado.png' });
@@ -168,24 +169,27 @@ test('desde otra pantalla, pulsar una clase de la ventana abre esa clase en el C
 
   await ventana(page).getByRole('listitem').first().getByRole('button').click();
   await expect(page).toHaveURL(/\/calendario/, { timeout: 60_000 });
-  await expect(page.getByRole('dialog')).toBeVisible({ timeout: 30_000 });
+  // La ficha de la clase: al lado en un ordenador (no es un cuadro de diálogo).
+  await expect(page.getByTestId('ficha-clase')).toBeVisible({ timeout: 30_000 });
 });
 
 test('saltar a una clase de mañana no saca hoy de la semana', async ({ page }) => {
   // El fallo que vio la dueña: la semana pasaba a empezar el día de la clase y
   // «hoy no aparece en el calendario».
   await calendario(page);
-  await expect(page.locator('[data-cabecera-dia="0"]')).toContainText('HOY');
+  await expect(page.locator('[data-cabecera-dia="0"]')).toContainText('Hoy');
   await page.getByRole('button', { name: 'Abrir en una ventana flotante' }).click();
   await ventana(page).getByRole('button', { name: 'Día siguiente' }).click();
   await expect(ventana(page)).toContainText('Mañana');
   await ventana(page).getByRole('listitem').first().getByRole('button').click();
-  await expect(page.getByRole('dialog')).toBeVisible({ timeout: 30_000 });
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).toBeHidden();
+  // La ficha de la clase, al lado (en un ordenador no es un cuadro de diálogo).
+  const ficha = page.getByTestId('ficha-clase');
+  await expect(ficha).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Cerrar la ficha' }).click();
+  await expect(ficha).toBeHidden();
 
   await page.getByRole('button', { name: /^Semana$/ }).click();
-  await expect(page.locator('[data-cabecera-dia="0"]'), 'la semana sigue empezando hoy').toContainText('HOY');
+  await expect(page.locator('[data-cabecera-dia="0"]'), 'la semana sigue empezando hoy').toContainText('Hoy');
 });
 
 test('⤢ agranda la ventana a la semana SIN cerrarla, y ⤡ la devuelve a pequeña', async ({ page }) => {

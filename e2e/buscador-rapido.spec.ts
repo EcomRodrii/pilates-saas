@@ -100,14 +100,18 @@ test.describe('Buscador rápido', () => {
     await seedAuth(page, 'auth-e2e-duena', 'cloe@example.com');
     await page.goto('/calendario');
 
-    await page.getByRole('button', { name: 'Buscar clase en todo el estudio' }).click({ timeout: 30_000 });
-    await page.getByPlaceholder('Instructora, sala o tipo de clase…').fill('laura');
+    // Un solo «Buscar» (rediseño del 1-oct-2026): resalta lo que coincide en la
+    // rejilla y lista las clases que coinciden en cualquier fecha.
+    await page.getByRole('button', { name: 'Buscar clase' }).click({ timeout: 30_000 });
+    await page.getByRole('textbox', { name: 'Buscar clase' }).fill('laura');
     const resultados = page.getByTestId('buscador-resultados');
     await expect(resultados.getByText('Laura', { exact: false })).toBeVisible();
     await resultados.getByRole('button').click();
 
-    // Saltó a la clase de Laura (10:00), no a la de Marta (18:00).
-    await expect(page.getByText('10:00')).toBeVisible({ timeout: 30_000 });
+    // Saltó a la clase de Laura, no a la de Marta: su ficha abierta, y la búsqueda borrada.
+    await expect(page.getByTestId('ficha-clase')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('ficha-clase-cabeza')).toContainText('Laura');
+    await expect(page.getByRole('button', { name: 'Buscar clase' })).toBeVisible();
   });
 
   // El caso «instructora: no ve clases de sus compañeras» se fue con Tentare
@@ -119,7 +123,23 @@ test.describe('Buscador rápido', () => {
     await seedAuth(page, 'auth-e2e-duena', 'cloe@example.com');
     await page.goto('/calendario');
 
-    await page.getByRole('button', { name: 'Buscar clase en todo el estudio' }).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Buscar clase' }).click({ timeout: 30_000 });
     await expect(page.getByTestId('buscador-resultados')).toHaveCount(0);
+  });
+
+  test('lo que se escribe atenúa en la rejilla las clases que no coinciden', async ({ page }) => {
+    await mockBackend(page, 'PROPIETARIO');
+    await seedAuth(page, 'auth-e2e-duena', 'cloe@example.com');
+    await page.goto('/calendario');
+
+    await page.getByRole('button', { name: 'Buscar clase' }).click({ timeout: 30_000 });
+    await page.getByRole('textbox', { name: 'Buscar clase' }).fill('laura');
+    await page.keyboard.press('Enter');
+    // La de Marta sigue en su sitio, apagada; la de Laura, igual que siempre.
+    await expect(page.locator('[data-sesion-id="ses-marta"]')).toHaveCSS('opacity', '0.3');
+    await expect(page.locator('[data-sesion-id="ses-laura"]')).not.toHaveCSS('opacity', '0.3');
+    // El botón dice qué se está buscando, y la × lo borra.
+    await page.getByRole('button', { name: 'Dejar de buscar' }).click();
+    await expect(page.locator('[data-sesion-id="ses-marta"]')).not.toHaveCSS('opacity', '0.3');
   });
 });

@@ -3,7 +3,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // ─────────────────────────────────────────────────────────────────────────────
 // El mostrador apunta a una clienta desde el calendario, y ahora lo hace por el
 // SERVIDOR (`/api/reservas/crear`): la alumna recibe el aviso de su reserva como
-// cualquier otra, salvo que recepción desmarque «Avisar a la alumna».
+// cualquier otra, salvo que recepción desmarque «Avisarla de la reserva».
 //
 // Los dos caminos de fallo llevan contador de peticiones (regla del repo): un
 // «no anunció éxito» sin comprobar que se INTENTÓ reservar puede ser verdad por
@@ -14,7 +14,10 @@ const AUTH_UID = 'auth-e2e-duena';
 const STUDIO_ID = 'studio-test';
 const STORAGE_KEY = 'sb-example-auth-token';
 
-const HOY = new Date().toISOString().slice(0, 10);
+// El día del ESTUDIO, no el de UTC: la semana del Calendario empieza hoy en
+// Madrid, y entre las 00:00 y las 02:00 de allí la fecha UTC aún es la de ayer
+// (la clase caía fuera de la semana y el test fallaba según la hora).
+const HOY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
 
 const TIPOS = [{ id: 'tc-1', studio_id: STUDIO_ID, nombre: 'Reformer', color: '#F7A6C4', duracion_minutos: 55, descripcion: null, nivel: 'TODOS', foto_url: null }];
 const SALAS = [{ id: 'sala-1', studio_id: STUDIO_ID, nombre: 'Sala 1', capacidad: 4, color: '#6366F1' }];
@@ -124,7 +127,7 @@ async function montarCalendario(page: Page, respuesta: { status: number; body: u
 async function apuntarABea(page: Page, { desmarcarAviso = false } = {}) {
   await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Añadir clienta a la clase' }).click();
-  const casilla = page.getByRole('checkbox', { name: 'Avisar a la alumna' });
+  const casilla = page.getByRole('checkbox', { name: 'Avisarla de la reserva' });
   await expect(casilla).toBeChecked();
   if (desmarcarAviso) await casilla.uncheck();
   await page.getByRole('button', { name: /Bea/ }).click();
@@ -145,7 +148,7 @@ test.describe('El mostrador apunta a una clienta por el servidor', () => {
     await expect(page.getByText(/Bea añadida/)).toBeVisible();
   });
 
-  test('desmarcar «Avisar a la alumna» manda avisar:false y el toast lo recuerda', async ({ page }) => {
+  test('desmarcar «Avisarla de la reserva» manda avisar:false y el toast lo recuerda', async ({ page }) => {
     const peticiones = await montarCalendario(page, { status: 200, body: RESERVA_OK });
     await apuntarABea(page, { desmarcarAviso: true });
 

@@ -38,7 +38,7 @@ import { DEFINICION_ESTADO, ESTADOS_CLIENTA, ETIQUETA_ESTADO, sinVenir, type Est
 import { colorDeAvatar as avatarColor, cuandoClase, fechaCorta, haceCuanto, textoDesde } from '@/lib/clientas/textos';
 import { PastillaAviso, PastillaEstado, PastillaSeguimiento, PuntoEstado } from '@/components/clientas/piezas';
 import { FichaClienta } from '@/components/clientas/ficha-clienta';
-import { MenuAcciones, type AccionMenu } from '@/components/clientas/ficha/piezas-ficha';
+import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
 import { InteresadasYPruebas } from '@/components/clientas/interesadas-y-pruebas';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';

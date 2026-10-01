@@ -13,7 +13,7 @@ export default function Contenido() {
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Abre el Calendario y crea una clase nueva">
-        <p>Desde el panel, en Calendario, el botón &ldquo;Crear clase&rdquo; → &ldquo;Clase&rdquo; abre este formulario.</p>
+        <p>Desde el panel, en Calendario, el botón &ldquo;Crear clase&rdquo; abre este formulario.</p>
         <AyudaCaptura
           src="/help/reservas/calendario-nueva-clase.png"
           alt="Formulario de nueva clase: tipo, sala, instructora, fecha, horario, aforo máximo y repetición semanal"
@@ -39,10 +39,10 @@ export default function Contenido() {
           qué fecha, y te dice cuántas clases salen. Si alguna fecha choca con otra clase —la sala ocupada o la
           instructora dando otra— o cae en un cierre del centro, te la enseña con el motivo, se la salta y crea las
           demás. Al editar después una
-          clase de la serie eliges si el cambio vale solo para esa clase o para esa y las siguientes, y
-          &ldquo;Serie&rdquo; → &ldquo;Cancelar serie&rdquo; cancela esa clase y las que vienen detrás — ver <Link href="/ayuda/reservas/editar-o-cancelar-una-clase" style={{ color: 'inherit', textDecoration: 'underline' }}>editar o cancelar una clase</Link>.
+          clase de la serie eliges si el cambio vale solo para esa clase o para esa y las siguientes, y en el
+          &ldquo;⋯&rdquo; de la clase, &ldquo;Cancelar esta y las siguientes&rdquo; cancela esa clase y las que vienen detrás — ver <Link href="/ayuda/reservas/editar-o-cancelar-una-clase" style={{ color: 'inherit', textDecoration: 'underline' }}>editar o cancelar una clase</Link>.
           {' '}Una serie dura las semanas que elijas. Cuando le queda un mes aparece en Resumen para que la renueves (o
-          digas que no), y también puedes renovarla cuando quieras desde la propia clase, en &ldquo;Serie&rdquo; → &ldquo;Renovar serie&rdquo;:
+          digas que no), y también puedes renovarla cuando quieras desde la propia clase, en su &ldquo;⋯&rdquo; → &ldquo;Renovar serie&rdquo;:
           se alarga la misma clase con su horario, sala, tipo, instructora, aforo y notas, las clases que ya están en
           el calendario no se tocan, los días de cierre del centro se saltan y las alumnas con plaza fija siguen en su hueco. Si no la renuevas, te avisamos a
           las dos semanas y a la semana del final (y el último día, también por email). Y si prefieres no depender
@@ -50,9 +50,8 @@ export default function Contenido() {
           semanas y te avisa.
         </p>
         <p>
-          También puedes crearla desde &ldquo;Crear clase&rdquo; → &ldquo;Clase fija&rdquo;.
-          Las clases de una serie llevan la marca ↻ y, al abrirlas, dicen hasta cuándo se repiten. Y la vista
-          &ldquo;Horario&rdquo; (junto a Día, Semana y Mes) reúne todas las que se repiten por día de la semana:
+          Al abrir una clase de una serie, su ficha dice cada qué día se repite y hasta cuándo. Y la vista
+          &ldquo;Horario&rdquo; (junto a Día y Semana) reúne todas las que se repiten por día de la semana:
           hasta cuándo va cada una, si se renueva sola y cuántas alumnas tienen plaza fija, con los botones para
           renovarla o dar una plaza fija a una clienta sin salir de ahí.
         </p>

@@ -15,6 +15,8 @@
 // versión "con algo pendiente" de lo mismo, no un estado independiente).
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { MINUTOS_ANTES_DE_EMPEZAR } from './acceso/evaluar-acceso.ts';
+
 export type EstadoSesion =
   | 'PROGRAMADA' | 'EN_CURSO' | 'FINALIZADA' | 'SIN_PASAR_LISTA'
   | 'SIN_INSTRUCTORA' | 'INCIDENCIA' | 'CONFLICTO' | 'CANCELADA';
@@ -150,6 +152,11 @@ export function sesionYaEmpezada(inicio: string | Date, ahora: Date = new Date()
 
 export const MENSAJE_CLASE_YA_EMPEZADA = 'Esta clase ya ha empezado';
 
+// Una clase no se mueve a una hora que ya ha pasado. Quedaría con sus reservas
+// CONFIRMADA en el pasado, y el cron de plantones las pasaría a NO_ASISTIO —con
+// la penalización, si el estudio la cobra— sin que nadie haya faltado.
+export const MENSAJE_HORA_PASADA = 'Esa hora ya ha pasado: una clase solo se mueve a una hora por venir';
+
 // Una clase que ya ha empezado no se cancela ni se borra. Cancelarla avisaba de
 // la cancelación a quien ya había venido y le devolvía la sesión del bono; y
 // borrarla se llevaba su asistencia (las reservas caen en cascada). La regla la
@@ -165,7 +172,22 @@ export function sinEmpezar<T extends { inicio: string | Date }>(sesiones: readon
 // una clase todavía futura — nada comprobaba `sesionYaEmpezada` en sentido
 // contrario para el check-in. Consecuencia visible: "Última asistencia: Hace
 // -1 días" en la ficha de la clienta.
-export const MENSAJE_CLASE_AUN_NO_EMPEZADA = 'Esta clase todavía no ha empezado';
+//
+// Pero «hasta que empiece» se pasaba de largo: la gente llega antes, y en el
+// iPad del mostrador no se podía marcar a quien entraba diez minutos antes de
+// su clase, mientras la puerta con QR y la lista de la instructora ya lo hacían
+// desde una hora antes. Ahora las tres abren a la vez (`MINUTOS_ANTES_DE_EMPEZAR`).
+export const MENSAJE_CLASE_AUN_NO_EMPEZADA = 'El check-in se abre una hora antes de la clase';
+
+/** Cuándo se abre el check-in de una clase: una hora antes, como la puerta. */
+export function aperturaCheckin(inicio: string | Date): Date {
+  return new Date(new Date(inicio).getTime() - MINUTOS_ANTES_DE_EMPEZAR * 60_000);
+}
+
+/** ¿Se puede hacer ya el check-in? */
+export function checkinAbierto(inicio: string | Date, ahora: Date = new Date()): boolean {
+  return ahora.getTime() >= aperturaCheckin(inicio).getTime();
+}
 
 // ¿Esta clase exige que alguien decida algo? (punto 3: franja de decisiones,
 // y el punto de atención en la cabecera de cada sala/día). No es solo el

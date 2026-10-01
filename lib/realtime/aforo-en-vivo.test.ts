@@ -122,7 +122,8 @@ test('el calendario del panel escucha, y quitar a una alumna refresca su vista',
   // (que pinta la lista de asistentes). `cancelarReserva` solo toca la segunda,
   // así que sin `refrescarVista()` la alumna desaparecía de la lista y el
   // contador se quedaba en 8/8.
-  const i = cal.indexOf('onQuitar:');
+  // Prop de la lista de la ficha (`onQuitar={…}`); antes, clave de un objeto (`onQuitar:`).
+  const i = Math.max(cal.indexOf('onQuitar={'), cal.indexOf('onQuitar:'));
   assert.ok(i > 0, 'no encuentro el manejador de quitar');
   const bloque = cal.slice(i, i + 1200);
   assert.match(bloque, /refrescarVista\(\)/,

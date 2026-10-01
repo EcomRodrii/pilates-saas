@@ -1,41 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decisionesOrdenadas, accionParaEstado, reservasParaPasarLista, type ItemDecision } from './calendario-decisiones.ts';
-
-const item = (o: Partial<ItemDecision> & Pick<ItemDecision, 'sesionId' | 'estado'>): ItemDecision => ({
-  dia: 0, inicioMin: 480, enEspera: 0, sobreaforo: 0, huecosLibres: 0, finalizada: false, ...o,
-});
-
-// ── decisionesOrdenadas ──────────────────────────────────────────────────────
-
-test('filtra fuera las que no piden nada', () => {
-  const r = decisionesOrdenadas([item({ sesionId: 'a', estado: 'PROGRAMADA' }), item({ sesionId: 'b', estado: 'SIN_INSTRUCTORA' })]);
-  assert.deepEqual(r.map(i => i.sesionId), ['b']);
-});
-
-test('ordena por día y luego por hora de inicio', () => {
-  const r = decisionesOrdenadas([
-    item({ sesionId: 'martes-tarde', estado: 'INCIDENCIA', dia: 1, inicioMin: 900 }),
-    item({ sesionId: 'lunes-tarde', estado: 'INCIDENCIA', dia: 0, inicioMin: 900 }),
-    item({ sesionId: 'lunes-manana', estado: 'INCIDENCIA', dia: 0, inicioMin: 480 }),
-  ]);
-  assert.deepEqual(r.map(i => i.sesionId), ['lunes-manana', 'lunes-tarde', 'martes-tarde']);
-});
-
-test('lista de espera con gente Y hueco libre también pide decisión aunque el estado sea neutro', () => {
-  const r = decisionesOrdenadas([item({ sesionId: 'a', estado: 'PROGRAMADA', enEspera: 2, huecosLibres: 1 })]);
-  assert.equal(r.length, 1);
-});
-
-test('lista de espera con la clase llena (sin hueco libre) NO pide decisión — no hay overselling posible', () => {
-  const r = decisionesOrdenadas([item({ sesionId: 'a', estado: 'PROGRAMADA', enEspera: 2, huecosLibres: 0 })]);
-  assert.equal(r.length, 0);
-});
-
-test('sin nada que pida decisión, la lista queda vacía (la franja no se pinta)', () => {
-  const r = decisionesOrdenadas([item({ sesionId: 'a', estado: 'PROGRAMADA' }), item({ sesionId: 'b', estado: 'FINALIZADA' })]);
-  assert.equal(r.length, 0);
-});
+import { accionParaEstado, reservasParaPasarLista, planPasarLista } from './calendario-decisiones.ts';
 
 // ── accionParaEstado ─────────────────────────────────────────────────────────
 
@@ -85,4 +50,16 @@ test('solo las CONFIRMADA sin check-in entran en "pasar lista"', () => {
 test('sin nadie sin marcar, la lista sale vacía (no hay nada que pasar)', () => {
   const ids = reservasParaPasarLista([{ id: 'a', estado: 'ASISTIDA', checkInEn: '2026-07-13T09:00:00Z' }]);
   assert.deepEqual(ids, []);
+});
+
+test('pasar lista: se marca solo a quien no vino y las demás vinieron', () => {
+  const reservas = [
+    { id: 'a', estado: 'CONFIRMADA', checkInEn: null },
+    { id: 'b', estado: 'CONFIRMADA', checkInEn: null },
+    { id: 'c', estado: 'ASISTIDA', checkInEn: '2026-10-01T08:00:00.000Z' }, // ya marcada: no se toca
+    { id: 'd', estado: 'LISTA_ESPERA', checkInEn: null },
+  ];
+  assert.deepEqual(planPasarLista(reservas, new Set(['b'])), { vinieron: ['a'], noVinieron: ['b'] });
+  // Un «no vino» de una reserva que ya no está pendiente no se aplica.
+  assert.deepEqual(planPasarLista(reservas, new Set(['c'])), { vinieron: ['a', 'b'], noVinieron: [] });
 });

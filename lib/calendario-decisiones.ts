@@ -1,33 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Rediseño del Calendario — punto 3 (franja de decisiones) y punto 4 (una
-// acción por estado). Puro: decide QUÉ acción toca y en qué orden se recorren
-// las clases que piden decisión — nada de IO ni de React aquí.
+// Calendario — qué acción toca a una clase según su estado (la usa «Hoy en el
+// estudio», lib/hoy-agenda.ts) y sobre qué reservas se pasa lista. Puro: decide;
+// las escrituras (`checkin`, `marcarNoShow`…) viven en lib/studio-context.tsx.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { pideDecision, type EstadoSesion } from './calendario-estado.ts';
-
-export interface ItemDecision {
-  sesionId: string;
-  estado: EstadoSesion;
-  /** Orden del día dentro del rango visible (0 en vista de Día; 0-6 en Semana). */
-  dia: number;
-  inicioMin: number;
-  enEspera: number;
-  sobreaforo: number;
-  /** aforoMaximo - confirmadas, nunca negativo. Ver nota en calendario-estado.ts:pideDecision. */
-  huecosLibres: number;
-  /** La clase ya terminó — ver nota en calendario-estado.ts:pideDecision. */
-  finalizada: boolean;
-}
-
-// Mismo orden que `pideDecision` respeta internamente (gravedad), y dentro de
-// eso, cronológico — para que "1 de 7" siga un orden que tiene sentido para
-// quien las recorre con ‹ ›.
-export function decisionesOrdenadas<T extends ItemDecision>(items: T[]): T[] {
-  return items
-    .filter(i => pideDecision(i.estado, { enEspera: i.enEspera, sobreaforo: i.sobreaforo, huecosLibres: i.huecosLibres, finalizada: i.finalizada }))
-    .sort((a, b) => (a.dia - b.dia) || (a.inicioMin - b.inicioMin));
-}
+import type { EstadoSesion } from './calendario-estado.ts';
 
 export type TipoAccion = 'CUBRIR' | 'PASAR_LISTA' | 'RESOLVER' | 'MOVER' | 'OFRECER' | 'AJUSTAR_AFORO';
 
@@ -60,4 +37,20 @@ export function reservasParaPasarLista(
   reservas: { id: string; estado: string; checkInEn: string | null }[],
 ): string[] {
   return reservas.filter(r => r.estado === 'CONFIRMADA' && !r.checkInEn).map(r => r.id);
+}
+
+// Pasar lista marcando solo a quien NO vino: las demás vinieron. Antes «Pasar
+// lista» daba por venidas a TODAS de un toque, y quien faltó salía como que
+// vino (con sus créditos y su racha) sin que nadie lo hubiera dicho. Sobre las
+// mismas reservas que `reservasParaPasarLista`, para que guardar y deshacer
+// actúen sobre el mismo conjunto.
+export function planPasarLista(
+  reservas: { id: string; estado: string; checkInEn: string | null }[],
+  noVinieron: ReadonlySet<string>,
+): { vinieron: string[]; noVinieron: string[] } {
+  const pendientes = reservasParaPasarLista(reservas);
+  return {
+    vinieron: pendientes.filter(id => !noVinieron.has(id)),
+    noVinieron: pendientes.filter(id => noVinieron.has(id)),
+  };
 }

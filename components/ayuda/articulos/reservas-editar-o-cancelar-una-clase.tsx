@@ -11,7 +11,7 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Editar una clase</h2>
       <p>
-        Desde el detalle de la clase (haz clic en ella en el Calendario), &ldquo;Editar&rdquo; abre este formulario:
+        Al tocar una clase en el Calendario se abre su ficha, y en su &ldquo;⋯&rdquo;, &ldquo;Editar esta clase&rdquo; abre este formulario:
         tipo de clase, sala, instructora, fecha, horario y aforo máximo.
       </p>
       <AyudaCaptura
@@ -21,8 +21,10 @@ export default function Contenido() {
       />
       <p>
         Si la clase forma parte de una serie recurrente, al guardar eliges &ldquo;Guardar solo esta clase&rdquo; o
-        &ldquo;Guardar esta y las siguientes&rdquo;. Para cancelar pasa lo mismo: &ldquo;Cancelar&rdquo; quita solo
-        esa clase y &ldquo;Cancelar serie&rdquo; (dentro del botón &ldquo;Serie&rdquo;), esa y las siguientes.
+        &ldquo;Guardar esta y las siguientes&rdquo;. Para cancelar pasa lo mismo, también en el &ldquo;⋯&rdquo; de la
+        clase: &ldquo;Cancelar esta clase&rdquo; quita solo esa, y &ldquo;Cancelar esta y las siguientes&rdquo;, esa y
+        las que vienen detrás. Una clase que ya ha empezado no se cancela ni se borra: su asistencia es la historia
+        de tus clientas.
       </p>
       <p>
         &ldquo;Guardar esta y las siguientes&rdquo; no guarda al pulsarlo: antes te enseña qué va a pasar. Cuántas

@@ -98,8 +98,13 @@ test('se anima el cambio de sección desde el menú, y no un enlace de dentro de
 test('un diálogo abierto no deja ningún transform puesto al terminar de entrar', async ({ page }) => {
   await montar(page);
   await ir(page, 'calendario');
-  await expect(page.getByTestId('grid-semana-scroll')).toBeVisible({ timeout: 60_000 });
-  await page.getByRole('button', { name: 'Crear clase', exact: true }).click();
+  await expect(page.getByTestId('semana-franjas')).toBeVisible({ timeout: 60_000 });
+  // Un diálogo de verdad de la pantalla, abierto con un clic: «Anotar incidencia
+  // de sala», desde el ⋯ de una clase. («Crear clase» ya no pregunta nada: abre
+  // el formulario, que es un cajón y no un diálogo.)
+  await page.locator('[data-sesion-id]').first().click();
+  await page.getByRole('button', { name: 'Más acciones de la clase' }).click();
+  await page.getByRole('menuitem', { name: /Anotar incidencia de sala/ }).click();
   const dialogo = page.locator('[data-slot="dialog-content"]');
   await expect(dialogo).toBeVisible();
   // Nace del botón: el origen de la escala no es su centro.

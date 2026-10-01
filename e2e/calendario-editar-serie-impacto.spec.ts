@@ -125,7 +125,9 @@ async function montar(page: Page): Promise<Contadores> {
  */
 async function abrirEdicion(page: Page) {
   await page.goto('/calendario?sesion=ses-1');
-  await page.getByRole('button', { name: 'Editar', exact: true }).click({ timeout: 30_000 });
+  // «Editar» vive en el ⋯ de la ficha de la clase.
+  await page.getByRole('button', { name: 'Más acciones de la clase' }).click({ timeout: 30_000 });
+  await page.getByRole('menuitem', { name: /Editar esta clase/ }).click();
   await expect(page.getByRole('button', { name: 'Guardar esta y las siguientes' })).toBeVisible({ timeout: 30_000 });
 }
 
@@ -232,7 +234,7 @@ test.describe('Un cambio que las alumnas no ven no las avisa', () => {
   test('cambiar la instructora avisa, y el aviso dice instructora, no «cambio de horario»', async ({ page }) => {
     const c = await montar(page);
     await abrirEdicion(page);
-    await page.getByRole('combobox', { name: 'Instructora' }).selectOption('ins-2');
+    await page.getByRole('dialog', { name: 'Editar clase' }).getByRole('combobox', { name: 'Instructora' }).selectOption('ins-2');
     await page.getByRole('button', { name: 'Guardar esta y las siguientes' }).click();
 
     const dialogo = page.getByTestId('dialogo-impacto-serie');

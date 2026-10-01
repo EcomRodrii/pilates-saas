@@ -96,22 +96,11 @@ for (const huso of ['America/Los_Angeles', 'Asia/Tokyo']) {
       // fallara, el problema sería otro.
       await expect(tarjeta).toContainText('10:00');
 
-      // La línea de hora de la columna izquierda. Es lo único que fija dónde
-      // está «las 10:00» en pantalla sin usar ningún cálculo del componente.
-      const linea = page.locator('span.tabular-nums.font-semibold').filter({ hasText: /^10:00$/ }).first();
-      await expect(linea).toBeVisible();
-
-      const t = await tarjeta.boundingBox();
-      const l = await linea.boundingBox();
-      expect(t, 'la tarjeta tiene que estar pintada').not.toBeNull();
-      expect(l, 'la línea de las 10:00 tiene que estar pintada').not.toBeNull();
-
-      // Cada hora mide `data-px-por-hora` px. Con el fallo de antes la tarjeta
-      // quedaba a 9 horas (LA) u 7 (Tokio) de su línea: cientos de píxeles.
-      const pxPorHora = Number(await page.getByTestId('grid-semana-scroll').getAttribute('data-px-por-hora'));
-      expect(pxPorHora).toBeGreaterThan(0);
-      expect(Math.abs(t!.y - l!.y), `la tarjeta está a ${Math.abs(t!.y - l!.y)} px de su línea de hora (una hora = ${pxPorHora} px)`)
-        .toBeLessThan(pxPorHora / 2);
+      // La fila en la que cae (la Semana va por franjas: una fila por hora). Es
+      // lo que fija «las 10:00» sin usar ningún cálculo del componente: con el
+      // fallo de antes caía 9 horas (LA) o 7 (Tokio) más allá.
+      const fila = await tarjeta.evaluate(el => el.closest('[data-hora]')?.getAttribute('data-hora') ?? null);
+      expect(fila, 'la clase de las 10:00 del estudio tiene que ir en la fila de las 10:00').toBe('10');
     });
   });
 }

@@ -302,7 +302,7 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Créalas en serie, no una a una',
-        texto: 'Un estudio de Pilates repite su horario cada semana. En el calendario, «Crear clase» → «Clase fija» te deja decir «los martes y jueves a las 10:00, durante doce semanas» y las crea todas de golpe. Meter cuarenta clases a mano es la razón más común de abandonar a medias.',
+        texto: 'Un estudio de Pilates repite su horario cada semana. En el calendario, «Crear clase» con «Se repite» encendido te deja decir «los martes y jueves a las 10:00, durante doce semanas» y las crea todas de golpe. Meter cuarenta clases a mano es la razón más común de abandonar a medias.',
       },
       {
         titulo: 'Cambiar una serie sin romperla',
@@ -310,7 +310,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Mover una clase suelta',
-        texto: 'En el calendario, desde el ordenador o la tablet, puedes arrastrar una clase a otra hora (en el móvil, ábrela y pulsa «Editar»). La duración se mantiene, y si al soltarla chocara con otra clase en la misma sala, Tentare te lo dice antes de guardar. Dos clases no pueden solapar en la misma sala: eso lo impide la propia base de datos, no un aviso que se pueda ignorar.',
+        texto: 'En el calendario, desde el ordenador o la tablet, puedes arrastrar una clase: en el Día, a otra hora o a otra sala; en la Semana, a otro día a la misma hora (en el móvil, ábrela y, en su «⋯», «Editar esta clase»). La duración se mantiene, y si al soltarla chocara con otra clase en la misma sala, Tentare te lo dice antes de guardar. Dos clases no pueden solapar en la misma sala: eso lo impide la propia base de datos, no un aviso que se pueda ignorar.',
       },
       {
         titulo: 'Cancelar una clase',

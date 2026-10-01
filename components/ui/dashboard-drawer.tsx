@@ -27,6 +27,7 @@ export function DashboardDrawer({
   // `anfitrionPortal()` cae en `document.body`, así que `true` es seguro en
   // todas partes. Lo fija `lib/ui-paneles-en-portal.test.ts`.
   portal = true,
+  desdeAbajo = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -56,6 +57,8 @@ export function DashboardDrawer({
    * prop; allí el sospechoso anotado era el `backdrop-blur` de la topbar.
    */
   portal?: boolean;
+  /** Hoja que sube desde abajo (el móvil) en vez de entrar por el lado. */
+  desdeAbajo?: boolean;
 }) {
   const { sheetRef } = useDialogA11y({ open, onClose });
 
@@ -92,7 +95,9 @@ export function DashboardDrawer({
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className={`${sheetClassName} ${cerrando ? 'animate-drawer-sheet-out' : 'animate-drawer-sheet-in'}`}
+        className={`${sheetClassName} ${desdeAbajo
+          ? (cerrando ? 'animate-drawer-up-out' : 'animate-drawer-up-in')
+          : (cerrando ? 'animate-drawer-sheet-out' : 'animate-drawer-sheet-in')}`}
         style={sheetStyle}
         onClick={e => e.stopPropagation()}
         onAnimationEnd={() => { if (cerrando) setRendered(false); }}

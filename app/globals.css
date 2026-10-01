@@ -225,18 +225,28 @@
      (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
      transparente: ahí el propio oliva ya contrasta 10,4:1 con el fondo. */
   --brand-borde: transparent;
-  /* Cuánto tiñe el color del TIPO de clase el bloque del calendario
-     (components/calendario/bloque-clase.tsx, solo estado PROGRAMADA).
-     Son DOS valores porque un solo porcentaje no sirve a los dos modos, y eso
-     se midió con los colores REALES que hay hoy en `tipos_clase` — que son
-     pasteles (#F7A6C4, #C3D9B0, #C8C2E8, #E8D5C2) más un casi-negro:
+  /* Cuánto tiñe el color del TIPO de clase la tarjeta del calendario
+     (components/calendario/tarjeta-clase.tsx; una clase pasada o cancelada,
+     al 18 %). Son DOS valores porque un solo porcentaje no sirve a los dos
+     modos, y eso se midió con los colores REALES de `tipos_clase` — pasteles
+     (#F7A6C4, #C3D9B0, #C8C2E8, #E8D5C2) más un casi-negro — y los de serie:
        · En CLARO un pastel al 18 % es indistinguible del blanco (era el bug:
-         "el calendario no tiene color"). Al 50 % se ve claramente y el peor
-         contraste con el texto sigue en 5,1:1 (AA pide 4,5).
+         "el calendario no tiene color"). Al 50 % se ve claramente.
        · En OSCURO pasa lo contrario: un pastel claro sobre fondo oscuro se ve
-         con MENOS mezcla, y al 50 % el peor contraste caía a 3,6:1 — rompía
-         AA. Al 35 % se ve de sobra y el peor sube a 5,4:1. */
+         con MENOS mezcla. Al 35 % el texto principal pasaba (5,4:1) pero el
+         secundario y los avisos no: sobre un tono medio no hay tinta de color
+         que llegue a 4,5:1 sin volverse blanca. Al 25 % se sigue viendo el
+         color y el peor caso de cada tinta de abajo queda en ≥4,9:1. */
   --calendario-tinte-clase: 50%;
+  /* Las tintas del texto SOBRE esa tarjeta teñida. Ni el gris apagado ni los
+     colores semánticos tal cual llegan a AA ahí (el gris, 3,4:1 en claro y
+     2,3:1 en oscuro con el peor color), así que se acercan a `--foreground`
+     lo justo: peor caso medido con 12 colores de tipo, ≥5:1 en claro. */
+  --calendario-tinta-secundaria: color-mix(in srgb, var(--muted-foreground) 55%, var(--foreground));
+  --calendario-tinta-peligro: color-mix(in srgb, var(--destructive) 74%, var(--foreground));
+  --calendario-tinta-aviso: color-mix(in srgb, var(--warning) 68%, var(--foreground));
+  --calendario-tinta-exito: color-mix(in srgb, var(--success) 78%, var(--foreground));
+  --calendario-tinta-info: color-mix(in srgb, var(--info) 80%, var(--foreground));
 
   /* ── Paleta CATEGÓRICA ─────────────────────────────────────────────────────
      Nueve tonos para distinguir COSAS, no para significar nada: acciones de
@@ -390,9 +400,14 @@
   --cat-7: #DF8AA7;
   --cat-8: #E28E73;
   --cat-9: #CA9B4E;
-  /* Ver la nota del valor en claro: aquí menos mezcla se ve MÁS, y el 50 %
-     rompía el contraste AA del texto sobre el bloque. */
-  --calendario-tinte-clase: 35%;
+  /* Ver la nota del valor en claro: aquí menos mezcla se ve MÁS, y con más
+     de un 25 % el texto secundario y los avisos de la tarjeta no llegan a AA. */
+  --calendario-tinte-clase: 25%;
+  --calendario-tinta-secundaria: color-mix(in srgb, var(--muted-foreground) 45%, var(--foreground));
+  --calendario-tinta-peligro: color-mix(in srgb, var(--destructive) 50%, var(--foreground));
+  --calendario-tinta-aviso: color-mix(in srgb, var(--warning) 75%, var(--foreground));
+  --calendario-tinta-exito: color-mix(in srgb, var(--success) 65%, var(--foreground));
+  --calendario-tinta-info: color-mix(in srgb, var(--info) 55%, var(--foreground));
 }
 
 /* Logo de marca en tinta `auto` (components/marca/logo-tentare.tsx). Vive aquí
@@ -917,6 +932,11 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
    `translateX(0)` final se quedaba aplicado y anclaba los `fixed` de dentro). */
 .animate-drawer-sheet-in { animation: drawer-sheet-in 420ms var(--motion-ease-ventana) backwards; }
 .animate-drawer-sheet-out { animation: drawer-sheet-out 260ms var(--motion-ease-ventana) both; }
+/* La misma hoja subiendo desde abajo: la ficha de la clase en el móvil. */
+@keyframes drawer-up-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes drawer-up-out { from { transform: translateY(0); } to { transform: translateY(100%); } }
+.animate-drawer-up-in { animation: drawer-up-in 420ms var(--motion-ease-ventana) backwards; }
+.animate-drawer-up-out { animation: drawer-up-out 260ms var(--motion-ease-ventana) both; }
 
 /* PublicSheet (components/ui/public-sheet.tsx) — el modal de reserva/citas
    públicas aparecía de golpe, sin transición alguna. Mismo espíritu que el

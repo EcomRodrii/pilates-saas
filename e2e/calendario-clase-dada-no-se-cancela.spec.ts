@@ -7,8 +7,8 @@ import { montar, ir } from './panel-sembrado';
 // Antes, «Cancelar» y la papelera seguían activas en una clase ya dada:
 // cancelarla avisaba de la cancelación a quien ya había venido y le devolvía la
 // sesión del bono, y borrarla se llevaba su asistencia (las reservas caen en
-// cascada). Ahora los dos botones salen apagados con el motivo, y las funciones
-// que cancelan o borran lo comprueban también (lib/calendario-estado.ts).
+// cascada). Ahora el ⋯ de la ficha no los ofrece y dice por qué, y las
+// funciones que cancelan o borran lo comprueban también (lib/calendario-estado.ts).
 //
 // Con contador: que no salga ninguna escritura en la pasada no demuestra nada si
 // el contador no ve las escrituras. Por eso la futura SÍ escribe al cancelar.
@@ -55,26 +55,27 @@ async function abrir(page: Page, id: string) {
   return { escrituras };
 }
 
-test('en una clase que ya ha empezado, «Cancelar» y la papelera salen apagadas y no se escribe nada', async ({ page }) => {
-  const { escrituras } = await abrir(page, 'ses-dada');
-  const cancelar = page.getByRole('button', { name: 'Cancelar', exact: true });
-  const eliminar = page.getByRole('button', { name: 'Eliminar sesión' });
-  await expect(cancelar).toBeVisible({ timeout: 30_000 });
-  await expect(cancelar).toBeDisabled();
-  await expect(eliminar).toBeDisabled();
-  await expect(cancelar).toHaveAttribute('title', /no se cancela ni se borra/);
+// Cancelar y Eliminar viven en el ⋯ de la ficha (rediseño del 1-oct-2026). En
+// una clase que ya ha empezado NO están, y el menú dice por qué; la regla de
+// verdad la aplica studio-context (ver #2450): el menú solo no la ofrece.
+const menuDeLaClase = (page: import('@playwright/test').Page) => page.getByRole('menu', { name: 'Más acciones de la clase' });
 
-  await cancelar.click({ force: true });
-  await eliminar.click({ force: true });
+test('en una clase que ya ha empezado, el ⋯ no ofrece cancelarla ni borrarla, y dice por qué', async ({ page }) => {
+  const { escrituras } = await abrir(page, 'ses-dada');
+  await page.getByRole('button', { name: 'Más acciones de la clase' }).click({ timeout: 30_000 });
+  const menu = menuDeLaClase(page);
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: /Cancelar esta clase/ })).toHaveCount(0);
+  await expect(menu.getByRole('menuitem', { name: /^Eliminar/ })).toHaveCount(0);
+  await expect(menu).toContainText('no se cancela ni se borra');
   await page.waitForTimeout(800);
   expect(escrituras, 'se ha escrito sobre una clase que ya se dio').toEqual([]);
 });
 
 test('en una clase futura sí se cancela: el contador ve la escritura', async ({ page }) => {
   const { escrituras } = await abrir(page, 'ses-futura');
-  const cancelar = page.getByRole('button', { name: 'Cancelar', exact: true });
-  await expect(cancelar).toBeEnabled({ timeout: 30_000 });
-  await cancelar.click();
+  await page.getByRole('button', { name: 'Más acciones de la clase' }).click({ timeout: 30_000 });
+  await menuDeLaClase(page).getByRole('menuitem', { name: /Cancelar esta clase/ }).click();
   await page.getByRole('alertdialog').or(page.getByRole('dialog')).getByRole('button', { name: /cancelar (la )?clase|sí, cancelar/i }).click();
   await expect.poll(() => escrituras.length, { timeout: 15_000 }).toBeGreaterThan(0);
 });

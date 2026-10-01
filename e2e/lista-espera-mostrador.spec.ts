@@ -14,7 +14,10 @@ const AUTH_UID = 'auth-e2e-duena';
 const STUDIO_ID = 'studio-test';
 const STORAGE_KEY = 'sb-example-auth-token';
 
-const HOY = new Date().toISOString().slice(0, 10);
+// El día del ESTUDIO, no el de UTC: la semana del Calendario empieza hoy en
+// Madrid, y entre las 00:00 y las 02:00 de allí la fecha UTC aún es la de ayer
+// (la clase caía fuera de la semana y el test fallaba según la hora).
+const HOY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
 
 const TIPOS = [{ id: 'tc-1', studio_id: STUDIO_ID, nombre: 'Reformer', color: '#F7A6C4', duracion_minutos: 55, descripcion: null, nivel: 'TODOS', foto_url: null }];
 const SALAS = [{ id: 'sala-1', studio_id: STUDIO_ID, nombre: 'Sala 1', capacidad: 2, color: '#6366F1' }];

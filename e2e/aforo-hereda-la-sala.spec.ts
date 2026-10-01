@@ -94,9 +94,8 @@ async function mockBackend(page: Page) {
 
 async function abrirNuevaClase(page: Page) {
   await page.goto('/calendario');
+  // «Crear clase» abre directamente el formulario (la clase que se repite es «Se repite» dentro).
   await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
-  // «Crear clase» pregunta primero qué: una clase de un día.
-  await page.getByTestId('crear-clase-suelta').click();
 }
 
 test.describe('El aforo sabe cuántas plazas tiene la sala', () => {
@@ -105,7 +104,7 @@ test.describe('El aforo sabe cuántas plazas tiene la sala', () => {
     await seedSesionDeDuena(page);
     await abrirNuevaClase(page);
 
-    const sala = page.getByRole('combobox', { name: 'Sala' });
+    const sala = page.getByRole('dialog', { name: 'Nueva clase' }).getByRole('combobox', { name: 'Sala' });
     const aforo = page.getByRole('spinbutton', { name: /Plazas/i });
     await expect(sala).toBeVisible();
 
@@ -125,7 +124,7 @@ test.describe('El aforo sabe cuántas plazas tiene la sala', () => {
     await seedSesionDeDuena(page);
     await abrirNuevaClase(page);
 
-    const sala = page.getByRole('combobox', { name: 'Sala' });
+    const sala = page.getByRole('dialog', { name: 'Nueva clase' }).getByRole('combobox', { name: 'Sala' });
     const aforo = page.getByRole('spinbutton', { name: /Plazas/i });
 
     await sala.selectOption('sala-mat');
@@ -141,7 +140,7 @@ test.describe('El aforo sabe cuántas plazas tiene la sala', () => {
     await seedSesionDeDuena(page);
     await abrirNuevaClase(page);
 
-    const sala = page.getByRole('combobox', { name: 'Sala' });
+    const sala = page.getByRole('dialog', { name: 'Nueva clase' }).getByRole('combobox', { name: 'Sala' });
     const aforo = page.getByRole('spinbutton', { name: /Plazas/i });
 
     await sala.selectOption('sala-reformer');

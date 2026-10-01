@@ -21,9 +21,9 @@ test.describe.configure({ timeout: 120_000 });
 
 async function abrir(page: Page): Promise<Locator> {
   await montar(page);
-  await ir(page, 'calendario');
-  await page.getByRole('button', { name: 'Crear clase', exact: true }).click({ timeout: 60_000 });
-  await page.getByTestId('crear-clase-fija').click();
+  // «Nueva clase fija» ya no sale de «Crear clase» (que abre el formulario nuevo,
+  // con «Se repite»), pero sigue viva: la abren Horario, «Duplicar serie» y este enlace.
+  await ir(page, 'calendario?recurrentes=1');
   const dialogo = page.getByRole('dialog');
   await expect(dialogo.getByText('Nueva clase fija')).toBeVisible();
   // Entra escalando: se mide cuando ha llegado.

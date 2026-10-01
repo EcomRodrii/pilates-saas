@@ -67,6 +67,12 @@ function instructorApi(r: any) {
 }
 
 /** `avisos` recoge las llamadas al endpoint que escribe a las alumnas. */
+/** «Editar» vive en el ⋯ de la ficha de la clase (rediseño del Calendario, 1-oct-2026). */
+async function abrirEditar(page: Page) {
+  await page.getByRole('button', { name: 'Más acciones de la clase' }).click();
+  await page.getByRole('menuitem', { name: /Editar esta clase/ }).click();
+}
+
 async function montarCalendario(page: Page, extra: {
   sesiones?: unknown[]; reservas?: unknown[]; sesionUpdateError?: boolean;
   avisoInstructoraRespuesta?: { enviados: number; sinEmail: number; enApp: number };
@@ -141,7 +147,6 @@ test.describe('Momentos del calendario', () => {
     await montarCalendario(page);
 
     await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
-    await page.getByTestId('crear-clase-suelta').click();
 
     // El formulario abre ya con la duración del tipo aplicada, no con 09:00–09:00.
     const fin = page.locator('input[type="time"]').nth(1);
@@ -169,10 +174,10 @@ test.describe('Momentos del calendario', () => {
     });
 
     await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Editar' }).first().click();
+    await abrirEditar(page);
 
     // Marta → Laura, sin tocar hora ni sala.
-    await page.getByLabel('Instructora').selectOption({ label: 'Laura' });
+    await page.getByRole('dialog', { name: 'Editar clase' }).getByLabel('Instructora').selectOption({ label: 'Laura' });
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
     // Pregunta, y nombra a quién afecta y quién da ahora la clase. (El panel de
@@ -213,8 +218,8 @@ test.describe('Momentos del calendario', () => {
     });
 
     await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Editar' }).first().click();
-    await page.getByLabel('Instructora').selectOption({ label: 'Laura' });
+    await abrirEditar(page);
+    await page.getByRole('dialog', { name: 'Editar clase' }).getByLabel('Instructora').selectOption({ label: 'Laura' });
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
     const dialogo = page.getByRole('dialog').filter({ hasText: '¿Aviso a' });
@@ -249,8 +254,8 @@ test.describe('Momentos del calendario', () => {
     });
 
     await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Editar' }).first().click();
-    await page.getByLabel('Instructora').selectOption({ label: 'Laura' });
+    await abrirEditar(page);
+    await page.getByRole('dialog', { name: 'Editar clase' }).getByLabel('Instructora').selectOption({ label: 'Laura' });
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
     // El diálogo se abre igualmente, con texto genérico (no "las 0 alumnas").
@@ -280,7 +285,7 @@ test.describe('Momentos del calendario', () => {
     });
 
     await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Editar' }).first().click();
+    await abrirEditar(page);
 
     // Aplazar: mover la hora de inicio.
     await page.locator('input[type="time"]').first().fill('18:30');
@@ -307,7 +312,7 @@ test.describe('Momentos del calendario', () => {
     });
 
     await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Editar' }).first().click();
+    await abrirEditar(page);
     await page.locator('input[type="time"]').first().fill('18:30');
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
@@ -317,7 +322,10 @@ test.describe('Momentos del calendario', () => {
   });
 
   test('los números de arriba hablan de la semana que se está mirando', async ({ page }) => {
-    const hoy = new Date().toISOString().slice(0, 10);
+    // El día del ESTUDIO, no el de UTC: entre las 00:00 y las 02:00 de Madrid
+    // la fecha UTC aún es la de ayer, la clase caía fuera de la semana (que
+    // empieza hoy) y el test fallaba según la hora a la que se corriera.
+    const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
     await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
@@ -326,12 +334,13 @@ test.describe('Momentos del calendario', () => {
       }],
     });
 
-    // En la semana actual: 1 clase, y lo dice.
-    await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
+    // En la semana actual: 1 clase, y lo dice la línea de cifras.
+    const resumen = page.getByTestId('resumen-calendario');
+    await expect(resumen).toContainText('1 clase', { timeout: 30_000 });
 
-    // Al pasar a otra semana la etiqueta cambia y el número deja de ser el de hoy.
-    await page.getByRole('button', { name: /Semana siguiente|Siguiente/ }).first().click();
-    await expect(page.getByText('esa semana', { exact: true })).toBeVisible();
+    // Al pasar a otra semana la cuenta es la de esa semana, no la de hoy.
+    await page.getByRole('button', { name: 'Semana siguiente' }).click();
+    await expect(resumen).toContainText('Sin clases');
   });
 
   test('cambiar solo el aforo NO avisa a nadie', async ({ page }) => {
@@ -354,7 +363,7 @@ test.describe('Momentos del calendario', () => {
     });
 
     await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Editar' }).first().click();
+    await abrirEditar(page);
 
     await page.getByLabel('Aforo máximo').fill('12');
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
