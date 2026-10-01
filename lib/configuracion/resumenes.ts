@@ -1102,6 +1102,22 @@ export function resumenConexion(e: {
   return { valor: NO_DISPONIBLE_TODAVIA, estado: { tono: 'neutro', etiqueta: 'No disponible todavía' } };
 }
 
+/**
+ * La fila de una plataforma que vende plazas (ClassPass, Urban Sports Club,
+ * Wellhub). Ninguna tiene todavía conexión automática salvo USC, y solo cuando
+ * Tentare tenga sus credenciales: hasta entonces la etiqueta es «Próximamente»
+ * (decisión del fundador, 1-oct-2026) y el valor dice si el estudio apunta sus
+ * ventas a mano, que funciona igual.
+ */
+export function resumenPlataformaVenta(p: { activa: boolean; conexionDisponible: boolean; conectada: boolean }): ResumenFila {
+  const uso = !p.activa ? 'No vendo aquí'
+    : p.conectada ? 'Vendo aquí · el horario y las reservas van solos'
+    : 'Vendo aquí · apunto yo las reservas';
+  if (p.activa && p.conectada) return { valor: uso, estado: { tono: 'activo', etiqueta: 'Conectado' } };
+  if (p.conexionDisponible) return { valor: uso, estado: { tono: 'neutro', etiqueta: 'Sin conectar' } };
+  return { valor: uso, estado: { tono: 'neutro', etiqueta: 'Próximamente' } };
+}
+
 export type GrupoConexion = 'problemas' | 'conectadas' | 'sin-conectar';
 
 const TITULO_GRUPO_CONEXION: Record<GrupoConexion, string> = {

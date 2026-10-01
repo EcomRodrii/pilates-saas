@@ -75,8 +75,11 @@ export function EsperandoCredenciales({ carga, que }: { carga: 'cargando' | 'err
     : <p role="alert" className="pb-6 text-sm font-medium text-destructive text-pretty">No se han podido cargar {que}. Cierra y vuelve a intentarlo.</p>;
 }
 
-/** El logo del servicio, en su placa y en grises: a color era lo más saturado de Configuración. */
-function Logo({ children }: { children: ReactNode }) {
+/**
+ * El logo del servicio, en su placa y en grises: a color era lo más saturado de
+ * Configuración. La misma placa en Conexiones, Cómo me comunico y las plataformas.
+ */
+export function LogoConexion({ children }: { children: ReactNode }) {
   return (
     <span aria-hidden className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-foreground grayscale">
       {children}
@@ -106,7 +109,7 @@ export function FilaCanal({ id, logo, resumen, accion, onAbrir, title }: {
     return (
       <li>
         <button id={id} type="button" aria-haspopup="dialog" onClick={onAbrir} className={cn(FILA, 'w-full scroll-mt-32 scroll-mb-32 text-left')}>
-          <Logo>{logo}</Logo>
+          <LogoConexion>{logo}</LogoConexion>
           {texto}
           <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
         </button>
@@ -115,7 +118,7 @@ export function FilaCanal({ id, logo, resumen, accion, onAbrir, title }: {
   }
   return (
     <li id={id} className="flex min-h-16 scroll-mt-32 scroll-mb-32 items-center gap-3 px-4 py-3">
-      <Logo>{logo}</Logo>
+      <LogoConexion>{logo}</LogoConexion>
       {texto}
       {accion}
     </li>

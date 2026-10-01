@@ -12,7 +12,7 @@ import {
   resumenPlanesActivos, resumenRegla, resumenRemitente, resumenSedes, resumenStripe, resumenWhatsapp, resumenesDeConfiguracion, revisaEsto, unir,
   resumenAppInstructoras, resumenAvisarAlumnas, resumenEquipo, resumenModoSustituciones, resumenTarifas,
   resumenInicioPanel, resumenLogoYFavicon, resumenMenuPanel, resumenPosicionMenu,
-  resumenPresentacion, resumenTextosBienvenida,
+  resumenPresentacion, resumenTextosBienvenida, resumenPlataformaVenta,
   type DatosConfiguracion, type IntegracionResumible,
 } from './resumenes.ts';
 import { TARJETAS_REGLAS, reglasGuardadas } from './reglas-reserva.ts';
@@ -903,4 +903,18 @@ test('«Facturación»: lo que hace cada modo, sin prometer el envío a la AEAT'
 test('sin facturas desde Tentare, un NIF que falta no sale en rojo ni como aviso', () => {
   assert.deepEqual(resumenDatosFiscales({ nif: '', modoFacturacion: 'sin_facturas' }), { valor: 'Sin NIF válido · solo hace falta si Tentare emite tus facturas', estado: null });
   assert.deepEqual(resumenDatosFiscales({ nif: '', modoFacturacion: 'verifactu' }).estado, { tono: 'problema', etiqueta: 'Falta el NIF' });
+});
+
+test('plataformas que venden: «Próximamente» mientras no haya conexión automática, y el valor dice si se apunta a mano', () => {
+  assert.deepEqual(resumenPlataformaVenta({ activa: false, conexionDisponible: false, conectada: false }),
+    { valor: 'No vendo aquí', estado: { tono: 'neutro', etiqueta: 'Próximamente' } });
+  assert.deepEqual(resumenPlataformaVenta({ activa: true, conexionDisponible: false, conectada: false }),
+    { valor: 'Vendo aquí · apunto yo las reservas', estado: { tono: 'neutro', etiqueta: 'Próximamente' } });
+  // USC con las credenciales de Tentare: se puede conectar, y conectada va sola.
+  assert.deepEqual(resumenPlataformaVenta({ activa: true, conexionDisponible: true, conectada: false }).estado,
+    { tono: 'neutro', etiqueta: 'Sin conectar' });
+  assert.deepEqual(resumenPlataformaVenta({ activa: true, conexionDisponible: true, conectada: true }),
+    { valor: 'Vendo aquí · el horario y las reservas van solos', estado: { tono: 'activo', etiqueta: 'Conectado' } });
+  // Apagada no dice «Conectado» aunque guarde los IDs (se guardan para retirar lo publicado).
+  assert.equal(resumenPlataformaVenta({ activa: false, conexionDisponible: true, conectada: true }).estado?.etiqueta, 'Sin conectar');
 });
