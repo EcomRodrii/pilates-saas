@@ -211,14 +211,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       revocadas = filas?.length ?? 0;
     }
 
+    // Y sus webhooks, por lo mismo: reactivar la API no vuelve a mandar avisos
+    // a nadie hasta que la propietaria reactive cada webhook. Lo pendiente se
+    // descarta (el trigger ya no registra nada desde este momento).
+    let webhooksDesactivados = 0;
+    if (!activar) {
+      const ahora = new Date().toISOString();
+      const { data: filas, error: errWebhooks } = await db.from('api_webhooks')
+        .update({ desactivado_en: ahora, desactivado_por: g.admin.userId, desactivado_motivo: 'api_desactivada' })
+        .eq('studio_id', id).is('desactivado_en', null).select('id');
+      if (errWebhooks) return NextResponse.json({ error: 'API desactivada, pero no se han podido desactivar sus webhooks. Vuelve a intentarlo.' }, { status: 500 });
+      webhooksDesactivados = filas?.length ?? 0;
+      await db.from('api_webhook_entregas').update({ estado: 'DESCARTADA', ultimo_error: 'Se desactivó la API del estudio.' })
+        .eq('studio_id', id).eq('estado', 'PENDIENTE');
+    }
+
     await registrar(db, req, {
       actor: g.admin,
       accion: activar ? 'estudio.api.activada' : 'estudio.api.desactivada',
       objetivoTipo: 'studio', objetivoId: id,
-      resumen: `${nombre}: API pública ${activar ? 'activada' : `desactivada (${revocadas} claves revocadas)`}${nota ? ` (${nota})` : ''}`,
-      antes: { apiActiva: activaAntes }, despues: { apiActiva: activar, clavesRevocadas: revocadas },
+      resumen: `${nombre}: API pública ${activar ? 'activada' : `desactivada (${revocadas} claves revocadas, ${webhooksDesactivados} webhooks desactivados)`}${nota ? ` (${nota})` : ''}`,
+      antes: { apiActiva: activaAntes }, despues: { apiActiva: activar, clavesRevocadas: revocadas, webhooksDesactivados },
     });
-    return NextResponse.json({ ok: true, apiActiva: activar, clavesRevocadas: revocadas });
+    return NextResponse.json({ ok: true, apiActiva: activar, clavesRevocadas: revocadas, webhooksDesactivados });
   }
 
   return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 });

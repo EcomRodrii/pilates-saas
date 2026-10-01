@@ -3786,6 +3786,62 @@ export interface RowPlataformaInstructoras {
   nombre_enviado: string | null;
 }
 
+export interface RowApiEventos {
+  id: string;
+  seq: number | null;
+  studio_id: string;
+  tipo: string;
+  recurso: string;
+  recurso_id: string;
+  creado_en: string;
+  datos: any | null;
+  procesado_en: string | null;
+  reclamado_hasta: string | null;
+  publicado: number | null;
+}
+
+export interface RowApiWebhooks {
+  id: string;
+  studio_id: string;
+  url: string;
+  descripcion: string | null;
+  tipos: string[];
+  and: string | null;
+  secreto_cifrado: string;
+  secreto_anterior_cifrado: string | null;
+  secreto_anterior_expira_en: string | null;
+  creado_por: string;
+  creado_en: string;
+  desactivado_en: string | null;
+  desactivado_por: string | null;
+  desactivado_motivo: string | null;
+  actualizado_en: string | null;
+  actualizado_por: string | null;
+  borrado_en: string | null;
+  borrado_por: string | null;
+  fallando_desde: string | null;
+  ultimo_exito_en: string | null;
+  ultimo_intento_en: string | null;
+  ultimo_estado_http: number | null;
+  ultimo_error: string | null;
+}
+
+export interface RowApiWebhookEntregas {
+  id: string;
+  studio_id: string;
+  webhook_id: string;
+  evento_id: string;
+  estado: string;
+  intentos: number;
+  proximo_intento_en: string;
+  ultimo_intento_en: string | null;
+  ultimo_estado_http: number | null;
+  ultimo_error: string | null;
+  duracion_ms: number | null;
+  entregada_en: string | null;
+  creada_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -10461,6 +10517,118 @@ export type PlataformaInstructorasUpdate = {
   nombre_enviado?: string | null | null;
 }
 
+export type ApiEventosInsert = {
+  id?: string | null;
+  seq?: number | null | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  recurso?: string | null;
+  recurso_id?: string | null;
+  creado_en?: string | null;
+  datos?: any | null | null;
+  procesado_en?: string | null | null;
+  reclamado_hasta?: string | null | null;
+  publicado?: number | null | null;
+}
+
+export type ApiEventosUpdate = {
+  id?: string | null;
+  seq?: number | null | null;
+  studio_id?: string | null;
+  tipo?: string | null;
+  recurso?: string | null;
+  recurso_id?: string | null;
+  creado_en?: string | null;
+  datos?: any | null | null;
+  procesado_en?: string | null | null;
+  reclamado_hasta?: string | null | null;
+  publicado?: number | null | null;
+}
+
+export type ApiWebhooksInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  url?: string | null;
+  descripcion?: string | null | null;
+  tipos?: string[] | null;
+  and?: string | null | null;
+  secreto_cifrado?: string | null;
+  secreto_anterior_cifrado?: string | null | null;
+  secreto_anterior_expira_en?: string | null | null;
+  creado_por?: string | null;
+  creado_en?: string | null;
+  desactivado_en?: string | null | null;
+  desactivado_por?: string | null | null;
+  desactivado_motivo?: string | null | null;
+  actualizado_en?: string | null | null;
+  actualizado_por?: string | null | null;
+  borrado_en?: string | null | null;
+  borrado_por?: string | null | null;
+  fallando_desde?: string | null | null;
+  ultimo_exito_en?: string | null | null;
+  ultimo_intento_en?: string | null | null;
+  ultimo_estado_http?: number | null | null;
+  ultimo_error?: string | null | null;
+}
+
+export type ApiWebhooksUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  url?: string | null;
+  descripcion?: string | null | null;
+  tipos?: string[] | null;
+  and?: string | null | null;
+  secreto_cifrado?: string | null;
+  secreto_anterior_cifrado?: string | null | null;
+  secreto_anterior_expira_en?: string | null | null;
+  creado_por?: string | null;
+  creado_en?: string | null;
+  desactivado_en?: string | null | null;
+  desactivado_por?: string | null | null;
+  desactivado_motivo?: string | null | null;
+  actualizado_en?: string | null | null;
+  actualizado_por?: string | null | null;
+  borrado_en?: string | null | null;
+  borrado_por?: string | null | null;
+  fallando_desde?: string | null | null;
+  ultimo_exito_en?: string | null | null;
+  ultimo_intento_en?: string | null | null;
+  ultimo_estado_http?: number | null | null;
+  ultimo_error?: string | null | null;
+}
+
+export type ApiWebhookEntregasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  webhook_id?: string | null;
+  evento_id?: string | null;
+  estado?: string | null;
+  intentos?: number | null;
+  proximo_intento_en?: string | null;
+  ultimo_intento_en?: string | null | null;
+  ultimo_estado_http?: number | null | null;
+  ultimo_error?: string | null | null;
+  duracion_ms?: number | null | null;
+  entregada_en?: string | null | null;
+  creada_en?: string | null;
+}
+
+export type ApiWebhookEntregasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  webhook_id?: string | null;
+  evento_id?: string | null;
+  estado?: string | null;
+  intentos?: number | null;
+  proximo_intento_en?: string | null;
+  ultimo_intento_en?: string | null | null;
+  ultimo_estado_http?: number | null | null;
+  ultimo_error?: string | null | null;
+  duracion_ms?: number | null | null;
+  entregada_en?: string | null | null;
+  creada_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -11638,6 +11806,21 @@ export type Database = {
         Row: RowPlataformaInstructoras;
         Insert: PlataformaInstructorasInsert;
         Update: PlataformaInstructorasUpdate;
+      };
+      api_eventos: {
+        Row: RowApiEventos;
+        Insert: ApiEventosInsert;
+        Update: ApiEventosUpdate;
+      };
+      api_webhooks: {
+        Row: RowApiWebhooks;
+        Insert: ApiWebhooksInsert;
+        Update: ApiWebhooksUpdate;
+      };
+      api_webhook_entregas: {
+        Row: RowApiWebhookEntregas;
+        Insert: ApiWebhookEntregasInsert;
+        Update: ApiWebhookEntregasUpdate;
       };
     };
   };

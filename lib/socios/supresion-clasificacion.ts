@@ -18,6 +18,12 @@
 // PROPÓSITO: la lista de la ruta de baja ya se dejó incompleta dos veces (I-14,
 // H-2) por no tener nada que obligara a mirarla.
 //
+// Fuera de esta lista a propósito: `api_eventos` (registro de la API pública)
+// guarda copias de la clienta, pero apunta a ella por `recurso_id`, no por
+// `socio_id`. Las vacía el trigger `api_eventos_olvidar_clienta` (migr
+// 20261001162731) al suprimirla por cualquier camino; lo comprueba
+// lib/api-publica/webhooks/catalogo.test.ts.
+//
 // Puro, sin I/O.
 // ─────────────────────────────────────────────────────────────────────────────
 

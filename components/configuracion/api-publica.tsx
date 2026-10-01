@@ -11,12 +11,13 @@ import { CADUCIDADES_DIAS } from '@/lib/api-publica/gestion-reglas';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { SOPORTE_WHATSAPP } from '@/components/layout/whatsapp-fab';
 import { btnPrimary, btnSecondary, inputCls, labelCls } from '@/components/configuracion/estilos';
+import { WebhooksApi } from '@/components/configuracion/api-webhooks';
 import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «API para tu contabilidad» (Configuración → Conexiones). Claves de API del
 // estudio: crearlas (se enseñan UNA vez), revocarlas, rotarlas y ver qué se ha
-// pedido con ellas. Solo la propietaria (la sección entera ya lo es, y el
+// pedido con ellas; y los webhooks (api-webhooks.tsx). Solo la propietaria (la sección entera ya lo es, y el
 // servidor lo comprueba: /api/integrations/api-publica/*).
 //
 // La API se activa estudio a estudio (decisión del fundador, 1-oct-2026): sin
@@ -149,6 +150,8 @@ function Activada({ datos, recargar, showToast }: { datos: Datos; recargar: () =
           ))}</ul>
         </details>
       )}
+
+      <WebhooksApi />
 
       <Actividad claves={datos.claves} />
 
