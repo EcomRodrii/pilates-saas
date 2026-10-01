@@ -59,7 +59,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/soluciones/cambiar-de-software",
       "/precios"
     ],
-    "palabras": 2830
+    "palabras": 2861
   },
   {
     "slug": "bsport-vs-timp",
