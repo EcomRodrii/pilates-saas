@@ -32,6 +32,7 @@ import { accionParaEstado, type TipoAccion } from './calendario-decisiones.ts';
 import { candidatasParaHueco, plazasOcupadas } from './booking-logic.ts';
 import { ratioOcupacion } from './ocupacion.ts';
 import { franjaLocalDe } from './utils.ts';
+import { textoAusencia, type TipoAusencia } from './calendario/ausencias.ts';
 
 /** Semáforo de la fila. Es una LECTURA, no un color: la pantalla lo expresa
  *  sobre todo con jerarquía y texto (punto 7 del encargo). */
@@ -55,6 +56,10 @@ export interface SesionAgenda {
   incidenciaTexto?: string | null;
   sustitucionAbierta?: boolean;
   motivoBaja?: string | null;
+  /** Su instructora no puede (vacaciones, baja, bloqueo). Viene de `/api/calendario`. */
+  ausencia?: { tipo: TipoAusencia } | null;
+  /** Su instructora ya no está en el equipo. */
+  instructoraInactiva?: boolean;
 }
 
 /** Una frase corta de por qué esta clase pide (o no) atención. El orden del
@@ -169,6 +174,7 @@ export function resumirClaseDelDia(
       sustitucionAbierta: sesion.sustitucionAbierta ?? false,
       conflicto: opciones?.conflicto ?? false,
       confirmadasSinCheckin: sinPasarLista,
+      sinCubrir: !!sesion.ausencia || !!sesion.instructoraInactiva,
     },
   );
 
@@ -182,7 +188,11 @@ export function resumirClaseDelDia(
     if (estado === 'SIN_INSTRUCTORA') {
       motivos.push({
         clave: 'sin-instructora',
-        texto: finalizada ? 'Pasó sin instructora' : 'Sin instructora',
+        // Con el porqué cuando se sabe: no es lo mismo una baja que unas vacaciones.
+        texto: finalizada ? 'Pasó sin instructora'
+          : !sesion.sustitucionAbierta && sesion.instructoraInactiva ? 'Sin instructora · ya no está en el equipo'
+          : !sesion.sustitucionAbierta && sesion.ausencia ? `Sin instructora · ${textoAusencia(sesion.ausencia.tipo)}`
+          : 'Sin instructora',
         tono: finalizada ? 'ATENCION' : 'PROBLEMA',
       });
     }
