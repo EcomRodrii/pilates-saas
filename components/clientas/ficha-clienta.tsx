@@ -41,6 +41,7 @@ import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
+import { aCentimos, importeAdeudado } from '@/lib/billing/situacion-recibo';
 import { puedeProgramarBaja } from '@/lib/billing/baja-al-vencer';
 import { textoCobrosAlCancelar, type ReciboPendienteDeLaCuota } from '@/lib/billing/texto-cancelar-cuota';
 import { dbRecibosPendientesDeCuota } from '@/lib/supabase-data';
@@ -584,7 +585,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   const {
     suscripcion, plan, tags, proximasReservas, asistidas, estesMes,
     totalGastado, pendientes,
-    pendientesImporte, cumpleanos, pagosFallidos,
+    cumpleanos, pagosFallidos,
   } = resumen;
 
   // Filtered reservas for "Reservas" tab
@@ -1025,6 +1026,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     return { valor: plan.nombre, detalle: partes.join(' · ') || null };
   })();
 
+  const adeudado = aCentimos(misRecibos.reduce((acc, r) => acc + importeAdeudado(r), 0));
   const celdas: CeldaCabecera[] = [
     { icono: CircleDollarSign, etiqueta: 'Plan', valor: celdaPlan.valor, detalle: celdaPlan.detalle, tono: !plan ? 'aviso' : undefined },
     // Cuándo arriba (es lo que se busca de un vistazo) y qué clase debajo.
@@ -1042,8 +1044,12 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     verFinanzas
       ? {
           icono: CreditCard, etiqueta: 'Pendiente de cobro',
-          valor: pendientesImporte > 0 ? formatEuro(pendientesImporte) : 'Nada',
-          tono: pagosFallidos.length > 0 ? 'problema' : pendientesImporte > 0 ? 'aviso' : undefined,
+          // Lo que debe, como «Pendiente cobro» de Cobros (docs/cifras-financieras.md):
+          // por cobrar + impagado. Con solo lo pendiente, una clienta con un cobro
+          // fallido salía con «Nada» justo encima de «Tiene un pago fallido».
+          valor: adeudado > 0 ? formatEuro(adeudado) : 'Nada',
+          detalle: pagosFallidos.length > 0 ? (pagosFallidos.length === 1 ? '1 pago fallido' : `${pagosFallidos.length} pagos fallidos`) : null,
+          tono: pagosFallidos.length > 0 ? 'problema' : adeudado > 0 ? 'aviso' : undefined,
           onClick: () => setActiveTab('pagos'),
         }
       : { icono: CalendarClock, etiqueta: 'Este mes', valor: `${estesMes} ${estesMes === 1 ? 'clase' : 'clases'}` },
