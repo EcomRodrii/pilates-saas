@@ -18,6 +18,9 @@ export async function GET(req: NextRequest) {
       .from('reservas')
       .select('id, sesion_id, socio_id, estado, spot_id, creado_en')
       .eq('studio_id', ctx.studioId)
+      // Solo las reservas de socias: las de ClassPass/USC no tienen socia y el
+      // contrato de esta API (y de los zaps que la usan) da `socio_id` siempre.
+      .eq('origen', 'TENTARE')
       .eq('estado', estado);
     if (socioId) query = query.eq('socio_id', socioId);
     const { data, error } = await query.order('creado_en', { ascending: false }).limit(limit);
