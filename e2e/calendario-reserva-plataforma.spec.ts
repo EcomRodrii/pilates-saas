@@ -160,7 +160,7 @@ test.describe('Recepción apunta una reserva de ClassPass desde la clase', () =>
     await page.getByRole('button', { name: 'Apuntar reserva de ClassPass' }).click();
 
     await expect.poll(() => peticiones.length).toBeGreaterThan(0);
-    await expect(page.getByRole('alert')).toContainText('La clase está completa');
+    await expect(page.getByTestId('anadir-reserva-plataforma').getByRole('alert')).toContainText('La clase está completa');
     await expect(page.getByText(/apuntada \(ClassPass\)/)).toHaveCount(0);
   });
 
