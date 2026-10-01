@@ -74,7 +74,14 @@ export function PlazasPlataformasTipo({
       </p>
       {activas.map(p => (
         <label key={p} className="flex items-center justify-between gap-3">
-          <span className="text-[12.5px] font-medium text-foreground">{NOMBRE_PLATAFORMA[p]}</span>
+          <span className="min-w-0">
+            <span className="block text-[12.5px] font-medium text-foreground">{NOMBRE_PLATAFORMA[p]}</span>
+            {p === 'URBAN_SPORTS_CLUB' && (
+              // Con la conexión por API, ceder plazas ES publicar: en blanco no
+              // sale en su app (lib/plataformas/usc/horario.ts).
+              <span className="block text-[11px] text-muted-foreground">Si la tienes conectada, solo se publican en su app los tipos con una cifra aquí.</span>
+            )}
+          </span>
           <span className="flex items-center gap-2">
             <input
               type="number"

@@ -146,6 +146,9 @@ TIPOS_MANUALES = {
     # Ídem, migr de las claves de API (F1, 1-oct-2026): una llamada con clave no
     # tiene app OAuth; el CHECK exige `cliente_id` o `api_clave_id`.
     ('oauth_auditoria_accesos', 'cliente_id'): 'string | null',
+    # Ídem, migr 20261001140635: borrar la sesión deja el evento de la
+    # plataforma sin sesión (ON DELETE SET NULL) para poder cancelarlo allí.
+    ('plataforma_eventos', 'sesion_id'): 'string | null',
 }
 for (tabla, col), ts in TIPOS_MANUALES.items():
     if tabla in tables and col in tables[tabla]:
