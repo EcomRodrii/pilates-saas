@@ -5,6 +5,7 @@
 // es quien fija la regla de vigencia en servidor. Import relativo por el
 // mismo motivo que el resto del fichero.
 import { horaEstudio, hoyEnEstudio } from '../utils.ts';
+import { situacionRecibo } from '../billing/situacion-recibo.ts';
 import { imagenDeClase } from '../imagenes-por-defecto.ts';
 import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
@@ -112,6 +113,26 @@ export function estadoPagoDe(v: string | null | undefined): EstadoPago {
   // Por defecto `pending`, no `processing`: ante un estado que no conocemos,
   // «todavía sin cobrar» es lo que menos promete.
   return ESTADO_PAGO[v ?? ''] ?? 'pending';
+}
+
+/**
+ * El estado que ve la alumna, leído con la MISMA regla que las cifras del panel
+ * (lib/billing/situacion-recibo.ts). Con `estado` a secas fallaban dos cosas:
+ *  · `DEVUELTO` también es un reembolso del estudio (devolución en la caja, o
+ *    reembolso por Stripe). La alumna lo veía «Devuelto por el banco», en rojo y
+ *    sumado a lo que debe, cuando el dinero se le había devuelto.
+ *  · `ANULADO` no estaba en el mapa y caía en `pending`: un recibo anulado al
+ *    cancelar la cuota le salía como deuda.
+ */
+export function estadoPagoDeRecibo(r: {
+  estado: string; importe?: number | null; importeDevuelto?: number | null;
+  reembolsoStripeId?: string | null; reembolsoSolicitadoEn?: string | null;
+}): EstadoPago {
+  switch (situacionRecibo({ ...r, importe: r.importe ?? 0 })) {
+    case 'REEMBOLSADO': return 'reimbursed';
+    case 'ANULADO': return 'cancelled';
+    default: return estadoPagoDe(r.estado);
+  }
 }
 
 // ── Bonos ───────────────────────────────────────────────────────────────────
@@ -260,7 +281,7 @@ export interface PayloadMin {
     } | null;
     suscripciones?: SuscripcionMin[];
     reservas?: { id: string; sesionId: string; socioId: string; estado: string; creadoEn: string; posicionEspera: number | null; ofertaExpiraEn?: string | null }[];
-    recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null }[];
+    recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null; importeDevuelto?: number | null; reembolsoStripeId?: string | null; reembolsoSolicitadoEn?: string | null }[];
     /** Tipos de clase marcados como favoritos (`favoritos_clase`). */
     favoritos?: { tipoClaseId: string }[];
     plazasFijas?: PlazaFijaMin[];
@@ -636,7 +657,7 @@ export function proyectarPagos(d: PayloadMin): Pago[] {
       // `fechaCobro` cuando ya se cobró; si no, la de vencimiento, que es la
       // que la alumna ve como «fecha del recibo». `Recibo` no tiene creadoEn.
       fecha: r.fechaCobro ?? r.fechaVencimiento ?? '',
-      estado: estadoPagoDe(r.estado),
+      estado: estadoPagoDeRecibo(r),
       metodo: r.metodoCobro ?? '',
       bonoId: r.suscripcionId ?? undefined,
     }))

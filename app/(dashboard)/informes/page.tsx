@@ -292,7 +292,11 @@ export default function Informes() {
 
   // ─── Revenue chart buckets ──────────────────────────────────────────────────
   const revenueChart = useMemo((): Bucket[] => {
-    const buckets = getChartBuckets(period, now);
+    // Los tramos del gráfico, sobre el día del ESTUDIO (mediodía, para no
+    // cruzar de día con ninguna zona horaria): es el mismo día con el que se
+    // pide el rango a la RPC. Con el `now` del navegador, entre las 00:00 y
+    // las 02:00 del día 1 un navegador en UTC pintaba el mes anterior vacío.
+    const buckets = getChartBuckets(period, new Date(`${hoyEnEstudio(now)}T12:00:00`));
     const map: Record<string, number> = {};
     buckets.forEach(b => { map[b.key] = 0; });
 

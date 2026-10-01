@@ -189,7 +189,9 @@ export interface Bono {
  *                    nada; o lo cobra el estudio, o lo reintenta el dunning.
  *   · `processing` — adeudo EN VUELO (SEPA). El banco puede devolverlo.
  */
-export type EstadoPago = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded';
+// ⚠️ `refunded` es «devuelto POR EL BANCO» (se sigue debiendo), no un reembolso.
+// El dinero que el estudio le devolvió a la alumna es `reimbursed` (F0, 1-oct-2026).
+export type EstadoPago = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded' | 'reimbursed';
 export interface Pago { id: string; concepto: string; importe: number; fecha: string; estado: EstadoPago; metodo: string; bonoId?: string; }
 
 export interface Notificacion { id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar' | 'atencion'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string; }

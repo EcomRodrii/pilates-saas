@@ -854,8 +854,12 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
             sea que el dinero NO está y sigue siendo deuda. Sin este
             botón, un recibo devuelto no tenía NINGUNA vía de UI para
             resolverse — y con el bloqueo por impago encendido dejaba a
-            la socia sin poder reservar indefinidamente. */}
-        {(r.estado === 'PENDIENTE' || r.estado === 'FALLIDO' || r.estado === 'DEVUELTO') && (
+            la socia sin poder reservar indefinidamente.
+            ⚠️ Pero solo el devuelto POR EL BANCO. Un DEVUELTO también puede
+            ser un REEMBOLSO del estudio (Stripe o devolución en la caja), y
+            ofrecer «Cobrar» ahí cobraba otra vez un dinero que se acababa de
+            devolver. Se decide por la situación, no por el estado. */}
+        {(situacionRecibo(r) === 'POR_COBRAR' || situacionRecibo(r) === 'IMPAGADO') && (
           <>
             <button
               onClick={() => setCobrandoRecibo(r.id)}
@@ -940,7 +944,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
             </button>
           </>
         )}
-        {r.estado === 'DEVUELTO' && (
+        {r.estado === 'DEVUELTO' && situacionRecibo(r) === 'IMPAGADO' && (
           <button
             onClick={async () => {
               const res = await reintentar(r.id);

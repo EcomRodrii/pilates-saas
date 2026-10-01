@@ -36,6 +36,7 @@ function fakeAdmin(opts: { venta?: Fila | null; yaExistia?: boolean } = {}) {
         update(fila: Fila) { updates.push({ tabla, fila }); return c; },
         insert(fila: Fila) { inserts.push({ tabla, fila }); return c; },
         eq() { return c; },
+        or() { return c; },
         select() { return c; },
         maybeSingle() {
           if (tabla === 'ventas_pos') return Promise.resolve({ data: venta, error: null });
@@ -158,6 +159,7 @@ function fakeAdminSplit() {
         select() { return c; },
         eq(campo: string, valor: unknown) { if (campo === 'id') filtroId = valor as string; return c; },
         neq() { return c; },
+        or() { return c; },
         insert(fila: Fila) { modo = 'insert'; inserts.push({ tabla, fila }); return c; },
         update(fila: Fila) { modo = 'update'; filaUpdate = fila; return c; },
         maybeSingle() {

@@ -7,7 +7,7 @@
 
 import type { Socio, Reserva, Recibo, Suscripcion, PlanTarifa, Sesion } from '@/lib/types';
 import { cumpleMesDia, formatearCumple } from './socios/datos-privados.ts';
-import { importeIngresado, aCentimos } from './billing/situacion-recibo.ts';
+import { importeIngresado, aCentimos, situacionRecibo } from './billing/situacion-recibo.ts';
 
 export interface ResumenSocioInput {
   socio: Socio | undefined;
@@ -79,8 +79,11 @@ export function resumenSocio({
   // Neto de reembolsos (lib/billing/situacion-recibo.ts): lo que de verdad ha
   // pagado. Un reembolso parcial dejaba el recibo COBRADO y se sumaba entero.
   const totalGastado = aCentimos(misRecibos.reduce((acc, r) => acc + importeIngresado(r), 0));
-  const pendientes = misRecibos.filter(r => r.estado === 'PENDIENTE');
-  const pagosFallidos = misRecibos.filter(r => r.estado === 'FALLIDO');
+  const pendientes = misRecibos.filter(r => situacionRecibo(r) === 'POR_COBRAR');
+  // Impagados (lib/billing/situacion-recibo.ts): FALLIDO y devuelto POR EL BANCO.
+  // Con solo FALLIDO, una socia bloqueada por un adeudo devuelto veía su ficha
+  // sin ningún aviso de deuda mientras Cobros y la bandeja decían que debía.
+  const pagosFallidos = misRecibos.filter(r => situacionRecibo(r) === 'IMPAGADO');
 
   const ultimaAsistidaFecha = misReservas
     .filter(r => r.estado === 'ASISTIDA')

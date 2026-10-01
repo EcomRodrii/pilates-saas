@@ -8,6 +8,7 @@ import { cobrarReciboEnMostrador, confirmarCobroRecibo, esError } from '@/lib/po
 import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import { bizumPermitidoPara, tipoDeReciboParaBizum } from '@/lib/billing/bizum-permitido';
 import { MENSAJE_YA_ESTABA } from '@/lib/cobros/marcar-cobrado';
+import { situacionRecibo } from '@/lib/billing/situacion-recibo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Vengo a pagar la cuota.»
@@ -31,7 +32,15 @@ import { MENSAJE_YA_ESTABA } from '@/lib/cobros/marcar-cobrado';
 // lo que este rediseño existe para eliminar.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const COBRABLES = ['PENDIENTE', 'FALLIDO'] as const;
+// Lo que se debe: sin cobrar o impagado (rechazado, o devuelto POR EL BANCO).
+// Es el mismo criterio con el que el servidor deja cobrarlo (`esReciboCobrable`
+// en /api/pos/recibo) y con el que Cobros lo cuenta (lib/billing/situacion-recibo.ts):
+// antes la lista se dejaba fuera el devuelto por el banco, que bloquea las
+// reservas por impago y sí se podía cobrar.
+const esDeuda = (r: Parameters<typeof situacionRecibo>[0]) => {
+  const s = situacionRecibo(r);
+  return s === 'POR_COBRAR' || s === 'IMPAGADO';
+};
 const MS_ENTRE_CONSULTAS = 2000;
 // ⚠️ Tope de sondeo. Sin él, un pago que nunca se resuelve deja el mostrador
 // preguntando para siempre. Al agotarse NO se marca nada como fallido: el
@@ -52,7 +61,7 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
 
   const pendientes = useMemo(
     () => recibos
-      .filter((r) => r.socioId === socioId && (COBRABLES as readonly string[]).includes(r.estado))
+      .filter((r) => r.socioId === socioId && esDeuda(r))
       .sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento)),
     [recibos, socioId],
   );

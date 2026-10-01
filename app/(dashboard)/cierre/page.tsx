@@ -339,15 +339,17 @@ export default function CierreDeAnoPage() {
                 : `${sinRectificar.length} facturas de cobros que devolviste no tienen rectificativa`}
             </p>
             <p className="m-0 mt-1">
-              {sinRectificar.length === 1 ? 'Sigue' : 'Siguen'} sumando en este cierre, IVA incluido, aunque ese dinero ya no es tuyo. Emite su rectificativa
-              desde los pagos de la ficha de cada clienta antes de que tu gestoría presente el IVA del trimestre:{' '}
+              {sinRectificar.length === 1 ? 'Sigue' : 'Siguen'} sumando en este cierre, IVA incluido, aunque ese dinero ya no es tuyo,
+              y {sinRectificar.length === 1 ? 'necesita' : 'necesitan'} una factura rectificativa antes de que tu gestoría presente el IVA del trimestre.
+              Si el cobro se devolvió entero, la emites desde los pagos de la ficha de la clienta; si se devolvió solo una parte,
+              pídesela a tu gestoría:{' '}
               {sinRectificar.map((f, i) => (
                 <span key={f.id}>
                   {i > 0 ? ', ' : ''}
-                  {f.socioId
+                  {f.socioId && f.devuelto >= f.total
                     ? <Link href={`/clientas/${f.socioId}`} className="font-semibold underline underline-offset-2 hover:no-underline">{f.numero}</Link>
                     : <b>{f.numero}</b>}
-                  {' '}({f.fecha}, devuelto {eur(f.devuelto)})
+                  {' '}({f.fecha}, devuelto {eur(f.devuelto)}{f.devuelto < f.total ? ` de ${eur(f.total)}` : ''})
                 </span>
               ))}.
             </p>
