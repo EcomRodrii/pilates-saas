@@ -1,5 +1,6 @@
 // ─── Core types ──────────────────────────────────────────────────────────────
 
+import type { OrigenReserva } from '@/lib/plataformas/catalogo.ts';
 import type { EspecialidadNetwork } from '@/lib/network/catalogo.ts';
 import type { Genero } from '@/lib/genero.ts';
 
@@ -1161,6 +1162,13 @@ export interface Reserva {
   // autoservicio desde la sesión normal del portal, sin relación (todavía)
   // con esas estadísticas.
   valoracionExperiencia?: number | null;
+  // Plataformas externas (migr 20261001200000). 'TENTARE' en todas las vías
+  // propias; si viene de ClassPass/USC/Wellhub, la reserva NO tiene socia
+  // (`socioId` llega null aunque el tipo aún diga string) y la persona es
+  // `nombreExterno`. Opcional para no romper los literales de reserva que ya
+  // construyen los tests y el portal.
+  origen?: OrigenReserva;
+  nombreExterno?: string | null;
 }
 
 export interface Recibo {

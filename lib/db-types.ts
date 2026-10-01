@@ -37,6 +37,14 @@ export interface RowReservas {
   bono_devuelto_en: string | null;
   // migr 20260925132205.
   bono_devolucion_debida_en: string | null;
+  // migr 20261001200000.
+  origen: string | null;
+  // migr 20261001200000.
+  nombre_externo: string | null;
+  // migr 20261001200000.
+  id_reserva_externa: string | null;
+  // migr 20261001200000.
+  id_cliente_externo: string | null;
 }
 
 export interface RowAchievementDefinitions {
@@ -3660,6 +3668,17 @@ export interface RowVerifactuDecisionesAnteriores {
   creado_en: string;
 }
 
+export interface RowPlataformaCupos {
+  id: string;
+  studio_id: string;
+  plataforma: string;
+  tipo_clase_id: string | null;
+  sesion_id: string | null;
+  plazas: number;
+  creado_en: string;
+  actualizado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -3683,6 +3702,10 @@ export type ReservasInsert = {
   cancelada_motivo?: string | null | null;
   bono_devuelto_en?: string | null | null;
   bono_devolucion_debida_en?: string | null | null;
+  origen?: string | null | null;
+  nombre_externo?: string | null | null;
+  id_reserva_externa?: string | null | null;
+  id_cliente_externo?: string | null | null;
 }
 
 export type ReservasUpdate = {
@@ -3707,6 +3730,10 @@ export type ReservasUpdate = {
   cancelada_motivo?: string | null | null;
   bono_devuelto_en?: string | null | null;
   bono_devolucion_debida_en?: string | null | null;
+  origen?: string | null | null;
+  nombre_externo?: string | null | null;
+  id_reserva_externa?: string | null | null;
+  id_cliente_externo?: string | null | null;
 }
 
 export type AchievementDefinitionsInsert = {
@@ -10141,6 +10168,28 @@ export type VerifactuDecisionesAnterioresUpdate = {
   creado_en?: string | null;
 }
 
+export type PlataformaCuposInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  tipo_clase_id?: string | null | null;
+  sesion_id?: string | null | null;
+  plazas?: number | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type PlataformaCuposUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  tipo_clase_id?: string | null | null;
+  sesion_id?: string | null | null;
+  plazas?: number | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -11288,6 +11337,11 @@ export type Database = {
         Row: RowVerifactuDecisionesAnteriores;
         Insert: VerifactuDecisionesAnterioresInsert;
         Update: VerifactuDecisionesAnterioresUpdate;
+      };
+      plataforma_cupos: {
+        Row: RowPlataformaCupos;
+        Insert: PlataformaCuposInsert;
+        Update: PlataformaCuposUpdate;
       };
     };
   };

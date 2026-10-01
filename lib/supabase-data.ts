@@ -1,4 +1,5 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
+import { origenDe } from '@/lib/plataformas/catalogo';
 import { conReintentoTransitorio } from '@/lib/reintento-transitorio';
 import { unaVez } from '@/lib/una-vez';
 import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion';
@@ -1119,6 +1120,9 @@ export function mapReserva(r: RowReservas): Reserva {
     confirmacionPedidaEn: r.confirmacion_pedida_en ?? null,
     confirmadoEn: r.confirmado_en ?? null,
     valoracionExperiencia: r.valoracion_experiencia ?? null,
+    // `?? 'TENTARE'`: el código funciona igual antes de aplicar la migración.
+    origen: origenDe(r.origen),
+    nombreExterno: r.nombre_externo ?? null,
   } as Reserva;
 }
 
