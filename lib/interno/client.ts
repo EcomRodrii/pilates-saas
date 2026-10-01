@@ -164,6 +164,13 @@ export const fetchCrecimiento = () => pedir<Crecimiento>('/crecimiento');
 
 export const fetchReviewBoost = () => pedir<import('./review-boost.ts').ResumenReviewBoost>('/crecimiento/review-boost');
 
+/** Altas de estudio sin terminar (`growth.read`). Ver lib/alta/abandono.ts. */
+export interface AltasSinTerminar {
+  filas: import('../alta/abandono.ts').FilaAltaInterno[];
+  resumen: ReturnType<typeof import('../alta/abandono.ts').resumirAltas>;
+}
+export const fetchAltasSinTerminar = () => pedir<AltasSinTerminar>('/crecimiento/altas');
+
 export const guardarLead = (cuerpo: Record<string, unknown>) =>
   pedir<{ ok: true; id: string }>('/crecimiento', { method: 'POST', body: JSON.stringify(cuerpo) });
 

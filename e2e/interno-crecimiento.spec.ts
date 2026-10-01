@@ -180,3 +180,60 @@ test.describe('El concierge de la landing no puede perder un lead en silencio', 
     expect(res.status()).toBe(400);
   });
 });
+
+// Altas de estudio sin terminar: el paso exacto en que se quedó cada una y si
+// le llegó el correo de las 24 h. La lógica está en lib/alta/abandono.test.ts.
+test.describe('Crecimiento enseña dónde se quedó cada alta de estudio', () => {
+  const fila = (o: Record<string, unknown>) => ({
+    authUserId: 'u1', email: 'ana@example.com', estudio: 'Estudio Aurora', origen: 'registro',
+    iniciadaEn: haceDias(3), paso: 'email_sin_confirmar', pasoDesde: haceDias(3),
+    correoEnviadoEn: null, correoPaso: null, correoNoSeEnvia: null, terminoTrasCorreo: false, ...o,
+  });
+
+  test('cada alta con su paso y su correo, y el recuento arriba', async ({ page }) => {
+    let pedidas = 0;
+    await mockPanel(page, {});
+    // Después de mockPanel: su `crecimiento**` también casa con esta ruta.
+    await page.route('**/api/interno/crecimiento/altas', route => {
+      pedidas += 1;
+      return json(route, {
+        filas: [
+          fila({ correoEnviadoEn: haceDias(2), correoPaso: 'email_sin_confirmar' }),
+          fila({
+            authUserId: 'u2', email: 'bea@example.com', estudio: 'Pilates Mar', paso: 'terminada',
+            pasoDesde: haceDias(1), correoEnviadoEn: haceDias(2), terminoTrasCorreo: true,
+          }),
+        ],
+        resumen: {
+          total: 2, correos: 2, terminaronTrasCorreo: 1,
+          porPaso: { formulario_estudio: 0, formulario_plan: 0, email_sin_confirmar: 1, estudio_sin_crear: 0, error_estudio: 0, terminada: 1 },
+        },
+      });
+    });
+    await seedSesion(page);
+    await page.goto('/interno/crecimiento');
+
+    const seccion = page.getByTestId('altas-sin-terminar');
+    await expect(seccion).toBeVisible({ timeout: 30_000 });
+    expect(pedidas).toBeGreaterThan(0);
+    await expect(seccion).toContainText('Código del email sin escribir: 1');
+    await expect(seccion).toContainText('Correos enviados: 2 · terminaron después: 1');
+    await expect(seccion).toContainText('Pilates Mar');
+    await expect(seccion).toContainText('terminó después');
+  });
+
+  test('sin permiso (403) la sección no sale y el resto de la pantalla sigue', async ({ page }) => {
+    let pedidas = 0;
+    await mockPanel(page, {});
+    await page.route('**/api/interno/crecimiento/altas', route => {
+      pedidas += 1;
+      return json(route, { error: 'Te falta el permiso "growth.read" para hacer esto.' }, 403);
+    });
+    await seedSesion(page);
+    await page.goto('/interno/crecimiento');
+
+    await expect(page.getByRole('heading', { name: 'Crecimiento' })).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => pedidas).toBeGreaterThan(0);
+    await expect(page.getByTestId('altas-sin-terminar')).toHaveCount(0);
+  });
+});

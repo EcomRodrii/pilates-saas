@@ -13,6 +13,7 @@ import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion, recordar
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { GoogleIcon } from '@/components/icons/brand-icons';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
+import { avisarProgresoAlta } from '@/lib/alta/progreso-cliente';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import { normalizarNombreDeGoogle } from '@/lib/auth/normalizar-nombre-google';
 import { capturarAlLlegar } from '@/lib/posthog-cliente';
@@ -180,6 +181,9 @@ export default function LoginPage() {
           // silencio. Se aparca y lo envía el panel tras la redirección, ya
           // identificada la persona (lo hace auth-context al cargar la sesión).
           capturarAlLlegar('alta_estudio_creada');
+        } else {
+          // Que el fundador sepa que esta alta se atascó AL MONTAR, no antes.
+          avisarProgresoAlta('error_estudio');
         }
       }
       // Alta de instructora freelance (feature #9, /instructora/alta): mismo
