@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHmac } from 'node:crypto';
-import { cadenaFirmadaUsc, firmarUsc, verificarFirmaUsc, VENTANA_TIMESTAMP_MS } from './usc-firma.ts';
-import { leerPeticionReservaUsc, respuestaRechazoUsc } from './usc-reserva.ts';
+import { createHash, createHmac } from 'node:crypto';
+import { cadenaFirmadaUsc, firmarUsc, verificarFirmaUsc, verificarSecretoWebhookUsc, VENTANA_TIMESTAMP_MS } from './usc-firma.ts';
+import { leerPeticionReservaUsc, motivoDeErrorRpcUsc, respuestaRechazoUsc } from './usc-reserva.ts';
+import { accionDeEstadoUsc, aplicableSobre, esMasReciente, leerWebhookReservaUsc } from './usc-webhook.ts';
 
 const SECRETO = 'secreto-de-prueba';
 const RUTA = '/api/plataformas/usc/reservar';
@@ -85,4 +86,69 @@ test('cada motivo de rechazo sale con el código de USC que le toca y un 4xx/5xx
     assert.ok(r.status >= 400 && r.status < 600, motivo);
     assert.ok(r.cuerpo.message.length > 0);
   }
+});
+
+// ─── Webhooks de estado y errores de la RPC ─────────────────────────────────
+
+test('el webhook de USC se valida con el SHA-256 del secreto, en hex o en base64', () => {
+  const h = createHash('sha256').update('compartido').digest();
+  assert.ok(verificarSecretoWebhookUsc('compartido', h.toString('hex')));
+  assert.ok(verificarSecretoWebhookUsc('compartido', h.toString('hex').toUpperCase()));
+  assert.ok(verificarSecretoWebhookUsc('compartido', h.toString('base64')));
+  assert.ok(!verificarSecretoWebhookUsc('compartido', createHash('sha256').update('otro').digest('hex')));
+  assert.ok(!verificarSecretoWebhookUsc('', h.toString('hex')));
+  assert.ok(!verificarSecretoWebhookUsc('compartido', null));
+});
+
+const WEBHOOK = {
+  Id: 'B53CF494-7913-48C3-9B87-7DD6E9BE69B0', EventId: '8b109a00-4578-4f00-85b6-04b6c3d1241f',
+  CustomerId: '1234568', BookingStatus: 'CheckedIn', BookingType: 'Class',
+  ModifiedDate: '2026-10-01T09:30:19.329208+00:00',
+};
+
+test('lee el webhook de estado y normaliza el id', () => {
+  const r = leerWebhookReservaUsc(WEBHOOK);
+  assert.ok(r.ok);
+  assert.equal(r.evento.reservaExternaId, 'b53cf494-7913-48c3-9b87-7dd6e9be69b0');
+  assert.equal(r.evento.estado, 'CheckedIn');
+  assert.equal(r.evento.tipo, 'Class');
+  assert.equal(leerWebhookReservaUsc({ ...WEBHOOK, BookingType: 'FreeTraining' }).ok && 'ok', 'ok');
+  assert.equal(leerWebhookReservaUsc({ ...WEBHOOK, BookingStatus: 'Paid' }).ok, false);
+  assert.equal(leerWebhookReservaUsc({ ...WEBHOOK, ModifiedDate: 'ayer' }).ok, false);
+});
+
+test('cada estado de USC hace lo que toca en Tentare', () => {
+  assert.equal(accionDeEstadoUsc('Cancelled'), 'cancelar');
+  assert.equal(accionDeEstadoUsc('LateCancellation'), 'cancelar');
+  assert.equal(accionDeEstadoUsc('CheckedIn'), 'asistio');
+  assert.equal(accionDeEstadoUsc('NoShow'), 'no-vino');
+  assert.equal(accionDeEstadoUsc('Booked'), 'nada');
+});
+
+test('el orden lo manda ModifiedDate: un webhook viejo no pisa uno nuevo', () => {
+  assert.ok(esMasReciente('2026-10-01T10:00:00Z', null));
+  assert.ok(esMasReciente('2026-10-01T10:00:01Z', '2026-10-01T10:00:00Z'));
+  assert.ok(!esMasReciente('2026-10-01T09:59:59Z', '2026-10-01T10:00:00Z'));
+  assert.ok(!esMasReciente('2026-10-01T10:00:00Z', '2026-10-01T10:00:00Z'));
+});
+
+test('una cancelada no resucita, y lo que ya está en su estado no se toca', () => {
+  assert.ok(!aplicableSobre('CANCELADA', 'asistio'));
+  assert.ok(!aplicableSobre('CANCELADA', 'cancelar'));
+  assert.ok(aplicableSobre('CONFIRMADA', 'cancelar'));
+  assert.ok(!aplicableSobre('ASISTIDA', 'asistio'));
+  assert.ok(aplicableSobre('NO_ASISTIO', 'asistio'));
+  assert.ok(!aplicableSobre('NO_ASISTIO', 'no-vino'));
+  assert.ok(!aplicableSobre('CONFIRMADA', 'nada'));
+});
+
+test('los errores de la RPC salen con el motivo que USC entiende', () => {
+  assert.equal(motivoDeErrorRpcUsc('AFORO_LLENO'), 'completa');
+  assert.equal(motivoDeErrorRpcUsc('CUPO_PLATAFORMA_AGOTADO'), 'completa');
+  assert.equal(motivoDeErrorRpcUsc('SESION_NO_ENCONTRADA'), 'clase-no-existe');
+  assert.equal(motivoDeErrorRpcUsc('SESION_CANCELADA'), 'clase-cancelada');
+  assert.equal(motivoDeErrorRpcUsc('SESION_TERMINADA'), 'fuera-de-plazo');
+  assert.equal(motivoDeErrorRpcUsc('YA_RESERVADA'), 'ya-reservada');
+  assert.equal(motivoDeErrorRpcUsc('TIPO_REQUIERE_AUTORIZACION'), 'error-interno');
+  assert.equal(motivoDeErrorRpcUsc('timeout'), 'error-interno');
 });
