@@ -64,6 +64,35 @@ async function rolActual(admin: SupabaseClient, studioId: string, authUserId: st
   return (data?.rol as Rol | undefined) ?? null;
 }
 
+/** ¿Tiene el estudio la API activada? (Se activa estudio a estudio desde /interno.) */
+export async function apiActivada(admin: SupabaseClient, studioId: string): Promise<boolean> {
+  const { data: acceso } = await admin
+    .from('api_acceso_estudios').select('desactivada_en').eq('studio_id', studioId).maybeSingle();
+  return !!acceso && !acceso.desactivada_en;
+}
+
+export type AccesoVigente =
+  | { ok: true; rol: Rol; plan: Plan }
+  | { ok: false; motivo: 'estudio_sin_acceso' | 'sin_rol' };
+
+/**
+ * Lo que una credencial (o un webhook) necesita HOY para seguir valiendo: el
+ * estudio con acceso a Tentare y quien la concedió todavía en él. La misma
+ * regla para la API y para los webhooks.
+ */
+export async function accesoVigente(admin: SupabaseClient, studioId: string, concedidaPor: string): Promise<AccesoVigente> {
+  const { data: studio } = await admin
+    .from('studios').select('plan, subscription_status, suspendido_en, owner_auth_user_id')
+    .eq('id', studioId).maybeSingle();
+  if (!studio || studio.suspendido_en || !suscripcionActiva(studio.subscription_status)) {
+    return { ok: false, motivo: 'estudio_sin_acceso' };
+  }
+  const rol = await rolActual(admin, studioId, concedidaPor, studio.owner_auth_user_id ?? null);
+  if (!rol) return { ok: false, motivo: 'sin_rol' };
+  const plan: Plan = studio.plan === 'ESTUDIO' || studio.plan === 'CADENA' ? studio.plan : 'BASE';
+  return { ok: true, rol, plan };
+}
+
 type Autenticacion =
   | { ok: true; ctx: ContextoApi }
   | { ok: false; resultado: ResultadoApi; studioId?: string; credencial?: CredencialApi };
@@ -92,9 +121,7 @@ export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClie
     concedidaPor = clave.creada_por;
 
     // La API se activa estudio a estudio (decisión del fundador, 1-oct-2026).
-    const { data: acceso } = await admin
-      .from('api_acceso_estudios').select('desactivada_en').eq('studio_id', studioId).maybeSingle();
-    if (!acceso || acceso.desactivada_en) {
+    if (!(await apiActivada(admin, studioId))) {
       return { ok: false, studioId, credencial, resultado: error(403, 'api_no_activada', 'La API no está activada para este estudio.', requestId) };
     }
   } else {
@@ -119,20 +146,15 @@ export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClie
     }
   }
 
-  const { data: studio } = await admin
-    .from('studios').select('plan, subscription_status, suspendido_en, owner_auth_user_id')
-    .eq('id', studioId).maybeSingle();
-  if (!studio || studio.suspendido_en || !suscripcionActiva(studio.subscription_status)) {
+  const acceso = await accesoVigente(admin, studioId, concedidaPor);
+  if (!acceso.ok && acceso.motivo === 'estudio_sin_acceso') {
     return { ok: false, studioId, credencial, resultado: error(403, 'estudio_sin_acceso', 'El estudio no tiene acceso a Tentare ahora mismo.', requestId) };
   }
-
-  const rol = await rolActual(admin, studioId, concedidaPor, studio.owner_auth_user_id ?? null);
-  if (!rol) {
+  if (!acceso.ok) {
     // Quien la concedió ya no está en el estudio: la credencial muere con su acceso.
     return { ok: false, studioId, credencial, resultado: error(401, 'invalid_token', 'Quien concedió este acceso ya no forma parte del estudio.', requestId) };
   }
-
-  const plan: Plan = studio.plan === 'ESTUDIO' || studio.plan === 'CADENA' ? studio.plan : 'BASE';
+  const { rol, plan } = acceso;
   const scopes = scopesEfectivos({ credencial: scopesCredencial, rolDeQuienConcedio: rol, plan });
   if (scopes.length === 0) {
     // Quien la concedió sigue en el estudio pero ya no puede dar nada (p. ej.
