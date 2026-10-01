@@ -44,8 +44,13 @@ export function cuerpoIndexNow(urls: string[]) {
 // ficheros que toca el commit; lo que no se sabe a qué página va, avisa de su
 // sección entera, nunca del sitio entero.
 
-/** Ficheros de una guía que comparten TODAS las guías (tipos, índice, esquema…). */
-const RECURSOS_COMPARTIDOS = /^lib\/recursos\/(articulos\/(index|meta|tipos|util|schema|portadas|proyeccion)\.ts|guias\.ts|schema\.ts)$/;
+/**
+ * Ficheros de una guía que comparten TODAS las guías (tipos, índice, esquema…).
+ * `meta.ts` NO: se regenera cada vez que cambia una guía, y esa guía ya viaja
+ * en el mismo commit con su propio fichero. Contarlo mandaba la sección entera
+ * por cambiar un solo texto (pasó en el primer despliegue con esto, 1-oct-2026).
+ */
+const RECURSOS_COMPARTIDOS = /^lib\/recursos\/(articulos\/(index|tipos|util|schema|portadas|proyeccion)\.ts|guias\.ts|schema\.ts)$/;
 
 /**
  * Las URLs del sitemap a las que afecta un cambio en esos ficheros. Un fichero
