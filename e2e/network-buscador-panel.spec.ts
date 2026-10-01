@@ -87,7 +87,9 @@ async function montarBuscador(page: Page, opts: { contactoStatus?: number } = {}
   return { intentos: () => intentosContacto };
 }
 
-test.describe('Buscador de Network (panel del estudio)', () => {
+// CONGELADO (2-oct-2026): Tentare Network salió del panel (lib/frozen-features.ts).
+// Se salta, no se borra: al descongelarlo, quitar el `.skip` y vuelve a cubrirlo.
+test.describe.skip('Buscador de Network (panel del estudio)', () => {
   test('busca, ve el resultado con su rating y "cerca de mí", y contacta con éxito', async ({ page }) => {
     await montarBuscador(page);
     await page.goto('/network/buscar');

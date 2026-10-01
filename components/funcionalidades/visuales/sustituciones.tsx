@@ -103,7 +103,7 @@ export function EscaladoEnElTiempo() {
           En autónomo, la anterior deja de ser la candidata activa y se avisa a la siguiente. En asistido, te avisa a ti para que decidas.
         </PasoVertical>
         <PasoVertical indice="!" titulo="Si se agota el top 3, avisa a la propietaria" color="#C2503A" ultimo>
-          Con las opciones sobre la mesa: volver a buscar, reprogramar, cancelar avisando a las alumnas o pedir una instructora de Tentare Network. Nunca te enteras al llegar al estudio.
+          Con las opciones sobre la mesa: volver a buscar, reprogramar o cancelar avisando a las alumnas. Nunca te enteras al llegar al estudio.
         </PasoVertical>
       </div>
     </PanelClaro>

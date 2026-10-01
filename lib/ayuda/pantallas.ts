@@ -184,14 +184,6 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
     destino: { categoria: 'automatizaciones', slug: 'recordatorios-automaticos' },
   },
 
-  '/network/buscar': {
-    titulo: 'Tentare Network',
-    resumen:
-      'El listado de instructoras de Pilates y Yoga que buscan estudio. Ves su experiencia, sus formaciones y cuándo puede dar clase cada una, y le escribes desde aquí.',
-    ahorra: 'Publicar una oferta y quedarte esperando a ver quién aparece.',
-    destino: { categoria: 'instructores', slug: 'tentare-network' },
-  },
-
   '/suscripcion': {
     titulo: 'Suscripción',
     resumen:

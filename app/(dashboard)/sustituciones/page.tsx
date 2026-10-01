@@ -12,6 +12,7 @@ import {
 import { useRol, puedeVer, puedeGestionarEquipo } from '@/lib/permisos';
 import { seccionesVisibles } from '@/lib/configuracion/destino';
 import { InterruptorAvisarAlumnas } from '@/components/sustituciones/interruptor-avisar-alumnas';
+import { esRutaCongelada } from '@/lib/frozen-features';
 import { mensajeCoberturaSustitucion, estadoContactoDesde, type EstadoContacto } from '@/lib/network/contacto-sustitucion';
 import type { EstadoCoberturaNetwork } from '@/lib/network/cobertura-sustitucion';
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
@@ -1051,7 +1052,8 @@ function PropuestasNetwork({ s, tipoClase, destacada = false, bloqueada = false,
   const asignandoRef = useRef(false);
 
   const candidatas = s.candidatos_network ?? [];
-  if (candidatas.length === 0) return null;
+  // Network congelado en el panel (lib/frozen-features.ts): sin propuestas.
+  if (candidatas.length === 0 || esRutaCongelada('/network/buscar')) return null;
   // El buscador de Network es la herramienta de contratación del mostrador
   // (propietaria/manager/recepción): quien no la ve tampoco pide desde aquí.
   const puedeContactar = puedeVer(rol, '/network/buscar');

@@ -95,7 +95,9 @@ async function abrirSustituciones(page: Page) {
   await expect(page.getByText('Sustituciones').first()).toBeVisible({ timeout: 30_000 });
 }
 
-test.describe('Sustitución agotada → propuestas de Tentare Network', () => {
+// CONGELADO (2-oct-2026): Tentare Network salió del panel (lib/frozen-features.ts).
+// Se salta, no se borra: al descongelarlo, quitar el `.skip` y vuelve a cubrirlo.
+test.describe.skip('Sustitución agotada → propuestas de Tentare Network', () => {
   test('propone profesionales con su ficha dentro del panel, y el toque pide contacto una sola vez', async ({ page }) => {
     const posts = await mockBackend(page, { status: 200, body: { ok: true, solicitudId: 'redcontacto-1' } });
     await seedSesionDeDuena(page);

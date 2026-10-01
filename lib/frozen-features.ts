@@ -2,7 +2,7 @@
 // FEATURE FREEZE — fase Product-Market Fit (2026-07-23)
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Tres módulos siguen CONGELADOS para centrar el producto en el flujo
+// Cuatro módulos siguen CONGELADOS para centrar el producto en el flujo
 // principal de un estudio de Pilates. Congelar ≠ borrar: el código, las
 // páginas, los hooks, las APIs, las tablas, las migraciones y los datos
 // SIGUEN INTACTOS. Solo se desconectan del flujo principal para que el
@@ -11,6 +11,11 @@
 //   · Kiosko    → /kiosk/*            (pantalla de check-in en tablet)
 //   · VOD       → /ondemand  +  el "Vídeos" del portal de socias
 //   · Chat      → /chat               (chat de equipo — RLS roto D2 + no es la cuña)
+//   · Network   → /network/buscar, /vacantes, /favoritas, /mensajes, /comparar y
+//                 /equipo/verificaciones-network — Tentare Network EN EL PANEL
+//                 (decisión del fundador, 2-oct-2026). Su web pública
+//                 (app/network) sigue viva para las cuentas que ya existen,
+//                 pero sin enlace en ningún menú.
 //
 // DESCONGELADOS, cada uno por su motivo y con decisión explícita detrás:
 //   · Comunidad → P1, Community & Messaging OS (ver
@@ -58,11 +63,23 @@
  * cerró lo que de verdad lo hacía inseguro (importes que llegaban del cliente,
  * un botón que marcaba Bizum como cobrado sin preguntarle a Stripe, stock
  * inexistente, ninguna caja real). Kiosko, VOD y Chat siguen congelados.
+ *
+ * Tentare Network (2-oct-2026): prefijos de las pantallas del PANEL, uno a uno,
+ * y no `/network` entero — esa URL es la web pública de Network
+ * (app/network), que sigue viva. La ficha `/network/[perfilId]` no tiene
+ * prefijo: la cubre el stub de app/(dashboard)/network/layout.tsx, y nadie
+ * llega a ella sin pasar antes por Buscar.
  */
 export const RUTAS_CONGELADAS = [
   '/kiosk',
   '/ondemand',
   '/chat',
+  '/network/buscar',
+  '/network/vacantes',
+  '/network/favoritas',
+  '/network/mensajes',
+  '/network/comparar',
+  '/equipo/verificaciones-network',
 ] as const;
 
 /**

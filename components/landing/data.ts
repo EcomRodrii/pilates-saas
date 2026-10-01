@@ -102,7 +102,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Y si ninguna instructora acepta la sustitución?',
-    a: 'Te avisa enseguida para que decidas: volver a buscar, reprogramar la clase, cancelarla avisando a las alumnas o buscar una instructora en Tentare Network. La clase nunca se cancela sola.',
+    a: 'Te avisa enseguida para que decidas: volver a buscar, reprogramar la clase o cancelarla avisando a las alumnas. La clase nunca se cancela sola.',
   },
   {
     q: '¿Cómo cobro a mis alumnas?',

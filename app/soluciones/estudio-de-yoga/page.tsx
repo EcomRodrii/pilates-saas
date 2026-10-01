@@ -56,7 +56,7 @@ const FAQ = [
   },
   {
     q: '¿Cómo funcionan las sustituciones si una profesora no puede dar su clase?',
-    a: 'El mismo motor que ya usan los estudios de Pilates: busca quién puede cubrir esa clase, contacta y avisa a las alumnas si hace falta. Yoga ya es una especialidad propia dentro de Tentare Network, el marketplace de instructoras — no es una adaptación futura, ya está.',
+    a: 'El mismo motor que ya usan los estudios de Pilates: busca quién puede cubrir esa clase, contacta y avisa a las alumnas si hace falta.',
   },
   {
     q: '¿Hay algo de Tentare pensado específicamente para yoga que no exista para pilates?',
@@ -94,7 +94,7 @@ export default function EstudioDeYogaPage() {
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <Reveal style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '22px 24px' }}>
             <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 10px' }}>Sustituciones, también aquí</h2>
-            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3A3A34', margin: 0 }}>Cuando una profesora avisa de que no puede dar su clase, el mismo motor busca quién puede cubrirla y avisa a las alumnas si hace falta. Yoga ya es una especialidad propia en <strong>Tentare Network</strong> —el marketplace de instructoras de Tentare— junto a reformer, mat y HIIT: no es una promesa a futuro, ya está construido así.</p>
+            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3A3A34', margin: 0 }}>Cuando una profesora avisa de que no puede dar su clase, el mismo motor busca quién puede cubrirla y avisa a las alumnas si hace falta.</p>
           </Reveal>
         </div>
       </section>

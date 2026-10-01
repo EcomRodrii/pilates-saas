@@ -251,13 +251,12 @@ export const ARTICULOS_META: ArticuloMeta[] = [
     "seccion": "Sustituciones y equipo",
     "publicado": "2026-09-25",
     "relacionadas": [
-      "/network",
       "/recursos/requisitos-para-abrir-un-estudio-de-pilates",
       "/recursos/cuanto-cobra-una-instructora-de-pilates",
       "/recursos/iva-clases-de-pilates",
       "/recursos/cubrir-baja-instructora"
     ],
-    "palabras": 2199
+    "palabras": 2142
   },
   {
     "slug": "iva-clases-de-pilates",

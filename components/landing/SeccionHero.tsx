@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { CalendarCheck, RefreshCw, UserCheck, type LucideIcon } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
-import { ALTA, NAV_V5, NAV_NETWORK } from './enlaces';
+import { ALTA, NAV_V5 } from './enlaces';
 import { FOTOS } from './fotos';
 import { FotoLanding } from './FotoLanding';
 import { FIN_MONTAJE } from './IntroLogo';
@@ -100,7 +100,6 @@ export function SeccionHero() {
             <a key={l.href} href={l.href}>{l.label}</a>
           ))}
           <Link href="/recursos">Recursos</Link>
-          <Link href={NAV_NETWORK.href}>{NAV_NETWORK.label}</Link>
         </div>
         <div className="v5-nav-acciones">
           <Link href="/login" className="v5-nav-entrar">Entrar</Link>
@@ -129,7 +128,6 @@ export function SeccionHero() {
               <a key={l.href} href={l.href} onClick={() => setMenuAbierto(false)}>{l.label}</a>
             ))}
             <Link href="/recursos" onClick={() => setMenuAbierto(false)}>Recursos</Link>
-            <Link href={NAV_NETWORK.href} onClick={() => setMenuAbierto(false)}>{NAV_NETWORK.label}</Link>
           </nav>
           <div className="v5-menu-pie">
             <Link href="/login" onClick={() => setMenuAbierto(false)} className="v5-menu-entrar">Entrar</Link>

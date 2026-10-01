@@ -110,7 +110,9 @@ async function abrirSustituciones(page: Page) {
   await expect(page.getByText('No queda nadie de tu equipo. Estas profesionales de Tentare Network podrían cubrirla')).toBeVisible({ timeout: 30_000 });
 }
 
-test.describe('Sustitución agotada → asignar la clase a una profesional de Network', () => {
+// CONGELADO (2-oct-2026): Tentare Network salió del panel (lib/frozen-features.ts).
+// Se salta, no se borra: al descongelarlo, quitar el `.skip` y vuelve a cubrirlo.
+test.describe.skip('Sustitución agotada → asignar la clase a una profesional de Network', () => {
   test('cada profesional enseña su punto del camino, sacado del servidor', async ({ page }) => {
     const llamadas = await mockBackend(page, { status: 200, body: { ok: true } });
     await seedSesionDeDuena(page);

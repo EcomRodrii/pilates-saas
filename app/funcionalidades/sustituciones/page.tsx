@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: '¿Y si ninguna instructora puede cubrirla?',
-    a: 'El sistema te avisa en cuanto se agotan las candidatas, con las opciones sobre la mesa: volver a buscar, reprogramar la clase, cancelarla avisando a las alumnas o pedir una instructora de Tentare Network. Lo que nunca pasa es que te enteres al llegar al estudio.',
+    a: 'El sistema te avisa en cuanto se agotan las candidatas, con las opciones sobre la mesa: volver a buscar, reprogramar la clase o cancelarla avisando a las alumnas. Lo que nunca pasa es que te enteres al llegar al estudio.',
   },
   {
     q: '¿La instructora tiene que instalar una app para avisar de su baja?',
