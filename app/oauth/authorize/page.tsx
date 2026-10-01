@@ -14,7 +14,7 @@ import { authHeader } from '@/lib/api-client';
 type EstadoConsentimiento =
   | { paso: 'cargando' }
   | { paso: 'error'; mensaje: string }
-  | { paso: 'listo'; enviando: boolean; cliente: { nombre: string; descripcion: string | null; logoUrl: string | null }; estudioNombre: string; scopes: { scope: string; descripcion: string }[]; fuera: { scope: string; descripcion: string }[] };
+  | { paso: 'listo'; enviando: boolean; cliente: { nombre: string; descripcion: string | null; logoUrl: string | null }; estudioNombre: string; scopes: { scope: string; descripcion: string }[]; fuera: { scope: string; descripcion: string }[]; fueraApp: { scope: string; descripcion: string }[] };
 
 // useSearchParams() exige un límite de Suspense alrededor (si no, Next
 // desactiva la generación estática de toda la página en build) — el
@@ -54,7 +54,7 @@ function OAuthAuthorizeContenido() {
         setEstado({ paso: 'error', mensaje: mensajeError(data?.error, data?.detalle) });
         return;
       }
-      setEstado({ paso: 'listo', enviando: false, cliente: data.cliente, estudioNombre: data.estudioNombre, scopes: data.scopes, fuera: Array.isArray(data.fuera) ? data.fuera : [] });
+      setEstado({ paso: 'listo', enviando: false, cliente: data.cliente, estudioNombre: data.estudioNombre, scopes: data.scopes, fuera: Array.isArray(data.fuera) ? data.fuera : [], fueraApp: Array.isArray(data.fueraApp) ? data.fueraApp : [] });
     })();
     return () => { cancelado = true; };
   }, [loading, user, qs, router]);
@@ -126,6 +126,12 @@ function OAuthAuthorizeContenido() {
             {estado.fuera.length > 0 && (
               <p className="text-[12px] text-muted-foreground text-pretty">
                 No incluye, porque solo puede darlo la propietaria del estudio: {estado.fuera.map(s => s.descripcion.toLowerCase()).join('; ')}.
+              </p>
+            )}
+            {/* Lo que la app pide y Tentare no le deja pedir, sea quien sea quien autorice. */}
+            {estado.fueraApp.length > 0 && (
+              <p className="text-[12px] text-muted-foreground text-pretty">
+                Tampoco incluye, porque Tentare no permite que esta aplicación lo pida: {estado.fueraApp.map(s => s.descripcion.toLowerCase()).join('; ')}.
               </p>
             )}
             <div className="flex gap-2">
