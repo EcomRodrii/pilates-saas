@@ -896,6 +896,38 @@ export async function emitirStripeDesconectado(
   }
 }
 
+// Webhooks de la API: lib/api-publica/webhooks/salud.ts decide cuál toca. Uno
+// por racha y webhook (la clave lleva cuándo empezó a fallar o se desactivó):
+// dos pasadas del trabajador a la vez no lo mandan dos veces.
+export async function emitirAvisoWebhook(
+  p: {
+    studioId: string; webhookId: string; aviso: 'fallando' | 'desactivado' | 'recuperado';
+    /** Cómo lo llama ella: su descripción o, sin ella, el dominio. */
+    nombre: string;
+    /** Inicio de la racha de fallos (fallando/recuperado) o momento de la desactivación. */
+    momento: string;
+    error?: string | null; motivo?: string;
+  },
+): Promise<void> {
+  const tipo = p.aviso === 'fallando' ? EVENTOS.WEBHOOK_FALLANDO
+    : p.aviso === 'desactivado' ? EVENTOS.WEBHOOK_DESACTIVADO : EVENTOS.WEBHOOK_RECUPERADO;
+  try {
+    await publish({
+      type: tipo, studioId: p.studioId,
+      data: {
+        nombre: p.nombre,
+        desde: cuandoEstudio(p.momento),
+        error: p.error ?? 'sin respuesta',
+        motivo: p.motivo ?? '',
+      },
+      resource: { type: 'api_webhook', id: p.webhookId },
+      dedupKey: `webhook-${p.aviso}:${p.webhookId}:${p.momento}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirAvisoWebhook:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Los emails a clientas están fallando. Un aviso AL DÍA por estudio (dedupKey por
 // fecha): el dato accionable es "hoy falla el correo", no 50 copias.
 export async function emitirEmailFallido(

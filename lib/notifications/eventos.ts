@@ -179,6 +179,12 @@ export const EVENTOS = {
   // Sistema: cosas que rompen el negocio y exigen acción de la dueña.
   SISTEMA_STRIPE_DESCONECTADO: 'sistema.stripe_desconectado',
   SISTEMA_EMAIL_FALLIDO: 'sistema.email_fallido',
+  // API pública: un webhook del estudio (su programa de contabilidad) que no
+  // consigue entregar, que Tentare ha desactivado, o que vuelve a funcionar
+  // (cierra el primero). lib/api-publica/webhooks/salud.ts decide cuál.
+  WEBHOOK_FALLANDO: 'sistema.webhook_fallando',
+  WEBHOOK_DESACTIVADO: 'sistema.webhook_desactivado',
+  WEBHOOK_RECUPERADO: 'sistema.webhook_recuperado',
   // Prueba gratuita de 7 días (lib/billing/trial.ts): antes ni avisaba de que
   // estaba a punto de acabar ni de que ya bloqueó el panel — la dueña entraba
   // un lunes y se encontraba con el estudio cerrado sin ningún aviso previo ni

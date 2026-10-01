@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (c.url !== undefined) cambios.url = c.url;
   if (c.tipos !== undefined) cambios.tipos = c.tipos;
   if (c.descripcion !== undefined) cambios.descripcion = c.descripcion;
-  if (c.activo === true) Object.assign(cambios, { desactivado_en: null, desactivado_por: null, desactivado_motivo: null, fallando_desde: null });
+  if (c.activo === true) Object.assign(cambios, { desactivado_en: null, desactivado_por: null, desactivado_motivo: null, fallando_desde: null, aviso_fallando_en: null });
   if (c.activo === false && !w.desactivado_en) Object.assign(cambios, { desactivado_en: ahora, desactivado_por: g.userId, desactivado_motivo: 'manual' });
   if (c.retirarSecretoAnterior) Object.assign(cambios, { secreto_anterior_cifrado: null, secreto_anterior_expira_en: null });
   const { error } = await g.admin.from('api_webhooks').update(cambios).eq('id', id).eq('studio_id', g.studioId).is('borrado_en', null);

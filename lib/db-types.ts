@@ -3824,6 +3824,8 @@ export interface RowApiWebhooks {
   ultimo_intento_en: string | null;
   ultimo_estado_http: number | null;
   ultimo_error: string | null;
+  // migr 20261001180000.
+  aviso_fallando_en: string | null;
 }
 
 export interface RowApiWebhookEntregas {
@@ -10569,6 +10571,7 @@ export type ApiWebhooksInsert = {
   ultimo_intento_en?: string | null | null;
   ultimo_estado_http?: number | null | null;
   ultimo_error?: string | null | null;
+  aviso_fallando_en?: string | null | null;
 }
 
 export type ApiWebhooksUpdate = {
@@ -10595,6 +10598,7 @@ export type ApiWebhooksUpdate = {
   ultimo_intento_en?: string | null | null;
   ultimo_estado_http?: number | null | null;
   ultimo_error?: string | null | null;
+  aviso_fallando_en?: string | null | null;
 }
 
 export type ApiWebhookEntregasInsert = {

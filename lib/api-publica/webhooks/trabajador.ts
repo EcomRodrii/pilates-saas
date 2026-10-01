@@ -10,7 +10,9 @@ import { COLUMNAS_EVENTO, eventoPublico, serializarRecurso, type FilaEvento } fr
 import { CABECERA_FIRMA, firmar } from './firma';
 import { validarUrlWebhook } from './destino';
 import { USER_AGENT, enviarWebhook, type ResultadoEnvio } from './envio';
-import { debeDesactivarsePorFallos, decidirTrasIntento, describirFallo, esExito } from './reintentos';
+import { decidirTrasIntento, describirFallo, esExito } from './reintentos';
+import { porQueSeDesactivo, saludTrasIntento } from './salud';
+import { emitirAvisoWebhook } from '@/lib/notifications/emit';
 import { cifrarSecretoWebhook, descifrarSecretoWebhook, secretoPideRecifrarse, secretosVigentes } from './secretos';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,11 +79,11 @@ export async function procesarEventos(admin: SupabaseClient): Promise<ResumenEve
 }
 
 interface FilaWebhook {
-  id: string; studio_id: string; url: string; tipos: string[]; creado_por: string;
+  id: string; studio_id: string; url: string; descripcion: string | null; tipos: string[]; creado_por: string;
   secreto_cifrado: string; secreto_anterior_cifrado: string | null; secreto_anterior_expira_en: string | null;
-  desactivado_en: string | null; fallando_desde: string | null;
+  desactivado_en: string | null; fallando_desde: string | null; aviso_fallando_en: string | null;
 }
-const COLUMNAS_WEBHOOK = 'id, studio_id, url, tipos, creado_por, secreto_cifrado, secreto_anterior_cifrado, secreto_anterior_expira_en, desactivado_en, fallando_desde';
+const COLUMNAS_WEBHOOK = 'id, studio_id, url, descripcion, tipos, creado_por, secreto_cifrado, secreto_anterior_cifrado, secreto_anterior_expira_en, desactivado_en, fallando_desde, aviso_fallando_en';
 
 export interface ResumenEntregas { reclamadas: number; intentadas: number; entregadas: number; reintentos: number; fallidas: number; descartadas: number; aplazadas: number }
 
@@ -250,7 +252,14 @@ async function apuntarResultado(
   if (error) Sentry.captureException(new Error(`apuntar entrega: ${error.message}`), { tags: { cron: 'api-webhooks' } });
 }
 
-/** Devuelve `true` si el webhook ha quedado desactivado. */
+/**
+ * Apunta la salud del webhook tras un intento y, si toca, se lo cuenta a la
+ * propietaria (salud.ts decide qué). Devuelve `true` si ha quedado desactivado.
+ *
+ * Cada aviso sale solo si ESTA pasada es la que cambia el estado (escritura
+ * condicionada): dos pasadas del trabajador a la vez no avisan dos veces. Y la
+ * clave de deduplicación lleva el inicio de la racha, por si acaso.
+ */
 async function apuntarSaludDelWebhook(
   admin: SupabaseClient, w: FilaWebhook, r: ResultadoEnvio,
   efecto: ReturnType<typeof decidirTrasIntento>['efecto'], ahora: Date,
@@ -260,27 +269,52 @@ async function apuntarSaludDelWebhook(
     ultimo_estado_http: r.tipo === 'respuesta' ? r.estadoHttp : null,
     ultimo_error: describirFallo(r),
   };
+  const s = saludTrasIntento({ fallandoDesde: w.fallando_desde, avisoFallandoEn: w.aviso_fallando_en }, r, efecto, ahora);
+  const racha = w.fallando_desde ?? s.fallandoDesde ?? ahora.toISOString();
+  const avisar = (aviso: 'fallando' | 'desactivado' | 'recuperado', motivo?: string) => emitirAvisoWebhook({
+    studioId: w.studio_id, webhookId: w.id, aviso, nombre: nombreDelWebhook(w), momento: racha,
+    error: describirFallo(r), motivo,
+  });
+
   if (esExito(r)) {
+    if (s.aviso === 'recuperado') {
+      const { data } = await admin.from('api_webhooks').update({ aviso_fallando_en: null })
+        .eq('id', w.id).not('aviso_fallando_en', 'is', null).select('id');
+      if (data?.length) await avisar('recuperado');
+    }
     w.fallando_desde = null;
-    await admin.from('api_webhooks').update({ ...base, ultimo_exito_en: ahora.toISOString(), fallando_desde: null }).eq('id', w.id);
+    w.aviso_fallando_en = null;
+    await admin.from('api_webhooks').update({ ...base, ultimo_exito_en: ahora.toISOString(), fallando_desde: null, aviso_fallando_en: null }).eq('id', w.id);
     return false;
   }
-  const fallandoDesde = w.fallando_desde ?? ahora.toISOString();
-  w.fallando_desde = fallandoDesde;
-  const motivo = efecto === 'desactivar_destino_retirado'
-    ? 'destino_retirado'
-    : debeDesactivarsePorFallos(fallandoDesde, ahora) ? 'fallos' : null;
-  await admin.from('api_webhooks').update({
-    ...base,
-    fallando_desde: fallandoDesde,
-    ...(motivo ? { desactivado_en: ahora.toISOString(), desactivado_motivo: motivo } : {}),
-  }).eq('id', w.id).is('desactivado_en', null);
-  if (!motivo) return false;
-  // Lo que quedaba pendiente de este webhook ya no se va a mandar.
-  await admin.from('api_webhook_entregas')
-    .update({ estado: 'DESCARTADA', ultimo_error: 'El webhook se ha desactivado.' })
-    .eq('webhook_id', w.id).eq('estado', 'PENDIENTE');
-  return true;
+
+  await admin.from('api_webhooks').update({ ...base, fallando_desde: s.fallandoDesde }).eq('id', w.id).is('desactivado_en', null);
+  w.fallando_desde = s.fallandoDesde;
+
+  if (s.desactivar) {
+    const { data } = await admin.from('api_webhooks')
+      .update({ desactivado_en: ahora.toISOString(), desactivado_motivo: s.desactivar })
+      .eq('id', w.id).is('desactivado_en', null).select('id');
+    // Lo que quedaba pendiente de este webhook ya no se va a mandar.
+    await admin.from('api_webhook_entregas')
+      .update({ estado: 'DESCARTADA', ultimo_error: 'El webhook se ha desactivado.' })
+      .eq('webhook_id', w.id).eq('estado', 'PENDIENTE');
+    if (data?.length) await avisar('desactivado', porQueSeDesactivo(s.desactivar));
+    return true;
+  }
+  if (s.aviso === 'fallando') {
+    const { data } = await admin.from('api_webhooks').update({ aviso_fallando_en: s.avisoFallandoEn })
+      .eq('id', w.id).is('aviso_fallando_en', null).is('desactivado_en', null).select('id');
+    w.aviso_fallando_en = s.avisoFallandoEn;
+    if (data?.length) await avisar('fallando');
+  }
+  return false;
+}
+
+/** Cómo lo llama la propietaria: su descripción o, sin ella, el dominio. */
+function nombreDelWebhook(w: { descripcion: string | null; url: string }): string {
+  if (w.descripcion) return w.descripcion;
+  try { return new URL(w.url).hostname; } catch { return 'Tu webhook'; }
 }
 
 /**

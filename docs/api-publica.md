@@ -194,7 +194,9 @@ Cada aviso es un `POST` con el evento en el cuerpo (JSON) y estas cabeceras:
 - **410 Gone:** el webhook se desactiva, porque el destino dice que esa dirección ya no existe.
 - **Redirecciones:** no se siguen. Configura la dirección final.
 
-**Desactivación automática.** Un webhook que lleva **3 días** sin conseguir entregar nada se desactiva solo. La propietaria lo ve en el panel, puede reactivarlo y puede reenviar entregas una a una.
+**Desactivación automática.** Un webhook que lleva **unos tres días** sin conseguir entregar nada se desactiva solo. La propietaria lo ve en el panel, puede reactivarlo y puede reenviar entregas una a una.
+
+**Avisos a la propietaria.** Si su programa lleva **12 horas** sin recibir nada, Tentare se lo dice (push y, si lo tiene activado, correo) para que pueda arreglarlo antes de que se desactive. Si se desactiva, se lo dice siempre, también por correo. Y si vuelve a funcionar después del primer aviso, también se lo cuenta. Un fallo suelto que los reintentos resuelven en un rato no genera ningún aviso.
 
 **Ritmo.** Las entregas se reparten entre webhooks (unas pocas de cada uno por pasada), así que una importación masiva en un estudio no retrasa los avisos de los demás. Un destino que acaba de fallar no recibe más hasta el siguiente intento.
 
@@ -289,13 +291,13 @@ curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://tentare.app/api/v1/ev
   - **SSRF** (`destino.ts`): https y puerto 443; nombres e IP no públicas fuera; la IP se vuelve a comprobar **al conectar** (`lookup` propio en `envio.ts`); sin redirecciones.
   - El secreto se guarda **cifrado** con la clave de las integraciones (`secretos.ts`) y falla cerrado: sin clave no hay webhooks. El barrido nocturno de copias lo vuelve a cifrar tras rotar la clave.
   - Desactivar la API desde `/interno` desactiva también los webhooks.
+  - Avisos a la propietaria (`lib/api-publica/webhooks/salud.ts`): «no recibe» a las 12 h (ALTA), «desactivado» (CRÍTICA, siempre por correo) y «vuelve a funcionar» (cierra el primero). Uno por racha: `api_webhooks.aviso_fallando_en`, más escrituras condicionadas y una clave de deduplicación con el inicio de la racha.
   - El cursor de `/eventos` es `publicado` y no `seq`: se reparte al procesar, bajo un cerrojo que dura hasta el commit, así que su orden es el de confirmación.
   - Reparto justo: los dos «reclamar» limitan por estudio (eventos) y por webhook (entregas), y el cron repite tandas mientras le queda presupuesto.
   - Suprimir o borrar a una clienta vacía sus copias en `api_eventos.datos` (trigger `api_eventos_olvidar_clienta`). El registro no apunta a ella por `socio_id`, así que no lo cubre `supresion-cobertura.test.ts`; lo cubre `webhooks/catalogo.test.ts`.
   - Borrar un webhook es un borrado lógico (`borrado_en`/`borrado_por`): queda el rastro de a qué URL apuntaba y quién lo creó y lo borró.
   - Cada fila del trigger abre una subtransacción (el `exception` que protege la escritura de negocio), solo en estudios con la API activa. Con más de 64 filas en una sola sentencia (importación masiva) desborda la caché de subtransacciones; es aceptable a esta escala, pero conviene tenerlo presente.
 - **Pendiente.**
-  - Avisar a la propietaria (correo o push) cuando un webhook se desactiva solo: hoy solo lo ve en el panel.
   - Eventos de reservas y suscripciones, para Zapier y BI: hoy solo los de contabilidad.
   - `Idempotency-Key` en los POST.
   - Claves a nivel de cadena.

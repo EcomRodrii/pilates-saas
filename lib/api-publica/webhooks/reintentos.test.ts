@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DIAS_PARA_DESACTIVAR, ESPERAS_MINUTOS, MAX_INTENTOS, debeDesactivarsePorFallos, decidirTrasIntento, describirFallo } from './reintentos.ts';
+import { ESPERAS_MINUTOS, MAX_INTENTOS, decidirTrasIntento, describirFallo } from './reintentos.ts';
+import { DIAS_PARA_DESACTIVAR } from './salud.ts';
 import type { ResultadoEnvio } from './envio.ts';
 
 const ahora = new Date('2026-10-01T10:00:00Z');
@@ -21,7 +22,7 @@ test('lo demás se reintenta con esperas crecientes, durante casi 3 días', () =
     total += espera;
   }
   assert.ok(total > 2.5 * 86_400_000 && total < DIAS_PARA_DESACTIVAR * 86_400_000, `${total / 3_600_000} h`);
-  assert.equal(decidirTrasIntento(http(500), MAX_INTENTOS, ahora).decision.estado, 'FALLIDA');
+  assert.deepEqual(decidirTrasIntento(http(500), MAX_INTENTOS, ahora), { decision: { estado: 'FALLIDA' }, efecto: 'agotado' });
 });
 
 test('un 4xx o una redirección también se reintentan (el destino puede arreglarse)', () => {
@@ -35,12 +36,6 @@ test('410: no se insiste y el webhook se desactiva', () => {
 test('un destino interno no deja de serlo: no se reintenta', () => {
   const r: ResultadoEnvio = { tipo: 'error', error: 'privada', destinoNoPermitido: true, duracionMs: 1 };
   assert.equal(decidirTrasIntento(r, 1, ahora).decision.estado, 'FALLIDA');
-});
-
-test('se desactiva tras DIAS_PARA_DESACTIVAR días fallando, no antes', () => {
-  assert.equal(debeDesactivarsePorFallos(null, ahora), false);
-  assert.equal(debeDesactivarsePorFallos(new Date(ahora.getTime() - (DIAS_PARA_DESACTIVAR * 86_400_000 - 60_000)).toISOString(), ahora), false);
-  assert.equal(debeDesactivarsePorFallos(new Date(ahora.getTime() - DIAS_PARA_DESACTIVAR * 86_400_000).toISOString(), ahora), true);
 });
 
 test('describirFallo: nada si se entregó; el código o el error si no', () => {

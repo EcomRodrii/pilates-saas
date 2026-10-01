@@ -38,6 +38,6 @@ test('el panel nunca recibe el secreto', () => {
 });
 
 test('el motivo de una desactivación se explica', () => {
-  assert.match(textoMotivoDesactivado('fallos'), /3 días/);
+  assert.match(textoMotivoDesactivado('fallos'), /días sin poder entregar/);
   assert.match(textoMotivoDesactivado('destino_retirado'), /410/);
 });
