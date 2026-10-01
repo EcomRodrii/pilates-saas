@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import type { EstadoRecibo, Socio, MetodoCobro } from '@/lib/types';
 import { DialogoMetodoCobro } from '@/components/cobros/dialogo-metodo-cobro';
+import { CasillaRenovacion } from '@/components/cobros/casilla-renovacion';
 import { MENSAJE_YA_ESTABA, esCobroConfirmado } from '@/lib/cobros/marcar-cobrado';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn, copiarAlPortapapeles, formatEuro, hoyEnEstudio } from '@/lib/utils';
@@ -79,7 +80,14 @@ function SocioPicker({ socios, value, onChange }: {
         className={cn(inputCls, 'relative z-50')}
         placeholder="Buscar cliente…"
         value={open ? q : (selected ? `${selected.nombre} ${selected.apellidos}` : '')}
-        onFocus={() => { setOpen(true); setQ(''); }}
+        // Se abre al pulsarlo, al escribir o con la flecha abajo, NO al recibir el foco: el diálogo de
+        // «Nuevo cobro» pone el foco aquí al abrirse y el desplegable nacía abierto, con un velo
+        // encima que se comía el primer clic (el de «Crear cobro», o el de la casilla de renovación).
+        onClick={() => { if (!open) { setOpen(true); setQ(''); } }}
+        onKeyDown={e => {
+          if (e.key === 'ArrowDown' && !open) { e.preventDefault(); setOpen(true); setQ(''); }
+          if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false); }
+        }}
         onChange={e => { setQ(e.target.value); setOpen(true); }}
       />
       {open && (
@@ -354,18 +362,26 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
   const [histEstado, setHistEstado]   = useState<EstadoRecibo | 'TODOS'>('TODOS');
   const [exportState, setExportState] = useState<'idle' | 'loading' | 'done'>('idle');
 
+  // El formulario de «Nuevo cobro» en blanco. Una sola definición: el estado, el botón que lo abre y
+  // el reinicio tras crear tenían cada uno la suya, y dos habían vuelto a la fecha en UTC.
+  function formularioNuevoCobro() {
+    return {
+      socioId: socios[0]?.id ?? '',
+      concepto: '',
+      importe: '',
+      // `hoyEnEstudio`, no `toISOString()`: este campo es una columna `date` y
+      // `toISOString` da la fecha en UTC. Un cobro creado a las 00:20 de Madrid
+      // nacía vencido ayer — es decir, en rojo desde el primer segundo. Mismo
+      // arreglo que ya llevan `marcarCobrado` y el alta de socia.
+      fechaVencimiento: hoyEnEstudio(now),
+      // Sin marcar por defecto: un cobro suelto es una venta, no una renovación. Solo lo
+      // marca quien lo dice, y solo cuenta si la clienta tiene un plan activo que renovar.
+      esRenovacion: false,
+    };
+  }
   // ── Nuevo recibo modal ──────────────────────────────────────────────────────
   const [showNuevoCobro, setShowNuevoCobro] = useState(false);
-  const [nuevoForm, setNuevoForm] = useState({
-    socioId: socios[0]?.id ?? '',
-    concepto: '',
-    importe: '',
-    // `hoyEnEstudio`, no `toISOString()`: este campo es una columna `date` y
-    // `toISOString` da la fecha en UTC. Un cobro creado a las 00:20 de Madrid
-    // nacía vencido ayer — es decir, en rojo desde el primer segundo. Mismo
-    // arreglo que ya llevan `marcarCobrado` y el alta de socia.
-    fechaVencimiento: hoyEnEstudio(now),
-  });
+  const [nuevoForm, setNuevoForm] = useState(formularioNuevoCobro);
 
   // ── Lookups ──────────────────────────────────────────────────────────────────
 
@@ -712,14 +728,24 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
       : { tipo: 'error', msg: `Sigue sin poder sellarse: ${res.error}` });
   }
 
+  // El plan activo de la clienta elegida en «Nuevo cobro»: el que se renovaría al cobrarlo si
+  // se marca la casilla, y el que el recibo lleva enlazado.
+  const susNuevoCobro = useMemo(
+    () => suscripciones.find(s => s.socioId === nuevoForm.socioId && s.estado === 'ACTIVA'),
+    [suscripciones, nuevoForm.socioId],
+  );
+
   async function crearNuevoCobro() {
-    const sus = suscripciones.find(s => s.socioId === nuevoForm.socioId && s.estado === 'ACTIVA');
+    const sus = susNuevoCobro;
     const res = await addRecibo({
       socioId: nuevoForm.socioId,
       suscripcionId: sus?.id ?? null,
       concepto: nuevoForm.concepto.trim(),
       importe: parseFloat(nuevoForm.importe),
       fechaVencimiento: nuevoForm.fechaVencimiento,
+      // Al cobrarlo, el servidor solo entrega el plan (recarga el bono o extiende la mensual) si
+      // el recibo viene marcado como renovación. Sin plan activo no hay nada que renovar.
+      esRenovacion: !!sus && nuevoForm.esRenovacion,
     });
     // No hay canal de toast en este panel; se deja el modal abierto en vez de
     // cerrarlo — antes se cerraba y limpiaba el formulario aunque la escritura
@@ -727,12 +753,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     // nunca se guardó ni de reintentarlo sin rellenar todo otra vez.
     if (!res.ok) { onToast(res.error); return; }
     setShowNuevoCobro(false);
-    setNuevoForm({
-      socioId: socios[0]?.id ?? '',
-      concepto: '',
-      importe: '',
-      fechaVencimiento: now.toISOString().split('T')[0],
-    });
+    setNuevoForm(formularioNuevoCobro());
   }
 
   function exportCSV() {
@@ -1015,12 +1036,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
             )}
             <button
               onClick={() => {
-                setNuevoForm({
-                  socioId: socios[0]?.id ?? '',
-                  concepto: '',
-                  importe: '',
-                  fechaVencimiento: now.toISOString().split('T')[0],
-                });
+                setNuevoForm(formularioNuevoCobro());
                 setShowNuevoCobro(true);
               }}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
@@ -2040,7 +2056,8 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
               <SocioPicker
                 socios={socios}
                 value={nuevoForm.socioId}
-                onChange={id => setNuevoForm(f => ({ ...f, socioId: id }))}
+                // Otra clienta, otro plan: la casilla no se arrastra de una a otra.
+                onChange={id => setNuevoForm(f => ({ ...f, socioId: id, esRenovacion: false }))}
               />
             </FF>
             <FF label="Concepto">
@@ -2070,6 +2087,13 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                 />
               </FF>
             </div>
+            {susNuevoCobro && (
+              <CasillaRenovacion
+                planNombre={planName(susNuevoCobro.planId)}
+                marcada={nuevoForm.esRenovacion}
+                onCambio={esRenovacion => setNuevoForm(f => ({ ...f, esRenovacion }))}
+              />
+            )}
           </div>
           <div className="flex gap-3 mt-6">
             <button

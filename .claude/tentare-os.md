@@ -1009,7 +1009,10 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     penalización, el sellado y la renovación. Cerrarlo es un trigger, o un REVOKE de
     tabla con GRANT por columnas (un REVOKE de columna no resta de un grant de tabla).
     ⚠️ El servidor solo renueva un recibo con `es_renovacion = true`; el navegador
-    renovaba también por tener suscripción.
+    renovaba también por tener suscripción. Por eso «Nuevo cobro» (Cobros y la ficha
+    de la clienta) lleva la casilla «Es la renovación de su plan»
+    (`components/cobros/casilla-renovacion.tsx`): sin marcar, el cobro es una venta y
+    no toca el plan.
 - **De serie ≠ personalizable.** Recordatorio de clase, confirmación, lista de
   espera, bono agotado, reintento de cobro, valoración y búsqueda de sustituta son
   producto, no reglas. `CLASE_MANANA` ya no se ofrece (duplicaba el recordatorio

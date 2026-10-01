@@ -32,6 +32,7 @@ import { DerechosRgpdFicha } from '@/components/socios/derechos-rgpd-ficha';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { BotonDevolverRecibo } from '@/components/socios/boton-devolver-recibo';
 import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
+import { CasillaRenovacion } from '@/components/cobros/casilla-renovacion';
 import { MENSAJE_YA_ESTABA, textoLoteCobrado } from '@/lib/cobros/marcar-cobrado';
 import { BotonRectificarFactura } from '@/components/socios/boton-rectificar-factura';
 import { estadoReembolso } from '@/lib/billing/estado-reembolso';
@@ -386,7 +387,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     nombre: string; apellidos: string; email: string; telefono: string; nif: string; genero: Genero | '';
     camposExtra: Record<string, string | number | boolean | null>;
   }>({ nombre: '', apellidos: '', email: '', telefono: '', nif: '', genero: '', camposExtra: {} });
-  const [reciboForm, setReciboForm] = useState({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()) });
+  // `esRenovacion` sin marcar por defecto: un cobro suelto es una venta, no una renovación del plan.
+  const [reciboForm, setReciboForm] = useState({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()), esRenovacion: false });
 
   // ── Historial real de comunicaciones (comunicaciones_socio) ─────────────────
   // Antes esto era un useState en memoria que nunca se persistía — se perdía
@@ -762,9 +764,11 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       concepto: reciboForm.concepto.trim(),
       importe: parseFloat(reciboForm.importe),
       fechaVencimiento: reciboForm.fechaVencimiento,
+      // Al cobrarlo, el servidor solo entrega el plan si el recibo viene marcado como renovación.
+      esRenovacion: !!suscripcion && reciboForm.esRenovacion,
     });
     if (!res.ok) { setToast(res.error); return; }
-    setReciboForm({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()) });
+    setReciboForm({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()), esRenovacion: false });
     setShowAddRecibo(false);
     setToast('Cobro creado');
   }
@@ -2539,6 +2543,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 />
               </FF>
             </div>
+            {suscripcion && (
+              <CasillaRenovacion
+                planNombre={plan?.nombre ?? 'plan'}
+                marcada={reciboForm.esRenovacion}
+                onCambio={esRenovacion => setReciboForm(f => ({ ...f, esRenovacion }))}
+              />
+            )}
           </div>
           <div className="flex gap-3 mt-6">
             <button onClick={() => setShowAddRecibo(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted">
