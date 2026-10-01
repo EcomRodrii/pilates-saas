@@ -3750,8 +3750,8 @@ export async function dbDevolverSesionBono(
 // sobre el array de recibos del cliente (capado a 1000 → mentía a escala). Un sum()
 // en SQL agrega todas las filas; la RLS acota por estudio. `desde` = 'YYYY-MM-DD' o
 // null (todo el histórico).
-// ⚠️ `null` cuando no hay respuesta, NUNCA ceros — por el mismo motivo que
-// `dbStatsClientas` (más abajo), pero aquí es dinero. Devolvía
+// ⚠️ `null` cuando no hay respuesta, NUNCA ceros: un cero es una afirmación, y
+// aquí es dinero. Devolvía
 // `{ total: 0, … }`, y /informes lo pintaba tal cual: «Ingresos período
 // 0,00 €», «Ingresos del mes 0,00 €», «Ticket medio 0,00 €». Eso no es un
 // hueco, es una AFIRMACIÓN sobre la caja del estudio, indistinguible de la
@@ -3857,25 +3857,6 @@ export async function dbVentasPorTipo(
   if (error) { reportDbError('[dbVentasPorTipo]', error); return null; }
   return ((data ?? []) as { tipo: string; n_ventas: number; total: number }[])
     .map((r) => ({ tipo: r.tipo, nVentas: Number(r.n_ventas), total: Number(r.total) }));
-}
-
-// F1 (B1): contadores de clientas SERVER-SIDE (migr 0097). Sustituye a los 4 filter/
-// length sobre el array de socios del cliente (capado a 1000). count() en SQL no se
-// capa; la RLS acota por estudio.
-// ⚠️ Devuelve `null` cuando no hay respuesta, NUNCA ceros. Un cero aquí es una
-// afirmación —«no tienes ninguna clienta»— y la pantalla no puede distinguirla
-// de la verdad: la tarjeta pinta `stats?.total ?? null` para poder enseñar «—»,
-// y ese guardia quedaba anulado desde aquí. Un estudio con 200 socias y la RPC
-// caída leía «0 Total clientas» con su lista de 200 debajo.
-export async function dbStatsClientas(): Promise<{ total: number; activas: number; conBono: number; inactivas30d: number } | null> {
-  const { data, error } = await supabase.rpc('stats_clientas');
-  if (error) { reportDbError('[dbStatsClientas]', error); return null; }
-  const row = (Array.isArray(data) ? data[0] : data) as { total: number; activas: number; con_bono: number; inactivas_30d: number } | undefined;
-  if (!row) return null;
-  return {
-    total: Number(row.total ?? 0), activas: Number(row.activas ?? 0),
-    conBono: Number(row.con_bono ?? 0), inactivas30d: Number(row.inactivas_30d ?? 0),
-  };
 }
 
 // F1 (B4/C2): ocupación por tipo de clase SERVER-SIDE (migr 0098). Sustituye la
