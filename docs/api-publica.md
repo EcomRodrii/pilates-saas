@@ -281,7 +281,7 @@ curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://tentare.app/api/v1/ev
   - Rutas `/api/integrations/api-publica/*`, solo para la propietaria (`puedeGestionarClavesApi`).
 - **Límite por plan.** `scopesDelPlan()` es el único sitio donde se pondrá cuando haya una decisión comercial. Hoy no recorta nada.
 - **Eventos y webhooks (F2).**
-  - Los registra el trigger `api_registrar_evento` (migr `20261001170000`), no el código: `recibos` tiene decenas de escritores.
+  - Los registra el trigger `api_registrar_evento` (migr `20261001162731`), no el código: `recibos` tiene decenas de escritores.
   - Un `UPDATE` solo es evento si cambia una columna de `COLUMNAS`. `lib/api-publica/webhooks/catalogo.test.ts` cruza la lista del trigger con `serializar.ts`.
   - El trabajador (`lib/api-publica/webhooks/trabajador.ts`) lo dispara el cron `api-webhooks`: cada minuto, pero **solo si hay algo que hacer** (el `where exists` va antes del POST).
   - El trabajador escribe `datos` con el mismo serializador que la API y entrega con firma HMAC (`firma.ts`).

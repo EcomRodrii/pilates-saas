@@ -1,6 +1,6 @@
 // Catálogo de eventos de la API pública (F2).
 //
-// Lo escribe el trigger `api_registrar_evento` (migr 20261001170000): un evento
+// Lo escribe el trigger `api_registrar_evento` (migr 20261001162731): un evento
 // por fila creada, eliminada o actualizada EN ALGO QUE LA API ENSEÑA. El mismo
 // catálogo sirve a los webhooks y a `GET /api/v1/eventos`.
 //

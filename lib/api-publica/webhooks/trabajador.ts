@@ -15,7 +15,7 @@ import { cifrarSecretoWebhook, descifrarSecretoWebhook, secretoPideRecifrarse, s
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El trabajador de los webhooks. Lo llama el cron `api-webhooks` (pg_cron, cada
-// minuto, y SOLO si hay algo que hacer: migr 20261001170000).
+// minuto, y SOLO si hay algo que hacer: migr 20261001162731).
 //
 //   1. procesarEventos: escribe la forma pública (`datos`) de cada evento nuevo
 //      con el mismo serializador que la API y crea sus entregas.

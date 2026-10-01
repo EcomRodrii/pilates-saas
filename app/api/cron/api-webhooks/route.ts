@@ -10,7 +10,7 @@ export const maxDuration = 60;
 
 // Webhooks de la API pública (F2): procesa los eventos nuevos y manda las
 // entregas que tocan. Lo dispara pg_cron cada minuto, pero SOLO cuando hay algo
-// que hacer (el `where` va antes del POST, migr 20261001170000). Autenticado con
+// que hacer (el `where` va antes del POST, migr 20261001162731). Autenticado con
 // SUPABASE_CRON_SECRET (Vault), mismo patrón que el resto del bucket A.
 //
 // El presupuesto (25 s) deja margen de sobra bajo el `timeout_milliseconds`

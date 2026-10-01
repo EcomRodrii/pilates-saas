@@ -8,7 +8,7 @@ import { join } from 'node:path';
 // Sin él serían 43.200 invocaciones al mes para no hacer nada.
 
 const RAIZ = join(import.meta.dirname, '..', '..', '..');
-const M = readFileSync(join(RAIZ, 'supabase/migrations/20261001170000_api_webhooks.sql'), 'utf8');
+const M = readFileSync(join(RAIZ, 'supabase/migrations/20261001162731_api_webhooks.sql'), 'utf8');
 const RUTA = readFileSync(join(RAIZ, 'app/api/cron/api-webhooks/route.ts'), 'utf8');
 
 test('api-webhooks: cada minuto, y solo si hay eventos o entregas pendientes', () => {

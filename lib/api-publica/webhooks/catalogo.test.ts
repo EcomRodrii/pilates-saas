@@ -14,7 +14,7 @@ import { COLUMNAS } from '../serializar.ts';
 // cambia una columna que la API enseña y no avisa nadie.
 
 const RAIZ = join(import.meta.dirname, '..', '..', '..');
-const MIGRACION = readFileSync(join(RAIZ, 'supabase/migrations/20261001170000_api_webhooks.sql'), 'utf8');
+const MIGRACION = readFileSync(join(RAIZ, 'supabase/migrations/20261001162731_api_webhooks.sql'), 'utf8');
 
 test('cada tipo cumple el CHECK de api_eventos.tipo', () => {
   const m = /tipo\s+text not null check \(tipo ~ '([^']+)'\)/.exec(MIGRACION);

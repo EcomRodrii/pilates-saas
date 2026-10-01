@@ -27,7 +27,8 @@
 -- ── Registro de eventos ──────────────────────────────────────────────────────
 create table if not exists public.api_eventos (
   id              text primary key default ('evt_' || replace(gen_random_uuid()::text, '-', '')),
-  -- Orden de llegada: el cursor de `GET /api/v1/eventos`.
+  -- Orden de llegada: el trabajador procesa por él (el cursor del registro es
+  -- `publicado`, más abajo).
   seq             bigint generated always as identity,
   studio_id       text not null references public.studios(id) on delete cascade,
   tipo            text not null check (tipo ~ '^(recibo\.(creado|actualizado|eliminado)|(factura|devolucion|venta|clienta)\.(creada|actualizada|eliminada))$'),

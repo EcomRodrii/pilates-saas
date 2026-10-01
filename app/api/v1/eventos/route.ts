@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     const n = leerLimite(sp.get('limite') ?? sp.get('limit'), 100);
 
     // El cursor va sobre `publicado`, que se reparte en orden de confirmación
-    // (migr 20261001170000): un evento nunca aparece por detrás de otro que ya
+    // (migr 20261001162731): un evento nunca aparece por detrás de otro que ya
     // se haya leído, así que avanzar el cursor no se salta nada.
     let q = admin.from('api_eventos')
       .select('id, publicado, tipo, recurso, recurso_id, studio_id, creado_en, datos')
