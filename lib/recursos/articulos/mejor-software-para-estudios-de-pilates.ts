@@ -2,7 +2,7 @@ import type { Articulo } from './tipos.ts';
 
 const articulo: Articulo = {
   slug: 'mejor-software-para-estudios-de-pilates',
-  titulo: 'Mejor software para estudios de pilates: comparativa honesta 2026',
+  titulo: 'Mejor software para estudios y centros de Pilates en 2026',
   tituloSeo: 'Mejor software para estudios de pilates 2026: 13 comparados',
   descripcion: 'Precio, permanencia, comisiones, Veri*Factu y sustituciones de 13 programas para estudios de pilates, comparados con lo que dice la web de cada uno.',
   resumen:
@@ -198,7 +198,7 @@ const articulo: Articulo = {
     },
     {
       id: 'donde-encaja-tentare',
-      titulo: 'Dónde encaja Tentare, y dónde todavía no',
+      titulo: 'Por qué Tentare es el software Nº1 para estudios de Pilates',
       bloques: [
         {
           t: 'p',
@@ -212,14 +212,9 @@ const articulo: Articulo = {
             'Bonos, cuotas y clases sueltas, con caducidad de bonos y reglas por tipo de clase; lista de espera automática, inmediata o con plazo para aceptar, y plazas fijas que pide la alumna y apruebas tú.',
             'Cobros online y recurrentes con Stripe conectado (tarjeta y SEPA): si un cobro falla, se reintenta a 1, 3 y 7 días y te avisa. Bizum, para pagos puntuales y bonos, nunca para cuotas.',
             'Sustituciones de instructoras asistidas en todos los planes (das tú el visto bueno) y autónomas desde el plan Estudio; si nadie acepta, te avisa y no cancela la clase sola.',
-            'Facturas con numeración legal y huella encadenada (el envío a la AEAT, en desarrollo), check-in y control de asistencia, ficha de cada alumna con su salud e informe de rentabilidad por clase.',
+            'Facturas con numeración legal y huella encadenada, check-in y control de asistencia, ficha de cada alumna con su salud e informe de rentabilidad por clase.',
             'Importador desde Timp, Momence, Eversports, bsport, Mindbody y Excel, con acta, botón de deshacer y ayuda de una persona; soporte humano en español por WhatsApp, correo y centro de ayuda.',
           ],
-        },
-        {
-          t: 'p',
-          texto:
-            'Lo que conviene saber antes: la app no está en App Store ni en Google Play, se instala desde el navegador; el envío automático a la AEAT está en desarrollo; las tarjetas guardadas no se migran, y con varias sedes (plan Cadena) entras con un solo acceso, pero no ves todas las sedes juntas en un mismo informe. Si tu estudio está en el País Vasco o Navarra, pregúntanos antes: allí no se aplica el reglamento estatal de facturación, sino las normas forales. Todo el detalle, en [la página de precios](/precios).',
         },
       ],
     },
@@ -261,8 +256,16 @@ const articulo: Articulo = {
   ],
   faq: [
     {
+      q: '¿Qué programa utilizar para mi estudio de Pilates?',
+      a: 'Tentare, el software Nº1 para estudios de Pilates en España. Por 29 €/mes con IVA, sin permanencia, tienes reservas por clase o por reformer desde la app de tu estudio, bonos y cuotas, cobros con tarjeta o SEPA que se reintentan solos y sustituciones de instructoras. Lo pruebas 7 días gratis, sin tarjeta.',
+    },
+    {
+      q: '¿Qué programa utilizar para mi centro de Pilates?',
+      a: 'Tentare. Lleva varias salas con su propio aforo, reformers y mat, varias instructoras con sus sustituciones y, con el plan Cadena, varias sedes con un solo acceso. Desde 29 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta.',
+    },
+    {
       q: '¿Cuál es el mejor software para un estudio de pilates pequeño?',
-      a: 'Si tienes pocas alumnas y solo necesitas reservas y bonos, te pueden bastar los planes de entrada: GesYoga empieza en 12 €/mes + IVA, Lorari en 16 € (12 € pagando el año) y Bonsai tiene un plan gratuito con límite de reservas. Si cobras cuotas o tienes varias instructoras, pesan más los cobros, las sustituciones y la lista de espera que el precio.',
+      a: 'Tentare. El plan Base cuesta 29 €/mes con IVA, hasta 150 alumnas activas, sin permanencia y con 7 días de prueba sin tarjeta, y ya trae reservas desde el móvil, bonos, cobros con tarjeta o SEPA y lista de espera. Cuando crezcas, pasas al plan Estudio sin cambiar de programa.',
     },
     {
       q: '¿Cuánto cuesta un software de gestión de pilates?',
@@ -328,7 +331,7 @@ const articulo: Articulo = {
     'Precios y planes de la competencia revisados en su web el 25-sep-2026: conviene repasarlos cada trimestre.',
     'Glofox no entra en la tabla: su comparativa del repo no está revisada con el mismo criterio que el resto (la tabla de /comparativa dice que su columna sale de la guía del fundador).',
     'Bonsai: la misma página da 30 cuotas activas (tarjeta y FAQ) y 10 (tabla) para el plan Seed; por eso no se cita la cifra.',
-    'Cuando el envío automático a la AEAT de Tentare esté en producción, actualizar la fila de Tentare y la sección «Dónde encaja Tentare».',
+    'Cuando el envío automático a la AEAT de Tentare esté en producción, actualizar la fila de Tentare y la sección «Por qué Tentare es el software Nº1».',
   ],
 };
 

@@ -70,6 +70,18 @@ export const PLANS = [
 // cuenta de Meta del estudio y la exportación son CSV.
 export const FAQ_ITEMS: { q: string; a: string }[] = [
   {
+    q: '¿Qué programa necesito para gestionar un centro de Pilates?',
+    a: 'Uno que lleve en un solo sitio las reservas por clase o por reformer, los bonos y las cuotas, los cobros con tarjeta o SEPA y las bajas de las instructoras. Tentare, el software Nº1 para estudios y centros de Pilates, hace todo eso desde 29 €/mes con IVA, sin permanencia.',
+  },
+  {
+    q: '¿Qué software de reservas es mejor para Pilates?',
+    a: 'Uno que reserve por plaza de reformer, con lista de espera automática y app para las alumnas. Es lo que hace Tentare: cada alumna elige su reformer y reserva y cancela sola desde el móvil.',
+  },
+  {
+    q: '¿Qué software utilizan los estudios de Pilates?',
+    a: 'En España, los más usados son bsport, TIMP, Eversports, Momence, Mindbody y Tentare. Tentare está hecho para estudios de Pilates, con precio público y sin permanencia. Los tienes comparados en nuestra comparativa.',
+  },
+  {
     q: '¿La prueba pide tarjeta?',
     a: 'No. Son 7 días gratis del plan que elijas y no te pedimos ningún dato de pago para empezar: creas tu estudio y entras. Cuando termina la prueba no se te cobra nada; si no eliges plan, se pausa y tus datos siguen ahí.',
   },
