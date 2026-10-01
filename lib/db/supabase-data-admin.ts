@@ -66,7 +66,7 @@ import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado } from '@/lib/engines/streak-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
-import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules';
+import { evaluarFeature } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import { planMasElegido } from '@/lib/estudio-publico';
 import { esRetoKeyValida } from '@/lib/retos-portal';
@@ -5785,20 +5785,6 @@ export async function toggleRetoParticipacion(params: {
 
 // Registra una socia nueva desde el portal/reserva (alta pública). Valida que
 // el estudio existe; el id lo genera el cliente (primera reserva).
-// Socias que cuentan para el tope del plan: activas y no borradas. Mismo
-// criterio que el alta manual y el importador, para que los tres den el mismo
-// número — si divergen, el tope depende de por dónde entres.
-
-async function contarSociasActivas(admin: SupabaseClient, studioId: string): Promise<number> {
-  const { count } = await admin
-    .from('socios')
-    .select('id', { count: 'exact', head: true })
-    .eq('studio_id', studioId)
-    .eq('activo', true)
-    .is('borrado_en', null);
-  return count ?? 0;
-}
-
 
 export async function registrarSociaPublica(params: {
   studioId: string; id: string; nombre: string; email: string;
@@ -5886,17 +5872,9 @@ export async function registrarSociaPublica(params: {
     return { ok: true as const, socioId: fantasma.id as string };
   }
 
-  // Tope de socias del plan. Va AQUÍ, después de la idempotencia y pegado al
-  // insert, y no en la ruta que llama: allí corría ANTES de la salida temprana
-  // de arriba, así que un simple reintento de una socia que YA existe se comía
-  // el bloqueo aunque no fuese a crear ninguna fila. Y ese error lo lee la
-  // CLIENTA, no la dueña — «Tu plan permite hasta N socias, mejóralo» es un
-  // mensaje de facturación que no tiene por qué salir del panel del estudio.
-  //
-  // Separadas, las dos comprobaciones se vuelven a desincronizar; juntas, el
-  // tope solo se aplica cuando de verdad va a entrar una socia nueva.
-  const denegacion = await evaluarLimiteSocias(admin, params.studioId, await contarSociasActivas(admin, params.studioId), 1);
-  if (denegacion) return { error: denegacion.error, code: denegacion.code };
+  // Sin tope del plan: una alta del portal nace «Interesada» y no cuenta como
+  // alumna activa. El tope se enseña en Suscripción y hoy no bloquea
+  // (`.claude/tentare-os.md`, 1-oct-2026).
 
   const { error } = await admin.from('socios').insert({
     id: params.id, studio_id: params.studioId, nombre: params.nombre, apellidos: '',
@@ -6813,11 +6791,6 @@ export type GmailCredenciales = CredencialesOAuth;
 export async function dbGetGmailCredenciales(studioId: string): Promise<GmailCredenciales | null> {
   const c = await leerCredencialesOAuth(studioId, 'gmail', '[dbGetGmailCredenciales]');
   return c && { accessToken: c.accessToken, refreshToken: c.refreshToken, expiresAt: c.expiresAt };
-}
-
-
-export async function dbSaveGmailCredenciales(studioId: string, c: GmailCredenciales) {
-  await guardarCredencialesOAuth(studioId, 'gmail', c, '[dbSaveGmailCredenciales]');
 }
 
 

@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
+import { PLAN_INFO, entitlementsDe, type Plan } from '@/lib/billing/entitlements';
+import { usoDelTope } from '@/lib/billing/uso-tope';
+import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
+import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { estadoBilling, iniciarSuscripcion, gestionarSuscripcion, type EstadoBilling } from '@/lib/api-client';
 import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
@@ -47,6 +50,28 @@ function yaPagaSegun(e: EstadoBilling | null): boolean {
 // se vuelve a preguntar un rato, en vez de felicitar a ciegas.
 const REINTENTOS_CONFIRMACION = 10;
 const ESPERA_CONFIRMACION_MS = 3000;
+
+/**
+ * Cuántas cuentan para el tope de su plan: las «Activa», el mismo número que
+ * «Clientas activas» del Resumen. Se enseña y no bloquea ninguna alta (decisión
+ * del 1-oct-2026, `.claude/tentare-os.md`): aquí no se promete ningún bloqueo.
+ */
+function UsoDelPlan({ plan, className }: { plan: string | null | undefined; className?: string }) {
+  const { conteos } = useEstadosClientas();
+  const uso = usoDelTope(conteos?.ACTIVA ?? null, entitlementsDe({ plan }).maxSocios);
+  if (!uso) return null;
+  return (
+    <div data-uso-tope className={className}>
+      <Link href="/clientas?estado=ACTIVA" className="text-[14px] font-bold text-foreground underline-offset-2 hover:underline tabular-nums">
+        {uso.texto}
+      </Link>
+      <p className="mt-0.5 text-[12.5px] text-muted-foreground text-pretty">
+        Cuentan las que pueden reservar ahora (cuota vigente o bono con sesiones) o han venido en los últimos {DIAS_VINO_HACE_POCO} días.
+        {uso.excedido && ' Has pasado el tope de tu plan: el plan Estudio no tiene límite.'}
+      </p>
+    </div>
+  );
+}
 
 export default function SuscripcionPage() {
   const { session, loading } = useAuth();
@@ -240,6 +265,8 @@ export default function SuscripcionPage() {
               </span>
             </div>
 
+            <UsoDelPlan plan={estado?.plan} className="mt-4 border-t border-border pt-4" />
+
             {fecha(estado?.periodoTermina) && (
               <p className="mt-4 border-t border-border pt-4 text-[13.5px] text-muted-foreground">
                 {primerCobro ? 'Primer cobro el ' : 'Próximo cobro el '}
@@ -268,6 +295,7 @@ export default function SuscripcionPage() {
         ) : (
           /* ── Elegir plan ──────────────────────────────────────────────── */
           <>
+            <UsoDelPlan plan={estado?.plan} className="mb-4 rounded-xl border border-border bg-card px-4 py-3" />
             <SelectorPlan valor={elegido} onCambio={setElegido} enPrueba={enPrueba} />
 
             <div className="mt-6 rounded-2xl border border-border bg-card p-4 sm:p-5">

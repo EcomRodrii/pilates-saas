@@ -5,7 +5,6 @@ import {
   evaluarSuspension,
   evaluarSuscripcion,
   evaluarFeature,
-  evaluarLimiteSocias,
 } from './billing-rules.ts';
 
 // Reglas fail-open por diseño: con BILLING_ENFORCED != 'true' NO deben denegar
@@ -50,7 +49,6 @@ test('enforcement OFF → ninguna regla deniega (null)', async () => {
     assert.equal(await evaluarSuscripcion(null, 'studio-x'), null);
     assert.equal(await evaluarFeature(null, 'studio-x', 'ia'), null);
     assert.equal(await evaluarFeature(null, 'studio-x', 'marketing'), null);
-    assert.equal(await evaluarLimiteSocias(null, 'studio-x', 9999, 9999), null);
   });
 });
 
@@ -66,7 +64,6 @@ test('enforcement ON pero sin admin → fail-open (null)', async () => {
   await conEnv('true', async () => {
     assert.equal(await evaluarSuscripcion(null, 'studio-x'), null);
     assert.equal(await evaluarFeature(null, 'studio-x', 'ia'), null);
-    assert.equal(await evaluarLimiteSocias(null, 'studio-x', 9999, 1), null);
   });
 });
 

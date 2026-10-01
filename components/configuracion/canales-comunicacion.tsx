@@ -436,54 +436,20 @@ export function DetalleWhatsapp({ w, showToast, onGuardado }: { w: CanalWhatsapp
   );
 }
 
-// ── Contactos de Gmail ──────────────────────────────────────────────────────
-// OAuth de Google (lib/gmail.ts). Ningún correo a una alumna sale por Gmail: lo
-// que hace es traer tus contactos como alumnas nuevas, cuando lo pulsas.
+// ── Gmail (retirada) ────────────────────────────────────────────────────────
+// Solo servía para traer los contactos de la dueña como alumnas nuevas, y se
+// retiró el 1-oct-2026 (lib/gmail.ts). Ya no se puede conectar: la fila solo sale
+// si un estudio la tenía conectada, para que la desconecte y se borre el permiso.
 
 export interface CanalGmail {
   resumen: ResumenFila | null;
   conectado: boolean;
-  disponible: boolean;
-  conectando: boolean;
-  conectar: () => void;
   /** `null` = desconectado de verdad; un texto = no, y por qué. */
   desconectar: () => Promise<string | null>;
 }
 
-export function useGmail(showToast: (m: string) => void): CanalGmail {
+export function useGmail(): CanalGmail {
   const { studio, dataLoaded, updateStudio } = useStudio();
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  const [conectando, setConectando] = useState(false);
-  const enVuelo = useRef(false);
-
-  useAvisoDeVuelta('integracion-gmail', {
-    gmail_connected: () => 'Gmail conectado',
-    gmail_error: v => `Error al conectar Gmail: ${v}`,
-  }, showToast);
-
-  async function conectar() {
-    if (!clientId || enVuelo.current) return;
-    enVuelo.current = true;
-    setConectando(true);
-    const fallo = (texto: string) => { enVuelo.current = false; setConectando(false); showToast(texto); };
-    try {
-      const res = await fetch('/api/integrations/oauth-state', {
-        method: 'POST',
-        // H-1: same-origin (el valor por defecto, explícito para que no se cambie): esta respuesta fija la cookie HttpOnly del flujo.
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ provider: 'gmail' }),
-      });
-      if (!res.ok) { fallo('No se pudo iniciar la conexión con Gmail'); return; }
-      const { state } = (await res.json()) as { state: string };
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
-      const redirect = encodeURIComponent(`${appUrl}/api/integrations/gmail/callback`);
-      const scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/userinfo.email');
-      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirect}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
-    } catch {
-      fallo('No se pudo iniciar la conexión con Gmail. Revisa tu conexión.');
-    }
-  }
 
   async function desconectar(): Promise<string | null> {
     try {
@@ -501,51 +467,21 @@ export function useGmail(showToast: (m: string) => void): CanalGmail {
 
   const email = studio?.gmailEmail ?? null;
   return {
-    resumen: dataLoaded && studio ? resumenGmail({ email, disponible: !!clientId }) : null,
+    resumen: dataLoaded && studio ? resumenGmail({ email }) : null,
     conectado: !!email,
-    disponible: !!clientId,
-    conectando,
-    conectar: () => { void conectar(); },
     desconectar,
   };
 }
 
 export function FilaGmail({ g, onAbrir }: { g: CanalGmail; onAbrir: () => void }) {
-  const logo = <GmailIcon size={20} />;
-  if (g.conectado) return <FilaCanal id="integracion-gmail" logo={logo} resumen={g.resumen} onAbrir={onAbrir} />;
-  return (
-    <FilaCanal
-      id="integracion-gmail"
-      logo={logo}
-      resumen={g.resumen}
-      accion={g.resumen && g.disponible && (
-        <button type="button" onClick={g.conectar} disabled={g.conectando} className={cn(btnPrimary, 'shrink-0')}>
-          {g.conectando ? 'Conectando…' : 'Conectar'}
-        </button>
-      )}
-    />
-  );
+  if (!g.conectado) return null;
+  return <FilaCanal id="integracion-gmail" logo={<GmailIcon size={20} />} resumen={g.resumen} onAbrir={onAbrir} />;
 }
 
-export function DetalleGmail({ g, showToast, onGuardado }: { g: CanalGmail } & PropsFormularioCajon) {
-  const [trayendo, setTrayendo] = useState(false);
-  const [probando, setProbando] = useState(false);
+export function DetalleGmail({ g, onGuardado }: { g: CanalGmail } & PropsFormularioCajon) {
   const [preguntando, setPreguntando] = useState(false);
   const [desconectando, setDesconectando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  async function llamar(ruta: string, enCurso: (v: boolean) => void, bien: (data: Record<string, unknown>) => string) {
-    enCurso(true);
-    try {
-      const res = await fetch(ruta, { method: 'POST', headers: await authHeader() });
-      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-      showToast(res.ok ? bien(data) : `No se ha podido: ${String(data.error ?? 'error desconocido')}`);
-    } catch {
-      showToast('No hemos podido hablar con el servidor');
-    } finally {
-      enCurso(false);
-    }
-  }
 
   async function desconectar() {
     setDesconectando(true);
@@ -558,23 +494,11 @@ export function DetalleGmail({ g, showToast, onGuardado }: { g: CanalGmail } & P
 
   return (
     <div className={CUERPO}>
+      <p className="text-sm text-muted-foreground text-pretty">
+        Tentare ya no trae los contactos de Gmail como clientas. Desconéctalo y dejaremos de guardar el permiso
+        para entrar en tu cuenta de Google. Las clientas que trajiste se quedan.
+      </p>
       <div className="flex flex-col gap-2 @sm/config:flex-row @sm/config:flex-wrap">
-        <button
-          type="button"
-          disabled={trayendo}
-          className={btnPrimary}
-          onClick={() => { void llamar('/api/integrations/gmail/sync-contacts', setTrayendo, d => `${d.creadas} alumnas nuevas desde tus contactos de Gmail (${d.yaExistian} ya existían)`); }}
-        >
-          {trayendo ? 'Trayendo…' : 'Traer contactos'}
-        </button>
-        <button
-          type="button"
-          disabled={probando}
-          className={btnSecondary}
-          onClick={() => { void llamar('/api/integrations/gmail/test', setProbando, () => 'Email de prueba enviado: revisa tu bandeja de entrada'); }}
-        >
-          {probando ? 'Enviando…' : 'Enviar email de prueba'}
-        </button>
         <button type="button" onClick={() => setPreguntando(true)} disabled={desconectando} className={cn(btnSecondary, 'text-destructive')}>
           {desconectando ? 'Desconectando…' : 'Desconectar Gmail'}
         </button>
@@ -584,7 +508,7 @@ export function DetalleGmail({ g, showToast, onGuardado }: { g: CanalGmail } & P
         open={preguntando}
         onOpenChange={setPreguntando}
         titulo="¿Desconectar Gmail?"
-        descripcion="Dejarás de poder traer tus contactos. Las alumnas que ya trajiste se quedan."
+        descripcion="Dejaremos de guardar el permiso para entrar en tu cuenta de Google. Las clientas que trajiste se quedan."
         textoConfirmar="Sí, desconectar"
         destructivo
         onConfirm={() => { void desconectar(); }}

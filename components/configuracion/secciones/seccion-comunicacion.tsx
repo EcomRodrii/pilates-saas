@@ -37,7 +37,7 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
   }, [studioId]);
   const remitente = useRemitente();
   const whatsapp = useWhatsapp(showToast);
-  const gmail = useGmail(showToast);
+  const gmail = useGmail();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
 
   function guardado(texto: string) {

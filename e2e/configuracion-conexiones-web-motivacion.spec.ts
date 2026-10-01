@@ -129,7 +129,7 @@ for (const vista of VISTAS) {
       expect(titulos.slice(0, 3)).toEqual(['Con problemas', 'Conectadas', 'Sin conectar']);
       expect(titulos).toContain('Quién puede ver tus datos');
       await expect(valor(page, 'aplicaciones-con-acceso')).toHaveText('Ninguna app tiene acceso');
-      // Stripe, WhatsApp y Gmail no se repiten: una fila lleva a su sección.
+      // Stripe y WhatsApp no se repiten: una fila lleva a su sección.
       await expect(page.locator('#fila-a-cobros')).toHaveAttribute('href', '/configuracion?tab=cobros#integracion-stripe');
       await expect(page.locator('#integracion-stripe')).toHaveCount(0);
       expect(await desborde(page), 'Conexiones se sale de lado').toBeLessThanOrEqual(0);

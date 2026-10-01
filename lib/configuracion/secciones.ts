@@ -36,7 +36,7 @@ export type ModoGuardado = 'barra' | 'al-pulsar' | 'catalogo' | 'accion' | 'lect
 export type RolConfiguracion = 'PROPIETARIO' | 'MANAGER' | 'RECEPCION' | 'INSTRUCTOR';
 
 /** Tarjetas que solo existen en algunos estudios. */
-export type CondicionTarjeta = 'multiSede' | 'cadena';
+export type CondicionTarjeta = 'multiSede' | 'cadena' | 'gmailConectado';
 
 /**
  * Las herramientas grandes: cada una tiene su propia pantalla
@@ -187,7 +187,7 @@ export const SECCIONES = [
   {
     id: 'comunicacion',
     titulo: 'Cómo me comunico',
-    resumen: 'Correos, WhatsApp y Gmail',
+    resumen: 'Correos y WhatsApp',
     frase: 'Los correos que Tentare envía sola a tus alumnas y los canales para escribirles.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
@@ -195,7 +195,8 @@ export const SECCIONES = [
       { id: 'avisos-del-movil', titulo: 'Avisos en el móvil', frase: 'Cuándo le llega a cada alumna el recordatorio de su clase y qué dicen los avisos de su móvil, con tus palabras.', guardado: 'catalogo', herramienta: 'avisos-del-movil', palabras: ['push', 'notificaciones', 'antelación', 'recordatorio de clase', 'textos'] },
       { id: 'integracion-resend', titulo: 'Nombre y respuesta de tus correos', frase: 'El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas.', guardado: 'catalogo', palabras: ['remitente', 'emails'] },
       { id: 'integracion-whatsapp', titulo: 'WhatsApp', frase: 'Recordatorios y avisos desde tu número de WhatsApp Business.', guardado: 'accion', palabras: ['mensajes'] },
-      { id: 'integracion-gmail', titulo: 'Contactos de Gmail', frase: 'Trae los contactos de tu Gmail como alumnas nuevas. Los correos no salen desde tu Gmail.', guardado: 'accion' },
+      // Retirada el 1-oct-2026 (lib/gmail.ts): solo para quien la tenía conectada, a desconectarla.
+      { id: 'integracion-gmail', titulo: 'Gmail (ya no se usa)', frase: 'Ya no trae contactos. Si lo tenías conectado, desconéctalo desde aquí.', guardado: 'accion', condicion: 'gmailConectado' },
     ],
   },
   {
@@ -553,9 +554,10 @@ export function herramientasDeSeccion(id: SeccionId): HerramientaConfiguracion[]
 
 export function cumpleCondicion(
   condicion: CondicionTarjeta | undefined,
-  ctx: { haySedes: boolean; esCadena: boolean },
+  ctx: { haySedes: boolean; esCadena: boolean; gmailConectado?: boolean },
 ): boolean {
   if (condicion === 'multiSede') return ctx.haySedes;
   if (condicion === 'cadena') return ctx.esCadena;
+  if (condicion === 'gmailConectado') return ctx.gmailConectado === true;
   return true;
 }

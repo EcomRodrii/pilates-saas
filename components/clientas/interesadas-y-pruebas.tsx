@@ -34,7 +34,7 @@ import { conversionDePruebas } from '@/lib/clientas/conversion-pruebas';
 //   · Vinieron a la prueba y no han comprado — «De prueba» con la clase ya hecha.
 //
 // Las que solo preguntaron por la web NO tienen ficha (decisión cerrada: no
-// ocupan plaza del plan ni reciben la bienvenida) hasta que se dan de alta.
+// reciben la bienvenida ni cuentan como clientas) hasta que se dan de alta.
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 

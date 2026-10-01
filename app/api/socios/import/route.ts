@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { billingEnforced, bloqueoPorLimiteSocias } from '@/lib/billing/billing-guard';
 import { emailValido, parsearFecha } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
@@ -132,18 +131,9 @@ export async function POST(req: NextRequest) {
     });
   });
 
-  // R7: no superar el tope de socias del plan. Solo contamos si el enforcement
-  // está activo (evita un COUNT extra en el caso normal, apagado).
-  if (billingEnforced() && paraInsertar.length > 0) {
-    const { count: activasActuales } = await admin
-      .from('socios')
-      .select('id', { count: 'exact', head: true })
-      .eq('studio_id', sesion.studioId)
-      .eq('activo', true)
-      .is('borrado_en', null);
-    const bloqueoLimite = await bloqueoPorLimiteSocias(sesion.studioId, activasActuales ?? 0, paraInsertar.length);
-    if (bloqueoLimite) return bloqueoLimite;
-  }
+  // Sin tope del plan aquí: las importadas entran como «Inactiva» (vienen con
+  // historial) y no cuentan como alumnas activas. El tope se enseña en
+  // Suscripción y hoy no bloquea (`.claude/tentare-os.md`, 1-oct-2026).
 
   // Inserta por lotes para no exceder límites de payload.
   let importadas = 0;

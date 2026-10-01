@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  accesoProducto, tieneFeature, puedeAnadirSocia, entitlementsDe, PLAN_ENTITLEMENTS, planMinimoPara,
+  accesoProducto, tieneFeature, entitlementsDe, PLAN_ENTITLEMENTS, planMinimoPara,
 } from './entitlements.ts';
 
 test('accesoProducto: solo con suscripción activa (sin trial)', () => {
@@ -27,12 +27,6 @@ test('tieneFeature: exige suscripción activa Y que el plan la incluya', () => {
   assert.equal(tieneFeature(baseActivo, 'gamificacion'), false); // BASE no incluye
   assert.equal(tieneFeature(estudioSinSub, 'gamificacion'), false); // sin suscripción
   assert.equal(tieneFeature(estudioActivo, 'multiCentro'), false); // solo CADENA
-});
-
-test('puedeAnadirSocia respeta el tope del plan', () => {
-  assert.equal(puedeAnadirSocia({ plan: 'BASE' }, 149), true);
-  assert.equal(puedeAnadirSocia({ plan: 'BASE' }, 150), false);
-  assert.equal(puedeAnadirSocia({ plan: 'ESTUDIO' }, 100000), true); // ilimitado
 });
 
 test('planMinimoPara: el plan más barato que ya incluye la feature', () => {

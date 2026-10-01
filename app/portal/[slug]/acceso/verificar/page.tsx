@@ -200,10 +200,9 @@ function Verificar() {
       // ⚠️ Y si el servidor RECHAZA el alta, aquí no pasaba absolutamente
       // nada: ni redirección ni mensaje. La pantalla se quedaba en «Elige tu
       // contraseña», que a quien viene de Google no le dice nada.
-      // El caso realista no es un 500 — es el 403 de `LIMITE_SOCIAS`: el
-      // estudio ha llenado el cupo de socias de su plan. Con la vuelta de
-      // Google esto es más fácil de alcanzar que antes, porque el abandono
-      // ocurre DESPUÉS de que gotrue haya creado la sesión.
+      // (Antes el caso realista era el tope de socias del plan; desde el
+      // 1-oct-2026 el tope no bloquea altas, pero el servidor puede seguir
+      // rechazando por otros motivos.)
       setGlobal('No hemos podido darte de alta en este estudio. Habla con el estudio o inténtalo de nuevo en un rato.');
     })();
     // `firmarAlta` se recrea en cada render y meterlo en las dependencias
