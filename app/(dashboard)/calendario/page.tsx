@@ -12,17 +12,15 @@ import { supabase } from '@/lib/db/supabase';
 import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { queImparten } from '@/lib/equipo';
-import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias, puedeGestionarCalendario } from '@/lib/permisos';
+import { useRol, puedeVer, puedeVerFichaClinica, puedeVerSemaforo, puedeGestionarClientas, puedeMoverDinero, puedeCrearClasesPropias, puedeGestionarCalendario } from '@/lib/permisos';
 import { semaforo, alertaPreClase, resumenSaludClase, RESPUESTAS_ORDEN, RESPUESTA_META, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { authHeader } from '@/lib/api-client';
 import type { ReservaEnriquecida, Sesion, Studio, TipoClase } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
-  ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
-  CalendarDays, CalendarClock, ChevronDown,
-  UserPlus, UserCheck, Pencil, Trash2, Copy,
-  Upload, QrCode, LayoutGrid, Rows3, CheckSquare, PictureInPicture2,
+  ChevronRight, X, AlertTriangle, RefreshCw, CalendarDays, Clock3, ArrowRight,
+  UserCheck, Pencil, Trash2, Copy, Ban, Wrench, PictureInPicture2, TrendingDown,
 } from 'lucide-react';
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
@@ -44,9 +42,7 @@ import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { marcaReserva, textoTrasQuitar } from '@/lib/plazas-fijas-cancelacion';
 import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
-import { AnadirReservaPlataforma } from '@/components/calendario/anadir-reserva-plataforma';
 import { usePlataformasActivas } from '@/components/configuracion/plataformas-externas';
-import { NOMBRE_PLATAFORMA, type Plataforma } from '@/lib/plataformas/catalogo';
 import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
 import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
@@ -57,7 +53,7 @@ import { dbListCierres } from '@/lib/supabase-data';
 import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
 import type { ResultadoEscritura } from '@/lib/errores';
 import { Toast, useToast } from '@/components/ui/toast';
-import { PageHeader } from '@/components/ui/page-header';
+import type { AccionMenu } from '@/components/ui/menu-acciones';
 
 // ── Rediseño del Calendario ──────────────────────────────────────────────────
 // Composición nueva sobre lib/calendario-*.ts + components/calendario/*
@@ -68,14 +64,27 @@ import { PageHeader } from '@/components/ui/page-header';
 // datos por rol, filtros que atenúan, layout sin scroll de página), no las
 // reglas de negocio ya probadas.
 import { LienzoCalendario } from '@/components/calendario/lienzo-calendario';
-import { TarjetasMetricas } from '@/components/calendario/tarjetas-metricas';
-import { FiltrosCalendario } from '@/components/calendario/filtros-calendario';
-import { FranjaDecisiones, type DecisionResumen } from '@/components/calendario/franja-decisiones';
+import { CabeceraCalendario, type VistaCalendario } from '@/components/calendario/cabecera-calendario';
+import { BuscadorCalendario } from '@/components/calendario/buscador-calendario';
+import { SelectorFecha } from '@/components/calendario/selector-fecha';
+import { ResumenCalendario } from '@/components/calendario/resumen-calendario';
+import { TiraDias } from '@/components/calendario/tira-dias';
+import { SemanaFranjas } from '@/components/calendario/semana-franjas';
+import { FichaClase, type ModoFicha, type PestanaFicha } from '@/components/calendario/ficha-clase';
+import { ClientasDeClase } from '@/components/calendario/clientas-de-clase';
+import { AnadirAClase } from '@/components/calendario/anadir-a-clase';
+import { AdaptacionesClase } from '@/components/calendario/adaptaciones-clase';
+import { HistorialSesion } from '@/components/calendario/historial-sesion';
+import { SpotMap } from '@/components/spots/spot-map';
+import type { DatosTarjeta } from '@/components/calendario/tarjeta-clase';
+import { marcaDeClase, resumenDeVista, claseEnFiltro, type ClaseParaResumen, type FiltroResumen } from '@/lib/calendario/marca-clase';
+import { estadoDeFicha, porQueSinCubrir } from '@/lib/calendario/estado-ficha';
+import { claseDelMostrador, siguienteClase, vecinas } from '@/lib/calendario/mostrador';
+import type { ClaseEnFranja } from '@/lib/calendario/franjas';
 import { DialogoDecision } from '@/components/calendario/dialogo-decision';
 import { VistaDiaSalas, type DatoSesion } from '@/components/calendario/vista-dia-salas';
 import { PrimerHorario } from '@/components/calendario/primer-horario';
 import { ListoParaReservar } from '@/components/onboarding/listo-para-reservar';
-import { VistaSemana } from '@/components/calendario/vista-semana';
 import { VistaAgenda, CONSULTA_AGENDA, clasesDeAgenda, type DiaDeAgenda } from '@/components/calendario/vista-agenda';
 import { agendaDeDia, agendaDeSemana } from '@/lib/calendario-agenda';
 import { useCoincideMedio } from '@/lib/hooks/use-coincide-medio';
@@ -88,26 +97,20 @@ import {
 import { useAltoHastaElFondo } from '@/lib/hooks/use-alto-hasta-el-fondo';
 import { createPortal } from 'react-dom';
 import { anfitrionPortal } from '@/lib/panel-portal';
-import { VistaMes } from '@/components/calendario/vista-mes';
-import { BuscadorRapido } from '@/components/calendario/buscador-rapido';
-import { PanelSesion, horaTextoSesion, type PestanaSesion } from '@/components/calendario/panel-sesion';
-import { estadoSesion, pideDecision, sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA, MENSAJE_CLASE_AUN_NO_EMPEZADA, MENSAJE_CLASE_DADA, type EstadoSesion } from '@/lib/calendario-estado';
+import { estadoSesion, sesionYaEmpezada, checkinAbierto, aperturaCheckin, MENSAJE_CLASE_YA_EMPEZADA, MENSAJE_CLASE_DADA, MENSAJE_HORA_PASADA, type EstadoSesion } from '@/lib/calendario-estado';
 import type { SesionCalendario } from '@/lib/calendario-datos';
 import { prepararColumnasSalaDia, prepararColumnasDiaSemana, type SesionColumna, type SesionSemana } from '@/lib/calendario-columnas';
-import { agregarPorDiaMes, type SesionMes, type DiaMes } from '@/lib/calendario-mes';
 import { type SesionBuscable } from '@/lib/calendario-busqueda';
-import { metricasDia, metricasSemana, mmA } from '@/lib/calendario-metricas';
+import { mmA } from '@/lib/calendario-metricas';
 import { minutosEnEstudio, diaEnEstudio } from '@/lib/calendario-hora-estudio';
-import { minutosDesdeOffset, nuevoHorarioArrastrado } from '@/lib/calendario-arrastre';
-import { decisionesOrdenadas, accionParaEstado, reservasParaPasarLista, type ItemDecision, type TipoAccion } from '@/lib/calendario-decisiones';
+import { nuevoHorarioArrastrado } from '@/lib/calendario-arrastre';
 import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado, preguntaAvisoCobertura } from '@/lib/calendario-acciones';
 import { claseAtenuadaPorInstructor } from '@/lib/calendario-filtros';
-import { rangoDia, rangoSemanaDesde, rangoMes, claveRango, type RangoFechas } from '@/lib/calendario-rango';
+import { rangoDia, rangoSemanaDesde, claveRango, type RangoFechas } from '@/lib/calendario-rango';
 import { historialSustituciones } from '@/lib/calendario-historial';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
 import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
-import { TentareOrb } from '@/components/marca/tentare-orb';
 import { DialogoRenovarSerie } from '@/components/series/dialogo-renovar-serie';
 import { VistaHorario } from '@/components/calendario/vista-horario';
 import { ElegirClienta } from '@/components/calendario/elegir-clienta';
@@ -252,10 +255,25 @@ type RecurringFormData = {
   duracionTocada?: boolean;
 };
 
-// Botones Día · Semana · Mes · Horario. En el móvil reparten el ancho, miden
-// 44 px y van sin icono (con él, «Semana» no cabía en su cuarto de 375 px).
-const BOTON_VISTA = 'flex items-center justify-center gap-1.5 px-1.5 md:px-3 py-1.5 min-h-11 md:min-h-0 rounded-lg text-sm md:text-xs font-bold transition-colors [&>svg]:hidden sm:[&>svg]:block';
 const BOTON_VENTANA = 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground';
+
+/** «jueves 1 oct»: de un instante, en hora del estudio; de un día del calendario (`Date` local), tal cual. */
+const FORMATO_DIA_CORTO = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'short', timeZone: TZ_ESTUDIO });
+const FORMATO_DIA_CORTO_LOCAL = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
+function diaCorto(fecha: Date | string): string {
+  const p = (typeof fecha === 'string' ? FORMATO_DIA_CORTO : FORMATO_DIA_CORTO_LOCAL).formatToParts(new Date(fecha));
+  const de = (t: string) => p.find(x => x.type === t)?.value ?? '';
+  return `${de('weekday')} ${de('day')} ${de('month').replace('.', '')}`;
+}
+/** «1 – 7 oct», o «28 sep – 4 oct» si la semana cambia de mes. */
+const FORMATO_MES_CORTO = new Intl.DateTimeFormat('es-ES', { month: 'short' });
+const FORMATO_MES_LARGO = new Intl.DateTimeFormat('es-ES', { month: 'long' });
+function rangoCorto(desde: Date, hasta: Date): string {
+  const mes = (d: Date) => FORMATO_MES_CORTO.format(d).replace('.', '');
+  return desde.getMonth() === hasta.getMonth()
+    ? `${desde.getDate()} – ${hasta.getDate()} ${mes(hasta)}`
+    : `${desde.getDate()} ${mes(desde)} – ${hasta.getDate()} ${mes(hasta)}`;
+}
 
 // ─── ModalClasesRecurrentes ───────────────────────────────────────────────────
 
@@ -625,10 +643,9 @@ export default function Calendario() {
   // ── Vista: Día (por sala) / Semana (7 columnas) / Mes — punto 2 del rediseño ─
   // «Horario» no es un rango de fechas: son las clases que se repiten, por día
   // de la semana (components/calendario/vista-horario.tsx).
-  const [vista, setVista] = useState<'dia' | 'semana' | 'mes' | 'horario'>('semana');
+  const [vista, setVista] = useState<VistaCalendario>('semana');
   const [semana, setSemana] = useState(() => weekStart(FALLBACK));
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => FALLBACK);
-  const [mesVisto, setMesVisto] = useState(() => FALLBACK);
 
   // `now` vive en estado, no como `new Date()` en el cuerpo del render. Era un
   // objeto nuevo en cada pasada, y está en las dependencias de tres cosas caras
@@ -650,7 +667,6 @@ export default function Calendario() {
     setMounted(true);
     setSemana(weekStart(today));
     setDiaSeleccionado(today);
-    setMesVisto(today);
     setNow(today);
     const t = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(t);
@@ -685,7 +701,19 @@ export default function Calendario() {
       return s;
     });
   }
-  const [pestanaPanel, setPestanaPanel] = useState<PestanaSesion>('clientas');
+  const [pestanaPanel, setPestanaPanel] = useState<PestanaFicha>('clientas');
+  // La ficha del modo mostrador se abre sola con la clase de ahora; si alguien
+  // la cierra, se queda cerrada hasta que se abra otra clase a mano.
+  const [fichaCerradaAMano, setFichaCerradaAMano] = useState(false);
+  // La ficha la abrió el mostrador (nadie la eligió): se cierra sola en cuanto se
+  // sale del Día de hoy. Sin esto, al pasar a la Semana en un iPad aparecía como
+  // un cajón por encima, tapando la semana.
+  // En cuanto alguien la toca (pasando lista, apuntando a alguien) pasa a ser
+  // como si la hubiera abierto a mano: ni sigue al reloj ni se cierra sola, para
+  // no cambiársela —ni perder las marcas— debajo de los dedos.
+  const [abiertaSola, setAbiertaSola] = useState(false);
+  // Una cifra de la línea de resumen pulsada: sus clases se resaltan.
+  const [filtroResumen, setFiltroResumen] = useState<FiltroResumen | null>(null);
 
   // ── Modals ──────────────────────────────────────────────────────────────────
   const [showForm, setShowForm] = useState<'nueva' | 'editar' | null>(null);
@@ -701,11 +729,10 @@ export default function Calendario() {
   // Cierres del centro, para que el formulario avise (y una clase que se repite
   // se los salte, como `renovar_serie`). Se piden al abrirlo, no con la página.
   const [cierres, setCierres] = useState<CierreGuardado[] | null>(null);
+  // «Nueva clase fija» (la ventana antigua): la usan todavía «Duplicar serie»,
+  // Horario y `?recurrentes=1`. «Crear clase» va directo al formulario nuevo,
+  // que ya tiene «Se repite» (decisión 2 del rediseño, 1-oct-2026).
   const [showRecurrentes, setShowRecurrentes] = useState(false);
-  // «Crear clase» pregunta primero qué: una clase de un día o una clase fija. Eran
-  // dos botones («Nueva clase» y «Clase recurrente») y los estudios no sabían
-  // cuál era la clase fija (quejas del 23-sep).
-  const [elegirQueCrear, setElegirQueCrear] = useState(false);
   // Cuántas clases acaba de crear A MANO quien no tenía ninguna. Su página
   // pública ya tiene algo que enseñar, y ese es el momento de decírselo y de
   // ofrecerle el enlace — antes solo lo veía quien pasaba por la propuesta de
@@ -894,6 +921,8 @@ export default function Calendario() {
     setSemana(prev => semanaQueMuestra(inicio, prev, new Date()));
     setVista('dia');
     setSesionId(id);
+    setAbiertaSola(false);
+    setFichaCerradaAMano(false);
     setPestanaPanel('clientas');
   }
 
@@ -961,23 +990,17 @@ export default function Calendario() {
     const hoy = new Date();
     setSemana(weekStart(hoy));
     setDiaSeleccionado(hoy);
-    setMesVisto(hoy);
+    setFichaCerradaAMano(false);
   }
   function cambiarDia(delta: number) {
     setDiaSeleccionado(prev => addDays(prev, delta));
   }
-  function cambiarMes(delta: number) {
-    setMesVisto(prev => {
-      const d = new Date(prev);
-      d.setMonth(d.getMonth() + delta);
-      return d;
-    });
-  }
-  function onSeleccionarDia(fecha: string) {
+  // El selector de fecha: lleva a ese día sin cambiar de vista (en Semana, a la
+  // semana que lo enseña; ver semana-visible.ts).
+  function irAFecha(fecha: string) {
     const dia = new Date(`${fecha}T12:00:00`);
     setDiaSeleccionado(dia);
     setSemana(prev => semanaQueMuestra(dia, prev, new Date()));
-    setVista('dia');
   }
 
   // ── Session actions (creación/edición/cancelación — sin cambios de fondo) ───
@@ -1183,7 +1206,20 @@ export default function Calendario() {
     const cuantas = nuevas.length > 1 ? `Serie creada · ${nuevas.length} clases` : 'Clase creada';
     const saltos = saltadas.length === 0 ? ''
       : ` · ${saltadas.length === 1 ? 'se ha saltado el' : 'se han saltado:'} ${saltadas.slice(0, 3).join(', ')}${saltadas.length > 3 ? ` y ${saltadas.length - 3} más` : ''}`;
-    showToast(`${cuantas}${saltos}${otraSemana ? ' — te llevo a esa semana' : ''}`);
+    const texto = `${cuantas}${saltos}${otraSemana ? ' — te llevo a esa semana' : ''}`;
+    // Una clase que se repite es una clase fija: es el momento de ofrecer que las
+    // clientas se queden fijas en ella (lo que hacía la ventana «Nueva clase fija»,
+    // que ya no es el camino de «Crear clase»).
+    const serieId = 'serieId' in res && typeof res.serieId === 'string' ? res.serieId : null;
+    if (nuevas.length > 1 && serieId && puedeGestionarCalendario(rolActual)) {
+      const diasSemana = [...new Set(nuevas.map(x => franjaLocalDe(x.inicio).dow))];
+      showToast(texto, {
+        texto: 'Agrupar con nombre',
+        onClick: () => { setVista('horario'); setPreseleccionClaseFija({ serieId, diasSemana }); },
+      });
+    } else {
+      showToast(texto);
+    }
     setShowForm(null);
     if (eraLaPrimera && studio?.slug) setPrimeraClaseCreada(nuevas.length);
     return res;
@@ -1321,6 +1357,7 @@ export default function Calendario() {
     const nuevoInicio = toISO(form.fecha, form.horaInicio);
     const mismoInstante = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
     const cambioHora = !!sesionActual && !mismoInstante(sesionActual.inicio, nuevoInicio);
+    if (cambioHora && sesionYaEmpezada(nuevoInicio)) { showToast(MENSAJE_HORA_PASADA); return; }
     const cambioSala = !!sesionActual && sesionActual.salaId !== form.salaId;
     const cambioInstructora = !!sesionActual && sesionActual.instructorId !== form.instructorId;
     const guardado = await updateSesion(sesionId, {
@@ -1446,10 +1483,20 @@ export default function Calendario() {
   // a pasar (a cuántas alumnas se avisa, plazas fijas, lista de espera…) y guarda
   // al confirmar. Los datos son los mismos que ya tiene el panel en pantalla.
   const [impactoSerie, setImpactoSerie] = useState<{ impacto: ImpactoEdicionSerie; cambios: CambioVisible[]; desdeTexto: string } | null>(null);
+  // Editar «esta y las siguientes» pone la hora nueva también a esta: si es la
+  // de hoy y esa hora ya pasó, quedaría en el pasado con sus reservas (y el cron
+  // de plantones las daría por no venidas). Las siguientes son de otras semanas.
+  function serieAlPasado(): boolean {
+    const base = sesionesEnriquecidas.find(x => x.id === sesionId);
+    if (!base || sesionYaEmpezada(base.inicio)) return false;
+    return sesionYaEmpezada(toISO(diaEnEstudio(base.inicio), form.horaInicio));
+  }
+
   function pedirConfirmacionSerie() {
     if (!sesionId || horaInvalida || horaVacia || guardandoSesion) return;
     const base = sesionesEnriquecidas.find(x => x.id === sesionId);
     if (!base) return;
+    if (serieAlPasado()) { showToast(MENSAJE_HORA_PASADA); return; }
     const edicion = edicionDelFormulario();
     const impacto = calcularImpactoEdicionSerie({
       tramo: tramoDeLaSerie(), edicion, reservas, plazasFijas, recuperaciones,
@@ -1469,6 +1516,8 @@ export default function Calendario() {
 
   async function editarSerie() {
     if (!sesionId || horaInvalida || horaVacia || guardandoSesion) return;
+    // Otra vez al confirmar: entre pedir la confirmación y darle pueden pasar minutos.
+    if (serieAlPasado()) { showToast(MENSAJE_HORA_PASADA); return; }
     setGuardandoSesion(true);
     try {
     // Se calcula ANTES de guardar: es lo que había, no lo que queda.
@@ -1552,11 +1601,6 @@ export default function Calendario() {
   // «Renovar serie»: se guarda la serie y su nombre al abrir, porque el panel
   // de la clase puede cerrarse (o cambiar de clase) con el diálogo abierto.
   const [renovarSerieDe, setRenovarSerieDe] = useState<{ serieId: string; nombre: string } | null>(null);
-  // Las acciones de la serie (duplicar, renovar, cancelar) van plegadas bajo
-  // «Serie»: con todas a la vista, el panel de una clase de serie llevaba nueve
-  // botones en tres filas (visto en producción). Se guarda de QUÉ clase se
-  // abrieron, así al cambiar de clase vuelven a salir plegadas sin un efecto.
-  const [serieAbiertaDe, setSerieAbiertaDe] = useState<string | null>(null);
   const apuntadasSesionActual = reservasActuales.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
 
   // Lo que se llevaría por delante "Cancelar serie": exactamente el mismo
@@ -1821,9 +1865,7 @@ export default function Calendario() {
   // último que se pidió — si no, quien responda último no debería "ganar".
   const ultimaClaveSolicitadaRef = useRef<string>('');
 
-  const rango: RangoFechas = vista === 'dia' ? rangoDia(diaSeleccionado)
-    : vista === 'mes' ? rangoMes(mesVisto)
-    : rangoSemanaDesde(semana);
+  const rango: RangoFechas = vista === 'dia' ? rangoDia(diaSeleccionado) : rangoSemanaDesde(semana);
   const claveVista = claveRango(rango);
 
   // P1-2 (auditoría de producto): un fallo de red/500 en la PRIMERA carga
@@ -1989,23 +2031,11 @@ export default function Calendario() {
     return m;
   }, [datosVista]);
 
-  // ── Filtro por sala (reduce), instructora (atenúa) + búsqueda ───────────────
-  const sesionesVistaFiltradas = useMemo(() => {
-    if (!datosVista) return [];
-    const tiposById = new Map(tiposClase.map(t => [t.id, t]));
-    const salasById = new Map(datosVista.salas.map(s => [s.id, s]));
-    const instrById = new Map(datosVista.instructores.map(i => [i.id, i]));
-    return datosVista.sesiones.filter(s => {
-      if (busqueda) {
-        const q = busqueda.toLowerCase();
-        const tc = tiposById.get(s.tipoClaseId)?.nombre ?? '';
-        const sa = salasById.get(s.salaId)?.nombre ?? '';
-        const ins = instrById.get(s.instructorId)?.nombre ?? '';
-        if (!tc.toLowerCase().includes(q) && !sa.toLowerCase().includes(q) && !ins.toLowerCase().includes(q)) return false;
-      }
-      return true;
-    });
-  }, [datosVista, busqueda, tiposClase]);
+  // ── Filtros: la sala reduce; la instructora, la búsqueda y las cifras atenúan ─
+  // Atenuar y no esconder: lo que no coincide sigue en su sitio, más apagado, y
+  // la semana no cambia de forma al buscar (punto 9 del rediseño anterior, que
+  // ahora vale también para «Buscar» y para las cifras del resumen).
+  const sesionesVistaFiltradas = useMemo(() => datosVista?.sesiones ?? [], [datosVista]);
 
   // Solo para decidir si una clase es «futura»: se recalcula al cambiar de datos, no cada segundo.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2028,7 +2058,89 @@ export default function Calendario() {
     return m;
   }, [sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, tiposClase, datosVista, ahoraVista]);
 
-  const atenuada = useCallback((d: DatoSesion) => claseAtenuadaPorInstructor(d.sesion.instructorId, filtroInstructor), [filtroInstructor]);
+
+  // ── Lo que dice cada clase en la rejilla (una marca) y la línea de cifras ────
+  const fijasPorSesion = useMemo(() => {
+    const m = new Map<string, number>();
+    if (!datosVista) return m;
+    for (const r of datosVista.reservas) {
+      if ((r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA') && marcaReserva(r, recuperaciones) === 'fija') {
+        m.set(r.sesionId, (m.get(r.sesionId) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [datosVista, recuperaciones]);
+
+  // Las clases que se ven: las del día en Día, las siete columnas en Semana; con la sala filtrada.
+  const sesionesALaVista = useMemo(() => sesionesVistaFiltradas.filter(s =>
+    (filtroSala === 'todas' || s.salaId === filtroSala)
+    && (vista === 'dia' ? diaEnEstudio(s.inicio) === localDate(diaSeleccionado) : columnaPorFecha.has(diaEnEstudio(s.inicio)))),
+  [sesionesVistaFiltradas, filtroSala, vista, diaSeleccionado, columnaPorFecha]);
+
+  // «La siguiente» de hoy, la que se anuncia en su tarjeta y en el resumen del Día.
+  const siguienteHoyId = useMemo(() => siguienteClase(
+    sesionesVistaFiltradas.filter(s => diaEnEstudio(s.inicio) === todayStr),
+    now,
+  ), [sesionesVistaFiltradas, todayStr, now]);
+
+  const tarjetasPorId = useMemo(() => {
+    const m = new Map<string, DatosTarjeta>();
+    for (const [id, d] of datosPorSesionId) {
+      const s = d.sesion as DatosVista['sesiones'][number];
+      const r = d.reservasSesion;
+      const apuntadas = r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length;
+      const enEspera = r.filter(x => x.estado === 'LISTA_ESPERA').length;
+      const instructora = d.instructor?.nombre ?? 'Sin instructora';
+      m.set(id, {
+        id, inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
+        tipoNombre: d.tipo.nombre, tipoColor: d.tipo.color || 'var(--muted-foreground)',
+        instructora, confirmadas: apuntadas, aforo: s.aforoMaximo, enEspera, estado: d.estado, serie: !!s.serieId,
+        marca: marcaDeClase({
+          estado: d.estado, inicio: s.inicio, fin: s.fin, instructora: d.instructor?.nombre ?? null,
+          sustitucionEstado: s.sustitucionEstado, ausencia: s.ausencia, instructoraInactiva: s.instructoraInactiva,
+          incidenciaTexto: s.incidenciaTexto, confirmadas: apuntadas,
+          asistidas: r.filter(x => x.estado === 'ASISTIDA').length,
+          noVinieron: r.filter(x => x.estado === 'NO_ASISTIO').length,
+          enEspera, aforo: s.aforoMaximo, fijas: fijasPorSesion.get(id) ?? 0,
+          floja: !!s.floja, esSiguiente: id === siguienteHoyId,
+        }, now),
+      });
+    }
+    return m;
+  }, [datosPorSesionId, fijasPorSesion, siguienteHoyId, now]);
+
+  const clasesParaResumen = useMemo<ClaseParaResumen[]>(() => {
+    const capacidad = new Map(datosVista?.salas.map(x => [x.id, x.capacidad]));
+    return sesionesALaVista.map(s => {
+      const t = tarjetasPorId.get(s.id);
+      return {
+        id: s.id, estado: t?.estado ?? 'PROGRAMADA', cancelada: s.cancelada,
+        terminada: now.getTime() >= new Date(s.fin).getTime(),
+        floja: !!s.floja, enEspera: t?.enEspera ?? 0, confirmadas: t?.confirmadas ?? 0, aforo: s.aforoMaximo,
+        sobreaforo: s.aforoMaximo > (capacidad.get(s.salaId) ?? Infinity),
+      };
+    });
+  }, [sesionesALaVista, tarjetasPorId, datosVista, now]);
+  const resumen = useMemo(() => resumenDeVista(clasesParaResumen), [clasesParaResumen]);
+  // Una cifra que ya no está (se resolvió lo que contaba) deja de resaltar.
+  const filtroResumenVivo = filtroResumen && resumen.cifras.some(c => c.filtro === filtroResumen) ? filtroResumen : null;
+
+  const busquedaNormal = busqueda.trim().toLowerCase();
+  const atenuadaPorId = useCallback((id: string) => {
+    const d = datosPorSesionId.get(id);
+    if (!d) return false;
+    if (claseAtenuadaPorInstructor(d.sesion.instructorId, filtroInstructor)) return true;
+    if (filtroResumenVivo) {
+      const c = clasesParaResumen.find(x => x.id === id);
+      if (!c || !claseEnFiltro(c, filtroResumenVivo)) return true;
+    }
+    if (busquedaNormal) {
+      const sala = datosVista?.salas.find(x => x.id === d.sesion.salaId)?.nombre ?? '';
+      const texto = `${d.tipo.nombre} ${sala} ${d.instructor?.nombre ?? ''}`.toLowerCase();
+      if (!texto.includes(busquedaNormal)) return true;
+    }
+    return false;
+  }, [datosPorSesionId, filtroInstructor, filtroResumenVivo, clasesParaResumen, busquedaNormal, datosVista]);
 
   // ── Columnas (Día por sala / Semana 7 columnas) ─────────────────────────────
   const columnasDia = useMemo(() => {
@@ -2103,10 +2215,6 @@ export default function Calendario() {
     window.addEventListener(EVENTO_SALTAR_A_CLASE, alSaltar);
     return () => window.removeEventListener(EVENTO_SALTAR_A_CLASE, alSaltar);
   });
-  // Letra grande en la semana solo donde sobra alto (el contrario de
-  // `escritorio-bajo`): en un monitor de 1080 las clases iban a 9–10,5 px y se
-  // perdían en la rejilla; en un portátil bajo cada hora a la vista cuenta más.
-  const letraGrande = useCoincideMedio('(min-width: 1024px) and (min-height: 901px)');
   const agendaSemana = useMemo<DiaDeAgenda[]>(() => {
     if (!datosVista) return [];
     return agendaDeSemana(columnasSemana, datosVista.salas.map(s => s.id)).flatMap(d => {
@@ -2126,17 +2234,9 @@ export default function Calendario() {
     }];
   }, [datosVista, columnasDia, diaSeleccionado, todayStr, datosPorSesionId]);
 
-  // Lo mismo que hace un clic en un bloque de la rejilla: en modo selección
-  // marca, si no abre (o cierra) la ficha de la clase.
-  function seleccionarEnVista(id: string) {
-    if (modoSeleccion) { alternarMarcada(id); return; }
-    setSesionId(prev => (prev === id ? null : id));
-    setPestanaPanel('clientas');
-  }
-
   // ⚠️ Una clase que la cabecera cuenta y la rejilla no pinta.
   //
-  // `VistaDiaSalas`/`VistaSemana` hacen `datos.get(s.id)` y, si no está, un
+  // Las vistas hacen `datos.get(s.id)` y, si no está, un
   // `return null`: el bloque desaparece SIN decir nada, mientras la cabecera de
   // la columna sigue diciendo «1 clase» porque cuenta el mismo array que el
   // bloque no llegó a pintar. Eso es exactamente lo que se ve en el vídeo del
@@ -2160,144 +2260,11 @@ export default function Calendario() {
     });
   }, [columnasDia, columnasSemana, datosPorSesionId]);
 
-  // La rejilla (Día/Semana) se recortaba EXACTAMENTE al horario del estudio
-  // (studios.hora_apertura/hora_cierre): una clase real que empezara antes o
-  // acabara después de esa ventana (excepción puntual, aforo especial) no se
-  // veía — el `overflow-y-auto` del contenedor la cortaba en seco, sin aviso.
-  // Los límites de RENDERIZADO nunca deben ser más estrechos que las clases
-  // reales que hay que mostrar; el horario del estudio sigue siendo el suelo
-  // (nunca se encoge la vista si no hay clases fuera de él).
-  const { horaInicioMinVista, horaFinMinVista } = useMemo(() => {
-    const horaAperturaMin = datosVista ? Number(datosVista.horaApertura.slice(0, 2)) * 60 : 8 * 60;
-    const horaCierreMin = datosVista ? Number(datosVista.horaCierre.slice(0, 2)) * 60 : 22 * 60;
-    const todas = [...columnasDia.flatMap(c => c.sesiones), ...columnasSemana.flatMap(c => c.sesiones)];
-    if (todas.length === 0) return { horaInicioMinVista: horaAperturaMin, horaFinMinVista: horaCierreMin };
-    const minReal = Math.min(...todas.map(s => s.inicioMin));
-    const maxReal = Math.max(...todas.map(s => s.finMin));
-    return {
-      horaInicioMinVista: Math.min(horaAperturaMin, Math.floor(minReal / 60) * 60),
-      horaFinMinVista: Math.max(horaCierreMin, Math.ceil(maxReal / 60) * 60),
-    };
-  }, [datosVista, columnasDia, columnasSemana]);
-
-  // ── Vista de Mes: agregación por día, no por hora (Fase 2) ─────────────────
-  const diasMes = useMemo(() => {
-    if (!datosVista) return new Map<string, DiaMes>();
-    const salasById = new Map(datosVista.salas.map(s => [s.id, s]));
-    const sesiones: SesionMes[] = sesionesVistaFiltradas.map(s => {
-      const r = reservasPorSesion.get(s.id) ?? [];
-      const confirmadas = r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length;
-      const enEspera = r.filter(x => x.estado === 'LISTA_ESPERA').length;
-      const estado = estadoPorSesion.get(s.id) ?? 'PROGRAMADA';
-      const sala = salasById.get(s.salaId);
-      const sobreaforo = sala ? Math.max(0, s.aforoMaximo - sala.capacidad) : 0;
-      const huecosLibres = Math.max(0, s.aforoMaximo - confirmadas);
-      return {
-        id: s.id,
-        fecha: diaEnEstudio(s.inicio),
-        confirmadas,
-        aforoMaximo: s.aforoMaximo,
-        cancelada: s.cancelada,
-        pideAtencion: pideDecision(estado, { enEspera, sobreaforo, huecosLibres, finalizada: now.getTime() >= new Date(s.fin).getTime() }),
-      };
-    });
-    return agregarPorDiaMes(sesiones);
-  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, now]);
-
-  // ── Métricas (punto 8: hablan de lo que se está mirando) ────────────────────
-  const tarjetas = useMemo(() => {
-    if (!datosVista) return [];
-    if (vista === 'dia') {
-      const deHoy = sesionesVistaFiltradas.filter(s => diaEnEstudio(s.inicio) === localDate(diaSeleccionado));
-      const esHoyReal = localDate(diaSeleccionado) === todayStr;
-      const ahoraMin = minutosEnEstudio(now);
-      const base = deHoy.map(s => {
-        const r = reservasPorSesion.get(s.id) ?? [];
-        const tc = tiposClase.find(t => t.id === s.tipoClaseId);
-        const sala = datosVista.salas.find(x => x.id === s.salaId);
-        return {
-          estado: estadoPorSesion.get(s.id) ?? 'PROGRAMADA' as EstadoSesion,
-          inicioMin: minutosEnEstudio(s.inicio),
-          finMin: minutosEnEstudio(s.fin),
-          nombre: tc?.nombre ?? '?', lugar: sala?.nombre ?? '?',
-          confirmadas: r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length,
-          aforoMaximo: s.aforoMaximo,
-          inicioISO: s.inicio,
-        };
-      });
-      return esHoyReal ? metricasDia(base, ahoraMin) : metricasSemana(base, false, now);
-    }
-    const base = sesionesVistaFiltradas.map(s => {
-      const r = reservasPorSesion.get(s.id) ?? [];
-      return {
-        estado: estadoPorSesion.get(s.id) ?? 'PROGRAMADA' as EstadoSesion,
-        confirmadas: r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length,
-        aforoMaximo: s.aforoMaximo,
-        inicioISO: s.inicio,
-      };
-    });
-    // I-8: "esta semana" solo si la semana visible incluye hoy — mismo criterio que el StatsBar viejo.
-    return metricasSemana(base, dias.some(d => localDate(d) === todayStr), now);
-  }, [datosVista, vista, sesionesVistaFiltradas, diaSeleccionado, todayStr, now, reservasPorSesion, estadoPorSesion, tiposClase, dias]);
-
-  // ── Franja de decisiones (puntos 3 y 4) ─────────────────────────────────────
-  const [indiceDecision, setIndiceDecision] = useState(0);
-  const itemsDecision = useMemo<(ItemDecision & { id: string })[]>(() => {
-    if (!datosVista) return [];
-    return sesionesVistaFiltradas.map(s => {
-      const r = reservasPorSesion.get(s.id) ?? [];
-      const confirmadas = r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length;
-      const enEspera = r.filter(x => x.estado === 'LISTA_ESPERA').length;
-      const sala = datosVista.salas.find(x => x.id === s.salaId);
-      const d = new Date(s.inicio);
-      const dia = columnaPorFecha.get(diaEnEstudio(s.inicio)) ?? 0;
-      return {
-        id: s.id, sesionId: s.id,
-        estado: estadoPorSesion.get(s.id) ?? 'PROGRAMADA',
-        dia: vista === 'semana' ? dia : 0,
-        inicioMin: minutosEnEstudio(d),
-        enEspera,
-        sobreaforo: sala ? Math.max(0, s.aforoMaximo - sala.capacidad) : 0,
-        huecosLibres: Math.max(0, s.aforoMaximo - confirmadas),
-        finalizada: now.getTime() >= new Date(s.fin).getTime(),
-      };
-    });
-  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, vista, now, columnaPorFecha]);
-
-  const decisiones = useMemo(() => decisionesOrdenadas(itemsDecision), [itemsDecision]);
-
-  const decisionesResumen = useMemo<DecisionResumen[]>(() => {
-    if (!datosVista) return [];
-    return decisiones.map(it => {
-      const s = datosVista.sesiones.find(x => x.id === it.sesionId);
-      const tc = s ? tiposClase.find(t => t.id === s.tipoClaseId) : null;
-      const horaCorta = s ? horaEstudio(s.inicio) : '';
-      const p = estadoPorSesion.get(it.sesionId);
-      const etiqueta = p === 'SIN_INSTRUCTORA' ? 'sin instructora'
-        : p === 'INCIDENCIA' ? 'incidencia'
-        : p === 'CONFLICTO' ? 'conflicto de sala'
-        : p === 'SIN_PASAR_LISTA' ? 'falta pasar lista'
-        : it.sobreaforo > 0 ? 'sobreaforo'
-        : 'lista de espera con hueco libre';
-      return { sesionId: it.sesionId, horaCorta, resumen: `${horaCorta} · ${tc?.nombre ?? 'Clase'} · ${etiqueta}` };
-    });
-  }, [decisiones, datosVista, tiposClase, estadoPorSesion]);
-
-  // Si cambia el número de decisiones, el índice actual puede apuntar fuera de
-  // la lista: se vuelve a la primera. Ajuste en render (patrón documentado por
-  // React para resetear estado al cambiar una dependencia) en vez de efecto,
-  // que pintaba un frame con el índice viejo sobre la lista nueva.
-  const [nDecisionesPrevio, setNDecisionesPrevio] = useState(decisiones.length);
-  if (decisiones.length !== nDecisionesPrevio) {
-    setNDecisionesPrevio(decisiones.length);
-    setIndiceDecision(0);
-  }
-
-  function accionParaSesion(sesionId: string): TipoAccion | null {
-    const it = itemsDecision.find(i => i.sesionId === sesionId);
-    if (!it) return null;
-    return accionParaEstado(it.estado, { enEspera: it.enEspera, sobreaforo: it.sobreaforo, huecosLibres: it.huecosLibres });
-  }
+  // El horario del estudio, en minutos. La vista de Día lo ensancha sola si hay
+  // una clase antes de abrir o después de cerrar (lib/calendario/escala-dia.ts):
+  // los límites de lo que se pinta nunca recortan una clase real.
+  const aperturaMin = datosVista ? Number(datosVista.horaApertura.slice(0, 2)) * 60 : 8 * 60;
+  const cierreMin = datosVista ? Number(datosVista.horaCierre.slice(0, 2)) * 60 : 22 * 60;
 
   // ── Las 6 acciones con nombre propio (punto 4) ──────────────────────────────
 
@@ -2329,36 +2296,58 @@ export default function Calendario() {
     });
   }
 
-  async function ejecutarPasarLista(sesionId: string) {
-    // Anti doble-submit: sin esto, dos clics en "Pasar lista" (el botón no
-    // tiene loading propio) mandaban dos rondas de check-in en paralelo sobre
-    // las mismas reservas.
+  // Pasar lista marcando solo a quien NO vino (antes «Pasar lista» daba a TODAS
+  // por venidas de un toque). Cada escritura se espera y solo se cuentan —y se
+  // deshacen— las que el servidor aceptó.
+  async function guardarLista(sesionId: string, plan: { vinieron: string[]; noVinieron: string[] }) {
     if (pasandoListaRef.current.has(sesionId)) return;
     pasandoListaRef.current.add(sesionId);
     try {
-    const reservasSesion = reservasPorSesion.get(sesionId) ?? [];
-    const ids = reservasParaPasarLista(reservasSesion.map(r => ({ id: r.id, estado: r.estado, checkInEn: r.checkInEn })));
-    if (ids.length === 0) return;
-    // Se espera cada check-in y solo se cuentan/deshacen las que de verdad se
-    // marcaron: antes `checkin(id)` se disparaba sin await por cada reserva,
-    // así que un rechazo del servidor (RLS, red) se perdía en silencio y el
-    // toast decía "marcadas" con reservas que seguían sin check-in real.
-    const resultados = await Promise.all(ids.map(async id => ({ id, res: await checkin(id) })));
-    const marcadas = resultados.filter(r => r.res.ok).map(r => r.id);
-    const fallidas = resultados.length - marcadas.length;
-    await refrescarVista();
-    if (marcadas.length === 0) { showToast('No se ha podido pasar lista — inténtalo de nuevo'); return; }
-    showToast(
-      `Lista pasada · ${marcadas.length} clienta${marcadas.length !== 1 ? 's' : ''} marcada${marcadas.length !== 1 ? 's' : ''}`
-      + (fallidas > 0 ? ` · ${fallidas} sin marcar` : ''),
-      {
+      // Uno detrás de otro y con la foto que va dejando el anterior: `checkin`
+      // pinta su cambio sobre la lista que recibe, y en paralelo cada uno pisaba
+      // el del otro (en pantalla solo quedaba marcada la última).
+      let foto = reservas;
+      const okVino: string[] = [];
+      for (const id of plan.vinieron) {
+        const res = await checkin(id, foto);
+        if (!res.ok) continue;
+        okVino.push(id);
+        foto = foto.map(r => (r.id === id ? { ...r, estado: 'ASISTIDA' as const, checkInEn: new Date().toISOString() } : r));
+      }
+      const okNoVino: string[] = [];
+      for (const id of plan.noVinieron) {
+        if ((await marcarNoShow(id)).ok) okNoVino.push(id);
+      }
+      const fallidas = plan.vinieron.length + plan.noVinieron.length - okVino.length - okNoVino.length;
+      await refrescarVista();
+      if (okVino.length + okNoVino.length === 0) { showToast('No se ha podido pasar lista. Inténtalo de nuevo.'); return; }
+      const partes = [
+        `${okVino.length} ${okVino.length === 1 ? 'vino' : 'vinieron'}`,
+        ...(okNoVino.length ? [`${okNoVino.length} no`] : []),
+        ...(fallidas ? [`${fallidas} sin marcar: inténtalo otra vez`] : []),
+      ];
+      showToast(`Lista pasada · ${partes.join(', ')}`, {
         texto: 'Deshacer',
-        onClick: async () => { for (const id of marcadas) await deshacerCheckin(id); await refrescarVista(); },
-      },
-    );
+        onClick: async () => {
+          let sinDeshacer = 0;
+          for (const id of okVino) if (!(await deshacerCheckin(id)).ok) sinDeshacer++;
+          for (const id of okNoVino) if (!(await revertirNoShow(id)).ok) sinDeshacer++;
+          await refrescarVista();
+          if (sinDeshacer > 0) showToast(`${sinDeshacer} ${sinDeshacer === 1 ? 'no se ha podido deshacer' : 'no se han podido deshacer'}: cámbialas en su fila`);
+        },
+      });
     } finally {
       pasandoListaRef.current.delete(sesionId);
     }
+  }
+
+  // Las acciones de una fila esperan al servidor y dicen si no la aceptó (la
+  // RLS, o la reserva ya no estaba como se veía): si no, el botón no hacía nada
+  // y nadie sabía por qué.
+  function conAviso(accion: (reservaId: string) => Promise<ResultadoEscritura>) {
+    return (reservaId: string) => {
+      void accion(reservaId).then(res => { if (!res.ok) showToast(res.error); });
+    };
   }
 
   async function repetirSemanaSiguiente(reservaId: string) {
@@ -2452,31 +2441,12 @@ export default function Calendario() {
     });
   }
 
-  function accionParaBloque(d: DatoSesion): { texto: string; onClick: () => void } | null {
-    const accion = accionParaSesion(d.sesion.id);
-    if (!accion) return null;
-    if (accion === 'CUBRIR') {
-      const candidata = candidataParaSustitucion(d.sesion, instructoresActivos, ausencias, existentesSlot);
-      if (!candidata) return null;
-      return { texto: `Cubrir con ${candidata.nombre}`, onClick: () => setDialogoAccion({ tipo: 'CUBRIR', sesionId: d.sesion.id }) };
-    }
-    if (accion === 'PASAR_LISTA') return { texto: 'Pasar lista', onClick: () => void ejecutarPasarLista(d.sesion.id) };
-    if (accion === 'RESOLVER') return { texto: 'Resolver', onClick: () => ejecutarResolverIncidencia(d.sesion.id).then(() => {}) };
-    if (accion === 'MOVER') return { texto: 'Mover', onClick: () => { setSesionId(d.sesion.id); openEdit(); } };
-    if (accion === 'OFRECER') return { texto: 'Ofrecer plaza', onClick: () => setDialogoAccion({ tipo: 'OFRECER', sesionId: d.sesion.id }) };
-    if (accion === 'AJUSTAR_AFORO') return { texto: 'Ajustar aforo', onClick: () => setDialogoAccion({ tipo: 'AJUSTAR_AFORO', sesionId: d.sesion.id }) };
-    return null;
-  }
-
-  function irADecision(sesionId: string) {
-    setSesionId(sesionId);
-    setPestanaPanel('clientas');
-  }
-
   // ── Arrastrar y soltar (Fase 2) ──────────────────────────────────────────────
   const [confirmarArrastre, setConfirmarArrastre] = useState<{
     sesionId: string; nuevoSalaId: string; nuevoInicio: string; nuevoFin: string;
-    apuntadas: number; plazasFijas: number; horaTexto: string;
+    apuntadas: number; plazasFijas: number;
+    /** «a las 10:00», o «al jue 8 oct a las 10:00» si cambia de día. */
+    destinoTexto: string;
   } | null>(null);
 
   const arrastrableSesion = useCallback((d: DatoSesion) =>
@@ -2487,6 +2457,11 @@ export default function Calendario() {
   async function ejecutarMoverSesion(sesionId: string, nuevoSalaId: string, nuevoInicio: string, nuevoFin: string) {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     if (!sesion) return;
+    // Se vuelve a mirar al ejecutar, no solo al soltar: con gente apuntada hay un
+    // diálogo de por medio, y mientras está abierto la hora puede pasar (o la
+    // clase empezar).
+    if (sesionYaEmpezada(sesion.inicio)) { showToast(MENSAJE_CLASE_YA_EMPEZADA); return; }
+    if (sesionYaEmpezada(nuevoInicio)) { showToast(MENSAJE_HORA_PASADA); return; }
     const cambioHora = new Date(sesion.inicio).getTime() !== new Date(nuevoInicio).getTime();
     const cambioSala = sesion.salaId !== nuevoSalaId;
     const guardado = await updateSesion(sesionId, { salaId: nuevoSalaId, inicio: nuevoInicio, fin: nuevoFin });
@@ -2514,13 +2489,11 @@ export default function Calendario() {
     void refrescarVista();
   }
 
-  // Reutiliza detectarConflictos/hayConflicto — los mismos imports que ya usa
-  // conflictosForm para el formulario de editar (page.tsx arriba), no una
-  // comprobación nueva.
-  function moverSesionArrastrada(
-    sesionId: string,
-    destino: { salaId?: string; diaColumna?: number; offsetYPx: number; pxPorHora: number },
-  ) {
+  // Mover una clase a un día y una hora (y, en el Día, a otra sala). Lo usan los
+  // dos arrastres: el del Día (hora exacta y sala) y el de la Semana por franjas
+  // (otro día, a la misma hora). Reutiliza detectarConflictos/hayConflicto —los
+  // mismos que el formulario de editar—, no una comprobación nueva.
+  function moverSesionA(sesionId: string, destino: { dia: string; inicioMin: number; salaId?: string }) {
     if (guardandoSesion || !datosVista) return;
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     if (!sesion || sesion.cancelada) return;
@@ -2530,31 +2503,23 @@ export default function Calendario() {
     const horaAperturaMin = Number(datosVista.horaApertura.slice(0, 2)) * 60;
     const horaCierreMin = Number(datosVista.horaCierre.slice(0, 2)) * 60;
     const duracionMin = (new Date(sesion.fin).getTime() - new Date(sesion.inicio).getTime()) / 60000;
-    // El origen del gesto es horaInicioMinVista (el de la rejilla RENDERIZADA,
-    // que puede ser más amplio que el horario del estudio), no horaAperturaMin
-    // — el límite de negocio ("Fuera del horario del estudio") sigue siendo
-    // horaApertura/horaCierre sin cambios, son dos cosas distintas.
-    const nuevoInicioMin = minutosDesdeOffset(destino.offsetYPx, destino.pxPorHora, horaInicioMinVista);
-    const { inicioMin, finMin } = nuevoHorarioArrastrado(duracionMin, nuevoInicioMin);
+    const { inicioMin, finMin } = nuevoHorarioArrastrado(duracionMin, destino.inicioMin);
     if (inicioMin < horaAperturaMin || finMin > horaCierreMin) {
       showToast('Fuera del horario del estudio');
       return;
     }
 
-    // ⚠️ Auditoría 2026-09-25 (RES-7-a): sin `diaColumna` (vista Día) esto salía de
-    // `localDate(new Date(sesion.inicio))`, es decir del día del NAVEGADOR: con el
+    // ⚠️ Auditoría 2026-09-25 (RES-7-a): el día es el del ESTUDIO (o el de la
+    // columna, que es una fecha de calendario), nunca el del navegador: con el
     // navegador detrás de Madrid, mover una clase de las 10:00 la reprogramaba al
-    // día anterior (y avisaba por email a las alumnas). El día de una sesión es el
-    // del ESTUDIO. Con `diaColumna` (vista Semana) el día sale de la propia
-    // columna, que es una fecha de calendario y no un instante.
-    const diaBase = destino.diaColumna != null
-      ? (dias[destino.diaColumna] ? localDate(dias[destino.diaColumna]) : null)
-      : diaEnEstudio(sesion.inicio);
-    if (!diaBase) return;
-    const nuevoInicio = toISO(diaBase, mmA(inicioMin));
-    const nuevoFin = toISO(diaBase, mmA(finMin));
+    // día anterior (y avisaba por email a las alumnas).
+    const nuevoInicio = toISO(destino.dia, mmA(inicioMin));
+    const nuevoFin = toISO(destino.dia, mmA(finMin));
     const nuevoSalaId = destino.salaId ?? sesion.salaId;
-    if (nuevoInicio === sesion.inicio && nuevoSalaId === sesion.salaId) return;
+    // Por instante, no por texto: `toISO` da «…00.000Z» y la base de datos
+    // «…00+00:00», así que comparar las cadenas nunca daba «no se ha movido».
+    if (new Date(nuevoInicio).getTime() === new Date(sesion.inicio).getTime() && nuevoSalaId === sesion.salaId) return;
+    if (sesionYaEmpezada(nuevoInicio)) { showToast(MENSAJE_HORA_PASADA); return; }
 
     const conflicto = detectarConflictos(
       { salaId: nuevoSalaId, instructorId: sesion.instructorId, inicio: nuevoInicio, fin: nuevoFin },
@@ -2573,7 +2538,8 @@ export default function Calendario() {
       // formulario de editar (que ya tiene su propia pausa: el botón Guardar).
       setConfirmarArrastre({
         sesionId, nuevoSalaId, nuevoInicio, nuevoFin, apuntadas,
-        plazasFijas: enPlazaFija, horaTexto: mmA(inicioMin),
+        plazasFijas: enPlazaFija,
+        destinoTexto: destino.dia === diaEnEstudio(sesion.inicio) ? `a las ${mmA(inicioMin)}` : `al ${diaCorto(nuevoInicio)} a las ${mmA(inicioMin)}`,
       });
       return;
     }
@@ -2583,28 +2549,123 @@ export default function Calendario() {
     void ejecutarMoverSesion(sesionId, nuevoSalaId, nuevoInicio, nuevoFin);
   }
 
-  // Clic en un hueco vacío de la rejilla (Día/Semana): abre "Nueva clase" con
-  // el día/hora (y sala, en Día) ya rellenados en vez de obligar a abrir el
-  // formulario y teclear la hora a mano.
-  function crearDesdeHueco(destino: { salaId?: string; diaColumna?: number; offsetYPx: number; pxPorHora: number }) {
-    if (!datosVista) return;
-    // El origen (offsetYPx=0) de la rejilla es horaInicioMinVista, no
-    // horaApertura — puede ser más temprano si hay una clase real antes de
-    // la apertura oficial del estudio (ver el useMemo que lo calcula).
-    const inicioMin = minutosDesdeOffset(destino.offsetYPx, destino.pxPorHora, horaInicioMinVista);
-    const baseDate = destino.diaColumna != null ? dias[destino.diaColumna] : diaSeleccionado;
-    if (!baseDate) return;
-    openNueva(localDate(baseDate), mmA(inicioMin), destino.salaId);
+  function moverEnElDia(sesionId: string, destino: { salaId: string; inicioMin: number }) {
+    const s = sesionesEnriquecidas.find(x => x.id === sesionId);
+    if (s) moverSesionA(sesionId, { dia: diaEnEstudio(s.inicio), inicioMin: destino.inicioMin, salaId: destino.salaId });
   }
 
-  // ── Label ────────────────────────────────────────────────────────────────────
-  const mesLabel = vista === 'horario'
-    ? 'Las clases que se repiten cada semana'
-    : vista === 'semana'
-    ? `${semana.toLocaleDateString('es-ES', { day: 'numeric' })} – ${addDays(semana, 6).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`
-    : vista === 'mes'
-    ? mesVisto.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-    : diaSeleccionado.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  function moverAOtroDia(sesionId: string, columna: number) {
+    const s = sesionesEnriquecidas.find(x => x.id === sesionId);
+    const fecha = dias[columna];
+    if (s && fecha) moverSesionA(sesionId, { dia: localDate(fecha), inicioMin: minutosEnEstudio(s.inicio) });
+  }
+
+  // Tocar un hueco de la rejilla: «Nueva clase» con el día, la hora (y la sala,
+  // en el Día) ya puestos.
+  function crearEnElDia(destino: { salaId: string; inicioMin: number }) {
+    openNueva(localDate(diaSeleccionado), mmA(destino.inicioMin), destino.salaId);
+  }
+  function crearEnLaSemana(columna: number, hora: number) {
+    const fecha = dias[columna];
+    if (fecha) openNueva(localDate(fecha), mmA(hora * 60));
+  }
+
+  // ── La fecha de la cabecera (se toca para elegir otro día) ────────────────────
+  // En el Día del móvil, la tira ya dice qué día es: la fecha dice el mes
+  // («Octubre»), como en la maqueta, y así cabe en la fila con Día · Semana · Horario.
+  const etiquetaFecha = vista === 'semana' ? rangoCorto(semana, addDays(semana, 6))
+    : enMovil ? capitalizarPrimera(FORMATO_MES_LARGO.format(diaSeleccionado))
+    : capitalizarPrimera(diaCorto(diaSeleccionado));
+  // Los días con clase, para el punto del selector de fecha (todo el estudio; la
+  // instructora, solo los suyos — igual que el buscador).
+  const diasConClase = useMemo(() => new Set(
+    sesiones.filter(s => !s.cancelada && (!esInstructorTop || (!!yoTop && s.instructorId === yoTop.id))).map(s => diaEnEstudio(s.inicio)),
+  ), [sesiones, esInstructorTop, yoTop]);
+
+  // ── Dónde va la ficha de la clase (decisión 5) ───────────────────────────────
+  // Al lado de la rejilla, sin taparla, si hay sitio: el Día cabe con la ficha
+  // desde 1180 px (un iPad en horizontal); la Semana, desde 1440. Si no, en un
+  // cajón por encima, y en el móvil, en una hoja desde abajo.
+  const fichaAlLadoDia = useCoincideMedio('(min-width: 1180px)');
+  const fichaAlLadoSemana = useCoincideMedio('(min-width: 1440px)');
+  const modoFicha: ModoFicha = enMovil ? 'hoja' : (vista === 'dia' ? fichaAlLadoDia : fichaAlLadoSemana) ? 'lateral' : 'cajon';
+
+  // Las herramientas de la cabecera llevan su nombre si caben (con el menú
+  // lateral, desde unos 1400 px); si no, solo el icono, con el nombre al pasar.
+  const herramientasConNombre = useCoincideMedio('(min-width: 1400px)');
+  // La semana con tarjetas de dos líneas si hay ancho; si no (un iPad en
+  // vertical), de tres: hora y plazas, clase, y quién la da.
+  const semanaAncha = useCoincideMedio('(min-width: 1180px)');
+
+  // El orden de ‹ ›: el de la vista, por hora y por sala.
+  const ordenSalas = useMemo(() => new Map((datosVista?.salas ?? []).map((x, i) => [x.id, i])), [datosVista]);
+  const ordenClases = useMemo(() => [...sesionesALaVista]
+    .sort((a, b) => a.inicio.localeCompare(b.inicio) || (ordenSalas.get(a.salaId) ?? 0) - (ordenSalas.get(b.salaId) ?? 0))
+    .map(s => s.id), [sesionesALaVista, ordenSalas]);
+
+  // El modo mostrador: en el Día de hoy, con la ficha al lado, la clase de ahora
+  // se abre sola (lib/calendario/mostrador.ts). Ajuste en render, no efecto: con
+  // efecto se pintaba un instante la rejilla sin ficha.
+  //
+  // Sigue al reloj mientras nadie la toque: acaba una clase y pasa a la
+  // siguiente. Y cuenta solo las clases que siguen vivas en el contexto, que se
+  // entera antes que `datosVista`: si no, al cancelar o borrar la clase de ahora
+  // se volvía a abrir esa misma (y tras borrarla, la ficha apuntaba a una clase
+  // que ya no existe y el mostrador dejaba de abrirse).
+  const esHoyEnDia = vista === 'dia' && localDate(diaSeleccionado) === todayStr;
+  const vivasEnContexto = useMemo(() => new Set(sesionesEnriquecidas.filter(s => !s.cancelada).map(s => s.id)), [sesionesEnriquecidas]);
+  const claseDeAhora = esHoyEnDia && modoFicha === 'lateral'
+    ? claseDelMostrador(sesionesALaVista.filter(s => vivasEnContexto.has(s.id)), now) : null;
+  if (claseDeAhora && !fichaCerradaAMano && !modoSeleccion
+    && (sesionId === null || (abiertaSola && sesionId !== claseDeAhora))) {
+    setSesionId(claseDeAhora);
+    setAbiertaSola(true);
+  }
+  if (abiertaSola && sesionId !== null && (!esHoyEnDia || modoFicha !== 'lateral' || claseDeAhora === null)) {
+    setSesionId(null);
+    setAbiertaSola(false);
+  }
+
+  // ── La Semana por franjas ────────────────────────────────────────────────────
+  const clasesFranjas = useMemo<ClaseEnFranja[]>(() => (vista !== 'semana' ? [] : sesionesALaVista.map(s => ({
+    id: s.id,
+    dia: columnaPorFecha.get(diaEnEstudio(s.inicio)) ?? 0,
+    inicioMin: minutosEnEstudio(s.inicio),
+    orden: ordenSalas.get(s.salaId) ?? 0,
+  }))), [vista, sesionesALaVista, columnaPorFecha, ordenSalas]);
+  const resumenDelDia = useCallback((dia: number) => {
+    const ids = new Set(clasesFranjas.filter(c => c.dia === dia).map(c => c.id));
+    const r = resumenDeVista(clasesParaResumen.filter(c => ids.has(c.id)));
+    return { clases: r.clases, ocupacion: r.ocupacion };
+  }, [clasesFranjas, clasesParaResumen]);
+
+  function cerrarFicha() {
+    const id = sesionId;
+    // Al cerrar desde dentro (× o Esc con el teclado), el foco vuelve a su
+    // tarjeta: si no, se quedaba en el aire y había que empezar a tabular otra vez.
+    const desdeDentro = modoFicha === 'lateral' && !!document.activeElement?.closest('[data-testid="ficha-clase"]');
+    setSesionId(null);
+    setAbiertaSola(false);
+    if (esHoyEnDia) setFichaCerradaAMano(true);
+    if (desdeDentro && id) {
+      requestAnimationFrame(() => document.querySelector<HTMLElement>(`[role="button"][data-sesion-id="${CSS.escape(id)}"]`)?.focus());
+    }
+  }
+  // Tocar una clase: en «Seleccionar varias» la marca; si no, abre su ficha (o la cierra si ya estaba abierta).
+  function abrirClase(id: string) {
+    if (modoSeleccion) { alternarMarcada(id); return; }
+    if (sesionId === id) { cerrarFicha(); return; }
+    setSesionId(id);
+    setAbiertaSola(false);
+    setPestanaPanel('clientas');
+    // Al lado, la ficha va detrás de todas las tarjetas en el orden del
+    // teclado: el foco salta a su título, o quien va con el teclado tendría que
+    // tabular por todas las clases que quedan para llegar a ella. (El cajón y la
+    // hoja son diálogos y ya se llevan el foco.)
+    if (modoFicha === 'lateral') {
+      requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-testid="ficha-clase"] h2')?.focus({ preventScroll: true }));
+    }
+  }
 
   // ── Panel lateral: sesión seleccionada, vista de rol ────────────────────────
   const sesionVista = datosVista?.sesiones.find(s => s.id === sesionId) ?? null;
@@ -2695,11 +2756,9 @@ export default function Calendario() {
   const [prepIA, setPrepIA] = useState<{ resumen: string; evitar: string[]; variantes: string[] } | null>(null);
   const [prepIALoading, setPrepIALoading] = useState(false);
   const [prepIAError, setPrepIAError] = useState(false);
-  const [buscarSocia, setBuscarSocia] = useState('');
-  const [showAnadir, setShowAnadir] = useState(false);
-  // «Añadir» a una socia o una plaza vendida por ClassPass/USC/Wellhub (solo
-  // las plataformas activadas en Conexiones).
-  const [anadirDe, setAnadirDe] = useState<'CLIENTA' | Plataforma>('CLIENTA');
+  // «Añadir» a una clienta o una plaza vendida por ClassPass/USC/Wellhub (solo
+  // las plataformas activadas en Conexiones). Lo que se escribe en el buscador
+  // vive en `AnadirAClase`, que se reinicia al cambiar de clase (`key`).
   const plataformasActivas = usePlataformasActivas();
 
   // Al cambiar de sesión (o cerrar el drawer) se limpia todo lo que colgaba de
@@ -2718,8 +2777,6 @@ export default function Calendario() {
     setNotaVozSocioId(null);
     setPrepIA(null);
     setPrepIAError(false);
-    setShowAnadir(false);
-    setBuscarSocia('');
   }
 
   async function prepararClaseIA() {
@@ -2750,11 +2807,8 @@ export default function Calendario() {
 
   const sociosDisponibles = useMemo(() => {
     const sociosEnClase = new Set(reservasActuales.filter(r => r.estado !== 'CANCELADA').map(r => r.socioId));
-    return socios.filter(
-      s => s.activo && !sociosEnClase.has(s.id) &&
-      (buscarSocia === '' || `${s.nombre} ${s.apellidos}`.toLowerCase().includes(buscarSocia.toLowerCase()))
-    );
-  }, [reservasActuales, socios, buscarSocia]);
+    return socios.filter(s => s.activo && !sociosEnClase.has(s.id));
+  }, [reservasActuales, socios]);
 
   const spotsActuales = sesionActual ? spots.filter(sp => sp.salaId === sesionActual.salaId) : [];
 
@@ -2765,229 +2819,420 @@ export default function Calendario() {
     return historialSustituciones(desdeSesion, id => nombrePorId.get(id) ?? null);
   }, [datosVista, sesionId]);
 
+  // ── La ficha de la clase abierta ─────────────────────────────────────────────
+  // Todo lo que hacía el panel de antes sigue aquí (inventario del 1-oct-2026);
+  // cambia el orden: lo principal del momento arriba, lo demás en su ⋯.
+  const tarjetaActual = sesionId ? tarjetasPorId.get(sesionId) ?? null : null;
+  const empezadaActual = sesionActual ? sesionYaEmpezada(sesionActual.inicio, now) : false;
+  const terminadaActual = sesionActual ? now.getTime() >= new Date(sesionActual.fin).getTime() : false;
+  // Una clase cancelada no pide nada: ni plazas que ofrecer o ajustar, ni
+  // sustituta, ni volver a cancelarla.
+  const canceladaActual = !!sesionActual?.cancelada;
+  const vivaActual = !terminadaActual && !canceladaActual;
+  // Por qué «cancelar la serie desde aquí» no incluye esta clase, si no la incluye.
+  const sinEstaEnLaSerie = empezadaActual ? 'esta ya ha empezado y se queda' : canceladaActual ? 'esta ya está cancelada' : null;
+  const enEsperaActual = reservasActuales.filter(r => r.estado === 'LISTA_ESPERA').length;
+  const salaActual = sesionActual ? salas.find(x => x.id === sesionActual.salaId) ?? null : null;
+  const sobreaforoActual = !!salaActual && !!sesionActual && sesionActual.aforoMaximo > salaActual.capacidad;
+  const candidataActual = sesionActual && estadoVista === 'SIN_INSTRUCTORA' && sesionVista?.sustitucionId
+    ? candidataParaSustitucion(sesionActual, instructoresActivos, ausencias, existentesSlot) : null;
+  const vecinasActual = vecinas(ordenClases, sesionId);
+  const apuntadasActual = sesionActual?.confirmadas ?? 0;
+
+  const menuClase: AccionMenu[] = !sesionActual || !esPropiaClase ? [] : [
+    ...(!canceladaActual ? [{
+      texto: 'Editar esta clase', icono: Pencil, onClick: openEdit,
+      desactivada: empezadaActual, nota: empezadaActual ? MENSAJE_CLASE_YA_EMPEZADA : 'Hora, sala, instructora, plazas o notas',
+    }] : []),
+    { texto: 'Duplicar', icono: Copy, onClick: () => openDuplicar(sesionActual), nota: 'La misma clase, la semana que viene' },
+    ...(!canceladaActual ? [
+      {
+        texto: 'Buscar sustituta', icono: UserCheck, onClick: () => setShowCobertura(true),
+        desactivada: empezadaActual, nota: empezadaActual ? MENSAJE_CLASE_YA_EMPEZADA : 'Su instructora no puede darla',
+      },
+      { texto: 'Anotar incidencia de sala', icono: Wrench, onClick: () => abrirIncidencia(sesionActual.id), nota: 'Una nota para el equipo; no avisa a nadie' },
+    ] : []),
+    ...(sesionActual.serieId ? [
+      {
+        texto: 'Duplicar serie', icono: Copy, onClick: () => openDuplicarSerie(sesionActual), separar: true, dentro: true,
+        seccion: horario ? textoRepeticion(sesionActual.inicio, sesionActual.serieId, horario) : 'La serie: se repite cada semana',
+        nota: 'Lo que queda de la serie, desde su última clase',
+      },
+      ...(!esInstructor ? [{
+        texto: 'Renovar serie', icono: RefreshCw, dentro: true, nota: 'La misma clase, más semanas',
+        onClick: () => {
+          const { dow, hora, minuto } = franjaLocalDe(sesionActual.inicio);
+          setRenovarSerieDe({
+            serieId: sesionActual.serieId!,
+            nombre: nombreSerie(
+              { diaSemana: dow, hora: `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`, salaId: sesionActual.salaId, tipoClaseId: sesionActual.tipoClaseId },
+              id => tiposClase.find(t => t.id === id)?.nombre,
+              id => salas.find(x => x.id === id)?.nombre,
+            ),
+          });
+        },
+      }] : []),
+      // Con una sola clase viva por delante haría lo mismo que «Cancelar esta
+      // clase». Fuera del rol INSTRUCTOR: la RLS le deja tocar solo sus propias
+      // clases, y un lote sobre la serie podría cancelar media y decir que fue bien.
+      // Con esta ya empezada o ya cancelada, el lote no la incluye
+      // (`sesionesSerieRestantes` va sin ellas), y el texto tiene que decirlo.
+      ...(sesionesSerieRestantes.length > (sinEstaEnLaSerie ? 0 : 1) && !esInstructor ? [{
+        texto: sinEstaEnLaSerie ? 'Cancelar las siguientes' : 'Cancelar esta y las siguientes', icono: Ban, dentro: true, peligro: true,
+        onClick: () => setConfirmCancelarSerie(true),
+        nota: sinEstaEnLaSerie
+          ? `${sesionesSerieRestantes.length === 1 ? 'La próxima' : `Las ${sesionesSerieRestantes.length} próximas`}; ${sinEstaEnLaSerie}`
+          : `${sesionesSerieRestantes.length} clases; las de antes no se tocan`,
+      }] : []),
+    ] as AccionMenu[] : []),
+    ...(!empezadaActual ? [
+      ...(!canceladaActual ? [{
+        texto: 'Cancelar esta clase', icono: Ban, peligro: true, separar: true, onClick: () => setConfirmCancelar(true),
+        nota: apuntadasActual > 0 ? `Avisa a ${apuntadasActual === 1 ? 'la apuntada' : `las ${apuntadasActual} apuntadas`}` : 'No tiene clientas apuntadas',
+      }] : []),
+      ...(!esInstructor ? [{ texto: 'Eliminar', icono: Trash2, peligro: true, separar: canceladaActual, onClick: () => setConfirmEliminar(true), nota: 'Solo si la creaste por error' }] : []),
+    ] as AccionMenu[] : []),
+  ];
+
+  const estadoFicha = sesionActual ? estadoDeFicha({
+    estado: estadoVista, inicio: sesionActual.inicio, fin: sesionActual.fin,
+    marca: tarjetaActual?.marca ?? { aviso: null, extra: null },
+    apuntadas: apuntadasActual, asistidas: sesionActual.asistidas,
+    sinMarcar: reservasActuales.filter(r => r.estado === 'CONFIRMADA' && !r.checkInEn).length,
+    aforo: sesionActual.aforoMaximo, enEspera: enEsperaActual,
+  }, now) : null;
+
+  const explicacionFicha = !sesionActual ? null
+    : estadoVista === 'SIN_INSTRUCTORA' && !terminadaActual ? porQueSinCubrir({
+      instructora: sesionActual.instructor.nombre === '?' ? null : sesionActual.instructor.nombre,
+      ausencia: sesionVista?.ausencia ?? null,
+      instructoraInactiva: !!sesionVista?.instructoraInactiva,
+      motivoBaja: sesionVista?.motivoBaja ?? null,
+      sustitucionAbierta: !!sesionVista?.sustitucionAbierta,
+    })
+    : estadoVista === 'INCIDENCIA' ? sesionActual.incidenciaTexto ?? null
+    : estadoVista === 'CONFLICTO' ? 'La sala o la instructora ya tienen otra clase a esa hora.'
+    : null;
+
+  const BOTON_PRINCIPAL = 'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-[14px] font-semibold text-brand-foreground transition-[filter] hover:brightness-95 disabled:opacity-50';
+  const BOTON_SECUNDARIO = 'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-[14px] font-semibold text-foreground transition-colors hover:bg-muted';
+  const floja = sesionVista?.floja ?? null;
+  const principalFicha = !sesionActual || !esPropiaClase ? null : (
+    <>
+      {estadoVista === 'SIN_INSTRUCTORA' && !empezadaActual && (
+        <div className="grid gap-2">
+          {candidataActual && (
+            <button type="button" className={BOTON_PRINCIPAL} onClick={() => setDialogoAccion({ tipo: 'CUBRIR', sesionId: sesionActual.id })}>
+              <UserCheck size={16} aria-hidden />Cubrir con {candidataActual.nombre}
+            </button>
+          )}
+          <button type="button" className={candidataActual ? BOTON_SECUNDARIO : BOTON_PRINCIPAL} onClick={() => setShowCobertura(true)}>
+            <UserCheck size={16} aria-hidden />Buscar sustituta
+          </button>
+        </div>
+      )}
+      {estadoVista === 'INCIDENCIA' && (
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" className={BOTON_PRINCIPAL} onClick={() => void ejecutarResolverIncidencia(sesionActual.id)}>Resolver</button>
+          <button type="button" className={BOTON_SECUNDARIO} onClick={() => abrirIncidencia(sesionActual.id)}>Cambiar la nota</button>
+        </div>
+      )}
+      {estadoVista === 'CONFLICTO' && !empezadaActual && (
+        <button type="button" className={BOTON_PRINCIPAL} onClick={openEdit}>Cambiar la hora o la sala</button>
+      )}
+      {vivaActual && enEsperaActual > 0 && apuntadasActual < sesionActual.aforoMaximo && (
+        <button type="button" className={BOTON_SECUNDARIO} onClick={() => setDialogoAccion({ tipo: 'OFRECER', sesionId: sesionActual.id })}>
+          Ofrecer la plaza libre a la lista de espera
+        </button>
+      )}
+      {vivaActual && sobreaforoActual && salaActual && (
+        <button type="button" className={BOTON_SECUNDARIO} onClick={() => setDialogoAccion({ tipo: 'AJUSTAR_AFORO', sesionId: sesionActual.id })}>
+          Ajustar las plazas a {salaActual.capacidad} (las de la sala)
+        </button>
+      )}
+      {vivaActual && floja && (
+        <div className="rounded-xl bg-muted/60 px-3.5 py-3 text-[13px] text-foreground">
+          <p className="flex items-start gap-2 text-pretty">
+            <TrendingDown size={15} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+            <span>
+              <b className="font-semibold">Va floja:</b> lleva {floja.reservasAhora} de {floja.aforo}, y a {floja.diasVista === 1 ? 'un día' : `${floja.diasVista} días`} suele llevar {floja.referenciaHabitual} ({floja.ocurrencias} semanas comparadas).
+            </span>
+          </p>
+          {puedeVer(rolActual, '/centro-de-control') && (
+            <Link href="/centro-de-control" className="mt-2 inline-flex items-center gap-1 text-[12.5px] font-semibold text-brand-medio hover:underline">
+              Qué hacer, en el Centro de Control<ArrowRight size={13} aria-hidden />
+            </Link>
+          )}
+        </div>
+      )}
+    </>
+  );
+  const hayPrincipal = !!sesionActual && esPropiaClase && (
+    (estadoVista === 'SIN_INSTRUCTORA' && !empezadaActual) || estadoVista === 'INCIDENCIA'
+    || (estadoVista === 'CONFLICTO' && !empezadaActual)
+    || (vivaActual && ((enEsperaActual > 0 && apuntadasActual < sesionActual.aforoMaximo) || sobreaforoActual || !!floja))
+  );
+
   if (!mounted) return null;
 
+  const cerradosSemana = columnasSemana.map(c => c.cerrado);
+  const fichaAbierta = !!sesionActual && !!sesionId && (modoFicha === 'lateral' || !showForm);
+  const fichaLateral = modoFicha === 'lateral' && fichaAbierta && vista !== 'horario';
+  const puedeCrear = gestionaClientas || creaClasesPropias;
+  const ficha = sesionActual && (
+    <FichaClase
+      modo={modoFicha}
+      abierta={fichaAbierta && vista !== 'horario'}
+      onCerrar={cerrarFicha}
+      onTocar={abiertaSola ? () => setAbiertaSola(false) : undefined}
+      titulo={sesionActual.tipoClase.nombre}
+      color={sesionActual.tipoClase.color}
+      cuando={`${capitalizarPrimera(diaCorto(sesionActual.inicio))} · ${horaEstudio(sesionActual.inicio)} – ${horaEstudio(sesionActual.fin)}`}
+      donde={[
+        salaActual?.nombre,
+        sesionVista ? (datosPorSesionId.get(sesionVista.id)?.instructor?.nombre ?? 'Sin instructora')
+          : sesionActual.instructor.nombre === '?' ? 'Sin instructora' : sesionActual.instructor.nombre,
+      ].filter(Boolean).join(' · ')}
+      repeticion={sesionActual.serieId ? textoRepeticion(sesionActual.inicio, sesionActual.serieId, horario) : null}
+      pastilla={estadoFicha?.pastilla ?? null}
+      cifra={estadoFicha?.cifra}
+      explicacion={explicacionFicha}
+      onAnterior={vecinasActual.anterior ? () => { setSesionId(vecinasActual.anterior); setAbiertaSola(false); setPestanaPanel('clientas'); } : undefined}
+      onSiguiente={vecinasActual.siguiente ? () => { setSesionId(vecinasActual.siguiente); setAbiertaSola(false); setPestanaPanel('clientas'); } : undefined}
+      menu={menuClase}
+      pieMenu={empezadaActual && esPropiaClase ? 'Una clase que ya ha empezado no se cancela ni se borra: su asistencia es la historia de tus clientas.' : undefined}
+      principal={hayPrincipal ? principalFicha : undefined}
+      pestana={pestanaPanel}
+      onPestana={setPestanaPanel}
+      nClientas={reservasActuales.filter(r => r.estado !== 'CANCELADA' && r.estado !== 'LISTA_ESPERA').length}
+      conPlazas={spotsActuales.length > 0}
+      clientas={
+        <>
+          {((verFichaClinica && alertasClase.length > 0) || gestionaClientas) && (
+            <div className="space-y-2.5 px-5 pt-3">
+              {verFichaClinica && alertasClase.length > 0 && (
+                <AdaptacionesClase
+                  key={`adaptaciones-${sesionActual.id}`}
+                  alertas={alertasClase}
+                  puedePreparar={esPropiaClase}
+                  preparando={prepIALoading}
+                  preparacion={prepIA}
+                  error={prepIAError}
+                  onPreparar={prepararClaseIA}
+                  onCerrarPreparacion={() => setPrepIA(null)}
+                />
+              )}
+              {gestionaClientas && (
+                <AnadirAClase
+                  key={`anadir-${sesionActual.id}`}
+                  sesionId={sesionActual.id}
+                  confirmadas={sesionActual.confirmadas}
+                  aforo={sesionActual.aforoMaximo}
+                  plataformas={plataformasActivas}
+                  clientas={sociosDisponibles}
+                  avisar={avisarAlumna}
+                  onAvisar={setAvisarAlumna}
+                  onElegirClienta={socioId => handleAddReserva(sesionActual.id, socioId)}
+                  hrefQr={studio?.controlAccesoQr !== false ? `/calendario/pase?sesion=${encodeURIComponent(sesionActual.id)}` : null}
+                  showToast={showToast}
+                  onPlazaPlataforma={refrescarVista}
+                />
+              )}
+            </div>
+          )}
+          {/* Con su clave: las marcas de «pasar lista» a medias son de ESTA clase. */}
+          <ClientasDeClase
+            key={`clientas-${sesionActual.id}`}
+            reservas={reservasActuales}
+            nombreClienta={nombreClientaResolver}
+            pasarLista={estadoVista === 'SIN_PASAR_LISTA'}
+            checkinAbierto={checkinAbierto(sesionActual.inicio, now)}
+            checkinDesde={diaEnEstudio(sesionActual.inicio) === todayStr ? horaEstudio(aperturaCheckin(sesionActual.inicio)) : null}
+            empezada={empezadaActual}
+            onCheckin={conAviso(id => checkin(id))}
+            onDeshacerCheckin={conAviso(deshacerCheckin)}
+            onNoShow={conAviso(marcarNoShow)}
+            onRevertirNoShow={conAviso(revertirNoShow)}
+            onAprobar={id => resolverPendiente(id, true)}
+            onRechazar={id => resolverPendiente(id, false)}
+            resolviendoId={resolviendoReserva}
+            onQuitar={gestionaClientas ? (id: string) => {
+              const marca = marcaReserva({ id }, recuperaciones); // antes de cancelar
+              // El aviso de bono no devuelto, y lo que decidió el servidor sobre
+              // la plaza fija y la recuperación.
+              void cancelarReserva(id).then(async res => {
+                if (!res.ok) showToast(res.error);
+                else {
+                  const texto = [textoTrasQuitar(res, marca), res.avisoBono].filter(Boolean).join(' · ');
+                  if (texto) showToast(texto);
+                }
+                // ⚠️ Sin esto el contador se quedaba en «8/8» con la clienta ya
+                // fuera de la lista: `cancelarReserva` actualiza `reservas` del
+                // contexto (de donde sale la lista) y NO `datosVista` (de donde
+                // sale el número).
+                await refrescarVista();
+              });
+            } : undefined}
+            onRepetirSemanaSiguiente={gestionaClientas ? repetirSemanaSiguiente : undefined}
+            onHacerPlazaFija={gestionaClientas ? hacerPlazaFija : undefined}
+            plazaFijaExistePara={socioId => plazasFijas.some(p => p.socioId === socioId && p.estado !== 'BAJA'
+              && !!sesionActual && sesionEncajaEnPlaza(p, sesionActual))}
+            // Escribe en `notas_progreso` (detalle clínico): la misma puerta que
+            // la ficha de salud, no solo el piloto (FICHA-CLINICA.md §11, #561).
+            onNotaVoz={verFichaClinica && enPiloto && esPropiaClase ? setNotaVozSocioId : undefined}
+            marcaDe={r => marcaReserva(r, recuperaciones)}
+            semaforoPorSocio={verSemaforo ? (socioId => {
+              const nivel = semaforoParaMostrar.get(socioId);
+              return nivel ? { color: SEMAFORO_META[nivel].color, label: SEMAFORO_META[nivel].label } : undefined;
+            }) : undefined}
+            sitioDe={r => (r.spotId ? spots.find(sp => sp.id === r.spotId)?.nombre ?? null : null)}
+            onGuardarLista={plan => guardarLista(sesionActual.id, plan)}
+            filaExtra={verFichaClinica ? (r => r.estado === 'ASISTIDA' ? (
+              <div className="mt-1.5 flex items-center gap-1 pl-[52px]">
+                {(() => {
+                  // 38ª pasada de auditoría: sin consentimiento de salud vigente,
+                  // la RLS de `respuestas_sesion` rechaza la escritura en
+                  // silencio — deshabilitar el botón es lo que evita que el
+                  // mostrador pulse algo que el servidor va a tirar.
+                  const tieneConsentimiento = Boolean(socios.find(x => x.id === r.socioId)?.consentimientoSalud);
+                  return RESPUESTAS_ORDEN.map(resp => {
+                    const rm = RESPUESTA_META[resp];
+                    const activa = respuestaPorSocio.get(r.socioId)?.respuesta === resp;
+                    return (
+                      <button
+                        key={resp}
+                        type="button"
+                        disabled={!tieneConsentimiento}
+                        onClick={async () => {
+                          const res = await registrarRespuestaSesion({ socioId: r.socioId, sesionId: sesionActual?.id ?? null, respuesta: resp });
+                          if (!res.ok) showToast(res.error);
+                        }}
+                        title={tieneConsentimiento ? rm.label : 'Pide primero el consentimiento de datos de salud desde su ficha'}
+                        aria-label={rm.label}
+                        aria-pressed={activa}
+                        className={cn(
+                          'flex size-7 items-center justify-center rounded-md text-xs transition-all',
+                          !tieneConsentimiento ? 'cursor-not-allowed opacity-20' : activa ? 'scale-110 ring-2' : 'opacity-45 hover:opacity-100',
+                        )}
+                        style={activa && tieneConsentimiento ? { backgroundColor: rm.bg, boxShadow: `0 0 0 2px ${rm.color}` } : { backgroundColor: rm.bg }}
+                      >
+                        {rm.emoji}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            ) : null) : undefined}
+          />
+        </>
+      }
+      plazas={spotsActuales.length > 0 ? (
+        <SpotMap
+          spots={spotsActuales}
+          reservas={reservasActuales}
+          socios={socios}
+          onCheckin={checkinAbierto(sesionActual.inicio, now) ? conAviso(id => checkin(id)) : undefined}
+          onQuitarSpot={conAviso(liberarSpot)}
+          onAsignarSpot={async (spotId, socioId) => {
+            const res = await asignarSpot(sesionActual.id, socioId, spotId);
+            if (!res.ok) showToast(res.error ?? 'No hemos podido asignar el sitio. Inténtalo de nuevo.');
+          }}
+        />
+      ) : undefined}
+      sustituciones={<HistorialSesion eventos={eventosHistorial} />}
+    />
+  );
+
   return (
-    // h-full por sí solo no basta: DashboardShell envuelve `children` en un
-    // <main className="min-h-dvh"> (mínimo, no altura fija) sin ningún
-    // ancestro de altura definida contra la que "h-full" pueda resolverse.
-    // Sin un tope real, LienzoCalendario (h-full + overflow-hidden) nunca
-    // llega a acotar nada: la rejilla crece a su alto natural y es la PÁGINA
-    // ENTERA la que hace scroll — justo el anti-patrón que LienzoCalendario
-    // documenta evitar. Eso rompía dos cosas a la vez: la cabecera de días
-    // (sticky dentro de la rejilla) quedaba pegada al scroll de la página en
-    // vez del de la rejilla, y se solapaba con la Topbar/el menú de perfil
-    // (ambos con su propio sticky/absolute pensado para un scroll de página
-    // que no debería existir aquí). 100vh menos el padding+Topbar reales del
-    // shell (pt-14/pb-20 en móvil sin Topbar; lg:pt-2/lg:pb-0 + Topbar
-    // h-14+mb-2 en escritorio) — mismo patrón ya usado en
-    // app/(dashboard)/chat/page.frozen.tsx para este mismo problema.
-    // ⚠️ Solo desde `md`. En el móvil Día y Semana son una lista (VistaAgenda) y
-    // es la PÁGINA la que hace scroll: con la altura fija, la cabecera y los
-    // filtros se comían la pantalla y el calendario quedaba en una tira de
-    // ~100 px al fondo.
-    // ⚠️ Desde `lg` el alto lo pone `refLienzo` midiendo lo que hay encima y
-    // debajo; el `calc` de `md` es solo el punto de partida antes de medir.
+    // Desde `md` el calendario ocupa justo hasta el fondo de la ventana y lo que
+    // se desplaza es la rejilla, no la página (ver LienzoCalendario). Desde `lg`
+    // el alto lo pone `refLienzo` midiendo lo que hay encima y debajo; el `calc`
+    // de `md` es solo el punto de partida. En el móvil Día y Semana son una lista
+    // y es la PÁGINA la que hace scroll.
     <div ref={refLienzo} data-tour="calendario-vista" className="flex flex-col md:h-[calc(100vh-136px)]">
     <LienzoCalendario>
-    <div className="flex flex-col flex-1 min-h-0 rounded-3xl bg-card border border-border shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)] overflow-hidden">
-      {/* ── Top header ─────────────────────────────────────────────────────────── */}
-      <PageHeader
-        // En un portátil bajo (≤ 900 px de alto, `escritorio-bajo` en globals.css)
-        // la cabecera aprieta su aire: cada píxel de aquí es rejilla que no se ve.
-        className="shrink-0 px-4 lg:px-6 pt-4 lg:pt-5 pb-3 lg:pb-4 escritorio-bajo:pt-3 escritorio-bajo:pb-2 sm:items-center"
-        title="Calendario"
-        description={capitalizarPrimera(mesLabel)}
-        // Controles de ventana junto al título, como en cualquier ventana, y NO al
-        // final de la fila de acciones: ahí no cabían. En CI (Linux, la letra
-        // ocupa algo más) bajaban solos a una segunda fila en 1366 y en 1920 px,
-        // y esa fila le robaba alto a la rejilla. La línea del título tiene sitio
-        // en todos los tamaños; `-my-0.5` y 28 px para no hacerla más alta.
-        badge={escritorio && (
-          <button
-            type="button"
-            onClick={(e) => (ventana.abierta ? actualizarVentana({ abierta: false }) : abrirVentanaDesde(e.currentTarget))}
-            aria-pressed={ventana.abierta}
-            aria-label={ventana.abierta ? 'Cerrar la ventana flotante' : 'Abrir en una ventana flotante'}
-            title={ventana.abierta
-              ? 'Cerrar la ventana flotante'
-              : 'Ventana flotante: la agenda del día a mano mientras usas el resto del panel'}
-            className={cn('-my-0.5 ml-1', BOTON_VENTANA, ventana.abierta && 'bg-muted text-foreground')}
-          >
-            <PictureInPicture2 size={15} />
-          </button>
-        )}
-        actions={
-        <div className="flex items-center gap-2 flex-wrap">
-          <BuscadorRapido candidatas={candidatasBusqueda} onSeleccionar={saltarAClase} />
-          {/* Control de acceso: la puerta de recepción. A mano en la cabecera
-              porque es lo primero que se abre en el iPad del mostrador. */}
-          {puedeGestionarCalendario(rolActual) && studio?.controlAccesoQr !== false && (
-            <Link
-              href="/calendario/pase"
-              title="Escanear el QR de una alumna"
-              aria-label="Escanear QR"
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 lg:px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <QrCode size={14} /><span className="hidden 2xl:inline">Escanear QR</span>
-            </Link>
-          )}
-          {gestionaClientas && (
-            <Link
-              href="/calendario/importar"
-              title="Importar horario"
-              aria-label="Importar horario"
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 lg:px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {/* El texto solo desde `2xl`: con él, en un portátil (1280–1440) la
-                  barra no cabía en una fila y «Clase recurrente» bajaba sola a una
-                  segunda, 47 px menos de rejilla. El nombre sigue en aria-label. */}
-              <Upload size={14} /><span className="hidden 2xl:inline">Importar horario</span>
-            </Link>
-          )}
-
-          {gestionaClientas && (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)]">
+      <div className="shrink-0 space-y-3 px-4 pt-4 pb-3 lg:px-6 lg:pt-5 escritorio-bajo:space-y-2 escritorio-bajo:pt-3 escritorio-bajo:pb-2">
+        <CabeceraCalendario
+          vista={vista}
+          onVista={v => { setVista(v); setFiltroResumen(null); }}
+          conHorario={!esInstructorTop}
+          compacta={!herramientasConNombre}
+          ventana={escritorio ? (
             <button
-              onClick={() => (modoSeleccion ? salirDeSeleccion() : setModoSeleccion(true))}
-              title="Marcar varias clases para cambiarles la instructora de una vez"
-              aria-label={modoSeleccion ? 'Salir de selección' : 'Seleccionar varias'}
-              className={cn(
-                'flex items-center gap-1.5 rounded-lg border px-2.5 lg:px-3 py-2 text-[13px] font-medium transition-colors',
-                modoSeleccion
-                  ? 'border-brand bg-brand text-brand-foreground'
-                  : 'border-border bg-card text-muted-foreground hover:text-foreground',
-              )}
+              type="button"
+              onClick={(e) => (ventana.abierta ? actualizarVentana({ abierta: false }) : abrirVentanaDesde(e.currentTarget))}
+              aria-pressed={ventana.abierta}
+              aria-label={ventana.abierta ? 'Cerrar la ventana flotante' : 'Abrir en una ventana flotante'}
+              title={ventana.abierta
+                ? 'Cerrar la ventana flotante'
+                : 'Ventana flotante: la agenda del día a mano mientras usas el resto del panel'}
+              className={cn(BOTON_VENTANA, ventana.abierta && 'bg-muted text-foreground')}
             >
-              <CheckSquare size={14} />
-              <span className="hidden 2xl:inline">{modoSeleccion ? 'Salir de selección' : 'Seleccionar varias'}</span>
+              <PictureInPicture2 size={15} />
             </button>
-          )}
-
-          {/* Punto 2: Día (por sala) / Semana (7 columnas) — vistas distintas, no un breakpoint. */}
-          {/* En el móvil ocupa el ancho, a partes iguales y a tamaño de dedo. */}
-          <div className="grid w-full grid-flow-col auto-cols-fr gap-0.5 bg-muted rounded-xl p-1 md:flex md:w-auto md:items-center">
-            <button
-              onClick={() => setVista('dia')}
-              className={cn(BOTON_VISTA, vista === 'dia' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
-            >
-              <Rows3 size={14} />Día
-            </button>
-            <button
-              onClick={() => setVista('semana')}
-              className={cn(BOTON_VISTA, vista === 'semana' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
-            >
-              <LayoutGrid size={14} />Semana
-            </button>
-            <button
-              onClick={() => setVista('mes')}
-              className={cn(BOTON_VISTA, vista === 'mes' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
-            >
-              <CalendarDays size={14} />Mes
-            </button>
-            {!esInstructorTop && (
-              <button
-                onClick={() => setVista('horario')}
-                title="Las clases que se repiten: hasta cuándo van, quién viene fija y las clases fijas que ofreces a tus alumnas"
-                className={cn(BOTON_VISTA, vista === 'horario' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
-              >
-                <CalendarClock size={14} />Horario
-              </button>
-            )}
-          </div>
-
-          {vista !== 'horario' && (
-          <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1">
-            <button
-              onClick={() => vista === 'semana' ? cambiarSemana(-1) : vista === 'mes' ? cambiarMes(-1) : cambiarDia(-1)}
-              aria-label={vista === 'semana' ? 'Semana anterior' : vista === 'mes' ? 'Mes anterior' : 'Día anterior'}
-              className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button onClick={irAHoy} className="px-3 py-1 min-h-11 md:min-h-0 text-sm md:text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
-              Hoy
-            </button>
-            <button
-              onClick={() => vista === 'semana' ? cambiarSemana(1) : vista === 'mes' ? cambiarMes(1) : cambiarDia(1)}
-              aria-label={vista === 'semana' ? 'Semana siguiente' : vista === 'mes' ? 'Mes siguiente' : 'Día siguiente'}
-              className="w-11 h-11 md:w-7 md:h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-          )}
-
-          {/* Un solo botón que pregunta primero QUÉ se crea: una clase de un día o
-              una clase fija (la que se repite cada semana). Con dos botones
-              —«Nueva clase» y «Clase recurrente»— los estudios no sabían cuál era
-              la clase fija. */}
-          {gestionaClientas ? (
-            <button
-              onClick={() => setElegirQueCrear(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
-            >
-              <Plus size={15} />Crear clase
-            </button>
-          ) : creaClasesPropias && (
-            <button
-              onClick={() => openNueva()}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:bg-card/10 transition-colors"
-            >
-              <Plus size={15} />Nueva clase
-            </button>
-          )}
-        </div>
-        }
-      />
-
-      {/* ── Métricas (punto 8) ─────────────────────────────────────────────────── */}
-      {/* Ocultas en móvil (igual que el StatsBar viejo, hidden lg:block): son
-          agregados secundarios frente a "qué clase tengo ahora", y en una
-          pantalla de 375px las 3 tarjetas apiladas se comían media pantalla
-          antes de llegar a una sola clase. */}
-      {/* Sin sentido en Mes: son agregados de la ventana de Día/Semana visible
-          (metricasDia/metricasSemana), no del mes entero. */}
-      {/* ── Filtros (punto 9) ──────────────────────────────────────────────────── */}
-      {/* Filtros y métricas comparten fila cuando caben (pantallas anchas); si no,
-          `flex-wrap-reverse` deja las métricas arriba y los filtros debajo, el
-          orden de siempre. Antes eran dos filas fijas también en un monitor de
-          1920 px, con media fila vacía en cada una. */}
-      {vista !== 'horario' && (
-      <div className="px-4 lg:px-6 pb-3 escritorio-bajo:pb-2 shrink-0 flex flex-wrap-reverse items-center gap-3 escritorio-bajo:gap-2">
-        <FiltrosCalendario
-          salas={datosVista?.salas ?? []}
-          instructores={instructoresActivos}
+          ) : undefined}
+          buscador={<BuscadorCalendario candidatas={candidatasBusqueda} texto={busqueda} onTexto={setBusqueda} onSeleccionar={saltarAClase} compacto={!herramientasConNombre} />}
+          hrefEscanear={puedeGestionarCalendario(rolActual) && studio?.controlAccesoQr !== false ? '/calendario/pase' : null}
+          hrefImportar={gestionaClientas ? '/calendario/importar' : null}
+          seleccion={gestionaClientas && vista !== 'horario' ? { activa: modoSeleccion, onAlternar: () => (modoSeleccion ? salirDeSeleccion() : setModoSeleccion(true)) } : null}
+          onCrear={puedeCrear ? () => openNueva() : null}
+          navegacion={vista === 'horario' ? null : {
+            onAnterior: () => (vista === 'semana' ? cambiarSemana(-1) : cambiarDia(-1)),
+            onSiguiente: () => (vista === 'semana' ? cambiarSemana(1) : cambiarDia(1)),
+            onHoy: irAHoy,
+            textoAnterior: vista === 'semana' ? 'Semana anterior' : 'Día anterior',
+            textoSiguiente: vista === 'semana' ? 'Semana siguiente' : 'Día siguiente',
+            fecha: (
+              <SelectorFecha
+                etiqueta={etiquetaFecha}
+                abrirEn={vista === 'semana' ? localDate(semana) : localDate(diaSeleccionado)}
+                desde={vista === 'semana' ? localDate(semana) : localDate(diaSeleccionado)}
+                hasta={vista === 'semana' ? localDate(addDays(semana, 6)) : localDate(diaSeleccionado)}
+                hoy={todayStr}
+                diasConClase={diasConClase}
+                onElegir={irAFecha}
+                onSemanaQueViene={() => irAFecha(masDias(todayStr, 7))}
+              />
+            ),
+          }}
+          salas={datosVista?.salas ?? salas}
+          instructoras={instructoresActivos}
           filtroSala={filtroSala}
-          filtroInstructor={filtroInstructor}
+          filtroInstructora={filtroInstructor}
           onSala={setFiltroSala}
-          onInstructor={setFiltroInstructor}
-          busqueda={busqueda}
-          onBusqueda={setBusqueda}
+          onInstructora={setFiltroInstructor}
         />
-        {vista !== 'mes' && (
-          <div className="hidden lg:block min-w-[min(100%,38.75rem)] flex-1">
-            <TarjetasMetricas tarjetas={tarjetas} />
-          </div>
+        {/* En el móvil, el Día lleva la semana en una tira: un toque y a otro día. */}
+        {enMovil && vista === 'dia' && (
+          <TiraDias
+            dias={Array.from({ length: 7 }, (_, i) => localDate(addDays(semanaQueMuestra(diaSeleccionado, semana, now), i)))}
+            elegido={localDate(diaSeleccionado)}
+            hoy={todayStr}
+            conClase={diasConClase}
+            onElegir={irAFecha}
+          />
+        )}
+        {vista !== 'horario' && datosVista && !sinNingunaClase && (
+          <ResumenCalendario
+            resumen={resumen}
+            activo={filtroResumenVivo}
+            onFiltro={setFiltroResumen}
+            extra={esHoyEnDia && siguienteHoyId ? (() => {
+              const t = tarjetasPorId.get(siguienteHoyId);
+              if (!t) return null;
+              const min = Math.round((new Date(t.inicio).getTime() - now.getTime()) / 60_000);
+              return (
+                <span className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                  <Clock3 size={14} aria-hidden />Siguiente: <b className="font-semibold text-foreground">{t.tipoNombre} {horaEstudio(t.inicio)}</b>
+                  {min > 0 && min <= 180 ? ` · en ${min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60}` : ''}`}` : ''} · {t.confirmadas} de {t.aforo}
+                </span>
+              );
+            })() : undefined}
+          />
         )}
       </div>
-      )}
 
-      {/* ── Franja de decisiones (punto 3) ─────────────────────────────────────── */}
-      {/* Sin sentido en Mes: listaría cada clase pendiente del mes entero, no
-          "lo de hoy/esta semana" que la franja está pensada para resumir. */}
-      {vista !== 'mes' && vista !== 'horario' && decisionesResumen.length > 0 && (
-        <div className="px-4 lg:px-6 pb-3 escritorio-bajo:pb-2 shrink-0">
-          <FranjaDecisiones
-            decisiones={decisionesResumen}
-            indice={indiceDecision}
-            onAnterior={() => setIndiceDecision(i => i - 1)}
-            onSiguiente={() => setIndiceDecision(i => i + 1)}
-            onVer={irADecision}
-          />
-        </div>
-      )}
-
-      {/* ── Día por salas / Semana 7 columnas / Mes ────────────────────────────── */}
       <ReanimarAlCambiar clave={vista === 'horario' ? 'horario' : claveVista} className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6" animClassName="calendario-vista-in">
         {vista === 'horario' ? (
           <VistaHorario
@@ -3012,12 +3257,12 @@ export default function Calendario() {
             onPreseleccionClaseFijaConsumida={() => setPreseleccionClaseFija(null)}
           />
         ) : !datosVista && errorCargaVista ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-4">
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
             <p className="text-[13px] font-medium text-foreground">No hemos podido cargar el calendario</p>
             <p className="text-[12px] text-muted-foreground">{errorCargaVista}</p>
             <button
               onClick={() => void cargarDatosVista(rango)}
-              className="text-[12px] font-bold px-4 py-2 rounded-lg border border-border hover:bg-muted transition-colors"
+              className="rounded-lg border border-border px-4 py-2 text-[12px] font-bold transition-colors hover:bg-muted"
             >
               Reintentar
             </button>
@@ -3027,18 +3272,16 @@ export default function Calendario() {
         ) : sinNingunaClase ? (
           // ⚠️ CERO sesiones en TODO el estudio, no «cero esta semana»: una
           // semana vacía en un estudio en marcha es normal (vacaciones) y aquí
-          // sería ruido. Antes no había NADA en este hueco — la pantalla más
-          // usada del panel recibía a un estudio nuevo con la rejilla en blanco.
+          // sería ruido.
           <PrimerHorario
             horaApertura={datosVista.horaApertura}
             horaCierre={datosVista.horaCierre}
             tiposClase={tiposProgramables.map(t => ({ nombre: t.nombre, duracionMinutos: t.duracionMinutos }))}
-            salas={salas.map(s => ({ nombre: s.nombre, capacidad: s.capacidad }))}
+            salas={salas.map(x => ({ nombre: x.nombre, capacidad: x.capacidad }))}
             // Solo si el equipo es UNA persona (la propietaria que dijo «sí, yo
             // doy clases»): con más gente, repartir clases es decisión suya.
             instructora={instructoresActivos.length === 1 ? instructoresActivos[0].nombre : null}
-            // Con el equipo vacío las clases nacían sin instructora (el estudio
-            // nuevo de un día tenía 80 y ninguna instructora): se pregunta quién.
+            // Con el equipo vacío las clases nacían sin instructora: se pregunta quién.
             sinEquipo={instructoresActivos.length === 0}
             onCrearInstructora={async (nombre) => {
               const res = await addInstructor({
@@ -3056,76 +3299,67 @@ export default function Calendario() {
               void cargarDatosVista(rango);
             }}
           />
-        ) : vista === 'dia' && enMovil ? (
-          <VistaAgenda
-            modo="dia"
-            dias={agendaDia}
-            seleccionadaId={sesionId}
-            marcadas={marcadas}
-            onSeleccionar={seleccionarEnVista}
-            atenuada={atenuada}
-            accionPara={accionParaBloque}
-          />
-        ) : vista === 'dia' ? (
-          <VistaDiaSalas
-            columnas={columnasDia}
-            datos={datosPorSesionId}
-            horaInicioMin={horaInicioMinVista}
-            horaFinMin={horaFinMinVista}
-            pxPorHora={96}
-            ahoraMin={localDate(diaSeleccionado) === todayStr ? minutosEnEstudio(now) : null}
-            seleccionadaId={sesionId}
-            marcadas={marcadas}
-            onSeleccionar={id => { if (modoSeleccion) { alternarMarcada(id); return; } setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
-            atenuada={atenuada}
-            accionPara={accionParaBloque}
-            arrastrable={arrastrableSesion}
-            onMoverSesion={moverSesionArrastrada}
-            onClickVacio={(gestionaClientas || creaClasesPropias) ? crearDesdeHueco : undefined}
-          />
-        ) : vista === 'mes' ? (
-          <VistaMes
-            mesVisto={mesVisto}
-            datos={diasMes}
-            hoyStr={todayStr}
-            onSeleccionarDia={onSeleccionarDia}
-          />
         ) : enMovil ? (
           <VistaAgenda
-            modo="semana"
-            dias={agendaSemana}
+            modo={vista === 'dia' ? 'dia' : 'semana'}
+            dias={vista === 'dia' ? agendaDia : agendaSemana}
             seleccionadaId={sesionId}
             marcadas={marcadas}
-            onSeleccionar={seleccionarEnVista}
-            atenuada={atenuada}
+            onSeleccionar={abrirClase}
+            atenuada={d => atenuadaPorId(d.sesion.id)}
+            marcaDe={id => tarjetasPorId.get(id)?.marca}
           />
         ) : (
-          <VistaSemana
-            columnas={columnasSemana}
-            datos={datosPorSesionId}
-            fechasSemana={dias}
-            hoyIndex={dias.some(d => localDate(d) === todayStr) ? dias.findIndex(d => localDate(d) === todayStr) : null}
-            ahoraMin={minutosEnEstudio(now)}
-            horaInicioMin={horaInicioMinVista}
-            horaFinMin={horaFinMinVista}
-            // 72 y no 58. Medido: una tarjeta de semana necesita 55 px para sus tres
-            // líneas (hora y ocupación, clase, instructora) y 42 px para dos. A 58 px
-            // por hora TODA clase de menos de una hora salía cortada — y la clase
-            // típica de pilates dura 50-55 min, así que eran casi todas. A 72, una de
-            // 50 min mide 58 px. Las más cortas las resuelve `BloqueClase`
-            // quitando líneas en vez de recortarlas.
-            // Con letra grande, 84: la tarjeta de tres líneas pide 64 px y una
-            // clase de 50 min tiene que seguir enseñándolas.
-            pxPorHora={letraGrande ? 84 : 72}
-            letra={letraGrande ? 'grande' : 'normal'}
-            seleccionadaId={sesionId}
-            marcadas={marcadas}
-            onSeleccionar={id => { if (modoSeleccion) { alternarMarcada(id); return; } setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
-            atenuada={atenuada}
-            arrastrable={arrastrableSesion}
-            onMoverSesion={moverSesionArrastrada}
-            onClickVacio={(gestionaClientas || creaClasesPropias) ? crearDesdeHueco : undefined}
-          />
+          <div
+            className={cn('grid h-full min-h-0 gap-3', fichaLateral ? 'grid-cols-[minmax(0,1fr)_400px]' : 'grid-cols-1')}
+          >
+            {vista === 'dia' ? (
+              <VistaDiaSalas
+                key={localDate(diaSeleccionado)}
+                columnas={columnasDia}
+                tarjetas={tarjetasPorId}
+                aperturaMin={aperturaMin}
+                cierreMin={cierreMin}
+                pxPorHora={fichaLateral ? 80 : 88}
+                ahoraMin={esHoyEnDia ? minutosEnEstudio(now) : null}
+                seleccionadaId={sesionId}
+                marcadas={marcadas}
+                enSeleccion={modoSeleccion}
+                atenuada={atenuadaPorId}
+                onSeleccionar={abrirClase}
+                arrastrable={id => { const d = datosPorSesionId.get(id); return !!d && arrastrableSesion(d); }}
+                onMover={moverEnElDia}
+                onCrearEn={puedeCrear ? crearEnElDia : undefined}
+              />
+            ) : sesionesALaVista.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border px-6 text-center">
+                <CalendarDays size={22} className="text-muted-foreground" aria-hidden />
+                <p className="text-[14px] font-semibold text-foreground">No hay clases del {rangoCorto(semana, addDays(semana, 6))}</p>
+                <p className="max-w-sm text-[13px] text-muted-foreground text-pretty">
+                  {filtroSala !== 'todas' ? 'En esta sala no hay ninguna estos días. Prueba con «Todas las salas».' : 'Puede que sean vacaciones. Si no, crea una clase o importa tu horario.'}
+                </p>
+              </div>
+            ) : (
+              <SemanaFranjas
+                fechas={dias}
+                hoyIndex={dias.some(d => localDate(d) === todayStr) ? dias.findIndex(d => localDate(d) === todayStr) : null}
+                clases={clasesFranjas}
+                tarjetas={tarjetasPorId}
+                cerrados={cerradosSemana}
+                resumenDia={resumenDelDia}
+                compacta={fichaLateral || !semanaAncha}
+                seleccionadaId={sesionId}
+                marcadas={marcadas}
+                enSeleccion={modoSeleccion}
+                atenuada={atenuadaPorId}
+                onSeleccionar={abrirClase}
+                arrastrable={id => { const d = datosPorSesionId.get(id); return !!d && arrastrableSesion(d); }}
+                onMoverADia={moverAOtroDia}
+                onCrearEn={puedeCrear ? crearEnLaSemana : undefined}
+              />
+            )}
+            {fichaLateral && ficha}
+          </div>
         )}
       </ReanimarAlCambiar>
     </div>
@@ -3133,23 +3367,23 @@ export default function Calendario() {
 
       {/* ── Selección múltiple: barra de acción ──────────────────────────────────
           Flotante y anclada abajo: en semana hay que poder seguir marcando
-          clases de días distintos sin que la barra tape la rejilla. */}
-      {/* En portal: `.panel-page-in` deja un transform en la página y un `fixed`
-          dentro se ancla a ella. Mientras la página no hacía scroll daba igual;
-          en el móvil sí lo hace (lista), y la barra se quedaba al final de la
-          página, fuera de la vista. Encima de la barra de navegación del móvil. */}
+          clases de días distintos sin que la barra tape la rejilla. En portal:
+          un `fixed` dentro de la página se anclaba a ella. */}
       {modoSeleccion && createPortal(
-        <div className="fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] lg:bottom-4 z-40 flex justify-center px-4 pointer-events-none">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] z-40 flex justify-center px-4 lg:bottom-4">
           <div className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.35)]">
-            <span className="text-[13px] font-semibold text-foreground">
-              {marcadas.size === 0
-                ? 'Toca las clases que quieras cambiar'
-                : `${marcadas.size} clase${marcadas.size === 1 ? '' : 's'} marcada${marcadas.size === 1 ? '' : 's'}`}
+            <span className="flex items-center gap-2 text-[14px] font-medium text-foreground">
+              {marcadas.size === 0 ? 'Toca las clases que quieras cambiar' : (
+                <>
+                  <span className="flex size-7 items-center justify-center rounded-full bg-brand text-[13px] font-bold text-brand-foreground">{marcadas.size}</span>
+                  {` clase${marcadas.size === 1 ? '' : 's'} marcada${marcadas.size === 1 ? '' : 's'}`}
+                </>
+              )}
             </span>
             {marcadas.size > 0 && (
               <select
                 aria-label="Pasar las clases marcadas a"
-                className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground"
+                className="min-h-9 rounded-lg border border-border bg-card px-2.5 text-[13.5px] text-foreground"
                 value=""
                 onChange={e => {
                   const id = e.target.value;
@@ -3157,7 +3391,7 @@ export default function Calendario() {
                   setReasignarLote({ instructorId: id, nombre: nombreInstructor(id) });
                 }}
               >
-                <option value="">Pasar a…</option>
+                <option value="">Pasarlas a…</option>
                 {instructores.filter(i => i.activo).map(i => (
                   <option key={i.id} value={i.id}>{i.nombre}</option>
                 ))}
@@ -3165,7 +3399,7 @@ export default function Calendario() {
             )}
             <button
               onClick={salirDeSeleccion}
-              className="rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               Salir
             </button>
@@ -3174,398 +3408,12 @@ export default function Calendario() {
         anfitrionPortal(),
       )}
 
-      {/* ── Panel lateral de sesión (punto 5: 3 pestañas) ───────────────────────── */}
-      {sesionActual && sesionId && !showForm && (
-        <PanelSesion
-          abierto
-          onCerrar={() => setSesionId(null)}
-          pestana={pestanaPanel}
-          onCambiarPestana={setPestanaPanel}
-          titulo={sesionActual.tipoClase.nombre}
-          horaTexto={horaTextoSesion(sesionActual.inicio, sesionActual.fin)}
-          repeticion={sesionActual.serieId ? textoRepeticion(sesionActual.inicio, sesionActual.serieId, horario) : null}
-          instructoraNombre={sesionActual.instructor.nombre === '?' ? null : sesionActual.instructor.nombre}
-          salaNombre={sesionActual.sala.nombre === '?' ? null : sesionActual.sala.nombre}
-          estado={estadoVista}
-          ocupacion={{ confirmadas: sesionActual.confirmadas, aforoMaximo: sesionActual.aforoMaximo }}
-          accionesCabecera={esPropiaClase ? (
-            <>
-              <button
-                onClick={openEdit}
-                disabled={sesionYaEmpezada(sesionActual.inicio)}
-                title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_YA_EMPEZADA : undefined}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <Pencil size={12} />Editar
-              </button>
-              <button onClick={() => openDuplicar(sesionActual)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
-                <Copy size={12} />Duplicar
-              </button>
-              {sesionActual.serieId && (
-                <button
-                  onClick={() => setSerieAbiertaDe(prev => (prev === sesionActual.id ? null : sesionActual.id))}
-                  aria-expanded={serieAbiertaDe === sesionActual.id}
-                  title="Duplicar, renovar o cancelar la serie de esta clase"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors"
-                >
-                  <RefreshCw size={12} />Serie
-                  <ChevronDown size={12} aria-hidden className={cn('transition-transform', serieAbiertaDe === sesionActual.id && 'rotate-180')} />
-                </button>
-              )}
-              {/* P2 (auditoría "Veredicto de Marta"): en el momento de más
-                  urgencia (baja de última hora) este botón se confundía con
-                  "Incidencia" de al lado — mismo estilo, mismo tamaño. Le
-                  damos el acento de aviso para que destaque como la acción
-                  de la instructora ausente, no de la sala. */}
-              <button
-                onClick={() => setShowCobertura(true)}
-                disabled={sesionYaEmpezada(sesionActual.inicio)}
-                title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_YA_EMPEZADA : 'La instructora no puede dar esta clase: buscar quién la sustituya'}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <UserCheck size={12} />Buscar sustituta
-              </button>
-              <button
-                onClick={() => abrirIncidencia(sesionActual.id)}
-                title="Anotar un problema de sala o equipo en esta clase (no es para avisar de una instructora ausente)"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors"
-              >
-                <AlertTriangle size={12} />Incidencia de sala
-              </button>
-              <button
-                onClick={() => setConfirmCancelar(true)}
-                disabled={sesionYaEmpezada(sesionActual.inicio)}
-                title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_DADA : undefined}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
-              >
-                <X size={12} />Cancelar
-              </button>
-              {!esInstructor && (
-                <button
-                  onClick={() => setConfirmEliminar(true)}
-                  disabled={sesionYaEmpezada(sesionActual.inicio)}
-                  aria-label="Eliminar sesión"
-                  title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_DADA : undefined}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors ml-auto disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  <Trash2 size={12} />
-                </button>
-              )}
-              {sesionActual.serieId && serieAbiertaDe === sesionActual.id && (
-                <div className="basis-full flex flex-wrap gap-2 rounded-lg bg-muted/60 p-2" data-testid="acciones-serie">
-                  <button onClick={() => openDuplicarSerie(sesionActual)} title="Repite todo lo que queda de esta serie, empezando justo después de su última clase" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border bg-card text-foreground hover:bg-muted transition-colors">
-                    <Copy size={12} />Duplicar serie
-                  </button>
-                  {!esInstructor && (
-                    <button
-                      onClick={() => {
-                        const { dow, hora, minuto } = franjaLocalDe(sesionActual.inicio);
-                        setRenovarSerieDe({
-                          serieId: sesionActual.serieId!,
-                          nombre: nombreSerie(
-                            { diaSemana: dow, hora: `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`, salaId: sesionActual.salaId, tipoClaseId: sesionActual.tipoClaseId },
-                            id => tiposClase.find(t => t.id === id)?.nombre,
-                            id => salas.find(x => x.id === id)?.nombre,
-                          ),
-                        });
-                      }}
-                      title="Alarga esta misma clase más semanas, con la misma configuración"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border bg-card text-foreground hover:bg-muted transition-colors"
-                    >
-                      <RefreshCw size={12} />Renovar serie
-                    </button>
-                  )}
-                  {/* Con 1 sola clase viva por delante haría lo mismo que
-                      "Cancelar", así que no se ofrece. Fuera del rol INSTRUCTOR:
-                      la RLS le deja tocar únicamente sus propias clases, así que
-                      un batch sobre la serie podría cancelar media y decir que
-                      fue bien. */}
-                  {sesionesSerieRestantes.length > 1 && !esInstructor && (
-                    <button
-                      onClick={() => setConfirmCancelarSerie(true)}
-                      title="Cancela esta clase y todas las siguientes de la serie"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border bg-card text-muted-foreground hover:bg-muted transition-colors"
-                    >
-                      <X size={12} />Cancelar serie
-                    </button>
-                  )}
-                </div>
-              )}
-            </>
-          ) : null}
-          clientas={{
-            reservas: reservasActuales,
-            nombreClienta: nombreClientaResolver,
-            onCheckin: checkin,
-            checkinBloqueadoPor: sesionYaEmpezada(sesionActual.inicio) ? undefined : MENSAJE_CLASE_AUN_NO_EMPEZADA,
-            onNoShow: marcarNoShow,
-            onDeshacerCheckin: deshacerCheckin, onRevertirNoShow: revertirNoShow,
-            onAprobar: id => resolverPendiente(id, true), onRechazar: id => resolverPendiente(id, false),
-            resolviendoId: resolviendoReserva,
-            onQuitar: gestionaClientas ? (id: string) => {
-              const marca = marcaReserva({ id }, recuperaciones); // antes de cancelar
-              // P2: el aviso de bono no devuelto, y lo que decidió el servidor
-              // sobre la plaza fija y la recuperación.
-              void cancelarReserva(id).then(async res => {
-                if (!res.ok) showToast(res.error);
-                else {
-                  const texto = [textoTrasQuitar(res, marca), res.avisoBono].filter(Boolean).join(' · ');
-                  if (texto) showToast(texto);
-                }
-                // ⚠️ Sin esto el contador se quedaba en «8/8» con la alumna ya
-                // fuera de la lista: `cancelarReserva` actualiza `reservas` del
-                // contexto (de donde sale la lista) y NO `datosVista` (de donde
-                // sale el número). El aviso en vivo también lo arreglaría, pero
-                // llega por la red: para la acción de uno mismo se refresca ya.
-                await refrescarVista();
-              });
-            } : undefined,
-            onRepetirSemanaSiguiente: gestionaClientas ? repetirSemanaSiguiente : undefined,
-            onHacerPlazaFija: gestionaClientas ? hacerPlazaFija : undefined,
-            marcaDe: r => marcaReserva(r, recuperaciones),
-            plazaFijaExistePara: socioId => plazasFijas.some(p => p.socioId === socioId && p.estado !== 'BAJA'
-              && sesionActual && sesionEncajaEnPlaza(p, sesionActual)),
-            semaforoPorSocio: verSemaforo ? (socioId => {
-              const nivel = semaforoParaMostrar.get(socioId);
-              return nivel ? { color: SEMAFORO_META[nivel].color, label: SEMAFORO_META[nivel].label } : undefined;
-            }) : undefined,
-            filaExtra: verFichaClinica ? (r => r.estado === 'ASISTIDA' ? (
-              <div className="flex items-center gap-1 mt-1.5">
-                {(() => {
-                  // 38ª pasada de auditoría: sin consentimiento de salud vigente,
-                  // la RLS de `respuestas_sesion` rechaza la escritura en
-                  // silencio (mismo gate que ya protege condiciones_salud y el
-                  // cuestionario) — deshabilitar el botón aquí es lo que evita
-                  // que el mostrador pulse algo que el servidor va a tirar.
-                  const tieneConsentimiento = Boolean(socios.find(s => s.id === r.socioId)?.consentimientoSalud);
-                  return RESPUESTAS_ORDEN.map(resp => {
-                    const rm = RESPUESTA_META[resp];
-                    const activa = respuestaPorSocio.get(r.socioId)?.respuesta === resp;
-                    return (
-                      <button
-                        key={resp}
-                        disabled={!tieneConsentimiento}
-                        onClick={async () => {
-                          const res = await registrarRespuestaSesion({ socioId: r.socioId, sesionId: sesionActual?.id ?? null, respuesta: resp });
-                          if (!res.ok) showToast(res.error);
-                        }}
-                        title={tieneConsentimiento ? rm.label : 'Pide primero el consentimiento de datos de salud desde su ficha'}
-                        aria-label={rm.label}
-                        aria-pressed={activa}
-                        className={cn(
-                          'w-6 h-6 rounded-md text-xs flex items-center justify-center transition-all',
-                          !tieneConsentimiento ? 'opacity-20 cursor-not-allowed' : activa ? 'ring-2 scale-110' : 'opacity-45 hover:opacity-100',
-                        )}
-                        style={activa && tieneConsentimiento ? { backgroundColor: rm.bg, boxShadow: `0 0 0 2px ${rm.color}` } : { backgroundColor: rm.bg }}
-                      >
-                        {rm.emoji}
-                      </button>
-                    );
-                  });
-                })()}
-                {enPiloto && esPropiaClase && (
-                  <button
-                    onClick={() => setNotaVozSocioId(r.socioId)}
-                    title="Nota de voz (piloto)"
-                    aria-label="Nota de voz"
-                    className="w-6 h-6 rounded-md text-xs flex items-center justify-center opacity-45 hover:opacity-100 transition-all"
-                    style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 10%, var(--card))' }}
-                  >
-                    🎙
-                  </button>
-                )}
-              </div>
-            ) : null) : undefined,
-          }}
-          extraClientas={
-            <>
-              {alertasClase.length > 0 && (
-                <div className="mb-3 rounded-xl border p-3" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', borderColor: '#FDE68A' }}>
-                  <p className="text-[11px] font-bold mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--warning)' }}>
-                    <AlertTriangle size={14} /> Adaptaciones para esta clase
-                  </p>
-                  <ul className="space-y-1">
-                    {alertasClase.map((a, i) => <li key={i} className="text-[11px] leading-snug" style={{ color: '#78350F' }}>· {a}</li>)}
-                  </ul>
-                </div>
-              )}
-              {/* Solo en clases propias para la instructora: el servidor rechaza
-                  preparar con IA una clase que no imparte ella. */}
-              {verFichaClinica && esPropiaClase && alertasClase.length > 0 && (
-                <div className="mb-3">
-                  {!prepIA && (
-                    <button
-                      onClick={prepararClaseIA}
-                      disabled={prepIALoading}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[11px] font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-50 transition-colors"
-                    >
-                      {/* El Orb en sus dos estados, en vez de un robot que se convierte en
-                        un spinner genérico: es el MISMO objeto, primero quieto y
-                        después pensando. Un icono distinto mientras trabaja decía que
-                        había empezado otra cosa. */}
-                      <TentareOrb tam={15} estado={prepIALoading ? 'pensando' : 'reposo'} />
-                      {prepIALoading ? 'Preparando…' : 'Preparar clase con IA'}
-                    </button>
-                  )}
-                  {prepIAError && <p className="text-[11px] text-destructive mt-1.5">No se pudo generar la preparación. Inténtalo de nuevo.</p>}
-                  {prepIA && (
-                    <div className="rounded-xl border border-border bg-card p-3 space-y-2.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-xs text-foreground leading-snug">{prepIA.resumen}</p>
-                        <button onClick={() => setPrepIA(null)} title="Cerrar" className="text-muted-foreground hover:text-foreground shrink-0"><X size={14} /></button>
-                      </div>
-                      {prepIA.evitar.length > 0 && (
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Evitar</p>
-                          <ul className="space-y-0.5">{prepIA.evitar.map((e, i) => <li key={i} className="text-[11px] text-foreground leading-snug">· {e}</li>)}</ul>
-                        </div>
-                      )}
-                      {prepIA.variantes.length > 0 && (
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Variantes sugeridas</p>
-                          <ul className="space-y-0.5">{prepIA.variantes.map((v, i) => <li key={i} className="text-[11px] text-foreground leading-snug">· {v}</li>)}</ul>
-                        </div>
-                      )}
-                      <p className="text-[9px] text-muted-foreground italic">Sugerencia generada por IA — revísala antes de aplicarla. No es consejo médico.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-              {gestionaClientas && (!showAnadir ? (
-                <button
-                  onClick={() => { setAvisarAlumna(true); setAnadirDe('CLIENTA'); setShowAnadir(true); }}
-                  className="w-full flex items-center gap-2 py-2.5 px-3 rounded-xl border border-dashed border-border text-xs font-bold text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors mb-3"
-                >
-                  <UserPlus size={14} />Añadir clienta a la clase
-                </button>
-              ) : (
-                <div className="mb-3 space-y-2">
-                  {plataformasActivas.length > 0 && (
-                    <div role="tablist" aria-label="Qué añadir" className="flex flex-wrap gap-1">
-                      {(['CLIENTA', ...plataformasActivas] as const).map(o => (
-                        <button
-                          key={o}
-                          type="button"
-                          role="tab"
-                          aria-selected={anadirDe === o}
-                          onClick={() => setAnadirDe(o)}
-                          className={cn(
-                            'rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors',
-                            anadirDe === o ? 'border-brand bg-brand/10 text-brand' : 'border-border text-muted-foreground hover:text-foreground',
-                          )}
-                        >
-                          {o === 'CLIENTA' ? 'Clienta' : NOMBRE_PLATAFORMA[o]}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {anadirDe !== 'CLIENTA' && sesionActual ? (
-                    <>
-                      {sesionActual.confirmadas >= sesionActual.aforoMaximo && (
-                        <p className="text-[11px] font-semibold text-warning">
-                          Clase llena ({sesionActual.confirmadas}/{sesionActual.aforoMaximo}): no queda plaza para {NOMBRE_PLATAFORMA[anadirDe]}. Si ya la han vendido, cancélala allí.
-                        </p>
-                      )}
-                      <AnadirReservaPlataforma
-                        sesionId={sesionActual.id}
-                        plataforma={anadirDe}
-                        showToast={showToast}
-                        onHecho={async () => { await refrescarVista(); setShowAnadir(false); }}
-                      />
-                      <button onClick={() => setShowAnadir(false)} className="w-full py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted">
-                        Cancelar
-                      </button>
-                    </>
-                  ) : (<>
-                  {sesionActual && sesionActual.confirmadas >= sesionActual.aforoMaximo && (
-                    <p className="text-[11px] font-semibold text-warning">
-                      Clase llena ({sesionActual.confirmadas}/{sesionActual.aforoMaximo}) — quien añadas entrará en lista de espera.
-                    </p>
-                  )}
-                  <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-[var(--brand)]"
-                      checked={avisarAlumna}
-                      onChange={e => setAvisarAlumna(e.target.checked)}
-                    />
-                    Avisar a la alumna
-                  </label>
-                  <input
-                    className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground"
-                    placeholder="Buscar clienta..."
-                    value={buscarSocia}
-                    onChange={e => setBuscarSocia(e.target.value)}
-                    autoFocus
-                  />
-                  <div className="space-y-0.5 max-h-40 overflow-y-auto">
-                    {sociosDisponibles.slice(0, 8).map(s => (
-                      <button
-                        key={s.id}
-                        onClick={() => { if (sesionActual) handleAddReserva(sesionActual.id, s.id); setShowAnadir(false); setBuscarSocia(''); }}
-                        className="w-full flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-muted transition-colors text-left"
-                      >
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 10%, var(--card))', color: 'var(--brand)' }}>
-                          {s.nombre[0]}{s.apellidos[0]}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-foreground truncate">{s.nombre} {s.apellidos}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">{s.email}</p>
-                        </div>
-                      </button>
-                    ))}
-                    {/* Sin resultado no había salida: con la alumna nueva
-                        delante había que cerrar la clase, ir a Clientas, darla
-                        de alta y volver (evaluación del 13-sep). El alta se
-                        abre con lo que se buscó como nombre. */}
-                    {sociosDisponibles.length === 0 && (
-                      <div className="py-3 text-center space-y-1.5">
-                        <p className="text-xs text-muted-foreground">
-                          {buscarSocia.trim() ? `Ninguna clienta coincide con «${buscarSocia.trim()}»` : 'No hay clientas disponibles'}
-                        </p>
-                        <Link
-                          href={`/clientas?nuevo=1${buscarSocia.trim() ? `&nombre=${encodeURIComponent(buscarSocia.trim())}` : ''}`}
-                          className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-medio hover:underline"
-                        >
-                          <UserPlus size={13} />
-                          {buscarSocia.trim() ? `Dar de alta a «${buscarSocia.trim()}»` : 'Dar de alta una clienta nueva'}
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                  <button onClick={() => { setShowAnadir(false); setBuscarSocia(''); }} className="w-full py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted">
-                    Cancelar
-                  </button>
-                  </>)}
-                </div>
-              ))}
-              {/* El lector ya no depende de «Pasar lista»: comprobar quién entra
-                  sirve también en una clase que no pasa lista (ahí solo no marca).
-                  Llega con ESTA clase fijada. */}
-              {studio?.controlAccesoQr !== false && (
-                <Link href={`/calendario/pase?sesion=${encodeURIComponent(sesionActual.id)}`} className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground">
-                  <QrCode size={14} />Escanear QR
-                </Link>
-              )}
-            </>
-          }
-          eventosHistorial={eventosHistorial}
-          spots={spotsActuales.length > 0 ? spotsActuales : null}
-          reservasConSocio={reservasActuales}
-          socios={socios}
-          onCheckinSpot={sesionYaEmpezada(sesionActual.inicio) ? checkin : undefined}
-          onLiberarSpot={liberarSpot}
-          onAsignarSpot={async (spotId, socioId) => {
-            if (!sesionActual) return;
-            const res = await asignarSpot(sesionActual.id, socioId, spotId);
-            if (!res.ok) showToast(res.error ?? 'No hemos podido asignar el sitio. Inténtalo de nuevo.');
-          }}
-        />
-      )}
+      {/* La ficha en cajón (iPad en vertical) o en hoja (móvil); al lado, va dentro de la rejilla. */}
+      {!fichaLateral && vista !== 'horario' && ficha}
 
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} action={toastAction} />}
 
-      {notaVozSocioId && sesionActual && yo && (
+      {verFichaClinica && notaVozSocioId && sesionActual && yo && (
         <ModalNotaVoz
           socioId={notaVozSocioId}
           nombreSocia={nombreClientaResolver(notaVozSocioId)}
@@ -3654,10 +3502,10 @@ export default function Calendario() {
       <ConfirmDialog
         open={confirmCancelarSerie}
         onOpenChange={setConfirmCancelarSerie}
-        titulo={`¿Cancelar ${sesionesSerieRestantes.length} clases de esta serie?`}
-        descripcion={apuntadasSerieRestante > 0
-          ? `Desde esta clase en adelante. ${apuntadasSerieRestante} reserva${apuntadasSerieRestante !== 1 ? 's' : ''} se cancelará${apuntadasSerieRestante !== 1 ? 'n' : ''}${(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — se les devuelve la sesión del bono' : ''} y las alumnas recibirán un aviso. Las clases anteriores de la serie no se tocan.`
-          : 'Desde esta clase en adelante. Ninguna tiene alumnas apuntadas, y las clases anteriores de la serie no se tocan.'}
+        titulo={`¿Cancelar ${sesionesSerieRestantes.length === 1 ? 'la próxima clase' : `${sesionesSerieRestantes.length} clases`} de esta serie?`}
+        descripcion={`${sinEstaEnLaSerie ? `Desde la próxima: ${sinEstaEnLaSerie}.` : 'Desde esta clase en adelante.'} ${apuntadasSerieRestante > 0
+          ? `${apuntadasSerieRestante} reserva${apuntadasSerieRestante !== 1 ? 's' : ''} se cancelará${apuntadasSerieRestante !== 1 ? 'n' : ''}${(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — se les devuelve la sesión del bono' : ''} y las clientas recibirán un aviso. Las clases anteriores de la serie no se tocan.`
+          : 'Ninguna tiene clientas apuntadas, y las clases anteriores de la serie no se tocan.'}`}
         textoConfirmar="Cancelar serie"
         destructivo
         onConfirm={() => void cancelarSerie()}
@@ -3923,46 +3771,6 @@ export default function Calendario() {
         />
       )}
 
-      {/* ── Modal clases recurrentes ────────────────────────────────────────────── */}
-      <Dialog open={elegirQueCrear} onOpenChange={setElegirQueCrear}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-foreground">¿Qué quieres crear?</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-2.5">
-            <button
-              type="button"
-              onClick={() => { setElegirQueCrear(false); openNueva(); }}
-              data-testid="crear-clase-suelta"
-              className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left hover:bg-muted transition-colors"
-            >
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground"><Plus size={17} aria-hidden /></span>
-              <span className="min-w-0">
-                <span className="block text-sm font-bold text-foreground">Clase</span>
-                <span className="block text-xs text-muted-foreground text-pretty">
-                  Un día concreto, o varios si la repites: una clase suelta, un taller o una clase extra. Tus clientas la reservan.
-                </span>
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setElegirQueCrear(false); setInitialRecurrente(undefined); setShowRecurrentes(true); }}
-              data-testid="crear-clase-fija"
-              className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left hover:bg-muted transition-colors"
-            >
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground"><RefreshCw size={17} aria-hidden /></span>
-              <span className="min-w-0">
-                <span className="block text-sm font-bold text-foreground">Clase fija</span>
-                <span className="block text-xs text-muted-foreground text-pretty">
-                  Se repite cada semana a la misma hora. Tus clientas pueden quedarse fijas y no tienen que reservarla
-                  cada semana.
-                </span>
-              </span>
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <ModalClasesRecurrentes
         ausencias={ausencias}
         open={showRecurrentes}
@@ -4145,7 +3953,7 @@ export default function Calendario() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-foreground">
-              ¿Mover a las {confirmarArrastre?.horaTexto} y avisar a{' '}
+              ¿Mover {confirmarArrastre?.destinoTexto} y avisar a{' '}
               {confirmarArrastre?.apuntadas === 1 ? 'la clienta' : `las ${confirmarArrastre?.apuntadas} clientas`}?
             </DialogTitle>
           </DialogHeader>

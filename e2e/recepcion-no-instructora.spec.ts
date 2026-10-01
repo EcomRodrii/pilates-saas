@@ -29,6 +29,8 @@ const STUDIO_ROW = {
 const EQUIPO = [
   { id: 'ins-sara', studio_id: STUDIO_ID, nombre: 'Sara Recepcion', activo: true, rol: 'RECEPCION', color: '#F7A6C4' },
   { id: 'ins-marta', studio_id: STUDIO_ID, nombre: 'Marta Sanz', activo: true, rol: 'INSTRUCTOR', color: '#F7A6C4' },
+  // Una segunda instructora: con una sola, el filtro de la cabecera ni se enseña.
+  { id: 'ins-lucia', studio_id: STUDIO_ID, nombre: 'Lucía Gómez', activo: true, rol: 'INSTRUCTOR', color: '#7FB2E5' },
 ];
 
 const TIPO_CLASE = { id: 'tc-1', studio_id: STUDIO_ID, nombre: 'Reformer', duracion_min: 50, color: '#F7A6C4' };
@@ -90,9 +92,7 @@ test.describe('Recepción no es instructora', () => {
     await seedSesionDeDuena(page);
     await page.goto('/calendario');
 
-    // Por contenido: el filtro de la barra superior no tiene etiqueta accesible
-    // (sale como `combobox` sin nombre), a diferencia del del formulario.
-    const filtro = page.locator('select').filter({ hasText: 'Todas las instructoras' });
+    const filtro = page.getByRole('combobox', { name: 'Filtrar por instructora' });
     await expect(filtro).toBeVisible({ timeout: 30_000 });
     await expect(filtro.getByRole('option', { name: 'Marta Sanz' })).toHaveCount(1);
     await expect(filtro.getByRole('option', { name: 'Sara Recepcion' })).toHaveCount(0);
@@ -104,10 +104,8 @@ test.describe('Recepción no es instructora', () => {
     await page.goto('/calendario');
 
     await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
-    // «Crear clase» pregunta primero qué: una clase de un día.
-    await page.getByTestId('crear-clase-suelta').click();
 
-    const selector = page.getByRole('combobox', { name: 'Instructora' });
+    const selector = page.getByRole('dialog', { name: 'Nueva clase' }).getByRole('combobox', { name: 'Instructora' });
     await expect(selector).toBeVisible();
     await expect(selector.getByRole('option', { name: 'Sara Recepcion' })).toHaveCount(0);
     // Sara es la primera del equipo: antes quedaba preseleccionada y crear la

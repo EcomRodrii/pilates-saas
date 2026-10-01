@@ -225,18 +225,28 @@
      (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
      transparente: ahí el propio oliva ya contrasta 10,4:1 con el fondo. */
   --brand-borde: transparent;
-  /* Cuánto tiñe el color del TIPO de clase el bloque del calendario
-     (components/calendario/bloque-clase.tsx, solo estado PROGRAMADA).
-     Son DOS valores porque un solo porcentaje no sirve a los dos modos, y eso
-     se midió con los colores REALES que hay hoy en `tipos_clase` — que son
-     pasteles (#F7A6C4, #C3D9B0, #C8C2E8, #E8D5C2) más un casi-negro:
+  /* Cuánto tiñe el color del TIPO de clase la tarjeta del calendario
+     (components/calendario/tarjeta-clase.tsx; una clase pasada o cancelada,
+     al 18 %). Son DOS valores porque un solo porcentaje no sirve a los dos
+     modos, y eso se midió con los colores REALES de `tipos_clase` — pasteles
+     (#F7A6C4, #C3D9B0, #C8C2E8, #E8D5C2) más un casi-negro — y los de serie:
        · En CLARO un pastel al 18 % es indistinguible del blanco (era el bug:
-         "el calendario no tiene color"). Al 50 % se ve claramente y el peor
-         contraste con el texto sigue en 5,1:1 (AA pide 4,5).
+         "el calendario no tiene color"). Al 50 % se ve claramente.
        · En OSCURO pasa lo contrario: un pastel claro sobre fondo oscuro se ve
-         con MENOS mezcla, y al 50 % el peor contraste caía a 3,6:1 — rompía
-         AA. Al 35 % se ve de sobra y el peor sube a 5,4:1. */
+         con MENOS mezcla. Al 35 % el texto principal pasaba (5,4:1) pero el
+         secundario y los avisos no: sobre un tono medio no hay tinta de color
+         que llegue a 4,5:1 sin volverse blanca. Al 25 % se sigue viendo el
+         color y el peor caso de cada tinta de abajo queda en ≥4,9:1. */
   --calendario-tinte-clase: 50%;
+  /* Las tintas del texto SOBRE esa tarjeta teñida. Ni el gris apagado ni los
+     colores semánticos tal cual llegan a AA ahí (el gris, 3,4:1 en claro y
+     2,3:1 en oscuro con el peor color), así que se acercan a `--foreground`
+     lo justo: peor caso medido con 12 colores de tipo, ≥5:1 en claro. */
+  --calendario-tinta-secundaria: color-mix(in srgb, var(--muted-foreground) 55%, var(--foreground));
+  --calendario-tinta-peligro: color-mix(in srgb, var(--destructive) 74%, var(--foreground));
+  --calendario-tinta-aviso: color-mix(in srgb, var(--warning) 68%, var(--foreground));
+  --calendario-tinta-exito: color-mix(in srgb, var(--success) 78%, var(--foreground));
+  --calendario-tinta-info: color-mix(in srgb, var(--info) 80%, var(--foreground));
 
   /* ── Paleta CATEGÓRICA ─────────────────────────────────────────────────────
      Nueve tonos para distinguir COSAS, no para significar nada: acciones de
@@ -390,9 +400,14 @@
   --cat-7: #DF8AA7;
   --cat-8: #E28E73;
   --cat-9: #CA9B4E;
-  /* Ver la nota del valor en claro: aquí menos mezcla se ve MÁS, y el 50 %
-     rompía el contraste AA del texto sobre el bloque. */
-  --calendario-tinte-clase: 35%;
+  /* Ver la nota del valor en claro: aquí menos mezcla se ve MÁS, y con más
+     de un 25 % el texto secundario y los avisos de la tarjeta no llegan a AA. */
+  --calendario-tinte-clase: 25%;
+  --calendario-tinta-secundaria: color-mix(in srgb, var(--muted-foreground) 45%, var(--foreground));
+  --calendario-tinta-peligro: color-mix(in srgb, var(--destructive) 50%, var(--foreground));
+  --calendario-tinta-aviso: color-mix(in srgb, var(--warning) 75%, var(--foreground));
+  --calendario-tinta-exito: color-mix(in srgb, var(--success) 65%, var(--foreground));
+  --calendario-tinta-info: color-mix(in srgb, var(--info) 55%, var(--foreground));
 }
 
 /* Logo de marca en tinta `auto` (components/marca/logo-tentare.tsx). Vive aquí
@@ -917,6 +932,11 @@ body:has(.config-tactil) .panel-wa-fab .animate-wa-fab-ring { display: none; }
    `translateX(0)` final se quedaba aplicado y anclaba los `fixed` de dentro). */
 .animate-drawer-sheet-in { animation: drawer-sheet-in 420ms var(--motion-ease-ventana) backwards; }
 .animate-drawer-sheet-out { animation: drawer-sheet-out 260ms var(--motion-ease-ventana) both; }
+/* La misma hoja subiendo desde abajo: la ficha de la clase en el móvil. */
+@keyframes drawer-up-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes drawer-up-out { from { transform: translateY(0); } to { transform: translateY(100%); } }
+.animate-drawer-up-in { animation: drawer-up-in 420ms var(--motion-ease-ventana) backwards; }
+.animate-drawer-up-out { animation: drawer-up-out 260ms var(--motion-ease-ventana) both; }
 
 /* PublicSheet (components/ui/public-sheet.tsx) — el modal de reserva/citas
    públicas aparecía de golpe, sin transición alguna. Mismo espíritu que el
@@ -1206,6 +1226,12 @@ body:has([data-barra-guardar]) .panel-wa-fab { display: none; }
 /* Lo mismo con la barra de lo seleccionado de Clientas: va pegada abajo y la
    burbuja tapaba «Más» y la «×» para quitar la selección. */
 body:has([data-barra-seleccion]) .panel-wa-fab { display: none; }
+/* La ficha de la clase que va AL LADO en el Calendario ocupa la esquina de la
+   burbuja, y en el mostrador está abierta casi siempre: ahí la burbuja no se
+   aparta (es la línea con el fundador). Es la lista la que le deja sitio al
+   final, para que la última clienta —y su ⋯— suba por encima. */
+[data-sitio-burbuja] { height: 0; }
+[data-ficha-al-lado] [data-sitio-burbuja] { height: 4.5rem; }
 /* Y mientras se escribe en un campo de Configuración en el móvil o el iPad: con
    el teclado abierto queda poco alto, y un campo alto (el lema de Marca) caía
    debajo de la burbuja aunque no hubiera cambios todavía. En escritorio no:
@@ -1413,34 +1439,6 @@ body:has([data-barra-seleccion]) .panel-wa-fab { display: none; }
 @keyframes orb-respira {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(.82); }
-}
-
-/* Tarjetas de métricas del calendario en pantallas BAJAS.
-   Medido a 1280x720 (el portátil típico, menú grande): encima de la rejilla
-   había 489 px de cabecera, métricas, filtros y franja de decisiones, o sea el
-   68 % de la pantalla, y la semana se quedaba con 328 px — unas cinco horas.
-   Estas tarjetas se llevaban 102 px de eso. Por debajo de 860 px de alto pasan
-   de tres líneas a DOS: título y cifra arriba, el pie debajo.
-   ⚠️ El pie NO se esconde, aunque parezca contexto: dice «esta semana» o «esa
-   semana», y está ahí para que no se lean los números de la semana siguiente
-   como si fueran los de hoy (lo protege `calendario-momentos.spec.ts`). Lo
-   único que cae es la barra de ocupación, que repite la cifra de encima.
-   `!important` por el motivo de `.reserva-modal-edge`: pisa utilidades de
-   Tailwind de la misma capa, cuyo orden en la hoja final no está garantizado.
-   900 y no 860 (16-sep): el MacBook de 1440×900 se quedaba fuera por 40 px y
-   pagaba las tarjetas de tres líneas con 4,3 horas de rejilla a la vista. */
-@media (max-height: 900px) {
-  .tarjeta-metrica {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto;
-    column-gap: .5rem;
-    align-items: baseline;
-    padding-top: .25rem !important;
-    padding-bottom: .25rem !important;
-  }
-  .tarjeta-metrica .tm-valor { grid-row: 1; grid-column: 2; margin-top: 0 !important; }
-  .tarjeta-metrica .tm-pie { grid-column: 1 / -1; margin-top: 0 !important; }
-  .tarjeta-metrica .tm-barra { display: none !important; }
 }
 
 /* «Founding Studio» (components/planes/nombre-plan.tsx). `em` a propósito: la

@@ -1,9 +1,10 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fase 2 del calendario — "Vista de Mes": ocupación agregada por día, sin
-// detalle hora a hora. Solo lectura (reutiliza /api/calendario tal cual, con
-// un rango de mes en vez de día/semana).
+// El mes ya no es una vista (rediseño del Calendario, 1-oct-2026): es la fecha
+// de la cabecera, que se toca para elegir otro día. Los días con clase llevan
+// su punto (las canceladas no cuentan) y elegir un día lleva a él SIN cambiar
+// de vista.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -97,44 +98,50 @@ async function montar(page: Page) {
   }));
 
   await page.goto('/calendario');
-  await page.getByRole('button', { name: 'Mes' }).click();
 }
 
-test.describe('Vista de Mes', () => {
-  test('agrega las clases por día y no cuenta las canceladas', async ({ page }) => {
+const selector = (page: Page) => page.getByTestId('selector-fecha');
+const panelFecha = (page: Page) => page.getByRole('dialog', { name: 'Elegir día' });
+
+test.describe('El selector de fecha (lo que era el Mes)', () => {
+  test('marca los días con clases y no cuenta las canceladas', async ({ page }) => {
     await montar(page);
+    await selector(page).click();
+    await expect(panelFecha(page).getByText('Agosto 2026', { exact: true })).toBeVisible({ timeout: 30_000 });
 
-    await expect(page.getByText('Agosto de 2026', { exact: true })).toBeVisible({ timeout: 30_000 });
-
-    const dia5 = page.getByRole('button', { name: '5 de agosto de 2026' });
-    await expect(dia5.getByText('2 clases')).toBeVisible();
-
-    const dia12 = page.getByRole('button', { name: '12 de agosto de 2026' });
-    await expect(dia12.getByText('1 clase', { exact: true })).toBeVisible();
-
-    // Día 20 solo tiene una sesión CANCELADA — no debe contar ninguna clase.
-    const dia20 = page.getByRole('button', { name: '20 de agosto de 2026' });
-    await expect(dia20.getByText(/clase/)).toHaveCount(0);
+    await expect(panelFecha(page).getByRole('button', { name: '5 de agosto, con clases, hoy' })).toBeVisible();
+    await expect(panelFecha(page).getByRole('button', { name: '12 de agosto, con clases' })).toBeVisible();
+    // El día 20 solo tiene una clase CANCELADA: sin punto.
+    await expect(panelFecha(page).getByRole('button', { name: '20 de agosto', exact: true })).toBeVisible();
   });
 
-  test('click en un día lleva a la vista de Día de esa fecha', async ({ page }) => {
+  test('elegir un día en la Semana lleva a esa semana sin cambiar de vista', async ({ page }) => {
     await montar(page);
+    await expect(selector(page)).toHaveText(/5 – 11 ago/, { timeout: 30_000 });
+    await selector(page).click();
+    await panelFecha(page).getByRole('button', { name: '20 de agosto', exact: true }).click();
 
-    await page.getByRole('button', { name: '12 de agosto de 2026' }).click();
-
-    // Vuelve a Día, ya en esa fecha — se ve la clase de las 10:00 (Reformer).
-    await expect(page.getByRole('button', { name: 'Día', exact: true })).toHaveClass(/bg-card/);
-    await expect(page.getByRole('button', { name: /Reformer/i })).toBeVisible({ timeout: 30_000 });
+    await expect(panelFecha(page)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Semana', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(selector(page)).toHaveText(/20 – 26 ago/);
   });
 
-  test('navegar de mes cambia la etiqueta sin tocar el mes original', async ({ page }) => {
+  test('en el Día, elegir un día lleva a ese día', async ({ page }) => {
     await montar(page);
-    await expect(page.getByText('Agosto de 2026', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Día', exact: true }).click();
+    await selector(page).click();
+    await panelFecha(page).getByRole('button', { name: '12 de agosto, con clases' }).click();
 
-    await page.getByRole('button', { name: 'Mes siguiente' }).click();
-    await expect(page.getByText('Septiembre de 2026', { exact: true })).toBeVisible();
+    await expect(selector(page)).toHaveText(/Miércoles 12 ago/);
+    await expect(page.locator('[data-sesion-id="ses-3"]')).toBeVisible({ timeout: 30_000 });
+  });
 
-    await page.getByRole('button', { name: 'Hoy' }).click();
-    await expect(page.getByText('Agosto de 2026', { exact: true })).toBeVisible();
+  test('se puede pasar de mes sin moverse de la fecha que se ve', async ({ page }) => {
+    await montar(page);
+    await selector(page).click();
+    await panelFecha(page).getByRole('button', { name: 'Mes siguiente' }).click();
+    await expect(panelFecha(page).getByText('Septiembre 2026', { exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(selector(page)).toHaveText(/5 – 11 ago/);
   });
 });

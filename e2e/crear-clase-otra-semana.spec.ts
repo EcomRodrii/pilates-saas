@@ -26,8 +26,8 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-// Rediseño del Calendario: las tarjetas de métricas ("Clases"/"esta semana")
-// y la rejilla pintan desde /api/calendario, no desde sesiones/reservas del
+// Rediseño del Calendario: la línea de cifras y la rejilla pintan desde
+// /api/calendario, no desde sesiones/reservas del
 // contexto — sin este mock la rejilla se queda en "Cargando…".
 function salaApi(r: any) {
   return { id: r.id, studioId: r.studio_id, nombre: r.nombre, capacidad: r.capacidad, color: r.color };
@@ -82,7 +82,6 @@ async function montar(page: Page, opts: { sinInstructoras?: boolean } = {}) {
 
 async function crearClaseEl(page: Page, fecha: string) {
   await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
-  await page.getByTestId('crear-clase-suelta').click();
   // El campo se busca DENTRO del cajón: el modal de clases recurrentes tiene sus
   // propios input[type=date] y `.first()` cogía el que no era.
   const cajon = page.getByRole('dialog', { name: 'Nueva clase' });
@@ -94,27 +93,31 @@ test.describe('Crear una clase en otra semana', () => {
   test('el calendario se mueve hasta ella y el aviso lo dice', async ({ page }) => {
     await montar(page);
 
-    // Arranca en la semana de hoy (3–9 de agosto).
-    await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
+    // Arranca en la semana de hoy (la fecha de la cabecera dice cuál es).
+    const fecha = page.getByTestId('selector-fecha');
+    await expect(fecha).toBeVisible({ timeout: 30_000 });
+    const antes = await fecha.textContent();
 
     await crearClaseEl(page, OTRA_SEMANA);
 
     // El aviso avisa de que te ha llevado allí…
     await expect(page.getByText(/te llevo a esa semana/)).toBeVisible();
-    // …y la rejilla ya NO es la semana actual: es la de la clase creada.
-    await expect(page.getByText('esa semana', { exact: true })).toBeVisible();
+    // …y la semana ya NO es la actual: es la de la clase creada.
+    await expect(fecha).not.toHaveText(antes ?? '');
   });
 
   test('creando en la semana que ya se está viendo, no se mueve nada', async ({ page }) => {
     await montar(page);
-    await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
+    const fecha = page.getByTestId('selector-fecha');
+    await expect(fecha).toBeVisible({ timeout: 30_000 });
+    const antes = await fecha.textContent();
 
     // Jueves de la MISMA semana: no tiene sentido moverla ni anunciarlo.
     await crearClaseEl(page, '2026-08-06');
 
     await expect(page.getByText('Clase creada')).toBeVisible();
     await expect(page.getByText(/te llevo a esa semana/)).toHaveCount(0);
-    await expect(page.getByText('esta semana', { exact: true })).toBeVisible();
+    await expect(fecha).toHaveText(antes ?? '');
   });
 });
 
@@ -134,10 +137,9 @@ test.describe('Crear una clase en otra semana', () => {
 test.describe('El cajón de «Nueva clase» cabe en la ventana', () => {
   test('el botón de crear se ve entero sin desplazar la página', async ({ page }) => {
     await montar(page);
-    await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('selector-fecha')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
-  await page.getByTestId('crear-clase-suelta').click();
     const cajon = page.getByRole('dialog', { name: 'Nueva clase' });
     await expect(cajon).toBeVisible();
 
@@ -153,9 +155,8 @@ test.describe('El cajón de «Nueva clase» cabe en la ventana', () => {
 test.describe('Crear clase sin ninguna instructora', () => {
   test('el aviso manda a Equipo a darla de alta, y no deja crear', async ({ page }) => {
     await montar(page, { sinInstructoras: true });
-    await expect(page.getByText('esta semana', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('selector-fecha')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
-  await page.getByTestId('crear-clase-suelta').click();
     const cajon = page.getByRole('dialog', { name: 'Nueva clase' });
     const aviso = cajon.getByTestId('falta-crear');
     await expect(aviso).toHaveText('Todavía no tienes ninguna instructora en tu equipo. Añádela en Equipo y vuelve aquí.');

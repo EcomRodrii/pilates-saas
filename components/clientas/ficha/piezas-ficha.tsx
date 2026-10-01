@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import type { ReactNode } from 'react';
 import {
-  Ban, BellRing, CalendarX, Check, CheckCheck, CircleDollarSign, UserCheck, UserMinus, Mail, MessageCircle, MoreHorizontal, StickyNote, UserPlus,
+  Ban, BellRing, CalendarX, Check, CheckCheck, CircleDollarSign, UserCheck, UserMinus, Mail, MessageCircle, StickyNote, UserPlus,
   RotateCcw, Sparkles, type LucideIcon,
 } from 'lucide-react';
 import { cn, horaEstudio, hoyEnEstudio } from '@/lib/utils';
-import { anfitrionPortal } from '@/lib/panel-portal';
+import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
 import type { EventoHistoria, ItemHistoria } from '@/lib/clientas/historia';
 import type { AvisoClienta } from '@/lib/clientas/avisos';
 import { fechaCorta } from '@/lib/clientas/textos';
@@ -34,15 +33,6 @@ export interface AlertaCabecera {
   texto: ReactNode;
   tono?: 'aviso' | 'problema' | 'neutro';
   onClick?: () => void;
-}
-
-export interface AccionMenu {
-  texto: string;
-  icono: LucideIcon;
-  onClick: () => void;
-  peligro?: boolean;
-  /** Raya encima: separa lo de todos los días de lo serio (baja, borrar). */
-  separar?: boolean;
 }
 
 export function CabeceraFicha({
@@ -155,132 +145,6 @@ export function AccionGrande({ icono: Icono, children, href, externo, onClick, p
     return <a href={href} target={externo ? '_blank' : undefined} rel={externo ? 'noopener noreferrer' : undefined} onClick={onClick} className={cls} title={title}><Icono size={17} aria-hidden />{children}</a>;
   }
   return <button type="button" onClick={onClick} disabled={disabled} className={cls} title={title}><Icono size={17} aria-hidden />{children}</button>;
-}
-
-type PosicionMenu = { top?: number; bottom?: number; right: number; maxHeight: number };
-
-/**
- * Dónde se pinta el menú, pegado al botón: debajo si cabe; si no, por donde haya
- * más sitio, con su propio scroll si ni así cabe entero (nunca fuera de la pantalla).
- */
-function posicionDelMenu(boton: HTMLElement, nAcciones: number, arriba: boolean | undefined): PosicionMenu {
-  const r = boton.getBoundingClientRect();
-  const vh = window.innerHeight;
-  const right = Math.max(8, window.innerWidth - r.right);
-  // Alto aproximado: una fila por opción y el margen interior.
-  const alto = nAcciones * 44 + 16;
-  const libreAbajo = vh - r.bottom - 14;
-  const libreArriba = r.top - 14;
-  const haciaArriba = arriba || (alto > libreAbajo && libreArriba > libreAbajo);
-  return haciaArriba
-    ? { bottom: vh - r.top + 6, right, maxHeight: Math.max(120, libreArriba) }
-    : { top: r.bottom + 6, right, maxHeight: Math.max(120, libreAbajo) };
-}
-
-export function MenuAcciones({ acciones, arriba, boton, claseBoton, etiqueta = 'Más acciones' }: {
-  acciones: AccionMenu[];
-  /** Se abre hacia arriba (la barra de selección vive pegada abajo). */
-  arriba?: boolean;
-  /** Lo que se pinta en el botón; por defecto, los tres puntos. */
-  boton?: ReactNode;
-  claseBoton?: string;
-  etiqueta?: string;
-}) {
-  // El menú se pinta en el anfitrión de portales del panel, con posición fija
-  // calculada desde el botón: dentro de la tarjeta, su `overflow-hidden` (o el
-  // scroll del panel lateral) lo recortaba y las últimas opciones no se veían.
-  const [pos, setPos] = useState<PosicionMenu | null>(null);
-  const botonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const abierto = pos !== null;
-  const nAcciones = acciones.length;
-
-  function abrir() {
-    if (botonRef.current) setPos(posicionDelMenu(botonRef.current, nAcciones, arriba));
-  }
-
-  useEffect(() => {
-    if (!abierto) return;
-    menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus({ preventScroll: true });
-    function fuera(e: MouseEvent) {
-      const t = e.target as Node;
-      if (!botonRef.current?.contains(t) && !menuRef.current?.contains(t)) setPos(null);
-    }
-    function tecla(e: KeyboardEvent) {
-      if (e.key === 'Escape') { setPos(null); botonRef.current?.focus(); return; }
-      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-      const items = [...(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])];
-      if (items.length === 0) return;
-      e.preventDefault();
-      const i = items.indexOf(document.activeElement as HTMLButtonElement);
-      items[e.key === 'ArrowDown' ? (i + 1) % items.length : (i <= 0 ? items.length - 1 : i - 1)].focus();
-    }
-    // Al desplazarse la página el menú SIGUE al botón (cerrarlo con cualquier
-    // scroll lo hacía inalcanzable si aún se movía la página, o si había que
-    // bajar para llegar a la última opción). Solo se cierra si el botón sale de
-    // la pantalla. Lo que se desplaza dentro del propio menú no cuenta.
-    function alMoverse(e: Event) {
-      if (e.target instanceof Node && menuRef.current?.contains(e.target)) return;
-      const b = botonRef.current;
-      const r = b?.getBoundingClientRect();
-      if (!b || !r || r.bottom < 0 || r.top > window.innerHeight) { setPos(null); return; }
-      setPos(posicionDelMenu(b, nAcciones, arriba));
-    }
-    document.addEventListener('mousedown', fuera);
-    document.addEventListener('keydown', tecla);
-    window.addEventListener('resize', alMoverse);
-    window.addEventListener('scroll', alMoverse, true);
-    return () => {
-      document.removeEventListener('mousedown', fuera);
-      document.removeEventListener('keydown', tecla);
-      window.removeEventListener('resize', alMoverse);
-      window.removeEventListener('scroll', alMoverse, true);
-    };
-  }, [abierto, nAcciones, arriba]);
-
-  return (
-    <>
-      <button
-        ref={botonRef}
-        type="button"
-        onClick={() => (abierto ? setPos(null) : abrir())}
-        aria-expanded={abierto}
-        aria-haspopup="menu"
-        aria-label={etiqueta}
-        className={claseBoton ?? 'flex h-full min-h-12 w-12 items-center justify-center rounded-xl border border-border bg-card text-foreground hover:bg-muted md:min-h-10 md:w-10'}
-      >
-        {boton ?? <MoreHorizontal size={18} />}
-      </button>
-      {pos && createPortal(
-        <div
-          ref={menuRef}
-          role="menu"
-          aria-label={etiqueta}
-          style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, right: pos.right, maxHeight: pos.maxHeight }}
-          className="z-50 w-64 max-w-[calc(100vw-16px)] overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-lg"
-        >
-          {acciones.map((a) => (
-            <div key={a.texto}>
-              {a.separar && <div className="my-1 h-px bg-border" />}
-              <button
-                role="menuitem"
-                type="button"
-                onClick={() => { setPos(null); a.onClick(); }}
-                className={cn(
-                  'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[13.5px] font-medium outline-none focus-visible:bg-muted',
-                  a.peligro ? 'text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10' : 'text-foreground hover:bg-muted',
-                )}
-              >
-                <a.icono size={16} aria-hidden className="shrink-0" />
-                {a.texto}
-              </button>
-            </div>
-          ))}
-        </div>,
-        anfitrionPortal(),
-      )}
-    </>
-  );
 }
 
 // ─── Por qué te aviso ────────────────────────────────────────────────────────

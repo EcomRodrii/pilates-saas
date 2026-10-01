@@ -14,7 +14,10 @@ const AUTH_UID = 'auth-e2e-duena';
 const STUDIO_ID = 'studio-test';
 const STORAGE_KEY = 'sb-example-auth-token';
 
-const HOY = new Date().toISOString().slice(0, 10);
+// El día del ESTUDIO, no el de UTC: la semana del Calendario empieza hoy en
+// Madrid, y entre las 00:00 y las 02:00 de allí la fecha UTC aún es la de ayer
+// (la clase caía fuera de la semana y el test fallaba según la hora).
+const HOY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
 
 const TIPOS = [{ id: 'tc-1', studio_id: STUDIO_ID, nombre: 'Reformer', color: '#F7A6C4', duracion_minutos: 55, descripcion: null, nivel: 'TODOS', foto_url: null }];
 const SALAS = [{ id: 'sala-1', studio_id: STUDIO_ID, nombre: 'Sala 1', capacidad: 4, color: '#6366F1' }];
@@ -167,7 +170,7 @@ test.describe('Recepción apunta una reserva de ClassPass desde la clase', () =>
   test('sin plataformas activas no aparece la opción', async ({ page }) => {
     await montarCalendario(page, { status: 200, body: {} }, []);
     await abrirAnadir(page);
-    await expect(page.getByPlaceholder('Buscar clienta...')).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Buscar clienta' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'ClassPass' })).toHaveCount(0);
   });
 
@@ -178,10 +181,15 @@ test.describe('Recepción apunta una reserva de ClassPass desde la clase', () =>
     await expect(nombre).toBeVisible();
     // Sin enlace a /clientas/null.
     await expect(page.getByRole('link', { name: 'Carla Pass' })).toHaveCount(0);
-    const fila = page.locator('div.group', { has: nombre });
+    const fila = page.locator('li[data-reserva-id]', { has: nombre });
     await expect(fila.locator('[data-plataforma="CLASSPASS"]')).toHaveText('ClassPass');
-    await expect(fila.getByRole('button', { name: /Repetir/ })).toHaveCount(0);
-    await expect(fila.getByRole('button', { name: /Hacer fija/ })).toHaveCount(0);
+    // Repetir y hacerle plaza fija viven en el ⋯ de cada clienta: en el suyo no están.
+    await fila.getByRole('button', { name: /Más acciones de/ }).click();
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: /semana que viene/ })).toHaveCount(0);
+    await expect(menu.getByRole('menuitem', { name: /plaza fija/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
     // La socia de Tentare sigue enlazando a su ficha.
     await expect(page.getByRole('link', { name: /Ana Ruiz/ })).toHaveAttribute('href', '/clientas/s1');
   });

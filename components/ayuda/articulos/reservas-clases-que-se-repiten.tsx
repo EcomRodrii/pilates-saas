@@ -21,19 +21,20 @@ export default function Contenido() {
 
       <h2 style={{ ...h2, marginTop: 4 }}>Crear la clase de cada semana</h2>
       <p>
-        En el <strong>Calendario</strong>, botón <strong>«Crear clase»</strong> → <strong>«Clase fija»</strong> (la
-        otra opción, «Clase», es para un día concreto). Se abre «Nueva clase fija»: eliges el tipo de clase, la instructora, la sala, la hora y la duración, marcas los{' '}
-        <strong>días de la semana</strong> y pones fecha de inicio y de fin. Antes de confirmar te dice cuántas
-        clases se van a crear, y te avisa si alguna se solapa con la sala o con la instructora.
+        En el <strong>Calendario</strong>, botón <strong>«Crear clase»</strong>: eliges el tipo de clase, la sala, la
+        instructora, el día y la hora, y enciendes <strong>«Se repite»</strong>. Marcas los{' '}
+        <strong>días de la semana</strong> y hasta qué fecha, y antes de crearla te dice cuántas clases salen. Si
+        alguna fecha choca con la sala, con la instructora o con un cierre del centro, te la enseña con el motivo,
+        se la salta y crea las demás.
       </p>
       <p>
-        En las vistas de Día y Semana, las clases de una serie llevan el icono ↻ («Se repite cada semana»), y al
-        abrir una verás hasta cuándo llega: «Se repite cada martes hasta el 05/10/2026».
+        Al abrir una clase de una serie, su ficha dice hasta cuándo llega: «Se repite cada martes hasta el
+        05/10/2026». En el móvil, además, la lista de clases las marca con el icono ↻.
       </p>
 
       <h2 style={h2}>La vista «Horario»</h2>
       <p>
-        Es la cuarta vista del calendario, junto a Día, Semana y Mes, y está hecha para mirar el horario como
+        Es la tercera vista del calendario, junto a Día y Semana, y está hecha para mirar el horario como
         horario y no como agenda: <strong>una columna por día y una tarjeta por serie</strong>, con su hora, su sala,
         su instructora, el aforo y hasta cuándo va.
       </p>

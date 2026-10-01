@@ -51,7 +51,7 @@ test.describe('Calendario en un móvil de 375×812', () => {
 
   test('la semana es una lista que se lee: hora, clase, sala e instructora, sin nada de lado', async ({ page }) => {
     await calendario(page);
-    await expect(page.getByTestId('grid-semana-scroll')).toHaveCount(0);
+    await expect(page.getByTestId('semana-franjas')).toHaveCount(0);
     expect(await desborde(page), 'la página se sale de lado').toBeLessThanOrEqual(0);
 
     const { pequenos, cortados } = await letraDeLaLista(page);
@@ -92,31 +92,56 @@ test.describe('Calendario en un móvil de 375×812', () => {
     await expect(ultima).toBeInViewport({ ratio: 1 });
   });
 
-  test('el día también es una lista, y el mes no amontona los días', async ({ page }) => {
+  test('el día también es una lista, con la semana en una tira, y elegir fecha cabe en la pantalla', async ({ page }) => {
     await calendario(page);
     await page.getByRole('button', { name: /^Día$/ }).tap();
     await expect(page.locator('[data-agenda="dia"]')).toBeVisible();
     await expect(page.getByTestId('grid-dia-scroll')).toHaveCount(0);
+    await expect(page.getByRole('group', { name: 'Días de la semana' })).toBeVisible();
     expect(await desborde(page)).toBeLessThanOrEqual(0);
 
-    await page.getByRole('button', { name: /^Mes$/ }).tap();
-    await page.waitForTimeout(500);
-    const amontonados = await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>('button[aria-label*=" de 20"]')].flatMap((celda) => {
-      const r = celda.getBoundingClientRect();
-      return [...celda.querySelectorAll('span')].some((s) => s.getBoundingClientRect().bottom > r.bottom + 1) ? [celda.getAttribute('aria-label')] : [];
-    }));
-    expect(amontonados, 'celdas del mes con el contenido fuera de su caja').toEqual([]);
+    // El mes ya no es una vista: es la fecha, que se toca para elegir otro día.
+    await page.getByTestId('selector-fecha').tap();
+    const panel = page.getByRole('dialog', { name: 'Elegir día' });
+    await expect(panel).toBeVisible();
+    const caja = (await panel.boundingBox())!;
+    const ancho = page.viewportSize()!.width;
+    expect(caja.x, 'el selector de fecha se sale por la izquierda').toBeGreaterThanOrEqual(0);
+    expect(caja.x + caja.width, 'el selector de fecha se sale por la derecha').toBeLessThanOrEqual(ancho + 0.5);
     expect(await desborde(page)).toBeLessThanOrEqual(0);
   });
 
   test('los controles de la cabecera se tocan con el dedo', async ({ page }) => {
     await calendario(page);
     const pequenos: string[] = [];
-    for (const nombre of [/^Día$/, /^Semana$/, /^Mes$/, /^Horario$/, /^Semana anterior$/, /^Hoy$/, /^Semana siguiente$/]) {
-      const caja = await page.getByRole('button', { name: nombre }).boundingBox();
-      if (!caja || caja.height < 44) pequenos.push(`${nombre} ${caja?.height}`);
+    const controles = [
+      ...[/^Día$/, /^Semana$/, /^Horario$/, /^Crear clase$/, /^Buscar clase$/, /^Filtrar/].map(nombre => page.getByRole('button', { name: nombre })),
+      page.getByTestId('selector-fecha'),
+    ];
+    for (const control of controles) {
+      const caja = await control.boundingBox();
+      if (!caja || caja.height < 44 || caja.width < 44) pequenos.push(`${control} ${caja?.width}×${caja?.height}`);
     }
     expect(pequenos).toEqual([]);
+  });
+
+  // La auditoría lo midió: la cabecera vieja empujaba la lista a media pantalla
+  // (~460 px en móvil), y la primera versión de la nueva aún más (~505, seis
+  // filas). En tres filas, como la maqueta, la primera clase asoma arriba.
+  test('la cabecera cabe en tres filas: la lista empieza justo debajo', async ({ page }) => {
+    await calendario(page);
+    await page.getByRole('button', { name: /^Día$/ }).tap();
+    await expect(page.locator('[data-agenda="dia"]')).toBeVisible();
+    // Se mide desde el título y no desde arriba: encima puede estar el aviso de
+    // «¿Primera vez aquí?», que se cierra y no es de la cabecera.
+    const titulo = (await page.getByRole('heading', { name: 'Calendario' }).boundingBox())!;
+    const primera = (await clases(page).first().boundingBox())!;
+    // Tres filas, la tira de días y las cifras: ~250 px. Con las seis filas de
+    // antes eran ~400.
+    expect(primera.y - titulo.y, 'entre el título y la primera clase hay demasiada cabecera').toBeLessThan(300);
+    // «Crear clase» va a la altura del título, no en una fila propia.
+    const crear = (await page.getByRole('button', { name: /^Crear clase$/ }).boundingBox())!;
+    expect(Math.abs((crear.y + crear.height / 2) - (titulo.y + titulo.height / 2)), '«Crear clase» no está en la fila del título').toBeLessThan(12);
   });
 
   test('marcando varias, la barra de abajo se ve aunque la página esté bajada', async ({ page }) => {
@@ -136,7 +161,7 @@ test.describe('En un iPad de 768×1024 sigue la rejilla', () => {
   test('semana en rejilla, sin lista', async ({ page }) => {
     await montar(page);
     await ir(page, 'calendario');
-    await expect(page.getByTestId('grid-semana-scroll')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId('semana-franjas')).toBeVisible({ timeout: 60_000 });
     await expect(page.locator('[data-agenda]')).toHaveCount(0);
   });
 });

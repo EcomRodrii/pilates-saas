@@ -97,8 +97,10 @@ async function montar(page: Page) {
   }));
 
   await page.goto('/calendario');
-  await page.getByRole('button', { name: /Reformer/i }).click({ timeout: 30_000 });
-  await page.getByRole('button', { name: 'Duplicar' }).click();
+  await page.getByRole('button', { name: /Reformer/i }).first().click({ timeout: 30_000 });
+  // «Duplicar» vive en el ⋯ de la ficha de la clase.
+  await page.getByRole('button', { name: 'Más acciones de la clase' }).click();
+  await page.getByRole('menuitem', { name: /^Duplicar/ }).first().click();
 }
 
 test.describe('Duplicar clase', () => {

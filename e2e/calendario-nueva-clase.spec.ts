@@ -102,7 +102,6 @@ async function montar(page: Page, o: Opciones = {}) {
 
   await page.goto('/calendario');
   await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
-  await page.getByTestId('crear-clase-suelta').click();
   const cajon = page.getByRole('dialog', { name: 'Nueva clase' });
   await expect(cajon).toBeVisible();
   return { cajon, inserts };

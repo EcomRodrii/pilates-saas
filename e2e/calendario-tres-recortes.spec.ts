@@ -85,83 +85,60 @@ async function montar(page: Page) {
 }
 
 for (const v of [{ n: 'escritorio', w: 1440, h: 900 }, { n: 'portatil', w: 1024, h: 768 }, { n: 'movil', w: 390, h: 844 }]) {
-  test(`1 · el desplegable de buscar no se sale de la tarjeta (${v.n})`, async ({ page }) => {
+  test(`1 · el desplegable de buscar no se sale de la ventana (${v.n})`, async ({ page }) => {
     await page.setViewportSize({ width: v.w, height: v.h });
     await montar(page);
-    await page.getByRole('button', { name: 'Buscar clase en todo el estudio' }).click({ timeout: 30_000 });
-    const panel = page.getByPlaceholder('Instructora, sala o tipo de clase…');
+    await page.getByRole('button', { name: 'Buscar clase' }).click({ timeout: 30_000 });
+    const panel = page.getByRole('dialog', { name: 'Buscar clase' });
     await expect(panel).toBeVisible();
-
-    const m = await panel.evaluate((el: HTMLElement) => {
-      const caja = el.closest('div.absolute') as HTMLElement;
-      let recorte: HTMLElement | null = caja.parentElement;
-      while (recorte && getComputedStyle(recorte).overflow === 'visible') recorte = recorte.parentElement;
-      const p = caja.getBoundingClientRect();
-      const r = recorte ? recorte.getBoundingClientRect() : { left: 0, right: window.innerWidth };
-      return { panelIzq: p.left, panelDer: p.right, recorteIzq: r.left, recorteDer: r.right };
-    });
-    expect(m.panelIzq, 'se sale por la izquierda').toBeGreaterThanOrEqual(m.recorteIzq - 0.5);
-    expect(m.panelDer, 'se sale por la derecha').toBeLessThanOrEqual(m.recorteDer + 0.5);
+    // Va en el anfitrión de portales con posición fija: ninguna tarjeta con
+    // `overflow-hidden` puede recortarlo. Lo que se comprueba es la ventana.
+    const p = (await panel.boundingBox())!;
+    expect(p.x, 'se sale por la izquierda').toBeGreaterThanOrEqual(0);
+    expect(p.x + p.width, 'se sale por la derecha').toBeLessThanOrEqual(v.w + 0.5);
   });
 }
 
-test('2 · la primera etiqueta de hora cae dentro de la rejilla', async ({ page }) => {
+test('2 · la primera etiqueta de hora del Día cae dentro de la rejilla', async ({ page }) => {
   await montar(page);
-  await page.getByRole('button', { name: /Reformer/i }).first().waitFor({ timeout: 30_000 });
-
-  const m = await page.evaluate(() => {
-    const spans = Array.from(document.querySelectorAll('span.absolute.right-2'))
-      .filter(s => /^\d{1,2}:\d{2}$/.test((s.textContent ?? '').trim())) as HTMLElement[];
-    if (!spans.length) return null;
-    const primera = spans[0];
-    const cont = primera.offsetParent as HTMLElement;
-    return {
-      texto: primera.textContent?.trim(),
-      arribaEtiqueta: primera.getBoundingClientRect().top,
-      arribaContenedor: cont.getBoundingClientRect().top,
-      transform: getComputedStyle(primera).transform,
-      cuantas: spans.length,
-    };
-  });
+  await page.getByRole('button', { name: 'Día', exact: true }).click({ timeout: 30_000 });
+  await page.locator('[data-hora]').first().waitFor({ timeout: 30_000 });
   // La rejilla arranca desplazada a la hora actual: para VER la primera
   // etiqueta (la del bug) hay que subirla al tope.
-  await page.evaluate(() => {
-    const sp = Array.from(document.querySelectorAll('span.absolute.right-2'))
-      .filter(s => /^\d{1,2}:\d{2}$/.test((s.textContent ?? '').trim()))[0] as HTMLElement;
-    let c: HTMLElement | null = sp?.parentElement ?? null;
-    while (c && c.scrollHeight <= c.clientHeight) c = c.parentElement;
-    c?.scrollTo({ top: 0 });
-  });
-  expect(m).not.toBeNull();
-  expect(m!.arribaEtiqueta).toBeGreaterThanOrEqual(m!.arribaContenedor - 0.5);
-  expect(m!.transform).toBe('none');
-});
-
-test('3 · ninguna acción del panel queda fuera de la barra', async ({ page }) => {
-  await montar(page);
-  await page.getByRole('button', { name: /Reformer/i }).first().click({ timeout: 30_000 });
-  const eliminar = page.getByRole('button', { name: 'Eliminar sesión' });
-  await expect(eliminar).toBeVisible({ timeout: 15_000 });
-
-  const m = await eliminar.evaluate((el: HTMLElement) => {
-    const barra = el.parentElement as HTMLElement;
-    const botones = Array.from(barra.querySelectorAll('button')) as HTMLElement[];
-    const b = barra.getBoundingClientRect();
+  await page.getByTestId('grid-dia-scroll').evaluate(el => el.scrollTo({ top: 0 }));
+  const m = await page.evaluate(() => {
+    const primera = document.querySelector<HTMLElement>('[data-hora]')!;
+    const cuerpo = primera.closest<HTMLElement>('[data-rejilla]')!;
     return {
-      barraVisible: barra.clientWidth, barraPedida: barra.scrollWidth,
-      wrap: getComputedStyle(barra).flexWrap,
-      fuera: botones
-        .map(x => ({ n: (x.getAttribute('aria-label') ?? x.textContent ?? '').trim(), r: x.getBoundingClientRect() }))
-        .filter(x => x.r.right > b.right + 0.5 || x.r.left < b.left - 0.5)
-        .map(x => x.n),
-      todos: botones.map(x => (x.getAttribute('aria-label') ?? x.textContent ?? '').trim()),
+      arribaEtiqueta: primera.getBoundingClientRect().top,
+      arribaCuerpo: cuerpo.getBoundingClientRect().top,
+      transform: getComputedStyle(primera).transform,
     };
   });
-  expect(m.wrap).toBe('wrap');
-  expect(m.fuera, 'hay acciones fuera de la barra').toEqual([]);
-  expect(m.barraPedida).toBeLessThanOrEqual(m.barraVisible + 1);
-  // Las dos que se perdían. Van aparte para que "no se sale nada" no se pueda
-  // cumplir quitando botones en vez de haciéndoles sitio.
-  expect(m.todos).toContain('Cancelar');
-  expect(m.todos).toContain('Eliminar sesión');
+  expect(m.arribaEtiqueta).toBeGreaterThanOrEqual(m.arribaCuerpo - 0.5);
+  expect(m.transform).toBe('none');
+});
+
+test('3 · todas las acciones de la clase caben en su menú, Cancelar y Eliminar incluidas', async ({ page }) => {
+  await montar(page);
+  await page.locator('[data-sesion-id="ses-1"]').click({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Más acciones de la clase' }).click({ timeout: 15_000 });
+  const menu = page.getByRole('menu', { name: 'Más acciones de la clase' });
+  await expect(menu).toBeVisible();
+
+  const m = await menu.evaluate((el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    return {
+      dentro: r.left >= 0 && r.right <= innerWidth + 0.5 && r.top >= 0 && r.bottom <= innerHeight + 0.5,
+      // Si no cabe entero en alto, se desplaza dentro: nada queda inalcanzable.
+      alcanzable: el.scrollHeight <= el.clientHeight + 1 || getComputedStyle(el).overflowY === 'auto',
+      opciones: [...el.querySelectorAll('[role="menuitem"]')].map(x => x.textContent ?? ''),
+    };
+  });
+  expect(m.dentro, 'el menú se sale de la ventana').toBe(true);
+  expect(m.alcanzable).toBe(true);
+  // Las dos que se perdían en la barra de antes. Van aparte para que «no se sale
+  // nada» no se pueda cumplir quitando acciones en vez de haciéndoles sitio.
+  expect(m.opciones.some(o => o.startsWith('Cancelar esta clase'))).toBe(true);
+  expect(m.opciones.some(o => o.startsWith('Eliminar'))).toBe(true);
 });

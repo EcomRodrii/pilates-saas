@@ -51,7 +51,13 @@ async function abrirClase(page: Page, cancelar: { status?: number; body: unknown
 }
 
 const filaDe = (page: Page, nombre: string) =>
-  page.locator('div.group', { has: page.getByRole('link', { name: nombre }) });
+  page.locator('li[data-reserva-id]', { has: page.getByRole('link', { name: nombre }) });
+
+/** «Quitar» vive en el ⋯ de cada clienta (rediseño del 1-oct-2026). */
+async function quitar(page: Page, nombre: string) {
+  await filaDe(page, nombre).getByRole('button', { name: /Más acciones de/ }).click();
+  await page.getByRole('menuitem', { name: /Quitar de la clase/ }).click();
+}
 
 test.describe('Calendario · plaza fija y recuperación en la lista de una clase', () => {
   test.describe.configure({ timeout: 180_000 });
@@ -62,14 +68,14 @@ test.describe('Calendario · plaza fija y recuperación en la lista de una clase
     });
 
     // Las marcas salen de la recuperación USADA y del id `res-pf-`, cargadas en la 2ª ola.
-    await expect(filaDe(page, 'María García Fernández').getByText('Fija', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(filaDe(page, 'María García Fernández').getByText('Plaza fija', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(filaDe(page, 'Laura Martín').getByText('Recuperación', { exact: true })).toBeVisible();
-    await expect(filaDe(page, 'Carmen Del Río Sánchez').getByText('Fija', { exact: true })).toHaveCount(0);
+    await expect(filaDe(page, 'Carmen Del Río Sánchez').getByText('Plaza fija', { exact: true })).toHaveCount(0);
     // De un vistazo, quién está por qué: la reserva de una vez también lleva su etiqueta.
     await expect(filaDe(page, 'Carmen Del Río Sánchez').getByText('Reserva', { exact: true })).toBeVisible();
     await expect(filaDe(page, 'María García Fernández').getByText('Reserva', { exact: true })).toHaveCount(0);
 
-    await filaDe(page, 'María García Fernández').getByRole('button', { name: 'Quitar reserva' }).click();
+    await quitar(page, 'María García Fernández');
     await expect(page.getByText(/^Sigue con su plaza fija: solo se quita de esta clase/)).toBeVisible();
     expect(cancelaciones).toHaveLength(0);
     await page.getByRole('button', { name: 'Quitar', exact: true }).click();
@@ -82,7 +88,7 @@ test.describe('Calendario · plaza fija y recuperación en la lista de una clase
     await abrirClase(page, {
       body: { ok: true, recuperacionCreada: true, recuperacionCaducaEl: '2026-10-31', recuperacionAlCerrarSemana: false },
     });
-    await filaDe(page, 'María García Fernández').getByRole('button', { name: 'Quitar reserva' }).click();
+    await quitar(page, 'María García Fernández');
     await page.getByRole('button', { name: 'Quitar', exact: true }).click();
     await expect(page.getByText('Quitada · tendrá una clase para recuperar hasta el 31 de octubre')).toBeVisible();
   });
@@ -91,7 +97,7 @@ test.describe('Calendario · plaza fija y recuperación en la lista de una clase
     const { cancelaciones } = await abrirClase(page, {
       status: 400, body: { error: 'No se ha podido quitar la reserva' },
     });
-    await filaDe(page, 'María García Fernández').getByRole('button', { name: 'Quitar reserva' }).click();
+    await quitar(page, 'María García Fernández');
     await page.getByRole('button', { name: 'Quitar', exact: true }).click();
 
     await expect(page.getByText('No se ha podido quitar la reserva')).toBeVisible();

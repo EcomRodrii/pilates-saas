@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estadoSesion, pideDecision, sinEmpezar, PINTA, type SesionParaEstado, type ContextoEstadoSesion } from './calendario-estado.ts';
+import { aperturaCheckin, checkinAbierto, estadoSesion, pideDecision, sinEmpezar, PINTA, type SesionParaEstado, type ContextoEstadoSesion } from './calendario-estado.ts';
 
 const INICIO = '2026-07-13T08:00:00.000Z';
 const FIN = '2026-07-13T09:00:00.000Z';
@@ -200,3 +200,14 @@ test('una clase con su instructora de vacaciones sale sin instructora hasta que 
   assert.equal(estadoSesion(sesion(), antes, ctx()), 'PROGRAMADA');
 });
 
+
+test('el check-in se abre una hora antes de la clase, como la puerta con QR', () => {
+  const inicio = '2026-10-01T09:00:00.000Z';
+  assert.equal(checkinAbierto(inicio, new Date('2026-10-01T07:59:00.000Z')), false);
+  assert.equal(checkinAbierto(inicio, new Date('2026-10-01T08:00:00.000Z')), true);
+  assert.equal(checkinAbierto(inicio, new Date('2026-10-01T08:50:00.000Z')), true);
+  // Pasar lista después sigue abierto: nadie la cierra.
+  assert.equal(checkinAbierto(inicio, new Date('2026-10-03T10:00:00.000Z')), true);
+  // Y la fila que aún no puede hacerlo dice desde cuándo.
+  assert.equal(aperturaCheckin(inicio).toISOString(), '2026-10-01T08:00:00.000Z');
+});

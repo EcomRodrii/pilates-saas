@@ -52,7 +52,7 @@ export default function Contenido() {
       <h2 style={h2}>Cómo se asigna</h2>
       <p>
         En la ficha de la alumna, bloque <strong>«Plaza fija»</strong> → «Añadir»; desde una clase del
-        calendario con <strong>«Hacer fija»</strong> junto a su nombre; o en la vista <strong>«Horario»</strong>
+        calendario, en el «⋯» junto a su nombre → <strong>«Hacerle plaza fija»</strong>; o en la vista <strong>«Horario»</strong>
         del calendario con «+ Plaza fija» en la clase. En todos los casos <strong>eliges la
         clase</strong> de tu horario a la que viene cada semana (y, si tu sala tiene máquinas numeradas, su
         sitio). Ves cuántas plazas fijas tiene ya cada clase.
@@ -111,7 +111,7 @@ export default function Contenido() {
 
       <h2 style={h2}>Clases fijas con nombre: las ofreces tú</h2>
       <p>
-        Cada clase fija que creas (Calendario → «Crear clase» → «Clase fija») ya la pueden pedir tus clientas desde su
+        Cada clase fija que creas (Calendario → «Crear clase» con «Se repite») ya la pueden pedir tus clientas desde su
         app. Si quieres, además puedes <strong>agruparlas con un nombre</strong> —«Reformer · martes y jueves»— para que
         la pidan entera y elijan cuánto tiempo. Se hace en <strong>Calendario → Horario → «Agrupar con nombre»</strong>:
       </p>

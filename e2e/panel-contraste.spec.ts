@@ -182,26 +182,24 @@ const informe = (f: Fallo[]) =>
 // Se prefiere esto a sacar la ruta del barrido, que es como se pierde una deuda.
 //
 // Salieron al sembrar datos Y al arreglar el parser de color. Cuatro de los
-// hallazgos ya están arreglados en este mismo cambio (el tono `aviso` al 12 %,
-// el aforo con la tinta del chip, y los dos rótulos «Sin clases»/«Cerrado» que
-// usaban `--border` como tinta). Quedan tres, y cada uno pide criterio propio:
+// hallazgos se arreglaron en ese mismo cambio (el tono `aviso` al 12 %, el aforo
+// con la tinta del chip, y los dos rótulos «Sin clases»/«Cerrado» que usaban
+// `--border` como tinta).
 //
-//  · `calendario` — **el nombre de la instructora**: `--muted-foreground` sobre
-//    el chip teñido con el color del tipo de clase, a 9 px. Mide 2,61–3,94:1
-//    según el color. Este SÍ es el caso difícil: el fondo es
-//    `color-mix(tipo.color 50%, --card)` con un color que elige el estudio, así
-//    que ninguna tinta fija sirve. Salidas: bajar `--calendario-tinte-clase`
-//    (su comentario en globals.css dice que al 50 % el peor caso queda en 5,1,
-//    pero eso se midió contra `--foreground`, no contra `--muted-foreground`),
-//    o derivar la tinta con `colorLegibleSobre` de `lib/color-utils.ts` — que
-//    existe y hace exactamente esto.
-//  · `calendario` — «10», el número del día: blanco sobre #A8B37A, **2,24:1**.
-//  · `calendario` — «Ver 09:00»: blanco sobre #E08A6B, **2,62:1**.
+// Los tres del `calendario` (claro y oscuro) se cerraron con la pantalla nueva
+// (oct-2026): el gris apagado sobre la tarjeta teñida con el color del tipo de
+// clase —el caso difícil: el color lo elige el estudio— pasó a las tintas
+// `--calendario-tinta-*` de globals.css, medidas contra todos los colores de
+// tipo (≥4,9:1 en los dos modos, y el tinte en oscuro bajó del 35 al 25 %). El
+// número de hoy va sobre `--brand` con su `--brand-foreground` calculado (no en
+// blanco fijo), y «Ver 09:00» ya no existe. Un rojo nuevo ahí es de verdad.
+//
+// Queda uno:
 //  · `mensajeria` (oscuro) — el desplegable de avisos. Medido en el DOM: la
 //    tarjeta es `bg-card` (#1E1E22, oscura) pero cada `<li>` lleva
 //    `rgb(250,251,255)` fija, así que en oscuro queda tinta clara sobre fila
 //    clara: **1,14:1** en los títulos.
-const ROJOS_CONOCIDOS = new Set(['claro—calendario', 'oscuro—calendario', 'oscuro—mensajeria']);
+const ROJOS_CONOCIDOS = new Set(['oscuro—mensajeria']);
 
 for (const modo of ['claro', 'oscuro'] as const) {
   for (const ruta of RUTAS) {

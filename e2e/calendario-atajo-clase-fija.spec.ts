@@ -2,10 +2,10 @@ import { test, expect, type Route } from '@playwright/test';
 import { montar, ir } from './panel-sembrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Atajo «Agrupar con nombre»: al crear una clase fija (Crear clase → Clase fija),
-// el toast de confirmación lleva un botón que abre «Agrupar con nombre» en
-// Horario con esas franjas ya marcadas — sin repetir a mano lo que se acaba de
-// elegir. Agruparla es opcional: cada clase que se repite ya la pueden pedir.
+// Atajo «Agrupar con nombre»: al crear una clase que se repite (Crear clase →
+// «Se repite»), el toast de confirmación lleva un botón que abre «Agrupar con
+// nombre» en Horario con esas franjas ya marcadas — sin repetir a mano lo que se
+// acaba de elegir. Agruparla es opcional: cada clase que se repite ya la pueden pedir.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.use({ timezoneId: 'Europe/Madrid' });
@@ -55,18 +55,22 @@ test('crear una clase fija ofrece «Agrupar con nombre», y abre el diálogo con
 
   await ir(page, 'calendario');
   await page.getByRole('button', { name: 'Crear clase', exact: true }).click({ timeout: 60_000 });
-  await page.getByTestId('crear-clase-fija').click();
-  const dialogoRecurrente = page.getByRole('dialog');
-  await expect(dialogoRecurrente.getByText('Nueva clase fija')).toBeVisible();
-  // Días por defecto: lunes y miércoles — dos franjas de la misma serie.
-  const crear = dialogoRecurrente.getByRole('button', { name: /^Crear \d+ clases/ });
+  const formulario = page.getByRole('dialog', { name: 'Nueva clase' });
+  await formulario.getByRole('switch', { name: 'Se repite' }).click();
+  // Lunes y miércoles, y solo esos: dos franjas de la misma serie.
+  for (const dia of ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']) {
+    const pastilla = formulario.getByRole('button', { name: dia, exact: true });
+    const quiero = dia === 'Lunes' || dia === 'Miércoles';
+    if (((await pastilla.getAttribute('aria-pressed')) === 'true') !== quiero) await pastilla.click();
+  }
+  const crear = formulario.getByRole('button', { name: /^Crear \d+ clases/ });
   await expect(crear).toBeEnabled({ timeout: 10_000 });
   await crear.click();
 
   // El toast trae la acción.
   const accion = page.getByRole('button', { name: 'Agrupar con nombre' });
   await expect(accion).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/Clase fija creada/)).toBeVisible();
+  await expect(page.getByText(/Serie creada/)).toBeVisible();
   await accion.click();
 
   // Nos lleva a Horario y abre el diálogo de crear, ya con las franjas de la serie marcadas.

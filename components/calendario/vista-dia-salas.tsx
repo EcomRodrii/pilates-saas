@@ -1,19 +1,20 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { BloqueClase } from '@/components/calendario/bloque-clase';
-import { etiquetaOcupacion } from '@/lib/ocupacion';
-import { calcularScrollInicial } from '@/lib/calendario-scroll';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronsDownUp } from 'lucide-react';
+import { escalaDia, minutoDeY, textoTramoPlegado, yDeMinuto } from '@/lib/calendario/escala-dia';
+import { redondearAIntervalo } from '@/lib/calendario-arrastre';
 import type { ColumnaSala } from '@/lib/calendario-columnas';
 import type { EstadoSesion } from '@/lib/calendario-estado';
 import type { Sesion, TipoClase, Instructor, Reserva } from '@/lib/types';
+import { cn } from '@/lib/utils';
+import { TarjetaClase, type DatosTarjeta } from './tarjeta-clase';
 
-// Ancho mínimo de cada columna-sala — mismo motivo que ANCHO_MIN_COLUMNA_PX
-// en VistaSemana: sin suelo, muchas salas en poco ancho (móvil) las encogía
-// hasta que "Sin clases" (centrado, sin overflow-hidden) se solapaba entre
-// columnas vecinas.
-const ANCHO_MIN_COLUMNA_PX = 92;
-const ANCHO_GUTTER_PX = 56; // w-14
+// El Día: una columna por sala, cada clase del alto de su duración. Es la vista
+// del mostrador (con la ficha de la clase abierta al lado) y donde se cambia la
+// hora exacta de una clase arrastrándola. Las horas muertas se pliegan
+// (lib/calendario/escala-dia.ts), y todo —pintar, arrastrar, tocar un hueco—
+// pasa por la misma escala.
 
 export interface DatoSesion {
   sesion: Sesion;
@@ -23,213 +24,201 @@ export interface DatoSesion {
   estado: EstadoSesion;
 }
 
+const ANCHO_MIN_COLUMNA_PX = 150;
+const ANCHO_GUTTER_PX = 52;
+
 export interface VistaDiaSalasProps {
   columnas: ColumnaSala[];
-  datos: Map<string, DatoSesion>;
-  /** Minutos desde medianoche. Ej. 8*60 / 22*60 (studios.hora_apertura/cierre). */
-  horaInicioMin: number;
-  horaFinMin: number;
+  tarjetas: ReadonlyMap<string, DatosTarjeta>;
+  aperturaMin: number;
+  cierreMin: number;
   pxPorHora: number;
-  /** Minutos desde medianoche de "ahora", solo si el día mostrado es hoy — null lo apaga. */
+  /** Minutos desde medianoche de «ahora», solo si el día mostrado es hoy. */
   ahoraMin: number | null;
   seleccionadaId: string | null;
-  /** Ids marcados en una selección múltiple. La decisión de qué hace un clic
-   *  (abrir la clase o marcarla) vive en page.tsx: aquí solo se pintan. */
-  marcadas?: ReadonlySet<string>;
+  marcadas: ReadonlySet<string>;
+  enSeleccion: boolean;
+  atenuada: (id: string) => boolean;
   onSeleccionar: (id: string) => void;
-  /** true = esta clase se atenúa (filtro por instructora, punto 9: nunca se esconde). */
-  atenuada?: (d: DatoSesion) => boolean;
-  accionPara?: (d: DatoSesion) => { texto: string; onClick: () => void } | null;
-  /** Fase 2: true = esta clase se puede arrastrar (permiso ya resuelto por el
-   *  llamador — una instructora solo puede arrastrar sus propias clases). */
-  arrastrable?: (d: DatoSesion) => boolean;
-  /** offsetYPx: distancia en px desde el borde superior de la columna DONDE
-   *  SE SOLTÓ (puede ser otra sala) — el propio componente resuelve la
-   *  columna de destino con `elementFromPoint`, el caller no necesita saber
-   *  de geometría. */
-  onMoverSesion?: (sesionId: string, destino: { salaId: string; offsetYPx: number; pxPorHora: number }) => void;
-  /** Clic en un hueco vacío de la rejilla (no sobre una clase) — abre "Nueva
-   *  clase" con la sala/hora ya rellenados. */
-  onClickVacio?: (destino: { salaId: string; offsetYPx: number; pxPorHora: number }) => void;
+  arrastrable: (id: string) => boolean;
+  /** Soltar en una sala a una hora (redondeada al cuarto de hora). */
+  onMover?: (id: string, destino: { salaId: string; inicioMin: number }) => void;
+  /** Tocar un hueco: crear una clase en esa sala a esa hora. */
+  onCrearEn?: (destino: { salaId: string; inicioMin: number }) => void;
 }
 
 export function VistaDiaSalas({
-  columnas, datos, horaInicioMin, horaFinMin, pxPorHora, ahoraMin,
-  seleccionadaId, marcadas, onSeleccionar, atenuada, accionPara, arrastrable, onMoverSesion, onClickVacio,
+  columnas, tarjetas, aperturaMin, cierreMin, pxPorHora, ahoraMin, seleccionadaId, marcadas, enSeleccion,
+  atenuada, onSeleccionar, arrastrable, onMover, onCrearEn,
 }: VistaDiaSalasProps) {
-  const altoTotal = ((horaFinMin - horaInicioMin) / 60) * pxPorHora;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const cuerpoRef = useRef<HTMLDivElement>(null);
+  // Una banda plegada se toca y se despliegan las horas: para llevar una clase a
+  // las 15:00 arrastrándola, o para crear una tocando ese hueco. Se vuelve a
+  // plegar con el botón de la esquina, y al cambiar de día (la vista se monta de nuevo).
+  const [desplegado, setDesplegado] = useState(false);
+  const todas = useMemo(() => columnas.flatMap(c => c.sesiones), [columnas]);
+  const escala = useMemo(
+    () => escalaDia(todas.map(s => ({ inicioMin: s.inicioMin, finMin: s.finMin })), {
+      aperturaMin, cierreMin, pxPorHora, plegarDesdeMin: desplegado ? Number.POSITIVE_INFINITY : undefined,
+    }),
+    [todas, aperturaMin, cierreMin, pxPorHora, desplegado],
+  );
+  const hayPliegues = useMemo(
+    () => escalaDia(todas.map(s => ({ inicioMin: s.inicioMin, finMin: s.finMin })), { aperturaMin, cierreMin, pxPorHora }).tramos.some(t => t.plegado),
+    [todas, aperturaMin, cierreMin, pxPorHora],
+  );
 
-  // Punto 10: la rejilla abre desplazada a "ahora", no siempre arriba del
-  // todo. Deliberadamente `[]` — solo al abrir esta vista (o al cambiar de
-  // día, si el padre remonta con `key={fecha}`), nunca en cada tick del reloj
-  // que actualiza `ahoraMin` (si no, pelearía con el scroll del usuario).
+  // Abre desplazada a «ahora» (con una hora de contexto por encima). Solo al
+  // montar: el padre la vuelve a montar al cambiar de día, y en cada minuto que
+  // pasa no debe pelearse con el scroll de quien la está usando.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: calcularScrollInicial(ahoraMin, horaInicioMin, horaFinMin, pxPorHora) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `[]` a propósito, ver el comentario de arriba. La regla señala la línea del array de dependencias, no la del `useEffect`: puesto arriba no tapaba nada y llevaba avisando sin que se notara.
+    if (ahoraMin == null) return;
+    // Desde la hora en punto anterior: a las 10:40, la rejilla empieza a las 9:00.
+    // (Doce píxeles más arriba, para que la etiqueta de esa hora se lea entera.)
+    scrollRef.current?.scrollTo({ top: Math.max(0, yDeMinuto(escala, Math.floor(ahoraMin / 60) * 60 - 60) - 12) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar, ver arriba.
   }, []);
-  const horas: { label: string; topPx: number }[] = [];
-  for (let m = horaInicioMin; m <= horaFinMin; m += 60) {
-    const h = Math.floor(m / 60);
-    horas.push({ label: `${String(h).padStart(2, '0')}:00`, topPx: ((m - horaInicioMin) / 60) * pxPorHora });
+
+  // De un punto de la pantalla a «esta sala, a este minuto». null = no es un sitio.
+  function destinoEn(x: number, y: number): { salaId: string; inicioMin: number } | null {
+    const cuerpo = cuerpoRef.current;
+    if (!cuerpo) return null;
+    let salaId: string | null = null;
+    for (const col of cuerpo.querySelectorAll<HTMLElement>('[data-sala-id]')) {
+      const r = col.getBoundingClientRect();
+      if (x >= r.left && x < r.right) { salaId = col.dataset.salaId ?? null; break; }
+    }
+    const min = minutoDeY(escala, y - cuerpo.getBoundingClientRect().top);
+    if (!salaId || min == null) return null;
+    return { salaId, inicioMin: redondearAIntervalo(min) };
   }
 
-  const anchoMinTotal = ANCHO_GUTTER_PX + columnas.length * ANCHO_MIN_COLUMNA_PX;
+  const ahoraY = ahoraMin != null && ahoraMin >= escala.desdeMin && ahoraMin <= escala.hastaMin ? yDeMinuto(escala, ahoraMin) : null;
+  const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
-      {/* Un único contenedor con scroll en las dos direcciones — mismo
-          criterio que VistaSemana: la cabecera va `sticky top-0` y el
-          gutter de horas `sticky left-0` DENTRO de este contenedor, para
-          que scroll horizontal y vertical se muevan solidarios (dos
-          contenedores de scroll separados no se sincronizan solos). */}
       <div ref={scrollRef} data-testid="grid-dia-scroll" className="min-h-0 flex-1 overflow-auto">
-        <div style={{ minWidth: anchoMinTotal }}>
-          {/* Cabeceras: una por sala, con capacidad y ocupación media (punto 2). */}
-          <div className="sticky top-0 z-10 flex border-b border-border bg-card">
-            <div className="sticky left-0 z-10 w-14 flex-none bg-card" />
+        <div style={{ minWidth: ANCHO_GUTTER_PX + columnas.length * ANCHO_MIN_COLUMNA_PX }}>
+          <div className="sticky top-0 z-30 flex border-b border-border bg-card">
+            <div className="sticky left-0 z-10 flex flex-none items-center justify-center bg-card" style={{ width: ANCHO_GUTTER_PX }}>
+              {desplegado && hayPliegues && (
+                <button
+                  type="button"
+                  onClick={() => setDesplegado(false)}
+                  title="Plegar las horas sin clases"
+                  aria-label="Plegar las horas sin clases"
+                  className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <ChevronsDownUp size={15} />
+                </button>
+              )}
+            </div>
             {columnas.map(c => (
-              <div key={c.sala.id} className="min-w-0 flex-1 overflow-hidden border-l border-border/60 px-2 py-2 text-center" style={{ minWidth: ANCHO_MIN_COLUMNA_PX }}>
-                <p className="flex items-center justify-center gap-1.5 min-w-0">
-                  {c.hayAtencion && <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: 'var(--destructive)' }} />}
-                  <span className="truncate text-[11px] font-bold uppercase tracking-wide text-foreground">{c.sala.nombre}</span>
-                </p>
-                {/* Columnas estrechas (móvil, varias salas) no caben las 4 piezas
-                    de info en una línea sin truncar a "50…" — versión corta ahí,
-                    completa desde `lg`. */}
-                <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground lg:hidden">
-                  {c.sesiones.length > 0
-                    ? `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'} · ${Math.round(c.ocupacionMedia * 100)}%`
-                    : 'Sin clases'}
-                </p>
-                <p className="mt-0.5 hidden truncate text-[10.5px] text-muted-foreground lg:block">
-                  {c.sesiones.length > 0
-                    ? `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'} · ${c.sala.capacidad} plazas · ${Math.round(c.ocupacionMedia * 100)}% · ${etiquetaOcupacion(c.ocupacionMedia)}`
-                    : `${c.sala.capacidad} plazas · sin clases`}
+              <div key={c.sala.id} className="min-w-0 flex-1 border-l border-border px-3 py-2">
+                <p className="truncate text-[13px] font-semibold text-foreground">{c.sala.nombre}</p>
+                <p className="truncate text-[11.5px] text-muted-foreground">
+                  {c.sesiones.length === 0 ? 'Sin clases' : `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'}`} · {c.sala.capacidad} plazas
                 </p>
               </div>
             ))}
           </div>
 
-          <div className="flex" style={{ height: altoTotal }}>
-            <div className="sticky left-0 z-[5] w-14 flex-none bg-card">
-              {horas.map(h => (
+          <div ref={cuerpoRef} data-rejilla className="relative flex" style={{ height: escala.alto }}>
+            {/* Horas, en el margen, que se queda quieto al desplazar las salas de
+                lado (tres salas y la ficha al lado no caben en un iPad). Por
+                encima de las clases y por debajo de las bandas plegadas. */}
+            <div className="sticky left-0 z-[4] flex-none bg-card" style={{ width: ANCHO_GUTTER_PX }}>
+              {escala.horas.map(h => (
                 <span
-                  key={h.label}
-                  // La primera etiqueta NO se sube: `-translate-y-1.5` centra
-                  // cada hora sobre su línea, pero en la de arriba del todo
-                  // esos 6 px la sacan del contenedor y se monta sobre el borde
-                  // redondeado y la cabecera de días.
-                  className={`absolute right-2 text-[10.5px] font-semibold tabular-nums text-muted-foreground${h.topPx > 0 ? ' -translate-y-1.5' : ''}`}
-                  style={{ top: h.topPx }}
+                  key={h.min}
+                  // La primera de cada tramo no se sube: arriba del todo se saldría
+                  // de la rejilla, y bajo una banda plegada se montaría sobre ella.
+                  data-hora={hh(h.min)}
+                  className={cn('absolute right-1.5 text-[11.5px] tabular-nums text-muted-foreground', !h.trasPliegue && '-translate-y-1/2')}
+                  style={{ top: h.trasPliegue ? h.y + 2 : h.y }}
                 >
-                  {h.label}
+                  {hh(h.min)}
                 </span>
               ))}
+              {ahoraY != null && ahoraMin != null && (
+                <span
+                  className="pointer-events-none absolute left-0.5 z-10 -translate-y-1/2 rounded-full px-1 text-[10.5px] font-semibold tabular-nums text-white"
+                  style={{ top: ahoraY, background: 'var(--destructive)' }}
+                >
+                  {hh(ahoraMin)}
+                </span>
+              )}
             </div>
 
-            <div className="grid min-w-0 flex-1" style={{ gridTemplateColumns: `repeat(${columnas.length || 1}, minmax(${ANCHO_MIN_COLUMNA_PX}px, 1fr))` }}>
-              {columnas.map(c => (
-                <div
-                  key={c.sala.id}
-                  // ⚠️ La columna NO lleva `overflow-hidden`, y no es un olvido: lo
-                  // llevaba y RECORTABA la clase que se estaba arrastrando.
-                  // `BloqueClase` es `absolute` dentro de esta columna, así que
-                  // al arrastrarla hacia otra sala se salía de su caja y se iba
-                  // cortando hasta desaparecer — parecía que el calendario
-                  // borrase la clase, y solo volvía al soltarla.
-                  //
-                  // El recorte estaba para que el rótulo «Sin clases»
-                  // (centrado, `absolute inset-0`) no desbordara sobre las
-                  // columnas vecinas con la rejilla estrecha. Eso se sigue
-                  // cumpliendo: ahora clipa el propio rótulo, que es lo único
-                  // que necesitaba clipe. Las clases nunca desbordan por su
-                  // cuenta (su `left`/`width` van en % de esta columna).
-                  data-sala-id={c.sala.id}
-                  className="relative min-w-0 border-l border-border/60"
-                  style={{
-                    backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${pxPorHora}px)`,
-                    cursor: onClickVacio ? 'pointer' : undefined,
-                  }}
-                  onClick={!onClickVacio ? undefined : e => {
-                    // Solo si el clic fue en el fondo de la columna, no en una
-                    // clase (BloqueClase no para la propagación).
-                    if (e.target !== e.currentTarget) return;
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    onClickVacio({ salaId: c.sala.id, offsetYPx: e.clientY - rect.top, pxPorHora });
-                  }}
-                >
-                  {c.sesiones.length === 0 && (
-                    // pointer-events-none: mismo motivo que "Cerrado" en
-                    // VistaSemana — cubre toda la columna y se comía el clic
-                    // antes de llegar a onClickVacio.
-                    // ⚠️ `text-muted-foreground`, no `text-border`. `--border`
-                    // (#E7E7E0) es el token de las LÍNEAS, y como tinta sobre la
-                    // tarjeta blanca da **1,24:1** — no es «tenue», es
-                    // invisible. Es un rótulo que dice algo («aquí no hay
-                    // clases»), así que tiene que leerse: `--muted-foreground`
-                    // (#6B6B64) da 5,37:1 y sigue siendo discreto.
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Sin clases
-                    </span>
-                  )}
-
+            {columnas.map(c => (
+              <div
+                key={c.sala.id}
+                data-sala-id={c.sala.id}
+                className={cn('relative min-w-0 flex-1 border-l border-border', onCrearEn && !enSeleccion && 'cursor-pointer')}
+                onClick={!onCrearEn || enSeleccion ? undefined : e => {
+                  // Solo en el fondo de la columna, no sobre una clase.
+                  if (e.target !== e.currentTarget) return;
+                  const d = destinoEn(e.clientX, e.clientY);
+                  if (d) onCrearEn(d);
+                }}
+              >
+                {escala.horas.map(h => h.y > 0 && (
+                  <span key={h.min} className="pointer-events-none absolute inset-x-0 border-t border-border/70" style={{ top: h.y }} />
+                ))}
+                {/* «Ahora», DETRÁS de las clases: va antes que ellas en el DOM y sin
+                    z-index, así que una clase en curso tapa la raya y no al revés. */}
+                {ahoraY != null && (
+                  <span className="pointer-events-none absolute inset-x-0 h-0.5 -translate-y-1/2" style={{ top: ahoraY, background: 'var(--destructive)' }} aria-hidden />
+                )}
                 {c.sesiones.map(s => {
-                  const d = datos.get(s.id);
+                  const d = tarjetas.get(s.id);
                   if (!d) return null;
-                  const inicioMin = s.inicioMin - horaInicioMin;
-                  const topPx = (inicioMin / 60) * pxPorHora + 1;
-                  const altoPx = ((s.finMin - s.inicioMin) / 60) * pxPorHora - 3;
+                  const top = yDeMinuto(escala, s.inicioMin) + 1;
+                  const alto = Math.max(22, yDeMinuto(escala, s.finMin) - yDeMinuto(escala, s.inicioMin) - 3);
                   const anchoPct = 100 / s.totalCarriles;
+                  const compacta = s.totalCarriles > 1;
                   return (
-                    <BloqueClase
+                    <TarjetaClase
                       key={s.id}
-                      sesion={d.sesion}
-                      tipo={d.tipo}
-                      instructor={d.instructor}
-                      reservasSesion={d.reservasSesion}
-                      estado={d.estado}
-                      modo={s.totalCarriles === 1 ? 'ancho' : 'compacto'}
+                      d={d}
+                      compacta={compacta}
+                      conQuien={!compacta}
+                      lineas={alto >= (compacta ? 56 : 42) ? (compacta ? 3 : 2) : alto >= 38 && compacta ? 2 : 1}
                       seleccionada={seleccionadaId === s.id}
-                      marcada={marcadas?.has(s.id)}
-                      atenuada={atenuada?.(d)}
+                      marcada={marcadas.has(s.id)}
+                      enSeleccion={enSeleccion}
+                      atenuada={atenuada(s.id)}
+                      arrastrable={!enSeleccion && arrastrable(s.id)}
                       onSeleccionar={() => onSeleccionar(s.id)}
-                      accion={accionPara?.(d) ?? null}
-                      arrastrable={arrastrable?.(d) ?? false}
-                      onMover={!onMoverSesion ? undefined : (clientX, clientY) => {
-                        // ⚠️ Sin columna de destino NO se mueve nada. Antes caía a
-                        // `offsetYPx = clientY`: una coordenada de PANTALLA usada como
-                        // desplazamiento dentro de la columna, o sea la clase saltaba a
-                        // una hora inventada. Soltar sobre las horas, la cabecera o
-                        // fuera de la rejilla no es un destino: es cancelar.
-                        const destino = (document.elementFromPoint(clientX, clientY) as HTMLElement | null)
-                          ?.closest<HTMLElement>('[data-sala-id]');
-                        const salaId = destino?.dataset.salaId;
-                        if (!destino || !salaId) return;
-                        const rect = destino.getBoundingClientRect();
-                        onMoverSesion(s.id, { salaId, offsetYPx: clientY - rect.top, pxPorHora });
-                      }}
-                      style={{
-                        top: topPx, height: Math.max(altoPx, 20),
-                        left: `calc(${s.carril * anchoPct}% + 4px)`,
-                        width: `calc(${anchoPct}% - 8px)`,
+                      onMover={onMover ? (x, y) => { const dest = destinoEn(x, y); if (dest) onMover(s.id, dest); } : undefined}
+                      colocada={{
+                        top, height: alto,
+                        left: `calc(${s.carril * anchoPct}% + 6px)`,
+                        width: `calc(${anchoPct}% - 12px)`,
                       }}
                     />
                   );
                 })}
-
-                {ahoraMin != null && ahoraMin >= horaInicioMin && ahoraMin <= horaFinMin && (
-                  <div
-                    className="pointer-events-none absolute inset-x-0 z-30"
-                    style={{ top: ((ahoraMin - horaInicioMin) / 60) * pxPorHora }}
-                  >
-                    <span className="absolute -left-1 -top-1 h-2 w-2 rounded-full" style={{ background: 'var(--destructive)' }} />
-                    <span className="absolute inset-x-0 -top-px h-0.5" style={{ background: 'var(--destructive)' }} />
-                  </div>
-                )}
               </div>
             ))}
-            </div>
+
+            {/* Las horas plegadas: una banda de lado a lado, que se toca para verlas. */}
+            {escala.tramos.filter(t => t.plegado).map(t => (
+              <button
+                key={t.desdeMin}
+                type="button"
+                onClick={() => setDesplegado(true)}
+                title="Ver estas horas (para llevar una clase o crear una en ellas)"
+                className="group absolute inset-x-0 z-[5] flex items-center gap-1 border-y border-border bg-muted/60 text-left text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                style={{ top: t.y, height: t.alto, paddingLeft: ANCHO_GUTTER_PX + 12 }}
+              >
+                {textoTramoPlegado(t)}
+                <span className="font-medium underline-offset-2 group-hover:underline">· Ver estas horas</span>
+              </button>
+            ))}
+
           </div>
         </div>
       </div>

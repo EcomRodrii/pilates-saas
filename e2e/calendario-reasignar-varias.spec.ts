@@ -127,8 +127,8 @@ async function marcarLasTres(page: Page) {
 test('marcar clases no abre el panel: cambia lo que significa el clic', async ({ page }) => {
   await montar(page, [], []);
   await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 20_000 });
-  // Si hubiera abierto la clase saldría su panel con las pestañas.
-  await expect(page.getByRole('button', { name: 'Eliminar sesión' })).toBeHidden();
+  // Si hubiera abierto la clase saldría su ficha.
+  await expect(page.getByTestId('ficha-clase')).toHaveCount(0);
   await expect(page.getByText('1 clase marcada')).toBeVisible();
 });
 

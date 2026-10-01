@@ -134,26 +134,32 @@ async function montar(page: Page, opts: { sesiones?: any[]; reservas?: any[] } =
   await page.goto('/calendario');
   await page.getByRole('button', { name: 'Día', exact: true }).click();
   await page.getByRole('button', { name: /Reformer/i, disabled: false }).first().waitFor({ timeout: 30_000 });
-  // Scroll fijo al principio de la rejilla (8:00): el auto-scroll a "ahora"
-  // (punto 10) haría que la posición en pantalla de cada hora dependiera del
-  // reloj congelado — con scrollTop=0 el top de la columna SIEMPRE es 8:00.
+  // Las horas sin ninguna clase van plegadas (lib/calendario/escala-dia.ts): se
+  // despliegan, que es lo que haría quien quiere llevar una clase a una de ellas.
+  const plegadas = page.getByRole('button', { name: /sin clases/ }).first();
+  if (await plegadas.isVisible().catch(() => false)) await plegadas.click();
+  // Scroll fijo al principio de la rejilla: el auto-scroll a "ahora" haría que la
+  // posición en pantalla de cada hora dependiera del reloj congelado.
   await page.getByTestId('grid-dia-scroll').evaluate(el => { el.scrollTop = 0; });
 
   return { patchBody };
 }
 
+// La clase empieza donde queda lo alto de la tarjeta al soltarla: se coge por
+// arriba y se lleva hasta la raya de esa hora (su etiqueta va centrada en ella).
 async function arrastrarA(page: Page, targetOffsetMin: number) {
   const bloque = page.getByRole('button', { name: /Reformer/i, disabled: false }).first();
   const columna = page.locator('[data-sala-id="sala-1"]');
+  const hora = `${String(Math.floor(targetOffsetMin / 60)).padStart(2, '0')}:00`;
+  const etiqueta = page.getByTestId('grid-dia-scroll').locator(`[data-hora="${hora}"]`);
   const bBox = await bloque.boundingBox();
   const cBox = await columna.boundingBox();
-  if (!bBox || !cBox) throw new Error('No se pudo medir el bloque o la columna');
+  const eBox = await etiqueta.boundingBox();
+  if (!bBox || !cBox || !eBox) throw new Error('No se pudo medir el bloque, la columna o la hora de destino');
 
-  const pxPorHora = 96; // Día view, mismo valor hardcodeado que page.tsx
-  const horaAperturaMin = 8 * 60;
-  const targetY = cBox.y + ((targetOffsetMin - horaAperturaMin) / 60) * pxPorHora;
-
-  await page.mouse.move(bBox.x + bBox.width / 2, bBox.y + bBox.height / 2);
+  const agarre = 4;
+  const targetY = eBox.y + eBox.height / 2 + agarre;
+  await page.mouse.move(bBox.x + bBox.width / 2, bBox.y + agarre);
   await page.mouse.down();
   await page.mouse.move(cBox.x + cBox.width / 2, targetY, { steps: 12 });
   await page.mouse.up();
@@ -180,12 +186,12 @@ test.describe('Arrastrar entre días (vista Semana)', () => {
   test('la clase sigue viéndose mientras se arrastra a otro día', async ({ page }) => {
     await montar(page);
     await page.getByRole('button', { name: 'Semana', exact: true }).click();
-    await page.getByTestId('grid-semana-scroll').evaluate(el => { el.scrollTop = 0; });
+    await page.getByTestId('semana-franjas').evaluate(el => { el.scrollTop = 0; });
 
     const bloque = page.getByRole('button', { name: /Reformer/i, disabled: false }).first();
     await bloque.waitFor({ timeout: 30_000 });
     const bBox = (await bloque.boundingBox())!;
-    const destino = (await page.locator('[data-dia-index="2"]').boundingBox())!;
+    const destino = (await page.locator('[data-cabecera-dia="2"]').boundingBox())!;
 
     await page.mouse.move(bBox.x + bBox.width / 2, bBox.y + bBox.height / 2);
     await page.mouse.down();
@@ -215,7 +221,7 @@ test.describe('Arrastrar entre días (vista Semana)', () => {
   test('el bloque no se sale de la rejilla aunque el puntero se vaya lejos', async ({ page }) => {
     const { patchBody } = await montar(page);
     await page.getByRole('button', { name: 'Semana', exact: true }).click();
-    await page.getByTestId('grid-semana-scroll').evaluate(el => { el.scrollTop = 0; });
+    await page.getByTestId('semana-franjas').evaluate(el => { el.scrollTop = 0; });
 
     const bloque = page.getByRole('button', { name: /Reformer/i, disabled: false }).first();
     await bloque.waitFor({ timeout: 30_000 });
@@ -237,6 +243,49 @@ test.describe('Arrastrar entre días (vista Semana)', () => {
       .toBeGreaterThanOrEqual(rejilla.x - 1);
     // Y soltar donde no hay columna no es un destino: no se mueve nada.
     expect(patchBody.valor, 'soltar fuera de la rejilla no debe mover la clase').toBeNull();
+  });
+});
+
+test.describe('Arrastrar a otro día en la Semana por franjas', () => {
+  test('llevarla a otro día la deja a la misma hora ese día', async ({ page }) => {
+    const { patchBody } = await montar(page, { reservas: [] });
+    await page.getByRole('button', { name: 'Semana', exact: true }).click();
+    const bloque = page.getByRole('button', { name: /Reformer/i, disabled: false }).first();
+    await bloque.waitFor({ timeout: 30_000 });
+    const bBox = (await bloque.boundingBox())!;
+    const destino = (await page.locator('[data-cabecera-dia="2"]').boundingBox())!;
+
+    await page.mouse.move(bBox.x + bBox.width / 2, bBox.y + bBox.height / 2);
+    await page.mouse.down();
+    // A otro día y MÁS ABAJO: en la Semana la fila no cambia la hora.
+    await page.mouse.move(destino.x + destino.width / 2, bBox.y + bBox.height / 2 + 40, { steps: 10 });
+    await page.mouse.up();
+
+    await expect(page.getByText('Clase movida')).toBeVisible({ timeout: 30_000 });
+    expect(patchBody.valor).toBeTruthy();
+    // ses-1 empieza a las 10:00 UTC (12:00 en Madrid) del miércoles 5: dos días después, a la misma hora.
+    expect(horaEnEstudio(patchBody.valor.inicio)).toBe(horaEnEstudio(SESION.inicio));
+    const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date(patchBody.valor.inicio));
+    expect(dia).toBe('2026-08-07');
+  });
+
+  test('con clientas apuntadas, la pregunta dice a qué día y a qué hora', async ({ page }) => {
+    const reservas = [{ id: 'r1', studio_id: STUDIO_ID, sesion_id: 'ses-1', socio_id: 's1', estado: 'CONFIRMADA', creada_en: `${HOY}T08:00:00+00:00` }];
+    const { patchBody } = await montar(page, { reservas });
+    await page.getByRole('button', { name: 'Semana', exact: true }).click();
+    const bloque = page.getByRole('button', { name: /Reformer/i, disabled: false }).first();
+    await bloque.waitFor({ timeout: 30_000 });
+    const bBox = (await bloque.boundingBox())!;
+    const destino = (await page.locator('[data-cabecera-dia="2"]').boundingBox())!;
+
+    await page.mouse.move(bBox.x + bBox.width / 2, bBox.y + bBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(destino.x + destino.width / 2, bBox.y + bBox.height / 2, { steps: 10 });
+    await page.mouse.up();
+
+    // Antes decía «¿Mover a las viernes 7 ago, 12:00…?».
+    await expect(page.getByText('¿Mover al viernes 7 ago a las 12:00 y avisar a la clienta?')).toBeVisible({ timeout: 30_000 });
+    expect(patchBody.valor).toBeNull();
   });
 });
 
@@ -265,10 +314,30 @@ test.describe('Arrastrar y soltar una clase', () => {
     expect(horaEnEstudio(patchBody.valor.inicio)).toBe(14);
   });
 
-  test('un click normal (sin arrastrar) sigue abriendo el panel de la clase', async ({ page }) => {
+  // Una clase llevada a una hora que ya pasó se quedaba con sus reservas
+  // CONFIRMADA en el pasado, y el cron de plantones las pasaba a «no vino» (con
+  // la penalización, si el estudio la cobra) sin que nadie hubiera faltado.
+  test('no se puede llevar a una hora que ya ha pasado: avisa y no mueve nada', async ({ page }) => {
+    // En `montar` son las 09:00 en el estudio; las 08:00 ya pasaron.
+    const { patchBody } = await montar(page, { reservas: [] });
+
+    await arrastrarA(page, 8 * 60);
+
+    await expect(page.getByText(/Esa hora ya ha pasado/)).toBeVisible({ timeout: 30_000 });
+    expect(patchBody.valor, 'no debe escribir nada').toBeNull();
+  });
+
+  test('un click normal (sin arrastrar) sigue abriendo la ficha de la clase', async ({ page }) => {
     await montar(page);
+    // En el Día de hoy la ficha de la clase siguiente ya está abierta (modo
+    // mostrador): se cierra para comprobar que la abre el clic.
+    const ficha = page.getByTestId('ficha-clase');
+    const cerrar = page.getByRole('button', { name: 'Cerrar la ficha' });
+    if (await cerrar.isVisible().catch(() => false)) await cerrar.click();
+    await expect(ficha).toHaveCount(0);
     await page.getByRole('button', { name: /Reformer/i, disabled: false }).first().click();
-    await expect(page.getByRole('button', { name: 'Editar' })).toBeVisible({ timeout: 30_000 });
+    await expect(ficha).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Más acciones de la clase' })).toBeVisible();
   });
 
   test('arrastrar a un hueco ya ocupado por otra clase: avisa del conflicto y no mueve nada', async ({ page }) => {
