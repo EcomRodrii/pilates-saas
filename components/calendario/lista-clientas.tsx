@@ -7,6 +7,7 @@ import { cn, horaEstudio } from '@/lib/utils';
 import type { Reserva } from '@/lib/types';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { avisoQuitarReserva, type MarcaReserva } from '@/lib/plazas-fijas-cancelacion';
+import { avisoQuitarExterna, filaReserva } from '@/lib/plataformas/fila-reserva';
 
 // Rediseño del Calendario — punto 5, pestaña "Clientas" del panel lateral.
 // Estados reales de `EstadoReserva`, incluida la posición en lista de espera
@@ -98,11 +99,13 @@ export function ListaClientas({
   return (
     <div className="space-y-0.5">
       {visibles.map(r => {
-        const marca = marcaDe?.(r) ?? null;
+        // ClassPass/USC/Wellhub: sin socia, sin ficha, sin «Repetir» ni «Hacer fija».
+        const fila = filaReserva(r, nombreClienta);
+        const marca = fila.plataforma ? null : marcaDe?.(r) ?? null;
         // Solo a quien ocupa plaza de verdad: en la lista de espera lo que importa es su turno.
         // Sin `marcaDe` (otro llamador) no se sabe de dónde viene: no se etiqueta.
         const ocupaPlaza = r.estado !== 'LISTA_ESPERA' && r.estado !== 'PENDIENTE_APROBACION';
-        const clave = marca ?? (marcaDe && ocupaPlaza ? 'reserva' : null);
+        const clave = fila.plataforma ? null : marca ?? (marcaDe && ocupaPlaza ? 'reserva' : null);
         const etiqueta = clave ? ETIQUETA_MARCA[clave] : null;
         return (
           // Las acciones van en su propia línea, bajo el nombre. En la misma fila
@@ -122,17 +125,30 @@ export function ListaClientas({
                   : { background: 'color-mix(in srgb, var(--brand) 10%, var(--card))', color: 'var(--brand)' }
               }
             >
-              {nombreClienta(r.socioId).split(' ').slice(0, 2).map(p => p[0]).join('')}
+              {fila.nombre.split(' ').slice(0, 2).map(p => p[0]).join('')}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-foreground flex items-center gap-1.5 min-w-0">
                 {(() => {
-                  const s = semaforoPorSocio?.(r.socioId);
+                  const s = fila.conSemaforo ? semaforoPorSocio?.(r.socioId) : undefined;
                   return s ? <span className="w-2 h-2 rounded-full shrink-0" title={s.label} style={{ background: s.color }} /> : null;
                 })()}
-                <Link href={`/clientas/${r.socioId}`} className="truncate hover:text-brand-medio hover:underline transition-colors">
-                  {nombreClienta(r.socioId)}
-                </Link>
+                {fila.enlaceFicha ? (
+                  <Link href={fila.enlaceFicha} className="truncate hover:text-brand-medio hover:underline transition-colors">
+                    {fila.nombre}
+                  </Link>
+                ) : (
+                  <span className="truncate">{fila.nombre}</span>
+                )}
+                {fila.siglaPlataforma && (
+                  <span
+                    title="Reserva vendida por la plataforma: no es socia del estudio"
+                    data-plataforma={fila.plataforma}
+                    className="inline-flex shrink-0 items-center rounded-full border border-border bg-card px-1.5 py-px text-[10px] font-semibold text-muted-foreground"
+                  >
+                    {fila.siglaPlataforma}
+                  </span>
+                )}
                 {etiqueta && (
                   <span
                     title={etiqueta.titulo}
@@ -148,7 +164,7 @@ export function ListaClientas({
                 )}
               </p>
               <p className="text-[10px] text-muted-foreground">{etiquetaEstado(r)}</p>
-              {filaExtra?.(r)}
+              {!fila.plataforma && filaExtra?.(r)}
               <div className="flex flex-wrap items-center gap-1 mt-1.5 empty:hidden">
                 {r.estado === 'PENDIENTE_APROBACION' && (onAprobar || onRechazar) && (
                   <>
@@ -182,7 +198,7 @@ export function ListaClientas({
                         No vino
                       </button>
                     )}
-                    {onRepetirSemanaSiguiente && (
+                    {onRepetirSemanaSiguiente && fila.puedeRepetir && (
                       <button
                         onClick={() => onRepetirSemanaSiguiente(r.id)}
                         title="Apuntarla a la misma clase la semana que viene"
@@ -191,7 +207,7 @@ export function ListaClientas({
                         <Repeat size={11} />Repetir
                       </button>
                     )}
-                    {onHacerPlazaFija && !plazaFijaExistePara?.(r.socioId) && (
+                    {onHacerPlazaFija && fila.puedeHacerFija && !plazaFijaExistePara?.(r.socioId) && (
                       <button
                         onClick={() => onHacerPlazaFija(r.id)}
                         title="Que venga cada semana a este mismo hueco, sin tener que apuntarla clase a clase"
@@ -233,8 +249,12 @@ export function ListaClientas({
       <ConfirmDialog
         open={!!pendienteQuitar}
         onOpenChange={v => { if (!v) setPendienteQuitar(null); }}
-        titulo={pendienteQuitar ? `¿Quitar a ${nombreClienta(pendienteQuitar.socioId)}?` : ''}
-        descripcion={pendienteQuitar ? avisoQuitarReserva(pendienteQuitar.estado, marcaDe?.(pendienteQuitar) ?? null) : ''}
+        titulo={pendienteQuitar ? `¿Quitar a ${filaReserva(pendienteQuitar, nombreClienta).nombre}?` : ''}
+        descripcion={pendienteQuitar ? (() => {
+          const fila = filaReserva(pendienteQuitar, nombreClienta);
+          return avisoQuitarExterna(fila.plataforma)
+            ?? avisoQuitarReserva(pendienteQuitar.estado, marcaDe?.(pendienteQuitar) ?? null);
+        })() : ''}
         textoConfirmar="Quitar"
         destructivo
         onConfirm={() => { if (pendienteQuitar) onQuitar?.(pendienteQuitar.id); setPendienteQuitar(null); }}

@@ -1341,7 +1341,8 @@ export interface SesionEnriquecida extends Sesion {
 }
 
 export interface ReservaEnriquecida extends Reserva {
-  socio: Socio;
+  /** null en las reservas de plataformas externas (ClassPass, USC…): no hay socia. */
+  socio: Socio | null;
   spot: Spot | null;
 }
 
