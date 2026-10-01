@@ -15,6 +15,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { inicioDeSemana, fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 import { useRol, puedeVerFinanzas, puedeGestionarEquipo } from '@/lib/permisos';
+import { csvDeFilas, filasCsvPorOrigen, resumenPorPlataforma } from '@/lib/plataformas/informe-origen';
+import { NOMBRE_PLATAFORMA } from '@/lib/plataformas/catalogo';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -435,6 +437,25 @@ export default function Informes() {
   }, [socios, reservas, sesiones, periodStart]);
 
   // ─── Clases más populares ───────────────────────────────────────────────────
+  // Reservas de ClassPass/USC/Wellhub en el periodo: para cuadrar lo que paga
+  // cada plataforma (pagan por visita). Solo sale si hay alguna.
+  const plataformasPeriodo = useMemo(
+    () => resumenPorPlataforma(reservas, sesiones, periodStart, now),
+    [reservas, sesiones, periodStart, now],
+  );
+  const descargarPlataformas = useCallback(() => {
+    const nombreClase = (id: string | null | undefined) => tiposClase.find(t => t.id === id)?.nombre ?? 'Clase';
+    const fecha = (iso: string) => `${fechaLargaEstudio(iso)} ${horaEstudio(iso)}`;
+    const csv = csvDeFilas(filasCsvPorOrigen(reservas, sesiones, periodStart, now, nombreClase, fecha));
+    // BOM para que Excel lea bien las tildes.
+    const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reservas-plataformas-${periodStart.toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [reservas, sesiones, tiposClase, periodStart, now]);
+
   const topClases = useMemo(() => {
     const sesionIdsInRange = new Set(
       sesiones.filter(s => !s.cancelada && new Date(s.inicio) >= periodStart).map(s => s.id)
@@ -1136,6 +1157,49 @@ export default function Informes() {
           )}
         </div>
       </div>
+
+      {/* ── Reservas de plataformas (ClassPass, USC, Wellhub) ─────────────────── */}
+      {plataformasPeriodo.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-6" data-testid="informe-plataformas">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Reservas de plataformas</h2>
+              <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                Lo que han vendido ClassPass, Urban Sports Club o Wellhub en el periodo. Pagan por visita: cuádralo con «Vinieron».
+              </p>
+            </div>
+            <button
+              onClick={descargarPlataformas}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold border shrink-0"
+              style={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', borderColor: 'var(--border)' }}
+            >
+              <Download size={14} />Descargar detalle
+            </button>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                <th className="font-semibold pb-2">Plataforma</th>
+                <th className="font-semibold pb-2 text-right">Vinieron</th>
+                <th className="font-semibold pb-2 text-right">No vinieron</th>
+                <th className="font-semibold pb-2 text-right">Sin pasar lista</th>
+                <th className="font-semibold pb-2 text-right">Canceladas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plataformasPeriodo.map(f => (
+                <tr key={f.plataforma} className="border-t border-border">
+                  <td className="py-2 font-semibold" style={{ color: 'var(--foreground)' }}>{NOMBRE_PLATAFORMA[f.plataforma]}</td>
+                  <td className="py-2 text-right tabular-nums font-extrabold" style={{ color: 'var(--foreground)' }}>{f.vinieron}</td>
+                  <td className="py-2 text-right tabular-nums">{f.noVinieron}</td>
+                  <td className="py-2 text-right tabular-nums">{f.pendientes}</td>
+                  <td className="py-2 text-right tabular-nums">{f.canceladas}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* ── Section 4b: Margen por clase ─────────────────────────────────────── */}
       {verFinanzas && (

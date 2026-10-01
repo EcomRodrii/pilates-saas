@@ -45,6 +45,10 @@ export interface RowReservas {
   id_reserva_externa: string | null;
   // migr 20261001115953.
   id_cliente_externo: string | null;
+  // migr 20261001132641.
+  estado_externo: string | null;
+  // migr 20261001132641.
+  estado_externo_en: string | null;
 }
 
 export interface RowAchievementDefinitions {
@@ -3728,6 +3732,18 @@ export interface RowPlataformaCupos {
   actualizado_en: string;
 }
 
+export interface RowPlataformaEventos {
+  id: string;
+  studio_id: string;
+  plataforma: string;
+  sesion_id: string;
+  evento_externo_id: string;
+  estado_sync: string;
+  error: string | null;
+  sincronizado_en: string | null;
+  creado_en: string;
+}
+
 export interface RowApiAccesoEstudios {
   studio_id: string;
   activada_en: string;
@@ -3780,6 +3796,8 @@ export type ReservasInsert = {
   nombre_externo?: string | null | null;
   id_reserva_externa?: string | null | null;
   id_cliente_externo?: string | null | null;
+  estado_externo?: string | null | null;
+  estado_externo_en?: string | null | null;
 }
 
 export type ReservasUpdate = {
@@ -3808,6 +3826,8 @@ export type ReservasUpdate = {
   nombre_externo?: string | null | null;
   id_reserva_externa?: string | null | null;
   id_cliente_externo?: string | null | null;
+  estado_externo?: string | null | null;
+  estado_externo_en?: string | null | null;
 }
 
 export type AchievementDefinitionsInsert = {
@@ -10324,6 +10344,30 @@ export type PlataformaCuposUpdate = {
   actualizado_en?: string | null;
 }
 
+export type PlataformaEventosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  sesion_id?: string | null;
+  evento_externo_id?: string | null;
+  estado_sync?: string | null;
+  error?: string | null | null;
+  sincronizado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type PlataformaEventosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  plataforma?: string | null;
+  sesion_id?: string | null;
+  evento_externo_id?: string | null;
+  estado_sync?: string | null;
+  error?: string | null | null;
+  sincronizado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
 export type ApiAccesoEstudiosInsert = {
   studio_id?: string | null;
   activada_en?: string | null;
@@ -11531,6 +11575,11 @@ export type Database = {
         Row: RowPlataformaCupos;
         Insert: PlataformaCuposInsert;
         Update: PlataformaCuposUpdate;
+      };
+      plataforma_eventos: {
+        Row: RowPlataformaEventos;
+        Insert: PlataformaEventosInsert;
+        Update: PlataformaEventosUpdate;
       };
       api_acceso_estudios: {
         Row: RowApiAccesoEstudios;

@@ -1,5 +1,5 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
-import { origenDe } from '@/lib/plataformas/catalogo';
+import { esPlataforma, origenDe, type Plataforma } from '@/lib/plataformas/catalogo';
 import { conReintentoTransitorio } from '@/lib/reintento-transitorio';
 import { unaVez } from '@/lib/una-vez';
 import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion';
@@ -4655,6 +4655,50 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if (!tocadas?.length) {
     return sinFilasTocadas('tipos_clase', id, 'No tienes permiso para cambiar los tipos de clase. Pídeselo a la propietaria o a la responsable de sede.');
   }
+  return ESCRITURA_OK;
+}
+
+// ─── Plazas que el estudio cede a cada plataforma (ClassPass, USC…) ───────────
+// `plataforma_cupos` (migr 20261001115955): por tipo de clase, con excepción por
+// sesión. Aquí solo el nivel de tipo de clase. Sin fila = sin límite propio:
+// manda el aforo de la clase. RLS: escribe `puede_gestionar_sede()`.
+
+export async function dbListarCuposPlataformaTipo(tipoClaseId: string): Promise<Partial<Record<Plataforma, number>>> {
+  const { data, error } = await supabase
+    .from('plataforma_cupos').select('plataforma, plazas').eq('tipo_clase_id', tipoClaseId);
+  if (error) { reportDbError('[dbListarCuposPlataformaTipo]', error); return {}; }
+  const out: Partial<Record<Plataforma, number>> = {};
+  for (const r of data ?? []) {
+    if (esPlataforma(r.plataforma)) out[r.plataforma] = r.plazas as number;
+  }
+  return out;
+}
+
+/** `plazas = null` quita el límite (borra la fila). */
+export async function dbGuardarCupoPlataformaTipo(tipoClaseId: string, plataforma: Plataforma, plazas: number | null): Promise<ResultadoEscritura> {
+  const sinPermiso = 'No tienes permiso para cambiar las plazas que se ceden. Pídeselo a la propietaria o a la responsable de sede.';
+  if (plazas == null) {
+    const { error } = await supabase.from('plataforma_cupos').delete()
+      .eq('tipo_clase_id', tipoClaseId).eq('plataforma', plataforma);
+    if (error) return falloEscritura('[dbGuardarCupoPlataformaTipo]', error);
+    return ESCRITURA_OK;
+  }
+  // El índice único es parcial (solo filas por tipo de clase), así que no sirve
+  // para un upsert de PostgREST: se busca la fila y se actualiza o se crea.
+  const { data: existente, error: errLeer } = await supabase.from('plataforma_cupos').select('id')
+    .eq('tipo_clase_id', tipoClaseId).eq('plataforma', plataforma).maybeSingle();
+  if (errLeer) return falloEscritura('[dbGuardarCupoPlataformaTipo]', errLeer);
+  if (existente) {
+    const { data: tocadas, error } = await supabase.from('plataforma_cupos')
+      .update({ plazas, actualizado_en: new Date().toISOString() }).eq('id', existente.id).select('id');
+    if (error) return falloEscritura('[dbGuardarCupoPlataformaTipo]', error);
+    if (!tocadas?.length) return sinFilasTocadas('plataforma_cupos', existente.id as string, sinPermiso);
+    return ESCRITURA_OK;
+  }
+  const { data: creadas, error } = await supabase.from('plataforma_cupos')
+    .insert({ studio_id: getCurrentStudioId(), plataforma, tipo_clase_id: tipoClaseId, plazas }).select('id');
+  if (error) return falloEscritura('[dbGuardarCupoPlataformaTipo]', error);
+  if (!creadas?.length) return sinFilasTocadas('plataforma_cupos', tipoClaseId, sinPermiso);
   return ESCRITURA_OK;
 }
 

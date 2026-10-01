@@ -108,6 +108,7 @@ import {
 
 import { mensajeErrorReservaExterna } from '@/lib/plataformas/reserva-externa';
 import type { Plataforma } from '@/lib/plataformas/catalogo';
+import { trasReservaExterna } from '@/lib/plataformas/tras-reserva-externa';
 import {
   fetchAllRows,
   getCurrentStudioId,
@@ -3173,18 +3174,9 @@ export async function crearReservaMostrador(params: {
 }
 
 // ─── Reserva de una plataforma externa (ClassPass, Urban Sports Club…) ──────
-// Cuarto hecho de reserva, con su propio dueño (ver «un dueño por hecho» más
-// arriba): una plataforma ha vendido una plaza y Tentare la registra. La
-// persona NO es socia del estudio, así que de todo lo que hace
-// `trasReservaCreada` solo aplica lo que es del ESTUDIO:
-//  · SÍ: el aviso de «clase casi llena» a la propietaria.
-//  · NO: bono (no paga en Tentare), aviso a la alumna (no es nuestra
-//    alumna), créditos de primera reserva, gamificación ni la captura del
-//    embudo de conversión. Ningún recibo: no pasa por Stripe.
-async function trasReservaExterna(admin: SupabaseClient, p: { studioId: string; sesionId: string }) {
-  const { emitirClaseCasiLlena } = await import('@/lib/notifications/emit');
-  await emitirClaseCasiLlena(admin, { studioId: p.studioId, sesionId: p.sesionId });
-}
+// Cuarto hecho de reserva; su dueño, `trasReservaExterna`, vive en un módulo
+// ligero (lib/plataformas/tras-reserva-externa.ts) porque también lo usa el
+// Instant Booking de USC, que tiene menos de un segundo para contestar.
 
 // Recepción apunta una venta de ClassPass/USC/Wellhub desde la hoja de la clase.
 // La plaza la decide `reservar_plaza_externa`, con el MISMO candado de sesión y

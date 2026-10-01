@@ -41,7 +41,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // 'resend': eventos de entrega de correo (app/api/webhooks/resend) — el id que
 // identifica el evento ahí es el `svix-id` de la propia entrega del webhook,
 // otro espacio de nombres más.
-export type AmbitoWebhook = 'connect' | 'billing' | 'whatsapp' | 'resend';
+// 'usc': webhooks de estado de reserva de Urban Sports Club (app/api/plataformas/usc/webhook);
+// su `Id` es el de la reserva en USC, otro espacio de nombres.
+export type AmbitoWebhook = 'connect' | 'billing' | 'whatsapp' | 'resend' | 'usc';
 
 export function claveWebhook(ambito: AmbitoWebhook, eventId: string): string {
   return `${ambito}:${eventId}`;
