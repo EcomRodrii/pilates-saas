@@ -61,3 +61,11 @@ test('lo que no es una página pública no avisa de nada', async () => {
   const { urlsAfectadas } = await import('./indexnow.ts');
   assert.deepEqual(urlsAfectadas(['app/(dashboard)/clientas/page.tsx', 'lib/billing/x.ts', 'app/api/x/route.ts'], SITEMAP), []);
 });
+
+test('meta.ts se regenera con cada guía: no arrastra la sección entera', async () => {
+  const { urlsAfectadas } = await import('./indexnow.ts');
+  assert.deepEqual(
+    urlsAfectadas(['lib/recursos/articulos/bsport-vs-timp.ts', 'lib/recursos/articulos/meta.ts'], SITEMAP),
+    [`${H}/recursos/bsport-vs-timp`],
+  );
+});
