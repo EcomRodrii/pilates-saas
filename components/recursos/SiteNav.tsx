@@ -35,9 +35,10 @@ export function SiteNav({ backHref = '/recursos', backLabel = 'Centro de Recurso
           border-bottom: 1px solid rgba(26,26,26,.05); }
         .sitenav-logo { display: flex; align-items: center; flex: none; }
         .sitenav-volver { display: inline-flex; align-items: center; gap: 7px; min-width: 0;
-          font-size: 12px; letter-spacing: .03em; color: #5A5A52; white-space: nowrap;
-          overflow: hidden; text-overflow: ellipsis; }
-        .sitenav-volver:hover { color: #1A1A1A; }
+          font-size: 13px; font-weight: 600; letter-spacing: .03em; color: #1A1A1A; white-space: nowrap;
+          overflow: hidden; text-overflow: ellipsis; padding: 8px 14px; border-radius: 999px;
+          border: 1px solid rgba(26,26,26,.12); background: rgba(255,255,255,.6); }
+        .sitenav-volver:hover { background: #fff; }
         .sitenav-cta { flex: none; font-size: 14px; font-weight: 700; color: #fff; background: ${ACC};
           padding: 10px 18px; border-radius: 999px; white-space: nowrap;
           box-shadow: 0 10px 22px rgba(52,56,37,.28); transition: filter .2s; }

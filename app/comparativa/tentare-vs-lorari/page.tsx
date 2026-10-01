@@ -61,11 +61,10 @@ export default function TentareVsLorariPage() {
       name="Lorari"
       slug="tentare-vs-lorari"
       logo={{ src: '/comparativa/logos/lorari.png', alt: 'Logo de Lorari', height: 34, width: 34 }}
-      h1={<>Tentare frente a Lorari.</>}
+      h1={<>¿Lorari o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>Lorari es una plataforma de reservas para estudios de pilates y yoga, con app con el logo del estudio y precios por número de alumnas activas. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la diferencia está en el precio de entrada y en la sustitución de instructoras.</>}
       rows={ROWS}
-      veredicto={<>Si tu estudio es pequeño y quieres el precio de entrada más bajo, Lorari es una opción a valorar. Si buscas sustituciones de instructoras, plazas fijas y cobros que se reintentan solos, Tentare está pensado para un estudio de Pilates, con precio público en cada plan.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para un estudio de Pilates, Tentare: sustituciones de instructoras, plazas fijas y cobros que se reintentan solos, con precio público en cada plan. Lorari solo encaja si tu estudio es muy pequeño y lo único que buscas es el precio de entrada más bajo.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de Lorari (lorari.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Lorari es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

@@ -76,11 +76,10 @@ export default function TentareVsTimpPage() {
       name="TIMP"
       slug="tentare-vs-timp"
       logo={{ src: '/comparativa/logos/timp.webp', alt: 'Logo de TIMP', height: 24, width: 89 }}
-      h1={<>Tentare frente a TIMP.</>}
+      h1={<>¿TIMP o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>TIMP es un software español de gestión para muchos tipos de negocio de citas y clases, con Veri*factu y TicketBAI. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la diferencia está en el precio de entrada, el compromiso mínimo y si pagas comisión por captar clientas.</>}
       rows={ROWS}
-      veredicto={<>Entre dos productos españoles, TIMP cubre más disciplinas y ya adapta su facturación a TicketBAI y Verifactu. Si tu negocio es un estudio de Pilates y quieres precio de entrada más bajo, sin compromiso mínimo ni comisión por captar clientas, Tentare encaja mejor.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para un estudio de Pilates, Tentare: precio de entrada más bajo, sin compromiso mínimo ni comisión por captar clientas. TIMP encaja mejor si tu centro mezcla muchas disciplinas o necesitas ya hoy TicketBAI y Verifactu en su facturación.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de TIMP (timp.pro) a 23 de septiembre de 2026, ampliada el 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. TIMP es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

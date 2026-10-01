@@ -147,7 +147,8 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/ficha-de-clienta",
       "/funcionalidades/facturacion"
     ],
-    "palabras": 2209
+    "palabras": 2376,
+    "actualizado": "2026-10-01"
   },
   {
     "slug": "bonos-de-pilates",

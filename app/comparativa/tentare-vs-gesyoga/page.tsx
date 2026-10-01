@@ -63,11 +63,10 @@ export default function TentareVsGesYogaPage() {
       name="GesYoga"
       slug="tentare-vs-gesyoga"
       logo={{ src: '/comparativa/logos/gesyoga.svg', alt: 'Logo de GesYoga', height: 20, width: 110 }}
-      h1={<>Tentare frente a GesYoga.</>}
+      h1={<>¿GesYoga o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>GesYoga es un software español de gestión para estudios de yoga, pilates y similares, con Veri*factu en su modo ERP. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la diferencia está en el precio de entrada y en las funciones de reformer y sustituciones.</>}
       rows={ROWS}
-      veredicto={<>Si tu prioridad es el precio más bajo, la facturación con VeriFactu ya integrada o publicar grabaciones, GesYoga encaja bien. Si buscas plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras, Tentare está pensado para un estudio de Pilates.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para un estudio de Pilates, Tentare: plaza por reformer, plazas fijas, cobros que se reintentan solos y sustituciones de instructoras. GesYoga solo encaja si tu prioridad es el precio más bajo, la facturación con VeriFactu ya integrada o publicar grabaciones.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de GesYoga (gesyoga.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. GesYoga es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

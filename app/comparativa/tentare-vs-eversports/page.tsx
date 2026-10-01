@@ -66,11 +66,10 @@ export default function TentareVsEversportsPage() {
       name="Eversports"
       slug="tentare-vs-eversports"
       logo={{ src: '/comparativa/logos/eversports.svg', alt: 'Logo de Eversports', height: 24, width: 118 }}
-      h1={<>Tentare frente a Eversports.</>}
+      h1={<>¿Eversports o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>Eversports Manager es una plataforma europea muy extendida en estudios de fitness y yoga, con sustituciones, elección de plaza y cumplimiento fiscal español. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la comparación honesta es de precio y de cómo se calcula.</>}
       rows={ROWS}
-      veredicto={<>Eversports es una opción muy completa y más madura en varios puntos. Tentare compite en precio y en enfoque: publica un precio fijo por plan (no por número de reservas), no cobra cuota de alta y está pensado para el estudio de Pilates. Si ya necesitas hoy Veri*factu y TicketBAI funcionando, o clases online y vídeo a la carta, Eversports te lo da.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para un estudio de Pilates, Tentare: precio fijo por plan (no por número de reservas), sin cuota de alta y un producto pensado para Pilates. Eversports solo compensa si necesitas ya hoy Veri*factu y TicketBAI funcionando, o clases online y vídeo a la carta.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de Eversports (eversportsmanager.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Eversports es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

@@ -215,9 +215,9 @@ export default function ComparativaPage() {
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,44px)' }}>
         <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
-          <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Comparativa</div>
+          <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>★ El software Nº1 para estudios de Pilates</div>
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Tentare frente a los 13 software con los que más se compara.</h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>No somos mejores en todo — y te lo contamos abajo, sin rodeos. Pero para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, hay diferencias que se notan cada día y cada fin de mes.</p>
+          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare gana donde se nota cada día y cada fin de mes: precio público, sin comisión sobre tus cobros, sustituciones de instructoras y plazas fijas. Compáralo tú misma.</p>
         </div>
       </header>
 
@@ -287,8 +287,8 @@ export default function ComparativaPage() {
 
       <section style={{ background: '#0F0F0F', color: '#E8E8E4', padding: 'clamp(56px,7vw,88px) clamp(20px,4vw,44px)' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <Reveal className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 16 }}>Con honestidad</Reveal>
-          <Reveal delay={80}><h2 style={{ fontWeight: 800, fontSize: 'clamp(26px,3.8vw,42px)', lineHeight: 1.05, letterSpacing: '-.03em', margin: '0 0 28px', color: '#fff' }}>En qué aún no somos los mejores.</h2></Reveal>
+          <Reveal className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 16 }}>Para que lo sepas antes</Reveal>
+          <Reveal delay={80}><h2 style={{ fontWeight: 800, fontSize: 'clamp(26px,3.8vw,42px)', lineHeight: 1.05, letterSpacing: '-.03em', margin: '0 0 28px', color: '#fff' }}>Lo que Tentare todavía no tiene.</h2></Reveal>
           <div className="cmp-two">
             <Reveal style={{ background: '#171717', border: '1px solid rgba(255,255,255,.07)', borderRadius: 18, padding: 24 }}>
               <h3 style={{ fontSize: 17, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>App nativa para tus alumnas</h3>

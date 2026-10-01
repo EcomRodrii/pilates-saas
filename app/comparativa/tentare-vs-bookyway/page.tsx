@@ -62,11 +62,10 @@ export default function TentareVsBookyWayPage() {
       name="BookyWay"
       slug="tentare-vs-bookyway"
       logo={{ src: '/comparativa/logos/bookyway.svg', alt: 'Logo de BookyWay', height: 20, width: 120 }}
-      h1={<>Tentare frente a BookyWay.</>}
+      h1={<>¿BookyWay o Tentare? Para tu estudio de Pilates, Tentare.</>}
       intro={<>BookyWay es una plataforma italiana de reservas para estudios y gimnasios que no cobra suscripción: solo un pago por cada usuario adicional. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, es un modelo de precio distinto, no comparable euro a euro con una cuota mensual.</>}
       rows={ROWS}
-      veredicto={<>Si prefieres no tener una cuota y pagar solo por usuario, BookyWay encaja mejor con ese modelo. Si buscas plaza por reformer, plazas fijas, cobros recurrentes y sustituciones de instructoras con un precio mensual fijo y público, Tentare está pensado para eso.</>}
-      honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
+      veredicto={<>Para un estudio de Pilates, Tentare: plaza por reformer, plazas fijas, cobros recurrentes y sustituciones de instructoras, con un precio mensual fijo y público. BookyWay solo encaja si prefieres no tener cuota y pagar por usuario.</>}
       honesty={HONESTY}
       footnote="Basado en la información pública de BookyWay (bookyway.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. BookyWay es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}

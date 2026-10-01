@@ -37,6 +37,12 @@ export type Bloque =
   | { t: 'tabla'; cabecera: string[]; filas: string[][]; nota?: string }
   /** Recuadro destacado. */
   | { t: 'nota'; titulo: string; texto: string }
+  /**
+   * Llamada a la acción a mitad del artículo, con el mismo bloque oscuro que la
+   * del final y su botón al alta. Para el punto en que el tema lleva solo a
+   * Tentare; texto sin enlaces (el botón ya es el enlace).
+   */
+  | { t: 'producto'; titulo: string; texto: string }
   /** Cifras grandes. `nota` dice de dónde salen o que son de ejemplo. */
   | { t: 'cifras'; titulo: string; cifras: { valor: string; etiqueta: string }[]; nota: string }
   /** Herramienta interactiva (components/recursos). Solo las que existen. */

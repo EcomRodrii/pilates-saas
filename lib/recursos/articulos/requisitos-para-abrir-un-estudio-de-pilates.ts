@@ -9,6 +9,7 @@ const articulo: Articulo = {
   categoria: 'abrir',
   seccion: 'Abrir un estudio',
   publicado: '2026-09-25',
+  actualizado: '2026-10-01',
   consultaPrincipal: 'requisitos para abrir un estudio de pilates',
   consultas: [
     'permisos para abrir un estudio de pilates',
@@ -182,6 +183,30 @@ const articulo: Articulo = {
           t: 'nota',
           titulo: 'Si contratas instructoras',
           texto: 'Guarda copia de su titulación y de su seguro. Si te facturan como autónomas, revisa con tu gestoría que no sea un contrato laboral encubierto.',
+        },
+      ],
+    },
+    {
+      id: 'software-de-gestion',
+      titulo: 'Lo que no pide la ley pero necesitarás el primer día: un software de gestión',
+      bloques: [
+        {
+          t: 'p',
+          texto: 'Ningún trámite te obliga a tenerlo, pero desde la primera semana vas a necesitar un sitio donde tus alumnas reserven, donde se cobren las cuotas y los bonos y desde donde salgan las facturas. Con hojas de cálculo y WhatsApp funciona mientras tienes diez alumnas; con cincuenta, se te comen las tardes.',
+        },
+        {
+          t: 'lista',
+          items: [
+            '**Reservas y aforo**: que cada alumna reserve y cancele desde el móvil, con lista de espera cuando la clase se llena.',
+            '**Cobros**: cuotas y bonos que se cobran solos, con tarjeta o domiciliación SEPA.',
+            '**Facturas**: numeradas como exige la ley desde la primera clase que cobras.',
+            '**Datos de salud**: el cuestionario y el consentimiento de cada alumna, guardados y con acceso restringido.',
+          ],
+        },
+        {
+          t: 'producto',
+          titulo: 'Tentare, el software de gestión para estudios de Pilates',
+          texto: 'Reservas, lista de espera, bonos, cobros y facturas desde el primer día, y cuando una instructora no puede venir busca sustituta por ti. Pruébalo 7 días gratis, sin tarjeta.',
         },
       ],
     },
