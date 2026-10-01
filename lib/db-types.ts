@@ -3775,7 +3775,7 @@ export interface RowApiClaves {
   revocada_en: string | null;
   revocada_por: string | null;
   rotada_desde: string | null;
-  // migr 20261001201000.
+  // migr 20261001204440.
   cadena_id: string | null;
 }
 
