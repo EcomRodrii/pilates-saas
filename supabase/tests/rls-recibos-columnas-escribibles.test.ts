@@ -98,7 +98,7 @@ test('el navegador solo cambia el estado y los reintentos de un recibo; cualquie
     const id = idRecibo();
     await admin.from('recibos').insert(base(studio.studioId, id));
 
-    // Control positivo: lo que sí tiene que poder (la remesa SEPA y «Reintentar»).
+    // Control positivo: lo que sí tiene que poder (las dos columnas de la lista; la remesa SEPA escribe el estado).
     const { error: ok } = await studio.comoPropietaria.from('recibos').update({ estado: 'EN_CURSO', intentos_reintento: 1 }).eq('id', id);
     assert.ok(!ok, `no pudo marcar EN_CURSO con un reintento: ${ok?.message}`);
 
@@ -119,7 +119,7 @@ test('el navegador solo cambia el estado y los reintentos de un recibo; cualquie
   }
 });
 
-test('un recibo DEVUELTO: el navegador solo lo reintenta si lo devolvió el banco', async () => {
+test('un recibo DEVUELTO no sale de ese estado desde el navegador: ni siquiera el que devolvió el banco', async () => {
   const studio = await crearStudioConPropietaria(admin);
   try {
     const devuelto = (extra: Record<string, unknown> = {}) =>
@@ -133,27 +133,29 @@ test('un recibo DEVUELTO: el navegador solo lo reintenta si lo devolvió el banc
       const { error } = await admin.from('recibos').insert(r);
       assert.ok(!error, `fixture: ${error?.message}`);
     }
-    const noReabre = /recibos_cobrado_solo_servidor.*solo se reintenta si lo devolvió el banco/;
+    const noSale = /recibos_cobrado_solo_servidor.*un recibo devuelto no cambia de estado desde el navegador/;
 
-    // «Reintentar» (la única vía de pantalla) → EN_CURSO, solo el devuelto por el banco.
+    // El «Reintentar» de antes (→ EN_CURSO, «Enviado al banco» sin mandar nada a ningún banco): ya no.
+    // Volver a pasarlo por el banco lo hace el servidor (`reintentarPorElBanco`, → PENDIENTE).
     const { error: errBanco } = await studio.comoPropietaria.from('recibos').update({ estado: 'EN_CURSO', intentos_reintento: 1 }).eq('id', banco.id);
-    assert.ok(!errBanco, `no pudo reintentar un recibo devuelto por el banco: ${errBanco?.message}`);
-    assert.equal(await estadoDe(banco.id as string), 'EN_CURSO');
+    assert.ok(errBanco, 'el navegador puso «en el banco» un recibo devuelto');
+    assert.match(errBanco.message, noSale, `bloqueó otra cosa: ${errBanco.message}`);
+    assert.equal(await estadoDe(banco.id as string), 'DEVUELTO');
 
-    // Pero no a cualquier otro estado.
+    // Ni a cualquier otro estado.
     for (const estado of ['PENDIENTE', 'FALLIDO', 'ANULADO']) {
       const { error } = await studio.comoPropietaria.from('recibos').update({ estado }).eq('id', banco2.id);
       assert.ok(error, `el navegador pudo pasar un devuelto a ${estado}`);
-      assert.match(error.message, noReabre, `a ${estado}, bloqueó otra cosa: ${error.message}`);
+      assert.match(error.message, noSale, `a ${estado}, bloqueó otra cosa: ${error.message}`);
     }
     assert.equal(await estadoDe(banco2.id as string), 'DEVUELTO');
 
     // Un reembolso del estudio (pedido o hecho) y un devuelto entero son dinero que va DE VUELTA a la
-    // socia: abrirlos la volvería a cobrar. Ni siquiera «Reintentar».
+    // socia: abrirlos la volvería a cobrar.
     for (const r of [reembolsadoStripe, reembolsoPedido, devueltoEntero]) {
       const { error } = await studio.comoPropietaria.from('recibos').update({ estado: 'EN_CURSO' }).eq('id', r.id as string);
       assert.ok(error, `el navegador reabrió un recibo reembolsado (${JSON.stringify(r)})`);
-      assert.match(error.message, noReabre, `bloqueó otra cosa: ${error.message}`);
+      assert.match(error.message, noSale, `bloqueó otra cosa: ${error.message}`);
       assert.equal(await estadoDe(r.id as string), 'DEVUELTO');
     }
 
