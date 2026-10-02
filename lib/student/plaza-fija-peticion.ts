@@ -38,8 +38,12 @@ async function enviar(slug: string, cuerpo: Record<string, unknown>): Promise<Re
   }
 }
 
-export const pedirPlazaFija = (slug: string, studioId: string, sesionId: string) =>
-  enviar(slug, { accion: 'solicitar_plaza', studioId, sesionId });
+/**
+ * `duracionMeses`: cuánto tiempo la quiere (una de las cerradas); sin ella, sin fecha de fin. Va una DURACIÓN y no una fecha:
+ * la fecha de fin la calcula el servidor.
+ */
+export const pedirPlazaFija = (slug: string, studioId: string, sesionId: string, duracionMeses?: number | null) =>
+  enviar(slug, { accion: 'solicitar_plaza', studioId, sesionId, ...(duracionMeses ? { duracionMeses } : {}) });
 
 export const pedirPausaPlazaFija = (slug: string, studioId: string, plazaId: string, pausa: Pausa) =>
   enviar(slug, { accion: 'solicitar_pausa', studioId, plazaId, desde: pausa.desde, hasta: pausa.hasta });

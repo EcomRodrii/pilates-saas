@@ -11,6 +11,9 @@ import { useToast } from '@/components/student/ui/Toast';
 import { getClases, getClasesFijas, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
 import { anularPeticionPlazaFija, pedirPlazaFija } from '@/lib/student/plaza-fija-peticion';
 import { diasDeLaOferta } from '@/lib/student/clases-fijas';
+import { DURACIONES_POR_DEFECTO, etiquetaDuracion, vigenciaHastaDeDuracion } from '@/lib/clases-fijas-reglas';
+import { fechaDMY } from '@/lib/series-renovacion';
+import { hoyEnEstudio } from '@/lib/utils';
 import type { PlazaFijaEnClase } from '@/lib/student/plaza-fija';
 import { TEXTOS_PLAZA_FIJA as TPF, losDias } from '@/lib/student/plaza-fija-textos';
 import { etiquetaDia, horaFin } from '@/lib/student/formato';
@@ -41,6 +44,9 @@ export default function FichaClaseFijaPage() {
   const [estadoLocal, setEstadoLocal] = useState<PlazaFijaEnClase | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
+  // Cuánto tiempo la quiere: una duración cerrada (la fecha de fin la pone el servidor) o ninguna (sin fecha de fin, como
+  // siempre). Por defecto 3 meses, con la fecha exacta a la vista: nadie se queda sin saber cuándo termina.
+  const [meses, setMeses] = useState<number | null>(DURACIONES_POR_DEFECTO[1] ?? null);
 
   const cargar = useCallback(async () => {
     const [clase, fijas, instructoras, clases, reservas] = await Promise.all([
@@ -64,7 +70,7 @@ export default function FichaClaseFijaPage() {
     if (!clase || enviando) return;
     setEnviando(true);
     setError('');
-    const r = await pedirPlazaFija(estudio.slug, estudio.id, clase.id);
+    const r = await pedirPlazaFija(estudio.slug, estudio.id, clase.id, meses);
     setEnviando(false);
     if (!r.ok) { setError(r.error); return; }
     setEstadoLocal(r.solicitudId ? { estado: 'PEDIDA', peticionId: r.solicitudId } : { estado: 'TIENE_PLAZA' });
@@ -132,6 +138,25 @@ export default function FichaClaseFijaPage() {
           <div className="note" data-testid="que-es-clase-fija" style={{ margin: 0, background: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: 4 }}>
             <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>{TPF.ofrecer(dia, clase.hora)}</p>
             <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 500 }}>{TPF.quePasa}</p>
+          </div>
+        )}
+
+        {/* Cuánto tiempo la quiere. Solo mientras puede pedirla y si no va dentro de una clase fija con nombre (esa tiene sus
+            propias duraciones, en su tarjeta). Lo que se le enseña es la fecha exacta en la que termina. */}
+        {estadoFija?.estado === 'PUEDE_PEDIR' && !data?.oferta && (
+          <div data-testid="duracion-clase-fija" role="group" aria-label={TPF.cuantoTiempo} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p className="t-label" style={{ margin: 0 }}>{TPF.cuantoTiempo}</p>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+              {DURACIONES_POR_DEFECTO.map((m) => (
+                <button key={m} type="button" className="pill" aria-pressed={meses === m} onClick={() => setMeses(m)}>
+                  {etiquetaDuracion(m)}
+                </button>
+              ))}
+              <button type="button" className="pill" aria-pressed={meses === null} onClick={() => setMeses(null)}>{TPF.sinFecha}</button>
+            </div>
+            {meses !== null && (
+              <p className="t-meta" data-testid="clase-fija-hasta" style={{ margin: 0 }}>{TPF.hastaEl(fechaDMY(vigenciaHastaDeDuracion(hoyEnEstudio(), meses)))}</p>
+            )}
           </div>
         )}
 

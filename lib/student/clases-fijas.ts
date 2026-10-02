@@ -86,6 +86,37 @@ export function proyectarClasesSueltas(
   }));
 }
 
+/** Lo que la ficha de una clase normal necesita para ofrecer «Repetir cada semana». */
+export interface RepeticionDeClase {
+  /** La ficha a la que llevar: la de la próxima clase de esa franja (ahí se pide, no en la ficha normal). */
+  sesionId: string;
+  /** Si es una clase suelta que se repite, en qué punto está ella; `null` si va dentro de una clase fija con nombre. */
+  estado: PlazaFijaEnClase | null;
+}
+
+/**
+ * ¿Esta clase (un día concreto) se repite cada semana y se puede pedir como clase fija? Mismo día de la semana, misma hora
+ * y misma sala que una franja del catálogo: así el enlace sale en TODAS las fechas de esa clase, no solo en la próxima.
+ * `null` si no se repite o el estudio no la ofrece. Ni decide ni promete nada: solo lleva a la ficha donde se pide, y ahí el
+ * servidor lo comprueba todo.
+ */
+export function franjaDeRepeticion(
+  fijas: { ofertas: Pick<ClaseFijaVista, 'franjas'>[]; sueltas: ClaseSueltaVista[] } | null,
+  clase: { fecha: string; hora: string; salaId: string },
+): RepeticionDeClase | null {
+  if (!fijas) return null;
+  const dia = new Date(`${clase.fecha}T12:00:00Z`).getUTCDay();
+  const coincide = (f: { diaSemana: number; hora: string; salaId: string }) =>
+    f.diaSemana === dia && f.hora.slice(0, 5) === clase.hora.slice(0, 5) && f.salaId === clase.salaId;
+  const suelta = fijas.sueltas.find((f) => coincide(f) && f.proximaSesionId);
+  if (suelta) return { sesionId: suelta.proximaSesionId, estado: suelta.estado };
+  for (const o of fijas.ofertas) {
+    const f = o.franjas.find((x) => coincide(x) && x.proximaSesionId);
+    if (f) return { sesionId: f.proximaSesionId, estado: null };
+  }
+  return null;
+}
+
 /** ¿Falta poco para que venza? A partir de aquí la pantalla ofrece ampliarla. */
 export function terminaPronto(venceEl: string | null, hoy: string): boolean {
   if (!venceEl) return false;
