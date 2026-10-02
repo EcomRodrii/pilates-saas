@@ -1257,6 +1257,26 @@ export interface Recibo {
   /** D-8: cuándo FALLÓ la devolución (la clienta NO recibió el dinero). */
   reembolsoFallidoEn?: string | null;
   reembolsoFalloMotivo?: string | null;
+  /**
+   * Por qué canal se confirmó el cobro ('webhook' | 'conciliador' | 'manual' | 'tpv').
+   * Separa la tarjeta del datáfono (que también deja cargo de Stripe) de la online.
+   */
+  conciliadoPor?: string | null;
+  /** El cobro entró pero su factura no llegó a sellarse (se reintenta). */
+  facturaPendienteSellar?: boolean;
+  /** Pago online abierto (Checkout): hay un cobro en marcha. */
+  checkoutSessionId?: string | null;
+  /** Cobro en marcha desde el mostrador (datáfono o Bizum del TPV). */
+  cobroMostradorPi?: string | null;
+  /**
+   * Las tres las escribe el trigger `trg_recibos_marcas_de_tiempo` (2-oct-2026), nunca el
+   * navegador. `cobradoEn`: la hora del cobro, solo si se registró en el momento del pago
+   * (léela con `horaDelCobro`). `enviadoAlBancoEn`: cuándo entró en el banco.
+   * `cargoPedidoPara`: el día de cargo pedido en la remesa ('YYYY-MM-DD').
+   */
+  cobradoEn?: string | null;
+  enviadoAlBancoEn?: string | null;
+  cargoPedidoPara?: string | null;
 }
 
 // Fase 3: penalización por cancelación tardía/no-show — detección + ciclo de

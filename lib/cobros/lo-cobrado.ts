@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { aCentimos, importeIngresado, situacionRecibo, type ReciboParaCifras } from '../billing/situacion-recibo.ts';
+import { horaEstudio, hoyEnEstudio } from '../utils.ts';
 
 export type Periodo = 'DIA' | 'SEMANA' | 'MES' | 'TRIMESTRE' | 'ANIO';
 
@@ -166,4 +167,19 @@ export function cobradoEnTramo<R extends ReciboCobrado>(recibos: readonly R[], t
     c.neto = aCentimos(c.neto + n);
   }
   return { neto: aCentimos(neto), recibos: dentro, nCobros: dentro.length, nConDevolucion, porDia, porComo };
+}
+
+/**
+ * La hora de un cobro («12:40», en hora del estudio), solo cuando es de verdad la
+ * hora del cobro: `cobradoEn` la guarda la base de datos cuando el registro
+ * ocurre en el momento del pago (mostrador, TPV, tarjeta guardada, webhook), y
+ * se exige además que su día en Madrid sea el de `fechaCobro`. Un cobro antiguo,
+ * una domiciliación o una transferencia no la tienen: `null`, y no se inventa.
+ */
+export function horaDelCobro(r: { cobradoEn?: string | null; fechaCobro?: string | null }): string | null {
+  if (!r.cobradoEn || !r.fechaCobro) return null;
+  const instante = new Date(r.cobradoEn);
+  if (Number.isNaN(instante.getTime())) return null;
+  if (hoyEnEstudio(instante) !== r.fechaCobro.slice(0, 10)) return null;
+  return horaEstudio(instante);
 }

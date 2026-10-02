@@ -515,31 +515,24 @@ export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancel
 // sin él ninguna cifra de dinero podía restar un reembolso parcial. Las cifras
 // lo leen a través de `lib/billing/situacion-recibo.ts`.
 export type FilaReciboPanel = Omit<RowRecibos,
-  // Metadata de SERVIDOR: decide si cobrar este recibo entrega algo
-  // (`aplicarRenovacionServidor`). El panel la ESCRIBE al crear un recibo de
-  // renovación —vía `reciboNuevoToDb`— pero no la lee ni la pinta, igual que el
-  // snapshot de entrega de la línea siguiente.
-  | 'es_renovacion'
+  // ⚠️ La pantalla de Cobros (rediseño del 2-oct-2026) SÍ lee ahora cinco que antes se
+  // dejaban fuera: `es_renovacion` (no ofrecer «Es la renovación» si esa cuota ya tiene
+  // una viva: índice único), `conciliado_por` (el datáfono también deja cargo de Stripe:
+  // manda el canal), `factura_pendiente_sellar` (cobros sin factura), y
+  // `checkout_session_id` y `cobro_mostrador_pi` (hay un pago en marcha). Más las tres de
+  // la migración `recibos_marcas_de_tiempo` (hora del cobro, envío al banco, día de cargo).
   // Cuándo se anuló: basta con el estado ANULADO y `tras_cancelar_cuota` (migr 20260915215311).
   | 'anulado_en'
   | 'entrega_tipo' | 'entrega_aplicada' | 'entrega_aplicada_en'
   | 'entrega_sesiones_antes'
   | 'entrega_fecha_fin_antes' | 'entrega_fecha_fin_despues'
   | 'entrega_estado_antes'
-  // Solo la usa /api/stripe/checkout en servidor, para reutilizar la sesión ya
-  // abierta de un recibo (20260817214500). El panel no la pinta ni la decide.
-  | 'checkout_session_id'
-  // F-12/F-13: metadata de conciliación, solo la escriben/leen el webhook, el
-  // conciliador y sus reintentos de facturación en servidor. El panel no la
-  // pinta ni la decide.
-  | 'conciliado_en' | 'conciliado_por' | 'factura_pendiente_sellar'
-  // PaymentIntent EN VUELO de un cobro por datáfono/Bizum lanzado desde el TPV
-  // (20260907174656). Lo escriben y lo leen /api/pos/recibo y su confirmación,
-  // en servidor; el panel no lo pinta ni lo decide. Mismo criterio que
-  // `checkout_session_id`, que es su equivalente para Checkout — y
-  // `cobro_mostrador_checkout_session_id` (P-1, 27ª pasada) es el equivalente
-  // de ESE para la Checkout Session de Bizum del mostrador en concreto.
-  | 'cobro_mostrador_pi' | 'cobro_mostrador_checkout_session_id'
+  // F-12/F-13: cuándo se concilió. El panel no la pinta (la hora del cobro es
+  // `cobrado_en`, con su regla).
+  | 'conciliado_en'
+  // La Checkout Session de Bizum del mostrador (P-1, 27ª pasada): con
+  // `cobro_mostrador_pi` ya se sabe que hay un cobro de mostrador en marcha.
+  | 'cobro_mostrador_checkout_session_id'
   // Aceptación por compra (migr 20260908160000). Son PRUEBA, no interfaz: el
   // panel no las pinta ni las decide, y el hash no le dice nada a nadie sin
   // resolverlo contra `terminos_versiones`. Mismo criterio que dejó fuera
@@ -1175,6 +1168,15 @@ export function mapRecibo(r: FilaReciboPanel): Recibo {
     // podía restar un reembolso parcial: el recibo sigue COBRADO y solo esta
     // columna dice que parte del dinero volvió (lib/billing/situacion-recibo.ts).
     importeDevuelto: r.importe_devuelto ?? 0,
+    // Cobros (rediseño 2-oct-2026). `?? null`: los mocks de los e2e no traen las columnas.
+    esRenovacion: r.es_renovacion ?? false,
+    conciliadoPor: r.conciliado_por ?? null,
+    facturaPendienteSellar: r.factura_pendiente_sellar ?? false,
+    checkoutSessionId: r.checkout_session_id ?? null,
+    cobroMostradorPi: r.cobro_mostrador_pi ?? null,
+    cobradoEn: r.cobrado_en ?? null,
+    enviadoAlBancoEn: r.enviado_al_banco_en ?? null,
+    cargoPedidoPara: r.cargo_pedido_para ?? null,
   } as Recibo;
 }
 
@@ -3449,7 +3451,7 @@ export async function dbUpdateRecibosBatch(
   ids: string[], changes: CambiosRecibo, soloSiEstadoActual?: Recibo['estado'],
   // Remesa SEPA: solo los que no tienen un cobro en marcha, en el propio UPDATE.
   opciones: { sinCobroEnMarcha?: boolean } = {},
-): Promise<ResultadoEscritura & { idsActualizados?: string[] }> {
+): Promise<ResultadoEscritura & { idsActualizados?: string[]; cargoPedidoPara?: Map<string, string | null> }> {
   if (ids.length === 0) return { ...ESCRITURA_OK, idsActualizados: [] };
   // Cobrar NO se escribe desde el navegador: la transición a COBRADO la hace
   // `confirmarCobro` en el servidor (`/api/cobros/marcar-cobrado`), y la de DEVUELTO,
@@ -3463,9 +3465,16 @@ export async function dbUpdateRecibosBatch(
   let q = supabase.from('recibos').update(db).in('id', ids);
   if (soloSiEstadoActual) q = q.eq('estado', soloSiEstadoActual);
   if (opciones.sinCobroEnMarcha) for (const col of COLUMNAS_COBRO_EN_MARCHA) q = q.is(col, null);
-  const { data, error } = await q.select('id');
+  // El día de cargo que fijó el trigger al enviarlo al banco (`recibos_marcas_de_tiempo`)
+  // vuelve en el propio UPDATE: la remesa lo pone en el fichero, en vez del reloj del dispositivo.
+  const { data, error } = await q.select('id, cargo_pedido_para');
   if (error) return falloEscritura('[dbUpdateRecibosBatch]', error);
-  return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string) };
+  const filas = (data ?? []) as { id: string; cargo_pedido_para: string | null }[];
+  return {
+    ...ESCRITURA_OK,
+    idsActualizados: filas.map(r => r.id),
+    cargoPedidoPara: new Map(filas.map(r => [r.id, r.cargo_pedido_para ?? null])),
+  };
 }
 
 // Eliminar un recibo pasa SIEMPRE por la RPC `eliminar_recibo`: el DELETE directo
@@ -5752,7 +5761,9 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     db.from('instructores').select('*').eq('studio_id', sid),
     fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia, cancelada_tardia, origen, nombre_externo, bono_suscripcion_id').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota, importe_devuelto, proximo_reintento').eq('studio_id', sid).range(from, to)),
+    // La misma lista que la relectura tras un cobro (`COLUMNAS_RECIBO_PANEL`): eran dos
+    // copias del mismo texto, y dos listas escritas a mano acaban leyendo cosas distintas.
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select(COLUMNAS_RECIBO_PANEL).eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus
     // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a
@@ -5968,7 +5979,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
 // Columnas que el panel lee de recibos/facturas/suscripciones al refrescar tras
 // un cobro. Compartidas por `fetchDatosTrasVentaPOS` y `dbReleerTrasCobro`: dos
 // listas escritas a mano acaban leyendo cosas distintas del mismo recibo.
-const COLUMNAS_RECIBO_PANEL = 'id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota, importe_devuelto, proximo_reintento' as const;
+const COLUMNAS_RECIBO_PANEL = 'id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo, tras_cancelar_cuota, importe_devuelto, proximo_reintento, es_renovacion, conciliado_por, factura_pendiente_sellar, checkout_session_id, cobro_mostrador_pi, cobrado_en, enviado_al_banco_en, cargo_pedido_para' as const;
 const COLUMNAS_FACTURA_PANEL = 'id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto' as const;
 const COLUMNAS_SUSCRIPCION_PANEL = 'id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer' as const;
 

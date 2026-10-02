@@ -9,8 +9,10 @@ import { construirRemesa } from '@/lib/sepa-19-14';
 import { dbEstadosPenalizacionDeRecibos, dbLeerRecibosParaRemesa } from '@/lib/supabase-data';
 import { avisoPenalizacionesFueraDeRemesa, recibosParaRemesa } from '@/lib/billing/penalizacion-aprobar-reglas';
 import {
-  avisoCobrosEnMarchaFueraDeRemesa, avisoXmlFallido, avisoYaNoPendientes, prepararRemesa, recibosSinCobroEnMarcha,
+  DIAS_HASTA_CARGO_REMESA, avisoCobrosEnMarchaFueraDeRemesa, avisoXmlFallido, avisoYaNoPendientes, prepararRemesa, recibosSinCobroEnMarcha,
 } from '@/lib/billing/remesa-sepa-reglas';
+import { fechaCorta } from '@/lib/clientas/textos';
+import { hoyEnEstudio, masDias } from '@/lib/utils';
 import { Landmark } from 'lucide-react';
 
 export function BotonRemesaSepa() {
@@ -34,7 +36,6 @@ export function BotonRemesaSepa() {
       return s ? `${s.nombre} ${s.apellidos}` : 'Socia';
     };
     const hoy = new Date();
-    const cobro = new Date(hoy.getTime() + 5 * 24 * 3600_000); // D+5 (margen SEPA CORE)
     try {
       // Los recibos de una penalización solo entran con su cobro aprobado (la
       // misma regla que «Cobrar online»), y ninguno con un cobro ya en marcha
@@ -43,7 +44,9 @@ export function BotonRemesaSepa() {
       const remesa = recibosParaRemesa(pendientes, await dbEstadosPenalizacionDeRecibos(pendientes.map(r => r.id)));
       const libres = recibosSinCobroEnMarcha(remesa.entran, await dbLeerRecibosParaRemesa(remesa.entran.map(r => r.id)));
       const porId = new Map(libres.entran.map(r => [r.id, r]));
-      const construir = (ids: string[]) => construirRemesa({
+      // El día de cargo lo fija la base de datos al marcar (y vuelve en el propio UPDATE):
+      // el fichero lleva ese, no el del reloj de este dispositivo.
+      const construir = (ids: string[], fechaCobro: string) => construirRemesa({
         acreedor,
         // Un id que no esté aquí no entra, y `generarXml` lo detecta por la cuenta.
         recibosPendientes: ids.flatMap(id => {
@@ -56,10 +59,10 @@ export function BotonRemesaSepa() {
         nombreSocio,
         msgId: `TENTARE-${hoy.getFullYear()}${String(hoy.getMonth() + 1).padStart(2, '0')}${String(hoy.getDate()).padStart(2, '0')}-${String(hoy.getHours())}${String(hoy.getMinutes())}`,
         creDtTm: hoy.toISOString().slice(0, 19),
-        fechaCobro: cobro.toISOString().slice(0, 10),
+        fechaCobro,
       });
-      // Solo para saber quién tiene mandato: este fichero NO se descarga.
-      const previa = construir(libres.entran.map(r => r.id));
+      // Solo para saber quién tiene mandato: este fichero NO se descarga (su fecha da igual).
+      const previa = construir(libres.entran.map(r => r.id), masDias(hoyEnEstudio(), DIAS_HASTA_CARGO_REMESA));
 
       const extras = [avisoPenalizacionesFueraDeRemesa(remesa), avisoCobrosEnMarchaFueraDeRemesa(libres)].filter(Boolean);
       const extra = (caidos = 0) => [...(caidos > 0 ? [avisoYaNoPendientes(caidos)] : []), ...extras].map(t => ` ${t}`).join('');
@@ -75,10 +78,10 @@ export function BotonRemesaSepa() {
       const r = await prepararRemesa(previa.idsIncluidos, {
         marcar: async ids => {
           const res = await marcarRecibosEnviadosAlBanco(ids);
-          return res.ok ? { ok: true, idsActualizados: res.idsActualizados ?? [] } : { ok: false };
+          return res.ok ? { ok: true, idsActualizados: res.idsActualizados ?? [], cargoPedidoPara: res.cargoPedidoPara ?? new Map() } : { ok: false };
         },
-        generarXml: ids => {
-          const final = construir(ids);
+        generarXml: (ids, fechaCargo) => {
+          const final = construir(ids, fechaCargo);
           if (final.nAdeudos !== ids.length) throw new Error('remesa: el fichero no lleva todos los recibos marcados');
           return final.xml;
         },
@@ -95,7 +98,7 @@ export function BotonRemesaSepa() {
         setAviso(`No hay recibos pendientes que remesar.${extra(r.caidos)}`);
         return;
       }
-      if (r.paso === 'XML_FALLIDO') {
+      if (r.paso === 'XML_FALLIDO' || r.paso === 'SIN_FECHA_DE_CARGO') {
         setAviso(avisoXmlFallido(r.sinDeshacer.length));
         return;
       }
@@ -104,12 +107,12 @@ export function BotonRemesaSepa() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `remesa-sepa-${cobro.toISOString().slice(0, 10)}.xml`;
+      a.download = `remesa-sepa-${r.fechaCargo}.xml`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      setAviso(`Fichero listo: ${r.ids.length} recibo(s), cargo el ${cobro.toLocaleDateString('es-ES')}.${previa.sinMandato > 0 ? ` (${previa.sinMandato} recibo(s) sin mandato quedaron fuera.)` : ''}${extra(r.caidos)} Súbelo a tu banco.`);
+      setAviso(`Fichero listo: ${r.ids.length} recibo(s), cargo pedido para el ${fechaCorta(r.fechaCargo, hoyEnEstudio())}.${previa.sinMandato > 0 ? ` (${previa.sinMandato} recibo(s) sin mandato quedaron fuera.)` : ''}${extra(r.caidos)} Súbelo a tu banco.`);
     } catch {
       // Antes de marcar (lecturas o la previa del fichero): no se ha tocado nada.
       setAviso('No se pudo preparar la remesa. Inténtalo de nuevo.');

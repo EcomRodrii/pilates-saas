@@ -82,3 +82,14 @@ test('lo cobrado en un tramo: neto de lo devuelto, por el día de COBRO, y el de
   const enTramo = recibos.filter(x => x.fechaCobro && x.fechaCobro >= '2026-10-01' && x.fechaCobro <= '2026-10-02');
   assert.equal(r.neto, resumirRecibos(enTramo).ingresado);
 });
+
+test('la hora del cobro, solo cuando es de verdad la del cobro (y en hora de Madrid)', async () => {
+  const { horaDelCobro } = await import('./lo-cobrado.ts');
+  assert.equal(horaDelCobro({ cobradoEn: '2026-10-02T10:40:00Z', fechaCobro: '2026-10-02' }), '12:40', 'en verano, UTC+2');
+  assert.equal(horaDelCobro({ cobradoEn: '2026-12-02T10:40:00Z', fechaCobro: '2026-12-02' }), '11:40', 'en invierno, UTC+1');
+  // A las 23:30 UTC del 1 ya es día 2 en Madrid.
+  assert.equal(horaDelCobro({ cobradoEn: '2026-10-01T23:30:00Z', fechaCobro: '2026-10-02' }), '01:30');
+  assert.equal(horaDelCobro({ cobradoEn: '2026-10-01T23:30:00Z', fechaCobro: '2026-10-01' }), null, 'otro día: no es la hora del cobro');
+  assert.equal(horaDelCobro({ cobradoEn: null, fechaCobro: '2026-10-02' }), null, 'lo antiguo, sin hora');
+  assert.equal(horaDelCobro({ cobradoEn: '2026-10-02T10:40:00Z', fechaCobro: null }), null);
+});

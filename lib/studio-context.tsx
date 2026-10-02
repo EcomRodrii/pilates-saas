@@ -587,7 +587,8 @@ interface StudioContextValue {
    */
   cobrarTodosPendientes: (socioId?: string, metodo?: MetodoCobro) => Promise<ResumenCobroEnLote & { saltados: Recibo[] }>;
   /** `idsActualizados`: los que se marcaron de verdad. Solo esos van en la remesa. */
-  marcarRecibosEnviadosAlBanco: (ids: string[]) => Promise<ResultadoEscritura & { idsActualizados?: string[] }>;
+  /** `cargoPedidoPara`: el día de cargo que fijó la base de datos para cada uno (va en el fichero). */
+  marcarRecibosEnviadosAlBanco: (ids: string[]) => Promise<ResultadoEscritura & { idsActualizados?: string[]; cargoPedidoPara?: ReadonlyMap<string, string | null> }>;
   /** Deshace la marca de la remesa (EN_CURSO → PENDIENTE) si el fichero no se llegó a generar. */
   devolverRecibosAPendientesTrasRemesa: (ids: string[]) => Promise<ResultadoEscritura & { idsActualizados?: string[] }>;
 
@@ -4674,13 +4675,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // la remesa y este UPDATE, no se pisa su estado real. Y se devuelven los ids
   // tocados de verdad: el fichero se genera SOLO con esos
   // (`lib/billing/remesa-sepa-reglas.ts`).
-  async function marcarRecibosEnviadosAlBanco(ids: string[]): Promise<ResultadoEscritura & { idsActualizados?: string[] }> {
-    if (ids.length === 0) return { ok: true, idsActualizados: [] };
+  async function marcarRecibosEnviadosAlBanco(ids: string[]): Promise<ResultadoEscritura & { idsActualizados?: string[]; cargoPedidoPara?: ReadonlyMap<string, string | null> }> {
+    if (ids.length === 0) return { ok: true, idsActualizados: [], cargoPedidoPara: new Map() };
     const res = await dbUpdateRecibosBatch(ids, { estado: 'EN_CURSO' }, 'PENDIENTE', { sinCobroEnMarcha: true });
     if (!res.ok) return res;
     const marcados = new Set(res.idsActualizados ?? []);
-    setRecibos(prev => prev.map(r => marcados.has(r.id) ? { ...r, estado: 'EN_CURSO' as const } : r));
-    return { ok: true, idsActualizados: [...marcados] };
+    const cargo = res.cargoPedidoPara ?? new Map<string, string | null>();
+    // Lo mismo que acaba de escribir el trigger, para que «En el banco» lo diga sin releer.
+    const enviado = new Date().toISOString();
+    setRecibos(prev => prev.map(r => marcados.has(r.id)
+      ? { ...r, estado: 'EN_CURSO' as const, enviadoAlBancoEn: enviado, cargoPedidoPara: cargo.get(r.id) ?? null }
+      : r));
+    return { ok: true, idsActualizados: [...marcados], cargoPedidoPara: cargo };
   }
 
   // Si el fichero falla después de marcar, los recibos no han ido al banco:
@@ -4692,7 +4698,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbUpdateRecibosBatch(ids, { estado: 'PENDIENTE' }, 'EN_CURSO', { sinCobroEnMarcha: true });
     if (!res.ok) return res;
     const devueltos = new Set(res.idsActualizados ?? []);
-    setRecibos(prev => prev.map(r => devueltos.has(r.id) ? { ...r, estado: 'PENDIENTE' as const } : r));
+    // No llegó a ir al banco: el trigger vacía el envío y el día de cargo.
+    setRecibos(prev => prev.map(r => devueltos.has(r.id)
+      ? { ...r, estado: 'PENDIENTE' as const, enviadoAlBancoEn: null, cargoPedidoPara: null }
+      : r));
     return { ok: true, idsActualizados: [...devueltos] };
   }
 
