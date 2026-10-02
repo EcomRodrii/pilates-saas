@@ -132,18 +132,27 @@ as $function$
   end;
 $function$;
 
--- Verificación: el estado FINAL. Mismos permisos que tenían (solo el servidor) y las dos reglas puestas.
+-- Permisos EXPLÍCITOS: solo el servidor. En producción ya eran así (este bloque no cambia nada allí), pero en una base
+-- de datos creada desde cero con las migraciones estas dos funciones nacían con los permisos por defecto —un `DROP` +
+-- `CREATE` anterior, sin su `REVOKE`— y la verificación de abajo lo habría tomado por un cambio. Las dos solo las
+-- llaman funciones del servidor (`reservar_plaza`, `resolver_reserva_pendiente`… con `SECURITY DEFINER`) y el servidor.
+revoke all on function public.calcular_excede_limite_semanal(text, text, text, timestamp with time zone) from public, anon, authenticated;
+grant execute on function public.calcular_excede_limite_semanal(text, text, text, timestamp with time zone) to service_role;
+revoke all on function public.elegir_bono_consumible(text, text, text, date) from public, anon, authenticated;
+grant execute on function public.elegir_bono_consumible(text, text, text, date) to service_role;
+
+-- Verificación: el estado FINAL. Solo el servidor las ejecuta y las dos reglas están puestas.
 do $$
 begin
   if has_function_privilege('anon', 'public.calcular_excede_limite_semanal(text,text,text,timestamptz)'::regprocedure, 'EXECUTE')
      or has_function_privilege('authenticated', 'public.calcular_excede_limite_semanal(text,text,text,timestamptz)'::regprocedure, 'EXECUTE')
      or not has_function_privilege('service_role', 'public.calcular_excede_limite_semanal(text,text,text,timestamptz)'::regprocedure, 'EXECUTE') then
-    raise exception 'calcular_excede_limite_semanal ha cambiado de permisos';
+    raise exception 'calcular_excede_limite_semanal no es solo del servidor';
   end if;
   if has_function_privilege('anon', 'public.elegir_bono_consumible(text,text,text,date)'::regprocedure, 'EXECUTE')
      or has_function_privilege('authenticated', 'public.elegir_bono_consumible(text,text,text,date)'::regprocedure, 'EXECUTE')
      or not has_function_privilege('service_role', 'public.elegir_bono_consumible(text,text,text,date)'::regprocedure, 'EXECUTE') then
-    raise exception 'elegir_bono_consumible ha cambiado de permisos';
+    raise exception 'elegir_bono_consumible no es solo del servidor';
   end if;
   if (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
        where n.nspname = 'public' and p.proname = 'calcular_excede_limite_semanal'

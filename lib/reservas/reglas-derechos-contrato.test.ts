@@ -39,9 +39,15 @@ test('⚠️ elegir_bono_consumible: primero el acotado, luego la caducidad, lue
   assert.match(funcion, /public\.plan_cubre_tipo_clase\(p\.id, p_tipo_clase_id\)/);
 });
 
-test('la migración solo cambia el CUERPO de dos funciones y comprueba que sus permisos no se han movido', () => {
-  assert.equal((MIGRACION.match(/create or replace function/g) ?? []).length, 2);
-  assert.ok(!/grant execute/i.test(MIGRACION.replace(/--.*$/gm, '')), 'no se concede ningún permiso nuevo');
+test('la migración solo cambia el CUERPO de dos funciones y deja sus permisos EXPLÍCITOS: solo el servidor', () => {
+  const sql = MIGRACION.replace(/--.*$/gm, '');
+  assert.equal((sql.match(/create or replace function/g) ?? []).length, 2);
+  for (const firma of ['calcular_excede_limite_semanal\\(text, text, text, timestamp with time zone\\)', 'elegir_bono_consumible\\(text, text, text, date\\)']) {
+    assert.match(sql, new RegExp(`revoke all on function public\\.${firma} from public, anon, authenticated;`), firma);
+    assert.match(sql, new RegExp(`grant execute on function public\\.${firma} to service_role;`), firma);
+  }
+  // Ningún permiso a nadie más (en una base de datos nueva estas funciones nacían abiertas: ver la cabecera del bloque).
+  assert.ok(!/grant execute[^;]*\)\s+to\s+[^;]*\b(anon|authenticated|public)\b/i.test(sql), 'no se concede ejecución a nadie más que al servidor');
   assert.match(MIGRACION, /has_function_privilege\('anon', 'public\.calcular_excede_limite_semanal\(text,text,text,timestamptz\)'::regprocedure, 'EXECUTE'\)/);
   assert.match(MIGRACION, /has_function_privilege\('anon', 'public\.elegir_bono_consumible\(text,text,text,date\)'::regprocedure, 'EXECUTE'\)/);
 });
