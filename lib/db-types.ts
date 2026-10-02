@@ -3878,6 +3878,24 @@ export interface RowAltasEstudio {
   actualizado_en: string;
 }
 
+export interface RowMovimientosDerecho {
+  id: string;
+  studio_id: string;
+  socio_id: string | null;
+  derecho_tipo: string;
+  derecho_id: string | null;
+  tipo: string;
+  delta: number;
+  saldo_despues: number | null;
+  reserva_id: string | null;
+  recibo_id: string | null;
+  actor_tipo: string;
+  actor_id: string | null;
+  motivo: string | null;
+  contexto: any;
+  creado_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -10731,6 +10749,42 @@ export type AltasEstudioUpdate = {
   actualizado_en?: string | null;
 }
 
+export type MovimientosDerechoInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  derecho_tipo?: string | null;
+  derecho_id?: string | null | null;
+  tipo?: string | null;
+  delta?: number | null;
+  saldo_despues?: number | null | null;
+  reserva_id?: string | null | null;
+  recibo_id?: string | null | null;
+  actor_tipo?: string | null;
+  actor_id?: string | null | null;
+  motivo?: string | null | null;
+  contexto?: any | null;
+  creado_en?: string | null;
+}
+
+export type MovimientosDerechoUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  socio_id?: string | null | null;
+  derecho_tipo?: string | null;
+  derecho_id?: string | null | null;
+  tipo?: string | null;
+  delta?: number | null;
+  saldo_despues?: number | null | null;
+  reserva_id?: string | null | null;
+  recibo_id?: string | null | null;
+  actor_tipo?: string | null;
+  actor_id?: string | null | null;
+  motivo?: string | null | null;
+  contexto?: any | null;
+  creado_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -11933,6 +11987,11 @@ export type Database = {
         Row: RowAltasEstudio;
         Insert: AltasEstudioInsert;
         Update: AltasEstudioUpdate;
+      };
+      movimientos_derecho: {
+        Row: RowMovimientosDerecho;
+        Insert: MovimientosDerechoInsert;
+        Update: MovimientosDerechoUpdate;
       };
     };
   };

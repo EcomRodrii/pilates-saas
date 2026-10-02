@@ -243,6 +243,22 @@ export const DEFINICIONES: Definicion[] = [
       .eq('estado', 'COBRADA')
       .eq('recibos.estado', 'DEVUELTO'),
   },
+  {
+    id: 'ledger-no-concilia',
+    que: 'Bonos o recuperaciones cuyo saldo ya no coincide con la suma de sus movimientos en el ledger de derechos.',
+    impacto:
+      'El saldo de una alumna se movió sin que el ledger lo explique (o el ledger no pudo anotarlo), y a partir de ahí ' +
+      '«¿por qué tiene estas sesiones?» ya no tiene respuesta fiable. En esta fase el ledger va en sombra y no cambia ' +
+      'ningún saldo: no se pierde ninguna sesión, pero hay que mirar qué camino lo causó (los movimientos sin ' +
+      'contexto, `AJUSTE_SIN_CONTEXTO`, lo dicen) antes de que el ledger pase a mandar.',
+    // Un solo descuadre ya es un fallo: el ledger suma el saldo POR CONSTRUCCIÓN (un trigger sobre cada cambio de
+    // saldo), así que no hay tránsito que esperar. Vale 0 salvo que un trigger haya fallado.
+    umbralAviso: 1,
+    umbralFallo: 1,
+    contar: (admin) => admin
+      .from('ledger_conciliacion')
+      .select('derecho_id', { count: 'exact', head: true }),
+  },
 ];
 
 export interface InformeSalud {

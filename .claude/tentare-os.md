@@ -1132,6 +1132,32 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
 - **Menú por pregunta** (Operación / Equipo / Negocio / Estudio) y sin entradas
   nuevas: una función nueva vive dentro de un módulo existente.
 
+## Motor de derechos: ledger → elegibilidad → liberación (en construcción, 2-oct-2026)
+
+Producto (bono / cuota / clase suelta) → derechos → reserva → consumo → cancelación → ledger. Decidido con
+el fundador (no se reabre): la mensual que cubre la clase gana y no consume; entre productos manda la
+**especificidad** y luego la caducidad; una recuperación es el derecho a recuperar UNA sesión concreta (cubre la
+clase y levanta el tope semanal, solo en tipos compatibles y hasta que caduca); el no-show cuenta como uso para
+los topes; un pago correcto debe acabar en reserva garantizada o en compensación registrada; el mostrador no es
+«modo dios» (se salta lo operativo que el estudio permita, con rastro; nunca la integridad).
+
+- **Fase 1, hecha: el ledger** (`movimientos_derecho`, migr `20261002130000`). Solo de inserción; saldo = suma de
+  movimientos. Lo escriben **triggers** sobre `suscripciones.sesiones_restantes` y `recuperaciones`, así que cubre
+  CUALQUIER camino que mueva saldo. Las funciones del motor (`consumir_bono_interno`, `devolver_sesion_bono_*`,
+  `renovar_bono_idempotente`) dicen por qué mediante `set_config('tentare.ledger', …, true)` y lo limpian justo
+  después del UPDATE; lo que llega sin contexto queda como `AJUSTE_SIN_CONTEXTO` (descubre qué caminos tocan el
+  saldo sin pasar por el motor). Vista `ledger_conciliacion` (debe estar vacía) y comprobación de salud
+  `ledger-no-concilia`.
+- ⚠️ **En sombra = no puede tumbar nada.** Los triggers capturan sus errores y avisan; no hay índices únicos hasta
+  que el motor único de devoluciones sea la única salida.
+- ⚠️ **`not found` tras un `PERFORM` miente:** un PERFORM también fija FOUND. En las funciones del motor,
+  «no se actualizó ninguna fila» se mira con la variable del `RETURNING` (`v_saldo is null`), nunca con `not found`
+  después del `set_config`. Hay un test que lo fija.
+- **Lo que viene, en este orden:** `evaluar_reserva` (SQL, solo lectura, la elegibilidad en un solo sitio) →
+  motor único de devoluciones (`liberar_derecho`, lee del ledger lo que consumió la reserva, nunca adivina) →
+  errores estructurados con acciones. Compra transaccional (retener plaza antes de cobrar) y excepciones del
+  mostrador, después.
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),
