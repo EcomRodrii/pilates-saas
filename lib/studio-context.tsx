@@ -230,7 +230,7 @@ import {
 import { decidirReciboPrevioDeCita, type ReciboPrevioDeCita } from '@/lib/cobros/recibo-de-cita';
 import type { DatosReciboNuevo } from '@/lib/cobros/recibo-escritura-navegador';
 import type { TipoRebote } from '@/lib/emails/rebotes';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor, reembolsarAManoApi, reintentarPorElBancoApi } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor, reembolsarAManoApi, reintentarPorElBancoApi, enviarEmailRecibo } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
 import { estadosDeClientas } from '@/lib/clientas/estado';
@@ -406,6 +406,11 @@ interface StudioContextValue {
   // F2 (B2.10) cuaderno 19.14: mandatos SEPA. ponerMandato reutiliza el vigente de
   // la socia (uno por socia); quitarMandato = cancelar.
   mandatosSepa: MandatoSEPA[];
+  /**
+   * Los mandatos llegan en la 2ª carga: hasta entonces la lista está vacía y TODAS las
+   * clientas parecerían sin domiciliar. 'error' si no se pudieron leer.
+   */
+  estadoMandatosSepa: 'cargando' | 'listo' | 'error';
   ponerMandato: (socioId: string, iban: string, refMandato: string, fechaFirma: string) => Promise<ResultadoEscritura>;
   quitarMandato: (id: string) => Promise<ResultadoEscritura>;
   ponerExcepcion: (socioId: string, tipo: string, motivo: string | null) => Promise<ResultadoEscritura>;
@@ -556,7 +561,10 @@ interface StudioContextValue {
    * no llegó, o desde otra pestaña) se sigue con ese en vez de crear otro. Lo usa el cobro de una
    * cita (`idReciboDeCita`); «Nueva factura» no lo pasa porque no tiene nada que lo identifique.
    */
-  crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }, opciones?: { reciboId?: string; metodo?: MetodoCobro; que?: 'cita' | 'clase' }) => Promise<ResultadoFacturaDirecta>;
+  crearFacturaDirecta: (
+    fields: { socioId: string; concepto: string; importe: number; suscripcionId?: string | null; esRenovacion?: boolean },
+    opciones?: { reciboId?: string; metodo?: MetodoCobro; que?: 'cita' | 'clase'; hacerFactura?: boolean },
+  ) => Promise<ResultadoFacturaDirecta>;
   /** Marca un recibo cobrado POR EL SERVIDOR (`/api/cobros/marcar-cobrado`).
    *  Devuelve `numeroFactura` cuando el cobro emitió factura: el llamador NO
    *  debe buscarla en el estado — todavía no está ahí. `yaEstaba` no es un error. */
@@ -566,6 +574,12 @@ interface StudioContextValue {
    * obligatorio: sin él, el cobro no entra en la caja ni en el desglose por método.
    */
   marcarCobradoVarios: (ids: string[], metodo: MetodoCobro, onProgreso?: (hechos: number) => void) => Promise<DesenlaceCobroManual[]>;
+  /**
+   * «Cobrar X €» de la ficha de «Quién me debe»: toda la deuda de UNA clienta, que le
+   * ha pagado en el mostrador. No es un lote (lo que tiene un reintento programado
+   * también se cobra: ella está delante), y manda un justificante por recibo cobrado.
+   */
+  cobrarRecibosDeUnaClienta: (ids: string[], metodo: MetodoCobro) => Promise<DesenlaceCobroManual[]>;
   /** «El banco lo ha cobrado»: cierra un recibo que salió en una remesa (EN_CURSO). */
   marcarCobradoPorElBanco: (reciboId: string) => Promise<ResultadoMarcarCobrado>;
   /**
@@ -968,6 +982,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [recuperaciones, setRecuperaciones] = useState<Recuperacion[]>([]);
   const [socioExcepciones, setSocioExcepciones] = useState<SocioExcepcion[]>([]);
   const [mandatosSepa, setMandatosSepa] = useState<MandatoSEPA[]>([]);
+  const [estadoMandatosSepa, setEstadoMandatosSepa] = useState<'cargando' | 'listo' | 'error'>('cargando');
 
   const [socios, setSocios] = useState<Socio[]>([]);
   const [suscripciones, setSuscripciones] = useState<Suscripcion[]>([]);
@@ -1478,6 +1493,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setRecuperaciones(data.recuperaciones);
       setSocioExcepciones(data.socioExcepciones);
       setMandatosSepa(data.mandatosSepa);
+      setEstadoMandatosSepa('listo');
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
@@ -1554,12 +1570,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         setBloqueosMaquina(def.bloqueosMaquina);
         setSocioExcepciones(def.socioExcepciones);
         setMandatosSepa(def.mandatosSepa);
+        setEstadoMandatosSepa('listo');
         // Y las dos que faltaban: sin esto la ficha, /libreta y la bandeja no
         // veían NINGUNA plaza fija ni recuperación (ver el comentario en
         // fetchDeferredStudioData).
         setPlazasFijas(def.plazasFijas);
         setRecuperaciones(def.recuperaciones);
-      }).catch(err => console.error('Error cargando datos diferidos:', err));
+      }).catch(err => {
+        console.error('Error cargando datos diferidos:', err);
+        // Sin mandatos no se puede decir «sin domiciliación»: la ficha de Cobros lo dice.
+        setEstadoMandatosSepa('error');
+      });
     }).catch(err => {
       console.error('Error fetching Supabase data:', err);
       setDataLoaded(true);
@@ -4345,17 +4366,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // confirma el cobro, el recibo YA existe (pendiente, en «Quién me debe») y quien
   // llama no puede reenviar el formulario sin duplicarlo.
   async function crearFacturaDirecta(
-    fields: { socioId: string; concepto: string; importe: number },
+    // `suscripcionId` y `esRenovacion`: «Nuevo cobro» de Cobros, con «Es la renovación de
+    // su plan» (sin marcar es una venta y no toca el plan).
+    fields: { socioId: string; concepto: string; importe: number; suscripcionId?: string | null; esRenovacion?: boolean },
     // `metodo`: cómo se cobró en el mostrador (la clase suelta de «Añadir a la
     // clase» del Calendario). Sin él, «sin especificar», como hasta ahora.
     // `que`: de qué es el recibo con id propio (una cita o una clase suelta), para los textos.
-    opciones: { reciboId?: string; metodo?: MetodoCobro; que?: 'cita' | 'clase' } = {},
+    // `hacerFactura`: un cobro en efectivo no saca factura solo; con esto, sí (decisión
+    // del fundador, 2-oct-2026: la casilla «Hacerle factura» de «Nuevo cobro»).
+    opciones: { reciboId?: string; metodo?: MetodoCobro; que?: 'cita' | 'clase'; hacerFactura?: boolean } = {},
   ): Promise<ResultadoFacturaDirecta> {
     const rec: Recibo = {
       id: opciones.reciboId ?? `rec-${uid()}`,
       studioId: getCurrentStudioId(),
       socioId: fields.socioId,
-      suscripcionId: null,
+      suscripcionId: fields.suscripcionId ?? null,
+      esRenovacion: fields.esRenovacion === true,
       concepto: fields.concepto,
       importe: fields.importe,
       estado: 'PENDIENTE',
@@ -4426,9 +4452,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // El dinero ya está confirmado en este punto — un fallo de aquí en adelante es
     // del sellado fiscal, no del cobro. `cobroRegistrado` para que quien llama nunca
     // lo trate como «nada pasó, reintenta»: reenviar el formulario duplicaría el cobro.
-    return d.selladoOk
-      ? { ok: true }
-      : { ok: false, cobroRegistrado: true, error: 'La factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Cobros y facturas → Datos fiscales e IVA.' };
+    if (!d.selladoOk) {
+      return { ok: false, cobroRegistrado: true, error: 'La factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Cobros y facturas → Datos fiscales e IVA.' };
+    }
+    // «Hacerle factura» en un cobro que no la saca solo (efectivo). Con el recibo que se
+    // acaba de cobrar, no con el estado de la pantalla, que aún no lo tiene como cobrado: el
+    // servidor la rehace entera a partir del recibo (número, importes, receptor).
+    if (opciones.hacerFactura && d.resultado !== 'ya_estaba'
+        && studio?.modoFacturacion === 'verifactu' && !emiteFacturaAutomatica(opciones.metodo ?? null, studio.modoFacturacion)) {
+      const fac = construirFacturaCobro({ ...rec, estado: 'COBRADO', metodoCobro: opciones.metodo ?? null, fechaCobro: hoyEnEstudio() }, facturas);
+      if (fac) {
+        setFacturas(prev => [...prev, fac]);
+        const sellada = await sellarFacturaYActualizar(fac);
+        if (!sellada.ok) {
+          return { ok: false, cobroRegistrado: true, error: `Cobrado, pero la factura no se ha podido sacar: ${sellada.error} Puedes hacerla desde «Lo que he cobrado».` };
+        }
+      }
+    }
+    return { ok: true };
   }
 
   // Construye la factura de un recibo cobrado si aún no existe (dedup por
@@ -4582,6 +4623,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   function marcarCobradoVarios(ids: string[], metodo: MetodoCobro, onProgreso?: (hechos: number) => void) {
     return cobrarEnServidor(ids, metodo, onProgreso, false, true);
+  }
+
+  async function cobrarRecibosDeUnaClienta(ids: string[], metodo: MetodoCobro): Promise<DesenlaceCobroManual[]> {
+    // Lo mismo que pulsar «Cobrar» en cada recibo, en una sola petición y sin lote:
+    // ella está delante y paga lo que debe, también lo que el cobro automático iba a
+    // reintentar. El servidor decide recibo a recibo (compare-and-set de siempre).
+    const desenlaces = await cobrarEnServidor(ids, metodo);
+    // Un justificante por recibo cobrado AHORA (no por lo que ya estaba cobrado), con los
+    // datos que lee el servidor del recibo ya cobrado.
+    const cobrados = new Set(desenlaces.filter(d => d.resultado === 'aplicada').map(d => d.reciboId));
+    for (const id of ids) {
+      if (!cobrados.has(id)) continue;
+      const r = recibos.find(x => x.id === id);
+      const socio = r?.socioId ? socios.find(s => s.id === r.socioId) : null;
+      if (socio?.email) enviarEmailRecibo({ to: socio.email, toName: `${socio.nombre} ${socio.apellidos}`, reciboId: id });
+    }
+    return desenlaces;
   }
 
   async function marcarCobradoPorElBanco(reciboId: string): Promise<ResultadoMarcarCobrado> {
@@ -5721,6 +5779,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     ponerExcepcion,
     quitarExcepcion,
     mandatosSepa,
+    estadoMandatosSepa,
     ponerMandato,
     quitarMandato,
     addPlan,
@@ -5828,6 +5887,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     crearFacturaDirecta,
     marcarCobrado,
     marcarCobradoVarios,
+    cobrarRecibosDeUnaClienta,
     marcarDevuelto,
     reembolsarAMano,
     marcarCobradoPorElBanco,
@@ -5969,7 +6029,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, variantesEfectivas, navPortal, themeIdPublicado, redesSociales, favoritos, retosApuntados, retoConteos, valoracionEstudio, instructores, spots,
-    bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
+    bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa, estadoMandatosSepa,
     camposPersonalizados, camposPersonalizadosCargados, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion, emailsRebotados,
@@ -6005,6 +6065,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setRecuperaciones(data.recuperaciones);
       setSocioExcepciones(data.socioExcepciones);
       setMandatosSepa(data.mandatosSepa);
+      setEstadoMandatosSepa('listo');
       setSocios(data.socios);
       setSuscripciones(data.suscripciones);
       setSesiones(data.sesiones);
