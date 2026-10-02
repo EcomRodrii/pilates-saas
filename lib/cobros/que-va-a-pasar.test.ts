@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { queVaAPasar, renovacionYaPendiente } from './que-va-a-pasar.ts';
+import { leerImporte, queVaAPasar, renovacionYaPendiente } from './que-va-a-pasar.ts';
 
 const NIF_OK = 'B67891234'; // el de las demás pruebas: con formato y sin ser de relleno
 const base = { cajaAbierta: true, modoFacturacion: 'verifactu' as const, nifEstudio: NIF_OK, hacerFactura: false };
@@ -50,4 +50,15 @@ test('«Es la renovación de su plan»: no si esa cuota ya tiene una renovación
   assert.equal(renovacionYaPendiente('sus-3', recibos), false, 'una venta no es renovación');
   assert.equal(renovacionYaPendiente('sus-4', recibos), true);
   assert.equal(renovacionYaPendiente(null, recibos), false);
+});
+
+test('leerImporte: coma o punto, positivo y con dos decimales como mucho', () => {
+  assert.equal(leerImporte('12,5'), 12.5);
+  assert.equal(leerImporte(' 85.00 '), 85);
+  assert.equal(leerImporte('0'), null);
+  assert.equal(leerImporte('-3'), null);
+  assert.equal(leerImporte('1.234'), null);
+  assert.equal(leerImporte('1.000,50'), null);
+  assert.equal(leerImporte('abc'), null);
+  assert.equal(leerImporte(''), null);
 });

@@ -11,23 +11,28 @@
 // Una sola casilla para los dos formularios (Cobros y la ficha de la clienta): dos copias de
 // un texto que decide si se entrega un plan acaban diciendo cosas distintas.
 
-export function CasillaRenovacion({ planNombre, marcada, onCambio }: {
+export function CasillaRenovacion({ planNombre, marcada, onCambio, desactivada }: {
   planNombre: string;
   marcada: boolean;
   onCambio: (marcada: boolean) => void;
+  /**
+   * Por qué no se puede marcar (esa cuota ya tiene una renovación pendiente: un índice
+   * único la rechazaría con un error genérico). Se enseña apagada y con el motivo.
+   */
+  desactivada?: string | null;
 }) {
   return (
-    <label className="flex items-start gap-2.5 rounded-lg border border-border px-3 py-2.5 text-xs text-foreground">
+    <label className={`flex items-start gap-2.5 rounded-lg border border-border px-3 py-2.5 text-xs text-foreground${desactivada ? ' opacity-70' : ''}`}>
       <input
         type="checkbox" className="mt-0.5 size-4 shrink-0 accent-primary"
-        checked={marcada}
+        checked={marcada && !desactivada}
+        disabled={!!desactivada}
         onChange={e => onCambio(e.target.checked)}
       />
       <span>
         <span className="font-semibold">Es la renovación de su plan ({planNombre})</span>
         <span className="mt-0.5 block text-muted-foreground">
-          Al cobrarlo se renueva el plan: se recarga el bono o se extiende la cuota. Déjalo sin marcar
-          si es otra cosa (un producto, una clase suelta…): entonces solo se cobra.
+          {desactivada ?? 'Al cobrarlo se renueva el plan: se recarga el bono o se extiende la cuota. Déjalo sin marcar si es otra cosa (un producto, una clase suelta…): entonces solo se cobra.'}
         </span>
       </span>
     </label>

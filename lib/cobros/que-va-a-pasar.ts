@@ -71,3 +71,11 @@ export function renovacionYaPendiente(
   if (!suscripcionId) return false;
   return recibos.some(r => r.suscripcionId === suscripcionId && r.esRenovacion === true && (r.estado === 'PENDIENTE' || r.estado === 'EN_CURSO'));
 }
+
+/** «12,5» o «12.50» → 12.5; `null` si no es un importe válido (positivo, como mucho 2 decimales). */
+export function leerImporte(texto: string): number | null {
+  const t = texto.trim().replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+  const n = Number(t);
+  return n > 0 ? n : null;
+}

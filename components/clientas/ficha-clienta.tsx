@@ -33,7 +33,7 @@ import { DerechosRgpdFicha } from '@/components/socios/derechos-rgpd-ficha';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { BotonDevolverRecibo } from '@/components/socios/boton-devolver-recibo';
 import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
-import { CasillaRenovacion } from '@/components/cobros/casilla-renovacion';
+import { DialogoNuevoCobro } from '@/components/cobros/dialogo-nuevo-cobro';
 import { MENSAJE_YA_ESTABA, textoLoteCobrado } from '@/lib/cobros/marcar-cobrado';
 import { BotonRectificarFactura } from '@/components/socios/boton-rectificar-factura';
 import { estadoReembolso } from '@/lib/billing/estado-reembolso';
@@ -230,7 +230,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     socios, suscripciones, planesTarifa, recibos, reservas, sesiones, plazasFijas,
     tiposClase, salas, instructores, notasInternas, valoracionesSocias,
     cargarFichaClienta,
-    updateSocio, deleteSocio, volverADarDeAlta, assignPlan, marcarCobrado, addRecibo, cobrarTodosPendientes,
+    updateSocio, deleteSocio, volverADarDeAlta, assignPlan, marcarCobrado, cobrarTodosPendientes,
     addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion, reactivarSuscripcion, cancelarSuscripcion,
     programarBajaSuscripcion,
     notasProgreso, addNotaProgreso,
@@ -370,7 +370,6 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     camposExtra: Record<string, string | number | boolean | null>;
   }>({ nombre: '', apellidos: '', email: '', telefono: '', nif: '', genero: '', camposExtra: {} });
   // `esRenovacion` sin marcar por defecto: un cobro suelto es una venta, no una renovación del plan.
-  const [reciboForm, setReciboForm] = useState({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()), esRenovacion: false });
 
   // ── Historial real de comunicaciones (comunicaciones_socio) ─────────────────
   // Antes esto era un useState en memoria que nunca se persistía — se perdía
@@ -798,22 +797,6 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     } finally {
       setCambiandoPlan(false);
     }
-  }
-
-  async function handleAddRecibo() {
-    const res = await addRecibo({
-      socioId: id,
-      suscripcionId: suscripcion?.id ?? null,
-      concepto: reciboForm.concepto.trim(),
-      importe: parseFloat(reciboForm.importe),
-      fechaVencimiento: reciboForm.fechaVencimiento,
-      // Al cobrarlo, el servidor solo entrega el plan si el recibo viene marcado como renovación.
-      esRenovacion: !!suscripcion && reciboForm.esRenovacion,
-    });
-    if (!res.ok) { setToast(res.error); return; }
-    setReciboForm({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()), esRenovacion: false });
-    setShowAddRecibo(false);
-    setToast('Cobro creado');
   }
 
   async function handleAiNote() {
@@ -2701,64 +2684,13 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         </DialogContent>
       </Dialog>
 
-      {/* Add recibo */}
-      <Dialog open={showAddRecibo && puedeCobrar} onOpenChange={open => !open && setShowAddRecibo(false)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-foreground">Nuevo cobro</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <FF label="Concepto">
-              <input
-                className={inputCls}
-                placeholder="Mensual Jul 2026"
-                value={reciboForm.concepto}
-                onChange={e => setReciboForm(f => ({ ...f, concepto: e.target.value }))}
-              />
-            </FF>
-            <div className="grid grid-cols-2 gap-4">
-              <FF label="Importe (€)">
-                <input
-                  type="number" min="0" step="0.01" className={inputCls}
-                  placeholder="85.00"
-                  value={reciboForm.importe}
-                  onChange={e => setReciboForm(f => ({ ...f, importe: e.target.value }))}
-                />
-              </FF>
-              <FF label="Vencimiento">
-                <input
-                  type="date" className={inputCls}
-                  value={reciboForm.fechaVencimiento}
-                  onChange={e => setReciboForm(f => ({ ...f, fechaVencimiento: e.target.value }))}
-                />
-              </FF>
-            </div>
-            {suscripcion && (
-              <CasillaRenovacion
-                planNombre={plan?.nombre ?? 'plan'}
-                marcada={reciboForm.esRenovacion}
-                onCambio={esRenovacion => setReciboForm(f => ({ ...f, esRenovacion }))}
-              />
-            )}
-          </div>
-          <div className="flex gap-3 mt-6">
-            <button onClick={() => setShowAddRecibo(false)} className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted">
-              Cancelar
-            </button>
-            <button
-              onClick={handleAddRecibo}
-              // Con trim, como el mismo guard en panel-pendientes: sin él un
-              // concepto de solo espacios habilitaba el botón, handleAddRecibo lo
-              // guardaba ya trimeado (vacío) y el email del cobro salía luego
-              // como "Pago confirmado — undefined".
-              disabled={!reciboForm.concepto.trim() || !reciboForm.importe}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 transition-colors"
-            >
-              Crear cobro
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Nuevo cobro: el mismo diálogo que Cobros, con la clienta ya elegida */}
+      <DialogoNuevoCobro
+        abierto={showAddRecibo && puedeCobrar}
+        onCerrar={() => setShowAddRecibo(false)}
+        avisos={{ ok: setToast, error: setToast }}
+        socioId={id}
+      />
 
       {/* Send message */}
       <Dialog open={showSendMessage} onOpenChange={open => !open && setShowSendMessage(false)}>
