@@ -3,6 +3,9 @@
 -- Responde «¿puede esta socia reservar esta clase, en qué estado entraría y quién la paga?» con un jsonb:
 --
 --   { "puede": bool, "codigo": null | 'ya-reservada' | 'limite-semanal' | …,   -- los códigos de lib/student/reserva-codigos.ts
+--     "detalle": null | 'LIMITE_SEMANAL' | 'SIN_ENTITLEMENT' | …,   -- el nombre de la excepción que lanza `reservar_plaza` en ese caso:
+--                                                                      -- es lo que el servidor traduce a `codigo`, y lo que permitirá
+--                                                                      -- a `reservar_plaza` rechazar con la MISMA decisión
 --     "estado": 'CONFIRMADA' | 'LISTA_ESPERA' | 'PENDIENTE_APROBACION' | null,
 --     "posicion_espera": int | null,
 --     "pagador": { "origen": 'recuperacion' | 'bono' | 'cuota' | 'ninguno', "suscripcion_id"?, "recuperacion_id"? },
@@ -62,10 +65,10 @@ declare
   v_pagador jsonb := jsonb_build_object('origen', 'ninguno');
 begin
   if not public.es_llamada_servicio() and p_studio_id is distinct from public.current_studio_id() then
-    return jsonb_build_object('puede', false, 'codigo', 'no-autorizado');
+    return jsonb_build_object('puede', false, 'codigo', 'no-autorizado', 'detalle', 'NO_AUTORIZADO');
   end if;
   if not exists (select 1 from public.socios as so where so.id = p_socio_id and so.studio_id = p_studio_id) then
-    return jsonb_build_object('puede', false, 'codigo', 'no-autorizado');
+    return jsonb_build_object('puede', false, 'codigo', 'no-autorizado', 'detalle', 'NO_AUTORIZADO');
   end if;
 
   select ss.inicio, ss.fin, ss.instructor_id, ss.sala_id, ss.tipo_clase_id
@@ -73,23 +76,23 @@ begin
     from public.sesiones as ss
    where ss.id = p_sesion_id and ss.studio_id = p_studio_id;
   if not found then
-    return jsonb_build_object('puede', false, 'codigo', 'sesion-no-encontrada');
+    return jsonb_build_object('puede', false, 'codigo', 'sesion-no-encontrada', 'detalle', 'SESION_NO_ENCONTRADA');
   end if;
 
   if public.fecha_en_cierre(p_studio_id, (v_inicio at time zone 'Europe/Madrid')::date) then
-    return jsonb_build_object('puede', false, 'codigo', 'estudio-cerrado');
+    return jsonb_build_object('puede', false, 'codigo', 'estudio-cerrado', 'detalle', 'ESTUDIO_CERRADO');
   end if;
 
   if not v_saltar_impago and public.current_rol() is null then
     select coalesce(st.bloquear_reserva_impago, false) into v_bloquea_impago
       from public.studios as st where st.id = p_studio_id;
     if v_bloquea_impago and public.socio_tiene_impago(p_studio_id, p_socio_id) then
-      return jsonb_build_object('puede', false, 'codigo', 'impago');
+      return jsonb_build_object('puede', false, 'codigo', 'impago', 'detalle', 'RESERVA_BLOQUEADA_IMPAGO');
     end if;
   end if;
 
   if public.current_rol() = 'INSTRUCTOR' and v_instructor_id is distinct from public.current_instructor_id() then
-    return jsonb_build_object('puede', false, 'codigo', 'no-autorizado');
+    return jsonb_build_object('puede', false, 'codigo', 'no-autorizado', 'detalle', 'NO_AUTORIZADO');
   end if;
 
   if v_tipo_clase_id is not null then
@@ -100,13 +103,13 @@ begin
       select 1 from public.socio_tipos_clase_autorizados as a
        where a.socio_id = p_socio_id and a.tipo_clase_id = v_tipo_clase_id and a.studio_id = p_studio_id
     ) then
-      return jsonb_build_object('puede', false, 'codigo', 'necesita-autorizacion');
+      return jsonb_build_object('puede', false, 'codigo', 'necesita-autorizacion', 'detalle', 'NECESITA_AUTORIZACION');
     end if;
   end if;
 
   if v_exigir_entitlement and v_tipo_clase_id is not null then
     if not public.socio_tiene_entitlement_activo(p_studio_id, p_socio_id, v_tipo_clase_id, current_date) then
-      return jsonb_build_object('puede', false, 'codigo', 'sin-plan');
+      return jsonb_build_object('puede', false, 'codigo', 'sin-plan', 'detalle', 'SIN_ENTITLEMENT');
     end if;
   end if;
 
@@ -115,22 +118,25 @@ begin
      where r.sesion_id = p_sesion_id and r.socio_id = p_socio_id
        and r.estado in ('CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA', 'PENDIENTE_APROBACION')
   ) then
-    return jsonb_build_object('puede', false, 'codigo', 'ya-reservada');
+    return jsonb_build_object('puede', false, 'codigo', 'ya-reservada', 'detalle', 'YA_RESERVADA');
   end if;
 
   if v_spot_id is not null then
     select true, sp.sala_id, coalesce(sp.activo, true) into v_spot_existe, v_spot_sala_id, v_spot_activo
       from public.spots as sp
      where sp.id = v_spot_id and sp.studio_id = p_studio_id;
-    if v_spot_existe is not true or v_spot_sala_id is distinct from v_sala_id or not v_spot_activo then
-      return jsonb_build_object('puede', false, 'codigo', 'spot-no-disponible');
+    if v_spot_existe is not true or v_spot_sala_id is distinct from v_sala_id then
+      return jsonb_build_object('puede', false, 'codigo', 'spot-no-disponible', 'detalle', 'SPOT_NO_PERTENECE_A_LA_SALA');
+    end if;
+    if not v_spot_activo then
+      return jsonb_build_object('puede', false, 'codigo', 'spot-no-disponible', 'detalle', 'SPOT_NO_DISPONIBLE');
     end if;
     select r.id into v_spot_ocupado
       from public.reservas as r
      where r.sesion_id = p_sesion_id and r.spot_id = v_spot_id and r.estado in ('CONFIRMADA', 'ASISTIDA')
      limit 1;
     if v_spot_ocupado is not null then
-      return jsonb_build_object('puede', false, 'codigo', 'spot-ocupado');
+      return jsonb_build_object('puede', false, 'codigo', 'spot-ocupado', 'detalle', 'SPOT_OCUPADO');
     end if;
   end if;
 
@@ -148,7 +154,7 @@ begin
       v_pos := null;
     else
       if not v_permite_espera then
-        return jsonb_build_object('puede', false, 'codigo', 'aforo-lleno');
+        return jsonb_build_object('puede', false, 'codigo', 'aforo-lleno', 'detalle', 'AFORO_LLENO_SIN_ESPERA');
       end if;
       select count(*) into v_espera
         from public.reservas as r
@@ -160,7 +166,7 @@ begin
 
   if v_estado in ('CONFIRMADA', 'PENDIENTE_APROBACION') and v_inicio is not null and v_fin is not null then
     if public.socio_tiene_conflicto_horario(p_studio_id, p_socio_id, p_sesion_id, v_inicio, v_fin) then
-      return jsonb_build_object('puede', false, 'codigo', 'conflicto-horario');
+      return jsonb_build_object('puede', false, 'codigo', 'conflicto-horario', 'detalle', 'CONFLICTO_HORARIO');
     end if;
   end if;
 
@@ -180,6 +186,7 @@ begin
         return jsonb_build_object(
           'puede', false,
           'codigo', case when v_excede_tipo then 'limite-semanal-actividad' else 'limite-semanal' end,
+          'detalle', case when v_excede_tipo then 'LIMITE_SEMANAL_ACTIVIDAD' else 'LIMITE_SEMANAL' end,
           'tope', jsonb_build_object('excede_total', v_excede_total, 'excede_tipo', v_excede_tipo)
         );
       end if;

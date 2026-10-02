@@ -74,3 +74,16 @@ test('un único pagador por reserva: recuperación, bono o cuota, nunca dos a la
   assert.ok(recuperacion > 0 && bono > recuperacion && cuota > bono);
   assert.match(CUERPO, /if v_excede_total or v_excede_tipo then[\s\S]*?v_pagador := jsonb_build_object\('origen', 'recuperacion'[\s\S]*?else\s+v_bono := public\.elegir_bono_consumible/);
 });
+
+test('⚠️ cada rechazo dice QUÉ excepción lanza reservar_plaza (`detalle`), y ese nombre es el que el servidor ya traduce', () => {
+  const rechazos = [...CUERPO.matchAll(/'puede', false, 'codigo', '([a-z-]+)'(, 'detalle', '([A-Z_]+)')?/g)];
+  assert.ok(rechazos.length >= 11, `solo se leen ${rechazos.length} rechazos`);
+  for (const [, codigo, , detalle] of rechazos) assert.ok(detalle, `el rechazo «${codigo}» no dice su excepción`);
+  const detalles = new Set([...CUERPO.matchAll(/'detalle', '([A-Z_]+)'/g)].map(m => m[1]));
+  // Los que `crearReservaPublica` traduce por mensaje: si cambia uno, el servidor dejaría de reconocerlo.
+  const admin = leer('lib/db/supabase-data-admin.ts');
+  for (const d of detalles) assert.ok(admin.includes(d), `«${d}» no lo traduce el servidor (lib/db/supabase-data-admin.ts)`);
+  // Los dos rechazos de sitio siguen siendo dos (mensajes distintos para la alumna).
+  assert.ok(detalles.has('SPOT_NO_PERTENECE_A_LA_SALA') && detalles.has('SPOT_NO_DISPONIBLE'));
+  assert.match(CUERPO, /'detalle', case when v_excede_tipo then 'LIMITE_SEMANAL_ACTIVIDAD' else 'LIMITE_SEMANAL' end/);
+});

@@ -43,7 +43,7 @@ function codigoDeError(mensaje: string): string {
 }
 
 interface Evaluacion {
-  puede: boolean; codigo: string | null; estado: string | null; posicion_espera: number | null;
+  puede: boolean; codigo: string | null; detalle?: string | null; estado: string | null; posicion_espera: number | null;
   pagador?: { origen: string; suscripcion_id?: string; recuperacion_id?: string };
 }
 
@@ -442,6 +442,9 @@ for (const escenario of escenarios) {
       if (!ev.puede) {
         assert.ok(error, `evaluar_reserva rechazó (${ev.codigo}) pero reservar_plaza aceptó`);
         assert.equal(codigoDeError(error.message), ev.codigo, `reservar_plaza rechazó por otra razón: ${error.message}`);
+        // Y la excepción es EXACTAMENTE la que evaluar_reserva anuncia (`detalle`): es lo que permitirá a reservar_plaza
+        // rechazar con la misma decisión sin cambiar lo que el servidor ve.
+        assert.ok(ev.detalle && error.message.includes(ev.detalle), `evaluar_reserva dice «${ev.detalle}» y reservar_plaza lanzó «${error.message}»`);
         return;
       }
       assert.ok(!error, `evaluar_reserva dijo que sí pero reservar_plaza rechazó: ${error?.message}`);
