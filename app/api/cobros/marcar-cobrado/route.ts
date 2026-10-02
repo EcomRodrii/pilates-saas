@@ -12,7 +12,12 @@ import {
   resultadoDeConfirmacion, resultadoDeExcepcion, resultadoNoCobrable, resultadoPenalizacionAnulada,
   type ResultadoReciboMarcado,
 } from '@/lib/cobros/marcar-cobrado';
+import Stripe from 'stripe';
 import { motivosParaNoSerRemesa } from '@/lib/billing/remesa-del-recibo';
+import {
+  MENSAJE_COBRO_EN_EL_DATAFONO, MENSAJE_PAGO_ONLINE_SIN_COMPROBAR, MENSAJE_YA_PAGADO_ONLINE,
+  cerrarPagoOnlineAntesDeCobrarAMano, type SesionesDeStripe,
+} from '@/lib/billing/pago-online-al-cobrar-a-mano';
 import { COLUMNAS_COBRO_EN_MARCHA } from '@/lib/billing/remesa-sepa-reglas';
 
 export const dynamic = 'force-dynamic';
@@ -122,6 +127,40 @@ export async function POST(req: NextRequest) {
       if (COLUMNAS_COBRO_EN_MARCHA.some(col => col !== 'stripe_payment_intent_id' && !!fila[col])) conCobroEnMarcha.add(fila.id as string);
     }
   }
+  // Uno a uno en el mostrador (también «Cobrar X €» de la ficha): lo del datáfono en
+  // marcha no se cobra, y un enlace de pago abierto se CIERRA en Stripe antes de
+  // cobrar, para que la clienta no pueda pagarlo también online. El lote ya deja
+  // fuera ambos; el banco no cobra en el mostrador.
+  const unoAUno = !peticion.lote && !porElBanco;
+  const pagoEnMarcha = new Map<string, { checkout: string | null; datafono: boolean }>();
+  let sinLeerPagoEnMarcha = false;
+  let sesionesStripe: SesionesDeStripe | null = null;
+  if (unoAUno) {
+    const { data, error: errPago } = await admin.from('recibos').select('id, checkout_session_id, cobro_mostrador_pi')
+      .eq('studio_id', sesion.studioId).in('id', peticion.reciboIds);
+    sinLeerPagoEnMarcha = !!errPago;
+    for (const fila of (data ?? []) as { id: string; checkout_session_id: string | null; cobro_mostrador_pi: string | null }[]) {
+      pagoEnMarcha.set(fila.id, { checkout: fila.checkout_session_id, datafono: !!fila.cobro_mostrador_pi });
+    }
+    if ([...pagoEnMarcha.values()].some(p => p.checkout)) {
+      const { data: est } = await admin.from('studios').select('stripe_account_id').eq('id', sesion.studioId).maybeSingle();
+      const cuenta = (est?.stripe_account_id as string | null) ?? null;
+      const clave = process.env.STRIPE_SECRET_KEY;
+      if (cuenta && clave) {
+        const stripe = new Stripe(clave, { apiVersion: '2026-06-24.dahlia', timeout: 8_000, maxNetworkRetries: 1 });
+        sesionesStripe = {
+          consultar: id => stripe.checkout.sessions.retrieve(id, undefined, { stripeAccount: cuenta }),
+          cerrar: id => stripe.checkout.sessions.expire(id, undefined, { stripeAccount: cuenta }),
+        };
+      } else {
+        Sentry.captureMessage('[cobros] cobro a mano con un enlace de pago abierto y sin Stripe para cerrarlo', {
+          level: 'warning', tags: { area: 'cobros', tipo: 'marcar-cobrado' },
+          extra: { studioId: sesion.studioId, conCuenta: !!cuenta, conClave: !!clave },
+        });
+      }
+    }
+  }
+
   const resultados: ResultadoReciboMarcado[] = [];
   for (const reciboId of peticion.reciboIds) {
     if (remesa && !remesa.ok) {
@@ -141,6 +180,26 @@ export async function POST(req: NextRequest) {
       resultados.push(resultadoNoCobrable(reciboId, MENSAJE_COBRO_EN_MARCHA_LOTE));
       continue;
     }
+    if (unoAUno) {
+      if (sinLeerPagoEnMarcha) {
+        resultados.push(resultadoNoCobrable(reciboId, 'No se ha podido comprobar si tiene un cobro en marcha. Inténtalo otra vez.'));
+        continue;
+      }
+      const enMarcha = pagoEnMarcha.get(reciboId);
+      if (enMarcha?.datafono) {
+        resultados.push(resultadoNoCobrable(reciboId, MENSAJE_COBRO_EN_EL_DATAFONO));
+        continue;
+      }
+      const online = await cerrarPagoOnlineAntesDeCobrarAMano(enMarcha?.checkout, sesionesStripe);
+      if (online.tipo === 'YA_PAGADO') {
+        resultados.push(resultadoNoCobrable(reciboId, MENSAJE_YA_PAGADO_ONLINE));
+        continue;
+      }
+      if (online.tipo === 'NO_SE_SABE') {
+        resultados.push(resultadoNoCobrable(reciboId, MENSAJE_PAGO_ONLINE_SIN_COMPROBAR));
+        continue;
+      }
+    }
     // La guardia de penalizaciones se lee JUSTO antes de cobrar cada recibo, no una vez al
     // principio: el lote va en serie (hasta ~20 s) y una penalización que alguien anula en
     // mitad no puede cobrarse con la lectura vieja. Solo lee para los `rec-penaliz-*`.
@@ -158,6 +217,7 @@ export async function POST(req: NextRequest) {
         metodo: porElBanco ? 'SEPA' : peticion.metodo,
         origen: porElBanco ? 'banco' : 'manual',
         sinCobroEnMarcha: peticion.lote && !porElBanco,
+        sinCobroDeMostrador: unoAUno,
         conFactura: peticion.conFactura,
         paymentIntentId: null,
         avisarSocia: false,

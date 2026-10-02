@@ -353,3 +353,18 @@ test('«Hacerle factura» solo en un cobro en efectivo de un recibo, en el mostr
   const ruta = readFileSync(join(import.meta.dirname, '../../app/api/cobros/marcar-cobrado/route.ts'), 'utf8');
   assert.match(ruta, /conFactura: peticion\.conFactura,/);
 });
+
+test('uno a uno en el mostrador: el datáfono en marcha no se cobra y el enlace de pago abierto se cierra ANTES de cobrar', () => {
+  const ruta = readFileSync(join(import.meta.dirname, '../../app/api/cobros/marcar-cobrado/route.ts'), 'utf8');
+  const cerrar = ruta.indexOf('await cerrarPagoOnlineAntesDeCobrarAMano(');
+  const cobrar = ruta.indexOf('await confirmarCobro(admin, {');
+  assert.ok(cerrar > 0 && cobrar > cerrar, 'el enlace abierto se cierra antes de cobrar');
+  assert.match(ruta, /const unoAUno = !peticion\.lote && !porElBanco;/);
+  assert.match(ruta, /if \(enMarcha\?\.datafono\) \{\s*resultados\.push\(resultadoNoCobrable\(reciboId, MENSAJE_COBRO_EN_EL_DATAFONO\)\);/);
+  assert.match(ruta, /online\.tipo === 'YA_PAGADO'/);
+  assert.match(ruta, /online\.tipo === 'NO_SE_SABE'/);
+  // Y en el propio UPDATE, por si el datáfono arranca entre la lectura y el cobro.
+  assert.match(ruta, /sinCobroDeMostrador: unoAUno,/);
+  const confirmar = readFileSync(join(import.meta.dirname, '../billing/confirmar-cobro.ts'), 'utf8');
+  assert.match(confirmar, /else if \(p\.sinCobroDeMostrador\) \{\s*consulta = consulta\.is\('cobro_mostrador_pi', null\);/);
+});

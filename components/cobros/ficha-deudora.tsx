@@ -48,9 +48,11 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
     && !datos.seCobraSoloEl(r)
     && datos.cuotaDe(r.suscripcionId)?.estado !== 'PAUSADA');
   const totalSinElla = cobrablesSinElla.reduce((t, r) => t + r.importe, 0);
-  // Lo que tiene un pago online abierto o un cobro en el datáfono no entra en «Cobrar
-  // X €»: cobrarlo a mano encima y que ella pague también ahí serían dos cobros.
-  const enMarcha = grupo.recibos.filter(r => !!r.checkoutSessionId || !!r.cobroMostradorPi);
+  // Lo que se está cobrando en el datáfono no entra en «Cobrar X €». Un enlace de pago
+  // abierto sí: el servidor lo cierra en Stripe antes de cobrar, para que ella no
+  // pueda pagarlo también online (y si ya lo pagó, no lo cobra).
+  const enMarcha = grupo.recibos.filter(r => !!r.cobroMostradorPi);
+  const conEnlaceAbierto = grupo.recibos.some(r => !!r.checkoutSessionId && !r.cobroMostradorPi);
   const aCobrar = grupo.recibos.filter(r => !enMarcha.includes(r));
   const totalACobrar = aCobrar.reduce((t, r) => t + r.importe, 0);
 
@@ -155,8 +157,14 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
           {enMarcha.length > 0 && (
             <p className="-mt-1 flex items-start gap-1.5 text-[12px] text-foreground">
               <AlertTriangle size={13} className="mt-0.5 shrink-0 text-warning" aria-hidden />
-              {enMarcha.length === 1 ? '1 recibo tiene' : `${enMarcha.length} recibos tienen`} un pago online abierto o un cobro en el datáfono
+              {enMarcha.length === 1 ? '1 recibo se está' : `${enMarcha.length} recibos se están`} cobrando en el datáfono
               {' '}(<CifraPrivada inline>{formatEuro(enMarcha.reduce((t, r) => t + r.importe, 0))}</CifraPrivada>) y no {enMarcha.length === 1 ? 'entra' : 'entran'}: cobrarlo aquí también serían dos cobros.
+            </p>
+          )}
+          {conEnlaceAbierto && (
+            <p className="-mt-1 flex items-start gap-1.5 text-[12px] text-muted-foreground">
+              <AlertTriangle size={13} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+              Tiene abierto un enlace de pago: al cobrarlo aquí se cierra, para que no pueda pagarlo también online.
             </p>
           )}
           {medio?.estado === 'LISTO' && medio.online && cobrablesSinElla.length > 0 && (
