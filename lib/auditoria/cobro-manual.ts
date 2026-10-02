@@ -162,6 +162,8 @@ export async function anotarCobroMarcadoAMano(
     reciboId: string;
     /** Lo que devolvió `leerReciboAntesDeCobrar`. */
     antes: Fila | null;
+    /** «El banco lo ha cobrado» (el cierre de una remesa), no un cobro en el mostrador. */
+    porElBanco?: boolean;
   },
   registrar: RegistrarAuditoria = registrarAuditoriaServidor,
   informar: Informar = avisarAuditoria,
@@ -188,7 +190,7 @@ export async function anotarCobroMarcadoAMano(
       antes: antesCobro,
       despues: despuesCobro,
       contexto: {
-        accion: 'COBRO_MARCADO_A_MANO',
+        accion: p.porElBanco ? 'COBRO_CONFIRMADO_POR_BANCO' : 'COBRO_MARCADO_A_MANO',
         concepto: (despues.concepto as string | null) ?? null,
         importe: Number(despues.importe) || null,
         origen: ORIGEN_MARCAR_COBRADO,

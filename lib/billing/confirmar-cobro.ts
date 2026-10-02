@@ -57,6 +57,7 @@ import {
   type FilaReciboSinCambios, type OrigenCobro, type PasoEfecto,
 } from './cobro-confirmado-reglas.ts';
 
+import { COLUMNAS_COBRO_EN_MARCHA } from './remesa-sepa-reglas.ts';
 export type { OrigenCobro } from './cobro-confirmado-reglas.ts';
 
 // Fuera del runtime de Next (`node --test`) el paquete no expone
@@ -372,6 +373,9 @@ export async function confirmarCobro(
   // DEVUELTO y EN_CURSO atados al cargo que llega (ver `filtroCargoEnCas`).
   const filtroCargo = filtroCargoEnCas(p.paymentIntentId);
   if (filtroCargo) consulta = consulta.or(filtroCargo);
+  // «El banco lo ha cobrado» solo cierra una remesa: sin ningún cobro de Stripe
+  // en marcha, en el propio UPDATE (no en una lectura previa con carrera).
+  if (p.origen === 'banco') for (const col of COLUMNAS_COBRO_EN_MARCHA) consulta = consulta.is(col, null);
 
   // `metodo_cobro` vuelve del MISMO UPDATE: con `metodo: null` es el que ya
   // tenía el recibo, sin una lectura aparte que pudiera cruzarse con otra.

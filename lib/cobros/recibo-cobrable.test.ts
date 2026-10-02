@@ -57,8 +57,10 @@ test('«marcar cobrado» a mano acepta los tres estados de deuda', () => {
   assert.deepEqual([...estadosAdmitidosPorOrigen('manual')], [...COBRABLES],
     'Lo que el panel ofrece cobrar y lo que el servidor deja cobrar a mano tienen que ser lo mismo.');
   const ruta = sinComentarios(leer('app/api/cobros/marcar-cobrado/route.ts'));
-  assert.match(ruta, /origen: 'manual'/,
+  assert.match(ruta, /origen: porElBanco \? 'banco' : 'manual'/,
     'Con otro origen la ruta admitiría EN_CURSO (cargo en vuelo) o dejaría fuera DEVUELTO.');
+  // El único otro origen, «El banco lo ha cobrado», solo cierra lo que está en el banco.
+  assert.deepEqual(estadosAdmitidosPorOrigen('banco'), ['EN_CURSO']);
 });
 
 test('el cobro en lote va por la misma ruta que el individual', () => {

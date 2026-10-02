@@ -1072,12 +1072,12 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     grant de tabla: por eso es REVOKE de tabla + GRANT por columnas, en ese orden.
     `aplicar_politica_recibos_al_cancelar_cuota` es SECURITY DEFINER por esto (era lo único
     que escribía recibos con el rol de quien cancela una cuota). El trigger cierra también
-    DEVUELTO: no se crea ni se pasa a devuelto desde el navegador, y de un devuelto solo se
-    sale con «Reintentar» (→ EN_CURSO) si lo devolvió el BANCO (mismo criterio que
+    DEVUELTO: no se crea ni se pasa a devuelto desde el navegador, y de un devuelto el
+    navegador solo puede salir a EN_CURSO si lo devolvió el BANCO (mismo criterio que
     `esReciboCobrable`); uno reembolsado por Stripe o por la caja no se reabre (la socia
-    volvería a pagarlo). ⚠️ Límite conocido: una devolución MANUAL de un cobro en efectivo o
-    transferencia deja los mismos campos que un retorno bancario y sigue pudiendo
-    reintentarse; cerrarlo es decidir qué escribe `marcar-devuelto`. Y un recibo NACE
+    volvería a pagarlo). Esa salida la usaba el «Reintentar» del panel, que desde el
+    2-oct va por el servidor (→ PENDIENTE): queda sin uso y se puede cerrar en el
+    trigger. Y un recibo NACE
     pendiente desde el navegador, y un EN_CURSO con un cobro en vuelo (cargo, sesión de pago
     o reintento programado) no vuelve a pendiente a mano: cambiaría la clave de idempotencia
     del siguiente cobro.
@@ -1091,6 +1091,24 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     él en vez de crear otro. Si el recibo que ya había no cuadra (otro importe, anulado,
     devuelto) no se cobra ni se marca la cita pagada: se manda a revisarlo. Lo que se
     cobra una vez por motivo lleva el motivo en el id (`rec-penaliz-…`, `rec-renov-…`).
+  - **Dinero que sale: dos hechos, dos dueños** (2-oct-2026, decisión del fundador;
+    regla compartida pantalla/servidor en `lib/billing/devolucion-reglas.ts`).
+    «Le he devuelto el dinero» es un REEMBOLSO: DEVUELTO con `importe_devuelto =
+    importe` en el MISMO UPDATE, ya no se debe (`lib/billing/reembolso-manual.ts`:
+    devolución `manual:<recibo>`, penalización REEMBOLSADA, créditos, SALIDA de caja
+    `mov-dev-<recibo>` y libro). «El banco lo devolvió» es DEUDA: DEVUELTO con 0
+    devuelto (`marcarReciboDevuelto`), y solo para lo que un banco puede devolver
+    (tarjeta, SEPA o sin método): el efectivo, el Bizum y la transferencia los rechaza
+    el servidor. Lo que entró por Stripe no usa ninguno: se devuelve por Stripe.
+    ⚠️ Antes un solo «Devolver» escribía siempre el segundo, y una devolución en
+    mano dejaba a la clienta debiendo y bloqueada por impago.
+  - **Lo que está en el banco tiene salida.** Una remesa deja EN_CURSO sin cargo de
+    Stripe; lo cierra una persona: «El banco lo ha cobrado» (`confirmarCobro`, origen
+    `banco`: SOLO EN_CURSO y con `COLUMNAS_COBRO_EN_MARCHA` a null en el propio
+    UPDATE, método SEPA, sin caja) o «El banco lo devolvió» (`marcarReciboDevuelto`
+    desde EN_CURSO, mismas guardas). «Reintentar por el banco» (`reintentarPorElBanco`)
+    lo devuelve a PENDIENTE para la próxima remesa —antes el navegador lo ponía
+    EN_CURSO sin mandar nada—, y solo con domiciliaciones y mandato VIGENTE.
 - **De serie ≠ personalizable.** Recordatorio de clase, confirmación, lista de
   espera, bono agotado, reintento de cobro, valoración y búsqueda de sustituta son
   producto, no reglas. `CLASE_MANANA` ya no se ofrece (duplicaba el recordatorio

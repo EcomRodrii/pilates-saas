@@ -12,7 +12,7 @@ import {
   Clock, Activity,
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
-import { cn, inicioDeSemana, finDeSemana, capitalizarPrimera, hoyEnEstudio } from '@/lib/utils';
+import { cn, inicioDeSemana, finDeSemana, capitalizarPrimera, hoyEnEstudio, formatEuro } from '@/lib/utils';
 import { importeIngresado, mesAnterior, aCentimos } from '@/lib/billing/situacion-recibo';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
@@ -543,6 +543,11 @@ export default function Dashboard() {
   );
 
   const pendientesTotal = useMemo(() => recibos.filter(r => r.estado === 'PENDIENTE').length, [recibos]);
+  // Lo que cobra «Cobrar todos»: TODOS los pendientes del estudio, no los 5 que se ven.
+  const pendientesImporte = useMemo(
+    () => recibos.reduce((t, r) => (r.estado === 'PENDIENTE' ? t + r.importe : t), 0),
+    [recibos],
+  );
 
   // automationLogs es un log de auditoría acumulativo (motor de notificaciones);
   // estos filtros recorrían el array completo en cada render del Dashboard,
@@ -1013,29 +1018,23 @@ export default function Dashboard() {
                     </span>
                   </div>
                   {pendientes.length > 1 && (
-                    // `cobrando` (auditoría 2026-09-21): el botón no tenía ni
-                    // `disabled` ni estado de carga. NO duplicaba el cobro —
-                    // `dbUpdateRecibosBatch` exige `estado = 'PENDIENTE'` en el
-                    // propio UPDATE y solo factura los ids que cambió—, pero la
-                    // operación sella facturas y renueva suscripciones EN SERIE:
-                    // con 40 recibos son varios segundos sin ninguna señal, y lo
-                    // normal es volver a pulsar creyendo que no ha funcionado.
-                    <button
-                      type="button"
-                      disabled={cobrandoTodos}
-                      onClick={() => {
+                    // Pregunta cómo se ha cobrado, y eso es también la confirmación
+                    // (2-oct-2026): antes un toque cobraba TODO lo pendiente del
+                    // estudio —no solo los 5 que se ven— sin método, así que nada
+                    // entraba en la caja ni en el desglose. Mismo botón que la ficha.
+                    <BotonCobrarConMetodo
+                      detalle={<>Todo lo pendiente del estudio: {pendientesTotal} {pendientesTotal === 1 ? 'recibo' : 'recibos'} — <span className="font-semibold text-foreground">{formatEuro(pendientesImporte)}</span></>}
+                      onCobrar={metodo => {
                         if (cobrandoTodos) return;
                         setCobrandoTodos(true);
-                        void cobrarTodosPendientes()
-                          .then(res => {
-                            showToast(res.ok ? textoLoteCobrado(res, res.saltados) : res.error);
-                          })
+                        return cobrarTodosPendientes(undefined, metodo)
+                          .then(res => { showToast(res.ok ? textoLoteCobrado(res, res.saltados) : res.error); })
                           .finally(() => setCobrandoTodos(false));
                       }}
                       className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <Zap size={11} /> {cobrandoTodos ? 'Cobrando…' : 'Cobrar todos'}
-                    </button>
+                    </BotonCobrarConMetodo>
                   )}
                 </div>
                 <div className="divide-y divide-muted">

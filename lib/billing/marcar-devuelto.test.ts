@@ -2,7 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cobroEntroPorStripe, marcarReciboDevuelto, TEXTO_COBRO_POR_STRIPE } from './marcar-devuelto.ts';
+import {
+  cobroEntroPorStripe, marcarReciboDevuelto, reintentarPorElBanco, TEXTO_COBRO_EN_MARCHA, TEXTO_COBRO_POR_STRIPE, TEXTO_RECIBO_CAMBIADO,
+} from './marcar-devuelto.ts';
+import { TEXTO_NO_LO_DEVUELVE_EL_BANCO } from './devolucion-reglas.ts';
 
 // «Marcar devuelto» de Cobros: el recibo pasa a DEVUELTO por servidor y, si era
 // el de una penalización, la penalización se pone al día con su recibo
@@ -18,7 +21,8 @@ interface Opciones {
   /** Recibo antes de la llamada; `null` = no existe en este estudio. */
   recibo: {
     estado: string; fecha_devolucion?: string | null; stripe_payment_intent_id?: string | null;
-    metodo_cobro?: string | null; sepa_estado?: string | null;
+    metodo_cobro?: string | null; sepa_estado?: string | null; importe_devuelto?: number | null;
+    checkout_session_id?: string | null; cobro_mostrador_pi?: string | null; proximo_reintento?: string | null;
   } | null;
   errorLectura?: boolean;
   errorUpdate?: boolean;
@@ -38,6 +42,7 @@ function montar(o: Opciones) {
         select() { return c; },
         update(fila: Fila) { filaUpdate = fila; return c; },
         eq(campo: string, valor: unknown) { filtros[campo] = valor; return c; },
+        is(campo: string, valor: unknown) { filtros[`is:${campo}`] = valor; return c; },
         maybeSingle() {
           if (filaUpdate) {
             updates.push({ fila: filaUpdate, filtros });
@@ -65,9 +70,10 @@ const P = { studioId: 'studio-1', reciboId: 'rec-penaliz-pen-1', ahoraISO: '2026
 test('recibo COBRADO a mano (sin Stripe) de una penalización: DEVUELTO con CAS sobre el estado leído, sin reintento programado, y la penalización se pone al día', async () => {
   const m = montar({ recibo: { estado: 'COBRADO', stripe_payment_intent_id: null } });
   const r = await marcarReciboDevuelto(m.admin, P, m.seguir);
-  assert.deepEqual(r, { ok: true, fechaDevolucion: P.ahoraISO, yaEstaba: false });
+  // `fecha_devolucion` es `date`: el día en el estudio.
+  assert.deepEqual(r, { ok: true, fechaDevolucion: '2026-09-15', yaEstaba: false });
   assert.equal(m.updates.length, 1);
-  assert.deepEqual(m.updates[0].fila, { estado: 'DEVUELTO', fecha_devolucion: P.ahoraISO, proximo_reintento: null });
+  assert.deepEqual(m.updates[0].fila, { estado: 'DEVUELTO', fecha_devolucion: '2026-09-15', proximo_reintento: null });
   assert.equal(m.updates[0].filtros.studio_id, 'studio-1', 'acotado al estudio de la sesión');
   assert.equal(m.updates[0].filtros.estado, 'COBRADO', 'compare-and-set sobre lo leído');
   assert.deepEqual(m.seguidos, [{ studioId: 'studio-1', reciboId: P.reciboId }]);
@@ -84,10 +90,26 @@ test('PENDIENTE y FALLIDO también se pueden marcar devueltos', async () => {
   }
 });
 
-test('⚠️ COBRADO con id de Stripe pero sin dinero por Stripe (adeudo fallido y pagado en efectivo): SÍ se puede devolver', async () => {
+test('⚠️ el efectivo, el Bizum y la transferencia no los devuelve ningún banco: 409 y remite a «Le he devuelto el dinero»', async () => {
+  // Antes «Devolver» un cobro en efectivo lo dejaba DEVUELTO con 0 devuelto: deuda,
+  // reservas bloqueadas por impago y «Cobrar» otra vez en la fila.
   for (const recibo of [
+    { estado: 'COBRADO', metodo_cobro: 'EFECTIVO' },
+    { estado: 'COBRADO', metodo_cobro: 'BIZUM' },
     { estado: 'COBRADO', stripe_payment_intent_id: 'pi_1', metodo_cobro: 'EFECTIVO', sepa_estado: 'failed' },
     { estado: 'COBRADO', stripe_payment_intent_id: 'pi_1', metodo_cobro: 'TRANSFERENCIA', sepa_estado: null },
+  ]) {
+    const m = montar({ recibo });
+    const r = await marcarReciboDevuelto(m.admin, P, m.seguir);
+    assert.deepEqual(r, { ok: false, http: 409, error: TEXTO_NO_LO_DEVUELVE_EL_BANCO }, JSON.stringify(recibo));
+    assert.equal(m.updates.length + m.seguidos.length, 0, JSON.stringify(recibo));
+  }
+});
+
+test('lo que sí devuelve un banco: la tarjeta del datáfono, un adeudo que falló y se cobró luego, o sin método', async () => {
+  for (const recibo of [
+    { estado: 'COBRADO', metodo_cobro: 'TARJETA' },
+    { estado: 'COBRADO', metodo_cobro: null },
     { estado: 'COBRADO', stripe_payment_intent_id: 'pi_1', metodo_cobro: 'SEPA', sepa_estado: 'failed' },
   ]) {
     const m = montar({ recibo });
@@ -95,6 +117,27 @@ test('⚠️ COBRADO con id de Stripe pero sin dinero por Stripe (adeudo fallido
     assert.equal(r.ok, true, JSON.stringify(recibo));
     assert.equal(m.seguidos.length, 1, JSON.stringify(recibo));
   }
+});
+
+test('un cobro con algo ya devuelto no se da por devuelto por el banco', async () => {
+  const m = montar({ recibo: { estado: 'COBRADO', metodo_cobro: 'TARJETA', importe_devuelto: 10 } });
+  const r = await marcarReciboDevuelto(m.admin, P, m.seguir);
+  assert.equal(!r.ok && r.http, 409);
+  assert.equal(m.updates.length, 0);
+});
+
+test('`desde`: si el recibo ya no está como lo vio quien pulsó, no se toca', async () => {
+  const m = montar({ recibo: { estado: 'COBRADO', metodo_cobro: 'TARJETA' } });
+  const r = await marcarReciboDevuelto(m.admin, { ...P, desde: 'PENDIENTE' }, m.seguir);
+  assert.deepEqual(r, { ok: false, http: 409, error: TEXTO_RECIBO_CAMBIADO });
+  assert.equal(m.updates.length, 0);
+});
+
+test('la fecha de devolución es la del estudio: a las 00:30 de Madrid es ya el día nuevo', async () => {
+  const m = montar({ recibo: { estado: 'PENDIENTE' } });
+  const r = await marcarReciboDevuelto(m.admin, { ...P, ahoraISO: '2026-09-14T22:30:00.000Z' }, m.seguir);
+  assert.deepEqual(r, { ok: true, fechaDevolucion: '2026-09-15', yaEstaba: false });
+  assert.equal(m.updates[0].fila.fecha_devolucion, '2026-09-15');
 });
 
 test('qué cuenta como «entró por Stripe»', () => {
@@ -124,12 +167,23 @@ test('⚠️ COBRADO por Stripe: 409 y remite al reembolso; ni recibo ni penaliz
   assert.equal(m.seguidos.length, 0);
 });
 
-test('EN_CURSO: 409, hay un cobro saliendo', async () => {
+test('EN_CURSO con un cobro de Stripe en marcha: 409, lo cierra su webhook', async () => {
+  for (const extra of [{ stripe_payment_intent_id: 'pi_1' }, { checkout_session_id: 'cs_1' }, { cobro_mostrador_pi: 'pi_2' }, { proximo_reintento: '2026-09-20' }]) {
+    const m = montar({ recibo: { estado: 'EN_CURSO', ...extra } });
+    const r = await marcarReciboDevuelto(m.admin, P, m.seguir);
+    assert.deepEqual(r, { ok: false, http: 409, error: TEXTO_COBRO_EN_MARCHA }, JSON.stringify(extra));
+    assert.equal(m.updates.length + m.seguidos.length, 0);
+  }
+});
+
+test('EN_CURSO de una remesa (sin cobro de Stripe): «El banco lo devolvió», sin cobro en marcha también en el UPDATE', async () => {
   const m = montar({ recibo: { estado: 'EN_CURSO' } });
-  const r = await marcarReciboDevuelto(m.admin, P, m.seguir);
-  assert.equal(!r.ok && r.http, 409);
-  assert.equal(m.updates.length, 0);
-  assert.equal(m.seguidos.length, 0);
+  const r = await marcarReciboDevuelto(m.admin, { ...P, desde: 'EN_CURSO' }, m.seguir);
+  assert.equal(r.ok, true);
+  assert.equal(m.updates[0].filtros.estado, 'EN_CURSO');
+  for (const col of ['proximo_reintento', 'stripe_payment_intent_id', 'checkout_session_id', 'cobro_mostrador_pi']) {
+    assert.equal(m.updates[0].filtros[`is:${col}`], null, `${col} a null en el propio UPDATE`);
+  }
 });
 
 test('inexistente o de otro estudio: 404; lectura con error: 500. Sin tocar nada', async () => {
@@ -202,7 +256,8 @@ test('créditos: marcar devuelto pide revertirlos, también si ya estaba DEVUELT
 test('créditos: si el recibo no llega a DEVUELTO (Stripe, EN_CURSO, carrera, error), no se tocan', async () => {
   const casos: Opciones[] = [
     { recibo: { estado: 'COBRADO', stripe_payment_intent_id: 'pi_1', metodo_cobro: 'TARJETA' } },
-    { recibo: { estado: 'EN_CURSO' } },
+    { recibo: { estado: 'EN_CURSO', stripe_payment_intent_id: 'pi_1' } },
+    { recibo: { estado: 'COBRADO', metodo_cobro: 'EFECTIVO' } },
     { recibo: { estado: 'COBRADO' }, cambiaEntreMedias: true },
     { recibo: { estado: 'COBRADO' }, errorUpdate: true },
     { recibo: null },
@@ -268,4 +323,85 @@ test('libro: la ruta pasa como actor la SESIÓN, no lo que diga el cuerpo', () =
   const ruta = leer('app/api/cobros/marcar-devuelto/route.ts');
   assert.match(ruta, /actor:\s*\{\s*userId:\s*sesion\.userId,\s*rol:\s*sesion\.rol\s*\}/);
   assert.doesNotMatch(ruta, /body\.(userId|actor|rol)/);
+});
+
+// ── «Reintentar por el banco» ───────────────────────────────────────────────
+// Antes el panel ponía el recibo EN_CURSO («Enviado al banco») sin mandar nada a
+// ningún banco, y ahí se quedaba. Ahora vuelve a PENDIENTE y lo recoge la remesa.
+
+function montarReintento(o: {
+  recibo: Fila | null;
+  estudio?: Fila | null;
+  mandatos?: Fila[];
+  noCasa?: boolean;
+}) {
+  const updates: { fila: Fila; filtros: Record<string, unknown> }[] = [];
+  const admin = {
+    from(tabla: string) {
+      const filtros: Record<string, unknown> = {};
+      let filaUpdate: Fila | null = null;
+      const c = {
+        select() { return c; },
+        update(fila: Fila) { filaUpdate = fila; return c; },
+        eq(campo: string, valor: unknown) { filtros[campo] = valor; return c; },
+        is(campo: string, valor: unknown) { filtros[`is:${campo}`] = valor; return c; },
+        limit() { return Promise.resolve({ data: tabla === 'mandatos_sepa' ? (o.mandatos ?? []) : [], error: null }); },
+        maybeSingle() {
+          if (filaUpdate) {
+            updates.push({ fila: filaUpdate, filtros });
+            return Promise.resolve({ data: o.noCasa ? null : { id: 'x' }, error: null });
+          }
+          if (tabla === 'studios') return Promise.resolve({ data: o.estudio === undefined ? { sepa_acreedor_id: 'ES00', sepa_iban: 'ES12', sepa_titular: 'Estudio' } : o.estudio, error: null });
+          return Promise.resolve({ data: o.recibo, error: null });
+        },
+      };
+      return c;
+    },
+  };
+  const entradas: Array<Record<string, unknown>> = [];
+  const registrar = async (_a: unknown, e: Record<string, unknown>) => { entradas.push(e); };
+  return { admin: admin as never, updates, entradas, registrar: registrar as never };
+}
+
+const DEVUELTO_POR_EL_BANCO = { estado: 'DEVUELTO', importe: 45, importe_devuelto: 0, reembolso_stripe_id: null, reembolso_solicitado_en: null, socio_id: 'soc-1', intentos_reintento: 1, concepto: 'Mensual' };
+const PR = { studioId: 'studio-1', reciboId: 'rec-1', actor: ACTOR };
+
+test('reintentar por el banco: vuelve a PENDIENTE para la próxima remesa, con compare-and-set y su entrada en el libro', async () => {
+  const m = montarReintento({ recibo: DEVUELTO_POR_EL_BANCO, mandatos: [{ id: 'm-1' }] });
+  const r = await reintentarPorElBanco(m.admin, PR, m.registrar);
+  assert.deepEqual(r, { ok: true, intentosReintento: 2 });
+  assert.deepEqual(m.updates[0].fila, { estado: 'PENDIENTE', intentos_reintento: 2, proximo_reintento: null }, 'PENDIENTE, nunca EN_CURSO sin nada en el banco');
+  assert.equal(m.updates[0].filtros.estado, 'DEVUELTO');
+  assert.equal(m.updates[0].filtros.intentos_reintento, 1);
+  assert.equal(m.updates[0].filtros.importe_devuelto, 0);
+  assert.equal(m.entradas.length, 1);
+  assert.equal((m.entradas[0].contexto as Record<string, unknown>).accion, 'RECIBO_REINTENTADO_POR_BANCO');
+});
+
+test('reintentar por el banco: sin domiciliaciones o sin mandato vigente no entraría en la remesa, y se dice', async () => {
+  const sinEstudio = montarReintento({ recibo: DEVUELTO_POR_EL_BANCO, estudio: { sepa_acreedor_id: null, sepa_iban: null, sepa_titular: null }, mandatos: [{ id: 'm-1' }] });
+  assert.equal((r => !r.ok && r.http)(await reintentarPorElBanco(sinEstudio.admin, PR, sinEstudio.registrar)), 409);
+  const sinMandato = montarReintento({ recibo: DEVUELTO_POR_EL_BANCO, mandatos: [] });
+  assert.equal((r => !r.ok && r.http)(await reintentarPorElBanco(sinMandato.admin, PR, sinMandato.registrar)), 409);
+  assert.equal(sinEstudio.updates.length + sinMandato.updates.length, 0);
+});
+
+test('reintentar por el banco: un reembolso (dinero que el estudio devolvió) nunca se reintenta', async () => {
+  for (const recibo of [
+    { ...DEVUELTO_POR_EL_BANCO, importe_devuelto: 45 },
+    { ...DEVUELTO_POR_EL_BANCO, reembolso_stripe_id: 're_1' },
+    { ...DEVUELTO_POR_EL_BANCO, estado: 'COBRADO' },
+  ]) {
+    const m = montarReintento({ recibo, mandatos: [{ id: 'm-1' }] });
+    const r = await reintentarPorElBanco(m.admin, PR, m.registrar);
+    assert.equal(!r.ok && r.http, 409, JSON.stringify(recibo));
+    assert.equal(m.updates.length + m.entradas.length, 0);
+  }
+});
+
+test('reintentar por el banco: si el recibo cambió entre medias, 409 y sin entrada en el libro', async () => {
+  const m = montarReintento({ recibo: DEVUELTO_POR_EL_BANCO, mandatos: [{ id: 'm-1' }], noCasa: true });
+  const r = await reintentarPorElBanco(m.admin, PR, m.registrar);
+  assert.deepEqual(r, { ok: false, http: 409, error: TEXTO_RECIBO_CAMBIADO });
+  assert.equal(m.entradas.length, 0);
 });

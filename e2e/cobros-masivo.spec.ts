@@ -66,7 +66,7 @@ interface Contadores {
 async function montarCobros(
   page: Page,
   suscripciones: unknown[] = SUSCRIPCIONES,
-  opts: { rechazar?: boolean } = {},
+  opts: { rechazar?: boolean; recibos?: unknown[] } = {},
 ): Promise<Contadores> {
   const c: Contadores = { cobros: [], escriturasDirectas: 0 };
 
@@ -111,7 +111,7 @@ async function montarCobros(
       c.escriturasDirectas++;
       return json(route, { message: 'el panel no debería escribir recibos directamente' }, 400);
     }
-    return json(route, RECIBOS);
+    return json(route, opts.recibos ?? RECIBOS);
   });
 
   await page.goto('/cobros');
@@ -158,10 +158,14 @@ test.describe('Cobrar varias a la vez', () => {
     await dialogo.getByRole('button', { name: /^Marcar todas/ }).click();
     await expect(dialogo).toContainText('2 recibos seleccionados');
 
+    // Sin método no se sigue: el cobro no entraría en la caja ni en el desglose.
+    await expect(dialogo.getByRole('button', { name: /^Continuar/ })).toBeDisabled();
+    await dialogo.getByRole('button', { name: 'Tarjeta', exact: true }).click();
     await dialogo.getByRole('button', { name: /^Continuar/ }).click();
 
     // Dice exactamente qué va a pasar, incluido lo que no se puede deshacer.
     await expect(dialogo).toContainText('Vas a cobrar 2 recibos');
+    await expect(dialogo).toContainText('Te han pagado con tarjeta');
     await expect(dialogo).toContainText('factura con número fiscal');
     await expect(dialogo).toContainText('2 suscripciones');
     await expect(dialogo).toContainText('Esto no se puede deshacer');
@@ -208,6 +212,7 @@ test.describe('Cobrar varias a la vez', () => {
     await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
     const dialogo = page.getByRole('dialog');
     await dialogo.getByRole('button', { name: /^Marcar todas/ }).click();
+    await dialogo.getByRole('button', { name: 'Efectivo', exact: true }).click();
     await dialogo.getByRole('button', { name: /^Continuar/ }).click();
     await dialogo.getByRole('button', { name: /^Sí, cobrar/ }).click();
 
@@ -230,15 +235,37 @@ test.describe('Cobrar varias a la vez', () => {
     await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
     const dialogo = page.getByRole('dialog');
     await dialogo.getByRole('button', { name: /^Marcar todas/ }).click();
+    await dialogo.getByRole('button', { name: 'Bizum', exact: true }).click();
     await dialogo.getByRole('button', { name: /^Continuar/ }).click();
     await dialogo.getByRole('button', { name: /^Sí, cobrar/ }).click();
 
     await expect(dialogo).toContainText('2 cobros guardados', { timeout: 15_000 });
+    // Con el método elegido: así entra en la caja y en el desglose por método.
+    expect(c.cobros.every(x => x.metodo === 'BIZUM'), JSON.stringify(c.cobros)).toBe(true);
     await expect(dialogo).not.toContainText('no se han podido guardar');
     // Se pidió al servidor, con los dos recibos y sin repetir ninguno.
     expect(c.cobros.length).toBeGreaterThan(0);
     expect(c.cobros.flatMap(x => x.reciboIds).sort()).toEqual(['rec-1', 'rec-2']);
     // Y el navegador no escribió el recibo por su cuenta.
     expect(c.escriturasDirectas).toBe(0);
+  });
+
+  // Antes solo entraban los PENDIENTE de clientas con un plan ACTIVO.
+  test('entra todo lo que se debe —también lo rechazado y lo devuelto por el banco—, y no lo que está en el banco ni lo que se reintenta solo', async ({ page }) => {
+    const base = { studio_id: STUDIO_ID, fecha_vencimiento: '2026-07-20', fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0, metodo_cobro: null, sepa_estado: null };
+    await montarCobros(page, [], { recibos: [
+      { ...base, id: 'rec-suelta', socio_id: 's1', suscripcion_id: null, concepto: 'Clase suelta', importe: 15, estado: 'PENDIENTE' },
+      { ...base, id: 'rec-fallido', socio_id: 's2', suscripcion_id: null, concepto: 'Mensual — junio', importe: 60, estado: 'FALLIDO' },
+      { ...base, id: 'rec-banco', socio_id: 's2', suscripcion_id: null, concepto: 'Mensual — mayo', importe: 60, estado: 'DEVUELTO', importe_devuelto: 0 },
+      { ...base, id: 'rec-remesa', socio_id: 's1', suscripcion_id: null, concepto: 'Mensual — julio', importe: 60, estado: 'EN_CURSO' },
+      { ...base, id: 'rec-solo', socio_id: 's1', suscripcion_id: null, concepto: 'Mensual — agosto', importe: 60, estado: 'PENDIENTE', proximo_reintento: '2026-10-05T08:00:00Z' },
+    ] });
+
+    await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
+    const dialogo = page.getByRole('dialog');
+    // 3: la clase suelta de Ana, y lo rechazado y lo devuelto por el banco de Bea.
+    await expect(dialogo.getByRole('button', { name: 'Marcar todas (3)' })).toBeVisible();
+    await expect(dialogo).toContainText('Clase suelta');
+    await expect(dialogo).toContainText('2 recibos');
   });
 });

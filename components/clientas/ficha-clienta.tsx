@@ -41,7 +41,7 @@ import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
-import { aCentimos, importeAdeudado } from '@/lib/billing/situacion-recibo';
+import { aCentimos, importeAdeudado, situacionRecibo } from '@/lib/billing/situacion-recibo';
 import { puedeProgramarBaja } from '@/lib/billing/baja-al-vencer';
 import { textoCobrosAlCancelar, type ReciboPendienteDeLaCuota } from '@/lib/billing/texto-cancelar-cuota';
 import { dbRecibosPendientesDeCuota } from '@/lib/supabase-data';
@@ -2020,6 +2020,8 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                                       reembolsoSolicitadoEn: enviadas.has(r.id) ? new Date().toISOString() : r.reembolsoSolicitadoEn,
                                       fechaDevolucion: r.fechaDevolucion,
                                       reembolsoFallidoEn: enviadas.has(r.id) ? null : r.reembolsoFallidoEn,
+                                      importe: r.importe, importeDevuelto: r.importeDevuelto ?? 0,
+                                      stripePaymentIntentId: r.stripePaymentIntentId, reembolsoStripeId: r.reembolsoStripeId,
                                     }, ahoraDev);
                                     if (dev && dev.fase !== 'DEVUELTA') {
                                       return (
@@ -2075,9 +2077,12 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                                       onEnviada={() => setEnviadas(prev => new Set(prev).add(r.id))}
                                     />
                                   )}
-                                  {/* Rectificativa (#769, Fase A): solo sobre un recibo ya
-                                      DEVUELTO con factura sellada — no tiene sentido antes. */}
-                                  {puedeCobrar && r.estado === 'DEVUELTO' && (() => {
+                                  {/* Rectificativa (#769, Fase A): solo si se le DEVOLVIÓ el
+                                      dinero (todo, o parte de un cobro), con factura sellada —
+                                      el mismo criterio que el cierre. Lo que devolvió el BANCO
+                                      no: la venta sigue en pie y la clienta lo sigue debiendo. */}
+                                  {puedeCobrar && (situacionRecibo(r) === 'REEMBOLSADO'
+                                    || (r.estado === 'COBRADO' && (r.importeDevuelto ?? 0) > 0)) && (() => {
                                     const facturaDelRecibo = facturas.find(f => f.reciboId === r.id);
                                     if (!facturaDelRecibo) return null;
                                     return (
@@ -2101,6 +2106,8 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                           reembolsoSolicitadoEn: enviadas.has(r.id) ? new Date().toISOString() : r.reembolsoSolicitadoEn,
                           fechaDevolucion: r.fechaDevolucion,
                           reembolsoFallidoEn: enviadas.has(r.id) ? null : r.reembolsoFallidoEn,
+                          importe: r.importe, importeDevuelto: r.importeDevuelto ?? 0,
+                          stripePaymentIntentId: r.stripePaymentIntentId, reembolsoStripeId: r.reembolsoStripeId,
                         }, ahoraDev);
                         // La nota del plazo del banco solo se enseña mientras sea
                         // reciente: en un recibo devuelto hace meses es ruido.

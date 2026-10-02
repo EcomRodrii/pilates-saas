@@ -33,7 +33,7 @@ import {
   dbReasignarInstructora,
   dbCancelarReservasPorSesiones,
   dbUpdateReserva,
-  dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbEliminarRecibo, dbLeerEstadoRecibos, dbLeerReciboDeCita, dbReleerTrasCobro,
+  dbInsertRecibo, dbUpdateRecibosBatch, dbEliminarRecibo, dbLeerEstadoRecibos, dbLeerReciboDeCita, dbReleerTrasCobro,
   dbInsertCita, dbUpdateCita,
   dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
@@ -155,6 +155,7 @@ import type {
   Sesion,
   Reserva,
   EstadoReserva,
+  EstadoRecibo,
   Recibo,
   MetodoCobro,
   CobroAlta,
@@ -224,7 +225,7 @@ import {
 import { decidirReciboPrevioDeCita, type ReciboPrevioDeCita } from '@/lib/cobros/recibo-de-cita';
 import type { DatosReciboNuevo } from '@/lib/cobros/recibo-escritura-navegador';
 import type { TipoRebote } from '@/lib/emails/rebotes';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor, reembolsarAManoApi, reintentarPorElBancoApi } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
 import { estadosDeClientas } from '@/lib/clientas/estado';
@@ -555,9 +556,21 @@ interface StudioContextValue {
    *  Devuelve `numeroFactura` cuando el cobro emitió factura: el llamador NO
    *  debe buscarla en el estado — todavía no está ahí. `yaEstaba` no es un error. */
   marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoMarcarCobrado>;
-  /** Varios a la vez (cobro masivo), con el desenlace de cada uno. */
-  marcarCobradoVarios: (ids: string[], metodo?: MetodoCobro, onProgreso?: (hechos: number) => void) => Promise<DesenlaceCobroManual[]>;
-  marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
+  /**
+   * Varios a la vez (cobro masivo), con el desenlace de cada uno. El método es
+   * obligatorio: sin él, el cobro no entra en la caja ni en el desglose por método.
+   */
+  marcarCobradoVarios: (ids: string[], metodo: MetodoCobro, onProgreso?: (hechos: number) => void) => Promise<DesenlaceCobroManual[]>;
+  /** «El banco lo ha cobrado»: cierra un recibo que salió en una remesa (EN_CURSO). */
+  marcarCobradoPorElBanco: (reciboId: string) => Promise<ResultadoMarcarCobrado>;
+  /**
+   * «El banco lo devolvió»: vuelve a deber. `desde` es el estado que se veía
+   * al pulsar: si ya no es ese, el servidor no lo toca.
+   */
+  marcarDevuelto: (reciboId: string, desde?: EstadoRecibo) => Promise<ResultadoEscritura>;
+  /** «Le he devuelto el dinero»: reembolso a mano de un cobro hecho a mano. Ya no debe nada. */
+  reembolsarAMano: (reciboId: string, metodo: MetodoCobro) => Promise<ResultadoEscritura & { caja?: string }>;
+  /** «Reintentar por el banco»: un recibo que devolvió el banco vuelve a la próxima remesa. */
   reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentarSelladoFactura: (reciboId: string) => Promise<ResultadoEscritura>;
   /** Elimina un recibo con un motivo (lista cerrada); el servidor decide si se puede. */
@@ -4441,6 +4454,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // cobra tiene que ver qué hay antes de volver a pulsar.
   async function cobrarEnServidor(
     ids: string[], metodo?: MetodoCobro, onProgreso?: (hechos: number) => void,
+    /** «El banco lo ha cobrado»: el cierre de una remesa; el método lo pone el servidor (SEPA). */
+    porElBanco = false,
   ): Promise<DesenlaceCobroManual[]> {
     // Re-entrada (doble clic, el mismo recibo en dos botones a la vez): el que
     // ya está en vuelo no se vuelve a mandar.
@@ -4455,7 +4470,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const lotes = trocear(propios, RECIBOS_POR_LOTE_PANEL);
       for (let i = 0; i < lotes.length; i++) {
         const lote = lotes[i];
-        const lectura = leerRespuestaMarcarCobrado(await marcarCobradoEnServidor(lote, metodo ?? null), lote);
+        const lectura = leerRespuestaMarcarCobrado(
+          await marcarCobradoEnServidor(lote, porElBanco ? null : (metodo ?? null), undefined, porElBanco ? 'banco' : undefined), lote,
+        );
         let errorResto: string | null = null;
         if (lectura.tipo === 'resultados') {
           desenlaces.push(...lectura.resultados);
@@ -4476,7 +4493,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         onProgreso?.(desenlaces.length);
         if (errorResto !== null) break;
       }
-      await reflejarCobrosConfirmados(desenlaces, metodo);
+      await reflejarCobrosConfirmados(desenlaces, porElBanco ? 'SEPA' : metodo);
     } finally {
       propios.forEach(id => enVuelo.delete(id));
     }
@@ -4554,8 +4571,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: false, error: d?.error ?? 'No se ha podido cobrar este recibo.' };
   }
 
-  function marcarCobradoVarios(ids: string[], metodo?: MetodoCobro, onProgreso?: (hechos: number) => void) {
+  function marcarCobradoVarios(ids: string[], metodo: MetodoCobro, onProgreso?: (hechos: number) => void) {
     return cobrarEnServidor(ids, metodo, onProgreso);
+  }
+
+  async function marcarCobradoPorElBanco(reciboId: string): Promise<ResultadoMarcarCobrado> {
+    const [d] = await cobrarEnServidor([reciboId], undefined, undefined, true);
+    if (d?.resultado === 'aplicada') {
+      if (d.renovacionFallida) return { ok: false, cobroRegistrado: true, numeroFactura: d.numeroFactura, error: MENSAJE_COBRADO_SIN_RENOVAR };
+      return d.selladoOk
+        ? { ok: true, numeroFactura: d.numeroFactura }
+        : {
+            ok: false, cobroRegistrado: true, numeroFactura: d.numeroFactura,
+            error: 'Cobro registrado, pero la factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Cobros y facturas → Datos fiscales e IVA.',
+          };
+    }
+    if (d && esCobroConfirmado(d)) return { ok: true, yaEstaba: true };
+    return { ok: false, error: d?.error ?? 'No se ha podido registrar el cobro.' };
   }
 
   // Si el sellado de un cobro falló (NIF inválido, red...), el recibo
@@ -4573,14 +4605,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return sellarFacturaYActualizar(fac);
   }
 
-  async function marcarDevuelto(reciboId: string): Promise<ResultadoEscritura> {
+  async function marcarDevuelto(reciboId: string, desde?: EstadoRecibo): Promise<ResultadoEscritura> {
     // Mismo criterio que marcarCobrado: un recibo devuelto es dinero que sale de
     // la caja del mes. Si la BD lo rechaza y la pantalla lo da por devuelto, el
     // cierre de caja cuadra contra algo que no está guardado.
     // Por servidor, no con `dbUpdateRecibo`: si el recibo era de una penalización
     // cobrada, la nómina de la instructora tiene que enterarse, y eso solo se
     // puede hacer con service-role (lib/billing/marcar-devuelto.ts).
-    const res = await marcarReciboDevueltoApi(reciboId);
+    const res = await marcarReciboDevueltoApi(reciboId, desde);
     if (!res.ok) return res;
     setRecibos(prev => prev.map(r =>
       r.id === reciboId ? { ...r, estado: 'DEVUELTO' as const, fechaDevolucion: res.fechaDevolucion, proximoReintento: null } : r
@@ -4588,19 +4620,32 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true };
   }
 
-  // La escritura vivía DENTRO del updater de setRecibos (un antipatrón aparte
-  // del await que faltaba: los updaters de React deben ser puros, sin efectos).
-  // Se saca fuera, se espera y se comprueba antes de tocar pantalla.
+  // «Le he devuelto el dinero»: por el servidor, que lo deja como reembolso
+  // (DEVUELTO con todo el importe devuelto: ni deuda ni ingreso), apunta la
+  // salida de caja y pone al día penalización, créditos y devoluciones
+  // (lib/billing/reembolso-manual.ts). La pantalla cambia con su respuesta.
+  async function reembolsarAMano(reciboId: string, metodo: MetodoCobro): Promise<ResultadoEscritura & { caja?: string }> {
+    const res = await reembolsarAManoApi(reciboId, metodo);
+    if (!res.ok) return { ok: false, error: res.error };
+    setRecibos(prev => prev.map(r =>
+      r.id === reciboId
+        ? { ...r, estado: 'DEVUELTO' as const, importeDevuelto: res.importe, fechaDevolucion: r.fechaDevolucion ?? res.fechaDevolucion, proximoReintento: null }
+        : r
+    ));
+    return { ok: true, caja: res.caja };
+  }
+
+  // «Reintentar por el banco»: por el servidor (lib/billing/marcar-devuelto.ts).
+  // Antes lo escribía el navegador como EN_CURSO («Enviado al banco») sin que
+  // nada fuera a ningún banco; ahora vuelve a PENDIENTE y lo recoge la próxima
+  // remesa.
   async function reintentar(reciboId: string): Promise<ResultadoEscritura> {
-    const recibo = recibos.find(r => r.id === reciboId);
-    if (!recibo) return { ok: false, error: 'No se encuentra ese recibo.' };
-    const intentosReintento = recibo.intentosReintento + 1;
-    const res = await dbUpdateRecibo(reciboId, { estado: 'EN_CURSO', intentosReintento });
+    const res = await reintentarPorElBancoApi(reciboId);
     if (!res.ok) return res;
     setRecibos(prev => prev.map(r =>
-      r.id === reciboId ? { ...r, estado: 'EN_CURSO' as const, intentosReintento } : r
+      r.id === reciboId ? { ...r, estado: 'PENDIENTE' as const, intentosReintento: res.intentosReintento, proximoReintento: null } : r
     ));
-    return res;
+    return { ok: true };
   }
 
   async function deleteRecibo(id: string, motivo: string): Promise<ResultadoEscritura> {
@@ -5765,6 +5810,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     marcarCobrado,
     marcarCobradoVarios,
     marcarDevuelto,
+    reembolsarAMano,
+    marcarCobradoPorElBanco,
     reintentar,
     reintentarSelladoFactura,
     deleteRecibo,

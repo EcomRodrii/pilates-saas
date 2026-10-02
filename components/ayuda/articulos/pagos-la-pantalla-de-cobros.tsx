@@ -15,11 +15,39 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Quién me debe</h2>
       <p>
         Los recibos que están sin cobrar, con su importe y desde cuándo. Desde aquí cobras uno, o varios a la vez
-        si tienes tarjetas guardadas, y ves qué suscripciones siguen activas.
+        («Cobrar varias a la vez», eligiendo cómo te han pagado). Si la clienta tiene una tarjeta o una domiciliación
+        guardada, también se le puede cobrar con ella: te lo pregunta antes de cobrar.
       </p>
       <p>
         Si una tarjeta falló, el recibo sigue aquí marcado como «No se pudo cobrar». No hay que buscarlo en otro sitio: lo que no ha
         entrado se queda en esta lista hasta que entra.
+      </p>
+
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Lo que está en el banco</h2>
+      <p>
+        Los recibos que mandas al banco en una remesa salen como «En el banco»: todavía no son deuda, porque el
+        banco no ha contestado. Cuando lo haga, márcalo: <strong>«El banco lo ha cobrado»</strong> (queda cobrado y,
+        si era una cuota, se renueva) o <strong>«El banco lo devolvió»</strong> (vuelve a deberlo). Un recibo que
+        devolvió el banco puede volver a la próxima remesa con «Reintentar», si la clienta tiene la domiciliación vigente.
+      </p>
+
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Devolver un cobro</h2>
+      <p>
+        No es lo mismo devolverle tú el dinero que te lo devuelva el banco, y cada cosa tiene su botón:
+      </p>
+      <ul style={{ margin: '0 0 12px', paddingLeft: 20 }}>
+        <li>
+          <strong>«Le he devuelto el dinero»</strong>: se lo devolviste tú (en efectivo, por Bizum, por transferencia o en
+          el datáfono). Ya no lo debe, y si sale del cajón se apunta en la caja. Lo que compró no se le quita solo:
+          si hay que quitárselo, desde su ficha.
+        </li>
+        <li>
+          <strong>«El banco lo devolvió»</strong>: el banco devolvió el cargo (una tarjeta o una domiciliación). Vuelve a
+          deberlo, y sale otra vez en «Quién me debe».
+        </li>
+      </ul>
+      <p>
+        Lo que se cobró por Stripe se devuelve por Stripe, desde la ficha de la clienta, y el recibo se marca solo.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Si se cancela una cuota</h2>
@@ -50,7 +78,8 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Lo que he cobrado</h2>
       <p>
         El dinero que ha entrado, con su fecha y su método. Sirve para cuadrar con el banco y para responder a la
-        pregunta de siempre —«¿este mes ha ido mejor?»— sin abrir un informe.
+        pregunta de siempre —«¿este mes ha ido mejor?»— sin abrir un informe. «Descargar para la gestoría» baja lo
+        cobrado del mes que elijas (o todo), con lo devuelto descontado: el mismo fichero que Informes y el cierre del año.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Facturas</h2>
@@ -69,15 +98,16 @@ export default function Contenido() {
       </p>
       <p>
         Un recibo <strong>cobrado, devuelto o en curso no se elimina</strong>: el dinero no desaparece, se devuelve. Si
-        algo cobrado no debía estar ahí, regístralo como devuelto.
+        algo cobrado no debía estar ahí y le has devuelto el dinero, usa «Le he devuelto el dinero».
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cambios del equipo</h2>
       <p>
         Solo la propietaria la ve. Cada vez que alguien de tu equipo <strong>crea, cambia o borra</strong> un recibo,
-        una cuota o bono, un plan o un ingreso manual, <strong>pide un reembolso</strong>, marca un recibo como
-        devuelto o <strong>como cobrado a mano</strong>, <strong>lanza un cobro</strong> con el método de pago guardado, devuelve una venta de la caja, emite
-        una factura rectificativa o aprueba cobrar una penalización, queda aquí: quién fue, cuándo, y qué valor había antes. Es lo que
+        una cuota o bono, un plan o un ingreso manual, <strong>pide un reembolso</strong>, le devuelve a mano el dinero
+        de un cobro, marca un recibo como devuelto por el banco o <strong>como cobrado a mano</strong> o por el banco,
+        lo vuelve a pasar por el banco, <strong>lanza un cobro</strong> con el método de pago guardado, vende una clase suelta en el
+        calendario, devuelve una venta de la caja, emite una factura rectificativa o aprueba cobrar una penalización, queda aquí: quién fue, cuándo, y qué valor había antes. Es lo que
         necesitas para explicar un descuadre sin preguntar a todo el mundo. Lo de una clienta concreta también sale en
         la pestaña «Pagos» de su ficha.
       </p>

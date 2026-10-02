@@ -47,6 +47,16 @@ export interface ReciboConDevolucion {
   fechaDevolucion?: string | null;
   /** D-8: cuándo FALLÓ el reembolso (lo escribe el webhook de refund.failed). */
   reembolsoFallidoEn?: string | null;
+  /**
+   * Con estos, un DEVUELTO se distingue: si no se devolvió nada, lo devolvió el
+   * BANCO y la clienta sigue debiéndolo (nada que contar aquí: ni hay dinero
+   * en camino a su banco); sin cargo de Stripe, se lo devolvió el estudio a
+   * mano. Sin ellos, como antes.
+   */
+  importe?: number | null;
+  importeDevuelto?: number | null;
+  stripePaymentIntentId?: string | null;
+  reembolsoStripeId?: string | null;
 }
 
 export function estadoReembolso(
@@ -54,6 +64,18 @@ export function estadoReembolso(
   ahora: Date,
 ): EstadoReembolso | null {
   if (r.estado === 'DEVUELTO') {
+    const sabeCuanto = r.importe != null && r.importeDevuelto != null;
+    const porStripe = !!(r.reembolsoStripeId || r.reembolsoSolicitadoEn || r.stripePaymentIntentId);
+    // Devuelto por el BANCO: no salió dinero hacia la clienta, sigue debiéndolo.
+    if (sabeCuanto && Number(r.importeDevuelto) <= 0 && !r.reembolsoStripeId && !r.reembolsoSolicitadoEn) return null;
+    // Se lo devolvió el estudio a mano («Le he devuelto el dinero»).
+    if (sabeCuanto && !porStripe) {
+      return {
+        fase: 'DEVUELTA',
+        etiqueta: 'Devuelto',
+        detalle: 'Se lo devolvió el estudio: ya no lo debe. Si fue a su tarjeta, tarda unos días en verlo en su banco.',
+      };
+    }
     return {
       fase: 'DEVUELTA',
       etiqueta: 'Devuelto',

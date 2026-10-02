@@ -13,6 +13,12 @@ import { MENSAJE_YA_ESTABA, esCobroConfirmado } from '@/lib/cobros/marcar-cobrad
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn, copiarAlPortapapeles, formatEuro, hoyEnEstudio } from '@/lib/utils';
 import { situacionRecibo, estaSinCobrar, importeIngresado, mesDelRecibo, resumirRecibos } from '@/lib/billing/situacion-recibo';
+import { entraEnCobroEnLote } from '@/lib/cobros/cobro-en-lote';
+import { accionesDeDevolucion, cobroEntroPorStripe } from '@/lib/billing/devolucion-reglas';
+import { csvLoCobrado, descargarCsv, rangoDelMes } from '@/lib/billing/export-cobrado';
+import { dbRecibosCobradosParaExport } from '@/lib/supabase-data';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { emiteFacturaAutomatica } from '@/lib/factura-automatica';
 import { resumenVentasSinRecibo } from '@/lib/pos/ventas-sin-recibo';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -40,6 +46,15 @@ import {
   Calendar,
   CheckCheck,
 } from 'lucide-react';
+
+// «Cobrar varias»: cómo te han pagado (obligatorio) y cómo se dice.
+const METODOS_COBRO_MASIVO: MetodoCobro[] = ['EFECTIVO', 'TARJETA', 'BIZUM', 'TRANSFERENCIA'];
+const ETIQUETA_BOTON_METODO: Partial<Record<MetodoCobro, string>> = {
+  EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', BIZUM: 'Bizum', TRANSFERENCIA: 'Transferencia',
+};
+const ETIQUETA_METODO: Partial<Record<MetodoCobro, string>> = {
+  EFECTIVO: 'en efectivo', TARJETA: 'con tarjeta', BIZUM: 'por Bizum', TRANSFERENCIA: 'por transferencia',
+};
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -202,9 +217,12 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     ventasPOS,
     marcarCobrado,
     marcarCobradoVarios,
+    marcarCobradoPorElBanco,
     marcarDevuelto,
+    reembolsarAMano,
     reintentar,
     reintentarSelladoFactura,
+    mandatosSepa,
     deleteRecibo,
     addRecibo,
     crearFacturaDirecta,
@@ -213,6 +231,9 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
   // ¿Emite facturas este estudio? (`Studio.modoFacturacion`). Mientras carga,
   // como si sí: sin que desaparezcan botones al cargar.
   const emite = studio ? studio.modoFacturacion === 'verifactu' : true;
+  // ¿Puede este estudio preparar remesas? Sin acreedor SEPA, «Reintentar por el
+  // banco» no llevaría el recibo a ningún sitio.
+  const remesaDisponible = !!(studio?.sepaAcreedorId && studio?.sepaIban && studio?.sepaTitular);
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
@@ -314,12 +335,29 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     setErrorEliminar(res.error);
   }
   const [cobrandoRecibo, setCobrandoRecibo] = useState<string | null>(null); // F2 B2.6: elegir método al cobrar
+  // «Le he devuelto el dinero»: pregunta por dónde salió (decide la caja).
+  const [reembolsandoRecibo, setReembolsandoRecibo] = useState<string | null>(null);
+  // Las acciones de dinero que no se deshacen con un clic piden confirmar: antes
+  // «Marcar devuelto», «Devolver» y «Online» actuaban al primer toque.
+  const [confirmacion, setConfirmacion] = useState<{
+    titulo: string; descripcion: string; textoConfirmar: string; destructivo?: boolean; accion: () => Promise<void>;
+  } | null>(null);
+  // Un recibo con su acción en vuelo no se vuelve a lanzar (doble toque).
+  const accionEnVueloRef = useRef<Set<string>>(new Set());
+  async function enUnaVez(reciboId: string, accion: () => Promise<void>) {
+    if (accionEnVueloRef.current.has(reciboId)) return;
+    accionEnVueloRef.current.add(reciboId);
+    try { await accion(); } finally { accionEnVueloRef.current.delete(reciboId); }
+  }
   const [reintentandoFactura, setReintentandoFactura] = useState<string | null>(null);
 
   // ── Cobro masivo modal ──────────────────────────────────────────────────────
   const [showMasivo, setShowMasivo]               = useState(false);
   const [masivoSelected, setMasivoSelected]       = useState<Set<string>>(new Set());
   const [masivoProgress, setMasivoProgress]       = useState<'idle' | 'confirmar' | 'running' | 'done'>('idle');
+  // Cómo te pagan: obligatorio. Antes se cobraba «sin especificar»: no entraba en
+  // la caja ni en el desglose por método, y el arqueo no cuadraba.
+  const [masivoMetodo, setMasivoMetodo]           = useState<MetodoCobro | null>(null);
   // Cerrojo síncrono anti doble-cobro: `masivoProgress` es estado async y un
   // segundo clic rapidísimo lo lee 'confirmar' (stale) antes de que React pinte
   // 'running', pasando el guard dos veces → lote cobrado por duplicado.
@@ -389,7 +427,6 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
   const [histSearch, setHistSearch]   = useState('');
   const [histMes, setHistMes]         = useState('');
   const [histEstado, setHistEstado]   = useState<EstadoRecibo | 'TODOS'>('TODOS');
-  const [exportState, setExportState] = useState<'idle' | 'loading' | 'done'>('idle');
 
   // El formulario de «Nuevo cobro» en blanco. Una sola definición: el estado, el botón que lo abre y
   // el reinicio tras crear tenían cada uno la suya, y dos habían vuelto a la fecha en UTC.
@@ -548,28 +585,22 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
   // ── Cobro masivo data ──────────────────────────────────────────────────────
 
   const masivoData = useMemo(() => {
-    // P0-23: índices por id + recibos pendientes agrupados por socia en UNA
-    // pasada. Antes: por cada suscripción activa, socios.find() + recibos.filter()
-    // completos → O(activas × (socios + recibos)); abrir el modal de cobro masivo
-    // con muchas socias disparaba miles de millones de operaciones.
+    // Todo lo que se DEBE, por clienta (lib/cobros/cobro-en-lote.ts): también lo
+    // rechazado, lo devuelto por el banco, la clase suelta o la matrícula, y
+    // aunque no tenga plan activo. Fuera lo que está en el banco y lo que el
+    // cobro automático ya tiene programado. En UNA pasada (P0-23).
     const socioById = new Map(socios.map(s => [s.id, s]));
-    const planById = new Map(planesTarifa.map(p => [p.id, p]));
-    const pendientesPorSocio = new Map<string, typeof recibos>();
+    const porSocio = new Map<string, typeof recibos>();
     for (const r of recibos) {
-      if (r.estado !== 'PENDIENTE' || !r.socioId) continue;
-      const arr = pendientesPorSocio.get(r.socioId);
-      if (arr) arr.push(r); else pendientesPorSocio.set(r.socioId, [r]);
+      if (!entraEnCobroEnLote(r) || !r.socioId) continue;
+      const arr = porSocio.get(r.socioId);
+      if (arr) arr.push(r); else porSocio.set(r.socioId, [r]);
     }
-    return suscripciones
-      .filter(s => s.estado === 'ACTIVA')
-      .map(sus => ({
-        sus,
-        socio: socioById.get(sus.socioId),
-        plan: planById.get(sus.planId),
-        pendientesRecibos: pendientesPorSocio.get(sus.socioId) ?? [],
-      }))
-      .filter(d => d.socio != null);
-  }, [suscripciones, socios, planesTarifa, recibos]);
+    return [...porSocio.entries()]
+      .map(([socioId, pendientesRecibos]) => ({ socio: socioById.get(socioId), pendientesRecibos }))
+      .filter(d => d.socio != null)
+      .sort((a, b) => `${a.socio!.nombre} ${a.socio!.apellidos}`.localeCompare(`${b.socio!.nombre} ${b.socio!.apellidos}`, 'es'));
+  }, [socios, recibos]);
 
   // Abre SIN nada marcado. Antes preseleccionaba todos los recibos pendientes
   // de todas las suscripciones activas: dos clics seguidos —abrir y confirmar—
@@ -577,16 +608,14 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
   // suscripción. Quien decide a quién se le cobra es la dueña.
   function openMasivo() {
     setMasivoSelected(new Set());
+    setMasivoMetodo(null);
     setMasivoProgress('idle');
     setMasivoCobrando(0);
     setMasivoTotal(0);
     setShowMasivo(true);
   }
 
-  // Set: una socia con ≥2 suscripciones ACTIVA comparte los mismos recibos
-  // pendientes (masivoData agrupa por socia), así que sin deduplicar los ids
-  // salían repetidos y `alternarTodas` nunca detectaba "todo seleccionado"
-  // (masivoSelected es un Set único, su size < length con duplicados).
+  // Cada recibo sale una vez (se agrupa por clienta, no por suscripción).
   const idsCobrables = useMemo(
     () => [...new Set(masivoData.flatMap(d => d.pendientesRecibos.map(r => r.id)))],
     [masivoData],
@@ -609,6 +638,9 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
   async function ejecutarMasivo() {
     // El dinero no se cobra dos veces: cerrojo síncrono (ref) + estado.
     if (masivoEnCursoRef.current || masivoProgress === 'running') return;
+    // Sin método no se cobra: el cobro no entraría en la caja ni en el desglose.
+    const metodo = masivoMetodo;
+    if (!metodo) return;
     masivoEnCursoRef.current = true;
     const ids = Array.from(masivoSelected);
     setMasivoTotal(ids.length);
@@ -625,7 +657,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     // Un cobro con la factura pendiente de sellar cuenta como guardado: el dinero
     // SÍ se registró, y la fila queda con su botón "Sin factura" en Cobrado.
     try {
-      const desenlaces = await marcarCobradoVarios(ids, undefined, setMasivoCobrando);
+      const desenlaces = await marcarCobradoVarios(ids, metodo, setMasivoCobrando);
       setMasivoFallidos(desenlaces.filter(d => !esCobroConfirmado(d) && d.resultado !== 'sin_confirmar').map(d => d.reciboId));
       setMasivoSinConfirmar(desenlaces.filter(d => d.resultado === 'sin_confirmar').map(d => d.reciboId));
       setMasivoYaEstaban(desenlaces.filter(d => d.resultado === 'ya_estaba' || d.resultado === 'cobrado_al_releer').length);
@@ -798,8 +830,25 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     setNuevoForm(formularioNuevoCobro());
   }
 
+  // «Descargar para la gestoría» (Lo que he cobrado): lo COBRADO del mes elegido,
+  // o todo si no se elige mes. Si la lectura falla no se descarga nada.
+  const [descargaGestoria, setDescargaGestoria] = useState<'idle' | 'loading' | 'done'>('idle');
+  async function descargarCobrado() {
+    if (descargaGestoria === 'loading') return;
+    setDescargaGestoria('loading');
+    const rango = histMes ? rangoDelMes(histMes) : { desde: '2000-01-01', hasta: undefined };
+    const filas = await dbRecibosCobradosParaExport(rango.desde, rango.hasta);
+    if (!filas) {
+      setDescargaGestoria('idle');
+      setStripeToast({ tipo: 'error', msg: 'No se ha podido preparar el fichero. Inténtalo otra vez en un momento.' });
+      return;
+    }
+    descargarCsv(csvLoCobrado(filas), `cobrado-${histMes || 'todo'}.csv`);
+    setDescargaGestoria('done');
+    setTimeout(() => setDescargaGestoria('idle'), 3000);
+  }
+
   function exportCSV() {
-    setExportState('loading');
     const header = ['Concepto', 'Clienta', 'Importe', 'Devuelto', 'Estado', 'Vencimiento', 'Cobrado el'];
     const rows = filtradosCobros.map(r => [
       `"${r.concepto.replace(/"/g, '""')}"`,
@@ -818,8 +867,6 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     a.download = `pagos-${hoyEnEstudio(now)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    setTimeout(() => setExportState('done'), 800);
-    setTimeout(() => setExportState('idle'), 3000);
   }
 
   // ── Tab counts ────────────────────────────────────────────────────────────
@@ -885,30 +932,94 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
               <CheckCircle2 size={icono} />
               Cobrar
             </button>
-            <button
-              onClick={() => cobrarOnline(r.id)}
-              disabled={stripeLoading === r.id}
-              className={cn(chip, 'bg-brand/10 text-brand-medio hover:bg-info/10 disabled:opacity-60')}
-              title={titulo('Reintentar el cobro con la tarjeta o SEPA que ya tiene guardado la socia')}
-            >
-              {stripeLoading === r.id
-                ? <Loader2 size={icono} className="animate-spin" />
-                : <CreditCard size={icono} />}
-              {tactil ? 'Cobrar online' : 'Online'}
-            </button>
-            <button
-              onClick={async () => {
-                const res = await marcarDevuelto(r.id);
-                if (!res.ok) onToast(res.error);
-              }}
-              className={rojo}
-              title={titulo('Marcar devuelto')}
-            >
-              <XCircle size={tactil ? 15 : 14} className="text-destructive" />
-              {tactil && 'Marcar devuelto'}
-            </button>
+            {/* Con su tarjeta o domiciliación guardada: solo lo que el servidor
+                deja cobrar así (PENDIENTE o FALLIDO; un devuelto por el banco
+                fallaba siempre), y confirmando antes: cobra al primer toque. */}
+            {(r.estado === 'PENDIENTE' || r.estado === 'FALLIDO') && r.socioId && (
+              <button
+                onClick={() => setConfirmacion({
+                  titulo: `¿Cobrar ${formatEuro(r.importe)} a ${socioName(r.socioId)}?`,
+                  descripcion: 'Se le cobra ahora con la tarjeta o la domiciliación que tiene guardada. Si no tiene ninguna, te diremos cómo pedírsela.',
+                  textoConfirmar: `Cobrar ${formatEuro(r.importe)}`,
+                  accion: () => cobrarOnline(r.id),
+                })}
+                disabled={stripeLoading === r.id}
+                className={cn(chip, 'bg-brand/10 text-brand-medio hover:bg-info/10 disabled:opacity-60')}
+                title={titulo('Cobrarle con la tarjeta o la domiciliación que tiene guardada')}
+              >
+                {stripeLoading === r.id
+                  ? <Loader2 size={icono} className="animate-spin" />
+                  : <CreditCard size={icono} />}
+                {tactil ? 'Cobrar con su tarjeta' : 'Su tarjeta'}
+              </button>
+            )}
+            {accionesDeDevolucion(r).bancoLoDevolvio && (
+              <button
+                onClick={() => setConfirmacion({
+                  titulo: '¿Lo devolvió el banco?',
+                  descripcion: `${socioName(r.socioId)} sigue debiendo ${formatEuro(r.importe)}: «${r.concepto}» pasa a «Devuelto por el banco».`,
+                  textoConfirmar: 'Sí, lo devolvió el banco',
+                  destructivo: true,
+                  accion: () => enUnaVez(r.id, async () => {
+                    const res = await marcarDevuelto(r.id, r.estado);
+                    if (!res.ok) onToast(res.error);
+                  }),
+                })}
+                className={rojo}
+                title={titulo('El banco lo devolvió')}
+              >
+                <XCircle size={tactil ? 15 : 14} className="text-destructive" />
+                {tactil && 'El banco lo devolvió'}
+              </button>
+            )}
           </>
         )}
+        {/* En el banco (una remesa): ahora tiene salida. Con un cargo de Stripe
+            en vuelo no: ese lo cierra su webhook. */}
+        {r.estado === 'EN_CURSO' && (accionesDeDevolucion(r).bancoLoCobro ? (
+          <>
+            <button
+              onClick={() => setConfirmacion({
+                titulo: '¿El banco lo ha cobrado?',
+                descripcion: `«${r.concepto}» de ${socioName(r.socioId)}, ${formatEuro(r.importe)}: pasa a cobrado por domiciliación, con lo que eso entrega (la renovación de su plan, si es una cuota).`,
+                textoConfirmar: 'Sí, lo ha cobrado',
+                accion: () => enUnaVez(r.id, async () => {
+                  const res = await marcarCobradoPorElBanco(r.id);
+                  if (!res.ok && !('cobroRegistrado' in res)) { onToast(res.error); return; }
+                  setStripeToast(res.ok
+                    ? { tipo: 'ok', msg: res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${formatEuro(r.importe)} de ${socioName(r.socioId)}.` }
+                    : { tipo: 'error', msg: res.error });
+                }),
+              })}
+              className={cn(chip, 'bg-success/10 text-success hover:bg-[#A7F3D0]')}
+              title={titulo('El banco ha cobrado este recibo de la remesa')}
+            >
+              <CheckCircle2 size={icono} />
+              {tactil ? 'El banco lo ha cobrado' : 'Cobrado'}
+            </button>
+            <button
+              onClick={() => setConfirmacion({
+                titulo: '¿Lo devolvió el banco?',
+                descripcion: `${socioName(r.socioId)} sigue debiendo ${formatEuro(r.importe)}: «${r.concepto}» pasa a «Devuelto por el banco».`,
+                textoConfirmar: 'Sí, lo devolvió el banco',
+                destructivo: true,
+                accion: () => enUnaVez(r.id, async () => {
+                  const res = await marcarDevuelto(r.id, 'EN_CURSO');
+                  if (!res.ok) onToast(res.error);
+                }),
+              })}
+              className={rojo}
+              title={titulo('El banco lo devolvió')}
+            >
+              <XCircle size={tactil ? 15 : 14} className="text-destructive" />
+              {tactil && 'El banco lo devolvió'}
+            </button>
+          </>
+        ) : (
+          <span className="text-xs text-muted-foreground" title={titulo('Hay un cobro de Stripe en marcha: se cerrará solo')}>
+            Lo cierra Stripe
+          </span>
+        ))}
         {r.estado === 'COBRADO' && (
           <>
             {/* C-2 paso 1 (59ª auditoría): antes este botón se
@@ -947,29 +1058,69 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                 Sin factura
               </button>
             )}
-            <button
-              onClick={async () => {
-                const res = await marcarDevuelto(r.id);
-                if (!res.ok) onToast(res.error);
-              }}
-              className={rojo}
-              title={titulo('Devolver')}
-            >
-              <XCircle size={tactil ? 15 : 14} className="text-destructive" />
-              {tactil && 'Devolver'}
-            </button>
+            {/* Dos hechos opuestos, dos botones (decisión del fundador, 2-oct-2026):
+                «Le he devuelto el dinero» ya no debe nada; «El banco lo devolvió»
+                vuelve a deber, y solo si un banco puede devolver ese cobro. Un cobro
+                por Stripe se devuelve por Stripe, desde la ficha. */}
+            {accionesDeDevolucion(r).reembolsoAMano && (
+              <button
+                onClick={() => setReembolsandoRecibo(r.id)}
+                className={cn(chip, 'bg-background text-foreground hover:bg-border')}
+                title={titulo('Le he devuelto el dinero (ya no debe nada)')}
+              >
+                <RefreshCw size={icono} />
+                {tactil ? 'Le he devuelto el dinero' : 'Devuelto'}
+              </button>
+            )}
+            {accionesDeDevolucion(r).bancoLoDevolvio && (
+              <button
+                onClick={() => setConfirmacion({
+                  titulo: '¿Lo devolvió el banco?',
+                  descripcion: `El banco ha devuelto el cobro de ${socioName(r.socioId)}: vuelve a deber ${formatEuro(r.importe)} («${r.concepto}»). Si se lo has devuelto tú, usa «Le he devuelto el dinero».`,
+                  textoConfirmar: 'Sí, lo devolvió el banco',
+                  destructivo: true,
+                  accion: () => enUnaVez(r.id, async () => {
+                    const res = await marcarDevuelto(r.id, 'COBRADO');
+                    if (!res.ok) onToast(res.error);
+                  }),
+                })}
+                className={rojo}
+                title={titulo('El banco lo devolvió (vuelve a deber)')}
+              >
+                <XCircle size={tactil ? 15 : 14} className="text-destructive" />
+                {tactil && 'El banco lo devolvió'}
+              </button>
+            )}
+            {r.socioId && cobroEntroPorStripe({ stripe_payment_intent_id: r.stripePaymentIntentId, metodo_cobro: r.metodoCobro, sepa_estado: r.sepaEstado }) && (
+              <Link
+                href={`/clientas/${r.socioId}`}
+                className={cn(chip, 'bg-background text-muted-foreground hover:bg-border')}
+                title={titulo('Entró por Stripe: se devuelve desde su ficha, y el recibo se marca solo')}
+              >
+                {tactil ? 'Devolver desde su ficha' : 'Devolver'}
+              </Link>
+            )}
           </>
         )}
-        {r.estado === 'DEVUELTO' && situacionRecibo(r) === 'IMPAGADO' && (
+        {/* Devuelto por el banco: vuelve a la próxima remesa, si va a entrar en
+            ella (domiciliaciones configuradas y la clienta con mandato vigente).
+            Si no, se cobra con «Cobrar». */}
+        {r.estado === 'DEVUELTO' && situacionRecibo(r) === 'IMPAGADO' && remesaDisponible
+          && mandatosSepa.some(m => m.socioId === r.socioId && m.estado === 'VIGENTE') && (
           <button
-            onClick={async () => {
-              const res = await reintentar(r.id);
-              if (!res.ok) onToast(res.error);
-            }}
+            onClick={() => setConfirmacion({
+              titulo: '¿Volver a pasarlo por el banco?',
+              descripcion: `«${r.concepto}» de ${socioName(r.socioId)} vuelve a «Sin cobrar» y entra en la próxima remesa que prepares.`,
+              textoConfirmar: 'Sí, a la próxima remesa',
+              accion: () => enUnaVez(r.id, async () => {
+                const res = await reintentar(r.id);
+                if (!res.ok) onToast(res.error);
+              }),
+            })}
             className={cn(chip, 'bg-info/10 text-brand-medio hover:bg-info/10')}
           >
             <RefreshCw size={icono} />
-            Reintentar
+            {tactil ? 'Reintentar por el banco' : 'Reintentar'}
           </button>
         )}
         {/* Un recibo cobrado, devuelto o en curso no se elimina (se devuelve), ni uno con factura. */}
@@ -1045,7 +1196,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                   className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-foreground"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Cuando lo complete, su tarjeta queda guardada y &laquo;Cobrar online&raquo; ya funcionará.
+                  Cuando lo complete, su tarjeta queda guardada y &laquo;Cobrar con su tarjeta&raquo; ya funcionará.
                 </p>
               </div>
             ) : null}
@@ -1653,20 +1804,24 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                 <option value="EN_CURSO">{ETIQUETA_ESTADO.EN_CURSO}</option>
                 <option value="FALLIDO">{ETIQUETA_ESTADO.FALLIDO}</option>
               </select>
+              {/* Lo COBRADO del mes elegido (o todo), para la gestoría: el mismo
+                  fichero que Informes y el cierre. Antes este botón bajaba lo que te
+                  DEBEN (la lista de «Quién me debe»). Sin búsqueda ni estado: la
+                  gestoría necesita todo lo cobrado, no lo que se ve filtrado. */}
               <button
-                onClick={exportCSV}
-                disabled={exportState === 'loading'}
+                onClick={descargarCobrado}
+                disabled={descargaGestoria === 'loading'}
                 className={cn(
                   'flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors',
-                  exportState === 'done'
+                  descargaGestoria === 'done'
                     ? 'bg-success/10 text-success'
                     : 'border border-border bg-card text-muted-foreground hover:bg-background hover:text-foreground'
                 )}
               >
-                {exportState === 'loading' && <Loader2 size={14} className="animate-spin" />}
-                {exportState === 'done' && <CheckCircle2 size={14} />}
-                {exportState === 'idle' && <Download size={14} />}
-                {exportState === 'idle' ? 'Exportar' : exportState === 'loading' ? 'Exportando…' : 'Exportado'}
+                {descargaGestoria === 'loading' && <Loader2 size={14} className="animate-spin" />}
+                {descargaGestoria === 'done' && <CheckCircle2 size={14} />}
+                {descargaGestoria === 'idle' && <Download size={14} />}
+                {descargaGestoria === 'idle' ? 'Descargar para la gestoría' : descargaGestoria === 'loading' ? 'Preparando…' : 'Descargado'}
               </button>
             </div>
           </div>
@@ -1848,9 +2003,15 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                     {formatEuro(masivoImporteTotal)}
                   </CifraPrivada>
                 </p>
-                <p className="text-[13px] text-muted-foreground">Al confirmar, para cada recibo:</p>
+                <p className="text-[13px] text-muted-foreground">
+                  {masivoMetodo ? `Te han pagado ${ETIQUETA_METODO[masivoMetodo]}.` : ''} Al confirmar, para cada recibo:
+                </p>
                 <ul className="text-[13px] text-muted-foreground list-disc pl-5 space-y-1">
-                  <li>se emite una <strong className="text-foreground">factura con número fiscal</strong>, que ya no se puede borrar;</li>
+                  <li>se marca <strong className="text-foreground">cobrado</strong>{masivoMetodo && masivoMetodo !== 'TRANSFERENCIA' ? ' y se apunta en la caja si está abierta' : ''};</li>
+                  {/* La factura solo si este estudio factura con Tentare y este método la emite sola. */}
+                  {emiteFacturaAutomatica(masivoMetodo, studio?.modoFacturacion ?? null) && (
+                    <li>se emite una <strong className="text-foreground">factura con número fiscal</strong>, que ya no se puede borrar;</li>
+                  )}
                   {masivoSuscripcionesAfectadas > 0 && (
                     <li>
                       se renuevan <strong className="text-foreground">{masivoSuscripcionesAfectadas} suscripcion{masivoSuscripcionesAfectadas !== 1 ? 'es' : ''}</strong>
@@ -1859,8 +2020,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                   )}
                 </ul>
                 <p className="text-[13px] font-semibold text-foreground pt-1">
-                  Esto no se puede deshacer. Marcar un recibo como devuelto después no anula
-                  su factura ni la renovación.
+                  Esto no se puede deshacer: si después le devuelves el dinero, la renovación no se deshace sola.
                 </p>
               </div>
               <div className="flex gap-3">
@@ -1914,9 +2074,9 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
               </div>
               <div className="flex-1 overflow-y-auto space-y-2 my-2 pr-1">
                 {masivoData.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">No hay suscripciones activas</p>
+                  <p className="text-sm text-muted-foreground text-center py-8">Nadie te debe nada que se pueda cobrar desde aquí</p>
                 ) : (
-                  masivoData.map(({ sus, socio, plan, pendientesRecibos }) => {
+                  masivoData.map(({ socio, pendientesRecibos }) => {
                     if (!socio) return null;
                     const hasPending = pendientesRecibos.length > 0;
                     const isSelected = pendientesRecibos.some(r => masivoSelected.has(r.id));
@@ -1924,7 +2084,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
 
                     return (
                       <div
-                        key={sus.id}
+                        key={socio.id}
                         className={cn(
                           'flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all',
                           isSelected
@@ -1965,7 +2125,9 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                           <p className="text-sm font-semibold text-foreground truncate">
                             {socio.nombre} {socio.apellidos}
                           </p>
-                          <p className="text-xs text-muted-foreground truncate">{plan?.nombre ?? '—'}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {pendientesRecibos.length === 1 ? pendientesRecibos[0].concepto : `${pendientesRecibos.length} recibos`}
+                          </p>
                         </div>
 
                         {/* Amount / status */}
@@ -1993,6 +2155,25 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
 
               {/* Footer */}
               <div className="border-t border-border pt-4 space-y-3">
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">¿Cómo te han pagado?</p>
+                  <div role="group" aria-label="Cómo te han pagado" className="mt-1.5 grid grid-cols-4 gap-1.5">
+                    {METODOS_COBRO_MASIVO.map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        aria-pressed={masivoMetodo === m}
+                        onClick={() => setMasivoMetodo(m)}
+                        className={cn(
+                          'min-h-10 rounded-lg border px-2 text-[13px] font-semibold transition-colors',
+                          masivoMetodo === m ? 'border-success bg-success/10 text-success' : 'border-border text-foreground hover:bg-muted',
+                        )}
+                      >
+                        {ETIQUETA_BOTON_METODO[m]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex items-center justify-between text-sm">
                   <p className="text-muted-foreground">
                     {masivoSelected.size} recibo{masivoSelected.size !== 1 ? 's' : ''} seleccionado{masivoSelected.size !== 1 ? 's' : ''}
@@ -2010,7 +2191,8 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
                   </button>
                   <button
                     onClick={() => setMasivoProgress('confirmar')}
-                    disabled={masivoSelected.size === 0}
+                    disabled={masivoSelected.size === 0 || !masivoMetodo}
+                    title={masivoMetodo ? undefined : 'Elige primero cómo te han pagado'}
                     className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-success hover:bg-[#047857] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
                     <Zap size={14} />
@@ -2109,6 +2291,52 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
         })()}
         onCerrar={() => setCobrandoRecibo(null)}
         onElegir={m => { const id = cobrandoRecibo; setCobrandoRecibo(null); if (id) cobrarYEmail(id, m); }}
+      />
+
+      {/* «Le he devuelto el dinero»: por dónde salió el dinero (decide la caja; puede
+          no ser por donde entró). Elegirlo es la confirmación. Lo que compró no se le
+          quita solo (decisión del fundador, como con un reembolso de Stripe). */}
+      <DialogoMetodoCobro
+        abierto={!!reembolsandoRecibo}
+        titulo="¿Cómo le has devuelto el dinero?"
+        sinEspecificar={false}
+        detalle={reembolsandoRecibo && (() => {
+          const r = recibos.find(x => x.id === reembolsandoRecibo);
+          return r ? (
+            <>
+              <p>{socioName(r.socioId)} — <span className="font-semibold text-foreground">{formatEuro(r.importe)}</span> · {r.concepto}</p>
+              <p className="mt-1.5 text-[12.5px]">Ya no lo debe. Lo que compró con este cobro no se le quita: si hay que quitárselo, hazlo desde su ficha.</p>
+            </>
+          ) : null;
+        })()}
+        onCerrar={() => setReembolsandoRecibo(null)}
+        onElegir={m => {
+          const id = reembolsandoRecibo;
+          setReembolsandoRecibo(null);
+          if (!id || !m) return;
+          void enUnaVez(id, async () => {
+            const res = await reembolsarAMano(id, m);
+            if (!res.ok) { onToast(res.error); return; }
+            const r = recibos.find(x => x.id === id);
+            const caja = res.caja === 'APUNTADA' ? ' Apuntado en la caja.'
+              : res.caja === 'SIN_CAJA' ? ' No hay caja abierta: no se ha apuntado.'
+              : res.caja === 'NO_APUNTADA' ? ' No se ha podido apuntar en la caja: apúntalo a mano.' : '';
+            setStripeToast({
+              tipo: res.caja === 'NO_APUNTADA' ? 'error' : 'ok',
+              msg: `Devolución registrada${r ? `: ${formatEuro(r.importe)} a ${socioName(r.socioId)}` : ''}.${caja}`,
+            });
+          });
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!confirmacion}
+        onOpenChange={v => { if (!v) setConfirmacion(null); }}
+        titulo={confirmacion?.titulo ?? ''}
+        descripcion={confirmacion?.descripcion}
+        textoConfirmar={confirmacion?.textoConfirmar}
+        destructivo={confirmacion?.destructivo}
+        onConfirm={() => { const c = confirmacion; setConfirmacion(null); if (c) void c.accion(); }}
       />
 
       <Dialog open={showNuevoCobro} onOpenChange={open => { if (!open) setShowNuevoCobro(false); }}>

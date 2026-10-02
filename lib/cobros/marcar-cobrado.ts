@@ -58,6 +58,12 @@ const ID_RECIBO = new RegExp(`^[A-Za-z0-9_-]{1,${LONGITUD_MAXIMA_ID_RECIBO}}$`);
 export interface PeticionMarcarCobrado {
   reciboIds: string[];
   metodo: MetodoCobroManual | null;
+  /**
+   * `banco`: «El banco lo ha cobrado», el cierre de lo que salió en una remesa
+   * (origen `banco` de `confirmarCobro`). El método no lo dice quien pulsa: es
+   * un adeudo SEPA, y lo pone el servidor.
+   */
+  canal: 'mostrador' | 'banco';
 }
 
 export function esMetodoCobroManual(m: unknown): m is MetodoCobroManual {
@@ -71,7 +77,7 @@ export function parsearPeticionMarcarCobrado(
   if (!cuerpo || typeof cuerpo !== 'object' || Array.isArray(cuerpo)) {
     return { ok: false, error: 'Petición mal formada' };
   }
-  const { reciboIds, metodo } = cuerpo as { reciboIds?: unknown; metodo?: unknown };
+  const { reciboIds, metodo, canal } = cuerpo as { reciboIds?: unknown; metodo?: unknown; canal?: unknown };
   if (!Array.isArray(reciboIds) || reciboIds.length === 0) {
     return { ok: false, error: 'Falta el recibo' };
   }
@@ -82,10 +88,18 @@ export function parsearPeticionMarcarCobrado(
   if (unicos.length > MAX_RECIBOS_POR_PETICION) {
     return { ok: false, error: `Como mucho ${MAX_RECIBOS_POR_PETICION} recibos por petición` };
   }
+  if (canal !== undefined && canal !== 'mostrador' && canal !== 'banco') {
+    return { ok: false, error: 'Canal de cobro no admitido' };
+  }
+  if (canal === 'banco') {
+    // Lo cobró el banco: el método es el adeudo, y no lo elige quien pulsa.
+    if (metodo !== undefined && metodo !== null) return { ok: false, error: 'Lo cobrado por el banco no lleva método' };
+    return { ok: true, peticion: { reciboIds: unicos, metodo: null, canal: 'banco' } };
+  }
   if (metodo !== undefined && metodo !== null && !esMetodoCobroManual(metodo)) {
     return { ok: false, error: 'Método de cobro no admitido' };
   }
-  return { ok: true, peticion: { reciboIds: unicos, metodo: metodo ?? null } };
+  return { ok: true, peticion: { reciboIds: unicos, metodo: metodo ?? null, canal: 'mostrador' } };
 }
 
 export const RESULTADOS_MARCADO = ['aplicada', 'ya_estaba', 'no_cobrable', 'no_encontrado', 'penalizacion_anulada', 'error'] as const;

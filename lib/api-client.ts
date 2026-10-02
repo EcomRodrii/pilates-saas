@@ -13,6 +13,7 @@ import type { ErrorEstiloWeb } from '@/lib/reservar/estilo-web';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_IDS } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp, type ResultadoEscritura } from '@/lib/errores';
+import { hoyEnEstudio } from '@/lib/utils';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
 import {
   TEXTO_COBRO_SIN_CONFIRMAR, respaldoAprobacion, type AprobacionPenalizacion,
@@ -904,12 +905,13 @@ export async function sincronizarCreditosRecibosApi(reciboIds: string[]): Promis
 
 // «Marcar devuelto» desde Cobros. NUNCA lanza: sin respuesta legible no se
 // afirma nada, y la pantalla no marca el recibo.
-export async function marcarReciboDevueltoApi(reciboId: string): Promise<{ ok: true; fechaDevolucion: string } | { ok: false; error: string }> {
+export async function marcarReciboDevueltoApi(reciboId: string, desde?: string): Promise<{ ok: true; fechaDevolucion: string } | { ok: false; error: string }> {
   try {
     const res = await fetch('/api/cobros/marcar-devuelto', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ reciboId }),
+      // `desde`: el estado que se veía al pulsar (compare-and-set en el servidor).
+      body: JSON.stringify({ reciboId, ...(desde ? { desde } : {}) }),
     });
     const data = (await res.json().catch(() => ({}))) as { ok?: unknown; error?: unknown; fechaDevolucion?: unknown };
     if (!res.ok) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
@@ -919,6 +921,50 @@ export async function marcarReciboDevueltoApi(reciboId: string): Promise<{ ok: t
     return { ok: true, fechaDevolucion: data.fechaDevolucion };
   } catch {
     return { ok: false, error: 'No hemos podido confirmar la devolución. Comprueba tu conexión.' };
+  }
+}
+
+/**
+ * «Le he devuelto el dinero» (`POST /api/cobros/reembolso-manual`): el estudio
+ * le devolvió a mano el dinero de un cobro. `caja` dice si se apuntó la salida.
+ */
+export async function reembolsarAManoApi(reciboId: string, metodo: string): Promise<
+  | { ok: true; yaEstaba: boolean; importe: number; caja: string; fechaDevolucion: string }
+  | { ok: false; error: string; sinRespuesta?: boolean }
+> {
+  try {
+    const res = await fetch('/api/cobros/reembolso-manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ reciboId, metodo }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: unknown; error?: unknown; yaEstaba?: unknown; importe?: unknown; caja?: unknown };
+    if (!res.ok) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    if (data.ok !== true || typeof data.importe !== 'number') {
+      return { ok: false, sinRespuesta: true, error: 'No hemos podido confirmar la devolución. Recarga para ver cómo ha quedado antes de repetirla.' };
+    }
+    return { ok: true, yaEstaba: data.yaEstaba === true, importe: data.importe, caja: typeof data.caja === 'string' ? data.caja : 'NO_APUNTADA', fechaDevolucion: hoyEnEstudio() };
+  } catch {
+    return { ok: false, sinRespuesta: true, error: 'No hemos podido confirmar la devolución. Recarga para ver cómo ha quedado antes de repetirla.' };
+  }
+}
+
+/** «Reintentar por el banco» (`POST /api/cobros/reintentar-banco`): vuelve a la próxima remesa. */
+export async function reintentarPorElBancoApi(reciboId: string): Promise<{ ok: true; intentosReintento: number } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/cobros/reintentar-banco', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ reciboId }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: unknown; error?: unknown; intentosReintento?: unknown };
+    if (!res.ok) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    if (data.ok !== true || typeof data.intentosReintento !== 'number') {
+      return { ok: false, error: 'No hemos podido confirmarlo. Recarga para ver cómo ha quedado.' };
+    }
+    return { ok: true, intentosReintento: data.intentosReintento };
+  } catch {
+    return { ok: false, error: 'No hemos podido confirmarlo. Comprueba tu conexión.' };
   }
 }
 
@@ -933,6 +979,8 @@ export async function marcarReciboDevueltoApi(reciboId: string): Promise<{ ok: t
  */
 export async function marcarCobradoEnServidor(
   reciboIds: string[], metodo: string | null, timeoutMs = 45_000,
+  /** `banco`: «El banco lo ha cobrado», el cierre de una remesa (sin método: es el adeudo). */
+  canal?: 'banco',
 ): Promise<{ status: number; cuerpo: unknown } | { red: true }> {
   const abortar = new AbortController();
   const t = setTimeout(() => abortar.abort(), timeoutMs);
@@ -940,7 +988,7 @@ export async function marcarCobradoEnServidor(
     const res = await fetch('/api/cobros/marcar-cobrado', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ reciboIds, metodo }),
+      body: JSON.stringify(canal === 'banco' ? { reciboIds, canal } : { reciboIds, metodo }),
       signal: abortar.signal,
     });
     const cuerpo: unknown = await res.json().catch(() => null);

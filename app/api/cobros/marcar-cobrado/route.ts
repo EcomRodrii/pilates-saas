@@ -102,12 +102,17 @@ export async function POST(req: NextRequest) {
     peticion.reciboIds.map(async id => [id, await leerReciboAntesDeCobrar(admin, sesion.studioId, id)] as const),
   ));
 
+  // «El banco lo ha cobrado»: el cierre de una remesa (origen `banco`, solo
+  // EN_CURSO y sin ningún cobro de Stripe en marcha). El método es el adeudo.
+  const porElBanco = peticion.canal === 'banco';
   const resultados: ResultadoReciboMarcado[] = [];
   for (const reciboId of peticion.reciboIds) {
     // La guardia de penalizaciones se lee JUSTO antes de cobrar cada recibo, no una vez al
     // principio: el lote va en serie (hasta ~20 s) y una penalización que alguien anula en
     // mitad no puede cobrarse con la lectura vieja. Solo lee para los `rec-penaliz-*`.
-    if (penalizacionesDeLosRecibos([reciboId]).length > 0
+    // Lo que ya cobró el banco no se frena: el dinero ha entrado, y bloquearlo lo
+    // dejaría sin registrar.
+    if (!porElBanco && penalizacionesDeLosRecibos([reciboId]).length > 0
       && (await bloqueadosPorPenalizacion(admin, sesion.studioId, [reciboId])).has(reciboId)) {
       resultados.push(resultadoPenalizacionAnulada(reciboId));
       continue;
@@ -116,8 +121,8 @@ export async function POST(req: NextRequest) {
       const r = await confirmarCobro(admin, {
         studioId: sesion.studioId,
         reciboId,
-        metodo: peticion.metodo,
-        origen: 'manual',
+        metodo: porElBanco ? 'SEPA' : peticion.metodo,
+        origen: porElBanco ? 'banco' : 'manual',
         paymentIntentId: null,
         avisarSocia: false,
         facturaId: facturaIdManual(reciboId),
@@ -146,7 +151,7 @@ export async function POST(req: NextRequest) {
   // Al libro, solo lo que ESTA petición cambió (`aplicada`): un `ya_estaba` no
   // cambió nada. Después de todos los cobros y antes de responder; nunca lanza.
   await Promise.all(resultados.filter(r => r.resultado === 'aplicada').map(r =>
-    anotarCobroMarcadoAMano(admin, { sesion, reciboId: r.reciboId, antes: antes.get(r.reciboId) ?? null }),
+    anotarCobroMarcadoAMano(admin, { sesion, reciboId: r.reciboId, antes: antes.get(r.reciboId) ?? null, porElBanco }),
   ));
 
   return NextResponse.json({ resultados }, { status: estadoHttpDeLote(resultados) });

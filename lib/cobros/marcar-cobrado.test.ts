@@ -25,10 +25,16 @@ const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace
 test('acepta los métodos del diálogo y «sin especificar»', () => {
   for (const metodo of METODOS_COBRO_MANUAL) {
     const r = parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], metodo });
-    assert.deepEqual(r, { ok: true, peticion: { reciboIds: ['rec-1'], metodo } });
+    assert.deepEqual(r, { ok: true, peticion: { reciboIds: ['rec-1'], metodo, canal: 'mostrador' } });
   }
-  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'] }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null } });
-  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], metodo: null }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null } });
+  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'] }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'mostrador' } });
+  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], metodo: null }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'mostrador' } });
+});
+
+test('«El banco lo ha cobrado» (canal banco) no lleva método: lo pone el servidor', () => {
+  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], canal: 'banco' }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'banco' } });
+  assert.equal(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], canal: 'banco', metodo: 'EFECTIVO' }).ok, false, 'lo cobrado por el banco no es efectivo');
+  assert.equal(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], canal: 'datafono' }).ok, false, 'canal inventado');
 });
 
 test('la lista blanca es la del diálogo «¿Cómo lo has cobrado?», ni más ni menos', () => {
@@ -267,7 +273,9 @@ test('la ruta comprueba rol y toma el estudio de la sesión, nunca del cuerpo', 
 test('la ruta cobra por el dueño único, a mano, en serie y sin email extra', () => {
   const ruta = sinComentarios(leer('app/api/cobros/marcar-cobrado/route.ts'));
   assert.match(ruta, /confirmarCobro\(admin, \{/);
-  assert.match(ruta, /origen: 'manual'/);
+  // A mano, o «El banco lo ha cobrado» (origen `banco`, que solo cierra lo que está en una remesa).
+  assert.match(ruta, /origen: porElBanco \? 'banco' : 'manual'/);
+  assert.match(ruta, /metodo: porElBanco \? 'SEPA' : peticion\.metodo/, 'lo cobrado por el banco es un adeudo, no lo que diga el cuerpo');
   assert.match(ruta, /paymentIntentId: null/);
   // El panel manda su propio justificante (`cobrarYEmail`): un segundo email
   // desde el servidor sería un cambio de producto, no un refactor.
