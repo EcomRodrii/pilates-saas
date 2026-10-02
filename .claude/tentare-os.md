@@ -1075,10 +1075,10 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     DEVUELTO: no se crea ni se pasa a devuelto desde el navegador, y de un devuelto el
     navegador solo puede salir a EN_CURSO si lo devolvió el BANCO (mismo criterio que
     `esReciboCobrable`); uno reembolsado por Stripe o por la caja no se reabre (la socia
-    volvería a pagarlo). ⚠️ **Esa salida hay que cerrarla en el trigger** (pendiente: una
-    migración aparte, cuando el panel que ya no la usa esté desplegado, con `supabase/tests`
-    al día). La usaba el «Reintentar» del panel, que desde el 2-oct va por el servidor
-    (→ PENDIENTE), y es de donde salen los EN_CURSO que no fueron a ningún banco. Y un recibo NACE
+    volvería a pagarlo). **Desde el 2-oct (migr `20261002105604`) un DEVUELTO no cambia de
+    estado desde el navegador**: la única salida que quedaba era el «Reintentar» del panel
+    viejo (→ EN_CURSO sin mandar nada a ningún banco, de ahí los «en el banco» que no fueron a
+    ninguna remesa); ahora lo hace el servidor (`reintentarPorElBanco`, → PENDIENTE). Y un recibo NACE
     pendiente desde el navegador, y un EN_CURSO con un cobro en vuelo (cargo, sesión de pago
     o reintento programado) no vuelve a pendiente a mano: cambiaría la clave de idempotencia
     del siguiente cobro.

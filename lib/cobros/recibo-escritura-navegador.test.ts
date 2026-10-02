@@ -23,6 +23,22 @@ function migracion(): string {
   return readFileSync(join(dir, nombre), 'utf8').replace(/^\s*--.*$/gm, '');
 }
 
+/**
+ * La función del trigger tal como queda tras la ÚLTIMA migración que la redefine: las reglas se
+ * van cerrando en migraciones posteriores (la de columnas escribibles, y después la que deja un
+ * DEVUELTO sin salida desde el navegador), y probar el texto de una vieja daría por buena una regla
+ * que ya no está.
+ */
+function ultimaFuncionDelTrigger(): { sql: string; fn: string; fichero: string } {
+  const dir = join(raiz, 'supabase', 'migrations');
+  const cabecera = 'create or replace function public.recibos_cobrado_solo_servidor()';
+  const nombres = readdirSync(dir).filter(n => n.endsWith('.sql')).sort();
+  const fichero = [...nombres].reverse().find(n => readFileSync(join(dir, n), 'utf8').includes(cabecera));
+  assert.ok(fichero, 'ninguna migración define la función del trigger de recibos');
+  const sql = readFileSync(join(dir, fichero), 'utf8').replace(/^\s*--.*$/gm, '');
+  return { sql, fn: sql.slice(sql.indexOf(cabecera)), fichero };
+}
+
 const columnasDel = (sql: string, privilegio: 'insert' | 'update'): string[] => {
   const m = sql.match(new RegExp(`grant ${privilegio} \\(([^)]+)\\)\\s+on public\\.recibos to authenticated`));
   assert.ok(m, `la migración no concede ${privilegio} por columnas a authenticated`);
@@ -49,15 +65,17 @@ test('la política de cancelar una cuota corre como su dueño: escribe columnas 
   assert.match(sql, /has_function_privilege\('authenticated', 'public\.aplicar_politica_recibos_al_cancelar_cuota\(\)'::regprocedure, 'EXECUTE'\)/);
 });
 
-test('el trigger cierra también DEVUELTO: nacer, pasar y salir (solo «Reintentar» de uno devuelto por el banco)', () => {
-  const sql = migracion();
-  const fn = sql.slice(sql.indexOf('create or replace function public.recibos_cobrado_solo_servidor()'));
+test('el trigger cierra también DEVUELTO: ni nace, ni se pasa, ni sale desde el navegador', () => {
+  const { sql, fn, fichero } = ultimaFuncionDelTrigger();
+  assert.ok(fichero >= '20261002', `la última definición del trigger es anterior a la que cierra DEVUELTO: ${fichero}`);
   assert.match(fn, /security invoker\s+set search_path = ''/);
   assert.match(fn, /if public\.es_llamada_servicio\(\) then\s+return new;/);
   assert.match(fn, /new\.estado = 'DEVUELTO' then\s+raise exception 'recibos_cobrado_solo_servidor: un recibo no puede crearse ya devuelto/);
   assert.match(fn, /if new\.estado = 'DEVUELTO' then\s+raise exception 'recibos_cobrado_solo_servidor: el estado devuelto/);
-  // Salir de DEVUELTO: solo a EN_CURSO y solo si lo devolvió el banco — el criterio de `esReciboCobrable`.
-  assert.match(fn, /old\.estado = 'DEVUELTO'\s+and not \(new\.estado = 'EN_CURSO'\s+and old\.reembolso_stripe_id is null\s+and old\.reembolso_solicitado_en is null\s+and coalesce\(old\.importe_devuelto, 0\) < old\.importe\)/);
+  // Salir de DEVUELTO desde el navegador: nunca. «Reintentar» lo ponía EN_CURSO sin mandar nada a
+  // ningún banco; ahora lo hace el servidor (`reintentarPorElBanco`, → PENDIENTE para la remesa).
+  assert.match(fn, /if old\.estado = 'DEVUELTO' then\s+raise exception 'recibos_cobrado_solo_servidor: un recibo devuelto no cambia de estado desde el navegador/);
+  assert.doesNotMatch(fn, /new\.estado = 'EN_CURSO'\s+and old\.reembolso_stripe_id is null/, 'vuelve la salida vieja de «Reintentar» desde el navegador');
   // El dinero de un cobrado o devuelto: las ocho columnas.
   for (const col of ['importe', 'metodo_cobro', 'fecha_cobro', 'fecha_devolucion', 'importe_devuelto', 'reembolso_stripe_id', 'reembolso_solicitado_en', 'stripe_payment_intent_id']) {
     assert.match(fn, new RegExp(`new\\.${col} is distinct from old\\.${col}`), `un recibo cobrado/devuelto podría cambiar ${col}`);
@@ -79,17 +97,16 @@ test('el trigger cierra también DEVUELTO: nacer, pasar y salir (solo «Reintent
   assert.match(sql, /revoke all on function public\.recibos_cobrado_solo_servidor\(\) from public, anon, authenticated;/);
 });
 
-test('«devuelto por el banco» en SQL dice lo mismo que `esReciboCobrable` en TypeScript', () => {
-  // La migración abre «Reintentar» solo si: sin reembolso pedido ni hecho y sin importe devuelto entero.
-  // `esReciboCobrable` es el criterio de pantalla y de cobro: si divergieran, la pantalla ofrecería un botón
-  // que la base de datos rechaza (o al revés, un reembolso se podría reabrir).
+test('«devuelto por el banco» (`esReciboCobrable`): sin reembolso pedido ni hecho y sin importe devuelto entero', () => {
+  // Es el criterio de pantalla y de cobro. Desde que el navegador no saca un DEVUELTO, «Reintentar por el
+  // banco» lo comprueba el servidor (`reintentarPorElBanco`, con compare-and-set sobre esas columnas).
   const devuelto = (extra: Record<string, unknown>) => ({ estado: 'DEVUELTO', importe: 10, importe_devuelto: 0, ...extra });
   assert.equal(esReciboCobrable(devuelto({})), true, 'devuelto por el banco: se reintenta');
   assert.equal(esReciboCobrable(devuelto({ reembolso_stripe_id: 're_x' })), false);
   assert.equal(esReciboCobrable(devuelto({ reembolso_solicitado_en: '2026-10-01T10:00:00Z' })), false);
   assert.equal(esReciboCobrable(devuelto({ importe_devuelto: 10 })), false);
   assert.equal(esReciboCobrable(devuelto({ importe_devuelto: 4 })), true, 'devuelto parcial: aún se debe algo');
-  // Y la migración usa exactamente esas tres columnas.
+  // Y el criterio usa exactamente esas tres columnas.
   const fuente = leer('lib/billing/deuda-recibo.ts');
   for (const col of ['reembolso_stripe_id', 'reembolso_solicitado_en', 'importe_devuelto']) assert.ok(fuente.includes(col));
 });
