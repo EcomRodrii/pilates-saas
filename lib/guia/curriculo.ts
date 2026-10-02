@@ -603,24 +603,24 @@ export const CAPITULOS: CapituloGuia[] = [
     nivel: 'recomendado',
     minutos: 6,
     queAprendes: [
-      'Si te conviene que Tentare emita tus facturas',
+      'Qué cambia al activar Veri*Factu',
       'Qué datos hacen falta para poder facturar',
       'Cuándo se emite una factura sola y cuándo la haces tú',
       'Cómo se le manda todo a la gestoría',
     ],
-    porQue: 'Por defecto Tentare no emite facturas: cada cobro queda registrado y tu alumna recibe su justificante de pago. Si quieres que las emita, se activa en un paso, y sin tu NIF no se deja.',
+    porQue: 'Tentare emite la factura de cada cobro. Lo único que necesita es tu NIF. Veri*Factu (huella, QR y envío a la AEAT) va aparte y está desactivado de entrada.',
     apartados: [
       {
-        titulo: 'Emitirlas o no',
-        texto: 'En Configuración → Cobros y facturas → «Facturación» eliges si Tentare emite una factura en cada cobro, con su registro para Veri*Factu, o si tus facturas las haces fuera (tu gestoría, otro programa). Por defecto está apagado. Tentare solo las emite con tu envío a la AEAT activo, y una vez que facturas con Veri*Factu la norma obliga a seguir así hasta el 31 de diciembre de ese año: confírmalo antes con tu asesoría.',
+        titulo: 'Con o sin Veri*Factu',
+        texto: 'En Configuración → Cobros y facturas → «Facturación» eliges si tus facturas van también a la AEAT (Veri*Factu: huella, QR y envío). Por defecto, no. Con el calendario publicado hoy obliga desde el 1 de enero de 2027 a las sociedades y desde el 1 de julio de 2027 al resto. Se activa con tu envío a la AEAT activo, y una vez que facturas con Veri*Factu la norma obliga a seguir así hasta el 31 de diciembre de ese año: confírmalo antes con tu asesoría.',
       },
       {
         titulo: 'Lo que hace falta',
-        texto: 'Tu NIF y tu razón social, en la misma pantalla, en «Datos fiscales e IVA». El NIF se valida: uno de relleno no cuela. Sin él no se deja activar la facturación, y si lo quitas después, Tentare cobra igual pero no emite ninguna factura y te lo avisa en rojo en Facturas.',
+        texto: 'Tu NIF y tu razón social, en la misma pantalla, en «Datos fiscales e IVA». El NIF se valida: uno de relleno no cuela. Sin él Tentare cobra igual pero no emite ninguna factura, y te lo avisa en rojo en Facturas y en lo que espera tu visto bueno.',
       },
       {
         titulo: 'Se emiten solas',
-        texto: 'Con la facturación activada, al cobrar se emite la factura, con su numeración correlativa por año, salvo si cobraste en efectivo — ahí la decides tú, porque no todos los estudios facturan el efectivo igual. La vía manual sigue estando para cuando la quieras.',
+        texto: 'Al cobrar se emite la factura, con su numeración correlativa por año, salvo si cobraste en efectivo — ahí la decides tú, porque no todos los estudios facturan el efectivo igual. La vía manual sigue estando para cuando la quieras.',
       },
       {
         titulo: 'Rectificar',
@@ -632,12 +632,12 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Elegir si Tentare factura', href: '/configuracion?tab=cobros#facturacion' },
+      { label: 'Activar o no Veri*Factu', href: '/configuracion?tab=cobros#facturacion' },
       { label: 'Poner mis datos fiscales', href: '/configuracion?tab=cobros#datos-fiscales' },
       { label: 'Ver mis facturas', href: '/cobros?tab=facturas' },
       { label: 'Cierre para la gestoría', href: '/cierre' },
     ],
-    consejo: 'Ponlo antes de tu primera venta. Las facturas se numeran en orden y con fecha: rellenar hacia atrás lo que se cobró sin facturar es mucho más incómodo que dedicarle dos minutos hoy.',
+    consejo: 'Pon tu NIF antes de tu primera venta. Las facturas se numeran en orden y con fecha: rellenar hacia atrás lo que se cobró sin facturar es mucho más incómodo que dedicarle dos minutos hoy.',
     pasos: ['estudio'],
   },
 

@@ -1,15 +1,15 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// «Facturación» (29-sep-2026): cada estudio elige si Tentare emite sus facturas
-// (con registro Veri*Factu) o si las hace fuera. Por defecto, no.
+// «Facturación»: factura SIEMPRE; Veri*Factu (huella, QR y envío a la AEAT),
+// aparte y apagado por defecto (decisión del fundador, 2-oct-2026).
 //
 // Lo que se prueba aquí es el panel: el interruptor pregunta antes con la
-// consecuencia, manda SOLO su campo, no se deja encender sin NIF, y un rechazo
-// del servidor no dice «guardado». Y la pantalla de Facturas dice la verdad con
-// el modo apagado. Que la base de datos no deje nacer una factura con el modo
-// apagado se ensayó en producción con transacción revertida (ver la migración
-// 20260929214142_studios_modo_facturacion.sql).
+// consecuencia, lo guarda el SERVIDOR (POST /api/facturacion/modo: el navegador
+// ya no escribe la columna), no se deja encender sin NIF ni sin el envío activo,
+// y un rechazo del servidor no dice «guardado». Y la pantalla de Facturas dice la
+// verdad sin Veri*Factu. Lo que hace la base de datos se ensayó en producción con
+// transacción revertida (migración 20261002160000_facturas_siempre_verifactu_aparte.sql).
 //
 // Todos los caminos de fallo cuentan intentos: «no dijo guardado» también sería
 // verdad con un botón que no manda nada.
@@ -25,7 +25,7 @@ const NIF = '48392017V';
 const FILA = {
   id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen',
   owner_auth_user_id: AUTH_UID, email: 'carmen@example.com', moneda: 'EUR',
-  iva_por_defecto: 21, modo_facturacion: 'sin_facturas',
+  iva_por_defecto: 21, modo_facturacion: 'facturas',
   // Lo que devuelve la BD sin datos fiscales: `null`, no la columna ausente.
   nif: null, razon_social: null,
 };
@@ -46,6 +46,7 @@ const ENVIO_ACTIVO: Envio = { estado: 'PRODUCCION', activadoEn: '2026-10-01T10:0
 
 async function montar(page: Page, ruta: string, opts: { fila?: Record<string, unknown>; respuesta?: Respuesta; exportacion?: Exportacion; envio?: Envio } = {}) {
   const patches: Record<string, unknown>[] = [];
+  const envios: Record<string, unknown>[] = [];
   const descargas: string[] = [];
   const { fila = FILA, respuesta = 'ok', exportacion, envio } = opts;
   await page.addInitScript(([key, uid]) => {
@@ -74,6 +75,13 @@ async function montar(page: Page, ruta: string, opts: { fila?: Record<string, un
     // Lo que devuelve PostgREST con `select=id`; `[]` es «la RLS no casó».
     return json(route, respuesta === 'cero-filas' ? [] : [{ id: STUDIO_ID }]);
   });
+  await page.route('**/api/facturacion/modo', route => {
+    const cuerpo = route.request().postDataJSON() as Record<string, unknown>;
+    envios.push(cuerpo);
+    return respuesta === 'cero-filas'
+      ? json(route, { error: 'No se ha podido cambiar el envío a la AEAT.' }, 500)
+      : json(route, { modo: cuerpo.modo });
+  });
   if (envio) {
     await page.route('**/api/verifactu/estudio', route => envio === 'error'
       ? json(route, { error: 'No se ha podido leer el estado del envío a la AEAT.' }, 500)
@@ -94,77 +102,89 @@ async function montar(page: Page, ruta: string, opts: { fila?: Record<string, un
     });
   }
   await page.goto(ruta);
-  return { patches, descargas };
+  return { patches, envios, descargas };
 }
 
 const emitir = (page: Page) => page.getByRole('radiogroup', { name: 'Facturación' })
-  .getByRole('radio', { name: /Emitir facturas con registro Veri\*Factu/ });
+  .getByRole('radio', { name: /Facturas con Veri\*Factu/ });
 
-test('por defecto no emite, y la fila lo dice sin prometer el envío a la AEAT', async ({ page }) => {
+test('por defecto factura sin Veri*Factu, y la fila lo dice; sin NIF, el NIF sale como problema', async ({ page }) => {
   await montar(page, '/configuracion?tab=cobros');
   const fila = page.locator('#facturacion');
-  await expect(fila).toContainText('No se emiten desde Tentare: tus alumnas reciben su justificante de pago', { timeout: 30_000 });
-  // Sin facturas desde Tentare, un NIF que falta no sale como problema.
-  await expect(page.locator('#datos-fiscales')).toContainText('solo hace falta si Tentare emite tus facturas');
+  await expect(fila).toContainText('Facturas sin envío a la AEAT (Veri*Factu desactivado)', { timeout: 30_000 });
+  // Factura siempre: sin NIF no sale ninguna, así que el NIF que falta es un problema.
+  await expect(page.locator('#datos-fiscales')).toContainText('Falta el NIF');
+  await expect(page.getByRole('radio', { name: /No emitir facturas/ })).toHaveCount(0);
 });
 
-test('encenderlo pregunta antes, con la consecuencia, y manda solo su campo', async ({ page }) => {
-  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF }, envio: ENVIO_ACTIVO });
+test('activar Veri*Factu pregunta antes, con la consecuencia, y lo guarda el servidor', async ({ page }) => {
+  const { patches, envios } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF }, envio: ENVIO_ACTIVO });
   await expect(emitir(page)).toBeVisible({ timeout: 30_000 });
   await emitir(page).click();
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
 
-  const pregunta = page.getByRole('dialog', { name: '¿Emitir facturas desde Tentare?' });
+  const pregunta = page.getByRole('dialog', { name: '¿Enviar tus facturas a la AEAT?' });
   await expect(pregunta).toContainText('rectificativa');
   await expect(pregunta).toContainText('confírmalo con tu asesoría');
-  expect(patches).toHaveLength(0);
-  await pregunta.getByRole('button', { name: 'Sí, emitir facturas' }).click();
+  expect(envios).toHaveLength(0);
+  await pregunta.getByRole('button', { name: 'Sí, activar Veri*Factu' }).click();
 
-  await expect.poll(() => patches.length, { timeout: 10_000 }).toBe(1);
-  expect(patches[0]).toEqual({ modo_facturacion: 'verifactu' });
-  await expect(page.getByText('Tentare emitirá tus facturas')).toBeVisible();
+  await expect.poll(() => envios.length, { timeout: 10_000 }).toBe(1);
+  expect(envios[0]).toEqual({ modo: 'verifactu' });
+  // El navegador ya no escribe la columna.
+  expect(patches).toHaveLength(0);
+  await expect(page.getByText('Veri*Factu activado')).toBeVisible();
 });
 
-test('sin un NIF válido no se deja encender (0 peticiones)', async ({ page }) => {
-  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion');
+test('sin un NIF válido no se deja activar Veri*Factu (0 peticiones)', async ({ page }) => {
+  const { patches, envios } = await montar(page, '/configuracion?tab=cobros#facturacion');
   await expect(emitir(page)).toBeVisible({ timeout: 30_000 });
   await emitir(page).click();
   await expect(page.getByText('Pon un NIF válido en «Datos fiscales e IVA» para emitir facturas.').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
   await page.waitForTimeout(400);
   expect(patches).toHaveLength(0);
+  expect(envios).toHaveLength(0);
 });
 
-test('si el servidor no lo guarda, no dice que Tentare emitirá tus facturas', async ({ page }) => {
-  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF }, respuesta: 'cero-filas', envio: ENVIO_ACTIVO });
+test('si el servidor no lo guarda, no dice que Veri*Factu está activado', async ({ page }) => {
+  const { envios } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF }, respuesta: 'cero-filas', envio: ENVIO_ACTIVO });
   await expect(emitir(page)).toBeVisible({ timeout: 30_000 });
   await emitir(page).click();
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
-  await page.getByRole('button', { name: 'Sí, emitir facturas' }).click();
-  await expect.poll(() => patches.length, { timeout: 10_000 }).toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Sí, activar Veri*Factu' }).click();
+  await expect.poll(() => envios.length, { timeout: 10_000 }).toBeGreaterThan(0);
   await page.waitForTimeout(800);
-  await expect(page.getByText('Tentare emitirá tus facturas')).toHaveCount(0);
-  await expect(page.getByText('No se ha guardado').first()).toBeVisible();
+  await expect(page.getByText('Veri*Factu activado')).toHaveCount(0);
+  await expect(page.getByText('No se ha podido cambiar el envío a la AEAT.').first()).toBeVisible();
   await expect(emitir(page)).toHaveAttribute('aria-checked', 'true');
 });
 
-test('apagarlo después de haber facturado se deja, y avisa de lo ya emitido y de la permanencia hasta el 31-dic', async ({ page }) => {
-  const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF, modo_facturacion: 'verifactu' }, envio: ENVIO_ACTIVO });
-  const noEmitir = page.getByRole('radiogroup', { name: 'Facturación' }).getByRole('radio', { name: /No emitir facturas desde Tentare/ });
-  await expect(noEmitir).toBeVisible({ timeout: 30_000 });
-  await noEmitir.click();
+test('la propietaria puede apagar Veri*Factu: avisa de lo ya enviado y de la permanencia hasta el 31-dic, y las facturas siguen', async ({ page }) => {
+  const { envios } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF, modo_facturacion: 'verifactu' }, envio: ENVIO_ACTIVO });
+  const sinEnvio = page.getByRole('radiogroup', { name: 'Facturación' }).getByRole('radio', { name: /Facturas, sin envío a la AEAT/ });
+  await expect(sinEnvio).toBeVisible({ timeout: 30_000 });
+  await sinEnvio.click();
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
-  const pregunta = page.getByRole('dialog', { name: '¿Dejar de emitir facturas desde Tentare?' });
-  await expect(pregunta).toContainText('se quedan como están');
+  const pregunta = page.getByRole('dialog', { name: '¿Desactivar Veri*Factu?' });
+  await expect(pregunta).toContainText('se siguen emitiendo');
   await expect(pregunta).toContainText('art. 17.2');
   await expect(pregunta).toContainText(/hasta el 31 de diciembre de \d{4}/);
-  await pregunta.getByRole('button', { name: 'Sí, dejar de emitirlas' }).click();
-  await expect.poll(() => patches.length, { timeout: 10_000 }).toBe(1);
-  expect(patches[0]).toEqual({ modo_facturacion: 'sin_facturas' });
+  await pregunta.getByRole('button', { name: 'Sí, desactivarlo' }).click();
+  await expect.poll(() => envios.length, { timeout: 10_000 }).toBe(1);
+  expect(envios[0]).toEqual({ modo: 'facturas' });
 });
 
-test('Facturas, con el modo apagado: la pestaña es «Para tu gestoría», lo dice y lleva a activarlo, sin el aviso rojo del NIF', async ({ page }) => {
+test('Facturas sin Veri*Factu: la pestaña es «Facturas», avisa de 2027 sin prometer huella, y sin NIF lo dice en rojo', async ({ page }) => {
   await montar(page, '/facturas');
+  await expect(page.getByRole('button', { name: 'Facturas', exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('aviso-verifactu-apagado')).toContainText('1 de enero de 2027');
+  await expect(page.getByTestId('aviso-verifactu-apagado')).toContainText('Confírmalo con tu asesoría');
+  await expect(page.getByText('No se está emitiendo ninguna factura')).toBeVisible();
+});
+
+test('en el estado de sistema «sin facturas»: la pestaña es «Para tu gestoría», sin el aviso rojo del NIF', async ({ page }) => {
+  await montar(page, '/facturas', { fila: { ...FILA, modo_facturacion: 'sin_facturas' } });
   await expect(page.getByRole('button', { name: 'Para tu gestoría' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Tus facturas las hace tu gestoría/)).toBeVisible();
   await expect(page.getByRole('link', { name: /Facturar con Tentare/ })).toHaveAttribute('href', '/configuracion?tab=cobros#facturacion');

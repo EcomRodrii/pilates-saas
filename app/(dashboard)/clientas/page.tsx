@@ -49,6 +49,7 @@ import { useAuth } from '@/lib/auth-context';
 import { ConstructorSegmentos } from '@/components/segmentos/constructor-segmento';
 import { construirContextoSegmento, evaluarSegmento } from '@/lib/segmentos/evaluador';
 import type { SegmentoCliente } from '@/lib/segmentos/tipos';
+import { emiteFacturas } from '@/lib/factura-automatica';
 
 // ─── Shared style tokens ────────────────────────────────────────────────────
 const inputCls =
@@ -1827,7 +1828,7 @@ export default function Socios() {
                   siempre COBRADO, sin método, y sumaba a los ingresos del mes
                   dinero que no había entrado en el banco. */}
               {mueveDinero && form.planId && showForm === 'nueva' && (
-                <FF label="¿Ya te ha pagado?" description={studio?.modoFacturacion === 'verifactu' ? 'Marca «Todavía no» y el recibo queda pendiente en Cobros. La factura se emite cuando lo cobres.' : 'Marca «Todavía no» y el recibo queda pendiente en Cobros.'}>
+                <FF label="¿Ya te ha pagado?" description={emiteFacturas(studio?.modoFacturacion) ? 'Marca «Todavía no» y el recibo queda pendiente en Cobros. La factura se emite cuando lo cobres.' : 'Marca «Todavía no» y el recibo queda pendiente en Cobros.'}>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"

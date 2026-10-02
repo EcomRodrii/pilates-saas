@@ -7,7 +7,8 @@ import { Search, Download, ChevronDown, ChevronRight, X, ShieldCheck, AlertTrian
 import { nifEmisorValido } from '@/lib/nif';
 import { cn, hoyEnEstudio } from '@/lib/utils';
 import { importeIngresado } from '@/lib/billing/situacion-recibo';
-import { cobrosSinFactura, fraseVerifactu, resumenFacturado } from '@/lib/cobros/gestoria';
+import { AVISO_VERIFACTU_APAGADO, cobrosSinFactura, fraseVerifactu, resumenFacturado } from '@/lib/cobros/gestoria';
+import { emiteFacturas } from '@/lib/factura-automatica';
 import { cobradoEnTramo } from '@/lib/cobros/lo-cobrado';
 import { useRol } from '@/lib/permisos';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
@@ -38,7 +39,8 @@ export function PanelFacturas() {
   const esPropietaria = useRol() === 'PROPIETARIO';
   // ¿Emite facturas este estudio? (`Studio.modoFacturacion`). Mientras carga,
   // como si sí: la pantalla de siempre, sin un aviso que parpadee.
-  const emite = studio ? studio.modoFacturacion === 'verifactu' : true;
+  const emite = studio ? emiteFacturas(studio.modoFacturacion) : true;
+  const conVerifactu = studio?.modoFacturacion === 'verifactu';
   const emisorNombre = studio?.nombre ?? 'Tentare';
   const emisorNif = studio?.nif ?? '—';
   const emisorDireccion = [studio?.direccion, studio?.ciudad].filter(Boolean).join(', ') || '—';
@@ -279,7 +281,12 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
       {emite && !faltaNif && (
         <p className="flex items-start gap-1.5 text-[13px] text-foreground">
           <ShieldCheck size={14} className="mt-0.5 shrink-0 text-success" aria-hidden />
-          {fraseVerifactu({ nifEstudioValido: true, pendientesDeSellar: mes.sinFactura.pendientesDeSellar.n })}
+          {fraseVerifactu({ nifEstudioValido: true, pendientesDeSellar: mes.sinFactura.pendientesDeSellar.n, conVerifactu })}
+        </p>
+      )}
+      {studio && emite && !conVerifactu && (
+        <p data-testid="aviso-verifactu-apagado" className="max-w-[760px] text-[12.5px] text-muted-foreground text-pretty">
+          {AVISO_VERIFACTU_APAGADO}
         </p>
       )}
 

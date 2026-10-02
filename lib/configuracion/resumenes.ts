@@ -234,9 +234,8 @@ export function avisosDeConfiguracion(d: DatosConfiguracion): AvisoConfiguracion
 
   // 1. El NIF. Con uno vacío o de relleno no se emite ninguna factura: es el
   //    mismo criterio que el aviso de Cobros → Facturas (`nifEmisorValido`).
-  //    Solo si el estudio emite facturas desde Tentare: con 'sin_facturas' (el
-  //    valor por defecto desde el 29-sep-2026) un NIF que falta no deja nada
-  //    sin factura. Sin saber el modo (datos de antes), como siempre.
+  //    Desde el 2-oct-2026 todo estudio factura; solo el estado de sistema
+  //    'sin_facturas' no, y ahí un NIF que falta no deja nada sin factura.
   const nif = s.nif === undefined || s.modoFacturacion === 'sin_facturas' ? null : avisoNif(s.nif);
   if (nif) avisos.push({ id: 'nif', ...nif, ...en('datos-fiscales') });
 
@@ -688,8 +687,8 @@ const NADA: ResumenFila = { valor: null, estado: null };
 export function resumenDatosFiscales(s: Partial<Pick<Studio, 'razonSocial' | 'nif' | 'ivaPorDefecto' | 'modoFacturacion'>>): ResumenFila {
   if (s.nif === undefined) return NADA;
   const aviso = avisoNif(s.nif);
-  // Sin facturas desde Tentare, un NIF que falta no deja nada sin factura: se
-  // dice para qué hace falta, sin ponerlo en rojo.
+  // En el estado de sistema 'sin_facturas' un NIF que falta no deja nada sin
+  // factura: se dice para qué hace falta, sin ponerlo en rojo.
   if (aviso && s.modoFacturacion === 'sin_facturas') {
     return { valor: 'Sin NIF válido · solo hace falta si Tentare emite tus facturas', estado: null };
   }
@@ -743,15 +742,15 @@ export function resumenDomiciliaciones(s: Partial<Pick<Studio, 'sepaAcreedorId' 
 
 /** «Hasta 14 días · bonos, solo sin empezar», o que se devuelve desde Stripe. */
 /**
- * «Facturación»: si Tentare emite facturas (`Studio.modoFacturacion`). Sin
- * prometer el envío a la AEAT, que hoy depende de algo que no está en su mano:
+ * «Facturación»: factura siempre; si va con Veri*Factu (`Studio.modoFacturacion`).
+ * Sin prometer el envío a la AEAT, que depende de algo que no está en su mano:
  * su estado se ve en Cobros → Facturas.
  */
 export function resumenFacturacion(s: Partial<Pick<Studio, 'modoFacturacion'>>): string | null {
   if (s.modoFacturacion === undefined) return null;
-  return s.modoFacturacion === 'verifactu'
-    ? 'Emite facturas con registro Veri*Factu'
-    : 'No se emiten desde Tentare: tus alumnas reciben su justificante de pago';
+  if (s.modoFacturacion === 'verifactu') return 'Facturas con Veri*Factu';
+  if (s.modoFacturacion === 'facturas') return 'Facturas sin envío a la AEAT (Veri*Factu desactivado)';
+  return 'Hoy no emite facturas';
 }
 
 export function resumenDevoluciones(s: Partial<Pick<Studio, 'reembolsosActivos' | 'reembolsoPlazoDias' | 'reembolsoSoloSinUsar'>>): string | null {

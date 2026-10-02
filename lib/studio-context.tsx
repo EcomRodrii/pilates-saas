@@ -221,7 +221,7 @@ import type {
   SustitucionConfirmadaPublica,
   ValoracionSocia,
 } from '@/lib/types';
-import { emiteFacturaAutomatica, MENSAJE_SIN_FACTURAS } from '@/lib/factura-automatica';
+import { emiteFacturaAutomatica, emiteFacturas, MENSAJE_SIN_FACTURAS } from '@/lib/factura-automatica';
 import {
   MENSAJE_COBRADO_SIN_RENOVAR, RECIBOS_POR_LOTE_PANEL, desenlaceTrasReleer, esCobroConfirmado, leerRespuestaMarcarCobrado, resumenDeLote, trocear,
   type DesenlaceCobroManual, type ResultadoFacturaDirecta, type ResultadoMarcarCobrado, type ResumenCobroEnLote,
@@ -4381,7 +4381,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // Con factura si el estudio la emite (la sella el servidor al cobrar); sin ella, «registró un cobro».
       // Con el método: el efectivo no lleva factura automática, y la actividad
       // no puede decir «generó una factura» que no existe.
-      const sacaFactura = (conFactura && studio?.modoFacturacion === 'verifactu') || emiteFacturaAutomatica(opciones.metodo ?? null, studio?.modoFacturacion ?? null);
+      const sacaFactura = (conFactura && emiteFacturas(studio?.modoFacturacion)) || emiteFacturaAutomatica(opciones.metodo ?? null, studio?.modoFacturacion ?? null);
       addActividadReciente(
         'COBRO_MANUAL',
         sacaFactura
@@ -4398,7 +4398,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // dinero entró y ella se quedaría sin su bono o su mes.
     if (d.renovacionFallida) return { ok: false, cobroRegistrado: true, error: MENSAJE_COBRADO_SIN_RENOVAR };
     if (!d.selladoOk) {
-      return { ok: false, cobroRegistrado: true, error: 'La factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Cobros y facturas → Datos fiscales e IVA.' };
+      return { ok: false, cobroRegistrado: true, error: 'Cobrado. La factura ha quedado pendiente: revisa el NIF del estudio en Configuración → Cobros y facturas → Datos fiscales e IVA.' };
     }
     return { ok: true };
   }
@@ -4411,7 +4411,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   function construirFacturaCobro(reciboCobrado: Recibo, facturasActuales: Factura[]): Factura | null {
     // Con el estudio en 'sin_facturas' no nace ninguna, ni en pantalla: la base
     // de datos la rechazaría y la factura optimista aparecería y se esfumaría.
-    if (studio?.modoFacturacion !== 'verifactu') return null;
+    if (!emiteFacturas(studio?.modoFacturacion)) return null;
     if (facturasActuales.some(f => f.reciboId === reciboCobrado.id)) return null;
     return buildFactura(reciboCobrado, facturasActuales);
   }
@@ -4598,7 +4598,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   async function reintentarSelladoFactura(reciboId: string): Promise<ResultadoEscritura> {
     const recibo = recibos.find(r => r.id === reciboId);
     if (!recibo || recibo.estado !== 'COBRADO') return { ok: false, error: 'Ese recibo no está cobrado.' };
-    if (studio?.modoFacturacion !== 'verifactu') return { ok: false, error: MENSAJE_SIN_FACTURAS };
+    if (!emiteFacturas(studio?.modoFacturacion)) return { ok: false, error: MENSAJE_SIN_FACTURAS };
     const fac = construirFacturaCobro(recibo, facturas);
     if (!fac) return { ok: true }; // ya tenía factura
     setFacturas(prev => [...prev, fac]);

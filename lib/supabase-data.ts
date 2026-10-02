@@ -5004,7 +5004,6 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('penalizacionAplicaCancelacionTardia' in changes) db.penalizacion_aplica_cancelacion_tardia = changes.penalizacionAplicaCancelacionTardia;
   if ('penalizacionAplicaNoShow' in changes) db.penalizacion_aplica_no_show = changes.penalizacionAplicaNoShow;
   if ('penalizacionCobroAutomatico' in changes) db.penalizacion_cobro_automatico = changes.penalizacionCobroAutomatico;
-  if ('modoFacturacion' in changes) db.modo_facturacion = changes.modoFacturacion;
   if ('plazaFijaSinCuota' in changes) db.plaza_fija_sin_cuota = changes.plazaFijaSinCuota;
   if ('plazaFijaSolicitarDesdeApp' in changes) db.plaza_fija_solicitar_desde_app = changes.plazaFijaSolicitarDesdeApp;
   if ('plazaFijaPausaDesdeApp' in changes) db.plaza_fija_pausa_desde_app = changes.plazaFijaPausaDesdeApp;
@@ -5417,8 +5416,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
-    // Sin columna (un servidor de antes) = como hasta ahora: emitía.
-    modoFacturacion: r.modo_facturacion === 'sin_facturas' ? 'sin_facturas' : 'verifactu',
+    modoFacturacion: r.modo_facturacion === 'sin_facturas' || r.modo_facturacion === 'verifactu' ? r.modo_facturacion : 'facturas',
     plazaFijaSinCuota: (r.plaza_fija_sin_cuota as PoliticaPlazaFijaSinCuota | null) ?? 'MANTENER',
     // Encendido de serie desde el 22-sep (antes apagado, 16-sep): ver el comentario en reglas-reserva.ts.
     plazaFijaSolicitarDesdeApp: (r.plaza_fija_solicitar_desde_app as boolean | null) ?? true,

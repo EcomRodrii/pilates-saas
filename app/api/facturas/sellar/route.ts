@@ -52,9 +52,9 @@ export async function POST(req: NextRequest) {
 
   const r = await sellarFacturaDeRecibo(admin, { studioId: f.studioId, reciboId: f.reciboId, facturaId: f.id });
   if (!r.ok) {
-    // 409: el estudio no emite facturas desde Tentare (Configuración → Facturación).
-    // No es un fallo del servidor y no se reintenta.
-    const status = r.desactivada ? 409 : r.error === 'Recibo no encontrado' ? 404 : 500;
+    // 409: el estudio no emite facturas desde Tentare, o le falta el NIF. No es
+    // un fallo del servidor y no se reintenta.
+    const status = r.desactivada || r.faltaNif ? 409 : r.error === 'Recibo no encontrado' ? 404 : 500;
     return NextResponse.json({ error: r.error }, { status });
   }
   return NextResponse.json(r);

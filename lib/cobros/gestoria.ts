@@ -117,9 +117,18 @@ export function cobrosSinFactura<R extends { id: string; metodoCobro?: string | 
  * se afirma que «quede registrada» en la AEAT), y lo que no tiene factura, con
  * su porqué.
  */
-export function fraseVerifactu(p: { nifEstudioValido: boolean; pendientesDeSellar: number }): string {
+/**
+ * Con Veri*Factu apagado no se promete huella ni QR, y se dice cuándo obliga la
+ * norma (calendario publicado a 2-oct-2026; que lo confirme su asesoría).
+ */
+export const AVISO_VERIFACTU_APAGADO =
+  'Tus facturas no se envían a la AEAT (Veri*Factu desactivado). Con el calendario publicado hoy, el reglamento de sistemas de facturación obliga desde el 1 de enero de 2027 a las sociedades y desde el 1 de julio de 2027 al resto. Confírmalo con tu asesoría.';
+
+export function fraseVerifactu(p: { nifEstudioValido: boolean; pendientesDeSellar: number; conVerifactu?: boolean }): string {
   if (!p.nifEstudioValido) return 'No se están sacando facturas: falta el NIF fiscal del estudio.';
-  const base = 'Cada factura se sella con su huella Veri*Factu al cobrarse.';
+  const base = p.conVerifactu === false
+    ? 'Cada cobro saca su factura, numerada, al cobrarse.'
+    : 'Cada factura se sella con su huella Veri*Factu al cobrarse.';
   if (p.pendientesDeSellar === 0) return base;
   return `${base} ${p.pendientesDeSellar === 1 ? '1 cobro se quedó' : `${p.pendientesDeSellar} cobros se quedaron`} sin factura al sellar: puedes reintentarlo desde «Lo que he cobrado».`;
 }

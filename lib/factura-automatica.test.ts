@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emiteFacturaAutomatica } from './factura-automatica.ts';
+import { emiteFacturaAutomatica, emiteFacturas } from './factura-automatica.ts';
 
 test('el efectivo no emite factura sola', () => {
   assert.equal(emiteFacturaAutomatica('EFECTIVO'), false);
@@ -43,4 +43,13 @@ test('con el estudio en «sin facturas», no se emite nada, se cobre como se cob
   assert.equal(emiteFacturaAutomatica('EFECTIVO', 'verifactu'), false);
   // Sin pasar el modo (los caminos de servidor, que lo resuelve el sellado): como antes.
   assert.equal(emiteFacturaAutomatica('TARJETA'), true);
+});
+
+test('factura siempre (2-oct-2026): «facturas» y «verifactu» emiten; «sin_facturas» y sin estudio, no', () => {
+  assert.equal(emiteFacturas('facturas'), true);
+  assert.equal(emiteFacturas('verifactu'), true);
+  assert.equal(emiteFacturas('sin_facturas'), false);
+  assert.equal(emiteFacturas(null), false);
+  assert.equal(emiteFacturaAutomatica('TARJETA', 'facturas'), true);
+  assert.equal(emiteFacturaAutomatica('EFECTIVO', 'facturas'), false, 'el efectivo sigue siendo a elección');
 });
