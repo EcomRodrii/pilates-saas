@@ -47,5 +47,11 @@ export function MenuRecibo({ recibo, datos, acciones, quitar = [], titulo }: {
     separar: a.id === 'ELIMINAR',
     onClick: () => acciones.ejecutar(a.id, recibo),
   }));
-  return <MenuAcciones acciones={menu} titulo={titulo ?? recibo.concepto} etiqueta={`Acciones de «${recibo.concepto}»`} />;
+  // A tamaño de dedo también en el iPad de recepción: el 40 px de `md` es para el ratón.
+  return (
+    <MenuAcciones
+      acciones={menu} titulo={titulo ?? recibo.concepto} etiqueta={`Acciones de «${recibo.concepto}»`}
+      claseBoton="flex h-full min-h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-foreground hover:bg-muted pointer-fine:md:min-h-10 pointer-fine:md:w-10"
+    />
+  );
 }

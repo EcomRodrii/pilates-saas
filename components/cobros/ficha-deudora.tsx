@@ -102,7 +102,9 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4">
+      {/* Margen abajo (y al desplazarse): el botón flotante del panel vive en esa esquina y
+          tapaba el ⋯ del último recibo. */}
+      <div className="min-h-0 flex-1 scroll-pb-24 space-y-3 overflow-y-auto overscroll-contain p-4 pb-24">
         {esClienta && medio && (
           <div className="rounded-lg border border-border px-3 py-2.5">
             <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Cómo se le puede cobrar</p>

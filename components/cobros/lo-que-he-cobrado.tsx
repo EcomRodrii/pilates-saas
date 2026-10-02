@@ -214,8 +214,9 @@ function FilaCobro({ r, datos, acciones }: { r: Recibo; datos: DatosCobros; acci
     <li data-recibo={r.id} className="grid grid-cols-[44px_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-4 py-2.5 md:grid-cols-[44px_minmax(0,1fr)_170px_90px_auto]">
       <span className="text-[12.5px] tabular-nums text-muted-foreground">{hora ?? '—'}</span>
       <div className="min-w-0">
-        <p className="truncate text-[13.5px] font-medium text-foreground">{datos.nombreDe(r.socioId)}</p>
-        <p className="truncate text-[12.5px] text-muted-foreground">
+        {/* En el móvil el nombre no se corta: es lo que dice de quién es el cobro. */}
+        <p className="text-[13.5px] font-medium text-foreground md:truncate">{datos.nombreDe(r.socioId)}</p>
+        <p className="text-[12.5px] text-muted-foreground md:truncate">
           {r.concepto}
           <span className="md:hidden"> · {TEXTO_COMO_SE_COBRO[comoSeCobro(r)]}</span>
         </p>

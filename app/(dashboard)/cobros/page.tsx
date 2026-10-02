@@ -130,10 +130,10 @@ export default function Cobros() {
       />
 
       {/* `max-w-full` + scroll: en un móvil de 375 px las cuatro no caben. */}
-      <div role="tablist" aria-label="Cobros" className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-muted p-1">
+      <nav aria-label="Secciones de Cobros" className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-muted p-1">
         {tabs.map(t => (
           <button
-            key={t} type="button" role="tab" aria-selected={tab === t}
+            key={t} type="button" aria-current={tab === t ? 'page' : undefined}
             onClick={() => irA(t)}
             className={cn(
               'whitespace-nowrap rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-colors',
@@ -144,7 +144,7 @@ export default function Cobros() {
             {t === 'deudas' && nDeudas > 0 && <span className="ml-1.5 tabular-nums text-muted-foreground">{nDeudas}</span>}
           </button>
         ))}
-      </div>
+      </nav>
 
       {tab === 'deudas' && <QuienMeDebe datos={datos} acciones={acciones} avisos={avisos} />}
       {tab === 'cobrado' && <LoQueHeCobrado datos={datos} acciones={acciones} avisos={avisos} />}
