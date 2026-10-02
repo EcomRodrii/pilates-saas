@@ -183,3 +183,60 @@ export function horaDelCobro(r: { cobradoEn?: string | null; fechaCobro?: string
   if (hoyEnEstudio(instante) !== r.fechaCobro.slice(0, 10)) return null;
   return horaEstudio(instante);
 }
+
+// ── Textos del periodo ──────────────────────────────────────────────────────
+
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+const conAnio = (ymd: string, hoy: string) => (ymd.slice(0, 4) === hoy.slice(0, 4) ? '' : ` de ${ymd.slice(0, 4)}`);
+
+/** «2 oct», «28 dic 2025». */
+function diaMes(ymd: string, hoy: string): string {
+  const { m, d } = partes(ymd);
+  return `${d} ${MESES[m - 1].slice(0, 3)}${ymd.slice(0, 4) === hoy.slice(0, 4) ? '' : ` ${ymd.slice(0, 4)}`}`;
+}
+
+/** Lo que dice el selector entre las flechas: «Hoy», «Esta semana», «Octubre», «Marzo de 2025»… */
+export function textoDelPeriodo(periodo: Periodo, ref: string, hoy: string): string {
+  const t = tramo(periodo, ref);
+  switch (periodo) {
+    case 'DIA':
+      if (ref === hoy) return 'Hoy';
+      if (ref === sumarDias(hoy, -1)) return 'Ayer';
+      return `${mayuscula(DIAS[diaDeLaSemana(ref)].slice(0, 3))} ${diaMes(ref, hoy)}`;
+    case 'SEMANA':
+      if (t.desde <= hoy && hoy <= t.hasta) return 'Esta semana';
+      return `${diaMes(t.desde, hoy)} – ${diaMes(t.hasta, hoy)}`;
+    case 'MES': return mayuscula(MESES[partes(ref).m - 1]) + conAnio(ref, hoy);
+    case 'TRIMESTRE': return `${Math.floor((partes(ref).m - 1) / 3) + 1}.º trimestre${conAnio(ref, hoy)}`;
+    case 'ANIO': return ref.slice(0, 4);
+  }
+}
+
+/** La cabecera de un día de la lista: «Hoy, viernes 2 de octubre», «Martes 29 de septiembre». */
+export function textoDelDia(ymd: string, hoy: string): string {
+  const { m, d } = partes(ymd);
+  const largo = `${DIAS[diaDeLaSemana(ymd)]} ${d} de ${MESES[m - 1]}${conAnio(ymd, hoy)}`;
+  if (ymd === hoy) return `Hoy, ${largo}`;
+  if (ymd === sumarDias(hoy, -1)) return `Ayer, ${largo}`;
+  return mayuscula(largo);
+}
+
+/**
+ * Con qué se compara, en palabras: «septiembre a estas alturas», «la semana pasada»,
+ * «agosto». `null` cuando no hay comparación (Hoy).
+ */
+export function textoDeLaComparacion(periodo: Periodo, visible: Tramo, hoy: string): string | null {
+  const anterior = mismoTramoAnterior(periodo, visible);
+  if (!anterior) return null;
+  const aMedias = visible.hasta !== tramo(periodo, visible.desde).hasta;
+  const sufijo = aMedias ? ' a estas alturas' : '';
+  switch (periodo) {
+    case 'SEMANA': return `la semana anterior${sufijo}`;
+    case 'MES': return `${MESES[partes(anterior.desde).m - 1]}${conAnio(anterior.desde, hoy)}${sufijo}`;
+    case 'TRIMESTRE': return `el trimestre anterior${sufijo}`;
+    case 'ANIO': return `${anterior.desde.slice(0, 4)}${sufijo}`;
+    default: return null;
+  }
+}

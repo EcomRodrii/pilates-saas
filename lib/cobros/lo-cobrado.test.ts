@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cobradoEnTramo, comoSeCobro, mismoTramoAnterior, moverPeriodo, ORDEN_COMO_SE_COBRO, tramo, tramoVisible } from './lo-cobrado.ts';
+import { cobradoEnTramo, comoSeCobro, mismoTramoAnterior, moverPeriodo, ORDEN_COMO_SE_COBRO, textoDeLaComparacion, textoDelDia, textoDelPeriodo, tramo, tramoVisible } from './lo-cobrado.ts';
 import { resumirRecibos } from '../billing/situacion-recibo.ts';
 
 test('los periodos: semana de lunes, mes, trimestre natural y año', () => {
@@ -92,4 +92,24 @@ test('la hora del cobro, solo cuando es de verdad la del cobro (y en hora de Mad
   assert.equal(horaDelCobro({ cobradoEn: '2026-10-01T23:30:00Z', fechaCobro: '2026-10-01' }), null, 'otro día: no es la hora del cobro');
   assert.equal(horaDelCobro({ cobradoEn: null, fechaCobro: '2026-10-02' }), null, 'lo antiguo, sin hora');
   assert.equal(horaDelCobro({ cobradoEn: '2026-10-02T10:40:00Z', fechaCobro: null }), null);
+});
+
+test('los textos del periodo, del día y de la comparación', () => {
+  const hoy = '2026-10-02'; // viernes
+  assert.equal(textoDelPeriodo('DIA', hoy, hoy), 'Hoy');
+  assert.equal(textoDelPeriodo('DIA', '2026-10-01', hoy), 'Ayer');
+  assert.equal(textoDelPeriodo('DIA', '2026-09-29', hoy), 'Mar 29 sep');
+  assert.equal(textoDelPeriodo('SEMANA', hoy, hoy), 'Esta semana');
+  assert.equal(textoDelPeriodo('SEMANA', '2026-09-22', hoy), '21 sep – 27 sep');
+  assert.equal(textoDelPeriodo('MES', hoy, hoy), 'Octubre');
+  assert.equal(textoDelPeriodo('MES', '2025-12-10', hoy), 'Diciembre de 2025');
+  assert.equal(textoDelDia(hoy, hoy), 'Hoy, viernes 2 de octubre');
+  assert.equal(textoDelDia('2026-10-01', hoy), 'Ayer, jueves 1 de octubre');
+  assert.equal(textoDelDia('2026-09-30', hoy), 'Miércoles 30 de septiembre');
+  const octubre = tramoVisible('MES', hoy, hoy)!;
+  assert.equal(textoDeLaComparacion('MES', octubre, hoy), 'septiembre a estas alturas');
+  assert.equal(textoDeLaComparacion('MES', tramoVisible('MES', '2026-09-10', hoy)!, hoy), 'agosto');
+  assert.equal(textoDeLaComparacion('MES', tramoVisible('MES', '2026-01-10', hoy)!, hoy), 'diciembre de 2025');
+  assert.equal(textoDeLaComparacion('SEMANA', tramoVisible('SEMANA', hoy, hoy)!, hoy), 'la semana anterior a estas alturas');
+  assert.equal(textoDeLaComparacion('DIA', tramoVisible('DIA', hoy, hoy)!, hoy), null);
 });
