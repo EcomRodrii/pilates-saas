@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   ChevronRight, X, AlertTriangle, RefreshCw, CalendarDays, Clock3, ArrowRight,
-  UserCheck, Pencil, Trash2, Copy, Ban, Wrench, PictureInPicture2, TrendingDown,
+  UserCheck, Pencil, Trash2, Copy, Ban, Wrench, PictureInPicture2, TrendingDown, Plus,
 } from 'lucide-react';
 import Link from 'next/link';
 import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
@@ -729,10 +729,15 @@ export default function Calendario() {
   // Cierres del centro, para que el formulario avise (y una clase que se repite
   // se los salte, como `renovar_serie`). Se piden al abrirlo, no con la página.
   const [cierres, setCierres] = useState<CierreGuardado[] | null>(null);
-  // «Nueva clase fija» (la ventana antigua): la usan todavía «Duplicar serie»,
-  // Horario y `?recurrentes=1`. «Crear clase» va directo al formulario nuevo,
-  // que ya tiene «Se repite» (decisión 2 del rediseño, 1-oct-2026).
+  // «Nueva clase fija» (la ventana de la clase que se repite): la abren «Clase
+  // fija» en «Crear clase», «Duplicar serie», Horario y `?recurrentes=1`.
   const [showRecurrentes, setShowRecurrentes] = useState(false);
+  // «Crear clase» pregunta primero qué: una clase de un día o una clase fija. Eran
+  // dos botones («Nueva clase» y «Clase recurrente») y los estudios no sabían
+  // cuál era la clase fija (quejas del 23-sep). El rediseño del 1-oct lo quitó
+  // («un solo Crear clase» directo al formulario) y el fundador lo pidió de vuelta
+  // el 2-oct: la pregunta se queda.
+  const [elegirQueCrear, setElegirQueCrear] = useState(false);
   // Cuántas clases acaba de crear A MANO quien no tenía ninguna. Su página
   // pública ya tiene algo que enseñar, y ese es el momento de decírselo y de
   // ofrecerle el enlace — antes solo lo veía quien pasaba por la propuesta de
@@ -3176,7 +3181,9 @@ export default function Calendario() {
           hrefEscanear={puedeGestionarCalendario(rolActual) && studio?.controlAccesoQr !== false ? '/calendario/pase' : null}
           hrefImportar={gestionaClientas ? '/calendario/importar' : null}
           seleccion={gestionaClientas && vista !== 'horario' ? { activa: modoSeleccion, onAlternar: () => (modoSeleccion ? salirDeSeleccion() : setModoSeleccion(true)) } : null}
-          onCrear={puedeCrear ? () => openNueva() : null}
+          // Quien gestiona el estudio elige primero qué crea; la instructora que
+          // crea sus clases va directa a la suya (no tiene clases fijas).
+          onCrear={gestionaClientas ? () => setElegirQueCrear(true) : creaClasesPropias ? () => openNueva() : null}
           navegacion={vista === 'horario' ? null : {
             onAnterior: () => (vista === 'semana' ? cambiarSemana(-1) : cambiarDia(-1)),
             onSiguiente: () => (vista === 'semana' ? cambiarSemana(1) : cambiarDia(1)),
@@ -3770,6 +3777,45 @@ export default function Calendario() {
           onSeguir={() => setPrimeraClaseCreada(null)}
         />
       )}
+
+      <Dialog open={elegirQueCrear} onOpenChange={setElegirQueCrear}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-foreground">¿Qué quieres crear?</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2.5">
+            <button
+              type="button"
+              onClick={() => { setElegirQueCrear(false); openNueva(); }}
+              data-testid="crear-clase-suelta"
+              className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left hover:bg-muted transition-colors"
+            >
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground"><Plus size={17} aria-hidden /></span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-foreground">Clase</span>
+                <span className="block text-xs text-muted-foreground text-pretty">
+                  Un día concreto, o varios si la repites: una clase suelta, un taller o una clase extra. Tus clientas la reservan.
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setElegirQueCrear(false); setInitialRecurrente(undefined); setShowRecurrentes(true); }}
+              data-testid="crear-clase-fija"
+              className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left hover:bg-muted transition-colors"
+            >
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground"><RefreshCw size={17} aria-hidden /></span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-foreground">Clase fija</span>
+                <span className="block text-xs text-muted-foreground text-pretty">
+                  Se repite cada semana a la misma hora. Tus clientas pueden quedarse fijas y no tienen que reservarla
+                  cada semana.
+                </span>
+              </span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ModalClasesRecurrentes
         ausencias={ausencias}

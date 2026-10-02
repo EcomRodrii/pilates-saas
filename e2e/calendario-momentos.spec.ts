@@ -147,6 +147,8 @@ test.describe('Momentos del calendario', () => {
     await montarCalendario(page);
 
     await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
+    // «Crear clase» pregunta primero qué: una clase de un día.
+    await page.getByTestId('crear-clase-suelta').click();
 
     // El formulario abre ya con la duración del tipo aplicada, no con 09:00–09:00.
     const fin = page.locator('input[type="time"]').nth(1);

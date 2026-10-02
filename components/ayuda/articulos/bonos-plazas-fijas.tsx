@@ -111,7 +111,7 @@ export default function Contenido() {
 
       <h2 style={h2}>Clases fijas con nombre: las ofreces tú</h2>
       <p>
-        Cada clase fija que creas (Calendario → «Crear clase» con «Se repite») ya la pueden pedir tus clientas desde su
+        Cada clase fija que creas (Calendario → «Crear clase» → «Clase fija») ya la pueden pedir tus clientas desde su
         app. Si quieres, además puedes <strong>agruparlas con un nombre</strong> —«Reformer · martes y jueves»— para que
         la pidan entera y elijan cuánto tiempo. Se hace en <strong>Calendario → Horario → «Agrupar con nombre»</strong>:
       </p>
