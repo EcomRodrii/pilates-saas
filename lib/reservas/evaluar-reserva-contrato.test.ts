@@ -2,12 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-// Motor de derechos, FASE 3b (migración 20261002160000): `evaluar_reserva`, la elegibilidad en un solo sitio, de solo
+// Motor de derechos, FASE 3b (migración 20261002145300): `evaluar_reserva`, la elegibilidad en un solo sitio, de solo
 // lectura y en sombra. Guardianes sobre el fuente de lo que no se puede invocar desde node:test; la PARIDAD con
 // `reservar_plaza` contra una base de datos real vive en `supabase/tests/rls-evaluar-reserva-paridad.test.ts`.
 
 const leer = (ruta: string) => readFileSync(new URL(`../../${ruta}`, import.meta.url), 'utf8');
-const MIGRACION = leer('supabase/migrations/20261002160000_evaluar_reserva.sql');
+const MIGRACION = leer('supabase/migrations/20261002145300_evaluar_reserva.sql');
 const SIN_COMENTARIOS = MIGRACION.replace(/--.*$/gm, '');
 const CUERPO = SIN_COMENTARIOS.slice(SIN_COMENTARIOS.indexOf('create or replace function public.evaluar_reserva'), SIN_COMENTARIOS.indexOf('revoke all on function public.evaluar_reserva'));
 

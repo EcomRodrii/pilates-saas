@@ -1179,7 +1179,7 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   (`lib/student/reserva-acciones.ts`: `Record<CodigoReserva, …>`, un código nuevo sin fila no compila), en la API pública y
   en la v1; el botón de comprar de la app sale de `acciones` y la comparación de la frase queda solo de respaldo. «Incluida en
   tu mensualidad» sustituye a «(Infinity disponibles)» (`comoSePaga`) y la ficha de un bono ilimitado dice «Sin límite».
-- **Fase 3b, hecha EN SOMBRA: `evaluar_reserva`** (migr `20261002160000`, solo service_role, nada la llama todavía). Función
+- **Fase 3b, hecha EN SOMBRA: `evaluar_reserva`** (migr `20261002145300`, solo service_role, nada la llama todavía). Función
   SQL de solo lectura que responde si una socia puede reservar una clase, en qué estado entraría y quién la paga
   (recuperación, bono, cuota o nadie), con los mismos códigos de rechazo que `CodigoReserva`. Espeja en el mismo orden las
   comprobaciones de `reservar_plaza` y usa SUS MISMAS funciones auxiliares; lo que las ata es un test de PARIDAD en CI

@@ -1,4 +1,4 @@
-// Motor de derechos, FASE 3b (migración 20261002160000): PARIDAD entre `evaluar_reserva` y `reservar_plaza`.
+// Motor de derechos, FASE 3b (migración 20261002145300): PARIDAD entre `evaluar_reserva` y `reservar_plaza`.
 //
 // `evaluar_reserva` es la elegibilidad en un solo sitio, de solo lectura y EN SOMBRA: reproduce las comprobaciones de
 // `reservar_plaza` pero no decide nada. Lo único que las mantiene de acuerdo es este fichero: cada escenario monta un
