@@ -27,7 +27,7 @@ import {
   comoDecisionPropia, conReintentoPorInterbloqueo, consumoYaDecidido, descontarSesionDeReserva, devolucionPermitida, efectosTrasConsumo, esColumnaInexistente,
   ocupaPlaza, interpretarBonoDeReservarPlaza, sesionDescontada, type ConsumoBono,
 } from '@/lib/reservas/consumo-bono-reserva';
-import { llamarLiberarDerecho, type MotivoLiberacion } from '@/lib/reservas/liberacion';
+import { llamarCancelarReservasDeSesion, llamarLiberarDerecho, type MotivoLiberacion } from '@/lib/reservas/liberacion';
 import { LEGAL } from '@/lib/legal-info';
 import { selloParaCliente, type SelloCliente } from '@/lib/factura-sello-cliente';
 import {
@@ -1350,71 +1350,46 @@ export type ResultadoDevolucionBono = 'DEVUELTA' | 'SIN_BONO' | 'FALLO';
 // acaba en el bono equivocado). Sin `reservaId`, o para una reserva anterior
 // a esa migración (sin rastreo), cae a la heurística de siempre.
 export async function devolverBonoServidor(
-  admin: SupabaseClient, studioId: string, socioId: string, tipoClaseId?: string | null,
-  reservaId?: string,
+  admin: SupabaseClient, studioId: string, socioId: string, tipoClaseId: string | null | undefined,
+  reservaId: string,
 ): Promise<ResultadoDevolucionBono> {
-  if (reservaId) {
-    const { data: reserva, error: errorReserva } = await admin.from('reservas')
-      .select('bono_consumo_rastreado, bono_suscripcion_id')
-      .eq('id', reservaId).eq('studio_id', studioId).maybeSingle();
-    if (errorReserva && !esColumnaInexistente(errorReserva)) reportDbError('[devolverBonoServidor]', errorReserva);
-    if (reserva?.bono_consumo_rastreado && reserva.bono_suscripcion_id) {
-      // ⚠️ Idempotente POR RESERVA (auditoría 2026-09-19).
-      //
-      // Antes se llamaba a `devolver_sesion_bono`, que es un `+1` ciego topado
-      // por el plan y no sabe qué reserva lo provocó. Ninguno de los filtros de
-      // `/api/reservas/devolver-bonos` (CANCELADA, sesión cancelada, rastreada)
-      // cambia al devolver, así que repetir el POST con los mismos ids volvía a
-      // sumar cada vez hasta el tope: un doble clic inflaba el saldo de la
-      // socia, y ese saldo son clases.
-      //
-      // `devolver_sesion_bono_por_reserva` sella `reservas.bono_devuelto_en` y
-      // devuelve en la misma transacción; el propio UPDATE de la marca es lo
-      // que serializa dos peticiones simultáneas. `null` = ya estaba devuelta
-      // (o el bono está al tope), que es un SIN_BONO, no un fallo.
-      const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono_por_reserva', {
-        p_studio_id: studioId, p_reserva_id: reservaId,
-      });
-      if (error) { reportDbError('[devolverBonoServidor]', error); return 'FALLO'; }
-      return nuevoSaldo != null ? 'DEVUELTA' : 'SIN_BONO';
-    }
+  // `reservaId` es OBLIGATORIA (motor de derechos, cierre de integridad): sin saber qué reserva provoca la devolución no se
+  // puede sellar por reserva, y repetirla sumaría una sesión más cada vez. Antes, sin ella, caía a un `+1` ciego
+  // (`devolver_sesion_bono`) que ya nadie usaba y que se ha cerrado a `authenticated`.
+  const { data: reserva, error: errorReserva } = await admin.from('reservas')
+    .select('bono_consumo_rastreado, bono_suscripcion_id')
+    .eq('id', reservaId).eq('studio_id', studioId).maybeSingle();
+  if (errorReserva && !esColumnaInexistente(errorReserva)) reportDbError('[devolverBonoServidor]', errorReserva);
+  if (reserva?.bono_consumo_rastreado && reserva.bono_suscripcion_id) {
+    // ⚠️ Idempotente POR RESERVA (auditoría 2026-09-19).
+    //
+    // `devolver_sesion_bono_por_reserva` sella `reservas.bono_devuelto_en` y devuelve en la misma transacción; el propio
+    // UPDATE de la marca es lo que serializa dos peticiones simultáneas. `null` = ya estaba devuelta (o el bono está al
+    // tope), que es un SIN_BONO, no un fallo.
+    const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono_por_reserva', {
+      p_studio_id: studioId, p_reserva_id: reservaId,
+    });
+    if (error) { reportDbError('[devolverBonoServidor]', error); return 'FALLO'; }
+    return nuevoSaldo != null ? 'DEVUELTA' : 'SIN_BONO';
   }
+
+  // Una reserva anterior al rastreo (o importada de otra plataforma): no hay dato de qué bono se descontó, así que se
+  // elige con la heurística de siempre (`bonoDevolvible`: hace falta HUECO, no saldo) y se sella igualmente por reserva
+  // (`devolver_sesion_bono_legado_por_reserva`, R-4 de la auditoría del 22-sep).
   const [{ data: susRows }, { data: planRows }] = await Promise.all([
     admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
     admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
   ]);
   const planesConTipos = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
-  // I-5: `bonoDevolvible`, no `bonoConsumible`. Para devolver hace falta HUECO,
-  // no saldo — y el bono al que hay que devolverle la sesión es justo el que se
-  // quedó a 0 al gastarla, que `bonoConsumible` descarta.
   const devolvible = bonoDevolvible(socioId, (susRows ?? []).map(mapSuscripcion), planesConTipos, undefined, tipoClaseId);
   if (!devolvible) return 'SIN_BONO';
 
-  // R-4 (auditoría 22-sep): con `reservaId`, sella la devolución POR RESERVA
-  // igual que la rama rastreada de arriba — mismo motivo exacto: repetir el
-  // POST con el mismo id volvía a sumar +1 cada vez, hasta el tope del plan.
-  // Sin `reservaId` (llamantes que no lo tienen) sigue el incremento ciego de
-  // siempre, sin marca posible.
-  if (reservaId) {
-    const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono_legado_por_reserva', {
-      p_studio_id: studioId, p_reserva_id: reservaId, p_suscripcion_id: devolvible.suscripcion.id,
-    });
-    if (error) { reportDbError('[devolverBonoServidor]', error); return 'FALLO'; }
-    // `null` = ya estaba sellada (reintento) o el bono ya estaba al tope —
-    // mismo criterio tri-estado que la rama rastreada: SIN_BONO, no FALLO.
-    return nuevoSaldo != null ? 'DEVUELTA' : 'SIN_BONO';
-  }
-
-  // I-10: incremento ATÓMICO con el tope aplicado en el propio WHERE. Antes era
-  // read-modify-write sobre el snapshot de arriba, así que dos cancelaciones
-  // concurrentes escribían el mismo número y una devolución se perdía en
-  // silencio — la misma asimetría que el consumo ya había resuelto.
-  const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono', {
-    p_suscripcion_id: devolvible.suscripcion.id, p_studio_id: studioId,
+  const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono_legado_por_reserva', {
+    p_studio_id: studioId, p_reserva_id: reservaId, p_suscripcion_id: devolvible.suscripcion.id,
   });
   if (error) { reportDbError('[devolverBonoServidor]', error); return 'FALLO'; }
-  // `nuevoSaldo` null = el bono ya estaba al tope (el WHERE de la RPC no casó):
-  // no había hueco, así que no hay nada que devolver ni nada que reparar.
+  // `null` = ya estaba sellada (reintento) o el bono ya estaba al tope — mismo criterio tri-estado que la rama rastreada:
+  // SIN_BONO, no FALLO.
   return nuevoSaldo != null ? 'DEVUELTA' : 'SIN_BONO';
 }
 
@@ -1465,25 +1440,56 @@ export async function liberarReservaCancelada(
   return { bonoDevuelto, recuperacionRestituida: liberacion.recuperacionRestituida, fallo };
 }
 
-// P-1 (auditoría 21-ago): camino único de los que cancelan una clase COMPLETA desde el servidor
-// (sustituciones/cancelar_clase y el cron de mínimo de asistentes): una liberación por reserva.
-// El camino de panel/serie pasa por `/api/reservas/devolver-bonos`, que usa la misma función.
+// Cancela las reservas activas de una clase YA cancelada y libera sus derechos, TODO EN UNA TRANSACCIÓN
+// (`cancelar_reservas_de_sesion`, migr 20261002144018): camino único de los que cancelan una clase COMPLETA desde el
+// servidor (sustituciones/cancelar_clase y el cron de mínimo de asistentes / cierre del centro). Antes eran un UPDATE y,
+// después, una llamada por reserva: si el proceso moría en medio, las reservas quedaban canceladas con la sesión sin
+// devolver y nadie lo veía. El camino de panel/serie (RLS de cliente) pasa por `/api/reservas/devolver-bonos`, que libera
+// con `liberarReservaCancelada`.
 //
-// Devuelve por socia si REALMENTE se devolvió una sesión (no solo si la política lo permite):
-// mismo cuidado que `devolverBonoServidor` ya documentaba (I-5), para que el email de
-// cancelación nunca prometa una sesión que no recuperó. Sin `reservaId` no se libera nada:
-// ya no se adivina a qué bono sumar.
-export async function devolverBonosPorCancelacionClase(
-  admin: SupabaseClient, studioId: string,
-  confirmadas: { socioId: string; tipoClaseId: string | null; reservaId: string }[],
-  motivo: MotivoLiberacion = 'estudio_cancela_clase',
-): Promise<Map<string, boolean>> {
-  const devueltoPorSocia = new Map<string, boolean>();
-  for (const c of confirmadas) {
-    const r = await liberarReservaCancelada(admin, studioId, c, motivo);
-    devueltoPorSocia.set(c.socioId, (devueltoPorSocia.get(c.socioId) ?? false) || r.bonoDevuelto);
+// ⚠️ Quien llama marca la clase cancelada y AVISA a las alumnas ANTES de llamar a esto: resuelven destinatarias por
+// reservas activas, y cancelarlas primero mandaría el aviso a nadie.
+//
+// Devuelve por socia si REALMENTE se devolvió una sesión (no solo si la política lo permite): para que el email de
+// cancelación nunca prometa una sesión que no recuperó (I-5). `fallos` cuenta las devoluciones que no se pudieron hacer
+// (las reservas SÍ quedaron canceladas): quien llama debe decirlo, no darlo por hecho.
+export interface CancelacionDeSesion {
+  /** Por socia: ¿se devolvió de verdad una sesión de bono? */
+  devueltoPorSocia: Map<string, boolean>;
+  /** Cuántas reservas se cancelaron (de cualquier estado). */
+  canceladas: number;
+  /** Las que estaban CONFIRMADA (a quienes hay que avisar por correo). */
+  confirmadas: { reservaId: string; socioId: string }[];
+  /** Devoluciones que fallaron al caer a la heurística de las importadas. */
+  fallos: number;
+}
+
+export async function cancelarReservasDeSesion(
+  admin: SupabaseClient,
+  p: { studioId: string; sesionId: string; tipoClaseId: string | null; motivo: MotivoLiberacion },
+): Promise<({ ok: true } & CancelacionDeSesion) | { ok: false; error: unknown }> {
+  const llamada = await llamarCancelarReservasDeSesion(admin, { studioId: p.studioId, sesionId: p.sesionId, motivo: p.motivo });
+  if (!llamada.ok) {
+    reportDbError('[cancelarReservasDeSesion]', llamada.error);
+    return { ok: false, error: llamada.error };
   }
-  return devueltoPorSocia;
+  const devueltoPorSocia = new Map<string, boolean>();
+  const confirmadas: { reservaId: string; socioId: string }[] = [];
+  let fallos = 0;
+  for (const r of llamada.canceladas) {
+    if (r.estadoPrevio !== 'CONFIRMADA' || !r.socioId) continue;
+    confirmadas.push({ reservaId: r.reservaId, socioId: r.socioId });
+    let devuelto = r.bono === 'DEVUELTO';
+    // La única excepción a la salida única: una reserva IMPORTADA (no rastreada, no de plaza fija) devuelve
+    // `LEGADO_SIN_RASTRO` y se sigue con la heurística de siempre. Fuera de la transacción: es lo último por retirar.
+    if (r.bono === 'LEGADO_SIN_RASTRO') {
+      const res = await devolverBonoServidor(admin, p.studioId, r.socioId, p.tipoClaseId, r.reservaId);
+      devuelto = res === 'DEVUELTA';
+      if (res === 'FALLO') fallos++;
+    }
+    devueltoPorSocia.set(r.socioId, (devueltoPorSocia.get(r.socioId) ?? false) || devuelto);
+  }
+  return { ok: true, devueltoPorSocia, canceladas: llamada.canceladas.length, confirmadas, fallos };
 }
 
 // Reúne los datos de una clase para un email transaccional (nombre de clase,
@@ -3854,7 +3860,7 @@ export async function expirarOfertaListaEspera(params: {
 // (lib/minimo-asistentes/cancelar-por-minimo.ts), sin sesión de staff detrás.
 // La devolución de bono a cada CONFIRMADA sigue la misma política de estudio
 // que el resto de cancelaciones de clase completa (P-1, ver
-// devolverBonosPorCancelacionClase) — antes era incondicional aquí y nunca
+// cancelarReservasDeSesion) — antes era incondicional aquí y nunca
 // ocurría en los otros dos caminos, la asimetría que cerró esa pieza.
 //
 // Dos guardas de idempotencia INDEPENDIENTES (no una sola compuesta): si el
@@ -3908,18 +3914,24 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
   // hubiera apuntado nadie.
   if (!afectadas?.length) return { ok: true };
 
-  await admin.from('reservas')
-    .update({ estado: 'CANCELADA', posicion_espera: null })
-    .eq('sesion_id', params.sesionId)
-    .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']);
-
-  const confirmadas = afectadas.filter(r => r.estado === 'CONFIRMADA' && r.socio_id);
-  // I-5: se guarda POR SOCIA si la devolución tuvo efecto, para que el email no
-  // le prometa a nadie una sesión que no ha recuperado. En esta cancelación cada
-  // socia recibe su propio correo, así que el dato es por persona, no global.
-  const devueltoPorSocia = await devolverBonosPorCancelacionClase(admin, params.studioId,
-    confirmadas.map(r => ({ socioId: r.socio_id as string, tipoClaseId, reservaId: r.id as string })),
-    motivo === 'minimo_no_alcanzado' ? 'minimo_asistentes' : 'estudio_cancela_clase');
+  // Cancelar las reservas Y liberar sus derechos, en UNA transacción (antes, un UPDATE y luego una llamada por
+  // reserva: si el proceso moría en medio quedaban canceladas con la sesión sin devolver). I-5: devuelve POR SOCIA si
+  // la devolución tuvo efecto, para que el email no le prometa a nadie una sesión que no ha recuperado. En esta
+  // cancelación cada socia recibe su propio correo, así que el dato es por persona, no global.
+  const cancelacion = await cancelarReservasDeSesion(admin, {
+    studioId: params.studioId, sesionId: params.sesionId, tipoClaseId,
+    motivo: motivo === 'minimo_no_alcanzado' ? 'minimo_asistentes' : 'estudio_cancela_clase',
+  });
+  if (!cancelacion.ok) {
+    // Nada se ha cancelado ni devuelto (la transacción se deshizo). Se dice, no se da por hecho: la clase queda marcada
+    // cancelada y avisada, y sus reservas siguen activas — hay que cancelarlas a mano.
+    capturarExcepcion(new Error('cancelarSesionPorMinimoNoAlcanzado: la clase se canceló pero no se pudieron cancelar sus reservas'), {
+      tags: { area: 'reservas', op: 'cancelar-por-minimo' },
+      extra: { sesionId: params.sesionId, studioId: params.studioId, motivo },
+    });
+    return { error: 'La clase se ha cancelado pero no se han podido cancelar sus reservas.' };
+  }
+  const { confirmadas, devueltoPorSocia } = cancelacion;
 
   // CLASE_CANCELADA no manda email a propósito (catalog.ts) — aquí SÍ hay
   // dinero de por medio, así que se manda explícito. CancelacionClaseEmail ya
@@ -3929,7 +3941,7 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
   if (datos && confirmadas.length) {
     const { data: socias } = await admin
       .from('socios').select('id, nombre, email')
-      .in('id', confirmadas.map(r => r.socio_id as string));
+      .in('id', confirmadas.map(r => r.socioId));
     for (const s of socias ?? []) {
       if (!s.email) continue;
       await enviarEmailTransaccional({

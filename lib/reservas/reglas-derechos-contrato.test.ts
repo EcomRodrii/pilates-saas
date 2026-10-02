@@ -2,12 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-// Motor de derechos, FASE 3a (migración 20261002150000): el no-show cuenta como uso para el tope semanal,
+// Motor de derechos, FASE 3a (migración 20261002134242): el no-show cuenta como uso para el tope semanal,
 // y con varios bonos manda la especificidad. Guardianes sobre el fuente de lo que no se puede invocar desde
 // node:test; el comportamiento contra una base de datos real vive en `supabase/tests/rls-reglas-derechos.test.ts`.
 
 const leer = (ruta: string) => readFileSync(new URL(`../../${ruta}`, import.meta.url), 'utf8');
-const MIGRACION = leer('supabase/migrations/20261002150000_reglas_derechos_noshow_y_especificidad.sql');
+const MIGRACION = leer('supabase/migrations/20261002134242_reglas_derechos_noshow_y_especificidad.sql');
 
 test('⚠️ el tope semanal cuenta el no-show en sus DOS conteos (total y por actividad)', () => {
   const funcion = MIGRACION.slice(

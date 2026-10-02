@@ -74,7 +74,7 @@ test('⚠️ elegir_bono_consumible: la misma elección que `elegirBono` (TS)', 
   assert.match(cuerpo, /plan_cubre_tipo_clase\(p\.id, p_tipo_clase_id\)/);
   assert.match(cuerpo, /s\.fecha_fin is null or s\.fecha_fin >= p_hoy/, 'vigente');
   // El orden de `elegirBono` (TS): primero el bono ACOTADO a tipos de clase (decisión de producto del 2-oct-2026,
-  // migr 20261002150000), luego el que caduca antes, luego el id. El id en orden binario (como el de JS): sin
+  // migr 20261002134242), luego el que caduca antes, luego el id. El id en orden binario (como el de JS): sin
   // `collate "C"`, en_US pondría «sus-a1» antes que «sus-B1».
   assert.match(cuerpo, /order by case when exists \([\s\S]*?plan_tipos_clase[\s\S]*?\) then 0 else 1 end,\s*coalesce\(s\.fecha_fin, '9999-12-31'::date\),\s*s\.id collate "C"/);
 });
