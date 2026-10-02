@@ -57,9 +57,13 @@ const CASOS: Caso[] = [
   { firma: 'consumir_bono_interno(text, text, text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'liberar_derecho(text, text, text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'devolver_sesion_bono_por_reserva(text, text)', anon: false, authenticated: true, serviceRole: true },
-  // Reglas de elegibilidad (migr 20261002150000): solo las llama el servidor, y el cambio de cuerpo no toca sus permisos.
+  // Reglas de elegibilidad (migr 20261002134242): solo las llama el servidor, y el cambio de cuerpo no toca sus permisos.
   { firma: 'calcular_excede_limite_semanal(text, text, text, timestamp with time zone)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'elegir_bono_consumible(text, text, text, date)', anon: false, authenticated: false, serviceRole: true },
+  // Cierre de integridad (migr 20261002144018): la devolución a ciegas ya no es del navegador, y la cancelación atómica de
+  // las reservas de una clase solo la llama el servidor.
+  { firma: 'devolver_sesion_bono(text, text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'cancelar_reservas_de_sesion(text, text, text)', anon: false, authenticated: false, serviceRole: true },
   // Elegibilidad de una reserva en un solo sitio, solo lectura (migr 20261002145300): como `reservar_plaza`, solo el servidor.
   { firma: 'evaluar_reserva(text, text, text, jsonb)', anon: false, authenticated: false, serviceRole: true },
 ];

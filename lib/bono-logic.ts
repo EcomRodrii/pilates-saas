@@ -168,7 +168,7 @@ function elegirBono(
   // la BD). Primero la ESPECÍFICA —el bono acotado a tipos de clase se gasta antes
   // que el de «todas las clases», que es el comodín—, después la que caduca antes
   // (consumir la más urgente; las sin caducidad al final), y por último el id para
-  // estabilidad. Mismo orden que `elegir_bono_consumible` en SQL (migr 20261002150000):
+  // estabilidad. Mismo orden que `elegir_bono_consumible` en SQL (migr 20261002134242):
   // si cambia uno, cambia el otro, o el panel anunciaría un bono y el servidor
   // descontaría otro.
   const planDe = (s: Suscripcion) => planesTarifa.find(p => p.id === s.planId);

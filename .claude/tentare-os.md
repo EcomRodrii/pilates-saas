@@ -1168,7 +1168,7 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   `LEGADO_SIN_RASTRO` y `liberarReservaCancelada` cae a `devolverBonoServidor`: su saldo ya venía descontado de la otra
   plataforma y no hay ledger que diga qué bono pagó. Se retira cuando las importadas se clasifiquen. La cancelación de
   UNA reserva por la alumna (`cancelar_reserva_plaza` + `ejecutarCancelacionReserva`) sigue como estaba.
-- **Fase 3a, hecha: dos reglas de elegibilidad y errores con acciones** (migr `20261002150000`, aplicada a producción el
+- **Fase 3a, hecha: dos reglas de elegibilidad y errores con acciones** (migr `20261002134242`, aplicada a producción el
   2-oct; el fichero conserva este nombre y falta relabelarlo a su versión aplicada). El **no-show cuenta como uso** para el
   tope semanal (`calcular_excede_limite_semanal`) Y para el barrido de recuperaciones semanales
   (`otorgar-semanales.ts`: si no, faltar sin avisar devolvía una recuperación por un hueco que dejó vacío ella); el tope de
@@ -1179,7 +1179,15 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   (`lib/student/reserva-acciones.ts`: `Record<CodigoReserva, …>`, un código nuevo sin fila no compila), en la API pública y
   en la v1; el botón de comprar de la app sale de `acciones` y la comparación de la frase queda solo de respaldo. «Incluida en
   tu mensualidad» sustituye a «(Infinity disponibles)» (`comoSePaga`) y la ficha de un bono ilimitado dice «Sin límite».
-- **Fase 3b, hecha EN SOMBRA: `evaluar_reserva`** (migr `20261002145300`, solo service_role, nada la llama todavía). Función
+- **Cierre de integridad, hecho** (migr `20261002144018`): el ledger rechaza duplicados (UN registro de pago y UNA devolución
+  por reserva, con la reserva informada: las compras, los ajustes y la devolución a ciegas no entran); la devolución a ciegas
+  `devolver_sesion_bono` quedó solo para el servidor (`devolverBonoServidor` exige ya `reservaId`, y no hay otra salida); y
+  `cancelar_reservas_de_sesion` cancela las reservas de una clase YA cancelada y las libera EN UNA TRANSACCIÓN (el cron de
+  mínimo de asistentes, el cierre del centro y sustituciones/`cancelar_clase` la usan; antes eran un UPDATE y una llamada por
+  reserva, y si el proceso moría en medio quedaba cancelado sin devolver). ⚠️ El aviso a las alumnas sigue yendo ANTES: se
+  marca la clase cancelada, se avisa y entonces se llama a la RPC (exige la clase cancelada). El panel/serie, que cancela con
+  RLS de cliente, sigue por `/api/reservas/devolver-bonos` reserva a reserva.
+- **Fase 3b, hecha EN SOMBRA: `evaluar_reserva`** (migr `20261002145300`, solo service_role, en este PR nada la llama todavía; el PR siguiente hace que `reservar_plaza` decida con ella). Función
   SQL de solo lectura que responde si una socia puede reservar una clase, en qué estado entraría y quién la paga
   (recuperación, bono, cuota o nadie), con los mismos códigos de rechazo que `CodigoReserva`. Espeja en el mismo orden las
   comprobaciones de `reservar_plaza` y usa SUS MISMAS funciones auxiliares; lo que las ata es un test de PARIDAD en CI
@@ -1187,10 +1195,10 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   mismo rechazo o el mismo estado y que pague quien se anunció). ⚠️ NO es todavía la fuente única: `reservar_plaza` sigue
   decidiendo, y siguen en TypeScript (`crearReservaPublica`) la clase cancelada o ya empezada, las ventanas de antelación,
   los máximos de reservas a la vez y al día, la apertura suave y las preguntas del estudio.
-- **Lo que viene, en este orden:** que `reservar_plaza` decida con `evaluar_reserva` (cuando la paridad aguante en
-  producción) → llevar a ella los gates de TypeScript → orden de pagador por tope del producto que paga. Después: índices únicos (una liberación/consumo por reserva), `cancelar_sesion` transaccional, REVOKE
-  de `devolver_sesion_bono` ciega cuando no quede llamador, compra transaccional (retener plaza antes de cobrar) y
-  excepciones del mostrador.
+- **Lo que viene, en este orden:** que `reservar_plaza` decida con `evaluar_reserva` (Fase 3c, siguiente PR) → llevar a ella los
+  gates de TypeScript → orden de pagador por tope del producto que paga. Después: índices únicos (una liberación/consumo por
+  reserva), `cancelar_sesion` transaccional, compra transaccional (retener plaza antes de cobrar) y excepciones del
+  mostrador.
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
