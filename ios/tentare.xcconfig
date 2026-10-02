@@ -1,0 +1,16 @@
+// Identidad de la app: de aquí salen el bundle id, el nombre bajo el icono y
+// el equipo de firma (project.pbxproj e Info.plist los leen como variables).
+//
+// Estos son los valores de la app «Tentare». La app de un estudio NO se edita
+// aquí: `npm run cap:sync` con TENTARE_APP_ID / TENTARE_APP_NAME /
+// TENTARE_APPLE_TEAM_ID escribe `identidad.local.xcconfig` (fuera del repo),
+// que se incluye al final y manda sobre lo de arriba. Ver docs/APP-IOS.md.
+//
+// El Team ID va solo en el local: no es secreto, pero es de la cuenta de
+// Apple de una persona y el repo es público.
+
+TENTARE_BUNDLE_ID = app.tentare
+TENTARE_APP_NAME = Tentare
+TENTARE_TEAM_ID =
+
+#include? "identidad.local.xcconfig"
