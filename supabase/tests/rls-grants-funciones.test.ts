@@ -60,6 +60,8 @@ const CASOS: Caso[] = [
   // Reglas de elegibilidad (migr 20261002150000): solo las llama el servidor, y el cambio de cuerpo no toca sus permisos.
   { firma: 'calcular_excede_limite_semanal(text, text, text, timestamp with time zone)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'elegir_bono_consumible(text, text, text, date)', anon: false, authenticated: false, serviceRole: true },
+  // Elegibilidad de una reserva en un solo sitio, solo lectura (migr 20261002160000): como `reservar_plaza`, solo el servidor.
+  { firma: 'evaluar_reserva(text, text, text, jsonb)', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {
