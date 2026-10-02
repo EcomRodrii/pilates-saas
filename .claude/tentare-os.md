@@ -1038,6 +1038,16 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     (`lib/db/supabase-data-admin.ts`) terminan en `trasReservaCreada`,
     `trasPlazaConfirmada` o `trasPromocionDeEspera`; cualquier camino nuevo que
     confirme plaza llama a su dueño.
+  - **«Clase suelta»: una tarifa PUNTUAL de una sesión que gasta la reserva**
+    (decisión del fundador, 2-oct-2026), en la app y en el mostrador.
+    - En el mostrador la vende el servidor al reservar (`crearReservaMostrador`
+      con `claseSuelta`: `sus-suelta-<reserva>` + `rec-suelta-<reserva>`
+      PENDIENTE). Se anula si la plaza no sale, y el cobro va después por
+      `marcar-cobrado`.
+    - Así le vale la política de cancelación como a un bono: a tiempo vuelve la
+      sesión, tarde o sin presentarse se pierde, y nunca se devuelve dinero solo.
+    - ⚠️ Nunca un recibo suelto para una clase: ninguna regla de cancelación lo
+      ve. Fue lo que hizo #2467 durante unas horas.
   - **«Cobro confirmado»: el navegador, cerrado** (#2399 + PR4, 1-oct-2026). Webhook/
     conciliador/POS-confirmar, SEPA/dunning, off-session y el «marcar cobrado» del panel
     (`POST /api/cobros/marcar-cobrado`, `origen: 'manual'`) convergen en `confirmarCobro`

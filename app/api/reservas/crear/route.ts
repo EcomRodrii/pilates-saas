@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { crearReservaMostrador } from '@/lib/db/supabase-data-admin';
-import { leerPeticionReservaMostrador, puedeApuntarEnClase } from '@/lib/reservas/reserva-mostrador';
+import { leerPeticionReservaMostrador, puedeApuntarEnClase, puedeVenderClaseSuelta } from '@/lib/reservas/reserva-mostrador';
 import { MENSAJE_RESERVA_RPC } from '@/lib/reservas/errores-rpc';
 
 export const dynamic = 'force-dynamic';
@@ -23,13 +23,18 @@ export async function POST(req: NextRequest) {
 
   const peticion = leerPeticionReservaMostrador(await req.json().catch(() => null));
   if (!peticion.ok) return NextResponse.json({ error: peticion.error }, { status: 400 });
-  const { sesionId, socioId, reservaId, avisar, comoClaseSuelta } = peticion.datos;
+  const { sesionId, socioId, reservaId, avisar, comoClaseSuelta, claseSuelta } = peticion.datos;
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   if (!puedeApuntarEnClase(sesion.rol)) {
     return NextResponse.json({ error: MENSAJE_RESERVA_RPC.NO_AUTORIZADO }, { status: 403 });
+  }
+  // Vender la clase suelta crea un recibo que luego se cobra: hace falta poder
+  // mover dinero. La pantalla ya lo esconde; la cerradura es esta.
+  if (claseSuelta && !puedeVenderClaseSuelta(sesion.rol)) {
+    return NextResponse.json({ error: 'Tu rol no puede cobrar clases sueltas.' }, { status: 403 });
   }
 
   const { data: sesionRow } = await admin
@@ -38,7 +43,7 @@ export async function POST(req: NextRequest) {
   if (!sesionRow) return NextResponse.json({ error: MENSAJE_RESERVA_RPC.SESION_NO_ENCONTRADA }, { status: 404 });
 
   const r = await crearReservaMostrador({
-    studioId: sesion.studioId, sesionId, socioId, reservaId, avisarSocia: avisar, comoClaseSuelta,
+    studioId: sesion.studioId, sesionId, socioId, reservaId, avisarSocia: avisar, comoClaseSuelta, claseSuelta,
   });
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
   return NextResponse.json(r);

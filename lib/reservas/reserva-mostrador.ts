@@ -2,7 +2,7 @@
 //
 // Lo puro de la ruta vive aquí para poder probarlo sin Supabase: qué petición
 // se acepta y quién puede apuntar a alguien en qué clase.
-import { puedeOperarClase } from '../permisos-reglas.ts';
+import { puedeMoverDinero, puedeOperarClase } from '../permisos-reglas.ts';
 import type { Rol } from '../types.ts';
 
 export interface PeticionReservaMostrador {
@@ -18,6 +18,11 @@ export interface PeticionReservaMostrador {
    * vale para esta clase. Solo un `true` explícito lo pide.
    */
   comoClaseSuelta: boolean;
+  /**
+   * Venderle la clase suelta al reservar (la PUNTUAL de una sesión que gasta
+   * la reserva). `importeEsperado`: lo que dice el botón del mostrador.
+   */
+  claseSuelta: { importeEsperado: number } | null;
 }
 
 /**
@@ -28,6 +33,13 @@ export interface CubiertaPor {
   tipo: 'BONO' | 'MENSUAL';
   /** El nombre del plan, para decírselo a recepción. */
   plan: string;
+}
+
+/** La clase suelta vendida al reservar: su recibo PENDIENTE, que se cobra después. */
+export interface VentaClaseSuelta {
+  reciboId: string;
+  importe: number;
+  concepto: string;
 }
 
 const MAX_ID = 200;
@@ -58,7 +70,27 @@ export function leerPeticionReservaMostrador(body: unknown):
   // Mismo criterio que `avisar === false` en app/api/sustituciones (acción
   // 'confirmar'): ante la duda, se avisa. Un cliente viejo que no mande el
   // campo no deja a nadie sin enterarse.
-  return { ok: true, datos: { sesionId, socioId, reservaId, avisar: b.avisar !== false, comoClaseSuelta: b.comoClaseSuelta === true } };
+  // Un importe que no es un número positivo no vende nada: se rechaza, no se ignora.
+  let claseSuelta: { importeEsperado: number } | null = null;
+  if (b.claseSuelta != null) {
+    const importe = (b.claseSuelta as { importeEsperado?: unknown }).importeEsperado;
+    if (typeof importe !== 'number' || !Number.isFinite(importe) || importe <= 0) {
+      return { ok: false, error: 'Importe de la clase suelta no válido' };
+    }
+    claseSuelta = { importeEsperado: importe };
+  }
+  return {
+    ok: true,
+    datos: { sesionId, socioId, reservaId, avisar: b.avisar !== false, comoClaseSuelta: b.comoClaseSuelta === true, claseSuelta },
+  };
+}
+
+/**
+ * ¿Puede vender una clase suelta al apuntar? Mueve dinero (crea un recibo y
+ * luego se cobra), así que además de apuntar hace falta poder mover dinero.
+ */
+export function puedeVenderClaseSuelta(rol: Rol): boolean {
+  return puedeApuntarEnClase(rol) && puedeMoverDinero(rol);
 }
 
 /**

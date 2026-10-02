@@ -114,10 +114,20 @@ export type ResultadoReserva =
        * suelta (la pantalla podía tener un bono renovado sin enterarse).
        */
       cubiertaPor?: CubiertaPor | null;
+      /**
+       * Solo si se pidió `claseSuelta`: la clase suelta que se le vendió (la
+       * PUNTUAL que gasta esta reserva) con su recibo PENDIENTE, para cobrarlo
+       * con `marcarCobrado`. `null` si no se vendió (venía cubierta, lista de
+       * espera…).
+       */
+      venta?: VentaClaseSuelta | null;
+      /** Ocupa plaza, pero la clase suelta no se pudo apuntar: hay que cobrarla a mano. */
+      avisoVenta?: string | null;
     }
   | { ok: false; error: string };
 import { horarioConNuevaHora } from '@/lib/serie-horario';
-import type { CubiertaPor } from '@/lib/reservas/reserva-mostrador';
+import type { CubiertaPor, VentaClaseSuelta } from '@/lib/reservas/reserva-mostrador';
+import { idSuscripcionDeClaseSuelta } from '@/lib/reservas/clase-suelta';
 import { type DatosEstudioLegal } from '@/lib/legal-textos';
 import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
 import type {
@@ -496,11 +506,11 @@ interface StudioContextValue {
   // (una LISTA_ESPERA no puede tener asistencia) y fuera de la vía pública.
   // `avisar` solo cuenta en el panel: `false` = recepción desmarcó «Avisar a la
   // alumna». Por defecto se la avisa, como en cualquier otra reserva.
-  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string; comoClaseSuelta?: boolean }) => Promise<ResultadoReserva>;
+  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string; comoClaseSuelta?: boolean; claseSuelta?: { importeEsperado: number } }) => Promise<ResultadoReserva>;
   // recuperacionCreada/recuperacionCaducaEl: solo la vía pública los rellena
   // (al cancelar una ocurrencia de plaza fija, ver cancelarReservaPublica) —
   // el panel de staff los deja undefined, no aplica ahí.
-  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean; avisoBono?: string }>;
+  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean; avisoBono?: string; bonoDevuelto?: boolean; tardia?: boolean }>;
   // Fase 2b: acepta una oferta de plaza de lista de espera dentro de su plazo.
   // Solo tiene sentido desde el portal (socia con sesión iniciada) — ver
   // app/api/reservas/aceptar-oferta-espera/route.ts.
@@ -2895,8 +2905,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Nota: el camino público ya se comportaba así (lib/billing/entregar-plan-
     // comprado.ts no cancela nada), así que esto además alinea los dos caminos,
     // que hasta ahora dejaban la base en estados distintos según quién comprara.
-    const conservaSaldo = (s: Suscripcion) =>
-      planesTarifa.find(p => p.id === s.planId)?.tipo === 'BONO' && (s.sesionesRestantes ?? 0) > 0;
+    // Una clase suelta (PUNTUAL) con su sesión sin gastar, también: es la que
+    // recuperó al cancelar a tiempo, o la que compró para otro día.
+    const conservaSaldo = (s: Suscripcion) => {
+      const tipo = planesTarifa.find(p => p.id === s.planId)?.tipo;
+      return (tipo === 'BONO' || tipo === 'PUNTUAL') && (s.sesionesRestantes ?? 0) > 0;
+    };
     const aDesactivar = suscripciones.filter(
       s => s.socioId === socioId && s.estado === 'ACTIVA' && !conservaSaldo(s),
     );
@@ -3642,7 +3656,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return true;
   }
 
-  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string; comoClaseSuelta?: boolean }): Promise<ResultadoReserva> {
+  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string; comoClaseSuelta?: boolean; claseSuelta?: { importeEsperado: number } }): Promise<ResultadoReserva> {
     const sesion = sesiones.find(s => s.id === sesionId);
     // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
     const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
@@ -3719,10 +3733,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       body: JSON.stringify({
         sesionId, socioId, reservaId, avisar: opciones?.avisar !== false,
         ...(opciones?.comoClaseSuelta ? { comoClaseSuelta: true } : {}),
+        ...(opciones?.claseSuelta ? { claseSuelta: opciones.claseSuelta } : {}),
       }),
     }).catch(() => null);
     const datos = await respuesta?.json().catch(() => null) as {
       estado?: string; posicionEspera?: number | null; error?: string; cubiertaPor?: CubiertaPor | null;
+      venta?: VentaClaseSuelta | null; avisoVenta?: string | null;
     } | null;
     const estadoReal = typeof datos?.estado === 'string' && datos.estado ? datos.estado as EstadoReserva : null;
     if (!respuesta?.ok || !estadoReal) {
@@ -3756,7 +3772,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
     const cubiertaPor = datos?.cubiertaPor && typeof datos.cubiertaPor.plan === 'string'
       && (datos.cubiertaPor.tipo === 'BONO' || datos.cubiertaPor.tipo === 'MENSUAL') ? datos.cubiertaPor : null;
-    return { ok: true, estado: estadoReal, reservaId, cubiertaPor };
+    // La clase suelta vendida: su recibo PENDIENTE ya existe en la base de
+    // datos (lo creó el servidor); se pinta para que «Quién me debe» y el
+    // «Quitar» del Calendario lo vean sin recargar. La suscripción llega con la
+    // relectura del saldo de arriba.
+    const venta = datos?.venta && typeof datos.venta.reciboId === 'string' && typeof datos.venta.importe === 'number'
+      ? datos.venta : null;
+    if (venta) {
+      setRecibos(prev => prev.some(r => r.id === venta.reciboId) ? prev : [...prev, {
+        id: venta.reciboId, studioId: getCurrentStudioId(), socioId,
+        suscripcionId: idSuscripcionDeClaseSuelta(reservaId), concepto: venta.concepto, importe: venta.importe,
+        estado: 'PENDIENTE', fechaVencimiento: hoyEnEstudio(), fechaCobro: null, fechaDevolucion: null,
+        intentosReintento: 0, importeDevuelto: 0,
+      } as Recibo]);
+    }
+    return { ok: true, estado: estadoReal, reservaId, cubiertaPor, venta, avisoVenta: datos?.avisoVenta ?? null };
   }
 
   // Tras una reserva del mostrador el servidor ya ha descontado la sesión del
@@ -3824,7 +3854,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return postPublico('/api/public/retos', { studioId: cpub.studioId, retoKey, accion });
   }
 
-  async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; avisoBono?: string }> {
+  async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; avisoBono?: string; bonoDevuelto?: boolean; tardia?: boolean }> {
     const cpub = ctxPublico();
     if (cpub) {
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r)); // optimista
@@ -3873,6 +3903,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const datos = await respuesta?.json().catch(() => null) as {
       promovidaSocioId?: string | null; ofertaSocioId?: string | null; ofertaExpiraEn?: string | null; error?: string;
       recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean;
+      bonoDevuelto?: boolean; tardia?: boolean;
     } | null;
     if (!respuesta?.ok || !datos) {
       // Revierte el optimista: el servidor rechazó la cancelación, así que la
@@ -3888,11 +3919,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const { promovidaSocioId, ofertaSocioId, ofertaExpiraEn } = datos;
     // Lo que decidió el servidor sobre la recuperación (clase de plaza fija): el
     // mostrador lo enseña tal cual, en vez de callarlo como antes.
+    // Y sobre la sesión del bono (o de la clase suelta): si volvió a su saldo
+    // y si la cancelación fue fuera de plazo — la política del estudio la
+    // aplica el servidor; aquí solo se cuenta.
     const recuperacion = {
       recuperacionCreada: datos.recuperacionCreada === true,
       recuperacionCaducaEl: datos.recuperacionCaducaEl ?? null,
       recuperacionAlCerrarSemana: datos.recuperacionAlCerrarSemana === true,
+      bonoDevuelto: datos.bonoDevuelto === true,
+      tardia: datos.tardia === true,
     };
+    // Si la sesión volvió, el saldo que hay en pantalla es el de antes.
+    if (recuperacion.bonoDevuelto && cancelada?.socioId) void releerSaldoTrasReservaMostrador(cancelada.socioId);
 
     // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
     // confirma sola. Refleja en el estado local la oferta que el servidor

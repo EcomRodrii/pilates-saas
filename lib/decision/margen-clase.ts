@@ -53,13 +53,12 @@ function suscripcionParaClase(socioId: string, tipoClaseId: string, s: SnapshotE
  *  el promedio de estudio) — MENSUAL por su frecuencia real, BONO por
  *  precio/sesiones de su plan, PUNTUAL por el precio del plan.
  *
- *  Límite v1 conocido, sin resolver: una clase suelta cobrada por el flujo
- *  "Clase suelta con recibo" (`addRecibo` con `suscripcionId: null`,
- *  `app/(dashboard)/calendario/page.tsx:handleCobrarSuelta`) no crea
- *  suscripción ni queda ligada a la sesión — esa asistente no aporta
- *  ingreso aquí aunque haya pagado de verdad. Casar un Recibo suelto con
- *  la sesión exigiría una heurística por fecha, frágil para v1; se deja
- *  documentado en vez de adivinar. */
+ *  La clase suelta del mostrador es, desde el 2-oct-2026, la tarifa PUNTUAL
+ *  que gasta la reserva (lib/reservas/clase-suelta.ts), igual que la que se
+ *  compra en la app: cuenta aquí por el precio de la tarifa. Límite v1: si la
+ *  sesión tiene precio propio (un taller), lo cobrado puede ser otro; y los
+ *  recibos sueltos de antes (`rec-suelta-` sin suscripción, #2467) no tienen
+ *  suscripción y caen en el `precioPuntual` de abajo. */
 function ingresoAsistente(socioId: string, tipoClaseId: string, sesion: Sesion, s: SnapshotEstudio, idx: IndicesSenal): number {
   const sus = suscripcionParaClase(socioId, tipoClaseId, s, idx);
   if (sus) {

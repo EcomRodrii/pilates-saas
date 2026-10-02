@@ -38,7 +38,7 @@ export interface ClientaElegible {
 
 export function AnadirAClase({
   sesionId, confirmadas, aforo, plataformas, clientas, avisar, onAvisar, hrefQr, showToast, onPlazaPlataforma,
-  coberturaDe, precio, onAnadir, onCobrarYAnadir, onAnadirYCobrarDespues, onCortesia, hrefVenderBono,
+  coberturaDe, precio, sinPrecio, onAnadir, onCobrarYAnadir, onAnadirYCobrarDespues, onCortesia, hrefVenderBono,
 }: {
   sesionId: string;
   confirmadas: number;
@@ -53,8 +53,10 @@ export function AnadirAClase({
   onPlazaPlataforma: () => Promise<void>;
   /** Con qué viene a ESTA clase (lib/calendario/cobertura-mostrador.ts). */
   coberturaDe: (socioId: string) => LineaCobertura;
-  /** La clase suelta de esta clase; null si el estudio no la vende. */
+  /** La clase suelta de esta clase; null si desde aquí no se puede vender. */
   precio: number | null;
+  /** Por qué no se puede cobrar (sin tarifa, tarifa que no vale para la clase, clase gratuita) y si se arregla en Paquetes. */
+  sinPrecio: { texto: string; aPaquetes: boolean };
   /** Viene con su bono o su cuota (o va a la lista de espera). */
   onAnadir: (socioId: string) => void;
   /** Cobra la clase suelta y la apunta. `true` si ha terminado (con éxito o no) y
@@ -288,8 +290,10 @@ export function AnadirAClase({
                         </>
                       ) : (
                         <p className="text-[12.5px] text-muted-foreground">
-                          Para cobrarle la clase suelta desde aquí, ponle precio a tu tarifa «Clase suelta»{' '}
-                          <Link href="/productos" className="font-semibold text-brand-medio hover:underline">en Paquetes</Link>.
+                          {sinPrecio.texto}
+                          {sinPrecio.aPaquetes && (
+                            <>{' '}<Link href="/productos" className="font-semibold text-brand-medio hover:underline">en Paquetes</Link>.</>
+                          )}
                         </p>
                       )}
                       <div className="flex flex-wrap gap-2">
