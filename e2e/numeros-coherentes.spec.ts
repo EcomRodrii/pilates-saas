@@ -6,7 +6,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 //
 // Dos problemas distintos, y ninguno era un cálculo mal hecho:
 //
-//   · "Media por cliente" (Cobros) y "Ticket medio / cliente" (Informes) miden
+//   · "Media por cliente" (Cobros) y "Ticket medio / cliente" (Informes) medían
 //     cosas DISTINTAS con nombres casi idénticos: la primera reparte lo cobrado
 //     entre TODAS las clientas activas, la segunda solo entre quienes pagaron.
 //     Con 850 clientas y 65 pagadoras, 10 € y 130 € son las dos correctas.
@@ -142,9 +142,11 @@ test.describe('Los números dicen lo mismo entre pantallas', () => {
     // El nombre que se confundía con el de Informes ya no está.
     await expect(page.getByText('Media por cliente')).toHaveCount(0);
 
+    // En Informes vuelve con su nombre entero y su base (rediseño de Informes, 2-oct-2026).
     await montar(page, '/informes');
-    await expect(page.getByText('Ticket medio de quien pagó')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/solo entre las clientas con algún cobro/)).toBeVisible();
+    await expect(page.getByText('Ingreso medio por clienta que pagó')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('informe-ingreso-medio')).toContainText(/no cuenta las ventas de caja sin clienta|Ninguna clienta ha pagado/);
     await expect(page.getByText('Ticket medio / cliente')).toHaveCount(0);
+    await expect(page.getByText('Ticket medio de quien pagó')).toHaveCount(0);
   });
 });
