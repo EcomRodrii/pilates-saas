@@ -225,6 +225,17 @@ export function tieneCuotaQueCubre(
 }
 
 /**
+ * ¿Sigue valiendo esta plaza fija? Una de baja no; y una cuya fecha «hasta» ya pasó tampoco: nadie la pasa a baja al
+ * vencer (sigue ACTIVA), pero ya no reserva nada, y contarla como suya dejaba la ficha de la clase diciendo «Ya es tu clase
+ * fija» para siempre —y sin poder volver a pedirla—. Vale hasta el final de ese día (`vigenciaHasta >= hoy`), como
+ * `proyectarPlazasFijas`. Sin `hoyISO` no se mira la fecha (los llamadores que aún no la pasan no cambian).
+ */
+export function plazaFijaViva(p: { estado: string; vigenciaHasta?: string | null }, hoyISO?: string): boolean {
+  if (p.estado === 'BAJA') return false;
+  return !hoyISO || !p.vigenciaHasta || p.vigenciaHasta >= hoyISO;
+}
+
+/**
  * Qué ofrecer en la ficha de una clase sobre su plaza fija. Solo se pide en una
  * clase que se repite (otra clase en su misma sala, día y hora), y no si ya la
  * tiene —activa o en pausa— o ya la ha pedido. Si no tiene cuota que la cubra
@@ -238,11 +249,12 @@ export function plazaFijaEnClase(
   plazas: PlazaFijaMin[],
   peticiones: PeticionPlazaFijaMin[],
   tieneCuota = true,
+  hoyISO?: string,
 ): PlazaFijaEnClase {
   const dia = dow(clase.fecha);
   const mismaFranja = (d: number | null, hora: string | null, sala: string | null) =>
     d === dia && (hora ?? '').slice(0, 5) === clase.hora && sala === clase.salaId;
-  if (plazas.some((p) => p.estado !== 'BAJA' && mismaFranja(p.diaSemana, p.horaInicio, p.salaId))) return { estado: 'TIENE_PLAZA' };
+  if (plazas.some((p) => plazaFijaViva(p, hoyISO) && mismaFranja(p.diaSemana, p.horaInicio, p.salaId))) return { estado: 'TIENE_PLAZA' };
   const pedida = peticiones.find((p) => p.tipo === 'CREAR' && mismaFranja(p.diaSemana, p.horaInicio, p.salaId));
   if (pedida) return { estado: 'PEDIDA', peticionId: pedida.id };
   const repite = sesiones.some((s) => s.id !== clase.id && s.fecha !== clase.fecha && !s.cancelada
@@ -262,10 +274,11 @@ export function plazaFijaEnFranja(
   plazas: { diaSemana: number; horaInicio: string; salaId: string; estado: string }[],
   peticiones: PeticionPlazaFijaMin[],
   tieneCuota = true,
+  hoyISO?: string,
 ): PlazaFijaEnClase {
   const mismaFranja = (d: number | null, hora: string | null, sala: string | null) =>
     d === franja.diaSemana && (hora ?? '').slice(0, 5) === franja.hora && sala === franja.salaId;
-  if (plazas.some((p) => p.estado !== 'BAJA' && mismaFranja(p.diaSemana, p.horaInicio, p.salaId))) return { estado: 'TIENE_PLAZA' };
+  if (plazas.some((p) => plazaFijaViva(p, hoyISO) && mismaFranja(p.diaSemana, p.horaInicio, p.salaId))) return { estado: 'TIENE_PLAZA' };
   const pedida = peticiones.find((p) => p.tipo === 'CREAR' && mismaFranja(p.diaSemana, p.horaInicio, p.salaId));
   if (pedida) return { estado: 'PEDIDA', peticionId: pedida.id };
   return tieneCuota ? { estado: 'PUEDE_PEDIR' } : { estado: 'SOLO_CON_CUOTA' };

@@ -592,7 +592,7 @@ export function proyectarPlazaFijaEnClase(
   const tieneCuota = d.socia
     ? tieneCuotaQueCubre(d.socia.suscripciones ?? [], d.planesTarifa ?? [], hoyEnEstudio(), clase.tipoClaseId ?? null)
     : true;
-  return plazaFijaEnClaseDe(clase, sesiones, d.socia?.plazasFijas ?? [], d.socia?.peticionesPlazaFija ?? [], tieneCuota);
+  return plazaFijaEnClaseDe(clase, sesiones, d.socia?.plazasFijas ?? [], d.socia?.peticionesPlazaFija ?? [], tieneCuota, hoyEnEstudio());
 }
 
 /** Recuperaciones que aún puede usar. */

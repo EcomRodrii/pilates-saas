@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  cupoDeFranja, estadoAlumnaOferta, estadoOferta, etiquetaDuracion, franjaHorariaDe, franjasQueYaTiene, normalizarDuraciones, nuevaVigenciaAmpliar, plazasVencidasQueEstorban, textoFranja,
+  cupoDeFranja, duracionPedida, estadoAlumnaOferta, estadoOferta, etiquetaDuracion, franjaHorariaDe, franjasQueYaTiene, normalizarDuraciones, nuevaVigenciaAmpliar, plazasVencidasQueEstorban, textoFranja,
   plazasLibresDeClaseFija, programadaHasta, resolverFranjas, vigenciaHastaDeDuracion, vigenciaMinDeOferta, type FranjaResuelta, type TarjetaMin,
 } from './clases-fijas-reglas.ts';
 
@@ -182,4 +182,23 @@ test('franja horaria: los cuatro cortes, iguales para cualquier estudio', () => 
   assert.equal(franjaHorariaDe('17:59'), 'Tarde');
   assert.equal(franjaHorariaDe('18:00'), 'Noche');
   assert.equal(franjaHorariaDe('21:30'), 'Noche');
+});
+
+// ─── La duración que pide la alumna al pedir una clase suelta que se repite ──────────────────────────────────────────
+test('duracionPedida: sin duración, sin fecha de fin (todo sigue como siempre)', () => {
+  assert.deepEqual(duracionPedida(undefined, '2026-10-02'), { ok: true, meses: null, hasta: null });
+  assert.deepEqual(duracionPedida(null, '2026-10-02'), { ok: true, meses: null, hasta: null });
+});
+
+test('duracionPedida: la fecha la pone el servidor desde una duración cerrada', () => {
+  assert.deepEqual(duracionPedida(3, '2026-10-02'), { ok: true, meses: 3, hasta: '2027-01-02' });
+  assert.deepEqual(duracionPedida(1, '2026-01-31'), { ok: true, meses: 1, hasta: '2026-02-28' }, 'el 31 de enero + 1 mes no salta a marzo');
+  assert.deepEqual(duracionPedida(12, '2026-10-02'), { ok: true, meses: 12, hasta: '2027-10-02' });
+});
+
+test('⚠️ duracionPedida: lo que no es una duración cerrada se rechaza, no se «arregla»', () => {
+  for (const mala of [0, -1, 13, 25, 3.5, NaN, Infinity, '3', '', [3], { meses: 3 }, true, '2030-01-01']) {
+    const r = duracionPedida(mala, '2026-10-02');
+    assert.equal(r.ok, false, `${JSON.stringify(mala)} no debería valer`);
+  }
 });
