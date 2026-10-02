@@ -202,3 +202,34 @@ test('⚠️ duracionPedida: lo que no es una duración cerrada se rechaza, no s
     assert.equal(r.ok, false, `${JSON.stringify(mala)} no debería valer`);
   }
 });
+
+// ─── «Ofrécelas en un clic»: qué series se pueden ofrecer y con qué nombre ──────────────────────────────────────────────
+
+const tarjetaSerie = (serieId: string, diaSemana: number, hora = '10:00', tipoClaseId = 'tc-1') => ({ serieId, diaSemana, hora, tipoClaseId });
+
+test('seriesSinClaseFija: agrupa por serie, con todos sus días, lunes primero', () => {
+  const r = seriesSinClaseFija([tarjetaSerie('a', 4), tarjetaSerie('a', 2), tarjetaSerie('b', 1, '09:30', 'tc-2')], []);
+  assert.deepEqual(r.map(s => [s.serieId, s.diasSemana, s.hora]), [['b', [1], '09:30'], ['a', [2, 4], '10:00']]);
+  assert.deepEqual(r[1].franjas, [{ serieId: 'a', diaSemana: 2 }, { serieId: 'a', diaSemana: 4 }]);
+});
+
+test('seriesSinClaseFija: lo que ya está en una clase fija ABIERTA no se vuelve a ofrecer; una cerrada no cuenta', () => {
+  const tarjetas = [tarjetaSerie('a', 2), tarjetaSerie('a', 4), tarjetaSerie('b', 1)];
+  assert.deepEqual(seriesSinClaseFija(tarjetas, [{ activa: true, franjas: [{ serieId: 'a', diaSemana: 2 }, { serieId: 'a', diaSemana: 4 }] }]).map(s => s.serieId), ['b']);
+  // Con un solo día dentro, se ofrece el que falta.
+  const parcial = seriesSinClaseFija(tarjetas, [{ activa: true, franjas: [{ serieId: 'a', diaSemana: 2 }] }]);
+  assert.deepEqual(parcial.find(s => s.serieId === 'a')?.diasSemana, [4]);
+  // Una cerrada ya no se ofrece: las series vuelven a poder ofrecerse.
+  assert.equal(seriesSinClaseFija(tarjetas, [{ activa: false, franjas: [{ serieId: 'a', diaSemana: 2 }] }]).length, 2);
+  assert.deepEqual(seriesSinClaseFija([], []), []);
+});
+
+test('nombreSugeridoClaseFija: «Tipo · días»; si ya existe, con la hora; luego con un número; siempre cabe', () => {
+  assert.equal(nombreSugeridoClaseFija('Reformer', [2, 4], '10:00', []), 'Reformer · martes y jueves');
+  assert.equal(nombreSugeridoClaseFija('Mat', [1, 3, 5], '09:30', []), 'Mat · lunes, miércoles y viernes');
+  assert.equal(nombreSugeridoClaseFija(undefined, [3], '18:00', []), 'Clase · miércoles');
+  assert.equal(nombreSugeridoClaseFija('Reformer', [2, 4], '10:00', ['reformer · martes y jueves']), 'Reformer · martes y jueves · 10:00', 'sin distinguir mayúsculas');
+  assert.equal(nombreSugeridoClaseFija('Reformer', [2, 4], '10:00', ['Reformer · martes y jueves', 'Reformer · martes y jueves · 10:00']), 'Reformer · martes y jueves · 10:00 (2)');
+  const largo = nombreSugeridoClaseFija('x'.repeat(80), [2], '10:00', []);
+  assert.ok(Array.from(largo).length <= 60);
+});

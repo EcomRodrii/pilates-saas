@@ -18,8 +18,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { crearClaseFija, editarClaseFija, pedirClasesFijas, type DatosClaseFija } from '@/lib/clases-fijas-cliente';
 import {
-  DURACIONES_MESES, DURACIONES_POR_DEFECTO, MAX_DESCRIPCION, MAX_FRANJAS, MAX_NOMBRE, etiquetaDuracion, textoFranja,
-  type OfertaStaff,
+  DURACIONES_MESES, DURACIONES_POR_DEFECTO, MAX_DESCRIPCION, MAX_FRANJAS, MAX_NOMBRE, etiquetaDuracion, nombreSugeridoClaseFija,
+  seriesSinClaseFija, textoFranja, type OfertaStaff, type SerieOfrecible,
 } from '@/lib/clases-fijas-reglas';
 import { fechaDMY } from '@/lib/series-renovacion';
 import type { HorarioFijo, TarjetaHorario } from '@/lib/horario-fijo';
@@ -53,6 +53,10 @@ export function ClasesFijasSeccion(p: ClasesFijasSeccionProps) {
   const [dialogo, setDialogo] = useState<{ oferta: OfertaStaff | null } | null>(null);
   const [cambiando, setCambiando] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // «Ofrécelas en un clic»: lo último que salió bien (no es un error) y qué serie se está creando.
+  const [exito, setExito] = useState<string | null>(null);
+  const [ofreciendo, setOfreciendo] = useState<string | null>(null);
+  const [verTodas, setVerTodas] = useState(false);
 
   const tarjetas = useMemo(() => p.horario.dias.flatMap(d => d.tarjetas), [p.horario]);
 
@@ -84,6 +88,26 @@ export function ClasesFijasSeccion(p: ClasesFijasSeccionProps) {
     setPreseleccionAbierta(p.preseleccion);
     setDialogo({ oferta: null });
     p.onPreseleccionConsumida?.();
+  }
+
+  // Las series que aún no se ofrecen como clase fija con nombre.
+  const ofrecibles = useMemo(() => (ofertas ? seriesSinClaseFija(tarjetas, ofertas) : []), [tarjetas, ofertas]);
+
+  // La clase fija entera, con valores por defecto, en un clic: las duraciones de siempre (1, 3 y 6 meses), el aforo de la clase
+  // como tope y la aprobación manual. Lo mismo que el diálogo con todo por defecto; lo demás se cambia con «Editar».
+  async function ofrecer(s: SerieOfrecible) {
+    if (ofreciendo) return;
+    setOfreciendo(s.serieId);
+    setAviso(null);
+    setExito(null);
+    const nombre = nombreSugeridoClaseFija(p.nombreTipo(s.tipoClaseId), s.diasSemana, s.hora, (ofertas ?? []).map(o => o.nombre));
+    const r = await crearClaseFija({
+      nombre, descripcion: '', duracionesMeses: [...DURACIONES_POR_DEFECTO], plazas: null, aprobacionAutomatica: false, franjas: s.franjas,
+    });
+    setOfreciendo(null);
+    if (!r.ok) { setAviso(r.error); return; }
+    await cargar();
+    setExito(`«${nombre}» creada: tus clientas ya pueden pedirla (${DURACIONES_POR_DEFECTO.map(etiquetaDuracion).join(', ')}). Cámbiale el nombre, el tope o las duraciones con «Editar».`);
   }
 
   async function cambiarActiva(o: OfertaStaff) {
@@ -127,6 +151,39 @@ export function ClasesFijasSeccion(p: ClasesFijasSeccionProps) {
         </p>
       )}
       {aviso && <p role="alert" className="mt-2 text-xs text-destructive">{aviso}</p>}
+      {exito && <p role="status" data-testid="clase-fija-creada" className="mt-2 text-xs text-foreground">{exito}</p>}
+
+      {p.puedeGestionar && ofrecibles.length > 0 && (
+        <div data-testid="ofrecer-en-un-clic" className="mt-3 rounded-lg border border-dashed border-border p-2.5">
+          <p className="text-xs font-semibold text-foreground">Ofrécelas en un clic</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground text-pretty">
+            Crea la clase fija con valores por defecto: se ofrece 1, 3 y 6 meses, el aforo de la clase es el tope y tú apruebas cada petición.
+            Después la cambias con «Editar».
+          </p>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {(verTodas ? ofrecibles : ofrecibles.slice(0, 4)).map(s => {
+              const nombre = nombreSugeridoClaseFija(p.nombreTipo(s.tipoClaseId), s.diasSemana, s.hora, (ofertas ?? []).map(o => o.nombre));
+              return (
+                <li key={s.serieId} data-testid="serie-ofrecible" className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 text-xs text-foreground">
+                    {nombre} <span className="text-muted-foreground">· {s.hora}</span>
+                  </span>
+                  <button type="button" disabled={ofreciendo !== null} onClick={() => void ofrecer(s)}
+                    aria-label={`Ofrecer ${nombre} como clase fija`}
+                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-60">
+                    {ofreciendo === s.serieId ? 'Creando…' : 'Ofrecer'}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {ofrecibles.length > 4 && (
+            <button type="button" className="mt-1.5 text-[11px] font-medium underline underline-offset-2 text-muted-foreground" onClick={() => setVerTodas(v => !v)}>
+              {verTodas ? 'Ver menos' : `Ver las ${ofrecibles.length}`}
+            </button>
+          )}
+        </div>
+      )}
 
       {ofertas && ofertas.length === 0 && (
         <p className="mt-3 text-xs text-muted-foreground" data-testid="clases-fijas-vacio">
