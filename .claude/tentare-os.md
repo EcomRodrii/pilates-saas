@@ -1187,6 +1187,11 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   reserva, y si el proceso moría en medio quedaba cancelado sin devolver). ⚠️ El aviso a las alumnas sigue yendo ANTES: se
   marca la clase cancelada, se avisa y entonces se llama a la RPC (exige la clase cancelada). El panel/serie, que cancela con
   RLS de cliente, sigue por `/api/reservas/devolver-bonos` reserva a reserva.
+- **Anular una recuperación, por el servidor** (migr `20261002144936`, fase A): `anular_recuperacion(id, estudio)` anula una
+  recuperación DISPONIBLE (no una usada) comprobando estudio y `puede_gestionar_clientas()`; el panel la llama por RPC y el
+  ledger la anota como `ANULACION_RECUPERACION`, no como caducidad. ⚠️ Fase B pendiente, DESPUÉS de desplegar este código: retirar
+  INSERT/UPDATE/DELETE de `authenticated` sobre `recuperaciones` (el personal puede hoy crear una saltándose el tope y la
+  caducidad). Un test fija que ningún código del navegador escribe ya en esa tabla.
 - **Fase 3b: `evaluar_reserva`** (migr `20261002145300`, solo service_role). Función SQL de solo lectura que responde si una
   socia puede reservar una clase, en qué estado entraría y quién la paga (recuperación, bono, cuota o nadie), con los mismos
   códigos de rechazo que `CodigoReserva`; el `detalle` que devuelve es el nombre de la excepción de siempre. La ató a

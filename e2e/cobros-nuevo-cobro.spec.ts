@@ -102,7 +102,8 @@ test.describe('Cobros · Nuevo cobro · lo paga después', () => {
     await dialogo(page).getByRole('button', { name: 'Crear el cobro' }).click();
 
     await expect.poll(() => recibos.length, { message: 'no llegó a crearse el recibo' }).toBeGreaterThan(0);
-    expect(recibos[0]).toMatchObject({ estado: 'PENDIENTE', es_renovacion: false, suscripcion_id: 'sus-1', importe: 89 });
+    // Una venta no va enlazada a la cuota: si quedara impagada, el reintento le cancelaría el plan.
+    expect(recibos[0]).toMatchObject({ estado: 'PENDIENTE', es_renovacion: false, suscripcion_id: null, importe: 89 });
     expect(cobros, 'lo que se paga después no se cobra').toHaveLength(0);
     await expect(page.getByText(/queda en «Quién me debe»/)).toBeVisible();
   });
@@ -210,7 +211,7 @@ test.describe('Ficha de la clienta · Nuevo cobro', () => {
     await dialogo(page).getByRole('button', { name: 'Lo paga después' }).click();
     await dialogo(page).getByRole('button', { name: 'Crear el cobro' }).click();
     await expect.poll(() => recibos.length, { message: 'no llegó a crearse el recibo' }).toBeGreaterThan(0);
-    expect(recibos[0]).toMatchObject({ socio_id: 'soc-1', es_renovacion: false });
+    expect(recibos[0]).toMatchObject({ socio_id: 'soc-1', es_renovacion: false, suscripcion_id: null });
   });
 
   test('marcada, el cobro se crea como renovación del plan', async ({ page }) => {

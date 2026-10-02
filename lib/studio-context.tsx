@@ -1923,7 +1923,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   async function anularRecuperacion(id: string): Promise<ResultadoEscritura> {
-    const res = await dbAnularRecuperacion(id);
+    const res = await dbAnularRecuperacion(id, getCurrentStudioId());
     if (!res.ok) return res;
     setRecuperaciones(prev => prev.map(r => r.id === id ? { ...r, estado: 'ANULADA' as const } : r));
     return res;
@@ -2078,7 +2078,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // `reservaId` con el que se creó arriba. `lista` ya está cargada.
       const recienCreada = lista.find(x => x.origenReservaId === reservaId && x.estado === 'DISPONIBLE');
       if (recienCreada) {
-        await dbAnularRecuperacion(recienCreada.id);
+        await dbAnularRecuperacion(recienCreada.id, getCurrentStudioId());
         setRecuperaciones(await dbListRecuperaciones(getCurrentStudioId()));
       }
       return { recuperacion: 'ERROR', caduca: null };

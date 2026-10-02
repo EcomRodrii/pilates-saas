@@ -2902,9 +2902,14 @@ export async function dbListRecuperaciones(studioId: string): Promise<Recuperaci
   return (data ?? []).map(mapRecuperacion);
 }
 
-export async function dbAnularRecuperacion(id: string): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('recuperaciones').update({ estado: 'ANULADA' }).eq('id', id);
-  return error ? falloEscritura('[dbAnularRecuperacion]', error) : ESCRITURA_OK;
+// Anular una recuperación va por la RPC `anular_recuperacion` (migr 20261002144936), no por un UPDATE suelto: el personal
+// ya no escribe en `recuperaciones` directamente (todo pasa por funciones del servidor que respetan el tope y la caducidad).
+// La RPC solo anula una recuperación DISPONIBLE: una ya usada está ligada a su reserva, y anularla la rompería.
+export async function dbAnularRecuperacion(id: string, studioId: string): Promise<ResultadoEscritura> {
+  const { data, error } = await supabase.rpc('anular_recuperacion', { p_id: id, p_studio_id: studioId });
+  if (error) return falloEscritura('[dbAnularRecuperacion]', error);
+  if (data !== true) return { ok: false, error: 'Esa recuperación ya no se puede anular: ya se usó, caducó o se anuló antes.' };
+  return ESCRITURA_OK;
 }
 
 // ─── Niveles: qué clases tiene autorizadas cada socia ────────────────────────
