@@ -39,17 +39,21 @@ export async function primeraVezConPlan(
   }
 
   // La «clase de prueba» no es contratar un plan: la matrícula se cobra en el
-  // primer plan DE VERDAD que venga después. Se cuentan todas y se restan las
-  // de prueba (y no un `inner join` a planes que dejaría fuera las que no
-  // tienen plan: eso cobraría matrícula de más).
-  const [todas, pruebas] = await Promise.all([
+  // primer plan DE VERDAD que venga después. Una clase suelta (PUNTUAL)
+  // tampoco (decisión del fundador, 2-oct-2026): quien viene a sueltas paga la
+  // matrícula con su primer bono o cuota. Se cuentan todas y se restan las de
+  // prueba y las sueltas (y no un `inner join` a planes que dejaría fuera las
+  // que no tienen plan: eso cobraría matrícula de más).
+  const [todas, pruebas, sueltas] = await Promise.all([
     admin.from('suscripciones').select('id', { count: 'exact', head: true })
       .eq('studio_id', studioId).eq('socio_id', id),
     admin.from('suscripciones').select('id, planes_tarifa!inner(es_prueba)', { count: 'exact', head: true })
       .eq('studio_id', studioId).eq('socio_id', id).eq('planes_tarifa.es_prueba', true),
+    admin.from('suscripciones').select('id, planes_tarifa!inner(tipo, es_prueba)', { count: 'exact', head: true })
+      .eq('studio_id', studioId).eq('socio_id', id).eq('planes_tarifa.tipo', 'PUNTUAL').eq('planes_tarifa.es_prueba', false),
   ]);
-  if (todas.error || pruebas.error) return false;
-  return (todas.count ?? 1) - (pruebas.count ?? 0) <= 0;
+  if (todas.error || pruebas.error || sueltas.error) return false;
+  return (todas.count ?? 1) - (pruebas.count ?? 0) - (sueltas.count ?? 0) <= 0;
 }
 
 /**

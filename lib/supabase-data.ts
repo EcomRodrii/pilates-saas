@@ -2713,18 +2713,21 @@ export async function dbReservarMatricula(
 }
 
 export async function dbSocioTieneAlgunPlan(socioId: string, studioId: string): Promise<boolean | null> {
-  // La «clase de prueba» no cuenta como plan: la matrícula se cobra en el
-  // primero de verdad. Mismo cálculo que `primeraVezConPlan` (todas menos las
-  // de prueba), y misma dirección de fallo: ante la duda, `null` = «ya tenía».
-  const [todas, pruebas] = await Promise.all([
+  // Ni la «clase de prueba» ni una clase suelta (PUNTUAL) cuentan como plan:
+  // la matrícula se cobra en el primer bono o cuota. Mismo cálculo que
+  // `primeraVezConPlan` (todas menos las de prueba y las sueltas), y misma
+  // dirección de fallo: ante la duda, `null` = «ya tenía».
+  const [todas, pruebas, sueltas] = await Promise.all([
     supabase.from('suscripciones').select('id', { count: 'exact', head: true })
       .eq('studio_id', studioId).eq('socio_id', socioId),
     supabase.from('suscripciones').select('id, planes_tarifa!inner(es_prueba)', { count: 'exact', head: true })
       .eq('studio_id', studioId).eq('socio_id', socioId).eq('planes_tarifa.es_prueba', true),
+    supabase.from('suscripciones').select('id, planes_tarifa!inner(tipo, es_prueba)', { count: 'exact', head: true })
+      .eq('studio_id', studioId).eq('socio_id', socioId).eq('planes_tarifa.tipo', 'PUNTUAL').eq('planes_tarifa.es_prueba', false),
   ]);
-  const error = todas.error ?? pruebas.error;
+  const error = todas.error ?? pruebas.error ?? sueltas.error;
   if (error) { console.error('[dbSocioTieneAlgunPlan]', error); return null; }
-  return (todas.count ?? 0) - (pruebas.count ?? 0) > 0;
+  return (todas.count ?? 0) - (pruebas.count ?? 0) - (sueltas.count ?? 0) > 0;
 }
 
 export async function dbInsertSuscripcion(sus: Suscripcion): Promise<ResultadoEscritura> {
