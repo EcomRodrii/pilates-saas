@@ -1192,11 +1192,18 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   ledger la anota como `ANULACION_RECUPERACION`, no como caducidad. ⚠️ Fase B pendiente, DESPUÉS de desplegar este código: retirar
   INSERT/UPDATE/DELETE de `authenticated` sobre `recuperaciones` (el personal puede hoy crear una saltándose el tope y la
   caducidad). Un test fija que ningún código del navegador escribe ya en esa tabla.
-- **Lo que viene, en este orden:** `evaluar_reserva` (SQL, solo lectura, la elegibilidad en un solo sitio, con tests de
-  paridad contra `reservar_plaza` en CI; en sombra, sin decidir todavía) → que `reservar_plaza` decida con ella → orden de
-  pagador por tope del producto que paga. Después: índices únicos (una liberación/consumo por reserva), `cancelar_sesion` transaccional, REVOKE
-  de `devolver_sesion_bono` ciega cuando no quede llamador, compra transaccional (retener plaza antes de cobrar) y
-  excepciones del mostrador.
+- **Fase 3b, hecha EN SOMBRA: `evaluar_reserva`** (migr `20261002145300`, solo service_role, en este PR nada la llama todavía; el PR siguiente hace que `reservar_plaza` decida con ella). Función
+  SQL de solo lectura que responde si una socia puede reservar una clase, en qué estado entraría y quién la paga
+  (recuperación, bono, cuota o nadie), con los mismos códigos de rechazo que `CodigoReserva`. Espeja en el mismo orden las
+  comprobaciones de `reservar_plaza` y usa SUS MISMAS funciones auxiliares; lo que las ata es un test de PARIDAD en CI
+  (`supabase/tests/rls-evaluar-reserva-paridad.test.ts`, 27 escenarios reales: se evalúa, se reserva de verdad y se exige el
+  mismo rechazo o el mismo estado y que pague quien se anunció). ⚠️ NO es todavía la fuente única: `reservar_plaza` sigue
+  decidiendo, y siguen en TypeScript (`crearReservaPublica`) la clase cancelada o ya empezada, las ventanas de antelación,
+  los máximos de reservas a la vez y al día, la apertura suave y las preguntas del estudio.
+- **Lo que viene, en este orden:** que `reservar_plaza` decida con `evaluar_reserva` (Fase 3c, siguiente PR) → llevar a ella los
+  gates de TypeScript → orden de pagador por tope del producto que paga. Después: índices únicos (una liberación/consumo por
+  reserva), `cancelar_sesion` transaccional, compra transaccional (retener plaza antes de cobrar) y excepciones del
+  mostrador.
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
