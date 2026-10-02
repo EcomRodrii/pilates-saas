@@ -93,6 +93,10 @@ function Formulario({ onCerrar, onOcupado, avisos, socioFijo }: {
   const planNombre = sus ? (planesTarifa.find(p => p.id === sus.planId)?.nombre ?? 'su plan') : null;
   const yaPendiente = renovacionYaPendiente(sus?.id ?? null, recibos);
   const renovacion = !!sus && esRenovacion && !yaPendiente;
+  // Solo la renovación va enlazada a su cuota. Una venta enlazada contaba como cuota
+  // en Informes, la anulaba la política al cancelar la cuota y, si se le cobraba
+  // con su tarjeta y acababa impagada, el reintento le CANCELABA el plan.
+  // La ficha de la clienta lista sus recibos por clienta, no por cuota.
 
   const importe = leerImporte(importeTexto);
   const ahora = pagado === 'ahora';
@@ -118,7 +122,7 @@ function Formulario({ onCerrar, onOcupado, avisos, socioFijo }: {
     try {
       if (ahora && metodo) {
         const res = await crearFacturaDirecta(
-          { socioId, concepto: concepto.trim(), importe, suscripcionId: sus?.id ?? null, esRenovacion: renovacion },
+          { socioId, concepto: concepto.trim(), importe, suscripcionId: renovacion ? sus?.id ?? null : null, esRenovacion: renovacion },
           { metodo, hacerFactura: q.ofrecerHacerFactura && hacerFactura && q.saleFactura },
         );
         if (res.ok) {
@@ -136,7 +140,7 @@ function Formulario({ onCerrar, onOcupado, avisos, socioFijo }: {
         setError(res.error);
       } else {
         const res = await addRecibo({
-          socioId, suscripcionId: sus?.id ?? null, concepto: concepto.trim(), importe,
+          socioId, suscripcionId: renovacion ? sus?.id ?? null : null, concepto: concepto.trim(), importe,
           fechaVencimiento: vence, esRenovacion: renovacion,
         });
         if (res.ok) {

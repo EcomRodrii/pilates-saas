@@ -48,10 +48,11 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
     && !datos.seCobraSoloEl(r)
     && datos.cuotaDe(r.suscripcionId)?.estado !== 'PAUSADA');
   const totalSinElla = cobrablesSinElla.reduce((t, r) => t + r.importe, 0);
-  // Lo que tiene un pago online abierto o un cobro en el datáfono no entra en «Cobrar
-  // X €»: cobrarlo a mano encima y que ella pague también ahí serían dos cobros.
-  const enMarcha = grupo.recibos.filter(r => !!r.checkoutSessionId || !!r.cobroMostradorPi);
-  const aCobrar = grupo.recibos.filter(r => !enMarcha.includes(r));
+  // Todo entra en «Cobrar X €»: el servidor mira cada recibo justo antes. Un enlace de
+  // pago abierto lo cierra en Stripe, y un cobro del datáfono abandonado lo cancela; si
+  // ya se pagó o sigue en curso, ese recibo no se cobra y se dice.
+  const conPagoAbierto = grupo.recibos.some(r => !!r.checkoutSessionId || !!r.cobroMostradorPi);
+  const aCobrar = grupo.recibos;
   const totalACobrar = aCobrar.reduce((t, r) => t + r.importe, 0);
 
   // Lo que el cobro automático ya va a hacer (o no) con sus recibos.
@@ -152,11 +153,10 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
             Cobrar <CifraPrivada inline>{formatEuro(totalACobrar)}</CifraPrivada>
           </button>
           <p className="-mt-1 text-[12px] text-muted-foreground">Eliges cómo te paga: efectivo, tarjeta del mostrador, Bizum o transferencia.</p>
-          {enMarcha.length > 0 && (
-            <p className="-mt-1 flex items-start gap-1.5 text-[12px] text-foreground">
+          {conPagoAbierto && (
+            <p className="-mt-1 flex items-start gap-1.5 text-[12px] text-muted-foreground">
               <AlertTriangle size={13} className="mt-0.5 shrink-0 text-warning" aria-hidden />
-              {enMarcha.length === 1 ? '1 recibo tiene' : `${enMarcha.length} recibos tienen`} un pago online abierto o un cobro en el datáfono
-              {' '}(<CifraPrivada inline>{formatEuro(enMarcha.reduce((t, r) => t + r.importe, 0))}</CifraPrivada>) y no {enMarcha.length === 1 ? 'entra' : 'entran'}: cobrarlo aquí también serían dos cobros.
+              Si tiene abierto un enlace de pago o un cobro en el datáfono, al cobrarlo aquí se cierra. Si ya lo había pagado, no se cobra otra vez.
             </p>
           )}
           {medio?.estado === 'LISTO' && medio.online && cobrablesSinElla.length > 0 && (
