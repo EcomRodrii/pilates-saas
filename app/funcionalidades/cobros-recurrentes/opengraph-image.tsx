@@ -5,5 +5,5 @@ export const size = OG_IMAGE_SIZE;
 export const contentType = OG_IMAGE_CONTENT_TYPE;
 
 export default async function Image() {
-  return generarOgImage('Cobra sin perseguir a nadie.', 'Tarjeta guardada, tres reintentos escalonados y remesa SEPA 19.14.');
+  return generarOgImage('Cobra sin perseguir a nadie.', 'Tarjeta guardada, tres intentos escalonados y remesa SEPA 19.14.');
 }

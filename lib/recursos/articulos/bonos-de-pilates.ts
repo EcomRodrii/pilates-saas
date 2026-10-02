@@ -52,7 +52,7 @@ const articulo: Articulo = {
             '**Clase suelta:** precio de referencia alto que hace atractivos los otros dos.',
           ],
         },
-        { t: 'p', texto: 'Cobrar la cuota a mano es trabajo y deja huecos. En Tentare, con Stripe conectado, las cuotas se cobran solas con tarjeta o SEPA; si un cobro falla, se reintenta tres veces (+1, +3 y +7 días) y te avisa. Los bonos y pagos puntuales admiten también Bizum; las cuotas, no. Más en [cobros recurrentes](/funcionalidades/cobros-recurrentes).' },
+        { t: 'p', texto: 'Cobrar la cuota a mano es trabajo y deja huecos. En Tentare, con Stripe conectado, las cuotas se cobran solas con tarjeta o SEPA; si un cobro falla, se reintenta dos veces (a los 3 y a los 7 días) y te avisa. Los bonos y pagos puntuales admiten también Bizum; las cuotas, no. Más en [cobros recurrentes](/funcionalidades/cobros-recurrentes).' },
       ],
     },
     {
