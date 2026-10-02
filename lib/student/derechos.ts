@@ -6,6 +6,7 @@
 
 import { portalAuthHeader } from '@/lib/student/api-publica';
 import { descargarBlob, nombreDeDescarga } from '@/lib/descargar-blob';
+import { compartirFichero, esAppNativa } from '@/lib/nativo/puente';
 import type { SolicitudDerechosVista, TipoSolicitudDerechos } from '@/lib/socios/solicitudes-derechos';
 
 export type Resultado = { ok: true } | { ok: false; error: string };
@@ -20,7 +21,14 @@ export async function descargarMisDatos(slug: string): Promise<Resultado> {
   try {
     const res = await fetch(`/api/public/mis-datos?slug=${encodeURIComponent(slug)}`, { headers: await portalAuthHeader() });
     if (!res.ok) return { ok: false, error: await mensajeDe(res, 'No hemos podido preparar tus datos.') };
-    descargarBlob(await res.blob(), nombreDeDescarga(res, 'mis-datos.json'));
+    const blob = await res.blob();
+    const nombre = nombreDeDescarga(res, 'mis-datos.json');
+    // En la app de iOS no hay descargas: va a la hoja de compartir (Archivos, Mail…).
+    if (esAppNativa()) {
+      const r = await compartirFichero({ nombre, tipo: 'application/json', contenido: blob });
+      return 'error' in r && r.error !== 'cancelado' ? { ok: false, error: 'No hemos podido abrir tus datos en el teléfono.' } : { ok: true };
+    }
+    descargarBlob(blob, nombre);
     return { ok: true };
   } catch {
     return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };

@@ -22,6 +22,7 @@
 import { qrSvgMarkup } from './qr-svg.ts';
 import { conceptoDeFactura } from './facturas/concepto.ts';
 import type { SelloCliente } from './factura-sello-cliente.ts';
+import { compartirFichero, esAppNativa } from './nativo/puente.ts';
 
 export interface EmisorFactura {
   nombre: string;
@@ -178,6 +179,12 @@ export function abrirFacturaPDF(
   sello: SelloCliente | null,
 ) {
   const html = generarFacturaHTML(f, emisor, receptor, sello);
+  // En la app de iOS no hay pestañas: la factura va a la hoja de compartir, y
+  // desde ahí se imprime, se guarda en Archivos como PDF o se manda por correo.
+  if (esAppNativa()) {
+    void compartirFichero({ nombre: `Factura ${f.numeroCompleto}.html`, tipo: 'text/html', contenido: html });
+    return;
+  }
   const w = window.open('', '_blank');
   if (!w) return;
   w.document.write(html);
