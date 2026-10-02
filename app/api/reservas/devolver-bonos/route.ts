@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { devolverBonoServidor, reservasSinCobroRegistrado } from '@/lib/db/supabase-data-admin';
+import { liberarReservaCancelada } from '@/lib/db/supabase-data-admin';
+import { esMotivoLiberacion, type MotivoLiberacion } from '@/lib/reservas/liberacion';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,18 +20,23 @@ export const dynamic = 'force-dynamic';
 //
 // El arreglo es el mismo que cerró P-1 el 2-sep: la escritura sale del
 // navegador. El estudio se resuelve SIEMPRE de la sesión de staff, nunca del
-// cuerpo, y quien devuelve es `devolverBonoServidor` — la misma función que ya
-// usan los caminos de servidor (cancelación individual, sustituciones y el cron
+// cuerpo, y quien libera es `liberarReservaCancelada` — la misma función que
+// usan los otros caminos que cancelan una clase entera (sustituciones y el cron
 // de mínimo de asistentes), en vez de una copia paralela en el navegador.
 //
-// La política del estudio (`cancelacion_clase_devuelve_bono`) se comprueba
-// también AQUÍ, no solo en el navegador: es una decisión de la propietaria y no
-// puede depender de que quien llame se acuerde de mirarla.
+// Fase 2 del motor de derechos: la decisión de qué se devuelve es de la RPC
+// `liberar_derecho`, que lee qué consumió CADA reserva. Ahí también se aplica la
+// política del estudio (`cancelacion_clase_devuelve_bono`): es una decisión de la
+// propietaria y no puede depender de que quien llame se acuerde de mirarla. La
+// recuperación que la reserva hubiera usado se restituye aunque esa política no
+// devuelva el bono.
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-  const body = await req.json().catch(() => null) as { reservaIds?: unknown } | null;
+  const body = await req.json().catch(() => null) as { reservaIds?: unknown; motivo?: unknown } | null;
+  // Quien llama dice POR QUÉ (p. ej. «Eliminar clase»); lo que no se reconoce es una cancelación normal.
+  const motivo: MotivoLiberacion = esMotivoLiberacion(body?.motivo) ? body.motivo : 'estudio_cancela_clase';
   const reservaIds = Array.isArray(body?.reservaIds)
     ? [...new Set(body.reservaIds.filter((x): x is string => typeof x === 'string' && x.length > 0))]
     : [];
@@ -90,36 +96,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
 
-  // ⚠️ La política del estudio se comprueba AQUÍ, no solo en el navegador. Su
-  // gemelo de servidor (`devolverBonosPorCancelacionClase`) ya la leía en
-  // servidor; dejarla solo en el cliente significaba que un POST directo con
-  // JWT de staff devolvía bonos que la propietaria decidió no devolver.
-  const { data: politica } = await admin
-    .from('studios').select('cancelacion_clase_devuelve_bono').eq('id', sesion.studioId).maybeSingle();
-  if ((politica?.cancelacion_clase_devuelve_bono ?? true) !== true) {
-    return NextResponse.json({ devueltas: 0, fallos: 0, saldos: [], politica: 'no_devuelve' });
-  }
-
-  // Una devolución POR RESERVA cancelada, no por socia: quien tenía dos plazas
-  // en la serie que se cancela recupera dos sesiones. Secuencial a propósito —
-  // `devolver_sesion_bono` es un incremento atómico con tope en el WHERE, y en
-  // paralelo dos incrementos de la misma socia compiten por la misma fila.
+  // Una liberación POR RESERVA cancelada, no por socia: quien tenía dos plazas en
+  // la serie que se cancela recupera dos sesiones. Secuencial a propósito: cada
+  // devolución es un incremento atómico sobre la fila del bono, y en paralelo dos
+  // de la misma socia competirían por ella.
   const tipoPorSesion = new Map((sesiones ?? []).map(s => [s.id as string, (s.tipo_clase_id as string | null) ?? null]));
   let devueltas = 0;
+  let recuperaciones = 0;
   let fallos = 0;
-  // Una reserva rastreada que nunca se cobró de un bono no recupera nada.
-  const sinCobro = await reservasSinCobroRegistrado(admin, sesion.studioId, canceladas.map(r => r.id as string));
   for (const r of canceladas) {
-    if (sinCobro.has(r.id as string)) continue;
-    const res = await devolverBonoServidor(
-      admin, sesion.studioId, r.socio_id as string, tipoPorSesion.get(r.sesion_id as string) ?? null,
-      r.id as string,
+    const res = await liberarReservaCancelada(
+      admin, sesion.studioId,
+      { reservaId: r.id as string, socioId: r.socio_id as string, tipoClaseId: tipoPorSesion.get(r.sesion_id as string) ?? null },
+      motivo,
     );
-    if (res === 'DEVUELTA') devueltas++;
-    // `SIN_BONO` no cuenta como fallo: la socia pagó suelta o su bono ya está al
-    // tope. Contarlo mandaría a la propietaria a "revisarlo a mano" en la mitad
-    // de las cancelaciones normales.
-    else if (res === 'FALLO') fallos++;
+    if (res.fallo) fallos++;
+    // «No había nada que devolver» (plaza fija, cuota, bono al tope, política del
+    // estudio) NO es un fallo: contarlo mandaría a la propietaria a «revisarlo a
+    // mano» en la mitad de las cancelaciones normales.
+    else if (res.bonoDevuelto) devueltas++;
+    if (res.recuperacionRestituida) recuperaciones++;
   }
 
   // Saldos frescos para que el panel los pinte sin recargar: el navegador ya no
@@ -131,6 +127,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     devueltas,
+    recuperaciones,
     fallos,
     saldos: (sus ?? []).map(s => ({ suscripcionId: s.id as string, sesionesRestantes: s.sesiones_restantes as number })),
   });

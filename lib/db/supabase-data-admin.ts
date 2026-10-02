@@ -27,6 +27,7 @@ import {
   comoDecisionPropia, conReintentoPorInterbloqueo, consumoYaDecidido, descontarSesionDeReserva, devolucionPermitida, efectosTrasConsumo, esColumnaInexistente,
   ocupaPlaza, interpretarBonoDeReservarPlaza, sesionDescontada, type ConsumoBono,
 } from '@/lib/reservas/consumo-bono-reserva';
+import { llamarLiberarDerecho, type MotivoLiberacion } from '@/lib/reservas/liberacion';
 import { LEGAL } from '@/lib/legal-info';
 import { selloParaCliente, type SelloCliente } from '@/lib/factura-sello-cliente';
 import {
@@ -1417,36 +1418,70 @@ export async function devolverBonoServidor(
   return nuevoSaldo != null ? 'DEVUELTA' : 'SIN_BONO';
 }
 
-// P-1 (auditoría 21-ago): política única, compartida por los caminos
-// server-side que cancelan una clase COMPLETA (sustituciones/cancelar_clase
-// y el cron de mínimo de asistentes) — el estudio decide si sus socias
-// recuperan la sesión o se les agota igual (`studios.cancelacion_clase_
-// devuelve_bono`, default true). El camino de panel/serie corre en cliente
-// y resuelve la misma pregunta con `devolverSesionBono` en studio-context.tsx
-// (necesita `admin` para leer suscripciones/planes cross-socia; el panel no
-// lo tiene con RLS de staff).
+// Libera los derechos de UNA reserva de una clase que el estudio ha cancelado: la reserva
+// ya está CANCELADA y su clase cancelada. `liberar_derecho` (migr 20261002140000) lee qué
+// consumió ESA reserva y devuelve solo eso, una vez: la sesión al bono exacto que la pagó y la
+// recuperación que hubiera usado. Una reserva de plaza fija, o pagada por la cuota, no recupera
+// nada, y la política del estudio (`cancelacion_clase_devuelve_bono`) se aplica en la propia RPC.
 //
-// Devuelve por socia si REALMENTE se devolvió (no solo si la política lo
-// permite): mismo cuidado que `devolverBonoServidor` ya documentaba (I-5),
-// para que el email de cancelación nunca prometa una sesión que no recuperó.
+// Antes cada camino lo decidía por su cuenta y, sin rastro de la reserva, caía a una heurística
+// que sumaba una sesión a cualquier bono con hueco (también a quien tenía una plaza fija) y no
+// restituía ninguna recuperación.
+//
+// Única excepción, a la vista: una reserva IMPORTADA de otra plataforma (nace no rastreada, y su
+// saldo ya venía descontado) devuelve `LEGADO_SIN_RASTRO`, y entonces sí se sigue con la
+// heurística de siempre (`devolverBonoServidor`). Es lo último que falta por retirar.
+//
+// `fallo` es un fallo de verdad (RPC rota, respuesta rara, reserva que no está cancelada): quien
+// llama no debe dar la devolución por hecha. «No había nada que devolver» NO es un fallo.
+export interface ResultadoLiberarReserva {
+  bonoDevuelto: boolean;
+  recuperacionRestituida: boolean;
+  fallo: boolean;
+}
+
+export async function liberarReservaCancelada(
+  admin: SupabaseClient, studioId: string,
+  r: { reservaId: string; socioId: string; tipoClaseId: string | null },
+  motivo: MotivoLiberacion,
+): Promise<ResultadoLiberarReserva> {
+  const llamada = await llamarLiberarDerecho(admin, { studioId, reservaId: r.reservaId, motivo });
+  if (!llamada.ok) {
+    reportDbError('[liberarReservaCancelada]', llamada.error);
+    return { bonoDevuelto: false, recuperacionRestituida: false, fallo: true };
+  }
+  const { liberacion } = llamada;
+  if (liberacion.resultado !== 'OK') {
+    reportDbError('[liberarReservaCancelada]', new Error(`${liberacion.resultado} (reserva ${r.reservaId})`));
+    return { bonoDevuelto: false, recuperacionRestituida: false, fallo: true };
+  }
+  let bonoDevuelto = liberacion.bono === 'DEVUELTO';
+  let fallo = false;
+  if (liberacion.bono === 'LEGADO_SIN_RASTRO') {
+    const res = await devolverBonoServidor(admin, studioId, r.socioId, r.tipoClaseId, r.reservaId);
+    bonoDevuelto = res === 'DEVUELTA';
+    fallo = res === 'FALLO';
+  }
+  return { bonoDevuelto, recuperacionRestituida: liberacion.recuperacionRestituida, fallo };
+}
+
+// P-1 (auditoría 21-ago): camino único de los que cancelan una clase COMPLETA desde el servidor
+// (sustituciones/cancelar_clase y el cron de mínimo de asistentes): una liberación por reserva.
+// El camino de panel/serie pasa por `/api/reservas/devolver-bonos`, que usa la misma función.
+//
+// Devuelve por socia si REALMENTE se devolvió una sesión (no solo si la política lo permite):
+// mismo cuidado que `devolverBonoServidor` ya documentaba (I-5), para que el email de
+// cancelación nunca prometa una sesión que no recuperó. Sin `reservaId` no se libera nada:
+// ya no se adivina a qué bono sumar.
 export async function devolverBonosPorCancelacionClase(
   admin: SupabaseClient, studioId: string,
-  confirmadas: { socioId: string; tipoClaseId: string | null; reservaId?: string }[],
+  confirmadas: { socioId: string; tipoClaseId: string | null; reservaId: string }[],
+  motivo: MotivoLiberacion = 'estudio_cancela_clase',
 ): Promise<Map<string, boolean>> {
   const devueltoPorSocia = new Map<string, boolean>();
-  if (confirmadas.length === 0) return devueltoPorSocia;
-  const { data } = await admin.from('studios')
-    .select('cancelacion_clase_devuelve_bono').eq('id', studioId).maybeSingle();
-  const devuelve = (data?.cancelacion_clase_devuelve_bono ?? true) as boolean;
-  if (!devuelve) {
-    confirmadas.forEach(c => devueltoPorSocia.set(c.socioId, false));
-    return devueltoPorSocia;
-  }
-  // Una reserva rastreada que nunca se cobró de un bono no recupera nada.
-  const sinCobro = await reservasSinCobroRegistrado(admin, studioId, confirmadas.flatMap(c => c.reservaId ? [c.reservaId] : []));
   for (const c of confirmadas) {
-    if (c.reservaId && sinCobro.has(c.reservaId)) { devueltoPorSocia.set(c.socioId, false); continue; }
-    devueltoPorSocia.set(c.socioId, (await devolverBonoServidor(admin, studioId, c.socioId, c.tipoClaseId, c.reservaId)) === 'DEVUELTA');
+    const r = await liberarReservaCancelada(admin, studioId, c, motivo);
+    devueltoPorSocia.set(c.socioId, (devueltoPorSocia.get(c.socioId) ?? false) || r.bonoDevuelto);
   }
   return devueltoPorSocia;
 }
@@ -3883,7 +3918,8 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
   // le prometa a nadie una sesión que no ha recuperado. En esta cancelación cada
   // socia recibe su propio correo, así que el dato es por persona, no global.
   const devueltoPorSocia = await devolverBonosPorCancelacionClase(admin, params.studioId,
-    confirmadas.map(r => ({ socioId: r.socio_id as string, tipoClaseId, reservaId: r.id as string })));
+    confirmadas.map(r => ({ socioId: r.socio_id as string, tipoClaseId, reservaId: r.id as string })),
+    motivo === 'minimo_no_alcanzado' ? 'minimo_asistentes' : 'estudio_cancela_clase');
 
   // CLASE_CANCELADA no manda email a propósito (catalog.ts) — aquí SÍ hay
   // dinero de por medio, así que se manda explícito. CancelacionClaseEmail ya

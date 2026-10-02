@@ -43,20 +43,36 @@ function cuerpoDe(nombre: string): string {
   throw new Error(`no se pudo delimitar el cuerpo de ${nombre}`);
 }
 
-test('⚠️ I-1 · «Eliminar clase» no devuelve bono a las plazas fijas', () => {
-  // Sentencia única en el fichero (comprobado abajo): no hace falta delimitar
-  // el cuerpo de la función, que lleva JSX y plantillas y hace frágil contar
-  // llaves.
-  assert.equal(FUENTE.split('const confirmadas = reservas.filter').length - 1, 1,
-    'hay más de una selección de reservas confirmadas: revisa cuál es la de deleteSesion');
-  const seleccion = FUENTE.match(/const confirmadas = reservas\.filter\([\s\S]*?\);/);
-  assert.ok(seleccion, 'ya no se seleccionan las reservas confirmadas antes del DELETE: revisa este guardián');
-  // La negación es parte de la aserción: un filtro invertido (quedarse SOLO
-  // con las plazas fijas) sería peor que el fallo original y pasaría un
-  // `match(/res-pf-/)` a secas.
-  assert.match(seleccion[0], /!\s*r\.id\.startsWith\('res-pf-'\)/,
-    'las plazas fijas (`res-pf-…`) nunca consumieron bono: devolverles una sesión INVENTA saldo. '
-    + 'Mismo filtro que /api/reservas/devolver-bonos y que ejecutarCancelacionReserva.');
+test('⚠️ I-1 · «Eliminar clase» no devuelve bono a las plazas fijas, ni a ciegas', () => {
+  // Fase 2 del motor de derechos: ya no hay una selección de «confirmadas» ni un `+1` en el
+  // navegador. «Eliminar» cancela las reservas y las libera POR EL SERVIDOR antes de borrar la
+  // clase (el borrado se lleva las reservas por cascada), y quien decide qué se devuelve es
+  // `liberar_derecho`, que solo devuelve lo que esa reserva consumió: una plaza fija o una
+  // pagada por la cuota no consumieron bono y no recuperan nada.
+  // Solo el código: los comentarios que cuentan la historia pueden nombrarla.
+  const codigo = FUENTE.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+  assert.ok(!/\b(devolverSesionBono|dbDevolverSesionBono)\b/.test(codigo),
+    'ha vuelto la devolución a ciegas desde el navegador: sin la reserva no sabe qué bono pagó ni si hubo pago');
+  // `cuerpoDe` no sirve aquí: el tipo de retorno de deleteSesion lleva llaves antes del cuerpo.
+  const ini = FUENTE.indexOf('async function deleteSesion(');
+  assert.notEqual(ini, -1, 'no existe deleteSesion');
+  const cuerpo = FUENTE.slice(ini, FUENTE.indexOf('// ── Series de clases recurrentes', ini));
+  const liberar = cuerpo.indexOf("cancelarReservasDeSesiones([id], 'deleteSesion', 'eliminar_clase')");
+  const borrar = cuerpo.indexOf('dbDeleteSesion(id)');
+  assert.ok(liberar > 0, 'deleteSesion ya no cancela y libera las reservas por el servidor');
+  assert.ok(borrar > 0, 'deleteSesion ya no borra la clase: revisa este guardián');
+  assert.ok(liberar < borrar,
+    'liberar va ANTES de borrar: el DELETE se lleva las reservas por cascada y con ellas lo que había que devolver');
+  // Si liberar falla NO se borra.
+  const entre = cuerpo.slice(liberar, borrar);
+  assert.match(entre, /if \(!liberadas\.ok\) return liberadas;/,
+    'si no se pueden cancelar las reservas, no se puede borrar la clase');
+  // Y tampoco si alguna devolución falló: borrar se llevaría las reservas, que son lo único que dice a quién hay que devolver.
+  assert.match(entre, /if \(liberadas\.avisoBono\) \{\s*return \{\s*ok: false/,
+    'si alguna devolución falla, la clase no se borra: se queda cancelada con sus reservas a la vista');
+  // Y el servidor sigue sin tocar las plazas fijas.
+  const ruta = readFileSync(join(import.meta.dirname, '..', 'app/api/reservas/devolver-bonos/route.ts'), 'utf8');
+  assert.match(ruta, /!\(r\.id as string\)\.startsWith\('res-pf-'\)/, '/api/reservas/devolver-bonos dejó de excluir las plazas fijas');
 });
 
 test('⚠️ I-2 · el panel no deja apuntar a nadie a una clase cancelada', () => {

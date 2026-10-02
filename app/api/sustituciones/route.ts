@@ -451,7 +451,8 @@ export async function PATCH(req: NextRequest) {
         .eq('id', sust.sesion_id).maybeSingle();
       const tipoClaseId = sesionInfo?.tipo_clase_id as string | null;
       await devolverBonosPorCancelacionClase(admin, sesion.studioId,
-        confirmadasAntes.map(r => ({ socioId: r.socio_id as string, tipoClaseId, reservaId: r.id as string })));
+        confirmadasAntes.map(r => ({ socioId: r.socio_id as string, tipoClaseId, reservaId: r.id as string })),
+        'instructora_baja_sin_sustituta');
     }
 
     return NextResponse.json({ ok: true, alumnas });

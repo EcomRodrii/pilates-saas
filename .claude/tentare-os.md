@@ -1153,10 +1153,26 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
 - ⚠️ **`not found` tras un `PERFORM` miente:** un PERFORM también fija FOUND. En las funciones del motor,
   «no se actualizó ninguna fila» se mira con la variable del `RETURNING` (`v_saldo is null`), nunca con `not found`
   después del `set_config`. Hay un test que lo fija.
-- **Lo que viene, en este orden:** `evaluar_reserva` (SQL, solo lectura, la elegibilidad en un solo sitio) →
-  motor único de devoluciones (`liberar_derecho`, lee del ledger lo que consumió la reserva, nunca adivina) →
-  errores estructurados con acciones. Compra transaccional (retener plaza antes de cobrar) y excepciones del
-  mostrador, después.
+- **Fase 2, hecha: una sola salida de devolución para cancelar una clase** (`liberar_derecho`, migr
+  `20261002140000`; solo service_role). Libera una reserva **ya CANCELADA de una clase ya cancelada** (no toca estados):
+  devuelve al bono EXACTO que la pagó (reutiliza `devolver_sesion_bono_por_reserva`, que sella por reserva), restituye
+  la recuperación que usó y aplica `cancelacion_clase_devuelve_bono` en SQL. La recuperación vuelve aunque esa política
+  no devuelva el bono. Los cuatro defectos de saldo que cierra: «Eliminar clase» devolvía con un `+1` ciego DESPUÉS de
+  borrar (ahora cancela y libera ANTES, y **no borra** si alguna devolución falla); una plaza fija (`res-pf-`) o una
+  reserva pagada por la cuota ya no recupera nada; una reserva pagada con recuperación ya no consume además un bono
+  (`consumir_bono_interno`); cancelar la clase entera restituye la recuperación (solo lo hacía la cancelación de la
+  alumna). Callers: sustituciones (`instructora_baja_sin_sustituta`), mínimo de asistentes (`minimo_asistentes`),
+  `/api/reservas/devolver-bonos` (panel/serie/«Eliminar»). Un motivo nuevo se da de alta en la RPC Y en
+  `MOTIVOS_LIBERACION` (`lib/reservas/liberacion.ts`); un test fija que coinciden.
+- ⚠️ **Lo que sigue usando la heurística, a la vista:** una reserva IMPORTADA (no rastreada, no `res-pf-`) devuelve
+  `LEGADO_SIN_RASTRO` y `liberarReservaCancelada` cae a `devolverBonoServidor`: su saldo ya venía descontado de la otra
+  plataforma y no hay ledger que diga qué bono pagó. Se retira cuando las importadas se clasifiquen. La cancelación de
+  UNA reserva por la alumna (`cancelar_reserva_plaza` + `ejecutarCancelacionReserva`) sigue como estaba.
+- **Lo que viene, en este orden:** `evaluar_reserva` (SQL, solo lectura, la elegibilidad en un solo sitio, con tests de
+  paridad) → errores estructurados con acciones → el no-show cuenta en los topes y el orden de pagador por
+  especificidad. Después: índices únicos (una liberación/consumo por reserva), `cancelar_sesion` transaccional, REVOKE
+  de `devolver_sesion_bono` ciega cuando no quede llamador, compra transaccional (retener plaza antes de cobrar) y
+  excepciones del mostrador.
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
