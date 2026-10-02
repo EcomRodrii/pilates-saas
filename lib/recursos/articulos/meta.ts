@@ -59,7 +59,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/soluciones/cambiar-de-software",
       "/precios"
     ],
-    "palabras": 2881
+    "palabras": 2883
   },
   {
     "slug": "bsport-vs-timp",
@@ -203,7 +203,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/bonos-y-membresias",
       "/funcionalidades/cancelaciones-y-politicas"
     ],
-    "palabras": 1997
+    "palabras": 2000
   },
   {
     "slug": "politica-de-cancelacion-de-clases",
