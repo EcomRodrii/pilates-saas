@@ -60,7 +60,9 @@ interface Preparado {
 
 /** Los fixtures de un estudio, para que cada escenario cuente su estado en pocas líneas. */
 class Ctx {
-  constructor(readonly studioId: string) {}
+  // Sin «parameter property» (`constructor(readonly x)`): `node --experimental-strip-types` no la soporta.
+  readonly studioId: string;
+  constructor(studioId: string) { this.studioId = studioId; }
 
   async socia() { return crearSocia(admin, this.studioId); }
 
