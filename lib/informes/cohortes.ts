@@ -69,10 +69,15 @@ function ultimoDiaDelMes(ym: string): string {
   return new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).toISOString().slice(0, 10);
 }
 
-export function cohortesPorPrimeraCompra(datos: DatosCohortes, hoyISO: string, meses = 6): FilaCohorte[] {
-  const listaMeses = ultimosMeses(hoyISO, meses);
-  const desdeMes = listaMeses[0];
-
+/**
+ * El día en que EMPEZÓ cada clienta que cuenta como nueva: su primera compra que
+ * no es de prueba (y no después de `hoyISO`), sin venir importada con historial
+ * y sin llevar viniendo a clases desde mucho antes. Las demás no están.
+ *
+ * Es la regla de las cohortes y la de «nuevas» del bloque Clientas de Informes:
+ * una sola, para que las dos digan lo mismo de la misma clienta.
+ */
+export function cuandoEmpezoCadaClienta(datos: DatosCohortes, hoyISO: string): Map<string, string> {
   // Su primera compra de verdad. Un plan que ya no está en el catálogo cuenta
   // como de verdad, igual que en el estado: ante la duda, no es «de prueba».
   const esPrueba = new Set(datos.planesTarifa.filter(p => p.esPrueba === true).map(p => p.id));
@@ -84,20 +89,18 @@ export function cohortesPorPrimeraCompra(datos: DatosCohortes, hoyISO: string, m
     if (!previa || dia < previa) primeraCompra.set(s.socioId, dia);
   }
 
-  // Candidatas: empezaron dentro de los meses de la tabla y no hoy en adelante.
   const historial = new Map(datos.socios.map(s => [s.id, tieneHistorialPrevio(s)]));
   const candidatas = new Map<string, string>();
   for (const [socioId, dia] of primeraCompra) {
-    if (dia > hoyISO || dia.slice(0, 7) < desdeMes) continue;
+    if (dia > hoyISO) continue;
     if (!historial.has(socioId) || historial.get(socioId)) continue;
     candidatas.set(socioId, dia);
   }
 
-  // Sus reservas, en el día del estudio: la primera que contó (para dejar fuera
-  // a quien ya venía de antes) y los días a los que vino.
+  // Su primera reserva que contó, en el día del estudio, para dejar fuera a
+  // quien ya venía de antes.
   const inicioDe = new Map(datos.sesiones.map(s => [s.id, s.inicio]));
   const primeraReserva = new Map<string, string>();
-  const diasQueVino = new Map<string, string[]>();
   for (const r of datos.reservas) {
     if (!candidatas.has(r.socioId) || !CUENTA_COMO_RESERVA.has(r.estado)) continue;
     const inicio = inicioDe.get(r.sesionId);
@@ -105,21 +108,45 @@ export function cohortesPorPrimeraCompra(datos: DatosCohortes, hoyISO: string, m
     const dia = hoyEnEstudio(new Date(inicio));
     const previa = primeraReserva.get(r.socioId);
     if (!previa || dia < previa) primeraReserva.set(r.socioId, dia);
-    if (r.estado === 'ASISTIDA' && dia <= hoyISO) {
-      const dias = diasQueVino.get(r.socioId);
-      if (dias) dias.push(dia);
-      else diasQueVino.set(r.socioId, [dia]);
-    }
   }
 
-  const porMes = new Map<string, string[]>(listaMeses.map(m => [m, []]));
+  const empezaron = new Map<string, string>();
   for (const [socioId, compra] of candidatas) {
     // Venir a clases muchos días antes de su primera compra es ser veterana (otro
     // sistema, o antes de que el estudio usara planes), no empezar ahora.
     const primera = primeraReserva.get(socioId);
     if (primera && diasEntre(primera, compra) > DIAS_VENTANA_PRUEBA) continue;
-    porMes.get(compra.slice(0, 7))?.push(socioId);
+    empezaron.set(socioId, compra);
   }
+  return empezaron;
+}
+
+export function cohortesPorPrimeraCompra(datos: DatosCohortes, hoyISO: string, meses = 6): FilaCohorte[] {
+  const listaMeses = ultimosMeses(hoyISO, meses);
+  const desdeMes = listaMeses[0];
+
+  // Las que empezaron dentro de los meses de la tabla.
+  const candidatas = new Map<string, string>();
+  for (const [socioId, dia] of cuandoEmpezoCadaClienta(datos, hoyISO)) {
+    if (dia.slice(0, 7) >= desdeMes) candidatas.set(socioId, dia);
+  }
+
+  // Los días (del estudio) a los que vino cada una.
+  const inicioDe = new Map(datos.sesiones.map(s => [s.id, s.inicio]));
+  const diasQueVino = new Map<string, string[]>();
+  for (const r of datos.reservas) {
+    if (r.estado !== 'ASISTIDA' || !candidatas.has(r.socioId)) continue;
+    const inicio = inicioDe.get(r.sesionId);
+    if (!inicio) continue;
+    const dia = hoyEnEstudio(new Date(inicio));
+    if (dia > hoyISO) continue;
+    const dias = diasQueVino.get(r.socioId);
+    if (dias) dias.push(dia);
+    else diasQueVino.set(r.socioId, [dia]);
+  }
+
+  const porMes = new Map<string, string[]>(listaMeses.map(m => [m, []]));
+  for (const [socioId, compra] of candidatas) porMes.get(compra.slice(0, 7))?.push(socioId);
 
   const tramo = (ids: string[], ventana: readonly [number, number], mes: string): TramoCohorte | null => {
     // Completa cuando ha pasado entera para la última que pudo empezar ese mes.
