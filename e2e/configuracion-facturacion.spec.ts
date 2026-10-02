@@ -9,7 +9,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // ya no escribe la columna), no se deja encender sin NIF ni sin el envío activo,
 // y un rechazo del servidor no dice «guardado». Y la pantalla de Facturas dice la
 // verdad sin Veri*Factu. Lo que hace la base de datos se ensayó en producción con
-// transacción revertida (migración 20261002160000_facturas_siempre_verifactu_aparte.sql).
+// transacción revertida (migración 20261002191517_facturas_siempre_verifactu_aparte.sql).
 //
 // Todos los caminos de fallo cuentan intentos: «no dijo guardado» también sería
 // verdad con un botón que no manda nada.
