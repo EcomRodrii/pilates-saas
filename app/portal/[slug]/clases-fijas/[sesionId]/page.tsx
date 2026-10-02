@@ -11,6 +11,9 @@ import { useToast } from '@/components/student/ui/Toast';
 import { getClases, getClasesFijas, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
 import { anularPeticionPlazaFija, pedirPlazaFija } from '@/lib/student/plaza-fija-peticion';
 import { diasDeLaOferta } from '@/lib/student/clases-fijas';
+import { DURACIONES_POR_DEFECTO, etiquetaDuracion, vigenciaHastaDeDuracion } from '@/lib/clases-fijas-reglas';
+import { fechaDMY } from '@/lib/series-renovacion';
+import { hoyEnEstudio } from '@/lib/utils';
 import type { PlazaFijaEnClase } from '@/lib/student/plaza-fija';
 import { TEXTOS_PLAZA_FIJA as TPF, losDias } from '@/lib/student/plaza-fija-textos';
 import { etiquetaDia, horaFin } from '@/lib/student/formato';
@@ -41,6 +44,9 @@ export default function FichaClaseFijaPage() {
   const [estadoLocal, setEstadoLocal] = useState<PlazaFijaEnClase | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
+  // Cuánto tiempo la quiere: una duración cerrada (la fecha de fin la pone el servidor) o ninguna (sin fecha de fin, como
+  // siempre). Por defecto 3 meses, con la fecha exacta a la vista: nadie se queda sin saber cuándo termina.
+  const [meses, setMeses] = useState<number | null>(DURACIONES_POR_DEFECTO[1] ?? null);
 
   const cargar = useCallback(async () => {
     const [clase, fijas, instructoras, clases, reservas] = await Promise.all([
@@ -64,7 +70,7 @@ export default function FichaClaseFijaPage() {
     if (!clase || enviando) return;
     setEnviando(true);
     setError('');
-    const r = await pedirPlazaFija(estudio.slug, estudio.id, clase.id);
+    const r = await pedirPlazaFija(estudio.slug, estudio.id, clase.id, meses);
     setEnviando(false);
     if (!r.ok) { setError(r.error); return; }
     setEstadoLocal(r.solicitudId ? { estado: 'PEDIDA', peticionId: r.solicitudId } : { estado: 'TIENE_PLAZA' });
@@ -106,12 +112,15 @@ export default function FichaClaseFijaPage() {
 
   const dia = new Date(`${clase.fecha}T12:00:00`).getDay();
   const cadaSemana = `Todos ${losDias(dia)} · ${clase.hora}`;
+  // Cuánto tiempo la quiere: solo mientras puede pedirla y si no va dentro de una clase fija con nombre (esa tiene sus propias
+  // duraciones, en su tarjeta). Va en la barra fija, junto al botón: en el cuerpo quedaba debajo del pliegue y tapado por él.
+  const eligeDuracion = estadoFija?.estado === 'PUEDE_PEDIR' && !data?.oferta;
 
   return (
     <StudentShell headerTransparente>
       <FichaClaseHero clase={clase} chips={[cadaSemana, `${clase.duracionMin} min`, clase.sala]} />
 
-      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: 110 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: eligeDuracion ? 200 : 110 }}>
         <p className="t-label" style={{ margin: 0 }}>{TPF.titulo}</p>
 
         {inst && <InstructorCard i={inst} onClick={() => setVerInstructora(true)} />}
@@ -143,11 +152,29 @@ export default function FichaClaseFijaPage() {
         data-testid="accion-clase-fija"
         style={{
           position: 'fixed', left: 0, right: 0, bottom: 'var(--nav-total)', zIndex: 39, padding: '10px 16px 12px',
-          background: 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)', maxWidth: 640, margin: '0 auto',
+          // Con el selector de duración la barra es más alta: fondo sólido, o el texto de debajo se cuela detrás.
+          background: eligeDuracion ? 'var(--background)' : 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)',
+          boxShadow: eligeDuracion ? '0 -6px 14px -8px rgba(0,0,0,0.12)' : undefined, maxWidth: 640, margin: '0 auto',
           display: 'flex', flexDirection: 'column', gap: 6,
         }}
       >
         {error && <p role="alert" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--danger, #b00020)', textAlign: 'center' }}>{error}</p>}
+        {eligeDuracion && (
+          <div data-testid="duracion-clase-fija" role="group" aria-label={TPF.cuantoTiempo} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p className="t-label" style={{ margin: 0 }}>{TPF.cuantoTiempo}</p>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+              {DURACIONES_POR_DEFECTO.map((m) => (
+                <button key={m} type="button" className="pill" aria-pressed={meses === m} onClick={() => setMeses(m)}>
+                  {etiquetaDuracion(m)}
+                </button>
+              ))}
+              <button type="button" className="pill" aria-pressed={meses === null} onClick={() => setMeses(null)}>{TPF.sinFecha}</button>
+            </div>
+            <p className="t-meta" data-testid="clase-fija-hasta" style={{ margin: 0, minHeight: '1.3em' }}>
+              {meses !== null ? TPF.hastaEl(fechaDMY(vigenciaHastaDeDuracion(hoyEnEstudio(), meses))) : TPF.sinFechaDetalle}
+            </p>
+          </div>
+        )}
         {data?.oferta ? (
           // Esta clase va dentro de una clase fija con nombre: se pide entera, con su
           // duración, desde su tarjeta — no suelta.

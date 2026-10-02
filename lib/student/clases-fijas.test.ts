@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diasDeLaOferta, proyectarClasesFijas, proyectarClasesSueltas, terminaPronto, type SociaMin } from './clases-fijas.ts';
+import { diasDeLaOferta, franjaDeRepeticion, proyectarClasesFijas, proyectarClasesSueltas, terminaPronto, type SociaMin } from './clases-fijas.ts';
 import { TEXTOS_CLASES_FIJAS } from './clases-fijas-textos.ts';
 import type { CatalogoClasesFijas, FranjaSuelta, OfertaAlumna } from '../clases-fijas-reglas.ts';
 
@@ -172,4 +172,52 @@ test('cada suelta lleva sus propios datos (día, hora, tipo, sala) intactos', ()
   assert.equal(v.hora, '09:30');
   assert.equal(v.tipo, 'Yoga');
   assert.equal(v.sala, 'Sala 2');
+});
+
+// ─── «Repetir cada semana» en la ficha de una clase normal: ¿esta clase se repite y se puede pedir como clase fija? ──────
+// 2026-09-23 es miércoles (dow 3); 2026-09-30 también.
+const sueltaDe = (cambios: Partial<FranjaSuelta> = {}): FranjaSuelta => ({
+  serieId: 'ser-1', diaSemana: 3, hora: '10:00', tipoClaseId: 'tc-1', salaId: 'sala-1', instructorId: null,
+  tipo: 'Reformer', sala: 'Sala 1', instructora: null, logoUrl: null, color: null, proximaSesionId: 'ses-proxima', ultimaFecha: '2026-12-30', ...cambios,
+});
+const CLASE_MIERCOLES = { fecha: '2026-09-30', hora: '10:00', salaId: 'sala-1' };
+
+test('franjaDeRepeticion: casa por día de la semana, hora y sala, así que sale en TODAS las fechas de esa clase', () => {
+  const fijas = proyectarClasesFijas(cat([]), socia(), [planMensual], HOY);
+  const sueltas = proyectarClasesSueltas([sueltaDe()], socia(), [planMensual], HOY);
+  // La clase pedida es OTRA fecha que la «próxima» de la franja: lleva a la ficha de la próxima.
+  assert.deepEqual(franjaDeRepeticion({ ofertas: fijas, sueltas }, CLASE_MIERCOLES), { sesionId: 'ses-proxima', estado: { estado: 'PUEDE_PEDIR' } });
+});
+
+test('franjaDeRepeticion: otro día, otra hora, otra sala o sin catálogo → nada (no se ofrece lo que no existe)', () => {
+  const sueltas = proyectarClasesSueltas([sueltaDe()], socia(), [planMensual], HOY);
+  const f = { ofertas: [], sueltas };
+  assert.equal(franjaDeRepeticion(f, { ...CLASE_MIERCOLES, fecha: '2026-10-01' }), null, 'un jueves');
+  assert.equal(franjaDeRepeticion(f, { ...CLASE_MIERCOLES, hora: '18:00' }), null);
+  assert.equal(franjaDeRepeticion(f, { ...CLASE_MIERCOLES, salaId: 'sala-2' }), null);
+  assert.equal(franjaDeRepeticion(null, CLASE_MIERCOLES), null, 'sin catálogo (respuesta rota o estudio que no ofrece)');
+  assert.equal(franjaDeRepeticion({ ofertas: [], sueltas: [] }, CLASE_MIERCOLES), null);
+});
+
+test('franjaDeRepeticion: la hora casa aunque una venga con segundos', () => {
+  const sueltas = proyectarClasesSueltas([sueltaDe({ hora: '10:00:00' })], socia(), [planMensual], HOY);
+  assert.ok(franjaDeRepeticion({ ofertas: [], sueltas }, CLASE_MIERCOLES));
+});
+
+test('franjaDeRepeticion: lleva su estado (ya la tiene, ya la pidió, solo con cuota) para decirlo en el enlace', () => {
+  const plazaVigente = { diaSemana: 3, horaInicio: '10:00:00', salaId: 'sala-1', tipoClaseId: null, estado: 'ACTIVA', vigenciaHasta: null };
+  const conPlaza = proyectarClasesSueltas([sueltaDe()], socia({ plazasFijas: [plazaVigente] }), [planMensual], HOY);
+  assert.deepEqual(franjaDeRepeticion({ ofertas: [], sueltas: conPlaza }, CLASE_MIERCOLES)?.estado, { estado: 'TIENE_PLAZA' });
+  // Una plaza que ya VENCIÓ no cuenta: se vuelve a poder pedir (la ficha ya no dice «Ya es tu clase fija»).
+  const vencida = proyectarClasesSueltas([sueltaDe()], socia({ plazasFijas: [{ ...plazaVigente, vigenciaHasta: '2026-09-01' }] }), [planMensual], HOY);
+  assert.deepEqual(franjaDeRepeticion({ ofertas: [], sueltas: vencida }, CLASE_MIERCOLES)?.estado, { estado: 'PUEDE_PEDIR' });
+  const pedida = proyectarClasesSueltas([sueltaDe()], socia({ peticionesPlazaFija: [{ id: 'spf-1', tipo: 'CREAR', plazaId: null, diaSemana: 3, horaInicio: '10:00:00', salaId: 'sala-1', desde: null, hasta: null }] }), [planMensual], HOY);
+  assert.deepEqual(franjaDeRepeticion({ ofertas: [], sueltas: pedida }, CLASE_MIERCOLES)?.estado, { estado: 'PEDIDA', peticionId: 'spf-1' });
+  const sinCuota = proyectarClasesSueltas([sueltaDe()], socia({ suscripciones: [] }), [planMensual], HOY);
+  assert.deepEqual(franjaDeRepeticion({ ofertas: [], sueltas: sinCuota }, CLASE_MIERCOLES)?.estado, { estado: 'SOLO_CON_CUOTA' });
+});
+
+test('franjaDeRepeticion: una clase que va dentro de una clase fija con nombre lleva a su ficha, sin estado propio', () => {
+  const o = proyectarClasesFijas(cat([oferta({ franjas: [{ ...franja(3, '10:00'), proximaSesionId: 'ses-oferta' } as OfertaAlumna['franjas'][number]] })]), socia(), [planMensual], HOY);
+  assert.deepEqual(franjaDeRepeticion({ ofertas: o, sueltas: [] }, CLASE_MIERCOLES), { sesionId: 'ses-oferta', estado: null });
 });

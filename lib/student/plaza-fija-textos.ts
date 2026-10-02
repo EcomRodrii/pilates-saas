@@ -36,6 +36,23 @@ export const TEXTOS_PLAZA_FIJA = {
   /** Quien no tiene cuota que la cubra: la regla es la del servidor (`cuotaParaPlazaFija`). */
   soloConCuota: 'La clase fija es para quien tiene una cuota activa que incluya esta clase. Con bono o clases sueltas, se reserva clase a clase.',
 
+  // ── Cuánto tiempo la quiere (la ficha de la clase fija): una duración cerrada, y la fecha exacta que resulta ──
+  cuantoTiempo: '¿Cuánto tiempo la quieres?',
+  hastaEl: (fecha: string) => `Hasta el ${fecha}`,
+  /** La etiqueta corta del botón (cabe en la misma fila que las demás) y lo que se dice debajo al elegirla. */
+  sinFecha: 'Sin fin',
+  sinFechaDetalle: 'Sin fecha de fin',
+
+  // ── «Repetir cada semana»: el enlace de la ficha de una clase normal. Solo LLEVA a la ficha de la clase fija. ──
+  repetirTitulo: 'Repetir cada semana',
+  repetirPuede: (diaSemana: number, hora: string) => {
+    const dias = losDias(diaSemana);
+    return `${dias.charAt(0).toUpperCase()}${dias.slice(1)} a las ${hora}, sin volver a reservar`;
+  },
+  repetirPedida: 'Ya la has pedido: tu estudio te contestará',
+  repetirTiene: 'Ya es tu clase fija ✓',
+  repetirSoloConCuota: 'Es para quien tiene una cuota activa que incluya esta clase',
+
   // ── Su tarjeta, cuando ya la tiene ──
   tarjetaUna: 'Tu clase fija',
   tarjetaVarias: 'Tus clases fijas',

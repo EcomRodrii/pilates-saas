@@ -177,6 +177,33 @@ test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
     expect(escriturasRest).toEqual([]);
   });
 
+  test('una duración rápida rellena «Hasta» contando desde «Desde», viaja en la petición, y «Sin fecha de fin» la quita', async ({ page }) => {
+    const { guardados } = await montar(page, { sesiones: [...MARTES_10, ...JUEVES_18] });
+    await page.getByRole('button', { name: 'Añadir plaza fija' }).click();
+    const dialogo = page.getByRole('dialog');
+    await dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
+    const hasta = dialogo.getByLabel('Hasta (opcional)');
+    await expect(hasta).toHaveValue('');
+
+    await dialogo.getByRole('button', { name: '3 meses' }).click();
+    await expect(hasta).toHaveValue('2026-11-05');
+    await expect(dialogo.getByRole('button', { name: '3 meses' })).toHaveAttribute('aria-pressed', 'true');
+    // La fecha libre sigue mandando: si la cambia a mano, ningún atajo queda marcado.
+    await hasta.fill('2026-12-20');
+    await expect(dialogo.getByRole('button', { name: '3 meses' })).toHaveAttribute('aria-pressed', 'false');
+    await dialogo.getByRole('button', { name: 'Sin fecha de fin' }).click();
+    await expect(hasta).toHaveValue('');
+    await expect(dialogo.getByRole('button', { name: 'Sin fecha de fin' })).toHaveAttribute('aria-pressed', 'true');
+
+    await dialogo.getByRole('button', { name: '6 meses' }).click();
+    await expect(hasta).toHaveValue('2027-02-05');
+    expect(guardados.length, 'elegir una duración no guarda nada').toBe(0);
+    await dialogo.getByRole('button', { name: 'Asignar plaza fija' }).click();
+    await expect(dialogo).toBeHidden();
+    expect(guardados).toHaveLength(1);
+    expect(guardados[0].cuerpo).toMatchObject({ vigenciaDesde: '2026-08-05', vigenciaHasta: '2027-02-05' });
+  });
+
   test('si supera el límite semanal de su cuota, avisa y deja asignarla igualmente', async ({ page }) => {
     const { guardados } = await montar(page, {
       sesiones: [...MARTES_10, ...JUEVES_18],

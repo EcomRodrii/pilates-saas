@@ -23,6 +23,7 @@ import { franjasSemanales, nombreDiaSemana, plazaEnFranja, type FranjaSemanal } 
 import { cn, fechaCortaEstudio, hoyEnEstudio } from '@/lib/utils';
 import type { ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
+import { DURACIONES_POR_DEFECTO, etiquetaDuracion, vigenciaHastaDeDuracion } from '@/lib/clases-fijas-reglas';
 import type { PlazaFija } from '@/lib/types';
 
 export type PlazaFijaGuardada = Extract<ResultadoGuardarPlazaFija, { ok: true }>;
@@ -248,6 +249,35 @@ export function DialogoPlazaFija({
               <input id={`${uid}-hasta`} type="date" className={inputCls} value={hasta} onChange={e => setHasta(e.target.value)} />
             </div>
           </div>
+          {/* Atajos de duración: rellenan «Hasta» contando desde «Desde». La fecha libre sigue ahí para cualquier otra. */}
+          {desde && (
+            <div role="group" aria-label="Duración rápida" className="flex flex-wrap items-center gap-1.5 -mt-2">
+              <span className="text-[11px] font-semibold text-muted-foreground mr-0.5">Duración</span>
+              {[...DURACIONES_POR_DEFECTO, 12].map(m => {
+                const fecha = vigenciaHastaDeDuracion(desde, m);
+                return (
+                  <button
+                    key={m} type="button" aria-pressed={hasta === fecha} onClick={() => setHasta(fecha)}
+                    className={cn(
+                      'text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors',
+                      hasta === fecha ? 'border-primary bg-muted text-foreground' : 'border-border text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {etiquetaDuracion(m)}
+                  </button>
+                );
+              })}
+              <button
+                type="button" aria-pressed={hasta === ''} onClick={() => setHasta('')}
+                className={cn(
+                  'text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors',
+                  hasta === '' ? 'border-primary bg-muted text-foreground' : 'border-border text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Sin fecha de fin
+              </button>
+            </div>
+          )}
 
           {plaza && (
             <p className="text-[11px] text-muted-foreground">
