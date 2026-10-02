@@ -1,13 +1,14 @@
 // Motor de derechos, FASE 3b (migración 20261002145300): PARIDAD entre `evaluar_reserva` y `reservar_plaza`.
 //
-// `evaluar_reserva` es la elegibilidad en un solo sitio, de solo lectura y EN SOMBRA: reproduce las comprobaciones de
-// `reservar_plaza` pero no decide nada. Lo único que las mantiene de acuerdo es este fichero: cada escenario monta un
-// estado real, pregunta a `evaluar_reserva` y DESPUÉS reserva de verdad con `reservar_plaza`, y exige que las dos digan
-// lo mismo — el mismo rechazo (por su código), o el mismo estado y la misma posición en la lista de espera, y que quien
-// pague sea quien `evaluar_reserva` anunció (el bono elegido, la recuperación, o nadie).
+// `evaluar_reserva` es la elegibilidad en un solo sitio, de solo lectura. Desde la migración 20261002145629 `reservar_plaza`
+// DECIDE con ella (toma sus candados, pregunta y rechaza con la excepción que le devuelve), así que la paridad ya viene de
+// construcción; este fichero queda como red de seguridad de que el cableado se mantiene: cada escenario monta un estado
+// real, pregunta a `evaluar_reserva` y DESPUÉS reserva de verdad con `reservar_plaza`, y exige que las dos digan lo mismo
+// — el mismo rechazo (por su código), o el mismo estado y la misma posición en la lista de espera, y que quien pague sea
+// quien `evaluar_reserva` anunció (el bono elegido, la recuperación, o nadie).
 //
-// Si algún día `reservar_plaza` cambia una regla y `evaluar_reserva` no (o al revés), este fichero se pone rojo. Cuando la
-// paridad aguante en producción, `reservar_plaza` pasará a decidir con `evaluar_reserva`.
+// Que `reservar_plaza` no vuelva a decidir por su cuenta lo vigila `lib/reservas/reservar-plaza-decide-contrato.test.ts`; este
+// fichero se pone rojo si `evaluar_reserva` cambia una regla (por ejemplo, quién paga) sin que la escritura la siga.
 //
 // Se llama con `admin` (service_role) porque es como la llama la app.
 //
