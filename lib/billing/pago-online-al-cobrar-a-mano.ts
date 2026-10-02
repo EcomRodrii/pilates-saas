@@ -74,3 +74,46 @@ export async function cerrarPagoOnlineAntesDeCobrarAMano(
   }
   return { tipo: 'NO_SE_SABE' };
 }
+
+// ─── El cobro del DATÁFONO (o Bizum del mostrador) que quedó en el recibo ────
+// `cobro_mostrador_pi` solo se suelta cuando el mostrador ve el final del cobro.
+// Si se arranca y nadie lo termina ni lo cancela (la clienta se va, se cierra la
+// pestaña), se queda puesto para siempre y el recibo no se podría cobrar a mano.
+// Mismo trato que el enlace de pago: se pregunta; si sigue esperando, se cancela;
+// si ya no puede cobrarse, se suelta; si está en curso o pagado, no se cobra.
+
+export type EstadoCobroMostrador = 'PAGADO' | 'PROCESANDO' | 'PENDIENTE' | 'CANCELADO' | 'EXPIRADO' | 'RECHAZADO' | 'ERROR';
+
+export interface CobroDeMostrador {
+  consultar(): Promise<EstadoCobroMostrador>;
+  cancelar(): Promise<void>;
+  /** Suelta la referencia del recibo (compare-and-set sobre la misma). `false` = no se pudo. */
+  soltar(): Promise<boolean>;
+}
+
+export type CobroDeMostradorAlCobrarAMano = { tipo: 'SEGUIR' } | { tipo: 'YA_PAGADO' } | { tipo: 'EN_MARCHA' };
+
+const YA_NO_COBRA: ReadonlySet<EstadoCobroMostrador> = new Set(['CANCELADO', 'EXPIRADO', 'RECHAZADO']);
+
+export async function soltarCobroDeMostradorAntesDeCobrarAMano(
+  referencia: string | null | undefined,
+  cobro: CobroDeMostrador | null,
+): Promise<CobroDeMostradorAlCobrarAMano> {
+  if (!referencia) return { tipo: 'SEGUIR' };
+  // Sin Stripe no hay datáfono ni Bizum que pudieran cobrar: la referencia es vieja.
+  if (!cobro) return { tipo: 'SEGUIR' };
+  let estado = await cobro.consultar();
+  if (estado === 'PENDIENTE') {
+    await cobro.cancelar();
+    estado = await cobro.consultar();
+  }
+  if (estado === 'PAGADO') return { tipo: 'YA_PAGADO' };
+  if (YA_NO_COBRA.has(estado)) return (await cobro.soltar()) ? { tipo: 'SEGUIR' } : { tipo: 'EN_MARCHA' };
+  // PROCESANDO, ERROR (no se pudo preguntar) o PENDIENTE que no se dejó cancelar.
+  return { tipo: 'EN_MARCHA' };
+}
+
+export const MENSAJE_YA_PAGADO_EN_EL_DATAFONO =
+  'Ya se cobró en el datáfono: no se ha cobrado aquí. Ábrelo en la caja para cerrarlo.';
+export const MENSAJE_SE_ABRIO_UN_PAGO =
+  'Mientras tanto se ha abierto un pago online o en el datáfono para este recibo: no se ha cobrado aquí. Vuelve a intentarlo.';

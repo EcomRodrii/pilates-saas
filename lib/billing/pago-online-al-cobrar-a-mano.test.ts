@@ -62,3 +62,43 @@ test('Stripe no contesta, o no se deja cerrar y sigue abierto: no se cobra', asy
 test('sin Stripe en el estudio no hay a quién preguntar: se sigue (si no, no se cobraría nunca)', async () => {
   assert.deepEqual(await cerrarPagoOnlineAntesDeCobrarAMano('cs_1', null), { tipo: 'SEGUIR' });
 });
+
+import { soltarCobroDeMostradorAntesDeCobrarAMano, type CobroDeMostrador, type EstadoCobroMostrador } from './pago-online-al-cobrar-a-mano.ts';
+
+function mostrador(estados: EstadoCobroMostrador[], opts: { soltar?: boolean } = {}) {
+  const ll = { consultar: 0, cancelar: 0, soltar: 0 };
+  let i = 0;
+  const cobro: CobroDeMostrador = {
+    async consultar() { ll.consultar++; return estados[Math.min(i++, estados.length - 1)]; },
+    async cancelar() { ll.cancelar++; },
+    async soltar() { ll.soltar++; return opts.soltar ?? true; },
+  };
+  return { cobro, ll };
+}
+
+test('datáfono abandonado (esperando la tarjeta): se cancela, se suelta y se cobra a mano', async () => {
+  const { cobro, ll } = mostrador(['PENDIENTE', 'CANCELADO']);
+  assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', cobro), { tipo: 'SEGUIR' });
+  assert.deepEqual(ll, { consultar: 2, cancelar: 1, soltar: 1 });
+});
+
+test('datáfono ya cancelado o rechazado: se suelta y se cobra', async () => {
+  for (const e of ['CANCELADO', 'EXPIRADO', 'RECHAZADO'] as const) {
+    assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', mostrador([e]).cobro), { tipo: 'SEGUIR' }, e);
+  }
+});
+
+test('datáfono cobrando o ya cobrado, o Stripe sin contestar: no se cobra a mano', async () => {
+  assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', mostrador(['PROCESANDO']).cobro), { tipo: 'EN_MARCHA' });
+  assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', mostrador(['PAGADO']).cobro), { tipo: 'YA_PAGADO' });
+  assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', mostrador(['ERROR']).cobro), { tipo: 'EN_MARCHA' });
+  // Lo paga justo al cancelar.
+  assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', mostrador(['PENDIENTE', 'PAGADO']).cobro), { tipo: 'YA_PAGADO' });
+  // Cancelado pero no se pudo soltar la referencia (otro la cambió): no se cobra.
+  assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', mostrador(['CANCELADO'], { soltar: false }).cobro), { tipo: 'EN_MARCHA' });
+});
+
+test('sin referencia o sin Stripe, se sigue', async () => {
+  assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano(null, mostrador(['PROCESANDO']).cobro), { tipo: 'SEGUIR' });
+  assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', null), { tipo: 'SEGUIR' });
+});

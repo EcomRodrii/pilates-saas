@@ -354,17 +354,23 @@ test('«Hacerle factura» solo en un cobro en efectivo de un recibo, en el mostr
   assert.match(ruta, /conFactura: peticion\.conFactura,/);
 });
 
-test('uno a uno en el mostrador: el datáfono en marcha no se cobra y el enlace de pago abierto se cierra ANTES de cobrar', () => {
+test('uno a uno en el mostrador: se mira cada recibo justo antes, después de la guardia de penalizaciones, y lo leído viaja al compare-and-set', () => {
   const ruta = readFileSync(join(import.meta.dirname, '../../app/api/cobros/marcar-cobrado/route.ts'), 'utf8');
+  const penaliz = ruta.indexOf('resultados.push(resultadoPenalizacionAnulada(reciboId));');
+  const leer = ruta.indexOf(".select('checkout_session_id, cobro_mostrador_pi, cobro_mostrador_checkout_session_id')");
+  const mostrador = ruta.indexOf('await soltarCobroDeMostradorAntesDeCobrarAMano(');
   const cerrar = ruta.indexOf('await cerrarPagoOnlineAntesDeCobrarAMano(');
   const cobrar = ruta.indexOf('await confirmarCobro(admin, {');
-  assert.ok(cerrar > 0 && cobrar > cerrar, 'el enlace abierto se cierra antes de cobrar');
+  assert.ok(penaliz > 0 && leer > penaliz && mostrador > leer && cerrar > mostrador && cobrar > cerrar,
+    'penalización → leer el recibo → datáfono → enlace → cobrar');
   assert.match(ruta, /const unoAUno = !peticion\.lote && !porElBanco;/);
-  assert.match(ruta, /if \(enMarcha\?\.datafono\) \{\s*resultados\.push\(resultadoNoCobrable\(reciboId, MENSAJE_COBRO_EN_EL_DATAFONO\)\);/);
-  assert.match(ruta, /online\.tipo === 'YA_PAGADO'/);
-  assert.match(ruta, /online\.tipo === 'NO_SE_SABE'/);
-  // Y en el propio UPDATE, por si el datáfono arranca entre la lectura y el cobro.
   assert.match(ruta, /sinCobroDeMostrador: unoAUno,/);
+  assert.match(ruta, /\.\.\.\(unoAUno \? \{ checkoutLeido: checkoutLeido \?\? null \} : \{\}\),/);
+  // Stripe con el guardia de modo de siempre, nunca un cliente a pelo con la clave.
+  assert.match(ruta, /await contextoCobroDe\(admin, sesion\.studioId\)/);
+  // Cancelar el cobro del datáfono no toca el lector (podría estar cobrando otra venta).
+  assert.doesNotMatch(ruta, /readers\.cancelAction/);
   const confirmar = readFileSync(join(import.meta.dirname, '../billing/confirmar-cobro.ts'), 'utf8');
   assert.match(confirmar, /else if \(p\.sinCobroDeMostrador\) \{\s*consulta = consulta\.is\('cobro_mostrador_pi', null\);/);
+  assert.match(confirmar, /p\.checkoutLeido === null \? consulta\.is\('checkout_session_id', null\) : consulta\.eq\('checkout_session_id', p\.checkoutLeido\)/);
 });

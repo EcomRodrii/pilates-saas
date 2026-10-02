@@ -110,6 +110,12 @@ export interface ParamsConfirmarCobro {
    * (`cerrarPagoOnlineAntesDeCobrarAMano`); el reintento programado sí se cobra a mano.
    */
   sinCobroDeMostrador?: boolean;
+  /**
+   * Cobro a mano uno a uno: el `checkout_session_id` que se leyó (y se cerró, si
+   * estaba abierto) justo antes. El compare-and-set exige que siga siendo ese: si la
+   * clienta abrió otro enlace entre medias, no se cobra. `undefined` = no se mira.
+   */
+  checkoutLeido?: string | null;
   /** «Hacerle factura» de un cobro a mano en efectivo: la factura la emite el servidor, como la de tarjeta. */
   conFactura?: boolean;
 }
@@ -396,6 +402,9 @@ export async function confirmarCobro(
     for (const col of COLUMNAS_COBRO_EN_MARCHA) if (col !== 'stripe_payment_intent_id') consulta = consulta.is(col, null);
   } else if (p.sinCobroDeMostrador) {
     consulta = consulta.is('cobro_mostrador_pi', null);
+  }
+  if (p.checkoutLeido !== undefined) {
+    consulta = p.checkoutLeido === null ? consulta.is('checkout_session_id', null) : consulta.eq('checkout_session_id', p.checkoutLeido);
   }
 
   // `metodo_cobro` vuelve del MISMO UPDATE: con `metodo: null` es el que ya
