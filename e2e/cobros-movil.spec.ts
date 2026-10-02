@@ -63,7 +63,7 @@ for (const vista of TELEFONOS) {
         await expect(f.getByText('89,00 €')).toBeVisible();
         await expect(f.getByText(estado, { exact: true })).toBeVisible();
         // Los botones de pasar el ratón no están ni ocupando sitio ni esperando un toque a ciegas.
-        await expect(f.getByTitle('Marcar devuelto')).toBeHidden();
+        await expect(f.getByTitle('El banco lo devolvió')).toBeHidden();
       }
     });
 
@@ -73,7 +73,7 @@ for (const vista of TELEFONOS) {
 
       const cobrar = page.getByRole('button', { name: 'Cobrar', exact: true });
       await expect(cobrar).toBeInViewport({ ratio: 1 });
-      for (const nombre of ['Cobrar', 'Cobrar online', 'Marcar devuelto', 'Eliminar']) {
+      for (const nombre of ['Cobrar', 'Cobrar con su tarjeta', 'El banco lo devolvió', 'Eliminar']) {
         const caja = await page.getByRole('button', { name: nombre, exact: true }).boundingBox();
         expect(caja?.height ?? 0, `«${nombre}» mide ${caja?.height} px de alto`).toBeGreaterThanOrEqual(44);
       }
@@ -107,5 +107,5 @@ test('en el ordenador la fila no cambia: el nombre va debajo del concepto y las 
   const nombre = await f.getByText('Laura Martín', { exact: true }).boundingBox();
   expect(nombre!.y, 'el nombre, debajo del concepto').toBeGreaterThan(concepto!.y);
   await f.hover();
-  await expect(f.getByTitle('Marcar devuelto')).toBeVisible();
+  await expect(f.getByTitle('El banco lo devolvió')).toBeVisible();
 });

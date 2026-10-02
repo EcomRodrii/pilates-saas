@@ -89,3 +89,34 @@ test('D-8: si un reintento triunfó (DEVUELTO otra vez), DEVUELTA gana a la marc
   );
   assert.equal(r?.fase, 'DEVUELTA');
 });
+
+// Un DEVUELTO no siempre es «dinero camino del banco de la clienta».
+test('devuelto por el BANCO (nada devuelto a la clienta): nada que contar de reembolsos, sigue debiéndolo', () => {
+  assert.equal(estadoReembolso({ estado: 'DEVUELTO', importe: 45, importeDevuelto: 0, stripePaymentIntentId: null }, new Date()), null);
+});
+
+test('devuelto a mano por el estudio: ya no lo debe, sin el «5–10 días» de Stripe', () => {
+  const r = estadoReembolso({ estado: 'DEVUELTO', importe: 45, importeDevuelto: 45, stripePaymentIntentId: null }, new Date());
+  assert.equal(r?.fase, 'DEVUELTA');
+  assert.match(r?.detalle ?? '', /Se lo devolvió el estudio: ya no lo debe/);
+});
+
+test('devuelto por Stripe (o sin saber cuánto): el aviso del plazo del banco de siempre', () => {
+  for (const r of [
+    estadoReembolso({ estado: 'DEVUELTO', importe: 45, importeDevuelto: 45, stripePaymentIntentId: 'pi_1' }, new Date()),
+    estadoReembolso({ estado: 'DEVUELTO' }, new Date()),
+  ]) assert.match(r?.detalle ?? '', /5 y 10 días hábiles/);
+});
+
+test('⚠️ un adeudo que falló y se cobró luego en efectivo conserva su cargo de Stripe: devuelto, lo devolvió el estudio a mano', () => {
+  // Con solo mirar el cargo guardado, la fila decía «5–10 días hábiles» de un dinero que salió del cajón.
+  const r = estadoReembolso({
+    estado: 'DEVUELTO', importe: 45, importeDevuelto: 45, stripePaymentIntentId: 'pi_viejo', metodoCobro: 'EFECTIVO', sepaEstado: 'failed',
+  }, new Date());
+  assert.match(r?.detalle ?? '', /Se lo devolvió el estudio: ya no lo debe/);
+  // Si el cobro sí entró por Stripe, el plazo del banco de siempre.
+  const porStripe = estadoReembolso({
+    estado: 'DEVUELTO', importe: 45, importeDevuelto: 45, stripePaymentIntentId: 'pi_1', metodoCobro: 'TARJETA', sepaEstado: null,
+  }, new Date());
+  assert.match(porStripe?.detalle ?? '', /5 y 10 días hábiles/);
+});

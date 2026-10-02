@@ -25,6 +25,9 @@ const RUTAS: Array<{ ruta: string; acciones: string[] }> = [
   { ruta: 'app/api/penalizaciones/aprobar/route.ts', acciones: ['PENALIZACION_APROBADA', 'PENALIZACION_CORREGIDA', 'PENALIZACION_SIN_CONSENTIMIENTO'] },
   { ruta: 'app/api/facturas/rectificar/route.ts', acciones: ['FACTURA_RECTIFICATIVA_EMITIDA'] },
   { ruta: 'app/api/pos/devolucion/route.ts', acciones: ['DEVOLUCION_CAJA'] },
+  { ruta: 'app/api/reservas/crear/route.ts', acciones: ['CLASE_SUELTA_VENDIDA'] },
+  { ruta: 'app/api/cobros/reembolso-manual/route.ts', acciones: [] }, // la anota lib/billing/reembolso-manual.ts
+  { ruta: 'app/api/cobros/reintentar-banco/route.ts', acciones: [] }, // la anota lib/billing/marcar-devuelto.ts
 ];
 
 test('cada ruta usa la sesión ENTERA como actor y nunca lo que diga el cuerpo', () => {
@@ -89,7 +92,8 @@ test('marcar cobrado a mano: la sesión entera es el actor, se lee ANTES del cob
   // Solo lo que esta petición cambió: un `ya_estaba` o un rechazo no cambian el recibo.
   assert.match(f, /\.filter\(r => r\.resultado === 'aplicada'\)\.map\(/, 'anota más que los cobros aplicados');
   assert.ok('COBRO_MARCADO_A_MANO' in ACCIONES);
-  assert.match(leer('lib/auditoria/cobro-manual.ts'), /accion:\s*'COBRO_MARCADO_A_MANO'/);
+  assert.ok('COBRO_CONFIRMADO_POR_BANCO' in ACCIONES);
+  assert.match(leer('lib/auditoria/cobro-manual.ts'), /accion:\s*p\.porElBanco \? 'COBRO_CONFIRMADO_POR_BANCO' : 'COBRO_MARCADO_A_MANO'/);
 });
 
 test('devolución de la caja: se anota DESPUÉS de que el dinero salga y el libro de la venta se aplique, y sin el motivo (texto libre)', () => {
@@ -128,6 +132,15 @@ test('cada ruta anota lo que hizo con un código conocido de ACCIONES', () => {
   // «Marcar devuelto» lo anota la librería, con el actor que le pasa la ruta.
   assert.match(leer('lib/billing/marcar-devuelto.ts'), /accion:\s*'RECIBO_MARCADO_DEVUELTO'/);
   assert.ok('RECIBO_MARCADO_DEVUELTO' in ACCIONES);
+  // Igual «Reintentar por el banco» y «Le he devuelto el dinero».
+  assert.match(leer('lib/billing/marcar-devuelto.ts'), /accion:\s*'RECIBO_REINTENTADO_POR_BANCO'/);
+  assert.ok('RECIBO_REINTENTADO_POR_BANCO' in ACCIONES);
+  assert.match(leer('lib/billing/reembolso-manual.ts'), /accion:\s*'RECIBO_REEMBOLSADO_A_MANO'/);
+  assert.ok('RECIBO_REEMBOLSADO_A_MANO' in ACCIONES);
+  // Las dos rutas pasan la SESIÓN como actor, nunca el cuerpo.
+  for (const ruta of ['app/api/cobros/reembolso-manual/route.ts', 'app/api/cobros/reintentar-banco/route.ts']) {
+    assert.match(leer(ruta), /actor:\s*\{\s*userId:\s*sesion\.userId,\s*rol:\s*sesion\.rol/, ruta);
+  }
 });
 
 test('reembolso: se anota DESPUÉS de que salga el dinero y ANTES de marcar el recibo', () => {

@@ -2,17 +2,18 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Añadir a la clase» cobra la clase suelta en el mostrador, de verdad (maqueta
-// aprobada del rediseño del Calendario, 1-oct-2026). Antes quedaba un recibo
-// PENDIENTE para cobrarlo luego en Cobros.
+// aprobada del rediseño del Calendario, 1-oct-2026), y desde el 2-oct la clase
+// suelta es la tarifa PUNTUAL de una sesión que gasta la reserva: le vale la
+// política de cancelación del estudio como a un bono (decisión del fundador).
 //
 // Lo que tiene que ser cierto, con dinero de por medio:
-//  · PRIMERO la plaza y DESPUÉS el cobro: cobrar antes dejaría dinero sin clase
-//    si se llena entre medias.
+//  · PRIMERO la plaza y DESPUÉS el cobro. La venta (la clase suelta y su recibo
+//    pendiente) la hace el SERVIDOR al reservar; el navegador no crea recibos.
 //  · El cobro lo confirma el SERVIDOR (`/api/cobros/marcar-cobrado`), con el
 //    método que se eligió: un recibo no nace cobrado desde el navegador.
-//  · Si la plaza no se da, no se crea recibo ni se cobra. Los caminos de fallo
-//    llevan contador (regla del repo): «no cobró» sin comprobar que se INTENTÓ
-//    reservar puede ser verdad por no haber hecho nada.
+//  · Si la plaza no se da, no se cobra. Los caminos de fallo llevan contador
+//    (regla del repo): «no cobró» sin comprobar que se INTENTÓ reservar puede
+//    ser verdad por no haber hecho nada.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -39,11 +40,11 @@ const SUSCRIPCIONES = ['s1', 's3'].map(socioId => ({ id: `sus-${socioId}`, studi
 // La clase, dentro de dos horas en punto: ni ya empezada (sería un walk-in, con
 // su check-in por medio) ni fuera de la semana que se ve, sea la hora que sea.
 const INICIO = (() => { const d = new Date(Date.now() + 2 * 3_600_000); d.setUTCMinutes(0, 0, 0); return d; })();
-function sesion(aforo: number) {
+function sesion(aforo: number, precioPuntual: number | null) {
   return {
     id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
     inicio: INICIO.toISOString(), fin: new Date(INICIO.getTime() + 55 * 60_000).toISOString(), aforo_maximo: aforo, cancelada: false,
-    notas: null, serie_id: null, precio_puntual: null,
+    notas: null, serie_id: null, precio_puntual: precioPuntual,
   };
 }
 const RESERVAS = [{ id: 'r1', studio_id: STUDIO_ID, sesion_id: 'ses-1', socio_id: 's1', estado: 'CONFIRMADA', creada_en: `${HOY}T08:00:00+00:00`, posicion_espera: null, spot_id: null }];
@@ -52,14 +53,36 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-const RESERVA_OK = { ok: true, estado: 'CONFIRMADA', posicionEspera: null, reservaId: 'res-e2e', repetida: false };
+// Lo que contesta el servidor al reservar: con `claseSuelta`, la venta (el
+// recibo pendiente que cuelga de la reserva) como la hace `crearReservaMostrador`.
+function reservaOk(cuerpo: Record<string, unknown>) {
+  const suelta = cuerpo.claseSuelta as { importeEsperado: number } | undefined;
+  return {
+    ok: true, estado: 'CONFIRMADA', posicionEspera: null, reservaId: cuerpo.reservaId, repetida: false, cubiertaPor: null,
+    venta: suelta ? { reciboId: `rec-suelta-${cuerpo.reservaId}`, importe: suelta.importeEsperado, concepto: 'Clase suelta — Reformer' } : null,
+    avisoVenta: null,
+  };
+}
 
 async function montarCalendario(page: Page, opts: {
-  aforo?: number; reserva?: { status: number; body: unknown }; cobroSinDetalle?: boolean;
+  aforo?: number;
+  /** El servidor contesta esto en vez de la reserva con su venta. */
+  reserva?: { status: number; body: unknown };
+  /**
+   * Lo que pasa en cada intento de reservar, por orden: `red` corta la
+   * conexión (no llega respuesta) y `ok` contesta la reserva con su venta.
+   */
+  intentos?: ('red' | 'ok')[];
+  cobroSinDetalle?: boolean;
+  /** El servidor contesta que ese recibo ya estaba cobrado (otra pestaña, otro intento). */
+  cobroYaEstaba?: boolean;
   /** Recibos que ya hay (lo que lee el panel al cargar). */
   recibosGuardados?: Record<string, unknown>[];
+  /** El precio propio de la sesión (un taller). */
+  precioPuntual?: number | null;
+  planes?: Record<string, unknown>[];
 } = {}) {
-  const ses = sesion(opts.aforo ?? 4);
+  const ses = sesion(opts.aforo ?? 4, opts.precioPuntual ?? null);
   const orden: string[] = [];
   const reservas: Record<string, unknown>[] = [];
   const recibos: Record<string, unknown>[] = [];
@@ -90,7 +113,7 @@ async function montarCalendario(page: Page, opts: {
   await page.route('**/rest/v1/tipos_clase**', route => json(route, TIPOS));
   await page.route('**/rest/v1/salas**', route => json(route, SALAS));
   await page.route('**/rest/v1/instructores**', route => json(route, INSTRUCTORES));
-  await page.route('**/rest/v1/planes_tarifa**', route => json(route, PLANES));
+  await page.route('**/rest/v1/planes_tarifa**', route => json(route, opts.planes ?? PLANES));
   await page.route('**/rest/v1/suscripciones**', route => json(route, SUSCRIPCIONES));
   await page.route('**/rest/v1/socios**', route => json(route, [socia('s1', 'Ana'), socia('s2', 'Bea'), socia('s3', 'Cris')]));
   await page.route('**/rest/v1/sesiones**', route => json(route, [ses]));
@@ -99,7 +122,7 @@ async function montarCalendario(page: Page, opts: {
     sesiones: [{
       id: ses.id, studioId: ses.studio_id, tipoClaseId: ses.tipo_clase_id, salaId: ses.sala_id,
       instructorId: ses.instructor_id, inicio: ses.inicio, fin: ses.fin, aforoMaximo: ses.aforo_maximo,
-      cancelada: false, notas: null, precioPuntual: null, serieId: null,
+      cancelada: false, notas: null, precioPuntual: ses.precio_puntual, serieId: null,
       incidenciaTexto: null, sustitucionAbierta: false, motivoBaja: null, sustitucionId: null,
     }],
     reservas: RESERVAS.map(r => ({
@@ -116,14 +139,18 @@ async function montarCalendario(page: Page, opts: {
   }));
   await page.route('**/api/reservas/crear', route => {
     orden.push('reserva');
-    reservas.push(route.request().postDataJSON() as Record<string, unknown>);
-    const r = opts.reserva ?? { status: 200, body: RESERVA_OK };
-    return json(route, r.body, r.status);
+    const cuerpo = route.request().postDataJSON() as Record<string, unknown>;
+    reservas.push(cuerpo);
+    const intento = opts.intentos?.[reservas.length - 1];
+    if (intento === 'red') return route.abort('failed');
+    if (opts.reserva && !intento) return json(route, opts.reserva.body, opts.reserva.status);
+    return json(route, reservaOk(cuerpo));
   });
   await page.route('**/rest/v1/recibos**', route => {
     const req = route.request();
     if (req.method() === 'GET' && opts.recibosGuardados) return json(route, opts.recibosGuardados);
     if (req.method() !== 'POST') return route.fallback();
+    // El navegador NO debería llegar aquí: la venta la hace el servidor.
     orden.push('recibo');
     const cuerpo = req.postDataJSON() as Record<string, unknown> | Record<string, unknown>[];
     recibos.push(...(Array.isArray(cuerpo) ? cuerpo : [cuerpo]));
@@ -135,16 +162,21 @@ async function montarCalendario(page: Page, opts: {
     cobros.push(cuerpo);
     // Un 200 sin detalle por recibo es «no sé», nunca «cobrado».
     if (opts.cobroSinDetalle) return json(route, {});
-    return json(route, { resultados: cuerpo.reciboIds.map(reciboId => ({ reciboId, resultado: 'aplicada', selladoOk: true })) });
+    const resultado = opts.cobroYaEstaba ? 'ya_estaba' : 'aplicada';
+    return json(route, { resultados: cuerpo.reciboIds.map(reciboId => ({ reciboId, resultado, selladoOk: true })) });
   });
 
   await page.goto('/calendario');
   return { orden, reservas, recibos, cobros };
 }
 
-async function abrirBea(page: Page) {
+async function abrirAnadir(page: Page) {
   await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Añadir clienta a la clase' }).click();
+}
+
+async function abrirBea(page: Page) {
+  await abrirAnadir(page);
   // Bea no trae bono: su fila lo dice y se despliega para cobrarle.
   const bea = page.getByRole('button', { name: /Bea Ruiz/ });
   await expect(bea).toContainText('No tiene bono ni cuota que valga para esta clase');
@@ -152,22 +184,21 @@ async function abrirBea(page: Page) {
 }
 
 test.describe('Cobrar la clase suelta al añadir a una clienta', () => {
-  test('quien viene con su cuota dice con qué viene y entra de un toque, sin cobrar', async ({ page }) => {
+  test('quien viene con su cuota dice con qué viene y entra de un toque, sin vender ni cobrar', async ({ page }) => {
     const { reservas, recibos, cobros } = await montarCalendario(page);
-    await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Añadir clienta a la clase' }).click();
+    await abrirAnadir(page);
     const cris = page.getByRole('button', { name: /Cris Ruiz/ });
     await expect(cris).toContainText('Con su Mensual');
     await cris.click();
 
     await expect(page.getByText('Cris añadida a la clase')).toBeVisible({ timeout: 30_000 });
     expect(reservas[0]).toMatchObject({ sesionId: 'ses-1', socioId: 's3' });
-    expect(reservas[0].comoClaseSuelta).toBeUndefined();
+    expect(reservas[0].claseSuelta).toBeUndefined();
     expect(recibos).toHaveLength(0);
     expect(cobros).toHaveLength(0);
   });
 
-  test('a quien no trae bono se le cobra en el mostrador: primero la plaza, luego el cobro por el servidor', async ({ page }) => {
+  test('a quien no trae bono se le vende la clase suelta al reservar y se cobra después, por el servidor y con el método', async ({ page }) => {
     const { orden, reservas, recibos, cobros } = await montarCalendario(page);
     await abrirBea(page);
     // Ningún método viene marcado: sin elegirlo no se cobra.
@@ -177,44 +208,50 @@ test.describe('Cobrar la clase suelta al añadir a una clienta', () => {
     await cobrar.click();
 
     await expect(page.getByText('15,00 € cobrados por Bizum · Bea añadida a la clase')).toBeVisible({ timeout: 30_000 });
-    expect(orden).toEqual(['reserva', 'recibo', 'cobro']);
-    // Pide al servidor que mire su cartera de ahora: si ya traía con qué venir, no se cobra.
-    expect(reservas[0]).toMatchObject({ sesionId: 'ses-1', socioId: 's2', comoClaseSuelta: true });
-    // El recibo nace PENDIENTE (el navegador no puede crearlo cobrado), cuelga
-    // de la reserva y dice qué clase es; lo cobra el servidor con el método.
-    expect(recibos[0]).toMatchObject({ id: `rec-suelta-${reservas[0].reservaId}`, socio_id: 's2', importe: 15, estado: 'PENDIENTE' });
-    expect(String(recibos[0].concepto)).toMatch(/^Clase suelta — Reformer, /);
-    expect(cobros[0]).toEqual({ reciboIds: [recibos[0].id], metodo: 'BIZUM' });
+    // Plaza primero (con la venta dentro) y cobro después; el navegador no crea recibos.
+    expect(orden).toEqual(['reserva', 'cobro']);
+    // `comoClaseSuelta` va con ella: si se volviera al servidor de antes, sabría no gastarle un bono además.
+    expect(reservas[0]).toMatchObject({ sesionId: 'ses-1', socioId: 's2', claseSuelta: { importeEsperado: 15 }, comoClaseSuelta: true });
+    expect(recibos).toHaveLength(0);
+    expect(cobros[0]).toEqual({ reciboIds: [`rec-suelta-${reservas[0].reservaId}`], metodo: 'BIZUM' });
+  });
+
+  test('el precio propio de la sesión (un taller) es el que dice el botón y el que se pide', async ({ page }) => {
+    const { reservas } = await montarCalendario(page, { precioPuntual: 25 });
+    await abrirBea(page);
+    await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await page.getByRole('button', { name: /Cobrar 25,00 € y añadirla/ }).click();
+    await expect(page.getByText('25,00 € cobrados en efectivo · Bea añadida a la clase')).toBeVisible({ timeout: 30_000 });
+    expect(reservas[0]).toMatchObject({ claseSuelta: { importeEsperado: 25 } });
   });
 
   test('si el servidor no confirma el cobro, la pantalla no dice «cobrados»', async ({ page }) => {
-    const { recibos, cobros } = await montarCalendario(page, { cobroSinDetalle: true });
+    const { cobros } = await montarCalendario(page, { cobroSinDetalle: true });
     await abrirBea(page);
     await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
     await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
 
     await expect(page.getByText(/no consta el cobro/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/cobrados en efectivo/)).toHaveCount(0);
-    expect(recibos.length, 'el recibo se creó').toBe(1);
     expect(cobros.length, 'se intentó cobrar').toBe(1);
   });
 
-  test('«cóbraselo después» la apunta y le deja el recibo pendiente, sin cobrar', async ({ page }) => {
+  test('«cóbraselo después» la apunta con su clase suelta y el recibo pendiente, sin cobrar', async ({ page }) => {
     const { orden, reservas, recibos, cobros } = await montarCalendario(page);
     await abrirBea(page);
     await page.getByRole('button', { name: /cóbraselo después/ }).click();
 
     await expect(page.getByText('Bea añadida · recibo de 15,00 € pendiente en Cobros')).toBeVisible({ timeout: 30_000 });
-    expect(orden).toEqual(['reserva', 'recibo']);
-    // También cuelga de la reserva: al quitarla de la clase se avisa de que lo tiene pendiente.
-    expect(recibos[0]).toMatchObject({ id: `rec-suelta-${reservas[0].reservaId}`, socio_id: 's2', importe: 15, estado: 'PENDIENTE' });
+    expect(orden).toEqual(['reserva']);
+    expect(reservas[0]).toMatchObject({ socioId: 's2', claseSuelta: { importeEsperado: 15 } });
+    expect(recibos).toHaveLength(0);
     expect(cobros).toHaveLength(0);
   });
 
-  test('si el servidor ve que ya traía bono (la pantalla tenía su cartera vieja), no se cobra ni se deja recibo', async ({ page }) => {
-    const { reservas, recibos, cobros } = await montarCalendario(page, {
-      // Renovó el bono desde su app y el iPad aún no lo sabe: el servidor lo lee al reservar.
-      reserva: { status: 200, body: { ...RESERVA_OK, cubiertaPor: { tipo: 'BONO', plan: 'Bono 10 clases' } } },
+  test('si el servidor ve que ya traía bono (la pantalla tenía su cartera vieja), no se cobra', async ({ page }) => {
+    const { reservas, cobros } = await montarCalendario(page, {
+      // Renovó el bono desde su app y el iPad aún no lo sabe: el servidor lo lee al reservar y no vende.
+      reserva: { status: 200, body: { ok: true, estado: 'CONFIRMADA', posicionEspera: null, reservaId: 'x', repetida: false, cubiertaPor: { tipo: 'BONO', plan: 'Bono 10 clases' }, venta: null, avisoVenta: null } },
     });
     await abrirBea(page);
     await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
@@ -223,29 +260,164 @@ test.describe('Cobrar la clase suelta al añadir a una clienta', () => {
     await expect(page.getByText('Bea entra con su Bono 10 clases, que ya cubría esta clase: no se le ha cobrado nada'))
       .toBeVisible({ timeout: 30_000 });
     expect(reservas.length, 'tiene que haber reservado').toBe(1);
-    expect(recibos).toHaveLength(0);
     expect(cobros).toHaveLength(0);
   });
 
-  test('si el servidor no da la plaza, no se crea recibo ni se cobra nada', async ({ page }) => {
-    const { reservas, recibos, cobros } = await montarCalendario(page, {
-      reserva: { status: 409, body: { error: 'Esta clienta ya tiene una reserva a esa hora.' } },
+  for (const [caso, respuesta] of [
+    ['el servidor no da la plaza', { status: 400, body: { error: 'Esta clienta ya tiene una reserva a esa hora.' } }],
+    ['el precio ha cambiado', { status: 409, body: { error: 'El precio de esta clase ha cambiado: ahora son 18,00 €. Vuelve a abrirla para cobrar el de ahora.' } }],
+    ['el servidor se cae', { status: 500, body: { error: 'No se ha podido apuntar. Inténtalo otra vez.' } }],
+  ] as const) {
+    test(`si ${caso}, no se cobra nada y se dice`, async ({ page }) => {
+      const { reservas, cobros } = await montarCalendario(page, { reserva: respuesta });
+      await abrirBea(page);
+      await page.getByRole('button', { name: 'Tarjeta', exact: true }).click();
+      await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
+
+      await expect(page.getByText(/No se le ha cobrado nada/)).toBeVisible({ timeout: 30_000 });
+      expect(reservas.length, 'tiene que haber intentado reservar').toBeGreaterThan(0);
+      expect(cobros).toHaveLength(0);
     });
+  }
+
+  // La venta ocurre en el servidor ANTES de contestar: si la respuesta se
+  // pierde, puede haber quedado apuntada con su recibo pendiente.
+  test('si la red corta al reservar, se reintenta con la MISMA reserva y se cobra una sola vez', async ({ page }) => {
+    const { reservas, cobros } = await montarCalendario(page, { intentos: ['red', 'ok'] });
     await abrirBea(page);
-    await page.getByRole('button', { name: 'Tarjeta', exact: true }).click();
+    await page.getByRole('button', { name: 'Bizum', exact: true }).click();
     await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
 
-    await expect(page.getByText(/No se le ha cobrado nada/)).toBeVisible({ timeout: 30_000 });
-    expect(reservas.length, 'tiene que haber intentado reservar').toBeGreaterThan(0);
-    expect(recibos).toHaveLength(0);
+    await expect(page.getByText('15,00 € cobrados por Bizum · Bea añadida a la clase')).toBeVisible({ timeout: 30_000 });
+    expect(reservas).toHaveLength(2);
+    expect(reservas[1].reservaId, 'el reintento lleva el mismo id: el servidor reconoce su reserva y su venta').toBe(reservas[0].reservaId);
+    expect(cobros).toHaveLength(1);
+  });
+
+  test('si la red corta dos veces, no promete «no se le ha cobrado nada»: manda a mirar la clase', async ({ page }) => {
+    const { reservas, cobros } = await montarCalendario(page, { intentos: ['red', 'red'] });
+    await abrirBea(page);
+    await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
+
+    await expect(page.getByText(/No se ha podido confirmar si Bea ha quedado apuntada: mira la clase antes de cobrarle/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/No se le ha cobrado nada/)).toHaveCount(0);
+    expect(reservas).toHaveLength(2);
     expect(cobros).toHaveLength(0);
+  });
+
+  test('si se llegó a vender y no se pudo deshacer, lo dice en vez de «no se le ha cobrado nada»', async ({ page }) => {
+    const { reservas, cobros } = await montarCalendario(page, {
+      reserva: { status: 500, body: { error: 'No se ha podido apuntar. Inténtalo otra vez.', queda: 'recibo' } },
+    });
+    await abrirBea(page);
+    await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
+
+    await expect(page.getByText(/Ha quedado un recibo pendiente de esta clase suelta que sobra: elimínalo en «Quién me debe»/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/No se le ha cobrado nada/)).toHaveCount(0);
+    expect(reservas.length, 'tiene que haber intentado reservar').toBeGreaterThan(0);
+    expect(cobros).toHaveLength(0);
+  });
+
+  test('⚠️ si la clase suelta no se pudo deshacer, nunca «elimina el recibo»: manda a mirar la clase y su ficha', async ({ page }) => {
+    // Borrar solo el recibo dejaría su clase suelta viva y gratis.
+    const { reservas, cobros } = await montarCalendario(page, {
+      reserva: { status: 400, body: { error: 'Esta clienta ya tiene una reserva a esa hora.', queda: 'revisar' } },
+    });
+    await abrirBea(page);
+    await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
+
+    await expect(page.getByText(/Su clase suelta no se ha podido deshacer: mira la clase y su ficha antes de cobrarle o de borrar nada/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/elimínalo en «Quién me debe»/)).toHaveCount(0);
+    await expect(page.getByText(/No se le ha cobrado nada/)).toHaveCount(0);
+    expect(reservas.length, 'tiene que haber intentado reservar').toBeGreaterThan(0);
+    expect(cobros).toHaveLength(0);
+  });
+
+  test('si su clase suelta ya estaba cobrada (otra pestaña), lo dice y no anuncia un cobro que este clic no hizo', async ({ page }) => {
+    const { cobros } = await montarCalendario(page, { cobroYaEstaba: true });
+    await abrirBea(page);
+    await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
+
+    await expect(page.getByText('Su clase suelta ya estaba cobrada · Bea añadida a la clase. No le cobres otra vez')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/15,00 € cobrados/)).toHaveCount(0);
+    expect(cobros.length, 'tiene que haber intentado cobrar').toBeGreaterThan(0);
+  });
+
+  test('si ya estaba apuntada por un intento anterior, se cobra la clase suelta de AQUEL, no otra', async ({ page }) => {
+    const { reservas, cobros } = await montarCalendario(page, {
+      reserva: { status: 200, body: {
+        ok: true, estado: 'CONFIRMADA', posicionEspera: null, reservaId: 'res-anterior', repetida: true, cubiertaPor: null,
+        venta: { reciboId: 'rec-suelta-res-anterior', importe: 15, concepto: 'Clase suelta — Reformer' }, avisoVenta: null,
+      } },
+    });
+    await abrirBea(page);
+    await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
+
+    await expect(page.getByText('15,00 € cobrados en efectivo · Bea ya estaba en la clase')).toBeVisible({ timeout: 30_000 });
+    expect(reservas).toHaveLength(1);
+    expect(cobros).toEqual([{ reciboIds: ['rec-suelta-res-anterior'], metodo: 'EFECTIVO' }]);
+  });
+
+  test('si el servidor no puede comprobar cómo quedó la clase suelta, no se cobra y se manda a mirar', async ({ page }) => {
+    const { reservas, cobros } = await montarCalendario(page, {
+      reserva: { status: 200, body: {
+        ok: true, estado: 'CONFIRMADA', posicionEspera: null, reservaId: 'x', repetida: false, cubiertaPor: null, venta: null,
+        avisoVenta: 'no se ha podido comprobar si ha entrado con su clase suelta: mira su ficha y «Quién me debe» antes de cobrarle.',
+      } },
+    });
+    await abrirBea(page);
+    await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
+
+    await expect(page.getByText(/Bea está en la clase, pero no se ha podido comprobar si ha entrado con su clase suelta/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Nuevo cobro/)).toHaveCount(0);
+    expect(reservas.length, 'tiene que haber intentado reservar').toBeGreaterThan(0);
+    expect(cobros).toHaveLength(0);
+  });
+
+  test('si entra con la clase suelta que recuperó, no se le cobra otra y se recuerda lo que aún debe de aquella', async ({ page }) => {
+    const { cobros } = await montarCalendario(page, {
+      reserva: { status: 200, body: {
+        ok: true, estado: 'CONFIRMADA', posicionEspera: null, reservaId: 'x', repetida: false,
+        cubiertaPor: { tipo: 'BONO', plan: 'Clase suelta', suelta: { debe: 15 } }, venta: null, avisoVenta: null,
+      } },
+    });
+    await abrirBea(page);
+    await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
+
+    await expect(page.getByText('Bea entra con la clase suelta que recuperó: no se le cobra otra. Sigue debiendo 15,00 € de aquella, en «Quién me debe»'))
+      .toBeVisible({ timeout: 30_000 });
+    expect(cobros).toHaveLength(0);
+  });
+
+  test('con la clase llena no se ofrece cobrar: va a la lista de espera sin cargo', async ({ page }) => {
+    await montarCalendario(page, { aforo: 1 });
+    await abrirBea(page);
+    await expect(page.getByRole('button', { name: 'Apuntarla a la lista de espera' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Cobrar .* y añadirla/ })).toHaveCount(0);
+  });
+
+  test('si la tarifa de clase suelta no vale para este tipo de clase, no se ofrece cobrar y se dice qué hacer', async ({ page }) => {
+    await montarCalendario(page, { planes: [PLANES[0], { ...PLANES[1] }] });
+    // La tarifa solo vale para Mat (otra clase): la de Reformer no se puede vender desde aquí.
+    await page.route('**/rest/v1/plan_tipos_clase**', route => json(route, [{ plan_id: 'plan-suelta', tipo_clase_id: 'tc-mat', limite_semanal: null }]));
+    await page.reload();
+    await abrirBea(page);
+    await expect(page.getByText(/Tu tarifa de clase suelta no vale para este tipo de clase/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Cobrar .* y añadirla/ })).toHaveCount(0);
   });
 
   // Ana tiene su clase suelta en un recibo que cuelga de su reserva (`rec-suelta-r1`).
-  async function quitarAAna(page: Page, recibo: Record<string, unknown>) {
+  async function quitarAAna(page: Page, recibo: Record<string, unknown>, cancelar: Record<string, unknown>) {
     await montarCalendario(page, {
       recibosGuardados: [{
-        id: 'rec-suelta-r1', studio_id: STUDIO_ID, socio_id: 's1', suscripcion_id: null, concepto: 'Clase suelta — Reformer',
+        id: 'rec-suelta-r1', studio_id: STUDIO_ID, socio_id: 's1', suscripcion_id: 'sus-suelta-r1', concepto: 'Clase suelta — Reformer',
         importe: 15, importe_devuelto: 0, fecha_vencimiento: HOY, fecha_cobro: null, metodo_cobro: null, intentos_reintento: 0,
         ...recibo,
       }],
@@ -254,7 +426,7 @@ test.describe('Cobrar la clase suelta al añadir a una clienta', () => {
     const cancelaciones: unknown[] = [];
     await page.route('**/api/reservas/cancelar', route => {
       cancelaciones.push(route.request().postDataJSON());
-      return json(route, { ok: true, recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false });
+      return json(route, { ok: true, recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false, eraConfirmada: true, ...cancelar });
     });
     await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
     const ana = page.locator('li[data-reserva-id]', { has: page.getByRole('link', { name: 'Ana Ruiz' }) });
@@ -264,24 +436,23 @@ test.describe('Cobrar la clase suelta al añadir a una clienta', () => {
     return cancelaciones;
   }
 
-  test('quitar a quien pagó su clase suelta avisa de lo que pagó (no le devuelve nada solo)', async ({ page }) => {
-    // Con 5 € ya devueltos, lo que pagó de verdad son 10 € (lo neto, no el importe).
-    const cancelaciones = await quitarAAna(page, { estado: 'COBRADO', importe_devuelto: 5, fecha_cobro: HOY, metodo_cobro: 'EFECTIVO' });
+  test('quitarla a tiempo: recupera su clase suelta para otro día, y el dinero no se devuelve solo', async ({ page }) => {
+    const cancelaciones = await quitarAAna(page, { estado: 'COBRADO', fecha_cobro: HOY, metodo_cobro: 'EFECTIVO' }, { bonoDevuelto: true, tardia: false });
+    await expect(page.getByText(/Recupera su clase suelta para otro día\. Si prefieres devolverle el dinero, márcalo en Cobros/)).toBeVisible({ timeout: 30_000 });
+    expect(cancelaciones).toEqual([{ reservaId: 'r1' }]);
+  });
+
+  test('quitarla fuera de plazo sin haberla pagado: la pierde y sigue debiéndola', async ({ page }) => {
+    const cancelaciones = await quitarAAna(page, { estado: 'PENDIENTE' }, { bonoDevuelto: false, tardia: true });
+    await expect(page.getByText(/Fuera de plazo: pierde la clase suelta, y sigue debiendo 15,00/)).toBeVisible({ timeout: 30_000 });
+    expect(cancelaciones).toEqual([{ reservaId: 'r1' }]);
+  });
+
+  test('un recibo suelto de antes (sin clase suelta) solo avisa de lo pagado, neto de lo devuelto', async ({ page }) => {
+    const cancelaciones = await quitarAAna(page, {
+      suscripcion_id: null, estado: 'COBRADO', importe_devuelto: 5, fecha_cobro: HOY, metodo_cobro: 'EFECTIVO',
+    }, { bonoDevuelto: false, tardia: false });
     await expect(page.getByText(/Pagó 10,00 € por esta clase: si se lo devuelves, márcalo en Cobros/)).toBeVisible({ timeout: 30_000 });
     expect(cancelaciones).toEqual([{ reservaId: 'r1' }]);
-  });
-
-  test('quitar a quien la tenía pendiente de cobro avisa de que el recibo sigue ahí', async ({ page }) => {
-    const cancelaciones = await quitarAAna(page, { estado: 'PENDIENTE' });
-    await expect(page.getByText(/Tenía 15,00 € pendientes por esta clase: si ya no se los cobras, elimina el recibo en Cobros/))
-      .toBeVisible({ timeout: 30_000 });
-    expect(cancelaciones).toEqual([{ reservaId: 'r1' }]);
-  });
-
-  test('con la clase llena no se ofrece cobrar: va a la lista de espera sin cargo', async ({ page }) => {
-    await montarCalendario(page, { aforo: 1 });
-    await abrirBea(page);
-    await expect(page.getByRole('button', { name: 'Apuntarla a la lista de espera' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Cobrar .* y añadirla/ })).toHaveCount(0);
   });
 });

@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import Link from 'next/link';
 import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbRecibosCobradosParaExport, dbVentasPorTipo } from '@/lib/supabase-data';
+import { csvLoCobrado, descargarCsv } from '@/lib/billing/export-cobrado';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
 import { cohortesPorPrimeraCompra, MUESTRA_MINIMA_COHORTE, type FilaCohorte, type TramoCohorte } from '@/lib/informes/cohortes.ts';
@@ -157,7 +158,7 @@ function CeldaCohorte({ tramo }: { tramo: TramoCohorte | null }) {
 
 // ─── Export state type ────────────────────────────────────────────────────────
 
-type ExportState = 'idle' | 'loading' | 'done';
+type ExportState = 'idle' | 'loading' | 'done' | 'error';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -459,20 +460,10 @@ export default function Informes() {
     setCsvState('loading');
     // F1: TODOS los recibos cobrados por keyset (sin cap 1000), no el array del cliente.
     const cobrados = await dbRecibosCobradosParaExport(rangoDelInforme(period, hoyEnEstudio(now)).desde);
-    cobrados.sort((a, b) => (a.fechaCobro < b.fechaCobro ? -1 : a.fechaCobro > b.fechaCobro ? 1 : 0));
-    // Bruto, devuelto y neto: la suma de «Neto» es la cifra «Ingresos período».
-    const rows = [
-      ['Fecha', 'Clienta', 'Concepto', 'Cobrado (€)', 'Devuelto (€)', 'Neto (€)', 'Método', 'Estado'],
-      ...cobrados.map(r => [r.fechaCobro, r.nombre, r.concepto, r.importe.toFixed(2), r.importeDevuelto.toFixed(2), r.neto.toFixed(2), r.metodo ?? '', r.estado]),
-    ];
-    const csv = rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ingresos_${localDate(now)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Si la lectura falla no se descarga nada: un fichero a medias se tomaría por completo.
+    if (!cobrados) { setCsvState('error'); setTimeout(() => setCsvState('idle'), 4000); return; }
+    // El mismo fichero que Cobros y el cierre (lib/billing/export-cobrado.ts).
+    descargarCsv(csvLoCobrado(cobrados), `ingresos_${localDate(now)}.csv`);
     setTimeout(() => { setCsvState('done'); setTimeout(() => setCsvState('idle'), 2500); }, 600);
   }, [period, now]);
 
@@ -1281,6 +1272,7 @@ export default function Informes() {
               <Download size={14} />
               {csvState === 'idle' ? 'Exportar CSV'
                 : csvState === 'loading' ? 'Exportando...'
+                : csvState === 'error' ? 'No se ha podido descargar: inténtalo otra vez'
                 : 'Exportado ✓'}
             </button>
 

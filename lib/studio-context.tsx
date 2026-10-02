@@ -33,7 +33,7 @@ import {
   dbReasignarInstructora,
   dbCancelarReservasPorSesiones,
   dbUpdateReserva,
-  dbInsertRecibo, dbUpdateRecibo, dbUpdateRecibosBatch, dbEliminarRecibo, dbLeerEstadoRecibos, dbLeerReciboDeCita, dbReleerTrasCobro,
+  dbInsertRecibo, dbUpdateRecibosBatch, dbEliminarRecibo, dbLeerEstadoRecibos, dbLeerReciboDeCita, dbReleerTrasCobro,
   dbInsertCita, dbUpdateCita,
   dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
   dbInsertProductoPOS, dbUpdateProductoPOS, dbDeleteProductoPOS,
@@ -109,15 +109,42 @@ export type ResultadoReserva =
        */
       reservaId?: string;
       /**
-       * Solo si se pidió `comoClaseSuelta`: con qué venía de verdad, según la
+       * Solo si se pidió `claseSuelta`: con qué venía de verdad, según la
        * cartera que leyó el servidor al reservar. Si llega, NO se cobra la clase
        * suelta (la pantalla podía tener un bono renovado sin enterarse).
        */
       cubiertaPor?: CubiertaPor | null;
+      /**
+       * Ya estaba en la clase con otra reserva (la de un intento anterior cuya
+       * respuesta no llegó): `reservaId` es aquella, y `venta`, su clase suelta
+       * aún sin cobrar.
+       */
+      yaEstaba?: boolean;
+      /**
+       * Solo si se pidió `claseSuelta`: la clase suelta que se le vendió (la
+       * PUNTUAL que gasta esta reserva) con su recibo PENDIENTE, para cobrarlo
+       * con `marcarCobrado`. `null` si no se vendió (venía cubierta, lista de
+       * espera…).
+       */
+      venta?: VentaClaseSuelta | null;
+      /** La clase suelta no ha quedado vendida como se pidió: qué tiene que mirar recepción. */
+      avisoVenta?: string | null;
     }
-  | { ok: false; error: string };
+  | {
+      ok: false; error: string;
+      /**
+       * Lo que dejó la clase suelta si se llegó a vender: `recibo`, un recibo
+       * pendiente que sobra; `revisar`, su clase suelta no se pudo deshacer o ya
+       * se gastó (puede estar en la clase): se mira antes de cobrar o de borrar
+       * nada. Sin él, no quedó nada.
+       */
+      queda?: 'recibo' | 'revisar';
+      /** No llegó ninguna respuesta (tampoco al reintentar): no se sabe si quedó apuntada. */
+      sinRespuesta?: boolean;
+    };
 import { horarioConNuevaHora } from '@/lib/serie-horario';
-import type { CubiertaPor } from '@/lib/reservas/reserva-mostrador';
+import type { CubiertaPor, VentaClaseSuelta } from '@/lib/reservas/reserva-mostrador';
+import { idSuscripcionDeReciboDeClaseSuelta } from '@/lib/reservas/clase-suelta';
 import { type DatosEstudioLegal } from '@/lib/legal-textos';
 import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
 import type {
@@ -133,6 +160,7 @@ import type {
   Sesion,
   Reserva,
   EstadoReserva,
+  EstadoRecibo,
   Recibo,
   MetodoCobro,
   CobroAlta,
@@ -202,7 +230,7 @@ import {
 import { decidirReciboPrevioDeCita, type ReciboPrevioDeCita } from '@/lib/cobros/recibo-de-cita';
 import type { DatosReciboNuevo } from '@/lib/cobros/recibo-escritura-navegador';
 import type { TipoRebote } from '@/lib/emails/rebotes';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor, reembolsarAManoApi, reintentarPorElBancoApi } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
 import { estadosDeClientas } from '@/lib/clientas/estado';
@@ -496,11 +524,11 @@ interface StudioContextValue {
   // (una LISTA_ESPERA no puede tener asistencia) y fuera de la vía pública.
   // `avisar` solo cuenta en el panel: `false` = recepción desmarcó «Avisar a la
   // alumna». Por defecto se la avisa, como en cualquier otra reserva.
-  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string; comoClaseSuelta?: boolean }) => Promise<ResultadoReserva>;
+  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string; comoClaseSuelta?: boolean; claseSuelta?: { importeEsperado: number } }) => Promise<ResultadoReserva>;
   // recuperacionCreada/recuperacionCaducaEl: solo la vía pública los rellena
   // (al cancelar una ocurrencia de plaza fija, ver cancelarReservaPublica) —
   // el panel de staff los deja undefined, no aplica ahí.
-  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean; avisoBono?: string }>;
+  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean; avisoBono?: string; bonoDevuelto?: boolean; tardia?: boolean }>;
   // Fase 2b: acepta una oferta de plaza de lista de espera dentro de su plazo.
   // Solo tiene sentido desde el portal (socia con sesión iniciada) — ver
   // app/api/reservas/aceptar-oferta-espera/route.ts.
@@ -533,9 +561,21 @@ interface StudioContextValue {
    *  Devuelve `numeroFactura` cuando el cobro emitió factura: el llamador NO
    *  debe buscarla en el estado — todavía no está ahí. `yaEstaba` no es un error. */
   marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoMarcarCobrado>;
-  /** Varios a la vez (cobro masivo), con el desenlace de cada uno. */
-  marcarCobradoVarios: (ids: string[], metodo?: MetodoCobro, onProgreso?: (hechos: number) => void) => Promise<DesenlaceCobroManual[]>;
-  marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
+  /**
+   * Varios a la vez (cobro masivo), con el desenlace de cada uno. El método es
+   * obligatorio: sin él, el cobro no entra en la caja ni en el desglose por método.
+   */
+  marcarCobradoVarios: (ids: string[], metodo: MetodoCobro, onProgreso?: (hechos: number) => void) => Promise<DesenlaceCobroManual[]>;
+  /** «El banco lo ha cobrado»: cierra un recibo que salió en una remesa (EN_CURSO). */
+  marcarCobradoPorElBanco: (reciboId: string) => Promise<ResultadoMarcarCobrado>;
+  /**
+   * «El banco lo devolvió»: vuelve a deber. `desde` es el estado que se veía
+   * al pulsar: si ya no es ese, el servidor no lo toca.
+   */
+  marcarDevuelto: (reciboId: string, desde?: EstadoRecibo) => Promise<ResultadoEscritura>;
+  /** «Le he devuelto el dinero»: reembolso a mano de un cobro hecho a mano. Ya no debe nada. */
+  reembolsarAMano: (reciboId: string, metodo: MetodoCobro) => Promise<ResultadoEscritura & { caja?: string }>;
+  /** «Reintentar por el banco»: un recibo que devolvió el banco vuelve a la próxima remesa. */
   reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentarSelladoFactura: (reciboId: string) => Promise<ResultadoEscritura>;
   /** Elimina un recibo con un motivo (lista cerrada); el servidor decide si se puede. */
@@ -2895,8 +2935,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Nota: el camino público ya se comportaba así (lib/billing/entregar-plan-
     // comprado.ts no cancela nada), así que esto además alinea los dos caminos,
     // que hasta ahora dejaban la base en estados distintos según quién comprara.
-    const conservaSaldo = (s: Suscripcion) =>
-      planesTarifa.find(p => p.id === s.planId)?.tipo === 'BONO' && (s.sesionesRestantes ?? 0) > 0;
+    // Una clase suelta (PUNTUAL) no se toca NUNCA, gastada o no: es una clase
+    // concreta ya pagada (o debida). Con su sesión es la que recuperó al
+    // cancelar a tiempo; gastada, puede ser la de una clase que aún no ha
+    // llegado, y si la cancela a tiempo la sesión vuelve a ella — a una
+    // cancelada no le serviría de nada. Una gastada no da derecho a reservar.
+    const conservaSaldo = (s: Suscripcion) => {
+      const tipo = planesTarifa.find(p => p.id === s.planId)?.tipo;
+      return tipo === 'PUNTUAL' || (tipo === 'BONO' && (s.sesionesRestantes ?? 0) > 0);
+    };
     const aDesactivar = suscripciones.filter(
       s => s.socioId === socioId && s.estado === 'ACTIVA' && !conservaSaldo(s),
     );
@@ -3642,7 +3689,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return true;
   }
 
-  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string; comoClaseSuelta?: boolean }): Promise<ResultadoReserva> {
+  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string; comoClaseSuelta?: boolean; claseSuelta?: { importeEsperado: number } }): Promise<ResultadoReserva> {
     const sesion = sesiones.find(s => s.id === sesionId);
     // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
     const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
@@ -3713,21 +3760,63 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     //
     // El `reservaId` viaja en la petición: si la red corta y se reintenta con el
     // mismo id, el servidor reconoce su propia fila y no descuenta dos veces.
-    const respuesta = await fetch('/api/reservas/crear', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({
-        sesionId, socioId, reservaId, avisar: opciones?.avisar !== false,
-        ...(opciones?.comoClaseSuelta ? { comoClaseSuelta: true } : {}),
-      }),
-    }).catch(() => null);
-    const datos = await respuesta?.json().catch(() => null) as {
+    type RespuestaCrear = {
       estado?: string; posicionEspera?: number | null; error?: string; cubiertaPor?: CubiertaPor | null;
-    } | null;
+      venta?: VentaClaseSuelta | null; avisoVenta?: string | null; reservaId?: string; repetida?: boolean; queda?: string;
+    };
+    const pedir = async () => {
+      const respuesta = await fetch('/api/reservas/crear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({
+          sesionId, socioId, reservaId, avisar: opciones?.avisar !== false,
+          // `comoClaseSuelta` va con `claseSuelta`: si se volviera al servidor
+          // anterior, sabría no gastarle un bono además de la clase suelta.
+          ...(opciones?.comoClaseSuelta || opciones?.claseSuelta ? { comoClaseSuelta: true } : {}),
+          ...(opciones?.claseSuelta ? { claseSuelta: opciones.claseSuelta } : {}),
+        }),
+      }).catch(() => null);
+      const datos = await respuesta?.json().catch(() => null) as RespuestaCrear | null;
+      return { respuesta, datos };
+    };
+    let { respuesta, datos } = await pedir();
+    // La clase suelta se vende en el servidor ANTES de contestar: si la
+    // respuesta se pierde, puede haber quedado apuntada con su recibo. Un
+    // reintento con el MISMO id lo averigua (el servidor reconoce su reserva y
+    // su venta) en vez de decir «no se le ha cobrado nada» sin saberlo.
+    if (!datos && opciones?.claseSuelta) ({ respuesta, datos } = await pedir());
     const estadoReal = typeof datos?.estado === 'string' && datos.estado ? datos.estado as EstadoReserva : null;
     if (!respuesta?.ok || !estadoReal) {
       setReservas(prev => prev.filter(x => x.id !== reservaId));
-      return { ok: false, error: datos?.error ?? 'No se ha podido apuntar. Inténtalo otra vez.' };
+      if (!datos && opciones?.claseSuelta) {
+        return { ok: false, sinRespuesta: true, error: 'No se ha podido confirmar si ha quedado apuntada: mira la clase antes de cobrarle.' };
+      }
+      return {
+        ok: false, error: datos?.error ?? 'No se ha podido apuntar. Inténtalo otra vez.',
+        ...(datos?.queda === 'recibo' || datos?.queda === 'revisar' ? { queda: datos.queda } : {}),
+      };
+    }
+    // La clase suelta vendida: su recibo PENDIENTE ya existe en la base de
+    // datos (lo creó el servidor); se pinta para que «Quién me debe» y el
+    // «Quitar» del Calendario lo vean sin recargar. La suscripción llega con la
+    // relectura del saldo de más abajo.
+    const venta = datos?.venta && typeof datos.venta.reciboId === 'string' && typeof datos.venta.importe === 'number'
+      ? datos.venta : null;
+    if (venta) {
+      setRecibos(prev => prev.some(r => r.id === venta.reciboId) ? prev : [...prev, {
+        id: venta.reciboId, studioId: getCurrentStudioId(), socioId,
+        suscripcionId: idSuscripcionDeReciboDeClaseSuelta(venta.reciboId), concepto: venta.concepto, importe: venta.importe,
+        estado: 'PENDIENTE', fechaVencimiento: hoyEnEstudio(), fechaCobro: null, fechaDevolucion: null,
+        intentosReintento: 0, importeDevuelto: 0,
+      } as Recibo]);
+    }
+    // Ya estaba apuntada con otra reserva (un intento anterior): la fila que
+    // se pintó al momento sobra; la de verdad ya está en la lista o llega al
+    // refrescar.
+    const reservaReal = datos?.repetida === true && typeof datos.reservaId === 'string' && datos.reservaId ? datos.reservaId : reservaId;
+    if (reservaReal !== reservaId) {
+      setReservas(prev => prev.filter(x => x.id !== reservaId));
+      return { ok: true, estado: estadoReal, reservaId: reservaReal, yaEstaba: true, cubiertaPor: null, venta, avisoVenta: datos?.avisoVenta ?? null };
     }
     const posicionReal = datos?.posicionEspera ?? null;
     if (estadoReal !== estado || posicionReal !== posicionEspera) {
@@ -3754,9 +3843,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       await checkin(reservaId, reservasFinales);
     }
 
-    const cubiertaPor = datos?.cubiertaPor && typeof datos.cubiertaPor.plan === 'string'
-      && (datos.cubiertaPor.tipo === 'BONO' || datos.cubiertaPor.tipo === 'MENSUAL') ? datos.cubiertaPor : null;
-    return { ok: true, estado: estadoReal, reservaId, cubiertaPor };
+    const cubiertaPor: CubiertaPor | null = datos?.cubiertaPor && typeof datos.cubiertaPor.plan === 'string'
+      && (datos.cubiertaPor.tipo === 'BONO' || datos.cubiertaPor.tipo === 'MENSUAL')
+      ? {
+        tipo: datos.cubiertaPor.tipo, plan: datos.cubiertaPor.plan,
+        ...(datos.cubiertaPor.suelta && (typeof datos.cubiertaPor.suelta.debe === 'number' || datos.cubiertaPor.suelta.debe === null)
+          ? { suelta: { debe: datos.cubiertaPor.suelta.debe } } : {}),
+      }
+      : null;
+    return { ok: true, estado: estadoReal, reservaId, cubiertaPor, venta, avisoVenta: datos?.avisoVenta ?? null };
   }
 
   // Tras una reserva del mostrador el servidor ya ha descontado la sesión del
@@ -3824,7 +3919,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return postPublico('/api/public/retos', { studioId: cpub.studioId, retoKey, accion });
   }
 
-  async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; avisoBono?: string }> {
+  async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; avisoBono?: string; bonoDevuelto?: boolean; tardia?: boolean }> {
     const cpub = ctxPublico();
     if (cpub) {
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r)); // optimista
@@ -3873,6 +3968,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const datos = await respuesta?.json().catch(() => null) as {
       promovidaSocioId?: string | null; ofertaSocioId?: string | null; ofertaExpiraEn?: string | null; error?: string;
       recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean;
+      bonoDevuelto?: boolean; tardia?: boolean;
     } | null;
     if (!respuesta?.ok || !datos) {
       // Revierte el optimista: el servidor rechazó la cancelación, así que la
@@ -3888,11 +3984,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const { promovidaSocioId, ofertaSocioId, ofertaExpiraEn } = datos;
     // Lo que decidió el servidor sobre la recuperación (clase de plaza fija): el
     // mostrador lo enseña tal cual, en vez de callarlo como antes.
+    // Y sobre la sesión del bono (o de la clase suelta): si volvió a su saldo
+    // y si la cancelación fue fuera de plazo — la política del estudio la
+    // aplica el servidor; aquí solo se cuenta.
     const recuperacion = {
       recuperacionCreada: datos.recuperacionCreada === true,
       recuperacionCaducaEl: datos.recuperacionCaducaEl ?? null,
       recuperacionAlCerrarSemana: datos.recuperacionAlCerrarSemana === true,
+      bonoDevuelto: datos.bonoDevuelto === true,
+      tardia: datos.tardia === true,
     };
+    // Si la sesión volvió, el saldo que hay en pantalla es el de antes.
+    if (recuperacion.bonoDevuelto && cancelada?.socioId) void releerSaldoTrasReservaMostrador(cancelada.socioId);
 
     // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
     // confirma sola. Refleja en el estado local la oferta que el servidor
@@ -4357,6 +4460,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // cobra tiene que ver qué hay antes de volver a pulsar.
   async function cobrarEnServidor(
     ids: string[], metodo?: MetodoCobro, onProgreso?: (hechos: number) => void,
+    /** «El banco lo ha cobrado»: el cierre de una remesa; el método lo pone el servidor (SEPA). */
+    porElBanco = false,
+    /** Cobro de varios a la vez: el servidor deja fuera lo que tiene un cobro en marcha. */
+    esLote = false,
   ): Promise<DesenlaceCobroManual[]> {
     // Re-entrada (doble clic, el mismo recibo en dos botones a la vez): el que
     // ya está en vuelo no se vuelve a mandar.
@@ -4371,7 +4478,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const lotes = trocear(propios, RECIBOS_POR_LOTE_PANEL);
       for (let i = 0; i < lotes.length; i++) {
         const lote = lotes[i];
-        const lectura = leerRespuestaMarcarCobrado(await marcarCobradoEnServidor(lote, metodo ?? null), lote);
+        const lectura = leerRespuestaMarcarCobrado(
+          await marcarCobradoEnServidor(lote, porElBanco ? null : (metodo ?? null), undefined, porElBanco ? 'banco' : undefined, esLote), lote,
+        );
         let errorResto: string | null = null;
         if (lectura.tipo === 'resultados') {
           desenlaces.push(...lectura.resultados);
@@ -4392,7 +4501,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         onProgreso?.(desenlaces.length);
         if (errorResto !== null) break;
       }
-      await reflejarCobrosConfirmados(desenlaces, metodo);
+      await reflejarCobrosConfirmados(desenlaces, porElBanco ? 'SEPA' : metodo);
     } finally {
       propios.forEach(id => enVuelo.delete(id));
     }
@@ -4470,8 +4579,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: false, error: d?.error ?? 'No se ha podido cobrar este recibo.' };
   }
 
-  function marcarCobradoVarios(ids: string[], metodo?: MetodoCobro, onProgreso?: (hechos: number) => void) {
-    return cobrarEnServidor(ids, metodo, onProgreso);
+  function marcarCobradoVarios(ids: string[], metodo: MetodoCobro, onProgreso?: (hechos: number) => void) {
+    return cobrarEnServidor(ids, metodo, onProgreso, false, true);
+  }
+
+  async function marcarCobradoPorElBanco(reciboId: string): Promise<ResultadoMarcarCobrado> {
+    const [d] = await cobrarEnServidor([reciboId], undefined, undefined, true);
+    if (d?.resultado === 'aplicada') {
+      if (d.renovacionFallida) return { ok: false, cobroRegistrado: true, numeroFactura: d.numeroFactura, error: MENSAJE_COBRADO_SIN_RENOVAR };
+      return d.selladoOk
+        ? { ok: true, numeroFactura: d.numeroFactura }
+        : {
+            ok: false, cobroRegistrado: true, numeroFactura: d.numeroFactura,
+            error: 'Cobro registrado, pero la factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Cobros y facturas → Datos fiscales e IVA.',
+          };
+    }
+    if (d && esCobroConfirmado(d)) return { ok: true, yaEstaba: true };
+    return { ok: false, error: d?.error ?? 'No se ha podido registrar el cobro.' };
   }
 
   // Si el sellado de un cobro falló (NIF inválido, red...), el recibo
@@ -4489,14 +4613,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return sellarFacturaYActualizar(fac);
   }
 
-  async function marcarDevuelto(reciboId: string): Promise<ResultadoEscritura> {
+  async function marcarDevuelto(reciboId: string, desde?: EstadoRecibo): Promise<ResultadoEscritura> {
     // Mismo criterio que marcarCobrado: un recibo devuelto es dinero que sale de
     // la caja del mes. Si la BD lo rechaza y la pantalla lo da por devuelto, el
     // cierre de caja cuadra contra algo que no está guardado.
     // Por servidor, no con `dbUpdateRecibo`: si el recibo era de una penalización
     // cobrada, la nómina de la instructora tiene que enterarse, y eso solo se
     // puede hacer con service-role (lib/billing/marcar-devuelto.ts).
-    const res = await marcarReciboDevueltoApi(reciboId);
+    const res = await marcarReciboDevueltoApi(reciboId, desde);
     if (!res.ok) return res;
     setRecibos(prev => prev.map(r =>
       r.id === reciboId ? { ...r, estado: 'DEVUELTO' as const, fechaDevolucion: res.fechaDevolucion, proximoReintento: null } : r
@@ -4504,19 +4628,32 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true };
   }
 
-  // La escritura vivía DENTRO del updater de setRecibos (un antipatrón aparte
-  // del await que faltaba: los updaters de React deben ser puros, sin efectos).
-  // Se saca fuera, se espera y se comprueba antes de tocar pantalla.
+  // «Le he devuelto el dinero»: por el servidor, que lo deja como reembolso
+  // (DEVUELTO con todo el importe devuelto: ni deuda ni ingreso), apunta la
+  // salida de caja y pone al día penalización, créditos y devoluciones
+  // (lib/billing/reembolso-manual.ts). La pantalla cambia con su respuesta.
+  async function reembolsarAMano(reciboId: string, metodo: MetodoCobro): Promise<ResultadoEscritura & { caja?: string }> {
+    const res = await reembolsarAManoApi(reciboId, metodo);
+    if (!res.ok) return { ok: false, error: res.error };
+    setRecibos(prev => prev.map(r =>
+      r.id === reciboId
+        ? { ...r, estado: 'DEVUELTO' as const, importeDevuelto: res.importe, fechaDevolucion: r.fechaDevolucion ?? res.fechaDevolucion, proximoReintento: null }
+        : r
+    ));
+    return { ok: true, caja: res.caja };
+  }
+
+  // «Reintentar por el banco»: por el servidor (lib/billing/marcar-devuelto.ts).
+  // Antes lo escribía el navegador como EN_CURSO («Enviado al banco») sin que
+  // nada fuera a ningún banco; ahora vuelve a PENDIENTE y lo recoge la próxima
+  // remesa.
   async function reintentar(reciboId: string): Promise<ResultadoEscritura> {
-    const recibo = recibos.find(r => r.id === reciboId);
-    if (!recibo) return { ok: false, error: 'No se encuentra ese recibo.' };
-    const intentosReintento = recibo.intentosReintento + 1;
-    const res = await dbUpdateRecibo(reciboId, { estado: 'EN_CURSO', intentosReintento });
+    const res = await reintentarPorElBancoApi(reciboId);
     if (!res.ok) return res;
     setRecibos(prev => prev.map(r =>
-      r.id === reciboId ? { ...r, estado: 'EN_CURSO' as const, intentosReintento } : r
+      r.id === reciboId ? { ...r, estado: 'PENDIENTE' as const, intentosReintento: res.intentosReintento, proximoReintento: null } : r
     ));
-    return res;
+    return { ok: true };
   }
 
   async function deleteRecibo(id: string, motivo: string): Promise<ResultadoEscritura> {
@@ -4568,8 +4705,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Mismo camino que `marcarCobrado`: antes era un UPDATE en lote desde el
     // navegador, con la fecha en UTC (un cobro a la 01:30 de Madrid se fechaba
     // el día anterior) y el sellado de cada factura sin esperar.
-    const pendientes = recibos.filter(r => r.estado === 'PENDIENTE' && (!socioId || r.socioId === socioId));
-    const desenlaces = await cobrarEnServidor(pendientes.map(r => r.id), metodo);
+    // Fuera lo que el cobro automático ya tiene programado (se cobraría dos veces);
+    // y el servidor, como lote, deja fuera lo que tenga otro cobro en marcha.
+    const pendientes = recibos.filter(r => r.estado === 'PENDIENTE' && !r.proximoReintento && (!socioId || r.socioId === socioId));
+    const desenlaces = await cobrarEnServidor(pendientes.map(r => r.id), metodo, undefined, false, true);
     const anulados = new Set(desenlaces.filter(d => d.resultado === 'penalizacion_anulada').map(d => d.reciboId));
     return { ...resumenDeLote(desenlaces), saltados: pendientes.filter(r => anulados.has(r.id)) };
   }
@@ -5681,6 +5820,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     marcarCobrado,
     marcarCobradoVarios,
     marcarDevuelto,
+    reembolsarAMano,
+    marcarCobradoPorElBanco,
     reintentar,
     reintentarSelladoFactura,
     deleteRecibo,

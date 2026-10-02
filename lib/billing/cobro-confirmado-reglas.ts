@@ -18,8 +18,10 @@ import { emiteFacturaAutomatica } from '../factura-automatica.ts';
  *  · `webhook` / `conciliador` / `tpv`: Stripe lo ha confirmado.
  *  · `off_session`: `cobrarReciboOffSession` acaba de ver el `succeeded`.
  *  · `manual`: alguien del estudio lo marca sin que nadie lo confirme.
+ *  · `banco`: alguien del estudio confirma que el banco cobró un recibo que
+ *    salió en una REMESA (Cobros → «En el banco» → «El banco lo ha cobrado»).
  */
-export type OrigenCobro = 'webhook' | 'conciliador' | 'tpv' | 'manual' | 'off_session';
+export type OrigenCobro = 'webhook' | 'conciliador' | 'tpv' | 'manual' | 'off_session' | 'banco';
 
 /**
  * Desde qué estados puede pasar un recibo a COBRADO según quién lo confirme.
@@ -37,12 +39,18 @@ export type OrigenCobro = 'webhook' | 'conciliador' | 'tpv' | 'manual' | 'off_se
  * - `off_session` acepta exactamente lo que comprobó antes de cobrar
  *   (PENDIENTE/FALLIDO). Si el recibo cambió entre esa lectura y el cargo, no se
  *   pisa: se reporta.
+ * - `banco` SOLO acepta `EN_CURSO`, y `confirmarCobro` exige además que no haya
+ *   ningún cobro de Stripe en marcha (`COLUMNAS_COBRO_EN_MARCHA` a null): cierra
+ *   lo que mandó la remesa, nunca un adeudo de Stripe en vuelo (ese lo cierra su
+ *   webhook con su cargo). Antes no había forma de cerrarlo: la remesa ponía
+ *   EN_CURSO y ahí se quedaba, y una cuota que iba por el banco no se renovaba.
  */
 export function estadosAdmitidosPorOrigen(
   origen: OrigenCobro,
   opciones: { admitirDevuelto?: boolean } = {},
 ): EstadoRecibo[] {
   if (origen === 'off_session') return ['PENDIENTE', 'FALLIDO'];
+  if (origen === 'banco') return ['EN_CURSO'];
   const base: EstadoRecibo[] = origen === 'manual' ? [...ESTADOS_COBRABLES] : [...ESTADOS_COBRABLES, 'EN_CURSO'];
   return opciones.admitirDevuelto === false ? base.filter(e => e !== 'DEVUELTO') : base;
 }
@@ -57,7 +65,11 @@ export type ConciliadoPor = 'webhook' | 'conciliador' | 'tpv' | 'manual';
  * Añadirlo al CHECK es trabajo de una migración (PR 2).
  */
 export function conciliadoPorDe(origen: OrigenCobro): ConciliadoPor | null {
-  return origen === 'off_session' ? null : origen;
+  if (origen === 'off_session') return null;
+  // Lo marca una persona, como el cobro a mano: el CHECK no cambia y su factura
+  // es la de ese canal (`facturaIdManual`, que es lo que espera el reintento).
+  if (origen === 'banco') return 'manual';
+  return origen;
 }
 
 // Ids de Stripe (`pi_…`, `cs_…`): letras, dígitos y guion bajo. Lo que no

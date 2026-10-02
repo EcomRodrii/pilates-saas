@@ -97,7 +97,7 @@ test('el alta de socia con cobro crea recibos pendientes y los cobra por el serv
   assert.match(alta, /\.\.\.\(avisos\.length > 0 \? \{ avisos \} : \{\}\)/);
 });
 
-test('«Nueva factura», el cobro de una cita y la clase suelta del Calendario crean el recibo pendiente, lo cobra el servidor y distinguen los cuatro desenlaces', () => {
+test('«Nueva factura» y el cobro de una cita crean el recibo pendiente, lo cobra el servidor y distinguen los cuatro desenlaces', () => {
   const ctx = sinComentarios(leer('lib/studio-context.tsx'));
   const directa = cuerpoDe(ctx, 'async function crearFacturaDirecta(');
   assert.match(directa, /estado: 'PENDIENTE'/);
@@ -112,7 +112,6 @@ test('«Nueva factura», el cobro de una cita y la clase suelta del Calendario c
   for (const [ruta, que] of [
     ['components/cobros/panel-pendientes.tsx', 'Nueva factura'],
     ['app/(dashboard)/citas/page.tsx', 'cobro de una cita'],
-    ['app/(dashboard)/calendario/page.tsx', 'clase suelta del Calendario'],
   ] as const) {
     const f = sinComentarios(leer(ruta));
     assert.match(f, /'cobroSinConfirmar' in res/, `${que}: no distingue «el recibo existe pero no consta cobrado»`);
@@ -120,6 +119,18 @@ test('«Nueva factura», el cobro de una cita y la clase suelta del Calendario c
   // Y la cita no se marca pagada con un cobro sin confirmar.
   const citas = sinComentarios(leer('app/(dashboard)/citas/page.tsx'));
   assert.ok(citas.indexOf("'cobroSinConfirmar' in res") < citas.indexOf('updateCita(cita.id, { pagada: true })'));
+});
+
+test('la clase suelta del Calendario la vende el servidor al reservar, y se cobra después por el servidor', () => {
+  const cal = sinComentarios(leer('app/(dashboard)/calendario/page.tsx'));
+  // Ni recibo ni cobro desde el navegador: la venta (la PUNTUAL y su recibo
+  // pendiente) la hace `crearReservaMostrador`, para que le valga la política
+  // de cancelación como a un bono.
+  assert.doesNotMatch(cal, /crearFacturaDirecta|addRecibo\(/, 'el navegador vuelve a crear el recibo de la clase suelta');
+  const cobrar = cuerpoDe(cal, 'async function cobrarSueltaYAnadir(');
+  const reserva = cobrar.indexOf('claseSuelta: { importeEsperado: precio }');
+  const cobro = cobrar.indexOf('marcarCobrado(reserva.venta.reciboId, metodo)');
+  assert.ok(reserva > 0 && cobro > reserva, 'primero la plaza (con la venta) y después el cobro, con el método');
 });
 
 test('el alta ya no ofrece «Domiciliación» como método de un cobro ya hecho (un adeudo lo confirma el banco)', () => {

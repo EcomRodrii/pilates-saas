@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { leerPeticionReservaMostrador, puedeApuntarEnClase } from './reserva-mostrador.ts';
+import { leerPeticionReservaMostrador, puedeApuntarEnClase, puedeVenderClaseSuelta } from './reserva-mostrador.ts';
 
 const BASE = { sesionId: 'ses-1', socioId: 'soc-1', reservaId: 'res-mf3k2-1a-x9z8q' };
 
@@ -10,7 +10,21 @@ const BASE = { sesionId: 'ses-1', socioId: 'soc-1', reservaId: 'res-mf3k2-1a-x9z
 
 test('una petición completa se acepta y, sin decir nada, se avisa a la alumna', () => {
   const r = leerPeticionReservaMostrador(BASE);
-  assert.deepEqual(r, { ok: true, datos: { ...BASE, avisar: true, comoClaseSuelta: false } });
+  assert.deepEqual(r, { ok: true, datos: { ...BASE, avisar: true, comoClaseSuelta: false, claseSuelta: null } });
+});
+
+test('vender la clase suelta viaja con lo que dice el botón; un importe raro se rechaza, no se ignora', () => {
+  const r = leerPeticionReservaMostrador({ ...BASE, claseSuelta: { importeEsperado: 15 } });
+  assert.deepEqual(r.ok && r.datos.claseSuelta, { importeEsperado: 15 });
+  for (const importeEsperado of [0, -15, '15', null, Number.NaN]) {
+    assert.equal(leerPeticionReservaMostrador({ ...BASE, claseSuelta: { importeEsperado } }).ok, false, `importe ${String(importeEsperado)}`);
+  }
+});
+
+test('vender una clase suelta exige poder mover dinero, además de apuntar', () => {
+  assert.equal(puedeVenderClaseSuelta('PROPIETARIO'), true);
+  assert.equal(puedeVenderClaseSuelta('RECEPCION'), true);
+  assert.equal(puedeVenderClaseSuelta('INSTRUCTOR'), false);
 });
 
 test('«como clase suelta» solo se pide con un true de verdad', () => {
@@ -126,7 +140,8 @@ test('⚠️ el mostrador NO puede apuntar a nadie a una clase que ya terminó',
   // estar ANTES de reservar, no después.
   const hastaLaRpc = ADMIN.slice(i, ADMIN.indexOf("admin.rpc('reservar_plaza'", i));
   assert.ok(
-    /\.select\('cancelada, inicio, fin'\)/.test(hastaLaRpc),
+    // Puede leer más columnas detrás (el precio de la clase suelta), pero `fin` siempre.
+    /\.select\('cancelada, inicio, fin(, [a-z_]+)*'\)/.test(hastaLaRpc),
     'sin leer `fin` no se puede comprobar si la clase ya terminó',
   );
   assert.ok(

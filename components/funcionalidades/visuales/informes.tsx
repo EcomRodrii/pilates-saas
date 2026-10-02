@@ -73,13 +73,12 @@ export function LoQueNoEntraEnElMargen() {
   const filas = [
     { t: 'Coste de sala', d: 'El esquema no tiene alquiler ni coste/hora de sala. Se omite en vez de aproximarlo a ojo — por eso la cifra se llama «margen sobre coste de instructora» y nunca «margen total».' },
     { t: 'Instructora sin tarifa fijada', d: 'El coste y el margen salen «—», no cero. Un cero falsearía el margen al alza y haría parecer rentable una clase que no se ha medido.' },
-    { t: 'Clase suelta cobrada en mostrador', d: 'Un cobro suelto no queda ligado a la sesión, así que esa asistente no suma ingreso aquí aunque haya pagado. Casarlo por fecha sería una heurística frágil.' },
     { t: 'Quien no se presentó', d: 'Un no-show no cuenta como ingreso de esa clase. El informe lo trata como señal de retención, que es otra pregunta.' },
   ];
   return (
     <PanelClaro
       titulo="Lo que el margen NO incluye"
-      nota="Un informe de rentabilidad que redondea los huecos hacia arriba es peor que no tenerlo: te hace subir precios donde no toca. Estos cuatro límites están escritos en el propio cálculo."
+      nota="Un informe de rentabilidad que redondea los huecos hacia arriba es peor que no tenerlo: te hace subir precios donde no toca. Estos tres límites están escritos en el propio cálculo."
     >
       <div style={{ display: 'grid', gap: 10 }}>
         {filas.map((f) => (

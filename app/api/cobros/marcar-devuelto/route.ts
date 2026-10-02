@@ -6,7 +6,7 @@ import { marcarReciboDevuelto } from '@/lib/billing/marcar-devuelto';
 
 export const dynamic = 'force-dynamic';
 
-// «Marcar devuelto» desde Cobros. Pasa por servidor para que, si el recibo era
+// «El banco lo devolvió» desde Cobros: vuelve a deber. Pasa por servidor para que, si el recibo era
 // el de una penalización cobrada, la penalización deje de imputarse a la
 // instructora (ver lib/billing/marcar-devuelto.ts). Sin `bloqueoPorSuscripcion`
 // a propósito: anotar que un dinero no está no cobra nada, y el UPDATE directo
@@ -19,16 +19,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Tu rol no puede marcar recibos como devueltos' }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => null) as { reciboId?: unknown } | null;
+  const body = await req.json().catch(() => null) as { reciboId?: unknown; desde?: unknown } | null;
   if (typeof body?.reciboId !== 'string' || !body.reciboId) {
     return NextResponse.json({ error: 'Falta el recibo' }, { status: 400 });
   }
+  // El estado que vio quien pulsó: si ya no es ese, no se toca (compare-and-set).
+  const desde = typeof body.desde === 'string' && body.desde ? body.desde : undefined;
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Service role no configurada' }, { status: 503 });
 
   const r = await marcarReciboDevuelto(admin, {
-    studioId: sesion.studioId, reciboId: body.reciboId, ahoraISO: new Date().toISOString(),
+    studioId: sesion.studioId, reciboId: body.reciboId, ahoraISO: new Date().toISOString(), desde,
     // Quien lo hizo, para el libro de auditoría: la sesión, nunca el cuerpo.
     actor: { userId: sesion.userId, rol: sesion.rol },
   });

@@ -98,7 +98,7 @@ export default function InformesPage() {
       <Seccion id="limites" titulo="Y lo que la cifra no incluye">
         <p>
           Un informe de rentabilidad que no dice dónde termina es peor que no tenerlo, porque invita a decisiones caras.
-          Estos cuatro huecos están escritos dentro del propio cálculo, no en una nota al pie:
+          Estos tres huecos están escritos dentro del propio cálculo, no en una nota al pie:
         </p>
         <LoQueNoEntraEnElMargen />
         <Limite titulo="Se llama «margen sobre coste de instructora» en todas partes">

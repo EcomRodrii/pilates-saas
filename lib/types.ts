@@ -1183,6 +1183,12 @@ export interface Reserva {
   // construyen los tests y el portal.
   origen?: OrigenReserva;
   nombreExterno?: string | null;
+  /**
+   * De qué suscripción salió la sesión que gastó (`reservas.bono_suscripcion_id`,
+   * la decide `reservar_plaza`). `null`: no gastó ninguna (cuota, cortesía…) o
+   * es anterior a que se rastreara.
+   */
+  bonoSuscripcionId?: string | null;
 }
 
 export interface Recibo {
@@ -1235,6 +1241,11 @@ export interface Recibo {
   entregaEstadoAntes?: string | null;
   /** Acumulado devuelto, en euros. Incluye reembolsos parciales. */
   importeDevuelto?: number | null;
+  /**
+   * El cargo de Stripe del cobro, si lo hubo. Con él, la devolución sale por
+   * Stripe y lo que está en el banco lo cierra su webhook, no el mostrador.
+   */
+  stripePaymentIntentId?: string | null;
   // Cuándo Tentare PIDIÓ la devolución a Stripe (migr 20260811100957). Es un
   // hecho distinto de `fechaDevolucion`, que la escribe el webhook cuando
   // Stripe confirma: con esta puesta y `estado` todavía COBRADO, la devolución

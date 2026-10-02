@@ -1,5 +1,5 @@
 // `recibos`: el navegador escribe SOLO las columnas que necesita, y no toca un recibo devuelto
-// (migración 20261001210000). Segunda mitad de «COBRADO lo escribe el servidor».
+// (migración 20261002094636). Segunda mitad de «COBRADO lo escribe el servidor».
 //
 // Dos cerraduras, y este fichero comprueba las dos por separado:
 //  · el GRANT por columnas: `authenticated` no tiene INSERT/UPDATE de TABLA sobre `recibos`, solo los

@@ -12,7 +12,7 @@ import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
 // camino, qué significa que el compare-and-set no toque filas, qué avisos
 // recibe el estudio y en qué orden salen los efectos.
 
-const ORIGENES: OrigenCobro[] = ['webhook', 'conciliador', 'tpv', 'manual', 'off_session'];
+const ORIGENES: OrigenCobro[] = ['webhook', 'conciliador', 'tpv', 'manual', 'off_session', 'banco'];
 
 // ── Estados admitidos ────────────────────────────────────────────────────────
 
@@ -37,6 +37,14 @@ test('SEPA / tarjeta guardada (admitirDevuelto:false): solo PENDIENTE, FALLIDO y
 
 test('tarjeta guardada síncrona: solo lo que comprobó antes de cobrar', () => {
   assert.deepEqual(estadosAdmitidosPorOrigen('off_session'), ['PENDIENTE', 'FALLIDO']);
+});
+
+test('«El banco lo ha cobrado» solo cierra lo que está en el banco, y lo firma una persona', () => {
+  assert.deepEqual(estadosAdmitidosPorOrigen('banco'), ['EN_CURSO']);
+  assert.equal(conciliadoPorDe('banco'), 'manual');
+  assert.equal(origenNotifica('banco'), false);
+  assert.deepEqual(efectosEnReentrega('banco'), [], 'no pasó por el cajón: nada que reparar en la caja');
+  assert.equal(efectosEnOrden({ origen: 'banco', metodo: 'SEPA', avisarSocia: false, esRenovacion: true }).includes('caja'), false);
 });
 
 test('ningún camino reescribe un COBRADO', () => {
@@ -134,7 +142,8 @@ test('qué caminos avisan al estudio de que ha entrado dinero (no cambia con el 
   // Checkout (webhook y conciliador) y TPV sí; el cobro automático con tarjeta
   // guardada no lo ha hecho nunca; el panel a mano tampoco lo emitía.
   const esperado: Record<OrigenCobro, boolean> = {
-    webhook: true, conciliador: true, tpv: true, manual: false, off_session: false,
+    // «El banco lo ha cobrado» lo marca una persona del estudio: como a mano, sin aviso.
+    webhook: true, conciliador: true, tpv: true, manual: false, off_session: false, banco: false,
   };
   for (const o of ORIGENES) {
     assert.equal(origenNotifica(o), esperado[o], o);

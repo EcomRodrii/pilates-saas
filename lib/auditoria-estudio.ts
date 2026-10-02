@@ -285,6 +285,10 @@ export const ACCIONES: Readonly<Record<string, string>> = {
   INGRESO_MANUAL_CREADO: 'Creó un ingreso manual',
   INGRESO_MANUAL_EDITADO: 'Cambió un ingreso manual',
   INGRESO_MANUAL_ELIMINADO: 'Eliminó un ingreso manual',
+  CLASE_SUELTA_VENDIDA: 'Vendió una clase suelta en el mostrador',
+  RECIBO_REEMBOLSADO_A_MANO: 'Devolvió el dinero de un cobro',
+  RECIBO_REINTENTADO_POR_BANCO: 'Volvió a pasar por el banco un recibo devuelto',
+  COBRO_CONFIRMADO_POR_BANCO: 'Confirmó que el banco cobró un recibo de la remesa',
 };
 
 function objetoDe(e: EntradaAuditoria, o: OpcionesDescripcion): string | null {

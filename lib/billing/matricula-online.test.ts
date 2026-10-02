@@ -4,7 +4,7 @@ import { primeraVezConPlan, liberarCupoMatricula, liberarCupoMatriculaUnaVez, es
 
 type Fila = Record<string, unknown>;
 
-function fakeAdmin(opts: { sociosPorEmail?: Fila[]; countSuscripciones?: number; countPruebas?: number; errorSocios?: boolean; errorSuscripciones?: boolean } = {}) {
+function fakeAdmin(opts: { sociosPorEmail?: Fila[]; countSuscripciones?: number; countPruebas?: number; countSueltas?: number; errorSocios?: boolean; errorSuscripciones?: boolean } = {}) {
   return {
     from(tabla: string) {
       if (tabla === 'socios') {
@@ -23,13 +23,14 @@ function fakeAdmin(opts: { sociosPorEmail?: Fila[]; countSuscripciones?: number;
           }),
         };
       }
-      // suscripciones: todas, o solo las de prueba (el select con el join).
+      // suscripciones: todas, las de prueba o las sueltas (los select con el join).
       return {
         select: (cols: string) => {
-          const deprueba = cols.includes('es_prueba');
+          const sueltas = cols.includes('tipo');
+          const deprueba = !sueltas && cols.includes('es_prueba');
           const resultado = () => Promise.resolve(
             opts.errorSuscripciones ? { count: null, error: { message: 'fallo' } }
-              : { count: deprueba ? (opts.countPruebas ?? 0) : (opts.countSuscripciones ?? 0), error: null },
+              : { count: sueltas ? (opts.countSueltas ?? 0) : deprueba ? (opts.countPruebas ?? 0) : (opts.countSuscripciones ?? 0), error: null },
           );
           const q = { eq: () => q, then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => resultado().then(ok, ko) };
           return q;
@@ -192,4 +193,11 @@ test('⚠️ la clase de prueba NO cuenta como plan: la matrícula se cobra en e
   assert.equal(await primeraVezConPlan(fakeAdmin({ countSuscripciones: 1, countPruebas: 1 }), 'studio-1', 'soc-1', null), true);
   // La prueba y un bono de verdad → ya no.
   assert.equal(await primeraVezConPlan(fakeAdmin({ countSuscripciones: 2, countPruebas: 1 }), 'studio-1', 'soc-1', null), false);
+});
+
+test('⚠️ una clase suelta tampoco cuenta como plan (decisión del fundador, 2-oct-2026): la matrícula va con su primer bono o cuota', async () => {
+  // Solo ha venido a sueltas → sigue siendo su primera vez.
+  assert.equal(await primeraVezConPlan(fakeAdmin({ countSuscripciones: 3, countSueltas: 3 }), 'studio-1', 'soc-1', null), true);
+  // Una prueba, dos sueltas y un bono → ya no.
+  assert.equal(await primeraVezConPlan(fakeAdmin({ countSuscripciones: 4, countPruebas: 1, countSueltas: 2 }), 'studio-1', 'soc-1', null), false);
 });

@@ -2,7 +2,7 @@
 //
 // Lo puro de la ruta vive aquí para poder probarlo sin Supabase: qué petición
 // se acepta y quién puede apuntar a alguien en qué clase.
-import { puedeOperarClase } from '../permisos-reglas.ts';
+import { puedeMoverDinero, puedeOperarClase } from '../permisos-reglas.ts';
 import type { Rol } from '../types.ts';
 
 export interface PeticionReservaMostrador {
@@ -13,11 +13,19 @@ export interface PeticionReservaMostrador {
   /** «Avisar a la alumna». Solo un `false` explícito lo apaga. */
   avisar: boolean;
   /**
-   * El mostrador va a cobrarle la clase suelta (o a dejársela pendiente): el
-   * servidor le dice, con su cartera de AHORA, si ya tenía bono o cuota que
-   * vale para esta clase. Solo un `true` explícito lo pide.
+   * Lo mandaban las pestañas con el panel de #2467, que cobraban la clase
+   * suelta como un recibo aparte. Ahora solo sirve para reconocerlas: sin
+   * `claseSuelta`, la ruta les pide recargar (`MENSAJE_PANEL_VIEJO`). El
+   * panel nuevo lo sigue mandando junto a
+   * `claseSuelta` para que, si se volviera al servidor anterior, este supiera
+   * no gastar un bono además de la clase suelta.
    */
   comoClaseSuelta: boolean;
+  /**
+   * Venderle la clase suelta al reservar (la PUNTUAL de una sesión que gasta
+   * la reserva). `importeEsperado`: lo que dice el botón del mostrador.
+   */
+  claseSuelta: { importeEsperado: number } | null;
 }
 
 /**
@@ -28,6 +36,22 @@ export interface CubiertaPor {
   tipo: 'BONO' | 'MENSUAL';
   /** El nombre del plan, para decírselo a recepción. */
   plan: string;
+  /**
+   * Lo que la cubre es una clase suelta que recuperó al cancelar a tiempo:
+   * entra con ella, y `debe` es lo que aún debe de aquella (0 si está pagada;
+   * `null` si no se ha podido leer: que se mire, no que se dé por pagada).
+   */
+  suelta?: { debe: number | null };
+}
+
+/** Una pestaña con el panel de antes de vender la clase suelta (#2467). */
+export const MENSAJE_PANEL_VIEJO = 'Hay una versión nueva del panel: recarga la página para cobrar la clase suelta.';
+
+/** La clase suelta vendida al reservar: su recibo PENDIENTE, que se cobra después. */
+export interface VentaClaseSuelta {
+  reciboId: string;
+  importe: number;
+  concepto: string;
 }
 
 const MAX_ID = 200;
@@ -58,7 +82,27 @@ export function leerPeticionReservaMostrador(body: unknown):
   // Mismo criterio que `avisar === false` en app/api/sustituciones (acción
   // 'confirmar'): ante la duda, se avisa. Un cliente viejo que no mande el
   // campo no deja a nadie sin enterarse.
-  return { ok: true, datos: { sesionId, socioId, reservaId, avisar: b.avisar !== false, comoClaseSuelta: b.comoClaseSuelta === true } };
+  // Un importe que no es un número positivo no vende nada: se rechaza, no se ignora.
+  let claseSuelta: { importeEsperado: number } | null = null;
+  if (b.claseSuelta != null) {
+    const importe = (b.claseSuelta as { importeEsperado?: unknown }).importeEsperado;
+    if (typeof importe !== 'number' || !Number.isFinite(importe) || importe <= 0) {
+      return { ok: false, error: 'Importe de la clase suelta no válido' };
+    }
+    claseSuelta = { importeEsperado: importe };
+  }
+  return {
+    ok: true,
+    datos: { sesionId, socioId, reservaId, avisar: b.avisar !== false, comoClaseSuelta: b.comoClaseSuelta === true, claseSuelta },
+  };
+}
+
+/**
+ * ¿Puede vender una clase suelta al apuntar? Mueve dinero (crea un recibo y
+ * luego se cobra), así que además de apuntar hace falta poder mover dinero.
+ */
+export function puedeVenderClaseSuelta(rol: Rol): boolean {
+  return puedeApuntarEnClase(rol) && puedeMoverDinero(rol);
 }
 
 /**

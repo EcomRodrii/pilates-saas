@@ -507,3 +507,60 @@ test('el panel ya no concede créditos de renovación por su cuenta: los da el s
   const srv = readFileSync(join(import.meta.dirname, 'confirmar-cobro.ts'), 'utf8');
   assert.match(srv, /p_ref_id: refIdCreditoRenovacion\(p\.reciboId\)/, 'el servidor concede con el ref_id compartido');
 });
+
+// ── «El banco lo ha cobrado» (origen `banco`) ────────────────────────────────
+// Lo que salió en una remesa se quedaba EN_CURSO para siempre: nadie podía
+// cerrarlo, y una cuota que iba por el banco no se renovaba.
+
+test('«El banco lo ha cobrado»: solo cierra un EN_CURSO sin ningún cobro de Stripe en marcha, en el propio UPDATE', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: { ...GANA, metodo_cobro: 'SEPA', es_renovacion: true } });
+  const { orden, deps } = efectos();
+  const r = await confirmarCobro(admin, {
+    ...BASE, origen: 'banco', metodo: 'SEPA', paymentIntentId: null, avisarSocia: false, facturaId: 'fac-manual-rec-1',
+  }, deps);
+  assert.equal(r.ok && r.transicion, 'aplicada');
+  assert.deepEqual(estadosDelCas(updates[0]), ['EN_CURSO'], 'ni lo pendiente ni lo devuelto: eso se cobra con «Cobrar»');
+  for (const col of ['proximo_reintento', 'stripe_payment_intent_id', 'checkout_session_id', 'cobro_mostrador_pi']) {
+    assert.ok(tiene(updates[0].filtros, 'is', col, null), `${col} a null: un adeudo de Stripe en vuelo lo cierra su webhook`);
+  }
+  assert.equal(updates[0].fila.metodo_cobro, 'SEPA');
+  assert.equal(updates[0].fila.sepa_estado, 'succeeded', 'el adeudo se liquidó');
+  assert.equal(updates[0].fila.conciliado_por, 'manual', 'el CHECK no cambia: lo marca una persona');
+  // Se entrega lo pagado (por fin se renueva la cuota), sin caja (no pasó por el cajón) ni aviso.
+  assert.equal(orden[0], 'renovacion');
+  assert.equal(orden.includes('caja'), false);
+  assert.equal(orden.includes('notificacion'), false);
+});
+
+test('el cobro a mano sigue sin poder cerrar un EN_CURSO (no lleva las guardas del banco)', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: null, actual: { estado: 'EN_CURSO', stripe_payment_intent_id: null } });
+  const { deps } = efectos();
+  await confirmarCobro(admin, { ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false }, deps);
+  assert.equal(estadosDelCas(updates[0]).includes('EN_CURSO'), false);
+});
+
+// ── «Cobrar varias» (`sinCobroEnMarcha`) ─────────────────────────────────────
+// En un cobro de varios, lo que tiene un cobro en marcha (pago online abierto,
+// datáfono, reintento programado) no se cobra a mano: serían dos cobros. La ruta
+// lo lee antes y el propio UPDATE lo vuelve a exigir, por si cambia entre medias.
+
+test('«Cobrar varias»: el UPDATE exige que no haya pago online, datáfono ni reintento en marcha', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: GANA });
+  const { deps } = efectos();
+  await confirmarCobro(admin, { ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false, sinCobroEnMarcha: true }, deps);
+  for (const col of ['proximo_reintento', 'checkout_session_id', 'cobro_mostrador_pi']) {
+    assert.ok(tiene(updates[0].filtros, 'is', col, null), `${col} a null en el propio UPDATE`);
+  }
+  // El cargo guardado no: un DEVUELTO o FALLIDO por el banco conserva el de su
+  // adeudo y es justo lo que se cobra en el mostrador.
+  assert.equal(tiene(updates[0].filtros, 'is', 'stripe_payment_intent_id', null), false);
+});
+
+test('el cobro de uno, sin `sinCobroEnMarcha`, no añade esas guardas (quien cobra lo ve en la fila)', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: GANA });
+  const { deps } = efectos();
+  await confirmarCobro(admin, { ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false }, deps);
+  for (const col of ['proximo_reintento', 'checkout_session_id', 'cobro_mostrador_pi']) {
+    assert.equal(tiene(updates[0].filtros, 'is', col, null), false, col);
+  }
+});

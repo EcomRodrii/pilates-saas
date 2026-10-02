@@ -100,23 +100,25 @@ async function montar(page: Page, opts: {
 }
 
 test.describe('Recibo FALLIDO — recuperación manual desde Cobros', () => {
-  test('un recibo FALLIDO enseña los mismos botones que uno PENDIENTE (Cobrar / Online / Marcar devuelto)', async ({ page }) => {
+  test('un recibo FALLIDO enseña los mismos botones que uno PENDIENTE (Cobrar / Su tarjeta / El banco lo devolvió)', async ({ page }) => {
     await montar(page, { estado: 'FALLIDO', intentos: 3 });
     await expect(page.getByText('Renovación Mensual')).toBeVisible();
     await expect(page.getByText('No se pudo cobrar', { exact: true })).toBeVisible();
 
     // Antes de este fix, NINGUNO de los tres existía para FALLIDO.
     await expect(page.getByTitle('Marcar cobrado (elige cómo) y enviar email')).toBeVisible();
-    await expect(page.getByTitle('Reintentar el cobro con la tarjeta o SEPA que ya tiene guardado la socia')).toBeVisible();
-    await expect(page.getByTitle('Marcar devuelto')).toBeVisible();
+    await expect(page.getByTitle('Cobrarle con la tarjeta o la domiciliación que tiene guardada')).toBeVisible();
+    await expect(page.getByTitle('El banco lo devolvió')).toBeVisible();
   });
 
-  test('pulsar "Online" en un FALLIDO SÍ dispara el cobro: loading → request real → toast de éxito', async ({ page }) => {
+  test('«Su tarjeta» en un FALLIDO, confirmando, SÍ dispara el cobro: loading → request real → toast de éxito', async ({ page }) => {
     const llamadas = await montar(page, { estado: 'FALLIDO', intentos: 3, cobrarOnlineDelayMs: 800 });
-    const btnOnline = page.getByTitle('Reintentar el cobro con la tarjeta o SEPA que ya tiene guardado la socia');
+    const btnOnline = page.getByTitle('Cobrarle con la tarjeta o la domiciliación que tiene guardada');
     await expect(btnOnline).toBeVisible();
 
     await btnOnline.click();
+    // Cobra al primer toque con dinero de por medio: ahora pide confirmar antes.
+    await page.getByRole('button', { name: 'Cobrar 60,00 €' }).click();
     // Feedback inmediato: el botón se deshabilita y muestra el spinner mientras
     // se resuelve — nunca "he pulsado y no sé si ha pasado algo".
     await expect(btnOnline).toBeDisabled();
@@ -135,8 +137,9 @@ test.describe('Recibo FALLIDO — recuperación manual desde Cobros', () => {
       estado: 'FALLIDO', intentos: 3, cobrarOnlineStatus: 402,
       cobrarOnlineBody: { error: 'No se pudo completar el cobro. Inténtalo de nuevo más tarde.', errorCode: 'FALLO_COBRO' },
     });
-    const btnOnline = page.getByTitle('Reintentar el cobro con la tarjeta o SEPA que ya tiene guardado la socia');
+    const btnOnline = page.getByTitle('Cobrarle con la tarjeta o la domiciliación que tiene guardada');
     await btnOnline.click();
+    await page.getByRole('button', { name: 'Cobrar 60,00 €' }).click();
 
     await expect(page.getByText('No se pudo completar el cobro. Inténtalo de nuevo más tarde.')).toBeVisible({ timeout: 10_000 });
     // El botón se reactiva: no queda "clavado" pensando para siempre.
@@ -145,13 +148,15 @@ test.describe('Recibo FALLIDO — recuperación manual desde Cobros', () => {
 
   // «Marcar devuelto» pasa por servidor para que la nómina se entere si el recibo
   // era de una penalización. Antes era un UPDATE directo desde el cliente.
-  test('«Marcar devuelto» va por la ruta de servidor, nunca con un UPDATE directo a recibos', async ({ page }) => {
+  test('«El banco lo devolvió» va por la ruta de servidor, con el estado que se veía, nunca con un UPDATE directo a recibos', async ({ page }) => {
     const registro = { devuelto: [] as string[], escriturasRecibos: 0 };
     await montar(page, { estado: 'FALLIDO', intentos: 3, registro });
-    await page.getByTitle('Marcar devuelto').click();
+    await page.getByTitle('El banco lo devolvió').click();
+    await page.getByRole('button', { name: 'Sí, lo devolvió el banco' }).click();
 
     await expect.poll(() => registro.devuelto.length).toBeGreaterThan(0);
-    expect(JSON.parse(registro.devuelto[0])).toEqual({ reciboId: 'rec-1' });
+    // `desde`: el estado que se veía al pulsar (compare-and-set en el servidor).
+    expect(JSON.parse(registro.devuelto[0])).toEqual({ reciboId: 'rec-1', desde: 'FALLIDO' });
     await page.waitForTimeout(500);
     expect(registro.escriturasRecibos).toBe(0);
   });
@@ -162,7 +167,8 @@ test.describe('Recibo FALLIDO — recuperación manual desde Cobros', () => {
       estado: 'FALLIDO', intentos: 3, registro,
       marcarDevueltoStatus: 409, marcarDevueltoBody: { error: 'Este recibo ya no se puede marcar como devuelto.' },
     });
-    await page.getByTitle('Marcar devuelto').click();
+    await page.getByTitle('El banco lo devolvió').click();
+    await page.getByRole('button', { name: 'Sí, lo devolvió el banco' }).click();
 
     // Contador: sin él, «no mintió» podría ser verdad por no haber intentado nada.
     await expect.poll(() => registro.devuelto.length).toBeGreaterThan(0);
@@ -173,9 +179,10 @@ test.describe('Recibo FALLIDO — recuperación manual desde Cobros', () => {
 
   test('doble clic mientras carga no dispara una segunda request', async ({ page }) => {
     const llamadas = await montar(page, { estado: 'FALLIDO', intentos: 3, cobrarOnlineDelayMs: 800 });
-    const btnOnline = page.getByTitle('Reintentar el cobro con la tarjeta o SEPA que ya tiene guardado la socia');
+    const btnOnline = page.getByTitle('Cobrarle con la tarjeta o la domiciliación que tiene guardada');
 
     await btnOnline.click();
+    await page.getByRole('button', { name: 'Cobrar 60,00 €' }).click();
     await expect(btnOnline).toBeDisabled();
     // El segundo clic, con el botón ya deshabilitado por `stripeLoading`, no
     // debe llegar a producir una segunda llamada. Timeout CORTO a propósito

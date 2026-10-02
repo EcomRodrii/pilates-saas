@@ -13,6 +13,8 @@ import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { serializeCsv } from '@/lib/csv';
+import { csvLoCobrado, descargarCsv as descargarFichero } from '@/lib/billing/export-cobrado';
+import { dbRecibosCobradosParaExport } from '@/lib/supabase-data';
 import { computeCierreAnual, desglosarIvaDesdeTotal, facturasSinRectificarDeCobrosDevueltos, type CierreLinea } from '@/lib/fiscal/cierre-engine';
 import type { IngresoManual } from '@/lib/types';
 
@@ -52,6 +54,17 @@ export default function CierreDeAnoPage() {
   const [guardandoAuto, setGuardandoAuto] = useState(false);
 
   const [anio, setAnio] = useState<number>(() => new Date().getFullYear());
+  // Lo cobrado del año, para la gestoría de quien no factura con Tentare: el
+  // mismo fichero que Cobros e Informes (lib/billing/export-cobrado.ts).
+  const [descargandoCobrado, setDescargandoCobrado] = useState<'idle' | 'loading' | 'error'>('idle');
+  const descargarCobradoDelAnio = async () => {
+    if (descargandoCobrado === 'loading') return;
+    setDescargandoCobrado('loading');
+    const filas = await dbRecibosCobradosParaExport(`${anio}-01-01`, `${anio}-12-31`);
+    if (!filas) { setDescargandoCobrado('error'); return; }
+    descargarFichero(csvLoCobrado(filas), `cobrado-${anio}.csv`);
+    setDescargandoCobrado('idle');
+  };
   const [manuales, setManuales] = useState<IngresoManual[]>([]);
   // Año al que pertenecen los `manuales` ya cargados. Derivar la carga de aquí
   // (en vez de un setState(true) al entrar en el effect) evita el "setState
@@ -301,9 +314,17 @@ export default function CierreDeAnoPage() {
         <div role="note" className="rounded-xl border border-border bg-muted/60 p-4 text-sm">
           <p className="font-bold text-foreground m-0">Tentare no emite tus facturas</p>
           <p className="text-muted-foreground mt-1 mb-0">
-            Este cierre solo recoge las facturas emitidas desde aquí. Para pasarle a tu gestoría lo que has cobrado,
-            exporta tus cobros en <Link href="/cobros?tab=cobrado" className="font-semibold text-foreground underline underline-offset-2 hover:no-underline">Cobros → Lo que he cobrado → Exportar</Link>.
+            Este cierre solo recoge las facturas emitidas desde aquí. Para tu gestoría, descarga lo que has cobrado
+            en {anio} (o un mes suelto en <Link href="/cobros?tab=cobrado" className="font-semibold text-foreground underline underline-offset-2 hover:no-underline">Cobros → Lo que he cobrado → Descargar para la gestoría</Link>).
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Button variant="outline" onClick={() => void descargarCobradoDelAnio()} disabled={descargandoCobrado === 'loading'}>
+              <Download className="size-4" /> {descargandoCobrado === 'loading' ? 'Preparando…' : `Descargar lo cobrado en ${anio}`}
+            </Button>
+            {descargandoCobrado === 'error' && (
+              <span role="alert" className="text-[13px] text-destructive">No se ha podido preparar el fichero. Inténtalo otra vez.</span>
+            )}
+          </div>
         </div>
       )}
 

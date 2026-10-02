@@ -1,6 +1,5 @@
 'use client';
 
-import { precioClaseSuelta as precioSueltaDelEstudio } from '@/lib/student/precio-suelta';
 import { ETIQUETA_INSTRUCTORA_NO_DISPONIBLE, nombreInstructoraDeClase } from '@/lib/equipo/clases-sin-instructora';
 import * as Sentry from '@sentry/nextjs';
 import { useState, useMemo, useEffect, useRef, useCallback, useId, useSyncExternalStore } from 'react';
@@ -75,7 +74,8 @@ import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { coberturaDeClase } from '@/lib/reservar/cobertura';
 import { lineaCoberturaMostrador } from '@/lib/calendario/cobertura-mostrador';
 import { idReciboDeClaseSuelta } from '@/lib/cobros/recibo-de-cita';
-import { importeAdeudado, importeIngresado } from '@/lib/billing/situacion-recibo';
+import { avisoClaseSueltaAlQuitar, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import type { CubiertaPor } from '@/lib/reservas/reserva-mostrador';
 import { AdaptacionesClase } from '@/components/calendario/adaptaciones-clase';
 import { HistorialSesion } from '@/components/calendario/historial-sesion';
 import { SpotMap } from '@/components/spots/spot-map';
@@ -599,7 +599,7 @@ export default function Calendario() {
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
-    addActividadReciente, addRecibo, crearFacturaDirecta, recibos, resetDatosPilates, dataLoaded, addInstructor,
+    addActividadReciente, marcarCobrado, recibos, resetDatosPilates, dataLoaded, addInstructor,
   } = useStudio();
   const { user } = useAuth();
   // Un solo sistema de toast (antes había dos en paralelo) — con soporte de
@@ -1753,111 +1753,135 @@ export default function Calendario() {
     return true;
   }
 
+  // La clase suelta es la tarifa PUNTUAL de una sesión que gasta la reserva
+  // (lib/reservas/clase-suelta.ts): la MISMA regla que usa el servidor para
+  // vender, así que el botón nunca promete un precio que el servidor no cobra.
+  // `null`: desde aquí no se puede vender una clase suelta para esta clase.
   const precioSueltaDe = (sesionId: string): number | null => {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
-    // Fuente única: nunca el precio de la «clase de prueba».
-    return sesion?.precioPuntual ?? precioSueltaDelEstudio(planesTarifa);
+    return importeDeClaseSuelta(sesion?.precioPuntual ?? null, planDeClaseSuelta(planesTarifa, sesion?.tipoClaseId ?? null));
   };
-
-  // ¿Pagó esta clase como suelta en el mostrador, o la tiene pendiente? Quitarla
-  // de la clase no toca su recibo: que se diga, para devolvérselo o quitárselo
-  // en Cobros. Las cifras, con la lectura única de un recibo: lo que de verdad
-  // entró (neto de lo ya devuelto) y lo que aún debe.
-  const avisoPagoSuelta = (reservaId: string): string | null => {
-    const idSuelta = idReciboDeClaseSuelta(reservaId);
-    const recibo = idSuelta ? recibos.find(r => r.id === idSuelta) : undefined;
-    if (!recibo) return null;
-    const pagado = importeIngresado(recibo);
-    if (pagado > 0) return `Pagó ${formatEuro(pagado)} por esta clase: si se lo devuelves, márcalo en Cobros`;
-    const debe = importeAdeudado(recibo);
-    return debe > 0 ? `Tenía ${formatEuro(debe)} pendientes por esta clase: si ya no se los cobras, elimina el recibo en Cobros` : null;
+  // Por qué no se puede cobrar: que lo diga con lo que hay que hacer.
+  const sinPrecioSueltaDe = (sesionId: string): { texto: string; aPaquetes: boolean } => {
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    return motivoSinClaseSuelta(planesTarifa, sesion?.tipoClaseId ?? null, sesion?.precioPuntual);
+  };
+  // El recibo de la clase suelta de una reserva (`rec-suelta-<reserva>`), si lo tiene.
+  const reciboDeSuelta = (reservaId: string) => {
+    const id = idReciboDeClaseSuelta(reservaId);
+    return id ? recibos.find(r => r.id === id) : undefined;
   };
 
   // La pantalla decide cobrar con la cartera que tiene en memoria, y puede ser
   // vieja (un bono renovado desde la app o vendido en otro dispositivo). El
   // servidor la lee al reservar y, si ya traía con qué venir, entra con eso: ni
   // se cobra ni se deja recibo.
-  const textoYaCubierta = (nombre: string, c: { plan: string }) =>
-    `${nombre} entra con su ${c.plan}, que ya cubría esta clase: no se le ha cobrado nada`;
+  const textoYaCubierta = (nombre: string, c: CubiertaPor) => !c.suelta
+    ? `${nombre} entra con su ${c.plan}, que ya cubría esta clase: no se le ha cobrado nada`
+    : c.suelta.debe == null
+      ? `${nombre} entra con la clase suelta que recuperó: no se le cobra otra. Mira en «Quién me debe» si aún debe aquella`
+      : c.suelta.debe > 0
+        ? `${nombre} entra con la clase suelta que recuperó: no se le cobra otra. Sigue debiendo ${formatEuro(c.suelta.debe)} de aquella, en «Quién me debe»`
+        : `${nombre} entra con la clase suelta que recuperó: no se le cobra otra`;
+  // Lo que se le dice a recepción si no ha quedado apuntada: si se llegó a
+  // vender y no se pudo deshacer, o si ni siquiera se sabe, «no se le ha
+  // cobrado nada» no sería verdad del todo.
+  const textoSinApuntar = (r: { error: string; queda?: 'recibo' | 'revisar'; sinRespuesta?: boolean }, nombre: string) =>
+    r.sinRespuesta ? `No se ha podido confirmar si ${nombre} ha quedado apuntada: mira la clase antes de cobrarle.`
+      : r.queda === 'revisar' ? `${r.error} Su clase suelta no se ha podido deshacer: mira la clase y su ficha antes de cobrarle o de borrar nada.`
+      : r.queda === 'recibo' ? `${r.error} Ha quedado un recibo pendiente de esta clase suelta que sobra: elimínalo en «Quién me debe».`
+      : `${r.error} No se le ha cobrado nada.`;
 
   // «Cobrar y añadirla» (maqueta aprobada, 1-oct-2026): la clase suelta se
-  // cobra en el mostrador de verdad —efectivo, tarjeta o Bizum—, no con un
-  // recibo pendiente para luego en Cobros, que es lo que hacía el diálogo de
-  // antes.
+  // cobra en el mostrador de verdad —efectivo, tarjeta o Bizum—.
   //
-  // Orden: PRIMERO la plaza y DESPUÉS el cobro. Lo escaso es el sitio: si la
-  // clase se llena entre medias, cobrar primero dejaría dinero sin clase (y
-  // devolverlo en mano). Si falla el cobro con la plaza ya dada, el recibo queda
-  // PENDIENTE en «Quién me debe» y se dice. El cobro lo confirma el servidor
-  // (`crearFacturaDirecta` → `POST /api/cobros/marcar-cobrado`): un recibo no
-  // nace cobrado desde el navegador.
+  // Orden: PRIMERO la plaza y DESPUÉS el cobro. Al reservar, el servidor le
+  // vende la clase suelta (la PUNTUAL de una sesión, con su recibo PENDIENTE) y
+  // la reserva la gasta bajo su candado; si la plaza no sale, la anula. Así le
+  // vale la política de cancelación del estudio, como a un bono (decisión del
+  // fundador, 2-oct-2026). Después se cobra ese recibo por el servidor
+  // (`marcarCobrado` → `POST /api/cobros/marcar-cobrado`, con el método): un
+  // recibo no nace cobrado desde el navegador.
   async function cobrarSueltaYAnadir(sesionId: string, socioId: string, metodo: MetodoSuelta): Promise<boolean> {
     const precio = precioSueltaDe(sesionId);
     if (precio == null || precio <= 0) return false;
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     const nombre = socios.find(s => s.id === socioId)?.nombre ?? 'La clienta';
     const esWalkIn = !!sesion && new Date(sesion.inicio) <= now;
-    const reserva = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn, avisar: avisarAlumna, comoClaseSuelta: true });
-    if (!reserva.ok) { showToastError(`${reserva.error} No se le ha cobrado nada.`); return false; }
+    const reserva = await addReserva(sesionId, socioId, undefined, {
+      checkInInmediato: esWalkIn, avisar: avisarAlumna, claseSuelta: { importeEsperado: precio },
+    });
+    if (!reserva.ok) { showToastError(textoSinApuntar(reserva, nombre)); void refrescarVista(); return false; }
     void refrescarVista();
+    if (reserva.avisoVenta) {
+      showToastError(`${reserva.estado === 'LISTA_ESPERA' ? `${nombre} va a la lista de espera` : `${nombre} está en la clase`}, pero ${reserva.avisoVenta}`);
+      return true;
+    }
     if (reserva.estado === 'LISTA_ESPERA') {
-      showToast(`La clase se ha llenado justo ahora: ${nombre} va a la lista de espera, y no se le ha cobrado nada`);
+      showToast(`La clase se ha llenado justo ahora: ${nombre} va a la lista de espera, sin cobrarle nada. Si entra, cóbrale la clase en la puerta`);
       return true;
     }
     if (reserva.cubiertaPor) { showToast(textoYaCubierta(nombre, reserva.cubiertaPor)); return true; }
-    // El recibo cuelga de la reserva (`rec-suelta-<reserva>`): enlace con la
-    // plaza, y un reintento encuentra este recibo en vez de crear otro.
-    const reciboId = reserva.reservaId ? idReciboDeClaseSuelta(reserva.reservaId) ?? undefined : undefined;
-    const clase = sesion ? `${sesion.tipoClase.nombre}, ${diaCorto(sesion.inicio)} ${horaEstudio(sesion.inicio)}` : null;
-    const res = await crearFacturaDirecta(
-      { socioId, concepto: clase ? `Clase suelta — ${clase}` : 'Clase suelta', importe: precio },
-      { reciboId, metodo, que: 'clase' },
-    );
+    if (!reserva.venta) {
+      showToastError(`${nombre} está en la clase, pero no se ha podido apuntar su clase suelta. Cóbrasela desde Cobros con «Nuevo cobro».`);
+      return true;
+    }
+    const res = await marcarCobrado(reserva.venta.reciboId, metodo);
     const como = metodo === 'EFECTIVO' ? 'en efectivo' : metodo === 'TARJETA' ? 'con tarjeta' : 'por Bizum';
-    if (res.ok) {
-      showToast(`${formatEuro(precio)} cobrados ${como} · ${nombre} añadida a la clase`);
+    // `yaEstaba`: un intento anterior la apuntó y su respuesta no llegó; lo
+    // que se cobra es la clase suelta de aquel intento.
+    const dondeEsta = reserva.yaEstaba ? `${nombre} ya estaba en la clase` : `${nombre} añadida a la clase`;
+    if (res.ok && res.yaEstaba) {
+      // Otra pestaña (u otro intento) ya la había cobrado: este clic no ha cobrado nada.
+      showToast(`Su clase suelta ya estaba cobrada · ${dondeEsta}. No le cobres otra vez`);
+    } else if (res.ok) {
+      showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}`);
     } else if ('cobroRegistrado' in res) {
       // El dinero entró; falta sellar la factura (se reintenta sola).
-      showToast(`${formatEuro(precio)} cobrados ${como} · ${nombre} añadida. ${res.error}`);
-    } else if ('cobroSinConfirmar' in res) {
-      // El recibo existe, pendiente: no se puede volver a pulsar sin duplicarlo.
-      // En rojo y más rato: recepción puede tener ya el dinero en la mano.
-      showToastError(`${nombre} añadida a la clase, pero no consta el cobro. ${res.error}`);
+      showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}. ${res.error}`);
     } else {
-      // No llegó a crearse el recibo: no aparece en «Quién me debe». «Nuevo
-      // cobro» pide el método al cobrarlo («Nueva factura» no, y el efectivo
-      // no entraría en caja).
-      showToastError(`${nombre} añadida a la clase, pero no se ha registrado ningún cobro (${res.error}). Apúntaselo en Cobros con «Nuevo cobro».`);
+      // El recibo existe, pendiente: queda en «Quién me debe». En rojo y más
+      // rato: recepción puede tener ya el dinero en la mano.
+      showToastError(`${dondeEsta}, pero no consta el cobro. ${res.error} El recibo queda pendiente en «Quién me debe».`);
     }
     return true;
   }
 
-  // «Cobrar después»: lo que hacía el diálogo de antes —apuntarla y dejarle el
-  // recibo pendiente para cobrarlo en Cobros—, ahora con la plaza PRIMERO: el
-  // recibo solo se crea si de verdad entró (antes quedaba aunque luego se dijera
-  // que no a la lista de espera).
+  // «Cobrar después»: apuntarla y dejarle el recibo pendiente para cobrarlo en
+  // Cobros. Es la misma venta (la clase suelta con su recibo pendiente), así
+  // que la política de cancelación le vale igual; si cancela, sigue debiéndola
+  // como cualquier compra a crédito.
   async function anadirYCobrarDespues(sesionId: string, socioId: string): Promise<boolean> {
     const precio = precioSueltaDe(sesionId);
     if (precio == null || precio <= 0) return false;
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     const nombre = socios.find(s => s.id === socioId)?.nombre ?? 'La clienta';
     const esWalkIn = !!sesion && new Date(sesion.inicio) <= now;
-    const reserva = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn, avisar: avisarAlumna, comoClaseSuelta: true });
-    if (!reserva.ok) { showToastError(reserva.error); return false; }
+    const reserva = await addReserva(sesionId, socioId, undefined, {
+      checkInInmediato: esWalkIn, avisar: avisarAlumna, claseSuelta: { importeEsperado: precio },
+    });
+    if (!reserva.ok) {
+      showToastError(reserva.sinRespuesta || reserva.queda ? textoSinApuntar(reserva, nombre) : reserva.error);
+      void refrescarVista();
+      return false;
+    }
     void refrescarVista();
+    if (reserva.avisoVenta) {
+      showToastError(`${reserva.estado === 'LISTA_ESPERA' ? `${nombre} va a la lista de espera` : `${nombre} está en la clase`}, pero ${reserva.avisoVenta}`);
+      return true;
+    }
     if (reserva.estado === 'LISTA_ESPERA') {
-      showToast(`La clase está llena: ${nombre} va a la lista de espera, sin recibo`);
+      showToast(`La clase está llena: ${nombre} va a la lista de espera, sin recibo. Si entra, cóbrale la clase en la puerta`);
       return true;
     }
     if (reserva.cubiertaPor) { showToast(textoYaCubierta(nombre, reserva.cubiertaPor)); return true; }
-    const clase = sesion ? `${sesion.tipoClase.nombre}, ${diaCorto(sesion.inicio)} ${horaEstudio(sesion.inicio)}` : null;
-    // También cuelga de la reserva: al quitarla de la clase se avisa de que lo tiene pendiente.
-    const recibo = await addRecibo({
-      socioId, suscripcionId: null, concepto: clase ? `Clase suelta — ${clase}` : 'Clase suelta',
-      importe: precio, fechaVencimiento: hoyEnEstudio(),
-    }, { id: reserva.reservaId ? idReciboDeClaseSuelta(reserva.reservaId) ?? undefined : undefined });
-    if (recibo.ok) showToast(`${nombre} añadida · recibo de ${formatEuro(precio)} pendiente en Cobros`);
-    else showToastError(`${nombre} añadida, pero no se ha podido crear el recibo: créalo a mano en Cobros`);
+    if (!reserva.venta) {
+      showToastError(`${nombre} está en la clase, pero no se ha podido apuntar su clase suelta. Cóbrasela desde Cobros con «Nuevo cobro».`);
+      return true;
+    }
+    showToast(reserva.yaEstaba
+      ? `${nombre} ya estaba en la clase · su recibo de ${formatEuro(reserva.venta.importe)} sigue pendiente en Cobros`
+      : `${nombre} añadida · recibo de ${formatEuro(reserva.venta.importe)} pendiente en Cobros`);
     return true;
   }
 
@@ -3176,6 +3200,7 @@ export default function Calendario() {
                     tipoClaseId: sesionActual.tipoClaseId, precioClaseSuelta: precioSueltaDe(sesionActual.id),
                   }))}
                   precio={precioSueltaDe(sesionActual.id)}
+                  sinPrecio={sinPrecioSueltaDe(sesionActual.id)}
                   onAnadir={socioId => anadirOPreguntarEspera(sesionActual.id, socioId)}
                   onCobrarYAnadir={mueveDinero ? ((socioId, metodo) => cobrarSueltaYAnadir(sesionActual.id, socioId, metodo)) : null}
                   onAnadirYCobrarDespues={mueveDinero ? (socioId => anadirYCobrarDespues(sesionActual.id, socioId)) : null}
@@ -3203,13 +3228,15 @@ export default function Calendario() {
             resolviendoId={resolviendoReserva}
             onQuitar={gestionaClientas ? (id: string) => {
               const marca = marcaReserva({ id }, recuperaciones); // antes de cancelar
-              const pagoSuelta = avisoPagoSuelta(id); // ídem
-              // El aviso de bono no devuelto, lo que decidió el servidor sobre
-              // la plaza fija y la recuperación, y si pagó la clase suelta.
+              const suelta = reciboDeSuelta(id); // ídem
+              // El aviso de bono no devuelto, y lo que decidió el servidor sobre
+              // la plaza fija, la recuperación y la clase suelta (su política).
               void cancelarReserva(id).then(async res => {
                 if (!res.ok) showToast(res.error);
                 else {
-                  const texto = [textoTrasQuitar(res, marca), res.avisoBono, pagoSuelta].filter(Boolean).join(' · ');
+                  const texto = [textoTrasQuitar(res, marca), res.avisoBono,
+                    avisoClaseSueltaAlQuitar({ recibo: suelta, reservaId: id, bonoDevuelto: !!res.bonoDevuelto, tardia: !!res.tardia })]
+                    .filter(Boolean).join(' · ');
                   if (texto) showToast(texto);
                 }
                 // ⚠️ Sin esto el contador se quedaba en «8/8» con la clienta ya

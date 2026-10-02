@@ -8,10 +8,12 @@ import { facturaIdManual } from '@/lib/billing/cobro-confirmado-reglas';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { anotarCobroMarcadoAMano, leerReciboAntesDeCobrar } from '@/lib/auditoria/cobro-manual';
 import {
-  estadoHttpDeLote, parsearPeticionMarcarCobrado, penalizacionesDeLosRecibos, recibosDePenalizacionAnulada,
-  resultadoDeConfirmacion, resultadoDeExcepcion, resultadoPenalizacionAnulada,
+  estadoHttpDeLote, MENSAJE_COBRO_EN_MARCHA_LOTE, parsearPeticionMarcarCobrado, penalizacionesDeLosRecibos, recibosDePenalizacionAnulada,
+  resultadoDeConfirmacion, resultadoDeExcepcion, resultadoNoCobrable, resultadoPenalizacionAnulada,
   type ResultadoReciboMarcado,
 } from '@/lib/cobros/marcar-cobrado';
+import { motivosParaNoSerRemesa } from '@/lib/billing/remesa-del-recibo';
+import { COLUMNAS_COBRO_EN_MARCHA } from '@/lib/billing/remesa-sepa-reglas';
 
 export const dynamic = 'force-dynamic';
 // Hasta 50 recibos en serie, cada uno con su sellado Veri*Factu. El panel manda
@@ -102,12 +104,49 @@ export async function POST(req: NextRequest) {
     peticion.reciboIds.map(async id => [id, await leerReciboAntesDeCobrar(admin, sesion.studioId, id)] as const),
   ));
 
+  // «El banco lo ha cobrado»: el cierre de una remesa (origen `banco`, solo
+  // EN_CURSO y sin ningún cobro de Stripe en marcha). El método es el adeudo.
+  // Y solo lo que pudo salir en una remesa: un EN_CURSO de un «Reintentar» del
+  // panel de antes, o de una remesa cuyo fichero falló, no lo cobró ningún banco.
+  const porElBanco = peticion.canal === 'banco';
+  const remesa = porElBanco ? await motivosParaNoSerRemesa(admin, sesion.studioId, peticion.reciboIds) : null;
+  // En un cobro de varios, lo que tiene un cobro en marcha no se cobra (y el
+  // propio UPDATE lo vuelve a exigir, por si cambia entre medias).
+  const conCobroEnMarcha = new Set<string>();
+  let sinLeerCobrosEnMarcha = false;
+  if (peticion.lote && !porElBanco) {
+    const { data, error: errEnMarcha } = await admin.from('recibos').select(`id, ${COLUMNAS_COBRO_EN_MARCHA.join(', ')}`)
+      .eq('studio_id', sesion.studioId).in('id', peticion.reciboIds);
+    sinLeerCobrosEnMarcha = !!errEnMarcha;
+    for (const fila of (data ?? []) as unknown as Record<string, unknown>[]) {
+      if (COLUMNAS_COBRO_EN_MARCHA.some(col => col !== 'stripe_payment_intent_id' && !!fila[col])) conCobroEnMarcha.add(fila.id as string);
+    }
+  }
   const resultados: ResultadoReciboMarcado[] = [];
   for (const reciboId of peticion.reciboIds) {
+    if (remesa && !remesa.ok) {
+      resultados.push(resultadoNoCobrable(reciboId, 'No se ha podido comprobar si salió en una remesa. Inténtalo otra vez.'));
+      continue;
+    }
+    if (sinLeerCobrosEnMarcha) {
+      resultados.push(resultadoNoCobrable(reciboId, 'No se ha podido comprobar si tiene un cobro en marcha. Inténtalo otra vez.'));
+      continue;
+    }
+    const motivo = remesa?.ok ? remesa.motivoPorRecibo.get(reciboId) : null;
+    if (motivo) {
+      resultados.push(resultadoNoCobrable(reciboId, motivo));
+      continue;
+    }
+    if (conCobroEnMarcha.has(reciboId)) {
+      resultados.push(resultadoNoCobrable(reciboId, MENSAJE_COBRO_EN_MARCHA_LOTE));
+      continue;
+    }
     // La guardia de penalizaciones se lee JUSTO antes de cobrar cada recibo, no una vez al
     // principio: el lote va en serie (hasta ~20 s) y una penalización que alguien anula en
     // mitad no puede cobrarse con la lectura vieja. Solo lee para los `rec-penaliz-*`.
-    if (penalizacionesDeLosRecibos([reciboId]).length > 0
+    // Lo que ya cobró el banco no se frena: el dinero ha entrado, y bloquearlo lo
+    // dejaría sin registrar.
+    if (!porElBanco && penalizacionesDeLosRecibos([reciboId]).length > 0
       && (await bloqueadosPorPenalizacion(admin, sesion.studioId, [reciboId])).has(reciboId)) {
       resultados.push(resultadoPenalizacionAnulada(reciboId));
       continue;
@@ -116,8 +155,9 @@ export async function POST(req: NextRequest) {
       const r = await confirmarCobro(admin, {
         studioId: sesion.studioId,
         reciboId,
-        metodo: peticion.metodo,
-        origen: 'manual',
+        metodo: porElBanco ? 'SEPA' : peticion.metodo,
+        origen: porElBanco ? 'banco' : 'manual',
+        sinCobroEnMarcha: peticion.lote && !porElBanco,
         paymentIntentId: null,
         avisarSocia: false,
         facturaId: facturaIdManual(reciboId),
@@ -146,7 +186,7 @@ export async function POST(req: NextRequest) {
   // Al libro, solo lo que ESTA petición cambió (`aplicada`): un `ya_estaba` no
   // cambió nada. Después de todos los cobros y antes de responder; nunca lanza.
   await Promise.all(resultados.filter(r => r.resultado === 'aplicada').map(r =>
-    anotarCobroMarcadoAMano(admin, { sesion, reciboId: r.reciboId, antes: antes.get(r.reciboId) ?? null }),
+    anotarCobroMarcadoAMano(admin, { sesion, reciboId: r.reciboId, antes: antes.get(r.reciboId) ?? null, porElBanco }),
   ));
 
   return NextResponse.json({ resultados }, { status: estadoHttpDeLote(resultados) });

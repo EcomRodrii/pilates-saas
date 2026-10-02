@@ -1038,6 +1038,16 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     (`lib/db/supabase-data-admin.ts`) terminan en `trasReservaCreada`,
     `trasPlazaConfirmada` o `trasPromocionDeEspera`; cualquier camino nuevo que
     confirme plaza llama a su dueño.
+  - **«Clase suelta»: una tarifa PUNTUAL de una sesión que gasta la reserva**
+    (decisión del fundador, 2-oct-2026), en la app y en el mostrador.
+    - En el mostrador la vende el servidor al reservar (`crearReservaMostrador`
+      con `claseSuelta`: `sus-suelta-<reserva>` + `rec-suelta-<reserva>`
+      PENDIENTE). Se anula si la plaza no sale, y el cobro va después por
+      `marcar-cobrado`.
+    - Así le vale la política de cancelación como a un bono: a tiempo vuelve la
+      sesión, tarde o sin presentarse se pierde, y nunca se devuelve dinero solo.
+    - ⚠️ Nunca un recibo suelto para una clase: ninguna regla de cancelación lo
+      ve. Fue lo que hizo #2467 durante unas horas.
   - **«Cobro confirmado»: el navegador, cerrado** (#2399 + PR4, 1-oct-2026). Webhook/
     conciliador/POS-confirmar, SEPA/dunning, off-session y el «marcar cobrado» del panel
     (`POST /api/cobros/marcar-cobrado`, `origen: 'manual'`) convergen en `confirmarCobro`
@@ -1052,7 +1062,7 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     lo dicen antes de ir a la red. ⚠️ Lo que SÍ sigue escribiendo COBRADO, y es legítimo, es
     el servidor por su cuenta, sin pasar por `confirmarCobro`: el POS (`lib/pos/venta-servidor.ts`),
     `entregar-plan-comprado` y el webhook al revertir una devolución.
-    **Y el resto del recibo también** (migr `20261001210000`): `authenticated` no tiene
+    **Y el resto del recibo también** (migr `20261002094636`): `authenticated` no tiene
     INSERT/UPDATE de TABLA sobre `recibos`, solo las columnas de
     `lib/cobros/recibo-escritura-navegador.ts` (crear: id, estudio, socia, suscripción,
     concepto, importe, estado, vencimiento, `es_renovacion`; actualizar: `estado` e
@@ -1062,12 +1072,13 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     grant de tabla: por eso es REVOKE de tabla + GRANT por columnas, en ese orden.
     `aplicar_politica_recibos_al_cancelar_cuota` es SECURITY DEFINER por esto (era lo único
     que escribía recibos con el rol de quien cancela una cuota). El trigger cierra también
-    DEVUELTO: no se crea ni se pasa a devuelto desde el navegador, y de un devuelto solo se
-    sale con «Reintentar» (→ EN_CURSO) si lo devolvió el BANCO (mismo criterio que
+    DEVUELTO: no se crea ni se pasa a devuelto desde el navegador, y de un devuelto el
+    navegador solo puede salir a EN_CURSO si lo devolvió el BANCO (mismo criterio que
     `esReciboCobrable`); uno reembolsado por Stripe o por la caja no se reabre (la socia
-    volvería a pagarlo). ⚠️ Límite conocido: una devolución MANUAL de un cobro en efectivo o
-    transferencia deja los mismos campos que un retorno bancario y sigue pudiendo
-    reintentarse; cerrarlo es decidir qué escribe `marcar-devuelto`. Y un recibo NACE
+    volvería a pagarlo). ⚠️ **Esa salida hay que cerrarla en el trigger** (pendiente: una
+    migración aparte, cuando el panel que ya no la usa esté desplegado, con `supabase/tests`
+    al día). La usaba el «Reintentar» del panel, que desde el 2-oct va por el servidor
+    (→ PENDIENTE), y es de donde salen los EN_CURSO que no fueron a ningún banco. Y un recibo NACE
     pendiente desde el navegador, y un EN_CURSO con un cobro en vuelo (cargo, sesión de pago
     o reintento programado) no vuelve a pendiente a mano: cambiaría la clave de idempotencia
     del siguiente cobro.
@@ -1081,6 +1092,31 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     él en vez de crear otro. Si el recibo que ya había no cuadra (otro importe, anulado,
     devuelto) no se cobra ni se marca la cita pagada: se manda a revisarlo. Lo que se
     cobra una vez por motivo lleva el motivo en el id (`rec-penaliz-…`, `rec-renov-…`).
+  - **Dinero que sale: dos hechos, dos dueños** (2-oct-2026, decisión del fundador;
+    regla compartida pantalla/servidor en `lib/billing/devolucion-reglas.ts`).
+    «Le he devuelto el dinero» es un REEMBOLSO: DEVUELTO con `importe_devuelto =
+    importe` en el MISMO UPDATE, ya no se debe (`lib/billing/reembolso-manual.ts`:
+    devolución `manual:<recibo>`, penalización REEMBOLSADA, créditos, SALIDA de caja
+    `mov-dev-<recibo>` y libro). «El banco lo devolvió» es DEUDA: DEVUELTO con 0
+    devuelto (`marcarReciboDevuelto`), y solo para lo que un banco puede devolver
+    (tarjeta, SEPA o sin método): el efectivo, el Bizum y la transferencia los rechaza
+    el servidor. Lo que entró por Stripe no usa ninguno: se devuelve por Stripe.
+    ⚠️ Antes un solo «Devolver» escribía siempre el segundo, y una devolución en
+    mano dejaba a la clienta debiendo y bloqueada por impago.
+  - **Lo que está en el banco tiene salida.** Una remesa deja EN_CURSO sin cargo de
+    Stripe; lo cierra una persona: «El banco lo ha cobrado» (`confirmarCobro`, origen
+    `banco`: SOLO EN_CURSO y con `COLUMNAS_COBRO_EN_MARCHA` a null en el propio
+    UPDATE, método SEPA, sin caja) o «El banco lo devolvió» (`marcarReciboDevuelto`
+    desde EN_CURSO, mismas guardas). «Reintentar por el banco» (`reintentarPorElBanco`)
+    lo devuelve a PENDIENTE para la próxima remesa —antes el navegador lo ponía
+    EN_CURSO sin mandar nada—, y solo con domiciliaciones y mandato VIGENTE.
+    ⚠️ «Lo ha cobrado» y «lo devolvió» desde EN_CURSO solo valen para lo que PUDO salir
+    en una remesa (`lib/billing/remesa-del-recibo.ts`: el estudio tiene sus datos de
+    acreedor y la clienta, una domiciliación). Si no, el servidor los rechaza y el panel
+    solo ofrece «No llegó a ir al banco» (→ PENDIENTE): darlo por cobrado inventaría un
+    ingreso y una factura. Y «Cobrar varias» va como lote (`lote: true`): no cobra lo que
+    tenga una sesión de pago, el datáfono o un reintento en marcha, y el propio UPDATE lo
+    vuelve a exigir (`sinCobroEnMarcha` en `confirmarCobro`).
 - **De serie ≠ personalizable.** Recordatorio de clase, confirmación, lista de
   espera, bono agotado, reintento de cobro, valoración y búsqueda de sustituta son
   producto, no reglas. `CLASE_MANANA` ya no se ofrece (duplicaba el recordatorio

@@ -108,7 +108,7 @@ test.describe('Cobros · eliminar un recibo', () => {
       const f = fila(page, id);
       await expect(f).toBeVisible({ timeout: 30_000 });
       await f.hover();
-      await expect(f.getByTitle('Devolver'), `${id} no muestra sus acciones`).toHaveCount(1);
+      await expect(f.getByTitle('Le he devuelto el dinero (ya no debe nada)'), `${id} no muestra sus acciones`).toHaveCount(1);
       await expect(f.getByTitle('Eliminar'), `${id} ofrece Eliminar`).toHaveCount(0);
     }
     // Y uno pendiente de esa misma lista sí lo ofrece.

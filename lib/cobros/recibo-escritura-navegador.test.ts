@@ -7,7 +7,7 @@ import { esReciboCobrable } from '../billing/deuda-recibo.ts';
 import { COLUMNAS_COBRO_EN_MARCHA } from '../billing/remesa-sepa-reglas.ts';
 
 // El navegador escribe SOLO las columnas de `recibos` que necesita (migración
-// 20261001210000). La cerradura real es la base de datos (REVOKE de tabla + GRANT por columnas); este
+// 20261002094636). La cerradura real es la base de datos (REVOKE de tabla + GRANT por columnas); este
 // fichero fija que el CÓDIGO, la lista que lo declara y la migración dicen lo mismo, y que ningún otro
 // escritor del navegador se cuela. Lo que hace la base de datos de verdad se prueba en
 // `supabase/tests/rls-recibos-columnas-escribibles.test.ts` (CI, contra Postgres).

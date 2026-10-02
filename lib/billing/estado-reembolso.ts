@@ -18,6 +18,8 @@
 // extracto, y eso no lo controla ni Tentare ni el estudio.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { cobroEntroPorStripe } from './devolucion-reglas.ts';
+
 /**
  * A partir de aquí, una devolución que Stripe no ha confirmado deja de ser
  * "normal, espera" y pasa a "míralo".
@@ -47,6 +49,19 @@ export interface ReciboConDevolucion {
   fechaDevolucion?: string | null;
   /** D-8: cuándo FALLÓ el reembolso (lo escribe el webhook de refund.failed). */
   reembolsoFallidoEn?: string | null;
+  /**
+   * Con estos, un DEVUELTO se distingue: si no se devolvió nada, lo devolvió el
+   * BANCO y la clienta sigue debiéndolo (nada que contar aquí: ni hay dinero
+   * en camino a su banco); sin cargo de Stripe, se lo devolvió el estudio a
+   * mano. Sin ellos, como antes.
+   */
+  importe?: number | null;
+  importeDevuelto?: number | null;
+  stripePaymentIntentId?: string | null;
+  reembolsoStripeId?: string | null;
+  /** Para saber si el cobro entró de verdad por Stripe (`cobroEntroPorStripe`). */
+  metodoCobro?: string | null;
+  sepaEstado?: string | null;
 }
 
 export function estadoReembolso(
@@ -54,6 +69,22 @@ export function estadoReembolso(
   ahora: Date,
 ): EstadoReembolso | null {
   if (r.estado === 'DEVUELTO') {
+    const sabeCuanto = r.importe != null && r.importeDevuelto != null;
+    // Un cargo de Stripe guardado no basta: un adeudo que falló y se cobró luego en
+    // efectivo lo conserva, y esa devolución la hizo el estudio a mano.
+    const porStripe = !!(r.reembolsoStripeId || r.reembolsoSolicitadoEn) || cobroEntroPorStripe({
+      stripe_payment_intent_id: r.stripePaymentIntentId, metodo_cobro: r.metodoCobro, sepa_estado: r.sepaEstado,
+    });
+    // Devuelto por el BANCO: no salió dinero hacia la clienta, sigue debiéndolo.
+    if (sabeCuanto && Number(r.importeDevuelto) <= 0 && !r.reembolsoStripeId && !r.reembolsoSolicitadoEn) return null;
+    // Se lo devolvió el estudio a mano («Le he devuelto el dinero»).
+    if (sabeCuanto && !porStripe) {
+      return {
+        fase: 'DEVUELTA',
+        etiqueta: 'Devuelto',
+        detalle: 'Se lo devolvió el estudio: ya no lo debe. Si fue a su tarjeta, tarda unos días en verlo en su banco.',
+      };
+    }
     return {
       fase: 'DEVUELTA',
       etiqueta: 'Devuelto',

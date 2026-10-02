@@ -30,6 +30,8 @@ export function DialogoMetodoCobro({
   detalle,
   onElegir,
   onCerrar,
+  titulo = '¿Cómo lo has cobrado?',
+  sinEspecificar = true,
 }: {
   abierto: boolean;
   /** Quién y cuánto, para que se vea qué se está marcando: «Laura — 120,00 €». */
@@ -37,13 +39,20 @@ export function DialogoMetodoCobro({
   /** `undefined` = «sin especificar», elegido a propósito. */
   onElegir: (metodo: MetodoCobro | undefined) => void;
   onCerrar: () => void;
+  /** La pregunta. «Le he devuelto el dinero» pregunta cómo salió el dinero. */
+  titulo?: string;
+  /**
+   * ¿Se puede elegir «sin especificar»? En una devolución no: por dónde salió el
+   * dinero decide si se apunta en la caja, y puede no ser por donde entró.
+   */
+  sinEspecificar?: boolean;
 }) {
   return (
     <Dialog open={abierto} onOpenChange={(open) => { if (!open) onCerrar(); }}>
       <DialogContent className="max-w-xs">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-foreground">¿Cómo lo has cobrado?</DialogTitle>
-          <p className="text-sm text-muted-foreground">{detalle}</p>
+          <DialogTitle className="text-lg font-semibold text-foreground">{titulo}</DialogTitle>
+          <div className="text-sm text-muted-foreground">{detalle}</div>
         </DialogHeader>
         <div className="mt-2 grid grid-cols-2 gap-2">
           {METODOS.map(({ metodo, etiqueta, Icono }) => (
@@ -58,13 +67,15 @@ export function DialogoMetodoCobro({
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={() => onElegir(undefined)}
-          className="mt-3 w-full text-xs text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Marcar cobrado sin especificar
-        </button>
+        {sinEspecificar && (
+          <button
+            type="button"
+            onClick={() => onElegir(undefined)}
+            className="mt-3 w-full text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Marcar cobrado sin especificar
+          </button>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -80,12 +91,15 @@ export function BotonCobrarConMetodo({
   className,
   style,
   children = 'Cobrar',
+  sinEspecificar = true,
 }: {
   detalle: ReactNode;
   onCobrar: (metodo: MetodoCobro | undefined) => void | Promise<void>;
   className?: string;
   style?: CSSProperties;
   children?: ReactNode;
+  /** `false`: hay que decir cómo se cobró (p. ej. al cobrar todo lo pendiente del estudio). */
+  sinEspecificar?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [cobrando, setCobrando] = useState(false);
@@ -103,6 +117,7 @@ export function BotonCobrarConMetodo({
       <DialogoMetodoCobro
         abierto={abierto}
         detalle={detalle}
+        sinEspecificar={sinEspecificar}
         onCerrar={() => setAbierto(false)}
         onElegir={(metodo) => {
           setAbierto(false);

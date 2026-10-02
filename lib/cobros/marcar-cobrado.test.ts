@@ -25,10 +25,41 @@ const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace
 test('acepta los métodos del diálogo y «sin especificar»', () => {
   for (const metodo of METODOS_COBRO_MANUAL) {
     const r = parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], metodo });
-    assert.deepEqual(r, { ok: true, peticion: { reciboIds: ['rec-1'], metodo } });
+    assert.deepEqual(r, { ok: true, peticion: { reciboIds: ['rec-1'], metodo, canal: 'mostrador', lote: false } });
   }
-  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'] }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null } });
-  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], metodo: null }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null } });
+  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'] }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'mostrador', lote: false } });
+  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], metodo: null }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'mostrador', lote: false } });
+});
+
+test('«El banco lo ha cobrado» (canal banco) no lleva método: lo pone el servidor', () => {
+  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], canal: 'banco' }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'banco', lote: false } });
+  assert.equal(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], canal: 'banco', metodo: 'EFECTIVO' }).ok, false, 'lo cobrado por el banco no es efectivo');
+  assert.equal(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], canal: 'datafono' }).ok, false, 'canal inventado');
+});
+
+test('«lote»: solo un `true` de verdad lo es (cobrar varias); cualquier otra cosa, uno a uno', () => {
+  const lote = (v: unknown) => { const r = parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], metodo: 'EFECTIVO', lote: v }); return r.ok && r.peticion.lote; };
+  assert.equal(lote(true), true);
+  for (const v of [undefined, false, 'true', 1, null]) assert.equal(lote(v), false, JSON.stringify(v));
+});
+
+test('la ruta: «El banco lo ha cobrado» solo para lo que pudo salir en una remesa, y en un lote nada con un cobro en marcha', () => {
+  const ruta = sinComentarios(leer('app/api/cobros/marcar-cobrado/route.ts'));
+  assert.match(ruta, /porElBanco \? await motivosParaNoSerRemesa\(admin, sesion\.studioId, peticion\.reciboIds\)/,
+    'el canal banco consulta la remesa con el estudio de la SESIÓN');
+  assert.match(ruta, /if \(remesa && !remesa\.ok\)/, 'sin poder comprobarlo, no se cobra');
+  assert.match(ruta, /resultadoNoCobrable\(reciboId, MENSAJE_COBRO_EN_MARCHA_LOTE\)/);
+  assert.match(ruta, /if \(sinLeerCobrosEnMarcha\)/, 'sin poder leer los cobros en marcha, el lote no cobra');
+  assert.match(ruta, /sinCobroEnMarcha: peticion\.lote && !porElBanco/, 'y el propio UPDATE lo vuelve a exigir');
+  // La lectura del lote va acotada al estudio de la sesión.
+  assert.match(ruta, /select\(`id, \$\{COLUMNAS_COBRO_EN_MARCHA\.join\(', '\)\}`\)\s*\.eq\('studio_id', sesion\.studioId\)/);
+});
+
+test('el panel: solo «Cobrar varias» y «Cobrar todos» mandan el lote; el cobro de uno no', () => {
+  const ctx = leer('lib/studio-context.tsx');
+  assert.match(ctx, /cobrarEnServidor\(ids, metodo, onProgreso, false, true\)/, '«Cobrar varias» manda el lote');
+  const api = leer('lib/api-client.ts');
+  assert.match(api, /\.\.\.\(lote \? \{ lote: true \} : \{\}\)/, 'el cuerpo solo lleva `lote` cuando lo es');
 });
 
 test('la lista blanca es la del diálogo «¿Cómo lo has cobrado?», ni más ni menos', () => {
@@ -267,7 +298,9 @@ test('la ruta comprueba rol y toma el estudio de la sesión, nunca del cuerpo', 
 test('la ruta cobra por el dueño único, a mano, en serie y sin email extra', () => {
   const ruta = sinComentarios(leer('app/api/cobros/marcar-cobrado/route.ts'));
   assert.match(ruta, /confirmarCobro\(admin, \{/);
-  assert.match(ruta, /origen: 'manual'/);
+  // A mano, o «El banco lo ha cobrado» (origen `banco`, que solo cierra lo que está en una remesa).
+  assert.match(ruta, /origen: porElBanco \? 'banco' : 'manual'/);
+  assert.match(ruta, /metodo: porElBanco \? 'SEPA' : peticion\.metodo/, 'lo cobrado por el banco es un adeudo, no lo que diga el cuerpo');
   assert.match(ruta, /paymentIntentId: null/);
   // El panel manda su propio justificante (`cobrarYEmail`): un segundo email
   // desde el servidor sería un cambio de producto, no un refactor.
