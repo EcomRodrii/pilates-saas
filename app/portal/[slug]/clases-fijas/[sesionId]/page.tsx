@@ -112,12 +112,15 @@ export default function FichaClaseFijaPage() {
 
   const dia = new Date(`${clase.fecha}T12:00:00`).getDay();
   const cadaSemana = `Todos ${losDias(dia)} · ${clase.hora}`;
+  // Cuánto tiempo la quiere: solo mientras puede pedirla y si no va dentro de una clase fija con nombre (esa tiene sus propias
+  // duraciones, en su tarjeta). Va en la barra fija, junto al botón: en el cuerpo quedaba debajo del pliegue y tapado por él.
+  const eligeDuracion = estadoFija?.estado === 'PUEDE_PEDIR' && !data?.oferta;
 
   return (
     <StudentShell headerTransparente>
       <FichaClaseHero clase={clase} chips={[cadaSemana, `${clase.duracionMin} min`, clase.sala]} />
 
-      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: 110 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: eligeDuracion ? 200 : 110 }}>
         <p className="t-label" style={{ margin: 0 }}>{TPF.titulo}</p>
 
         {inst && <InstructorCard i={inst} onClick={() => setVerInstructora(true)} />}
@@ -141,25 +144,6 @@ export default function FichaClaseFijaPage() {
           </div>
         )}
 
-        {/* Cuánto tiempo la quiere. Solo mientras puede pedirla y si no va dentro de una clase fija con nombre (esa tiene sus
-            propias duraciones, en su tarjeta). Lo que se le enseña es la fecha exacta en la que termina. */}
-        {estadoFija?.estado === 'PUEDE_PEDIR' && !data?.oferta && (
-          <div data-testid="duracion-clase-fija" role="group" aria-label={TPF.cuantoTiempo} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <p className="t-label" style={{ margin: 0 }}>{TPF.cuantoTiempo}</p>
-            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-              {DURACIONES_POR_DEFECTO.map((m) => (
-                <button key={m} type="button" className="pill" aria-pressed={meses === m} onClick={() => setMeses(m)}>
-                  {etiquetaDuracion(m)}
-                </button>
-              ))}
-              <button type="button" className="pill" aria-pressed={meses === null} onClick={() => setMeses(null)}>{TPF.sinFecha}</button>
-            </div>
-            {meses !== null && (
-              <p className="t-meta" data-testid="clase-fija-hasta" style={{ margin: 0 }}>{TPF.hastaEl(fechaDMY(vigenciaHastaDeDuracion(hoyEnEstudio(), meses)))}</p>
-            )}
-          </div>
-        )}
-
         {!online && <OfflineState cuerpo="Puedes ver la clase, pero pedirla necesita conexión." />}
       </div>
 
@@ -173,6 +157,22 @@ export default function FichaClaseFijaPage() {
         }}
       >
         {error && <p role="alert" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--danger, #b00020)', textAlign: 'center' }}>{error}</p>}
+        {eligeDuracion && (
+          <div data-testid="duracion-clase-fija" role="group" aria-label={TPF.cuantoTiempo} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p className="t-label" style={{ margin: 0 }}>{TPF.cuantoTiempo}</p>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+              {DURACIONES_POR_DEFECTO.map((m) => (
+                <button key={m} type="button" className="pill" aria-pressed={meses === m} onClick={() => setMeses(m)}>
+                  {etiquetaDuracion(m)}
+                </button>
+              ))}
+              <button type="button" className="pill" aria-pressed={meses === null} onClick={() => setMeses(null)}>{TPF.sinFecha}</button>
+            </div>
+            <p className="t-meta" data-testid="clase-fija-hasta" style={{ margin: 0, minHeight: '1.3em' }}>
+              {meses !== null ? TPF.hastaEl(fechaDMY(vigenciaHastaDeDuracion(hoyEnEstudio(), meses))) : ''}
+            </p>
+          </div>
+        )}
         {data?.oferta ? (
           // Esta clase va dentro de una clase fija con nombre: se pide entera, con su
           // duración, desde su tarjeta — no suelta.
