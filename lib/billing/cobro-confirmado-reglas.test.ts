@@ -258,3 +258,13 @@ test('el reintento de sellado ya no fuerza fac-checkout- para todo', () => {
   assert.equal(facturaIdParaReintento({ id: 'rec-9', metodo_cobro: 'TARJETA', conciliado_por: null }), 'fac-off-rec-9');
   assert.equal(facturaIdParaReintento({ id: 'rec-web-abc', metodo_cobro: 'BIZUM', conciliado_por: 'webhook' }), 'fac-checkout-rec-web-abc');
 });
+
+test('«Hacerle factura»: el efectivo saca factura solo si se pide, y el resto sigue igual', () => {
+  const sin = efectosEnOrden({ origen: 'manual', metodo: 'EFECTIVO', avisarSocia: false, esRenovacion: false });
+  assert.equal(sin.includes('factura'), false);
+  const con = efectosEnOrden({ origen: 'manual', metodo: 'EFECTIVO', avisarSocia: false, esRenovacion: false, conFactura: true });
+  assert.deepEqual(con, ['renovacion', 'factura', 'caja']);
+  // Con tarjeta ya salía: pedirla no la duplica.
+  const tarjeta = efectosEnOrden({ origen: 'manual', metodo: 'TARJETA', avisarSocia: false, esRenovacion: false, conFactura: true });
+  assert.equal(tarjeta.filter(p => p === 'factura').length, 1);
+});

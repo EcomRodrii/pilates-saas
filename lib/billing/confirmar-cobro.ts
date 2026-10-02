@@ -104,6 +104,8 @@ export interface ParamsConfirmarCobro {
    * cargo de Stripe no cuenta: un FALLIDO o un DEVUELTO de SEPA guardan uno ya muerto.
    */
   sinCobroEnMarcha?: boolean;
+  /** «Hacerle factura» de un cobro a mano en efectivo: la factura la emite el servidor, como la de tarjeta. */
+  conFactura?: boolean;
 }
 
 export type ResultadoConfirmarCobro =
@@ -197,6 +199,8 @@ export interface ParamsEfectosCobro {
   /** `false` cuando la entrega ya la hizo el llamador (compra web). */
   renovar?: boolean;
   notificar?: boolean;
+  /** «Hacerle factura»: factura aunque el método no la saque sola (ver `efectosEnOrden`). */
+  conFactura?: boolean;
   /** Reparación de un cobro que ya estaba: un sellado fallido no se re-reporta a Sentry. */
   reparacion?: boolean;
   actor?: ActorCobro;
@@ -239,7 +243,7 @@ export async function aplicarEfectosCobro(
   const pasos = efectosEnOrden({
     origen: p.origen, metodo: p.metodo, avisarSocia: p.avisarSocia,
     esRenovacion: recibo.esRenovacion && !!recibo.socioId,
-    renovar: p.renovar, notificar: p.notificar,
+    renovar: p.renovar, notificar: p.notificar, conFactura: p.conFactura,
   });
 
   let selladoOk = true;
@@ -452,6 +456,7 @@ export async function confirmarCobro(
     studioId: p.studioId, reciboId: p.reciboId,
     metodo: p.metodo ?? (marcado.metodo_cobro as string | null | undefined) ?? null,
     origen: p.origen, facturaId: p.facturaId, avisarSocia: p.avisarSocia, actor: p.actor,
+    conFactura: p.conFactura,
     recibo: {
       socioId: (marcado.socio_id as string | null) ?? null,
       esRenovacion: esRenovacion(marcado as { es_renovacion?: boolean | null }),

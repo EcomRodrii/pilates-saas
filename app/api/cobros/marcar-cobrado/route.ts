@@ -158,6 +158,7 @@ export async function POST(req: NextRequest) {
         metodo: porElBanco ? 'SEPA' : peticion.metodo,
         origen: porElBanco ? 'banco' : 'manual',
         sinCobroEnMarcha: peticion.lote && !porElBanco,
+        conFactura: peticion.conFactura,
         paymentIntentId: null,
         avisarSocia: false,
         facturaId: facturaIdManual(reciboId),

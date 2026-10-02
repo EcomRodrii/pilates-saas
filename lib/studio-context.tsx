@@ -4350,7 +4350,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  // Factura al contado desde el modal "Nueva factura" (cobros/panel-pendientes) y
+  // Cobro al contado desde «Nuevo cobro» (cobros/dialogo-nuevo-cobro) y
   // el cobro de una cita: a diferencia de addRecibo (PENDIENTE, se cobra más
   // tarde), aquí el cobro es inmediato — no hay fecha de vencimiento en el
   // formulario porque no hay nada que esperar.
@@ -4421,7 +4421,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (decision.tipo === 'revisar') return { ok: false, cobroSinConfirmar: true, error: decision.error };
     }
 
-    const [d] = await cobrarEnServidor([rec.id], opciones.metodo);
+    // «Hacerle factura» (efectivo): la emite el servidor al cobrar, como la de tarjeta.
+    const conFactura = opciones.hacerFactura === true && opciones.metodo === 'EFECTIVO';
+    const [d] = await cobrarEnServidor([rec.id], opciones.metodo, undefined, false, false, conFactura);
     if (!d || !esCobroConfirmado(d)) {
       return {
         ok: false, cobroSinConfirmar: true,
@@ -4439,10 +4441,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // Con factura si el estudio la emite (la sella el servidor al cobrar); sin ella, «registró un cobro».
       // Con el método: el efectivo no lleva factura automática, y la actividad
       // no puede decir «generó una factura» que no existe.
-      const conFactura = emiteFacturaAutomatica(opciones.metodo ?? null, studio?.modoFacturacion ?? null);
+      const sacaFactura = (conFactura && studio?.modoFacturacion === 'verifactu') || emiteFacturaAutomatica(opciones.metodo ?? null, studio?.modoFacturacion ?? null);
       addActividadReciente(
         'COBRO_MANUAL',
-        conFactura
+        sacaFactura
           ? `${actorNombre ?? 'Alguien'} generó una factura de "${fields.concepto}" (${fields.importe} €) para ${socio?.nombre ?? 'una socia'}`
           : `${actorNombre ?? 'Alguien'} registró un cobro de "${fields.concepto}" (${fields.importe} €) de ${socio?.nombre ?? 'una socia'}`,
         fields.socioId,
@@ -4454,20 +4456,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // lo trate como «nada pasó, reintenta»: reenviar el formulario duplicaría el cobro.
     if (!d.selladoOk) {
       return { ok: false, cobroRegistrado: true, error: 'La factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Cobros y facturas → Datos fiscales e IVA.' };
-    }
-    // «Hacerle factura» en un cobro que no la saca solo (efectivo). Con el recibo que se
-    // acaba de cobrar, no con el estado de la pantalla, que aún no lo tiene como cobrado: el
-    // servidor la rehace entera a partir del recibo (número, importes, receptor).
-    if (opciones.hacerFactura && d.resultado !== 'ya_estaba'
-        && studio?.modoFacturacion === 'verifactu' && !emiteFacturaAutomatica(opciones.metodo ?? null, studio.modoFacturacion)) {
-      const fac = construirFacturaCobro({ ...rec, estado: 'COBRADO', metodoCobro: opciones.metodo ?? null, fechaCobro: hoyEnEstudio() }, facturas);
-      if (fac) {
-        setFacturas(prev => [...prev, fac]);
-        const sellada = await sellarFacturaYActualizar(fac);
-        if (!sellada.ok) {
-          return { ok: false, cobroRegistrado: true, error: `Cobrado, pero la factura no se ha podido sacar: ${sellada.error} Puedes hacerla desde «Lo que he cobrado».` };
-        }
-      }
     }
     return { ok: true };
   }
@@ -4506,6 +4494,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     porElBanco = false,
     /** Cobro de varios a la vez: el servidor deja fuera lo que tiene un cobro en marcha. */
     esLote = false,
+    /** «Hacerle factura» de un cobro en efectivo: la emite el servidor al cobrar. */
+    conFactura = false,
   ): Promise<DesenlaceCobroManual[]> {
     // Re-entrada (doble clic, el mismo recibo en dos botones a la vez): el que
     // ya está en vuelo no se vuelve a mandar.
@@ -4521,7 +4511,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       for (let i = 0; i < lotes.length; i++) {
         const lote = lotes[i];
         const lectura = leerRespuestaMarcarCobrado(
-          await marcarCobradoEnServidor(lote, porElBanco ? null : (metodo ?? null), undefined, porElBanco ? 'banco' : undefined, esLote), lote,
+          await marcarCobradoEnServidor(lote, porElBanco ? null : (metodo ?? null), undefined, porElBanco ? 'banco' : undefined, esLote, conFactura), lote,
         );
         let errorResto: string | null = null;
         if (lectura.tipo === 'resultados') {
