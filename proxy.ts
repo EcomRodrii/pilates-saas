@@ -37,7 +37,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 //     hacia cualquier tercero cargado desde la página.
 //   · `X-Content-Type-Options: nosniff` — impide que un fichero subido y
 //     servido desde origen propio se reinterprete como otro tipo.
-//   · `Permissions-Policy` — apaga cámara/micro/geo salvo donde se pidan.
+//   · `Permissions-Policy` — cámara/micro/geo solo para el propio origen, nunca
+//     para un marco ajeno. `()` a secas las apagaba TAMBIÉN para nosotros (2-oct-2026):
+//     sin lector QR del pase y de la lista de clase, sin notas de voz, sin «cerca de mí».
 // HSTS queda FUERA a propósito: algún estudio puede servir su dominio propio
 // por HTTP, y `max-age` es irreversible desde el navegador durante su vigencia
 // — eso es una decisión de infraestructura, no un parche de auditoría.
@@ -47,6 +49,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 // (`/configuracion/apariencia`), que la monta en un iframe para enseñar la app
 // REAL con el estilo que la propietaria está probando. `'self'` sigue cerrando
 // la puerta a cualquier web ajena, que es contra lo que protege esta cabecera.
+/** Lo mismo que `next.config.ts` (las dos tienen que decir lo mismo). */
+const POLITICA_PERMISOS = 'camera=(self), microphone=(self), geolocation=(self)';
+
 export function proxy(req: NextRequest) {
   const res = NextResponse.next();
   const enMarcoPropio = req.nextUrl.pathname.startsWith('/portal/');
@@ -54,7 +59,7 @@ export function proxy(req: NextRequest) {
   res.headers.set('Content-Security-Policy', enMarcoPropio ? "frame-ancestors 'self'" : "frame-ancestors 'none'");
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.headers.set('X-Content-Type-Options', 'nosniff');
-  res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.headers.set('Permissions-Policy', POLITICA_PERMISOS);
   return res;
 }
 
