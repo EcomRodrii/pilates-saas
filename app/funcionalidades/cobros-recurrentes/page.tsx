@@ -45,7 +45,7 @@ export default function CobrosPage() {
       eyebrow="Cobros y morosidad"
       h1={<>Cobra sin perseguir a nadie.</>}
       intro={<>La cuota se cobra sola el día que toca. Y cuando una tarjeta falla —que fallará—, el sistema lo reintenta con cabeza en vez de dejarte una lista de impagos a fin de mes.</>}
-      chips={['Cobro con tarjeta guardada', 'Tres reintentos escalonados', 'Remesa SEPA 19.14']}
+      chips={['Cobro con tarjeta guardada', 'Tres intentos escalonados', 'Remesa SEPA 19.14']}
       captura={{ src: '/producto/cobros.png', alt: 'Pantalla de cobros de Tentare con lo cobrado, lo pendiente y quién debe', pie: 'Lo cobrado este mes, lo que falta y quién lo debe — en la misma pantalla.', ancho: 2880, alto: 1624 }}
     >
       <Seccion id="problema" titulo="El dinero no se pierde de golpe, se pierde a goteo">
@@ -73,7 +73,7 @@ export default function CobrosPage() {
         <p>
           Hay un detalle que evita un fallo silencioso: si un recibo se crea con un vencimiento ya pasado —por ejemplo al
           renovar una suscripción caducada—, la cadencia se ancla a hoy y no al vencimiento antiguo. Sin eso, los tres
-          reintentos se dispararían casi seguidos en un día y la socia recibiría el «primer aviso» y el «impago definitivo»
+          intentos se dispararían casi seguidos en un día y la socia recibiría el «primer aviso» y el «impago definitivo»
           casi a la vez.
         </p>
       </Seccion>
@@ -115,10 +115,10 @@ export default function CobrosPage() {
             Las cuotas del mes se cobran con la tarjeta guardada y cada una genera su{' '}
             <Link href="/funcionalidades/facturacion">factura sellada</Link>. Nadie manda un recordatorio.
           </CasoDeUso>
-          <CasoDeUso hora="Día 2" titulo="Una tarjeta rechaza el cargo">
-            La socia recibe un aviso amable con el enlace para actualizarla. Al día siguiente se reintenta.
+          <CasoDeUso hora="Día 1" titulo="Una tarjeta rechaza el cargo">
+            La socia recibe un aviso amable con el enlace para actualizarla. Dos días después se reintenta.
           </CasoDeUso>
-          <CasoDeUso hora="Día 4" titulo="El segundo intento entra">
+          <CasoDeUso hora="Día 3" titulo="El segundo intento entra">
             Cobrado. La socia no ha vuelto a saber nada y tú no has tocado nada. Es el caso más común, y es el que justifica
             no avisar en cada intento.
           </CasoDeUso>

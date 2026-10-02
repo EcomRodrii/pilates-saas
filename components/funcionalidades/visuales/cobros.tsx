@@ -2,15 +2,15 @@ import { MUTED } from '@/components/landing/theme';
 import { PanelClaro, PanelOscuro } from './comunes';
 
 // ── Dibujos propios de /funcionalidades/cobros-recurrentes ───────────────────
-// Fuente: lib/billing/dunning.ts (OFFSETS_REINTENTO_DIAS = [1,3,7],
-// MAX_REINTENTOS = 3, y la regla de avisar solo en el primer fallo y en el
-// definitivo). Si esa cadencia cambia, este dibujo hay que cambiarlo.
+// Fuente: lib/billing/dunning.ts (OFFSETS_REINTENTO_DIAS = [1,3,7]: tres intentos,
+// el primer cobro y dos reintentos, contados desde el vencimiento; el día 1 es el
+// primero del nuevo periodo) y la regla de avisar solo en el primer fallo y en el
+// definitivo. Si esa cadencia cambia, este dibujo hay que cambiarlo.
 
 const PASOS = [
-  { d: 'Vence', t: 'Se cobra con la tarjeta guardada', estado: 'ok' as const, aviso: null },
-  { d: '+1 día', t: 'Primer reintento', estado: 'retry' as const, aviso: 'La socia recibe un aviso informativo' },
-  { d: '+3 días', t: 'Segundo reintento', estado: 'retry' as const, aviso: 'Sin aviso — para no hacer ruido con algo que suele arreglarse solo' },
-  { d: '+7 días', t: 'Tercer y último reintento', estado: 'retry' as const, aviso: 'Sin aviso' },
+  { d: 'Día 1', t: 'Se cobra con la tarjeta guardada', estado: 'ok' as const, aviso: 'Si falla, la socia recibe un aviso informativo' },
+  { d: 'Día 3', t: 'Primer reintento', estado: 'retry' as const, aviso: 'Sin aviso — para no hacer ruido con algo que suele arreglarse solo' },
+  { d: 'Día 7', t: 'Segundo y último reintento', estado: 'retry' as const, aviso: 'Sin aviso' },
   { d: 'Después', t: 'El recibo queda como fallido', estado: 'fail' as const, aviso: 'Aviso a la socia y aviso al estudio: aquí ya hace falta una persona' },
 ];
 
@@ -42,7 +42,7 @@ export function CadenciaDeReintentos() {
 }
 
 const VIAS = [
-  { t: 'Tarjeta guardada', d: 'Cobro automático el día del vencimiento, sin que la socia tenga que hacer nada.', pie: 'Vía Stripe, con la cuenta del estudio' },
+  { t: 'Tarjeta guardada', d: 'Cobro automático el primer día del nuevo periodo, sin que la socia tenga que hacer nada.', pie: 'Vía Stripe, con la cuenta del estudio' },
   { t: 'Pago en el momento', d: 'La socia compra su bono o su plan desde el portal y paga ahí mismo.', pie: 'Tarjeta' },
   { t: 'Remesa SEPA 19.14', d: 'Se genera el fichero de adeudos para presentarlo en tu banco de siempre.', pie: 'Sin pasarela de por medio' },
   { t: 'Cobro de mostrador', d: 'Lo que se paga en efectivo o por Bizum queda registrado igual que el resto.', pie: 'Registro manual' },

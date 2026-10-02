@@ -210,7 +210,7 @@ const articulo: Articulo = {
           items: [
             'Tus alumnas reservan y cancelan solas desde el móvil e instalan la app en su pantalla de inicio, con el nombre, el icono, el logo y los colores de tu estudio, en todos los planes.',
             'Bonos, cuotas y clases sueltas, con caducidad de bonos y reglas por tipo de clase; lista de espera automática, inmediata o con plazo para aceptar, y plazas fijas que pide la alumna y apruebas tú.',
-            'Cobros online y recurrentes con Stripe conectado (tarjeta y SEPA): si un cobro falla, se reintenta a 1, 3 y 7 días y te avisa. Bizum, para pagos puntuales y bonos, nunca para cuotas.',
+            'Cobros online y recurrentes con Stripe conectado (tarjeta y SEPA): si un cobro falla, se reintenta a los 3 y a los 7 días y te avisa. Bizum, para pagos puntuales y bonos, nunca para cuotas.',
             'Sustituciones de instructoras asistidas en todos los planes (das tú el visto bueno) y autónomas desde el plan Estudio; si nadie acepta, te avisa y no cancela la clase sola.',
             'Facturas con numeración legal y huella encadenada, check-in y control de asistencia, ficha de cada alumna con su salud e informe de rentabilidad por clase.',
             'Importador desde Timp, Momence, Eversports, bsport, Mindbody y Excel, con acta, botón de deshacer y ayuda de una persona; soporte humano en español por WhatsApp, correo y centro de ayuda.',

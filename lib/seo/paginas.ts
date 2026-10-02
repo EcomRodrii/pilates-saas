@@ -184,7 +184,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     path: '/funcionalidades/cobros-recurrentes',
     titulo: 'Cobro recurrente y recuperación de impagos | Tentare',
     descripcion:
-      'Cobro automático con la tarjeta guardada, tres reintentos escalonados cuando falla, reembolsos desde el panel y remesa SEPA 19.14 para tu banco de siempre.',
+      'Cobro automático con la tarjeta guardada, tres intentos escalonados cuando falla, reembolsos desde el panel y remesa SEPA 19.14 para tu banco de siempre.',
     grupo: 'funcionalidades',
     etiqueta: 'Cobros recurrentes',
     resumen: 'Cobra solo, reintenta lo que falla y avisa cuando toca.',

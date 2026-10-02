@@ -494,7 +494,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Renovaciones y pagos fallidos',
-        texto: 'Las cuotas generan su recibo solas cada ciclo. Si un cobro falla, se reintenta a los 1, 3 y 7 días antes de darlo por fallido, y se avisa a la alumna la primera vez y la última. No hay que estar pendiente.',
+        texto: 'Las cuotas generan su recibo solas cada ciclo. Si un cobro falla, se reintenta a los 3 y a los 7 días del vencimiento (tres intentos en total) antes de darlo por fallido, y se avisa a la alumna la primera vez y la última. No hay que estar pendiente.',
       },
     ],
     acciones: [
