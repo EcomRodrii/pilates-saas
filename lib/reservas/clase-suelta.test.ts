@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PlanTarifa } from '../types.ts';
 import {
-  conceptoDeClaseSuelta, desenlaceVentaSuelta, idSuscripcionDeClaseSuelta, importeDeClaseSuelta, planDeClaseSuelta,
+  avisoDeVentaSuelta, conceptoDeClaseSuelta, desenlaceVentaSuelta, idReciboDeSuscripcionDeClaseSuelta, idSuscripcionDeClaseSuelta,
+  idSuscripcionDeReciboDeClaseSuelta, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta,
 } from './clase-suelta.ts';
 
 const plan = (p: Partial<PlanTarifa> & { id: string }): PlanTarifa => ({
@@ -85,4 +86,43 @@ test('al quitarla de la clase, dice qué pasa con su clase suelta según la pol�
   // El recibo suelto de antes (sin suscripción): ninguna política lo ve.
   const deAntes = { estado: 'COBRADO', importe: 15, importeDevuelto: 5, suscripcionId: null };
   assert.match(avisoClaseSueltaAlQuitar({ recibo: deAntes, reservaId: 'r1', bonoDevuelto: false, tardia: false })!, /^Pagó 10,00/);
+});
+
+test('⚠️ una tarifa PUNTUAL sin número de sesiones no hace de clase suelta (nacería sin saldo y se cobraría dos veces)', () => {
+  assert.equal(planDeClaseSuelta([plan({ id: 'sin-sesiones', sesiones: null })], null), null);
+});
+
+test('recibo y suscripción de una clase suelta se encuentran el uno al otro', () => {
+  assert.equal(idReciboDeSuscripcionDeClaseSuelta('sus-suelta-res-abc'), 'rec-suelta-res-abc');
+  assert.equal(idSuscripcionDeReciboDeClaseSuelta('rec-suelta-res-abc'), 'sus-suelta-res-abc');
+  assert.equal(idReciboDeSuscripcionDeClaseSuelta('sus-otra-cosa'), null);
+  assert.equal(idSuscripcionDeReciboDeClaseSuelta('rec-cita-abc'), null);
+  assert.equal(idReciboDeSuscripcionDeClaseSuelta(null), null);
+});
+
+test('sin clase suelta que vender, el mostrador dice qué hacer: terminar el borrador antes que crear otra', () => {
+  const borrador = plan({ id: 'b', nombre: 'Clase suelta', precio: 0, activo: false });
+  assert.deepEqual(motivoSinClaseSuelta([borrador], 'tc-reformer', null),
+    { texto: 'Tu tarifa «Clase suelta» no tiene precio y está desactivada: ponle precio y actívala', aPaquetes: true });
+  assert.match(motivoSinClaseSuelta([plan({ id: 'b', nombre: 'Suelta', activo: false })], null, null).texto, /está desactivada: actívala$/);
+  assert.match(motivoSinClaseSuelta([plan({ id: 'b', nombre: 'Suelta', precio: 0 })], null, null).texto, /no tiene precio: pónselo$/);
+  assert.match(motivoSinClaseSuelta([plan({ id: 'mat', tiposClaseIds: ['tc-mat'] })], 'tc-reformer', null).texto, /no vale para este tipo de clase/);
+  assert.match(motivoSinClaseSuelta([], null, null).texto, /crea tu tarifa «Clase suelta»/);
+  assert.deepEqual(motivoSinClaseSuelta([], null, 0), { texto: 'Esta clase es gratuita: apúntala como cortesía.', aPaquetes: false });
+});
+
+test('lo que se le dice a recepción cuando la clase suelta no queda vendida como se pidió', () => {
+  assert.equal(avisoDeVentaSuelta('vendida', null), null);
+  // Sobraba y se deshizo limpia: ya lo dicen la lista de espera o «ya cubría».
+  assert.equal(avisoDeVentaSuelta('no-ocupa', 'anulada'), null);
+  assert.equal(avisoDeVentaSuelta('otro-bono', 'anulada'), null);
+  assert.match(avisoDeVentaSuelta('no-ocupa', 'fallo') ?? '', /recibo de su clase suelta que sobra/);
+  assert.match(avisoDeVentaSuelta('sin-gastar', 'anulada') ?? '', /«Nuevo cobro»/);
+  // ⚠️ Si no se sabe cómo quedó, nunca «Nuevo cobro»: serían dos recibos por una clase.
+  for (const desenlace of ['desconocido', 'sin-decidir'] as const) {
+    const texto = avisoDeVentaSuelta(desenlace, null) ?? '';
+    assert.match(texto, /antes de cobrarle/);
+    assert.doesNotMatch(texto, /Nuevo cobro/);
+  }
+  assert.doesNotMatch(avisoDeVentaSuelta('sin-gastar', 'fallo') ?? '', /Nuevo cobro/);
 });

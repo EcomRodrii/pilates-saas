@@ -285,6 +285,7 @@ export const ACCIONES: Readonly<Record<string, string>> = {
   INGRESO_MANUAL_CREADO: 'Creó un ingreso manual',
   INGRESO_MANUAL_EDITADO: 'Cambió un ingreso manual',
   INGRESO_MANUAL_ELIMINADO: 'Eliminó un ingreso manual',
+  CLASE_SUELTA_VENDIDA: 'Vendió una clase suelta en el mostrador',
 };
 
 function objetoDe(e: EntradaAuditoria, o: OpcionesDescripcion): string | null {

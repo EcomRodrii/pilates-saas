@@ -25,6 +25,7 @@ const RUTAS: Array<{ ruta: string; acciones: string[] }> = [
   { ruta: 'app/api/penalizaciones/aprobar/route.ts', acciones: ['PENALIZACION_APROBADA', 'PENALIZACION_CORREGIDA', 'PENALIZACION_SIN_CONSENTIMIENTO'] },
   { ruta: 'app/api/facturas/rectificar/route.ts', acciones: ['FACTURA_RECTIFICATIVA_EMITIDA'] },
   { ruta: 'app/api/pos/devolucion/route.ts', acciones: ['DEVOLUCION_CAJA'] },
+  { ruta: 'app/api/reservas/crear/route.ts', acciones: ['CLASE_SUELTA_VENDIDA'] },
 ];
 
 test('cada ruta usa la sesión ENTERA como actor y nunca lo que diga el cuerpo', () => {

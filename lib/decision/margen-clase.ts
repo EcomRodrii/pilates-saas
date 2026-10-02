@@ -11,6 +11,7 @@
 // contrato ya testeado sin necesidad. Esto vive aparte, para Informes.
 import type { Reserva, Sesion, Suscripcion } from '@/lib/types';
 import type { SnapshotEstudio } from './tipos.ts';
+import { PREFIJO_SUSCRIPCION_DE_CLASE_SUELTA } from '../reservas/clase-suelta.ts';
 import { construirIndices, frecuenciaHabitual, precioMedioSesion, type IndicesSenal } from './senales.ts';
 
 export interface MargenSesion {
@@ -31,15 +32,24 @@ export interface MargenSesion {
 const MS_HORA = 3600000;
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Suscripción ACTIVA de la socia que cubre este tipo de clase. Itera TODAS
- *  las suscripciones ACTIVAS (no `idx.suscripcionActivaPorSocio`, índice de
- *  UNA sola por socia) — con `planes_por_tipo_de_clase` una socia puede
- *  tener un MENSUAL general Y un bono de un tipo de clase concreto a la vez
- *  (mismo punto ciego ya corregido en finanzas.ts F1). Si más de una cubre,
- *  prioriza la más específica (con `tiposClaseIds` propio) sobre la genérica. */
-function suscripcionParaClase(socioId: string, tipoClaseId: string, s: SnapshotEstudio, idx: IndicesSenal): Suscripcion | null {
+/** La suscripción que pagó esta plaza. Si la reserva gastó una sesión, es
+ *  ESA (`bonoSuscripcionId`, la decide `reservar_plaza`), esté como esté hoy.
+ *  Si no (cuota, o reserva de antes de rastrearlo), la ACTIVA de la socia que
+ *  cubre este tipo de clase. Itera TODAS las suscripciones ACTIVAS (no
+ *  `idx.suscripcionActivaPorSocio`, índice de UNA sola por socia) — con
+ *  `planes_por_tipo_de_clase` una socia puede tener un MENSUAL general Y un
+ *  bono de un tipo de clase concreto a la vez (mismo punto ciego ya corregido
+ *  en finanzas.ts F1). Si más de una cubre, prioriza la más específica (con
+ *  `tiposClaseIds` propio) sobre la genérica. Nunca una clase suelta del
+ *  mostrador que no gastó esta reserva: es de UNA clase, y gastada sigue
+ *  ACTIVA para siempre (se imputaría su precio a clases pagadas con otra cosa). */
+function suscripcionParaClase(reserva: Reserva, tipoClaseId: string, s: SnapshotEstudio, idx: IndicesSenal): Suscripcion | null {
+  const gastada = reserva.bonoSuscripcionId ? s.suscripciones.find(sus => sus.id === reserva.bonoSuscripcionId) : undefined;
+  if (gastada) return gastada;
+  const socioId = reserva.socioId;
   const cubren = s.suscripciones.filter(sus => {
     if (sus.socioId !== socioId || sus.estado !== 'ACTIVA') return false;
+    if (sus.id.startsWith(PREFIJO_SUSCRIPCION_DE_CLASE_SUELTA)) return false;
     const plan = idx.planPorId.get(sus.planId);
     if (!plan) return false;
     return !plan.tiposClaseIds || plan.tiposClaseIds.length === 0 || plan.tiposClaseIds.includes(tipoClaseId);
@@ -55,17 +65,18 @@ function suscripcionParaClase(socioId: string, tipoClaseId: string, s: SnapshotE
  *
  *  La clase suelta del mostrador es, desde el 2-oct-2026, la tarifa PUNTUAL
  *  que gasta la reserva (lib/reservas/clase-suelta.ts), igual que la que se
- *  compra en la app: cuenta aquí por el precio de la tarifa. Límite v1: si la
- *  sesión tiene precio propio (un taller), lo cobrado puede ser otro; y los
- *  recibos sueltos de antes (`rec-suelta-` sin suscripción, #2467) no tienen
- *  suscripción y caen en el `precioPuntual` de abajo. */
-function ingresoAsistente(socioId: string, tipoClaseId: string, sesion: Sesion, s: SnapshotEstudio, idx: IndicesSenal): number {
-  const sus = suscripcionParaClase(socioId, tipoClaseId, s, idx);
+ *  compra en la app: cuenta aquí por el precio de la tarifa, en la reserva que
+ *  la gastó. Límite v1: si la sesión tiene precio propio (un taller), lo
+ *  cobrado puede ser otro; y los recibos sueltos de antes (`rec-suelta-` sin
+ *  suscripción, #2467) no tienen suscripción y caen en el `precioPuntual` de
+ *  abajo. */
+function ingresoAsistente(reserva: Reserva, tipoClaseId: string, sesion: Sesion, s: SnapshotEstudio, idx: IndicesSenal): number {
+  const sus = suscripcionParaClase(reserva, tipoClaseId, s, idx);
   if (sus) {
     const plan = idx.planPorId.get(sus.planId);
     if (plan) {
       if (plan.tipo === 'MENSUAL') {
-        const freq = frecuenciaHabitual(socioId, idx);
+        const freq = frecuenciaHabitual(reserva.socioId, idx);
         return freq !== null && freq > 0 ? plan.precio / (freq * 4.33) : 0;
       }
       if (plan.tipo === 'BONO' && plan.sesiones && plan.sesiones > 0) return plan.precio / plan.sesiones;
@@ -88,7 +99,7 @@ export function margenSesion(sesion: Sesion, s: SnapshotEstudio, idx: IndicesSen
   const reservasSesion = asistentesReales(sesion.id, s.reservas);
 
   const ingresoImputado = reservasSesion.reduce(
-    (acc, r) => acc + ingresoAsistente(r.socioId, sesion.tipoClaseId, sesion, s, idx), 0
+    (acc, r) => acc + ingresoAsistente(r, sesion.tipoClaseId, sesion, s, idx), 0
   );
 
   const tarifaHora = idx.tarifaHoraPorInstructor.get(sesion.instructorId) ?? null;

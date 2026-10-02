@@ -109,11 +109,17 @@ export type ResultadoReserva =
        */
       reservaId?: string;
       /**
-       * Solo si se pidió `comoClaseSuelta`: con qué venía de verdad, según la
+       * Solo si se pidió `claseSuelta`: con qué venía de verdad, según la
        * cartera que leyó el servidor al reservar. Si llega, NO se cobra la clase
        * suelta (la pantalla podía tener un bono renovado sin enterarse).
        */
       cubiertaPor?: CubiertaPor | null;
+      /**
+       * Ya estaba en la clase con otra reserva (la de un intento anterior cuya
+       * respuesta no llegó): `reservaId` es aquella, y `venta`, su clase suelta
+       * aún sin cobrar.
+       */
+      yaEstaba?: boolean;
       /**
        * Solo si se pidió `claseSuelta`: la clase suelta que se le vendió (la
        * PUNTUAL que gasta esta reserva) con su recibo PENDIENTE, para cobrarlo
@@ -121,13 +127,19 @@ export type ResultadoReserva =
        * espera…).
        */
       venta?: VentaClaseSuelta | null;
-      /** Ocupa plaza, pero la clase suelta no se pudo apuntar: hay que cobrarla a mano. */
+      /** La clase suelta no ha quedado vendida como se pidió: qué tiene que mirar recepción. */
       avisoVenta?: string | null;
     }
-  | { ok: false; error: string };
+  | {
+      ok: false; error: string;
+      /** Se llegó a vender la clase suelta y no se pudo deshacer: queda un recibo que sobra. */
+      reciboPendiente?: boolean;
+      /** No llegó ninguna respuesta (tampoco al reintentar): no se sabe si quedó apuntada. */
+      sinRespuesta?: boolean;
+    };
 import { horarioConNuevaHora } from '@/lib/serie-horario';
 import type { CubiertaPor, VentaClaseSuelta } from '@/lib/reservas/reserva-mostrador';
-import { idSuscripcionDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import { idSuscripcionDeReciboDeClaseSuelta } from '@/lib/reservas/clase-suelta';
 import { type DatosEstudioLegal } from '@/lib/legal-textos';
 import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
 import type {
@@ -2905,11 +2917,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Nota: el camino público ya se comportaba así (lib/billing/entregar-plan-
     // comprado.ts no cancela nada), así que esto además alinea los dos caminos,
     // que hasta ahora dejaban la base en estados distintos según quién comprara.
-    // Una clase suelta (PUNTUAL) con su sesión sin gastar, también: es la que
-    // recuperó al cancelar a tiempo, o la que compró para otro día.
+    // Una clase suelta (PUNTUAL) no se toca NUNCA, gastada o no: es una clase
+    // concreta ya pagada (o debida). Con su sesión es la que recuperó al
+    // cancelar a tiempo; gastada, puede ser la de una clase que aún no ha
+    // llegado, y si la cancela a tiempo la sesión vuelve a ella — a una
+    // cancelada no le serviría de nada. Una gastada no da derecho a reservar.
     const conservaSaldo = (s: Suscripcion) => {
       const tipo = planesTarifa.find(p => p.id === s.planId)?.tipo;
-      return (tipo === 'BONO' || tipo === 'PUNTUAL') && (s.sesionesRestantes ?? 0) > 0;
+      return tipo === 'PUNTUAL' || (tipo === 'BONO' && (s.sesionesRestantes ?? 0) > 0);
     };
     const aDesactivar = suscripciones.filter(
       s => s.socioId === socioId && s.estado === 'ACTIVA' && !conservaSaldo(s),
@@ -3727,23 +3742,63 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     //
     // El `reservaId` viaja en la petición: si la red corta y se reintenta con el
     // mismo id, el servidor reconoce su propia fila y no descuenta dos veces.
-    const respuesta = await fetch('/api/reservas/crear', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({
-        sesionId, socioId, reservaId, avisar: opciones?.avisar !== false,
-        ...(opciones?.comoClaseSuelta ? { comoClaseSuelta: true } : {}),
-        ...(opciones?.claseSuelta ? { claseSuelta: opciones.claseSuelta } : {}),
-      }),
-    }).catch(() => null);
-    const datos = await respuesta?.json().catch(() => null) as {
+    type RespuestaCrear = {
       estado?: string; posicionEspera?: number | null; error?: string; cubiertaPor?: CubiertaPor | null;
-      venta?: VentaClaseSuelta | null; avisoVenta?: string | null;
-    } | null;
+      venta?: VentaClaseSuelta | null; avisoVenta?: string | null; reservaId?: string; repetida?: boolean; reciboPendiente?: boolean;
+    };
+    const pedir = async () => {
+      const respuesta = await fetch('/api/reservas/crear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({
+          sesionId, socioId, reservaId, avisar: opciones?.avisar !== false,
+          // `comoClaseSuelta` va con `claseSuelta`: si se volviera al servidor
+          // anterior, sabría no gastarle un bono además de la clase suelta.
+          ...(opciones?.comoClaseSuelta || opciones?.claseSuelta ? { comoClaseSuelta: true } : {}),
+          ...(opciones?.claseSuelta ? { claseSuelta: opciones.claseSuelta } : {}),
+        }),
+      }).catch(() => null);
+      const datos = await respuesta?.json().catch(() => null) as RespuestaCrear | null;
+      return { respuesta, datos };
+    };
+    let { respuesta, datos } = await pedir();
+    // La clase suelta se vende en el servidor ANTES de contestar: si la
+    // respuesta se pierde, puede haber quedado apuntada con su recibo. Un
+    // reintento con el MISMO id lo averigua (el servidor reconoce su reserva y
+    // su venta) en vez de decir «no se le ha cobrado nada» sin saberlo.
+    if (!datos && opciones?.claseSuelta) ({ respuesta, datos } = await pedir());
     const estadoReal = typeof datos?.estado === 'string' && datos.estado ? datos.estado as EstadoReserva : null;
     if (!respuesta?.ok || !estadoReal) {
       setReservas(prev => prev.filter(x => x.id !== reservaId));
-      return { ok: false, error: datos?.error ?? 'No se ha podido apuntar. Inténtalo otra vez.' };
+      if (!datos && opciones?.claseSuelta) {
+        return { ok: false, sinRespuesta: true, error: 'No se ha podido confirmar si ha quedado apuntada: mira la clase antes de cobrarle.' };
+      }
+      return {
+        ok: false, error: datos?.error ?? 'No se ha podido apuntar. Inténtalo otra vez.',
+        ...(datos?.reciboPendiente === true ? { reciboPendiente: true } : {}),
+      };
+    }
+    // La clase suelta vendida: su recibo PENDIENTE ya existe en la base de
+    // datos (lo creó el servidor); se pinta para que «Quién me debe» y el
+    // «Quitar» del Calendario lo vean sin recargar. La suscripción llega con la
+    // relectura del saldo de más abajo.
+    const venta = datos?.venta && typeof datos.venta.reciboId === 'string' && typeof datos.venta.importe === 'number'
+      ? datos.venta : null;
+    if (venta) {
+      setRecibos(prev => prev.some(r => r.id === venta.reciboId) ? prev : [...prev, {
+        id: venta.reciboId, studioId: getCurrentStudioId(), socioId,
+        suscripcionId: idSuscripcionDeReciboDeClaseSuelta(venta.reciboId), concepto: venta.concepto, importe: venta.importe,
+        estado: 'PENDIENTE', fechaVencimiento: hoyEnEstudio(), fechaCobro: null, fechaDevolucion: null,
+        intentosReintento: 0, importeDevuelto: 0,
+      } as Recibo]);
+    }
+    // Ya estaba apuntada con otra reserva (un intento anterior): la fila que
+    // se pintó al momento sobra; la de verdad ya está en la lista o llega al
+    // refrescar.
+    const reservaReal = datos?.repetida === true && typeof datos.reservaId === 'string' && datos.reservaId ? datos.reservaId : reservaId;
+    if (reservaReal !== reservaId) {
+      setReservas(prev => prev.filter(x => x.id !== reservaId));
+      return { ok: true, estado: estadoReal, reservaId: reservaReal, yaEstaba: true, cubiertaPor: null, venta, avisoVenta: datos?.avisoVenta ?? null };
     }
     const posicionReal = datos?.posicionEspera ?? null;
     if (estadoReal !== estado || posicionReal !== posicionEspera) {
@@ -3770,22 +3825,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       await checkin(reservaId, reservasFinales);
     }
 
-    const cubiertaPor = datos?.cubiertaPor && typeof datos.cubiertaPor.plan === 'string'
-      && (datos.cubiertaPor.tipo === 'BONO' || datos.cubiertaPor.tipo === 'MENSUAL') ? datos.cubiertaPor : null;
-    // La clase suelta vendida: su recibo PENDIENTE ya existe en la base de
-    // datos (lo creó el servidor); se pinta para que «Quién me debe» y el
-    // «Quitar» del Calendario lo vean sin recargar. La suscripción llega con la
-    // relectura del saldo de arriba.
-    const venta = datos?.venta && typeof datos.venta.reciboId === 'string' && typeof datos.venta.importe === 'number'
-      ? datos.venta : null;
-    if (venta) {
-      setRecibos(prev => prev.some(r => r.id === venta.reciboId) ? prev : [...prev, {
-        id: venta.reciboId, studioId: getCurrentStudioId(), socioId,
-        suscripcionId: idSuscripcionDeClaseSuelta(reservaId), concepto: venta.concepto, importe: venta.importe,
-        estado: 'PENDIENTE', fechaVencimiento: hoyEnEstudio(), fechaCobro: null, fechaDevolucion: null,
-        intentosReintento: 0, importeDevuelto: 0,
-      } as Recibo]);
-    }
+    const cubiertaPor: CubiertaPor | null = datos?.cubiertaPor && typeof datos.cubiertaPor.plan === 'string'
+      && (datos.cubiertaPor.tipo === 'BONO' || datos.cubiertaPor.tipo === 'MENSUAL')
+      ? {
+        tipo: datos.cubiertaPor.tipo, plan: datos.cubiertaPor.plan,
+        ...(typeof datos.cubiertaPor.suelta?.debe === 'number' ? { suelta: { debe: datos.cubiertaPor.suelta.debe } } : {}),
+      }
+      : null;
     return { ok: true, estado: estadoReal, reservaId, cubiertaPor, venta, avisoVenta: datos?.avisoVenta ?? null };
   }
 

@@ -17,7 +17,7 @@
 
 import type { PlanTarifa } from '../types.ts';
 import { planCubreTipoClase } from '../bono-logic.ts';
-import { idReciboDeClaseSuelta } from '../cobros/recibo-de-cita.ts';
+import { idReciboDeClaseSuelta, PREFIJO_RECIBO_DE_CLASE_SUELTA } from '../cobros/recibo-de-cita.ts';
 import { importeAdeudado, importeIngresado, type ReciboParaCifras } from '../billing/situacion-recibo.ts';
 import { formatEuro, TZ_ESTUDIO } from '../utils.ts';
 
@@ -34,6 +34,22 @@ export function idSuscripcionDeClaseSuelta(reservaId: string): string | null {
 }
 
 /**
+ * El recibo de una clase suelta a partir de su suscripción, y al revés: los dos
+ * llevan el id de la reserva para la que se vendió. Hace falta cuando la clase
+ * suelta se gasta en OTRA reserva (la recuperó al cancelar a tiempo): su recibo
+ * sigue siendo el de la primera. `null` si el id no es de una clase suelta.
+ */
+export function idReciboDeSuscripcionDeClaseSuelta(suscripcionId: string | null | undefined): string | null {
+  if (!suscripcionId?.startsWith(PREFIJO_SUSCRIPCION_DE_CLASE_SUELTA)) return null;
+  return idReciboDeClaseSuelta(suscripcionId.slice(PREFIJO_SUSCRIPCION_DE_CLASE_SUELTA.length));
+}
+
+export function idSuscripcionDeReciboDeClaseSuelta(reciboId: string | null | undefined): string | null {
+  if (!reciboId?.startsWith(PREFIJO_RECIBO_DE_CLASE_SUELTA)) return null;
+  return idSuscripcionDeClaseSuelta(reciboId.slice(PREFIJO_RECIBO_DE_CLASE_SUELTA.length));
+}
+
+/**
  * La tarifa que hace de clase suelta para ESTA clase: PUNTUAL, activa, de una
  * sesión, con precio, que no sea la oferta de prueba y que cubra el tipo de la
  * clase. Si hay varias, la más barata (entre dos precios verdaderos, cobrar de
@@ -45,7 +61,9 @@ export function planDeClaseSuelta(planes: readonly PlanTarifa[], tipoClaseId: st
   let elegido: PlanTarifa | null = null;
   for (const p of planes) {
     if (p.tipo !== 'PUNTUAL' || p.activo === false || p.esPrueba === true) continue;
-    if (!(Number(p.precio) > 0) || (p.sesiones ?? 1) !== 1) continue;
+    // Exactamente una sesión: con `sesiones` vacío la suscripción nacería sin
+    // saldo, la reserva no la gastaría y se cobraría la clase dos veces.
+    if (!(Number(p.precio) > 0) || p.sesiones !== 1) continue;
     if (!planCubreTipoClase(p, tipoClaseId)) continue;
     if (!elegido || Number(p.precio) < Number(elegido.precio)
       || (Number(p.precio) === Number(elegido.precio) && p.id < elegido.id)) elegido = p;
@@ -63,6 +81,31 @@ export function importeDeClaseSuelta(precioPuntualSesion: number | null | undefi
   const precio = typeof precioPuntualSesion === 'number' && Number.isFinite(precioPuntualSesion)
     ? precioPuntualSesion : Number(plan.precio);
   return precio > 0 ? Math.round(precio * 100) / 100 : null;
+}
+
+/**
+ * Por qué no se puede cobrar la clase suelta de esta clase desde el mostrador,
+ * dicho con lo que hay que hacer. `aPaquetes`: se arregla en Paquetes (la
+ * pantalla añade el enlace). Tres estudios tienen la tarifa «Clase suelta» de
+ * borrador (desactivada y a 0 €): a ellos se les dice que la terminen, no que
+ * creen otra.
+ */
+export function motivoSinClaseSuelta(
+  planes: readonly PlanTarifa[], tipoClaseId: string | null, precioPuntualSesion: number | null | undefined,
+): { texto: string; aPaquetes: boolean } {
+  if (precioPuntualSesion === 0) return { texto: 'Esta clase es gratuita: apúntala como cortesía.', aPaquetes: false };
+  const aMedias = planes.find(p => p.tipo === 'PUNTUAL' && p.esPrueba !== true && p.sesiones === 1
+    && planCubreTipoClase(p, tipoClaseId) && (p.activo === false || !(Number(p.precio) > 0)));
+  if (aMedias) {
+    const sinPrecio = !(Number(aMedias.precio) > 0);
+    const apagada = aMedias.activo === false;
+    const falta = sinPrecio && apagada ? 'no tiene precio y está desactivada: ponle precio y actívala'
+      : sinPrecio ? 'no tiene precio: pónselo' : 'está desactivada: actívala';
+    return { texto: `Tu tarifa «${aMedias.nombre}» ${falta}`, aPaquetes: true };
+  }
+  return planDeClaseSuelta(planes, null)
+    ? { texto: 'Tu tarifa de clase suelta no vale para este tipo de clase: añádeselo', aPaquetes: true }
+    : { texto: 'Para cobrarle la clase suelta desde aquí, crea tu tarifa «Clase suelta» (una sesión)', aPaquetes: true };
 }
 
 const FORMATO_DIA = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ_ESTUDIO });
@@ -88,6 +131,39 @@ export function conceptoDeClaseSuelta(tipoClase: string | null | undefined, inic
  *    sobra (ni dinero sin plaza ni saldo que nadie pidió).
  */
 export type DesenlaceVentaSuelta = 'vendida' | 'otro-bono' | 'sin-gastar' | 'sin-decidir' | 'no-ocupa';
+
+/**
+ * Lo que dejó el intento de deshacer una venta que sobraba
+ * (`anularVentaClaseSuelta`):
+ *  · `anulada`: no queda nada (o ya no quedaba);
+ *  · `servida`: su sesión ya se había gastado, así que esa venta sí sirvió y su
+ *    recibo se queda;
+ *  · `fallo`: no se ha podido deshacer o comprobar: puede quedar un recibo
+ *    pendiente que sobra.
+ */
+export type DesenlaceAnulacion = 'anulada' | 'servida' | 'fallo';
+
+/**
+ * Lo que se le dice al mostrador cuando la clase suelta NO ha quedado vendida
+ * como se pidió, o `null` si no hay nada que añadir (vendida; o la venta sobraba
+ * y se deshizo limpia: ya lo dicen la lista de espera o «ya cubría»).
+ * `desconocido`: no se ha podido leer cómo quedó la reserva; entonces no se
+ * deshace nada y nunca se manda a «Nuevo cobro» (serían dos recibos).
+ */
+export function avisoDeVentaSuelta(
+  desenlace: DesenlaceVentaSuelta | 'desconocido', anulacion: DesenlaceAnulacion | null,
+): string | null {
+  if (desenlace === 'vendida') return null;
+  if (desenlace === 'desconocido' || desenlace === 'sin-decidir') {
+    return 'no se ha podido comprobar si ha entrado con su clase suelta: mira su ficha y «Quién me debe» antes de cobrarle.';
+  }
+  if (desenlace === 'sin-gastar') {
+    return anulacion === 'anulada'
+      ? 'no se ha podido apuntar su clase suelta. Cóbrasela desde Cobros con «Nuevo cobro».'
+      : 'su clase suelta no ha quedado bien apuntada: mira su ficha y «Quién me debe» antes de cobrarle.';
+  }
+  return anulacion === 'anulada' ? null : 'revisa «Quién me debe»: puede haber quedado un recibo de su clase suelta que sobra.';
+}
 
 export function desenlaceVentaSuelta(p: {
   estado: string;

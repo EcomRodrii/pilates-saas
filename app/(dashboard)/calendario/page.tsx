@@ -74,7 +74,8 @@ import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { coberturaDeClase } from '@/lib/reservar/cobertura';
 import { lineaCoberturaMostrador } from '@/lib/calendario/cobertura-mostrador';
 import { idReciboDeClaseSuelta } from '@/lib/cobros/recibo-de-cita';
-import { avisoClaseSueltaAlQuitar, importeDeClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import { avisoClaseSueltaAlQuitar, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import type { CubiertaPor } from '@/lib/reservas/reserva-mostrador';
 import { AdaptacionesClase } from '@/components/calendario/adaptaciones-clase';
 import { HistorialSesion } from '@/components/calendario/historial-sesion';
 import { SpotMap } from '@/components/spots/spot-map';
@@ -1763,10 +1764,7 @@ export default function Calendario() {
   // Por qué no se puede cobrar: que lo diga con lo que hay que hacer.
   const sinPrecioSueltaDe = (sesionId: string): { texto: string; aPaquetes: boolean } => {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
-    if (sesion?.precioPuntual === 0) return { texto: 'Esta clase es gratuita: apúntala como cortesía.', aPaquetes: false };
-    return planDeClaseSuelta(planesTarifa, null)
-      ? { texto: 'Tu tarifa «Clase suelta» no vale para este tipo de clase: añádeselo', aPaquetes: true }
-      : { texto: 'Para cobrarle la clase suelta desde aquí, crea tu tarifa «Clase suelta» (una sesión)', aPaquetes: true };
+    return motivoSinClaseSuelta(planesTarifa, sesion?.tipoClaseId ?? null, sesion?.precioPuntual);
   };
   // El recibo de la clase suelta de una reserva (`rec-suelta-<reserva>`), si lo tiene.
   const reciboDeSuelta = (reservaId: string) => {
@@ -1778,8 +1776,18 @@ export default function Calendario() {
   // vieja (un bono renovado desde la app o vendido en otro dispositivo). El
   // servidor la lee al reservar y, si ya traía con qué venir, entra con eso: ni
   // se cobra ni se deja recibo.
-  const textoYaCubierta = (nombre: string, c: { plan: string }) =>
-    `${nombre} entra con su ${c.plan}, que ya cubría esta clase: no se le ha cobrado nada`;
+  const textoYaCubierta = (nombre: string, c: CubiertaPor) => !c.suelta
+    ? `${nombre} entra con su ${c.plan}, que ya cubría esta clase: no se le ha cobrado nada`
+    : c.suelta.debe > 0
+      ? `${nombre} entra con la clase suelta que recuperó: no se le cobra otra. Sigue debiendo ${formatEuro(c.suelta.debe)} de aquella, en «Quién me debe»`
+      : `${nombre} entra con la clase suelta que recuperó: no se le cobra otra`;
+  // Lo que se le dice a recepción si no ha quedado apuntada: si se llegó a
+  // vender y no se pudo deshacer, o si ni siquiera se sabe, «no se le ha
+  // cobrado nada» no sería verdad del todo.
+  const textoSinApuntar = (r: { error: string; reciboPendiente?: boolean; sinRespuesta?: boolean }, nombre: string) =>
+    r.sinRespuesta ? `No se ha podido confirmar si ${nombre} ha quedado apuntada: mira la clase antes de cobrarle.`
+      : r.reciboPendiente ? `${r.error} Ha quedado un recibo pendiente de esta clase suelta que sobra: elimínalo en «Quién me debe».`
+      : `${r.error} No se le ha cobrado nada.`;
 
   // «Cobrar y añadirla» (maqueta aprobada, 1-oct-2026): la clase suelta se
   // cobra en el mostrador de verdad —efectivo, tarjeta o Bizum—.
@@ -1800,28 +1808,35 @@ export default function Calendario() {
     const reserva = await addReserva(sesionId, socioId, undefined, {
       checkInInmediato: esWalkIn, avisar: avisarAlumna, claseSuelta: { importeEsperado: precio },
     });
-    if (!reserva.ok) { showToastError(`${reserva.error} No se le ha cobrado nada.`); return false; }
+    if (!reserva.ok) { showToastError(textoSinApuntar(reserva, nombre)); void refrescarVista(); return false; }
     void refrescarVista();
+    if (reserva.avisoVenta) {
+      showToastError(`${reserva.estado === 'LISTA_ESPERA' ? `${nombre} va a la lista de espera` : `${nombre} está en la clase`}, pero ${reserva.avisoVenta}`);
+      return true;
+    }
     if (reserva.estado === 'LISTA_ESPERA') {
-      showToast(`La clase se ha llenado justo ahora: ${nombre} va a la lista de espera, y no se le ha cobrado nada`);
+      showToast(`La clase se ha llenado justo ahora: ${nombre} va a la lista de espera, sin cobrarle nada. Si entra, cóbrale la clase en la puerta`);
       return true;
     }
     if (reserva.cubiertaPor) { showToast(textoYaCubierta(nombre, reserva.cubiertaPor)); return true; }
     if (!reserva.venta) {
-      showToastError(`${nombre} añadida a la clase, pero ${reserva.avisoVenta ?? 'no se ha podido apuntar su clase suelta. Cóbrasela desde Cobros con «Nuevo cobro».'}`);
+      showToastError(`${nombre} está en la clase, pero no se ha podido apuntar su clase suelta. Cóbrasela desde Cobros con «Nuevo cobro».`);
       return true;
     }
     const res = await marcarCobrado(reserva.venta.reciboId, metodo);
     const como = metodo === 'EFECTIVO' ? 'en efectivo' : metodo === 'TARJETA' ? 'con tarjeta' : 'por Bizum';
+    // `yaEstaba`: un intento anterior la apuntó y su respuesta no llegó; lo
+    // que se cobra es la clase suelta de aquel intento.
+    const dondeEsta = reserva.yaEstaba ? `${nombre} ya estaba en la clase` : `${nombre} añadida a la clase`;
     if (res.ok) {
-      showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${nombre} añadida a la clase`);
+      showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}`);
     } else if ('cobroRegistrado' in res) {
       // El dinero entró; falta sellar la factura (se reintenta sola).
-      showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${nombre} añadida. ${res.error}`);
+      showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}. ${res.error}`);
     } else {
       // El recibo existe, pendiente: queda en «Quién me debe». En rojo y más
       // rato: recepción puede tener ya el dinero en la mano.
-      showToastError(`${nombre} añadida a la clase, pero no consta el cobro. ${res.error} El recibo queda pendiente en «Quién me debe».`);
+      showToastError(`${dondeEsta}, pero no consta el cobro. ${res.error} El recibo queda pendiente en «Quién me debe».`);
     }
     return true;
   }
@@ -1839,18 +1854,28 @@ export default function Calendario() {
     const reserva = await addReserva(sesionId, socioId, undefined, {
       checkInInmediato: esWalkIn, avisar: avisarAlumna, claseSuelta: { importeEsperado: precio },
     });
-    if (!reserva.ok) { showToastError(reserva.error); return false; }
+    if (!reserva.ok) {
+      showToastError(reserva.sinRespuesta || reserva.reciboPendiente ? textoSinApuntar(reserva, nombre) : reserva.error);
+      void refrescarVista();
+      return false;
+    }
     void refrescarVista();
+    if (reserva.avisoVenta) {
+      showToastError(`${reserva.estado === 'LISTA_ESPERA' ? `${nombre} va a la lista de espera` : `${nombre} está en la clase`}, pero ${reserva.avisoVenta}`);
+      return true;
+    }
     if (reserva.estado === 'LISTA_ESPERA') {
-      showToast(`La clase está llena: ${nombre} va a la lista de espera, sin recibo`);
+      showToast(`La clase está llena: ${nombre} va a la lista de espera, sin recibo. Si entra, cóbrale la clase en la puerta`);
       return true;
     }
     if (reserva.cubiertaPor) { showToast(textoYaCubierta(nombre, reserva.cubiertaPor)); return true; }
     if (!reserva.venta) {
-      showToastError(`${nombre} añadida a la clase, pero ${reserva.avisoVenta ?? 'no se ha podido apuntar su clase suelta. Cóbrasela desde Cobros con «Nuevo cobro».'}`);
+      showToastError(`${nombre} está en la clase, pero no se ha podido apuntar su clase suelta. Cóbrasela desde Cobros con «Nuevo cobro».`);
       return true;
     }
-    showToast(`${nombre} añadida · recibo de ${formatEuro(reserva.venta.importe)} pendiente en Cobros`);
+    showToast(reserva.yaEstaba
+      ? `${nombre} ya estaba en la clase · su recibo de ${formatEuro(reserva.venta.importe)} sigue pendiente en Cobros`
+      : `${nombre} añadida · recibo de ${formatEuro(reserva.venta.importe)} pendiente en Cobros`);
     return true;
   }
 

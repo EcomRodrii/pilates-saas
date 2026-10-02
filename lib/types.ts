@@ -1183,6 +1183,12 @@ export interface Reserva {
   // construyen los tests y el portal.
   origen?: OrigenReserva;
   nombreExterno?: string | null;
+  /**
+   * De qué suscripción salió la sesión que gastó (`reservas.bono_suscripcion_id`,
+   * la decide `reservar_plaza`). `null`: no gastó ninguna (cuota, cortesía…) o
+   * es anterior a que se rastreara.
+   */
+  bonoSuscripcionId?: string | null;
 }
 
 export interface Recibo {

@@ -60,7 +60,11 @@ import {
 import type { EstadoReserva, PlanTarifa, PlazaFija as PlazaFijaServidor } from '@/lib/types';
 import { coberturaDeClase } from '@/lib/reservar/cobertura';
 import type { CubiertaPor, VentaClaseSuelta } from '@/lib/reservas/reserva-mostrador';
-import { conceptoDeClaseSuelta, desenlaceVentaSuelta, importeDeClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
+import {
+  avisoDeVentaSuelta, conceptoDeClaseSuelta, desenlaceVentaSuelta, idReciboDeSuscripcionDeClaseSuelta, importeDeClaseSuelta,
+  planDeClaseSuelta, type DesenlaceAnulacion, type DesenlaceVentaSuelta,
+} from '@/lib/reservas/clase-suelta';
+import { importeAdeudado } from '@/lib/billing/situacion-recibo';
 import { anularVentaClaseSuelta, prepararVentaClaseSuelta } from '@/lib/billing/clase-suelta-mostrador';
 import type { MotivoPlazaNoMaterializada } from '@/lib/notifications/emit';
 import type { FormaPegada } from '@/lib/widgets/pegado';
@@ -3078,12 +3082,6 @@ export async function reservarPlazaTrasPagoPublico(params: {
 export async function crearReservaMostrador(params: {
   studioId: string; sesionId: string; socioId: string; reservaId: string; avisarSocia: boolean;
   /**
-   * Solo pregunta si ya traía con qué venir (`cubiertaPor`), sin vender nada.
-   * Lo mandan las pestañas abiertas con el panel de #2467, que cobraban la
-   * suelta como un recibo suelto: se mantiene un despliegue y luego se retira.
-   */
-  comoClaseSuelta?: boolean;
-  /**
    * Le vende la clase suelta: la tarifa PUNTUAL de una sesión, que esta reserva
    * gasta (lib/reservas/clase-suelta.ts). `importeEsperado` es lo que dice el
    * botón del mostrador: si el servidor calcula otro precio, no se vende.
@@ -3095,10 +3093,11 @@ export async function crearReservaMostrador(params: {
     cubiertaPor: CubiertaPor | null;
     /** La clase suelta vendida, con su recibo PENDIENTE: se cobra después por `marcar-cobrado`. */
     venta: VentaClaseSuelta | null;
-    /** Ocupa plaza, pero la clase suelta no se pudo apuntar: hay que cobrarla a mano. */
+    /** La clase suelta no ha quedado vendida como se pidió: qué tiene que mirar recepción. */
     avisoVenta: string | null;
   }
-  | { ok: false; status: 400 | 404 | 409 | 500; error: string }
+  /** `reciboPendiente`: se llegó a vender y no se ha podido deshacer: queda un recibo que sobra. */
+  | { ok: false; status: 400 | 404 | 409 | 500; error: string; reciboPendiente?: boolean }
 > {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -3148,7 +3147,7 @@ export async function crearReservaMostrador(params: {
   // y la MISMA regla que ve la alumna al reservar se le dice si ya traía con
   // qué venir, y el panel no cobra. También si el bono que se descuenta abajo
   // sale por la fecha de UTC y no por la del estudio (00:00–02:00).
-  const cubiertaPor = !(params.comoClaseSuelta || params.claseSuelta) ? null : ((): CubiertaPor | null => {
+  let cubiertaPor = !params.claseSuelta ? null : ((): CubiertaPor | null => {
     const c = coberturaDeClase({
       socioId: params.socioId, suscripciones: cartera.suscripciones, planesTarifa: cartera.planes,
       hoyISO: hoyEnEstudio(), tipoClaseId: cartera.tipoClaseId, precioClaseSuelta: null,
@@ -3157,6 +3156,28 @@ export async function crearReservaMostrador(params: {
     if (c.estado === 'BONO') return { tipo: 'BONO', plan: c.planNombre };
     return consumibleBono ? { tipo: 'BONO', plan: consumibleBono.plan.nombre } : null;
   })();
+  // Si lo que la cubre es una clase suelta que recuperó al cancelar a tiempo,
+  // entra con ella; pero si aquella sigue sin pagar, recepción tiene que
+  // saberlo: «no se le ha cobrado nada» no es «no debe nada».
+  const reciboRecuperada = cubiertaPor && cubiertaPor.tipo === 'BONO'
+    ? idReciboDeSuscripcionDeClaseSuelta(consumibleBono?.suscripcion.id) : null;
+  if (cubiertaPor && reciboRecuperada) {
+    const { data: rec } = await admin.from('recibos')
+      .select('estado, importe, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, fecha_cobro')
+      .eq('id', reciboRecuperada).eq('studio_id', params.studioId).maybeSingle();
+    cubiertaPor = {
+      ...cubiertaPor,
+      suelta: {
+        debe: rec ? importeAdeudado({
+          estado: rec.estado as string, importe: rec.importe as number,
+          importeDevuelto: (rec.importe_devuelto as number | null) ?? null,
+          reembolsoStripeId: (rec.reembolso_stripe_id as string | null) ?? null,
+          reembolsoSolicitadoEn: (rec.reembolso_solicitado_en as string | null) ?? null,
+          fechaCobro: (rec.fecha_cobro as string | null) ?? null,
+        }) : 0,
+      },
+    };
+  }
 
   // La clase suelta: se vende ANTES de reservar (suscripción de una sesión y su
   // recibo pendiente) para que `reservar_plaza` la gaste bajo su candado, como
@@ -3165,6 +3186,11 @@ export async function crearReservaMostrador(params: {
   let venta: (VentaClaseSuelta & { suscripcionId: string }) | null = null;
   let gastable: ConsumibleBono | null = consumibleBono;
   if (params.claseSuelta && !cubiertaPor) {
+    // Antes de crear nada a su nombre: que sea una clienta de ESTE estudio (la
+    // RPC lo comprueba, pero después de haber vendido).
+    const { data: clienta } = await admin.from('socios').select('id')
+      .eq('id', params.socioId).eq('studio_id', params.studioId).is('borrado_en', null).maybeSingle();
+    if (!clienta) return { ok: false, status: 404, error: 'No se encuentra esta clienta en el estudio.' };
     const plan = planDeClaseSuelta(cartera.planes, cartera.tipoClaseId);
     const importe = importeDeClaseSuelta(ses.precio_puntual as number | null, plan);
     if (!plan || importe == null) {
@@ -3182,55 +3208,80 @@ export async function crearReservaMostrador(params: {
       plan: { id: plan.id, tipo: plan.tipo, sesiones: plan.sesiones ?? null, validezDias: plan.validezDias ?? null, periodicidadMeses: plan.periodicidadMeses ?? null },
       importe, concepto, hoy: hoyEnEstudio(),
     });
-    if (!r.ok) return { ok: false, status: r.status, error: r.error };
+    if (!r.ok) return { ok: false, status: r.status, error: r.error, reciboPendiente: r.reciboPendiente };
     venta = { reciboId: r.reciboId, suscripcionId: r.suscripcionId, importe, concepto };
     // Lo que la RPC gasta, y lo que `trasReservaCreada` mira para sus avisos.
     const { data: filaSus } = await admin.from('suscripciones').select('*').eq('id', r.suscripcionId).maybeSingle();
     gastable = filaSus ? { suscripcion: mapSuscripcion(filaSus as never), plan, sesionesRestantes: 1 } : null;
   }
-  const anularVenta = async () => {
-    if (!venta) return;
-    await anularVentaClaseSuelta(admin, {
+  const anularVenta = async (): Promise<DesenlaceAnulacion | null> => {
+    if (!venta) return null;
+    return anularVentaClaseSuelta(admin, {
       studioId: params.studioId, suscripcionId: venta.suscripcionId, reciboId: venta.reciboId, ahoraISO: new Date().toISOString(),
     });
   };
   // Qué pasó con la clase suelta, leído de la reserva (la misma marca que
   // usan los reintentos), y lo que se contesta en cada caso.
-  const cerrarVenta = async (estadoReserva: string): Promise<{ cubiertaPor: CubiertaPor | null; venta: VentaClaseSuelta | null; avisoVenta: string | null }> => {
+  const cerrarVenta = async (): Promise<{ cubiertaPor: CubiertaPor | null; venta: VentaClaseSuelta | null; avisoVenta: string | null }> => {
     if (!venta) return { cubiertaPor, venta: null, avisoVenta: null };
-    const leer = async () => {
-      const { data: fila } = await admin.from('reservas').select('estado, bono_suscripcion_id, bono_decidido_en')
+    // Sin poder leer la reserva NO se decide nada: anular una venta que sí se
+    // gastó, o mandar a «Nuevo cobro» una clase que ya tiene su recibo, son dos
+    // cobros por una clase.
+    const leer = async (): Promise<{ desenlace: DesenlaceVentaSuelta | 'desconocido'; bonoSuscripcionId: string | null }> => {
+      const { data: fila, error } = await admin.from('reservas').select('estado, bono_suscripcion_id, bono_decidido_en')
         .eq('id', params.reservaId).eq('studio_id', params.studioId).maybeSingle();
-      return desenlaceVentaSuelta({
-        estado: (fila?.estado as string | undefined) ?? estadoReserva,
-        bonoDecidido: !!fila?.bono_decidido_en,
-        bonoSuscripcionId: (fila?.bono_suscripcion_id as string | null | undefined) ?? null,
-        suscripcionSuelta: venta!.suscripcionId,
-      });
+      if (error || !fila) return { desenlace: 'desconocido', bonoSuscripcionId: null };
+      const bonoSuscripcionId = (fila.bono_suscripcion_id as string | null) ?? null;
+      return {
+        bonoSuscripcionId,
+        desenlace: desenlaceVentaSuelta({
+          estado: fila.estado as string, bonoDecidido: !!fila.bono_decidido_en, bonoSuscripcionId, suscripcionSuelta: venta!.suscripcionId,
+        }),
+      };
     };
-    let desenlace = await leer();
-    if (desenlace === 'sin-decidir') {
+    let leido = await leer();
+    if (leido.desenlace === 'sin-decidir') {
       // Un intento anterior murió entre crear la reserva y decidir el bono: el
       // dueño lo completa (idempotente por reserva) y se vuelve a mirar.
       await completarConfirmacionTrasReintento(admin, { studioId: params.studioId, reservaId: params.reservaId });
-      desenlace = await leer();
+      leido = await leer();
     }
+    const { desenlace } = leido;
     if (desenlace === 'vendida') {
       return { cubiertaPor: null, venta: { reciboId: venta.reciboId, importe: venta.importe, concepto: venta.concepto }, avisoVenta: null };
     }
-    await anularVenta();
-    if (desenlace === 'no-ocupa') return { cubiertaPor: null, venta: null, avisoVenta: null };
-    if (desenlace === 'otro-bono') {
-      const { data: fila } = await admin.from('reservas').select('bono_suscripcion_id').eq('id', params.reservaId).maybeSingle();
-      const sus = cartera.suscripciones.find(s => s.id === fila?.bono_suscripcion_id);
-      const plan = sus ? cartera.planes.find(p => p.id === sus.planId) : undefined;
-      return { cubiertaPor: { tipo: 'BONO', plan: plan?.nombre ?? 'su bono' }, venta: null, avisoVenta: null };
+    if (desenlace === 'desconocido' || desenlace === 'sin-decidir') {
+      reportDbError('[crearReservaMostrador] no se sabe si la clase suelta se gastó', new Error(`reserva ${params.reservaId}: ${desenlace}`));
+      return { cubiertaPor: null, venta: null, avisoVenta: avisoDeVentaSuelta(desenlace, null) };
     }
-    // Ocupa plaza y no gastó nada: no debería pasar. Que se vea y que se cobre a mano.
-    reportDbError('[crearReservaMostrador] clase suelta sin gastar', new Error(`reserva ${params.reservaId}: ${desenlace}`));
+    const anulacion = await anularVenta();
+    if (desenlace === 'otro-bono') {
+      const sus = cartera.suscripciones.find(s => s.id === leido.bonoSuscripcionId);
+      const plan = sus ? cartera.planes.find(p => p.id === sus.planId) : undefined;
+      return { cubiertaPor: { tipo: 'BONO', plan: plan?.nombre ?? 'bono' }, venta: null, avisoVenta: avisoDeVentaSuelta(desenlace, anulacion) };
+    }
+    if (desenlace === 'sin-gastar') {
+      // Ocupa plaza y no gastó nada: no debería pasar. Que se vea y que se cobre a mano.
+      reportDbError('[crearReservaMostrador] clase suelta sin gastar', new Error(`reserva ${params.reservaId}: ${desenlace}`));
+    }
+    return { cubiertaPor: null, venta: null, avisoVenta: avisoDeVentaSuelta(desenlace, anulacion) };
+  };
+  // Ya estaba en esta clase con OTRA reserva y con su clase suelta sin cobrar:
+  // un intento anterior cuya respuesta no llegó (la red cortó y recepción ha
+  // vuelto a pulsar). Lo que hay que cobrar es ESE recibo, no uno nuevo.
+  const ventaAnterior = async (): Promise<{ reservaId: string; estado: string; venta: VentaClaseSuelta } | null> => {
+    const { data: activas } = await admin.from('reservas').select('id, estado, bono_suscripcion_id')
+      .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('sesion_id', params.sesionId)
+      .in('estado', ['CONFIRMADA', 'ASISTIDA']).like('bono_suscripcion_id', 'sus-suelta-%').limit(1);
+    const previa = activas?.[0];
+    const reciboId = idReciboDeSuscripcionDeClaseSuelta(previa?.bono_suscripcion_id as string | null | undefined);
+    if (!previa || !reciboId) return null;
+    const { data: rec } = await admin.from('recibos').select('estado, importe, concepto, fecha_cobro, suscripcion_id')
+      .eq('id', reciboId).eq('studio_id', params.studioId).maybeSingle();
+    if (!rec || rec.estado !== 'PENDIENTE' || rec.fecha_cobro || rec.suscripcion_id !== previa.bono_suscripcion_id) return null;
     return {
-      cubiertaPor: null, venta: null,
-      avisoVenta: 'no se ha podido apuntar su clase suelta. Cóbrasela desde Cobros con «Nuevo cobro».',
+      reservaId: previa.id as string, estado: previa.estado as string,
+      venta: { reciboId, importe: Number(rec.importe), concepto: rec.concepto as string },
     };
   };
   const { data, error } = await admin.rpc('reservar_plaza', {
@@ -3270,17 +3321,27 @@ export async function crearReservaMostrador(params: {
         return {
           ok: true, estado: existente.estado as string,
           posicionEspera: (existente.posicion_espera as number | null) ?? null,
-          reservaId: params.reservaId, repetida: true, ...(await cerrarVenta(existente.estado as string)),
+          reservaId: params.reservaId, repetida: true, ...(await cerrarVenta()),
+        };
+      }
+      const anterior = venta ? await ventaAnterior() : null;
+      if (anterior) {
+        const anulacion = await anularVenta();
+        return {
+          ok: true, estado: anterior.estado, posicionEspera: null, reservaId: anterior.reservaId, repetida: true,
+          cubiertaPor: null, venta: anterior.venta,
+          avisoVenta: anulacion === 'anulada' ? null : avisoDeVentaSuelta('otro-bono', anulacion),
         };
       }
     }
     // La plaza no salió: la clase suelta vendida para ella sobra.
-    await anularVenta();
+    const anulacion = await anularVenta();
+    const reciboPendiente = anulacion !== null && anulacion !== 'anulada';
     // Nunca el SQL crudo a pantalla: la tabla completa de códigos de la RPC.
     const traducido = mensajeDeErrorReserva(error.message);
-    if (traducido) return { ok: false, status: 400, error: traducido };
+    if (traducido) return { ok: false, status: 400, error: traducido, reciboPendiente };
     reportDbError('[crearReservaMostrador]', error);
-    return { ok: false, status: 500, error: 'No se ha podido apuntar. Inténtalo otra vez.' };
+    return { ok: false, status: 500, error: 'No se ha podido apuntar. Inténtalo otra vez.', reciboPendiente };
   }
   const row = Array.isArray(data) ? data[0] : data;
   const estado: string = row?.estado ?? 'CONFIRMADA';
@@ -3299,13 +3360,9 @@ export async function crearReservaMostrador(params: {
   // tres caminos de creación de reserva (RES-9).
 
   if (venta) {
-    return { ok: true, estado, posicionEspera, reservaId: params.reservaId, repetida: false, ...(await cerrarVenta(estado)) };
+    return { ok: true, estado, posicionEspera, reservaId: params.reservaId, repetida: false, ...(await cerrarVenta()) };
   }
-  // Y si, pese a todo, la RPC ha descontado un bono, tampoco se cobra: nunca el
-  // bono y la clase suelta por la misma plaza.
-  const cubierta = cubiertaPor ?? (params.comoClaseSuelta && consumoBono?.resultado === 'CONSUMIDA'
-    ? { tipo: 'BONO' as const, plan: consumibleBono?.plan.nombre ?? 'su bono' } : null);
-  return { ok: true, estado, posicionEspera, reservaId: params.reservaId, repetida: false, cubiertaPor: cubierta, venta: null, avisoVenta: null };
+  return { ok: true, estado, posicionEspera, reservaId: params.reservaId, repetida: false, cubiertaPor, venta: null, avisoVenta: null };
 }
 
 // ─── Reserva de una plataforma externa (ClassPass, Urban Sports Club…) ──────

@@ -13,9 +13,12 @@ export interface PeticionReservaMostrador {
   /** «Avisar a la alumna». Solo un `false` explícito lo apaga. */
   avisar: boolean;
   /**
-   * El mostrador va a cobrarle la clase suelta (o a dejársela pendiente): el
-   * servidor le dice, con su cartera de AHORA, si ya tenía bono o cuota que
-   * vale para esta clase. Solo un `true` explícito lo pide.
+   * Lo mandaban las pestañas con el panel de #2467, que cobraban la clase
+   * suelta como un recibo aparte. Ahora solo sirve para reconocerlas: sin
+   * `claseSuelta`, la ruta les pide recargar (`MENSAJE_PANEL_VIEJO`). El
+   * panel nuevo lo sigue mandando junto a
+   * `claseSuelta` para que, si se volviera al servidor anterior, este supiera
+   * no gastar un bono además de la clase suelta.
    */
   comoClaseSuelta: boolean;
   /**
@@ -33,7 +36,15 @@ export interface CubiertaPor {
   tipo: 'BONO' | 'MENSUAL';
   /** El nombre del plan, para decírselo a recepción. */
   plan: string;
+  /**
+   * Lo que la cubre es una clase suelta que recuperó al cancelar a tiempo:
+   * entra con ella, y `debe` es lo que aún debe de aquella (0 si está pagada).
+   */
+  suelta?: { debe: number };
 }
+
+/** Una pestaña con el panel de antes de vender la clase suelta (#2467). */
+export const MENSAJE_PANEL_VIEJO = 'Hay una versión nueva del panel: recarga la página para cobrar la clase suelta.';
 
 /** La clase suelta vendida al reservar: su recibo PENDIENTE, que se cobra después. */
 export interface VentaClaseSuelta {

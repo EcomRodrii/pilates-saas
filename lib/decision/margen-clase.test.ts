@@ -160,3 +160,31 @@ test('margenSesiones: calcula el índice una sola vez y devuelve un resultado po
   assert.equal(resultados[1].sesionId, 's2');
   assert.equal(resultados[1].ingresoImputado, 15);
 });
+
+test('la plaza cuenta por lo que gastó de verdad (`bonoSuscripcionId`), aunque haya otra que también la cubra', () => {
+  const se = claseUnaHora('s1');
+  const bono = plan({ id: 'bono10', tipo: 'BONO', precio: 100, sesiones: 10 });
+  const suelta = plan({ id: 'suelta', tipo: 'PUNTUAL', precio: 15, sesiones: 1, tiposClaseIds: ['tc1'] });
+  const suscripciones = [
+    suscripcion({ id: 'sus-bono', socioId: 'soc1', planId: 'bono10' }),
+    suscripcion({ id: 'sus-otra', socioId: 'soc1', planId: 'suelta', sesionesRestantes: 1 }),
+  ];
+  const reservas = [reserva({ socioId: 'soc1', estado: 'CONFIRMADA', sesionId: 's1', bonoSuscripcionId: 'sus-bono' })];
+  const snap = snapshot({ sesiones: [se], reservas, suscripciones, planesTarifa: [bono, suelta] });
+  // Sin el dato, la PUNTUAL «específica» ganaba y la plaza contaba 15 € en vez de 10.
+  assert.equal(margenSesion(se, snap, construirIndices(snap)).ingresoImputado, 10);
+});
+
+test('⚠️ la clase suelta del mostrador cuenta solo en la reserva que la gastó, no en las clases siguientes', () => {
+  const se = claseUnaHora('s1');
+  const bono = plan({ id: 'bono10', tipo: 'BONO', precio: 100, sesiones: 10 });
+  const suelta = plan({ id: 'suelta', tipo: 'PUNTUAL', precio: 15, sesiones: 1, tiposClaseIds: ['tc1'] });
+  // Gastada en otra clase, y ACTIVA para siempre con 0 sesiones (así quedan las PUNTUAL gastadas).
+  const suscripciones = [
+    suscripcion({ id: 'sus-suelta-res-antigua', socioId: 'soc1', planId: 'suelta', sesionesRestantes: 0 }),
+    suscripcion({ id: 'sus-bono', socioId: 'soc1', planId: 'bono10' }),
+  ];
+  const reservas = [reserva({ socioId: 'soc1', estado: 'CONFIRMADA', sesionId: 's1' })];
+  const snap = snapshot({ sesiones: [se], reservas, suscripciones, planesTarifa: [bono, suelta] });
+  assert.equal(margenSesion(se, snap, construirIndices(snap)).ingresoImputado, 10);
+});
