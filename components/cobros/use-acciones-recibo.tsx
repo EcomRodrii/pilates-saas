@@ -42,6 +42,11 @@ interface Confirmacion {
 
 export interface AccionesRecibo {
   ejecutar: (accion: IdAccionRecibo, r: Recibo) => void;
+  /**
+   * «Cobrar con su tarjeta» de la ficha, con todos sus recibos: pide confirmar y los
+   * cobra de uno en uno (son cargos reales), parando en el primero que no entre.
+   */
+  cobrarSinEllaTodo: (rs: Recibo[], boton: string) => void;
   /** «Pedirle la tarjeta / una nueva / Cambiar su tarjeta» de la ficha. */
   pedirTarjeta: (socioId: string) => void;
   /** ¿Tiene este recibo una acción en marcha? (para apagar su botón) */
@@ -116,6 +121,27 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
     // que tarda días): se relee en vez de replicar aquí esa lógica.
     avisos.ok('Cobro intentado con lo que tiene guardado. Actualizando…');
     resetDatosPilates();
+  }
+
+  // Varios recibos de la misma clienta: de uno en uno (el cobro es por recibo, cada uno con su
+  // clave de idempotencia), parando en el primero que no entra, y releyendo el estudio UNA vez.
+  async function cobrarSinEllaVarios(rs: Recibo[]) {
+    let cobrados = 0;
+    let fallo: string | null = null;
+    for (const r of rs) {
+      if (!r.socioId) continue;
+      const result = await cobrarOnlineDirecto({ reciboId: r.id, socioId: r.socioId });
+      if ('error' in result) {
+        if (result.errorCode === 'SIN_TARJETA') { abrirPedirTarjeta(r.socioId); fallo = ''; break; }
+        fallo = result.error;
+        break;
+      }
+      if (result.aviso === 'COBRADO_SIN_PERSISTIR') { fallo = result.detalle ?? 'Cobrado en Stripe, pero sin guardarlo aquí: revísalo.'; break; }
+      cobrados++;
+    }
+    if (cobrados > 0) resetDatosPilates();
+    if (fallo) avisos.error(cobrados > 0 ? `${cobrados} cobrado${cobrados === 1 ? '' : 's'}; el siguiente no: ${fallo}` : fallo);
+    else if (fallo === null) avisos.ok(cobrados === 1 ? 'Cobro intentado con lo que tiene guardado. Actualizando…' : `${cobrados} cobros intentados con lo que tiene guardado. Actualizando…`);
   }
 
   function abrirPedirTarjeta(socioId: string) {
@@ -381,5 +407,18 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
     </>
   );
 
-  return { ejecutar, pedirTarjeta: abrirPedirTarjeta, enVuelo: id => enVueloRef.current.has(id), dialogos };
+  function cobrarSinEllaTodo(rs: Recibo[], boton: string) {
+    if (rs.length === 0) return;
+    if (rs.length === 1) { ejecutar('COBRAR_SIN_ELLA', rs[0]); return; }
+    const total = rs.reduce((t, r) => t + r.importe, 0);
+    const clave = `varios:${rs.map(r => r.id).join(',')}`;
+    setConfirmacion({
+      titulo: `¿Cobrar ${formatEuro(total)} a ${nombre(rs[0].socioId)}?`,
+      descripcion: `Se le cobran ahora sus ${rs.length} recibos con lo que tiene guardado, uno detrás de otro. Si uno no entra, se para ahí y te lo decimos.`,
+      textoConfirmar: boton,
+      accion: () => enUnaVez(clave, () => cobrarSinEllaVarios(rs)),
+    });
+  }
+
+  return { ejecutar, cobrarSinEllaTodo, pedirTarjeta: abrirPedirTarjeta, enVuelo: id => enVueloRef.current.has(id), dialogos };
 }
