@@ -103,9 +103,9 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Facturas o «Para tu gestoría»</h2>
       <p>
-        Si facturas con Tentare, la pestaña se llama «Facturas»: lo facturado este mes (base, IVA y total), los cobros
-        en efectivo que se quedaron sin factura, y cada factura con su PDF. Cada factura se sella con su huella
-        Veri*Factu al cobrarse.
+        La pestaña «Facturas» enseña lo facturado este mes (base, IVA y total), los cobros en efectivo que se quedaron
+        sin factura, y cada factura con su PDF. Con Veri*Factu activado, además, cada factura se sella con su huella al
+        cobrarse.
       </p>
       <p style={{ margin: 0 }}>
         Si tus facturas las hace tu gestoría, la pestaña se llama «Para tu gestoría»: lo cobrado del trimestre anterior,

@@ -39,7 +39,7 @@ interface Estado {
 
 const TEXTO_ESTADO: Record<EstadoEstudio, { titulo: string; detalle: string }> = {
   SIN_CONFIGURAR: { titulo: 'Sin dar de alta', detalle: 'Tentare solo emite tus facturas cuando el envío a la AEAT está activo. Hasta entonces, tus cobros dejan su justificante de pago.' },
-  PENDIENTE_AUTORIZACION: { titulo: 'Falta tu autorización', detalle: 'Otorga el poder en la AEAT y trae aquí su justificante. Hasta que se active el envío, Tentare no emite tus facturas.' },
+  PENDIENTE_AUTORIZACION: { titulo: 'Falta tu autorización', detalle: 'Otorga el poder en la AEAT y trae aquí su justificante. Hasta que se active el envío, tus facturas salen sin envío a la AEAT.' },
   AUTORIZACION_EN_REVISION: { titulo: 'Comprobando tu autorización', detalle: 'Tentare está comprobando en la AEAT el poder que otorgaste. Todavía no se emiten facturas desde Tentare.' },
   VERIFICADO: { titulo: 'Autorización comprobada', detalle: 'Tu poder está verificado. Tentare activará el envío: desde ese día, cada cobro genera su factura y su registro se envía a la AEAT.' },
   PRODUCCION: { titulo: 'Enviando a la AEAT', detalle: 'Tus facturas se emiten desde Tentare y sus registros se envían a la AEAT.' },

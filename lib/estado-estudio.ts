@@ -77,6 +77,12 @@ export interface ConteosEstudio {
   jornadasPorRevisar?: number | null;
   /** Clases que una instructora dijo no dar y nadie ha revisado todavía. */
   clasesNoDadasPorRevisar?: number | null;
+  /**
+   * Falta el NIF del estudio: sin él no sale ninguna factura (factura siempre,
+   * 2-oct-2026). Cobros que se quedaron sin la suya por eso; 1 si aún no hay
+   * ninguno (el NIF falta igual). Solo la propietaria, que es quien lo pone.
+   */
+  facturasSinNif?: number | null;
   // En marcha
   sustitucionesBuscando?: number | null;
   ofertasListaEspera?: number | null;
@@ -157,6 +163,10 @@ const LINEAS: DefLinea[] = [
   // pierde la apertura. Se ve y se resuelve en su tarjeta de Inicio.
   { id: 'alertasApertura', bandeja: 'decidir', href: null,
     uno: 'Tu apertura tiene un aviso', varios: n => `Tu apertura tiene ${n} avisos` },
+  // Lo primero que tiene que poner: sin NIF, ningún cobro saca su factura.
+  { id: 'facturasSinNif', bandeja: 'decidir', href: '/configuracion?tab=cobros#datos-fiscales',
+    uno: 'Falta el NIF del estudio: sin él tus cobros no sacan factura',
+    varios: n => `Falta el NIF del estudio: ${n} cobros sin su factura` },
   { id: 'recibosFallidos', bandeja: 'decidir', href: '/cobros?tab=deudas',
     // Incluye el recibo devuelto por el banco: también es deuda (F0).
     uno: 'Un cobro sin cobrar: rechazado o devuelto por el banco', varios: n => `${n} cobros sin cobrar: rechazados o devueltos por el banco` },

@@ -14,8 +14,9 @@ import type { Factura } from '@/lib/types';
 // R1-R5, el método (S/I) y los importes los decide quien lo pulsa, con la
 // gestoría si hace falta. El servidor no adivina ninguna fórmula fiscal.
 //
-// No se ofrece si ya existe una rectificativa sellada para esta factura
-// (`facturas` con `rectificaA === factura.id` y `verifactuHash` no null) —
+// No se ofrece si ya existe una rectificativa emitida para esta factura
+// (`facturas` con `rectificaA === factura.id`, emitida: con huella o, sin
+// Veri*Factu, sin sitio en la cadena) —
 // evita duplicar por un doble clic, aunque el issue no descarta que algún día
 // haga falta más de una (devoluciones parciales sucesivas).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,8 +35,11 @@ export function BotonRectificarFactura({
   const [metodo, setMetodo] = useState<'S' | 'I'>('I');
   const [importe, setImporte] = useState(() => String(-Math.abs(factura.total)));
 
-  if (!factura.verifactuHash) return null; // no se rectifica lo que nunca se selló de verdad.
-  const yaRectificada = facturas.some(f => f.rectificaA === factura.id && f.verifactuHash);
+  // Emitida = con huella (Veri*Factu) o, sin Veri*Factu, sin sitio en la cadena
+  // (`facturaEmitida` en el servidor). Una reserva a medias no se rectifica.
+  const emitida = (f: Factura) => !!f.verifactuHash || f.verifactuSeq == null;
+  if (!emitida(factura)) return null; // no se rectifica lo que nunca se emitió de verdad.
+  const yaRectificada = facturas.some(f => f.rectificaA === factura.id && emitida(f));
   if (yaRectificada) return null;
 
   async function confirmar() {

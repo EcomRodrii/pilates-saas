@@ -50,7 +50,7 @@ export interface ReciboParaAcciones extends ReciboParaDevolver {
 export interface ContextoDeAcciones {
   /** La factura del recibo, si la tiene. */
   factura: { numero: string } | null;
-  /** El estudio factura con Tentare (`modoFacturacion === 'verifactu'`). */
+  /** El estudio factura con Tentare (`emiteFacturas`: con o sin Veri*Factu). */
   estudioFactura: boolean;
   /** El estudio prepara remesas (acreedor, IBAN y titular). */
   estudioHaceRemesas: boolean;
@@ -121,7 +121,7 @@ export function accionesDeRecibo(r: ReciboParaAcciones, ctx: ContextoDeAcciones)
 
   if (s === 'COBRADO' || s === 'REEMBOLSADO') {
     if (ctx.factura) acciones.push({ id: 'VER_FACTURA', texto: `Ver factura ${ctx.factura.numero}` });
-    else if (ctx.estudioFactura && s === 'COBRADO') acciones.push({ id: 'HACERLE_FACTURA', texto: 'Hacerle factura', nota: 'Con su huella Veri*Factu' });
+    else if (ctx.estudioFactura && s === 'COBRADO') acciones.push({ id: 'HACERLE_FACTURA', texto: 'Hacerle factura', nota: 'Con número fiscal' });
     if (dev.reembolsoAMano) acciones.push({ id: 'LE_HE_DEVUELTO_EL_DINERO', texto: 'Le he devuelto el dinero', nota: 'Ya no lo debe' });
     if (dev.bancoLoDevolvio) acciones.push({ id: 'EL_BANCO_LO_DEVOLVIO', texto: 'El banco lo devolvió', peligro: true, nota: 'Vuelve a deberlo' });
     // Un reembolso parcial por Stripe deja el resto devolvible: también desde su ficha.

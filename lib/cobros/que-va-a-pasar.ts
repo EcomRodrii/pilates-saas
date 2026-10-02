@@ -5,17 +5,18 @@
 //   · la caja solo apunta un cobro en efectivo, tarjeta o Bizum, y solo con una
 //     caja ABIERTA (`apuntar_cobro_en_caja`, efecto `caja` de `confirmarCobro`);
 //     sin caja abierta no apunta, y no es un error;
-//   · la factura sale sola solo si el estudio factura con Tentare, el cobro no
-//     es en efectivo (`emiteFacturaAutomatica`) y el NIF del estudio es válido
-//     (`nifEmisorValido`, la guarda del sellado). En efectivo, solo si se marca
-//     «Hacerle factura» (decisión del fundador, 2-oct-2026).
+//   · la factura sale sola si el cobro no es en efectivo (`emiteFacturaAutomatica`;
+//     desde el 2-oct-2026 todo estudio factura). En efectivo, solo si se marca
+//     «Hacerle factura» (decisión del fundador, 2-oct-2026). Sin NIF válido del
+//     estudio (`nifEmisorValido`, la guarda del sellado) queda pendiente y sale
+//     cuando lo pongan.
 // Y «Es la renovación de su plan» no se puede marcar si esa cuota ya tiene una
 // renovación viva: lo prohíbe un índice único (`recibos_renovacion_viva_por_suscripcion`).
 //
 // Puro: se prueba con `node --test`.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { emiteFacturaAutomatica } from '../factura-automatica.ts';
+import { emiteFacturaAutomatica, emiteFacturas } from '../factura-automatica.ts';
 import { nifEmisorValido } from '../nif.ts';
 import type { MetodoCobro, ModoFacturacion } from '../types.ts';
 
@@ -26,7 +27,7 @@ export interface QueVaAPasar {
   caja: string | null;
   /** La frase de la factura, o `null` si el estudio no factura con Tentare. */
   factura: string | null;
-  /** ¿Saldrá factura? (para pedir el sellado tras cobrar) */
+  /** ¿Se pide factura? (sin NIF del estudio, queda pendiente) */
   saleFactura: boolean;
   /** ¿Se ofrece la casilla «Hacerle factura»? (estudio que factura, cobro en efectivo) */
   ofrecerHacerFactura: boolean;
@@ -45,7 +46,7 @@ export function queVaAPasar(p: {
   if (p.metodo && PASAN_POR_CAJA.has(p.metodo) && p.cajaAbierta !== null) {
     caja = p.cajaAbierta ? 'Se apunta en la caja.' : 'No hay caja abierta: no se apunta en la caja.';
   }
-  if (p.modoFacturacion !== 'verifactu') {
+  if (!emiteFacturas(p.modoFacturacion)) {
     return { caja, factura: null, saleFactura: false, ofrecerHacerFactura: false };
   }
   const efectivo = p.metodo === 'EFECTIVO';
@@ -54,7 +55,8 @@ export function queVaAPasar(p: {
     return { caja, factura: 'En efectivo no sale factura sola: marca «Hacerle factura» si te la pide.', saleFactura: false, ofrecerHacerFactura: true };
   }
   if (!nifEmisorValido(p.nifEstudio)) {
-    return { caja, factura: 'No sale factura: falta el NIF fiscal del estudio (Configuración → Cobros y facturas).', saleFactura: false, ofrecerHacerFactura: efectivo };
+    // Se pide igual: queda pendiente y sale en cuanto el estudio ponga su NIF.
+    return { caja, factura: 'Su factura queda pendiente hasta que pongas el NIF del estudio (Configuración → Cobros y facturas).', saleFactura: true, ofrecerHacerFactura: efectivo };
   }
   return { caja, factura: 'Sale su factura.', saleFactura: true, ofrecerHacerFactura: efectivo };
 }

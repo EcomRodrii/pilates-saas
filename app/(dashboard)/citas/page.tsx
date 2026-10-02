@@ -12,6 +12,7 @@ import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
 import { cn, formatEuro, formatFechaCorta, formatHoraCorta } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { emiteFacturas as emiteFacturasDelEstudio } from '@/lib/factura-automatica';
 import {
   Dialog,
   DialogContent,
@@ -278,7 +279,7 @@ export default function CitasPage() {
   const { socios, instructores, citas, sesiones, addCita, updateCita, completarCita, cancelarCita, crearFacturaDirecta, studio } = useStudio();
   // Con el estudio sin facturas desde Tentare, cobrar una cita deja su recibo y
   // nada más: los textos no pueden prometer una factura.
-  const emiteFacturas = studio?.modoFacturacion === 'verifactu';
+  const emiteFacturas = emiteFacturasDelEstudio(studio?.modoFacturacion);
   const rol = useRol();
   // Todo lo de esta pantalla escribe en `citas`, y su RLS exige
   // `puede_gestionar_clientas()` — eso sigue valiendo para gestionar la cita

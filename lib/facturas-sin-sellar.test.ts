@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { averiasRecientes, recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente } from './facturas-sin-sellar.ts';
+import { averiasRecientes, cobradoConFacturaSiempre, recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente } from './facturas-sin-sellar.ts';
 
 test('un recibo sin factura sale en el resultado', () => {
   const r = recibosCobradosSinFactura(
@@ -78,4 +78,12 @@ test('«Hacerle factura» en efectivo que no llegó a sellarse es avería, como 
     { id: 'sin-pedir', studioId: 's', fechaCobro: '2026-10-01', metodoCobro: 'EFECTIVO', facturaPendienteSellar: false },
   ];
   assert.deepEqual(recibosConFacturaAutomaticaAusente(efectivo, new Set<string>()).map(r => r.id), ['pedida']);
+});
+
+test('factura siempre: solo vigila los cobros desde el 3-oct-2026 (hora de Madrid), nunca hacia atrás', () => {
+  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-02' }), false, 'el día del cambio todavía no');
+  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-03' }), true);
+  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-02T21:59:00Z' }), false);
+  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-02T22:00:00Z' }), true);
+  assert.equal(cobradoConFacturaSiempre({ fechaCobro: null }), false, 'sin fecha no se sabe si es de antes');
 });

@@ -51,4 +51,6 @@ test('Veri*Factu en una frase que no promete el registro en la AEAT', () => {
   assert.match(fraseVerifactu({ nifEstudioValido: true, pendientesDeSellar: 2 }), /2 cobros se quedaron sin factura al sellar/);
   assert.match(fraseVerifactu({ nifEstudioValido: false, pendientesDeSellar: 0 }), /falta el NIF fiscal del estudio/);
   assert.doesNotMatch(fraseVerifactu({ nifEstudioValido: true, pendientesDeSellar: 0 }), /registrad|AEAT/);
+  // Sin Veri*Factu no se promete huella.
+  assert.doesNotMatch(fraseVerifactu({ nifEstudioValido: true, pendientesDeSellar: 0, conVerifactu: false }), /Veri\*Factu|huella/);
 });

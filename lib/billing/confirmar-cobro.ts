@@ -262,7 +262,7 @@ export async function aplicarEfectosCobro(
   let numeroFactura: string | undefined;
   let renovacionFallida = false;
 
-  const marcarFacturaPendiente = async (detalle: unknown) => {
+  const marcarFacturaPendiente = async (detalle: unknown, opciones: { faltaNif?: boolean } = {}) => {
     selladoOk = false;
     try {
       await admin.from('recibos').update({ factura_pendiente_sellar: true })
@@ -270,6 +270,10 @@ export async function aplicarEfectosCobro(
     } catch (e) {
       console.error('[aplicarEfectosCobro] no se pudo marcar la factura pendiente', p.reciboId, e);
     }
+    // Sin NIF del estudio no es una avería: la propietaria lo ve en «por decidir»
+    // («Falta tu NIF») y la factura sale cuando lo pone. Avisar a Sentry por cada
+    // cobro de un estudio sin NIF solo sería ruido.
+    if (opciones.faltaNif) return;
     if (p.reparacion) {
       // El camino que ganó la transición ya lo reportó segundos antes: capturarlo
       // otra vez duplicaría el aviso en CADA cobro de un estudio sin NIF.
@@ -312,7 +316,7 @@ export async function aplicarEfectosCobro(
             // que reintentar ni que avisar. El cobro es el mismo.
             await limpiarFacturaPendiente();
           } else {
-            await marcarFacturaPendiente(r.error);
+            await marcarFacturaPendiente(r.error, { faltaNif: r.faltaNif });
           }
           break;
         }
@@ -718,7 +722,9 @@ export async function reintentarFacturasPendientesDeSellar(
       await admin.from('recibos').update({ factura_pendiente_sellar: false })
         .eq('id', rec.id).eq('studio_id', rec.studio_id);
       if (res.ok) selladas++;
-    } else {
+    } else if (!res.faltaNif) {
+      // Sin NIF se queda marcada, sin avisar: sale sola en cuanto lo pongan (si
+      // aún está dentro de la ventana) y la bandeja «por decidir» ya lo cuenta.
       Sentry.captureMessage('[reintentarFacturasPendientesDeSellar] sigue sin poder sellar', {
         level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
         extra: { reciboId: rec.id, studioId: rec.studio_id, error: res.error },

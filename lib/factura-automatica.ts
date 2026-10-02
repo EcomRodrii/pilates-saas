@@ -46,11 +46,20 @@ export function emiteFacturaAutomatica(
    */
   modo: ModoFacturacion | null = 'verifactu',
 ): boolean {
-  if (modo !== 'verifactu') return false;
+  if (!emiteFacturas(modo)) return false;
   if (!metodo) return true;
   return !SIN_FACTURA_AUTOMATICA.has(metodo.toUpperCase());
 }
 
+/**
+ * ¿Emite facturas este estudio? Desde el 2-oct-2026, SIEMPRE ('facturas', sin
+ * envío a la AEAT, o 'verifactu', con él). 'sin_facturas' queda como estado de
+ * sistema que nadie elige. `null` = el panel aún no tiene el estudio: no.
+ */
+export function emiteFacturas(modo: ModoFacturacion | null | undefined): boolean {
+  return modo === 'facturas' || modo === 'verifactu';
+}
+
 /** Lo que se le dice a quien pide una factura con el estudio en 'sin_facturas'. */
 export const MENSAJE_SIN_FACTURAS =
-  'Este estudio no emite facturas desde Tentare. Puedes activarlo en Configuración → Cobros y facturas → Facturación.';
+  'Las facturas de este estudio no están activas. Escríbenos y lo revisamos.';

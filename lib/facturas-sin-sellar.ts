@@ -51,6 +51,20 @@ export interface ReciboCobrado {
 // El ruido se evita separando las dos cifras en el aviso, no escondiendo una.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Factura SIEMPRE desde el 3-oct-2026 a las 00:00 de Madrid (2-oct-2026, decisión
+ * del fundador; antes los diez estudios estaban en 'sin_facturas'). No es
+ * retroactivo: un cobro anterior sin factura no es avería, es el modo que tenía.
+ */
+export const FACTURA_SIEMPRE_DESDE = '2026-10-02T22:00:00Z';
+
+/** ¿Este cobro entra en la vigilancia? Sin fecha de cobro, no: no se sabe si es de antes. */
+export function cobradoConFacturaSiempre(r: Pick<ReciboCobrado, 'fechaCobro'>): boolean {
+  if (!r.fechaCobro) return false;
+  const t = Date.parse(r.fechaCobro.length === 10 ? `${r.fechaCobro}T00:00:00Z` : r.fechaCobro);
+  return Number.isFinite(t) && t >= Date.parse(FACTURA_SIEMPRE_DESDE);
+}
+
 /** Pregunta 1 — VIGILANCIA: cobrado y sin ninguna factura, se cobrara como se cobrara. */
 export function recibosCobradosSinFactura(
   recibos: ReciboCobrado[],

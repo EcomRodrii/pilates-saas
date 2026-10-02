@@ -20,6 +20,7 @@ import { useStudio } from '@/lib/studio-context';
 import type { MetodoCobro } from '@/lib/types';
 import { cn, formatEuro, hoyEnEstudio } from '@/lib/utils';
 import { leerImporte, queVaAPasar, renovacionYaPendiente } from '@/lib/cobros/que-va-a-pasar';
+import { emiteFacturas } from '@/lib/factura-automatica';
 import { desglosarIvaDesdeTotal } from '@/lib/fiscal/cierre-engine';
 import { cargarCaja } from '@/lib/pos/cliente';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -100,7 +101,7 @@ function Formulario({ onCerrar, onOcupado, avisos, socioFijo }: {
 
   const importe = leerImporte(importeTexto);
   const ahora = pagado === 'ahora';
-  const factura = studio?.modoFacturacion === 'verifactu';
+  const factura = emiteFacturas(studio?.modoFacturacion);
   const q = queVaAPasar({
     metodo: ahora ? metodo : null,
     cajaAbierta,

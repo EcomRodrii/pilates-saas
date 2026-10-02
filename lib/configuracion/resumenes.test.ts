@@ -893,9 +893,10 @@ test('las filas de Mi equipo caben en una línea del móvil y dicen «alumna» e
 
 test('«Facturación»: lo que hace cada modo, sin prometer el envío a la AEAT', () => {
   assert.equal(resumenFacturacion({}), null);
-  assert.equal(resumenFacturacion({ modoFacturacion: 'sin_facturas' }), 'No se emiten desde Tentare: tus alumnas reciben su justificante de pago');
-  assert.equal(resumenFacturacion({ modoFacturacion: 'verifactu' }), 'Emite facturas con registro Veri*Factu');
-  for (const m of ['sin_facturas', 'verifactu'] as const) {
+  assert.equal(resumenFacturacion({ modoFacturacion: 'sin_facturas' }), 'Hoy no emite facturas');
+  assert.equal(resumenFacturacion({ modoFacturacion: 'facturas' }), 'Facturas sin envío a la AEAT (Veri*Factu desactivado)');
+  assert.equal(resumenFacturacion({ modoFacturacion: 'verifactu' }), 'Facturas con Veri*Factu');
+  for (const m of ['sin_facturas', 'facturas', 'verifactu'] as const) {
     assert.doesNotMatch(resumenFacturacion({ modoFacturacion: m })!, /cumple|QR|env[ií]a/i);
   }
 });
@@ -903,6 +904,8 @@ test('«Facturación»: lo que hace cada modo, sin prometer el envío a la AEAT'
 test('sin facturas desde Tentare, un NIF que falta no sale en rojo ni como aviso', () => {
   assert.deepEqual(resumenDatosFiscales({ nif: '', modoFacturacion: 'sin_facturas' }), { valor: 'Sin NIF válido · solo hace falta si Tentare emite tus facturas', estado: null });
   assert.deepEqual(resumenDatosFiscales({ nif: '', modoFacturacion: 'verifactu' }).estado, { tono: 'problema', etiqueta: 'Falta el NIF' });
+  // Factura siempre (2-oct-2026): sin Veri*Factu, el NIF que falta también sale en rojo.
+  assert.deepEqual(resumenDatosFiscales({ nif: '', modoFacturacion: 'facturas' }).estado, { tono: 'problema', etiqueta: 'Falta el NIF' });
 });
 
 test('plataformas que venden: «Próximamente» mientras no haya conexión automática, y el valor dice si se apunta a mano', () => {
