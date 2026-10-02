@@ -12,6 +12,22 @@ export interface PeticionReservaMostrador {
   reservaId: string;
   /** «Avisar a la alumna». Solo un `false` explícito lo apaga. */
   avisar: boolean;
+  /**
+   * El mostrador va a cobrarle la clase suelta (o a dejársela pendiente): el
+   * servidor le dice, con su cartera de AHORA, si ya tenía bono o cuota que
+   * vale para esta clase. Solo un `true` explícito lo pide.
+   */
+  comoClaseSuelta: boolean;
+}
+
+/**
+ * Con qué venía de verdad a la clase quien el mostrador iba a cobrar como
+ * suelta (la cartera leída por el servidor al reservar). Si llega, no se cobra.
+ */
+export interface CubiertaPor {
+  tipo: 'BONO' | 'MENSUAL';
+  /** El nombre del plan, para decírselo a recepción. */
+  plan: string;
 }
 
 const MAX_ID = 200;
@@ -42,7 +58,7 @@ export function leerPeticionReservaMostrador(body: unknown):
   // Mismo criterio que `avisar === false` en app/api/sustituciones (acción
   // 'confirmar'): ante la duda, se avisa. Un cliente viejo que no mande el
   // campo no deja a nadie sin enterarse.
-  return { ok: true, datos: { sesionId, socioId, reservaId, avisar: b.avisar !== false } };
+  return { ok: true, datos: { sesionId, socioId, reservaId, avisar: b.avisar !== false, comoClaseSuelta: b.comoClaseSuelta === true } };
 }
 
 /**

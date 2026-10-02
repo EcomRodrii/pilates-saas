@@ -8,6 +8,7 @@ import { inngest, EVENTS } from '@/lib/inngest/client';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
 import { contactarCandidata, ESTADOS_EN_JUEGO, type RankingItem } from '@/lib/sustituciones/contacto';
 import { crearBaja } from '@/lib/sustituciones/baja';
+import { confirmarSustituta, mensajeConfirmacionRechazada } from '@/lib/sustituciones/confirmar';
 import { refrescarCandidatosNetwork } from '@/lib/network/candidatos-sustitucion.ts';
 import { candidataDelEstudio } from '@/lib/sustituciones/candidata-del-estudio';
 import { featureDeEstudio } from '@/lib/billing/feature-estudio';
@@ -24,7 +25,6 @@ import {
 import { devolverBonosPorCancelacionClase } from '@/lib/db/supabase-data-admin';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
-import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 
 // Emite el evento de escalado. Best-effort: si el bus de Inngest falla, el contacto
 // ya se hizo (email enviado) — el escalado es una capa de resiliencia encima, no
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
-  const body = (await req.json().catch(() => null)) as { sesionId?: string; motivo?: string } | null;
+  const body = (await req.json().catch(() => null)) as { sesionId?: string; motivo?: string; asignarA?: string; avisar?: boolean } | null;
   const sesionId = typeof body?.sesionId === 'string' ? body.sesionId : null;
   if (!sesionId) return NextResponse.json({ error: 'Falta la clase (sesionId)' }, { status: 400 });
 
@@ -63,6 +63,49 @@ export async function POST(req: NextRequest) {
   // del estudio (`/api/portal/instructora/baja`, que guarda su motivo aparte). Aquí
   // solo marca bajas el panel.
   if (sesion.rol === 'INSTRUCTOR') return NextResponse.json({ error: 'No tienes permiso para esto' }, { status: 403 });
+
+  // «¿Ya sabes quién la da?» (Calendario): registrar la baja y confirmar a esa
+  // instructora en la misma petición. Siempre por aquí, nunca decidiendo en el
+  // cliente entre crear o confirmar con lo que había en pantalla: si la
+  // instructora acaba de darse de baja desde la app, `crearBaja` devuelve esa
+  // sustitución activa y se confirma sobre ella, sin abrir otra.
+  const asignarA = typeof body?.asignarA === 'string' ? body.asignarA : null;
+  if (asignarA) {
+    const candidata = await candidataDelEstudio(admin, asignarA, sesion.studioId);
+    if (!candidata) return NextResponse.json({ error: 'Esa instructora no está en el equipo de este estudio' }, { status: 404 });
+    const baja = await crearBaja(admin, {
+      studioId: sesion.studioId, sesionId, motivo: body?.motivo ?? null, origen: 'panel', soloRegistrar: true,
+    });
+    if (!baja.ok) return NextResponse.json({ error: baja.error }, { status: baja.status });
+    const sustitucionId = baja.sustitucion.id as string;
+    let r: Awaited<ReturnType<typeof confirmarSustituta>>;
+    try {
+      r = await confirmarSustituta(admin, {
+        sustitucionId, studioId: sesion.studioId, instructorId: asignarA, aprobadaPor: sesion.userId,
+        avisarClientas: body?.avisar === false ? false : undefined,
+        avisarPropietaria: sesion.rol !== 'PROPIETARIO',
+      });
+    } catch (e) {
+      r = { ok: false, motivo: 'error', error: e instanceof Error ? e.message : String(e) };
+    }
+    if (!r.ok) {
+      // La baja la acaba de abrir ESTA petición y no se ha podido dar: se
+      // cierra (compare-and-set sobre `pendiente_aprobacion`). Si no, la bandeja
+      // diría «una clase sin cubrir necesita que decidas» sin que nadie pidiera
+      // buscar. Una que ya existía se deja como estaba.
+      if (!baja.yaExistia) {
+        await admin.from('sustituciones')
+          .update({ estado: 'cancelada', resuelto_en: new Date().toISOString() })
+          .eq('id', sustitucionId).eq('studio_id', sesion.studioId).eq('estado', 'pendiente_aprobacion');
+      }
+      if (r.motivo === 'error') {
+        return errorInterno('sustituciones:asignar', new Error(r.error ?? 'confirmar_sustitucion'),
+          'No se ha podido asignar la clase. Sigue como estaba; inténtalo de nuevo.');
+      }
+      return NextResponse.json({ error: mensajeConfirmacionRechazada(r.motivo), motivo: r.motivo }, { status: 409 });
+    }
+    return NextResponse.json({ ok: true, sesion_id: r.sesionId, alumnas: r.alumnas });
+  }
 
   const r = await crearBaja(admin, {
     studioId: sesion.studioId,
@@ -227,57 +270,28 @@ export async function PATCH(req: NextRequest) {
     const candidata = await candidataDelEstudio(admin, instructorId, sesion.studioId);
     if (!candidata) return NextResponse.json({ error: 'Esa instructora no está en el equipo de este estudio' }, { status: 404 });
 
-    // La RPC confirmar_sustitucion no comprueba si la clase ya empezó (solo
-    // revalida solape de horario) — se hace aquí, igual que crearBaja.
-    const { data: sust } = await admin
-      .from('sustituciones').select('sesion_id').eq('id', sustitucionId).eq('studio_id', sesion.studioId).maybeSingle();
-    if (sust?.sesion_id) {
-      const { data: ses } = await admin.from('sesiones').select('inicio').eq('id', sust.sesion_id).maybeSingle();
-      if (ses && sesionYaEmpezada(ses.inicio as string)) {
-        return NextResponse.json({ error: MENSAJE_CLASE_YA_EMPEZADA }, { status: 409 });
-      }
+    // La secuencia (clase sin empezar, RPC atómica, avisos) es la de
+    // `confirmarSustituta`, el dueño único de «sustitución confirmada».
+    // `body.avisar === false` es un NO explícito de quien confirma esta cobertura
+    // en concreto: pisa el ajuste del estudio solo para esta llamada. La
+    // propietaria recibe el «ya está cubierta» si no es ella quien confirma
+    // (recepción o gerencia): si la baja la dio la instructora, lo último que le
+    // llegó fue «no puede dar su clase».
+    let r: Awaited<ReturnType<typeof confirmarSustituta>>;
+    try {
+      r = await confirmarSustituta(admin, {
+        sustitucionId, studioId: sesion.studioId, instructorId, aprobadaPor: sesion.userId,
+        avisarClientas: body?.avisar === false ? false : undefined,
+        avisarPropietaria: sesion.rol !== 'PROPIETARIO',
+      });
+    } catch (e) {
+      return errorInterno('sustituciones:confirmar', e,
+        'No se ha podido confirmar la sustituta. La clase sigue sin cubrir; inténtalo de nuevo.');
     }
-
-    // Aceptación atómica + reasignación de la clase, en una transacción (función
-    // 0040, con re-check de solape por exclusion constraint desde 0048).
-    const { data, error } = await admin.rpc('confirmar_sustitucion', {
-      p_sustitucion_id: sustitucionId,
-      p_instructor_id: instructorId,
-      p_studio_id: sesion.studioId,
-      p_aprobada_por: sesion.userId,
-    });
-    if (error) return errorInterno('sustituciones:confirmar', error,
-      'No se ha podido confirmar la sustituta. La clase sigue sin cubrir; inténtalo de nuevo.');
-    const r = (data ?? {}) as { ok?: boolean; motivo?: string; sesion_id?: string };
     if (!r.ok) {
-      const mensaje = r.motivo === 'conflicto_horario'
-        ? 'No se puede: esta instructora ya tiene otra clase en ese horario. Elige otra candidata.'
-        : 'Esta sustitución ya está resuelta';
-      return NextResponse.json({ error: mensaje, ...r }, { status: 409 });
+      return NextResponse.json({ error: mensajeConfirmacionRechazada(r.motivo), motivo: r.motivo }, { status: 409 });
     }
-
-    // Aviso a las alumnas (si el estudio lo tiene activado): "tu clase sigue en pie".
-    // `body.avisar === false` es un NO explícito de quien confirma esta cobertura en
-    // concreto (franja de decisiones del calendario, punto 4 del rediseño) — pisa el
-    // ajuste general del estudio solo para esta llamada. Omitido/true = comportamiento
-    // de siempre (respeta `studios.avisar_alumnas`).
-    let alumnas: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } =
-      { avisadas: 0, total: 0, skipped: false, desactivado: true };
-    if (r.sesion_id) {
-      if (body?.avisar === false) {
-        alumnas = { avisadas: 0, total: 0, skipped: true, desactivado: false };
-      } else {
-        alumnas = await avisarAlumnas(admin, {
-          sesionId: r.sesion_id, studioId: sesion.studioId, tipo: 'cubierta', sustituta: candidata.nombre ?? undefined,
-        });
-      }
-      // La sustituta tiene que enterarse de que le han asignado una clase. El
-      // camino del motor (responder.ts) ya lo avisaba; este, en el que la dueña
-      // confirma directamente sin mandar oferta, reasignaba la clase en silencio.
-      const { emitirSustitucionAceptada } = await import('@/lib/notifications/emit');
-      await emitirSustitucionAceptada(admin, { studioId: sesion.studioId, sesionId: r.sesion_id, instructorId });
-    }
-    return NextResponse.json({ ...r, alumnas });
+    return NextResponse.json({ ok: true, sesion_id: r.sesionId, alumnas: r.alumnas ?? { avisadas: 0, total: 0, skipped: false, desactivado: true } });
   }
 
   if (body?.action === 'reprogramar') {

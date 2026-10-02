@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { decidirReciboPrevioDeCita, idReciboDeCita, PREFIJO_RECIBO_DE_CITA, type ReciboPrevioDeCita } from './recibo-de-cita.ts';
+import { decidirReciboPrevioDeCita, idReciboDeCita, idReciboDeClaseSuelta, PREFIJO_RECIBO_DE_CITA, type ReciboPrevioDeCita } from './recibo-de-cita.ts';
 import { LONGITUD_MAXIMA_ID_RECIBO, parsearPeticionMarcarCobrado } from './marcar-cobrado.ts';
 
 // El recibo de una cita lleva el id de la cita: `rec-cita-<cita>`. Cobrar una cita dos veces (un intento
@@ -113,4 +113,13 @@ test('«Nueva factura» sigue sin id propio: un id nuevo por intento y su cerroj
   // No hay nada que identifique una «factura nueva»: no se le pasa `reciboId` (si se le pasara uno fijo,
   // la segunda factura del mismo importe a la misma clienta se confundiría con la primera).
   assert.doesNotMatch(panel.slice(i, i + 300), /reciboId/);
+});
+
+test('la clase suelta del mostrador cuelga su recibo de la reserva, con la misma validación', () => {
+  assert.equal(idReciboDeClaseSuelta('res-abc123'), 'rec-suelta-res-abc123');
+  assert.equal(idReciboDeClaseSuelta('res con espacio'), null);
+  assert.equal(idReciboDeClaseSuelta('x'.repeat(200)), null);
+  // Y la decisión sobre un recibo previo habla de la clase, no de una cita.
+  const d = decidirReciboPrevioDeCita({ estado: 'ANULADO', importe: 15, socioId: 's', importeDevuelto: null, reembolsoStripeId: null, reembolsoSolicitadoEn: null }, { socioId: 's', importe: 15 }, 'clase');
+  assert.ok(d.tipo === 'revisar' && d.error.startsWith('El recibo de esta clase'));
 });

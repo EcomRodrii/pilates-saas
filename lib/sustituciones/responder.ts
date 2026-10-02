@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
+import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { ultimaRespuestaDe, type ContactoFila } from '@/lib/sustituciones/traza';
-import { avisarAlumnas } from '@/lib/sustituciones/avisos';
+import { confirmarSustituta } from '@/lib/sustituciones/confirmar';
 import { escalacionVigente, contactarDesde, alertarPropietaria, modoAutonomiaEfectivo } from '@/lib/sustituciones/contacto';
 import { inngest, EVENTS } from '@/lib/inngest/client';
 import { refrescarCandidatosNetwork } from '@/lib/network/candidatos-sustitucion.ts';
@@ -85,56 +85,29 @@ export async function responderSustitucion(admin: SupabaseClient, p: RespuestaSu
     if (!v.vigente) return { ok: false, motivo: 'ya_no_te_toca' };
   }
 
-  return p.accion === 'aceptar' ? aceptar(admin, p, sesionId) : rechazar(admin, p, sesionId);
+  return p.accion === 'aceptar' ? aceptar(admin, p) : rechazar(admin, p, sesionId);
 }
 
-async function aceptar(admin: SupabaseClient, p: RespuestaSustitucion, sesionId: string | null): Promise<ResultadoRespuesta> {
-  // La RPC `confirmar_sustitucion` NO comprueba si la clase ya empezó (solo
-  // revalida el solape de horario), y el token del email dura 3 h — justo la
-  // ventana de una baja de última hora. Sin este guardia, aceptar a las 20:10
-  // una clase de las 20:00 reasignaba `sesiones.instructor_id` de una clase ya
-  // dada, la marcaba confirmada y disparaba `avisarAlumnas(..., 'cubierta')`
-  // ("tu clase sigue en pie") a posteriori: un estado imposible, porque la
-  // clase la dio otra persona. El camino de panel ya lo comprueba
-  // (app/api/sustituciones/route.ts, action 'confirmar'). Mismo guardia, mismo
-  // mensaje, mismo 409.
-  if (sesionId) {
-    const { data: ses } = await admin.from('sesiones').select('inicio').eq('id', sesionId).maybeSingle();
-    if (ses && sesionYaEmpezada(ses.inicio as string)) {
-      return { ok: false, motivo: 'clase_ya_empezada', error: MENSAJE_CLASE_YA_EMPEZADA };
-    }
-  }
-
-  const { data, error } = await admin.rpc('confirmar_sustitucion', {
-    p_sustitucion_id: p.sustitucionId,
-    p_instructor_id: p.instructorId,
-    p_studio_id: p.studioId,
-    p_aprobada_por: null,
+async function aceptar(admin: SupabaseClient, p: RespuestaSustitucion): Promise<ResultadoRespuesta> {
+  // La secuencia entera —la clase no puede haber empezado (el token del email
+  // dura 3 h, justo la ventana de una baja de última hora), la RPC atómica, el
+  // aviso a las alumnas y los avisos a la sustituta y a la propietaria— vive en
+  // `confirmarSustituta`, el mismo dueño que usa el panel. La propietaria se
+  // entera siempre: aquí no confirma ella, confirma la sustituta. Sin ese aviso,
+  // lo último que le llegó de esta clase era «no puede dar su clase».
+  const r = await confirmarSustituta(admin, {
+    sustitucionId: p.sustitucionId, studioId: p.studioId, instructorId: p.instructorId,
+    aprobadaPor: null, avisarPropietaria: true,
   });
-  if (error) throw error;
-  const r = (data ?? {}) as { ok?: boolean; motivo?: string; sesion_id?: string };
   if (!r.ok) {
     // Otra persona la cubrió antes (o se canceló) → 'ya_resuelta'. Si en el
     // hueco entre el aviso y este tap le surgió otra clase → 'conflicto_horario'
     // (0048): llega tarde igual, pero por un motivo distinto.
-    return { ok: false, motivo: r.motivo ?? 'ya_resuelta' };
+    return r.motivo === 'clase_ya_empezada'
+      ? { ok: false, motivo: 'clase_ya_empezada', error: r.error ?? MENSAJE_CLASE_YA_EMPEZADA }
+      : { ok: false, motivo: r.motivo };
   }
   await marcarContacto(admin, p, 'aceptado');
-
-  // Avisa a las alumnas (si el estudio lo tiene activado): "tu clase sigue en pie".
-  if (r.sesion_id) {
-    const { data: cand } = await admin.from('instructores').select('nombre').eq('id', p.instructorId).maybeSingle();
-    await avisarAlumnas(admin, { sesionId: r.sesion_id, studioId: p.studioId, tipo: 'cubierta', sustituta: cand?.nombre });
-    // Notification Engine: in-app a la instructora que cubre ("nueva clase asignada").
-    const { emitirSustitucionAceptada, emitirSustitucionCubierta } = await import('@/lib/notifications/emit');
-    await emitirSustitucionAceptada(admin, { studioId: p.studioId, sesionId: r.sesion_id, instructorId: p.instructorId });
-    // Y a la propietaria: «ya está resuelto». Sin esto, el último aviso que le
-    // llegó de esta clase era «no puede dar su clase», y en autónomo nadie le
-    // contaba nunca que Tentare ya lo había arreglado.
-    await emitirSustitucionCubierta(admin, {
-      studioId: p.studioId, sesionId: r.sesion_id, sustitucionId: p.sustitucionId, instructorId: p.instructorId,
-    });
-  }
   return { ok: true };
 }
 

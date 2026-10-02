@@ -141,9 +141,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.SUSTITUCION_RECHAZADA]: { category: 'sustituciones', priority: 'ALTA', canales: [],     audiencia: 'propietaria' },
   // PUSH y no solo campana: cierra un aviso que SÍ fue push (INSTRUCTORA_BAJA,
   // CRITICA). Sin este cierre, la propietaria que recibió «no puede dar su
-  // clase» se queda sin saber que ya está resuelto y acaba llamando ella. Solo
-  // lo emite el motor (alguien aceptó una oferta), nunca cuando la propia dueña
-  // confirma desde el panel: eso ya lo sabe.
+  // clase» se queda sin saber que ya está resuelto y acaba llamando ella. Lo
+  // emite `confirmarSustituta` (lib/sustituciones/confirmar.ts) cuando acepta la
+  // sustituta o confirma alguien del panel que NO es la dueña (recepción,
+  // gerencia); nunca cuando la confirma ella misma: eso ya lo sabe.
   [EVENTOS.SUSTITUCION_CUBIERTA]:  { category: 'sustituciones', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'propietaria' },
   // Solo PUSH: el email con el enlace ya lo manda `contactarCandidata`; otro
   // email por lo mismo sería la misma pregunta dos veces.
