@@ -1230,6 +1230,12 @@ alumna «clase fija») pedida desde una clase normal, más el filtro que faltaba
   (`estado <> 'BAJA'`) rechazaba la nueva; la ficha de la clase decía «Ya es tu clase fija» para siempre. Ahora, al CREAR una
   plaza, las vencidas de esa franja se pasan a baja antes de escribir (`plazasVencidasQueEstorban`), no cuentan para el
   límite semanal y `plazaFijaEnClase`/`plazaFijaEnFranja` reciben «hoy» (`plazaFijaViva`).
+- **PR3 (hecho): «Tu clase fija termina pronto» también para plazas sin clase fija con nombre.** Mismo evento
+  (`clase_fija.termina_pronto`, el mismo toggle de la alumna), misma ventana (`DIAS_AVISO_CLASE_FIJA_TERMINA`), un aviso por
+  alumna y fecha de fin (`agruparTerminanPronto`). La frase final la trae el dato `{cierre}` (variable del panel): una clase fija
+  con nombre «se amplía»; una plaza suelta **no tiene «ampliar»** y el aviso no lo promete: «al terminar, podrás volver a
+  pedirla desde su ficha» (PR1 deja pedirla otra vez aunque la vencida siga ACTIVA). La clave de dedupe de las de clase fija
+  con nombre no cambia (no se repite ningún aviso ya enviado).
 - ⚠️ **`res-pf-` es un contrato, no un nombre**: nueve sitios leen ese prefijo como «paga la cuota, no consume bono, no
   rastreada» (cancelar sin devolver bono, `reservas_plaza_fija_sin_cuota`, `liberar_derecho`, acceso QR, próximas de la
   alumna, penalizaciones, `devolver-bonos`, y los rechazos de mostrador y plataformas externas). **Una reserva pagada con
@@ -1246,8 +1252,6 @@ alumna «clase fija») pedida desde una clase normal, más el filtro que faltaba
 - **PR2 (hecho):** `RepetirCadaSemana` (enlace en la ficha de una clase normal que se repite, con el catálogo de clases
   fijas; sin franja que case o con el catálogo roto no se pinta y la ficha queda como estaba) y los botones de duración en la
   barra fija de la ficha de la clase fija. La alumna elige 1/3/6/12 meses o «Sin fin»; la fecha exacta se ve antes de pedir.
-- **PR3 (hecho):** el aviso de «termina pronto» también cubre las plazas SUELTAS (antes solo las clases fijas con nombre),
-  agrupado por alumna, con `cierre` editable por el estudio (`ETIQUETA_VARIABLE`/`MUESTRA` en `textos-estudio.ts`).
 - **PR4a (hecho):** la alumna deja su clase fija desde la app (`dejarPlazaFijaAlumna`, acción `dejar_plaza`), por la misma
   puerta que cuando la quita el mostrador (`aplicarEstadoPlazaFija` BAJA: cancela sus clases sin penalización ni recuperación
   y mantiene las que ya están dentro del plazo de cancelación). Una clase fija CON NOMBRE se deja entera (la oferta es

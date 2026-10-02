@@ -14,6 +14,8 @@
 import { portalAuthHeader } from '@/lib/student/api-publica';
 import { confirmarSuscripcion, esIOS, esStandalone, estadoPermiso, pushSoportado, soltarDispositivoEnServidor, urlBase64ToUint8Array } from '@/lib/notifications/push-client';
 import { tocaRenovarPush, type ContextoPush } from '@/lib/student/push-estado';
+import { esAppNativa } from '@/lib/nativo/puente';
+import { activarPushNativo, contextoPushNativo, desactivarPushNativo, renovarPushNativo, soltarPushNativo } from '@/lib/student/push-nativo';
 
 export type ResultadoPush =
   | { ok: true }
@@ -57,6 +59,8 @@ async function registroActivo(slug: string): Promise<ServiceWorkerRegistration |
  * fila se intenta repararla al momento; ver `confirmarSuscripcion`).
  */
 export async function contextoPushStudent(slug: string, studioId?: string): Promise<ContextoPush> {
+  // Dentro de la app de iOS no hay service worker: el aparato va por APNs.
+  if (esAppNativa()) return contextoPushNativo();
   const permiso = estadoPermiso();
   let suscrita = false;
   if (permiso === 'granted') {
@@ -78,6 +82,7 @@ export async function contextoPushStudent(slug: string, studioId?: string): Prom
 
 /** Al cerrar sesión: este dispositivo deja de recibir los avisos de esta cuenta. */
 export async function soltarPushStudent(slug: string): Promise<void> {
+  if (esAppNativa()) { await soltarPushNativo(); return; }
   await soltarDispositivoEnServidor(portalAuthHeader);
   // La próxima cuenta que entre aquí tiene que volver a registrar el dispositivo
   // sin esperar 24 h a la renovación diaria.
@@ -86,6 +91,7 @@ export async function soltarPushStudent(slug: string): Promise<void> {
 
 /** Pide permiso, se suscribe con el SW acotado y guarda la suscripción en el servidor. */
 export async function activarPushStudent(studioId: string, slug: string): Promise<ResultadoPush> {
+  if (esAppNativa()) return activarPushNativo(studioId);
   if (!pushSoportado()) return { ok: false, motivo: 'unsupported' };
   const clave = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!clave) return { ok: false, motivo: 'sin-clave' };
@@ -123,6 +129,7 @@ export async function activarPushStudent(studioId: string, slug: string): Promis
 
 /** Borra la suscripción del servidor y del navegador. `false` si el servidor no la ha borrado. */
 export async function desactivarPushStudent(slug: string): Promise<boolean> {
+  if (esAppNativa()) return desactivarPushNativo();
   if (!pushSoportado()) return true;
   try {
     const reg = await navigator.serviceWorker.getRegistration(scopeDe(slug));
@@ -155,6 +162,7 @@ const claveRenovado = (slug: string) => `tentare:push-renovado:${slug}`;
  * toque de la alumna puede fallar, y la dejaría sin avisos.
  */
 export async function renovarSuscripcionPush(studioId: string, slug: string): Promise<void> {
+  if (esAppNativa()) { await renovarPushNativo(studioId); return; }
   if (!pushSoportado() || estadoPermiso() !== 'granted') return;
   if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) return;
   let ultima: number | null = null;

@@ -614,12 +614,15 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: '{respuesta}',
     deepLink: (d: Datos) => `/portal/${s(d.slug)}`,
   },
-  // Le quedan pocos días de una clase fija (DIAS_AVISO_CLASE_FIJA_TERMINA):
-  // se le avisa para que pueda ampliarla antes de perder el sitio sin saberlo.
+  // Le quedan pocos días de una clase fija (DIAS_AVISO_CLASE_FIJA_TERMINA): se le avisa para que no pierda el sitio sin
+  // saberlo. `{cierre}` dice lo que PUEDE hacer: una clase fija con nombre se amplía; una plaza suelta (dada desde una
+  // clase normal o a mano) no tiene «ampliar»: al terminar se vuelve a pedir desde su ficha, y el aviso no promete otra cosa.
   [`${EVENTOS.CLASE_FIJA_TERMINA_PRONTO}#SOCIA`]: {
     title: 'Tu clase fija termina pronto',
-    body: '«{nombre}» termina el {hasta}. Amplíala desde tu app si quieres seguir teniéndola.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases-fijas`,
+    body: '«{nombre}» termina el {hasta}. {cierre}',
+    deepLink: (d: Datos) => d.destino === 'mis-clases'
+      ? `/portal/${s(d.slug)}/mis-reservas?tab=fijas`
+      : `/portal/${s(d.slug)}/clases-fijas`,
   },
   // Reserva pendiente de aprobar → mostrador (propietaria/manager/recepción)
   [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#PROPIETARIO`]: {

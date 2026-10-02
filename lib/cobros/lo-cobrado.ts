@@ -128,7 +128,8 @@ export function comoSeCobro(r: ReciboCobrado): ComoSeCobro {
     case 'BIZUM': return 'BIZUM';
     case 'TRANSFERENCIA': return 'TRANSFERENCIA';
     case 'TARJETA':
-      if (r.conciliadoPor === 'tpv' || r.conciliadoPor === 'manual') return 'TARJETA_MOSTRADOR';
+      // 'externo': el datáfono del banco, visto en su extracto. Nunca es un cobro online.
+      if (r.conciliadoPor === 'tpv' || r.conciliadoPor === 'manual' || r.conciliadoPor === 'externo') return 'TARJETA_MOSTRADOR';
       return r.stripePaymentIntentId ? 'TARJETA_ONLINE' : 'TARJETA_MOSTRADOR';
     default: return 'SIN_ESPECIFICAR';
   }

@@ -1,0 +1,98 @@
+<!doctype html>
+<!--
+  Lo ÚNICO que va empaquetado dentro de la app iOS (capacitor.config.ts →
+  `webDir` y `server.errorPath`). La app carga la web real; si no llega, iOS
+  enseña esto.
+
+  Sin dependencias externas a propósito: si no hay red, tampoco hay fuentes ni
+  CDN. El isotipo va en línea, copiado de docs/marca/isotipo/
+  tentare-isotipo-degradado.svg (las hojas en `currentColor` para que se vean
+  en modo oscuro: «a una tinta manda la palabra», regla 4 del kit).
+
+  ⚠️ El botón vuelve a la URL de arranque de capacitor.config.ts
+  (`URL_DE_ARRANQUE`): si cambia allí, cambia aquí.
+-->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Tentare · Sin conexión</title>
+  <style>
+    :root {
+      --fondo: #F8FAFC;
+      --tinta: #222A33;
+      --suave: #566270;
+      --boton: #222A33;
+      --boton-texto: #F8FAFC;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fondo: #111827;
+        --tinta: #F8FAFC;
+        --suave: #A3AEBB;
+        --boton: #F8FAFC;
+        --boton-texto: #111827;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: var(--fondo);
+      color: var(--tinta);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+      text-align: center;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    main { max-width: 320px; }
+    svg { width: 64px; height: 64px; color: var(--tinta); margin-bottom: 24px; }
+    h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.01em; }
+    p { font-size: 16px; line-height: 1.45; color: var(--suave); margin: 0 0 28px; }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      background: var(--boton);
+      color: var(--boton-texto);
+      font: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 14px 28px;
+      min-height: 48px;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.6; }
+  </style>
+</head>
+<body>
+  <main>
+    <svg viewBox="7 11 106 98" aria-hidden="true">
+      <defs>
+        <linearGradient id="sin-conexion-tg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#4C9CB0"></stop><stop offset="1" stop-color="#B4537E"></stop>
+        </linearGradient>
+      </defs>
+      <path fill="currentColor" d="M11 11H36C39 11 40 15 41 20C37 26 34 32 31 40C21 41 7 33 7 20V15A4 4 0 0 1 11 11Z"></path>
+      <path fill="currentColor" d="M72 11H109A4 4 0 0 1 113 15V22C113 32 104 40 92 40H72Z"></path>
+      <path fill="#B4537E" d="M72 58A25.5 25.5 0 0 1 72 109Z"></path>
+      <path fill="url(#sin-conexion-tg)" d="M56 18C62 22 67 31 67 42V103A6 6 0 0 1 61 109H50C42 109 36 99 36 82V56C36 35 45 21 56 18Z"></path>
+    </svg>
+    <h1>Sin conexión</h1>
+    <p>No hemos podido abrir tu estudio. Comprueba que tienes internet y vuelve a intentarlo.</p>
+    <button type="button" id="reintentar">Volver a intentarlo</button>
+  </main>
+  <script>
+    var boton = document.getElementById('reintentar');
+    boton.addEventListener('click', function () {
+      boton.disabled = true;
+      boton.textContent = 'Abriendo…';
+      window.location.replace('https://www.tentare.app/app');
+    });
+  </script>
+</body>
+</html>

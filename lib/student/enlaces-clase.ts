@@ -3,6 +3,7 @@
 // trampa que ya costó 3261→3252 tests sin que nadie lo notara. Mismo criterio
 // que `lib/student/tienda.ts`.
 import { eventoIcs, nombreIcs } from '../calendario-ics.ts';
+import { compartirFichero, esAppNativa } from '../nativo/puente.ts';
 
 // Los dos enlaces que el paquete deja como demo: «+ Calendario» y «Cómo llegar».
 //
@@ -145,7 +146,9 @@ export function añadirAlCalendario(
   direccion: string,
   instructora?: string,
 ): void {
-  if (!esApple(navigator.userAgent)) {
+  // En la app de iOS siempre el .ics, por la hoja de compartir (→ Calendario).
+  const enApp = esAppNativa();
+  if (!enApp && !esApple(navigator.userAgent)) {
     window.open(urlCalendario(clase, estudioNombre, direccion), '_blank', 'noopener');
     return;
   }
@@ -160,6 +163,11 @@ export function añadirAlCalendario(
     estudioNombre,
     estudioDireccion: direccion,
   }, new Date());
+
+  if (enApp) {
+    void compartirFichero({ nombre: nombreIcs(clase.nombre, inicio), tipo: 'text/calendar', contenido: ics });
+    return;
+  }
 
   const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
   const a = document.createElement('a');

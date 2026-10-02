@@ -110,6 +110,7 @@ export const ETIQUETA_VARIABLE: Record<string, string> = {
   estudio: 'nombre del estudio',
   nombre: 'nombre de la clase fija',
   hasta: 'fecha hasta la que la tiene',
+  cierre: 'qué puede hacer al terminar (ampliarla, o volver a pedirla)',
 };
 
 const MUESTRA: Record<string, string> = {
@@ -119,6 +120,7 @@ const MUESTRA: Record<string, string> = {
   precioNuevo: '75 €', clases: '1 clase', remitente: 'Ana', autor: 'El estudio',
   previsualizacion: ': «¿Nos vemos el jueves?»', titulo: 'Consentimiento', respuesta: 'Te hemos guardado la plaza.',
   motivoTexto: '', estudio: 'Pilates Luz', nombre: 'Reformer Lunes 18:00', hasta: '30 de septiembre',
+  cierre: 'Amplíala desde tu app si quieres seguir teniéndola.',
 };
 
 // Donde el evento trae la variable ya con su separador: en `clase.modificada`,

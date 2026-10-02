@@ -13,6 +13,8 @@ import { recuerdaSesion, fijarRecordarSesion } from '@/lib/db/portal-almacen-ses
 import { Sello } from '@/components/student/ui/Sello';
 import { Icono } from '@/components/student/ui/Icono';
 import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
+import { useAppNativa } from '@/lib/nativo/use-app-nativa';
+import { BotonApple } from '@/components/nativo/BotonApple';
 
 /**
  * Entrar. Literal del paquete (`app/(auth)/login/page.tsx`) con el backend real
@@ -30,6 +32,9 @@ export default function LoginPage() {
   const href = usePortalHref();
   const { loginConPassword, enviarEnlace, entrarConGoogle } = useAuthStudent(slug);
   const { widget: captcha, pedirToken } = useCaptcha();
+  // Dentro de la app de iOS: Apple sí, Google no (bloquea su login dentro de una
+  // app así; volverá con el navegador seguro de iOS).
+  const enApp = useAppNativa();
 
   const [f, setF] = useState({ email: '', pass: '' });
   const [err, setErr] = useState<Record<string, string>>({});
@@ -282,6 +287,9 @@ export default function LoginPage() {
         <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
       </div>
 
+      {enApp ? (
+        <BotonApple disabled={cargando} onEntrado={() => r.replace(href('/acceso/verificar'))} onError={setGlobal} />
+      ) : (
       <button
         type="button"
         onClick={irAGoogle}
@@ -301,6 +309,7 @@ export default function LoginPage() {
         </svg>
         {yendoAGoogle ? 'Abriendo Google…' : 'Continuar con Google'}
       </button>
+      )}
 
       <p className="t-meta" style={{ textAlign: 'center' }}>
         ¿Primera vez? <Link href={href('/acceso/registro')} className="tap" style={{ fontWeight: 800, color: 'var(--foreground)' }}>Crear cuenta</Link>

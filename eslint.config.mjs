@@ -41,6 +41,10 @@ const eslintConfig = defineConfig([
     "public/widget.js",
     "public/widget-checkout.js",
     "public/widget-popup.js",
+    // El proyecto nativo de iOS (docs/APP-IOS.md): `cap sync` copia ahí la
+    // página de «Sin conexión» y los `cordova*.js` vacíos de Capacitor. Es
+    // salida generada, igual que `.next/**`.
+    "ios/**",
   ]),
   {
     // Los scripts de `scripts/*.mjs` son el ÚNICO código del repo que nadie

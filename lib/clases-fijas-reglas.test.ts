@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  cupoDeFranja, duracionPedida, estadoAlumnaOferta, estadoOferta, etiquetaDuracion, franjaHorariaDe, franjasQueYaTiene, normalizarDuraciones, nuevaVigenciaAmpliar, plazasVencidasQueEstorban, textoFranja,
-  plazasLibresDeClaseFija, programadaHasta, resolverFranjas, vigenciaHastaDeDuracion, vigenciaMinDeOferta, type FranjaResuelta, type TarjetaMin,
+  agruparTerminanPronto, nombreDePlazaSuelta, cupoDeFranja, duracionPedida, estadoAlumnaOferta, estadoOferta, etiquetaDuracion, franjaHorariaDe, franjasQueYaTiene, normalizarDuraciones, nuevaVigenciaAmpliar, plazasVencidasQueEstorban, textoFranja,
+  nombreSugeridoClaseFija, plazasLibresDeClaseFija, programadaHasta, resolverFranjas, seriesSinClaseFija, vigenciaHastaDeDuracion, vigenciaMinDeOferta, type FranjaResuelta, type TarjetaMin,
 } from './clases-fijas-reglas.ts';
 
 const franja = (cambios: Partial<FranjaResuelta> = {}): FranjaResuelta => ({
@@ -232,4 +232,38 @@ test('nombreSugeridoClaseFija: «Tipo · días»; si ya existe, con la hora; lue
   assert.equal(nombreSugeridoClaseFija('Reformer', [2, 4], '10:00', ['Reformer · martes y jueves', 'Reformer · martes y jueves · 10:00']), 'Reformer · martes y jueves · 10:00 (2)');
   const largo = nombreSugeridoClaseFija('x'.repeat(80), [2], '10:00', []);
   assert.ok(Array.from(largo).length <= 60);
+});
+
+// ─── «Termina pronto» para las plazas SIN clase fija con nombre ─────────────────────────────────────────────────────────
+const sueltaQueTermina = (c: Partial<import('./clases-fijas-reglas.ts').PlazaSueltaQueTermina> = {}) => ({
+  id: 'pf-1', socioId: 'soc-1', vigenciaHasta: '2026-11-12', diaSemana: 3, horaInicio: '10:00:00', tipo: 'Reformer', ...c,
+});
+
+test('nombreDePlazaSuelta: tipo, día y hora; sin tipo, «Clase»', () => {
+  assert.equal(nombreDePlazaSuelta(sueltaQueTermina()), 'Reformer · miércoles 10:00');
+  assert.equal(nombreDePlazaSuelta(sueltaQueTermina({ tipo: null })), 'Clase · miércoles 10:00');
+  assert.equal(nombreDePlazaSuelta(sueltaQueTermina({ tipo: '  ', diaSemana: 0, horaInicio: '08:30' })), 'Clase · domingo 08:30');
+});
+
+test('agruparTerminanPronto: UN aviso por alumna y fecha de fin, no uno por plaza', () => {
+  const avisos = agruparTerminanPronto([
+    sueltaQueTermina({ id: 'pf-a', diaSemana: 5, horaInicio: '18:00:00', tipo: 'Mat' }),
+    sueltaQueTermina({ id: 'pf-b', diaSemana: 3 }),
+    sueltaQueTermina({ id: 'pf-c', socioId: 'soc-2' }),
+    sueltaQueTermina({ id: 'pf-d', vigenciaHasta: '2026-11-20' }),
+  ]);
+  assert.equal(avisos.length, 3, 'soc-1 con dos fechas distintas = dos avisos; soc-2 uno');
+  const dos = avisos.find(a => a.socioId === 'soc-1' && a.vigenciaHasta === '2026-11-12');
+  assert.deepEqual(dos?.plazaIds, ['pf-a', 'pf-b']);
+  assert.equal(dos?.nombre, 'Reformer · miércoles 10:00 y Mat · viernes 18:00', 'ordenadas por día de la semana (lunes primero) y hora');
+});
+
+test('agruparTerminanPronto: 1 nombra, 2-3 las junta, más solo cuenta; mismo conjunto = mismo texto y misma clave', () => {
+  const tres = [1, 3, 5].map((d, i) => sueltaQueTermina({ id: `pf-${i}`, diaSemana: d }));
+  assert.equal(agruparTerminanPronto(tres)[0].nombre, 'Reformer · lunes 10:00, Reformer · miércoles 10:00 y Reformer · viernes 10:00');
+  const cuatro = [1, 2, 3, 5].map((d, i) => sueltaQueTermina({ id: `pf-${i}`, diaSemana: d }));
+  assert.equal(agruparTerminanPronto(cuatro)[0].nombre, '4 clases fijas');
+  const al_reves = [...tres].reverse();
+  assert.deepEqual(agruparTerminanPronto(al_reves), agruparTerminanPronto(tres), 'no depende del orden en que lleguen');
+  assert.deepEqual(agruparTerminanPronto([]), []);
 });

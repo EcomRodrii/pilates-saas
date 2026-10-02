@@ -8,18 +8,15 @@ import { facturaIdManual } from '@/lib/billing/cobro-confirmado-reglas';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { anotarCobroMarcadoAMano, leerReciboAntesDeCobrar } from '@/lib/auditoria/cobro-manual';
 import {
-  estadoHttpDeLote, MENSAJE_COBRO_EN_MARCHA_LOTE, parsearPeticionMarcarCobrado, penalizacionesDeLosRecibos, recibosDePenalizacionAnulada,
+  estadoHttpDeLote, MENSAJE_COBRO_EN_MARCHA_LOTE, parsearPeticionMarcarCobrado, penalizacionesDeLosRecibos,
   resultadoDeConfirmacion, resultadoDeExcepcion, resultadoNoCobrable, resultadoPenalizacionAnulada,
   type ResultadoReciboMarcado,
 } from '@/lib/cobros/marcar-cobrado';
-import Stripe from 'stripe';
 import { motivosParaNoSerRemesa } from '@/lib/billing/remesa-del-recibo';
+import { MENSAJE_SE_ABRIO_UN_PAGO } from '@/lib/billing/pago-online-al-cobrar-a-mano';
 import {
-  MENSAJE_COBRO_EN_EL_DATAFONO, MENSAJE_PAGO_ONLINE_SIN_COMPROBAR, MENSAJE_SE_ABRIO_UN_PAGO, MENSAJE_YA_PAGADO_EN_EL_DATAFONO,
-  MENSAJE_YA_PAGADO_ONLINE, cerrarPagoOnlineAntesDeCobrarAMano, soltarCobroDeMostradorAntesDeCobrarAMano, type SesionesDeStripe,
-} from '@/lib/billing/pago-online-al-cobrar-a-mano';
-import { contextoCobroDe } from '@/lib/pos/terminal';
-import { consultarCobroBizum } from '@/lib/pos/consulta-stripe';
+  bloqueadosPorPenalizacion, preparadorDeStripe, soltarPagosEnMarchaAntesDeCobrar,
+} from '@/lib/cobros/antes-de-cobrar-a-mano-servidor';
 import { COLUMNAS_COBRO_EN_MARCHA } from '@/lib/billing/remesa-sepa-reglas';
 
 export const dynamic = 'force-dynamic';
@@ -54,35 +51,10 @@ export const maxDuration = 60;
 // como actor. Se lee el recibo antes y después, solo de los que de verdad cambian.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Los recibos del lote que NO se cobran por ser de una penalización anulada o
-// reembolsada (la guardia del mostrador, trasladada desde el navegador). Lee con
-// service-role pero acotado al estudio de la sesión. Sin poder leer, deja cobrar y
-// lo registra: ver `recibosDePenalizacionAnulada`.
-async function bloqueadosPorPenalizacion(
-  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>, studioId: string, reciboIds: string[],
-): Promise<Set<string>> {
-  const penalizacionIds = penalizacionesDeLosRecibos(reciboIds);
-  let estados: Map<string, string> | null = new Map();
-  if (penalizacionIds.length > 0) {
-    try {
-      const { data, error } = await admin.from('penalizaciones').select('id, estado')
-        .eq('studio_id', studioId).in('id', penalizacionIds);
-      if (error) estados = null;
-      else for (const fila of data ?? []) estados.set(fila.id as string, fila.estado as string);
-    } catch {
-      estados = null;
-    }
-  }
-  const { bloqueados, sinComprobar } = recibosDePenalizacionAnulada(reciboIds, estados);
-  if (sinComprobar.length > 0) {
-    Sentry.captureMessage('[penalizaciones] cobro en mostrador sin poder comprobar la penalización', {
-      level: 'warning',
-      tags: { area: 'cobros', tipo: 'penalizacion-mostrador' },
-      extra: { reciboIds: sinComprobar, studioId },
-    });
-  }
-  return bloqueados;
-}
+// La guardia de penalizaciones, el Stripe del estudio y el «pago en marcha» de cada
+// recibo viven en `lib/cobros/antes-de-cobrar-a-mano-servidor.ts`: los comparte el
+// cobro con un movimiento del banco (cobros externos), que es la otra puerta por la
+// que se cobra un recibo fuera de Stripe.
 
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
@@ -135,25 +107,7 @@ export async function POST(req: NextRequest) {
   // cobro del datáfono o Bizum abandonado se cancela y se suelta; si ya se pagó o sigue
   // en curso, no se cobra. El lote ya deja fuera ambos; el banco no cobra en el mostrador.
   const unoAUno = !peticion.lote && !porElBanco;
-  // Stripe del estudio, preparado una vez y solo si hace falta, con el mismo guardia de
-  // modo que el resto de cobros (`contextoCobroDe`) y tiempos cortos: la pantalla espera.
-  let stripeDelEstudio: { stripe: Stripe; cuenta: string } | null | undefined;
-  const prepararStripe = async () => {
-    if (stripeDelEstudio !== undefined) return stripeDelEstudio;
-    const c = await contextoCobroDe(admin, sesion.studioId);
-    if (!c.ok) {
-      Sentry.captureMessage('[cobros] cobro a mano con un pago en marcha y sin Stripe para comprobarlo', {
-        level: 'warning', tags: { area: 'cobros', tipo: 'marcar-cobrado' }, extra: { studioId: sesion.studioId, motivo: c.motivo },
-      });
-      stripeDelEstudio = null;
-    } else {
-      stripeDelEstudio = {
-        stripe: new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: '2026-06-24.dahlia', timeout: 5_000, maxNetworkRetries: 1 }),
-        cuenta: c.ctx.stripeAccount,
-      };
-    }
-    return stripeDelEstudio;
-  };
+  const prepararStripe = preparadorDeStripe(admin, sesion.studioId);
 
   const resultados: ResultadoReciboMarcado[] = [];
   for (const reciboId of peticion.reciboIds) {
@@ -190,68 +144,12 @@ export async function POST(req: NextRequest) {
     // leído viaja al compare-and-set, que no cobra si la columna cambió.
     let checkoutLeido: string | null | undefined;
     if (unoAUno) {
-      const { data: fila, error: errFila } = await admin.from('recibos')
-        .select('checkout_session_id, cobro_mostrador_pi, cobro_mostrador_checkout_session_id')
-        .eq('id', reciboId).eq('studio_id', sesion.studioId).maybeSingle();
-      if (errFila) {
-        resultados.push(resultadoNoCobrable(reciboId, 'No se ha podido comprobar si tiene un cobro en marcha. Inténtalo otra vez.'));
+      const enMarcha = await soltarPagosEnMarchaAntesDeCobrar(admin, { studioId: sesion.studioId, reciboId }, prepararStripe);
+      if (!enMarcha.ok) {
+        resultados.push(resultadoNoCobrable(reciboId, enMarcha.mensaje));
         continue;
       }
-      const ref = (fila?.cobro_mostrador_pi as string | null) ?? null;
-      if (ref) {
-        const cs = (fila?.cobro_mostrador_checkout_session_id as string | null) ?? null;
-        const s = await prepararStripe();
-        const mostrador = await soltarCobroDeMostradorAntesDeCobrarAMano(ref, s && {
-          consultar: async () => (await consultarCobroBizum(s.stripe, ref, s.cuenta)).estado,
-          // Solo ESTE cobro: nada de cancelar la acción del lector, que podría estar
-          // cobrando otra venta en ese momento.
-          cancelar: async () => {
-            try {
-              if (cs || ref.startsWith('cs_')) await s.stripe.checkout.sessions.expire(cs ?? ref, undefined, { stripeAccount: s.cuenta });
-              else await s.stripe.paymentIntents.cancel(ref, {}, { stripeAccount: s.cuenta });
-            } catch { /* lo dirá la siguiente consulta */ }
-          },
-          soltar: async () => {
-            const { data, error } = await admin.from('recibos')
-              .update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
-              .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('cobro_mostrador_pi', ref).select('id');
-            return !error && (data?.length ?? 0) > 0;
-          },
-        });
-        if (mostrador.tipo === 'YA_PAGADO') {
-          Sentry.captureMessage('[cobros] cobro a mano sobre un cobro del mostrador ya pagado', {
-            level: 'warning', tags: { area: 'cobros', tipo: 'marcar-cobrado' }, extra: { reciboId, studioId: sesion.studioId, referencia: ref },
-          });
-          resultados.push(resultadoNoCobrable(reciboId, MENSAJE_YA_PAGADO_EN_EL_DATAFONO));
-          continue;
-        }
-        if (mostrador.tipo === 'EN_MARCHA') {
-          resultados.push(resultadoNoCobrable(reciboId, MENSAJE_COBRO_EN_EL_DATAFONO));
-          continue;
-        }
-      }
-      checkoutLeido = (fila?.checkout_session_id as string | null) ?? null;
-      if (checkoutLeido) {
-        const s = await prepararStripe();
-        const sesiones: SesionesDeStripe | null = s && {
-          consultar: id => s.stripe.checkout.sessions.retrieve(id, undefined, { stripeAccount: s.cuenta }),
-          cerrar: id => s.stripe.checkout.sessions.expire(id, undefined, { stripeAccount: s.cuenta }),
-        };
-        const online = await cerrarPagoOnlineAntesDeCobrarAMano(checkoutLeido, sesiones);
-        if (online.tipo === 'YA_PAGADO') {
-          // Si el webhook rechazó esa sesión (otro importe, otra cuenta), el recibo no se
-          // cerraría solo: que alguien lo vea.
-          Sentry.captureMessage('[cobros] cobro a mano sobre un enlace de pago ya pagado', {
-            level: 'warning', tags: { area: 'cobros', tipo: 'marcar-cobrado' }, extra: { reciboId, studioId: sesion.studioId, sesionId: checkoutLeido },
-          });
-          resultados.push(resultadoNoCobrable(reciboId, MENSAJE_YA_PAGADO_ONLINE));
-          continue;
-        }
-        if (online.tipo === 'NO_SE_SABE') {
-          resultados.push(resultadoNoCobrable(reciboId, MENSAJE_PAGO_ONLINE_SIN_COMPROBAR));
-          continue;
-        }
-      }
+      checkoutLeido = enMarcha.checkoutLeido;
     }
     try {
       const r = await confirmarCobro(admin, {

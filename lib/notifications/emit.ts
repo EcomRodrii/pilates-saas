@@ -251,15 +251,28 @@ export async function emitirRespuestaPlazaFija(
 // una dedupKey por fecha de vencimiento: si ampliara y volviera a acercarse a
 // vencer más adelante, se avisa otra vez.
 export async function emitirClaseFijaTerminaPronto(
-  admin: SupabaseClient, p: { studioId: string; socioId: string; claseFijaId: string; nombre: string; hasta: string },
+  admin: SupabaseClient,
+  p: {
+    studioId: string; socioId: string; nombre: string; hasta: string;
+    /** Una clase fija con nombre. Sin ella, son plazas sueltas (`plazaIds`): se avisa igual, pero no se puede «ampliar». */
+    claseFijaId?: string | null; plazaIds?: string[];
+  },
 ): Promise<void> {
   try {
     const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    const conNombre = !!p.claseFijaId;
     await publish({
       type: EVENTOS.CLASE_FIJA_TERMINA_PRONTO, studioId: p.studioId,
-      data: { socioId: p.socioId, nombre: p.nombre, hasta: fechaCortaEstudio(new Date(`${p.hasta}T12:00:00Z`)), slug: (studio?.slug as string | null) ?? '' },
+      data: {
+        socioId: p.socioId, nombre: p.nombre, hasta: fechaCortaEstudio(new Date(`${p.hasta}T12:00:00Z`)), slug: (studio?.slug as string | null) ?? '',
+        // Lo que puede hacer es distinto: una clase fija con nombre se amplía; una plaza suelta, al terminar se vuelve a pedir.
+        cierre: conNombre ? 'Amplíala desde tu app si quieres seguir teniéndola.' : 'Cuando termine, podrás volver a pedirla desde su ficha.',
+        destino: conNombre ? 'clases-fijas' : 'mis-clases',
+      },
       resource: { type: 'socio', id: p.socioId },
-      dedupKey: `clase-fija-termina-pronto:${p.claseFijaId}:${p.socioId}:${p.hasta}`,
+      dedupKey: conNombre
+        ? `clase-fija-termina-pronto:${p.claseFijaId}:${p.socioId}:${p.hasta}`
+        : `plaza-fija-termina-pronto:${p.socioId}:${p.hasta}:${(p.plazaIds ?? []).join(',')}`,
     });
   } catch (e) {
     console.error('[notifications] emitirClaseFijaTerminaPronto:', e instanceof Error ? e.message : e);

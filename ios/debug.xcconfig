@@ -1,0 +1,4 @@
+CAPACITOR_DEBUG = true
+
+// La identidad de la app (bundle id, nombre, equipo), igual en Debug y Release.
+#include "tentare.xcconfig"

@@ -12,6 +12,7 @@ import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { traducirAuth } from '@/lib/student/auth-errores';
 import { mensajeSeguro } from '@/lib/errores';
 import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
+import { BotonApple } from '@/components/nativo/BotonApple';
 import {
   CLAVE_ULTIMO_ESTUDIO, entradaDirecta, rutaDeEntrada, type EstudioDeLaCuenta,
 } from '@/lib/app-nativa/mis-estudios';
@@ -162,6 +163,8 @@ export default function EntradaApp() {
             >
               No tengo contraseña — mándame un enlace
             </button>
+            {/* Solo en la app de iOS; con éxito, `onAuthStateChange` carga sus estudios. */}
+            <BotonApple disabled={cargando} onEntrado={() => undefined} onError={setGlobal} />
             {captcha}
           </form>
         )}
