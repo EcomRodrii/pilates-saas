@@ -138,10 +138,14 @@ export type DesenlaceVentaSuelta = 'vendida' | 'otro-bono' | 'sin-gastar' | 'sin
  *  · `anulada`: no queda nada (o ya no quedaba);
  *  · `servida`: su sesión ya se había gastado, así que esa venta sí sirvió y su
  *    recibo se queda;
- *  · `fallo`: no se ha podido deshacer o comprobar: puede quedar un recibo
- *    pendiente que sobra.
+ *  · `fallo`: la clase suelta se canceló pero su recibo no se ha podido anular:
+ *    queda un recibo pendiente que sobra;
+ *  · `sin-deshacer`: no se ha podido cancelar o comprobar la clase suelta, o su
+ *    recibo ya no está pendiente (alguien lo cobró entretanto): hay que mirar su
+ *    ficha antes de cobrar o de borrar nada. Borrar solo el recibo dejaría una
+ *    clase gratis.
  */
-export type DesenlaceAnulacion = 'anulada' | 'servida' | 'fallo';
+export type DesenlaceAnulacion = 'anulada' | 'servida' | 'fallo' | 'sin-deshacer';
 
 /**
  * Lo que se le dice al mostrador cuando la clase suelta NO ha quedado vendida
@@ -162,7 +166,10 @@ export function avisoDeVentaSuelta(
       ? 'no se ha podido apuntar su clase suelta. Cóbrasela desde Cobros con «Nuevo cobro».'
       : 'su clase suelta no ha quedado bien apuntada: mira su ficha y «Quién me debe» antes de cobrarle.';
   }
-  return anulacion === 'anulada' ? null : 'revisa «Quién me debe»: puede haber quedado un recibo de su clase suelta que sobra.';
+  if (anulacion === 'anulada') return null;
+  return anulacion === 'fallo'
+    ? 'revisa «Quién me debe»: puede haber quedado un recibo de su clase suelta que sobra.'
+    : 'su clase suelta no se ha podido deshacer: mira su ficha y «Quién me debe» antes de cobrarle o de borrar nada.';
 }
 
 export function desenlaceVentaSuelta(p: {

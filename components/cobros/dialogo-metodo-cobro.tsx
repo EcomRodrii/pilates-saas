@@ -91,12 +91,15 @@ export function BotonCobrarConMetodo({
   className,
   style,
   children = 'Cobrar',
+  sinEspecificar = true,
 }: {
   detalle: ReactNode;
   onCobrar: (metodo: MetodoCobro | undefined) => void | Promise<void>;
   className?: string;
   style?: CSSProperties;
   children?: ReactNode;
+  /** `false`: hay que decir cómo se cobró (p. ej. al cobrar todo lo pendiente del estudio). */
+  sinEspecificar?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [cobrando, setCobrando] = useState(false);
@@ -114,6 +117,7 @@ export function BotonCobrarConMetodo({
       <DialogoMetodoCobro
         abierto={abierto}
         detalle={detalle}
+        sinEspecificar={sinEspecificar}
         onCerrar={() => setAbierto(false)}
         onElegir={(metodo) => {
           setAbierto(false);

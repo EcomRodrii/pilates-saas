@@ -125,4 +125,10 @@ test('lo que se le dice a recepción cuando la clase suelta no queda vendida com
     assert.doesNotMatch(texto, /Nuevo cobro/);
   }
   assert.doesNotMatch(avisoDeVentaSuelta('sin-gastar', 'fallo') ?? '', /Nuevo cobro/);
+  // ⚠️ Si la clase suelta no se pudo deshacer, nunca «borra el recibo que sobra»: quedaría gratis.
+  for (const desenlace of ['no-ocupa', 'otro-bono'] as const) {
+    const texto = avisoDeVentaSuelta(desenlace, 'sin-deshacer') ?? '';
+    assert.match(texto, /no se ha podido deshacer/);
+    assert.doesNotMatch(texto, /que sobra/);
+  }
 });

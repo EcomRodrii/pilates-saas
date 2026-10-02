@@ -38,9 +38,10 @@ export interface CubiertaPor {
   plan: string;
   /**
    * Lo que la cubre es una clase suelta que recuperó al cancelar a tiempo:
-   * entra con ella, y `debe` es lo que aún debe de aquella (0 si está pagada).
+   * entra con ella, y `debe` es lo que aún debe de aquella (0 si está pagada;
+   * `null` si no se ha podido leer: que se mire, no que se dé por pagada).
    */
-  suelta?: { debe: number };
+  suelta?: { debe: number | null };
 }
 
 /** Una pestaña con el panel de antes de vender la clase suelta (#2467). */

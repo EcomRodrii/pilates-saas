@@ -5,6 +5,7 @@ import { registrarAuditoriaServidor, type RegistrarAuditoria } from '../auditori
 import { cobroEntroPorStripe, elBancoPuedeDevolver, TEXTO_NO_LO_DEVUELVE_EL_BANCO } from './devolucion-reglas.ts';
 import { COLUMNAS_COBRO_EN_MARCHA } from './remesa-sepa-reglas.ts';
 import { esReciboCobrable } from './deuda-recibo.ts';
+import { motivosParaNoSerRemesa } from './remesa-del-recibo.ts';
 import { hoyEnEstudio } from '../utils.ts';
 
 export { cobroEntroPorStripe };
@@ -78,6 +79,10 @@ export async function marcarReciboDevuelto(
   let yaEstaba = false;
 
   if (estado === 'DEVUELTO') {
+    // Quien pulsó lo veía de otra forma (p. ej. cobrado, y otra pestaña acaba de
+    // registrar «Le he devuelto el dinero»): no se le dice que sí, porque la
+    // pantalla pintaría una deuda que no existe.
+    if (p.desde && p.desde !== 'DEVUELTO') return { ok: false, http: 409, error: TEXTO_RECIBO_CAMBIADO };
     // Doble toque, o ya lo devolvió el webhook: no se reescribe la fecha original.
     yaEstaba = true;
     fechaDevolucion = (recibo.fecha_devolucion as string | null) ?? hoy;
@@ -90,6 +95,13 @@ export async function marcarReciboDevuelto(
     // cargo de Stripe en vuelo, lo cierra su webhook.
     if (estado === 'EN_CURSO' && COLUMNAS_COBRO_EN_MARCHA.some(col => !!recibo[col])) {
       return { ok: false, http: 409, error: TEXTO_COBRO_EN_MARCHA };
+    }
+    // Y solo lo que pudo salir en una remesa (lib/billing/remesa-del-recibo.ts).
+    if (estado === 'EN_CURSO') {
+      const remesa = await motivosParaNoSerRemesa(admin, p.studioId, [p.reciboId]);
+      if (!remesa.ok) return { ok: false, http: 500, error: 'No se ha podido comprobar si salió en una remesa.' };
+      const motivo = remesa.motivoPorRecibo.get(p.reciboId);
+      if (motivo) return { ok: false, http: 409, error: motivo };
     }
     if (estado === 'COBRADO') {
       // ⚠️ Un cobro que entró por Stripe no se «devuelve» anotándolo: el dinero
@@ -106,6 +118,11 @@ export async function marcarReciboDevuelto(
       if (Number(recibo.importe_devuelto ?? 0) > 0 || recibo.reembolso_stripe_id || recibo.reembolso_solicitado_en) {
         return { ok: false, http: 409, error: 'A este cobro ya se le ha devuelto dinero: revísalo en la ficha de la clienta.' };
       }
+      // Una venta de la caja se devuelve desde la caja: si no, la venta y su recibo divergen.
+      const { data: venta, error: errVenta } = await admin.from('ventas_pos').select('id')
+        .eq('studio_id', p.studioId).eq('recibo_id', p.reciboId).limit(1);
+      if (errVenta) return { ok: false, http: 500, error: 'No se ha podido comprobar el recibo.' };
+      if (venta && venta.length > 0) return { ok: false, http: 409, error: 'Este cobro es una venta de la caja: devuélvela desde la caja.' };
     }
     // Compare-and-set sobre el estado leído (y, desde el banco, sin cobro en
     // marcha también en el propio UPDATE). `proximo_reintento` a null: un
@@ -218,7 +235,13 @@ export async function reintentarPorElBanco(
     .eq('intentos_reintento', Number(recibo.intentos_reintento ?? 0)).eq('importe_devuelto', 0)
     .is('reembolso_stripe_id', null).is('reembolso_solicitado_en', null)
     .select('id').maybeSingle();
-  if (errUpdate) return { ok: false, http: 500, error: 'No se ha podido volver a pasar por el banco.' };
+  if (errUpdate) {
+    // Ya hay otra renovación viva de esa cuota (índice único): es la que hay que cobrar.
+    if ((errUpdate as { code?: string }).code === '23505') {
+      return { ok: false, http: 409, error: 'Esta cuota ya tiene otra renovación pendiente: cobra esa en vez de reintentar esta.' };
+    }
+    return { ok: false, http: 500, error: 'No se ha podido volver a pasar por el banco.' };
+  }
   if (!tocado) return { ok: false, http: 409, error: TEXTO_RECIBO_CAMBIADO };
   await registrar(admin, {
     sesion: { userId: p.actor.userId, rol: p.actor.rol, studioId: p.studioId },

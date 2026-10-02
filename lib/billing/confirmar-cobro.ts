@@ -98,6 +98,12 @@ export interface ParamsConfirmarCobro {
   actor?: ActorCobro;
   /** `false` = este camino nunca cierra un DEVUELTO (SEPA / tarjeta guardada). */
   admitirDevuelto?: boolean;
+  /**
+   * Cobro a mano de varios a la vez: no cierra un recibo con un cobro en marcha
+   * (sesión de pago abierta, cobro en el datáfono o reintento programado). El
+   * cargo de Stripe no cuenta: un FALLIDO o un DEVUELTO de SEPA guardan uno ya muerto.
+   */
+  sinCobroEnMarcha?: boolean;
 }
 
 export type ResultadoConfirmarCobro =
@@ -376,6 +382,9 @@ export async function confirmarCobro(
   // «El banco lo ha cobrado» solo cierra una remesa: sin ningún cobro de Stripe
   // en marcha, en el propio UPDATE (no en una lectura previa con carrera).
   if (p.origen === 'banco') for (const col of COLUMNAS_COBRO_EN_MARCHA) consulta = consulta.is(col, null);
+  if (p.sinCobroEnMarcha) {
+    for (const col of COLUMNAS_COBRO_EN_MARCHA) if (col !== 'stripe_payment_intent_id') consulta = consulta.is(col, null);
+  }
 
   // `metodo_cobro` vuelve del MISMO UPDATE: con `metodo: null` es el que ya
   // tenía el recibo, sin una lectura aparte que pudiera cruzarse con otra.

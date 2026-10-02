@@ -64,6 +64,13 @@ export interface PeticionMarcarCobrado {
    * un adeudo SEPA, y lo pone el servidor.
    */
   canal: 'mostrador' | 'banco';
+  /**
+   * Cobro de varios a la vez («Cobrar varias», «Cobrar todos», «Cobrar pendientes»):
+   * no se cobra un recibo con un cobro en marcha —la clienta pagando online, un
+   * cobro en el datáfono, un reintento automático programado—. Uno a uno sí, a
+   * propósito: es quien cobra quien sabe que le ha pagado.
+   */
+  lote: boolean;
 }
 
 export function esMetodoCobroManual(m: unknown): m is MetodoCobroManual {
@@ -77,7 +84,7 @@ export function parsearPeticionMarcarCobrado(
   if (!cuerpo || typeof cuerpo !== 'object' || Array.isArray(cuerpo)) {
     return { ok: false, error: 'Petición mal formada' };
   }
-  const { reciboIds, metodo, canal } = cuerpo as { reciboIds?: unknown; metodo?: unknown; canal?: unknown };
+  const { reciboIds, metodo, canal, lote } = cuerpo as { reciboIds?: unknown; metodo?: unknown; canal?: unknown; lote?: unknown };
   if (!Array.isArray(reciboIds) || reciboIds.length === 0) {
     return { ok: false, error: 'Falta el recibo' };
   }
@@ -94,12 +101,12 @@ export function parsearPeticionMarcarCobrado(
   if (canal === 'banco') {
     // Lo cobró el banco: el método es el adeudo, y no lo elige quien pulsa.
     if (metodo !== undefined && metodo !== null) return { ok: false, error: 'Lo cobrado por el banco no lleva método' };
-    return { ok: true, peticion: { reciboIds: unicos, metodo: null, canal: 'banco' } };
+    return { ok: true, peticion: { reciboIds: unicos, metodo: null, canal: 'banco', lote: lote === true } };
   }
   if (metodo !== undefined && metodo !== null && !esMetodoCobroManual(metodo)) {
     return { ok: false, error: 'Método de cobro no admitido' };
   }
-  return { ok: true, peticion: { reciboIds: unicos, metodo: metodo ?? null, canal: 'mostrador' } };
+  return { ok: true, peticion: { reciboIds: unicos, metodo: metodo ?? null, canal: 'mostrador', lote: lote === true } };
 }
 
 export const RESULTADOS_MARCADO = ['aplicada', 'ya_estaba', 'no_cobrable', 'no_encontrado', 'penalizacion_anulada', 'error'] as const;
@@ -117,6 +124,15 @@ export interface ResultadoReciboMarcado {
 }
 
 export const MENSAJE_YA_ESTABA = 'Ya estaba cobrado.';
+
+/** En un cobro de varios, el recibo que ya tiene un cobro en marcha no se cobra. */
+export const MENSAJE_COBRO_EN_MARCHA_LOTE =
+  'Tiene un cobro en marcha (pago online, datáfono o reintento automático): no se ha cobrado. Si de verdad te ha pagado, cóbralo uno a uno.';
+
+/** Un recibo que no se cobra por una regla del propio lote, con el motivo. */
+export function resultadoNoCobrable(reciboId: string, error: string): ResultadoReciboMarcado {
+  return { reciboId, resultado: 'no_cobrable', selladoOk: true, error };
+}
 
 /** Cobrado, pero el plan no se entregó. Antes lo avisaba el navegador; ahora lo dice el servidor. */
 export const MENSAJE_COBRADO_SIN_RENOVAR =

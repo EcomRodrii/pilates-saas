@@ -18,6 +18,8 @@
 // extracto, y eso no lo controla ni Tentare ni el estudio.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { cobroEntroPorStripe } from './devolucion-reglas.ts';
+
 /**
  * A partir de aquí, una devolución que Stripe no ha confirmado deja de ser
  * "normal, espera" y pasa a "míralo".
@@ -57,6 +59,9 @@ export interface ReciboConDevolucion {
   importeDevuelto?: number | null;
   stripePaymentIntentId?: string | null;
   reembolsoStripeId?: string | null;
+  /** Para saber si el cobro entró de verdad por Stripe (`cobroEntroPorStripe`). */
+  metodoCobro?: string | null;
+  sepaEstado?: string | null;
 }
 
 export function estadoReembolso(
@@ -65,7 +70,11 @@ export function estadoReembolso(
 ): EstadoReembolso | null {
   if (r.estado === 'DEVUELTO') {
     const sabeCuanto = r.importe != null && r.importeDevuelto != null;
-    const porStripe = !!(r.reembolsoStripeId || r.reembolsoSolicitadoEn || r.stripePaymentIntentId);
+    // Un cargo de Stripe guardado no basta: un adeudo que falló y se cobró luego en
+    // efectivo lo conserva, y esa devolución la hizo el estudio a mano.
+    const porStripe = !!(r.reembolsoStripeId || r.reembolsoSolicitadoEn) || cobroEntroPorStripe({
+      stripe_payment_intent_id: r.stripePaymentIntentId, metodo_cobro: r.metodoCobro, sepa_estado: r.sepaEstado,
+    });
     // Devuelto por el BANCO: no salió dinero hacia la clienta, sigue debiéndolo.
     if (sabeCuanto && Number(r.importeDevuelto) <= 0 && !r.reembolsoStripeId && !r.reembolsoSolicitadoEn) return null;
     // Se lo devolvió el estudio a mano («Le he devuelto el dinero»).

@@ -28,10 +28,25 @@ export interface PlanDeClaseSuelta {
   periodicidadMeses: number | null;
 }
 
+/**
+ * Lo que deja una venta que no salió, para decírselo bien a recepción:
+ *  · `nada`: no quedó nada (o no llegó a guardarse): «no se le ha cobrado nada»;
+ *  · `recibo`: la clase suelta se deshizo pero queda su recibo pendiente, que sobra;
+ *  · `revisar`: su clase suelta ya se gastó (la reserva sí se hizo), no se pudo
+ *    deshacer, o su recibo ya no está pendiente: hay que mirar la clase y su
+ *    ficha antes de cobrar o de borrar nada.
+ */
+export type QuedaTrasVenta = 'nada' | 'recibo' | 'revisar';
+
+export function quedaTrasAnular(anulacion: DesenlaceAnulacion | null): QuedaTrasVenta {
+  if (anulacion === 'fallo') return 'recibo';
+  if (anulacion === 'servida' || anulacion === 'sin-deshacer') return 'revisar';
+  return 'nada';
+}
+
 export type ResultadoVentaSuelta =
   | { ok: true; suscripcionId: string; reciboId: string }
-  /** `reciboPendiente`: lo que se llegó a guardar no se ha podido deshacer. */
-  | { ok: false; status: 409 | 500; error: string; reciboPendiente: boolean };
+  | { ok: false; status: 409 | 500; error: string; queda: QuedaTrasVenta };
 
 /**
  * Deja vendida la clase suelta de esta reserva: la suscripción (1 sesión) y su
@@ -52,10 +67,12 @@ export async function prepararVentaClaseSuelta(admin: SupabaseClient, p: {
 }): Promise<ResultadoVentaSuelta> {
   const suscripcionId = idSuscripcionDeClaseSuelta(p.reservaId);
   const reciboId = idReciboDeClaseSuelta(p.reservaId);
-  if (!suscripcionId || !reciboId) return { ok: false, status: 500, error: 'No se ha podido preparar la clase suelta de esta reserva.', reciboPendiente: false };
+  if (!suscripcionId || !reciboId) return { ok: false, status: 500, error: 'No se ha podido preparar la clase suelta de esta reserva.', queda: 'nada' };
   const deshacer = async (status: 409 | 500, error: string, soloSuscripcion = false): Promise<ResultadoVentaSuelta> => {
     const r = await anularVentaClaseSuelta(admin, { studioId: p.studioId, suscripcionId, reciboId, ahoraISO: new Date().toISOString(), soloSuscripcion });
-    return { ok: false, status, error, reciboPendiente: !soloSuscripcion && r !== 'anulada' };
+    // Sin poder cancelar la suscripción que se acaba de crear, queda una clase
+    // que nadie ha pagado: a mirar.
+    return { ok: false, status, error, queda: soloSuscripcion ? (r === 'anulada' ? 'nada' : 'revisar') : quedaTrasAnular(r) };
   };
 
   const fila = filaSuscripcionDeLinea(
@@ -73,7 +90,7 @@ export async function prepararVentaClaseSuelta(admin: SupabaseClient, p: {
     const { data: previa } = await admin.from('suscripciones').select('socio_id, plan_id')
       .eq('id', suscripcionId).eq('studio_id', p.studioId).maybeSingle();
     if (!previa || previa.socio_id !== p.socioId) {
-      return { ok: false, status: 409, error: 'Esta reserva ya tiene otra clase suelta apuntada. Revísala en la ficha de la clienta.', reciboPendiente: false };
+      return { ok: false, status: 409, error: 'Esta reserva ya tiene otra clase suelta apuntada. Revísala en la ficha de la clienta.', queda: 'nada' };
     }
   }
 
@@ -106,7 +123,7 @@ export async function prepararVentaClaseSuelta(admin: SupabaseClient, p: {
       // La suscripción que ESTA llamada acaba de crear sobra (si no, sería una
       // clase gratis). El recibo que ya había no es suyo: se manda a revisar.
       if (!errSus) return deshacer(409, decision.error, true);
-      return { ok: false, status: 409, error: decision.error, reciboPendiente: false };
+      return { ok: false, status: 409, error: decision.error, queda: 'nada' };
     }
   }
   return { ok: true, suscripcionId, reciboId };
@@ -124,7 +141,9 @@ export async function prepararVentaClaseSuelta(admin: SupabaseClient, p: {
  * Idempotente: si un intento anterior canceló la suscripción y no llegó a anular
  * el recibo, este lo termina. El recibo se reintenta una vez; si aun así no se
  * puede, se avisa (`fallo`): un recibo pendiente sin plaza es un cobro sin
- * clase si alguien lo cobra.
+ * clase si alguien lo cobra. Si lo que no se puede deshacer es la propia clase
+ * suelta, o el recibo ya no está pendiente, es `sin-deshacer`: se mira antes de
+ * tocar nada (borrar solo el recibo la dejaría gratis).
  */
 export async function anularVentaClaseSuelta(admin: SupabaseClient, p: {
   studioId: string; suscripcionId: string; reciboId: string; ahoraISO: string;
@@ -138,7 +157,7 @@ export async function anularVentaClaseSuelta(admin: SupabaseClient, p: {
     .select('id');
   if (errSus) {
     informar('no se ha podido cancelar la clase suelta que sobraba', { suscripcionId: p.suscripcionId, error: errSus.message });
-    return 'fallo';
+    return 'sin-deshacer';
   }
   if (!sus || sus.length === 0) {
     // No estaba ACTIVA con su sesión: o ya se canceló (o nunca llegó a
@@ -148,23 +167,30 @@ export async function anularVentaClaseSuelta(admin: SupabaseClient, p: {
       .eq('id', p.suscripcionId).eq('studio_id', p.studioId).maybeSingle();
     if (errLeer) {
       informar('no se ha podido comprobar la clase suelta que sobraba', { suscripcionId: p.suscripcionId, error: errLeer.message });
-      return 'fallo';
+      return 'sin-deshacer';
     }
     if (ahora && ahora.estado !== 'CANCELADA') return 'servida';
   }
   if (p.soloSuscripcion) return 'anulada';
   for (let intento = 0; intento < 2; intento++) {
+    // Sin ningún cobro en marcha: si alguien empezó a pagarlo entretanto, no se
+    // anula (y se avisa, abajo), mismo criterio que la política al cancelar una cuota.
     const { error } = await admin.from('recibos')
       .update({ estado: 'ANULADO', anulado_en: p.ahoraISO, proximo_reintento: null })
       .eq('id', p.reciboId).eq('studio_id', p.studioId)
-      .eq('estado', 'PENDIENTE').is('fecha_cobro', null);
+      .eq('estado', 'PENDIENTE').is('fecha_cobro', null)
+      .is('stripe_payment_intent_id', null).is('checkout_session_id', null).is('cobro_mostrador_pi', null);
     if (!error) {
       // Nada pendiente que anular: o ya lo estaba, o no llegó a crearse, o
       // alguien lo cobró entretanto (eso hay que mirarlo).
-      const { data: rec } = await admin.from('recibos').select('estado').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+      const { data: rec, error: errRec } = await admin.from('recibos').select('estado').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+      if (errRec) {
+        informar('no se ha podido comprobar el recibo de una clase suelta que sobraba', { reciboId: p.reciboId, error: errRec.message });
+        return 'sin-deshacer';
+      }
       if (!rec || rec.estado === 'ANULADO') return 'anulada';
-      informar('el recibo de una clase suelta que sobraba no está pendiente', { reciboId: p.reciboId, estado: rec.estado });
-      return 'fallo';
+      informar('el recibo de una clase suelta que sobraba no está pendiente o tiene un cobro en marcha', { reciboId: p.reciboId, estado: rec.estado });
+      return 'sin-deshacer';
     }
     if (intento === 1) {
       informar('no se ha podido anular el recibo de una clase suelta que sobraba', { reciboId: p.reciboId, error: error.message });

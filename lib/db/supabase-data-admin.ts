@@ -65,7 +65,7 @@ import {
   planDeClaseSuelta, type DesenlaceAnulacion, type DesenlaceVentaSuelta,
 } from '@/lib/reservas/clase-suelta';
 import { importeAdeudado } from '@/lib/billing/situacion-recibo';
-import { anularVentaClaseSuelta, prepararVentaClaseSuelta } from '@/lib/billing/clase-suelta-mostrador';
+import { anularVentaClaseSuelta, prepararVentaClaseSuelta, quedaTrasAnular, type QuedaTrasVenta } from '@/lib/billing/clase-suelta-mostrador';
 import type { MotivoPlazaNoMaterializada } from '@/lib/notifications/emit';
 import type { FormaPegada } from '@/lib/widgets/pegado';
 import { validarCanje } from '@/lib/engines/reward-engine';
@@ -3096,8 +3096,8 @@ export async function crearReservaMostrador(params: {
     /** La clase suelta no ha quedado vendida como se pidió: qué tiene que mirar recepción. */
     avisoVenta: string | null;
   }
-  /** `reciboPendiente`: se llegó a vender y no se ha podido deshacer: queda un recibo que sobra. */
-  | { ok: false; status: 400 | 404 | 409 | 500; error: string; reciboPendiente?: boolean }
+  /** `queda`: lo que dejó la venta de la clase suelta si se llegó a hacer (ver `QuedaTrasVenta`). */
+  | { ok: false; status: 400 | 404 | 409 | 500; error: string; queda?: QuedaTrasVenta }
 > {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -3162,13 +3162,14 @@ export async function crearReservaMostrador(params: {
   const reciboRecuperada = cubiertaPor && cubiertaPor.tipo === 'BONO'
     ? idReciboDeSuscripcionDeClaseSuelta(consumibleBono?.suscripcion.id) : null;
   if (cubiertaPor && reciboRecuperada) {
-    const { data: rec } = await admin.from('recibos')
+    const { data: rec, error: errRec } = await admin.from('recibos')
       .select('estado, importe, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, fecha_cobro')
       .eq('id', reciboRecuperada).eq('studio_id', params.studioId).maybeSingle();
     cubiertaPor = {
       ...cubiertaPor,
       suelta: {
-        debe: rec ? importeAdeudado({
+        // Sin poder leerlo no se da por pagado: `null` = que lo mire recepción.
+        debe: errRec ? null : rec ? importeAdeudado({
           estado: rec.estado as string, importe: rec.importe as number,
           importeDevuelto: (rec.importe_devuelto as number | null) ?? null,
           reembolsoStripeId: (rec.reembolso_stripe_id as string | null) ?? null,
@@ -3208,7 +3209,7 @@ export async function crearReservaMostrador(params: {
       plan: { id: plan.id, tipo: plan.tipo, sesiones: plan.sesiones ?? null, validezDias: plan.validezDias ?? null, periodicidadMeses: plan.periodicidadMeses ?? null },
       importe, concepto, hoy: hoyEnEstudio(),
     });
-    if (!r.ok) return { ok: false, status: r.status, error: r.error, reciboPendiente: r.reciboPendiente };
+    if (!r.ok) return { ok: false, status: r.status, error: r.error, queda: r.queda };
     venta = { reciboId: r.reciboId, suscripcionId: r.suscripcionId, importe, concepto };
     // Lo que la RPC gasta, y lo que `trasReservaCreada` mira para sus avisos.
     const { data: filaSus } = await admin.from('suscripciones').select('*').eq('id', r.suscripcionId).maybeSingle();
@@ -3299,6 +3300,8 @@ export async function crearReservaMostrador(params: {
     p_suscripcion_id: venta?.suscripcionId ?? consumibleBono?.suscripcion.id ?? null,
   });
   if (error) {
+    // Nunca el SQL crudo a pantalla: la tabla completa de códigos de la RPC.
+    const traducido = mensajeDeErrorReserva(error.message);
     // Reintento del MISMO intento (el id lo genera el panel y viaja en la
     // petición): si la fila con ese id ya existe y es de esta socia en esta
     // clase, la primera vez sí entró — se contesta con lo que hay. Pudo morir
@@ -3307,7 +3310,10 @@ export async function crearReservaMostrador(params: {
     // solo salen si ese descuento ha ocurrido AHORA, que es la prueba de que la
     // primera vez no llegó a ellos. Otro id con la socia ya apuntada es un «ya
     // está apuntada» de verdad.
-    if (esCodigoReserva(error.message, 'YA_RESERVADA')) {
+    // Lo mismo con un error SIN traducir (un 504 de la pasarela con la
+    // transacción ya hecha): la reserva pudo crearse y gastar la clase suelta, y
+    // anularla dejaría la plaza sin pagar y mandaría a «eliminar» un recibo bueno.
+    if (esCodigoReserva(error.message, 'YA_RESERVADA') || !traducido) {
       const { data: existente } = await admin
         .from('reservas').select('estado, posicion_espera, socio_id, sesion_id')
         .eq('id', params.reservaId).eq('studio_id', params.studioId).maybeSingle();
@@ -3335,13 +3341,10 @@ export async function crearReservaMostrador(params: {
       }
     }
     // La plaza no salió: la clase suelta vendida para ella sobra.
-    const anulacion = await anularVenta();
-    const reciboPendiente = anulacion !== null && anulacion !== 'anulada';
-    // Nunca el SQL crudo a pantalla: la tabla completa de códigos de la RPC.
-    const traducido = mensajeDeErrorReserva(error.message);
-    if (traducido) return { ok: false, status: 400, error: traducido, reciboPendiente };
+    const queda = quedaTrasAnular(await anularVenta());
+    if (traducido) return { ok: false, status: 400, error: traducido, queda };
     reportDbError('[crearReservaMostrador]', error);
-    return { ok: false, status: 500, error: 'No se ha podido apuntar. Inténtalo otra vez.', reciboPendiente };
+    return { ok: false, status: 500, error: 'No se ha podido apuntar. Inténtalo otra vez.', queda };
   }
   const row = Array.isArray(data) ? data[0] : data;
   const estado: string = row?.estado ?? 'CONFIRMADA';

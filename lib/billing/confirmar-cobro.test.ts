@@ -538,3 +538,29 @@ test('el cobro a mano sigue sin poder cerrar un EN_CURSO (no lleva las guardas d
   await confirmarCobro(admin, { ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false }, deps);
   assert.equal(estadosDelCas(updates[0]).includes('EN_CURSO'), false);
 });
+
+// ── «Cobrar varias» (`sinCobroEnMarcha`) ─────────────────────────────────────
+// En un cobro de varios, lo que tiene un cobro en marcha (pago online abierto,
+// datáfono, reintento programado) no se cobra a mano: serían dos cobros. La ruta
+// lo lee antes y el propio UPDATE lo vuelve a exigir, por si cambia entre medias.
+
+test('«Cobrar varias»: el UPDATE exige que no haya pago online, datáfono ni reintento en marcha', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: GANA });
+  const { deps } = efectos();
+  await confirmarCobro(admin, { ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false, sinCobroEnMarcha: true }, deps);
+  for (const col of ['proximo_reintento', 'checkout_session_id', 'cobro_mostrador_pi']) {
+    assert.ok(tiene(updates[0].filtros, 'is', col, null), `${col} a null en el propio UPDATE`);
+  }
+  // El cargo guardado no: un DEVUELTO o FALLIDO por el banco conserva el de su
+  // adeudo y es justo lo que se cobra en el mostrador.
+  assert.equal(tiene(updates[0].filtros, 'is', 'stripe_payment_intent_id', null), false);
+});
+
+test('el cobro de uno, sin `sinCobroEnMarcha`, no añade esas guardas (quien cobra lo ve en la fila)', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: GANA });
+  const { deps } = efectos();
+  await confirmarCobro(admin, { ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false }, deps);
+  for (const col of ['proximo_reintento', 'checkout_session_id', 'cobro_mostrador_pi']) {
+    assert.equal(tiene(updates[0].filtros, 'is', col, null), false, col);
+  }
+});

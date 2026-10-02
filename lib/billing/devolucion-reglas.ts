@@ -21,6 +21,9 @@
 
 import { situacionRecibo, type ReciboParaCifras } from './situacion-recibo.ts';
 
+/** El recibo de una venta de la caja (`lib/pos/venta-servidor.ts`). */
+export const PREFIJO_RECIBO_DE_VENTA_DE_CAJA = 'rec-pos-';
+
 /**
  * ¿Entró este cobro por Stripe? No basta con `stripe_payment_intent_id`: un adeudo
  * SEPA que sale en `processing` lo deja escrito en el recibo, falla, y si la socia
@@ -45,9 +48,13 @@ export function elBancoPuedeDevolver(metodo: string | null | undefined): boolean
 
 /** Lo que hace falta de un recibo del panel (camelCase) para decidir sus botones. */
 export type ReciboParaDevolver = ReciboParaCifras & {
+  /** El id del recibo: el de una venta de la caja (`rec-pos-…`) se devuelve desde la caja. */
+  id?: string;
   metodoCobro?: string | null;
   sepaEstado?: string | null;
   stripePaymentIntentId?: string | null;
+  /** Un reintento automático programado también es un cobro en marcha. */
+  proximoReintento?: string | null;
 };
 
 export interface AccionesDeDevolucion {
@@ -57,7 +64,7 @@ export interface AccionesDeDevolucion {
   bancoLoDevolvio: boolean;
   /** «El banco lo ha cobrado»: enviado en una remesa y sin ningún cobro de Stripe en vuelo. */
   bancoLoCobro: boolean;
-  /** Enviado al banco, pero con un cargo de Stripe en vuelo: lo cierra Stripe, no el mostrador. */
+  /** Enviado al banco, pero con un cargo de Stripe en vuelo (o un reintento programado): lo cierra Stripe, no el mostrador. */
   loCierraStripe: boolean;
 }
 
@@ -72,12 +79,14 @@ export function accionesDeDevolucion(r: ReciboParaDevolver): AccionesDeDevolucio
     stripe_payment_intent_id: r.stripePaymentIntentId, metodo_cobro: r.metodoCobro, sepa_estado: r.sepaEstado,
   });
   if (r.estado === 'EN_CURSO') {
-    return r.stripePaymentIntentId
+    return r.stripePaymentIntentId || r.proximoReintento
       ? { ...nada, loCierraStripe: true }
       : { ...nada, bancoLoCobro: true, bancoLoDevolvio: true };
   }
   if (r.estado === 'PENDIENTE' || r.estado === 'FALLIDO') return { ...nada, bancoLoDevolvio: true };
   if (r.estado !== 'COBRADO' || porStripe) return nada;
+  // Una venta de la caja se devuelve desde la caja (si no, venta y recibo divergen).
+  if (r.id?.startsWith(PREFIJO_RECIBO_DE_VENTA_DE_CAJA)) return nada;
   // Un cobro con algo ya devuelto, o con un reembolso pedido, no se toca desde aquí.
   const yaDevuelto = Number(r.importeDevuelto ?? 0) > 0 || !!r.reembolsoSolicitadoEn || !!r.reembolsoStripeId;
   if (yaDevuelto || situacionRecibo(r) !== 'COBRADO') return nada;

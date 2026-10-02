@@ -2022,6 +2022,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                                       reembolsoFallidoEn: enviadas.has(r.id) ? null : r.reembolsoFallidoEn,
                                       importe: r.importe, importeDevuelto: r.importeDevuelto ?? 0,
                                       stripePaymentIntentId: r.stripePaymentIntentId, reembolsoStripeId: r.reembolsoStripeId,
+                                      metodoCobro: r.metodoCobro, sepaEstado: r.sepaEstado,
                                     }, ahoraDev);
                                     if (dev && dev.fase !== 'DEVUELTA') {
                                       return (
@@ -2108,6 +2109,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                           reembolsoFallidoEn: enviadas.has(r.id) ? null : r.reembolsoFallidoEn,
                           importe: r.importe, importeDevuelto: r.importeDevuelto ?? 0,
                           stripePaymentIntentId: r.stripePaymentIntentId, reembolsoStripeId: r.reembolsoStripeId,
+                          metodoCobro: r.metodoCobro, sepaEstado: r.sepaEstado,
                         }, ahoraDev);
                         // La nota del plazo del banco solo se enseña mientras sea
                         // reciente: en un recibo devuelto hace meses es ruido.

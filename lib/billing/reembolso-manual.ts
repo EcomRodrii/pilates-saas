@@ -17,16 +17,24 @@
 //
 // Ningún efecto es nuevo: cada uno tiene ya su dueño y aquí solo se componen,
 // en este orden y sin que ninguno tumbe al recibo, que ya dice la verdad:
+//   0. ANTES del UPDATE, si es el recibo de una penalización, la penalización se
+//      pone al día con el cobro (`seguirPenalizacionAlRecibo`): el cobro a mano no
+//      la mueve, y si se devolviera aún en RECIBO_CREADO, el barrido horario la
+//      dejaría FALLIDA (como si se debiera) en vez de REEMBOLSADA;
 //   1. la devolución (`registrarDevolucion`, referencia `manual:<recibo>`): la
 //      tarjeta de Devoluciones del Resumen, por si hay que deshacer lo entregado
-//      — igual que con un reembolso de Stripe. Va PRIMERO: es la marca de que
-//      este recibo lo devolvió este camino;
+//      — igual que con un reembolso de Stripe;
 //   2. la penalización y la nómina (`marcarPenalizacionReembolsada`);
 //   3. los créditos de «Renovar plan» (`seguirCreditosAlRecibo`);
 //   4. la caja: una SALIDA si el dinero salió del mostrador (`mover_caja`, id
 //      `mov-dev-<recibo>`: dos clics no la apuntan dos veces);
 //   5. el libro de auditoría (quién devolvió qué y cómo).
-// Ni aviso ni email, como el cobro a mano.
+// Ni aviso ni email, como el cobro a mano. Cada efecto que falla se avisa a Sentry.
+//
+// ⚠️ Si se repite (doble clic, o el primero se cortó entre el UPDATE y sus
+// efectos), se reconoce por el PROPIO recibo que lo devolvió este camino
+// (`devueltoAMano`) y se repiten los efectos, que son todos idempotentes. No por
+// la devolución anotada: si eso fallaba, el reintento se lo saltaba todo.
 //
 // La factura no se rectifica sola: qué rectificativa toca lo decide la gestoría,
 // igual que con Stripe y con la caja. El cierre ya lo avisa.
@@ -37,6 +45,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cobroEntroPorStripe } from './devolucion-reglas.ts';
 import { registrarDevolucion } from './registrar-devolucion.ts';
+import { penalizacionDelRecibo } from './penalizacion-aprobar-reglas.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 import { registrarAuditoriaServidor, type RegistrarAuditoria } from '../auditoria/registrar-servidor.ts';
 import { hoyEnEstudio } from '../utils.ts';
@@ -60,13 +69,22 @@ export interface ActorReembolso { userId: string; rol: string; nombre: string | 
 
 export interface DependenciasReembolsoManual {
   registrarDevolucion: typeof registrarDevolucion;
+  /** La penalización al día con su recibo cobrado, antes de devolverlo. */
+  seguirPenalizacion: (admin: SupabaseClient, p: { studioId: string; reciboId: string }) => Promise<unknown>;
   marcarPenalizacionReembolsada: (admin: SupabaseClient, studioId: string, reciboId: string) => Promise<void>;
   seguirCreditos: (admin: SupabaseClient, p: { studioId: string; reciboId: string }) => Promise<unknown>;
   registrar: RegistrarAuditoria;
+  /** Log + Sentry de un efecto que no se pudo aplicar. */
+  avisar: (mensaje: string, extra: Record<string, unknown>) => void;
 }
 
 const DEPENDENCIAS: DependenciasReembolsoManual = {
   registrarDevolucion,
+  seguirPenalizacion: async (admin, p) => {
+    // Dinámico: ese módulo usa alias `@/`, que `node --test` no resuelve.
+    const { seguirPenalizacionAlRecibo } = await import('./penalizacion-recibo-server.ts');
+    return seguirPenalizacionAlRecibo(admin, p);
+  },
   marcarPenalizacionReembolsada: async (admin, studioId, reciboId) => {
     // Dinámico: ese módulo carga Sentry, que `node --test` no tiene.
     const { marcarPenalizacionReembolsada } = await import('../equipo/liquidacion-penalizacion-revertida.ts');
@@ -74,7 +92,25 @@ const DEPENDENCIAS: DependenciasReembolsoManual = {
   },
   seguirCreditos: seguirCreditosAlRecibo,
   registrar: registrarAuditoriaServidor,
+  avisar: (mensaje, extra) => {
+    console.error(`[reembolso-manual] ${mensaje}`, extra);
+    void import('@sentry/nextjs')
+      .then(S => S.captureMessage(`[reembolso-manual] ${mensaje}`, { level: 'error', tags: { area: 'cobros', tipo: 'reembolso-manual' }, extra }))
+      .catch(() => { /* sin Sentry solo se pierde el aviso */ });
+  },
 };
+
+/**
+ * ¿Lo devolvió ESTE camino? Lo dice el propio recibo: devuelto entero, sin
+ * reembolso de Stripe pedido ni hecho, y con un cobro que no entró por Stripe.
+ * Ningún otro escritor deja esa combinación (Stripe deja su cargo o su
+ * reembolso; la caja, su venta, que se mira aparte).
+ */
+export function devueltoAMano(r: Record<string, unknown>): boolean {
+  const importe = Number(r.importe);
+  return r.estado === 'DEVUELTO' && importe > 0 && Number(r.importe_devuelto ?? 0) >= importe
+    && !r.reembolso_stripe_id && !r.reembolso_solicitado_en && !cobroEntroPorStripe(r);
+}
 
 export const referenciaReembolsoManual = (reciboId: string) => `manual:${reciboId}`;
 export const idMovimientoReembolso = (reciboId: string) => `mov-dev-${reciboId}`;
@@ -99,15 +135,20 @@ export async function reembolsarReciboAMano(
   const devuelto = Number(recibo.importe_devuelto ?? 0);
   const estado = recibo.estado as string;
 
-  // Doble clic, o una pestaña con la lista vieja: si lo devolvió ESTE camino (su
-  // devolución está anotada), se repiten los efectos, que son idempotentes, por
-  // si el primero se quedó a medias. Si lo devolvió otro (Stripe, la caja), no se
-  // toca nada: apuntar aquí una salida de caja sería inventarla.
+  // Una venta de la caja se devuelve desde la caja: si no, la venta y su recibo
+  // divergen y se podría devolver dos veces.
+  const { data: venta, error: errVenta } = await admin.from('ventas_pos').select('id')
+    .eq('studio_id', p.studioId).eq('recibo_id', p.reciboId).limit(1);
+  if (errVenta) return { ok: false, http: 500, error: 'No se ha podido comprobar el recibo.' };
+  const esVentaDeCaja = !!venta && venta.length > 0;
+
+  // Doble clic, o el primero se cortó entre el UPDATE y sus efectos: si lo
+  // devolvió ESTE camino, se repiten los efectos (idempotentes). Si lo devolvió
+  // otro (Stripe, la caja), no se toca nada: apuntar aquí una salida de caja
+  // sería inventarla.
   if (estado === 'DEVUELTO' && importe > 0 && devuelto >= importe) {
-    const { data: marca } = await admin.from('devoluciones').select('id')
-      .eq('studio_id', p.studioId).eq('referencia', referenciaReembolsoManual(p.reciboId)).maybeSingle();
-    if (!marca) return { ok: true, yaEstaba: true, importe, caja: 'FUERA_DE_CAJA' };
-    const caja = await efectos(admin, p, recibo, importe, d, false);
+    if (esVentaDeCaja || !devueltoAMano(recibo)) return { ok: true, yaEstaba: true, importe, caja: 'FUERA_DE_CAJA' };
+    const caja = await efectos(admin, p, recibo, importe, d);
     return { ok: true, yaEstaba: true, importe, caja };
   }
   if (estado !== 'COBRADO') {
@@ -123,14 +164,13 @@ export async function reembolsarReciboAMano(
     return { ok: false, http: 409, error: 'A este cobro ya se le ha devuelto dinero: revísalo en la ficha de la clienta.' };
   }
   if (!(importe > 0)) return { ok: false, http: 409, error: 'Este recibo no tiene importe que devolver.' };
+  if (esVentaDeCaja) return { ok: false, http: 409, error: 'Este cobro es una venta de la caja: devuélvela desde la caja.' };
 
-  // Una venta de la caja se devuelve desde la caja: si no, la venta y su recibo
-  // divergen y se podría devolver dos veces.
-  const { data: venta, error: errVenta } = await admin.from('ventas_pos').select('id')
-    .eq('studio_id', p.studioId).eq('recibo_id', p.reciboId).limit(1);
-  if (errVenta) return { ok: false, http: 500, error: 'No se ha podido comprobar el recibo.' };
-  if (venta && venta.length > 0) {
-    return { ok: false, http: 409, error: 'Este cobro es una venta de la caja: devuélvela desde la caja.' };
+  // 0. La penalización al día con su recibo COBRADO, antes de devolverlo: si no,
+  //    se quedaría en RECIBO_CREADO y el barrido la dejaría FALLIDA.
+  if (penalizacionDelRecibo(p.reciboId)) {
+    try { await d.seguirPenalizacion(admin, { studioId: p.studioId, reciboId: p.reciboId }); }
+    catch (e) { d.avisar('no se pudo poner al día la penalización antes de devolver', { reciboId: p.reciboId, error: String(e) }); }
   }
 
   // Un solo UPDATE, con `importe_devuelto` dentro: con dos escrituras, entre una
@@ -151,7 +191,7 @@ export async function reembolsarReciboAMano(
   }
   if (!tocado) return { ok: false, http: 409, error: 'Este recibo acaba de cambiar. Recarga y vuelve a intentarlo.' };
 
-  const caja = await efectos(admin, p, recibo, importe, d, true);
+  const caja = await efectos(admin, p, recibo, importe, d);
   return { ok: true, yaEstaba: false, importe, caja };
 }
 
@@ -161,17 +201,20 @@ async function efectos(
   recibo: Record<string, unknown>,
   importe: number,
   d: DependenciasReembolsoManual,
-  anotar: boolean,
 ): Promise<CajaDelReembolso> {
   const avisar = (paso: string, e: unknown) =>
-    console.error(`[reembolso-manual] ${paso}`, p.reciboId, e instanceof Error ? e.message : e);
+    d.avisar(paso, { reciboId: p.reciboId, studioId: p.studioId, error: e instanceof Error ? e.message : String(e ?? '') });
 
-  // 1. La devolución (y la marca de que la hizo este camino).
+  // 1. La devolución. `registrarDevolucion` no lanza y devuelve null tanto si ya
+  //    estaba como si falló: se comprueba que quede anotada.
   try {
     await d.registrarDevolucion(admin, {
       studioId: p.studioId, reciboId: p.reciboId, origen: 'REEMBOLSO_TOTAL',
       devueltoCentimos: Math.round(importe * 100), referencia: referenciaReembolsoManual(p.reciboId),
     });
+    const { data: anotada, error } = await admin.from('devoluciones').select('id')
+      .eq('studio_id', p.studioId).eq('referencia', referenciaReembolsoManual(p.reciboId)).maybeSingle();
+    if (error || !anotada) avisar('la devolución no ha quedado anotada', error?.message ?? 'sin fila');
   } catch (e) { avisar('no se pudo anotar la devolución', e); }
   // 2. La penalización: REEMBOLSADA y la liquidación pide revisión (no FALLIDA:
   //    no se sigue debiendo).
@@ -203,8 +246,12 @@ async function efectos(
     }
   }
 
-  // 5. El libro: solo si ESTA llamada lo devolvió. Nunca lanza.
-  if (anotar) {
+  // 5. El libro, una vez por devolución: si ya está anotada (un reintento), no se
+  //    repite. Nunca lanza.
+  const { data: yaAnotada } = await admin.from('auditoria_estudio').select('id')
+    .eq('studio_id', p.studioId).eq('tabla', 'recibos').eq('fila_id', p.reciboId)
+    .eq('contexto->>accion', 'RECIBO_REEMBOLSADO_A_MANO').limit(1);
+  if (!yaAnotada || yaAnotada.length === 0) {
     await d.registrar(admin, {
       sesion: { userId: p.actor.userId, rol: p.actor.rol, studioId: p.studioId },
       tabla: 'recibos', filaId: p.reciboId, operacion: 'UPDATE',

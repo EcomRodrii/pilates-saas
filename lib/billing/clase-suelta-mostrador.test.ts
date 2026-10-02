@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { anularVentaClaseSuelta, prepararVentaClaseSuelta } from './clase-suelta-mostrador.ts';
+import { anularVentaClaseSuelta, prepararVentaClaseSuelta, quedaTrasAnular } from './clase-suelta-mostrador.ts';
 
 // Un admin de mentira: guarda filas por tabla, aplica los `.eq`/`.is` de los
 // update (compare-and-set) y apunta cada escritura. `fallos`:
@@ -112,7 +112,7 @@ test('si la suscripción es de otra clienta, no se toca', async () => {
 test('si no se puede crear el recibo, la clase suelta no se queda regalada', async () => {
   const { admin, tablas } = adminFalso({}, { insert: { recibos: '42501' } });
   const r = await prepararVentaClaseSuelta(admin, VENTA);
-  assert.deepEqual(r, { ok: false, status: 500, error: 'No se ha podido apuntar la clase suelta. Inténtalo otra vez.', reciboPendiente: false });
+  assert.deepEqual(r, { ok: false, status: 500, error: 'No se ha podido apuntar la clase suelta. Inténtalo otra vez.', queda: 'nada' });
   assert.equal(tablas.suscripciones[0].estado, 'CANCELADA');
   assert.equal(tablas.suscripciones[0].sesiones_restantes, 0);
 });
@@ -189,7 +189,8 @@ test('anular nunca toca un recibo cobrado, y lo avisa', async () => {
     suscripciones: [{ id: 'sus-suelta-res-1', studio_id: 'st', estado: 'ACTIVA', sesiones_restantes: 1 }],
     recibos: [{ id: 'rec-suelta-res-1', studio_id: 'st', estado: 'COBRADO', fecha_cobro: '2026-10-02' }],
   });
-  assert.equal(await anularVentaClaseSuelta(admin, ANULAR, m => avisos.push(m)), 'fallo');
+  // `sin-deshacer`, no `fallo`: el recibo no «sobra» en «Quién me debe», está cobrado.
+  assert.equal(await anularVentaClaseSuelta(admin, ANULAR, m => avisos.push(m)), 'sin-deshacer');
   assert.equal(tablas.recibos[0].estado, 'COBRADO');
   assert.equal(avisos.length, 1);
 });
@@ -199,6 +200,26 @@ test('si la suscripción no se puede cancelar, no se sigue con el recibo', async
     suscripciones: [{ id: 'sus-suelta-res-1', studio_id: 'st', estado: 'ACTIVA', sesiones_restantes: 1 }],
     recibos: [{ id: 'rec-suelta-res-1', studio_id: 'st', estado: 'PENDIENTE', fecha_cobro: null }],
   }, { update: { suscripciones: 1 } });
-  assert.equal(await anularVentaClaseSuelta(admin, ANULAR, callado), 'fallo');
+  // ⚠️ `sin-deshacer`: la clase suelta puede seguir ACTIVA. Decir «borra el recibo
+  // que sobra» la dejaría gratis.
+  assert.equal(await anularVentaClaseSuelta(admin, ANULAR, callado), 'sin-deshacer');
   assert.equal(tablas.recibos[0].estado, 'PENDIENTE');
+});
+
+test('qué se le dice a recepción según lo que dejó la venta que sobraba', () => {
+  assert.equal(quedaTrasAnular(null), 'nada', 'sin venta, nada');
+  assert.equal(quedaTrasAnular('anulada'), 'nada');
+  assert.equal(quedaTrasAnular('fallo'), 'recibo', 'la clase suelta se deshizo y queda su recibo pendiente: ese sí se borra');
+  assert.equal(quedaTrasAnular('servida'), 'revisar', 'su sesión se gastó: la reserva pudo hacerse por otro lado');
+  assert.equal(quedaTrasAnular('sin-deshacer'), 'revisar', 'la clase suelta puede seguir viva: nunca «borra el recibo»');
+});
+
+test('si una suscripción creada AQUÍ sobra por un recibo ajeno y no se puede cancelar, se manda a revisar', async () => {
+  const { admin, tablas } = adminFalso({
+    recibos: [{ id: 'rec-suelta-res-1', studio_id: 'st', socio_id: 'soc-1', importe: 20, estado: 'PENDIENTE' }],
+  }, { update: { suscripciones: 1 } });
+  const r = await prepararVentaClaseSuelta(admin, VENTA);
+  assert.equal(r.ok, false);
+  assert.equal(!r.ok && r.queda, 'revisar');
+  assert.equal(tablas.suscripciones[0].estado, 'ACTIVA', 'no se pudo cancelar: sigue viva, de ahí el «revisar»');
 });

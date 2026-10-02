@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     studioId: sesion.studioId, sesionId, socioId, reservaId, avisarSocia: avisar, claseSuelta,
   });
   if (!r.ok) {
-    return NextResponse.json({ error: r.error, ...(r.reciboPendiente ? { reciboPendiente: true } : {}) }, { status: r.status });
+    return NextResponse.json({ error: r.error, ...(r.queda && r.queda !== 'nada' ? { queda: r.queda } : {}) }, { status: r.status });
   }
   // La venta la escribe el servidor (service-role): el trigger del libro no la
   // ve. Queda anotado quién le vendió la clase suelta —también a crédito, con

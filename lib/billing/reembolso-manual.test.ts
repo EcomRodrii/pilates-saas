@@ -12,15 +12,21 @@ type Fila = Record<string, unknown>;
 function montar(o: {
   recibo: Fila | null;
   venta?: boolean;
-  /** Hay una devolución anotada por este camino (para el «ya estaba»). */
-  marca?: boolean;
+  /** La devolución no aparece anotada después de registrarla. */
+  sinAnotar?: boolean;
+  /** El libro ya tiene la entrada de esta devolución (un reintento). */
+  libro?: boolean;
   cajaAbierta?: boolean;
   errorCaja?: { code?: string; message: string } | null;
   noCasa?: boolean;
   errorUpdate?: boolean;
+  /** Poner al día la penalización antes de devolver lanza. */
+  penalizacionLanza?: boolean;
 }) {
   const updates: { fila: Fila; filtros: Record<string, unknown> }[] = [];
   const rpcs: { fn: string; args: Fila }[] = [];
+  /** El orden entre el UPDATE del recibo y lo que va antes de él. */
+  const orden: string[] = [];
   const admin = {
     rpc(fn: string, args: Fila) { rpcs.push({ fn, args }); return Promise.resolve({ data: 10, error: o.errorCaja ?? null }); },
     from(tabla: string) {
@@ -34,15 +40,17 @@ function montar(o: {
         limit() {
           if (tabla === 'ventas_pos') return Promise.resolve({ data: o.venta ? [{ id: 'v-1' }] : [], error: null });
           if (tabla === 'cajas') return Promise.resolve({ data: o.cajaAbierta ? [{ id: 'caja-1' }] : [], error: null });
+          if (tabla === 'auditoria_estudio') return Promise.resolve({ data: o.libro ? [{ id: 'a-1' }] : [], error: null });
           return Promise.resolve({ data: [], error: null });
         },
         maybeSingle() {
           if (filaUpdate) {
             updates.push({ fila: filaUpdate, filtros });
+            orden.push('update');
             if (o.errorUpdate) return Promise.resolve({ data: null, error: { message: 'boom' } });
             return Promise.resolve({ data: o.noCasa ? null : { id: 'rec-1' }, error: null });
           }
-          if (tabla === 'devoluciones') return Promise.resolve({ data: o.marca ? { id: 'dev-1' } : null, error: null });
+          if (tabla === 'devoluciones') return Promise.resolve({ data: o.sinAnotar ? null : { id: 'dev-1' }, error: null });
           return Promise.resolve({ data: o.recibo, error: null });
         },
       };
@@ -51,13 +59,19 @@ function montar(o: {
   };
   const llamadas: string[] = [];
   const entradas: Fila[] = [];
+  const avisos: string[] = [];
   const deps = {
     registrarDevolucion: (async (_a: unknown, p: Fila) => { llamadas.push(`devolucion:${p.referencia}:${p.devueltoCentimos}`); return null; }) as never,
+    seguirPenalizacion: async () => {
+      orden.push('seguir-penalizacion');
+      if (o.penalizacionLanza) throw new Error('sin red');
+    },
     marcarPenalizacionReembolsada: async () => { llamadas.push('penalizacion'); },
     seguirCreditos: async () => { llamadas.push('creditos'); },
     registrar: (async (_a: unknown, e: Fila) => { entradas.push(e); }) as never,
+    avisar: (mensaje: string) => { avisos.push(mensaje); },
   };
-  return { admin: admin as never, updates, rpcs, llamadas, entradas, deps };
+  return { admin: admin as never, updates, rpcs, llamadas, entradas, avisos, orden, deps };
 }
 
 const ACTOR = { userId: '00000000-0000-4000-8000-000000000001', rol: 'RECEPCION', nombre: 'Lucía' };
@@ -136,17 +150,64 @@ test('el compare-and-set no casa (otra pestaña) o falla: 409/500 y ningún efec
   assert.equal(a.llamadas.length + a.rpcs.length + a.entradas.length + b.llamadas.length + b.rpcs.length + b.entradas.length, 0);
 });
 
+const DEVUELTO_A_MANO = { ...COBRO, estado: 'DEVUELTO', importe_devuelto: 45 };
+
 test('doble clic: si ya lo devolvió ESTE camino, repite los efectos (idempotentes) sin volver al libro', async () => {
-  const m = montar({ recibo: { ...COBRO, estado: 'DEVUELTO', importe_devuelto: 45 }, marca: true, cajaAbierta: true });
+  const m = montar({ recibo: DEVUELTO_A_MANO, libro: true, cajaAbierta: true });
   const r = await reembolsarReciboAMano(m.admin, P, m.deps);
+  // La caja repite el mismo id de movimiento: en la base de datos es un 23505 («ya apuntada»).
   assert.deepEqual(r, { ok: true, yaEstaba: true, importe: 45, caja: 'APUNTADA' });
   assert.equal(m.updates.length, 0);
-  assert.equal(m.entradas.length, 0);
+  assert.deepEqual(m.llamadas, [`devolucion:${referenciaReembolsoManual('rec-1')}:4500`, 'penalizacion', 'creditos']);
+  assert.equal(m.rpcs[0].args.p_movimiento_id, idMovimientoReembolso('rec-1'), 'el mismo movimiento: no se apunta dos veces');
+  assert.equal(m.entradas.length, 0, 'el libro ya la tenía');
+});
+
+test('⚠️ el primer intento se cortó tras el UPDATE: el reintento lo reconoce por el propio recibo y termina, libro incluido', async () => {
+  // Antes se reconocía por la devolución anotada: si ESO fallaba, el reintento se lo saltaba todo.
+  const m = montar({ recibo: DEVUELTO_A_MANO, libro: false, cajaAbierta: true });
+  const r = await reembolsarReciboAMano(m.admin, P, m.deps);
+  assert.equal(r.ok && r.yaEstaba, true);
+  assert.equal(m.llamadas.length, 3, 'devolución, penalización y créditos');
+  assert.equal(m.entradas.length, 1, 'la entrada que faltaba en el libro');
 });
 
 test('⚠️ ya devuelto por OTRO camino (Stripe, la caja): no se toca nada, y menos la caja', async () => {
-  const m = montar({ recibo: { ...COBRO, estado: 'DEVUELTO', importe_devuelto: 45 }, marca: false, cajaAbierta: true });
+  const casos: [string, Parameters<typeof montar>[0]][] = [
+    ['reembolso de Stripe', { recibo: { ...DEVUELTO_A_MANO, metodo_cobro: 'TARJETA', stripe_payment_intent_id: 'pi_1', reembolso_stripe_id: 're_1' } }],
+    ['cobro de Stripe', { recibo: { ...DEVUELTO_A_MANO, metodo_cobro: 'TARJETA', stripe_payment_intent_id: 'pi_1' } }],
+    ['reembolso pedido a Stripe', { recibo: { ...DEVUELTO_A_MANO, reembolso_solicitado_en: '2026-10-01T10:00:00Z' } }],
+    ['devolución en la caja', { recibo: DEVUELTO_A_MANO, venta: true }],
+  ];
+  for (const [nombre, o] of casos) {
+    const m = montar({ ...o, cajaAbierta: true });
+    const r = await reembolsarReciboAMano(m.admin, P, m.deps);
+    assert.deepEqual(r, { ok: true, yaEstaba: true, importe: 45, caja: 'FUERA_DE_CAJA' }, nombre);
+    assert.equal(m.updates.length + m.rpcs.length + m.llamadas.length + m.entradas.length, 0, `${nombre}: apuntar aquí una salida de caja sería inventarla`);
+  }
+});
+
+test('el recibo de una penalización: se pone al día con su cobro ANTES de devolverlo (si no, el barrido la dejaría FALLIDA)', async () => {
+  const m = montar({ recibo: COBRO, cajaAbierta: false });
+  await reembolsarReciboAMano(m.admin, { ...P, reciboId: 'rec-penaliz-pen-1' }, m.deps);
+  assert.deepEqual(m.orden, ['seguir-penalizacion', 'update']);
+  // Un recibo que no es de una penalización no la busca.
+  const otro = montar({ recibo: COBRO, cajaAbierta: false });
+  await reembolsarReciboAMano(otro.admin, P, otro.deps);
+  assert.deepEqual(otro.orden, ['update']);
+});
+
+test('si poner al día la penalización falla, se avisa y la devolución sigue: el dinero ya salió', async () => {
+  const m = montar({ recibo: COBRO, cajaAbierta: false, penalizacionLanza: true });
+  const r = await reembolsarReciboAMano(m.admin, { ...P, reciboId: 'rec-penaliz-pen-1' }, m.deps);
+  assert.equal(r.ok, true);
+  assert.equal(m.updates.length, 1);
+  assert.equal(m.avisos.length, 1);
+});
+
+test('si la devolución no queda anotada (registrarDevolucion no lanza), se avisa y el recibo sigue devuelto', async () => {
+  const m = montar({ recibo: COBRO, cajaAbierta: false, sinAnotar: true });
   const r = await reembolsarReciboAMano(m.admin, P, m.deps);
-  assert.deepEqual(r, { ok: true, yaEstaba: true, importe: 45, caja: 'FUERA_DE_CAJA' });
-  assert.equal(m.rpcs.length + m.llamadas.length + m.entradas.length, 0, 'apuntar aquí una salida de caja sería inventarla');
+  assert.equal(r.ok, true);
+  assert.deepEqual(m.avisos, ['la devolución no ha quedado anotada']);
 });

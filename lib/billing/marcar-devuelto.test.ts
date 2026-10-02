@@ -6,6 +6,7 @@ import {
   cobroEntroPorStripe, marcarReciboDevuelto, reintentarPorElBanco, TEXTO_COBRO_EN_MARCHA, TEXTO_COBRO_POR_STRIPE, TEXTO_RECIBO_CAMBIADO,
 } from './marcar-devuelto.ts';
 import { TEXTO_NO_LO_DEVUELVE_EL_BANCO } from './devolucion-reglas.ts';
+import { TEXTO_SIN_DOMICILIACION, TEXTO_SIN_REMESAS } from './remesa-del-recibo.ts';
 
 // «Marcar devuelto» de Cobros: el recibo pasa a DEVUELTO por servidor y, si era
 // el de una penalización, la penalización se pone al día con su recibo
@@ -28,22 +29,42 @@ interface Opciones {
   errorUpdate?: boolean;
   /** Otro proceso cambió el recibo entre la lectura y el UPDATE. */
   cambiaEntreMedias?: boolean;
+  /** El recibo es el de una venta de la caja. */
+  venta?: boolean;
+  /** El estudio hace remesas (acreedor SEPA) y la clienta tiene domiciliación. Por defecto, sí. */
+  remesa?: { estudio: boolean; mandato: boolean };
 }
 
 function montar(o: Opciones) {
   const updates: { fila: Fila; filtros: Record<string, unknown> }[] = [];
   const seguidos: { studioId: string; reciboId: string }[] = [];
+  const remesa = o.remesa ?? { estudio: true, mandato: true };
   const admin = {
     from(tabla: string) {
-      assert.equal(tabla, 'recibos', 'solo toca recibos: la penalización va por `seguir`');
+      assert.ok(['recibos', 'ventas_pos', 'studios', 'mandatos_sepa'].includes(tabla),
+        `toca ${tabla}: la penalización va por \`seguir\``);
       const filtros: Record<string, unknown> = {};
       let filaUpdate: Fila | null = null;
+      const lista = (): Fila[] => {
+        if (tabla === 'ventas_pos') return o.venta ? [{ id: 'v-1' }] : [];
+        if (tabla === 'mandatos_sepa') return remesa.mandato ? [{ socio_id: 'soc-1' }] : [];
+        if (tabla === 'recibos') return o.recibo ? [{ id: P.reciboId, socio_id: 'soc-1' }] : [];
+        return [];
+      };
       const c = {
         select() { return c; },
         update(fila: Fila) { filaUpdate = fila; return c; },
         eq(campo: string, valor: unknown) { filtros[campo] = valor; return c; },
         is(campo: string, valor: unknown) { filtros[`is:${campo}`] = valor; return c; },
+        in() { return c; },
+        limit() { return Promise.resolve({ data: lista(), error: null }); },
+        then(ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) {
+          return Promise.resolve({ data: lista(), error: null }).then(ok, ko);
+        },
         maybeSingle() {
+          if (tabla === 'studios') {
+            return Promise.resolve({ data: remesa.estudio ? { sepa_acreedor_id: 'ES00', sepa_iban: 'ES12', sepa_titular: 'Estudio' } : { sepa_acreedor_id: null, sepa_iban: null, sepa_titular: null }, error: null });
+          }
           if (filaUpdate) {
             updates.push({ fila: filaUpdate, filtros });
             if (o.errorUpdate) return Promise.resolve({ data: null, error: { message: 'boom' } });
@@ -131,6 +152,30 @@ test('`desde`: si el recibo ya no está como lo vio quien pulsó, no se toca', a
   const r = await marcarReciboDevuelto(m.admin, { ...P, desde: 'PENDIENTE' }, m.seguir);
   assert.deepEqual(r, { ok: false, http: 409, error: TEXTO_RECIBO_CAMBIADO });
   assert.equal(m.updates.length, 0);
+});
+
+test('`desde` sobre uno que ya está DEVUELTO: si quien pulsó lo veía cobrado, no se le dice que sí', async () => {
+  // Otra pestaña acaba de registrar «Le he devuelto el dinero»: contestar «hecho»
+  // haría pintar una deuda que no existe.
+  const m = montar({ recibo: { estado: 'DEVUELTO', fecha_devolucion: '2026-09-10', importe_devuelto: 45 } });
+  const r = await marcarReciboDevuelto(m.admin, { ...P, desde: 'COBRADO' }, m.seguir);
+  assert.deepEqual(r, { ok: false, http: 409, error: TEXTO_RECIBO_CAMBIADO });
+  assert.equal(m.updates.length + m.seguidos.length + m.creditos.length, 0);
+});
+
+test('una venta de la caja no se marca devuelta desde Cobros: se devuelve desde la caja', async () => {
+  const m = montar({ recibo: { estado: 'COBRADO', metodo_cobro: 'TARJETA' }, venta: true });
+  const r = await marcarReciboDevuelto(m.admin, P, m.seguir);
+  assert.deepEqual(r, { ok: false, http: 409, error: 'Este cobro es una venta de la caja: devuélvela desde la caja.' });
+  assert.equal(m.updates.length + m.seguidos.length, 0);
+});
+
+test('EN_CURSO que no pudo salir en una remesa (el estudio no las hace, o la clienta no tiene domiciliación): 409 y se dice por qué', async () => {
+  const sinRemesas = montar({ recibo: { estado: 'EN_CURSO' }, remesa: { estudio: false, mandato: true } });
+  assert.deepEqual(await marcarReciboDevuelto(sinRemesas.admin, P, sinRemesas.seguir), { ok: false, http: 409, error: TEXTO_SIN_REMESAS });
+  const sinMandato = montar({ recibo: { estado: 'EN_CURSO' }, remesa: { estudio: true, mandato: false } });
+  assert.deepEqual(await marcarReciboDevuelto(sinMandato.admin, P, sinMandato.seguir), { ok: false, http: 409, error: TEXTO_SIN_DOMICILIACION });
+  assert.equal(sinRemesas.updates.length + sinMandato.updates.length, 0, 'ni deuda inventada ni penalización tocada');
 });
 
 test('la fecha de devolución es la del estudio: a las 00:30 de Madrid es ya el día nuevo', async () => {
@@ -334,6 +379,7 @@ function montarReintento(o: {
   estudio?: Fila | null;
   mandatos?: Fila[];
   noCasa?: boolean;
+  errorUpdate?: { code?: string; message: string };
 }) {
   const updates: { fila: Fila; filtros: Record<string, unknown> }[] = [];
   const admin = {
@@ -349,6 +395,7 @@ function montarReintento(o: {
         maybeSingle() {
           if (filaUpdate) {
             updates.push({ fila: filaUpdate, filtros });
+            if (o.errorUpdate) return Promise.resolve({ data: null, error: o.errorUpdate });
             return Promise.resolve({ data: o.noCasa ? null : { id: 'x' }, error: null });
           }
           if (tabla === 'studios') return Promise.resolve({ data: o.estudio === undefined ? { sepa_acreedor_id: 'ES00', sepa_iban: 'ES12', sepa_titular: 'Estudio' } : o.estudio, error: null });
@@ -404,4 +451,13 @@ test('reintentar por el banco: si el recibo cambió entre medias, 409 y sin entr
   const r = await reintentarPorElBanco(m.admin, PR, m.registrar);
   assert.deepEqual(r, { ok: false, http: 409, error: TEXTO_RECIBO_CAMBIADO });
   assert.equal(m.entradas.length, 0);
+});
+
+test('reintentar por el banco: si esa cuota ya tiene otra renovación viva (índice único), 409 y se dice cuál cobrar', async () => {
+  const m = montarReintento({ recibo: DEVUELTO_POR_EL_BANCO, mandatos: [{ id: 'm-1' }], errorUpdate: { code: '23505', message: 'duplicate key' } });
+  const r = await reintentarPorElBanco(m.admin, PR, m.registrar);
+  assert.deepEqual(r, { ok: false, http: 409, error: 'Esta cuota ya tiene otra renovación pendiente: cobra esa en vez de reintentar esta.' });
+  assert.equal(m.entradas.length, 0);
+  const otro = montarReintento({ recibo: DEVUELTO_POR_EL_BANCO, mandatos: [{ id: 'm-1' }], errorUpdate: { message: 'boom' } });
+  assert.equal((r2 => !r2.ok && r2.http)(await reintentarPorElBanco(otro.admin, PR, otro.registrar)), 500);
 });

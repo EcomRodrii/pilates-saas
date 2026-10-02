@@ -981,6 +981,8 @@ export async function marcarCobradoEnServidor(
   reciboIds: string[], metodo: string | null, timeoutMs = 45_000,
   /** `banco`: «El banco lo ha cobrado», el cierre de una remesa (sin método: es el adeudo). */
   canal?: 'banco',
+  /** Cobro de varios a la vez: el servidor no cobra lo que tiene un cobro en marcha. */
+  lote = false,
 ): Promise<{ status: number; cuerpo: unknown } | { red: true }> {
   const abortar = new AbortController();
   const t = setTimeout(() => abortar.abort(), timeoutMs);
@@ -988,7 +990,7 @@ export async function marcarCobradoEnServidor(
     const res = await fetch('/api/cobros/marcar-cobrado', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify(canal === 'banco' ? { reciboIds, canal } : { reciboIds, metodo }),
+      body: JSON.stringify(canal === 'banco' ? { reciboIds, canal } : { reciboIds, metodo, ...(lote ? { lote: true } : {}) }),
       signal: abortar.signal,
     });
     const cuerpo: unknown = await res.json().catch(() => null);

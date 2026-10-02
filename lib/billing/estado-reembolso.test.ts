@@ -107,3 +107,16 @@ test('devuelto por Stripe (o sin saber cuánto): el aviso del plazo del banco de
     estadoReembolso({ estado: 'DEVUELTO' }, new Date()),
   ]) assert.match(r?.detalle ?? '', /5 y 10 días hábiles/);
 });
+
+test('⚠️ un adeudo que falló y se cobró luego en efectivo conserva su cargo de Stripe: devuelto, lo devolvió el estudio a mano', () => {
+  // Con solo mirar el cargo guardado, la fila decía «5–10 días hábiles» de un dinero que salió del cajón.
+  const r = estadoReembolso({
+    estado: 'DEVUELTO', importe: 45, importeDevuelto: 45, stripePaymentIntentId: 'pi_viejo', metodoCobro: 'EFECTIVO', sepaEstado: 'failed',
+  }, new Date());
+  assert.match(r?.detalle ?? '', /Se lo devolvió el estudio: ya no lo debe/);
+  // Si el cobro sí entró por Stripe, el plazo del banco de siempre.
+  const porStripe = estadoReembolso({
+    estado: 'DEVUELTO', importe: 45, importeDevuelto: 45, stripePaymentIntentId: 'pi_1', metodoCobro: 'TARJETA', sepaEstado: null,
+  }, new Date());
+  assert.match(porStripe?.detalle ?? '', /5 y 10 días hábiles/);
+});

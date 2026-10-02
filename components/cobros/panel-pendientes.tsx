@@ -223,6 +223,7 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
     reintentar,
     reintentarSelladoFactura,
     mandatosSepa,
+    devolverRecibosAPendientesTrasRemesa,
     deleteRecibo,
     addRecibo,
     crearFacturaDirecta,
@@ -974,51 +975,75 @@ export function PanelPendientes({ vista = 'deudas', onToast, acciones }: {
             )}
           </>
         )}
-        {/* En el banco (una remesa): ahora tiene salida. Con un cargo de Stripe
-            en vuelo no: ese lo cierra su webhook. */}
-        {r.estado === 'EN_CURSO' && (accionesDeDevolucion(r).bancoLoCobro ? (
-          <>
-            <button
-              onClick={() => setConfirmacion({
-                titulo: '¿El banco lo ha cobrado?',
-                descripcion: `«${r.concepto}» de ${socioName(r.socioId)}, ${formatEuro(r.importe)}: pasa a cobrado por domiciliación, con lo que eso entrega (la renovación de su plan, si es una cuota).`,
-                textoConfirmar: 'Sí, lo ha cobrado',
-                accion: () => enUnaVez(r.id, async () => {
-                  const res = await marcarCobradoPorElBanco(r.id);
-                  if (!res.ok && !('cobroRegistrado' in res)) { onToast(res.error); return; }
-                  setStripeToast(res.ok
-                    ? { tipo: 'ok', msg: res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${formatEuro(r.importe)} de ${socioName(r.socioId)}.` }
-                    : { tipo: 'error', msg: res.error });
-                }),
-              })}
-              className={cn(chip, 'bg-success/10 text-success hover:bg-[#A7F3D0]')}
-              title={titulo('El banco ha cobrado este recibo de la remesa')}
-            >
-              <CheckCircle2 size={icono} />
-              {tactil ? 'El banco lo ha cobrado' : 'Cobrado'}
-            </button>
-            <button
-              onClick={() => setConfirmacion({
-                titulo: '¿Lo devolvió el banco?',
-                descripcion: `${socioName(r.socioId)} sigue debiendo ${formatEuro(r.importe)}: «${r.concepto}» pasa a «Devuelto por el banco».`,
-                textoConfirmar: 'Sí, lo devolvió el banco',
-                destructivo: true,
-                accion: () => enUnaVez(r.id, async () => {
-                  const res = await marcarDevuelto(r.id, 'EN_CURSO');
-                  if (!res.ok) onToast(res.error);
-                }),
-              })}
-              className={rojo}
-              title={titulo('El banco lo devolvió')}
-            >
-              <XCircle size={tactil ? 15 : 14} className="text-destructive" />
-              {tactil && 'El banco lo devolvió'}
-            </button>
-          </>
-        ) : (
+        {/* En el banco: ahora tiene salida. Con un cargo de Stripe en vuelo no:
+            ese lo cierra su webhook. «Lo ha cobrado» y «lo devolvió» solo si pudo
+            salir en una remesa (el estudio las hace y la clienta tiene
+            domiciliación); si no —un «Reintentar» del panel de antes, una remesa
+            cuyo fichero falló—, ningún banco lo tiene: «No llegó a ir al banco». */}
+        {r.estado === 'EN_CURSO' && (accionesDeDevolucion(r).loCierraStripe ? (
           <span className="text-xs text-muted-foreground" title={titulo('Hay un cobro de Stripe en marcha: se cerrará solo')}>
             Lo cierra Stripe
           </span>
+        ) : (
+          <>
+            {remesaDisponible && mandatosSepa.some(m => m.socioId === r.socioId) && (
+              <>
+                <button
+                  onClick={() => setConfirmacion({
+                    titulo: '¿El banco lo ha cobrado?',
+                    descripcion: `«${r.concepto}» de ${socioName(r.socioId)}, ${formatEuro(r.importe)}: pasa a cobrado por domiciliación, con lo que eso entrega (la renovación de su plan, si es una cuota).`,
+                    textoConfirmar: 'Sí, lo ha cobrado',
+                    accion: () => enUnaVez(r.id, async () => {
+                      const res = await marcarCobradoPorElBanco(r.id);
+                      if (!res.ok && !('cobroRegistrado' in res)) { onToast(res.error); return; }
+                      setStripeToast(res.ok
+                        ? { tipo: 'ok', msg: res.yaEstaba ? MENSAJE_YA_ESTABA : `Cobro registrado: ${formatEuro(r.importe)} de ${socioName(r.socioId)}.` }
+                        : { tipo: 'error', msg: res.error });
+                    }),
+                  })}
+                  className={cn(chip, 'bg-success/10 text-success hover:bg-[#A7F3D0]')}
+                  title={titulo('El banco ha cobrado este recibo de la remesa')}
+                >
+                  <CheckCircle2 size={icono} />
+                  {tactil ? 'El banco lo ha cobrado' : 'Cobrado'}
+                </button>
+                <button
+                  onClick={() => setConfirmacion({
+                    titulo: '¿Lo devolvió el banco?',
+                    descripcion: `${socioName(r.socioId)} sigue debiendo ${formatEuro(r.importe)}: «${r.concepto}» pasa a «Devuelto por el banco».`,
+                    textoConfirmar: 'Sí, lo devolvió el banco',
+                    destructivo: true,
+                    accion: () => enUnaVez(r.id, async () => {
+                      const res = await marcarDevuelto(r.id, 'EN_CURSO');
+                      if (!res.ok) onToast(res.error);
+                    }),
+                  })}
+                  className={rojo}
+                  title={titulo('El banco lo devolvió')}
+                >
+                  <XCircle size={tactil ? 15 : 14} className="text-destructive" />
+                  {tactil && 'El banco lo devolvió'}
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => setConfirmacion({
+                titulo: '¿No llegó a ir al banco?',
+                descripcion: `«${r.concepto}» de ${socioName(r.socioId)} vuelve a «Sin cobrar», como si no se hubiera mandado nunca. Usa esto si no salió en ninguna remesa que hayas subido al banco.`,
+                textoConfirmar: 'Sí, vuelve a sin cobrar',
+                accion: () => enUnaVez(r.id, async () => {
+                  const res = await devolverRecibosAPendientesTrasRemesa([r.id]);
+                  if (!res.ok) { onToast(res.error); return; }
+                  if (!(res.idsActualizados ?? []).includes(r.id)) onToast('Este recibo acaba de cambiar. Recarga y vuelve a intentarlo.');
+                }),
+              })}
+              className={cn(chip, 'bg-background text-muted-foreground hover:bg-border')}
+              title={titulo('No llegó a ir al banco (vuelve a sin cobrar)')}
+            >
+              <RefreshCw size={icono} />
+              {tactil ? 'No llegó a ir al banco' : 'No fue al banco'}
+            </button>
+          </>
         ))}
         {r.estado === 'COBRADO' && (
           <>

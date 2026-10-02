@@ -57,3 +57,15 @@ test('qué devuelve un banco', () => {
   assert.equal(elBancoPuedeDevolver(null), true, 'sin método no se sabe: se deja');
   for (const m of ['EFECTIVO', 'BIZUM', 'TRANSFERENCIA']) assert.equal(elBancoPuedeDevolver(m), false, m);
 });
+
+test('una venta de la caja (`rec-pos-…`) no tiene ningún botón aquí: se devuelve desde la caja', () => {
+  assert.deepEqual(accionesDeDevolucion(cobro({ id: 'rec-pos-v-1', metodoCobro: 'EFECTIVO' })),
+    { reembolsoAMano: false, bancoLoDevolvio: false, bancoLoCobro: false, loCierraStripe: false });
+  assert.equal(accionesDeDevolucion(cobro({ id: 'rec-1', metodoCobro: 'EFECTIVO' })).reembolsoAMano, true, 'un cobro normal sí');
+});
+
+test('en el banco con un reintento automático programado: lo cierra Stripe, no el mostrador', () => {
+  const r = accionesDeDevolucion({ estado: 'EN_CURSO', importe: 40, importeDevuelto: 0, proximoReintento: '2026-10-05' });
+  assert.equal(r.loCierraStripe, true);
+  assert.equal(r.bancoLoCobro || r.bancoLoDevolvio, false);
+});

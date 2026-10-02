@@ -1075,9 +1075,10 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     DEVUELTO: no se crea ni se pasa a devuelto desde el navegador, y de un devuelto el
     navegador solo puede salir a EN_CURSO si lo devolvió el BANCO (mismo criterio que
     `esReciboCobrable`); uno reembolsado por Stripe o por la caja no se reabre (la socia
-    volvería a pagarlo). Esa salida la usaba el «Reintentar» del panel, que desde el
-    2-oct va por el servidor (→ PENDIENTE): queda sin uso y se puede cerrar en el
-    trigger. Y un recibo NACE
+    volvería a pagarlo). ⚠️ **Esa salida hay que cerrarla en el trigger** (pendiente: una
+    migración aparte, cuando el panel que ya no la usa esté desplegado, con `supabase/tests`
+    al día). La usaba el «Reintentar» del panel, que desde el 2-oct va por el servidor
+    (→ PENDIENTE), y es de donde salen los EN_CURSO que no fueron a ningún banco. Y un recibo NACE
     pendiente desde el navegador, y un EN_CURSO con un cobro en vuelo (cargo, sesión de pago
     o reintento programado) no vuelve a pendiente a mano: cambiaría la clave de idempotencia
     del siguiente cobro.
@@ -1109,6 +1110,13 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     desde EN_CURSO, mismas guardas). «Reintentar por el banco» (`reintentarPorElBanco`)
     lo devuelve a PENDIENTE para la próxima remesa —antes el navegador lo ponía
     EN_CURSO sin mandar nada—, y solo con domiciliaciones y mandato VIGENTE.
+    ⚠️ «Lo ha cobrado» y «lo devolvió» desde EN_CURSO solo valen para lo que PUDO salir
+    en una remesa (`lib/billing/remesa-del-recibo.ts`: el estudio tiene sus datos de
+    acreedor y la clienta, una domiciliación). Si no, el servidor los rechaza y el panel
+    solo ofrece «No llegó a ir al banco» (→ PENDIENTE): darlo por cobrado inventaría un
+    ingreso y una factura. Y «Cobrar varias» va como lote (`lote: true`): no cobra lo que
+    tenga una sesión de pago, el datáfono o un reintento en marcha, y el propio UPDATE lo
+    vuelve a exigir (`sinCobroEnMarcha` en `confirmarCobro`).
 - **De serie ≠ personalizable.** Recordatorio de clase, confirmación, lista de
   espera, bono agotado, reintento de cobro, valoración y búsqueda de sustituta son
   producto, no reglas. `CLASE_MANANA` ya no se ofrece (duplicaba el recordatorio

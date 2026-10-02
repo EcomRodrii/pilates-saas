@@ -1778,15 +1778,18 @@ export default function Calendario() {
   // se cobra ni se deja recibo.
   const textoYaCubierta = (nombre: string, c: CubiertaPor) => !c.suelta
     ? `${nombre} entra con su ${c.plan}, que ya cubría esta clase: no se le ha cobrado nada`
-    : c.suelta.debe > 0
-      ? `${nombre} entra con la clase suelta que recuperó: no se le cobra otra. Sigue debiendo ${formatEuro(c.suelta.debe)} de aquella, en «Quién me debe»`
-      : `${nombre} entra con la clase suelta que recuperó: no se le cobra otra`;
+    : c.suelta.debe == null
+      ? `${nombre} entra con la clase suelta que recuperó: no se le cobra otra. Mira en «Quién me debe» si aún debe aquella`
+      : c.suelta.debe > 0
+        ? `${nombre} entra con la clase suelta que recuperó: no se le cobra otra. Sigue debiendo ${formatEuro(c.suelta.debe)} de aquella, en «Quién me debe»`
+        : `${nombre} entra con la clase suelta que recuperó: no se le cobra otra`;
   // Lo que se le dice a recepción si no ha quedado apuntada: si se llegó a
   // vender y no se pudo deshacer, o si ni siquiera se sabe, «no se le ha
   // cobrado nada» no sería verdad del todo.
-  const textoSinApuntar = (r: { error: string; reciboPendiente?: boolean; sinRespuesta?: boolean }, nombre: string) =>
+  const textoSinApuntar = (r: { error: string; queda?: 'recibo' | 'revisar'; sinRespuesta?: boolean }, nombre: string) =>
     r.sinRespuesta ? `No se ha podido confirmar si ${nombre} ha quedado apuntada: mira la clase antes de cobrarle.`
-      : r.reciboPendiente ? `${r.error} Ha quedado un recibo pendiente de esta clase suelta que sobra: elimínalo en «Quién me debe».`
+      : r.queda === 'revisar' ? `${r.error} Su clase suelta no se ha podido deshacer: mira la clase y su ficha antes de cobrarle o de borrar nada.`
+      : r.queda === 'recibo' ? `${r.error} Ha quedado un recibo pendiente de esta clase suelta que sobra: elimínalo en «Quién me debe».`
       : `${r.error} No se le ha cobrado nada.`;
 
   // «Cobrar y añadirla» (maqueta aprobada, 1-oct-2026): la clase suelta se
@@ -1828,7 +1831,10 @@ export default function Calendario() {
     // `yaEstaba`: un intento anterior la apuntó y su respuesta no llegó; lo
     // que se cobra es la clase suelta de aquel intento.
     const dondeEsta = reserva.yaEstaba ? `${nombre} ya estaba en la clase` : `${nombre} añadida a la clase`;
-    if (res.ok) {
+    if (res.ok && res.yaEstaba) {
+      // Otra pestaña (u otro intento) ya la había cobrado: este clic no ha cobrado nada.
+      showToast(`Su clase suelta ya estaba cobrada · ${dondeEsta}. No le cobres otra vez`);
+    } else if (res.ok) {
       showToast(`${formatEuro(reserva.venta.importe)} cobrados ${como} · ${dondeEsta}`);
     } else if ('cobroRegistrado' in res) {
       // El dinero entró; falta sellar la factura (se reintenta sola).
@@ -1855,7 +1861,7 @@ export default function Calendario() {
       checkInInmediato: esWalkIn, avisar: avisarAlumna, claseSuelta: { importeEsperado: precio },
     });
     if (!reserva.ok) {
-      showToastError(reserva.sinRespuesta || reserva.reciboPendiente ? textoSinApuntar(reserva, nombre) : reserva.error);
+      showToastError(reserva.sinRespuesta || reserva.queda ? textoSinApuntar(reserva, nombre) : reserva.error);
       void refrescarVista();
       return false;
     }

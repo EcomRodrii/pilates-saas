@@ -8,7 +8,9 @@ import { readFileSync } from 'node:fs';
 //    tienen cada uno su botón. Antes un solo «Devolver» dejaba como DEUDA un
 //    cobro en efectivo que el estudio había devuelto en mano.
 //  · Lo que está «En el banco» (una remesa) tiene salida: «lo ha cobrado» o «lo
-//    devolvió». Antes se quedaba ahí para siempre.
+//    devolvió». Antes se quedaba ahí para siempre. Solo si pudo salir en una
+//    remesa (el estudio las hace y la clienta tiene domiciliación); si no, «No
+//    llegó a ir al banco» lo devuelve a sin cobrar.
 //  · «Reintentar por el banco» lo devuelve a la próxima remesa por el servidor,
 //    no escribiendo «Enviado al banco» sin mandar nada.
 //  · «Descargar para la gestoría» baja lo COBRADO (antes, lo que te deben).
@@ -50,8 +52,10 @@ interface Llamadas {
   reintento: Fila[];
   /** Lecturas de lo cobrado para la descarga de la gestoría. */
   exportes: number;
-  /** Escrituras directas a `rest/v1/recibos`: tienen que ser 0. */
+  /** Escrituras directas a `rest/v1/recibos`: tienen que ser 0 (salvo «No llegó a ir al banco»). */
   escriturasDirectas: number;
+  /** «No llegó a ir al banco»: EN_CURSO → PENDIENTE, la única escritura del navegador que queda. */
+  aPendiente: { url: string; cuerpo: Fila }[];
 }
 
 async function montar(page: Page, opts: {
@@ -62,7 +66,7 @@ async function montar(page: Page, opts: {
   exportar?: Respuesta;
   conRemesa?: boolean;
 }): Promise<Llamadas> {
-  const ll: Llamadas = { reembolso: [], devuelto: [], cobrado: [], reintento: [], exportes: 0, escriturasDirectas: 0 };
+  const ll: Llamadas = { reembolso: [], devuelto: [], cobrado: [], reintento: [], exportes: 0, escriturasDirectas: 0, aPendiente: [] };
   const responder = (route: Route, r: Respuesta | undefined, porDefecto: unknown) => {
     if (r === 'red') return route.abort('failed');
     return json(route, r ? r.body : porDefecto, r ? r.status : 200);
@@ -116,6 +120,11 @@ async function montar(page: Page, opts: {
   ] : []));
   await page.route('**/rest/v1/recibos**', route => {
     const req = route.request();
+    const cuerpo = req.method() === 'PATCH' ? JSON.parse(req.postData() ?? '{}') as Fila : null;
+    if (cuerpo?.estado === 'PENDIENTE' && req.url().includes('estado=eq.EN_CURSO')) {
+      ll.aPendiente.push({ url: decodeURIComponent(req.url()), cuerpo });
+      return json(route, opts.recibos.filter(r => req.url().includes(String(r.id))).map(r => ({ id: r.id })));
+    }
     if (req.method() !== 'GET') {
       ll.escriturasDirectas++;
       return json(route, { message: 'el panel no debería escribir recibos directamente' }, 400);
@@ -225,7 +234,7 @@ test.describe('Devolver un cobro: dos hechos, dos botones', () => {
 
 test.describe('Lo que está en el banco', () => {
   test('«El banco lo ha cobrado» lo cierra por el servidor, como cobro del banco (sin método del mostrador)', async ({ page }) => {
-    const ll = await montar(page, { recibos: [EN_EL_BANCO] });
+    const ll = await montar(page, { recibos: [EN_EL_BANCO], conRemesa: true });
     const f = fila(page, 'rec-remesa');
     await f.hover();
     await f.getByTitle('El banco ha cobrado este recibo de la remesa').click();
@@ -238,7 +247,7 @@ test.describe('Lo que está en el banco', () => {
   });
 
   test('si el servidor no lo deja cerrar, se dice y sigue en el banco', async ({ page }) => {
-    const ll = await montar(page, { recibos: [EN_EL_BANCO], cobrado: { status: 409, body: { error: 'Tu rol no puede registrar cobros' } } });
+    const ll = await montar(page, { recibos: [EN_EL_BANCO], conRemesa: true, cobrado: { status: 409, body: { error: 'Tu rol no puede registrar cobros' } } });
     const f = fila(page, 'rec-remesa');
     await f.hover();
     await f.getByTitle('El banco ha cobrado este recibo de la remesa').click();
@@ -250,7 +259,7 @@ test.describe('Lo que está en el banco', () => {
   });
 
   test('«El banco lo devolvió» desde el banco: vuelve a deber', async ({ page }) => {
-    const ll = await montar(page, { recibos: [EN_EL_BANCO] });
+    const ll = await montar(page, { recibos: [EN_EL_BANCO], conRemesa: true });
     const f = fila(page, 'rec-remesa');
     await f.hover();
     await f.getByTitle('El banco lo devolvió').click();
@@ -260,11 +269,50 @@ test.describe('Lo que está en el banco', () => {
     expect(ll.devuelto[0]).toEqual({ reciboId: 'rec-remesa', desde: 'EN_CURSO' });
   });
 
-  test('con un cobro de Stripe en vuelo no se ofrece nada: lo cierra Stripe', async ({ page }) => {
-    await montar(page, { recibos: [{ ...EN_EL_BANCO, stripe_payment_intent_id: 'pi_1' }] });
+  test('con un cobro de Stripe en vuelo, o un reintento programado, no se ofrece nada: lo cierra Stripe', async ({ page }) => {
+    await montar(page, {
+      recibos: [{ ...EN_EL_BANCO, stripe_payment_intent_id: 'pi_1' }, { ...EN_EL_BANCO, id: 'rec-reintento', proximo_reintento: '2026-10-05' }],
+      conRemesa: true,
+    });
+    for (const id of ['rec-remesa', 'rec-reintento']) {
+      const f = fila(page, id);
+      await f.hover();
+      await expect(f.getByText('Lo cierra Stripe'), id).toBeVisible();
+      await expect(f.getByTitle('El banco ha cobrado este recibo de la remesa'), id).toHaveCount(0);
+      await expect(f.getByTitle('No llegó a ir al banco (vuelve a sin cobrar)'), id).toHaveCount(0);
+    }
+  });
+
+  test('⚠️ lo que no pudo salir en una remesa no lo cobra ni lo devuelve «el banco»: solo «No llegó a ir al banco»', async ({ page }) => {
+    // Un EN_CURSO del «Reintentar» de antes (el estudio sin domiciliaciones):
+    // darlo por cobrado inventaría un ingreso y una factura.
+    const ll = await montar(page, { recibos: [EN_EL_BANCO], conRemesa: false });
     const f = fila(page, 'rec-remesa');
     await f.hover();
-    await expect(f.getByText('Lo cierra Stripe')).toBeVisible();
+    await expect(f.getByTitle('El banco ha cobrado este recibo de la remesa')).toHaveCount(0);
+    await expect(f.getByTitle('El banco lo devolvió')).toHaveCount(0);
+    await f.getByTitle('No llegó a ir al banco (vuelve a sin cobrar)').click();
+
+    // Hasta confirmar, nada.
+    await expect(page.getByRole('dialog')).toContainText('vuelve a «Sin cobrar»');
+    expect(ll.aPendiente).toHaveLength(0);
+    await page.getByRole('button', { name: 'Sí, vuelve a sin cobrar' }).click();
+
+    await expect.poll(() => ll.aPendiente.length, { timeout: 10_000 }).toBeGreaterThan(0);
+    expect(ll.aPendiente[0].cuerpo).toEqual({ estado: 'PENDIENTE' });
+    // Solo desde EN_CURSO y sin ningún cobro en marcha, en el propio UPDATE.
+    for (const filtro of ['estado=eq.EN_CURSO', 'stripe_payment_intent_id=is.null', 'checkout_session_id=is.null', 'cobro_mostrador_pi=is.null', 'proximo_reintento=is.null']) {
+      expect(ll.aPendiente[0].url, filtro).toContain(filtro);
+    }
+    expect(ll.cobrado.length + ll.devuelto.length + ll.escriturasDirectas).toBe(0);
+  });
+
+  test('con remesas, la clienta sin domiciliación tampoco: solo «No llegó a ir al banco»', async ({ page }) => {
+    // El mandato del montaje es de Bea (s2): este recibo es de Ana.
+    await montar(page, { recibos: [{ ...EN_EL_BANCO, socio_id: 's1' }], conRemesa: true });
+    const f = fila(page, 'rec-remesa');
+    await f.hover();
+    await expect(f.getByTitle('No llegó a ir al banco (vuelve a sin cobrar)')).toBeVisible();
     await expect(f.getByTitle('El banco ha cobrado este recibo de la remesa')).toHaveCount(0);
   });
 

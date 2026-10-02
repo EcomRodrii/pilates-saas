@@ -132,8 +132,13 @@ export type ResultadoReserva =
     }
   | {
       ok: false; error: string;
-      /** Se llegó a vender la clase suelta y no se pudo deshacer: queda un recibo que sobra. */
-      reciboPendiente?: boolean;
+      /**
+       * Lo que dejó la clase suelta si se llegó a vender: `recibo`, un recibo
+       * pendiente que sobra; `revisar`, su clase suelta no se pudo deshacer o ya
+       * se gastó (puede estar en la clase): se mira antes de cobrar o de borrar
+       * nada. Sin él, no quedó nada.
+       */
+      queda?: 'recibo' | 'revisar';
       /** No llegó ninguna respuesta (tampoco al reintentar): no se sabe si quedó apuntada. */
       sinRespuesta?: boolean;
     };
@@ -3757,7 +3762,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // mismo id, el servidor reconoce su propia fila y no descuenta dos veces.
     type RespuestaCrear = {
       estado?: string; posicionEspera?: number | null; error?: string; cubiertaPor?: CubiertaPor | null;
-      venta?: VentaClaseSuelta | null; avisoVenta?: string | null; reservaId?: string; repetida?: boolean; reciboPendiente?: boolean;
+      venta?: VentaClaseSuelta | null; avisoVenta?: string | null; reservaId?: string; repetida?: boolean; queda?: string;
     };
     const pedir = async () => {
       const respuesta = await fetch('/api/reservas/crear', {
@@ -3788,7 +3793,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       }
       return {
         ok: false, error: datos?.error ?? 'No se ha podido apuntar. Inténtalo otra vez.',
-        ...(datos?.reciboPendiente === true ? { reciboPendiente: true } : {}),
+        ...(datos?.queda === 'recibo' || datos?.queda === 'revisar' ? { queda: datos.queda } : {}),
       };
     }
     // La clase suelta vendida: su recibo PENDIENTE ya existe en la base de
@@ -3842,7 +3847,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       && (datos.cubiertaPor.tipo === 'BONO' || datos.cubiertaPor.tipo === 'MENSUAL')
       ? {
         tipo: datos.cubiertaPor.tipo, plan: datos.cubiertaPor.plan,
-        ...(typeof datos.cubiertaPor.suelta?.debe === 'number' ? { suelta: { debe: datos.cubiertaPor.suelta.debe } } : {}),
+        ...(datos.cubiertaPor.suelta && (typeof datos.cubiertaPor.suelta.debe === 'number' || datos.cubiertaPor.suelta.debe === null)
+          ? { suelta: { debe: datos.cubiertaPor.suelta.debe } } : {}),
       }
       : null;
     return { ok: true, estado: estadoReal, reservaId, cubiertaPor, venta, avisoVenta: datos?.avisoVenta ?? null };
@@ -4456,6 +4462,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     ids: string[], metodo?: MetodoCobro, onProgreso?: (hechos: number) => void,
     /** «El banco lo ha cobrado»: el cierre de una remesa; el método lo pone el servidor (SEPA). */
     porElBanco = false,
+    /** Cobro de varios a la vez: el servidor deja fuera lo que tiene un cobro en marcha. */
+    esLote = false,
   ): Promise<DesenlaceCobroManual[]> {
     // Re-entrada (doble clic, el mismo recibo en dos botones a la vez): el que
     // ya está en vuelo no se vuelve a mandar.
@@ -4471,7 +4479,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       for (let i = 0; i < lotes.length; i++) {
         const lote = lotes[i];
         const lectura = leerRespuestaMarcarCobrado(
-          await marcarCobradoEnServidor(lote, porElBanco ? null : (metodo ?? null), undefined, porElBanco ? 'banco' : undefined), lote,
+          await marcarCobradoEnServidor(lote, porElBanco ? null : (metodo ?? null), undefined, porElBanco ? 'banco' : undefined, esLote), lote,
         );
         let errorResto: string | null = null;
         if (lectura.tipo === 'resultados') {
@@ -4572,7 +4580,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   function marcarCobradoVarios(ids: string[], metodo: MetodoCobro, onProgreso?: (hechos: number) => void) {
-    return cobrarEnServidor(ids, metodo, onProgreso);
+    return cobrarEnServidor(ids, metodo, onProgreso, false, true);
   }
 
   async function marcarCobradoPorElBanco(reciboId: string): Promise<ResultadoMarcarCobrado> {
@@ -4697,8 +4705,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Mismo camino que `marcarCobrado`: antes era un UPDATE en lote desde el
     // navegador, con la fecha en UTC (un cobro a la 01:30 de Madrid se fechaba
     // el día anterior) y el sellado de cada factura sin esperar.
-    const pendientes = recibos.filter(r => r.estado === 'PENDIENTE' && (!socioId || r.socioId === socioId));
-    const desenlaces = await cobrarEnServidor(pendientes.map(r => r.id), metodo);
+    // Fuera lo que el cobro automático ya tiene programado (se cobraría dos veces);
+    // y el servidor, como lote, deja fuera lo que tenga otro cobro en marcha.
+    const pendientes = recibos.filter(r => r.estado === 'PENDIENTE' && !r.proximoReintento && (!socioId || r.socioId === socioId));
+    const desenlaces = await cobrarEnServidor(pendientes.map(r => r.id), metodo, undefined, false, true);
     const anulados = new Set(desenlaces.filter(d => d.resultado === 'penalizacion_anulada').map(d => d.reciboId));
     return { ...resumenDeLote(desenlaces), saltados: pendientes.filter(r => anulados.has(r.id)) };
   }

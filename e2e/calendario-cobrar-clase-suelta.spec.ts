@@ -74,6 +74,8 @@ async function montarCalendario(page: Page, opts: {
    */
   intentos?: ('red' | 'ok')[];
   cobroSinDetalle?: boolean;
+  /** El servidor contesta que ese recibo ya estaba cobrado (otra pestaña, otro intento). */
+  cobroYaEstaba?: boolean;
   /** Recibos que ya hay (lo que lee el panel al cargar). */
   recibosGuardados?: Record<string, unknown>[];
   /** El precio propio de la sesión (un taller). */
@@ -160,7 +162,8 @@ async function montarCalendario(page: Page, opts: {
     cobros.push(cuerpo);
     // Un 200 sin detalle por recibo es «no sé», nunca «cobrado».
     if (opts.cobroSinDetalle) return json(route, {});
-    return json(route, { resultados: cuerpo.reciboIds.map(reciboId => ({ reciboId, resultado: 'aplicada', selladoOk: true })) });
+    const resultado = opts.cobroYaEstaba ? 'ya_estaba' : 'aplicada';
+    return json(route, { resultados: cuerpo.reciboIds.map(reciboId => ({ reciboId, resultado, selladoOk: true })) });
   });
 
   await page.goto('/calendario');
@@ -305,7 +308,7 @@ test.describe('Cobrar la clase suelta al añadir a una clienta', () => {
 
   test('si se llegó a vender y no se pudo deshacer, lo dice en vez de «no se le ha cobrado nada»', async ({ page }) => {
     const { reservas, cobros } = await montarCalendario(page, {
-      reserva: { status: 500, body: { error: 'No se ha podido apuntar. Inténtalo otra vez.', reciboPendiente: true } },
+      reserva: { status: 500, body: { error: 'No se ha podido apuntar. Inténtalo otra vez.', queda: 'recibo' } },
     });
     await abrirBea(page);
     await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
@@ -315,6 +318,33 @@ test.describe('Cobrar la clase suelta al añadir a una clienta', () => {
     await expect(page.getByText(/No se le ha cobrado nada/)).toHaveCount(0);
     expect(reservas.length, 'tiene que haber intentado reservar').toBeGreaterThan(0);
     expect(cobros).toHaveLength(0);
+  });
+
+  test('⚠️ si la clase suelta no se pudo deshacer, nunca «elimina el recibo»: manda a mirar la clase y su ficha', async ({ page }) => {
+    // Borrar solo el recibo dejaría su clase suelta viva y gratis.
+    const { reservas, cobros } = await montarCalendario(page, {
+      reserva: { status: 400, body: { error: 'Esta clienta ya tiene una reserva a esa hora.', queda: 'revisar' } },
+    });
+    await abrirBea(page);
+    await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
+
+    await expect(page.getByText(/Su clase suelta no se ha podido deshacer: mira la clase y su ficha antes de cobrarle o de borrar nada/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/elimínalo en «Quién me debe»/)).toHaveCount(0);
+    await expect(page.getByText(/No se le ha cobrado nada/)).toHaveCount(0);
+    expect(reservas.length, 'tiene que haber intentado reservar').toBeGreaterThan(0);
+    expect(cobros).toHaveLength(0);
+  });
+
+  test('si su clase suelta ya estaba cobrada (otra pestaña), lo dice y no anuncia un cobro que este clic no hizo', async ({ page }) => {
+    const { cobros } = await montarCalendario(page, { cobroYaEstaba: true });
+    await abrirBea(page);
+    await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await page.getByRole('button', { name: /Cobrar 15,00 € y añadirla/ }).click();
+
+    await expect(page.getByText('Su clase suelta ya estaba cobrada · Bea añadida a la clase. No le cobres otra vez')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/15,00 € cobrados/)).toHaveCount(0);
+    expect(cobros.length, 'tiene que haber intentado cobrar').toBeGreaterThan(0);
   });
 
   test('si ya estaba apuntada por un intento anterior, se cobra la clase suelta de AQUEL, no otra', async ({ page }) => {

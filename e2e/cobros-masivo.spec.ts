@@ -58,7 +58,7 @@ function json(route: Route, body: unknown, status = 200) {
 
 interface Contadores {
   /** Cuerpos de los POST a /api/cobros/marcar-cobrado. */
-  cobros: { reciboIds: string[]; metodo: string | null }[];
+  cobros: { reciboIds: string[]; metodo: string | null; lote?: boolean }[];
   /** Cualquier escritura directa a `rest/v1/recibos` desde el navegador. Tiene que ser 0. */
   escriturasDirectas: number;
 }
@@ -90,7 +90,7 @@ async function montarCobros(
   await page.route('**/api/theme**', route =>
     json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
   await page.route('**/api/cobros/marcar-cobrado', route => {
-    const cuerpo = JSON.parse(route.request().postData() ?? '{}') as { reciboIds: string[]; metodo: string | null };
+    const cuerpo = JSON.parse(route.request().postData() ?? '{}') as { reciboIds: string[]; metodo: string | null; lote?: boolean };
     c.cobros.push(cuerpo);
     // Simula que el servidor rechaza antes de tocar nada (sesión, rol): el camino
     // que antes se tragaba en silencio y aun así pintaba facturas y renovaciones.
@@ -242,6 +242,9 @@ test.describe('Cobrar varias a la vez', () => {
     await expect(dialogo).toContainText('2 cobros guardados', { timeout: 15_000 });
     // Con el método elegido: así entra en la caja y en el desglose por método.
     expect(c.cobros.every(x => x.metodo === 'BIZUM'), JSON.stringify(c.cobros)).toBe(true);
+    // Como lote: el servidor no cobra lo que tenga un pago online, el datáfono o un
+    // reintento en marcha (serían dos cobros).
+    expect(c.cobros.every(x => x.lote === true), JSON.stringify(c.cobros)).toBe(true);
     await expect(dialogo).not.toContainText('no se han podido guardar');
     // Se pidió al servidor, con los dos recibos y sin repetir ninguno.
     expect(c.cobros.length).toBeGreaterThan(0);

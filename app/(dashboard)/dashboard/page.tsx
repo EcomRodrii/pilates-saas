@@ -543,11 +543,13 @@ export default function Dashboard() {
   );
 
   const pendientesTotal = useMemo(() => recibos.filter(r => r.estado === 'PENDIENTE').length, [recibos]);
-  // Lo que cobra «Cobrar todos»: TODOS los pendientes del estudio, no los 5 que se ven.
-  const pendientesImporte = useMemo(
-    () => recibos.reduce((t, r) => (r.estado === 'PENDIENTE' ? t + r.importe : t), 0),
-    [recibos],
-  );
+  // Lo que cobra «Cobrar todos»: TODOS los pendientes del estudio (no los 5 que se
+  // ven) menos los que el cobro automático ya tiene programados. Misma regla que
+  // `cobrarTodosPendientes`, para que el diálogo diga lo que de verdad se cobra.
+  const cobrarTodos = useMemo(() => {
+    const lista = recibos.filter(r => r.estado === 'PENDIENTE' && !r.proximoReintento);
+    return { n: lista.length, importe: lista.reduce((t, r) => t + r.importe, 0) };
+  }, [recibos]);
 
   // automationLogs es un log de auditoría acumulativo (motor de notificaciones);
   // estos filtros recorrían el array completo en cada render del Dashboard,
@@ -1023,7 +1025,8 @@ export default function Dashboard() {
                     // estudio —no solo los 5 que se ven— sin método, así que nada
                     // entraba en la caja ni en el desglose. Mismo botón que la ficha.
                     <BotonCobrarConMetodo
-                      detalle={<>Todo lo pendiente del estudio: {pendientesTotal} {pendientesTotal === 1 ? 'recibo' : 'recibos'} — <span className="font-semibold text-foreground">{formatEuro(pendientesImporte)}</span></>}
+                      sinEspecificar={false}
+                      detalle={<>Todo lo pendiente del estudio: {cobrarTodos.n} {cobrarTodos.n === 1 ? 'recibo' : 'recibos'} — <span className="font-semibold text-foreground">{formatEuro(cobrarTodos.importe)}</span></>}
                       onCobrar={metodo => {
                         if (cobrandoTodos) return;
                         setCobrandoTodos(true);
