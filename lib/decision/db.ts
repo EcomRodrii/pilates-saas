@@ -14,6 +14,7 @@ import type {
 import type { NuevoHechoMemoria } from './memoria.ts';
 import type { CandidataPriorizada } from './prioridad.ts';
 import { type AutonomiaConfig, AUTONOMIA_CONFIG_DEFAULT, sanitizarConfig } from './autonomia.ts';
+import { FLAG_REDACCION_IA, redaccionIaActiva } from './redaccion-ia.ts';
 
 // Decision OS escribe con el cliente service-role (salta RLS). Con el cliente
 // anon, RLS bloqueaba silenciosamente todos los INSERT/UPSERT de estas tablas
@@ -517,6 +518,19 @@ export async function dbListFeatureFlagRows(studioId: string): Promise<{ flag: D
   const { data, error } = await db().from('decision_feature_flags').select('flag, activo').eq('studio_id', studioId);
   if (error) { reportError('[dbListFeatureFlagRows]', error); return []; }
   return (data ?? []).map(r => ({ flag: r.flag as DecisionFlag, activo: r.activo as boolean }));
+}
+
+/**
+ * ¿Puede este estudio redactar con IA sin pulsar un botón? Falla CERRADO: si
+ * no se puede leer el interruptor, `false`. Lo peor que pasa así es un texto de
+ * serie; lo contrario mandaría datos de alumnas a la IA contra la voluntad del
+ * estudio.
+ */
+export async function dbRedaccionIaActiva(studioId: string): Promise<boolean> {
+  const { data, error } = await db().from('decision_feature_flags').select('flag, activo')
+    .eq('studio_id', studioId).eq('flag', FLAG_REDACCION_IA);
+  if (error) { reportError('[dbRedaccionIaActiva]', error); return false; }
+  return redaccionIaActiva((data ?? []) as { flag: string; activo: boolean }[]);
 }
 
 // Art. 21 RGPD: socias que se han opuesto al perfilado. Se lee en cada pasada

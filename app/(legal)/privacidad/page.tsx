@@ -71,6 +71,11 @@ export default function Privacidad() {
         exigibles (por ejemplo, la normativa mercantil y fiscal impone conservar la facturación). Cerrada la
         cuenta, los datos se suprimen o anonimizan una vez transcurridos dichos plazos.
       </p>
+      <p>
+        Cuando un estudio deja Tentare, dispone de 30 días para descargar sus datos; después, o antes si lo pide,
+        se suprimen también de las copias de seguridad y se le confirma por correo. Se conservan bloqueados,
+        durante el plazo legal, las facturas, los recibos, los registros de facturación y los mandatos SEPA.
+      </p>
 
       <h2>5. Destinatarios y encargados</h2>
       <p>
@@ -106,15 +111,19 @@ export default function Privacidad() {
 
       <h2>7. Seguridad</h2>
       <p>
-        Aplicamos medidas técnicas y organizativas apropiadas (cifrado en tránsito, control de acceso por
-        roles, aislamiento por estudio y registro de accesos a los datos sensibles) para proteger los datos
-        frente a accesos no autorizados, pérdida o alteración.
+        Aplicamos medidas técnicas y organizativas apropiadas (cifrado en tránsito; cifrado de las copias de
+        seguridad, de los IBAN de las domiciliaciones y de las credenciales de las integraciones; verificación en
+        dos pasos para el equipo de los estudios; control de acceso por roles, aislamiento por estudio y registro
+        de accesos a los datos sensibles) para proteger los datos frente a accesos no autorizados, pérdida o
+        alteración.
       </p>
 
       <h2>8. Menores</h2>
       <p>
-        El servicio se dirige a profesionales y no está destinado a menores de edad. No recabamos
-        conscientemente datos de menores para la creación de cuentas.
+        Para crear una cuenta de estudio en Tentare hay que ser mayor de edad. Los estudios pueden registrar como
+        clientas a menores; en ese caso el estudio es el responsable de esos datos y de contar con el
+        consentimiento de su madre, padre o tutor cuando la ley lo exige. El consentimiento para tratar datos de
+        salud de una menor de 14 años lo firma su madre, padre o tutor, y queda registrado con su nombre.
       </p>
 
       <h2>9. Cambios</h2>

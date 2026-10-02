@@ -28,10 +28,11 @@ import './fuentes.css';
 //
 // ⚠️ El NOMBRE de cada constante es el `font-family` que genera
 // `next/font/local` (`Instrument_Sans`, `Instrument_Sans_Ext`). Los guiones
-// bajos no son estética: el checkout lee la primera familia de `--font-ui` y,
-// si pasa `fuenteValida`, se la pide a Google Fonts para el iframe de Stripe.
-// `Instrument_Sans` no pasa (no admite `_`) y cae a su literal 'Instrument
-// Sans', como con Google; un `instrumentSans` sí pasaría y Stripe pediría una
+// bajos no son estética: el checkout lee la primera familia de `--font-ui` y
+// con ella decide qué letra de Tentare le pasa al iframe de Stripe
+// (`fuenteDelPago`, components/checkout-widget/checkout-embebido.tsx; nunca a
+// Google). `Instrument_Sans` no pasa `fuenteValida` (no admite `_`) y cae a su
+// literal 'Instrument Sans'; un `instrumentSans` sí pasaría y se nombraría una
 // familia que no existe.
 
 const Plus_Jakarta_Sans = localFont({

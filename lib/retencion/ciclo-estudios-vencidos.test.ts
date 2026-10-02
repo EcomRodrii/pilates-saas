@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DIAS_AVISO_CONSERVACION, DIAS_AVISO_FINAL, DIAS_PURGA,
-  asuntoAvisoEstudioVencido, copiaSuspendidaPorVencimiento, debeRecalcularInforme, enCicloDeVencido,
+  DIAS_AVISO_CONSERVACION, DIAS_AVISO_FINAL, DIAS_BAJA_AVISO_FINAL, DIAS_BAJA_PURGA, DIAS_PURGA,
+  asuntoAvisoEstudioVencido, cicloDelEstudio, copiaSuspendidaPorVencimiento, debeRecalcularInforme, enCicloDeVencido,
   fechasCiclo, formatearFechaAviso, mismaAncla, purgaEstudiosActiva, siguientePaso,
   type EstudioCiclo, type FaseRegistrada,
 } from './ciclo-estudios-vencidos.ts';
@@ -141,4 +141,78 @@ test('el último aviso no promete un borrado si la purga no está armada', () =>
   assert.doesNotMatch(asuntoAvisoEstudioVencido('aviso_final', dia(90)), /se borrarán/);
   // Y con el interruptor puesto, sí lo dice.
   assert.match(asuntoAvisoEstudioVencido('aviso_final', dia(90), true), /se borrarán el 24 de noviembre de 2026$/);
+});
+
+// ── Baja de un estudio de pago (contrato de encargo, 2-oct-2026) ──────────────
+
+const BAJA = new Date('2026-10-05T09:00:00Z');
+const diaBaja = (n: number) => new Date(BAJA.getTime() + n * MS_DIA);
+const deBaja: EstudioCiclo = {
+  trialEndsAt: '2026-06-01T00:00:00Z', subscriptionStatus: 'canceled', subscriptionId: 'sub_1',
+  contratoTerminadoEn: BAJA.toISOString(),
+};
+const hechaBaja = (fase: FaseRegistrada['fase'], n: number): FaseRegistrada => ({ fase, ejecutadaEn: diaBaja(n), canceladaEn: null });
+
+test('baja: plazos 0 / 23 / 30 días (⚠️ legal, cambiar aquí rompe este test a propósito)', () => {
+  assert.deepEqual([DIAS_BAJA_AVISO_FINAL, DIAS_BAJA_PURGA], [23, 30]);
+});
+
+test('baja: el ancla es la fecha que pone la BD, no el estado', () => {
+  assert.deepEqual(cicloDelEstudio(deBaja), { motivo: 'baja', ancla: BAJA });
+  // Sin fecha no hay baja aunque el estado diga `canceled`: es lo que pasa en
+  // una sede cuya cadena sí paga, y el trigger la deja en NULL a propósito.
+  assert.equal(cicloDelEstudio({ ...deBaja, contratoTerminadoEn: null }), null);
+  assert.equal(cicloDelEstudio({ ...deBaja, subscriptionStatus: 'active', contratoTerminadoEn: null }), null);
+  // La prueba vencida sigue siendo su propio ciclo.
+  assert.equal(cicloDelEstudio(vencido)?.motivo, 'prueba_vencida');
+});
+
+test('baja: el mismo día avisa y para las copias, prometiendo el día 30', () => {
+  assert.equal(copiaSuspendidaPorVencimiento(deBaja, new Date(BAJA.getTime() - 1)), false);
+  assert.equal(copiaSuspendidaPorVencimiento(deBaja, BAJA), true);
+  const p = siguientePaso(deBaja, [], diaBaja(0));
+  assert.equal(p.tipo, 'ejecutar');
+  if (p.tipo !== 'ejecutar') return;
+  assert.equal(p.motivo, 'baja');
+  assert.equal(p.fase, 'aviso_baja');
+  assert.equal(p.fechaPurga.getTime(), diaBaja(30).getTime());
+});
+
+test('baja: último aviso el 23 y purga el 30', () => {
+  assert.deepEqual(siguientePaso(deBaja, [hechaBaja('aviso_baja', 0)], diaBaja(22)), { tipo: 'nada' });
+  const final = siguientePaso(deBaja, [hechaBaja('aviso_baja', 0)], diaBaja(23));
+  assert.equal(final.tipo === 'ejecutar' && final.fase, 'aviso_final');
+  const reg = [hechaBaja('aviso_baja', 0), hechaBaja('aviso_final', 23)];
+  assert.deepEqual(siguientePaso(deBaja, reg, diaBaja(29)), { tipo: 'nada' });
+  const purga = siguientePaso(deBaja, reg, diaBaja(30));
+  assert.equal(purga.tipo === 'ejecutar' && purga.fase, 'purga');
+});
+
+test('baja: un aviso que sale tarde corre el plazo para descargar', () => {
+  // El primer aviso salió el día 5 (Resend caído): sigue habiendo 30 días enteros.
+  assert.equal(fechasCiclo(BAJA, [hechaBaja('aviso_baja', 5)], 'baja').purga.getTime(), diaBaja(35).getTime());
+  // Nunca se salta el primer aviso aunque ya hayan pasado los 30 días.
+  const p = siguientePaso(deBaja, [], diaBaja(40));
+  assert.equal(p.tipo === 'ejecutar' && p.fase, 'aviso_baja');
+});
+
+test('baja: si reactiva el plan, el ciclo se cancela', () => {
+  const reactivado = { ...deBaja, subscriptionStatus: 'active', contratoTerminadoEn: null };
+  assert.deepEqual(siguientePaso(reactivado, [hechaBaja('aviso_baja', 0)], diaBaja(10)), { tipo: 'cancelar' });
+});
+
+test('baja: el asunto dice que hay que descargar, con la fecha', () => {
+  assert.match(asuntoAvisoEstudioVencido('aviso_baja', diaBaja(30)), /descarga los datos de tu estudio antes del 4 de noviembre de 2026$/);
+  assert.doesNotMatch(asuntoAvisoEstudioVencido('aviso_baja', diaBaja(30), false), /borrar/);
+});
+
+test('baja: si la propietaria pide el borrado, va ya, sin esperar a los avisos', () => {
+  const pedido = { ...deBaja, supresionPedidaEn: diaBaja(3).toISOString() };
+  const p = siguientePaso(pedido, [hechaBaja('aviso_baja', 0)], diaBaja(3));
+  assert.equal(p.tipo === 'ejecutar' && p.fase, 'purga');
+  // Una vez hecha, nada más.
+  assert.deepEqual(siguientePaso(pedido, [hechaBaja('aviso_baja', 0), hechaBaja('purga', 3)], diaBaja(4)), { tipo: 'nada' });
+  // En una prueba vencida la petición no existe (la columna solo vale con contrato terminado).
+  assert.equal(siguientePaso({ ...vencido, supresionPedidaEn: dia(31).toISOString() }, [], dia(31)).tipo === 'ejecutar'
+    && siguientePaso({ ...vencido, supresionPedidaEn: dia(31).toISOString() }, [], dia(31)).fase, 'aviso_30');
 });

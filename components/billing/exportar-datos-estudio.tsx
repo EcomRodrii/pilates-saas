@@ -22,6 +22,11 @@ const EXPORTABLES: { tabla: string; label: string }[] = [
   { tabla: 'suscripciones', label: 'Suscripciones y bonos' },
   { tabla: 'recibos', label: 'Recibos' },
   { tabla: 'pagos_historicos', label: 'Pagos históricos importados' },
+  // Desde el 2-oct-2026: es también la devolución de los datos al darse de baja.
+  { tabla: 'salud', label: 'Ficha de salud' },
+  { tabla: 'notas_progreso', label: 'Notas de progreso' },
+  { tabla: 'notas_internas', label: 'Notas internas' },
+  { tabla: 'consentimientos', label: 'Consentimientos' },
 ];
 
 async function authHeader(): Promise<Record<string, string>> {
@@ -94,7 +99,7 @@ export function ExportarDatosEstudio({ id, className, sinCabecera = false }: {
     return (
       <div className={cn('space-y-3', className)}>
         <p className="text-sm text-muted-foreground">
-          Para entregar a una alumna sus propios datos, usa «Descargar sus datos» en su ficha.
+          La ficha de salud y las notas de progreso salen solo de las clientas con el consentimiento de salud vigente, y la descarga queda registrada. Para entregar a una alumna sus propios datos, usa «Descargar sus datos» en su ficha.
         </p>
         {botones}
       </div>
@@ -108,7 +113,7 @@ export function ExportarDatosEstudio({ id, className, sinCabecera = false }: {
         <h3 id={id ? `${id}-titulo` : undefined} className="text-[14px] font-semibold text-foreground">Exportar datos del estudio</h3>
       </div>
       <p className="text-[12px] text-muted-foreground">
-        Un CSV por tabla con los datos de todo el estudio, listo para abrir en Excel o llevarte a otra plataforma. No incluye ficha clínica ni notas de progreso. Para entregar a una clienta sus propios datos, usa «Descargar sus datos» en su ficha.
+        Un CSV por tabla con los datos de todo el estudio, listo para abrir en Excel o llevarte a otra plataforma. La ficha de salud y las notas de progreso salen solo de las clientas con el consentimiento de salud vigente, y la descarga queda registrada como una lectura de su ficha. Para entregar a una clienta sus propios datos, usa «Descargar sus datos» en su ficha.
       </p>
       {botones}
     </section>

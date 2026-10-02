@@ -60,6 +60,8 @@ export interface RedaccionInput {
   nombreEstudio: string;
   saludoBase: string;
   items: ItemARedactar[]; // ≤10, ya recortados por el Priority Engine
+  /** `false` = el estudio apagó la redacción con IA: se usa el texto del motor tal cual. */
+  conIA?: boolean;
 }
 
 export interface ItemRedactado {
@@ -186,7 +188,7 @@ function construirFallback(input: RedaccionInput, fallbackPorId: Map<string, Ite
  */
 export async function redactar(input: RedaccionInput, fallbackPorId: Map<string, ItemRedactado>): Promise<RedaccionResultado> {
   const fallback = construirFallback(input, fallbackPorId);
-  if (input.items.length === 0) return aResultadoSerializable(fallback);
+  if (input.items.length === 0 || input.conIA === false) return aResultadoSerializable(fallback);
 
   try {
     const client = new Anthropic();

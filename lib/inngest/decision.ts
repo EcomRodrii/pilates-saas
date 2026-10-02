@@ -35,6 +35,7 @@ import {
   dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
   dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy, dbAprobarAutonoma, dbListMensajesRecientes, dbUpsertMensajeDia,
   dbListFeatureFlagRows, dbCalcularSeguimientoPorTipo, dbCalcularImpactoRealPorTipo, dbListSociasExcluidasDePerfilado,
+  dbRedaccionIaActiva,
 } from '@/lib/decision/db';
 import { seleccionarAutonomas } from '@/lib/decision/autonomia';
 import type { Recomendacion, EspecialistaId, TipoRecomendacion } from '@/lib/decision/tipos';
@@ -118,7 +119,7 @@ export const analizarEstudio = inngest.createFunction(
     // tiene efectos. Siguen yendo en paralelo dentro del step. El snapshot ya era
     // la salida grande: juntarlas apenas cambia el tamaño.
     const lecturas = await step.run('lecturas', async () => {
-      const [snapshot, memoriaRows, pendientesActuales, resueltas90d, propietario, flagsRows, sociasExcluidasDePerfilado] = await Promise.all([
+      const [snapshot, memoriaRows, pendientesActuales, resueltas90d, propietario, flagsRows, sociasExcluidasDePerfilado, conIA] = await Promise.all([
         construirSnapshot(studioId, now),
         dbListMemoriaRows(studioId),
         dbListPendientes(studioId),
@@ -128,10 +129,15 @@ export const analizarEstudio = inngest.createFunction(
         // Art. 21 RGPD. Un array (no un Set): lo que devuelve un step pasa por
         // JSON en el replay, mismo gotcha que flags/memoria. El Set lo arma el motor.
         dbListSociasExcluidasDePerfilado(studioId),
+        // Interruptor «Redactar con IA» del estudio (lib/decision/redaccion-ia.ts).
+        dbRedaccionIaActiva(studioId),
       ]);
-      return { snapshot, memoriaRows, pendientesActuales, resueltas90d, propietario, flagsRows, sociasExcluidasDePerfilado };
+      return { snapshot, memoriaRows, pendientesActuales, resueltas90d, propietario, flagsRows, sociasExcluidasDePerfilado, conIA };
     });
     const { snapshot, memoriaRows, pendientesActuales, resueltas90d, flagsRows, sociasExcluidasDePerfilado } = lecturas;
+    // Una ejecución que empezó antes de este despliegue trae `lecturas` sin
+    // `conIA` desde el replay: entonces se comporta como hasta hoy.
+    const conIA = lecturas.conIA ?? true;
     const { nombrePropietario, nombreEstudio } = lecturas.propietario;
     // Se reconstruye FUERA del step: un Map no sobrevive la serialización a
     // JSON que Inngest hace entre steps (ver lib/decision/db.ts) — igual que
@@ -173,7 +179,7 @@ export const analizarEstudio = inngest.createFunction(
       .map(r => ({ id: r.id, especialista: r.especialista, tipo: r.tipo, datosUsados: r.datosUsados }));
 
     const redaccion = await step.run('redactar', () =>
-      redactar({ nombrePropietario, nombreEstudio, saludoBase: resultado.resumenDiario.saludo, items: paraRedactar }, fallbackPorId)
+      redactar({ nombrePropietario, nombreEstudio, saludoBase: resultado.resumenDiario.saludo, items: paraRedactar, conIA }, fallbackPorId)
     );
     const redaccionPorId = new Map(redaccion.items.map(it => [it.id, it]));
 
@@ -380,9 +386,10 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   // La marca sale de `resolverMarcaEstudio`, no de un `select` a mano: el color
   // de `studios.color_primario` es un índigo de alta (lib/emails/color-marca.ts)
   // y de paso trae el Reply-To del estudio.
-  const [{ data: socio }, studio] = await Promise.all([
+  const [{ data: socio }, studio, conIA] = await Promise.all([
     requireSupabaseAdmin().from('socios').select('nombre, email').eq('id', r.socioId).single(),
     resolverMarcaEstudio(r.studioId),
+    dbRedaccionIaActiva(r.studioId),
   ]);
   if (!socio?.email) return { ok: false, detalle: 'La socia no tiene email registrado' };
 
@@ -406,6 +413,7 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
     nombreEstudio: estudioNombre, tipo: r.tipo, datosUsados: datos,
     // El código debe sobrevivir intacto a la reescritura de la IA.
     literalesObligatorios: codigoDescuento ? [codigoDescuento] : [],
+    conIA,
   });
 
   const html = correoAutomatizacion({
@@ -437,14 +445,15 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
 // gestionada sin fallar (la acción real la hace el propietario por WhatsApp).
 async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; detalle: string }> {
   if (!r.socioId) return { ok: true, detalle: 'Recomendación sin socia — marcada como gestionada.' };
-  const [{ data: socio }, studio] = await Promise.all([
+  const [{ data: socio }, studio, conIA] = await Promise.all([
     requireSupabaseAdmin().from('socios').select('nombre, email, telefono').eq('id', r.socioId).single(),
     resolverMarcaEstudio(r.studioId),
+    dbRedaccionIaActiva(r.studioId),
   ]);
   const base = mensajeParaSocia(r.tipo, r.datosUsados, studio.nombre ?? '');
   if (!base) return { ok: true, detalle: 'Sin mensaje automático para este tipo — marcada como gestionada.' };
   // Mismo mensaje, reescrito con IA para que suene personal (falla-suave).
-  const mensaje = await personalizarMensajeSocia(base, { nombreEstudio: studio.nombre ?? '', tipo: r.tipo, datosUsados: r.datosUsados });
+  const mensaje = await personalizarMensajeSocia(base, { nombreEstudio: studio.nombre ?? '', tipo: r.tipo, datosUsados: r.datosUsados, conIA });
 
   // Si la recomendación es de canal WhatsApp y el estudio tiene su WhatsApp
   // Business conectado (Meta Cloud API, no Twilio — se retiró: en producción no

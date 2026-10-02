@@ -2,21 +2,46 @@ import type { NextRequest } from 'next/server';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { resolverSesionStaff, type EstudioPropio, type FichaEquipo, type SesionStaff } from '@/lib/auth/sesion-staff-reglas';
+import { factoresVerificados, pasoDobleFactor, type PasoDobleFactor } from '@/lib/auth/doble-factor-reglas';
+import { nivelAutenticacion } from '@/lib/interno/mfa';
 
 export type { SesionStaff };
 
-// Verifica el JWT que el cliente manda en el header Authorization (obtenido
-// de supabase.auth.getSession() en el navegador) y resuelve a qué negocio
-// pertenece y con qué rol — el mismo criterio que current_studio_id()/
-// current_rol() en SQL, pero en una ruta de servidor.
-export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaff | null> {
+/**
+ * La sesión de staff de la petición, con lo que le falta de verificación en
+ * dos pasos (lib/auth/doble-factor-reglas.ts). `verificarSesionStaff` es la que
+ * usan las rutas: devuelve `null` si `paso` no es 'ok'. Esta, sin cortar, solo
+ * la usan quien tiene que saber a dónde mandar a la persona (tras el login, la
+ * pantalla de verificar), nunca para dar datos.
+ */
+export async function resolverSesionStaffConPaso(
+  req: NextRequest,
+): Promise<{ sesion: SesionStaff; paso: PasoDobleFactor; factores: number; estudioLoExige: boolean } | null> {
   const authHeader = req.headers.get('authorization');
   const token = authHeader?.replace(/^Bearer /, '');
   if (!token) return null;
 
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
+  return resolverConUsuario(token, user);
+}
 
+// Verifica el JWT que el cliente manda en el header Authorization (obtenido
+// de supabase.auth.getSession() en el navegador) y resuelve a qué negocio
+// pertenece y con qué rol — el mismo criterio que current_studio_id()/
+// current_rol() en SQL, pero en una ruta de servidor.
+//
+// Y exige la verificación en dos pasos a quien le toca (2-oct-2026): con la
+// sesión sin verificar, `null`, igual que sin sesión. El panel manda antes a
+// /verificar-acceso, así que en uso normal esto no llega a cortar a nadie.
+export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaff | null> {
+  const r = await resolverSesionStaffConPaso(req);
+  return r && r.paso === 'ok' ? r.sesion : null;
+}
+
+async function resolverConUsuario(
+  token: string, user: { id: string; email?: string | null; factors?: { status?: string | null }[] | null },
+): Promise<{ sesion: SesionStaff; paso: PasoDobleFactor; factores: number; estudioLoExige: boolean } | null> {
   // A-1: el JWT ya se validó arriba (getUser). La RESOLUCIÓN de rol/estudio se
   // hace con service-role: la tabla `instructores` no tiene política anon, así
   // que con el cliente anónimo (sin sesión en servidor) la lectura volvía vacía
@@ -56,21 +81,42 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
   //     datos y no para el servidor.
   //   · El ORDEN (`studio_id` / `id` ascendente) para que, con varias sedes,
   //     se elija siempre la misma de forma determinista.
-  const [{ data: activa }, { data: instructores }, { data: studios }] = await Promise.all([
+  //
+  // Las dos últimas: qué estudios de esta persona exigen la verificación en dos
+  // pasos. En paralelo con las demás para no añadir un viaje. Si fallan, falla
+  // CERRADO (se da por exigida), salvo que la columna aún no exista (código
+  // desplegado antes que su migración): entonces no la exige nadie todavía.
+  const [{ data: activa }, { data: instructores }, { data: studios }, exigenPropios, exigenFichas] = await Promise.all([
     db.from('sesion_activa').select('studio_id').eq('auth_user_id', user.id).maybeSingle(),
     db.from('instructores').select('studio_id, rol, nombre, activo')
       .eq('auth_user_id', user.id).order('studio_id', { ascending: true }),
     db.from('studios').select('id, nombre')
       .eq('owner_auth_user_id', user.id).order('id', { ascending: true }),
+    db.from('studios').select('id').eq('owner_auth_user_id', user.id).eq('exigir_doble_factor', true),
+    db.from('instructores').select('studio_id, studios!inner(id)').eq('auth_user_id', user.id).eq('studios.exigir_doble_factor', true),
   ]);
 
-  return resolverSesionStaff({
+  const sesion = resolverSesionStaff({
     userId: user.id,
     email: user.email ?? null,
     sedeGuardada: activa?.studio_id as string | undefined,
     fichas: instructores as FichaEquipo[] | null,
     estudiosPropios: studios as EstudioPropio[] | null,
   });
+  if (!sesion) return null;
+
+  const sinColumnaAun = (e: { message?: string } | null) => !!e && /exigir_doble_factor/.test(e.message ?? '') && /does not exist|no existe/i.test(e.message ?? '');
+  const lecturaFallida = (exigenPropios.error && !sinColumnaAun(exigenPropios.error))
+    || (exigenFichas.error && !sinColumnaAun(exigenFichas.error));
+  const queLoExigen = new Set<string>([
+    ...((exigenPropios.error ? [] : exigenPropios.data ?? []) as { id: string }[]).map(s => s.id),
+    ...((exigenFichas.error ? [] : exigenFichas.data ?? []) as { studio_id: string }[]).map(f => f.studio_id),
+  ]);
+  const factores = factoresVerificados(user.factors);
+  const estudioLoExige = lecturaFallida || queLoExigen.has(sesion.studioId);
+  // El `aal` sale del token que `getUser` acaba de validar (ver nivelAutenticacion).
+  const paso = pasoDobleFactor({ nivel: nivelAutenticacion(token), factoresVerificados: factores, estudioLoExige, rol: sesion.rol });
+  return { sesion, paso, factores, estudioLoExige };
 }
 
 // Verifica el JWT de una SOCIA (portal de miembros con Supabase Auth) y

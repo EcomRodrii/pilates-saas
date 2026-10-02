@@ -37,6 +37,8 @@ export interface ContextoPersonalizacion {
   datosUsados: Record<string, string | number | boolean>;
   /** Cadenas que deben aparecer intactas en el mensaje reescrito (p.ej. un código de descuento). */
   literalesObligatorios?: string[];
+  /** `false` = el estudio apagó la redacción con IA: sale el mensaje de serie y no se llama a nadie. */
+  conIA?: boolean;
 }
 
 const RE_DIGITOS = /\d+/g;
@@ -100,6 +102,7 @@ Mensaje original a reescribir:
 export async function personalizarMensajeSocia(
   base: MensajeSocia, ctx: ContextoPersonalizacion,
 ): Promise<MensajeSocia> {
+  if (ctx.conIA === false) return base;
   try {
     const client = new Anthropic();
     const message = await client.messages.create({

@@ -115,6 +115,19 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   `get_advisors` marca como ejecutables por `anon`/`authenticated` son intencionales
   (RPCs llamadas por el cliente, helpers de RLS en `CREATE POLICY`, guards internos de
   defensa en profundidad) — no las "corrijas" sin cruzar antes contra `.rpc('` en `lib/`.
+- **Verificación en dos pasos del equipo** (2-oct-2026, `lib/auth/doble-factor-reglas.ts`):
+  quien la tiene activada solo ve y toca datos con la sesión verificada (`aal2`), y lo decide
+  la BD con una política RESTRICTIVA `exige_doble_factor` en CADA tabla de `public` con RLS
+  (migr `20261003020400`). ⚠️ Una tabla nueva con RLS lleva también esa política (copia la
+  sentencia del DO de esa migración): sin ella, `supabase/tests/rls-doble-factor.test.ts`
+  falla en CI. `verificarSesionStaff` aplica lo mismo y además el «exigir a todo el equipo»
+  de la propietaria; para saber a dónde mandar a alguien sin cortarle (tras el login, la
+  pantalla de verificar) se usa `resolverSesionStaffConPaso`, nunca para dar datos.
+- **Secretos cifrados en la app, y la BD lo exige**: credenciales e `integraciones.config`
+  (CHECK `enc:v1:`), IBAN de los mandatos (`lib/billing/iban-cifrado.ts`, `SEPA_CLAVE_CIFRADO`;
+  el navegador ni escribe la tabla ni lee la columna) y copias en R2
+  (`lib/backups/cifrado-copias.ts`, `BACKUPS_CLAVE_CIFRADO`). Sin clave no se guarda un secreto
+  en claro: se falla a la vista.
 - **Dinero**: cero escritura optimista sin comprobar el resultado real (`await` la
   confirmación, maneja el camino de fallo, sé idempotente ante webhooks repetidos). Es el
   patrón de bug más repetido en los flujos de Stripe/cobros de este repo.

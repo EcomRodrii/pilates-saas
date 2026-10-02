@@ -318,13 +318,16 @@ export interface BackupRow {
 export async function guardarBackup(
   admin: SupabaseClient,
   opts: { studioId: string; tipo: TipoBackup; id?: string; creadoEn?: string }
-): Promise<{ id: string; creadoEn: string }> {
+): Promise<{ id: string; creadoEn: string; cifrada: boolean }> {
   const id = opts.id ?? `bak-${Date.now()}-${uid()}`;
   const creadoEn = opts.creadoEn ?? new Date().toISOString();
   const snapshot = await crearSnapshot(admin, opts.studioId);
 
+  let cifrada = false;
   if (r2Configurado()) {
-    const storageKey = await subirSnapshot(opts.studioId, id, snapshot);
+    const subida = await subirSnapshot(opts.studioId, id, snapshot);
+    const storageKey = subida.key;
+    cifrada = subida.cifrada;
     const { error } = await admin.from('backups').insert({
       id, studio_id: opts.studioId, tipo: opts.tipo, storage_key: storageKey, datos: null, creado_en: creadoEn,
     });
@@ -340,7 +343,7 @@ export async function guardarBackup(
     if (error) throw new Error(error.message);
   }
 
-  return { id, creadoEn };
+  return { id, creadoEn, cifrada };
 }
 
 // Obtiene el snapshot de un backup, venga de R2 (nuevo) o de la columna datos
