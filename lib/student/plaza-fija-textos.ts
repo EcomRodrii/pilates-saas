@@ -39,7 +39,9 @@ export const TEXTOS_PLAZA_FIJA = {
   // ── Cuánto tiempo la quiere (la ficha de la clase fija): una duración cerrada, y la fecha exacta que resulta ──
   cuantoTiempo: '¿Cuánto tiempo la quieres?',
   hastaEl: (fecha: string) => `Hasta el ${fecha}`,
-  sinFecha: 'Sin fecha de fin',
+  /** La etiqueta corta del botón (cabe en la misma fila que las demás) y lo que se dice debajo al elegirla. */
+  sinFecha: 'Sin fin',
+  sinFechaDetalle: 'Sin fecha de fin',
 
   // ── «Repetir cada semana»: el enlace de la ficha de una clase normal. Solo LLEVA a la ficha de la clase fija. ──
   repetirTitulo: 'Repetir cada semana',

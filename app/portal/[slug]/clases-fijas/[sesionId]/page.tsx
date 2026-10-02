@@ -152,7 +152,9 @@ export default function FichaClaseFijaPage() {
         data-testid="accion-clase-fija"
         style={{
           position: 'fixed', left: 0, right: 0, bottom: 'var(--nav-total)', zIndex: 39, padding: '10px 16px 12px',
-          background: 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)', maxWidth: 640, margin: '0 auto',
+          // Con el selector de duración la barra es más alta: fondo sólido, o el texto de debajo se cuela detrás.
+          background: eligeDuracion ? 'var(--background)' : 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)',
+          boxShadow: eligeDuracion ? '0 -6px 14px -8px rgba(0,0,0,0.12)' : undefined, maxWidth: 640, margin: '0 auto',
           display: 'flex', flexDirection: 'column', gap: 6,
         }}
       >
@@ -169,7 +171,7 @@ export default function FichaClaseFijaPage() {
               <button type="button" className="pill" aria-pressed={meses === null} onClick={() => setMeses(null)}>{TPF.sinFecha}</button>
             </div>
             <p className="t-meta" data-testid="clase-fija-hasta" style={{ margin: 0, minHeight: '1.3em' }}>
-              {meses !== null ? TPF.hastaEl(fechaDMY(vigenciaHastaDeDuracion(hoyEnEstudio(), meses))) : ''}
+              {meses !== null ? TPF.hastaEl(fechaDMY(vigenciaHastaDeDuracion(hoyEnEstudio(), meses))) : TPF.sinFechaDetalle}
             </p>
           </div>
         )}
