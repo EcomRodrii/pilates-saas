@@ -166,7 +166,8 @@ async function montarClaseQueSeRepite(page: Page, plan: 'cuota' | 'bono' | 'ning
     ];
   }
   if (opts.laTiene) {
-    (f.socia as Record<string, unknown>).plazasFijas = [{ id: 'pf-1', studioId: STUDIO_ID, socioId: SOCIO_ID, diaSemana: 3, horaInicio: '10:00:00', salaId: 'sala-1', tipoClaseId: 'tc-r', spotId: null, vigenciaDesde: '2026-01-01', vigenciaHasta: null, estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z' }];
+    // La misma hora que el catálogo (la de estudio de la clase del fixture): la plaza y la franja tienen que casar.
+    (f.socia as Record<string, unknown>).plazasFijas = [{ id: 'pf-1', studioId: STUDIO_ID, socioId: SOCIO_ID, diaSemana: 3, horaInicio: `${horaEstudioDe('2026-08-12T10:00:00')}:00`, salaId: 'sala-1', tipoClaseId: 'tc-r', spotId: null, vigenciaDesde: '2026-01-01', vigenciaHasta: null, estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z' }];
   }
   await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f) }));
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], unread: 0 }) }));
