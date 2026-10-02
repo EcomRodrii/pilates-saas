@@ -126,8 +126,8 @@ export async function compartirFichero(f: FicheroParaCompartir): Promise<{ ok: t
 /**
  * Pide permiso para avisos, registra el aparato en APNs y devuelve su token.
  *
- * NO lo manda al servidor: eso es `POST /api/notifications/nativo` con un
- * `RegistroTokenNativo` (ver `datosRegistroToken`). Llamarlo otra vez es seguro:
+ * NO lo manda al servidor: eso es `POST /api/notifications/subscribe` con
+ * `{ studioId, nativo: RegistroTokenNativo }` (ver `datosRegistroToken`). Llamarlo otra vez es seguro:
  * iOS devuelve el mismo token mientras no cambie.
  */
 export async function registrarPushNativo(): Promise<{ token: string } | { error: string }> {
@@ -162,7 +162,7 @@ export async function registrarPushNativo(): Promise<{ token: string } | { error
   });
 }
 
-/** El cuerpo de `POST /api/notifications/nativo` para un token ya obtenido. */
+/** El `nativo` de `POST /api/notifications/subscribe` para un token ya obtenido. */
 export async function datosRegistroToken(token: string): Promise<RegistroTokenNativo | null> {
   const bundleId = await bundleIdDeLaApp();
   return bundleId ? { token, plataforma: 'ios', bundleId } : null;

@@ -3,8 +3,9 @@
 // Solo tipos: lo puede importar una ruta de servidor sin arrastrar nada de
 // Capacitor.
 
-/** Lo que la app manda a `POST /api/notifications/nativo` (con `Authorization:
- *  Bearer <token de la sesión>`) para recibir avisos push por APNs. */
+/** Lo que la app manda como `nativo` en `POST /api/notifications/subscribe`
+ *  (`{ studioId, nativo }`, con `Authorization: Bearer <token de la sesión>`) para
+ *  recibir avisos push por APNs. El servidor lo guarda como `apns://<bundleId>/<token>`. */
 export interface RegistroTokenNativo {
   /** Token de dispositivo de APNs, en hexadecimal. */
   token: string;

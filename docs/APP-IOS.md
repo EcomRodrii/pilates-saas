@@ -37,7 +37,7 @@ la app) y cada función hace lo de siempre:
 | `abrirFuera(url)` | Safari por encima (SFSafariViewController) | `window.open` |
 | `compartirFichero({ nombre, tipo, contenido })` | caché + hoja de compartir (Calendario para un .ics, Archivos/Imprimir para un PDF) | descarga, como hoy |
 | `registrarPushNativo()` | permiso + token de APNs | `{ error: 'solo-en-la-app' }` |
-| `datosRegistroToken(token)` | cuerpo de `POST /api/notifications/nativo` | `null` |
+| `datosRegistroToken(token)` | el `nativo` de `POST /api/notifications/subscribe` (`{ studioId, nativo }`) | `null` |
 | `alPulsarAviso(handler)` | aviso pulsado → ruta interna | no hace nada |
 | `alAbrirEnlace(handler)` | Universal Link / esquema propio → ruta interna | no hace nada |
 | `loginConApple()` | hoja nativa → `{ idToken, nonce }` | `{ error: 'solo-en-la-app' }` |
@@ -157,22 +157,23 @@ mandar por `api.push.apple.com`. Un token de uno no vale en el otro.
 
 ## Lo que la web tiene que tener para que esto funcione
 
-Pendiente del carril de la web, no de este:
+En el servidor (PR #2487):
 
-- **`/app`**: login con usuario de Tentare → `/portal/<slug>`.
+- **`/app`**: login con usuario de Tentare → `/portal/<slug>` (o `/equipo` si es instructora).
 - **Universal Links**: `https://www.tentare.app/.well-known/apple-app-site-association`
-  y lo mismo en `tentare.app` (los dos dominios del entitlement), servido como
-  `application/json`, **sin redirección**: Apple no la sigue, y HOY `tentare.app`
-  redirige con un 308 a `www` (lib/legal-info.ts). O se sirve ese fichero en el
-  ápice sin redirigir, o los enlaces a `tentare.app` no abrirán la app (los de
-  `www` sí). Con
-  `applinks.details[].appIDs: ["<TEAMID>.app.tentare"]` y las rutas que deban
-  abrir la app (`/portal/*`, `/app/*`).
+  (rewrite a `/api/app/aasa`; 404 hasta que exista `APPLE_TEAM_ID`). ⚠️ `tentare.app`
+  sin `www` redirige con un 308 y Apple no sigue redirecciones: los enlaces al ápice
+  no abrirán la app; los de `www` (los que manda Tentare) sí.
+- **Token de avisos**: `POST /api/notifications/subscribe` con `{ studioId, nativo }`;
+  se guarda como `apns://<bundleId>/<token>` y lo envía el canal PUSH por APNs
+  (`APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY`, `APNS_ENTORNO`).
+
+Pendiente:
+
 - **Supabase Auth**: proveedor Apple con el bundle id (`app.tentare`) entre sus
   Client IDs; `app.tentare://auth/vuelta` en Redirect URLs para Google.
-- **`POST /api/notifications/nativo`** que guarde el `RegistroTokenNativo`.
-- **Borrar la cuenta desde la app**: Apple lo exige (guía 5.1.1(v)) en toda app
-  que permite crear cuenta.
+- **Borrar la cuenta desde la app** (guía 5.1.1(v)): hoy la alumna lo solicita desde
+  Perfil → Privacidad y datos y lo ejecuta su estudio en 30 días.
 
 ## Iconos y pantalla de arranque
 
@@ -192,8 +193,8 @@ transparencia) y arranque claro y oscuro de 2732 px.
    Store Connect → Upload. Subir `CURRENT_PROJECT_VERSION` (build) en cada
    subida.
 3. TestFlight: probadores internos al momento; externos, tras una revisión beta.
-4. Para la App Store: capturas (iPhone 6,9" y, como la app también es de iPad,
-   iPad 13"), URL de privacidad y de soporte, la ficha de privacidad
+4. Para la App Store: capturas de iPhone 6,9" (la app es solo de iPhone:
+   `TARGETED_DEVICE_FAMILY = 1`), URL de privacidad y de soporte, la ficha de privacidad
    («App Privacy») y una cuenta de prueba para el revisor.
 
 Puntos de la revisión que tocan a esta app:
