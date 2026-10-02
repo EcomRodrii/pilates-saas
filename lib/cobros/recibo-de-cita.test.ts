@@ -106,10 +106,11 @@ test('el cobro de una cita usa el id de la cita, mira antes de crear y no se inv
   assert.match(directa, /if \(d\.resultado !== 'ya_estaba' && !recibos\.some\(r => r\.id === rec\.id\)\) \{[\s\S]{0,1200}addActividadReciente/);
 });
 
-test('«Nueva factura» sigue sin id propio: un id nuevo por intento y su cerrojo de doble clic', () => {
-  const panel = sinComentarios(leer('components/cobros/panel-pendientes.tsx'));
+test('«Nuevo cobro» sigue sin id propio: un id nuevo por intento y su cerrojo de doble clic', () => {
+  const panel = sinComentarios(leer('components/cobros/dialogo-nuevo-cobro.tsx'));
   const i = panel.indexOf('await crearFacturaDirecta(');
   assert.ok(i >= 0);
+  assert.match(panel, /if \(!listo \|\| importe == null \|\| enCurso\.current\) return;/, 'sin cerrojo, un doble clic cobra dos veces');
   // No hay nada que identifique una «factura nueva»: no se le pasa `reciboId` (si se le pasara uno fijo,
   // la segunda factura del mismo importe a la misma clienta se confundiría con la primera).
   assert.doesNotMatch(panel.slice(i, i + 300), /reciboId/);

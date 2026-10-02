@@ -12,17 +12,17 @@ const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace
 const cuerpo = (src: string, desde: string, hasta: string) => src.slice(src.indexOf(desde), src.indexOf(hasta, src.indexOf(desde)));
 
 test('«Cobrar varias» siempre con método: sin él, el cobro no entra en la caja ni en el desglose', () => {
-  for (const f of ['components/cobros/panel-pendientes.tsx', 'app/(dashboard)/dashboard/page.tsx', 'components/clientas/ficha-clienta.tsx']) {
+  for (const f of ['components/cobros/dialogo-cobro-en-lote.tsx', 'app/(dashboard)/dashboard/page.tsx', 'components/clientas/ficha-clienta.tsx']) {
     assert.doesNotMatch(sinComentarios(leer(f)), /marcarCobradoVarios\([^)]*undefined/, f);
   }
   assert.match(leer('lib/studio-context.tsx'), /marcarCobradoVarios: \(ids: string\[\], metodo: MetodoCobro,/, 'el método es obligatorio en el tipo');
 });
 
 test('«Cobrar varias» entra todo lo que se debe (no solo lo pendiente de un plan activo)', () => {
-  const panel = sinComentarios(leer('components/cobros/panel-pendientes.tsx'));
-  const datos = cuerpo(panel, 'const masivoData = useMemo(', '}, [');
-  assert.match(datos, /entraEnCobroEnLote\(r\)/);
-  assert.doesNotMatch(datos, /estado === 'ACTIVA'/);
+  const panel = sinComentarios(leer('components/cobros/quien-me-debe.tsx'));
+  const lote = cuerpo(panel, 'const loteDe = ', ';\n');
+  assert.match(lote, /entraEnCobroEnLote\(r\)/);
+  assert.doesNotMatch(lote, /estado === 'ACTIVA'/);
 });
 
 test('«Cobrar todos» del Resumen pregunta el método antes de cobrar', () => {
@@ -32,12 +32,12 @@ test('«Cobrar todos» del Resumen pregunta el método antes de cobrar', () => {
 });
 
 test('«Descargar para la gestoría» baja lo COBRADO, no la lista de lo que te deben', () => {
-  const panel = sinComentarios(leer('components/cobros/panel-pendientes.tsx'));
-  const descarga = cuerpo(panel, 'async function descargarCobrado()', 'function exportCSV()');
-  assert.match(descarga, /dbRecibosCobradosParaExport\(/);
-  assert.doesNotMatch(descarga, /filtradosCobros/);
-  // El botón de «Lo que he cobrado» llama a esa, no al CSV de las deudas.
-  assert.match(panel, /onClick=\{descargarCobrado\}/);
+  const descarga = sinComentarios(leer('components/cobros/use-descarga-cobrado.ts'));
+  assert.match(descarga, /dbRecibosCobradosParaExport\(t\.desde, t\.hasta\)/);
+  assert.match(descarga, /csvLoCobrado\(filas\)/);
+  // Los botones de «Lo que he cobrado» y de «Para tu gestoría» llaman a esa, no a un CSV de las deudas.
+  assert.match(sinComentarios(leer('components/cobros/lo-que-he-cobrado.tsx')), /descargas\.descargar\(visible\)/);
+  assert.match(sinComentarios(leer('components/cobros/para-tu-gestoria.tsx')), /descargas\.descargar\(bloque\.tramo\)/);
 });
 
 test('«Reintentar por el banco» va por el servidor y ya no escribe «Enviado al banco» sin mandar nada', () => {

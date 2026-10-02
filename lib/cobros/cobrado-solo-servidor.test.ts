@@ -110,7 +110,7 @@ test('«Nueva factura» y el cobro de una cita crean el recibo pendiente, lo cob
 
   // Los que lo llaman tratan `cobroSinConfirmar` como «el recibo ya existe».
   for (const [ruta, que] of [
-    ['components/cobros/panel-pendientes.tsx', 'Nueva factura'],
+    ['components/cobros/dialogo-nuevo-cobro.tsx', 'Nuevo cobro'],
     ['app/(dashboard)/citas/page.tsx', 'cobro de una cita'],
   ] as const) {
     const f = sinComentarios(leer(ruta));

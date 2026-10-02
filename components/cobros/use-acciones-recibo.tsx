@@ -7,7 +7,7 @@
 // (lib/cobros/acciones-de-recibo.ts); aquí solo se ejecutan, con las mismas
 // funciones de siempre del contexto (todas por el servidor) y sus diálogos.
 //
-// Los manejadores vienen tal cual del panel anterior (`panel-pendientes.tsx`):
+// Los manejadores vienen tal cual del panel anterior (el `panel-pendientes.tsx` de antes del rediseño):
 //   · lo que no se deshace con un clic pide confirmar;
 //   · un recibo con su acción en vuelo no se vuelve a lanzar (doble toque);
 //   · «Cobrar con su tarjeta» sin método guardado no es un error: ofrece pedirle
