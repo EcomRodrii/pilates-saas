@@ -142,7 +142,8 @@ test.describe('Cobros · «Cambios del equipo»', () => {
     const reembolso = items(page).filter({ hasText: 'Pidió un reembolso' });
     await expect(reembolso).toContainText('Bono 10 clases');
     await expect(reembolso).toContainText('130,00 €');
-    // Dice de qué NO habla, para que su ausencia no se lea como «no ha pasado».
+    // Dice de qué NO habla, para que su ausencia no se lea como «no ha pasado» (desplegado).
+    await page.getByText('Qué se registra').click();
     await expect(page.getByText(/No incluye los cobros automáticos ni lo que confirma Stripe, ni un intento de cobro que el banco rechaza/)).toBeVisible();
     await expect(page.getByText(/Las ventas de la caja y sus entradas y salidas de efectivo llevan su propio registro/)).toBeVisible();
     // Los ingresos manuales y las penalizaciones ya se recogen (por servidor): tienen su filtro.

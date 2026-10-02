@@ -163,10 +163,11 @@ test('apagarlo después de haber facturado se deja, y avisa de lo ya emitido y d
   expect(patches[0]).toEqual({ modo_facturacion: 'sin_facturas' });
 });
 
-test('Facturas, con el modo apagado: lo dice y lleva a activarlo, sin el aviso rojo del NIF', async ({ page }) => {
+test('Facturas, con el modo apagado: la pestaña es «Para tu gestoría», lo dice y lleva a activarlo, sin el aviso rojo del NIF', async ({ page }) => {
   await montar(page, '/facturas');
-  await expect(page.getByText('Tentare no emite tus facturas')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('link', { name: 'Emitir facturas desde Tentare' })).toHaveAttribute('href', '/configuracion?tab=cobros#facturacion');
+  await expect(page.getByRole('button', { name: 'Para tu gestoría' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/Tus facturas las hace tu gestoría/)).toBeVisible();
+  await expect(page.getByRole('link', { name: /Facturar con Tentare/ })).toHaveAttribute('href', '/configuracion?tab=cobros#facturacion');
   await expect(page.getByText('No se está emitiendo ninguna factura')).toHaveCount(0);
 });
 

@@ -25,6 +25,9 @@ const STORAGE_KEY = 'sb-example-auth-token';
 
 type Fila = Record<string, unknown>;
 
+// «Lo que he cobrado» abre en el mes de hoy: los cobros van fechados hoy (hora del estudio).
+const HOY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
+
 const SOCIAS = [
   { id: 's1', studio_id: STUDIO_ID, nombre: 'Ana', apellidos: 'Ruiz', email: 'ana@example.com', telefono: null, activo: true, fecha_alta: '2026-01-01', campos_extra: {}, tags: [] },
   { id: 's2', studio_id: STUDIO_ID, nombre: 'Bea', apellidos: 'López', email: 'bea@example.com', telefono: null, activo: true, fecha_alta: '2026-01-01', campos_extra: {}, tags: [] },
@@ -34,8 +37,8 @@ const BASE = {
   studio_id: STUDIO_ID, suscripcion_id: null, fecha_vencimiento: '2026-09-20', fecha_devolucion: null,
   intentos_reintento: 0, sepa_estado: null, importe_devuelto: 0, stripe_payment_intent_id: null,
 };
-const EN_EFECTIVO = { ...BASE, id: 'rec-efectivo', socio_id: 's1', concepto: 'Bono 5 clases', importe: 45, estado: 'COBRADO', fecha_cobro: '2026-09-28', metodo_cobro: 'EFECTIVO' };
-const CON_TARJETA = { ...BASE, id: 'rec-tarjeta', socio_id: 's2', concepto: 'Mensual — septiembre', importe: 60, estado: 'COBRADO', fecha_cobro: '2026-09-27', metodo_cobro: 'TARJETA' };
+const EN_EFECTIVO = { ...BASE, id: 'rec-efectivo', socio_id: 's1', concepto: 'Bono 5 clases', importe: 45, estado: 'COBRADO', fecha_cobro: HOY, metodo_cobro: 'EFECTIVO' };
+const CON_TARJETA = { ...BASE, id: 'rec-tarjeta', socio_id: 's2', concepto: 'Mensual — septiembre', importe: 60, estado: 'COBRADO', fecha_cobro: HOY, metodo_cobro: 'TARJETA' };
 const EN_EL_BANCO = { ...BASE, id: 'rec-remesa', socio_id: 's2', concepto: 'Mensual — octubre', importe: 60, estado: 'EN_CURSO', fecha_cobro: null, metodo_cobro: null };
 const DEVUELTO_POR_EL_BANCO = { ...BASE, id: 'rec-devuelto', socio_id: 's2', concepto: 'Mensual — agosto', importe: 60, estado: 'DEVUELTO', fecha_cobro: '2026-08-05', fecha_devolucion: '2026-08-09', metodo_cobro: 'SEPA', intentos_reintento: 1 };
 
@@ -60,6 +63,7 @@ interface Llamadas {
 
 async function montar(page: Page, opts: {
   recibos: Fila[];
+  ruta?: string;
   reembolso?: Respuesta;
   devuelto?: Respuesta;
   cobrado?: Respuesta;
@@ -139,38 +143,48 @@ async function montar(page: Page, opts: {
     return json(route, opts.recibos);
   });
 
-  await page.goto('/cobros');
+  await page.goto(opts.ruta ?? '/cobros');
   await expect(page.getByRole('button', { name: 'Quién me debe' })).toBeVisible({ timeout: 30_000 });
   return ll;
 }
 
 const fila = (page: Page, id: string) => page.locator(`[data-recibo="${id}"]`);
 
-async function verTodos(page: Page) {
-  await page.getByLabel('Ver').selectOption('TODOS');
+/** Abre el ⋯ de un recibo y elige una acción (por cómo empieza su texto). */
+async function accion(page: Page, id: string, texto: string) {
+  await fila(page, id).getByRole('button', { name: /^Acciones de/ }).click();
+  await page.getByRole('menuitem', { name: new RegExp(`^${texto}`) }).click();
 }
 
-test.describe('Devolver un cobro: dos hechos, dos botones', () => {
+/** Lo que ofrece el ⋯ de un recibo (activo o apagado), y lo cierra. */
+async function opciones(page: Page, id: string): Promise<string[]> {
+  await fila(page, id).getByRole('button', { name: /^Acciones de/ }).click();
+  const menu = page.getByRole('menu');
+  await expect(menu).toBeVisible();
+  const textos = await menu.getByRole('menuitem').allInnerTexts();
+  await page.keyboard.press('Escape');
+  return textos.map(t => t.split('\n')[0].trim());
+}
+
+const enLoCobrado = { ruta: '/cobros?tab=cobrado' };
+
+test.describe('Devolver un cobro: dos hechos, dos acciones', () => {
   test('un cobro en efectivo: solo «Le he devuelto el dinero» (ningún banco lo devuelve); con tarjeta, los dos', async ({ page }) => {
-    await montar(page, { recibos: [EN_EFECTIVO, CON_TARJETA] });
-    await verTodos(page);
+    await montar(page, { recibos: [EN_EFECTIVO, CON_TARJETA], ...enLoCobrado });
+    await expect(fila(page, 'rec-efectivo')).toBeVisible({ timeout: 15_000 });
 
-    const efectivo = fila(page, 'rec-efectivo');
-    await efectivo.hover();
-    await expect(efectivo.getByTitle('Le he devuelto el dinero (ya no debe nada)')).toBeVisible();
-    await expect(efectivo.getByTitle('El banco lo devolvió (vuelve a deber)')).toHaveCount(0);
+    const efectivo = await opciones(page, 'rec-efectivo');
+    expect(efectivo).toContain('Le he devuelto el dinero');
+    expect(efectivo).not.toContain('El banco lo devolvió');
 
-    const tarjeta = fila(page, 'rec-tarjeta');
-    await tarjeta.hover();
-    await expect(tarjeta.getByTitle('Le he devuelto el dinero (ya no debe nada)')).toBeVisible();
-    await expect(tarjeta.getByTitle('El banco lo devolvió (vuelve a deber)')).toBeVisible();
+    const tarjeta = await opciones(page, 'rec-tarjeta');
+    expect(tarjeta).toContain('Le he devuelto el dinero');
+    expect(tarjeta).toContain('El banco lo devolvió');
   });
 
   test('«Le he devuelto el dinero» pregunta por dónde salió (sin «sin especificar») y va por el servidor', async ({ page }) => {
-    const ll = await montar(page, { recibos: [EN_EFECTIVO] });
-    await verTodos(page);
-    await fila(page, 'rec-efectivo').hover();
-    await fila(page, 'rec-efectivo').getByTitle('Le he devuelto el dinero (ya no debe nada)').click();
+    const ll = await montar(page, { recibos: [EN_EFECTIVO], ...enLoCobrado });
+    await accion(page, 'rec-efectivo', 'Le he devuelto el dinero');
 
     const dialogo = page.getByRole('dialog');
     await expect(dialogo).toContainText('¿Cómo le has devuelto el dinero?');
@@ -189,10 +203,8 @@ test.describe('Devolver un cobro: dos hechos, dos botones', () => {
     ['el servidor se cae', { status: 500, body: { error: 'No se ha podido registrar la devolución.' } }],
   ] as const) {
     test(`si ${caso}, se dice y el cobro sigue como estaba`, async ({ page }) => {
-      const ll = await montar(page, { recibos: [EN_EFECTIVO], reembolso: respuesta });
-      await verTodos(page);
-      await fila(page, 'rec-efectivo').hover();
-      await fila(page, 'rec-efectivo').getByTitle('Le he devuelto el dinero (ya no debe nada)').click();
+      const ll = await montar(page, { recibos: [EN_EFECTIVO], reembolso: respuesta, ...enLoCobrado });
+      await accion(page, 'rec-efectivo', 'Le he devuelto el dinero');
       await page.getByRole('dialog').getByRole('button', { name: 'Efectivo', exact: true }).click();
 
       await expect(page.getByText(respuesta.body.error)).toBeVisible({ timeout: 10_000 });
@@ -204,10 +216,8 @@ test.describe('Devolver un cobro: dos hechos, dos botones', () => {
   }
 
   test('si la red se cae, no da la devolución por hecha y manda a comprobarla', async ({ page }) => {
-    const ll = await montar(page, { recibos: [EN_EFECTIVO], reembolso: 'red' });
-    await verTodos(page);
-    await fila(page, 'rec-efectivo').hover();
-    await fila(page, 'rec-efectivo').getByTitle('Le he devuelto el dinero (ya no debe nada)').click();
+    const ll = await montar(page, { recibos: [EN_EFECTIVO], reembolso: 'red', ...enLoCobrado });
+    await accion(page, 'rec-efectivo', 'Le he devuelto el dinero');
     await page.getByRole('dialog').getByRole('button', { name: 'Efectivo', exact: true }).click();
 
     await expect(page.getByText(/No hemos podido confirmar la devolución/)).toBeVisible({ timeout: 10_000 });
@@ -216,10 +226,8 @@ test.describe('Devolver un cobro: dos hechos, dos botones', () => {
   });
 
   test('«El banco lo devolvió» pide confirmar y manda el estado que se veía', async ({ page }) => {
-    const ll = await montar(page, { recibos: [CON_TARJETA] });
-    await verTodos(page);
-    await fila(page, 'rec-tarjeta').hover();
-    await fila(page, 'rec-tarjeta').getByTitle('El banco lo devolvió (vuelve a deber)').click();
+    const ll = await montar(page, { recibos: [CON_TARJETA], ...enLoCobrado });
+    await accion(page, 'rec-tarjeta', 'El banco lo devolvió');
 
     // Hasta confirmar, nada.
     await expect(page.getByRole('dialog')).toContainText('vuelve a deber 60,00 €');
@@ -233,11 +241,11 @@ test.describe('Devolver un cobro: dos hechos, dos botones', () => {
 });
 
 test.describe('Lo que está en el banco', () => {
+  const enElBanco = (page: Page) => page.getByRole('region', { name: 'En el banco' });
+
   test('«El banco lo ha cobrado» lo cierra por el servidor, como cobro del banco (sin método del mostrador)', async ({ page }) => {
     const ll = await montar(page, { recibos: [EN_EL_BANCO], conRemesa: true });
-    const f = fila(page, 'rec-remesa');
-    await f.hover();
-    await f.getByTitle('El banco ha cobrado este recibo de la remesa').click();
+    await enElBanco(page).getByRole('button', { name: 'El banco lo ha cobrado' }).click({ timeout: 15_000 });
     expect(ll.cobrado).toHaveLength(0);
     await page.getByRole('button', { name: 'Sí, lo ha cobrado' }).click();
 
@@ -248,9 +256,7 @@ test.describe('Lo que está en el banco', () => {
 
   test('si el servidor no lo deja cerrar, se dice y sigue en el banco', async ({ page }) => {
     const ll = await montar(page, { recibos: [EN_EL_BANCO], conRemesa: true, cobrado: { status: 409, body: { error: 'Tu rol no puede registrar cobros' } } });
-    const f = fila(page, 'rec-remesa');
-    await f.hover();
-    await f.getByTitle('El banco ha cobrado este recibo de la remesa').click();
+    await enElBanco(page).getByRole('button', { name: 'El banco lo ha cobrado' }).click({ timeout: 15_000 });
     await page.getByRole('button', { name: 'Sí, lo ha cobrado' }).click();
 
     await expect(page.getByText('Tu rol no puede registrar cobros')).toBeVisible({ timeout: 10_000 });
@@ -260,9 +266,7 @@ test.describe('Lo que está en el banco', () => {
 
   test('«El banco lo devolvió» desde el banco: vuelve a deber', async ({ page }) => {
     const ll = await montar(page, { recibos: [EN_EL_BANCO], conRemesa: true });
-    const f = fila(page, 'rec-remesa');
-    await f.hover();
-    await f.getByTitle('El banco lo devolvió').click();
+    await enElBanco(page).getByRole('button', { name: 'El banco lo devolvió' }).click({ timeout: 15_000 });
     await page.getByRole('button', { name: 'Sí, lo devolvió el banco' }).click();
 
     await expect.poll(() => ll.devuelto.length).toBeGreaterThan(0);
@@ -276,10 +280,9 @@ test.describe('Lo que está en el banco', () => {
     });
     for (const id of ['rec-remesa', 'rec-reintento']) {
       const f = fila(page, id);
-      await f.hover();
-      await expect(f.getByText('Lo cierra Stripe'), id).toBeVisible();
-      await expect(f.getByTitle('El banco ha cobrado este recibo de la remesa'), id).toHaveCount(0);
-      await expect(f.getByTitle('No llegó a ir al banco (vuelve a sin cobrar)'), id).toHaveCount(0);
+      await expect(f.getByText('Lo cierra Stripe'), id).toBeVisible({ timeout: 15_000 });
+      await expect(f.getByRole('button', { name: 'El banco lo ha cobrado' }), id).toHaveCount(0);
+      await expect(f.getByRole('button', { name: /^Acciones de/ }), id).toHaveCount(0);
     }
   });
 
@@ -288,10 +291,10 @@ test.describe('Lo que está en el banco', () => {
     // darlo por cobrado inventaría un ingreso y una factura.
     const ll = await montar(page, { recibos: [EN_EL_BANCO], conRemesa: false });
     const f = fila(page, 'rec-remesa');
-    await f.hover();
-    await expect(f.getByTitle('El banco ha cobrado este recibo de la remesa')).toHaveCount(0);
-    await expect(f.getByTitle('El banco lo devolvió')).toHaveCount(0);
-    await f.getByTitle('No llegó a ir al banco (vuelve a sin cobrar)').click();
+    await expect(f).toBeVisible({ timeout: 15_000 });
+    await expect(f.getByRole('button', { name: 'El banco lo ha cobrado' })).toHaveCount(0);
+    await expect(f.getByRole('button', { name: 'El banco lo devolvió' })).toHaveCount(0);
+    await accion(page, 'rec-remesa', 'No llegó a ir al banco');
 
     // Hasta confirmar, nada.
     await expect(page.getByRole('dialog')).toContainText('vuelve a «Sin cobrar»');
@@ -310,18 +313,17 @@ test.describe('Lo que está en el banco', () => {
   test('con remesas, la clienta sin domiciliación tampoco: solo «No llegó a ir al banco»', async ({ page }) => {
     // El mandato del montaje es de Bea (s2): este recibo es de Ana.
     await montar(page, { recibos: [{ ...EN_EL_BANCO, socio_id: 's1' }], conRemesa: true });
-    const f = fila(page, 'rec-remesa');
-    await f.hover();
-    await expect(f.getByTitle('No llegó a ir al banco (vuelve a sin cobrar)')).toBeVisible();
-    await expect(f.getByTitle('El banco ha cobrado este recibo de la remesa')).toHaveCount(0);
+    await expect(fila(page, 'rec-remesa')).toBeVisible({ timeout: 15_000 });
+    // Las domiciliaciones llegan en la segunda ola: hasta entonces, nada se decide.
+    await expect.poll(async () => opciones(page, 'rec-remesa'), { timeout: 15_000 }).toEqual(['No llegó a ir al banco']);
+    await expect(fila(page, 'rec-remesa').getByRole('button', { name: 'El banco lo ha cobrado' })).toHaveCount(0);
   });
 
-  test('«Reintentar» vuelve a la próxima remesa por el servidor, y solo si va a entrar en ella', async ({ page }) => {
+  test('«Reintentar por el banco» vuelve a la próxima remesa por el servidor, y solo si va a entrar en ella', async ({ page }) => {
     const ll = await montar(page, { recibos: [DEVUELTO_POR_EL_BANCO], conRemesa: true });
-    await verTodos(page);
-    const f = fila(page, 'rec-devuelto');
-    await f.hover();
-    await f.getByRole('button', { name: 'Reintentar' }).click();
+    await page.getByRole('button', { name: 'Abrir la ficha de Bea López' }).click({ timeout: 15_000 });
+    await expect.poll(async () => opciones(page, 'rec-devuelto'), { timeout: 15_000 }).toContain('Reintentar por el banco');
+    await accion(page, 'rec-devuelto', 'Reintentar por el banco');
     await page.getByRole('button', { name: 'Sí, a la próxima remesa' }).click();
 
     await expect.poll(() => ll.reintento.length).toBeGreaterThan(0);
@@ -329,20 +331,18 @@ test.describe('Lo que está en el banco', () => {
     expect(ll.escriturasDirectas, 'antes lo escribía el navegador como «Enviado al banco»').toBe(0);
   });
 
-  test('sin domiciliaciones configuradas no se ofrece «Reintentar» (no iría a ningún banco)', async ({ page }) => {
+  test('sin domiciliaciones configuradas no se ofrece «Reintentar por el banco» (no iría a ningún banco)', async ({ page }) => {
     await montar(page, { recibos: [DEVUELTO_POR_EL_BANCO], conRemesa: false });
-    await verTodos(page);
-    const f = fila(page, 'rec-devuelto');
-    await f.hover();
-    await expect(f.getByRole('button', { name: 'Cobrar' })).toBeVisible();
-    await expect(f.getByRole('button', { name: 'Reintentar' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Abrir la ficha de Bea López' }).click({ timeout: 15_000 });
+    const lista = await opciones(page, 'rec-devuelto');
+    expect(lista).toContain('Cobrar solo este recibo');
+    expect(lista).not.toContain('Reintentar por el banco');
   });
 });
 
 test.describe('Descargar para la gestoría', () => {
   test('baja lo COBRADO, no lo que te deben', async ({ page }) => {
-    const ll = await montar(page, { recibos: [EN_EFECTIVO, { ...BASE, id: 'rec-debe', socio_id: 's2', concepto: 'Mensual — octubre', importe: 60, estado: 'PENDIENTE', fecha_cobro: null, metodo_cobro: null }] });
-    await page.goto('/cobros?tab=cobrado');
+    const ll = await montar(page, { recibos: [EN_EFECTIVO, { ...BASE, id: 'rec-debe', socio_id: 's2', concepto: 'Mensual — octubre', importe: 60, estado: 'PENDIENTE', fecha_cobro: null, metodo_cobro: null }], ...enLoCobrado });
     const boton = page.getByRole('button', { name: 'Descargar para la gestoría' });
     await expect(boton).toBeVisible({ timeout: 30_000 });
     const descarga = page.waitForEvent('download');
@@ -357,8 +357,7 @@ test.describe('Descargar para la gestoría', () => {
   });
 
   test('si la lectura falla, no descarga un fichero a medias', async ({ page }) => {
-    const ll = await montar(page, { recibos: [EN_EFECTIVO], exportar: { status: 500, body: { message: 'boom' } } });
-    await page.goto('/cobros?tab=cobrado');
+    const ll = await montar(page, { recibos: [EN_EFECTIVO], exportar: { status: 500, body: { message: 'boom' } }, ...enLoCobrado });
     const boton = page.getByRole('button', { name: 'Descargar para la gestoría' });
     await expect(boton).toBeVisible({ timeout: 30_000 });
     let descargas = 0;

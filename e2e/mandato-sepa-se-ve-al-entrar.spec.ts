@@ -84,10 +84,11 @@ async function montar(page: Page, ruta: string) {
     if (req.method() === 'PATCH') {
       patchesRecibos.push({ url: req.url(), body: req.postDataJSON() });
       // dbUpdateRecibosBatch mira las filas que devuelve el UPDATE condicional
-      // (`.select('id')`): se simulan los ids que venían en el filtro.
+      // (`.select('id, cargo_pedido_para')`): se simulan los ids que venían en el
+      // filtro, con el día de cargo que fija el trigger (sin él, no hay fichero).
       const idParam = new URL(req.url()).searchParams.get('id') ?? '';
       const ids = idParam.startsWith('in.(') ? idParam.slice(4, -1).split(',').filter(Boolean) : [];
-      return json(route, ids.map(id => ({ id })));
+      return json(route, ids.map(id => ({ id, cargo_pedido_para: '2026-10-07' })));
     }
     return json(route, [RECIBO_ROW]);
   });
@@ -122,6 +123,11 @@ test.describe('Mandato SEPA: se ve al entrar', () => {
     await expect.poll(() => lecturas.length, { timeout: 15_000 }).toBeGreaterThan(0);
 
     await boton.click();
+    // Primero enseña qué entra, sin marcar nada.
+    const dialogo = page.getByTestId('dialogo-remesa-sepa');
+    await expect(dialogo.getByText(/Entran 1 recibo/)).toBeVisible({ timeout: 15_000 });
+    expect(patchesRecibos, 'la vista previa no marca nada').toHaveLength(0);
+    await dialogo.getByRole('button', { name: 'Generar el fichero (1)' }).click();
 
     await expect(page.getByText(/Fichero listo: 1 recibo/)).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(/Ningún recibo pendiente tiene mandato SEPA/)).toHaveCount(0);
