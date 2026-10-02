@@ -31,6 +31,9 @@ export const PREFIJOS_NO_INDEXABLES = [
   '/oauth',
   // Alta de cuenta freelance (feature #9) — mismo criterio que /crear-estudio.
   '/instructora',
+  // Entrada de la app de iOS (usuario de Tentare → la app de su estudio). Es la
+  // pantalla de acceso de un binario, no contenido que buscar.
+  '/app',
   // Cara pública operativa de cada estudio.
   //
   // ⚠️ `/reservar` YA NO está aquí: decisión del fundador (2026-08-17) de abrir

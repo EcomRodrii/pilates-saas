@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import type http from 'node:http';
 import crypto from 'node:crypto';
 import webpush from 'web-push';
-import { CANALES, enviarAEndpoints, opcionesPush, resumirPush, proveedorDePush, FALLOS_PARA_RETIRAR, type EndpointPush } from './channels.ts';
+import { CANALES, enviarAEndpoints, opcionesPush, resumirPush, proveedorDePush, hostDeEndpoint, FALLOS_PARA_RETIRAR, type EndpointPush } from './channels.ts';
 
 const sinEspera = async () => {};
 const ep = (id: string, host = 'fcm.googleapis.com'): EndpointPush => ({ id, endpoint: `https://${host}/wpush/${id}`, p256dh: 'p', auth: 'a', failure_count: 0 });
@@ -208,4 +208,10 @@ test('canal PUSH: sin suscripciones dice por qué; con una caducada la retira y 
 
 test('una suscripción con demasiados fallos seguidos se retira', () => {
   assert.equal(FALLOS_PARA_RETIRAR, 10);
+});
+
+test('el token de la app de iOS se diagnostica como Apple, no como un host raro', () => {
+  const host = hostDeEndpoint(`apns://app.tentare/${'b'.repeat(64)}`);
+  assert.equal(host, 'api.push.apple.com');
+  assert.equal(proveedorDePush(host), 'apple');
 });

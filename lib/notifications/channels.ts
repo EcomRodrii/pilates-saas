@@ -14,6 +14,7 @@ import type { DeliveryStatus, NotificationChannel, NotificationRow, Recipient } 
 import { remitentePorMarca } from '../emails/remitente.ts';
 import { conReintentoResend } from '../emails/resend-reintentos.ts';
 import { urlMonograma } from '../monograma-estudio.ts';
+import { configApns, enviarApns, esEndpointApns } from './apns.ts';
 
 export interface ResultadoCanal {
   status: DeliveryStatus;
@@ -94,6 +95,8 @@ const PLAZO_ENDPOINT_MS = 8_000;
 const ESPERA_REINTENTO_MS = [400, 1_200];
 
 export function hostDeEndpoint(endpoint: string): string {
+  // El token de la app de iOS no es una URL: va a APNs (lib/notifications/apns.ts).
+  if (esEndpointApns(endpoint)) return 'api.push.apple.com';
   try { return new URL(endpoint).host; } catch { return 'desconocido'; }
 }
 
@@ -183,13 +186,21 @@ const push: Canal = {
     if (!destinatario.userId) return { status: 'SKIPPED', error: 'destinatario sin cuenta' };
     const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     const privateKey = process.env.VAPID_PRIVATE_KEY;
-    if (!publicKey || !privateKey) return { status: 'SKIPPED', error: 'push no configurado (VAPID pendiente)' };
+    const vapidListo = !!(publicKey && privateKey);
+    // La app de iOS: sus tokens viven en la misma tabla (`apns://…`) y van por APNs.
+    const apns = configApns();
+    if (!vapidListo && !apns) return { status: 'SKIPPED', error: 'push no configurado (VAPID pendiente)' };
 
-    const { data: subs, error: errSubs } = await admin.from('push_subscription')
+    const { data: todas, error: errSubs } = await admin.from('push_subscription')
       .select('id, endpoint, p256dh, auth, failure_count').eq('user_id', destinatario.userId);
     // Leer mal NO es «no tiene suscripción»: se dice, no se calla.
     if (errSubs) return { status: 'FAILED', error: `no se pudieron leer sus suscripciones: ${errSubs.message}` };
-    if (!subs || subs.length === 0) return { status: 'SKIPPED', error: 'sin suscripción push: la usuaria no ha activado los avisos en ningún dispositivo' };
+    if (!todas || todas.length === 0) return { status: 'SKIPPED', error: 'sin suscripción push: la usuaria no ha activado los avisos en ningún dispositivo' };
+    // Solo las que este servidor sabe mandar: sin VAPID no hay web; sin clave de APNs, no hay iPhone.
+    const subs = todas.filter((s) => (esEndpointApns(s.endpoint as string) ? !!apns : vapidListo));
+    if (subs.length === 0) {
+      return { status: 'SKIPPED', error: apns ? 'push web no configurado (VAPID pendiente)' : 'avisos de la app de iOS sin configurar (falta la clave de APNs)' };
+    }
 
     // El icono mostraba SIEMPRE el logo genérico de Tentare (hardcodeado en
     // public/sw.js), aunque cada estudio ya puede subir el suyo desde
@@ -199,8 +210,8 @@ const push: Canal = {
     // (inicial + su color de marca), mismo criterio que el manifest de la PWA.
     const { data: st } = await admin.from('studios').select('logo_url, nombre, color_primario').eq('id', notificacion.studioId).maybeSingle();
     const logoUrl = st?.logo_url as string | null;
-    const webpush = (await import('web-push')).default;
-    webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:soporte@tentare.app', publicKey, privateKey);
+    const webpush = vapidListo ? (await import('web-push')).default : null;
+    if (webpush) webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:soporte@tentare.app', publicKey!, privateKey!);
     const payload = JSON.stringify({
       title: notificacion.title, body: notificacion.body,
       url: notificacion.deepLink || '/',
@@ -215,7 +226,9 @@ const push: Canal = {
 
     const resultados = await enviarAEndpoints(
       subs as EndpointPush[], payload, notificacion.priority,
-      (sub, cuerpo, opciones) => webpush.sendNotification(sub, cuerpo, opciones),
+      (sub, cuerpo, opciones) => (esEndpointApns(sub.endpoint)
+        ? enviarApns(sub.endpoint, cuerpo, opciones, apns!)
+        : webpush!.sendNotification(sub, cuerpo, opciones)),
     );
 
     const caducadas = resultados.filter((r) => r.estado === 'caducada').map((r) => r.id);
