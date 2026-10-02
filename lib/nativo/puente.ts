@@ -162,6 +162,18 @@ export async function registrarPushNativo(): Promise<{ token: string } | { error
   });
 }
 
+/** El permiso de avisos de la app, SIN pedirlo: para pintar el estado. */
+export async function permisoPushNativo(): Promise<'granted' | 'denied' | 'default'> {
+  if (!esAppNativa()) return 'default';
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    const { receive } = await PushNotifications.checkPermissions();
+    return receive === 'granted' ? 'granted' : receive === 'denied' ? 'denied' : 'default';
+  } catch {
+    return 'default';
+  }
+}
+
 /** El `nativo` de `POST /api/notifications/subscribe` para un token ya obtenido. */
 export async function datosRegistroToken(token: string): Promise<RegistroTokenNativo | null> {
   const bundleId = await bundleIdDeLaApp();

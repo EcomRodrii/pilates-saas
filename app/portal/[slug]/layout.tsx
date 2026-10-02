@@ -7,6 +7,7 @@ import { estiloPorId, temaAppCssText } from '@/lib/student/apariencia';
 import { StudentProvider } from '@/components/student/contexto';
 import { ToastProvider } from '@/components/student/ui/Toast';
 import { RegistroSW } from '@/components/student/RegistroSW';
+import { PuenteNativo } from '@/components/nativo/PuenteNativo';
 import { iconosDeEstudio } from '@/lib/monograma-estudio';
 import { veredictoPagina, nombreCookieAcceso } from '@/lib/publico/acceso-pagina';
 import { PaginaOculta } from '@/components/publico/pagina-oculta';
@@ -131,6 +132,8 @@ export default async function StudentLayout({
           siempre; el resto vive en student.css. */}
       <style dangerouslySetInnerHTML={{ __html: temaAppCssText(estudio.colorPrimario, estudio.apariencia) }} />
       <RegistroSW slug={estudio.slug} studioId={estudio.id} />
+      {/* Solo hace algo dentro de la app de iOS: enlaces fuera, avisos pulsados, enlaces universales. */}
+      <PuenteNativo />
       {/* El toast vive aquí y no en cada pantalla: es un aviso global y así
           sobrevive a las navegaciones dentro del portal. */}
       <StudentProvider estudio={estudio}>

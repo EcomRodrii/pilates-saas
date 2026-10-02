@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { renovarSuscripcionPush } from '@/lib/student/push';
 import { enVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
+import { esAppNativa } from '@/lib/nativo/puente';
 
 /**
  * Registra el service worker para la app de la alumna.
@@ -23,6 +24,15 @@ import { enVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
  */
 export function RegistroSW({ slug, studioId }: { slug: string; studioId: string }) {
   useEffect(() => {
+    // En la app de iOS no hay service worker (ni hace falta caché): los avisos van
+    // por APNs y se renuevan aquí igual que en la web.
+    if (esAppNativa()) {
+      void renovarSuscripcionPush(studioId, slug);
+      const { data: sus } = supabasePortal.auth.onAuthStateChange((evento) => {
+        if (evento === 'SIGNED_IN') void renovarSuscripcionPush(studioId, slug);
+      });
+      return () => sus.subscription.unsubscribe();
+    }
     if (!('serviceWorker' in navigator)) return;
     // En desarrollo el SW cachea el HTML de Next y las recargas dejan de
     // reflejar los cambios; no aporta nada y confunde mucho.

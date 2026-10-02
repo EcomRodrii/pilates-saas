@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import '../portal/[slug]/student.css';
+import { PuenteNativo } from '@/components/nativo/PuenteNativo';
 
 // La entrada de la app de iOS (`server.url` de Capacitor → /app). Con el aspecto
 // de la app de la alumna, sin la marca de ningún estudio todavía: eso llega al
@@ -17,5 +18,5 @@ export const viewport: Viewport = {
 };
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <div className="student-app">{children}</div>;
+  return <div className="student-app"><PuenteNativo />{children}</div>;
 }
