@@ -465,10 +465,10 @@ export async function vigilarCadenaVerifactu(admin: SupabaseClient): Promise<num
 // mismo criterio que `detectarPendientes` en este mismo fichero, que ya
 // compara sets en TS en vez de forzar un JOIN por PostgREST.
 export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): Promise<number> {
-  const { data: cobrados } = await fetchAllRows<{ id: string; studio_id: string; fecha_cobro: string | null; metodo_cobro: string | null; factura_pendiente_sellar: boolean | null }>(
+  const { data: cobrados } = await fetchAllRows<{ id: string; studio_id: string; fecha_cobro: string | null; metodo_cobro: string | null; factura_pendiente_sellar: boolean | null; conciliado_por: string | null; conciliado_en: string | null }>(
     '(global)', 'recibos',
     (from, to) => admin
-      .from('recibos').select('id, studio_id, fecha_cobro, metodo_cobro, factura_pendiente_sellar').eq('estado', 'COBRADO').range(from, to),
+      .from('recibos').select('id, studio_id, fecha_cobro, metodo_cobro, factura_pendiente_sellar, conciliado_por, conciliado_en').eq('estado', 'COBRADO').range(from, to),
   );
   const { data: facturadas } = await fetchAllRows<{ recibo_id: string | null }>(
     '(global)', 'facturas',
@@ -489,7 +489,10 @@ export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): P
 
   const filas = cobrados
     .filter(r => emiten.has(r.studio_id))
-    .map(r => ({ id: r.id, studioId: r.studio_id, fechaCobro: r.fecha_cobro, metodoCobro: r.metodo_cobro, facturaPendienteSellar: r.factura_pendiente_sellar }))
+    .map(r => ({
+      id: r.id, studioId: r.studio_id, fechaCobro: r.fecha_cobro, metodoCobro: r.metodo_cobro, facturaPendienteSellar: r.factura_pendiente_sellar,
+      conciliadoPor: r.conciliado_por, conciliadoEn: r.conciliado_en,
+    }))
     .filter(cobradoConFacturaSiempre);
   // Dos preguntas distintas, dos cifras (C-3, 60ª pasada). Antes esta
   // vigilancia filtraba por `emiteFacturaAutomatica` y por eso NUNCA podía

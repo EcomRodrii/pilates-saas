@@ -65,6 +65,8 @@ test('cómo se cobró: el datáfono del mostrador deja cargo de Stripe, así que
   assert.equal(comoSeCobro(c('a', { metodoCobro: 'TARJETA', stripePaymentIntentId: 'pi_1', conciliadoPor: 'tpv' })), 'TARJETA_MOSTRADOR');
   assert.equal(comoSeCobro(c('a', { metodoCobro: 'TARJETA', stripePaymentIntentId: null })), 'TARJETA_MOSTRADOR', 'venta del TPV con datáfono');
   assert.equal(comoSeCobro(c('a', { metodoCobro: 'TARJETA', conciliadoPor: 'manual' })), 'TARJETA_MOSTRADOR');
+  // Confirmado con el extracto del banco: el datáfono del banco, aunque quede un cargo viejo de Stripe.
+  assert.equal(comoSeCobro(c('a', { metodoCobro: 'TARJETA', stripePaymentIntentId: 'pi_viejo', conciliadoPor: 'externo' })), 'TARJETA_MOSTRADOR');
   // El cobro con su tarjeta sin ella delante (off-session) no marca canal: cargo de Stripe = online.
   assert.equal(comoSeCobro(c('a', { metodoCobro: 'TARJETA', stripePaymentIntentId: 'pi_2', conciliadoPor: null })), 'TARJETA_ONLINE');
   assert.equal(comoSeCobro(c('a', { metodoCobro: 'SEPA' })), 'DOMICILIACION');

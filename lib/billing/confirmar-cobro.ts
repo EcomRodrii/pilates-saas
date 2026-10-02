@@ -49,7 +49,7 @@ import * as SentryNext from '@sentry/nextjs';
 import { aplicarRenovacionServidor } from './renovacion-server.ts';
 import { sellarFacturaDeRecibo, type ResultadoSellado } from './sellar-factura-server.ts';
 import { evaluarFeature } from './billing-rules.ts';
-import { hoyEnEstudio } from '../utils.ts';
+import { hoyEnEstudio, inicioDelDiaEstudio } from '../utils.ts';
 import { nifEmisorValido } from '../nif.ts';
 import {
   conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
@@ -119,6 +119,26 @@ export interface ParamsConfirmarCobro {
   checkoutLeido?: string | null;
   /** «Hacerle factura» de un cobro a mano en efectivo: la factura la emite el servidor, como la de tarjeta. */
   conFactura?: boolean;
+  /**
+   * Fecha REAL del cobro (`YYYY-MM-DD`, día del estudio) cuando no es hoy: un
+   * movimiento del fichero del banco (`origen: 'externo'`) se pagó el día que dice
+   * el banco, no el día en que alguien lo confirma. Sin ella, hoy, como siempre.
+   * La valida quien llama (`fechaCobroExternoValida`).
+   */
+  fechaCobro?: string;
+  /**
+   * El importe que el movimiento dice haber cobrado, en euros con dos decimales
+   * (texto, para comparar el `numeric` sin redondeos de coma flotante). Si viene,
+   * el compare-and-set exige ESE importe y que no haya nada devuelto: si alguien
+   * cambia el recibo entre la propuesta y la confirmación, no se cobra.
+   */
+  importeEsperado?: string;
+  /**
+   * El instante REAL del cobro (ISO), cuando la fuente trae la hora: un movimiento del
+   * fichero del banco. Sin él lo decide el trigger `recibos_marcas_de_tiempo`, que a un
+   * cobro externo lo deja sin hora: una inventada (la de quien confirma) sería peor.
+   */
+  cobradoEn?: string;
 }
 
 export type ResultadoConfirmarCobro =
@@ -368,7 +388,10 @@ export async function confirmarCobro(
   let consulta = admin
     .from('recibos')
     .update({
-      estado: 'COBRADO', fecha_cobro: hoy,
+      estado: 'COBRADO', fecha_cobro: p.fechaCobro ?? hoy,
+      ...(p.cobradoEn ? { cobrado_en: p.cobradoEn } : {}),
+      // Un movimiento externo cobra lo que el dunning iba a reintentar: que no lo intente.
+      ...(p.origen === 'externo' ? { proximo_reintento: null } : {}),
       ...(p.metodo !== null ? { metodo_cobro: p.metodo } : {}),
       ...(p.metodo === 'SEPA' ? { sepa_estado: 'succeeded' } : {}),
       ...(p.paymentIntentId ? { stripe_payment_intent_id: p.paymentIntentId } : {}),
@@ -410,6 +433,9 @@ export async function confirmarCobro(
   }
   if (p.checkoutLeido !== undefined) {
     consulta = p.checkoutLeido === null ? consulta.is('checkout_session_id', null) : consulta.eq('checkout_session_id', p.checkoutLeido);
+  }
+  if (p.importeEsperado !== undefined) {
+    consulta = consulta.eq('importe', p.importeEsperado).or('importe_devuelto.is.null,importe_devuelto.eq.0');
   }
 
   // `metodo_cobro` vuelve del MISMO UPDATE: con `metodo: null` es el que ya
@@ -467,7 +493,7 @@ export async function confirmarCobro(
           : '[confirmarCobro] cobro sobre un recibo que no admite cobro', {
           // Con Stripe de por medio el dinero YA entró: es un error. A mano es
           // una acción que se rechaza y ya.
-          level: p.origen === 'manual' ? 'warning' : 'error', tags: { area: 'cobros' },
+          level: p.origen === 'manual' || p.origen === 'externo' ? 'warning' : 'error', tags: { area: 'cobros' },
           extra: { reciboId: p.reciboId, studioId: p.studioId, origen: p.origen, estado: decision.estado, paymentIntentId: p.paymentIntentId },
         });
         return { ok: false, codigo: 'NO_COBRABLE', error: `Este recibo no admite este cobro (estado: ${decision.estado ?? 'desconocido'}).`, estado: decision.estado };
@@ -717,12 +743,15 @@ export async function reintentarFacturasPendientesDeSellar(
   admin: SupabaseClient,
   horas: number,
 ): Promise<number> {
+  const desde = desdeReintentoFactura(new Date(), horas);
   const { data: pendientes } = await admin
     .from('recibos')
     .select('id, studio_id, metodo_cobro, conciliado_por')
     .eq('factura_pendiente_sellar', true)
     .eq('estado', 'COBRADO')
-    .gte('fecha_cobro', desdeReintentoFactura(new Date(), horas))
+    // Un cobro con un movimiento del banco lleva la fecha REAL del pago, que puede ser
+    // de días antes de confirmarse: su ventana cuenta desde que se confirmó.
+    .or(`fecha_cobro.gte.${desde},and(conciliado_por.eq.externo,conciliado_en.gte.${inicioDelDiaEstudio(desde)})`)
     .order('fecha_cobro', { ascending: true })
     .limit(500);
   if (!pendientes?.length) return 0;
