@@ -15,6 +15,7 @@ import { comoSeLePuedeCobrar, type MedioDeCobro } from '@/lib/cobros/medio-de-co
 import { reintentoAutomatico, type ReintentoAutomatico } from '@/lib/cobros/reintento-automatico';
 import { cuandoSera } from '@/lib/clientas/textos';
 import { hoyEnEstudio } from '@/lib/utils';
+import { emiteFacturas } from '@/lib/factura-automatica';
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
@@ -64,7 +65,7 @@ export function useDatosCobros(): DatosCobros {
     }
     const estudioConStripe = !!studio?.stripeAccountId;
     const estudioHaceRemesas = !!(studio?.sepaAcreedorId && studio?.sepaIban && studio?.sepaTitular);
-    const estudioFactura = studio?.modoFacturacion === 'verifactu';
+    const estudioFactura = emiteFacturas(studio?.modoFacturacion);
     const datosDePagoLeidos = !datosIncompletos.includes('socios');
     const mandatosCargados = estadoMandatosSepa === 'listo';
 

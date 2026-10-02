@@ -3781,45 +3781,8 @@ export async function dbEntregarCanje(
   return { ok: true, id: data as string };
 }
 
-// F1 (B1-B4): agregación de ingresos SERVER-SIDE (migr 0096). Sustituye al sum()
-// sobre el array de recibos del cliente (capado a 1000 → mentía a escala). Un sum()
-// en SQL agrega todas las filas; la RLS acota por estudio. `desde` = 'YYYY-MM-DD' o
-// null (todo el histórico).
-// ⚠️ `null` cuando no hay respuesta, NUNCA ceros: un cero es una afirmación, y
-// aquí es dinero. Devolvía
-// `{ total: 0, … }`, y /informes lo pintaba tal cual: «Ingresos período
-// 0,00 €», «Ingresos del mes 0,00 €», «Ticket medio 0,00 €». Eso no es un
-// hueco, es una AFIRMACIÓN sobre la caja del estudio, indistinguible de la
-// verdad y en la pantalla que se abre precisamente para saber cuánto entró.
-// `informe_ingresos` es un agregado sin GROUP BY: cuando responde SIEMPRE trae
-// una fila, así que un estudio recién abierto sigue leyendo un 0,00 € legítimo
-// — «sin fila» solo pasa si algo va mal.
-export async function dbInformeIngresos(
-  desde: string | null,
-): Promise<{ total: number; nCobrados: number; nSocias: number; totalSocias: number } | null> {
-  // `informe_ingresos_neto` (F0): neto de reembolsos parciales, y con lo pagado
-  // por clientas aparte — el ticket medio no puede repartir entre clientas las
-  // ventas de mostrador que no tienen clienta.
-  const { data, error } = await supabase.rpc('informe_ingresos_neto', { p_desde: desde });
-  if (error) { reportDbError('[dbInformeIngresos]', error); return null; }
-  const row = (Array.isArray(data) ? data[0] : data) as { total_ingresos: number; n_cobrados: number; n_socias_unicas: number; total_socias: number } | undefined;
-  if (!row) return null;
-  return {
-    total: Number(row.total_ingresos ?? 0), nCobrados: Number(row.n_cobrados ?? 0),
-    nSocias: Number(row.n_socias_unicas ?? 0), totalSocias: Number(row.total_socias ?? 0),
-  };
-}
-
-// Igual: `[]` significa «no hubo ni un cobro en el periodo» y es una respuesta
-// legítima que el gráfico sabe pintar. Para «no lo sé», `null`.
-export async function dbIngresosPorDia(desde: string | null): Promise<{ dia: string; total: number }[] | null> {
-  const { data, error } = await supabase.rpc('ingresos_por_dia', { p_desde: desde });
-  if (error) { reportDbError('[dbIngresosPorDia]', error); return null; }
-  return ((data ?? []) as { dia: string; total: number }[]).map((r) => ({ dia: r.dia, total: Number(r.total) }));
-}
-
 // Fase 8 (CRO): embudo del widget público, agregado server-side, mismo
-// patrón que dbInformeIngresos/dbIngresosPorDia (0096). `desde` requerido —
+// patrón que tenían los agregados de ingresos de Informes (0096). `desde` requerido —
 // a diferencia de ingresos, este embudo no tiene sentido "de siempre" (el
 // primer evento es de hace días, no meses). Ver
 // docs/cro-analytics-widget-diseno.md §2.1.
@@ -3874,35 +3837,6 @@ export async function dbWidgetVistos(etiquetas: readonly string[]): Promise<Vist
   const { data, error } = await supabase.rpc('widget_vistos').in('origen', [...etiquetas]);
   if (error) { reportDbError('[dbWidgetVistos]', error); return null; }
   return leerVistos((data ?? []) as unknown[]);
-}
-
-// Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) para
-// /informes, agregado SERVER-SIDE (migr 20260810150000, mismo patrón que
-// dbInformeIngresos). `tipo` sale de planes_tarifa.tipo; los recibos sin
-// suscripcion_id (histórico migrado, POS/otros) caen en 'OTROS'. `hasta` es
-// inclusive — se usa para acotar el período anterior sin solapar con el actual.
-// ⚠️ `null` en el fallo, no `[]`: con `[]` la pantalla componía las cuatro
-// tarjetas a «0,00 € · 0 ventas», que otra vez es afirmar que no se vendió
-// nada. Ver la nota de `dbInformeIngresos`.
-export async function dbVentasPorTipo(
-  desde: string | null,
-  hasta: string | null,
-): Promise<{ tipo: string; nVentas: number; total: number }[] | null> {
-  const { data, error } = await supabase.rpc('ventas_por_tipo', { p_desde: desde, p_hasta: hasta });
-  if (error) { reportDbError('[dbVentasPorTipo]', error); return null; }
-  return ((data ?? []) as { tipo: string; n_ventas: number; total: number }[])
-    .map((r) => ({ tipo: r.tipo, nVentas: Number(r.n_ventas), total: Number(r.total) }));
-}
-
-// F1 (B4/C2): ocupación por tipo de clase SERVER-SIDE (migr 0098). Sustituye la
-// iteración del array reservas+sesiones del cliente (capado a 1000).
-export async function dbOcupacionPorTipo(
-  desde: string | null,
-): Promise<{ tipoClaseId: string | null; nSesiones: number; aforo: number; ocupadas: number }[]> {
-  const { data, error } = await supabase.rpc('ocupacion_por_tipo', { p_desde: desde });
-  if (error) { reportDbError('[dbOcupacionPorTipo]', error); return []; }
-  return ((data ?? []) as { tipo_clase_id: string | null; n_sesiones: number; aforo: number; ocupadas: number }[])
-    .map((r) => ({ tipoClaseId: r.tipo_clase_id, nSesiones: Number(r.n_sesiones), aforo: Number(r.aforo), ocupadas: Number(r.ocupadas) }));
 }
 
 // F1 (B4): export CSV COMPLETO — trae TODOS los recibos cobrados por keyset (páginas
@@ -5070,7 +5004,6 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('penalizacionAplicaCancelacionTardia' in changes) db.penalizacion_aplica_cancelacion_tardia = changes.penalizacionAplicaCancelacionTardia;
   if ('penalizacionAplicaNoShow' in changes) db.penalizacion_aplica_no_show = changes.penalizacionAplicaNoShow;
   if ('penalizacionCobroAutomatico' in changes) db.penalizacion_cobro_automatico = changes.penalizacionCobroAutomatico;
-  if ('modoFacturacion' in changes) db.modo_facturacion = changes.modoFacturacion;
   if ('plazaFijaSinCuota' in changes) db.plaza_fija_sin_cuota = changes.plazaFijaSinCuota;
   if ('plazaFijaSolicitarDesdeApp' in changes) db.plaza_fija_solicitar_desde_app = changes.plazaFijaSolicitarDesdeApp;
   if ('plazaFijaPausaDesdeApp' in changes) db.plaza_fija_pausa_desde_app = changes.plazaFijaPausaDesdeApp;
@@ -5483,8 +5416,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
-    // Sin columna (un servidor de antes) = como hasta ahora: emitía.
-    modoFacturacion: r.modo_facturacion === 'sin_facturas' ? 'sin_facturas' : 'verifactu',
+    modoFacturacion: r.modo_facturacion === 'sin_facturas' || r.modo_facturacion === 'verifactu' ? r.modo_facturacion : 'facturas',
     plazaFijaSinCuota: (r.plaza_fija_sin_cuota as PoliticaPlazaFijaSinCuota | null) ?? 'MANTENER',
     // Encendido de serie desde el 22-sep (antes apagado, 16-sep): ver el comentario en reglas-reserva.ts.
     plazaFijaSolicitarDesdeApp: (r.plaza_fija_solicitar_desde_app as boolean | null) ?? true,

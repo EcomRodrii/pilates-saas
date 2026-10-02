@@ -57,13 +57,13 @@ export function pasoDelAlta(estado: EstadoEstudioVerifactu): string {
 }
 
 export const SOLO_CON_ENVIO_ACTIVO =
-  'Tentare solo emite facturas enviando el registro de cada una a la AEAT (Veri*Factu): empiezan el día que se activa tu envío.';
+  'Veri*Factu envía el registro de cada factura a la AEAT: se puede activar el día que se activa tu envío. Mientras tanto, tus facturas salen igual, sin envío.';
 
 export const SIN_PODER_VIGENTE =
-  'Tu autorización a la AEAT ya no está vigente. Sin ella Tentare no puede enviar tus facturas, así que no las emite hasta que la renueves. Mientras tanto, tienen que salir por otro sistema Veri*Factu.';
+  'Tu autorización a la AEAT ya no está vigente. Sin ella Tentare no puede enviar tus facturas: siguen saliendo, sin envío, hasta que la renueves. Si este año ya facturabas con Veri*Factu, la norma obliga a seguir así: háblalo con tu asesoría.';
 
 export const ALTA_AUN_CERRADA =
-  'Tentare solo emite facturas enviando el registro de cada una a la AEAT (Veri*Factu), y ese envío todavía no está abierto a los estudios. Mientras tanto, tus cobros dejan su justificante de pago.';
+  'Veri*Factu envía el registro de cada factura a la AEAT, y ese envío todavía no está abierto a los estudios. Mientras tanto, tus facturas salen igual, sin envío.';
 
 /**
  * Hasta cuándo tiene que seguir funcionando como VERI*FACTU quien deja de emitir

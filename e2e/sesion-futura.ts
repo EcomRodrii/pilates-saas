@@ -66,14 +66,3 @@ export function sesionFutura(offsetMinutos = 180, duracionMinutos = 55, ahora = 
   const iso = (d: Date) => `${d.toISOString().slice(0, 19)}+00:00`;
   return { inicio: iso(inicio), fin: iso(fin) };
 }
-
-/**
- * La hora de reloj de Madrid (`HH:MM`) de `iso` más `minutos`: para MOVER la clase sembrada en un test, sin fijar una hora.
- * Con una fija (`18:30`) el test dependía de la hora a la que corriera: pasadas las 18:30 de Madrid ya es una hora pasada y
- * el aplazamiento no se guarda. Como la clase cabe entera en un día de Madrid (ver arriba), `inicio + 30 min` (menos que su
- * duración) cae siempre en ese mismo día y antes del fin.
- */
-export function horaDeMadridMas(iso: string, minutos: number): string {
-  return new Intl.DateTimeFormat('en-GB', { timeZone: TZ_ESTUDIO, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-    .format(new Date(new Date(iso).getTime() + minutos * 60_000));
-}

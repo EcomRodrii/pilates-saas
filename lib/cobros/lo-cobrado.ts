@@ -74,12 +74,14 @@ export function mismoTramoAnterior(periodo: Periodo, visible: Tramo): Tramo | nu
   const anterior = tramo(periodo, sumarDias(visible.desde, -1));
   const entero = tramo(periodo, visible.desde);
   if (visible.hasta === entero.hasta) return anterior;
-  // A medias: los mismos días transcurridos (en mes y año, el mismo día del mes;
-  // si el anterior no lo tiene —31 frente a 30, 29 de febrero—, hasta su final).
+  // A medias: en mes, trimestre y año, la misma posición de mes y día (el 31 de
+  // mayo, 2.º mes del trimestre, frente al 28 de febrero; si el anterior no tiene
+  // ese día —31 frente a 30, 29 de febrero—, hasta el final de su mes). En la
+  // semana, los mismos días transcurridos.
   let hasta: string;
-  if (periodo === 'MES' || periodo === 'ANIO') {
+  if (periodo === 'MES' || periodo === 'TRIMESTRE' || periodo === 'ANIO') {
     const v = partes(visible.hasta), a = partes(anterior.desde);
-    const mes = periodo === 'MES' ? a.m : v.m;
+    const mes = a.m + (v.m - partes(visible.desde).m);
     const dia = Math.min(v.d, finDeMes(a.y, mes));
     hasta = ymdDe(utc(a.y, mes, dia));
   } else {

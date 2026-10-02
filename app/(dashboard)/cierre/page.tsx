@@ -17,6 +17,7 @@ import { csvLoCobrado, descargarCsv as descargarFichero } from '@/lib/billing/ex
 import { dbRecibosCobradosParaExport } from '@/lib/supabase-data';
 import { computeCierreAnual, desglosarIvaDesdeTotal, facturasSinRectificarDeCobrosDevueltos, type CierreLinea } from '@/lib/fiscal/cierre-engine';
 import type { IngresoManual } from '@/lib/types';
+import { AVISO_VERIFACTU_APAGADO } from '@/lib/cobros/gestoria';
 
 const eur = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -45,6 +46,7 @@ const emptyForm = (anio: number, ivaDef: number): FormState => ({
 
 export default function CierreDeAnoPage() {
   const { facturas, recibos, studio, updateStudio } = useStudio();
+  const conVerifactu = studio?.modoFacturacion === 'verifactu';
   const ivaDef = studio?.ivaPorDefecto ?? 21;
   const rol = useRol();
   // La RLS de studios (owner_studios) solo deja escribir a PROPIETARIO — se
@@ -307,10 +309,10 @@ export default function CierreDeAnoPage() {
         }
       />
 
-      {/* Sin facturas desde Tentare (Configuración → Facturación): este cierre
-          solo recoge lo que se facturó aquí. Lo que sí tiene es el registro de
-          cobros, y se dice dónde exportarlo para la gestoría. */}
-      {studio && studio.modoFacturacion !== 'verifactu' && (
+      {/* Sin facturas desde Tentare (solo el estado de sistema 'sin_facturas'):
+          este cierre solo recoge lo que se facturó aquí. Lo que sí tiene es el
+          registro de cobros, y se dice dónde exportarlo para la gestoría. */}
+      {studio && studio.modoFacturacion === 'sin_facturas' && (
         <div role="note" className="rounded-xl border border-border bg-muted/60 p-4 text-sm">
           <p className="font-bold text-foreground m-0">Tentare no emite tus facturas</p>
           <p className="text-muted-foreground mt-1 mb-0">
@@ -405,9 +407,11 @@ export default function CierreDeAnoPage() {
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="text-xs font-medium text-muted-foreground">Facturas emitidas</div>
           <div className="text-2xl font-extrabold tracking-tight mt-2 tabular-nums">{cierre.totales.numFacturas}</div>
-          <div className="text-xs mt-1 inline-flex items-center gap-1 text-success dark:text-emerald-400 font-semibold">
-            <ShieldCheck className="size-3.5" /> {cierre.sellado.selladas}/{cierre.sellado.totalFacturas} selladas
-          </div>
+          {conVerifactu && (
+            <div className="text-xs mt-1 inline-flex items-center gap-1 text-success dark:text-emerald-400 font-semibold">
+              <ShieldCheck className="size-3.5" /> {cierre.sellado.selladas}/{cierre.sellado.totalFacturas} selladas
+            </div>
+          )}
         </div>
       </div>
 
@@ -477,6 +481,7 @@ export default function CierreDeAnoPage() {
           </table>
         </section>
 
+        {conVerifactu ? (
         <section className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3">
           <h2 className="text-base font-bold m-0">Sellado fiscal</h2>
           <div className="flex items-center gap-3">
@@ -492,6 +497,15 @@ export default function CierreDeAnoPage() {
             Cada factura lleva su huella encadenada. Si tu gestoría pide el libro registro de facturas emitidas, se exporta con el botón CSV de arriba.
           </p>
         </section>
+        ) : (
+        <section className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3">
+          <h2 className="text-base font-bold m-0">Tus facturas</h2>
+          <p className="text-xs text-muted-foreground leading-relaxed m-0">
+            Numeración correlativa por año. Si tu gestoría pide el libro registro de facturas emitidas, se exporta con el botón CSV de arriba.
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed m-0">{AVISO_VERIFACTU_APAGADO}</p>
+        </section>
+        )}
       </div>
 
       {/* Mensual */}

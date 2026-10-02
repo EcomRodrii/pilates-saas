@@ -208,7 +208,9 @@ export async function entregarVentaPOS(
       // `confirmar-cobro` y `entregarPlanComprado`.
       await admin.from('recibos').update({ factura_pendiente_sellar: true })
         .eq('id', reciboId).eq('studio_id', studioId);
-      avisos.push('La factura se emitirá en unos minutos.');
+      avisos.push(r.faltaNif
+        ? 'La factura saldrá cuando pongas el NIF del estudio (Configuración → Cobros y facturas).'
+        : 'La factura se emitirá en unos minutos.');
     }
   }
 

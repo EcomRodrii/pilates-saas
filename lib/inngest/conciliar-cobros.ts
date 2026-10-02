@@ -43,7 +43,8 @@ import { cobroPosDeSesionCaducada } from '../pos/cerrar-bizum-fallido.ts';
 import { liberarCobroPosFallido } from '../pos/liberar-cobro-fallido.ts';
 import { pisAbandonadosConPlaza, plazaDePICancelado, plazaDeSesionCaducada, type PlazaADevolver } from '../billing/cupo-matricula-abandonado.ts';
 import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
-import { averiasRecientes, HORAS_REINTENTO_FACTURA, recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente, type ReciboCobrado } from '../facturas-sin-sellar.ts';
+import { averiasRecientes, cobradoConFacturaSiempre, HORAS_REINTENTO_FACTURA, recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente, type ReciboCobrado } from '../facturas-sin-sellar.ts';
+import { nifEmisorValido } from '../nif.ts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Cuánto atrás se mira. Generoso a propósito: con el barrido cada 5 minutos
@@ -475,18 +476,21 @@ export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): P
       .from('facturas').select('recibo_id').not('recibo_id', 'is', null).range(from, to),
   );
   const idsConFactura = new Set(facturadas.map(f => f.recibo_id as string));
-  // Solo los estudios que emiten facturas desde Tentare. Con 'sin_facturas' (el
-  // valor por defecto desde el 29-sep-2026) un cobro sin factura es lo normal,
-  // no una avería: sin este filtro, Sentry saltaría con cada cobro.
-  const { data: conFacturas } = await fetchAllRows<{ id: string }>(
+  // Solo los estudios que emiten facturas (factura siempre, 2-oct-2026: todos
+  // salvo el estado de sistema 'sin_facturas') y que tienen NIF: sin NIF no sale
+  // ninguna, y eso no es avería, se lo dice a la propietaria su bandeja
+  // («Falta el NIF del estudio»). Y solo cobros desde FACTURA_SIEMPRE_DESDE: antes
+  // los diez estudios estaban en 'sin_facturas' y un cobro sin factura era lo normal.
+  const { data: conFacturas } = await fetchAllRows<{ id: string; nif: string | null }>(
     '(global)', 'studios',
-    (from, to) => admin.from('studios').select('id').eq('modo_facturacion', 'verifactu').range(from, to),
+    (from, to) => admin.from('studios').select('id, nif').in('modo_facturacion', ['facturas', 'verifactu']).range(from, to),
   );
-  const emiten = new Set(conFacturas.map(s => s.id));
+  const emiten = new Set(conFacturas.filter(s => nifEmisorValido(s.nif?.trim() ?? '')).map(s => s.id));
 
   const filas = cobrados
     .filter(r => emiten.has(r.studio_id))
-    .map(r => ({ id: r.id, studioId: r.studio_id, fechaCobro: r.fecha_cobro, metodoCobro: r.metodo_cobro, facturaPendienteSellar: r.factura_pendiente_sellar }));
+    .map(r => ({ id: r.id, studioId: r.studio_id, fechaCobro: r.fecha_cobro, metodoCobro: r.metodo_cobro, facturaPendienteSellar: r.factura_pendiente_sellar }))
+    .filter(cobradoConFacturaSiempre);
   // Dos preguntas distintas, dos cifras (C-3, 60ª pasada). Antes esta
   // vigilancia filtraba por `emiteFacturaAutomatica` y por eso NUNCA podía
   // avisar de un cobro en efectivo sin factura: 3 en producción, invisibles

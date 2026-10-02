@@ -50,6 +50,7 @@ import { aplicarRenovacionServidor } from './renovacion-server.ts';
 import { sellarFacturaDeRecibo, type ResultadoSellado } from './sellar-factura-server.ts';
 import { evaluarFeature } from './billing-rules.ts';
 import { hoyEnEstudio } from '../utils.ts';
+import { nifEmisorValido } from '../nif.ts';
 import {
   conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
   facturaIdCheckout, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas,
@@ -262,7 +263,7 @@ export async function aplicarEfectosCobro(
   let numeroFactura: string | undefined;
   let renovacionFallida = false;
 
-  const marcarFacturaPendiente = async (detalle: unknown) => {
+  const marcarFacturaPendiente = async (detalle: unknown, opciones: { faltaNif?: boolean } = {}) => {
     selladoOk = false;
     try {
       await admin.from('recibos').update({ factura_pendiente_sellar: true })
@@ -270,6 +271,10 @@ export async function aplicarEfectosCobro(
     } catch (e) {
       console.error('[aplicarEfectosCobro] no se pudo marcar la factura pendiente', p.reciboId, e);
     }
+    // Sin NIF del estudio no es una avería: la propietaria lo ve en «por decidir»
+    // («Falta tu NIF») y la factura sale cuando lo pone. Avisar a Sentry por cada
+    // cobro de un estudio sin NIF solo sería ruido.
+    if (opciones.faltaNif) return;
     if (p.reparacion) {
       // El camino que ganó la transición ya lo reportó segundos antes: capturarlo
       // otra vez duplicaría el aviso en CADA cobro de un estudio sin NIF.
@@ -312,7 +317,7 @@ export async function aplicarEfectosCobro(
             // que reintentar ni que avisar. El cobro es el mismo.
             await limpiarFacturaPendiente();
           } else {
-            await marcarFacturaPendiente(r.error);
+            await marcarFacturaPendiente(r.error, { faltaNif: r.faltaNif });
           }
           break;
         }
@@ -687,27 +692,49 @@ export async function cerrarCobroOffSession(
 }
 
 /**
+ * Desde qué día de cobro se reintenta una factura pendiente: las últimas `horas`
+ * o, si llega antes, el primer día del trimestre natural en curso (hora de Madrid).
+ * Así «la factura sale sola en cuanto pongas el NIF» es verdad durante todo el
+ * trimestre (factura siempre, 2-oct-2026), y sigue sin cruzar de trimestre por
+ * su cuenta, que es la decisión humana que protege la cabecera de este módulo.
+ */
+export function desdeReintentoFactura(ahora: Date, horas: number): string {
+  const porHoras = new Date(ahora.getTime() - horas * 3600_000).toISOString().slice(0, 10);
+  const hoy = hoyEnEstudio(ahora);
+  const mes = Number(hoy.slice(5, 7));
+  const inicioTrimestre = `${hoy.slice(0, 4)}-${String(Math.floor((mes - 1) / 3) * 3 + 1).padStart(2, '0')}-01`;
+  return inicioTrimestre < porHoras ? inicioTrimestre : porHoras;
+}
+
+/**
  * Reintenta el sellado de facturas de cobros ya confirmados pero cuyo sellado
- * falló (`factura_pendiente_sellar`), acotado a las últimas `horas` — nunca
+ * falló (`factura_pendiente_sellar`), acotado por `desdeReintentoFactura` — nunca
  * retroactivo sin límite (ver cabecera del módulo). Lo llama el conciliador
- * horario; devuelve cuántas se sellaron.
+ * horario; devuelve cuántas se sellaron. Los estudios sin NIF válido se saltan
+ * (no saldría ninguna): sus pendientes esperan a que lo pongan sin acaparar el lote.
  */
 export async function reintentarFacturasPendientesDeSellar(
   admin: SupabaseClient,
   horas: number,
 ): Promise<number> {
-  const desde = new Date(Date.now() - horas * 3600_000).toISOString();
   const { data: pendientes } = await admin
     .from('recibos')
     .select('id, studio_id, metodo_cobro, conciliado_por')
     .eq('factura_pendiente_sellar', true)
     .eq('estado', 'COBRADO')
-    .gte('fecha_cobro', desde.slice(0, 10))
-    .limit(200);
+    .gte('fecha_cobro', desdeReintentoFactura(new Date(), horas))
+    .order('fecha_cobro', { ascending: true })
+    .limit(500);
   if (!pendientes?.length) return 0;
+
+  const idsEstudio = [...new Set((pendientes as { studio_id: string }[]).map(r => r.studio_id))];
+  const { data: estudios } = await admin.from('studios').select('id, nif').in('id', idsEstudio);
+  const conNif = new Set(((estudios ?? []) as { id: string; nif: string | null }[])
+    .filter(e => nifEmisorValido(e.nif?.trim() ?? '')).map(e => e.id));
 
   let selladas = 0;
   for (const rec of pendientes as { id: string; studio_id: string; metodo_cobro: string | null; conciliado_por: string | null }[]) {
+    if (!conNif.has(rec.studio_id)) continue;
     // El id del canal que lo intentó primero, no `fac-checkout-` para todos.
     const res = await sellarFacturaDeRecibo(admin, {
       studioId: rec.studio_id, reciboId: rec.id, facturaId: facturaIdParaReintento(rec),
@@ -718,7 +745,9 @@ export async function reintentarFacturasPendientesDeSellar(
       await admin.from('recibos').update({ factura_pendiente_sellar: false })
         .eq('id', rec.id).eq('studio_id', rec.studio_id);
       if (res.ok) selladas++;
-    } else {
+    } else if (!res.faltaNif) {
+      // Sin NIF se queda marcada, sin avisar: sale sola en cuanto lo pongan (si
+      // aún está dentro de la ventana) y la bandeja «por decidir» ya lo cuenta.
       Sentry.captureMessage('[reintentarFacturasPendientesDeSellar] sigue sin poder sellar', {
         level: 'warning', tags: { area: 'cobros', tipo: 'facturacion' },
         extra: { reciboId: rec.id, studioId: rec.studio_id, error: res.error },

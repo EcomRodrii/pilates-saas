@@ -52,6 +52,14 @@ export interface ResultadoSellado {
    * debe marcar la factura como pendiente ni avisar a Sentry por ello.
    */
   desactivada?: boolean;
+  /**
+   * Falta el NIF fiscal del estudio (vacío o de relleno): la factura no se puede
+   * emitir todavía. Es un estado esperado, no una avería: quien llama la deja
+   * pendiente (`factura_pendiente_sellar`) sin avisar a Sentry.
+   */
+  faltaNif?: boolean;
+  /** Emitida sin Veri*Factu (`modo_facturacion = 'facturas'`): numerada, sin huella ni cola. */
+  sinVerifactu?: boolean;
   yaExistia?: boolean;
   sellada?: boolean;
   aviso?: string | null;
@@ -73,6 +81,18 @@ interface FilaFacturaReservada {
   cuota_iva: number | string | null;
   total: number | string | null;
 }
+
+/**
+ * ¿Esta factura ya está EMITIDA? Con Veri*Factu, cuando tiene huella. Sin
+ * Veri*Factu (facturas siempre, 2-oct-2026) nace emitida y sin cadena: número y
+ * ni huella ni `verifactu_seq`. Una fila con `verifactu_seq` y sin huella es una
+ * reserva de Veri*Factu a medias, que hay que terminar.
+ */
+export function facturaEmitida(row: { verifactu_hash: string | null; verifactu_seq: number | null; numero_completo: string | null }): boolean {
+  return !!row.verifactu_hash || (row.verifactu_seq == null && !!row.numero_completo);
+}
+
+const MENSAJE_FALTA_NIF = 'Configura un NIF fiscal válido en Configuración → Cobros y facturas → Datos fiscales e IVA antes de emitir facturas (el actual está vacío o es de relleno).';
 
 const COLS_SELLO = 'id, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total';
 
@@ -112,7 +132,7 @@ export async function sellarFacturaDeRecibo(
   // atómico y el update final): se retoma más abajo con los datos YA
   // reservados, sin pedir número nuevo.
   let existente = await cargarExistente();
-  if (existente && existente.verifactu_hash) {
+  if (existente && facturaEmitida(existente)) {
     return { ok: true, yaExistia: true, factura: mapSalida(existente) };
   }
 
@@ -126,7 +146,9 @@ export async function sellarFacturaDeRecibo(
   // la huella), esa factura ya nació y hay que terminarla aunque después se
   // haya apagado. La base de datos lo cierra igual (`reservar_numero_factura`
   // rechaza la serie A), esto evita la llamada y el error.
-  if (!existente && studio?.modo_facturacion !== 'verifactu') {
+  // Desde el 2-oct-2026 hay factura SIEMPRE ('facturas' o 'verifactu'); solo el
+  // estado de sistema 'sin_facturas' (sin poder ante la AEAT) no emite.
+  if (!existente && studio?.modo_facturacion === 'sin_facturas') {
     return { ok: false, desactivada: true, error: MENSAJE_FACTURACION_DESACTIVADA };
   }
   const nifEmisor = studio?.nif?.trim() || '';
@@ -134,7 +156,7 @@ export async function sellarFacturaDeRecibo(
   // demo) — crearía una cadena Veri*Factu con identidad fiscal falsa. Se bloquea la
   // emisión hasta que el estudio configure un NIF válido.
   if (!nifEmisorValido(nifEmisor)) {
-    return { ok: false, error: 'Configura un NIF fiscal válido en Configuración → Cobros y facturas → Datos fiscales e IVA antes de emitir facturas (el actual está vacío o es de relleno).' };
+    return { ok: false, faltaNif: true, error: MENSAJE_FALTA_NIF };
   }
 
   let numeroCompleto: string;
@@ -243,7 +265,7 @@ export async function sellarFacturaDeRecibo(
         // vuelve a mirar — ver lib/facturas/concepto.ts.
         p_concepto: recibo.concepto ?? null,
       })
-      .single<{ numero_completo: string; verifactu_seq: number; verifactu_prev_hash: string }>();
+      .single<{ numero_completo: string; verifactu_seq: number | null; verifactu_prev_hash: string | null }>();
 
     if (errorReserva) {
       // Reintento del mismo recibo/factura llegando justo cuando otra llamada
@@ -261,7 +283,7 @@ export async function sellarFacturaDeRecibo(
         console.error('[sellarFacturaDeRecibo] reservar_numero_factura:', errorReserva.message);
         return { ok: false, error: 'No se ha podido reservar el número de factura.' };
       }
-      if (existente.verifactu_hash) {
+      if (facturaEmitida(existente)) {
         return { ok: true, yaExistia: true, factura: mapSalida(existente) };
       }
       numeroCompleto = existente.numero_completo;
@@ -273,6 +295,18 @@ export async function sellarFacturaDeRecibo(
       total = Number(existente.total);
       huellaAnterior = existente.verifactu_prev_hash ?? '';
       seq = Number(existente.verifactu_seq);
+    } else if (reserva.verifactu_seq == null) {
+      // Sin Veri*Factu: la factura ya está emitida (número, importes, receptor), sin
+      // huella, sin registro y sin cola para la AEAT. No hay nada más que hacer.
+      return {
+        ok: true, sellada: true, sinVerifactu: true, aviso: null,
+        factura: {
+          verifactuHash: null, verifactuPrevHash: null, verifactuTs: null, verifactuSeq: null,
+          numeroCompleto: reserva.numero_completo, fechaEmision: fechaEmisionCalc,
+          receptorNombre: receptorNombreCalc, receptorNIF: receptorNIFCalc,
+          baseImponible: baseCalc, cuotaIVA: cuotaCalc, total: totalCalc,
+        },
+      };
     } else {
       numeroCompleto = reserva.numero_completo;
       seq = Number(reserva.verifactu_seq);
@@ -337,7 +371,8 @@ export async function sellarFacturaDeRecibo(
   const { data: actualizada, error: errorUpdate } = await admin
     .from('facturas')
     .update(camposFinales)
-    .eq('id', facturaId)
+    // La reserva retomada puede ser de otro id (encontrada por recibo): se cierra ESA.
+    .eq('id', existente?.id ?? facturaId)
     .eq('studio_id', studioId)
     .is('verifactu_hash', null)
     .select(COLS_SELLO)
@@ -440,17 +475,17 @@ export async function sellarRectificativaDeFactura(
     .eq('id', facturaRectificativaId).eq('studio_id', studioId)
     .limit(1).maybeSingle();
   const existente = existenteRaw as FilaRectificativaReservada | null;
-  if (existente?.verifactu_hash) {
+  if (existente && facturaEmitida(existente)) {
     return { ok: true, yaExistia: true, factura: mapSalida(existente) };
   }
 
   const { data: original } = await admin
-    .from('facturas').select('id, verifactu_hash, receptor_nombre, receptor_nif, fecha_emision, concepto')
+    .from('facturas').select('id, verifactu_hash, verifactu_seq, numero_completo, receptor_nombre, receptor_nif, fecha_emision, concepto')
     .eq('id', facturaOriginalId).eq('studio_id', studioId).maybeSingle();
   if (!original) {
     return { ok: false, error: 'Factura original no encontrada' };
   }
-  if (!original.verifactu_hash) {
+  if (!facturaEmitida(original as { verifactu_hash: string | null; verifactu_seq: number | null; numero_completo: string | null })) {
     return { ok: false, error: 'La factura original no está sellada — no se puede rectificar algo que nunca se emitió de verdad.' };
   }
 
@@ -459,7 +494,8 @@ export async function sellarRectificativaDeFactura(
   const { count: rectificativasPrevias } = await admin
     .from('facturas').select('id', { count: 'exact', head: true })
     .eq('rectifica_a', facturaOriginalId).eq('studio_id', studioId)
-    .not('verifactu_hash', 'is', null);
+    // Emitidas: con huella (Veri*Factu) o sin cadena (sin Veri*Factu).
+    .or('verifactu_hash.not.is.null,verifactu_seq.is.null');
 
   const { data: studio } = await admin
     .from('studios')
@@ -468,7 +504,7 @@ export async function sellarRectificativaDeFactura(
     .maybeSingle();
   const nifEmisor = studio?.nif?.trim() || '';
   if (!nifEmisorValido(nifEmisor)) {
-    return { ok: false, error: 'Configura un NIF fiscal válido en Configuración → Cobros y facturas → Datos fiscales e IVA antes de emitir facturas.' };
+    return { ok: false, faltaNif: true, error: MENSAJE_FALTA_NIF };
   }
 
   let numeroCompleto: string;
@@ -524,11 +560,23 @@ export async function sellarRectificativaDeFactura(
         // rectificativa cae al genérico igual que ella. Coherentes las dos.
         p_concepto: (original.concepto as string | null) ?? null,
       })
-      .single<{ numero_completo: string; verifactu_seq: number; verifactu_prev_hash: string }>();
+      .single<{ numero_completo: string; verifactu_seq: number | null; verifactu_prev_hash: string | null }>();
 
     if (errorReserva) {
       console.error('[sellarRectificativaDeFactura] reservar_numero_factura:', errorReserva.message);
       return { ok: false, error: 'No se ha podido reservar el número de la rectificativa.' };
+    }
+    if (reserva.verifactu_seq == null) {
+      // Sin cadena: el estudio no está en Veri*Factu y la original tampoco tenía
+      // registro (`reservar_numero_factura` encadena la R si la original lo tiene).
+      return {
+        ok: true, sellada: true, sinVerifactu: true,
+        aviso: (rectificativasPrevias ?? 0) > 0 ? `Aviso: esta factura ya tenía ${rectificativasPrevias} rectificativa(s) previa(s).` : null,
+        factura: {
+          verifactuHash: null, verifactuPrevHash: null, verifactuTs: null, verifactuSeq: null,
+          numeroCompleto: reserva.numero_completo, fechaEmision: fechaEmisionCalc, tipoFactura, tipoRectificativa, rectificaA: facturaOriginalId,
+        },
+      };
     }
     numeroCompleto = reserva.numero_completo;
     seq = Number(reserva.verifactu_seq);

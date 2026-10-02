@@ -25,12 +25,17 @@ test('la factura: sola con tarjeta, Bizum o transferencia; en efectivo, solo si 
   assert.equal(marcada.ofrecerHacerFactura, true, 'la casilla sigue ahí para poder desmarcarla');
 });
 
-test('sin un NIF fiscal válido del estudio no sale factura, y se dice por qué', () => {
+test('sin un NIF fiscal válido del estudio la factura se pide igual y queda pendiente, y se dice por qué', () => {
   for (const nif of [null, '', 'B12345678']) {
     const r = queVaAPasar({ ...base, metodo: 'TARJETA', nifEstudio: nif });
-    assert.equal(r.saleFactura, false, String(nif));
-    assert.match(r.factura ?? '', /falta el NIF fiscal del estudio/);
+    assert.equal(r.saleFactura, true, String(nif));
+    assert.match(r.factura ?? '', /queda pendiente hasta que pongas el NIF del estudio/);
   }
+});
+
+test('factura siempre (2-oct-2026): sin Veri*Factu sale igual', () => {
+  assert.equal(queVaAPasar({ ...base, metodo: 'TARJETA', modoFacturacion: 'facturas' }).factura, 'Sale su factura.');
+  assert.equal(queVaAPasar({ ...base, metodo: 'EFECTIVO', modoFacturacion: 'facturas' }).ofrecerHacerFactura, true);
 });
 
 test('un estudio que no factura con Tentare: ni frase de factura ni casilla', () => {

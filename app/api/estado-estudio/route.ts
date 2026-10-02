@@ -9,7 +9,9 @@ import {
 import { construirEstadoEstudio, contarConCandidatosNetwork, type ConteosEstudio } from '@/lib/estado-estudio';
 import { situacionRecibo } from '@/lib/billing/situacion-recibo';
 import { HORAS_LIMITE_POR_DEFECTO, instructorasGestionables } from '@/lib/fichaje/jornadas-equipo';
-import type { Rol } from '@/lib/types';
+import type { ModoFacturacion, Rol } from '@/lib/types';
+import { emiteFacturas } from '@/lib/factura-automatica';
+import { nifEmisorValido } from '@/lib/nif';
 
 // GET /api/estado-estudio — la bandeja única de la home (lib/estado-estudio.ts):
 // qué espera el visto bueno de quien mira, qué está haciendo Tentare solo y qué
@@ -78,7 +80,7 @@ export async function GET(req: NextRequest) {
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
     alertasApertura, equipoPorRevisar, clasesSinInstructora, doblesCobrosPorRevisar,
-    seguimientosParaHoy,
+    seguimientosParaHoy, facturasSinNif,
   ] = await Promise.all([
     // ── Decidir ──
     // Solo clases que aún no han empezado: una que ya pasó sin cubrir la cierra
@@ -263,6 +265,15 @@ export async function GET(req: NextRequest) {
       .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'PENDIENTE')
       .not('socio_id', 'is', null).lte('vence_el', hoyEnEstudio(ahora))
       .or(`asignada_a.is.null,asignada_a.eq.${sesion.userId}`))),
+    // Sin NIF no sale ninguna factura. Lo pone la propietaria (Datos fiscales).
+    si(rol === 'PROPIETARIO', async () => {
+      const { data: s, error } = await admin.from('studios').select('nif, modo_facturacion').eq('id', studioId).maybeSingle();
+      if (error || !s) return null;
+      if (!emiteFacturas(s.modo_facturacion as ModoFacturacion) || nifEmisorValido((s.nif as string | null)?.trim() ?? '')) return 0;
+      const n = await contar('facturas-sin-nif', admin.from('recibos')
+        .select('id', HEAD).eq('studio_id', studioId).eq('estado', 'COBRADO').eq('factura_pendiente_sellar', true));
+      return n === null ? null : Math.max(1, n);
+    }),
   ]);
 
   const jornadasPorRevisar = equipoPorRevisar === undefined ? undefined : (equipoPorRevisar?.jornadas ?? null);
@@ -273,7 +284,7 @@ export async function GET(req: NextRequest) {
     plazasFijasPorDecidir, reconciliacionesPorRevisar, doblesCobrosPorRevisar, seguimientosParaHoy,
     sustitucionesBuscando, ofertasListaEspera, cobrosEnReintento,
     sustitucionesCubiertas24h, accionesAutonomasHoy, mensajesAutomaticosHoy,
-    alertasApertura, jornadasPorRevisar, clasesNoDadasPorRevisar,
+    alertasApertura, jornadasPorRevisar, clasesNoDadasPorRevisar, facturasSinNif,
   };
   return NextResponse.json(construirEstadoEstudio(conteos));
 }

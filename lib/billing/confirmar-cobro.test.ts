@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  aplicarEfectosCobro, cerrarCobroOffSession, confirmarCobro, confirmarCobroExitoso,
+  aplicarEfectosCobro, cerrarCobroOffSession, desdeReintentoFactura, confirmarCobro, confirmarCobroExitoso,
   type DependenciasEfectos, type ParamsConfirmarCobro,
 } from './confirmar-cobro.ts';
 
@@ -563,4 +563,13 @@ test('el cobro de uno, sin `sinCobroEnMarcha`, no añade esas guardas (quien cob
   for (const col of ['proximo_reintento', 'checkout_session_id', 'cobro_mostrador_pi']) {
     assert.equal(tiene(updates[0].filtros, 'is', col, null), false, col);
   }
+});
+
+test('reintento de facturas: todo el trimestre en curso (hora de Madrid), o las últimas horas si llegan antes', () => {
+  // 20-nov: el trimestre empezó el 1-oct, antes que hace 72 h.
+  assert.equal(desdeReintentoFactura(new Date('2026-11-20T10:00:00Z'), 72), '2026-10-01');
+  // 2-ene: hace 72 h es 30-dic, antes que el 1-ene; no se pierde el final del trimestre anterior.
+  assert.equal(desdeReintentoFactura(new Date('2027-01-02T10:00:00Z'), 72), '2026-12-30');
+  // 31-dic a las 23:30 UTC ya es 1-ene en Madrid: el trimestre es el nuevo, pero manda la ventana de horas.
+  assert.equal(desdeReintentoFactura(new Date('2026-12-31T23:30:00Z'), 72), '2026-12-28');
 });
