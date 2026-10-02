@@ -104,10 +104,12 @@ alter table public.recibos add constraint recibos_conciliado_por_check
   check (conciliado_por = any (array['webhook', 'conciliador', 'manual', 'tpv', 'externo']));
 
 -- ── 2. La hora del cobro: un movimiento externo no la inventa ────────────────
+-- Dos huellas válidas: la de producción (se aplicó sin comentarios) y la del fichero
+-- 20261002131832 (con ellos), que es la que tiene una base levantada desde cero.
 do $$
 begin
   if (select md5(prosrc) from pg_proc where oid = 'public.recibos_marcas_de_tiempo()'::regprocedure)
-     <> '51895568a7b49db287cb4db2bc3626a9' then
+     not in ('51895568a7b49db287cb4db2bc3626a9', 'e940ce80906552614422bd1a6e1c8994') then
     raise exception 'recibos_marcas_de_tiempo ha cambiado desde 20261002131832: rehaz esta copia sobre la vigente';
   end if;
 end $$;
