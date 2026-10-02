@@ -15,8 +15,6 @@ import { useStudio } from '@/lib/studio-context';
 import type { Recibo } from '@/lib/types';
 import { cn, formatEuro } from '@/lib/utils';
 import { importeIngresado } from '@/lib/billing/situacion-recibo';
-import { csvLoCobrado, descargarCsv } from '@/lib/billing/export-cobrado';
-import { dbRecibosCobradosParaExport } from '@/lib/supabase-data';
 import { resumenVentasSinRecibo } from '@/lib/pos/ventas-sin-recibo';
 import {
   ORDEN_COMO_SE_COBRO, TEXTO_COMO_SE_COBRO, cobradoEnTramo, comoSeCobro, horaDelCobro, mismoTramoAnterior, moverPeriodo,
@@ -27,6 +25,7 @@ import { Buscador, normalizar } from './piezas';
 import { MenuRecibo } from './menu-recibo';
 import type { AccionesRecibo, AvisosCobros } from './use-acciones-recibo';
 import type { DatosCobros } from './use-datos-cobros';
+import { useDescargaCobrado } from './use-descarga-cobrado';
 
 const PERIODOS: { id: Periodo; texto: string }[] = [
   { id: 'DIA', texto: 'Hoy' },
@@ -73,23 +72,10 @@ export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros
   function elegirPeriodo(p: Periodo) { setPeriodo(p); setRef(hoy); setMostrar(POR_PAGINA); }
   function mover(paso: -1 | 1) { setRef(moverPeriodo(periodo, ref, paso)); setMostrar(POR_PAGINA); }
 
-  // «Descargar para la gestoría»: lo COBRADO del periodo que se ve, el mismo fichero
-  // que Informes y el cierre. Sin búsqueda: la gestoría necesita todo. Si la lectura
-  // falla no se descarga nada (un fichero más corto parecería completo).
-  const [descarga, setDescarga] = useState<'idle' | 'loading' | 'done'>('idle');
-  async function descargar() {
-    if (descarga === 'loading') return;
-    setDescarga('loading');
-    const filas = await dbRecibosCobradosParaExport(visible.desde, visible.hasta);
-    if (!filas) {
-      setDescarga('idle');
-      avisos.error('No se ha podido preparar el fichero. Inténtalo otra vez en un momento.');
-      return;
-    }
-    descargarCsv(csvLoCobrado(filas), `cobrado-${visible.desde}_${visible.hasta}.csv`);
-    setDescarga('done');
-    setTimeout(() => setDescarga('idle'), 3000);
-  }
+  // «Descargar para la gestoría»: lo COBRADO del periodo que se ve. Sin búsqueda:
+  // la gestoría necesita todo.
+  const descargas = useDescargaCobrado(avisos);
+  const descarga = descargas.fase(visible);
 
   const diferencia = anterior != null ? Math.round((actual.neto - anterior) * 100) / 100 : null;
   const maxComo = Math.max(1, ...ORDEN_COMO_SE_COBRO.map(c => actual.porComo[c].neto));
@@ -124,7 +110,7 @@ export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros
             <Wallet size={15} aria-hidden />Caja
           </Link>
           <button
-            type="button" onClick={() => void descargar()} disabled={descarga === 'loading'}
+            type="button" onClick={() => void descargas.descargar(visible)} disabled={descargas.ocupado}
             className={cn(
               'inline-flex min-h-9 items-center gap-1.5 rounded-lg border px-3 text-[13px] font-medium transition-colors',
               descarga === 'done' ? 'border-success/30 bg-success/10 text-success' : 'border-border bg-card text-foreground hover:bg-muted',

@@ -3,10 +3,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
-import { Search, Download, FileText, ChevronDown, ChevronRight, X, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Search, Download, ChevronDown, ChevronRight, X, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { nifEmisorValido } from '@/lib/nif';
 import { cn, hoyEnEstudio } from '@/lib/utils';
-import { mesAnterior } from '@/lib/billing/situacion-recibo';
+import { importeIngresado } from '@/lib/billing/situacion-recibo';
+import { cobrosSinFactura, fraseVerifactu, resumenFacturado } from '@/lib/cobros/gestoria';
+import { cobradoEnTramo } from '@/lib/cobros/lo-cobrado';
+import { useRol } from '@/lib/permisos';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { urlQrVerifactu, fechaExpedicionDesdeISO } from '@/lib/verifactu-qr';
 import { conceptoDeFactura } from '@/lib/facturas/concepto';
@@ -26,10 +29,13 @@ function kpi(val: number) {
   return val.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
 type AgrupadorFact = 'mes' | 'cliente';
 
 export function PanelFacturas() {
   const { facturas, recibos, socios, studio } = useStudio();
+  const esPropietaria = useRol() === 'PROPIETARIO';
   // ¿Emite facturas este estudio? (`Studio.modoFacturacion`). Mientras carga,
   // como si sí: la pantalla de siempre, sin un aviso que parpadee.
   const emite = studio ? studio.modoFacturacion === 'verifactu' : true;
@@ -69,13 +75,6 @@ export function PanelFacturas() {
     );
   }
 
-  // Mes del ESTUDIO y su anterior por texto (F0). Antes: `toISOString()` daba
-  // el mes en UTC (entre las 00:00 y las 02:00 del día 1 seguía siendo el mes
-  // anterior) y `setMonth(-1)` un 31 de octubre caía en el 1 de octubre, así
-  // que «frente al mes anterior» comparaba el mes consigo mismo: «+0,0 %».
-  const currentMonth = hoyEnEstudio().slice(0, 7);
-  const lastMonth = mesAnterior(currentMonth);
-
   // ── derived ───────────────────────────────────────────────────────────────────
 
   const filtradas = useMemo(() =>
@@ -90,17 +89,19 @@ export function PanelFacturas() {
     [facturas, busqueda]
   );
 
-  const totalMes = useMemo(() =>
-    facturas.filter(f => f.fechaEmision.startsWith(currentMonth)).reduce((s, f) => s + f.total, 0),
-    [facturas, currentMonth]
-  );
-
-  const totalMesAnterior = useMemo(() =>
-    facturas.filter(f => f.fechaEmision.startsWith(lastMonth)).reduce((s, f) => s + f.total, 0),
-    [facturas, lastMonth]
-  );
-
-  const variacion = totalMesAnterior > 0 ? ((totalMes - totalMesAnterior) / totalMesAnterior) * 100 : 0;
+  // La línea del mes (rediseño de Cobros, decisión 8): base, IVA por tipo y total con
+  // la regla del cierre (sin las anuladas ante la AEAT), y lo cobrado este mes que
+  // no tiene factura. Antes, cuatro tarjetas con «21 %» escrito a mano y una
+  // comparación de los días que van del mes frente al mes anterior entero.
+  const hoy = hoyEnEstudio();
+  const mes = useMemo(() => {
+    const t = { desde: `${hoy.slice(0, 7)}-01`, hasta: hoy };
+    const conFactura = new Set(facturas.map(f => f.reciboId));
+    return {
+      facturado: resumenFacturado(facturas, t),
+      sinFactura: cobrosSinFactura(cobradoEnTramo(recibos, t).recibos, id => conFactura.has(id), importeIngresado),
+    };
+  }, [facturas, recibos, hoy]);
 
   const totalGeneral = useMemo(() => filtradas.reduce((s, f) => s + f.total, 0), [filtradas]);
   const baseTotal = useMemo(() => filtradas.reduce((s, f) => s + f.baseImponible, 0), [filtradas]);
@@ -182,10 +183,6 @@ export function PanelFacturas() {
   const previewFactura = preview ? facturas.find(f => f.id === preview) : null;
   const previewSocio = previewFactura ? socioParaFactura(previewFactura.reciboId) : null;
 
-  // Si ya hay al menos una factura con huella de Verifactu, la integración está
-  // activa de verdad para este estudio (se activa sola en el primer sellado, no
-  // es un flag manual) — el banner de "Próximamente" no puede ser un texto fijo,
-  // o mentiría sobre una obligación fiscal en cuanto la primera factura se selle.
 /**
  * El estado del registro ante la AEAT, cuando lo hay.
  *
@@ -213,8 +210,6 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
   );
 }
 
-  const verifactuActivo = facturas.some(f => f.verifactuHash);
-
   // Sin NIF válido no se puede sellar NINGUNA factura, pero eso solo se sabía
   // por un toast que se autodescarta a los segundos y desde otra pantalla: la
   // dueña cobraba, veía «0 facturas» aquí y no tenía forma de saber por qué.
@@ -237,33 +232,24 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
           </button>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Este mes</p>
-          <CifraPrivada className="text-2xl font-extrabold text-foreground mt-1">{kpi(totalMes)} €</CifraPrivada>
-          {totalMesAnterior > 0 && (
-            <p className={cn('text-xs font-semibold mt-1', variacion >= 0 ? 'text-success' : 'text-destructive')}>
-              {variacion >= 0 ? '+' : ''}{variacion.toFixed(1)}% vs mes anterior
-            </p>
-          )}
+      {/* Lo facturado en el mes, en una línea */}
+      {emite && (
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[14px] text-foreground" data-testid="facturado-mes">
+          <span>Facturado en {MESES[Number(hoy.slice(5, 7)) - 1]}:</span>
+          <span>base <b className="font-semibold tabular-nums"><CifraPrivada inline>{kpi(mes.facturado.base)} €</CifraPrivada></b></span>
+          {mes.facturado.porIva.map(l => (
+            <span key={l.tipoIva}>
+              <span className="text-muted-foreground">· </span>IVA {l.tipoIva} % <b className="font-semibold tabular-nums"><CifraPrivada inline>{kpi(l.cuota)} €</CifraPrivada></b>
+            </span>
+          ))}
+          <span><span className="text-muted-foreground">· </span>total <b className="font-semibold tabular-nums"><CifraPrivada inline>{kpi(mes.facturado.total)} €</CifraPrivada></b></span>
+          <span className="text-muted-foreground">
+            · {mes.facturado.nFacturas} {mes.facturado.nFacturas === 1 ? 'factura' : 'facturas'}
+            {mes.facturado.nAnuladas > 0 && ` (y ${mes.facturado.nAnuladas} anulada${mes.facturado.nAnuladas === 1 ? '' : 's'}, que no suman)`}
+            {mes.sinFactura.enEfectivo.n > 0 && <> · {mes.sinFactura.enEfectivo.n} {mes.sinFactura.enEfectivo.n === 1 ? 'cobro' : 'cobros'} en efectivo sin factura (<CifraPrivada inline>{kpi(mes.sinFactura.enEfectivo.importe)} €</CifraPrivada>)</>}
+          </span>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Base imponible</p>
-          <CifraPrivada className="text-2xl font-extrabold text-foreground mt-1">{kpi(baseTotal)} €</CifraPrivada>
-          <p className="text-xs font-medium text-muted-foreground mt-1">sin IVA</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">IVA repercutido</p>
-          <CifraPrivada className="text-2xl font-extrabold text-foreground mt-1">{kpi(ivaTotal)} €</CifraPrivada>
-          <p className="text-xs font-medium text-muted-foreground mt-1">21% tipo general</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total emitido</p>
-          <CifraPrivada className="text-2xl font-extrabold text-foreground mt-1">{kpi(totalGeneral)} €</CifraPrivada>
-          <p className="text-xs font-medium text-muted-foreground mt-1">{filtradas.length} factura{filtradas.length === 1 ? '' : 's'}</p>
-        </div>
-      </div>
+      )}
 
       {/* Falta el NIF: sin él no se emite ni una factura. Va ANTES del banner
           de Verifactu porque es lo único accionable de esta pantalla. */}
@@ -276,64 +262,25 @@ function EstadoAeat({ estado, csv }: { estado?: string | null; csv?: string | nu
               Falta tu NIF, así que los cobros se registran pero se quedan sin factura. En cuanto lo pongas,
               las facturas se emiten solas al cobrar.
             </p>
-            <Link
-              href="/configuracion?tab=cobros#datos-fiscales"
-              className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold text-destructive hover:underline"
-            >
-              Poner mi NIF ahora
-              <ChevronRight size={13} />
-            </Link>
+            {esPropietaria && (
+              <Link
+                href="/configuracion?tab=cobros#datos-fiscales"
+                className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold text-destructive hover:underline"
+              >
+                Poner mi NIF ahora
+                <ChevronRight size={13} />
+              </Link>
+            )}
           </div>
         </div>
       )}
 
-      {/* El estudio no emite facturas desde Tentare (Configuración → Facturación,
-          por defecto desde el 29-sep-2026): se dice, y a dónde ir para cambiarlo.
-          Lo ya emitido, si lo hay, sigue en la lista de abajo. */}
-      {!emite && (
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/60 border border-border">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-card">
-            <FileText size={15} className="text-muted-foreground" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-foreground">Tentare no emite tus facturas</p>
-            <p className="text-xs font-medium mt-0.5 text-muted-foreground">
-              Tus alumnas reciben su justificante de pago y tus facturas las haces con tu gestoría o con otro programa.
-              {facturas.length > 0 ? ' Las que ya emitiste desde aquí siguen en la lista.' : ''}
-            </p>
-            <Link
-              href="/configuracion?tab=cobros#facturacion"
-              className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold text-foreground hover:underline"
-            >
-              Emitir facturas desde Tentare
-              <ChevronRight size={13} />
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Verifactu banner */}
-      {emite && (
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-brand/10 border border-info/10">
-        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-info/10">
-          {verifactuActivo ? <ShieldCheck size={15} className="text-brand-medio" /> : <FileText size={15} className="text-brand-medio" />}
-        </div>
-        <div className="flex-1">
-          {/* P1 (auditoría "Veredicto de Marta"): el texto de "Activo" decía
-              "se firman y se envían a la AEAT automáticamente", y eso todavía
-              no es cierto — lib/verifactu.ts es el CIMIENTO (huella SHA-256 +
-              QR encadenado, verificado contra los vectores de la AEAT) pero
-              no hay envío SOAP real. El copy anterior prometía más de lo que
-              el sistema hace hoy; este dice exactamente lo que sí es cierto
-              sin sonar a que no hay nada construido. */}
-          <p className="text-sm font-bold text-foreground">{verifactuActivo ? 'Verifactu — Huella activa' : 'Verifactu — Próximamente'}</p>
-          <p className="text-xs font-medium mt-0.5 text-brand-medio">
-            {verifactuActivo
-              ? 'Cada factura queda sellada con su huella (registro encadenado) desde que se cobra. El QR se imprime cuando la AEAT tiene el registro, y el envío automático a la AEAT está en camino.'
-              : 'Integración con AEAT en desarrollo. Las facturas se generan automáticamente al cobrar un recibo.'}
-          </p>
-        </div>
-      </div>
+      {/* Veri*Factu en una frase que diga la verdad (sin el NIF lo dice el aviso de arriba) */}
+      {emite && !faltaNif && (
+        <p className="flex items-start gap-1.5 text-[13px] text-foreground">
+          <ShieldCheck size={14} className="mt-0.5 shrink-0 text-success" aria-hidden />
+          {fraseVerifactu({ nifEstudioValido: true, pendientesDeSellar: mes.sinFactura.pendientesDeSellar.n })}
+        </p>
       )}
 
       {/* Filters */}
