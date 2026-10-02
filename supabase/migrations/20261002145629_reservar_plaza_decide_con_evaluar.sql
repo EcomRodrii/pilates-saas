@@ -131,6 +131,12 @@ begin
 end;
 $function$;
 
+-- Permisos EXPLÍCITOS, aunque `create or replace` con la misma firma conserva el ACL: en producción estas dos sentencias no
+-- cambian nada (ya era así), pero una base creada desde cero puede nacer con otros permisos y la guardia de migraciones
+-- exige que toda función SECURITY DEFINER decida por escrito sobre anon.
+revoke all on function public.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean, text) from public, anon, authenticated;
+grant execute on function public.reservar_plaza(text, text, text, text, boolean, boolean, text, boolean, boolean, text) to service_role;
+
 -- Verificación: los mismos permisos que tenía (solo el servidor).
 do $$
 begin
