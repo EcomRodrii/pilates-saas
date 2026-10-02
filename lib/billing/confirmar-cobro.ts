@@ -54,7 +54,7 @@ import { nifEmisorValido } from '../nif.ts';
 import {
   conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
   facturaIdCheckout, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas,
-  reentregaAplicaAlRecibo, refIdCreditoRenovacion, resolverSinFilas,
+  reentregaAplicaAlRecibo, refIdCreditoRenovacion, resolverSinFilas, ESPERA_A_UN_COBRO_OFF_SESSION,
   type FilaReciboSinCambios, type OrigenCobro, type PasoEfecto,
 } from './cobro-confirmado-reglas.ts';
 
@@ -157,6 +157,8 @@ export type ResultadoConfirmarCobro =
       error: string;
       /** Con NO_COBRABLE: el estado en que se encontró el recibo. */
       estado?: string | null;
+      /** Con NO_COBRABLE: se está cobrando ahora con su tarjeta o domiciliación guardada. */
+      enMarcha?: true;
     };
 
 /** Los efectos, inyectables para poder probar el orden sin red ni BD. */
@@ -397,6 +399,9 @@ export async function confirmarCobro(
       ...(p.paymentIntentId ? { stripe_payment_intent_id: p.paymentIntentId } : {}),
       // Pagado: deja de haber una sesión abierta que reutilizar.
       checkout_session_id: null,
+      // Ni un cobro con tarjeta guardada en marcha: el que gana lo cierra. Para
+      // quien espera a ese cobro (`ESPERA_A_UN_COBRO_OFF_SESSION`) ya era null.
+      cobro_off_session_clave: null, cobro_off_session_desde: null,
       ...(conciliadoPor ? { conciliado_en: ahoraISO, conciliado_por: conciliadoPor } : {}),
     })
     // Acotado al tenant y a los estados que admite QUIEN confirma. Queda fuera
@@ -431,6 +436,14 @@ export async function confirmarCobro(
   } else if (p.sinCobroDeMostrador) {
     consulta = consulta.is('cobro_mostrador_pi', null);
   }
+  // Un cobro con tarjeta o domiciliación guardada en marcha (`cobro_off_session_clave`,
+  // lib/billing/cobro-off-session-marca.ts): quien confirma a mano espera, en el propio
+  // UPDATE. `banco` y `sinCobroEnMarcha` ya la exigen (está en `COLUMNAS_COBRO_EN_MARCHA`);
+  // `sinCobroDeMostrador` también, para un origen que aún no esté en el Record.
+  const marcaYaExigida = p.origen === 'banco' || !!p.sinCobroEnMarcha;
+  if (!marcaYaExigida && (ESPERA_A_UN_COBRO_OFF_SESSION[p.origen] || p.sinCobroDeMostrador)) {
+    consulta = consulta.is('cobro_off_session_clave', null);
+  }
   if (p.checkoutLeido !== undefined) {
     consulta = p.checkoutLeido === null ? consulta.is('checkout_session_id', null) : consulta.eq('checkout_session_id', p.checkoutLeido);
   }
@@ -445,7 +458,7 @@ export async function confirmarCobro(
 
   if (!marcado) {
     const { data: fila, error: errLeer } = await admin.from('recibos')
-      .select('estado, stripe_payment_intent_id, conciliado_por').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+      .select('estado, stripe_payment_intent_id, conciliado_por, cobro_off_session_clave').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
     if (errLeer) return { ok: false, codigo: 'PERSISTENCIA', error: errLeer.message };
     const decision = resolverSinFilas(fila as FilaReciboSinCambios, p.paymentIntentId);
     switch (decision.tipo) {
@@ -472,6 +485,12 @@ export async function confirmarCobro(
       }
       case 'devuelto':
         return { ok: true, transicion: 'devuelto', selladoOk: true };
+      case 'cobro_en_marcha':
+        // La marca hizo su trabajo: no es una avería, no se avisa.
+        return {
+          ok: false, codigo: 'NO_COBRABLE', estado: decision.estado, enMarcha: true,
+          error: 'Este recibo se está cobrando ahora mismo con su tarjeta o domiciliación guardada: no se ha cobrado aquí.',
+        };
       case 'otro_cobro':
         // Auditoría 2026-09-16 (PAY-2): sin cargo guardado, el caso más probable
         // de doble cobro real es el mostrador cerrando el recibo a mano SIN

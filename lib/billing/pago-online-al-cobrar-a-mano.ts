@@ -116,4 +116,4 @@ export async function soltarCobroDeMostradorAntesDeCobrarAMano(
 export const MENSAJE_YA_PAGADO_EN_EL_DATAFONO =
   'Ya se cobró en el datáfono: no se ha cobrado aquí. Ábrelo en la caja para cerrarlo.';
 export const MENSAJE_SE_ABRIO_UN_PAGO =
-  'Mientras tanto se ha abierto un pago online o en el datáfono para este recibo: no se ha cobrado aquí. Vuelve a intentarlo.';
+  'Mientras tanto se ha empezado a cobrar este recibo por otro camino (pago online, datáfono o su tarjeta o domiciliación guardada): no se ha cobrado aquí. Vuelve a mirarlo en unos minutos.';

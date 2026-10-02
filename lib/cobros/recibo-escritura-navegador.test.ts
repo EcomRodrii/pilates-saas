@@ -55,6 +55,11 @@ test('la migración concede a authenticated exactamente las columnas de la lista
   assert.deepEqual(columnasDel(sql, 'update'), [...COLUMNAS_RECIBO_ACTUALIZABLES].sort(), 'GRANT UPDATE y COLUMNAS_RECIBO_ACTUALIZABLES divergen');
   // Nada que le dé escritura a anon o a PUBLIC.
   assert.doesNotMatch(sql, /to (public|anon)\b/i);
+  // La marca de «cobro con tarjeta guardada en marcha» solo la escribe el servidor.
+  for (const col of ['cobro_off_session_clave', 'cobro_off_session_desde']) {
+    assert.equal((COLUMNAS_RECIBO_INSERTABLES as readonly string[]).includes(col), false, col);
+    assert.equal((COLUMNAS_RECIBO_ACTUALIZABLES as readonly string[]).includes(col), false, col);
+  }
 });
 
 test('la política de cancelar una cuota corre como su dueño: escribe columnas que el navegador ya no tiene', () => {
@@ -83,16 +88,20 @@ test('el trigger cierra también DEVUELTO: ni nace, ni se pasa, ni sale desde el
   assert.match(fn, /old\.estado in \('COBRADO', 'DEVUELTO'\)/);
   // Un recibo NACE pendiente desde el navegador (FALLIDO alimenta el bloqueo por impago, EN_CURSO simula «enviado al banco»).
   assert.match(fn, /if new\.estado is distinct from 'PENDIENTE' then\s+raise exception 'recibos_cobrado_solo_servidor: un recibo nace pendiente/);
-  // Un EN_CURSO con un cobro en vuelo no vuelve a pendiente a mano: las cuatro columnas de `COLUMNAS_COBRO_EN_MARCHA`.
+  // Un EN_CURSO con un cobro en vuelo no vuelve a pendiente a mano: las cinco columnas de `COLUMNAS_COBRO_EN_MARCHA`.
   assert.match(fn, /old\.estado = 'EN_CURSO'\s+and new\.estado in \('PENDIENTE', 'FALLIDO'\)/);
-  for (const col of ['stripe_payment_intent_id', 'checkout_session_id', 'cobro_mostrador_pi', 'proximo_reintento']) {
+  for (const col of COLUMNAS_COBRO_EN_MARCHA) {
     assert.match(fn, new RegExp(`old\\.${col} is not null`), `un EN_CURSO con ${col} podría volver a pendiente`);
   }
-  assert.deepEqual([...COLUMNAS_COBRO_EN_MARCHA].sort(), ['checkout_session_id', 'cobro_mostrador_pi', 'proximo_reintento', 'stripe_payment_intent_id'],
+  assert.deepEqual([...COLUMNAS_COBRO_EN_MARCHA].sort(),
+    ['checkout_session_id', 'cobro_mostrador_pi', 'cobro_off_session_clave', 'proximo_reintento', 'stripe_payment_intent_id'],
     'la pantalla y el trigger tienen que mirar las mismas columnas de «cobro en marcha»');
+  // Un recibo que se está cobrando con su tarjeta o domiciliación guardada no cambia de estado desde el
+  // navegador: una pestaña con el panel anterior no conoce la marca y podría mandarlo a la remesa.
+  assert.match(fn, /if old\.cobro_off_session_clave is not null then\s+raise exception 'recibos_cobrado_solo_servidor: un recibo que se está cobrando con su tarjeta/);
   // Todos los rechazos son 42501 y llevan el nombre del trigger delante (`lib/errores.ts` los reconoce por él).
   const rechazos = (fn.match(/raise exception 'recibos_cobrado_solo_servidor: /g) ?? []).length;
-  assert.equal(rechazos, 8);
+  assert.equal(rechazos, 9);
   assert.equal((fn.match(/errcode = '42501'/g) ?? []).length, rechazos);
   assert.match(sql, /revoke all on function public\.recibos_cobrado_solo_servidor\(\) from public, anon, authenticated;/);
 });

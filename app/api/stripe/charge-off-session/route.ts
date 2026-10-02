@@ -35,6 +35,8 @@ const STATUS_POR_ERROR: Record<CobroErrorCode, number> = {
   CUOTA_CANCELADA: 409,
   RECIBO_ANULADO: 409,
   SIN_REINTENTOS: 409,
+  // Ya se está cobrando por otro camino (tarjeta guardada, datáfono): no se ha cobrado.
+  COBRO_EN_MARCHA: 409,
 };
 
 export async function POST(req: NextRequest) {

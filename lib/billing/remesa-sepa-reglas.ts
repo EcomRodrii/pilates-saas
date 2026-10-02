@@ -41,9 +41,11 @@ export const DIAS_HASTA_CARGO_REMESA = 5;
 /**
  * Columnas de `recibos` que dicen que ya hay un cobro en marcha. Las mismas que
  * impiden borrar el recibo de una penalización (`borrarReciboDePenalizacionSinCobro`).
+ * `cobro_off_session_clave`: se está cobrando AHORA con la tarjeta o domiciliación
+ * guardada (lib/billing/cobro-off-session-marca.ts).
  */
 export const COLUMNAS_COBRO_EN_MARCHA = [
-  'proximo_reintento', 'stripe_payment_intent_id', 'checkout_session_id', 'cobro_mostrador_pi',
+  'proximo_reintento', 'stripe_payment_intent_id', 'checkout_session_id', 'cobro_mostrador_pi', 'cobro_off_session_clave',
 ] as const;
 
 type ColumnaCobroEnMarcha = (typeof COLUMNAS_COBRO_EN_MARCHA)[number];
@@ -186,6 +188,7 @@ const DETALLE_COBRO_EN_MARCHA: Record<ColumnaCobroEnMarcha, string> = {
   stripe_payment_intent_id: 'tiene un cargo de Stripe en marcha',
   checkout_session_id: 'tiene abierto un pago online',
   cobro_mostrador_pi: 'se está cobrando en el mostrador',
+  cobro_off_session_clave: 'se está cobrando ahora con su tarjeta o domiciliación guardada',
 };
 
 export const TEXTO_MOTIVO_FUERA: Record<Exclude<MotivoFueraDeRemesa, 'COBRO_EN_MARCHA'>, string> = {

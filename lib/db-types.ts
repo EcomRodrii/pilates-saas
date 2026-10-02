@@ -615,6 +615,10 @@ export interface RowRecibos {
   enviado_al_banco_en: string | null;
   // migr 20261002131832.
   cargo_pedido_para: string | null;
+  // migr 20261002230302.
+  cobro_off_session_clave: string | null;
+  // migr 20261002230302.
+  cobro_off_session_desde: string | null;
 }
 
 export interface RowRewardActions {
@@ -4910,6 +4914,8 @@ export type RecibosInsert = {
   cobrado_en?: string | null | null;
   enviado_al_banco_en?: string | null | null;
   cargo_pedido_para?: string | null | null;
+  cobro_off_session_clave?: string | null | null;
+  cobro_off_session_desde?: string | null | null;
 }
 
 export type RecibosUpdate = {
@@ -4957,6 +4963,8 @@ export type RecibosUpdate = {
   cobrado_en?: string | null | null;
   enviado_al_banco_en?: string | null | null;
   cargo_pedido_para?: string | null | null;
+  cobro_off_session_clave?: string | null | null;
+  cobro_off_session_desde?: string | null | null;
 }
 
 export type RewardActionsInsert = {

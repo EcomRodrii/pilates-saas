@@ -31,6 +31,7 @@ import { comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-dat
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
+import { MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO } from '@/lib/billing/cobro-off-session-marca';
 import { telefonoValido } from '@/lib/csv';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
@@ -196,7 +197,7 @@ export async function POST(req: NextRequest) {
   if (body.reciboId) {
     const { data: recibo, error } = await admin
       .from('recibos')
-      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, entrega_tipo, suscripcion_id')
+      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, cobro_off_session_clave, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, entrega_tipo, suscripcion_id')
       .eq('id', body.reciboId)
       .maybeSingle();
     if (error || !recibo) {
@@ -214,6 +215,12 @@ export async function POST(req: NextRequest) {
     // deuda tiene que poder pagarse.
     if (!esReciboCobrable(recibo as Parameters<typeof esReciboCobrable>[0])) {
       return conCorsWidget(req, NextResponse.json({ error: 'Este recibo ya no está pendiente de cobro' }, { status: 409 }));
+    }
+    // Se le está cobrando AHORA con su tarjeta o domiciliación guardada: abrirle (o
+    // devolverle) un pago online sería un segundo cobro. Antes de reutilizar una
+    // sesión abierta, y el UPDATE que guarda la sesión nueva lo vuelve a exigir.
+    if (recibo.cobro_off_session_clave) {
+      return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO }, { status: 409 }));
     }
     // El recibo de una penalización (`rec-penaliz-*`) solo se paga con el cobro
     // decidido (RECIBO_CREADO) o con la penalización FALLIDA, que es deuda de la
@@ -788,11 +795,13 @@ export async function POST(req: NextRequest) {
         .update({ checkout_session_id: session.id })
         .eq('id', body.reciboId)
         .eq('studio_id', body.studioId)
+        // Ni con un cobro con tarjeta guardada en vuelo (empezó tras la lectura de arriba).
+        .is('cobro_off_session_clave', null)
         .select('id');
       // Sin error pero sin tocar ninguna fila: el recibo ya no existe (se borró
       // entre la lectura de arriba y aquí, p. ej. el de una penalización que se
-      // decidió no cobrar). Devolver la URL sería abrir un pago de algo que Tentare
-      // ya no tiene: el dinero entraría sin ningún recibo que marcar.
+      // decidió no cobrar), o se está cobrando con su tarjeta guardada. Devolver la
+      // URL sería abrir un pago de algo que Tentare ya no tiene, o un segundo cobro.
       const reciboDesaparecido = !errGuardar && (guardadas?.length ?? 0) === 0;
       if (errGuardar || reciboDesaparecido) {
         if (errGuardar) console.error('[stripe/checkout] no se pudo registrar la sesión', session.id, errGuardar);
@@ -819,7 +828,7 @@ export async function POST(req: NextRequest) {
           await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
         }
         return conCorsWidget(req, reciboDesaparecido
-          ? NextResponse.json({ error: 'Este recibo ya no está pendiente de cobro' }, { status: 409 })
+          ? NextResponse.json({ error: 'Este recibo ya no está pendiente de cobro, o se está cobrando ahora mismo.' }, { status: 409 })
           : NextResponse.json({ error: 'No se pudo iniciar el cobro. Inténtalo de nuevo.' }, { status: 500 }));
       }
     }

@@ -179,7 +179,8 @@ export async function anularVentaClaseSuelta(admin: SupabaseClient, p: {
       .update({ estado: 'ANULADO', anulado_en: p.ahoraISO, proximo_reintento: null })
       .eq('id', p.reciboId).eq('studio_id', p.studioId)
       .eq('estado', 'PENDIENTE').is('fecha_cobro', null)
-      .is('stripe_payment_intent_id', null).is('checkout_session_id', null).is('cobro_mostrador_pi', null);
+      .is('stripe_payment_intent_id', null).is('checkout_session_id', null).is('cobro_mostrador_pi', null)
+      .is('cobro_off_session_clave', null);
     if (!error) {
       // Nada pendiente que anular: o ya lo estaba, o no llegó a crearse, o
       // alguien lo cobró entretanto (eso hay que mirarlo).

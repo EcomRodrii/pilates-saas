@@ -6,6 +6,7 @@ import {
   aplicarEfectosCobro, cerrarCobroOffSession, desdeReintentoFactura, confirmarCobro, confirmarCobroExitoso,
   type DependenciasEfectos, type ParamsConfirmarCobro,
 } from './confirmar-cobro.ts';
+import { ESPERA_A_UN_COBRO_OFF_SESSION, type OrigenCobro } from './cobro-confirmado-reglas.ts';
 
 // El dueño único de «este recibo está cobrado», contra un Supabase de mentira
 // y con los efectos sustituidos por un registro. Lo que se fija aquí:
@@ -562,6 +563,61 @@ test('el cobro de uno, sin `sinCobroEnMarcha`, no añade esas guardas (quien cob
   await confirmarCobro(admin, { ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false }, deps);
   for (const col of ['proximo_reintento', 'checkout_session_id', 'cobro_mostrador_pi']) {
     assert.equal(tiene(updates[0].filtros, 'is', col, null), false, col);
+  }
+});
+
+// ── Cobro con tarjeta o domiciliación guardada en marcha ─────────────────────
+// `cobrarReciboOffSession` reserva el recibo (`cobro_off_session_clave`) antes de
+// llamar a Stripe. Quien confirma a mano espera a que termine; lo que confirma
+// Stripe no espera (el dinero ya entró). Ver lib/billing/cobro-off-session-marca.ts.
+
+const ORIGENES = Object.keys(ESPERA_A_UN_COBRO_OFF_SESSION) as OrigenCobro[];
+const sinCargo = (o: OrigenCobro) => o === 'manual' || o === 'banco' || o === 'externo';
+
+test('todo cobro que gana quita la marca de «cobro en marcha» en el mismo UPDATE a COBRADO', async () => {
+  for (const origen of ORIGENES) {
+    const { admin, updates } = fakeAdmin({ trasCas: GANA });
+    const { deps } = efectos();
+    await confirmarCobro(admin, { ...BASE, origen, paymentIntentId: sinCargo(origen) ? null : 'pi_nuevo', avisarSocia: false }, deps);
+    assert.equal(updates[0].fila.estado, 'COBRADO', origen);
+    assert.ok('cobro_off_session_clave' in updates[0].fila && updates[0].fila.cobro_off_session_clave === null, origen);
+    assert.ok('cobro_off_session_desde' in updates[0].fila && updates[0].fila.cobro_off_session_desde === null, origen);
+  }
+});
+
+test('a mano y el banco esperan al cobro con tarjeta guardada (marca a null en el CAS); lo que confirma Stripe no', async () => {
+  assert.deepEqual(ORIGENES.filter(o => ESPERA_A_UN_COBRO_OFF_SESSION[o]).sort(), ['banco', 'externo', 'manual']);
+  for (const origen of ORIGENES) {
+    const { admin, updates } = fakeAdmin({ trasCas: GANA });
+    const { deps } = efectos();
+    await confirmarCobro(admin, { ...BASE, origen, paymentIntentId: sinCargo(origen) ? null : 'pi_nuevo', avisarSocia: false }, deps);
+    assert.equal(tiene(updates[0].filtros, 'is', 'cobro_off_session_clave', null), ESPERA_A_UN_COBRO_OFF_SESSION[origen], origen);
+    // Una sola vez, aunque el banco la pida también por `COLUMNAS_COBRO_EN_MARCHA`.
+    assert.ok(updates[0].filtros.filter(([o, c]) => o === 'is' && c === 'cobro_off_session_clave').length <= 1, origen);
+  }
+});
+
+test('`sinCobroDeMostrador` exige también la marca a null: un origen nuevo que pase por ahí espera igual', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: GANA });
+  const { deps } = efectos();
+  await confirmarCobro(admin, { ...BASE, origen: 'webhook', sinCobroDeMostrador: true }, deps);
+  assert.ok(tiene(updates[0].filtros, 'is', 'cobro_mostrador_pi', null));
+  assert.ok(tiene(updates[0].filtros, 'is', 'cobro_off_session_clave', null));
+});
+
+test('a mano sobre un recibo que se está cobrando con su tarjeta guardada: no se cobra, ni efectos ni aviso', async () => {
+  for (const estado of ['PENDIENTE', 'FALLIDO']) {
+    const { admin, updates } = fakeAdmin({
+      trasCas: null, actual: { estado, stripe_payment_intent_id: null, cobro_off_session_clave: 'offsession-cobro-rec-1-i0' },
+    });
+    const { orden, deps } = efectos();
+    const r = await confirmarCobro(admin, { ...BASE, origen: 'manual', metodo: 'EFECTIVO', paymentIntentId: null, avisarSocia: false }, deps);
+    assert.equal(r.ok, false);
+    assert.equal(!r.ok && r.codigo, 'NO_COBRABLE');
+    assert.equal(!r.ok && r.enMarcha, true, estado);
+    assert.equal(!r.ok && r.estado, estado);
+    assert.deepEqual(orden, []);
+    assert.equal(updates.length, 1, 'solo el compare-and-set que no ganó');
   }
 });
 

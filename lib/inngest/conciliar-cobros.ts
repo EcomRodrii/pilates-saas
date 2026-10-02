@@ -33,7 +33,10 @@ import { inngest } from './client.ts';
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { fetchAllRows } from '../supabase-data.ts';
 import { entregarPlanComprado, idsDe } from '../billing/entregar-plan-comprado.ts';
-import { confirmarCobroRecibo, reintentarFacturasPendientesDeSellar, consumirCodigoDescuentoSiAplica } from '../billing/confirmar-cobro.ts';
+import { confirmarCobroRecibo, confirmarCobroExitoso, reintentarFacturasPendientesDeSellar, consumirCodigoDescuentoSiAplica } from '../billing/confirmar-cobro.ts';
+import {
+  decidirMarcaHuerfana, marcarAdeudoEnCurso, MINUTOS_HUERFANA, soltarMarcaCobroOffSession, ventanaDelIntento,
+} from '../billing/cobro-off-session-marca.ts';
 import { metodoRealDeSesion } from '../billing/metodo-real-sesion.ts';
 import { reservarClasePagada } from '../billing/reservar-clase-pagada.ts';
 import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
@@ -221,12 +224,109 @@ async function conciliarEstudio(
   studio: { id: string; stripe_account_id: string },
 ): Promise<number> {
   const { pendientes, sesionPorId, piPorId } = await detectarPendientes(admin, stripe, studio, VENTANA_HORAS);
+  // Calculado DESPUÉS del listado, así que es igual o posterior a su inicio real:
+  // lo que empieza a partir de aquí seguro que está listado.
+  const inicioListado = Math.floor(Date.now() / 1000) - VENTANA_HORAS * 3600;
   for (const p of pendientes) {
     await entregar(admin, stripe, studio.stripe_account_id, p, sesionPorId.get(p.sesionId), piPorId.get(p.sesionId));
   }
   await devolverPlazasDeMatricula(admin, stripe, studio, [...sesionPorId.values()], [...piPorId.values()]);
   await soltarCobrosPosCaducados(admin, studio, [...sesionPorId.values()]);
+  await resolverCobrosConMetodoGuardadoColgados(admin, stripe, studio, [...piPorId.values()], inicioListado);
   return pendientes.length;
+}
+
+// Cobros con tarjeta o domiciliación guardada que se quedaron «en marcha»
+// (`recibos.cobro_off_session_clave`): el proceso que cobraba murió, o Stripe no
+// contestó y nadie volvió a entrar. Mientras la marca siga puesta ninguna puerta a
+// mano cobra el recibo, así que alguien tiene que resolverla, y nunca a ciegas:
+// se mira qué hizo Stripe con ese intento (lib/billing/cobro-off-session-marca.ts).
+// Solo las que pasan de `MINUTOS_HUERFANA`: antes, quien llamó (o su reintento)
+// aún puede estar resolviéndola. Usa el listado de PaymentIntents que este barrido
+// ya hace; solo pregunta aparte por un intento que quede fuera de esa ventana.
+async function resolverCobrosConMetodoGuardadoColgados(
+  admin: SupabaseClient,
+  stripe: Stripe,
+  studio: { id: string; stripe_account_id: string },
+  pisListados: Stripe.PaymentIntent[],
+  inicioListado: number,
+): Promise<void> {
+  const limite = new Date(Date.now() - MINUTOS_HUERFANA * 60_000).toISOString();
+  const { data: colgados, error } = await admin.from('recibos')
+    .select('id, estado, cobro_off_session_clave, cobro_off_session_desde')
+    .eq('studio_id', studio.id).not('cobro_off_session_clave', 'is', null)
+    .lt('cobro_off_session_desde', limite)
+    .limit(100);
+  if (error) {
+    Sentry.captureMessage('[conciliador] no se pudieron leer los cobros con tarjeta guardada colgados', {
+      level: 'error', tags: { area: 'cobros', tipo: 'cobro-en-marcha' }, extra: { studioId: studio.id, error: error.message },
+    });
+    return;
+  }
+  // Con el techo alcanzado el listado puede no tener los más viejos: se pregunta aparte.
+  const listadoCompleto = pisListados.length < TECHO_PIS;
+  const ahora = new Date();
+  for (const r of (colgados ?? []) as { id: string; estado: string; cobro_off_session_clave: string; cobro_off_session_desde: string }[]) {
+    const marca = { clave: r.cobro_off_session_clave, desde: r.cobro_off_session_desde };
+    const viejaDeUnDia = ahora.getTime() - new Date(marca.desde).getTime() > 24 * 3600_000;
+    try {
+      const ventana = ventanaDelIntento(marca.desde);
+      let pis: Stripe.PaymentIntent[] = pisListados;
+      if (!listadoCompleto || ventana.gte < inicioListado) {
+        pis = [];
+        for await (const pi of stripe.paymentIntents.list(
+          { created: { gte: ventana.gte, lte: ventana.lte }, limit: 100 },
+          { stripeAccount: studio.stripe_account_id },
+        )) {
+          pis.push(pi);
+          if (pis.length >= TECHO_PIS) throw new Error('techo de paginado en la ventana de un intento');
+        }
+      }
+      const decision = decidirMarcaHuerfana({ id: r.id, estado: r.estado, desde: marca.desde }, pis, ahora);
+      switch (decision.tipo) {
+        case 'ESPERAR':
+          break;
+        case 'SOLTAR':
+          await soltarMarcaCobroOffSession(admin, { studioId: studio.id, reciboId: r.id, marca });
+          break;
+        case 'COBRADO': {
+          // El cargo entró y nadie cerró el recibo: se cierra (y se quita la marca)
+          // por el dueño único, como haría el webhook que no llegó.
+          const res = await confirmarCobroExitoso({
+            admin, reciboId: r.id, studioId: studio.id, metodo: decision.metodo,
+            paymentIntentId: decision.paymentIntentId, fuente: 'conciliador',
+          });
+          if (!res.ok) throw new Error(`no se pudo cerrar el recibo de un cargo cobrado: ${res.error}`);
+          break;
+        }
+        case 'ADEUDO_EN_CURSO': {
+          const res = await marcarAdeudoEnCurso(admin, { studioId: studio.id, reciboId: r.id, paymentIntentId: decision.paymentIntentId });
+          if (res.error) throw new Error(`no se pudo marcar en curso un adeudo en vuelo: ${res.error}`);
+          break;
+        }
+        case 'MANTENER':
+          // Dos cargos del mismo intento no deberían existir: hay que mirarlo ya.
+          if (decision.motivo === 'VARIOS_CARGOS' || viejaDeUnDia) {
+            Sentry.captureMessage('[conciliador] cobro con tarjeta guardada colgado que no se puede resolver solo', {
+              level: decision.motivo === 'VARIOS_CARGOS' ? 'error' : 'warning', tags: { area: 'cobros', tipo: 'cobro-en-marcha' },
+              extra: { studioId: studio.id, reciboId: r.id, motivo: decision.motivo, desde: marca.desde },
+            });
+          }
+          break;
+      }
+    } catch (e) {
+      // Sin respuesta de Stripe (o sin poder escribir) la marca se queda: el
+      // siguiente barrido lo vuelve a intentar. Se avisa si ya lleva un día.
+      if (viejaDeUnDia) {
+        Sentry.captureException(e instanceof Error ? e : new Error('cobro con tarjeta guardada colgado'), {
+          level: 'warning', tags: { area: 'cobros', tipo: 'cobro-en-marcha' },
+          extra: { studioId: studio.id, reciboId: r.id, desde: marca.desde },
+        });
+      } else {
+        console.error('[conciliador] cobro con tarjeta guardada colgado sin resolver', r.id, e);
+      }
+    }
+  }
 }
 
 // QR de Bizum del mostrador caducados sin pagar: se anula la venta (devuelve
