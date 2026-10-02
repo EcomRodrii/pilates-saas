@@ -64,6 +64,8 @@ const CASOS: Caso[] = [
   // las reservas de una clase solo la llama el servidor.
   { firma: 'devolver_sesion_bono(text, text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'cancelar_reservas_de_sesion(text, text, text)', anon: false, authenticated: false, serviceRole: true },
+  // Elegibilidad de una reserva en un solo sitio, solo lectura (migr 20261002145300): como `reservar_plaza`, solo el servidor.
+  { firma: 'evaluar_reserva(text, text, text, jsonb)', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {
