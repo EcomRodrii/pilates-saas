@@ -1189,9 +1189,13 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   RLS de cliente, sigue por `/api/reservas/devolver-bonos` reserva a reserva.
 - **Anular una recuperación, por el servidor** (migr `20261002144936`, fase A): `anular_recuperacion(id, estudio)` anula una
   recuperación DISPONIBLE (no una usada) comprobando estudio y `puede_gestionar_clientas()`; el panel la llama por RPC y el
-  ledger la anota como `ANULACION_RECUPERACION`, no como caducidad. ⚠️ Fase B pendiente, DESPUÉS de desplegar este código: retirar
-  INSERT/UPDATE/DELETE de `authenticated` sobre `recuperaciones` (el personal puede hoy crear una saltándose el tope y la
-  caducidad). Un test fija que ningún código del navegador escribe ya en esa tabla.
+  ledger la anota como `ANULACION_RECUPERACION`, no como caducidad.
+- **`recuperaciones` solo la escribe el servidor** (migr `20261002154833`, fase B): `authenticated` ya no tiene INSERT, UPDATE
+  ni DELETE sobre la tabla (ni las tres políticas de escritura). Antes, quien gestionaba clientas podía insertar una
+  recuperación saltándose el tope de vivas y la caducidad del estudio, o editar la fecha, todo fuera del ledger. Se crean y se
+  anulan por `crear_recuperacion` / `anular_recuperacion` (SECURITY DEFINER, dueño postgres, sin RLS forzada) o por el
+  servidor; la lectura no cambia. ⚠️ Una escritura directa nueva desde el navegador FALLA en producción, y un test de
+  contrato lo vigila (`recuperaciones-solo-servidor-contrato.test.ts`); no devuelvas el GRANT: usa una función.
 - **Fase 3b, hecha EN SOMBRA: `evaluar_reserva`** (migr `20261002145300`, solo service_role, en este PR nada la llama todavía; el PR siguiente hace que `reservar_plaza` decida con ella). Función
   SQL de solo lectura que responde si una socia puede reservar una clase, en qué estado entraría y quién la paga
   (recuperación, bono, cuota o nadie), con los mismos códigos de rechazo que `CodigoReserva`. Espeja en el mismo orden las
