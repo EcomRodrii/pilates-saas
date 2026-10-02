@@ -81,6 +81,58 @@ export function textoFranja(diaSemana: number, hora: string): string {
   return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${hora.slice(0, 5)}`.trim();
 }
 
+/** Una plaza fija SIN clase fija con nombre (dada desde una clase suelta o a mano) que termina pronto. */
+export interface PlazaSueltaQueTermina {
+  id: string;
+  socioId: string;
+  /** YYYY-MM-DD: último día que vale. */
+  vigenciaHasta: string;
+  diaSemana: number;
+  horaInicio: string;
+  /** Nombre del tipo de clase, si lo tiene. */
+  tipo: string | null;
+}
+
+/** «Reformer · miércoles 10:00»; sin tipo, «Clase · miércoles 10:00». */
+export function nombreDePlazaSuelta(p: Pick<PlazaSueltaQueTermina, 'diaSemana' | 'horaInicio' | 'tipo'>): string {
+  return `${p.tipo?.trim() || 'Clase'} · ${NOMBRES_DIA[p.diaSemana] ?? ''} ${p.horaInicio.slice(0, 5)}`.replace(/\s+/g, ' ').trim();
+}
+
+export interface AvisoTerminaPronto {
+  socioId: string;
+  vigenciaHasta: string;
+  /** Las plazas de ese aviso, ordenadas: forman parte de la clave que evita repetirlo. */
+  plazaIds: string[];
+  /** Lo que se le dice entre comillas: una plaza por su nombre; varias, juntas; muchas, solo cuántas. */
+  nombre: string;
+}
+
+/**
+ * Los avisos «termina pronto» de las plazas SIN clase fija con nombre: uno por alumna y por fecha de fin, no uno por plaza
+ * (quien viene lunes, miércoles y viernes y las termina el mismo día recibe UN push). Con una plaza se nombra; con dos o tres
+ * se nombran juntas («A y B», «A, B y C»); con más, solo cuántas. Orden fijo (día de la semana y hora) para que el mismo
+ * conjunto dé siempre el mismo texto y la misma clave.
+ */
+export function agruparTerminanPronto(plazas: PlazaSueltaQueTermina[]): AvisoTerminaPronto[] {
+  const grupos = new Map<string, PlazaSueltaQueTermina[]>();
+  for (const p of plazas) {
+    const clave = `${p.socioId}:${p.vigenciaHasta}`;
+    const g = grupos.get(clave);
+    if (g) g.push(p); else grupos.set(clave, [p]);
+  }
+  return [...grupos.values()].map((g) => {
+    const ordenadas = [...g].sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.horaInicio.localeCompare(b.horaInicio) || a.id.localeCompare(b.id));
+    const nombres = ordenadas.map(nombreDePlazaSuelta);
+    const nombre = nombres.length === 1 ? nombres[0]
+      : nombres.length <= 3 ? `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`
+      : `${nombres.length} clases fijas`;
+    return {
+      socioId: ordenadas[0].socioId, vigenciaHasta: ordenadas[0].vigenciaHasta,
+      plazaIds: ordenadas.map((p) => p.id).sort(), nombre,
+    };
+  }).sort((a, b) => a.socioId.localeCompare(b.socioId) || a.vigenciaHasta.localeCompare(b.vigenciaHasta));
+}
+
 /** Los cuatro momentos del día en los que se agrupan las clases fijas, para filtrar. */
 export const FRANJAS_HORARIAS = ['Mañana', 'Mediodía', 'Tarde', 'Noche'] as const;
 export type FranjaHoraria = (typeof FRANJAS_HORARIAS)[number];
