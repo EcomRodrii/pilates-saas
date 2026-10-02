@@ -57,7 +57,7 @@ export function ProximasCuotas({ datos }: { datos: DatosCobros }) {
             return (
               <li key={c.suscripcionId} className="grid grid-cols-1 gap-1 px-4 py-2.5 text-[13px] md:grid-cols-[minmax(0,1fr)_150px_70px_minmax(0,260px)] md:items-center md:gap-3">
                 <Link href={`/clientas/${c.socioId}`} className="truncate font-medium text-foreground hover:underline">{datos.nombreDe(c.socioId)}</Link>
-                <span className="truncate text-muted-foreground">{c.planNombre} · <CifraPrivada>{formatEuro(c.importe)}</CifraPrivada></span>
+                <span className="truncate text-muted-foreground">{c.planNombre} · <CifraPrivada inline>{formatEuro(c.importe)}</CifraPrivada></span>
                 <span className="tabular-nums text-muted-foreground">{fechaCorta(c.dia, datos.hoy)}</span>
                 <span className={cn('flex items-start gap-1.5', malo ? 'text-destructive' : 'text-foreground')}>
                   <Icono size={13} className="mt-0.5 shrink-0" aria-hidden />{textoComoSeCobrara(c.como, fechaCorta(c.dia, datos.hoy))}

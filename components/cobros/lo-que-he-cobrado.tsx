@@ -105,7 +105,7 @@ export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros
           </button>
         </div>
         <span className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
-          <Buscador valor={busqueda} onCambio={setBusqueda} texto="Buscar clienta o concepto" className="min-w-0 flex-1 sm:w-[220px] sm:flex-none" />
+          <Buscador valor={busqueda} onCambio={setBusqueda} texto="Buscar clienta o concepto" className="min-w-0 flex-1 sm:w-[250px] sm:flex-none" />
           <Link href="/pos" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted">
             <Wallet size={15} aria-hidden />Caja
           </Link>
@@ -126,7 +126,7 @@ export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros
         <div>
           <p className="text-[12.5px] text-muted-foreground">Cobrado · neto, ya restado lo devuelto</p>
           <p className="text-[34px] font-semibold leading-tight tracking-tight tabular-nums text-foreground" data-testid="cobrado-neto">
-            <CifraPrivada>{formatEuro(actual.neto)}</CifraPrivada>
+            <CifraPrivada inline>{formatEuro(actual.neto)}</CifraPrivada>
           </p>
         </div>
         <p className="pb-1.5 text-[13.5px] text-muted-foreground">
@@ -166,7 +166,7 @@ export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros
                   <div key={g.dia}>
                     <div className="flex items-center justify-between border-y border-border bg-muted/40 px-4 py-2 first:border-t-0">
                       <span className="text-[12.5px] font-semibold text-foreground">{textoDelDia(g.dia, hoy)}</span>
-                      <span className="text-[12.5px] font-semibold tabular-nums text-foreground"><CifraPrivada>{formatEuro(totalDia)}</CifraPrivada></span>
+                      <span className="text-[12.5px] font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(totalDia)}</CifraPrivada></span>
                     </div>
                     <ul className="divide-y divide-border">
                       {g.recibos.map(r => <FilaCobro key={r.id} r={r} datos={datos} acciones={acciones} />)}
@@ -190,12 +190,12 @@ export function LoQueHeCobrado({ datos, acciones, avisos }: { datos: DatosCobros
             {ORDEN_COMO_SE_COBRO.filter(c => c !== 'SIN_ESPECIFICAR' || actual.porComo[c].n > 0).map(c => {
               const { n, neto } = actual.porComo[c];
               return (
-                <div key={c} className={cn('grid grid-cols-[minmax(0,150px)_1fr_80px] items-center gap-3', n === 0 && 'opacity-60')}>
+                <div key={c} className={cn('grid grid-cols-[minmax(0,175px)_1fr_76px] items-center gap-3', n === 0 && 'opacity-60')}>
                   <span className="truncate text-[13px] text-foreground">{TEXTO_COMO_SE_COBRO[c]} <span className="tabular-nums text-muted-foreground">· {n}</span></span>
                   <span className="h-2 rounded-full bg-muted">
                     <span className="block h-2 rounded-full bg-foreground/70" style={{ width: `${Math.max(0, (neto / maxComo) * 100)}%` }} />
                   </span>
-                  <span className="text-right text-[13px] font-semibold tabular-nums text-foreground"><CifraPrivada>{formatEuro(neto)}</CifraPrivada></span>
+                  <span className="text-right text-[13px] font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(neto)}</CifraPrivada></span>
                 </div>
               );
             })}
@@ -223,7 +223,7 @@ function FilaCobro({ r, datos, acciones }: { r: Recibo; datos: DatosCobros; acci
       </div>
       <span className="hidden text-[12.5px] text-muted-foreground md:block">{TEXTO_COMO_SE_COBRO[comoSeCobro(r)]}</span>
       <span className="text-right">
-        <span className="block text-[13.5px] font-semibold tabular-nums text-foreground"><CifraPrivada>{formatEuro(neto)}</CifraPrivada></span>
+        <span className="block text-[13.5px] font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(neto)}</CifraPrivada></span>
         {devuelto > 0 && (
           <span className="block text-[11.5px] tabular-nums text-destructive">devuelto <CifraPrivada inline>{formatEuro(devuelto)}</CifraPrivada></span>
         )}

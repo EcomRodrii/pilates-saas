@@ -263,7 +263,7 @@ function Remesa({ onCerrar, onOcupado }: { onCerrar: () => void; onOcupado: (o: 
             {vista.entran.map(r => (
               <li key={r.id} className="flex items-center gap-3 px-3 py-2 text-[13px]">
                 <span className="min-w-0 flex-1 truncate"><span className="font-medium text-foreground">{nombreDe(r.socioId)}</span> <span className="text-muted-foreground">· {r.concepto}</span></span>
-                <span className="tabular-nums text-foreground"><CifraPrivada>{formatEuro(r.importe)}</CifraPrivada></span>
+                <span className="tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(r.importe)}</CifraPrivada></span>
               </li>
             ))}
           </ul>

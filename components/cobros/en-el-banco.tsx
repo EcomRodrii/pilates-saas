@@ -34,7 +34,7 @@ export function EnElBanco({ recibos, datos, acciones }: { recibos: Recibo[]; dat
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <Landmark size={15} className="text-muted-foreground" aria-hidden />
         <h2 className="text-[13.5px] font-semibold text-foreground">
-          En el banco · {recibos.length} {recibos.length === 1 ? 'recibo' : 'recibos'} · <CifraPrivada>{formatEuro(total)}</CifraPrivada>
+          En el banco · {recibos.length} {recibos.length === 1 ? 'recibo' : 'recibos'} · <CifraPrivada inline>{formatEuro(total)}</CifraPrivada>
         </h2>
         <span className="text-[12.5px] text-muted-foreground">Todavía no es deuda: el banco no ha contestado.</span>
       </div>
@@ -44,11 +44,12 @@ export function EnElBanco({ recibos, datos, acciones }: { recibos: Recibo[]; dat
           const rapidas = acc.filter(a => a.id === 'EL_BANCO_LO_HA_COBRADO' || a.id === 'EL_BANCO_LO_DEVOLVIO');
           return (
             <li key={r.id} data-recibo={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5">
-              <div className="min-w-0 flex-1">
+              {/* En el móvil el texto va en su propia línea y los botones debajo. */}
+              <div className="min-w-0 flex-1 basis-full md:basis-0">
                 <p className="truncate text-[13.5px] font-medium text-foreground">{datos.nombreDe(r.socioId)}</p>
                 <p className="text-[12.5px] text-muted-foreground">{r.concepto} · {textoEnElBanco(r, datos.hoy)}</p>
               </div>
-              <span className="text-[14px] font-semibold tabular-nums text-foreground"><CifraPrivada>{formatEuro(r.importe)}</CifraPrivada></span>
+              <span className="text-[14px] font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(r.importe)}</CifraPrivada></span>
               {rapidas.map(a => (
                 <button
                   key={a.id} type="button"

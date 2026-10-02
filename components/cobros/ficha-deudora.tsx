@@ -89,7 +89,7 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
         <div className="min-w-0 flex-1">
           <p className="truncate text-[17px] font-semibold text-foreground">{nombre}</p>
           <p className="text-[13.5px] text-muted-foreground">
-            Debe <b className="font-semibold tabular-nums text-foreground"><CifraPrivada>{formatEuro(grupo.total)}</CifraPrivada></b> · desde el {fechaCorta(grupo.desde, datos.hoy)}
+            Debe <b className="font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(grupo.total)}</CifraPrivada></b> · desde el {fechaCorta(grupo.desde, datos.hoy)}
           </p>
           {esClienta && (
             <Link href={`/clientas/${socio.id}`} className="mt-1 inline-flex items-center gap-0.5 text-[12.5px] font-medium text-brand-medio hover:underline">
@@ -149,7 +149,7 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-[14px] font-semibold text-brand-foreground transition-colors hover:brightness-95 disabled:opacity-60"
           >
             {cobrando && <Loader2 size={15} className="animate-spin" aria-hidden />}
-            Cobrar <CifraPrivada>{formatEuro(totalACobrar)}</CifraPrivada>
+            Cobrar <CifraPrivada inline>{formatEuro(totalACobrar)}</CifraPrivada>
           </button>
           <p className="-mt-1 text-[12px] text-muted-foreground">Eliges cómo te paga: efectivo, tarjeta del mostrador, Bizum o transferencia.</p>
           {enMarcha.length > 0 && (
@@ -203,7 +203,7 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
                     <p className="mt-0.5 text-[12px] text-muted-foreground">Vence el {fechaCorta(r.fechaVencimiento, datos.hoy)}{nota ? ` · ${nota}` : ''}</p>
                   </div>
                   <div className={cn('flex flex-col items-end gap-1')}>
-                    <span className="text-[13px] font-semibold tabular-nums text-foreground"><CifraPrivada>{formatEuro(r.importe)}</CifraPrivada></span>
+                    <span className="text-[13px] font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(r.importe)}</CifraPrivada></span>
                     {estado && <PastillaEstado estado={estado} />}
                   </div>
                   <MenuRecibo recibo={r} datos={datos} acciones={acciones} titulo={r.concepto} />

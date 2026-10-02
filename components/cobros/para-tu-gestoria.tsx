@@ -103,7 +103,7 @@ function Bloque({ titulo, cifra, detalle, acciones, destacado }: { titulo: strin
   return (
     <section aria-label={titulo} className={cn('rounded-2xl border bg-card p-5', destacado ? 'border-foreground/25' : 'border-border')}>
       <h2 className="text-[12.5px] font-medium text-muted-foreground">{titulo}</h2>
-      <p className="mt-1 text-[26px] font-semibold tracking-tight tabular-nums text-foreground"><CifraPrivada>{formatEuro(cifra)}</CifraPrivada></p>
+      <p className="mt-1 text-[26px] font-semibold tracking-tight tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(cifra)}</CifraPrivada></p>
       <p className="mt-0.5 text-[12.5px] text-muted-foreground text-pretty">{detalle}</p>
       <div className="mt-3 flex flex-wrap gap-2">{acciones}</div>
     </section>

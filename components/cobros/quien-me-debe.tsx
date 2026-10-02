@@ -106,7 +106,7 @@ export function QuienMeDebe({ datos, acciones, avisos }: { datos: DatosCobros; a
             </ChipFiltro>
           )}
           <span className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-            <Buscador valor={busqueda} onCambio={v => { setBusqueda(v); setCuantas(POR_PAGINA); }} texto="Buscar clienta o concepto" className="flex-1 sm:w-[220px] sm:flex-none" />
+            <Buscador valor={busqueda} onCambio={v => { setBusqueda(v); setCuantas(POR_PAGINA); }} texto="Buscar clienta o concepto" className="flex-1 sm:w-[250px] sm:flex-none" />
             {grupos.length > 0 && (
               <button
                 type="button"
@@ -162,7 +162,7 @@ export function QuienMeDebe({ datos, acciones, avisos }: { datos: DatosCobros; a
             )}
             <div className="flex items-center justify-between border-t border-border bg-muted/40 px-4 py-2.5 text-[12.5px] text-muted-foreground">
               <span>{filtrados.length} {filtrados.length === 1 ? 'clienta' : 'clientas'} · {nRecibos} {nRecibos === 1 ? 'recibo' : 'recibos'} · la deuda más antigua primero</span>
-              <span className="font-semibold tabular-nums text-foreground"><CifraPrivada>{formatEuro(total)}</CifraPrivada></span>
+              <span className="whitespace-nowrap font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(total)}</CifraPrivada></span>
             </div>
           </section>
         )}
@@ -208,7 +208,7 @@ export function QuienMeDebe({ datos, acciones, avisos }: { datos: DatosCobros; a
           {/* `data-barra-seleccion`: la burbuja de ayuda del panel se aparta (globals.css). */}
           <div data-barra-seleccion role="toolbar" aria-label="Cobrar las seleccionadas" className="pointer-events-auto flex w-full max-w-2xl flex-wrap items-center gap-2 rounded-2xl bg-sidebar px-3 py-2.5 text-sidebar-foreground shadow-xl md:w-auto">
             <strong className="px-1 text-[13px] font-semibold">
-              {marcadas.size} {marcadas.size === 1 ? 'seleccionada' : 'seleccionadas'} · <CifraPrivada>{formatEuro(importeLote)}</CifraPrivada>
+              {marcadas.size} {marcadas.size === 1 ? 'seleccionada' : 'seleccionadas'} · <CifraPrivada inline>{formatEuro(importeLote)}</CifraPrivada>
             </strong>
             <span className="text-[12.5px] text-sidebar-foreground/70">Cómo pagan:</span>
             {METODOS.map(m => (
@@ -271,7 +271,8 @@ function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, co
           ? <ProfileAvatar avatarId={socio.avatar} nombre={socio.nombre} apellidos={socio.apellidos} color={colorDeAvatar(`${socio.nombre}${socio.apellidos}`)} size="sm" />
           : <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground">{grupo.tipo === 'VENTA_MOSTRADOR' ? 'VM' : '?'}</span>}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14px] font-semibold text-foreground">{datos.nombreDe(grupo.socioId)}</span>
+          {/* En el móvil el nombre no se corta: es lo primero que se lee de la fila. */}
+          <span className="block text-[14px] font-semibold text-foreground md:truncate">{datos.nombreDe(grupo.socioId)}</span>
           <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-muted-foreground">
             <span className="truncate">{grupo.recibos.length === 1 ? grupo.recibos[0].concepto : `${grupo.recibos.length} recibos`}</span>
             <span>· desde el {fechaCorta(grupo.desde, datos.hoy)}{dias >= 30 && <b className="font-semibold text-destructive"> · {dias} días</b>}</span>
@@ -282,7 +283,7 @@ function FilaDeudora({ grupo, datos, activa, seleccionando, marcada, sinLote, co
             : solo && <span className="mt-0.5 flex items-center gap-1 text-[12px] text-muted-foreground"><CalendarClock size={12} aria-hidden />Se reintenta sola {solo}</span>}
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1">
-          <span className="text-[14.5px] font-semibold tabular-nums text-foreground"><CifraPrivada>{formatEuro(grupo.total)}</CifraPrivada></span>
+          <span className="text-[14.5px] font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(grupo.total)}</CifraPrivada></span>
           <PastillaEstado estado={grupo.peor} />
         </span>
       </button>
