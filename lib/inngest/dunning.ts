@@ -21,6 +21,9 @@ import {
 
 // Dispatcher: a las 08:30 UTC (evita las 07:00 de automatizaciones y las
 // 14:30 del Decision OS, para no competir por la concurrencia del plan free).
+// Los reintentos se programan a las 00:00 UTC de su día (`planificarTrasFallo`,
+// lib/billing/dunning.ts) para que este barrido ya los vea vencidos. Si cambia
+// la hora o la frecuencia, lib/billing/dunning.test.ts lo comprueba.
 export const dunningDispatcher = inngest.createFunction(
   { id: 'dunning-dispatcher', triggers: [{ cron: '30 8 * * *' }] },
   async ({ step }) => {

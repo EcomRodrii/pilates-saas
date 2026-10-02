@@ -92,6 +92,7 @@
 -- | socios                         | ANONIMIZAR | Ver el UPDATE; se quedan fechas de consentimiento como prueba
 -- | reservas                       | CONSERVAR  | Seudónima (las futuras las cancela la ruta antes)
 -- | suscripciones                  | CONSERVAR  | Seudónima, estado CANCELADA (recibos la referencian)
+-- | movimientos_derecho            | CONSERVAR  | Libro de su saldo de sesiones y recuperaciones: ids, cifras, fechas y un motivo del sistema o del equipo (20261002130000). Solo documentado aquí: la función no lo toca
 -- | recibos / facturas / ventas_pos / devoluciones / pagos_historicos / codigos_descuento_consumos / auditoria_estudio | CONSERVAR | Fiscal (auditoria_estudio: el libro de cambios de esas mismas tablas)
 -- | lecturas_ficha_salud           | CONSERVAR  | ⚠️ REVISIÓN LEGAL: registro de accesos del staff a su ficha; falta fijar plazo
 -- | supresiones                    | CONSERVAR  | El propio registro

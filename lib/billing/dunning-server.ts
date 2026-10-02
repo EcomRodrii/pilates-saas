@@ -6,8 +6,9 @@ import { penalizacionDelRecibo } from './penalizacion-aprobar-reglas.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
 
 // Registra un intento de cobro FALLIDO de un recibo y avanza su ciclo de dunning:
-// cuenta el intento, reprograma el siguiente reintento (+3 / +7 días) o marca el
-// recibo FALLIDO tras el tercero, y notifica — a la socia solo en el 1.er fallo y
+// cuenta el intento, reprograma el siguiente reintento (día +3 / +7 del
+// vencimiento, ver `planificarTrasFallo`) o marca el recibo FALLIDO tras el
+// tercero, y notifica — a la socia solo en el 1.er fallo y
 // en el fallo definitivo, al estudio (in-app) solo en el fallo definitivo.
 //
 // Lo usan el webhook de Stripe (devolución de un adeudo SEPA) y el barrido diario
@@ -25,7 +26,7 @@ export async function registrarFalloCobro(params: {
   esSepa: boolean;
   ahoraISO: string;
 }): Promise<{ estado: 'PENDIENTE' | 'FALLIDO'; intentos: number } | null> {
-  const { admin, reciboId, studioId, esSepa } = params;
+  const { admin, reciboId, studioId, esSepa, ahoraISO } = params;
 
   const { data: rec } = await admin
     .from('recibos')
@@ -35,7 +36,7 @@ export async function registrarFalloCobro(params: {
     .maybeSingle();
   if (!rec) return null;
 
-  const plan = planificarTrasFallo(rec.intentos_reintento ?? 0, rec.fecha_vencimiento);
+  const plan = planificarTrasFallo(rec.intentos_reintento ?? 0, rec.fecha_vencimiento, ahoraISO);
 
   const { data: actualizado, error } = await admin
     .from('recibos')
