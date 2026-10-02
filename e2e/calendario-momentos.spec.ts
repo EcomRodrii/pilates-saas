@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { sesionFutura } from './sesion-futura';
+import { horaDeMadridMas, sesionFutura } from './sesion-futura';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tres momentos del calendario que la dueña señaló en la prueba de usabilidad.
@@ -289,8 +289,8 @@ test.describe('Momentos del calendario', () => {
     await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
     await abrirEditar(page);
 
-    // Aplazar: mover la hora de inicio.
-    await page.locator('input[type="time"]').first().fill('18:30');
+    // Aplazar: mover la hora de inicio, 30 min más tarde que la clase, no una hora fija: con `18:30` el test dependía de la hora a la que corriera.
+    await page.locator('input[type="time"]').first().fill(horaDeMadridMas(inicio, 30));
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
     // Se manda el aviso pese a que el panel no veía apuntadas.
@@ -315,7 +315,8 @@ test.describe('Momentos del calendario', () => {
 
     await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
     await abrirEditar(page);
-    await page.locator('input[type="time"]').first().fill('18:30');
+    // 30 min más tarde que la clase, no una hora fija: con `18:30` el test dependía de la hora a la que corriera.
+    await page.locator('input[type="time"]').first().fill(horaDeMadridMas(inicio, 30));
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
     // Se muestra el motivo del rechazo y NO se avisa de un movimiento que no ocurrió.
