@@ -65,13 +65,13 @@ export const TAREAS: Tarea[] = [
   {
     id: 'nuevo-cobro',
     label: 'Cobrar una mensualidad',
-    href: '/cobros?tab=deudas',
+    href: '/cobros?nuevo=cobro',
     claves: ['cobro', 'cuota', 'mensualidad', 'recibo', 'pendiente de pago', 'domiciliar'],
   },
   {
     id: 'nueva-factura',
     label: 'Emitir una factura',
-    href: '/cobros?tab=facturas',
+    href: '/cobros?nuevo=cobro',
     claves: ['factura', 'facturar', 'verifactu', 'iva'],
   },
   {

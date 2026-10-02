@@ -490,7 +490,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Quién me debe',
-        texto: 'Es la pantalla que más vas a mirar. Muestra lo pendiente, deja cobrar con la tarjeta ya guardada de una alumna, marcar como cobrado lo que te han pagado en mano, y generar el recibo bancario del mes para subirlo a tu banco.',
+        texto: 'Es la pantalla que más vas a mirar. Una fila por alumna con lo que debe: le cobras con su tarjeta ya guardada, marcas como cobrado lo que te ha pagado en mano, y preparas los recibos del mes para subirlos a tu banco.',
       },
       {
         titulo: 'Renovaciones y pagos fallidos',

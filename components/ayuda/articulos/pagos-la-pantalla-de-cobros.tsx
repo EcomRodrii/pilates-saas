@@ -9,21 +9,38 @@ export default function Contenido() {
       <AyudaAntesDeEmpezar>
         Cobros responde a dos preguntas, que son las dos que se hace cualquiera que lleva un estudio:{' '}
         <strong>quién me debe</strong> y <strong>cuánto he cobrado</strong>. Todo lo demás de esta pantalla cuelga
-        de ahí.
+        de ahí, y arriba del todo tienes la respuesta corta: cuánto te deben, cuánto está en el banco y cuánto has
+        cobrado este mes frente al anterior a estas alturas.
       </AyudaAntesDeEmpezar>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Quién me debe</h2>
       <p>
-        Los recibos que están sin cobrar, con su importe y desde cuándo. Desde aquí cobras uno, o varios a la vez
-        («Cobrar varias a la vez», eligiendo cómo te han pagado). Si la clienta tiene una tarjeta o una domiciliación
-        guardada, también se le puede cobrar con ella: te lo pregunta antes de cobrar.
+        Una fila por clienta, con lo que debe en total y desde cuándo. Al pulsarla se abre su ficha de deuda al lado:
+        cada recibo, cómo se le puede cobrar (su tarjeta, su domiciliación o en el mostrador) y, si el cobro automático
+        lo va a intentar solo, cuándo. Desde ahí cobras todo lo suyo de una vez o un recibo suelto. Para cobrar a varias
+        clientas a la vez, «Seleccionar varias» y eliges cómo te han pagado.
       </p>
       <p>
         Si una tarjeta falló, el recibo sigue aquí marcado como «No se pudo cobrar». No hay que buscarlo en otro sitio: lo que no ha
-        entrado se queda en esta lista hasta que entra.
+        entrado se queda en esta lista hasta que entra. Debajo, «Próximas cuotas» te dice cómo se va a cobrar cada cuota
+        que se renueva en los próximos 30 días (sola con su tarjeta, por el banco, a mano…).
+      </p>
+
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Nuevo cobro</h2>
+      <p>
+        Para cobrar algo que no tiene recibo todavía (un bono, un producto, una clase). Te pregunta si ya te lo ha
+        pagado: si es ahora, eliges cómo y queda cobrado; si lo paga después, queda en «Quién me debe» con su fecha.
+        Antes de cobrar te dice si se apunta en la caja y si sale factura. En efectivo no sale factura sola: si te la
+        pide, marca «Hacerle factura». Es el mismo diálogo que el «Nuevo cobro» de la ficha de la clienta.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Lo que está en el banco</h2>
+      <p>
+        «Preparar recibos para el banco» te enseña primero qué recibos entran (los pendientes de quien tiene la
+        domiciliación firmada), cuáles se quedan fuera y por qué, y el día para el que se pedirá el cargo (el banco
+        puede moverlo a un día hábil). Al generar el fichero, esos recibos pasan a «En el banco» y lo subes a la web de
+        tu banco.
+      </p>
       <p>
         Los recibos que mandas al banco en una remesa salen como «En el banco»: todavía no son deuda, porque el
         banco no ha contestado. Cuando lo haga, márcalo: <strong>«El banco lo ha cobrado»</strong> (queda cobrado y,
@@ -66,8 +83,8 @@ export default function Contenido() {
           cobras tú o lo paga ella.
         </li>
         <li>
-          <strong>Se anula</strong>: deja de deberlo y sale de esta lista (en «Todos los recibos» aparece como «Anulado al
-          cancelar la cuota»). Si tenía un pago en marcha no se puede anular: se queda pendiente, sin cobros automáticos.
+          <strong>Se anula</strong>: deja de deberlo y sale de esta lista (en la pestaña «Pagos» de su ficha sigue
+          apareciendo, como anulado). Si tenía un pago en marcha no se puede anular: se queda pendiente, sin cobros automáticos.
         </li>
       </ul>
       <p>
@@ -77,15 +94,22 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Lo que he cobrado</h2>
       <p>
-        El dinero que ha entrado, con su fecha y su método. Sirve para cuadrar con el banco y para responder a la
-        pregunta de siempre —«¿este mes ha ido mejor?»— sin abrir un informe. «Descargar para la gestoría» baja lo
-        cobrado del mes que elijas (o todo), con lo devuelto descontado: el mismo fichero que Informes y el cierre del año.
+        El dinero que ha entrado hoy, esta semana o este mes (con las flechas vas a los anteriores), ya restado lo
+        devuelto y frente al mismo tramo del periodo anterior: responde a «¿este mes ha ido mejor?» sin abrir un
+        informe. Al lado, cómo te han pagado (domiciliación, tarjeta, efectivo, Bizum…), para cuadrar la caja y el
+        banco; y la lista de cobros por día, con la hora cuando la hay. «Descargar para la gestoría» baja lo cobrado
+        del periodo que estás viendo: el mismo fichero que Informes y el cierre del año.
       </p>
 
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Facturas</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Facturas o «Para tu gestoría»</h2>
+      <p>
+        Si facturas con Tentare, la pestaña se llama «Facturas»: lo facturado este mes (base, IVA y total), los cobros
+        en efectivo que se quedaron sin factura, y cada factura con su PDF. Cada factura se sella con su huella
+        Veri*Factu al cobrarse.
+      </p>
       <p style={{ margin: 0 }}>
-        Está aparte porque no es una vista más: es una obligación fiscal. Cada cobro completado tiene la suya, y
-        de aquí salen los PDF. El resumen para tu gestoría tiene su propia entrada en el menú,{' '}
+        Si tus facturas las hace tu gestoría, la pestaña se llama «Para tu gestoría»: lo cobrado del trimestre anterior,
+        el que va y el año anterior, cada uno con su descarga. El resumen del año tiene su propia entrada en el menú,{' '}
         <Link href="/ayuda/pagos/cierre-de-ano" style={{ color: 'inherit', textDecoration: 'underline' }}>Cierre de año</Link>.
       </p>
 

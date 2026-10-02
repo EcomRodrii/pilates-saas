@@ -315,7 +315,7 @@ export default function CierreDeAnoPage() {
           <p className="font-bold text-foreground m-0">Tentare no emite tus facturas</p>
           <p className="text-muted-foreground mt-1 mb-0">
             Este cierre solo recoge las facturas emitidas desde aquí. Para tu gestoría, descarga lo que has cobrado
-            en {anio} (o un mes suelto en <Link href="/cobros?tab=cobrado" className="font-semibold text-foreground underline underline-offset-2 hover:no-underline">Cobros → Lo que he cobrado → Descargar para la gestoría</Link>).
+            en {anio} (o un trimestre en <Link href="/cobros?tab=facturas" className="font-semibold text-foreground underline underline-offset-2 hover:no-underline">Cobros → Para tu gestoría</Link>).
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <Button variant="outline" onClick={() => void descargarCobradoDelAnio()} disabled={descargandoCobrado === 'loading'}>
