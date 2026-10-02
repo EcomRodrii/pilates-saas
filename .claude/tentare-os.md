@@ -1062,7 +1062,7 @@ Diseño completo en `docs/TENTARE-OS-ARQUITECTURA-OPERATIVA.md`. Lo que no se re
     lo dicen antes de ir a la red. ⚠️ Lo que SÍ sigue escribiendo COBRADO, y es legítimo, es
     el servidor por su cuenta, sin pasar por `confirmarCobro`: el POS (`lib/pos/venta-servidor.ts`),
     `entregar-plan-comprado` y el webhook al revertir una devolución.
-    **Y el resto del recibo también** (migr `20261001210000`): `authenticated` no tiene
+    **Y el resto del recibo también** (migr `20261002094636`): `authenticated` no tiene
     INSERT/UPDATE de TABLA sobre `recibos`, solo las columnas de
     `lib/cobros/recibo-escritura-navegador.ts` (crear: id, estudio, socia, suscripción,
     concepto, importe, estado, vencimiento, `es_renovacion`; actualizar: `estado` e

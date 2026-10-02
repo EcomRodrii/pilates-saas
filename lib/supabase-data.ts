@@ -1685,7 +1685,7 @@ function sesionToDb(ses: Sesion) {
 
 // Lo que el navegador fija al CREAR un recibo. Solo las columnas que `authenticated`
 // puede insertar (`COLUMNAS_RECIBO_INSERTABLES`, y el GRANT de la migración
-// 20261001210000): fecha de cobro, método, entrega, Stripe… nacen con su valor por
+// 20261002094636): fecha de cobro, método, entrega, Stripe… nacen con su valor por
 // defecto y las escribe el servidor. El tipo de retorno lo ata a esa lista: una columna
 // de más o de menos no compila.
 type ReciboNuevo = Pick<Recibo,
@@ -3409,7 +3409,7 @@ export async function dbReleerTrasCobro(
 // Lo único que el navegador cambia de un recibo ya creado: su estado entre los que no son
 // dinero (remesa SEPA, «Reintentar») y el contador de reintentos. Es lo que `authenticated`
 // puede actualizar (`COLUMNAS_RECIBO_ACTUALIZABLES`, y el GRANT de la migración
-// 20261001210000): el resto de un recibo —concepto, importe, fecha, método, entrega, lo
+// 20261002094636): el resto de un recibo —concepto, importe, fecha, método, entrega, lo
 // devuelto— no se edita desde aquí, y si alguna pantalla lo necesitara, es un endpoint.
 type CambiosRecibo = Partial<Pick<Recibo, 'estado' | 'intentosReintento'>>;
 

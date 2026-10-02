@@ -10,7 +10,7 @@
 // este fixture sí pasa la RLS de `recibos`, pero un rechazo por otra razón (una FK, otra
 // política) también sería un error y el test seguiría en verde sin que el trigger hiciera nada.
 //
-// ⚠️ Desde la migración 20261001210000 hay OTRA cerradura por delante: `authenticated` solo
+// ⚠️ Desde la migración 20261002094636 hay OTRA cerradura por delante: `authenticated` solo
 // puede escribir las columnas de `COLUMNAS_RECIBO_*` (GRANT por columnas). Tocar cualquier otra
 // —el importe, el método, la fecha del cobro— ya no llega al trigger: falla con
 // «permission denied for table recibos». Esos casos se prueban en

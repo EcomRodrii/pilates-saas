@@ -5,7 +5,7 @@
 // es dinero: su estado cobrado, su método, su fecha de cobro, el id del cargo de
 // Stripe, lo devuelto, la disputa, la entrega del plan… lo deja el servidor
 // (`confirmarCobro`, el webhook, el dunning). La migración
-// `20261001210000_recibos_columnas_escribibles` quita a `authenticated` el
+// `20261002094636_recibos_columnas_escribibles` quita a `authenticated` el
 // INSERT/UPDATE de tabla y le da solo estas columnas.
 //
 // ⚠️ Esta lista y esa migración dicen LO MISMO, y la que manda es la migración (la

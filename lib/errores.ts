@@ -141,7 +141,7 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
     return 'Ese cobro lo registra el servidor y el recibo ya no está como lo tenías en pantalla. Recarga la página y mira cómo ha quedado en Cobros.';
   }
   // El navegador solo puede escribir ciertas columnas de `recibos` (GRANT por columnas, migr
-  // 20261001210000). Una columna sin permiso sale como «permission denied for table recibos», sin
+  // 20261002094636). Una columna sin permiso sale como «permission denied for table recibos», sin
   // ninguna mención a la RLS: la persona SÍ tiene permiso, es una pestaña abierta con una versión
   // anterior de la app que manda columnas que ya no se escriben desde aquí. «Vuelve a entrar» no lo
   // arregla; recargar sí.

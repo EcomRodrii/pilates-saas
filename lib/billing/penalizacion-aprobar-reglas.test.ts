@@ -1660,7 +1660,7 @@ test('⚠️ «Marcar cobrado» (uno y en lote) pasa por el guardia del mostrado
   assert.doesNotMatch(fuente, /export async function dbMarcarCobrado\(/, 'el navegador ya no marca COBRADO por su cuenta');
   const lote = fuente.slice(fuente.indexOf('export async function dbUpdateRecibosBatch('));
   const cuerpoLote = lote.slice(0, lote.indexOf('\n}\n'));
-  // COBRADO y DEVUELTO (el segundo, desde 20261001210000): ninguno de los dos es del navegador.
+  // COBRADO y DEVUELTO (el segundo, desde 20261002094636): ninguno de los dos es del navegador.
   assert.match(cuerpoLote, /if \(changes\.estado === 'COBRADO' \|\| changes\.estado === 'DEVUELTO'\) \{\s*return falloEscritura/, 'el UPDATE en lote rechaza COBRADO');
 });
 
