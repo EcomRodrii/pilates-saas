@@ -609,11 +609,11 @@ export interface RowRecibos {
   tras_cancelar_cuota: string | null;
   // migr 20260915215311.
   anulado_en: string | null;
-  // migr 20261002170000.
+  // migr 20261002131832.
   cobrado_en: string | null;
-  // migr 20261002170000.
+  // migr 20261002131832.
   enviado_al_banco_en: string | null;
-  // migr 20261002170000.
+  // migr 20261002131832.
   cargo_pedido_para: string | null;
 }
 
