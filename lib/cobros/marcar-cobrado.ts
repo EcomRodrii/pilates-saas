@@ -71,6 +71,11 @@ export interface PeticionMarcarCobrado {
    * propósito: es quien cobra quien sabe que le ha pagado.
    */
   lote: boolean;
+  /**
+   * «Hacerle factura»: un cobro en efectivo no saca factura solo; con esto, sí, y la
+   * emite el servidor al cobrar. Solo en el mostrador, de UN recibo y en efectivo.
+   */
+  conFactura: boolean;
 }
 
 export function esMetodoCobroManual(m: unknown): m is MetodoCobroManual {
@@ -84,7 +89,7 @@ export function parsearPeticionMarcarCobrado(
   if (!cuerpo || typeof cuerpo !== 'object' || Array.isArray(cuerpo)) {
     return { ok: false, error: 'Petición mal formada' };
   }
-  const { reciboIds, metodo, canal, lote } = cuerpo as { reciboIds?: unknown; metodo?: unknown; canal?: unknown; lote?: unknown };
+  const { reciboIds, metodo, canal, lote, conFactura } = cuerpo as { reciboIds?: unknown; metodo?: unknown; canal?: unknown; lote?: unknown; conFactura?: unknown };
   if (!Array.isArray(reciboIds) || reciboIds.length === 0) {
     return { ok: false, error: 'Falta el recibo' };
   }
@@ -101,12 +106,18 @@ export function parsearPeticionMarcarCobrado(
   if (canal === 'banco') {
     // Lo cobró el banco: el método es el adeudo, y no lo elige quien pulsa.
     if (metodo !== undefined && metodo !== null) return { ok: false, error: 'Lo cobrado por el banco no lleva método' };
-    return { ok: true, peticion: { reciboIds: unicos, metodo: null, canal: 'banco', lote: lote === true } };
+    if (conFactura !== undefined) return { ok: false, error: 'Lo cobrado por el banco no lleva «Hacerle factura»' };
+    return { ok: true, peticion: { reciboIds: unicos, metodo: null, canal: 'banco', lote: lote === true, conFactura: false } };
   }
   if (metodo !== undefined && metodo !== null && !esMetodoCobroManual(metodo)) {
     return { ok: false, error: 'Método de cobro no admitido' };
   }
-  return { ok: true, peticion: { reciboIds: unicos, metodo: metodo ?? null, canal: 'mostrador', lote: lote === true } };
+  if (conFactura !== undefined && conFactura !== false) {
+    if (conFactura !== true || metodo !== 'EFECTIVO' || unicos.length !== 1 || lote === true) {
+      return { ok: false, error: '«Hacerle factura» es para un cobro en efectivo de un solo recibo' };
+    }
+  }
+  return { ok: true, peticion: { reciboIds: unicos, metodo: metodo ?? null, canal: 'mostrador', lote: lote === true, conFactura: conFactura === true } };
 }
 
 export const RESULTADOS_MARCADO = ['aplicada', 'ya_estaba', 'no_cobrable', 'no_encontrado', 'penalizacion_anulada', 'error'] as const;

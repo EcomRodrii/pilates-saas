@@ -25,14 +25,14 @@ const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace
 test('acepta los métodos del diálogo y «sin especificar»', () => {
   for (const metodo of METODOS_COBRO_MANUAL) {
     const r = parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], metodo });
-    assert.deepEqual(r, { ok: true, peticion: { reciboIds: ['rec-1'], metodo, canal: 'mostrador', lote: false } });
+    assert.deepEqual(r, { ok: true, peticion: { reciboIds: ['rec-1'], metodo, canal: 'mostrador', lote: false, conFactura: false } });
   }
-  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'] }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'mostrador', lote: false } });
-  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], metodo: null }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'mostrador', lote: false } });
+  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'] }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'mostrador', lote: false, conFactura: false } });
+  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], metodo: null }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'mostrador', lote: false, conFactura: false } });
 });
 
 test('«El banco lo ha cobrado» (canal banco) no lleva método: lo pone el servidor', () => {
-  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], canal: 'banco' }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'banco', lote: false } });
+  assert.deepEqual(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], canal: 'banco' }), { ok: true, peticion: { reciboIds: ['rec-1'], metodo: null, canal: 'banco', lote: false, conFactura: false } });
   assert.equal(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], canal: 'banco', metodo: 'EFECTIVO' }).ok, false, 'lo cobrado por el banco no es efectivo');
   assert.equal(parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], canal: 'datafono' }).ok, false, 'canal inventado');
 });
@@ -332,4 +332,24 @@ test('la ruta limita el ritmo por persona y avisa a Sentry cuando el cobro no se
   // Después de saber quién es y de comprobar el rol: un anónimo no gasta cupo de nadie.
   assert.ok(ruta.indexOf('puedeMoverDinero(sesion.rol)') < ruta.indexOf('enforceRateLimit('), 'el limitador va antes de comprobar el rol');
   assert.match(ruta, /r\.codigo === 'PERSISTENCIA'[\s\S]{0,200}captureMessage/, 'un fallo de escritura no llega a Sentry');
+});
+
+test('«Hacerle factura» solo en un cobro en efectivo de un recibo, en el mostrador', () => {
+  assert.deepEqual(
+    parsearPeticionMarcarCobrado({ reciboIds: ['rec-1'], metodo: 'EFECTIVO', conFactura: true }),
+    { ok: true, peticion: { reciboIds: ['rec-1'], metodo: 'EFECTIVO', canal: 'mostrador', lote: false, conFactura: true } },
+  );
+  for (const cuerpo of [
+    { reciboIds: ['rec-1'], metodo: 'TARJETA', conFactura: true },
+    { reciboIds: ['rec-1'], metodo: null, conFactura: true },
+    { reciboIds: ['rec-1', 'rec-2'], metodo: 'EFECTIVO', conFactura: true },
+    { reciboIds: ['rec-1'], metodo: 'EFECTIVO', conFactura: true, lote: true },
+    { reciboIds: ['rec-1'], metodo: 'EFECTIVO', conFactura: 'si' },
+    { reciboIds: ['rec-1'], canal: 'banco', conFactura: true },
+  ]) {
+    assert.equal(parsearPeticionMarcarCobrado(cuerpo).ok, false, JSON.stringify(cuerpo));
+  }
+  // La ruta se lo pasa a `confirmarCobro`.
+  const ruta = readFileSync(join(import.meta.dirname, '../../app/api/cobros/marcar-cobrado/route.ts'), 'utf8');
+  assert.match(ruta, /conFactura: peticion\.conFactura,/);
 });

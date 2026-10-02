@@ -175,10 +175,16 @@ export function efectosEnOrden(p: {
   esRenovacion: boolean;
   renovar?: boolean;
   notificar?: boolean;
+  /**
+   * «Hacerle factura» de un cobro que no la saca sola (efectivo): la pide quien
+   * cobra (decisión del fundador, 2-oct-2026). La emite el mismo paso, con el modo
+   * de facturación del estudio comprobado al sellar.
+   */
+  conFactura?: boolean;
 }): PasoEfecto[] {
   const pasos: PasoEfecto[] = [];
   if (p.renovar !== false) pasos.push('renovacion');
-  if (emiteFacturaAutomatica(p.metodo)) pasos.push('factura');
+  if (emiteFacturaAutomatica(p.metodo) || p.conFactura === true) pasos.push('factura');
   if (p.origen === 'manual' || p.origen === 'tpv') pasos.push('caja');
   if (p.esRenovacion) pasos.push('creditos');
   if (p.notificar !== false && origenNotifica(p.origen)) pasos.push('notificacion');

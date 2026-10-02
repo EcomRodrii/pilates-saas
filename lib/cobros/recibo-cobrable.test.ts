@@ -81,8 +81,8 @@ test('el panel ofrece «Cobrar» en los tres estados de deuda, no en dos', () =>
   // también es un REEMBOLSO del estudio y ahí «Cobrar» cobraba dos veces. Lo
   // que este test protege sigue igual: cada estado cobrable, tal como lo deja
   // la deuda (sin reembolso), cae en una situación que tiene el botón.
-  const fuente = leer('components/cobros/panel-pendientes.tsx');
-  assert.match(fuente, /situacionRecibo\(r\) === 'POR_COBRAR' \|\| situacionRecibo\(r\) === 'IMPAGADO'/,
+  const fuente = leer('lib/cobros/acciones-de-recibo.ts');
+  assert.match(fuente, /if \(s === 'POR_COBRAR' \|\| s === 'IMPAGADO'\) \{/,
     'El botón «Cobrar» tiene que salir para lo que se debe: por cobrar e impagado.');
   for (const estado of COBRABLES) {
     const s = situacionRecibo({ estado, importe: 50, importeDevuelto: 0 });

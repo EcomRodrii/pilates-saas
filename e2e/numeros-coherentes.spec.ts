@@ -134,9 +134,11 @@ test.describe('Los números dicen lo mismo entre pantallas', () => {
   });
 
   test('las dos medias de dinero ya no se llaman igual', async ({ page }) => {
+    // Cobros ya no enseña ninguna media (rediseño del 2-oct-2026, decisión 3: el
+    // «Ingreso medio por clienta» vuelve con Informes). La pantalla cargó de verdad.
     await montar(page, '/cobros');
-    await expect(page.getByText('Ingreso medio por clienta')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/repartido entre todas las clientas activas/)).toBeVisible();
+    await expect(page.getByTestId('linea-resumen-cobros')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Ingreso medio por clienta')).toHaveCount(0);
     // El nombre que se confundía con el de Informes ya no está.
     await expect(page.getByText('Media por cliente')).toHaveCount(0);
 

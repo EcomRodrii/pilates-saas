@@ -25,7 +25,7 @@ const leer = (p: string) => readFileSync(join(raiz, p), 'utf8');
 /** El cuerpo SIN comentarios: si no, la propia nota que explica el bug —que
  *  cita la línea vieja— haría fallar el test que la vigila. */
 function cuerpoCobrarYEmail(): string {
-  const s = leer('components/cobros/panel-pendientes.tsx');
+  const s = leer('components/cobros/use-acciones-recibo.tsx');
   const i = s.indexOf('async function cobrarYEmail(');
   assert.ok(i > 0, 'no se encontró cobrarYEmail');
   return s.slice(i, s.indexOf('\n  }\n', i))

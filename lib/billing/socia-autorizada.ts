@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { verificarSesionStaff, verificarUsuarioSupabase } from '@/lib/auth-server';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 // Fuente ÚNICA de "¿puede quien llama actuar sobre la ficha de esta socia?".
 //
@@ -33,12 +34,15 @@ export async function autorizarSobreSocia(
   // Camino 1 — staff del estudio: puede preparar el enlace para cualquier
   // socia SUYA (es justo el caso de "Cobrar online" → SIN_TARJETA → mandar el
   // enlace). El `studioId` se compara con el de la sesión, no con el del body.
+  // Y solo quien puede mover dinero (propietaria, recepción): la tarjeta que se guarda
+  // es con la que se le cobrará. El resto del equipo sigue por el camino 2, como
+  // cualquier socia: solo para su propia ficha.
   const staff = await verificarSesionStaff(req);
   if (staff) {
     if (staff.studioId !== studioId) {
       return { ok: false, status: 403, error: 'No autorizado' };
     }
-    return { ok: true, socioId: socioIdPedido };
+    if (puedeMoverDinero(staff.rol)) return { ok: true, socioId: socioIdPedido };
   }
 
   // Camino 2 — la propia socia desde el portal: el id sale de SU JWT, nunca

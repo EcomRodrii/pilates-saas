@@ -141,6 +141,11 @@ const CAMPOS: Readonly<Record<string, { etiqueta: string; tipo: TipoValor }>> = 
   fecha_cobro: { etiqueta: 'Fecha de cobro', tipo: 'fecha' },
   fecha_devolucion: { etiqueta: 'Fecha de devolución', tipo: 'fecha' },
   proximo_reintento: { etiqueta: 'Próximo reintento', tipo: 'fechahora' },
+  // Las escribe el trigger `trg_recibos_marcas_de_tiempo` al cambiar el estado (2-oct-2026):
+  // la remesa del panel las anota en el libro junto a su «Estado».
+  enviado_al_banco_en: { etiqueta: 'Enviado al banco', tipo: 'fechahora' },
+  cargo_pedido_para: { etiqueta: 'Cargo pedido para', tipo: 'fecha' },
+  cobrado_en: { etiqueta: 'Hora del cobro', tipo: 'fechahora' },
   intentos_reintento: { etiqueta: 'Reintentos', tipo: 'texto' },
   reembolso_solicitado_en: { etiqueta: 'Reembolso pedido', tipo: 'fechahora' },
   reembolso_stripe_id: { etiqueta: 'Referencia del reembolso', tipo: 'texto' },

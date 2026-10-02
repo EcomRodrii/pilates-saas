@@ -10,7 +10,8 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // NINGÚN botón de cobro: "Cobrar online" pulsado ahí no hacía nada porque el
 // botón, sencillamente, no existía — sin loading, sin toast, sin request, sin
 // evidencia de ningún intento. Esta suite fija que un recibo FALLIDO recupera
-// las mismas acciones que uno PENDIENTE.
+// las mismas acciones que uno PENDIENTE, ahora en la ficha de la clienta de
+// «Quién me debe» (rediseño del 2-oct-2026).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -37,6 +38,22 @@ function recibo(estado: 'PENDIENTE' | 'FALLIDO', intentos: number) {
     fecha_cobro: null, fecha_devolucion: null, intentos_reintento: intentos,
     metodo_cobro: null, sepa_estado: null,
   }];
+}
+
+const ficha = (page: Page) => page.getByTestId('ficha-deudora');
+const btnOnline = (page: Page) => ficha(page).getByRole('button', { name: /^Cobrar con su tarjeta/ });
+
+/** Lo que ofrece el ⋯ del recibo, y lo cierra. */
+async function opciones(page: Page): Promise<string[]> {
+  await ficha(page).getByRole('button', { name: /^Acciones de/ }).click();
+  const textos = await page.getByRole('menu').getByRole('menuitem').allInnerTexts();
+  await page.keyboard.press('Escape');
+  return textos.map(t => t.split('\n')[0].trim());
+}
+
+async function elBancoLoDevolvio(page: Page) {
+  await ficha(page).getByRole('button', { name: /^Acciones de/ }).click();
+  await page.getByRole('menuitem', { name: /^El banco lo devolvió/ }).click();
 }
 
 function json(route: Route, body: unknown, status = 200) {
@@ -80,8 +97,14 @@ async function montar(page: Page, opts: {
     return json(route, opts.marcarDevueltoBody ?? { ok: true, fechaDevolucion: '2026-09-15T09:00:00.000Z', yaEstaba: false }, opts.marcarDevueltoStatus ?? 200);
   });
   await page.route('**/rest/v1/**', route => json(route, []));
+  // Con Stripe conectado: si no, no hay «Cobrar con su tarjeta».
   await page.route('**/rest/v1/studios**', route =>
-    json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID, nif: 'B00000000' }));
+    json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID, nif: 'B00000000', stripe_account_id: 'acct_test' }));
+  // La tarjeta guardada llega por la RPC de datos privados, no con la ficha.
+  await page.route('**/rest/v1/rpc/socios_datos_privados**', route => json(route, [{
+    id: 's1', nif: null, aceptacion_firma: null, stripe_customer_id: 'cus_test', stripe_payment_method_id: 'pm_test',
+    tarjeta_marca: 'visa', tarjeta_ultimos4: '4242', tarjeta_exp_mes: 12, tarjeta_exp_anio: 2030,
+  }]));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
   await page.route('**/rest/v1/socios**', route => json(route, SOCIAS));
   await page.route('**/rest/v1/planes_tarifa**', route => json(route, PLANES));
@@ -95,33 +118,31 @@ async function montar(page: Page, opts: {
   });
 
   await page.goto('/cobros');
-  await expect(page.getByRole('button', { name: 'Quién me debe' })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Abrir la ficha de Lamine RE' }).click({ timeout: 30_000 });
+  await expect(ficha(page)).toBeVisible();
   return llamadasCobrarOnline;
 }
 
 test.describe('Recibo FALLIDO — recuperación manual desde Cobros', () => {
-  test('un recibo FALLIDO enseña los mismos botones que uno PENDIENTE (Cobrar / Su tarjeta / El banco lo devolvió)', async ({ page }) => {
+  test('un recibo FALLIDO tiene las mismas salidas que uno PENDIENTE (cobrar / su tarjeta / el banco lo devolvió)', async ({ page }) => {
     await montar(page, { estado: 'FALLIDO', intentos: 3 });
-    await expect(page.getByText('Renovación Mensual')).toBeVisible();
-    await expect(page.getByText('No se pudo cobrar', { exact: true })).toBeVisible();
+    await expect(ficha(page).getByText('Renovación Mensual')).toBeVisible();
+    await expect(ficha(page).getByText('No se pudo cobrar', { exact: true })).toBeVisible();
 
-    // Antes de este fix, NINGUNO de los tres existía para FALLIDO.
-    await expect(page.getByTitle('Marcar cobrado (elige cómo) y enviar email')).toBeVisible();
-    await expect(page.getByTitle('Cobrarle con la tarjeta o la domiciliación que tiene guardada')).toBeVisible();
-    await expect(page.getByTitle('El banco lo devolvió')).toBeVisible();
+    // Antes de este fix, NINGUNO existía para FALLIDO.
+    await expect(ficha(page).getByRole('button', { name: /^Cobrar 60,00 €/ })).toBeVisible();
+    await expect(btnOnline(page)).toBeVisible({ timeout: 15_000 });
+    const lista = await opciones(page);
+    expect(lista).toContain('Cobrar solo este recibo');
+    expect(lista).toContain('El banco lo devolvió');
   });
 
-  test('«Su tarjeta» en un FALLIDO, confirmando, SÍ dispara el cobro: loading → request real → toast de éxito', async ({ page }) => {
+  test('«Cobrar con su tarjeta» en un FALLIDO, confirmando, SÍ dispara el cobro: request real → aviso de éxito', async ({ page }) => {
     const llamadas = await montar(page, { estado: 'FALLIDO', intentos: 3, cobrarOnlineDelayMs: 800 });
-    const btnOnline = page.getByTitle('Cobrarle con la tarjeta o la domiciliación que tiene guardada');
-    await expect(btnOnline).toBeVisible();
-
-    await btnOnline.click();
-    // Cobra al primer toque con dinero de por medio: ahora pide confirmar antes.
-    await page.getByRole('button', { name: 'Cobrar 60,00 €' }).click();
-    // Feedback inmediato: el botón se deshabilita y muestra el spinner mientras
-    // se resuelve — nunca "he pulsado y no sé si ha pasado algo".
-    await expect(btnOnline).toBeDisabled();
+    await btnOnline(page).click({ timeout: 15_000 });
+    // Cobra con dinero de por medio: pide confirmar antes.
+    expect(llamadas).toHaveLength(0);
+    await page.getByRole('button', { name: 'Cobrar 60,00 €', exact: true }).last().click();
 
     // La request llegó de verdad, con el recibo y la socia correctos.
     await expect.poll(() => llamadas.length).toBeGreaterThan(0);
@@ -129,21 +150,21 @@ test.describe('Recibo FALLIDO — recuperación manual desde Cobros', () => {
     expect(body).toMatchObject({ reciboId: 'rec-1', socioId: 's1' });
 
     // Y la pantalla lo confirma — sin recargar, sin salir y volver a entrar.
-    await expect(page.getByText(/Cobro intentado con el método guardado/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Cobro intentado con lo que tiene guardado/)).toBeVisible({ timeout: 10_000 });
   });
 
   test('si Stripe/el backend rechaza el cobro, se ve un error claro (nunca en silencio)', async ({ page }) => {
-    await montar(page, {
+    const llamadas = await montar(page, {
       estado: 'FALLIDO', intentos: 3, cobrarOnlineStatus: 402,
       cobrarOnlineBody: { error: 'No se pudo completar el cobro. Inténtalo de nuevo más tarde.', errorCode: 'FALLO_COBRO' },
     });
-    const btnOnline = page.getByTitle('Cobrarle con la tarjeta o la domiciliación que tiene guardada');
-    await btnOnline.click();
-    await page.getByRole('button', { name: 'Cobrar 60,00 €' }).click();
+    await btnOnline(page).click({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Cobrar 60,00 €', exact: true }).last().click();
 
     await expect(page.getByText('No se pudo completar el cobro. Inténtalo de nuevo más tarde.')).toBeVisible({ timeout: 10_000 });
+    expect(llamadas.length).toBeGreaterThan(0);
     // El botón se reactiva: no queda "clavado" pensando para siempre.
-    await expect(btnOnline).toBeEnabled();
+    await expect(btnOnline(page)).toBeEnabled();
   });
 
   // «Marcar devuelto» pasa por servidor para que la nómina se entere si el recibo
@@ -151,7 +172,7 @@ test.describe('Recibo FALLIDO — recuperación manual desde Cobros', () => {
   test('«El banco lo devolvió» va por la ruta de servidor, con el estado que se veía, nunca con un UPDATE directo a recibos', async ({ page }) => {
     const registro = { devuelto: [] as string[], escriturasRecibos: 0 };
     await montar(page, { estado: 'FALLIDO', intentos: 3, registro });
-    await page.getByTitle('El banco lo devolvió').click();
+    await elBancoLoDevolvio(page);
     await page.getByRole('button', { name: 'Sí, lo devolvió el banco' }).click();
 
     await expect.poll(() => registro.devuelto.length).toBeGreaterThan(0);
@@ -167,34 +188,27 @@ test.describe('Recibo FALLIDO — recuperación manual desde Cobros', () => {
       estado: 'FALLIDO', intentos: 3, registro,
       marcarDevueltoStatus: 409, marcarDevueltoBody: { error: 'Este recibo ya no se puede marcar como devuelto.' },
     });
-    await page.getByTitle('El banco lo devolvió').click();
+    await elBancoLoDevolvio(page);
     await page.getByRole('button', { name: 'Sí, lo devolvió el banco' }).click();
 
     // Contador: sin él, «no mintió» podría ser verdad por no haber intentado nada.
     await expect.poll(() => registro.devuelto.length).toBeGreaterThan(0);
     await expect(page.getByText('Este recibo ya no se puede marcar como devuelto.')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText('No se pudo cobrar', { exact: true })).toBeVisible();
+    await expect(ficha(page).getByText('No se pudo cobrar', { exact: true })).toBeVisible();
     expect(registro.escriturasRecibos).toBe(0);
   });
 
-  test('doble clic mientras carga no dispara una segunda request', async ({ page }) => {
+  test('doble clic mientras cobra no dispara una segunda request', async ({ page }) => {
     const llamadas = await montar(page, { estado: 'FALLIDO', intentos: 3, cobrarOnlineDelayMs: 800 });
-    const btnOnline = page.getByTitle('Cobrarle con la tarjeta o la domiciliación que tiene guardada');
-
-    await btnOnline.click();
-    await page.getByRole('button', { name: 'Cobrar 60,00 €' }).click();
-    await expect(btnOnline).toBeDisabled();
-    // El segundo clic, con el botón ya deshabilitado por `stripeLoading`, no
-    // debe llegar a producir una segunda llamada. Timeout CORTO a propósito
-    // (muy por debajo del retraso de 800ms del mock): Playwright reintenta la
-    // acción hasta que el elemento sea "clicable" — con un timeout más largo
-    // que el retraso, esperaría a que el primer cobro termine y reactive el
-    // botón, y el segundo clic dejaría de ser un doble-clic real para pasar a
-    // ser un segundo clic legítimo y consecutivo tras el primero.
-    await btnOnline.click({ timeout: 200 }).catch(() => {});
+    await btnOnline(page).click({ timeout: 15_000 });
+    const confirmar = page.getByRole('button', { name: 'Cobrar 60,00 €', exact: true }).last();
+    await confirmar.click();
+    // Un segundo intento mientras el primero está en vuelo: el cerrojo por recibo lo frena.
+    await btnOnline(page).click({ timeout: 300 }).catch(() => {});
+    await page.getByRole('button', { name: 'Cobrar 60,00 €', exact: true }).last().click({ timeout: 300 }).catch(() => {});
 
     // Deja que el mock del primer cobro resuelva del todo.
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1200);
     expect(llamadas.length).toBe(1);
   });
 });

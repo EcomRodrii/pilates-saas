@@ -10,7 +10,7 @@ import { hoyEnEstudio } from '../utils.ts';
 
 export { cobroEntroPorStripe };
 
-// «El banco lo devolvió» de Cobros (components/cobros/panel-pendientes.tsx): el
+// «El banco lo devolvió» de Cobros (components/cobros/use-acciones-recibo.tsx): el
 // cargo no llegó a quedarse y la clienta VUELVE A DEBER. No es «le he devuelto
 // el dinero» —eso es un reembolso y lo lleva lib/billing/reembolso-manual.ts—:
 // son hechos opuestos (lib/billing/devolucion-reglas.ts), y un cobro en

@@ -1,7 +1,8 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// «Cobrar» en /cobros cuando el servidor dice QUE NO (o no dice nada).
+// «Cobrar X €» de la ficha de «Quién me debe» cuando el servidor dice QUE NO (o no
+// dice nada). Es el «Cobrar» del panel de antes, ahora para toda la deuda de la clienta.
 //
 // Desde el PR 3 del dueño único, marcar un recibo cobrado va a
 // `POST /api/cobros/marcar-cobrado` y la pantalla solo cambia con su respuesta.
@@ -105,9 +106,10 @@ async function montar(
   return c;
 }
 
-const botonCobrar = (page: Page) => page.getByTitle('Marcar cobrado (elige cómo) y enviar email');
+const botonCobrar = (page: Page) => page.getByTestId('ficha-deudora').getByRole('button', { name: /^Cobrar 60,00 €/ });
 
 async function cobrarEnEfectivo(page: Page) {
+  await page.getByRole('button', { name: 'Abrir la ficha de Ana Ruiz' }).click({ timeout: 15_000 });
   await botonCobrar(page).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Efectivo' }).click();
 }
@@ -116,7 +118,7 @@ async function sigueSinCobrar(page: Page, c: Contadores) {
   expect(c.intentos, 'el cobro no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
   expect(c.cuerpos[0]).toEqual({ reciboIds: ['rec-1'], metodo: 'EFECTIVO' });
   await expect(page.getByText(/Cobro registrado/)).toHaveCount(0);
-  // La fila sigue en «Quién me debe» con su botón.
+  // Sigue en «Quién me debe», con su botón de cobrar.
   await expect(botonCobrar(page)).toBeVisible();
   expect(c.emails, 'un justificante de un cobro sin confirmar es un email falso').toBe(0);
   expect(c.escriturasDirectas, 'el panel no puede caer a escribir el recibo él mismo').toBe(0);

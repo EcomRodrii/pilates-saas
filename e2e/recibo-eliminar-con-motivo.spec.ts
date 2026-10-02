@@ -48,11 +48,32 @@ async function montarPanel(page: Page, responder?: (n: number) => { status: numb
 
 const fila = (page: Page, id: string) => page.locator(`[data-recibo="${id}"]`);
 
+// En la pantalla nueva (2-oct-2026) cada recibo de lo que se debe vive en la ficha
+// de su clienta, con su ⋯: rec-2 es de Laura y rec-4 de Bea.
+const DUENA: Record<string, string> = { 'rec-2': 'Laura Martín', 'rec-4': 'Bea Ortega' };
+
+async function abrirFicha(page: Page, id: string) {
+  if (await fila(page, id).count() > 0) return;
+  await page.getByRole('button', { name: `Abrir la ficha de ${DUENA[id]}` }).click({ timeout: 30_000 });
+  await expect(fila(page, id)).toBeVisible();
+}
+
+/** Lo que ofrece el ⋯ de un recibo, y lo cierra. */
+async function opciones(page: Page, id: string): Promise<string[]> {
+  const boton = fila(page, id).getByRole('button', { name: /^Acciones de/ });
+  await boton.evaluate(el => el.scrollIntoView({ block: 'center' }));
+  await boton.click();
+  const textos = await page.getByRole('menu').getByRole('menuitem').allInnerTexts();
+  await page.keyboard.press('Escape');
+  return textos.map(t => t.split('\n')[0].trim());
+}
+
 async function abrirDialogo(page: Page, id: string) {
-  const f = fila(page, id);
-  await expect(f).toBeVisible({ timeout: 30_000 });
-  await f.hover();
-  await f.getByTitle('Eliminar').click();
+  await abrirFicha(page, id);
+  const boton = fila(page, id).getByRole('button', { name: /^Acciones de/ });
+  await boton.evaluate(el => el.scrollIntoView({ block: 'center' }));
+  await boton.click();
+  await page.getByRole('menuitem', { name: /^Eliminar el recibo/ }).click();
   await expect(page.getByTestId('dialogo-eliminar-recibo')).toBeVisible();
 }
 
@@ -77,8 +98,8 @@ test.describe('Cobros · eliminar un recibo', () => {
     expect(ll.rpc, 'la pantalla no llegó a llamar a la RPC').toHaveLength(1);
     expect(ll.rpc[0]).toEqual({ p_studio_id: 'studio-test', p_recibo_id: 'rec-2', p_motivo: 'DUPLICADO' });
     expect(ll.deleteDirecto, 'se borró con un DELETE directo').toBe(0);
-    // Solo se quita el eliminado.
-    await expect(fila(page, 'rec-4')).toBeVisible();
+    // Solo se quita el eliminado: Bea sigue debiendo.
+    await expect(page.locator('[data-deudora="soc-4"]')).toBeVisible();
   });
 
   test('un recibo FALLIDO también se puede eliminar (aún no es dinero)', async ({ page }) => {
@@ -94,26 +115,22 @@ test.describe('Cobros · eliminar un recibo', () => {
 
   test('un recibo cobrado o con factura no ofrece «Eliminar»: se devuelve', async ({ page }) => {
     const ll = await montarPanel(page);
+    // Uno pendiente sí lo ofrece (y así la pantalla cargó de verdad).
     await ir(page, 'cobros');
-    // Por defecto la lista es «Todo lo que me deben»: para ver los cobrados hay que pedirlos.
-    const filtro = page.locator('select').filter({ has: page.locator('option', { hasText: 'Todos los recibos' }) });
-    await expect(filtro).toBeVisible({ timeout: 30_000 });
-    // Cada opción lleva su contador («Todos los recibos (5)»): se elige por lo que dice.
-    const etiquetaTodos = await filtro.locator('option', { hasText: 'Todos los recibos' }).first().innerText();
-    await filtro.selectOption({ label: etiquetaTodos });
+    await abrirFicha(page, 'rec-2');
+    expect(await opciones(page, 'rec-2')).toContain('Eliminar el recibo');
 
-    // La pantalla cargó de verdad y las acciones existen (si no, «no hay botón» pasaría en falso).
-    // rec-3 es un cobro sin factura; rec-1, uno con factura.
+    // Los cobrados están en «Lo que he cobrado». rec-3 es un cobro sin factura; rec-1,
+    // uno con factura. Son de los últimos días o del mes pasado: se va hacia atrás.
+    await ir(page, 'cobros?tab=cobrado');
+    await expect(page.getByTestId('cobrado-neto')).toBeVisible({ timeout: 30_000 });
     for (const id of ['rec-3', 'rec-1']) {
-      const f = fila(page, id);
-      await expect(f).toBeVisible({ timeout: 30_000 });
-      await f.hover();
-      await expect(f.getByTitle('Le he devuelto el dinero (ya no debe nada)'), `${id} no muestra sus acciones`).toHaveCount(1);
-      await expect(f.getByTitle('Eliminar'), `${id} ofrece Eliminar`).toHaveCount(0);
+      for (let i = 0; i < 2 && await fila(page, id).count() === 0; i++) await page.getByRole('button', { name: 'Periodo anterior' }).click();
+      await expect(fila(page, id)).toBeVisible();
+      const lista = await opciones(page, id);
+      expect(lista, `${id} no muestra sus acciones`).toContain('Le he devuelto el dinero');
+      expect(lista, `${id} ofrece Eliminar`).not.toContain('Eliminar el recibo');
     }
-    // Y uno pendiente de esa misma lista sí lo ofrece.
-    await fila(page, 'rec-2').hover();
-    await expect(fila(page, 'rec-2').getByTitle('Eliminar')).toHaveCount(1);
     expect(ll.rpc).toHaveLength(0);
     expect(ll.deleteDirecto).toBe(0);
   });

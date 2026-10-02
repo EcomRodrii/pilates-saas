@@ -11,7 +11,9 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // no, y ninguna de las dos estaba a la vista.
 //
 // Esta suite fija las dos garantías: no hay nada preseleccionado, y no se cobra
-// nada sin pasar por una confirmación que dice lo que va a ocurrir.
+// nada sin pasar por una confirmación que dice lo que va a ocurrir. Desde el
+// rediseño (2-oct-2026) es «Seleccionar varias» en «Quién me debe»: se marca a la
+// clienta y entra lo suyo que se puede cobrar en lote.
 //
 // Desde el PR 3 del dueño único el cobro NO se escribe desde el navegador: va a
 // `POST /api/cobros/marcar-cobrado`. Así que lo que se cuenta son esos POST, y
@@ -37,16 +39,14 @@ const SUSCRIPCIONES = [
 ];
 
 const RECIBOS = [
-  { id: 'rec-1', studio_id: STUDIO_ID, socio_id: 's1', suscripcion_id: 'sus-1', concepto: 'Renovación Mensual', importe: 60, estado: 'PENDIENTE', fecha_vencimiento: '2026-07-20', fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0, metodo_cobro: null, sepa_estado: null },
-  { id: 'rec-2', studio_id: STUDIO_ID, socio_id: 's2', suscripcion_id: 'sus-2', concepto: 'Renovación Mensual', importe: 60, estado: 'PENDIENTE', fecha_vencimiento: '2026-07-20', fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0, metodo_cobro: null, sepa_estado: null },
+  { id: 'rec-1', studio_id: STUDIO_ID, socio_id: 's1', suscripcion_id: 'sus-1', concepto: 'Renovación Mensual', importe: 60, estado: 'PENDIENTE', fecha_vencimiento: '2026-07-20', fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0, metodo_cobro: null, sepa_estado: null, es_renovacion: true },
+  { id: 'rec-2', studio_id: STUDIO_ID, socio_id: 's2', suscripcion_id: 'sus-2', concepto: 'Renovación Mensual', importe: 60, estado: 'PENDIENTE', fecha_vencimiento: '2026-07-20', fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0, metodo_cobro: null, sepa_estado: null, es_renovacion: true },
 ];
 
-// Caso que se nos escapó: una socia con DOS suscripciones activas. `masivoData`
-// agrupa por SUSCRIPCIÓN, así que sus recibos pendientes —que son los mismos—
-// aparecen una vez por suscripción. Si la lista de ids cobrables no se
-// deduplica, su `length` supera al `size` del Set de seleccionados y "Marcar
-// todas" no llega nunca a "Quitar todas". Pasó de verdad (lo arregló #370) y el
-// test original no lo cazó porque montaba una suscripción por socia.
+// Caso que se nos escapó: una socia con DOS suscripciones activas. El panel de
+// antes agrupaba por SUSCRIPCIÓN y sus recibos salían dos veces: «Marcar todas»
+// no llegaba nunca a «Quitar todas» (#370). Ahora se agrupa por clienta; el caso
+// se queda para que no vuelva.
 const SUSCRIPCIONES_DOBLES = [
   ...SUSCRIPCIONES,
   { id: 'sus-1b', studio_id: STUDIO_ID, socio_id: 's1', plan_id: 'plan-1', estado: 'ACTIVA', fecha_inicio: '2026-07-01', fecha_fin: '2026-08-01', sesiones_restantes: null, stripe_subscription_id: null },
@@ -118,8 +118,15 @@ async function montarCobros(
   return c;
 }
 
+const barra = (page: Page) => page.getByRole('toolbar', { name: 'Cobrar las seleccionadas' });
+
+async function seleccionarTodas(page: Page, n: number) {
+  await page.getByRole('button', { name: 'Seleccionar varias' }).click({ timeout: 30_000 });
+  await page.getByRole('button', { name: `Marcar todas (${n})` }).click();
+}
+
 test.describe('Cobrar varias a la vez', () => {
-  test('una sola fila de pestañas, en el idioma de la dueña', async ({ page }) => {
+  test('las pestañas, en el idioma de la dueña, y sin las de antes', async ({ page }) => {
     await montarCobros(page);
 
     await expect(page.getByRole('button', { name: 'Quién me debe' })).toBeVisible({ timeout: 30_000 });
@@ -129,76 +136,56 @@ test.describe('Cobrar varias a la vez', () => {
     // Las pestañas de la fila intermedia y la de estados ya no existen.
     await expect(page.getByRole('button', { name: 'Suscripciones activas', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Historial', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'En curso', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Cobros', exact: true })).toHaveCount(0);
 
-    // Suscripciones sigue estando, pero como enlace y no como pestaña.
-    await expect(page.getByRole('button', { name: 'Ver las 2 suscripciones activas' })).toBeVisible();
-
-    // El filtro abre por la pregunta real de la pantalla.
-    await expect(page.getByLabel('Ver')).toHaveValue('SIN_COBRAR');
+    // Las cuotas siguen, como «Próximas cuotas» y no como pestaña.
+    await expect(page.getByRole('button', { name: 'Próximas cuotas' })).toBeVisible();
   });
 
-  test('abre sin nada marcado y no deja continuar', async ({ page }) => {
+  test('abre sin nada marcado: no hay con qué cobrar hasta marcar a alguien', async ({ page }) => {
     await montarCobros(page);
+    await page.getByRole('button', { name: 'Seleccionar varias' }).click({ timeout: 30_000 });
 
-    await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
-
-    const dialogo = page.getByRole('dialog');
-    await expect(dialogo).toContainText('0 recibos seleccionados');
-    await expect(dialogo.getByRole('button', { name: /^Continuar/ })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Marcar todas (2)' })).toBeVisible();
+    await expect(barra(page)).toHaveCount(0);
   });
 
   test('no cobra nada hasta confirmar, y la confirmación avisa de lo irreversible', async ({ page }) => {
     const c = await montarCobros(page);
-
-    await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
-    const dialogo = page.getByRole('dialog');
-
-    await dialogo.getByRole('button', { name: /^Marcar todas/ }).click();
-    await expect(dialogo).toContainText('2 recibos seleccionados');
+    await seleccionarTodas(page, 2);
+    await expect(barra(page)).toContainText('2 seleccionadas');
 
     // Sin método no se sigue: el cobro no entraría en la caja ni en el desglose.
-    await expect(dialogo.getByRole('button', { name: /^Continuar/ })).toBeDisabled();
-    await dialogo.getByRole('button', { name: 'Tarjeta', exact: true }).click();
-    await dialogo.getByRole('button', { name: /^Continuar/ }).click();
+    const cobrar = barra(page).getByRole('button', { name: 'Cobrar las 2' });
+    await expect(cobrar).toBeDisabled();
+    await barra(page).getByRole('button', { name: 'Tarjeta', exact: true }).click();
+    await cobrar.click();
 
     // Dice exactamente qué va a pasar, incluido lo que no se puede deshacer.
+    const dialogo = page.getByTestId('dialogo-cobro-en-lote');
     await expect(dialogo).toContainText('Vas a cobrar 2 recibos');
     await expect(dialogo).toContainText('Te han pagado con tarjeta');
-    await expect(dialogo).toContainText('factura con número fiscal');
-    await expect(dialogo).toContainText('2 suscripciones');
+    await expect(dialogo).toContainText('2 cuotas');
     await expect(dialogo).toContainText('Esto no se puede deshacer');
 
     // Hasta aquí no se ha tocado ni un recibo.
     expect(c.cobros).toHaveLength(0);
 
-    // Y volverse atrás tampoco cobra.
+    // Y volverse atrás tampoco cobra, ni pierde lo marcado.
     await dialogo.getByRole('button', { name: 'Volver a la lista' }).click();
-    await expect(dialogo).toContainText('2 recibos seleccionados');
+    await expect(barra(page)).toContainText('2 seleccionadas');
     expect(c.cobros).toHaveLength(0);
     expect(c.escriturasDirectas).toBe(0);
   });
 
-  test('con una socia de dos suscripciones, "Marcar todas" sigue funcionando', async ({ page }) => {
+  test('con una socia de dos suscripciones, «Marcar todas» y «Desmarcar todas» siguen funcionando', async ({ page }) => {
     await montarCobros(page, SUSCRIPCIONES_DOBLES);
+    // Dos clientas, no tres: Ana no sale dos veces por tener dos suscripciones.
+    await seleccionarTodas(page, 2);
+    await expect(barra(page)).toContainText('2 seleccionadas');
 
-    await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
-    const dialogo = page.getByRole('dialog');
-
-    // Los recibos son 2, no 3: los de Ana no se cuentan dos veces por tener dos
-    // suscripciones.
-    await expect(dialogo.getByRole('button', { name: 'Marcar todas (2)' })).toBeVisible();
-
-    await dialogo.getByRole('button', { name: /^Marcar todas/ }).click();
-    await expect(dialogo).toContainText('2 recibos seleccionados');
-
-    // Aquí es donde fallaba: con ids duplicados el botón se quedaba clavado en
-    // "Marcar todas" y no había forma de deseleccionar de golpe.
-    await expect(dialogo.getByRole('button', { name: 'Quitar todas' })).toBeVisible();
-
-    await dialogo.getByRole('button', { name: 'Quitar todas' }).click();
-    await expect(dialogo).toContainText('0 recibos seleccionados');
+    await page.getByRole('button', { name: 'Desmarcar todas' }).click();
+    await expect(barra(page)).toHaveCount(0);
   });
 
   // ── Cuando el servidor dice que no ───────────────────────────────────────────
@@ -208,12 +195,10 @@ test.describe('Cobrar varias a la vez', () => {
   // se enteraba: el resumen decía "2 cobros procesados" igual.
   test('si el servidor rechaza, lo dice y no da los cobros por buenos', async ({ page }) => {
     const c = await montarCobros(page, SUSCRIPCIONES, { rechazar: true });
-
-    await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
-    const dialogo = page.getByRole('dialog');
-    await dialogo.getByRole('button', { name: /^Marcar todas/ }).click();
-    await dialogo.getByRole('button', { name: 'Efectivo', exact: true }).click();
-    await dialogo.getByRole('button', { name: /^Continuar/ }).click();
+    await seleccionarTodas(page, 2);
+    await barra(page).getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await barra(page).getByRole('button', { name: 'Cobrar las 2' }).click();
+    const dialogo = page.getByTestId('dialogo-cobro-en-lote');
     await dialogo.getByRole('button', { name: /^Sí, cobrar/ }).click();
 
     // Ni un solo cobro dado por bueno, y se explica qué ha pasado.
@@ -222,21 +207,17 @@ test.describe('Cobrar varias a la vez', () => {
     // intentado nada.
     expect(c.cobros.length, 'el cobro no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
     await expect(dialogo).toContainText('no se han podido guardar');
-    await expect(dialogo).toContainText('siguen como pendientes');
-    // Lo que más importa: no se ha emitido factura fiscal contra un cobro que no existe.
-    await expect(dialogo).toContainText('No se han emitido sus facturas');
+    await expect(dialogo).toContainText('siguen sin cobrar');
     await expect(dialogo).not.toContainText('2 cobros guardados');
     expect(c.escriturasDirectas, 'el panel no puede caer a escribir el recibo él mismo').toBe(0);
   });
 
   test('si el servidor acepta, el resumen cuadra con lo que dijo', async ({ page }) => {
     const c = await montarCobros(page);
-
-    await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
-    const dialogo = page.getByRole('dialog');
-    await dialogo.getByRole('button', { name: /^Marcar todas/ }).click();
-    await dialogo.getByRole('button', { name: 'Bizum', exact: true }).click();
-    await dialogo.getByRole('button', { name: /^Continuar/ }).click();
+    await seleccionarTodas(page, 2);
+    await barra(page).getByRole('button', { name: 'Bizum', exact: true }).click();
+    await barra(page).getByRole('button', { name: 'Cobrar las 2' }).click();
+    const dialogo = page.getByTestId('dialogo-cobro-en-lote');
     await dialogo.getByRole('button', { name: /^Sí, cobrar/ }).click();
 
     await expect(dialogo).toContainText('2 cobros guardados', { timeout: 15_000 });
@@ -256,7 +237,7 @@ test.describe('Cobrar varias a la vez', () => {
   // Antes solo entraban los PENDIENTE de clientas con un plan ACTIVO.
   test('entra todo lo que se debe —también lo rechazado y lo devuelto por el banco—, y no lo que está en el banco ni lo que se reintenta solo', async ({ page }) => {
     const base = { studio_id: STUDIO_ID, fecha_vencimiento: '2026-07-20', fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0, metodo_cobro: null, sepa_estado: null };
-    await montarCobros(page, [], { recibos: [
+    const c = await montarCobros(page, [], { recibos: [
       { ...base, id: 'rec-suelta', socio_id: 's1', suscripcion_id: null, concepto: 'Clase suelta', importe: 15, estado: 'PENDIENTE' },
       { ...base, id: 'rec-fallido', socio_id: 's2', suscripcion_id: null, concepto: 'Mensual — junio', importe: 60, estado: 'FALLIDO' },
       { ...base, id: 'rec-banco', socio_id: 's2', suscripcion_id: null, concepto: 'Mensual — mayo', importe: 60, estado: 'DEVUELTO', importe_devuelto: 0 },
@@ -264,11 +245,15 @@ test.describe('Cobrar varias a la vez', () => {
       { ...base, id: 'rec-solo', socio_id: 's1', suscripcion_id: null, concepto: 'Mensual — agosto', importe: 60, estado: 'PENDIENTE', proximo_reintento: '2026-10-05T08:00:00Z' },
     ] });
 
-    await page.getByRole('button', { name: 'Cobrar varias a la vez' }).click({ timeout: 30_000 });
-    const dialogo = page.getByRole('dialog');
-    // 3: la clase suelta de Ana, y lo rechazado y lo devuelto por el banco de Bea.
-    await expect(dialogo.getByRole('button', { name: 'Marcar todas (3)' })).toBeVisible();
-    await expect(dialogo).toContainText('Clase suelta');
-    await expect(dialogo).toContainText('2 recibos');
+    await seleccionarTodas(page, 2);
+    // La clase suelta de Ana, y lo rechazado y lo devuelto por el banco de Bea.
+    await expect(barra(page)).toContainText('135,00 €');
+    await barra(page).getByRole('button', { name: 'Efectivo', exact: true }).click();
+    await barra(page).getByRole('button', { name: 'Cobrar las 2' }).click();
+    const dialogo = page.getByTestId('dialogo-cobro-en-lote');
+    await expect(dialogo).toContainText('Vas a cobrar 3 recibos');
+    await dialogo.getByRole('button', { name: /^Sí, cobrar/ }).click();
+    await expect.poll(() => c.cobros.length, { timeout: 15_000 }).toBeGreaterThan(0);
+    expect(c.cobros.flatMap(x => x.reciboIds).sort()).toEqual(['rec-banco', 'rec-fallido', 'rec-suelta']);
   });
 });

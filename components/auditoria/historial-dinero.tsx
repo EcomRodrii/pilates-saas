@@ -72,18 +72,26 @@ export function HistorialDinero({ studioId, socioId }: { studioId: string; socio
 
   return (
     <div className="space-y-4" data-testid="historial-dinero">
-      <p className="text-xs text-muted-foreground max-w-prose">
-        Cada vez que alguien de tu equipo crea, cambia o borra un recibo, una cuota o bono, un plan o un ingreso
-        manual, pide un reembolso, le devuelve a mano el dinero de un cobro, marca un recibo como devuelto por el banco,
-        como cobrado a mano o como cobrado por el banco, lo vuelve a pasar por el banco, vende una clase suelta en el
-        calendario, lanza un cobro con el método de pago guardado («Cobrar con su tarjeta» o aprobar una propuesta en
-        Automatizaciones), devuelve una venta de la caja, emite una factura rectificativa o aprueba cobrar una
-        penalización, queda aquí: quién, cuándo y qué valor había antes.
-        No incluye los cobros automáticos ni lo que confirma Stripe, ni un intento de cobro que el banco rechaza
-        (no cambia ningún dato). Las ventas de la caja y sus entradas y salidas de efectivo llevan su propio
-        registro, con quién las hizo, en Caja. Todavía no recoge lo que se importa desde otra plataforma.
-        {' '}{AVISO_DE_CONSERVACION}
-      </p>
+      {/* Una línea y, desplegado, el detalle de lo que entra y lo que no (rediseño de
+          Cobros, 2-oct-2026): el párrafo entero tapaba la lista. */}
+      <div className="max-w-prose space-y-1 text-[13px] text-muted-foreground">
+        <p>Lo que tu equipo hace con el dinero: quién, cuándo y qué había antes. Solo lo ves tú.</p>
+        <details className="group">
+          <summary className="cursor-pointer select-none text-[13px] font-medium text-brand-medio hover:underline">Qué se registra</summary>
+          <p className="mt-1.5 text-xs">
+            Cada vez que alguien de tu equipo crea, cambia o borra un recibo, una cuota o bono, un plan o un ingreso
+            manual, pide un reembolso, le devuelve a mano el dinero de un cobro, marca un recibo como devuelto por el banco,
+            como cobrado a mano o como cobrado por el banco, lo vuelve a pasar por el banco, vende una clase suelta en el
+            calendario, lanza un cobro con el método de pago guardado («Cobrar con su tarjeta» o aprobar una propuesta en
+            Automatizaciones), devuelve una venta de la caja, emite una factura rectificativa o aprueba cobrar una
+            penalización, queda aquí: quién, cuándo y qué valor había antes.
+            No incluye los cobros automáticos ni lo que confirma Stripe, ni un intento de cobro que el banco rechaza
+            (no cambia ningún dato). Las ventas de la caja y sus entradas y salidas de efectivo llevan su propio
+            registro, con quién las hizo, en Caja. Todavía no recoge lo que se importa desde otra plataforma.
+            {' '}{AVISO_DE_CONSERVACION}
+          </p>
+        </details>
+      </div>
 
       {!socioId && (
         <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Filtrar por tipo">

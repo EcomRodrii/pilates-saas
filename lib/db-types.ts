@@ -609,6 +609,12 @@ export interface RowRecibos {
   tras_cancelar_cuota: string | null;
   // migr 20260915215311.
   anulado_en: string | null;
+  // migr 20261002131832.
+  cobrado_en: string | null;
+  // migr 20261002131832.
+  enviado_al_banco_en: string | null;
+  // migr 20261002131832.
+  cargo_pedido_para: string | null;
 }
 
 export interface RowRewardActions {
@@ -4843,6 +4849,9 @@ export type RecibosInsert = {
   cobro_mostrador_checkout_session_id?: string | null | null;
   tras_cancelar_cuota?: string | null | null;
   anulado_en?: string | null | null;
+  cobrado_en?: string | null | null;
+  enviado_al_banco_en?: string | null | null;
+  cargo_pedido_para?: string | null | null;
 }
 
 export type RecibosUpdate = {
@@ -4887,6 +4896,9 @@ export type RecibosUpdate = {
   cobro_mostrador_checkout_session_id?: string | null | null;
   tras_cancelar_cuota?: string | null | null;
   anulado_en?: string | null | null;
+  cobrado_en?: string | null | null;
+  enviado_al_banco_en?: string | null | null;
+  cargo_pedido_para?: string | null | null;
 }
 
 export type RewardActionsInsert = {

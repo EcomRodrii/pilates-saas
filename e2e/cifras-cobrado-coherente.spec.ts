@@ -49,33 +49,29 @@ async function sembrar(page: Page) {
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(RECIBOS) }));
 }
 
-const tarjeta = (page: Page, titulo: string) => page.locator('div.bg-card').filter({ hasText: titulo }).last();
-
-test('Cobros: lo cobrado es neto, va en su mes de cobro y cuadra con el historial', async ({ page }) => {
+test('Cobros: lo cobrado es neto, va en su mes de cobro y cuadra con «Lo que he cobrado»', async ({ page }) => {
   await sembrar(page);
   await ir(page, 'cobros');
 
-  // 100 + (60 − 20) = 140. Ni lo reembolsado, ni lo del banco, ni lo en curso.
-  await expect(tarjeta(page, 'Cobrado este mes')).toContainText('140,00 €', { timeout: 30_000 });
+  // La línea de arriba: lo que se debe es solo el devuelto por el banco; lo enviado
+  // al banco, aparte; y lo cobrado, 100 + (60 − 20) = 140 (ni lo reembolsado, ni lo
+  // del banco, ni lo en curso).
+  const linea = page.getByTestId('linea-resumen-cobros');
+  await expect(linea).toContainText('Te deben 30,00 €', { timeout: 30_000 });
+  await expect(linea).toContainText('50,00 € en el banco');
+  await expect(linea).toContainText('140,00 €');
 
-  // Lo que se debe: solo el devuelto por el banco. Lo enviado al banco, aparte.
-  const pendiente = tarjeta(page, 'Pendiente cobro');
-  await expect(pendiente).toContainText('30,00 €');
-  await expect(pendiente).toContainText('50,00 €');
-  await expect(pendiente).toContainText('enviados al banco');
+  // El devuelto por el banco sale en «Quién me debe»; el reembolsado no.
+  await expect(page.locator('[data-deudora="soc-2"]')).toBeVisible();
+  await expect(page.locator('[data-deudora="soc-1"]')).toHaveCount(0);
 
-  // El devuelto por el banco sale en «Todo lo que me deben»; el reembolsado no.
-  await expect(page.locator('[data-recibo="rec-banco"]').first()).toBeVisible();
-  await expect(page.locator('[data-recibo="rec-reemb"]')).toHaveCount(0);
-
-  // El historial dice lo mismo que el KPI, y la renovación está en ESTE mes.
+  // «Lo que he cobrado» dice lo mismo, y la renovación está en ESTE mes.
   await ir(page, 'cobros?tab=cobrado');
-  await expect(page.getByText('140,00 € cobrado', { exact: true }).first()).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('Renovación Bono 10').first()).toBeVisible();
-  // Agrupando por vencimiento salían dos meses: «40,00 € cobrado» en este y
-  // «100,00 € cobrado» en el del vencimiento de la renovación.
-  await expect(page.getByText('100,00 € cobrado', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('40,00 € cobrado', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('cobrado-neto')).toHaveText('140,00 €', { timeout: 30_000 });
+  await expect(page.locator('[data-recibo="rec-renov"]')).toBeVisible();
+  // Agrupando por vencimiento salían dos meses: 40 € en este y 100 € en el del
+  // vencimiento de la renovación. Y lo reembolsado entero no cuenta como cobro.
+  await expect(page.getByText(/\b2 cobros\b/).first()).toBeVisible();
 });
 
 test('Inicio dice la misma cifra que Cobros', async ({ page }) => {

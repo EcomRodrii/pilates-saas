@@ -268,3 +268,13 @@ test('toda acción que una ruta de servidor puede escribir tiene su frase', () =
   const sinFrase = [...escritos].filter(a => !(a in ACCIONES));
   assert.deepEqual(sinFrase, [], `acciones sin frase: ${sinFrase.join(', ')}`);
 });
+
+test('la remesa anota también el envío al banco y el día de cargo, con su nombre (las escribe el trigger)', () => {
+  const e = entrada({
+    cambios: ['estado', 'enviado_al_banco_en', 'cargo_pedido_para'],
+    antes: { estado: 'PENDIENTE', enviado_al_banco_en: null, cargo_pedido_para: null },
+    despues: { estado: 'EN_CURSO', enviado_al_banco_en: '2026-09-25T10:00:00+00:00', cargo_pedido_para: '2026-09-30' },
+  });
+  const etiquetas = describirEntrada(e, { ahora: AHORA }).lineas.map(l => l.campo);
+  assert.deepEqual(etiquetas, ['Estado', 'Enviado al banco', 'Cargo pedido para']);
+});

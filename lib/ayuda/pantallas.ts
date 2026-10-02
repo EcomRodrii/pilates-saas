@@ -84,7 +84,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
   '/cobros': {
     titulo: 'Cobros',
     resumen:
-      'El dinero en un solo sitio: lo que está pendiente, lo que ya ha entrado y la factura de cada cobro. Si una tarjeta falla, aparece aquí con el motivo y el botón para volver a intentarlo.',
+      'El dinero en un solo sitio: quién te debe, lo que ya ha entrado y, según cómo factures, tus facturas o lo que necesita tu gestoría. Si una tarjeta falla, aparece aquí con el motivo y cómo volver a cobrarlo.',
     ahorra: 'Perseguir pagos uno a uno y encontrarte el descuadre a fin de mes.',
     destino: { categoria: 'pagos', slug: 'la-pantalla-de-cobros' },
   },

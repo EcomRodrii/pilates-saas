@@ -983,6 +983,8 @@ export async function marcarCobradoEnServidor(
   canal?: 'banco',
   /** Cobro de varios a la vez: el servidor no cobra lo que tiene un cobro en marcha. */
   lote = false,
+  /** «Hacerle factura» de un cobro en efectivo: la emite el servidor al cobrar. */
+  conFactura = false,
 ): Promise<{ status: number; cuerpo: unknown } | { red: true }> {
   const abortar = new AbortController();
   const t = setTimeout(() => abortar.abort(), timeoutMs);
@@ -990,7 +992,7 @@ export async function marcarCobradoEnServidor(
     const res = await fetch('/api/cobros/marcar-cobrado', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify(canal === 'banco' ? { reciboIds, canal } : { reciboIds, metodo, ...(lote ? { lote: true } : {}) }),
+      body: JSON.stringify(canal === 'banco' ? { reciboIds, canal } : { reciboIds, metodo, ...(lote ? { lote: true } : {}), ...(conFactura ? { conFactura: true } : {}) }),
       signal: abortar.signal,
     });
     const cuerpo: unknown = await res.json().catch(() => null);
