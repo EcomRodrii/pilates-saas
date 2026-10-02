@@ -1,7 +1,8 @@
 # Cobros externos — diseño técnico (para aprobar antes de PR1)
 
-Estado: **propuesta, sin implementar**. 2-oct-2026. Revisado contra el código por el
-agente de cobros (`tentare-stripe`): 2 bloqueantes y 10 puntos importantes, todos
+Estado: **PR1 (backend sin pantalla) implementado**, 2-oct-2026; lo que cambió al
+implementarlo está en la sección L, al final. El diseño se revisó contra el código con
+el agente de cobros (`tentare-stripe`): 2 bloqueantes y 10 puntos importantes, todos
 incorporados aquí (marcados **[rev]**).
 
 Objetivo: que un cobro hecho fuera de Tentare (TPV del banco, transferencia, Bizum y,
@@ -318,7 +319,7 @@ movimiento se señala como posible `DOBLE_COBRO` para que lo vea una persona.
 | Referencia de Tentare en el movimiento | **100 y decide** | «Lleva la referencia de este recibo» |
 | Pagador ≈ alumna (similitud ≥ 0,9) | +45 | «Pagador: María García» |
 | Coincide el apellido, o similitud ≥ 0,75 | +25 | «El pagador se apellida García» |
-| Tarjeta ···1234 de la misma marca, confirmada antes con esta alumna | +35 | «Pagó con la ···1234 el 1-sep» |
+| Tarjeta ···1234 de la misma marca, confirmada antes con esta alumna | +40 | «Pagó con la ···1234 el 1-sep» |
 | Solo coinciden los 4 dígitos | +20 | |
 | Check-in ese día, y la hora del cobro entre 60 min antes y 30 después de su clase | +20 | «Vino a la clase de las 18:30» |
 | Tenía reserva ese día (sin hora o sin check-in) | +8 | «Tenía clase ese día» |
@@ -337,7 +338,7 @@ explicación dice cuál es (`tipoDePlanDelRecibo`).
 |---|---|---|
 | `REFERENCIA` | Referencia de Tentare válida | Candidata única y cierta |
 | `UNICA_CLARA` | Una candidata ≥ 80, la siguiente al menos 40 por debajo, **[rev] B2** y ningún otro movimiento del lote la reclama | Arriba. Único nivel que puede confirmarse solo |
-| `VARIAS` | Dos o más a menos de 40 puntos, **o** dos movimientos reclaman el mismo recibo | Lista. **Nunca** automática |
+| `DUDOSA` | Hay candidatas pero ninguna es clara: dos o más a menos de 40 puntos, una sola por debajo de 80, **o** dos movimientos reclaman el mismo recibo | Lista. **Nunca** automática |
 | `NINGUNA` | Nadie pasa los filtros | «Buscar alumna», «Crear el recibo» o «Descartar» |
 
 Límites de la confirmación automática, aunque el estudio la active:
@@ -517,11 +518,11 @@ Ninguno bloquea PR1: el diseño los deja fuera del camino automático.
 
 - **Importes diferentes** → ninguna candidata (59,00 € frente a 59,01 €).
 - **Una única candidata** → `UNICA_CLARA` con sus razones.
-- **Dos alumnas con el mismo importe** → `VARIAS`; nunca automático.
+- **Dos alumnas con el mismo importe** → `DUDOSA`; nunca automático.
 - **Múltiples candidatas**, ordenadas y con desempate estable.
 - **Pago sin candidata** → `NINGUNA`.
 - Referencia de Tentare → `REFERENCIA`.
-- **[rev] B2** Dos movimientos idénticos del lote sobre el mismo recibo → `VARIAS`, nunca
+- **[rev] B2** Dos movimientos idénticos del lote sobre el mismo recibo → `DUDOSA`, nunca
   dos `UNICA_CLARA`.
 - Cobro apuntado a mano → candidata para enlazar, no para cobrar.
 - **[rev] B1** Recibo cobrado por Stripe con el mismo importe → no es candidata para
@@ -557,7 +558,7 @@ Ninguno bloquea PR1: el diseño los deja fuera del camino automático.
   reparados; con el recibo aún cobrable → `POR_REVISAR`.
 - **[rev] I2** Factura que falla al sellar un cobro con fecha de hace 10 días → el
   reintento la encuentra (ventana por `conciliado_en`).
-- Confirmación automática: apagada por defecto; con `VARIAS`, posible duplicado,
+- Confirmación automática: apagada por defecto; con `DUDOSA`, posible duplicado,
   `OTRO`, mes cerrado o sin poder comprobar la penalización, no confirma.
 
 **Guardias del repo**
@@ -649,3 +650,59 @@ todos sus estudios. Cada estudio conecta su cuenta y nada más.
     cuenta de empresa (sirve la de Tentare o la de un estudio de pruebas) para validar el
     lector contra un fichero de verdad. El FB 500 puede esperar al primer estudio de
     CaixaBank. Ninguno entra en el repo.
+
+---
+
+## L. PR1 tal como se implementó (lo que cambió respecto a lo de arriba)
+
+Revisado otra vez, ya con el código, por `tentare-stripe` y `tentare-seguridad`.
+
+**Fuera de PR1** (sin cambiar la decisión, solo el cuándo):
+- **Confirmación automática** (K10): no hay trabajo en segundo plano ni `notificar` en
+  `confirmarCobro()`. Todo lo confirma una persona. Se hará cuando haya datos reales de
+  cómo acierta el motor.
+- **FB 500**: espera al primer estudio de CaixaBank (K16).
+- **Plantillas de columnas compartidas** (K15): no hay tabla. La plantilla de un CSV o
+  Excel se deriva de sus cabeceras (huella), así que el mismo informe del mismo banco
+  da las mismas claves de idempotencia en cualquier estudio.
+
+**Cambios de detalle:**
+- El nivel «varias candidatas» se llama `DUDOSA`.
+- `LIQUIDACION` y `NO_ALUMNA` se guardan en `IMPORTADO` y no salen de ahí.
+- `confirmarCobro()` gana también `cobradoEn` (la hora real si el fichero la trae; sin
+  ella, el trigger no inventa ninguna para 'externo').
+- La guarda de «Marcar cobrado» (enlace de pago, datáfono, penalización anulada) se
+  extrajo a `lib/cobros/antes-de-cobrar-a-mano-servidor.ts`, sin cambio de
+  comportamiento, y la usan las dos puertas.
+- **Error de la base de datos al confirmar** (un 504 después del commit): el movimiento
+  NO se suelta; se queda en `CONFIRMANDO` atado a su recibo y lo resuelve la
+  recuperación. Si el recibo ya lo cobró 'externo' ese día por ese importe y ningún
+  otro movimiento lo tiene, es la escritura de este mismo pago: se terminan sus efectos.
+- **Recuperación**: corre al abrir la bandeja (no hay cron), pocos por pasada; primero
+  los efectos y después el cierre; deja su entrada en el libro a nombre de quien
+  empezó la confirmación (o de quien abre la bandeja, diciendo que fue la
+  recuperación).
+- **El mismo pago por dos fuentes**: además de la marca al importar (ahora en los dos
+  movimientos), al confirmar se mira si otro movimiento de otra fuente ya resolvió ese
+  pago; si es así, no se confirma salvo que la persona diga que son dos pagos.
+- **Fecha en el pasado**: recepción confirma cobros de este mes y del anterior; más
+  atrás, la propietaria (cambia ingresos de meses cerrados). Sigue el tope de 400 días.
+- **Factura**: el reintento y la vigilancia de facturas cuentan un cobro 'externo' desde
+  que se confirmó (`conciliado_en`), no desde su fecha real (I2).
+- **Privacidad**: tarjetas e IBAN fuera de todo texto libre guardado (concepto,
+  referencia, id de la operación); el pagador, solo letras; el nombre del fichero, sin
+  IBAN ni números de cuenta. `referencia` también se vacía con la retención y al
+  suprimir a la alumna, y los movimientos ligados a ella salen en su exportación de
+  datos.
+- Un SEPA rechazado que luego se paga por transferencia y se apunta a mano **sí** se
+  enlaza (no es «Stripe»: `cobroEntroPorStripe`).
+
+**Para decidir** (no bloquea): recepción ve la bandeja entera, incluidos los abonos
+dudosos de una cuenta mixta (sección G). Si se prefiere, la subida o la bandeja pueden
+quedar solo para la propietaria.
+
+**Hueco previo, fuera de este PR**: el dunning (`cobrarReciboOffSession`) lee el recibo
+y crea el cargo sin reservarlo antes. Si en esa ventana se confirma un cobro a mano o
+con un movimiento, se cobra dos veces (hoy solo se detecta después). Afecta igual a
+«Marcar cobrado».
+

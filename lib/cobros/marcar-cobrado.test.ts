@@ -280,8 +280,10 @@ test('el servidor lee las penalizaciones acotadas al estudio y justo antes de co
   assert.ok(guardia > bucle, 'la guardia se lee UNA VEZ al principio: una penalización anulada a mitad del lote se cobraría');
   assert.ok(ruta.indexOf('await confirmarCobro(') > guardia, 'la guardia va ANTES de confirmar el cobro de ese recibo');
   assert.doesNotMatch(ruta, /bloqueadosPorPenalizacion\(admin, sesion\.studioId, peticion\.reciboIds\)/, 'lectura única de todo el lote');
-  assert.match(ruta, /\.eq\('studio_id', studioId\)\.in\('id', penalizacionIds\)/, 'acotada al estudio de la sesión');
-  assert.match(ruta, /catch \{\s*estados = null;/, 'un fallo de lectura no tumba el cobro');
+  // La lectura vive en el módulo que comparte con el cobro por movimiento del banco.
+  const ayuda = sinComentarios(leer('lib/cobros/antes-de-cobrar-a-mano-servidor.ts'));
+  assert.match(ayuda, /\.eq\('studio_id', studioId\)\.in\('id', penalizacionIds\)/, 'acotada al estudio de la sesión');
+  assert.match(ayuda, /catch \{\s*estados = null;/, 'un fallo de lectura no tumba el cobro');
 });
 
 // ── Estructurales: la ruta y el panel ────────────────────────────────────────
@@ -356,20 +358,26 @@ test('«Hacerle factura» solo en un cobro en efectivo de un recibo, en el mostr
 
 test('uno a uno en el mostrador: se mira cada recibo justo antes, después de la guardia de penalizaciones, y lo leído viaja al compare-and-set', () => {
   const ruta = readFileSync(join(import.meta.dirname, '../../app/api/cobros/marcar-cobrado/route.ts'), 'utf8');
+  // Lo de cada recibo vive en el módulo que comparte con el cobro por movimiento del banco.
+  const ayuda = readFileSync(join(import.meta.dirname, 'antes-de-cobrar-a-mano-servidor.ts'), 'utf8');
   const penaliz = ruta.indexOf('resultados.push(resultadoPenalizacionAnulada(reciboId));');
-  const leer = ruta.indexOf(".select('checkout_session_id, cobro_mostrador_pi, cobro_mostrador_checkout_session_id')");
-  const mostrador = ruta.indexOf('await soltarCobroDeMostradorAntesDeCobrarAMano(');
-  const cerrar = ruta.indexOf('await cerrarPagoOnlineAntesDeCobrarAMano(');
+  const enMarcha = ruta.indexOf('await soltarPagosEnMarchaAntesDeCobrar(admin, { studioId: sesion.studioId, reciboId }, prepararStripe)');
+  const conLeido = ruta.indexOf('checkoutLeido = enMarcha.checkoutLeido;');
   const cobrar = ruta.indexOf('await confirmarCobro(admin, {');
-  assert.ok(penaliz > 0 && leer > penaliz && mostrador > leer && cerrar > mostrador && cobrar > cerrar,
-    'penalización → leer el recibo → datáfono → enlace → cobrar');
+  assert.ok(penaliz > 0 && enMarcha > penaliz && conLeido > enMarcha && cobrar > conLeido,
+    'penalización → pagos en marcha de ESE recibo → cobrar con lo leído');
+  const leer = ayuda.indexOf(".select('checkout_session_id, cobro_mostrador_pi, cobro_mostrador_checkout_session_id')");
+  const mostrador = ayuda.indexOf('await soltarCobroDeMostradorAntesDeCobrarAMano(');
+  const cerrar = ayuda.indexOf('await cerrarPagoOnlineAntesDeCobrarAMano(');
+  assert.ok(leer > 0 && mostrador > leer && cerrar > mostrador, 'leer el recibo → datáfono → enlace');
   assert.match(ruta, /const unoAUno = !peticion\.lote && !porElBanco;/);
   assert.match(ruta, /sinCobroDeMostrador: unoAUno,/);
   assert.match(ruta, /\.\.\.\(unoAUno \? \{ checkoutLeido: checkoutLeido \?\? null \} : \{\}\),/);
   // Stripe con el guardia de modo de siempre, nunca un cliente a pelo con la clave.
-  assert.match(ruta, /await contextoCobroDe\(admin, sesion\.studioId\)/);
+  assert.match(ruta, /preparadorDeStripe\(admin, sesion\.studioId\)/);
+  assert.match(ayuda, /await contextoCobroDe\(admin, studioId\)/);
   // Cancelar el cobro del datáfono no toca el lector (podría estar cobrando otra venta).
-  assert.doesNotMatch(ruta, /readers\.cancelAction/);
+  assert.doesNotMatch(ruta + ayuda, /readers\.cancelAction/);
   const confirmar = readFileSync(join(import.meta.dirname, '../billing/confirmar-cobro.ts'), 'utf8');
   assert.match(confirmar, /else if \(p\.sinCobroDeMostrador\) \{\s*consulta = consulta\.is\('cobro_mostrador_pi', null\);/);
   assert.match(confirmar, /p\.checkoutLeido === null \? consulta\.is\('checkout_session_id', null\) : consulta\.eq\('checkout_session_id', p\.checkoutLeido\)/);

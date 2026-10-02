@@ -93,7 +93,28 @@ test('marcar cobrado a mano: la sesión entera es el actor, se lee ANTES del cob
   assert.match(f, /\.filter\(r => r\.resultado === 'aplicada'\)\.map\(/, 'anota más que los cobros aplicados');
   assert.ok('COBRO_MARCADO_A_MANO' in ACCIONES);
   assert.ok('COBRO_CONFIRMADO_POR_BANCO' in ACCIONES);
-  assert.match(leer('lib/auditoria/cobro-manual.ts'), /accion:\s*p\.porElBanco \? 'COBRO_CONFIRMADO_POR_BANCO' : 'COBRO_MARCADO_A_MANO'/);
+  assert.match(leer('lib/auditoria/cobro-manual.ts'), /accion:\s*p\.externo \? 'COBRO_EXTERNO_CONFIRMADO' : p\.porElBanco \? 'COBRO_CONFIRMADO_POR_BANCO' : 'COBRO_MARCADO_A_MANO'/);
+});
+
+test('cobro con un movimiento del banco: la sesión entera es el actor, el recibo se lee ANTES de cobrar y se anota DESPUÉS, solo si se aplicó', () => {
+  const ruta = leer('app/api/cobros-externos/resolver/route.ts');
+  // El actor sale de la sesión, nunca del cuerpo.
+  assert.match(ruta, /const bandeja: SesionBandeja = \{ userId: sesion\.userId, studioId: sesion\.studioId, rol: sesion\.rol, nombre: sesion\.nombre \};/);
+  assert.doesNotMatch(ruta, /(userId|studioId|rol):\s*(peticion|cuerpo|body)\./);
+  const f = leer('lib/cobros-externos/servidor.ts');
+  const ini = f.indexOf('export async function confirmarMovimiento(');
+  const antes = f.indexOf('leerReciboAntesDeCobrar(admin, studioId, reciboId)', ini);
+  const cobro = f.indexOf('await deps.confirmarCobro(admin, {', ini);
+  const aplicada = f.indexOf("if (r.ok && r.transicion === 'aplicada') {", cobro);
+  const anota = f.indexOf('await anotarCobroMarcadoAMano(admin, { sesion, reciboId, antes, externo: { movimientoId } });', cobro);
+  assert.ok(antes > ini && cobro > antes && aplicada > cobro && anota > aplicada, 'leer antes → cobrar → solo si se aplicó, anotar');
+  assert.ok('COBRO_EXTERNO_CONFIRMADO' in ACCIONES);
+  // Lo demás de la bandeja va al libro con su propio código, y la sesión entera.
+  for (const accion of ['COBRO_EXTERNO_ENLAZADO', 'COBRO_EXTERNO_DOBLE_COBRO', 'COBRO_EXTERNO_DESCARTADO', 'COBRO_EXTERNO_REABIERTO']) {
+    assert.ok(accion in ACCIONES, accion);
+    assert.match(f, new RegExp(`accion: '${accion}'`), accion);
+  }
+  assert.match(f, /await deps\.registrar\(admin, \{\s*sesion,/);
 });
 
 test('devolución de la caja: se anota DESPUÉS de que el dinero salga y el libro de la venta se aplique, y sin el motivo (texto libre)', () => {

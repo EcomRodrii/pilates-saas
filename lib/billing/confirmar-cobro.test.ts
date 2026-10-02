@@ -573,3 +573,62 @@ test('reintento de facturas: todo el trimestre en curso (hora de Madrid), o las 
   // 31-dic a las 23:30 UTC ya es 1-ene en Madrid: el trimestre es el nuevo, pero manda la ventana de horas.
   assert.equal(desdeReintentoFactura(new Date('2026-12-31T23:30:00Z'), 72), '2026-12-28');
 });
+
+// ── Movimiento externo (fichero del banco) ───────────────────────────────────
+
+const EXTERNO: ParamsConfirmarCobro = {
+  studioId: 'studio-1', reciboId: 'rec-1', metodo: 'TRANSFERENCIA', origen: 'externo',
+  paymentIntentId: null, avisarSocia: false, facturaId: 'fac-ext-rec-1',
+  fechaCobro: '2026-09-28', importeEsperado: '59.00',
+};
+
+test('externo: el cobro queda con la fecha REAL del movimiento, no con la de hoy', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: GANA });
+  const r = await confirmarCobro(admin, EXTERNO, efectos().deps);
+  assert.equal(r.ok && r.transicion, 'aplicada');
+  const cas = updates[0];
+  assert.equal(cas.fila.fecha_cobro, '2026-09-28');
+  assert.equal(cas.fila.conciliado_por, 'externo');
+  assert.equal(cas.fila.proximo_reintento, null, 'el dunning no lo vuelve a intentar');
+  assert.equal('cobrado_en' in cas.fila, false, 'sin hora en el fichero, ninguna inventada');
+});
+
+test('externo con hora: se escribe el instante real del pago', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: GANA });
+  await confirmarCobro(admin, { ...EXTERNO, cobradoEn: '2026-09-28T16:32:00.000Z' }, efectos().deps);
+  assert.equal(updates[0].fila.cobrado_en, '2026-09-28T16:32:00.000Z');
+});
+
+test('externo: el compare-and-set exige el importe del movimiento y nada devuelto', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: GANA });
+  await confirmarCobro(admin, EXTERNO, efectos().deps);
+  const cas = updates[0];
+  assert.ok(tiene(cas.filtros, 'eq', 'importe', '59.00'));
+  assert.ok(cas.filtros.some(([o, , v]) => o === 'or' && v === 'importe_devuelto.is.null,importe_devuelto.eq.0'));
+  assert.deepEqual(estadosDelCas(cas), ['PENDIENTE', 'FALLIDO', 'DEVUELTO'], 'nunca EN_CURSO');
+});
+
+test('externo: sin caja, y factura con su propio id', async () => {
+  const { admin } = fakeAdmin({ trasCas: GANA });
+  const { orden, caja, deps } = efectos();
+  await confirmarCobro(admin, EXTERNO, deps);
+  assert.deepEqual(orden, ['renovacion', 'factura']);
+  assert.equal(caja.length, 0, 'un cobro de otro día no entra en la caja abierta hoy');
+});
+
+test('sin fechaCobro ni importeEsperado, nada cambia para los caminos de siempre', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: GANA });
+  await confirmarCobro(admin, BASE, efectos().deps);
+  const cas = updates[0];
+  assert.match(String(cas.fila.fecha_cobro), /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal('proximo_reintento' in cas.fila, false);
+  assert.equal(tiene(cas.filtros, 'eq', 'importe'), false);
+});
+
+test('reintento de la factura: un cobro externo cuenta desde que se confirmó (conciliado_en), no desde su fecha real', () => {
+  const srv = readFileSync(join(import.meta.dirname, 'confirmar-cobro.ts'), 'utf8');
+  const i = srv.indexOf('export async function reintentarFacturasPendientesDeSellar(');
+  const cuerpo = srv.slice(i, srv.indexOf('\n}\n', i));
+  assert.match(cuerpo, /\.or\(`fecha_cobro\.gte\.\$\{desde\},and\(conciliado_por\.eq\.externo,conciliado_en\.gte\.\$\{inicioDelDiaEstudio\(desde\)\}\)`\)/);
+  assert.doesNotMatch(cuerpo, /\.gte\('fecha_cobro'/, 'sin el filtro solo por fecha de cobro, que dejaría fuera los externos');
+});

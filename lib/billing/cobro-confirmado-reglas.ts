@@ -20,8 +20,12 @@ import { emiteFacturaAutomatica } from '../factura-automatica.ts';
  *  · `manual`: alguien del estudio lo marca sin que nadie lo confirme.
  *  · `banco`: alguien del estudio confirma que el banco cobró un recibo que
  *    salió en una REMESA (Cobros → «En el banco» → «El banco lo ha cobrado»).
+ *  · `externo`: alguien del estudio confirma que un MOVIMIENTO de fuera (el
+ *    fichero del banco: TPV, transferencia, Bizum) es el pago de este recibo
+ *    (lib/cobros-externos/, docs/cobros-externos-diseno.md). Lleva la fecha REAL
+ *    del movimiento, no la de hoy.
  */
-export type OrigenCobro = 'webhook' | 'conciliador' | 'tpv' | 'manual' | 'off_session' | 'banco';
+export type OrigenCobro = 'webhook' | 'conciliador' | 'tpv' | 'manual' | 'off_session' | 'banco' | 'externo';
 
 /**
  * Desde qué estados puede pasar un recibo a COBRADO según quién lo confirme.
@@ -51,11 +55,14 @@ export function estadosAdmitidosPorOrigen(
 ): EstadoRecibo[] {
   if (origen === 'off_session') return ['PENDIENTE', 'FALLIDO'];
   if (origen === 'banco') return ['EN_CURSO'];
-  const base: EstadoRecibo[] = origen === 'manual' ? [...ESTADOS_COBRABLES] : [...ESTADOS_COBRABLES, 'EN_CURSO'];
+  // `externo`, lo mismo que a mano: nunca EN_CURSO (hay un cargo en vuelo, y ese
+  // lo cierra su propio camino). Sí el DEVUELTO que devolvió el banco: la cuota de
+  // SEPA rechazada que la clienta paga luego por transferencia es el caso típico.
+  const base: EstadoRecibo[] = origen === 'manual' || origen === 'externo' ? [...ESTADOS_COBRABLES] : [...ESTADOS_COBRABLES, 'EN_CURSO'];
   return opciones.admitirDevuelto === false ? base.filter(e => e !== 'DEVUELTO') : base;
 }
 
-export type ConciliadoPor = 'webhook' | 'conciliador' | 'tpv' | 'manual';
+export type ConciliadoPor = 'webhook' | 'conciliador' | 'tpv' | 'manual' | 'externo';
 
 /**
  * Lo que se escribe en `recibos.conciliado_por`, en el MISMO UPDATE que marca
@@ -63,6 +70,10 @@ export type ConciliadoPor = 'webhook' | 'conciliador' | 'tpv' | 'manual';
  * (migr 20260907174932): `off_session` no está y no se inventa un valor
  * parecido — se deja sin escribir, igual que hacía ese camino hasta ahora.
  * Añadirlo al CHECK es trabajo de una migración (PR 2).
+ *
+ * `externo` sí tiene su valor (migración de cobros externos): el reintento de su
+ * factura usa su propio id (`facturaIdExterno`), y no puede confundirse con un
+ * cobro a mano, cuyo `ya_estaba` repara la caja.
  */
 export function conciliadoPorDe(origen: OrigenCobro): ConciliadoPor | null {
   if (origen === 'off_session') return null;
@@ -259,6 +270,9 @@ export const facturaIdMetodoGuardado = (reciboId: string, metodo: string) =>
  */
 export const facturaIdManual = (reciboId: string) => `fac-manual-${reciboId}`;
 
+/** Cobro confirmado a partir de un movimiento externo (fichero del banco). */
+export const facturaIdExterno = (reciboId: string) => `fac-ext-${reciboId}`;
+
 /**
  * Qué id usar al REINTENTAR el sellado de un recibo marcado
  * `factura_pendiente_sellar`. Antes se forzaba `fac-checkout-` para todos.
@@ -274,6 +288,7 @@ export function facturaIdParaReintento(r: { id: string; metodo_cobro: string | n
   // Antes que SEPA: un DEVUELTO de SEPA cobrado luego a mano «sin especificar»
   // conserva `metodo_cobro = 'SEPA'`, pero lo selló el panel.
   if (r.conciliado_por === 'manual') return facturaIdManual(r.id);
+  if (r.conciliado_por === 'externo') return facturaIdExterno(r.id);
   if (r.metodo_cobro === 'SEPA') return `fac-sepa-${r.id}`;
   // Tarjeta guardada confirmada por el camino síncrono: no escribe
   // `conciliado_por` (ver `conciliadoPorDe`).
