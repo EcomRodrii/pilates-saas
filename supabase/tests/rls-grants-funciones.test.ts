@@ -64,6 +64,8 @@ const CASOS: Caso[] = [
   // las reservas de una clase solo la llama el servidor.
   { firma: 'devolver_sesion_bono(text, text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'cancelar_reservas_de_sesion(text, text, text)', anon: false, authenticated: false, serviceRole: true },
+  // Anular una recuperación (migr 20261002144936): la llama el panel con su sesión (la propia función comprueba estudio y rol).
+  { firma: 'anular_recuperacion(text, text)', anon: false, authenticated: true, serviceRole: true },
 ];
 
 for (const caso of CASOS) {
