@@ -66,7 +66,9 @@ export async function POST(req: NextRequest) {
       if (cerrada) return cerrada;
       const sesionId = texto(body.sesionId);
       if (!sesionId) return NextResponse.json({ error: 'Falta la clase' }, { status: 400 });
-      const r = await solicitarPlazaFijaAlumna(admin, { studioId: body.studioId, socioId, sesionId });
+      // `duracionMeses` es opcional (sin ella, sin fecha de fin) y el servidor la valida contra las duraciones cerradas:
+      // la fecha de fin la pone él, nunca el body.
+      const r = await solicitarPlazaFijaAlumna(admin, { studioId: body.studioId, socioId, sesionId, duracionMeses: body.duracionMeses });
       return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
     }
     if (body.accion === 'solicitar_clase_fija') {

@@ -52,7 +52,7 @@ import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, exigePlanAlRese
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio, HORIZONTE_MATERIALIZAR_DIAS, HORIZONTE_AVISOS_PLAZA_FIJA_DIAS } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija, superaLimiteSemanal, type DatosPlazaFija, type ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
-import { etiquetaDuracion } from '@/lib/clases-fijas-reglas';
+import { duracionPedida, etiquetaDuracion, plazasVencidasQueEstorban } from '@/lib/clases-fijas-reglas';
 import { estadoPausa, sesionEnPausa, validarPausa, type Pausa } from '@/lib/plazas-fijas-pausa';
 import {
   decidirVueltaDePausa, fechaLimiteDecidirVuelta, textoMotivoVuelta, tocaLiberarSitio,
@@ -4470,7 +4470,10 @@ async function guardarPlazaFijaDesdeSesion(
   // Las comprobaciones viven en `validarPlazaFijaDesdeSesion` (una sola copia, la
   // que usa también la petición desde la app). Aquí solo se decide el límite
   // semanal —el panel pide confirmarlo— y se escribe.
-  const v = await validarPlazaFijaDesdeSesion(admin, params, textos);
+  // Al CREAR (no al editar una existente) una plaza cuya fecha «hasta» ya pasó no cuenta: ni como «ya tiene una en ese
+  // horario» ni para el límite semanal. Nadie las pasa a baja al vencer y el índice único de franja (`estado <> 'BAJA'`)
+  // rechazaría la nueva, así que se apartan abajo, antes de escribir.
+  const v = await validarPlazaFijaDesdeSesion(admin, params, textos, { ignorarVencidas: !plazaId });
   if (!v.ok) return { ok: false, error: v.error };
   const { tipoClaseId, salaId, dow, horaInicio, anterior, activas, exceso } = v;
 
@@ -4479,6 +4482,26 @@ async function guardarPlazaFijaDesdeSesion(
       ok: false, codigo: 'SUPERA_LIMITE', limite: exceso.limite,
       error: `Su cuota es de ${exceso.limite} ${exceso.limite === 1 ? 'clase' : 'clases'} por semana y ya tiene ${activas} ${activas === 1 ? 'plaza fija' : 'plazas fijas'}.`,
     };
+  }
+
+  if (!plazaId) {
+    // El motor no reserva más allá de la fecha de una plaza, así que pasarla a baja no cancela nada.
+    const vencidas = plazasVencidasQueEstorban(
+      v.suyas.map(p => ({
+        id: p.id, diaSemana: p.diaSemana, horaInicio: p.horaInicio, salaId: p.salaId, tipoClaseId: p.tipoClaseId,
+        estado: p.estado, vigenciaHasta: p.vigenciaHasta,
+      })),
+      [{ diaSemana: dow, horaInicio, salaId }],
+      hoyEnEstudio(),
+    );
+    if (vencidas.length > 0) {
+      const { error: errBaja } = await admin.from('plazas_fijas').update({ estado: 'BAJA' })
+        .eq('studio_id', studioId).eq('socio_id', socioId).in('id', vencidas);
+      if (errBaja) {
+        capturarExcepcion(new Error(errBaja.message), { tags: { area: 'plazas-fijas' }, extra: { studioId } });
+        return { ok: false, error: 'No se pudo guardar la plaza fija' };
+      }
+    }
   }
 
   const fila = {
@@ -5020,7 +5043,9 @@ export type ResultadoPeticionAlumna =
   | { error: string; status: number };
 
 export async function solicitarPlazaFijaAlumna(
-  admin: SupabaseClient, p: { studioId: string; socioId: string; sesionId: string },
+  admin: SupabaseClient,
+  /** `duracionMeses`: cuánto tiempo la quiere (uno de `DURACIONES_MESES`); sin ella, sin fecha de fin, como siempre. */
+  p: { studioId: string; socioId: string; sesionId: string; duracionMeses?: unknown },
 ): Promise<ResultadoPeticionAlumna> {
   const { data: studio, error: errStudio } = await admin.from('studios')
     .select('plaza_fija_solicitar_desde_app').eq('id', p.studioId).maybeSingle();
@@ -5028,17 +5053,24 @@ export async function solicitarPlazaFijaAlumna(
   if (studio?.plaza_fija_solicitar_desde_app !== true) {
     return { error: 'Tu estudio da las clases fijas en recepción: pídesela a ellos.', status: 403 };
   }
-  // Las mismas comprobaciones que dar la plaza: lo que no se le podría dar, no se pide.
+  // La fecha de fin la calcula el servidor a partir de una duración cerrada: nunca se acepta una fecha del cliente.
+  const hoy = hoyEnEstudio();
+  const duracion = duracionPedida(p.duracionMeses, hoy);
+  if (!duracion.ok) return { error: duracion.error, status: 400 };
+
+  // Las mismas comprobaciones que dar la plaza: lo que no se le podría dar, no se pide. Una plaza suya que ya venció no
+  // cuenta (volver a pedir una clase fija que terminó es justo el caso normal).
   const v = await validarPlazaFijaDesdeSesion(admin, {
     studioId: p.studioId, socioId: p.socioId,
-    datos: { sesionId: p.sesionId, spotId: null, vigenciaDesde: hoyEnEstudio(), vigenciaHasta: null },
-  }, TEXTOS_PLAZA_FIJA_ALUMNA);
+    datos: { sesionId: p.sesionId, spotId: null, vigenciaDesde: hoy, vigenciaHasta: duracion.hasta },
+  }, TEXTOS_PLAZA_FIJA_ALUMNA, { ignorarVencidas: true });
   if (!v.ok) return { error: v.error, status: v.error === 'Clase no encontrada' ? 404 : 400 };
 
   const { data, error } = await admin.from('solicitudes_plaza_fija').insert({
     studio_id: p.studioId, socio_id: p.socioId, tipo: 'CREAR', sesion_id: p.sesionId,
     dia_semana: v.dow, hora_inicio: v.horaInicio, sala_id: v.salaId, tipo_clase_id: v.tipoClaseId,
     supera_limite: !!v.exceso,
+    ...(duracion.hasta ? { duracion_meses: duracion.meses, vigencia_hasta_propuesta: duracion.hasta } : {}),
   }).select('id').single();
   if (error) {
     if (error.code === '23505') return { error: 'Ya has pedido esta clase fija: tu estudio te contestará.', status: 409 };
@@ -5047,7 +5079,7 @@ export async function solicitarPlazaFijaAlumna(
   const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
   await emitirPeticionPlazaFija(admin, {
     studioId: p.studioId, solicitudId: data.id, socioId: p.socioId,
-    peticion: `pide plaza fija ${franjaParaAlumna(v.dow, v.horaInicio)}${v.exceso ? `, y pasaría del límite de ${v.exceso.limite} por semana de su cuota` : ''}`,
+    peticion: `pide plaza fija ${franjaParaAlumna(v.dow, v.horaInicio)}${duracion.hasta ? ` durante ${etiquetaDuracion(duracion.meses as number)}` : ''}${v.exceso ? `, y pasaría del límite de ${v.exceso.limite} por semana de su cuota` : ''}`,
   });
   return { ok: true, solicitudId: data.id };
 }
@@ -5196,7 +5228,8 @@ export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId:
     const tipo = nombreTipo.get((plaza ? plaza.tipoClaseId : f.tipo_clase_id) ?? '');
     return [{
       id: f.id, tipo: f.tipo, socioId: f.socio_id, socia: nombreSocia.get(f.socio_id) ?? 'Una clienta',
-      franja: `${DIAS_TITULO[dow] ?? ''} ${hora}${tipo ? ` · ${tipo}` : ''}`,
+      // Una petición suelta con duración: quien aprueba tiene que saber que la plaza terminará en una fecha.
+      franja: `${DIAS_TITULO[dow] ?? ''} ${hora}${tipo ? ` · ${tipo}` : ''}${f.tipo === 'CREAR' && f.duracion_meses ? ` · ${etiquetaDuracion(f.duracion_meses)}` : ''}`,
       superaLimite: f.supera_limite,
       desde: f.tipo === 'PAUSAR' ? f.desde_propuesta : null,
       hasta: f.tipo === 'PAUSAR' ? f.hasta_propuesta : f.tipo === 'REANUDAR' ? plaza?.pausaHasta ?? null : null,
@@ -5336,6 +5369,12 @@ export async function resolverPeticionPlazaFija(
     if (!franjaActual || franjaActual.dow !== sol.dia_semana || horaActual !== normalizarHoraInicio(sol.hora_inicio ?? '')) {
       return { error: 'La clase que pidió ya no está en ese horario: dale la plaza desde su ficha o recházala.', status: 409 };
     }
+    // Si pidió una duración, la plaza llega hasta la fecha que se fijó AL PEDIR (la misma que se le dijo). Si ya pasó (la
+    // petición esperó más que la duración), no hay nada que dar: se rechaza desde la bandeja.
+    const hastaPedida = sol.vigencia_hasta_propuesta ?? null;
+    if (hastaPedida && hastaPedida < hoyEnEstudio()) {
+      return { error: 'La duración que pidió ya ha pasado antes de que se contestara: recházala y que la vuelva a pedir.', status: 409 };
+    }
     // Se reclama ANTES de crear la plaza. Al revés —crear y luego reclamar— dos
     // personas aprobando lo mismo a la vez (recepción en el iPad y la propietaria
     // en el móvil, o un doble toque) crean DOS plazas en la misma franja: la
@@ -5347,7 +5386,7 @@ export async function resolverPeticionPlazaFija(
       studioId: p.studioId,
       datos: {
         socioId: sol.socio_id, sesionId: sol.sesion_id as string, spotId: null,
-        vigenciaDesde: hoyEnEstudio(), vigenciaHasta: null, confirmarLimite: p.confirmarLimite,
+        vigenciaDesde: hoyEnEstudio(), vigenciaHasta: hastaPedida, confirmarLimite: p.confirmarLimite,
       },
     });
     if (!r.ok) {

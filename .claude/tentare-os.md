@@ -1215,6 +1215,34 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   que paga. Después: índices únicos (una liberación/consumo por reserva), `cancelar_sesion` transaccional, compra
   transaccional (retener plaza antes de cobrar) y excepciones del mostrador.
 
+## Autoreservable = plaza fija con duración (2-oct-2026, en curso)
+
+El fundador pidió un botón «autoreservable» en las clases normales, ligado a las clases fijas, para estudio y alumna, con
+filtros (días, semanas, meses). **No es un concepto nuevo**: es el nombre de cara al usuario de una plaza fija (para la
+alumna «clase fija») pedida desde una clase normal, más el filtro que faltaba en el camino de las clases sueltas: la
+**duración**. Se guarda en `plazas_fijas.vigencia_hasta`, que el motor ya respeta. Sin tablas, columnas ni migración nuevas.
+
+- **PR1 (hecho):** la alumna puede pedir una plaza suelta con `duracionMeses` (uno de `DURACIONES_MESES`; la fecha de fin la
+  pone el servidor con `duracionPedida`, nunca el body) y se guarda en `solicitudes_plaza_fija` (`duracion_meses`,
+  `vigencia_hasta_propuesta`, columnas que ya existían); al aprobar, la plaza llega hasta esa fecha, y si ya pasó se rechaza
+  desde la bandeja. Sin duración, todo igual que antes.
+- ⚠️ **Una plaza fija vencida sigue ACTIVA** (nadie la pasa a baja al vencer) y el índice único de franja
+  (`estado <> 'BAJA'`) rechazaba la nueva; la ficha de la clase decía «Ya es tu clase fija» para siempre. Ahora, al CREAR una
+  plaza, las vencidas de esa franja se pasan a baja antes de escribir (`plazasVencidasQueEstorban`), no cuentan para el
+  límite semanal y `plazaFijaEnClase`/`plazaFijaEnFranja` reciben «hoy» (`plazaFijaViva`).
+- ⚠️ **`res-pf-` es un contrato, no un nombre**: nueve sitios leen ese prefijo como «paga la cuota, no consume bono, no
+  rastreada» (cancelar sin devolver bono, `reservas_plaza_fija_sin_cuota`, `liberar_derecho`, acceso QR, próximas de la
+  alumna, penalizaciones, `devolver-bonos`, y los rechazos de mostrador y plataformas externas). **Una reserva pagada con
+  bono NUNCA debe llevar `res-pf-`**: el barrido nocturno la cancelaría como «sin cuota» y no devolvería la sesión. Por eso
+  el bono NO entra en plaza fija; si se quiere, es «reservar las próximas N semanas» (N reservas normales por
+  `crearReservaPublica` → `evaluar_reserva` → `reservar_plaza`, cada una descontando su sesión al reservarse).
+- `materializar_plazas_fijas_interno` es un camino paralelo A PROPÓSITO (la plaza fija es un derecho preaprobado: sin tope
+  semanal, lista de espera, aprobación manual ni bloqueo por impago): no se enruta por `evaluar_reserva` ni se toca.
+- **Decisiones del fundador pendientes** antes de la pantalla (PR2): nombre de cara al usuario (propuesta: «Reservar cada
+  semana» para la alumna, «Hacer fija» en el panel; «auto_reservable» ya existe en citas con otro significado), bono sí/no
+  (propuesta: solo cuota ahora), si la alumna pide o es instantáneo (propuesta: pide), si puede dejar ella su plaza
+  (propuesta: sí, con confirmación), cómo activa el estudio por serie y si se ofrecen semanas además de meses.
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),

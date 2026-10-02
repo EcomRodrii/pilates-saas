@@ -81,6 +81,7 @@ export function proyectarClasesSueltas(
     estado: plazaFijaEnFranja(
       f, socia?.plazasFijas ?? [], socia?.peticionesPlazaFija ?? [],
       socia ? tieneCuotaQueCubre(socia.suscripciones, planes, hoy, f.tipoClaseId) : true,
+      hoy,
     ),
   }));
 }

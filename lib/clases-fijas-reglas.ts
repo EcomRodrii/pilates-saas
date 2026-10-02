@@ -57,6 +57,22 @@ export function vigenciaHastaDeDuracion(desde: string, meses: number): string {
   return `${año}-${pad(mes)}-${pad(dia)}`;
 }
 
+/**
+ * La duración que la alumna elige al pedir una clase suelta que se repite (`duracionMeses` del body de la ruta) → hasta
+ * cuándo llega. Ausente (`null`/`undefined`) = sin fecha de fin, como siempre: no cambia nada para quien no la manda. Una
+ * duración que no sea una de las cerradas (`DURACIONES_MESES`) es un error: quien llama contesta 400, no «arregla» lo que
+ * le mandaron. La fecha la pone SIEMPRE el servidor: nunca se acepta una del cliente.
+ */
+export function duracionPedida(
+  entrada: unknown, hoy: string,
+): { ok: true; meses: number | null; hasta: string | null } | { ok: false; error: string } {
+  if (entrada === null || entrada === undefined) return { ok: true, meses: null, hasta: null };
+  if (typeof entrada !== 'number' || !Number.isInteger(entrada) || !PERMITIDAS.has(entrada)) {
+    return { ok: false, error: 'Esa duración no es válida: elige una de las que te ofrecemos.' };
+  }
+  return { ok: true, meses: entrada, hasta: vigenciaHastaDeDuracion(hoy, entrada) };
+}
+
 const NOMBRES_DIA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 /** «Martes 10:00» — para decir de qué franja se habla cuando una oferta tiene varias. */
