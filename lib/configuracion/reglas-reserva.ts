@@ -21,6 +21,7 @@
 
 import type { PoliticaFinPausa, PoliticaPlazaFijaSinCuota, Studio, TipoClase } from '../types.ts';
 import { heredaOverride } from '../booking-logic.ts';
+import { TOPES_AUTOMATICOS_PCT, TOPE_AUTOMATICO_POR_DEFECTO_PCT } from '../plazas-fijas-reglas.ts';
 import { frasesPoliticaEstudio } from '../politica-estudio-textos.ts';
 import { listaEsperaDesdeValores, valoresDeListaEspera, type ListaEsperaElegida } from './lista-espera-modo.ts';
 
@@ -62,6 +63,8 @@ export interface ReglasReserva {
   plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
   plazaFijaSolicitarDesdeApp: boolean;
   plazaFijaPausaDesdeApp: boolean;
+  plazaFijaAprobacion: 'MANUAL' | 'AUTOMATICA';
+  plazaFijaAutoTopePct: number;
   plazaFijaPausaLiberaSitio: boolean;
   plazaFijaFinPausa: PoliticaFinPausa;
 }
@@ -78,7 +81,7 @@ export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (ke
   asistencia: ['requiereCheckinQr', 'controlAccesoQr'],
   'si-cancela-tarde-o-no-viene': ['penalizacionImporteEur', 'penalizacionAplicaCancelacionTardia', 'penalizacionAplicaNoShow', 'penalizacionCobroAutomatico'],
   'si-se-queda-sin-cuota': ['plazaFijaSinCuota'],
-  'plaza-fija-desde-la-app': ['plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp'],
+  'plaza-fija-desde-la-app': ['plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp', 'plazaFijaAprobacion', 'plazaFijaAutoTopePct'],
   'si-pausa-su-plaza-fija': ['plazaFijaPausaLiberaSitio', 'plazaFijaFinPausa'],
 };
 
@@ -125,6 +128,9 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     // NUNCA la opción de quedarse fija. La pausa sigue apagada: no es lo que falló.
     plazaFijaSolicitarDesdeApp: s?.plazaFijaSolicitarDesdeApp ?? true,
     plazaFijaPausaDesdeApp: s?.plazaFijaPausaDesdeApp ?? false,
+    // Sin elegir, como siempre: las aprueba el estudio. Automática es opt-in (decisión del fundador, 2-oct).
+    plazaFijaAprobacion: s?.plazaFijaAprobacion ?? 'MANUAL',
+    plazaFijaAutoTopePct: s?.plazaFijaAutoTopePct ?? TOPE_AUTOMATICO_POR_DEFECTO_PCT,
     plazaFijaPausaLiberaSitio: s?.plazaFijaPausaLiberaSitio ?? false,
     plazaFijaFinPausa: s?.plazaFijaFinPausa ?? 'RECUPERAR_SI_LIBRE',
   };
@@ -206,6 +212,11 @@ export function reglasDeTarjetaAGuardar(
   }
   if (tarjeta === 'reservar' && form.reservaMaxPorDia != null && (form.reservaMaxPorDia < 1 || form.reservaMaxPorDia > 20)) {
     return { ok: false, texto: 'Las clases al día van de 1 a 20. Déjalo vacío para no poner límite.' };
+  }
+  // El mismo rango que el CHECK de `studios`: la base lo rechazaría con un error sin explicar.
+  if (tarjeta === 'plaza-fija-desde-la-app' && form.plazaFijaAprobacion === 'AUTOMATICA'
+    && !(Number.isInteger(form.plazaFijaAutoTopePct) && form.plazaFijaAutoTopePct >= 10 && form.plazaFijaAutoTopePct <= 100)) {
+    return { ok: false, texto: 'El porcentaje de plazas fijas por clase va de 10 a 100.' };
   }
   if (tarjeta === 'lista-de-espera') {
     const lista = valoresDeListaEspera(form.listaEspera, guardado);
@@ -443,6 +454,11 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
       // Las puertas de `/api/public/plaza-fija`: con el ajuste apagado, 403.
       const puede = [r.plazaFijaSolicitarDesdeApp ? 'una plaza fija' : null, r.plazaFijaPausaDesdeApp ? 'una pausa' : null].filter(Boolean);
       if (puede.length === 0) return 'Desde su app no piden nada: las plazas fijas y las pausas se dan en recepción.';
+      // Solo la plaza fija suelta se aprueba sola; la pausa la decide siempre el estudio.
+      const sola = r.plazaFijaSolicitarDesdeApp && r.plazaFijaAprobacion === 'AUTOMATICA';
+      if (sola) {
+        return `Desde su app pueden pedir ${puede.join(' o ')}. La plaza fija se da sola si cumple tus reglas y no pasa del ${r.plazaFijaAutoTopePct} % del aforo de la clase; si no, te llega a Resumen.${r.plazaFijaPausaDesdeApp ? ' Las pausas las apruebas tú.' : ''}`;
+      }
       return `Desde su app pueden pedir ${puede.join(' o ')}. No cambia nada hasta que lo apruebes en Resumen.`;
     }
     case 'si-pausa-su-plaza-fija':
@@ -486,7 +502,12 @@ export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaS
 // apagada.
 
 export const EXPLICACION_PLAZA_FIJA_DESDE_APP =
-  'De serie, tus alumnas pueden pedir quedarse fijas en una clase que se repite desde «Clases fijas» de su app (con las que ya montaste como oferta con nombre y las demás sueltas): tocan la clase y le dan a «Pedir clase fija». En la ficha de una clase normal solo se reserva, para no mezclar las dos cosas. Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Te llega un aviso y lo decides en Resumen; hasta que lo apruebas no cambia nada. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
+  'De serie, tus alumnas pueden pedir quedarse fijas en una clase que se repite desde «Clases fijas» de su app (con las que ya montaste como oferta con nombre y las demás sueltas): tocan la clase y le dan a «Pedir clase fija». En la ficha de una clase normal solo se reserva, para no mezclar las dos cosas. Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Por defecto te llega un aviso y lo decides en Resumen (hasta que lo apruebas no cambia nada); si lo prefieres, se dan solas las que cumplen tus reglas. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
+
+export const OPCIONES_APROBACION_PLAZA_FIJA: readonly { valor: ReglasReserva['plazaFijaAprobacion']; titulo: string; detalle: string }[] = [
+  { valor: 'MANUAL', titulo: 'La apruebo yo', detalle: 'Te llega un aviso y la decides en Resumen. Hasta entonces no cambia nada.' },
+  { valor: 'AUTOMATICA', titulo: 'Se da sola si cumple mis reglas', detalle: 'Si tiene cuota, nivel, no pasa de su límite semanal y la clase tiene sitio, se le da al momento. Si algo falla, te llega a ti.' },
+];
 
 export const EXPLICACION_PAUSA_PLAZA_FIJA =
   'Vale para las pausas nuevas, las pongas tú o las pida ella; las que ya están puestas siguen como estaban. Las clases de esas fechas se cancelan sin penalización y las que ya pasaron no se tocan.';
@@ -510,6 +531,26 @@ export function confirmarPlazaFijaSinCuota(
     titulo: '¿Liberar sus clases?',
     descripcion: 'Desde ahora, cuando una alumna con plaza fija se quede sin cuota se cancelarán sus clases futuras, también las de los próximos días, sin penalización. Si ya hay alumnas en ese caso, sus clases se liberan esta noche.',
     textoConfirmar: 'Sí, liberarlas',
+  };
+}
+
+/** Los porcentajes que se ofrecen en el cajón (el servidor acepta cualquier valor de 10 a 100). */
+export const OPCIONES_TOPE_AUTOMATICO_PCT: readonly number[] = TOPES_AUTOMATICOS_PCT;
+
+/**
+ * Lo que se pregunta antes de pasar a aprobar solas las plazas fijas: una plaza fija son reservas cada semana y, con esto, nadie
+ * las mira antes. Dice qué se comprueba (para que no se piense que se aprueba cualquiera) y qué NO se aprueba nunca solo. Volver a
+ * aprobarlas a mano, o cambiar solo el porcentaje, no pregunta.
+ */
+export function confirmarAprobacionAutomatica(
+  antes: Pick<ReglasReserva, 'plazaFijaAprobacion'>,
+  ahora: Pick<ReglasReserva, 'plazaFijaAprobacion' | 'plazaFijaAutoTopePct' | 'plazaFijaSolicitarDesdeApp'>,
+): { titulo: string; descripcion: string; textoConfirmar: string } | undefined {
+  if (ahora.plazaFijaAprobacion !== 'AUTOMATICA' || antes.plazaFijaAprobacion === 'AUTOMATICA') return undefined;
+  return {
+    titulo: '¿Dar las plazas fijas sin que las apruebes?',
+    descripcion: `Una plaza fija reserva la clase cada semana. Desde ahora, cuando una alumna la pida, se le da al momento si tiene una cuota que incluye la clase, el nivel que pide, no pasa del límite semanal de su cuota, no tiene un pago pendiente que te bloquee reservar, la clase no exige que apruebes cada reserva y las plazas fijas de esa clase no pasan del ${ahora.plazaFijaAutoTopePct} % de su aforo. Si algo de eso falla, te llega a Resumen como hasta ahora.${ahora.plazaFijaSolicitarDesdeApp ? '' : ' Ahora mismo no pueden pedirlas desde su app: enciende «Pueden pedir plaza fija» para que esto tenga efecto.'}`,
+    textoConfirmar: 'Sí, que se den solas',
   };
 }
 

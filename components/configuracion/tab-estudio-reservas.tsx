@@ -16,9 +16,9 @@ import { tarjetaPorId } from '@/lib/configuracion/secciones';
 import { claseDeEjemplo, instante, lineaDeTiempoReserva, reglasEfectivasDeTipo, type PasoReserva } from '@/lib/configuracion/linea-de-tiempo-reserva';
 import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import {
-  antelacionImposible, confirmarPenalizacion, confirmarPlazaFijaSinCuota, consecuenciaRegla, EXPLICACION_PAUSA_PLAZA_FIJA,
-  EXPLICACION_PLAZA_FIJA_DESDE_APP, EXPLICACION_PLAZA_FIJA_SIN_CUOTA, formularioReglas, OPCIONES_FIN_PAUSA,
-  OPCIONES_PLAZA_FIJA_SIN_CUOTA, reglasDeTarjetaAGuardar, reglasGuardadas,
+  antelacionImposible, confirmarAprobacionAutomatica, confirmarPenalizacion, confirmarPlazaFijaSinCuota, consecuenciaRegla,
+  EXPLICACION_PAUSA_PLAZA_FIJA, EXPLICACION_PLAZA_FIJA_DESDE_APP, EXPLICACION_PLAZA_FIJA_SIN_CUOTA, formularioReglas,
+  OPCIONES_APROBACION_PLAZA_FIJA, OPCIONES_FIN_PAUSA, OPCIONES_PLAZA_FIJA_SIN_CUOTA, OPCIONES_TOPE_AUTOMATICO_PCT, reglasDeTarjetaAGuardar, reglasGuardadas,
   tarjetasConCambios, type ReglasReserva, type ReglasReservaForm, type TarjetaReglasId,
 } from '@/lib/configuracion/reglas-reserva';
 import { elegirModoListaEspera, valoresDeListaEspera, type ModoListaEspera } from '@/lib/configuracion/lista-espera-modo';
@@ -811,7 +811,7 @@ export function FormSinCuota(props: PropsCajonRegla) {
  * que responde a «¿cómo se marcan ellas?» sin tener que probarlo desde un móvil.
  * Apagado, se enseña atenuado y se dice que ahora no lo ve.
  */
-function VistaPreviaPlazaFija({ activa }: { activa: boolean }) {
+function VistaPreviaPlazaFija({ activa, automatica }: { activa: boolean; automatica: boolean }) {
   return (
     <div data-testid="vista-previa-plaza-fija" className="rounded-xl border border-border bg-muted/40 p-3">
       <p className="text-[12px] font-semibold text-muted-foreground">
@@ -820,7 +820,7 @@ function VistaPreviaPlazaFija({ activa }: { activa: boolean }) {
       <div className={cn('mt-2 flex flex-col gap-2 rounded-lg border border-border bg-card p-3', !activa && 'opacity-50')}>
         <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{TEXTOS_PLAZA_FIJA.titulo}</span>
         <p className="text-[13px] text-foreground text-pretty">{TEXTOS_PLAZA_FIJA.ofrecer(2, '10:00')}</p>
-        <p className="text-[13px] text-muted-foreground text-pretty">{TEXTOS_PLAZA_FIJA.quePasa}</p>
+        <p className="text-[13px] text-muted-foreground text-pretty">{automatica ? TEXTOS_PLAZA_FIJA.quePasaAutomatica : TEXTOS_PLAZA_FIJA.quePasa}</p>
         <span aria-hidden className="self-start rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium text-foreground">
           {TEXTOS_PLAZA_FIJA.botonPedir}
         </span>
@@ -847,7 +847,61 @@ export function FormPlazaFijaDesdeApp(props: PropsCajonRegla) {
           on={form.plazaFijaSolicitarDesdeApp}
           onChange={v => cambiar('plazaFijaSolicitarDesdeApp', v)}
         />
-        <VistaPreviaPlazaFija activa={form.plazaFijaSolicitarDesdeApp} />
+        {form.plazaFijaSolicitarDesdeApp && (
+          <fieldset className="space-y-2" data-testid="aprobacion-plaza-fija">
+            <legend className="mb-2 text-sm font-medium text-foreground">Cuando la piden</legend>
+            {OPCIONES_APROBACION_PLAZA_FIJA.map(o => {
+              const elegida = form.plazaFijaAprobacion === o.valor;
+              return (
+                <label
+                  key={o.valor}
+                  className={cn(
+                    'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                    elegida ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="plaza-fija-aprobacion"
+                    className="mt-1 accent-[var(--brand)]"
+                    checked={elegida}
+                    onChange={() => cambiar('plazaFijaAprobacion', o.valor)}
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-foreground">{o.titulo}</span>
+                    <span className="block text-sm text-muted-foreground text-pretty">{o.detalle}</span>
+                  </span>
+                </label>
+              );
+            })}
+            {form.plazaFijaAprobacion === 'AUTOMATICA' && (
+              <div className="rounded-lg border border-border p-3" data-testid="tope-plaza-fija">
+                <p className="text-sm font-medium text-foreground">Cuántas plazas fijas puede tener una clase</p>
+                <p className="mb-2 text-sm text-muted-foreground text-pretty">
+                  Hasta este porcentaje de su aforo se dan solas; a partir de ahí, las apruebas tú. Así una clase no se llena de fijas sin que lo decidas.
+                </p>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Porcentaje del aforo">
+                  {OPCIONES_TOPE_AUTOMATICO_PCT.map(pct => (
+                    <button
+                      key={pct}
+                      type="button"
+                      role="radio"
+                      aria-checked={form.plazaFijaAutoTopePct === pct}
+                      onClick={() => cambiar('plazaFijaAutoTopePct', pct)}
+                      className={cn(
+                        'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+                        form.plazaFijaAutoTopePct === pct ? 'border-brand bg-brand/5 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
+                      )}
+                    >
+                      {pct} %
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </fieldset>
+        )}
+        <VistaPreviaPlazaFija activa={form.plazaFijaSolicitarDesdeApp} automatica={form.plazaFijaSolicitarDesdeApp && form.plazaFijaAprobacion === 'AUTOMATICA'} />
         <InterruptorCampo
           titulo="Pueden pedir una pausa"
           detalle="De su plaza fija, con las fechas que elijan."
@@ -856,7 +910,7 @@ export function FormPlazaFijaDesdeApp(props: PropsCajonRegla) {
         />
         <Consecuencia texto={consecuenciaRegla('plaza-fija-desde-la-app', enPantalla)} />
       </div>
-      <Barra tarjeta="plaza-fija-desde-la-app" r={r} />
+      <Barra tarjeta="plaza-fija-desde-la-app" r={r} confirmar={confirmarAprobacionAutomatica(r.guardado, enPantalla)} />
     </>
   );
 }

@@ -18,7 +18,9 @@ export const maxDuration = 60;
 // (`solicitudes_plaza_fija`, migr 20260915231920). Antes creaba, pausaba,
 // reanudaba y quitaba su plaza ella sola. Decisión del fundador (16-sep-2026):
 // hasta que el estudio aprueba no cambia la plaza real, y cada puerta la abre su
-// ajuste del estudio (apagado, 403). Dejar la clase fija (`dejar_plaza`) la hace ella con confirmación; reanudar y cambiarla
+// ajuste del estudio (apagado, 403). El estudio puede elegir que lo que pasa sus reglas
+// se apruebe solo (`plaza_fija_aprobacion`): sigue siendo una petición que ÉL ha decidido
+// aprobar de antemano, y por la misma puerta que cuando la aprueba a mano. Dejar la clase fija (`dejar_plaza`) la hace ella con confirmación; reanudar y cambiarla
 // se habla con el estudio.
 // SEGURIDAD: igual que /api/public/reserva, la identidad sale del JWT
 // verificado, nunca del body — nadie pide nada sobre la plaza fija de otra

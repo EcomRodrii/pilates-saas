@@ -288,6 +288,11 @@ export interface Studio {
   /** Autoservicio de plaza fija desde la app (migr 20260915231920): la alumna pide y el estudio decide. */
   plazaFijaSolicitarDesdeApp: boolean;
   plazaFijaPausaDesdeApp: boolean;
+  /** Quién da las plazas fijas SUELTAS que pide la alumna (migr 20261002230422): 'MANUAL' = el estudio las aprueba (como siempre);
+   *  'AUTOMATICA' = se dan solas si pasan sus reglas. Solo las sueltas: las clases fijas con nombre llevan su propia aprobación. */
+  plazaFijaAprobacion: 'MANUAL' | 'AUTOMATICA';
+  /** Con 'AUTOMATICA': el % del aforo de una clase que pueden ocupar las plazas fijas antes de que las nuevas pasen al estudio. */
+  plazaFijaAutoTopePct: number;
   /** Opening OS: fecha de apertura si la apertura suave está puesta (solo en lo público). */
   aperturaSuaveHasta?: string | null;
   /** Las pausas NUEVAS dejan su sitio libre para otra clienta; las ya puestas no cambian. */

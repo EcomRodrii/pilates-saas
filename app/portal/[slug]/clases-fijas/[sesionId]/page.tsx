@@ -75,8 +75,11 @@ export default function FichaClaseFijaPage() {
     const r = await pedirPlazaFija(estudio.slug, estudio.id, clase.id, meses);
     setEnviando(false);
     if (!r.ok) { setError(r.error); return; }
+    // Aprobación automática: el servidor la ha dado ya (`resuelta`), y lo que se dice es SU texto. Una petición con id que no
+    // viene `resuelta` sigue pendiente, aunque el estudio sea automático (algo no pasó sus reglas).
+    if (r.resuelta) { setEstadoLocal({ estado: 'TIENE_PLAZA' }); toast(r.mensaje ?? TPF.dada); return; }
     setEstadoLocal(r.solicitudId ? { estado: 'PEDIDA', peticionId: r.solicitudId } : { estado: 'TIENE_PLAZA' });
-    toast(r.solicitudId ? TPF.pedida : 'Ya es tu clase fija ✓');
+    toast(r.solicitudId ? TPF.pedida : TPF.dada);
   }
 
   async function anular(peticionId: string) {
@@ -156,7 +159,7 @@ export default function FichaClaseFijaPage() {
         {estadoFija?.estado === 'PUEDE_PEDIR' && (
           <div className="note" data-testid="que-es-clase-fija" style={{ margin: 0, background: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: 4 }}>
             <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>{TPF.ofrecer(dia, clase.hora)}</p>
-            <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 500 }}>{TPF.quePasa}</p>
+            <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 500 }}>{estudio.plazaFijaAutomatica && !data?.oferta ? TPF.quePasaAutomatica : TPF.quePasa}</p>
           </div>
         )}
 
@@ -207,7 +210,7 @@ export default function FichaClaseFijaPage() {
           </>
         ) : estadoFija.estado === 'TIENE_PLAZA' ? (
           <>
-            <p role="status" style={{ margin: 0, textAlign: 'center', fontSize: 'var(--t-small)', fontWeight: 800 }}>Ya es tu clase fija ✓</p>
+            <p role="status" data-testid="clase-fija-dada" style={{ margin: 0, textAlign: 'center', fontSize: 'var(--t-small)', fontWeight: 800 }}>{TPF.dada}</p>
             <Link href={href('/mis-reservas?tab=fijas')} className="btn btn--secondary" style={{ height: 50, justifyContent: 'center' }}>Ver mis clases fijas</Link>
           </>
         ) : estadoFija.estado === 'PEDIDA' ? (

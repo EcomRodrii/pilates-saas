@@ -5008,6 +5008,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('plazaFijaSinCuota' in changes) db.plaza_fija_sin_cuota = changes.plazaFijaSinCuota;
   if ('plazaFijaSolicitarDesdeApp' in changes) db.plaza_fija_solicitar_desde_app = changes.plazaFijaSolicitarDesdeApp;
   if ('plazaFijaPausaDesdeApp' in changes) db.plaza_fija_pausa_desde_app = changes.plazaFijaPausaDesdeApp;
+  if ('plazaFijaAprobacion' in changes) db.plaza_fija_aprobacion = changes.plazaFijaAprobacion;
+  if ('plazaFijaAutoTopePct' in changes) db.plaza_fija_auto_tope_pct = changes.plazaFijaAutoTopePct;
   if ('plazaFijaPausaLiberaSitio' in changes) db.plaza_fija_pausa_libera_sitio = changes.plazaFijaPausaLiberaSitio;
   if ('plazaFijaFinPausa' in changes) db.plaza_fija_fin_pausa = changes.plazaFijaFinPausa;
   if ('recibosAlCancelarCuota' in changes) db.recibos_al_cancelar_cuota = changes.recibosAlCancelarCuota;
@@ -5422,6 +5424,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     // Encendido de serie desde el 22-sep (antes apagado, 16-sep): ver el comentario en reglas-reserva.ts.
     plazaFijaSolicitarDesdeApp: (r.plaza_fija_solicitar_desde_app as boolean | null) ?? true,
     plazaFijaPausaDesdeApp: (r.plaza_fija_pausa_desde_app as boolean | null) ?? false,
+    plazaFijaAprobacion: r.plaza_fija_aprobacion === 'AUTOMATICA' ? 'AUTOMATICA' : 'MANUAL',
+    plazaFijaAutoTopePct: (r.plaza_fija_auto_tope_pct as number | null) ?? 50,
     plazaFijaPausaLiberaSitio: (r.plaza_fija_pausa_libera_sitio as boolean | null) ?? false,
     plazaFijaFinPausa: (r.plaza_fija_fin_pausa as Studio['plazaFijaFinPausa'] | null) ?? 'RECUPERAR_SI_LIBRE',
     recibosAlCancelarCuota: (r.recibos_al_cancelar_cuota as Studio['recibosAlCancelarCuota'] | null) ?? 'MANTENER_CON_REINTENTOS',

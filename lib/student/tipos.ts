@@ -24,6 +24,8 @@ export interface StudioConfig {
    *  la puerta de verdad es `/api/public/plaza-fija`. Ausente = no. */
   puedePedirPlazaFija?: boolean;
   puedePedirPausa?: boolean;
+  /** El estudio aprueba solo las clases fijas que pasan sus reglas: la app no promete «tu estudio tiene que confirmarla». Ausente = no. */
+  plazaFijaAutomatica?: boolean;
   /** El estudio pide sus «Datos extra» en la app antes de dejarla usar. Ausente = no. */
   pideDatosExtra?: boolean;
   /** El estudio usa el control de acceso con QR: la alumna ve su QR en Perfil. */

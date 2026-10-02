@@ -30,6 +30,10 @@ export const TEXTOS_PLAZA_FIJA = {
     `¿Vienes ${losDias(diaSemana)} a las ${hora}? Con una clase fija tu plaza queda reservada cada semana, sin que tengas que volver a reservarla.`,
   /** Lo que pasa después de pedirla. */
   quePasa: 'Tu estudio tiene que confirmarla: su respuesta te llega aquí. Hasta entonces, sigue reservando como siempre.',
+  /** Estudio con aprobación automática: se dice lo que puede pasar de las DOS formas, no solo la buena. */
+  quePasaAutomatica: 'Si cumples las reglas de tu estudio, se te da al momento. Si no, tu estudio la confirma y su respuesta te llega aquí; hasta entonces, sigue reservando como siempre.',
+  /** Respaldo si el servidor dijo «dada» sin decir con qué texto (no debería pasar). */
+  dada: 'Ya es tu clase fija ✓',
   botonPedir: 'Pedir clase fija',
   pedida: 'Ya la has pedido: tu estudio te contestará aquí. Hasta entonces, sigue reservando esta clase como siempre.',
   botonAnular: 'Anular la petición',

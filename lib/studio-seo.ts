@@ -17,7 +17,7 @@ const COLUMNAS_ESTABLES =
 const COLUMNAS_JOVENES =
   'creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe, titulo_acceso, imagen_bienvenida_url, '
   + 'plaza_fija_solicitar_desde_app, plaza_fija_pausa_desde_app, apertura_suave, fecha_apertura, preguntas_alta_activas, '
-  + 'control_acceso_qr';
+  + 'control_acceso_qr, plaza_fija_aprobacion';
 
 /** La fila tal y como la lee esta función: las jóvenes pueden no venir. */
 interface FilaStudio {
@@ -34,6 +34,7 @@ interface FilaStudio {
   apertura_suave?: boolean | null; fecha_apertura?: string | null;
   preguntas_alta_activas?: boolean | null;
   control_acceso_qr?: boolean | null;
+  plaza_fija_aprobacion?: string | null;
 }
 
 /**
@@ -106,6 +107,9 @@ export interface StudioSeo {
    *  Solo decide si se enseña el botón: la puerta es `/api/public/plaza-fija`. */
   plazaFijaSolicitarDesdeApp: boolean;
   plazaFijaPausaDesdeApp: boolean;
+  /** El estudio aprueba solo las plazas fijas que pasan sus reglas (migr 20261002230422). Solo decide qué se le DICE a la alumna al
+   *  pedirla; quien aprueba o no es `solicitarPlazaFijaAlumna`. Sin la columna, «no sé» es «lo aprueba el estudio» (lo de antes). */
+  plazaFijaAprobacionAutomatica: boolean;
   /** Pedirle en su app las preguntas de «Datos extra» (migr 20260925102844). Solo decide si
    *  la app las pregunta; qué se pregunta y qué se guarda lo decide `/api/public/preguntas-alta`. */
   preguntasAltaActivas: boolean;
@@ -219,6 +223,8 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // Apagado como en producción; la spec que prueba pedir plaza o pausa lo enciende.
       plazaFijaSolicitarDesdeApp: process.env.E2E_PLAZA_FIJA_APP === '1',
       plazaFijaPausaDesdeApp: process.env.E2E_PLAZA_FIJA_APP === '1',
+      // Manual como en producción por defecto; la spec que prueba la aprobación automática usa su PROPIO slug.
+      plazaFijaAprobacionAutomatica: slug === 'tentare-aprobacion-auto',
       // Apagado como en producción. La spec de las preguntas lo enciende con su
       // PROPIO slug: una variable global lo encendería en todas las specs de la
       // app, y todas pasarían a esperar la petición de las preguntas.
@@ -358,6 +364,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     // botón sin que el servidor lo acepte sería prometerle algo que da 403.
     plazaFijaSolicitarDesdeApp: (data.plaza_fija_solicitar_desde_app as boolean | null) === true,
     plazaFijaPausaDesdeApp: (data.plaza_fija_pausa_desde_app as boolean | null) === true,
+    plazaFijaAprobacionAutomatica: (data.plaza_fija_aprobacion as string | null) === 'AUTOMATICA',
     // Sin la columna, «no sé» es «no se pregunta»: parar la app por algo que el
     // estudio no ha encendido sería peor que no preguntar.
     preguntasAltaActivas: (data.preguntas_alta_activas as boolean | null) === true,

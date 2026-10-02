@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuotaParaPlazaFija, superaLimiteSemanal } from './plazas-fijas-reglas.ts';
+import { cuotaParaPlazaFija, cupoAutomatico, motivoNoAutomatica, superaLimiteSemanal } from './plazas-fijas-reglas.ts';
 import type { PlanTarifa, Suscripcion } from './types.ts';
 
 const HOY = '2026-09-15';
@@ -51,4 +51,58 @@ test('superaLimiteSemanal: avisa al pasar del límite, nunca sin límite', () =>
   assert.equal(superaLimiteSemanal(dos, 1), null);
   assert.deepEqual(superaLimiteSemanal(dos, 2), { limite: 2 });
   assert.equal(superaLimiteSemanal(plan({ id: 'libre' }), 7), null);
+});
+
+// ─── Aprobación automática: el tope de plazas fijas por clase ───────────────
+
+test('el cupo automático es un porcentaje del aforo, redondeado HACIA ABAJO: nunca se pasa del tope que puso el estudio', () => {
+  assert.equal(cupoAutomatico(10, 50), 5);
+  assert.equal(cupoAutomatico(12, 25), 3);
+  assert.equal(cupoAutomatico(8, 100), 8);
+  assert.equal(cupoAutomatico(3, 50), 1, '1,5 → 1, no 2');
+  assert.equal(cupoAutomatico(9, 25), 2, '2,25 → 2');
+});
+
+test('una clase de una plaza al 50 % no admite ninguna automática: decide el estudio', () => {
+  assert.equal(cupoAutomatico(1, 50), 0);
+  assert.equal(cupoAutomatico(1, 100), 1);
+});
+
+test('⚠️ sin dato (aforo o porcentaje que no son un número) no se aprueba solo: el cupo es 0', () => {
+  for (const [aforo, pct] of [[null, 50], [undefined, 50], [10, null], [10, undefined], [Number.NaN, 50], [10, Number.NaN], [0, 50], [-4, 50], [10, 0], [10, -5]] as const) {
+    assert.equal(cupoAutomatico(aforo, pct), 0, `${aforo}/${pct}`);
+  }
+});
+
+test('un porcentaje por encima de 100 nunca da más plazas que el aforo', () => {
+  assert.equal(cupoAutomatico(10, 250), 10);
+});
+
+// ─── Aprobación automática: qué reglas se miran antes de escribir ───────────
+
+const CUMPLE = { modo: 'AUTOMATICA' as const, superaLimite: false, reservaConAprobacion: false, impagoBloqueante: false };
+
+test('con todo en regla, una petición se aprueba sola', () => {
+  assert.equal(motivoNoAutomatica(CUMPLE), null);
+});
+
+test('⚠️ manual NUNCA se aprueba solo, cumpla lo que cumpla', () => {
+  assert.equal(motivoNoAutomatica({ ...CUMPLE, modo: 'MANUAL' }), 'MANUAL');
+});
+
+test('⚠️ pasar del límite semanal de su cuota NUNCA se aprueba solo (decisión del fundador, 16-sep)', () => {
+  assert.equal(motivoNoAutomatica({ ...CUMPLE, superaLimite: true }), 'SUPERA_LIMITE');
+});
+
+test('una clase que exige aprobar cada reserva no se llena de reservas sin pasar por ahí', () => {
+  assert.equal(motivoNoAutomatica({ ...CUMPLE, reservaConAprobacion: true }), 'RESERVA_CON_APROBACION');
+});
+
+test('un impago que le bloquea reservar tampoco se salta con una plaza fija', () => {
+  assert.equal(motivoNoAutomatica({ ...CUMPLE, impagoBloqueante: true }), 'IMPAGO');
+});
+
+test('con varios motivos, manda el primero: el límite semanal gana a lo demás', () => {
+  assert.equal(motivoNoAutomatica({ ...CUMPLE, superaLimite: true, reservaConAprobacion: true, impagoBloqueante: true }), 'SUPERA_LIMITE');
+  assert.equal(motivoNoAutomatica({ ...CUMPLE, reservaConAprobacion: true, impagoBloqueante: true }), 'RESERVA_CON_APROBACION');
 });

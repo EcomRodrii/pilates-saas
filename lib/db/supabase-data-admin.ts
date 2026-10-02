@@ -55,7 +55,10 @@ import {
 import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, exigePlanAlReservar, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio, HORIZONTE_MATERIALIZAR_DIAS, HORIZONTE_AVISOS_PLAZA_FIJA_DIAS } from '@/lib/plazas-fijas-slot';
-import { cuotaParaPlazaFija, superaLimiteSemanal, type DatosPlazaFija, type ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
+import {
+  cuotaParaPlazaFija, cupoAutomatico, motivoNoAutomatica, superaLimiteSemanal, TOPE_AUTOMATICO_POR_DEFECTO_PCT,
+  type AprobacionPlazaFija, type DatosPlazaFija, type ResultadoGuardarPlazaFija,
+} from '@/lib/plazas-fijas-reglas';
 import { duracionPedida, etiquetaDuracion, plazasVencidasQueEstorban } from '@/lib/clases-fijas-reglas';
 import { estadoPausa, sesionEnPausa, validarPausa, type Pausa } from '@/lib/plazas-fijas-pausa';
 import {
@@ -4670,10 +4673,12 @@ export async function validarPlazaFijaDesdeSesion(
 
 async function guardarPlazaFijaDesdeSesion(
   admin: SupabaseClient,
-  params: { studioId: string; socioId: string; datos: Omit<DatosPlazaFija, 'socioId'>; plazaId?: string },
+  /** `cupo`: SOLO al crear y SOLO la aprobación automática —cuántas plazas fijas caben ya en esa franja—; el recuento y la plaza
+   *  se hacen dentro de un candado de la base (`dar_plaza_fija_con_cupo`). Sin él (mostrador, aprobación manual) no hay tope. */
+  params: { studioId: string; socioId: string; datos: Omit<DatosPlazaFija, 'socioId'>; plazaId?: string; cupo?: number },
   textos: TextosPlazaFija,
 ): Promise<ResultadoGuardarPlazaFija> {
-  const { studioId, socioId, datos, plazaId } = params;
+  const { studioId, socioId, datos, plazaId, cupo } = params;
   // Las comprobaciones viven en `validarPlazaFijaDesdeSesion` (una sola copia, la
   // que usa también la petición desde la app). Aquí solo se decide el límite
   // semanal —el panel pide confirmarlo— y se escribe.
@@ -4715,12 +4720,34 @@ async function guardarPlazaFijaDesdeSesion(
     dia_semana: dow, hora_inicio: horaInicio, sala_id: salaId, tipo_clase_id: tipoClaseId,
     spot_id: datos.spotId, vigencia_desde: datos.vigenciaDesde, vigencia_hasta: datos.vigenciaHasta,
   };
+  const idNueva = `pf-${uid()}`;
+  if (!anterior && cupo !== undefined) {
+    // Aprobación automática: el recuento de quién ocupa la franja y la plaza van JUNTOS dentro de un candado por franja. Contar
+    // aquí y escribir después deja pasar a dos peticiones a la vez por el último hueco.
+    const { data: dada, error: errCupo } = await admin.rpc('dar_plaza_fija_con_cupo', {
+      p_studio_id: studioId, p_fila: { id: idNueva, socio_id: socioId, ...fila }, p_cupo: cupo,
+    });
+    if (errCupo) {
+      if (errCupo.message.includes('plazas_fijas_spot_sin_solape')) return { ok: false, error: textos.sitioOcupado };
+      capturarExcepcion(new Error(errCupo.message), { tags: { area: 'plazas-fijas' }, extra: { studioId } });
+      return { ok: false, error: 'No se pudo guardar la plaza fija' };
+    }
+    const r = dada as { ok?: boolean; codigo?: string } | null;
+    if (!r?.ok) {
+      return r?.codigo === 'SIN_CUPO'
+        ? { ok: false, error: 'Esa clase ya tiene todas las plazas fijas que se dan sin pasar por el estudio.', codigo: 'SIN_CUPO' }
+        : { ok: false, error: 'No se pudo guardar la plaza fija' };
+    }
+  }
   const escritura = anterior
     ? await admin.from('plazas_fijas').update(fila)
         .eq('id', anterior.id).eq('studio_id', studioId).eq('socio_id', socioId)
         .select(COLUMNAS_PLAZA_FIJA).maybeSingle()
-    : await admin.from('plazas_fijas').insert({ id: `pf-${uid()}`, studio_id: studioId, socio_id: socioId, ...fila, estado: 'ACTIVA' })
-        .select(COLUMNAS_PLAZA_FIJA).maybeSingle();
+    : cupo !== undefined
+      // Ya escrita por la RPC: aquí solo se lee.
+      ? await admin.from('plazas_fijas').select(COLUMNAS_PLAZA_FIJA).eq('id', idNueva).eq('studio_id', studioId).maybeSingle()
+      : await admin.from('plazas_fijas').insert({ id: idNueva, studio_id: studioId, socio_id: socioId, ...fila, estado: 'ACTIVA' })
+          .select(COLUMNAS_PLAZA_FIJA).maybeSingle();
   if (escritura.error) {
     if (escritura.error.message.includes('plazas_fijas_spot_sin_solape')) return { ok: false, error: textos.sitioOcupado };
     capturarExcepcion(new Error(escritura.error.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId } });
@@ -4774,7 +4801,7 @@ async function guardarPlazaFijaDesdeSesion(
 // de la sesión. Al mover, la clienta sale de la propia plaza, nunca del body.
 export async function guardarPlazaFijaStaff(
   admin: SupabaseClient,
-  params: { studioId: string; datos: DatosPlazaFija; plazaId?: string },
+  params: { studioId: string; datos: DatosPlazaFija; plazaId?: string; cupo?: number },
 ): Promise<ResultadoGuardarPlazaFija> {
   let socioId = params.datos.socioId;
   if (params.plazaId) {
@@ -4784,7 +4811,7 @@ export async function guardarPlazaFijaStaff(
     socioId = plaza.socio_id as string;
   }
   return guardarPlazaFijaDesdeSesion(
-    admin, { studioId: params.studioId, socioId, datos: params.datos, plazaId: params.plazaId }, TEXTOS_PLAZA_FIJA_PANEL,
+    admin, { studioId: params.studioId, socioId, datos: params.datos, plazaId: params.plazaId, cupo: params.cupo }, TEXTOS_PLAZA_FIJA_PANEL,
   );
 }
 
@@ -5249,6 +5276,69 @@ export type ResultadoPeticionAlumna =
   | { ok: true; solicitudId: string; /** Aprobación automática: ya está dada, no «tu estudio te contestará». */ resuelta?: boolean; mensaje?: string }
   | { error: string; status: number };
 
+/**
+ * Cómo decide este estudio las plazas fijas sueltas que pide la alumna. Lectura TOLERANTE: con el código desplegado antes que su
+ * migración la columna no existe y el SELECT falla, y eso no puede romper el pedir una clase fija (que hoy funciona): se cae a
+ * MANUAL —que es exactamente lo de antes— y se avisa.
+ */
+async function aprobacionPlazaFija(admin: SupabaseClient, studioId: string): Promise<{ modo: AprobacionPlazaFija; topePct: number }> {
+  const { data, error } = await admin.from('studios')
+    .select('plaza_fija_aprobacion, plaza_fija_auto_tope_pct').eq('id', studioId).maybeSingle();
+  if (error) {
+    capturarExcepcion(new Error(`aprobacionPlazaFija: ${error.message}`), { tags: { area: 'plazas-fijas' }, extra: { studioId } });
+    return { modo: 'MANUAL', topePct: TOPE_AUTOMATICO_POR_DEFECTO_PCT };
+  }
+  const pct = Number(data?.plaza_fija_auto_tope_pct);
+  return {
+    modo: data?.plaza_fija_aprobacion === 'AUTOMATICA' ? 'AUTOMATICA' : 'MANUAL',
+    topePct: Number.isFinite(pct) && pct >= 10 && pct <= 100 ? pct : TOPE_AUTOMATICO_POR_DEFECTO_PCT,
+  };
+}
+
+/**
+ * Aprobación automática de una petición recién creada. Devuelve lo que se le dice a la alumna si se aprobó, o `null` si se queda
+ * para el estudio —por una regla que no pasa, o porque algo falló: la petición NO se pierde, sigue pendiente y el estudio la ve
+ * como siempre—. No decide nada por su cuenta: mira las reglas que el estudio ya tiene y APRUEBA POR LA MISMA PUERTA que el estudio
+ * (`resolverPeticionPlazaFija`), que vuelve a pasar cuota, nivel, duplicada y límite semanal al escribir.
+ */
+async function aprobarPeticionAutomaticamente(
+  admin: SupabaseClient,
+  p: { studioId: string; socioId: string; solicitudId: string; sesionId: string; tipoClaseId: string | null; superaLimite: boolean; topePct: number },
+): Promise<{ mensaje: string } | null> {
+  try {
+    const [pol, reglasTipo, { data: ses }, { data: est }] = await Promise.all([
+      cargarPoliticaEstudio(admin, p.studioId),
+      cargarReglasReservaTipoClase(admin, p.studioId, p.tipoClaseId),
+      admin.from('sesiones').select('aforo_maximo').eq('id', p.sesionId).eq('studio_id', p.studioId).maybeSingle(),
+      admin.from('studios').select('bloquear_reserva_impago').eq('id', p.studioId).maybeSingle(),
+    ]);
+    let impagoBloqueante = false;
+    if (est?.bloquear_reserva_impago) {
+      // Sin poder comprobarlo no se aprueba solo: es el lado seguro.
+      const { data: impago, error: errImpago } = await admin.rpc('socio_tiene_impago', { p_studio_id: p.studioId, p_socio_id: p.socioId });
+      impagoBloqueante = errImpago ? true : impago === true;
+    }
+    const motivo = motivoNoAutomatica({
+      modo: 'AUTOMATICA', superaLimite: p.superaLimite, impagoBloqueante,
+      reservaConAprobacion: heredaOverride(reglasTipo.requiereAprobacion, pol.requiereAprobacion),
+    });
+    if (motivo) return null;
+
+    const r = await resolverPeticionPlazaFija(admin, {
+      studioId: p.studioId, userId: null, solicitudId: p.solicitudId, aprobar: true, motivo: null, confirmarLimite: false,
+      automatica: { cupo: cupoAutomatico(ses?.aforo_maximo as number | null | undefined, p.topePct) },
+    });
+    return 'ok' in r ? { mensaje: r.paraAlumna ?? 'Tu clase fija está confirmada.' } : null;
+  } catch (e) {
+    capturarExcepcion(e, { tags: { area: 'plazas-fijas' }, extra: { studioId: p.studioId, solicitudId: p.solicitudId, paso: 'aprobacion-automatica' } });
+    // Si se cayó DESPUÉS de reclamarla y SIN haber dado ninguna plaza, vuelve a la bandeja: mejor pendiente que resuelta sin nada.
+    await admin.from('solicitudes_plaza_fija')
+      .update({ estado: 'PENDIENTE', resuelta_en: null, resuelta_por: null })
+      .eq('id', p.solicitudId).eq('studio_id', p.studioId).eq('estado', 'APROBADA').is('resultado_plaza_id', null);
+    return null;
+  }
+}
+
 export async function solicitarPlazaFijaAlumna(
   admin: SupabaseClient,
   /** `duracionMeses`: cuánto tiempo la quiere (uno de `DURACIONES_MESES`); sin ella, sin fecha de fin, como siempre. */
@@ -5282,6 +5372,16 @@ export async function solicitarPlazaFijaAlumna(
   if (error) {
     if (error.code === '23505') return { error: 'Ya has pedido esta clase fija: tu estudio te contestará.', status: 409 };
     throw new Error(error.message);
+  }
+  // Aprobación automática (ajuste del estudio): si pasa sus reglas, se da ya y NO se avisa al estudio de una petición que no tiene
+  // nada que decidir. Si no pasa, o falla algo, sigue el camino de siempre.
+  const aprobacion = await aprobacionPlazaFija(admin, p.studioId);
+  if (aprobacion.modo === 'AUTOMATICA') {
+    const auto = await aprobarPeticionAutomaticamente(admin, {
+      studioId: p.studioId, socioId: p.socioId, solicitudId: data.id, sesionId: p.sesionId,
+      tipoClaseId: v.tipoClaseId, superaLimite: !!v.exceso, topePct: aprobacion.topePct,
+    });
+    if (auto) return { ok: true, solicitudId: data.id, resuelta: true, mensaje: auto.mensaje };
   }
   const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
   await emitirPeticionPlazaFija(admin, {
@@ -5499,8 +5599,9 @@ export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId:
 }
 
 export type ResultadoResolverPeticion =
-  | { ok: true; mensaje: string }
-  | { error: string; status: number; codigo?: 'SUPERA_LIMITE' };
+  /** `paraAlumna`: solo con aprobación automática —lo que la alumna ve en pantalla en vez de un aviso (no se le manda un correo de lo que ella misma acaba de hacer)—. */
+  | { ok: true; mensaje: string; paraAlumna?: string }
+  | { error: string; status: number; codigo?: 'SUPERA_LIMITE' | 'SIN_CUPO' };
 
 // Aprobar o rechazar una petición. Aprobar reutiliza las mismas puertas que el
 // mostrador (dar la plaza, pausarla, volver de la pausa), así que vuelve a pasar
@@ -5508,7 +5609,15 @@ export type ResultadoResolverPeticion =
 // de una pausa quita la plaza (la pantalla lo pide confirmar).
 export async function resolverPeticionPlazaFija(
   admin: SupabaseClient,
-  p: { studioId: string; userId: string; solicitudId: string; aprobar: boolean; motivo: string | null; confirmarLimite: boolean },
+  p: {
+    studioId: string; solicitudId: string; aprobar: boolean; motivo: string | null; confirmarLimite: boolean;
+    /** Quien decide. `null` = el propio sistema por la aprobación automática del estudio (`resuelta_por` queda vacío, que es lo que
+     *  distingue «la aprobó el estudio» de «se aprobó sola»). */
+    userId: string | null;
+    /** Aprobación automática: SOLO crear una plaza suelta, NUNCA pasando del límite de su cuota, y con el tope de plazas fijas de la
+     *  clase (`cupo`) contado dentro del candado de la base. Cualquier otra cosa se queda para el estudio. */
+    automatica?: { cupo: number };
+  },
 ): Promise<ResultadoResolverPeticion> {
   const { data: fila, error } = await admin.from('solicitudes_plaza_fija').select(`${COLUMNAS_PETICION}, estado`)
     .eq('id', p.solicitudId).eq('studio_id', p.studioId).maybeSingle();
@@ -5517,6 +5626,11 @@ export async function resolverPeticionPlazaFija(
   const sol = fila as unknown as FilaPeticion & { estado: string };
   const yaResuelta = { error: 'Esta petición ya está resuelta. Recarga la página.', status: 409 } as const;
   if (sol.estado !== 'PENDIENTE') return yaResuelta;
+  // La puerta de lo automático es estrecha a propósito: aunque quien llame se equivoque, esto solo aprueba solo lo que el estudio
+  // ya decidió que se puede aprobar solo.
+  if (p.automatica && (!p.aprobar || sol.tipo !== 'CREAR' || sol.supera_limite || p.userId !== null)) {
+    return { error: 'Esta petición la tiene que decidir el estudio.', status: 409 };
+  }
 
   const ahora = () => new Date().toISOString();
   // Compare-and-set desde PENDIENTE: dos personas decidiendo a la vez no se pisan.
@@ -5541,7 +5655,10 @@ export async function resolverPeticionPlazaFija(
       .update(extra).eq('id', sol.id).eq('studio_id', p.studioId);
     if (errAnotar) capturarExcepcion(new Error(errAnotar.message), { tags: { area: 'plazas-fijas' }, extra: { solicitudId: sol.id } });
   };
+  let paraAlumna: string | undefined;
   const responder = async (respuesta: string) => {
+    // Aprobación automática: la alumna lo ve en pantalla al instante; un aviso aparte de lo que acaba de pedir sería ruido.
+    if (p.automatica) { paraAlumna = respuesta; return; }
     const { emitirRespuestaPlazaFija } = await import('@/lib/notifications/emit');
     await emitirRespuestaPlazaFija(admin, { studioId: p.studioId, solicitudId: sol.id, socioId: sol.socio_id, respuesta });
   };
@@ -5647,16 +5764,20 @@ export async function resolverPeticionPlazaFija(
         socioId: sol.socio_id, sesionId: sol.sesion_id as string, spotId: null,
         vigenciaDesde: hoyEnEstudio(), vigenciaHasta: hastaPedida, confirmarLimite: p.confirmarLimite,
       },
+      ...(p.automatica ? { cupo: p.automatica.cupo } : {}),
     });
     if (!r.ok) {
       await reabrir('APROBADA');
-      return 'codigo' in r && r.codigo === 'SUPERA_LIMITE'
-        ? { error: r.error, status: 409, codigo: 'SUPERA_LIMITE' }
+      return 'codigo' in r && (r.codigo === 'SUPERA_LIMITE' || r.codigo === 'SIN_CUPO')
+        ? { error: r.error, status: 409, codigo: r.codigo }
         : { error: r.error, status: 400 };
     }
     await anotar({ resultado_plaza_id: r.plaza.id });
-    await responder(`Tu estudio te ha dado la clase fija de ${franja}.${r.primeraFecha ? ' Ya tienes reservada la próxima clase.' : ''}`);
-    return { ok: true, mensaje: 'Plaza fija dada' };
+    const proxima = r.primeraFecha ? ' Ya tienes reservada la próxima clase.' : '';
+    await responder(p.automatica
+      ? `Tu clase fija de ${franja} está confirmada.${proxima}`
+      : `Tu estudio te ha dado la clase fija de ${franja}.${proxima}`);
+    return { ok: true, mensaje: 'Plaza fija dada', ...(paraAlumna ? { paraAlumna } : {}) };
   }
 
   if (sol.tipo === 'PAUSAR') {

@@ -387,6 +387,54 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toBeVisible();
   });
 
+  // ── Estudio con aprobación automática: lo que pasa sus reglas se da al momento (decide el SERVIDOR, `resuelta`) ──
+
+  test('aprobación automática: si el servidor la da al instante, la ficha dice que ya es suya, con SU texto, y no «pendiente»', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    const dicho = 'Tu clase fija de los miércoles a las 10:00 está confirmada. Ya tienes reservada la próxima clase.';
+    const visto = await contarPeticiones(page, { status: 200, body: { ok: true, solicitudId: 'spf-9', resuelta: true, mensaje: dicho } });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Pedir clase fija' }).click({ timeout: 30_000 });
+    await expect(page.getByTestId('clase-fija-dada')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(dicho)).toBeVisible();
+    expect(visto.intentos, 'la petición salió de verdad').toBeGreaterThan(0);
+    await expect(page.getByTestId('clase-fija-pedida')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Anular la petición' })).toHaveCount(0);
+  });
+
+  test('aprobación automática, pero no pasó sus reglas: el servidor la deja pendiente y la ficha NO dice que ya es suya', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    // Lo mismo que un estudio manual: `ok` + `solicitudId`, sin `resuelta`.
+    const visto = await contarPeticiones(page, { status: 200, body: { ok: true, solicitudId: 'spf-9' } });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Pedir clase fija' }).click({ timeout: 30_000 });
+    await expect(page.getByTestId('clase-fija-pedida')).toBeVisible({ timeout: 30_000 });
+    expect(visto.intentos, 'la petición salió de verdad').toBeGreaterThan(0);
+    await expect(page.getByTestId('clase-fija-dada')).toHaveCount(0);
+  });
+
+  test('⚠️ «resuelta» sin el texto que enseñar no se cree: queda pendiente', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    const visto = await contarPeticiones(page, { status: 200, body: { ok: true, solicitudId: 'spf-9', resuelta: true } });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Pedir clase fija' }).click({ timeout: 30_000 });
+    await expect(page.getByTestId('clase-fija-pedida')).toBeVisible({ timeout: 30_000 });
+    expect(visto.intentos, 'la petición salió de verdad').toBeGreaterThan(0);
+    await expect(page.getByTestId('clase-fija-dada')).toHaveCount(0);
+  });
+
+  test('lo que se le promete antes de pedir depende del estudio: manual dice que lo confirma el estudio; automático, las dos posibilidades', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText(/Tu estudio tiene que confirmarla/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Si cumples las reglas de tu estudio/)).toHaveCount(0);
+
+    // El estudio con la aprobación automática (en e2e, el slug propio: una variable global lo encendería en todas las specs).
+    await page.goto('/portal/tentare-aprobacion-auto/clases-fijas/' + SESION_ID, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText(/Si cumples las reglas de tu estudio, se te da al momento/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Tu estudio tiene que confirmarla:/)).toHaveCount(0);
+  });
+
   test('con bono no hay botón que no va a funcionar: se le dice por qué y se le lleva a las cuotas', async ({ page }) => {
     await montarClaseQueSeRepite(page, 'bono');
     const visto = await contarPeticiones(page);

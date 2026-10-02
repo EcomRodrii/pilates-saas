@@ -105,6 +105,7 @@ export async function cargarEstudio(slug: string): Promise<EstudioStudent | null
     // «Peticiones desde su app»). Nada más que el botón; el servidor decide.
     puedePedirPlazaFija: s.plazaFijaSolicitarDesdeApp,
     puedePedirPausa: s.plazaFijaPausaDesdeApp,
+    plazaFijaAutomatica: s.plazaFijaAprobacionAutomatica,
     // Solo decide si la app pregunta; la puerta es `/api/public/preguntas-alta`.
     pideDatosExtra: s.preguntasAltaActivas,
     // Solo decide si se enseña la sección; el QR lo da `/api/public/qr-acceso`.

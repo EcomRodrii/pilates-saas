@@ -12,7 +12,8 @@ import { portalAuthHeader } from '@/lib/student/api-publica';
 import type { Pausa } from '@/lib/plazas-fijas-pausa';
 
 export type ResultadoPeticionPlazaFija =
-  | { ok: true; solicitudId: string | null }
+  /** `resuelta`: el estudio aprueba solo lo que pasa sus reglas y esta ya está DADA (con `mensaje`, lo que se le enseña). */
+  | { ok: true; solicitudId: string | null; resuelta?: boolean; mensaje?: string }
   | { ok: false; error: string; sesionCaducada?: boolean };
 
 async function enviar(slug: string, cuerpo: Record<string, unknown>): Promise<ResultadoPeticionPlazaFija> {
@@ -25,13 +26,18 @@ async function enviar(slug: string, cuerpo: Record<string, unknown>): Promise<Re
       body: JSON.stringify(cuerpo),
     });
     if (res.status === 401) return { ok: false, error: 'Tu sesión ha caducado: vuelve a entrar para pedirlo.', sesionCaducada: true };
-    const datos = (await res.json().catch(() => null)) as { solicitudId?: unknown; error?: unknown } | null;
+    const datos = (await res.json().catch(() => null)) as { solicitudId?: unknown; error?: unknown; resuelta?: unknown; mensaje?: unknown } | null;
     if (!res.ok) {
       // Los textos del servidor ya están escritos para ella («Ya has pedido esta plaza fija…»).
       return { ok: false, error: typeof datos?.error === 'string' && datos.error ? datos.error : 'No se ha podido enviar. Inténtalo de nuevo.' };
     }
     invalidarCatalogo(slug);
-    return { ok: true, solicitudId: typeof datos?.solicitudId === 'string' ? datos.solicitudId : null };
+    // `resuelta` solo se cree si trae el texto que se le va a enseñar: «ya está dada» sin decir cuál no se pinta.
+    const resuelta = datos?.resuelta === true && typeof datos.mensaje === 'string' && datos.mensaje !== '';
+    return {
+      ok: true, solicitudId: typeof datos?.solicitudId === 'string' ? datos.solicitudId : null,
+      ...(resuelta ? { resuelta: true, mensaje: datos?.mensaje as string } : {}),
+    };
   } catch {
     // Falló la red durante la petición: no se sabe si llegó, así que no se dice que sí.
     return { ok: false, error: 'Sin conexión: no sabemos si se ha enviado. Comprueba tu conexión y vuelve a mirar.' };

@@ -1088,6 +1088,10 @@ export interface RowStudios {
   reserva_antelacion_hora: string | null;
   // migr 20260930215106.
   recuperacion_max_vivas: number | null;
+  // migr 20261002230422.
+  plaza_fija_aprobacion: string | null;
+  // migr 20261002230422.
+  plaza_fija_auto_tope_pct: number | null;
 }
 
 export interface RowSuscripciones {
@@ -5375,6 +5379,8 @@ export type StudiosInsert = {
   reserva_max_por_dia?: number | null | null;
   reserva_antelacion_hora?: string | null | null;
   recuperacion_max_vivas?: number | null | null;
+  plaza_fija_aprobacion?: string | null | null;
+  plaza_fija_auto_tope_pct?: number | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5519,6 +5525,8 @@ export type StudiosUpdate = {
   reserva_max_por_dia?: number | null | null;
   reserva_antelacion_hora?: string | null | null;
   recuperacion_max_vivas?: number | null | null;
+  plaza_fija_aprobacion?: string | null | null;
+  plaza_fija_auto_tope_pct?: number | null | null;
 }
 
 export type SuscripcionesInsert = {
