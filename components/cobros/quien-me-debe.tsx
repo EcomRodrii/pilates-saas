@@ -205,7 +205,8 @@ export function QuienMeDebe({ datos, acciones, avisos }: { datos: DatosCobros; a
 
       {seleccionando && marcadas.size > 0 && (
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+64px)] lg:pb-[calc(env(safe-area-inset-bottom,0px)+12px)] lg:pl-[var(--sidebar-w)]">
-          <div role="toolbar" aria-label="Cobrar las seleccionadas" className="pointer-events-auto flex w-full max-w-2xl flex-wrap items-center gap-2 rounded-2xl bg-sidebar px-3 py-2.5 text-sidebar-foreground shadow-xl md:w-auto">
+          {/* `data-barra-seleccion`: la burbuja de ayuda del panel se aparta (globals.css). */}
+          <div data-barra-seleccion role="toolbar" aria-label="Cobrar las seleccionadas" className="pointer-events-auto flex w-full max-w-2xl flex-wrap items-center gap-2 rounded-2xl bg-sidebar px-3 py-2.5 text-sidebar-foreground shadow-xl md:w-auto">
             <strong className="px-1 text-[13px] font-semibold">
               {marcadas.size} {marcadas.size === 1 ? 'seleccionada' : 'seleccionadas'} · <CifraPrivada>{formatEuro(importeLote)}</CifraPrivada>
             </strong>

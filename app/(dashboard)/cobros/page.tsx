@@ -102,7 +102,9 @@ export default function Cobros() {
   const tabs = TABS.filter(t => t !== 'historial' || verHistorial);
 
   return (
-    <div data-tour="cobros-vista" className="space-y-5">
+    // `pb-24`: lo último de la pantalla (el ⋯ de «En el banco») puede subir por encima de
+    // la burbuja de ayuda del panel, que vive en la esquina de abajo.
+    <div data-tour="cobros-vista" className="space-y-5 pb-24">
       <PageHeader
         title="Cobros"
         description={<LineaResumen datos={datos} />}

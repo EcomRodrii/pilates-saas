@@ -151,14 +151,21 @@ async function montar(page: Page, opts: {
 const fila = (page: Page, id: string) => page.locator(`[data-recibo="${id}"]`);
 
 /** Abre el ⋯ de un recibo y elige una acción (por cómo empieza su texto). */
+/** El ⋯ al centro de la pantalla: en la esquina de abajo vive la burbuja de ayuda del panel. */
+async function abrirMenu(page: Page, id: string) {
+  const boton = fila(page, id).getByRole('button', { name: /^Acciones de/ });
+  await boton.evaluate(el => el.scrollIntoView({ block: 'center' }));
+  await boton.click();
+}
+
 async function accion(page: Page, id: string, texto: string) {
-  await fila(page, id).getByRole('button', { name: /^Acciones de/ }).click();
+  await abrirMenu(page, id);
   await page.getByRole('menuitem', { name: new RegExp(`^${texto}`) }).click();
 }
 
 /** Lo que ofrece el ⋯ de un recibo (activo o apagado), y lo cierra. */
 async function opciones(page: Page, id: string): Promise<string[]> {
-  await fila(page, id).getByRole('button', { name: /^Acciones de/ }).click();
+  await abrirMenu(page, id);
   const menu = page.getByRole('menu');
   await expect(menu).toBeVisible();
   const textos = await menu.getByRole('menuitem').allInnerTexts();
