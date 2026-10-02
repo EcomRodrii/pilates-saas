@@ -1141,7 +1141,7 @@ clase y levanta el tope semanal, solo en tipos compatibles y hasta que caduca); 
 los topes; un pago correcto debe acabar en reserva garantizada o en compensación registrada; el mostrador no es
 «modo dios» (se salta lo operativo que el estudio permita, con rastro; nunca la integridad).
 
-- **Fase 1, hecha: el ledger** (`movimientos_derecho`, migr `20261002130000`). Solo de inserción; saldo = suma de
+- **Fase 1, hecha: el ledger** (`movimientos_derecho`, migr `20261002133851`). Solo de inserción; saldo = suma de
   movimientos. Lo escriben **triggers** sobre `suscripciones.sesiones_restantes` y `recuperaciones`, así que cubre
   CUALQUIER camino que mueva saldo. Las funciones del motor (`consumir_bono_interno`, `devolver_sesion_bono_*`,
   `renovar_bono_idempotente`) dicen por qué mediante `set_config('tentare.ledger', …, true)` y lo limpian justo
@@ -1154,7 +1154,7 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   «no se actualizó ninguna fila» se mira con la variable del `RETURNING` (`v_saldo is null`), nunca con `not found`
   después del `set_config`. Hay un test que lo fija.
 - **Fase 2, hecha: una sola salida de devolución para cancelar una clase** (`liberar_derecho`, migr
-  `20261002140000`; solo service_role). Libera una reserva **ya CANCELADA de una clase ya cancelada** (no toca estados):
+  `20261002134040`; solo service_role). Libera una reserva **ya CANCELADA de una clase ya cancelada** (no toca estados):
   devuelve al bono EXACTO que la pagó (reutiliza `devolver_sesion_bono_por_reserva`, que sella por reserva), restituye
   la recuperación que usó y aplica `cancelacion_clase_devuelve_bono` en SQL. La recuperación vuelve aunque esa política
   no devuelva el bono. Los cuatro defectos de saldo que cierra: «Eliminar clase» devolvía con un `+1` ciego DESPUÉS de
@@ -1168,9 +1168,20 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   `LEGADO_SIN_RASTRO` y `liberarReservaCancelada` cae a `devolverBonoServidor`: su saldo ya venía descontado de la otra
   plataforma y no hay ledger que diga qué bono pagó. Se retira cuando las importadas se clasifiquen. La cancelación de
   UNA reserva por la alumna (`cancelar_reserva_plaza` + `ejecutarCancelacionReserva`) sigue como estaba.
+- **Fase 3a, hecha: dos reglas de elegibilidad y errores con acciones** (migr `20261002150000`, aplicada a producción el
+  2-oct; el fichero conserva este nombre y falta relabelarlo a su versión aplicada). El **no-show cuenta como uso** para el
+  tope semanal (`calcular_excede_limite_semanal`) Y para el barrido de recuperaciones semanales
+  (`otorgar-semanales.ts`: si no, faltar sin avisar devolvía una recuperación por un hueco que dejó vacío ella); el tope de
+  clases al día ya contaba todo lo no cancelado. Con varios bonos manda la **especificidad** (el acotado a tipos de clase
+  antes que el general, luego caducidad, luego id) en `elegir_bono_consumible`, `elegirBono` (TS) y `bonoParaClase` (portal):
+  son TRES copias de la misma regla y un test las ata a la fuente (el comentario viejo de `bono-cubre.ts` decía lo contrario:
+  la regla cambió por decisión de producto, no por descuido). Los rechazos de reserva llevan `acciones` por CÓDIGO
+  (`lib/student/reserva-acciones.ts`: `Record<CodigoReserva, …>`, un código nuevo sin fila no compila), en la API pública y
+  en la v1; el botón de comprar de la app sale de `acciones` y la comparación de la frase queda solo de respaldo. «Incluida en
+  tu mensualidad» sustituye a «(Infinity disponibles)» (`comoSePaga`) y la ficha de un bono ilimitado dice «Sin límite».
 - **Lo que viene, en este orden:** `evaluar_reserva` (SQL, solo lectura, la elegibilidad en un solo sitio, con tests de
-  paridad) → errores estructurados con acciones → el no-show cuenta en los topes y el orden de pagador por
-  especificidad. Después: índices únicos (una liberación/consumo por reserva), `cancelar_sesion` transaccional, REVOKE
+  paridad contra `reservar_plaza` en CI; en sombra, sin decidir todavía) → que `reservar_plaza` decida con ella → orden de
+  pagador por tope del producto que paga. Después: índices únicos (una liberación/consumo por reserva), `cancelar_sesion` transaccional, REVOKE
   de `devolver_sesion_bono` ciega cuando no quede llamador, compra transaccional (retener plaza antes de cobrar) y
   excepciones del mostrador.
 

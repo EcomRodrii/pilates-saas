@@ -78,7 +78,10 @@ export default function DetalleBonoPage() {
 
         <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--t-small)' }}>
           <Fila k="Comprado" v={unir(fechaCorta(b.compradoEn), euros(b.precio))} />
-          <Fila k="Usadas / total" v={`${b.creditosUsados} / ${b.creditosTotales}`} />
+          {/* Un mensual ilimitado trae `creditosTotales: Infinity`: «0 / Infinity» no es un dato, es un fallo. */}
+          {Number.isFinite(b.creditosTotales)
+            ? <Fila k="Usadas / total" v={`${b.creditosUsados} / ${b.creditosTotales}`} />
+            : <Fila k="Sesiones" v="Sin límite" />}
           <Fila k="Caducidad" v={b.expiraEn ? fechaCorta(b.expiraEn) : 'Sin caducidad'} />
           {/* ⚠️ `tap`: este enlace mide 19 px de alto y el mínimo táctil de
               WCAG 2.5.8 son 24. La clase crece la zona sensible a 44 px con un

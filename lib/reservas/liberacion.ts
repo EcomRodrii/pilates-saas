@@ -5,7 +5,7 @@
 // Antes cada camino (panel, sustituciones, mínimo de asistentes, «Eliminar clase») lo
 // decidía por su cuenta y los cuatro acabaron distintos: uno sumaba una sesión a ciegas,
 // otro se la sumaba a una plaza fija que no había consumido nada, y ninguno restituía la
-// recuperación. La decisión vive ahora en la RPC `liberar_derecho` (migr 20261002140000);
+// recuperación. La decisión vive ahora en la RPC `liberar_derecho` (migr 20261002134040);
 // este módulo solo la llama y traduce su respuesta.
 //
 // Sin imports con alias: `node --test` no resuelve `@/`.

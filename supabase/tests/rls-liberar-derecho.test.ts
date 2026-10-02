@@ -1,4 +1,4 @@
-// Motor de derechos, FASE 2 (migración 20261002140000): una sola salida de devolución para la
+// Motor de derechos, FASE 2 (migración 20261002134040): una sola salida de devolución para la
 // cancelación de una clase (`liberar_derecho`) y un único pagador por reserva.
 //
 // Cada test fija, contra una base de datos real, uno de los defectos de saldo que dejó la auditoría:

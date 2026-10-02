@@ -47,13 +47,16 @@ const CASOS: Caso[] = [
   // 20260930215106 la redefine (tope configurable) con la misma firma: la llama
   // el panel (ficha, importación) con su sesión y el servidor con service_role.
   { firma: 'crear_recuperacion(text, text, text, text, text, date)', anon: false, authenticated: true, serviceRole: true },
-  // Motor de derechos (migr 20261002130000 y 20261002140000). Las tres mueven saldo de sesiones:
+  // Motor de derechos (migr 20261002133851 y 20261002134040). Las tres mueven saldo de sesiones:
   // `consumir_bono_interno` y `liberar_derecho` solo las llama el servidor; la devolución por
   // reserva ya la podía llamar la gestión desde el panel y se queda como estaba (la propia
   // función comprueba estudio y rol).
   { firma: 'consumir_bono_interno(text, text, text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'liberar_derecho(text, text, text)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'devolver_sesion_bono_por_reserva(text, text)', anon: false, authenticated: true, serviceRole: true },
+  // Reglas de elegibilidad (migr 20261002150000): solo las llama el servidor, y el cambio de cuerpo no toca sus permisos.
+  { firma: 'calcular_excede_limite_semanal(text, text, text, timestamp with time zone)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'elegir_bono_consumible(text, text, text, date)', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {

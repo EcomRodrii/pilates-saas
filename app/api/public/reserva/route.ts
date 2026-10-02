@@ -9,6 +9,7 @@ import { bloqueoPorSuspension } from '@/lib/billing/billing-guard';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { concederClasePruebaGratis } from '@/lib/billing/clase-prueba';
+import { accionesDeRechazo } from '@/lib/student/reserva-acciones';
 
 // Crear o cancelar una reserva desde las páginas públicas (reserva/portal).
 // SEGURIDAD: exige sesión real de socia (JWT de Supabase Auth) y deriva su id
@@ -85,7 +86,14 @@ export async function POST(req: NextRequest) {
       const r = await crearReservaPublica({
         studioId: body.studioId, sesionId: body.sesionId, socioId, authUserId: user.userId, spotId: body.spotId ?? null,
       });
-      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error, ...('codigo' in r ? { codigo: r.codigo } : {}) }, { status: r.error === 'No autorizado' ? 401 : 400 }));
+      // El rechazo lleva el CÓDIGO (por qué) y las ACCIONES (qué puede hacer ahora), derivadas del código en
+      // `lib/student/reserva-acciones.ts`: quien pinte la pantalla no tiene que comparar la frase del error.
+      if ('error' in r) {
+        return conCorsWidget(req, NextResponse.json({
+          error: r.error,
+          ...('codigo' in r ? { codigo: r.codigo, acciones: accionesDeRechazo(r.codigo) } : {}),
+        }, { status: r.error === 'No autorizado' ? 401 : 400 }));
+      }
       return conCorsWidget(req, NextResponse.json(r));
     }
     if (body.accion === 'cancelar') {

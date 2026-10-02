@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { BookingState } from '@/lib/student/tipos';
 import { COPY } from '@/lib/student/maquina-reserva';
 import { seArreglaComprando } from '@/lib/bono-logic';
+import type { TipoAccion } from '@/lib/student/reserva-acciones';
 import { Sello } from '@/components/student/ui/Sello';
 /**
  * Resultado de reserva devuelto por el servidor. Solo 'confirmed' muestra la celebración.
@@ -12,7 +13,7 @@ import { Sello } from '@/components/student/ui/Sello';
  * ambos caen en `error` — y sin este texto la alumna leía «algo no ha salido
  * como esperábamos, inténtalo de nuevo» y reintentaba contra el mismo muro.
  */
-export function BookingStatus({ state, titulo, mensaje, onRetry, onWaitlist, onClose, onComprar, oferta }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; titulo?: string; mensaje?: string; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void; onComprar?: () => void; /** Algo que ofrecerle justo al terminar (p. ej. hacer fija la clase), entre el mensaje y los botones. */ oferta?: ReactNode }) {
+export function BookingStatus({ state, titulo, mensaje, acciones, onRetry, onWaitlist, onClose, onComprar, oferta }: { state: Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>; titulo?: string; mensaje?: string; /** Qué se le puede ofrecer según el CÓDIGO del rechazo (`lib/student/reserva-acciones.ts`). */ acciones?: TipoAccion[]; onRetry?: () => void; onWaitlist?: () => void; onClose?: () => void; onComprar?: () => void; /** Algo que ofrecerle justo al terminar (p. ej. hacer fija la clase), entre el mensaje y los botones. */ oferta?: ReactNode }) {
   const c = COPY[state];
   const ok = state === 'confirmed';
   // ⚠️ `ok` decide el CONFETI, no el botón. Estar en la lista de espera no es
@@ -26,7 +27,10 @@ export function BookingStatus({ state, titulo, mensaje, onRetry, onWaitlist, onC
   // Con el catálogo a un toque, ofrecer «Intentar de nuevo» era mandar a la
   // alumna contra el mismo muro en el momento en que más ganas tiene de
   // resolverlo. La regla es la MISMA que aplica el servidor (lib/bono-logic.ts).
-  const compraLoArregla = state === 'error' && !!mensaje && !!onComprar && seArreglaComprando(mensaje);
+  // Por CÓDIGO primero (`acciones`), y la comparación de la frase solo como respaldo para una respuesta
+  // sin código: cualquier retoque de copy rompía la comparación en silencio.
+  const compraLoArregla = state === 'error' && !!onComprar
+    && (!!acciones?.includes('comprar_plan') || (!!mensaje && seArreglaComprando(mensaje)));
   return (
     <div role="status" aria-live="assertive" style={{ position: 'relative', textAlign: 'center', padding: '10px 0 4px' }}>
       {/* ⚠️ El recorte va SOLO en la capa del confeti. Estaba en toda la

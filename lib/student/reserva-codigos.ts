@@ -19,6 +19,7 @@
 // (`aforo_efectivo`), así que puede enseñar una plaza que no existe.
 
 import type { BookingState } from './tipos';
+import { accionesDeRechazo, type TipoAccion } from './reserva-acciones.ts';
 
 /** Los códigos estables que puede devolver el servidor al reservar. */
 export type CodigoReserva =
@@ -120,7 +121,14 @@ export type RespuestaReserva =
        */
       recuperacionUsada?: { caducaEl: string | null } | null;
     }
-  | { error: string; codigo?: CodigoReserva | string };
+  | {
+      error: string; codigo?: CodigoReserva | string;
+      /**
+       * Qué puede hacer ahora la persona, según el servidor (ver `lib/student/reserva-acciones.ts`). Si no
+       * llega (un servidor anterior) se deduce del código.
+       */
+      acciones?: TipoAccion[];
+    };
 
 export interface DesenlaceReserva {
   state: BookingState;
@@ -132,6 +140,10 @@ export interface DesenlaceReserva {
   recuperacionUsada?: { caducaEl: string | null } | null;
   /** El mensaje del servidor, para los estados que no tienen copy propio. */
   mensaje?: string;
+  /** El código estable del rechazo, si lo hubo: dice POR QUÉ. La frase de `mensaje` es solo para enseñar. */
+  codigo?: string;
+  /** Qué se le puede ofrecer (comprar, elegir otra clase…), por código y no por la frase. Solo en rechazos. */
+  acciones?: TipoAccion[];
   /**
    * La reserva existe y espera el visto bueno del estudio (`requiere_aprobacion`),
    * que NO es estar en la lista de espera.
@@ -190,7 +202,13 @@ export function desenlaceDeRespuesta(r: RespuestaReserva | null, sinRed = false)
   }
 
   const mensaje = 'error' in r ? r.error : undefined;
-  switch ('codigo' in r ? r.codigo : undefined) {
+  const codigo = 'codigo' in r ? r.codigo : undefined;
+  return { ...desenlaceDeRechazo(codigo, mensaje), codigo, acciones: 'acciones' in r && r.acciones ? r.acciones : accionesDeRechazo(codigo) };
+}
+
+/** El estado de la máquina del diseño para un rechazo del servidor (solo el CÓDIGO decide). */
+function desenlaceDeRechazo(codigo: string | undefined, mensaje: string | undefined): DesenlaceReserva {
+  switch (codigo) {
     case 'ya-reservada': return { state: 'duplicate' };
     case 'conflicto-horario': return { state: 'conflict' };
     case 'aforo-lleno': return { state: 'full' };

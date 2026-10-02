@@ -7,14 +7,14 @@ import {
 } from './liberacion.ts';
 
 // Motor de derechos, FASE 2: una sola salida de devolución para la cancelación de una clase
-// (`liberar_derecho`, migración 20261002140000) y un único pagador por reserva.
+// (`liberar_derecho`, migración 20261002134040) y un único pagador por reserva.
 //
 // Aquí: la traducción de lo que contesta la RPC, y guardianes sobre el fuente de lo que no se
 // puede invocar desde node:test (la migración SQL y los llamadores, que arrastran Supabase).
 // El comportamiento contra una base de datos real vive en `supabase/tests/rls-liberar-derecho.test.ts`.
 
 const leer = (ruta: string) => readFileSync(new URL(`../../${ruta}`, import.meta.url), 'utf8');
-const MIGRACION = leer('supabase/migrations/20261002140000_liberar_derecho.sql');
+const MIGRACION = leer('supabase/migrations/20261002134040_liberar_derecho.sql');
 const ADMIN = leer('lib/db/supabase-data-admin.ts');
 
 // ── Traducción de la respuesta ────────────────────────────────────────────────

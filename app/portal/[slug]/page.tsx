@@ -6,7 +6,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { useSesionInstructora } from '@/lib/student/sesion-instructora';
-import { compararPorCaducidad } from '@/lib/student/bono-cubre';
+import { compararPorElegibilidad } from '@/lib/student/bono-cubre';
 import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { getBonos, getClases, getInstructoras, getPlazaFija, getMinimoRacha, getReservas } from '@/lib/student/datos';
@@ -99,7 +99,7 @@ export default function InicioPage() {
   // de inicio podía anunciar un bono y el servidor descontar otro.
   const bonoActivo = [...(data?.bonos ?? [])]
     .filter((b) => b.estado === 'activo')
-    .sort(compararPorCaducidad)[0] ?? null;
+    .sort(compararPorElegibilidad)[0] ?? null;
 
   // La próxima: de sus reservas confirmadas, la primera que aún no ha pasado.
   // El paquete no filtra por fecha porque sus datos de ejemplo son siempre

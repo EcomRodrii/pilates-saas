@@ -1419,7 +1419,7 @@ export async function devolverBonoServidor(
 }
 
 // Libera los derechos de UNA reserva de una clase que el estudio ha cancelado: la reserva
-// ya está CANCELADA y su clase cancelada. `liberar_derecho` (migr 20261002140000) lee qué
+// ya está CANCELADA y su clase cancelada. `liberar_derecho` (migr 20261002134040) lee qué
 // consumió ESA reserva y devuelve solo eso, una vez: la sesión al bono exacto que la pagó y la
 // recuperación que hubiera usado. Una reserva de plaza fija, o pagada por la cuota, no recupera
 // nada, y la política del estudio (`cancelacion_clase_devuelve_bono`) se aplica en la propia RPC.

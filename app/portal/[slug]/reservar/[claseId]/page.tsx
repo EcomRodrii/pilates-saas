@@ -14,6 +14,7 @@ import { getFavoritos } from '@/lib/student/favoritos';
 import { bonoParaClase, tieneBonoQueNoCubre } from '@/lib/student/bono-cubre';
 import { catalogo } from '@/lib/student/catalogo';
 import { confirmarReserva } from '@/lib/student/reservar';
+import type { TipoAccion } from '@/lib/student/reserva-acciones';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, euros, horaFin, precioClaseTexto } from '@/lib/student/formato';
 import type { BookingState } from '@/lib/student/tipos';
@@ -70,6 +71,8 @@ export default function FichaClasePage() {
   // tienes bono activo» y «has llegado a tu tope de reservas» caen los dos en
   // `error`, y sin guardar el mensaje se pintaba el copy de avería genérico.
   const [bkMensaje, setBkMensaje] = useState<string | undefined>(undefined);
+  // Qué se le puede ofrecer tras un rechazo (comprar, elegir otra clase…), por el CÓDIGO que dio el servidor.
+  const [bkAcciones, setBkAcciones] = useState<TipoAccion[] | undefined>(undefined);
   // Título propio para «pendiente de aprobación», que comparte estado con la
   // lista de espera pero no es lo mismo. Ver `DesenlaceReserva.pendienteAprobacion`.
   const [bkTitulo, setBkTitulo] = useState<string | undefined>(undefined);
@@ -133,6 +136,7 @@ export default function FichaClasePage() {
     // El mensaje pertenece a la respuesta que lo trajo: al cambiar de estado
     // por nuestra cuenta (reintentar, volver a la revisión) deja de valer.
     setBkMensaje(undefined);
+    setBkAcciones(undefined);
     setBkTitulo(undefined);
     setBk((de) => (transicionValida(de, a) ? a : de));
   }, []);
@@ -167,6 +171,7 @@ export default function FichaClasePage() {
     // El del sitio va primero: es una expectativa suya que no se ha cumplido, y
     // pesa más que un dato informativo.
     setBkTitulo(r.pendienteAprobacion ? 'Tu reserva está pendiente de aprobación' : undefined);
+    setBkAcciones(r.acciones);
     setBkMensaje(
       r.pendienteAprobacion
         // Ni «lista de espera» ni «te avisamos si se libera una plaza»: la plaza
@@ -184,6 +189,7 @@ export default function FichaClasePage() {
     // saber en qué acabó una operación que ya está en marcha.
     if (bk === 'submitting') return;
     setBkMensaje(undefined);
+    setBkAcciones(undefined);
     setBkTitulo(undefined);
     setBk('idle');
   }, [bk]);
@@ -191,7 +197,7 @@ export default function FichaClasePage() {
   const finalizar = useCallback(() => {
     if (bk === 'confirmed' || bk === 'waitlisted') router.push(href('/mis-reservas'));
     else if (bk === 'session-expired') router.push(href('/acceso/login'));
-    else { setBkMensaje(undefined); setBkTitulo(undefined); setBk('idle'); }
+    else { setBkMensaje(undefined); setBkAcciones(undefined); setBkTitulo(undefined); setBk('idle'); }
   }, [bk, router, href]);
 
   if (estado === 'loading') {
@@ -370,6 +376,7 @@ export default function FichaClasePage() {
             state={bk as Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>}
             titulo={bkTitulo}
             mensaje={bkMensaje}
+            acciones={bkAcciones}
             onRetry={() => ir('reviewing')}
             onWaitlist={() => ir('reviewing')}
             onComprar={() => router.push(href('/comprar'))}

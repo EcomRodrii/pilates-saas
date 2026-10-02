@@ -66,6 +66,35 @@ test.describe('Student PWA · reservar', () => {
     await expect(page.getByText('Reserva confirmada')).toHaveCount(0);
   });
 
+  test('sin plan: el botón de comprar sale por el CÓDIGO, aunque la frase del servidor sea otra', async ({ page }) => {
+    // Antes se decidía comparando la FRASE del error: cualquier retoque de copy o una traducción lo rompía en
+    // silencio. Ahora cuelga del `codigo` (`lib/student/reserva-acciones.ts`).
+    let intentos = 0;
+    await page.route('**/api/public/reserva', (r) => {
+      if (r.request().method() !== 'POST') return r.continue();
+      intentos += 1;
+      return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Aquí hace falta un bono para reservar.', codigo: 'sin-plan' }) });
+    });
+    await abrirHoja(page);
+    await expect(page.getByRole('button', { name: 'Ver bonos y suscripciones' })).toBeVisible({ timeout: 30_000 });
+    expect(intentos, 'la reserva no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
+    // Reintentar no arregla «no tienes bono».
+    await expect(page.getByRole('button', { name: 'Intentar de nuevo' })).toHaveCount(0);
+  });
+
+  test('un tope de la cuota NO ofrece comprar: reintentar o hablar con el estudio, no un bono', async ({ page }) => {
+    let intentos = 0;
+    await page.route('**/api/public/reserva', (r) => {
+      if (r.request().method() !== 'POST') return r.continue();
+      intentos += 1;
+      return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Has llegado a tu tope de clases de esta semana.', codigo: 'limite-semanal' }) });
+    });
+    await abrirHoja(page);
+    await expect(page.getByText('Has llegado a tu tope de clases de esta semana.')).toBeVisible({ timeout: 30_000 });
+    expect(intentos, 'la reserva no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
+    await expect(page.getByRole('button', { name: 'Ver bonos y suscripciones' })).toHaveCount(0);
+  });
+
   test('solape con otra clase suya → conflict, con su copy propio', async ({ page }) => {
     await servidorResponde(page, { error: 'Ya tienes otra clase a esa hora', codigo: 'conflicto-horario' }, 400);
     await abrirHoja(page);

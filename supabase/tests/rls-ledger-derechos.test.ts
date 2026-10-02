@@ -1,4 +1,4 @@
-// Ledger de derechos (migración 20261002130000), FASE 1, EN SOMBRA: el saldo de un bono
+// Ledger de derechos (migración 20261002133851), FASE 1, EN SOMBRA: el saldo de un bono
 // o de una recuperación se explica movimiento a movimiento, y la suma de movimientos es
 // SIEMPRE el saldo, lo escriba quien lo escriba.
 //

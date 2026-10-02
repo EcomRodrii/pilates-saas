@@ -20,7 +20,7 @@
 -- reserva tiene que estar ya CANCELADA y su clase cancelada. Solo mueve derechos, una vez
 -- (idempotente), y dice qué ha hecho. La devolución del bono reutiliza
 -- `devolver_sesion_bono_por_reserva`, que ya sella la devolución por reserva y escribe el
--- ledger (migr 20261002130000).
+-- ledger (migr 20261002133851).
 --
 -- Una reserva NO rastreada y que no es de plaza fija (la importada de otra plataforma, cuyo
 -- saldo ya venía descontado) devuelve LEGADO_SIN_RASTRO: aquí no se adivina a qué bono
@@ -286,7 +286,7 @@ revoke all on function public.liberar_derecho(text, text, text) from public, ano
 grant execute on function public.liberar_derecho(text, text, text) to service_role;
 
 comment on function public.liberar_derecho(text, text, text) is
-  'Libera los derechos de una reserva CANCELADA de una clase cancelada: devuelve al bono exacto que la pagó (una vez) y restituye la recuperación que usó. No toca el estado de la reserva. Solo service_role. Ver 20261002140000.';
+  'Libera los derechos de una reserva CANCELADA de una clase cancelada: devuelve al bono exacto que la pagó (una vez) y restituye la recuperación que usó. No toca el estado de la reserva. Solo service_role. Ver 20261002134040.';
 
 
 -- ── Verificación: el estado FINAL, no lo que se escribió ─────────────────────

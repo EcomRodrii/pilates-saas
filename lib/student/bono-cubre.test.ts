@@ -21,30 +21,29 @@ test('elige el bono que cubre, no el primero con saldo', () => {
   assert.equal(bonoParaClase([soloMat, general], 'tc-reformer'), general);
 });
 
-// ⚠️ ESTE TEST CAMBIÓ DE SIGNO, y conviene saber por qué.
+// ⚠️ ESTA REGLA CAMBIÓ DOS VECES, y conviene saber por qué.
 //
-// Antes fijaba que la app prefiriera el bono ACOTADO cuando los dos servían
-// («no gastar el general en balde»). Es buena idea de producto — pero el
-// SERVIDOR no la aplica: `elegirBono` (lib/bono-logic.ts) ordena solo por
-// caducidad. Con un general que caduca antes, el servidor descontaba el general
-// y la app había anunciado el acotado.
-//
-// Se alinea la app con quien mueve el dinero, no al revés: cambiar el orden de
-// consumo del servidor es una decisión de producto con consecuencias
-// económicas, y no se toma desde la capa de presentación.
-//
-// PENDIENTE DE PRODUCTO: si se quiere de verdad «gastar antes el acotado», hay
-// que llevarlo a `elegirBono` y que la app lo herede — no reintroducirlo aquí.
-test('con la MISMA caducidad da igual acotado o general: manda el desempate por id', () => {
-  const soloMat = bono({ id: 'b-1', tiposClaseIds: ['tc-mat'], expiraEn: '2026-10-01' });
-  const general = bono({ id: 'b-2', expiraEn: '2026-10-01' });
-  assert.equal(bonoParaClase([general, soloMat], 'tc-mat'), soloMat);
-});
-
-test('si el GENERAL caduca antes, se elige el general — como hace el servidor', () => {
+// 1) Antes la app prefería el bono ACOTADO y el servidor ordenaba solo por caducidad: con un
+//    general que caducaba antes, el servidor descontaba el general y la app había anunciado el
+//    acotado. Se alineó la app con quien mueve el dinero.
+// 2) El 2-oct-2026 producto decidió que de verdad hay que «gastar antes el acotado» (el comodín
+//    se guarda para lo que el acotado no cubre). Se llevó a `elegirBono` y a
+//    `elegir_bono_consumible` (SQL, migr 20261002150000) y la app lo hereda: hay UNA regla.
+test('con dos bonos que sirven, manda el ACOTADO aunque el general caduque antes', () => {
   const soloMat = bono({ id: 'b-mat', tiposClaseIds: ['tc-mat'], expiraEn: '2026-12-31' });
   const general = bono({ id: 'b-gen', expiraEn: '2026-09-08' });
-  assert.equal(bonoParaClase([soloMat, general], 'tc-mat'), general);
+  assert.equal(bonoParaClase([general, soloMat], 'tc-mat'), soloMat);
+  // En una clase que el acotado no cubre, solo vale el general.
+  assert.equal(bonoParaClase([general, soloMat], 'tc-reformer'), general);
+});
+
+test('entre bonos igual de específicos manda la caducidad, y después el id', () => {
+  const a = bono({ id: 'b-a', tiposClaseIds: ['tc-mat'], expiraEn: '2026-12-31' });
+  const b = bono({ id: 'b-b', tiposClaseIds: ['tc-mat', 'tc-reformer'], expiraEn: '2026-09-08' });
+  assert.equal(bonoParaClase([a, b], 'tc-mat'), b);
+  const c = bono({ id: 'b-c', expiraEn: '2026-10-01' });
+  const d = bono({ id: 'b-d', expiraEn: '2026-10-01' });
+  assert.equal(bonoParaClase([d, c], 'tc-mat'), c);
 });
 
 test('sin bono que cubra, null — aunque tenga otros bonos', () => {
@@ -70,15 +69,20 @@ test('«tienes bono pero no vale aquí» se distingue de «no tienes bono»', ()
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-test('la app elige el mismo bono que el servidor: el que caduca antes', () => {
+test('la app elige el mismo bono que el servidor: el acotado primero; entre iguales, el que caduca antes', () => {
   const bonos = [
     { id: 'b-acotado', estado: 'activo', creditosUsados: 0, creditosTotales: 10,
       tiposClaseIds: ['tc-1'], expiraEn: '2026-12-31' },
     { id: 'b-general', estado: 'activo', creditosUsados: 0, creditosTotales: 10,
       expiraEn: '2026-09-08' },
   ];
-  assert.equal(bonoParaClase(bonos, 'tc-1')?.id, 'b-general',
-    'El servidor gasta el que caduca antes; la app tiene que decir lo mismo.');
+  assert.equal(bonoParaClase(bonos, 'tc-1')?.id, 'b-acotado',
+    'El servidor gasta primero el acotado (elegir_bono_consumible); la app tiene que decir lo mismo.');
+  const generales = [
+    { id: 'b-tarde', estado: 'activo', creditosUsados: 0, creditosTotales: 10, expiraEn: '2026-12-31' },
+    { id: 'b-pronto', estado: 'activo', creditosUsados: 0, creditosTotales: 10, expiraEn: '2026-09-08' },
+  ];
+  assert.equal(bonoParaClase(generales, 'tc-1')?.id, 'b-pronto');
 });
 
 test('sin caducidad va al final, como en el servidor', () => {
@@ -97,14 +101,21 @@ test('misma caducidad: desempate por id, igual que el servidor', () => {
   assert.equal(bonoParaClase(bonos, null)?.id, 'b-aaa');
 });
 
-// Estructural: si alguien cambia el orden en el servidor, esto avisa de que hay
-// que cambiarlo también aquí. Las dos reglas no pueden vivir separadas en
-// silencio — es exactamente cómo divergieron.
-test('el comparador es copia literal del que usa el servidor', () => {
+// Estructural: si alguien cambia el orden en el servidor (TypeScript o SQL), esto avisa de que hay
+// que cambiarlo también aquí. Las reglas no pueden vivir separadas en silencio — es exactamente
+// cómo divergieron.
+test('el comparador es copia del que usa el servidor, en TypeScript y en SQL', () => {
   const raiz = join(import.meta.dirname, '..', '..');
   const servidor = readFileSync(join(raiz, 'lib/bono-logic.ts'), 'utf8');
   assert.match(servidor, /'9999-12-31'/,
     'El servidor ordena con el centinela 9999-12-31; si cambia, hay que replicarlo en bono-cubre.ts.');
   assert.match(servidor, /fa !== fb \? \(fa < fb \? -1 : 1\)/,
-    'El orden del servidor cambió: revisa compararPorCaducidad en lib/student/bono-cubre.ts.');
+    'El orden del servidor cambió: revisa compararPorElegibilidad en lib/student/bono-cubre.ts.');
+  assert.match(servidor, /\(planDe\(s\)\?\.tiposClaseIds\?\.length \?\? 0\) > 0 \? 0 : 1/,
+    'La especificidad del servidor cambió: revisa compararPorElegibilidad en lib/student/bono-cubre.ts.');
+  const sql = readFileSync(join(raiz, 'supabase/migrations/20261002150000_reglas_derechos_noshow_y_especificidad.sql'), 'utf8');
+  const orden = sql.slice(sql.indexOf('order by case when exists ('));
+  assert.ok(orden.indexOf('plan_tipos_clase') < orden.indexOf("coalesce(s.fecha_fin, '9999-12-31'::date)"),
+    'En SQL el bono acotado tiene que ir ANTES que la caducidad, como en TypeScript.');
+  assert.ok(orden.indexOf("coalesce(s.fecha_fin, '9999-12-31'::date)") < orden.indexOf('s.id collate "C"'));
 });
