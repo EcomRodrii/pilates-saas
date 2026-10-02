@@ -1,6 +1,15 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { sesionFutura } from './sesion-futura';
 
+// Aplazar la clase sembrada media hora antes, en hora del estudio. No una hora
+// fija: «18:30» ya es pasado desde las 18:30 de Madrid, el formulario no deja
+// mover una clase al pasado y el test se quedaba en rojo hasta medianoche
+// (medido el 2-oct-2026 en `main`). Antes del inicio y no después: el campo que
+// se toca es el de inicio, y pasarlo del fin lo haría inválido.
+const mediaHoraAntes = (inicioIso: string) => new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+}).format(new Date(Date.parse(inicioIso) - 30 * 60_000));
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Tres momentos del calendario que la dueña señaló en la prueba de usabilidad.
 // Los tres tienen la misma forma: el programa sabe algo y no lo usa.
@@ -290,7 +299,7 @@ test.describe('Momentos del calendario', () => {
     await abrirEditar(page);
 
     // Aplazar: mover la hora de inicio.
-    await page.locator('input[type="time"]').first().fill('18:30');
+    await page.locator('input[type="time"]').first().fill(mediaHoraAntes(inicio));
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
     // Se manda el aviso pese a que el panel no veía apuntadas.
@@ -315,7 +324,7 @@ test.describe('Momentos del calendario', () => {
 
     await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
     await abrirEditar(page);
-    await page.locator('input[type="time"]').first().fill('18:30');
+    await page.locator('input[type="time"]').first().fill(mediaHoraAntes(inicio));
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
     // Se muestra el motivo del rechazo y NO se avisa de un movimiento que no ocurrió.

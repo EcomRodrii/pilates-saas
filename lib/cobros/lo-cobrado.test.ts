@@ -45,6 +45,19 @@ test('frente al mismo tramo del periodo anterior', () => {
   assert.equal(mismoTramoAnterior('DIA', { desde: '2026-10-02', hasta: '2026-10-02' }), null, 'el día va a medias: sin comparación');
 });
 
+test('el trimestre a medias se compara por posición de mes y día, no por días transcurridos', () => {
+  // El 31 de mayo (2.º mes, día 31) frente al 28 de febrero: con días
+  // transcurridos (60) llegaba al 2 de marzo y metía dos días del 3.er mes.
+  assert.deepEqual(mismoTramoAnterior('TRIMESTRE', { desde: '2026-04-01', hasta: '2026-05-31' }), { desde: '2026-01-01', hasta: '2026-02-28' });
+  assert.deepEqual(mismoTramoAnterior('TRIMESTRE', { desde: '2028-04-01', hasta: '2028-05-31' }), { desde: '2028-01-01', hasta: '2028-02-29' }, 'bisiesto');
+  // El 15 de octubre (1.er mes) frente al 15 de julio; cruzando de año, del 4.º trimestre.
+  assert.deepEqual(mismoTramoAnterior('TRIMESTRE', { desde: '2026-10-01', hasta: '2026-10-15' }), { desde: '2026-07-01', hasta: '2026-07-15' });
+  assert.deepEqual(mismoTramoAnterior('TRIMESTRE', { desde: '2027-01-01', hasta: '2027-03-31' }), { desde: '2026-10-01', hasta: '2026-12-31' }, 'cerrado: el anterior entero');
+  assert.deepEqual(mismoTramoAnterior('TRIMESTRE', { desde: '2027-01-01', hasta: '2027-02-10' }), { desde: '2026-10-01', hasta: '2026-11-10' });
+  // El 29 de septiembre (3.er mes) frente al 29 de junio.
+  assert.deepEqual(mismoTramoAnterior('TRIMESTRE', { desde: '2026-07-01', hasta: '2026-09-29' }), { desde: '2026-04-01', hasta: '2026-06-29' });
+});
+
 const c = (id: string, extra: Record<string, unknown>) => ({ id, estado: 'COBRADO', importe: 10, importeDevuelto: 0, fechaCobro: '2026-10-01', metodoCobro: 'EFECTIVO', ...extra });
 
 test('cómo se cobró: el datáfono del mostrador deja cargo de Stripe, así que manda el canal', () => {

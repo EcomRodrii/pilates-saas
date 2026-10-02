@@ -747,7 +747,7 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Informes',
-        texto: 'Ingresos del periodo, retención, ocupación por tipo de clase, quién repite según el mes en que se dio de alta, y margen por clase. Ese último es el que más sorprende: enseña qué clases pagan el alquiler y cuáles no.',
+        texto: 'Lo cobrado en la semana, el mes, el trimestre o el año frente al mismo tramo del anterior, y por qué entró; la ocupación de cada tipo de clase; quién viene más, y quién sigue viniendo según el mes en que empezó; y el margen por clase. Ese último es el que más sorprende: enseña qué clases pagan el alquiler y cuáles no.',
       },
       {
         titulo: 'Centro de Control',

@@ -44,9 +44,9 @@ Ninguna cifra va a coincidir con el banco sin restar esas comisiones.
 | Ingreso medio por clienta | Cobros | lo cobrado **a clientas** en el mes ÷ clientas activas |
 | Lista «Todo lo que me deben» | Cobros | `estaSinCobrar`: por cobrar + impagado + en curso, cada uno con su estado |
 | «X € cobrado» por mes | Cobros › Lo que he cobrado | agrupado por `mesDelRecibo`, suma `importeIngresado` |
-| Ingresos período, Ingresos del mes, gráfico | Informes | RPC `informe_ingresos_neto` / `ingresos_por_dia` (neto) con el rango de `lib/informes/periodo.ts` |
-| Ticket medio de quien pagó | Informes | `total_socias ÷ n_socias_unicas` (sin ventas de mostrador anónimas) |
-| Ventas por tipo | Informes | RPC `ventas_por_tipo` (neto) |
+| «Cobrado» del titular y el gráfico | Informes › Dinero | `dineroDelTramo` (`lib/informes/dinero.ts`), que envuelve `cobradoEnTramo`: la misma cifra que «Lo que he cobrado» de Cobros, frente al mismo tramo del periodo anterior (`mismoTramoAnterior`) |
+| Ingreso medio por clienta que pagó | Informes › Dinero | lo cobrado por recibos CON clienta ÷ clientas distintas que pagaron (sin las ventas de caja sin clienta) |
+| Ventas por motivo (cuotas, bonos, clases sueltas, sesiones privadas, caja, otros) | Informes › Dinero | `motivoDelCobro` (`lib/informes/motivo-cobro.ts`): por el id del recibo y, si no, por el tipo del plan; nunca por el concepto. Suman el «Cobrado» |
 | Facturado este mes y % frente al anterior | Cobros › Facturas | `facturas.fecha_emision` del mes del estudio y su anterior (`mesAnterior`) |
 | Cierre anual/trimestral, IVA, 347 | Cierre y correo a la gestoría | todas las facturas emitidas (selladas o no) + ingresos manuales; **fuera** las que tienen el registro ANULADO en la AEAT |
 | Gasto total | Ficha de la clienta | suma de `importeIngresado` |
