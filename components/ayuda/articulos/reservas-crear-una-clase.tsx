@@ -13,7 +13,7 @@ export default function Contenido() {
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Abre el Calendario y crea una clase nueva">
-        <p>Desde el panel, en Calendario, el botón &ldquo;Crear clase&rdquo; abre este formulario.</p>
+        <p>Desde el panel, en Calendario, el botón &ldquo;Crear clase&rdquo; → &ldquo;Clase&rdquo; abre este formulario.</p>
         <AyudaCaptura
           src="/help/reservas/calendario-nueva-clase.png"
           alt="Formulario de nueva clase: tipo, sala, instructora, fecha, horario, aforo máximo y repetición semanal"
@@ -50,7 +50,8 @@ export default function Contenido() {
           semanas y te avisa.
         </p>
         <p>
-          Al abrir una clase de una serie, su ficha dice cada qué día se repite y hasta cuándo. Y la vista
+          También puedes crearla desde &ldquo;Crear clase&rdquo; → &ldquo;Clase fija&rdquo;.
+          Las clases de una serie llevan la marca ↻ y, al abrirlas, dicen hasta cuándo se repiten. Y la vista
           &ldquo;Horario&rdquo; (junto a Día y Semana) reúne todas las que se repiten por día de la semana:
           hasta cuándo va cada una, si se renueva sola y cuántas alumnas tienen plaza fija, con los botones para
           renovarla o dar una plaza fija a una clienta sin salir de ahí.

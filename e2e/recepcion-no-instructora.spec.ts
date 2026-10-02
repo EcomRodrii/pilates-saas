@@ -104,6 +104,8 @@ test.describe('Recepción no es instructora', () => {
     await page.goto('/calendario');
 
     await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
+    // «Crear clase» pregunta primero qué: una clase de un día.
+    await page.getByTestId('crear-clase-suelta').click();
 
     const selector = page.getByRole('dialog', { name: 'Nueva clase' }).getByRole('combobox', { name: 'Instructora' });
     await expect(selector).toBeVisible();
