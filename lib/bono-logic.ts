@@ -165,9 +165,18 @@ function elegirBono(
   });
   if (candidatas.length === 0) return null;
   // Con varias activas, elección DETERMINISTA (antes cogía la primera que devolvía
-  // la BD): la que caduca antes primero (consumir la más urgente); las sin
-  // caducidad al final; desempate por id para estabilidad.
+  // la BD). Primero la ESPECÍFICA —el bono acotado a tipos de clase se gasta antes
+  // que el de «todas las clases», que es el comodín—, después la que caduca antes
+  // (consumir la más urgente; las sin caducidad al final), y por último el id para
+  // estabilidad. Mismo orden que `elegir_bono_consumible` en SQL (migr 20261002150000):
+  // si cambia uno, cambia el otro, o el panel anunciaría un bono y el servidor
+  // descontaría otro.
+  const planDe = (s: Suscripcion) => planesTarifa.find(p => p.id === s.planId);
+  const especificidad = (s: Suscripcion) => ((planDe(s)?.tiposClaseIds?.length ?? 0) > 0 ? 0 : 1);
   candidatas.sort((a, b) => {
+    const ea = especificidad(a);
+    const eb = especificidad(b);
+    if (ea !== eb) return ea - eb;
     const fa = a.fechaFin ?? '9999-12-31';
     const fb = b.fechaFin ?? '9999-12-31';
     return fa !== fb ? (fa < fb ? -1 : 1) : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);

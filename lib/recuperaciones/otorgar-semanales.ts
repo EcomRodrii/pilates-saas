@@ -103,8 +103,13 @@ export async function otorgarRecuperacionesSemanales(
 
         const cubre = (sesionId: string) => planCubreTipoClase(plan, tipoDeSesion.get(sesionId) ?? null);
 
+        // El no-show cuenta como USO, igual que en el tope de `reservar_plaza`
+        // (`calcular_excede_limite_semanal`): quien reserva y no viene ha usado esa clase
+        // de su semana. Sin esto, faltar sin avisar le devolvía una recuperación por un hueco
+        // que dejó vacío ella.
         const usadas = suyas.filter(r =>
-          (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA') && cubre(r.sesion_id as string)).length;
+          (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA' || r.estado === 'NO_ASISTIO')
+          && cubre(r.sesion_id as string)).length;
         // `cancelada_tardia === false` a propósito, no `!== true`: NULL es «no
         // se sabe» (cancelada antes de existir la columna) y eso no se compensa.
         // `cancelada_motivo` NULL: una clase soltada al pausar o quitar la plaza

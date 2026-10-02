@@ -35,29 +35,32 @@ function tieneSaldo(b: BonoMin): boolean {
  * El bono que de verdad cubre esta clase, o `null`.
  *
  * ⚠️ ORDENA IGUAL QUE EL SERVIDOR, y eso no es un detalle: la que manda es
- * `elegirBono` (lib/bono-logic.ts) —«la que caduca antes primero; las sin
- * caducidad al final; desempate por id»— y esta función usaba otra («prefiere
- * el acotado, si no el primero del array»).
+ * `elegirBono` (lib/bono-logic.ts) y su gemela en SQL `elegir_bono_consumible`
+ * —primero el bono ACOTADO a tipos de clase, luego el que caduca antes, luego el
+ * id— y esta función tiene que anunciar el mismo que se va a descontar.
  *
- * Con un bono general que caduca mañana y uno acotado que caduca el mes que
- * viene, el servidor gastaba el GENERAL y la app le enseñaba el ACOTADO. La
- * alumna veía descontarse un bono distinto del que se le dijo. Preferir el
- * acotado es una idea defendible, pero no es la regla que ejecuta el dinero, y
- * aquí solo puede haber una.
+ * Esa regla cambió el 2-oct-2026 por decisión de producto (motor de derechos): antes
+ * el servidor ordenaba solo por caducidad y la app, que había preferido el acotado,
+ * se alineó con él para no anunciar un bono y descontar otro. Ahora el servidor
+ * también prefiere el acotado («no gastar el comodín en balde») y la app lo hereda.
+ * Aquí solo puede haber una regla.
  */
 export function bonoParaClase<T extends BonoMin>(bonos: T[], tipoClaseId: string | null | undefined): T | null {
   const validos = bonos.filter((b) => b.estado === 'activo' && tieneSaldo(b) && cubreTipo(b, tipoClaseId));
   if (validos.length === 0) return null;
-  return [...validos].sort(compararPorCaducidad)[0] ?? null;
+  return [...validos].sort(compararPorElegibilidad)[0] ?? null;
 }
 
 /**
- * El orden del servidor, copiado literal de `elegirBono` (lib/bono-logic.ts).
+ * El orden del servidor, copiado de `elegirBono` (lib/bono-logic.ts).
  *
  * Vive aquí y no se importa de allí porque este fichero no puede tener imports
  * con alias `@/` (ver la cabecera). El test de paridad lo ata a la fuente.
  */
-export function compararPorCaducidad(a: BonoMin, b: BonoMin): number {
+export function compararPorElegibilidad(a: BonoMin, b: BonoMin): number {
+  const ea = (a.tiposClaseIds?.length ?? 0) > 0 ? 0 : 1;
+  const eb = (b.tiposClaseIds?.length ?? 0) > 0 ? 0 : 1;
+  if (ea !== eb) return ea - eb;
   const fa = a.expiraEn ?? '9999-12-31';
   const fb = b.expiraEn ?? '9999-12-31';
   if (fa !== fb) return fa < fb ? -1 : 1;

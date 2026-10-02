@@ -360,11 +360,13 @@ test('⚠️ completar tras un reintento nunca toca una plaza fija', () => {
 });
 
 test('⚠️ toda devolución por cancelación mira si la reserva llegó a cobrarse', () => {
-  for (const nombre of ['ejecutarCancelacionReserva', 'devolverBonosPorCancelacionClase']) {
-    assert.match(cuerpoDe(ADMIN, nombre), /reservasSinCobroRegistrado\(/, nombre);
-  }
-  assert.match(leer('app/api/reservas/devolver-bonos/route.ts'), /reservasSinCobroRegistrado\(/);
-  // Los que cancelan una clase entera le pasan la reserva, o la guardia no mira nada.
+  // La cancelación de UNA reserva (alumna) sigue con su propia comprobación.
+  assert.match(cuerpoDe(ADMIN, 'ejecutarCancelacionReserva'), /reservasSinCobroRegistrado\(/, 'ejecutarCancelacionReserva');
+  // Las que cancelan una CLASE entera pasan todas por la salida única (`liberar_derecho`), que lee
+  // qué consumió cada reserva: ya no hay un «¿se cobró?» suelto en cada camino.
+  assert.match(cuerpoDe(ADMIN, 'devolverBonosPorCancelacionClase'), /liberarReservaCancelada\(/);
+  assert.match(leer('app/api/reservas/devolver-bonos/route.ts'), /liberarReservaCancelada\(/);
+  // Los que cancelan una clase entera le pasan la reserva, o la salida no mira nada.
   assert.match(cuerpoDe(ADMIN, 'cancelarSesionPorMinimoNoAlcanzado'), /reservaId: r\.id/);
   assert.match(leer('app/api/sustituciones/route.ts'), /tipoClaseId, reservaId: r\.id/);
 });

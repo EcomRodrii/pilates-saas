@@ -90,7 +90,10 @@ test('salto 1 ter: todo `codigo` que emite el servidor lo conoce el cliente', ()
 
 test('salto 2: /api/public/reserva NO se come el `codigo` al serializar', () => {
   const fuente = leer('app/api/public/reserva/route.ts');
-  const respuestasDeError = fuente.match(/NextResponse\.json\(\{ error: r\.error[^)]*\}/g) ?? [];
+  // Cada respuesta de rechazo (`error: r.error`) tiene que llevar también el `codigo` en el mismo objeto. Se mira
+  // la ventana que sigue a `error: r.error` (no una forma exacta de escribirlo: el de crear lleva además
+  // `acciones`, y puede ocupar varias líneas).
+  const respuestasDeError = fuente.split('error: r.error').slice(1).map(resto => resto.slice(0, 220));
   assert.ok(respuestasDeError.length >= 3, 'esperaba las 3 respuestas de rechazo (crear/cancelar/valorar)');
   for (const r of respuestasDeError) {
     assert.match(

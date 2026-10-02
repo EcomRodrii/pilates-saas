@@ -57,3 +57,15 @@ test('un bono agotado no cuenta como bono que cubre', () => {
   assert.equal(comoSePaga(suelta, gastado, false).tono, 'coste');
   assert.equal(comoSePaga(soloBono, gastado, false).tono, 'bloqueo');
 });
+
+// ⚠️ Un mensual ilimitado llega con `creditosTotales: Infinity`. Salía «(Infinity disponibles)».
+test('con mensualidad (ilimitado): «Incluida en tu mensualidad», sin contador ni «Infinity»', () => {
+  const mensual = { nombre: 'Mensual ilimitado', creditosTotales: Infinity, creditosUsados: 0 };
+  const r = comoSePaga(suelta, mensual, false);
+  assert.equal(r.tono, 'ok');
+  assert.match(r.texto, /Incluida en tu mensualidad/);
+  assert.match(r.texto, /No pagas nada hoy/);
+  assert.doesNotMatch(r.texto, /Infinity|NaN|disponibles|sesión/);
+  // Aunque la clase sea solo-con-bono: la cuota la cubre.
+  assert.equal(comoSePaga(soloBono, mensual, false).tono, 'ok');
+});

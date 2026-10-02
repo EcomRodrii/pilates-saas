@@ -41,7 +41,6 @@ import {
   dbInsertRewardRule, dbUpdateRewardRule,
   dbOtorgarCreditoDisparador,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem,
-  dbDevolverSesionBono,
   dbCancelarCanje,
   dbCanjearRecompensa, dbEntregarCanje,
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
@@ -260,7 +259,7 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoDevolvible, calcularReactivacion, cicloInicialDe, avisaBonoAgotado } from '@/lib/bono-logic';
+import { calcularReactivacion, cicloInicialDe, avisaBonoAgotado } from '@/lib/bono-logic';
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -3296,12 +3295,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // cada devolución reventaba con NO_AUTORIZADO y las socias se quedaban sin su
   // sesión de vuelta. Devuelve cuántas devoluciones FALLARON de verdad (una
   // socia sin bono devolvible no es un fallo).
-  async function devolverBonosEnServidor(reservaIds: string[]): Promise<number> {
+  async function devolverBonosEnServidor(reservaIds: string[], motivo?: 'eliminar_clase'): Promise<number> {
     try {
       const respuesta = await fetch('/api/reservas/devolver-bonos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ reservaIds }),
+        body: JSON.stringify({ reservaIds, ...(motivo ? { motivo } : {}) }),
       });
       const datos = await respuesta.json().catch(() => null) as {
         devueltas?: number; fallos?: number; saldos?: { suscripcionId: string; sesionesRestantes: number }[];
@@ -3328,7 +3327,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
   }
 
-  async function cancelarReservasDeSesiones(ids: string[], op: string): Promise<ResultadoEscritura & { avisoBono?: string }> {
+  async function cancelarReservasDeSesiones(ids: string[], op: string, motivo?: 'eliminar_clase'): Promise<ResultadoEscritura & { avisoBono?: string }> {
     if (ids.length === 0) return { ok: true };
     const sesionIdsSet = new Set(ids);
     const confirmadasAntes = reservas.filter(r => sesionIdsSet.has(r.sesionId) && r.estado === 'CONFIRMADA');
@@ -3345,15 +3344,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       let avisoBono: string | undefined;
       if (idsSet.size > 0) {
         setReservas(prev => prev.map(r => idsSet.has(r.id) ? { ...r, estado: 'CANCELADA' as const, posicionEspera: null } : r));
-        if (studio?.cancelacionClaseDevuelveBono ?? true) {
-          const aDevolver = confirmadasAntes.filter(r => idsSet.has(r.id));
-          if (aDevolver.length > 0) {
-            const fallos = await devolverBonosEnServidor(aDevolver.map(r => r.id));
-            if (fallos > 0) {
-              avisoBono = fallos === 1
-                ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
-                : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`;
-            }
+        // La política del estudio (`cancelacionClaseDevuelveBono`) la aplica el SERVIDOR al
+        // liberar: aquí se llama siempre, porque la recuperación que la reserva hubiera
+        // usado se restituye aunque el estudio decida no devolver el bono.
+        const aDevolver = confirmadasAntes.filter(r => idsSet.has(r.id));
+        if (aDevolver.length > 0) {
+          const fallos = await devolverBonosEnServidor(aDevolver.map(r => r.id), motivo);
+          if (fallos > 0) {
+            avisoBono = fallos === 1
+              ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
+              : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`;
           }
         }
       }
@@ -3403,22 +3403,30 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
     const aviso = sesion ? await notificarCancelacionSesiones([sesion]) : { avisadas: 0, sinAvisar: 0 };
     const enApp = await avisarClaseCancelada(id);
-    // Auditoría de producto (P0-1): "Eliminar" no devolvía el bono consumido
-    // aunque "Cancelar" sí — dos botones casi idénticos con consecuencia de
-    // dinero opuesta. Para la alumna, perder su plaza es lo mismo con
-    // cualquiera de los dos botones; captura ANTES del DELETE (el cascade se
-    // lleva las reservas, no queda nada que consultar después).
+    // «Eliminar» tiene que dar a cada socia exactamente lo mismo que «Cancelar»: la
+    // sesión de su bono (si lo había consumido) y su recuperación (si la había usado).
     //
-    // I-1 (auditoría 59ª pasada, 13-sep-2026): faltaba el filtro `res-pf-`.
-    // `materializar_plazas_fijas` inserta las plazas fijas ya CONFIRMADAS y
-    // SIN consumir sesión de bono (0084_materializar_plazas_fijas.sql:74), así
-    // que devolverles una sesión INVENTA saldo. El guard existe en los otros
-    // tres caminos —`ejecutarCancelacionReserva`
-    // (lib/db/supabase-data-admin.ts) y `/api/reservas/devolver-bonos`, que
-    // hasta lo documenta—; «Eliminar clase» era el único hermano sin él.
-    // Borrar una clase con N plazas fijas regalaba N sesiones de bono.
-    const confirmadas = reservas.filter(r =>
-      r.sesionId === id && r.estado === 'CONFIRMADA' && !r.id.startsWith('res-pf-'));
+    // ⚠️ Cancelar sus reservas y liberarlas va ANTES del DELETE, no después. El DELETE
+    // se lleva las reservas por cascada, y sin reserva no hay forma de saber QUÉ bono
+    // pagó cada plaza: lo que había era un `+1` a ciegas sobre el bono que «pareciera»
+    // (`devolverSesionBono`, retirado), que no distinguía una plaza pagada con bono de
+    // una plaza fija o de una pagada con recuperación, ni era idempotente. Es el mismo
+    // camino que ya sigue «Cancelar» (`/api/reservas/devolver-bonos` → `liberar_derecho`),
+    // que además aplica el filtro de plazas fijas y la política del estudio en servidor.
+    //
+    // Si liberar falla NO se borra: la clase se queda cancelada (ya está marcada y avisada) con
+    // sus reservas CANCELADAS a la vista, para corregirlo a mano. Borrar se las llevaría, y con
+    // ellas lo único que dice a quién hay que devolver una sesión. Distingue los dos fallos:
+    // no poder cancelar las reservas (`!ok`) y no haber podido devolver a alguna clienta
+    // (`avisoBono`; «no había nada que devolver» no cuenta como fallo).
+    const liberadas = await cancelarReservasDeSesiones([id], 'deleteSesion', 'eliminar_clase');
+    if (!liberadas.ok) return liberadas;
+    if (liberadas.avisoBono) {
+      return {
+        ok: false,
+        error: `${liberadas.avisoBono} La clase se ha cancelado pero no se ha borrado, para que no se pierda el rastro de esas reservas.`,
+      };
+    }
     // El DELETE en sí también se espera ahora — antes era fire-and-forget: el
     // calendario ya la quitaba de pantalla aunque el borrado real en BD
     // hubiera fallado, así que recargar la traía de vuelta.
@@ -3426,30 +3434,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (!res.ok) return res;
     setSesiones(prev => prev.filter(s => s.id !== id));
     setReservas(prev => prev.filter(r => r.sesionId !== id));
-    if ((studio?.cancelacionClaseDevuelveBono ?? true) && confirmadas.length > 0) {
-      // ⚠️ Auditoría 22ª pasada (3-sep-2026), F-9. Esto era
-      // `forEach(r => void devolverSesionBono(...))`: fire-and-forget. F-32
-      // (20ª pasada) arregló exactamente este patrón en el gemelo
-      // `cancelarReservasDeSesiones` y dejó este como estaba — la propietaria
-      // veía "Clase eliminada" aunque alguna socia se quedara sin su sesión de
-      // vuelta, y el fallo solo llegaba a Sentry.
-      //
-      // Sigue llamando a la RPC desde el navegador, a diferencia de su gemelo:
-      // "Eliminar" está gateado a `!esInstructor` (calendario/page.tsx), así que
-      // el rol siempre pasa la cerradura de `devolver_sesion_bono`. Y no puede
-      // usar `/api/reservas/devolver-bonos`, que valida contra las reservas: el
-      // DELETE ya se las llevó por cascade.
-      const resultados = await Promise.all(confirmadas.map(r => devolverSesionBono(r.socioId, r.sesionId)));
-      const fallos = resultados.filter(ok => !ok).length;
-      if (fallos > 0) {
-        return {
-          ...res, ...aviso, enApp,
-          avisoBono: fallos === 1
-            ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
-            : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`,
-        };
-      }
-    }
     return { ...res, ...aviso, enApp };
   }
 
@@ -3644,50 +3628,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // (supabase-data-admin.ts) y el panel solo relee el saldo
   // (`releerSaldoTrasReservaMostrador`). No lo repongas: dos sitios que
   // descuentan son dos sitios que se desincronizan.
-
-  // Devuelve una sesión al bono cuando se cancela una reserva confirmada,
-  // sin superar el total del plan.
-  // Mismo motivo que en consumirSesionBono: hay que devolver la sesión AL BONO
-  // QUE LA PAGÓ. Sin el tipo de clase se le devolvía al que caducara antes, que
-  // con dos bonos vivos regala saldo en uno y lo deja perdido en el otro.
-  // P2 (auditoría de producto): devuelve `false` si de verdad hacía falta
-  // devolver una sesión y no se pudo — antes era `void` en las tres llamadas
-  // y un fallo aquí solo llegaba a Sentry, nadie del estudio se enteraba de
-  // que una socia se quedó sin su sesión de bono. `true` cubre también "no
-  // había nada que devolver" (sin bono devolvible, o ya al tope): no es un
-  // fallo, así que no debe avisar como si lo fuera.
-  async function devolverSesionBono(socioId: string, sesionId?: string | null): Promise<boolean> {
-    const tipoClaseId = sesionId ? sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null : null;
-    // I-5: `bonoDevolvible`, no `bonoConsumible`. Para devolver hace falta HUECO,
-    // no saldo: usando el de consumir, cancelar la clase que gastó la ÚLTIMA
-    // sesión no devolvía nada, porque un bono a 0 ya no es "consumible".
-    const devolvible = bonoDevolvible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
-    if (!devolvible) return true;
-    const { suscripcion: sus } = devolvible;
-
-    // I-10: incremento ATÓMICO en la BD con el tope dentro del WHERE, en vez de
-    // calcular `min(tope, restantes+1)` aquí sobre un estado que puede estar
-    // desfasado y escribirlo. Dos cancelaciones a la vez perdían una devolución.
-    // Se sigue esperando y comprobando (antes era fire-and-forget): la
-    // cancelación de la reserva ya se confirmó en servidor, así que un fallo
-    // aquí no debe deshacer nada — pero sí hay que enterarse, o la socia pierde
-    // una sesión de bono sin que quede rastro.
-    const res = await dbDevolverSesionBono(sus.id, getCurrentStudioId());
-    if ('error' in res) {
-      capturarMensaje('[devolverSesionBono] no se pudo devolver la sesión al bono', 'error', {
-        extra: { socioId, sesionId, suscripcionId: sus.id, error: res.error },
-      });
-      return false;
-    }
-    // `saldo` null = no había hueco (bono ya al tope): no es un fallo, pero
-    // tampoco hay nada que reflejar en pantalla.
-    if (res.saldo == null) return true;
-    const saldo = res.saldo;
-    setSuscripciones(prev => prev.map(s =>
-      s.id === sus.id ? { ...s, sesionesRestantes: saldo } : s
-    ));
-    return true;
-  }
 
   async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string; comoClaseSuelta?: boolean; claseSuelta?: { importeEsperado: number } }): Promise<ResultadoReserva> {
     const sesion = sesiones.find(s => s.id === sesionId);

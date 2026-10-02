@@ -23,6 +23,12 @@ export function comoSePaga(
   bono: BonoMin | null,
   bonoNoCubre: boolean,
 ): { texto: string; tono: TonoPago } {
+  // Un plan mensual ilimitado llega con `creditosTotales: Infinity` (`bonoDeSuscripcion`): no tiene
+  // contador que enseñar. Sin esta rama el texto salía «(Infinity disponibles)» en la última pantalla
+  // antes de confirmar. Y no se «usa una sesión»: la cuota la cubre y no gasta ningún bono.
+  if (bono && !Number.isFinite(bono.creditosTotales)) {
+    return { texto: 'Incluida en tu mensualidad. No pagas nada hoy.', tono: 'ok' };
+  }
   const quedan = bono ? bono.creditosTotales - bono.creditosUsados : 0;
   if (bono && quedan > 0) {
     return {

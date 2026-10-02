@@ -297,7 +297,7 @@ export interface Historial {
  *
  * ⚠️ Se ordena aquí y no se confía en el orden de llegada. Es la trampa que ya
  * pasó en este repo con el bono («el primero del array» en vez de «el que el
- * servidor gastaría primero», ver `compararPorCaducidad`): funciona en el
+ * servidor gastaría primero», ver `compararPorElegibilidad`): funciona en el
  * fixture y falla en producción cuando Postgres devuelve otro orden.
  */
 export function repartirHistorial(filas: FilaValoracion[]): Historial {

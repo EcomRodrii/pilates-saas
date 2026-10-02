@@ -94,6 +94,41 @@ test('bonoConsumible con varias activas elige la que caduca antes (determinista)
   assert.equal(r?.suscripcion.id, 'sus-X'); // la que caduca antes, no el orden de la lista
 });
 
+// Decisión cerrada (motor de derechos): con varios bonos que cubren la clase manda la ESPECIFICIDAD,
+// luego la caducidad, luego el id. Su gemela en SQL es `elegir_bono_consumible` (migr 20261002150000).
+test('bonoConsumible: el bono acotado a ese tipo de clase se gasta antes que el general, aunque caduque después', () => {
+  const suscripciones = [
+    sus({ id: 'sus-general', socioId: 'a', planId: 'p-todo', fechaFin: '2026-08-01' }),
+    sus({ id: 'sus-reformer', socioId: 'a', planId: 'p-reformer', fechaFin: '2026-12-31' }),
+  ];
+  const planes = [
+    plan({ id: 'p-todo', tipo: 'BONO' }),
+    plan({ id: 'p-reformer', tipo: 'BONO', tiposClaseIds: ['tc-reformer'] }),
+  ];
+  assert.equal(bonoConsumible('a', suscripciones, planes, '2026-07-25', 'tc-reformer')?.suscripcion.id, 'sus-reformer');
+  // En una clase que el específico NO cubre, solo vale el general.
+  assert.equal(bonoConsumible('a', suscripciones, planes, '2026-07-25', 'tc-mat')?.suscripcion.id, 'sus-general');
+  // Quien se lo gaste lo devuelve al MISMO: `bonoDevolvible` comparte el orden.
+  assert.equal(bonoDevolvible('a', suscripciones, planes, '2026-07-25', 'tc-reformer')?.suscripcion.id, 'sus-reformer');
+});
+
+test('bonoConsumible: entre dos bonos igual de específicos sigue mandando la caducidad, y después el id', () => {
+  const planes = [
+    plan({ id: 'p1', tipo: 'BONO', tiposClaseIds: ['tc-reformer'] }),
+    plan({ id: 'p2', tipo: 'BONO', tiposClaseIds: ['tc-reformer', 'tc-mat'] }),
+  ];
+  const porCaducidad = [
+    sus({ id: 'sus-b', socioId: 'a', planId: 'p1', fechaFin: '2026-12-31' }),
+    sus({ id: 'sus-a', socioId: 'a', planId: 'p2', fechaFin: '2026-09-01' }),
+  ];
+  assert.equal(bonoConsumible('a', porCaducidad, planes, '2026-07-25', 'tc-reformer')?.suscripcion.id, 'sus-a');
+  const porId = [
+    sus({ id: 'sus-z', socioId: 'a', planId: 'p1', fechaFin: null }),
+    sus({ id: 'sus-m', socioId: 'a', planId: 'p2', fechaFin: null }),
+  ];
+  assert.equal(bonoConsumible('a', porId, planes, '2026-07-25', 'tc-reformer')?.suscripcion.id, 'sus-m');
+});
+
 // ── calcularConsumoBono ──────────────────────────────────────────────────────
 test('calcularConsumoBono descuenta una sesión', () => {
   assert.deepEqual(calcularConsumoBono(3), { nuevasRestantes: 2, agotado: false });

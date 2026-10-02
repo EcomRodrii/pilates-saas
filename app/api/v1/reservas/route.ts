@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { conApiPublica } from '@/lib/api-publica/servidor';
 import { crearReservaPublica } from '@/lib/db/supabase-data-admin';
 import { COLUMNAS, reservaPublica } from '@/lib/api-publica/serializar';
+import { accionesDeRechazo } from '@/lib/student/reserva-acciones';
 
 // GET /api/v1/reservas — triggers "Nueva reserva"/"Reserva cancelada"
 // de Zapier (polling). `?estado=` filtra (CONFIRMADA por defecto; pasar
@@ -63,7 +64,13 @@ export async function POST(req: NextRequest) {
       studioId: ctx.studioId, sesionId, socioId, authUserId: socio.auth_user_id, spotId,
     });
 
-    if ('error' in resultado) return { status: 400, body: { error: resultado.error } };
+    // Aditivo: `codigo` (por qué) y `acciones` (qué puede hacer ahora) además del texto, que no cambia.
+    if ('error' in resultado) {
+      return {
+        status: 400,
+        body: { error: resultado.error, ...('codigo' in resultado ? { codigo: resultado.codigo, acciones: accionesDeRechazo(resultado.codigo) } : {}) },
+      };
+    }
     return {
       status: 201,
       body: { id: resultado.reservaId, estado: resultado.estado, spotAsignado: resultado.spotAsignado },
