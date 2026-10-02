@@ -5988,13 +5988,18 @@ export async function fetchTarifasYSuscripciones(studioId?: string) {
   const sid = studioId ?? getCurrentStudioId();
   if (!sid) return null;
   const db = supabase;
-  const [planesRes, suscripcionesRes] = await Promise.all([
+  const [planesRes, suscripcionesRes, planTiposClaseRes] = await Promise.all([
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     fetchAllRows(sid, 'suscripciones', (from, to) => db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id, baja_al_vencer').eq('studio_id', sid).order('id').range(from, to)),
+    // Los tipos que cubre cada plan (0111), como en la carga del panel. Sin
+    // ellos, al volver a la pestaña todo plan «cubría» cualquier clase: el
+    // mostrador daba por incluida una clase que el bono no cubre, y no ofrecía
+    // cobrarla.
+    db.from('plan_tipos_clase').select('plan_id, tipo_clase_id, limite_semanal').eq('studio_id', sid),
   ]);
-  if (planesRes.error || suscripcionesRes.error) return null;
+  if (planesRes.error || suscripcionesRes.error || planTiposClaseRes.error) return null;
   return {
-    planesTarifa: (planesRes.data ?? []).map(mapPlanTarifa),
+    planesTarifa: unirTiposAPlanes((planesRes.data ?? []).map(mapPlanTarifa), planTiposClaseRes.data),
     suscripciones: (suscripcionesRes.data ?? []).map(mapSuscripcion),
   };
 }

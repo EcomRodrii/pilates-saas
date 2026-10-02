@@ -34,17 +34,14 @@ import { invalidarEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import type { CambioClaseSerie } from '@/lib/avisos-serie';
 import { ausenciaEnFecha, sufijoAusencia } from '@/lib/ausencias';
 import { colorPorIndice } from '@/lib/onboarding/plan-configuracion';
-import { candidataParaSustitucion, detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
+import { detectarConflictos, elegirLibre, hayConflicto, plazasSobrantesTrasAforo, type SlotSesion } from '@/lib/calendar-logic';
 import { decidirReservaNueva } from '@/lib/booking-logic';
 import { aforoPorDefectoDeSesion } from '@/lib/aforo-logic';
 import { sesionEncajaEnPlaza, claveFranjaDeSesion, type SesionSlot } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { DialogoPlazaFija, textoPlazaGuardada } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { marcaReserva, textoTrasQuitar } from '@/lib/plazas-fijas-cancelacion';
-import { CoberturaDialog } from '@/components/calendario/cobertura-dialog';
 import { usePlataformasActivas } from '@/components/configuracion/plataformas-externas';
-import { AvisoSinBono, type MotivoSinBono } from '@/components/calendario/aviso-sin-bono';
-import { tieneEntitlementActivo } from '@/lib/bono-logic';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { AvisoAforoSala, DIA_PILLS, DiaPill, FormField, inputCls, selectCls } from '@/components/calendario/campos-clase';
 import { FormularioNuevaClase, type InicialNuevaClase, type SesionNueva, type SlotConTipo } from '@/components/calendario/formulario-nueva-clase';
@@ -72,7 +69,13 @@ import { TiraDias } from '@/components/calendario/tira-dias';
 import { SemanaFranjas } from '@/components/calendario/semana-franjas';
 import { FichaClase, type ModoFicha, type PestanaFicha } from '@/components/calendario/ficha-clase';
 import { ClientasDeClase } from '@/components/calendario/clientas-de-clase';
-import { AnadirAClase } from '@/components/calendario/anadir-a-clase';
+import { AnadirAClase, type MetodoSuelta } from '@/components/calendario/anadir-a-clase';
+import { SustitutaDeClase, type DatosSustitutaClase } from '@/components/calendario/sustituta-de-clase';
+import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
+import { coberturaDeClase } from '@/lib/reservar/cobertura';
+import { lineaCoberturaMostrador } from '@/lib/calendario/cobertura-mostrador';
+import { idReciboDeClaseSuelta } from '@/lib/cobros/recibo-de-cita';
+import { importeAdeudado, importeIngresado } from '@/lib/billing/situacion-recibo';
 import { AdaptacionesClase } from '@/components/calendario/adaptaciones-clase';
 import { HistorialSesion } from '@/components/calendario/historial-sesion';
 import { SpotMap } from '@/components/spots/spot-map';
@@ -104,7 +107,7 @@ import { type SesionBuscable } from '@/lib/calendario-busqueda';
 import { mmA } from '@/lib/calendario-metricas';
 import { minutosEnEstudio, diaEnEstudio } from '@/lib/calendario-hora-estudio';
 import { nuevoHorarioArrastrado } from '@/lib/calendario-arrastre';
-import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado, preguntaAvisoCobertura } from '@/lib/calendario-acciones';
+import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado } from '@/lib/calendario-acciones';
 import { claseAtenuadaPorInstructor } from '@/lib/calendario-filtros';
 import { rangoDia, rangoSemanaDesde, claveRango, type RangoFechas } from '@/lib/calendario-rango';
 import { historialSustituciones } from '@/lib/calendario-historial';
@@ -596,12 +599,14 @@ export default function Calendario() {
     cancelarReservasDeSesiones, cancelarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
-    addActividadReciente, addRecibo, resetDatosPilates, dataLoaded, addInstructor,
+    addActividadReciente, addRecibo, crearFacturaDirecta, recibos, resetDatosPilates, dataLoaded, addInstructor,
   } = useStudio();
   const { user } = useAuth();
   // Un solo sistema de toast (antes había dos en paralelo) — con soporte de
   // Deshacer (punto 4), reutilizado por las 6 acciones de la franja.
-  const { message: toastMsg, action: toastAction, show: showToast, dismiss: dismissToast } = useToast();
+  // `showToastError`: en rojo y 8 s, para lo que no ha salido (un cobro sin
+  // confirmar no puede leerse como un aviso de éxito de 3 s).
+  const { message: toastMsg, action: toastAction, variant: toastVariant, show: showToast, showError: showToastError, dismiss: dismissToast } = useToast();
 
   // Misma traducción de la respuesta que la bandeja de Inicio
   // (`resultadoDecisionReserva`): aprobar puede acabar en lista de espera, y un
@@ -747,7 +752,13 @@ export default function Calendario() {
   // Atajo «Agrupar con nombre»: qué franjas marcar al abrir el diálogo
   // de Horario justo después de crear la serie que las genera.
   const [preseleccionClaseFija, setPreseleccionClaseFija] = useState<{ serieId: string; diasSemana: number[] } | null>(null);
-  const [showCobertura, setShowCobertura] = useState(false);
+  // «Buscar sustituta» del ⋯ en una clase CON instructora: enseña la caja de
+  // sustituta en su ficha aunque no esté sin cubrir (su instructora no puede).
+  const [sustitutaPara, setSustitutaPara] = useState<string | null>(null);
+  const [datosSustituta, setDatosSustituta] = useState<{ sesionId: string; datos: DatosSustitutaClase } | null>(null);
+  const [errorSustituta, setErrorSustituta] = useState<string | null>(null);
+  const [ocupadoSustituta, setOcupadoSustituta] = useState(false);
+  const [recargaSustituta, setRecargaSustituta] = useState(0);
   const [ausencias, setAusencias] = useState<AusenciaInstructora[]>([]);
   useEffect(() => { let vivo = true; listarAusencias().then(r => { if (vivo) setAusencias(r); }); return () => { vivo = false; }; }, []);
 
@@ -767,9 +778,6 @@ export default function Calendario() {
       email: { clase: string; fecha: string; hora: string; sala: string; instructora: string; anterior: string };
     } | null
   >(null);
-  const [avisoSinBono, setAvisoSinBono] = useState<
-    { sesionId: string; socioId: string; motivo: MotivoSinBono } | null
-  >(null);
   const [confirmarEspera, setConfirmarEspera] = useState<
     { sesionId: string; socioId: string; nombre: string; posicion: number } | null
   >(null);
@@ -780,7 +788,7 @@ export default function Calendario() {
   const [avisarAlumna, setAvisarAlumna] = useState(true);
 
   // Punto 4: diálogo de confirmación para CUBRIR / OFRECER / AJUSTAR_AFORO.
-  const [dialogoAccion, setDialogoAccion] = useState<{ tipo: 'CUBRIR' | 'OFRECER' | 'AJUSTAR_AFORO'; sesionId: string } | null>(null);
+  const [dialogoAccion, setDialogoAccion] = useState<{ tipo: 'OFRECER' | 'AJUSTAR_AFORO'; sesionId: string } | null>(null);
   // Reporta una incidencia (necesario para que el estado INCIDENCIA sea
   // alcanzable: sin esto, `incidencia_texto` nunca lo pondría nadie).
   const [dialogoIncidencia, setDialogoIncidencia] = useState<{ sesionId: string; texto: string } | null>(null);
@@ -1415,57 +1423,6 @@ export default function Calendario() {
     }
   }
 
-  async function asignarSustituta(nuevoInstructorId: string) {
-    // Mismo guard anti doble-submit que editarSesion/editarSerie: el diálogo
-    // tiene un botón "Asignar" por candidata sin loading propio, así que sin
-    // esto dos clics (o dos candidatas distintas) mandaban dos updateSesion
-    // en paralelo — el segundo en responder ganaba en silencio.
-    if (!sesionActual || guardandoSesion) return;
-    if (sesionYaEmpezada(sesionActual.inicio)) {
-      showToast(MENSAJE_CLASE_YA_EMPEZADA);
-      return;
-    }
-    setGuardandoSesion(true);
-    try {
-    const anterior = nombreInstructor(sesionActual.instructorId);
-    const nueva = nombreInstructor(nuevoInstructorId);
-    const guardado = await updateSesion(sesionActual.id, { instructorId: nuevoInstructorId });
-    if (!guardado.ok) { showToast(guardado.error); return; }
-    addActividadReciente(
-      'SESION_REASIGNADA',
-      `Clase de ${sesionActual.tipoClase.nombre} (${formatHora(sesionActual.inicio)}) reasignada: ${anterior} → ${nueva}`,
-    );
-
-    const apuntadas = cuantasApuntadas(sesionActual.id);
-    if (apuntadas > 0) {
-      setAvisoInstructora({
-        sesionId: sesionActual.id,
-        apuntadas,
-        instructora: nueva,
-        datos: {
-          clase: sesionActual.tipoClase.nombre,
-          cuando: cuandoEstudio(new Date(sesionActual.inicio)),
-          sala: sesionActual.sala?.nombre ?? '',
-          instructora: nueva,
-        },
-        email: {
-          clase: sesionActual.tipoClase.nombre,
-          fecha: fechaLargaEstudio(new Date(sesionActual.inicio)),
-          hora: horaEstudio(new Date(sesionActual.inicio)),
-          sala: sesionActual.sala?.nombre ?? '',
-          instructora: nueva,
-          anterior,
-        },
-      });
-    }
-
-    setShowCobertura(false);
-    showToast(`Sustituta asignada: ${nueva}`);
-    void refrescarVista();
-    } finally {
-      setGuardandoSesion(false);
-    }
-  }
 
   // Las clases que tocaría «Guardar esta y las siguientes»: la clase abierta y las
   // siguientes de su serie. Una sola definición para la vista previa, el recuento
@@ -1752,17 +1709,6 @@ export default function Calendario() {
     showToast(cuantas);
   }
 
-  function handleAddReserva(sesionId: string, socioId: string) {
-    const hoyISO = new Date().toISOString().slice(0, 10);
-    const tipoDeLaClase = sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null;
-    if (!tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyISO, tipoDeLaClase)) {
-      const tieneAlguno = tieneEntitlementActivo(socioId, suscripciones, planesTarifa, hoyISO);
-      setAvisoSinBono({ sesionId, socioId, motivo: tieneAlguno ? 'tipo-no-cubierto' : 'sin-bono' });
-      return;
-    }
-    anadirOPreguntarEspera(sesionId, socioId);
-  }
-
   function anadirOPreguntarEspera(sesionId: string, socioId: string) {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
@@ -1778,7 +1724,7 @@ export default function Calendario() {
     void confirmarAddReserva(sesionId, socioId);
   }
 
-  async function confirmarAddReserva(sesionId: string, socioId: string) {
+  async function confirmarAddReserva(sesionId: string, socioId: string): Promise<boolean> {
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? socio.nombre : 'La clienta';
     // Walk-in (pilar 6): si la clase ya ha empezado, quien se añade desde aquí
@@ -1793,7 +1739,7 @@ export default function Calendario() {
     const res = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn, avisar: avisarAlumna });
     if (!res.ok) {
       showToast(res.error);
-      return;
+      return false;
     }
     // Si recepción decidió no avisarla, el toast lo recuerda: es la única
     // pista de que la alumna no sabe nada de esta reserva.
@@ -1804,6 +1750,7 @@ export default function Calendario() {
       ? `${nombre} añadida y registrada como asistencia`
       : `${nombre} añadida a la clase`) + sinAviso);
     void refrescarVista();
+    return true;
   }
 
   const precioSueltaDe = (sesionId: string): number | null => {
@@ -1812,35 +1759,116 @@ export default function Calendario() {
     return sesion?.precioPuntual ?? precioSueltaDelEstudio(planesTarifa);
   };
 
-  async function handleCobrarSuelta() {
-    if (!avisoSinBono) return;
-    const { sesionId, socioId } = avisoSinBono;
+  // ¿Pagó esta clase como suelta en el mostrador, o la tiene pendiente? Quitarla
+  // de la clase no toca su recibo: que se diga, para devolvérselo o quitárselo
+  // en Cobros. Las cifras, con la lectura única de un recibo: lo que de verdad
+  // entró (neto de lo ya devuelto) y lo que aún debe.
+  const avisoPagoSuelta = (reservaId: string): string | null => {
+    const idSuelta = idReciboDeClaseSuelta(reservaId);
+    const recibo = idSuelta ? recibos.find(r => r.id === idSuelta) : undefined;
+    if (!recibo) return null;
+    const pagado = importeIngresado(recibo);
+    if (pagado > 0) return `Pagó ${formatEuro(pagado)} por esta clase: si se lo devuelves, márcalo en Cobros`;
+    const debe = importeAdeudado(recibo);
+    return debe > 0 ? `Tenía ${formatEuro(debe)} pendientes por esta clase: si ya no se los cobras, elimina el recibo en Cobros` : null;
+  };
+
+  // La pantalla decide cobrar con la cartera que tiene en memoria, y puede ser
+  // vieja (un bono renovado desde la app o vendido en otro dispositivo). El
+  // servidor la lee al reservar y, si ya traía con qué venir, entra con eso: ni
+  // se cobra ni se deja recibo.
+  const textoYaCubierta = (nombre: string, c: { plan: string }) =>
+    `${nombre} entra con su ${c.plan}, que ya cubría esta clase: no se le ha cobrado nada`;
+
+  // «Cobrar y añadirla» (maqueta aprobada, 1-oct-2026): la clase suelta se
+  // cobra en el mostrador de verdad —efectivo, tarjeta o Bizum—, no con un
+  // recibo pendiente para luego en Cobros, que es lo que hacía el diálogo de
+  // antes.
+  //
+  // Orden: PRIMERO la plaza y DESPUÉS el cobro. Lo escaso es el sitio: si la
+  // clase se llena entre medias, cobrar primero dejaría dinero sin clase (y
+  // devolverlo en mano). Si falla el cobro con la plaza ya dada, el recibo queda
+  // PENDIENTE en «Quién me debe» y se dice. El cobro lo confirma el servidor
+  // (`crearFacturaDirecta` → `POST /api/cobros/marcar-cobrado`): un recibo no
+  // nace cobrado desde el navegador.
+  async function cobrarSueltaYAnadir(sesionId: string, socioId: string, metodo: MetodoSuelta): Promise<boolean> {
     const precio = precioSueltaDe(sesionId);
-    let reciboOk = true;
-    if (precio != null && precio > 0) {
-      const res = await addRecibo({ socioId, suscripcionId: null, concepto: 'Clase suelta', importe: precio, fechaVencimiento: new Date().toISOString().slice(0, 10) });
-      reciboOk = res.ok;
+    if (precio == null || precio <= 0) return false;
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    const nombre = socios.find(s => s.id === socioId)?.nombre ?? 'La clienta';
+    const esWalkIn = !!sesion && new Date(sesion.inicio) <= now;
+    const reserva = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn, avisar: avisarAlumna, comoClaseSuelta: true });
+    if (!reserva.ok) { showToastError(`${reserva.error} No se le ha cobrado nada.`); return false; }
+    void refrescarVista();
+    if (reserva.estado === 'LISTA_ESPERA') {
+      showToast(`La clase se ha llenado justo ahora: ${nombre} va a la lista de espera, y no se le ha cobrado nada`);
+      return true;
     }
-    // También por aquí: dejarle un recibo y mandarla a la lista de espera sin
-    // decirlo sería peor todavía. La reserva se añade igual aunque
-    // el recibo haya fallado — son dos cosas distintas, y sin la reserva la
-    // clienta se queda además sin plaza.
-    anadirOPreguntarEspera(sesionId, socioId);
-    setAvisoSinBono(null);
-    showToast(
-      !reciboOk ? 'Clienta añadida, pero no se pudo crear el recibo — créalo a mano en Cobros'
-        : precio ? `Clienta añadida · recibo de ${formatEuro(precio)} pendiente de cobro en Cobros` : 'Clienta añadida',
+    if (reserva.cubiertaPor) { showToast(textoYaCubierta(nombre, reserva.cubiertaPor)); return true; }
+    // El recibo cuelga de la reserva (`rec-suelta-<reserva>`): enlace con la
+    // plaza, y un reintento encuentra este recibo en vez de crear otro.
+    const reciboId = reserva.reservaId ? idReciboDeClaseSuelta(reserva.reservaId) ?? undefined : undefined;
+    const clase = sesion ? `${sesion.tipoClase.nombre}, ${diaCorto(sesion.inicio)} ${horaEstudio(sesion.inicio)}` : null;
+    const res = await crearFacturaDirecta(
+      { socioId, concepto: clase ? `Clase suelta — ${clase}` : 'Clase suelta', importe: precio },
+      { reciboId, metodo, que: 'clase' },
     );
+    const como = metodo === 'EFECTIVO' ? 'en efectivo' : metodo === 'TARJETA' ? 'con tarjeta' : 'por Bizum';
+    if (res.ok) {
+      showToast(`${formatEuro(precio)} cobrados ${como} · ${nombre} añadida a la clase`);
+    } else if ('cobroRegistrado' in res) {
+      // El dinero entró; falta sellar la factura (se reintenta sola).
+      showToast(`${formatEuro(precio)} cobrados ${como} · ${nombre} añadida. ${res.error}`);
+    } else if ('cobroSinConfirmar' in res) {
+      // El recibo existe, pendiente: no se puede volver a pulsar sin duplicarlo.
+      // En rojo y más rato: recepción puede tener ya el dinero en la mano.
+      showToastError(`${nombre} añadida a la clase, pero no consta el cobro. ${res.error}`);
+    } else {
+      // No llegó a crearse el recibo: no aparece en «Quién me debe». «Nuevo
+      // cobro» pide el método al cobrarlo («Nueva factura» no, y el efectivo
+      // no entraría en caja).
+      showToastError(`${nombre} añadida a la clase, pero no se ha registrado ningún cobro (${res.error}). Apúntaselo en Cobros con «Nuevo cobro».`);
+    }
+    return true;
   }
 
-  function handleCortesiaSinBono() {
-    if (!avisoSinBono) return;
-    const { sesionId, socioId } = avisoSinBono;
+  // «Cobrar después»: lo que hacía el diálogo de antes —apuntarla y dejarle el
+  // recibo pendiente para cobrarlo en Cobros—, ahora con la plaza PRIMERO: el
+  // recibo solo se crea si de verdad entró (antes quedaba aunque luego se dijera
+  // que no a la lista de espera).
+  async function anadirYCobrarDespues(sesionId: string, socioId: string): Promise<boolean> {
+    const precio = precioSueltaDe(sesionId);
+    if (precio == null || precio <= 0) return false;
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    const nombre = socios.find(s => s.id === socioId)?.nombre ?? 'La clienta';
+    const esWalkIn = !!sesion && new Date(sesion.inicio) <= now;
+    const reserva = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn, avisar: avisarAlumna, comoClaseSuelta: true });
+    if (!reserva.ok) { showToastError(reserva.error); return false; }
+    void refrescarVista();
+    if (reserva.estado === 'LISTA_ESPERA') {
+      showToast(`La clase está llena: ${nombre} va a la lista de espera, sin recibo`);
+      return true;
+    }
+    if (reserva.cubiertaPor) { showToast(textoYaCubierta(nombre, reserva.cubiertaPor)); return true; }
+    const clase = sesion ? `${sesion.tipoClase.nombre}, ${diaCorto(sesion.inicio)} ${horaEstudio(sesion.inicio)}` : null;
+    // También cuelga de la reserva: al quitarla de la clase se avisa de que lo tiene pendiente.
+    const recibo = await addRecibo({
+      socioId, suscripcionId: null, concepto: clase ? `Clase suelta — ${clase}` : 'Clase suelta',
+      importe: precio, fechaVencimiento: hoyEnEstudio(),
+    }, { id: reserva.reservaId ? idReciboDeClaseSuelta(reserva.reservaId) ?? undefined : undefined });
+    if (recibo.ok) showToast(`${nombre} añadida · recibo de ${formatEuro(precio)} pendiente en Cobros`);
+    else showToastError(`${nombre} añadida, pero no se ha podido crear el recibo: créalo a mano en Cobros`);
+    return true;
+  }
+
+  // Cortesía: a la clase sin bono y sin cargo. Queda en la actividad para que
+  // la propietaria vea quién regaló qué — solo si de verdad entró.
+  async function anadirCortesia(sesionId: string, socioId: string) {
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'La clienta';
-    void confirmarAddReserva(sesionId, socioId);
-    addActividadReciente('NUEVA_RESERVA', `Cortesía · ${nombre} añadida sin bono (sin cargo)`, socioId);
-    setAvisoSinBono(null);
+    if (await confirmarAddReserva(sesionId, socioId)) {
+      addActividadReciente('NUEVA_RESERVA', `Cortesía · ${nombre} añadida sin bono (sin cargo)`, socioId);
+    }
   }
 
   // ── Rediseño: datos de vista (rejilla/métricas/franja/panel) por rango+rol ──
@@ -2272,34 +2300,6 @@ export default function Calendario() {
   const cierreMin = datosVista ? Number(datosVista.horaCierre.slice(0, 2)) * 60 : 22 * 60;
 
   // ── Las 6 acciones con nombre propio (punto 4) ──────────────────────────────
-
-  async function ejecutarCubrir(sesionId: string, instructorId: string) {
-    const s = datosVista?.sesiones.find(x => x.id === sesionId);
-    if (!s?.sustitucionId) return;
-    const prevInstructorId = s.instructorId;
-    const res = await fetch('/api/sustituciones', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ action: 'confirmar', sustitucionId: s.sustitucionId, instructorId }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) { showToast(data?.error ?? 'No se ha podido cubrir la clase'); return; }
-    setDialogoAccion(null);
-    await refrescarVista();
-    showToast(`Clase cubierta con ${nombreInstructor(instructorId)}`, {
-      texto: 'Deshacer',
-      // ⚠️ El «Deshacer» no miraba el resultado, al revés que la acción de ida
-      // (que sí enseña `guardado.error`). Volver a poner a la instructora
-      // original puede ser rechazado —se le ha metido otra clase a esa hora
-      // mientras tanto—, y entonces `refrescarVista()` repintaba el estado del
-      // servidor SIN CAMBIAR y sin decir nada: el botón parecía no hacer nada.
-      onClick: async () => {
-        const vuelta = await updateSesion(sesionId, { instructorId: prevInstructorId });
-        if (!vuelta.ok) { showToast(vuelta.error); return; }
-        await refrescarVista();
-      },
-    });
-  }
 
   // Pasar lista marcando solo a quien NO vino (antes «Pasar lista» daba a TODAS
   // por venidas de un toque). Cada escritura se espera y solo se cuentan —y se
@@ -2839,8 +2839,6 @@ export default function Calendario() {
   const enEsperaActual = reservasActuales.filter(r => r.estado === 'LISTA_ESPERA').length;
   const salaActual = sesionActual ? salas.find(x => x.id === sesionActual.salaId) ?? null : null;
   const sobreaforoActual = !!salaActual && !!sesionActual && sesionActual.aforoMaximo > salaActual.capacidad;
-  const candidataActual = sesionActual && estadoVista === 'SIN_INSTRUCTORA' && sesionVista?.sustitucionId
-    ? candidataParaSustitucion(sesionActual, instructoresActivos, ausencias, existentesSlot) : null;
   const vecinasActual = vecinas(ordenClases, sesionId);
   const apuntadasActual = sesionActual?.confirmadas ?? 0;
 
@@ -2852,7 +2850,7 @@ export default function Calendario() {
     { texto: 'Duplicar', icono: Copy, onClick: () => openDuplicar(sesionActual), nota: 'La misma clase, la semana que viene' },
     ...(!canceladaActual ? [
       {
-        texto: 'Buscar sustituta', icono: UserCheck, onClick: () => setShowCobertura(true),
+        texto: 'Buscar sustituta', icono: UserCheck, onClick: () => setSustitutaPara(sesionActual.id),
         desactivada: empezadaActual, nota: empezadaActual ? MENSAJE_CLASE_YA_EMPEZADA : 'Su instructora no puede darla',
       },
       { texto: 'Anotar incidencia de sala', icono: Wrench, onClick: () => abrirIncidencia(sesionActual.id), nota: 'Una nota para el equipo; no avisa a nadie' },
@@ -2922,19 +2920,150 @@ export default function Calendario() {
   const BOTON_PRINCIPAL = 'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-[14px] font-semibold text-brand-foreground transition-[filter] hover:brightness-95 disabled:opacity-50';
   const BOTON_SECUNDARIO = 'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-[14px] font-semibold text-foreground transition-colors hover:bg-muted';
   const floja = sesionVista?.floja ?? null;
+  // ── Sustituta (PR4 del rediseño): la caja de la ficha y sus acciones ───────
+  // Se enseña en una clase sin cubrir, en una con búsqueda abierta, o cuando se
+  // ha pedido desde su «⋯» («Buscar sustituta» de una clase CON instructora).
+  if (sustitutaPara && sustitutaPara !== sesionId) setSustitutaPara(null);
+  const mostrarSustituta = !!sesionActual && esPropiaClase && !empezadaActual && !canceladaActual
+    && (estadoVista === 'SIN_INSTRUCTORA' || sustitutaPara === sesionActual.id || !!sesionVista?.sustitucionId);
+  const datosSustitutaActual = datosSustituta && datosSustituta.sesionId === sesionId ? datosSustituta.datos : null;
+  // Se pide SOLO cuando la caja se pinta: sin búsqueda abierta, la lectura
+  // calcula el orden con `rankear_candidatas`, y eso no se hace por abrir una clase cualquiera.
+  useEffect(() => {
+    if (!mostrarSustituta || !sesionId) return;
+    let vivo = true;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/sustituciones/clase?sesionId=${encodeURIComponent(sesionId)}`, { headers: await authHeader() });
+        const data = await res.json().catch(() => null) as (DatosSustitutaClase & { error?: string }) | null;
+        if (!vivo) return;
+        if (!res.ok || !data) { setErrorSustituta(data?.error ?? 'No se ha podido ver quién puede darla. Vuelve a intentarlo.'); return; }
+        setErrorSustituta(null);
+        setDatosSustituta({ sesionId, datos: data });
+      } catch {
+        if (vivo) setErrorSustituta('No se ha podido ver quién puede darla. Revisa la conexión.');
+      }
+    })();
+    return () => { vivo = false; };
+  }, [mostrarSustituta, sesionId, recargaSustituta]);
+
+  // Del equipo, las que podrían darla de verdad (lo que filtraba el diálogo de
+  // antes): imparten, no están ausentes ese día y no tienen otra clase a esa
+  // hora. `confirmar_sustitucion` no mira ausencias; esto sí.
+  const opcionesSustituta = useMemo(() => {
+    if (!sesionActual) return [];
+    return instructoresActivos
+      .filter(i => i.id !== sesionActual.instructorId
+        && !ausenciaEnFecha(ausencias, i.id, sesionActual.inicio)
+        && !sesiones.some(x => !x.cancelada && x.id !== sesionActual.id && x.instructorId === i.id
+          && x.inicio < sesionActual.fin && sesionActual.inicio < x.fin))
+      .map(i => ({ id: i.id, nombre: i.nombre, telefono: i.telefono ?? null }));
+  }, [sesionActual, instructoresActivos, ausencias, sesiones]);
+
+  async function pedirSustituciones(metodo: 'POST' | 'PATCH', cuerpo: Record<string, unknown>) {
+    const res = await fetch('/api/sustituciones', {
+      method: metodo,
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(cuerpo),
+    }).catch(() => null);
+    const data = await res?.json().catch(() => null) as Record<string, unknown> | null;
+    return { ok: !!res?.ok, data, error: typeof data?.error === 'string' ? data.error : null };
+  }
+  // Una acción a la vez; al terminar se relee la caja y la rejilla (la marca de
+  // la clase cambia: buscando, espera tu visto bueno, cubierta…).
+  async function enSustituta(accion: () => Promise<void>) {
+    if (ocupadoSustituta) return;
+    setOcupadoSustituta(true);
+    try { await accion(); } finally {
+      setOcupadoSustituta(false);
+      setRecargaSustituta(n => n + 1);
+      void refrescarVista();
+    }
+  }
+  function buscarSustituta() {
+    if (!sesionActual) return;
+    const id = sesionActual.id;
+    void enSustituta(async () => {
+      const r = await pedirSustituciones('POST', { sesionId: id });
+      if (!r.ok) { showToastError(r.error ?? 'No se ha podido empezar a buscar. Inténtalo otra vez.'); return; }
+      const sust = r.data?.sustitucion as { estado?: string } | undefined;
+      if (r.data?.yaExistia && sust?.estado === 'confirmada') {
+        showToast('A esta clase ya la cubrió una sustituta: para cambiar quién la da, edita la clase');
+        return;
+      }
+      showToast(sust?.estado === 'contactando' ? 'Buscando sustituta: avisada la que mejor encaja'
+        : sust?.estado === 'agotada' ? 'No hay a quién avisar: asígnala tú'
+        : 'Búsqueda abierta: dale el visto bueno para avisar a la primera');
+    });
+  }
+  function avisarCandidata(instructorId: string) {
+    const sustitucionId = datosSustitutaActual?.sustitucion?.id;
+    if (!sustitucionId) return;
+    void enSustituta(async () => {
+      const r = await pedirSustituciones('PATCH', { action: 'contactar', sustitucionId, instructorId });
+      if (r.ok) showToast(`Avisada ${nombreInstructor(instructorId)}`);
+      else showToastError(r.error ?? 'No se ha podido avisarla. Inténtalo otra vez.');
+    });
+  }
+  function volverABuscar() {
+    const sustitucionId = datosSustitutaActual?.sustitucion?.id;
+    if (!sustitucionId) return;
+    void enSustituta(async () => {
+      const r = await pedirSustituciones('PATCH', { action: 'recalcular', sustitucionId });
+      if (!r.ok) showToastError(r.error ?? 'No se ha podido volver a buscar. Inténtalo otra vez.');
+    });
+  }
+  function descartarBusqueda() {
+    const sustitucionId = datosSustitutaActual?.sustitucion?.id;
+    if (!sustitucionId) return;
+    void enSustituta(async () => {
+      const r = await pedirSustituciones('PATCH', { action: 'descartar', sustitucionId });
+      if (!r.ok) { showToastError(r.error ?? 'No se ha podido parar la búsqueda.'); return; }
+      showToast('Búsqueda parada');
+      setSustitutaPara(null);
+    });
+  }
+  // «¿Ya sabes quién la da?»: siempre por el POST con `asignarA` (el servidor
+  // decide si abre la baja o confirma sobre la que ya había).
+  function asignarDirecta(instructorId: string, avisarClientas: boolean) {
+    if (!sesionActual) return;
+    const id = sesionActual.id;
+    const apuntadas = apuntadasActual;
+    void enSustituta(async () => {
+      const r = await pedirSustituciones('POST', { sesionId: id, asignarA: instructorId, avisar: avisarClientas });
+      if (!r.ok) { showToastError(r.error ?? 'No se ha podido asignar la clase. Sigue como estaba.'); return; }
+      const alumnas = r.data?.alumnas as { avisadas?: number; total?: number; skipped?: boolean; desactivado?: boolean } | null | undefined;
+      // `desactivado` llega con total 0 (el servidor ni las cuenta): se mira
+      // antes que el total, o el «no se las ha avisado» no salía nunca.
+      const sobreClientas = !alumnas || alumnas.skipped ? ''
+        : alumnas.desactivado ? (apuntadas > 0 ? ' · sin avisar a las clientas (el aviso está apagado en Sustituciones)' : '')
+        : (alumnas.total ?? 0) > 0 ? ` · avisadas ${alumnas.avisadas ?? 0} de ${alumnas.total} clientas` : '';
+      showToast(`Clase cubierta con ${nombreInstructor(instructorId)}${sobreClientas}`);
+      setSustitutaPara(null);
+    });
+  }
+
   const principalFicha = !sesionActual || !esPropiaClase ? null : (
     <>
-      {estadoVista === 'SIN_INSTRUCTORA' && !empezadaActual && (
-        <div className="grid gap-2">
-          {candidataActual && (
-            <button type="button" className={BOTON_PRINCIPAL} onClick={() => setDialogoAccion({ tipo: 'CUBRIR', sesionId: sesionActual.id })}>
-              <UserCheck size={16} aria-hidden />Cubrir con {candidataActual.nombre}
-            </button>
-          )}
-          <button type="button" className={candidataActual ? BOTON_SECUNDARIO : BOTON_PRINCIPAL} onClick={() => setShowCobertura(true)}>
-            <UserCheck size={16} aria-hidden />Buscar sustituta
-          </button>
-        </div>
+      {mostrarSustituta && (
+        <SustitutaDeClase
+          datos={datosSustitutaActual}
+          cargando={!datosSustitutaActual && !errorSustituta}
+          error={errorSustituta}
+          opciones={opcionesSustituta}
+          apuntadas={apuntadasActual}
+          avisoClientasApagado={studio?.avisarAlumnas === false}
+          mensajeWhatsApp={o => o.telefono
+            ? enlaceWhatsApp(o.telefono, `Hola! ¿Podrías cubrir la clase de ${sesionActual.tipoClase.nombre} el ${diaCorto(sesionActual.inicio)} a las ${horaEstudio(sesionActual.inicio)}? Avísame si puedes 🙏`)
+            : null}
+          ocupado={ocupadoSustituta}
+          nombreDe={nombreInstructor}
+          onBuscar={buscarSustituta}
+          onAvisar={avisarCandidata}
+          onVolverABuscar={volverABuscar}
+          onDescartar={descartarBusqueda}
+          onAsignar={asignarDirecta}
+        />
       )}
       {estadoVista === 'INCIDENCIA' && (
         <div className="grid grid-cols-2 gap-2">
@@ -2973,7 +3102,7 @@ export default function Calendario() {
     </>
   );
   const hayPrincipal = !!sesionActual && esPropiaClase && (
-    (estadoVista === 'SIN_INSTRUCTORA' && !empezadaActual) || estadoVista === 'INCIDENCIA'
+    mostrarSustituta || estadoVista === 'INCIDENCIA'
     || (estadoVista === 'CONFLICTO' && !empezadaActual)
     || (vivaActual && ((enEsperaActual > 0 && apuntadasActual < sesionActual.aforoMaximo) || sobreaforoActual || !!floja))
   );
@@ -3037,10 +3166,21 @@ export default function Calendario() {
                   clientas={sociosDisponibles}
                   avisar={avisarAlumna}
                   onAvisar={setAvisarAlumna}
-                  onElegirClienta={socioId => handleAddReserva(sesionActual.id, socioId)}
                   hrefQr={studio?.controlAccesoQr !== false ? `/calendario/pase?sesion=${encodeURIComponent(sesionActual.id)}` : null}
                   showToast={showToast}
                   onPlazaPlataforma={refrescarVista}
+                  // Con qué viene cada una: la MISMA regla que ve la alumna al
+                  // reservar y que sigue el servidor para elegir bono.
+                  coberturaDe={socioId => lineaCoberturaMostrador(coberturaDeClase({
+                    socioId, suscripciones, planesTarifa, hoyISO: hoyEnEstudio(),
+                    tipoClaseId: sesionActual.tipoClaseId, precioClaseSuelta: precioSueltaDe(sesionActual.id),
+                  }))}
+                  precio={precioSueltaDe(sesionActual.id)}
+                  onAnadir={socioId => anadirOPreguntarEspera(sesionActual.id, socioId)}
+                  onCobrarYAnadir={mueveDinero ? ((socioId, metodo) => cobrarSueltaYAnadir(sesionActual.id, socioId, metodo)) : null}
+                  onAnadirYCobrarDespues={mueveDinero ? (socioId => anadirYCobrarDespues(sesionActual.id, socioId)) : null}
+                  onCortesia={socioId => void anadirCortesia(sesionActual.id, socioId)}
+                  hrefVenderBono={puedeVer(rolActual, '/pos') ? (socioId => `/pos?clienta=${encodeURIComponent(socioId)}`) : null}
                 />
               )}
             </div>
@@ -3063,12 +3203,13 @@ export default function Calendario() {
             resolviendoId={resolviendoReserva}
             onQuitar={gestionaClientas ? (id: string) => {
               const marca = marcaReserva({ id }, recuperaciones); // antes de cancelar
-              // El aviso de bono no devuelto, y lo que decidió el servidor sobre
-              // la plaza fija y la recuperación.
+              const pagoSuelta = avisoPagoSuelta(id); // ídem
+              // El aviso de bono no devuelto, lo que decidió el servidor sobre
+              // la plaza fija y la recuperación, y si pagó la clase suelta.
               void cancelarReserva(id).then(async res => {
                 if (!res.ok) showToast(res.error);
                 else {
-                  const texto = [textoTrasQuitar(res, marca), res.avisoBono].filter(Boolean).join(' · ');
+                  const texto = [textoTrasQuitar(res, marca), res.avisoBono, pagoSuelta].filter(Boolean).join(' · ');
                   if (texto) showToast(texto);
                 }
                 // ⚠️ Sin esto el contador se quedaba en «8/8» con la clienta ya
@@ -3418,7 +3559,7 @@ export default function Calendario() {
       {/* La ficha en cajón (iPad en vertical) o en hoja (móvil); al lado, va dentro de la rejilla. */}
       {!fichaLateral && vista !== 'horario' && ficha}
 
-      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} action={toastAction} />}
+      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} action={toastAction} variant={toastVariant} />}
 
       {verFichaClinica && notaVozSocioId && sesionActual && yo && (
         <ModalNotaVoz
@@ -3472,16 +3613,6 @@ export default function Calendario() {
         />
       )}
 
-      <CoberturaDialog
-        open={showCobertura}
-        onOpenChange={setShowCobertura}
-        sesion={sesionActual}
-        sesiones={sesiones}
-        instructores={instructoresActivos}
-        ausencias={ausencias}
-        onAsignar={asignarSustituta}
-        guardando={guardandoSesion}
-      />
 
       {impactoSerie && (
         <DialogoImpactoEdicion
@@ -3851,22 +3982,6 @@ export default function Calendario() {
         />
       )}
 
-      {/* ── F0·E1: decisión al añadir a una socia sin bono válido ─────────────────── */}
-      {avisoSinBono && (
-        <AvisoSinBono
-          open
-          motivo={avisoSinBono.motivo}
-          socioNombre={(() => { const s = socios.find(x => x.id === avisoSinBono.socioId); return s ? `${s.nombre} ${s.apellidos}` : 'La clienta'; })()}
-          socioId={avisoSinBono.socioId}
-          claseLabel={(() => { const ses = sesionesEnriquecidas.find(x => x.id === avisoSinBono.sesionId); const tc = ses ? tiposClase.find(t => t.id === ses.tipoClaseId) : null; return tc?.nombre ?? ''; })()}
-          precioSuelta={precioSueltaDe(avisoSinBono.sesionId)}
-          permiteCobrar={mueveDinero}
-          onCobrarSuelta={handleCobrarSuelta}
-          onCortesia={handleCortesiaSinBono}
-          onClose={() => setAvisoSinBono(null)}
-        />
-      )}
-
       {/* Clase llena: se pregunta ANTES de dejar a nadie en lista de espera. */}
       <Dialog open={confirmarEspera !== null} onOpenChange={open => !open && setConfirmarEspera(null)}>
         <DialogContent className="max-w-md">
@@ -4034,23 +4149,6 @@ export default function Calendario() {
       </Dialog>
 
       {/* ── Punto 4: diálogos de CUBRIR / OFRECER / AJUSTAR_AFORO ───────────────── */}
-      {dialogoAccion?.tipo === 'CUBRIR' && (() => {
-        const s = datosVista?.sesiones.find(x => x.id === dialogoAccion.sesionId);
-        if (!s) return null;
-        const candidata = candidataParaSustitucion(s, instructoresActivos, ausencias, existentesSlot);
-        const n = (reservasPorSesion.get(s.id) ?? []).filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
-        return (
-          <DialogoDecision
-            abierto
-            titulo={candidata ? `Cubrir con ${candidata.nombre}` : 'Cubrir clase'}
-            cuerpo={<p>{preguntaAvisoCobertura(n)}</p>}
-            onConfirmar={candidata ? () => void ejecutarCubrir(s.id, candidata.id) : null}
-            textoConfirmar="Sí, cubrir y avisar"
-            onCerrar={() => setDialogoAccion(null)}
-          />
-        );
-      })()}
-
       {dialogoAccion?.tipo === 'OFRECER' && (
         <DialogoDecision
           abierto

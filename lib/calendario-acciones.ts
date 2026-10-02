@@ -23,12 +23,3 @@ export function motivoAforoBloqueado(confirmadas: number, capacidadSala: number)
     ? `No se puede: hay 1 clienta confirmada de más para la capacidad de la sala (${capacidadSala}). Resuélvelo a mano primero.`
     : `No se puede: hay ${sobran} clientas confirmadas de más para la capacidad de la sala (${capacidadSala}). Resuélvelo a mano primero.`;
 }
-
-// "Cubrir con {nombre}" — pregunta interactiva antes de confirmar la
-// sustituta, distinta del ajuste general del estudio (`studios.avisar_alumnas`):
-// esta SÍ permite decir que no caso por caso.
-export function preguntaAvisoCobertura(clientasConfirmadas: number): string {
-  if (clientasConfirmadas === 0) return '¿Avisamos de que la clase sigue en pie?';
-  if (clientasConfirmadas === 1) return '¿Avisamos a la clienta apuntada de que la clase sigue en pie?';
-  return `¿Avisamos a las ${clientasConfirmadas} clientas apuntadas de que la clase sigue en pie?`;
-}

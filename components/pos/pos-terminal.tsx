@@ -57,6 +57,20 @@ export function PosTerminal() {
   const [busqueda, setBusqueda] = useState('');
   const [categoria, setCategoria] = useState<string>('TODO');
   const [clienteId, setClienteId] = useState<string | null>(null);
+  // «Venderle un bono» desde el Calendario abre la caja con la clienta ya puesta
+  // (`/pos?clienta=<id>`). Se lee de window.location —como el resto del panel,
+  // para no suspender la página— y se quita de la URL: recargar después de la
+  // venta no tiene que volver a ponerla. Un id que no es de este estudio no
+  // encuentra ficha en `socios` y se queda en nada.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const id = url.searchParams.get('clienta');
+    if (!id) return;
+    url.searchParams.delete('clienta');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: la URL solo existe en el navegador.
+    setClienteId(id);
+  }, []);
 
   const [descuentoTexto, setDescuentoTexto] = useState('');
   const [descuentoTipo, setDescuentoTipo] = useState<'EUROS' | 'PORCENTAJE'>('EUROS');

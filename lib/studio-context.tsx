@@ -102,9 +102,22 @@ export type ResultadoReserva =
        * borrado; si aparece de nuevo, es un retroceso.
        */
       spotAsignado?: string | null;
+      /**
+       * El id de la reserva creada desde el panel (lo pone el navegador y lo
+       * respeta el servidor). La clase suelta cobrada en el mostrador cuelga su
+       * recibo de él (`rec-suelta-<reservaId>`): enlace e idempotencia sin columna.
+       */
+      reservaId?: string;
+      /**
+       * Solo si se pidió `comoClaseSuelta`: con qué venía de verdad, según la
+       * cartera que leyó el servidor al reservar. Si llega, NO se cobra la clase
+       * suelta (la pantalla podía tener un bono renovado sin enterarse).
+       */
+      cubiertaPor?: CubiertaPor | null;
     }
   | { ok: false; error: string };
 import { horarioConNuevaHora } from '@/lib/serie-horario';
+import type { CubiertaPor } from '@/lib/reservas/reserva-mostrador';
 import { type DatosEstudioLegal } from '@/lib/legal-textos';
 import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
 import type {
@@ -483,7 +496,7 @@ interface StudioContextValue {
   // (una LISTA_ESPERA no puede tener asistencia) y fuera de la vía pública.
   // `avisar` solo cuenta en el panel: `false` = recepción desmarcó «Avisar a la
   // alumna». Por defecto se la avisa, como en cualquier otra reserva.
-  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string }) => Promise<ResultadoReserva>;
+  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string; comoClaseSuelta?: boolean }) => Promise<ResultadoReserva>;
   // recuperacionCreada/recuperacionCaducaEl: solo la vía pública los rellena
   // (al cancelar una ocurrencia de plaza fija, ver cancelarReservaPublica) —
   // el panel de staff los deja undefined, no aplica ahí.
@@ -507,14 +520,15 @@ interface StudioContextValue {
   asignarSpot: (sesionId: string, socioId: string, spotId: string) => Promise<ResultadoEscritura>;
 
   // Recibos
-  addRecibo: (fields: DatosReciboNuevo) => Promise<ResultadoEscritura>;
+  /** `opciones.id`: un id derivado (p. ej. `rec-suelta-<reserva>`) que enlaza el recibo con lo que cobra. */
+  addRecibo: (fields: DatosReciboNuevo, opciones?: { id?: string }) => Promise<ResultadoEscritura>;
   /**
    * Un cobro al contado de UN recibo (cuatro desenlaces, ver `ResultadoFacturaDirecta`). Con `reciboId`
    * el recibo tiene un id propio y es IDEMPOTENTE: si ya existe (un intento anterior cuya respuesta
    * no llegó, o desde otra pestaña) se sigue con ese en vez de crear otro. Lo usa el cobro de una
    * cita (`idReciboDeCita`); «Nueva factura» no lo pasa porque no tiene nada que lo identifique.
    */
-  crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }, opciones?: { reciboId?: string }) => Promise<ResultadoFacturaDirecta>;
+  crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }, opciones?: { reciboId?: string; metodo?: MetodoCobro; que?: 'cita' | 'clase' }) => Promise<ResultadoFacturaDirecta>;
   /** Marca un recibo cobrado POR EL SERVIDOR (`/api/cobros/marcar-cobrado`).
    *  Devuelve `numeroFactura` cuando el cobro emitió factura: el llamador NO
    *  debe buscarla en el estado — todavía no está ahí. `yaEstaba` no es un error. */
@@ -1316,8 +1330,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // Lo mismo para el PANEL, pero acotado. Al volver a una pestaña que llevaba
   // un rato oculta se releen tarifas y suscripciones: activar un bono en una
   // pestaña (o en el iPad de recepción) y venderlo en otra daba aquí «Asignar
-  // plan» vacío y «no tiene bono» hasta recargar (evaluación del 13-sep). Dos
-  // consultas y no `fetchCriticalStudioData` entero, que son ~50; el cuándo
+  // plan» vacío y «no tiene bono» hasta recargar (evaluación del 13-sep). Tres
+  // consultas (con los tipos que cubre cada plan) y no `fetchCriticalStudioData`
+  // entero, que son ~50; el cuándo
   // vive en `lib/panel-refresco.ts`. Solo `visibilitychange`, no `focus`:
   // cambiar de ventana no oculta la pestaña ni la deja con datos de otra.
   useEffect(() => {
@@ -3627,7 +3642,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return true;
   }
 
-  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string }): Promise<ResultadoReserva> {
+  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean; avisar?: boolean; pruebaPlanId?: string; comoClaseSuelta?: boolean }): Promise<ResultadoReserva> {
     const sesion = sesiones.find(s => s.id === sesionId);
     // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
     const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
@@ -3701,10 +3716,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const respuesta = await fetch('/api/reservas/crear', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ sesionId, socioId, reservaId, avisar: opciones?.avisar !== false }),
+      body: JSON.stringify({
+        sesionId, socioId, reservaId, avisar: opciones?.avisar !== false,
+        ...(opciones?.comoClaseSuelta ? { comoClaseSuelta: true } : {}),
+      }),
     }).catch(() => null);
     const datos = await respuesta?.json().catch(() => null) as {
-      estado?: string; posicionEspera?: number | null; error?: string;
+      estado?: string; posicionEspera?: number | null; error?: string; cubiertaPor?: CubiertaPor | null;
     } | null;
     const estadoReal = typeof datos?.estado === 'string' && datos.estado ? datos.estado as EstadoReserva : null;
     if (!respuesta?.ok || !estadoReal) {
@@ -3736,7 +3754,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       await checkin(reservaId, reservasFinales);
     }
 
-    return { ok: true, estado: estadoReal };
+    const cubiertaPor = datos?.cubiertaPor && typeof datos.cubiertaPor.plan === 'string'
+      && (datos.cubiertaPor.tipo === 'BONO' || datos.cubiertaPor.tipo === 'MENSUAL') ? datos.cubiertaPor : null;
+    return { ok: true, estado: estadoReal, reservaId, cubiertaPor };
   }
 
   // Tras una reserva del mostrador el servidor ya ha descontado la sesión del
@@ -4189,9 +4209,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Recibos ──────────────────────────────────────────────────────────────────
 
-  async function addRecibo(fields: DatosReciboNuevo): Promise<ResultadoEscritura> {
+  async function addRecibo(fields: DatosReciboNuevo, opciones?: { id?: string }): Promise<ResultadoEscritura> {
     const nuevo: Recibo = {
-      id: `rec-${uid()}`,
+      id: opciones?.id ?? `rec-${uid()}`,
       studioId: getCurrentStudioId(),
       estado: 'PENDIENTE',
       fechaCobro: null,
@@ -4222,7 +4242,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // llama no puede reenviar el formulario sin duplicarlo.
   async function crearFacturaDirecta(
     fields: { socioId: string; concepto: string; importe: number },
-    opciones: { reciboId?: string } = {},
+    // `metodo`: cómo se cobró en el mostrador (la clase suelta de «Añadir a la
+    // clase» del Calendario). Sin él, «sin especificar», como hasta ahora.
+    // `que`: de qué es el recibo con id propio (una cita o una clase suelta), para los textos.
+    opciones: { reciboId?: string; metodo?: MetodoCobro; que?: 'cita' | 'clase' } = {},
   ): Promise<ResultadoFacturaDirecta> {
     const rec: Recibo = {
       id: opciones.reciboId ?? `rec-${uid()}`,
@@ -4248,7 +4271,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (opciones.reciboId) {
       const lectura = await dbLeerReciboDeCita(rec.id);
       if (!lectura.ok) {
-        return { ok: false, error: 'No hemos podido comprobar si esta cita ya tenía un recibo. No se ha cobrado nada: vuelve a intentarlo.' };
+        return { ok: false, error: `No hemos podido comprobar si esta ${opciones.que ?? 'cita'} ya tenía un recibo. No se ha cobrado nada: vuelve a intentarlo.` };
       }
       existente = lectura.recibo;
     }
@@ -4264,11 +4287,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       }
     }
     if (existente) {
-      const decision = decidirReciboPrevioDeCita(existente, { socioId: fields.socioId, importe: fields.importe });
+      const decision = decidirReciboPrevioDeCita(existente, { socioId: fields.socioId, importe: fields.importe }, opciones.que ?? 'cita');
       if (decision.tipo === 'revisar') return { ok: false, cobroSinConfirmar: true, error: decision.error };
     }
 
-    const [d] = await cobrarEnServidor([rec.id]);
+    const [d] = await cobrarEnServidor([rec.id], opciones.metodo);
     if (!d || !esCobroConfirmado(d)) {
       return {
         ok: false, cobroSinConfirmar: true,
@@ -4284,7 +4307,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (d.resultado !== 'ya_estaba' && !recibos.some(r => r.id === rec.id)) {
       const socio = socios.find(s => s.id === fields.socioId);
       // Con factura si el estudio la emite (la sella el servidor al cobrar); sin ella, «registró un cobro».
-      const conFactura = emiteFacturaAutomatica(null, studio?.modoFacturacion ?? null);
+      // Con el método: el efectivo no lleva factura automática, y la actividad
+      // no puede decir «generó una factura» que no existe.
+      const conFactura = emiteFacturaAutomatica(opciones.metodo ?? null, studio?.modoFacturacion ?? null);
       addActividadReciente(
         'COBRO_MANUAL',
         conFactura

@@ -20,6 +20,14 @@ import { LONGITUD_MAXIMA_ID_RECIBO } from './marcar-cobrado.ts';
 import { situacionRecibo } from '../billing/situacion-recibo.ts';
 
 export const PREFIJO_RECIBO_DE_CITA = 'rec-cita-';
+/** La clase suelta cobrada en el mostrador del Calendario cuelga de su reserva. */
+export const PREFIJO_RECIBO_DE_CLASE_SUELTA = 'rec-suelta-';
+
+function idDerivado(prefijo: string, motivoId: string): string | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(motivoId)) return null;
+  const id = `${prefijo}${motivoId}`;
+  return id.length <= LONGITUD_MAXIMA_ID_RECIBO ? id : null;
+}
 
 /**
  * El id del recibo de esta cita, o `null` si el id de la cita no cabe en uno válido (la ruta de
@@ -29,9 +37,17 @@ export const PREFIJO_RECIBO_DE_CITA = 'rec-cita-';
  * puede cobrar desde aquí.
  */
 export function idReciboDeCita(citaId: string): string | null {
-  if (!/^[A-Za-z0-9_-]+$/.test(citaId)) return null;
-  const id = `${PREFIJO_RECIBO_DE_CITA}${citaId}`;
-  return id.length <= LONGITUD_MAXIMA_ID_RECIBO ? id : null;
+  return idDerivado(PREFIJO_RECIBO_DE_CITA, citaId);
+}
+
+/**
+ * El id del recibo de la clase suelta que se cobra al apuntar a alguien sin bono
+ * desde el Calendario: `rec-suelta-<id de la reserva>`. Mismo criterio que la
+ * cita: enlaza el cobro con su plaza sin columna nueva, y un reintento encuentra
+ * el recibo en vez de crear otro. Los ids de reserva del panel son `res-<uid>`.
+ */
+export function idReciboDeClaseSuelta(reservaId: string): string | null {
+  return idDerivado(PREFIJO_RECIBO_DE_CLASE_SUELTA, reservaId);
 }
 
 /**
@@ -70,11 +86,13 @@ const centimos = (euros: number) => Math.round(euros * 100);
 export function decidirReciboPrevioDeCita(
   previo: ReciboPrevioDeCita,
   esperado: { socioId: string; importe: number },
+  /** De qué es el recibo, para el texto: la regla es la misma para una cita y para una clase suelta. */
+  que: 'cita' | 'clase' = 'cita',
 ): DecisionReciboPrevio {
   if (centimos(previo.importe) !== centimos(esperado.importe) || previo.socioId !== esperado.socioId) {
     return {
       tipo: 'revisar',
-      error: 'Esta cita ya tiene un recibo con otro importe u otra clienta. Revísalo en «Quién me debe» antes de cobrarla.',
+      error: `Esta ${que} ya tiene un recibo con otro importe u otra clienta. Revísalo en «Quién me debe» antes de cobrarla.`,
     };
   }
   switch (situacionRecibo(previo)) {
@@ -85,11 +103,11 @@ export function decidirReciboPrevioDeCita(
     case 'EN_CURSO':
       return {
         tipo: 'revisar',
-        error: 'Esta cita ya tiene un recibo con un cobro en curso (banco o tarjeta). Espera a que se resuelva y revísalo en «Quién me debe».',
+        error: `Esta ${que} ya tiene un recibo con un cobro en curso (banco o tarjeta). Espera a que se resuelva y revísalo en «Quién me debe».`,
       };
     case 'REEMBOLSADO':
-      return { tipo: 'revisar', error: 'A esta cita ya se le devolvió el dinero. Revisa su recibo en «Quién me debe» antes de volver a cobrarla.' };
+      return { tipo: 'revisar', error: `A esta ${que} ya se le devolvió el dinero. Revisa su recibo en «Quién me debe» antes de volver a cobrarla.` };
     case 'ANULADO':
-      return { tipo: 'revisar', error: 'El recibo de esta cita está anulado. Revísalo en «Quién me debe» antes de volver a cobrarla.' };
+      return { tipo: 'revisar', error: `El recibo de esta ${que} está anulado. Revísalo en «Quién me debe» antes de volver a cobrarla.` };
   }
 }

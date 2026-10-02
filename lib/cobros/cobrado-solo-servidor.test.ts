@@ -97,19 +97,22 @@ test('el alta de socia con cobro crea recibos pendientes y los cobra por el serv
   assert.match(alta, /\.\.\.\(avisos\.length > 0 \? \{ avisos \} : \{\}\)/);
 });
 
-test('«Nueva factura» y el cobro de una cita crean el recibo pendiente, lo cobra el servidor y distinguen los cuatro desenlaces', () => {
+test('«Nueva factura», el cobro de una cita y la clase suelta del Calendario crean el recibo pendiente, lo cobra el servidor y distinguen los cuatro desenlaces', () => {
   const ctx = sinComentarios(leer('lib/studio-context.tsx'));
   const directa = cuerpoDe(ctx, 'async function crearFacturaDirecta(');
   assert.match(directa, /estado: 'PENDIENTE'/);
-  assert.ok(directa.indexOf('dbInsertRecibo(rec)') < directa.indexOf('cobrarEnServidor([rec.id])'));
+  // `cobrarEnServidor([rec.id], …)`: con o sin el método del mostrador.
+  const cobro = directa.search(/cobrarEnServidor\(\[rec\.id\]/);
+  assert.ok(cobro > 0 && directa.indexOf('dbInsertRecibo(rec)') < cobro);
   assert.match(directa, /cobroSinConfirmar: true/, 'si el servidor no confirma, el recibo existe y no se puede reintentar');
   assert.match(directa, /cobroRegistrado: true/, 'si el dinero entró y falló la factura, tampoco se reintenta');
   assert.doesNotMatch(directa, /buildFactura|sellarFacturaYActualizar|construirFacturaCobro/, 'sigue sellando desde el navegador');
 
-  // Los dos que lo llaman tratan `cobroSinConfirmar` como «el recibo ya existe».
+  // Los que lo llaman tratan `cobroSinConfirmar` como «el recibo ya existe».
   for (const [ruta, que] of [
     ['components/cobros/panel-pendientes.tsx', 'Nueva factura'],
     ['app/(dashboard)/citas/page.tsx', 'cobro de una cita'],
+    ['app/(dashboard)/calendario/page.tsx', 'clase suelta del Calendario'],
   ] as const) {
     const f = sinComentarios(leer(ruta));
     assert.match(f, /'cobroSinConfirmar' in res/, `${que}: no distingue «el recibo existe pero no consta cobrado»`);

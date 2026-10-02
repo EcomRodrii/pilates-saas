@@ -60,6 +60,14 @@ export async function crearBaja(
     categoria?: CategoriaBaja | null;
     origen: OrigenBaja;
     soloSiInstructorEs?: string;
+    /**
+     * Solo registrar la baja, sin buscar: quien la pide ya sabe quién la da
+     * («¿Ya sabes quién la da?» del Calendario) y la confirma acto seguido. Queda
+     * en `pendiente_aprobacion` sea cual sea el modo, sin ranking ni Network, y
+     * sin avisar a nadie: en autónomo, crearla sin esto avisaría a la primera
+     * candidata justo antes de dársela a otra.
+     */
+    soloRegistrar?: boolean;
   },
 ): Promise<ResultadoBaja> {
   const { studioId, sesionId, origen } = params;
@@ -100,7 +108,9 @@ export async function crearBaja(
   }
 
   // Scoring: top-3 de candidatas con motivos en lenguaje humano (función 0038).
-  const { data: ranking, error: errRank } = await admin.rpc('rankear_candidatas', { p_sesion_id: sesionId });
+  const { data: ranking, error: errRank } = params.soloRegistrar
+    ? { data: [] as RankingItem[], error: null }
+    : await admin.rpc('rankear_candidatas', { p_sesion_id: sesionId });
   if (errRank) {
     console.error('[crearBaja:rankear]', errRank.message);
     return { ok: false, error: mensajeSeguro(errRank.message,
@@ -112,7 +122,7 @@ export async function crearBaja(
   // si falla, la baja se registra igual con el ranking interno solo (mismo
   // criterio que emitirEscalado más abajo).
   let candidatosNetwork: Awaited<ReturnType<typeof candidatosNetworkParaHueco>> = [];
-  try {
+  if (!params.soloRegistrar) try {
     const tipoClase = clase.tipo_clase_id
       ? await admin.from('tipos_clase').select('especialidad_network').eq('id', clase.tipo_clase_id).maybeSingle()
       : { data: null };
@@ -128,7 +138,7 @@ export async function crearBaja(
 
   // asistido → espera el visto bueno de la propietaria; autonomo/vacaciones →
   // arranca en 'contactando' y más abajo se avisa sola a la 1ª candidata.
-  const estado = modo === 'autonomo' || modo === 'vacaciones' ? 'contactando' : 'pendiente_aprobacion';
+  const estado = !params.soloRegistrar && (modo === 'autonomo' || modo === 'vacaciones') ? 'contactando' : 'pendiente_aprobacion';
 
   const nueva = {
     id: `sust-${uid()}`,

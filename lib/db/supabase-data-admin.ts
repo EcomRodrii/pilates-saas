@@ -57,7 +57,9 @@ import {
   decidirVueltaDePausa, fechaLimiteDecidirVuelta, textoMotivoVuelta, tocaLiberarSitio,
   type HuecoParaVolver, type MotivoVueltaPendiente, type PoliticaFinPausa,
 } from '@/lib/plazas-fijas-solicitudes';
-import type { EstadoReserva, PlazaFija as PlazaFijaServidor } from '@/lib/types';
+import type { EstadoReserva, PlanTarifa, PlazaFija as PlazaFijaServidor } from '@/lib/types';
+import { coberturaDeClase } from '@/lib/reservar/cobertura';
+import type { CubiertaPor } from '@/lib/reservas/reserva-mostrador';
 import type { MotivoPlazaNoMaterializada } from '@/lib/notifications/emit';
 import type { FormaPegada } from '@/lib/widgets/pegado';
 import { validarCanje } from '@/lib/engines/reward-engine';
@@ -1214,6 +1216,16 @@ type ConsumibleBono = NonNullable<ReturnType<typeof bonoConsumible>>;
 async function resolverBonoParaSesion(admin: SupabaseClient, p: {
   studioId: string; socioId: string; sesionId: string;
 }): Promise<ConsumibleBono | null> {
+  const c = await carteraParaSesion(admin, p);
+  return bonoConsumible(p.socioId, c.suscripciones, c.planes, undefined, c.tipoClaseId);
+}
+
+// Lo que tiene la socia para ESTA clase, leído ahora: sus suscripciones, los
+// planes del estudio con los tipos que cubren y el tipo de la clase. De aquí
+// salen el bono que se descuenta y, en el mostrador, si traía con qué venir.
+async function carteraParaSesion(admin: SupabaseClient, p: {
+  studioId: string; socioId: string; sesionId: string;
+}): Promise<{ tipoClaseId: string | null; suscripciones: Suscripcion[]; planes: PlanTarifa[] }> {
   const { studioId, socioId, sesionId } = p;
   const { data: ses } = await admin.from('sesiones').select('tipo_clase_id').eq('id', sesionId).maybeSingle();
   const tipoClaseId = (ses?.tipo_clase_id as string | null) ?? null;
@@ -1225,7 +1237,7 @@ async function resolverBonoParaSesion(admin: SupabaseClient, p: {
   // Los tipos que cubre cada plan viven aparte (0111): sin hidratarlos se
   // descontaría de un bono que no cubre esta clase.
   const planes = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
-  return bonoConsumible(socioId, suscripciones, planes, undefined, tipoClaseId);
+  return { tipoClaseId, suscripciones, planes };
 }
 
 // Efectos tras SABER el resultado del cobro (venga de `reservar_plaza` en la
@@ -3063,8 +3075,10 @@ export async function reservarPlazaTrasPagoPublico(params: {
 // admite lista de espera, sin aprobación manual y sin sitio.
 export async function crearReservaMostrador(params: {
   studioId: string; sesionId: string; socioId: string; reservaId: string; avisarSocia: boolean;
+  /** Va a cobrársele la clase suelta: decir si ya traía con qué venir (`cubiertaPor`). */
+  comoClaseSuelta?: boolean;
 }): Promise<
-  | { ok: true; estado: string; posicionEspera: number | null; reservaId: string; repetida: boolean }
+  | { ok: true; estado: string; posicionEspera: number | null; reservaId: string; repetida: boolean; cubiertaPor: CubiertaPor | null }
   | { ok: false; status: 400 | 404 | 500; error: string }
 > {
   const admin = getSupabaseAdmin();
@@ -3104,9 +3118,26 @@ export async function crearReservaMostrador(params: {
 
   // D-1: el bono se elige AQUÍ para que la RPC lo descuente DENTRO del mismo
   // candado que confirma la plaza — mismo criterio que `crearReservaPublica`.
-  const consumibleBono = await resolverBonoParaSesion(admin, {
+  const cartera = await carteraParaSesion(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
   });
+  const consumibleBono = bonoConsumible(params.socioId, cartera.suscripciones, cartera.planes, undefined, cartera.tipoClaseId);
+  // ⚠️ El mostrador decide cobrar la clase suelta con lo que tiene en MEMORIA,
+  // y eso puede ser viejo: un bono renovado desde la app o vendido en otro
+  // dispositivo no está aún en el iPad de recepción. Entonces la reserva
+  // descontaba el bono nuevo Y se cobraban 15 € aparte. Con la cartera de ahora
+  // y la MISMA regla que ve la alumna al reservar se le dice si ya traía con
+  // qué venir, y el panel no cobra. También si el bono que se descuenta abajo
+  // sale por la fecha de UTC y no por la del estudio (00:00–02:00).
+  const cubiertaPor = !params.comoClaseSuelta ? null : ((): CubiertaPor | null => {
+    const c = coberturaDeClase({
+      socioId: params.socioId, suscripciones: cartera.suscripciones, planesTarifa: cartera.planes,
+      hoyISO: hoyEnEstudio(), tipoClaseId: cartera.tipoClaseId, precioClaseSuelta: null,
+    });
+    if (c.estado === 'MENSUAL') return { tipo: 'MENSUAL', plan: c.planNombre };
+    if (c.estado === 'BONO') return { tipo: 'BONO', plan: c.planNombre };
+    return consumibleBono ? { tipo: 'BONO', plan: consumibleBono.plan.nombre } : null;
+  })();
   const { data, error } = await admin.rpc('reservar_plaza', {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId,
     p_socio_id: params.socioId, p_reserva_id: params.reservaId,
@@ -3144,7 +3175,7 @@ export async function crearReservaMostrador(params: {
         return {
           ok: true, estado: existente.estado as string,
           posicionEspera: (existente.posicion_espera as number | null) ?? null,
-          reservaId: params.reservaId, repetida: true,
+          reservaId: params.reservaId, repetida: true, cubiertaPor,
         };
       }
     }
@@ -3170,7 +3201,11 @@ export async function crearReservaMostrador(params: {
   // Los créditos de «Primera reserva» los da `trasReservaCreada`, común a los
   // tres caminos de creación de reserva (RES-9).
 
-  return { ok: true, estado, posicionEspera, reservaId: params.reservaId, repetida: false };
+  // Y si, pese a todo, la RPC ha descontado un bono, tampoco se cobra: nunca el
+  // bono y la clase suelta por la misma plaza.
+  const cubierta = cubiertaPor ?? (params.comoClaseSuelta && consumoBono?.resultado === 'CONSUMIDA'
+    ? { tipo: 'BONO' as const, plan: consumibleBono?.plan.nombre ?? 'su bono' } : null);
+  return { ok: true, estado, posicionEspera, reservaId: params.reservaId, repetida: false, cubiertaPor: cubierta };
 }
 
 // ─── Reserva de una plataforma externa (ClassPass, Urban Sports Club…) ──────

@@ -12,7 +12,17 @@ export default function Contenido() {
       <p>
         En cuanto avisa, Tentare busca candidatas entre el resto de tu equipo según su disponibilidad y su afinidad
         con ese tipo de clase (quién suele dar clases similares, a horas parecidas) y las ordena. Según el modo,
-        las contacta ella sola o espera tu visto bueno; si una no responde a tiempo, pasa a la siguiente.
+        las contacta ella sola —y si una no responde a tiempo, pasa a la siguiente— o espera tu visto bueno para
+        avisar a cada una, y si una no contesta o dice que no, te lo cuenta para que elijas a la siguiente.
+      </p>
+
+      <p>
+        También puedes buscarla tú desde el <strong>Calendario</strong>: en la ficha de una clase sin cubrir,{' '}
+        <strong>«Buscar sustituta»</strong> pone en marcha lo mismo (y antes de pulsar te dice a quién avisaría y en
+        qué orden). Si ya sabes quién la da, <strong>«¿Ya sabes quién la da?»</strong> se la asigna directamente:
+        queda registrada como sustitución, a ella le llega el aviso en la app del estudio y, si quieres, a las
+        clientas apuntadas también. En una clase que sí tiene instructora, lo mismo está en su «⋯» →{' '}
+        «Buscar sustituta».
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Niveles de autonomía</h2>

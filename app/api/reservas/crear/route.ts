@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   const peticion = leerPeticionReservaMostrador(await req.json().catch(() => null));
   if (!peticion.ok) return NextResponse.json({ error: peticion.error }, { status: 400 });
-  const { sesionId, socioId, reservaId, avisar } = peticion.datos;
+  const { sesionId, socioId, reservaId, avisar, comoClaseSuelta } = peticion.datos;
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   if (!sesionRow) return NextResponse.json({ error: MENSAJE_RESERVA_RPC.SESION_NO_ENCONTRADA }, { status: 404 });
 
   const r = await crearReservaMostrador({
-    studioId: sesion.studioId, sesionId, socioId, reservaId, avisarSocia: avisar,
+    studioId: sesion.studioId, sesionId, socioId, reservaId, avisarSocia: avisar, comoClaseSuelta,
   });
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
   return NextResponse.json(r);

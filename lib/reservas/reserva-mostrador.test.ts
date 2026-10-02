@@ -10,7 +10,16 @@ const BASE = { sesionId: 'ses-1', socioId: 'soc-1', reservaId: 'res-mf3k2-1a-x9z
 
 test('una petición completa se acepta y, sin decir nada, se avisa a la alumna', () => {
   const r = leerPeticionReservaMostrador(BASE);
-  assert.deepEqual(r, { ok: true, datos: { ...BASE, avisar: true } });
+  assert.deepEqual(r, { ok: true, datos: { ...BASE, avisar: true, comoClaseSuelta: false } });
+});
+
+test('«como clase suelta» solo se pide con un true de verdad', () => {
+  const r = leerPeticionReservaMostrador({ ...BASE, comoClaseSuelta: true });
+  assert.equal(r.ok && r.datos.comoClaseSuelta, true);
+  for (const comoClaseSuelta of ['true', 1, null, undefined]) {
+    const s = leerPeticionReservaMostrador({ ...BASE, comoClaseSuelta });
+    assert.equal(s.ok && s.datos.comoClaseSuelta, false, `comoClaseSuelta=${String(comoClaseSuelta)}`);
+  }
 });
 
 test('«Avisar a la alumna» desmarcado viaja como avisar:false', () => {
