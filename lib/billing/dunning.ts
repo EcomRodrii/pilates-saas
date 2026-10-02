@@ -2,8 +2,11 @@
 // testeable con `node --test`). El efecto real (cobrar, actualizar el recibo,
 // notificar) vive en lib/billing/dunning-server.ts.
 //
-// Flujo: al fallar un cobro, el recibo se reintenta a los +1, +3 y +7 días del
-// vencimiento (3 reintentos en total). Si los tres fallan, pasa al estado
+// Flujo: tres intentos de cobro en total, los días +1, +3 y +7 del vencimiento.
+// El del +1 es el primer cobro y no lo programa este módulo, sino quien crea el
+// recibo (las renovaciones lo crean el día siguiente a `fecha_fin` y lo dejan
+// listo para el barrido de esa mañana); los del +3 y el +7 son los reintentos
+// que programa `planificarTrasFallo`. Si los tres fallan, pasa al estado
 // terminal FALLIDO y requiere gestión manual. Si la socia paga después, el
 // recibo pasa a COBRADO por la vía normal.
 //
@@ -11,7 +14,7 @@
 // definitivo (acción requerida), nunca en los intermedios — así los pagos que se
 // recuperan solos en el 2.º/3.er intento no generan ruido.
 
-export const OFFSETS_REINTENTO_DIAS = [1, 3, 7] as const; // reintentos #1/#2/#3 tras el vencimiento
+export const OFFSETS_REINTENTO_DIAS = [1, 3, 7] as const; // intentos #1/#2/#3: días tras el vencimiento
 export const MAX_REINTENTOS = OFFSETS_REINTENTO_DIAS.length; // 3
 
 export interface PlanReintento {
@@ -33,29 +36,51 @@ export function primerReintentoISO(fechaVencimiento: string): string {
   return sumarDiasISO(fechaVencimiento, OFFSETS_REINTENTO_DIAS[0]);
 }
 
+/** El día ('YYYY-MM-DD', en UTC) de una fecha o de un instante ISO. */
+function diaUTC(fechaOInstante: string): string {
+  return new Date(fechaOInstante).toISOString().slice(0, 10);
+}
+
 /**
  * Decide el siguiente paso tras un intento de cobro FALLIDO.
  * `intentosPrevios` = recibos.intentos_reintento ANTES de contar este fallo.
+ * `ahoraISO` = cuándo se registra el fallo: el `nowISO` del barrido, o la hora
+ * del webhook en una devolución SEPA.
+ *
+ * El reintento va al día `vencimiento + OFFSETS_REINTENTO_DIAS[intentos]` (+3,
+ * +7), a las 00:00 UTC. Lo que se programa es un DÍA, no una hora: el barrido
+ * coge lo que tiene `proximo_reintento <= nowISO` una vez al día (08:30 UTC,
+ * lib/inngest/dunning.ts), así que el reintento tiene que estar vencido antes
+ * de que pase el barrido de su día. Hasta el 2-oct-2026 llevaba la hora del
+ * fallo (08:30 y unos segundos), el barrido de ese día no lo veía por esos
+ * segundos y cada reintento se iba al día siguiente: en producción salían el
+ * +1, el +5 y el +13. Y como el fallo siempre ocurre después de las 00:00 del
+ * vencimiento, la cadencia además se acumulaba desde cada fallo en vez de
+ * contar desde el vencimiento. Lo ata a la hora del cron un test de
+ * dunning.test.ts.
+ *
+ * Suelo (#353): nunca antes de la misma separación que hay entre un intento y
+ * el siguiente (2 días tras el primero, 4 tras el segundo), contada desde el
+ * día del fallo. Con un vencimiento ya pasado —una renovación adoptada tarde,
+ * o una devolución SEPA que llega días después del adeudo— venc+3 y venc+7
+ * caerían en el pasado y el barrido gastaría los intentos en días seguidos, con
+ * el aviso de primer fallo y el de impago definitivo casi a la vez. Si todo va
+ * en su día el suelo coincide con el vencimiento y no cambia nada.
  */
-export function planificarTrasFallo(intentosPrevios: number, fechaVencimiento: string, ahoraISO?: string): PlanReintento {
+export function planificarTrasFallo(intentosPrevios: number, fechaVencimiento: string, ahoraISO: string): PlanReintento {
   const intentos = Math.max(0, intentosPrevios) + 1;
   const esPrimerFallo = intentos === 1;
   if (intentos >= MAX_REINTENTOS) {
     return { intentos, estado: 'FALLIDO', proximoReintento: null, esPrimerFallo, esDefinitivo: true };
   }
-  // Anclar la cadencia al MÁS TARDÍO entre el vencimiento y ahora. Si el recibo se
-  // creó con un vencimiento ya pasado (p.ej. renovación de una suscripción caducada:
-  // el cron pone fecha_vencimiento = fecha_fin antigua), venc+{3,7} caería en el
-  // pasado y el barrido diario dispararía los 3 reintentos casi seguidos en 1-2 días
-  // —quemando la ventana de recuperación del cobro y enviando el "primer fallo" y el
-  // "impago definitivo" a la vez—. Con `now` como suelo, la cadencia se reparte de
-  // verdad. Para vencimientos futuros/hoy nada cambia (base = vencimiento).
-  const ahora = ahoraISO ?? new Date().toISOString();
-  const base = new Date(fechaVencimiento).getTime() > new Date(ahora).getTime() ? fechaVencimiento : ahora;
+  const segunVencimiento = sumarDiasISO(diaUTC(fechaVencimiento), OFFSETS_REINTENTO_DIAS[intentos]);
+  const separacion = OFFSETS_REINTENTO_DIAS[intentos] - OFFSETS_REINTENTO_DIAS[intentos - 1];
+  const suelo = sumarDiasISO(diaUTC(ahoraISO), separacion);
   return {
     intentos,
     estado: 'PENDIENTE',
-    proximoReintento: sumarDiasISO(base, OFFSETS_REINTENTO_DIAS[intentos]),
+    // Mismo formato ISO en UTC: se comparan como texto.
+    proximoReintento: segunVencimiento > suelo ? segunVencimiento : suelo,
     esPrimerFallo,
     esDefinitivo: false,
   };
