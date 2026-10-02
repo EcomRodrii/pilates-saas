@@ -960,6 +960,7 @@ export function mapPlazaFija(r: RowPlazasFijas): PlazaFija {
     pausaDesde: r.pausa_desde ?? null,
     pausaHasta: r.pausa_hasta ?? null,
     pausaLiberaSitio: r.pausa_libera_sitio ?? false,
+    claseFijaId: r.clase_fija_id ?? null,
     creadaEn: r.creada_en,
   };
 }

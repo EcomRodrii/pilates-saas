@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { plazaFijaEnClase, plazaFijaEnFranja, plazaFijaViva, proyectarPlazasFijas, type PeticionPlazaFijaMin, type PlazaFijaMin } from './plaza-fija.ts';
+import { TEXTOS_PLAZA_FIJA } from './plaza-fija-textos.ts';
 
 // Plaza fija desde la app: la alumna PIDE (migr 20260915231920). Aquí solo se
 // decide qué se le enseña; el servidor vuelve a comprobarlo todo.
@@ -99,4 +100,28 @@ test('la ficha y la lista «Mis clases» dicen lo mismo de una plaza vencida', (
   const vencida: PlazaFijaMin = { ...PLAZA, vigenciaHasta: '2026-09-30' };
   assert.deepEqual(proyectarPlazasFijas([vencida], HOY), []);
   assert.deepEqual(plazaFijaEnClase(CLASE, [OTRA_SEMANA], [vencida], [], true, HOY), { estado: 'PUEDE_PEDIR' });
+});
+
+// ─── Dejar su clase fija: lo que se le dice y qué plazas se dejan enteras ────────────────────────────────────────────
+
+test('proyectarPlazasFijas: dice si la plaza viene de una clase fija con nombre (se deja entera)', () => {
+  const [suelta] = proyectarPlazasFijas([PLAZA], HOY);
+  assert.equal(suelta.deClaseFija, false);
+  const [deOferta] = proyectarPlazasFijas([{ ...PLAZA, claseFijaId: 'cf-1' }], HOY);
+  assert.equal(deOferta.deClaseFija, true);
+});
+
+test('dejada: dice lo que ha pasado de verdad, con las cifras del servidor, en singular y plural', () => {
+  const d = TEXTOS_PLAZA_FIJA.dejada;
+  assert.equal(d({ plazas: 1, canceladas: 0, mantenidas: 0, sinDejar: 0 }), 'Has dejado tu clase fija.');
+  assert.equal(d({ plazas: 1, canceladas: 1, mantenidas: 0, sinDejar: 0 }), 'Has dejado tu clase fija · se ha cancelado 1 clase reservada.');
+  assert.equal(d({ plazas: 2, canceladas: 5, mantenidas: 1, sinDejar: 0 }),
+    'Has dejado tus clases fijas · se han cancelado 5 clases reservadas · mantienes 1 clase, que ya está dentro del plazo de cancelación.');
+  assert.match(d({ plazas: 1, canceladas: 0, mantenidas: 2, sinDejar: 1 }), /mantienes 2 clases.*alguna no se ha podido dejar: habla con tu estudio\.$/);
+});
+
+test('dejarCancela: nombra la ventana real del estudio y no promete devolver nada', () => {
+  const t = TEXTOS_PLAZA_FIJA.dejarCancela(12);
+  assert.match(t, /menos de 12 h/);
+  assert.match(t, /sin penalización y sin clase para recuperar/);
 });

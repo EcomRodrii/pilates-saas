@@ -5123,6 +5123,56 @@ export async function solicitarPausaPlazaFijaAlumna(
   return { ok: true, solicitudId: data.id };
 }
 
+export type ResultadoDejarPlazaAlumna =
+  | { ok: true; plazas: number; canceladas: number; mantenidas: number; fallidas: number; sinDejar: number }
+  | { error: string; status: number };
+
+/**
+ * La alumna deja su clase fija. Antes se hablaba con el estudio; ahora lo hace ella, con confirmación en la app, y por la
+ * misma puerta que cuando la quita el mostrador (`aplicarEstadoPlazaFija`, BAJA): las clases que tiene reservadas con ella se
+ * cancelan SIN penalización y sin clase para recuperar (lo decide ella), salvo las que ya están dentro del plazo de
+ * cancelación, que mantiene. La propiedad va en la lectura Y en la escritura: nadie deja la plaza de otra.
+ *
+ * Una clase fija con NOMBRE (varios días) se deja ENTERA: la oferta es atómica —todos sus días o ninguno—, así que dejar un
+ * solo día la dejaría a medias. Solo si el estudio deja gestionar las clases fijas desde la app
+ * (`plaza_fija_solicitar_desde_app`, el mismo ajuste que ya gobierna pedirlas): si las lleva en recepción, se habla con él.
+ */
+export async function dejarPlazaFijaAlumna(
+  admin: SupabaseClient, p: { studioId: string; socioId: string; plazaId: string },
+): Promise<ResultadoDejarPlazaAlumna> {
+  const [{ data: studio, error: errStudio }, { data: fila }] = await Promise.all([
+    admin.from('studios').select('plaza_fija_solicitar_desde_app').eq('id', p.studioId).maybeSingle(),
+    admin.from('plazas_fijas').select('id, clase_fija_id')
+      .eq('id', p.plazaId).eq('studio_id', p.studioId).eq('socio_id', p.socioId).in('estado', ['ACTIVA', 'PAUSADA']).maybeSingle(),
+  ]);
+  if (errStudio) throw new Error(errStudio.message);
+  if (studio?.plaza_fija_solicitar_desde_app !== true) {
+    return { error: 'Tu estudio gestiona las clases fijas en recepción: pídeselo a ellos.', status: 403 };
+  }
+  if (!fila) return { error: 'Esa clase fija ya no existe.', status: 404 };
+
+  const ids = [fila.id as string];
+  if (fila.clase_fija_id) {
+    const { data: hermanas, error } = await admin.from('plazas_fijas').select('id')
+      .eq('studio_id', p.studioId).eq('socio_id', p.socioId).eq('clase_fija_id', fila.clase_fija_id as string)
+      .in('estado', ['ACTIVA', 'PAUSADA']);
+    if (error) throw new Error(error.message);
+    for (const h of hermanas ?? []) if (!ids.includes(h.id as string)) ids.push(h.id as string);
+  }
+
+  let canceladas = 0, mantenidas = 0, fallidas = 0, sinDejar = 0;
+  for (const plazaId of ids) {
+    const r = await aplicarEstadoPlazaFija(
+      admin, { studioId: p.studioId, plazaId, estado: 'BAJA', socioId: p.socioId }, 'Ese sitio ya está asignado a otra clienta.',
+    );
+    if ('error' in r) { sinDejar++; continue; }
+    canceladas += r.canceladas.length; mantenidas += r.mantenidas.length; fallidas += r.fallidas;
+  }
+  // Ninguna se pudo dejar: no se dice que sí.
+  if (sinDejar === ids.length) return { error: 'No se ha podido dejar tu clase fija. Inténtalo de nuevo o habla con tu estudio.', status: 500 };
+  return { ok: true, plazas: ids.length - sinDejar, canceladas, mantenidas, fallidas, sinDejar };
+}
+
 /** Solo las suyas, solo pendientes y solo las que pidió ella (la vuelta de una pausa la decide el estudio). */
 export async function cancelarPeticionPlazaFijaAlumna(
   admin: SupabaseClient, p: { studioId: string; socioId: string; solicitudId: string },

@@ -50,3 +50,30 @@ export const pedirPausaPlazaFija = (slug: string, studioId: string, plazaId: str
 
 export const anularPeticionPlazaFija = (slug: string, studioId: string, solicitudId: string) =>
   enviar(slug, { accion: 'cancelar_peticion', studioId, solicitudId });
+
+export type ResultadoDejarPlazaFija =
+  | { ok: true; plazas: number; canceladas: number; mantenidas: number; fallidas: number; sinDejar: number }
+  | { ok: false; error: string; sesionCaducada?: boolean };
+
+/**
+ * Dejar su clase fija. Mismo contrato que el resto: nunca lanza, no manda `socioId` (sale del JWT) y solo invalida el
+ * catálogo si el servidor dice que sí. Lo que cambia sale de SU respuesta, nunca del toque.
+ */
+export async function dejarPlazaFija(slug: string, studioId: string, plazaId: string): Promise<ResultadoDejarPlazaFija> {
+  try {
+    const auth = await portalAuthHeader();
+    const res = await fetch('/api/public/plaza-fija', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({ accion: 'dejar_plaza', studioId, plazaId }),
+    });
+    if (res.status === 401) return { ok: false, error: 'Tu sesión ha caducado: vuelve a entrar.', sesionCaducada: true };
+    const d = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!res.ok) return { ok: false, error: typeof d?.error === 'string' && d.error ? d.error : 'No se ha podido dejar tu clase fija. Inténtalo de nuevo.' };
+    invalidarCatalogo(slug);
+    const n = (k: string) => (typeof d?.[k] === 'number' ? (d[k] as number) : 0);
+    return { ok: true, plazas: n('plazas'), canceladas: n('canceladas'), mantenidas: n('mantenidas'), fallidas: n('fallidas'), sinDejar: n('sinDejar') };
+  } catch {
+    // Falló la red: no se sabe si llegó, así que no se dice que sí.
+    return { ok: false, error: 'Sin conexión: no sabemos si se ha dejado. Comprueba tu conexión y vuelve a mirar.' };
+  }
+}

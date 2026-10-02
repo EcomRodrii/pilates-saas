@@ -235,6 +235,8 @@ export interface PlazaFijaVista {
   pausa: { desde: string; hasta: string; enCurso: boolean } | null;
   /** Sus próximas clases YA reservadas por esta clase fija (las que crea el motor), la más cercana primero. */
   proximas: ProximaClaseFijaVista[];
+  /** Viene de una clase fija con nombre (varios días): se deja entera, no una franja suelta. */
+  deClaseFija: boolean;
 }
 /** Una próxima clase de su clase fija, con la ventana de cancelación de SU tipo de clase (`null` = la del estudio). */
 export type ProximaClaseFijaVista = import('./plaza-fija.ts').ProximaClaseFija & { ventanaCancelacionHoras: number | null };

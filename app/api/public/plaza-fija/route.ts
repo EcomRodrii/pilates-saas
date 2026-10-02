@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  cancelarPeticionPlazaFijaAlumna, socioAutenticado, solicitarPausaPlazaFijaAlumna, solicitarPlazaFijaAlumna,
+  cancelarPeticionPlazaFijaAlumna, dejarPlazaFijaAlumna, socioAutenticado, solicitarPausaPlazaFijaAlumna, solicitarPlazaFijaAlumna,
 } from '@/lib/db/supabase-data-admin';
 import { solicitarAmpliarClaseFijaAlumna, solicitarClaseFijaAlumna } from '@/lib/db/clases-fijas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -18,7 +18,8 @@ export const maxDuration = 60;
 // (`solicitudes_plaza_fija`, migr 20260915231920). Antes creaba, pausaba,
 // reanudaba y quitaba su plaza ella sola. Decisión del fundador (16-sep-2026):
 // hasta que el estudio aprueba no cambia la plaza real, y cada puerta la abre su
-// ajuste del estudio (apagado, 403). Quitar o reanudar se habla con el estudio.
+// ajuste del estudio (apagado, 403). Dejar la clase fija (`dejar_plaza`) la hace ella con confirmación; reanudar y cambiarla
+// se habla con el estudio.
 // SEGURIDAD: igual que /api/public/reserva, la identidad sale del JWT
 // verificado, nunca del body — nadie pide nada sobre la plaza fija de otra
 // socia conociendo su id.
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
   // Cada petición nueva avisa al mostrador, y el dedupe va por petición: anular y
   // volver a pedir manda otro push. Por eso PEDIR lleva un límite más corto que el
   // resto de la ruta — nadie pide una plaza fija cinco veces en diez minutos.
-  if (body.accion === 'solicitar_plaza' || body.accion === 'solicitar_pausa' || body.accion === 'solicitar_clase_fija' || body.accion === 'ampliar_clase_fija') {
+  if (body.accion === 'solicitar_plaza' || body.accion === 'solicitar_pausa' || body.accion === 'solicitar_clase_fija' || body.accion === 'ampliar_clase_fija' || body.accion === 'dejar_plaza') {
     const limitePeticiones = await enforceRateLimit(req, 'public-plaza-fija-pedir', { max: 5, windowSeconds: 600 });
     if (limitePeticiones) return limitePeticiones;
   }
@@ -97,6 +98,13 @@ export async function POST(req: NextRequest) {
       const hasta = texto(body.hasta);
       if (!plazaId || !desde || !hasta) return NextResponse.json({ error: 'Faltan la plaza fija o las fechas de la pausa' }, { status: 400 });
       const r = await solicitarPausaPlazaFijaAlumna(admin, { studioId: body.studioId, socioId, plazaId, desde, hasta });
+      return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
+    }
+    if (body.accion === 'dejar_plaza') {
+      // Dejar la clase fija: la propiedad de la plaza la comprueba el servidor (lectura y escritura), no el body.
+      const plazaId = texto(body.plazaId);
+      if (!plazaId) return NextResponse.json({ error: 'Falta la clase fija' }, { status: 400 });
+      const r = await dejarPlazaFijaAlumna(admin, { studioId: body.studioId, socioId, plazaId });
       return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
     }
     if (body.accion === 'cancelar_peticion') {

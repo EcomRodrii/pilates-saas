@@ -114,6 +114,73 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
     await expect(page.getByText(/Pausa pedida del/)).toHaveCount(0);
   });
 
+  // Dejar su clase fija (antes «se habla con el estudio»): ella, con confirmación.
+  test('Mis clases → Fijas: deja su clase fija con confirmación y el aviso dice lo que contestó el servidor', async ({ page }) => {
+    await montar(page);
+    let intentos = 0;
+    let cuerpo: Record<string, unknown> | null = null;
+    await page.route('**/api/public/plaza-fija', (r) => {
+      intentos++;
+      cuerpo = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, plazas: 1, canceladas: 3, mantenidas: 1, fallidas: 0, sinDejar: 0 }) });
+    });
+
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    const tarjeta = page.getByTestId('plaza-fija');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await tarjeta.getByTestId('dejar-clase-fija').click();
+
+    // Antes de confirmar: qué pasa, con la ventana REAL del estudio (12 h en el fixture). Y no se ha enviado nada.
+    const aviso = page.getByTestId('dejar-aviso');
+    await expect(aviso).toContainText('Se cancelan las clases que tienes reservadas');
+    await expect(aviso).toContainText('menos de 12 h');
+    await expect(aviso).not.toContainText('varios días');
+    expect(intentos, 'abrir la confirmación no envía nada').toBe(0);
+
+    await page.getByRole('button', { name: 'Sí, dejarla' }).click();
+    await expect(page.getByText('Has dejado tu clase fija · se han cancelado 3 clases reservadas · mantienes 1 clase, que ya está dentro del plazo de cancelación.')).toBeVisible({ timeout: 30_000 });
+    expect(intentos).toBeGreaterThan(0);
+    expect(cuerpo).toMatchObject({ accion: 'dejar_plaza', plazaId: 'pf-1' });
+    expect(Object.keys(cuerpo as object)).not.toContain('socioId');
+  });
+
+  test('«Mantenerla» cierra la confirmación sin enviar nada', async ({ page }) => {
+    await montar(page);
+    let intentos = 0;
+    await page.route('**/api/public/plaza-fija', (r) => { intentos++; return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    const tarjeta = page.getByTestId('plaza-fija');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await tarjeta.getByTestId('dejar-clase-fija').click();
+    await expect(page.getByTestId('dejar-aviso')).toBeVisible();
+    await page.getByRole('button', { name: 'Mantenerla' }).click();
+    await expect(page.getByTestId('dejar-aviso')).toHaveCount(0);
+    await expect(tarjeta.getByText('Activa')).toBeVisible();
+    expect(intentos).toBe(0);
+  });
+
+  test('si el servidor dice que no, la app no dice que sí: la clase fija sigue y el motivo se ve en la confirmación', async ({ page }) => {
+    await montar(page);
+    let intentos = 0;
+    await page.route('**/api/public/plaza-fija', (r) => {
+      intentos++;
+      return r.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ error: 'Tu estudio gestiona las clases fijas en recepción: pídeselo a ellos.' }) });
+    });
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    const tarjeta = page.getByTestId('plaza-fija');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await tarjeta.getByTestId('dejar-clase-fija').click();
+    await page.getByRole('button', { name: 'Sí, dejarla' }).click();
+
+    await expect(page.getByRole('alert').filter({ hasText: 'Tu estudio gestiona las clases fijas en recepción' })).toBeVisible({ timeout: 30_000 });
+    expect(intentos, 'la petición salió de verdad').toBeGreaterThan(0);
+    await expect(page.getByText(/Has dejado tu clase fija/)).toHaveCount(0);
+    // La confirmación sigue abierta para reintentar o mantenerla, y la plaza sigue en la lista.
+    await expect(page.getByTestId('dejar-aviso')).toBeVisible();
+    await page.getByRole('button', { name: 'Mantenerla' }).click();
+    await expect(tarjeta.getByText('Activa')).toBeVisible();
+  });
+
   test('al cancelar una ocurrencia de plaza fija, el toast dice que hay una clase para recuperar y hasta cuándo', async ({ page }) => {
     await montar(page, { cancelacion: { ok: true, tardia: false, bonoDevuelto: false, eraConfirmada: true, recuperacionCreada: true, recuperacionCaducaEl: '2026-09-11' } });
     await page.goto(`${base}/mis-reservas`);

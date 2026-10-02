@@ -838,6 +838,8 @@ export interface PlazaFija {
   /** La pausa se puso con «su sitio queda libre»: al empezar pasa a PAUSADA y
    *  la vuelta la decide el cron (lib/plazas-fijas-solicitudes.ts). */
   pausaLiberaSitio?: boolean;
+  /** La clase fija con nombre de la que viene (`null` = suelta, o dada a mano). Una clase fija con nombre se deja entera. */
+  claseFijaId?: string | null;
   creadaEn: string;
 }
 
