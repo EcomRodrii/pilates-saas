@@ -233,10 +233,13 @@ curl -X POST http://localhost:8288/e/clave-local \
 
 El `nowISO` del dunning tiene que ser **posterior** al `proximo_reintento` del
 recibo, o el barrido no lo ve vencido y no hace nada. Para **agotar los
-reintentos sin esperar**, repite el evento moviendo `nowISO` **+4 días** y luego
-**+12 días** respecto al primero: cada fallo programa el siguiente intento a +3
-y +7 días de ese «ahora» (`OFFSETS_REINTENTO_DIAS` en `lib/billing/dunning.ts`),
-así que el tercer barrido deja el recibo en `FALLIDO`.
+reintentos sin esperar**, repite el evento con `nowISO` en el día **+1**, el
+**+3** y el **+7** del vencimiento del recibo, a las 08:30Z (`OFFSETS_REINTENTO_DIAS`
+en `lib/billing/dunning.ts`): cada fallo programa el siguiente intento a las
+00:00Z del día `vencimiento + 3` y `vencimiento + 7`, y el tercer barrido deja el
+recibo en `FALLIDO`. Si usas un `nowISO` posterior a esas fechas, el reintento
+nunca va antes de 2 días tras el primer fallo ni de 4 tras el segundo, contados
+desde ese «ahora»: mueve `nowISO` **+2 días** y luego **+6 días** respecto al primero.
 
 **Las que solo tienen cron** se invocan desde el panel por su id, sin payload:
 *Functions* → filtra por el id → **Invoke** → **Invoke Function** en el diálogo.

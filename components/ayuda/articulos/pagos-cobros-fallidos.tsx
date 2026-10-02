@@ -3,7 +3,8 @@ import { QueEstaPasando, CausasComunes, ComoSolucionarlo } from '@/components/ay
 import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 
 // Verificado contra lib/billing/dunning.ts (planificarTrasFallo): 3 intentos en
-// total —el del vencimiento y reintentos a +3 y +7 días—; al tercer fallo el
+// total —el primer cobro, al día siguiente del vencimiento, y reintentos a +3 y
+// +7 días del vencimiento—; al tercer fallo el
 // recibo queda FALLIDO y dunning-server.ts cancela la suscripción.
 export default function Contenido() {
   return (
