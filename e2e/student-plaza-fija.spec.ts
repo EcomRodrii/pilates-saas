@@ -442,10 +442,10 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     const bloque = page.getByTestId('reservar-proximas');
     await expect(bloque).toBeVisible({ timeout: 30_000 });
     // Con 5 sesiones: 2, 4 y «todas las que me quedan».
-    await expect(bloque.getByRole('button', { name: '2 clases' })).toBeVisible();
-    await expect(bloque.getByRole('button', { name: '4 clases' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(bloque.getByRole('button', { name: '2 clases', exact: true })).toBeVisible();
+    await expect(bloque.getByRole('button', { name: '4 clases', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(bloque.getByRole('button', { name: 'Todas las que me quedan (5)' })).toBeVisible();
-    await expect(bloque.getByRole('button', { name: '8 clases' })).toHaveCount(0);
+    await expect(bloque.getByRole('button', { name: '8 clases', exact: true })).toHaveCount(0);
 
     await expect(bloque.getByTestId('proxima-ocurrencia')).toHaveCount(4, { timeout: 30_000 });
     await expect(bloque.getByTestId('proximas-resumen')).toHaveText('Se reservarán 4 clases y se descontarán 4 sesiones de tu «Bono 8 sesiones»: te quedarán 1.');
@@ -540,7 +540,7 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
     const bloque = page.getByTestId('reservar-proximas');
     await expect(bloque.getByTestId('proxima-ocurrencia')).toHaveCount(4, { timeout: 30_000 });
-    await bloque.getByRole('button', { name: '2 clases' }).click();
+    await bloque.getByRole('button', { name: '2 clases', exact: true }).click();
     await expect(bloque.getByTestId('proxima-ocurrencia')).toHaveCount(2, { timeout: 30_000 });
     expect(visto.previsualizaciones.map((p) => p.n)).toEqual(expect.arrayContaining([4, 2]));
 
