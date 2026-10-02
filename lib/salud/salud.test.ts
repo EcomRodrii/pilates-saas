@@ -187,3 +187,17 @@ test('el cron de penalizaciones manda a Sentry las dos comprobaciones, y las cob
   const vigilancia = fuente.indexOf('await vigilarPenalizaciones(admin)');
   assert.ok(barrido > 0 && vigilancia > barrido, 'la vigilancia va después del barrido: lo que quede no lo arregló nadie');
 });
+
+// ── Ledger de derechos ──────────────────────────────────────────────────────
+
+test('ledger-no-concilia: un solo descuadre ya es fallo, y mira la vista de conciliación', async () => {
+  const informe = await comprobarFlujos(adminFalso({ ledger_conciliacion: { count: 1, error: null } }));
+  const c = informe.comprobaciones.find(x => x.id === 'ledger-no-concilia')!;
+  assert.equal(c.estado, 'fallo');
+  assert.equal(informe.estado, 'fallo');
+
+  const def = DEFINICIONES.find(d => d.id === 'ledger-no-concilia')!;
+  const { admin, llamadas } = adminQueGraba({ count: 0, error: null });
+  await def.contar(admin, new Date());
+  assert.deepEqual(llamadas[0], ['from', 'ledger_conciliacion']);
+});
