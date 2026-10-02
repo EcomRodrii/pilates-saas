@@ -1192,18 +1192,24 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   ledger la anota como `ANULACION_RECUPERACION`, no como caducidad. ⚠️ Fase B pendiente, DESPUÉS de desplegar este código: retirar
   INSERT/UPDATE/DELETE de `authenticated` sobre `recuperaciones` (el personal puede hoy crear una saltándose el tope y la
   caducidad). Un test fija que ningún código del navegador escribe ya en esa tabla.
-- **Fase 3b, hecha EN SOMBRA: `evaluar_reserva`** (migr `20261002145300`, solo service_role, en este PR nada la llama todavía; el PR siguiente hace que `reservar_plaza` decida con ella). Función
-  SQL de solo lectura que responde si una socia puede reservar una clase, en qué estado entraría y quién la paga
-  (recuperación, bono, cuota o nadie), con los mismos códigos de rechazo que `CodigoReserva`. Espeja en el mismo orden las
-  comprobaciones de `reservar_plaza` y usa SUS MISMAS funciones auxiliares; lo que las ata es un test de PARIDAD en CI
-  (`supabase/tests/rls-evaluar-reserva-paridad.test.ts`, 27 escenarios reales: se evalúa, se reserva de verdad y se exige el
-  mismo rechazo o el mismo estado y que pague quien se anunció). ⚠️ NO es todavía la fuente única: `reservar_plaza` sigue
-  decidiendo, y siguen en TypeScript (`crearReservaPublica`) la clase cancelada o ya empezada, las ventanas de antelación,
-  los máximos de reservas a la vez y al día, la apertura suave y las preguntas del estudio.
-- **Lo que viene, en este orden:** que `reservar_plaza` decida con `evaluar_reserva` (Fase 3c, siguiente PR) → llevar a ella los
-  gates de TypeScript → orden de pagador por tope del producto que paga. Después: índices únicos (una liberación/consumo por
-  reserva), `cancelar_sesion` transaccional, compra transaccional (retener plaza antes de cobrar) y excepciones del
-  mostrador.
+- **Fase 3b: `evaluar_reserva`** (migr `20261002145300`, solo service_role). Función SQL de solo lectura que responde si una
+  socia puede reservar una clase, en qué estado entraría y quién la paga (recuperación, bono, cuota o nadie), con los mismos
+  códigos de rechazo que `CodigoReserva`; el `detalle` que devuelve es el nombre de la excepción de siempre. La ató a
+  `reservar_plaza` un test de PARIDAD en CI (`supabase/tests/rls-evaluar-reserva-paridad.test.ts`, 27 escenarios reales: se
+  evalúa, se reserva de verdad y se exige el mismo rechazo o el mismo estado y que pague quien se anunció).
+- **Fase 3c, hecha: `reservar_plaza` DECIDE con `evaluar_reserva`** (migr `20261002145629`, mismos permisos, misma firma). La
+  elegibilidad vive en UN sitio: `reservar_plaza` toma sus candados (advisory por socia + fila de la sesión), llama a
+  `evaluar_reserva` y, si dice que no, lanza LA MISMA excepción de siempre (`detalle`), así que el servidor ve lo mismo. Sigue
+  en `reservar_plaza` lo que es de ESCRITURA: candados, consumo de la recuperación que paga el exceso del tope semanal,
+  inserción de la reserva y cobro del bono (`consumir_bono_interno`). ⚠️ La llamada es `select … into v_ev`, no `v_ev := …`:
+  una sentencia SQL toma instantánea NUEVA, ya con los candados, y `evaluar_reserva` (STABLE) lee con ella lo que la reserva
+  anterior de esa clase confirmó mientras esperábamos. Para cambiar una regla de elegibilidad se toca `evaluar_reserva` y
+  nada más; un test estático (`reservar-plaza-decide-contrato.test.ts`) falla si `reservar_plaza` vuelve a decidir por su
+  cuenta. Siguen en TypeScript (`crearReservaPublica`) la clase cancelada o ya empezada, las ventanas de antelación, los
+  máximos de reservas a la vez y al día, la apertura suave y las preguntas del estudio.
+- **Lo que viene, en este orden:** llevar a `evaluar_reserva` los gates de TypeScript → orden de pagador por tope del producto
+  que paga. Después: índices únicos (una liberación/consumo por reserva), `cancelar_sesion` transaccional, compra
+  transaccional (retener plaza antes de cobrar) y excepciones del mostrador.
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
