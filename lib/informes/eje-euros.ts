@@ -1,6 +1,6 @@
-// El eje de euros del gráfico de ingresos (/informes), en su parte pura — misma
-// separación que `ventas-por-tipo.ts`: la pantalla dibuja, esto decide qué
-// números pone, y así se puede probar sin navegador.
+// El eje de euros del gráfico de lo cobrado (/informes), en su parte pura: la
+// pantalla dibuja, esto decide qué números pone, y así se puede probar sin
+// navegador.
 
 /**
  * Etiqueta corta de una cantidad, para el eje y el tooltip.

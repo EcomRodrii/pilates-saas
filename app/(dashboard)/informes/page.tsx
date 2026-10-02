@@ -1,1299 +1,306 @@
 'use client';
 
-import { useMemo, useState, useEffect, useCallback } from 'react';
-import { useStudio } from '@/lib/studio-context';
+// ─────────────────────────────────────────────────────────────────────────────
+// Informes (rediseño del 2-oct-2026, decisiones 9–12 y F1–F5 del fundador).
+//
+// Un titular con tres hechos —Dinero, Clases, Clientas—, cada uno frente al MISMO
+// TRAMO del periodo anterior, y debajo un bloque para cada uno. Periodos: semana,
+// mes, trimestre natural y año, con flechas para ver uno cerrado; abre en el mes
+// en curso, como Cobros.
+//
+// Todo se calcula aquí, en el navegador, con las funciones puras de
+// `lib/informes/` sobre los arrays del contexto (que ya llegan enteros con
+// `fetchAllRows`). Antes las cifras de dinero salían de cuatro RPC con su propio
+// rango de fechas, y «Ingresos período» no tenía por qué coincidir con «Cobrado
+// en octubre» de Cobros. Ahora es la misma función (`cobradoEnTramo`) sobre los
+// mismos recibos: cuadran por construcción, y respetan la sede activa.
+//
+// Informes es solo de la propietaria (`lib/permisos-reglas.ts` la bloquea a
+// recepción y gerencia), así que aquí no hay gates por rol.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbRecibosCobradosParaExport, dbVentasPorTipo } from '@/lib/supabase-data';
-import { csvLoCobrado, descargarCsv } from '@/lib/billing/export-cobrado';
-import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
-import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
-import { cohortesPorPrimeraCompra, MUESTRA_MINIMA_COHORTE, type FilaCohorte, type TramoCohorte } from '@/lib/informes/cohortes.ts';
+import { ChevronDown, Download, FileText, Loader2, Printer } from 'lucide-react';
+import { useStudio } from '@/lib/studio-context';
 import { fetchTarifasEquipo, type TarifaInstructor } from '@/lib/api-client';
-import { margenSesiones, type MargenSesion } from '@/lib/decision/margen-clase.ts';
-import { combinarConVariacion, type VentaTipoConVariacion } from '@/lib/informes/ventas-por-tipo.ts';
-import { rangoDelInforme } from '@/lib/informes/periodo.ts';
+import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
+import { formatEuro, fechaLargaEstudio, finDelDiaEstudio, horaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
+import { mismoTramoAnterior, moverPeriodo, textoDeLaComparacion, tramoVisible } from '@/lib/cobros/lo-cobrado';
+import { dineroDelTramo, diferencia, serieDelGrafico } from '@/lib/informes/dinero';
+import { tipoDePlanPorSuscripcion } from '@/lib/informes/motivo-cobro';
+import { clasesDelTramo, puntosDeDiferencia, sesionesDelTramo } from '@/lib/informes/clases';
+import { clientasDelTramo, nuevasEnTramo } from '@/lib/informes/clientas';
+import { cohortesPorPrimeraCompra, cuandoEmpezoCadaClienta } from '@/lib/informes/cohortes';
+import { margenSesiones, type MargenSesion } from '@/lib/decision/margen-clase';
+import type { SnapshotEstudio } from '@/lib/decision/tipos';
 import { esVentaSinRecibo, resumenVentasSinRecibo } from '@/lib/pos/ventas-sin-recibo';
-import { etiquetaEuros as fmtEur, techoDelEje, marcasDelEje } from '@/lib/informes/eje-euros.ts';
-import type { Sesion } from '@/lib/types';
-import { TrendingUp, Users, CreditCard, Activity, Download, FileText, Scale, Package } from 'lucide-react';
-import { PageHeader } from '@/components/ui/page-header';
-import { CifraPrivada } from '@/components/ui/cifra-privada';
-import { inicioDeSemana, fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
-import { useRol, puedeVerFinanzas, puedeGestionarEquipo } from '@/lib/permisos';
 import { csvDeFilas, filasCsvPorOrigen, resumenPorPlataforma } from '@/lib/plataformas/informe-origen';
-import { NOMBRE_PLATAFORMA } from '@/lib/plataformas/catalogo';
-
-// ─── Utilities ────────────────────────────────────────────────────────────────
-
-// Fecha fija con la que servidor y cliente pintan lo mismo hasta que monta
-// (guarda de hidratación). A nivel de módulo para que sea la MISMA referencia
-// en cada render.
-const FALLBACK_SSR = new Date('2026-06-29');
-
-function localDate(d: Date | string): string {
-  const dt = typeof d === 'string' ? new Date(d) : d;
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-}
-
-function fmtEurFull(v: number): string {
-  return v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-}
-
-// ─── Period types ─────────────────────────────────────────────────────────────
-
-type Period = 'week' | 'month' | 'quarter' | 'year';
-
-interface PeriodOption {
-  key: Period;
-  label: string;
-}
-
-const PERIOD_OPTS: PeriodOption[] = [
-  { key: 'week',    label: 'Esta semana' },
-  { key: 'month',   label: 'Este mes' },
-  { key: 'quarter', label: 'Últimos 3 meses' },
-  { key: 'year',    label: 'Este año' },
-];
-
-function getPeriodStart(period: Period, now: Date): Date {
-  switch (period) {
-    // Este cálculo era correcto, pero estaba copiado a mano — y la copia del
-    // dashboard no lo era. Se comparte para que no vuelvan a divergir.
-    case 'week':
-      return inicioDeSemana(now);
-    case 'month':
-      return new Date(now.getFullYear(), now.getMonth(), 1);
-    case 'quarter':
-      return new Date(now.getFullYear(), now.getMonth() - 2, 1);
-    case 'year':
-      return new Date(now.getFullYear(), 0, 1);
-  }
-}
-
-// ─── Chart bucket types ───────────────────────────────────────────────────────
-
-interface Bucket {
-  label: string;
-  key: string;
-  value: number;
-}
-
-function getChartBuckets(period: Period, now: Date): Bucket[] {
-  if (period === 'week') {
-    const DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-    const start = getPeriodStart('week', now);
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      return {
-        label: DAYS[i],
-        key: localDate(d),
-        value: 0,
-      };
-    });
-  }
-  if (period === 'month') {
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    return Array.from({ length: daysInMonth }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth(), i + 1);
-      return {
-        label: String(i + 1),
-        key: localDate(d),
-        value: 0,
-      };
-    });
-  }
-  if (period === 'quarter') {
-    return Array.from({ length: 3 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - 2 + i, 1);
-      return {
-        label: d.toLocaleDateString('es-ES', { month: 'short' }),
-        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-        value: 0,
-      };
-    });
-  }
-  // year → 12 months
-  return Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(now.getFullYear(), i, 1);
-    return {
-      label: d.toLocaleDateString('es-ES', { month: 'short' }),
-      key: `${now.getFullYear()}-${String(i + 1).padStart(2, '0')}`,
-      value: 0,
-    };
-  });
-}
-
-function getBucketKey(period: Period, date: Date): string {
-  if (period === 'week' || period === 'month') return localDate(date);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-}
-
-// ─── Cohort retention helpers ─────────────────────────────────────────────────
-
-// «may 26»: el mes de una cohorte ('YYYY-MM'), sin depender de la zona del navegador.
-const FORMATO_MES_COHORTE = new Intl.DateTimeFormat('es-ES', { month: 'short', year: '2-digit', timeZone: 'UTC' });
-function etiquetaMes(ym: string): string {
-  return FORMATO_MES_COHORTE.format(new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1, 15)));
-}
-
-/** Una celda de cohorte: «3 · 60 %», solo «3» con pocas, o «—» si todavía no se sabe. */
-function CeldaCohorte({ tramo }: { tramo: TramoCohorte | null }) {
-  if (!tramo) {
-    return <span title="Todavía no ha pasado ese mes entero para todas las que empezaron entonces" style={{ color: 'var(--muted-foreground)' }}>—</span>;
-  }
-  if (tramo.pct === null) {
-    return <span className="tabular-nums" title={`Menos de ${MUESTRA_MINIMA_COHORTE}: pocas para sacar un porcentaje`} style={{ color: 'var(--foreground)' }}>{tramo.siguen}</span>;
-  }
-  const tono = tramo.pct >= 70 ? 'var(--success)' : tramo.pct >= 40 ? 'var(--warning)' : 'var(--destructive)';
-  return (
-    <span className="tabular-nums" style={{ color: 'var(--foreground)' }}>
-      {tramo.siguen}{' '}
-      <span className="inline-block px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: `color-mix(in srgb, ${tono} 12%, var(--card))`, color: tono }}>
-        {tramo.pct}%
-      </span>
-    </span>
-  );
-}
-
-// ─── Export state type ────────────────────────────────────────────────────────
-
-type ExportState = 'idle' | 'loading' | 'done' | 'error';
-
-// ─── Component ────────────────────────────────────────────────────────────────
+import { PageHeader } from '@/components/ui/page-header';
+import { MenuAcciones } from '@/components/ui/menu-acciones';
+import { CifraPrivada } from '@/components/ui/cifra-privada';
+import { Toast, useToast } from '@/components/ui/toast';
+import { useDescargaCobrado } from '@/components/cobros/use-descarga-cobrado';
+import type { AvisosCobros } from '@/components/cobros/use-acciones-recibo';
+import { Hecho, SelectorPeriodo, conSigno, conSignoEuros, frenteA, tonoDiferencia, type PeriodoInforme } from '@/components/informes/piezas';
+import { BloqueDinero } from '@/components/informes/bloque-dinero';
+import { BloqueClases } from '@/components/informes/bloque-clases';
+import { BloqueClientas } from '@/components/informes/bloque-clientas';
 
 export default function Informes() {
-  const { recibos, socios, sesiones, reservas, tiposClase, suscripciones, planesTarifa, instructores, ventasPOS, datosIncompletos } = useStudio();
-  // Sin esto, una instructora o un manager veían aquí las tarjetas de
-  // ingresos/ticket medio — la RLS real (migración 0114) sí bloquea los datos
-  // (ven un 0 € falso, no el número real), pero mostrar la tarjeta igual es
-  // peor que ocultarla: miente sobre si hay o no ingresos. Mismo gate que ya
-  // tiene el Dashboard de inicio para esta misma info.
-  const verFinanzas = puedeVerFinanzas(useRol());
-  // Distinto de verFinanzas (PROPIETARIO/RECEPCIÓN): la tarifa de instructora
-  // es dato salarial, con su propia RLS más estricta (tarifas_gestion,
-  // PROPIETARIO/MANAGER — migr 20260731110000). RECEPCIÓN ve la pestaña de
-  // margen por clase (es finanzas), pero no el coste de instructoras.
-  const verCosteInstructoras = puedeGestionarEquipo(useRol());
+  const {
+    recibos, socios, sesiones, reservas, tiposClase, suscripciones, planesTarifa, instructores, ventasPOS, datosIncompletos,
+  } = useStudio();
+  const { listo: estadosListos, conteos } = useEstadosClientas();
+  const toast = useToast();
+  const avisos: AvisosCobros = useMemo(() => ({ ok: toast.show, error: toast.showError }), [toast.show, toast.showError]);
+  const descargas = useDescargaCobrado(avisos);
 
-  const [period, setPeriod] = useState<Period>('month');
-  const [tooltipIdx, setTooltipIdx] = useState<number | null>(null);
-  const [csvState, setCsvState] = useState<ExportState>('idle');
-  const [pdfState, setPdfState] = useState<ExportState>('idle');
-  const [mounted, setMounted] = useState(false);
-  // F1 (B1-B4): agregados de dinero calculados en el SERVIDOR (RPC, sin cap 1000).
-  const [agg, setAgg] = useState<{ total: number; totalSocias: number; nSocias: number; mrr: number; porDia: { dia: string; total: number }[] } | null>(null);
-  // F1 (B4): ocupación por tipo también del servidor.
-  const [ocupData, setOcupData] = useState<{ tipoClaseId: string | null; nSesiones: number; aforo: number; ocupadas: number }[]>([]);
-  // «Clientas activas»: el MISMO número que el Resumen y el chip «Activa» de
-  // Clientas (lib/clientas/estado.ts). Antes aquí había una «Tasa retención» que
-  // contaba las no dadas de baja (casi siempre ~95 %) con su «N activas de M»,
-  // y decía otra cifra que el Resumen. `null` mientras no hay datos enteros.
-  const { listo: estadosListos, conteos: conteosClientas } = useEstadosClientas();
-  // Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) + variación
-  // vs. el período anterior de igual duración — pedido explícito del fundador.
-  const [ventasTipo, setVentasTipo] = useState<VentaTipoConVariacion[] | null>(null);
-  // La carga del dinero falló. Sin esto, `agg`/`ventasTipo` a null son
-  // ambiguos: pueden ser «todavía no ha llegado» o «no va a llegar», y la
-  // pantalla se comportaba como si fuera lo primero para siempre.
-  const [fallo, setFallo] = useState(false);
-  // Lo bombea el botón «Reintentar»: es una dependencia más del efecto de
-  // carga, en vez de duplicar las siete consultas en un handler aparte.
-  const [intento, setIntento] = useState(0);
+  const [periodo, setPeriodo] = useState<PeriodoInforme>('MES');
+  // El día que fija el periodo que se ve; `null` = el de hoy.
+  const [referencia, setReferencia] = useState<string | null>(null);
 
-  // `now` en estado en vez de `new Date()` en el cuerpo del render, mismo
-  // arreglo que dashboard y calendario. Aquí importaba doblemente: los cuatro
-  // memos de abajo llevaban `mounted` en las dependencias EN VEZ de `now`, o
-  // sea que declaraban depender de algo que solo cambia una vez. Con `now` de
-  // verdad en las deps, cruzar la medianoche (o el fin de mes) recalcula los
-  // KPIs y las cohortes en vez de dejarlas mostrando el período de ayer.
-  const [now, setNow] = useState(FALLBACK_SSR);
+  // La hora, en estado y no con `new Date()` en el render: el servidor y el
+  // navegador pintan lo mismo (el esqueleto) hasta que monta, y cruzar la
+  // medianoche o el fin de mes recalcula en vez de enseñar el periodo de ayer.
+  const [ahora, setAhora] = useState<Date | null>(null);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta FALLBACK_SSR y el cliente salta a la fecha real tras montar. El segundo render es el OBJETIVO; derivarlo en render devolvería `new Date()` en el servidor y rompería la hidratación.
-    setMounted(true);
-    setNow(new Date());
-    const t = setInterval(() => setNow(new Date()), 60_000);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta el esqueleto y el cliente salta a la hora real tras montar.
+    setAhora(new Date());
+    const t = setInterval(() => setAhora(new Date()), 60_000);
     return () => clearInterval(t);
   }, []);
 
-  // ─── Period bounds ──────────────────────────────────────────────────────────
-  const periodStart = useMemo(() => getPeriodStart(period, now), [period, now]);
-
-  // ─── Margen por clase: tarifas de instructora (dato salarial aparte) ────────
-  const [tarifasInstructoras, setTarifasInstructoras] = useState<TarifaInstructor[]>([]);
+  // La tarifa de instructora (dato salarial, su propia RLS): para el margen.
+  const [tarifas, setTarifas] = useState<TarifaInstructor[]>([]);
   useEffect(() => {
-    if (!verCosteInstructoras) return;
-    let cancel = false;
-    void fetchTarifasEquipo().then(items => {
-      if (cancel) return;
-      setTarifasInstructoras(items);
-    });
-    return () => { cancel = true; };
-  }, [verCosteInstructoras]);
+    let cancelado = false;
+    void fetchTarifasEquipo().then(items => { if (!cancelado) setTarifas(items); });
+    return () => { cancelado = true; };
+  }, []);
 
-  // Margen de contribución real por clase (informe estratégico ago-2026):
-  // cálculo puro sobre lo ya cargado en memoria — mismas sesiones que ya
-  // filtra el resto de esta página por `period`, sin fetch propio. Solo
-  // clases YA ocurridas (una futura no tiene asistentes reales todavía).
-  // Peor margen primero — es lo que la propietaria querría mirar primero.
-  const margenClases = useMemo((): (MargenSesion & { sesion: Sesion })[] => {
-    if (!verFinanzas || !mounted) return [];
-    const pasadas = sesiones.filter(se =>
-      !se.cancelada && new Date(se.inicio).getTime() <= now.getTime() && new Date(se.inicio).getTime() >= periodStart.getTime()
-    );
-    if (pasadas.length === 0) return [];
-    const snapshotParcial = {
-      studioId: '', socios, reservas, sesiones: pasadas, salas: [], recibos, suscripciones, planesTarifa,
-      tiposClase, instructores, automationLogs: [], campanas: [], sustituciones: [],
-      instructorTarifas: tarifasInstructoras,
-      intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contactosManuales: [], hechosClientas: {},
-      contexto: { nSociasActivas: 0, antiguedadDatosDias: 0, cadenaId: null, nSedesCadena: 1 },
+  const hoy = ahora ? hoyEnEstudio(ahora) : null;
+  const ref = referencia ?? hoy;
+
+  const tramos = useMemo(() => {
+    if (!hoy || !ref) return null;
+    // `ref` siempre cae en un periodo ya empezado (las flechas no van al futuro).
+    const visible = tramoVisible(periodo, ref, hoy) ?? tramoVisible(periodo, hoy, hoy)!;
+    return {
+      visible,
+      anterior: mismoTramoAnterior(periodo, visible),
+      comparacion: textoDeLaComparacion(periodo, visible, hoy),
+      haySiguiente: moverPeriodo(periodo, ref, 1) <= hoy,
     };
-    const porSesion = new Map(pasadas.map(se => [se.id, se]));
-    return margenSesiones(pasadas, snapshotParcial)
-      .map(r => ({ ...r, sesion: porSesion.get(r.sesionId)! }))
-      .sort((a, b) => {
-        if (a.margen === null && b.margen === null) return 0;
-        if (a.margen === null) return 1;
-        if (b.margen === null) return -1;
-        return a.margen - b.margen;
-      });
-  }, [verFinanzas, mounted, sesiones, reservas, socios, recibos, suscripciones, planesTarifa, tiposClase, instructores, tarifasInstructoras, periodStart, now]);
+  }, [periodo, ref, hoy]);
 
-  // F1: trae los ingresos agregados del servidor al montar y al cambiar de período.
-  useEffect(() => {
-    if (!mounted) return;
-    // Días del ESTUDIO, no del navegador: las RPC filtran `fecha_cobro`, que es
-    // una fecha de Madrid (lib/informes/periodo.ts). El periodo anterior dura lo
-    // mismo y acaba el día antes de `desde`.
-    const { desde, hasta, inicioMes: mesInicio, anteriorDesde, anteriorHasta } = rangoDelInforme(period, hoyEnEstudio(now));
-    let cancel = false;
-    void Promise.all([
-      dbInformeIngresos(desde), dbInformeIngresos(mesInicio), dbIngresosPorDia(desde),
-      dbOcupacionPorTipo(desde),
-      dbVentasPorTipo(desde, hasta), dbVentasPorTipo(anteriorDesde, anteriorHasta),
-    ])
-      .then(([per, mes, dias, ocup, ventasActual, ventasAnterior]) => {
-        if (cancel) return;
-        // ⚠️ Si el servidor no ha contestado, esta pantalla NO puede escribir
-        // «0,00 €»: es una afirmación sobre la caja del estudio y quien la lee
-        // no tiene forma de distinguirla de la verdad. `agg` a null y `fallo`
-        // a true → los importes salen «—» y se dice por qué.
-        if (!per || !mes || !dias) {
-          setAgg(null);
-          setFallo(true);
-        } else {
-          setFallo(false);
-          setAgg({ total: per.total, totalSocias: per.totalSocias, nSocias: per.nSocias, mrr: mes.total, porDia: dias });
-        }
-        if (ocup) setOcupData(ocup);
-        // `null` aquí es «no lo sé»; el bloque de abajo lo distingue de
-        // «todavía cargando» mirando `fallo`, para no dejar el esqueleto
-        // girando eternamente.
-        if (!ventasActual || !ventasAnterior) { setVentasTipo(null); setFallo(true); }
-        else setVentasTipo(combinarConVariacion(ventasActual, ventasAnterior));
-      })
-      // Los helpers ya convierten el error de PostgREST en `null`, así que aquí
-      // no llega casi nada. Va igual: sin él, cualquier excepción inesperada
-      // dejaba la pantalla muda con `agg` a null — y `?? 0` la hacía decir
-      // «0,00 €», que es exactamente lo que este cambio viene a quitar.
-      .catch(() => {
-        if (cancel) return;
-        setAgg(null);
-        setVentasTipo(null);
-        setFallo(true);
-      });
-    return () => { cancel = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, mounted, intento]);
+  // ── Dinero ──
+  const dinero = useMemo(() => {
+    if (!tramos) return null;
+    const ctx = { periodo, tipoDePlanDe: tipoDePlanPorSuscripcion(suscripciones, planesTarifa) };
+    const actual = dineroDelTramo(recibos, tramos.visible, ctx);
+    const anterior = tramos.anterior ? dineroDelTramo(recibos, tramos.anterior, ctx) : null;
+    return {
+      actual, anterior,
+      puntos: serieDelGrafico(periodo, tramos.visible, actual, tramos.anterior && anterior ? { tramo: tramos.anterior, dinero: anterior } : null),
+    };
+  }, [recibos, suscripciones, planesTarifa, periodo, tramos]);
 
-  // ─── Revenue chart buckets ──────────────────────────────────────────────────
-  const revenueChart = useMemo((): Bucket[] => {
-    // Los tramos del gráfico, sobre el día del ESTUDIO (mediodía, para no
-    // cruzar de día con ninguna zona horaria): es el mismo día con el que se
-    // pide el rango a la RPC. Con el `now` del navegador, entre las 00:00 y
-    // las 02:00 del día 1 un navegador en UTC pintaba el mes anterior vacío.
-    const buckets = getChartBuckets(period, new Date(`${hoyEnEstudio(now)}T12:00:00`));
-    const map: Record<string, number> = {};
-    buckets.forEach(b => { map[b.key] = 0; });
-
-    // F1: sobre los ingresos diarios del SERVIDOR (sin capar), no sobre el array de
-    // recibos del cliente. 'YYYY-MM-DD' → mediodía local para no cruzar de día.
-    (agg?.porDia ?? []).forEach(d => {
-      const k = getBucketKey(period, new Date(`${d.dia}T12:00:00`));
-      if (k in map) map[k] = (map[k] ?? 0) + d.total;
-    });
-
-    return buckets.map(b => ({ ...b, value: map[b.key] ?? 0 }));
-  }, [agg, period, now]);
-
-  // Ventas de la caja cobradas sin recibo dentro del periodo: no están en los
-  // ingresos (las RPC cuentan recibos) y se dice, en vez de faltar en silencio.
-  const ventasSinReciboPeriodo = useMemo(() => {
-    const { desde, hasta } = rangoDelInforme(period, hoyEnEstudio(now));
+  // Ventas de la caja cobradas sin recibo en el periodo: no están en las cifras y se dice.
+  const ventasSinRecibo = useMemo(() => {
+    if (!tramos) return { n: 0, total: 0 };
+    const { desde, hasta } = tramos.visible;
     return resumenVentasSinRecibo(ventasPOS.filter(v => {
       if (!esVentaSinRecibo(v) || !v.realizadaEn) return false;
       const dia = hoyEnEstudio(new Date(v.realizadaEn));
       return dia >= desde && dia <= hasta;
     }));
-  }, [ventasPOS, period, now]);
+  }, [ventasPOS, tramos]);
 
-  // ─── KPI: Total ingresos del período (server-side, F1) ──────────────────────
-  // ⚠️ `null` = no lo sabemos, y se pinta «—». Antes era `?? 0`: con la RPC
-  // caída, las tres cifras de dinero de esta pantalla decían 0,00 € con la
-  // misma cara que cuando de verdad no entró nada.
-  const totalIngresos = agg?.total ?? null;
+  // ── Clases ──
+  const clases = useMemo(() => {
+    if (!tramos || !ahora) return null;
+    return {
+      actual: clasesDelTramo(sesiones, reservas, tramos.visible, ahora),
+      anterior: tramos.anterior ? clasesDelTramo(sesiones, reservas, tramos.anterior, ahora) : null,
+    };
+  }, [sesiones, reservas, tramos, ahora]);
 
-  // ─── KPI: MRR — ingresos del mes en curso (server-side, F1) ─────────────────
-  const mrr = agg?.mrr ?? null;
+  // El margen de cada clase ya empezada del periodo (lib/decision/margen-clase.ts,
+  // el mismo cálculo que el Centro de Control).
+  const margenes = useMemo((): ReadonlyMap<string, MargenSesion> => {
+    if (!tramos || !ahora) return new Map();
+    const pasadas = sesionesDelTramo(sesiones, tramos.visible, ahora);
+    if (pasadas.length === 0) return new Map();
+    const snapshot: SnapshotEstudio = {
+      studioId: '', socios, reservas, sesiones: pasadas, salas: [], recibos, suscripciones, planesTarifa,
+      tiposClase, instructores, automationLogs: [], campanas: [], sustituciones: [],
+      instructorTarifas: tarifas,
+      intentosFallidos: [], bloqueosAgenda: [], widgetEventosCheckout: [], contactosManuales: [], hechosClientas: {},
+      contexto: { nSociasActivas: 0, antiguedadDatosDias: 0, cadenaId: null, nSedesCadena: 1 },
+    };
+    return new Map(margenSesiones(pasadas, snapshot).map(m => [m.sesionId, m]));
+  }, [tramos, ahora, sesiones, socios, reservas, recibos, suscripciones, planesTarifa, tiposClase, instructores, tarifas]);
 
-  // ─── KPI: Ticket medio (server-side, F1) ────────────────────────────────────
-  // Sin `agg` no hay ticket; con `agg` y cero pagadoras, el ticket es 0 de
-  // verdad (nadie pagó), que es distinto y sí se puede escribir.
-  //
-  // ⚠️ Lo pagado por CLIENTAS entre las clientas que pagaron. Antes el
-  // numerador era todo lo cobrado, ventas de mostrador sin clienta incluidas, y
-  // el denominador no podía contarlas: en un estudio real salía 197,50 € cuando
-  // lo de sus clientas era 87,10 €.
-  const ticketMedio = agg == null ? null : agg.nSocias > 0 ? agg.totalSocias / agg.nSocias : 0;
+  // ── Clientas ──
+  const clientas = useMemo(() => {
+    if (!tramos || !ahora) return null;
+    return {
+      actual: clientasDelTramo(sesiones, reservas, tramos.visible, ahora),
+      anterior: tramos.anterior ? clientasDelTramo(sesiones, reservas, tramos.anterior, ahora) : null,
+    };
+  }, [sesiones, reservas, tramos, ahora]);
 
-  // ─── Ocupación por tipo de clase ────────────────────────────────────────────
-  const ocupacionPorTipo = useMemo(() => {
-    // P0-28: ocupadas por sesión en UNA pasada, en vez de reservas.filter() por
-    // cada sesión de cada tipo (O(tipos × sesiones × reservas)).
-    // F1: sobre la ocupación agregada en el SERVIDOR (sin capar), no sobre el array
-    // de reservas/sesiones del cliente.
-    const byTipo = new Map(ocupData.map(o => [o.tipoClaseId, o]));
-    return tiposClase.map(tc => {
-      const o = byTipo.get(tc.id);
-      const aforo = o?.aforo ?? 0;
-      const ocupadas = o?.ocupadas ?? 0;
-      return {
-        id: tc.id,
-        nombre: tc.nombre,
-        color: tc.color,
-        pct: aforo > 0 ? Math.round((ocupadas / aforo) * 100) : 0,
-        sesiones: o?.nSesiones ?? 0,
-        ocupadas,
-        aforo,
-      };
-    }).filter(t => t.sesiones > 0).sort((a, b) => b.pct - a.pct);
-  }, [ocupData, tiposClase]);
-
-  // ─── Cohortes: cuántas siguen viniendo, por mes en que empezaron ────────────
-  // Por su primera compra de verdad y por clases a las que VINO (lib/informes/
-  // cohortes.ts). La tabla de antes agrupaba por fecha de alta, contaba reservas
-  // confirmadas y medía desde el día 1 del mes: no medía lo que decía.
-  // Se recalcula al cambiar de día, no cada minuto que avanza el reloj.
-  const hoyTxt = hoyEnEstudio(now);
+  // Las cohortes y las «nuevas» comparten regla (`cuandoEmpezoCadaClienta`); no
+  // dependen del periodo y esperan a que los datos estén enteros.
+  const datosCohortes = useMemo(() => ({ socios, suscripciones, planesTarifa, reservas, sesiones }), [socios, suscripciones, planesTarifa, reservas, sesiones]);
   const cohortes = useMemo(
-    (): FilaCohorte[] => (mounted && estadosListos
-      ? cohortesPorPrimeraCompra({ socios, suscripciones, planesTarifa, reservas, sesiones }, hoyTxt)
-      : []),
-    [mounted, estadosListos, socios, suscripciones, planesTarifa, reservas, sesiones, hoyTxt],
+    () => (hoy && estadosListos ? cohortesPorPrimeraCompra(datosCohortes, hoy) : []),
+    [datosCohortes, hoy, estadosListos],
   );
+  const empezaron = useMemo(() => (hoy ? cuandoEmpezoCadaClienta(datosCohortes, hoy) : new Map<string, string>()), [datosCohortes, hoy]);
 
-  // ─── Top 5 socias ───────────────────────────────────────────────────────────
-  const topSocias = useMemo(() => {
-    const sesionIdsInRange = new Set(
-      sesiones.filter(s => !s.cancelada && new Date(s.inicio) >= periodStart).map(s => s.id)
+  const plataformas = useMemo(() => {
+    if (!tramos) return [];
+    const desde = new Date(inicioDelDiaEstudio(tramos.visible.desde));
+    const hasta = new Date(new Date(finDelDiaEstudio(tramos.visible.hasta)).getTime() - 1);
+    return resumenPorPlataforma(reservas, sesiones, desde, hasta);
+  }, [reservas, sesiones, tramos]);
+
+  if (!tramos || !dinero || !clases || !clientas || !hoy || !ref) {
+    return (
+      <div className="animate-pulse space-y-5 p-1">
+        <div className="h-8 w-56 rounded-lg bg-border" />
+        <div className="h-28 rounded-2xl border border-border bg-card" />
+        <div className="h-72 rounded-2xl border border-border bg-card" />
+      </div>
     );
-    const counts: Record<string, number> = {};
-    reservas
-      .filter(r => (r.estado === 'ASISTIDA' || r.estado === 'CONFIRMADA') && sesionIdsInRange.has(r.sesionId))
-      .forEach(r => { counts[r.socioId] = (counts[r.socioId] ?? 0) + 1; });
-    return socios
-      .map(s => ({ ...s, clases: counts[s.id] ?? 0 }))
-      .filter(s => s.clases > 0)
-      .sort((a, b) => b.clases - a.clases)
-      .slice(0, 5);
-  }, [socios, reservas, sesiones, periodStart]);
+  }
 
-  // ─── Clases más populares ───────────────────────────────────────────────────
-  // Reservas de ClassPass/USC/Wellhub en el periodo: para cuadrar lo que paga
-  // cada plataforma (pagan por visita). Solo sale si hay alguna.
-  const plataformasPeriodo = useMemo(
-    () => resumenPorPlataforma(reservas, sesiones, periodStart, now),
-    [reservas, sesiones, periodStart, now],
-  );
-  const descargarPlataformas = useCallback(() => {
-    const nombreClase = (id: string | null | undefined) => tiposClase.find(t => t.id === id)?.nombre ?? 'Clase';
+  const { visible, comparacion } = tramos;
+  const difCobrado = diferencia(dinero.actual.neto, dinero.anterior?.neto);
+  const puntos = puntosDeDiferencia(clases.actual, clases.anterior);
+  const difVinieron = clientas.anterior ? clientas.actual.vinieron - clientas.anterior.vinieron : null;
+  const sociosPorId = new Map(socios.map(s => [s.id, s]));
+  const tiposPorId = new Map(tiposClase.map(t => [t.id, t.nombre]));
+  const instructorasPorId = new Map(instructores.map(i => [i.id, i.nombre]));
+  const descarga = descargas.fase(visible);
+
+  function elegirPeriodo(p: PeriodoInforme) { setPeriodo(p); setReferencia(null); }
+  function mover(paso: -1 | 1) { setReferencia(moverPeriodo(periodo, ref!, paso)); }
+
+  function descargarPlataformas() {
+    const nombreClase = (id: string | null | undefined) => (id ? tiposPorId.get(id) : undefined) ?? 'Clase';
     const fecha = (iso: string) => `${fechaLargaEstudio(iso)} ${horaEstudio(iso)}`;
-    const csv = csvDeFilas(filasCsvPorOrigen(reservas, sesiones, periodStart, now, nombreClase, fecha));
+    const desde = new Date(inicioDelDiaEstudio(visible.desde));
+    const hasta = new Date(new Date(finDelDiaEstudio(visible.hasta)).getTime() - 1);
+    const csv = csvDeFilas(filasCsvPorOrigen(reservas, sesiones, desde, hasta, nombreClase, fecha));
     // BOM para que Excel lea bien las tildes.
-    const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }));
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = `reservas-plataformas-${periodStart.toISOString().slice(0, 10)}.csv`;
+    a.download = `reservas-plataformas-${visible.desde}_${visible.hasta}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [reservas, sesiones, tiposClase, periodStart, now]);
-
-  const topClases = useMemo(() => {
-    const sesionIdsInRange = new Set(
-      sesiones.filter(s => !s.cancelada && new Date(s.inicio) >= periodStart).map(s => s.id)
-    );
-    const counts: Record<string, number> = {};
-    reservas
-      .filter(r => sesionIdsInRange.has(r.sesionId) && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
-      .forEach(r => { counts[r.sesionId] = (counts[r.sesionId] ?? 0) + 1; });
-
-    const tipoMap: Record<string, { nombre: string; color: string; count: number }> = {};
-    tiposClase.forEach(tc => { tipoMap[tc.id] = { nombre: tc.nombre, color: tc.color, count: 0 }; });
-
-    sesiones
-      .filter(s => sesionIdsInRange.has(s.id))
-      .forEach(s => {
-        const tc = tipoMap[s.tipoClaseId];
-        if (tc) tc.count += counts[s.id] ?? 0;
-      });
-
-    return Object.entries(tipoMap)
-      .map(([id, v]) => ({ id, ...v }))
-      .filter(t => t.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }, [tiposClase, sesiones, reservas, periodStart]);
-
-  // ─── CSV Export ─────────────────────────────────────────────────────────────
-  const exportCSV = useCallback(async () => {
-    setCsvState('loading');
-    // F1: TODOS los recibos cobrados por keyset (sin cap 1000), no el array del cliente.
-    const cobrados = await dbRecibosCobradosParaExport(rangoDelInforme(period, hoyEnEstudio(now)).desde);
-    // Si la lectura falla no se descarga nada: un fichero a medias se tomaría por completo.
-    if (!cobrados) { setCsvState('error'); setTimeout(() => setCsvState('idle'), 4000); return; }
-    // El mismo fichero que Cobros y el cierre (lib/billing/export-cobrado.ts).
-    descargarCsv(csvLoCobrado(cobrados), `ingresos_${localDate(now)}.csv`);
-    setTimeout(() => { setCsvState('done'); setTimeout(() => setCsvState('idle'), 2500); }, 600);
-  }, [period, now]);
-
-  // Export real: abre el diálogo de impresión del navegador, desde el que se
-  // puede "Guardar como PDF". Sin dependencias externas y funciona en todos los
-  // navegadores modernos.
-  const exportPDF = useCallback(() => {
-    setPdfState('loading');
-    // Deja repintar el estado del botón antes de bloquear con el diálogo.
-    setTimeout(() => {
-      window.print();
-      setPdfState('done');
-      setTimeout(() => setPdfState('idle'), 2500);
-    }, 150);
-  }, []);
-
-  // ─── SVG chart math ─────────────────────────────────────────────────────────
-  const BAR_W = period === 'month' ? 10 : 28;
-  const BAR_GAP = period === 'month' ? 4 : 10;
-  const CHART_H = 160;
-  const PADDING_L = 44;
-  const PADDING_T = 8;
-  const Y_TICKS = 4;
-  const maxVal = techoDelEje(revenueChart.map(d => d.value), Y_TICKS);
-  const chartW = revenueChart.length * (BAR_W + BAR_GAP) + PADDING_L;
-
-  // Y-axis grid lines
-  const yTicks = marcasDelEje(maxVal, Y_TICKS).map(val => ({ val, y: CHART_H - (val / maxVal) * CHART_H }));
-
-  // Bar color by trend
-  function barColor(i: number, value: number): string {
-    if (value === 0) return 'var(--border)';
-    const prev = revenueChart[i - 1]?.value ?? 0;
-    if (i === 0 || prev === 0) return 'var(--success)';
-    const delta = value - prev;
-    if (delta > 0) return 'var(--success)';
-    if (Math.abs(delta) / prev < 0.05) return 'var(--warning)';
-    return 'var(--destructive)';
   }
 
-  if (!mounted) {
-    return (
-      <div className="space-y-6 animate-pulse p-1">
-        <div className="h-8 w-56 bg-border rounded-lg" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-32 bg-card rounded-xl border border-border" />
-          ))}
-        </div>
-        <div className="h-72 bg-card rounded-xl border border-border" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="h-56 bg-card rounded-xl border border-border" />
-          <div className="h-56 bg-card rounded-xl border border-border" />
-        </div>
-      </div>
-    );
-  }
-
-  const LABEL_SKIP = period === 'month' ? 4 : 1;
+  const frente = frenteA(comparacion ?? 'el periodo anterior');
 
   return (
-    <div data-tour="informes-vista" className="space-y-6" style={{ backgroundColor: 'var(--background)', minHeight: '100%', padding: '0 0 40px' }}>
-
+    <div data-tour="informes-vista" className="space-y-5 pb-24">
       <PageHeader
-        className="pt-2"
-        title="Informes y analítica"
-        description={`Panel de rendimiento del estudio · ${now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`}
-        actions={
-          <div
-            // `bg-muted`, no `var(--border)`: ese token es para líneas de un
-            // píxel, no para superficies, y es más oscuro que `--muted` — el
-            // texto de las opciones inactivas se quedaba en 4,32:1. Es además
-            // el fondo que usan los demás segmentados del panel.
-            className="flex items-center gap-1 p-1 rounded-xl overflow-x-auto flex-nowrap bg-muted"
-            role="group"
-            aria-label="Seleccionar periodo"
-          >
-            {PERIOD_OPTS.map(opt => (
-              <button
-                key={opt.key}
-                onClick={() => setPeriod(opt.key)}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
-                style={period === opt.key
-                  ? { backgroundColor: 'var(--foreground)', color: 'var(--background)', boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }
-                  : { color: 'var(--muted-foreground)', backgroundColor: 'transparent' }
-                }
-              >
-                {opt.label}
-              </button>
-            ))}
+        title="Informes"
+        description="Cuánto has cobrado, cómo se llenan las clases y quién viene, frente al mismo tramo del periodo anterior."
+        actions={(
+          <div className="flex items-center gap-2 print:hidden">
+            <Link href="/cierre" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted">
+              <FileText size={15} aria-hidden />Cierre para la gestoría
+            </Link>
+            <MenuAcciones
+              etiqueta="Descargar"
+              claseBoton="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+              boton={(
+                <>
+                  {descarga === 'loading' ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Download size={15} aria-hidden />}
+                  {descarga === 'loading' ? 'Preparando…' : descarga === 'done' ? 'Descargado' : 'Descargar'}
+                  <ChevronDown size={14} aria-hidden />
+                </>
+              )}
+              acciones={[
+                {
+                  texto: 'Lo cobrado (para Excel)', icono: Download, desactivada: descargas.ocupado,
+                  nota: 'El mismo fichero que Cobros, con los cobros del periodo que ves.',
+                  onClick: () => void descargas.descargar(visible),
+                },
+                { texto: 'Imprimir / guardar PDF', icono: Printer, onClick: () => setTimeout(() => window.print(), 50) },
+              ]}
+            />
           </div>
-        }
+        )}
       />
 
-      {/* I-14 (58ª auditoría): `fetchAllRows` puede fallar a media paginación —
-          antes eso se veía igual que "0 filas", así que un número bajo por un
-          fallo de red parecía un dato real. Solo se enseña si alguna de las
-          tablas que ESTA pantalla usa (recibos/sesiones/reservas) está en la
-          lista; el resto (p.ej. facturas) no cambiaría nada de lo que se ve aquí. */}
-      {datosIncompletos.some(t => ['recibos', 'sesiones', 'reservas'].includes(t)) && (
-        <div
-          className="rounded-xl px-4 py-3 text-sm font-medium"
-          style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)' }}
-          role="alert"
-        >
-          Algunos datos no se han podido cargar del todo por un fallo de conexión — los números de
-          esta página pueden estar incompletos. Recarga la página; si sigue pasando, contacta con soporte.
-        </div>
-      )}
-
-      {/* ── Section 1: KPI cards ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {verFinanzas && (
-          <>
-            {/* Ingresos período */}
-            <div className="bg-card border border-border rounded-xl p-5">
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-                style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))' }}
-              >
-                <TrendingUp size={17} style={{ color: 'var(--success)' }} />
-              </div>
-              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos período</p>
-              <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
-                {totalIngresos === null ? '—' : fmtEurFull(totalIngresos)}
-              </CifraPrivada>
-              <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>cobrados en el periodo · con IVA, ya restado lo devuelto</p>
-              {ventasSinReciboPeriodo.n > 0 && (
-                <p className="text-[11px] mt-1" style={{ color: 'var(--muted-foreground)' }}>
-                  No incluye {ventasSinReciboPeriodo.n === 1 ? 'una venta' : `${ventasSinReciboPeriodo.n} ventas`} de la caja
-                  {' '}({fmtEurFull(ventasSinReciboPeriodo.total)}) cobrada{ventasSinReciboPeriodo.n === 1 ? '' : 's'} sin recibo.
-                </p>
-              )}
-            </div>
-
-            {/* MRR */}
-            <div className="bg-card border border-border rounded-xl p-5">
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center mb-3 bg-brand-secondary/10"
-              >
-                <CreditCard size={17} className="text-brand-secondary" />
-              </div>
-              <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Ingresos del mes</p>
-              <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
-                {mrr === null ? '—' : fmtEurFull(mrr)}
-              </CifraPrivada>
-              <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>ingresos mes actual</p>
-            </div>
-
-            {/* Ticket medio */}
-            <div className="bg-card border border-border rounded-xl p-5">
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-                style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))' }}
-              >
-                <Activity size={17} style={{ color: 'var(--warning)' }} />
-              </div>
-              <p className="text-xs font-semibold" style={{ color: 'var(--muted-foreground)' }}>Ticket medio de quien pagó</p>
-              <p className="text-[11px] mb-1" style={{ color: 'var(--muted-foreground)' }}>Lo que paga de media cada clienta que ha pagado algo este periodo</p>
-              <CifraPrivada className="text-2xl font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
-                {ticketMedio === null ? '—' : fmtEurFull(ticketMedio)}
-              </CifraPrivada>
-              <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>solo entre las clientas con algún cobro en el periodo</p>
-            </div>
-          </>
-        )}
-
-        {/* Clientas activas: el mismo número que el Resumen y el chip de Clientas */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-            style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 10%, var(--card))' }}
-          >
-            <Users size={17} style={{ color: 'var(--primary)' }} />
-          </div>
-          <p className="text-xs font-semibold" style={{ color: 'var(--muted-foreground)' }}>Clientas activas</p>
-          <p className="text-[11px] mb-1" style={{ color: 'var(--muted-foreground)' }}>Pueden reservar ahora (cuota vigente o bono con sesiones) o han venido en los últimos {DIAS_VINO_HACE_POCO} días: el mismo número que en Resumen</p>
-          {conteosClientas ? (
-            <Link href="/clientas?estado=ACTIVA" className="text-2xl font-extrabold leading-none hover:underline underline-offset-4" style={{ color: 'var(--foreground)' }}>
-              {conteosClientas.ACTIVA}
-            </Link>
-          ) : (
-            <p className="text-2xl font-extrabold leading-none" style={{ color: 'var(--muted-foreground)' }}>—</p>
-          )}
-          {conteosClientas && (conteosClientas.PAUSADA > 0 || conteosClientas.SIN_RENOVAR > 0) && (
-            <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--muted-foreground)' }}>
-              y{' '}
-              {conteosClientas.PAUSADA > 0 && (
-                <Link href="/clientas?estado=PAUSADA" className="underline-offset-2 hover:underline">
-                  {conteosClientas.PAUSADA} {conteosClientas.PAUSADA === 1 ? 'pausada' : 'pausadas'}
-                </Link>
-              )}
-              {conteosClientas.PAUSADA > 0 && conteosClientas.SIN_RENOVAR > 0 && ' · '}
-              {conteosClientas.SIN_RENOVAR > 0 && (
-                <Link href="/clientas?estado=SIN_RENOVAR" className="underline-offset-2 hover:underline">
-                  {conteosClientas.SIN_RENOVAR} sin renovar
-                </Link>
-              )}
-            </p>
-          )}
-        </div>
+      <div className="print:hidden">
+        <SelectorPeriodo periodo={periodo} referencia={ref} hoy={hoy} haySiguiente={tramos.haySiguiente} onPeriodo={elegirPeriodo} onMover={mover} />
       </div>
 
-      {/* Por qué hay guiones donde deberían ir euros. Sin esta línea, «—» en las
-          tres tarjetas es tan mudo como el 0,00 € que había antes: dice que no
-          hay número, no que no hemos podido traerlo. */}
-      {verFinanzas && fallo && (
-        <div
-          className="rounded-xl border p-4 flex flex-wrap items-center justify-between gap-3"
-          style={{ borderColor: 'color-mix(in srgb, var(--warning) 35%, var(--border))', backgroundColor: 'color-mix(in srgb, var(--warning) 8%, var(--card))' }}
-        >
-          <p className="text-sm" style={{ color: 'var(--foreground)' }}>
-            No hemos podido cargar los ingresos. Los importes salen como «—» a propósito:{' '}
-            <strong>no son cero, es que no lo sabemos.</strong>
-          </p>
-          <button
-            type="button"
-            onClick={() => setIntento(n => n + 1)}
-            className="text-sm font-semibold px-3 py-1.5 rounded-lg border shrink-0"
-            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--card)', color: 'var(--foreground)' }}
-          >
-            Reintentar
-          </button>
-        </div>
-      )}
-
-      {/* ── Section 2: Revenue bar chart ────────────────────────────────────── */}
-      {/* Como las tarjetas KPI y el export: CifraPrivada es solo un difuminado
-          contra miradas de reojo (se quita con un clic), no un permiso — se
-          quedó sin el gate real cuando se añadió verFinanzas a esta página. */}
-      {verFinanzas && (
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-start justify-between mb-1">
-          <div>
-            <h2 className="text-base font-extrabold" style={{ color: 'var(--foreground)' }}>Evolución de ingresos</h2>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>Cobros realizados en el periodo seleccionado</p>
-          </div>
-          <div className="text-right">
-            <CifraPrivada inline className="text-lg font-extrabold" style={{ color: 'var(--foreground)' }}>{totalIngresos === null ? '—' : fmtEurFull(totalIngresos)}</CifraPrivada>
-            <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>acumulado</p>
-          </div>
-        </div>
-
-        {fallo ? (
-          /* Sin datos del servidor, el gráfico dibujaría treinta barras a cero
-             sobre un eje inventado — que es exactamente lo mismo que decir
-             «no se cobró nada». Mejor no dibujar nada. */
-          <p className="text-sm py-10 text-center" style={{ color: 'var(--muted-foreground)' }}>
-            No hemos podido cargar los cobros de este periodo.
-          </p>
-        ) : (
-        <>
-        {/* Legend */}
-        <div className="flex items-center gap-4 mb-5 mt-3">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--success)' }} />
-            <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>Creciendo</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--warning)' }} />
-            <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>Estable</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--destructive)' }} />
-            <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>Decreciendo</span>
-          </div>
-        </div>
-
-        <CifraPrivada className="overflow-x-auto">
-          <svg
-            width={Math.max(chartW, 480)}
-            height={CHART_H + 52 + PADDING_T}
-            // ⚠️ El lienzo empieza ARRIBA del cero. La marca más alta del eje
-            // cae en y=0 y su etiqueta se dibuja con la base en y=4: a 9 px de
-            // cuerpo, la parte de arriba de los dígitos quedaba fuera y la
-            // cifra mayor del gráfico salía descabezada, siempre. Se corre el
-            // viewBox en vez de mover cada hijo.
-            viewBox={`0 ${-PADDING_T} ${Math.max(chartW, 480)} ${CHART_H + 52 + PADDING_T}`}
-            style={{ display: 'block', minWidth: '100%' }}
-            aria-label="Gráfico de ingresos"
-            role="img"
-          >
-            {/* Y-axis grid + labels */}
-            {yTicks.map(tick => (
-              <g key={tick.val}>
-                <line
-                  x1={PADDING_L}
-                  y1={tick.y}
-                  x2={Math.max(chartW, 480)}
-                  y2={tick.y}
-                  stroke="var(--muted)"
-                  strokeWidth="1"
-                />
-                <text
-                  x={PADDING_L - 6}
-                  y={tick.y + 4}
-                  textAnchor="end"
-                  fontSize="9"
-                  fill="var(--muted-foreground)"
-                  fontWeight="500"
-                >
-                  {fmtEur(tick.val)}
-                </text>
-              </g>
-            ))}
-
-            {/* Bars */}
-            {revenueChart.map((d, i) => {
-              const barH = Math.max((d.value / maxVal) * CHART_H, d.value > 0 ? 4 : 2);
-              const x = PADDING_L + i * (BAR_W + BAR_GAP);
-              const y = CHART_H - barH;
-              const color = barColor(i, d.value);
-              const isHovered = tooltipIdx === i;
-
-              return (
-                <g key={d.key}>
-                  {/* Hover highlight */}
-                  {isHovered && (
-                    <rect
-                      x={x - 2}
-                      y={0}
-                      width={BAR_W + 4}
-                      height={CHART_H + 4}
-                      rx={4}
-                      fill="var(--muted)"
-                    />
-                  )}
-
-                  {/* Bar */}
-                  <rect
-                    x={x}
-                    y={y}
-                    width={BAR_W}
-                    height={barH}
-                    rx={period === 'month' ? 2 : 4}
-                    fill={d.value === 0 ? 'var(--muted)' : color}
-                    opacity={isHovered ? 1 : 0.88}
-                    style={{ cursor: 'pointer', transition: 'opacity 0.15s' }}
-                    onMouseEnter={() => setTooltipIdx(i)}
-                    onMouseLeave={() => setTooltipIdx(null)}
-                  />
-
-                  {/* Value label on bar (skip if bar too narrow) */}
-                  {d.value > 0 && BAR_W >= 20 && (
-                    <text
-                      x={x + BAR_W / 2}
-                      y={y - 5}
-                      textAnchor="middle"
-                      fontSize="9"
-                      fill={color}
-                      fontWeight="700"
-                    >
-                      {fmtEur(d.value)}
-                    </text>
-                  )}
-
-                  {/* X-axis label */}
-                  {(i % LABEL_SKIP === 0 || i === revenueChart.length - 1) && (
-                    <text
-                      x={x + BAR_W / 2}
-                      y={CHART_H + 18}
-                      textAnchor="middle"
-                      fontSize="9"
-                      fill="var(--muted-foreground)"
-                      fontWeight="500"
-                    >
-                      {d.label}
-                    </text>
-                  )}
-
-                  {/* Tooltip */}
-                  {isHovered && d.value > 0 && (
-                    <g>
-                      <rect
-                        x={Math.min(x - 24, Math.max(chartW, 480) - 96)}
-                        y={y - 38}
-                        width={90}
-                        height={28}
-                        rx={6}
-                        fill="var(--foreground)"
-                      />
-                      <text
-                        x={Math.min(x - 24, Math.max(chartW, 480) - 96) + 45}
-                        y={y - 28}
-                        textAnchor="middle"
-                        fontSize="10"
-                        fill="var(--background)"
-                        fontWeight="600"
-                      >
-                        {d.label}
-                      </text>
-                      <text
-                        x={Math.min(x - 24, Math.max(chartW, 480) - 96) + 45}
-                        y={y - 16}
-                        textAnchor="middle"
-                        fontSize="10"
-                        fill="color-mix(in srgb, var(--success) 12%, var(--card))"
-                        fontWeight="700"
-                      >
-                        {fmtEurFull(d.value)}
-                      </text>
-                    </g>
-                  )}
-                </g>
-              );
-            })}
-
-            {/* X baseline */}
-            <line x1={PADDING_L} y1={CHART_H} x2={Math.max(chartW, 480)} y2={CHART_H} stroke="var(--border)" strokeWidth="1" />
-          </svg>
-        </CifraPrivada>
-        </>
-        )}
-      </div>
-      )}
-
-      {/* ── Section 2b: Ventas por tipo (Planes/Bonos/Clases sueltas/Otros) ──── */}
-      {verFinanzas && (
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Ventas por tipo</h2>
-        <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>
-          Cobrado en el periodo, comparado con un periodo anterior de igual duración
+      {/* `fetchAllRows` puede fallar a media paginación, y eso se veía igual que
+          «0 filas»: un número bajo por un fallo de red parecía un dato real. */}
+      {datosIncompletos.some(t => ['recibos', 'sesiones', 'reservas', 'suscripciones'].includes(t)) && (
+        <p role="alert" className="rounded-xl bg-warning/10 px-4 py-3 text-[13px] font-medium text-foreground">
+          Algunos datos no se han podido cargar del todo por un fallo de conexión: las cifras de esta página pueden estar
+          incompletas. Recarga la página; si sigue pasando, contacta con soporte.
         </p>
-
-        {/* `null` es ambiguo por sí solo: `fallo` lo desambigua. Antes, un
-            fallo dejaba este esqueleto latiendo para siempre — o, cuando el
-            helper devolvía `[]`, cuatro tarjetas a «0,00 € · 0 ventas». */}
-        {ventasTipo === null && fallo ? (
-          <p className="text-sm py-6 text-center" style={{ color: 'var(--muted-foreground)' }}>
-            No hemos podido cargar las ventas de este periodo.
-          </p>
-        ) : ventasTipo === null ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-pulse">
-            {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-border rounded-lg" />)}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {ventasTipo.map(v => (
-              <div key={v.tipo} className="rounded-lg p-4" style={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)' }}>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Package size={14} style={{ color: 'var(--muted-foreground)' }} />
-                  <p className="text-xs font-semibold" style={{ color: 'var(--muted-foreground)' }}>{v.etiqueta}</p>
-                </div>
-                <CifraPrivada className="text-lg font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
-                  {fmtEurFull(v.total)}
-                </CifraPrivada>
-                <div className="flex items-center justify-between mt-1.5">
-                  <p className="text-[11px]" style={{ color: 'var(--muted-foreground)' }}>{v.nVentas} {v.nVentas === 1 ? 'venta' : 'ventas'}</p>
-                  {v.variacionPct === null ? (
-                    <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>sin datos previos</span>
-                  ) : (
-                    <span
-                      className="text-[11px] font-bold tabular-nums"
-                      style={{ color: v.variacionPct > 0 ? 'var(--success)' : v.variacionPct < 0 ? 'var(--destructive)' : 'var(--muted-foreground)' }}
-                    >
-                      {v.variacionPct > 0 ? '+' : ''}{v.variacionPct}%
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       )}
 
-      {/* ── Section 3: 2-col grid ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        {/* Left: Ocupación por tipo de clase */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Ocupación por tipo de clase</h2>
-          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>% plazas ocupadas sobre aforo total en el periodo</p>
-
-          {ocupacionPorTipo.length === 0 ? (
-            <div className="flex items-center justify-center h-40">
-              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Sin sesiones en el periodo</p>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {ocupacionPorTipo.map(tc => (
-                <div key={tc.id}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: tc.color }}
-                      />
-                      <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{tc.nombre}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>{tc.ocupadas}/{tc.aforo}</span>
-                      <span
-                        className="text-sm font-bold tabular-nums"
-                        style={{ color: tc.pct >= 80 ? 'var(--success)' : tc.pct >= 50 ? 'var(--warning)' : 'var(--muted-foreground)' }}
-                      >
-                        {tc.pct}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* SVG horizontal bar */}
-                  <svg width="100%" height="12" style={{ display: 'block' }}>
-                    <rect x={0} y={2} width="100%" height={8} rx={4} fill="var(--muted)" />
-                    <rect
-                      x={0}
-                      y={2}
-                      width={`${tc.pct}%`}
-                      height={8}
-                      rx={4}
-                      fill={tc.color}
-                    />
-                  </svg>
-
-                  <p className="text-[11px] mt-1" style={{ color: 'var(--muted-foreground)' }}>{tc.sesiones} sesiones</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Right: cuántas siguen viniendo, por mes en que empezaron */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Cuántas siguen viniendo, por mes en que empezaron</h2>
-          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>
-            De las clientas que compraron su primer plan o bono cada mes, cuántas vinieron a alguna clase en su segundo mes y en su tercero.
-            No cuentan las importadas ni las que ya venían de antes. «—»: ese mes aún no ha pasado entero para todas.
-          </p>
-
-          {!estadosListos ? (
-            <div className="flex items-center justify-center h-40">
-              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Cargando…</p>
-            </div>
-          ) : cohortes.every(f => f.empezaron === 0) ? (
-            <div className="flex items-center justify-center h-40">
-              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Nadie ha empezado en estos seis meses: no hay nada que medir todavía</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-                <thead>
-                  <tr>
-                    <th className="text-left font-semibold pb-2 pr-3" style={{ color: 'var(--muted-foreground)' }}>Mes</th>
-                    <th className="text-right font-semibold pb-2 pr-3" style={{ color: 'var(--muted-foreground)' }}>Empezaron</th>
-                    <th className="text-right font-semibold pb-2 pr-3" style={{ color: 'var(--muted-foreground)' }}>Siguen en su 2.º mes</th>
-                    <th className="text-right font-semibold pb-2" style={{ color: 'var(--muted-foreground)' }}>En su 3.er mes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cohortes.map((fila, i) => (
-                    <tr
-                      key={fila.mes}
-                      style={{ borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}
-                    >
-                      <td className="py-2 pr-3 font-semibold capitalize" style={{ color: 'var(--foreground)' }}>{etiquetaMes(fila.mes)}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{fila.empezaron}</td>
-                      <td className="py-2 pr-3 text-right">{fila.empezaron > 0 ? <CeldaCohorte tramo={fila.segundoMes} /> : <span style={{ color: 'var(--muted-foreground)' }}>—</span>}</td>
-                      <td className="py-2 text-right">{fila.empezaron > 0 ? <CeldaCohorte tramo={fila.tercerMes} /> : <span style={{ color: 'var(--muted-foreground)' }}>—</span>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+      <div className="grid divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-3 md:divide-x md:divide-y-0" data-testid="informe-titular">
+        <Hecho
+          testId="informe-cobrado"
+          titulo="Cobrado · neto, ya restado lo devuelto"
+          valor={<CifraPrivada inline>{formatEuro(dinero.actual.neto)}</CifraPrivada>}
+          comparacion={difCobrado == null ? null : {
+            texto: <CifraPrivada inline>{conSignoEuros(difCobrado)}</CifraPrivada>, tono: tonoDiferencia(difCobrado),
+            frente: <>{frente} (<CifraPrivada inline>{formatEuro(dinero.anterior?.neto ?? 0)}</CifraPrivada>)</>,
+          }}
+          nota={`${dinero.actual.nCobros} ${dinero.actual.nCobros === 1 ? 'cobro' : 'cobros'}`}
+        />
+        <Hecho
+          testId="informe-ocupacion"
+          titulo="Ocupación de las clases"
+          valor={clases.actual.pct == null ? '—' : `${clases.actual.pct} %`}
+          comparacion={puntos == null ? null : { texto: conSigno(puntos, ' puntos'), tono: tonoDiferencia(puntos), frente }}
+          nota={`${clases.actual.ocupadas} de ${clases.actual.aforo} plazas en ${clases.actual.nClases} ${clases.actual.nClases === 1 ? 'clase' : 'clases'}`}
+        />
+        <Hecho
+          testId="informe-vinieron"
+          titulo="Clientas que vinieron"
+          valor={clases.actual.sinPasarLista ? '—' : clientas.actual.vinieron}
+          comparacion={clases.actual.sinPasarLista || difVinieron == null ? null : { texto: conSigno(difVinieron), tono: tonoDiferencia(difVinieron), frente }}
+          nota={clases.actual.sinPasarLista ? 'No se ha pasado lista: no sabemos quién vino.' : 'Distintas, a alguna clase del periodo.'}
+        />
       </div>
 
-      {/* ── Section 4: Leaderboard row ──────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <BloqueDinero
+        periodo={periodo} actual={dinero.actual} anterior={dinero.anterior} puntos={dinero.puntos} comparacion={comparacion}
+        ventasSinRecibo={ventasSinRecibo} plataformas={plataformas} onDescargarPlataformas={descargarPlataformas}
+      />
+      <BloqueClases
+        clases={clases.actual} anterior={clases.anterior} comparacion={comparacion} margenes={margenes}
+        nombres={{ tipo: id => tiposPorId.get(id), instructora: id => instructorasPorId.get(id) }}
+      />
+      <BloqueClientas
+        clientas={clientas.actual}
+        nuevas={nuevasEnTramo(empezaron, visible)}
+        nuevasAntes={tramos.anterior ? nuevasEnTramo(empezaron, tramos.anterior) : null}
+        comparacion={comparacion}
+        sinPasarLista={clases.actual.sinPasarLista}
+        nombreDe={id => { const s = sociosPorId.get(id); return s ? `${s.nombre} ${s.apellidos ?? ''}`.trim() : 'Clienta'; }}
+        conteos={conteos}
+        cohortes={cohortes}
+        cohortesListas={estadosListos}
+      />
 
-        {/* Top 5 socias */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Top 5 clientas</h2>
-          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>Más sesiones asistidas en el periodo</p>
-
-          {topSocias.length === 0 ? (
-            <div className="flex items-center justify-center h-32">
-              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Sin asistencias registradas</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {topSocias.map((s, i) => {
-                const medals = ['🥇', '🥈', '🥉'];
-                const pct = Math.round((s.clases / topSocias[0].clases) * 100);
-                return (
-                  <div key={s.id} className="flex items-center gap-3">
-                    <span className="text-base w-6 flex-shrink-0 text-center">{medals[i] ?? `#${i + 1}`}</span>
-
-                    {/* Avatar */}
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 bg-accent text-accent-foreground"
-                    >
-                      {s.nombre[0]}{s.apellidos?.[0] ?? ''}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--foreground)' }}>
-                        {s.nombre} {s.apellidos}
-                      </p>
-                      <div className="mt-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--muted)' }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${pct}%`, backgroundColor: i === 0 ? 'var(--brand)' : 'var(--muted-foreground)' }}
-                        />
-                      </div>
-                    </div>
-
-                    <span
-                      className="text-sm font-extrabold tabular-nums flex-shrink-0"
-                      style={{ color: i === 0 ? 'var(--brand-secondary)' : 'var(--foreground)' }}
-                    >
-                      {s.clases}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Clases más populares */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Clases más populares</h2>
-          <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>Por número de reservas en el periodo</p>
-
-          {topClases.length === 0 ? (
-            <div className="flex items-center justify-center h-32">
-              <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Sin reservas en el periodo</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {topClases.map((tc, i) => {
-                const pct = Math.round((tc.count / topClases[0].count) * 100);
-                return (
-                  <div key={tc.id}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold w-4 text-right" style={{ color: 'var(--muted-foreground)' }}>#{i + 1}</span>
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: tc.color }} />
-                        <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{tc.nombre}</span>
-                      </div>
-                      <span className="text-sm font-extrabold tabular-nums" style={{ color: 'var(--foreground)' }}>
-                        {tc.count}
-                      </span>
-                    </div>
-                    {/* SVG bar */}
-                    <svg width="100%" height="10" style={{ display: 'block' }}>
-                      <rect x={0} y={1} width="100%" height={8} rx={4} fill="var(--muted)" />
-                      <rect
-                        x={0}
-                        y={1}
-                        width={`${pct}%`}
-                        height={8}
-                        rx={4}
-                        fill={tc.color}
-                        opacity={0.85}
-                      />
-                    </svg>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Reservas de plataformas (ClassPass, USC, Wellhub) ─────────────────── */}
-      {plataformasPeriodo.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-6" data-testid="informe-plataformas">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Reservas de plataformas</h2>
-              <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                Lo que han vendido ClassPass, Urban Sports Club o Wellhub en el periodo. Pagan por visita: cuádralo con «Vinieron».
-              </p>
-            </div>
-            <button
-              onClick={descargarPlataformas}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold border shrink-0"
-              style={{ backgroundColor: 'var(--card)', color: 'var(--foreground)', borderColor: 'var(--border)' }}
-            >
-              <Download size={14} />Descargar detalle
-            </button>
-          </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs" style={{ color: 'var(--muted-foreground)' }}>
-                <th className="font-semibold pb-2">Plataforma</th>
-                <th className="font-semibold pb-2 text-right">Vinieron</th>
-                <th className="font-semibold pb-2 text-right">No vinieron</th>
-                <th className="font-semibold pb-2 text-right">Sin pasar lista</th>
-                <th className="font-semibold pb-2 text-right">Canceladas</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plataformasPeriodo.map(f => (
-                <tr key={f.plataforma} className="border-t border-border">
-                  <td className="py-2 font-semibold" style={{ color: 'var(--foreground)' }}>{NOMBRE_PLATAFORMA[f.plataforma]}</td>
-                  <td className="py-2 text-right tabular-nums font-extrabold" style={{ color: 'var(--foreground)' }}>{f.vinieron}</td>
-                  <td className="py-2 text-right tabular-nums">{f.noVinieron}</td>
-                  <td className="py-2 text-right tabular-nums">{f.pendientes}</td>
-                  <td className="py-2 text-right tabular-nums">{f.canceladas}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ── Section 4b: Margen por clase ─────────────────────────────────────── */}
-      {verFinanzas && (
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-1">
-          <Scale size={16} style={{ color: 'var(--muted-foreground)' }} />
-          <h2 className="text-base font-extrabold" style={{ color: 'var(--foreground)' }}>Margen por clase</h2>
-        </div>
-        <p className="text-xs mb-4" style={{ color: 'var(--muted-foreground)' }}>
-          {verCosteInstructoras
-            ? 'Margen sobre coste de instructora del periodo seleccionado (no incluye coste de sala, que este informe todavía no calcula). Peor margen primero.'
-            : 'Ingreso imputado por clase del periodo seleccionado. El coste y el margen son dato de tarifas de instructora, visible solo para propietaria/gerencia.'}
-        </p>
-        {margenClases.length === 0 ? (
-          <p className="text-sm text-center py-8" style={{ color: 'var(--muted-foreground)' }}>
-            Sin clases ya impartidas en este periodo.
-          </p>
-        ) : (
-        <div className="overflow-x-auto -mx-2">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left" style={{ color: 'var(--muted-foreground)' }}>
-                <th className="px-2 py-2 font-semibold">Fecha</th>
-                <th className="px-2 py-2 font-semibold">Clase</th>
-                <th className="px-2 py-2 font-semibold">Instructora</th>
-                <th className="px-2 py-2 font-semibold text-right">Asist.</th>
-                <th className="px-2 py-2 font-semibold text-right">Ingreso</th>
-                {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right">Coste</th>}
-                {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right">Margen</th>}
-                {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right" title="Cuántas alumnas tienen que venir para que la clase no dé pérdidas">Punto de equilibrio</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {margenClases.map(m => {
-                const tipo = tiposClase.find(t => t.id === m.sesion.tipoClaseId);
-                const instructora = instructores.find(i => i.id === m.sesion.instructorId);
-                return (
-                  <tr key={m.sesionId} className="border-t" style={{ borderColor: 'var(--border)' }}>
-                    <td className="px-2 py-2 whitespace-nowrap" style={{ color: 'var(--foreground)' }}>
-                      {fechaLargaEstudio(m.sesion.inicio)} · {horaEstudio(m.sesion.inicio)}
-                    </td>
-                    <td className="px-2 py-2" style={{ color: 'var(--foreground)' }} title={tipo ? undefined : 'Este tipo de clase ya no existe'}>{tipo?.nombre ?? '—'}</td>
-                    <td className="px-2 py-2" style={{ color: 'var(--foreground)' }} title={instructora ? undefined : 'Esta instructora ya no está de alta'}>{instructora?.nombre ?? '—'}</td>
-                    <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{m.asistentes}</td>
-                    <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{fmtEurFull(m.ingresoImputado)}</td>
-                    {verCosteInstructoras && (
-                      <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>
-                        {m.costeInstructora === null ? '— (sin tarifa)' : fmtEurFull(m.costeInstructora)}
-                      </td>
-                    )}
-                    {verCosteInstructoras && (
-                      <td
-                        className="px-2 py-2 text-right tabular-nums font-bold"
-                        style={{ color: m.margen === null ? 'var(--muted-foreground)' : m.margen < 0 ? 'var(--destructive)' : 'var(--success)' }}
-                        title={m.margen === null ? 'No se puede calcular sin coste de instructora' : undefined}
-                      >
-                        {m.margen === null ? '—' : fmtEurFull(m.margen)}
-                      </td>
-                    )}
-                    {verCosteInstructoras && (
-                      <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }} title={m.breakEvenAsistentes === null ? 'No se puede calcular sin coste de instructora' : undefined}>
-                        {m.breakEvenAsistentes === null ? '—' : `${m.breakEvenAsistentes}`}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        )}
-      </div>
-      )}
-
-      {/* ── Section 5: Export ────────────────────────────────────────────────── */}
-      {verFinanzas && (
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-base font-extrabold" style={{ color: 'var(--foreground)' }}>Exportar datos</h2>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
-              Descarga los datos del periodo seleccionado
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* CSV export */}
-            <button
-              onClick={exportCSV}
-              disabled={csvState !== 'idle'}
-              title="Un archivo que se abre en Excel o Google Sheets"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
-              style={csvState === 'done'
-                ? { backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)', borderColor: '#A7F3D0' }
-                : { backgroundColor: 'var(--card)', color: 'var(--foreground)', borderColor: 'var(--border)' }
-              }
-            >
-              <Download size={14} />
-              {csvState === 'idle' ? 'Exportar CSV'
-                : csvState === 'loading' ? 'Exportando...'
-                : csvState === 'error' ? 'No se ha podido descargar: inténtalo otra vez'
-                : 'Exportado ✓'}
-            </button>
-
-            {/* PDF download */}
-            <button
-              onClick={exportPDF}
-              disabled={pdfState !== 'idle'}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground"
-              style={pdfState === 'done'
-                ? { backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)', borderColor: '#A7F3D0' }
-                : { backgroundColor: 'var(--foreground)', color: 'var(--background)', borderColor: 'var(--foreground)' }
-              }
-            >
-              <FileText size={14} />
-              {pdfState === 'idle' ? 'Descargar PDF'
-                : pdfState === 'loading' ? 'Generando...'
-                : 'Descargado ✓'}
-            </button>
-          </div>
-        </div>
-      </div>
+      {toast.message && (
+        <Toast key={toast.message} message={toast.message} variant={toast.variant} action={toast.action} onDismiss={toast.dismiss} />
       )}
     </div>
   );

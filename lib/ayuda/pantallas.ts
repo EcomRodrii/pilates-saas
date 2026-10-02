@@ -124,7 +124,7 @@ export const AYUDA_POR_PANTALLA: Record<string, AyudaPantalla> = {
   '/informes': {
     titulo: 'Informes',
     resumen:
-      'Las cifras del estudio sin montar un Excel: cuánto entra, cómo se llena cada clase, quién repite y quién se está yendo. Sale todo de lo que ya pasa en Tentare, no hay que meter nada.',
+      'Las cifras del estudio sin montar un Excel: cuánto has cobrado, cómo se llena cada clase y quién viene, frente al mismo tramo del periodo anterior. Sale todo de lo que ya pasa en Tentare, no hay que meter nada.',
     ahorra: 'Decidir a ojo qué franja abrir y qué clase quitar.',
     destino: { categoria: 'informes', slug: 'informes-disponibles' },
   },

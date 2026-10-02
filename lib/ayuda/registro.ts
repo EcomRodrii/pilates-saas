@@ -580,7 +580,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
     slug: 'informes-disponibles', categoria: 'informes', tipo: 'guia',
     titulo: 'Informes de ocupación, ingresos y retención',
     descripcion: 'Qué mide cada informe y cómo leerlo con criterio.',
-    actualizado: '2026-09-14',
+    actualizado: '2026-10-02',
     relacionados: ['reservas/reglas-de-reserva-por-clase'],
     estado: 'publicado',
   },
