@@ -43,6 +43,8 @@ export interface ReciboParaAcciones extends ReciboParaDevolver {
   socioId: string | null;
   fechaCobro?: string | null;
   fechaDevolucion?: string | null;
+  /** Cuándo se preparó en un fichero de remesa (migr `recibos_marcas_de_tiempo`). */
+  enviadoAlBancoEn?: string | null;
 }
 
 export interface ContextoDeAcciones {
@@ -54,8 +56,11 @@ export interface ContextoDeAcciones {
   estudioHaceRemesas: boolean;
   /** Mandato VIGENTE de la clienta: solo con él entra en la próxima remesa. */
   mandatoVigente: boolean;
-  /** Algún mandato, vigente o no: sin ninguno no pudo salir en una remesa. */
-  algunMandato: boolean;
+  /**
+   * Algún mandato, vigente o no: sin ninguno no pudo salir en una remesa.
+   * `null` = aún no se sabe (las domiciliaciones llegan en la segunda ola, o fallaron).
+   */
+  algunMandato: boolean | null;
   /** El botón de cobrarle sin ella delante (`comoSeLePuedeCobrar(...).online`), o null. */
   cobroSinElla: { boton: string } | null;
   /** La cuota del recibo, si la tiene. */
@@ -97,11 +102,20 @@ export function accionesDeRecibo(r: ReciboParaAcciones, ctx: ContextoDeAcciones)
     if (dev.loCierraStripe) {
       return [{ id: 'LO_CIERRA_STRIPE', texto: 'Lo cierra Stripe', desactivada: true, nota: 'Hay un cobro de Stripe en marcha: se cerrará solo.' }];
     }
+    // Sin saber todavía si tiene domiciliación no se decide nada: devolverlo a «Sin
+    // cobrar» un recibo que SÍ salió en un fichero lo mete en la siguiente remesa, y el
+    // banco lo cargaría dos veces.
+    if (ctx.algunMandato === null) {
+      acciones.push({ id: 'NO_LLEGO_AL_BANCO', texto: 'No llegó a ir al banco', desactivada: true, nota: 'Comprobando sus domiciliaciones…' });
+      return acciones;
+    }
     if (ctx.estudioHaceRemesas && ctx.algunMandato) {
       acciones.push({ id: 'EL_BANCO_LO_HA_COBRADO', texto: 'El banco lo ha cobrado', nota: 'Pasa a cobrado por domiciliación' });
       acciones.push({ id: 'EL_BANCO_LO_DEVOLVIO', texto: 'El banco lo devolvió', peligro: true, nota: 'Lo sigue debiendo' });
     }
-    acciones.push({ id: 'NO_LLEGO_AL_BANCO', texto: 'No llegó a ir al banco', nota: 'Vuelve a «Sin cobrar»' });
+    acciones.push(r.enviadoAlBancoEn
+      ? { id: 'NO_LLEGO_AL_BANCO', texto: 'No llegó a ir al banco', peligro: true, nota: 'Salió en un fichero: solo si no lo subiste, o el banco lo cargaría dos veces' }
+      : { id: 'NO_LLEGO_AL_BANCO', texto: 'No llegó a ir al banco', nota: 'Vuelve a «Sin cobrar»' });
     return acciones;
   }
 

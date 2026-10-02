@@ -41,6 +41,13 @@ test('en el banco: «lo ha cobrado / lo devolvió» solo si pudo salir en una re
   assert.deepEqual(ids(accionesDeRecibo(enBanco, { ...CTX, estudioHaceRemesas: true, algunMandato: true })), ['EL_BANCO_LO_HA_COBRADO', 'EL_BANCO_LO_DEVOLVIO', 'NO_LLEGO_AL_BANCO']);
   assert.deepEqual(ids(accionesDeRecibo(enBanco, { ...CTX, estudioHaceRemesas: false, algunMandato: true })), ['NO_LLEGO_AL_BANCO']);
   assert.deepEqual(ids(accionesDeRecibo(enBanco, { ...CTX, estudioHaceRemesas: true, algunMandato: false })), ['NO_LLEGO_AL_BANCO']);
+  // Sin saber aún sus domiciliaciones, no se decide: apagado y con el motivo.
+  const sinSaber = accionesDeRecibo(enBanco, { ...CTX, estudioHaceRemesas: true, algunMandato: null });
+  assert.deepEqual(ids(sinSaber), ['NO_LLEGO_AL_BANCO']);
+  assert.equal(sinSaber[0].desactivada, true);
+  // Si salió en un fichero, devolverlo a «Sin cobrar» se marca como peligroso.
+  const enFichero = accionesDeRecibo(r({ estado: 'EN_CURSO', enviadoAlBancoEn: '2026-10-01T09:00:00Z' }), { ...CTX, estudioHaceRemesas: true, algunMandato: true });
+  assert.equal(enFichero.find(a => a.id === 'NO_LLEGO_AL_BANCO')?.peligro, true);
 });
 
 test('cobrado en efectivo: solo «Le he devuelto el dinero» (ningún banco lo devuelve); con factura, verla; sin ella y facturando, hacerla', () => {

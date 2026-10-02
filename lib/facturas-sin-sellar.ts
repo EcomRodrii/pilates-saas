@@ -19,6 +19,11 @@ export interface ReciboCobrado {
   id: string; studioId: string; fechaCobro: string | null;
   /** Cómo se cobró. `null` = no consta (cobros antiguos y de pasarela). */
   metodoCobro?: string | null;
+  /**
+   * Se intentó sellar al cobrar y falló. Con «Hacerle factura» (2-oct-2026) un cobro en
+   * efectivo también la pide: si no llega, es avería igual que la de tarjeta.
+   */
+  facturaPendienteSellar?: boolean | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,7 +68,8 @@ export function recibosConFacturaAutomaticaAusente(
   recibos: ReciboCobrado[],
   idsConFactura: ReadonlySet<string>,
 ): ReciboCobrado[] {
-  return recibosCobradosSinFactura(recibos, idsConFactura).filter(r => emiteFacturaAutomatica(r.metodoCobro));
+  return recibosCobradosSinFactura(recibos, idsConFactura)
+    .filter(r => emiteFacturaAutomatica(r.metodoCobro) || r.facturaPendienteSellar === true);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

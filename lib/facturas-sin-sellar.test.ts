@@ -71,3 +71,11 @@ test('avería reciente: solo pasado el reintento de 72 h y dentro de los 10 día
   ], ahora);
   assert.deepEqual(out.map(x => x.id), ['reciente']);
 });
+
+test('«Hacerle factura» en efectivo que no llegó a sellarse es avería, como la de tarjeta', () => {
+  const efectivo = [
+    { id: 'pedida', studioId: 's', fechaCobro: '2026-10-01', metodoCobro: 'EFECTIVO', facturaPendienteSellar: true },
+    { id: 'sin-pedir', studioId: 's', fechaCobro: '2026-10-01', metodoCobro: 'EFECTIVO', facturaPendienteSellar: false },
+  ];
+  assert.deepEqual(recibosConFacturaAutomaticaAusente(efectivo, new Set<string>()).map(r => r.id), ['pedida']);
+});

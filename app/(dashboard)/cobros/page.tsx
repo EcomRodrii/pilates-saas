@@ -5,7 +5,7 @@ import { Landmark, Plus } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol, puedeVerAuditoriaFinanciera } from '@/lib/permisos';
-import { situacionRecibo } from '@/lib/billing/situacion-recibo';
+import { aCentimos, importeEnCurso } from '@/lib/billing/situacion-recibo';
 import { agruparDeudas } from '@/lib/cobros/deudas';
 import { cobradoEnTramo, mismoTramoAnterior, textoDeLaComparacion, tramoVisible } from '@/lib/cobros/lo-cobrado';
 import { PageHeader } from '@/components/ui/page-header';
@@ -166,12 +166,12 @@ function LineaResumen({ datos }: { datos: DatosCobros }) {
   const { recibos } = useStudio();
   const r = useMemo(() => {
     const grupos = agruparDeudas(recibos, id => !!datos.socioDe(id));
-    const enElBanco = recibos.filter(x => situacionRecibo(x) === 'EN_CURSO').reduce((t, x) => t + x.importe, 0);
+    const enElBanco = aCentimos(recibos.reduce((t, x) => t + importeEnCurso(x), 0));
     const mes = tramoVisible('MES', datos.hoy, datos.hoy)!;
     const anterior = mismoTramoAnterior('MES', mes);
     const cobrado = cobradoEnTramo(recibos, mes).neto;
     return {
-      deben: grupos.reduce((t, g) => t + g.total, 0),
+      deben: aCentimos(grupos.reduce((t, g) => t + g.total, 0)),
       clientas: grupos.length,
       enElBanco,
       cobrado,

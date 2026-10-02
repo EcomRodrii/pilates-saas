@@ -34,7 +34,7 @@ export function DialogoCobroEnLote({ ids, metodo, abierto, onCerrar, avisos }: {
   const { studio, recibos, marcarCobradoVarios } = useStudio();
   const [fase, setFase] = useState<Fase>('confirmar');
   const [hechos, setHechos] = useState(0);
-  const [resultado, setResultado] = useState<{ guardados: number; yaEstaban: number; fallidos: number; sinConfirmar: number } | null>(null);
+  const [resultado, setResultado] = useState<{ guardados: number; yaEstaban: number; fallidos: number; sinConfirmar: number; anuladas: number } | null>(null);
   // El dinero no se cobra dos veces: cerrojo síncrono además del estado.
   const enCurso = useRef(false);
 
@@ -57,9 +57,10 @@ export function DialogoCobroEnLote({ ids, metodo, abierto, onCerrar, avisos }: {
       if (sinRenovar > 0) {
         avisos.error(`${sinRenovar} ${sinRenovar === 1 ? 'cobro registrado' : 'cobros registrados'}, pero sin poder renovar el plan: renuévalo a mano desde la ficha de la clienta.`);
       }
-      setResultado({ guardados, yaEstaban, fallidos, sinConfirmar });
+      const anuladas = desenlaces.filter(d => d.resultado === 'penalizacion_anulada').length;
+      setResultado({ guardados, yaEstaban, fallidos, sinConfirmar, anuladas });
     } catch {
-      setResultado({ guardados: 0, yaEstaban: 0, fallidos: 0, sinConfirmar: ids.length });
+      setResultado({ guardados: 0, yaEstaban: 0, fallidos: 0, sinConfirmar: ids.length, anuladas: 0 });
     } finally {
       setFase('hecho');
       enCurso.current = false;
@@ -134,6 +135,11 @@ export function DialogoCobroEnLote({ ids, metodo, abierto, onCerrar, avisos }: {
               </p>
               {resultado.yaEstaban > 0 && (
                 <p className="mt-1 text-sm text-muted-foreground">{resultado.yaEstaban} ya {resultado.yaEstaban === 1 ? 'estaba cobrado' : 'estaban cobrados'}.</p>
+              )}
+              {resultado.anuladas > 0 && (
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  {resultado.anuladas === 1 ? '1 penalización estaba anulada y no se ha cobrado' : `${resultado.anuladas} penalizaciones estaban anuladas y no se han cobrado`}.
+                </p>
               )}
               {resultado.sinConfirmar > 0 && (
                 <p className="mt-1 max-w-sm text-sm text-warning">

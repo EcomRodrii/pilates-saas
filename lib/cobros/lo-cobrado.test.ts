@@ -72,7 +72,8 @@ test('lo cobrado en un tramo: neto de lo devuelto, por el día de COBRO, y el de
   const r = cobradoEnTramo(recibos, { desde: '2026-10-01', hasta: '2026-10-02' });
   assert.equal(r.neto, 89 + 70 + 0 + 30 + 12);
   assert.deepEqual(r.recibos.map(x => x.id), ['a', 'b', 'd', 'p', 'n']);
-  assert.equal(r.nCobros, 5);
+  // El devuelto entero está en la lista, pero no cuenta como cobro (ni va al fichero).
+  assert.equal(r.nCobros, 4);
   assert.equal(r.nConDevolucion, 2);
   assert.deepEqual([...r.porDia.entries()], [['2026-10-01', 131], ['2026-10-02', 70]]);
   const sumaMetodos = ORDEN_COMO_SE_COBRO.reduce((t, k) => t + r.porComo[k].neto, 0);

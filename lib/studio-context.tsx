@@ -4454,6 +4454,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // El dinero ya está confirmado en este punto — un fallo de aquí en adelante es
     // del sellado fiscal, no del cobro. `cobroRegistrado` para que quien llama nunca
     // lo trate como «nada pasó, reintenta»: reenviar el formulario duplicaría el cobro.
+    // Con «Es la renovación de su plan», un plan que no se pudo entregar se dice: el
+    // dinero entró y ella se quedaría sin su bono o su mes.
+    if (d.renovacionFallida) return { ok: false, cobroRegistrado: true, error: MENSAJE_COBRADO_SIN_RENOVAR };
     if (!d.selladoOk) {
       return { ok: false, cobroRegistrado: true, error: 'La factura ha quedado pendiente de sellar. Revisa el NIF del estudio en Configuración → Cobros y facturas → Datos fiscales e IVA.' };
     }

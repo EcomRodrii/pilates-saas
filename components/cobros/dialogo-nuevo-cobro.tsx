@@ -43,20 +43,25 @@ export function DialogoNuevoCobro({ abierto, onCerrar, avisos, socioId }: {
   /** Desde la ficha de la clienta: ya elegida, sin buscador. */
   socioId?: string;
 }) {
+  // Mientras se cobra no se cierra: cerrarlo desmontaría el cerrojo y, al volver a
+  // abrir y enviar, se crearía y cobraría otro recibo.
+  const [ocupado, setOcupado] = useState(false);
   return (
-    <Dialog open={abierto} onOpenChange={o => { if (!o) onCerrar(); }}>
+    <Dialog open={abierto} onOpenChange={o => { if (!o && !ocupado) onCerrar(); }}>
       <DialogContent className="max-w-md" data-testid="dialogo-nuevo-cobro">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold text-foreground">Nuevo cobro</DialogTitle>
         </DialogHeader>
         {/* El contenido se desmonta al cerrar: cada apertura empieza en blanco. */}
-        {abierto && <Formulario onCerrar={onCerrar} avisos={avisos} socioFijo={socioId} />}
+        {abierto && <Formulario onCerrar={onCerrar} onOcupado={setOcupado} avisos={avisos} socioFijo={socioId} />}
       </DialogContent>
     </Dialog>
   );
 }
 
-function Formulario({ onCerrar, avisos, socioFijo }: { onCerrar: () => void; avisos: AvisosCobros; socioFijo?: string }) {
+function Formulario({ onCerrar, onOcupado, avisos, socioFijo }: {
+  onCerrar: () => void; onOcupado: (ocupado: boolean) => void; avisos: AvisosCobros; socioFijo?: string;
+}) {
   const { studio, socios, suscripciones, planesTarifa, recibos, addRecibo, crearFacturaDirecta } = useStudio();
   const [socioId, setSocioId] = useState(socioFijo ?? '');
   const [concepto, setConcepto] = useState('');
@@ -107,13 +112,14 @@ function Formulario({ onCerrar, avisos, socioFijo }: { onCerrar: () => void; avi
     if (!listo || importe == null || enCurso.current) return;
     enCurso.current = true;
     setEnviando(true);
+    onOcupado(true);
     setError(null);
     const nombre = clienta ? clienta.nombre : 'la clienta';
     try {
       if (ahora && metodo) {
         const res = await crearFacturaDirecta(
           { socioId, concepto: concepto.trim(), importe, suscripcionId: sus?.id ?? null, esRenovacion: renovacion },
-          { metodo, hacerFactura: q.ofrecerHacerFactura && hacerFactura },
+          { metodo, hacerFactura: q.ofrecerHacerFactura && hacerFactura && q.saleFactura },
         );
         if (res.ok) {
           avisos.ok(`Cobrado: ${formatEuro(importe)} de ${nombre}.`);
@@ -143,6 +149,7 @@ function Formulario({ onCerrar, avisos, socioFijo }: { onCerrar: () => void; avi
     } finally {
       enCurso.current = false;
       setEnviando(false);
+      onOcupado(false);
     }
   }
 

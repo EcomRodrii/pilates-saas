@@ -48,7 +48,11 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
     && !datos.seCobraSoloEl(r)
     && datos.cuotaDe(r.suscripcionId)?.estado !== 'PAUSADA');
   const totalSinElla = cobrablesSinElla.reduce((t, r) => t + r.importe, 0);
-  const pagoOnlineAbierto = grupo.recibos.some(r => !!r.checkoutSessionId);
+  // Lo que tiene un pago online abierto o un cobro en el datáfono no entra en «Cobrar
+  // X €»: cobrarlo a mano encima y que ella pague también ahí serían dos cobros.
+  const enMarcha = grupo.recibos.filter(r => !!r.checkoutSessionId || !!r.cobroMostradorPi);
+  const aCobrar = grupo.recibos.filter(r => !enMarcha.includes(r));
+  const totalACobrar = aCobrar.reduce((t, r) => t + r.importe, 0);
 
   // Lo que el cobro automático ya va a hacer (o no) con sus recibos.
   const reintentos = grupo.recibos.map(r => ({ r, x: datos.reintentoDe(r) })).filter(({ x }) => x !== null);
@@ -61,15 +65,19 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
   async function cobrarTodo(metodo: MetodoCobro) {
     if (cobrando) return;
     setCobrando(true);
-    const desenlaces = await cobrarRecibosDeUnaClienta(grupo.recibos.map(r => r.id), metodo);
+    const desenlaces = await cobrarRecibosDeUnaClienta(aCobrar.map(r => r.id), metodo);
     setCobrando(false);
     const resumen = resumenDeLote(desenlaces);
     // Nunca «todo cobrado» si fue parcial.
     if (!resumen.ok) { avisos.error(resumen.error); return; }
-    if (resumen.cobrados === 0 && resumen.yaEstaban > 0) { avisos.ok('Ya estaba cobrado.'); return; }
-    avisos.ok(grupo.recibos.length === 1 && resumen.cobrados === 1
-      ? `Cobro registrado: ${formatEuro(grupo.total)} de ${nombre}.`
-      : `${textoLoteCobrado(resumen)} · ${nombre}.`);
+    // Las penalizaciones anuladas no se cobran: se dice cuáles y cuánto.
+    const anulados = new Set(desenlaces.filter(d => d.resultado === 'penalizacion_anulada').map(d => d.reciboId));
+    const saltados = aCobrar.filter(r => anulados.has(r.id));
+    if (resumen.cobrados === 0 && resumen.yaEstaban > 0 && saltados.length === 0) { avisos.ok('Ya estaba cobrado.'); return; }
+    const texto = aCobrar.length === 1 && resumen.cobrados === 1
+      ? `Cobro registrado: ${formatEuro(totalACobrar)} de ${nombre}.`
+      : `${textoLoteCobrado(resumen, saltados)} · ${nombre}.`;
+    if (resumen.cobrados === 0) avisos.error(texto); else avisos.ok(texto);
   }
 
   return (
@@ -135,17 +143,18 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
           <button
             type="button"
             onClick={() => setEligiendo(true)}
-            disabled={cobrando}
+            disabled={cobrando || aCobrar.length === 0}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-[14px] font-semibold text-brand-foreground transition-colors hover:brightness-95 disabled:opacity-60"
           >
             {cobrando && <Loader2 size={15} className="animate-spin" aria-hidden />}
-            Cobrar <CifraPrivada>{formatEuro(grupo.total)}</CifraPrivada>
+            Cobrar <CifraPrivada>{formatEuro(totalACobrar)}</CifraPrivada>
           </button>
           <p className="-mt-1 text-[12px] text-muted-foreground">Eliges cómo te paga: efectivo, tarjeta del mostrador, Bizum o transferencia.</p>
-          {pagoOnlineAbierto && (
+          {enMarcha.length > 0 && (
             <p className="-mt-1 flex items-start gap-1.5 text-[12px] text-foreground">
               <AlertTriangle size={13} className="mt-0.5 shrink-0 text-warning" aria-hidden />
-              Tiene abierto un pago online: si lo paga también ahí, serían dos cobros.
+              {enMarcha.length === 1 ? '1 recibo tiene' : `${enMarcha.length} recibos tienen`} un pago online abierto o un cobro en el datáfono
+              {' '}(<CifraPrivada inline>{formatEuro(enMarcha.reduce((t, r) => t + r.importe, 0))}</CifraPrivada>) y no {enMarcha.length === 1 ? 'entra' : 'entran'}: cobrarlo aquí también serían dos cobros.
             </p>
           )}
           {medio?.estado === 'LISTO' && medio.online && cobrablesSinElla.length > 0 && (
@@ -205,9 +214,9 @@ export function FichaDeudora({ grupo, datos, acciones, avisos, onCerrar }: {
 
       <DialogoMetodoCobro
         abierto={eligiendo}
-        titulo={grupo.recibos.length === 1 ? '¿Cómo te ha pagado?' : `¿Cómo te ha pagado sus ${grupo.recibos.length} recibos?`}
+        titulo={aCobrar.length === 1 ? '¿Cómo te ha pagado?' : `¿Cómo te ha pagado sus ${aCobrar.length} recibos?`}
         sinEspecificar={false}
-        detalle={<>{nombre} — <span className="font-semibold text-foreground">{formatEuro(grupo.total)}</span></>}
+        detalle={<>{nombre} — <span className="font-semibold text-foreground">{formatEuro(totalACobrar)}</span></>}
         onCerrar={() => setEligiendo(false)}
         onElegir={m => { setEligiendo(false); if (m) void cobrarTodo(m); }}
       />

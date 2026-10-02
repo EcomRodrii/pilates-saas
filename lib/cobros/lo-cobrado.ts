@@ -137,6 +137,7 @@ export interface LoCobrado<R extends ReciboCobrado> {
   neto: number;
   /** Recibos cobrados en el tramo (también los devueltos después, que suman 0). */
   recibos: R[];
+  /** Los que dejaron dinero (los devueltos enteros no): las filas del fichero de la gestoría. */
   nCobros: number;
   /** De ellos, con algo devuelto. */
   nConDevolucion: number;
@@ -151,7 +152,7 @@ export function cobradoEnTramo<R extends ReciboCobrado>(recibos: readonly R[], t
   const porComo = Object.fromEntries(ORDEN_COMO_SE_COBRO.map(k => [k, { n: 0, neto: 0 }])) as Record<ComoSeCobro, { n: number; neto: number }>;
   const porDia = new Map<string, number>();
   const dentro: R[] = [];
-  let neto = 0, nConDevolucion = 0;
+  let neto = 0, nConDevolucion = 0, nCobros = 0;
   for (const r of recibos) {
     const f = r.fechaCobro?.slice(0, 10);
     if (!f || f < t.desde || f > t.hasta) continue;
@@ -162,11 +163,15 @@ export function cobradoEnTramo<R extends ReciboCobrado>(recibos: readonly R[], t
     neto += n;
     if (Number(r.importeDevuelto ?? 0) > 0) nConDevolucion++;
     porDia.set(f, aCentimos((porDia.get(f) ?? 0) + n));
+    // Se cuenta lo que dejó dinero: un cobro devuelto entero sigue en la lista de su
+    // día, pero no es un cobro más (ni una fila del fichero de la gestoría).
+    if (n <= 0) continue;
+    nCobros++;
     const c = porComo[comoSeCobro(r)];
     c.n++;
     c.neto = aCentimos(c.neto + n);
   }
-  return { neto: aCentimos(neto), recibos: dentro, nCobros: dentro.length, nConDevolucion, porDia, porComo };
+  return { neto: aCentimos(neto), recibos: dentro, nCobros, nConDevolucion, porDia, porComo };
 }
 
 /**

@@ -25,7 +25,8 @@ import type { IdAccionRecibo } from '@/lib/cobros/acciones-de-recibo';
 import { MENSAJE_YA_ESTABA } from '@/lib/cobros/marcar-cobrado';
 import { MOTIVOS_ELIMINAR_RECIBO } from '@/lib/recibos-eliminar';
 import { cobrarOnlineDirecto, crearEnlaceTarjeta, enviarEmailRecibo } from '@/lib/api-client';
-import { copiarAlPortapapeles, formatEuro } from '@/lib/utils';
+import { copiarAlPortapapeles, formatEuro, hoyEnEstudio } from '@/lib/utils';
+import { fechaCorta } from '@/lib/clientas/textos';
 import { anfitrionPortal } from '@/lib/panel-portal';
 import { DialogoMetodoCobro } from '@/components/cobros/dialogo-metodo-cobro';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -215,7 +216,8 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
       case 'NO_LLEGO_AL_BANCO':
         setConfirmacion({
           titulo: '¿No llegó a ir al banco?',
-          descripcion: `«${r.concepto}» de ${quien} vuelve a «Sin cobrar», como si no se hubiera mandado nunca. Usa esto si no salió en ninguna remesa que hayas subido al banco.`,
+          descripcion: `«${r.concepto}» de ${quien} vuelve a «Sin cobrar», como si no se hubiera mandado nunca. Usa esto si no salió en ninguna remesa que hayas subido al banco.${r.enviadoAlBancoEn ? ` Ojo: se preparó en un fichero el ${fechaCorta(hoyEnEstudio(new Date(r.enviadoAlBancoEn)), hoyEnEstudio())}; si lo subiste, el banco lo cargará y entraría otra vez en la próxima remesa.` : ''}`,
+          destructivo: !!r.enviadoAlBancoEn,
           textoConfirmar: 'Sí, vuelve a sin cobrar',
           accion: () => enUnaVez(r.id, async () => {
             const res = await devolverRecibosAPendientesTrasRemesa([r.id]);

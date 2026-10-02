@@ -101,7 +101,7 @@ export function useDatosCobros(): DatosCobros {
         factura: f ? { numero: f.numeroCompleto } : null,
         estudioFactura, estudioHaceRemesas,
         mandatoVigente: !!r.socioId && vigentes.has(r.socioId),
-        algunMandato: !!r.socioId && alguno.has(r.socioId),
+        algunMandato: !r.socioId ? false : mandatosCargados ? alguno.has(r.socioId) : null,
         cobroSinElla: medio?.estado === 'LISTO' && medio.online ? { boton: medio.online.boton } : null,
         cuota: r.suscripcionId ? (cuotaPorId.get(r.suscripcionId) ?? null) : null,
         seCobraSoloEl: seCobraSoloEl(r),

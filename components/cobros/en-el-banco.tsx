@@ -11,6 +11,7 @@
 import { Landmark } from 'lucide-react';
 import type { Recibo } from '@/lib/types';
 import { formatEuro } from '@/lib/utils';
+import { aCentimos, importeEnCurso } from '@/lib/billing/situacion-recibo';
 import { fechaCorta } from '@/lib/clientas/textos';
 import { hoyEnEstudio } from '@/lib/utils';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
@@ -27,7 +28,7 @@ export function textoEnElBanco(r: Recibo, hoy: string): string {
 
 export function EnElBanco({ recibos, datos, acciones }: { recibos: Recibo[]; datos: DatosCobros; acciones: AccionesRecibo }) {
   if (recibos.length === 0) return null;
-  const total = recibos.reduce((t, r) => t + r.importe, 0);
+  const total = aCentimos(recibos.reduce((t, r) => t + importeEnCurso(r), 0));
   return (
     <section aria-label="En el banco" className="rounded-2xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
