@@ -371,7 +371,8 @@ export async function sellarFacturaDeRecibo(
   const { data: actualizada, error: errorUpdate } = await admin
     .from('facturas')
     .update(camposFinales)
-    .eq('id', facturaId)
+    // La reserva retomada puede ser de otro id (encontrada por recibo): se cierra ESA.
+    .eq('id', existente?.id ?? facturaId)
     .eq('studio_id', studioId)
     .is('verifactu_hash', null)
     .select(COLS_SELLO)
@@ -566,7 +567,8 @@ export async function sellarRectificativaDeFactura(
       return { ok: false, error: 'No se ha podido reservar el número de la rectificativa.' };
     }
     if (reserva.verifactu_seq == null) {
-      // Sin Veri*Factu (ni el estudio ni la original tienen registro): emitida, sin cadena.
+      // Sin cadena: el estudio no está en Veri*Factu y la original tampoco tenía
+      // registro (`reservar_numero_factura` encadena la R si la original lo tiene).
       return {
         ok: true, sellada: true, sinVerifactu: true,
         aviso: (rectificativasPrevias ?? 0) > 0 ? `Aviso: esta factura ya tenía ${rectificativasPrevias} rectificativa(s) previa(s).` : null,

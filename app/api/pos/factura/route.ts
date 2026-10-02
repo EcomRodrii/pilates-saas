@@ -3,6 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeVerFinanzas } from '@/lib/permisos-reglas';
 import { mapFactura } from '@/lib/supabase-data';
+import { nifEmisorValido } from '@/lib/nif';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,15 +64,20 @@ export async function GET(req: NextRequest) {
     // El sellado falla a veces (la AEAT, la red) y el recibo queda marcado
     // para que el conciliador lo reintente. Decirlo es mejor que un hueco: en
     // el mostrador hay que poder responder "en unos minutos la tienes".
-    const { data: recibo } = await admin.from('recibos')
-      .select('factura_pendiente_sellar')
-      .eq('id', venta.recibo_id).eq('studio_id', sesion.studioId)
-      .maybeSingle();
+    const [{ data: recibo }, { data: estudio }] = await Promise.all([
+      admin.from('recibos').select('factura_pendiente_sellar')
+        .eq('id', venta.recibo_id).eq('studio_id', sesion.studioId).maybeSingle(),
+      admin.from('studios').select('nif').eq('id', sesion.studioId).maybeSingle(),
+    ]);
+    // Sin NIF del estudio no sale ninguna: «en unos minutos» sería mentira.
+    const sinNif = !nifEmisorValido((estudio?.nif as string | null)?.trim() ?? '');
     return NextResponse.json({
       factura: null,
-      motivo: recibo?.factura_pendiente_sellar
-        ? 'La factura se está emitiendo. Estará lista en unos minutos.'
-        : 'Esa venta todavía no tiene factura emitida.',
+      motivo: !recibo?.factura_pendiente_sellar
+        ? 'Esa venta todavía no tiene factura emitida.'
+        : sinNif
+          ? 'La factura saldrá cuando pongas el NIF del estudio (Configuración → Cobros y facturas).'
+          : 'La factura se está emitiendo. Estará lista en unos minutos.',
     });
   }
 

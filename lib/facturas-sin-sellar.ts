@@ -52,11 +52,13 @@ export interface ReciboCobrado {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Factura SIEMPRE desde el 3-oct-2026 a las 00:00 de Madrid (2-oct-2026, decisión
- * del fundador; antes los diez estudios estaban en 'sin_facturas'). No es
- * retroactivo: un cobro anterior sin factura no es avería, es el modo que tenía.
+ * Factura SIEMPRE (2-oct-2026, decisión del fundador; antes los diez estudios
+ * estaban en 'sin_facturas'). La vigilancia empieza el 4-oct a las 00:00 de Madrid:
+ * con un día de margen sobre la migración, para que un cobro hecho entre el
+ * despliegue y la migración (aún sin factura, como tocaba) no salga como avería.
+ * No es retroactivo.
  */
-export const FACTURA_SIEMPRE_DESDE = '2026-10-02T22:00:00Z';
+export const FACTURA_SIEMPRE_DESDE = '2026-10-03T22:00:00Z';
 
 /** ¿Este cobro entra en la vigilancia? Sin fecha de cobro, no: no se sabe si es de antes. */
 export function cobradoConFacturaSiempre(r: Pick<ReciboCobrado, 'fechaCobro'>): boolean {

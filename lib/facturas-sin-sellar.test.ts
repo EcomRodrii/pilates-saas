@@ -80,10 +80,10 @@ test('«Hacerle factura» en efectivo que no llegó a sellarse es avería, como 
   assert.deepEqual(recibosConFacturaAutomaticaAusente(efectivo, new Set<string>()).map(r => r.id), ['pedida']);
 });
 
-test('factura siempre: solo vigila los cobros desde el 3-oct-2026 (hora de Madrid), nunca hacia atrás', () => {
-  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-02' }), false, 'el día del cambio todavía no');
-  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-03' }), true);
-  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-02T21:59:00Z' }), false);
-  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-02T22:00:00Z' }), true);
+test('factura siempre: solo vigila los cobros desde el 4-oct-2026 (hora de Madrid), nunca hacia atrás', () => {
+  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-03' }), false, 'el día de margen todavía no');
+  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-04' }), true);
+  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-03T21:59:00Z' }), false);
+  assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-03T22:00:00Z' }), true);
   assert.equal(cobradoConFacturaSiempre({ fechaCobro: null }), false, 'sin fecha no se sabe si es de antes');
 });

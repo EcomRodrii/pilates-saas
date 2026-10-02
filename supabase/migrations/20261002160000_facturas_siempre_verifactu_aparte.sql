@@ -87,7 +87,10 @@ $$;
 -- Función de trigger: nadie la llama a mano.
 revoke all on function public.verifactu_sin_poder_para_facturas() from public, anon, authenticated;
 
--- 4. Reservar número: con cadena solo con Veri*Factu ───────────────────────────
+-- 4. Reservar número: con cadena con Veri*Factu, o si rectifica una con cadena ──
+-- Una rectificativa sigue a su ORIGINAL, no al modo de hoy: si la original está
+-- en la cadena (y en la cola de la AEAT), su rectificativa también, o el día que se
+-- active el envío iría el alta y nunca su corrección.
 create or replace function public.reservar_numero_factura(
   p_factura_id text, p_studio_id text, p_recibo_id text, p_fecha_emision date,
   p_receptor_nombre text, p_receptor_nif text, p_base_imponible numeric, p_tipo_iva numeric,
@@ -109,6 +112,7 @@ declare
   v_intentos  int := 0;
   v_tipo      text;
   v_modo      text;
+  v_encadena  boolean;
 begin
   if not public.es_llamada_servicio() and p_studio_id is distinct from current_studio_id() then
     raise exception 'STUDIO_MISMATCH';
@@ -136,6 +140,24 @@ begin
   -- Veri*Factu o sin él.
   perform pg_advisory_xact_lock(hashtext(p_studio_id || ':verifactu'));
 
+  -- Una sola factura de serie A por recibo. Bajo el lock: dos sellados del mismo
+  -- recibo con ids distintos (webhook, conciliador, mostrador) ya no sacan dos
+  -- facturas numeradas. 23505 es lo que el servidor ya trata como «retómala».
+  if p_serie = 'A' and p_recibo_id is not null and exists (
+    select 1 from facturas f
+     where f.studio_id = p_studio_id and f.recibo_id = p_recibo_id
+       and f.serie = 'A' and f.id is distinct from p_factura_id
+  ) then
+    raise exception 'FACTURA_YA_EMITIDA: el recibo % ya tiene factura', p_recibo_id
+      using errcode = 'unique_violation';
+  end if;
+
+  v_encadena := v_modo = 'verifactu'
+    or (p_serie = 'R' and exists (
+      select 1 from facturas o
+       where o.id = p_rectifica_a and o.studio_id = p_studio_id and o.verifactu_seq is not null
+    ));
+
   v_anio := extract(year from p_fecha_emision);
 
   select coalesce(max((regexp_match(f.numero_completo, p_serie || '-\d{4}-(\d+)'))[1]::int), 0)
@@ -147,7 +169,7 @@ begin
   v_numero := p_serie || '-' || v_anio || '-' || lpad((v_max_num + 1)::text, 4, '0');
 
   -- Sin Veri*Factu: la factura nace emitida, sin sitio en la cadena y sin huella.
-  if v_modo is distinct from 'verifactu' then
+  if not v_encadena then
     insert into facturas (
       id, studio_id, recibo_id, numero_completo, fecha_emision,
       receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total,
