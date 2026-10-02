@@ -4,9 +4,12 @@ import { verificarUsuarioSupabase, verificarSesionStaff } from '@/lib/auth-serve
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { errorInterno } from '@/lib/errores-servidor';
+import { endpointApns } from '@/lib/notifications/apns-endpoint';
 
 // Guarda / elimina la suscripción Web Push del usuario (propietaria/instructora/
 // socia; identidad del JWT). Único por endpoint. La usa el canal PUSH del motor.
+// Desde la app de iOS llega `nativo` en vez de `subscription`: el token de APNs
+// se guarda en esta misma tabla como `apns://<bundleId>/<token>` (lib/notifications/apns.ts).
 
 export const dynamic = 'force-dynamic';
 
@@ -19,10 +22,20 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'sin service-role' }, { status: 500 });
 
   const b = (await req.json().catch(() => null)) as
-    | { studioId?: string; subscription?: { endpoint?: string; keys?: { p256dh?: string; auth?: string } }; userAgent?: string }
+    | {
+      studioId?: string; subscription?: { endpoint?: string; keys?: { p256dh?: string; auth?: string } }; userAgent?: string;
+      nativo?: { plataforma?: string; token?: string; bundleId?: string };
+    }
     | null;
-  const sub = b?.subscription;
-  if (!b?.studioId || !sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) {
+  // Del iPhone: un token, sin claves de cifrado (APNs no las usa).
+  const endpointNativo = b?.nativo
+    ? (b.nativo.plataforma === 'ios' && b.nativo.token && b.nativo.bundleId ? endpointApns(b.nativo.bundleId, b.nativo.token) : null)
+    : undefined;
+  if (endpointNativo === null) return NextResponse.json({ error: 'token de la app incompleto' }, { status: 400 });
+  const sub = endpointNativo
+    ? { endpoint: endpointNativo, keys: { p256dh: '', auth: '' } }
+    : b?.subscription;
+  if (!b?.studioId || !sub?.endpoint || (!endpointNativo && (!sub.keys?.p256dh || !sub.keys?.auth))) {
     return NextResponse.json({ error: 'suscripción incompleta' }, { status: 400 });
   }
 
@@ -44,8 +57,8 @@ export async function POST(req: NextRequest) {
     studio_id: b.studioId,
     user_id: user.userId,
     endpoint: sub.endpoint,
-    p256dh: sub.keys.p256dh,
-    auth: sub.keys.auth,
+    p256dh: sub.keys?.p256dh ?? '',
+    auth: sub.keys?.auth ?? '',
     user_agent: b.userAgent ?? null,
     failure_count: 0,
     last_used_at: new Date().toISOString(),
@@ -65,7 +78,7 @@ export async function POST(req: NextRequest) {
       .eq('user_id', user.userId).eq('studio_id', b.studioId).eq('user_agent', b.userAgent)
       .neq('endpoint', sub.endpoint).lt('last_used_at', haceUnaSemana);
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, endpoint: sub.endpoint });
 }
 
 // ¿Sigue registrado en el servidor ESTE dispositivo? El navegador puede seguir

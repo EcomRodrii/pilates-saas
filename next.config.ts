@@ -100,6 +100,8 @@ const nextConfig: NextConfig = {
       // ficheros viven en app/api/v1; en forma de lista se aplica después de
       // mirar el sistema de ficheros, y en /api/oauth/v1 ya no queda ninguno.
       { source: '/api/oauth/v1/:ruta*', destination: '/api/v1/:ruta*' },
+      // Enlaces universales de la app de iOS (lib/app-nativa/aasa.ts).
+      { source: '/.well-known/apple-app-site-association', destination: '/api/app/aasa' },
     ];
     const host = process.env.NEXT_PUBLIC_IMPORTS_HOST;
     if (!host) return reglas;

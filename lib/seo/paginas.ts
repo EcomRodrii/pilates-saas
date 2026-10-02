@@ -749,6 +749,8 @@ export const PAGINAS: PaginaSeo[] = [
       'Condiciones de uso del servicio Tentare para estudios de Pilates: contratación, planes, pagos y cancelación.'],
     ['/cookies', 'Cookies', 'Política de cookies — Tentare',
       'Qué cookies y tecnologías similares utiliza tentare.app, para qué sirven y cómo puedes gestionarlas o rechazarlas.'],
+    ['/soporte', 'Soporte', 'Soporte — Tentare',
+      'Cómo pedir ayuda con Tentare y con su app: quién gestiona tus reservas y pagos, cómo escribirnos y cómo borrar tu cuenta.'],
   ] as const).map(([path, etiqueta, titulo, descripcion]): PaginaSeo => ({
     path,
     titulo,
