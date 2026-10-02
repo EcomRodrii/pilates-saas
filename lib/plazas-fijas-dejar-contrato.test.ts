@@ -14,7 +14,8 @@ const cuerpo = SERVIDOR.slice(SERVIDOR.indexOf('export async function dejarPlaza
 test('⚠️ solo si el estudio deja gestionar las clases fijas desde la app, y la propiedad va en la lectura Y en la escritura', () => {
   assert.ok(cuerpo.length > 500, 'no se aisló la función');
   assert.match(cuerpo, /select\('plaza_fija_solicitar_desde_app'\)/);
-  assert.match(cuerpo, /plaza_fija_solicitar_desde_app !== true\) \{\s+return \{ error: [^}]*status: 403/);
+  // La puerta del ajuste solo para una plaza SUELTA: las de clase fija con nombre se piden (y se dejan) aunque esté apagado.
+  assert.match(cuerpo, /if \(!fila\.clase_fija_id && studio\?\.plaza_fija_solicitar_desde_app !== true\) \{\s+return \{ error: [^}]*status: 403/);
   // Lectura: socio_id de la sesión, nunca del body.
   assert.match(cuerpo, /\.eq\('id', p\.plazaId\)\.eq\('studio_id', p\.studioId\)\.eq\('socio_id', p\.socioId\)/);
   // Escritura: `aplicarEstadoPlazaFija` con el socio, que lo repite en el UPDATE.
@@ -41,7 +42,7 @@ test('la ruta tiene la acción, con el límite de peticiones y sin más identida
 
 test('el botón solo sale si el estudio lo permite y la plaza es suya (id), y el diálogo cuenta lo que pasa', () => {
   const tarjeta = leer('components/student/domain/PlazaFijaCard.tsx');
-  assert.match(tarjeta, /estudio\.puedePedirPlazaFija === true && !!plaza\.id/);
+  assert.match(tarjeta, /\(estudio\.puedePedirPlazaFija === true \|\| plaza\.deClaseFija\) && !!plaza\.id/);
   assert.match(tarjeta, /dejarPlazaFija\(estudio\.slug, estudio\.id, dejando\.id\)/);
   assert.match(tarjeta, /if \(!r\.ok\) \{[\s\S]*?setErrorDejar\(r\.error\);[\s\S]*?return;/, 'si falla, la plaza SIGUE y el diálogo queda abierto');
   assert.match(tarjeta, /dejando\.deClaseFija &&/, 'avisa de que deja todos los días solo cuando es de una clase fija con nombre');

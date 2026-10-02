@@ -178,7 +178,7 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
           </div>
         )}
         {/* Dejarla: solo si el estudio deja gestionar las clases fijas desde la app (el servidor lo vuelve a comprobar). */}
-        {estudio.puedePedirPlazaFija === true && !!plaza.id && (
+        {(estudio.puedePedirPlazaFija === true || plaza.deClaseFija) && !!plaza.id && (
           <div>
             <Button variant="ghost" size="sm" disabled={!online} data-testid="dejar-clase-fija" onClick={() => { setErrorDejar(''); setDejando(plaza); }}>
               {TEXTOS_PLAZA_FIJA.dejarBoton}
@@ -393,7 +393,7 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
 
       {plazas.length > 0 && (
         <p className="t-meta" style={{ margin: 0 }}>
-          {estudio.puedePedirPlazaFija === true ? TEXTOS_PLAZA_FIJA.cambiarlaDeDiaHora : TEXTOS_PLAZA_FIJA.cambiarla}{' '}
+          {estudio.puedePedirPlazaFija === true || plazas.some((p) => p.deClaseFija) ? TEXTOS_PLAZA_FIJA.cambiarlaDeDiaHora : TEXTOS_PLAZA_FIJA.cambiarla}{' '}
           <Link href={href('/mensajes')} style={{ fontWeight: 800, color: 'var(--accent)' }}>{TEXTOS_PLAZA_FIJA.escribir}</Link>
         </p>
       )}

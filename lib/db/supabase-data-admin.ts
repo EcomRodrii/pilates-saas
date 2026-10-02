@@ -48,6 +48,10 @@ import {
 } from '@/lib/booking-logic';
 import { mensajeTodaviaNoSeAbre } from '@/lib/reservar/apertura-texto';
 import { diaEnEstudio } from '@/lib/calendario-hora-estudio';
+import {
+  clasificarCodigo, idReservaDeIntento, ocurrenciasDeLaFranja, resumirLote,
+  type ResultadoOcurrencia, type SesionDeLaFranja,
+} from '@/lib/reservas/proximas-reglas';
 import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, exigePlanAlReservar, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio, HORIZONTE_MATERIALIZAR_DIAS, HORIZONTE_AVISOS_PLAZA_FIJA_DIAS } from '@/lib/plazas-fijas-slot';
@@ -2590,6 +2594,13 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
 
 export async function crearReservaPublica(params: {
   studioId: string; sesionId: string; socioId: string; authUserId: string | null; spotId?: string | null;
+  /**
+   * Solo «reservar las próximas N clases» (`reservarProximasPublico`): el id de la reserva lo deriva el INTENTO de la alumna
+   * (`idReservaDeIntento`), para que un reintento caiga en la misma reserva y no la duplique. Sin él, el de siempre (aleatorio).
+   */
+  reservaId?: string;
+  /** `false`: no manda «reserva confirmada» (el lote ya le cuenta el resultado en pantalla). Sin él, avisa como siempre. */
+  avisar?: boolean;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -2767,7 +2778,7 @@ export async function crearReservaPublica(params: {
   // JS — evita la sobreventa por reservas concurrentes de la última plaza.
   // p_permite_lista_espera: si la clase está llena y el tipo/estudio no admite
   // lista de espera, la RPC rechaza en vez de insertar en LISTA_ESPERA.
-  const reservaId = `res-${uid()}`;
+  const reservaId = params.reservaId ?? `res-${uid()}`;
   // D-1: el bono candidato se elige AQUÍ, antes de llamar a la RPC, para que
   // `reservar_plaza` lo descuente DENTRO del mismo candado por socio que
   // confirma la plaza — ver `resolverBonoParaSesion`.
@@ -2922,9 +2933,205 @@ export async function crearReservaPublica(params: {
   // Bono, analítica, gamificación y avisos: dueño único (ver `trasReservaCreada`).
   await trasReservaCreada(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
-    estado, spotAsignado, canal: 'alumna', reservaId, consumoBono, consumibleBono,
+    estado, spotAsignado, canal: 'alumna', reservaId, consumoBono, consumibleBono, avisarSocia: params.avisar,
   });
   return { ok: true as const, estado, reservaId, spotAsignado, recuperacionUsada };
+}
+
+// ─── «Reservar las próximas N clases» con bono (autoreservable) ─────────────────────────────────────────────────────────
+// N reservas NORMALES e independientes del mismo horario, cada una por el camino de siempre: `evaluar_reserva` en seco (quién
+// puede y quién paga) → `crearReservaPublica` → `reservar_plaza`, que descuenta su sesión del bono EN LA MISMA TRANSACCIÓN que
+// confirma la plaza, con el ledger. Este bucle NUNCA toca el saldo. No es una plaza fija: ningún id lleva `res-pf-`, no hay
+// estado permanente y no se renueva sola. Reglas y vocabulario en `lib/reservas/proximas-reglas.ts`.
+
+export interface OcurrenciaProximas {
+  sesionId: string;
+  /** YYYY-MM-DD y HH:MM, en la zona del estudio. */
+  fecha: string;
+  hora: string;
+  resultado: ResultadoOcurrencia;
+  codigo?: string;
+  pagador?: 'bono' | 'cuota' | 'ninguno';
+  reservaId?: string;
+  /** Reintento del MISMO intento: ya estaba hecha. */
+  repetida?: boolean;
+}
+
+export type RespuestaProximas =
+  | {
+      ok: true; accion: 'previsualizar' | 'reservar'; n: number; ocurrencias: OcurrenciaProximas[];
+      bono: { suscripcionId: string; plan: string; saldoAntes: number; saldoDespues: number; fechaFin: string | null } | null;
+      resumen: { reservadas: number; descontadas: number; pedidas: number; paro: { motivo: ResultadoOcurrencia; desdeSesionId: string } | null };
+    }
+  | { error: string; codigo: string; status: number };
+
+interface EvaluacionReserva {
+  puede: boolean; codigo: string | null; detalle?: string | null; estado: string | null;
+  pagador?: { origen: 'recuperacion' | 'bono' | 'cuota' | 'ninguno'; suscripcion_id?: string };
+}
+
+/** `evaluar_reserva` (solo lectura, solo servidor): la misma decisión de elegibilidad que toma `reservar_plaza`. */
+async function evaluarReservaServidor(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string; opciones: Record<string, unknown> },
+): Promise<EvaluacionReserva> {
+  const { data, error } = await admin.rpc('evaluar_reserva', {
+    p_studio_id: p.studioId, p_sesion_id: p.sesionId, p_socio_id: p.socioId, p_opciones: p.opciones,
+  });
+  if (error) throw new Error(`evaluar_reserva: ${error.message}`);
+  return data as EvaluacionReserva;
+}
+
+export async function reservarProximasPublico(p: {
+  studioId: string; socioId: string; authUserId: string; sesionId: string; n: number;
+  accion: 'previsualizar' | 'reservar';
+  /** Solo `reservar`: el intento (ver `idReservaDeIntento`). */
+  intentoId?: string;
+}): Promise<RespuestaProximas> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, p.studioId, p.socioId, p.authUserId);
+  if (!socia) return { error: 'No autorizado', codigo: 'no-autorizado', status: 401 };
+  if (p.accion === 'reservar' && !p.intentoId) return { error: 'Falta el intento', codigo: 'error', status: 400 };
+
+  const { data: baseRow } = await admin.from('sesiones').select('id, inicio, cancelada, sala_id, tipo_clase_id')
+    .eq('id', p.sesionId).eq('studio_id', p.studioId).maybeSingle();
+  if (!baseRow) return { error: 'Sesión no encontrada', codigo: 'sesion-no-encontrada', status: 404 };
+  if (baseRow.cancelada) return { error: 'Esta clase está cancelada', codigo: 'clase-cancelada', status: 400 };
+  if (new Date(baseRow.inicio as string).getTime() <= Date.now()) return { error: MENSAJE_CLASE_YA_EMPEZADA, codigo: 'clase-ya-empezada', status: 400 };
+  const tipoClaseId = (baseRow.tipo_clase_id as string | null) ?? null;
+
+  const pol = await cargarPoliticaEstudio(admin, p.studioId);
+  const reglasTipo = await cargarReglasReservaTipoClase(admin, p.studioId, tipoClaseId);
+  // Una serie de reservas pendientes de aprobar sería un montón de avisos al estudio: una a una, como siempre.
+  if (heredaOverride(reglasTipo.requiereAprobacion, pol.requiereAprobacion)) {
+    return { error: 'Esta clase necesita que el estudio apruebe cada reserva: resérvala una a una.', codigo: 'requiere-aprobacion', status: 409 };
+  }
+
+  // Las clases futuras de esa sala y ese tipo; de ahí salen las N del mismo horario.
+  let candidatasQ = admin.from('sesiones').select('id, inicio, cancelada, sala_id, tipo_clase_id')
+    .eq('studio_id', p.studioId).eq('sala_id', baseRow.sala_id as string).gt('inicio', new Date().toISOString())
+    .order('inicio', { ascending: true }).limit(400);
+  candidatasQ = tipoClaseId ? candidatasQ.eq('tipo_clase_id', tipoClaseId) : candidatasQ.is('tipo_clase_id', null);
+  const { data: candRows } = await candidatasQ;
+  const aSesion = (r: Record<string, unknown>): SesionDeLaFranja => ({
+    id: r.id as string, inicio: r.inicio as string, salaId: r.sala_id as string,
+    tipoClaseId: (r.tipo_clase_id as string | null) ?? null, cancelada: Boolean(r.cancelada),
+  });
+  const ocurrencias = ocurrenciasDeLaFranja(aSesion(baseRow), (candRows ?? []).map(aSesion), p.n, Date.now());
+  if (ocurrencias.length < 2) return { error: 'Esta clase no se repite más veces en el horario.', codigo: 'solo-una-clase', status: 409 };
+
+  // El bono con el que contaría, mirado como lo mira `reservar_plaza`. Sin ninguno, esto no es para ella.
+  const bono = await resolverBonoParaSesion(admin, { studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId });
+  if (!bono) {
+    return { error: 'Para reservar varias clases de una vez necesitas un bono con sesiones que cubra esta clase.', codigo: 'sin-bono', status: 409 };
+  }
+  // Las sesiones que le quedan por bono: se descuenta una por clase, y lo que dice la base de datos al reservar manda.
+  const saldos = new Map<string, number>([[bono.suscripcion.id, bono.sesionesRestantes]]);
+  const saldoDe = async (id: string): Promise<number> => {
+    if (!saldos.has(id)) {
+      const { data } = await admin.from('suscripciones').select('sesiones_restantes').eq('id', id).eq('studio_id', p.studioId).maybeSingle();
+      saldos.set(id, Number((data as { sesiones_restantes: number | null } | null)?.sesiones_restantes ?? 0));
+    }
+    return saldos.get(id) as number;
+  };
+
+  const resultado: OcurrenciaProximas[] = [];
+  let paro: { motivo: ResultadoOcurrencia; desdeSesionId: string } | null = null;
+  const poner = (s: SesionDeLaFranja, o: Omit<OcurrenciaProximas, 'sesionId' | 'fecha' | 'hora'>) => {
+    const f = franjaLocalDe(s.inicio);
+    resultado.push({
+      sesionId: s.id, fecha: diaEnEstudio(s.inicio), hora: `${String(f.hora).padStart(2, '0')}:${String(f.minuto).padStart(2, '0')}`, ...o,
+    });
+  };
+  const parar = (s: SesionDeLaFranja, motivo: ResultadoOcurrencia) => { paro ??= { motivo, desdeSesionId: s.id }; };
+
+  for (let i = 0; i < ocurrencias.length; i++) {
+    const s = ocurrencias[i];
+    if (paro) { poner(s, { resultado: 'NO_INTENTADA' }); continue; }
+    const reservaId = p.accion === 'reservar' ? idReservaDeIntento(p.intentoId as string, i) : undefined;
+
+    // Reintento del MISMO intento (la red falló a medias): lo que ya se hizo cuenta, no se duplica.
+    if (reservaId) {
+      const { data: previa } = await admin.from('reservas').select('socio_id, sesion_id, estado')
+        .eq('id', reservaId).eq('studio_id', p.studioId).maybeSingle();
+      if (previa) {
+        const suya = previa.socio_id === p.socioId && previa.sesion_id === s.id && ['CONFIRMADA', 'ASISTIDA'].includes(previa.estado as string);
+        if (suya) { poner(s, { resultado: 'RESERVADA', reservaId, repetida: true }); continue; }
+        poner(s, { resultado: 'ERROR', codigo: 'error' });
+        parar(s, 'ERROR');
+        continue;
+      }
+    }
+
+    // Ventanas de antelación: una cerrada por cerca se omite; la máxima alcanza a todas las siguientes.
+    const cerrada = ventanaCerrada(s.inicio, pol, reglasTipo);
+    if (cerrada) {
+      const c = clasificarCodigo(cerrada.codigo);
+      poner(s, { resultado: c.resultado, codigo: cerrada.codigo });
+      if (c.parar) parar(s, c.resultado);
+      continue;
+    }
+
+    // Quién puede y quién paga, en seco: sin lista de espera, y sin saltarse el derecho.
+    const ev = await evaluarReservaServidor(admin, {
+      studioId: p.studioId, sesionId: s.id, socioId: p.socioId,
+      opciones: { permite_lista_espera: false, requiere_aprobacion: false, exigir_entitlement: true, saltar_gate_impago: false },
+    });
+    if (!ev.puede) {
+      const c = clasificarCodigo(ev.codigo);
+      poner(s, { resultado: c.resultado, codigo: ev.codigo ?? 'error' });
+      if (c.parar) parar(s, c.resultado);
+      continue;
+    }
+    const origen = ev.pagador?.origen ?? 'ninguno';
+    // ⚠️ Una recuperación pagaría el exceso del tope semanal EN SILENCIO (`reservar_plaza` la quema): no se reserva esa semana.
+    if (ev.estado !== 'CONFIRMADA' || origen === 'recuperacion') {
+      poner(s, { resultado: ev.estado !== 'CONFIRMADA' ? 'COMPLETA' : 'SUPERA_TOPE', codigo: ev.estado !== 'CONFIRMADA' ? 'aforo-lleno' : 'limite-semanal' });
+      continue;
+    }
+    if (origen === 'ninguno') { poner(s, { resultado: 'SIN_DERECHO', codigo: 'sin-plan' }); parar(s, 'SIN_DERECHO'); continue; }
+    if (origen === 'bono') {
+      const id = ev.pagador?.suscripcion_id as string;
+      if ((await saldoDe(id)) <= 0) { poner(s, { resultado: 'SIN_DERECHO', codigo: 'bono-no-cubre', pagador: 'bono' }); parar(s, 'SIN_DERECHO'); continue; }
+    }
+
+    if (p.accion === 'previsualizar') {
+      poner(s, { resultado: 'SE_RESERVARA', pagador: origen });
+      // La vista previa no escribe nada: el saldo se lleva a mano para no prometer más clases de las que le quedan.
+      if (origen === 'bono') saldos.set(ev.pagador?.suscripcion_id as string, (await saldoDe(ev.pagador?.suscripcion_id as string)) - 1);
+      continue;
+    }
+
+    const r = await crearReservaPublica({
+      studioId: p.studioId, sesionId: s.id, socioId: p.socioId, authUserId: p.authUserId, reservaId, avisar: false,
+    });
+    if ('error' in r) {
+      const c = clasificarCodigo('codigo' in r ? r.codigo : undefined);
+      poner(s, { resultado: c.resultado, codigo: 'codigo' in r ? r.codigo : 'error' });
+      if (c.parar) parar(s, c.resultado);
+      continue;
+    }
+    if (r.estado !== 'CONFIRMADA') { poner(s, { resultado: 'EN_ESPERA', reservaId: r.reservaId }); continue; }
+    // Se gastó una recuperación a pesar de todo (carrera entre evaluar y reservar): se le cuenta y se para el resto.
+    poner(s, { resultado: 'RESERVADA', pagador: origen, reservaId: r.reservaId, ...(r.recuperacionUsada ? { codigo: 'recuperacion-usada' } : {}) });
+    if (r.recuperacionUsada && i + 1 < ocurrencias.length) parar(ocurrencias[i + 1], 'SUPERA_TOPE');
+  }
+
+  // El saldo de DESPUÉS: en la vista previa, el simulado; reservando, lo que dice la base de datos.
+  let saldoDespues = saldos.get(bono.suscripcion.id) ?? bono.sesionesRestantes;
+  if (p.accion === 'reservar') {
+    const { data } = await admin.from('suscripciones').select('sesiones_restantes').eq('id', bono.suscripcion.id).eq('studio_id', p.studioId).maybeSingle();
+    saldoDespues = Number((data as { sesiones_restantes: number | null } | null)?.sesiones_restantes ?? saldoDespues);
+  }
+  const resumen = resumirLote(resultado);
+  return {
+    ok: true, accion: p.accion, n: p.n, ocurrencias: resultado,
+    bono: {
+      suscripcionId: bono.suscripcion.id, plan: bono.plan.nombre, saldoAntes: bono.sesionesRestantes, saldoDespues,
+      fechaFin: bono.suscripcion.fechaFin ?? null,
+    },
+    resumen: { ...resumen, pedidas: p.n, paro },
+  };
 }
 
 // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.2):
@@ -5134,7 +5341,7 @@ export type ResultadoDejarPlazaAlumna =
  * cancelación, que mantiene. La propiedad va en la lectura Y en la escritura: nadie deja la plaza de otra.
  *
  * Una clase fija con NOMBRE (varios días) se deja ENTERA: la oferta es atómica —todos sus días o ninguno—, así que dejar un
- * solo día la dejaría a medias. Solo si el estudio deja gestionar las clases fijas desde la app
+ * solo día la dejaría a medias. Una plaza SUELTA solo si el estudio deja gestionar las clases fijas desde la app
  * (`plaza_fija_solicitar_desde_app`, el mismo ajuste que ya gobierna pedirlas): si las lleva en recepción, se habla con él.
  */
 export async function dejarPlazaFijaAlumna(
@@ -5146,10 +5353,12 @@ export async function dejarPlazaFijaAlumna(
       .eq('id', p.plazaId).eq('studio_id', p.studioId).eq('socio_id', p.socioId).in('estado', ['ACTIVA', 'PAUSADA']).maybeSingle(),
   ]);
   if (errStudio) throw new Error(errStudio.message);
-  if (studio?.plaza_fija_solicitar_desde_app !== true) {
+  if (!fila) return { error: 'Esa clase fija ya no existe.', status: 404 };
+  // Las clases fijas con NOMBRE se piden desde la app aunque «Peticiones desde su app» esté apagado (ese ajuste es solo para
+  // pedir plaza en una clase suelta), así que dejarlas tampoco depende de él. Una plaza suelta, sí.
+  if (!fila.clase_fija_id && studio?.plaza_fija_solicitar_desde_app !== true) {
     return { error: 'Tu estudio gestiona las clases fijas en recepción: pídeselo a ellos.', status: 403 };
   }
-  if (!fila) return { error: 'Esa clase fija ya no existe.', status: 404 };
 
   const ids = [fila.id as string];
   if (fila.clase_fija_id) {

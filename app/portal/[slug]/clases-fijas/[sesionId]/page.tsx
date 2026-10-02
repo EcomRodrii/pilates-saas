@@ -8,7 +8,8 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
-import { getClases, getClasesFijas, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
+import { getBonos, getClases, getClasesFijas, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
+import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { anularPeticionPlazaFija, pedirPlazaFija } from '@/lib/student/plaza-fija-peticion';
 import { diasDeLaOferta } from '@/lib/student/clases-fijas';
 import { DURACIONES_POR_DEFECTO, etiquetaDuracion, vigenciaHastaDeDuracion } from '@/lib/clases-fijas-reglas';
@@ -20,6 +21,7 @@ import { etiquetaDia, horaFin } from '@/lib/student/formato';
 import { Button } from '@/components/student/ui/Button';
 import { ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { FichaClaseHero } from '@/components/student/domain/FichaClaseHero';
+import { ReservarProximas } from '@/components/student/domain/ReservarProximas';
 import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 
@@ -49,12 +51,12 @@ export default function FichaClaseFijaPage() {
   const [meses, setMeses] = useState<number | null>(DURACIONES_POR_DEFECTO[1] ?? null);
 
   const cargar = useCallback(async () => {
-    const [clase, fijas, instructoras, clases, reservas] = await Promise.all([
+    const [clase, fijas, instructoras, clases, reservas, bonos] = await Promise.all([
       getClasesFrescas(estudio.slug).then((cs) => cs.find((c) => c.id === sesionId) ?? null),
-      getClasesFijas(estudio.slug), getInstructoras(estudio.slug), getClases(estudio.slug), getReservas(estudio.slug),
+      getClasesFijas(estudio.slug), getInstructoras(estudio.slug), getClases(estudio.slug), getReservas(estudio.slug), getBonos(estudio.slug),
     ]);
     return {
-      clase, instructoras, clases, reservas,
+      clase, instructoras, clases, reservas, bonos,
       suelta: fijas?.sueltas.find((f) => f.proximaSesionId === sesionId) ?? null,
       oferta: fijas?.ofertas.find((o) => o.franjas.some((f) => f.proximaSesionId === sesionId)) ?? null,
     };
@@ -115,6 +117,11 @@ export default function FichaClaseFijaPage() {
   // Cuánto tiempo la quiere: solo mientras puede pedirla y si no va dentro de una clase fija con nombre (esa tiene sus propias
   // duraciones, en su tarjeta). Va en la barra fija, junto al botón: en el cuerpo quedaba debajo del pliegue y tapado por él.
   const eligeDuracion = estadoFija?.estado === 'PUEDE_PEDIR' && !data?.oferta;
+  // El bono que de VERDAD cubre esta clase (la misma regla que el servidor), si le quedan al menos dos sesiones.
+  const bonoParaProximas = (() => {
+    const b = bonoParaClase(data?.bonos ?? [], clase.tipoClaseId);
+    return b && b.creditosTotales - b.creditosUsados >= 2 ? b : null;
+  })();
 
   return (
     <StudentShell headerTransparente>
@@ -135,6 +142,15 @@ export default function FichaClaseFijaPage() {
           <Fila k="Próxima clase" v={etiquetaDia(clase.fecha)} />
           <Fila k="Capacidad" v={`${clase.capacidad} personas`} />
         </div>
+
+        {/* Quien solo tiene BONO no puede tener una clase fija (es de cuota), pero sí reservar las próximas semanas de una vez:
+            N reservas normales, cada una descontando su sesión. Antes se topaba aquí con «necesitas cuota». */}
+        {estadoFija?.estado === 'SOLO_CON_CUOTA' && bonoParaProximas && (
+          <ReservarProximas
+            sesionId={clase.id} saldo={bonoParaProximas.creditosTotales - bonoParaProximas.creditosUsados}
+            ventanaCancelacionHoras={clase.ventanaCancelacionHoras ?? estudio.politicaCancelacionHoras}
+          />
+        )}
 
         {/* Qué es y qué pasa al pedirla: solo mientras aún puede pedirla. */}
         {estadoFija?.estado === 'PUEDE_PEDIR' && (
