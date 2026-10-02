@@ -1,0 +1,169 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// «Lo que he cobrado» (decisión 3 de las maquetas aprobadas el 2-oct-2026):
+// SOLO lo cobrado, por hoy, semana o mes (y trimestre o año para la gestoría),
+// frente al mismo tramo del periodo anterior, y cómo te han pagado.
+//
+// Las cifras salen de `situacion-recibo.ts` (`importeIngresado`): lo cobrado es
+// neto de lo devuelto y cuenta en el día de su COBRO (`fecha_cobro`). Un recibo
+// devuelto entero sigue en la lista de su día («devuelto»), pero suma 0.
+//
+// Todas las fechas son 'YYYY-MM-DD' del ESTUDIO y se operan con `Date.UTC` sobre
+// esos números: nada de `new Date('YYYY-MM-DD')` en la zona del navegador.
+//
+// Puro: se prueba con `node --test`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { aCentimos, importeIngresado, situacionRecibo, type ReciboParaCifras } from '../billing/situacion-recibo.ts';
+
+export type Periodo = 'DIA' | 'SEMANA' | 'MES' | 'TRIMESTRE' | 'ANIO';
+
+export interface Tramo { desde: string; hasta: string }
+
+const partes = (ymd: string) => ({ y: Number(ymd.slice(0, 4)), m: Number(ymd.slice(5, 7)), d: Number(ymd.slice(8, 10)) });
+const ymdDe = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+const utc = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d);
+const msDe = (ymd: string) => { const { y, m, d } = partes(ymd); return utc(y, m, d); };
+/** Último día del mes `m` (1–12) de `y`. */
+const finDeMes = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+export const sumarDias = (ymd: string, dias: number) => { const { y, m, d } = partes(ymd); return ymdDe(utc(y, m, d + dias)); };
+export const diaDeLaSemana = (ymd: string) => { const { y, m, d } = partes(ymd); return new Date(utc(y, m, d)).getUTCDay(); };
+
+/** El periodo entero que contiene `ref`. La semana empieza en lunes. */
+export function tramo(periodo: Periodo, ref: string): Tramo {
+  const { y, m } = partes(ref);
+  switch (periodo) {
+    case 'DIA': return { desde: ref, hasta: ref };
+    case 'SEMANA': {
+      const desde = sumarDias(ref, -((diaDeLaSemana(ref) + 6) % 7));
+      return { desde, hasta: sumarDias(desde, 6) };
+    }
+    case 'MES': return { desde: ymdDe(utc(y, m, 1)), hasta: ymdDe(utc(y, m, finDeMes(y, m))) };
+    case 'TRIMESTRE': {
+      const m0 = Math.floor((m - 1) / 3) * 3 + 1;
+      return { desde: ymdDe(utc(y, m0, 1)), hasta: ymdDe(utc(y, m0 + 2, finDeMes(y, m0 + 2))) };
+    }
+    case 'ANIO': return { desde: `${y}-01-01`, hasta: `${y}-12-31` };
+  }
+}
+
+/** El periodo anterior (o siguiente, con `paso` 1) al que contiene `ref`: para las flechas. */
+export function moverPeriodo(periodo: Periodo, ref: string, paso: -1 | 1): string {
+  const t = tramo(periodo, ref);
+  if (paso === 1) return sumarDias(t.hasta, 1);
+  return tramo(periodo, sumarDias(t.desde, -1)).desde;
+}
+
+/**
+ * Lo que se enseña de un periodo: entero si ya terminó, y hasta hoy si es el de
+ * hoy. `null` si aún no ha empezado (no se navega al futuro).
+ */
+export function tramoVisible(periodo: Periodo, ref: string, hoy: string): Tramo | null {
+  const t = tramo(periodo, ref);
+  if (t.desde > hoy) return null;
+  return { desde: t.desde, hasta: t.hasta < hoy ? t.hasta : hoy };
+}
+
+/**
+ * El mismo tramo del periodo anterior, para comparar: del 1 al 2 de octubre
+ * frente al 1 al 2 de septiembre; un mes cerrado, frente al mes anterior entero.
+ * Para «Hoy» no hay comparación honesta (el día va a medias): `null`.
+ */
+export function mismoTramoAnterior(periodo: Periodo, visible: Tramo): Tramo | null {
+  if (periodo === 'DIA') return null;
+  const anterior = tramo(periodo, sumarDias(visible.desde, -1));
+  const entero = tramo(periodo, visible.desde);
+  if (visible.hasta === entero.hasta) return anterior;
+  // A medias: los mismos días transcurridos (en mes y año, el mismo día del mes;
+  // si el anterior no lo tiene —31 frente a 30, 29 de febrero—, hasta su final).
+  let hasta: string;
+  if (periodo === 'MES' || periodo === 'ANIO') {
+    const v = partes(visible.hasta), a = partes(anterior.desde);
+    const mes = periodo === 'MES' ? a.m : v.m;
+    const dia = Math.min(v.d, finDeMes(a.y, mes));
+    hasta = ymdDe(utc(a.y, mes, dia));
+  } else {
+    const transcurridos = Math.round((msDe(visible.hasta) - msDe(visible.desde)) / 86_400_000);
+    hasta = sumarDias(anterior.desde, transcurridos);
+  }
+  return { desde: anterior.desde, hasta: hasta < anterior.hasta ? hasta : anterior.hasta };
+}
+
+/** Cómo se cobró, para cuadrar la caja y el banco. */
+export type ComoSeCobro =
+  | 'DOMICILIACION' | 'TARJETA_ONLINE' | 'TARJETA_MOSTRADOR' | 'EFECTIVO' | 'BIZUM' | 'TRANSFERENCIA' | 'SIN_ESPECIFICAR';
+
+export const ORDEN_COMO_SE_COBRO: readonly ComoSeCobro[] = [
+  'DOMICILIACION', 'TARJETA_ONLINE', 'TARJETA_MOSTRADOR', 'EFECTIVO', 'BIZUM', 'TRANSFERENCIA', 'SIN_ESPECIFICAR',
+];
+
+export const TEXTO_COMO_SE_COBRO: Record<ComoSeCobro, string> = {
+  DOMICILIACION: 'Domiciliación',
+  TARJETA_ONLINE: 'Tarjeta online',
+  TARJETA_MOSTRADOR: 'Tarjeta en el mostrador',
+  EFECTIVO: 'Efectivo',
+  BIZUM: 'Bizum',
+  TRANSFERENCIA: 'Transferencia',
+  SIN_ESPECIFICAR: 'Sin especificar',
+};
+
+export interface ReciboCobrado extends ReciboParaCifras {
+  id: string;
+  metodoCobro?: string | null;
+  stripePaymentIntentId?: string | null;
+  /** Por qué canal se confirmó: 'tpv' y 'manual' son el mostrador. */
+  conciliadoPor?: string | null;
+}
+
+/**
+ * La tarjeta del datáfono del mostrador también deja cargo de Stripe (el cobro de
+ * un recibo en la caja), así que el cargo solo no basta: manda el canal.
+ */
+export function comoSeCobro(r: ReciboCobrado): ComoSeCobro {
+  switch (r.metodoCobro) {
+    case 'SEPA': return 'DOMICILIACION';
+    case 'EFECTIVO': return 'EFECTIVO';
+    case 'BIZUM': return 'BIZUM';
+    case 'TRANSFERENCIA': return 'TRANSFERENCIA';
+    case 'TARJETA':
+      if (r.conciliadoPor === 'tpv' || r.conciliadoPor === 'manual') return 'TARJETA_MOSTRADOR';
+      return r.stripePaymentIntentId ? 'TARJETA_ONLINE' : 'TARJETA_MOSTRADOR';
+    default: return 'SIN_ESPECIFICAR';
+  }
+}
+
+export interface LoCobrado<R extends ReciboCobrado> {
+  /** Neto, ya restado lo devuelto. */
+  neto: number;
+  /** Recibos cobrados en el tramo (también los devueltos después, que suman 0). */
+  recibos: R[];
+  nCobros: number;
+  /** De ellos, con algo devuelto. */
+  nConDevolucion: number;
+  /** Neto por día ('YYYY-MM-DD'). */
+  porDia: Map<string, number>;
+  /** Neto y número de cobros por cómo se cobró. Suman el total. */
+  porComo: Record<ComoSeCobro, { n: number; neto: number }>;
+}
+
+/** Lo cobrado entre dos días (incluidos), por la fecha de COBRO. */
+export function cobradoEnTramo<R extends ReciboCobrado>(recibos: readonly R[], t: Tramo): LoCobrado<R> {
+  const porComo = Object.fromEntries(ORDEN_COMO_SE_COBRO.map(k => [k, { n: 0, neto: 0 }])) as Record<ComoSeCobro, { n: number; neto: number }>;
+  const porDia = new Map<string, number>();
+  const dentro: R[] = [];
+  let neto = 0, nConDevolucion = 0;
+  for (const r of recibos) {
+    const f = r.fechaCobro?.slice(0, 10);
+    if (!f || f < t.desde || f > t.hasta) continue;
+    const s = situacionRecibo(r);
+    if (s !== 'COBRADO' && s !== 'REEMBOLSADO') continue;
+    dentro.push(r);
+    const n = importeIngresado(r);
+    neto += n;
+    if (Number(r.importeDevuelto ?? 0) > 0) nConDevolucion++;
+    porDia.set(f, aCentimos((porDia.get(f) ?? 0) + n));
+    const c = porComo[comoSeCobro(r)];
+    c.n++;
+    c.neto = aCentimos(c.neto + n);
+  }
+  return { neto: aCentimos(neto), recibos: dentro, nCobros: dentro.length, nConDevolucion, porDia, porComo };
+}

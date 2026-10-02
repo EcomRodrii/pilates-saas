@@ -14,6 +14,15 @@
 export const OFFSETS_REINTENTO_DIAS = [1, 3, 7] as const; // reintentos #1/#2/#3 tras el vencimiento
 export const MAX_REINTENTOS = OFFSETS_REINTENTO_DIAS.length; // 3
 
+/**
+ * La hora (UTC) a la que pasa el cobro automático diario: el cron de
+ * `lib/inngest/dunning.ts`. La pasada coge lo que tiene `proximo_reintento` hasta
+ * ese momento, así que un reintento programado para DESPUÉS de esa hora se cobra
+ * en la pasada del día siguiente. La pantalla de Cobros dice cuándo se cobrará
+ * algo con esta hora (`lib/cobros/reintento-automatico.ts`), y un test la ata al cron.
+ */
+export const PASADA_COBRO_AUTOMATICO_UTC = { hora: 8, minuto: 30 } as const;
+
 export interface PlanReintento {
   intentos: number;                    // nuevo valor de recibos.intentos_reintento
   estado: 'PENDIENTE' | 'FALLIDO';     // nuevo estado del recibo
