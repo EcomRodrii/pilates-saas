@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  MOTIVOS_LIBERACION, esMotivoLiberacion, interpretarLiberacion, llamarLiberarDerecho,
-  type ClienteLiberacion,
+  MOTIVOS_LIBERACION, esMotivoLiberacion, interpretarLiberacion, interpretarReservasCanceladas, llamarCancelarReservasDeSesion,
+  llamarLiberarDerecho, type ClienteLiberacion,
 } from './liberacion.ts';
 
 // Motor de derechos, FASE 2: una sola salida de devolución para la cancelación de una clase
@@ -163,7 +163,7 @@ function cuerpoDe(fuente: string, nombre: string): string {
 
 test('⚠️ todo el que cancela una clase entera libera por la salida única, y con un motivo que existe', () => {
   const sustituciones = leer('app/api/sustituciones/route.ts');
-  assert.match(sustituciones, /devolverBonosPorCancelacionClase\([\s\S]*?'instructora_baja_sin_sustituta'\)/);
+  assert.match(sustituciones, /cancelarReservasDeSesion\(admin, \{[\s\S]*?motivo: 'instructora_baja_sin_sustituta'/);
   const minimo = cuerpoDe(ADMIN, 'cancelarSesionPorMinimoNoAlcanzado');
   assert.match(minimo, /motivo === 'minimo_no_alcanzado' \? 'minimo_asistentes' : 'estudio_cancela_clase'/);
   for (const m of ['instructora_baja_sin_sustituta', 'minimo_asistentes', 'estudio_cancela_clase']) {
@@ -184,9 +184,78 @@ test('⚠️ liberarReservaCancelada: lo raro es un fallo, y la heurística de s
   assert.equal(f.split('devolverBonoServidor(').length - 1, 1, 'la heurística solo se llama desde la rama LEGADO_SIN_RASTRO');
 });
 
-test('⚠️ devolverBonosPorCancelacionClase ya no adivina: sin reserva no hay nada que liberar', () => {
-  const f = cuerpoDe(ADMIN, 'devolverBonosPorCancelacionClase');
-  assert.match(f, /reservaId: string \}\[\]/, 'la reserva es obligatoria: sin ella no se sabe qué consumió');
-  assert.ok(!/devolverBonoServidor\(/.test(f), 'devolverBonosPorCancelacionClase no debe devolver por su cuenta');
-  assert.match(f, /liberarReservaCancelada\(admin, studioId, c, motivo\)/);
+test('⚠️ cancelarReservasDeSesion: una sola transacción, y la heurística solo para lo importado', () => {
+  const f = cuerpoDe(ADMIN, 'cancelarReservasDeSesion');
+  assert.match(f, /llamarCancelarReservasDeSesion\(admin/);
+  assert.match(f, /if \(!llamada\.ok\) \{[\s\S]*?return \{ ok: false/, 'un fallo de la RPC es un fallo, no «nada que cancelar»');
+  // Solo las que estaban CONFIRMADA consumieron algo y reciben correo.
+  assert.match(f, /r\.estadoPrevio !== 'CONFIRMADA'/);
+  // La heurística, únicamente con el veredicto explícito de la RPC.
+  assert.match(f, /if \(r\.bono === 'LEGADO_SIN_RASTRO'\) \{[\s\S]*?devolverBonoServidor\(/);
+  assert.equal(f.split('devolverBonoServidor(').length - 1, 1);
+  // Ya no queda el camino «un UPDATE y luego una llamada por reserva».
+  assert.ok(!/devolverBonosPorCancelacionClase/.test(ADMIN), 'devolverBonosPorCancelacionClase se retiró');
+  assert.ok(!/from\('reservas'\)\s*\.update\(\{ estado: 'CANCELADA'/.test(cuerpoDe(ADMIN, 'cancelarSesionPorMinimoNoAlcanzado')),
+    'el cron de mínimo volvió a cancelar las reservas con un UPDATE suelto, fuera de la transacción');
+});
+
+// ── cancelar_reservas_de_sesion: la parte pura y la migración ─────────────────
+
+test('interpretarReservasCanceladas: una fila por reserva, con su estado previo y su veredicto', () => {
+  const filas = interpretarReservasCanceladas([
+    { reserva_id: 'r1', socio_id: 's1', estado_previo: 'CONFIRMADA', bono: 'DEVUELTO', recuperacion_restituida: false },
+    { reserva_id: 'r2', socio_id: 's2', estado_previo: 'LISTA_ESPERA', bono: null, recuperacion_restituida: false },
+    { reserva_id: 'r3', socio_id: 's3', estado_previo: 'CONFIRMADA', bono: 'SIN_CONSUMO', recuperacion_restituida: true },
+  ]);
+  assert.deepEqual(filas, [
+    { reservaId: 'r1', socioId: 's1', estadoPrevio: 'CONFIRMADA', bono: 'DEVUELTO', recuperacionRestituida: false },
+    { reservaId: 'r2', socioId: 's2', estadoPrevio: 'LISTA_ESPERA', bono: null, recuperacionRestituida: false },
+    { reservaId: 'r3', socioId: 's3', estadoPrevio: 'CONFIRMADA', bono: 'SIN_CONSUMO', recuperacionRestituida: true },
+  ]);
+  assert.deepEqual(interpretarReservasCanceladas([]), [], 'una clase sin reservas es una lista vacía, no un fallo');
+});
+
+test('interpretarReservasCanceladas: lo que no es lo esperado es null (un fallo)', () => {
+  for (const raro of [null, undefined, {}, 'x', [null], [{}], [{ reserva_id: 'r' }], [{ reserva_id: 'r', estado_previo: 'X', bono: 'INVENTADO' }]]) {
+    assert.equal(interpretarReservasCanceladas(raro), null, JSON.stringify(raro));
+  }
+});
+
+test('llamarCancelarReservasDeSesion: pasa estudio, sesión y motivo, y un error de la RPC es un fallo', async () => {
+  const llamadas: { fn: string; args: Record<string, unknown> }[] = [];
+  const bueno: ClienteLiberacion = { rpc: (fn, args) => { llamadas.push({ fn, args }); return Promise.resolve({ data: [], error: null }); } };
+  const ok = await llamarCancelarReservasDeSesion(bueno, { studioId: 'e', sesionId: 's', motivo: 'minimo_asistentes' });
+  assert.deepEqual(llamadas, [{ fn: 'cancelar_reservas_de_sesion', args: { p_studio_id: 'e', p_sesion_id: 's', p_motivo: 'minimo_asistentes' } }]);
+  assert.deepEqual(ok, { ok: true, canceladas: [] });
+  const malo: ClienteLiberacion = { rpc: () => Promise.resolve({ data: null, error: { message: 'boom' } }) };
+  assert.equal((await llamarCancelarReservasDeSesion(malo, { studioId: 'e', sesionId: 's', motivo: 'minimo_asistentes' })).ok, false);
+  const raro: ClienteLiberacion = { rpc: () => Promise.resolve({ data: { no: 'una lista' }, error: null }) };
+  assert.equal((await llamarCancelarReservasDeSesion(raro, { studioId: 'e', sesionId: 's', motivo: 'minimo_asistentes' })).ok, false);
+});
+
+const CIERRE = leer('supabase/migrations/20261002144018_cierre_integridad_derechos.sql');
+
+test('⚠️ cancelar_reservas_de_sesion: solo el servidor, motivos conocidos, y los mismos tres estados que cancelaban los llamadores', () => {
+  assert.match(CIERRE, /revoke all on function public\.cancelar_reservas_de_sesion\(text, text, text\) from public, anon, authenticated;/);
+  assert.match(CIERRE, /grant execute on function public\.cancelar_reservas_de_sesion\(text, text, text\) to service_role;/);
+  const cuerpo = CIERRE.slice(CIERRE.indexOf('create or replace function public.cancelar_reservas_de_sesion'));
+  const lista = cuerpo.match(/p_motivo not in \(([^)]*)\)/);
+  assert.ok(lista, 'no valida sus motivos');
+  assert.deepEqual([...lista[1].matchAll(/'([a-z_]+)'/g)].map(m => m[1]).sort(), [...MOTIVOS_LIBERACION].sort());
+  assert.match(cuerpo, /r\.estado in \('CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION'\)/);
+  // Exige que la clase ya esté cancelada (el aviso va antes) y la bloquea.
+  assert.match(cuerpo, /raise exception 'SESION_NO_CANCELADA'/);
+  assert.match(cuerpo, /for update;\s+if not found then\s+raise exception 'SESION_NO_ENCONTRADA'/);
+  // Solo una plaza confirmada libera derechos, y por la salida única.
+  assert.match(cuerpo, /if v_r\.estado = 'CONFIRMADA' then\s+v_lib := public\.liberar_derecho\(p_studio_id, v_r\.id, p_motivo\)/);
+  assert.ok(!/auth\.uid\(\) is (not )?null/.test(CIERRE));
+});
+
+test('⚠️ el ledger rechaza duplicados y la devolución ciega queda solo para el servidor', () => {
+  assert.match(CIERRE, /create unique index if not exists movimientos_derecho_un_consumo_por_reserva[\s\S]*?tipo in \('CONSUMO_BONO', 'USO_CUOTA', 'SIN_COBERTURA'\)/);
+  assert.match(CIERRE, /create unique index if not exists movimientos_derecho_una_devolucion_por_reserva[\s\S]*?tipo = 'DEVOLUCION_BONO'/);
+  // Los movimientos sin reserva (compras, ajustes, la devolución ciega) no entran en la unicidad.
+  assert.equal((CIERRE.match(/reserva_id is not null/g) ?? []).length >= 2, true);
+  assert.match(CIERRE, /revoke all on function public\.devolver_sesion_bono\(text, text\) from public, anon, authenticated;/);
+  assert.match(CIERRE, /grant execute on function public\.devolver_sesion_bono\(text, text\) to service_role;/);
 });

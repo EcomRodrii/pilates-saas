@@ -95,7 +95,7 @@ test('bonoConsumible con varias activas elige la que caduca antes (determinista)
 });
 
 // Decisión cerrada (motor de derechos): con varios bonos que cubren la clase manda la ESPECIFICIDAD,
-// luego la caducidad, luego el id. Su gemela en SQL es `elegir_bono_consumible` (migr 20261002150000).
+// luego la caducidad, luego el id. Su gemela en SQL es `elegir_bono_consumible` (migr 20261002134242).
 test('bonoConsumible: el bono acotado a ese tipo de clase se gasta antes que el general, aunque caduque después', () => {
   const suscripciones = [
     sus({ id: 'sus-general', socioId: 'a', planId: 'p-todo', fechaFin: '2026-08-01' }),

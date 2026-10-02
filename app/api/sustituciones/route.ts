@@ -22,7 +22,7 @@ import {
   estadosCoberturaPorPerfil, faltaColumnaSustitucion,
   type EstadoCoberturaNetwork, type InstructorCobertura, type SolicitudCobertura,
 } from '@/lib/network/cobertura-sustitucion';
-import { devolverBonosPorCancelacionClase } from '@/lib/db/supabase-data-admin';
+import { cancelarReservasDeSesion } from '@/lib/db/supabase-data-admin';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 
@@ -402,42 +402,42 @@ export async function PATCH(req: NextRequest) {
     // nunca iba a pasar, y esa reserva fantasma le seguía consumiendo el
     // límite de reservas simultáneas y el cupo semanal del plan.
     // P-1 (auditoría 21-ago): la devolución de bono sigue la política del
-    // estudio (`devolverBonosPorCancelacionClase`), unificada con el cron de
-    // mínimo de asistentes y con el camino de panel/serie. Se lee QUIÉN tenía
-    // plaza CONFIRMADA antes del UPDATE, porque después ya no hay forma de
-    // saberlo (el estado se sobrescribe a CANCELADA).
+    // estudio, unificada con el cron de mínimo de asistentes y con el camino de
+    // panel/serie. Motor de derechos: las reservas se cancelan Y se liberan en UNA
+    // transacción (`cancelarReservasDeSesion`, migr 20261002144018). Antes eran un
+    // UPDATE y, después, una llamada por reserva: si el proceso moría en medio, las
+    // reservas quedaban canceladas con el bono sin devolver y nadie lo veía.
     //
     // A las de LISTA_ESPERA y PENDIENTE_APROBACION se les cancela sin aviso:
     // avisarAlumnas solo alcanza a las CONFIRMADA. Es lo que ya hacía el panel.
-    const { data: confirmadasAntes } = await admin.from('reservas').select('id, socio_id')
-      .eq('sesion_id', sust.sesion_id).eq('studio_id', sesion.studioId).eq('estado', 'CONFIRMADA');
-
-    const cancRes = await admin.from('reservas')
-      .update({ estado: 'CANCELADA', posicion_espera: null })
-      .eq('sesion_id', sust.sesion_id)
-      .eq('studio_id', sesion.studioId) // admin client: sin RLS, se acota a mano
-      .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']);
-    if (cancRes.error) {
+    const { data: sesionInfo } = await admin.from('sesiones').select('tipo_clase_id')
+      .eq('id', sust.sesion_id).eq('studio_id', sesion.studioId).maybeSingle();
+    const cancelacion = await cancelarReservasDeSesion(admin, {
+      studioId: sesion.studioId, sesionId: sust.sesion_id as string,
+      tipoClaseId: (sesionInfo?.tipo_clase_id as string | null) ?? null,
+      motivo: 'instructora_baja_sin_sustituta',
+    });
+    if (!cancelacion.ok) {
       // No se corta el flujo: la clase YA está cancelada y las alumnas YA
       // están avisadas. Se registra para poder repararlo a mano.
       //
-      // 19ª auditoría · F-10: pero antes solo se registraba con `console.error`
+      // 19ª auditoría · F-10: antes solo se registraba con `console.error`
       // —que no llega a Sentry— y la respuesta seguía siendo `{ok:true}`, con
       // la UI diciendo "clase cancelada · N avisadas". Tres cosas quedaban mal a
       // la vez y ninguna se veía: (a) reservas fantasma CONFIRMADA sobre una
-      // clase que no existe, consumiendo cupo semanal y maxSimultaneas —
-      // exactamente lo que el comentario de arriba dice ir a evitar; (b) NINGÚN
-      // bono devuelto, porque la devolución cuelga del `else`; (c) cero rastro.
-      // El gemelo del panel (lib/studio-context.tsx, cancelarClase) sí devuelve
-      // "La clase se ha cancelado, pero no hemos podido cancelar sus reservas".
-      // Se iguala: la propietaria tiene que saber que le queda trabajo a mano.
+      // clase que no existe, consumiendo cupo semanal y maxSimultaneas;
+      // (b) NINGÚN bono devuelto; (c) cero rastro. El gemelo del panel
+      // (lib/studio-context.tsx, cancelarClase) sí devuelve "La clase se ha
+      // cancelado, pero no hemos podido cancelar sus reservas". Se iguala: la
+      // propietaria tiene que saber que le queda trabajo a mano. Y como ahora es
+      // una sola transacción, un fallo aquí significa que NO se ha cancelado ni
+      // devuelto nada: las reservas siguen como estaban.
       Sentry.captureMessage('[sustituciones:cancelar_clase] clase cancelada pero sus reservas siguen activas', {
         level: 'error',
         tags: { area: 'reservas' },
         extra: {
           sesionId: sust.sesion_id, studioId: sesion.studioId,
-          detalle: cancRes.error.message,
-          confirmadas: confirmadasAntes?.length ?? 0,
+          detalle: cancelacion.error instanceof Error ? cancelacion.error.message : String(cancelacion.error),
           queHacer: 'Las reservas de esa sesión siguen CONFIRMADA/LISTA_ESPERA y NO se han devuelto bonos. Cancelarlas a mano y revisar los bonos afectados.',
         },
       });
@@ -446,13 +446,15 @@ export async function PATCH(req: NextRequest) {
         alumnas,
         aviso: 'La clase se ha cancelado y hemos avisado a las alumnas, pero no hemos podido liberar sus reservas ni devolver los bonos. Revísalo en el calendario.',
       });
-    } else if (confirmadasAntes?.length) {
-      const { data: sesionInfo } = await admin.from('sesiones').select('tipo_clase_id')
-        .eq('id', sust.sesion_id).maybeSingle();
-      const tipoClaseId = sesionInfo?.tipo_clase_id as string | null;
-      await devolverBonosPorCancelacionClase(admin, sesion.studioId,
-        confirmadasAntes.map(r => ({ socioId: r.socio_id as string, tipoClaseId, reservaId: r.id as string })),
-        'instructora_baja_sin_sustituta');
+    }
+    if (cancelacion.fallos > 0) {
+      return NextResponse.json({
+        ok: true,
+        alumnas,
+        aviso: cancelacion.fallos === 1
+          ? 'La clase se ha cancelado, pero no hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
+          : `La clase se ha cancelado, pero no hemos podido devolver la sesión al bono de ${cancelacion.fallos} clientas. Revísalo a mano.`,
+      });
     }
 
     return NextResponse.json({ ok: true, alumnas });

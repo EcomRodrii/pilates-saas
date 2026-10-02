@@ -1,4 +1,4 @@
-// Motor de derechos, FASE 3a (migración 20261002150000): dos reglas de elegibilidad ya decididas.
+// Motor de derechos, FASE 3a (migración 20261002134242): dos reglas de elegibilidad ya decididas.
 //
 //  · el no-show CUENTA COMO USO para el tope semanal (`calcular_excede_limite_semanal`);
 //  · con varios bonos que cubren la clase manda la ESPECIFICIDAD, luego la caducidad, luego el id

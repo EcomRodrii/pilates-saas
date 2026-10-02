@@ -1168,7 +1168,7 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   `LEGADO_SIN_RASTRO` y `liberarReservaCancelada` cae a `devolverBonoServidor`: su saldo ya venía descontado de la otra
   plataforma y no hay ledger que diga qué bono pagó. Se retira cuando las importadas se clasifiquen. La cancelación de
   UNA reserva por la alumna (`cancelar_reserva_plaza` + `ejecutarCancelacionReserva`) sigue como estaba.
-- **Fase 3a, hecha: dos reglas de elegibilidad y errores con acciones** (migr `20261002150000`, aplicada a producción el
+- **Fase 3a, hecha: dos reglas de elegibilidad y errores con acciones** (migr `20261002134242`, aplicada a producción el
   2-oct; el fichero conserva este nombre y falta relabelarlo a su versión aplicada). El **no-show cuenta como uso** para el
   tope semanal (`calcular_excede_limite_semanal`) Y para el barrido de recuperaciones semanales
   (`otorgar-semanales.ts`: si no, faltar sin avisar devolvía una recuperación por un hueco que dejó vacío ella); el tope de
@@ -1179,6 +1179,14 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   (`lib/student/reserva-acciones.ts`: `Record<CodigoReserva, …>`, un código nuevo sin fila no compila), en la API pública y
   en la v1; el botón de comprar de la app sale de `acciones` y la comparación de la frase queda solo de respaldo. «Incluida en
   tu mensualidad» sustituye a «(Infinity disponibles)» (`comoSePaga`) y la ficha de un bono ilimitado dice «Sin límite».
+- **Cierre de integridad, hecho** (migr `20261002144018`): el ledger rechaza duplicados (UN registro de pago y UNA devolución
+  por reserva, con la reserva informada: las compras, los ajustes y la devolución a ciegas no entran); la devolución a ciegas
+  `devolver_sesion_bono` quedó solo para el servidor (`devolverBonoServidor` exige ya `reservaId`, y no hay otra salida); y
+  `cancelar_reservas_de_sesion` cancela las reservas de una clase YA cancelada y las libera EN UNA TRANSACCIÓN (el cron de
+  mínimo de asistentes, el cierre del centro y sustituciones/`cancelar_clase` la usan; antes eran un UPDATE y una llamada por
+  reserva, y si el proceso moría en medio quedaba cancelado sin devolver). ⚠️ El aviso a las alumnas sigue yendo ANTES: se
+  marca la clase cancelada, se avisa y entonces se llama a la RPC (exige la clase cancelada). El panel/serie, que cancela con
+  RLS de cliente, sigue por `/api/reservas/devolver-bonos` reserva a reserva.
 - **Lo que viene, en este orden:** `evaluar_reserva` (SQL, solo lectura, la elegibilidad en un solo sitio, con tests de
   paridad contra `reservar_plaza` en CI; en sombra, sin decidir todavía) → que `reservar_plaza` decida con ella → orden de
   pagador por tope del producto que paga. Después: índices únicos (una liberación/consumo por reserva), `cancelar_sesion` transaccional, REVOKE

@@ -28,7 +28,7 @@ test('elige el bono que cubre, no el primero con saldo', () => {
 //    acotado. Se alineó la app con quien mueve el dinero.
 // 2) El 2-oct-2026 producto decidió que de verdad hay que «gastar antes el acotado» (el comodín
 //    se guarda para lo que el acotado no cubre). Se llevó a `elegirBono` y a
-//    `elegir_bono_consumible` (SQL, migr 20261002150000) y la app lo hereda: hay UNA regla.
+//    `elegir_bono_consumible` (SQL, migr 20261002134242) y la app lo hereda: hay UNA regla.
 test('con dos bonos que sirven, manda el ACOTADO aunque el general caduque antes', () => {
   const soloMat = bono({ id: 'b-mat', tiposClaseIds: ['tc-mat'], expiraEn: '2026-12-31' });
   const general = bono({ id: 'b-gen', expiraEn: '2026-09-08' });
@@ -113,7 +113,7 @@ test('el comparador es copia del que usa el servidor, en TypeScript y en SQL', (
     'El orden del servidor cambió: revisa compararPorElegibilidad en lib/student/bono-cubre.ts.');
   assert.match(servidor, /\(planDe\(s\)\?\.tiposClaseIds\?\.length \?\? 0\) > 0 \? 0 : 1/,
     'La especificidad del servidor cambió: revisa compararPorElegibilidad en lib/student/bono-cubre.ts.');
-  const sql = readFileSync(join(raiz, 'supabase/migrations/20261002150000_reglas_derechos_noshow_y_especificidad.sql'), 'utf8');
+  const sql = readFileSync(join(raiz, 'supabase/migrations/20261002134242_reglas_derechos_noshow_y_especificidad.sql'), 'utf8');
   const orden = sql.slice(sql.indexOf('order by case when exists ('));
   assert.ok(orden.indexOf('plan_tipos_clase') < orden.indexOf("coalesce(s.fecha_fin, '9999-12-31'::date)"),
     'En SQL el bono acotado tiene que ir ANTES que la caducidad, como en TypeScript.');

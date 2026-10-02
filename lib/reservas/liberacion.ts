@@ -95,3 +95,56 @@ export async function llamarLiberarDerecho(cliente: ClienteLiberacion, p: {
   if (!liberacion) return { ok: false, error: new Error(`liberar_derecho devolvió ${JSON.stringify(data)}`) };
   return { ok: true, liberacion };
 }
+
+// ── Cancelar las reservas de una clase y liberarlas, en una sola transacción ─────────────────
+//
+// `cancelar_reservas_de_sesion` (migr 20261002144018) cancela las reservas activas de una clase YA cancelada y libera
+// sus derechos en la misma transacción: o pasa todo o no pasa nada, y repetir la llamada no devuelve dos veces.
+// Devuelve una fila por reserva cancelada.
+
+/** Qué pasó con cada reserva de la clase. `estadoPrevio` es lo que era ANTES de cancelarla. */
+export interface ReservaCancelada {
+  reservaId: string;
+  socioId: string | null;
+  estadoPrevio: string;
+  /** Solo las que estaban CONFIRMADA tienen veredicto: lo demás no consumió nada. */
+  bono: VeredictoBono | null;
+  recuperacionRestituida: boolean;
+}
+
+/** Traduce las filas de la RPC. `null` si no son lo esperado: quien llama lo trata como un FALLO, nunca como «no había nada». */
+export function interpretarReservasCanceladas(data: unknown): ReservaCancelada[] | null {
+  if (!Array.isArray(data)) return null;
+  const filas: ReservaCancelada[] = [];
+  for (const f of data) {
+    if (f == null || typeof f !== 'object') return null;
+    const d = f as Record<string, unknown>;
+    if (typeof d.reserva_id !== 'string' || typeof d.estado_previo !== 'string') return null;
+    const bono = d.bono;
+    if (bono != null && (typeof bono !== 'string' || !VEREDICTOS.has(bono as VeredictoBono))) return null;
+    filas.push({
+      reservaId: d.reserva_id,
+      socioId: typeof d.socio_id === 'string' ? d.socio_id : null,
+      estadoPrevio: d.estado_previo,
+      bono: (bono as VeredictoBono | null | undefined) ?? null,
+      recuperacionRestituida: d.recuperacion_restituida === true,
+    });
+  }
+  return filas;
+}
+
+export type ResultadoCancelacion =
+  | { ok: true; canceladas: ReservaCancelada[] }
+  | { ok: false; error: unknown };
+
+export async function llamarCancelarReservasDeSesion(cliente: ClienteLiberacion, p: {
+  studioId: string; sesionId: string; motivo: MotivoLiberacion;
+}): Promise<ResultadoCancelacion> {
+  const { data, error } = await cliente.rpc('cancelar_reservas_de_sesion', {
+    p_studio_id: p.studioId, p_sesion_id: p.sesionId, p_motivo: p.motivo,
+  });
+  if (error) return { ok: false, error };
+  const canceladas = interpretarReservasCanceladas(data);
+  if (!canceladas) return { ok: false, error: new Error(`cancelar_reservas_de_sesion devolvió ${JSON.stringify(data)}`) };
+  return { ok: true, canceladas };
+}

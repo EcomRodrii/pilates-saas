@@ -362,13 +362,13 @@ test('⚠️ completar tras un reintento nunca toca una plaza fija', () => {
 test('⚠️ toda devolución por cancelación mira si la reserva llegó a cobrarse', () => {
   // La cancelación de UNA reserva (alumna) sigue con su propia comprobación.
   assert.match(cuerpoDe(ADMIN, 'ejecutarCancelacionReserva'), /reservasSinCobroRegistrado\(/, 'ejecutarCancelacionReserva');
-  // Las que cancelan una CLASE entera pasan todas por la salida única (`liberar_derecho`), que lee
-  // qué consumió cada reserva: ya no hay un «¿se cobró?» suelto en cada camino.
-  assert.match(cuerpoDe(ADMIN, 'devolverBonosPorCancelacionClase'), /liberarReservaCancelada\(/);
+  // Las que cancelan una CLASE entera pasan todas por la salida única (`liberar_derecho`), que lee qué consumió cada
+  // reserva: ya no hay un «¿se cobró?» suelto en cada camino. El panel/serie, reserva a reserva; el servidor, en una
+  // sola transacción (`cancelar_reservas_de_sesion`).
   assert.match(leer('app/api/reservas/devolver-bonos/route.ts'), /liberarReservaCancelada\(/);
-  // Los que cancelan una clase entera le pasan la reserva, o la salida no mira nada.
-  assert.match(cuerpoDe(ADMIN, 'cancelarSesionPorMinimoNoAlcanzado'), /reservaId: r\.id/);
-  assert.match(leer('app/api/sustituciones/route.ts'), /tipoClaseId, reservaId: r\.id/);
+  assert.match(cuerpoDe(ADMIN, 'cancelarReservasDeSesion'), /llamarCancelarReservasDeSesion\(/);
+  assert.match(cuerpoDe(ADMIN, 'cancelarSesionPorMinimoNoAlcanzado'), /cancelarReservasDeSesion\(admin/);
+  assert.match(leer('app/api/sustituciones/route.ts'), /cancelarReservasDeSesion\(admin/);
 });
 
 test('⚠️ las reservas importadas nacen NO rastreadas, y el import sigue funcionando sin la migración', () => {
@@ -411,19 +411,17 @@ test('⚠️ migración 2 de 2: solo el default, nada más', () => {
   assert.deepEqual(sentencias, ['alter table public.reservas\n  alter column bono_consumo_rastreado set default true']);
 });
 
-test('⚠️ R-4: la devolución legada también sella por reserva, no solo la rastreada', () => {
+test('⚠️ R-4: toda devolución sella por reserva, y ya no existe el +1 a ciegas', () => {
   const cuerpo = cuerpoDe(ADMIN, 'devolverBonoServidor');
-  // La rama rastreada (RES-3) ya sella con `devolver_sesion_bono_por_reserva`
-  // y devuelve pronto; lo que se comprueba aquí es que, tras ella, la rama
-  // legada NO cae directa al `+1` ciego cuando SÍ hay reservaId — antes de
-  // llegar al `devolver_sesion_bono` sin marca, tiene que intentar la RPC
-  // sellada.
-  const trasRamaRastreada = cuerpo.slice(cuerpo.indexOf('bonoDevolvible('));
-  const iLegado = trasRamaRastreada.indexOf('devolver_sesion_bono_legado_por_reserva');
-  const iCiego = trasRamaRastreada.indexOf("rpc('devolver_sesion_bono'");
-  assert.ok(iLegado > 0, 'falta la llamada a la RPC legada sellada');
-  assert.ok(iCiego > iLegado, 'el incremento ciego (sin marca) tiene que ir DESPUÉS, como último recurso sin reservaId');
-  // Y esa llamada va detrás de un `if (reservaId)` — nunca se llama sin id.
-  const guardaReservaId = trasRamaRastreada.slice(0, iLegado).lastIndexOf('if (reservaId)');
-  assert.ok(guardaReservaId > 0, 'la RPC legada sellada exige reservaId, igual que la rastreada');
+  // La rama rastreada (RES-3) sella con `devolver_sesion_bono_por_reserva`; la legada, con
+  // `devolver_sesion_bono_legado_por_reserva`. Ninguna cae ya al `+1` ciego (`devolver_sesion_bono`), que se cerró a
+  // `authenticated` (migr 20261002144018) y no tiene llamador.
+  assert.match(cuerpo, /rpc\('devolver_sesion_bono_por_reserva'/);
+  assert.match(cuerpo, /rpc\('devolver_sesion_bono_legado_por_reserva'/);
+  assert.ok(!/rpc\('devolver_sesion_bono'/.test(cuerpo), 'ha vuelto el incremento ciego, sin marca ni reserva');
+  // `reservaId` es obligatoria: sin ella no se puede sellar y repetir la devolución sumaría una sesión más cada vez.
+  assert.match(cuerpo, /reservaId: string,\s*\): Promise<ResultadoDevolucionBono>/);
+  assert.ok(!/reservaId\?: string/.test(cuerpo));
+  // Nadie más del servidor llama a la devolución ciega.
+  assert.ok(!/rpc\('devolver_sesion_bono'/.test(ADMIN), 'otro camino del servidor llama a la devolución ciega');
 });
