@@ -34,7 +34,17 @@ test('cada código que lanza la RPC de reservar tiene traducción', () => {
 
   const sql = readFileSync(join(dir, fichero!), 'utf8');
   const cuerpo = sql.slice(sql.indexOf('function public.reservar_plaza'));
-  const codigos = [...cuerpo.matchAll(/raise exception '([A-Z_]+)'/g)].map(m => m[1]);
+  // Desde la Fase 3c la RPC ya no decide: los rechazos de elegibilidad salen del `detalle` de `evaluar_reserva` y ella los
+  // relanza con `raise exception '%'`. Así que la familia entera es la unión de lo que lanza directamente y de esos `detalle`.
+  const evaluar = readdirSync(dir)
+    .filter(f => f.endsWith('.sql'))
+    .filter(f => /create\s+(or\s+replace\s+)?function\s+public\.evaluar_reserva\s*\(/i.test(readFileSync(join(dir, f), 'utf8')))
+    .sort().pop();
+  assert.ok(evaluar, 'no se encontró ninguna migración que defina evaluar_reserva');
+  const sqlEvaluar = readFileSync(join(dir, evaluar!), 'utf8');
+  const detalles = [...sqlEvaluar.matchAll(/'detalle',\s*(?:'([A-Z_]+)'|case when[^']*'([A-Z_]+)'[^']*'([A-Z_]+)'\s*end)/g)]
+    .flatMap(m => m.slice(1).filter((x): x is string => Boolean(x)));
+  const codigos = [...cuerpo.matchAll(/raise exception '([A-Z_]+)'/g)].map(m => m[1]).concat(detalles);
   assert.ok(codigos.length >= 10, `esperaba la familia entera, encontré ${codigos.length}`);
 
   for (const codigo of new Set(codigos)) {

@@ -146,9 +146,19 @@ test('salto 0: todo `raise exception` de reservar_plaza lo traduce el TS', () =>
   assert.ok(ultima, 'no se encuentra ninguna migracion que defina reservar_plaza');
 
   const sql = leer(`supabase/migrations/${ultima}`);
-  const lanzados = new Set(
-    [...sql.matchAll(/raise exception '([A-Z_]+)'/g)].map(m => m[1]),
-  );
+  // Desde la Fase 3c la RPC decide con `evaluar_reserva`: sus rechazos de elegibilidad salen del `detalle` de esa función y
+  // la RPC los relanza con `raise exception '%'`. La familia es la unión de ambos.
+  const ultimaEvaluar = migraciones
+    .filter(f => /create or replace function public\.evaluar_reserva\s*\(/i.test(leer(`supabase/migrations/${f}`)))
+    .pop();
+  assert.ok(ultimaEvaluar, 'no se encuentra ninguna migracion que defina evaluar_reserva');
+  const detalles = [...leer(`supabase/migrations/${ultimaEvaluar}`)
+    .matchAll(/'detalle',\s*(?:'([A-Z_]+)'|case when[^']*'([A-Z_]+)'[^']*'([A-Z_]+)'\s*end)/g)]
+    .flatMap(m => m.slice(1).filter((x): x is string => Boolean(x)));
+  const lanzados = new Set([
+    ...[...sql.matchAll(/raise exception '([A-Z_]+)'/g)].map(m => m[1]),
+    ...detalles,
+  ]);
   assert.ok(lanzados.size >= 10, `esperaba los rechazos de la RPC, encontre ${lanzados.size}`);
 
   const ts = leer('lib/db/supabase-data-admin.ts');
