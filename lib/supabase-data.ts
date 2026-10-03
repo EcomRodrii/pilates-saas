@@ -537,7 +537,10 @@ export type FilaReciboPanel = Omit<RowRecibos,
   // panel no las pinta ni las decide, y el hash no le dice nada a nadie sin
   // resolverlo contra `terminos_versiones`. Mismo criterio que dejó fuera
   // `socios.aceptacion_version`, cuyos 2,7 KB por fila inflaban el payload.
-  | 'terminos_hash' | 'terminos_aceptados_en'>;
+  | 'terminos_hash' | 'terminos_aceptados_en'
+  // El cobro con tarjeta o domiciliación guardada EN MARCHA (lib/billing/cobro-off-session-marca.ts):
+  // dura segundos y la decide el servidor; la remesa la lee aparte, justo antes de marcar.
+  | 'cobro_off_session_clave' | 'cobro_off_session_desde'>;
 
 export function mapSocio(r: FilaSocioPanel): Socio {
   // ⚠️ `versionTexto` llega VACÍO desde el arranque del panel, y es a propósito.
@@ -3329,10 +3332,10 @@ export async function dbLeerRecibosParaRemesa(ids: string[]): Promise<LecturaRec
   if (ids.length === 0) return { ok: true, filas };
   try {
     const { data, error } = await supabase.from('recibos')
-      .select('id, estado, proximo_reintento, stripe_payment_intent_id, checkout_session_id, cobro_mostrador_pi')
+      .select(`id, estado, ${COLUMNAS_COBRO_EN_MARCHA.join(', ')}`)
       .in('id', ids);
     if (error) return { ok: false };
-    for (const fila of (data ?? []) as FilaReciboRemesa[]) filas.set(fila.id, fila);
+    for (const fila of (data ?? []) as unknown as FilaReciboRemesa[]) filas.set(fila.id, fila);
     return { ok: true, filas };
   } catch {
     return { ok: false };

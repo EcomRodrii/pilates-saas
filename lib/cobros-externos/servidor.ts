@@ -26,7 +26,7 @@ import {
   aplicarEfectosCobro as aplicarEfectosCobroReal, confirmarCobro as confirmarCobroReal,
 } from '../billing/confirmar-cobro.ts';
 import { facturaIdExterno } from '../billing/cobro-confirmado-reglas.ts';
-import { penalizacionesDeLosRecibos, recibosDePenalizacionAnulada } from '../cobros/marcar-cobrado.ts';
+import { MENSAJE_COBRO_CON_METODO_GUARDADO, penalizacionesDeLosRecibos, recibosDePenalizacionAnulada } from '../cobros/marcar-cobrado.ts';
 import { anotarCobroMarcadoAMano, leerReciboAntesDeCobrar } from '../auditoria/cobro-manual.ts';
 import { registrarAuditoriaServidor, type RegistrarAuditoria } from '../auditoria/registrar-servidor.ts';
 import {
@@ -670,6 +670,8 @@ export async function confirmarMovimiento(
   const sigueCobrable = !r.ok && r.codigo === 'NO_COBRABLE' && ['PENDIENTE', 'FALLIDO', 'DEVUELTO'].includes(r.estado ?? '');
   const mensaje = r.ok
     ? 'El recibo está devuelto: no se puede cobrar con este movimiento.'
+    // Se está cobrando con su tarjeta guardada (la marca de `cobrarReciboOffSession`).
+    : r.enMarcha ? MENSAJE_COBRO_CON_METODO_GUARDADO
     : sigueCobrable ? 'Entre medias se ha abierto un pago de este recibo o ha cambiado: no se ha cobrado. Vuelve a intentarlo.' : r.error;
   await soltar(admin, studioId, movimientoId, mensaje);
   return { ok: false, codigo: !r.ok && r.codigo === 'NO_ENCONTRADO' ? 'NO_ENCONTRADO' : 'NO_COBRABLE', error: mensaje };

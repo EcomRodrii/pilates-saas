@@ -221,6 +221,9 @@ export function hayQueReleerRecibo(cobro: Cobro): boolean {
  *   escribe y se contesta 409. La penalización sigue PENDIENTE_APROBACION y
  *   reaparece al recargar; cuando el recibo quede COBRADO, el siguiente
  *   «Aprobar» la cierra como «ya estaba cobrada» sin cobrar otra vez.
+ * - `COBRO_EN_MARCHA` (otro cobro de ese recibo en vuelo: el dunning con la
+ *   tarjeta guardada, el datáfono): lo mismo. Escribir FALLIDA aquí dejaba la
+ *   penalización «no cobrada» mientras el otro camino la estaba cobrando.
  */
 export function planificarTrasCobro(
   cobro: Cobro,
@@ -267,7 +270,7 @@ export function planificarTrasCobro(
   // cobrado y un FALLIDA aquí es justo el bug.
   if (!recibo || !recibo.ok) return { escritura: null, desenlace: desenlaces.sinConfirmar() };
 
-  if (recibo.estado === 'EN_CURSO') {
+  if (recibo.estado === 'EN_CURSO' || cobro.errorCode === 'COBRO_EN_MARCHA') {
     return { escritura: null, desenlace: desenlaces.noPendiente('Este cobro ya está en curso: no se ha vuelto a cobrar.') };
   }
 

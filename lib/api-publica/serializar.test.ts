@@ -10,6 +10,7 @@ import { ESQUEMAS } from './openapi.ts';
 // existen en la tabla y no deben salir nunca aunque alguien las añada al select.
 const INTERNAS = {
   hash: 'h', terminos_hash: 'x', checkout_session_id: 'cs_1', cobro_mostrador_pi: 'pi_x', studio_id: 'otro-estudio',
+  cobro_off_session_clave: 'offsession-cobro-rec-1-i0', cobro_off_session_desde: '2026-10-02T12:00:00.000Z',
   aceptacion_firma: 'firma', stripe_customer_id: 'cus_1', idempotencia_clave: 'k', verifactu_hash: 'vh',
   // El nombre que manda ClassPass/USC con la reserva: dato personal de fuera.
   nombre_externo: 'Nombre de la plataforma',

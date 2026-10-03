@@ -66,7 +66,7 @@ export async function marcarReciboDevuelto(
   registrar: RegistrarAuditoria = registrarAuditoriaServidor,
 ): Promise<ResultadoMarcarDevuelto> {
   const { data: recibo, error: errLectura } = await admin.from('recibos')
-    .select('estado, fecha_devolucion, stripe_payment_intent_id, metodo_cobro, sepa_estado, socio_id, concepto, importe, fecha_vencimiento, proximo_reintento, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, checkout_session_id, cobro_mostrador_pi')
+    .select('estado, fecha_devolucion, stripe_payment_intent_id, metodo_cobro, sepa_estado, socio_id, concepto, importe, fecha_vencimiento, proximo_reintento, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, checkout_session_id, cobro_mostrador_pi, cobro_off_session_clave')
     .eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
   if (errLectura) return { ok: false, http: 500, error: 'No se ha podido comprobar el recibo.' };
   if (!recibo) return { ok: false, http: 404, error: 'No se encuentra ese recibo.' };

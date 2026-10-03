@@ -35,13 +35,13 @@ import Stripe from 'stripe';
 // por D-6: el webhook persiste `payment_intent.succeeded` de
 // `origen: 'tarjeta_recibo'` (llega en segundos), así que un cargo hecho con
 // respuesta perdida está COBRADO mucho antes del siguiente barrido y sale de
-// la lista de candidatos. RESIDUO ABIERTO, solo SEPA: si el `create` del
-// adeudo llegó y la respuesta se perdió, el PI queda vivo en `processing` SIN
-// `stripe_payment_intent_id` ni EN_CURSO en el recibo — el webhook de
-// `succeeded` lo resolverá al liquidar (días), pero si el barrido diario
-// reintenta ANTES con la clave ya purgada, puede emitir un SEGUNDO adeudo.
-// Ventana estrecha (transitorio en SEPA + clave purgada + barrido antes de la
-// liquidación) y sin red hoy — documentado, no resuelto.
+// la lista de candidatos. El residuo que quedaba en SEPA (el `create` del
+// adeudo llegó, la respuesta se perdió y el barrido siguiente reintentaba con la
+// clave ya purgada: un SEGUNDO adeudo) lo cierra la marca de «cobro en marcha»
+// (lib/billing/cobro-off-session-marca.ts): un ERROR_TRANSITORIO deja el recibo
+// reservado, nada vuelve a entrar pasados unos minutos, y el conciliador horario
+// la resuelve preguntando a Stripe (EN_CURSO con ese adeudo, o soltarla si no
+// hay ningún cargo).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ClaseErrorCobro = 'FALLO_COBRO' | 'ERROR_TRANSITORIO';

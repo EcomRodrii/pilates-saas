@@ -169,7 +169,8 @@ test('⚠️ marcar exige PENDIENTE y sin cobro en marcha en el UPDATE; deshacer
   assert.ok(cuerpoDe(datos, 'export async function dbUpdateRecibosBatch(')
     .includes('if (opciones.sinCobroEnMarcha) for (const col of COLUMNAS_COBRO_EN_MARCHA) q = q.is(col, null);'));
   const lectura = cuerpoDe(datos, 'export async function dbLeerRecibosParaRemesa(');
-  for (const col of COLUMNAS_COBRO_EN_MARCHA) assert.ok(lectura.includes(col), `la lectura trae ${col}`);
+  // Las columnas salen de la constante: una nueva entra sola en la lectura.
+  assert.ok(lectura.includes(".select(`id, estado, ${COLUMNAS_COBRO_EN_MARCHA.join(', ')}`)"), 'la lectura trae las columnas de «cobro en marcha»');
   assert.match(lectura, /if \(error\) return \{ ok: false \};/);
   assert.match(lectura, /catch \{\s*return \{ ok: false \};/);
 });

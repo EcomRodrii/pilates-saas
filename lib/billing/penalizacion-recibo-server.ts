@@ -55,7 +55,7 @@ export async function borrarReciboDePenalizacionSinCobro(
     .eq('id', p.reciboId).eq('studio_id', p.studioId)
     .eq('estado', 'PENDIENTE').is('proximo_reintento', null)
     .is('stripe_payment_intent_id', null).is('checkout_session_id', null)
-    .is('cobro_mostrador_pi', null)
+    .is('cobro_mostrador_pi', null).is('cobro_off_session_clave', null)
     .select('id');
   if (error) console.error('[penalizaciones] no se pudo borrar el recibo de una penalización sin cobro', p.reciboId, error.message);
   return { error: !!error, tocadas: data?.length ?? 0 };

@@ -8,7 +8,7 @@ import {
   MENSAJE_COBRO_EN_EL_DATAFONO, MENSAJE_PAGO_ONLINE_SIN_COMPROBAR, MENSAJE_YA_PAGADO_EN_EL_DATAFONO, MENSAJE_YA_PAGADO_ONLINE,
   cerrarPagoOnlineAntesDeCobrarAMano, soltarCobroDeMostradorAntesDeCobrarAMano, type SesionesDeStripe,
 } from '../billing/pago-online-al-cobrar-a-mano.ts';
-import { penalizacionesDeLosRecibos, recibosDePenalizacionAnulada } from './marcar-cobrado.ts';
+import { MENSAJE_COBRO_CON_METODO_GUARDADO, penalizacionesDeLosRecibos, recibosDePenalizacionAnulada } from './marcar-cobrado.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo que se comprueba JUSTO antes de cobrar un recibo fuera de Stripe: a mano en
@@ -97,9 +97,13 @@ export async function soltarPagosEnMarchaAntesDeCobrar(
 ): Promise<PagosEnMarcha> {
   const { studioId, reciboId } = p;
   const { data: fila, error: errFila } = await admin.from('recibos')
-    .select('checkout_session_id, cobro_mostrador_pi, cobro_mostrador_checkout_session_id')
+    .select('checkout_session_id, cobro_mostrador_pi, cobro_mostrador_checkout_session_id, cobro_off_session_clave')
     .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
   if (errFila) return { ok: false, mensaje: 'No se ha podido comprobar si tiene un cobro en marcha. Inténtalo otra vez.' };
+  // Se está cobrando AHORA con su tarjeta o domiciliación guardada: no se cobra, y
+  // antes de cerrarle el enlace o cancelar el datáfono para nada. El compare-and-set
+  // de `confirmarCobro` lo vuelve a exigir (lib/billing/cobro-off-session-marca.ts).
+  if (fila?.cobro_off_session_clave) return { ok: false, mensaje: MENSAJE_COBRO_CON_METODO_GUARDADO };
 
   const ref = (fila?.cobro_mostrador_pi as string | null) ?? null;
   if (ref) {

@@ -62,6 +62,30 @@ export function estadosAdmitidosPorOrigen(
   return opciones.admitirDevuelto === false ? base.filter(e => e !== 'DEVUELTO') : base;
 }
 
+/**
+ * ¿Esta puerta espera a que termine un cobro con tarjeta o domiciliación guardada
+ * (`recibos.cobro_off_session_clave` a null en el propio compare-and-set)?
+ *
+ * `cobrarReciboOffSession` reserva el recibo ANTES de llamar a Stripe, porque crea
+ * y confirma el cargo en la misma llamada. Lo que confirma una PERSONA (a mano,
+ * «el banco lo ha cobrado», un movimiento del fichero del banco) puede decir que no
+ * y espera: si no, el recibo se cobraba dos veces. Lo que confirma STRIPE no
+ * espera: ese dinero ya entró, y negarse a registrarlo solo lo dejaría sin recibo.
+ * Ver lib/billing/cobro-off-session-marca.ts.
+ *
+ * Un `Record` y no una lista a propósito: un origen nuevo no compila hasta que
+ * alguien decida si espera.
+ */
+export const ESPERA_A_UN_COBRO_OFF_SESSION: Record<OrigenCobro, boolean> = {
+  manual: true,
+  banco: true,
+  externo: true,
+  webhook: false,
+  conciliador: false,
+  tpv: false,
+  off_session: false,
+};
+
 export type ConciliadoPor = 'webhook' | 'conciliador' | 'tpv' | 'manual' | 'externo';
 
 /**
@@ -111,7 +135,10 @@ export function filtroCargoEnCas(paymentIntentId: string | null): string | null 
     + `and(estado.eq.EN_CURSO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.eq.${pi}))`;
 }
 
-export type FilaReciboSinCambios = { estado: string | null; stripe_payment_intent_id: string | null; conciliado_por?: string | null } | null;
+export type FilaReciboSinCambios = {
+  estado: string | null; stripe_payment_intent_id: string | null; conciliado_por?: string | null;
+  cobro_off_session_clave?: string | null;
+} | null;
 
 export type DecisionSinFilas =
   | { tipo: 'no_encontrado' }
@@ -121,6 +148,11 @@ export type DecisionSinFilas =
   | { tipo: 'devuelto' }
   /** Cobrado, o en vuelo, con OTRO cargo: dinero cobrado dos veces. Se reporta. */
   | { tipo: 'otro_cobro'; anterior: string | null }
+  /**
+   * Un cobro sin cargo propio (a mano, el banco) sobre un recibo que se está
+   * cobrando AHORA con su tarjeta o domiciliación guardada: no se cobra.
+   */
+  | { tipo: 'cobro_en_marcha'; estado: string | null }
   /** Existe pero su estado (o un reembolso en curso) no admite este cobro. */
   | { tipo: 'no_cobrable'; estado: string | null };
 
@@ -147,6 +179,9 @@ export function resolverSinFilas(fila: FilaReciboSinCambios, paymentIntentId: st
   }
   if (fila.estado === 'EN_CURSO' && paymentIntentId && anterior && anterior !== paymentIntentId) {
     return { tipo: 'otro_cobro', anterior };
+  }
+  if (!paymentIntentId && fila.cobro_off_session_clave && (fila.estado === 'PENDIENTE' || fila.estado === 'FALLIDO')) {
+    return { tipo: 'cobro_en_marcha', estado: fila.estado };
   }
   return { tipo: 'no_cobrable', estado: fila.estado };
 }

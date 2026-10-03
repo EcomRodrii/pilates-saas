@@ -6,8 +6,13 @@ import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { elegirMetodoCobro } from '@/lib/billing/metodo-cobro';
 import { estadoCobroCuenta } from '@/lib/billing/cuenta-puede-cobrar';
 import { clasificarErrorCobro } from '@/lib/billing/clasificar-error-cobro';
-import { puedeIntentarCobro, type ReciboParaCobrar, type ViaCobro } from '@/lib/billing/cobro-permitido';
+import { puedeIntentarCobro, type MotivoSinCobro, type ReciboParaCobrar, type ViaCobro } from '@/lib/billing/cobro-permitido';
 import { cerrarCobroOffSession, registrarIntentoCobro } from '@/lib/billing/confirmar-cobro';
+import {
+  claveCobroOffSession, clasificarReservaPerdida, COLUMNAS_RELECTURA_RESERVA, desenlaceDeEstadoPi, marcarAdeudoEnCurso, MENSAJE_COBRO_EN_MARCHA,
+  MENSAJE_RESERVA_SIN_CONFIRMAR, reservarCobroOffSession, soltarMarcaCobroOffSession,
+  type FilaReciboReserva, type MarcaCobroOffSession,
+} from '@/lib/billing/cobro-off-session-marca';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
@@ -24,7 +29,10 @@ import { cerrarCobroOffSession, registrarIntentoCobro } from '@/lib/billing/conf
 
 export type CobroErrorCode = 'NO_CONFIGURADO' | 'NO_ENCONTRADO' | 'NO_PENDIENTE' | 'SIN_TARJETA' | 'SIN_STRIPE_CONECTADO' | 'CUENTA_NO_LISTA' | 'FALLO_COBRO' | 'ERROR_TRANSITORIO' | 'SUSCRIPCION_PAUSADA' | 'MODO_STRIPE_CRUZADO'
   // Política de recibos al cancelar una cuota (migr 20260915215311, `cobro-permitido.ts`).
-  | 'CUOTA_CANCELADA' | 'RECIBO_ANULADO' | 'SIN_REINTENTOS';
+  | 'CUOTA_CANCELADA' | 'RECIBO_ANULADO' | 'SIN_REINTENTOS'
+  // Otro cobro de este recibo está en vuelo (tarjeta guardada, datáfono o, en el
+  // cobro diario, un pago online): no se ha cobrado. Ver cobro-off-session-marca.ts.
+  | 'COBRO_EN_MARCHA';
 
 export interface ResultadoCobro {
   ok: boolean;
@@ -122,23 +130,11 @@ export async function cobrarReciboOffSession(params: {
     cuota,
     params.via ?? 'STAFF',
   );
-  if (!permiso.ok) {
-    switch (permiso.motivo) {
-      case 'ANULADO':
-        return { ok: false, error: 'Este recibo está anulado: no se cobra', errorCode: 'RECIBO_ANULADO' };
-      case 'CUOTA_PAUSADA':
-        return { ok: false, error: 'La suscripción está congelada: descongélala antes de cobrar este recibo', errorCode: 'SUSCRIPCION_PAUSADA' };
-      case 'CUOTA_CANCELADA':
-        return { ok: false, error: 'La cuota de este recibo está cancelada: no se cobra sola', errorCode: 'CUOTA_CANCELADA' };
-      case 'SIN_REINTENTOS':
-        return { ok: false, error: 'Este recibo quedó sin cobros automáticos al cancelar la cuota', errorCode: 'SIN_REINTENTOS' };
-      case 'NO_PENDIENTE':
-      case 'SIN_REINTENTO_PROGRAMADO':
-        return { ok: false, error: 'Este recibo ya no está pendiente', errorCode: 'NO_PENDIENTE' };
-    }
-  }
-  // Idempotency-Key anclada al recibo + nº de intento (ver nota al inicio).
-  const idempotencyKey = `offsession-cobro-${params.reciboId}-i${recibo.intentos_reintento ?? 0}`;
+  if (!permiso.ok) return resultadoSinPermiso(permiso.motivo);
+  // Idempotency-Key anclada al recibo + nº de intento (ver nota al inicio). Es
+  // también el valor de la marca de «cobro en marcha» (cobro-off-session-marca.ts).
+  const intentosLeidos = (recibo.intentos_reintento as number | null) ?? null;
+  const idempotencyKey = claveCobroOffSession(params.reciboId, intentosLeidos);
   // Se distingue "no existe / no es de este estudio" de "existe pero sin método":
   // con el filtro por studio_id, una socia de otro tenant llega aquí como null y
   // decir "no tiene método de pago" sería engañoso.
@@ -172,11 +168,64 @@ export async function cobrarReciboOffSession(params: {
     return { ok: false, error: 'No se pudo verificar la cuenta de Stripe del estudio (¿desconectada?).', errorCode: 'CUENTA_NO_LISTA' };
   }
 
+  const amountCents = Math.round(recibo.importe * 100);
+  // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
+  const fee = applicationFeeAmount(amountCents);
+  const esSepa = metodo.metodo === 'SEPA';
+  const via = params.via ?? 'STAFF';
+
+  // Reserva del recibo para ESTE intento, justo antes de llamar a Stripe y después
+  // de todo lo que puede decir «no» sin cobrar. El cargo se crea y se confirma en
+  // la misma llamada, así que no hay un «después» donde avisar a tiempo: sin la
+  // marca, un «Marcar cobrado» (o el banco, o la remesa) entre la lectura de
+  // arriba y el cargo cobraba el recibo dos veces. Mientras esté puesta, ninguna
+  // de esas puertas lo cobra. Ver lib/billing/cobro-off-session-marca.ts.
+  let marca: MarcaCobroOffSession;
+  const reserva = await reservarCobroOffSession(admin, {
+    studioId: params.studioId, reciboId: params.reciboId, clave: idempotencyKey, via,
+    intentos: intentosLeidos, ahoraISO: new Date().toISOString(),
+  });
+  if (reserva.tipo === 'ERROR') {
+    // No se llegó a Stripe: no se ha cobrado nada y el siguiente intento lo repite.
+    console.error('[cobrarReciboOffSession] no se pudo reservar el recibo', params.reciboId, reserva.error);
+    return { ok: false, error: MENSAJE_RESERVA_SIN_CONFIRMAR, errorCode: 'ERROR_TRANSITORIO' };
+  }
+  if (reserva.tipo === 'RESERVADA') {
+    marca = reserva.marca;
+  } else {
+    const { data: fila, error: errFila } = await admin.from('recibos').select(COLUMNAS_RELECTURA_RESERVA)
+      .eq('id', params.reciboId).eq('studio_id', params.studioId).maybeSingle();
+    if (errFila) return { ok: false, error: MENSAJE_RESERVA_SIN_CONFIRMAR, errorCode: 'ERROR_TRANSITORIO' };
+    const perdida = clasificarReservaPerdida((fila as FilaReciboReserva | null) ?? null, {
+      clave: idempotencyKey, via, cuota, ahora: new Date(),
+    });
+    switch (perdida.tipo) {
+      case 'NO_ENCONTRADO':
+        return { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' };
+      case 'SIN_PERMISO':
+        return resultadoSinPermiso(perdida.motivo);
+      case 'EN_MARCHA':
+        return { ok: false, error: MENSAJE_COBRO_EN_MARCHA[perdida.por], errorCode: 'COBRO_EN_MARCHA' };
+      case 'CAMBIO':
+        return { ok: false, error: MENSAJE_RESERVA_SIN_CONFIRMAR, errorCode: 'ERROR_TRANSITORIO' };
+      case 'REENTRANTE':
+        // El mismo intento, todavía joven (reintento del step, «Reintentar» tras un
+        // 503): se sigue con la MISMA clave y Stripe devuelve lo que ya hizo.
+        marca = perdida.marca;
+        break;
+    }
+  }
+  // Rechazo o 3DS: no entró dinero, el recibo vuelve a poder cobrarse. Si no se
+  // puede soltar, la suelta el conciliador después de preguntar a Stripe.
+  const soltarMarca = async () => {
+    try {
+      await soltarMarcaCobroOffSession(admin, { studioId: params.studioId, reciboId: params.reciboId, marca });
+    } catch (e) {
+      console.error('[cobrarReciboOffSession] no se pudo soltar la marca del cobro', params.reciboId, e);
+    }
+  };
+
   try {
-    const amountCents = Math.round(recibo.importe * 100);
-    // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
-    const fee = applicationFeeAmount(amountCents);
-    const esSepa = metodo.metodo === 'SEPA';
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency: 'eur',
@@ -205,17 +254,19 @@ export async function cobrarReciboOffSession(params: {
       // se mantenga si el código de alrededor cambia.
       // Compare-and-set: si el recibo se anuló o se cobró por otro lado entre la
       // comprobación y el adeudo, no se pisa (y se avisa: hay un adeudo en marcha).
-      const { data: enCursoRows, error: updErr } = await admin
-        .from('recibos').update({ estado: 'EN_CURSO', metodo_cobro: 'SEPA', sepa_estado: 'processing', stripe_payment_intent_id: paymentIntent.id })
-        .eq('id', params.reciboId).eq('studio_id', params.studioId).in('estado', ['PENDIENTE', 'FALLIDO']).select('id');
-      if (!updErr && (enCursoRows ?? []).length === 0) {
+      // La marca se quita en el mismo UPDATE; si falla, se queda (hay un adeudo en
+      // vuelo) y la resuelve el conciliador con el PaymentIntent en `processing`.
+      const { error: updErr, tocadas } = await marcarAdeudoEnCurso(admin, {
+        studioId: params.studioId, reciboId: params.reciboId, paymentIntentId: paymentIntent.id,
+      });
+      if (!updErr && tocadas === 0) {
         Sentry.captureMessage('Adeudo SEPA enviado sobre un recibo que ya no estaba pendiente (¿anulado o cobrado?): revisar y devolver si toca', {
           level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
           extra: { reciboId: params.reciboId, socioId: params.socioId, paymentIntentId: paymentIntent.id },
         });
       }
       if (updErr) {
-        Sentry.captureException(new Error(`Adeudo SEPA enviado pero no se pudo marcar el recibo EN_CURSO: ${updErr.message}`), {
+        Sentry.captureException(new Error(`Adeudo SEPA enviado pero no se pudo marcar el recibo EN_CURSO: ${updErr}`), {
           level: 'error', tags: { area: 'cobros', tipo: 'reconciliacion' },
           extra: { reciboId: params.reciboId, socioId: params.socioId, paymentIntentId: paymentIntent.id },
         });
@@ -261,8 +312,24 @@ export async function cobrarReciboOffSession(params: {
       return { ok: true, status: paymentIntent.status, importe: recibo.importe, ...cierre };
     }
 
+    // Una tarjeta en `processing`: dinero en vuelo, no un rechazo. La marca se
+    // queda (ninguna puerta a mano lo cobra) y lo cierra su webhook, o el
+    // conciliador. No cuenta como intento fallido.
+    if (desenlaceDeEstadoPi(paymentIntent.status, esSepa) === 'DESCONOCIDO') {
+      Sentry.captureMessage('[cobrarReciboOffSession] cargo con tarjeta guardada sin terminar: lo cerrará su webhook', {
+        level: 'warning', tags: { area: 'cobros', tipo: 'cobro-transitorio' },
+        extra: { reciboId: params.reciboId, studioId: params.studioId, paymentIntentId: paymentIntent.id, status: paymentIntent.status },
+      });
+      return {
+        ok: false, status: paymentIntent.status, errorCode: 'ERROR_TRANSITORIO',
+        error: 'El banco aún está procesando el cargo. No lo cobres de otra forma: se confirmará solo.',
+      };
+    }
+
     // requires_action u otro estado no terminal: la tarjeta necesita
-    // autenticación (3DS) que no se puede completar sin la socia presente.
+    // autenticación (3DS) que no se puede completar sin la socia presente. No ha
+    // entrado dinero: el recibo se suelta para poder cobrarlo de otra forma.
+    await soltarMarca();
     return {
       ok: false, status: paymentIntent.status, errorCode: 'FALLO_COBRO',
       error: esSepa
@@ -296,6 +363,25 @@ export async function cobrarReciboOffSession(params: {
         error: 'Stripe no respondió y el cobro quedó sin confirmar. Se reintentará solo con la misma clave, sin riesgo de doble cargo.',
       };
     }
+    // Rechazo de la tarjeta o petición inválida: el cargo no se hizo.
+    await soltarMarca();
     return { ok: false, error: 'No se pudo completar el cobro. Inténtalo de nuevo más tarde.', errorCode: 'FALLO_COBRO' };
+  }
+}
+
+/** Lo que dice `puedeIntentarCobro`, en el idioma de este módulo. */
+function resultadoSinPermiso(motivo: MotivoSinCobro): ResultadoCobro {
+  switch (motivo) {
+    case 'ANULADO':
+      return { ok: false, error: 'Este recibo está anulado: no se cobra', errorCode: 'RECIBO_ANULADO' };
+    case 'CUOTA_PAUSADA':
+      return { ok: false, error: 'La suscripción está congelada: descongélala antes de cobrar este recibo', errorCode: 'SUSCRIPCION_PAUSADA' };
+    case 'CUOTA_CANCELADA':
+      return { ok: false, error: 'La cuota de este recibo está cancelada: no se cobra sola', errorCode: 'CUOTA_CANCELADA' };
+    case 'SIN_REINTENTOS':
+      return { ok: false, error: 'Este recibo quedó sin cobros automáticos al cancelar la cuota', errorCode: 'SIN_REINTENTOS' };
+    case 'NO_PENDIENTE':
+    case 'SIN_REINTENTO_PROGRAMADO':
+      return { ok: false, error: 'Este recibo ya no está pendiente', errorCode: 'NO_PENDIENTE' };
   }
 }

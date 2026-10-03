@@ -70,10 +70,14 @@ const ESTADOS: EstadoPenalizacion[] = [
   'DETECTADA', 'OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA', 'OMITIDA_SIN_CUOTA',
   'PENDIENTE_APROBACION', 'RECIBO_CREADO', 'COBRADA', 'FALLIDA', 'REEMBOLSADA',
 ];
-const CODIGOS: CobroErrorCode[] = [
-  'NO_CONFIGURADO', 'NO_ENCONTRADO', 'NO_PENDIENTE', 'SIN_TARJETA', 'SIN_STRIPE_CONECTADO', 'CUENTA_NO_LISTA',
-  'FALLO_COBRO', 'ERROR_TRANSITORIO', 'SUSCRIPCION_PAUSADA', 'MODO_STRIPE_CRUZADO',
-];
+// Un `Record` y no una lista: un código nuevo de `cobrarReciboOffSession` no compila
+// hasta que entra aquí, y con él en toda la tabla de casos.
+const TODOS_LOS_CODIGOS: Record<CobroErrorCode, true> = {
+  NO_CONFIGURADO: true, NO_ENCONTRADO: true, NO_PENDIENTE: true, SIN_TARJETA: true, SIN_STRIPE_CONECTADO: true, CUENTA_NO_LISTA: true,
+  FALLO_COBRO: true, ERROR_TRANSITORIO: true, SUSCRIPCION_PAUSADA: true, MODO_STRIPE_CRUZADO: true,
+  CUOTA_CANCELADA: true, RECIBO_ANULADO: true, SIN_REINTENTOS: true, COBRO_EN_MARCHA: true,
+};
+const CODIGOS = Object.keys(TODOS_LOS_CODIGOS) as CobroErrorCode[];
 const CODIGOS_NO_TRANSITORIOS = CODIGOS.filter(c => c !== 'ERROR_TRANSITORIO');
 /** Los que SÍ llegan a decidir sobre el recibo: ni transitorio ni «Stripe no está listo». */
 const CODIGOS_DE_VEREDICTO = CODIGOS_NO_TRANSITORIOS.filter(c => !CODIGOS_STRIPE_NO_LISTO.includes(c));
@@ -269,6 +273,20 @@ test('recibo EN_CURSO (adeudo o remesa saliendo): no se escribe, 409', () => {
     assert.equal(p.escritura, null, c);
     assert.equal(p.desenlace.http, 409, c);
   }
+});
+
+test('⚠️ otro cobro de ese recibo en vuelo (COBRO_EN_MARCHA): nunca FALLIDA mientras otro camino la cobra', () => {
+  for (const e of ['PENDIENTE', 'FALLIDO'] as const) {
+    const p = planificarTrasCobro(fallo('COBRO_EN_MARCHA'), leido(e));
+    assert.equal(p.escritura, null, e);
+    assert.equal(p.desenlace.http, 409, e);
+    // El cron automático, igual: sin escritura, el dunning sigue con su recibo.
+    assert.equal(planificarCobroAutomatico(fallo('COBRO_EN_MARCHA'), leido(e), 'DUNNING').escritura, null, e);
+  }
+  // Si el otro camino ya lo cobró, es «ya estaba cobrada».
+  const cobrado = planificarTrasCobro(fallo('COBRO_EN_MARCHA'), leido('COBRADO'));
+  assert.equal(cobrado.escritura?.estado, 'COBRADA');
+  assert.equal(cobrado.desenlace.tipo, 'YA_COBRADA');
 });
 
 test('sin tarjeta con el recibo sin cobrar: FALLIDA desde pendiente, 409, y dice que queda no cobrada', () => {

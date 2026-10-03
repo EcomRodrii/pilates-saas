@@ -138,7 +138,15 @@ export const MENSAJE_YA_ESTABA = 'Ya estaba cobrado.';
 
 /** En un cobro de varios, el recibo que ya tiene un cobro en marcha no se cobra. */
 export const MENSAJE_COBRO_EN_MARCHA_LOTE =
-  'Tiene un cobro en marcha (pago online, datáfono o reintento automático): no se ha cobrado. Si de verdad te ha pagado, cóbralo uno a uno.';
+  'Tiene un cobro en marcha (pago online, datáfono, reintento automático o un cargo a su tarjeta guardada): no se ha cobrado. Si de verdad te ha pagado, cóbralo uno a uno.';
+
+/**
+ * Se está cobrando AHORA con su tarjeta o domiciliación guardada (la marca de
+ * `cobrarReciboOffSession`). Si no termina, el conciliador horario lo comprueba con
+ * Stripe y lo suelta o lo cierra: la espera máxima es de una hora y media.
+ */
+export const MENSAJE_COBRO_CON_METODO_GUARDADO =
+  'Se está cobrando ahora mismo con su tarjeta o domiciliación guardada: no se ha cobrado aquí. Si no termina, se comprueba solo con Stripe en menos de hora y media; vuelve a mirarlo entonces.';
 
 /** Un recibo que no se cobra por una regla del propio lote, con el motivo. */
 export function resultadoNoCobrable(reciboId: string, error: string): ResultadoReciboMarcado {
@@ -177,6 +185,7 @@ export function resultadoDeConfirmacion(reciboId: string, r: ResultadoConfirmarC
     case 'NO_ENCONTRADO':
       return { reciboId, resultado: 'no_encontrado', selladoOk: true, error: 'No se encuentra ese recibo en tu estudio.' };
     case 'NO_COBRABLE':
+      if (r.enMarcha) return { reciboId, resultado: 'no_cobrable', selladoOk: true, error: MENSAJE_COBRO_CON_METODO_GUARDADO };
       return { reciboId, resultado: 'no_cobrable', selladoOk: true, error: mensajeNoCobrable(r.estado) };
     case 'PERSISTENCIA':
       // El compare-and-set falló o no se pudo releer. NO se afirma que no se escribió

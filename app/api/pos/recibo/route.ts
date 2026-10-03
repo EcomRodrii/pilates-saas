@@ -6,6 +6,7 @@ import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
 import { contextoCobroDe, proveedorPara, MAX_CENTIMOS_POS } from '@/lib/pos/terminal';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
+import { MENSAJE_RECIBO_COBRANDOSE_CON_METODO_GUARDADO } from '@/lib/billing/cobro-off-session-marca';
 import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
 import { bloqueoCobroEnMostradorDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: recibo } = await admin.from('recibos')
-    .select('id, concepto, importe, estado, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, cobro_mostrador_pi, entrega_tipo, suscripcion_id')
+    .select('id, concepto, importe, estado, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, cobro_mostrador_pi, cobro_off_session_clave, entrega_tipo, suscripcion_id')
     .eq('id', reciboId).eq('studio_id', sesion.studioId)
     .maybeSingle();
   if (!recibo) return NextResponse.json({ error: 'No encontramos ese recibo' }, { status: 404 });
@@ -73,6 +74,12 @@ export async function POST(req: NextRequest) {
   // devuelto.
   if (!esReciboCobrable(recibo)) {
     return NextResponse.json({ error: 'Ese recibo ya no se puede cobrar.' }, { status: 409 });
+  }
+  // Se está cobrando AHORA con su tarjeta o domiciliación guardada: pasar la
+  // tarjeta en el datáfono a la vez sería un segundo cargo. El compare-and-set de
+  // abajo lo vuelve a exigir (lib/billing/cobro-off-session-marca.ts).
+  if (recibo.cobro_off_session_clave) {
+    return NextResponse.json({ error: MENSAJE_RECIBO_COBRANDOSE_CON_METODO_GUARDADO }, { status: 409 });
   }
 
   // El recibo de una penalización anulada (asistencia corregida, sin tarjeta,
@@ -134,6 +141,8 @@ export async function POST(req: NextRequest) {
         // el PaymentIntent (que no invalida el enlace de pago).
         cobro_mostrador_checkout_session_id: inicio.checkoutSessionId ?? null,
       })
+      // Ni con un cobro con su tarjeta guardada en vuelo (empezó tras la lectura de arriba).
+      .is('cobro_off_session_clave', null)
       .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('estado', recibo.estado);
     const { data: tocadas, error: errRef } = await (recibo.cobro_mostrador_pi
       ? guardar.eq('cobro_mostrador_pi', recibo.cobro_mostrador_pi)

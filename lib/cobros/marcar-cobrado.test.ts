@@ -366,7 +366,7 @@ test('uno a uno en el mostrador: se mira cada recibo justo antes, después de la
   const cobrar = ruta.indexOf('await confirmarCobro(admin, {');
   assert.ok(penaliz > 0 && enMarcha > penaliz && conLeido > enMarcha && cobrar > conLeido,
     'penalización → pagos en marcha de ESE recibo → cobrar con lo leído');
-  const leer = ayuda.indexOf(".select('checkout_session_id, cobro_mostrador_pi, cobro_mostrador_checkout_session_id')");
+  const leer = ayuda.indexOf(".select('checkout_session_id, cobro_mostrador_pi, cobro_mostrador_checkout_session_id, cobro_off_session_clave')");
   const mostrador = ayuda.indexOf('await soltarCobroDeMostradorAntesDeCobrarAMano(');
   const cerrar = ayuda.indexOf('await cerrarPagoOnlineAntesDeCobrarAMano(');
   assert.ok(leer > 0 && mostrador > leer && cerrar > mostrador, 'leer el recibo → datáfono → enlace');

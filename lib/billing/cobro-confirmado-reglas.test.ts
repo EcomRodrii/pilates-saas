@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
   facturaIdCheckout, facturaIdExterno, facturaIdManual, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas, origenNotifica,
-  reentregaAplicaAlRecibo, refIdCreditoRenovacion, resolverSinFilas, type OrigenCobro,
+  reentregaAplicaAlRecibo, refIdCreditoRenovacion, resolverSinFilas, ESPERA_A_UN_COBRO_OFF_SESSION, type OrigenCobro,
 } from './cobro-confirmado-reglas.ts';
 import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
 
@@ -126,6 +126,22 @@ test('EN_CURSO con OTRO cargo en vuelo: otro cobro', () => {
     resolverSinFilas({ estado: 'EN_CURSO', stripe_payment_intent_id: 'pi_en_vuelo' }, 'pi_2'),
     { tipo: 'otro_cobro', anterior: 'pi_en_vuelo' },
   );
+});
+
+test('a mano (sin cargo) sobre un recibo que se está cobrando con su tarjeta guardada: cobro en marcha', () => {
+  const marcado = { stripe_payment_intent_id: null, cobro_off_session_clave: 'offsession-cobro-rec-1-i0' };
+  assert.deepEqual(resolverSinFilas({ estado: 'PENDIENTE', ...marcado }, null), { tipo: 'cobro_en_marcha', estado: 'PENDIENTE' });
+  assert.deepEqual(resolverSinFilas({ estado: 'FALLIDO', ...marcado }, null), { tipo: 'cobro_en_marcha', estado: 'FALLIDO' });
+  // Sin marca, lo de siempre.
+  assert.deepEqual(resolverSinFilas({ estado: 'PENDIENTE', stripe_payment_intent_id: null }, null), { tipo: 'no_cobrable', estado: 'PENDIENTE' });
+  // Con un cargo que llega, la marca no es el motivo: lo que confirma Stripe no la espera.
+  assert.deepEqual(resolverSinFilas({ estado: 'PENDIENTE', ...marcado }, 'pi_2'), { tipo: 'no_cobrable', estado: 'PENDIENTE' });
+});
+
+test('quién espera a un cobro con tarjeta guardada en marcha: lo que confirma una persona, nunca lo que confirma Stripe', () => {
+  assert.deepEqual(ESPERA_A_UN_COBRO_OFF_SESSION, {
+    manual: true, banco: true, externo: true, webhook: false, conciliador: false, tpv: false, off_session: false,
+  } satisfies Record<OrigenCobro, boolean>);
 });
 
 test('DEVUELTO con el mismo cargo: no se resucita', () => {
