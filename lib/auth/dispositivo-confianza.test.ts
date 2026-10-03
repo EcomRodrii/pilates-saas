@@ -237,3 +237,13 @@ test('la huella que da nombre a la cookie es estable por cuenta y no deja ver el
   assert.match(huellaCuenta(ANA), /^[0-9a-f]{16}$/);
   assert.ok(!ANA.replace(/-/g, '').includes(huellaCuenta(ANA)));
 });
+
+test('una sesión confiada por el código del correo: cuenta como confiada y no «nueva» (el panel no se recarga sin fin)', async () => {
+  const { db, tablas } = bdFalsa();
+  // Hay cookie de un dispositivo recordado de la misma cuenta: aun así no se rota ni se da por nueva.
+  const token = await recordar(db);
+  tablas.sesiones_confiadas.push({ session_id: SESION_1, auth_user_id: ANA, dispositivo_id: null, origen: 'correo' });
+  const u = await usarDispositivo(db, { userId: ANA, sessionId: SESION_1, token, ip: null, ahora: HOY });
+  assert.deepEqual(u, { confiada: true, nueva: false, cookie: null });
+  assert.equal(tablas.sesiones_confiadas.length, 1);
+});

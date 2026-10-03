@@ -94,3 +94,83 @@ export async function recordarEsteDispositivo(): Promise<boolean> {
     return false;
   }
 }
+
+// ── El segundo paso por correo (lib/auth/codigo-correo-reglas.ts) ───────────
+
+export type EnvioCorreo =
+  | { tipo: 'enviado'; esperaSegundos: number }
+  /** El correo no sirve en esta sesión: a la app, con este motivo. */
+  | { tipo: 'no-disponible'; mensaje: string }
+  | { tipo: 'error'; mensaje: string };
+
+async function tokenActual(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
+}
+
+/**
+ * Pide que manden el código al correo de la cuenta. `reenviar: false` al abrir
+ * la pantalla (si ya hay uno vivo, no sale otro); `true`, el botón.
+ */
+export async function enviarCodigoPorCorreo(reenviar: boolean): Promise<EnvioCorreo> {
+  try {
+    const token = await tokenActual();
+    if (!token) return { tipo: 'error', mensaje: 'Tu sesión ha caducado. Vuelve a entrar.' };
+    const res = await fetch('/api/auth/doble-factor-correo/enviar', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reenviar }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15000),
+    });
+    const r = await res.json().catch(() => ({})) as {
+      enviado?: boolean; yaEnviado?: boolean; espera?: number; disponible?: boolean; mensaje?: string; error?: string;
+    };
+    if (!res.ok) return { tipo: 'error', mensaje: r.error ?? 'No se ha podido enviar el código. Vuelve a intentarlo o usa tu app de autenticación.' };
+    if (r.disponible === false) return { tipo: 'no-disponible', mensaje: r.mensaje ?? 'Usa tu app de autenticación.' };
+    if (r.enviado) return { tipo: 'enviado', esperaSegundos: 30 };
+    if (typeof r.espera === 'number') return { tipo: 'enviado', esperaSegundos: r.espera };
+    return { tipo: 'enviado', esperaSegundos: 0 };
+  } catch {
+    return { tipo: 'error', mensaje: 'No se ha podido enviar el código. Vuelve a intentarlo o usa tu app de autenticación.' };
+  }
+}
+
+/** Comprueba el código del correo. `aLaApp`: el correo ya no vale en esta sesión. */
+export async function verificarCodigoDelCorreo(
+  codigo: string, recordar: boolean,
+): Promise<{ ok: true } | { ok: false; mensaje: string; aLaApp: boolean }> {
+  try {
+    const token = await tokenActual();
+    if (!token) return { ok: false, mensaje: 'Tu sesión ha caducado. Vuelve a entrar.', aLaApp: false };
+    const res = await fetch('/api/auth/doble-factor-correo/verificar', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo, recordar, tactil: typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1 }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15000),
+    });
+    const r = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; aLaApp?: boolean };
+    if (res.ok && r.ok) return { ok: true };
+    return { ok: false, mensaje: r.error ?? 'No se ha podido comprobar el código. Vuelve a intentarlo.', aLaApp: r.aLaApp === true };
+  } catch {
+    return { ok: false, mensaje: 'No se ha podido comprobar el código. Vuelve a intentarlo.', aLaApp: false };
+  }
+}
+
+/**
+ * Justo después de pasar la app (sesión `aal2`): reabre el correo como segundo
+ * paso si un cambio de contraseña o de correo lo había cerrado. Si falla, la
+ * próxima vez se volverá a pedir la app; no impide entrar.
+ */
+export async function reabrirCorreoTrasLaApp(): Promise<void> {
+  try {
+    const token = await tokenActual();
+    if (!token) return;
+    await fetch('/api/auth/doble-factor-correo/reabrir', {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: AbortSignal.timeout(8000),
+    });
+  } catch {
+    // ver arriba
+  }
+}

@@ -99,3 +99,14 @@ test('ninguno de estos correos lleva la marca de un estudio', () => {
     assert.match(html, /Te escribimos porque eres la propietaria de Casa Pilates/);
   }
 });
+
+test('el código de acceso va en el cuerpo, legible, y nunca en el preheader', async () => {
+  const { correoCodigoAcceso } = await import('./cuenta.ts');
+  const html = correoCodigoAcceso({ codigo: '048213', minutos: 10 });
+  assert.match(html, /048 213/);
+  // Lo que se ve en la pantalla bloqueada (preheader) no lleva el código.
+  const preheader = html.slice(0, html.indexOf('Tu código para entrar'));
+  assert.ok(!preheader.includes('048'), 'el código no puede ir en el preheader');
+  assert.match(html, /Caduca en 10 minutos/);
+  assert.match(html, /He olvidado mi contraseña/);
+});

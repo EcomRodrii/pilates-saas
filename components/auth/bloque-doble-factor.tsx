@@ -7,8 +7,9 @@
 //
 // Quitarla exige la sesión verificada (`aal2`): Supabase lo rechaza si no, y
 // con la sesión sin verificar ni se llega a este panel. Una sesión que entró
-// sin código por un dispositivo recordado tampoco vale para eso (lo decide
-// Supabase): se le ofrece escribirlo (`/verificar-acceso?codigo=1`).
+// sin código por un dispositivo recordado, o con el código del correo, tampoco
+// vale para eso (lo decide Supabase): se le ofrece escribir el de la app
+// (`/verificar-acceso?codigo=1`).
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -77,7 +78,7 @@ export function BloqueDobleFactor() {
         <ShieldCheck size={15} className="text-muted-foreground" aria-hidden /> Verificación en dos pasos
       </h3>
       <p className="text-[12px] text-muted-foreground mb-4">
-        Además de la contraseña, al entrar te pedimos un código de una app de autenticación. Así nadie entra solo con tu contraseña.
+        Además de la contraseña, al entrar te enviamos un código a tu correo; si no puedes abrirlo, vale el de tu app de autenticación. Así nadie entra solo con tu contraseña.
       </p>
 
       {estado.tipo === 'cargando' ? (
@@ -87,8 +88,8 @@ export function BloqueDobleFactor() {
           <p className="text-[13px] font-medium text-success">Activada en tu cuenta.</p>
           {estado.tipo === 'listo' && estado.sinCodigo && (
             <p className="text-[12px] text-muted-foreground">
-              Has entrado sin escribir el código porque este dispositivo es de confianza. Para quitar la verificación o cambiar tu email o contraseña, escríbelo antes.{' '}
-              <Link href="/verificar-acceso?codigo=1&volver=/mi-perfil" className="font-semibold text-foreground underline">Escribir el código</Link>
+              Has entrado con el código del correo o desde un dispositivo de confianza. Para quitar la verificación o cambiar tu email o contraseña, escribe antes el código de tu app.{' '}
+              <Link href="/verificar-acceso?codigo=1&volver=/mi-perfil" className="font-semibold text-foreground underline">Escribir el código de la app</Link>
             </p>
           )}
           {exigida ? (
