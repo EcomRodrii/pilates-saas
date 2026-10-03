@@ -178,8 +178,9 @@ export async function POST(req: NextRequest) {
       // Se aplaza al webhook: solo se cancela la individual cuando Stripe
       // confirma que la de cadena existe de verdad (`actualizarSuscripcion`,
       // ESTADOS_VIVOS). El id a cancelar viaja en la metadata de la suscripción
-      // nueva —no se puede leer `studio.subscription_id` en el webhook porque
-      // para entonces esta misma llamada ya lo habrá sobrescrito.
+      // nueva, que dice qué reemplaza ESTE checkout. (`studio.subscription_id`
+      // no lo pisa nadie: el trigger de cadena no propaga ese campo, ver
+      // lib/billing/suscripcion-desplazada-por-cadena.ts.)
       const cancelarAlConfirmar =
         studio.subscription_id && studio.subscription_status && studio.subscription_status !== 'canceled'
           ? (studio.subscription_id as string)
