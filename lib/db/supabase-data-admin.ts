@@ -48,10 +48,17 @@ import {
 } from '@/lib/booking-logic';
 import { mensajeTodaviaNoSeAbre } from '@/lib/reservar/apertura-texto';
 import { diaEnEstudio } from '@/lib/calendario-hora-estudio';
+import {
+  clasificarCodigo, idReservaDeIntento, ocurrenciasDeLaFranja, resumirLote,
+  type ResultadoOcurrencia, type SesionDeLaFranja,
+} from '@/lib/reservas/proximas-reglas';
 import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, exigePlanAlReservar, avisaBonoAgotado, planLimitaSemanaDeClase, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio, HORIZONTE_MATERIALIZAR_DIAS, HORIZONTE_AVISOS_PLAZA_FIJA_DIAS } from '@/lib/plazas-fijas-slot';
-import { cuotaParaPlazaFija, superaLimiteSemanal, type DatosPlazaFija, type ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
+import {
+  cuotaParaPlazaFija, cupoAutomatico, motivoNoAutomatica, superaLimiteSemanal, TOPE_AUTOMATICO_POR_DEFECTO_PCT,
+  type AprobacionPlazaFija, type DatosPlazaFija, type ResultadoGuardarPlazaFija,
+} from '@/lib/plazas-fijas-reglas';
 import { duracionPedida, etiquetaDuracion, plazasVencidasQueEstorban } from '@/lib/clases-fijas-reglas';
 import { estadoPausa, sesionEnPausa, validarPausa, type Pausa } from '@/lib/plazas-fijas-pausa';
 import {
@@ -2590,6 +2597,13 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
 
 export async function crearReservaPublica(params: {
   studioId: string; sesionId: string; socioId: string; authUserId: string | null; spotId?: string | null;
+  /**
+   * Solo «reservar las próximas N clases» (`reservarProximasPublico`): el id de la reserva lo deriva el INTENTO de la alumna
+   * (`idReservaDeIntento`), para que un reintento caiga en la misma reserva y no la duplique. Sin él, el de siempre (aleatorio).
+   */
+  reservaId?: string;
+  /** `false`: no manda «reserva confirmada» (el lote ya le cuenta el resultado en pantalla). Sin él, avisa como siempre. */
+  avisar?: boolean;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -2767,7 +2781,7 @@ export async function crearReservaPublica(params: {
   // JS — evita la sobreventa por reservas concurrentes de la última plaza.
   // p_permite_lista_espera: si la clase está llena y el tipo/estudio no admite
   // lista de espera, la RPC rechaza en vez de insertar en LISTA_ESPERA.
-  const reservaId = `res-${uid()}`;
+  const reservaId = params.reservaId ?? `res-${uid()}`;
   // D-1: el bono candidato se elige AQUÍ, antes de llamar a la RPC, para que
   // `reservar_plaza` lo descuente DENTRO del mismo candado por socio que
   // confirma la plaza — ver `resolverBonoParaSesion`.
@@ -2922,9 +2936,205 @@ export async function crearReservaPublica(params: {
   // Bono, analítica, gamificación y avisos: dueño único (ver `trasReservaCreada`).
   await trasReservaCreada(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
-    estado, spotAsignado, canal: 'alumna', reservaId, consumoBono, consumibleBono,
+    estado, spotAsignado, canal: 'alumna', reservaId, consumoBono, consumibleBono, avisarSocia: params.avisar,
   });
   return { ok: true as const, estado, reservaId, spotAsignado, recuperacionUsada };
+}
+
+// ─── «Reservar las próximas N clases» con bono (autoreservable) ─────────────────────────────────────────────────────────
+// N reservas NORMALES e independientes del mismo horario, cada una por el camino de siempre: `evaluar_reserva` en seco (quién
+// puede y quién paga) → `crearReservaPublica` → `reservar_plaza`, que descuenta su sesión del bono EN LA MISMA TRANSACCIÓN que
+// confirma la plaza, con el ledger. Este bucle NUNCA toca el saldo. No es una plaza fija: ningún id lleva `res-pf-`, no hay
+// estado permanente y no se renueva sola. Reglas y vocabulario en `lib/reservas/proximas-reglas.ts`.
+
+export interface OcurrenciaProximas {
+  sesionId: string;
+  /** YYYY-MM-DD y HH:MM, en la zona del estudio. */
+  fecha: string;
+  hora: string;
+  resultado: ResultadoOcurrencia;
+  codigo?: string;
+  pagador?: 'bono' | 'cuota' | 'ninguno';
+  reservaId?: string;
+  /** Reintento del MISMO intento: ya estaba hecha. */
+  repetida?: boolean;
+}
+
+export type RespuestaProximas =
+  | {
+      ok: true; accion: 'previsualizar' | 'reservar'; n: number; ocurrencias: OcurrenciaProximas[];
+      bono: { suscripcionId: string; plan: string; saldoAntes: number; saldoDespues: number; fechaFin: string | null } | null;
+      resumen: { reservadas: number; descontadas: number; pedidas: number; paro: { motivo: ResultadoOcurrencia; desdeSesionId: string } | null };
+    }
+  | { error: string; codigo: string; status: number };
+
+interface EvaluacionReserva {
+  puede: boolean; codigo: string | null; detalle?: string | null; estado: string | null;
+  pagador?: { origen: 'recuperacion' | 'bono' | 'cuota' | 'ninguno'; suscripcion_id?: string };
+}
+
+/** `evaluar_reserva` (solo lectura, solo servidor): la misma decisión de elegibilidad que toma `reservar_plaza`. */
+async function evaluarReservaServidor(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string; opciones: Record<string, unknown> },
+): Promise<EvaluacionReserva> {
+  const { data, error } = await admin.rpc('evaluar_reserva', {
+    p_studio_id: p.studioId, p_sesion_id: p.sesionId, p_socio_id: p.socioId, p_opciones: p.opciones,
+  });
+  if (error) throw new Error(`evaluar_reserva: ${error.message}`);
+  return data as EvaluacionReserva;
+}
+
+export async function reservarProximasPublico(p: {
+  studioId: string; socioId: string; authUserId: string; sesionId: string; n: number;
+  accion: 'previsualizar' | 'reservar';
+  /** Solo `reservar`: el intento (ver `idReservaDeIntento`). */
+  intentoId?: string;
+}): Promise<RespuestaProximas> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, p.studioId, p.socioId, p.authUserId);
+  if (!socia) return { error: 'No autorizado', codigo: 'no-autorizado', status: 401 };
+  if (p.accion === 'reservar' && !p.intentoId) return { error: 'Falta el intento', codigo: 'error', status: 400 };
+
+  const { data: baseRow } = await admin.from('sesiones').select('id, inicio, cancelada, sala_id, tipo_clase_id')
+    .eq('id', p.sesionId).eq('studio_id', p.studioId).maybeSingle();
+  if (!baseRow) return { error: 'Sesión no encontrada', codigo: 'sesion-no-encontrada', status: 404 };
+  if (baseRow.cancelada) return { error: 'Esta clase está cancelada', codigo: 'clase-cancelada', status: 400 };
+  if (new Date(baseRow.inicio as string).getTime() <= Date.now()) return { error: MENSAJE_CLASE_YA_EMPEZADA, codigo: 'clase-ya-empezada', status: 400 };
+  const tipoClaseId = (baseRow.tipo_clase_id as string | null) ?? null;
+
+  const pol = await cargarPoliticaEstudio(admin, p.studioId);
+  const reglasTipo = await cargarReglasReservaTipoClase(admin, p.studioId, tipoClaseId);
+  // Una serie de reservas pendientes de aprobar sería un montón de avisos al estudio: una a una, como siempre.
+  if (heredaOverride(reglasTipo.requiereAprobacion, pol.requiereAprobacion)) {
+    return { error: 'Esta clase necesita que el estudio apruebe cada reserva: resérvala una a una.', codigo: 'requiere-aprobacion', status: 409 };
+  }
+
+  // Las clases futuras de esa sala y ese tipo; de ahí salen las N del mismo horario.
+  let candidatasQ = admin.from('sesiones').select('id, inicio, cancelada, sala_id, tipo_clase_id')
+    .eq('studio_id', p.studioId).eq('sala_id', baseRow.sala_id as string).gt('inicio', new Date().toISOString())
+    .order('inicio', { ascending: true }).limit(400);
+  candidatasQ = tipoClaseId ? candidatasQ.eq('tipo_clase_id', tipoClaseId) : candidatasQ.is('tipo_clase_id', null);
+  const { data: candRows } = await candidatasQ;
+  const aSesion = (r: Record<string, unknown>): SesionDeLaFranja => ({
+    id: r.id as string, inicio: r.inicio as string, salaId: r.sala_id as string,
+    tipoClaseId: (r.tipo_clase_id as string | null) ?? null, cancelada: Boolean(r.cancelada),
+  });
+  const ocurrencias = ocurrenciasDeLaFranja(aSesion(baseRow), (candRows ?? []).map(aSesion), p.n, Date.now());
+  if (ocurrencias.length < 2) return { error: 'Esta clase no se repite más veces en el horario.', codigo: 'solo-una-clase', status: 409 };
+
+  // El bono con el que contaría, mirado como lo mira `reservar_plaza`. Sin ninguno, esto no es para ella.
+  const bono = await resolverBonoParaSesion(admin, { studioId: p.studioId, socioId: p.socioId, sesionId: p.sesionId });
+  if (!bono) {
+    return { error: 'Para reservar varias clases de una vez necesitas un bono con sesiones que cubra esta clase.', codigo: 'sin-bono', status: 409 };
+  }
+  // Las sesiones que le quedan por bono: se descuenta una por clase, y lo que dice la base de datos al reservar manda.
+  const saldos = new Map<string, number>([[bono.suscripcion.id, bono.sesionesRestantes]]);
+  const saldoDe = async (id: string): Promise<number> => {
+    if (!saldos.has(id)) {
+      const { data } = await admin.from('suscripciones').select('sesiones_restantes').eq('id', id).eq('studio_id', p.studioId).maybeSingle();
+      saldos.set(id, Number((data as { sesiones_restantes: number | null } | null)?.sesiones_restantes ?? 0));
+    }
+    return saldos.get(id) as number;
+  };
+
+  const resultado: OcurrenciaProximas[] = [];
+  let paro: { motivo: ResultadoOcurrencia; desdeSesionId: string } | null = null;
+  const poner = (s: SesionDeLaFranja, o: Omit<OcurrenciaProximas, 'sesionId' | 'fecha' | 'hora'>) => {
+    const f = franjaLocalDe(s.inicio);
+    resultado.push({
+      sesionId: s.id, fecha: diaEnEstudio(s.inicio), hora: `${String(f.hora).padStart(2, '0')}:${String(f.minuto).padStart(2, '0')}`, ...o,
+    });
+  };
+  const parar = (s: SesionDeLaFranja, motivo: ResultadoOcurrencia) => { paro ??= { motivo, desdeSesionId: s.id }; };
+
+  for (let i = 0; i < ocurrencias.length; i++) {
+    const s = ocurrencias[i];
+    if (paro) { poner(s, { resultado: 'NO_INTENTADA' }); continue; }
+    const reservaId = p.accion === 'reservar' ? idReservaDeIntento(p.intentoId as string, i) : undefined;
+
+    // Reintento del MISMO intento (la red falló a medias): lo que ya se hizo cuenta, no se duplica.
+    if (reservaId) {
+      const { data: previa } = await admin.from('reservas').select('socio_id, sesion_id, estado')
+        .eq('id', reservaId).eq('studio_id', p.studioId).maybeSingle();
+      if (previa) {
+        const suya = previa.socio_id === p.socioId && previa.sesion_id === s.id && ['CONFIRMADA', 'ASISTIDA'].includes(previa.estado as string);
+        if (suya) { poner(s, { resultado: 'RESERVADA', reservaId, repetida: true }); continue; }
+        poner(s, { resultado: 'ERROR', codigo: 'error' });
+        parar(s, 'ERROR');
+        continue;
+      }
+    }
+
+    // Ventanas de antelación: una cerrada por cerca se omite; la máxima alcanza a todas las siguientes.
+    const cerrada = ventanaCerrada(s.inicio, pol, reglasTipo);
+    if (cerrada) {
+      const c = clasificarCodigo(cerrada.codigo);
+      poner(s, { resultado: c.resultado, codigo: cerrada.codigo });
+      if (c.parar) parar(s, c.resultado);
+      continue;
+    }
+
+    // Quién puede y quién paga, en seco: sin lista de espera, y sin saltarse el derecho.
+    const ev = await evaluarReservaServidor(admin, {
+      studioId: p.studioId, sesionId: s.id, socioId: p.socioId,
+      opciones: { permite_lista_espera: false, requiere_aprobacion: false, exigir_entitlement: true, saltar_gate_impago: false },
+    });
+    if (!ev.puede) {
+      const c = clasificarCodigo(ev.codigo);
+      poner(s, { resultado: c.resultado, codigo: ev.codigo ?? 'error' });
+      if (c.parar) parar(s, c.resultado);
+      continue;
+    }
+    const origen = ev.pagador?.origen ?? 'ninguno';
+    // ⚠️ Una recuperación pagaría el exceso del tope semanal EN SILENCIO (`reservar_plaza` la quema): no se reserva esa semana.
+    if (ev.estado !== 'CONFIRMADA' || origen === 'recuperacion') {
+      poner(s, { resultado: ev.estado !== 'CONFIRMADA' ? 'COMPLETA' : 'SUPERA_TOPE', codigo: ev.estado !== 'CONFIRMADA' ? 'aforo-lleno' : 'limite-semanal' });
+      continue;
+    }
+    if (origen === 'ninguno') { poner(s, { resultado: 'SIN_DERECHO', codigo: 'sin-plan' }); parar(s, 'SIN_DERECHO'); continue; }
+    if (origen === 'bono') {
+      const id = ev.pagador?.suscripcion_id as string;
+      if ((await saldoDe(id)) <= 0) { poner(s, { resultado: 'SIN_DERECHO', codigo: 'bono-no-cubre', pagador: 'bono' }); parar(s, 'SIN_DERECHO'); continue; }
+    }
+
+    if (p.accion === 'previsualizar') {
+      poner(s, { resultado: 'SE_RESERVARA', pagador: origen });
+      // La vista previa no escribe nada: el saldo se lleva a mano para no prometer más clases de las que le quedan.
+      if (origen === 'bono') saldos.set(ev.pagador?.suscripcion_id as string, (await saldoDe(ev.pagador?.suscripcion_id as string)) - 1);
+      continue;
+    }
+
+    const r = await crearReservaPublica({
+      studioId: p.studioId, sesionId: s.id, socioId: p.socioId, authUserId: p.authUserId, reservaId, avisar: false,
+    });
+    if ('error' in r) {
+      const c = clasificarCodigo('codigo' in r ? r.codigo : undefined);
+      poner(s, { resultado: c.resultado, codigo: 'codigo' in r ? r.codigo : 'error' });
+      if (c.parar) parar(s, c.resultado);
+      continue;
+    }
+    if (r.estado !== 'CONFIRMADA') { poner(s, { resultado: 'EN_ESPERA', reservaId: r.reservaId }); continue; }
+    // Se gastó una recuperación a pesar de todo (carrera entre evaluar y reservar): se le cuenta y se para el resto.
+    poner(s, { resultado: 'RESERVADA', pagador: origen, reservaId: r.reservaId, ...(r.recuperacionUsada ? { codigo: 'recuperacion-usada' } : {}) });
+    if (r.recuperacionUsada && i + 1 < ocurrencias.length) parar(ocurrencias[i + 1], 'SUPERA_TOPE');
+  }
+
+  // El saldo de DESPUÉS: en la vista previa, el simulado; reservando, lo que dice la base de datos.
+  let saldoDespues = saldos.get(bono.suscripcion.id) ?? bono.sesionesRestantes;
+  if (p.accion === 'reservar') {
+    const { data } = await admin.from('suscripciones').select('sesiones_restantes').eq('id', bono.suscripcion.id).eq('studio_id', p.studioId).maybeSingle();
+    saldoDespues = Number((data as { sesiones_restantes: number | null } | null)?.sesiones_restantes ?? saldoDespues);
+  }
+  const resumen = resumirLote(resultado);
+  return {
+    ok: true, accion: p.accion, n: p.n, ocurrencias: resultado,
+    bono: {
+      suscripcionId: bono.suscripcion.id, plan: bono.plan.nombre, saldoAntes: bono.sesionesRestantes, saldoDespues,
+      fechaFin: bono.suscripcion.fechaFin ?? null,
+    },
+    resumen: { ...resumen, pedidas: p.n, paro },
+  };
 }
 
 // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.2):
@@ -4463,10 +4673,12 @@ export async function validarPlazaFijaDesdeSesion(
 
 async function guardarPlazaFijaDesdeSesion(
   admin: SupabaseClient,
-  params: { studioId: string; socioId: string; datos: Omit<DatosPlazaFija, 'socioId'>; plazaId?: string },
+  /** `cupo`: SOLO al crear y SOLO la aprobación automática —cuántas plazas fijas caben ya en esa franja—; el recuento y la plaza
+   *  se hacen dentro de un candado de la base (`dar_plaza_fija_con_cupo`). Sin él (mostrador, aprobación manual) no hay tope. */
+  params: { studioId: string; socioId: string; datos: Omit<DatosPlazaFija, 'socioId'>; plazaId?: string; cupo?: number },
   textos: TextosPlazaFija,
 ): Promise<ResultadoGuardarPlazaFija> {
-  const { studioId, socioId, datos, plazaId } = params;
+  const { studioId, socioId, datos, plazaId, cupo } = params;
   // Las comprobaciones viven en `validarPlazaFijaDesdeSesion` (una sola copia, la
   // que usa también la petición desde la app). Aquí solo se decide el límite
   // semanal —el panel pide confirmarlo— y se escribe.
@@ -4508,12 +4720,34 @@ async function guardarPlazaFijaDesdeSesion(
     dia_semana: dow, hora_inicio: horaInicio, sala_id: salaId, tipo_clase_id: tipoClaseId,
     spot_id: datos.spotId, vigencia_desde: datos.vigenciaDesde, vigencia_hasta: datos.vigenciaHasta,
   };
+  const idNueva = `pf-${uid()}`;
+  if (!anterior && cupo !== undefined) {
+    // Aprobación automática: el recuento de quién ocupa la franja y la plaza van JUNTOS dentro de un candado por franja. Contar
+    // aquí y escribir después deja pasar a dos peticiones a la vez por el último hueco.
+    const { data: dada, error: errCupo } = await admin.rpc('dar_plaza_fija_con_cupo', {
+      p_studio_id: studioId, p_fila: { id: idNueva, socio_id: socioId, ...fila }, p_cupo: cupo,
+    });
+    if (errCupo) {
+      if (errCupo.message.includes('plazas_fijas_spot_sin_solape')) return { ok: false, error: textos.sitioOcupado };
+      capturarExcepcion(new Error(errCupo.message), { tags: { area: 'plazas-fijas' }, extra: { studioId } });
+      return { ok: false, error: 'No se pudo guardar la plaza fija' };
+    }
+    const r = dada as { ok?: boolean; codigo?: string } | null;
+    if (!r?.ok) {
+      return r?.codigo === 'SIN_CUPO'
+        ? { ok: false, error: 'Esa clase ya tiene todas las plazas fijas que se dan sin pasar por el estudio.', codigo: 'SIN_CUPO' }
+        : { ok: false, error: 'No se pudo guardar la plaza fija' };
+    }
+  }
   const escritura = anterior
     ? await admin.from('plazas_fijas').update(fila)
         .eq('id', anterior.id).eq('studio_id', studioId).eq('socio_id', socioId)
         .select(COLUMNAS_PLAZA_FIJA).maybeSingle()
-    : await admin.from('plazas_fijas').insert({ id: `pf-${uid()}`, studio_id: studioId, socio_id: socioId, ...fila, estado: 'ACTIVA' })
-        .select(COLUMNAS_PLAZA_FIJA).maybeSingle();
+    : cupo !== undefined
+      // Ya escrita por la RPC: aquí solo se lee.
+      ? await admin.from('plazas_fijas').select(COLUMNAS_PLAZA_FIJA).eq('id', idNueva).eq('studio_id', studioId).maybeSingle()
+      : await admin.from('plazas_fijas').insert({ id: idNueva, studio_id: studioId, socio_id: socioId, ...fila, estado: 'ACTIVA' })
+          .select(COLUMNAS_PLAZA_FIJA).maybeSingle();
   if (escritura.error) {
     if (escritura.error.message.includes('plazas_fijas_spot_sin_solape')) return { ok: false, error: textos.sitioOcupado };
     capturarExcepcion(new Error(escritura.error.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId } });
@@ -4567,7 +4801,7 @@ async function guardarPlazaFijaDesdeSesion(
 // de la sesión. Al mover, la clienta sale de la propia plaza, nunca del body.
 export async function guardarPlazaFijaStaff(
   admin: SupabaseClient,
-  params: { studioId: string; datos: DatosPlazaFija; plazaId?: string },
+  params: { studioId: string; datos: DatosPlazaFija; plazaId?: string; cupo?: number },
 ): Promise<ResultadoGuardarPlazaFija> {
   let socioId = params.datos.socioId;
   if (params.plazaId) {
@@ -4577,7 +4811,7 @@ export async function guardarPlazaFijaStaff(
     socioId = plaza.socio_id as string;
   }
   return guardarPlazaFijaDesdeSesion(
-    admin, { studioId: params.studioId, socioId, datos: params.datos, plazaId: params.plazaId }, TEXTOS_PLAZA_FIJA_PANEL,
+    admin, { studioId: params.studioId, socioId, datos: params.datos, plazaId: params.plazaId, cupo: params.cupo }, TEXTOS_PLAZA_FIJA_PANEL,
   );
 }
 
@@ -5042,6 +5276,69 @@ export type ResultadoPeticionAlumna =
   | { ok: true; solicitudId: string; /** Aprobación automática: ya está dada, no «tu estudio te contestará». */ resuelta?: boolean; mensaje?: string }
   | { error: string; status: number };
 
+/**
+ * Cómo decide este estudio las plazas fijas sueltas que pide la alumna. Lectura TOLERANTE: con el código desplegado antes que su
+ * migración la columna no existe y el SELECT falla, y eso no puede romper el pedir una clase fija (que hoy funciona): se cae a
+ * MANUAL —que es exactamente lo de antes— y se avisa.
+ */
+async function aprobacionPlazaFija(admin: SupabaseClient, studioId: string): Promise<{ modo: AprobacionPlazaFija; topePct: number }> {
+  const { data, error } = await admin.from('studios')
+    .select('plaza_fija_aprobacion, plaza_fija_auto_tope_pct').eq('id', studioId).maybeSingle();
+  if (error) {
+    capturarExcepcion(new Error(`aprobacionPlazaFija: ${error.message}`), { tags: { area: 'plazas-fijas' }, extra: { studioId } });
+    return { modo: 'MANUAL', topePct: TOPE_AUTOMATICO_POR_DEFECTO_PCT };
+  }
+  const pct = Number(data?.plaza_fija_auto_tope_pct);
+  return {
+    modo: data?.plaza_fija_aprobacion === 'AUTOMATICA' ? 'AUTOMATICA' : 'MANUAL',
+    topePct: Number.isFinite(pct) && pct >= 10 && pct <= 100 ? pct : TOPE_AUTOMATICO_POR_DEFECTO_PCT,
+  };
+}
+
+/**
+ * Aprobación automática de una petición recién creada. Devuelve lo que se le dice a la alumna si se aprobó, o `null` si se queda
+ * para el estudio —por una regla que no pasa, o porque algo falló: la petición NO se pierde, sigue pendiente y el estudio la ve
+ * como siempre—. No decide nada por su cuenta: mira las reglas que el estudio ya tiene y APRUEBA POR LA MISMA PUERTA que el estudio
+ * (`resolverPeticionPlazaFija`), que vuelve a pasar cuota, nivel, duplicada y límite semanal al escribir.
+ */
+async function aprobarPeticionAutomaticamente(
+  admin: SupabaseClient,
+  p: { studioId: string; socioId: string; solicitudId: string; sesionId: string; tipoClaseId: string | null; superaLimite: boolean; topePct: number },
+): Promise<{ mensaje: string } | null> {
+  try {
+    const [pol, reglasTipo, { data: ses }, { data: est }] = await Promise.all([
+      cargarPoliticaEstudio(admin, p.studioId),
+      cargarReglasReservaTipoClase(admin, p.studioId, p.tipoClaseId),
+      admin.from('sesiones').select('aforo_maximo').eq('id', p.sesionId).eq('studio_id', p.studioId).maybeSingle(),
+      admin.from('studios').select('bloquear_reserva_impago').eq('id', p.studioId).maybeSingle(),
+    ]);
+    let impagoBloqueante = false;
+    if (est?.bloquear_reserva_impago) {
+      // Sin poder comprobarlo no se aprueba solo: es el lado seguro.
+      const { data: impago, error: errImpago } = await admin.rpc('socio_tiene_impago', { p_studio_id: p.studioId, p_socio_id: p.socioId });
+      impagoBloqueante = errImpago ? true : impago === true;
+    }
+    const motivo = motivoNoAutomatica({
+      modo: 'AUTOMATICA', superaLimite: p.superaLimite, impagoBloqueante,
+      reservaConAprobacion: heredaOverride(reglasTipo.requiereAprobacion, pol.requiereAprobacion),
+    });
+    if (motivo) return null;
+
+    const r = await resolverPeticionPlazaFija(admin, {
+      studioId: p.studioId, userId: null, solicitudId: p.solicitudId, aprobar: true, motivo: null, confirmarLimite: false,
+      automatica: { cupo: cupoAutomatico(ses?.aforo_maximo as number | null | undefined, p.topePct) },
+    });
+    return 'ok' in r ? { mensaje: r.paraAlumna ?? 'Tu clase fija está confirmada.' } : null;
+  } catch (e) {
+    capturarExcepcion(e, { tags: { area: 'plazas-fijas' }, extra: { studioId: p.studioId, solicitudId: p.solicitudId, paso: 'aprobacion-automatica' } });
+    // Si se cayó DESPUÉS de reclamarla y SIN haber dado ninguna plaza, vuelve a la bandeja: mejor pendiente que resuelta sin nada.
+    await admin.from('solicitudes_plaza_fija')
+      .update({ estado: 'PENDIENTE', resuelta_en: null, resuelta_por: null })
+      .eq('id', p.solicitudId).eq('studio_id', p.studioId).eq('estado', 'APROBADA').is('resultado_plaza_id', null);
+    return null;
+  }
+}
+
 export async function solicitarPlazaFijaAlumna(
   admin: SupabaseClient,
   /** `duracionMeses`: cuánto tiempo la quiere (uno de `DURACIONES_MESES`); sin ella, sin fecha de fin, como siempre. */
@@ -5075,6 +5372,16 @@ export async function solicitarPlazaFijaAlumna(
   if (error) {
     if (error.code === '23505') return { error: 'Ya has pedido esta clase fija: tu estudio te contestará.', status: 409 };
     throw new Error(error.message);
+  }
+  // Aprobación automática (ajuste del estudio): si pasa sus reglas, se da ya y NO se avisa al estudio de una petición que no tiene
+  // nada que decidir. Si no pasa, o falla algo, sigue el camino de siempre.
+  const aprobacion = await aprobacionPlazaFija(admin, p.studioId);
+  if (aprobacion.modo === 'AUTOMATICA') {
+    const auto = await aprobarPeticionAutomaticamente(admin, {
+      studioId: p.studioId, socioId: p.socioId, solicitudId: data.id, sesionId: p.sesionId,
+      tipoClaseId: v.tipoClaseId, superaLimite: !!v.exceso, topePct: aprobacion.topePct,
+    });
+    if (auto) return { ok: true, solicitudId: data.id, resuelta: true, mensaje: auto.mensaje };
   }
   const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
   await emitirPeticionPlazaFija(admin, {
@@ -5121,6 +5428,58 @@ export async function solicitarPausaPlazaFijaAlumna(
     peticion: `pide pausar su plaza fija de ${franjaParaAlumna(plaza.diaSemana, plaza.horaInicio)} del ${diaMes(p.desde)} al ${diaMes(p.hasta)}`,
   });
   return { ok: true, solicitudId: data.id };
+}
+
+export type ResultadoDejarPlazaAlumna =
+  | { ok: true; plazas: number; canceladas: number; mantenidas: number; fallidas: number; sinDejar: number }
+  | { error: string; status: number };
+
+/**
+ * La alumna deja su clase fija. Antes se hablaba con el estudio; ahora lo hace ella, con confirmación en la app, y por la
+ * misma puerta que cuando la quita el mostrador (`aplicarEstadoPlazaFija`, BAJA): las clases que tiene reservadas con ella se
+ * cancelan SIN penalización y sin clase para recuperar (lo decide ella), salvo las que ya están dentro del plazo de
+ * cancelación, que mantiene. La propiedad va en la lectura Y en la escritura: nadie deja la plaza de otra.
+ *
+ * Una clase fija con NOMBRE (varios días) se deja ENTERA: la oferta es atómica —todos sus días o ninguno—, así que dejar un
+ * solo día la dejaría a medias. Una plaza SUELTA solo si el estudio deja gestionar las clases fijas desde la app
+ * (`plaza_fija_solicitar_desde_app`, el mismo ajuste que ya gobierna pedirlas): si las lleva en recepción, se habla con él.
+ */
+export async function dejarPlazaFijaAlumna(
+  admin: SupabaseClient, p: { studioId: string; socioId: string; plazaId: string },
+): Promise<ResultadoDejarPlazaAlumna> {
+  const [{ data: studio, error: errStudio }, { data: fila }] = await Promise.all([
+    admin.from('studios').select('plaza_fija_solicitar_desde_app').eq('id', p.studioId).maybeSingle(),
+    admin.from('plazas_fijas').select('id, clase_fija_id')
+      .eq('id', p.plazaId).eq('studio_id', p.studioId).eq('socio_id', p.socioId).in('estado', ['ACTIVA', 'PAUSADA']).maybeSingle(),
+  ]);
+  if (errStudio) throw new Error(errStudio.message);
+  if (!fila) return { error: 'Esa clase fija ya no existe.', status: 404 };
+  // Las clases fijas con NOMBRE se piden desde la app aunque «Peticiones desde su app» esté apagado (ese ajuste es solo para
+  // pedir plaza en una clase suelta), así que dejarlas tampoco depende de él. Una plaza suelta, sí.
+  if (!fila.clase_fija_id && studio?.plaza_fija_solicitar_desde_app !== true) {
+    return { error: 'Tu estudio gestiona las clases fijas en recepción: pídeselo a ellos.', status: 403 };
+  }
+
+  const ids = [fila.id as string];
+  if (fila.clase_fija_id) {
+    const { data: hermanas, error } = await admin.from('plazas_fijas').select('id')
+      .eq('studio_id', p.studioId).eq('socio_id', p.socioId).eq('clase_fija_id', fila.clase_fija_id as string)
+      .in('estado', ['ACTIVA', 'PAUSADA']);
+    if (error) throw new Error(error.message);
+    for (const h of hermanas ?? []) if (!ids.includes(h.id as string)) ids.push(h.id as string);
+  }
+
+  let canceladas = 0, mantenidas = 0, fallidas = 0, sinDejar = 0;
+  for (const plazaId of ids) {
+    const r = await aplicarEstadoPlazaFija(
+      admin, { studioId: p.studioId, plazaId, estado: 'BAJA', socioId: p.socioId }, 'Ese sitio ya está asignado a otra clienta.',
+    );
+    if ('error' in r) { sinDejar++; continue; }
+    canceladas += r.canceladas.length; mantenidas += r.mantenidas.length; fallidas += r.fallidas;
+  }
+  // Ninguna se pudo dejar: no se dice que sí.
+  if (sinDejar === ids.length) return { error: 'No se ha podido dejar tu clase fija. Inténtalo de nuevo o habla con tu estudio.', status: 500 };
+  return { ok: true, plazas: ids.length - sinDejar, canceladas, mantenidas, fallidas, sinDejar };
 }
 
 /** Solo las suyas, solo pendientes y solo las que pidió ella (la vuelta de una pausa la decide el estudio). */
@@ -5240,8 +5599,9 @@ export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId:
 }
 
 export type ResultadoResolverPeticion =
-  | { ok: true; mensaje: string }
-  | { error: string; status: number; codigo?: 'SUPERA_LIMITE' };
+  /** `paraAlumna`: solo con aprobación automática —lo que la alumna ve en pantalla en vez de un aviso (no se le manda un correo de lo que ella misma acaba de hacer)—. */
+  | { ok: true; mensaje: string; paraAlumna?: string }
+  | { error: string; status: number; codigo?: 'SUPERA_LIMITE' | 'SIN_CUPO' };
 
 // Aprobar o rechazar una petición. Aprobar reutiliza las mismas puertas que el
 // mostrador (dar la plaza, pausarla, volver de la pausa), así que vuelve a pasar
@@ -5249,7 +5609,15 @@ export type ResultadoResolverPeticion =
 // de una pausa quita la plaza (la pantalla lo pide confirmar).
 export async function resolverPeticionPlazaFija(
   admin: SupabaseClient,
-  p: { studioId: string; userId: string; solicitudId: string; aprobar: boolean; motivo: string | null; confirmarLimite: boolean },
+  p: {
+    studioId: string; solicitudId: string; aprobar: boolean; motivo: string | null; confirmarLimite: boolean;
+    /** Quien decide. `null` = el propio sistema por la aprobación automática del estudio (`resuelta_por` queda vacío, que es lo que
+     *  distingue «la aprobó el estudio» de «se aprobó sola»). */
+    userId: string | null;
+    /** Aprobación automática: SOLO crear una plaza suelta, NUNCA pasando del límite de su cuota, y con el tope de plazas fijas de la
+     *  clase (`cupo`) contado dentro del candado de la base. Cualquier otra cosa se queda para el estudio. */
+    automatica?: { cupo: number };
+  },
 ): Promise<ResultadoResolverPeticion> {
   const { data: fila, error } = await admin.from('solicitudes_plaza_fija').select(`${COLUMNAS_PETICION}, estado`)
     .eq('id', p.solicitudId).eq('studio_id', p.studioId).maybeSingle();
@@ -5258,6 +5626,11 @@ export async function resolverPeticionPlazaFija(
   const sol = fila as unknown as FilaPeticion & { estado: string };
   const yaResuelta = { error: 'Esta petición ya está resuelta. Recarga la página.', status: 409 } as const;
   if (sol.estado !== 'PENDIENTE') return yaResuelta;
+  // La puerta de lo automático es estrecha a propósito: aunque quien llame se equivoque, esto solo aprueba solo lo que el estudio
+  // ya decidió que se puede aprobar solo.
+  if (p.automatica && (!p.aprobar || sol.tipo !== 'CREAR' || sol.supera_limite || p.userId !== null)) {
+    return { error: 'Esta petición la tiene que decidir el estudio.', status: 409 };
+  }
 
   const ahora = () => new Date().toISOString();
   // Compare-and-set desde PENDIENTE: dos personas decidiendo a la vez no se pisan.
@@ -5282,7 +5655,10 @@ export async function resolverPeticionPlazaFija(
       .update(extra).eq('id', sol.id).eq('studio_id', p.studioId);
     if (errAnotar) capturarExcepcion(new Error(errAnotar.message), { tags: { area: 'plazas-fijas' }, extra: { solicitudId: sol.id } });
   };
+  let paraAlumna: string | undefined;
   const responder = async (respuesta: string) => {
+    // Aprobación automática: la alumna lo ve en pantalla al instante; un aviso aparte de lo que acaba de pedir sería ruido.
+    if (p.automatica) { paraAlumna = respuesta; return; }
     const { emitirRespuestaPlazaFija } = await import('@/lib/notifications/emit');
     await emitirRespuestaPlazaFija(admin, { studioId: p.studioId, solicitudId: sol.id, socioId: sol.socio_id, respuesta });
   };
@@ -5388,16 +5764,20 @@ export async function resolverPeticionPlazaFija(
         socioId: sol.socio_id, sesionId: sol.sesion_id as string, spotId: null,
         vigenciaDesde: hoyEnEstudio(), vigenciaHasta: hastaPedida, confirmarLimite: p.confirmarLimite,
       },
+      ...(p.automatica ? { cupo: p.automatica.cupo } : {}),
     });
     if (!r.ok) {
       await reabrir('APROBADA');
-      return 'codigo' in r && r.codigo === 'SUPERA_LIMITE'
-        ? { error: r.error, status: 409, codigo: 'SUPERA_LIMITE' }
+      return 'codigo' in r && (r.codigo === 'SUPERA_LIMITE' || r.codigo === 'SIN_CUPO')
+        ? { error: r.error, status: 409, codigo: r.codigo }
         : { error: r.error, status: 400 };
     }
     await anotar({ resultado_plaza_id: r.plaza.id });
-    await responder(`Tu estudio te ha dado la clase fija de ${franja}.${r.primeraFecha ? ' Ya tienes reservada la próxima clase.' : ''}`);
-    return { ok: true, mensaje: 'Plaza fija dada' };
+    const proxima = r.primeraFecha ? ' Ya tienes reservada la próxima clase.' : '';
+    await responder(p.automatica
+      ? `Tu clase fija de ${franja} está confirmada.${proxima}`
+      : `Tu estudio te ha dado la clase fija de ${franja}.${proxima}`);
+    return { ok: true, mensaje: 'Plaza fija dada', ...(paraAlumna ? { paraAlumna } : {}) };
   }
 
   if (sol.tipo === 'PAUSAR') {

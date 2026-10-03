@@ -30,6 +30,10 @@ export const TEXTOS_PLAZA_FIJA = {
     `¿Vienes ${losDias(diaSemana)} a las ${hora}? Con una clase fija tu plaza queda reservada cada semana, sin que tengas que volver a reservarla.`,
   /** Lo que pasa después de pedirla. */
   quePasa: 'Tu estudio tiene que confirmarla: su respuesta te llega aquí. Hasta entonces, sigue reservando como siempre.',
+  /** Estudio con aprobación automática: se dice lo que puede pasar de las DOS formas, no solo la buena. */
+  quePasaAutomatica: 'Si cumples las reglas de tu estudio, se te da al momento. Si no, tu estudio la confirma y su respuesta te llega aquí; hasta entonces, sigue reservando como siempre.',
+  /** Respaldo si el servidor dijo «dada» sin decir con qué texto (no debería pasar). */
+  dada: 'Ya es tu clase fija ✓',
   botonPedir: 'Pedir clase fija',
   pedida: 'Ya la has pedido: tu estudio te contestará aquí. Hasta entonces, sigue reservando esta clase como siempre.',
   botonAnular: 'Anular la petición',
@@ -79,6 +83,26 @@ export const TEXTOS_PLAZA_FIJA = {
   noPuedoTarde: (horas: number) => `Quedan menos de ${horas} h: es una cancelación tardía y no se te guardará una clase para recuperar.`,
   noPuedoConfirmar: 'Sí, no puedo asistir',
   noPuedoMantener: 'Mantener mi plaza',
+  // ── Dejarla (ella, con confirmación) ──
+  dejarBoton: 'Dejar mi clase fija',
+  dejarTitulo: '¿Dejar tu clase fija?',
+  dejarConfirmar: 'Sí, dejarla',
+  dejarMantener: 'Mantenerla',
+  dejarCancela: (horas: number) =>
+    `Se cancelan las clases que tienes reservadas con ella, sin penalización y sin clase para recuperar, salvo las que quedan a menos de ${horas} h: esas las mantienes.`,
+  dejarVarios: 'Es una clase fija de varios días: los dejas todos.',
+  dejarVuelve: 'Si cambias de idea, podrás volver a pedirla desde su ficha (según el sitio que haya).',
+  /** Lo que ha pasado de verdad, con las cifras del servidor. */
+  dejada: (r: { plazas: number; canceladas: number; mantenidas: number; sinDejar: number }) => {
+    const partes = [r.plazas > 1 ? 'Has dejado tus clases fijas' : 'Has dejado tu clase fija'];
+    if (r.canceladas > 0) partes.push(r.canceladas === 1 ? 'se ha cancelado 1 clase reservada' : `se han cancelado ${r.canceladas} clases reservadas`);
+    if (r.mantenidas > 0) partes.push(r.mantenidas === 1 ? 'mantienes 1 clase, que ya está dentro del plazo de cancelación' : `mantienes ${r.mantenidas} clases, que ya están dentro del plazo de cancelación`);
+    if (r.sinDejar > 0) partes.push('alguna no se ha podido dejar: habla con tu estudio');
+    return `${partes.join(' · ')}.`;
+  },
+  /** Sin botón de dejarla (el estudio lo lleva en recepción), se sigue hablando con él. */
+  cambiarlaDeDiaHora: '¿Quieres cambiarla de día u hora?',
+
   // ── El calendario del mes ──
   calendarioTitulo: 'Tus días este mes',
   marcaReservada: 'Reservada',

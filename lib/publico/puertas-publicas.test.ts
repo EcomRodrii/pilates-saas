@@ -119,6 +119,11 @@ test('reservar clase: solo CREAR pasa por el gate, cancelar y valorar no', () =>
   assert.ok(f.includes('if (cerrada) return conCorsWidget(req, cerrada)'));
 });
 
+test('reservar las próximas N clases: RESERVAR pasa por el gate antes de recorrer las clases; mirar qué se reservaría, no', () => {
+  const f = gateAntesDe('app/api/public/reserva-proximas/route.ts', ['reservarProximasPublico('], { despuesDe: ["accion === 'reservar'"] });
+  assert.ok(f.includes('if (cerrada) return cerrada'));
+});
+
 test('lista de espera: aceptar la plaza (widget y app de la alumna) pasa por el gate', () => {
   gateAntesDe('app/api/public/aceptar-oferta-espera/route.ts', ['aceptarOfertaListaEspera(']);
   gateAntesDe('app/api/reservas/aceptar-oferta-espera/route.ts', ['aceptarOfertaListaEspera(']);

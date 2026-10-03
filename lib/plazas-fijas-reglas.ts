@@ -39,7 +39,7 @@ export type ResultadoGuardarPlazaFija =
       /** Al mover: reservas del horario anterior que se han cancelado. */
       canceladas: string[];
     }
-  | { ok: false; error: string; codigo?: 'SUPERA_LIMITE'; limite?: number };
+  | { ok: false; error: string; codigo?: 'SUPERA_LIMITE' | 'SIN_CUPO'; limite?: number };
 
 /**
  * La cuota que le da derecho a una plaza fija en esta clase, o `null`.
@@ -79,4 +79,47 @@ export function superaLimiteSemanal(cuota: PlanTarifa, plazasActivas: number): {
   const limite = cuota.limiteSemanal ?? 0;
   if (limite <= 0) return null;
   return plazasActivas + 1 > limite ? { limite } : null;
+}
+
+/** Cómo decide el estudio las plazas fijas sueltas que pide la alumna (`studios.plaza_fija_aprobacion`). */
+export type AprobacionPlazaFija = 'MANUAL' | 'AUTOMATICA';
+
+/** El tope de plazas fijas que puede ocupar una clase antes de que las nuevas pasen al estudio: un porcentaje del aforo. */
+export const TOPES_AUTOMATICOS_PCT = [25, 50, 75, 100] as const;
+export const TOPE_AUTOMATICO_POR_DEFECTO_PCT = 50;
+
+/**
+ * Cuántas plazas fijas caben en una clase de `aforo` plazas con aprobación automática al `pct` %. Se redondea HACIA ABAJO a
+ * propósito: con aforo 3 al 50 % el tope es 1, no 2 —el estudio puso un límite y nunca se pasa de él—, y una clase de una sola
+ * plaza al 50 % no admite ninguna automática (decide el estudio). Un aforo o porcentaje que no es un número da 0: sin dato, no se
+ * aprueba solo.
+ */
+export function cupoAutomatico(aforo: number | null | undefined, pct: number | null | undefined): number {
+  if (typeof aforo !== 'number' || typeof pct !== 'number' || !Number.isFinite(aforo) || !Number.isFinite(pct)) return 0;
+  if (aforo <= 0 || pct <= 0) return 0;
+  return Math.floor(Math.min(aforo, (aforo * Math.min(pct, 100)) / 100));
+}
+
+/**
+ * Por qué una petición suelta NO se aprueba sola, o `null` si pasa las reglas que se pueden mirar ANTES de escribir. Una sola
+ * función para que el servidor decida y las pruebas fijen el orden: cada motivo es una regla que el estudio ya tiene, no una
+ * nueva. El cupo (cuántas plazas fijas caben) NO está aquí: se cuenta DENTRO del candado de la base al dar la plaza
+ * (`dar_plaza_fija_con_cupo`), porque contarlo antes y escribir después deja pasar a dos a la vez.
+ */
+export type MotivoNoAutomatica = 'MANUAL' | 'SUPERA_LIMITE' | 'RESERVA_CON_APROBACION' | 'IMPAGO';
+
+export function motivoNoAutomatica(c: {
+  modo: AprobacionPlazaFija;
+  superaLimite: boolean;
+  /** La clase exige aprobar cada reserva (estudio o tipo de clase): una plaza fija las reservaría todas sin pasar por ahí. */
+  reservaConAprobacion: boolean;
+  /** Impago que bloquea reservar (ajuste del estudio y deuda de la alumna). */
+  impagoBloqueante: boolean;
+}): MotivoNoAutomatica | null {
+  if (c.modo !== 'AUTOMATICA') return 'MANUAL';
+  // Pasar del límite semanal de su cuota NUNCA se aprueba solo (decisión del fundador, 16-sep).
+  if (c.superaLimite) return 'SUPERA_LIMITE';
+  if (c.reservaConAprobacion) return 'RESERVA_CON_APROBACION';
+  if (c.impagoBloqueante) return 'IMPAGO';
+  return null;
 }

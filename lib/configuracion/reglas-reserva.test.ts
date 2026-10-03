@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  COLUMNAS_POR_TARJETA, TARJETAS_REGLAS, antelacionImposible, confirmarPenalizacion, consecuenciaRegla, excepcionesPorRegla,
+  COLUMNAS_POR_TARJETA, TARJETAS_REGLAS, antelacionImposible, confirmarAprobacionAutomatica, confirmarPenalizacion, consecuenciaRegla, excepcionesPorRegla,
   formularioReglas, fraseAntelacion, fraseSeAbre, reglasAGuardar, reglasDeTarjetaAGuardar, reglasGuardadas, tarjetasConCambios,
   type TipoConReglas,
 } from './reglas-reserva.ts';
@@ -31,7 +31,9 @@ const NUEVAS = ['plazaFijaSinCuota', 'plazaFijaSolicitarDesdeApp', 'plazaFijaPau
   // 30-sep: el tope de clases al día y la hora a la que se abre, en «Reservar».
   'reservaMaxPorDia', 'reservaAntelacionHora',
   // 30-sep: el tope de recuperaciones sin usar (antes un 4 fijo), con su propia tarjeta.
-  'recuperacionMaxVivas'];
+  'recuperacionMaxVivas',
+  // 3-oct: quién da las plazas fijas sueltas que pide la alumna (manual o automática) y hasta qué % del aforo.
+  'plazaFijaAprobacion', 'plazaFijaAutoTopePct'];
 
 test('la sección guarda las columnas de antes, menos las dos que se fueron a su sitio, más las nuevas con nombre', () => {
   const r = reglasAGuardar(formularioReglas(null), reglasGuardadas(null));
@@ -59,6 +61,8 @@ test('sin dato del servidor, los mismos valores por defecto que el formulario de
     // Pedir plaza fija desde la app: ENCENDIDO de serie desde el 22-sep (antes
     // apagado por defecto, 16-sep) — ver el comentario en reglas-reserva.ts.
     plazaFijaSolicitarDesdeApp: true, plazaFijaPausaDesdeApp: false,
+    // Sin elegir, como siempre: las aprueba el estudio. La automática es opt-in.
+    plazaFijaAprobacion: 'MANUAL', plazaFijaAutoTopePct: 50,
     plazaFijaPausaLiberaSitio: false, plazaFijaFinPausa: 'RECUPERAR_SI_LIBRE',
   });
 });
@@ -290,4 +294,64 @@ test('«Recuperaciones»: el tope va de 1 a 20 y la fila y la consecuencia dicen
   assert.deepEqual(seis, { ok: true, cambios: { recuperacionMaxVivas: 6, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null, recuperacionAutoSemanal: false } });
   assert.equal(consecuenciaRegla('recuperaciones', { ...guardado, recuperacionMaxVivas: 2 }),
     'Con 2 sin usar, no se le da otra hasta que use o le caduque una. Si bajas el número, quien ya tenga más las conserva.');
+});
+
+// ─── Aprobación automática de plazas fijas sueltas ──────────────────────────
+
+test('⚠️ la aprobación automática es opt-in: sin elegir (o con un valor raro) sigue siendo manual', () => {
+  assert.equal(reglasGuardadas(null).plazaFijaAprobacion, 'MANUAL');
+  assert.equal(reglasGuardadas({}).plazaFijaAprobacion, 'MANUAL');
+  assert.equal(reglasGuardadas({ plazaFijaAprobacion: 'AUTOMATICA' }).plazaFijaAprobacion, 'AUTOMATICA');
+});
+
+test('la aprobación y el porcentaje viven en la tarjeta de «Peticiones desde su app», y solo ahí', () => {
+  assert.ok(COLUMNAS_POR_TARJETA['plaza-fija-desde-la-app'].includes('plazaFijaAprobacion'));
+  assert.ok(COLUMNAS_POR_TARJETA['plaza-fija-desde-la-app'].includes('plazaFijaAutoTopePct'));
+});
+
+test('cambiar solo la aprobación marca solo su tarjeta y se guarda con sus columnas', () => {
+  const guardado = reglasGuardadas(null);
+  const form = { ...formularioReglas(guardado), plazaFijaAprobacion: 'AUTOMATICA' as const };
+  assert.deepEqual(tarjetasConCambios(form, guardado), ['plaza-fija-desde-la-app']);
+  const r = reglasDeTarjetaAGuardar('plaza-fija-desde-la-app', form, guardado);
+  assert.ok(r.ok);
+  assert.equal(r.cambios.plazaFijaAprobacion, 'AUTOMATICA');
+  assert.equal(r.cambios.plazaFijaAutoTopePct, 50);
+});
+
+test('el porcentaje va de 10 a 100 (el CHECK de la base) y solo se mira con la automática puesta', () => {
+  const guardado = reglasGuardadas(null);
+  const con = (pct: number, aprobacion: 'MANUAL' | 'AUTOMATICA') => reglasDeTarjetaAGuardar(
+    'plaza-fija-desde-la-app', { ...formularioReglas(guardado), plazaFijaAprobacion: aprobacion, plazaFijaAutoTopePct: pct }, guardado,
+  );
+  for (const malo of [0, 9, 101, 50.5, Number.NaN]) assert.equal(con(malo, 'AUTOMATICA').ok, false, `${malo}`);
+  for (const bueno of [10, 25, 50, 100]) assert.equal(con(bueno, 'AUTOMATICA').ok, true, `${bueno}`);
+  // Manual: el porcentaje no decide nada, un valor viejo no puede impedir volver a manual.
+  assert.equal(con(0, 'MANUAL').ok, true);
+});
+
+test('⚠️ pasar a automática pregunta (nadie mira las plazas antes); volver a manual o cambiar el % no', () => {
+  const ahora = { plazaFijaAprobacion: 'AUTOMATICA' as const, plazaFijaAutoTopePct: 50, plazaFijaSolicitarDesdeApp: true };
+  const c = confirmarAprobacionAutomatica({ plazaFijaAprobacion: 'MANUAL' }, ahora);
+  assert.ok(c);
+  // Dice qué se comprueba y qué NO se aprueba solo.
+  assert.match(c.descripcion, /límite semanal/);
+  assert.match(c.descripcion, /50 %/);
+  assert.match(c.descripcion, /te llega a Resumen/);
+  assert.equal(confirmarAprobacionAutomatica({ plazaFijaAprobacion: 'AUTOMATICA' }, { ...ahora, plazaFijaAutoTopePct: 75 }), undefined);
+  assert.equal(confirmarAprobacionAutomatica({ plazaFijaAprobacion: 'AUTOMATICA' }, { ...ahora, plazaFijaAprobacion: 'MANUAL' as never }), undefined);
+  assert.equal(confirmarAprobacionAutomatica({ plazaFijaAprobacion: 'MANUAL' }, { ...ahora, plazaFijaAprobacion: 'MANUAL' as never }), undefined);
+});
+
+test('⚠️ la consecuencia dice la verdad: manual «no cambia nada hasta que lo apruebes»; automática dice el tope y que las pausas las decide ella', () => {
+  const base = reglasGuardadas({ plazaFijaSolicitarDesdeApp: true, plazaFijaPausaDesdeApp: true });
+  assert.match(consecuenciaRegla('plaza-fija-desde-la-app', base), /No cambia nada hasta que lo apruebes/);
+  const auto = consecuenciaRegla('plaza-fija-desde-la-app', { ...base, plazaFijaAprobacion: 'AUTOMATICA', plazaFijaAutoTopePct: 75 });
+  assert.match(auto, /se da sola si cumple tus reglas/);
+  assert.match(auto, /75 %/);
+  assert.match(auto, /Las pausas las apruebas tú/);
+  assert.doesNotMatch(auto, /No cambia nada hasta que lo apruebes/);
+  // Con «pedir plaza» apagado la aprobación no decide nada: no se dice que se da sola.
+  const apagada = consecuenciaRegla('plaza-fija-desde-la-app', { ...base, plazaFijaSolicitarDesdeApp: false, plazaFijaAprobacion: 'AUTOMATICA' });
+  assert.doesNotMatch(apagada, /se da sola/);
 });

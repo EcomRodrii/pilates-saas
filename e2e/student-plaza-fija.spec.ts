@@ -114,6 +114,73 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
     await expect(page.getByText(/Pausa pedida del/)).toHaveCount(0);
   });
 
+  // Dejar su clase fija (antes «se habla con el estudio»): ella, con confirmación.
+  test('Mis clases → Fijas: deja su clase fija con confirmación y el aviso dice lo que contestó el servidor', async ({ page }) => {
+    await montar(page);
+    let intentos = 0;
+    let cuerpo: Record<string, unknown> | null = null;
+    await page.route('**/api/public/plaza-fija', (r) => {
+      intentos++;
+      cuerpo = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, plazas: 1, canceladas: 3, mantenidas: 1, fallidas: 0, sinDejar: 0 }) });
+    });
+
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    const tarjeta = page.getByTestId('plaza-fija');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await tarjeta.getByTestId('dejar-clase-fija').click();
+
+    // Antes de confirmar: qué pasa, con la ventana REAL del estudio (12 h en el fixture). Y no se ha enviado nada.
+    const aviso = page.getByTestId('dejar-aviso');
+    await expect(aviso).toContainText('Se cancelan las clases que tienes reservadas');
+    await expect(aviso).toContainText('menos de 12 h');
+    await expect(aviso).not.toContainText('varios días');
+    expect(intentos, 'abrir la confirmación no envía nada').toBe(0);
+
+    await page.getByRole('button', { name: 'Sí, dejarla' }).click();
+    await expect(page.getByText('Has dejado tu clase fija · se han cancelado 3 clases reservadas · mantienes 1 clase, que ya está dentro del plazo de cancelación.')).toBeVisible({ timeout: 30_000 });
+    expect(intentos).toBeGreaterThan(0);
+    expect(cuerpo).toMatchObject({ accion: 'dejar_plaza', plazaId: 'pf-1' });
+    expect(Object.keys(cuerpo as object)).not.toContain('socioId');
+  });
+
+  test('«Mantenerla» cierra la confirmación sin enviar nada', async ({ page }) => {
+    await montar(page);
+    let intentos = 0;
+    await page.route('**/api/public/plaza-fija', (r) => { intentos++; return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    const tarjeta = page.getByTestId('plaza-fija');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await tarjeta.getByTestId('dejar-clase-fija').click();
+    await expect(page.getByTestId('dejar-aviso')).toBeVisible();
+    await page.getByRole('button', { name: 'Mantenerla' }).click();
+    await expect(page.getByTestId('dejar-aviso')).toHaveCount(0);
+    await expect(tarjeta.getByText('Activa')).toBeVisible();
+    expect(intentos).toBe(0);
+  });
+
+  test('si el servidor dice que no, la app no dice que sí: la clase fija sigue y el motivo se ve en la confirmación', async ({ page }) => {
+    await montar(page);
+    let intentos = 0;
+    await page.route('**/api/public/plaza-fija', (r) => {
+      intentos++;
+      return r.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ error: 'Tu estudio gestiona las clases fijas en recepción: pídeselo a ellos.' }) });
+    });
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    const tarjeta = page.getByTestId('plaza-fija');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await tarjeta.getByTestId('dejar-clase-fija').click();
+    await page.getByRole('button', { name: 'Sí, dejarla' }).click();
+
+    await expect(page.getByRole('alert').filter({ hasText: 'Tu estudio gestiona las clases fijas en recepción' })).toBeVisible({ timeout: 30_000 });
+    expect(intentos, 'la petición salió de verdad').toBeGreaterThan(0);
+    await expect(page.getByText(/Has dejado tu clase fija/)).toHaveCount(0);
+    // La confirmación sigue abierta para reintentar o mantenerla, y la plaza sigue en la lista.
+    await expect(page.getByTestId('dejar-aviso')).toBeVisible();
+    await page.getByRole('button', { name: 'Mantenerla' }).click();
+    await expect(tarjeta.getByText('Activa')).toBeVisible();
+  });
+
   test('al cancelar una ocurrencia de plaza fija, el toast dice que hay una clase para recuperar y hasta cuándo', async ({ page }) => {
     await montar(page, { cancelacion: { ok: true, tardia: false, bonoDevuelto: false, eraConfirmada: true, recuperacionCreada: true, recuperacionCaducaEl: '2026-09-11' } });
     await page.goto(`${base}/mis-reservas`);
@@ -320,6 +387,54 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toBeVisible();
   });
 
+  // ── Estudio con aprobación automática: lo que pasa sus reglas se da al momento (decide el SERVIDOR, `resuelta`) ──
+
+  test('aprobación automática: si el servidor la da al instante, la ficha dice que ya es suya, con SU texto, y no «pendiente»', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    const dicho = 'Tu clase fija de los miércoles a las 10:00 está confirmada. Ya tienes reservada la próxima clase.';
+    const visto = await contarPeticiones(page, { status: 200, body: { ok: true, solicitudId: 'spf-9', resuelta: true, mensaje: dicho } });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Pedir clase fija' }).click({ timeout: 30_000 });
+    await expect(page.getByTestId('clase-fija-dada')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(dicho)).toBeVisible();
+    expect(visto.intentos, 'la petición salió de verdad').toBeGreaterThan(0);
+    await expect(page.getByTestId('clase-fija-pedida')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Anular la petición' })).toHaveCount(0);
+  });
+
+  test('aprobación automática, pero no pasó sus reglas: el servidor la deja pendiente y la ficha NO dice que ya es suya', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    // Lo mismo que un estudio manual: `ok` + `solicitudId`, sin `resuelta`.
+    const visto = await contarPeticiones(page, { status: 200, body: { ok: true, solicitudId: 'spf-9' } });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Pedir clase fija' }).click({ timeout: 30_000 });
+    await expect(page.getByTestId('clase-fija-pedida')).toBeVisible({ timeout: 30_000 });
+    expect(visto.intentos, 'la petición salió de verdad').toBeGreaterThan(0);
+    await expect(page.getByTestId('clase-fija-dada')).toHaveCount(0);
+  });
+
+  test('⚠️ «resuelta» sin el texto que enseñar no se cree: queda pendiente', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    const visto = await contarPeticiones(page, { status: 200, body: { ok: true, solicitudId: 'spf-9', resuelta: true } });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Pedir clase fija' }).click({ timeout: 30_000 });
+    await expect(page.getByTestId('clase-fija-pedida')).toBeVisible({ timeout: 30_000 });
+    expect(visto.intentos, 'la petición salió de verdad').toBeGreaterThan(0);
+    await expect(page.getByTestId('clase-fija-dada')).toHaveCount(0);
+  });
+
+  test('lo que se le promete antes de pedir depende del estudio: manual dice que lo confirma el estudio; automático, las dos posibilidades', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText(/Tu estudio tiene que confirmarla/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Si cumples las reglas de tu estudio/)).toHaveCount(0);
+
+    // El estudio con la aprobación automática (en e2e, el slug propio: una variable global lo encendería en todas las specs).
+    await page.goto('/portal/tentare-aprobacion-auto/clases-fijas/' + SESION_ID, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText(/Si cumples las reglas de tu estudio, se te da al momento/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Tu estudio tiene que confirmarla:/)).toHaveCount(0);
+  });
+
   test('con bono no hay botón que no va a funcionar: se le dice por qué y se le lleva a las cuotas', async ({ page }) => {
     await montarClaseQueSeRepite(page, 'bono');
     const visto = await contarPeticiones(page);
@@ -329,6 +444,167 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
     await expect(page.getByTestId('duracion-clase-fija')).toHaveCount(0);
     expect(visto.intentos, 'nada sale hacia el servidor').toBe(0);
+  });
+
+  // ── «Reservar las próximas clases» con bono: N reservas NORMALES (no una clase fija), cada una descontando su sesión ──
+  const OCURRENCIAS = [
+    { sesionId: 'ses-10', fecha: '2026-08-12', hora: '12:00', resultado: 'SE_RESERVARA', pagador: 'bono' },
+    { sesionId: 'ses-11', fecha: '2026-08-19', hora: '12:00', resultado: 'SE_RESERVARA', pagador: 'bono' },
+    { sesionId: 'ses-12', fecha: '2026-08-26', hora: '12:00', resultado: 'SE_RESERVARA', pagador: 'bono' },
+    { sesionId: 'ses-13', fecha: '2026-09-02', hora: '12:00', resultado: 'SE_RESERVARA', pagador: 'bono' },
+  ];
+  const datosProximas = (accion: 'previsualizar' | 'reservar', oc: Record<string, unknown>[], saldoDespues: number, paro: unknown = null) => ({
+    ok: true, accion, n: oc.length,
+    ocurrencias: oc,
+    bono: { suscripcionId: 'sus-b', plan: 'Bono 8 sesiones', saldoAntes: 5, saldoDespues, fechaFin: '2026-12-31' },
+    resumen: {
+      reservadas: oc.filter((o) => o.resultado === 'SE_RESERVARA' || o.resultado === 'RESERVADA').length,
+      descontadas: oc.filter((o) => (o.resultado === 'SE_RESERVARA' || o.resultado === 'RESERVADA') && o.pagador === 'bono').length,
+      pedidas: oc.length, paro,
+    },
+  });
+  /** Monta el mock del lote y cuenta lo que sale hacia el servidor, separando mirar de reservar. */
+  async function montarLote(page: Page, opts: { reservar?: (cuerpo: Record<string, unknown>, intento: number) => { status: number; body: unknown } | 'caida'; previo?: { status: number; body: unknown } } = {}) {
+    const visto = { previsualizaciones: [] as Record<string, unknown>[], reservas: [] as Record<string, unknown>[] };
+    await page.route('**/api/public/reserva-proximas', async (r) => {
+      const cuerpo = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
+      if (cuerpo.accion === 'previsualizar') {
+        visto.previsualizaciones.push(cuerpo);
+        const n = Number(cuerpo.n);
+        const respuesta = opts.previo ?? { status: 200, body: datosProximas('previsualizar', OCURRENCIAS.slice(0, n), 5 - Math.min(n, OCURRENCIAS.length)) };
+        return r.fulfill({ status: respuesta.status, contentType: 'application/json', body: JSON.stringify(respuesta.body) });
+      }
+      visto.reservas.push(cuerpo);
+      const hecho = opts.reservar?.(cuerpo, visto.reservas.length) ?? { status: 200, body: datosProximas('reservar', OCURRENCIAS.map((o) => ({ ...o, resultado: 'RESERVADA' })), 1) };
+      if (hecho === 'caida') return r.abort('failed');
+      return r.fulfill({ status: hecho.status, contentType: 'application/json', body: JSON.stringify(hecho.body) });
+    });
+    return visto;
+  }
+
+  test('solo con bono: enseña qué se reservaría y cuántas sesiones se descontarán ANTES de confirmar, y no reserva nada al mirar', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'bono');
+    const visto = await montarLote(page);
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+
+    const bloque = page.getByTestId('reservar-proximas');
+    await expect(bloque).toBeVisible({ timeout: 30_000 });
+    // Con 5 sesiones: 2, 4 y «todas las que me quedan».
+    await expect(bloque.getByRole('button', { name: '2 clases', exact: true })).toBeVisible();
+    await expect(bloque.getByRole('button', { name: '4 clases', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(bloque.getByRole('button', { name: 'Todas las que me quedan (5)' })).toBeVisible();
+    await expect(bloque.getByRole('button', { name: '8 clases', exact: true })).toHaveCount(0);
+
+    await expect(bloque.getByTestId('proxima-ocurrencia')).toHaveCount(4, { timeout: 30_000 });
+    await expect(bloque.getByTestId('proximas-resumen')).toHaveText('Se reservarán 4 clases y se descontarán 4 sesiones de tu «Bono 8 sesiones»: te quedarán 1.');
+    await expect(bloque).toContainText('No se renueva sola');
+    await expect(bloque).toContainText('gratis hasta 12 h antes');
+    // Mirar no reserva nada: solo previsualizaciones, sin intento.
+    expect(visto.previsualizaciones.length).toBeGreaterThan(0);
+    expect(visto.reservas, 'mirar no reserva').toHaveLength(0);
+    expect(Object.keys(visto.previsualizaciones[0])).not.toContain('intentoId');
+    // Sigue sin haber clase fija: la alumna con bono no puede pedirla.
+    await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
+    await expect(page.getByTestId('clase-fija-solo-cuota')).toBeVisible();
+  });
+
+  test('reservar: UNA petición con su intento, y lo que se pinta es lo que contestó el servidor («3 de 4», con la parada)', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'bono');
+    const parcial = datosProximas('reservar', [
+      { ...OCURRENCIAS[0], resultado: 'RESERVADA' }, { ...OCURRENCIAS[1], resultado: 'RESERVADA' }, { ...OCURRENCIAS[2], resultado: 'RESERVADA' },
+      { ...OCURRENCIAS[3], resultado: 'SIN_DERECHO', codigo: 'bono-no-cubre', pagador: undefined },
+    ], 0, { motivo: 'SIN_DERECHO', desdeSesionId: 'ses-13' });
+    const visto = await montarLote(page, { reservar: () => ({ status: 200, body: parcial }) });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const bloque = page.getByTestId('reservar-proximas');
+    await expect(bloque.getByTestId('proxima-ocurrencia')).toHaveCount(4, { timeout: 30_000 });
+
+    await bloque.getByRole('button', { name: 'Reservar 4 clases' }).click();
+    await expect(bloque.getByTestId('proximas-hecho')).toHaveText(
+      'Reservadas 3 de 4 · se han descontado 3 sesiones de tu bono; te quedan 0 · tu bono se ha quedado sin sesiones: no se reservaron las últimas.',
+      { timeout: 30_000 },
+    );
+    expect(visto.reservas.length, 'la petición salió de verdad').toBe(1);
+    expect(visto.reservas[0]).toMatchObject({ accion: 'reservar', n: 4 });
+    // El intento: 16-64 caracteres seguros, y NUNCA el prefijo de las plazas fijas.
+    expect(String(visto.reservas[0].intentoId)).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
+    expect(String(visto.reservas[0].intentoId)).not.toMatch(/^pf[-_]/i);
+    expect(Object.keys(visto.reservas[0])).not.toContain('socioId');
+    await expect(bloque.getByRole('link', { name: 'Ver mis clases' })).toHaveAttribute('href', `${base}/mis-reservas`);
+    // Y ya no se vuelve a ofrecer reservar en el mismo bloque.
+    await expect(bloque.getByRole('button', { name: /^Reservar \d+ clases$/ })).toHaveCount(0);
+  });
+
+  test('doble toque: exactamente UNA petición de reservar', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'bono');
+    let liberar: () => void = () => {};
+    const espera = new Promise<void>((res) => { liberar = res; });
+    const visto = await montarLote(page, { reservar: () => ({ status: 200, body: datosProximas('reservar', OCURRENCIAS.map((o) => ({ ...o, resultado: 'RESERVADA' })), 1) }) });
+    // La respuesta de reservar tarda: el segundo toque llega con la primera en vuelo.
+    await page.unroute('**/api/public/reserva-proximas');
+    await page.route('**/api/public/reserva-proximas', async (r) => {
+      const cuerpo = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
+      if (cuerpo.accion === 'previsualizar') {
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(datosProximas('previsualizar', OCURRENCIAS, 1)) });
+      }
+      visto.reservas.push(cuerpo);
+      await espera;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(datosProximas('reservar', OCURRENCIAS.map((o) => ({ ...o, resultado: 'RESERVADA' })), 1)) });
+    });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const bloque = page.getByTestId('reservar-proximas');
+    const boton = bloque.getByRole('button', { name: 'Reservar 4 clases' });
+    await expect(boton).toBeVisible({ timeout: 30_000 });
+    await boton.click();
+    // En vuelo el botón está deshabilitado: el segundo toque no puede salir.
+    await expect(bloque.getByRole('button', { name: /Un momento/ })).toBeDisabled();
+    await bloque.getByRole('button', { name: /Un momento/ }).click({ force: true, timeout: 2_000 }).catch(() => {});
+    liberar();
+    await expect(bloque.getByTestId('proximas-hecho')).toBeVisible({ timeout: 30_000 });
+    expect(visto.reservas, 'UNA sola petición de reservar').toHaveLength(1);
+  });
+
+  test('si la red cae al reservar, no se dice que sí y el reintento lleva el MISMO intento (no duplica)', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'bono');
+    const visto = await montarLote(page, { reservar: (_c, vez) => (vez === 1 ? 'caida' : { status: 200, body: datosProximas('reservar', OCURRENCIAS.map((o) => ({ ...o, resultado: 'RESERVADA', repetida: true })), 1) }) });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const bloque = page.getByTestId('reservar-proximas');
+    await expect(bloque.getByRole('button', { name: 'Reservar 4 clases' })).toBeVisible({ timeout: 30_000 });
+    await bloque.getByRole('button', { name: 'Reservar 4 clases' }).click();
+
+    await expect(bloque.getByTestId('proximas-error')).toContainText('no sabemos si se ha reservado alguna', { timeout: 30_000 });
+    await expect(bloque.getByTestId('proximas-hecho')).toHaveCount(0);
+    expect(visto.reservas.length, 'el intento salió de verdad').toBe(1);
+
+    await bloque.getByRole('button', { name: 'Reservar 4 clases' }).click();
+    await expect(bloque.getByTestId('proximas-hecho')).toBeVisible({ timeout: 30_000 });
+    expect(visto.reservas).toHaveLength(2);
+    expect(visto.reservas[1].intentoId, 'el reintento es el MISMO intento').toBe(visto.reservas[0].intentoId);
+  });
+
+  test('cambiar cuántas clases vuelve a mirar y abre un intento NUEVO; si el servidor dice que no, se enseña el motivo', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'bono');
+    const visto = await montarLote(page, { reservar: () => ({ status: 409, body: { error: 'Para reservar varias clases de una vez necesitas un bono con sesiones que cubra esta clase.', codigo: 'sin-bono' } }) });
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const bloque = page.getByTestId('reservar-proximas');
+    await expect(bloque.getByTestId('proxima-ocurrencia')).toHaveCount(4, { timeout: 30_000 });
+    await bloque.getByRole('button', { name: '2 clases', exact: true }).click();
+    await expect(bloque.getByTestId('proxima-ocurrencia')).toHaveCount(2, { timeout: 30_000 });
+    expect(visto.previsualizaciones.map((p) => p.n)).toEqual(expect.arrayContaining([4, 2]));
+
+    await bloque.getByRole('button', { name: 'Reservar 2 clases' }).click();
+    await expect(bloque.getByTestId('proximas-error')).toContainText('necesitas un bono con sesiones', { timeout: 30_000 });
+    expect(visto.reservas.length, 'el camino de fallo sí intentó reservar').toBe(1);
+    await expect(bloque.getByTestId('proximas-hecho')).toHaveCount(0);
+  });
+
+  test('con cuota no sale: ahí se pide la clase fija, no se reserva por bono', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    const visto = await montarLote(page);
+    await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('duracion-clase-fija')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('reservar-proximas')).toHaveCount(0);
+    expect(visto.previsualizaciones, 'ni mira').toHaveLength(0);
   });
 
   test('si ya es suya, lo dice y la lleva a sus clases fijas', async ({ page }) => {

@@ -946,7 +946,8 @@ export function resumenRegla(
       ]);
     case 'plaza-fija-desde-la-app':
       return u([
-        r.plazaFijaSolicitarDesdeApp && r.plazaFijaPausaDesdeApp ? 'piden plaza y pausa'
+        r.plazaFijaSolicitarDesdeApp && r.plazaFijaAprobacion === 'AUTOMATICA' ? 'se dan solas'
+          : r.plazaFijaSolicitarDesdeApp && r.plazaFijaPausaDesdeApp ? 'piden plaza y pausa'
           : r.plazaFijaSolicitarDesdeApp ? 'piden plaza fija'
           : r.plazaFijaPausaDesdeApp ? 'piden pausas'
           : 'solo en recepción',

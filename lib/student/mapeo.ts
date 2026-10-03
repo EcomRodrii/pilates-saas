@@ -549,7 +549,7 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
     sala: (d.salas ?? []).find((s) => s.id === p.salaId)?.nombre ?? 'Sala',
     tipo: p.tipoClaseId ? ((d.tiposClase ?? []).find((t) => t.id === p.tipoClaseId)?.nombre ?? null) : null,
     estado: p.estado, proximaFecha: p.proximaFecha, sinClase: p.sinClase, vigenciaHasta: p.vigenciaHasta, pausa: p.pausa,
-    pausaPedida: p.pausaPedida,
+    pausaPedida: p.pausaPedida, deClaseFija: p.deClaseFija,
     // Lo que su clase fija le tiene ya reservado. Una plaza en pausa o sin clase no lo enseña.
     proximas: p.estado !== 'ACTIVA' ? [] : proximasDeUnaPlaza(
       { diaSemana: p.diaSemana, hora: p.hora, salaId: p.salaId }, d.socia?.reservas ?? [], sesiones, hoyISO, horaAhora,

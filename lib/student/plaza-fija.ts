@@ -20,6 +20,8 @@ export interface PlazaFijaMin {
   /** Pausa con fechas (YYYY-MM-DD, ambas incluidas): esas semanas no se reserva. */
   pausaDesde?: string | null;
   pausaHasta?: string | null;
+  /** La clase fija con nombre de la que viene, si viene de una. */
+  claseFijaId?: string | null;
 }
 
 export interface RecuperacionMin { id?: string; caducaEl: string; estado: 'DISPONIBLE' | 'USADA' | 'CADUCADA' | 'ANULADA' }
@@ -51,6 +53,8 @@ export interface PlazaFijaVista {
    * enseñaba una «próxima» que no existía.
    */
   sinClase: boolean;
+  /** Viene de una clase fija con nombre (varios días): se deja entera, no una franja suelta. */
+  deClaseFija: boolean;
   vigenciaHasta: string | null;
   /** Pausa con fechas que aún no ha terminado; `enCurso` = hoy está dentro. */
   pausa: { desde: string; hasta: string; enCurso: boolean } | null;
@@ -126,6 +130,7 @@ export function proyectarPlazasFijas(
       diaSemana: p.diaSemana, hora, salaId: p.salaId, tipoClaseId: p.tipoClaseId, estado: p.estado,
       proximaFecha, sinClase, vigenciaHasta: p.vigenciaHasta, pausa: pausaVigente,
       pausaPedida: pedida ? { id: pedida.id, desde: pedida.desde as string, hasta: pedida.hasta as string } : null,
+      deClaseFija: !!p.claseFijaId,
     });
   }
   return vistas.sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.hora.localeCompare(b.hora));

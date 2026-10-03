@@ -1215,12 +1215,12 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   que paga. Después: índices únicos (una liberación/consumo por reserva), `cancelar_sesion` transaccional, compra
   transaccional (retener plaza antes de cobrar) y excepciones del mostrador.
 
-## Autoreservable = plaza fija con duración (2-oct-2026, en curso)
+## Autoreservable = plaza fija con duración (2-oct-2026)
 
 El fundador pidió un botón «autoreservable» en las clases normales, ligado a las clases fijas, para estudio y alumna, con
 filtros (días, semanas, meses). **No es un concepto nuevo**: es el nombre de cara al usuario de una plaza fija (para la
 alumna «clase fija») pedida desde una clase normal, más el filtro que faltaba en el camino de las clases sueltas: la
-**duración**. Se guarda en `plazas_fijas.vigencia_hasta`, que el motor ya respeta. Sin tablas, columnas ni migración nuevas.
+**duración**. Se guarda en `plazas_fijas.vigencia_hasta`, que el motor ya respeta. Sin tablas nuevas; la única migración es la de la aprobación automática (parte A).
 
 - **PR1 (hecho):** la alumna puede pedir una plaza suelta con `duracionMeses` (uno de `DURACIONES_MESES`; la fecha de fin la
   pone el servidor con `duracionPedida`, nunca el body) y se guarda en `solicitudes_plaza_fija` (`duracion_meses`,
@@ -1244,10 +1244,52 @@ alumna «clase fija») pedida desde una clase normal, más el filtro que faltaba
   `crearReservaPublica` → `evaluar_reserva` → `reservar_plaza`, cada una descontando su sesión al reservarse).
 - `materializar_plazas_fijas_interno` es un camino paralelo A PROPÓSITO (la plaza fija es un derecho preaprobado: sin tope
   semanal, lista de espera, aprobación manual ni bloqueo por impago): no se enruta por `evaluar_reserva` ni se toca.
-- **Decisiones del fundador pendientes** antes de la pantalla (PR2): nombre de cara al usuario (propuesta: «Reservar cada
-  semana» para la alumna, «Hacer fija» en el panel; «auto_reservable» ya existe en citas con otro significado), bono sí/no
-  (propuesta: solo cuota ahora), si la alumna pide o es instantáneo (propuesta: pide), si puede dejar ella su plaza
-  (propuesta: sí, con confirmación), cómo activa el estudio por serie y si se ofrecen semanas además de meses.
+- **Decisiones del fundador (cerradas, 2-oct):** el bono SÍ, pero no como plaza fija sino como «reservar las próximas N clases»
+  (B1); la alumna PIDE y el estudio elige si lo aprueba a mano o solo (parte A); la alumna puede dejar su clase fija, con
+  confirmación (PR4a); un clic por serie crea la clase fija con nombre ya preparada (PR4b); duraciones solo en meses, más
+  la fecha libre que ya existe en el panel; «Repetir cada semana» es un ENLACE a la ficha de la clase fija, nunca una segunda
+  acción en la misma pantalla.
+- **PR2 (hecho):** `RepetirCadaSemana` (enlace en la ficha de una clase normal que se repite, con el catálogo de clases
+  fijas; sin franja que case o con el catálogo roto no se pinta y la ficha queda como estaba) y los botones de duración en la
+  barra fija de la ficha de la clase fija. La alumna elige 1/3/6/12 meses o «Sin fin»; la fecha exacta se ve antes de pedir.
+- **PR4a (hecho):** la alumna deja su clase fija desde la app (`dejarPlazaFijaAlumna`, acción `dejar_plaza`), por la misma
+  puerta que cuando la quita el mostrador (`aplicarEstadoPlazaFija` BAJA: cancela sus clases sin penalización ni recuperación
+  y mantiene las que ya están dentro del plazo de cancelación). Una clase fija CON NOMBRE se deja entera (la oferta es
+  atómica) y no depende de «Peticiones desde su app»; una plaza suelta sí. La propiedad va en la lectura Y en la escritura.
+- **PR4b (hecho):** «Ofrécelas en un clic» (Calendario → Clases fijas): una serie sin clase fija se ofrece con un nombre
+  sugerido y valores por defecto (`seriesSinClaseFija`, `nombreSugeridoClaseFija`); crearla a mano sigue ahí. Crear clase
+  pregunta «Clase o Clase fija» como siempre.
+- **B1 (hecho): reservar las próximas N clases con bono** (`reservarProximasPublico`, `/api/public/reserva-proximas`):
+  N reservas normales, una a una, cada una por `evaluar_reserva` (dry-run con `exigir_entitlement: true`) →
+  `crearReservaPublica` → `reservar_plaza`, que descuenta su sesión en la misma transacción. Para en cuanto el bono se
+  acaba o una clase no se puede; las que se pagarían con recuperación se saltan. ⚠️ La clave de idempotencia identifica el
+  INTENTO (`res-${intentoId}-${i}`), nunca el contenido: dos intentos distintos de la misma serie son dos reservas distintas.
+  Nunca lleva `res-pf-` (ver arriba). Solo con bono: con cuota se pide la clase fija.
+- **Parte A (hecha): aprobación automática por estudio** (`studios.plaza_fija_aprobacion` MANUAL|AUTOMATICA, por defecto
+  MANUAL; `plaza_fija_auto_tope_pct` 10–100, por defecto 50; migr `20261002230422`). Gobierna SOLO las plazas SUELTAS: las
+  clases fijas con nombre siguen con su propio `aprobacion_automatica` y su tope duro. No es una segunda lógica de
+  aprobación: `aprobarPeticionAutomaticamente` mira las reglas del estudio y llama a `resolverPeticionPlazaFija` (la misma
+  puerta que la aprobación a mano) con `userId: null` y `automatica: { cupo }`; esa rama es una puerta ESTRECHA (solo CREAR,
+  nunca con `supera_limite`, solo aprobando) que el propio resolutor vuelve a comprobar.
+  - ⚠️ **Pasar del límite semanal de la cuota NUNCA se aprueba solo** (decisión del fundador, 16-sep, sigue en pie).
+  - Reglas que se miran antes: `motivoNoAutomatica` (manual, límite, la clase exige aprobar cada reserva, impago que
+    bloquea reservar —sin poder comprobarlo, no se aprueba solo—). Cuota, nivel y duplicada las vuelve a pasar
+    `guardarPlazaFijaStaff` al escribir.
+  - ⚠️ **El cupo (`cupoAutomatico`: % del aforo, redondeado HACIA ABAJO) se cuenta DENTRO del candado de la base**
+    (`dar_plaza_fija_con_cupo`, `pg_advisory_xact_lock` por franja): contarlo en TypeScript y escribir después deja pasar a
+    dos peticiones a la vez por el último hueco, justo la carrera que ya sufrió este repo. Es `security definer` solo para
+    `service_role` (verificado con `has_function_privilege`, ver `rls-grants-funciones`).
+  - Lo que no pasa las reglas, o cualquier fallo, NO se pierde: la petición vuelve a PENDIENTE y el estudio la ve como
+    siempre (el aviso al estudio sale después del intento, solo si no se dio). Una aprobada automática no avisa al estudio
+    ni manda aviso a la alumna: lo ve en pantalla (`resuelta` + `mensaje`).
+  - `resuelta_por` NULL = «se aprobó sola» (con persona detrás lleva su `userId`).
+  - La lectura del ajuste es TOLERANTE (`aprobacionPlazaFija`): con el código desplegado antes que la migración cae a MANUAL,
+    que es lo de siempre. Se aplicó la migración ANTES del código (aditiva, por defecto MANUAL).
+  - La app dice la verdad en los dos casos: manual «tu estudio tiene que confirmarla», automático «si cumples las reglas se
+    te da al momento; si no, tu estudio la confirma» (`quePasaAutomatica`).
+- **Fuera de alcance, por decidir:** B2 (el panel apunta a una alumna a las próximas N), reservas por semanas/días,
+  autoservicio de la clase fija con nombre por estudio, y que lo automático cubra también pausas (hoy las decide siempre el
+  estudio).
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 

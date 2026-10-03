@@ -110,6 +110,56 @@ test.describe('Horario · clases fijas', () => {
     expect(JSON.stringify(s.escrituras[0].cuerpo)).not.toMatch(/horaInicio|salaId/);
   });
 
+  test('«Ofrécelas en un clic»: una serie se ofrece con valores por defecto, sin diálogo, y deja de ofrecerse', async ({ page }) => {
+    const s = await abrirHorario(page);
+    const bloque = page.getByTestId('ofrecer-en-un-clic');
+    await expect(bloque).toBeVisible({ timeout: 30_000 });
+    await expect(bloque.getByTestId('serie-ofrecible')).toHaveCount(2);
+
+    // La lista que vuelve ya trae la nueva (el mock no la deriva del cuerpo): la serie del martes queda cubierta.
+    s.ofertas = [OFERTA];
+    await bloque.getByRole('button', { name: 'Ofrecer Reformer · martes como clase fija' }).click();
+    await expect(page.getByTestId('clase-fija-creada')).toContainText('«Reformer · martes» creada', { timeout: 30_000 });
+    await expect(page.getByTestId('clase-fija-creada')).toContainText('1 mes, 3 meses, 6 meses');
+
+    expect(s.escrituras.length, 'la escritura sale hacia el servidor').toBe(1);
+    expect(s.escrituras[0].metodo).toBe('POST');
+    // Lo mismo que el diálogo con todo por defecto: la serie y el día, 1/3/6 meses, el aforo como tope y aprobación manual.
+    expect(s.escrituras[0].cuerpo).toMatchObject({
+      nombre: 'Reformer · martes', duracionesMeses: [1, 3, 6], plazas: null, aprobacionAutomatica: false,
+      franjas: [{ serieId: 'serie-e2e', diaSemana: 2 }],
+    });
+    expect(JSON.stringify(s.escrituras[0].cuerpo)).not.toMatch(/horaInicio|salaId/);
+    // Ya no se vuelve a ofrecer lo que está en una clase fija abierta; la otra serie sigue ahí.
+    await expect(bloque.getByTestId('serie-ofrecible')).toHaveCount(1);
+    await expect(bloque.getByRole('button', { name: /Ofrecer Reformer · martes/ })).toHaveCount(0);
+    await expect(page.getByTestId('clase-fija')).toHaveCount(1);
+  });
+
+  test('«Ofrécelas en un clic»: si el servidor dice que no, se enseña el motivo y no se dice que se ha creado', async ({ page }) => {
+    const s = await abrirHorario(page);
+    s.respuestaEscritura = { status: 409, body: { error: 'Alguna de las clases elegidas ya no se repite en el horario. Recarga y elígelas de nuevo.' } };
+    const bloque = page.getByTestId('ofrecer-en-un-clic');
+    await expect(bloque).toBeVisible({ timeout: 30_000 });
+    await bloque.getByRole('button', { name: 'Ofrecer Reformer · martes como clase fija' }).click();
+
+    await expect(page.getByRole('alert').filter({ hasText: 'ya no se repite en el horario' })).toBeVisible({ timeout: 30_000 });
+    expect(s.escrituras.length, 'el camino de fallo sí intentó crearla').toBeGreaterThan(0);
+    await expect(page.getByTestId('clase-fija-creada')).toHaveCount(0);
+    await expect(page.getByTestId('clase-fija')).toHaveCount(0);
+    // La serie sigue ofreciéndose para reintentarlo.
+    await expect(bloque.getByRole('button', { name: 'Ofrecer Reformer · martes como clase fija' })).toBeEnabled();
+  });
+
+  test('con todas las series ya en una clase fija abierta no hay nada que ofrecer en un clic', async ({ page }) => {
+    await abrirHorario(page, [
+      OFERTA,
+      { ...OFERTA, id: 'cf-2', nombre: 'Mat · lunes', franjas: [{ serieId: 'serie-lunes', diaSemana: 1, resuelta: true }] },
+    ]);
+    await expect(page.getByTestId('clase-fija')).toHaveCount(2, { timeout: 30_000 });
+    await expect(page.getByTestId('ofrecer-en-un-clic')).toHaveCount(0);
+  });
+
   test('si el servidor dice que no, el diálogo sigue abierto con su motivo y la lista no cambia', async ({ page }) => {
     const s = await abrirHorario(page);
     s.respuestaEscritura = { status: 409, body: { error: 'Alguna de las clases elegidas ya no se repite en el horario. Recarga y elígelas de nuevo.' } };

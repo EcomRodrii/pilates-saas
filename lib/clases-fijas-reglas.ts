@@ -81,6 +81,63 @@ export function textoFranja(diaSemana: number, hora: string): string {
   return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${hora.slice(0, 5)}`.trim();
 }
 
+/** Una clase que se repite en el Horario (una serie en un día de la semana), lo mínimo para ofrecerla. */
+export interface TarjetaDeSerie { serieId: string; diaSemana: number; hora: string; tipoClaseId: string }
+
+/** Una serie que aún no se ofrece como clase fija con nombre, con los días que le faltan por ofrecer. */
+export interface SerieOfrecible {
+  serieId: string;
+  hora: string;
+  tipoClaseId: string;
+  diasSemana: number[];
+  franjas: { serieId: string; diaSemana: number }[];
+}
+
+/**
+ * Las series del Horario que se pueden ofrecer como clase fija con nombre «en un clic»: las que tienen algún día que NO está ya
+ * en una clase fija ABIERTA (una cerrada ya no se ofrece, así que no cuenta). Con un día en la oferta y otro fuera, se ofrece
+ * solo el que falta. Orden fijo: por el primer día (lunes primero) y la hora.
+ */
+export function seriesSinClaseFija(
+  tarjetas: TarjetaDeSerie[], ofertas: { activa: boolean; franjas: { serieId: string; diaSemana: number }[] }[],
+): SerieOfrecible[] {
+  const cubiertas = new Set(ofertas.filter(o => o.activa).flatMap(o => o.franjas.map(f => `${f.serieId}|${f.diaSemana}`)));
+  const porSerie = new Map<string, TarjetaDeSerie[]>();
+  for (const t of tarjetas) {
+    if (cubiertas.has(`${t.serieId}|${t.diaSemana}`)) continue;
+    const g = porSerie.get(t.serieId);
+    if (g) g.push(t); else porSerie.set(t.serieId, [t]);
+  }
+  const orden = (d: number) => (d + 6) % 7;
+  return [...porSerie.values()].map((g) => {
+    const dias = [...new Set(g.map(t => t.diaSemana))].sort((a, b) => orden(a) - orden(b));
+    const primera = [...g].sort((a, b) => orden(a.diaSemana) - orden(b.diaSemana))[0];
+    return {
+      serieId: primera.serieId, hora: primera.hora, tipoClaseId: primera.tipoClaseId, diasSemana: dias,
+      franjas: dias.map(d => ({ serieId: primera.serieId, diaSemana: d })),
+    };
+  }).sort((a, b) => orden(a.diasSemana[0]) - orden(b.diasSemana[0]) || a.hora.localeCompare(b.hora) || a.serieId.localeCompare(b.serieId));
+}
+
+/**
+ * El nombre con el que se crea «en un clic»: «Reformer · martes y jueves». Si ya hay una con ese nombre (otra serie del mismo
+ * tipo y días a otra hora), se le añade la hora; y si aun así coincide, un número. Siempre cabe en `MAX_NOMBRE`.
+ */
+export function nombreSugeridoClaseFija(tipo: string | undefined, diasSemana: number[], hora: string, existentes: string[]): string {
+  const dias = diasSemana.map(d => NOMBRES_DIA[d] ?? '');
+  const lista = dias.length <= 1 ? (dias[0] ?? '') : `${dias.slice(0, -1).join(', ')} y ${dias[dias.length - 1]}`;
+  const cabe = (s: string) => Array.from(s).slice(0, MAX_NOMBRE).join('').trim();
+  const tomados = new Set(existentes.map(n => n.trim().toLowerCase()));
+  const base = `${tipo?.trim() || 'Clase'} · ${lista}`.trim();
+  const candidatos = [cabe(base), cabe(`${base} · ${hora.slice(0, 5)}`)];
+  for (const c of candidatos) if (!tomados.has(c.toLowerCase())) return c;
+  for (let n = 2; n < 100; n++) {
+    const c = cabe(`${base} · ${hora.slice(0, 5)} (${n})`);
+    if (!tomados.has(c.toLowerCase())) return c;
+  }
+  return cabe(`${base} · ${hora.slice(0, 5)}`);
+}
+
 /** Una plaza fija SIN clase fija con nombre (dada desde una clase suelta o a mano) que termina pronto. */
 export interface PlazaSueltaQueTermina {
   id: string;

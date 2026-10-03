@@ -23,7 +23,7 @@ export default function Contenido() {
         <li><strong>La pide ella.</strong> Viene activado de serie (Configuración → «Cómo reservan mis alumnas» →
           «Peticiones desde su app»): en su app, en Reservar → «Clases fijas», toca una clase que se repite y le sale{' '}
           <strong>«Pedir clase fija»</strong>. En la ficha de una clase normal solo puede reservar, para no mezclar las
-          dos cosas. Tú la apruebas en Resumen.</li>
+          dos cosas. Tú la apruebas en Resumen, o se da sola si cumple tus reglas (lo eliges en ese mismo ajuste).</li>
         <li><strong>Al darle una cuota</strong>, te preguntamos si le das plaza fija.</li>
       </ul>
       <p>
@@ -204,7 +204,7 @@ export default function Contenido() {
       <p>
         De serie, tus alumnas pueden <strong>pedir</strong> una plaza fija desde «Clases fijas» de su app, tocando la
         clase que se repite. En Configuración → «Cómo reservan mis alumnas» → «Peticiones desde su app» puedes apagarlo
-        si prefieres darlas solo tú en recepción, y dejar que pidan una pausa de la suya. Son peticiones:{' '}
+        si prefieres darlas solo tú en recepción, y dejar que pidan una pausa de la suya. De serie son peticiones:{' '}
         <strong>hasta que las apruebas no cambia nada</strong>, y mientras tanto ella sigue reservando como siempre.
       </p>
       <p>
@@ -216,6 +216,14 @@ export default function Contenido() {
         Te llega un aviso y las decides en Resumen, en «{'Una petición de plaza fija espera tu respuesta'}». Si con esa
         plaza pasaría del límite de clases por semana de su cuota, te lo decimos ahí y decides tú. Ella ve tu respuesta
         en su app, con el motivo que escribas si no la apruebas.
+      </p>
+      <p>
+        Si no quieres decidir una por una, en «Cuando la piden» elige <strong>«Se da sola si cumple mis reglas»</strong>.
+        Entonces la plaza fija se le da al momento si tiene una cuota que incluye la clase, el nivel que pide, no pasa del
+        límite de clases por semana de su cuota, no tiene un pago pendiente que te bloquee reservar, la clase no exige que
+        apruebes cada reserva y las plazas fijas de esa clase no pasan del porcentaje de su aforo que pongas. Si algo de
+        eso falla, te llega a Resumen como siempre y decides tú. Pasar del límite de su cuota nunca se aprueba solo, y las
+        pausas siempre las decides tú.
       </p>
 
       <h2 style={h2}>Quitar una plaza fija</h2>

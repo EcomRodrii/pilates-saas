@@ -7,7 +7,7 @@ import type { PlazaFijaVista, ProximaClaseFijaVista, RecuperacionesVista } from 
 import { etiquetaDia, fechaCorta } from '@/lib/student/formato';
 import { nombreDia } from '@/lib/student/plaza-fija';
 import { TEXTOS_PLAZA_FIJA, losDias } from '@/lib/student/plaza-fija-textos';
-import { anularPeticionPlazaFija, pedirPausaPlazaFija } from '@/lib/student/plaza-fija-peticion';
+import { anularPeticionPlazaFija, dejarPlazaFija, pedirPausaPlazaFija } from '@/lib/student/plaza-fija-peticion';
 import { cancelarReserva } from '@/lib/student/reservas-acciones';
 import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
@@ -71,6 +71,10 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
   const [hasta, setHasta] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
+  // Dejar la clase fija: confirmación con lo que pasa, y el resultado sale de lo que contesta el servidor.
+  const [dejando, setDejando] = useState<PlazaFijaVista | null>(null);
+  const [dejandoEnCurso, setDejandoEnCurso] = useState(false);
+  const [errorDejar, setErrorDejar] = useState('');
 
   const pausaPedidaDe = (p: PlazaFijaVista): PausaPedida =>
     (p.id && p.id in pedidas ? pedidas[p.id] : p.pausaPedida);
@@ -121,6 +125,23 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
     onCambio?.();
   }
 
+  async function confirmarDejar() {
+    if (!dejando?.id || dejandoEnCurso) return;
+    setDejandoEnCurso(true);
+    setErrorDejar('');
+    const r = await dejarPlazaFija(estudio.slug, estudio.id, dejando.id);
+    setDejandoEnCurso(false);
+    if (!r.ok) {
+      if (r.sesionCaducada) { router.push(href('/acceso/login')); return; }
+      // La plaza SIGUE: se deja el diálogo abierto, con el motivo, para reintentar.
+      setErrorDejar(r.error);
+      return;
+    }
+    setDejando(null);
+    toast(TEXTOS_PLAZA_FIJA.dejada(r));
+    onCambio?.();
+  }
+
   const avisoNoPuedo = noPuedo ? avisoCancelacion(noPuedo.proxima, estudio.politicaCancelacionHoras) : null;
 
   if (plazas.length === 0 && recuperaciones.disponibles === 0) return null;
@@ -154,6 +175,14 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
             {pedida
               ? <Button variant="ghost" size="sm" loading={enviando} onClick={() => void anular(plaza, pedida.id)}>Anular la petición</Button>
               : <Button variant="secondary" size="sm" onClick={() => abrir(plaza)}>Pedir una pausa</Button>}
+          </div>
+        )}
+        {/* Dejarla: solo si el estudio deja gestionar las clases fijas desde la app (el servidor lo vuelve a comprobar). */}
+        {(estudio.puedePedirPlazaFija === true || plaza.deClaseFija) && !!plaza.id && (
+          <div>
+            <Button variant="ghost" size="sm" disabled={!online} data-testid="dejar-clase-fija" onClick={() => { setErrorDejar(''); setDejando(plaza); }}>
+              {TEXTOS_PLAZA_FIJA.dejarBoton}
+            </Button>
           </div>
         )}
       </>
@@ -204,6 +233,31 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
             <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>
               {avisoNoPuedo.devolveriaCredito ? TEXTOS_PLAZA_FIJA.noPuedoATiempo : TEXTOS_PLAZA_FIJA.noPuedoTarde(avisoNoPuedo.horasVentana)}
             </p>
+          </div>
+        )}
+      </ConfirmationDialog>
+
+      <ConfirmationDialog
+        open={dejando !== null}
+        onClose={() => { if (!dejandoEnCurso) setDejando(null); }}
+        titulo={TEXTOS_PLAZA_FIJA.dejarTitulo}
+        cuerpo={dejando ? `${mayuscula(losDias(dejando.diaSemana))} · ${dejando.hora}${[dejando.tipo, dejando.sala].filter(Boolean).length ? ` · ${[dejando.tipo, dejando.sala].filter(Boolean).join(' · ')}` : ''}` : ''}
+        confirmar={TEXTOS_PLAZA_FIJA.dejarConfirmar}
+        cancelar={TEXTOS_PLAZA_FIJA.dejarMantener}
+        tono="danger"
+        loading={dejandoEnCurso}
+        onConfirm={() => void confirmarDejar()}
+      >
+        {dejando && (
+          <div data-testid="dejar-aviso" style={{ background: 'var(--accent-soft)', borderRadius: 'var(--radius-sm)', padding: '11px 14px', marginTop: 13, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--accent-soft-foreground)' }}>
+              {TEXTOS_PLAZA_FIJA.dejarCancela(estudio.politicaCancelacionHoras)}
+            </p>
+            {dejando.deClaseFija && (
+              <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>{TEXTOS_PLAZA_FIJA.dejarVarios}</p>
+            )}
+            <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>{TEXTOS_PLAZA_FIJA.dejarVuelve}</p>
+            {errorDejar && <p role="alert" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--danger, #b00020)' }}>{errorDejar}</p>}
           </div>
         )}
       </ConfirmationDialog>
@@ -339,7 +393,7 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
 
       {plazas.length > 0 && (
         <p className="t-meta" style={{ margin: 0 }}>
-          {TEXTOS_PLAZA_FIJA.cambiarla}{' '}
+          {estudio.puedePedirPlazaFija === true || plazas.some((p) => p.deClaseFija) ? TEXTOS_PLAZA_FIJA.cambiarlaDeDiaHora : TEXTOS_PLAZA_FIJA.cambiarla}{' '}
           <Link href={href('/mensajes')} style={{ fontWeight: 800, color: 'var(--accent)' }}>{TEXTOS_PLAZA_FIJA.escribir}</Link>
         </p>
       )}

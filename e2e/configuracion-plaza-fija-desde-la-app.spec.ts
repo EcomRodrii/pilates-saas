@@ -72,6 +72,66 @@ test.describe('Configuración · peticiones de plaza fija desde la app', () => {
     await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Ahora tus alumnas no lo ven');
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
-    expect(patches[0]).toEqual({ plaza_fija_solicitar_desde_app: false, plaza_fija_pausa_desde_app: false });
+    // La tarjeta manda TODAS sus columnas: también quién aprueba y el tope (sin tocar: manual y 50 %, lo de siempre).
+    expect(patches[0]).toEqual({
+      plaza_fija_solicitar_desde_app: false, plaza_fija_pausa_desde_app: false,
+      plaza_fija_aprobacion: 'MANUAL', plaza_fija_auto_tope_pct: 50,
+    });
+  });
+
+  // ── Quién aprueba las plazas fijas que piden ──
+
+  test('de serie las apruebas tú (como siempre), y el porcentaje no se enseña hasta elegir que se den solas', async ({ page }) => {
+    await abrirAjuste(page);
+    const grupo = page.getByTestId('aprobacion-plaza-fija');
+    await expect(grupo.getByRole('radio', { name: /La apruebo yo/ })).toBeChecked();
+    await expect(grupo.getByRole('radio', { name: /Se da sola si cumple mis reglas/ })).not.toBeChecked();
+    await expect(page.getByTestId('tope-plaza-fija')).toHaveCount(0);
+    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Tu estudio tiene que confirmarla');
+  });
+
+  test('con las pedidas apagadas no hay nada que aprobar: el selector no sale', async ({ page }) => {
+    await abrirAjuste(page, { plaza_fija_solicitar_desde_app: false });
+    await expect(page.getByTestId('aprobacion-plaza-fija')).toHaveCount(0);
+  });
+
+  test('⚠️ pasar a «se da sola» PREGUNTA qué se comprueba antes de guardar, y solo entonces manda la columna', async ({ page }) => {
+    const { patches } = await abrirAjuste(page);
+    await page.getByRole('radio', { name: /Se da sola si cumple mis reglas/ }).check();
+    // El tope aparece con su valor de serie, y la vista previa cambia a lo que dirá la app de la alumna.
+    await expect(page.getByTestId('tope-plaza-fija').getByRole('radio', { name: '50 %' })).toBeChecked();
+    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Si cumples las reglas de tu estudio, se te da al momento');
+    await expect(page.getByTestId('vista-previa-plaza-fija')).not.toContainText('Tu estudio tiene que confirmarla:');
+
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(page.getByText('¿Dar las plazas fijas sin que las apruebes?')).toBeVisible();
+    // Dice lo que se comprueba y lo que NO se aprueba solo.
+    await expect(page.getByText(/límite semanal de su cuota/)).toBeVisible();
+    await expect(page.getByText(/no pasan del 50 % de su aforo/)).toBeVisible();
+    // Mientras no confirme, no se ha escrito nada.
+    expect(patches).toHaveLength(0);
+
+    await page.getByRole('button', { name: 'Sí, que se den solas' }).click();
+    await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
+    expect(patches[0]).toMatchObject({ plaza_fija_aprobacion: 'AUTOMATICA', plaza_fija_auto_tope_pct: 50 });
+  });
+
+  test('«Volver» en esa pregunta no guarda nada', async ({ page }) => {
+    const { patches } = await abrirAjuste(page);
+    await page.getByRole('radio', { name: /Se da sola si cumple mis reglas/ }).check();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(page.getByText('¿Dar las plazas fijas sin que las apruebes?')).toBeVisible();
+    await page.getByRole('button', { name: 'Volver', exact: true }).click();
+    await expect(page.getByText('¿Dar las plazas fijas sin que las apruebes?')).toHaveCount(0);
+    expect(patches, 'no se guardó nada').toHaveLength(0);
+  });
+
+  test('ya en automática, cambiar solo el porcentaje se guarda sin preguntar', async ({ page }) => {
+    const { patches } = await abrirAjuste(page, { plaza_fija_aprobacion: 'AUTOMATICA', plaza_fija_auto_tope_pct: 50 });
+    await page.getByTestId('tope-plaza-fija').getByRole('radio', { name: '75 %' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
+    expect(patches[0]).toMatchObject({ plaza_fija_aprobacion: 'AUTOMATICA', plaza_fija_auto_tope_pct: 75 });
+    await expect(page.getByText('¿Dar las plazas fijas sin que las apruebes?')).toHaveCount(0);
   });
 });

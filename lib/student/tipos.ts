@@ -24,6 +24,8 @@ export interface StudioConfig {
    *  la puerta de verdad es `/api/public/plaza-fija`. Ausente = no. */
   puedePedirPlazaFija?: boolean;
   puedePedirPausa?: boolean;
+  /** El estudio aprueba solo las clases fijas que pasan sus reglas: la app no promete «tu estudio tiene que confirmarla». Ausente = no. */
+  plazaFijaAutomatica?: boolean;
   /** El estudio pide sus «Datos extra» en la app antes de dejarla usar. Ausente = no. */
   pideDatosExtra?: boolean;
   /** El estudio usa el control de acceso con QR: la alumna ve su QR en Perfil. */
@@ -235,6 +237,8 @@ export interface PlazaFijaVista {
   pausa: { desde: string; hasta: string; enCurso: boolean } | null;
   /** Sus próximas clases YA reservadas por esta clase fija (las que crea el motor), la más cercana primero. */
   proximas: ProximaClaseFijaVista[];
+  /** Viene de una clase fija con nombre (varios días): se deja entera, no una franja suelta. */
+  deClaseFija: boolean;
 }
 /** Una próxima clase de su clase fija, con la ventana de cancelación de SU tipo de clase (`null` = la del estudio). */
 export type ProximaClaseFijaVista = import('./plaza-fija.ts').ProximaClaseFija & { ventanaCancelacionHoras: number | null };
