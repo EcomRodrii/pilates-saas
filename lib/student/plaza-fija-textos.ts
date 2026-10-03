@@ -47,15 +47,24 @@ export const TEXTOS_PLAZA_FIJA = {
   sinFecha: 'Sin fin',
   sinFechaDetalle: 'Sin fecha de fin',
 
-  // ── «Repetir cada semana»: el enlace de la ficha de una clase normal. Solo LLEVA a la ficha de la clase fija. ──
-  repetirTitulo: 'Repetir cada semana',
-  repetirPuede: (diaSemana: number, hora: string) => {
+  // ── «Auto reservable»: el interruptor de la ficha de una clase normal (3-oct; antes un enlace «Repetir cada semana»). ──
+  autoTitulo: 'Auto reservable',
+  autoPuede: (diaSemana: number, hora: string) => {
     const dias = losDias(diaSemana);
     return `${dias.charAt(0).toUpperCase()}${dias.slice(1)} a las ${hora}, sin volver a reservar`;
   },
-  repetirPedida: 'Ya la has pedido: tu estudio te contestará',
-  repetirTiene: 'Ya es tu clase fija ✓',
-  repetirSoloConCuota: 'Es para quien tiene una cuota activa que incluya esta clase',
+  autoPedida: 'Ya la has pedido: tu estudio te contestará',
+  autoTiene: 'Ya es tu clase fija ✓',
+  autoSoloConCuota: 'Con una cuota activa que incluya esta clase; con bono, las próximas semanas de una vez',
+  autoActivar: 'Activar auto reservable',
+  /** La clase va dentro de una clase fija CON NOMBRE: activarla pide la oferta entera (todos sus días). */
+  autoPuedeOferta: (nombre: string) => `Con «${nombre}»: todos sus días, sin volver a reservar`,
+  autoTieneOferta: (nombre: string) => `Es tu clase fija «${nombre}» ✓`,
+  autoOfertaIntro: (nombre: string, dias: string) => `«${nombre}»: tu plaza queda reservada todos los ${dias}, sin volver a reservarla. Se activa entera, con todos sus días.`,
+  autoCompleta: (nombre: string) => `«${nombre}» está completa: ahora no se puede activar`,
+  autoSinClases: 'Ahora no hay clases programadas en este horario',
+  /** Con bono no hay clase fija (es de cuota), pero sí reservar de una vez las próximas semanas: se dice en positivo. */
+  autoBonoIntro: 'Con bono no hay clase fija (es para quien tiene una cuota), pero puedes reservar las próximas semanas de una vez:',
 
   // ── Su tarjeta, cuando ya la tiene ──
   tarjetaUna: 'Tu clase fija',

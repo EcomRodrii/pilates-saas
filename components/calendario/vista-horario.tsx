@@ -42,6 +42,8 @@ export interface VistaHorarioProps {
    * apagado de serie). `undefined` = no se sabe todavía: no se dice nada.
    */
   alumnasPidenPlaza?: boolean;
+  /** El estudio aprueba solo las plazas fijas que cumplen sus reglas (`plazaFijaAprobacion = 'AUTOMATICA'`): cambia lo que se dice de quién decide. */
+  plazasSeApruebanSolas?: boolean;
   /** A dónde lleva «Dejar que la pidan ellas»; `null` si quien mira no puede abrir ese ajuste. */
   hrefAjustePeticiones?: string | null;
   /** Viene del atajo «Agrupar con nombre» tras crear una serie recurrente. */
@@ -169,7 +171,9 @@ export function VistaHorario(p: VistaHorarioProps) {
       {tarjetas.length > 0 && p.alumnasPidenPlaza !== undefined && (
         <p className="mb-3 text-xs text-muted-foreground text-pretty" data-testid="aviso-peticiones-plaza-fija">
           {p.alumnasPidenPlaza ? (
-            <>Tus alumnas pueden pedir su plaza fija desde la app; lo decides en Resumen.</>
+            p.plazasSeApruebanSolas
+              ? <>Tus alumnas pueden pedir su plaza fija desde la app; se da sola si cumple tus reglas, y la que no las cumple la decides en Resumen.</>
+              : <>Tus alumnas pueden pedir su plaza fija desde la app; lo decides en Resumen.</>
           ) : (
             <>
               Tus alumnas no pueden pedir su plaza fija desde la app: se la das tú, aquí o en su ficha.

@@ -12,9 +12,7 @@ import { getBonos, getClases, getClasesFijas, getClasesFrescas, getInstructoras,
 import { bonoParaClase } from '@/lib/student/bono-cubre';
 import { anularPeticionPlazaFija, pedirPlazaFija } from '@/lib/student/plaza-fija-peticion';
 import { diasDeLaOferta } from '@/lib/student/clases-fijas';
-import { DURACIONES_POR_DEFECTO, etiquetaDuracion, vigenciaHastaDeDuracion } from '@/lib/clases-fijas-reglas';
-import { fechaDMY } from '@/lib/series-renovacion';
-import { hoyEnEstudio } from '@/lib/utils';
+import { DURACIONES_POR_DEFECTO } from '@/lib/clases-fijas-reglas';
 import type { PlazaFijaEnClase } from '@/lib/student/plaza-fija';
 import { TEXTOS_PLAZA_FIJA as TPF, losDias } from '@/lib/student/plaza-fija-textos';
 import { etiquetaDia, horaFin } from '@/lib/student/formato';
@@ -22,6 +20,7 @@ import { Button } from '@/components/student/ui/Button';
 import { ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { FichaClaseHero } from '@/components/student/domain/FichaClaseHero';
 import { ReservarProximas } from '@/components/student/domain/ReservarProximas';
+import { SelectorDuracion } from '@/components/student/domain/SelectorDuracion';
 import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 
@@ -130,7 +129,7 @@ export default function FichaClaseFijaPage() {
     <StudentShell headerTransparente>
       <FichaClaseHero clase={clase} chips={[cadaSemana, `${clase.duracionMin} min`, clase.sala]} />
 
-      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: eligeDuracion ? 200 : 110 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: 200 }}>
         <p className="t-label" style={{ margin: 0 }}>{TPF.titulo}</p>
 
         {inst && <InstructorCard i={inst} onClick={() => setVerInstructora(true)} />}
@@ -171,29 +170,16 @@ export default function FichaClaseFijaPage() {
         data-testid="accion-clase-fija"
         style={{
           position: 'fixed', left: 0, right: 0, bottom: 'var(--nav-total)', zIndex: 39, padding: '10px 16px 12px',
-          // Con el selector de duración la barra es más alta: fondo sólido, o el texto de debajo se cuela detrás.
-          background: eligeDuracion ? 'var(--background)' : 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)',
-          boxShadow: eligeDuracion ? '0 -6px 14px -8px rgba(0,0,0,0.12)' : undefined, maxWidth: 640, margin: '0 auto',
+          // Fondo SÓLIDO en todos los estados: todos llevan texto (la duración, «ya es tu clase fija», «solo con cuota»…), y con
+          // un degradado transparente por arriba ese texto se pisaba con lo que pasa por debajo al hacer scroll (el bloque de
+          // «reservar las próximas clases con tu bono» lo dejó a la vista). El margen de abajo (`paddingBottom` de arriba) es
+          // el de la barra más alta, para que lo último del contenido se pueda leer entero.
+          background: 'var(--background)', boxShadow: '0 -6px 14px -8px rgba(0,0,0,0.12)', maxWidth: 640, margin: '0 auto',
           display: 'flex', flexDirection: 'column', gap: 6,
         }}
       >
         {error && <p role="alert" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--danger, #b00020)', textAlign: 'center' }}>{error}</p>}
-        {eligeDuracion && (
-          <div data-testid="duracion-clase-fija" role="group" aria-label={TPF.cuantoTiempo} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <p className="t-label" style={{ margin: 0 }}>{TPF.cuantoTiempo}</p>
-            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-              {DURACIONES_POR_DEFECTO.map((m) => (
-                <button key={m} type="button" className="pill" aria-pressed={meses === m} onClick={() => setMeses(m)}>
-                  {etiquetaDuracion(m)}
-                </button>
-              ))}
-              <button type="button" className="pill" aria-pressed={meses === null} onClick={() => setMeses(null)}>{TPF.sinFecha}</button>
-            </div>
-            <p className="t-meta" data-testid="clase-fija-hasta" style={{ margin: 0, minHeight: '1.3em' }}>
-              {meses !== null ? TPF.hastaEl(fechaDMY(vigenciaHastaDeDuracion(hoyEnEstudio(), meses))) : TPF.sinFechaDetalle}
-            </p>
-          </div>
-        )}
+        {eligeDuracion && <SelectorDuracion meses={meses} onChange={setMeses} />}
         {data?.oferta ? (
           // Esta clase va dentro de una clase fija con nombre: se pide entera, con su
           // duración, desde su tarjeta — no suelta.

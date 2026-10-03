@@ -138,6 +138,20 @@ test.describe('Calendario · las clases que se repiten', () => {
     await expect(aviso.getByRole('link')).toHaveCount(0);
   });
 
+  test('«Horario»: con la aprobación automática ya no dice que lo decides tú todo, sino qué pasa con lo que no cumple', async ({ page }) => {
+    await abrirCalendario(page, () => ({ body: HORARIO }));
+    await page.route('**/rest/v1/studios**', r => json(r, {
+      id: 'studio-test', nombre: 'Pilates Centro', slug: 'pilates-centro', owner_auth_user_id: 'auth-e2e-duena',
+      email: 'cloe@example.com', moneda: 'EUR', plaza_fija_solicitar_desde_app: true, plaza_fija_aprobacion: 'AUTOMATICA',
+    }));
+    await irAHorario(page);
+
+    const aviso = page.getByTestId('aviso-peticiones-plaza-fija');
+    await expect(aviso).toContainText('se da sola si cumple tus reglas', { timeout: 30_000 });
+    await expect(aviso).toContainText('la que no las cumple la decides en Resumen');
+    await expect(aviso).not.toContainText('lo decides en Resumen.');
+  });
+
   test('«Renovar» desde la tarjeta abre el mismo diálogo que simula en el servidor', async ({ page }) => {
     const { envios } = await abrirCalendario(page, () => ({ body: HORARIO }));
     await irAHorario(page);

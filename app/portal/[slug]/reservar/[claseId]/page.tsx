@@ -33,7 +33,7 @@ import { BookingStatus } from '@/components/student/domain/BookingStatus';
 import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { FavoritoButton } from '@/components/student/domain/FavoritoButton';
 import { FichaClaseHero } from '@/components/student/domain/FichaClaseHero';
-import { RepetirCadaSemana } from '@/components/student/domain/RepetirCadaSemana';
+import { AutoReservable } from '@/components/student/domain/AutoReservable';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 import { cuandoSeAbre, etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
 import { useAunNoAbre } from '@/lib/reservar/use-aun-no-abre';
@@ -296,8 +296,12 @@ export default function FichaClasePage() {
           )}
         </div>
 
-        {/* Solo LLEVA a la ficha de la clase fija; no es una segunda acción aquí. Se carga aparte: no frena la reserva. */}
-        <RepetirCadaSemana fecha={clase.fecha} hora={clase.hora} salaId={clase.salaId} />
+        {/* El interruptor «Auto reservable»: no se mueve al tocarlo, abre lo que toque y sigue lo que conteste el servidor. Se carga aparte: no frena la reserva. */}
+        <AutoReservable
+          claseId={clase.id} fecha={clase.fecha} hora={clase.hora} salaId={clase.salaId} tipoClaseId={clase.tipoClaseId}
+          ventanaCancelacionHoras={clase.ventanaCancelacionHoras ?? estudio.politicaCancelacionHoras}
+          onCambio={refrescar}
+        />
 
         {!online && <OfflineState cuerpo="Puedes ver la clase, pero reservar necesita conexión." />}
       </div>

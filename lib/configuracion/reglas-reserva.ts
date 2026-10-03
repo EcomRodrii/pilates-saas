@@ -502,7 +502,7 @@ export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaS
 // apagada.
 
 export const EXPLICACION_PLAZA_FIJA_DESDE_APP =
-  'De serie, tus alumnas pueden pedir quedarse fijas en una clase que se repite desde «Clases fijas» de su app (con las que ya montaste como oferta con nombre y las demás sueltas): tocan la clase y le dan a «Pedir clase fija». En la ficha de una clase normal solo se reserva, para no mezclar las dos cosas. Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Por defecto te llega un aviso y lo decides en Resumen (hasta que lo apruebas no cambia nada); si lo prefieres, se dan solas las que cumplen tus reglas. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
+  'De serie, tus alumnas pueden pedir quedarse fijas en una clase que se repite desde «Clases fijas» de su app (con las que ya montaste como oferta con nombre y las demás sueltas): tocan la clase y le dan a «Pedir clase fija»; y en la ficha de cualquier clase que se repite tienen el interruptor «Auto reservable», que hace lo mismo: eligen cuánto tiempo y lo activan. Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Por defecto te llega un aviso y lo decides en Resumen (hasta que lo apruebas no cambia nada); si lo prefieres, se dan solas las que cumplen tus reglas. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
 
 export const OPCIONES_APROBACION_PLAZA_FIJA: readonly { valor: ReglasReserva['plazaFijaAprobacion']; titulo: string; detalle: string }[] = [
   { valor: 'MANUAL', titulo: 'La apruebo yo', detalle: 'Te llega un aviso y la decides en Resumen. Hasta entonces no cambia nada.' },

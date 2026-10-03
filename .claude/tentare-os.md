@@ -1271,11 +1271,29 @@ alumna «clase fija») pedida desde una clase normal, más el filtro que faltaba
 - **Decisiones del fundador (cerradas, 2-oct):** el bono SÍ, pero no como plaza fija sino como «reservar las próximas N clases»
   (B1); la alumna PIDE y el estudio elige si lo aprueba a mano o solo (parte A); la alumna puede dejar su clase fija, con
   confirmación (PR4a); un clic por serie crea la clase fija con nombre ya preparada (PR4b); duraciones solo en meses, más
-  la fecha libre que ya existe en el panel; «Repetir cada semana» es un ENLACE a la ficha de la clase fija, nunca una segunda
-  acción en la misma pantalla.
-- **PR2 (hecho):** `RepetirCadaSemana` (enlace en la ficha de una clase normal que se repite, con el catálogo de clases
-  fijas; sin franja que case o con el catálogo roto no se pinta y la ficha queda como estaba) y los botones de duración en la
-  barra fija de la ficha de la clase fija. La alumna elige 1/3/6/12 meses o «Sin fin»; la fecha exacta se ve antes de pedir.
+  la fecha libre que ya existe en el panel. ~~«Repetir cada semana» como enlace~~ **cambiado por el fundador el 3-oct**: quiere un
+  INTERRUPTOR «Auto reservable» (como el de su referencia: verde, con tick; el tamaño de la imagen era solo un ejemplo).
+- **PR2 (hecho) y su cambio del 3-oct: el interruptor «Auto reservable»** (`AutoReservable`, `InterruptorAuto`). En la ficha de una
+  clase normal que se repite hay un interruptor compacto (verde con tick encendido, ámbar con reloj pendiente, gris apagado) que
+  sustituye al enlace «Repetir cada semana». ⚠️ **No se mueve al tocarlo** (reserva cada semana y puede cancelar clases: nada
+  optimista): un toque abre lo que toque —la hoja «¿cuánto tiempo la quieres?» (`SelectorDuracion`: 1/3/6/12 meses o Sin fin, con la
+  fecha exacta) y «Activar auto reservable»; para apagarlo encendido, la confirmación de dejar (`DialogoDejarClaseFija`, la MISMA
+  pieza que la tarjeta de «Mis clases → Fijas»); para anular una petición, su confirmación— y solo cambia con lo que CONTESTA el
+  servidor (`resuelta`+`mensaje` = encendido; petición sin `resuelta` = pendiente; error = hoja abierta con el motivo). Con **solo
+  bono** no se enciende (no hay clase fija con bono): abre la hoja con «reservar las próximas N clases» (B1). Misma lógica de servidor
+  de siempre: cambia la cara, no las reglas.
+  - **Funciona igual en una clase fija CON NOMBRE** (desde «Ofrécelas en un clic», lo normal): activarlo pide la OFERTA entera con
+    SUS duraciones (`solicitar_clase_fija`, sin «Sin fin»), encendido si ya es suya (apagarlo deja todos sus días), pendiente si la
+    ha pedido, y «completa» deshabilitado. Qué enseña y qué abre lo decide UNA función pura con sus tests,
+    `autoReservableDe` (`lib/student/auto-reservable.ts`), y su plaza en la franja manda sobre el catálogo (el de sueltas no ve las
+    plazas de una oferta). Sustituye a `franjaDeRepeticion`, que solo sabía llevar a otra pantalla.
+  - Tras cualquier cambio que confirma el servidor, la ficha vuelve a leer sus datos (`onCambio` → `refrescar`): activarla o
+    reservar con el bono puede haber reservado justo ESTA clase, y el botón «Reservar» no puede quedarse viejo.
+  - ⚠️ `Sheet` deja su contenido montado pero `inert` y fuera de pantalla al cerrarse: un test que quiera comprobar «no se ve» usa
+    `not.toBeInViewport()`, no `toHaveCount(0)`.
+  - ⚠️ La barra fija de la ficha de clase fija tiene fondo SÓLIDO en todos los estados (con degradado transparente su texto se
+    pisaba con el bloque del bono al hacer scroll; no lo veía ningún test funcional, solo mirando la pantalla).
+  - Los iconos del interruptor (`hecho`, `reloj`) salen del juego de `Icono`: una guardia prohíbe `<path>` fuera de él.
 - **PR4a (hecho):** la alumna deja su clase fija desde la app (`dejarPlazaFijaAlumna`, acción `dejar_plaza`), por la misma
   puerta que cuando la quita el mostrador (`aplicarEstadoPlazaFija` BAJA: cancela sus clases sin penalización ni recuperación
   y mantiene las que ya están dentro del plazo de cancelación). Una clase fija CON NOMBRE se deja entera (la oferta es
