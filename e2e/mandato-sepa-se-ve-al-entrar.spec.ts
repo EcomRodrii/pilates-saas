@@ -34,8 +34,10 @@ const SOCIO = {
   email: 'ana@example.com', telefono: null, activo: true,
   fecha_alta: '2026-01-10T09:00:00+00:00', campos_extra: {},
 };
+// Desde el 2-oct-2026 el IBAN va cifrado y el panel solo lee sus 4 últimos
+// dígitos: la fila que devuelve PostgREST ya no trae `iban`.
 const MANDATO_ROW = {
-  id: 'mnd-1', studio_id: STUDIO_ID, socio_id: 'soc-1', iban: IBAN_SOCIA,
+  id: 'mnd-1', studio_id: STUDIO_ID, socio_id: 'soc-1', iban_ultimos4: IBAN_SOCIA.slice(-4),
   ref_mandato: 'MND-001', fecha_firma: '2026-02-01', estado: 'VIGENTE',
   creada_en: '2026-02-01T10:00:00+00:00',
 };
@@ -63,6 +65,7 @@ async function montar(page: Page, ruta: string) {
 
   const lecturas: string[] = [];
   const patchesRecibos: { url: string; body: Record<string, unknown> }[] = [];
+  const pedidosIban: string[] = [];
 
   // OJO con el orden: Playwright resuelve en orden INVERSO al de registro.
   await page.route('**/api/**', route => json(route, {}));
@@ -79,6 +82,11 @@ async function montar(page: Page, ruta: string) {
     lecturas.push(route.request().url());
     return json(route, [MANDATO_ROW]);
   });
+  // El IBAN entero solo lo da el servidor, descifrado, al generar la remesa.
+  await page.route('**/api/cobros/mandatos-sepa/remesa', route => {
+    pedidosIban.push(route.request().url());
+    return json(route, { mandatos: [{ socioId: 'soc-1', iban: IBAN_SOCIA, refMandato: 'MND-001', fechaFirma: '2026-02-01' }] });
+  });
   await page.route('**/rest/v1/recibos**', route => {
     const req = route.request();
     if (req.method() === 'PATCH') {
@@ -94,7 +102,7 @@ async function montar(page: Page, ruta: string) {
   });
 
   await page.goto(ruta);
-  return { lecturas, patchesRecibos };
+  return { lecturas, patchesRecibos, pedidosIban };
 }
 
 test.describe('Mandato SEPA: se ve al entrar', () => {
@@ -112,10 +120,14 @@ test.describe('Mandato SEPA: se ve al entrar', () => {
 
     expect(lecturas.length).toBeGreaterThan(0);
     expect(lecturas[0]).toContain(`studio_id=eq.${STUDIO_ID}`);
+    // El panel no pide la columna cifrada: solo los 4 últimos dígitos.
+    const select = new URL(lecturas[0]).searchParams.get('select') ?? '';
+    expect(select).toContain('iban_ultimos4');
+    expect(select.split(',').map(c => c.trim())).not.toContain('iban');
   });
 
   test('la remesa 19.14 de Cobros incluye el recibo de la socia domiciliada', async ({ page }) => {
-    const { lecturas, patchesRecibos } = await montar(page, '/cobros');
+    const { lecturas, patchesRecibos, pedidosIban } = await montar(page, '/cobros');
     const boton = page.getByRole('button', { name: 'Preparar recibos para el banco' });
     await expect(boton).toBeVisible({ timeout: 30_000 });
     // El mandato tiene que estar ya en memoria antes de pulsar: si no, el
@@ -130,6 +142,8 @@ test.describe('Mandato SEPA: se ve al entrar', () => {
     await dialogo.getByRole('button', { name: 'Generar el fichero (1)' }).click();
 
     await expect(page.getByText(/Fichero listo: 1 recibo/)).toBeVisible({ timeout: 15_000 });
+    // El IBAN se pidió al servidor al generar, no estaba en el panel.
+    expect(pedidosIban.length).toBeGreaterThan(0);
     await expect(page.getByText(/Ningún recibo pendiente tiene mandato SEPA/)).toHaveCount(0);
     // Y el recibo quedó marcado como enviado al banco ANTES de ofrecer el fichero.
     expect(patchesRecibos).toHaveLength(1);

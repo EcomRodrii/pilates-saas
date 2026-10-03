@@ -87,6 +87,8 @@
     <button type="button" id="reintentar">Volver a intentarlo</button>
   </main>
   <script>
+    // La carcasa deja el logo del arranque hasta que alguien lo quita.
+    try { window.Capacitor.Plugins.SplashScreen.hide(); } catch (e) {}
     var boton = document.getElementById('reintentar');
     boton.addEventListener('click', function () {
       boton.disabled = true;

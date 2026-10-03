@@ -7275,15 +7275,25 @@ interface CredencialesOAuth {
 }
 
 let avisoSinClave = false;
-/** Una vez por instancia: sin clave en producción, lo nuevo se guarda en claro. */
-function avisarSiSinClave(claves: ClavesCredenciales) {
-  if (avisoSinClave || process.env.VERCEL_ENV !== 'production') return;
-  if (claves.actual && !claves.malformada) return;
-  avisoSinClave = true;
-  capturarMensaje('[credenciales] INTEGRACIONES_CLAVE_CIFRADO falta o no mide 32 bytes: los tokens se guardan sin cifrar', 'warning', {
-    tags: { area: 'integraciones', tipo: 'sin-clave-cifrado' },
-  });
+/**
+ * Sin clave válida NO se guarda ningún secreto (2-oct-2026, contrato de
+ * encargo). Antes se guardaba en claro con un aviso, para no desconectar a
+ * Klaviyo/Zoom, que cambian el token al renovar; ahora la BD lo exige con un
+ * CHECK (migr 20261003102804) y aquí se para antes, a la vista. Que una
+ * integración falle por falta de clave se ve; un token en claro, no.
+ * Avisa a Sentry una vez por instancia.
+ */
+function sinClaveDeCifrado(claves: ClavesCredenciales): boolean {
+  if (claves.actual && !claves.malformada) return false;
+  if (!avisoSinClave) {
+    avisoSinClave = true;
+    capturarMensaje('[credenciales] INTEGRACIONES_CLAVE_CIFRADO falta o no mide 32 bytes: no se guarda ninguna credencial', 'error', {
+      tags: { area: 'integraciones', tipo: 'sin-clave-cifrado' },
+    });
+  }
+  return true;
 }
+const SIN_CLAVE_INTEGRACIONES = 'No se pueden guardar las credenciales sin cifrar: falta INTEGRACIONES_CLAVE_CIFRADO.';
 
 /**
  * Las credenciales de un proveedor, descifradas. Un valor cifrado que no se
@@ -7322,7 +7332,9 @@ async function guardarCredencialesOAuth(studioId: string, provider: ProveedorCre
   const admin = getSupabaseAdmin();
   if (!admin) return;
   const claves = clavesDelEntorno();
-  avisarSiSinClave(claves);
+  // Lanza: quien guarda (el callback de OAuth, la renovación del token) tiene
+  // que enterarse de que no quedó guardado.
+  if (sinClaveDeCifrado(claves)) throw new Error(SIN_CLAVE_INTEGRACIONES);
   const { error } = await admin.from('integracion_credenciales').upsert({
     studio_id: studioId,
     provider,
@@ -7538,8 +7550,9 @@ export async function dbGuardarIntegracion(
     .from('integraciones').select('id').eq('studio_id', studioId).eq('tipo', datos.tipo).maybeSingle();
   if (errorLeer) { reportDbError('[dbGuardarIntegracion]', errorLeer); return { ok: false, error: 'No se ha podido guardar.' }; }
   const claves = clavesDelEntorno();
-  avisarSiSinClave(claves);
-  const { config } = cifrarConfigIntegracion(studioId, datos.tipo, datos.config, claves);
+  const { config, enClaro } = cifrarConfigIntegracion(studioId, datos.tipo, datos.config, claves);
+  // Solo si lleva un secreto (token o clave de API): sin él no hay nada que cifrar.
+  if (enClaro && sinClaveDeCifrado(claves)) return { ok: false, error: 'No se ha podido guardar la clave de la integración. Avísanos.' };
   const row = {
     // El id de la fila que ya hay: un upsert con otro id cambiaría su clave primaria.
     id: existente?.id ?? `intg-${datos.tipo.toLowerCase()}-${uid()}`,
@@ -7620,7 +7633,8 @@ export async function dbGuardarConexionWhatsappEmbeddedSignup(
     .maybeSingle();
   const configAnterior = existente ? descifrarConfigDeFila(studioId, 'WHATSAPP', existente.config) : {};
   const claves = clavesDelEntorno();
-  avisarSiSinClave(claves);
+  // El token de Meta es un secreto: sin clave no se guarda (ver sinClaveDeCifrado).
+  if (sinClaveDeCifrado(claves)) return { ok: false, error: 'No se pudo guardar la conexión de WhatsApp.' };
 
   const row = {
     id: existente?.id ?? `intg-whatsapp-${uid()}`,

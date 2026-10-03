@@ -115,6 +115,30 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   `get_advisors` marca como ejecutables por `anon`/`authenticated` son intencionales
   (RPCs llamadas por el cliente, helpers de RLS en `CREATE POLICY`, guards internos de
   defensa en profundidad) — no las "corrijas" sin cruzar antes contra `.rpc('` en `lib/`.
+- **Verificación en dos pasos del equipo** (2-oct-2026, `lib/auth/doble-factor-reglas.ts`):
+  quien la tiene activada solo ve y toca datos con la sesión verificada (`aal2`), y lo decide
+  la BD con una política RESTRICTIVA `exige_doble_factor` en CADA tabla de `public` con RLS
+  (migr `20261003102845`). ⚠️ Una tabla nueva con RLS lleva también esa política (copia la
+  sentencia del DO de esa migración): sin ella, `supabase/tests/rls-doble-factor.test.ts`
+  falla en CI. `verificarSesionStaff` aplica lo mismo y además el «exigir a todo el equipo»
+  de la propietaria; para saber a dónde mandar a alguien sin cortarle (tras el login, la
+  pantalla de verificar) se usa `resolverSesionStaffConPaso`, nunca para dar datos.
+  **«No volver a pedir el código en este dispositivo»** (3-oct-2026, 30 días desde el último
+  uso, `lib/auth/dispositivo-confianza-reglas.ts`): la sesión sigue en `aal1` y cuenta como
+  verificada si el servidor la apuntó en `sesiones_confiadas` al presentar la cookie del
+  dispositivo. ⚠️ Quien pregunte «¿ha pasado el segundo paso?» acepta las dos cosas: en SQL,
+  usa `nivel_acceso_suficiente()` (ya lo hace; `sesion_de_confianza()` solo dentro de funciones
+  SECURITY DEFINER: `authenticated` no puede ejecutarla y tumbaría la tabla); en TS, lo resuelve
+  `verificarSesionStaff`. La regla vive una vez, en `sesion_confiada_de` (la BD y el servidor
+  la llaman). Nunca un `aal = 'aal2'` suelto en una ruta nueva del panel salvo para lo que
+  merezca el código de verdad (como apagar «exigir 2FA», `/api/estudio/doble-factor`).
+  `/interno` NO lo acepta a propósito, y lo que GoTrue protege (quitar o añadir un factor)
+  exige el código. La llave es la cookie: la IP y el nombre solo se enseñan en Mi perfil.
+- **Secretos cifrados en la app, y la BD lo exige**: credenciales e `integraciones.config`
+  (CHECK `enc:v1:`), IBAN de los mandatos (`lib/billing/iban-cifrado.ts`, `SEPA_CLAVE_CIFRADO`;
+  el navegador ni escribe la tabla ni lee la columna) y copias en R2
+  (`lib/backups/cifrado-copias.ts`, `BACKUPS_CLAVE_CIFRADO`). Sin clave no se guarda un secreto
+  en claro: se falla a la vista.
 - **Dinero**: cero escritura optimista sin comprobar el resultado real (`await` la
   confirmación, maneja el camino de fallo, sé idempotente ante webhooks repetidos). Es el
   patrón de bug más repetido en los flujos de Stripe/cobros de este repo.

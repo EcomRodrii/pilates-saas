@@ -1096,6 +1096,12 @@ export interface RowStudios {
   plaza_fija_aprobacion: string | null;
   // migr 20261002230422.
   plaza_fija_auto_tope_pct: number | null;
+  // migr 20261003102645.
+  contrato_terminado_en: string | null;
+  // migr 20261003102645.
+  supresion_pedida_en: string | null;
+  // migr 20261003102845.
+  exigir_doble_factor: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -1745,6 +1751,8 @@ export interface RowMandatosSepa {
   fecha_firma: string;
   estado: string;
   creada_en: string;
+  // migr 20261003102724.
+  iban_ultimos4: string | null;
 }
 
 export interface RowNotification {
@@ -2990,6 +2998,8 @@ export interface RowCicloEstudiosVencidos {
   resumen: any;
   creado_en: string;
   actualizado_en: string;
+  // migr 20261003102645.
+  motivo: string | null;
 }
 
 export interface RowKioskoTokens {
@@ -3898,6 +3908,25 @@ export interface RowMovimientosDerecho {
   motivo: string | null;
   contexto: any;
   creado_en: string;
+}
+
+export interface RowDispositivosConfianza {
+  id: string;
+  auth_user_id: string;
+  token_hash: string;
+  nombre: string;
+  ip_ultima: string | null;
+  creado_en: string;
+  ultimo_uso_en: string;
+  caduca_en: string;
+}
+
+export interface RowSesionesConfiadas {
+  session_id: string;
+  auth_user_id: string;
+  dispositivo_id: string;
+  creada_en: string;
+  references: string | null;
 }
 
 
@@ -5379,6 +5408,9 @@ export type StudiosInsert = {
   recuperacion_max_vivas?: number | null | null;
   plaza_fija_aprobacion?: string | null | null;
   plaza_fija_auto_tope_pct?: number | null | null;
+  contrato_terminado_en?: string | null | null;
+  supresion_pedida_en?: string | null | null;
+  exigir_doble_factor?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5525,6 +5557,9 @@ export type StudiosUpdate = {
   recuperacion_max_vivas?: number | null | null;
   plaza_fija_aprobacion?: string | null | null;
   plaza_fija_auto_tope_pct?: number | null | null;
+  contrato_terminado_en?: string | null | null;
+  supresion_pedida_en?: string | null | null;
+  exigir_doble_factor?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -6662,6 +6697,7 @@ export type MandatosSepaInsert = {
   fecha_firma?: string | null;
   estado?: string | null;
   creada_en?: string | null;
+  iban_ultimos4?: string | null | null;
 }
 
 export type MandatosSepaUpdate = {
@@ -6673,6 +6709,7 @@ export type MandatosSepaUpdate = {
   fecha_firma?: string | null;
   estado?: string | null;
   creada_en?: string | null;
+  iban_ultimos4?: string | null | null;
 }
 
 export type NotificationInsert = {
@@ -9006,6 +9043,7 @@ export type CicloEstudiosVencidosInsert = {
   resumen?: any | null;
   creado_en?: string | null;
   actualizado_en?: string | null;
+  motivo?: string | null | null;
 }
 
 export type CicloEstudiosVencidosUpdate = {
@@ -9019,6 +9057,7 @@ export type CicloEstudiosVencidosUpdate = {
   resumen?: any | null;
   creado_en?: string | null;
   actualizado_en?: string | null;
+  motivo?: string | null | null;
 }
 
 export type KioskoTokensInsert = {
@@ -10783,6 +10822,44 @@ export type MovimientosDerechoUpdate = {
   creado_en?: string | null;
 }
 
+export type DispositivosConfianzaInsert = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  token_hash?: string | null;
+  nombre?: string | null;
+  ip_ultima?: string | null | null;
+  creado_en?: string | null;
+  ultimo_uso_en?: string | null;
+  caduca_en?: string | null;
+}
+
+export type DispositivosConfianzaUpdate = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  token_hash?: string | null;
+  nombre?: string | null;
+  ip_ultima?: string | null | null;
+  creado_en?: string | null;
+  ultimo_uso_en?: string | null;
+  caduca_en?: string | null;
+}
+
+export type SesionesConfiadasInsert = {
+  session_id?: string | null;
+  auth_user_id?: string | null;
+  dispositivo_id?: string | null;
+  creada_en?: string | null;
+  references?: string | null | null;
+}
+
+export type SesionesConfiadasUpdate = {
+  session_id?: string | null;
+  auth_user_id?: string | null;
+  dispositivo_id?: string | null;
+  creada_en?: string | null;
+  references?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -11985,6 +12062,16 @@ export type Database = {
         Row: RowMovimientosDerecho;
         Insert: MovimientosDerechoInsert;
         Update: MovimientosDerechoUpdate;
+      };
+      dispositivos_confianza: {
+        Row: RowDispositivosConfianza;
+        Insert: DispositivosConfianzaInsert;
+        Update: DispositivosConfianzaUpdate;
+      };
+      sesiones_confiadas: {
+        Row: RowSesionesConfiadas;
+        Insert: SesionesConfiadasInsert;
+        Update: SesionesConfiadasUpdate;
       };
     };
   };

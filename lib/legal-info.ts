@@ -55,19 +55,26 @@ export const PROVEEDORES: { nombre: string; uso: string; ubicacion: string }[] =
   { nombre: 'Stripe', uso: 'Procesamiento de pagos y facturación', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Resend', uso: 'Envío de correos transaccionales', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Spacemail', uso: 'Correo saliente de Tentare', ubicacion: 'UE / EE. UU.' },
-  { nombre: 'Cloudflare', uso: 'Almacenamiento de archivos (R2), vídeo (Stream) y verificación anti-bots (Turnstile)', ubicacion: 'UE / EE. UU.' },
+  { nombre: 'Cloudflare', uso: 'Copias de seguridad cifradas (R2, en la UE), archivos, vídeo (Stream) y verificación anti-bots (Turnstile)', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Sentry', uso: 'Monitorización de errores', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Inngest', uso: 'Ejecución de tareas y automatizaciones', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Anthropic', uso: 'Asistente de IA: redacción de mensajes, notas de sesión dictadas y análisis de ficheros importados', ubicacion: 'EE. UU.' },
   { nombre: 'PostHog', uso: 'Analítica de uso del producto y del sitio', ubicacion: 'UE' },
   { nombre: 'Ahrefs', uso: 'Analítica del sitio web público', ubicacion: 'Fuera de la UE' },
   { nombre: 'OpenStreetMap', uso: 'Mapas y ubicación aproximada en Tentare Network', ubicacion: 'Reino Unido / UE' },
-  { nombre: 'Google', uso: 'Tipografías del widget de reservas (Google Fonts) e integración con Google Calendar / Gmail, si la activas', ubicacion: 'UE / EE. UU.' },
+  // Sin Google Fonts: las letras se sirven desde el propio dominio (app/_fuentes).
+  // Sin Gmail: se retiró el 1-oct-2026.
+  { nombre: 'Google', uso: 'Inicio de sesión con Google e integración con Google Calendar, si la activas', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Meta (opcional)', uso: 'WhatsApp Business, si el estudio lo activa', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Klaviyo (opcional)', uso: 'Sincronización de audiencias de marketing, si el estudio lo activa', ubicacion: 'EE. UU.' },
   { nombre: 'Mailchimp (opcional)', uso: 'Sincronización de audiencias de marketing, si el estudio lo activa', ubicacion: 'EE. UU.' },
   { nombre: 'Kisi (opcional)', uso: 'Control de acceso, si el estudio lo activa', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Zoom (opcional)', uso: 'Integración de videollamadas, si la activas', ubicacion: 'UE / EE. UU.' },
+  // La API pública con OAuth (app/api/oauth/v1, app/api/v1): solo lo que el estudio autorice.
+  { nombre: 'Zapier (opcional)', uso: 'Datos que el estudio autorice (clientas y reservas) hacia otras aplicaciones', ubicacion: 'EE. UU.' },
+  // Vídeos que el estudio inserta en la app de sus alumnas (lib/portal-home-bloques.ts).
+  { nombre: 'Vimeo (opcional)', uso: 'Vídeos que el estudio inserta en la app de sus alumnas', ubicacion: 'EE. UU.' },
+  { nombre: 'YouTube, de Google (opcional)', uso: 'Vídeos que el estudio inserta en la app de sus alumnas', ubicacion: 'UE / EE. UU.' },
 ];
 
 // ⚠️ El apex (`tentare.app` a secas) redirige 308 al host canónico con www —

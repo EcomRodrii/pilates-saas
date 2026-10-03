@@ -1,16 +1,18 @@
 import { Resend } from 'resend';
-import { correoEstudioVencido } from '@/lib/emails/tentare/cuenta';
+import { correoDatosBorrados, correoEstudioVencido } from '@/lib/emails/tentare/cuenta';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 import { LEGAL } from '@/lib/legal-info';
 import { asuntoAvisoEstudioVencido, formatearFechaAviso, purgaEstudiosActiva } from '@/lib/retencion/ciclo-estudios-vencidos';
 
-// Aviso del ciclo de estudios vencidos (30 y 83 días). A diferencia del resto de
+// Avisos del ciclo de estudios sin contrato (prueba vencida: 30 y 83 días; baja
+// de un estudio de pago: el mismo día y a los 23). A diferencia del resto de
 // emails best-effort, aquí el resultado MANDA: si no sale, el ciclo no avanza
 // (sin aviso entregado a Resend no hay borrado).
 export async function enviarAvisoEstudioVencido(params: {
   to: string;
-  fase: 'aviso_30' | 'aviso_final';
+  fase: 'aviso_30' | 'aviso_baja' | 'aviso_final';
+  motivo: 'prueba_vencida' | 'baja';
   estudioNombre: string;
   fechaPurga: Date;
 }): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
@@ -23,6 +25,7 @@ export async function enviarAvisoEstudioVencido(params: {
   try {
     const html = correoEstudioVencido({
       fase: params.fase,
+      motivo: params.motivo,
       estudioNombre: params.estudioNombre,
       fechaPurga: formatearFechaAviso(params.fechaPurga),
       // El texto tiene que decir lo que el motor va a hacer, no lo que el ciclo
@@ -40,6 +43,35 @@ export async function enviarAvisoEstudioVencido(params: {
       to: [params.to],
       subject: asuntoAvisoEstudioVencido(params.fase, params.fechaPurga, purgaEstudiosActiva(process.env)),
       html,
+    });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Error al enviar el email' };
+  }
+}
+
+/**
+ * Confirmación de que los datos del estudio se han borrado (contrato de
+ * encargo: «se le acredita por correo»). Solo se manda tras un borrado REAL
+ * (purga activa), nunca en modo informe.
+ */
+export async function enviarConfirmacionBorrado(params: {
+  to: string;
+  estudioNombre: string;
+  fecha: Date;
+}): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
+  if (!params.to) return { ok: false, error: 'Sin destinatario' };
+  if (esDominioReservado(params.to)) return { ok: false, error: 'Email de ejemplo, no una dirección real' };
+  try {
+    const fecha = formatearFechaAviso(params.fecha);
+    const { error } = await new Resend(apiKey).emails.send({
+      from: remitentePorMarca('Tentare'),
+      to: [params.to],
+      subject: `Hemos borrado los datos de ${params.estudioNombre}`,
+      html: correoDatosBorrados({ estudioNombre: params.estudioNombre, fecha }),
     });
     if (error) return { ok: false, error: error.message };
     return { ok: true };

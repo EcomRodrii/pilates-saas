@@ -120,7 +120,7 @@ async function montar(page: Page, opts: {
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
   await page.route('**/rest/v1/socios**', route => json(route, SOCIAS));
   await page.route('**/rest/v1/mandatos_sepa**', route => json(route, opts.conRemesa ? [
-    { id: 'm-1', studio_id: STUDIO_ID, socio_id: 's2', iban: 'ES9121000418450200051332', ref_mandato: 'REF-1', fecha_firma: '2026-01-01', estado: 'VIGENTE', creada_en: '2026-01-01T00:00:00Z' },
+    { id: 'm-1', studio_id: STUDIO_ID, socio_id: 's2', iban_ultimos4: '1332', ref_mandato: 'REF-1', fecha_firma: '2026-01-01', estado: 'VIGENTE', creada_en: '2026-01-01T00:00:00Z' },
   ] : []));
   await page.route('**/rest/v1/recibos**', route => {
     const req = route.request();

@@ -22,6 +22,7 @@ import { ControlAmpliado } from '@/components/layout/control-ampliado';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { ReviewBoostModal } from '@/components/growth/review-boost-modal';
 import { estadoBilling } from '@/lib/api-client';
+import { pasoDobleFactorDelPanel } from '@/lib/auth/doble-factor-cliente';
 import { precargarAgenda } from '@/lib/agenda-precarga';
 import { asociarEstudio } from '@/lib/posthog-cliente';
 import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
@@ -91,6 +92,26 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // arranque. Decisión del fundador: vale más que abra rápido para todos que
   // tapar ese instante a los pocos bloqueados. La barrera de verdad sigue
   // siendo el servidor.
+  // Verificación en dos pasos (2-oct-2026, lib/auth/doble-factor-reglas.ts):
+  // con la sesión sin verificar, la base de datos no da nada a quien la tiene
+  // activada, y el estudio puede exigirla a todo el equipo. Antes que pintar un
+  // panel vacío, a /verificar-acceso; al volver, la sesión ya está en `aal2`.
+  // No tapa el panel mientras pregunta: casi siempre contesta 'ok'.
+  useEffect(() => {
+    if (loading || !session) return;
+    let vivo = true;
+    void pasoDobleFactorDelPanel(session.access_token).then((paso) => {
+      if (!vivo || paso === 'ok') return;
+      // Entró sin código por un dispositivo recordado, pero lo que el panel ya
+      // había pedido salió sin ese permiso: una recarga lo vuelve a pedir bien.
+      // Casi nunca pasa: el login lo resuelve antes de llegar aquí.
+      if (paso === 'recargar') { window.location.reload(); return; }
+      const volver = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.replace(`/verificar-acceso?${paso === 'activar' ? 'activar=1&' : ''}volver=${volver}`);
+    });
+    return () => { vivo = false; };
+  }, [loading, session]);
+
   const [billingBloqueado, setBillingBloqueado] = useState<boolean | null>(null);
   useEffect(() => {
     if (loading || !session) return;

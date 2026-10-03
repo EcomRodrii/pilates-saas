@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { abrirFuera, alAbrirEnlace, alPulsarAviso, esAppNativa, esVueltaDeOAuth } from '@/lib/nativo/puente';
+import { abrirFuera, alAbrirEnlace, alPulsarAviso, esAppNativa, esVueltaDeOAuth, ocultarPantallaDeCarga } from '@/lib/nativo/puente';
 import { destinoDeEnlace } from '@/lib/nativo/destino-enlace';
 
 /**
@@ -14,6 +14,7 @@ import { destinoDeEnlace } from '@/lib/nativo/destino-enlace';
  *   «OK») o, si es nuestra web, se navega dentro. Igual con `window.open`.
  * - Pulsar un aviso lleva a su pantalla.
  * - Un enlace universal (el del correo, la vuelta de un pago) lleva a su ruta.
+ * - Al montarse, la página ya está pintada: quita el logo del arranque.
  *
  * Se monta en la app de cada estudio y en la entrada (`/app`).
  */
@@ -23,6 +24,7 @@ export function PuenteNativo() {
   useEffect(() => {
     if (!esAppNativa()) return;
     document.documentElement.dataset.appNativa = '1';
+    void ocultarPantallaDeCarga();
 
     const ir = (destino: ReturnType<typeof destinoDeEnlace>) => {
       if (!destino) return false;

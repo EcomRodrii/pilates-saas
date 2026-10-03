@@ -58,6 +58,24 @@ export function bundleIdDeLaApp(): Promise<string | null> {
   return bundleIdCache;
 }
 
+// ─── Pantalla de carga ────────────────────────────────────────────────────
+
+/**
+ * Quita el logo del arranque. La carcasa lo deja puesto hasta que la web está
+ * pintada (capacitor.config.ts, `launchShowDuration` es solo la red de
+ * seguridad): si se quitara solo, en un arranque en frío se veía la pantalla en
+ * blanco mientras llegaba la web. Llamarla dos veces no hace nada.
+ */
+export async function ocultarPantallaDeCarga(): Promise<void> {
+  if (!esAppNativa()) return;
+  try {
+    const { SplashScreen } = await import('@capacitor/splash-screen');
+    await SplashScreen.hide();
+  } catch {
+    // Sin el plugin la quita la propia carcasa al vencer su plazo.
+  }
+}
+
 // ─── Abrir fuera ──────────────────────────────────────────────────────────
 
 /**

@@ -2,6 +2,10 @@
 
 // F2 (B2.10) — Domiciliación SEPA de la socia: IBAN + referencia de mandato + fecha
 // de firma. Con mandato VIGENTE, sus recibos pendientes entran en la remesa 19.14.
+//
+// El IBAN se guarda cifrado y el panel solo conoce sus 4 últimos dígitos
+// (2-oct-2026). Al editar un mandato, el campo del IBAN sale vacío: si se deja
+// así, se conserva el guardado y solo cambian la referencia y la fecha.
 
 import { useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
@@ -24,9 +28,10 @@ export function FichaMandatoSepa({ socioId }: { socioId: string }) {
   const [ref, setRef] = useState('');
   const [firma, setFirma] = useState(isoHoy());
   const [err, setErr] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
 
   function abrir() {
-    setIban(mandato?.iban ?? '');
+    setIban('');
     setRef(mandato?.refMandato ?? '');
     setFirma(mandato?.fechaFirma?.slice(0, 10) ?? isoHoy());
     setErr(null);
@@ -34,12 +39,19 @@ export function FichaMandatoSepa({ socioId }: { socioId: string }) {
   }
 
   async function guardar() {
-    if (!validarIBAN(iban)) { setErr('IBAN no válido.'); return; }
+    if (guardando) return;
+    const conservaIban = !!mandato && !iban.trim();
+    if (!conservaIban && !validarIBAN(iban)) { setErr('IBAN no válido.'); return; }
     if (!ref.trim() || !firma) { setErr('Falta la referencia del mandato o la fecha de firma.'); return; }
-    const res = await ponerMandato(socioId, iban, ref.trim(), firma);
-    if (!res.ok) { setErr(res.error); return; }
-    setEditando(false);
-    setErr(null);
+    setGuardando(true);
+    try {
+      const res = await ponerMandato(socioId, iban, ref.trim(), firma);
+      if (!res.ok) { setErr(res.error); return; }
+      setEditando(false);
+      setErr(null);
+    } finally {
+      setGuardando(false);
+    }
   }
 
   async function quitar() {
@@ -57,7 +69,7 @@ export function FichaMandatoSepa({ socioId }: { socioId: string }) {
       {mandato && !editando ? (
         <>
           <p className="text-xs text-muted-foreground mt-1">
-            IBAN ····{mandato.iban.slice(-4)} · mandato <span className="font-mono">{mandato.refMandato}</span> · firmado {mandato.fechaFirma.slice(0, 10).split('-').reverse().join('/')}
+            IBAN ····{mandato.ibanUltimos4} · mandato <span className="font-mono">{mandato.refMandato}</span> · firmado {mandato.fechaFirma.slice(0, 10).split('-').reverse().join('/')}
           </p>
           <p className="text-[11px] text-success mt-1">Entra en la remesa del banco (cuaderno 19.14).</p>
           {err && <p className="text-xs font-medium text-destructive mt-1">{err}</p>}
@@ -70,7 +82,10 @@ export function FichaMandatoSepa({ socioId }: { socioId: string }) {
         <div className="space-y-3 mt-3">
           <div>
             <label className={labelCls}>IBAN de la socia</label>
-            <input className={inputCls} value={iban} onChange={e => setIban(e.target.value)} placeholder="ES00 0000 0000 0000 0000 0000" />
+            <input
+              className={inputCls} value={iban} onChange={e => setIban(e.target.value)} autoComplete="off"
+              placeholder={mandato ? `El guardado acaba en ${mandato.ibanUltimos4}: déjalo vacío para conservarlo` : 'ES00 0000 0000 0000 0000 0000'}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -84,7 +99,7 @@ export function FichaMandatoSepa({ socioId }: { socioId: string }) {
           </div>
           {err && <p className="text-xs font-medium text-destructive">{err}</p>}
           <div className="flex gap-2">
-            <button onClick={guardar} className="text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95">Guardar mandato</button>
+            <button onClick={guardar} disabled={guardando} className="text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-60">{guardando ? 'Guardando…' : 'Guardar mandato'}</button>
             <button onClick={() => setEditando(false)} className="text-xs font-semibold px-4 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground">Cancelar</button>
           </div>
         </div>
