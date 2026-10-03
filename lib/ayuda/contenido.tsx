@@ -32,6 +32,7 @@ const CONTENIDO: Record<string, () => Promise<{ default: ComponentType }>> = {
   'pagos/facturas': () => import('@/components/ayuda/articulos/pagos-facturas'),
   'pagos/prueba-de-7-dias': () => import('@/components/ayuda/articulos/pagos-prueba-de-7-dias'),
   'pagos/cobrar-en-la-caja': () => import('@/components/ayuda/articulos/pagos-cobrar-en-la-caja'),
+  'pagos/conectar-el-datafono': () => import('@/components/ayuda/articulos/pagos-conectar-el-datafono'),
   'pagos/abrir-y-cerrar-la-caja': () => import('@/components/ayuda/articulos/pagos-abrir-y-cerrar-la-caja'),
   'pagos/la-pantalla-de-cobros': () => import('@/components/ayuda/articulos/pagos-la-pantalla-de-cobros'),
   'pagos/cierre-de-ano': () => import('@/components/ayuda/articulos/pagos-cierre-de-ano'),

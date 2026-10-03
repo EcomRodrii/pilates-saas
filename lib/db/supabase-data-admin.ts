@@ -183,15 +183,6 @@ function dbEscritura(): SupabaseClient {
 // Sentinel truthy (no se muestra en ningún sitio, solo hace que `!bienvenidaVistaEn`
 // sea false) para filas sin la columna `bienvenida_vista_en` — ver mapStudio.
 
-export async function dbSetTerminalReader(studioId: string, readerId: string | null, locationId: string | null) {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
-  const { error } = await admin.from('studios')
-    .update({ stripe_terminal_reader_id: readerId, stripe_terminal_location_id: locationId })
-    .eq('id', studioId);
-  if (error) reportDbError('[dbSetTerminalReader]', error);
-}
-
 export type ComunicacionSocio = {
   id: string;
   tipo: string;

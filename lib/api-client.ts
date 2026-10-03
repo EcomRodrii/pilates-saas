@@ -1594,24 +1594,6 @@ export async function sellarFactura(fac: Factura): Promise<{ ok: boolean; sellad
 }
 
 // ── Stripe Terminal (datáfono físico) ──────────────────────────────────────────
-export async function terminalEstadoLector(): Promise<{ ok?: boolean; emparejado?: boolean; estado?: string; test?: boolean; error?: string }> {
-  try {
-    const res = await fetch('/api/terminal/lector', { headers: { ...(await authHeader()) } });
-    return await res.json();
-  } catch { return { error: 'No se pudo consultar el datáfono' }; }
-}
-
-export async function terminalRegistrarLector(registrationCode?: string): Promise<{ ok?: boolean; readerId?: string; test?: boolean; error?: string }> {
-  try {
-    const res = await fetch('/api/terminal/lector', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ registrationCode }),
-    });
-    return await res.json();
-  } catch { return { error: 'No se pudo registrar el datáfono' }; }
-}
-
 export async function terminalCobrar(params: { studioId: string; amount: number; concepto: string }): Promise<{ ok?: boolean; paymentIntentId?: string; error?: string }> {
   try {
     const res = await fetch('/api/terminal/cobrar', {
