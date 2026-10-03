@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { escaparLike } from '@/lib/escapar-like';
 import { EMAIL_VALIDO } from '@/lib/recursos/descargas';
 
 // ¿Este correo tiene ficha de equipo en algún estudio? Lo pregunta /login antes
@@ -30,11 +31,10 @@ export async function POST(req: NextRequest) {
   // Una baja EXPLÍCITA no cuenta (`activo === null` sí), igual que en
   // `motivoNoReclamable`; `.neq('activo', false)` dejaría fuera los NULL.
   // `ilike` con los comodines escapados: `_` y `%` sí pasan EMAIL_VALIDO.
-  const literal = email.replace(/[\\%_]/g, c => `\\${c}`);
   const { data, error } = await admin
     .from('instructores')
     .select('id')
-    .ilike('email', literal)
+    .ilike('email', escaparLike(email))
     .or('activo.is.null,activo.eq.true')
     .limit(1);
   if (error) return NextResponse.json({ error: 'No hemos podido comprobarlo.' }, { status: 503 });
