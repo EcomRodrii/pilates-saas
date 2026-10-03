@@ -1,9 +1,12 @@
 import type { NextRequest } from 'next/server';
+import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { resolverSesionStaff, type EstudioPropio, type FichaEquipo, type SesionStaff } from '@/lib/auth/sesion-staff-reglas';
 import { factoresVerificados, pasoDobleFactor, type PasoDobleFactor } from '@/lib/auth/doble-factor-reglas';
 import { nivelAutenticacion } from '@/lib/interno/mfa';
+import { sesionDelToken } from '@/lib/auth/dispositivo-confianza-reglas';
+import { sesionConfiada } from '@/lib/auth/dispositivo-confianza';
 
 export type { SesionStaff };
 
@@ -17,13 +20,21 @@ export type { SesionStaff };
 export async function resolverSesionStaffConPaso(
   req: NextRequest,
 ): Promise<{ sesion: SesionStaff; paso: PasoDobleFactor; factores: number; estudioLoExige: boolean } | null> {
-  const authHeader = req.headers.get('authorization');
-  const token = authHeader?.replace(/^Bearer /, '');
-  if (!token) return null;
+  const r = await usuarioConToken(req);
+  return r ? resolverConUsuario(r.token, r.user) : null;
+}
 
+/**
+ * El usuario del Bearer, ya validado con `getUser` (firma, caducidad y sesión
+ * viva), junto al propio token: de él salen `aal` y `session_id`, que solo se
+ * pueden leer de un token que haya pasado por aquí.
+ */
+export async function usuarioConToken(req: NextRequest): Promise<{ token: string; user: User } | null> {
+  const token = req.headers.get('authorization')?.replace(/^Bearer /, '');
+  if (!token) return null;
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
-  return resolverConUsuario(token, user);
+  return { token, user };
 }
 
 // Verifica el JWT que el cliente manda en el header Authorization (obtenido
@@ -86,7 +97,15 @@ async function resolverConUsuario(
   // pasos. En paralelo con las demás para no añadir un viaje. Si fallan, falla
   // CERRADO (se da por exigida), salvo que la columna aún no exista (código
   // desplegado antes que su migración): entonces no la exige nadie todavía.
-  const [{ data: activa }, { data: instructores }, { data: studios }, exigenPropios, exigenFichas] = await Promise.all([
+  //
+  // Y la última: con la verificación activada y la sesión en `aal1`, ¿la confió
+  // el servidor por un dispositivo recordado? (lib/auth/dispositivo-confianza.ts;
+  // la base de datos se lo pregunta igual con `sesion_de_confianza()`). Solo con
+  // service-role: sin él no se puede leer y la sesión sigue sin verificar.
+  const factores = factoresVerificados(user.factors);
+  const nivelToken = nivelAutenticacion(token);
+  const admin = getSupabaseAdmin();
+  const [{ data: activa }, { data: instructores }, { data: studios }, exigenPropios, exigenFichas, confiada] = await Promise.all([
     db.from('sesion_activa').select('studio_id').eq('auth_user_id', user.id).maybeSingle(),
     db.from('instructores').select('studio_id, rol, nombre, activo')
       .eq('auth_user_id', user.id).order('studio_id', { ascending: true }),
@@ -94,6 +113,9 @@ async function resolverConUsuario(
       .eq('owner_auth_user_id', user.id).order('id', { ascending: true }),
     db.from('studios').select('id').eq('owner_auth_user_id', user.id).eq('exigir_doble_factor', true),
     db.from('instructores').select('studio_id, studios!inner(id)').eq('auth_user_id', user.id).eq('studios.exigir_doble_factor', true),
+    nivelToken === 'aal1' && factores > 0 && admin
+      ? sesionConfiada(admin, user.id, sesionDelToken(token))
+      : Promise.resolve(false),
   ]);
 
   const sesion = resolverSesionStaff({
@@ -112,10 +134,11 @@ async function resolverConUsuario(
     ...((exigenPropios.error ? [] : exigenPropios.data ?? []) as { id: string }[]).map(s => s.id),
     ...((exigenFichas.error ? [] : exigenFichas.data ?? []) as { studio_id: string }[]).map(f => f.studio_id),
   ]);
-  const factores = factoresVerificados(user.factors);
   const estudioLoExige = lecturaFallida || queLoExigen.has(sesion.studioId);
   // El `aal` sale del token que `getUser` acaba de validar (ver nivelAutenticacion).
-  const paso = pasoDobleFactor({ nivel: nivelAutenticacion(token), factoresVerificados: factores, estudioLoExige, rol: sesion.rol });
+  // Una sesión confiada por un dispositivo recordado cuenta como verificada.
+  const nivel = nivelToken === 'aal2' || confiada ? 'aal2' : 'aal1';
+  const paso = pasoDobleFactor({ nivel, factoresVerificados: factores, estudioLoExige, rol: sesion.rol });
   return { sesion, paso, factores, estudioLoExige };
 }
 

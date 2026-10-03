@@ -63,6 +63,14 @@ type AuthContextType = {
   unlinkGoogle: () => Promise<{ error: string | null }>;
 };
 
+// Con la verificación en dos pasos activada y una sesión que entró sin código
+// (dispositivo recordado, lib/auth/dispositivo-confianza-reglas.ts), GoTrue
+// puede negarse a cambiar email o contraseña hasta escribirlo.
+const FALTA_EL_CODIGO = 'Para hacer esto, escribe antes el código de tu app: «Mi perfil» → «Verificación en dos pasos» → «Escribir el código».';
+function faltaElCodigo(error: { message?: string; code?: string }): boolean {
+  return error.code === 'insufficient_aal' || /aal2/i.test(error.message ?? '');
+}
+
 export type OtpErrorCode = 'INVALIDO' | 'DEMASIADOS_INTENTOS';
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -180,8 +188,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // frases distintas para el mismo fallo, y desde que el widget se reinicia
   // solo, la de aquí seguía mandando a recargar cuando casi siempre basta con
   // volver a pulsar.
-  function mensajeDeError(error: { message: string }): string {
+  function mensajeDeError(error: { message: string; code?: string }): string {
     const m = error.message.toLowerCase();
+    // Antes que «password»: el texto de GoTrue también la nombra.
+    if (faltaElCodigo(error)) return FALTA_EL_CODIGO;
     if (m.includes('captcha')) return ERROR_CAPTCHA;
     if (m.includes('invalid login credentials')) return 'Email o contraseña incorrectos';
     if (m.includes('email not confirmed')) {
@@ -362,7 +372,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // bandeja); si ya es el nuevo, se aplicó al instante.
   async function updateEmail(nuevoEmail: string) {
     const { data, error } = await supabase.auth.updateUser({ email: nuevoEmail });
-    if (error) return { error: error.message, pendiente: false };
+    if (error) return { error: faltaElCodigo(error) ? FALTA_EL_CODIGO : error.message, pendiente: false };
     const pendiente = data.user?.email !== nuevoEmail;
     return { error: null, pendiente };
   }

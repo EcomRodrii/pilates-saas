@@ -18,6 +18,7 @@ import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendie
 import { normalizarNombreDeGoogle } from '@/lib/auth/normalizar-nombre-google';
 import { capturarAlLlegar } from '@/lib/posthog-cliente';
 import { MINIMO_PASSWORD } from '@/lib/student/password-regla';
+import { confiarAntesDeEntrar } from '@/lib/auth/doble-factor-cliente';
 
 export default function LoginPage() {
   const uid = useId();
@@ -288,6 +289,9 @@ export default function LoginPage() {
       // que entrara aquí SÍ pertenece a Software, así que sigue yendo a
       // /dashboard igual que siempre — lo nuevo es la cuenta que NO tiene
       // nada aquí, que antes se colaba igual.
+      // Verificación en dos pasos con este navegador recordado: que la sesión
+      // cuente ya como verificada, antes de que el panel pida nada.
+      if (session?.access_token) await confiarAntesDeEntrar(session.access_token);
       const resultado = await fetch('/api/auth/destino-post-login?producto=software', { headers: await authHeader() })
         .then(r => (r.ok ? r.json() : null))
         .catch(() => null);

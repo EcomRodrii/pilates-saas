@@ -6,7 +6,9 @@
 // puede quitar (salvo que el estudio la exija a todo el equipo).
 //
 // Quitarla exige la sesión verificada (`aal2`): Supabase lo rechaza si no, y
-// con la sesión sin verificar ni se llega a este panel.
+// con la sesión sin verificar ni se llega a este panel. Una sesión que entró
+// sin código por un dispositivo recordado tampoco vale para eso (lo decide
+// Supabase): se le ofrece escribirlo (`/verificar-acceso?codigo=1`).
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -14,24 +16,33 @@ import { Loader2, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/db/supabase';
 import { cn } from '@/lib/utils';
 import { cardCls } from '@/components/configuracion/estilos';
+import { DispositivosConfianza } from '@/components/auth/dispositivos-confianza';
 
-type Estado = { tipo: 'cargando' } | { tipo: 'listo'; factores: { id: string }[]; exigida: boolean };
+// `sinCodigo`: tiene la verificación activada y esta sesión entró sin escribir
+// el código (dispositivo recordado). Para lo que Supabase protege con el código
+// de verdad —quitarla, cambiar email o contraseña— primero hay que escribirlo.
+type Estado = { tipo: 'cargando' } | { tipo: 'listo'; factores: { id: string }[]; exigida: boolean; sinCodigo: boolean };
 
 export function BloqueDobleFactor() {
   const [estado, setEstado] = useState<Estado>({ tipo: 'cargando' });
   const [quitando, setQuitando] = useState(false);
   const [confirmar, setConfirmar] = useState(false);
-  const [msg, setMsg] = useState<{ texto: string; error: boolean } | null>(null);
+  const [msg, setMsg] = useState<{ texto: string; error: boolean; pedirCodigo?: boolean } | null>(null);
 
   const leer = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-    const [factores, porEstudio] = await Promise.all([
+    const [factores, porEstudio, aal] = await Promise.all([
       supabase.auth.mfa.listFactors(),
       fetch('/api/auth/doble-factor', { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' })
         .then(r => (r.ok ? r.json() : null)).catch(() => null) as Promise<{ estudioLoExige?: boolean } | null>,
+      supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
     ]);
-    setEstado({ tipo: 'listo', factores: factores.data?.totp ?? [], exigida: porEstudio?.estudioLoExige === true });
+    const totp = factores.data?.totp ?? [];
+    setEstado({
+      tipo: 'listo', factores: totp, exigida: porEstudio?.estudioLoExige === true,
+      sinCodigo: totp.length > 0 && aal.data?.currentLevel === 'aal1',
+    });
   }, []);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- setState tras await, no en cascada
@@ -44,7 +55,7 @@ export function BloqueDobleFactor() {
       for (const f of estado.factores) {
         const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
         if (error) {
-          setMsg({ texto: 'No se ha podido quitar. Vuelve a entrar con tu código y prueba otra vez.', error: true });
+          setMsg({ texto: 'Para quitarla tienes que escribir el código en esta sesión.', error: true, pedirCodigo: true });
           return;
         }
       }
@@ -74,6 +85,12 @@ export function BloqueDobleFactor() {
       ) : activa ? (
         <div className="space-y-3">
           <p className="text-[13px] font-medium text-success">Activada en tu cuenta.</p>
+          {estado.tipo === 'listo' && estado.sinCodigo && (
+            <p className="text-[12px] text-muted-foreground">
+              Has entrado sin escribir el código porque este dispositivo es de confianza. Para quitar la verificación o cambiar tu email o contraseña, escríbelo antes.{' '}
+              <Link href="/verificar-acceso?codigo=1&volver=/mi-perfil" className="font-semibold text-foreground underline">Escribir el código</Link>
+            </p>
+          )}
           {exigida ? (
             <p className="text-[12px] text-muted-foreground">Tu estudio la pide a todo el equipo, así que no se puede quitar.</p>
           ) : confirmar ? (
@@ -94,6 +111,7 @@ export function BloqueDobleFactor() {
               Desactivar
             </button>
           )}
+          <DispositivosConfianza />
         </div>
       ) : (
         <Link
@@ -103,7 +121,17 @@ export function BloqueDobleFactor() {
           Activar
         </Link>
       )}
-      {msg && <p className={cn('text-[11px] mt-3', msg.error ? 'text-destructive' : 'text-success')}>{msg.texto}</p>}
+      {msg && (
+        <p className={cn('text-[11px] mt-3', msg.error ? 'text-destructive' : 'text-success')}>
+          {msg.texto}
+          {msg.pedirCodigo && (
+            <>
+              {' '}
+              <Link href="/verificar-acceso?codigo=1&volver=/mi-perfil" className="font-semibold underline">Escribir el código</Link>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }

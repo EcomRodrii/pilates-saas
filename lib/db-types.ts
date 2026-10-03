@@ -3910,6 +3910,25 @@ export interface RowMovimientosDerecho {
   creado_en: string;
 }
 
+export interface RowDispositivosConfianza {
+  id: string;
+  auth_user_id: string;
+  token_hash: string;
+  nombre: string;
+  ip_ultima: string | null;
+  creado_en: string;
+  ultimo_uso_en: string;
+  caduca_en: string;
+}
+
+export interface RowSesionesConfiadas {
+  session_id: string;
+  auth_user_id: string;
+  dispositivo_id: string;
+  creada_en: string;
+  references: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -10803,6 +10822,44 @@ export type MovimientosDerechoUpdate = {
   creado_en?: string | null;
 }
 
+export type DispositivosConfianzaInsert = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  token_hash?: string | null;
+  nombre?: string | null;
+  ip_ultima?: string | null | null;
+  creado_en?: string | null;
+  ultimo_uso_en?: string | null;
+  caduca_en?: string | null;
+}
+
+export type DispositivosConfianzaUpdate = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  token_hash?: string | null;
+  nombre?: string | null;
+  ip_ultima?: string | null | null;
+  creado_en?: string | null;
+  ultimo_uso_en?: string | null;
+  caduca_en?: string | null;
+}
+
+export type SesionesConfiadasInsert = {
+  session_id?: string | null;
+  auth_user_id?: string | null;
+  dispositivo_id?: string | null;
+  creada_en?: string | null;
+  references?: string | null | null;
+}
+
+export type SesionesConfiadasUpdate = {
+  session_id?: string | null;
+  auth_user_id?: string | null;
+  dispositivo_id?: string | null;
+  creada_en?: string | null;
+  references?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -12005,6 +12062,16 @@ export type Database = {
         Row: RowMovimientosDerecho;
         Insert: MovimientosDerechoInsert;
         Update: MovimientosDerechoUpdate;
+      };
+      dispositivos_confianza: {
+        Row: RowDispositivosConfianza;
+        Insert: DispositivosConfianzaInsert;
+        Update: DispositivosConfianzaUpdate;
+      };
+      sesiones_confiadas: {
+        Row: RowSesionesConfiadas;
+        Insert: SesionesConfiadasInsert;
+        Update: SesionesConfiadasUpdate;
       };
     };
   };

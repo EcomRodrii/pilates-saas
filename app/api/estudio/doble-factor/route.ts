@@ -9,8 +9,11 @@ import { nivelAutenticacion } from '@/lib/interno/mfa';
 // lib/auth/doble-factor-reglas.ts, regla B). Solo la propietaria.
 //
 // Para encenderlo, ella tiene que tenerla activada Y haber entrado con ella en
-// esta sesión (`aal2`): si no, se dejaría fuera a sí misma del panel. La
-// columna solo la cambia el servidor (trigger, migr 20261003102845).
+// esta sesión (`aal2`): si no, se dejaría fuera a sí misma del panel. Para
+// apagarlo, también: una sesión que entró sin código por un dispositivo
+// recordado (lib/auth/dispositivo-confianza-reglas.ts) no basta para quitar
+// una protección de todo el equipo. La columna solo la cambia el servidor
+// (trigger, migr 20261003102845).
 
 async function propietaria(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
@@ -39,13 +42,13 @@ export async function PUT(req: NextRequest) {
   const body = await req.json().catch(() => null) as { exigir?: unknown } | null;
   if (typeof body?.exigir !== 'boolean') return NextResponse.json({ error: 'Falta «exigir» (sí o no)' }, { status: 400 });
 
-  if (body.exigir) {
-    const token = req.headers.get('authorization')?.replace(/^Bearer /, '');
-    if (nivelAutenticacion(token) !== 'aal2') {
-      return NextResponse.json({
-        error: 'Actívala primero para ti en «Mi perfil» y entra con ella: así no te quedas fuera del panel.',
-      }, { status: 409 });
-    }
+  const token = req.headers.get('authorization')?.replace(/^Bearer /, '');
+  if (nivelAutenticacion(token) !== 'aal2') {
+    return NextResponse.json({
+      error: body.exigir
+        ? 'Actívala primero para ti en «Mi perfil» y entra con ella: así no te quedas fuera del panel.'
+        : 'Para quitarla, escribe antes el código de tu app: «Mi perfil» → «Verificación en dos pasos» → «Escribir el código».',
+    }, { status: 409 });
   }
 
   const { data, error } = await g.admin.from('studios').update({ exigir_doble_factor: body.exigir })

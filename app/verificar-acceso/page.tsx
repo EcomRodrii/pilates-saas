@@ -16,6 +16,14 @@
 //
 // ⚠️ Verificar un factor nuevo cierra las DEMÁS sesiones de esa cuenta (así lo
 // hace Supabase): en otro dispositivo le pedirá entrar otra vez.
+//
+// «No volver a pedir el código en este dispositivo» (3-oct-2026): desmarcada
+// por defecto (en el iPad compartido de recepción el código es justo lo que
+// protege la cuenta), recuerda el navegador 30 días desde su último uso
+// (lib/auth/dispositivo-confianza-reglas.ts). Si llega aquí con el navegador
+// ya recordado, entra sin escribir nada; `?codigo=1` lo pide igual (para lo
+// que Supabase solo deja hacer con el código de verdad, como quitar la
+// verificación).
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, ShieldCheck } from 'lucide-react';
@@ -23,6 +31,8 @@ import { supabase } from '@/lib/db/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { pasoMfa, puedeEnrolarFactor, type NivelAal, type PasoMfa } from '@/lib/interno/mfa';
 import { destinoTrasVerificar } from '@/lib/auth/doble-factor-reglas';
+import { confiarEnEsteDispositivo, recordarEsteDispositivo } from '@/lib/auth/doble-factor-cliente';
+import { DIAS_DISPOSITIVO_CONFIANZA } from '@/lib/auth/dispositivo-confianza-reglas';
 
 type Estado =
   | { tipo: 'cargando' }
@@ -56,6 +66,7 @@ export default function PantallaVerificarAcceso() {
   const [trabajando, setTrabajando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exigida, setExigida] = useState(false);
+  const [recordar, setRecordar] = useState(false);
 
   const volver = useCallback(() => {
     // Recarga completa: el panel vuelve a pedir los datos con el token ya en `aal2`.
@@ -80,11 +91,16 @@ export default function PantallaVerificarAcceso() {
     }
     const nivel: NivelAal = aal.data.currentLevel === 'aal2' ? 'aal2' : 'aal1';
     const verificados = factores.data.totp;
+    // Navegador recordado: entra sin código (salvo que se pida a propósito).
+    if (nivel === 'aal1' && verificados.length > 0 && new URLSearchParams(window.location.search).get('codigo') !== '1') {
+      const confianza = await confiarEnEsteDispositivo(session.access_token);
+      if (confianza !== 'no') { volver(); return; }
+    }
     setEstado({
       tipo: 'paso', paso: pasoMfa(verificados.length, nivel), nivel,
       factorVerificadoId: verificados[0]?.id ?? null, verificados: verificados.length,
     });
-  }, []);
+  }, [volver]);
 
   // setState tras await, no en cascada — mismo falso positivo que la pantalla interna.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -120,6 +136,8 @@ export default function PantallaVerificarAcceso() {
       // `verify` ya guarda la sesión nueva; refrescar deja el token en `aal2`
       // antes de que el panel vuelva a pedir datos.
       await supabase.auth.refreshSession();
+      // Con el token ya en `aal2`. Si falla, solo la próxima vez lo volverá a pedir.
+      if (recordar) await recordarEsteDispositivo();
       volver();
     } finally {
       setTrabajando(false);
@@ -151,6 +169,18 @@ export default function PantallaVerificarAcceso() {
         className="rounded-xl border border-border bg-background px-3 py-2 text-base tracking-[0.3em] tabular-nums text-foreground"
         autoFocus
       />
+      <label className="flex items-start gap-2 text-[12.5px] text-foreground cursor-pointer select-none">
+        <input
+          type="checkbox" checked={recordar} onChange={e => setRecordar(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+        />
+        <span>
+          No volver a pedir el código en este dispositivo
+          <span className="block text-[11.5px] text-muted-foreground">
+            Durante {DIAS_DISPOSITIVO_CONFIANZA} días desde la última vez que entres. Márcalo solo en un dispositivo que uses únicamente tú.
+          </span>
+        </span>
+      </label>
       <button type="submit" disabled={trabajando || codigo.length !== 6} className={botonPrincipal}>
         {trabajando && <Loader2 size={14} className="animate-spin" aria-hidden />}
         Verificar
