@@ -1096,6 +1096,12 @@ export interface RowStudios {
   plaza_fija_aprobacion: string | null;
   // migr 20261002230422.
   plaza_fija_auto_tope_pct: number | null;
+  // migr 20261003020000.
+  contrato_terminado_en: string | null;
+  // migr 20261003020000.
+  supresion_pedida_en: string | null;
+  // migr 20261003020400.
+  exigir_doble_factor: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -1745,6 +1751,8 @@ export interface RowMandatosSepa {
   fecha_firma: string;
   estado: string;
   creada_en: string;
+  // migr 20261003020100.
+  iban_ultimos4: string | null;
 }
 
 export interface RowNotification {
@@ -2990,6 +2998,8 @@ export interface RowCicloEstudiosVencidos {
   resumen: any;
   creado_en: string;
   actualizado_en: string;
+  // migr 20261003020000.
+  motivo: string | null;
 }
 
 export interface RowKioskoTokens {
@@ -5379,6 +5389,9 @@ export type StudiosInsert = {
   recuperacion_max_vivas?: number | null | null;
   plaza_fija_aprobacion?: string | null | null;
   plaza_fija_auto_tope_pct?: number | null | null;
+  contrato_terminado_en?: string | null | null;
+  supresion_pedida_en?: string | null | null;
+  exigir_doble_factor?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5525,6 +5538,9 @@ export type StudiosUpdate = {
   recuperacion_max_vivas?: number | null | null;
   plaza_fija_aprobacion?: string | null | null;
   plaza_fija_auto_tope_pct?: number | null | null;
+  contrato_terminado_en?: string | null | null;
+  supresion_pedida_en?: string | null | null;
+  exigir_doble_factor?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -6662,6 +6678,7 @@ export type MandatosSepaInsert = {
   fecha_firma?: string | null;
   estado?: string | null;
   creada_en?: string | null;
+  iban_ultimos4?: string | null | null;
 }
 
 export type MandatosSepaUpdate = {
@@ -6673,6 +6690,7 @@ export type MandatosSepaUpdate = {
   fecha_firma?: string | null;
   estado?: string | null;
   creada_en?: string | null;
+  iban_ultimos4?: string | null | null;
 }
 
 export type NotificationInsert = {
@@ -9006,6 +9024,7 @@ export type CicloEstudiosVencidosInsert = {
   resumen?: any | null;
   creado_en?: string | null;
   actualizado_en?: string | null;
+  motivo?: string | null | null;
 }
 
 export type CicloEstudiosVencidosUpdate = {
@@ -9019,6 +9038,7 @@ export type CicloEstudiosVencidosUpdate = {
   resumen?: any | null;
   creado_en?: string | null;
   actualizado_en?: string | null;
+  motivo?: string | null | null;
 }
 
 export type KioskoTokensInsert = {

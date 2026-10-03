@@ -13,7 +13,7 @@ import { AlertTriangle, CheckCheck, Landmark, Loader2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import type { Recibo } from '@/lib/types';
 import { construirRemesa } from '@/lib/sepa-19-14';
-import { dbEstadosPenalizacionDeRecibos, dbLeerRecibosParaRemesa } from '@/lib/supabase-data';
+import { dbEstadosPenalizacionDeRecibos, dbIbanesParaRemesa, dbLeerRecibosParaRemesa } from '@/lib/supabase-data';
 import { avisoPenalizacionesFueraDeRemesa, recibosParaRemesa } from '@/lib/billing/penalizacion-aprobar-reglas';
 import {
   DIAS_HASTA_CARGO_REMESA, avisoCobrosEnMarchaFueraDeRemesa, avisoXmlFallido, avisoYaNoPendientes, prepararRemesa, recibosSinCobroEnMarcha,
@@ -120,6 +120,10 @@ function Remesa({ onCerrar, onOcupado }: { onCerrar: () => void; onOcupado: (o: 
       // misma regla que «Cobrar online»), y ninguno con un cobro ya en marcha
       // (leído de la base ahora). Lo que va en el XML es lo que el banco carga.
       const pendientes = recibos.filter(r => r.estado === 'PENDIENTE');
+      // Los IBAN enteros los da el servidor ahora, descifrados, y solo viven en
+      // esta función: el panel no los guarda (lib/billing/iban-cifrado.ts). Si
+      // no se pueden leer todos, lanza y no se marca nada (el catch de abajo).
+      const ibanes = await dbIbanesParaRemesa();
       const remesa = recibosParaRemesa(pendientes, await dbEstadosPenalizacionDeRecibos(pendientes.map(r => r.id)));
       const libres = recibosSinCobroEnMarcha(remesa.entran, await dbLeerRecibosParaRemesa(remesa.entran.map(r => r.id)));
       const porId = new Map(libres.entran.map(r => [r.id, r]));
@@ -132,9 +136,7 @@ function Remesa({ onCerrar, onOcupado }: { onCerrar: () => void; onOcupado: (o: 
           const r = porId.get(id);
           return r ? [{ id: r.id, socioId: r.socioId, importe: r.importe, concepto: r.concepto }] : [];
         }),
-        mandatosVigentes: mandatosSepa
-          .filter(m => m.estado === 'VIGENTE')
-          .map(m => ({ socioId: m.socioId, iban: m.iban, refMandato: m.refMandato, fechaFirma: m.fechaFirma })),
+        mandatosVigentes: ibanes,
         nombreSocio,
         msgId: `TENTARE-${hoy.getFullYear()}${String(hoy.getMonth() + 1).padStart(2, '0')}${String(hoy.getDate()).padStart(2, '0')}-${String(hoy.getHours())}${String(hoy.getMinutes())}`,
         creDtTm: hoy.toISOString().slice(0, 19),

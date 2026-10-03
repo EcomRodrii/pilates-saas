@@ -403,7 +403,11 @@ export interface MandatoSEPA {
   id: string;
   studioId: string;
   socioId: string;
-  iban: string;
+  /**
+   * Solo los 4 últimos dígitos. El IBAN entero se guarda cifrado y el panel no
+   * lo tiene nunca: lo pide la remesa al generarse (`dbIbanesParaRemesa`).
+   */
+  ibanUltimos4: string;
   refMandato: string;
   fechaFirma: string;   // YYYY-MM-DD
   estado: 'VIGENTE' | 'CANCELADO';

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { correoFalloPagoSaas, correoEstudioVencido, correoAccesoActivado, correoResumenSemanal } from './cuenta.ts';
+import { correoFalloPagoSaas, correoEstudioVencido, correoAccesoActivado, correoResumenSemanal, correoDatosBorrados } from './cuenta.ts';
 import { TENTARE } from './plantilla.ts';
 
 const URL = 'https://app.example.com';
@@ -38,6 +38,36 @@ test('el primer aviso de vencido no habla de borrar', () => {
   assert.match(html, /Descargar los datos del estudio/);
 });
 
+test('la baja de un estudio de pago lleva primero a descargar, y solo promete borrar si está armado', () => {
+  const base = { fase: 'aviso_baja' as const, motivo: 'baja' as const, estudioNombre: 'Casa Pilates', fechaPurga: '4 de noviembre de 2026', urlSuscripcion: `${URL}/s`, urlExportar: `${URL}/e` };
+  const armado = correoEstudioVencido({ ...base, purgaArmada: true });
+  const desarmado = correoEstudioVencido({ ...base, purgaArmada: false });
+  assert.match(armado, /La suscripción de Casa Pilates a Tentare ha terminado/);
+  assert.ok(!armado.includes('prueba gratuita'));
+  // El botón principal es la descarga; reactivar queda como enlace.
+  assert.ok(armado.indexOf(`${URL}/e`) < armado.indexOf(`${URL}/s`), 'la descarga va antes que reactivar');
+  assert.match(armado, /Reactivar la suscripción/);
+  assert.match(armado, /Después borraremos/);
+  assert.ok(!desarmado.includes('borraremos'), 'con el interruptor apagado ese día solo se calcula un informe');
+  assert.match(desarmado, /para que puedas descargarlos/);
+  assert.ok(!armado.includes(TENTARE.alerta), 'el primer aviso no es una alarma');
+});
+
+test('la descarga que se anuncia ya lleva la salud: nadie dice «sin ficha clínica»', () => {
+  for (const fase of ['aviso_30', 'aviso_baja', 'aviso_final'] as const) {
+    const html = correoEstudioVencido({ fase, estudioNombre: 'Casa Pilates', fechaPurga: 'x', purgaArmada: false, urlSuscripcion: `${URL}/s`, urlExportar: `${URL}/e` });
+    assert.ok(!html.includes('sin ficha clínica'), fase);
+    assert.match(html, /ficha de salud/, fase);
+  }
+});
+
+test('la confirmación del borrado dice qué se borró y qué se conserva por ley', () => {
+  const html = correoDatosBorrados({ estudioNombre: 'Casa Pilates', fecha: '4 de noviembre de 2026' });
+  assert.match(html, /4 de noviembre de 2026/);
+  assert.match(html, /copias de seguridad/);
+  assert.match(html, /facturas, los recibos, los registros de facturación y los mandatos SEPA/);
+});
+
 test('el acceso activado enseña con qué correo ha entrado', () => {
   // Es lo único que delata una dirección mal tecleada en la ficha.
   const html = correoAccesoActivado({ nombre: 'Marta', emailCuenta: 'marta@example.com', estudioNombre: 'Casa Pilates', urlEquipo: `${URL}/equipo` });
@@ -60,6 +90,7 @@ test('ninguno de estos correos lleva la marca de un estudio', () => {
     correoFalloPagoSaas({ estudioNombre: 'Casa Pilates', plan: 'Estudio', urlSuscripcion: URL }),
     correoAccesoActivado({ nombre: 'Marta', emailCuenta: null, estudioNombre: 'Casa Pilates', urlEquipo: URL }),
     correoResumenSemanal({ propietariaNombre: 'Carmen', estudioNombre: 'Casa Pilates', rangoTexto: 'x', urlCentroDeControl: URL }),
+    correoDatosBorrados({ estudioNombre: 'Casa Pilates', fecha: '4 de noviembre de 2026' }),
   ];
   const kit = new Set(Object.values(TENTARE).map(c => c.toUpperCase()));
   for (const html of correos) {

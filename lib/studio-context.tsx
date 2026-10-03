@@ -2004,19 +2004,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  // F2 (B2.10): mandato SEPA de una socia (uno vigente por socia). Reutiliza el id
-  // del vigente si ya lo tiene (así el índice único no salta al editar el IBAN).
+  // F2 (B2.10): mandato SEPA de una socia (uno vigente por socia). El servidor
+  // reutiliza el id del vigente, cifra el IBAN y devuelve el mandato sin él: el
+  // estado del panel solo guarda lo que devuelve (2-oct-2026).
   async function ponerMandato(socioId: string, iban: string, refMandato: string, fechaFirma: string): Promise<ResultadoEscritura> {
-    const existente = mandatosSepa.find(m => m.socioId === socioId && m.estado === 'VIGENTE');
-    const m: MandatoSEPA = {
-      id: existente?.id ?? `mnd-${uid()}`, studioId: getCurrentStudioId(), socioId,
-      iban: iban.replace(/\s+/g, '').toUpperCase(), refMandato, fechaFirma, estado: 'VIGENTE',
-      creadaEn: existente?.creadaEn ?? new Date().toISOString(),
-    };
-    const res = await dbUpsertMandatoSepa(m);
+    const res = await dbUpsertMandatoSepa(socioId, iban, refMandato, fechaFirma);
     if (!res.ok) return res;
-    setMandatosSepa(prev => [...prev.filter(x => x.id !== m.id), m]);
-    return res;
+    const m = res.mandato;
+    if (m) setMandatosSepa(prev => [...prev.filter(x => x.id !== m.id), m]);
+    return { ok: true };
   }
   async function quitarMandato(id: string): Promise<ResultadoEscritura> {
     const res = await dbCancelarMandatoSepa(id);
