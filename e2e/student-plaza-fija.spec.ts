@@ -441,6 +441,10 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     await page.goto(`${base}/clases-fijas/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('clase-fija-solo-cuota')).toContainText('La clase fija es para quien tiene una cuota activa', { timeout: 30_000 });
     await expect(page.getByRole('link', { name: 'Ver las cuotas' })).toHaveAttribute('href', `${base}/comprar`);
+    // La barra de abajo lleva texto: con fondo transparente se pisaba con lo que pasa por debajo al hacer scroll.
+    const barra = page.getByTestId('accion-clase-fija');
+    await expect(barra).toHaveCSS('background-image', 'none');
+    await expect(barra).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
     await expect(page.getByTestId('duracion-clase-fija')).toHaveCount(0);
     expect(visto.intentos, 'nada sale hacia el servidor').toBe(0);

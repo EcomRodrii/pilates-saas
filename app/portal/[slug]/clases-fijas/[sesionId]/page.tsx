@@ -130,7 +130,7 @@ export default function FichaClaseFijaPage() {
     <StudentShell headerTransparente>
       <FichaClaseHero clase={clase} chips={[cadaSemana, `${clase.duracionMin} min`, clase.sala]} />
 
-      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: eligeDuracion ? 200 : 110 }}>
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: 200 }}>
         <p className="t-label" style={{ margin: 0 }}>{TPF.titulo}</p>
 
         {inst && <InstructorCard i={inst} onClick={() => setVerInstructora(true)} />}
@@ -171,9 +171,11 @@ export default function FichaClaseFijaPage() {
         data-testid="accion-clase-fija"
         style={{
           position: 'fixed', left: 0, right: 0, bottom: 'var(--nav-total)', zIndex: 39, padding: '10px 16px 12px',
-          // Con el selector de duración la barra es más alta: fondo sólido, o el texto de debajo se cuela detrás.
-          background: eligeDuracion ? 'var(--background)' : 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)',
-          boxShadow: eligeDuracion ? '0 -6px 14px -8px rgba(0,0,0,0.12)' : undefined, maxWidth: 640, margin: '0 auto',
+          // Fondo SÓLIDO en todos los estados: todos llevan texto (la duración, «ya es tu clase fija», «solo con cuota»…), y con
+          // un degradado transparente por arriba ese texto se pisaba con lo que pasa por debajo al hacer scroll (el bloque de
+          // «reservar las próximas clases con tu bono» lo dejó a la vista). El margen de abajo (`paddingBottom` de arriba) es
+          // el de la barra más alta, para que lo último del contenido se pueda leer entero.
+          background: 'var(--background)', boxShadow: '0 -6px 14px -8px rgba(0,0,0,0.12)', maxWidth: 640, margin: '0 auto',
           display: 'flex', flexDirection: 'column', gap: 6,
         }}
       >

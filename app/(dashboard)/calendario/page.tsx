@@ -3427,6 +3427,7 @@ export default function Calendario() {
             onCrearRecurrente={gestionaClientas ? () => { setInitialRecurrente(undefined); setShowRecurrentes(true); } : undefined}
             puedeGestionarClasesFijas={puedeGestionarCalendario(rolActual)}
             alumnasPidenPlaza={gestionaClientas ? studio?.plazaFijaSolicitarDesdeApp === true : undefined}
+            plazasSeApruebanSolas={studio?.plazaFijaAprobacion === 'AUTOMATICA'}
             hrefAjustePeticiones={gestionaClientas && puedeAbrirEnConfiguracion(rolActual, HREF_PETICIONES_PLAZA_FIJA) ? HREF_PETICIONES_PLAZA_FIJA : null}
             preseleccionClaseFija={preseleccionClaseFija}
             onPreseleccionClaseFijaConsumida={() => setPreseleccionClaseFija(null)}
