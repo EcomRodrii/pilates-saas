@@ -48,8 +48,13 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
+      // El logo se queda hasta que la web lo quita al pintarse
+      // (`ocultarPantallaDeCarga`, lib/nativo/puente.ts). Con 600 ms se iba
+      // antes de que llegara la web y un arranque en frío enseñaba hasta 20 s
+      // de pantalla en blanco. El plazo es solo la red de seguridad por si la
+      // web no llegara a llamarla; la página de «Sin conexión» también la quita.
       launchAutoHide: true,
-      launchShowDuration: 600,
+      launchShowDuration: 15000,
       backgroundColor: '#F8FAFC',
       showSpinner: false,
     },
