@@ -41,8 +41,6 @@ export type OrigenDelCobro = 'COBRAR_ONLINE' | 'AUTOMATIZACIONES';
 
 /** El origen que lleva el contexto de una entrada de «marcar cobrado» a mano. */
 export const ORIGEN_MARCAR_COBRADO = 'MARCAR_COBRADO';
-/** El de un cobro confirmado con un movimiento del banco (bandeja de cobros externos). */
-export const ORIGEN_COBROS_EXTERNOS = 'COBROS_EXTERNOS';
 
 type Fila = Record<string, unknown>;
 
@@ -166,12 +164,6 @@ export async function anotarCobroMarcadoAMano(
     antes: Fila | null;
     /** «El banco lo ha cobrado» (el cierre de una remesa), no un cobro en el mostrador. */
     porElBanco?: boolean;
-    /**
-     * Cobrado con un movimiento del fichero del banco (cobros externos): cuál. Con
-     * `iniciadoPor`, lo cerró la recuperación de una confirmación que murió a medias,
-     * y esa es la cuenta que la empezó.
-     */
-    externo?: { movimientoId: string; iniciadoPor?: string | null };
   },
   registrar: RegistrarAuditoria = registrarAuditoriaServidor,
   informar: Informar = avisarAuditoria,
@@ -187,7 +179,7 @@ export async function anotarCobroMarcadoAMano(
     const antesCobro = soloCobro(p.antes);
     const despuesCobro = soloCobro(despues);
     if (antesCobro && JSON.stringify(antesCobro) === JSON.stringify(despuesCobro)) {
-      informar('AUDITORIA_COBRO_SIN_CAMBIO_EN_EL_RECIBO', { tabla: 'recibos', filaId: p.reciboId, userId: p.sesion.userId, rol: p.sesion.rol, origen: p.externo ? ORIGEN_COBROS_EXTERNOS : ORIGEN_MARCAR_COBRADO });
+      informar('AUDITORIA_COBRO_SIN_CAMBIO_EN_EL_RECIBO', { tabla: 'recibos', filaId: p.reciboId, userId: p.sesion.userId, rol: p.sesion.rol, origen: ORIGEN_MARCAR_COBRADO });
       return;
     }
 
@@ -198,12 +190,10 @@ export async function anotarCobroMarcadoAMano(
       antes: antesCobro,
       despues: despuesCobro,
       contexto: {
-        accion: p.externo ? 'COBRO_EXTERNO_CONFIRMADO' : p.porElBanco ? 'COBRO_CONFIRMADO_POR_BANCO' : 'COBRO_MARCADO_A_MANO',
+        accion: p.porElBanco ? 'COBRO_CONFIRMADO_POR_BANCO' : 'COBRO_MARCADO_A_MANO',
         concepto: (despues.concepto as string | null) ?? null,
         importe: Number(despues.importe) || null,
-        origen: p.externo ? ORIGEN_COBROS_EXTERNOS : ORIGEN_MARCAR_COBRADO,
-        ...(p.externo ? { movimiento_id: p.externo.movimientoId } : {}),
-        ...(p.externo && 'iniciadoPor' in p.externo ? { recuperado: true, iniciado_por: p.externo.iniciadoPor ?? null } : {}),
+        origen: ORIGEN_MARCAR_COBRADO,
         // Sin la lectura de antes, el «antes» de cada columna sale vacío: no significa que no hubiera valor.
         ...(p.antes ? {} : { sin_valor_anterior: true }),
       },

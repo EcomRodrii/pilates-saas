@@ -110,6 +110,24 @@ for ruta in ficheros:
                 tables[name].pop(col, None)
                 origen.pop((name, col), None)
 
+    # ...y los DROP TABLE. Tampoco estaban: `usuarios` (migr 20260917121132) seguía
+    # tipada meses después de borrarse, y la retirada de cobros externos (3-oct-2026)
+    # habría dejado otras dos. Solo la SENTENCIA que empieza por `drop table`: un
+    # `alter publication ... drop table` no borra nada. Una tabla que se vuelve a
+    # crear más abajo en el mismo fichero se queda.
+    for sentencia in sql.split(';'):
+        m = re.match(r'\s*drop table\s+(?:if exists\s+)?(?:public\.)?(\w+)', sentencia, re.I)
+        if not m or m.group(1) not in tables:
+            continue
+        name = m.group(1)
+        resto = sql[sql.index(sentencia) + len(sentencia):]
+        if re.search(r'create table (?:if not exists )?(?:public\.)?' + name + r'\s*\(', resto, re.I):
+            continue
+        del tables[name]
+        order.remove(name)
+        for clave in [k for k in origen if k[0] == name]:
+            del origen[clave]
+
 # Afinado manual de columnas jsonb: el SQL solo dice "jsonb", que se traduce a
 # `any`. Estas tienen forma conocida y estaba declarada a mano en el
 # schema.sql anterior; se conserva aquí para no perder precisión de tipos al

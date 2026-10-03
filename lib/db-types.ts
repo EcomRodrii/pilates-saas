@@ -1163,16 +1163,6 @@ export interface RowTiposClase {
   archivado_en: string | null;
 }
 
-export interface RowUsuarios {
-  id: string;
-  studio_id: string | null;
-  rol: string | null;
-  nombre: string | null;
-  email: string | null;
-  telefono: string | null;
-  avatar_url: string | null;
-}
-
 export interface RowVentasPos {
   id: string;
   studio_id: string;
@@ -3910,64 +3900,6 @@ export interface RowMovimientosDerecho {
   creado_en: string;
 }
 
-export interface RowCobrosExternosLotes {
-  id: string;
-  studio_id: string;
-  fuente: string;
-  huella_fichero: string;
-  nombre_fichero: string | null;
-  cuenta_final: string | null;
-  periodo_desde: string | null;
-  periodo_hasta: string | null;
-  leidos: number;
-  nuevos: number;
-  ya_importados: number;
-  no_de_alumnas: number;
-  cargos: number;
-  con_error: number;
-  errores: any;
-  subido_por: string;
-  subido_en: string;
-}
-
-export interface RowCobrosExternos {
-  id: string;
-  studio_id: string;
-  lote_id: string | null;
-  fuente: string;
-  clave_idempotencia: string;
-  id_externo: string | null;
-  tipo: string;
-  metodo: string;
-  importe_centimos: number;
-  moneda: string;
-  fecha_operacion: string;
-  hora_operacion: string | null;
-  fecha_valor: string | null;
-  referencia: string | null;
-  tarjeta_ultimos4: string | null;
-  tarjeta_marca: string | null;
-  terminal_ref: string | null;
-  pagador_nombre: string | null;
-  concepto: string | null;
-  estado: string;
-  decision: any | null;
-  posible_duplicado_de: string | null;
-  recibo_id: string | null;
-  socio_id: string | null;
-  resuelto_como: string | null;
-  resuelto_por: string | null;
-  resuelto_en: string | null;
-  bloqueado_en: string | null;
-  descartado_motivo: string | null;
-  or: string | null;
-  error_ultimo: string | null;
-  revisar_tras: string | null;
-  datos_personales_purgados_en: string | null;
-  creado_en: string;
-  actualizado_en: string;
-}
-
 
 export type ReservasInsert = {
   id?: string | null;
@@ -5677,26 +5609,6 @@ export type TiposClaseUpdate = {
   requiere_checkin_qr?: boolean | null | null;
   orden?: number | null | null;
   archivado_en?: string | null | null;
-}
-
-export type UsuariosInsert = {
-  id?: string | null;
-  studio_id?: string | null | null;
-  rol?: string | null | null;
-  nombre?: string | null | null;
-  email?: string | null | null;
-  telefono?: string | null | null;
-  avatar_url?: string | null | null;
-}
-
-export type UsuariosUpdate = {
-  id?: string | null;
-  studio_id?: string | null | null;
-  rol?: string | null | null;
-  nombre?: string | null | null;
-  email?: string | null | null;
-  telefono?: string | null | null;
-  avatar_url?: string | null | null;
 }
 
 export type VentasPosInsert = {
@@ -10871,122 +10783,6 @@ export type MovimientosDerechoUpdate = {
   creado_en?: string | null;
 }
 
-export type CobrosExternosLotesInsert = {
-  id?: string | null;
-  studio_id?: string | null;
-  fuente?: string | null;
-  huella_fichero?: string | null;
-  nombre_fichero?: string | null | null;
-  cuenta_final?: string | null | null;
-  periodo_desde?: string | null | null;
-  periodo_hasta?: string | null | null;
-  leidos?: number | null;
-  nuevos?: number | null;
-  ya_importados?: number | null;
-  no_de_alumnas?: number | null;
-  cargos?: number | null;
-  con_error?: number | null;
-  errores?: any | null;
-  subido_por?: string | null;
-  subido_en?: string | null;
-}
-
-export type CobrosExternosLotesUpdate = {
-  id?: string | null;
-  studio_id?: string | null;
-  fuente?: string | null;
-  huella_fichero?: string | null;
-  nombre_fichero?: string | null | null;
-  cuenta_final?: string | null | null;
-  periodo_desde?: string | null | null;
-  periodo_hasta?: string | null | null;
-  leidos?: number | null;
-  nuevos?: number | null;
-  ya_importados?: number | null;
-  no_de_alumnas?: number | null;
-  cargos?: number | null;
-  con_error?: number | null;
-  errores?: any | null;
-  subido_por?: string | null;
-  subido_en?: string | null;
-}
-
-export type CobrosExternosInsert = {
-  id?: string | null;
-  studio_id?: string | null;
-  lote_id?: string | null | null;
-  fuente?: string | null;
-  clave_idempotencia?: string | null;
-  id_externo?: string | null | null;
-  tipo?: string | null;
-  metodo?: string | null;
-  importe_centimos?: number | null;
-  moneda?: string | null;
-  fecha_operacion?: string | null;
-  hora_operacion?: string | null | null;
-  fecha_valor?: string | null | null;
-  referencia?: string | null | null;
-  tarjeta_ultimos4?: string | null | null;
-  tarjeta_marca?: string | null | null;
-  terminal_ref?: string | null | null;
-  pagador_nombre?: string | null | null;
-  concepto?: string | null | null;
-  estado?: string | null;
-  decision?: any | null | null;
-  posible_duplicado_de?: string | null | null;
-  recibo_id?: string | null | null;
-  socio_id?: string | null | null;
-  resuelto_como?: string | null | null;
-  resuelto_por?: string | null | null;
-  resuelto_en?: string | null | null;
-  bloqueado_en?: string | null | null;
-  descartado_motivo?: string | null | null;
-  or?: string | null | null;
-  error_ultimo?: string | null | null;
-  revisar_tras?: string | null | null;
-  datos_personales_purgados_en?: string | null | null;
-  creado_en?: string | null;
-  actualizado_en?: string | null;
-}
-
-export type CobrosExternosUpdate = {
-  id?: string | null;
-  studio_id?: string | null;
-  lote_id?: string | null | null;
-  fuente?: string | null;
-  clave_idempotencia?: string | null;
-  id_externo?: string | null | null;
-  tipo?: string | null;
-  metodo?: string | null;
-  importe_centimos?: number | null;
-  moneda?: string | null;
-  fecha_operacion?: string | null;
-  hora_operacion?: string | null | null;
-  fecha_valor?: string | null | null;
-  referencia?: string | null | null;
-  tarjeta_ultimos4?: string | null | null;
-  tarjeta_marca?: string | null | null;
-  terminal_ref?: string | null | null;
-  pagador_nombre?: string | null | null;
-  concepto?: string | null | null;
-  estado?: string | null;
-  decision?: any | null | null;
-  posible_duplicado_de?: string | null | null;
-  recibo_id?: string | null | null;
-  socio_id?: string | null | null;
-  resuelto_como?: string | null | null;
-  resuelto_por?: string | null | null;
-  resuelto_en?: string | null | null;
-  bloqueado_en?: string | null | null;
-  descartado_motivo?: string | null | null;
-  or?: string | null | null;
-  error_ultimo?: string | null | null;
-  revisar_tras?: string | null | null;
-  datos_personales_purgados_en?: string | null | null;
-  creado_en?: string | null;
-  actualizado_en?: string | null;
-}
-
 export type Database = {
   public: {
     Tables: {
@@ -11214,11 +11010,6 @@ export type Database = {
         Row: RowTiposClase;
         Insert: TiposClaseInsert;
         Update: TiposClaseUpdate;
-      };
-      usuarios: {
-        Row: RowUsuarios;
-        Insert: UsuariosInsert;
-        Update: UsuariosUpdate;
       };
       ventas_pos: {
         Row: RowVentasPos;
@@ -12194,16 +11985,6 @@ export type Database = {
         Row: RowMovimientosDerecho;
         Insert: MovimientosDerechoInsert;
         Update: MovimientosDerechoUpdate;
-      };
-      cobros_externos_lotes: {
-        Row: RowCobrosExternosLotes;
-        Insert: CobrosExternosLotesInsert;
-        Update: CobrosExternosLotesUpdate;
-      };
-      cobros_externos: {
-        Row: RowCobrosExternos;
-        Insert: CobrosExternosInsert;
-        Update: CobrosExternosUpdate;
       };
     };
   };

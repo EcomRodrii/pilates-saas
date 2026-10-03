@@ -280,8 +280,6 @@ const COLUMNAS_NOMBRE_DECIDIDAS: Record<string, string> = {
   'verifactu_declaraciones_responsables.productor_nombre': 'fuera: el productor del SIF (Tentare), no del estudio; declaración de solo añadir',
   'verifactu_representaciones.apoderado_nombre': 'fuera: el apoderado de Tentare ante la AEAT, no del estudio',
   'verifactu_representaciones.otorgante_nombre': 'fuera: quien otorgó el poder IZ860 en la AEAT; evidencia de representación que se conserva por obligación legal',
-  'cobros_externos.pagador_nombre': 'fuera: quien ordenó el pago en el extracto del banco (una alumna o un tercero), no alguien del equipo; se vacía a los 90/180 días y al suprimir a la alumna',
-  'cobros_externos_lotes.nombre_fichero': 'fuera: el nombre del fichero subido, no de una persona',
 };
 
 test('toda columna *_nombre de texto tiene decidido qué pasa con ella (una nueva no pasa CI hasta decidirlo)', () => {

@@ -87,13 +87,3 @@ test('factura siempre: solo vigila los cobros desde el 4-oct-2026 (hora de Madri
   assert.equal(cobradoConFacturaSiempre({ fechaCobro: '2026-10-03T22:00:00Z' }), true);
   assert.equal(cobradoConFacturaSiempre({ fechaCobro: null }), false, 'sin fecha no se sabe si es de antes');
 });
-
-test('un cobro con un movimiento del banco cuenta desde que se CONFIRMÓ, no desde su fecha real', () => {
-  // Pagó el 25-sep, se confirmó con el extracto el 5-oct: la factura se pide al confirmar.
-  const externo = { fechaCobro: '2026-09-25', conciliadoPor: 'externo', conciliadoEn: '2026-10-05T09:00:00Z' };
-  assert.equal(cobradoConFacturaSiempre(externo), true);
-  assert.equal(cobradoConFacturaSiempre({ ...externo, conciliadoPor: 'manual' }), false, 'el resto, por su fecha de cobro');
-  const r = { id: 'rec-1', studioId: 'st', metodoCobro: 'TRANSFERENCIA', ...externo };
-  // A las 80 h de confirmarlo (13 días después de su fecha real) sigue siendo una avería reciente.
-  assert.deepEqual(averiasRecientes([r], new Date('2026-10-08T17:00:00Z')).map(x => x.id), ['rec-1']);
-});

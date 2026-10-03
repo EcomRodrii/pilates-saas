@@ -57,16 +57,13 @@ test('las puertas que abren otro cobro del recibo respetan la marca, antes y en 
   assert.match(checkout, /\.update\(\{ checkout_session_id: session\.id \}\)[\s\S]{0,200}\.is\('cobro_off_session_clave', null\)/);
 });
 
-test('cobrar a mano uno a uno y con un movimiento del banco: la marca se mira antes de cerrar el enlace o cancelar el datáfono', () => {
+test('cobrar a mano uno a uno: la marca se mira antes de cerrar el enlace o cancelar el datáfono', () => {
   const guarda = sinComentarios(leer('lib/cobros/antes-de-cobrar-a-mano-servidor.ts'));
   const cuerpo = guarda.slice(guarda.indexOf('export async function soltarPagosEnMarchaAntesDeCobrar('));
   const mira = cuerpo.indexOf('if (fila?.cobro_off_session_clave) return { ok: false, mensaje: MENSAJE_COBRO_CON_METODO_GUARDADO };');
   assert.ok(mira > 0, 'la guarda compartida no mira la marca');
   assert.ok(mira < cuerpo.indexOf('soltarCobroDeMostradorAntesDeCobrarAMano(') && mira < cuerpo.indexOf('cerrarPagoOnlineAntesDeCobrarAMano('),
     'antes de tocar el datáfono o el enlace de la clienta');
-  const externo = sinComentarios(leer('lib/cobros-externos/servidor.ts'));
-  assert.match(externo, /origen: 'externo',[\s\S]{0,800}sinCobroDeMostrador: true/, 'el cobro externo sigue exigiendo el cinturón');
-  assert.match(externo, /r\.enMarcha \? MENSAJE_COBRO_CON_METODO_GUARDADO/);
 });
 
 test('lo que borra o anula un recibo sin cobro en marcha mira también la marca', () => {

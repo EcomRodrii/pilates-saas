@@ -48,10 +48,6 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   penalizaciones: { seccion: 'pagos' },
   mandatos_sepa: { seccion: 'pagos' },
   codigos_descuento_consumos: { seccion: 'pagos' },
-  // Sus pagos identificados en el extracto del banco del estudio (cobros externos):
-  // el nombre con que pagó y el concepto que escribió son datos suyos que no están
-  // en el recibo. Solo los ligados a ella (cobrados, enlazados o doble cobro).
-  cobros_externos: { seccion: 'pagos' },
   citas: { seccion: 'citas' },
   plazas_fijas: { seccion: 'plazasFijas' },
   // En «otros», con las solicitudes de derechos: `plazasFijas` es la lista de sus
@@ -245,7 +241,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
   const sinFilas = Promise.resolve([] as Fila[]);
 
   const [
-    reservas, suscripciones, recibos, pagosHistoricos, ventas, devoluciones, penalizaciones, mandatos, codigos, movimientosBanco,
+    reservas, suscripciones, recibos, pagosHistoricos, ventas, devoluciones, penalizaciones, mandatos, codigos,
     citas, plazasFijas, peticionesPlazaFija, recuperaciones,
     saldo, movimientos, canjes, recompensas, logros, progresoLogros, retos, progresoRetos, participacionesRetos,
     participaciones, valoraciones, preferenciasClase, favoritos, documentos,
@@ -263,7 +259,6 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('mandatos_sepa', 'id, iban, ref_mandato, fecha_firma, estado, creada_en'),
     // Sin `studio_id` en la tabla: se acota por la socia (ids globales únicos).
     leer(db, 'codigos_descuento_consumos', 'recibo_id, consumido_en', [['eq', 'socio_id', socioId]], 'consumido_en'),
-    tabla('cobros_externos', 'id, fecha_operacion, importe_centimos, metodo, estado, tarjeta_ultimos4, pagador_nombre, concepto, referencia', 'fecha_operacion'),
     tabla('citas', 'id, instructor_id, tipo, inicio, fin, estado, precio, pagada, notas'),
     tabla('plazas_fijas', 'id, dia_semana, hora_inicio, sala_id, tipo_clase_id, vigencia_desde, vigencia_hasta, estado, pausa_desde, pausa_hasta, creada_en'),
     // Lo que pidió sobre su plaza fija y qué le contestó el estudio, con el motivo
@@ -417,11 +412,6 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
         penalizaciones: penalizaciones.map(p => ({ tipo: str(p.tipo), importe: num(p.importe), estado: str(p.estado), detectadaEn: str(p.detectada_en), procesadaEn: str(p.procesada_en) })),
         mandatosSepa: mandatos.map(m => ({ iban: enmascararIban(m.iban), referencia: str(m.ref_mandato), firmadoEl: str(m.fecha_firma), estado: str(m.estado) })),
         codigosDescuentoUsados: codigos.map(c => ({ usadoEn: str(c.consumido_en) })),
-        movimientosBanco: movimientosBanco.map(m => ({
-          fecha: str(m.fecha_operacion), importe: m.importe_centimos == null ? null : Number(m.importe_centimos) / 100,
-          metodo: str(m.metodo), estado: str(m.estado), tarjetaUltimos4: str(m.tarjeta_ultimos4),
-          pagador: str(m.pagador_nombre), concepto: str(m.concepto), referencia: str(m.referencia),
-        })),
       },
       citas: porFecha(citas, 'inicio').map(c => ({
         tipo: str(c.tipo), inicio: str(c.inicio), fin: str(c.fin), estado: str(c.estado), precio: num(c.precio), pagada: bool(c.pagada),

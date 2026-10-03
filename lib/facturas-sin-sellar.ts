@@ -24,18 +24,6 @@ export interface ReciboCobrado {
    * efectivo también la pide: si no llega, es avería igual que la de tarjeta.
    */
   facturaPendienteSellar?: boolean | null;
-  /** Por qué canal se confirmó, y cuándo: un cobro con un movimiento del banco ('externo') se confirma días después de su fecha. */
-  conciliadoPor?: string | null;
-  conciliadoEn?: string | null;
-}
-
-/**
- * Desde cuándo cuenta un cobro para la vigilancia de su factura. Un cobro confirmado con
- * un movimiento del banco lleva la fecha REAL del pago (puede ser de días antes), pero su
- * factura se intenta al CONFIRMARLO: cuenta desde ahí.
- */
-export function momentoDelCobro(r: Pick<ReciboCobrado, 'fechaCobro' | 'conciliadoPor' | 'conciliadoEn'>): string | null {
-  return r.conciliadoPor === 'externo' && r.conciliadoEn ? r.conciliadoEn : r.fechaCobro;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,10 +61,9 @@ export function momentoDelCobro(r: Pick<ReciboCobrado, 'fechaCobro' | 'conciliad
 export const FACTURA_SIEMPRE_DESDE = '2026-10-03T22:00:00Z';
 
 /** ¿Este cobro entra en la vigilancia? Sin fecha de cobro, no: no se sabe si es de antes. */
-export function cobradoConFacturaSiempre(r: Pick<ReciboCobrado, 'fechaCobro' | 'conciliadoPor' | 'conciliadoEn'>): boolean {
-  const cuando = momentoDelCobro(r);
-  if (!cuando) return false;
-  const t = Date.parse(cuando.length === 10 ? `${cuando}T00:00:00Z` : cuando);
+export function cobradoConFacturaSiempre(r: Pick<ReciboCobrado, 'fechaCobro'>): boolean {
+  if (!r.fechaCobro) return false;
+  const t = Date.parse(r.fechaCobro.length === 10 ? `${r.fechaCobro}T00:00:00Z` : r.fechaCobro);
   return Number.isFinite(t) && t >= Date.parse(FACTURA_SIEMPRE_DESDE);
 }
 
@@ -120,8 +107,7 @@ export function averiasRecientes(averia: ReciboCobrado[], ahora: Date): ReciboCo
   const hasta = ahora.getTime() - HORAS_REINTENTO_FACTURA * 3600_000;
   const desde = ahora.getTime() - DIAS_AVERIA_RECIENTE * 86_400_000;
   return averia.filter(r => {
-    const cuando = momentoDelCobro(r);
-    const t = cuando ? Date.parse(cuando) : NaN;
+    const t = r.fechaCobro ? Date.parse(r.fechaCobro) : NaN;
     return Number.isFinite(t) && t < hasta && t >= desde;
   });
 }

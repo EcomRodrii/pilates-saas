@@ -4,7 +4,7 @@
 // `cobrarReciboOffSession` crea y confirma el cargo en la MISMA llamada a Stripe
 // (`confirm: true`), así que no hay un «después» donde guardar nada a tiempo: si
 // entre leer el recibo y cobrarlo alguien lo daba por cobrado por otra puerta
-// («Marcar cobrado», «El banco lo ha cobrado», un movimiento del banco), entraban
+// («Marcar cobrado», «El banco lo ha cobrado»), entraban
 // dos cobros reales y solo se veía después (`otro_cobro` en `confirmarCobro`).
 //
 // Ahora, justo antes del `create`, el recibo se RESERVA con compare-and-set

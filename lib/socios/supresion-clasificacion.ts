@@ -84,10 +84,6 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
   favoritos_clase: { accion: 'BORRAR', detalle: 'Favoritos.' },
   avisos_hueco: { accion: 'BORRAR', detalle: 'Avisos de hueco enviados.' },
   widget_eventos: { accion: 'ANONIMIZAR', detalle: '`socio_id` a NULL: el evento cuenta para la analítica del widget sin apuntar a nadie.' },
-  cobros_externos: {
-    accion: 'ANONIMIZAR',
-    detalle: '`socio_id`, `pagador_nombre`, `concepto` y `referencia` a NULL: el movimiento del banco queda como traza del cobro (el recibo se conserva), sin decir de quién era.',
-  },
   instructor_dependency_snapshots: {
     accion: 'ANONIMIZAR',
     detalle: 'En `detalle` (jsonb [{socioId, nombre, …}]) su elemento pasa a nombre «Socia eliminada».',
