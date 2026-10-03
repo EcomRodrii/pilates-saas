@@ -102,6 +102,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     let vivo = true;
     void pasoDobleFactorDelPanel(session.access_token).then((paso) => {
       if (!vivo || paso === 'ok') return;
+      // Entró sin código por un dispositivo recordado, pero lo que el panel ya
+      // había pedido salió sin ese permiso: una recarga lo vuelve a pedir bien.
+      // Casi nunca pasa: el login lo resuelve antes de llegar aquí.
+      if (paso === 'recargar') { window.location.reload(); return; }
       const volver = encodeURIComponent(window.location.pathname + window.location.search);
       window.location.replace(`/verificar-acceso?${paso === 'activar' ? 'activar=1&' : ''}volver=${volver}`);
     });
