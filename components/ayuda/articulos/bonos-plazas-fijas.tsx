@@ -22,14 +22,16 @@ export default function Contenido() {
           la vista «Horario».</li>
         <li><strong>La pide ella.</strong> Viene activado de serie (Configuración → «Cómo reservan mis alumnas» →
           «Peticiones desde su app»): en su app, en Reservar → «Clases fijas», toca una clase que se repite y le sale{' '}
-          <strong>«Pedir clase fija»</strong>. En la ficha de una clase normal solo puede reservar, para no mezclar las
-          dos cosas. Tú la apruebas en Resumen, o se da sola si cumple tus reglas (lo eliges en ese mismo ajuste).</li>
+          <strong>«Pedir clase fija»</strong>. Y en la ficha de cualquier clase que se repite tiene el interruptor{' '}
+          <strong>«Auto reservable»</strong>, que hace lo mismo: elige cuánto tiempo y lo activa (no se enciende hasta que
+          queda confirmado). Tú la apruebas en Resumen, o se da sola si cumple tus reglas (lo eliges en ese mismo ajuste).</li>
         <li><strong>Al darle una cuota</strong>, te preguntamos si le das plaza fija.</li>
       </ul>
       <p>
         En los tres casos <strong>hace falta que tenga una cuota</strong> que incluya esa clase. Con un bono o con
         clases sueltas no hay plaza fija: se reserva clase a clase. Por eso a una alumna con bono no le sale el botón
-        de pedirla en su app: le explicamos que la plaza fija es para quien tiene cuota.
+        de pedirla en su app: le explicamos que la plaza fija es para quien tiene cuota, y con «Auto reservable» puede
+        reservar de una vez las próximas semanas, descontando una sesión de su bono por cada una.
       </p>
 
       <h2 style={h2}>Qué ve tu alumna</h2>

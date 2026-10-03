@@ -9,6 +9,7 @@ import { horaAhora, hoyISO } from '@/lib/student/formato';
 import { pedirCatalogoClasesFijas } from '@/lib/student/clases-fijas-datos';
 import { proyectarClasesFijas, proyectarClasesSueltas, type ClaseFijaVista, type ClaseSueltaVista } from '@/lib/student/clases-fijas';
 import { hoyEnEstudio } from '@/lib/utils';
+import type { PlazaFijaMin } from '@/lib/student/plaza-fija';
 import { tarjetasDescubre, type TarjetaDescubre } from '@/lib/student/descubre';
 import type { Alumna, Bono, Clase, Instructora, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from '@/lib/student/tipos';
 import type { RenovacionPorPagar } from '@/lib/billing/renovacion-sin-tarjeta';
@@ -134,6 +135,8 @@ export interface ClasesFijasData {
   ofertas: ClaseFijaVista[];
   /** Clases que ya se repiten y no están en ninguna oferta: solo si el estudio deja pedir plaza fija desde la app. */
   sueltas: ClaseSueltaVista[];
+  /** Sus plazas fijas tal cual (con id y clase fija de origen): el interruptor «Auto reservable» enciende y deja por ellas. */
+  plazas: PlazaFijaMin[];
 }
 
 /**
@@ -152,5 +155,6 @@ export async function getClasesFijas(slug: string): Promise<ClasesFijasData | nu
   return {
     ofertas: proyectarClasesFijas(cat, socia, d?.planesTarifa ?? [], hoy),
     sueltas: proyectarClasesSueltas(cat.sueltas, socia, d?.planesTarifa ?? [], hoy),
+    plazas: (d?.socia?.plazasFijas ?? []) as PlazaFijaMin[],
   };
 }

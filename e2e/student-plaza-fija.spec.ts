@@ -212,7 +212,18 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
 const horaEstudioDe = (inicioSinZona: string) =>
   new Date(inicioSinZona).toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hour12: false });
 
-async function montarClaseQueSeRepite(page: Page, plan: 'cuota' | 'bono' | 'ninguno', opts: { laTiene?: boolean; sinFranjas?: boolean } = {}) {
+/** Una clase fija CON NOMBRE que incluye la clase del fixture (miércoles) y otra el viernes. */
+const OFERTA_CON_NOMBRE = (c: { estado?: 'DISPONIBLE' | 'COMPLETA' } = {}) => ({
+  id: 'cf-1', nombre: 'Reformer · miércoles y viernes', descripcion: null, estado: c.estado ?? 'DISPONIBLE', plazasLibres: c.estado === 'COMPLETA' ? 0 : 3,
+  duraciones: [{ meses: 1, etiqueta: '1 mes', hasta: '2026-09-12' }, { meses: 3, etiqueta: '3 meses', hasta: '2026-11-12' }],
+  franjas: [
+    { diaSemana: 3, hora: horaEstudioDe('2026-08-12T10:00:00'), tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: null, logoUrl: null, proximaSesionId: SESION_ID },
+    { diaSemana: 5, hora: horaEstudioDe('2026-08-12T10:00:00'), tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: null, logoUrl: null, proximaSesionId: 'ses-vie' },
+  ],
+  programadaHasta: '2026-12-30',
+});
+
+async function montarClaseQueSeRepite(page: Page, plan: 'cuota' | 'bono' | 'ninguno', opts: { laTiene?: boolean; sinFranjas?: boolean; enOferta?: { estado?: 'DISPONIBLE' | 'COMPLETA'; pedida?: boolean } } = {}) {
   await sembrarSociaLista(page);
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   // La clase del fixture es el miércoles 12 de agosto a las 10:00: se repite el 19.
@@ -234,14 +245,17 @@ async function montarClaseQueSeRepite(page: Page, plan: 'cuota' | 'bono' | 'ning
   }
   if (opts.laTiene) {
     // La misma hora que el catálogo (la de estudio de la clase del fixture): la plaza y la franja tienen que casar.
-    (f.socia as Record<string, unknown>).plazasFijas = [{ id: 'pf-1', studioId: STUDIO_ID, socioId: SOCIO_ID, diaSemana: 3, horaInicio: `${horaEstudioDe('2026-08-12T10:00:00')}:00`, salaId: 'sala-1', tipoClaseId: 'tc-r', spotId: null, vigenciaDesde: '2026-01-01', vigenciaHasta: null, estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z' }];
+    (f.socia as Record<string, unknown>).plazasFijas = [{ id: 'pf-1', studioId: STUDIO_ID, socioId: SOCIO_ID, diaSemana: 3, horaInicio: `${horaEstudioDe('2026-08-12T10:00:00')}:00`, salaId: 'sala-1', tipoClaseId: 'tc-r', spotId: null, vigenciaDesde: '2026-01-01', vigenciaHasta: null, estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z', claseFijaId: opts.enOferta ? 'cf-1' : null }];
   }
   await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f) }));
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], unread: 0 }) }));
   // Las clases fijas del estudio: esta clase, suelta (sin oferta con nombre).
   await page.route('**/api/public/clases-fijas', (r) => r.fulfill({
     status: 200, contentType: 'application/json',
-    body: JSON.stringify({
+    body: JSON.stringify(opts.enOferta ? {
+      ofertas: [OFERTA_CON_NOMBRE({ estado: opts.enOferta.estado })], sueltas: [],
+      pedidas: opts.enOferta.pedida ? [{ claseFijaId: 'cf-1', solicitudId: 'scf-1', duracionMeses: 3, hasta: '2026-11-12', tipo: 'CREAR_CLASE_FIJA' }] : [],
+    } : {
       ofertas: [], pedidas: [],
       sueltas: opts.sinFranjas ? [] : [{
         serieId: 'serie-1', diaSemana: 3, hora: horaEstudioDe('2026-08-12T10:00:00'), tipoClaseId: 'tc-r', salaId: 'sala-1', instructorId: 'ins-1',
@@ -266,7 +280,7 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
   test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('la ficha de una clase del horario solo reserva: ni antes ni después se habla de clase fija', async ({ page }) => {
+  test('la ficha de una clase del horario reserva con su botón de siempre: la clase fija no aparece como botón suelto, ni antes ni después de reservar', async ({ page }) => {
     await montarClaseQueSeRepite(page, 'cuota');
     await page.route('**/api/public/reserva', (r) => {
       if (r.request().method() !== 'POST') return r.continue();
@@ -275,7 +289,8 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('button', { name: /^Reservar$/ }).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
-    await expect(page.getByText(/¿Vienes los/)).toHaveCount(0);
+    // La hoja de «Auto reservable» cerrada sigue en el DOM (inert, fuera de pantalla, como todas las hojas): lo que importa es que no se ve.
+    await expect(page.getByText(/¿Vienes los/)).not.toBeInViewport();
 
     await page.getByRole('button', { name: /^Reservar$/ }).first().click();
     await page.getByRole('button', { name: /^confirmar/i }).click();
@@ -340,22 +355,234 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     expect(Object.keys(visto.cuerpo as object)).not.toContain('duracionMeses');
   });
 
-  test('la ficha de una clase normal que se repite lleva a la ficha de clase fija: es un enlace, no una segunda acción', async ({ page }) => {
+  // ── «Auto reservable»: el interruptor de la ficha de una clase normal. NO se mueve al tocarlo: abre lo que toque y solo
+  //    cambia con lo que CONTESTA el servidor. ──
+
+  test('«Auto reservable»: el interruptor sale apagado, abre la hoja de cuánto tiempo y no manda nada hasta pulsar «Activar»', async ({ page }) => {
     await montarClaseQueSeRepite(page, 'cuota');
     const visto = await contarPeticiones(page);
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-    const enlace = page.getByTestId('repetir-cada-semana');
-    await expect(enlace).toBeVisible({ timeout: 30_000 });
-    await expect(enlace).toContainText('Repetir cada semana');
-    await expect(enlace).toContainText(/Los miércoles a las \d{2}:\d{2}, sin volver a reservar/);
-    await expect(enlace).toHaveAttribute('href', `${base}/clases-fijas/${SESION_ID}`);
-    // Aquí solo se RESERVA: la clase fija se pide en su ficha (decisión de los estudios, 23-sep).
+    const tarjeta = page.getByTestId('auto-reservable');
+    await expect(tarjeta).toBeVisible({ timeout: 30_000 });
+    await expect(tarjeta).toContainText('Auto reservable');
+    await expect(tarjeta).toContainText(/Los miércoles a las \d{2}:\d{2}, sin volver a reservar/);
+    const interruptor = page.getByRole('switch', { name: 'Auto reservable' });
+    await expect(interruptor).toHaveAttribute('aria-checked', 'false');
+    await expect(interruptor).toHaveAttribute('data-estado', 'apagado');
+    // Aquí sigue estando «Reservar» y no hay botón de pedir clase fija suelto en la ficha.
     await expect(page.getByRole('button', { name: 'Pedir clase fija' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Reservar$/ }).first()).toBeVisible();
 
-    await enlace.click();
-    await expect(page).toHaveURL(new RegExp(`${base}/clases-fijas/${SESION_ID}$`), { timeout: 30_000 });
-    expect(visto.intentos, 'mirar o navegar no pide nada').toBe(0);
+    await interruptor.click();
+    const hoja = page.getByTestId('auto-reservable-hoja');
+    await expect(hoja).toBeVisible();
+    await expect(hoja.getByTestId('duracion-clase-fija')).toBeVisible();
+    await expect(hoja).toContainText('Tu estudio tiene que confirmarla');
+    // Abrir la hoja no pide nada y el interruptor NO se ha movido.
+    expect(visto.intentos, 'mirar la hoja no pide nada').toBe(0);
+    await expect(interruptor).toHaveAttribute('data-estado', 'apagado');
+  });
+
+  test('«Auto reservable»: activar manda UNA petición con la duración elegida y el interruptor queda en pendiente (no encendido) hasta que el estudio conteste', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    const visto = await contarPeticiones(page);
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const interruptor = page.getByRole('switch', { name: 'Auto reservable' });
+    await interruptor.click({ timeout: 30_000 });
+    const hoja = page.getByTestId('auto-reservable-hoja');
+    await hoja.getByRole('button', { name: '6 meses' }).click();
+    await hoja.getByRole('button', { name: 'Activar auto reservable' }).click();
+
+    await expect(interruptor).toHaveAttribute('data-estado', 'pendiente', { timeout: 30_000 });
+    await expect(interruptor).toHaveAttribute('aria-checked', 'false');
+    // Para un lector de pantalla «desactivado» no basta: el interruptor lleva su descripción («ya la has pedido…»).
+    await expect(interruptor).toHaveAccessibleDescription(/Ya la has pedido/);
+    expect(visto.intentos, 'la petición salió de verdad').toBe(1);
+    expect(visto.cuerpo).toMatchObject({ accion: 'solicitar_plaza', sesionId: SESION_ID, duracionMeses: 6 });
+    await expect(page.getByTestId('auto-reservable')).toContainText('Ya la has pedido');
+    await expect(hoja).not.toBeInViewport();
+  });
+
+  test('«Auto reservable»: si el servidor la da al instante (aprobación automática), el interruptor se enciende con SU texto', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    const dicho = 'Tu clase fija de los miércoles a las 10:00 está confirmada. Ya tienes reservada la próxima clase.';
+    const visto = await contarPeticiones(page, { status: 200, body: { ok: true, solicitudId: 'spf-9', resuelta: true, mensaje: dicho } });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const interruptor = page.getByRole('switch', { name: 'Auto reservable' });
+    await interruptor.click({ timeout: 30_000 });
+    await page.getByTestId('auto-reservable-hoja').getByRole('button', { name: 'Activar auto reservable' }).click();
+
+    await expect(interruptor).toHaveAttribute('data-estado', 'encendido', { timeout: 30_000 });
+    await expect(interruptor).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByText(dicho)).toBeVisible();
+    expect(visto.intentos, 'la petición salió de verdad').toBe(1);
+  });
+
+  test('«Auto reservable»: si el servidor dice que no, la hoja sigue abierta con el motivo y el interruptor NO se enciende', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    const visto = await contarPeticiones(page, { status: 409, body: { error: 'Ya tienes otra clase a esa hora.' } });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const interruptor = page.getByRole('switch', { name: 'Auto reservable' });
+    await interruptor.click({ timeout: 30_000 });
+    const hoja = page.getByTestId('auto-reservable-hoja');
+    await hoja.getByRole('button', { name: 'Activar auto reservable' }).click();
+
+    await expect(hoja.getByRole('alert')).toContainText('Ya tienes otra clase a esa hora.', { timeout: 30_000 });
+    expect(visto.intentos, 'el camino de fallo sí intentó pedirla').toBeGreaterThan(0);
+    await expect(interruptor).toHaveAttribute('data-estado', 'apagado');
+    await expect(interruptor).toHaveAttribute('aria-checked', 'false');
+  });
+
+  test('«Auto reservable» encendido: apagarlo pide confirmación con lo que pasa con sus clases, y solo se apaga cuando el servidor dice que la dejó', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota', { laTiene: true });
+    let intentos = 0;
+    let cuerpo: Record<string, unknown> | null = null;
+    await page.route('**/api/public/plaza-fija', (r) => {
+      intentos++;
+      cuerpo = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, plazas: 1, canceladas: 3, mantenidas: 1, fallidas: 0, sinDejar: 0 }) });
+    });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const interruptor = page.getByRole('switch', { name: 'Auto reservable' });
+    await expect(interruptor).toHaveAttribute('data-estado', 'encendido', { timeout: 30_000 });
+    await expect(page.getByTestId('auto-reservable')).toContainText('Ya es tu clase fija');
+
+    await interruptor.click();
+    const aviso = page.getByTestId('dejar-aviso');
+    await expect(aviso).toContainText('Se cancelan las clases que tienes reservadas');
+    expect(intentos, 'abrir la confirmación no envía nada').toBe(0);
+    await expect(interruptor).toHaveAttribute('data-estado', 'encendido');
+
+    await page.getByRole('button', { name: 'Sí, dejarla' }).click();
+    await expect(interruptor).toHaveAttribute('data-estado', 'apagado', { timeout: 30_000 });
+    expect(intentos).toBeGreaterThan(0);
+    expect(cuerpo).toMatchObject({ accion: 'dejar_plaza', plazaId: 'pf-1' });
+    expect(Object.keys(cuerpo as object)).not.toContain('socioId');
+  });
+
+  test('«Auto reservable» encendido: si el servidor dice que no se pudo dejar, sigue encendido y se enseña el motivo', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota', { laTiene: true });
+    let intentos = 0;
+    await page.route('**/api/public/plaza-fija', (r) => {
+      intentos++;
+      return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'No se ha podido dejar tu clase fija. Inténtalo de nuevo o habla con tu estudio.' }) });
+    });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const interruptor = page.getByRole('switch', { name: 'Auto reservable' });
+    await expect(interruptor).toHaveAttribute('data-estado', 'encendido', { timeout: 30_000 });
+    await interruptor.click();
+    await page.getByRole('button', { name: 'Sí, dejarla' }).click();
+    await expect(page.getByTestId('dejar-aviso').getByRole('alert')).toContainText('No se ha podido dejar tu clase fija', { timeout: 30_000 });
+    expect(intentos, 'el camino de fallo sí lo intentó').toBeGreaterThan(0);
+    await expect(interruptor).toHaveAttribute('data-estado', 'encendido');
+  });
+
+  // ── La clase va dentro de una clase fija CON NOMBRE (desde «Ofrécelas en un clic», lo normal): el interruptor funciona igual ──
+
+  test('«Auto reservable» en una clase fija con nombre: activarlo pide la OFERTA entera con SUS duraciones (sin «Sin fin»), no una plaza suelta', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota', { enOferta: {} });
+    const visto = await contarPeticiones(page, { status: 200, body: { ok: true, solicitudId: 'scf-9' } });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const tarjeta = page.getByTestId('auto-reservable');
+    await expect(tarjeta).toContainText('Con «Reformer · miércoles y viernes»: todos sus días', { timeout: 30_000 });
+    const interruptor = page.getByRole('switch', { name: 'Auto reservable' });
+    await expect(interruptor).toHaveAttribute('data-estado', 'apagado');
+
+    await interruptor.click();
+    const hoja = page.getByTestId('auto-reservable-hoja');
+    await expect(hoja).toContainText('«Reformer · miércoles y viernes»: tu plaza queda reservada todos los miércoles y viernes');
+    await expect(hoja.getByRole('button', { name: 'Sin fin' })).toHaveCount(0);
+    // Por defecto la segunda duración de la oferta, con la fecha que calculó el servidor.
+    await expect(hoja.getByRole('button', { name: '3 meses' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(hoja.getByTestId('clase-fija-hasta')).toHaveText('Hasta el 12/11/2026');
+    await hoja.getByRole('button', { name: '1 mes' }).click();
+    await expect(hoja.getByTestId('clase-fija-hasta')).toHaveText('Hasta el 12/09/2026');
+    expect(visto.intentos, 'elegir no pide nada').toBe(0);
+
+    await hoja.getByRole('button', { name: 'Activar auto reservable' }).click();
+    await expect(interruptor).toHaveAttribute('data-estado', 'pendiente', { timeout: 30_000 });
+    expect(visto.intentos).toBe(1);
+    expect(visto.cuerpo).toMatchObject({ accion: 'solicitar_clase_fija', claseFijaId: 'cf-1', duracionMeses: 1 });
+    expect(Object.keys(visto.cuerpo as object)).not.toContain('sesionId');
+  });
+
+  test('«Auto reservable» en una clase fija con nombre pedida: pendiente, y anularla manda SU petición', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota', { enOferta: { pedida: true } });
+    const visto = await contarPeticiones(page, { status: 200, body: { ok: true } });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const interruptor = page.getByRole('switch', { name: 'Auto reservable' });
+    await expect(interruptor).toHaveAttribute('data-estado', 'pendiente', { timeout: 30_000 });
+    await interruptor.click();
+    await page.getByRole('button', { name: 'Anular la petición' }).click();
+    await expect(interruptor).toHaveAttribute('data-estado', 'apagado', { timeout: 30_000 });
+    expect(visto.intentos).toBe(1);
+    expect(visto.cuerpo).toMatchObject({ accion: 'cancelar_peticion', solicitudId: 'scf-1' });
+  });
+
+  test('«Auto reservable» en una clase fija con nombre que ya tiene: encendido, y apagarlo avisa de que deja TODOS sus días', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota', { enOferta: {}, laTiene: true });
+    let cuerpo: Record<string, unknown> | null = null;
+    let intentos = 0;
+    await page.route('**/api/public/plaza-fija', (r) => {
+      intentos++;
+      cuerpo = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, plazas: 2, canceladas: 4, mantenidas: 0, fallidas: 0, sinDejar: 0 }) });
+    });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const interruptor = page.getByRole('switch', { name: 'Auto reservable' });
+    await expect(interruptor).toHaveAttribute('data-estado', 'encendido', { timeout: 30_000 });
+    await expect(page.getByTestId('auto-reservable')).toContainText('Es tu clase fija «Reformer · miércoles y viernes»');
+
+    await interruptor.click();
+    await expect(page.getByTestId('dejar-aviso')).toContainText('Es una clase fija de varios días: los dejas todos.');
+    await page.getByRole('button', { name: 'Sí, dejarla' }).click();
+    await expect(interruptor).toHaveAttribute('data-estado', 'apagado', { timeout: 30_000 });
+    expect(intentos).toBe(1);
+    expect(cuerpo).toMatchObject({ accion: 'dejar_plaza', plazaId: 'pf-1' });
+    // Apagada vuelve a poder pedirse, y otra vez como OFERTA.
+    await expect(page.getByTestId('auto-reservable')).toContainText('Con «Reformer · miércoles y viernes»');
+  });
+
+  test('«Auto reservable» en una clase fija con nombre completa: se dice y el interruptor no se puede tocar', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota', { enOferta: { estado: 'COMPLETA' } });
+    const visto = await contarPeticiones(page);
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('auto-reservable')).toContainText('está completa', { timeout: 30_000 });
+    await expect(page.getByRole('switch', { name: 'Auto reservable' })).toBeDisabled();
+    expect(visto.intentos).toBe(0);
+  });
+
+  test('⚠️ tras activarlo, la ficha de detrás vuelve a leer sus datos (puede que esta clase ya esté reservada)', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'cuota');
+    let lecturas = 0;
+    // Registrado DESPUÉS del andamiaje: cuenta y deja pasar a su respuesta.
+    await page.route('**/api/public/studio-data', async (r) => { lecturas++; await r.fallback(); });
+    await contarPeticiones(page, { status: 200, body: { ok: true, solicitudId: 'spf-9', resuelta: true, mensaje: 'Confirmada.' } });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const interruptor = page.getByRole('switch', { name: 'Auto reservable' });
+    await interruptor.click({ timeout: 30_000 });
+    await expect.poll(() => lecturas, { timeout: 15_000 }).toBeGreaterThan(0);
+    const antes = lecturas;
+    await page.getByTestId('auto-reservable-hoja').getByRole('button', { name: 'Activar auto reservable' }).click();
+    await expect(interruptor).toHaveAttribute('data-estado', 'encendido', { timeout: 30_000 });
+    await expect.poll(() => lecturas, { timeout: 15_000 }).toBeGreaterThan(antes);
+  });
+
+  test('«Auto reservable» solo con bono: el interruptor no se enciende; abre la hoja con las próximas clases del bono', async ({ page }) => {
+    await montarClaseQueSeRepite(page, 'bono');
+    await montarLote(page);
+    const visto = await contarPeticiones(page);
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const interruptor = page.getByRole('switch', { name: 'Auto reservable' });
+    await expect(interruptor).toHaveAttribute('data-estado', 'apagado', { timeout: 30_000 });
+    await interruptor.click();
+    const bono = page.getByTestId('auto-reservable-bono');
+    await expect(bono).toContainText('Con bono no hay clase fija', { timeout: 30_000 });
+    await expect(bono.getByTestId('reservar-proximas')).toBeVisible();
+    await expect(bono.getByRole('link', { name: 'Ver las cuotas' })).toHaveAttribute('href', `${base}/comprar`);
+    await expect(page.getByTestId('auto-reservable-hoja')).not.toBeInViewport();
+    expect(visto.intentos, 'mirar no pide ninguna clase fija').toBe(0);
+    await expect(interruptor).toHaveAttribute('data-estado', 'apagado');
   });
 
   test('sin franja que se repita, o con el catálogo roto, la ficha queda como estaba y no se frena la reserva', async ({ page }) => {
@@ -365,7 +592,7 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('button', { name: /^Reservar$/ }).first()).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => pedidos, { timeout: 15_000 }).toBeGreaterThan(0);
-    await expect(page.getByTestId('repetir-cada-semana')).toHaveCount(0);
+    await expect(page.getByTestId('auto-reservable')).toHaveCount(0);
 
     // Una respuesta con otra forma: la ficha no puede dar por hecha la forma.
     let rotos = 0;
@@ -373,7 +600,7 @@ test.describe('Student PWA · cómo pedir una plaza fija', () => {
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('button', { name: /^Reservar$/ }).first()).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => rotos, { timeout: 15_000 }).toBeGreaterThan(0);
-    await expect(page.getByTestId('repetir-cada-semana')).toHaveCount(0);
+    await expect(page.getByTestId('auto-reservable')).toHaveCount(0);
   });
 
   test('si el servidor dice que no, la ficha no dice que sí', async ({ page }) => {

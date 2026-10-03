@@ -42,8 +42,16 @@ test('la ruta tiene la acción, con el límite de peticiones y sin más identida
 
 test('el botón solo sale si el estudio lo permite y la plaza es suya (id), y el diálogo cuenta lo que pasa', () => {
   const tarjeta = leer('components/student/domain/PlazaFijaCard.tsx');
+  // El botón sale en la tarjeta; el diálogo (con su petición y su aviso) es UNA pieza que usan la tarjeta y el interruptor de «Auto reservable».
+  const dialogo = leer('components/student/domain/DialogoDejarClaseFija.tsx');
   assert.match(tarjeta, /\(estudio\.puedePedirPlazaFija === true \|\| plaza\.deClaseFija\) && !!plaza\.id/);
-  assert.match(tarjeta, /dejarPlazaFija\(estudio\.slug, estudio\.id, dejando\.id\)/);
-  assert.match(tarjeta, /if \(!r\.ok\) \{[\s\S]*?setErrorDejar\(r\.error\);[\s\S]*?return;/, 'si falla, la plaza SIGUE y el diálogo queda abierto');
-  assert.match(tarjeta, /dejando\.deClaseFija &&/, 'avisa de que deja todos los días solo cuando es de una clase fija con nombre');
+  assert.match(tarjeta, /<DialogoDejarClaseFija plaza=\{dejando\}/, 'la tarjeta usa el diálogo compartido, no una copia');
+  assert.match(dialogo, /dejarPlazaFija\(estudio\.slug, estudio\.id, plaza\.id\)/);
+  assert.match(dialogo, /if \(!r\.ok\) \{[\s\S]*?setError\(r\.error\);[\s\S]*?return;/, 'si falla, la plaza SIGUE y el diálogo queda abierto');
+  assert.match(dialogo, /plaza\.deClaseFija &&/, 'avisa de que deja todos los días solo cuando es de una clase fija con nombre');
+  // El interruptor no se apaga hasta que el servidor dice que la dejó: lo apaga `onDejada` (con `trasDejarla`), que el diálogo solo
+  // llama tras el `ok`.
+  const auto = leer('components/student/domain/AutoReservable.tsx');
+  assert.match(auto, /onDejada=\{\(\) => \{ if \(e\) cambio\(trasDejarla\(e\)\); \}\}/);
+  assert.ok(dialogo.indexOf('onDejada?.()') > dialogo.indexOf('if (!r.ok)'), 'onDejada va después de comprobar el resultado');
 });
