@@ -339,6 +339,28 @@ export default function LoginPage() {
     setInfo('');
     setSubmitting(true);
 
+    // Crear cuenta de equipo solo vale para quien ya tiene ficha en un estudio.
+    // Quien llega con el enlace de invitación (token) ya lo demuestra; el resto
+    // se comprueba en servidor ANTES de gastar el captcha, y si su correo no
+    // está en ningún equipo lo que quiere es montar su estudio. Si la
+    // comprobación falla (red, 429) no se bloquea: la cerradura real es el
+    // enlace firmado al vincular, esto solo evita registros sin destino.
+    if (modo === 'crear' && !leerTokenInvitacion()) {
+      const esDelEquipo = await fetch('/api/public/equipo-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      })
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => (typeof j?.esDelEquipo === 'boolean' ? j.esDelEquipo : null))
+        .catch(() => null);
+      if (esDelEquipo === false) {
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- navegación completa, igual que el resto de salidas de esta pantalla.
+        window.location.href = '/crear-estudio';
+        return;
+      }
+    }
+
     // Un solo token para los dos modos: se pide antes de bifurcar para no
     // duplicar la llamada ni el manejo del fallo.
     const token = await pedirToken();
@@ -456,7 +478,7 @@ export default function LoginPage() {
 
           {modo === 'crear' && (
             <p className="text-[13px] text-[#8E8E86] mb-4 -mt-2">
-              Tu acceso se activa con el enlace que te haya enviado tu estudio. Si no lo tienes a mano, pídele que te lo reenvíe desde Equipo.
+              Tu acceso se activa con el enlace que te haya enviado tu estudio. Si no lo tienes a mano, pídele que te lo reenvíe desde Equipo. Si tu correo no está en ningún equipo, te llevamos a crear tu estudio.
             </p>
           )}
 
