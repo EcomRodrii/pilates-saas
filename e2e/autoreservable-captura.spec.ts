@@ -1,7 +1,7 @@
 import { test, type Page } from '@playwright/test';
 import { SLUG, SOCIO_ID, STUDIO_ID, fixtureSociaLista, sembrarSociaLista } from './socia-lista';
 
-// Capturas del interruptor «Auto reservable» (ficha de una clase normal) y de lo que abre, para mirarlas. No afirman nada: lo que se
+// Capturas del interruptor «Clase fija» (ficha de una clase que se repite) y de lo que abre, para mirarlas. No afirman nada: lo que se
 // comprueba vive en `student-plaza-fija.spec.ts`.
 //
 // Fuera del run normal (`E2E_CAPTURAS=1` para sacarlas; `E2E_CAPTURAS_DIR` = dónde dejarlas, por defecto `test-results`):
@@ -22,18 +22,7 @@ const OCURRENCIAS = ['2026-08-12', '2026-08-19', '2026-08-26', '2026-09-02'].map
   { sesionId: `ses-${10 + i}`, fecha, hora: HORA, resultado: 'SE_RESERVARA', pagador: 'bono' }
 ));
 
-// Una clase fija CON NOMBRE que incluye la clase del fixture (miércoles) y otra el viernes.
-const OFERTA = {
-  id: 'cf-1', nombre: 'Reformer · miércoles y viernes', descripcion: null, estado: 'DISPONIBLE', plazasLibres: 3,
-  duraciones: [{ meses: 1, etiqueta: '1 mes', hasta: '2026-09-12' }, { meses: 3, etiqueta: '3 meses', hasta: '2026-11-12' }, { meses: 6, etiqueta: '6 meses', hasta: '2027-02-12' }],
-  franjas: [
-    { diaSemana: 3, hora: HORA, tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: 'Ana', logoUrl: null, proximaSesionId: 'ses-10' },
-    { diaSemana: 5, hora: HORA, tipoClaseId: 'tc-r', salaId: 'sala-1', tipo: 'Reformer', sala: 'Sala 1', instructora: 'Ana', logoUrl: null, proximaSesionId: 'ses-vie' },
-  ],
-  programadaHasta: '2026-12-30',
-};
-
-async function montar(page: Page, plan: 'cuota' | 'bono', opciones: { laTiene?: boolean; enOferta?: boolean } = {}) {
+async function montar(page: Page, plan: 'cuota' | 'bono', opciones: { laTiene?: boolean } = {}) {
   await sembrarSociaLista(page);
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   const socia = f.socia as Record<string, unknown>;
@@ -49,11 +38,11 @@ async function montar(page: Page, plan: 'cuota' | 'bono', opciones: { laTiene?: 
     ];
   }
   if (opciones.laTiene) {
-    socia.plazasFijas = [{ id: 'pf-1', studioId: STUDIO_ID, socioId: SOCIO_ID, diaSemana: 3, horaInicio: `${HORA}:00`, salaId: 'sala-1', tipoClaseId: 'tc-r', spotId: null, vigenciaDesde: '2026-01-01', vigenciaHasta: null, estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z', claseFijaId: opciones.enOferta ? 'cf-1' : null }];
+    socia.plazasFijas = [{ id: 'pf-1', studioId: STUDIO_ID, socioId: SOCIO_ID, diaSemana: 3, horaInicio: `${HORA}:00`, salaId: 'sala-1', tipoClaseId: 'tc-r', spotId: null, vigenciaDesde: '2026-01-01', vigenciaHasta: null, estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z', claseFijaId: null }];
   }
   await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f) }));
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], unread: 0 }) }));
-  await page.route('**/api/public/clases-fijas', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(opciones.enOferta ? { ofertas: [OFERTA], pedidas: [], sueltas: [] } : { ofertas: [], pedidas: [], sueltas: [SUELTA] }) }));
+  await page.route('**/api/public/clases-fijas', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ofertas: [], pedidas: [], sueltas: [SUELTA] }) }));
   // El servidor, a un solo sitio: pedir deja la petición pendiente (o ya dada, según el caso), dejar la deja.
   await page.route('**/api/public/plaza-fija', (r) => {
     const cuerpo = JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>;
@@ -82,7 +71,7 @@ async function abrirFicha(page: Page) {
   await page.waitForTimeout(700);
 }
 
-test.describe('captura: Auto reservable', () => {
+test.describe('captura: Clase fija', () => {
   test.describe.configure({ timeout: 180_000 });
   test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 
@@ -95,7 +84,7 @@ test.describe('captura: Auto reservable', () => {
   test('la hoja de cuánto tiempo', async ({ page }) => {
     await montar(page, 'cuota');
     await abrirFicha(page);
-    await page.getByRole('switch', { name: 'Auto reservable' }).click();
+    await page.getByRole('switch', { name: 'Clase fija' }).click();
     await page.getByTestId('auto-reservable-hoja').waitFor();
     await page.waitForTimeout(700);
     await page.screenshot({ path: `${OUT}/02-auto-hoja-duracion.png` });
@@ -104,8 +93,8 @@ test.describe('captura: Auto reservable', () => {
   test('pendiente: lo ha pedido y el estudio aún no ha contestado', async ({ page }) => {
     await montar(page, 'cuota');
     await abrirFicha(page);
-    await page.getByRole('switch', { name: 'Auto reservable' }).click();
-    await page.getByTestId('auto-reservable-hoja').getByRole('button', { name: 'Activar auto reservable' }).click();
+    await page.getByRole('switch', { name: 'Clase fija' }).click();
+    await page.getByTestId('auto-reservable-hoja').getByRole('button', { name: 'Hacerla mi clase fija' }).click();
     await page.locator('[data-testid="auto-reservable-interruptor"][data-estado="pendiente"]').waitFor({ timeout: 30_000 });
     await page.waitForTimeout(500);
     await page.screenshot({ path: `${OUT}/03-auto-pendiente.png` });
@@ -121,7 +110,7 @@ test.describe('captura: Auto reservable', () => {
   test('apagarlo: la confirmación con lo que pasa con sus clases', async ({ page }) => {
     await montar(page, 'cuota', { laTiene: true });
     await abrirFicha(page);
-    await page.getByRole('switch', { name: 'Auto reservable' }).click();
+    await page.getByRole('switch', { name: 'Clase fija' }).click();
     await page.getByTestId('dejar-aviso').waitFor({ timeout: 30_000 });
     await page.waitForTimeout(700);
     await page.screenshot({ path: `${OUT}/05-auto-apagar-confirmacion.png` });
@@ -129,42 +118,16 @@ test.describe('captura: Auto reservable', () => {
 
   test('solo con bono: las próximas clases', async ({ page }) => {
     await montar(page, 'bono');
-    await abrirFicha(page);
-    await page.getByRole('switch', { name: 'Auto reservable' }).click();
-    await page.getByTestId('reservar-proximas').waitFor({ timeout: 30_000 });
+    await page.goto(`${base}/reservar/ses-10`, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('reservar-proximas').waitFor({ timeout: 60_000 });
+    await page.getByTestId('reservar-proximas').scrollIntoViewIfNeeded();
     await page.getByTestId('proximas-resumen').waitFor({ timeout: 30_000 });
     await page.waitForTimeout(700);
     await page.screenshot({ path: `${OUT}/06-auto-bono.png` });
   });
 });
 
-test.describe('captura: Auto reservable en una clase fija con nombre', () => {
-  test.describe.configure({ timeout: 180_000 });
-  test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
-
-  test('apagado y su hoja: se activa la clase fija entera, con sus duraciones', async ({ page }) => {
-    await montar(page, 'cuota', { enOferta: true });
-    await abrirFicha(page);
-    await page.screenshot({ path: `${OUT}/07-oferta-apagado.png` });
-    await page.getByRole('switch', { name: 'Auto reservable' }).click();
-    await page.getByTestId('auto-reservable-hoja').waitFor();
-    await page.waitForTimeout(700);
-    await page.screenshot({ path: `${OUT}/08-oferta-hoja.png` });
-  });
-
-  test('encendido: ya es su clase fija con nombre, y apagarla avisa de que deja todos sus días', async ({ page }) => {
-    await montar(page, 'cuota', { enOferta: true, laTiene: true });
-    await abrirFicha(page);
-    await page.locator('[data-testid="auto-reservable-interruptor"][data-estado="encendido"]').waitFor({ timeout: 30_000 });
-    await page.screenshot({ path: `${OUT}/09-oferta-encendido.png` });
-    await page.getByRole('switch', { name: 'Auto reservable' }).click();
-    await page.getByTestId('dejar-aviso').waitFor({ timeout: 30_000 });
-    await page.waitForTimeout(700);
-    await page.screenshot({ path: `${OUT}/10-oferta-apagar.png` });
-  });
-});
-
-test.describe('captura: Auto reservable en un móvil pequeño', () => {
+test.describe('captura: Clase fija en un móvil pequeño', () => {
   test.describe.configure({ timeout: 180_000 });
   test.use({ viewport: { width: 375, height: 667 }, deviceScaleFactor: 2 });
 
@@ -172,21 +135,21 @@ test.describe('captura: Auto reservable en un móvil pequeño', () => {
     await montar(page, 'cuota');
     await abrirFicha(page);
     await page.screenshot({ path: `${OUT}/11-pequeno-apagado.png` });
-    await page.getByRole('switch', { name: 'Auto reservable' }).click();
+    await page.getByRole('switch', { name: 'Clase fija' }).click();
     await page.getByTestId('auto-reservable-hoja').waitFor();
     await page.waitForTimeout(700);
     await page.screenshot({ path: `${OUT}/12-pequeno-hoja.png` });
   });
 
-  test('el bono en pequeño: la hoja se desplaza hasta el botón', async ({ page }) => {
+  test('el bono en pequeño: el bloque se recorre hasta el botón', async ({ page }) => {
     await montar(page, 'bono');
-    await abrirFicha(page);
-    await page.getByRole('switch', { name: 'Auto reservable' }).click();
-    await page.getByTestId('proximas-resumen').waitFor({ timeout: 30_000 });
+    await page.goto(`${base}/reservar/ses-10`, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('proximas-resumen').waitFor({ timeout: 60_000 });
+    await page.getByTestId('reservar-proximas').scrollIntoViewIfNeeded();
     await page.waitForTimeout(700);
     await page.screenshot({ path: `${OUT}/13-pequeno-bono.png` });
-    const boton = page.getByRole('button', { name: /^Reservar \d+ clases$/ });
-    await boton.scrollIntoViewIfNeeded();
+    // Hasta el final: el botón del bloque tiene que quedar por encima de la barra fija de «Reservar», no debajo.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await page.waitForTimeout(400);
     await page.screenshot({ path: `${OUT}/14-pequeno-bono-abajo.png` });
   });

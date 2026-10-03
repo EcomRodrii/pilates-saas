@@ -10,12 +10,11 @@ import { capturarExcepcion } from '@/lib/sentry-cliente';
 import { mapLimit } from '@/lib/concurrency';
 import { conCacheCatalogo, invalidarCacheCatalogo } from '@/lib/cache/catalogo-estudio';
 import {
-  DURACIONES_POR_DEFECTO, MAX_DESCRIPCION, MAX_FRANJAS, MAX_NOMBRE, cupoDeFranja, estadoOferta, etiquetaDuracion, franjasYaCubiertas,
+  DURACIONES_POR_DEFECTO, MAX_DESCRIPCION, MAX_FRANJAS, MAX_NOMBRE, cupoDeFranja, estadoOferta, franjasYaCubiertas,
   normalizarDuraciones, nuevaVigenciaAmpliar, plazasLibresDeClaseFija, plazasVencidasQueEstorban, programadaHasta, resolverFranjas, textoFranja,
-  vigenciaHastaDeDuracion,
-  type CatalogoClasesFijas, type EstadoOferta, type FranjaResuelta, type FranjaSuelta, type OfertaAlumna, type OfertaStaff,
+  type CatalogoClasesFijas, type EstadoOferta, type FranjaResuelta, type FranjaSuelta, type OfertaStaff,
 } from '@/lib/clases-fijas-reglas';
-import { TEXTOS_PLAZA_FIJA_ALUMNA, validarPlazaFijaDesdeSesion, type ResultadoPeticionAlumna } from '@/lib/db/supabase-data-admin';
+import { TEXTOS_PLAZA_FIJA_ALUMNA, validarPlazaFijaDesdeSesion } from '@/lib/db/supabase-data-admin';
 import type { RowPlazasFijas, RowSesiones } from '@/lib/db-types';
 
 // Clases fijas del estudio (migr clases_fijas_del_estudio): el estudio arma una
@@ -151,58 +150,36 @@ async function nombresDe(admin: SupabaseClient, studioId: string, franjas: Franj
 }
 
 /**
- * Las clases fijas que el estudio ofrece hoy, ya resueltas contra su horario. Es lo
- * mismo para cualquier visitante; con `socioId` (un JWT ya verificado) añade SUS
- * peticiones pendientes. Sin ofertas activas no hace ninguna consulta más.
+ * Las clases que la alumna puede hacer suyas cada semana: TODAS las que se
+ * repiten en el horario, una a una. Es lo mismo para cualquier visitante.
+ *
+ * ⚠️ Sin clases fijas con nombre (retiradas el 4-oct-2026, decisión del
+ * fundador tras las quejas del único estudio de pago: «clase fija» significaba
+ * tres cosas y había cuatro caminos para pedir lo mismo). Las ofertas que
+ * existían siguen en la base de datos y las plazas que dieron funcionan igual,
+ * pero ya no se ofrecen: sus clases salen aquí como cualquier otra, y `ofertas`
+ * y `pedidas` van vacíos para los clientes que aún los lean.
  *
  * `puedePedirPlazaFija` (el ajuste del estudio, `plaza_fija_solicitar_desde_app`)
- * gobierna `sueltas`: es el MISMO permiso que ya abre el botón de plaza fija en la
- * ficha de una clase — sin él, no se calcula nada de más.
+ * gobierna si se ofrece: sin él no se calcula nada.
  */
 export async function catalogoClasesFijas(
-  admin: SupabaseClient, studioId: string, socioId: string | null, puedePedirPlazaFija: boolean,
+  admin: SupabaseClient, studioId: string, _socioId: string | null, puedePedirPlazaFija: boolean,
 ): Promise<CatalogoClasesFijas> {
-  // Lo que ve cualquier visitante (sin PII) va en la caché corta de catálogos: la
-  // puerta del horario lo pide en cada visita, y resolver una oferta lee las sesiones
-  // de sus series. Cuarto de minuto de retraso en «quedan N plazas» no engaña a nadie:
-  // pedirla vuelve a comprobarlo todo en el servidor. Lo suyo (`pedidas`) nunca se cachea.
-  const [ofertas, sueltas] = await Promise.all([
-    conCacheCatalogo(claveCatalogoClasesFijas(studioId), () => ofertasPublicas(admin, studioId), TTL_CLASES_FIJAS_MS),
-    puedePedirPlazaFija
-      ? conCacheCatalogo(claveSueltasClasesFijas(studioId), () => franjasSueltas(admin, studioId), TTL_CLASES_FIJAS_MS)
-      : Promise.resolve([]),
-  ]);
-  let pedidas: CatalogoClasesFijas['pedidas'] = [];
-  if (socioId && ofertas.length > 0) {
-    const { data, error } = await admin.from('solicitudes_plaza_fija')
-      .select('id, clase_fija_id, duracion_meses, vigencia_hasta_propuesta, tipo')
-      .eq('studio_id', studioId).eq('socio_id', socioId).eq('estado', 'PENDIENTE').in('tipo', ['CREAR_CLASE_FIJA', 'AMPLIAR_CLASE_FIJA']);
-    if (error) throw new Error(error.message);
-    pedidas = (data ?? []).map(r => ({
-      claseFijaId: r.clase_fija_id as string, solicitudId: r.id as string,
-      duracionMeses: r.duracion_meses as number, hasta: r.vigencia_hasta_propuesta as string,
-      tipo: r.tipo as 'CREAR_CLASE_FIJA' | 'AMPLIAR_CLASE_FIJA',
-    }));
-  }
-  return { ofertas, sueltas, pedidas };
+  // Lo que ve cualquier visitante (sin PII) va en la caché corta de catálogos.
+  const sueltas = puedePedirPlazaFija
+    ? await conCacheCatalogo(claveSueltasClasesFijas(studioId), () => franjasSueltas(admin, studioId), TTL_CLASES_FIJAS_MS)
+    : [];
+  return { ofertas: [], sueltas, pedidas: [] };
 }
 
 const TTL_CLASES_FIJAS_MS = 15_000;
 const claveCatalogoClasesFijas = (studioId: string) => `clases-fijas-publico:${studioId}`;
 const claveSueltasClasesFijas = (studioId: string) => `clases-fijas-sueltas:${studioId}`;
 
-/**
- * Las clases que ya se repiten y NO están envueltas en ninguna oferta con
- * nombre: cada franja de una oferta ACTIVA se descuenta (una franja es de su
- * oferta o suelta, nunca las dos), para que la misma clase no salga dos veces.
- */
+/** Las clases que ya se repiten, una por franja (serie y día de la semana). */
 async function franjasSueltas(admin: SupabaseClient, studioId: string): Promise<FranjaSuelta[]> {
-  const [ofertas, tarjetas] = await Promise.all([
-    cargarOfertas(admin, studioId, { soloActivas: true }),
-    tarjetasDeTodoElHorario(admin, studioId),
-  ]);
-  const cubiertas = new Set(ofertas.flatMap(o => o.franjas.map(f => `${f.serieId}|${f.diaSemana}`)));
-  const sueltas = tarjetas.filter(t => !cubiertas.has(`${t.serieId}|${t.diaSemana}`));
+  const sueltas = await tarjetasDeTodoElHorario(admin, studioId);
   if (sueltas.length === 0) return [];
   const nombres = await nombresDe(admin, studioId, sueltas);
   // Una clase de un tipo archivado no se ofrece como plaza fija: su serie ya no
@@ -217,28 +194,6 @@ async function franjasSueltas(admin: SupabaseClient, studioId: string): Promise<
     color: nombres.colores.get(t.tipoClaseId) ?? null,
     proximaSesionId: t.proximaSesionId, ultimaFecha: t.ultimaFecha,
   })).sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.hora.localeCompare(b.hora));
-}
-
-async function ofertasPublicas(admin: SupabaseClient, studioId: string): Promise<OfertaAlumna[]> {
-  const defs = await cargarOfertas(admin, studioId, { soloActivas: true });
-  if (defs.length === 0) return [];
-  const resueltas = await resolverOfertas(admin, studioId, defs);
-  const nombres = await nombresDe(admin, studioId, resueltas.flatMap(o => o.franjasResueltas));
-  const hoy = hoyEnEstudio();
-
-  return resueltas.filter((o): o is OfertaResuelta & { estado: OfertaAlumna['estado'] } => o.estado !== 'CERRADA').map((o): OfertaAlumna => ({
-    id: o.id, nombre: o.nombre, descripcion: o.descripcion, estado: o.estado, plazasLibres: o.plazasLibres,
-    duraciones: o.duracionesMeses.map(meses => ({ meses, etiqueta: etiquetaDuracion(meses), hasta: vigenciaHastaDeDuracion(hoy, meses) })),
-    franjas: o.franjasResueltas.map(f => ({
-      diaSemana: f.diaSemana, hora: f.hora, tipoClaseId: f.tipoClaseId, salaId: f.salaId,
-      tipo: nombres.tipos.get(f.tipoClaseId) ?? 'Clase',
-      sala: nombres.salas.get(f.salaId) ?? '',
-      instructora: f.instructorId ? nombres.instructores.get(f.instructorId) ?? null : null,
-      logoUrl: nombres.logos.get(f.tipoClaseId) ?? null,
-      proximaSesionId: f.proximaSesionId,
-    })).sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7) || a.hora.localeCompare(b.hora)),
-    programadaHasta: o.programadaHasta,
-  }));
 }
 
 // ─── Pedirla ──────────────────────────────────────────────────────────────────
@@ -295,83 +250,6 @@ async function comprobarClaseFija(
 async function ofertaResuelta(admin: SupabaseClient, studioId: string, id: string): Promise<OfertaResuelta | null> {
   const [def] = await cargarOfertas(admin, studioId, { ids: [id] });
   return def ? (await resolverOfertas(admin, studioId, [def]))[0] : null;
-}
-
-export async function solicitarClaseFijaAlumna(
-  admin: SupabaseClient, p: { studioId: string; socioId: string; claseFijaId: string; duracionMeses: number },
-): Promise<ResultadoPeticionAlumna> {
-  const oferta = await ofertaResuelta(admin, p.studioId, p.claseFijaId);
-  if (!oferta || !oferta.activa) return { error: 'Esta clase fija ya no está disponible.', status: 404 };
-  if (!oferta.duracionesMeses.includes(p.duracionMeses)) return { error: 'Esa duración no está disponible para esta clase fija.', status: 400 };
-  if (oferta.estado === 'COMPLETA') return { error: 'Esta clase fija está completa.', status: 409 };
-
-  const hoy = hoyEnEstudio();
-  const hasta = vigenciaHastaDeDuracion(hoy, p.duracionMeses);
-  const c = await comprobarClaseFija(admin, { studioId: p.studioId, socioId: p.socioId, oferta, hasta, hoy });
-  if ('error' in c) return c;
-
-  const { data, error } = await admin.from('solicitudes_plaza_fija').insert({
-    studio_id: p.studioId, socio_id: p.socioId, tipo: 'CREAR_CLASE_FIJA', clase_fija_id: oferta.id,
-    duracion_meses: p.duracionMeses, vigencia_hasta_propuesta: hasta, supera_limite: !!c.exceso,
-  }).select('id').single();
-  if (error) {
-    if (error.code === '23505') return { error: 'Ya has pedido esta clase fija: tu estudio te contestará.', status: 409 };
-    throw new Error(error.message);
-  }
-
-  if (oferta.aprobacionAutomatica) {
-    const mensaje = await resolverAutomaticamenteClaseFija(admin, { studioId: p.studioId, socioId: p.socioId, solicitudId: data.id, claseFijaId: oferta.id, hasta });
-    if (mensaje) return { ok: true, solicitudId: data.id, resuelta: true, mensaje };
-    // No ha podido resolverse sola (sin cabida ahora mismo, o pasaría el límite semanal
-    // de su cuota): se queda pendiente, igual que si la automática estuviera apagada.
-  }
-
-  const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
-  await emitirPeticionPlazaFija(admin, {
-    studioId: p.studioId, solicitudId: data.id, socioId: p.socioId,
-    peticion: `pide la clase fija «${oferta.nombre}» durante ${etiquetaDuracion(p.duracionMeses)}${c.exceso ? `, y pasaría del límite de ${c.exceso.limite} por semana de su cuota` : ''}`,
-  });
-  return { ok: true, solicitudId: data.id };
-}
-
-/**
- * Intenta dar una `CREAR_CLASE_FIJA` recién pedida al momento (aprobación
- * automática). Reclama la solicitud ANTES de escribir —mismo criterio que la
- * aprobación manual: dos decisiones sobre la misma no se pisan— y solo si
- * consigue darla ENTERA. Si no cabe (perdió el tope duro) o pasaría el límite
- * semanal de su cuota, no toca la fila: se queda pendiente, y lo decide el
- * estudio exactamente como si esto no existiera. Nunca lanza.
- */
-async function resolverAutomaticamenteClaseFija(
-  admin: SupabaseClient,
-  p: { studioId: string; socioId: string; solicitudId: string; claseFijaId: string; hasta: string },
-): Promise<string | null> {
-  const prep = await prepararAprobacionClaseFija(admin, {
-    studioId: p.studioId, socioId: p.socioId, claseFijaId: p.claseFijaId, vigenciaHasta: p.hasta, confirmarLimite: false,
-  });
-  if ('error' in prep) return null;
-
-  const { data: reclamada } = await admin.from('solicitudes_plaza_fija')
-    .update({ estado: 'APROBADA', resuelta_en: new Date().toISOString() })
-    .eq('id', p.solicitudId).eq('studio_id', p.studioId).eq('estado', 'PENDIENTE')
-    .select('id').maybeSingle();
-  if (!reclamada) return null;
-
-  const dadas = await darPlazasDeClaseFija(admin, prep.filas);
-  if ('error' in dadas) {
-    // Mejor pendiente otra vez que «aprobada» sin plazas: mismo criterio que el
-    // camino manual cuando la escritura falla tras reclamarla.
-    await admin.from('solicitudes_plaza_fija').update({ estado: 'PENDIENTE', resuelta_en: null })
-      .eq('id', p.solicitudId).eq('studio_id', p.studioId).eq('estado', 'APROBADA');
-    return null;
-  }
-
-  await admin.from('solicitudes_plaza_fija').update({ resultado_plaza_id: prep.filas[0].id })
-    .eq('id', p.solicitudId).eq('studio_id', p.studioId);
-  const mensaje = respuestaClaseFijaAprobada(prep.nombre, prep.hasta, dadas.creadas > 0);
-  const { emitirRespuestaPlazaFija } = await import('@/lib/notifications/emit');
-  await emitirRespuestaPlazaFija(admin, { studioId: p.studioId, solicitudId: p.solicitudId, socioId: p.socioId, respuesta: mensaje });
-  return mensaje;
 }
 
 // ─── Aprobarla ────────────────────────────────────────────────────────────────
@@ -581,72 +459,6 @@ export async function aplicarAmpliarClaseFija(
 export const respuestaClaseFijaAmpliada = (nombre: string, hasta: string) =>
   `Tu estudio te ha ampliado la clase fija «${nombre}» hasta el ${fechaDMY(hasta)}.`;
 
-export async function solicitarAmpliarClaseFijaAlumna(
-  admin: SupabaseClient, p: { studioId: string; socioId: string; claseFijaId: string; duracionMeses: number },
-): Promise<ResultadoPeticionAlumna> {
-  const oferta = await ofertaResuelta(admin, p.studioId, p.claseFijaId);
-  if (!oferta) return { error: 'Esa clase fija ya no existe.', status: 404 };
-  if (!oferta.duracionesMeses.includes(p.duracionMeses)) return { error: 'Esa duración no está disponible para esta clase fija.', status: 400 };
-
-  const prep = await prepararAmpliarClaseFija(admin, {
-    studioId: p.studioId, socioId: p.socioId, claseFijaId: p.claseFijaId, duracionMeses: p.duracionMeses,
-  });
-  if ('error' in prep) return prep;
-
-  const { data, error } = await admin.from('solicitudes_plaza_fija').insert({
-    studio_id: p.studioId, socio_id: p.socioId, tipo: 'AMPLIAR_CLASE_FIJA', clase_fija_id: oferta.id,
-    duracion_meses: p.duracionMeses, vigencia_hasta_propuesta: prep.hasta,
-  }).select('id').single();
-  if (error) {
-    if (error.code === '23505') return { error: 'Ya has pedido ampliar esta clase fija: tu estudio te contestará.', status: 409 };
-    throw new Error(error.message);
-  }
-
-  if (oferta.aprobacionAutomatica) {
-    const mensaje = await resolverAmpliarAutomaticamente(admin, {
-      studioId: p.studioId, socioId: p.socioId, solicitudId: data.id, claseFijaId: p.claseFijaId, duracionMeses: p.duracionMeses,
-    });
-    if (mensaje) return { ok: true, solicitudId: data.id, resuelta: true, mensaje };
-  }
-
-  const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
-  await emitirPeticionPlazaFija(admin, {
-    studioId: p.studioId, solicitudId: data.id, socioId: p.socioId,
-    peticion: `pide ampliar la clase fija «${oferta.nombre}» ${etiquetaDuracion(p.duracionMeses)} más`,
-  });
-  return { ok: true, solicitudId: data.id };
-}
-
-/** Igual que `resolverAutomaticamenteClaseFija`, pero para ampliar: sin tope duro, revalida y extiende. */
-async function resolverAmpliarAutomaticamente(
-  admin: SupabaseClient,
-  p: { studioId: string; socioId: string; solicitudId: string; claseFijaId: string; duracionMeses: number },
-): Promise<string | null> {
-  const prep = await prepararAmpliarClaseFija(admin, {
-    studioId: p.studioId, socioId: p.socioId, claseFijaId: p.claseFijaId, duracionMeses: p.duracionMeses,
-  });
-  if ('error' in prep) return null;
-
-  const { data: reclamada } = await admin.from('solicitudes_plaza_fija')
-    .update({ estado: 'APROBADA', resuelta_en: new Date().toISOString() })
-    .eq('id', p.solicitudId).eq('studio_id', p.studioId).eq('estado', 'PENDIENTE')
-    .select('id').maybeSingle();
-  if (!reclamada) return null;
-
-  const aplicada = await aplicarAmpliarClaseFija(admin, { studioId: p.studioId, socioId: p.socioId, filas: prep.filas });
-  if ('error' in aplicada) {
-    await admin.from('solicitudes_plaza_fija').update({ estado: 'PENDIENTE', resuelta_en: null })
-      .eq('id', p.solicitudId).eq('studio_id', p.studioId).eq('estado', 'APROBADA');
-    return null;
-  }
-
-  const mensaje = respuestaClaseFijaAmpliada(prep.nombre, prep.hasta);
-  const { emitirRespuestaPlazaFija } = await import('@/lib/notifications/emit');
-  await emitirRespuestaPlazaFija(admin, { studioId: p.studioId, solicitudId: p.solicitudId, socioId: p.socioId, respuesta: mensaje });
-  return mensaje;
-}
-
-/** El nombre de una oferta, para las respuestas a la alumna (rechazos incluidos). */
 export async function nombreDeOferta(admin: SupabaseClient, studioId: string, id: string | null): Promise<string | null> {
   if (!id) return null;
   const { data } = await admin.from('clases_fijas').select('nombre').eq('id', id).eq('studio_id', studioId).maybeSingle();

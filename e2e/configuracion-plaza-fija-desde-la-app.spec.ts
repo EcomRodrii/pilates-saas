@@ -47,7 +47,7 @@ test.describe('Configuración · peticiones de plaza fija desde la app', () => {
     await abrirAjuste(page);
 
     // La explicación dice lo que hace de serie, cómo se pide y el límite de la cuota.
-    await expect(page.getByText(/pueden pedir quedarse fijas en una clase que se repite/)).toBeVisible();
+    await expect(page.getByText(/pueden hacer suya una clase que se repite/)).toBeVisible();
     await expect(page.getByText(/con bono se reserva clase a clase/)).toBeVisible();
 
     const vista = page.getByTestId('vista-previa-plaza-fija');
@@ -55,7 +55,8 @@ test.describe('Configuración · peticiones de plaza fija desde la app', () => {
     await expect(vista).toContainText('¿Vienes los martes a las 10:00?');
     await expect(vista).toContainText('tu plaza queda reservada cada semana');
     await expect(vista).toContainText('Tu estudio tiene que confirmarla');
-    await expect(vista).toContainText('Pedir clase fija');
+    await expect(vista).toContainText('Clase fija');
+    await expect(vista).toContainText('Los martes a las 10:00, reservada cada semana');
     await expect(vista).not.toContainText('Ahora tus alumnas no lo ven');
   });
 
