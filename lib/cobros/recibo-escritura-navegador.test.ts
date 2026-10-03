@@ -29,15 +29,16 @@ function migracion(): string {
  * DEVUELTO sin salida desde el navegador), y probar el texto de una vieja daría por buena una regla
  * que ya no está.
  */
-function ultimaFuncionDelTrigger(): { sql: string; fn: string; fichero: string } {
+function ultimaDefinicion(cabecera: string): { sql: string; fn: string; fichero: string } {
   const dir = join(raiz, 'supabase', 'migrations');
-  const cabecera = 'create or replace function public.recibos_cobrado_solo_servidor()';
   const nombres = readdirSync(dir).filter(n => n.endsWith('.sql')).sort();
   const fichero = [...nombres].reverse().find(n => readFileSync(join(dir, n), 'utf8').includes(cabecera));
-  assert.ok(fichero, 'ninguna migración define la función del trigger de recibos');
+  assert.ok(fichero, `ninguna migración define ${cabecera}`);
   const sql = readFileSync(join(dir, fichero), 'utf8').replace(/^\s*--.*$/gm, '');
   return { sql, fn: sql.slice(sql.indexOf(cabecera)), fichero };
 }
+
+const ultimaFuncionDelTrigger = () => ultimaDefinicion('create or replace function public.recibos_cobrado_solo_servidor()');
 
 const columnasDel = (sql: string, privilegio: 'insert' | 'update'): string[] => {
   const m = sql.match(new RegExp(`grant ${privilegio} \\(([^)]+)\\)\\s+on public\\.recibos to authenticated`));
@@ -68,6 +69,24 @@ test('la política de cancelar una cuota corre como su dueño: escribe columnas 
   // Y verifica el resultado: DEFINER con `search_path` fijo y sin EXECUTE para anon/authenticated.
   assert.match(sql, /p\.prosecdef/);
   assert.match(sql, /has_function_privilege\('authenticated', 'public\.aplicar_politica_recibos_al_cancelar_cuota\(\)'::regprocedure, 'EXECUTE'\)/);
+});
+
+test('la última definición de la política de cancelar una cuota sigue siendo DEFINER y no anula un cobro en marcha', () => {
+  // `create or replace` REEMPLAZA los atributos: un cuerpo nuevo sin `security definer` la devolvería a
+  // INVOKER sin ningún error al aplicar, y cancelar una cuota desde el panel fallaría (quien cancela ya
+  // no puede escribir `anulado_en` ni `tras_cancelar_cuota`).
+  const { fn, fichero } = ultimaDefinicion('create or replace function public.aplicar_politica_recibos_al_cancelar_cuota()');
+  assert.ok(fichero >= '20261003', `la última definición es anterior a la que se salta la marca de cobro en marcha: ${fichero}`);
+  const cabecera = fn.slice(0, fn.indexOf('$function$'));
+  assert.match(cabecera, /\bsecurity definer\b/, `${fichero}: la política volvió a SECURITY INVOKER`);
+  assert.match(cabecera, /\bset search_path to 'public', 'pg_temp'/, `${fichero}: la política perdió su search_path fijo`);
+  // ANULAR: ni con un pago en marcha (las cuatro marcas) ni con factura. Un cobro con la tarjeta
+  // guardada en vuelo tiene que encontrar su recibo vivo; cae en el segundo UPDATE (SIN_REINTENTOS).
+  const anular = fn.match(/estado = 'ANULADO'[\s\S]*?;/)?.[0] ?? '';
+  for (const col of ['stripe_payment_intent_id', 'checkout_session_id', 'cobro_mostrador_pi', 'cobro_off_session_clave']) {
+    assert.match(anular, new RegExp(`and r\\.${col} is null`), `ANULAR pasa por encima de ${col}`);
+  }
+  assert.match(anular, /not exists \(select 1 from facturas f where f\.recibo_id = r\.id\)/);
 });
 
 test('el trigger cierra también DEVUELTO: ni nace, ni se pasa, ni sale desde el navegador', () => {

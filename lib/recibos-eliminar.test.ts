@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   CODIGOS_CONOCIDOS, ESTADOS_ELIMINABLES, MOTIVOS_ELIMINAR_RECIBO, etiquetaMotivo, interpretarErrorEliminar,
   puedeEliminarRecibo,
@@ -8,10 +8,22 @@ import {
 
 // La RPC es la cerradura y esta pantalla su espejo: si las listas divergen, la
 // pantalla ofrece un motivo que la RPC rechaza (o al revés). Se leen de la
-// migración, no se copian.
-const sql = readFileSync(new URL('../supabase/migrations/20260925175253_eliminar_recibo_con_motivo.sql', import.meta.url), 'utf8')
-  .replace(/--.*$/gm, '');
-const cuerpoRpc = sql.slice(sql.indexOf('create or replace function public.eliminar_recibo'));
+// migración, no se copian: de la ÚLTIMA que redefine la RPC (la primera fue
+// 20260925175253; probar el texto de una vieja daría por buena una regla que ya no está).
+const dirMigraciones = new URL('../supabase/migrations/', import.meta.url);
+const cabeceraRpc = 'create or replace function public.eliminar_recibo';
+const ficheroRpc = readdirSync(dirMigraciones).filter(n => n.endsWith('.sql')).sort().reverse()
+  .find(n => readFileSync(new URL(n, dirMigraciones), 'utf8').includes(cabeceraRpc));
+assert.ok(ficheroRpc, 'ninguna migración define eliminar_recibo');
+const sql = readFileSync(new URL(ficheroRpc, dirMigraciones), 'utf8').replace(/--.*$/gm, '');
+/** Solo el cuerpo de la función: lo que venga detrás en la misma migración no es la RPC. */
+const cuerpoRpc = (() => {
+  const desde = sql.indexOf(cabeceraRpc);
+  const etiqueta = sql.slice(desde).match(/\bas\s+(\$\w*\$)/)?.[1];
+  assert.ok(etiqueta, 'no se ve el delimitador del cuerpo de eliminar_recibo');
+  const abre = sql.indexOf(etiqueta, desde) + etiqueta.length;
+  return sql.slice(desde, sql.indexOf(etiqueta, abre) + etiqueta.length);
+})();
 const listaDe = (s: string) => [...s.matchAll(/'([A-Z_]+)'/g)].map(m => m[1]);
 
 test('los motivos de la pantalla son EXACTAMENTE los que acepta la RPC', () => {
@@ -32,6 +44,16 @@ test('todo rechazo que la RPC lanza tiene su explicación en la pantalla', () =>
   assert.ok(lanzados.length >= 7, 'el parser no ve los raise exception de la RPC');
   const sinExplicar = lanzados.filter(c => !CODIGOS_CONOCIDOS.includes(c));
   assert.deepEqual(sinExplicar, [], `la RPC lanza códigos que la pantalla no sabe decir: ${sinExplicar.join(', ')}`);
+});
+
+test('un cobro con la tarjeta o la domiciliación guardada en marcha es un pago asociado: no se borra', () => {
+  // Con el cargo ya pedido a Stripe, el dinero entraría sin recibo al que asociarse. La marca solo
+  // vive en PENDIENTE/FALLIDO (los dos estados eliminables con dinero posible), así que la RPC tiene
+  // que leerla bajo su `for update` y mirarla sin excepción por estado: un FALLIDO con marca es un
+  // reintento en vuelo, no el intento viejo que ya no puede completarse.
+  assert.match(cuerpoRpc, /select r\.id,[^;]*\br\.cobro_off_session_clave\b[^;]*for update;/, 'la RPC no lee la marca con el recibo bloqueado');
+  const pagoAsociado = cuerpoRpc.match(/if ([^;]*?) then\s+raise exception 'PAGO_ASOCIADO'/)?.[1] ?? '';
+  assert.match(pagoAsociado, /or v_r\.cobro_off_session_clave is not null\n/, 'PAGO_ASOCIADO no mira la marca, o la ata a un estado');
 });
 
 test('el motivo no admite texto libre: cada uno es un código con su frase', () => {
