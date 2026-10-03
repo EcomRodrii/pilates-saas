@@ -1,5 +1,5 @@
 // Verificación en dos pasos del equipo (contrato de encargo, 2-oct-2026; migr
-// 20261003020400_doble_factor_equipo.sql): quien la tiene activada no ve ni toca
+// 20261003102845_doble_factor_equipo.sql): quien la tiene activada no ve ni toca
 // NADA con una sesión que no la ha pasado (aal1), aunque vaya directo a la API
 // de Supabase sin pasar por el panel. Contra Postgres de verdad (job
 // `calidad-rls`), como el resto de supabase/tests.
@@ -13,7 +13,7 @@ const sql = sqlLocal();
 
 test('toda tabla de public con RLS lleva la política restrictiva exige_doble_factor', async () => {
   // Si falla con una tabla NUEVA: añádele la política, copiando la última
-  // sentencia del DO de 20261003020400_doble_factor_equipo.sql.
+  // sentencia del DO de 20261003102845_doble_factor_equipo.sql.
   const sin = await sql<{ relname: string }[]>`
     select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'public' and c.relkind in ('r', 'p') and c.relrowsecurity

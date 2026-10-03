@@ -11,7 +11,7 @@
 //     se avisa «tienes 30 días para descargar tus datos» y se dejan de hacer
 //     copias; a los 23, el último aviso; a los 30, el borrado. El ancla es
 //     `studios.contrato_terminado_en`, que pone un trigger mirando la
-//     suscripción que manda (la de la cadena, si es sede): migr 20261003020000.
+//     suscripción que manda (la de la cadena, si es sede): migr 20261003102645.
 //     «O antes si lo pide»: con `studios.supresion_pedida_en` (lo escribe solo
 //     el servidor, con el contrato ya terminado) la purga va en la pasada
 //     siguiente, sin esperar a los avisos: es ella quien lo pide.

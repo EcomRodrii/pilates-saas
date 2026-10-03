@@ -5,7 +5,7 @@
 -- última vez que lo use no se le vuelve a pedir al entrar. Reglas en
 -- lib/auth/dispositivo-confianza-reglas.ts.
 --
--- Cómo encaja con 20261003020400_doble_factor_equipo.sql: allí la base de
+-- Cómo encaja con 20261003102845_doble_factor_equipo.sql: allí la base de
 -- datos solo deja pasar una sesión `aal2`. Supabase no sabe subir de nivel una
 -- sesión por un dispositivo recordado, así que la sesión sigue en `aal1` y lo
 -- que cambia es la pregunta: «¿esta sesión ha pasado el segundo paso?» ahora
@@ -75,7 +75,7 @@ alter table public.sesiones_confiadas enable row level security;
 revoke all on table public.dispositivos_confianza from anon, authenticated;
 revoke all on table public.sesiones_confiadas from anon, authenticated;
 
--- Toda tabla de public con RLS lleva la restrictiva de 20261003020400 (lo vigila
+-- Toda tabla de public con RLS lleva la restrictiva de 20261003102845 (lo vigila
 -- supabase/tests/rls-doble-factor.test.ts). Aquí no da nada que no den ya los
 -- permisos, pero la regla es para todas.
 drop policy if exists exige_doble_factor on public.dispositivos_confianza;
@@ -171,7 +171,7 @@ revoke execute on function public.nivel_acceso_suficiente() from anon;
 grant execute on function public.nivel_acceso_suficiente() to authenticated, service_role;
 
 -- ── current_studio_id(): lo mismo ───────────────────────────────────────────
--- Copia de la de 20261003020400 con un solo cambio (la primera rama del CASE).
+-- Copia de la de 20261003102845 con un solo cambio (la primera rama del CASE).
 -- Se comprueba antes que la vigente es ESA.
 do $$
 begin

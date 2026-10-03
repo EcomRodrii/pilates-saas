@@ -1096,11 +1096,11 @@ export interface RowStudios {
   plaza_fija_aprobacion: string | null;
   // migr 20261002230422.
   plaza_fija_auto_tope_pct: number | null;
-  // migr 20261003020000.
+  // migr 20261003102645.
   contrato_terminado_en: string | null;
-  // migr 20261003020000.
+  // migr 20261003102645.
   supresion_pedida_en: string | null;
-  // migr 20261003020400.
+  // migr 20261003102845.
   exigir_doble_factor: boolean | null;
 }
 
@@ -1751,7 +1751,7 @@ export interface RowMandatosSepa {
   fecha_firma: string;
   estado: string;
   creada_en: string;
-  // migr 20261003020100.
+  // migr 20261003102724.
   iban_ultimos4: string | null;
 }
 
@@ -2998,7 +2998,7 @@ export interface RowCicloEstudiosVencidos {
   resumen: any;
   creado_en: string;
   actualizado_en: string;
-  // migr 20261003020000.
+  // migr 20261003102645.
   motivo: string | null;
 }
 

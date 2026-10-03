@@ -10,7 +10,7 @@ import { uid } from '@/lib/utils';
 
 // Mandatos SEPA (cuaderno 19.14): el IBAN entra por aquí y se guarda CIFRADO
 // (lib/billing/iban-cifrado.ts). Desde el 2-oct-2026 el navegador ya no escribe
-// en `mandatos_sepa` (migr 20261003020100): sin clave en el servidor no hay
+// en `mandatos_sepa` (migr 20261003102724): sin clave en el servidor no hay
 // forma de guardar un IBAN en claro.
 //
 // Mismo permiso que la RLS que había: `puedeMoverDinero` (propietaria y recepción).

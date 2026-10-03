@@ -7,7 +7,7 @@
 //
 //   A. Quien la tiene activada (un factor TOTP verificado) solo entra con la
 //      sesión verificada (`aal2`). La comprueba la BASE DE DATOS en cada tabla
-//      (política restrictiva `exige_doble_factor`, migr 20261003020400) y
+//      (política restrictiva `exige_doble_factor`, migr 20261003102845) y
 //      `verificarSesionStaff` en cada ruta de API. Sin ella, una contraseña
 //      robada daría los datos yendo directo a la API de Supabase.
 //   B. Si su estudio la exige y su rol es del panel (no INSTRUCTOR, que trabaja

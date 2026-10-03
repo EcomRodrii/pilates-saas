@@ -8,7 +8,7 @@ import { CAMPOS_SECRETOS } from './config-cifrada.ts';
 // la BD, no solo de la app. Si se añade un campo secreto nuevo a la config de
 // una integración, su CHECK también tiene que conocerlo.
 const RAIZ = join(import.meta.dirname, '..', '..');
-const migracion = readFileSync(join(RAIZ, 'supabase/migrations/20261003020300_credenciales_integraciones_siempre_cifradas.sql'), 'utf8');
+const migracion = readFileSync(join(RAIZ, 'supabase/migrations/20261003102804_credenciales_integraciones_siempre_cifradas.sql'), 'utf8');
 const admin = readFileSync(join(RAIZ, 'lib/db/supabase-data-admin.ts'), 'utf8');
 
 test('el CHECK de integraciones.config cubre cada campo secreto', () => {

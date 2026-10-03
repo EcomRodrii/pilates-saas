@@ -13,7 +13,7 @@ import { nivelAutenticacion } from '@/lib/interno/mfa';
 // apagarlo, también: una sesión que entró sin código por un dispositivo
 // recordado (lib/auth/dispositivo-confianza-reglas.ts) no basta para quitar
 // una protección de todo el equipo. La columna solo la cambia el servidor
-// (trigger, migr 20261003020400).
+// (trigger, migr 20261003102845).
 
 async function propietaria(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);

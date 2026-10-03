@@ -45,7 +45,7 @@ interface FilaCiclo {
   id: number;
   studio_id: string;
   motivo: MotivoCiclo;
-  /** Ancla del ciclo (ver el comentario de la columna en la migración 20261003020000). */
+  /** Ancla del ciclo (ver el comentario de la columna en la migración 20261003102645). */
   trial_ends_at: string;
   fase: FaseCiclo;
   ejecutada_en: string | null;
