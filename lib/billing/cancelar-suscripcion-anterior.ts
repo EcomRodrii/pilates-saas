@@ -8,9 +8,12 @@
 //
 // Se aplaza al webhook de Stripe: el id a cancelar viaja en la metadata de la
 // suscripción nueva (`subscription_data.metadata.cancelarSuscripcionAnterior`,
-// puesto por /api/billing/checkout), porque para cuando el webhook procesa el
-// evento, `studio.subscription_id` ya lo habrá sobrescrito la propia suscripción
-// de cadena.
+// puesto por /api/billing/checkout). ⚠️ `studio.subscription_id` NO lo
+// sobrescribe la de cadena: el trigger `propagar_plan_cadena` solo copia plan,
+// estado y fin de periodo, así que la sede sigue guardando el id de la
+// individual. Por eso el `deleted` de esa individual, que llega después, lo
+// filtra `desplazadaPorSuCadena` (suscripcion-desplazada-por-cadena.ts) y no
+// una comparación con ese campo.
 import Stripe from 'stripe';
 import { ESTADOS_VIVOS } from './checkout-saas-previo.ts';
 
