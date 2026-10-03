@@ -10,6 +10,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
 import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
 import { claveCheckoutLock, reclamarCheckoutLock, liberarCheckoutLock } from '@/lib/billing/checkout-lock';
+import { sedeIncluidaEnSuCadena, MENSAJE_SEDE_INCLUIDA_EN_CADENA } from '@/lib/billing/sede-incluida-en-cadena';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
 // suscribir su negocio. Crea (o reutiliza) el Customer de Stripe del estudio y
@@ -53,6 +54,21 @@ export async function POST(req: NextRequest) {
     .from('studios').select('id, nombre, email, cadena_id, stripe_customer_id, subscription_id, subscription_status')
     .eq('id', sesion.studioId).single();
   if (!studio) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
+
+  // Plan individual para una sede cuya cadena ya paga: sería un segundo cobro
+  // por lo mismo, y el guard de `subscription_id` de más abajo no lo ve (la sede
+  // hereda el estado de la cadena, no su id). Va antes de canjear el descuento y
+  // de crear el cliente en Stripe para que el rechazo no deje nada tocado. Ver
+  // lib/billing/sede-incluida-en-cadena.ts.
+  if (plan !== 'CADENA') {
+    let incluida: boolean;
+    try {
+      incluida = await sedeIncluidaEnSuCadena(admin, studio.cadena_id as string | null);
+    } catch (err) {
+      return errorInterno('billing/checkout:POST', err, 'No se pudo iniciar la suscripción. Inténtalo de nuevo más tarde.');
+    }
+    if (incluida) return NextResponse.json({ error: MENSAJE_SEDE_INCLUIDA_EN_CADENA }, { status: 409 });
+  }
 
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
