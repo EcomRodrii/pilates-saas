@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
-  facturaIdCheckout, facturaIdExterno, facturaIdManual, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas, origenNotifica,
+  facturaIdCheckout, facturaIdManual, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas, origenNotifica,
   reentregaAplicaAlRecibo, refIdCreditoRenovacion, resolverSinFilas, ESPERA_A_UN_COBRO_OFF_SESSION, type OrigenCobro,
 } from './cobro-confirmado-reglas.ts';
 import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
@@ -12,7 +12,7 @@ import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
 // camino, qué significa que el compare-and-set no toque filas, qué avisos
 // recibe el estudio y en qué orden salen los efectos.
 
-const ORIGENES: OrigenCobro[] = ['webhook', 'conciliador', 'tpv', 'manual', 'off_session', 'banco', 'externo'];
+const ORIGENES: OrigenCobro[] = ['webhook', 'conciliador', 'tpv', 'manual', 'off_session', 'banco'];
 
 // ── Estados admitidos ────────────────────────────────────────────────────────
 
@@ -45,20 +45,6 @@ test('«El banco lo ha cobrado» solo cierra lo que está en el banco, y lo firm
   assert.equal(origenNotifica('banco'), false);
   assert.deepEqual(efectosEnReentrega('banco'), [], 'no pasó por el cajón: nada que reparar en la caja');
   assert.equal(efectosEnOrden({ origen: 'banco', metodo: 'SEPA', avisarSocia: false, esRenovacion: true }).includes('caja'), false);
-});
-
-test('un movimiento externo cierra lo mismo que un cobro a mano, con su propia firma y su factura', () => {
-  assert.deepEqual(estadosAdmitidosPorOrigen('externo'), [...ESTADOS_COBRABLES], 'incluye el DEVUELTO del banco');
-  assert.equal(estadosAdmitidosPorOrigen('externo').includes('EN_CURSO'), false, 'un cargo en vuelo lo cierra su camino');
-  assert.equal(conciliadoPorDe('externo'), 'externo');
-  assert.equal(origenNotifica('externo'), false, 'lo confirma una persona: ya lo sabe');
-  assert.deepEqual(efectosEnReentrega('externo'), [], 'no pasó por el cajón');
-  assert.equal(reentregaAplicaAlRecibo('externo', 'manual'), false);
-  const pasos = efectosEnOrden({ origen: 'externo', metodo: 'TARJETA', avisarSocia: false, esRenovacion: true });
-  assert.equal(pasos.includes('caja'), false, 'un cobro de otro día no entra en la caja abierta hoy');
-  assert.deepEqual(pasos, ['renovacion', 'factura', 'creditos']);
-  assert.equal(facturaIdParaReintento({ id: 'rec-1', metodo_cobro: 'TRANSFERENCIA', conciliado_por: 'externo' }), facturaIdExterno('rec-1'));
-  assert.equal(facturaIdExterno('rec-1'), 'fac-ext-rec-1');
 });
 
 test('ningún camino reescribe un COBRADO', () => {
@@ -140,7 +126,7 @@ test('a mano (sin cargo) sobre un recibo que se está cobrando con su tarjeta gu
 
 test('quién espera a un cobro con tarjeta guardada en marcha: lo que confirma una persona, nunca lo que confirma Stripe', () => {
   assert.deepEqual(ESPERA_A_UN_COBRO_OFF_SESSION, {
-    manual: true, banco: true, externo: true, webhook: false, conciliador: false, tpv: false, off_session: false,
+    manual: true, banco: true, webhook: false, conciliador: false, tpv: false, off_session: false,
   } satisfies Record<OrigenCobro, boolean>);
 });
 
@@ -174,8 +160,6 @@ test('qué caminos avisan al estudio de que ha entrado dinero (no cambia con el 
   const esperado: Record<OrigenCobro, boolean> = {
     // «El banco lo ha cobrado» lo marca una persona del estudio: como a mano, sin aviso.
     webhook: true, conciliador: true, tpv: true, manual: false, off_session: false, banco: false,
-    // Un movimiento externo también lo confirma una persona.
-    externo: false,
   };
   for (const o of ORIGENES) {
     assert.equal(origenNotifica(o), esperado[o], o);

@@ -52,9 +52,7 @@ export const maxDuration = 60;
 // ─────────────────────────────────────────────────────────────────────────────
 
 // La guardia de penalizaciones, el Stripe del estudio y el «pago en marcha» de cada
-// recibo viven en `lib/cobros/antes-de-cobrar-a-mano-servidor.ts`: los comparte el
-// cobro con un movimiento del banco (cobros externos), que es la otra puerta por la
-// que se cobra un recibo fuera de Stripe.
+// recibo viven en `lib/cobros/antes-de-cobrar-a-mano-servidor.ts`.
 
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);

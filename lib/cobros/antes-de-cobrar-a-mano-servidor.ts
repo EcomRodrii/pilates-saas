@@ -11,13 +11,11 @@ import {
 import { MENSAJE_COBRO_CON_METODO_GUARDADO, penalizacionesDeLosRecibos, recibosDePenalizacionAnulada } from './marcar-cobrado.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Lo que se comprueba JUSTO antes de cobrar un recibo fuera de Stripe: a mano en
-// el mostrador («marcar cobrado») o con un movimiento del banco (cobros
-// externos). Las dos puertas cobran un recibo que puede tener un pago en marcha
-// por otro lado; si no se cierra, entran dos cobros reales.
+// Lo que se comprueba JUSTO antes de cobrar un recibo a mano en el mostrador
+// («marcar cobrado»): el recibo puede tener un pago en marcha por otro lado, y si
+// no se cierra, entran dos cobros reales.
 //
-// Era el cuerpo de `/api/cobros/marcar-cobrado`; vive aquí para que las dos
-// puertas hagan exactamente lo mismo. Las decisiones puras siguen en
+// Era el cuerpo de `/api/cobros/marcar-cobrado`. Las decisiones puras siguen en
 // `pago-online-al-cobrar-a-mano.ts` y `marcar-cobrado.ts`, con sus tests.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -154,25 +152,4 @@ export async function soltarPagosEnMarchaAntesDeCobrar(
     if (online.tipo === 'NO_SE_SABE') return { ok: false, mensaje: MENSAJE_PAGO_ONLINE_SIN_COMPROBAR };
   }
   return { ok: true, checkoutLeido };
-}
-
-/** Lo que se dice cuando el recibo es de una penalización anulada o devuelta. */
-export const MENSAJE_PENALIZACION_ANULADA = 'Es una penalización anulada o devuelta: no se cobra.';
-
-/**
- * Toda la guarda de un recibo, en el orden de «Marcar cobrado»: penalización
- * anulada, y después los pagos en marcha. La usa el cobro con un movimiento del
- * banco (`lib/cobros-externos/servidor.ts`, `antesDeCobrar`).
- */
-export function guardaAntesDeCobrar(admin: SupabaseClient, studioId: string) {
-  const prepararStripe = preparadorDeStripe(admin, studioId);
-  return async (p: { studioId: string; reciboId: string }): Promise<PagosEnMarcha> => {
-    // El estudio de la llamada tiene que ser el de la sesión con que se preparó.
-    if (p.studioId !== studioId) return { ok: false, mensaje: 'Ese recibo no es de este estudio.' };
-    if (penalizacionesDeLosRecibos([p.reciboId]).length > 0
-      && (await bloqueadosPorPenalizacion(admin, studioId, [p.reciboId])).has(p.reciboId)) {
-      return { ok: false, mensaje: MENSAJE_PENALIZACION_ANULADA };
-    }
-    return soltarPagosEnMarchaAntesDeCobrar(admin, p, prepararStripe);
-  };
 }

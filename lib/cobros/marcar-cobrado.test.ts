@@ -280,7 +280,7 @@ test('el servidor lee las penalizaciones acotadas al estudio y justo antes de co
   assert.ok(guardia > bucle, 'la guardia se lee UNA VEZ al principio: una penalización anulada a mitad del lote se cobraría');
   assert.ok(ruta.indexOf('await confirmarCobro(') > guardia, 'la guardia va ANTES de confirmar el cobro de ese recibo');
   assert.doesNotMatch(ruta, /bloqueadosPorPenalizacion\(admin, sesion\.studioId, peticion\.reciboIds\)/, 'lectura única de todo el lote');
-  // La lectura vive en el módulo que comparte con el cobro por movimiento del banco.
+  // La lectura vive en el módulo de la guarda de antes de cobrar a mano.
   const ayuda = sinComentarios(leer('lib/cobros/antes-de-cobrar-a-mano-servidor.ts'));
   assert.match(ayuda, /\.eq\('studio_id', studioId\)\.in\('id', penalizacionIds\)/, 'acotada al estudio de la sesión');
   assert.match(ayuda, /catch \{\s*estados = null;/, 'un fallo de lectura no tumba el cobro');
@@ -358,7 +358,7 @@ test('«Hacerle factura» solo en un cobro en efectivo de un recibo, en el mostr
 
 test('uno a uno en el mostrador: se mira cada recibo justo antes, después de la guardia de penalizaciones, y lo leído viaja al compare-and-set', () => {
   const ruta = readFileSync(join(import.meta.dirname, '../../app/api/cobros/marcar-cobrado/route.ts'), 'utf8');
-  // Lo de cada recibo vive en el módulo que comparte con el cobro por movimiento del banco.
+  // Lo de cada recibo vive en el módulo de la guarda de antes de cobrar a mano.
   const ayuda = readFileSync(join(import.meta.dirname, 'antes-de-cobrar-a-mano-servidor.ts'), 'utf8');
   const penaliz = ruta.indexOf('resultados.push(resultadoPenalizacionAnulada(reciboId));');
   const enMarcha = ruta.indexOf('await soltarPagosEnMarchaAntesDeCobrar(admin, { studioId: sesion.studioId, reciboId }, prepararStripe)');
