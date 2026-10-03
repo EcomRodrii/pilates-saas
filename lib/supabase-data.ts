@@ -3055,7 +3055,7 @@ export async function dbQuitarExcepcion(studioId: string, socioId: string, tipo:
 // F2 (B2.10): mandatos SEPA (cuaderno 19.14). Uno vigente por socia.
 //
 // El IBAN va CIFRADO (2-oct-2026): lo cifra el servidor, y el navegador ni
-// escribe en la tabla (migr 20261003020100) ni lee la columna `iban`. Por eso
+// escribe en la tabla (migr 20261003102724) ni lee la columna `iban`. Por eso
 // las tres funciones pasan por /api/cobros/mandatos-sepa.
 export const COLUMNAS_MANDATO_SEPA = 'id, studio_id, socio_id, iban_ultimos4, ref_mandato, fecha_firma, estado, creada_en';
 

@@ -118,7 +118,7 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
 - **Verificación en dos pasos del equipo** (2-oct-2026, `lib/auth/doble-factor-reglas.ts`):
   quien la tiene activada solo ve y toca datos con la sesión verificada (`aal2`), y lo decide
   la BD con una política RESTRICTIVA `exige_doble_factor` en CADA tabla de `public` con RLS
-  (migr `20261003020400`). ⚠️ Una tabla nueva con RLS lleva también esa política (copia la
+  (migr `20261003102845`). ⚠️ Una tabla nueva con RLS lleva también esa política (copia la
   sentencia del DO de esa migración): sin ella, `supabase/tests/rls-doble-factor.test.ts`
   falla en CI. `verificarSesionStaff` aplica lo mismo y además el «exigir a todo el equipo»
   de la propietaria; para saber a dónde mandar a alguien sin cortarle (tras el login, la

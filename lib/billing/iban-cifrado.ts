@@ -10,7 +10,7 @@
 // otro mandato no se descifra.
 //
 // Falla CERRADO en las dos direcciones: sin clave no se guarda ningún IBAN
-// (la BD además lo exige con un CHECK, migr 20261003020100) y uno que no se
+// (la BD además lo exige con un CHECK, migr 20261003102724) y uno que no se
 // descifra no sale. El panel solo conoce los 4 últimos dígitos; el IBAN entero
 // solo lo pide el fichero de la remesa, al generarlo.
 //

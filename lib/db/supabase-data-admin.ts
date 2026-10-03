@@ -7279,7 +7279,7 @@ let avisoSinClave = false;
  * Sin clave válida NO se guarda ningún secreto (2-oct-2026, contrato de
  * encargo). Antes se guardaba en claro con un aviso, para no desconectar a
  * Klaviyo/Zoom, que cambian el token al renovar; ahora la BD lo exige con un
- * CHECK (migr 20261003020300) y aquí se para antes, a la vista. Que una
+ * CHECK (migr 20261003102804) y aquí se para antes, a la vista. Que una
  * integración falle por falta de clave se ve; un token en claro, no.
  * Avisa a Sentry una vez por instancia.
  */
