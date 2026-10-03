@@ -9,6 +9,9 @@ import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import { bizumPermitidoPara, tipoDeReciboParaBizum } from '@/lib/billing/bizum-permitido';
 import { MENSAJE_YA_ESTABA } from '@/lib/cobros/marcar-cobrado';
 import { situacionRecibo } from '@/lib/billing/situacion-recibo';
+import { estadoBotonDatafono, mensajeSinConexion } from '@/lib/pos/datafono';
+import { ConectarDatafono } from './conectar-datafono';
+import { useDatafono } from './use-datafono';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Vengo a pagar la cuota.»
@@ -58,13 +61,30 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
   const { recibos, marcarCobrado, suscripciones, planesTarifa } = useStudio();
   const [fase, setFase] = useState<Fase>({ f: 'quieto' });
   const [error, setError] = useState<string | null>(null);
-
   const pendientes = useMemo(
     () => recibos
       .filter((r) => r.socioId === socioId && esDeuda(r))
       .sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento)),
     [recibos, socioId],
   );
+
+  // El datáfono, con su estado real. Sin respuesta del servidor se intenta como
+  // siempre (el servidor dice si no hay lector); sin lector, el botón lo conecta.
+  const datafono = useDatafono(pendientes.length > 0);
+  const [conectandoDatafono, setConectandoDatafono] = useState(false);
+  const lectorDatafono = datafono.estado ? datafono.estado.lector : undefined;
+  const estadoDatafono = estadoBotonDatafono({
+    stripeConectado: datafono.estado?.stripeConectado ?? true,
+    emparejado: datafono.estado?.emparejado ?? true,
+    lector: lectorDatafono,
+  });
+  const etiquetaDatafono = lectorDatafono?.etiqueta ?? null;
+
+  function pulsarDatafono(reciboId: string) {
+    if (estadoDatafono === 'sin-conectar') { setConectandoDatafono(true); return; }
+    if (estadoDatafono === 'sin-conexion') { setError(mensajeSinConexion(etiquetaDatafono)); datafono.recargar(); return; }
+    void cobrarConProveedor(reciboId, 'DATAFONO');
+  }
 
   // ¿Se le puede ofrecer Bizum a ESTE recibo? Mismo veredicto que da el
   // servidor en `/api/pos/recibo` (`lib/billing/tipo-plan-de-recibo.ts`), y por
@@ -150,7 +170,7 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
       <div className="rounded-xl border border-brand/40 bg-brand/5 p-4 space-y-2 text-center">
         <Loader2 size={20} className="animate-spin text-brand mx-auto" />
         <p className="text-[13.5px] font-semibold text-foreground">
-          {fase.metodo === 'DATAFONO' ? 'Acerca la tarjeta al datáfono…' : 'Esperando el Bizum…'}
+          {fase.metodo === 'DATAFONO' ? `Acerca la tarjeta al datáfono${etiquetaDatafono ? ` ${etiquetaDatafono}` : ''}…` : 'Esperando el Bizum…'}
         </p>
         <p className="text-[12px] text-muted-foreground">
           {fase.intentos >= MAX_CONSULTAS
@@ -179,7 +199,17 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
           {pendientes.length > 1 && ` en ${pendientes.length} recibos`}
         </p>
       </div>
-      {error && <p className="text-[12px] text-muted-foreground">{error}</p>}
+      {error && <p role="alert" className="text-[12px] text-muted-foreground">{error}</p>}
+      {conectandoDatafono && (
+        <ConectarDatafono
+          direccionEstudio={datafono.estado?.direccion ?? null}
+          esTest={datafono.estado?.test ?? false}
+          textoVolver="Volver"
+          textoFinal="Volver a cobrar"
+          onConectado={(l) => { datafono.ponerLector(l); setError(null); }}
+          onCerrar={() => setConectandoDatafono(false)}
+        />
+      )}
       {pendientes.map((r) => {
         const ocupado = fase.f === 'efectivo' && fase.reciboId === r.id;
         return (
@@ -191,8 +221,11 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
             <div className="flex gap-1.5">
               <BotonCobro icono={Banknote} etiqueta="Efectivo" cargando={ocupado}
                 onClick={() => cobrarEnEfectivo(r.id)} />
-              <BotonCobro icono={CreditCard} etiqueta="Datáfono" cargando={false}
-                onClick={() => cobrarConProveedor(r.id, 'DATAFONO')} />
+              {estadoDatafono !== 'sin-stripe' && (
+                <BotonCobro icono={CreditCard} etiqueta={estadoDatafono === 'sin-conectar' ? 'Conectar datáfono' : 'Datáfono'} cargando={false}
+                  apagado={estadoDatafono === 'sin-conexion'}
+                  onClick={() => pulsarDatafono(r.id)} />
+              )}
               {bizumPermitidoDe(r) && (
                 <BotonCobro icono={Smartphone} etiqueta="Bizum" cargando={false}
                   onClick={() => cobrarConProveedor(r.id, 'BIZUM')} />
@@ -205,14 +238,16 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
   );
 }
 
-function BotonCobro({ icono: Icono, etiqueta, cargando, onClick }: {
+function BotonCobro({ icono: Icono, etiqueta, cargando, onClick, apagado }: {
   icono: typeof Banknote; etiqueta: string; cargando: boolean; onClick: () => void;
+  /** Se ve apagado pero se puede pulsar (el datáfono sin conexión dice qué hacer). */
+  apagado?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={cargando}
-      className="flex-1 h-10 rounded-lg bg-card border border-border text-[12.5px] font-semibold text-foreground inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+      className={`flex-1 h-10 rounded-lg bg-card border border-border text-[12.5px] font-semibold text-foreground inline-flex items-center justify-center gap-1.5 disabled:opacity-50${apagado ? ' opacity-60' : ''}`}
     >
       {cargando ? <Loader2 size={13} className="animate-spin" /> : <Icono size={13} />}
       {etiqueta}

@@ -729,6 +729,30 @@ export function resumenStripe(e: {
   return { valor: 'Lo estamos terminando de conectar por nuestro lado', estado: { tono: 'neutro', etiqueta: 'No disponible todavía' } };
 }
 
+/**
+ * El datáfono de Stripe del estudio. `null` = sin leer todavía (va la descripción).
+ * `lector: undefined` = Stripe no ha respondido: está conectado, pero no se sabe
+ * si encendido, y no se dice ni «listo» ni «sin conexión».
+ */
+export function resumenDatafono(e: {
+  stripeConectado: boolean;
+  emparejado: boolean | undefined;
+  lector: { etiqueta: string; modelo: string | null; estado: 'online' | 'offline' | null } | null | undefined;
+} | null): ResumenFila {
+  if (!e) return NADA;
+  if (!e.stripeConectado) return { valor: 'Primero conecta el cobro con tarjeta', estado: { tono: 'neutro', etiqueta: 'Sin conectar' } };
+  if (e.lector === null || (e.lector === undefined && e.emparejado === false)) {
+    return {
+      valor: e.emparejado ? 'Ya no está en tu cuenta de Stripe: vuelve a conectarlo' : 'Conéctalo para cobrar con tarjeta en la Caja',
+      estado: { tono: 'neutro', etiqueta: 'Sin conectar' },
+    };
+  }
+  if (e.lector === undefined) return { valor: 'Conectado · no hemos podido ver si está encendido', estado: null };
+  const quien = [e.lector.etiqueta, e.lector.modelo].filter(Boolean).join(' · ');
+  if (e.lector.estado === 'offline') return { valor: `${quien} · apagado o sin wifi`, estado: { tono: 'problema', etiqueta: 'Sin conexión' } };
+  return { valor: quien, estado: { tono: 'activo', etiqueta: 'Listo' } };
+}
+
 /** «Listas para remesas», «Sin configurar» o lo que falta. `null` = sin cargar. */
 export function resumenDomiciliaciones(s: Partial<Pick<Studio, 'sepaAcreedorId' | 'sepaIban' | 'sepaTitular'>>): string | null {
   if (s.sepaAcreedorId === undefined && s.sepaIban === undefined && s.sepaTitular === undefined) return null;

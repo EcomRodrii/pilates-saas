@@ -7,6 +7,7 @@ import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { bizumActivo } from '@/lib/billing/bizum-activo';
 import { consultarCobroBizum, estadoDesdeStripe, type ConsultaCobro } from './consulta-stripe.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
+import { mensajeErrorLector } from './datafono.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Proveedores de cobro del TPV.
@@ -149,7 +150,7 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
 
     async iniciar(ctx, p) {
       if (!readerId) {
-        return { ok: false, error: 'No hay datáfono emparejado. Configúralo en Ajustes del TPV.' };
+        return { ok: false, error: 'No hay ningún datáfono conectado. En la Caja, pulsa Cobrar y luego «Conectar datáfono».' };
       }
       try {
         const pi = await ctx.stripe.paymentIntents.create({
@@ -186,6 +187,10 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
         return { ok: true, referencia: pi.id, estado: 'PROCESANDO' };
       } catch (err) {
         console.error('[pos/terminal:datafono]', err instanceof Stripe.errors.StripeError ? err.message : err);
+        // Apagado, sin wifi u ocupado: que lo diga, porque quien cobra puede
+        // arreglarlo en el acto. Lo demás, el genérico de siempre.
+        const code = err instanceof Stripe.errors.StripeError ? err.code ?? '' : '';
+        if (code.startsWith('terminal_reader_')) return { ok: false, error: mensajeErrorLector({ code }) };
         return { ok: false, error: 'No se pudo enviar el importe al datáfono.' };
       }
     },

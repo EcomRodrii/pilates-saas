@@ -1,112 +1,100 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { dbSetTerminalReader } from '@/lib/db/supabase-data-admin';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
+import { contextoCobroDe } from '@/lib/pos/terminal';
+import { direccionDelEstudio } from '@/lib/pos/datafono';
+import {
+  conectarLector, desconectarLector, leerFilaEstudio, leerLector, renombrarLector,
+} from '@/lib/pos/datafono-servidor';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stripe Terminal (datáfono físico, integración SERVER-DRIVEN) — emparejar el
-// lector con el estudio. Todo ocurre sobre la cuenta CONNECT del estudio.
+// El datáfono de Stripe del estudio: verlo, conectarlo, renombrarlo y
+// desconectarlo. Lo usan «Conectar datáfono» en la Caja y la fila «Datáfono» de
+// Configuración → Cobros y facturas.
 //
-// GET  → estado actual (¿hay lector emparejado? ¿online?).
-// POST → registrar un lector:
-//        · test  (sk_test…): crea un lector SIMULADO (no hace falta hardware).
-//        · real  (sk_live…): registra el WisePOS E con su registrationCode
-//          (el código de 3 palabras que muestra la pantalla del datáfono).
+// Service-role sin RLS debajo: la única cerradura es el rol, en CADA método
+// (`puedeMoverDinero`: propietaria y recepción, las que ya pueden cobrar). Lo
+// vigila lib/terminal-rol-rutas.test.ts. El estudio sale siempre de la sesión.
 //
-// ⚠️ En España la integración server-driven de Terminal está en BETA: hay que
-// pedir a Stripe que la active en la cuenta antes de usarla en real.
+// Mismas puertas que cobrar (`contextoCobroDe`): Stripe configurado, el modo de
+// Stripe que toca en este entorno y la cuenta Connect del estudio. Un datáfono
+// se registra en la cuenta del ESTUDIO, nunca en la de la plataforma.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getStripe(): { stripe: Stripe; test: boolean } | null {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key || key.startsWith('sk_test_XXXX')) return null;
-  return { stripe: new Stripe(key, { apiVersion: '2026-06-24.dahlia' }), test: key.startsWith('sk_test') };
-}
-
-async function studioConnect(studioId: string): Promise<{ account: string | null; readerId: string | null; locationId: string | null } | null> {
-  const admin = getSupabaseAdmin();
-  if (!admin) return null;
-  const { data } = await admin.from('studios')
-    .select('stripe_account_id, stripe_terminal_reader_id, stripe_terminal_location_id')
-    .eq('id', studioId).maybeSingle();
-  if (!data) return null;
-  return { account: data.stripe_account_id ?? null, readerId: data.stripe_terminal_reader_id ?? null, locationId: data.stripe_terminal_location_id ?? null };
-}
+const NO_AUTORIZADO = { error: 'No autorizado' };
+const SIN_PERMISO = { error: 'Conectar el datáfono lo hace la propietaria o recepción.' };
 
 export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
-  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
-  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
-  // mano: el datáfono es la caja del mostrador, y sin esto un INSTRUCTOR o un
-  // MANAGER podía reemparejarlo (o desemparejarlo) pese a que su propia
-  // descripción en pantalla promete que no toca la caja. Mismo guardia que la
-  // ruta hermana /api/terminal/cobrar.
-  if (!puedeMoverDinero(sesion.rol)) {
-    return NextResponse.json({ error: 'Tu rol no puede gestionar el datáfono' }, { status: 403 });
+  if (!sesion) return NextResponse.json(NO_AUTORIZADO, { status: 401 });
+  if (!puedeMoverDinero(sesion.rol)) return NextResponse.json(SIN_PERMISO, { status: 403 });
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor sin configurar' }, { status: 503 });
+
+  const cx = await contextoCobroDe(admin, sesion.studioId);
+  if (!cx.ok) {
+    // Sin cuenta de Stripe no es un error para esta pantalla: es un estado
+    // («primero, el cobro con tarjeta»).
+    if (cx.status === 409) return NextResponse.json({ ok: true, stripeConectado: false, emparejado: false, lector: null });
+    return NextResponse.json({ error: cx.motivo }, { status: cx.status });
   }
-  const s = getStripe();
-  if (!s) return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
-  const cx = await studioConnect(sesion.studioId);
-  if (!cx?.account) return NextResponse.json({ error: 'El estudio no tiene Stripe conectado' }, { status: 409 });
-  if (!cx.readerId) return NextResponse.json({ ok: true, emparejado: false });
-  try {
-    const reader = await s.stripe.terminal.readers.retrieve(cx.readerId, {}, { stripeAccount: cx.account }) as Stripe.Terminal.Reader;
-    return NextResponse.json({ ok: true, emparejado: true, estado: reader.status, etiqueta: reader.label, test: s.test });
-  } catch {
-    return NextResponse.json({ ok: true, emparejado: false, aviso: 'El lector guardado ya no existe en Stripe' });
-  }
+  const fila = await leerFilaEstudio(admin, sesion.studioId);
+  const direccion = direccionDelEstudio(fila);
+  const base = { ok: true, stripeConectado: true, test: cx.ctx.esTest, direccion };
+  if (!cx.readerId) return NextResponse.json({ ...base, emparejado: false, lector: null });
+
+  const lector = await leerLector(cx.ctx, cx.readerId);
+  // `undefined` (Stripe no respondió) viaja como ausencia de `lector`: la
+  // pantalla lo trata como «comprobando», no como desconectado.
+  return NextResponse.json({ ...base, emparejado: true, ...(lector === undefined ? {} : { lector }) });
 }
 
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
-  if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  // S-2: la ruta usa service-role (se salta la RLS), así que el rol se
-  // comprueba aquí. Vía `puedeMoverDinero` y NO con una lista negra escrita a
-  // mano: el datáfono es la caja del mostrador, y sin esto un INSTRUCTOR o un
-  // MANAGER podía reemparejarlo (o desemparejarlo) pese a que su propia
-  // descripción en pantalla promete que no toca la caja. Mismo guardia que la
-  // ruta hermana /api/terminal/cobrar.
-  if (!puedeMoverDinero(sesion.rol)) {
-    return NextResponse.json({ error: 'Tu rol no puede gestionar el datáfono' }, { status: 403 });
-  }
-  const s = getStripe();
-  if (!s) return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
+  if (!sesion) return NextResponse.json(NO_AUTORIZADO, { status: 401 });
+  if (!puedeMoverDinero(sesion.rol)) return NextResponse.json(SIN_PERMISO, { status: 403 });
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor sin configurar' }, { status: 503 });
 
-  const cx = await studioConnect(sesion.studioId);
-  if (!cx?.account) return NextResponse.json({ error: 'El estudio no tiene Stripe conectado' }, { status: 409 });
+  const cx = await contextoCobroDe(admin, sesion.studioId);
+  if (!cx.ok) return NextResponse.json({ error: cx.motivo, ...(cx.status === 409 ? { falta: 'stripe' } : {}) }, { status: cx.status });
 
-  const body = (await req.json().catch(() => ({}))) as { registrationCode?: string; nombreLocal?: string };
-  const stripeAccount = cx.account;
+  const body = (await req.json().catch(() => ({}))) as { codigo?: unknown; nombre?: unknown; direccion?: unknown };
+  const r = await conectarLector(cx.ctx, admin, { codigo: body.codigo, nombre: body.nombre, direccion: body.direccion });
+  if (!r.ok) return NextResponse.json({ error: r.error, ...(r.falta ? { falta: r.falta } : {}) }, { status: r.status });
+  return NextResponse.json({ ok: true, lector: r.lector });
+}
 
-  try {
-    // 1) Location (obligatoria para registrar lectores). Reutiliza la guardada.
-    let locationId = cx.locationId;
-    if (!locationId) {
-      const loc = await s.stripe.terminal.locations.create({
-        display_name: body.nombreLocal || 'Mostrador',
-        address: { country: 'ES', line1: 'Mostrador', city: 'Madrid', postal_code: '28001' },
-      }, { stripeAccount });
-      locationId = loc.id;
-    }
+export async function PATCH(req: NextRequest) {
+  const sesion = await verificarSesionStaff(req);
+  if (!sesion) return NextResponse.json(NO_AUTORIZADO, { status: 401 });
+  if (!puedeMoverDinero(sesion.rol)) return NextResponse.json(SIN_PERMISO, { status: 403 });
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor sin configurar' }, { status: 503 });
 
-    // 2) Registrar el lector. En test, código mágico del lector simulado.
-    const registrationCode = s.test ? 'simulated-wpe' : (body.registrationCode || '').trim();
-    if (!registrationCode) {
-      return NextResponse.json({ error: 'Falta el código de emparejamiento del datáfono' }, { status: 400 });
-    }
-    const reader = await s.stripe.terminal.readers.create({
-      registration_code: registrationCode,
-      location: locationId,
-      label: s.test ? 'Datáfono simulado' : 'Datáfono mostrador',
-    }, { stripeAccount });
+  const cx = await contextoCobroDe(admin, sesion.studioId);
+  if (!cx.ok) return NextResponse.json({ error: cx.motivo }, { status: cx.status });
+  if (!cx.readerId) return NextResponse.json({ error: 'No hay ningún datáfono conectado.' }, { status: 404 });
 
-    await dbSetTerminalReader(sesion.studioId, reader.id, locationId);
-    return NextResponse.json({ ok: true, readerId: reader.id, estado: reader.status, test: s.test });
-  } catch (err) {
-    console.error('[terminal/lector]', err instanceof Stripe.errors.StripeError ? err.message : err);
-    return NextResponse.json({ error: 'No se pudo registrar el datáfono' }, { status: 400 });
-  }
+  const body = (await req.json().catch(() => ({}))) as { nombre?: unknown };
+  const r = await renombrarLector(cx.ctx, cx.readerId, body.nombre);
+  if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+  return NextResponse.json({ ok: true, lector: r.lector });
+}
+
+export async function DELETE(req: NextRequest) {
+  const sesion = await verificarSesionStaff(req);
+  if (!sesion) return NextResponse.json(NO_AUTORIZADO, { status: 401 });
+  if (!puedeMoverDinero(sesion.rol)) return NextResponse.json(SIN_PERMISO, { status: 403 });
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor sin configurar' }, { status: 503 });
+
+  const cx = await contextoCobroDe(admin, sesion.studioId);
+  if (!cx.ok) return NextResponse.json({ error: cx.motivo }, { status: cx.status });
+  if (!cx.readerId) return NextResponse.json({ ok: true });
+
+  const r = await desconectarLector(cx.ctx, admin, cx.readerId);
+  if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+  return NextResponse.json({ ok: true });
 }
