@@ -1,13 +1,15 @@
 // Eliminar un recibo: qué se puede eliminar, por qué motivos, y qué dice el panel
 // cuando el servidor lo rechaza.
 //
-// Puro, sin I/O. Espejo de la RPC `eliminar_recibo` (migración 20260925175253):
-// la cerradura es la RPC, esto solo evita enseñar un botón que va a fallar y
-// traduce sus rechazos. Un test ata las listas de aquí a las de la migración.
+// Puro, sin I/O. Espejo de la RPC `eliminar_recibo` (migración 20260925175253, y
+// la última que la redefine): la cerradura es la RPC, esto solo evita enseñar un
+// botón que va a fallar y traduce sus rechazos. Un test ata las listas de aquí a
+// las de la última migración que la define.
 //
 // ⚠️ El dinero cobrado no se borra: se devuelve. Un recibo COBRADO, DEVUELTO o
 // EN_CURSO no se elimina, y tampoco uno con una factura, una penalización o un
-// pago abierto (un enlace de pago que aún puede completarse).
+// pago abierto (un enlace de pago que aún puede completarse, o un cobro con la
+// tarjeta o la domiciliación guardada en marcha).
 
 import { capitalizarPrimera } from './utils.ts';
 import { ERROR_GENERICO } from './errores.ts';
