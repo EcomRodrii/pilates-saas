@@ -105,7 +105,7 @@ export function descifrarCredencial(valor: string, contexto: string, claves: Cla
  * Lo que se escribe: cifrado si hay clave; si no, el valor tal cual con
  * `enClaro: true`. Desde el 2-oct-2026 quien guarda NO escribe un `enClaro`
  * (`sinClaveDeCifrado` en lib/db/supabase-data-admin.ts) y la BD lo rechaza
- * con un CHECK (migr 20261003020300): antes se guardaba en claro con un aviso,
+ * con un CHECK (migr 20261003102804): antes se guardaba en claro con un aviso,
  * para no desconectar a Klaviyo/Zoom al renovar sin clave.
  */
 export function paraGuardar(valor: string, contexto: string, claves: ClavesCredenciales): { valor: string; enClaro: boolean } {

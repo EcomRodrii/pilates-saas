@@ -10,7 +10,7 @@ import { nivelAutenticacion } from '@/lib/interno/mfa';
 //
 // Para encenderlo, ella tiene que tenerla activada Y haber entrado con ella en
 // esta sesión (`aal2`): si no, se dejaría fuera a sí misma del panel. La
-// columna solo la cambia el servidor (trigger, migr 20261003020400).
+// columna solo la cambia el servidor (trigger, migr 20261003102845).
 
 async function propietaria(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
