@@ -598,7 +598,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'no-puedo-iniciar-sesion', categoria: 'problemas', tipo: 'problema',
     titulo: 'No puedo iniciar sesión',
-    descripcion: 'Contraseña olvidada, el enlace de acceso no llega, o el captcha se queda cargando.',
+    descripcion: 'Contraseña olvidada, el código de acceso no llega, o el captcha se queda cargando.',
     terminos: ['login', 'acceso', 'contraseña', 'captcha'],
     actualizado: '2026-09-14',
     relacionados: ['portal/acceso-de-una-clienta', 'problemas/no-llega-un-email'],

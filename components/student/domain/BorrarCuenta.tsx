@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { Input } from '@/components/student/ui/Input';
@@ -11,13 +10,14 @@ import { borrarCuentaTentare } from '@/lib/student/cuenta';
 import { PALABRA_BORRAR_CUENTA, confirmaBorrarCuenta } from '@/lib/cuenta/borrar-cuenta';
 import { esAppNativa } from '@/lib/nativo/puente';
 
-// «Borrar mi cuenta de Tentare» (App Store 5.1.1(v)), al final del Perfil, en la
-// web y en la app. Borra la CUENTA al momento; no es la solicitud al estudio de
-// que borre sus datos, que sigue en «Privacidad y datos» y se enlaza desde aquí.
+// «Borrar mi cuenta de Tentare» (App Store 5.1.1(v)), al final de «Privacidad y
+// datos» (decisión del fundador, 4-oct: es ahí donde se busca), en la web y en la
+// app. Borra la CUENTA al momento; no es la solicitud al estudio de que borre sus
+// datos, que está en la misma pantalla, justo encima.
 // El texto dice lo que pasa de verdad: los estudios se quedan con su ficha y con
 // lo que la ley les obliga a guardar.
-export function BorrarCuenta({ slug, nombreEstudio, hrefPrivacidad, hrefLogin }: {
-  slug: string; nombreEstudio: string; hrefPrivacidad: string; hrefLogin: string;
+export function BorrarCuenta({ slug, nombreEstudio, hrefLogin }: {
+  slug: string; nombreEstudio: string; hrefLogin: string;
 }) {
   const { online } = useOnline();
   const { olvidarCuentaBorrada } = useAuthStudent(slug);
@@ -90,8 +90,7 @@ export function BorrarCuenta({ slug, nombreEstudio, hrefPrivacidad, hrefLogin }:
         deshabilitado={!ok}
         onConfirm={() => void borrar()}
       >
-        {/* Solo abierta: la hoja cerrada sigue en el DOM (fuera de pantalla), y
-            su enlace a «Privacidad y datos» duplicaría el de la fila del Perfil. */}
+        {/* Solo abierta: la hoja cerrada sigue en el DOM (fuera de pantalla). */}
         {abierta && !borrada && (
           <>
             <div style={{ marginTop: 4 }}>
@@ -101,11 +100,8 @@ export function BorrarCuenta({ slug, nombreEstudio, hrefPrivacidad, hrefLogin }:
                 guardar, como facturas y pagos.
               </p>
               <p style={p}>
-                Si quieres que un estudio borre también tus datos,{' '}
-                <Link href={hrefPrivacidad} style={{ color: 'var(--foreground)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                  pídeselo desde Privacidad y datos
-                </Link>
-                .
+                Si quieres que un estudio borre también tus datos, pídeselo con «Solicitar la eliminación de mis datos»,
+                justo encima.
               </p>
             </div>
             <div style={{ marginTop: 14 }}>

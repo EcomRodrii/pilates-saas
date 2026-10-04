@@ -6,7 +6,7 @@ export default function Contenido() {
   return (
     <>
       <QueEstaPasando>
-        Un email que Tentare debería haber enviado (recordatorio de clase, enlace de acceso, factura)
+        Un email que Tentare debería haber enviado (recordatorio de clase, código de acceso, factura)
         no ha llegado.
       </QueEstaPasando>
 

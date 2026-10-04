@@ -11,8 +11,8 @@ export default function Contenido() {
 
       <CausasComunes items={[
         'Está intentando entrar con un email distinto al que usó para reservar por primera vez.',
-        'Nunca ha puesto contraseña — necesita pedir el enlace de acceso, no adivinar una que no existe.',
-        'El enlace de acceso ha caído en spam.',
+        'Nunca ha puesto contraseña — necesita pedir el código de acceso por email, no adivinar una que no existe.',
+        'El correo con el código de acceso ha caído en spam.',
         'Está entrando en el portal de otro estudio (una URL parecida, pero de otra propietaria de Tentare).',
         'Tiene activada la verificación en dos pasos y ha perdido el acceso a su app de códigos y a su correo.',
       ]} />

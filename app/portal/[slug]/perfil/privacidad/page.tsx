@@ -7,6 +7,7 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { DescargarMisDatos, SolicitudesDerechos } from '@/components/student/domain/MisDatos';
 import { ConsentimientoSaludPerfil } from '@/components/student/domain/ConsentimientoSaludPerfil';
 import { Skeleton } from '@/components/student/ui/States';
+import { BorrarCuenta } from '@/components/student/domain/BorrarCuenta';
 import { useAsync } from '@/lib/student/useAsync';
 import { leerConsentimientoSalud } from '@/lib/student/consentimiento-salud';
 
@@ -17,7 +18,7 @@ import { leerConsentimientoSalud } from '@/lib/student/consentimiento-salud';
 // cosas que se hacen casi nunca, así que ahora viven un nivel más abajo, detrás
 // de una sola fila. El orden es a propósito: primero lo que es suyo y es al
 // momento (descargar), y después, como enlaces discretos, lo que retira o pide
-// borrar.
+// borrar. Y al final, borrar la cuenta de Tentare entera.
 export default function PrivacidadPage() {
   const { estudio } = useEstudio();
   const href = usePortalHref();
@@ -49,6 +50,9 @@ export default function PrivacidadPage() {
               <ConsentimientoSaludPerfil inicial={salud} studioId={estudio.id} nombreEstudio={estudio.nombre} hrefMensajes={href('/mensajes')} />
             )}
             <SolicitudesDerechos slug={estudio.slug} nombreEstudio={estudio.nombre} />
+            {/* Lo último: borrar la CUENTA de Tentare (App Store 5.1.1(v)), que no es
+                pedir al estudio que borre sus datos (justo encima). */}
+            <BorrarCuenta slug={estudio.slug} nombreEstudio={estudio.nombre} hrefLogin={href('/acceso/login')} />
           </>
         )}
       </div>

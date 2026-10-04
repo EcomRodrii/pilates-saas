@@ -18,7 +18,6 @@ import { Icono } from '@/components/student/ui/Icono';
 import { useFotoUrl } from '@/lib/foto-signed-url';
 import { CajaQr, useQrAcceso } from '@/components/student/domain/QrAcceso';
 import { CambiarDeEstudio } from '@/components/student/domain/CambiarDeEstudio';
-import { BorrarCuenta } from '@/components/student/domain/BorrarCuenta';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -173,15 +172,6 @@ export default function PerfilPage() {
           items={[{ label: 'Cerrar sesión', onClick: () => setSalir(true), destructivo: true }]}
         />
 
-        {/* Borrar la CUENTA (App Store 5.1.1(v)), aparte de cerrar sesión y lo
-            último de todo. Pedir al estudio que borre sus datos sigue en
-            «Privacidad y datos», y la hoja lo enlaza. */}
-        <BorrarCuenta
-          slug={estudio.slug}
-          nombreEstudio={estudio.nombre}
-          hrefPrivacidad={href('/perfil/privacidad')}
-          hrefLogin={href('/acceso/login')}
-        />
 
         <p className="t-meta" style={{ textAlign: 'center', color: 'var(--subtle-foreground)' }}>
           App de {estudio.nombre} · con Tentare
