@@ -15,6 +15,21 @@ import { conReintentos, cuentaYaNoExiste, type TerceroPendiente } from './tercer
 // verdad (Supabase Auth caído, un recuento que no llegó) SÍ lo es: se devuelve para que
 // quien llama lo guarde y se reintente.
 
+/**
+ * Cuántas filas de cada `VINCULOS_CUENTA` apuntan a la cuenta; `null` donde no se
+ * pudo contar (la decisión lo trata como no comprobado). Lo comparten la supresión
+ * y «Borrar mi cuenta» de la alumna (lib/cuenta/borrar-cuenta-servidor.ts).
+ */
+export async function contarVinculosCuenta(admin: SupabaseClient, authUserId: string): Promise<RecuentoVinculos> {
+  const recuento: RecuentoVinculos = {};
+  await Promise.all(VINCULOS_CUENTA.map(async v => {
+    const { count, error } = await admin
+      .from(v.tabla).select(v.columna, { count: 'exact', head: true }).eq(v.columna, authUserId);
+    recuento[v.clave] = error ? null : (count ?? null);
+  }));
+  return recuento;
+}
+
 export async function borrarCuentaSiQuedaSuelta(
   admin: SupabaseClient,
   authUserId: string,
@@ -25,13 +40,7 @@ export async function borrarCuentaSiQuedaSuelta(
     tercero: 'cuenta_acceso', ref: authUserId, motivo, en: new Date().toISOString(),
   });
 
-  const recuento: RecuentoVinculos = {};
-  await Promise.all(VINCULOS_CUENTA.map(async v => {
-    const { count, error } = await admin
-      .from(v.tabla).select(v.columna, { count: 'exact', head: true }).eq(v.columna, authUserId);
-    recuento[v.clave] = error ? null : (count ?? null);
-  }));
-
+  const recuento = await contarVinculosCuenta(admin, authUserId);
   const decision = decidirBorradoCuenta(recuento);
   if (!decision.borrar) {
     // Con otros vínculos la cuenta se conserva a propósito: no es un pendiente.

@@ -17,6 +17,8 @@ import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Icono } from '@/components/student/ui/Icono';
 import { useFotoUrl } from '@/lib/foto-signed-url';
 import { CajaQr, useQrAcceso } from '@/components/student/domain/QrAcceso';
+import { CambiarDeEstudio } from '@/components/student/domain/CambiarDeEstudio';
+import { BorrarCuenta } from '@/components/student/domain/BorrarCuenta';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -99,6 +101,9 @@ export default function PerfilPage() {
           </Link>
         )}
 
+        {/* Solo en la app de iOS «Tentare» (dentro se pinta sola o no). */}
+        <CambiarDeEstudio />
+
         {/* ⚠️ Dos bloques y no uno. «Cuenta» acumulaba OCHO filas seguidas,
             y las cuatro últimas no son ajustes de cuenta: son dinero. En un
             listado plano de ocho, «Contraseña» y «Método de pago» pesan lo
@@ -166,6 +171,16 @@ export default function PerfilPage() {
         <ProfileSection
           titulo="Sesión"
           items={[{ label: 'Cerrar sesión', onClick: () => setSalir(true), destructivo: true }]}
+        />
+
+        {/* Borrar la CUENTA (App Store 5.1.1(v)), aparte de cerrar sesión y lo
+            último de todo. Pedir al estudio que borre sus datos sigue en
+            «Privacidad y datos», y la hoja lo enlaza. */}
+        <BorrarCuenta
+          slug={estudio.slug}
+          nombreEstudio={estudio.nombre}
+          hrefPrivacidad={href('/perfil/privacidad')}
+          hrefLogin={href('/acceso/login')}
         />
 
         <p className="t-meta" style={{ textAlign: 'center', color: 'var(--subtle-foreground)' }}>
