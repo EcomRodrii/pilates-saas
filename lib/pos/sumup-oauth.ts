@@ -2,6 +2,7 @@ import 'server-only';
 import { fetchExterno } from '@/lib/fetch-externo';
 import { dbGetSumupCredenciales, dbRenovarSumupCredenciales } from '@/lib/db/supabase-data-admin';
 import { obtenerTokenSumup, type TokenSumup, type TokensSumup, type ResultadoRenovacion } from './sumup-token.ts';
+import { SCOPES_SUMUP } from './sumup.ts';
 
 export type { TokenSumup } from './sumup-token.ts';
 import { RUTA_CALLBACK_OAUTH } from '@/lib/oauth-state';
@@ -19,12 +20,6 @@ const AUTORIZAR_URL = 'https://api.sumup.com/authorize';
 const TOKEN_URL = 'https://api.sumup.com/token';
 const PERFIL_URL = 'https://api.sumup.com/v0.1/me';
 
-/**
- * `payments` es el que deja cobrar: SumUp lo aprueba a mano para cada app. Los
- * demás vienen por defecto. ⚠️ Confirmar con la cuenta de prueba si los lectores
- * piden un scope propio.
- */
-export const SCOPES_SUMUP = ['payments', 'transactions.history', 'user.profile_readonly'] as const;
 
 function config() {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001').replace(/\/$/, '');
