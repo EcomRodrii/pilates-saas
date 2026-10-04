@@ -629,3 +629,38 @@ test('reintento de facturas: todo el trimestre en curso (hora de Madrid), o las 
   // 31-dic a las 23:30 UTC ya es 1-ene en Madrid: el trimestre es el nuevo, pero manda la ventana de horas.
   assert.equal(desdeReintentoFactura(new Date('2026-12-31T23:30:00Z'), 72), '2026-12-28');
 });
+
+// ── El datáfono de SumUp (`cargoSumup`) ──────────────────────────────────────
+// Su cargo va a `sumup_transaction_id`, nunca a la columna de Stripe, y cuenta
+// igual que uno de Stripe para atar DEVUELTO/EN_CURSO y para ver un doble cobro.
+
+const SUMUP: ParamsConfirmarCobro = {
+  studioId: 'studio-1', reciboId: 'rec-1', metodo: 'TARJETA', origen: 'tpv',
+  paymentIntentId: null, cargoSumup: '3fa85f64-5717-4562-b3fc-2c963f66afa6', avisarSocia: true, facturaId: 'fac-checkout-rec-1',
+};
+
+test('SumUp: el cargo va a su columna, nunca a la de Stripe, y ata DEVUELTO/EN_CURSO a SU cargo', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: GANA });
+  const r = await confirmarCobro(admin, SUMUP, efectos().deps);
+  assert.equal(r.ok && r.transicion, 'aplicada');
+  const cas = updates[0];
+  assert.equal(cas.fila.sumup_transaction_id, SUMUP.cargoSumup);
+  assert.equal('stripe_payment_intent_id' in cas.fila, false);
+  const ors = cas.filtros.filter(([o]) => o === 'or').map(([, , v]) => String(v));
+  assert.ok(ors.some(or => or.includes(`and(estado.eq.DEVUELTO,or(sumup_transaction_id.is.null,sumup_transaction_id.neq.${SUMUP.cargoSumup}))`)));
+  assert.equal(ors.some(or => or.includes('stripe_payment_intent_id.neq')), false);
+});
+
+test('SumUp sobre un recibo ya cobrado por Stripe: otro cobro (hay que devolver uno), no «ya estaba»', async () => {
+  const { admin, updates } = fakeAdmin({ trasCas: null, actual: { estado: 'COBRADO', stripe_payment_intent_id: 'pi_viejo' } });
+  const r = await confirmarCobro(admin, SUMUP, efectos().deps);
+  assert.equal(r.ok, false);
+  assert.equal(!r.ok && r.codigo, 'NO_COBRABLE');
+  assert.equal(huboCobrado(updates), 1, 'solo el compare-and-set que no ganó');
+});
+
+test('SumUp que vuelve a llegar con el mismo cargo: ya estaba, sin repetir nada', async () => {
+  const { admin } = fakeAdmin({ trasCas: null, actual: { estado: 'COBRADO', stripe_payment_intent_id: null, sumup_transaction_id: SUMUP.cargoSumup } });
+  const r = await confirmarCobro(admin, SUMUP, efectos().deps);
+  assert.equal(r.ok && r.transicion, 'ya_estaba');
+});

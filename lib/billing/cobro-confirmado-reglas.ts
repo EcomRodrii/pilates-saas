@@ -97,7 +97,9 @@ export function conciliadoPorDe(origen: OrigenCobro): ConciliadoPor | null {
 
 // Ids de Stripe (`pi_…`, `cs_…`): letras, dígitos y guion bajo. Lo que no
 // encaje no se interpola en un filtro PostgREST.
-const REFERENCIA_STRIPE = /^[A-Za-z0-9_]{1,255}$/;
+// Ids de cargo: Stripe (`pi_…`) y SumUp (un UUID, con guiones). Nada de lo que
+// PostgREST lee como sintaxis de filtro (comas, paréntesis, puntos).
+const REFERENCIA_CARGO = /^[A-Za-z0-9_-]{1,255}$/;
 
 /**
  * Filtro `.or()` del compare-and-set que ata DEVUELTO y EN_CURSO al cargo que
@@ -113,19 +115,26 @@ const REFERENCIA_STRIPE = /^[A-Za-z0-9_]{1,255}$/;
  * `null` = sin cargo que comparar: no se añade filtro (mismo comportamiento que
  * antes para quien no aporta PaymentIntent). Un id con caracteres fuera de lo
  * esperado no se interpola: se excluyen DEVUELTO y EN_CURSO enteros.
+ *
+ * `columna`: dónde guarda el recibo ese cargo. Stripe en `stripe_payment_intent_id`;
+ * el datáfono de SumUp en `sumup_transaction_id` (migr datafono_sumup).
  */
-export function filtroCargoEnCas(paymentIntentId: string | null): string | null {
-  if (!paymentIntentId) return null;
-  if (!REFERENCIA_STRIPE.test(paymentIntentId)) return 'estado.not.in.(DEVUELTO,EN_CURSO)';
-  const pi = paymentIntentId;
+export function filtroCargoEnCas(
+  cargo: string | null,
+  columna: 'stripe_payment_intent_id' | 'sumup_transaction_id' = 'stripe_payment_intent_id',
+): string | null {
+  if (!cargo) return null;
+  if (!REFERENCIA_CARGO.test(cargo)) return 'estado.not.in.(DEVUELTO,EN_CURSO)';
   return 'estado.not.in.(DEVUELTO,EN_CURSO),'
-    + `and(estado.eq.DEVUELTO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.neq.${pi})),`
-    + `and(estado.eq.EN_CURSO,or(stripe_payment_intent_id.is.null,stripe_payment_intent_id.eq.${pi}))`;
+    + `and(estado.eq.DEVUELTO,or(${columna}.is.null,${columna}.neq.${cargo})),`
+    + `and(estado.eq.EN_CURSO,or(${columna}.is.null,${columna}.eq.${cargo}))`;
 }
 
 export type FilaReciboSinCambios = {
   estado: string | null; stripe_payment_intent_id: string | null; conciliado_por?: string | null;
   cobro_off_session_clave?: string | null;
+  /** El cargo de SumUp que lo cerró, si lo cobró su datáfono. */
+  sumup_transaction_id?: string | null;
 } | null;
 
 export type DecisionSinFilas =
@@ -154,10 +163,14 @@ export type DecisionSinFilas =
  * Un COBRADO SIN cargo guardado al que le llega uno es «otro cobro»: lo marcó
  * alguien a mano (o por otra vía sin Stripe) y además ha entrado un cargo. Un
  * EN_CURSO con un cargo en vuelo distinto del que llega, también.
+ *
+ * `paymentIntentId` es el cargo que llega, sea de Stripe o del datáfono de SumUp;
+ * el guardado es el que haya en cualquiera de las dos columnas. Un cargo de un
+ * proveedor nunca coincide con uno del otro: es otro cobro.
  */
 export function resolverSinFilas(fila: FilaReciboSinCambios, paymentIntentId: string | null): DecisionSinFilas {
   if (!fila) return { tipo: 'no_encontrado' };
-  const anterior = fila.stripe_payment_intent_id ?? null;
+  const anterior = fila.stripe_payment_intent_id ?? fila.sumup_transaction_id ?? null;
   if (fila.estado === 'COBRADO') {
     if (!paymentIntentId || anterior === paymentIntentId) return { tipo: 'ya_estaba' };
     return { tipo: 'otro_cobro', anterior };

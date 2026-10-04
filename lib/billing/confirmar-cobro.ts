@@ -92,6 +92,12 @@ export interface ParamsConfirmarCobro {
   origen: OrigenCobro;
   /** El cargo real, para poder devolverlo desde el panel. Solo se escribe si viene. */
   paymentIntentId: string | null;
+  /**
+   * El cargo del datáfono de SumUp (su id de transacción), en vez de `paymentIntentId`:
+   * va a `recibos.sumup_transaction_id`, nunca a la columna de Stripe (que decide
+   * devoluciones y reembolsos por Stripe). Cuenta igual para detectar un doble cobro.
+   */
+  cargoSumup?: string | null;
   /** Pedir el email de justificante SI esta llamada gana la transición. */
   avisarSocia: boolean;
   /** Id de la factura de este canal (ver `facturaIdCheckout`/`facturaIdMetodoGuardado`). */
@@ -374,6 +380,7 @@ export async function confirmarCobro(
       ...(p.metodo !== null ? { metodo_cobro: p.metodo } : {}),
       ...(p.metodo === 'SEPA' ? { sepa_estado: 'succeeded' } : {}),
       ...(p.paymentIntentId ? { stripe_payment_intent_id: p.paymentIntentId } : {}),
+      ...(p.cargoSumup ? { sumup_transaction_id: p.cargoSumup } : {}),
       // Pagado: deja de haber una sesión abierta que reutilizar.
       checkout_session_id: null,
       // Ni un cobro con tarjeta guardada en marcha: el que gana lo cierra. Para
@@ -403,7 +410,9 @@ export async function confirmarCobro(
     // al de `filtroCargoEnCas`.
     .or('estado.neq.DEVUELTO,importe_devuelto.eq.0');
   // DEVUELTO y EN_CURSO atados al cargo que llega (ver `filtroCargoEnCas`).
-  const filtroCargo = filtroCargoEnCas(p.paymentIntentId);
+  const filtroCargo = p.cargoSumup
+    ? filtroCargoEnCas(p.cargoSumup, 'sumup_transaction_id')
+    : filtroCargoEnCas(p.paymentIntentId);
   if (filtroCargo) consulta = consulta.or(filtroCargo);
   // «El banco lo ha cobrado» solo cierra una remesa: sin ningún cobro de Stripe
   // en marcha, en el propio UPDATE (no en una lectura previa con carrera).
@@ -432,9 +441,9 @@ export async function confirmarCobro(
 
   if (!marcado) {
     const { data: fila, error: errLeer } = await admin.from('recibos')
-      .select('estado, stripe_payment_intent_id, conciliado_por, cobro_off_session_clave').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+      .select('estado, stripe_payment_intent_id, sumup_transaction_id, conciliado_por, cobro_off_session_clave').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
     if (errLeer) return { ok: false, codigo: 'PERSISTENCIA', error: errLeer.message };
-    const decision = resolverSinFilas(fila as FilaReciboSinCambios, p.paymentIntentId);
+    const decision = resolverSinFilas(fila as FilaReciboSinCambios, p.paymentIntentId ?? p.cargoSumup ?? null);
     switch (decision.tipo) {
       case 'no_encontrado':
         return { ok: false, codigo: 'NO_ENCONTRADO', error: 'Recibo no encontrado' };
@@ -476,7 +485,7 @@ export async function confirmarCobro(
           level: 'error', tags: { area: 'cobros' },
           extra: {
             reciboId: p.reciboId, studioId: p.studioId, origen: p.origen,
-            paymentIntentCobrado: decision.anterior, paymentIntentDuplicado: p.paymentIntentId,
+            paymentIntentCobrado: decision.anterior, paymentIntentDuplicado: p.paymentIntentId ?? p.cargoSumup ?? null,
           },
         });
         return { ok: false, codigo: 'NO_COBRABLE', error: 'Este recibo ya estaba cobrado, o en cobro, con otro cargo: hay que devolver uno de los dos.', estado: fila?.estado as string | null };
@@ -531,17 +540,23 @@ export async function confirmarCobroRecibo(
     reciboId: string;
     metodoCobro: string;
     paymentIntentId: string | null;
+    /** Solo el datáfono de SumUp: su id de transacción (va a `sumup_transaction_id`). */
+    cargoSumup?: string | null;
     fuente: FuenteConfirmacion;
     /** Solo TPV: quién cobraba, para el apunte de caja. */
     actor?: ActorCobro;
   },
 ): Promise<ResultadoConfirmarCobroRecibo> {
-  const { studioId, reciboId, metodoCobro, paymentIntentId, fuente } = params;
+  const { studioId, reciboId, metodoCobro, fuente } = params;
+  const cargoSumup = params.paymentIntentId ? null : params.cargoSumup ?? null;
   const r = await confirmarCobro(admin, {
     studioId, reciboId, metodo: metodoCobro,
-    origen: fuente, paymentIntentId,
+    origen: fuente, paymentIntentId: params.paymentIntentId, cargoSumup,
     avisarSocia: true, facturaId: facturaIdCheckout(reciboId), actor: params.actor,
   });
+  // El libro de intentos se indexa por el id del cargo; el de SumUp, con su prefijo
+  // para que no se confunda nunca con un PaymentIntent.
+  const paymentIntentId = params.paymentIntentId ?? (cargoSumup ? `sumup:${cargoSumup}` : null);
 
   // Libro de intentos de cobro (PAY-4), el que contesta a «me habéis cobrado
   // dos veces». Se anota aquí y no en `confirmarCobro` porque solo este envoltorio
