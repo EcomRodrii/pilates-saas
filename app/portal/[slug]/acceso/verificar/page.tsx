@@ -42,12 +42,12 @@ function Verificar() {
   const { estudio, slug } = useEstudio();
   const href = usePortalHref();
   const { fijarPassword, entrarConGoogle, reenviarCodigoAlta } = useAuthStudent(slug);
-  const { socia, usuarioEmail, autenticado, isLoading, refrescar } = useSesionStudent(slug);
+  const { socia, usuarioEmail, autenticado, isLoading, segundoPaso, refrescar } = useSesionStudent(slug);
   // Una instructora del estudio NO se da de alta como alumna: entra a su parte
   // (la app es la misma para las dos, 14-sep-2026). `forzar`: quien aterriza
   // aquí viene de un enlace —invitación, recuperación, Google— y un «no es
   // instructora» recordado de antes no puede decidir por ella.
-  const { instructora, isLoading: cargandoInstructora } = useSesionInstructora(slug, autenticado && !socia, true);
+  const { instructora, isLoading: cargandoInstructora } = useSesionInstructora(slug, autenticado && !socia && !segundoPaso, true);
 
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
@@ -167,7 +167,15 @@ function Verificar() {
   // porque login no mira la sesión y dejaba a la alumna mirando el formulario
   // de entrada con la sesión ya guardada.
   useEffect(() => {
-    if (isLoading || !autenticado || forzarPassword) return;
+    if (isLoading || !autenticado) return;
+    // Tiene la verificación en dos pasos activada: antes de firmar nada o de
+    // elegir contraseña, el código. Vuelve aquí mismo (con su `?crear=1` si
+    // venía de recuperar la contraseña), y `st_next_<slug>` sigue guardado.
+    if (segundoPaso) {
+      r.replace(`${href('/acceso/dos-pasos')}?next=${encodeURIComponent(`${href('/acceso/verificar')}${window.location.search}`)}`);
+      return;
+    }
+    if (forzarPassword) return;
     if (socia) {
       // Ya es alumna, pero el estudio también la ha dado de alta como
       // instructora: se le pregunta por dónde entra. Una vez por inicio de
@@ -208,7 +216,7 @@ function Verificar() {
     // `firmarAlta` se recrea en cada render y meterlo en las dependencias
     // volvería a lanzarlo en bucle; lo que decide es el estado de sesión.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, autenticado, socia, forzarPassword, instructora, cargandoInstructora]);
+  }, [isLoading, autenticado, segundoPaso, socia, forzarPassword, instructora, cargandoInstructora]);
 
   const guardar = async () => {
     if (pass.length < 8) { setErr('Mínimo 8 caracteres'); return; }

@@ -34,3 +34,11 @@ test('a dónde volver: solo rutas del panel', () => {
     assert.equal(destinoTrasVerificar(malo), '/dashboard', String(malo));
   }
 });
+
+test('fuera del panel: sin la verificación activada nunca falta nada; con ella, aal2 o sesión confiada', async () => {
+  const { faltaSegundoPaso } = await import('./doble-factor-reglas.ts');
+  assert.equal(faltaSegundoPaso({ factoresVerificados: 0, nivel: 'aal1', confiada: false }), false, 'quien no la activa no nota nada');
+  assert.equal(faltaSegundoPaso({ factoresVerificados: 1, nivel: 'aal1', confiada: false }), true, 'contraseña sola: falta');
+  assert.equal(faltaSegundoPaso({ factoresVerificados: 1, nivel: 'aal2', confiada: false }), false);
+  assert.equal(faltaSegundoPaso({ factoresVerificados: 1, nivel: 'aal1', confiada: true }), false, 'dispositivo recordado o código del correo');
+});

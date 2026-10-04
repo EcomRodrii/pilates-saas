@@ -87,8 +87,8 @@ export function useGuardiaSesion(vistaPrevia: boolean) {
   const path = usePathname();
   const { slug, estudio } = useEstudio();
   const href = usePortalHref();
-  const { socia, autenticado, isLoading } = useSesionStudent(slug);
-  const sinFicha = !isLoading && autenticado && !socia;
+  const { socia, autenticado, isLoading, segundoPaso } = useSesionStudent(slug);
+  const sinFicha = !isLoading && autenticado && !socia && !segundoPaso;
   const enMarco = useEnVistaPreviaDelPanel();
   const verSinSesion = vistaPrevia && enMarco && !isLoading && !autenticado;
   const { instructora, isLoading: cargandoInstructora } = useSesionInstructora(slug, sinFicha);
@@ -125,9 +125,12 @@ export function useGuardiaSesion(vistaPrevia: boolean) {
       r.replace(destino);
       return;
     }
+    // Tiene la verificación en dos pasos activada y esta sesión aún no la ha
+    // pasado: antes que nada, el código (lib/student/doble-factor-portal.ts).
+    if (segundoPaso) { r.replace(`${href('/acceso/dos-pasos')}?next=${encodeURIComponent(path)}`); return; }
     if (instructora) { r.replace(href('/equipo')); return; }
     if (elegir) r.replace(href('/acceso/elegir'));
-  }, [isLoading, autenticado, instructora, elegir, href, path, r, vistaPrevia]);
+  }, [isLoading, autenticado, segundoPaso, instructora, elegir, href, path, r, vistaPrevia]);
 
   // ── Las preguntas del estudio (Configuración → «Preguntar los datos extra en
   // su app»). Con el interruptor encendido y alguna sin contestar, la app le
@@ -171,7 +174,7 @@ export function useGuardiaSesion(vistaPrevia: boolean) {
   const conPreguntas = mirarPreguntas && estadoPreguntas?.activa === true && estadoPreguntas.pendientes.length > 0
     ? estadoPreguntas : null;
 
-  const esperando = isLoading || (!autenticado && !verSinSesion) || (sinFicha && cargandoInstructora) || instructora
+  const esperando = isLoading || (!autenticado && !verSinSesion) || segundoPaso || (sinFicha && cargandoInstructora) || instructora
     || (preguntarEleccion && elegir !== false) || cargandoPreguntas;
   const completarPreguntas = (nuevo: EstadoPreguntasAltaRemoto) => {
     if (nuevo.pendientes.length === 0) sinPreguntasPendientes.add(base);

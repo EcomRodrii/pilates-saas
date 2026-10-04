@@ -33,6 +33,20 @@ export function exigeSegundoPaso(p: { factoresVerificados: number; estudioLoExig
   return p.factoresVerificados > 0 || (p.estudioLoExige && p.rol !== 'INSTRUCTOR');
 }
 
+/**
+ * ¿A esta sesión le falta el segundo paso? La regla A, vista desde una ruta
+ * que no es del panel (la app del estudio, `/reservar`, el widget, la red):
+ * quien tiene la verificación activada solo pasa con `aal2` o con una sesión
+ * que el servidor confió (dispositivo recordado o código del correo). Quien no
+ * la tiene activada pasa siempre: para ella esto no existe.
+ */
+export function faltaSegundoPaso(p: { factoresVerificados: number; nivel: NivelSesion; confiada: boolean }): boolean {
+  return p.factoresVerificados > 0 && p.nivel !== 'aal2' && !p.confiada;
+}
+
+/** Lo que contesta una ruta cuando la sesión es buena pero le falta el segundo paso. */
+export const CODIGO_SEGUNDO_PASO = 'doble_factor_requerido';
+
 export type PasoDobleFactor = 'ok' | 'verificar' | 'activar';
 
 /**

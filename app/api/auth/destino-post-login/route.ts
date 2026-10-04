@@ -40,7 +40,9 @@ export async function GET(req: NextRequest) {
   const sesion = await resolverSesionStaffConPaso(req);
   const tieneEstudio = !!sesion;
 
-  const usuario = await verificarUsuarioSupabase(req);
+  // Tampoco aquí: solo decide a dónde va. La app o el panel le piden el
+  // segundo paso antes de enseñar nada.
+  const usuario = await verificarUsuarioSupabase(req, { sinSegundoPaso: true });
   const admin = usuario ? getSupabaseAdmin() : null;
   const { data: perfil } = admin
     ? await admin.from('red_perfiles').select('estado').eq('auth_user_id', usuario!.userId).maybeSingle()

@@ -136,6 +136,11 @@ const SPECS_WEBKIT = [
   '**/student-anadir-al-calendario.spec.ts',
   '**/student-cabos.spec.ts',
   '**/student-acceso.spec.ts',
+  // El segundo paso de la verificación en dos pasos (4-oct-2026): lo hace la
+  // alumna desde su móvil al entrar, con el campo de código (`one-time-code`) y
+  // una recarga entera al terminar, justo lo que cambia de un motor a otro.
+  // Cinco tests, todos con mocks; su coste sale sumando por test en `timings-*`.
+  '**/portal-dos-pasos.spec.ts',
   '**/student-aislamiento.spec.ts',
   '**/student-heroe-sobre-la-foto.spec.ts',
   '**/student-cabecera-sobre-foto.spec.ts',

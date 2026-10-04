@@ -32,7 +32,7 @@ export default function ElegirComoEntrar() {
   const r = useRouter();
   const { estudio, slug } = useEstudio();
   const href = usePortalHref();
-  const { socia, usuarioEmail, autenticado, isLoading } = useSesionStudent(slug);
+  const { socia, usuarioEmail, autenticado, isLoading, segundoPaso } = useSesionStudent(slug);
   const { logout } = useAuthStudent(slug);
   const [puedeElegir, setPuedeElegir] = useState(false);
   // Llegó por el correo de invitación (y no por coincidir el correo).
@@ -43,6 +43,8 @@ export default function ElegirComoEntrar() {
   useEffect(() => {
     if (isLoading) return;
     if (!autenticado) { r.replace(href('/acceso/login')); return; }
+    // Con la verificación en dos pasos activada y sin pasarla, primero el código.
+    if (segundoPaso) { r.replace(`${href('/acceso/dos-pasos')}?next=${encodeURIComponent(href('/acceso/elegir'))}`); return; }
     let vivo = true;
     void debeElegirComoEntrar(slug).then((elegir) => {
       if (!vivo) return;
@@ -52,7 +54,7 @@ export default function ElegirComoEntrar() {
       setPuedeElegir(true);
     });
     return () => { vivo = false; };
-  }, [isLoading, autenticado, socia, slug, href, r]);
+  }, [isLoading, autenticado, segundoPaso, socia, slug, href, r]);
 
   const comoInstructora = async () => {
     setEnviando('instructora');

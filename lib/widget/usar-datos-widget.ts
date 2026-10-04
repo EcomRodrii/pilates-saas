@@ -89,7 +89,7 @@ const VACIO: DatosCrudos = {
 // que ellas: se pinta en el mismo commit, nunca después.
 export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosSlots, opciones?: { estilo?: boolean }) {
   const pedirEstilo = opciones?.estilo === true;
-  const { socia, usuarioEmail, autenticado, isLoading: sesionCargando, refrescar: refrescarSesion } = useSesionWidget(slug, baseUrl);
+  const { socia, usuarioEmail, autenticado, isLoading: sesionCargando, segundoPaso, refrescar: refrescarSesion } = useSesionWidget(slug, baseUrl);
   const [datos, setDatos] = useState<DatosCrudos>(VACIO);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -325,7 +325,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
   }, [socia, datos.studioId, baseUrl]);
 
   return {
-    slots, cargando, error, paginaOculta, socia, usuarioEmail, autenticado, sesionCargando, refrescarSesion,
+    slots, cargando, error, paginaOculta, socia, usuarioEmail, autenticado, sesionCargando, segundoPaso, refrescarSesion,
     studioId: datos.studioId || null,
     politicaPrivacidad: datos.politicaPrivacidad, terminosServicio: datos.terminosServicio, nombreEstudio: datos.nombreEstudio,
     sesiones: datos.sesiones, tiposClase: datos.tiposClase, salas: datos.salas, instructores: datos.instructores,
