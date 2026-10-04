@@ -8,6 +8,7 @@
 	<array>
 		<string>applinks:www.tentare.app</string>
 		<string>applinks:tentare.app</string>
+		<string>webcredentials:www.tentare.app</string>
 	</array>
 	<key>com.apple.developer.applesignin</key>
 	<array>
