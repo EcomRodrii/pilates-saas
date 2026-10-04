@@ -7,6 +7,8 @@
 //
 // Todo falla hacia «hay que escribir el código», nunca hacia dentro.
 
+import { senalConLimite } from '@/lib/senal-con-limite';
+
 const tactil = () => typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1;
 
 /**
@@ -42,7 +44,7 @@ export async function recordarDispositivo(token: string): Promise<boolean> {
       // Un iPad se presenta como Mac: la pantalla táctil lo distingue (solo para el nombre).
       body: JSON.stringify({ tactil: tactil() }),
       cache: 'no-store',
-      signal: AbortSignal.timeout(8000),
+      signal: senalConLimite(8000),
     });
     return res.ok;
   } catch {
@@ -72,7 +74,7 @@ export async function enviarCodigoCorreo(token: string, reenviar: boolean, slug?
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(slug ? { reenviar, slug } : { reenviar }),
       cache: 'no-store',
-      signal: AbortSignal.timeout(15000),
+      signal: senalConLimite(15000),
     });
     const r = await res.json().catch(() => ({})) as {
       enviado?: boolean; espera?: number; disponible?: boolean; mensaje?: string; error?: string;
@@ -97,7 +99,7 @@ export async function verificarCodigoCorreo(
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ codigo, recordar, tactil: tactil() }),
       cache: 'no-store',
-      signal: AbortSignal.timeout(15000),
+      signal: senalConLimite(15000),
     });
     const r = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; aLaApp?: boolean };
     if (res.ok && r.ok) return { ok: true };
@@ -115,7 +117,7 @@ export async function verificarCodigoCorreo(
 export async function reabrirCorreo(token: string): Promise<void> {
   try {
     await fetch('/api/auth/doble-factor-correo/reabrir', {
-      method: 'POST', headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: AbortSignal.timeout(8000),
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: senalConLimite(8000),
     });
   } catch {
     // ver arriba
