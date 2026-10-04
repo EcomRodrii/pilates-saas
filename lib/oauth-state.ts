@@ -30,7 +30,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 const TTL_MS = 10 * 60 * 1000;
 
-export type ProveedorOAuth = 'stripe' | 'google' | 'zoom' | 'klaviyo';
+export type ProveedorOAuth = 'stripe' | 'google' | 'zoom' | 'klaviyo' | 'sumup';
 
 // La cookie de cada flujo solo viaja a SU callback: una cookie de Google Calendar
 // nunca llega al callback de Zoom, y no sale en ninguna otra petición del panel.
@@ -39,6 +39,7 @@ export const RUTA_CALLBACK_OAUTH: Readonly<Record<ProveedorOAuth, string>> = {
   google: '/api/integrations/google-calendar/callback',
   zoom: '/api/integrations/zoom/callback',
   klaviyo: '/api/integrations/klaviyo/callback',
+  sumup: '/api/integrations/sumup/callback',
 };
 
 export function nombreCookieOAuth(provider: ProveedorOAuth): string {

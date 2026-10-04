@@ -7299,7 +7299,7 @@ export async function dbSetGoogleCalendarEmail(studioId: string, email: string |
 // Cifradas en la app (lib/integraciones/cifrado-credenciales.ts). Toda lectura
 // y escritura de `integracion_credenciales` pasa por estos ayudantes: un
 // `.from()` suelto se saltaría el cifrado (lo vigila su test).
-type ProveedorCredenciales = 'google_calendar' | 'klaviyo' | 'gmail' | 'zoom';
+type ProveedorCredenciales = 'google_calendar' | 'klaviyo' | 'gmail' | 'zoom' | 'sumup';
 
 interface CredencialesOAuth {
   accessToken: string;
@@ -7333,12 +7333,12 @@ const SIN_CLAVE_INTEGRACIONES = 'No se pueden guardar las credenciales sin cifra
  * puede descifrar (sin clave, otra clave, alterado) NO se devuelve: es `null`,
  * y la integración se trata como no conectada hasta reconectarla.
  */
-async function leerCredencialesOAuth(studioId: string, provider: ProveedorCredenciales, etiqueta: string): Promise<(CredencialesOAuth & { metadata: unknown }) | null> {
+async function leerCredencialesOAuth(studioId: string, provider: ProveedorCredenciales, etiqueta: string): Promise<(CredencialesOAuth & { metadata: unknown; version: string | null }) | null> {
   const admin = getSupabaseAdmin();
   if (!admin) return null;
   const { data, error } = await admin
     .from('integracion_credenciales')
-    .select('access_token, refresh_token, expires_at, metadata')
+    .select('access_token, refresh_token, expires_at, metadata, actualizado_en')
     .eq('studio_id', studioId)
     .eq('provider', provider)
     .maybeSingle();
@@ -7358,17 +7358,30 @@ async function leerCredencialesOAuth(studioId: string, provider: ProveedorCreden
     return null;
   }
   // Los mismos tipos que se devolvían antes de cifrar: sin reinterpretar nulos.
-  return { accessToken: acceso.valor as string, refreshToken: renovar.valor, expiresAt: data.expires_at as string, metadata: data.metadata };
+  return {
+    accessToken: acceso.valor as string, refreshToken: renovar.valor, expiresAt: data.expires_at as string, metadata: data.metadata,
+    // Versión de la fila: con ella, una renovación solo se guarda si nadie la cambió entre medias.
+    version: (data.actualizado_en as string | null) ?? null,
+  };
 }
 
-async function guardarCredencialesOAuth(studioId: string, provider: ProveedorCredenciales, c: CredencialesOAuth, etiqueta: string, metadata?: Record<string, unknown> | null) {
+/**
+ * `soloSiVersion`: guarda SOLO si la fila sigue en esa versión (`actualizado_en`
+ * leído). Es la renovación de un token que ROTA (SumUp): si otro proceso ya lo
+ * renovó, no se pisa su token nuevo con uno que el proveedor acaba de invalidar.
+ * Devuelve si quedó guardado (sin `soloSiVersion`, `true` salvo error).
+ */
+async function guardarCredencialesOAuth(
+  studioId: string, provider: ProveedorCredenciales, c: CredencialesOAuth, etiqueta: string,
+  metadata?: Record<string, unknown> | null, opciones: { soloSiVersion?: string } = {},
+): Promise<boolean> {
   const admin = getSupabaseAdmin();
-  if (!admin) return;
+  if (!admin) return false;
   const claves = clavesDelEntorno();
   // Lanza: quien guarda (el callback de OAuth, la renovación del token) tiene
   // que enterarse de que no quedó guardado.
   if (sinClaveDeCifrado(claves)) throw new Error(SIN_CLAVE_INTEGRACIONES);
-  const { error } = await admin.from('integracion_credenciales').upsert({
+  const fila = {
     studio_id: studioId,
     provider,
     access_token: paraGuardar(c.accessToken, contextoCredencial(studioId, provider, 'access_token'), claves).valor,
@@ -7376,8 +7389,18 @@ async function guardarCredencialesOAuth(studioId: string, provider: ProveedorCre
     expires_at: c.expiresAt,
     ...(metadata !== undefined ? { metadata } : {}),
     actualizado_en: new Date().toISOString(),
-  }, { onConflict: 'studio_id,provider' });
-  if (error) reportDbError(etiqueta, error);
+  };
+  const tabla = admin.from('integracion_credenciales');
+  if (opciones.soloSiVersion) {
+    const { data, error } = await tabla.update(fila)
+      .eq('studio_id', studioId).eq('provider', provider).eq('actualizado_en', opciones.soloSiVersion)
+      .select('studio_id');
+    if (error) { reportDbError(etiqueta, error); return false; }
+    return (data?.length ?? 0) > 0;
+  }
+  const { error } = await tabla.upsert(fila, { onConflict: 'studio_id,provider' });
+  if (error) { reportDbError(etiqueta, error); return false; }
+  return true;
 }
 
 /** `false` = no se ha borrado (sin service role, o la base de datos ha dicho que no). */
@@ -7525,6 +7548,38 @@ export async function dbSetZoomEmail(studioId: string, email: string | null) {
 
 export type ZoomCredenciales = CredencialesOAuth;
 
+
+// SumUp (datáfono SumUp Solo en la Caja). `merchantCode` en metadata: es la cuenta
+// de SumUp del estudio y va en todas las rutas de su API. Su refresh token ROTA:
+// la renovación guarda con `soloSiVersion` (ver lib/pos/sumup-oauth.ts).
+export interface SumupCredenciales extends CredencialesOAuth {
+  merchantCode: string;
+  /** Versión de la fila al leerla (`actualizado_en`). */
+  version: string | null;
+}
+
+export async function dbGetSumupCredenciales(studioId: string): Promise<SumupCredenciales | null> {
+  const c = await leerCredencialesOAuth(studioId, 'sumup', '[dbGetSumupCredenciales]');
+  if (!c) return null;
+  const metadata = c.metadata as { merchantCode?: unknown } | null;
+  if (typeof metadata?.merchantCode !== 'string' || !metadata.merchantCode) return null;
+  return { accessToken: c.accessToken, refreshToken: c.refreshToken, expiresAt: c.expiresAt, merchantCode: metadata.merchantCode, version: c.version };
+}
+
+/** Al conectar la cuenta (OAuth). Lanza si no se pudo guardar. */
+export async function dbSaveSumupCredenciales(studioId: string, c: CredencialesOAuth & { merchantCode: string }) {
+  const ok = await guardarCredencialesOAuth(studioId, 'sumup', c, '[dbSaveSumupCredenciales]', { merchantCode: c.merchantCode });
+  if (!ok) throw new Error('No se han podido guardar las credenciales de SumUp');
+}
+
+/** Tras renovar el token: solo si nadie lo renovó antes. `false` = otro proceso ganó; hay que releer. */
+export async function dbRenovarSumupCredenciales(studioId: string, c: CredencialesOAuth, versionLeida: string): Promise<boolean> {
+  return guardarCredencialesOAuth(studioId, 'sumup', c, '[dbRenovarSumupCredenciales]', undefined, { soloSiVersion: versionLeida });
+}
+
+export async function dbDeleteSumupCredenciales(studioId: string): Promise<boolean> {
+  return borrarCredencialesOAuth(studioId, 'sumup', '[dbDeleteSumupCredenciales]');
+}
 
 export async function dbGetZoomCredenciales(studioId: string): Promise<ZoomCredenciales | null> {
   const c = await leerCredencialesOAuth(studioId, 'zoom', '[dbGetZoomCredenciales]');

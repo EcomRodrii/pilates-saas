@@ -7,9 +7,10 @@ import { generarPkce } from '@/lib/marketing/pkce';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { puedeCambiarCuentaDeCobro } from '@/lib/billing/cuenta-cobro';
+import { sumupConfigurado, urlAutorizarSumup } from '@/lib/pos/sumup-oauth';
 
 // Sin 'gmail': la integración se retiró el 1-oct-2026 (lib/gmail.ts).
-const PROVIDERS: readonly ProveedorOAuth[] = ['stripe', 'google', 'zoom', 'klaviyo'];
+const PROVIDERS: readonly ProveedorOAuth[] = ['stripe', 'google', 'zoom', 'klaviyo', 'sumup'];
 
 // C-8: emite el `state` firmado para iniciar un flujo OAuth (Stripe Connect /
 // Google Calendar / Gmail / Zoom / Klaviyo). Solo el PROPIETARIO autenticado,
@@ -37,12 +38,16 @@ export async function POST(req: NextRequest) {
   // Conectar Stripe decide en qué cuenta caen los cobros de las socias. El rol
   // PROPIETARIO no basta (hay fichas de equipo con ese rol que no son la dueña):
   // mismo criterio que desconectar y los datos SEPA.
-  if (provider === 'stripe') {
+  // Stripe y SumUp son la cuenta donde entra el dinero del estudio: solo la dueña.
+  if (provider === 'sumup' && !sumupConfigurado()) {
+    return NextResponse.json({ error: 'SumUp todavía no está disponible.' }, { status: 503 });
+  }
+  if (provider === 'stripe' || provider === 'sumup') {
     const admin = getSupabaseAdmin();
     if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
     const { data: studio, error } = await admin
       .from('studios').select('owner_auth_user_id').eq('id', sesion.studioId).maybeSingle();
-    if (error) return errorInterno('oauth-state:stripe:estudio', error);
+    if (error) return errorInterno(`oauth-state:${provider}:estudio`, error);
     if (!puedeCambiarCuentaDeCobro({ rol: sesion.rol, esDuena: studio?.owner_auth_user_id === sesion.userId })) {
       return NextResponse.json(
         { error: 'Solo la dueña del estudio puede conectar la cuenta donde se cobra.' },
@@ -66,7 +71,11 @@ export async function POST(req: NextRequest) {
     }
     const state = firmarEstadoOAuth(sesion.studioId, provider, Date.now(), valorCookie);
 
-    const res = NextResponse.json(codeChallenge ? { state, codeChallenge } : { state });
+    // SumUp: la URL de autorizar la monta el servidor (su client_id no va al navegador).
+    const res = NextResponse.json(
+      provider === 'sumup' ? { state, url: urlAutorizarSumup(state) }
+        : codeChallenge ? { state, codeChallenge } : { state },
+    );
     res.cookies.set(nombreCookieOAuth(provider), valorCookie, opcionesCookieOAuth(provider));
     res.headers.set('Cache-Control', 'no-store');
     return res;

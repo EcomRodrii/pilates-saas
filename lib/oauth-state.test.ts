@@ -108,7 +108,7 @@ test('el nonce es aleatorio y de al menos 32 bytes', () => {
 });
 
 test('cookie: HttpOnly, SameSite=Lax, acotada al callback de su proveedor y con TTL del state', () => {
-  for (const p of ['stripe', 'google', 'zoom', 'klaviyo'] as const) {
+  for (const p of ['stripe', 'google', 'zoom', 'klaviyo', 'sumup'] as const) {
     const o = opcionesCookieOAuth(p, true);
     assert.deepEqual(o, { httpOnly: true, secure: true, sameSite: 'lax', path: RUTA_CALLBACK_OAUTH[p], maxAge: 600 });
   }
