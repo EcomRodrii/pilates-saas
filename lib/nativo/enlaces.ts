@@ -96,6 +96,21 @@ export function esVueltaDeOAuth(ruta: string, prefijo = '/'): boolean {
   return q.has('code') || q.has('error');
 }
 
+/**
+ * Lo que trae la vuelta de un login por navegador (`/auth/vuelta?code=…`): el
+ * código para canjear, o el error que devolvió el proveedor (`access_denied` si
+ * la persona dijo que no). `null` si no es una vuelta.
+ */
+export function resultadoDeVuelta(ruta: string): { codigo: string } | { error: string } | null {
+  const i = ruta.indexOf('?');
+  if (i < 0) return null;
+  const q = new URLSearchParams(ruta.slice(i + 1));
+  const codigo = q.get('code');
+  if (codigo) return { codigo };
+  const error = q.get('error');
+  return error ? { error: q.get('error_description') || error } : null;
+}
+
 /** Solo http(s) se abre «fuera»: nunca `javascript:`, `data:` ni `file:`. */
 export function esUrlAbrible(url: string): boolean {
   try {

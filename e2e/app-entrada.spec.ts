@@ -152,3 +152,16 @@ test('la búsqueda pública no busca con menos de 3 letras', async ({ request })
   expect(res.status()).toBe(200);
   expect(await res.json()).toEqual({ estudios: [] });
 });
+
+test('Google en la web: va a Google y vuelve a la misma entrada, con el estudio que traía', async ({ page }) => {
+  await montar(page);
+  const idas: string[] = [];
+  await page.route('**/auth/v1/authorize*', (r) => { idas.push(r.request().url()); return r.fulfill({ status: 200, contentType: 'text/html', body: '<p>Google</p>' }); });
+
+  await page.goto('/app?estudio=alba-pilates');
+  await page.getByRole('button', { name: 'Continuar con Google' }).click({ timeout: 60_000 });
+  await expect.poll(() => idas.length, { timeout: 30_000 }).toBe(1);
+  const ida = new URL(idas[0]);
+  expect(ida.searchParams.get('provider')).toBe('google');
+  expect(new URL(ida.searchParams.get('redirect_to') ?? '').pathname + new URL(ida.searchParams.get('redirect_to') ?? '').search).toBe('/app?estudio=alba-pilates');
+});
