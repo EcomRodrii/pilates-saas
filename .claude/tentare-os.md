@@ -101,6 +101,11 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
 - **Seguridad**: la RLS es la cerradura real, la UI nunca es el límite de seguridad — regla
   explícita y repetida en `lib/permisos-reglas.ts`. Cualquier permiso nuevo se implementa en
   ambos sitios o no está terminado.
+  ⚠️ **En una política, las funciones de ayuda van SIEMPRE envueltas**: `( select
+  public.current_rol() )`, nunca `current_rol()` a pelo (igual `current_studio_id`, las
+  `puede_*`, `auth.uid`…). A pelo, Postgres las ejecuta por cada fila: el embudo del widget
+  cortó por timeout con 2.000 filas. Migr `20261004222102` las envolvió todas (4-oct-2026,
+  0 diferencias de filas visibles, ~5× más rápido); solo vale para funciones STABLE.
   ⚠️ **`REVOKE EXECUTE ... FROM PUBLIC` NO basta para una función "solo service_role".**
   `pg_default_acl` en `dwqvdycjcffqwfkzapvi` da `EXECUTE` en toda función `SECURITY DEFINER`
   nueva DIRECTO a `anon`/`authenticated`/`service_role`, no solo a `PUBLIC` — revocar
