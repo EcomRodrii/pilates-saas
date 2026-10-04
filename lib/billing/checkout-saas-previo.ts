@@ -52,22 +52,28 @@ export function decidirCheckoutPrevio(p: {
   return { accion: 'crear', expirar: p.sesionesAbiertas.map(s => s.id) };
 }
 
+/** Lo que el cliente ya tiene en Stripe: sus suscripciones y sus Checkout de suscripción abiertos. */
+export async function leerPagosDelCliente(
+  stripe: Pick<Stripe, 'subscriptions' | 'checkout'>,
+  customerId: string,
+): Promise<{ suscripciones: SuscripcionPrevia[]; sesionesAbiertas: SesionAbiertaPrevia[] }> {
+  const [subs, sesiones] = await Promise.all([
+    stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 20 }),
+    stripe.checkout.sessions.list({ customer: customerId, status: 'open', limit: 20 }),
+  ]);
+  return {
+    suscripciones: subs.data.map(s => ({ id: s.id, status: s.status })),
+    sesionesAbiertas: sesiones.data
+      .filter(s => s.mode === 'subscription')
+      .map(s => ({ id: s.id, url: s.url, plan: s.metadata?.plan ?? null })),
+  };
+}
+
 export async function consultarCheckoutPrevio(
   stripe: Pick<Stripe, 'subscriptions' | 'checkout'>,
   customerId: string,
   plan: string,
   hayDescuentoNuevo: boolean,
 ): Promise<DecisionCheckoutPrevio> {
-  const [subs, sesiones] = await Promise.all([
-    stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 20 }),
-    stripe.checkout.sessions.list({ customer: customerId, status: 'open', limit: 20 }),
-  ]);
-  return decidirCheckoutPrevio({
-    plan,
-    suscripciones: subs.data.map(s => ({ id: s.id, status: s.status })),
-    sesionesAbiertas: sesiones.data
-      .filter(s => s.mode === 'subscription')
-      .map(s => ({ id: s.id, url: s.url, plan: s.metadata?.plan ?? null })),
-    hayDescuentoNuevo,
-  });
+  return decidirCheckoutPrevio({ plan, ...(await leerPagosDelCliente(stripe, customerId)), hayDescuentoNuevo });
 }
