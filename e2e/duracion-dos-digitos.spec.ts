@@ -65,7 +65,7 @@ async function mockBackend(page: Page) {
 
 async function abrirRecurrentes(page: Page) {
   await page.goto('/calendario?recurrentes=1');
-  await expect(page.getByText('Nueva clase fija')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Nueva clase semanal')).toBeVisible({ timeout: 30_000 });
 }
 
 // Teclear de verdad, dígito a dígito: `fill()` mete el valor de golpe y no
@@ -158,8 +158,8 @@ test.describe('La hora de inicio vacía se avisa, no rompe la pantalla', () => {
     await expect(page.getByText('Elige la hora de inicio.')).toBeVisible();
     await expect(hora).toHaveAttribute('aria-invalid', 'true');
     await expect(page.getByRole('button', { name: /^Crear/ })).toBeDisabled();
-    // Sigue la pantalla: si el render lanzara, «Nueva clase fija» habría desaparecido.
-    await expect(page.getByText('Nueva clase fija')).toBeVisible();
+    // Sigue la pantalla: si el render lanzara, «Nueva clase semanal» habría desaparecido.
+    await expect(page.getByText('Nueva clase semanal')).toBeVisible();
     expect(errores.filter(m => /invalid time value/i.test(m)), 'ningún RangeError de fecha inválida').toEqual([]);
   });
 

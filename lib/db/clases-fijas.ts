@@ -8,20 +8,22 @@ import { HORIZONTE_MATERIALIZAR_DIAS } from '@/lib/plazas-fijas-slot';
 import { cuotaParaPlazaFija, superaLimiteSemanal } from '@/lib/plazas-fijas-reglas';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
 import { mapLimit } from '@/lib/concurrency';
-import { conCacheCatalogo, invalidarCacheCatalogo } from '@/lib/cache/catalogo-estudio';
+import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
 import {
-  DURACIONES_POR_DEFECTO, MAX_DESCRIPCION, MAX_FRANJAS, MAX_NOMBRE, cupoDeFranja, estadoOferta, franjasYaCubiertas,
-  normalizarDuraciones, nuevaVigenciaAmpliar, plazasLibresDeClaseFija, plazasVencidasQueEstorban, programadaHasta, resolverFranjas, textoFranja,
-  type CatalogoClasesFijas, type EstadoOferta, type FranjaResuelta, type FranjaSuelta, type OfertaStaff,
+  cupoDeFranja, estadoOferta, franjasYaCubiertas,
+  nuevaVigenciaAmpliar, plazasLibresDeClaseFija, plazasVencidasQueEstorban, programadaHasta, resolverFranjas, textoFranja,
+  type CatalogoClasesFijas, type EstadoOferta, type FranjaResuelta, type FranjaSuelta,
 } from '@/lib/clases-fijas-reglas';
 import { TEXTOS_PLAZA_FIJA_ALUMNA, validarPlazaFijaDesdeSesion } from '@/lib/db/supabase-data-admin';
 import type { RowPlazasFijas, RowSesiones } from '@/lib/db-types';
 
-// Clases fijas del estudio (migr clases_fijas_del_estudio): el estudio arma una
-// OFERTA con nombre a partir de clases que ya se repiten, la alumna la pide con la
-// duración que elige y el estudio la aprueba a mano. Aprobar da una plaza fija por
-// cada franja (`plazas_fijas`), hasta la fecha elegida: el motor de siempre las
-// reserva, y esta capa NO reserva nada por su cuenta.
+// Clases fijas del estudio. Hoy sirve el catálogo de las clases que se repiten (lo que la
+// alumna puede hacer su clase fija, una a una, desde la ficha de la clase).
+//
+// ⚠️ Las clases fijas con nombre (OFERTAS, migr clases_fijas_del_estudio) se retiraron el
+// 4-oct-2026: ni se crean, ni se ofrecen, ni se piden. Lo que queda de ellas aquí es solo
+// lo que necesita una petición que ya estuviera pendiente para aprobarse o ampliarse desde
+// la bandeja, y el nombre para el aviso de fin de las plazas que dieron.
 //
 // ⚠️ Service-role: las tablas no tienen políticas RLS y todo pasa por aquí. Las
 // rutas comprueban el rol y sacan el estudio de la sesión (staff) o de un JWT
@@ -174,7 +176,6 @@ export async function catalogoClasesFijas(
 }
 
 const TTL_CLASES_FIJAS_MS = 15_000;
-const claveCatalogoClasesFijas = (studioId: string) => `clases-fijas-publico:${studioId}`;
 const claveSueltasClasesFijas = (studioId: string) => `clases-fijas-sueltas:${studioId}`;
 
 /** Las clases que ya se repiten, una por franja (serie y día de la semana). */
@@ -474,163 +475,4 @@ export async function resumenOfertasPendientes(
   const defs = await cargarOfertas(admin, studioId, { ids: unicos });
   const resueltas = await resolverOfertas(admin, studioId, defs);
   return new Map(resueltas.map(o => [o.id, { nombre: o.nombre, estado: o.estado, plazasLibres: o.plazasLibres }]));
-}
-
-// ─── Lo que hace el estudio: crear y editar ofertas ──────────────────────────
-
-export interface DatosOferta {
-  nombre: string;
-  descripcion: string | null;
-  activa: boolean;
-  /** Sin pasar por la bandeja de Inicio: se resuelve al pedirla, si cabe y su cuota no lo impide. */
-  aprobacionAutomatica: boolean;
-  duracionesMeses: number[];
-  plazas: number | null;
-  franjas: { serieId: string; diaSemana: number }[];
-}
-
-/** Lo que llega en el body de una ruta → datos válidos, o el texto de por qué no (400). */
-export function validarDatosOferta(b: Record<string, unknown> | null, parcial: boolean): { ok: true; datos: Partial<DatosOferta> } | { error: string } {
-  if (!b) return { error: 'Faltan los datos de la clase fija.' };
-  const datos: Partial<DatosOferta> = {};
-  if (!parcial || 'nombre' in b) {
-    const nombre = typeof b.nombre === 'string' ? Array.from(b.nombre.trim()).join('') : '';
-    if (!nombre) return { error: 'Ponle un nombre a la clase fija.' };
-    if (Array.from(nombre).length > MAX_NOMBRE) return { error: `El nombre no puede pasar de ${MAX_NOMBRE} caracteres.` };
-    datos.nombre = nombre;
-  }
-  if (!parcial || 'descripcion' in b) {
-    const d = typeof b.descripcion === 'string' ? b.descripcion.trim() : '';
-    if (Array.from(d).length > MAX_DESCRIPCION) return { error: `La descripción no puede pasar de ${MAX_DESCRIPCION} caracteres.` };
-    datos.descripcion = d || null;
-  }
-  if ('activa' in b) {
-    if (typeof b.activa !== 'boolean') return { error: 'Dato «activa» no válido.' };
-    datos.activa = b.activa;
-  }
-  if ('aprobacionAutomatica' in b) {
-    if (typeof b.aprobacionAutomatica !== 'boolean') return { error: 'Dato «aprobación automática» no válido.' };
-    datos.aprobacionAutomatica = b.aprobacionAutomatica;
-  }
-  if (!parcial || 'duracionesMeses' in b) {
-    const dur = b.duracionesMeses === undefined && !parcial ? DURACIONES_POR_DEFECTO : normalizarDuraciones(b.duracionesMeses);
-    if (!dur) return { error: 'Elige entre 1 y 6 duraciones de las que se ofrecen (de 1 mes a 2 años).' };
-    datos.duracionesMeses = dur;
-  }
-  if (!parcial || 'plazas' in b) {
-    const t = b.plazas;
-    if (t !== null && t !== undefined && (typeof t !== 'number' || !Number.isInteger(t) || t < 1 || t > 200)) {
-      return { error: 'El tope de plazas tiene que ser un número entre 1 y 200, o vacío para usar el aforo de la clase.' };
-    }
-    datos.plazas = (t as number | null | undefined) ?? null;
-  }
-  if (!parcial || 'franjas' in b) {
-    const fr = b.franjas;
-    if (!Array.isArray(fr) || fr.length < 1) return { error: 'Elige al menos una clase que se repita.' };
-    if (fr.length > MAX_FRANJAS) return { error: `Como mucho ${MAX_FRANJAS} clases por clase fija.` };
-    const vistas = new Set<string>();
-    const lista: { serieId: string; diaSemana: number }[] = [];
-    for (const x of fr) {
-      const o = x as { serieId?: unknown; diaSemana?: unknown } | null;
-      if (typeof o?.serieId !== 'string' || !o.serieId || typeof o.diaSemana !== 'number' || !Number.isInteger(o.diaSemana) || o.diaSemana < 0 || o.diaSemana > 6) {
-        return { error: 'Una de las clases elegidas no es válida.' };
-      }
-      const k = `${o.serieId}|${o.diaSemana}`;
-      if (vistas.has(k)) continue;
-      vistas.add(k);
-      lista.push({ serieId: o.serieId, diaSemana: o.diaSemana });
-    }
-    datos.franjas = lista;
-  }
-  return { ok: true, datos };
-}
-
-export type ResultadoGuardarOferta = { ok: true; id: string } | { error: string; status: number };
-
-/**
- * Crea (sin `id`) o edita una oferta. Cada franja tiene que existir HOY en el
- * horario (una clase que se repite): guardar una que no existe dejaría una oferta
- * que nadie puede pedir. Editar reemplaza las franjas; cerrarla (`activa: false`)
- * no toca las plazas ya concedidas.
- */
-export async function guardarOferta(
-  admin: SupabaseClient, p: { studioId: string; id?: string; datos: Partial<DatosOferta> },
-): Promise<ResultadoGuardarOferta> {
-  const { studioId, datos } = p;
-  if (datos.franjas) {
-    const tarjetas = await tarjetasDeSeries(admin, studioId, [...new Set(datos.franjas.map(f => f.serieId))]);
-    const faltan = datos.franjas.filter(f => !tarjetas.some(t => t.serieId === f.serieId && t.diaSemana === f.diaSemana));
-    if (faltan.length > 0) return { error: 'Alguna de las clases elegidas ya no se repite en el horario. Recarga y elígelas de nuevo.', status: 409 };
-  }
-
-  let id = p.id;
-  const fila: Record<string, unknown> = { actualizada_en: new Date().toISOString() };
-  if (datos.nombre !== undefined) fila.nombre = datos.nombre;
-  if (datos.descripcion !== undefined) fila.descripcion = datos.descripcion;
-  if (datos.activa !== undefined) fila.activa = datos.activa;
-  if (datos.aprobacionAutomatica !== undefined) fila.aprobacion_automatica = datos.aprobacionAutomatica;
-  if (datos.duracionesMeses !== undefined) fila.duraciones_meses = datos.duracionesMeses;
-  if (datos.plazas !== undefined) fila.plazas = datos.plazas;
-
-  if (id) {
-    const { data, error } = await admin.from('clases_fijas').update(fila).eq('id', id).eq('studio_id', studioId).select('id').maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!data) return { error: 'Clase fija no encontrada.', status: 404 };
-  } else {
-    const { data, error } = await admin.from('clases_fijas').insert({ ...fila, studio_id: studioId }).select('id').single();
-    if (error) throw new Error(error.message);
-    id = data.id as string;
-  }
-
-  if (datos.franjas) {
-    const { data: actuales, error: errAct } = await admin.from('clases_fijas_franjas')
-      .select('id, serie_id, dia_semana').eq('clase_fija_id', id).eq('studio_id', studioId);
-    if (errAct) throw new Error(errAct.message);
-    const clave = (s: string, d: number) => `${s}|${d}`;
-    const quedan = new Set(datos.franjas.map(f => clave(f.serieId, f.diaSemana)));
-    const yaEstan = new Set((actuales ?? []).map(a => clave(a.serie_id as string, a.dia_semana as number)));
-    const sobran = (actuales ?? []).filter(a => !quedan.has(clave(a.serie_id as string, a.dia_semana as number))).map(a => a.id as string);
-    const nuevas = datos.franjas.filter(f => !yaEstan.has(clave(f.serieId, f.diaSemana)))
-      .map(f => ({ clase_fija_id: id, studio_id: studioId, serie_id: f.serieId, dia_semana: f.diaSemana }));
-    if (nuevas.length > 0) {
-      const { error } = await admin.from('clases_fijas_franjas').insert(nuevas);
-      if (error) throw new Error(error.message);
-    }
-    if (sobran.length > 0) {
-      const { error } = await admin.from('clases_fijas_franjas').delete().in('id', sobran).eq('studio_id', studioId);
-      if (error) throw new Error(error.message);
-    }
-  }
-  // Cerrar, editar o crear cambia lo que ve la alumna: no esperar al cuarto de minuto.
-  // ⚠️ 62ª pasada: las DOS claves, no solo la de ofertas. `ofertasPublicas` y
-  // `franjasSueltas` se cachean por separado (líneas 169 y 171) y las dos
-  // cambian cuando se toca una oferta: invalidar solo la primera dejaba las
-  // franjas sueltas viejas hasta agotar su TTL.
-  invalidarCacheCatalogo(claveCatalogoClasesFijas(studioId));
-  invalidarCacheCatalogo(claveSueltasClasesFijas(studioId));
-  return { ok: true, id: id as string };
-}
-
-/** Todas las ofertas del estudio (también las cerradas) para su pantalla de gestión. */
-export async function listarOfertasStaff(admin: SupabaseClient, studioId: string): Promise<OfertaStaff[]> {
-  const defs = await cargarOfertas(admin, studioId);
-  if (defs.length === 0) return [];
-  const [resueltas, pend] = await Promise.all([
-    resolverOfertas(admin, studioId, defs),
-    admin.from('solicitudes_plaza_fija').select('clase_fija_id')
-      .eq('studio_id', studioId).eq('estado', 'PENDIENTE').in('tipo', ['CREAR_CLASE_FIJA', 'AMPLIAR_CLASE_FIJA']).limit(500),
-  ]);
-  if (pend.error) throw new Error(pend.error.message);
-  const porOferta = new Map<string, number>();
-  for (const r of pend.data ?? []) porOferta.set(r.clase_fija_id as string, (porOferta.get(r.clase_fija_id as string) ?? 0) + 1);
-  return resueltas.map(o => ({
-    id: o.id, nombre: o.nombre, descripcion: o.descripcion, activa: o.activa, aprobacionAutomatica: o.aprobacionAutomatica,
-    duracionesMeses: o.duracionesMeses, plazas: o.plazas,
-    franjas: o.franjas.map(f => ({
-      serieId: f.serieId, diaSemana: f.diaSemana,
-      resuelta: o.franjasResueltas.some(r => r.serieId === f.serieId && r.diaSemana === f.diaSemana),
-    })),
-    estado: o.estado, plazasLibres: o.plazasLibres, programadaHasta: o.programadaHasta,
-    pendientes: porOferta.get(o.id) ?? 0,
-  }));
 }
