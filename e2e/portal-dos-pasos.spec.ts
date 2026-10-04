@@ -24,10 +24,19 @@ const FACTOR = { id: 'fac-1', factor_type: 'totp', status: 'verified', friendly_
  * lo sabe el servidor (`/auth/v1/user`).
  */
 async function sesionConVerificacion(page: Page, enElMovil = true) {
-  await page.route('**/auth/v1/user', (r) => r.fulfill({
-    status: 200, contentType: 'application/json',
-    body: JSON.stringify({ id: 'auth-marta', email: SOCIA.email, aud: 'authenticated', role: 'authenticated', factors: [FACTOR] }),
-  }));
+  // Otro origen con Authorization: WebKit hace preflight y exige las cabeceras
+  // CORS (Chromium lo deja pasar sin ellas). Sin esto, en WebKit la lectura fallaba.
+  const cors = {
+    'access-control-allow-origin': '*',
+    'access-control-allow-headers': '*',
+    'access-control-allow-methods': 'GET, OPTIONS',
+  };
+  await page.route('**/auth/v1/user', (r) => r.request().method() === 'OPTIONS'
+    ? r.fulfill({ status: 204, headers: cors })
+    : r.fulfill({
+      status: 200, contentType: 'application/json', headers: cors,
+      body: JSON.stringify({ id: 'auth-marta', email: SOCIA.email, aud: 'authenticated', role: 'authenticated', factors: [FACTOR] }),
+    }));
   await page.addInitScript(([token, email, factores]) => {
     localStorage.setItem('sb-portal-auth', JSON.stringify({
       access_token: token, refresh_token: 'e2e-refresh', token_type: 'bearer',
@@ -89,8 +98,8 @@ test('con la verificación activada: código al correo, se escribe y vuelve a do
   await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/acceso/dos-pasos\\?next=`), { timeout: 30_000 });
   // El dispositivo no estaba recordado: se preguntó, y el correo salió solo.
   await expect(page.getByText(/Te hemos enviado un código de 6 dígitos/)).toBeVisible({ timeout: 30_000 });
-  expect(n.usar).toBeGreaterThan(0);
-  expect(n.enviar).toBe(1);
+  await expect.poll(() => n.usar).toBeGreaterThan(0);
+  await expect.poll(() => n.enviar).toBe(1);
 
   await page.getByLabel('Código de 6 dígitos').fill('123456');
   await page.getByRole('button', { name: 'Verificar' }).click();
@@ -124,7 +133,7 @@ test('«No tengo acceso a mi correo» pasa a la app de códigos sin mandar otro 
   await page.getByRole('button', { name: 'No tengo acceso a mi correo' }).click();
   await expect(page.getByText(/Abre tu app de autenticación/)).toBeVisible();
   await expect(page.getByText(/puede quitarte la verificación/)).toBeVisible();
-  expect(n.enviar).toBe(1);
+  await expect.poll(() => n.enviar).toBe(1);
 });
 
 test('si el servidor dice que falta el paso aunque el móvil crea que no, la app manda a verificar', async ({ page }) => {
@@ -144,5 +153,5 @@ test('si el servidor dice que falta el paso aunque el móvil crea que no, la app
   expect(respuestas).toBeGreaterThan(0);
   // Y se queda pidiendo el código (con los factores del servidor), sin rebotar a la app.
   await expect(page.getByText(/Te hemos enviado un código/)).toBeVisible({ timeout: 30_000 });
-  expect(n.enviar).toBe(1);
+  await expect.poll(() => n.enviar).toBe(1);
 });

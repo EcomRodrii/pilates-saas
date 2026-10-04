@@ -72,14 +72,13 @@ function DosPasos() {
       // Con el token: los factores salen del servidor y no de la sesión guardada.
       // Si la activó en otro móvil, la de este no lo sabe, y el servidor sí la
       // corta: con la copia local se iría dentro y volvería aquí, en bucle.
-      // Sin red, la copia local (si se equivoca, el servidor la vuelve a mandar).
-      const leer = async (jwt?: string) => {
-        try { return (await supabasePortal.auth.mfa.getAuthenticatorAssuranceLevel(jwt)).data; } catch { return null; }
-      };
-      const aal = (await leer(session.access_token)) ?? (await leer());
+      // Si no se puede leer, NUNCA la copia local: es justo la que puede estar
+      // vieja, y entrar a ciegas sería ese bucle. Se pide el código; si en
+      // realidad no tiene la verificación, el servidor lo dice al mandarlo.
+      let aal: { currentLevel: string | null; nextLevel: string | null } | null = null;
+      try { aal = (await supabasePortal.auth.mfa.getAuthenticatorAssuranceLevel(session.access_token)).data; } catch { aal = null; }
       if (!vivo) return;
-      // Nada que pedir: no la tiene activada, o esta sesión ya la pasó. Sin
-      // poder saberlo, se pide el código (entrar a ciegas podría ser el bucle).
+      // Nada que pedir: no la tiene activada, o esta sesión ya la pasó.
       if (aal && (aal.nextLevel !== 'aal2' || aal.currentLevel === 'aal2')) { irDentro(); return; }
       // Dispositivo recordado (o sesión ya confiada por el correo): dentro sin
       // escribir nada. Con `?codigo=1` no: se viene a por el código de verdad.
