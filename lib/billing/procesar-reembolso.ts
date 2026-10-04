@@ -118,10 +118,18 @@ async function procesarReembolsoDeUnRecibo(
     }
     if (!rec) {
       // 0 filas no es un error: puede ser el reintento del mismo evento, o el
-      // cron llegando después de que el webhook ya lo aplicara.
-      Sentry.captureMessage(`[${p.fuente}] devolución sin efecto (recibo ya devuelto, inexistente o de otro estudio)`, {
-        level: 'warning', extra: { reciboId: p.reciboId, studioId: p.studioId, eventAccount: p.eventAccount },
-      });
+      // cron llegando después de que el webhook ya lo aplicara. Ese caso (ya
+      // DEVUELTO en este estudio) es el normal y no se avisa: el conciliador
+      // repasa la misma devolución en cada pasada y lo llenaba de ruido (36
+      // avisos de un solo recibo, sep-oct 2026). Solo se avisa si el recibo no
+      // está, o no es de este estudio.
+      const { data: actual } = await admin.from('recibos').select('estado')
+        .eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+      if (actual?.estado !== 'DEVUELTO') {
+        Sentry.captureMessage(`[${p.fuente}] devolución sin efecto (recibo inexistente o de otro estudio)`, {
+          level: 'warning', extra: { reciboId: p.reciboId, studioId: p.studioId, eventAccount: p.eventAccount },
+        });
+      }
     } else {
       // 44ª pasada de auditoría, H-2: si este recibo era el de una
       // penalización ya cobrada, avisa a la nómina de la instructora. Solo
