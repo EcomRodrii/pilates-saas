@@ -3924,9 +3924,27 @@ export interface RowDispositivosConfianza {
 export interface RowSesionesConfiadas {
   session_id: string;
   auth_user_id: string;
-  dispositivo_id: string;
+  dispositivo_id: string | null;
   creada_en: string;
   references: string | null;
+  // migr 20261003160000.
+  origen: 'dispositivo' | 'correo';
+}
+
+export interface RowCodigosCorreoDobleFactor {
+  session_id: string;
+  auth_user_id: string;
+  codigo_hash: string;
+  intentos: number;
+  enviado_en: string;
+  caduca_en: string;
+  usado_en: string | null;
+}
+
+export interface RowDobleFactorCorreoBloqueos {
+  auth_user_id: string;
+  desde: string;
+  motivo: string;
 }
 
 
@@ -10847,17 +10865,51 @@ export type DispositivosConfianzaUpdate = {
 export type SesionesConfiadasInsert = {
   session_id?: string | null;
   auth_user_id?: string | null;
-  dispositivo_id?: string | null;
+  dispositivo_id?: string | null | null;
   creada_en?: string | null;
   references?: string | null | null;
+  origen?: 'dispositivo' | 'correo' | null;
 }
 
 export type SesionesConfiadasUpdate = {
   session_id?: string | null;
   auth_user_id?: string | null;
-  dispositivo_id?: string | null;
+  dispositivo_id?: string | null | null;
   creada_en?: string | null;
   references?: string | null | null;
+  origen?: 'dispositivo' | 'correo' | null;
+}
+
+export type CodigosCorreoDobleFactorInsert = {
+  session_id?: string | null;
+  auth_user_id?: string | null;
+  codigo_hash?: string | null;
+  intentos?: number | null;
+  enviado_en?: string | null;
+  caduca_en?: string | null;
+  usado_en?: string | null | null;
+}
+
+export type CodigosCorreoDobleFactorUpdate = {
+  session_id?: string | null;
+  auth_user_id?: string | null;
+  codigo_hash?: string | null;
+  intentos?: number | null;
+  enviado_en?: string | null;
+  caduca_en?: string | null;
+  usado_en?: string | null | null;
+}
+
+export type DobleFactorCorreoBloqueosInsert = {
+  auth_user_id?: string | null;
+  desde?: string | null;
+  motivo?: string | null;
+}
+
+export type DobleFactorCorreoBloqueosUpdate = {
+  auth_user_id?: string | null;
+  desde?: string | null;
+  motivo?: string | null;
 }
 
 export type Database = {
@@ -12072,6 +12124,16 @@ export type Database = {
         Row: RowSesionesConfiadas;
         Insert: SesionesConfiadasInsert;
         Update: SesionesConfiadasUpdate;
+      };
+      codigos_correo_doble_factor: {
+        Row: RowCodigosCorreoDobleFactor;
+        Insert: CodigosCorreoDobleFactorInsert;
+        Update: CodigosCorreoDobleFactorUpdate;
+      };
+      doble_factor_correo_bloqueos: {
+        Row: RowDobleFactorCorreoBloqueos;
+        Insert: DobleFactorCorreoBloqueosInsert;
+        Update: DobleFactorCorreoBloqueosUpdate;
       };
     };
   };

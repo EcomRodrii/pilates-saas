@@ -132,6 +132,25 @@ export function correoAccesoActivado(p: {
   });
 }
 
+/**
+ * El código del segundo paso al entrar al panel (lib/auth/codigo-correo-reglas.ts).
+ * Lo recibe quien entra, sea cual sea su papel en el estudio: por eso el motivo
+ * habla de su cuenta y no de «la propietaria». El código no va en el asunto ni
+ * en el preheader: se leería en la pantalla bloqueada del móvil.
+ */
+export function correoCodigoAcceso(p: { codigo: string; minutos: number }): string {
+  const legible = `${p.codigo.slice(0, 3)} ${p.codigo.slice(3)}`;
+  return correoTentare({
+    preheader: `Para terminar de entrar a tu panel. Caduca en ${p.minutos} minutos.`,
+    antetitulo: 'Tu acceso',
+    titular: 'Tu código para entrar',
+    parrafos: [`Escríbelo en la pantalla de Tentare para terminar de entrar al panel. Caduca en ${p.minutos} minutos y solo sirve una vez.`],
+    destacado: { titulo: 'Código', texto: legible },
+    nota: 'Si no estabas entrando tú, alguien tiene tu contraseña: cámbiala ya con «He olvidado mi contraseña» en la pantalla de entrar. No compartas este código: nadie de Tentare te lo pedirá nunca.',
+    motivo: 'Te escribimos porque alguien acaba de entrar con tu contraseña a tu cuenta de Tentare, que tiene la verificación en dos pasos activada.',
+  });
+}
+
 export function correoResumenSemanal(p: {
   propietariaNombre: string;
   estudioNombre: string;
