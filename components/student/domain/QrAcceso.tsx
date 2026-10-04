@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getQrAcceso } from '@/lib/student/qr-acceso';
 import { qrSvgMarkup } from '@/lib/qr-svg';
+import { brilloAlMaximo } from '@/lib/nativo/puente';
 
 // El QR de acceso de la alumna: la caja blanca que lee la cámara y el hook que
 // lo trae. Lo comparten Perfil → QR de acceso y el detalle de una reserva, para
@@ -92,4 +93,19 @@ export function CajaQr({ qr, estado, tamano = 168, onReintentar }: {
       )}
     </div>
   );
+}
+
+/**
+ * Mientras se enseña el QR dentro de la app de iOS, la pantalla a tope de
+ * brillo: el lector del estudio lo lee a la primera. Al salir de la pantalla
+ * (o si el QR deja de estar), vuelve el brillo que había. En la web no hace nada.
+ */
+export function useBrilloAlMaximo(activo: boolean) {
+  useEffect(() => {
+    if (!activo) return;
+    let restaurar: (() => Promise<void>) | null = null;
+    let vivo = true;
+    void brilloAlMaximo().then((r) => { if (vivo) restaurar = r; else void r(); });
+    return () => { vivo = false; void restaurar?.(); };
+  }, [activo]);
 }

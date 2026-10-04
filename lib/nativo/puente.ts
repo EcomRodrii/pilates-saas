@@ -438,3 +438,81 @@ export async function loginConGoogleNativo(
     })();
   });
 }
+
+// ─── Calendario del iPhone ────────────────────────────────────────────────
+//
+// Con `@ebarooni/capacitor-calendar` (EventKit). Pide acceso COMPLETO y no solo
+// de escritura: con «solo añadir» iOS no deja volver a encontrar el evento, y
+// entonces no se podría quitar al cancelar la reserva, que es la mitad de la
+// promesa del interruptor de Perfil. Los textos del permiso, en Info.plist.
+
+export interface EventoCalendario {
+  titulo: string;
+  /** Instantes reales (ms), los de `Clase.inicio`/`Clase.fin`. */
+  inicioMs: number;
+  finMs: number;
+  lugar?: string;
+  notas?: string;
+}
+
+/** ¿Hay acceso al calendario? Lo pide si aún no se ha preguntado. */
+export async function pedirAccesoCalendario(): Promise<boolean> {
+  if (!esAppNativa()) return false;
+  try {
+    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
+    const { result } = await CapacitorCalendar.requestFullCalendarAccess();
+    return result === 'granted';
+  } catch {
+    return false;
+  }
+}
+
+/** Crea el evento y devuelve su id del calendario, o `null` si no se pudo. */
+export async function crearEventoCalendario(e: EventoCalendario): Promise<string | null> {
+  if (!esAppNativa()) return null;
+  try {
+    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
+    const r = await CapacitorCalendar.createEvent({
+      title: e.titulo, startDate: e.inicioMs, endDate: e.finMs,
+      location: e.lugar, description: e.notas,
+      // Un aviso una hora antes, como el recordatorio del estudio.
+      alerts: [-60],
+    });
+    return r.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Quita un evento que creó la app. `false` si no se pudo (sin acceso, o ya no existe). */
+export async function borrarEventoCalendario(id: string): Promise<boolean> {
+  if (!esAppNativa()) return false;
+  try {
+    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
+    await CapacitorCalendar.deleteEvent({ id });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Brillo de la pantalla ────────────────────────────────────────────────
+//
+// Al enseñar el QR de acceso: el lector del estudio lo lee mucho mejor con la
+// pantalla a tope. Se guarda el brillo de antes y se devuelve al cerrar.
+
+/** Sube el brillo al máximo y devuelve con qué restaurarlo (no hace nada fuera de la app). */
+export async function brilloAlMaximo(): Promise<() => Promise<void>> {
+  const nada = async () => {};
+  if (!esAppNativa()) return nada;
+  try {
+    const { ScreenBrightness } = await import('@capacitor-community/screen-brightness');
+    const { brightness } = await ScreenBrightness.getBrightness();
+    await ScreenBrightness.setBrightness({ brightness: 1 });
+    return async () => {
+      try { await ScreenBrightness.setBrightness({ brightness }); } catch { /* sin plugin, iOS lo devuelve al bloquear */ }
+    };
+  } catch {
+    return nada;
+  }
+}

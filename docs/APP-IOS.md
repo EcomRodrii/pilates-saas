@@ -42,6 +42,8 @@ la app) y cada función hace lo de siempre:
 | `alAbrirEnlace(handler)` | Universal Link / esquema propio → ruta interna | no hace nada |
 | `loginConApple()` | hoja nativa → `{ idToken, nonce }` | `{ error: 'solo-en-la-app' }` |
 | `loginConGoogleNativo(url)` | OAuth en Safari por encima → ruta de vuelta | `{ error: 'solo-en-la-app' }` |
+| `pedirAccesoCalendario()` / `crearEventoCalendario(e)` / `borrarEventoCalendario(id)` | EventKit (`@ebarooni/capacitor-calendar`), acceso COMPLETO | `false` / `null` |
+| `brilloAlMaximo()` | brillo a 1 y devuelve con qué restaurarlo (`@capacitor-community/screen-brightness`) | no hace nada |
 
 Lo puro, con tests: `enlaces.ts` (qué enlace es de Tentare y a qué ruta va),
 `nonce.ts`, `ficheros.ts`, `plataforma.ts`, `identidad-app.ts`. Los tipos del
@@ -239,6 +241,73 @@ pinta el de Tentare).
 no las publica el propio dueño del contenido. Una app por estudio tendría que
 publicarse desde la cuenta de desarrollador **del estudio**, no desde la de
 Tentare. Decidirlo antes de prometerlo.
+
+## Lo de la app de la alumna que solo existe en el iPhone (oct-2026)
+
+- **«Texto más grande»** (Dynamic Type): `PuenteNativo` mide el cuerpo del
+  sistema con una sonda `font: -apple-system-body` y lo aplica como
+  `--escala-texto` (0,9–1,35, `lib/nativo/escala-texto.ts`), que multiplica los
+  tokens `--t-*` de `student.css`. No toca el `font-size` de `<html>`: lo que mide
+  en `rem` (el pago embebido) no crece sin revisar. Lo que lleva un tamaño en px
+  escrito a mano en una pantalla no escala.
+- **Deslizar desde el borde para volver**: `allowsBackForwardNavigationGestures`
+  en `TentareBridgeViewController.swift`. La web no anima esa vuelta (ya la anima
+  WebKit); el botón «Volver» sí (`lib/student/transiciones.ts`).
+- **Calendario** (Perfil → «Mis reservas en mi calendario» y «+ Calendario»):
+  acceso COMPLETO y no «solo añadir», porque con «solo añadir» iOS no deja volver
+  a encontrar el evento para quitarlo al cancelar. Textos del permiso en
+  `Info.plist` (`NSCalendarsFullAccessUsageDescription`, `NSCalendarsUsageDescription`
+  para iOS < 17 y `NSCalendarsWriteOnlyAccessUsageDescription`). La memoria de qué
+  evento es de qué clase vive en el dispositivo (`localStorage`,
+  `lib/student/calendario-auto.ts`).
+- **Brillo al máximo** al enseñar el QR de acceso (Perfil → QR y el detalle de una
+  reserva activa); vuelve el de antes al salir.
+
+### Apple Wallet (preparado, INERTE)
+
+El servidor que firma el pase ya está (`app/api/public/wallet-pase`,
+`lib/wallet/`, librería `passkit-generator`, MIT). El botón «Añadir a Apple
+Wallet» (Perfil → QR de acceso) **no se pinta** mientras falte cualquiera de
+estas variables en Vercel:
+
+| Variable | Qué es |
+|---|---|
+| `APPLE_WALLET_PASS_TYPE_ID` | El identificador del Pass Type ID (p. ej. `pass.<dominio>.acceso`) |
+| `APPLE_WALLET_TEAM_ID` | El Team ID de la cuenta de Apple Developer |
+| `APPLE_WALLET_CERT_PEM_B64` | El certificado del Pass Type ID, en PEM y luego en base64 |
+| `APPLE_WALLET_KEY_PEM_B64` | Su clave privada, en PEM y luego en base64 |
+| `APPLE_WALLET_KEY_PASSPHRASE` | (opcional) la contraseña de esa clave |
+| `APPLE_WALLET_WWDR_PEM_B64` | El intermedio de Apple «Worldwide Developer Relations – G4», en PEM y en base64 |
+
+Pasos: 1) en developer.apple.com → Identifiers, crear un **Pass Type ID**;
+2) generarle un certificado (CSR desde Acceso a Llaveros) y descargarlo;
+3) exportarlo con su clave como `.p12` y sacar los PEM
+(`openssl pkcs12 -in pase.p12 -clcerts -nokeys -out cert.pem` y
+`… -nocerts -out key.pem`); 4) descargar el WWDR G4 y pasarlo a PEM
+(`openssl x509 -inform der -in AppleWWDRCAG4.cer -out wwdr.pem`); 5) `base64 -i
+fichero.pem` de cada uno a su variable; 6) desplegar un cambio de **código**
+(un merge de solo `.md` no despliega).
+
+⚠️ Sin probar en un iPhone: el `.pkpass` se entrega por la hoja de compartir
+(`compartirFichero`). Si iOS no ofrece «Añadir a Wallet» ahí, hace falta un
+plugin nativo mínimo con `PKAddPassesViewController` (`PKPass(data:)` con los
+bytes). ⚠️ El pase lleva el MISMO token que el QR de la app: si la alumna genera
+un QR nuevo, el pase deja de valer y hay que volver a añadirlo (no hay servicio
+web de actualización de pases). Tampoco aparece solo al llegar al estudio: eso
+pide `locations` con las coordenadas del estudio, que hoy no se guardan.
+
+### Cómo comprobar Apple Pay en la hoja de pago
+
+La hoja de pago embebida (`CheckoutEmbebido`, Payment Element de Stripe) ofrece
+Apple Pay solo si el dispositivo puede **y** el dominio está verificado para
+Apple Pay en la cuenta conectada del estudio. Dentro de un WKWebView, WebKit
+desactiva Apple Pay en la web cuando la app inyecta scripts en la página
+(Capacitor lo hace para su puente), así que **puede no salir aunque en Safari sí
+salga**. Para
+comprobarlo: en un iPhone con una tarjeta en Wallet, abrir «Comprar» en la app y
+mirar si el Payment Element pinta el botón de Apple Pay arriba; repetir en Safari
+con la misma URL. Si sale en Safari y no en la app, es la limitación del
+WKWebView (la salida es el plugin nativo de Stripe, no la web).
 
 ## Qué no se ha podido comprobar
 
