@@ -242,9 +242,9 @@ export default function MisReservasPage() {
             <EmptyState
               ilustracion="calendario"
               titulo="Aún no tienes clase fija"
-              cuerpo="Con una clase fija tu plaza se reserva sola cada semana, sin tener que volver a reservarla."
-              accion="Ver las clases fijas"
-              href={href('/clases-fijas')}
+              cuerpo={TEXTOS_PLAZA_FIJA.vacia}
+              accion="Ver el horario"
+              href={href('/reservar')}
             />
           ) : (
             // Las recuperaciones se quedan en Bonos, junto a su saldo: aquí solo sus clases fijas.

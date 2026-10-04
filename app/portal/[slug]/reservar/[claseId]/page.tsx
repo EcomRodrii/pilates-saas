@@ -41,10 +41,10 @@ import { useAunNoAbre } from '@/lib/reservar/use-aun-no-abre';
 // Ficha de clase + hoja de reserva (§A.7). Es la pantalla donde la máquina de
 // estados del paquete se conecta al servidor real.
 //
-// Aquí solo se RESERVA. La clase fija se pide en su propia ficha
-// (`/clases-fijas/[sesionId]`), a la que se llega desde «Clases fijas»: con las
-// dos acciones en la misma pantalla las alumnas no sabían cuál tocar (quejas de
-// estudios, 23-sep).
+// La acción principal es RESERVAR (el botón fijo de abajo). La clase fija se pide
+// aquí también, pero con el interruptor «Clase fija» (`AutoReservable`), una
+// tarjeta y no un segundo botón: el 23-sep, con dos botones iguales, las alumnas no
+// sabían cuál tocar. Es el ÚNICO sitio donde se pide (4-oct-2026).
 //
 // ⚠️ Lo que NO se hace aquí, y es el punto entero de la fase:
 //   · No se decide si hay plaza. Se pide, y el servidor contesta.
@@ -253,7 +253,9 @@ export default function FichaClasePage() {
         derecha={<FavoritoButton slug={estudio.slug} studioId={estudio.id} tipoClaseId={clase.tipoClaseId} marcada={favorita} onCambio={setFavoritaLocal} />}
       />
 
-      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: 90 }}>
+      {/* El margen de abajo deja leer y tocar lo último (el bloque de reservar varias semanas con bono termina en su propio
+          botón) por encima de la barra fija de «Reservar»: con 90 px quedaba debajo y no se llegaba con el scroll. */}
+      <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '14px', paddingTop: 14, paddingBottom: 150 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {yaNoSeReserva
             ? (enCurso ? <EnCursoBadge terminaA={horaFin(clase.hora, clase.duracionMin)} /> : <TerminadaBadge />)
@@ -296,7 +298,7 @@ export default function FichaClasePage() {
           )}
         </div>
 
-        {/* El interruptor «Auto reservable»: no se mueve al tocarlo, abre lo que toque y sigue lo que conteste el servidor. Se carga aparte: no frena la reserva. */}
+        {/* El interruptor «Clase fija»: no se mueve al tocarlo, abre lo que toque y sigue lo que conteste el servidor. Se carga aparte: no frena la reserva. */}
         <AutoReservable
           claseId={clase.id} fecha={clase.fecha} hora={clase.hora} salaId={clase.salaId} tipoClaseId={clase.tipoClaseId}
           ventanaCancelacionHoras={clase.ventanaCancelacionHoras ?? estudio.politicaCancelacionHoras}

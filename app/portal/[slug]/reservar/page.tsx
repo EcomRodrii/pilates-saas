@@ -15,7 +15,6 @@ import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, hoyISO } from '@/lib/student/formato';
 import { DateSelector } from '@/components/student/domain/DateSelector';
 import { ClassCard } from '@/components/student/domain/ClassCard';
-import { ClasesFijasEntrada } from '@/components/student/domain/ClasesFijasEntrada';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Icono } from '@/components/student/ui/Icono';
 import { tiposDeLasClases } from '@/lib/student/mapeo';
@@ -116,8 +115,6 @@ export default function HorarioPage() {
         titulo="Horario"
         accion={<Link href={href('/calendario')} className="btn btn--secondary btn--sm">Calendario</Link>}
       />
-
-      <ClasesFijasEntrada />
 
       <div style={{ marginTop: 14 }}>
         <DateSelector value={dia} onChange={setDia} />

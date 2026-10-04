@@ -1252,6 +1252,25 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   que paga. Después: índices únicos (una liberación/consumo por reserva), `cancelar_sesion` transaccional, compra
   transaccional (retener plaza antes de cobrar) y excepciones del mostrador.
 
+## Clase fija: UN concepto y UN camino (4-oct-2026, decisión del fundador)
+
+El único estudio de pago se perdía (ella y sus alumnas): «clase fija» significaba tres cosas en el panel (la serie que se
+repite, el hueco de la alumna y las clases fijas con nombre) y la alumna tenía cuatro caminos para pedir lo mismo. Medido
+antes de decidir: sus 11 alumnas tienen cuota y clase fija, casi todas dadas desde el mostrador; en toda la plataforma había
+3 clases fijas con nombre, 1 petición y 0 ampliaciones. TIMP («reserva automática»), bsport («recurrent booking») y Momence
+(«book into the entire series») tienen lo mismo: una regla por franja, sin paquetes con nombre.
+
+- **Alumna:** se pide SOLO desde el interruptor **«Clase fija»** de la ficha de la clase (`AutoReservable`,
+  `lib/student/auto-reservable.ts`), con «Sin fin» de serie. Lo que tiene, en «Mis clases → Fijas». Retiradas la página
+  «Clases fijas», su ficha aparte y la puerta del horario: `/clases-fijas` y `/clases-fijas/[id]` solo redirigen.
+- **Clases fijas con nombre retiradas** de las dos caras. Las tablas y las plazas que dieron siguen (dejar una deja todos sus
+  días); el catálogo devuelve `ofertas: []`, pedir/ampliar una contesta 410. No reintroducir sin pedirlo.
+- **Bono:** «reservar las próximas clases» va en la ficha como RESERVA, en lugar del interruptor (sin cuota no hay clase fija).
+- **Panel:** «Crear clase» ofrece «Clase» o **«Clase semanal»** (antes «Clase fija», que chocaba). Pendiente: el panel
+  sigue diciendo «plaza fija» para el hueco de la alumna; unificarlo a «clase fija» es otro PR.
+
+Lo de abajo es la historia; donde contradiga esto, manda esto.
+
 ## Autoreservable = plaza fija con duración (2-oct-2026)
 
 El fundador pidió un botón «autoreservable» en las clases normales, ligado a las clases fijas, para estudio y alumna, con

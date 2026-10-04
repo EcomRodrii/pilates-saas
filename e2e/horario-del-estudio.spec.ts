@@ -123,10 +123,24 @@ test.describe('Configuración > Estudio > Horario', () => {
 // clases en total recibe el estado vacío en vez de la rejilla — y sin rejilla no
 // hay celdas que digan «Cerrado» ni «Sin clases». La distinción que estos tests
 // protegen sigue viva y sigue importando; lo que estaba mal era el escenario.
+//
+// ⚠️ La clase NUNCA cae en domingo, que es el día cerrado del primer test: la
+// semana del calendario empieza HOY, y con `ahora + 1h` cada domingo la columna
+// cerrada enseñaba la clase en vez de «Cerrado» y el test fallaba (también en
+// main). Mañana o pasado (si mañana es domingo), a las 12:00 UTC: misma fecha en
+// UTC y en Madrid, y siempre dentro de la ventana de 7 días.
+function inicioUnaClase(): Date {
+  const d = new Date();
+  d.setUTCHours(12, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + 1);
+  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
+  return d;
+}
+const INICIO_UNA_CLASE = inicioUnaClase();
 const UNA_CLASE = {
   id: 'ses-ya-existe', studioId: 's', tipoClaseId: 'tc-1', salaId: null, instructorId: null,
-  inicio: new Date(Date.now() + 3_600_000).toISOString(),
-  fin: new Date(Date.now() + 6_600_000).toISOString(),
+  inicio: INICIO_UNA_CLASE.toISOString(),
+  fin: new Date(INICIO_UNA_CLASE.getTime() + 3_000_000).toISOString(),
   aforoMaximo: 8, cancelada: false, notas: null, precioPuntual: null, serieId: null,
 };
 

@@ -2,7 +2,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 import { montar, ir } from './panel-sembrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// «Nueva clase fija» (la que se repite cada semana) cabe en un móvil.
+// «Nueva clase semanal» (la que se repite cada semana) cabe en un móvil.
 //
 // El fundador lo describió como «0 responsive, muy a lo ancho». Medido a 375 px
 // antes del arreglo: el diálogo iba de borde a borde de la pantalla (x = 0,
@@ -25,7 +25,7 @@ async function abrir(page: Page): Promise<Locator> {
   await page.getByRole('button', { name: 'Crear clase', exact: true }).click({ timeout: 60_000 });
   await page.getByTestId('crear-clase-fija').click();
   const dialogo = page.getByRole('dialog');
-  await expect(dialogo.getByText('Nueva clase fija')).toBeVisible();
+  await expect(dialogo.getByText('Nueva clase semanal')).toBeVisible();
   // Entra escalando: se mide cuando ha llegado.
   await page.waitForTimeout(400);
   return dialogo;
