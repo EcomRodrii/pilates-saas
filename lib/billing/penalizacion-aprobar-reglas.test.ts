@@ -1644,10 +1644,12 @@ test('⚠️ el mostrador del TPV comprueba la penalización antes de arrancar e
   const guardia = fuente.indexOf('await bloqueoCobroEnMostradorDePenalizacion(admin, {', cobrable);
   const salida = fuente.indexOf('if (penalizacionAnulada) {', guardia);
   const respuesta = fuente.indexOf('{ status: penalizacionAnulada.http }', salida);
-  const contexto = fuente.indexOf('await contextoCobroDe(');
-  const iniciar = fuente.indexOf('await prov.iniciar(');
+  // Ni preguntar por un cobro previo de SumUp ni preparar el nuevo antes de la guardia.
+  const contexto = fuente.indexOf('await prepararCobro');
+  const iniciar = fuente.indexOf('await cobro.iniciar(');
   assert.ok(cobrable > 0 && guardia > cobrable && salida > guardia && respuesta > salida, 'recibo cobrable → guardia → return');
   assert.ok(contexto > respuesta && iniciar > respuesta, 'la guardia va antes de tocar el proveedor');
+  assert.equal(fuente.indexOf('contextoCobroDe('), -1, 'el proveedor lo elige cobro-del-estudio, no la ruta');
 });
 
 test('⚠️ el guardia del mostrador falla ABIERTO y lo registra: lee la penalización por su id, apunte o no al recibo', () => {

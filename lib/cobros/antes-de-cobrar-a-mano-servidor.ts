@@ -9,6 +9,8 @@ import {
   cerrarPagoOnlineAntesDeCobrarAMano, soltarCobroDeMostradorAntesDeCobrarAMano, type SesionesDeStripe,
 } from '../billing/pago-online-al-cobrar-a-mano.ts';
 import { MENSAJE_COBRO_CON_METODO_GUARDADO, penalizacionesDeLosRecibos, recibosDePenalizacionAnulada } from './marcar-cobrado.ts';
+import { proveedorDeReferencia } from '../pos/sumup.ts';
+import { prepararCobroExistente } from '../pos/cobro-del-estudio.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo que se comprueba JUSTO antes de cobrar un recibo a mano en el mostrador
@@ -104,7 +106,29 @@ export async function soltarPagosEnMarchaAntesDeCobrar(
   if (fila?.cobro_off_session_clave) return { ok: false, mensaje: MENSAJE_COBRO_CON_METODO_GUARDADO };
 
   const ref = (fila?.cobro_mostrador_pi as string | null) ?? null;
-  if (ref) {
+  const soltarReferencia = async (r: string) => {
+    const { data, error } = await admin.from('recibos')
+      .update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
+      .eq('id', reciboId).eq('studio_id', studioId).eq('cobro_mostrador_pi', r).select('id');
+    return !error && (data?.length ?? 0) > 0;
+  };
+  // Un cobro del datáfono de SumUp (`sumup:`): se le pregunta a SumUp, no a Stripe.
+  // Nunca se le manda parar (`terminate` para lo que esté haciendo el Solo, que
+  // podría ser otra venta), y si no se le puede preguntar se espera: sin esto, un
+  // estudio sin Stripe daba la referencia por vieja y se cobraba dos veces.
+  if (ref && proveedorDeReferencia(ref) === 'sumup') {
+    const pre = await prepararCobroExistente(admin, studioId, ref, 'DATAFONO', { origen: '' });
+    const mostrador = await soltarCobroDeMostradorAntesDeCobrarAMano(ref, pre.ok
+      ? { consultar: async () => (await pre.cobro.consultar(ref)).estado, cancelar: async () => {}, soltar: () => soltarReferencia(ref) }
+      : { consultar: async () => 'ERROR', cancelar: async () => {}, soltar: async () => false });
+    if (mostrador.tipo === 'YA_PAGADO') {
+      Sentry.captureMessage('[cobros] cobro a mano sobre un cobro del mostrador ya pagado', {
+        level: 'warning', tags: { area: 'cobros', tipo: 'marcar-cobrado' }, extra: { reciboId, studioId, referencia: ref },
+      });
+      return { ok: false, mensaje: MENSAJE_YA_PAGADO_EN_EL_DATAFONO };
+    }
+    if (mostrador.tipo === 'EN_MARCHA') return { ok: false, mensaje: MENSAJE_COBRO_EN_EL_DATAFONO };
+  } else if (ref) {
     const cs = (fila?.cobro_mostrador_checkout_session_id as string | null) ?? null;
     const s = await prepararStripe();
     const mostrador = await soltarCobroDeMostradorAntesDeCobrarAMano(ref, s && {
@@ -117,12 +141,7 @@ export async function soltarPagosEnMarchaAntesDeCobrar(
           else await s.stripe.paymentIntents.cancel(ref, {}, { stripeAccount: s.cuenta });
         } catch { /* lo dirá la siguiente consulta */ }
       },
-      soltar: async () => {
-        const { data, error } = await admin.from('recibos')
-          .update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
-          .eq('id', reciboId).eq('studio_id', studioId).eq('cobro_mostrador_pi', ref).select('id');
-        return !error && (data?.length ?? 0) > 0;
-      },
+      soltar: () => soltarReferencia(ref),
     });
     if (mostrador.tipo === 'YA_PAGADO') {
       Sentry.captureMessage('[cobros] cobro a mano sobre un cobro del mostrador ya pagado', {

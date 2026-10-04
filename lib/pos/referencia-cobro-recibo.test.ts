@@ -66,15 +66,15 @@ function sinComentarios(fuente: string): string {
 
 test('⚠️ la ruta del mostrador guarda la referencia con CAS sobre estado y referencia leídos, y cancela antes de responder', () => {
   const fuente = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'app/api/pos/recibo/route.ts'), 'utf8'));
-  const iniciar = fuente.indexOf('await prov.iniciar(');
+  const iniciar = fuente.indexOf('await cobro.iniciar(');
   const update = fuente.indexOf('cobro_mostrador_pi: inicio.referencia', iniciar);
   const cas = fuente.indexOf(".eq('id', reciboId).eq('studio_id', sesion.studioId).eq('estado', recibo.estado);", update);
-  const casRef = fuente.indexOf("? guardar.eq('cobro_mostrador_pi', recibo.cobro_mostrador_pi)\n      : guardar.is('cobro_mostrador_pi', null)", cas);
+  const casRef = fuente.indexOf("? guardar.eq('cobro_mostrador_pi', referenciaPrevia)\n      : guardar.is('cobro_mostrador_pi', null)", cas);
   const select = fuente.indexOf(").select('id');", casRef);
   const decision = fuente.indexOf("trasGuardarReferencia({ error: !!errRef, tocadas: tocadas?.length ?? 0 }) === 'CANCELAR'", select);
   const motivo = fuente.indexOf("const motivo = errRef ? 'ERROR_AL_GUARDAR' : 'CAMBIO';", decision);
-  const cancelar = fuente.indexOf('await prov.cancelar(ctx.ctx, inicio.referencia, inicio.checkoutSessionId ?? null);', motivo);
-  const consultar = fuente.indexOf('await prov.consultar(ctx.ctx, inicio.referencia);', cancelar);
+  const cancelar = fuente.indexOf('await cobro.cancelar(inicio.referencia, inicio.checkoutSessionId ?? null);', motivo);
+  const consultar = fuente.indexOf('await cobro.consultar(inicio.referencia);', cancelar);
   const respuesta = fuente.indexOf('respuestaTrasCancelar(tras.estado, motivo)', consultar);
   const error = fuente.indexOf('{ status: respuesta.http }', respuesta);
   const ok = fuente.indexOf('referencia: inicio.referencia,', error);

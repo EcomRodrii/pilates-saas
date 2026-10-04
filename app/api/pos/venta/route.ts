@@ -7,7 +7,8 @@ import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
-import { contextoCobroDe, proveedorPara, MAX_CENTIMOS_POS } from '@/lib/pos/terminal';
+import { proveedorPara, MAX_CENTIMOS_POS } from '@/lib/pos/terminal';
+import { prepararCobroNuevo } from '@/lib/pos/cobro-del-estudio';
 import { entregarVentaPOS } from '@/lib/pos/venta-servidor';
 import { mensajeErrorVenta, codigoDeErrorPg, type LineaVentaPeticion } from '@/lib/pos/tipos';
 import { cuotaSinClienta, MENSAJE_CUOTA_SIN_CLIENTA } from '@/lib/pos/cuota-exige-clienta';
@@ -298,21 +299,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'El importe supera el máximo permitido en el TPV (10.000 €).' }, { status: 400 });
   }
 
-  const ctx = await contextoCobroDe(admin, sesion.studioId);
-  if (!ctx.ok) {
+  // Quién cobra (Stripe o el datáfono de SumUp de la sede): lib/pos/cobro-del-estudio.ts.
+  const preparado = await prepararCobroNuevo(admin, sesion.studioId, metodoPago, { origen: req.nextUrl.origin });
+  if (!preparado.ok) {
     // No se pudo ni intentar el cobro: se anula la venta y se devuelve el
     // stock reservado. Dejarla PENDIENTE_PAGO para siempre bloquearía género.
     await admin.rpc('fallar_pago_venta_pos', {
       p_venta_id: base.ventaId, p_studio_id: sesion.studioId,
-      p_pago_estado: 'ERROR', p_motivo: ctx.motivo,
+      p_pago_estado: 'ERROR', p_motivo: preparado.motivo,
     });
-    return NextResponse.json({ error: ctx.motivo }, { status: ctx.status });
+    return NextResponse.json({ error: preparado.motivo }, { status: preparado.status });
   }
 
-  const origen = req.nextUrl.origin;
-  const prov = proveedorPara(metodoPago, { readerId: ctx.readerId, origen });
   const concepto = sane.lineas.length === 1 ? 'Venta en el estudio' : `Venta de ${sane.lineas.length} artículos`;
-  const inicio = await prov.iniciar(ctx.ctx, { importeCentimos: centimos, concepto, ref: { ventaId: base.ventaId },
+  const inicio = await preparado.cobro.iniciar({ importeCentimos: centimos, concepto, ref: { ventaId: base.ventaId },
     // POS-1: una venta = un intento. El reintento con la misma clave de la operación
     // ya se corta arriba (`yaExistia`); esto cubre el reintento DENTRO de la petición.
     claveIdempotencia: `pos-venta-${base.ventaId}-${metodoPago}` });

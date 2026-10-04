@@ -8,6 +8,7 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { uid } from '@/lib/utils';
 import { contextoCobroDe } from '@/lib/pos/terminal';
+import { proveedorDeReferencia } from '@/lib/pos/sumup';
 import { revertirCreditosVentaPOS } from '@/lib/pos/venta-servidor';
 import { registrarDevolucion } from '@/lib/billing/registrar-devolucion';
 import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
@@ -119,6 +120,16 @@ export async function POST(req: NextRequest) {
   // bono y sin dinero, y el reintento era imposible: la segunda llamada chocaba
   // con DEVOLUCION_EXCEDE porque el libro ya se había escrito. Así, si el
   // reembolso no sale, no se ha tocado nada y se puede repetir.
+  // Cobrada con el datáfono de SumUp: su referencia no es de Stripe y SumUp no
+  // admite clave de idempotencia en las devoluciones, así que un reintento podría
+  // devolver dos veces. Hasta tener esa devolución (PR aparte), no se toca nada.
+  if (porStripe && importe > 0 && proveedorDeReferencia(venta.stripe_payment_intent_id) === 'sumup') {
+    return NextResponse.json({
+      error: 'Esta venta se cobró con el datáfono de SumUp: por ahora la devolución se hace desde la app de SumUp. No se ha apuntado nada aquí.',
+      importe, dineroDevuelto: false,
+    }, { status: 409 });
+  }
+
   if (porStripe && importe > 0) {
     const ctx = await contextoCobroDe(admin, sesion.studioId);
     if (!ctx.ok) {

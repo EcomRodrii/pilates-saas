@@ -1,4 +1,5 @@
 import type { EstadoPagoPOS } from './tipos.ts';
+import { entornoDespliegue } from '../billing/modo-stripe.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El datáfono SumUp Solo (Cloud API de SumUp): las reglas y el cliente HTTP.
@@ -40,6 +41,17 @@ export function leerReferenciaSumup(ref: string | null | undefined): { emitidaEn
   const m = /^sumup:(\d{9,11}):([A-Za-z0-9-]{8,64})$/.exec(ref);
   if (!m) return null;
   return { emitidaEn: new Date(Number(m[1]) * 1000), clientTransactionId: m[2] };
+}
+
+/**
+ * Fuera de producción, SumUp no cobra salvo que se active a propósito para probar
+ * con una cuenta de prueba (`SUMUP_PERMITIR_FUERA_DE_PRODUCCION=1`). Es el mismo
+ * miedo que `comprobarModoStripe`: un `npm run dev` con las variables de producción
+ * copiadas mandaría cobros al datáfono real de un estudio. SumUp no tiene claves
+ * «de test» que lo delaten: la cuenta de pruebas es una cuenta más.
+ */
+export function sumupPuedeCobrarAqui(env: NodeJS.ProcessEnv = process.env): boolean {
+  return entornoDespliegue(env) === 'produccion' || env.SUMUP_PERMITIR_FUERA_DE_PRODUCCION === '1';
 }
 
 export type ProveedorDeReferencia = 'sumup' | 'stripe';
