@@ -43,7 +43,7 @@ async function vigilarSalida(page: Page) {
 }
 
 async function abrirHoja(page: Page) {
-  await page.goto(`${base}/perfil`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${base}/perfil/privacidad`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Borrar mi cuenta de Tentare', exact: true }).click({ timeout: 30_000 });
   const hoja = page.getByRole('dialog', { name: '¿Borrar tu cuenta de Tentare?' });
   await expect(hoja).toBeVisible();
@@ -68,7 +68,7 @@ test.describe('Student PWA · borrar mi cuenta de Tentare', () => {
     // Lo que pasa de verdad, y la salida a la solicitud al estudio.
     await expect(hoja.getByText(/ya no podrás entrar con ella en ningún estudio/)).toBeVisible();
     await expect(hoja.getByText(/conserva tu ficha y lo que la ley le obliga a guardar/)).toBeVisible();
-    await expect(hoja.getByRole('link', { name: 'pídeselo desde Privacidad y datos' })).toHaveAttribute('href', `${base}/perfil/privacidad`);
+    await expect(hoja.getByText('Solicitar la eliminación de mis datos', { exact: false })).toBeVisible();
 
     const campo = hoja.getByLabel(ETIQUETA);
     const borrar = hoja.getByRole('button', { name: 'Borrar mi cuenta', exact: true });
@@ -97,7 +97,7 @@ test.describe('Student PWA · borrar mi cuenta de Tentare', () => {
     await page.waitForTimeout(800);
     expect(posts.length).toBeGreaterThan(0);
     await expect(page.getByText(/se ha borrado/)).toHaveCount(0);
-    await expect(page).toHaveURL(new RegExp(`${base}/perfil$`));
+    await expect(page).toHaveURL(new RegExp(`${base}/perfil/privacidad$`));
     // La sesión y el último estudio siguen ahí: no se ha cerrado nada.
     expect(await page.evaluate(() => localStorage.getItem('sb-portal-auth'))).not.toBeNull();
     expect(await page.evaluate((k) => localStorage.getItem(k), CLAVE_ULTIMO)).toBe('otro-estudio');
@@ -112,7 +112,7 @@ test.describe('Student PWA · borrar mi cuenta de Tentare', () => {
     await hoja.getByRole('button', { name: 'Borrar mi cuenta', exact: true }).click();
     await expect.poll(() => posts.length, { timeout: 15_000 }).toBe(1);
     await expect(hoja.getByRole('alert')).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`${base}/perfil$`));
+    await expect(page).toHaveURL(new RegExp(`${base}/perfil/privacidad$`));
     expect(await page.evaluate(() => localStorage.getItem('sb-portal-auth'))).not.toBeNull();
     expect([...new Set(and.sinMockear())], 'andamiaje incompleto').toEqual([]);
   });
