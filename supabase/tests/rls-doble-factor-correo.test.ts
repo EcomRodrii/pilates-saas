@@ -194,3 +194,6 @@ test('el navegador no toca los códigos ni pregunta por ellos', async () => {
     await limpiarFixtures(admin, [studio]);
   }
 });
+
+// Sin cerrar la conexión, el proceso no termina y el job se cancela por tiempo.
+test.after(async () => { await sql.end(); });
