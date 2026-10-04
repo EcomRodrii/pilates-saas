@@ -180,11 +180,14 @@ export function ConectarDatafono({ direccionEstudio: direccionServidor, esTest, 
                     Estás en el modo de prueba de Stripe: se conecta un datáfono de prueba y el código da igual.
                   </p>
                 ) : (
-                  <ol className="space-y-2 text-[13.5px] text-foreground">
+                  <div className="flex items-start gap-4 sm:gap-5">
+                  <DatafonoDibujado />
+                  <ol className="min-w-0 flex-1 space-y-2 text-[13.5px] text-foreground">
                     <li className="flex gap-2"><strong className="font-semibold tabular-nums">1.</strong><span>Enciéndelo y conéctalo al wifi del estudio.</span></li>
                     <li className="flex gap-2"><strong className="font-semibold tabular-nums">2.</strong><span>Desliza desde el borde izquierdo de su pantalla y entra en <strong className="font-semibold">Ajustes</strong>. Si te pide una clave, es <strong className="font-semibold tabular-nums">07139</strong>.</span></li>
                     <li className="flex gap-2"><strong className="font-semibold tabular-nums">3.</strong><span>Pulsa <strong className="font-semibold">Generar código de emparejamiento</strong>. Salen tres palabras.</span></li>
                   </ol>
+                  </div>
                 )}
 
                 <label className="mt-5 block">
@@ -279,6 +282,19 @@ export function ConectarDatafono({ direccionEstudio: direccionServidor, esTest, 
         )}
       </>
     </DashboardSheet>
+  );
+}
+
+/** El datáfono dibujado, enseñando su código: así se sabe qué buscar en su pantalla. */
+function DatafonoDibujado() {
+  return (
+    <div aria-hidden className="flex w-[112px] shrink-0 flex-col items-center rounded-[22px] bg-neutral-900 p-2 shadow-md sm:w-[132px]">
+      <div className="flex h-[140px] w-full flex-col items-center justify-center rounded-[15px] bg-white px-1.5 text-center sm:h-[156px]">
+        <p className="text-[8.5px] font-semibold uppercase tracking-wide text-neutral-500">Código de emparejamiento</p>
+        <p className="mt-1.5 break-all font-mono text-[12px] font-semibold leading-tight text-neutral-900">sepia-cerulean-aqua</p>
+      </div>
+      <div className="mt-1.5 h-1.5 w-9 rounded-full bg-neutral-700" />
+    </div>
   );
 }
 
