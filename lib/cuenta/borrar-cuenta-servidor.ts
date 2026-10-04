@@ -23,11 +23,12 @@ import { decidirAutoborrado, type MotivoNoBorrable } from './borrar-cuenta.ts';
 //   4. Borrar la cuenta de Auth (con reintentos; «ya no existe» cuenta como hecho).
 //   5. Confirmar con Auth que ya no está.
 //
-// ⚠️ Lo que se lleva la cascada al borrar la cuenta (FK ON DELETE CASCADE hacia
-// auth.users): sus dispositivos de confianza y segundos pasos, su `sesion_activa`,
-// sus favoritos de Network de alumna y sus filas de `conversacion_participantes`.
-// Esta última es del estudio: la conversación y los mensajes se quedan
-// (`mensajes.remitente_auth_user_id` es SET NULL), pero sin la fila de la alumna.
+// Lo que se lleva la cascada al borrar la cuenta (FK ON DELETE CASCADE hacia
+// auth.users) es solo suyo: dispositivos de confianza y segundos pasos, su
+// `sesion_activa` y sus favoritos de Network de alumna. Sus chats con el estudio
+// se quedan con su nombre (decisión del fundador, migr 20261004120218): su fila de
+// `conversacion_participantes` pasa a `auth_user_id = null` y conserva `socio_id`,
+// y sus mensajes, a remitente nulo.
 
 export type ResultadoBorrarCuenta =
   | { ok: true }
