@@ -67,7 +67,7 @@ const ENTIDADES_QUE_ACEPTA = (() => {
 
 const ETIQUETA_ENTIDAD_BATCH: Record<string, string> = {
   socios: 'clientas', suscripciones: 'bonos', tipos_clase: 'tipos de clase',
-  sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'plazas fijas',
+  sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'clases fijas',
   pagos_historicos: 'pagos históricos', recuperaciones: 'recuperaciones',
 };
 

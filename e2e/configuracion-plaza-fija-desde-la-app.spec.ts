@@ -40,7 +40,7 @@ async function abrirAjuste(page: Page, columnas: Record<string, unknown> = {}) {
   return { patches };
 }
 
-test.describe('Configuración · peticiones de plaza fija desde la app', () => {
+test.describe('Configuración · peticiones de clase fija desde la app', () => {
   test.describe.configure({ timeout: 180_000 });
 
   test('de serie ya viene encendido: explica cómo se marcan las alumnas y enseña lo que ven, sin el aviso de que no lo ven', async ({ page }) => {
@@ -68,7 +68,7 @@ test.describe('Configuración · peticiones de plaza fija desde la app', () => {
 
   test('apagarlo (de serie viene encendido) manda solo sus columnas al guardar', async ({ page }) => {
     const { patches } = await abrirAjuste(page);
-    await page.getByRole('switch', { name: /Pueden pedir plaza fija/ }).click();
+    await page.getByRole('switch', { name: /Pueden pedir clase fija/ }).click();
 
     await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Ahora tus alumnas no lo ven');
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
@@ -105,7 +105,7 @@ test.describe('Configuración · peticiones de plaza fija desde la app', () => {
     await expect(page.getByTestId('vista-previa-plaza-fija')).not.toContainText('Tu estudio tiene que confirmarla:');
 
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
-    await expect(page.getByText('¿Dar las plazas fijas sin que las apruebes?')).toBeVisible();
+    await expect(page.getByText('¿Dar las clases fijas sin que las apruebes?')).toBeVisible();
     // Dice lo que se comprueba y lo que NO se aprueba solo.
     await expect(page.getByText(/límite semanal de su cuota/)).toBeVisible();
     await expect(page.getByText(/no pasan del 50 % de su aforo/)).toBeVisible();
@@ -121,9 +121,9 @@ test.describe('Configuración · peticiones de plaza fija desde la app', () => {
     const { patches } = await abrirAjuste(page);
     await page.getByRole('radio', { name: /Se da sola si cumple mis reglas/ }).check();
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
-    await expect(page.getByText('¿Dar las plazas fijas sin que las apruebes?')).toBeVisible();
+    await expect(page.getByText('¿Dar las clases fijas sin que las apruebes?')).toBeVisible();
     await page.getByRole('button', { name: 'Volver', exact: true }).click();
-    await expect(page.getByText('¿Dar las plazas fijas sin que las apruebes?')).toHaveCount(0);
+    await expect(page.getByText('¿Dar las clases fijas sin que las apruebes?')).toHaveCount(0);
     expect(patches, 'no se guardó nada').toHaveLength(0);
   });
 
@@ -133,6 +133,6 @@ test.describe('Configuración · peticiones de plaza fija desde la app', () => {
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
     expect(patches[0]).toMatchObject({ plaza_fija_aprobacion: 'AUTOMATICA', plaza_fija_auto_tope_pct: 75 });
-    await expect(page.getByText('¿Dar las plazas fijas sin que las apruebes?')).toHaveCount(0);
+    await expect(page.getByText('¿Dar las clases fijas sin que las apruebes?')).toHaveCount(0);
   });
 });

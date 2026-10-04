@@ -36,7 +36,7 @@ export const CATEGORIAS: CategoriaAyuda[] = [
   { slug: 'clientes', titulo: 'Clientes y CRM', descripcion: 'Ficha de cada alumna, historial, notas e importación desde tu software anterior.', icono: 'Users' },
   { slug: 'instructores', titulo: 'Instructoras y equipo', descripcion: 'Altas, disponibilidad, tarifas, permisos y sustituciones cuando alguien no puede dar su clase.', icono: 'UserRound' },
   { slug: 'pagos', titulo: 'Pagos y facturación', descripcion: 'Stripe, tarjeta guardada, cobros fallidos, reembolsos y factura de cada cobro.', icono: 'CreditCard' },
-  { slug: 'bonos', titulo: 'Bonos y membresías', descripcion: 'Bonos de sesiones, cuotas mensuales, plazas fijas, créditos y caducidades.', icono: 'Ticket' },
+  { slug: 'bonos', titulo: 'Bonos y membresías', descripcion: 'Bonos de sesiones, cuotas mensuales, clases fijas, créditos y caducidades.', icono: 'Ticket' },
   { slug: 'portal', titulo: 'Portal de reservas', descripcion: 'La página pública donde tus alumnas reservan: personalización, marca y acceso.', icono: 'LayoutTemplate' },
   { slug: 'widget', titulo: 'Widget para tu web', descripcion: 'Incrusta las reservas de Tentare en tu propia web, con WordPress, Webflow o HTML.', icono: 'CodeXml' },
   { slug: 'automatizaciones', titulo: 'Automatizaciones y avisos', descripcion: 'Recordatorios, avisos de bono a punto de acabar y lo que Tentare avisa solo, en la app, por email y por WhatsApp.', icono: 'Zap' },
@@ -371,8 +371,8 @@ export const ARTICULOS: ArticuloAyuda[] = [
   // ─── Bonos y membresías ─────────────────────────────────────────────────
   {
     slug: 'tipos-de-bono', categoria: 'bonos', tipo: 'guia',
-    titulo: 'Bonos, cuotas y plazas fijas: qué modelo elegir',
-    descripcion: 'Cuota, bono de sesiones o clase suelta, y cómo se combinan con una plaza fija.',
+    titulo: 'Bonos, cuotas y clases fijas: qué modelo elegir',
+    descripcion: 'Cuota, bono de sesiones o clase suelta, y cómo se combinan con una clase fija.',
     actualizado: '2026-09-14',
     relacionados: ['bonos/crear-un-plan', 'bonos/caducidad-de-un-bono'],
     estado: 'publicado',
@@ -404,9 +404,9 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'plazas-fijas', categoria: 'bonos', tipo: 'guia',
-    titulo: 'Plazas fijas: su hueco de cada semana',
+    titulo: 'Clases fijas: su hueco de cada semana',
     descripcion: 'Ana viene todos los martes a las 10. Cómo se marca una alumna, qué ve ella en su app, cómo se pausa unas semanas, qué pasa si se queda sin cuota, cómo te la piden, cómo ofrecer una clase fija con nombre, aprobarla sola y dejar que la amplíe.',
-    terminos: ['plaza fija', 'hueco semanal', 'recurrente', 'sitio fijo', 'reserva recurrente', 'pausar plaza fija', 'vacaciones', 'sin cuota', 'petición de plaza', 'pedir plaza fija', 'marcarse en una clase fija', 'clase fija', 'con bono', 'no puedo asistir', 'próximas clases', 'qué ve la alumna', 'crear clase fija', 'clase fija con nombre', 'ofrecer clase fija', 'duración de la clase fija', 'aprobación automática', 'ampliar clase fija', 'termina pronto'],
+    terminos: ['clase fija', 'plaza fija', 'hueco semanal', 'recurrente', 'sitio fijo', 'reserva recurrente', 'pausar clase fija', 'vacaciones', 'sin cuota', 'petición de plaza', 'pedir clase fija', 'marcarse en una clase fija', 'plazas fijas', 'con bono', 'no puedo asistir', 'próximas clases', 'qué ve la alumna', 'crear clase fija', 'clase fija con nombre', 'ofrecer clase fija', 'duración de la clase fija', 'aprobación automática', 'ampliar clase fija', 'termina pronto'],
     actualizado: '2026-09-22',
     relacionados: ['bonos/recuperaciones', 'reservas/editar-o-cancelar-una-clase', 'reservas/clases-que-se-repiten'],
     estado: 'publicado',

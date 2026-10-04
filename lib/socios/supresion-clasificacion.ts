@@ -122,10 +122,10 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
   socio_companeras: { accion: 'BORRAR', detalle: 'Relaciones con otras socias (solicitante, destinataria o bloqueo).' },
 
   // ── Operativa ──────────────────────────────────────────────────────────────
-  plazas_fijas: { accion: 'BORRAR', detalle: 'Plaza fija: si no, el cron la seguiría materializando.' },
+  plazas_fijas: { accion: 'BORRAR', detalle: 'Clase fija: si no, el cron la seguiría materializando.' },
   solicitudes_plaza_fija: {
     accion: 'BORRAR',
-    detalle: 'Lo que pidió sobre su plaza fija (y el motivo que le contestaron): sin plaza no hay nada que decidir.',
+    detalle: 'Lo que pidió sobre su clase fija (y el motivo que le contestaron): sin plaza no hay nada que decidir.',
   },
   recuperaciones: { accion: 'BORRAR', detalle: 'Recuperaciones pendientes.' },
   socio_excepciones: { accion: 'BORRAR', detalle: 'Excepciones de reglas (motivo en texto libre).' },

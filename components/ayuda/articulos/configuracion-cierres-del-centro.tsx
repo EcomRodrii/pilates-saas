@@ -73,7 +73,7 @@ export default function Contenido() {
       <h2 style={h2}>Lo que quitar un cierre NO deshace</h2>
       <p>
         Esto importa antes de cerrar, porque no hay marcha atrás completa. Al quitarlo vuelven a poder reservarse
-        esos días, y vuelven a funcionar ahí las plazas fijas y la renovación de series. Pero:
+        esos días, y vuelven a funcionar ahí las clases fijas y la renovación de series. Pero:
       </p>
       <ul style={lista}>
         <li><strong>Las clases canceladas no vuelven, ni sus reservas.</strong> Si las quieres, se crean otra vez.</li>

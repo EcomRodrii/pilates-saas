@@ -151,7 +151,7 @@ test.describe('Editar una serie: primero se ve qué va a pasar', () => {
     // Ana ×4, Bea ×1 y Dani ×1 = 6 reservas confirmadas de 3 alumnas; Cris (en espera) no recibe aviso.
     await expect(dialogo).toContainText('6 reservas confirmadas cambian de hora.');
     await expect(dialogo).toContainText('Se avisará a 3 alumnas, una sola vez a cada una aunque cambien varias de sus clases.');
-    await expect(dialogo).toContainText('1 alumna tiene plaza fija en estas clases: su plaza se mueve con la serie.');
+    await expect(dialogo).toContainText('1 alumna tiene clase fija en estas clases: su plaza se mueve con la serie.');
     await expect(dialogo).toContainText('1 persona en lista de espera de estas clases (no reciben aviso).');
     await expect(dialogo).toContainText('1 reserva se hizo gastando una recuperación.');
 

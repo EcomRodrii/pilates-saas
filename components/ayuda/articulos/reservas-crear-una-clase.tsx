@@ -44,7 +44,7 @@ export default function Contenido() {
           {' '}Una serie dura las semanas que elijas. Cuando le queda un mes aparece en Resumen para que la renueves (o
           digas que no), y también puedes renovarla cuando quieras desde la propia clase, en su &ldquo;⋯&rdquo; → &ldquo;Renovar serie&rdquo;:
           se alarga la misma clase con su horario, sala, tipo, instructora, aforo y notas, las clases que ya están en
-          el calendario no se tocan, los días de cierre del centro se saltan y las alumnas con plaza fija siguen en su hueco. Si no la renuevas, te avisamos a
+          el calendario no se tocan, los días de cierre del centro se saltan y las alumnas con clase fija siguen en su hueco. Si no la renuevas, te avisamos a
           las dos semanas y a la semana del final (y el último día, también por email). Y si prefieres no depender
           de acordarte, marca &ldquo;Renovar sola&rdquo; al renovarla: un mes antes del final se renueva con las mismas
           semanas y te avisa.
@@ -53,8 +53,8 @@ export default function Contenido() {
           También puedes crearla desde &ldquo;Crear clase&rdquo; → &ldquo;Clase fija&rdquo;.
           Las clases de una serie llevan la marca ↻ y, al abrirlas, dicen hasta cuándo se repiten. Y la vista
           &ldquo;Horario&rdquo; (junto a Día y Semana) reúne todas las que se repiten por día de la semana:
-          hasta cuándo va cada una, si se renueva sola y cuántas alumnas tienen plaza fija, con los botones para
-          renovarla o dar una plaza fija a una clienta sin salir de ahí.
+          hasta cuándo va cada una, si se renueva sola y cuántas alumnas tienen clase fija, con los botones para
+          renovarla o dar una clase fija a una clienta sin salir de ahí.
         </p>
       </AyudaPaso>
 

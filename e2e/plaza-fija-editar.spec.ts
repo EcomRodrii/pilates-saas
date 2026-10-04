@@ -144,17 +144,17 @@ async function montar(page: Page, opts: {
   return { guardados, cambiosEstado, escriturasRest };
 }
 
-test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
-  test('la ficha lista la plaza fija que ya existe, sin aviso si su clase está en el horario', async ({ page }) => {
+test.describe('Clase fija: asignar y cambiar eligiendo la clase', () => {
+  test('la ficha lista la clase fija que ya existe, sin aviso si su clase está en el horario', async ({ page }) => {
     await montar(page, { sesiones: [...MARTES_10, ...JUEVES_18] });
     await expect(page.getByText('Sin clase en este horario')).toHaveCount(0);
   });
 
   test('asignar: se elige una clase del horario y UNA petición al servidor la guarda', async ({ page }) => {
     const { guardados, escriturasRest } = await montar(page, { sesiones: [...MARTES_10, ...JUEVES_18] });
-    await page.getByRole('button', { name: 'Añadir plaza fija' }).click();
+    await page.getByRole('button', { name: 'Añadir clase fija' }).click();
     const dialogo = page.getByRole('dialog');
-    await expect(dialogo.getByRole('heading', { name: 'Asignar plaza fija' })).toBeVisible();
+    await expect(dialogo.getByRole('heading', { name: 'Asignar clase fija' })).toBeVisible();
 
     // La clase en la que ya tiene plaza no se puede volver a elegir.
     await expect(dialogo.getByRole('radio', { name: 'Martes 10:00 · Reformer · Sala Reformer' })).toBeDisabled();
@@ -163,7 +163,7 @@ test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
     await expect(jueves).toHaveAttribute('aria-checked', 'true');
     expect(guardados.length).toBe(0);
 
-    await dialogo.getByRole('button', { name: 'Asignar plaza fija' }).click();
+    await dialogo.getByRole('button', { name: 'Asignar clase fija' }).click();
     await expect(dialogo).toBeHidden();
     expect(guardados).toHaveLength(1);
     expect(guardados[0].metodo).toBe('POST');
@@ -172,14 +172,14 @@ test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
       socioId: 'soc-1', sesionId: 'jue-0', spotId: null,
       vigenciaDesde: '2026-08-05', vigenciaHasta: null, confirmarLimite: false,
     });
-    await expect(page.getByText('Plaza fija guardada · ya tiene reservada la clase del 6 de agosto')).toBeVisible();
+    await expect(page.getByText('Clase fija guardada · ya tiene reservada la clase del 6 de agosto')).toBeVisible();
     await expect(page.getByText('Jueves · 18:00')).toBeVisible();
     expect(escriturasRest).toEqual([]);
   });
 
   test('una duración rápida rellena «Hasta» contando desde «Desde», viaja en la petición, y «Sin fecha de fin» la quita', async ({ page }) => {
     const { guardados } = await montar(page, { sesiones: [...MARTES_10, ...JUEVES_18] });
-    await page.getByRole('button', { name: 'Añadir plaza fija' }).click();
+    await page.getByRole('button', { name: 'Añadir clase fija' }).click();
     const dialogo = page.getByRole('dialog');
     await dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
     const hasta = dialogo.getByLabel('Hasta (opcional)');
@@ -198,7 +198,7 @@ test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
     await dialogo.getByRole('button', { name: '6 meses' }).click();
     await expect(hasta).toHaveValue('2027-02-05');
     expect(guardados.length, 'elegir una duración no guarda nada').toBe(0);
-    await dialogo.getByRole('button', { name: 'Asignar plaza fija' }).click();
+    await dialogo.getByRole('button', { name: 'Asignar clase fija' }).click();
     await expect(dialogo).toBeHidden();
     expect(guardados).toHaveLength(1);
     expect(guardados[0].cuerpo).toMatchObject({ vigenciaDesde: '2026-08-05', vigenciaHasta: '2027-02-05' });
@@ -208,16 +208,16 @@ test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
     const { guardados } = await montar(page, {
       sesiones: [...MARTES_10, ...JUEVES_18],
       guardar: [
-        { status: 409, body: { ok: false, codigo: 'SUPERA_LIMITE', limite: 1, error: 'Su cuota es de 1 clase por semana y ya tiene 1 plaza fija.' } },
+        { status: 409, body: { ok: false, codigo: 'SUPERA_LIMITE', limite: 1, error: 'Su cuota es de 1 clase por semana y ya tiene 1 clase fija.' } },
         { body: guardadaOk() },
       ],
     });
-    await page.getByRole('button', { name: 'Añadir plaza fija' }).click();
+    await page.getByRole('button', { name: 'Añadir clase fija' }).click();
     const dialogo = page.getByRole('dialog');
     await dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
-    await dialogo.getByRole('button', { name: 'Asignar plaza fija' }).click();
+    await dialogo.getByRole('button', { name: 'Asignar clase fija' }).click();
 
-    await expect(dialogo.getByText('Su cuota es de 1 clase por semana y ya tiene 1 plaza fija.')).toBeVisible();
+    await expect(dialogo.getByText('Su cuota es de 1 clase por semana y ya tiene 1 clase fija.')).toBeVisible();
     await expect(dialogo).toBeVisible();
     expect(guardados).toHaveLength(1);
 
@@ -230,12 +230,12 @@ test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
   test('si el servidor dice que no (sin cuota), se enseña, el diálogo sigue abierto y la lista no cambia', async ({ page }) => {
     const { guardados } = await montar(page, {
       sesiones: [...MARTES_10, ...JUEVES_18],
-      guardar: [{ status: 400, body: { ok: false, error: 'Para tener plaza fija necesita una cuota activa que incluya esta clase. Con bono se reserva clase a clase.' } }],
+      guardar: [{ status: 400, body: { ok: false, error: 'Para tener clase fija necesita una cuota activa que incluya esta clase. Con bono se reserva clase a clase.' } }],
     });
-    await page.getByRole('button', { name: 'Añadir plaza fija' }).click();
+    await page.getByRole('button', { name: 'Añadir clase fija' }).click();
     const dialogo = page.getByRole('dialog');
     await dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
-    await dialogo.getByRole('button', { name: 'Asignar plaza fija' }).click();
+    await dialogo.getByRole('button', { name: 'Asignar clase fija' }).click();
 
     await expect(dialogo.getByText(/necesita una cuota activa que incluya esta clase/)).toBeVisible();
     await expect(dialogo).toBeVisible();
@@ -249,9 +249,9 @@ test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
       sesiones: [...MARTES_10, ...JUEVES_18],
       guardar: [{ body: guardadaOk({ id: 'pf-1', vigenciaDesde: '2026-01-01' }, { canceladas: ['r-1', 'r-2'] }) }],
     });
-    await page.getByRole('button', { name: 'Editar la plaza fija del Martes 10:00' }).click();
+    await page.getByRole('button', { name: 'Editar la clase fija del Martes 10:00' }).click();
     const dialogo = page.getByRole('dialog');
-    await expect(dialogo.getByRole('heading', { name: 'Cambiar plaza fija' })).toBeVisible();
+    await expect(dialogo.getByRole('heading', { name: 'Cambiar clase fija' })).toBeVisible();
     await expect(dialogo.getByRole('radio', { name: 'Martes 10:00 · Reformer · Sala Reformer' })).toHaveAttribute('aria-checked', 'true');
 
     await dialogo.getByRole('radio', { name: 'Jueves 18:00 · Reformer · Sala Reformer' }).click();
@@ -261,7 +261,7 @@ test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
     expect(guardados).toHaveLength(1);
     expect(guardados[0].metodo).toBe('PATCH');
     expect(guardados[0].cuerpo).toMatchObject({ plazaId: 'pf-1', sesionId: 'jue-0', vigenciaDesde: '2026-01-01' });
-    await expect(page.getByText(/Plaza fija cambiada · .* · 2 clases del horario anterior canceladas/)).toBeVisible();
+    await expect(page.getByText(/Clase fija cambiada · .* · 2 clases del horario anterior canceladas/)).toBeVisible();
     await expect(page.getByText('Jueves · 18:00')).toBeVisible();
     await expect(page.getByText('Martes · 10:00')).toHaveCount(0);
     expect(escriturasRest).toEqual([]);
@@ -272,7 +272,7 @@ test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
     await montar(page, { sesiones: semanales('mar', '2026-08-11T10:00:00Z') });
     await expect(page.getByText('Sin clase en este horario')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Editar la plaza fija del Martes 10:00' }).click();
+    await page.getByRole('button', { name: 'Editar la clase fija del Martes 10:00' }).click();
     const dialogo = page.getByRole('dialog');
     const nueva = dialogo.getByRole('radio', { name: 'Martes 12:00 · Reformer · Sala Reformer' });
     await expect(nueva).toHaveAttribute('aria-checked', 'false');
@@ -282,17 +282,17 @@ test.describe('Plaza fija: asignar y cambiar eligiendo la clase', () => {
   });
 });
 
-test.describe('Plaza fija: quitarla suelta las clases que ya tenía reservadas', () => {
+test.describe('Clase fija: quitarla suelta las clases que ya tenía reservadas', () => {
   test('quitar va por el servidor y dice qué clases ha cancelado y cuáles se mantienen', async ({ page }) => {
     const { cambiosEstado, escriturasRest } = await montar(page, {
       sesiones: MARTES_10,
       estadoBody: { ok: true, canceladas: ['r-1', 'r-2'], mantenidas: ['r-3'], fallidas: 0 },
     });
-    await page.getByRole('button', { name: 'Quitar la plaza fija del Martes 10:00' }).click();
+    await page.getByRole('button', { name: 'Quitar la clase fija del Martes 10:00' }).click();
     await expect(page.getByText(/cancela las que ya tenía apuntadas en ese horario/)).toBeVisible();
     await page.getByRole('button', { name: 'Quitar', exact: true }).click();
 
-    await expect(page.getByText('Plaza fija quitada · 2 clases canceladas · 1 se mantiene por estar dentro del plazo de cancelación')).toBeVisible();
+    await expect(page.getByText('Clase fija quitada · 2 clases canceladas · 1 se mantiene por estar dentro del plazo de cancelación')).toBeVisible();
     expect(cambiosEstado).toEqual([{ plazaId: 'pf-1', estado: 'BAJA' }]);
     expect(escriturasRest).toEqual([]);
   });
@@ -301,19 +301,19 @@ test.describe('Plaza fija: quitarla suelta las clases que ya tenía reservadas',
     const { cambiosEstado } = await montar(page, {
       sesiones: MARTES_10,
       estadoStatus: 403,
-      estadoBody: { error: 'No tienes permiso para cambiar plazas fijas' },
+      estadoBody: { error: 'No tienes permiso para cambiar clases fijas' },
     });
-    await page.getByRole('button', { name: 'Quitar la plaza fija del Martes 10:00' }).click();
+    await page.getByRole('button', { name: 'Quitar la clase fija del Martes 10:00' }).click();
     await page.getByRole('button', { name: 'Quitar', exact: true }).click();
 
-    await expect(page.getByText('No tienes permiso para cambiar plazas fijas')).toBeVisible();
+    await expect(page.getByText('No tienes permiso para cambiar clases fijas')).toBeVisible();
     // El intento SALIÓ de verdad: sin esto el test sería hueco.
     expect(cambiosEstado.length).toBeGreaterThan(0);
     await expect(page.getByText('Martes · 10:00')).toBeVisible();
   });
 });
 
-test.describe('Plaza fija: pausarla unas fechas sin perderla', () => {
+test.describe('Clase fija: pausarla unas fechas sin perderla', () => {
   const conPausa = (o: Record<string, unknown>) => ({
     ok: true, canceladas: [], mantenidas: [], fallidas: 0, creadas: 0,
     plaza: plazaCamel({ id: 'pf-1', diaSemana: 2, horaInicio: '10:00:00', tipoClaseId: null, vigenciaDesde: '2026-01-01', ...o }),
@@ -324,9 +324,9 @@ test.describe('Plaza fija: pausarla unas fechas sin perderla', () => {
       sesiones: MARTES_10,
       estadoBody: { ...conPausa({ pausaDesde: '2026-08-10', pausaHasta: '2026-08-23' }), canceladas: ['r-1', 'r-2'] },
     });
-    await page.getByRole('button', { name: 'Pausar la plaza fija del Martes 10:00' }).click();
+    await page.getByRole('button', { name: 'Pausar la clase fija del Martes 10:00' }).click();
     const dialogo = page.getByRole('dialog');
-    await expect(dialogo.getByRole('heading', { name: 'Pausar plaza fija' })).toBeVisible();
+    await expect(dialogo.getByRole('heading', { name: 'Pausar clase fija' })).toBeVisible();
     // Sin «hasta» no se puede guardar.
     await expect(dialogo.getByRole('button', { name: 'Pausar', exact: true })).toBeDisabled();
     await dialogo.getByLabel('Desde').fill('2026-08-10');
@@ -335,7 +335,7 @@ test.describe('Plaza fija: pausarla unas fechas sin perderla', () => {
 
     await expect(dialogo).toBeHidden();
     expect(cambiosEstado).toEqual([{ plazaId: 'pf-1', pausa: { desde: '2026-08-10', hasta: '2026-08-23' } }]);
-    await expect(page.getByText('Plaza fija en pausa del 10/08/2026 al 23/08/2026 · 2 clases canceladas')).toBeVisible();
+    await expect(page.getByText('Clase fija en pausa del 10/08/2026 al 23/08/2026 · 2 clases canceladas')).toBeVisible();
     await expect(page.getByText('Pausa programada del 10/08/2026 al 23/08/2026')).toBeVisible();
     expect(escriturasRest).toEqual([]);
   });
@@ -344,14 +344,14 @@ test.describe('Plaza fija: pausarla unas fechas sin perderla', () => {
     const { cambiosEstado } = await montar(page, {
       sesiones: MARTES_10,
       estadoStatus: 400,
-      estadoBody: { error: 'Una pausa no puede pasar de un año. Si no va a volver, quita la plaza fija.' },
+      estadoBody: { error: 'Una pausa no puede pasar de un año. Si no va a volver, quita la clase fija.' },
     });
-    await page.getByRole('button', { name: 'Pausar la plaza fija del Martes 10:00' }).click();
+    await page.getByRole('button', { name: 'Pausar la clase fija del Martes 10:00' }).click();
     const dialogo = page.getByRole('dialog');
     await dialogo.getByLabel('Hasta').fill('2026-08-23');
     await dialogo.getByRole('button', { name: 'Pausar', exact: true }).click();
 
-    await expect(dialogo.getByText('Una pausa no puede pasar de un año. Si no va a volver, quita la plaza fija.')).toBeVisible();
+    await expect(dialogo.getByText('Una pausa no puede pasar de un año. Si no va a volver, quita la clase fija.')).toBeVisible();
     // El intento SALIÓ de verdad: sin esto el test sería hueco.
     expect(cambiosEstado.length).toBeGreaterThan(0);
     await expect(dialogo).toBeVisible();
@@ -367,7 +367,7 @@ test.describe('Plaza fija: pausarla unas fechas sin perderla', () => {
       estadoBody: { ...conPausa({ pausaDesde: null, pausaHasta: null }), creadas: 2 },
     });
     await expect(page.getByText('En pausa hasta el 20/08/2026')).toBeVisible();
-    await page.getByRole('button', { name: 'Cambiar la pausa de la plaza fija del Martes 10:00' }).click();
+    await page.getByRole('button', { name: 'Cambiar la pausa de la clase fija del Martes 10:00' }).click();
     const dialogo = page.getByRole('dialog');
     await expect(dialogo.getByRole('heading', { name: 'Cambiar la pausa' })).toBeVisible();
     await expect(dialogo.getByLabel('Hasta')).toHaveValue('2026-08-20');
@@ -392,7 +392,7 @@ const reservaRow = (id: string, sesionId: string, estado: string) => ({
 // Martes 4 de agosto, ya pasado (AHORA es el miércoles 5).
 const MARTES_PASADO = { ...MARTES_10[0], id: 'mar-pasado', inicio: '2026-08-04T08:00:00.000Z', fin: '2026-08-04T08:50:00.000Z' };
 
-test.describe('Plaza fija: «Clienta fija» y su calendario', () => {
+test.describe('Clase fija: «Clienta fija» y su calendario', () => {
   test('la ficha dice que es clienta fija y el mes marca lo que de verdad pasó y tiene reservado', async ({ page }) => {
     await montar(page, {
       sesiones: [MARTES_PASADO, ...MARTES_10, ...JUEVES_18],
@@ -423,9 +423,9 @@ test.describe('Plaza fija: «Clienta fija» y su calendario', () => {
     await expect(marca('2026-09-01')).toHaveAttribute('data-marca', 'RESERVADA');
   });
 
-  test('sin plaza fija, ni etiqueta ni calendario', async ({ page }) => {
+  test('sin clase fija, ni etiqueta ni calendario', async ({ page }) => {
     await montar(page, { sesiones: [...MARTES_10], plaza: { estado: 'BAJA' }, esperarPlaza: false });
-    await expect(page.getByText('Aún no tiene plaza fija')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Aún no tiene clase fija')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('etiqueta-clienta-fija')).toHaveCount(0);
     await expect(page.getByTestId('calendario-plaza-fija')).toHaveCount(0);
   });

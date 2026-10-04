@@ -158,7 +158,7 @@ export function textoTrasRenovar(r: ResultadoRenovarSerie): string {
   } else if (r.instructoraInactiva) {
     partes.push('sin instructora (la de antes ya no está en el equipo): asígnala en el calendario');
   }
-  if (r.plazasFijas > 0) partes.push(`${plural(r.plazasFijas, 'plaza fija sigue', 'plazas fijas siguen')}`);
+  if (r.plazasFijas > 0) partes.push(`${plural(r.plazasFijas, 'clase fija sigue', 'clases fijas siguen')}`);
   return partes.join(' · ');
 }
 

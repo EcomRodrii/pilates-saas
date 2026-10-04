@@ -32,7 +32,7 @@ const PETICIONES = [
   },
 ];
 
-test('captura: peticiones de plaza fija en Inicio', async ({ page }) => {
+test('captura: peticiones de clase fija en Inicio', async ({ page }) => {
   await montar(page);
   // Después de `montar`: en Playwright gana la ruta registrada más tarde.
   await page.route('**/api/plazas-fijas/solicitudes**', (r) => json(r, { peticiones: PETICIONES }));
@@ -50,10 +50,10 @@ test('captura: las tarjetas nuevas de Configuración', async ({ page }) => {
   await ir(page, 'configuracion');
 
   await page.getByText('Cómo reservan mis alumnas').first().click({ timeout: 30_000 });
-  await page.getByText('Plazas fijas', { exact: true }).first().waitFor({ timeout: 30_000 });
+  await page.getByText('Clases fijas', { exact: true }).first().waitFor({ timeout: 30_000 });
   await page.screenshot({ path: 'test-results/pf-configuracion-filas.png', fullPage: true });
 
-  await page.getByText('Si pausa su plaza fija').first().click();
+  await page.getByText('Si pausa su clase fija').first().click();
   await page.getByText(/su sitio queda libre para otra alumna/i).first().waitFor({ timeout: 15_000 });
   // El cajón entra con transición: sin esperarla, la foto sale a medio abrir.
   await page.waitForTimeout(800);

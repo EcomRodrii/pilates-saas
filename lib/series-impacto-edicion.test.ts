@@ -128,10 +128,10 @@ test('plazas fijas: cuenta alumnas (no plazas), y dice que se mueven solo si cam
   ];
   const hora = calcular({ edicion: { horaInicio: '13:00', horaFin: '14:00' }, plazasFijas });
   assert.equal(hora.alumnasConPlazaFija, 2);
-  assert.ok(lineasDeImpacto(hora).some(x => x.texto === '2 alumnas tienen plaza fija en estas clases: su plaza se mueve con la serie.'));
+  assert.ok(lineasDeImpacto(hora).some(x => x.texto === '2 alumnas tienen clase fija en estas clases: su plaza se mueve con la serie.'));
 
   const aforo = calcular({ edicion: { aforoMaximo: 10 }, plazasFijas });
-  assert.ok(lineasDeImpacto(aforo).some(x => x.texto === '2 alumnas tienen plaza fija en estas clases.'), 'sin cambio de hora ni sala no se dice que se mueva');
+  assert.ok(lineasDeImpacto(aforo).some(x => x.texto === '2 alumnas tienen clase fija en estas clases.'), 'sin cambio de hora ni sala no se dice que se mueva');
 });
 
 test('plaza fija con vigencia terminada antes de la serie: no cuenta', () => {
@@ -202,7 +202,7 @@ test('el ejemplo del informe: 14 clases, con todo lo que conlleva', () => {
   assert.deepEqual(lineasDeImpacto(i).map(x => x.texto), [
     '57 reservas confirmadas cambian de hora.',
     'Se avisará a 5 alumnas, una sola vez a cada una aunque cambien varias de sus clases.',
-    '2 alumnas tienen plaza fija en estas clases: su plaza se mueve con la serie.',
+    '2 alumnas tienen clase fija en estas clases: su plaza se mueve con la serie.',
     '1 persona en lista de espera de estas clases (no reciben aviso).',
     '1 reserva se hizo gastando una recuperación.',
   ]);

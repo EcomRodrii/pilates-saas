@@ -30,7 +30,7 @@ export default function Contenido() {
         &ldquo;Guardar esta y las siguientes&rdquo; no guarda al pulsarlo: antes te enseña qué va a pasar. Cuántas
         clases cambian y desde qué fecha, qué cambia (hora, sala, instructora&hellip;), cuántas reservas confirmadas
         se ven afectadas y a cuántas alumnas se avisará (una vez a cada una, aunque cambien varias de sus clases),
-        qué alumnas tienen plaza fija en esas clases, quién está en lista de espera y qué reservas se hicieron
+        qué alumnas tienen clase fija en esas clases, quién está en lista de espera y qué reservas se hicieron
         con una recuperación. Solo se guarda —y se avisa— cuando confirmas. Si cambias únicamente el aforo o las
         notas, no se avisa a nadie.
       </p>

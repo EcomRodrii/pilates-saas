@@ -82,7 +82,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         .neq('estado', 'BAJA'),
     ]);
     if (cuotasRes.error) return errorInterno('socios:baja:cuotas', cuotasRes.error, 'No se han podido leer sus planes. No se ha dado de baja.');
-    if (plazasRes.error) return errorInterno('socios:baja:plazas', plazasRes.error, 'No se han podido leer sus plazas fijas. No se ha dado de baja.');
+    if (plazasRes.error) return errorInterno('socios:baja:plazas', plazasRes.error, 'No se han podido leer sus clases fijas. No se ha dado de baja.');
 
     const idsPlanes = [...new Set((cuotasRes.data ?? []).map(c => c.plan_id as string))];
     const { data: planes, error: errPlanes } = idsPlanes.length === 0
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     for (const plazaId of plan.plazas) {
       const r = await cambiarEstadoPlazaFijaStaff(admin, { studioId: sesion.studioId, plazaId, estado: 'BAJA' });
       if ('error' in r) {
-        return errorInterno('socios:baja:plaza-fija', new Error(r.error), 'No se ha podido quitar su plaza fija. No se ha dado de baja; vuelve a intentarlo.');
+        return errorInterno('socios:baja:plaza-fija', new Error(r.error), 'No se ha podido quitar su clase fija. No se ha dado de baja; vuelve a intentarlo.');
       }
       reservasDePlazaRetiradas.push(...r.canceladas);
     }

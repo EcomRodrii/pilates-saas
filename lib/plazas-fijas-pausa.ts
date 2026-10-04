@@ -59,7 +59,7 @@ export function validarPausa(desde: string, hasta: string, hoy: string): string 
   if (hasta < desde) return '«Hasta» no puede ser anterior a «Desde».';
   if (hasta < hoy) return 'Esa pausa ya habría terminado: elige fechas de hoy en adelante.';
   const diasEntre = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / DIA_MS);
-  if (diasEntre(desde, hasta) + 1 > MAX_DIAS_PAUSA) return 'Una pausa no puede pasar de un año. Si no va a volver, quita la plaza fija.';
+  if (diasEntre(desde, hasta) + 1 > MAX_DIAS_PAUSA) return 'Una pausa no puede pasar de un año. Si no va a volver, quita la clase fija.';
   if (diasEntre(hoy, desde) > MAX_DIAS_PAUSA) return 'Esa pausa empieza dentro de más de un año: ponla más adelante.';
   return null;
 }
@@ -78,7 +78,7 @@ export function textoTrasPausa(
   r: { canceladas: number; mantenidas: number; fallidas: number; creadas: number; sitioLibre?: boolean },
   pausa: Pausa | null,
 ): string {
-  const partes = [pausa ? `Plaza fija en pausa del ${fechaDMY(pausa.desde)} al ${fechaDMY(pausa.hasta)}` : 'Pausa quitada'];
+  const partes = [pausa ? `Clase fija en pausa del ${fechaDMY(pausa.desde)} al ${fechaDMY(pausa.hasta)}` : 'Pausa quitada'];
   if (pausa && r.sitioLibre) partes.push('su sitio queda libre mientras tanto');
   if (r.canceladas > 0) partes.push(r.canceladas === 1 ? '1 clase cancelada' : `${r.canceladas} clases canceladas`);
   if (r.mantenidas > 0) {

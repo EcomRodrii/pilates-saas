@@ -1209,7 +1209,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
               {plazaFijaViva && (
                 <span
                   data-testid="etiqueta-clienta-fija"
-                  title="Tiene plaza fija: se le reserva sola cada semana"
+                  title="Tiene clase fija: se le reserva sola cada semana"
                   className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[12.5px] font-medium text-foreground"
                 >
                   <CalendarClock size={13} aria-hidden />
@@ -2527,7 +2527,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       <Dialog open={ofrecerPlazaFija !== null} onOpenChange={open => { if (!open) setOfrecerPlazaFija(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-foreground">¿Le das una plaza fija?</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-foreground">¿Le das una clase fija?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground mt-1">
             «{planOfrecido}» ya está asignado. Si {socio.nombre} viene siempre a la misma clase, elige cuál: se le

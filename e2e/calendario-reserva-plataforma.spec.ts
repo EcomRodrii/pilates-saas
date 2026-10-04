@@ -183,12 +183,12 @@ test.describe('Recepción apunta una reserva de ClassPass desde la clase', () =>
     await expect(page.getByRole('link', { name: 'Carla Pass' })).toHaveCount(0);
     const fila = page.locator('li[data-reserva-id]', { has: nombre });
     await expect(fila.locator('[data-plataforma="CLASSPASS"]')).toHaveText('ClassPass');
-    // Repetir y hacerle plaza fija viven en el ⋯ de cada clienta: en el suyo no están.
+    // Repetir y darle clase fija viven en el ⋯ de cada clienta: en el suyo no están.
     await fila.getByRole('button', { name: /Más acciones de/ }).click();
     const menu = page.getByRole('menu');
     await expect(menu).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: /semana que viene/ })).toHaveCount(0);
-    await expect(menu.getByRole('menuitem', { name: /plaza fija/ })).toHaveCount(0);
+    await expect(menu.getByRole('menuitem', { name: /clase fija/ })).toHaveCount(0);
     await page.keyboard.press('Escape');
     // La socia de Tentare sigue enlazando a su ficha.
     await expect(page.getByRole('link', { name: /Ana Ruiz/ })).toHaveAttribute('href', '/clientas/s1');

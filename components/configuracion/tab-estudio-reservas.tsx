@@ -830,7 +830,7 @@ function VistaPreviaPlazaFija({ activa, automatica }: { activa: boolean; automat
       </div>
       {!activa && (
         <p className="mt-2 text-[12px] text-muted-foreground text-pretty">
-          Ahora tus alumnas no lo ven. Enciende «Pueden pedir plaza fija» para que aparezca.
+          Ahora tus alumnas no lo ven. Enciende «Pueden pedir clase fija» para que aparezca.
         </p>
       )}
     </div>
@@ -845,7 +845,7 @@ export function FormPlazaFijaDesdeApp(props: PropsCajonRegla) {
       <div className={CUERPO}>
         <p className="text-sm text-muted-foreground text-pretty">{EXPLICACION_PLAZA_FIJA_DESDE_APP}</p>
         <InterruptorCampo
-          titulo="Pueden pedir plaza fija"
+          titulo="Pueden pedir clase fija"
           detalle="Desde una clase que se repite cada semana, en su app. Solo con cuota."
           on={form.plazaFijaSolicitarDesdeApp}
           onChange={v => cambiar('plazaFijaSolicitarDesdeApp', v)}
@@ -879,7 +879,7 @@ export function FormPlazaFijaDesdeApp(props: PropsCajonRegla) {
             })}
             {form.plazaFijaAprobacion === 'AUTOMATICA' && (
               <div className="rounded-lg border border-border p-3" data-testid="tope-plaza-fija">
-                <p className="text-sm font-medium text-foreground">Cuántas plazas fijas puede tener una clase</p>
+                <p className="text-sm font-medium text-foreground">Cuántas alumnas con clase fija puede tener una clase</p>
                 <p className="mb-2 text-sm text-muted-foreground text-pretty">
                   Hasta este porcentaje de su aforo se dan solas; a partir de ahí, las apruebas tú. Así una clase no se llena de fijas sin que lo decidas.
                 </p>
@@ -907,7 +907,7 @@ export function FormPlazaFijaDesdeApp(props: PropsCajonRegla) {
         <VistaPreviaPlazaFija activa={form.plazaFijaSolicitarDesdeApp} automatica={form.plazaFijaSolicitarDesdeApp && form.plazaFijaAprobacion === 'AUTOMATICA'} />
         <InterruptorCampo
           titulo="Pueden pedir una pausa"
-          detalle="De su plaza fija, con las fechas que elijan."
+          detalle="De su clase fija, con las fechas que elijan."
           on={form.plazaFijaPausaDesdeApp}
           onChange={v => cambiar('plazaFijaPausaDesdeApp', v)}
         />

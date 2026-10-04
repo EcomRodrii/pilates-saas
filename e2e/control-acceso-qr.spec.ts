@@ -151,7 +151,7 @@ test.describe('Historial de accesos y QR de una alumna en el panel', () => {
 
     const bloque = page.getByTestId('accesos-clienta');
     await expect(bloque).toContainText('Su QR vale desde el 20 de septiembre', { timeout: 30_000 });
-    await expect(bloque.getByTestId('historial-accesos')).toContainText('Plaza fija');
+    await expect(bloque.getByTestId('historial-accesos')).toContainText('Clase fija');
     await expect(bloque.getByTestId('historial-accesos')).toContainText('asistencia marcada');
 
     const pedir = async () => {

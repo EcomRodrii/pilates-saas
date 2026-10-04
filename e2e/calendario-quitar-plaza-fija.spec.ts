@@ -59,7 +59,7 @@ async function quitar(page: Page, nombre: string) {
   await page.getByRole('menuitem', { name: /Quitar de la clase/ }).click();
 }
 
-test.describe('Calendario · plaza fija y recuperación en la lista de una clase', () => {
+test.describe('Calendario · clase fija y recuperación en la lista de una clase', () => {
   test.describe.configure({ timeout: 180_000 });
 
   test('marca a la fija y a la que recupera, y a la fija no le dice que pierde su plaza', async ({ page }) => {
@@ -68,19 +68,19 @@ test.describe('Calendario · plaza fija y recuperación en la lista de una clase
     });
 
     // Las marcas salen de la recuperación USADA y del id `res-pf-`, cargadas en la 2ª ola.
-    await expect(filaDe(page, 'María García Fernández').getByText('Plaza fija', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(filaDe(page, 'María García Fernández').getByText('Clase fija', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(filaDe(page, 'Laura Martín').getByText('Recuperación', { exact: true })).toBeVisible();
-    await expect(filaDe(page, 'Carmen Del Río Sánchez').getByText('Plaza fija', { exact: true })).toHaveCount(0);
+    await expect(filaDe(page, 'Carmen Del Río Sánchez').getByText('Clase fija', { exact: true })).toHaveCount(0);
     // De un vistazo, quién está por qué: la reserva de una vez también lleva su etiqueta.
     await expect(filaDe(page, 'Carmen Del Río Sánchez').getByText('Reserva', { exact: true })).toBeVisible();
     await expect(filaDe(page, 'María García Fernández').getByText('Reserva', { exact: true })).toHaveCount(0);
 
     await quitar(page, 'María García Fernández');
-    await expect(page.getByText(/^Sigue con su plaza fija: solo se quita de esta clase/)).toBeVisible();
+    await expect(page.getByText(/^Sigue con su clase fija: solo se quita de esta clase/)).toBeVisible();
     expect(cancelaciones).toHaveLength(0);
     await page.getByRole('button', { name: 'Quitar', exact: true }).click();
 
-    await expect(page.getByText('Quitada de esta clase · sigue con su plaza fija')).toBeVisible();
+    await expect(page.getByText('Quitada de esta clase · sigue con su clase fija')).toBeVisible();
     expect(cancelaciones).toEqual([{ reservaId: 'res-pf-maria' }]);
   });
 

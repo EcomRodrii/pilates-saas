@@ -38,15 +38,15 @@ export default function Contenido() {
         su instructora, el aforo y hasta cuándo va.
       </p>
       <p>
-        Cada tarjeta dice también cuántas <Link href="/ayuda/bonos/plazas-fijas" style={enlace}>plazas fijas</Link>{' '}
+        Cada tarjeta dice también cuántas <Link href="/ayuda/bonos/plazas-fijas" style={enlace}>clases fijas</Link>{' '}
         tiene ese hueco y quiénes son, y si la serie <strong>se renueva sola</strong> o está marcada para no
-        renovarse. Arriba tienes el resumen: cuántas clases se repiten, cuántas plazas fijas hay y cuántas series
-        terminan en menos de un mes. Desde ahí mismo puedes renovar una o añadirle una plaza fija.
+        renovarse. Arriba tienes el resumen: cuántas clases se repiten, cuántas clases fijas hay y cuántas series
+        terminan en menos de un mes. Desde ahí mismo puedes renovar una o añadirle una clase fija.
       </p>
 
       <h2 style={h2}>El aviso de que una serie se acaba</h2>
       <p>
-        Una serie que llega a su fecha de fin deja ese hueco sin clase, y a quien tenga plaza fija sin reserva. Para
+        Una serie que llega a su fecha de fin deja ese hueco sin clase, y a quien tenga clase fija sin reserva. Para
         que no pase por descuido, Tentare lo revisa una vez al día y te avisa <strong>en tres tiempos</strong>:
       </p>
       <ul style={lista}>
@@ -55,7 +55,7 @@ export default function Contenido() {
         <li><strong>Una semana antes, y si termina sin renovar</strong>: aviso a la app y por email.</li>
       </ul>
       <p>
-        En Resumen las ves juntas, con el nombre de cada clase, cuándo termina y cuántas alumnas tienen plaza fija
+        En Resumen las ves juntas, con el nombre de cada clase, cuándo termina y cuántas alumnas tienen clase fija
         ahí. Dos botones: <strong>«Revisar y renovar»</strong> o <strong>«No renovar»</strong>. Si dices que no, deja
         de recordártelo —y si cambias de idea, la renuevas desde la clase en el calendario—.
       </p>
@@ -75,7 +75,7 @@ export default function Contenido() {
       <ul style={lista}>
         <li>Las fechas que <strong>no</strong> se crean, con su motivo: la sala está ocupada a esa hora, ya hay una clase igual, o el centro está cerrado ese día.</li>
         <li>Las clases que quedarían <strong>sin instructora</strong>, porque la de siempre ya tiene otra clase a esa hora o porque ya no está en el equipo.</li>
-        <li>Que las <strong>plazas fijas de ese hueco siguen</strong>: a esas alumnas se les reserva cada semana como hasta ahora, sin que tengas que hacer nada.</li>
+        <li>Que las <strong>clases fijas de ese hueco siguen</strong>: a esas alumnas se les reserva cada semana como hasta ahora, sin que tengas que hacer nada.</li>
       </ul>
 
       <h2 style={h2}>Que se renueve sola</h2>

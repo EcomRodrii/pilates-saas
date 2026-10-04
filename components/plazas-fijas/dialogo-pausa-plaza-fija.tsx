@@ -62,7 +62,7 @@ export function DialogoPausaPlazaFija({ plaza, nombre, onClose, onHecho }: {
     <Dialog open onOpenChange={abierto => { if (!abierto && !guardando) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{actual ? 'Cambiar la pausa' : 'Pausar plaza fija'}</DialogTitle>
+          <DialogTitle>{actual ? 'Cambiar la pausa' : 'Pausar clase fija'}</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground -mt-1">
           {conSitioLibre

@@ -39,6 +39,6 @@ export async function POST(req: NextRequest) {
     const r = await soltarReservasPlazaFijaSinCuota(admin, { studioId: sesion.studioId, socioId });
     return NextResponse.json(r);
   } catch (err) {
-    return errorInterno('plazas-fijas/soltar-sin-cuota:POST', err, 'No se han podido soltar las clases de su plaza fija.');
+    return errorInterno('plazas-fijas/soltar-sin-cuota:POST', err, 'No se han podido soltar las clases reservadas por su clase fija.');
   }
 }

@@ -72,7 +72,7 @@ export function SeriesPorRenovar({ onToast }: { onToast: (m: string) => void }) 
         </p>
       </div>
       <p className="mb-3 text-[11px] text-muted-foreground">
-        Si no la renuevas, ese hueco se queda sin clase y sus plazas fijas sin reserva. Renovar alarga la misma clase; lo que ya está en el calendario no se toca.
+        Si no la renuevas, ese hueco se queda sin clase y sus clases fijas sin reserva. Renovar alarga la misma clase; lo que ya está en el calendario no se toca.
         {items.length > visibles.length && ` Aquí ves las ${visibles.length} que antes terminan.`}
       </p>
 
@@ -86,7 +86,7 @@ export function SeriesPorRenovar({ onToast }: { onToast: (m: string) => void }) 
                 <p className="truncate text-[13px] text-foreground">{n}</p>
                 <p className={s.terminada ? 'text-[11px] font-medium text-destructive' : 'text-[11px] text-muted-foreground'}>
                   {textoFinSerie(s.ultimaFecha, hoy)}
-                  {s.plazasFijas > 0 && ` · ${s.plazasFijas === 1 ? '1 alumna con plaza fija' : `${s.plazasFijas} alumnas con plaza fija`}`}
+                  {s.plazasFijas > 0 && ` · ${s.plazasFijas === 1 ? '1 alumna con clase fija' : `${s.plazasFijas} alumnas con clase fija`}`}
                   {s.renovacionAutomatica && ' · se renueva sola'}
                 </p>
               </div>

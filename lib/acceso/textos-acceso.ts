@@ -14,7 +14,7 @@ export const TITULO_VEREDICTO: Record<Veredicto, string> = {
 };
 
 export const ETIQUETA_TIPO_ACCESO: Record<TipoAcceso, string> = {
-  PLAZA_FIJA: 'Plaza fija',
+  PLAZA_FIJA: 'Clase fija',
   RESERVA: 'Reserva',
   RECUPERACION: 'Recuperación',
   CLASE_DE_PRUEBA: 'Clase de prueba',
@@ -99,8 +99,8 @@ export function explicacionAcceso(motivo: MotivoVisible, d: DatosTexto): string 
 export function detallesAcceso(motivo: MotivoVisible, d: DatosTexto): string[] {
   const out: string[] = [];
   if (motivo === 'PLAZA_FIJA' || d.plazaFija) {
-    if (d.plazaFija?.hasta) out.push(`Tiene una plaza fija hasta el ${fechaVigencia(d.plazaFija.hasta)}.`);
-    else if (d.plazaFija) out.push('Tiene una plaza fija sin fecha de fin.');
+    if (d.plazaFija?.hasta) out.push(`Tiene una clase fija hasta el ${fechaVigencia(d.plazaFija.hasta)}.`);
+    else if (d.plazaFija) out.push('Tiene una clase fija sin fecha de fin.');
   }
   if (d.avisos.includes('CLIENTA_DESACTIVADA')) out.push('Su ficha está desactivada en el estudio.');
   if (d.avisos.includes('IMPAGO')) out.push('Tiene un recibo impagado.');
@@ -114,7 +114,7 @@ export function detallesAcceso(motivo: MotivoVisible, d: DatosTexto): string[] {
 /** Una línea por escaneo en el historial de accesos: qué pasó, en tres o cuatro palabras. */
 export const MOTIVO_CORTO: Record<MotivoAcceso, string> = {
   RESERVA_CONFIRMADA: 'Reserva confirmada',
-  PLAZA_FIJA: 'Plaza fija',
+  PLAZA_FIJA: 'Clase fija',
   YA_ENTRO: 'Ya había entrado',
   PENDIENTE_APROBACION: 'Pendiente de aprobación',
   CLIENTA_DESACTIVADA: 'Ficha desactivada',

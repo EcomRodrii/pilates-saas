@@ -594,17 +594,17 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // Plaza fija desde la app → mostrador. `{peticion}` llega ya redactada por tipo
   // (pedir plaza, pedir pausa, la vuelta de una pausa) desde emit.ts.
   [`${EVENTOS.PLAZA_FIJA_PETICION}#PROPIETARIO`]: {
-    title: 'Plaza fija por decidir',
+    title: 'Clase fija por decidir',
     body: '{socia} {peticion}.',
     deepLink: (d: Datos) => enlacePeticionPlazaFija(d),
   },
   [`${EVENTOS.PLAZA_FIJA_PETICION}#MANAGER`]: {
-    title: 'Plaza fija por decidir',
+    title: 'Clase fija por decidir',
     body: '{socia} {peticion}.',
     deepLink: (d: Datos) => enlacePeticionPlazaFija(d),
   },
   [`${EVENTOS.PLAZA_FIJA_PETICION}#RECEPCION`]: {
-    title: 'Plaza fija por decidir',
+    title: 'Clase fija por decidir',
     body: '{socia} {peticion}.',
     deepLink: (d: Datos) => enlacePeticionPlazaFija(d),
   },
@@ -1016,7 +1016,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   }),
   ...paraRoles(EVENTOS.SERIES_RENOVADAS_SOLAS, ROLES_POR_AUDIENCIA.gerencia, {
     title: '{resumen}',
-    body: '{lista}. Con la misma configuración, y las plazas fijas siguen.',
+    body: '{lista}. Con la misma configuración, y las clases fijas siguen.',
     deepLink: () => `/calendario`,
   }),
   // {titulo}/{descripcion} los redacta detectarAlertas, con la cifra que los sostiene.

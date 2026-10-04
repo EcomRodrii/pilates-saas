@@ -166,7 +166,7 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
         />
       </GrupoFilas>
 
-      <GrupoFilas titulo="Plazas fijas">
+      <GrupoFilas titulo="Clases fijas">
         {fila('si-se-queda-sin-cuota')}
         {fila('plaza-fija-desde-la-app')}
         {fila('si-pausa-su-plaza-fija')}

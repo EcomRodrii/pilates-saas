@@ -347,7 +347,7 @@ export async function darPlazasDeClaseFija(
   });
   if (error) {
     // El índice único de franja sigue cubriendo, además, el caso de un sitio de mano.
-    if (error.code === '23505') return { error: 'Ya tiene una plaza fija en alguno de esos horarios. Recarga la página.' };
+    if (error.code === '23505') return { error: 'Ya tiene una clase fija en alguno de esos horarios. Recarga la página.' };
     capturarExcepcion(new Error(error.message), { tags: { area: 'clases-fijas' }, extra: { plazas: filas.length } });
     return { error: 'No se han podido guardar las plazas de la clase fija. Inténtalo de nuevo.' };
   }

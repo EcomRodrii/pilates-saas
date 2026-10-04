@@ -28,10 +28,10 @@ function diaMes(ymd: string | null): string {
 }
 
 function quePide(p: PeticionPlazaFija): string {
-  if (p.tipo === 'CREAR') return 'Pide plaza fija';
+  if (p.tipo === 'CREAR') return 'Pide clase fija';
   if (p.tipo === 'CREAR_CLASE_FIJA') return 'Pide una clase fija';
   if (p.tipo === 'AMPLIAR_CLASE_FIJA') return 'Pide ampliar su clase fija';
-  if (p.tipo === 'PAUSAR') return 'Pide pausar su plaza fija';
+  if (p.tipo === 'PAUSAR') return 'Pide pausar su clase fija';
   return 'Vuelta de su pausa';
 }
 
@@ -104,7 +104,7 @@ export function PlazasFijasPorDecidir({ onToast }: { onToast: (m: string) => voi
       <div className="mb-1 flex items-center gap-2">
         <CalendarClock className="size-4 text-muted-foreground" />
         <p className="text-[13px] font-medium text-foreground">
-          {items.length === 1 ? 'Una petición de plaza fija' : `${items.length} peticiones de plaza fija`}
+          {items.length === 1 ? 'Una petición de clase fija' : `${items.length} peticiones de clase fija`}
         </p>
       </div>
       <p className="mb-3 text-[11px] text-muted-foreground">
@@ -139,7 +139,7 @@ export function PlazasFijasPorDecidir({ onToast }: { onToast: (m: string) => voi
               {confirmandoQuitar === p.id ? (
                 <div role="alert" className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-background px-3 py-2">
                   <p className="text-[12px] text-foreground">
-                    Se le quita la plaza fija y se cancelan las clases que tenga reservadas en ese horario.
+                    Se le quita la clase fija y se cancelan las clases que tenga reservadas en ese horario.
                   </p>
                   <div className="flex justify-end gap-2">
                     <Button size="sm" variant="outline" disabled={ocupado} onClick={() => setConfirmandoQuitar(null)}>

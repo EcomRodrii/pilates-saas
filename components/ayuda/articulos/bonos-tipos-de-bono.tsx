@@ -25,8 +25,8 @@ export default function Contenido() {
         &ldquo;Reformer&rdquo;) en vez de cubrir todas tus clases por igual.</p>
 
       <AyudaResultado>
-        No hay un cuarto modelo de &ldquo;plaza fija con recuperaciones&rdquo; como plan separado — la plaza fija se asigna
-        aparte, en la ficha de la alumna (bloque «Plaza fija»), sobre el plan que tenga. Sigue con{' '}
+        No hay un cuarto modelo de &ldquo;clase fija con recuperaciones&rdquo; como plan separado — la clase fija se asigna
+        aparte, en la ficha de la alumna (bloque «Clase fija»), sobre el plan que tenga. Sigue con{' '}
         <Link href="/ayuda/bonos/crear-un-plan" style={{ color: 'inherit', textDecoration: 'underline' }}>cómo crear un plan</Link>.
       </AyudaResultado>
     </>

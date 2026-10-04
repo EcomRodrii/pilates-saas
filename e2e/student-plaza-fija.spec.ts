@@ -27,7 +27,7 @@ async function montar(page: Page, opts: { plaza?: boolean; recuperaciones?: numb
   }
 }
 
-test.describe('Student PWA · plaza fija y recuperaciones', () => {
+test.describe('Student PWA · clase fija y recuperaciones', () => {
   test('Bonos se queda con las recuperaciones; la clase fija vive en Mis clases → Fijas', async ({ page }) => {
     await montar(page, { recuperaciones: 2 });
     await page.goto(`${base}/bonos`);
@@ -68,7 +68,7 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
   // Plaza fija desde su app (migr 20260915231920): PIDE, no cambia. El ajuste del
   // estudio lo resuelve el servidor (`lib/studio-seo.ts`), encendido en e2e con
   // `E2E_PLAZA_FIJA_APP` (playwright.config.ts).
-  test('Mis clases → Fijas: pide una pausa de su plaza fija y queda a la espera del estudio', async ({ page }) => {
+  test('Mis clases → Fijas: pide una pausa de su clase fija y queda a la espera del estudio', async ({ page }) => {
     await montar(page);
     let intentos = 0;
     let cuerpo: Record<string, unknown> | null = null;
@@ -99,7 +99,7 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
     let intentos = 0;
     await page.route('**/api/public/plaza-fija', (r) => {
       intentos++;
-      return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Ya has pedido una pausa para esta plaza fija: tu estudio te contestará.' }) });
+      return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Ya has pedido una pausa para esta clase fija: tu estudio te contestará.' }) });
     });
 
     await page.goto(`${base}/mis-reservas?tab=fijas`);
@@ -109,7 +109,7 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
     await page.getByLabel('Hasta').fill('2026-08-26');
     await page.getByRole('button', { name: 'Pedir la pausa' }).click();
 
-    await expect(page.getByText(/Ya has pedido una pausa para esta plaza fija/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Ya has pedido una pausa para esta clase fija/)).toBeVisible({ timeout: 30_000 });
     expect(intentos).toBeGreaterThan(0);
     await expect(page.getByText(/Pausa pedida del/)).toHaveCount(0);
   });
@@ -181,7 +181,7 @@ test.describe('Student PWA · plaza fija y recuperaciones', () => {
     await expect(tarjeta.getByText('Activa')).toBeVisible();
   });
 
-  test('al cancelar una ocurrencia de plaza fija, el toast dice que hay una clase para recuperar y hasta cuándo', async ({ page }) => {
+  test('al cancelar una ocurrencia de clase fija, el toast dice que hay una clase para recuperar y hasta cuándo', async ({ page }) => {
     await montar(page, { cancelacion: { ok: true, tardia: false, bonoDevuelto: false, eraConfirmada: true, recuperacionCreada: true, recuperacionCaducaEl: '2026-09-11' } });
     await page.goto(`${base}/mis-reservas`);
     // Botón «Cancelar» de la tarjeta → diálogo → «Sí, cancelar…» (el copy exacto
