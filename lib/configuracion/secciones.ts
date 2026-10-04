@@ -321,7 +321,7 @@ export const SECCIONES = [
       // sola con datos de sus alumnas (lib/decision/redaccion-ia.ts).
       // Verificación en dos pasos (2-oct-2026): cada persona la activa en «Mi
       // perfil»; aquí la propietaria la exige a todo el equipo del panel.
-      { id: 'doble-factor-equipo', titulo: 'Verificación en dos pasos para todo el equipo', frase: 'Quien entra al panel tendrá que activarla y escribir un código de una app de autenticación, además de la contraseña. Actívala antes para ti en «Mi perfil».', guardado: 'al-pulsar', palabras: ['doble factor', '2fa', 'mfa', 'seguridad', 'código', 'contraseña', 'autenticación'] },
+      { id: 'doble-factor-equipo', titulo: 'Verificación en dos pasos para todo el equipo', frase: 'Quien entra al panel la activará con una app de autenticación y, al entrar, escribirá un código del correo o de la app. Actívala antes para ti en «Mi perfil».', guardado: 'al-pulsar', palabras: ['doble factor', '2fa', 'mfa', 'seguridad', 'código', 'contraseña', 'autenticación'] },
       { id: 'redaccion-ia', titulo: 'Redactar con IA', frase: 'Las sugerencias del Centro de Control y los mensajes de tus automatizaciones se redactan con IA. Si lo apagas, salen con su texto de serie y no se envía ningún dato de tus alumnas a la IA.', guardado: 'al-pulsar', palabras: ['inteligencia artificial', 'ia', 'anthropic', 'privacidad', 'rgpd'] },
     ],
   },

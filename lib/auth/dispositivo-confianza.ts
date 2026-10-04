@@ -77,8 +77,13 @@ export async function usarDispositivo(db: Db, p: {
   const tokenValido = formatoTokenValido(p.token);
 
   const { data: ya, error: errorYa } = await db.from('sesiones_confiadas')
-    .select('dispositivo_id').eq('session_id', p.sessionId).eq('auth_user_id', p.userId).maybeSingle();
+    .select('dispositivo_id, origen').eq('session_id', p.sessionId).eq('auth_user_id', p.userId).maybeSingle();
   if (errorYa) throw new Error(`leer sesión confiada: ${errorYa.message}`);
+  // Confiada por el código del correo (lib/auth/codigo-correo.ts): vale lo que
+  // viva la sesión, sin dispositivo que alargar ni cookie que rotar. Sin esto,
+  // la rama de la cookie la daba por «nueva» en cada carga y el panel se
+  // recargaba sin fin.
+  if (ya && ya.origen === 'correo') return { confiada: true, nueva: false, cookie: null };
   if (ya) {
     const { data: d, error } = await db.from('dispositivos_confianza')
       .select('id, caduca_en, token_hash').eq('id', ya.dispositivo_id).eq('auth_user_id', p.userId).maybeSingle();

@@ -134,6 +134,19 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   merezca el código de verdad (como apagar «exigir 2FA», `/api/estudio/doble-factor`).
   `/interno` NO lo acepta a propósito, y lo que GoTrue protege (quitar o añadir un factor)
   exige el código. La llave es la cookie: la IP y el nombre solo se enseñan en Mi perfil.
+  **El segundo paso por CORREO es el de por defecto** (3-oct-2026, `lib/auth/codigo-correo-reglas.ts`,
+  migr `20261003160000`): al entrar se manda un código al correo de la cuenta y la app TOTP queda
+  para «No tengo acceso a mi correo». Mismo mecanismo que el dispositivo: la sesión sigue en `aal1`
+  y el servidor la apunta en `sesiones_confiadas` con `origen = 'correo'` (vale lo que viva la
+  sesión); `sesion_confiada_de` sigue siendo la única regla y ninguna política cambió.
+  ⚠️ Activar la verificación SIGUE siendo con la app (hace falta un factor de Supabase para que
+  exista la regla A y para llegar a `aal2`), y `?codigo=1` va directo a la app. ⚠️ Cuándo el correo
+  no vale lo decide la BD (`correo_doble_factor_disponible`), no TS: sesión que no entró con
+  contraseña (`auth.mfa_amr_claims`: Google u OTP serían el mismo factor dos veces) y cuenta que
+  cambió la contraseña o el correo sin haber pasado la app después (`doble_factor_correo_bloqueos`,
+  la ponen triggers de `auth.users` y la quita `/api/auth/doble-factor-correo/reabrir` solo con
+  `aal2`: regla de negocio, no de reloj). El código va HMAC con `secretoRateLimit` (sin secreto,
+  no se envía), atado a cuenta+sesión, 10 min, 5 intentos contados en SQL con candado.
 - **Secretos cifrados en la app, y la BD lo exige**: credenciales e `integraciones.config`
   (CHECK `enc:v1:`), IBAN de los mandatos (`lib/billing/iban-cifrado.ts`, `SEPA_CLAVE_CIFRADO`;
   el navegador ni escribe la tabla ni lee la columna) y copias en R2
