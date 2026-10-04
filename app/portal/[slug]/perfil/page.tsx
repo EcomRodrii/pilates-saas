@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
+import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { InvitarAmiga } from '@/components/student/domain/InvitarAmiga';
 import { useRouter } from 'next/navigation';
@@ -18,6 +19,7 @@ import { Icono } from '@/components/student/ui/Icono';
 import { useFotoUrl } from '@/lib/foto-signed-url';
 import { CajaQr, useQrAcceso } from '@/components/student/domain/QrAcceso';
 import { CambiarDeEstudio } from '@/components/student/domain/CambiarDeEstudio';
+import { CalendarioAutomatico } from '@/components/student/domain/CalendarioAutomatico';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -59,6 +61,7 @@ export default function PerfilPage() {
             guardado. */}
         <Link
           href={href('/perfil/datos')}
+                  transitionTypes={TRANSICION_ADELANTE}
           className="card card--pad-lg card--tap row"
           style={{ ['--gap' as string]: '13px' }}
         >
@@ -82,6 +85,7 @@ export default function PerfilPage() {
         {estudio.qrAcceso && qrAcceso.estado !== 'apagado' && (
           <Link
             href={href('/perfil/qr')}
+                  transitionTypes={TRANSICION_ADELANTE}
             className="card card--tap row"
             data-testid="perfil-qr-acceso"
             style={{
@@ -124,6 +128,9 @@ export default function PerfilPage() {
             { label: 'Contraseña y verificación', href: href('/perfil/seguridad') },
           ]}
         />
+
+        {/* Solo en la app de iOS (fuera no se pinta). */}
+        <CalendarioAutomatico slug={estudio.slug} nombre={estudio.nombre} direccion={estudio.direccion} />
 
         <ProfileSection
           titulo="Bonos y pagos"

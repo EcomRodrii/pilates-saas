@@ -181,6 +181,8 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
 
   return (
     <header
+      // Ancla de las transiciones de pantalla: la cabecera no se mueve (student.css).
+      data-vt-ancla="cabecera"
       // Sobre la foto, el velo mide lo que la foto —el ancho del shell en cada
       // escalón— y no la ventana: pintaba una franja gris encima del crema.
       className="ancho-shell"

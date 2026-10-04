@@ -8,6 +8,7 @@ import { StudentProvider } from '@/components/student/contexto';
 import { ToastProvider } from '@/components/student/ui/Toast';
 import { RegistroSW } from '@/components/student/RegistroSW';
 import { PuenteNativo } from '@/components/nativo/PuenteNativo';
+import { RastroDeRutas } from '@/components/student/shell/volver';
 import { iconosDeEstudio } from '@/lib/monograma-estudio';
 import { veredictoPagina, nombreCookieAcceso } from '@/lib/publico/acceso-pagina';
 import { PaginaOculta } from '@/components/publico/pagina-oculta';
@@ -134,6 +135,8 @@ export default async function StudentLayout({
       <RegistroSW slug={estudio.slug} studioId={estudio.id} />
       {/* Solo hace algo dentro de la app de iOS: enlaces fuera, avisos pulsados, enlaces universales. */}
       <PuenteNativo fondoOscuro={estiloPorId(estudio.apariencia.estilo).oscuro === true} />
+      {/* Por dónde ha pasado: «Volver» sin historial va a la pantalla padre (shell/volver.tsx). */}
+      <RastroDeRutas />
       {/* El toast vive aquí y no en cada pantalla: es un aviso global y así
           sobrevive a las navegaciones dentro del portal. */}
       <StudentProvider estudio={estudio}>
