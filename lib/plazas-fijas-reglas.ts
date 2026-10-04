@@ -106,6 +106,21 @@ export function cupoAutomatico(aforo: number | null | undefined, pct: number | n
  * nueva. El cupo (cuántas plazas fijas caben) NO está aquí: se cuenta DENTRO del candado de la base al dar la plaza
  * (`dar_plaza_fija_con_cupo`), porque contarlo antes y escribir después deja pasar a dos a la vez.
  */
+/**
+ * Por qué una petición suelta que espera al estudio no entra sola por el TOPE de la clase, en la frase que lee quien decide.
+ * Sin esto, en el Resumen salía igual que una petición de un estudio que aprueba a mano, y la propietaria que había elegido
+ * «se da sola» no sabía por qué esta no. Describe cómo está la clase AHORA (no «no se dio sola»: la petición pudo llegar
+ * cuando aún aprobaba a mano). `null` si no aplica: estudio manual, una que pasa del límite semanal (ese motivo ya se dice
+ * aparte) o una clase con sitio dentro del tope.
+ */
+export function avisoTopeAutomatico(c: {
+  modo: AprobacionPlazaFija; superaLimite: boolean; ocupadas: number; cupo: number; pct: number;
+}): string | null {
+  if (c.modo !== 'AUTOMATICA' || c.superaLimite || c.ocupadas < c.cupo) return null;
+  if (c.cupo <= 0) return 'Esta clase no tiene aforo con el que calcular tu tope: las plazas fijas de aquí las das tú.';
+  return `Esta clase ya tiene ${c.ocupadas} ${c.ocupadas === 1 ? 'plaza fija' : 'plazas fijas'} y tu tope para darlas solas es ${c.cupo} (el ${c.pct} % del aforo): esta la decides tú.`;
+}
+
 export type MotivoNoAutomatica = 'MANUAL' | 'SUPERA_LIMITE' | 'RESERVA_CON_APROBACION' | 'IMPAGO';
 
 export function motivoNoAutomatica(c: {

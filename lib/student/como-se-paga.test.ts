@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { comoSePaga } from './como-se-paga.ts';
+import { comoSePaga, esCuota, textoPagoCorto } from './como-se-paga.ts';
 
 // El aviso de «cómo se paga» de la última pantalla antes de confirmar.
 //
@@ -68,4 +68,22 @@ test('con mensualidad (ilimitado): «Incluida en tu mensualidad», sin contador 
   assert.doesNotMatch(r.texto, /Infinity|NaN|disponibles|sesión/);
   // Aunque la clase sea solo-con-bono: la cuota la cubre.
   assert.equal(comoSePaga(soloBono, mensual, false).tono, 'ok');
+});
+
+// La fila corta bajo la foto de la ficha. Con una cuota decía «Con tu bono · 1 sesión»: ni es un bono ni gasta una sesión, y
+// en el único estudio de pago todas las alumnas tienen cuota (probado en persona, 4-oct-2026).
+const cuota = { nombre: 'Mensual 2 clases/semana', creditosTotales: Infinity, creditosUsados: 0 };
+
+test('textoPagoCorto: una cuota «incluye» la clase, no gasta una sesión de un bono', () => {
+  assert.equal(esCuota(cuota), true);
+  assert.equal(esCuota(conBono), false);
+  assert.equal(esCuota(null), false);
+  assert.equal(textoPagoCorto(suelta, cuota), 'Incluida en tu cuota');
+  assert.doesNotMatch(textoPagoCorto(suelta, cuota), /bono|sesión/);
+});
+
+test('textoPagoCorto: con bono, sin nada y en una clase solo-con-bono, lo de siempre', () => {
+  assert.equal(textoPagoCorto(suelta, conBono), 'Con tu bono · 1 sesión');
+  assert.equal(textoPagoCorto(suelta, null), '18 € clase suelta');
+  assert.equal(textoPagoCorto(soloBono, null), 'Solo con bono');
 });

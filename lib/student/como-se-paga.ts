@@ -45,3 +45,19 @@ export function comoSePaga(
     ? { texto: 'Esta clase solo se reserva con bono. Puedes comprar uno desde Perfil → Comprar.', tono: 'bloqueo' }
     : { texto: `Sin bono activo: clase suelta ${euros(clase.precioSuelto)}.`, tono: 'coste' };
 }
+
+/** Una cuota sin contador (mensual ilimitada): llega con `creditosTotales: Infinity` y no gasta ninguna sesión. */
+export function esCuota(bono: BonoMin | null): boolean {
+  return !!bono && !Number.isFinite(bono.creditosTotales);
+}
+
+/**
+ * La fila corta de la ficha de la clase, bajo la foto («plazas · coste»). Con una cuota decía «Con tu bono · 1 sesión»: ni
+ * es un bono ni gasta una sesión, y las alumnas de cuota (que son las de clase fija) leían que se les descontaba algo.
+ * Misma frase que la web pública (`textoCoberturaCorto`, «Incluida en tu plan»), con la palabra de la app: cuota.
+ */
+export function textoPagoCorto(clase: ClaseMin, bono: BonoMin | null): string {
+  if (esCuota(bono)) return 'Incluida en tu cuota';
+  if (bono) return 'Con tu bono · 1 sesión';
+  return clase.sinPrecioSuelto ? 'Solo con bono' : `${euros(clase.precioSuelto)} clase suelta`;
+}

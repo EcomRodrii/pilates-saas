@@ -56,7 +56,7 @@ import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, exigePlanAlRese
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio, HORIZONTE_MATERIALIZAR_DIAS, HORIZONTE_AVISOS_PLAZA_FIJA_DIAS } from '@/lib/plazas-fijas-slot';
 import {
-  cuotaParaPlazaFija, cupoAutomatico, motivoNoAutomatica, superaLimiteSemanal, TOPE_AUTOMATICO_POR_DEFECTO_PCT,
+  avisoTopeAutomatico, cuotaParaPlazaFija, cupoAutomatico, motivoNoAutomatica, superaLimiteSemanal, TOPE_AUTOMATICO_POR_DEFECTO_PCT,
   type AprobacionPlazaFija, type DatosPlazaFija, type ResultadoGuardarPlazaFija,
 } from '@/lib/plazas-fijas-reglas';
 import { duracionPedida, etiquetaDuracion, plazasVencidasQueEstorban } from '@/lib/clases-fijas-reglas';
@@ -5500,6 +5500,8 @@ export interface PeticionPlazaFijaPanel {
   hasta: string | null;
   motivoSistema: MotivoVueltaPendiente | null;
   creadaEn: string;
+  /** CREAR con aprobación automática: por qué no entra sola (la clase ya está en el tope del estudio). */
+  avisoTope?: string | null;
   /** CREAR_CLASE_FIJA / AMPLIAR_CLASE_FIJA: la oferta, lo que eligió y si tiene sitio (solo aplica a crear). */
   claseFija?: { nombre: string; duracion: string; hasta: string; aviso: string | null } | null;
 }
@@ -5507,11 +5509,11 @@ export interface PeticionPlazaFijaPanel {
 type FilaPeticion = {
   id: string; tipo: PeticionPlazaFijaPanel['tipo']; socio_id: string; plaza_id: string | null;
   sesion_id: string | null; dia_semana: number | null; hora_inicio: string | null; tipo_clase_id: string | null;
-  supera_limite: boolean; desde_propuesta: string | null; hasta_propuesta: string | null;
+  sala_id: string | null; supera_limite: boolean; desde_propuesta: string | null; hasta_propuesta: string | null;
   motivo_sistema: string | null; creada_en: string;
   clase_fija_id: string | null; duracion_meses: number | null; vigencia_hasta_propuesta: string | null;
 };
-const COLUMNAS_PETICION = 'id, tipo, socio_id, plaza_id, sesion_id, dia_semana, hora_inicio, tipo_clase_id, supera_limite, desde_propuesta, hasta_propuesta, motivo_sistema, creada_en, clase_fija_id, duracion_meses, vigencia_hasta_propuesta';
+const COLUMNAS_PETICION = 'id, tipo, socio_id, plaza_id, sesion_id, dia_semana, hora_inicio, tipo_clase_id, sala_id, supera_limite, desde_propuesta, hasta_propuesta, motivo_sistema, creada_en, clase_fija_id, duracion_meses, vigencia_hasta_propuesta';
 
 /** Las pendientes del estudio, la más antigua primero. La ruta ya ha comprobado el rol. */
 export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId: string): Promise<PeticionPlazaFijaPanel[]> {
@@ -5550,6 +5552,9 @@ export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId:
     ? await (await import('@/lib/db/clases-fijas')).resumenOfertasPendientes(admin, studioId, filas.map(f => f.clase_fija_id).filter((x): x is string => !!x))
     : new Map<string, { nombre: string; estado: string; plazasLibres: number | null }>();
 
+  // Solo explica: si no se puede calcular, la lista sale igual, sin la frase.
+  const avisoTopeDe = await avisosTopeAutomatico(admin, studioId, filas).catch(() => new Map<string, string>());
+
   return filas.flatMap((f): PeticionPlazaFijaPanel[] => {
     if (f.tipo === 'CREAR_CLASE_FIJA' || f.tipo === 'AMPLIAR_CLASE_FIJA') {
       const o = f.clase_fija_id ? ofertas.get(f.clase_fija_id) : null;
@@ -5585,8 +5590,45 @@ export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId:
       hasta: f.tipo === 'PAUSAR' ? f.hasta_propuesta : f.tipo === 'REANUDAR' ? plaza?.pausaHasta ?? null : null,
       motivoSistema: (f.motivo_sistema as MotivoVueltaPendiente | null) ?? null,
       creadaEn: f.creada_en,
+      avisoTope: avisoTopeDe.get(f.id) ?? null,
     }];
   });
+}
+
+/**
+ * Para cada petición suelta (CREAR) de un estudio que aprueba solo: si la clase ya está en su tope, la frase que lo explica
+ * (`avisoTopeAutomatico`). Cuenta las plazas como `dar_plaza_fija_con_cupo` (ACTIVA o PAUSADA, vigentes, misma sala, día y hora,
+ * y tipo compatible) y saca el aforo de la clase que se pidió. Es solo una explicación: si algo no se puede leer, no se enseña
+ * nada y la petición se decide igual.
+ */
+async function avisosTopeAutomatico(admin: SupabaseClient, studioId: string, filas: FilaPeticion[]): Promise<Map<string, string>> {
+  const avisos = new Map<string, string>();
+  const crear = filas.filter(f => f.tipo === 'CREAR' && !f.supera_limite && f.sesion_id && f.sala_id && f.dia_semana !== null && f.hora_inicio);
+  if (crear.length === 0) return avisos;
+  const aprobacion = await aprobacionPlazaFija(admin, studioId);
+  if (aprobacion.modo !== 'AUTOMATICA') return avisos;
+  const hoy = hoyEnEstudio();
+  const [{ data: ses, error: errSes }, { data: pfs, error: errPf }] = await Promise.all([
+    admin.from('sesiones').select('id, aforo_maximo').eq('studio_id', studioId).in('id', crear.map(f => f.sesion_id as string)),
+    admin.from('plazas_fijas').select('sala_id, dia_semana, hora_inicio, tipo_clase_id, vigencia_hasta')
+      .eq('studio_id', studioId).in('estado', ['ACTIVA', 'PAUSADA'])
+      .in('dia_semana', [...new Set(crear.map(f => f.dia_semana as number))]),
+  ]);
+  if (errSes || errPf) return avisos;
+  const aforo = new Map((ses ?? []).map(r => [r.id as string, r.aforo_maximo as number | null]));
+  for (const f of crear) {
+    const hora = normalizarHoraInicio(f.hora_inicio as string);
+    const ocupadas = (pfs ?? []).filter(pf => pf.sala_id === f.sala_id && pf.dia_semana === f.dia_semana
+      && normalizarHoraInicio(pf.hora_inicio as string) === hora
+      && (!pf.vigencia_hasta || (pf.vigencia_hasta as string) >= hoy)
+      && (!pf.tipo_clase_id || !f.tipo_clase_id || pf.tipo_clase_id === f.tipo_clase_id)).length;
+    const texto = avisoTopeAutomatico({
+      modo: aprobacion.modo, superaLimite: f.supera_limite, ocupadas,
+      cupo: cupoAutomatico(aforo.get(f.sesion_id as string), aprobacion.topePct), pct: aprobacion.topePct,
+    });
+    if (texto) avisos.set(f.id, texto);
+  }
+  return avisos;
 }
 
 export type ResultadoResolverPeticion =

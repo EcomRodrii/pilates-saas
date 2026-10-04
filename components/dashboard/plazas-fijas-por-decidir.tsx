@@ -47,6 +47,8 @@ function detalle(p: PeticionPlazaFija): string | null {
     return `Su pausa acaba el ${diaMes(p.hasta)}. No ha vuelto sola porque ${textoMotivoVuelta(p.motivoSistema ?? 'PREGUNTAR')}.`;
   }
   if (p.superaLimite) return 'Pasaría del límite de clases por semana de su cuota.';
+  // Con «se da sola», la propietaria tiene que saber por qué ESTA no: la clase ya está en su tope.
+  if (typeof p.avisoTope === 'string' && p.avisoTope) return p.avisoTope;
   return null;
 }
 
