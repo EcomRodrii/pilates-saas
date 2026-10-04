@@ -7,6 +7,13 @@ import { montarPortal, SLUG, SOCIA } from './portal-mock';
 // «no ha pasado nada» sin contador puede ser verde por no haber intentado nada
 // (ver e2e/socia-lista.ts).
 
+// ⚠️ Sin service worker, como e2e/student-preguntas-alta.spec.ts: en el build
+// de producción (el del CI) la app registra `/sw.js`, y en WebKit una página ya
+// controlada por él manda sus `fetch` a través del worker, así que `page.route`
+// no los ve y el envío y la comprobación del código llegaban al servidor de
+// verdad. En `next dev` no hay worker. No cambia nada de lo que se prueba.
+test.use({ serviceWorkers: 'block' });
+
 /** Un JWT sin firmar con el nivel que se pida: supabase-js lo lee sin red. */
 function tokenFalso(aal: 'aal1' | 'aal2'): string {
   const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
