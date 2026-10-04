@@ -145,7 +145,7 @@ export function HojaCobro({
         // Se sigue intentando hasta agotar el tiempo, en vez de dar el cobro
         // por perdido y arriesgarse a cobrar dos veces.
         if (Date.now() < limite) { temporizador = setTimeout(tick, INTERVALO_MS); return; }
-        setFase({ f: 'fallo', mensaje: 'No hemos podido confirmar el cobro. Compruébalo en tu panel de Stripe ANTES de volver a cobrar.' });
+        setFase({ f: 'fallo', mensaje: 'No hemos podido confirmar el cobro. Compruébalo en el panel de tu cuenta de cobro (Stripe o SumUp) ANTES de volver a cobrar.' });
         return;
       }
 

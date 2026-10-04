@@ -3,7 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
-import { contextoCobroDe, proveedorPara } from '@/lib/pos/terminal';
+import { prepararCobroExistente } from '@/lib/pos/cobro-del-estudio';
 import { entregarVentaPOS } from '@/lib/pos/venta-servidor';
 import type { EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
@@ -73,22 +73,23 @@ export async function POST(req: NextRequest) {
     return responder('ANULADA', 'ERROR', { motivo: 'El cobro no llegó a iniciarse.' });
   }
 
-  const ctx = await contextoCobroDe(admin, sesion.studioId);
-  if (!ctx.ok) {
+  // Quien cobra lo dice la referencia guardada, no el datáfono de hoy.
+  const preparado = await prepararCobroExistente(admin, sesion.studioId, venta.stripe_payment_intent_id,
+    venta.metodo_pago as MetodoPago, { origen: req.nextUrl.origin });
+  if (!preparado.ok) {
     // No se puede PREGUNTAR. Eso no es "no pagado": la venta se queda como
     // está y el mostrador ve que seguimos sin saberlo.
-    return responder('PENDIENTE_PAGO', 'PROCESANDO', { aviso: ctx.motivo });
+    return responder('PENDIENTE_PAGO', 'PROCESANDO', { aviso: preparado.motivo });
   }
-
-  const prov = proveedorPara(venta.metodo_pago as MetodoPago, { readerId: ctx.readerId, origen: req.nextUrl.origin });
+  const { cobro } = preparado;
 
   if (accion === 'cancelar') {
     // P-1 (27ª pasada): con Bizum, esto expira la Checkout Session de
     // verdad (no solo el PaymentIntent) — ver lib/pos/terminal.ts.
-    await prov.cancelar(ctx.ctx, venta.stripe_payment_intent_id, venta.checkout_session_id);
+    await cobro.cancelar(venta.stripe_payment_intent_id, venta.checkout_session_id);
   }
 
-  const estadoProveedor = await prov.consultar(ctx.ctx, venta.stripe_payment_intent_id);
+  const estadoProveedor = await cobro.consultar(venta.stripe_payment_intent_id);
 
   if (estadoProveedor.estado === 'PAGADO') {
     const { data: conf, error } = await admin.rpc('confirmar_pago_venta_pos', {

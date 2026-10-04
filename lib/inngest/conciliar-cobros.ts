@@ -44,6 +44,7 @@ import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type Sesio
 import { liberarCupoMatriculaUnaVez } from '../billing/matricula-online.ts';
 import { cobroPosDeSesionCaducada } from '../pos/cerrar-bizum-fallido.ts';
 import { liberarCobroPosFallido } from '../pos/liberar-cobro-fallido.ts';
+import { barrerCobrosSumup } from '../pos/cobro-sumup.ts';
 import { pisAbandonadosConPlaza, plazaDePICancelado, plazaDeSesionCaducada, type PlazaADevolver } from '../billing/cupo-matricula-abandonado.ts';
 import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
 import { averiasRecientes, cobradoConFacturaSiempre, HORAS_REINTENTO_FACTURA, recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente, type ReciboCobrado } from '../facturas-sin-sellar.ts';
@@ -965,6 +966,18 @@ export const conciliarCobrosDispatcher = inngest.createFunction(
       const admin = getSupabaseAdmin();
       if (!admin) return { skipped: 'sin service-role' };
 
+      // Los cobros del datáfono de SumUp que su aviso no cerró (llega sin firma y
+      // puede no llegar). No dependen de Stripe; van primero para que un estudio
+      // sin cuenta Connect también quede cubierto.
+      let sumup: Awaited<ReturnType<typeof barrerCobrosSumup>> | null = null;
+      try {
+        sumup = await barrerCobrosSumup(admin);
+      } catch (e) {
+        Sentry.captureException(e instanceof Error ? e : new Error('barrerCobrosSumup'), {
+          level: 'error', tags: { area: 'cobros', proveedor: 'sumup' },
+        });
+      }
+
       // Solo estudios que pueden cobrar. Hoy son un puñado; si algún día son
       // cientos, esto pasa a fan-out — pero no antes, que es cuando duele la
       // cuota de Inngest sin motivo.
@@ -977,7 +990,7 @@ export const conciliarCobrosDispatcher = inngest.createFunction(
           .is('suspendido_en', null)
           .range(from, to),
       );
-      if (!studios.length) return { entregados: 0 };
+      if (!studios.length) return { entregados: 0, sumup };
 
       const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
       let entregados = 0;
@@ -1004,7 +1017,7 @@ export const conciliarCobrosDispatcher = inngest.createFunction(
         });
       }
 
-      return { estudios: studios.length, entregados, facturasSelladas };
+      return { estudios: studios.length, entregados, facturasSelladas, sumup };
     });
   },
 );

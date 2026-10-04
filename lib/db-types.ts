@@ -619,6 +619,8 @@ export interface RowRecibos {
   cobro_off_session_clave: string | null;
   // migr 20261002230302.
   cobro_off_session_desde: string | null;
+  // migr 20261004125559.
+  sumup_transaction_id: string | null;
 }
 
 export interface RowRewardActions {
@@ -1102,6 +1104,8 @@ export interface RowStudios {
   supresion_pedida_en: string | null;
   // migr 20261003102845.
   exigir_doble_factor: boolean | null;
+  // migr 20261004125559.
+  sumup_reader_id: string | null;
 }
 
 export interface RowSuscripciones {
@@ -4901,6 +4905,7 @@ export type RecibosInsert = {
   cargo_pedido_para?: string | null | null;
   cobro_off_session_clave?: string | null | null;
   cobro_off_session_desde?: string | null | null;
+  sumup_transaction_id?: string | null | null;
 }
 
 export type RecibosUpdate = {
@@ -4950,6 +4955,7 @@ export type RecibosUpdate = {
   cargo_pedido_para?: string | null | null;
   cobro_off_session_clave?: string | null | null;
   cobro_off_session_desde?: string | null | null;
+  sumup_transaction_id?: string | null | null;
 }
 
 export type RewardActionsInsert = {
@@ -5431,6 +5437,7 @@ export type StudiosInsert = {
   contrato_terminado_en?: string | null | null;
   supresion_pedida_en?: string | null | null;
   exigir_doble_factor?: boolean | null | null;
+  sumup_reader_id?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5580,6 +5587,7 @@ export type StudiosUpdate = {
   contrato_terminado_en?: string | null | null;
   supresion_pedida_en?: string | null | null;
   exigir_doble_factor?: boolean | null | null;
+  sumup_reader_id?: string | null | null;
 }
 
 export type SuscripcionesInsert = {

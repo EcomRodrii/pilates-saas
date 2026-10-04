@@ -20,6 +20,11 @@ export interface ConsultaCobro {
    * venta: de él cuelgan los reembolsos.
    */
   paymentIntentId?: string;
+  /**
+   * Solo el datáfono de SumUp: su id de transacción. Es el cargo que cierra un
+   * recibo (`recibos.sumup_transaction_id`); nunca va a la columna de Stripe.
+   */
+  cargoSumup?: string;
 }
 
 // Se traduce en un solo sitio, y a un vocabulario nuestro: `requires_action` no

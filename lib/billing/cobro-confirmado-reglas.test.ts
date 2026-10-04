@@ -284,3 +284,33 @@ test('«Hacerle factura»: el efectivo saca factura solo si se pide, y el resto 
   const tarjeta = efectosEnOrden({ origen: 'manual', metodo: 'TARJETA', avisarSocia: false, esRenovacion: false, conFactura: true });
   assert.equal(tarjeta.filter(p => p === 'factura').length, 1);
 });
+
+test('SumUp: el filtro del cargo mira su columna y acepta su id (un UUID con guiones)', () => {
+  const id = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+  assert.equal(
+    filtroCargoEnCas(id, 'sumup_transaction_id'),
+    'estado.not.in.(DEVUELTO,EN_CURSO),'
+    + `and(estado.eq.DEVUELTO,or(sumup_transaction_id.is.null,sumup_transaction_id.neq.${id})),`
+    + `and(estado.eq.EN_CURSO,or(sumup_transaction_id.is.null,sumup_transaction_id.eq.${id}))`,
+  );
+  assert.equal(filtroCargoEnCas('a,estado.eq.COBRADO', 'sumup_transaction_id'), 'estado.not.in.(DEVUELTO,EN_CURSO)');
+});
+
+test('un cargo de un proveedor nunca es el mismo que uno del otro: otro cobro', () => {
+  const sumup = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+  assert.deepEqual(resolverSinFilas({ estado: 'COBRADO', stripe_payment_intent_id: 'pi_1' }, sumup, 'sumup'), { tipo: 'otro_cobro', anterior: 'pi_1' });
+  assert.deepEqual(resolverSinFilas({ estado: 'COBRADO', stripe_payment_intent_id: null, sumup_transaction_id: sumup }, 'pi_2'), { tipo: 'otro_cobro', anterior: sumup });
+  assert.deepEqual(resolverSinFilas({ estado: 'COBRADO', stripe_payment_intent_id: null, sumup_transaction_id: sumup }, sumup, 'sumup'), { tipo: 'ya_estaba' });
+  assert.deepEqual(resolverSinFilas({ estado: 'DEVUELTO', stripe_payment_intent_id: null, sumup_transaction_id: sumup }, sumup, 'sumup'), { tipo: 'devuelto' });
+  // Un mismo id en la columna del OTRO proveedor no es este cargo.
+  assert.deepEqual(resolverSinFilas({ estado: 'COBRADO', stripe_payment_intent_id: sumup }, sumup, 'sumup'), { tipo: 'otro_cobro', anterior: sumup });
+});
+
+test('⚠️ un recibo que devolvió el banco y se cobra con SumUp: su PaymentIntent viejo no es «otro cobro»', () => {
+  const x = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+  // El sondeo del mostrador y el aviso llegan a la vez: el que pierde ve el recibo ya cerrado por X.
+  const cerrado = { estado: 'COBRADO', stripe_payment_intent_id: 'pi_viejo', sumup_transaction_id: x };
+  assert.deepEqual(resolverSinFilas(cerrado, x, 'sumup'), { tipo: 'ya_estaba' });
+  // Un cargo de Stripe NUEVO sobre ese recibo sí es otro cobro.
+  assert.deepEqual(resolverSinFilas(cerrado, 'pi_nuevo'), { tipo: 'otro_cobro', anterior: 'pi_viejo' });
+});

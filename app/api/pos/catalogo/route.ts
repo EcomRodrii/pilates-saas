@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       .select('id, nombre, descripcion, precio, tipo, sesiones, validez_dias, activo')
       .eq('studio_id', sesion.studioId).eq('activo', true)
       .order('tipo').order('precio'),
-    admin.from('studios').select('iva_por_defecto, stripe_account_id, stripe_terminal_reader_id')
+    admin.from('studios').select('iva_por_defecto, stripe_account_id, stripe_terminal_reader_id, sumup_reader_id')
       .eq('id', sesion.studioId).maybeSingle(),
     admin.from('cajas').select('id, fondo_inicial, abierta_en, abierta_por_nombre')
       .eq('studio_id', sesion.studioId).eq('estado', 'ABIERTA').maybeSingle(),
@@ -77,7 +77,8 @@ export async function GET(req: NextRequest) {
     // disponible.
     cobro: {
       stripeConectado: Boolean(studioRes.data?.stripe_account_id),
-      datafonoEmparejado: Boolean(studioRes.data?.stripe_terminal_reader_id),
+      // El de Stripe o el Solo de SumUp: un datáfono por sede.
+      datafonoEmparejado: Boolean(studioRes.data?.stripe_terminal_reader_id || studioRes.data?.sumup_reader_id),
     },
     productos: (prodRes.data ?? []).map((p) => ({
       id: p.id,
