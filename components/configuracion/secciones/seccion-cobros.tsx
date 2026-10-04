@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Ban, CalendarClock, FileText, Landmark, Package, Receipt, RotateCcw, Wallet } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import {
   resumenAlCancelarCuota, resumenCobroDia1, resumenDatosFiscales, resumenDevoluciones, resumenDomiciliaciones, resumenFacturacion, resumenPlanesActivos,
 } from '@/lib/configuracion/resumenes';
-import { FILAS_A_OTRA_PANTALLA, type TarjetaId } from '@/lib/configuracion/secciones';
+import { FILAS_A_OTRA_PANTALLA, seccionDeTarjeta, type TarjetaId } from '@/lib/configuracion/secciones';
+import { hrefDeSeccion } from '@/lib/configuracion/destino';
+import { textoFalloConexionSumup } from '@/lib/pos/sumup';
 import { FormDatosFiscales } from '@/components/configuracion/tab-datos-fiscales';
 import { FormAlCancelarCuota, FormCobroDia1, FormDevoluciones, FormDomiciliaciones, FormFacturacion } from '@/components/configuracion/tab-estudio-cobros';
 import { DetalleCobroConTarjeta, FilaCobroConTarjeta, useCobroConTarjeta } from '@/components/configuracion/cobro-con-tarjeta';
@@ -41,10 +43,28 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
   const { studio, dataLoaded, planesTarifa } = useStudio();
   const stripe = useCobroConTarjeta(showToast);
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
-  // El datáfono pregunta a Stripe si está encendido: solo con Stripe conectado.
-  const datafono = useDatafono(stripe.conectado);
-  const [conectandoDatafono, setConectandoDatafono] = useState(false);
-  const datafonoConectado = stripe.conectado && !!datafono.estado && datafono.estado.lector !== null && datafono.estado.emparejado !== false;
+  // El datáfono pregunta a su proveedor (Stripe o SumUp) si está encendido. Se
+  // pregunta siempre: un estudio sin Stripe puede tener (o conectar) un SumUp Solo.
+  const datafono = useDatafono(true);
+  const [conectandoDatafono, setConectandoDatafono] = useState<false | 'inicio' | 'codigo-sumup'>(false);
+  const e = datafono.estado;
+  const datafonoConectado = !!e && e.lector !== null && e.emparejado !== false && (e.proveedor === 'sumup' || stripe.conectado);
+
+  // La vuelta de conectar la cuenta de SumUp: sigue en el código del Solo.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const seccion = hrefDeSeccion(seccionDeTarjeta('datafono'));
+    if (params.get('sumup_conectado')) {
+      showToast('Cuenta de SumUp conectada. Ahora, el código del Solo.');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search (?sumup_conectado=1): la URL no existe durante el render en servidor.
+      setConectandoDatafono('codigo-sumup');
+      window.history.replaceState({}, '', seccion);
+    } else if (params.get('sumup_error')) {
+      // Un texto fijo por código: nunca lo que venga en la URL.
+      showToast(textoFalloConexionSumup(params.get('sumup_error')));
+      window.history.replaceState({}, '', seccion);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function guardado(texto: string) {
     cerrar();
@@ -68,7 +88,7 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
 
       <GrupoFilas titulo="Cobrar a tus alumnas">
         <FilaCobroConTarjeta c={stripe} onAbrir={() => abrir('integracion-stripe')} />
-        <FilaDatafono d={datafono} stripeConectado={stripe.conectado} onAbrir={() => abrir('datafono')} onConectar={() => setConectandoDatafono(true)} />
+        <FilaDatafono d={datafono} stripeConectado={stripe.conectado} onAbrir={() => abrir('datafono')} onConectar={() => setConectandoDatafono('inicio')} />
         <FilaAjuste id="cuando-se-cobra-la-cuota" icono={CalendarClock} valor={cargado ? resumenCobroDia1(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="domiciliaciones" icono={Landmark} valor={cargado ? resumenDomiciliaciones(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="devoluciones" icono={RotateCcw} valor={cargado ? resumenDevoluciones(cargado) : null} onAbrir={abrir} />
@@ -100,7 +120,7 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
       </CajonAjuste>
       <CajonAjuste id="datafono" abierto={cajon === 'datafono' && datafonoConectado} onCerrar={cerrar}>
         {/* «Cambiar de datáfono» cierra el cajón antes de abrir el paso a paso: dos diálogos apilados no. */}
-        <DetalleDatafono d={datafono} onCambiar={() => { cerrar(); setConectandoDatafono(true); }} onGuardado={guardado} />
+        <DetalleDatafono d={datafono} onCambiar={() => { cerrar(); setConectandoDatafono('inicio'); }} onGuardado={guardado} />
       </CajonAjuste>
       {conectandoDatafono && (
         <ConectarDatafono
@@ -108,6 +128,9 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
           esTest={datafono.estado?.test ?? false}
           textoVolver="Volver"
           textoFinal="Hecho"
+          stripeConectado={stripe.conectado}
+          sumup={datafono.estado?.sumup}
+          pasoInicial={conectandoDatafono === 'codigo-sumup' ? 'codigo-sumup' : undefined}
           onConectado={datafono.ponerLector}
           onCerrar={() => setConectandoDatafono(false)}
         />

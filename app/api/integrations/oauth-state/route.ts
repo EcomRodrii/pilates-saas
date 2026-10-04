@@ -7,7 +7,8 @@ import { generarPkce } from '@/lib/marketing/pkce';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { puedeCambiarCuentaDeCobro } from '@/lib/billing/cuenta-cobro';
-import { sumupConfigurado, urlAutorizarSumup } from '@/lib/pos/sumup-oauth';
+import { urlAutorizarSumup } from '@/lib/pos/sumup-oauth';
+import { sumupDisponible } from '@/lib/pos/sumup-lector-servidor';
 
 // Sin 'gmail': la integración se retiró el 1-oct-2026 (lib/gmail.ts).
 const PROVIDERS: readonly ProveedorOAuth[] = ['stripe', 'google', 'zoom', 'klaviyo', 'sumup'];
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
   // PROPIETARIO no basta (hay fichas de equipo con ese rol que no son la dueña):
   // mismo criterio que desconectar y los datos SEPA.
   // Stripe y SumUp son la cuenta donde entra el dinero del estudio: solo la dueña.
-  if (provider === 'sumup' && !sumupConfigurado()) {
+  if (provider === 'sumup' && !sumupDisponible(sesion.studioId)) {
     return NextResponse.json({ error: 'SumUp todavía no está disponible.' }, { status: 503 });
   }
   if (provider === 'stripe' || provider === 'sumup') {

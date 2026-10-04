@@ -5,12 +5,30 @@ import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
 import type { DireccionLector, EstadoLector, LectorDatafono } from './datafono.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Cliente de /api/terminal/lector: el datáfono de Stripe del estudio.
+// Cliente de /api/terminal/lector: el datáfono del estudio (el de Stripe o el
+// SumUp Solo), y de la cuenta de SumUp de la que cuelga el Solo.
 // Como el resto del TPV, devuelve `{ error }` en vez de lanzar.
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type ProveedorDatafono = 'stripe' | 'sumup';
+
+/** Lo que hay de SumUp para este estudio. */
+export interface EstadoSumup {
+  /** ¿Se le ofrece SumUp? (Tentare lo tiene dado de alta y el estudio está en la lista.) */
+  disponible: boolean;
+  /** La cuenta de SumUp conectada, o `null`. */
+  cuenta: { comercio: string | null } | null;
+  /** ¿Puede quien mira conectar o desconectar la cuenta? Solo la dueña. */
+  puedeConectarCuenta: boolean;
+}
+
+export const SIN_SUMUP: EstadoSumup = { disponible: false, cuenta: null, puedeConectarCuenta: false };
+
 export interface EstadoDatafonoServidor {
   stripeConectado: boolean;
+  /** De quién es el datáfono emparejado. `null` = ninguno (o no se sabe). */
+  proveedor: ProveedorDatafono | null;
+  sumup: EstadoSumup;
   /** `undefined` = la respuesta no lo dice: manda lo que ya se sabía (el catálogo). */
   emparejado: boolean | undefined;
   /** `undefined` = Stripe no respondió: no se sabe si está encendido. */
@@ -19,7 +37,7 @@ export interface EstadoDatafonoServidor {
   test: boolean;
 }
 
-export type ErrorDatafono = { error: string; falta?: 'codigo' | 'direccion' | 'stripe' };
+export type ErrorDatafono = { error: string; falta?: 'codigo' | 'direccion' | 'stripe' | 'cuenta' };
 
 const esObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
@@ -37,17 +55,29 @@ function aDireccion(v: unknown): DireccionLector | null {
     ? { linea, codigoPostal, ciudad } : null;
 }
 
-async function pedir(metodo: string, cuerpo?: unknown): Promise<Record<string, unknown> | ErrorDatafono> {
+function aSumup(v: unknown): EstadoSumup {
+  if (!esObjeto(v)) return SIN_SUMUP;
+  const c = v.cuenta;
+  return {
+    disponible: v.disponible === true,
+    cuenta: esObjeto(c) ? { comercio: typeof c.comercio === 'string' ? c.comercio : null } : null,
+    puedeConectarCuenta: v.puedeConectarCuenta === true,
+  };
+}
+
+async function pedir(metodo: string, cuerpo?: unknown, ruta = '/api/terminal/lector'): Promise<Record<string, unknown> | ErrorDatafono> {
   try {
-    const res = await fetch('/api/terminal/lector', {
+    const res = await fetch(ruta, {
       method: metodo,
+      // same-origin explícito: oauth-state fija con esta respuesta la cookie HttpOnly del flujo.
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       ...(cuerpo === undefined ? {} : { body: JSON.stringify(cuerpo) }),
     });
     const data: unknown = await res.json().catch(() => ({}));
     const d = esObjeto(data) ? data : {};
     if (!res.ok) {
-      const falta = d.falta === 'codigo' || d.falta === 'direccion' || d.falta === 'stripe' ? d.falta : undefined;
+      const falta = d.falta === 'codigo' || d.falta === 'direccion' || d.falta === 'stripe' || d.falta === 'cuenta' ? d.falta : undefined;
       return { error: mensajeSeguro(d.error, mensajeHttp(res.status)), ...(falta ? { falta } : {}) };
     }
     return d;
@@ -68,6 +98,8 @@ export async function leerDatafono(): Promise<EstadoDatafonoServidor | ErrorData
   if (esErrorDatafono(r)) return r;
   return {
     stripeConectado: r.stripeConectado !== false,
+    proveedor: r.proveedor === 'stripe' || r.proveedor === 'sumup' ? r.proveedor : null,
+    sumup: aSumup(r.sumup),
     emparejado: typeof r.emparejado === 'boolean' ? r.emparejado : undefined,
     lector: 'lector' in r ? aLector(r.lector) : undefined,
     direccion: aDireccion(r.direccion),
@@ -75,9 +107,10 @@ export async function leerDatafono(): Promise<EstadoDatafonoServidor | ErrorData
   };
 }
 
-export async function conectarDatafono(p: {
-  codigo: string; nombre: string; direccion: DireccionLector | null;
-}): Promise<{ lector: LectorDatafono } | ErrorDatafono> {
+export async function conectarDatafono(p:
+  | { proveedor?: 'stripe'; codigo: string; nombre: string; direccion: DireccionLector | null }
+  | { proveedor: 'sumup'; codigo: string; nombre: string },
+): Promise<{ lector: LectorDatafono } | ErrorDatafono> {
   const r = await pedir('POST', p);
   if (esErrorDatafono(r)) return r;
   const lector = aLector(r.lector);
@@ -93,5 +126,23 @@ export async function renombrarDatafono(nombre: string): Promise<{ lector: Lecto
 
 export async function desconectarDatafono(): Promise<{ ok: true } | ErrorDatafono> {
   const r = await pedir('DELETE');
+  return esErrorDatafono(r) ? r : { ok: true };
+}
+
+/**
+ * Empieza a conectar la cuenta de SumUp: el servidor firma el `state` del OAuth y
+ * monta la URL de SumUp (su client_id no viaja al navegador). Quien llama navega.
+ */
+export async function urlConectarCuentaSumup(): Promise<{ url: string } | ErrorDatafono> {
+  const r = await pedir('POST', { provider: 'sumup' }, '/api/integrations/oauth-state');
+  if (esErrorDatafono(r)) return r;
+  return typeof r.url === 'string' && r.url.startsWith('https://')
+    ? { url: r.url }
+    : { error: 'No se ha podido abrir SumUp. Inténtalo otra vez.' };
+}
+
+/** Desconecta la cuenta de SumUp (y su Solo). Solo la dueña: lo comprueba el servidor. */
+export async function desconectarCuentaSumup(): Promise<{ ok: true } | ErrorDatafono> {
+  const r = await pedir('DELETE', undefined, '/api/integrations/sumup');
   return esErrorDatafono(r) ? r : { ok: true };
 }

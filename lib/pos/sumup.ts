@@ -54,6 +54,34 @@ export function sumupPuedeCobrarAqui(env: NodeJS.ProcessEnv = process.env): bool
   return entornoDespliegue(env) === 'produccion' || env.SUMUP_PERMITIR_FUERA_DE_PRODUCCION === '1';
 }
 
+/**
+ * ¿Se ofrece SumUp a ESTE estudio? Hasta probarlo con el Solo de prueba, solo a
+ * los que se pongan en `SUMUP_SOLO_ESTUDIOS` (ids separados por comas, o `*` para
+ * todos). Sin la variable, a nadie. Solo decide si se puede CONECTAR: un estudio
+ * que ya tiene su Solo sigue cobrando con él.
+ */
+export function sumupParaEstudio(studioId: string, env: NodeJS.ProcessEnv = process.env): boolean {
+  const lista = (env.SUMUP_SOLO_ESTUDIOS ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  return lista.includes('*') || lista.includes(studioId);
+}
+
+/** Por qué no se pudo conectar la cuenta de SumUp (viaja en la URL de vuelta como código). */
+export type FalloConexionSumup = 'cancelado' | 'caducado' | 'cobro-en-marcha' | 'no-disponible' | 'fallo';
+
+/**
+ * El texto de cada fallo. Fijo: lo que llegue en la URL de vuelta nunca se enseña
+ * tal cual (cualquiera puede mandar un enlace al panel con el texto que quiera).
+ */
+export function textoFalloConexionSumup(codigo: string | null): string {
+  switch (codigo) {
+    case 'cancelado': return 'Has cancelado la conexión en SumUp. Puedes volver a intentarlo cuando quieras.';
+    case 'caducado': return 'La conexión con SumUp ha caducado. Vuelve a pulsar «Conectar mi cuenta de SumUp».';
+    case 'cobro-en-marcha': return 'Hay un cobro en marcha con el datáfono de SumUp. Cuando termine, vuelve a conectar la cuenta.';
+    case 'no-disponible': return 'El datáfono de SumUp todavía no está disponible para tu estudio.';
+    default: return 'No se ha podido conectar la cuenta de SumUp. Inténtalo de nuevo.';
+  }
+}
+
 export type ProveedorDeReferencia = 'sumup' | 'stripe';
 
 /** Quién cobra lo que hay guardado. `null` = no hay cobro en vuelo. */
@@ -136,6 +164,9 @@ export function importeCoincide(t: Pick<TransaccionSumup, 'amount' | 'currency' 
  * El código que enseña el Solo para emparejarlo (Conexiones > API > Conectar):
  * 8 o 9 letras y números. No tiene la forma de las tres palabras de Stripe.
  */
+export const MENSAJE_CODIGO_SUMUP_MAL_ESCRITO = 'Escribe el código tal como sale en el Solo: 8 o 9 letras y números.';
+export const MENSAJE_CODIGO_SUMUP_NO_VALE = 'Ese código no vale o ha caducado. Vuelve a pulsar Conectar en el Solo y escribe el nuevo.';
+
 export function normalizarCodigoSumup(texto: unknown): string | null {
   if (typeof texto !== 'string') return null;
   const codigo = texto.replace(/[\s-]+/g, '').toUpperCase();
@@ -189,6 +220,16 @@ export interface MovimientoSumup { transaccionId: string; clientTransactionId: s
 
 const BASE = 'https://api.sumup.com';
 
+function aLectorSumup(d: unknown, nombrePorDefecto: string): LectorSumup {
+  const r = (typeof d === 'object' && d !== null ? d : {}) as {
+    id?: unknown; name?: unknown; status?: unknown; device?: { model?: unknown };
+  };
+  if (typeof r.id !== 'string') throw new ErrorSumup(502, null, 'SumUp no devolvió el lector');
+  const estado = r.status === 'paired' || r.status === 'processing' || r.status === 'expired' ? r.status : 'unknown';
+  const modelo = r.device?.model === 'solo' || r.device?.model === 'virtual-solo' ? r.device.model : null;
+  return { id: r.id, nombre: typeof r.name === 'string' && r.name ? r.name : nombrePorDefecto, estado, modelo };
+}
+
 export function clienteSumup(o: { token: string; fetch?: FetchSumup; base?: string }) {
   const f: FetchSumup = o.fetch ?? ((url, init) => fetch(url, init));
   const base = (o.base ?? BASE).replace(/\/$/, '');
@@ -211,16 +252,37 @@ export function clienteSumup(o: { token: string; fetch?: FetchSumup; base?: stri
     return datos;
   }
 
+  const lector = (merchantCode: string, readerId: string) =>
+    `/v0.1/merchants/${mc(merchantCode)}/readers/${encodeURIComponent(readerId)}`;
+
   return {
     /** Empareja un Solo con el código de su pantalla. */
     async emparejarLector(merchantCode: string, p: { codigo: string; nombre: string }): Promise<LectorSumup> {
-      const d = await pedir('POST', `/v0.1/merchants/${mc(merchantCode)}/readers`, { pairing_code: p.codigo, name: p.nombre }) as {
-        id?: unknown; name?: unknown; status?: unknown; device?: { model?: unknown };
-      };
-      if (typeof d?.id !== 'string') throw new ErrorSumup(502, null, 'SumUp no devolvió el lector');
-      const estado = d.status === 'paired' || d.status === 'processing' || d.status === 'expired' ? d.status : 'unknown';
-      const modelo = d.device?.model === 'solo' || d.device?.model === 'virtual-solo' ? d.device.model : null;
-      return { id: d.id, nombre: typeof d.name === 'string' ? d.name : p.nombre, estado, modelo };
+      const d = await pedir('POST', `/v0.1/merchants/${mc(merchantCode)}/readers`, { pairing_code: p.codigo, name: p.nombre });
+      return aLectorSumup(d, p.nombre);
+    },
+
+    /** El lector tal como lo tiene SumUp. `null` = ya no existe en la cuenta. */
+    async obtenerLector(merchantCode: string, readerId: string): Promise<LectorSumup | null> {
+      try {
+        return aLectorSumup(await pedir('GET', lector(merchantCode, readerId)), '');
+      } catch (err) {
+        if (err instanceof ErrorSumup && err.status === 404) return null;
+        throw err;
+      }
+    },
+
+    async renombrarLector(merchantCode: string, readerId: string, nombre: string): Promise<LectorSumup> {
+      return aLectorSumup(await pedir('PATCH', lector(merchantCode, readerId), { name: nombre }), nombre);
+    },
+
+    /** Lo da de baja en la cuenta. Si ya no estaba, no es un error. */
+    async borrarLector(merchantCode: string, readerId: string): Promise<void> {
+      try {
+        await pedir('DELETE', lector(merchantCode, readerId));
+      } catch (err) {
+        if (!(err instanceof ErrorSumup && err.status === 404)) throw err;
+      }
     },
 
     /** ¿Está encendido y conectado? `ocupado` = esperando tarjeta/PIN o actualizándose. */

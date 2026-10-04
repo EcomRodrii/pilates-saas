@@ -56,10 +56,26 @@ export default function Contenido() {
         como salen en su pantalla.
       </p>
 
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Con un SumUp Solo</h2>
+      <p>
+        Si en el primer paso ves la opción <strong>Un SumUp Solo</strong>, también puedes cobrar con él, aunque no
+        tengas Stripe. El dinero va a tu cuenta de SumUp, con las comisiones que ya tengas con ellos.
+      </p>
+      <p>
+        La primera vez, la propietaria conecta la cuenta de SumUp: se abre SumUp, entra con su usuario y acepta. Después,
+        en el Solo, abre el <strong>Menú</strong>, entra en <strong>Conexiones › API</strong> y pulsa{' '}
+        <strong>Conectar</strong>: sale un código de 8 o 9 letras y números. Escríbelo en Tentare y listo.
+      </p>
+      <p>
+        Cobrar es igual: eliges <strong>Datáfono</strong>, el importe sale en el Solo y la venta queda cobrada cuando
+        SumUp lo confirma. Por ahora, una venta cobrada con el Solo se devuelve desde la app de SumUp.
+      </p>
+
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cambiarlo o desconectarlo</h2>
       <p>
         En <strong>Configuración &gt; Cobros y facturas</strong>, fila Datáfono: ves si está encendido, le cambias el
-        nombre, conectas otro en su lugar o lo desconectas. Desconectarlo no toca los cobros ya hechos; hasta que conectes
+        nombre, conectas otro en su lugar (de Stripe o un SumUp Solo) o lo desconectas. Con SumUp, también ves qué cuenta
+        está conectada y la propietaria puede desconectarla. Desconectarlo no toca los cobros ya hechos; hasta que conectes
         otro, en la Caja no podrás cobrar con datáfono. Puedes seguir cobrando con «Tarjeta», el datáfono de tu banco, como
         siempre.
       </p>

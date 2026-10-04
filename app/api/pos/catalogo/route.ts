@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeVerFinanzas } from '@/lib/permisos-reglas';
+import { sumupDisponible } from '@/lib/pos/sumup-lector-servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,8 +78,13 @@ export async function GET(req: NextRequest) {
     // disponible.
     cobro: {
       stripeConectado: Boolean(studioRes.data?.stripe_account_id),
-      // El de Stripe o el Solo de SumUp: un datáfono por sede.
-      datafonoEmparejado: Boolean(studioRes.data?.stripe_terminal_reader_id || studioRes.data?.sumup_reader_id),
+      // El de Stripe o el Solo de SumUp: un datáfono por sede. Uno de Stripe
+      // solo cuenta con Stripe conectado.
+      datafonoEmparejado: Boolean(studioRes.data?.sumup_reader_id
+        || (studioRes.data?.stripe_account_id && studioRes.data?.stripe_terminal_reader_id)),
+      datafonoProveedor: studioRes.data?.sumup_reader_id ? 'sumup'
+        : studioRes.data?.stripe_terminal_reader_id ? 'stripe' : null,
+      sumupDisponible: sumupDisponible(sesion.studioId),
     },
     productos: (prodRes.data ?? []).map((p) => ({
       id: p.id,
