@@ -80,6 +80,14 @@ que hay que añadir a las «Redirect URLs» de Supabase. Una redirección a
 Universal Link: se quedaría cargando la web ahí dentro. El esquema lo declara
 `Info.plist` (CFBundleURLTypes = el bundle id de cada app).
 
+Por ese esquema vuelve un **código**, nunca los tokens (otra app podría registrar
+el mismo esquema): PKCE. Como `supabasePortal` usa el flujo implícito (los
+enlaces del correo dependen de él), el canje lo hace un cliente de auth de un
+solo uso con PKCE y memoria como almacén, y la sesión se entrega a
+`supabasePortal` con `setSession` (`lib/nativo/google.ts`). El botón está en la
+entrada (`/app`, `components/nativo/BotonGoogle.tsx`) y en el acceso de la app
+de cada estudio, siempre con Apple delante (guía 4.8).
+
 ## Compilar
 
 Requisitos: un Mac con **Xcode** (de la App Store, no basta con las Command Line

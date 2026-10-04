@@ -17,6 +17,7 @@ import { traducirAuth } from '@/lib/student/auth-errores';
 import { mensajeSeguro } from '@/lib/errores';
 import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 import { BotonApple } from '@/components/nativo/BotonApple';
+import { BotonGoogle } from '@/components/nativo/BotonGoogle';
 import {
   CLAVE_ULTIMO_ESTUDIO, conElUltimoPrimero, entradaDirecta, rutaDeEntrada, type EstudioDeLaCuenta,
 } from '@/lib/app-nativa/mis-estudios';
@@ -25,7 +26,7 @@ import {
  * La entrada de la app «Tentare» del App Store (decisión del fundador, 2-oct-2026;
  * rediseño del 4-oct tras comparar bsport, TIMP, Momence y Mindbody).
  *
- * Se entra con el EMAIL y un código de 6 cifras: entrar y darse de alta es el mismo
+ * Se entra con el EMAIL y un código de 6 cifras (o con Apple o Google): entrar y darse de alta es el mismo
  * paso (si el email no tiene cuenta, el código la crea) y no hay contraseña que
  * olvidar —la queja que más se repite en las cuatro—. Quien tiene contraseña la
  * sigue usando con «Usar mi contraseña». La sesión es una sola en todo el dominio
@@ -225,8 +226,12 @@ export default function EntradaApp() {
               value={email} onChange={(e) => setEmail(e.target.value)} error={errEmail}
             />
             <Button type="submit" full loading={cargando}>Continuar</Button>
-            {/* Solo en la app de iOS; con éxito, `onAuthStateChange` carga sus estudios. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted-foreground)', fontSize: 'var(--t-meta)' }}>
+              <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />o<span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            </div>
+            {/* Apple solo en la app de iOS. Con éxito, `onAuthStateChange` carga sus estudios. */}
             <BotonApple disabled={cargando} onEntrado={() => undefined} onError={setGlobal} />
+            <BotonGoogle disabled={cargando} onEntrado={() => undefined} onError={setGlobal} />
             {captcha}
             <div style={{ marginTop: 6, padding: 14, borderRadius: 16, background: 'var(--card)', border: '1px solid var(--border)' }}>
               <p style={{ fontWeight: 800, margin: 0 }}>¿Tu estudio te ha pasado un enlace o un QR?</p>

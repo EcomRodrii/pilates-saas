@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { esUrlAbrible, esVueltaDeOAuth, rutaDeAviso, rutaInternaDeEnlace } from './enlaces.ts';
+import { esUrlAbrible, esVueltaDeOAuth, resultadoDeVuelta, rutaDeAviso, rutaInternaDeEnlace } from './enlaces.ts';
 
 test('rutaInternaDeEnlace: un Universal Link de Tentare da su ruta y su query', () => {
   assert.equal(rutaInternaDeEnlace('https://www.tentare.app/portal/mi-estudio/reservas?d=2'), '/portal/mi-estudio/reservas?d=2');
@@ -86,4 +86,12 @@ test('esUrlAbrible: solo http(s)', () => {
   assert.equal(esUrlAbrible('javascript:alert(1)'), false);
   assert.equal(esUrlAbrible('file:///etc/passwd'), false);
   assert.equal(esUrlAbrible('/relativa'), false);
+});
+
+test('resultadoDeVuelta: el código para canjear, o el error del proveedor', () => {
+  assert.deepEqual(resultadoDeVuelta('/auth/vuelta?code=abc'), { codigo: 'abc' });
+  assert.deepEqual(resultadoDeVuelta('/auth/vuelta?error=access_denied&error_description=Dijo+que+no'), { error: 'Dijo que no' });
+  assert.deepEqual(resultadoDeVuelta('/auth/vuelta?error=access_denied'), { error: 'access_denied' });
+  assert.equal(resultadoDeVuelta('/auth/vuelta'), null);
+  assert.equal(resultadoDeVuelta('/auth/vuelta?otra=1'), null);
 });
