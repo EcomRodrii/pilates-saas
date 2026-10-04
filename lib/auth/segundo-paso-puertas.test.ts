@@ -63,9 +63,12 @@ test('identificar SIN cortar por el segundo paso es una lista cerrada', () => {
     'app/api/auth/doble-factor-correo/reabrir/route.ts',
     'app/api/auth/doble-factor-correo/verificar/route.ts',
   ]);
-  // `usuarioSupabaseConPaso`: las dos de arranque, que contestan `doble_factor_requerido`
-  // en vez de datos; cada una mira `paso` antes de dar nada.
+  // `usuarioSupabaseConPaso`: las de arranque, que contestan `doble_factor_requerido`
+  // en vez de datos; cada una mira `paso` antes de dar nada. La de la entrada de la
+  // app de iOS (/app) lo es por lo mismo: con un 401 la mandaría a entrar, en bucle.
   const arranque = usan('usuarioSupabaseConPaso');
-  assert.deepEqual(arranque, ['app/api/public/session/route.ts', 'app/api/public/studio-data/route.ts']);
+  assert.deepEqual(arranque, [
+    'app/api/app/mis-estudios/route.ts', 'app/api/public/session/route.ts', 'app/api/public/studio-data/route.ts',
+  ]);
   for (const r of arranque) assert.match(readFileSync(join(RAIZ, r), 'utf8'), /paso\s*===\s*'doble_factor'/, `${r}: no mira el paso`);
 });
