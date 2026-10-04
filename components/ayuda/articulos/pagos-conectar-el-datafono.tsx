@@ -68,7 +68,9 @@ export default function Contenido() {
       </p>
       <p>
         Cobrar es igual: eliges <strong>Datáfono</strong>, el importe sale en el Solo y la venta queda cobrada cuando
-        SumUp lo confirma. Por ahora, una venta cobrada con el Solo se devuelve desde la app de SumUp.
+        SumUp lo confirma. Devolverla es igual que cualquier otra venta, desde <strong>Ventas</strong> en la Caja: el
+        dinero vuelve a su tarjeta por SumUp. Si ya la devolviste desde la app de SumUp, al devolver aquí lo mismo solo se
+        apunta, sin devolver nada más.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cambiarlo o desconectarlo</h2>

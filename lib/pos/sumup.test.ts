@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ErrorSumup, centimosSinPropina, clienteSumup, estadoDesdeSumup, importeCoincide, leerCuerpoAviso, leerReferenciaSumup,
+  ErrorSumup, centimosDevueltosSumup, centimosSinPropina, clienteSumup, decidirDevolucionSumup, tieneContracargo, estadoDesdeSumup, importeCoincide, leerCuerpoAviso, leerReferenciaSumup,
   mismoCobro, normalizarCodigoSumup, proveedorDeReferencia, referenciaSumup, sumupParaEstudio, textoFalloConexionSumup,
   type FetchSumup, type TransaccionSumup,
 } from './sumup.ts';
@@ -160,11 +160,11 @@ test('emparejar, estado, terminar y devolver: las rutas y cuerpos de la API', as
   assert.equal(llamadas[1].url, 'https://api.sumup.com/v0.1/merchants/M123/readers/rdr_1/status');
   await c.terminar('M123', 'rdr_1');
   assert.equal(llamadas[2].url, 'https://api.sumup.com/v0.1/merchants/M123/readers/rdr_1/terminate');
-  await c.devolver('tx-1');
-  assert.equal(llamadas[3].url, 'https://api.sumup.com/v0.1/me/refund/tx-1');
-  assert.equal(llamadas[3].body, undefined, 'sin cuerpo = devolución total');
-  await c.devolver('tx-1', 1250);
-  assert.deepEqual(llamadas[4].body, { amount: 12.5 });
+  await c.devolver('M123', 'tx-1', 1250);
+  assert.equal(llamadas[3].url, 'https://api.sumup.com/v1.0/merchants/M123/payments/tx-1/refunds');
+  assert.deepEqual(llamadas[3].body, { amount: 12.5 }, 'en euros, y siempre explícito');
+  await assert.rejects(c.devolver('M123', 'tx-1', 0), /Importe no válido/);
+  assert.equal(llamadas.length, 4, 'un importe raro no llega a SumUp');
 });
 
 test('las rutas escapan lo que viene de fuera', async () => {
@@ -233,4 +233,42 @@ test('⚠️ el fallo al conectar SumUp se enseña con un texto fijo: nunca lo q
   const colado = 'Llama al 600 000 000 para verificar tu cuenta';
   assert.equal(textoFalloConexionSumup(colado).includes(colado), false);
   assert.equal(textoFalloConexionSumup(null), textoFalloConexionSumup('fallo'));
+});
+
+test('lo devuelto según SumUp: sus eventos REFUND que no fallaron', () => {
+  assert.equal(centimosDevueltosSumup({ events: [
+    { type: 'REFUND', amount: 10, status: 'REFUNDED' },
+    { type: 'REFUND', amount: 2.5, status: 'PENDING' },
+    { type: 'REFUND', amount: 5, status: 'FAILED' },
+    { type: 'PAYOUT', amount: 40, status: 'PAID_OUT' },
+  ] }), 1250);
+  // `transaction_events` llama al tipo `event_type` (spec de SumUp).
+  assert.equal(centimosDevueltosSumup({ transaction_events: [{ event_type: 'REFUND', amount: -3, status: 'SUCCESSFUL' }] }), 300);
+  assert.equal(centimosDevueltosSumup({ events: [] }), 0);
+});
+
+test('⚠️ sin eventos en la respuesta, lo devuelto NO es cero: es «no se sabe»', () => {
+  assert.equal(centimosDevueltosSumup({}), null);
+  assert.equal(centimosDevueltosSumup({ events: null, transaction_events: null }), null);
+});
+
+test('⚠️ un contracargo (por estado o por evento) se ve', () => {
+  assert.equal(tieneContracargo({ simple_status: 'CHARGEBACK' }), true);
+  assert.equal(tieneContracargo({ simple_status: 'NON_COLLECTION' }), true);
+  assert.equal(tieneContracargo({ events: [{ type: 'CHARGE_BACK', amount: 10, status: 'SUCCESSFUL' }] }), true);
+  assert.equal(tieneContracargo({ transaction_events: [{ event_type: 'CHARGE_BACK', amount: 10 }] }), true);
+  assert.equal(tieneContracargo({ simple_status: 'SUCCESSFUL', events: [{ type: 'REFUND', amount: 5 }] }), false);
+});
+
+test('⚠️ devolver con SumUp: nunca dos veces el mismo dinero, y nada si no cuadra', () => {
+  const d = (devueltoSegunSumup: number, devueltoSegunLibro: number, pedido: number, cobrado = 4500) => {
+    const r = decidirDevolucionSumup({ cobrado, devueltoSegunSumup, devueltoSegunLibro, pedido });
+    return r.tipo === 'no' ? r.motivo : r.tipo;
+  };
+  assert.equal(d(0, 0, 2500), 'devolver');
+  assert.equal(d(2500, 2500, 2000), 'devolver', 'un segundo parcial');
+  assert.equal(d(2500, 0, 2500), 'ya-devuelta', 'el intento anterior devolvió y no se apuntó: se apunta, no se devuelve');
+  assert.equal(d(1000, 0, 2500), 'descuadre', 'devuelto desde la app de SumUp: no se toca');
+  assert.equal(d(0, 1000, 2500), 'descuadre');
+  assert.equal(d(2500, 2500, 2500), 'excede');
 });
