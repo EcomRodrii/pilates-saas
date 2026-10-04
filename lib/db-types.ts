@@ -2693,11 +2693,13 @@ export interface RowConversaciones {
 
 export interface RowConversacionParticipantes {
   conversacion_id: string;
-  auth_user_id: string;
+  auth_user_id: string | null;
   rol_en_conversacion: string;
   socio_id: string | null;
   leido_hasta: string;
   unido_en: string;
+  // migr 20261004120218.
+  id: number;
 }
 
 export interface RowMensajes {
@@ -8460,20 +8462,22 @@ export type ConversacionesUpdate = {
 
 export type ConversacionParticipantesInsert = {
   conversacion_id?: string | null;
-  auth_user_id?: string | null;
+  auth_user_id?: string | null | null;
   rol_en_conversacion?: string | null;
   socio_id?: string | null | null;
   leido_hasta?: string | null;
   unido_en?: string | null;
+  id?: number | null;
 }
 
 export type ConversacionParticipantesUpdate = {
   conversacion_id?: string | null;
-  auth_user_id?: string | null;
+  auth_user_id?: string | null | null;
   rol_en_conversacion?: string | null;
   socio_id?: string | null | null;
   leido_hasta?: string | null;
   unido_en?: string | null;
+  id?: number | null;
 }
 
 export type MensajesInsert = {

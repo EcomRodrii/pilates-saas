@@ -22,6 +22,7 @@ import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Icono } from '@/components/student/ui/Icono';
+import { CambiarDeEstudio } from '@/components/student/domain/CambiarDeEstudio';
 
 // Perfil de la instructora en la app del estudio: quién es, su trabajo
 // (disponibilidad y ausencias), su tarifa, sus estudios, lo que puede hacer como
@@ -104,6 +105,10 @@ export default function PerfilInstructoraPage() {
             <Icono nombre="chevron-derecha" tamano={18} />
           </span>
         </Link>
+
+        {/* Solo en la app de iOS «Tentare»: la lista de la entrada incluye sus
+            estudios como alumna, que «Tus estudios» (más abajo) no enseña. */}
+        <CambiarDeEstudio />
 
         <ProfileSection
           titulo="Cuenta"

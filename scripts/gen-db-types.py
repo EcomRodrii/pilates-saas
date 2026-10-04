@@ -172,6 +172,10 @@ TIPOS_MANUALES = {
     # Ídem, migr 20261001140635: borrar la sesión deja el evento de la
     # plataforma sin sesión (ON DELETE SET NULL) para poder cancelarlo allí.
     ('plataforma_eventos', 'sesion_id'): 'string | null',
+    # Ídem, migr 20261004120218: el chat de la alumna sobrevive a que borre su
+    # cuenta (ON DELETE SET NULL), y la PK pasa a `id` (identity, nunca nulo).
+    ('conversacion_participantes', 'auth_user_id'): 'string | null',
+    ('conversacion_participantes', 'id'): 'number',
 }
 for (tabla, col), ts in TIPOS_MANUALES.items():
     if tabla in tables and col in tables[tabla]:
