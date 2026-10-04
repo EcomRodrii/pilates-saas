@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MetodoPago } from '@/lib/types';
 import { contextoCobroDe, proveedorPara, type PeticionCobro, type ResultadoInicio } from './terminal.ts';
 import type { ConsultaCobro } from './consulta-stripe.ts';
-import { clienteSumup, proveedorDeReferencia, sumupPuedeCobrarAqui } from './sumup.ts';
+import { clienteSumup, proveedorDeReferencia, sumupPuedeCobrarAqui, type ClienteSumup } from './sumup.ts';
 import { urlDeAviso } from './sumup-aviso.ts';
 import { crearProveedorSumup } from './terminal-sumup.ts';
 import { tokenSumup } from './sumup-oauth.ts';
@@ -97,6 +97,17 @@ async function cobroSumup(admin: SupabaseClient, studioId: string, o: { exigirLe
       cancelar: async ref => { if (readerId) await prov.cancelar(ref); },
     },
   };
+}
+
+/**
+ * La cuenta de SumUp del estudio para LEER (el historial del barrido). No exige
+ * lector ni las claves de cobro: leer no cobra nada.
+ */
+export async function cuentaSumupDelEstudio(studioId: string):
+  Promise<{ ok: true; cliente: ClienteSumup; merchantCode: string } | { ok: false }> {
+  const t = await tokenSumup(studioId);
+  if (!t.ok) return { ok: false };
+  return { ok: true, cliente: clienteSumup({ token: t.token }), merchantCode: t.merchantCode };
 }
 
 /** Para EMPEZAR un cobro: el datáfono que tiene hoy la sede. */

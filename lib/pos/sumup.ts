@@ -62,6 +62,24 @@ export function proveedorDeReferencia(ref: string | null | undefined): Proveedor
   return ref.startsWith(PREFIJO_SUMUP) ? 'sumup' : 'stripe';
 }
 
+/**
+ * ¿Dos referencias son el MISMO cobro? Dos `sumup:` lo son si llevan el mismo
+ * `client_transaction_id`, aunque se armaran en momentos distintos (la fecha es
+ * de cuándo se guardó, no del cobro). Las demás, si son iguales.
+ */
+export function mismoCobro(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false;
+  const ra = leerReferenciaSumup(a);
+  const rb = leerReferenciaSumup(b);
+  if (ra && rb) return ra.clientTransactionId === rb.clientTransactionId;
+  return a === b;
+}
+
+/** La clave con la que un cobro de SumUp se anota para reconciliar: una por transacción. */
+export function claveReconciliacionSumup(transaccionId: string): string {
+  return `sumup-txn:${transaccionId}`;
+}
+
 // ── Lo que devuelve SumUp ────────────────────────────────────────────────────
 
 /** `GET /v2.1/merchants/{mc}/transactions`. `amount` viene en EUROS (decimal), no en céntimos. */
@@ -73,6 +91,8 @@ export interface TransaccionSumup {
   status: string;
   client_transaction_id?: string | null;
   foreign_transaction_id?: string | null;
+  /** La propina, si la hubo. Va DENTRO de `amount`. */
+  tip_amount?: number | null;
   timestamp?: string | null;
 }
 
@@ -97,9 +117,19 @@ export function estadoDesdeSumup(t: TransaccionSumup | null, emitidaEn: Date, ah
   }
 }
 
-/** ¿Cobró exactamente lo que se pidió, en euros? Sin esto, PAGADO no vale. */
-export function importeCoincide(t: Pick<TransaccionSumup, 'amount' | 'currency'>, centimos: number): boolean {
-  return t.currency === 'EUR' && Number.isFinite(t.amount) && Math.round(t.amount * 100) === centimos;
+/**
+ * Lo cobrado por lo que se pidió, en céntimos: `amount` SIN la propina. El Solo
+ * puede ofrecer propina si el estudio la tiene activada en SumUp, y va dentro
+ * de `amount`; la propina no es del recibo ni de la venta.
+ */
+export function centimosSinPropina(t: Pick<TransaccionSumup, 'amount' | 'tip_amount'>): number {
+  const propina = typeof t.tip_amount === 'number' && Number.isFinite(t.tip_amount) && t.tip_amount > 0 ? t.tip_amount : 0;
+  return Math.round((t.amount - propina) * 100);
+}
+
+/** ¿Cobró exactamente lo que se pidió, en euros (sin contar la propina)? Sin esto, PAGADO no vale. */
+export function importeCoincide(t: Pick<TransaccionSumup, 'amount' | 'currency' | 'tip_amount'>, centimos: number): boolean {
+  return t.currency === 'EUR' && Number.isFinite(t.amount) && centimosSinPropina(t) === centimos;
 }
 
 /**
@@ -153,6 +183,9 @@ export interface LectorSumup {
 }
 
 export interface Afiliado { appId: string; key: string }
+
+/** Un cobro hecho del historial de la cuenta (`transactions/history`). No trae nuestra referencia. */
+export interface MovimientoSumup { transaccionId: string; clientTransactionId: string | null }
 
 const BASE = 'https://api.sumup.com';
 
@@ -239,6 +272,23 @@ export function clienteSumup(o: { token: string; fetch?: FetchSumup; base?: stri
         if (err instanceof ErrorSumup && err.status === 404) return null;
         throw err;
       }
+    },
+
+    /**
+     * Los cobros hechos (SUCCESSFUL, de tipo pago) desde `desde`, los más nuevos
+     * primero. Incluye los que la dueña cobre desde la app de SumUp sin Tentare.
+     */
+    async historial(merchantCode: string, p: { desde: Date; limite?: number }): Promise<MovimientoSumup[]> {
+      const q = new URLSearchParams({ oldest_time: p.desde.toISOString(), order: 'descending', limit: String(p.limite ?? 100) });
+      q.append('statuses[]', 'SUCCESSFUL');
+      q.append('types[]', 'PAYMENT');
+      const d = await pedir('GET', `/v2.1/merchants/${mc(merchantCode)}/transactions/history?${q.toString()}`) as { items?: unknown };
+      const items = Array.isArray(d?.items) ? d.items as { transaction_id?: unknown; id?: unknown; client_transaction_id?: unknown }[] : [];
+      return items.flatMap(i => {
+        const id = typeof i.transaction_id === 'string' ? i.transaction_id : typeof i.id === 'string' ? i.id : null;
+        if (!id) return [];
+        return [{ transaccionId: id, clientTransactionId: typeof i.client_transaction_id === 'string' ? i.client_transaction_id : null }];
+      });
     },
 
     /**

@@ -903,7 +903,7 @@ async function procesarEvento(
           ? await metodoRealBizum(stripe, pi, event.account)
           : 'TARJETA';
         const cierre = await cerrarReciboPos(admin, {
-          studioId, reciboId: reciboIdPos, metodoCobro, paymentIntentId: pi.id, referencia: pi.id,
+          studioId, reciboId: reciboIdPos, metodoCobro, paymentIntentId: pi.id, referencia: pi.id, aviso: 'stripe webhook',
         });
         if (!cierre.ok) return NextResponse.json({ error: cierre.error }, { status: 500 });
         await marcarProcesado();
@@ -919,7 +919,7 @@ async function procesarEvento(
         const cierre = await cerrarVentaPos(admin, {
           studioId, ventaId: ventaIdPos, referencia: pi.id,
           importe: (pi.amount_received ?? pi.amount ?? 0) / 100,
-          metodoPagoReal, concepto: pi.metadata.concepto ?? null,
+          metodoPagoReal, concepto: pi.metadata.concepto ?? null, aviso: 'stripe webhook',
         });
         if (!cierre.ok) return NextResponse.json({ error: cierre.error }, { status: 500 });
         capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: origenPos === 'pos_bizum' ? 'bizum' : 'terminal' } });

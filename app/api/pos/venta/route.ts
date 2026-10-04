@@ -342,6 +342,10 @@ export async function POST(req: NextRequest) {
       level: 'error', tags: { area: 'cobros' },
       extra: { ventaId: base.ventaId, referencia: inicio.referencia, error: errRef.message },
     });
+    // Con Stripe, su aviso firmado lo cierra igual (va por la metadata). Con SumUp
+    // nadie podría preguntar por él: se para el Solo y, si aun así cobra, lo recoge
+    // el repaso del historial (lib/pos/cobro-sumup.ts).
+    if (preparado.cobro.proveedor === 'sumup') await preparado.cobro.cancelar(inicio.referencia);
   }
 
   return NextResponse.json({

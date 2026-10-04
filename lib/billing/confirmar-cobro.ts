@@ -440,10 +440,18 @@ export async function confirmarCobro(
   if (error) return { ok: false, codigo: 'PERSISTENCIA', error: error.message };
 
   if (!marcado) {
-    const { data: fila, error: errLeer } = await admin.from('recibos')
-      .select('estado, stripe_payment_intent_id, sumup_transaction_id, conciliado_por, cobro_off_session_clave').eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
+    // `sumup_transaction_id` solo se lee cuando el cargo es de SumUp.
+    const { data: fila, error: errLeer } = p.cargoSumup
+      ? await admin.from('recibos')
+        .select('estado, stripe_payment_intent_id, sumup_transaction_id, conciliado_por, cobro_off_session_clave')
+        .eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle()
+      : await admin.from('recibos')
+        .select('estado, stripe_payment_intent_id, conciliado_por, cobro_off_session_clave')
+        .eq('id', p.reciboId).eq('studio_id', p.studioId).maybeSingle();
     if (errLeer) return { ok: false, codigo: 'PERSISTENCIA', error: errLeer.message };
-    const decision = resolverSinFilas(fila as FilaReciboSinCambios, p.paymentIntentId ?? p.cargoSumup ?? null);
+    const decision = p.cargoSumup
+      ? resolverSinFilas(fila as unknown as FilaReciboSinCambios, p.cargoSumup, 'sumup')
+      : resolverSinFilas(fila as unknown as FilaReciboSinCambios, p.paymentIntentId ?? null);
     switch (decision.tipo) {
       case 'no_encontrado':
         return { ok: false, codigo: 'NO_ENCONTRADO', error: 'Recibo no encontrado' };

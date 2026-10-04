@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cobrosParaBarrer, crearProveedorSumup, esDeEste, MINUTOS_ANTES_DE_BARRER, referenciaExterna } from './terminal-sumup.ts';
+import { cobrosParaBarrer, crearProveedorSumup, esDeEste, MINUTOS_ANTES_DE_BARRER, movimientosPorMirar, referenciaExterna } from './terminal-sumup.ts';
 import { ErrorSumup, leerReferenciaSumup, sumupPuedeCobrarAqui, type ClienteSumup, type TransaccionSumup } from './sumup.ts';
 
 // El Solo de SumUp detrás del mismo contrato que el datáfono de Stripe. Sin red:
@@ -76,9 +76,23 @@ test('iniciar: importe raro no llega a SumUp; token caducado y datáfono ocupado
   const ocupado = await proveedor(doble({ cobrar: new ErrorSumup(409, null, 'x') }).cliente)
     .iniciar({ importeCentimos: 100, concepto: 'x', ref: { reciboId: 'r' } });
   assert.match(!ocupado.ok ? ocupado.error : '', /otro cobro/);
-  const caido = await proveedor(doble({ cobrar: new Error('red') }).cliente)
+  const rechazado = await proveedor(doble({ cobrar: new ErrorSumup(422, null, 'x') }).cliente)
     .iniciar({ importeCentimos: 100, concepto: 'x', ref: { reciboId: 'r' } });
-  assert.match(!caido.ok ? caido.error : '', /encendido/);
+  assert.match(!rechazado.ok ? rechazado.error : '', /encendido/);
+});
+
+test('⚠️ iniciar sin respuesta clara no se da por «no cobrado» a secas: se para el Solo y se avisa de mirarlo', async () => {
+  for (const fallo of [new Error('red'), new ErrorSumup(502, null, 'sin id'), new ErrorSumup(503, null, 'x')]) {
+    const { cliente, llamadas } = doble({ cobrar: fallo });
+    const r = await proveedor(cliente).iniciar({ importeCentimos: 100, concepto: 'x', ref: { ventaId: 'v' } });
+    assert.equal(r.ok, false);
+    assert.match(!r.ok ? r.error : '', /Mira su pantalla/);
+    assert.deepEqual(llamadas.find(l => l.metodo === 'terminar')?.args, ['MC1', 'rdr-1']);
+  }
+  // Un «no» de SumUp no toca el lector (puede estar con otro cobro).
+  const { cliente, llamadas } = doble({ cobrar: new ErrorSumup(409, null, 'x') });
+  await proveedor(cliente).iniciar({ importeCentimos: 100, concepto: 'x', ref: { ventaId: 'v' } });
+  assert.equal(llamadas.some(l => l.metodo === 'terminar'), false);
 });
 
 test('consultar: pagada en euros → PAGADO con importe en céntimos, a quién pertenece y el cargo de SumUp', async () => {
@@ -114,6 +128,11 @@ test('consultar: sin transacción todavía espera; pasado el plazo, EXPIRADO; si
   assert.equal((await proveedor(doble({ transaccion: new Error('red') }).cliente).consultar(ref)).estado, 'PROCESANDO');
 });
 
+test('consultar: el importe que cuenta es SIN la propina (va dentro de amount)', async () => {
+  const c = await proveedor(doble({ transaccion: pagada({ amount: 14.5, tip_amount: 2 }) }).cliente).consultar('sumup:1759572000:ctx-abc12345');
+  assert.equal(c.importeCentimos, 1250);
+});
+
 test('⚠️ cancelar solo para el Solo si ESTE cobro sigue abierto: si ya acabó, el datáfono puede estar con otro', async () => {
   const emitida = Math.floor(T0.getTime() / 1000);
   const ref = `sumup:${emitida}:ctx-abc12345`;
@@ -127,11 +146,15 @@ test('⚠️ cancelar solo para el Solo si ESTE cobro sigue abierto: si ya acab�
   await proveedor(expirado.cliente, new Date(T0.getTime() + 600_000)).cancelar(ref);
   assert.equal(expirado.llamadas.some(l => l.metodo === 'terminar'), false);
 
-  for (const transaccion of [null, pagada({ status: 'PENDING' }), new Error('red')]) {
+  for (const transaccion of [null, pagada({ status: 'PENDING' })]) {
     const { cliente, llamadas } = doble({ transaccion });
     await proveedor(cliente).cancelar(ref);
     assert.deepEqual(llamadas.find(l => l.metodo === 'terminar')?.args, ['MC1', 'rdr-1']);
   }
+  // Sin respuesta de SumUp no se sabe qué hace el lector: no se para.
+  const mudo = doble({ transaccion: new Error('red') });
+  await proveedor(mudo.cliente).cancelar(ref);
+  assert.equal(mudo.llamadas.some(l => l.metodo === 'terminar'), false);
   // Que SumUp no deje parar no rompe: lo dirá la siguiente consulta.
   await proveedor(doble({ terminar: new Error('ocupado') }).cliente).cancelar(ref);
 });
@@ -173,4 +196,25 @@ test('cobrosParaBarrer: deja al mostrador sus primeros minutos, agrupa por estud
   assert.deepEqual([...g.keys()], ['st-1', 'st-2']);
   assert.deepEqual(g.get('st-1')?.map(c => c.objeto.id), ['v-1']);
   assert.deepEqual(g.get('st-2')?.map(c => [c.objeto.tipo, c.objeto.id, c.minutos]), [['recibo', 'r-2', MINUTOS_ANTES_DE_BARRER]]);
+});
+
+test('⚠️ movimientosPorMirar: lo cobrado que nada cerró ni espera, incluida la venta ANULADA que cobró', () => {
+  const clave = (t: string) => `sumup-txn:${t}`;
+  const sabido = {
+    recibosCerrados: new Set(['t-recibo']),
+    reconciliados: new Set(['sumup-txn:t-anotado']),
+    ventas: new Map<string, string | null>([['c-pagada', 'PAGADA'], ['c-pendiente', 'PENDIENTE_PAGO'], ['c-anulada', 'ANULADA']]),
+    recibosEnVuelo: new Set(['c-en-vuelo']),
+  };
+  const movs = [
+    { transaccionId: 't-recibo', clientTransactionId: 'c-1' },
+    { transaccionId: 't-anotado', clientTransactionId: 'c-2' },
+    { transaccionId: 't-3', clientTransactionId: 'c-pagada' },
+    { transaccionId: 't-4', clientTransactionId: 'c-pendiente' },
+    { transaccionId: 't-5', clientTransactionId: 'c-en-vuelo' },
+    { transaccionId: 't-6', clientTransactionId: 'c-anulada' },
+    { transaccionId: 't-7', clientTransactionId: 'c-desconocido' },
+    { transaccionId: 't-8', clientTransactionId: null },
+  ];
+  assert.deepEqual(movimientosPorMirar(movs, sabido, clave).map(m => m.transaccionId), ['t-6', 't-7']);
 });

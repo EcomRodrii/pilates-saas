@@ -143,8 +143,10 @@ export async function POST(req: NextRequest) {
           'El cobro salió bien pero no hemos podido cerrarlo. Avísanos antes de volver a cobrar.');
       }
 
+      // Solo si sigue siendo ESTE cobro: si entre medias empezó otro intento (otro
+      // cobro de SumUp en el Solo, otro PaymentIntent), ese no se suelta.
       await admin.from('recibos').update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
-        .eq('id', reciboId).eq('studio_id', sesion.studioId);
+        .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('cobro_mostrador_pi', recibo.cobro_mostrador_pi);
 
       return responder('PAGADO', { cobrado: true, yaEstaba: !res.actualizado });
     }
@@ -157,7 +159,7 @@ export async function POST(req: NextRequest) {
     // pendiente, que es la verdad. Solo se suelta la referencia para que el
     // siguiente intento empiece limpio.
     await admin.from('recibos').update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
-      .eq('id', reciboId).eq('studio_id', sesion.studioId);
+      .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('cobro_mostrador_pi', recibo.cobro_mostrador_pi);
     return responder(est.estado, { motivo: est.error ?? null });
   } catch (e) {
     return errorInterno('[pos/recibo] excepción al confirmar', e, 'No hemos podido comprobar el cobro.');

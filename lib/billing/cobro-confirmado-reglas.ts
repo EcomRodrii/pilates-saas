@@ -164,22 +164,30 @@ export type DecisionSinFilas =
  * alguien a mano (o por otra vía sin Stripe) y además ha entrado un cargo. Un
  * EN_CURSO con un cargo en vuelo distinto del que llega, también.
  *
- * `paymentIntentId` es el cargo que llega, sea de Stripe o del datáfono de SumUp;
- * el guardado es el que haya en cualquiera de las dos columnas. Un cargo de un
- * proveedor nunca coincide con uno del otro: es otro cobro.
+ * `paymentIntentId` es el cargo que llega, de Stripe o (con `proveedor: 'sumup'`)
+ * del datáfono de SumUp, y se compara con la columna de SU proveedor: un recibo
+ * que devolvió el banco conserva su PaymentIntent viejo, y si luego lo cobra
+ * SumUp, ese PaymentIntent no es «otro cobro» de la transacción de SumUp. Un
+ * cargo de un proveedor nunca coincide con uno del otro.
  */
-export function resolverSinFilas(fila: FilaReciboSinCambios, paymentIntentId: string | null): DecisionSinFilas {
+export function resolverSinFilas(
+  fila: FilaReciboSinCambios, paymentIntentId: string | null, proveedor: 'stripe' | 'sumup' = 'stripe',
+): DecisionSinFilas {
   if (!fila) return { tipo: 'no_encontrado' };
-  const anterior = fila.stripe_payment_intent_id ?? fila.sumup_transaction_id ?? null;
+  const stripe = fila.stripe_payment_intent_id ?? null;
+  const sumup = fila.sumup_transaction_id ?? null;
+  const propio = proveedor === 'sumup' ? sumup : stripe;
   if (fila.estado === 'COBRADO') {
-    if (!paymentIntentId || anterior === paymentIntentId) return { tipo: 'ya_estaba' };
-    return { tipo: 'otro_cobro', anterior };
+    if (!paymentIntentId || propio === paymentIntentId) return { tipo: 'ya_estaba' };
+    return { tipo: 'otro_cobro', anterior: propio ?? (proveedor === 'sumup' ? stripe : sumup) };
   }
-  if (fila.estado === 'DEVUELTO' && paymentIntentId && anterior === paymentIntentId) {
+  if (fila.estado === 'DEVUELTO' && paymentIntentId && propio === paymentIntentId) {
     return { tipo: 'devuelto' };
   }
-  if (fila.estado === 'EN_CURSO' && paymentIntentId && anterior && anterior !== paymentIntentId) {
-    return { tipo: 'otro_cobro', anterior };
+  // En vuelo solo hay cargos de Stripe (SEPA, tarjeta guardada): SumUp solo deja
+  // su cargo al cerrar el recibo.
+  if (fila.estado === 'EN_CURSO' && paymentIntentId && stripe && stripe !== paymentIntentId) {
+    return { tipo: 'otro_cobro', anterior: stripe };
   }
   if (!paymentIntentId && fila.cobro_off_session_clave && (fila.estado === 'PENDIENTE' || fila.estado === 'FALLIDO')) {
     return { tipo: 'cobro_en_marcha', estado: fila.estado };

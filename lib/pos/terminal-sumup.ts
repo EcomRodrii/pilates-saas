@@ -11,7 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {
-  ErrorSumup, estadoDesdeSumup, leerReferenciaSumup, referenciaSumup, type Afiliado, type ClienteSumup,
+  centimosSinPropina, ErrorSumup, estadoDesdeSumup, leerReferenciaSumup, referenciaSumup, type Afiliado, type ClienteSumup,
 } from './sumup.ts';
 import type { ConsultaCobro } from './consulta-stripe.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
@@ -41,6 +41,9 @@ export interface ProveedorSumup {
   cancelar(referencia: string): Promise<void>;
 }
 
+/** El `error` de una consulta que SumUp no contestó: ni pagado ni fallido. */
+export const SIN_RESPUESTA = 'SumUp no ha contestado';
+
 /** `venta:<id>` / `recibo:<id>`: viaja como `foreign_transaction_id` y vuelve en la transacción. */
 export function referenciaExterna(ref: PeticionCobroSumup['ref']): string {
   return ref.ventaId ? `venta:${ref.ventaId}` : `recibo:${ref.reciboId}`;
@@ -59,6 +62,12 @@ export function esDeEste(est: Pick<ConsultaCobro, 'metadata'>, studioId: string,
   return id === o.id && meta.studioId === studioId;
 }
 
+/**
+ * Lo que dice SumUp de a quién pertenece el cobro. ⚠️ El `studioId` es el del
+ * estudio que pregunta (su cuenta de SumUp), no algo que diga SumUp: lo que
+ * protege de cerrar algo de otra sede es que toda lectura y escritura filtra por
+ * `studio_id`, no esta metadata.
+ */
 function metadataDe(foreign: string | null | undefined, studioId: string): Record<string, string> {
   const m = /^(venta|recibo):(.+)$/.exec(foreign ?? '');
   if (!m) return {};
@@ -89,7 +98,7 @@ export function crearProveedorSumup(o: {
       }
       return {
         estado: estadoDesdeSumup(t, ref.emitidaEn, ahora()),
-        importeCentimos: t ? Math.round(t.amount * 100) : null,
+        importeCentimos: t ? centimosSinPropina(t) : null,
         metadata: metadataDe(t?.foreign_transaction_id, o.studioId),
         // Sin `metodoReal`, como el datáfono de Stripe: la venta sigue siendo
         // DATAFONO y el recibo, TARJETA (lo decide quien cierra).
@@ -98,7 +107,7 @@ export function crearProveedorSumup(o: {
     } catch (err) {
       // No se sabe: ni pagado ni fallido. Se vuelve a preguntar.
       console.error('[pos/sumup:consultar]', err instanceof Error ? err.message : err);
-      return { estado: 'PROCESANDO' };
+      return { estado: 'PROCESANDO', error: SIN_RESPUESTA };
     }
   }
 
@@ -122,15 +131,26 @@ export function crearProveedorSumup(o: {
         console.error('[pos/sumup:iniciar]', err instanceof ErrorSumup ? `${err.status} ${err.codigo ?? ''} ${err.message}` : err);
         if (err instanceof ErrorSumup && err.caducado) return { ok: false, error: 'La cuenta de SumUp necesita volver a conectarse. Pídeselo a la dueña del estudio.' };
         if (err instanceof ErrorSumup && err.status === 409) return { ok: false, error: 'El datáfono ya está con otro cobro. Termínalo o cancélalo en el datáfono y vuelve a intentarlo.' };
-        return { ok: false, error: 'No se pudo enviar el importe al datáfono. Comprueba que está encendido y con conexión.' };
+        // Un 4xx es un «no» de SumUp: el cobro no existe. Sin respuesta (red, 5xx o una
+        // respuesta sin id) NO se sabe: el importe puede estar en la pantalla del Solo.
+        // Se le pide que pare, y se dice que mire antes de cobrar otra vez. Si aun así
+        // la clienta paga, lo recogen el aviso y el repaso del historial.
+        if (err instanceof ErrorSumup && err.status >= 400 && err.status < 500 && err.status !== 408 && err.status !== 429) {
+          return { ok: false, error: 'No se pudo enviar el importe al datáfono. Comprueba que está encendido y con conexión.' };
+        }
+        try { await o.cliente.terminar(o.merchantCode, o.readerId); } catch { /* lo dirá la pantalla del Solo */ }
+        return { ok: false, error: 'No sabemos si el importe ha llegado al datáfono. Mira su pantalla: si está pidiendo la tarjeta, cancélalo allí antes de volver a cobrar.' };
       }
     },
 
     consultar,
 
     async cancelar(referencia) {
+      // Solo se para el Solo si este cobro sigue abierto SEGÚN SumUp. Sin respuesta
+      // no se sabe qué está haciendo el lector, y podría ser la venta de otra persona.
       const antes = await consultar(referencia);
       if (antes.estado !== 'PENDIENTE' && antes.estado !== 'PROCESANDO') return;
+      if (antes.error === SIN_RESPUESTA) return;
       try {
         await o.cliente.terminar(o.merchantCode, o.readerId);
       } catch (err) {
@@ -175,4 +195,42 @@ export function cobrosParaBarrer(
     porEstudio.set(f.studioId, lista);
   }
   return porEstudio;
+}
+
+// ── El historial: lo que cobró el Solo y nadie cerró ─────────────────────────
+
+/** Cuánto historial se repasa en cada barrido (horario): dos pasadas por cobro, con margen. */
+export const MINUTOS_DE_HISTORIAL = 135;
+
+export interface LoQueYaSabemos {
+  /** Transacciones con las que ya se cerró un recibo (`recibos.sumup_transaction_id`). */
+  recibosCerrados: ReadonlySet<string>;
+  /** Claves ya anotadas en `reconciliaciones_pos`. */
+  reconciliados: ReadonlySet<string>;
+  /** `client_transaction_id` de las ventas recientes con referencia `sumup:`, y su estado. */
+  ventas: ReadonlyMap<string, string | null>;
+  /** `client_transaction_id` de los recibos con un cobro de SumUp guardado (en vuelo). */
+  recibosEnVuelo: ReadonlySet<string>;
+}
+
+/**
+ * Del historial de la cuenta, los cobros que hay que mirar uno a uno: los que no
+ * cerraron nada y nada está esperando. Un cobro en vuelo lo resuelve el barrido
+ * por referencia; una venta ANULADA que aparece cobrada sí se mira (entró dinero).
+ * Los cobros hechos desde la app de SumUp sin Tentare también salen aquí: al
+ * mirarlos no traen nuestra referencia y se dejan.
+ */
+export function movimientosPorMirar(
+  movs: readonly { transaccionId: string; clientTransactionId: string | null }[],
+  sabido: LoQueYaSabemos,
+  clave: (transaccionId: string) => string,
+): { transaccionId: string; clientTransactionId: string }[] {
+  return movs.flatMap(m => {
+    if (!m.clientTransactionId) return [];
+    if (sabido.recibosCerrados.has(m.transaccionId) || sabido.reconciliados.has(clave(m.transaccionId))) return [];
+    if (sabido.recibosEnVuelo.has(m.clientTransactionId)) return [];
+    const venta = sabido.ventas.get(m.clientTransactionId);
+    if (venta === 'PAGADA' || venta === 'PENDIENTE_PAGO') return [];
+    return [{ transaccionId: m.transaccionId, clientTransactionId: m.clientTransactionId }];
+  });
 }
