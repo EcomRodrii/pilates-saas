@@ -26,6 +26,8 @@ import { esUrlAbrible, esVueltaDeOAuth, rutaDeAviso, rutaInternaDeEnlace } from 
 import { bytesABase64, nombreDeFicheroSeguro } from './ficheros.ts';
 import { prepararNonceApple } from './nonce.ts';
 import { esNativoSegun } from './plataforma.ts';
+import { esCancelacion, formaDeCompartir } from './compartir.ts';
+import type { TintaBarra } from './barra-de-estado.ts';
 import type { AvisoPulsado, RegistroTokenNativo, ResultadoLoginApple } from './tipos.ts';
 
 export type { AvisoPulsado, RegistroTokenNativo, ResultadoLoginApple } from './tipos.ts';
@@ -136,6 +138,85 @@ export async function compartirFichero(f: FicheroParaCompartir): Promise<{ ok: t
   } catch (e) {
     const mensaje = e instanceof Error ? e.message : String(e);
     return { error: /cancel/i.test(mensaje) ? 'cancelado' : mensaje };
+  }
+}
+
+// ─── Compartir un texto con su enlace ─────────────────────────────────────
+
+/**
+ * La hoja de compartir del sistema con una frase y un enlace: en la app, la
+ * nativa de iOS; en un navegador que la tenga (`navigator.share`), la suya.
+ *
+ * Devuelve `'copiar'` cuando no hay hoja (escritorio) o la hoja falló: quien
+ * llama copia entonces al portapapeles, que es lo que se hacía siempre — y
+ * comprueba que se copió de verdad (ver `copiarAlPortapapeles`). `'cancelado'`
+ * = cerró la hoja sin elegir: no se enseña nada.
+ */
+/** ¿Hay hoja de compartir del sistema (la app, o un navegador con `navigator.share`)? */
+export function hayHojaDeCompartir(): boolean {
+  return formaDeCompartir({
+    nativa: esAppNativa(),
+    hayWebShare: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
+  }) !== 'copiar';
+}
+
+export async function compartirTexto(c: { titulo: string; texto: string; url?: string }): Promise<'compartido' | 'cancelado' | 'copiar'> {
+  const forma = formaDeCompartir({
+    nativa: esAppNativa(),
+    hayWebShare: typeof navigator !== 'undefined' && typeof navigator.share === 'function',
+  });
+  if (forma === 'copiar') return 'copiar';
+  try {
+    if (forma === 'nativa') {
+      const { Share } = await import('@capacitor/share');
+      await Share.share({ title: c.titulo, text: c.texto, url: c.url, dialogTitle: c.titulo });
+    } else {
+      await navigator.share({ title: c.titulo, text: c.texto, ...(c.url ? { url: c.url } : null) });
+    }
+    return 'compartido';
+  } catch (e) {
+    return esCancelacion(e) ? 'cancelado' : 'copiar';
+  }
+}
+
+// ─── Vibración (Taptic Engine) ────────────────────────────────────────────
+
+/**
+ * Un toque del motor háptico, como las apps nativas. Fuera de la app no hace
+ * nada (y no se descarga el plugin).
+ *
+ *   · `exito` — el servidor ha CONFIRMADO algo (una reserva). Nunca antes de
+ *     que conteste: vibrar y que luego diga que no sería mentir con la mano.
+ *   · `aviso` — algo salió bien pero conviene notarlo (una cancelación hecha).
+ *   · `suave` — un cambio de selección: de pestaña abajo, de día en el horario.
+ */
+export async function vibrar(tipo: 'exito' | 'aviso' | 'suave'): Promise<void> {
+  if (!esAppNativa()) return;
+  try {
+    const { Haptics, ImpactStyle, NotificationType } = await import('@capacitor/haptics');
+    if (tipo === 'suave') await Haptics.impact({ style: ImpactStyle.Light });
+    else await Haptics.notification({ type: tipo === 'exito' ? NotificationType.Success : NotificationType.Warning });
+  } catch {
+    // Sin motor háptico (iPad, simulador) no pasa nada: es un adorno.
+  }
+}
+
+// ─── Barra de estado ──────────────────────────────────────────────────────
+
+/**
+ * Letras claras u oscuras en la barra de estado (hora, batería). Lo decide
+ * `tintaBarraDeEstado` (barra-de-estado.ts) según lo que hay detrás.
+ *
+ * ⚠️ En Capacitor `Style.Dark` significa «para fondos oscuros», o sea letras
+ * CLARAS; `Style.Light`, letras oscuras. Se traduce aquí una vez.
+ */
+export async function estiloBarraDeEstado(tinta: TintaBarra): Promise<void> {
+  if (!esAppNativa()) return;
+  try {
+    const { StatusBar, Style } = await import('@capacitor/status-bar');
+    await StatusBar.setStyle({ style: tinta === 'clara' ? Style.Dark : Style.Light });
+  } catch {
+    // Sin el plugin la barra se queda como la deja iOS: no rompe nada.
   }
 }
 

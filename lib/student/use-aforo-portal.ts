@@ -33,7 +33,9 @@ export function useAforoEnVivoPortal(
   // payload completo de todos modos —su reserva vive en la parte `socia`, no en
   // el aforo anónimo—, así que saber CUÁL cambió no ahorraría nada.
   const alCambiar = useCallback(() => {
-    if (slug) invalidarCatalogo(slug);
+    // Lo ha cambiado otra persona (o el estudio): lo que recuerdan las demás
+    // pestañas se conserva y se refresca al volver a ellas.
+    if (slug) invalidarCatalogo(slug, { conservarVistas: true });
     void refrescar();
   }, [slug, refrescar]);
 

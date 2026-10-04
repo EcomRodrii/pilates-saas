@@ -2,8 +2,9 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { abrirFuera, alAbrirEnlace, alPulsarAviso, esAppNativa, esVueltaDeOAuth, ocultarPantallaDeCarga } from '@/lib/nativo/puente';
+import { abrirFuera, alAbrirEnlace, alPulsarAviso, esAppNativa, estiloBarraDeEstado, esVueltaDeOAuth, ocultarPantallaDeCarga } from '@/lib/nativo/puente';
 import { destinoDeEnlace } from '@/lib/nativo/destino-enlace';
+import { tintaBarraDeEstado } from '@/lib/nativo/barra-de-estado';
 
 /**
  * Lo que la app de iOS necesita en TODAS sus pantallas, y que en la web no hace
@@ -15,11 +16,19 @@ import { destinoDeEnlace } from '@/lib/nativo/destino-enlace';
  * - Pulsar un aviso lleva a su pantalla.
  * - Un enlace universal (el del correo, la vuelta de un pago) lleva a su ruta.
  * - Al montarse, la página ya está pintada: quita el logo del arranque.
+ * - La barra de estado, con letras que se lean sobre el fondo de la app
+ *   (`fondoOscuro`: el estilo «Carbón» del estudio). Las pantallas con foto
+ *   arriba la cambian ellas (`StudioHeader`).
  *
  * Se monta en la app de cada estudio y en la entrada (`/app`).
  */
-export function PuenteNativo() {
+export function PuenteNativo({ fondoOscuro = false }: { fondoOscuro?: boolean } = {}) {
   const r = useRouter();
+
+  useEffect(() => {
+    if (!esAppNativa()) return;
+    void estiloBarraDeEstado(tintaBarraDeEstado({ fondoOscuro }));
+  }, [fondoOscuro]);
 
   useEffect(() => {
     if (!esAppNativa()) return;

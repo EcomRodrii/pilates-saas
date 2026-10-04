@@ -4,6 +4,10 @@ import { useEstudio } from '@/components/student/contexto';
 import { Foto } from '@/components/student/ui/Foto';
 import { renglonesDeAcceso } from '@/lib/student/titulo-acceso';
 import { MarcaEstudio } from '@/components/student/shell/StudioHeader';
+import { useEffect } from 'react';
+import { estiloBarraDeEstado } from '@/lib/nativo/puente';
+import { tintaBarraDeEstado } from '@/lib/nativo/barra-de-estado';
+import { estiloPorId } from '@/lib/student/apariencia';
 
 /**
  * Marco de acceso: portada fotográfica oscura arriba, formulario sobre crema
@@ -20,6 +24,13 @@ import { MarcaEstudio } from '@/components/student/shell/StudioHeader';
  */
 export default function AccesoLayout({ children }: { children: React.ReactNode }) {
   const { estudio } = useEstudio();
+  // Arriba va SIEMPRE la portada oscura: en la app de iOS, hora y batería en
+  // claro. Al salir, como corresponda al fondo del estudio.
+  const fondoOscuro = estiloPorId(estudio.apariencia.estilo).oscuro === true;
+  useEffect(() => {
+    void estiloBarraDeEstado(tintaBarraDeEstado({ fondoOscuro, sobreFoto: true }));
+    return () => { void estiloBarraDeEstado(tintaBarraDeEstado({ fondoOscuro })); };
+  }, [fondoOscuro]);
 
   return (
     <div className="st-auth">

@@ -38,6 +38,8 @@ import { AutoReservable } from '@/components/student/domain/AutoReservable';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 import { cuandoSeAbre, etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
 import { useAunNoAbre } from '@/lib/reservar/use-aun-no-abre';
+import { vibrar } from '@/lib/nativo/puente';
+import { CompartirClase } from '@/components/student/domain/CompartirClase';
 
 // Ficha de clase + hoja de reserva (§A.7). Es la pantalla donde la máquina de
 // estados del paquete se conecta al servidor real.
@@ -155,6 +157,8 @@ export default function FichaClasePage() {
       spotId: hueco,
     });
     setBk(r.state);
+    // El toque de «hecho», SOLO cuando el servidor ha dicho que sí.
+    if (r.state === 'confirmed') void vibrar('exito');
     // Si pidió sitio y NO se lo dieron, se dice. El servidor lo responde en
     // `spotAsignado` desde siempre; callarlo la dejaría llegando al estudio
     // convencida de que tiene el que eligió. El texto es el canónico
@@ -278,9 +282,16 @@ export default function FichaClasePage() {
 
         {inst && <InstructorCard i={inst} onClick={() => setVerInstructora(true)} />}
 
-        <p style={{ margin: 0, fontSize: 'var(--t-small)', lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
-          {clase.descripcion ?? `Grupo reducido de ${clase.capacidad} personas. Ven con calcetines antideslizantes; si es tu primera vez, llega 10 minutos antes.`}
-        </p>
+        {/* Solo la descripción que escribió el estudio. Sin ella no se pinta
+            nada: antes se INVENTABA una («Grupo reducido de N personas. Ven con
+            calcetines antideslizantes; si es tu primera vez, llega 10 minutos
+            antes»), con normas que ese estudio quizá no tiene. El aforo real ya
+            está en la tarjeta de abajo («Capacidad»). */}
+        {clase.descripcion?.trim() && (
+          <p style={{ margin: 0, fontSize: 'var(--t-small)', lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
+            {clase.descripcion}
+          </p>
+        )}
 
         <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Fila k="Cuándo" v={`${etiquetaDia(clase.fecha)} · ${clase.hora} – ${horaFin(clase.hora, clase.duracionMin)}`} />
@@ -306,6 +317,9 @@ export default function FichaClasePage() {
           onCambio={refrescar}
         />
 
+        {/* Una clase que ya terminó no se ofrece a nadie. */}
+        {!terminada && <CompartirClase clase={clase} />}
+
         {!online && <OfflineState cuerpo="Puedes ver la clase, pero reservar necesita conexión." />}
       </div>
 
@@ -314,7 +328,9 @@ export default function FichaClasePage() {
         style={{
           position: 'fixed', left: 0, right: 0, bottom: 'var(--nav-total)',
           zIndex: 39, padding: '10px 16px 12px',
-          background: 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)',
+          // Del fondo del ESTILO del estudio, no un crema fijo: con «Carbón» era
+          // una franja crema sobre una app oscura.
+          background: 'linear-gradient(180deg, transparent, var(--background) 40%)',
           maxWidth: 640, margin: '0 auto',
         }}
       >

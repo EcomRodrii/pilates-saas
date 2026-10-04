@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEstudio } from '@/components/student/contexto';
 import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
+import { vibrar } from '@/lib/nativo/puente';
 
 // Nav inferior. Del paquete (`components/shell/BottomNavigation.tsx`): mismos
 // cinco destinos, mismas etiquetas.
@@ -86,16 +87,31 @@ export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
           // La raíz (Inicio / Hoy) solo se ilumina en su ruta exacta; el resto,
           // también en sus subrutas (`/reservar/c1` mantiene «Reservar» activa).
           const on = t.ruta === raiz ? path === destino : path.startsWith(destino);
+          const conNumero = t.ruta === '/mis-reservas' && badgeReservas > 0;
           return (
             <Link
               key={t.ruta || 'inicio'}
               href={destino}
+              // ⚠️ `scroll={false}`: el scroll de cada pestaña lo pone el marco
+              // (`useMemoriaDePestana`), que la devuelve donde se dejó. Con el
+              // del router, volver a «Reservar» la subía siempre arriba. Solo
+              // en la de la alumna: la instructora no tiene esa memoria.
+              scroll={modo !== 'alumna'}
+              onClick={() => {
+                // Tocar la pestaña en la que ya está la sube arriba, como en iOS.
+                if (path === destino) window.scrollTo({ top: 0, behavior: 'smooth' });
+                else void vibrar('suave');
+              }}
               aria-current={on ? 'page' : undefined}
+              // El número va pintado con `aria-hidden` (es un adorno visual
+              // encima del icono), así que el nombre accesible lo lleva entero:
+              // VoiceOver leía «Mis clases» y se callaba que había algo nuevo.
+              aria-label={conNumero ? `${t.label}, ${badgeReservas}` : undefined}
               style={{ position: 'relative', minWidth: 56, minHeight: 44, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, color: on ? 'var(--foreground)' : 'var(--subtle-foreground)', transition: 'color .2s' }}
             >
               <Icono nombre={t.icono} tamano={22} />
               <span style={{ fontSize: 'var(--t-micro)', fontWeight: 800 }}>{t.label}</span>
-              {t.ruta === '/mis-reservas' && badgeReservas > 0 && (
+              {conNumero && (
                 <span aria-hidden style={{ position: 'absolute', top: 2, right: 8, minWidth: 15, height: 15, borderRadius: 99, background: 'var(--accent)', color: 'var(--accent-foreground)', fontSize: 'var(--t-micro)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', animation: 'apDot .4s both' }}>
                   {badgeReservas}
                 </span>

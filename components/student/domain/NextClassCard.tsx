@@ -9,7 +9,7 @@ import { estaEnCurso } from '@/lib/student/estado-clase';
 // es la única del proyecto. Aquí cuelgan del slug del estudio, así que pasan
 // por `usePortalHref()`: dejarlos absolutos mandaría a la alumna a la landing
 // de Tentare o al panel.
-/** Card "Tu próxima clase" del kit: foto + overlay verde noche, texto claro, acciones. */
+/** Card "Tu próxima clase" del kit: foto + velo del color del estudio, texto claro, acciones. */
 export function NextClassCard({ reserva, clase, instructora, onCalendario, onComoLlegar }: { reserva: Reserva; clase: Clase; instructora?: Instructora; onCalendario?: () => void; onComoLlegar?: () => void }) {
   const href = usePortalHref();
   // Si la clase se está dando, esta tarjeta deja de ser «tu PRÓXIMA clase» y
@@ -20,7 +20,10 @@ export function NextClassCard({ reserva, clase, instructora, onCalendario, onCom
   return (
     <section aria-label={enCurso ? 'Tu clase de ahora' : 'Tu próxima clase'} className="a-pop" style={{ position: 'relative', borderRadius: 'var(--radius-hero)', overflow: 'hidden', boxShadow: 'var(--shadow-hero)', color: 'var(--accent-deep-foreground)' }}>
       <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'url(' + clase.fotoUrl + ') center/cover' }} />
-      <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(100deg, rgba(18,41,26,.95), rgba(18,41,26,.68))' }} />
+      {/* El velo es del COLOR DEL ESTUDIO (`--accent-deep`, student.css →
+          `.velo-marca`), no el verde noche fijo del kit: un estudio terracota
+          veía aquí una tarjeta verde. */}
+      <div aria-hidden className="velo-marca" />
       <div style={{ position: 'relative', padding: '14px 15px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {/* El punto ya latía aquí de adorno. En curso se enciende de verdad:

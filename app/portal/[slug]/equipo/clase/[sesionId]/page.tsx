@@ -270,7 +270,7 @@ export default function FichaClaseInstructoraPage() {
           style={{
             position: 'fixed', left: 0, right: 0, bottom: 'var(--nav-total)',
             zIndex: 39, padding: '10px 16px 12px',
-            background: 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)',
+            background: 'linear-gradient(180deg, transparent, var(--background) 40%)',
             maxWidth: 640, margin: '0 auto',
             display: 'flex', flexDirection: 'column', gap: 8,
           }}
