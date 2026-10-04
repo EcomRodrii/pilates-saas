@@ -619,7 +619,7 @@ export interface RowRecibos {
   cobro_off_session_clave: string | null;
   // migr 20261002230302.
   cobro_off_session_desde: string | null;
-  // migr 20261004120000.
+  // migr 20261004125559.
   sumup_transaction_id: string | null;
 }
 
@@ -1104,7 +1104,7 @@ export interface RowStudios {
   supresion_pedida_en: string | null;
   // migr 20261003102845.
   exigir_doble_factor: boolean | null;
-  // migr 20261004120000.
+  // migr 20261004125559.
   sumup_reader_id: string | null;
 }
 
