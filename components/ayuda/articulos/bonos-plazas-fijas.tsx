@@ -8,13 +8,13 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        «Ana viene todos los martes a las 10». Eso es una plaza fija: su hueco reservado cada semana, sin que
+        «Ana viene todos los martes a las 10». Eso es una clase fija: su hueco reservado cada semana, sin que
         tenga que entrar a reservarlo ni tú apuntarla a mano.
       </AyudaAntesDeEmpezar>
 
       <h2 style={{ ...h2, marginTop: 4 }}>¿Cómo se marca una alumna en una clase fija?</h2>
       <p>
-        Para que una alumna no tenga que reservar su clase cada semana, necesita una plaza fija en ella. Hay tres
+        Para que una alumna no tenga que reservar su clase cada semana, necesita una clase fija en ella. Hay tres
         maneras de dársela:
       </p>
       <ul style={{ margin: '0 0 12px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -25,11 +25,11 @@ export default function Contenido() {
           <strong>«Clase fija»</strong> y elige cuánto tiempo (de serie, sin fin). No se enciende hasta que queda
           confirmado: tú la apruebas en Resumen, o se da sola si cumple tus reglas (lo eliges en ese mismo ajuste). Si
           viene dos días, la activa en las dos clases.</li>
-        <li><strong>Al darle una cuota</strong>, te preguntamos si le das plaza fija.</li>
+        <li><strong>Al darle una cuota</strong>, te preguntamos si le das clase fija.</li>
       </ul>
       <p>
         En los tres casos <strong>hace falta que tenga una cuota</strong> que incluya esa clase. Con un bono o con
-        clases sueltas no hay plaza fija: se reserva clase a clase. Por eso a una alumna con bono no le sale el
+        clases sueltas no hay clase fija: se reserva clase a clase. Por eso a una alumna con bono no le sale el
         interruptor: en su lugar, en la ficha de la clase, puede reservar de una vez las próximas semanas, descontando una
         sesión de su bono por cada una.
       </p>
@@ -54,27 +54,27 @@ export default function Contenido() {
 
       <h2 style={h2}>Cómo se asigna</h2>
       <p>
-        En la ficha de la alumna, bloque <strong>«Plaza fija»</strong> → «Añadir»; desde una clase del
-        calendario, en el «⋯» junto a su nombre → <strong>«Hacerle plaza fija»</strong>; o en la vista <strong>«Horario»</strong>
-        del calendario con «+ Plaza fija» en la clase. En todos los casos <strong>eliges la
+        En la ficha de la alumna, bloque <strong>«Clase fija»</strong> → «Añadir»; desde una clase del
+        calendario, en el «⋯» junto a su nombre → <strong>«Darle clase fija»</strong>; o en la vista <strong>«Horario»</strong>
+        del calendario con «+ Clase fija» en la clase. En todos los casos <strong>eliges la
         clase</strong> de tu horario a la que viene cada semana (y, si tu sala tiene máquinas numeradas, su
-        sitio). Ves cuántas plazas fijas tiene ya cada clase.
+        sitio). Ves cuántas alumnas con clase fija tiene ya cada clase.
       </p>
       <p>
         Y al asignarle una <strong>cuota</strong> —desde su ficha, o al darla de alta o editarla con una cuota— te
-        preguntamos si le das plaza fija, que es justo cuando sabes a qué clase viene: «Elegir su clase» abre el
-        mismo diálogo y «Ahora no» no guarda nada. Con un bono, o si ya tiene plaza fija, no se pregunta.
+        preguntamos si le das clase fija, que es justo cuando sabes a qué clase viene: «Elegir su clase» abre el
+        mismo diálogo y «Ahora no» no guarda nada. Con un bono, o si ya tiene clase fija, no se pregunta.
       </p>
       <p>
         Hace falta que tenga una <strong>cuota</strong> activa que incluya esa clase. Con bono no se puede: las
-        reservas de una plaza fija no descuentan sesiones, así que con bono se reserva clase a clase. Si la cuota
-        tiene un máximo de clases por semana y ya tiene esas plazas fijas, te avisa antes y puedes asignarla
+        reservas de una clase fija no descuentan sesiones, así que con bono se reserva clase a clase. Si la cuota
+        tiene un máximo de clases por semana y ya tiene esas clases fijas, te avisa antes y puedes asignarla
         igualmente.
       </p>
       <h2 style={h2}>Si se queda sin cuota</h2>
       <p>
         Cuando su cuota deja de estar activa —la cancelas, la pausas, termina tras darse de baja o se cancela porque no
-        se pudo cobrar— su plaza fija <strong>sigue guardada con su sitio</strong> y ya no se le reservan clases nuevas.
+        se pudo cobrar— su clase fija <strong>sigue guardada con su sitio</strong> y ya no se le reservan clases nuevas.
         Qué pasa con las que ya tenía reservadas <strong>lo eliges tú</strong>, en Configuración → «Cómo reservan mis
         alumnas» → «Si se queda sin cuota»:
       </p>
@@ -88,7 +88,7 @@ export default function Contenido() {
           cobra.
         </li>
         <li>
-          <strong>Liberar sus clases</strong>: se cancelan todas sus reservas futuras de plaza fija, también las de
+          <strong>Liberar sus clases</strong>: se cancelan todas sus reservas futuras de clase fija, también las de
           dentro de tu plazo de cancelación, sin penalización; si hay alguien en lista de espera, entra en su lugar. Desde
           su ficha pasa al momento; si ocurre por otro lado, esa misma noche.
         </li>
@@ -115,13 +115,13 @@ export default function Contenido() {
       <h2 style={h2}>Si cambias el horario de la clase</h2>
       <p>
         Cuando editas <strong>toda una serie</strong> desde una fecha —«guardar esta y las siguientes»— las
-        plazas fijas de ese hueco se mueven con ella, conservando la antigüedad de cada alumna. Esa antigüedad
-        importa: es lo que decide el turno cuando hay más plazas fijas que sitios.
+        clases fijas de ese hueco se mueven con ella, conservando la antigüedad de cada alumna. Esa antigüedad
+        importa: es lo que decide el turno cuando hay más clases fijas que sitios.
       </p>
       <p>
         Mover <strong>una clase suelta</strong> no las mueve, y es a propósito: un cambio puntual es una
         excepción de esa semana, no un cambio de horario. La reserva ya creada viaja con la clase, y el
-        calendario te avisa de que ese hueco tiene plazas fijas antes de que confirmes.
+        calendario te avisa de que ese hueco tiene clases fijas antes de que confirmes.
       </p>
 
       <h2 style={h2}>Cambiarle el hueco a una alumna</h2>
@@ -134,7 +134,7 @@ export default function Contenido() {
       <h2 style={h2}>Cuando una semana no puede venir</h2>
       <p>
         Que pulse <strong>«No puedo asistir»</strong> en esa semana, en su tarjeta «Tu clase fija» o en «Mis clases». Solo se
-        cancela esa clase; al ser plaza fija no se le devuelve sesión de bono —no se le había descontado ninguna—. Si
+        cancela esa clase; al ser clase fija no se le devuelve sesión de bono —no se le había descontado ninguna—. Si
         cancela a tiempo y su plan le limita las clases por semana, se le guarda una{' '}
         <Link href="/ayuda/bonos/recuperaciones" style={enlace}>recuperación</Link>. La semana siguiente su plaza
         sigue ahí, y el sistema no vuelve a reservarle la que canceló.
@@ -153,15 +153,15 @@ export default function Contenido() {
       </p>
       <p>
         Si prefieres que durante una pausa larga <strong>su sitio quede libre</strong> para otra alumna, actívalo en
-        Configuración → «Cómo reservan mis alumnas» → «Si pausa su plaza fija». Vale para las pausas nuevas —las que ya
+        Configuración → «Cómo reservan mis alumnas» → «Si pausa su clase fija». Vale para las pausas nuevas —las que ya
         tengas puestas siguen igual— y solo suelta el sitio en pausas de más de una semana. Una semana antes de que
         acabe, Tentare le devuelve la plaza si su sitio sigue libre y tiene cuota, o te lo pregunta en Resumen, según lo
-        que elijas ahí. Si le dices que no vuelva, se le quita la plaza fija.
+        que elijas ahí. Si le dices que no vuelva, se le quita la clase fija.
       </p>
 
       <h2 style={h2}>Si te la piden desde su app</h2>
       <p>
-        De serie, tus alumnas pueden <strong>pedir</strong> una plaza fija desde su app, con el interruptor «Clase fija»
+        De serie, tus alumnas pueden <strong>pedir</strong> una clase fija desde su app, con el interruptor «Clase fija»
         de la ficha de cada clase que se repite. En Configuración → «Cómo reservan mis alumnas» → «Peticiones desde su app» puedes apagarlo
         si prefieres darlas solo tú en recepción, y dejar que pidan una pausa de la suya. De serie son peticiones:{' '}
         <strong>hasta que las apruebas no cambia nada</strong>, y mientras tanto ella sigue reservando como siempre.
@@ -172,20 +172,20 @@ export default function Contenido() {
         propietaria, desde ahí llegas al ajuste.
       </p>
       <p>
-        Te llega un aviso y las decides en Resumen, en «{'Una petición de plaza fija espera tu respuesta'}». Si con esa
+        Te llega un aviso y las decides en Resumen, en «{'Una petición de clase fija espera tu respuesta'}». Si con esa
         plaza pasaría del límite de clases por semana de su cuota, te lo decimos ahí y decides tú. Ella ve tu respuesta
         en su app, con el motivo que escribas si no la apruebas.
       </p>
       <p>
         Si no quieres decidir una por una, en «Cuando la piden» elige <strong>«Se da sola si cumple mis reglas»</strong>.
-        Entonces la plaza fija se le da al momento si tiene una cuota que incluye la clase, el nivel que pide, no pasa del
+        Entonces la clase fija se le da al momento si tiene una cuota que incluye la clase, el nivel que pide, no pasa del
         límite de clases por semana de su cuota, no tiene un pago pendiente que te bloquee reservar, la clase no exige que
-        apruebes cada reserva y las plazas fijas de esa clase no pasan del porcentaje de su aforo que pongas. Si algo de
+        apruebes cada reserva y las alumnas con clase fija de esa clase no pasan del porcentaje de su aforo que pongas. Si algo de
         eso falla, te llega a Resumen como siempre y decides tú. Pasar del límite de su cuota nunca se aprueba solo, y las
         pausas siempre las decides tú.
       </p>
 
-      <h2 style={h2}>Quitar una plaza fija</h2>
+      <h2 style={h2}>Quitar una clase fija</h2>
       <p>
         Con la papelera de la plaza, en su ficha. Deja de reservarle esa clase y <strong>cancela las que ya
         tenía apuntadas</strong> en ese horario, sin penalización; si hay alguien en lista de espera, entra en su
@@ -194,7 +194,7 @@ export default function Contenido() {
       </p>
 
       <AyudaResultado>
-        Si una plaza fija se queda sin clase a la que engancharse —porque cambió el horario y no se movió, o
+        Si una clase fija se queda sin clase a la que engancharse —porque cambió el horario y no se movió, o
         porque esa clase ya no existe— lo verás en su ficha («Sin clase en este horario») y en Centro de Control,
         dentro de «Ver todo el detalle», en vez de dejar de funcionar en silencio.
       </AyudaResultado>

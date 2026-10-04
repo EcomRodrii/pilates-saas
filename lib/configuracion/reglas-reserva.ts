@@ -216,7 +216,7 @@ export function reglasDeTarjetaAGuardar(
   // El mismo rango que el CHECK de `studios`: la base lo rechazaría con un error sin explicar.
   if (tarjeta === 'plaza-fija-desde-la-app' && form.plazaFijaAprobacion === 'AUTOMATICA'
     && !(Number.isInteger(form.plazaFijaAutoTopePct) && form.plazaFijaAutoTopePct >= 10 && form.plazaFijaAutoTopePct <= 100)) {
-    return { ok: false, texto: 'El porcentaje de plazas fijas por clase va de 10 a 100.' };
+    return { ok: false, texto: 'El porcentaje de alumnas con clase fija por clase va de 10 a 100.' };
   }
   if (tarjeta === 'lista-de-espera') {
     const lista = valoresDeListaEspera(form.listaEspera, guardado);
@@ -444,20 +444,20 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
       // LIBERAR o MANTENER_SIN_PENALIZAR (`omitirPorPlazaFijaSinCuota`).
       switch (r.plazaFijaSinCuota) {
         case 'LIBERAR':
-          return 'Si una alumna con plaza fija se queda sin cuota, se liberan sus clases futuras sin penalización. Su plaza, la serie y las clases pasadas no cambian.';
+          return 'Si una alumna con clase fija se queda sin cuota, se liberan sus clases futuras sin penalización. Su plaza, la serie y las clases pasadas no cambian.';
         case 'MANTENER_SIN_PENALIZAR':
-          return 'Si una alumna con plaza fija se queda sin cuota, conserva las clases ya reservadas y no se le cobra si falta.';
+          return 'Si una alumna con clase fija se queda sin cuota, conserva las clases ya reservadas y no se le cobra si falta.';
         case 'MANTENER':
-          return 'Si una alumna con plaza fija se queda sin cuota, conserva las clases ya reservadas con tus reglas de siempre.';
+          return 'Si una alumna con clase fija se queda sin cuota, conserva las clases ya reservadas con tus reglas de siempre.';
       }
     case 'plaza-fija-desde-la-app': {
       // Las puertas de `/api/public/plaza-fija`: con el ajuste apagado, 403.
-      const puede = [r.plazaFijaSolicitarDesdeApp ? 'una plaza fija' : null, r.plazaFijaPausaDesdeApp ? 'una pausa' : null].filter(Boolean);
-      if (puede.length === 0) return 'Desde su app no piden nada: las plazas fijas y las pausas se dan en recepción.';
+      const puede = [r.plazaFijaSolicitarDesdeApp ? 'una clase fija' : null, r.plazaFijaPausaDesdeApp ? 'una pausa' : null].filter(Boolean);
+      if (puede.length === 0) return 'Desde su app no piden nada: las clases fijas y las pausas se dan en recepción.';
       // Solo la plaza fija suelta se aprueba sola; la pausa la decide siempre el estudio.
       const sola = r.plazaFijaSolicitarDesdeApp && r.plazaFijaAprobacion === 'AUTOMATICA';
       if (sola) {
-        return `Desde su app pueden pedir ${puede.join(' o ')}. La plaza fija se da sola si cumple tus reglas y no pasa del ${r.plazaFijaAutoTopePct} % del aforo de la clase; si no, te llega a Resumen.${r.plazaFijaPausaDesdeApp ? ' Las pausas las apruebas tú.' : ''}`;
+        return `Desde su app pueden pedir ${puede.join(' o ')}. La clase fija se da sola si cumple tus reglas y no pasa del ${r.plazaFijaAutoTopePct} % del aforo de la clase; si no, te llega a Resumen.${r.plazaFijaPausaDesdeApp ? ' Las pausas las apruebas tú.' : ''}`;
       }
       return `Desde su app pueden pedir ${puede.join(' o ')}. No cambia nada hasta que lo apruebes en Resumen.`;
     }
@@ -478,7 +478,7 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
 
 /** Lo que se lee arriba del cajón: cuándo se aplica y qué no cambia nunca. */
 export const EXPLICACION_PLAZA_FIJA_SIN_CUOTA =
-  'Cuando la cuota de una alumna con plaza fija deja de estar activa —la cancelas, la pausas, termina tras darse de baja o se cancela porque no se pudo cobrar— su plaza fija sigue guardada y no se le reservan clases nuevas. Aquí eliges qué pasa con las que ya tenía reservadas. Mientras la renovación solo esté pendiente de cobro, su cuota sigue activa. Las clases que ya pasaron no se tocan nunca.';
+  'Cuando la cuota de una alumna con clase fija deja de estar activa —la cancelas, la pausas, termina tras darse de baja o se cancela porque no se pudo cobrar— su clase fija sigue guardada y no se le reservan clases nuevas. Aquí eliges qué pasa con las que ya tenía reservadas. Mientras la renovación solo esté pendiente de cobro, su cuota sigue activa. Las clases que ya pasaron no se tocan nunca.';
 
 export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaSinCuota; titulo: string; detalle: string }[] = [
   { valor: 'MANTENER', titulo: 'Como hasta ahora', detalle: 'Conserva las clases que ya tenía reservadas y se aplican tus reglas de siempre.' },
@@ -486,7 +486,7 @@ export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaS
   {
     valor: 'LIBERAR',
     titulo: 'Liberar sus clases',
-    detalle: 'Se cancelan todas sus reservas futuras de plaza fija, también las de dentro de tu plazo de cancelación, sin penalización. Si hay lista de espera, entra la siguiente.',
+    detalle: 'Se cancelan todas sus reservas futuras de clase fija, también las de dentro de tu plazo de cancelación, sin penalización. Si hay lista de espera, entra la siguiente.',
   },
 ];
 
@@ -529,7 +529,7 @@ export function confirmarPlazaFijaSinCuota(
   if (ahora !== 'LIBERAR' || antes === 'LIBERAR') return undefined;
   return {
     titulo: '¿Liberar sus clases?',
-    descripcion: 'Desde ahora, cuando una alumna con plaza fija se quede sin cuota se cancelarán sus clases futuras, también las de los próximos días, sin penalización. Si ya hay alumnas en ese caso, sus clases se liberan esta noche.',
+    descripcion: 'Desde ahora, cuando una alumna con clase fija se quede sin cuota se cancelarán sus clases futuras, también las de los próximos días, sin penalización. Si ya hay alumnas en ese caso, sus clases se liberan esta noche.',
     textoConfirmar: 'Sí, liberarlas',
   };
 }
@@ -548,8 +548,8 @@ export function confirmarAprobacionAutomatica(
 ): { titulo: string; descripcion: string; textoConfirmar: string } | undefined {
   if (ahora.plazaFijaAprobacion !== 'AUTOMATICA' || antes.plazaFijaAprobacion === 'AUTOMATICA') return undefined;
   return {
-    titulo: '¿Dar las plazas fijas sin que las apruebes?',
-    descripcion: `Una plaza fija reserva la clase cada semana. Desde ahora, cuando una alumna la pida, se le da al momento si tiene una cuota que incluye la clase, el nivel que pide, no pasa del límite semanal de su cuota, no tiene un pago pendiente que te bloquee reservar, la clase no exige que apruebes cada reserva y las plazas fijas de esa clase no pasan del ${ahora.plazaFijaAutoTopePct} % de su aforo. Si algo de eso falla, te llega a Resumen como hasta ahora.${ahora.plazaFijaSolicitarDesdeApp ? '' : ' Ahora mismo no pueden pedirlas desde su app: enciende «Pueden pedir plaza fija» para que esto tenga efecto.'}`,
+    titulo: '¿Dar las clases fijas sin que las apruebes?',
+    descripcion: `Una clase fija le reserva su clase cada semana. Desde ahora, cuando una alumna la pida, se le da al momento si tiene una cuota que incluye la clase, el nivel que pide, no pasa del límite semanal de su cuota, no tiene un pago pendiente que te bloquee reservar, la clase no exige que apruebes cada reserva y las alumnas con clase fija de esa clase no pasan del ${ahora.plazaFijaAutoTopePct} % de su aforo. Si algo de eso falla, te llega a Resumen como hasta ahora.${ahora.plazaFijaSolicitarDesdeApp ? '' : ' Ahora mismo no pueden pedirlas desde su app: enciende «Pueden pedir clase fija» para que esto tenga efecto.'}`,
     textoConfirmar: 'Sí, que se den solas',
   };
 }

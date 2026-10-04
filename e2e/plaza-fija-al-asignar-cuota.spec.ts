@@ -87,37 +87,37 @@ async function elegirPlan(page: Page, nombre: RegExp) {
   await page.getByRole('dialog').getByRole('button', { name: nombre }).click();
 }
 
-test('al asignar una cuota pregunta por la plaza fija, y «Elegir su clase» abre el diálogo de plaza fija', async ({ page }) => {
+test('al asignar una cuota pregunta por la clase fija, y «Elegir su clase» abre el diálogo de clase fija', async ({ page }) => {
   const cuenta = await montar(page);
   await elegirPlan(page, /Cuota mensual 2x/);
 
   await expect.poll(() => cuenta.altas.length, { timeout: 10_000 }).toBeGreaterThan(0);
-  const pregunta = page.getByRole('dialog').filter({ hasText: '¿Le das una plaza fija?' });
+  const pregunta = page.getByRole('dialog').filter({ hasText: '¿Le das una clase fija?' });
   await expect(pregunta).toBeVisible();
   await expect(pregunta).toContainText('«Cuota mensual 2x» ya está asignado');
 
   await pregunta.getByRole('button', { name: 'Elegir su clase' }).click();
-  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Asignar plaza fija' })).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Asignar clase fija' })).toBeVisible();
   // Abrir el diálogo no guarda nada: la plaza se guarda al elegir la clase.
   expect(cuenta.plazas).toHaveLength(0);
 });
 
-test('«Ahora no» cierra la pregunta sin guardar ninguna plaza fija', async ({ page }) => {
+test('«Ahora no» cierra la pregunta sin guardar ninguna clase fija', async ({ page }) => {
   const cuenta = await montar(page);
   await elegirPlan(page, /Cuota mensual 2x/);
 
-  const pregunta = page.getByRole('dialog').filter({ hasText: '¿Le das una plaza fija?' });
+  const pregunta = page.getByRole('dialog').filter({ hasText: '¿Le das una clase fija?' });
   await pregunta.getByRole('button', { name: 'Ahora no' }).click();
   await expect(pregunta).toBeHidden();
   expect(cuenta.altas.length).toBeGreaterThan(0);
   expect(cuenta.plazas).toHaveLength(0);
 });
 
-test('con un bono no se pregunta: la plaza fija es solo con cuota', async ({ page }) => {
+test('con un bono no se pregunta: la clase fija es solo con cuota', async ({ page }) => {
   const cuenta = await montar(page);
   await elegirPlan(page, /Bono 10 sesiones/);
 
   await expect.poll(() => cuenta.altas.length, { timeout: 10_000 }).toBeGreaterThan(0);
   await expect(page.getByText('Plan "Bono 10 sesiones" asignado')).toBeVisible();
-  await expect(page.getByText('¿Le das una plaza fija?')).toHaveCount(0);
+  await expect(page.getByText('¿Le das una clase fija?')).toHaveCount(0);
 });

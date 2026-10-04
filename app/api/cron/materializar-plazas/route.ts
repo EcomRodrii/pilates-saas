@@ -32,6 +32,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ejecutadoEn: now.toISOString(), ...resumen });
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'materializar-plazas' } });
-    return errorInterno('cron/materializar-plazas:GET', err, 'Error materializando plazas fijas.');
+    return errorInterno('cron/materializar-plazas:GET', err, 'Error materializando clases fijas.');
   }
 }

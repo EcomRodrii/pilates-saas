@@ -99,7 +99,7 @@ const RASTRO_DEL_SISTEMA = [
 // Cómo se llama cada entidad en el mensaje que lee la propietaria.
 const ETIQUETA: Record<EntidadBatch, string> = {
   socios: 'clientas', suscripciones: 'membresías', tipos_clase: 'tipos de clase',
-  sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'plazas fijas',
+  sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'clases fijas',
   recuperaciones: 'recuperaciones', pagos_historicos: 'pagos históricos',
 };
 

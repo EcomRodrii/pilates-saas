@@ -1281,8 +1281,12 @@ antes de decidir: sus 11 alumnas tienen cuota y clase fija, casi todas dadas des
 - **Clases fijas con nombre retiradas** de las dos caras. Las tablas y las plazas que dieron siguen (dejar una deja todos sus
   días); el catálogo devuelve `ofertas: []`, pedir/ampliar una contesta 410. No reintroducir sin pedirlo.
 - **Bono:** «reservar las próximas clases» va en la ficha como RESERVA, en lugar del interruptor (sin cuota no hay clase fija).
-- **Panel:** «Crear clase» ofrece «Clase» o **«Clase semanal»** (antes «Clase fija», que chocaba). Pendiente: el panel
-  sigue diciendo «plaza fija» para el hueco de la alumna; unificarlo a «clase fija» es otro PR.
+- **Panel:** «Crear clase» ofrece «Clase» o **«Clase semanal»** (antes «Clase fija», que chocaba), y el hueco de la alumna
+  se llama **«clase fija»** en todo el producto (panel, ayuda, avisos, errores), igual que en su app. Cuando se cuenta dentro
+  de una clase se dice «alumnas con clase fija» («1/8 con clase fija»), nunca «clases fijas de una clase». ⚠️ El código, las
+  tablas y las rutas siguen diciendo `plaza_fija`/`plazas-fijas` (no se renombra nada que no se vea), y las palabras de
+  búsqueda conservan «plaza fija» además de «clase fija». La web comercial (`app/funcionalidades/plazas-fijas` y compañía)
+  sigue con «plaza fija» hasta que el fundador lo decida.
 
 Lo de abajo es la historia; donde contradiga esto, manda esto.
 

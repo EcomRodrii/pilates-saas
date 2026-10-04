@@ -51,7 +51,7 @@ test('textoTrasRenovar cuenta lo creado, lo omitido y lo que hay que revisar', (
       ...base, creadas: 50, plazasFijas: 5, sinInstructora: ['2026-11-02'],
       omitidas: [{ fecha: '2026-12-22', motivo: 'sala_ocupada' }, { fecha: '2026-12-29', motivo: 'ya_existe' }],
     }),
-    'Clase renovada: 50 clases más, hasta el 04/10/2027 · 1 fecha no se ha creado porque la sala está ocupada · 1 ya estaba en el calendario · 1 queda sin instructora: asígnala en el calendario · 5 plazas fijas siguen',
+    'Clase renovada: 50 clases más, hasta el 04/10/2027 · 1 fecha no se ha creado porque la sala está ocupada · 1 ya estaba en el calendario · 1 queda sin instructora: asígnala en el calendario · 5 clases fijas siguen',
   );
   assert.match(textoTrasRenovar({ ...base, instructoraInactiva: true }), /la de antes ya no está en el equipo/);
   assert.equal(textoTrasRenovar({ ...base, estado: 'ya_renovada' }), 'Esta clase ya estaba renovada: sigue hasta el 04/10/2027');

@@ -238,7 +238,7 @@ export default function ImportarSociasPage() {
           </div>
           <div className="text-[13px]">
             <Link href="/clientas/importar/plazas-fijas" className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline">
-              ¿Migras de Excel? Importa las plazas fijas (huecos semanales) <ArrowRight size={14} />
+              ¿Migras de Excel? Importa las clases fijas (huecos semanales) <ArrowRight size={14} />
             </Link>
           </div>
         </div>

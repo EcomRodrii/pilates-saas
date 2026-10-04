@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarClientas(sesion.rol)) {
-    return NextResponse.json({ error: 'No tienes permiso para importar plazas fijas' }, { status: 403 });
+    return NextResponse.json({ error: 'No tienes permiso para importar clases fijas' }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as { rows?: FilaEntrada[]; batchId?: string } | null;
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
         await registrarIdsBatch(admin, { studioId: sesion.studioId, batchId, entidad: 'plazas_fijas', ids: paraInsertar.slice(0, importadas).map(r => r.id as string) });
       }
       return errorInterno('plazas-fijas:import', error,
-        `Se han importado ${importadas} plazas fijas y el proceso se ha detenido ahí. `
+        `Se han importado ${importadas} clases fijas y el proceso se ha detenido ahí. `
         + 'Comprueba que las socias y las salas del archivo existan ya en tu cuenta, y vuelve a subirlo.',
         500, { importadas, duplicadas, errores });
     }

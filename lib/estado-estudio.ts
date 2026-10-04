@@ -187,7 +187,7 @@ const LINEAS: DefLinea[] = [
     uno: 'Una clase que se repite está a punto de terminar', varios: n => `${n} clases que se repiten están a punto de terminar` },
   // Nada cambia hasta que decide: la alumna sigue sin su plaza o sin su pausa.
   { id: 'plazasFijasPorDecidir', bandeja: 'decidir', href: null,
-    uno: 'Una petición de plaza fija espera tu respuesta', varios: n => `${n} peticiones de plaza fija esperan tu respuesta` },
+    uno: 'Una petición de clase fija espera tu respuesta', varios: n => `${n} peticiones de clase fija esperan tu respuesta` },
   // «Recuérdamelo» de una ficha: hoy toca llamarla o escribirle. Se ve en la
   // lista de Clientas con ese filtro, y cada uno en su ficha.
   { id: 'seguimientosParaHoy', bandeja: 'decidir', href: '/clientas?mas=seguimiento_hoy',

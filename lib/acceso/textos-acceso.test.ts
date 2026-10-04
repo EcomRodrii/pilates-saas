@@ -30,8 +30,8 @@ test('otra clase: dice a cuál, con hora del estudio y sala', () => {
 });
 
 test('plaza fija: con fecha de fin o sin ella', () => {
-  assert.deepEqual(detallesAcceso('PLAZA_FIJA', { ...vacio, plazaFija: { hasta: '2027-06-30' } }), ['Tiene una plaza fija hasta el 30 de junio de 2027.']);
-  assert.deepEqual(detallesAcceso('PLAZA_FIJA', { ...vacio, plazaFija: { hasta: null } }), ['Tiene una plaza fija sin fecha de fin.']);
+  assert.deepEqual(detallesAcceso('PLAZA_FIJA', { ...vacio, plazaFija: { hasta: '2027-06-30' } }), ['Tiene una clase fija hasta el 30 de junio de 2027.']);
+  assert.deepEqual(detallesAcceso('PLAZA_FIJA', { ...vacio, plazaFija: { hasta: null } }), ['Tiene una clase fija sin fecha de fin.']);
   assert.equal(fechaVigencia('2027-01-01'), '1 de enero de 2027');
 });
 

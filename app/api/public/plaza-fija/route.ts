@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       const plazaId = texto(body.plazaId);
       const desde = texto(body.desde);
       const hasta = texto(body.hasta);
-      if (!plazaId || !desde || !hasta) return NextResponse.json({ error: 'Faltan la plaza fija o las fechas de la pausa' }, { status: 400 });
+      if (!plazaId || !desde || !hasta) return NextResponse.json({ error: 'Faltan la clase fija o las fechas de la pausa' }, { status: 400 });
       const r = await solicitarPausaPlazaFijaAlumna(admin, { studioId: body.studioId, socioId, plazaId, desde, hasta });
       return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
     }
@@ -101,6 +101,6 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
   } catch (err) {
-    return errorInterno('public/plaza-fija:POST', err, 'No se ha podido enviar la petición de plaza fija.');
+    return errorInterno('public/plaza-fija:POST', err, 'No se ha podido enviar la petición de clase fija.');
   }
 }

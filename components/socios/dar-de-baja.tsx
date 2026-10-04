@@ -45,7 +45,7 @@ export function resumenDeBaja(nombre: string, r: RespuestaBaja): string {
       : 'Sus cuotas ya no se renuevan.');
   }
   if (r.cuotasCanceladas.length > 0) partes.push(r.cuotasCanceladas.length === 1 ? 'Su cuota se ha cancelado.' : 'Sus cuotas se han cancelado.');
-  if (r.plazasDadasDeBaja.length > 0) partes.push('Su plaza fija se ha quitado.');
+  if (r.plazasDadasDeBaja.length > 0) partes.push('Su clase fija se ha quitado.');
   const canceladas = r.reservasCanceladas.length;
   if (canceladas > 0) partes.push(canceladas === 1 ? '1 reserva cancelada.' : `${canceladas} reservas canceladas.`);
   if (r.reservasSinCancelar > 0) {
@@ -181,7 +181,7 @@ function ContenidoBaja({ socio, onCerrar, onHecho }: { socio: Socio; onCerrar: (
               </Linea>
             ))}
             {plan.plazas.length > 0 && (
-              <Linea>Su plaza fija se quita: deja de apuntarla cada semana.</Linea>
+              <Linea>Su clase fija se quita: deja de apuntarla cada semana.</Linea>
             )}
             {plan.intactas.length > 0 && (
               <Linea>
@@ -189,7 +189,7 @@ function ContenidoBaja({ socio, onCerrar, onHecho }: { socio: Socio; onCerrar: (
               </Linea>
             )}
             {bajaSinConsecuencias(plan) && plan.intactas.length === 0 && (
-              <Linea>No tiene cuota ni plaza fija activas: solo se marca como de baja.</Linea>
+              <Linea>No tiene cuota ni clase fija activas: solo se marca como de baja.</Linea>
             )}
           </ul>
         </div>

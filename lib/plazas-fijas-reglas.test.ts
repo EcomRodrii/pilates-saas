@@ -113,8 +113,8 @@ test('con varios motivos, manda el primero: el límite semanal gana a lo demás'
 
 test('avisoTopeAutomatico: con la clase en su tope, dice cuántas tiene, el tope y el porcentaje', () => {
   const t = avisoTopeAutomatico({ modo: 'AUTOMATICA', superaLimite: false, ocupadas: 4, cupo: 4, pct: 50 });
-  assert.equal(t, 'Esta clase ya tiene 4 plazas fijas y tu tope para darlas solas es 4 (el 50 % del aforo): esta la decides tú.');
-  assert.match(avisoTopeAutomatico({ modo: 'AUTOMATICA', superaLimite: false, ocupadas: 1, cupo: 1, pct: 25 }) ?? '', /1 plaza fija y/);
+  assert.equal(t, 'Esta clase ya tiene 4 alumnas con clase fija y tu tope para darlas solas es 4 (el 50 % del aforo): esta la decides tú.');
+  assert.match(avisoTopeAutomatico({ modo: 'AUTOMATICA', superaLimite: false, ocupadas: 1, cupo: 1, pct: 25 }) ?? '', /1 alumna con clase fija y/);
 });
 
 test('avisoTopeAutomatico: nada que explicar si aprueba a mano, si pasa del límite (ya se dice aparte) o si cabe', () => {

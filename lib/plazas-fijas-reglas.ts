@@ -117,8 +117,8 @@ export function avisoTopeAutomatico(c: {
   modo: AprobacionPlazaFija; superaLimite: boolean; ocupadas: number; cupo: number; pct: number;
 }): string | null {
   if (c.modo !== 'AUTOMATICA' || c.superaLimite || c.ocupadas < c.cupo) return null;
-  if (c.cupo <= 0) return 'Esta clase no tiene aforo con el que calcular tu tope: las plazas fijas de aquí las das tú.';
-  return `Esta clase ya tiene ${c.ocupadas} ${c.ocupadas === 1 ? 'plaza fija' : 'plazas fijas'} y tu tope para darlas solas es ${c.cupo} (el ${c.pct} % del aforo): esta la decides tú.`;
+  if (c.cupo <= 0) return 'Esta clase no tiene aforo con el que calcular tu tope: las clases fijas de aquí las das tú.';
+  return `Esta clase ya tiene ${c.ocupadas} ${c.ocupadas === 1 ? 'alumna' : 'alumnas'} con clase fija y tu tope para darlas solas es ${c.cupo} (el ${c.pct} % del aforo): esta la decides tú.`;
 }
 
 export type MotivoNoAutomatica = 'MANUAL' | 'SUPERA_LIMITE' | 'RESERVA_CON_APROBACION' | 'IMPAGO';

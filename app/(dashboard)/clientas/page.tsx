@@ -2026,7 +2026,7 @@ export default function Socios() {
       <Dialog open={ofrecerPlazaFija !== null} onOpenChange={(open) => { if (!open) setOfrecerPlazaFija(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-foreground">¿Le das una plaza fija?</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-foreground">¿Le das una clase fija?</DialogTitle>
           </DialogHeader>
           {ultimaOferta && (
             <p className="text-sm text-muted-foreground mt-1">

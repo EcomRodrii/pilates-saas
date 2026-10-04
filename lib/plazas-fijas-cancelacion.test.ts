@@ -21,7 +21,7 @@ test('marcaReserva: una recuperación gastada en una clase de plaza fija manda l
 });
 
 test('avisoQuitarReserva: a una fija no se le dice que pierde su plaza', () => {
-  assert.match(avisoQuitarReserva('CONFIRMADA', 'fija'), /^Sigue con su plaza fija/);
+  assert.match(avisoQuitarReserva('CONFIRMADA', 'fija'), /^Sigue con su clase fija/);
   assert.match(avisoQuitarReserva('CONFIRMADA', 'recuperacion'), /Vuelve a tener su clase para recuperar/);
   assert.match(avisoQuitarReserva('CONFIRMADA', null), /^Se libera su plaza/);
   assert.equal(avisoQuitarReserva('LISTA_ESPERA', 'fija'), 'Perderá su sitio en la lista de espera.');
@@ -35,7 +35,7 @@ test('textoTrasQuitar: dice lo que decidió el servidor', () => {
   );
   assert.equal(textoTrasQuitar({ recuperacionCreada: true, recuperacionCaducaEl: null }, 'fija'), 'Quitada · tendrá una clase para recuperar');
   assert.match(textoTrasQuitar({ recuperacionAlCerrarSemana: true }, 'fija') ?? '', /al acabarla$/);
-  assert.equal(textoTrasQuitar({}, 'fija'), 'Quitada de esta clase · sigue con su plaza fija');
+  assert.equal(textoTrasQuitar({}, 'fija'), 'Quitada de esta clase · sigue con su clase fija');
   assert.equal(textoTrasQuitar({}, 'recuperacion'), 'Quitada · vuelve a tener su clase para recuperar');
   assert.equal(textoTrasQuitar({}, null), null);
 });

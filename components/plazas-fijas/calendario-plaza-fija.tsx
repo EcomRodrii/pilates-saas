@@ -113,7 +113,7 @@ export function CalendarioPlazaFija({ socioId, plazas, hoy }: { socioId: string;
       </div>
 
       <table className="w-full table-fixed border-collapse">
-        <caption className="sr-only">{`Plaza fija: ${titulo}`}</caption>
+        <caption className="sr-only">{`Clase fija: ${titulo}`}</caption>
         <thead>
           <tr>
             {INICIALES_SEMANA.map((l, i) => (
