@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
+import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
@@ -18,7 +19,7 @@ import { etiquetaDia, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato'
 import { acotarFijasProximas, diaSemanaDe } from '@/lib/student/plaza-fija';
 import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
-import { añadirAlCalendario } from '@/lib/student/enlaces-clase';
+import { alCalendario, useSincronizarCalendario } from '@/lib/student/calendario-dispositivo';
 import { Badge, EnCursoBadge } from '@/components/student/ui/Badge';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { estaEnCurso } from '@/lib/student/estado-clase';
@@ -88,6 +89,12 @@ export default function MisReservasPage() {
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.
   useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
+  // «Mis reservas en mi calendario»: al cancelar aquí, la clase sale también del calendario.
+  useSincronizarCalendario(estudio, data);
+  // «+ Calendario»: en la app, directo al calendario del iPhone (y queda
+  // apuntada para quitarla si cancela); fuera, el .ics / Google de siempre.
+  const alCal = (c: Clase, instructora?: string) => void alCalendario({ slug: estudio.slug, nombre: estudio.nombre, direccion: estudio.direccion }, c, instructora)
+    .then((r) => { if (r === 'añadida') toast('Añadida a tu calendario'); else if (r === 'ya-estaba') toast('Ya está en tu calendario'); });
   const actualizar = useCallback(async () => {
     invalidarCatalogo(estudio.slug, { conservarVistas: true });
     await refrescar();
@@ -306,7 +313,7 @@ export default function MisReservasPage() {
                   esFija={siguiente.r.estado !== 'en-espera' && esClaseFija(siguiente.r.id)}
                   puedeCancelar={online && avisoCancelacion(siguiente.c, estudio.politicaCancelacionHoras).puede}
                   motivoNoCancelar={!online ? 'Necesitas conexión' : 'La clase ya ha empezado'}
-                  onCalendario={() => añadirAlCalendario(siguiente.c, estudio.nombre, estudio.direccion, data.instructoras.find((x) => x.id === siguiente.c.instructoraId)?.nombre)}
+                  onCalendario={() => alCal(siguiente.c, data.instructoras.find((x) => x.id === siguiente.c.instructoraId)?.nombre)}
                   onCancelar={() => setCancelId(siguiente.r.id)}
                 />
               )}
@@ -344,6 +351,7 @@ export default function MisReservasPage() {
                 <Link
                   key={r.id}
                   href={href(`/mis-reservas/${r.id}`)}
+                  transitionTypes={TRANSICION_ADELANTE}
                   className="card card--tap"
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 14px' }}
                 >
