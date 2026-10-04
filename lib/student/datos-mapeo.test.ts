@@ -100,6 +100,12 @@ test('bono ilimitado: sesionesRestantes null es ILIMITADO, no cero', () => {
   assert.equal(b.creditosUsados, 0);
 });
 
+test('una cuota lleva su límite semanal: la tarjeta del inicio dice «2 clases/semana», no «Sin límite»', () => {
+  const sus = { id: 's1', planId: 'p2', estado: 'ACTIVA', fechaInicio: '2026-09-01', fechaFin: null, sesionesRestantes: null };
+  assert.equal(bonoDeSuscripcion(sus, { ...PLAN_MENSUAL, limiteSemanal: 2 }, Date.parse('2026-09-03')).limiteSemanal, 2);
+  assert.equal(bonoDeSuscripcion(sus, PLAN_MENSUAL, Date.parse('2026-09-03')).limiteSemanal, null);
+});
+
 test('bono limitado: usadas = incluidas − restantes', () => {
   const b = bonoDeSuscripcion(
     { id: 's2', planId: 'p1', estado: 'ACTIVA', fechaInicio: '2026-08-01', fechaFin: '2026-12-01', sesionesRestantes: 5 },

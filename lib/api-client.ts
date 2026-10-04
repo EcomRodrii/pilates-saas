@@ -1126,6 +1126,8 @@ export interface PeticionPlazaFija {
   hasta: string | null;
   motivoSistema: 'SIN_CUPO' | 'SITIO_OCUPADO' | 'SIN_CUOTA' | 'SUPERA_LIMITE' | 'PREGUNTAR' | null;
   creadaEn: string;
+  /** CREAR con aprobación automática: por qué no entra sola (la clase ya está en el tope del estudio). */
+  avisoTope?: string | null;
   /** CREAR_CLASE_FIJA / AMPLIAR_CLASE_FIJA: la oferta, cuánto tiempo eligió y, si hay algo que avisar, qué. */
   claseFija?: { nombre: string; duracion: string; hasta: string; aviso: string | null } | null;
 }

@@ -16,7 +16,8 @@ import { catalogo } from '@/lib/student/catalogo';
 import { confirmarReserva } from '@/lib/student/reservar';
 import type { TipoAccion } from '@/lib/student/reserva-acciones';
 import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
-import { etiquetaDia, euros, horaFin, precioClaseTexto } from '@/lib/student/formato';
+import { etiquetaDia, horaFin, precioClaseTexto } from '@/lib/student/formato';
+import { esCuota, textoPagoCorto } from '@/lib/student/como-se-paga';
 import type { BookingState } from '@/lib/student/tipos';
 import { AvailabilityBadge, EnCursoBadge, TerminadaBadge } from '@/components/student/ui/Badge';
 import { useAhoraMs } from '@/lib/student/use-ahora';
@@ -264,7 +265,7 @@ export default function FichaClasePage() {
               ? <span data-se-abre="" style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)' }}>{ahoraMs === null ? etiquetaSeAbre(aunNoAbre) : `La reserva se abre ${cuandoSeAbre(new Date(aunNoAbre), new Date(ahoraMs))}`}</span>
               : <AvailabilityBadge estado={disp} plazas={clase.plazasLibres} />}
           <span style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--muted-foreground)' }}>
-            {bono ? 'Con tu bono · 1 sesión' : (clase.sinPrecioSuelto ? 'Solo con bono' : `${euros(clase.precioSuelto)} clase suelta`)}
+            {textoPagoCorto(clase, bono)}
           </span>
         </div>
 
@@ -371,7 +372,7 @@ export default function FichaClasePage() {
             <Button full loading={bk === 'submitting'} onClick={confirmar} style={{ marginTop: 14, height: 50, fontSize: 'var(--t-body)' }}>
               {disp === 'completa'
                 ? 'Unirme a la lista de espera'
-                : `Confirmar ${clase.hora}${bono ? ' con bono' : ` · ${precioClaseTexto(clase)}`}`}
+                : `Confirmar ${clase.hora}${bono ? (esCuota(bono) ? ' con tu cuota' : ' con bono') : ` · ${precioClaseTexto(clase)}`}`}
             </Button>
             {bk === 'submitting' && (
               <p className="t-meta" style={{ marginTop: 8, textAlign: 'center' }}>

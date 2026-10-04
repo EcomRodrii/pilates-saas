@@ -108,6 +108,7 @@ export function TuRitmo({ dias, racha, estaSemana, bono, hrefBono, hrefBonos, hr
 }) {
   const ilimitado = bono ? !Number.isFinite(bono.creditosTotales) : false;
   const quedan = bono && !ilimitado ? bono.creditosTotales - bono.creditosUsados : null;
+  const topeSemanal = ilimitado && bono?.limiteSemanal ? bono.limiteSemanal : null;
 
   return (
     <section className="card card--pad-lg stack" style={{ ['--gap' as string]: 'var(--s-4)' }} aria-label="Tu ritmo">
@@ -141,14 +142,18 @@ export function TuRitmo({ dias, racha, estaSemana, bono, hrefBono, hrefBonos, hr
 
         {bono ? (
           <Link href={hrefBono} className="stack" style={{ ['--gap' as string]: '3px', minWidth: 0, flex: 1 }}>
-            <span className="t-label">Tu bono</span>
+            {/* Una cuota no es un bono ni tiene sesiones que gastar: decía «Tu bono · Sin límite» a quien tiene una cuota de
+                2 clases por semana. Con tope, su tope; la barra, cuántas lleva esta semana (el número ya está al lado). */}
+            <span className="t-label">{ilimitado ? 'Tu cuota' : 'Tu bono'}</span>
             <p className="t-card-title t-num">
-              {ilimitado ? 'Sin límite' : <>{quedan} {quedan === 1 ? 'sesión' : 'sesiones'}</>}
+              {ilimitado
+                ? (topeSemanal ? `${topeSemanal} ${topeSemanal === 1 ? 'clase' : 'clases'}/semana` : 'Sin límite')
+                : <>{quedan} {quedan === 1 ? 'sesión' : 'sesiones'}</>}
             </p>
             <p className="t-meta trunc">{bono.nombre}</p>
             <div style={{ marginTop: 3 }}>
               {ilimitado
-                ? <Barra hecho={1} total={1} tono="ok" />
+                ? (topeSemanal ? <Barra hecho={Math.min(estaSemana, topeSemanal)} total={topeSemanal} /> : <Barra hecho={1} total={1} tono="ok" />)
                 : <Barra hecho={bono.creditosUsados} total={bono.creditosTotales} />}
             </div>
           </Link>
