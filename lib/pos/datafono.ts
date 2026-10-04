@@ -29,8 +29,10 @@ export interface DireccionLector {
 
 /**
  * Lo que enseña el botón «Datáfono».
- *  · `sin-stripe`: el estudio no tiene Stripe conectado. Igual que hoy: apagado.
- *  · `sin-conectar`: Stripe sí, datáfono no. El botón CONECTA (antes, apagado).
+ *  · `sin-stripe`: el estudio no tiene Stripe conectado ni SumUp que conectar.
+ *    Igual que hoy: apagado.
+ *  · `sin-conectar`: hay con qué conectar uno (Stripe, o SumUp para este estudio)
+ *    y no hay datáfono. El botón CONECTA (antes, apagado).
  *  · `comprobando`: hay uno guardado y aún no sabemos si responde. Se deja
  *    cobrar: si no responde, el servidor lo dice al mandar el importe.
  *  · `listo` / `sin-conexion`: lo que dice Stripe del lector ahora.
@@ -43,10 +45,16 @@ export type EstadoBotonDatafono = 'sin-stripe' | 'sin-conectar' | 'comprobando' 
  */
 export function estadoBotonDatafono(p: {
   stripeConectado: boolean;
+  /** ¿Se le ofrece SumUp a este estudio? Sin Stripe, es lo que deja conectar un datáfono. */
+  sumupDisponible?: boolean;
+  /** De quién es el datáfono emparejado. Sin decir, el de Stripe (lo de siempre). */
+  proveedor?: 'stripe' | 'sumup' | null;
   emparejado: boolean;
   lector: LectorDatafono | null | undefined;
 }): EstadoBotonDatafono {
-  if (!p.stripeConectado) return 'sin-stripe';
+  // Un Solo de SumUp no necesita Stripe; uno de Stripe sin Stripe conectado no sirve.
+  const conSumup = p.proveedor === 'sumup' && p.emparejado;
+  if (!p.stripeConectado && !conSumup) return p.sumupDisponible ? 'sin-conectar' : 'sin-stripe';
   if (p.lector === null) return 'sin-conectar';
   if (p.lector === undefined) return p.emparejado ? 'comprobando' : 'sin-conectar';
   return p.lector.estado === 'offline' ? 'sin-conexion' : 'listo';

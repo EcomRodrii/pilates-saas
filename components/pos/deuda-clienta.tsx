@@ -75,6 +75,8 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
   const lectorDatafono = datafono.estado ? datafono.estado.lector : undefined;
   const estadoDatafono = estadoBotonDatafono({
     stripeConectado: datafono.estado?.stripeConectado ?? true,
+    sumupDisponible: datafono.estado?.sumup.disponible ?? false,
+    proveedor: datafono.estado?.proveedor ?? null,
     emparejado: datafono.estado?.emparejado ?? true,
     lector: lectorDatafono,
   });
@@ -206,7 +208,9 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
           esTest={datafono.estado?.test ?? false}
           textoVolver="Volver"
           textoFinal="Volver a cobrar"
-          onConectado={(l) => { datafono.ponerLector(l); setError(null); }}
+          stripeConectado={datafono.estado?.stripeConectado ?? true}
+          sumup={datafono.estado?.sumup}
+          onConectado={(l, proveedor) => { datafono.ponerLector(l, proveedor); setError(null); }}
           onCerrar={() => setConectandoDatafono(false)}
         />
       )}

@@ -87,6 +87,7 @@ test('conectar: ubicación con la dirección DEL ESTUDIO y el lector en su cuent
 
   const guardado = updates.find(u => u.cambios.stripe_terminal_reader_id === 'tmr_nuevo')!;
   assert.deepEqual(guardado.filtros, [['id', 'studio-1']]);
+  assert.equal(guardado.cambios.sumup_reader_id, null, 'un datáfono por sede: el SumUp Solo se olvida en el mismo UPDATE');
   assert.equal(updates.some(u => 'direccion' in u.cambios), false, 'la dirección del estudio no se toca');
 });
 

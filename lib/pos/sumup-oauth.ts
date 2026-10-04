@@ -80,13 +80,21 @@ export async function canjearCodigoSumup(code: string): Promise<TokensSumup> {
   return r.tokens;
 }
 
-/** El `merchant_code` de la cuenta que acaba de autorizar: va en todas las rutas de su API. */
-export async function merchantCodeSumup(accessToken: string): Promise<string> {
+/**
+ * El `merchant_code` de la cuenta que acaba de autorizar (va en todas las rutas de
+ * su API) y el nombre del comercio, para enseñar QUÉ cuenta quedó conectada.
+ */
+export async function perfilSumup(accessToken: string): Promise<{ merchantCode: string; nombreComercio: string | null }> {
   const res = await fetchExterno(PERFIL_URL, { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } });
-  const d = (await res.json().catch(() => ({}))) as { merchant_profile?: { merchant_code?: unknown } };
-  const mc = d.merchant_profile?.merchant_code;
+  const d = (await res.json().catch(() => ({}))) as {
+    merchant_profile?: { merchant_code?: unknown; company_name?: unknown; business_name?: unknown; doing_business_as?: { business_name?: unknown } };
+  };
+  const p = d.merchant_profile;
+  const mc = p?.merchant_code;
   if (!res.ok || typeof mc !== 'string' || !mc) throw new Error('SumUp no devolvió el código de comercio de la cuenta');
-  return mc;
+  const nombre = [p?.doing_business_as?.business_name, p?.business_name, p?.company_name]
+    .find((v): v is string => typeof v === 'string' && v.trim() !== '');
+  return { merchantCode: mc, nombreComercio: nombre?.trim().slice(0, 120) ?? null };
 }
 
 /**

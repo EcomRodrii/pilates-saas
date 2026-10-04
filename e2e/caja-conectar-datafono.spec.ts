@@ -21,9 +21,9 @@ const STUDIO_ROW = {
 };
 const EQUIPO = [{ id: 'ins-cloe', studio_id: STUDIO_ID, nombre: 'Cloe', activo: true, rol: 'PROPIETARIO', color: '#343825', auth_user_id: UID_DUENA }];
 
-const catalogo = (datafonoEmparejado: boolean) => ({
+const catalogo = (datafonoEmparejado: boolean, cobro: Record<string, unknown> = {}) => ({
   ivaDefecto: 21,
-  cobro: { stripeConectado: true, datafonoEmparejado },
+  cobro: { stripeConectado: true, datafonoEmparejado, ...cobro },
   productos: [{
     id: 'p-calcetines', nombre: 'Calcetines Pilates', descripcion: null, categoria: 'PRODUCTO', precio: 25, activo: true,
     stock: 10, stockMinimo: 5, ivaPct: 21, imagenUrl: null, sku: null, codigoBarras: null,
@@ -40,14 +40,19 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-type Contadores = { lecturas: number; conexiones: number; ventas: number; cuerpos: Record<string, unknown>[] };
+type Contadores = {
+  lecturas: number; conexiones: number; ventas: number; cuerpos: Record<string, unknown>[];
+  oauth: number; cuerposOauth: Record<string, unknown>[];
+};
 
 async function montar(page: Page, o: {
   emparejado: boolean;
   lectura: unknown;
   conectar?: (route: Route) => Promise<void> | void;
+  /** Lo que dice el catálogo del cobro, además de lo de siempre. */
+  cobro?: Record<string, unknown>;
 }): Promise<Contadores> {
-  const c: Contadores = { lecturas: 0, conexiones: 0, ventas: 0, cuerpos: [] };
+  const c: Contadores = { lecturas: 0, conexiones: 0, ventas: 0, cuerpos: [], oauth: 0, cuerposOauth: [] };
   // Comodines primero: Playwright da prioridad a la ruta registrada más tarde.
   await page.route('**/rest/v1/**', (route) => json(route, []));
   await page.route('**/api/**', (route) => json(route, {}));
@@ -58,7 +63,14 @@ async function montar(page: Page, o: {
   await page.route('**/rest/v1/rpc/current_studio_id', (route) => json(route, STUDIO_ID));
   await page.route('**/rest/v1/studios**', (route) => json(route, STUDIO_ROW));
   await page.route('**/rest/v1/instructores**', (route) => json(route, EQUIPO));
-  await page.route('**/api/pos/catalogo**', (route) => json(route, catalogo(o.emparejado)));
+  await page.route('**/api/pos/catalogo**', (route) => json(route, catalogo(o.emparejado, o.cobro)));
+  await page.route('**/api/integrations/oauth-state', async (route) => {
+    c.oauth++;
+    c.cuerposOauth.push(JSON.parse(route.request().postData() ?? '{}'));
+    await json(route, { state: 'st', url: 'https://api.sumup.com/authorize?state=st' });
+  });
+  // La página de SumUp no se carga de verdad: basta con ver que se llegó.
+  await page.route('https://api.sumup.com/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<p>SumUp</p>' }));
   await page.route('**/api/pos/caja**', (route) => json(route, { caja: catalogo(o.emparejado).caja, esperado: 100, movimientos: [] }));
   await page.route('**/api/pos/venta', async (route) => { c.ventas++; await json(route, {}); });
   await page.route('**/api/terminal/lector', async (route) => {
@@ -160,4 +172,98 @@ test('sin conexión: no manda el cobro al datáfono, dice qué hacer y vuelve a 
   // Se volvió a preguntar a Stripe, y no se intentó ninguna venta.
   await expect.poll(() => c.lecturas).toBeGreaterThan(lecturasAntes);
   expect(c.ventas).toBe(0);
+});
+
+// ── SumUp Solo ───────────────────────────────────────────────────────────────
+
+const SUMUP_CON_CUENTA = { disponible: true, cuenta: { comercio: 'Estudio de Ejemplo' }, puedeConectarCuenta: true };
+const SOLO_LISTO = { etiqueta: 'Mostrador', modelo: 'SumUp Solo', estado: 'online' };
+const SIN_STRIPE_CON_SUMUP = (sumup: unknown) => ({
+  ok: true, stripeConectado: false, proveedor: null, emparejado: false, lector: null, direccion: DIRECCION, test: false, sumup,
+});
+
+test('sin Stripe, con SumUp: se conecta el Solo con su código y se vuelve a la misma venta', async ({ page }) => {
+  const c = await montar(page, {
+    emparejado: false, cobro: { stripeConectado: false, sumupDisponible: true },
+    lectura: SIN_STRIPE_CON_SUMUP(SUMUP_CON_CUENTA),
+    conectar: (route) => json(route, { ok: true, proveedor: 'sumup', lector: SOLO_LISTO }),
+  });
+  await abrirCobro(page);
+
+  await page.getByRole('button', { name: /^Conectar datáfono/ }).click();
+  // El de Stripe se ve, pero sin Stripe no se puede elegir.
+  await expect(page.getByRole('button', { name: /Un datáfono de Stripe/ })).toBeDisabled();
+  await page.getByRole('button', { name: /Un SumUp Solo/ }).click();
+  await expect(page.getByText('Estudio de Ejemplo')).toBeVisible();
+  await page.getByLabel('El código').fill('k7q2 m9xp');
+  await page.getByRole('button', { name: 'Conectar', exact: true }).click();
+
+  await expect(page.getByText('Datáfono conectado')).toBeVisible();
+  await expect(page.getByText('(SumUp Solo)')).toBeVisible();
+  expect(c.conexiones).toBe(1);
+  expect(c.cuerpos[0]).toMatchObject({ proveedor: 'sumup', codigo: 'K7Q2M9XP', nombre: 'Mostrador' });
+
+  await page.getByRole('button', { name: /Volver a cobrar 25,00/ }).click();
+  await expect(page.getByText('Total a cobrar')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Datáfono.*Mostrador · listo/ })).toBeVisible();
+  expect(c.ventas).toBe(0);
+});
+
+test('SumUp sin cuenta: la dueña sale a SumUp a conectarla, avisada de que la venta no se guarda', async ({ page }) => {
+  const c = await montar(page, {
+    emparejado: false, cobro: { stripeConectado: false, sumupDisponible: true },
+    lectura: SIN_STRIPE_CON_SUMUP({ disponible: true, cuenta: null, puedeConectarCuenta: true }),
+  });
+  await abrirCobro(page);
+  await page.getByRole('button', { name: /^Conectar datáfono/ }).click();
+  await page.getByRole('button', { name: /Un SumUp Solo/ }).click();
+
+  await expect(page.getByText('Conecta tu cuenta de SumUp')).toBeVisible();
+  await expect(page.getByText(/la venta que estabas cobrando no se guarda/)).toBeVisible();
+  await page.getByRole('button', { name: /Conectar mi cuenta de SumUp/ }).click();
+
+  await page.waitForURL(/api\.sumup\.com\/authorize/);
+  expect(c.oauth).toBe(1);
+  expect(c.cuerposOauth[0]).toMatchObject({ provider: 'sumup' });
+  expect(c.conexiones).toBe(0);
+});
+
+test('SumUp sin cuenta y sin ser la dueña: lo dice, y no intenta nada', async ({ page }) => {
+  const c = await montar(page, {
+    emparejado: false, cobro: { stripeConectado: false, sumupDisponible: true },
+    lectura: SIN_STRIPE_CON_SUMUP({ disponible: true, cuenta: null, puedeConectarCuenta: false }),
+  });
+  await abrirCobro(page);
+  await page.getByRole('button', { name: /^Conectar datáfono/ }).click();
+  await page.getByRole('button', { name: /Un SumUp Solo/ }).click();
+
+  await expect(page.getByText('Pide que conecten la cuenta')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Conectar mi cuenta de SumUp/ })).toHaveCount(0);
+  expect(c.lecturas).toBeGreaterThan(0);
+  expect(c.oauth).toBe(0);
+});
+
+test('un código del Solo que SumUp rechaza se dice junto al campo, y no se da por conectado', async ({ page }) => {
+  const c = await montar(page, {
+    emparejado: false, cobro: { stripeConectado: false, sumupDisponible: true },
+    lectura: SIN_STRIPE_CON_SUMUP(SUMUP_CON_CUENTA),
+    conectar: (route) => json(route, { error: 'Ese código no vale o ha caducado. Vuelve a pulsar Conectar en el Solo y escribe el nuevo.', falta: 'codigo' }, 400),
+  });
+  await abrirCobro(page);
+  await page.getByRole('button', { name: /^Conectar datáfono/ }).click();
+  await page.getByRole('button', { name: /Un SumUp Solo/ }).click();
+  await page.getByLabel('El código').fill('K7Q2M9XP');
+  await page.getByRole('button', { name: 'Conectar', exact: true }).click();
+
+  await expect(page.getByRole('alert').filter({ hasText: 'Ese código no vale' })).toBeVisible();
+  expect(c.conexiones).toBeGreaterThan(0);
+  await expect(page.getByText('Datáfono conectado')).toHaveCount(0);
+});
+
+test('con Stripe y sin SumUp para el estudio, el primer paso es el de siempre', async ({ page }) => {
+  await montar(page, { emparejado: false, lectura: SIN_DATAFONO });
+  await abrirCobro(page);
+  await page.getByRole('button', { name: /^Conectar datáfono/ }).click();
+  await expect(page.getByRole('button', { name: /Sí, lo tengo aquí/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Un SumUp Solo/ })).toHaveCount(0);
 });

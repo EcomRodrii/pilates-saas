@@ -9,7 +9,7 @@ import {
   avisosDeConfiguracion, rangoDeFechas, resumenCierres, resumenCompraPublica,
   resumenContacto, resumenContrato, resumenCuestionarioSalud, resumenDatosExtra, resumenDatosFiscales, resumenDevoluciones, resumenFacturacion,
   resumenDomiciliaciones, resumenGmail, resumenHerramienta, resumenHorario, resumenHorarioSemana, resumenNombreYDireccion, resumenPlan,
-  resumenPlanesActivos, resumenRegla, resumenRemitente, resumenSedes, resumenStripe, resumenWhatsapp, resumenesDeConfiguracion, revisaEsto, unir,
+  resumenDatafono, resumenPlanesActivos, resumenRegla, resumenRemitente, resumenSedes, resumenStripe, resumenWhatsapp, resumenesDeConfiguracion, revisaEsto, unir,
   resumenAppInstructoras, resumenAvisarAlumnas, resumenEquipo, resumenModoSustituciones, resumenTarifas,
   resumenInicioPanel, resumenLogoYFavicon, resumenMenuPanel, resumenPosicionMenu,
   resumenPresentacion, resumenTextosBienvenida, resumenPlataformaVenta,
@@ -920,4 +920,17 @@ test('plataformas que venden: «Próximamente» mientras no haya conexión autom
     { valor: 'Vendo aquí · el horario y las reservas van solos', estado: { tono: 'activo', etiqueta: 'Conectado' } });
   // Apagada no dice «Conectado» aunque guarde los IDs (se guardan para retirar lo publicado).
   assert.equal(resumenPlataformaVenta({ activa: false, conexionDisponible: true, conectada: true }).estado?.etiqueta, 'Sin conectar');
+});
+
+test('datáfono: sin Stripe, un SumUp Solo se ve como cualquier datáfono; sin nada que conectar, como siempre', () => {
+  const solo = { etiqueta: 'Mostrador', modelo: 'SumUp Solo', estado: 'online' as const };
+  assert.deepEqual(resumenDatafono({ stripeConectado: false, proveedor: 'sumup', emparejado: true, lector: solo }),
+    { valor: 'Mostrador · SumUp Solo', estado: { tono: 'activo', etiqueta: 'Listo' } });
+  assert.equal(resumenDatafono({ stripeConectado: false, proveedor: 'sumup', emparejado: true, lector: { ...solo, estado: 'offline' } }).valor,
+    'Mostrador · SumUp Solo · apagado o sin conexión');
+  assert.equal(resumenDatafono({ stripeConectado: false, proveedor: 'sumup', emparejado: true, lector: null }).valor,
+    'Ya no está en tu cuenta de SumUp: vuelve a conectarlo');
+  assert.equal(resumenDatafono({ stripeConectado: false, sumupDisponible: true, emparejado: false, lector: null }).valor,
+    'Conéctalo para cobrar con tarjeta en la Caja');
+  assert.equal(resumenDatafono({ stripeConectado: false, emparejado: false, lector: null }).valor, 'Primero conecta el cobro con tarjeta');
 });

@@ -7554,6 +7554,8 @@ export type ZoomCredenciales = CredencialesOAuth;
 // la renovación guarda con `soloSiVersion` (ver lib/pos/sumup-oauth.ts).
 export interface SumupCredenciales extends CredencialesOAuth {
   merchantCode: string;
+  /** Cómo se llama el comercio en SumUp (para enseñar QUÉ cuenta está conectada). */
+  nombreComercio: string | null;
   /** Versión de la fila al leerla (`actualizado_en`). */
   version: string | null;
 }
@@ -7561,14 +7563,18 @@ export interface SumupCredenciales extends CredencialesOAuth {
 export async function dbGetSumupCredenciales(studioId: string): Promise<SumupCredenciales | null> {
   const c = await leerCredencialesOAuth(studioId, 'sumup', '[dbGetSumupCredenciales]');
   if (!c) return null;
-  const metadata = c.metadata as { merchantCode?: unknown } | null;
+  const metadata = c.metadata as { merchantCode?: unknown; nombreComercio?: unknown } | null;
   if (typeof metadata?.merchantCode !== 'string' || !metadata.merchantCode) return null;
-  return { accessToken: c.accessToken, refreshToken: c.refreshToken, expiresAt: c.expiresAt, merchantCode: metadata.merchantCode, version: c.version };
+  return {
+    accessToken: c.accessToken, refreshToken: c.refreshToken, expiresAt: c.expiresAt, merchantCode: metadata.merchantCode,
+    nombreComercio: typeof metadata.nombreComercio === 'string' && metadata.nombreComercio ? metadata.nombreComercio : null,
+    version: c.version,
+  };
 }
 
 /** Al conectar la cuenta (OAuth). Lanza si no se pudo guardar. */
-export async function dbSaveSumupCredenciales(studioId: string, c: CredencialesOAuth & { merchantCode: string }) {
-  const ok = await guardarCredencialesOAuth(studioId, 'sumup', c, '[dbSaveSumupCredenciales]', { merchantCode: c.merchantCode });
+export async function dbSaveSumupCredenciales(studioId: string, c: CredencialesOAuth & { merchantCode: string; nombreComercio: string | null }) {
+  const ok = await guardarCredencialesOAuth(studioId, 'sumup', c, '[dbSaveSumupCredenciales]', { merchantCode: c.merchantCode, nombreComercio: c.nombreComercio });
   if (!ok) throw new Error('No se han podido guardar las credenciales de SumUp');
 }
 

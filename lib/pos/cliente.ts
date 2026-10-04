@@ -33,7 +33,14 @@ export interface ResumenHoy {
 }
 export interface CatalogoPOS {
   ivaDefecto: number;
-  cobro: { stripeConectado: boolean; datafonoEmparejado: boolean };
+  cobro: {
+    stripeConectado: boolean;
+    datafonoEmparejado: boolean;
+    /** De quién es el datáfono emparejado (el de Stripe o el SumUp Solo). */
+    datafonoProveedor?: 'stripe' | 'sumup' | null;
+    /** ¿Se le ofrece SumUp a este estudio? Sin Stripe, es lo que deja conectar un datáfono. */
+    sumupDisponible?: boolean;
+  };
   productos: ProductoPOSCatalogo[];
   planes: PlanPOSCatalogo[];
   caja: CajaAbierta | null;

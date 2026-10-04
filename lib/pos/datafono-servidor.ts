@@ -30,11 +30,14 @@ export interface FilaDatafonoEstudio {
   codigo_postal: string | null;
   stripe_terminal_reader_id: string | null;
   stripe_terminal_location_id: string | null;
+  /** El SumUp Solo, si la sede usa ese datáfono (uno u otro: CHECK `studios_un_solo_datafono`). */
+  sumup_reader_id: string | null;
+  owner_auth_user_id: string | null;
 }
 
 export async function leerFilaEstudio(admin: SupabaseClient, studioId: string): Promise<FilaDatafonoEstudio | null> {
   const { data, error } = await admin.from('studios')
-    .select('nombre, direccion, ciudad, codigo_postal, stripe_terminal_reader_id, stripe_terminal_location_id')
+    .select('nombre, direccion, ciudad, codigo_postal, stripe_terminal_reader_id, stripe_terminal_location_id, sumup_reader_id, owner_auth_user_id')
     .eq('id', studioId).maybeSingle();
   if (error || !data) return null;
   return data as FilaDatafonoEstudio;
@@ -147,8 +150,10 @@ export async function conectarLector(
     return { ok: false, status: 400, error: mensajeErrorLector(e, etiqueta), ...(codigoNoVale ? { falta: 'codigo' as const } : {}) };
   }
 
+  // Un datáfono por sede: si tenía un SumUp Solo, se olvida en el MISMO UPDATE (lo
+  // exige el CHECK); la ruta lo da de baja en SumUp después.
   const { error: errGuardar } = await admin.from('studios')
-    .update({ stripe_terminal_reader_id: reader.id, stripe_terminal_location_id: locationId })
+    .update({ stripe_terminal_reader_id: reader.id, stripe_terminal_location_id: locationId, sumup_reader_id: null })
     .eq('id', ctx.studioId);
   if (errGuardar) {
     // Registrado en Stripe pero sin guardar aquí: se da de baja para que el

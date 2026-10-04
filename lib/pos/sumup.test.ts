@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ErrorSumup, clienteSumup, estadoDesdeSumup, importeCoincide, leerCuerpoAviso, leerReferenciaSumup,
-  normalizarCodigoSumup, proveedorDeReferencia, referenciaSumup, type FetchSumup, type TransaccionSumup,
+  ErrorSumup, centimosSinPropina, clienteSumup, estadoDesdeSumup, importeCoincide, leerCuerpoAviso, leerReferenciaSumup,
+  mismoCobro, normalizarCodigoSumup, proveedorDeReferencia, referenciaSumup, sumupParaEstudio, textoFalloConexionSumup,
+  type FetchSumup, type TransaccionSumup,
 } from './sumup.ts';
 import { firmaAviso, leerAviso, urlDeAviso } from './sumup-aviso.ts';
 
@@ -170,4 +171,66 @@ test('las rutas escapan lo que viene de fuera', async () => {
   const { f, llamadas } = fakeFetch([{ status: 204 }]);
   await clienteSumup({ token: 't', fetch: f }).terminar('M/1', 'r?x=1');
   assert.equal(llamadas[0].url, 'https://api.sumup.com/v0.1/merchants/M%2F1/readers/r%3Fx%3D1/terminate');
+});
+
+test('leer, renombrar y dar de baja el Solo; un 404 es «ya no está», no un fallo', async () => {
+  const { f, llamadas } = fakeFetch([
+    { status: 200, body: { id: 'rdr_1', name: 'Mostrador', status: 'paired', device: { model: 'solo' } } },
+    { status: 404, body: { error_code: 'NOT_FOUND' } },
+    { status: 200, body: { id: 'rdr_1', name: 'Recepción', status: 'paired' } },
+    { status: 204 },
+    { status: 404, body: { error_code: 'NOT_FOUND' } },
+    { status: 500, body: {} },
+  ]);
+  const c = clienteSumup({ token: 't', fetch: f });
+  assert.deepEqual(await c.obtenerLector('M123', 'rdr_1'), { id: 'rdr_1', nombre: 'Mostrador', estado: 'paired', modelo: 'solo' });
+  assert.equal(await c.obtenerLector('M123', 'rdr_x'), null);
+  assert.equal((await c.renombrarLector('M123', 'rdr_1', 'Recepción')).nombre, 'Recepción');
+  assert.equal(llamadas[2].method, 'PATCH');
+  assert.deepEqual(llamadas[2].body, { name: 'Recepción' });
+  await c.borrarLector('M123', 'rdr_1');
+  await c.borrarLector('M123', 'rdr_1');
+  await assert.rejects(c.borrarLector('M123', 'rdr_1'), (e: unknown) => e instanceof ErrorSumup && e.status === 500);
+});
+
+test('historial: lo cobrado desde una hora, sin lo que no trae id', async () => {
+  const { f, llamadas } = fakeFetch([{ status: 200, body: { items: [
+    { transaction_id: 'tx-1', client_transaction_id: 'c-1', amount: 25 },
+    { transaction_id: 'tx-2' },
+    { client_transaction_id: 'c-3' },
+  ] } }]);
+  const movs = await clienteSumup({ token: 't', fetch: f }).historial('M123', { desde: EMITIDA, limite: 50 });
+  assert.deepEqual(movs, [{ transaccionId: 'tx-1', clientTransactionId: 'c-1' }, { transaccionId: 'tx-2', clientTransactionId: null }]);
+  const url = new URL(llamadas[0].url);
+  assert.equal(url.pathname, '/v2.1/merchants/M123/transactions/history');
+  assert.equal(url.searchParams.get('oldest_time'), EMITIDA.toISOString());
+  assert.deepEqual(url.searchParams.getAll('statuses[]'), ['SUCCESSFUL']);
+  assert.equal(url.searchParams.get('limit'), '50');
+});
+
+test('⚠️ SumUp solo se ofrece a los estudios de la lista (o a todos con *); sin la variable, a nadie', () => {
+  const env = (v?: string) => ({ ...(v === undefined ? {} : { SUMUP_SOLO_ESTUDIOS: v }) }) as NodeJS.ProcessEnv;
+  assert.equal(sumupParaEstudio('st-1', env()), false);
+  assert.equal(sumupParaEstudio('st-1', env('')), false);
+  assert.equal(sumupParaEstudio('st-1', env('st-2, st-1')), true);
+  assert.equal(sumupParaEstudio('st-1', env('st-10')), false);
+  assert.equal(sumupParaEstudio('st-1', env('*')), true);
+});
+
+test('mismoCobro y la propina', () => {
+  assert.equal(mismoCobro(`sumup:1759572000:${ID}`, `sumup:1759575600:${ID}`), true, 'la fecha es de cuándo se guardó');
+  assert.equal(mismoCobro(`sumup:1759572000:${ID}`, 'sumup:1759572000:otro-id-1234'), false);
+  assert.equal(mismoCobro('pi_1', 'pi_1'), true);
+  assert.equal(mismoCobro('pi_1', null), false);
+  assert.equal(centimosSinPropina({ amount: 27.5, tip_amount: 2.5 }), 2500);
+  assert.equal(centimosSinPropina({ amount: 25, tip_amount: null }), 2500);
+  assert.equal(importeCoincide({ amount: 27.5, tip_amount: 2.5, currency: 'EUR' }, 2500), true);
+});
+
+test('⚠️ el fallo al conectar SumUp se enseña con un texto fijo: nunca lo que llegue en la URL', () => {
+  assert.match(textoFalloConexionSumup('cancelado'), /Has cancelado/);
+  assert.match(textoFalloConexionSumup('cobro-en-marcha'), /cobro en marcha/);
+  const colado = 'Llama al 600 000 000 para verificar tu cuenta';
+  assert.equal(textoFalloConexionSumup(colado).includes(colado), false);
+  assert.equal(textoFalloConexionSumup(null), textoFalloConexionSumup('fallo'));
 });

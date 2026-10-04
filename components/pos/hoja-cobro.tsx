@@ -16,6 +16,7 @@ import { estadoBotonDatafono, mensajeSinConexion } from '@/lib/pos/datafono';
 import { BotonFactura } from './boton-factura';
 import { ConectarDatafono } from './conectar-datafono';
 import { useDatafono } from './use-datafono';
+import type { CatalogoPOS } from '@/lib/pos/cliente';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El cobro.
@@ -66,7 +67,7 @@ export function HojaCobro({
   total, cobroDisponible, bizumPermitido, onCobrar, onHecho, onCerrar,
 }: {
   total: number;
-  cobroDisponible: { stripeConectado: boolean; datafonoEmparejado: boolean };
+  cobroDisponible: CatalogoPOS['cobro'];
   /**
    * ¿Se puede ofrecer Bizum para ESTE ticket? Falso si lleva una cuota: Bizum
    * no deja método guardado y la renovación no podría cobrarse sola
@@ -83,14 +84,18 @@ export function HojaCobro({
   const [entregado, setEntregado] = useState('');
 
   // ── El datáfono ───────────────────────────────────────────────────────────
-  // El catálogo solo sabe si hay uno guardado; esto le pregunta a Stripe si
-  // está encendido. Mientras no responde, manda el catálogo («comprobando»).
-  const datafono = useDatafono(cobroDisponible.stripeConectado);
+  // El catálogo solo sabe si hay uno guardado; esto le pregunta a su proveedor
+  // (Stripe o SumUp) si está encendido. Mientras no responde, manda el catálogo.
+  const datafono = useDatafono(
+    cobroDisponible.stripeConectado || cobroDisponible.datafonoEmparejado || !!cobroDisponible.sumupDisponible,
+  );
   const [conectandoDatafono, setConectandoDatafono] = useState(false);
   const [avisoDatafono, setAvisoDatafono] = useState<string | null>(null);
   const lectorDatafono = datafono.estado ? datafono.estado.lector : undefined;
   const estadoDatafono = estadoBotonDatafono({
     stripeConectado: cobroDisponible.stripeConectado && (datafono.estado?.stripeConectado ?? true),
+    sumupDisponible: datafono.estado?.sumup.disponible ?? !!cobroDisponible.sumupDisponible,
+    proveedor: datafono.estado ? datafono.estado.proveedor : cobroDisponible.datafonoProveedor ?? null,
     emparejado: datafono.estado?.emparejado ?? cobroDisponible.datafonoEmparejado,
     lector: lectorDatafono,
   });
@@ -234,7 +239,10 @@ export function HojaCobro({
         esTest={datafono.estado?.test ?? false}
         textoVolver="Volver al cobro"
         textoFinal={`Volver a cobrar ${formatEuro(total)}`}
-        onConectado={(l) => { datafono.ponerLector(l); setAvisoDatafono(null); }}
+        stripeConectado={cobroDisponible.stripeConectado && (datafono.estado?.stripeConectado ?? true)}
+        sumup={datafono.estado?.sumup}
+        enCobro
+        onConectado={(l, proveedor) => { datafono.ponerLector(l, proveedor); setAvisoDatafono(null); }}
         onCerrar={() => setConectandoDatafono(false)}
       />
     );

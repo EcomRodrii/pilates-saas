@@ -13,6 +13,17 @@ test('el botón: sin Stripe se apaga como siempre; sin lector, CONECTA (antes sa
   assert.equal(estadoBotonDatafono({ stripeConectado: true, emparejado: true, lector: null }), 'sin-conectar', 'borrado en Stripe');
 });
 
+test('el botón con SumUp: sin Stripe, un Solo emparejado cobra y, si SumUp se ofrece, se puede conectar', () => {
+  const solo = { ...lector('online'), modelo: 'SumUp Solo' };
+  assert.equal(estadoBotonDatafono({ stripeConectado: false, proveedor: 'sumup', emparejado: true, lector: solo }), 'listo');
+  assert.equal(estadoBotonDatafono({ stripeConectado: false, proveedor: 'sumup', emparejado: true, lector: undefined }), 'comprobando');
+  assert.equal(estadoBotonDatafono({ stripeConectado: false, proveedor: 'sumup', emparejado: true, lector: null }), 'sin-conectar');
+  assert.equal(estadoBotonDatafono({ stripeConectado: false, sumupDisponible: true, emparejado: false, lector: null }), 'sin-conectar');
+  // Un datáfono de Stripe guardado sin Stripe conectado no sirve: SumUp disponible solo deja conectar otro.
+  assert.equal(estadoBotonDatafono({ stripeConectado: false, sumupDisponible: true, proveedor: 'stripe', emparejado: true, lector: lector('online') }), 'sin-conectar');
+  assert.equal(estadoBotonDatafono({ stripeConectado: false, sumupDisponible: false, emparejado: false, lector: null }), 'sin-stripe');
+});
+
 test('el botón: con lector, lo que diga Stripe; sin respuesta, «comprobando» y se deja cobrar', () => {
   assert.equal(estadoBotonDatafono({ stripeConectado: true, emparejado: true, lector: lector('online') }), 'listo');
   assert.equal(estadoBotonDatafono({ stripeConectado: true, emparejado: true, lector: lector('offline') }), 'sin-conexion');
