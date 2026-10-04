@@ -345,7 +345,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
     slug: 'conectar-el-datafono', categoria: 'pagos', tipo: 'guia',
     titulo: 'Conectar el datáfono de Stripe',
     descripcion: 'El datáfono que cobra solo desde la Caja: dónde se consigue, el código de tres palabras y qué hacer si dice «sin conexión».',
-    terminos: ['datáfono', 'TPV', 'lector', 'terminal', 'Stripe Terminal', 'S700', 'WisePOS', 'SumUp', 'Solo', 'emparejar', 'tarjeta', 'caja', 'mostrador'],
+    terminos: ['datáfono', 'TPV', 'lector', 'terminal', 'Stripe Terminal', 'S700', 'WisePOS', 'SumUp', 'Solo', 'emparejar', 'tarjeta', 'caja', 'mostrador', 'devolver'],
     actualizado: '2026-10-04',
     relacionados: ['pagos/cobrar-en-la-caja', 'pagos/conectar-stripe'],
     estado: 'publicado',

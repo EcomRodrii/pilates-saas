@@ -122,6 +122,71 @@ export interface TransaccionSumup {
   /** La propina, si la hubo. Va DENTRO de `amount`. */
   tip_amount?: number | null;
   timestamp?: string | null;
+  /** Lo que le ha pasado después (devoluciones, abonos…). `transaction_events` es el mismo dato. */
+  events?: EventoTransaccionSumup[] | null;
+  transaction_events?: EventoTransaccionSumup[] | null;
+  /** SUCCESSFUL, PAID_OUT, REFUNDED, CHARGEBACK, NON_COLLECTION… */
+  simple_status?: string | null;
+}
+
+/** `events[]` lo llama `type`; `transaction_events[]`, `event_type`. */
+export interface EventoTransaccionSumup { type?: string | null; event_type?: string | null; amount?: number | null; status?: string | null }
+
+function eventosDe(t: Pick<TransaccionSumup, 'events' | 'transaction_events'>): EventoTransaccionSumup[] | null {
+  if (Array.isArray(t.events)) return t.events;
+  if (Array.isArray(t.transaction_events)) return t.transaction_events;
+  return null;
+}
+const tipoDe = (e: EventoTransaccionSumup) => e?.type ?? e?.event_type ?? null;
+
+/**
+ * Cuánto lleva devuelto la transacción SEGÚN SUMUP, en céntimos: sus eventos de
+ * tipo REFUND que no fallaron (uno pendiente ya cuenta: el dinero está saliendo).
+ * `null` = la respuesta no trae eventos: NO es «cero devuelto», es que no se sabe,
+ * y quien llama no debe devolver nada.
+ */
+export function centimosDevueltosSumup(t: Pick<TransaccionSumup, 'events' | 'transaction_events'>): number | null {
+  const eventos = eventosDe(t);
+  if (!eventos) return null;
+  return eventos
+    .filter(e => tipoDe(e) === 'REFUND' && e.status !== 'FAILED' && typeof e.amount === 'number' && Number.isFinite(e.amount))
+    .reduce((s, e) => s + Math.round(Math.abs(e.amount as number) * 100), 0);
+}
+
+/** ¿La clienta reclamó el cargo a su banco (contracargo)? Entonces no se le devuelve nada más. */
+export function tieneContracargo(t: Pick<TransaccionSumup, 'events' | 'transaction_events' | 'simple_status'>): boolean {
+  if (t.simple_status === 'CHARGEBACK' || t.simple_status === 'NON_COLLECTION') return true;
+  return (eventosDe(t) ?? []).some(e => tipoDe(e) === 'CHARGE_BACK');
+}
+
+/**
+ * Qué hacer con una devolución de la Caja de una venta cobrada con SumUp.
+ *
+ * SumUp no admite clave de idempotencia en las devoluciones, así que la verdad
+ * de «¿ya salió este dinero?» es lo que SumUp tiene devuelto frente a lo que
+ * tiene apuntado el libro de la venta:
+ *  · iguales → se devuelve (si cabe en lo cobrado);
+ *  · SumUp tiene devuelto EXACTAMENTE lo que se pide de más → un intento anterior
+ *    devolvió el dinero y no llegó a apuntarse: no se devuelve otra vez, se apunta;
+ *  · cualquier otra diferencia (una devolución hecha desde la app de SumUp, por
+ *    ejemplo) → no se toca nada: que lo mire una persona.
+ */
+export type DecisionDevolucionSumup =
+  | { tipo: 'devolver' }
+  | { tipo: 'ya-devuelta' }
+  | { tipo: 'no'; motivo: 'excede' | 'descuadre' };
+
+export function decidirDevolucionSumup(p: {
+  /** Lo cobrado en la transacción, en céntimos (propina incluida: es lo devolvible). */
+  cobrado: number;
+  devueltoSegunSumup: number;
+  devueltoSegunLibro: number;
+  pedido: number;
+}): DecisionDevolucionSumup {
+  const deMas = p.devueltoSegunSumup - p.devueltoSegunLibro;
+  if (deMas === 0) return p.devueltoSegunSumup + p.pedido > p.cobrado ? { tipo: 'no', motivo: 'excede' } : { tipo: 'devolver' };
+  if (deMas === p.pedido) return { tipo: 'ya-devuelta' };
+  return { tipo: 'no', motivo: 'descuadre' };
 }
 
 /**
@@ -231,7 +296,9 @@ function aLectorSumup(d: unknown, nombrePorDefecto: string): LectorSumup {
 }
 
 export function clienteSumup(o: { token: string; fetch?: FetchSumup; base?: string }) {
-  const f: FetchSumup = o.fetch ?? ((url, init) => fetch(url, init));
+  // Con tiempo límite: una llamada colgada no puede comerse la función entera (y
+  // con ella el «¿salió o no?» de quien la llama).
+  const f: FetchSumup = o.fetch ?? ((url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(20_000) }));
   const base = (o.base ?? BASE).replace(/\/$/, '');
   const mc = (merchantCode: string) => encodeURIComponent(merchantCode);
 
@@ -354,12 +421,14 @@ export function clienteSumup(o: { token: string; fetch?: FetchSumup; base?: stri
     },
 
     /**
-     * Devuelve una transacción, entera o en parte. SumUp tampoco tiene idempotencia
-     * aquí: quien llama comprueba antes lo ya devuelto. ⚠️ `amount` va en euros, como
-     * el de las transacciones; confirmarlo con el Virtual Solo antes de usarlo.
+     * Devuelve parte (o todo) de una transacción. SumUp no tiene idempotencia aquí:
+     * quien llama comprueba antes lo ya devuelto (`decidirDevolucionSumup`). El
+     * importe va en euros, como el de las transacciones, y SIEMPRE explícito: sin
+     * él SumUp devolvería la transacción entera.
      */
-    async devolver(txnId: string, centimos?: number): Promise<void> {
-      await pedir('POST', `/v0.1/me/refund/${encodeURIComponent(txnId)}`, centimos === undefined ? undefined : { amount: centimos / 100 });
+    async devolver(merchantCode: string, txnId: string, centimos: number): Promise<void> {
+      if (!Number.isInteger(centimos) || centimos <= 0) throw new ErrorSumup(400, null, 'Importe no válido');
+      await pedir('POST', `/v1.0/merchants/${mc(merchantCode)}/payments/${encodeURIComponent(txnId)}/refunds`, { amount: centimos / 100 });
     },
   };
 }

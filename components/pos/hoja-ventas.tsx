@@ -62,6 +62,9 @@ export function HojaVentas({ onCerrar, onCambio }: { onCerrar: () => void; onCam
   // Cuántas unidades de cada línea se van a devolver. Vacío = devolución total.
   const [aDevolver, setADevolver] = useState<Record<string, number>>({});
   const [resultado, setResultado] = useState<string | null>(null);
+  // SumUp ya tenía devuelta esta devolución (hecha desde su app): se ofrece apuntarla
+  // sin devolver nada más. Lo vuelve a comprobar el servidor.
+  const [puedeSoloApuntar, setPuedeSoloApuntar] = useState(false);
 
   // Contador como dependencia, y el setState dentro de la callback asíncrona:
   // llamar desde el cuerpo del efecto a una función que hace setState encadena
@@ -81,31 +84,40 @@ export function HojaVentas({ onCerrar, onCambio }: { onCerrar: () => void; onCam
   }, [recarga]);
 
   async function abrir(id: string) {
-    setCargando(true); setError(null); setResultado(null); setADevolver({});
+    setCargando(true); setError(null); setResultado(null); setADevolver({}); setPuedeSoloApuntar(false);
     const r = await pedir<Detalle>(`/api/pos/ventas?id=${encodeURIComponent(id)}`);
     setCargando(false);
     if (esError(r)) { setError(r.error); return; }
     setDetalle(r);
   }
 
-  async function devolver() {
+  async function devolver(soloApuntar = false) {
     if (!detalle) return;
-    setDevolviendo(true); setError(null);
+    setDevolviendo(true); setError(null); setPuedeSoloApuntar(false);
     const lineas = Object.entries(aDevolver)
       .filter(([, c]) => c > 0)
       .map(([lineaId, cantidad]) => ({ lineaId, cantidad }));
     const r = await devolverVenta({
       ventaId: detalle.venta.id,
       lineas: lineas.length > 0 ? lineas : undefined,
+      ...(soloApuntar ? { soloApuntar: true } : {}),
     });
     setDevolviendo(false);
-    if (esError(r)) { setError(r.error); return; }
+    if (esError(r)) {
+      setError(r.error);
+      setPuedeSoloApuntar(r.codigo === 'SUMUP_YA_DEVUELTO');
+      return;
+    }
     setResultado(
       r.enEfectivo
         // El libro ya lo apuntó, pero el billete lo saca una persona: decirlo
         // evita el descuadre de "el sistema dice que salió y sigue en el cajón".
         ? `Devuelto ${formatEuro(r.importe)}. Saca el efectivo del cajón.`
-        : `Devuelto ${formatEuro(r.importe)} a su tarjeta.`,
+        : r.yaEstaba
+          // Ya estaba devuelto en SumUp: no ha salido dinero nuevo, y decirlo evita
+          // que alguien lo devuelva otra vez desde su app.
+          ? `Apuntada la devolución de ${formatEuro(r.importe)}. No ha salido dinero nuevo: ya estaba devuelta en SumUp.`
+          : `Devuelto ${formatEuro(r.importe)} a su tarjeta.`,
     );
     onCambio();
     await abrir(detalle.venta.id);
@@ -269,10 +281,19 @@ export function HojaVentas({ onCerrar, onCambio }: { onCerrar: () => void; onCam
                 )}
               </div>
 
+              {puedeSoloApuntar && (
+                <button
+                  disabled={devolviendo}
+                  onClick={() => { void devolver(true); }}
+                  className="w-full h-12 rounded-xl border border-border bg-card text-[14px] font-semibold text-foreground disabled:opacity-50"
+                >
+                  Apuntar sin devolver
+                </button>
+              )}
               {detalle.venta.estado === 'PAGADA' && pendienteTotal > 0 && (
                 <button
                   disabled={devolviendo}
-                  onClick={devolver}
+                  onClick={() => { void devolver(); }}
                   className={cn(
                     'w-full h-14 rounded-xl border-2 text-[15px] font-bold flex items-center justify-center gap-2 transition-colors',
                     'border-destructive/30 bg-destructive/10 text-destructive disabled:opacity-50',
