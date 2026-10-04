@@ -35,9 +35,10 @@ export default function Contenido() {
           en vez de darlo por hecho. Registrarlo es correcto; pintarlo como un cobro verificado no lo sería.
         </p>
         <p style={{ margin: 0 }}>
-          Datáfono necesita un lector emparejado; Bizum, Stripe conectado, y no vale para una cuota, porque no deja
-          la tarjeta guardada para renovar. Si falta algo, aparecen apagados: mejor eso que un botón que falla con
-          alguien esperando.
+          Datáfono necesita el datáfono de Stripe conectado: si no lo está, el botón dice <strong>Conectar datáfono</strong>{' '}
+          y te guía en tres pasos (ver «Conectar el datáfono de Stripe»), y debajo dice si está listo o sin conexión.
+          Bizum necesita Stripe conectado y no vale para una cuota, porque no deja la tarjeta guardada para renovar. Si
+          falta algo, aparecen apagados: mejor eso que un botón que falla con alguien esperando.
         </p>
       </AyudaPaso>
 

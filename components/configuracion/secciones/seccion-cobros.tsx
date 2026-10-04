@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Ban, CalendarClock, FileText, Landmark, Package, Receipt, RotateCcw, Wallet } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import {
@@ -10,6 +11,9 @@ import { FormDatosFiscales } from '@/components/configuracion/tab-datos-fiscales
 import { FormAlCancelarCuota, FormCobroDia1, FormDevoluciones, FormDomiciliaciones, FormFacturacion } from '@/components/configuracion/tab-estudio-cobros';
 import { DetalleCobroConTarjeta, FilaCobroConTarjeta, useCobroConTarjeta } from '@/components/configuracion/cobro-con-tarjeta';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
+import { DetalleDatafono, FilaDatafono } from '@/components/configuracion/datafono';
+import { ConectarDatafono } from '@/components/pos/conectar-datafono';
+import { useDatafono } from '@/components/pos/use-datafono';
 import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 
 // Cobros y facturas: cómo te pagan tus alumnas y qué sale en tus facturas.
@@ -25,8 +29,8 @@ import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/
 // cajón. Stripe solo tiene cajón cuando está conectado: sin conectar, su acción
 // va en la misma fila.
 
-type CajonId = Extract<TarjetaId, 'facturacion' | 'datos-fiscales' | 'integracion-stripe' | 'cuando-se-cobra-la-cuota' | 'domiciliaciones' | 'devoluciones' | 'si-se-cancela-una-cuota'>;
-const CAJONES = ['facturacion', 'datos-fiscales', 'integracion-stripe', 'cuando-se-cobra-la-cuota', 'domiciliaciones', 'devoluciones', 'si-se-cancela-una-cuota'] as const satisfies readonly CajonId[];
+type CajonId = Extract<TarjetaId, 'facturacion' | 'datos-fiscales' | 'integracion-stripe' | 'datafono' | 'cuando-se-cobra-la-cuota' | 'domiciliaciones' | 'devoluciones' | 'si-se-cancela-una-cuota'>;
+const CAJONES = ['facturacion', 'datos-fiscales', 'integracion-stripe', 'datafono', 'cuando-se-cobra-la-cuota', 'domiciliaciones', 'devoluciones', 'si-se-cancela-una-cuota'] as const satisfies readonly CajonId[];
 
 type FilaDeCobros = Extract<(typeof FILAS_A_OTRA_PANTALLA)[number], { seccion: 'cobros' }>;
 const esDeCobros = (f: (typeof FILAS_A_OTRA_PANTALLA)[number]): f is FilaDeCobros => f.seccion === 'cobros';
@@ -37,6 +41,10 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
   const { studio, dataLoaded, planesTarifa } = useStudio();
   const stripe = useCobroConTarjeta(showToast);
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
+  // El datáfono pregunta a Stripe si está encendido: solo con Stripe conectado.
+  const datafono = useDatafono(stripe.conectado);
+  const [conectandoDatafono, setConectandoDatafono] = useState(false);
+  const datafonoConectado = stripe.conectado && !!datafono.estado && datafono.estado.lector !== null && datafono.estado.emparejado !== false;
 
   function guardado(texto: string) {
     cerrar();
@@ -60,6 +68,7 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
 
       <GrupoFilas titulo="Cobrar a tus alumnas">
         <FilaCobroConTarjeta c={stripe} onAbrir={() => abrir('integracion-stripe')} />
+        <FilaDatafono d={datafono} stripeConectado={stripe.conectado} onAbrir={() => abrir('datafono')} onConectar={() => setConectandoDatafono(true)} />
         <FilaAjuste id="cuando-se-cobra-la-cuota" icono={CalendarClock} valor={cargado ? resumenCobroDia1(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="domiciliaciones" icono={Landmark} valor={cargado ? resumenDomiciliaciones(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="devoluciones" icono={RotateCcw} valor={cargado ? resumenDevoluciones(cargado) : null} onAbrir={abrir} />
@@ -89,6 +98,20 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
       <CajonAjuste id="integracion-stripe" abierto={cajon === 'integracion-stripe' && stripe.conectado} onCerrar={cerrar}>
         <DetalleCobroConTarjeta c={stripe} onGuardado={guardado} />
       </CajonAjuste>
+      <CajonAjuste id="datafono" abierto={cajon === 'datafono' && datafonoConectado} onCerrar={cerrar}>
+        {/* «Cambiar de datáfono» cierra el cajón antes de abrir el paso a paso: dos diálogos apilados no. */}
+        <DetalleDatafono d={datafono} onCambiar={() => { cerrar(); setConectandoDatafono(true); }} onGuardado={guardado} />
+      </CajonAjuste>
+      {conectandoDatafono && (
+        <ConectarDatafono
+          direccionEstudio={datafono.estado?.direccion ?? null}
+          esTest={datafono.estado?.test ?? false}
+          textoVolver="Volver"
+          textoFinal="Hecho"
+          onConectado={datafono.ponerLector}
+          onCerrar={() => setConectandoDatafono(false)}
+        />
+      )}
       <CajonAjuste id="cuando-se-cobra-la-cuota" abierto={cajon === 'cuando-se-cobra-la-cuota'} onCerrar={cerrar}>
         <FormCobroDia1 {...props} />
       </CajonAjuste>
