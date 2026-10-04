@@ -30,7 +30,7 @@ export default function PerfilPage() {
   const href = usePortalHref();
   const router = useRouter();
   const cargarAlumna = useCallback(() => getAlumna(estudio.slug), [estudio.slug]);
-  const { data: socia } = useAsync(cargarAlumna, (d) => !d);
+  const { data: socia } = useAsync(cargarAlumna, (d) => !d, `alumna:${estudio.slug}:perfil`);
   // SEC-01 (auditoría 23-sep): `socia.fotoUrl` ya no es una URL pública
   // pintable directa — mismo criterio que `perfil/datos/page.tsx`. Solo se
   // pide la firma si `fotoUrl` existe (evita un "object not found" en cada

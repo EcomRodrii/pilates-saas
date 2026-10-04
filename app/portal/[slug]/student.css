@@ -580,7 +580,24 @@
 .student-app .shell[data-sin-sesion] > main > :not(.esqueleto-inicio) { display: none !important; }
 .student-app .esqueleto-inicio { padding-top: 16px; }
 .student-app .shell[data-sin-sesion] .esqueleto-inicio { padding-top: calc(72px + var(--safe-top)); }
-.student-app .skel { background: linear-gradient(90deg, var(--muted) 25%, #F6F4EC 45%, var(--muted) 65%); background-size: 400px 100%; animation: apSkel 1.1s linear infinite; border-radius: 10px; }
+/* El brillo que recorre el esqueleto es el FONDO del estilo, no un crema fijo
+   (`#F6F4EC`): con «Carbón» era una franja clara cruzando una app oscura. Sobre
+   `--muted` destaca igual en claro (fondo más claro que muted) que en oscuro
+   (fondo más oscuro). */
+.student-app .skel { background: linear-gradient(90deg, var(--muted) 25%, var(--background) 45%, var(--muted) 65%); background-size: 400px 100%; animation: apSkel 1.1s linear infinite; border-radius: 10px; }
+
+/* El velo del color del ESTUDIO sobre una foto («Tu próxima clase», su versión
+   en Mis clases y la de la instructora). Era `rgba(18,41,26,…)` escrito a mano
+   —el verde noche del kit—, así que un estudio terracota veía una tarjeta verde.
+   `--accent-deep` es el tono profundo de SU color (lib/student/apariencia.ts),
+   el mismo que ya llevaba el texto encima. Cada tarjeta puede ajustar la
+   opacidad de los dos extremos con `--velo-desde` / `--velo-hasta`. */
+.student-app .velo-marca {
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg,
+    color-mix(in srgb, var(--accent-deep) var(--velo-desde, 95%), transparent),
+    color-mix(in srgb, var(--accent-deep) var(--velo-hasta, 68%), transparent));
+}
 
 /* ── Keyframes del diseño (nombres originales conservados) ── */
 @keyframes apUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
@@ -602,6 +619,10 @@
 .student-app .a-up { animation: apUp var(--dur-card) both; }
 .student-app .a-fade { animation: apFade .25s both; }
 .student-app .a-pop { animation: apPop .5s both; }
+/* Volver a una pantalla ya vista (cambiar de pestaña): lo que hay se pinta
+   QUIETO, sin volver a subir tarjeta a tarjeta (`useMemoriaDePestana`). Solo lo
+   de `main`: las hojas (`#student-portal-host`) siguen animándose al abrirse. */
+.student-app .shell[data-revisita] > main :is(.a-up, .a-fade, .a-pop) { animation: none; }
 
 /* ── Layout responsive del shell ── */
 .student-app .shell { min-height: 100dvh; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; position: relative; }
@@ -654,6 +675,33 @@
   .student-app .page { padding-bottom: var(--s-8); }
   .student-app .grid-lg-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-5); align-items: start; }
 }
+/* ── Dentro de la app de iOS ──────────────────────────────────────────────
+   `PuenteNativo` marca `<html data-app-nativa>` solo dentro de la carcasa de
+   Capacitor. Aquí se quitan los gestos que delatan que es una página web; en el
+   navegador no cambia nada.
+
+   · Sin el recuadro gris al tocar algo (`tap-highlight`).
+   · Sin el menú de Safari al mantener pulsado un enlace o una imagen («Abrir en
+     pestaña nueva», «Guardar imagen»): dentro de la app no lleva a ningún sitio.
+   · Botones, pestañas y tarjetas pulsables NO se seleccionan como texto al
+     mantener el dedo (en iOS, la lupa y los tiradores encima de un botón). El
+     texto de contenido sí se puede seleccionar y copiar.
+   · Sin el rebote del fondo al pasarse de scroll arriba o abajo: el fondo es
+     fijo, y tirar hacia abajo ya es «actualizar» (`TirarParaActualizar`).
+   ⚠️ Los campos de formulario lo recuperan TODO explícitamente: sin
+   `touch-callout` ni `user-select` en un `<input>`, iOS no deja seleccionar,
+   copiar ni pegar dentro. */
+html[data-app-nativa] { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+html[data-app-nativa] body { overscroll-behavior: none; }
+html[data-app-nativa] .student-app { -webkit-touch-callout: none; }
+html[data-app-nativa] .student-app :is(a, button, [role="button"], [role="tab"], label, nav, .btn, .pill, .day, .card--tap, .tap) {
+  -webkit-user-select: none; user-select: none;
+}
+html[data-app-nativa] .student-app img { -webkit-user-drag: none; }
+html[data-app-nativa] .student-app :is(input, textarea, select, [contenteditable="true"]) {
+  -webkit-touch-callout: default; -webkit-user-select: text; user-select: text;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .student-app, .student-app *, .student-app *::before, .student-app *::after {
     animation: none !important; transition: none !important;

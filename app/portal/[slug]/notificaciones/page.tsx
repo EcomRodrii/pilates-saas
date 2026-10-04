@@ -10,6 +10,7 @@ import { getNotificaciones, marcarLeidas } from '@/lib/student/perfil-y-avisos';
 import { invalidarNoLeidas } from '@/lib/student/no-leidas';
 import { NotificationItem } from '@/components/student/domain/NotificationItem';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
 
 // Notificaciones (§A.16). El motor ya existía entero; lo que no había era una
 // pantalla donde una alumna las viera.
@@ -26,7 +27,7 @@ export default function NotificacionesPage() {
     () => getNotificaciones(estudio.slug, estudio.id),
     [estudio.slug, estudio.id],
   );
-  const { data, estado, reintentar } = useAsync(cargar);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, undefined, `alumna:${estudio.slug}:avisos`);
 
   const noLeidas = data?.filter((n) => !n.leida).length ?? 0;
 
@@ -48,6 +49,7 @@ export default function NotificacionesPage() {
 
   return (
     <StudentShell>
+      <TirarParaActualizar onRefrescar={() => { invalidarNoLeidas(estudio.id); return refrescar(); }} />
       <PageHeader
         titulo="Notificaciones"
         sub={noLeidas ? `${noLeidas} sin leer` : undefined}

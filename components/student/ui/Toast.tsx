@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { duracionToast } from '@/lib/student/toast-duracion';
 
 // `hooks/useToast.tsx` del paquete: aviso breve, arriba, con `apToast`.
 //
@@ -13,8 +14,9 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 // 2. `useRef` se inicializa a `null`. Sin argumento, `useRef<T>()` da
 //    `MutableRefObject<T | undefined>` y el `strict` de este repo lo rechaza.
 //
-// ⚠️ Un toast no sirve para dar una noticia importante: dura 2,3 s y no se
-// puede releer. La cancelación de una clase enseña su resultado AQUÍ y también
+// ⚠️ Un toast no sirve para dar una noticia importante: dura poco (de 2,3 a
+// 7 s según lo largo que sea, `duracionToast`) y no se puede releer. La
+// cancelación de una clase enseña su resultado AQUÍ y también
 // en la propia lista, que es lo que queda cuando el aviso se va.
 
 interface ValorToast { toast: (mensaje: string) => void }
@@ -28,7 +30,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const toast = useCallback((m: string) => {
     if (temporizador.current) clearTimeout(temporizador.current);
     setMensaje(m);
-    temporizador.current = setTimeout(() => setMensaje(null), 2300);
+    temporizador.current = setTimeout(() => setMensaje(null), duracionToast(m));
   }, []);
 
   useEffect(() => () => {

@@ -133,7 +133,7 @@ export default async function StudentLayout({
       <style dangerouslySetInnerHTML={{ __html: temaAppCssText(estudio.colorPrimario, estudio.apariencia) }} />
       <RegistroSW slug={estudio.slug} studioId={estudio.id} />
       {/* Solo hace algo dentro de la app de iOS: enlaces fuera, avisos pulsados, enlaces universales. */}
-      <PuenteNativo />
+      <PuenteNativo fondoOscuro={estiloPorId(estudio.apariencia.estilo).oscuro === true} />
       {/* El toast vive aquí y no en cada pantalla: es un aviso global y así
           sobrevive a las navegaciones dentro del portal. */}
       <StudentProvider estudio={estudio}>

@@ -9,6 +9,9 @@ import { useFotoUrl } from '@/lib/foto-signed-url';
 import { inicialDe } from '@/lib/monograma-estudio';
 import { urlServida } from '@/lib/student/imagen-servida';
 import { Icono } from '@/components/student/ui/Icono';
+import { estiloBarraDeEstado } from '@/lib/nativo/puente';
+import { tintaBarraDeEstado } from '@/lib/nativo/barra-de-estado';
+import { estiloPorId } from '@/lib/student/apariencia';
 
 /**
  * Cabecera fija con la marca del estudio. Del paquete
@@ -164,6 +167,17 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
   }, [transparente]);
 
   const flotando = transparente && !solida;
+
+  // La barra de estado de iOS (hora, batería) con letras que se lean sobre lo
+  // que hay detrás: claras sobre la foto de portada o con un estilo oscuro
+  // («Carbón»), oscuras sobre el crema. Solo hace algo dentro de la app. Al
+  // irse, la deja como corresponde al fondo, por si la pantalla siguiente no
+  // tiene cabecera (las de acceso).
+  const fondoOscuro = estiloPorId(estudio.apariencia.estilo).oscuro === true;
+  useEffect(() => {
+    void estiloBarraDeEstado(tintaBarraDeEstado({ fondoOscuro, sobreFoto: flotando }));
+    return () => { void estiloBarraDeEstado(tintaBarraDeEstado({ fondoOscuro })); };
+  }, [flotando, fondoOscuro]);
 
   return (
     <header

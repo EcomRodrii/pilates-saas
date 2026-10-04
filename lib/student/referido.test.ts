@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { referidorUtilizable, enlaceInvitacion, textoInvitacion } from './referido.ts';
+import { referidorUtilizable, enlaceInvitacion, fraseInvitacion, textoInvitacion } from './referido.ts';
 
 test('sin referidor no hay nada que mandar', () => {
   assert.equal(referidorUtilizable(null, 'soc-1'), false);
@@ -42,4 +42,6 @@ test('el texto invita y NO promete un premio que la alumna no controla', () => {
   assert.match(t, /Estudio Alma/);
   assert.match(t, /https:\/\/x\/y/);
   assert.doesNotMatch(t, /gratis|regalo|gana|premio/i);
+  // La hoja de compartir manda frase y enlace por separado; copiado, van juntos.
+  assert.equal(t, `${fraseInvitacion('Estudio Alma')}\nhttps://x/y`);
 });

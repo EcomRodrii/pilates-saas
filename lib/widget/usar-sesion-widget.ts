@@ -4,6 +4,7 @@ import type { SociaSesion } from '@/lib/use-socia-session';
 import { CacheSesion, claveSesion } from './sesion-cache';
 import { pasoDelPortal } from '@/lib/student/doble-factor-portal';
 import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
+import { personaEnElDispositivo } from '@/lib/student/persona-dispositivo';
 
 /** La sesión es buena pero le falta el segundo paso (lo dice `/api/public/session`). */
 class SegundoPasoPendiente extends Error {}
@@ -12,6 +13,24 @@ class SegundoPasoPendiente extends Error {}
 // sola petición a /api/public/session por (estudio, usuario), no una por
 // componente montado. Ver sesion-cache.ts.
 const cacheSocia = new CacheSesion<SociaSesion | null>(30_000);
+
+// La última sesión RESUELTA por estudio, para que un componente que se monta de
+// nuevo (cambiar de pestaña en la app de la alumna) arranque ya resuelto en vez
+// de pasar por `isLoading` —que en la guardia es un esqueleto a pantalla
+// completa— mientras pregunta otra vez lo que ya sabía. Se vuelve a comprobar
+// por detrás igual que siempre.
+//
+// ⚠️ Solo vale para la MISMA persona que tiene la sesión en el dispositivo
+// (`personaEnElDispositivo`), y se vacía al cerrar sesión: una sesión recordada
+// de otra alumna es el mismo error que ya cometió una caché «por estudio».
+interface SesionRecordada { userId: string; socia: SociaSesion; email: string | null }
+const recordadas = new Map<string, SesionRecordada>();
+
+function sesionRecordada(baseUrl: string, slug: string): SesionRecordada | null {
+  if (typeof window === 'undefined') return null;
+  const r = recordadas.get(`${baseUrl}|${slug}`);
+  return r && r.userId === personaEnElDispositivo() ? r : null;
+}
 
 // Versión mínima de `useSociaSession` (lib/use-socia-session.ts) para el
 // bundle embebible: mismo bootstrap de sesión (JWT de supabasePortal →
@@ -32,13 +51,14 @@ const cacheSocia = new CacheSesion<SociaSesion | null>(30_000);
 // el DOM de la web del estudio, así que una ruta relativa a `/api/public/...`
 // resolvería contra el origen del estudio, no el de Tentare.
 export function useSesionWidget(slug: string, baseUrl = '') {
-  const [socia, setSocia] = useState<SociaSesion | null>(null);
+  const [recordada] = useState(() => sesionRecordada(baseUrl, slug));
+  const [socia, setSocia] = useState<SociaSesion | null>(recordada?.socia ?? null);
   // Autenticada (JWT válido) pero SIN ficha de socia todavía en este estudio —
   // walk-in recién logueada por primera vez. Distinto de `socia === null` sin
   // más: el formulario de acceso necesita saber si toca pedir login o registro
   // (Fase 2, docs/auth-widget-diseno.md §1/§3).
-  const [usuarioEmail, setUsuarioEmail] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [usuarioEmail, setUsuarioEmail] = useState<string | null>(recordada?.email ?? null);
+  const [isLoading, setIsLoading] = useState(!recordada);
   // Tiene la verificación en dos pasos activada y esta sesión aún no la ha
   // pasado (lib/student/doble-factor-portal.ts). Las guardias la mandan a
   // `/acceso/dos-pasos`; el widget le pide ahí mismo el código de la app. Quien
@@ -47,7 +67,9 @@ export function useSesionWidget(slug: string, baseUrl = '') {
 
   const resolver = useCallback(async (forzar = false) => {
     const { data: { session: sb } } = await supabasePortal.auth.getSession();
+    const claveRecordada = `${baseUrl}|${slug}`;
     if (!sb?.access_token) {
+      recordadas.delete(claveRecordada);
       cacheSocia.vaciar(); setSocia(null); setUsuarioEmail(null); setSegundoPaso(false); setIsLoading(false); return;
     }
     const token = sb.access_token;
@@ -57,6 +79,7 @@ export function useSesionWidget(slug: string, baseUrl = '') {
     const paso = await pasoDelPortal(token, baseUrl === '');
     setUsuarioEmail(sb.user?.email ?? null);
     if (paso === 'dos-pasos') {
+      recordadas.delete(claveRecordada);
       cacheSocia.vaciar(); setSocia(null); setSegundoPaso(true); setIsLoading(false); return;
     }
     setSegundoPaso(false);
@@ -77,8 +100,11 @@ export function useSesionWidget(slug: string, baseUrl = '') {
         }
         return res.ok ? await res.json() as SociaSesion : null;
       }, Date.now(), forzar);
+      if (socia && sb.user?.id) recordadas.set(claveRecordada, { userId: sb.user.id, socia, email: sb.user.email ?? null });
+      else recordadas.delete(claveRecordada);
       setSocia(socia);
     } catch (e) {
+      recordadas.delete(claveRecordada);
       setSocia(null);
       if (e instanceof SegundoPasoPendiente) { cacheSocia.vaciar(); setSegundoPaso(true); }
     } finally {
@@ -93,7 +119,7 @@ export function useSesionWidget(slug: string, baseUrl = '') {
       // auth-js emite SIGNED_IN en CADA vuelta de pestaña, no solo al entrar:
       // no se fuerza. Otra persona tiene otra clave (userId) → falla la caché
       // sola; la misma persona la aprovecha. SIGNED_OUT vacía todo.
-      if (event === 'SIGNED_OUT') { cacheSocia.vaciar(); resolver(); }
+      if (event === 'SIGNED_OUT') { recordadas.clear(); cacheSocia.vaciar(); resolver(); }
       else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') resolver();
       // Acaba de escribir el código de la app: la sesión sube a `aal2` y emite
       // este evento, no SIGNED_IN. Lo que hubiera en caché era de antes.

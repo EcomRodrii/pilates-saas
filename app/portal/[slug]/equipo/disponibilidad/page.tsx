@@ -252,7 +252,7 @@ export default function DisponibilidadInstructoraPage() {
             // Sin pestañas debajo en «Tus horarios»: la barra va pegada abajo.
             position: 'fixed', left: 0, right: 0, bottom: primera ? 0 : 'var(--nav-total)',
             zIndex: 39, padding: primera ? '10px 16px calc(12px + var(--safe-bottom))' : '10px 16px 12px',
-            background: 'linear-gradient(180deg, rgba(250,249,245,0), var(--background) 40%)',
+            background: 'linear-gradient(180deg, transparent, var(--background) 40%)',
             maxWidth: 640, margin: '0 auto',
           }}
         >

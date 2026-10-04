@@ -28,6 +28,9 @@ import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components
 import { CaraInstructora } from '@/components/student/domain/InstructorCard';
 import { agruparAgenda, faltaTexto, tileFecha } from '@/lib/student/agenda-proximas';
 import type { Clase, Instructora, Reserva } from '@/lib/student/tipos';
+import { invalidarCatalogo } from '@/lib/student/catalogo';
+import { vibrar } from '@/lib/nativo/puente';
+import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
 
 // Feedback real de una propietaria en prueba (14-sep): una socia no sabía que
 // podía cancelar SOLO un día de su clase fija sin perder el hueco semanal — esta
@@ -80,11 +83,15 @@ export default function MisReservasPage() {
     return { reservas, clases, instructoras, plazaFija };
   }, [estudio.slug]);
 
-  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `alumna:${estudio.slug}:mis-clases`);
   // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.
   useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
+  const actualizar = useCallback(async () => {
+    invalidarCatalogo(estudio.slug, { conservarVistas: true });
+    await refrescar();
+  }, [estudio.slug, refrescar]);
 
   const items = (data?.reservas ?? [])
     .map((r) => ({ r, c: data?.clases.find((c) => c.id === r.claseId) }))
@@ -140,6 +147,8 @@ export default function MisReservasPage() {
     }
 
     setCancelId(null);
+    // Después de que el servidor diga que sí, nunca antes (ver `vibrar`).
+    void vibrar('aviso');
     // El mensaje sale de lo que dijo el SERVIDOR, no de lo que calculó el aviso
     // previo: la ventana real puede diferir (tipo de clase con la suya propia).
     toast(mensajeTrasCancelar(res, { esClaseFija: !!sel && esClaseFija(sel.r.id), fechaCorta }));
@@ -178,6 +187,7 @@ export default function MisReservasPage() {
       if (online) void refrescar();
       return;
     }
+    if (res.confirmada) void vibrar('exito');
     toast(res.confirmada
       ? '¡Plaza confirmada! ✓'
       : 'Alguien se te adelantó por segundos — te hemos dado una clase de recuperación.');
@@ -186,10 +196,14 @@ export default function MisReservasPage() {
 
   return (
     <StudentShell>
+      <TirarParaActualizar onRefrescar={actualizar} />
       <PageHeader titulo="Mis clases" />
 
-      {/* Segmentado con píldora deslizante (§I) */}
+      {/* Segmentado con píldora deslizante (§I). `tablist` alrededor: unas
+          pestañas sueltas (`role="tab"`) sin su lista no se anuncian como tales. */}
       <div
+        role="tablist"
+        aria-label="Mis clases"
         className="px"
         style={{ position: 'relative', display: 'flex', background: 'var(--muted)', borderRadius: 999, padding: 4, margin: '14px 18px 0' }}
       >
@@ -475,7 +489,9 @@ function HeroProxima({ r, c, instructora, hrefDetalle, enCurso, esFija, puedeCan
       style={{ position: 'relative', borderRadius: 'var(--radius-hero)', overflow: 'hidden', boxShadow: 'var(--shadow-hero)', color: 'var(--accent-deep-foreground)' }}
     >
       {c.fotoUrl && <div aria-hidden style={{ position: 'absolute', inset: 0, background: `url(${c.fotoUrl}) center/cover` }} />}
-      <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(100deg, rgba(18,41,26,.96), rgba(18,41,26,.74))' }} />
+      {/* El velo es del COLOR DEL ESTUDIO (`--accent-deep`), no un verde fijo:
+          un estudio terracota veía aquí una tarjeta verde. */}
+      <div aria-hidden className="velo-marca" style={{ ['--velo-desde' as string]: '96%', ['--velo-hasta' as string]: '74%' }} />
       <div style={{ position: 'relative', padding: '15px 16px 14px' }}>
         <Link href={hrefDetalle} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>

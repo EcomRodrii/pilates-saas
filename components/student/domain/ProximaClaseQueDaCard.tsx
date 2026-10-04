@@ -81,7 +81,8 @@ export function ProximaClaseQueDaCard({ clase, foto, cuando, enCurso: enCursoPor
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
         />
       )}
-      <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(100deg, rgba(18,41,26,.95), rgba(18,41,26,.68))' }} />
+      {/* Velo del color del estudio, como «Tu próxima clase» de la alumna. */}
+      <div aria-hidden className="velo-marca" />
       <div style={{ position: 'relative', padding: '14px 15px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
           <p className="t-label" role={enCurso ? 'status' : undefined} style={{ color: enCurso ? 'var(--on-dark)' : 'var(--accent-deep-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>

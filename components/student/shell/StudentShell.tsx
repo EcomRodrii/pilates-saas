@@ -11,6 +11,7 @@ import { GuardiaInstructora } from '@/components/student/GuardiaInstructora';
 import { StudioHeader } from './StudioHeader';
 import { BottomNavigation } from './BottomNavigation';
 import { OfflineBanner } from './OfflineBanner';
+import { useMemoriaDePestana } from '@/lib/student/use-memoria-pestana';
 
 /**
  * Marco de toda pantalla autenticada. Del paquete (`components/shell/AppShell.tsx`).
@@ -129,6 +130,8 @@ const MARCAR_SIN_SESION = `(function(){try{var m=document.currentScript&&documen
 function ShellConHeroe({ heroe, children, noLeidas, badgeReservas, headerTransparente, conLema, sinNav, vistaPrevia }: PropsMarco & { heroe: ReactNode }) {
   const { estudio } = useEstudio();
   const sinLeer = useNoLeidas(estudio.id);
+  // Scroll de la pestaña y animaciones de entrada solo la primera vez (ver el hook).
+  const revisita = useMemoriaDePestana(estudio.slug);
   const { esperando, conPreguntas, completarPreguntas } = useGuardiaSesion(vistaPrevia);
   if (conPreguntas) return <PreguntasAlta estado={conPreguntas} onCompletada={completarPreguntas} />;
   const estiloPage: CSSProperties = {};
@@ -136,7 +139,7 @@ function ShellConHeroe({ heroe, children, noLeidas, badgeReservas, headerTranspa
   if (sinNav) estiloPage.paddingBottom = 'var(--safe-bottom)';
   return (
     // `suppressHydrationWarning`: el script puede haberle puesto `data-sin-sesion`.
-    <div className="shell" suppressHydrationWarning>
+    <div className="shell" suppressHydrationWarning data-revisita={revisita ? '' : undefined}>
       <ScriptEnLinea js={MARCAR_SIN_SESION} />
       <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
       <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined} aria-busy={esperando || undefined}>
@@ -156,11 +159,12 @@ function ShellConGuardia({ children, noLeidas, badgeReservas, headerTransparente
   // seguir pasándolo explícitamente y entonces manda el suyo.
   const { estudio } = useEstudio();
   const sinLeer = useNoLeidas(estudio.id);
+  const revisita = useMemoriaDePestana(estudio.slug);
   const estiloPage: CSSProperties = {};
   if (headerTransparente) estiloPage.paddingTop = 0;
   if (sinNav) estiloPage.paddingBottom = 'var(--safe-bottom)';
   const contenido = (
-    <div className="shell">
+    <div className="shell" data-revisita={revisita ? '' : undefined}>
       <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
       <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined}>
         <OfflineBanner />

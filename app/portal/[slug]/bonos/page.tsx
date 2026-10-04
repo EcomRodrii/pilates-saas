@@ -16,6 +16,8 @@ import { pagarRenovacion, renovarPlan } from '@/lib/student/pagos-acciones';
 import { euros } from '@/lib/student/formato';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Ilustracion } from '@/components/student/ui/Ilustracion';
+import { invalidarCatalogo } from '@/lib/student/catalogo';
+import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
 
 // Bonos (§A.12). Lo único que mueve dinero son dos atajos al checkout de
 // siempre: «Renovar mi plan» y «Pagar ahora» de una renovación que no se cobra
@@ -32,7 +34,14 @@ function Bonos() {
     const [bonos, plazaFija, renovacion] = await Promise.all([getBonos(estudio.slug), getPlazaFija(estudio.slug), getRenovacionPorPagar(estudio.slug)]);
     return { bonos, plazaFija, renovacion };
   }, [estudio.slug]);
-  const { data: cargado, estado, reintentar } = useAsync(cargar, (d) => d.bonos.length === 0 && d.plazaFija.recuperaciones.disponibles === 0 && !d.renovacion);
+  const { data: cargado, estado, reintentar, refrescar } = useAsync(
+    cargar, (d) => d.bonos.length === 0 && d.plazaFija.recuperaciones.disponibles === 0 && !d.renovacion,
+    `alumna:${estudio.slug}:bonos`,
+  );
+  const actualizar = useCallback(async () => {
+    invalidarCatalogo(estudio.slug, { conservarVistas: true });
+    await refrescar();
+  }, [estudio.slug, refrescar]);
   const data = cargado?.bonos ?? null;
   const plazaFija = cargado?.plazaFija ?? null;
   const renovacion = cargado?.renovacion ?? null;
@@ -109,6 +118,7 @@ function Bonos() {
 
   return (
     <StudentShell>
+      <TirarParaActualizar onRefrescar={actualizar} />
       <PageHeader
         titulo="Bonos"
         sub="Tus sesiones y su caducidad"

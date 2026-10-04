@@ -1,5 +1,6 @@
 'use client';
 
+import { vibrar } from '@/lib/nativo/puente';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -65,6 +66,8 @@ export function ReservarProximas({ sesionId, saldo, ventanaCancelacionHoras, onR
       return;
     }
     setHecho(r.datos);
+    // Solo si de verdad quedó alguna reservada (lo dice el servidor).
+    if (r.datos.resumen.reservadas > 0) void vibrar('exito');
     setIntento(nuevoIntento());
     onReservadas?.();
   }
