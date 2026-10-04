@@ -14,6 +14,8 @@ import { anularCodigo, pedirCodigo } from '@/lib/auth/codigo-correo';
 import { enviarEmailCodigoAcceso } from '@/lib/emails/codigo-acceso-server';
 import { rebotesDeEmails } from '@/lib/emails/rebotes-consulta';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+import { resolverStudioPorSlug, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { instructoraActivaEnEstudio } from '@/lib/auth-instructora';
 
 // El segundo paso por correo (lib/auth/codigo-correo-reglas.ts): manda el
 // código al correo DE LA CUENTA (el de `getUser`; nunca uno que llegue en el
@@ -22,7 +24,11 @@ import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 //   { enviado: false, yaEnviado: true } hay uno vivo y no se pidió otro
 //   { enviado: false, espera: n }       el botón, antes de 30 s
 //   { disponible: false, mensaje }      el correo no sirve aquí: a la app
-// Body: { reenviar?: boolean } (el botón «Reenviar»; al abrir la pantalla, no).
+// Body: { reenviar?: boolean, slug?: string }. `reenviar`: el botón «Reenviar»
+// (al abrir la pantalla, no). `slug`: desde la app de un estudio, el correo va
+// con SU marca — solo si la cuenta es alumna o instructora de ese estudio; si
+// no, la de Tentare. El slug no cambia nunca a quién se envía: siempre al
+// correo de la cuenta.
 export const dynamic = 'force-dynamic';
 
 const SIN_CACHE = { 'Cache-Control': 'no-store' };
@@ -47,8 +53,9 @@ export async function POST(req: NextRequest) {
   if (!admin || !secreto) return aLaApp('sin_envio');
   if (esDominioReservado(email)) return aLaApp('buzon_rebota');
 
-  const body = await req.json().catch(() => null) as { reenviar?: unknown } | null;
+  const body = await req.json().catch(() => null) as { reenviar?: unknown; slug?: unknown } | null;
   const reenviar = body?.reenviar === true;
+  const slug = typeof body?.slug === 'string' && body.slug.length <= 120 ? body.slug : null;
   try {
     // Un buzón que rebota no recibirá nada: decirlo ya, no «te lo hemos enviado».
     // Si la lectura falla, se intenta igual: solo decide qué pantalla ver.
@@ -69,7 +76,8 @@ export async function POST(req: NextRequest) {
         { status: 429, headers: SIN_CACHE },
       );
     }
-    const envio = await enviarEmailCodigoAcceso({ to: email as string, codigo: p.codigo });
+    const studioId = slug ? await estudioDeLaCuenta(admin, slug, r.user.id) : null;
+    const envio = await enviarEmailCodigoAcceso({ to: email as string, codigo: p.codigo, studioId });
     if (!envio.ok) {
       await anularCodigo(admin, r.user.id, sessionId as string);
       return aLaApp('sin_envio');
@@ -77,5 +85,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ enviado: true }, { headers: SIN_CACHE });
   } catch (e) {
     return errorInterno('auth/doble-factor-correo/enviar:POST', e, 'No se ha podido enviar el código.');
+  }
+}
+
+/** El estudio del slug, solo si esta cuenta es alumna o instructora activa suya. */
+async function estudioDeLaCuenta(admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>, slug: string, userId: string): Promise<string | null> {
+  try {
+    const resuelto = await resolverStudioPorSlug(admin as never, slug);
+    const studioId = (resuelto?.row as { id?: string } | undefined)?.id;
+    if (!studioId) return null;
+    if (await socioAutenticado(userId, studioId)) return studioId;
+    if (await instructoraActivaEnEstudio(admin, userId, studioId)) return studioId;
+    return null;
+  } catch {
+    // Sin poder comprobarlo, la marca de Tentare: el correo sale igual.
+    return null;
   }
 }

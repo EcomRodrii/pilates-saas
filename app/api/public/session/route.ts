@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { usuarioSupabaseConPaso } from '@/lib/auth-server';
+import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 import { resolverSociaAutenticada } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -26,10 +27,19 @@ export async function POST(req: NextRequest) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el estudio' }, { status: 400 }));
   }
 
-  const user = await verificarUsuarioSupabase(req);
-  if (!user) {
+  const r = await usuarioSupabaseConPaso(req);
+  if (!r) {
     return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 401 }));
   }
+  // Sesión buena, pero tiene la verificación en dos pasos activada y aún no la
+  // ha pasado: un código propio, para que la app la mande a verificar y no a
+  // entrar otra vez (lib/student/doble-factor-portal.ts).
+  if (r.paso === 'doble_factor') {
+    return conCorsWidget(req, NextResponse.json(
+      { error: 'Falta el segundo paso de la verificación', codigo: CODIGO_SEGUNDO_PASO }, { status: 401 },
+    ));
+  }
+  const user = r.usuario;
 
   try {
     const socia = await resolverSociaAutenticada(body.slug, user.userId, user.email);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchPublicStudioData } from '@/lib/db/supabase-data-admin';
-import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { usuarioSupabaseConPaso } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
@@ -44,7 +44,13 @@ export async function POST(req: NextRequest) {
   // pertenece a una socia de ese estudio) vive DENTRO de fetchPublicStudioData
   // — antes se resolvía aquí Y otra vez ahí, dos round-trips por el mismo
   // slug en cada visita autenticada (auditoría integral 2026-08-21, P0-1).
-  const user = await verificarUsuarioSupabase(req);
+  // Sin el segundo paso (quien lo tiene activado y aún no lo ha pasado), lo
+  // mismo que a una visitante: el catálogo público, que `/reservar` y el widget
+  // necesitan igual, y nada personal. `segundoPasoPendiente` es para que la app
+  // no lo pinte como «sin sesión».
+  const conPaso = await usuarioSupabaseConPaso(req);
+  const user = conPaso?.paso === 'ok' ? conPaso.usuario : null;
+  const segundoPasoPendiente = conPaso?.paso === 'doble_factor';
 
   try {
     const data = await fetchPublicStudioData(
@@ -64,10 +70,10 @@ export async function POST(req: NextRequest) {
       // pinta como siempre, con las clases igual.
       const tema = await getThemePublicado(studio.id).catch(() => null);
       if (tema) {
-        return conCorsWidget(req, NextResponse.json({ ...data, estiloWidget: datosEstiloNativaDeTema(tema, studio.colorPrimario) }));
+        return conCorsWidget(req, NextResponse.json({ ...data, estiloWidget: datosEstiloNativaDeTema(tema, studio.colorPrimario), ...(segundoPasoPendiente ? { segundoPasoPendiente } : {}) }));
       }
     }
-    return conCorsWidget(req, NextResponse.json(data));
+    return conCorsWidget(req, NextResponse.json(segundoPasoPendiente ? { ...data, segundoPasoPendiente } : data));
   } catch (err) {
     return conCorsWidget(req, errorInterno('public/studio-data:POST', err, 'No se han podido cargar los datos del estudio.'));
   }

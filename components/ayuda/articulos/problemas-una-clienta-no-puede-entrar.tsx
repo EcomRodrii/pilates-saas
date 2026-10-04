@@ -14,6 +14,7 @@ export default function Contenido() {
         'Nunca ha puesto contraseña — necesita pedir el enlace de acceso, no adivinar una que no existe.',
         'El enlace de acceso ha caído en spam.',
         'Está entrando en el portal de otro estudio (una URL parecida, pero de otra propietaria de Tentare).',
+        'Tiene activada la verificación en dos pasos y ha perdido el acceso a su app de códigos y a su correo.',
       ]} />
 
       <ComoSolucionarlo>
@@ -27,9 +28,17 @@ export default function Contenido() {
           quizá nunca llegó a crear. Ver{' '}
           <Link href="/ayuda/portal/acceso-de-una-clienta" style={{ color: 'inherit', textDecoration: 'underline' }}>cómo entra una clienta por primera vez</Link>.
         </p>
-        <p style={{ margin: 0 }}>
+        <p style={{ margin: '0 0 12px' }}>
           Si el enlace no le llega en unos minutos, pídele que revise spam, y comprueba tú en la ficha de la clienta
           que el email guardado es exactamente el mismo que está usando ella.
+        </p>
+        <p style={{ margin: 0 }}>
+          Si entra con su contraseña y luego le pide un código: lo normal es que le llegue a su correo, y si no tiene
+          acceso a él, puede usar su app de códigos con &ldquo;No tengo acceso a mi correo&rdquo;. Si ha perdido las
+          dos cosas, la propietaria o la gerencia pueden quitársela desde su ficha (<strong>Más acciones → Verificación en dos pasos</strong>): volverá
+          a entrar solo con su contraseña, le avisamos por correo y puede activarla otra vez desde su perfil. Hazlo
+          solo si te lo pide ella. Si su cuenta no se puede gestionar desde tu estudio (por ejemplo, la usa también
+          fuera de él), la ficha te lo dirá: entonces que escriba a soporte de Tentare.
         </p>
       </ComoSolucionarlo>
 

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { resolverStudioPorSlug } from '@/lib/db/supabase-data-admin';
 import { escaparLike } from '@/lib/escapar-like';
+import { pasoDeLaSesion } from '@/lib/auth-server';
 
 // La instructora dentro de la app del estudio (`app/portal/[slug]`).
 //
@@ -111,6 +112,9 @@ export async function verificarInstructoraEnEstudio(
 
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return null;
+  // La misma regla que la alumna: con la verificación activada, sin el segundo
+  // paso no hay app de instructora (lib/auth-server.ts, `pasoDeLaSesion`).
+  if (await pasoDeLaSesion(token, user) !== 'ok') return null;
 
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');

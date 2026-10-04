@@ -67,6 +67,7 @@ import { compactarHistoria, historiaDeClienta, type GrupoHistoria } from '@/lib/
 import { clasesEstaSemana, constancia } from '@/lib/clientas/constancia';
 import { contactoTrasElAviso, ETIQUETA_CANAL, ETIQUETA_RESULTADO, type CanalContacto, type ContactoApuntado, type ResultadoContacto } from '@/lib/clientas/contactos';
 import { DialogoApuntarContacto, PreguntaTrasContacto } from '@/components/clientas/ficha/apuntar-contacto';
+import { DialogoDobleFactor } from '@/components/clientas/ficha/dialogo-doble-factor';
 import { NotasDelEquipo } from '@/components/clientas/ficha/notas-equipo';
 import { DialogoRecordar, TarjetaSeguimiento } from '@/components/clientas/ficha/seguimiento';
 import { useSeguimientosDe } from '@/lib/clientas/use-seguimientos';
@@ -289,6 +290,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   const [showChangePlan, setShowChangePlan] = useState(false);
   const [showAddRecibo, setShowAddRecibo] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [verDobleFactor, setVerDobleFactor] = useState(false);
   const [showBaja, setShowBaja] = useState(false);
   const [dandoDeAlta, setDandoDeAlta] = useState(false);
   const [errorBorrar, setErrorBorrar] = useState<string | null>(null);
@@ -1070,6 +1072,8 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     ...(gestionaClientas ? [{ texto: 'Editar sus datos', icono: Pencil, onClick: openEdit }] : []),
     ...(gestionaClientas && socio.email ? [{ texto: 'Escribirle un correo', icono: Mail, onClick: () => setShowSendMessage(true) }] : []),
     ...(gestionaClientas && socio.email ? [{ texto: enviandoAcceso ? 'Enviando el acceso…' : 'Enviarle el acceso a la app', icono: Smartphone, onClick: () => void enviarAccesoApp() }] : []),
+    // Para cuando ha perdido la app de códigos y el correo (lib/auth/quitar-doble-factor-reglas.ts).
+    ...(gestionaClientas && socio.email ? [{ texto: 'Verificación en dos pasos', icono: ShieldCheck, onClick: () => setVerDobleFactor(true) }] : []),
     ...(puedeCobrar ? [{ texto: plan ? 'Cambiar su plan' : 'Asignarle un plan', icono: CircleDollarSign, onClick: () => setShowChangePlan(true) }] : []),
     ...(puedeCobrar ? [{ texto: 'Anotar un cobro', icono: Plus, onClick: () => setShowAddRecibo(true) }] : []),
     { texto: 'Cambiar su foto', icono: ImageIcon, onClick: () => setShowAvatarPicker(v => !v) },
@@ -2305,6 +2309,13 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         onHecho={texto => { setRecordando(null); void recargarSeguimientos(); setToast(texto); }}
       />
 
+      <DialogoDobleFactor
+        socioId={socio.id}
+        nombre={socio.nombre}
+        abierto={verDobleFactor}
+        onCerrar={() => setVerDobleFactor(false)}
+        onAviso={setToast}
+      />
       <ConfirmDialog
         open={contactoABorrar !== null}
         onOpenChange={o => { if (!o && !borrandoContacto) setContactoABorrar(null); }}

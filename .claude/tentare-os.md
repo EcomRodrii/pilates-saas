@@ -147,6 +147,21 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   la ponen triggers de `auth.users` y la quita `/api/auth/doble-factor-correo/reabrir` solo con
   `aal2`: regla de negocio, no de reloj). El código va HMAC con `secretoRateLimit` (sin secreto,
   no se envía), atado a cuenta+sesión, 10 min, 5 intentos contados en SQL con candado.
+  **La alumna y la instructora en la app del estudio** (4-oct-2026, opcional: solo quien la activa
+  en Perfil → Contraseña y verificación; sin factor, cero peticiones de más). Misma regla
+  (`faltaSegundoPaso`), la pone el SERVIDOR: `verificarUsuarioSupabase` corta a la sesión con factor
+  sin verificar (ni `aal2` ni confiada). ⚠️ Una ruta de arranque contesta `doble_factor_requerido`
+  (`usuarioSupabaseConPaso`), nunca un 401 a secas: el cliente lo leería como «sin sesión» y la
+  mandaría a entrar en bucle. ⚠️ Saltárselo (`sinSegundoPaso: true`) solo `destino-post-login` e
+  `/interno` (que exige `aal2` por su cuenta), y todo `.auth.getUser(` de servidor pasa por
+  `pasoDeLaSesion`: lo fija `lib/auth/segundo-paso-puertas.test.ts`. Pantalla
+  `app/portal/[slug]/acceso/dos-pasos` (correo con la marca del ESTUDIO por defecto, la app de códigos
+  de reserva), a la que mandan las guardias, `/reservar` y el widget. Network
+  (`lib/auth/segundo-paso-network.ts`) manda a `/verificar-acceso`. **Recuperación**: si la alumna
+  pierde la app Y el correo, su estudio se la quita desde la ficha (Más acciones → Verificación en dos
+  pasos, `lib/auth/quitar-doble-factor*.ts`), con aviso por correo y línea en Actividad. ⚠️ Nunca si la
+  cuenta es del equipo de algún estudio o es alumna de otro estudio fuera de la cadena: la cuenta es
+  una y quitarla desde un estudio la quita en todos.
 - **Secretos cifrados en la app, y la BD lo exige**: credenciales e `integraciones.config`
   (CHECK `enc:v1:`), IBAN de los mandatos (`lib/billing/iban-cifrado.ts`, `SEPA_CLAVE_CIFRADO`;
   el navegador ni escribe la tabla ni lee la columna) y copias en R2

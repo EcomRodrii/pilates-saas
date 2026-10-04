@@ -41,7 +41,10 @@ const NO_AUTORIZADO = { motivo: 'NO_AUTORIZADO' } as const;
 export async function comprobarAdminInterno(
   req: NextRequest,
 ): Promise<{ admin: AdminInterno } | { motivo: MotivoSinAccesoInterno }> {
-  const usuario = await verificarUsuarioSupabase(req);
+  // `sinSegundoPaso`: la zona interna tiene su propio segundo factor, más
+  // estricto (`aal2` de verdad, nunca una sesión confiada), y tiene que poder
+  // contestar `MFA_REQUERIDO` en vez de «no autorizado».
+  const usuario = await verificarUsuarioSupabase(req, { sinSegundoPaso: true });
   if (!usuario) return NO_AUTORIZADO;
 
   const admin = getSupabaseAdmin();

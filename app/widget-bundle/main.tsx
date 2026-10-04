@@ -133,7 +133,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   firma?: string | null;
 }) {
   const {
-    slots, cargando, error, paginaOculta, studioId, socia, autenticado, sesionCargando, refrescarSesion,
+    slots, cargando, error, paginaOculta, studioId, socia, autenticado, sesionCargando, segundoPaso, refrescarSesion,
     politicaPrivacidad, terminosServicio, nombreEstudio, onReservar, onCancelar, onAceptarOferta,
     sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
     stripeAccountId, onActualizarPerfil, logout, crearCheckoutEmbebido, comprarConBizum, recargar,
@@ -196,7 +196,9 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   const [checkoutEstado, setCheckoutEstado] = useState<'idle' | 'cargando' | 'listo' | 'error'>('idle');
   const checkoutModRef = useRef<typeof import('./checkout-entry') | null>(null);
   const checkoutContainerRef = useRef<HTMLDivElement | null>(null);
-  const walkInSinFicha = autenticado && !socia;
+  // Con la verificación en dos pasos activada y sin pasarla, no es un walk-in:
+  // el formulario le pide el código de la app (ver `FormularioAccesoWidget`).
+  const walkInSinFicha = autenticado && !socia && !segundoPaso;
   // `&& !socia`: `accesoAbierto` solo se baja en tres sitios, y `onListo` solo
   // lo llama el REGISTRO — `onLoginPassword` no, confiando en un comentario que
   // dice que "el padre deja de mostrar este formulario solo". No lo hacía: al
@@ -205,7 +207,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
   // bajaba `accesoAbierto`— desaparecía y el formulario de acceso se quedaba
   // pintado para siempre encima del calendario, con la socia ya dentro. Es la
   // otra mitad de #1408 (la ficha y el login abiertos a la vez), en Modo B.
-  const mostrarFormulario = walkInSinFicha || (accesoAbierto && !socia);
+  const mostrarFormulario = walkInSinFicha || segundoPaso || (accesoAbierto && !socia);
 
   // Petición explícita del fundador (2026-08-26, tras una queja real sobre
   // un estudio en producción): sin sesión, Modo B NO completa el flujo de
@@ -445,6 +447,7 @@ function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filt
             baseUrl={ORIGEN_TENTARE}
             studioId={studioId ?? ''}
             autenticado={walkInSinFicha}
+            segundoPaso={segundoPaso}
             politicaPrivacidad={politicaPrivacidad}
             terminosServicio={terminosServicio}
             nombreEstudio={nombreEstudio}

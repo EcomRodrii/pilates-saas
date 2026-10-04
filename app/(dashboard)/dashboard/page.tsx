@@ -131,6 +131,8 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   WIDGET_DOMINIOS_CAMBIADOS: { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Widget' },
   WIDGETS_ESTILO_CAMBIADO: { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Widget' },
   WIDGET_APLICADO: { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Widget' },
+  // Aviso: tocar la seguridad de la cuenta de una alumna tiene que verse.
+  DOBLE_FACTOR_QUITADO: { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Seguridad' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────

@@ -3,7 +3,7 @@ import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { resolverSesionStaff, type EstudioPropio, type FichaEquipo, type SesionStaff } from '@/lib/auth/sesion-staff-reglas';
-import { factoresVerificados, pasoDobleFactor, type PasoDobleFactor } from '@/lib/auth/doble-factor-reglas';
+import { factoresVerificados, faltaSegundoPaso, pasoDobleFactor, type PasoDobleFactor } from '@/lib/auth/doble-factor-reglas';
 import { nivelAutenticacion } from '@/lib/interno/mfa';
 import { sesionDelToken } from '@/lib/auth/dispositivo-confianza-reglas';
 import { sesionConfiada } from '@/lib/auth/dispositivo-confianza';
@@ -147,14 +147,52 @@ async function resolverConUsuario(
 // eso se encarga resolverSociaAutenticada() con el slug del portal, porque un
 // mismo email puede ser socia de varios estudios. Devuelve null si no hay token
 // válido o el usuario no tiene email.
+//
+// Y exige la verificación en dos pasos a quien la tiene activada (4-oct-2026):
+// es la puerta de la app del estudio, `/reservar`, el widget, la red y los
+// avisos (~85 rutas), y una contraseña robada no puede leer por aquí lo que el
+// panel ya le niega. Quien NO la tiene activada no paga nada: los factores
+// vienen en la misma respuesta de `getUser`, y la sesión confiada solo se
+// pregunta si hay factor y la sesión está en `aal1`. Una ruta que tenga que
+// contestar igualmente (decidir a dónde va la persona, la zona interna con su
+// propio `aal2`) lo pide con `sinSegundoPaso`.
 export async function verificarUsuarioSupabase(
   req: NextRequest,
+  opciones: { sinSegundoPaso?: boolean } = {},
 ): Promise<{ userId: string; email: string } | null> {
-  const token = req.headers.get('authorization')?.replace(/^Bearer /, '');
-  if (!token) return null;
+  const r = await usuarioSupabaseConPaso(req);
+  if (!r) return null;
+  if (r.paso === 'doble_factor' && !opciones.sinSegundoPaso) return null;
+  return r.usuario;
+}
 
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user?.email) return null;
+/**
+ * Como `verificarUsuarioSupabase`, pero sin cortar: dice si a la sesión le
+ * falta el segundo paso. Para las rutas de arranque, que tienen que contestar
+ * `doble_factor_requerido` en vez de un 401 que el cliente leería como «sin
+ * sesión» (y la mandaría a entrar otra vez, en bucle).
+ */
+export async function usuarioSupabaseConPaso(
+  req: NextRequest,
+): Promise<{ usuario: { userId: string; email: string }; paso: 'ok' | 'doble_factor' } | null> {
+  const r = await usuarioConToken(req);
+  if (!r?.user.email) return null;
+  return { usuario: { userId: r.user.id, email: r.user.email }, paso: await pasoDeLaSesion(r.token, r.user) };
+}
 
-  return { userId: user.id, email: user.email };
+/**
+ * ¿Le falta el segundo paso a este token ya validado con `getUser`? Fallo
+ * cerrado: sin service role no se puede comprobar la confianza y se trata como
+ * sin verificar (igual que `resolverConUsuario`).
+ */
+export async function pasoDeLaSesion(
+  token: string, user: { id: string; factors?: { status?: string | null }[] | null },
+): Promise<'ok' | 'doble_factor'> {
+  const factores = factoresVerificados(user.factors);
+  if (factores === 0) return 'ok';
+  const nivel = nivelAutenticacion(token);
+  if (nivel === 'aal2') return 'ok';
+  const admin = getSupabaseAdmin();
+  const confiada = admin ? await sesionConfiada(admin, user.id, sesionDelToken(token)) : false;
+  return faltaSegundoPaso({ factoresVerificados: factores, nivel, confiada }) ? 'doble_factor' : 'ok';
 }

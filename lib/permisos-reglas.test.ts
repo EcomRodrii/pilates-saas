@@ -649,3 +649,11 @@ test('las notas del equipo las leen y escriben quienes gestionan clientas, como 
   for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) assert.equal(puedeVerNotasInternas(rol), true, rol);
   assert.equal(puedeVerNotasInternas('INSTRUCTOR'), false);
 });
+
+test('quitar la verificación en dos pasos de una clienta: solo propietaria y gerencia', async () => {
+  const { puedeQuitarVerificacionClienta } = await import('./permisos-reglas.ts');
+  assert.equal(puedeQuitarVerificacionClienta('PROPIETARIO'), true);
+  assert.equal(puedeQuitarVerificacionClienta('MANAGER'), true);
+  assert.equal(puedeQuitarVerificacionClienta('RECEPCION'), false);
+  assert.equal(puedeQuitarVerificacionClienta('INSTRUCTOR'), false);
+});

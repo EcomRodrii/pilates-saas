@@ -242,6 +242,14 @@ export function puedeCrearClasesPropias(rol: Rol, instructorasCreanClases = true
 // y el permiso más delicado que hay: con él se pueden repartir permisos. Que un
 // manager no pueda ascender a nadie NO se defiende aquí — se defiende en la RLS
 // (migración 0113), porque esto es solo la UI.
+// Quitar la verificación en dos pasos de la cuenta de una alumna que ha perdido
+// la app y el correo (lib/auth/quitar-doble-factor.ts). Solo propietaria y
+// gerencia: es la llave de su cuenta, y se pide casi siempre por teléfono —
+// recepción ve el estado y a quién pedírselo. Barrera real: la ruta en servidor.
+export function puedeQuitarVerificacionClienta(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER';
+}
+
 export function puedeGestionarEquipo(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'MANAGER';
 }

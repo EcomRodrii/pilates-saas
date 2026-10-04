@@ -33,3 +33,21 @@ test('con cuerpo propio manda su texto y su botón', () => {
   assert.match(html, /Entrar a mi cuenta/);
   assert.ok(!html.includes('Bienvenida a Casa Pilates'), 'no puede haber dos titulares');
 });
+
+test('el código de acceso de la app va con la marca del estudio, nunca con la de Tentare, y fuera del preheader', async () => {
+  const { correoCodigoAccesoEstudio } = await import('./cuenta.ts');
+  const html = correoCodigoAccesoEstudio({ codigo: '048213', minutos: 10, marca: { estudioNombre: 'Casa Pilates' } as never });
+  assert.match(html, /048 213/);
+  assert.match(html, /Casa Pilates/);
+  assert.ok(!/Tentare/.test(html), 'marca blanca: la app es del estudio');
+  const preheader = html.slice(0, html.indexOf('Tu código para entrar'));
+  assert.ok(!preheader.includes('048'), 'el código no puede ir en el preheader');
+});
+
+test('el aviso de «te han quitado la verificación» va con la marca del estudio y dice qué hacer si no lo pidió', async () => {
+  const { correoDobleFactorQuitado } = await import('./cuenta.ts');
+  const html = correoDobleFactorQuitado({ marca: { estudioNombre: 'Casa Pilates' } as never });
+  assert.match(html, /Casa Pilates/);
+  assert.match(html, /cambia tu contraseña/);
+  assert.ok(!/Tentare/.test(html), 'marca blanca: la app es del estudio');
+});
