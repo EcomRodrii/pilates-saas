@@ -115,6 +115,58 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   `get_advisors` marca como ejecutables por `anon`/`authenticated` son intencionales
   (RPCs llamadas por el cliente, helpers de RLS en `CREATE POLICY`, guards internos de
   defensa en profundidad) — no las "corrijas" sin cruzar antes contra `.rpc('` en `lib/`.
+- **Verificación en dos pasos del equipo** (2-oct-2026, `lib/auth/doble-factor-reglas.ts`):
+  quien la tiene activada solo ve y toca datos con la sesión verificada (`aal2`), y lo decide
+  la BD con una política RESTRICTIVA `exige_doble_factor` en CADA tabla de `public` con RLS
+  (migr `20261003102845`). ⚠️ Una tabla nueva con RLS lleva también esa política (copia la
+  sentencia del DO de esa migración): sin ella, `supabase/tests/rls-doble-factor.test.ts`
+  falla en CI. `verificarSesionStaff` aplica lo mismo y además el «exigir a todo el equipo»
+  de la propietaria; para saber a dónde mandar a alguien sin cortarle (tras el login, la
+  pantalla de verificar) se usa `resolverSesionStaffConPaso`, nunca para dar datos.
+  **«No volver a pedir el código en este dispositivo»** (3-oct-2026, 30 días desde el último
+  uso, `lib/auth/dispositivo-confianza-reglas.ts`): la sesión sigue en `aal1` y cuenta como
+  verificada si el servidor la apuntó en `sesiones_confiadas` al presentar la cookie del
+  dispositivo. ⚠️ Quien pregunte «¿ha pasado el segundo paso?» acepta las dos cosas: en SQL,
+  usa `nivel_acceso_suficiente()` (ya lo hace; `sesion_de_confianza()` solo dentro de funciones
+  SECURITY DEFINER: `authenticated` no puede ejecutarla y tumbaría la tabla); en TS, lo resuelve
+  `verificarSesionStaff`. La regla vive una vez, en `sesion_confiada_de` (la BD y el servidor
+  la llaman). Nunca un `aal = 'aal2'` suelto en una ruta nueva del panel salvo para lo que
+  merezca el código de verdad (como apagar «exigir 2FA», `/api/estudio/doble-factor`).
+  `/interno` NO lo acepta a propósito, y lo que GoTrue protege (quitar o añadir un factor)
+  exige el código. La llave es la cookie: la IP y el nombre solo se enseñan en Mi perfil.
+  **El segundo paso por CORREO es el de por defecto** (3-oct-2026, `lib/auth/codigo-correo-reglas.ts`,
+  migr `20261003160000`): al entrar se manda un código al correo de la cuenta y la app TOTP queda
+  para «No tengo acceso a mi correo». Mismo mecanismo que el dispositivo: la sesión sigue en `aal1`
+  y el servidor la apunta en `sesiones_confiadas` con `origen = 'correo'` (vale lo que viva la
+  sesión); `sesion_confiada_de` sigue siendo la única regla y ninguna política cambió.
+  ⚠️ Activar la verificación SIGUE siendo con la app (hace falta un factor de Supabase para que
+  exista la regla A y para llegar a `aal2`), y `?codigo=1` va directo a la app. ⚠️ Cuándo el correo
+  no vale lo decide la BD (`correo_doble_factor_disponible`), no TS: sesión que no entró con
+  contraseña (`auth.mfa_amr_claims`: Google u OTP serían el mismo factor dos veces) y cuenta que
+  cambió la contraseña o el correo sin haber pasado la app después (`doble_factor_correo_bloqueos`,
+  la ponen triggers de `auth.users` y la quita `/api/auth/doble-factor-correo/reabrir` solo con
+  `aal2`: regla de negocio, no de reloj). El código va HMAC con `secretoRateLimit` (sin secreto,
+  no se envía), atado a cuenta+sesión, 10 min, 5 intentos contados en SQL con candado.
+  **La alumna y la instructora en la app del estudio** (4-oct-2026, opcional: solo quien la activa
+  en Perfil → Contraseña y verificación; sin factor, cero peticiones de más). Misma regla
+  (`faltaSegundoPaso`), la pone el SERVIDOR: `verificarUsuarioSupabase` corta a la sesión con factor
+  sin verificar (ni `aal2` ni confiada). ⚠️ Una ruta de arranque contesta `doble_factor_requerido`
+  (`usuarioSupabaseConPaso`), nunca un 401 a secas: el cliente lo leería como «sin sesión» y la
+  mandaría a entrar en bucle. ⚠️ Saltárselo (`sinSegundoPaso: true`) solo `destino-post-login` e
+  `/interno` (que exige `aal2` por su cuenta), y todo `.auth.getUser(` de servidor pasa por
+  `pasoDeLaSesion`: lo fija `lib/auth/segundo-paso-puertas.test.ts`. Pantalla
+  `app/portal/[slug]/acceso/dos-pasos` (correo con la marca del ESTUDIO por defecto, la app de códigos
+  de reserva), a la que mandan las guardias, `/reservar` y el widget. Network
+  (`lib/auth/segundo-paso-network.ts`) manda a `/verificar-acceso`. **Recuperación**: si la alumna
+  pierde la app Y el correo, su estudio se la quita desde la ficha (Más acciones → Verificación en dos
+  pasos, `lib/auth/quitar-doble-factor*.ts`), con aviso por correo y línea en Actividad. ⚠️ Nunca si la
+  cuenta es del equipo de algún estudio o es alumna de otro estudio fuera de la cadena: la cuenta es
+  una y quitarla desde un estudio la quita en todos.
+- **Secretos cifrados en la app, y la BD lo exige**: credenciales e `integraciones.config`
+  (CHECK `enc:v1:`), IBAN de los mandatos (`lib/billing/iban-cifrado.ts`, `SEPA_CLAVE_CIFRADO`;
+  el navegador ni escribe la tabla ni lee la columna) y copias en R2
+  (`lib/backups/cifrado-copias.ts`, `BACKUPS_CLAVE_CIFRADO`). Sin clave no se guarda un secreto
+  en claro: se falla a la vista.
 - **Dinero**: cero escritura optimista sin comprobar el resultado real (`await` la
   confirmación, maneja el camino de fallo, sé idempotente ante webhooks repetidos). Es el
   patrón de bug más repetido en los flujos de Stripe/cobros de este repo.
@@ -1215,6 +1267,25 @@ los topes; un pago correcto debe acabar en reserva garantizada o en compensació
   que paga. Después: índices únicos (una liberación/consumo por reserva), `cancelar_sesion` transaccional, compra
   transaccional (retener plaza antes de cobrar) y excepciones del mostrador.
 
+## Clase fija: UN concepto y UN camino (4-oct-2026, decisión del fundador)
+
+El único estudio de pago se perdía (ella y sus alumnas): «clase fija» significaba tres cosas en el panel (la serie que se
+repite, el hueco de la alumna y las clases fijas con nombre) y la alumna tenía cuatro caminos para pedir lo mismo. Medido
+antes de decidir: sus 11 alumnas tienen cuota y clase fija, casi todas dadas desde el mostrador; en toda la plataforma había
+3 clases fijas con nombre, 1 petición y 0 ampliaciones. TIMP («reserva automática»), bsport («recurrent booking») y Momence
+(«book into the entire series») tienen lo mismo: una regla por franja, sin paquetes con nombre.
+
+- **Alumna:** se pide SOLO desde el interruptor **«Clase fija»** de la ficha de la clase (`AutoReservable`,
+  `lib/student/auto-reservable.ts`), con «Sin fin» de serie. Lo que tiene, en «Mis clases → Fijas». Retiradas la página
+  «Clases fijas», su ficha aparte y la puerta del horario: `/clases-fijas` y `/clases-fijas/[id]` solo redirigen.
+- **Clases fijas con nombre retiradas** de las dos caras. Las tablas y las plazas que dieron siguen (dejar una deja todos sus
+  días); el catálogo devuelve `ofertas: []`, pedir/ampliar una contesta 410. No reintroducir sin pedirlo.
+- **Bono:** «reservar las próximas clases» va en la ficha como RESERVA, en lugar del interruptor (sin cuota no hay clase fija).
+- **Panel:** «Crear clase» ofrece «Clase» o **«Clase semanal»** (antes «Clase fija», que chocaba). Pendiente: el panel
+  sigue diciendo «plaza fija» para el hueco de la alumna; unificarlo a «clase fija» es otro PR.
+
+Lo de abajo es la historia; donde contradiga esto, manda esto.
+
 ## Autoreservable = plaza fija con duración (2-oct-2026)
 
 El fundador pidió un botón «autoreservable» en las clases normales, ligado a las clases fijas, para estudio y alumna, con
@@ -1247,11 +1318,29 @@ alumna «clase fija») pedida desde una clase normal, más el filtro que faltaba
 - **Decisiones del fundador (cerradas, 2-oct):** el bono SÍ, pero no como plaza fija sino como «reservar las próximas N clases»
   (B1); la alumna PIDE y el estudio elige si lo aprueba a mano o solo (parte A); la alumna puede dejar su clase fija, con
   confirmación (PR4a); un clic por serie crea la clase fija con nombre ya preparada (PR4b); duraciones solo en meses, más
-  la fecha libre que ya existe en el panel; «Repetir cada semana» es un ENLACE a la ficha de la clase fija, nunca una segunda
-  acción en la misma pantalla.
-- **PR2 (hecho):** `RepetirCadaSemana` (enlace en la ficha de una clase normal que se repite, con el catálogo de clases
-  fijas; sin franja que case o con el catálogo roto no se pinta y la ficha queda como estaba) y los botones de duración en la
-  barra fija de la ficha de la clase fija. La alumna elige 1/3/6/12 meses o «Sin fin»; la fecha exacta se ve antes de pedir.
+  la fecha libre que ya existe en el panel. ~~«Repetir cada semana» como enlace~~ **cambiado por el fundador el 3-oct**: quiere un
+  INTERRUPTOR «Auto reservable» (como el de su referencia: verde, con tick; el tamaño de la imagen era solo un ejemplo).
+- **PR2 (hecho) y su cambio del 3-oct: el interruptor «Auto reservable»** (`AutoReservable`, `InterruptorAuto`). En la ficha de una
+  clase normal que se repite hay un interruptor compacto (verde con tick encendido, ámbar con reloj pendiente, gris apagado) que
+  sustituye al enlace «Repetir cada semana». ⚠️ **No se mueve al tocarlo** (reserva cada semana y puede cancelar clases: nada
+  optimista): un toque abre lo que toque —la hoja «¿cuánto tiempo la quieres?» (`SelectorDuracion`: 1/3/6/12 meses o Sin fin, con la
+  fecha exacta) y «Activar auto reservable»; para apagarlo encendido, la confirmación de dejar (`DialogoDejarClaseFija`, la MISMA
+  pieza que la tarjeta de «Mis clases → Fijas»); para anular una petición, su confirmación— y solo cambia con lo que CONTESTA el
+  servidor (`resuelta`+`mensaje` = encendido; petición sin `resuelta` = pendiente; error = hoja abierta con el motivo). Con **solo
+  bono** no se enciende (no hay clase fija con bono): abre la hoja con «reservar las próximas N clases» (B1). Misma lógica de servidor
+  de siempre: cambia la cara, no las reglas.
+  - **Funciona igual en una clase fija CON NOMBRE** (desde «Ofrécelas en un clic», lo normal): activarlo pide la OFERTA entera con
+    SUS duraciones (`solicitar_clase_fija`, sin «Sin fin»), encendido si ya es suya (apagarlo deja todos sus días), pendiente si la
+    ha pedido, y «completa» deshabilitado. Qué enseña y qué abre lo decide UNA función pura con sus tests,
+    `autoReservableDe` (`lib/student/auto-reservable.ts`), y su plaza en la franja manda sobre el catálogo (el de sueltas no ve las
+    plazas de una oferta). Sustituye a `franjaDeRepeticion`, que solo sabía llevar a otra pantalla.
+  - Tras cualquier cambio que confirma el servidor, la ficha vuelve a leer sus datos (`onCambio` → `refrescar`): activarla o
+    reservar con el bono puede haber reservado justo ESTA clase, y el botón «Reservar» no puede quedarse viejo.
+  - ⚠️ `Sheet` deja su contenido montado pero `inert` y fuera de pantalla al cerrarse: un test que quiera comprobar «no se ve» usa
+    `not.toBeInViewport()`, no `toHaveCount(0)`.
+  - ⚠️ La barra fija de la ficha de clase fija tiene fondo SÓLIDO en todos los estados (con degradado transparente su texto se
+    pisaba con el bloque del bono al hacer scroll; no lo veía ningún test funcional, solo mirando la pantalla).
+  - Los iconos del interruptor (`hecho`, `reloj`) salen del juego de `Icono`: una guardia prohíbe `<path>` fuera de él.
 - **PR4a (hecho):** la alumna deja su clase fija desde la app (`dejarPlazaFijaAlumna`, acción `dejar_plaza`), por la misma
   puerta que cuando la quita el mostrador (`aplicarEstadoPlazaFija` BAJA: cancela sus clases sin penalización ni recuperación
   y mantiene las que ya están dentro del plazo de cancelación). Una clase fija CON NOMBRE se deja entera (la oferta es

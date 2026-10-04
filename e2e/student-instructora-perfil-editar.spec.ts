@@ -108,7 +108,7 @@ test.describe('La instructora cambia sus datos desde la app', () => {
     await montar(page);
     await page.goto(`/portal/${SLUG}/equipo/perfil`);
 
-    await expect(page.getByRole('link', { name: 'Contraseña', exact: true }))
+    await expect(page.getByRole('link', { name: 'Contraseña y verificación', exact: true }))
       .toHaveAttribute('href', `/portal/${SLUG}/equipo/perfil/seguridad`, { timeout: 30_000 });
     await page.getByRole('link', { name: 'Tus datos', exact: true }).click();
     await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Ana Ferrer', { timeout: 30_000 });

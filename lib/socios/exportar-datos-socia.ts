@@ -256,7 +256,8 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('ventas_pos', 'id, numero, items, subtotal, descuento, total, metodo_pago, estado, realizada_en, devuelta_en, importe_devuelto, anulada_en'),
     tabla('devoluciones', 'id, recibo_id, importe_cobrado, importe_devuelto, estado, detectada_en, resuelta_en'),
     tabla('penalizaciones', 'id, reserva_id, tipo, importe, estado, detectada_en, procesada_en'),
-    tabla('mandatos_sepa', 'id, iban, ref_mandato, fecha_firma, estado, creada_en'),
+    // El IBAN va cifrado (2-oct-2026): sale enmascarado desde sus 4 últimos dígitos.
+    tabla('mandatos_sepa', 'id, iban_ultimos4, ref_mandato, fecha_firma, estado, creada_en'),
     // Sin `studio_id` en la tabla: se acota por la socia (ids globales únicos).
     leer(db, 'codigos_descuento_consumos', 'recibo_id, consumido_en', [['eq', 'socio_id', socioId]], 'consumido_en'),
     tabla('citas', 'id, instructor_id, tipo, inicio, fin, estado, precio, pagada, notas'),
@@ -410,7 +411,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
         })),
         devoluciones: devoluciones.map(d => ({ importeCobrado: num(d.importe_cobrado), importeDevuelto: num(d.importe_devuelto), estado: str(d.estado), detectadaEn: str(d.detectada_en), resueltaEn: str(d.resuelta_en) })),
         penalizaciones: penalizaciones.map(p => ({ tipo: str(p.tipo), importe: num(p.importe), estado: str(p.estado), detectadaEn: str(p.detectada_en), procesadaEn: str(p.procesada_en) })),
-        mandatosSepa: mandatos.map(m => ({ iban: enmascararIban(m.iban), referencia: str(m.ref_mandato), firmadoEl: str(m.fecha_firma), estado: str(m.estado) })),
+        mandatosSepa: mandatos.map(m => ({ iban: m.iban_ultimos4 ? `···· ${String(m.iban_ultimos4)}` : null, referencia: str(m.ref_mandato), firmadoEl: str(m.fecha_firma), estado: str(m.estado) })),
         codigosDescuentoUsados: codigos.map(c => ({ usadoEn: str(c.consumido_en) })),
       },
       citas: porFecha(citas, 'inicio').map(c => ({

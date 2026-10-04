@@ -117,7 +117,7 @@ export default function PerfilPage() {
             // Antes no había ninguna entrada: la única forma de cambiar la
             // contraseña era el flujo de recuperación por correo, que es para
             // cuando NO te acuerdas.
-            { label: 'Contraseña', href: href('/perfil/seguridad') },
+            { label: 'Contraseña y verificación', href: href('/perfil/seguridad') },
           ]}
         />
 

@@ -415,10 +415,10 @@ function ModalClasesRecurrentes({
           es el formulario. */}
       <DialogContent className="sm:max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] flex flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="shrink-0 px-5 pt-5 pb-3 pr-12">
-          <DialogTitle className="text-lg font-semibold text-foreground">Nueva clase fija</DialogTitle>
+          <DialogTitle className="text-lg font-semibold text-foreground">Nueva clase semanal</DialogTitle>
           <p className="text-sm text-muted-foreground mt-0.5 text-pretty">
-            Se crea en tu horario cada semana, los días y a la hora que elijas. Tus clientas pueden quedarse fijas en
-            ella: se la das tú o te la piden desde su app.
+            Se crea en tu horario cada semana, los días y a la hora que elijas. Tus clientas pueden tenerla como clase
+            fija: se la das tú o la activan desde su app.
           </p>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-1 pb-4 space-y-4">
@@ -734,7 +734,7 @@ export default function Calendario() {
   // Cierres del centro, para que el formulario avise (y una clase que se repite
   // se los salte, como `renovar_serie`). Se piden al abrirlo, no con la página.
   const [cierres, setCierres] = useState<CierreGuardado[] | null>(null);
-  // «Nueva clase fija» (la ventana de la clase que se repite): la abren «Clase
+  // «Nueva clase semanal» (la ventana de la clase que se repite): la abren «Clase
   // fija» en «Crear clase», «Duplicar serie», Horario y `?recurrentes=1`.
   const [showRecurrentes, setShowRecurrentes] = useState(false);
   // «Crear clase» pregunta primero qué: una clase de un día o una clase fija. Eran
@@ -749,9 +749,6 @@ export default function Calendario() {
   // horario, y quien montaba su primera clase a mano nunca se enteraba.
   const [primeraClaseCreada, setPrimeraClaseCreada] = useState<number | null>(null);
   const [initialRecurrente, setInitialRecurrente] = useState<RecurringFormData | undefined>(undefined);
-  // Atajo «Agrupar con nombre»: qué franjas marcar al abrir el diálogo
-  // de Horario justo después de crear la serie que las genera.
-  const [preseleccionClaseFija, setPreseleccionClaseFija] = useState<{ serieId: string; diasSemana: number[] } | null>(null);
   // «Buscar sustituta» del ⋯ en una clase CON instructora: enseña la caja de
   // sustituta en su ficha aunque no esté sin cubrir (su instructora no puede).
   const [sustitutaPara, setSustitutaPara] = useState<string | null>(null);
@@ -1220,19 +1217,7 @@ export default function Calendario() {
     const saltos = saltadas.length === 0 ? ''
       : ` · ${saltadas.length === 1 ? 'se ha saltado el' : 'se han saltado:'} ${saltadas.slice(0, 3).join(', ')}${saltadas.length > 3 ? ` y ${saltadas.length - 3} más` : ''}`;
     const texto = `${cuantas}${saltos}${otraSemana ? ' — te llevo a esa semana' : ''}`;
-    // Una clase que se repite es una clase fija: es el momento de ofrecer que las
-    // clientas se queden fijas en ella (lo que hacía la ventana «Nueva clase fija»,
-    // que ya no es el camino de «Crear clase»).
-    const serieId = 'serieId' in res && typeof res.serieId === 'string' ? res.serieId : null;
-    if (nuevas.length > 1 && serieId && puedeGestionarCalendario(rolActual)) {
-      const diasSemana = [...new Set(nuevas.map(x => franjaLocalDe(x.inicio).dow))];
-      showToast(texto, {
-        texto: 'Agrupar con nombre',
-        onClick: () => { setVista('horario'); setPreseleccionClaseFija({ serieId, diasSemana }); },
-      });
-    } else {
-      showToast(texto);
-    }
+    showToast(texto);
     setShowForm(null);
     if (eraLaPrimera && studio?.slug) setPrimeraClaseCreada(nuevas.length);
     return res;
@@ -1692,20 +1677,8 @@ export default function Calendario() {
     const { navego: otraSemana } = invalidarCacheSerieYNavegarSiHaceFalta(sesionesFields.map(s => new Date(s.inicio)));
     if (!otraSemana) void refrescarVista();
     const cuantas = otraSemana
-      ? `Clase fija creada · ${sesionesFields.length} clases — te llevo a esa semana`
-      : `Clase fija creada · ${sesionesFields.length} clases`;
-    // Crear una serie es justo el momento de ofrecer que las alumnas se
-    // apunten solas: antes esto quedaba en dos pasos sin conectar (crear la
-    // serie, y por separado ir a armar la clase fija en Horario).
-    const serieId = res.serieId;
-    if (serieId && puedeGestionarCalendario(rolActual)) {
-      const diasSemana = [...new Set(sesionesFields.map(s => franjaLocalDe(s.inicio).dow))];
-      showToast(cuantas, {
-        texto: 'Agrupar con nombre',
-        onClick: () => { setVista('horario'); setPreseleccionClaseFija({ serieId, diasSemana }); },
-      });
-      return;
-    }
+      ? `Clase semanal creada · ${sesionesFields.length} clases — te llevo a esa semana`
+      : `Clase semanal creada · ${sesionesFields.length} clases`;
     showToast(cuantas);
   }
 
@@ -3425,11 +3398,9 @@ export default function Calendario() {
             onAnadirPlaza={setPlazaFijaEnTarjeta}
             onVerClase={verProximaClase}
             onCrearRecurrente={gestionaClientas ? () => { setInitialRecurrente(undefined); setShowRecurrentes(true); } : undefined}
-            puedeGestionarClasesFijas={puedeGestionarCalendario(rolActual)}
             alumnasPidenPlaza={gestionaClientas ? studio?.plazaFijaSolicitarDesdeApp === true : undefined}
+            plazasSeApruebanSolas={studio?.plazaFijaAprobacion === 'AUTOMATICA'}
             hrefAjustePeticiones={gestionaClientas && puedeAbrirEnConfiguracion(rolActual, HREF_PETICIONES_PLAZA_FIJA) ? HREF_PETICIONES_PLAZA_FIJA : null}
-            preseleccionClaseFija={preseleccionClaseFija}
-            onPreseleccionClaseFijaConsumida={() => setPreseleccionClaseFija(null)}
           />
         ) : !datosVista && errorCargaVista ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
@@ -3964,10 +3935,10 @@ export default function Calendario() {
             >
               <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground"><RefreshCw size={17} aria-hidden /></span>
               <span className="min-w-0">
-                <span className="block text-sm font-bold text-foreground">Clase fija</span>
+                <span className="block text-sm font-bold text-foreground">Clase semanal</span>
                 <span className="block text-xs text-muted-foreground text-pretty">
-                  Se repite cada semana a la misma hora. Tus clientas pueden quedarse fijas y no tienen que reservarla
-                  cada semana.
+                  Se repite cada semana a la misma hora. Tus clientas pueden tenerla como clase fija y no tienen que
+                  reservarla cada semana.
                 </span>
               </span>
             </button>

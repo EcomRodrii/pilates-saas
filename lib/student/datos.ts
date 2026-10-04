@@ -7,8 +7,9 @@ import {
 } from '@/lib/student/mapeo';
 import { horaAhora, hoyISO } from '@/lib/student/formato';
 import { pedirCatalogoClasesFijas } from '@/lib/student/clases-fijas-datos';
-import { proyectarClasesFijas, proyectarClasesSueltas, type ClaseFijaVista, type ClaseSueltaVista } from '@/lib/student/clases-fijas';
+import { proyectarClasesSueltas, type ClaseSueltaVista } from '@/lib/student/clases-fijas';
 import { hoyEnEstudio } from '@/lib/utils';
+import type { PlazaFijaMin } from '@/lib/student/plaza-fija';
 import { tarjetasDescubre, type TarjetaDescubre } from '@/lib/student/descubre';
 import type { Alumna, Bono, Clase, Instructora, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from '@/lib/student/tipos';
 import type { RenovacionPorPagar } from '@/lib/billing/renovacion-sin-tarjeta';
@@ -130,15 +131,15 @@ export async function getAlumna(slug: string): Promise<Alumna | null> {
 }
 
 export interface ClasesFijasData {
-  /** Ofertas con nombre que arma el estudio, envolviendo una o varias franjas. */
-  ofertas: ClaseFijaVista[];
-  /** Clases que ya se repiten y no están en ninguna oferta: solo si el estudio deja pedir plaza fija desde la app. */
+  /** Las clases que se repiten, con lo que ella ya tiene o ha pedido de cada una: solo si el estudio deja pedirlas desde la app. */
   sueltas: ClaseSueltaVista[];
+  /** Sus plazas fijas tal cual (con id y clase fija de origen): el interruptor «Clase fija» enciende y deja por ellas. */
+  plazas: PlazaFijaMin[];
 }
 
 /**
- * Las clases fijas que ofrece el estudio, con lo que la alumna ya tiene, lo que ha
- * pedido y si su cuota las cubre. `null` = no se ha podido saber (la pantalla dice
+ * Las clases que se repiten, con lo que la alumna ya tiene, lo que ha pedido y si
+ * su cuota las cubre. `null` = no se ha podido saber (la pantalla dice
  * que no ha cargado, no «no hay»). El catálogo sale de `/api/public/clases-fijas`;
  * su cuota y sus plazas, del catálogo que la app ya tiene en memoria.
  */
@@ -150,7 +151,7 @@ export async function getClasesFijas(slug: string): Promise<ClasesFijasData | nu
     : null;
   const hoy = hoyEnEstudio();
   return {
-    ofertas: proyectarClasesFijas(cat, socia, d?.planesTarifa ?? [], hoy),
     sueltas: proyectarClasesSueltas(cat.sueltas, socia, d?.planesTarifa ?? [], hoy),
+    plazas: (d?.socia?.plazasFijas ?? []) as PlazaFijaMin[],
   };
 }

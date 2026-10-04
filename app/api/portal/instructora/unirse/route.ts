@@ -11,6 +11,8 @@ import { enlaceRevocado } from '@/lib/sustituciones/enlaces';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import type { Rol } from '@/lib/types';
+import { pasoDeLaSesion } from '@/lib/auth-server';
+import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 
 type Admin = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
@@ -53,6 +55,9 @@ export async function POST(req: NextRequest) {
   try {
     const { data: { user }, error: errAuth } = await supabase.auth.getUser(token);
     if (errAuth || !user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    if (await pasoDeLaSesion(token, user) !== 'ok') {
+      return NextResponse.json({ error: 'Falta el segundo paso de la verificación', codigo: CODIGO_SEGUNDO_PASO }, { status: 401 });
+    }
 
     const admin = getSupabaseAdmin();
     if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });

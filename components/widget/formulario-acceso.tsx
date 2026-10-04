@@ -11,6 +11,8 @@
 // documento porque `detectSessionInUrl` no puede capturar el retorno del
 // email en el DOM de un dominio de tercero.
 import { useState } from 'react';
+import { supabasePortal } from '@/lib/db/supabase-portal';
+import { verificarCodigoApp } from '@/lib/auth/codigo-app';
 import type { ModoTokens } from '@/lib/portal-modo';
 import { useAuthWidget, urlRetornoWidgetAuth, type AceptacionWidget } from '@/lib/widget/usar-auth-widget';
 import { useCaptchaWidget } from '@/lib/widget/turnstile-shadow';
@@ -43,7 +45,7 @@ const botonTexto = (): React.CSSProperties => ({
 });
 
 export function FormularioAccesoWidget({
-  t, slug, baseUrl, studioId, autenticado, politicaPrivacidad, terminosServicio, nombreEstudio, onListo,
+  t, slug, baseUrl, studioId, autenticado, segundoPaso = false, politicaPrivacidad, terminosServicio, nombreEstudio, onListo,
 }: {
   /** El texto del consentimiento de marketing lleva el nombre del estudio, como el del servidor. */
   nombreEstudio?: string;
@@ -53,6 +55,13 @@ export function FormularioAccesoWidget({
   studioId: string;
   /** JWT válido pero sin ficha de socia — saltar directo al registro. */
   autenticado: boolean;
+  /**
+   * Tiene la verificación en dos pasos activada y esta sesión aún no la ha
+   * pasado: se le pide aquí mismo el código de su app. Solo la app: la cookie
+   * del dispositivo recordado y el código por correo viven en la web de
+   * Tentare, no en la del estudio.
+   */
+  segundoPaso?: boolean;
   politicaPrivacidad: string;
   terminosServicio: string;
   onListo: () => void;
@@ -127,6 +136,10 @@ export function FormularioAccesoWidget({
     padding: 20, borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}`, fontFamily: sans,
   };
 
+  if (segundoPaso) {
+    return <CodigoAppWidget t={t} estilo={contenedorEstilo} slug={slug} baseUrl={baseUrl} onSalir={() => void auth.logout()} />;
+  }
+
   if (autenticado) {
     return (
       <div style={contenedorEstilo}>
@@ -199,6 +212,53 @@ export function FormularioAccesoWidget({
           </button>
         </>
       )}
+    </div>
+  );
+}
+
+/** El segundo paso dentro del widget: el código de la app de autenticación. */
+function CodigoAppWidget({ t, estilo, slug, baseUrl, onSalir }: {
+  t: ModoTokens; estilo: React.CSSProperties; slug: string; baseUrl: string; onSalir: () => void;
+}) {
+  const [codigo, setCodigo] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function verificar() {
+    if (codigo.length !== 6 || enviando) return;
+    setEnviando(true); setError(null);
+    const r = await verificarCodigoApp(supabasePortal.auth, codigo);
+    setEnviando(false);
+    // Con el código bueno, la sesión sube a `aal2` y `usar-sesion-widget.ts`
+    // vuelve a leer la socia sola (evento MFA_CHALLENGE_VERIFIED).
+    if (!r.ok) { setError(r.mensaje); setCodigo(''); }
+  }
+
+  return (
+    <div style={estilo}>
+      <p style={{ margin: 0, fontSize: 14, color: t.ink, fontWeight: 600 }}>Verificación en dos pasos</p>
+      <p style={{ margin: 0, fontSize: 13, color: t.muted }}>
+        Abre tu app de autenticación y escribe el código de 6 dígitos.
+      </p>
+      <input
+        style={inputStyle(t)} value={codigo} inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+        aria-label="Código de 6 dígitos" placeholder="123456"
+        onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))}
+        onKeyDown={(e) => { if (e.key === 'Enter') void verificar(); }}
+      />
+      {error && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--destructive)' }}>{error}</p>}
+      <button type="button" onClick={() => void verificar()} disabled={enviando || codigo.length !== 6} style={botonPrimario(t, enviando)}>
+        {enviando ? 'Comprobando…' : 'Verificar'}
+      </button>
+      {/* Aquí solo vale la app: el código por correo y «recordar este dispositivo»
+          viven en la app del estudio, que es otra sesión. Se le ofrece como salida. */}
+      <p style={{ margin: 0, fontSize: 12, color: t.muted }}>
+        ¿No tienes la app a mano?{' '}
+        <a href={`${baseUrl}/portal/${encodeURIComponent(slug)}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--portal-brand)' }}>
+          Reserva desde la app del estudio
+        </a>, allí puedes recibir el código por correo.
+      </p>
+      <button type="button" onClick={onSalir} style={botonTexto()}>Usar otra cuenta</button>
     </div>
   );
 }

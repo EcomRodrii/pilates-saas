@@ -7,7 +7,7 @@ import type { PlazaFijaVista, ProximaClaseFijaVista, RecuperacionesVista } from 
 import { etiquetaDia, fechaCorta } from '@/lib/student/formato';
 import { nombreDia } from '@/lib/student/plaza-fija';
 import { TEXTOS_PLAZA_FIJA, losDias } from '@/lib/student/plaza-fija-textos';
-import { anularPeticionPlazaFija, dejarPlazaFija, pedirPausaPlazaFija } from '@/lib/student/plaza-fija-peticion';
+import { anularPeticionPlazaFija, pedirPausaPlazaFija } from '@/lib/student/plaza-fija-peticion';
 import { cancelarReserva } from '@/lib/student/reservas-acciones';
 import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
@@ -23,6 +23,7 @@ import { Sheet } from '@/components/student/ui/Sheet';
 import { useToast } from '@/components/student/ui/Toast';
 import { Icono } from '@/components/student/ui/Icono';
 import { CalendarioClaseFija } from '@/components/student/domain/CalendarioClaseFija';
+import { DialogoDejarClaseFija } from '@/components/student/domain/DialogoDejarClaseFija';
 import type { CalendarioClaseFija as DatosCalendario } from '@/lib/student/mapeo';
 
 // «Tu clase fija» + «Recuperaciones» (F2, el caso canónico del producto).
@@ -73,8 +74,6 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
   const [error, setError] = useState('');
   // Dejar la clase fija: confirmación con lo que pasa, y el resultado sale de lo que contesta el servidor.
   const [dejando, setDejando] = useState<PlazaFijaVista | null>(null);
-  const [dejandoEnCurso, setDejandoEnCurso] = useState(false);
-  const [errorDejar, setErrorDejar] = useState('');
 
   const pausaPedidaDe = (p: PlazaFijaVista): PausaPedida =>
     (p.id && p.id in pedidas ? pedidas[p.id] : p.pausaPedida);
@@ -125,23 +124,6 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
     onCambio?.();
   }
 
-  async function confirmarDejar() {
-    if (!dejando?.id || dejandoEnCurso) return;
-    setDejandoEnCurso(true);
-    setErrorDejar('');
-    const r = await dejarPlazaFija(estudio.slug, estudio.id, dejando.id);
-    setDejandoEnCurso(false);
-    if (!r.ok) {
-      if (r.sesionCaducada) { router.push(href('/acceso/login')); return; }
-      // La plaza SIGUE: se deja el diálogo abierto, con el motivo, para reintentar.
-      setErrorDejar(r.error);
-      return;
-    }
-    setDejando(null);
-    toast(TEXTOS_PLAZA_FIJA.dejada(r));
-    onCambio?.();
-  }
-
   const avisoNoPuedo = noPuedo ? avisoCancelacion(noPuedo.proxima, estudio.politicaCancelacionHoras) : null;
 
   if (plazas.length === 0 && recuperaciones.disponibles === 0) return null;
@@ -180,7 +162,7 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
         {/* Dejarla: solo si el estudio deja gestionar las clases fijas desde la app (el servidor lo vuelve a comprobar). */}
         {(estudio.puedePedirPlazaFija === true || plaza.deClaseFija) && !!plaza.id && (
           <div>
-            <Button variant="ghost" size="sm" disabled={!online} data-testid="dejar-clase-fija" onClick={() => { setErrorDejar(''); setDejando(plaza); }}>
+            <Button variant="ghost" size="sm" disabled={!online} data-testid="dejar-clase-fija" onClick={() => setDejando(plaza)}>
               {TEXTOS_PLAZA_FIJA.dejarBoton}
             </Button>
           </div>
@@ -237,30 +219,7 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
         )}
       </ConfirmationDialog>
 
-      <ConfirmationDialog
-        open={dejando !== null}
-        onClose={() => { if (!dejandoEnCurso) setDejando(null); }}
-        titulo={TEXTOS_PLAZA_FIJA.dejarTitulo}
-        cuerpo={dejando ? `${mayuscula(losDias(dejando.diaSemana))} · ${dejando.hora}${[dejando.tipo, dejando.sala].filter(Boolean).length ? ` · ${[dejando.tipo, dejando.sala].filter(Boolean).join(' · ')}` : ''}` : ''}
-        confirmar={TEXTOS_PLAZA_FIJA.dejarConfirmar}
-        cancelar={TEXTOS_PLAZA_FIJA.dejarMantener}
-        tono="danger"
-        loading={dejandoEnCurso}
-        onConfirm={() => void confirmarDejar()}
-      >
-        {dejando && (
-          <div data-testid="dejar-aviso" style={{ background: 'var(--accent-soft)', borderRadius: 'var(--radius-sm)', padding: '11px 14px', marginTop: 13, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--accent-soft-foreground)' }}>
-              {TEXTOS_PLAZA_FIJA.dejarCancela(estudio.politicaCancelacionHoras)}
-            </p>
-            {dejando.deClaseFija && (
-              <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>{TEXTOS_PLAZA_FIJA.dejarVarios}</p>
-            )}
-            <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>{TEXTOS_PLAZA_FIJA.dejarVuelve}</p>
-            {errorDejar && <p role="alert" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--danger, #b00020)' }}>{errorDejar}</p>}
-          </div>
-        )}
-      </ConfirmationDialog>
+      <DialogoDejarClaseFija plaza={dejando} onClose={() => setDejando(null)} onDejada={onCambio} />
 
       <Sheet open={pidiendo !== null} onClose={() => { if (!enviando) setPidiendo(null); }} label="Pedir una pausa">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

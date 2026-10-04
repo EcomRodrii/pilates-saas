@@ -10,6 +10,7 @@ import { MENSAJE_RECHAZO, motivoNoReclamable } from '@/lib/equipo/reclamar-regla
 import type { Rol } from '@/lib/types';
 import { ErrorAccion } from '@/lib/actions/errores';
 import * as Sentry from '@sentry/nextjs';
+import { pasoDeLaSesion } from '@/lib/auth-server';
 
 /**
  * equipoReclamarAction
@@ -34,6 +35,8 @@ export async function equipoReclamarAction(input: { token?: string; jwt?: string
 
   const { data: { user }, error: errAuth } = await supabase.auth.getUser(jwt);
   if (errAuth || !user) throw new ErrorAccion('No autorizado', 401);
+  // Con la verificación en dos pasos activada, primero el segundo paso.
+  if (await pasoDeLaSesion(jwt, user) !== 'ok') throw new ErrorAccion('Escribe primero el código de la verificación en dos pasos.', 401);
 
   const admin = getSupabaseAdmin();
   if (!admin) throw new ErrorAccion(ERROR_SISTEMA, 503);

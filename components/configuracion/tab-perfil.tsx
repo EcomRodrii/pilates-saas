@@ -12,6 +12,7 @@ import { fetchTarifasEquipo } from '@/lib/api-client';
 import { inputCls, labelCls, cardCls } from '@/components/configuracion/estilos';
 import { useCuenta } from '@/components/auth/use-cuenta';
 import { ETIQUETA_ROL } from '@/lib/permisos-reglas';
+import { BloqueDobleFactor } from '@/components/auth/bloque-doble-factor';
 
 export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   const { studio, updateAvatarAdmin, updateStudio, instructores, updateInstructor, sesiones } = useStudio();
@@ -389,6 +390,8 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
           <p className={cn('text-[11px] mt-3', accesoMsg.error ? 'text-destructive' : 'text-success')}>{accesoMsg.texto}</p>
         )}
       </div>
+
+      <BloqueDobleFactor />
     </div>
   );
 }

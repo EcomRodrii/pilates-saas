@@ -14,7 +14,6 @@ import { AlertTriangle, CalendarDays, Plus, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { diasHastaFin, fechaDMY, nombreSerie } from '@/lib/series-renovacion';
 import type { HorarioFijo, TarjetaHorario } from '@/lib/horario-fijo';
-import { ClasesFijasSeccion } from '@/components/calendario/clases-fijas-seccion';
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const PUNTOS_MAX = 12;
@@ -35,18 +34,15 @@ export interface VistaHorarioProps {
   onAnadirPlaza: (t: TarjetaHorario) => void;
   onVerClase: (t: TarjetaHorario) => void;
   onCrearRecurrente?: () => void;
-  /** Crear y cuidar las clases fijas que se ofrecen a las alumnas (mismo permiso que el calendario). */
-  puedeGestionarClasesFijas?: boolean;
   /**
    * Si las alumnas pueden pedir su plaza fija desde la app (ajuste del estudio,
    * apagado de serie). `undefined` = no se sabe todavía: no se dice nada.
    */
   alumnasPidenPlaza?: boolean;
+  /** El estudio aprueba solo las plazas fijas que cumplen sus reglas (`plazaFijaAprobacion = 'AUTOMATICA'`): cambia lo que se dice de quién decide. */
+  plazasSeApruebanSolas?: boolean;
   /** A dónde lleva «Dejar que la pidan ellas»; `null` si quien mira no puede abrir ese ajuste. */
   hrefAjustePeticiones?: string | null;
-  /** Viene del atajo «Agrupar con nombre» tras crear una serie recurrente. */
-  preseleccionClaseFija?: { serieId: string; diasSemana: number[] } | null;
-  onPreseleccionClaseFijaConsumida?: () => void;
 }
 
 function textoFin(t: TarjetaHorario, hoy: string): { texto: string; aviso: boolean } {
@@ -169,7 +165,9 @@ export function VistaHorario(p: VistaHorarioProps) {
       {tarjetas.length > 0 && p.alumnasPidenPlaza !== undefined && (
         <p className="mb-3 text-xs text-muted-foreground text-pretty" data-testid="aviso-peticiones-plaza-fija">
           {p.alumnasPidenPlaza ? (
-            <>Tus alumnas pueden pedir su plaza fija desde la app; lo decides en Resumen.</>
+            p.plazasSeApruebanSolas
+              ? <>Tus alumnas pueden pedir su plaza fija desde la app; se da sola si cumple tus reglas, y la que no las cumple la decides en Resumen.</>
+              : <>Tus alumnas pueden pedir su plaza fija desde la app; lo decides en Resumen.</>
           ) : (
             <>
               Tus alumnas no pueden pedir su plaza fija desde la app: se la das tú, aquí o en su ficha.
@@ -180,14 +178,6 @@ export function VistaHorario(p: VistaHorarioProps) {
           )}
         </p>
       )}
-      <ClasesFijasSeccion
-        horario={p.horario}
-        nombreTipo={p.nombreTipo}
-        nombreSala={p.nombreSala}
-        puedeGestionar={p.puedeGestionarClasesFijas === true}
-        preseleccion={p.preseleccionClaseFija}
-        onPreseleccionConsumida={p.onPreseleccionClaseFijaConsumida}
-      />
       {dias.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center">
           <p className="text-sm font-semibold text-foreground">Todavía no hay clases que se repitan</p>

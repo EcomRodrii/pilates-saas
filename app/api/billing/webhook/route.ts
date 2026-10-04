@@ -8,6 +8,8 @@ import { reclamarWebhookEvent, marcarWebhookProcesado, fallarWebhookEvent, clave
 import { enviarEmailFalloPagoSaas } from '@/lib/emails/fallo-pago-saas-server';
 import { verificarFirmaStripe } from '@/lib/billing/verificar-firma-stripe';
 import { cancelarSuscripcionAnteriorSiToca } from '@/lib/billing/cancelar-suscripcion-anterior';
+import { desplazadaPorSuCadena } from '@/lib/billing/suscripcion-desplazada-por-cadena';
+import { ESTADOS_VIVOS } from '@/lib/billing/checkout-saas-previo';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Webhook de Stripe Billing (suscripción del estudio al SaaS). Distinto del
@@ -273,6 +275,7 @@ async function actualizarSuscripcion(admin: SupabaseClient, stripe: Stripe, sub:
   }
 
   if (studioId) {
+    if (await ignorarPorLaCadena(admin, 'id', studioId, sub)) return;
     const resultado = await aplicarSiNoDesordenado(admin, 'studios', 'id', studioId, update, eventoEn);
     if (resultado === 'desordenado') return;
     // Mismo criterio que la rama de `cadenas`: Sentry y seguir, no reintentar
@@ -299,6 +302,7 @@ async function actualizarSuscripcion(admin: SupabaseClient, stripe: Stripe, sub:
   // Sin metadata (legacy, o edición manual en el dashboard de Stripe): el
   // mismo stripe_customer_id puede pertenecer a un estudio individual o a una
   // cadena — son dos tablas independientes, así que hay que probar ambas.
+  if (await ignorarPorLaCadena(admin, 'stripe_customer_id', customerId, sub)) return;
   const enStudios = await aplicarSiNoDesordenado(admin, 'studios', 'stripe_customer_id', customerId, update, eventoEn);
   if (enStudios === 'aplicado' || enStudios === 'desordenado') return;
 
@@ -310,6 +314,31 @@ async function actualizarSuscripcion(admin: SupabaseClient, stripe: Stripe, sub:
       level: 'error', tags: { area: 'billing' }, extra: { customerId, estado: sub.status },
     });
   }
+}
+
+// La sede de una cadena viva la gobierna la cadena (ver
+// lib/billing/suscripcion-desplazada-por-cadena.ts): un evento de su
+// suscripción individual —el `deleted` que llega al cancelarla tras pasarse a
+// CADENA— no se escribe en `studios`. La lectura va antes del UPDATE y no en su
+// WHERE, y no hay carrera en el caso que importa: la individual solo se cancela
+// DESPUÉS de que la cadena haya quedado viva en la BD.
+async function ignorarPorLaCadena(
+  admin: SupabaseClient,
+  columna: 'id' | 'stripe_customer_id',
+  valor: string,
+  sub: Stripe.Subscription,
+): Promise<boolean> {
+  if (!(await desplazadaPorSuCadena(admin, columna, valor, sub.id))) return false;
+  // Lo esperado es que llegue cancelada. Viva significa que la sede está pagando
+  // su plan individual además de la cadena: o falló la cancelación (ya avisada
+  // a Sentry al intentarla) o se contrató después.
+  if (ESTADOS_VIVOS.includes(sub.status)) {
+    Sentry.captureMessage('[billing webhook] sede de una cadena viva con suscripción individual viva: posible cobro doble', {
+      level: 'error', tags: { area: 'billing', tipo: 'individual-en-cadena' },
+      extra: { suscripcionId: sub.id, estado: sub.status },
+    });
+  }
+  return true;
 }
 
 async function avisarFalloPagoSaas(admin: SupabaseClient, invoice: Stripe.Invoice): Promise<void> {

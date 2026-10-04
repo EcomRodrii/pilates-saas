@@ -1,5 +1,5 @@
 // Lo que se le dice a la alumna sobre su clase fija. Sin imports ni `@/`: lo
-// leen la app de la alumna (la ficha de la clase fija, «Mis clases → Fijas» y la
+// leen la app de la alumna (el interruptor «Clase fija» de la ficha de una clase, «Mis clases → Fijas» y la
 // tarjeta de Inicio) y la vista previa de Configuración («Así lo ve tu
 // alumna»), y tiene que ser EXACTAMENTE el mismo texto en todos los sitios — si
 // la vista previa dijera otra cosa que la app, explicar el ajuste sería peor que
@@ -23,8 +23,7 @@ export function losDias(diaSemana: number): string {
 }
 
 export const TEXTOS_PLAZA_FIJA = {
-  // ── Pedirla (la ficha de la clase fija, `/clases-fijas/[sesionId]`) ──
-  titulo: 'Clase fija',
+  // ── Pedirla (la hoja del interruptor «Clase fija», en la ficha de la clase) ──
   /** Lo que es, en una frase, con SU día y SU hora. */
   ofrecer: (diaSemana: number, hora: string) =>
     `¿Vienes ${losDias(diaSemana)} a las ${hora}? Con una clase fija tu plaza queda reservada cada semana, sin que tengas que volver a reservarla.`,
@@ -34,11 +33,8 @@ export const TEXTOS_PLAZA_FIJA = {
   quePasaAutomatica: 'Si cumples las reglas de tu estudio, se te da al momento. Si no, tu estudio la confirma y su respuesta te llega aquí; hasta entonces, sigue reservando como siempre.',
   /** Respaldo si el servidor dijo «dada» sin decir con qué texto (no debería pasar). */
   dada: 'Ya es tu clase fija ✓',
-  botonPedir: 'Pedir clase fija',
   pedida: 'Ya la has pedido: tu estudio te contestará aquí. Hasta entonces, sigue reservando esta clase como siempre.',
   botonAnular: 'Anular la petición',
-  /** Quien no tiene cuota que la cubra: la regla es la del servidor (`cuotaParaPlazaFija`). */
-  soloConCuota: 'La clase fija es para quien tiene una cuota activa que incluya esta clase. Con bono o clases sueltas, se reserva clase a clase.',
 
   // ── Cuánto tiempo la quiere (la ficha de la clase fija): una duración cerrada, y la fecha exacta que resulta ──
   cuantoTiempo: '¿Cuánto tiempo la quieres?',
@@ -47,15 +43,17 @@ export const TEXTOS_PLAZA_FIJA = {
   sinFecha: 'Sin fin',
   sinFechaDetalle: 'Sin fecha de fin',
 
-  // ── «Repetir cada semana»: el enlace de la ficha de una clase normal. Solo LLEVA a la ficha de la clase fija. ──
-  repetirTitulo: 'Repetir cada semana',
-  repetirPuede: (diaSemana: number, hora: string) => {
+  // ── El interruptor «Clase fija» de la ficha de una clase que se repite: el ÚNICO camino para pedirla (4-oct-2026). ──
+  autoTitulo: 'Clase fija',
+  autoPuede: (diaSemana: number, hora: string) => {
     const dias = losDias(diaSemana);
-    return `${dias.charAt(0).toUpperCase()}${dias.slice(1)} a las ${hora}, sin volver a reservar`;
+    return `${dias.charAt(0).toUpperCase()}${dias.slice(1)} a las ${hora}, reservada cada semana`;
   },
-  repetirPedida: 'Ya la has pedido: tu estudio te contestará',
-  repetirTiene: 'Ya es tu clase fija ✓',
-  repetirSoloConCuota: 'Es para quien tiene una cuota activa que incluya esta clase',
+  autoPedida: 'Ya la has pedido: tu estudio te contestará',
+  autoTiene: 'Ya es tu clase fija ✓',
+  autoActivar: 'Hacerla mi clase fija',
+  /** Sin cuota que la cubra: no hay interruptor, solo esta frase. */
+  autoSoloConCuota: 'Con una cuota que incluya esta clase, puedes hacerla tu clase fija y no tener que reservarla cada semana.',
 
   // ── Su tarjeta, cuando ya la tiene ──
   tarjetaUna: 'Tu clase fija',
@@ -91,7 +89,7 @@ export const TEXTOS_PLAZA_FIJA = {
   dejarCancela: (horas: number) =>
     `Se cancelan las clases que tienes reservadas con ella, sin penalización y sin clase para recuperar, salvo las que quedan a menos de ${horas} h: esas las mantienes.`,
   dejarVarios: 'Es una clase fija de varios días: los dejas todos.',
-  dejarVuelve: 'Si cambias de idea, podrás volver a pedirla desde su ficha (según el sitio que haya).',
+  dejarVuelve: 'Si cambias de idea, podrás volver a activarla desde la ficha de la clase (según el sitio que haya).',
   /** Lo que ha pasado de verdad, con las cifras del servidor. */
   dejada: (r: { plazas: number; canceladas: number; mantenidas: number; sinDejar: number }) => {
     const partes = [r.plazas > 1 ? 'Has dejado tus clases fijas' : 'Has dejado tu clase fija'];
@@ -100,6 +98,8 @@ export const TEXTOS_PLAZA_FIJA = {
     if (r.sinDejar > 0) partes.push('alguna no se ha podido dejar: habla con tu estudio');
     return `${partes.join(' · ')}.`;
   },
+  /** «Mis clases → Fijas» sin ninguna: cómo se consigue, en una frase. */
+  vacia: 'Aún no tienes clase fija. Abre en el horario una clase que se repite y activa «Clase fija»: tu plaza quedará reservada cada semana.',
   /** Sin botón de dejarla (el estudio lo lleva en recepción), se sigue hablando con él. */
   cambiarlaDeDiaHora: '¿Quieres cambiarla de día u hora?',
 

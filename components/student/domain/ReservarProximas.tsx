@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/student/ui/States';
 
 // «Reservar las próximas clases» con bono: para quien solo tiene bono y no puede tener una clase fija (que es de cuota). NO es
 // una clase fija: son N reservas normales, una por semana a la misma hora, cada una descontando su sesión del bono cuando se
-// reserva. No se renueva sola. Va en la ficha de la clase fija, que es donde hoy esta alumna se topaba con «necesitas cuota».
+// reserva. No se renueva sola. Va en la ficha de la clase, en el sitio del interruptor «Clase fija», que sin cuota no existe.
 //
 // ⚠️ No decide nada. Primero se le ENSEÑA qué se reservaría (vista previa, sin escribir nada); lo que pasa de verdad lo dice el
 // servidor al reservar. El número de sesiones que le quedan viene del servidor, no de esta pantalla.
@@ -27,8 +27,10 @@ const tonoDe = (o: OcurrenciaVista): 'ok' | 'booked' | 'neutral' | 'few' =>
   o.resultado === 'SE_RESERVARA' ? 'ok' : o.resultado === 'RESERVADA' || o.resultado === 'YA_RESERVADA' ? 'booked'
     : o.resultado === 'COMPLETA' || o.resultado === 'CERRADA' || o.resultado === 'NO_INTENTADA' ? 'neutral' : 'few';
 
-export function ReservarProximas({ sesionId, saldo, ventanaCancelacionHoras }: {
+export function ReservarProximas({ sesionId, saldo, ventanaCancelacionHoras, onReservadas }: {
   sesionId: string;
+  /** Tras reservar (lo que contestó el servidor): la pantalla de detrás vuelve a leer sus reservas. */
+  onReservadas?: () => void;
   /** Las sesiones que le quedan del bono que cubre esta clase. */
   saldo: number;
   ventanaCancelacionHoras: number;
@@ -64,6 +66,7 @@ export function ReservarProximas({ sesionId, saldo, ventanaCancelacionHoras }: {
     }
     setHecho(r.datos);
     setIntento(nuevoIntento());
+    onReservadas?.();
   }
 
   if (opciones.length === 0) return null;

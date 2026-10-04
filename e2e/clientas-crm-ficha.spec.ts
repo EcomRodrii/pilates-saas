@@ -293,3 +293,60 @@ test.describe('Ficha · cabecera', () => {
     await expect(valor).not.toContainText('Nada');
   });
 });
+
+// ─── Verificación en dos pasos de su cuenta ─────────────────────────────────
+
+test.describe('Ficha · quitar la verificación en dos pasos', () => {
+  test('pregunta al abrir (no al abrir la ficha), y solo dice «quitada» cuando el servidor la quita', async ({ page }) => {
+    await montar(page);
+    let consultas = 0;
+    let quitas = 0;
+    await page.route((u) => u.pathname === '/api/socios/soc-1/doble-factor', (r) => {
+      if (r.request().method() === 'DELETE') { quitas++; return json(r, { ok: true, avisada: true }); }
+      consultas++;
+      return json(r, { activa: true, sePuedeQuitar: true, motivo: null });
+    });
+
+    await abrirFicha(page);
+    expect(consultas).toBe(0);
+    await (await menu(page)).getByRole('menuitem', { name: 'Verificación en dos pasos' }).click();
+    const dialogo = page.getByTestId('dialogo-doble-factor');
+    await expect(dialogo.getByText(/la tiene activada/)).toBeVisible();
+    expect(consultas).toBe(1);
+    await dialogo.getByRole('button', { name: 'Quitar la verificación' }).click();
+    await expect(page.getByText('Verificación quitada. Le hemos avisado por correo a María.')).toBeVisible();
+    expect(quitas).toBe(1);
+    await expect(dialogo).toBeHidden();
+  });
+
+  test('si el servidor dice que no (409), lo cuenta y no dice «quitada»', async ({ page }) => {
+    await montar(page);
+    let quitas = 0;
+    await page.route((u) => u.pathname === '/api/socios/soc-1/doble-factor', (r) => {
+      if (r.request().method() === 'DELETE') {
+        quitas++;
+        return json(r, { error: 'Su cuenta no se puede gestionar desde tu estudio, así que no se la puedes quitar desde aquí.' }, 409);
+      }
+      return json(r, { activa: true, sePuedeQuitar: true, motivo: null });
+    });
+
+    await abrirFicha(page);
+    await (await menu(page)).getByRole('menuitem', { name: 'Verificación en dos pasos' }).click();
+    const dialogo = page.getByTestId('dialogo-doble-factor');
+    await dialogo.getByRole('button', { name: 'Quitar la verificación' }).click();
+    await expect(dialogo.getByRole('alert')).toContainText('no se puede gestionar desde tu estudio');
+    expect(quitas).toBeGreaterThan(0);
+    await expect(page.getByText(/Verificación quitada/)).toHaveCount(0);
+  });
+
+  test('sin permiso para quitarla (recepción): se ve el motivo y no hay botón', async ({ page }) => {
+    await montar(page);
+    await page.route((u) => u.pathname === '/api/socios/soc-1/doble-factor', (r) =>
+      json(r, { activa: true, sePuedeQuitar: false, motivo: 'Solo la propietaria o la gerencia del estudio pueden quitársela. Pídeselo a ellas.' }));
+    await abrirFicha(page);
+    await (await menu(page)).getByRole('menuitem', { name: 'Verificación en dos pasos' }).click();
+    const dialogo = page.getByTestId('dialogo-doble-factor');
+    await expect(dialogo.getByText(/Solo la propietaria o la gerencia/)).toBeVisible();
+    await expect(dialogo.getByRole('button', { name: 'Quitar la verificación' })).toHaveCount(0);
+  });
+});

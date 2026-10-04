@@ -55,7 +55,9 @@ test.describe('Student PWA · cambiar la contraseña', () => {
   test('una nueva corta se corta ANTES de salir, con el mínimo real', async ({ page }) => {
     let intentos = 0;
     await montar(page);
-    await page.route('**/auth/v1/user**', (r) => { intentos++; return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
+    // Solo el PUT (cambiar la contraseña): la misma pantalla lee con un GET si
+    // tiene activada la verificación en dos pasos, y eso no es un intento.
+    await page.route('**/auth/v1/user**', (r) => { if (r.request().method() === 'PUT') intentos++; return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
     await abrir(page);
     await page.getByLabel('Contraseña actual').fill('laVieja123');
     await page.getByLabel('Nueva contraseña').fill('1234567');

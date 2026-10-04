@@ -1,5 +1,5 @@
 // Los correos de Tentare sobre la CUENTA del estudio: su suscripción, qué pasa
-// con sus datos si no paga, quién entra a su panel y cómo ha ido la semana.
+// con sus datos si no paga o se da de baja, quién entra a su panel y cómo ha ido la semana.
 // Aquí solo se decide qué dice cada uno; cómo se ve lo pone `correoTentare`.
 
 import { correoTentare, TENTARE } from './plantilla.ts';
@@ -34,7 +34,9 @@ export function correoFalloPagoSaas(p: {
 }
 
 export function correoEstudioVencido(p: {
-  fase: 'aviso_30' | 'aviso_final';
+  fase: 'aviso_30' | 'aviso_baja' | 'aviso_final';
+  /** Por qué el estudio se ha quedado sin contrato. Sin él, la prueba vencida (lo de siempre). */
+  motivo?: 'prueba_vencida' | 'baja';
   estudioNombre: string;
   /** Ya formateada («24 de noviembre de 2026»). */
   fechaPurga: string;
@@ -49,23 +51,60 @@ export function correoEstudioVencido(p: {
   urlExportar: string;
 }): string {
   const final = p.fase === 'aviso_final';
+  const baja = (p.motivo ?? (p.fase === 'aviso_baja' ? 'baja' : 'prueba_vencida')) === 'baja';
+  // Lo que de verdad borra `purgar_estudio_vencido`: los datos de las clientas
+  // y del equipo. La cuenta y las facturas se conservan.
+  const queSeBorra = 'los datos personales de tus clientas y de tu equipo, con notas, mensajes y copias de seguridad';
   const queDiceLaFecha = !final
-    ? 'Conservamos sus datos hasta ese día. Desde hoy ya no hacemos copias de seguridad nuevas del estudio.'
+    ? baja
+      ? p.purgaArmada
+        ? `Hasta ese día puedes descargar todos los datos del estudio. Después borraremos ${queSeBorra}.`
+        : 'Conservamos sus datos hasta ese día para que puedas descargarlos. Desde hoy ya no hacemos copias de seguridad nuevas del estudio.'
+      : 'Conservamos sus datos hasta ese día. Desde hoy ya no hacemos copias de seguridad nuevas del estudio.'
     : p.purgaArmada
-      // Lo que de verdad borra `purgar_estudio_vencido`: los datos de las
-      // clientas y del equipo. La cuenta y las facturas se conservan.
-      ? 'Ese día borraremos los datos personales de tus clientas y de tu equipo, con notas, mensajes y copias de seguridad.'
+      ? `Ese día borraremos ${queSeBorra}.`
       : 'A partir de ese día los datos personales de tus clientas y de tu equipo quedan listos para borrarse.';
+  // Lo que lleva la descarga, en una frase. Si cambia lo que exporta
+  // /api/exportar/mis-datos, cambia aquí.
+  const queLleva = 'un CSV por tabla con clientas, reservas, cobros, ficha de salud, notas y consentimientos';
+  const exportar = { href: p.urlExportar, texto: 'Descargar los datos del estudio' };
   return correoTentare({
-    preheader: `Datos de ${p.estudioNombre}: se conservarán hasta el ${p.fechaPurga}`,
+    preheader: baja
+      ? `Datos de ${p.estudioNombre}: puedes descargarlos hasta el ${p.fechaPurga}`
+      : `Datos de ${p.estudioNombre}: se conservarán hasta el ${p.fechaPurga}`,
     antetitulo: final ? 'Último aviso' : 'Tu estudio',
-    titular: final ? 'Último aviso sobre los datos de tu estudio' : 'Tus datos se conservarán hasta una fecha',
-    parrafos: [`La prueba gratuita de ${p.estudioNombre} terminó y el estudio no tiene un plan activo.`],
+    titular: final
+      ? 'Último aviso sobre los datos de tu estudio'
+      : baja ? 'Descarga los datos de tu estudio' : 'Tus datos se conservarán hasta una fecha',
+    parrafos: [baja
+      ? `La suscripción de ${p.estudioNombre} a Tentare ha terminado.`
+      : `La prueba gratuita de ${p.estudioNombre} terminó y el estudio no tiene un plan activo.`],
     destacado: { titulo: p.fechaPurga, texto: queDiceLaFecha },
-    boton: { href: p.urlSuscripcion, texto: 'Elegir un plan' },
-    enlace: { href: p.urlExportar, texto: 'Descargar los datos del estudio' },
-    nota: 'Si eliges un plan, todo queda como estaba. Si no, descarga tus datos antes de esa fecha: un CSV por tabla, sin ficha clínica. Las facturas y lo que la ley obliga a guardar se conservan durante el plazo legal.',
+    // En una baja lo primero es llevarse los datos; en una prueba, elegir plan.
+    boton: baja ? exportar : { href: p.urlSuscripcion, texto: 'Elegir un plan' },
+    enlace: baja ? { href: p.urlSuscripcion, texto: 'Reactivar la suscripción' } : exportar,
+    nota: baja
+      ? `La descarga es ${queLleva}. Si reactivas la suscripción antes de esa fecha, todo queda como estaba. Las facturas y lo que la ley obliga a guardar se conservan durante el plazo legal.`
+      : `Si eliges un plan, todo queda como estaba. Si no, descarga tus datos antes de esa fecha: ${queLleva}. Las facturas y lo que la ley obliga a guardar se conservan durante el plazo legal.`,
     acento: final ? TENTARE.alerta : null,
+    motivo: `Te escribimos porque eres la propietaria de ${p.estudioNombre} en Tentare.`,
+  });
+}
+
+/**
+ * Confirmación del borrado de los datos de un estudio sin contrato (contrato de
+ * encargo, «se le acredita por correo»). Dice lo que borra de verdad
+ * `purgar_estudio_vencido` y lo que se conserva bloqueado por ley.
+ */
+export function correoDatosBorrados(p: { estudioNombre: string; fecha: string }): string {
+  return correoTentare({
+    preheader: `Confirmación del borrado de los datos de ${p.estudioNombre}`,
+    antetitulo: 'Tu estudio',
+    titular: 'Hemos borrado los datos de tu estudio',
+    parrafos: [
+      `El ${p.fecha} borramos de Tentare los datos personales de las clientas y del equipo de ${p.estudioNombre}: sus fichas quedan anonimizadas, y se han borrado la salud, las notas, los mensajes, las credenciales de las integraciones y las copias de seguridad.`,
+    ],
+    nota: 'Conservamos bloqueados, solo durante el plazo que marca la ley, las facturas, los recibos, los registros de facturación y los mandatos SEPA. Este correo es la confirmación del borrado: guárdalo si lo necesitas.',
     motivo: `Te escribimos porque eres la propietaria de ${p.estudioNombre} en Tentare.`,
   });
 }
@@ -90,6 +129,25 @@ export function correoAccesoActivado(p: {
     boton: { href: p.urlEquipo, texto: 'Ver mi equipo' },
     nota: 'Si no esperabas este acceso, entra en Equipo y dale de baja: se le retira al momento.',
     motivo: `Te escribimos porque eres la propietaria de ${p.estudioNombre} en Tentare.`,
+  });
+}
+
+/**
+ * El código del segundo paso al entrar al panel (lib/auth/codigo-correo-reglas.ts).
+ * Lo recibe quien entra, sea cual sea su papel en el estudio: por eso el motivo
+ * habla de su cuenta y no de «la propietaria». El código no va en el asunto ni
+ * en el preheader: se leería en la pantalla bloqueada del móvil.
+ */
+export function correoCodigoAcceso(p: { codigo: string; minutos: number }): string {
+  const legible = `${p.codigo.slice(0, 3)} ${p.codigo.slice(3)}`;
+  return correoTentare({
+    preheader: `Para terminar de entrar a tu panel. Caduca en ${p.minutos} minutos.`,
+    antetitulo: 'Tu acceso',
+    titular: 'Tu código para entrar',
+    parrafos: [`Escríbelo en la pantalla de Tentare para terminar de entrar al panel. Caduca en ${p.minutos} minutos y solo sirve una vez.`],
+    destacado: { titulo: 'Código', texto: legible },
+    nota: 'Si no estabas entrando tú, alguien tiene tu contraseña: cámbiala ya con «He olvidado mi contraseña» en la pantalla de entrar. No compartas este código: nadie de Tentare te lo pedirá nunca.',
+    motivo: 'Te escribimos porque alguien acaba de entrar con tu contraseña a tu cuenta de Tentare, que tiene la verificación en dos pasos activada.',
   });
 }
 

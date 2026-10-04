@@ -37,10 +37,10 @@ export function GuardiaInstructora({ children }: { children: ReactNode }) {
   const { slug } = useEstudio();
   const href = usePortalHref();
   const { online } = useOnline();
-  const { autenticado, isLoading } = useSesionStudent(slug);
+  const { autenticado, isLoading, segundoPaso } = useSesionStudent(slug);
   // Aquí se pregunta siempre al servidor: quien está en estas pantallas ya
   // debería serlo, y un «no» recordado de hace horas no puede echarla.
-  const { instructora, isLoading: cargandoInstructora, error, refrescar } = useSesionInstructora(slug, autenticado, true);
+  const { instructora, isLoading: cargandoInstructora, error, refrescar } = useSesionInstructora(slug, autenticado && !segundoPaso, true);
 
   const instructorId = instructora?.instructorId ?? null;
   const enHorarios = path.endsWith('/equipo/disponibilidad');
@@ -65,13 +65,15 @@ export function GuardiaInstructora({ children }: { children: ReactNode }) {
       if (!isLoading) r.replace(`${href('/acceso/login')}?next=${encodeURIComponent(path)}`);
       return;
     }
+    // Con la verificación en dos pasos activada y sin pasarla: primero el código.
+    if (segundoPaso) { r.replace(`${href('/acceso/dos-pasos')}?next=${encodeURIComponent(path)}`); return; }
     if (cargandoInstructora) return;
     if (error) return; // no se sabe todavía si lo es: no se saca a nadie a ciegas
     if (!instructora) { r.replace(href()); return; }
     if (faltaHorarios && !enHorarios) r.replace(href('/equipo/disponibilidad'));
-  }, [isLoading, autenticado, cargandoInstructora, error, instructora, faltaHorarios, enHorarios, href, path, r]);
+  }, [isLoading, autenticado, segundoPaso, cargandoInstructora, error, instructora, faltaHorarios, enHorarios, href, path, r]);
 
-  if (!isLoading && autenticado && !cargandoInstructora && error) {
+  if (!isLoading && autenticado && !segundoPaso && !cargandoInstructora && error) {
     return (
       <div className="shell">
         <div className="page px" style={{ paddingTop: 'calc(72px + var(--safe-top))' }}>
@@ -85,7 +87,7 @@ export function GuardiaInstructora({ children }: { children: ReactNode }) {
   // responde `/api/public/session` —la ficha de ALUMNA, que aquí no se usa—,
   // aunque `autenticado` ya se sabe en local. Esperarla era una petición más en
   // serie antes de pintar cada pantalla de la instructora.
-  if (!autenticado || cargandoInstructora || !instructora || faltaHorarios === null || (faltaHorarios && !enHorarios)) {
+  if (!autenticado || segundoPaso || cargandoInstructora || !instructora || faltaHorarios === null || (faltaHorarios && !enHorarios)) {
     return (
       <div className="shell" aria-busy="true">
         <div className="page px" style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 'calc(72px + var(--safe-top))' }}>

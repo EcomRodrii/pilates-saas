@@ -16,6 +16,7 @@ import { whatsappDelEstudio, type WhatsAppDelEstudio } from '@/lib/whatsapp-estu
 import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 import { appUrl, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
+import { dbRedaccionIaActiva } from '@/lib/decision/db';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { rebotesDeEmails } from '@/lib/emails/rebotes-consulta';
 import { normalizarEmail } from '@/lib/emails/rebotes';
@@ -33,7 +34,10 @@ const anthropic = new Anthropic();
 // Nunca pasar la nota interna de un candidato (AutomationCandidato.notaInterna)
 // como fallback de un tipo que pueda acabar en un email a una clienta — eso
 // fue exactamente el bug que mandaba la nota interna tal cual a la socia.
-async function redactarConIA(input: RecomendacionInput, fallback: string): Promise<string> {
+async function redactarConIA(input: RecomendacionInput, fallback: string, conIA: boolean): Promise<string> {
+  // Interruptor «Redactar con IA» del estudio (lib/decision/redaccion-ia.ts):
+  // apagado, el texto de serie y ningún dato de la alumna sale hacia la IA.
+  if (!conIA) return fallback;
   // Sin clave no hay llamada que hacer: el SDK no lanza al construirse (deja
   // apiKey a null) y reventaba en cada `create` con "Could not resolve
   // authentication method", indistinguible de un rate limit por culpa del
@@ -121,6 +125,8 @@ function hashCorto(texto: string): string {
 interface ProcesarOpts {
   studioId: string;
   studioNombre: string;
+  /** Interruptor «Redactar con IA» del estudio (`dbRedaccionIaActiva`, falla cerrado). */
+  conIA: boolean;
   /**
    * La marca del estudio para el correo, resuelta UNA vez por estudio dentro
    * del paso `fetch-data` que ya existía (ni un paso de Inngest más, ni una
@@ -198,7 +204,8 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     // frase "¿le enviamos una oferta...?" dirigida a la propietaria).
     const mensajeCliente = await redactarConIA(
       { tipo: 'REACTIVACION', nombre, diasSinVenir: Number(c.contextoIA.diasSinVenir), descuentoPct },
-      fallbackReactivacion(nombre, descuentoPct, studioNombre)
+      fallbackReactivacion(nombre, descuentoPct, studioNombre),
+      opts.conIA,
     );
     log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.notaInterna ?? '', mensajeCliente };
   } else if (c.accion === 'PROPONER_PLAN' && c.contextoIA) {
@@ -208,7 +215,8 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     // Fallback SIEMPRE apto para la clienta — nunca c.notaInterna.
     const mensajeCliente = await redactarConIA(
       { tipo: 'CROSS_SELL', nombre, planActual: String(c.contextoIA.planActual), planSugerido, precioSugerido },
-      fallbackCrossSell(nombre, planSugerido, precioSugerido, studioNombre)
+      fallbackCrossSell(nombre, planSugerido, precioSugerido, studioNombre),
+      opts.conIA,
     );
     log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle: c.notaInterna ?? '', mensajeCliente };
   } else if (c.accion === 'NOTIFICAR_ADMIN') {
@@ -225,7 +233,8 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     const detalle = c.contextoIA
       ? await redactarConIA(
           { tipo: 'CLASE_LLENA', tipoClase: String(c.contextoIA.tipoClase), diaSemana: String(c.contextoIA.diaSemana), hora: String(c.contextoIA.hora), semanas: Number(c.contextoIA.semanas) },
-          c.notaInterna ?? c.titulo
+          c.notaInterna ?? c.titulo,
+          opts.conIA,
         )
       : (c.notaInterna ?? c.titulo);
     log = { ...base, resultado: 'PENDIENTE_ADMIN' as ResultadoLog, detalle, mensajeCliente: null };
@@ -574,6 +583,9 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     // haya conectado. Cada candidato de canal WhatsApp lo registra como FALLIDO
     // con el motivo, que es donde la propietaria puede verlo.
     const whatsapp = whatsappDelEstudio(await dbGetIntegracionConfig(studioId, 'WHATSAPP'));
+    // Igual que WhatsApp, fuera de un step: un booleano que se relee en cada
+    // replay. Si no se puede leer, `false` (falla cerrado: texto de serie).
+    const conIA = await dbRedaccionIaActiva(studioId);
 
     // Lo que sale de un `step.run` se serializa ENTERO como estado de Inngest:
     // viaja a Inngest, se guarda, y se reconstruye en cada replay del handler.
@@ -702,7 +714,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       // id de step estable entre replays (índice + regla). Cada candidato es
       // un paso durable e independiente.
       const log = await step.run(`candidato-${i}-${c.rule.id}`, () =>
-        procesarCandidato(c, { studioId, studioNombre, marca, nowISO, dry, resend, whatsapp, emailsRotos: emailsRotosClasico })
+        procesarCandidato(c, { studioId, studioNombre, conIA, marca, nowISO, dry, resend, whatsapp, emailsRotos: emailsRotosClasico })
       );
 
       if (c.accion === 'COBRAR_RECIBO') cobrosPropuestos++;
@@ -753,7 +765,7 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
     for (let i = 0; i < mktCandidatos.length; i++) {
       const c = mktCandidatos[i];
       const log = await step.run(`mkt-${i}-${c.automatizacion.id}-${c.socio.id}`, () =>
-        procesarCandidatoMkt(c, { studioId, studioNombre, marca, nowISO, dry, resend, whatsapp, emailsRotos: emailsRotosMkt }),
+        procesarCandidatoMkt(c, { studioId, studioNombre, conIA, marca, nowISO, dry, resend, whatsapp, emailsRotos: emailsRotosMkt }),
       );
       if (log.resultado === 'EJECUTADO') mktEnviados++; else if (log.resultado === 'FALLIDO') mktFallidos++;
       // AU-12: solo lo realmente ejecutado (ver arriba).

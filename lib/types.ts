@@ -403,7 +403,11 @@ export interface MandatoSEPA {
   id: string;
   studioId: string;
   socioId: string;
-  iban: string;
+  /**
+   * Solo los 4 últimos dígitos. El IBAN entero se guarda cifrado y el panel no
+   * lo tiene nunca: lo pide la remesa al generarse (`dbIbanesParaRemesa`).
+   */
+  ibanUltimos4: string;
   refMandato: string;
   fechaFirma: string;   // YYYY-MM-DD
   estado: 'VIGENTE' | 'CANCELADO';
@@ -1791,7 +1795,10 @@ export type TipoActividad =
   | 'WIDGETS_ESTILO_CAMBIADO'
   // Lo publicado de un widget pegado con su id («Aplicar en mi web» del
   // contenido). Solo /api/estudio/widget-pieza.
-  | 'WIDGET_APLICADO';
+  | 'WIDGET_APLICADO'
+  // El estudio quitó la verificación en dos pasos de una alumna que perdió el
+  // acceso. Solo lib/auth/quitar-doble-factor.ts.
+  | 'DOBLE_FACTOR_QUITADO';
 
 export interface ActividadReciente {
   id: string;

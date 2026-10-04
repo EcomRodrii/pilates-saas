@@ -2,6 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { SociaSesion } from '@/lib/use-socia-session';
 import { CacheSesion, claveSesion } from './sesion-cache';
+import { pasoDelPortal } from '@/lib/student/doble-factor-portal';
+import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
+
+/** La sesión es buena pero le falta el segundo paso (lo dice `/api/public/session`). */
+class SegundoPasoPendiente extends Error {}
 
 // Compartida por TODAS las instancias del hook (guardia + pantalla + …): una
 // sola petición a /api/public/session por (estudio, usuario), no una por
@@ -34,12 +39,27 @@ export function useSesionWidget(slug: string, baseUrl = '') {
   // (Fase 2, docs/auth-widget-diseno.md §1/§3).
   const [usuarioEmail, setUsuarioEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Tiene la verificación en dos pasos activada y esta sesión aún no la ha
+  // pasado (lib/student/doble-factor-portal.ts). Las guardias la mandan a
+  // `/acceso/dos-pasos`; el widget le pide ahí mismo el código de la app. Quien
+  // no la tiene activada nunca lo ve en `true`, y no paga ninguna petición.
+  const [segundoPaso, setSegundoPaso] = useState(false);
 
   const resolver = useCallback(async (forzar = false) => {
     const { data: { session: sb } } = await supabasePortal.auth.getSession();
-    if (!sb?.access_token) { cacheSocia.vaciar(); setSocia(null); setUsuarioEmail(null); setIsLoading(false); return; }
-    setUsuarioEmail(sb.user?.email ?? null);
+    if (!sb?.access_token) {
+      cacheSocia.vaciar(); setSocia(null); setUsuarioEmail(null); setSegundoPaso(false); setIsLoading(false); return;
+    }
     const token = sb.access_token;
+    // El paso ANTES de dar la sesión por buena: así ninguna guardia llega a
+    // pedir datos con una sesión a la que el servidor se los va a negar. Sin la
+    // verificación activada esto no va a la red (ver `pasoDelPortal`).
+    const paso = await pasoDelPortal(token, baseUrl === '');
+    setUsuarioEmail(sb.user?.email ?? null);
+    if (paso === 'dos-pasos') {
+      cacheSocia.vaciar(); setSocia(null); setSegundoPaso(true); setIsLoading(false); return;
+    }
+    setSegundoPaso(false);
     try {
       const socia = await cacheSocia.obtener(claveSesion(baseUrl, slug, sb.user?.id ?? token), async () => {
         // ?slug= en la URL (además del body): el preflight CORS no puede leer
@@ -49,11 +69,18 @@ export function useSesionWidget(slug: string, baseUrl = '') {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ slug }),
         });
+        if (res.status === 401) {
+          // Por si la sesión del dispositivo aún no sabía del factor (activado en
+          // otro dispositivo): el servidor manda, y lo dice con su código.
+          const r = await res.json().catch(() => null) as { codigo?: string } | null;
+          if (r?.codigo === CODIGO_SEGUNDO_PASO) throw new SegundoPasoPendiente();
+        }
         return res.ok ? await res.json() as SociaSesion : null;
       }, Date.now(), forzar);
       setSocia(socia);
-    } catch {
+    } catch (e) {
       setSocia(null);
+      if (e instanceof SegundoPasoPendiente) { cacheSocia.vaciar(); setSegundoPaso(true); }
     } finally {
       setIsLoading(false);
     }
@@ -68,11 +95,14 @@ export function useSesionWidget(slug: string, baseUrl = '') {
       // sola; la misma persona la aprovecha. SIGNED_OUT vacía todo.
       if (event === 'SIGNED_OUT') { cacheSocia.vaciar(); resolver(); }
       else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') resolver();
+      // Acaba de escribir el código de la app: la sesión sube a `aal2` y emite
+      // este evento, no SIGNED_IN. Lo que hubiera en caché era de antes.
+      else if (event === 'MFA_CHALLENGE_VERIFIED') { cacheSocia.vaciar(); resolver(true); }
     });
     return () => sub.subscription.unsubscribe();
   }, [resolver]);
 
   // `refrescar` (tras login/alta/firma): siempre al servidor.
   const refrescar = useCallback(() => resolver(true), [resolver]);
-  return { socia, usuarioEmail, autenticado: !!usuarioEmail, isLoading, refrescar };
+  return { socia, usuarioEmail, autenticado: !!usuarioEmail, isLoading, segundoPaso, refrescar };
 }

@@ -3052,26 +3052,63 @@ export async function dbQuitarExcepcion(studioId: string, socioId: string, tipo:
   return error ? falloEscritura('[dbQuitarExcepcion]', error) : ESCRITURA_OK;
 }
 
-// F2 (B2.10): mandatos SEPA (cuaderno 19.14). El toggle es upsert por (studio,socio).
-export function mapMandatoSepa(r: RowMandatosSepa): MandatoSEPA {
+// F2 (B2.10): mandatos SEPA (cuaderno 19.14). Uno vigente por socia.
+//
+// El IBAN va CIFRADO (2-oct-2026): lo cifra el servidor, y el navegador ni
+// escribe en la tabla (migr 20261003102724) ni lee la columna `iban`. Por eso
+// las tres funciones pasan por /api/cobros/mandatos-sepa.
+export const COLUMNAS_MANDATO_SEPA = 'id, studio_id, socio_id, iban_ultimos4, ref_mandato, fecha_firma, estado, creada_en';
+
+export function mapMandatoSepa(r: Pick<RowMandatosSepa, 'id' | 'studio_id' | 'socio_id' | 'iban_ultimos4' | 'ref_mandato' | 'fecha_firma' | 'estado' | 'creada_en'>): MandatoSEPA {
   return {
     id: r.id, studioId: r.studio_id, socioId: r.socio_id,
-    iban: r.iban, refMandato: r.ref_mandato, fechaFirma: r.fecha_firma,
+    ibanUltimos4: r.iban_ultimos4 ?? '', refMandato: r.ref_mandato, fechaFirma: r.fecha_firma,
     estado: (r.estado as MandatoSEPA['estado']) ?? 'VIGENTE', creadaEn: r.creada_en,
   };
 }
 
-export async function dbUpsertMandatoSepa(m: MandatoSEPA): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('mandatos_sepa').upsert({
-    id: m.id, studio_id: m.studioId, socio_id: m.socioId, iban: m.iban,
-    ref_mandato: m.refMandato, fecha_firma: m.fechaFirma, estado: m.estado,
-  }, { onConflict: 'id' });
-  return error ? falloEscritura('[dbUpsertMandatoSepa]', error) : ESCRITURA_OK;
+/** Pone (o cambia) el mandato vigente de una socia. Devuelve el mandato guardado, sin el IBAN. */
+export async function dbUpsertMandatoSepa(
+  socioId: string, iban: string, refMandato: string, fechaFirma: string,
+): Promise<ResultadoEscritura & { mandato?: MandatoSEPA }> {
+  try {
+    const res = await fetch('/api/cobros/mandatos-sepa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({ socioId, iban, refMandato, fechaFirma }),
+    });
+    const cuerpo = await res.json().catch(() => ({})) as { mandato?: RowMandatosSepa; error?: string };
+    if (!res.ok || !cuerpo.mandato) return falloEscritura('[dbUpsertMandatoSepa]', { ...cuerpo, status: res.status });
+    return { ok: true, mandato: mapMandatoSepa(cuerpo.mandato) };
+  } catch (e) {
+    return falloEscritura('[dbUpsertMandatoSepa]', e);
+  }
 }
 
 export async function dbCancelarMandatoSepa(id: string): Promise<ResultadoEscritura> {
-  const { error } = await supabase.from('mandatos_sepa').update({ estado: 'CANCELADO' }).eq('id', id);
-  return error ? falloEscritura('[dbCancelarMandatoSepa]', error) : ESCRITURA_OK;
+  try {
+    const res = await fetch('/api/cobros/mandatos-sepa', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) return falloEscritura('[dbCancelarMandatoSepa]', { ...(await res.json().catch(() => ({}))), status: res.status });
+    return ESCRITURA_OK;
+  } catch (e) {
+    return falloEscritura('[dbCancelarMandatoSepa]', e);
+  }
+}
+
+/**
+ * Los IBAN de los mandatos vigentes, en claro, SOLO para montar el fichero de
+ * la remesa. No se guardan en ningún estado del panel: quien llama los usa y
+ * los suelta. Lanza si no se pueden leer todos.
+ */
+export async function dbIbanesParaRemesa(): Promise<{ socioId: string; iban: string; refMandato: string; fechaFirma: string }[]> {
+  const res = await fetch('/api/cobros/mandatos-sepa/remesa', { headers: await staffAuthHeader(), cache: 'no-store' });
+  const cuerpo = await res.json().catch(() => ({})) as { mandatos?: { socioId: string; iban: string; refMandato: string; fechaFirma: string }[]; error?: string };
+  if (!res.ok || !Array.isArray(cuerpo.mandatos)) throw new Error(cuerpo.error ?? 'No se han podido leer las domiciliaciones');
+  return cuerpo.mandatos;
 }
 
 export async function dbInsertSesion(ses: Sesion): Promise<ResultadoEscritura> {
@@ -6031,7 +6068,8 @@ export async function fetchDeferredStudioDataCon(db: SupabaseClient, studioId?: 
     // La RLS (`mandatos_sepa_lectura`, migr 20260731090000) solo deja leer a
     // quien ve finanzas (PROPIETARIO/RECEPCION); INSTRUCTOR/MANAGER reciben
     // [] sin error, igual que con recibos — no hace falta mirar el rol aquí.
-    db.from('mandatos_sepa').select('*').eq('studio_id', sid),
+    // Sin la columna `iban` (cifrada, y sin permiso de lectura): ver COLUMNAS_MANDATO_SEPA.
+    db.from('mandatos_sepa').select(COLUMNAS_MANDATO_SEPA).eq('studio_id', sid),
     // Y las dos que faltaban del mismo bug (#1375), encontradas al investigar
     // por qué una plaza fija deja de materializar cuando el estudio mueve la
     // clase: `plazasFijas` quedaba `[]` SIEMPRE en el panel, así que la ficha

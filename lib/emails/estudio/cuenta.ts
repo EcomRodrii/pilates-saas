@@ -47,3 +47,43 @@ export function correoBienvenida(p: PropsBienvenida): string {
     ],
   });
 }
+
+/**
+ * El código del segundo paso al entrar en la app del estudio (verificación en
+ * dos pasos de la alumna o de la instructora, lib/auth/codigo-correo-reglas.ts).
+ * Marca del ESTUDIO, nunca la de Tentare: la app es suya. El código no va en el
+ * preheader (se leería en la pantalla bloqueada del móvil).
+ */
+export function correoCodigoAccesoEstudio(p: { codigo: string; minutos: number; marca: MarcaCorreo }): string {
+  const legible = `${p.codigo.slice(0, 3)} ${p.codigo.slice(3)}`;
+  return correoEstudio({
+    marca: p.marca,
+    preheader: `Para terminar de entrar en la app de ${p.marca.estudioNombre}. Caduca en ${p.minutos} minutos.`,
+    titular: 'Tu código para entrar',
+    parrafos: [`Escríbelo en la app de ${p.marca.estudioNombre} para terminar de entrar. Caduca en ${p.minutos} minutos y solo sirve una vez.`],
+    detalle: { filas: [{ label: 'Código', value: legible, destacado: true }] },
+    nota: 'Si no estabas entrando tú, alguien tiene tu contraseña: cámbiala ya con «¿Has olvidado la contraseña?» en la pantalla de entrar. No compartas este código con nadie.',
+    conPortada: false,
+    firma: `El equipo de ${p.marca.estudioNombre}`,
+  });
+}
+
+/**
+ * Aviso a la alumna de que su estudio le ha quitado la verificación en dos pasos
+ * (lo pidió ella por haber perdido la app y el correo, lib/auth/quitar-doble-factor.ts).
+ * Va siempre: si no lo pidió ella, es la única forma de que se entere.
+ */
+export function correoDobleFactorQuitado(p: { marca: MarcaCorreo }): string {
+  return correoEstudio({
+    marca: p.marca,
+    preheader: `${p.marca.estudioNombre} ha quitado la verificación en dos pasos de tu cuenta.`,
+    titular: 'Hemos quitado la verificación en dos pasos',
+    parrafos: [
+      `${p.marca.estudioNombre} ha quitado la verificación en dos pasos de tu cuenta. Desde ahora entras en la app solo con tu contraseña.`,
+      'Puedes volver a activarla cuando quieras en Perfil → Contraseña y verificación.',
+    ],
+    nota: `Si no lo has pedido tú, cambia tu contraseña ya con «¿Has olvidado la contraseña?» en la pantalla de entrar y avisa a ${p.marca.estudioNombre}.`,
+    conPortada: false,
+    firma: `El equipo de ${p.marca.estudioNombre}`,
+  });
+}

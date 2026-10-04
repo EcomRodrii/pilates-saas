@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verificarSesionStaff, verificarUsuarioSupabase } from '@/lib/auth-server';
+import { resolverSesionStaffConPaso, verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { resolverDestinoPostLogin, resolverAccesoPorProducto, type Producto } from '@/lib/network/routing-post-login';
 
@@ -35,10 +35,14 @@ export async function GET(req: NextRequest) {
     productoParam === 'software' || productoParam === 'network' || productoParam === 'network-alumna'
       ? productoParam : null;
 
-  const sesion = await verificarSesionStaff(req);
+  // Sin cortar por la verificación en dos pasos: aquí solo se decide a dónde
+  // va. Si le falta, el panel la manda a /verificar-acceso antes de enseñar nada.
+  const sesion = await resolverSesionStaffConPaso(req);
   const tieneEstudio = !!sesion;
 
-  const usuario = await verificarUsuarioSupabase(req);
+  // Tampoco aquí: solo decide a dónde va. La app o el panel le piden el
+  // segundo paso antes de enseñar nada.
+  const usuario = await verificarUsuarioSupabase(req, { sinSegundoPaso: true });
   const admin = usuario ? getSupabaseAdmin() : null;
   const { data: perfil } = admin
     ? await admin.from('red_perfiles').select('estado').eq('auth_user_id', usuario!.userId).maybeSingle()

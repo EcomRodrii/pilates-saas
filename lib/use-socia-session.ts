@@ -6,6 +6,8 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import { useStudio } from '@/lib/studio-context';
 import { mensajeSeguro } from '@/lib/errores';
 import { sessionIdWidget } from './reservar/eventos.ts';
+import { pasoDelPortal } from '@/lib/student/doble-factor-portal';
+import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 
 export interface SociaSesion {
   socioId: string;
@@ -28,6 +30,10 @@ export function useSociaSession(slug: string) {
   const [socia, setSocia] = useState<SociaSesion | null>(null);
   const [usuarioEmail, setUsuarioEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Tiene la verificación en dos pasos activada y esta sesión aún no la ha
+  // pasado: la página la manda a la pantalla del código de la app del estudio
+  // (misma sesión: `/reservar` y la app comparten `supabasePortal`).
+  const [segundoPaso, setSegundoPaso] = useState(false);
 
   // El ref se actualiza en un efecto, no en el cuerpo del render: escribir un
   // ref mientras se renderiza rompe si React descarta ese render. El
@@ -44,7 +50,11 @@ export function useSociaSession(slug: string) {
       try { localStorage.removeItem('ps_portal_socia'); } catch { /* ignore */ }
       return;
     }
+    // Antes de dar la sesión por buena (sin la verificación activada, no va a la red).
+    const paso = await pasoDelPortal(sb.access_token);
     setUsuarioEmail(sb.user?.email ?? null);
+    if (paso === 'dos-pasos') { setSocia(null); setSegundoPaso(true); setIsLoading(false); return; }
+    setSegundoPaso(false);
     try {
       const res = await fetch('/api/public/session', {
         method: 'POST',
@@ -58,6 +68,10 @@ export function useSociaSession(slug: string) {
         setIsLoading(false);
         recargarRef.current?.();
       } else {
+        if (res.status === 401) {
+          const r = await res.json().catch(() => null) as { codigo?: string } | null;
+          if (r?.codigo === CODIGO_SEGUNDO_PASO) { setSocia(null); setSegundoPaso(true); setIsLoading(false); return; }
+        }
         // Autenticada pero aún no es socia de este estudio (walk-in).
         setSocia(null);
         try { localStorage.removeItem('ps_portal_socia'); } catch { /* ignore */ }
@@ -72,7 +86,7 @@ export function useSociaSession(slug: string) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Se suscribe a onAuthStateChange de Supabase. Sistema externo.
     resolver();
     const { data: sub } = supabasePortal.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') resolver();
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' || event === 'MFA_CHALLENGE_VERIFIED') resolver();
     });
     return () => sub.subscription.unsubscribe();
   }, [resolver]);
@@ -135,8 +149,8 @@ export function useSociaSession(slug: string) {
   const logout = useCallback(async () => {
     await supabasePortal.auth.signOut();
     try { localStorage.removeItem('ps_portal_socia'); } catch { /* ignore */ }
-    setSocia(null); setUsuarioEmail(null);
+    setSocia(null); setUsuarioEmail(null); setSegundoPaso(false);
   }, []);
 
-  return { socia, usuarioEmail, autenticado: !!usuarioEmail, isLoading, enviarEnlace, loginConPassword, establecerPassword, logout, refrescar: resolver };
+  return { socia, usuarioEmail, autenticado: !!usuarioEmail, isLoading, segundoPaso, enviarEnlace, loginConPassword, establecerPassword, logout, refrescar: resolver };
 }

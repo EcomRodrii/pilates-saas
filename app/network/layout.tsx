@@ -45,6 +45,7 @@ import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
 import { cargarCuandoOcioso } from '@/lib/posthog-cliente';
 import { PerfilNetworkProvider, usePerfilNetwork } from '@/lib/network/perfil-network-context';
+import { useSegundoPasoNetwork } from '@/lib/auth/segundo-paso-network';
 
 // Secciones del autoservicio (Fase 2, punto 15 del brief: "no solo Mi
 // perfil, sino Network con un Inicio"). Deja hueco a propósito: el día que
@@ -278,8 +279,13 @@ export default function NetworkLayout({ children }: { children: React.ReactNode 
   // `lib/posthog-cliente.ts` lo comprueba en cada llamada, y bajo /network deja
   // fuera el acceso, las referencias firmadas y el lado de la alumna.
   useEffect(() => { cargarCuandoOcioso(); }, []);
+  // Cuenta con verificación en dos pasos y sesión sin verificar: a verificarla
+  // antes que nada (lib/auth/segundo-paso-network.ts).
+  const paso = useSegundoPasoNetwork();
 
   if (!SUBNAV.some(s => coincide(pathname ?? '', s.href))) return <>{children}</>;
+  // En el autoservicio todo pide datos de la cuenta: sin el paso, solo errores.
+  if (paso !== 'ok') return <div className="min-h-dvh" style={{ background: NW_FONDO }} aria-busy="true" />;
 
   return (
     <PerfilNetworkProvider>

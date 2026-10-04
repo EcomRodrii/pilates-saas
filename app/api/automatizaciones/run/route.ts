@@ -7,6 +7,7 @@ import { fetchAllStudioDataServidor, dbUpdateAutomationRuleServidor, dbGetIntegr
 import { whatsappDelEstudio } from '@/lib/whatsapp-estudio';
 import { computeAutomationCandidatos } from '@/lib/engines/automation-engine';
 import { procesarCandidato } from '@/lib/inngest/automatizaciones';
+import { dbRedaccionIaActiva } from '@/lib/decision/db';
 import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { mapLimit } from '@/lib/concurrency';
@@ -154,7 +155,12 @@ export async function POST(req: NextRequest) {
     // el mismo sitio que el cron: son de cada estudio (Meta Cloud API), ya no un
     // secreto único de plataforma. Se leen una vez y se pasan a los N
     // candidatos, no una vez por candidato.
-    const whatsapp = whatsappDelEstudio(await dbGetIntegracionConfig(sesion.studioId, 'WHATSAPP'));
+    const [whatsappConfig, conIA] = await Promise.all([
+      dbGetIntegracionConfig(sesion.studioId, 'WHATSAPP'),
+      // Interruptor «Redactar con IA» del estudio: también en este botón.
+      dbRedaccionIaActiva(sesion.studioId),
+    ]);
+    const whatsapp = whatsappDelEstudio(whatsappConfig);
 
     // Concurrencia acotada (como el botón anterior): procesarCandidato es
     // independiente por candidato, escribe su log (dbUpsert, id determinista) y
@@ -162,7 +168,7 @@ export async function POST(req: NextRequest) {
     const logs: AutomationLog[] = await mapLimit(
       candidatos,
       6,
-      (c) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, marca, nowISO, dry, resend, whatsapp }),
+      (c) => procesarCandidato(c, { studioId: sesion.studioId, studioNombre, conIA, marca, nowISO, dry, resend, whatsapp }),
     );
 
     // En seco no se toca el contador: no ha disparado nada.

@@ -123,12 +123,34 @@ test.describe('Configuración > Estudio > Horario', () => {
 // clases en total recibe el estado vacío en vez de la rejilla — y sin rejilla no
 // hay celdas que digan «Cerrado» ni «Sin clases». La distinción que estos tests
 // protegen sigue viva y sigue importando; lo que estaba mal era el escenario.
+//
+// ⚠️ La clase NUNCA cae en domingo, que es el día cerrado del primer test: la
+// semana del calendario empieza HOY, y con `ahora + 1h` cada domingo la columna
+// cerrada enseñaba la clase en vez de «Cerrado» y el test fallaba (también en
+// main). Mañana o pasado (si mañana es domingo), a las 12:00 UTC: misma fecha en
+// UTC y en Madrid, y siempre dentro de la ventana de 7 días.
+function inicioUnaClase(): Date {
+  const d = new Date();
+  d.setUTCHours(12, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + 1);
+  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
+  return d;
+}
+const INICIO_UNA_CLASE = inicioUnaClase();
 const UNA_CLASE = {
   id: 'ses-ya-existe', studioId: 's', tipoClaseId: 'tc-1', salaId: null, instructorId: null,
-  inicio: new Date(Date.now() + 3_600_000).toISOString(),
-  fin: new Date(Date.now() + 6_600_000).toISOString(),
+  inicio: INICIO_UNA_CLASE.toISOString(),
+  fin: new Date(INICIO_UNA_CLASE.getTime() + 3_000_000).toISOString(),
   aforoMaximo: 8, cancelada: false, notas: null, precioPuntual: null, serieId: null,
 };
+
+// Día de la semana de la clase en hora del estudio (0 = lunes … 6 = domingo, el
+// índice local de `horarioSemana`), y un día cerrado tres más allá: cae dentro de
+// cualquier semana que pinte el calendario y nunca coincide con el de la clase.
+const DIA_CLASE = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(
+  new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Madrid', weekday: 'short' }).format(new Date(UNA_CLASE.inicio)),
+);
+const DIA_CERRADO = (DIA_CLASE + 3) % 7;
 
 test.describe('Calendario: "Cerrado" (horario) vs "Sin clases" (nada programado)', () => {
   test('un día fuera del horario configurado dice "Cerrado", aunque tenga clases', async ({ page }) => {
@@ -137,8 +159,10 @@ test.describe('Calendario: "Cerrado" (horario) vs "Sin clases" (nada programado)
     await page.route('**/api/calendario**', route => json(route, {
       sesiones: [UNA_CLASE], reservas: [], sustituciones: [], salas: [], instructores: [],
       horaApertura: '08:00:00', horaCierre: '22:00:00',
-      // domingo (dia local 6) cerrado, resto abiertos.
-      horarioSemana: [0, 1, 2, 3, 4, 5, 6].map(dia => ({ dia, abierto: dia !== 6 })),
+      // Un día cerrado que NUNCA es el de la clase: con el domingo fijo, un run en
+      // domingo (hora de Madrid) ponía la clase justo en el día cerrado, y un día con
+      // clases no enseña «Cerrado» (semana-franjas solo lo pinta en un día vacío).
+      horarioSemana: [0, 1, 2, 3, 4, 5, 6].map(dia => ({ dia, abierto: dia !== DIA_CERRADO })),
       rol: 'PROPIETARIO',
     }));
 

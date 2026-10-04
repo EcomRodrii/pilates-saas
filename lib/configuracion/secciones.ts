@@ -310,13 +310,19 @@ export const SECCIONES = [
   {
     id: 'datos',
     titulo: 'Datos y seguridad',
-    resumen: 'Exportar tus datos',
-    frase: 'Llévate una copia de los datos de tu estudio cuando quieras.',
+    resumen: 'Exportar tus datos, IA y acceso',
+    frase: 'Llévate una copia de los datos de tu estudio y decide cómo se tratan.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       // La única forma de llevarte tus datos: «Exportar a Excel» se retiró el
       // 15-sep y su ancla vieja lleva aquí (lib/configuracion/destino.ts).
-      { id: 'exportar', titulo: 'Exportar mis datos', frase: 'Un archivo CSV por tabla, que abre Excel: alumnas, reservas, suscripciones y bonos, recibos y pagos importados. No incluye ficha clínica ni notas de progreso.', guardado: 'accion', palabras: ['descargar', 'copia', 'csv', 'excel'] },
+      { id: 'exportar', titulo: 'Exportar mis datos', frase: 'Un archivo CSV por tabla, que abre Excel: alumnas, reservas, suscripciones y bonos, recibos, pagos importados, ficha de salud, notas y consentimientos.', guardado: 'accion', palabras: ['descargar', 'copia', 'csv', 'excel'] },
+      // Contrato de encargo (2-oct-2026): el estudio decide si la IA redacta
+      // sola con datos de sus alumnas (lib/decision/redaccion-ia.ts).
+      // Verificación en dos pasos (2-oct-2026): cada persona la activa en «Mi
+      // perfil»; aquí la propietaria la exige a todo el equipo del panel.
+      { id: 'doble-factor-equipo', titulo: 'Verificación en dos pasos para todo el equipo', frase: 'Quien entra al panel la activará con una app de autenticación y, al entrar, escribirá un código del correo o de la app. Actívala antes para ti en «Mi perfil».', guardado: 'al-pulsar', palabras: ['doble factor', '2fa', 'mfa', 'seguridad', 'código', 'contraseña', 'autenticación'] },
+      { id: 'redaccion-ia', titulo: 'Redactar con IA', frase: 'Las sugerencias del Centro de Control y los mensajes de tus automatizaciones se redactan con IA. Si lo apagas, salen con su texto de serie y no se envía ningún dato de tus alumnas a la IA.', guardado: 'al-pulsar', palabras: ['inteligencia artificial', 'ia', 'anthropic', 'privacidad', 'rgpd'] },
     ],
   },
   // «Mis avisos» y «Tu panel» eran pantallas sueltas que no enlazaba nadie

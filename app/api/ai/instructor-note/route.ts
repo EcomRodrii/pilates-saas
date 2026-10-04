@@ -7,6 +7,8 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { puedeVerFichaClinica } from '@/lib/permisos-reglas';
 import { comprobarAccesoSaludSocia } from '@/lib/datos-salud/acceso-servidor';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { INSTRUCCION_MARCAS, restaurar, seudonimizar, type PersonaASeudonimizar } from '@/lib/ai/seudonimizar';
 
 const client = new Anthropic();
 
@@ -16,6 +18,12 @@ const client = new Anthropic();
 // salud vigente de ESA socia en ESTE estudio y, si es instructora, que sea su
 // alumna. Con service-role la RLS no se aplica, así que la regla va en TS
 // (`lib/datos-salud/acceso-servidor.ts`).
+//
+// Y sale SIN NOMBRES (decisión del fundador, 2-oct-2026, contrato de encargo):
+// el nombre y los apellidos de la alumna y los del equipo, los correos y los
+// teléfonos se cambian por marcas antes de enviar y se reponen en la respuesta
+// (`lib/ai/seudonimizar.ts`). Lo que se guarda y lo que ve la instructora es
+// el texto de verdad; a Anthropic solo llega el seudonimizado.
 
 const SYSTEM_PROMPT = `Eres un asistente para instructores de pilates.
 Tu tarea es convertir notas de texto libre (dictadas por voz o escritas rápidamente) en una nota de progreso estructurada.
@@ -29,7 +37,9 @@ Responde SIEMPRE con un JSON válido con esta estructura exacta:
 }
 
 Si el texto no menciona algún campo, devuelve null para ese campo.
-Responde SOLO con el JSON, sin texto adicional.`;
+Responde SOLO con el JSON, sin texto adicional.
+
+${INSTRUCCION_MARCAS}`;
 
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
@@ -61,11 +71,31 @@ export async function POST(req: NextRequest) {
     const acceso = await comprobarAccesoSaludSocia(sesion, socioId, { exigirConsentimiento: true });
     if (!acceso.ok) return NextResponse.json({ error: acceso.error }, { status: acceso.status });
 
+    // Quién puede salir nombrado: la alumna y el equipo del estudio. Si no se
+    // pueden leer, no se envía: mandar el texto con los nombres es justo lo
+    // que esto existe para evitar.
+    const admin = getSupabaseAdmin();
+    if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+    const [{ data: socia, error: eSocia }, { data: equipo, error: eEquipo }] = await Promise.all([
+      admin.from('socios').select('nombre, apellidos').eq('id', socioId).eq('studio_id', sesion.studioId).maybeSingle(),
+      // Solo el equipo activo (`activo` nulo cuenta como activo, igual que la
+      // 0130): una ficha de baja anonimizada se llama «Instructora eliminada».
+      admin.from('instructores').select('nombre').eq('studio_id', sesion.studioId).or('activo.is.null,activo.eq.true').order('id'),
+    ]);
+    if (eSocia || eEquipo || !socia) {
+      return errorInterno('ai/instructor-note:nombres', eSocia ?? eEquipo ?? new Error('sin socia'), 'No se ha podido preparar la nota.');
+    }
+    const personas: PersonaASeudonimizar[] = [
+      { marca: 'ALUMNA', nombre: socia.nombre as string | null, apellidos: socia.apellidos as string | null },
+      ...(equipo ?? []).map((i, n) => ({ marca: `EQUIPO${n + 1}`, nombre: i.nombre as string | null })),
+    ];
+    const seudo = seudonimizar(texto, personas);
+
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: texto }],
+      messages: [{ role: 'user', content: seudo.texto }],
     });
 
     const raw = message.content[0].type === 'text' ? message.content[0].text : '';
@@ -88,10 +118,10 @@ export async function POST(req: NextRequest) {
       instructorId: instructorId ?? null,
       sesionId: sesionId ?? null,
       textoLibre: texto,
-      progreso: parsed.progreso ?? null,
-      alertas: parsed.alertas ?? null,
-      planProximaSesion: parsed.planProximaSesion ?? null,
-      ejerciciosCasa: parsed.ejerciciosCasa ?? null,
+      progreso: restaurar(parsed.progreso, seudo.tabla),
+      alertas: restaurar(parsed.alertas, seudo.tabla),
+      planProximaSesion: restaurar(parsed.planProximaSesion, seudo.tabla),
+      ejerciciosCasa: restaurar(parsed.ejerciciosCasa, seudo.tabla),
     });
   } catch (err: unknown) {
     return errorInterno('ai/instructor-note:POST', err, 'No se ha podido generar la nota con IA.');

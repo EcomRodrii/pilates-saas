@@ -15,6 +15,7 @@ import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { SelectorPlan } from '@/components/planes/selector-plan';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { ExportarDatosEstudio } from '@/components/billing/exportar-datos-estudio';
+import { BorrarDatosEstudio } from '@/components/billing/borrar-datos-estudio';
 import { TZ_ESTUDIO } from '@/lib/utils';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 
@@ -342,6 +343,11 @@ export default function SuscripcionPage() {
             la API exige ese rol y a nadie más le serviría el botón. */}
         {!cargando && estado?.esPropietaria === true && (
           <ExportarDatosEstudio id="exportar-datos" className="mt-9 rounded-2xl border border-border bg-card p-5 sm:p-6" />
+        )}
+        {/* Con la suscripción terminada (contrato de encargo): borrar antes de
+            los 30 días. Se pinta solo si el servidor dice que terminó. */}
+        {!cargando && estado?.esPropietaria === true && (
+          <BorrarDatosEstudio className="mt-4 rounded-2xl border border-destructive/30 bg-card p-5 sm:p-6" />
         )}
       </div>
     </div>

@@ -433,7 +433,16 @@ export default function ReservarPage() {
   // con el slug de semilla: siempre la misma para cada estudio, y la misma que
   // en la app.
   const heroFoto = imagenDeEstudio('portada', studio?.imagenBienvenidaUrl, slug);
-  const { socia, usuarioEmail, autenticado, enviarEnlace, loginConPassword, logout, refrescar } = useSociaSession(slug);
+  const { socia, usuarioEmail, autenticado, segundoPaso, enviarEnlace, loginConPassword, logout, refrescar } = useSociaSession(slug);
+  // Con la verificación en dos pasos activada y sin pasarla, el código se
+  // escribe en la app del estudio (misma sesión) y se vuelve aquí mismo. El
+  // servidor no le daría nada personal hasta entonces.
+  useEffect(() => {
+    if (!segundoPaso) return;
+    const volver = `${window.location.pathname}${window.location.search}`;
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- carga entera a propósito: la app del estudio monta su propio árbol (contexto del estudio, guardias).
+    window.location.assign(`/portal/${encodeURIComponent(slug)}/acceso/dos-pasos?next=${encodeURIComponent(volver)}`);
+  }, [segundoPaso, slug]);
   const searchParams = useSearchParams();
   const router = useRouter();
   const refCode = searchParams.get('ref');
