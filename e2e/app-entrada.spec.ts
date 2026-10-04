@@ -61,7 +61,7 @@ test('sin sesión: el email y el código la meten, y la saluda con sus estudios'
   await page.goto('/app');
   await expect(page.getByRole('heading', { name: 'Reserva en tu estudio' })).toBeVisible({ timeout: 60_000 });
   await page.getByLabel('Email').fill('lucia@example.com');
-  await page.getByRole('button', { name: 'Continuar' }).click();
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'Mira tu correo' })).toBeVisible({ timeout: 30_000 });
   // Un solo correo, y con permiso para crear la cuenta: entrar y darse de alta es lo mismo.
