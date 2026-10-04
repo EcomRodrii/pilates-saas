@@ -265,9 +265,9 @@ export async function emitirClaseFijaTerminaPronto(
       type: EVENTOS.CLASE_FIJA_TERMINA_PRONTO, studioId: p.studioId,
       data: {
         socioId: p.socioId, nombre: p.nombre, hasta: fechaCortaEstudio(new Date(`${p.hasta}T12:00:00Z`)), slug: (studio?.slug as string | null) ?? '',
-        // Lo que puede hacer es distinto: una clase fija con nombre se amplía; una plaza suelta, al terminar se vuelve a pedir.
-        cierre: conNombre ? 'Amplíala desde tu app si quieres seguir teniéndola.' : 'Cuando termine, podrás volver a pedirla desde su ficha.',
-        destino: conNombre ? 'clases-fijas' : 'mis-clases',
+        // Ya no hay «ampliar» (las clases fijas con nombre se retiraron el 4-oct-2026): al terminar, se vuelve a activar en su ficha.
+        cierre: 'Cuando termine, podrás volver a activarla desde su ficha.',
+        destino: 'mis-clases',
       },
       resource: { type: 'socio', id: p.socioId },
       dedupKey: conNombre

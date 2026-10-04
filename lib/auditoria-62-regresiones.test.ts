@@ -30,18 +30,16 @@ test('corsHeadersWidget: la rama sin origen autorizado devuelve Vary: Origin', (
   );
 });
 
-// ── [C-1] invalidar las DOS claves de caché de clases fijas ─────────────────
-test('clases-fijas: al invalidar se borran ofertas Y sueltas, no solo ofertas', () => {
+// ── [C-1] (revisado el 4-oct-2026) ──────────────────────────────────────────
+// Antes había dos cachés (ofertas con nombre y clases sueltas) y tocar una oferta
+// tenía que invalidar las dos. Las clases fijas con nombre se retiraron: ya no
+// hay ofertas que tocar ni caché de ofertas, solo la de las clases que se repiten
+// (con su TTL corto). El guardián vigila que no vuelva una caché de ofertas sin
+// su invalidación.
+test('clases-fijas: sin caché de ofertas con nombre; las sueltas se cachean con su TTL', () => {
   const src = leer('lib/db/clases-fijas.ts');
-  assert.ok(
-    src.includes('conCacheCatalogo(claveSueltasClasesFijas('),
-    'ya no se cachean las sueltas: revisa este guardián',
-  );
-  assert.ok(
-    src.includes('invalidarCacheCatalogo(claveSueltasClasesFijas('),
-    'se cachea `claveSueltasClasesFijas` pero nunca se invalida: tocar una oferta '
-    + 'deja las franjas sueltas viejas hasta agotar el TTL',
-  );
+  assert.ok(src.includes('conCacheCatalogo(claveSueltasClasesFijas('), 'ya no se cachean las sueltas: revisa este guardián');
+  assert.ok(!src.includes('claveCatalogoClasesFijas'), 'vuelve una caché de ofertas: tocar una oferta tendría que invalidar las DOS claves');
 });
 
 // ── [A-03] la barra invertida es una barra para el navegador ────────────────

@@ -141,15 +141,14 @@ test('cita 1:1: los huecos (GET) y crear pasan por el gate, cancelar no', () => 
   assert.ok(gatePost < posicion(f, "body.accion === 'cancelar'", ruta), 'cancelar queda fuera del gate');
 });
 
-test('plaza fija: pedir una plaza (o una clase fija entera) pasa por el gate antes de escribir la petición', () => {
-  const f = gateAntesDe('app/api/public/plaza-fija/route.ts', ['solicitarPlazaFijaAlumna('], { veces: 2 });
+test('plaza fija: pedir una plaza pasa por el gate antes de escribir la petición', () => {
+  const f = gateAntesDe('app/api/public/plaza-fija/route.ts', ['solicitarPlazaFijaAlumna(']);
   assert.ok(f.includes("if (body.accion === 'solicitar_plaza')"));
-  // La clase fija tiene SU gate, delante de su propia llamada: el primero de arriba no la cubre.
-  const rama = f.indexOf("if (body.accion === 'solicitar_clase_fija')");
-  assert.ok(rama >= 0, 'si desaparece la acción, este razonamiento sobra');
-  const gateDeLaRama = f.indexOf(GATE, rama);
-  const llamada = f.indexOf('solicitarClaseFijaAlumna(', rama);
-  assert.ok(gateDeLaRama > rama && gateDeLaRama < llamada, 'solicitarClaseFijaAlumna( va después de su propio gate');
+  // Las clases fijas con nombre ya no se piden ni se amplían (4-oct-2026): esa rama contesta 410 sin escribir nada.
+  const rama = f.lastIndexOf("body.accion === 'solicitar_clase_fija' || body.accion === 'ampliar_clase_fija'");
+  assert.ok(rama >= 0, 'una app vieja que lo pida recibe una respuesta clara');
+  assert.ok(/status: 410/.test(f.slice(rama, rama + 1000)));
+  assert.ok(!f.includes('solicitarClaseFijaAlumna(') && !f.includes('solicitarAmpliarClaseFijaAlumna('), 'ya no se escribe ninguna petición de clase fija con nombre');
   // Pedir una PAUSA (o anularla) no lleva gate a propósito: no reserva nada —al
   // revés, suelta clases— y solo lo alcanza una socia ya autenticada por JWT. La
   // página oculta cierra la puerta de entrar y reservar, no la de que quien ya

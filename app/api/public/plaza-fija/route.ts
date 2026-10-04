@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   cancelarPeticionPlazaFijaAlumna, dejarPlazaFijaAlumna, socioAutenticado, solicitarPausaPlazaFijaAlumna, solicitarPlazaFijaAlumna,
 } from '@/lib/db/supabase-data-admin';
-import { solicitarAmpliarClaseFijaAlumna, solicitarClaseFijaAlumna } from '@/lib/db/clases-fijas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
@@ -74,25 +73,10 @@ export async function POST(req: NextRequest) {
       const r = await solicitarPlazaFijaAlumna(admin, { studioId: body.studioId, socioId, sesionId, duracionMeses: body.duracionMeses });
       return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
     }
-    if (body.accion === 'solicitar_clase_fija') {
-      // Una clase fija entera son plazas fijas de varias clases: con la página oculta, desde fuera no.
-      const cerrada = await paginaCerradaParaPeticion(req, body.studioId);
-      if (cerrada) return cerrada;
-      const claseFijaId = texto(body.claseFijaId);
-      const duracionMeses = typeof body.duracionMeses === 'number' && Number.isInteger(body.duracionMeses) ? body.duracionMeses : null;
-      if (!claseFijaId || !duracionMeses) return NextResponse.json({ error: 'Faltan la clase fija o cuánto tiempo la quieres' }, { status: 400 });
-      const r = await solicitarClaseFijaAlumna(admin, { studioId: body.studioId, socioId, claseFijaId, duracionMeses });
-      return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
-    }
-    if (body.accion === 'ampliar_clase_fija') {
-      // Sin gate a propósito, mismo criterio que `solicitar_pausa`: no reserva
-      // ninguna franja nueva —solo alarga lo que ya tiene— y solo lo alcanza una
-      // socia ya autenticada por JWT.
-      const claseFijaId = texto(body.claseFijaId);
-      const duracionMeses = typeof body.duracionMeses === 'number' && Number.isInteger(body.duracionMeses) ? body.duracionMeses : null;
-      if (!claseFijaId || !duracionMeses) return NextResponse.json({ error: 'Faltan la clase fija o cuánto tiempo la quieres' }, { status: 400 });
-      const r = await solicitarAmpliarClaseFijaAlumna(admin, { studioId: body.studioId, socioId, claseFijaId, duracionMeses });
-      return 'error' in r ? NextResponse.json({ error: r.error }, { status: r.status }) : NextResponse.json(r);
+    if (body.accion === 'solicitar_clase_fija' || body.accion === 'ampliar_clase_fija') {
+      // Las clases fijas con nombre ya no se piden ni se amplían (retiradas el 4-oct-2026): cada clase se hace fija por su
+      // cuenta, desde su ficha. Lo dice a quien llegue con una app vieja en caché, en vez de fallar sin explicación.
+      return NextResponse.json({ error: 'Esto ya no se pide así: abre cada clase en el horario y activa «Clase fija».' }, { status: 410 });
     }
     if (body.accion === 'solicitar_pausa') {
       const plazaId = texto(body.plazaId);
