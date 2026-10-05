@@ -31,8 +31,16 @@ test('el veredicto del día no puede enseñar la recomendación de otro estudio'
   assert.match(src, /await dbGetRecomendacion\(mensajeHoy\.recomendacionId, sesion\.studioId\)/);
   // Ni una lectura sin acotar en esta ruta.
   assert.doesNotMatch(src, /dbGetRecomendacion\([^,)]+\)/);
-  // Si no se ha podido leer, un error que reintentar, no «Todo bajo control».
-  assert.match(src, /if \(recomendacionGanadora === undefined\) \{\s*return NextResponse\.json\(\{ error: [^}]+\}, \{ status: 500 \}\);/);
+  // El respaldo por `dedupe_key` de los mensajes ya guardados, también acotado.
+  assert.match(src, /await dbListRecomendacionesPorDedupe\(sesion\.studioId, mensajeHoy\.dedupeKey\)/);
+  // Si no se ha podido leer, un error que reintentar, no un veredicto vacío.
+  assert.match(src, /if \(porId === undefined \|\| porDedupe === undefined\) \{\s*return NextResponse\.json\(\{ error: [^}]+\}, \{ status: 500 \}\);/);
+});
+
+test('el respaldo del mensaje del día por `dedupe_key` solo lee recomendaciones de su estudio', () => {
+  const f = cuerpoDe(DB, 'export async function dbListRecomendacionesPorDedupe(');
+  assert.match(f, /\.eq\('studio_id', studioId\)/);
+  assert.match(f, /if \(error\) \{ reportError\('\[dbListRecomendacionesPorDedupe\]', error\); return undefined; \}/);
 });
 
 test('la calibración del Umbral solo cuenta recomendaciones de su estudio', () => {

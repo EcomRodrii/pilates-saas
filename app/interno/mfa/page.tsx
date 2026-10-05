@@ -20,6 +20,9 @@ import { Loader2, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/db/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { destinoTrasMfa, pasoMfa, puedeEnrolarFactor, type NivelAal, type PasoMfa } from '@/lib/interno/mfa';
+// El nombre marca el factor como «solo de la zona interna»: no enciende la
+// verificación en el panel ni en la app del estudio (lib/auth/doble-factor-reglas.ts).
+import { NOMBRE_FACTOR_INTERNO } from '@/lib/auth/doble-factor-reglas';
 
 type Estado =
   | { tipo: 'cargando' }
@@ -97,7 +100,7 @@ export default function PantallaMfaInterno() {
         }
       }
       const { data, error: e } = await supabase.auth.mfa.enroll({
-        factorType: 'totp', friendlyName: 'Tentare Internal', issuer: 'Tentare Internal',
+        factorType: 'totp', friendlyName: NOMBRE_FACTOR_INTERNO, issuer: 'Tentare Internal',
       });
       if (e || !data) { setError(mensajeDeError(e)); return; }
       setEnrolando({ factorId: data.id, qr: data.totp.qr_code, secreto: data.totp.secret });

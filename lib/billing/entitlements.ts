@@ -33,21 +33,38 @@ export interface Entitlements {
                            // el plan de entrada pasó a llamarse Founding Studio y la incluye.
     sustitucionesAutonomas: boolean; // modos autónomo/vacaciones del motor de
                                      // sustituciones (Base se queda en manual/asistido)
+    asistente: boolean;    // «Pregúntale a Tentare»: preguntas sobre el estudio con sus
+                           // datos. En TODOS los planes (fundador, 5-oct-2026); lo que
+                           // cambia es cuántas al mes (`consultasAsistenteMes`). Es una
+                           // feature aparte de `ia` a propósito: Founding Studio lo tiene
+                           // y sigue sin la IA de notas y campañas.
   };
+  /**
+   * Consultas del asistente al mes (mes de Madrid). Espejo de
+   * `ia_cuota_mensual()` (migr 20261005213749), que es la dueña del saldo:
+   * esto solo sirve para los textos, y un test cruza los dos números.
+   */
+  consultasAsistenteMes: number;
 }
+
+/** Durante la prueba gratuita local, consultas del asistente en TOTAL (no por mes): decisión del 5-oct-2026. */
+export const CONSULTAS_ASISTENTE_PRUEBA = 30;
 
 export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
   BASE: {
     maxSocios: 150,
-    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false, decisiones: false, marca: true, sustitucionesAutonomas: false },
+    features: { gamificacion: false, marketing: false, ia: false, multiCentro: false, decisiones: false, marca: true, sustitucionesAutonomas: false, asistente: true },
+    consultasAsistenteMes: 50,
   },
   ESTUDIO: {
     maxSocios: Infinity,
-    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true },
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true },
+    consultasAsistenteMes: 200,
   },
   CADENA: {
     maxSocios: Infinity,
-    features: { gamificacion: true, marketing: true, ia: true, multiCentro: true, decisiones: true, marca: true, sustitucionesAutonomas: true },
+    features: { gamificacion: true, marketing: true, ia: true, multiCentro: true, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true },
+    consultasAsistenteMes: 500,
   },
 };
 

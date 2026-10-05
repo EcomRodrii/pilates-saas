@@ -66,22 +66,47 @@ export async function barrerBonosPorCaducar(): Promise<{ estudios: number; publi
   return { estudios: studios.length, publicados };
 }
 
+/** Un bono vivo (con sesiones) que caduca entre `desde` y `hasta`, ambos incluidos. */
+export interface BonoPorCaducar {
+  id: string;
+  socio_id: string | null;
+  plan_id: string | null;
+  fecha_fin: string;
+  sesiones_restantes: number;
+}
+
+/**
+ * Los bonos ACTIVA con sesiones por gastar que caducan en el tramo, acotados al
+ * estudio y paginados. La comparten el aviso de este cron y la herramienta
+ * «bonos por caducar» del asistente: una sola definición de «a punto de caducar».
+ * Lanza si la lectura falla (`exigir`): «no he podido mirar» no es «no hay».
+ */
+export async function leerBonosPorCaducar(
+  admin: SupabaseClient, studioId: string, tramo: { desde: string; hasta: string },
+): Promise<BonoPorCaducar[]> {
+  const subsR = await fetchAllRows<BonoPorCaducar>(
+    studioId, 'suscripciones',
+    (from, to) => admin.from('suscripciones').select('id, socio_id, plan_id, fecha_fin, sesiones_restantes')
+      .eq('studio_id', studioId).eq('estado', 'ACTIVA')
+      .not('sesiones_restantes', 'is', null).gt('sesiones_restantes', 0)
+      .not('fecha_fin', 'is', null).gte('fecha_fin', tramo.desde).lte('fecha_fin', tramo.hasta)
+      .order('id').range(from, to),
+  );
+  exigir(subsR.error, 'leyendo suscripciones');
+  return subsR.data;
+}
+
 async function bonos(admin: SupabaseClient, studioId: string) {
+  // ⚠️ `hoy` en UTC, no con hoyEnEstudio(): entre las 00:00 y las 02:00 de
+  // Madrid es el día anterior. Se anota y no se cambia aquí (sería otro
+  // comportamiento del aviso); la herramienta del asistente sí usa el día del estudio.
   const hoy = new Date().toISOString().slice(0, 10);
   const en7 = new Date(Date.now() + 7 * 24 * 3600_000).toISOString().slice(0, 10);
-  const [subsR, studioR] = await Promise.all([
-    fetchAllRows<{ id: string; socio_id: string | null; fecha_fin: string; sesiones_restantes: number }>(
-      studioId, 'suscripciones',
-      (from, to) => admin.from('suscripciones').select('id, socio_id, fecha_fin, sesiones_restantes')
-        .eq('studio_id', studioId).eq('estado', 'ACTIVA')
-        .not('sesiones_restantes', 'is', null).gt('sesiones_restantes', 0)
-        .not('fecha_fin', 'is', null).gte('fecha_fin', hoy).lte('fecha_fin', en7).range(from, to),
-    ),
+  const [subs, studioR] = await Promise.all([
+    leerBonosPorCaducar(admin, studioId, { desde: hoy, hasta: en7 }),
     admin.from('studios').select('slug').eq('id', studioId).maybeSingle(),
   ]);
-  exigir(subsR.error, 'leyendo suscripciones');
   exigir(studioR.error, 'leyendo el estudio');
-  const subs = subsR.data;
   const slug = (studioR.data?.slug as string | null) ?? '';
   let publicados = 0;
   for (const su of subs) {

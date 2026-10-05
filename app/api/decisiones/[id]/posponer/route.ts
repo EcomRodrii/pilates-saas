@@ -9,7 +9,9 @@ const MS_DIA = 86400000;
 
 // POST /api/decisiones/[id]/posponer — "Recuérdamelo": la recomendación sigue
 // PENDIENTE (no es Aprobar ni Rechazar), solo se aplaza su vencimiento unos
-// días. El Umbral no la repite antes por su puerta de novedad.
+// días y queda dicho cuándo se aplazó (`pospuesta_en`): si era el mensaje del
+// día, al recargar el veredicto dice que lo ha dejado para más adelante en vez
+// de volver a pedírselo. El Umbral no la repite antes por su puerta de novedad.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -26,8 +28,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'No autorizado para este estudio' }, { status: 403 });
   }
 
-  const nuevaExpiraEn = new Date(Date.now() + DIAS_POSPONER * MS_DIA).toISOString();
-  const resultado = await dbPosponerRecomendacion(id, sesion.studioId, nuevaExpiraEn);
+  const ahora = Date.now();
+  const nuevaExpiraEn = new Date(ahora + DIAS_POSPONER * MS_DIA).toISOString();
+  const resultado = await dbPosponerRecomendacion(id, sesion.studioId, nuevaExpiraEn, new Date(ahora).toISOString());
   if (!resultado.ok) {
     return NextResponse.json({ error: 'No se pudo posponer (¿ya no está pendiente?)' }, { status: 409 });
   }
@@ -38,5 +41,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     origen: 'EQUIPO', // la pospone la propietaria
   });
 
-  return NextResponse.json({ ok: true, expiraEn: nuevaExpiraEn });
+  return NextResponse.json({ ok: true, expiraEn: nuevaExpiraEn, pospuestaEn: new Date(ahora).toISOString() });
 }

@@ -21,17 +21,23 @@
 // estudio. El dibujo y las curvas de animación son las mismas. Los colores, en
 // cambio, salen de los tokens del panel (./paleta.ts) cuando se le pasan, y
 // «reducir movimiento» (`quieto`) quita todo recorrido, no solo lo acorta.
+//
+// Los trajes (el gorro de bruja…) son los de Coucou, portados tal cual en
+// ./trajes-coucou.ts con SUS colores (decisión del fundador, 6-oct-2026): aquí
+// solo se les da el marco de la cabeza (el `H` del original) y la física de lo
+// que cuelga.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Sonido } from './sonidos.ts';
-import type { ColoresTraje, PaletaTenti } from './paleta.ts';
-// El dibujo (contorno, ojos, mofletes, luz, y el gorro) sale de la misma
-// geometría que el icono de lo diario: aquí solo se anima.
+import type { PaletaTenti } from './paleta.ts';
+// El dibujo (contorno, ojos, mofletes, luz) sale de la misma geometría que el
+// icono de lo diario: aquí solo se anima.
 import {
-  BAJADA, BANDA_ESQUINAS, GORRO_BRUJA, HEBILLA_ESQUINAS, LADO_MINIMO_BANDA, LUZ, MOFLETE, OJO, SILUETA_PX,
-  colocarOjo, medidas, pildora, posturaDelGorro, recorrerContorno, trazarCono,
+  BAJADA, LUZ, MOFLETE, OJO, SILUETA_PX,
+  colocarOjo, lienzoDeTenti, medidas, pildora, recorrerContorno,
 } from './geometria.ts';
 import { TRAJES, type Traje } from './trajes.ts';
+import { OUTFITS, VIEW_TILT, type Fisica, type MarcoCabeza } from './trajes-coucou.ts';
 
 type RGB = [number, number, number];
 
@@ -167,55 +173,27 @@ function corazon(x: CanvasRenderingContext2D, s: number) {
   x.bezierCurveTo(-s * 1.05, -s * 0.15, -s * 0.5, -s * 0.95, 0, -s * 0.38);
   x.bezierCurveTo(s * 0.5, -s * 0.95, s * 1.05, -s * 0.15, 0, s * 0.38); x.closePath();
 }
-function poligono(x: CanvasRenderingContext2D, puntos: readonly (readonly [number, number])[], R: number) {
-  x.beginPath();
-  puntos.forEach(([px, py], i) => { if (i) x.lineTo(px * R, py * R); else x.moveTo(px * R, py * R); });
-  x.closePath();
-}
 function estrella(x: CanvasRenderingContext2D, ro: number, ri: number) {
   x.beginPath();
   for (let i = 0; i < 10; i++) { const r = i % 2 ? ri : ro, a = -Math.PI / 2 + i * Math.PI / 5; x.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
   x.closePath();
 }
 
-// `escurre`: lo que se le ha escurrido el gorro (0…1), dormido.
-type Prop = 'yaw' | 'pitch' | 'roll' | 'tilt' | 'open' | 'sx' | 'sy' | 'oy' | 'ox' | 'tint' | 'morph' | 'hands' | 'blush' | 'es' | 'badgeS' | 'escurre';
+type Prop = 'yaw' | 'pitch' | 'roll' | 'tilt' | 'open' | 'sx' | 'sy' | 'oy' | 'ox' | 'tint' | 'morph' | 'hands' | 'blush' | 'es' | 'badgeS';
 type Clave = [valor: number, ms: number, curva: Curva];
 interface Tween { p: Prop; keys: Clave[]; i: number; from: number; t0: number; after?: () => void }
-/** Lo que necesita el dibujo de un traje: ya dentro de la transformación del
- *  cuerpo y con el origen en el centro del ala, girado. */
-interface LienzoTraje {
-  x: CanvasRenderingContext2D; R: number; colores: ColoresTraje;
-  silueta: string | null; anchoSilueta: number;
-  /** La banda no llega a 1 px en un lienzo de menos de LADO_MINIMO_BANDA. */
-  banda: boolean;
-  /** La hebilla, fuera de mini. */
-  hebilla: boolean;
-}
 
-// Un dibujo por traje: un traje nuevo en TRAJES sin el suyo aquí no compila.
-// Orden: silueta del cono → cono → banda (recortada al cono) → silueta del ala
-// → ala (delante de la base del cono) → hebilla. La silueta del gorro va POR
-// FUERA, al revés que la del cuerpo: el ala mide 2-3 px en un icono, y por
-// dentro se la comía entera (un ala gris en claro, del color del cuerpo en
-// oscuro, visto en las capturas). Por fuera el ala sigue siendo del color del
-// gorro, y la silueta del ala, al pasar por encima de la base del cono, los
-// separa. El gorro ya se sale de la caja: medio píxel más no mueve nada. Las
-// partículas se pintan después, por encima.
-const DIBUJO_TRAJE: Record<Traje, (l: LienzoTraje) => void> = {
-  bruja: ({ x, R, colores, silueta, anchoSilueta, banda, hebilla }) => {
-    const cono = new Path2D();
-    trazarCono(cono, (px, py) => [px * R, py * R]);
-    const ala = new Path2D();
-    ala.ellipse(0, 0, R * GORRO_BRUJA.ala.rx, R * GORRO_BRUJA.ala.ry, 0, 0, Math.PI * 2);
-    if (silueta) { x.strokeStyle = silueta; x.lineWidth = anchoSilueta; x.stroke(cono); }
-    x.fillStyle = colores.a; x.fill(cono);
-    if (banda) { x.save(); x.clip(cono); x.fillStyle = colores.b; poligono(x, BANDA_ESQUINAS, R); x.fill(); x.restore(); }
-    if (silueta) { x.strokeStyle = silueta; x.lineWidth = anchoSilueta; x.stroke(ala); }
-    x.fillStyle = colores.a; x.fill(ala);
-    if (hebilla && banda) { x.strokeStyle = colores.a; x.lineWidth = R * 0.05; poligono(x, HEBILLA_ESQUINAS, R); x.stroke(); }
-  },
-};
+/** Una pose fija (la hoja de /interno/tenti, como sheet.html de Coucou): la
+ *  cabeza girada `yaw`/`pitch`, ladeada `tilt` y lo que cuelga en `fisica`. */
+export interface PoseTenti { yaw: number; pitch: number; tilt?: number; fisica: Fisica }
+
+// La física de lo que cuelga del traje (la punta del gorro de bruja, el pompón,
+// la bufanda): el `phys` de Coucou, «spring lag of floppy parts, driven by yaw
+// velocity + gravity». En reposo cuelga hacia donde la deja la cabeza (los
+// valores de las vistas de sheet.html: girada 0,5 a la izquierda, dx 0,6;
+// mirando arriba 0,4, dy 0,4); al moverse, un muelle poco amortiguado la deja
+// atrás y la hace rebotar. Aplastarlo la lanza arriba y un bote la deja caer.
+const FISICA = { porYaw: -1.2, porPitch: 0.9, porAplastar: 2.5, porBote: -2.5, rigidez: 90, amortigua: 7, tope: 1 } as const;
 
 interface Particula { type: 'heart' | 'star' | 'spark' | 'sweat' | 'z'; x: number; y: number; vx: number; vy: number; age: number; life: number; rot: number; sz: number }
 
@@ -229,18 +207,14 @@ export interface OpcionesTenti {
   quieto?: boolean;
   /** Mira alrededor de vez en cuando, en reposo (`proximoDespertar` lo cuenta). */
   miradas?: boolean;
-  /** El color de la silueta por dentro del cuerpo, o null para no pintarla.
+  /** El color de la silueta por dentro del cuerpo (no del traje), o null para no pintarla.
    *  Es la del icono (`SILUETA_PX`): a tamaño de icono, en claro, el cuerpo
    *  crema da 1,04:1 sobre --card y sin ella Tenti son dos ojos flotando. */
   silueta?: string | null;
-  /** El traje de temporada (./trajes.ts), o null. */
+  /** El traje (./trajes.ts), o null. Con traje el lienzo crece (`lienzoDeTenti`). */
   traje?: Traje | null;
-  /** El borde del traje, por fuera. Sin él, el de `silueta`. Existe porque el
-   *  canvas grande no lleva silueta y sobre bg-primary en claro el gorro oliva
-   *  no se despega (1,5:1): ahí lo recorta el color del texto. */
-  siluetaTraje?: string | null;
-  /** Sus colores (--tenti-traje-a/-b). Sin ellos, los de `TRAJES`. */
-  coloresTraje?: ColoresTraje | null;
+  /** Una pose fija: solo la hoja del catálogo. */
+  pose?: PoseTenti | null;
   /** Cuánto oscila un estado (ver `Movimiento`). Sin él, sin fin, como el prototipo. */
   movimiento?: Movimiento;
 }
@@ -263,12 +237,20 @@ export class Tenti {
   miradas: boolean;
   /** Ver `OpcionesTenti.silueta`. Se puede cambiar en vivo (claro ↔ oscuro). */
   silueta: string | null;
-  /** El traje que lleva (el gorro de bruja), o null. Se puede cambiar en vivo. */
-  traje: Traje | null;
-  /** Ver `OpcionesTenti.siluetaTraje`. Se puede cambiar en vivo (claro ↔ oscuro). */
-  siluetaTraje: string | null;
-  private coloresTraje: ColoresTraje | null = null;
+  private ropa: Traje | null;
+  /** El traje que lleva, o null. Se puede cambiar en vivo: el lienzo se vuelve
+   *  a medir (con traje es más grande: ver `lienzoDeTenti`). */
+  get traje(): Traje | null { return this.ropa; }
+  set traje(v: Traje | null) { this.ropa = v; if (this.lado) this.medir(this.lado); }
+  /** Ver `PoseTenti`. Se puede cambiar en vivo. */
+  pose: PoseTenti | null;
+  /** Lo que cuelga del traje (ver FISICA): dónde está, a qué velocidad y adónde va. */
+  private fis: Fisica = { dx: 0, dy: 0 };
+  private vfis: Fisica = { dx: 0, dy: 0 };
+  private objFis: Fisica = { dx: 0, dy: 0 };
   private dpr = 1;
+  /** El lado del cuadro del cuerpo, en px de CSS (sin el margen del traje). */
+  private lado = 0;
   private insignias: boolean;
   private paleta: PaletaTenti = PALETA_PROTOTIPO;
   private rgb: ColoresRgb = aRgb(PALETA_PROTOTIPO);
@@ -281,7 +263,7 @@ export class Tenti {
   set movimiento(v: Movimiento) { this.mov = v; this.armarOscilacion(); }
   /** Cuántas veces ha saludado DE VERDAD (con `quieto`, saludar() no cuenta). */
   saludos = 0;
-  private s: Record<Prop, number> = { yaw: 0, pitch: 0, roll: 0, tilt: 0, open: 1, sx: 1, sy: 1, oy: 0, ox: 0, tint: 0, morph: 0, hands: 0, blush: 0, es: 1, badgeS: 0, escurre: 0 };
+  private s: Record<Prop, number> = { yaw: 0, pitch: 0, roll: 0, tilt: 0, open: 1, sx: 1, sy: 1, oy: 0, ox: 0, tint: 0, morph: 0, hands: 0, blush: 0, es: 1, badgeS: 0 };
   private tg: Record<Prop, number> = { ...this.s };
   private tw: Tween[] = [];
   private lock: Partial<Record<Prop, 1>> = {};
@@ -311,25 +293,30 @@ export class Tenti {
 
   constructor(canvas: HTMLCanvasElement, {
     mini = false, colorCuerpo = null, sonido = false, paleta = null, insignias = true, quieto = false,
-    miradas = false, silueta = null, traje = null, coloresTraje = null, siluetaTraje = null, movimiento = 'sinFin',
+    miradas = false, silueta = null, traje = null, pose = null, movimiento = 'sinFin',
   }: OpcionesTenti = {}) {
     this.c = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Tenti necesita un canvas 2D');
     this.x = ctx; this.mini = mini; this.colorCuerpo = colorCuerpo ? hexRgb(colorCuerpo) : null; this.sonido = sonido;
     this.insignias = insignias; this.quieto = quieto; this.miradas = miradas; this.silueta = silueta;
-    this.traje = traje; this.coloresTraje = coloresTraje; this.siluetaTraje = siluetaTraje; this.mov = movimiento;
+    this.ropa = traje; this.pose = pose; this.mov = movimiento;
     if (paleta) this.ponerPaleta(paleta);
     this.proxParpadeo = AHORA() + 1500 + Math.random() * 2000;
     this.proxMirada = AHORA() + 2500 + Math.random() * 4000;
     this.t0 = AHORA() - Math.random() * 5000;
   }
 
-  /** Ajusta la resolución del canvas a su tamaño en pantalla. */
+  /**
+   * Ajusta la resolución del canvas a su tamaño en pantalla. `cssPx` es el lado
+   * del cuadro del CUERPO; con traje el lienzo es más grande (`lienzoDeTenti`,
+   * el mismo cálculo con el que tenti.tsx le da su tamaño CSS).
+   */
   medir(cssPx: number) {
     const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
-    this.dpr = dpr;
-    this.c.width = Math.round(cssPx * dpr); this.c.height = Math.round(cssPx * dpr);
+    this.dpr = dpr; this.lado = cssPx;
+    const l = lienzoDeTenti(cssPx, this.ropa != null);
+    this.c.width = Math.round(l.ancho * dpr); this.c.height = Math.round(l.alto * dpr);
   }
 
   private luego(fn: () => void, ms: number) {
@@ -398,9 +385,6 @@ export class Tenti {
     this.colT = hexRgb(this.colorDe(this.estado)); this.col = [...this.colT];
     if (this.insignia) this.colInsignia = this.colorDe(this.estado);
   }
-
-  /** Los colores del traje (claro ↔ oscuro). Con null, los de `TRAJES`. */
-  ponerColoresTraje(c: ColoresTraje | null) { this.coloresTraje = c; }
 
   /** Enseña u oculta la insignia del estado actual. */
   mostrarInsignias(v: boolean) { this.insignias = v; this.ponerInsignia(v ? this.cfg.insignia : null); }
@@ -489,6 +473,9 @@ export class Tenti {
     // treinta fotogramas de cola que cuesta acercarse a 0,002.
     const umbral = this.mini ? 0.01 : 0.002;
     for (const k of Object.keys(this.tg) as Prop[]) if (Math.abs(this.tg[k] - this.s[k]) > umbral) return true;
+    // Lo que cuelga del traje, mientras rebota.
+    if (this.ropa && (Math.abs(this.vfis.dx) + Math.abs(this.vfis.dy) > umbral * 10
+      || Math.abs(this.objFis.dx - this.fis.dx) + Math.abs(this.objFis.dy - this.fis.dy) > umbral)) return true;
     return Math.abs(this.col[0] - this.colT[0]) + Math.abs(this.col[1] - this.colT[1]) + Math.abs(this.col[2] - this.colT[2]) > 1;
   }
 
@@ -514,11 +501,11 @@ export class Tenti {
   /**
    * Cuándo vuelve a pasar algo sin que nadie lo pida: el próximo parpadeo y,
    * solo fuera de mini y mientras el estado oscila, la siguiente partícula de
-   * ambiente de 'dormido' y 'agobiado'. Con `quieto`, nunca: ni parpadea ni
-   * echa partículas, así que no hay por qué despertar.
+   * ambiente de 'dormido' y 'agobiado'. Con `quieto` o con una pose fija, nunca:
+   * ni parpadea ni echa partículas, así que no hay por qué despertar.
    */
   proximoDespertar(): number {
-    if (this.quieto) return Infinity;
+    if (this.quieto || this.pose) return Infinity;
     const c = this.cfg;
     const ambiente = !this.mini && (c.zz || c.suda) && this.oscila() ? this.ultimoAmbiente + 1300 : Infinity;
     // Una mirada en curso se despierta para volver al frente; si no, para la siguiente.
@@ -573,16 +560,19 @@ export class Tenti {
     const bota = c.bota && oscila, respira = c.respira && oscila;
     tg.yaw = ty; tg.pitch = tp; tg.tilt = c.ladea || 0; tg.oy = bota ? -Math.abs(Math.sin(t * 5.2)) * 0.07 : 0;
     tg.sy = respira ? 1 + Math.sin(t * 1.8) * 0.035 : 1; tg.sx = respira ? 1 - Math.sin(t * 1.8) * 0.02 : 1;
-    // Dormido, el gorro se le escurre; con «reducir movimiento», en su sitio.
-    tg.escurre = this.estado === 'dormido' && !q ? 1 : 0;
     // En mini (tamaño de icono) la cabeza gira más deprisa: a 26-41 px el giro
     // lento no se aprecia y cada fotograma de cola cuesta igual (medido en
     // Resumen: las miradas eran la mayor parte de lo que pintaba en reposo).
     const kMira = 1 - Math.pow(this.mini ? 0.0001 : 0.0025, dt), kGen = 1 - Math.pow(0.0008, dt);
     for (const k of Object.keys(tg) as Prop[]) { if (this.lock[k]) continue; s[k] += (tg[k] - s[k]) * (k === 'yaw' || k === 'pitch' ? kMira : kGen); }
+    // La pose fija de la hoja del catálogo manda sobre todo lo de arriba.
+    const pose = this.pose;
+    if (pose) { s.yaw = tg.yaw = pose.yaw; s.pitch = tg.pitch = pose.pitch; s.tilt = tg.tilt = pose.tilt ?? 0; }
+    this.moverFisica(dt, q);
     this.col = mix(this.col, this.colT, 1 - Math.pow(0.002, dt));
     if (n > this.proxParpadeo) {
-      if (!q && this.estado !== 'dormido' && this.estado !== 'mareado') { this.parpadear(); if (Math.random() < 0.22) this.luego(() => this.parpadear(), 230); }
+      // Con pose fija (la hoja del catálogo) no parpadea: es una lámina, como sheet.html.
+      if (!q && !this.pose && this.estado !== 'dormido' && this.estado !== 'mareado') { this.parpadear(); if (Math.random() < 0.22) this.luego(() => this.parpadear(), 230); }
       this.proxParpadeo = n + 2200 + Math.random() * 3200;
     }
     if (this.ojoForzado && n > this.ojoHasta) this.ojoForzado = null;
@@ -595,9 +585,35 @@ export class Tenti {
     this.parts = this.parts.filter((p) => p.age < p.life);
   }
 
+  /** Mueve lo que cuelga del traje (ver FISICA). Con pose, la de la pose; con
+   *  «reducir movimiento», ni muelle ni rebote: donde la deja la cabeza. */
+  private moverFisica(dt: number, quieto: boolean) {
+    const s = this.s, F = FISICA;
+    const obj: Fisica = this.pose ? { ...this.pose.fisica } : {
+      dx: clamp(s.yaw * F.porYaw, -F.tope, F.tope),
+      dy: clamp(s.pitch * F.porPitch + (s.sy - 1) * F.porAplastar + s.oy * F.porBote, -F.tope, F.tope),
+    };
+    this.objFis = obj;
+    if (!this.ropa || this.pose || quieto) { this.fis = { ...obj }; this.vfis = { dx: 0, dy: 0 }; return; }
+    // Pasos cortos: un muelle con dt de 50 ms (una pestaña que vuelve) se disparaba.
+    const pasos = Math.max(1, Math.ceil(dt / (1 / 120))), h = dt / pasos;
+    for (let i = 0; i < pasos; i++) {
+      for (const k of ['dx', 'dy'] as const) {
+        const a = F.rigidez * (obj[k] - this.fis[k]) - F.amortigua * this.vfis[k];
+        this.vfis[k] += a * h;
+        this.fis[k] = clamp(this.fis[k] + this.vfis[k] * h, -F.tope, F.tope);
+      }
+    }
+  }
+
   private dibujar() {
-    const x = this.x, W = this.c.width, H = this.c.height, s = this.s, P = this.rgb;
-    x.clearRect(0, 0, W, H);
+    const x = this.x, s = this.s, P = this.rgb, dpr = this.dpr;
+    x.clearRect(0, 0, this.c.width, this.c.height);
+    // Con traje, el lienzo lleva aire alrededor del cuadro del cuerpo: se dibuja
+    // en el cuadro, desplazado. W y H son el cuadro, como sin traje.
+    const lienzo = lienzoDeTenti(this.lado, this.ropa != null);
+    const W = this.lado * dpr, H = W, arribaPx = lienzo.arriba * dpr;
+    x.save(); x.translate(lienzo.izquierda * dpr, arribaPx);
     const { R, rx, ry } = medidas(W);
     const cx = W / 2 + s.ox * R, cy = H / 2 + s.oy * R + R * BAJADA;
     const col = this.col;
@@ -610,11 +626,20 @@ export class Tenti {
       const w = lerp(rx, R * 1.02, m), h = lerp(ry, R * 0.94, m), r = lerp(Math.min(rx, ry), R * 0.34, m);
       path.roundRect(-w, -h, 2 * w, 2 * h, r);
     }
+    // El traje de Coucou, con el marco de la cabeza del original (`H`): lo de
+    // detrás antes del cuerpo y lo de delante después de cuerpo y ojos, todo
+    // dentro de la transformación del cuerpo, así que se aplasta, se ladea,
+    // bota y salta con él y gira con la cabeza.
+    const ropa = this.ropa ? OUTFITS[TRAJES[this.ropa].coucou] : null;
+    const cabeza: MarcoCabeza = { R, rx, ry, view: VIEW_TILT, yaw: s.yaw, pitch: s.pitch, phys: this.fis };
+    if (ropa?.back) { x.save(); ropa.back(x, cabeza); x.restore(); }
     // cuerpo
     const bc = this.colorCuerpo;
     {
       let c0: RGB, c1: RGB;
-      if (bc) { c0 = mix(bc, [255, 255, 255], 0.35); c1 = mix(bc, [0, 0, 0], 0.18); } else { c0 = P.luz; c1 = P.sombra; }
+      if (bc) { c0 = mix(bc, [255, 255, 255], 0.35); c1 = mix(bc, [0, 0, 0], 0.18); }
+      // La calabaza recolorea el cuerpo (con sus colores, los del original).
+      else if (ropa?.bodyColors) { c0 = hexRgb(ropa.bodyColors[0]); c1 = hexRgb(ropa.bodyColors[1]); } else { c0 = P.luz; c1 = P.sombra; }
       const { degradado: dg, volumen: vo, brillo: br } = LUZ;
       const g = x.createLinearGradient(rx * dg.desde[0], ry * dg.desde[1], rx * dg.hasta[0], ry * dg.hasta[1]); g.addColorStop(0, rgba(c0, 1)); g.addColorStop(1, rgba(c1, 1)); x.fillStyle = g; x.fill(path);
       if (!bc && s.tint > 0.01) {
@@ -648,19 +673,9 @@ export class Tenti {
       x.save(); x.translate(o.x, o.y); x.scale(o.escalaX, o.escalaY); this.ojo(forma, R * OJO.w * s.es, R * OJO.h * s.es, s.open, sd); x.restore();
     }
     x.restore();
-    // el traje: dentro de la transformación del cuerpo, así se aplasta y se
-    // ladea con él; además sigue a la cabeza, salta y se bambolea al girar, se
-    // lo levanta con la mano al saludar y se le escurre dormido.
-    if (this.traje) {
-      const g = posturaDelGorro({ yaw: s.yaw, roll: s.roll, manos: s.hands, dormido: s.escurre });
-      x.save(); x.translate(g.x * R, g.y * R); x.rotate(g.giro);
-      DIBUJO_TRAJE[this.traje]({
-        x, R, colores: this.coloresTraje ?? TRAJES[this.traje].colores,
-        silueta: this.silueta ?? this.siluetaTraje, anchoSilueta: 2 * SILUETA_PX * this.dpr / Math.max(0.5, Math.min(s.sx, s.sy)),
-        banda: W / this.dpr >= LADO_MINIMO_BANDA, hebilla: !this.mini,
-      });
-      x.restore();
-    }
+    // Lo de delante del traje, sobre cuerpo y ojos (las gafas de sol, que
+    // `frontAfterEyes`, también: en el original `front` va siempre detrás de los ojos).
+    if (ropa?.front) { x.save(); ropa.front(x, cabeza, path); x.restore(); }
     x.restore();
     // manos
     if (s.hands > 0.01) {
@@ -708,7 +723,8 @@ export class Tenti {
       if (p.age < 0) continue;
       const k = p.age / p.life, a = k < 0.2 ? k / 0.2 : 1 - (k - 0.2) / 0.8;
       const px = cx + (p.x + p.vx * p.age) * R * 1.3, py = cy + (p.y + p.vy * p.age) * R * 1.3; const sz = R * p.sz * (1 + k * 0.4);
-      const borde = clamp((py - sz * (p.type === 'z' ? 1.4 : 1)) / fundidoBorde, 0, 1);
+      // El borde de arriba del LIENZO, que con traje queda `arribaPx` por encima del cuadro.
+      const borde = clamp((py + arribaPx - sz * (p.type === 'z' ? 1.4 : 1)) / fundidoBorde, 0, 1);
       if (borde <= 0) continue;
       x.save(); x.translate(px, py); x.globalAlpha = clamp(a, 0, 1) * borde;
       if (p.type === 'heart') { x.fillStyle = this.emociones.corazon; x.rotate(Math.sin(p.age * 6) * 0.3); corazon(x, sz); x.fill(); }
@@ -719,6 +735,7 @@ export class Tenti {
       } else { x.fillStyle = 'rgba(210,220,235,1)'; x.font = `700 ${sz * 1.9}px -apple-system,system-ui,sans-serif`; x.fillText('z', 0, 0); }
       x.restore();
     }
+    x.restore();
   }
 
   private ojo(forma: FormaOjo, w: number, h: number, abierto: number, sd: number) {

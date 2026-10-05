@@ -9,11 +9,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  BAJADA, EXPONENTE, GORRO_BRUJA, GORRO_EN_REPOSO, LADO_ICONO, LUZ, MOFLETE, OJO, R_DEL_LADO, SEMIEJE_X, SEMIEJE_Y, TRAMOS,
-  colocarOjo, contorno, dibujoDelIcono, dibujoDelTraje, medidas, pildora, posturaDelGorro, puntosDelCono,
+  BAJADA, EXPONENTE, LADO_ICONO, LUZ, MOFLETE, OJO, SEMIEJE_X, SEMIEJE_Y, TRAMOS,
+  colocarOjo, contorno, dibujoDelIcono, medidas, pildora,
 } from './geometria.ts';
 import { ESTADOS } from './motor.ts';
-import { LISTA_TRAJES } from './trajes.ts';
 
 const raiz = join(import.meta.dirname, '..', '..');
 const cerca = (a: number, b: number, tol = 0.01) => Math.abs(a - b) <= tol;
@@ -135,79 +134,4 @@ test('el motor dibuja con esta geometría y no con números propios', () => {
     assert.doesNotMatch(codigo, patron, `motor.ts vuelve a llevar ${que} a mano`);
   }
   assert.doesNotMatch(codigo, /const\s+OJO\s*=/, 'motor.ts vuelve a declarar su OJO');
-});
-
-// ── El gorro de bruja ────────────────────────────────────────────────────────
-
-/** Un punto del gorro (en R, desde el centro del ala) en coordenadas del cuerpo (en R). */
-function enElCuerpo([x, y]: [number, number], p: { x: number; y: number; giro: number }): [number, number] {
-  const c = Math.cos(p.giro), si = Math.sin(p.giro);
-  return [p.x + x * c - y * si, p.y + x * si + y * c];
-}
-
-test('el gorro, con su salto, su bamboleo, el saludo y el trazo, cabe en el lienzo', () => {
-  // El lienzo empieza (0,5/0,3 + BAJADA) R por encima del centro del cuerpo y
-  // acaba a 0,5/0,3 R a cada lado: ni el icono ni el canvas grande lo recortan.
-  const arriba = -(0.5 / R_DEL_LADO + BAJADA), lado = 0.5 / R_DEL_LADO;
-  const trazo = 0.05;
-  let maxArriba = 0, maxLado = 0;
-  // Las poses que de verdad se dan: girando ('hecho', el mareo) con la cabeza
-  // donde sea, saludando y dormido. yaw ±0,62 es lo más que gira la cabeza.
-  const poses = [
-    ...Array.from({ length: 97 }, (_, i) => i / 96 * Math.PI * 4).flatMap((roll) => [-0.62, 0, 0.62].map((yaw) => ({ yaw, roll, manos: 0, dormido: 0 }))),
-    ...[-0.62, 0, 0.62].map((yaw) => ({ yaw, roll: 0, manos: 1, dormido: 0 })),
-    { yaw: 0, roll: 0, manos: 0, dormido: 1 },
-  ];
-  {
-    for (const m of poses) {
-      const p = posturaDelGorro(m);
-      const ala = Array.from({ length: 48 }, (_, i) => {
-        const a = i / 48 * Math.PI * 2;
-        return [Math.cos(a) * GORRO_BRUJA.ala.rx, Math.sin(a) * GORRO_BRUJA.ala.ry] as [number, number];
-      });
-      for (const q of [...puntosDelCono(), ...ala]) {
-        const [x, y] = enElCuerpo(q, p);
-        maxArriba = Math.min(maxArriba, y);
-        maxLado = Math.max(maxLado, Math.abs(x));
-      }
-    }
-  }
-  assert.ok(maxArriba - trazo > arriba, `el gorro llega a ${maxArriba.toFixed(3)} R y el lienzo empieza en ${arriba.toFixed(3)} R`);
-  assert.ok(maxLado + trazo < lado, `el gorro llega a ${maxLado.toFixed(3)} R a un lado y el lienzo acaba en ${lado.toFixed(3)} R`);
-});
-
-test('el ala no tapa los ojos, ni mirando arriba del todo', () => {
-  const p = posturaDelGorro(GORRO_EN_REPOSO);
-  // Lo más bajo del ala girada (una elipse girada `giro`).
-  const { rx, ry } = GORRO_BRUJA.ala;
-  const bajo = p.y + Math.hypot(rx * Math.sin(p.giro), ry * Math.cos(p.giro));
-  // Lo más alto de un ojo: la cabeza arriba del todo (pitch 0,5, como el motor).
-  const ojo = colocarOjo(-1, 0, 0.5, SEMIEJE_X, SEMIEJE_Y)!;
-  const altoOjo = (OJO.h * ojo.escalaY) / 2;
-  const arribaOjo = ojo.y - altoOjo;
-  assert.ok(bajo < arribaOjo, `el ala baja hasta ${bajo.toFixed(3)} R y el ojo sube hasta ${arribaOjo.toFixed(3)} R`);
-});
-
-test('el SVG del gorro sale de las mismas constantes que el canvas, en la pose de reposo', () => {
-  assert.deepEqual(LISTA_TRAJES, ['bruja'], 'un traje nuevo: añade aquí su comprobación');
-  const g = dibujoDelTraje('bruja');
-  const p = posturaDelGorro(GORRO_EN_REPOSO);
-  // El centro del ala.
-  assert.ok(cerca(g.ala.cx, CX + p.x * R, 1e-3) && cerca(g.ala.cy, CY + p.y * R, 1e-3), `ala en ${g.ala.cx}, ${g.ala.cy}`);
-  assert.ok(cerca(g.ala.rx, R * GORRO_BRUJA.ala.rx, 1e-3) && cerca(g.ala.ry, R * GORRO_BRUJA.ala.ry, 1e-3));
-  assert.ok(cerca(g.ala.giro, GORRO_BRUJA.ladeo * 180 / Math.PI, 1e-3), `el ala gira ${g.ala.giro}°`);
-  // El cono: una M, cuatro Q y cerrado; cada punto, el de GORRO_BRUJA ladeado y llevado al icono.
-  const tramos = g.cono.match(/[MQ][^MQZ]+/g) ?? [];
-  assert.equal(tramos.length, GORRO_BRUJA.cono.length);
-  assert.ok(g.cono.endsWith('Z'));
-  GORRO_BRUJA.cono.forEach((pieza, i) => {
-    const numeros = tramos[i].slice(1).trim().split(/\s+/).map(Number);
-    for (let k = 0; k < pieza.length; k += 2) {
-      const [x, y] = enElCuerpo([pieza[k], pieza[k + 1]], p);
-      assert.ok(cerca(numeros[k], CX + x * R, 2e-3) && cerca(numeros[k + 1], CY + y * R, 2e-3), `cono ${i}: ${tramos[i]}`);
-    }
-  });
-  // En reposo el gorro va encima de la cabeza: lo más alto, por encima del cuerpo.
-  const ys = (g.cono.match(/-?[\d.]+/g) ?? []).map(Number).filter((_, i) => i % 2 === 1);
-  assert.ok(Math.min(...ys) < D.caja.y, 'el gorro no asoma por encima del cuerpo');
 });

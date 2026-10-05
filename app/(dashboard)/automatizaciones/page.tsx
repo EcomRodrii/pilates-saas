@@ -12,6 +12,7 @@ import {
 import { cn, formatFechaHora as formatFecha } from '@/lib/utils';
 import { aprobarCobroAutonomo, enviarPruebaAutomatizacion } from '@/lib/api-client';
 import { resultadoDeCobro } from '@/lib/billing/resultado-cobro';
+import { registrosDeHoy, saludoDelEstudio } from '@/lib/automatizaciones-hoy';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -198,8 +199,9 @@ function BaldosaZap() {
 }
 
 function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const todayLogs = logs.filter(l => l.ejecutadoEn.startsWith(today));
+  // El «hoy» del estudio (Madrid), no el día UTC: lib/automatizaciones-hoy.ts.
+  const ahora = new Date();
+  const todayLogs = registrosDeHoy(logs, ahora);
   const pendingAdmin = logs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
   const ejecutadas = todayLogs.filter(l => l.resultado === 'EJECUTADO').length;
   // 'ESPERANDO' nunca lo escribe ningún camino de ejecución (ver
@@ -208,9 +210,6 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   // 'FALLIDO' sí ocurre de verdad (sin email, WhatsApp sin configurar…) y es
   // justo lo que necesita un vistazo.
   const fallidas = todayLogs.filter(l => l.resultado === 'FALLIDO').length;
-  // ⚠️ `today` es el día en UTC: entre las 00:00 y las 02:00 de Madrid cuenta
-  // las fallidas de ayer. Lo arregla #2550 (lib/automatizaciones-hoy.ts); no
-  // se duplica aquí.
 
   // Cuántas esperan tu visto bueno: la cifra de la BANDEJA, la misma que
   // «Sistema autónomo» de Resumen (#1401: la bandeja es la dueña de ese
@@ -224,8 +223,7 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   const esperando = esperandoEnBandeja ?? pendingAdmin.length;
   const estadoTenti = estadoDelAutonomo({ esperandoEnBandeja, fallidasHoy: fallidas });
 
-  const hour = new Date().getHours();
-  const greeting = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
+  const greeting = saludoDelEstudio(ahora);
 
   return (
     <div className="rounded-2xl bg-primary text-primary-foreground p-6 mb-6">

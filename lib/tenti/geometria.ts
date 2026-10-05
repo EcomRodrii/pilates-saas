@@ -28,8 +28,6 @@
 // por importar esto.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { Traje } from './trajes.ts';
-
 /** R, la medida de la que sale todo, en proporción al lado del cuadro. */
 export const R_DEL_LADO = 0.3;
 /** Semiejes del cuerpo, en proporción a R: más ancho que alto. */
@@ -207,152 +205,34 @@ export function dibujoDelIcono(): DibujoIcono {
   };
 }
 
-// ── Los trajes: el gorro de bruja ────────────────────────────────────────────
+// ── El lienzo, con traje ─────────────────────────────────────────────────────
 //
-// Como el cuerpo, un solo dibujo para el canvas (motor.ts, que lo anima) y para
-// el SVG de reserva del icono (en la pose de reposo). Los dos trazan el cono con
-// `trazarCono` y leen las mismas piezas: geometria.test.ts comprueba que el SVG
-// sale de estas constantes y que el gorro cabe en el lienzo del canvas.
+// Los trajes son los de Coucou (./trajes-coucou.ts), y no caben en el cuadro
+// del cuerpo: el gorro de fiesta sube 2,4 R por encima del centro y el lienzo
+// sin traje acaba a 1,73 R; el ala de la bruja y la punta del de Papá Noel se
+// salen por los lados. Coucou dibuja el cuerpo pequeño en su lienzo (la hoja
+// usa el 62 %); aquí el CUERPO tiene que seguir midiendo lo mismo (el icono
+// mide el cuerpo, y la pantalla no se mueve un píxel), así que con traje el
+// lienzo crece hacia fuera y se sale de su caja con márgenes negativos
+// (components/tenti/tenti.tsx). Lo mide trajes-coucou.test.ts con TODOS los
+// trajes, en todas las poses, aplastado y botando.
 
-/**
- * El gorro, en R y con el centro del ala como origen (y hacia abajo, como el
- * canvas). Las curvas del cono son cuadráticas: M y luego [control, fin].
- */
-export const GORRO_BRUJA = {
-  /** Centro del ala respecto al centro del cuerpo, en ry (≈ -0,70 R). */
-  alaY: -0.80,
-  /** Elipse del ala, en R: el cuerpo mide 1,14 R de semieje. */
-  ala: { rx: 1.00, ry: 0.15 },
-  cono: [
-    [-0.52, -0.04],
-    [-0.32, -0.40, -0.02, -0.70],
-    [0.18, -0.90, 0.55, -0.68], // la punta cae hacia la derecha
-    [0.30, -0.66, 0.24, -0.54],
-    [0.40, -0.30, 0.52, -0.04],
-  ],
-  /** La franja, recortada al cono. */
-  banda: { desde: -0.10, hasta: -0.24 },
-  hebilla: { ancho: 0.18, alto: 0.14, y: -0.17 },
-  /** rad: el gorro va ladeado, con gracia. */
-  ladeo: -0.10,
-  /** R que sube al girar ('hecho'), con |sin(roll/2)|. */
-  salto: 0.12,
-  /** rad con el giro de 'hecho' y el mareo: sin(roll). */
-  bamboleo: 0.22,
-  /** Se lo levanta con la mano al saludar: × la mano (0…1). Sube 0,08 y no
-   *  0,12: ladeado al saludar, con 0,12 la punta tocaba el borde del lienzo. */
-  saludo: { sube: 0.08, gira: -0.25 },
-  /** Sigue a la cabeza: × yaw. */
-  sigueYaw: { x: 0.22, giro: 0.10 },
-  /** rad: dormido, se le escurre. */
-  dormido: 0.16,
-} as const;
+/** El aire de más con traje, en proporción al lado del cuadro del cuerpo. */
+export const MARGEN_TRAJE = { arriba: 0.38, lado: 0.13, abajo: 0.03 } as const;
 
-/** Por debajo de este lado de lienzo (un icono de 18 o 20) la banda no llega a
- *  1 px: se dibuja sin ella, solo cono, ala y silueta. */
-export const LADO_MINIMO_BANDA = 30;
+export interface LienzoTenti {
+  /** Tamaño del lienzo, en las unidades de `lado`. */
+  ancho: number; alto: number;
+  /** Dónde empieza el cuadro del cuerpo dentro del lienzo (= el margen negativo). */
+  izquierda: number; arriba: number;
+}
 
-/** Lo que mueve el gorro, del motor: la cabeza (yaw), el giro (roll), la mano
- *  del saludo (0…1) y lo dormido que está (0…1). */
-export interface MovimientoGorro { yaw: number; roll: number; manos: number; dormido: number }
-export const GORRO_EN_REPOSO: MovimientoGorro = { yaw: 0, roll: 0, manos: 0, dormido: 0 };
-
-/** Dónde va el centro del ala respecto al centro del cuerpo (en R) y cuánto gira (rad). */
-export function posturaDelGorro(m: MovimientoGorro): { x: number; y: number; giro: number } {
-  const g = GORRO_BRUJA;
+/** El lienzo de un Tenti cuyo cuadro mide `lado`: sin traje, el cuadro; con traje, más. */
+export function lienzoDeTenti(lado: number, conTraje: boolean): LienzoTenti {
+  if (!conTraje) return { ancho: lado, alto: lado, izquierda: 0, arriba: 0 };
+  const m = MARGEN_TRAJE;
   return {
-    x: m.yaw * g.sigueYaw.x,
-    y: g.alaY * SEMIEJE_Y - g.salto * Math.abs(Math.sin(m.roll / 2)) - g.saludo.sube * m.manos,
-    giro: g.ladeo + g.bamboleo * Math.sin(m.roll) + g.saludo.gira * m.manos + g.sigueYaw.giro * m.yaw + g.dormido * m.dormido,
+    ancho: lado * (1 + 2 * m.lado), alto: lado * (1 + m.arriba + m.abajo),
+    izquierda: lado * m.lado, arriba: lado * m.arriba,
   };
-}
-
-/** Lo que hace falta para trazar una curva: lo cumplen Path2D y el `d` del SVG. */
-export interface Trazo {
-  moveTo(x: number, y: number): void;
-  quadraticCurveTo(cx: number, cy: number, x: number, y: number): void;
-  closePath(): void;
-}
-
-/** Traza el cono pasando cada punto (en R, desde el centro del ala) por `a`. */
-export function trazarCono(t: Trazo, a: (x: number, y: number) => readonly [number, number]): void {
-  const [m, ...curvas] = GORRO_BRUJA.cono;
-  t.moveTo(...a(m[0], m[1]));
-  for (const [cx, cy, x, y] of curvas as readonly (readonly [number, number, number, number])[]) {
-    const [px, py] = a(cx, cy), [qx, qy] = a(x, y);
-    t.quadraticCurveTo(px, py, qx, qy);
-  }
-  t.closePath();
-}
-
-/** Las esquinas de un rectángulo (en R, desde el centro del ala), en orden. */
-function esquinas(x0: number, y0: number, x1: number, y1: number): [number, number][] {
-  return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
-}
-/** La banda, más ancha que el cono: se recorta a él. */
-export const BANDA_ESQUINAS = esquinas(-0.7, GORRO_BRUJA.banda.hasta, 0.7, GORRO_BRUJA.banda.desde);
-export const HEBILLA_ESQUINAS = (() => {
-  const { ancho, alto, y } = GORRO_BRUJA.hebilla;
-  return esquinas(-ancho / 2, y - alto / 2, ancho / 2, y + alto / 2);
-})();
-
-/** Puntos del contorno del cono (las curvas, muestreadas), en R desde el centro del ala. */
-export function puntosDelCono(pasos = 24): [number, number][] {
-  const out: [number, number][] = [];
-  let ultimo: [number, number] = [0, 0];
-  trazarCono({
-    moveTo: (x, y) => { ultimo = [x, y]; out.push(ultimo); },
-    quadraticCurveTo: (cx, cy, x, y) => {
-      const [x0, y0] = ultimo;
-      for (let i = 1; i <= pasos; i++) {
-        const t = i / pasos, u = 1 - t;
-        out.push([u * u * x0 + 2 * u * t * cx + t * t * x, u * u * y0 + 2 * u * t * cy + t * t * y]);
-      }
-      ultimo = [x, y];
-    },
-    closePath: () => {},
-  }, (x, y) => [x, y]);
-  return out;
-}
-
-export interface DibujoGorro {
-  /** El `d` del cono. */
-  cono: string;
-  /** El `d` de la banda (se recorta al cono). */
-  banda: string;
-  /** El ala: elipse girada `giro` grados alrededor de su centro. */
-  ala: { cx: number; cy: number; rx: number; ry: number; giro: number };
-  /** El `d` de la hebilla. */
-  hebilla: string;
-}
-
-/** El gorro de bruja en las coordenadas del icono (lado 100), en la pose de reposo. */
-function dibujoDelGorroBruja(): DibujoGorro {
-  const { R } = medidas(LADO_ICONO);
-  const cx = LADO_ICONO / 2, cy = LADO_ICONO / 2 + R * BAJADA;
-  const p = posturaDelGorro(GORRO_EN_REPOSO);
-  const co = Math.cos(p.giro), si = Math.sin(p.giro);
-  const ax = cx + p.x * R, ay = cy + p.y * R;
-  const a = (x: number, y: number) => [r3(ax + (x * co - y * si) * R), r3(ay + (x * si + y * co) * R)] as const;
-  let cono = '';
-  trazarCono({
-    moveTo: (x, y) => { cono += `M${x} ${y}`; },
-    quadraticCurveTo: (qx, qy, x, y) => { cono += `Q${qx} ${qy} ${x} ${y}`; },
-    closePath: () => { cono += 'Z'; },
-  }, a);
-  const poligono = (pts: [number, number][]) => `${pts.map(([x, y], i) => `${i ? 'L' : 'M'}${a(x, y).join(' ')}`).join('')}Z`;
-  return {
-    cono,
-    banda: poligono(BANDA_ESQUINAS),
-    ala: { cx: r3(ax), cy: r3(ay), rx: r3(R * GORRO_BRUJA.ala.rx), ry: r3(R * GORRO_BRUJA.ala.ry), giro: r3(p.giro * 180 / Math.PI) },
-    hebilla: poligono(HEBILLA_ESQUINAS),
-  };
-}
-
-// Un dibujo por traje: un traje nuevo sin el suyo no compila.
-const DIBUJOS_DE_TRAJE: Record<Traje, () => DibujoGorro> = { bruja: dibujoDelGorroBruja };
-
-/** El traje en las coordenadas del icono (lado 100), en la pose de reposo, para el SVG de reserva. */
-export function dibujoDelTraje(traje: Traje): DibujoGorro {
-  return DIBUJOS_DE_TRAJE[traje]();
 }
