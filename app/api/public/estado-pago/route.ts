@@ -4,7 +4,10 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { idsDe } from '@/lib/billing/entregar-plan-comprado';
 import { EVENTOS } from '@/lib/notifications/catalog';
-import { emailsCoinciden, resolverEstadoPago, type RespuestaEstadoPago } from '@/lib/billing/estado-pago-publico';
+import {
+  avisoDeYaTenia, elegirAvisoDelPago, emailsCoinciden, reservaPreviaDe, resolverEstadoPago,
+  type AvisoSinPlaza, type ReservaPrevia, type RespuestaEstadoPago,
+} from '@/lib/billing/estado-pago-publico';
 
 // P1-3 — estado REAL de la reserva tras «pagar y reservar sin login» (Modo A).
 //
@@ -107,34 +110,53 @@ export async function GET(req: NextRequest) {
   // 4. Sin reserva: ¿dejó el webhook el aviso de «pagó y no hubo plaza» al
   //    mostrador? Acotado a este estudio, esta socia y a partir del cobro
   //    (menos un margen por relojes) para no confundirlo con un aviso viejo
-  //    de otra compra.
-  let avisoSinPlaza = false;
+  //    de otra compra, y elegido por ESTE pago (`elegirAvisoDelPago`): el de
+  //    otro pago de la misma clase no vale para este.
+  let aviso: AvisoSinPlaza | null = null;
   if (!reserva) {
     const desde = recibo.fecha_cobro
       ? new Date(new Date(recibo.fecha_cobro as string).getTime() - 5 * 60_000).toISOString()
       : new Date(Date.now() - 60 * 60_000).toISOString();
-    const { data: aviso } = await admin
+    const { data: avisos } = await admin
       .from('notification')
-      .select('id')
+      .select('data, resource_id')
       .eq('studio_id', studioId)
       .eq('event_type', EVENTOS.RESERVA_PAGADA_SIN_PLAZA)
       .contains('data', { socioId })
       .gte('created_at', desde)
-      .limit(1);
-    avisoSinPlaza = Boolean(aviso && aviso.length > 0);
+      .order('created_at', { ascending: false })
+      .limit(20);
+    aviso = elegirAvisoDelPago(avisos as AvisoSinPlaza[] | null, pi);
   }
 
-  const estado = resolverEstadoPago(reserva?.estado as string | null | undefined, avisoSinPlaza);
+  // 5. Ya tenía una reserva viva en esa clase: este pago no la ha reservado otra
+  //    vez. Se le dice lo que TIENE ahora (plaza, cola o pendiente), no «sin
+  //    plaza», que a quien sí tenía plaza le podía hacer no ir a su clase.
+  let sesionDeLaClase = (reserva?.sesion_id as string | null | undefined) ?? null;
+  let previa: ReservaPrevia | null = null;
+  if (!reserva && aviso && avisoDeYaTenia(aviso) && aviso.resource_id) {
+    const { data: suyas } = await admin
+      .from('reservas')
+      .select('estado')
+      .eq('studio_id', studioId)
+      .eq('sesion_id', aviso.resource_id)
+      .eq('socio_id', socioId)
+      .in('estado', ['CONFIRMADA', 'ASISTIDA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']);
+    previa = reservaPreviaDe((suyas ?? []).map(r => (r.estado as string | null) ?? null));
+    if (previa) sesionDeLaClase = aviso.resource_id;
+  }
+
+  const estado = previa ? 'ya_tenia_plaza' : resolverEstadoPago(reserva?.estado as string | null | undefined, !!aviso);
   if (estado === 'en_proceso' || estado === 'fallida') return respuesta(req, { estado });
 
-  // Con reserva (confirmada / lista de espera / pendiente): los datos de la
-  // clase PROPIA para que la pantalla los enseñe con la respuesta real.
+  // Con reserva (confirmada / lista de espera / pendiente, o la que ya tenía): los
+  // datos de la clase PROPIA para que la pantalla los enseñe con la respuesta real.
   let clase: RespuestaEstadoPago['clase'];
-  if (reserva?.sesion_id) {
+  if (sesionDeLaClase) {
     const { data: ses } = await admin
       .from('sesiones')
       .select('inicio, tipo_clase_id')
-      .eq('id', reserva.sesion_id as string)
+      .eq('id', sesionDeLaClase)
       .eq('studio_id', studioId)
       .maybeSingle();
     if (ses?.inicio) {
@@ -151,5 +173,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return respuesta(req, { estado, clase });
+  return respuesta(req, { estado, clase, ...(previa ? { previa } : {}) });
 }

@@ -25,7 +25,7 @@
 // cuenta: que nada espera tu VISTO BUENO. Hay un test que lo fija.
 //
 // Puro y sin I/O (ver estado-estudio.test.ts). Los recuentos los hace
-// app/api/estado-estudio/route.ts, acotados por rol.
+// lib/estado-estudio-servidor.ts (la ruta y el asistente), acotados por rol.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**

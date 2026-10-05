@@ -13,6 +13,7 @@ import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-
 import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
 import { bloqueoCobroEnMostradorDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import { claveCobroRecibo, mensajeCajaAntesDeCobrar, respuestaTrasCancelar, trasGuardarReferencia } from '@/lib/pos/referencia-cobro-recibo';
+import { exigirCheckoutLeido } from '@/lib/billing/pago-online-al-cobrar-a-mano';
 import type { EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: recibo } = await admin.from('recibos')
-    .select('id, concepto, importe, estado, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, cobro_mostrador_pi, cobro_off_session_clave, entrega_tipo, suscripcion_id')
+    .select('id, concepto, importe, estado, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, checkout_session_id, cobro_mostrador_pi, cobro_off_session_clave, entrega_tipo, suscripcion_id')
     .eq('id', reciboId).eq('studio_id', sesion.studioId)
     .maybeSingle();
   if (!recibo) return NextResponse.json({ error: 'No encontramos ese recibo' }, { status: 404 });
@@ -166,10 +167,9 @@ export async function POST(req: NextRequest) {
       .is('cobro_off_session_clave', null)
       .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('estado', recibo.estado);
     // Ni si se abrió un enlace de pago online después de cerrarlo (el leído arriba): la
-    // socia estaría pagando también por ahí.
-    const guardarSinOtroEnlace = enMarcha.checkoutLeido
-      ? guardar.eq('checkout_session_id', enMarcha.checkoutLeido)
-      : guardar.is('checkout_session_id', null);
+    // socia estaría pagando también por ahí. Que la columna haya quedado vacía (el
+    // conciliador suelta la sesión que caduca) no es un enlace nuevo: «la leída o ninguna».
+    const guardarSinOtroEnlace = exigirCheckoutLeido(guardar, enMarcha.checkoutLeido);
     const { data: tocadas, error: errRef } = await (referenciaPrevia
       ? guardarSinOtroEnlace.eq('cobro_mostrador_pi', referenciaPrevia)
       : guardarSinOtroEnlace.is('cobro_mostrador_pi', null)

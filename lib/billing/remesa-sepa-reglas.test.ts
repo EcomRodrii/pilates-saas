@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   COLUMNAS_COBRO_EN_MARCHA, avisoCobrosEnMarchaFueraDeRemesa, avisoXmlFallido, avisoYaNoPendientes,
-  DIAS_HASTA_CARGO_REMESA, prepararRemesa, recibosSinCobroEnMarcha, tieneCobroEnMarcha, vistaPreviaRemesa,
+  DIAS_HASTA_CARGO_REMESA, prepararRemesa, recibosSinCobroEnMarcha, renovacionEnEsperaDeFila, SELECT_RECIBOS_REMESA, tieneCobroEnMarcha,
+  vistaPreviaRemesa,
   type FilaReciboRemesa, type IoRemesa, type ResultadoMarca, type ResultadoMarcaRemesa,
 } from './remesa-sepa-reglas.ts';
 
@@ -170,7 +171,11 @@ test('⚠️ marcar exige PENDIENTE y sin cobro en marcha en el UPDATE; deshacer
     .includes('if (opciones.sinCobroEnMarcha) for (const col of COLUMNAS_COBRO_EN_MARCHA) q = q.is(col, null);'));
   const lectura = cuerpoDe(datos, 'export async function dbLeerRecibosParaRemesa(');
   // Las columnas salen de la constante: una nueva entra sola en la lectura.
-  assert.ok(lectura.includes(".select(`id, estado, ${COLUMNAS_COBRO_EN_MARCHA.join(', ')}`)"), 'la lectura trae las columnas de «cobro en marcha»');
+  assert.ok(lectura.includes('.select(SELECT_RECIBOS_REMESA)'), 'la lectura trae las columnas de «cobro en marcha» y la cuota');
+  for (const col of COLUMNAS_COBRO_EN_MARCHA) assert.ok(SELECT_RECIBOS_REMESA.includes(col), col);
+  assert.ok(SELECT_RECIBOS_REMESA.includes('suscripciones(estado, fecha_fin, planes_tarifa(tipo))'));
+  // Con el «hoy» con el que se decide si una cuota ya venció.
+  assert.match(lectura, /return \{ ok: true, filas, hoy: new Date\(\)\.toISOString\(\)\.slice\(0, 10\) \};/);
   assert.match(lectura, /if \(error\) return \{ ok: false \};/);
   assert.match(lectura, /catch \{\s*return \{ ok: false \};/);
 });
@@ -248,4 +253,53 @@ test('el botón ya no calcula el día de cargo con el reloj del dispositivo: usa
   assert.match(fuente, /a\.download = `remesa-sepa-\$\{r\.fechaCargo\}\.xml`/);
   const datos = leer('lib/supabase-data.ts');
   assert.ok(cuerpoDe(datos, 'export async function dbUpdateRecibosBatch(').includes("q.select('id, cargo_pedido_para')"), 'el marcado devuelve el día de cargo');
+});
+
+// ── Revisión del 5-oct (#11): la renovación de una cuota que no toca cobrar ─────
+// Una renovación pedida desde la app y abandonada quedaba sin sesión (la caducada
+// se suelta) y la remesa la domiciliaba semanas antes de vencer, o con la cuota ya
+// cancelada (y al confirmarla, la reactivaba). La misma regla que el cobro automático.
+
+const conCuota = (id: string, cuota: { estado: string; fecha_fin: string | null; tipo: string }, extra: Partial<FilaReciboRemesa> = {}): FilaReciboRemesa => ({
+  id, estado: 'PENDIENTE', proximo_reintento: null, stripe_payment_intent_id: null, checkout_session_id: null, cobro_mostrador_pi: null,
+  es_renovacion: true, tras_cancelar_cuota: null,
+  suscripciones: { estado: cuota.estado, fecha_fin: cuota.fecha_fin, planes_tarifa: { tipo: cuota.tipo } },
+  ...extra,
+});
+
+test('la renovación de una cuota sin vencer, en pausa o cancelada no entra en la remesa', () => {
+  const hoy = '2026-10-06';
+  const sinVencer = conCuota('a', { estado: 'ACTIVA', fecha_fin: '2026-10-31', tipo: 'MENSUAL' });
+  const vencida = conCuota('b', { estado: 'ACTIVA', fecha_fin: '2026-10-05', tipo: 'MENSUAL' });
+  const pausada = conCuota('c', { estado: 'PAUSADA', fecha_fin: '2026-10-01', tipo: 'MENSUAL' });
+  const cancelada = conCuota('d', { estado: 'CANCELADA', fecha_fin: '2026-10-01', tipo: 'MENSUAL' });
+  const canceladaReintentar = conCuota('e', { estado: 'CANCELADA', fecha_fin: '2026-10-01', tipo: 'MENSUAL' }, { tras_cancelar_cuota: 'REINTENTAR' });
+  const bono = conCuota('f', { estado: 'ACTIVA', fecha_fin: '2026-12-31', tipo: 'BONO' });
+  const venta = conCuota('g', { estado: 'ACTIVA', fecha_fin: '2026-12-31', tipo: 'MENSUAL' }, { es_renovacion: false });
+  assert.equal(renovacionEnEsperaDeFila(sinVencer, hoy), 'CUOTA_SIN_VENCER');
+  assert.equal(renovacionEnEsperaDeFila(conCuota('h', { estado: 'ACTIVA', fecha_fin: hoy, tipo: 'MENSUAL' }), hoy), 'CUOTA_SIN_VENCER', 'el día que vence aún no');
+  assert.equal(renovacionEnEsperaDeFila(vencida, hoy), null);
+  assert.equal(renovacionEnEsperaDeFila(pausada, hoy), 'CUOTA_PAUSADA');
+  assert.equal(renovacionEnEsperaDeFila(cancelada, hoy), 'CUOTA_CANCELADA');
+  assert.equal(renovacionEnEsperaDeFila(canceladaReintentar, hoy), null, 'al cancelar se dijo «sigue reintentando»: es deuda');
+  assert.equal(renovacionEnEsperaDeFila(bono, hoy), null, 'la de un bono la decide quien la creó');
+  assert.equal(renovacionEnEsperaDeFila(venta, hoy), null, 'una venta no es una renovación');
+  assert.equal(renovacionEnEsperaDeFila({ ...sinVencer, suscripciones: null }, hoy), null, 'sin cuota, como antes');
+
+  const lectura = { ok: true as const, filas: new Map([sinVencer, vencida, pausada].map(f => [f.id, f])), hoy };
+  const r = recibosSinCobroEnMarcha([{ id: 'a' }, { id: 'b' }, { id: 'c' }], lectura);
+  assert.deepEqual(r.entran.map(x => x.id), ['b']);
+  assert.equal(r.fueraRenovacionEnEspera, 2);
+  assert.match(avisoCobrosEnMarchaFueraDeRemesa(r) ?? '', /2 recibos no entran: son renovaciones de una cuota que todavía no toca cobrar/);
+  // Sin «hoy» (una lectura de antes), como antes: no se decide nada por fecha.
+  assert.equal(recibosSinCobroEnMarcha([{ id: 'a' }], { ok: true, filas: lectura.filas }).entran.length, 1);
+
+  const v = vistaPreviaRemesa({
+    pendientes: [pend('a', 's1'), pend('b', 's1')],
+    conMandatoVigente: () => true,
+    penalizaciones: { ok: true, estadoPorRecibo: new Map() },
+    cobrosEnMarcha: lectura,
+  });
+  assert.deepEqual(v.entran.map(x => x.id), ['b']);
+  assert.deepEqual(v.fuera.map(f => [f.recibo.id, f.motivo, f.detalle]), [['a', 'RENOVACION_EN_ESPERA', 'es la renovación de una cuota que aún no ha vencido']]);
 });

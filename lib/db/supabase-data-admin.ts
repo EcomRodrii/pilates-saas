@@ -73,6 +73,7 @@ import {
   planDeClaseSuelta, type DesenlaceAnulacion, type DesenlaceVentaSuelta,
 } from '@/lib/reservas/clase-suelta';
 import { importeAdeudado } from '@/lib/billing/situacion-recibo';
+import { estadoDeLaRespuesta, estadoDeReservaDelPago, estadoPrevioDeLaSocia, ESTADOS_RESERVA_VIVA } from '@/lib/billing/reserva-tras-pago-reglas';
 import { anularVentaClaseSuelta, prepararVentaClaseSuelta, quedaTrasAnular, type QuedaTrasVenta } from '@/lib/billing/clase-suelta-mostrador';
 import type { MotivoPlazaNoMaterializada } from '@/lib/notifications/emit';
 import type { FormaPegada } from '@/lib/widgets/pegado';
@@ -2286,8 +2287,14 @@ async function avisarEsperaSinPlaza(
     // que Resend esté configurado.
     if (cierre.avisarEstudio) {
       const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+      // El pago de esta reserva, para que /reservar no tome este aviso por el de OTRO
+      // pago (estado-pago elige el aviso por pago). Sale de su recibo `rec-web-…`, el
+      // del mismo sufijo; sin él, el aviso no vale para ningún pago.
+      const { data: reciboDelPago } = await admin.from('recibos').select('stripe_payment_intent_id')
+        .eq('id', fila.id.replace(/^res-web-/, 'rec-web-')).eq('studio_id', fila.studio_id).maybeSingle();
       await emitirReservaPagadaSinPlaza(admin, {
         studioId: fila.studio_id, sesionId: fila.sesion_id, socioId: fila.socio_id, situacion: 'cerrada',
+        paymentIntentId: (reciboDelPago?.stripe_payment_intent_id as string | null | undefined) ?? null,
       });
     }
 
@@ -3152,7 +3159,11 @@ export async function reservarPlazaTrasPagoPublico(params: {
   spotId?: string | null;
 }): Promise<
   | { ok: true; estado: string; reservaId: string; spotAsignado: string | null }
-  | { ok: false; motivo: 'sesion-no-encontrada' | 'sesion-invalida' | 'spot-ocupado' | 'error'; detalle?: string }
+  | {
+    ok: false; motivo: 'sesion-no-encontrada' | 'sesion-invalida' | 'spot-ocupado' | 'ya-tenia-reserva' | 'error'; detalle?: string;
+    /** Con `ya-tenia-reserva`: el estado de la reserva viva que ya tenía (CONFIRMADA, LISTA_ESPERA…). */
+    estadoPrevio?: string | null;
+  }
 > {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -3214,21 +3225,40 @@ export async function reservarPlazaTrasPagoPublico(params: {
     p_suscripcion_id: consumibleBono?.suscripcion.id ?? null,
   });
   if (error) {
-    // YA_RESERVADA: mismo p_reserva_id que un reintento anterior del webhook
-    // ya insertó — idempotente, se trata como éxito, no como fallo.
+    // YA_RESERVADA quiere decir «esta socia ya tiene una reserva viva en esta
+    // clase» (`evaluar_reserva`), y hay DOS formas de llegar aquí:
+    //  · la reserva es la de ESTE pago (`res-web-<pi>`): un reintento del webhook,
+    //    o webhook + conciliador. Idempotente: se completa y es un éxito;
+    //  · es OTRA reserva suya (con su bono, o de otro pago de la misma clase).
+    //    Este pago NO se ha usado para nada.
+    // ⚠️ Hasta el 5-oct-2026 las dos salían como «CONFIRMADA» (`?? 'CONFIRMADA'`),
+    // así que en el segundo caso nadie se enteraba de que había dinero cobrado sin
+    // usar: ni el mostrador (sin aviso) ni la socia. Solo se da por bueno lo que
+    // consta en la base de datos.
     if (error.message.includes('YA_RESERVADA')) {
-      const { data: existente } = await admin.from('reservas').select('estado, spot_id, socio_id, sesion_id').eq('id', reservaId).maybeSingle();
-      const estadoExistente = (existente?.estado as string) ?? 'CONFIRMADA';
-      const spotExistente = (existente?.spot_id as string | null) ?? null;
-      if (existente && existente.socio_id === params.socioId && existente.sesion_id === params.sesionId) {
-        // La entrega anterior insertó la reserva y pudo morir antes de descontar
-        // el bono: se completa (idempotente por reserva). Los avisos solo salen
-        // si ese descuento ocurre ahora.
-        await trasReservaCreada(admin, {
-          studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
-          estado: estadoExistente, spotAsignado: spotExistente, canal: 'pago', reservaId, reintento: true,
-        });
+      const { data: existente, error: errExistente } = await admin.from('reservas')
+        .select('estado, spot_id, socio_id, sesion_id').eq('id', reservaId).maybeSingle();
+      if (errExistente) {
+        return { ok: false, motivo: 'error', detalle: `YA_RESERVADA sin poder leer la reserva del pago: ${errExistente.message}` };
       }
+      const estadoExistente = estadoDeReservaDelPago(existente, { socioId: params.socioId, sesionId: params.sesionId });
+      if (!estadoExistente) {
+        // Qué tenía: no es lo mismo plaza que un sitio en la cola o una reserva
+        // pendiente de aprobar (el aviso al mostrador y la pantalla lo dicen distinto).
+        const { data: suyas } = await admin.from('reservas').select('estado')
+          .eq('studio_id', params.studioId).eq('sesion_id', params.sesionId).eq('socio_id', params.socioId)
+          .in('estado', [...ESTADOS_RESERVA_VIVA]);
+        const estadoPrevio = estadoPrevioDeLaSocia((suyas ?? []).map(r => (r.estado as string | null) ?? null));
+        return { ok: false, motivo: 'ya-tenia-reserva', detalle: 'ya tenía otra reserva en esta clase', estadoPrevio };
+      }
+      const spotExistente = (existente?.spot_id as string | null) ?? null;
+      // La entrega anterior insertó la reserva y pudo morir antes de descontar
+      // el bono: se completa (idempotente por reserva). Los avisos solo salen
+      // si ese descuento ocurre ahora.
+      await trasReservaCreada(admin, {
+        studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
+        estado: estadoExistente, spotAsignado: spotExistente, canal: 'pago', reservaId, reintento: true,
+      });
       return { ok: true, estado: estadoExistente, reservaId, spotAsignado: spotExistente };
     }
     if (error.message.includes('AFORO_LLENO_SIN_ESPERA')) return { ok: false, motivo: 'sesion-invalida', detalle: 'clase completa' };
@@ -3288,7 +3318,27 @@ export async function reservarPlazaTrasPagoPublico(params: {
     return { ok: false, motivo: 'error', detalle: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;
-  const estado: string = row?.estado ?? 'CONFIRMADA';
+  const estado = estadoDeLaRespuesta(row);
+  if (!estado) {
+    // La RPC no ha dicho en qué estado quedó la reserva. Antes se suponía
+    // CONFIRMADA (`?? 'CONFIRMADA'`): con dinero ya cobrado, suponer es decir
+    // «tienes plaza» sin saberlo. Se relee la reserva del pago; si no consta, es
+    // un fallo (aviso al mostrador), nunca un éxito.
+    const { data: fila, error: errFila } = await admin.from('reservas')
+      .select('estado, spot_id, socio_id, sesion_id').eq('id', reservaId).maybeSingle();
+    const estadoLeido = errFila ? null : estadoDeReservaDelPago(fila, { socioId: params.socioId, sesionId: params.sesionId });
+    if (!estadoLeido) {
+      return { ok: false, motivo: 'error', detalle: 'reservar_plaza no devolvió el estado y la reserva del pago no consta' };
+    }
+    const spotLeido = (fila?.spot_id as string | null) ?? null;
+    // Sin la fila de la RPC no se sabe qué bono descontó: se completa como un
+    // reintento (el descuento es idempotente por reserva).
+    await trasReservaCreada(admin, {
+      studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
+      estado: estadoLeido, spotAsignado: spotLeido, canal: 'pago', reservaId, reintento: true,
+    });
+    return { ok: true, estado: estadoLeido, reservaId, spotAsignado: spotLeido };
+  }
   const spotAsignado = estado === 'CONFIRMADA' ? (params.spotId ?? null) : null;
 
   // D-1: bono ya decidido dentro de `reservar_plaza` — ver el mismo criterio

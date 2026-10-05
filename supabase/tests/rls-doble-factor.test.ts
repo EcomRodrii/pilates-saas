@@ -55,6 +55,28 @@ test('con la verificación activada y la sesión sin pasarla, la propietaria no 
   }
 });
 
+test('el factor de la zona interna no enciende la verificación en el panel', async () => {
+  // Migr 20261005220308: el factor que /interno obliga a crear ('Tentare
+  // Internal') solo cuenta allí. Con él y una sesión aal1, el panel sigue igual.
+  const studio = await crearStudioConPropietaria(admin);
+  try {
+    await sql`insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+              values (${randomUUID()}, ${studio.authUserId}, 'Tentare Internal', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXP')`;
+    const rpc = await studio.comoPropietaria.rpc('current_studio_id');
+    assert.equal(rpc.data, studio.studioId, `con solo el factor interno debería resolver su estudio: ${JSON.stringify(rpc)}`);
+    const ve = await studio.comoPropietaria.from('studios').select('id').eq('id', studio.studioId);
+    assert.equal(ve.data?.length, 1, `con solo el factor interno debería ver su estudio: ${ve.error?.message}`);
+    // Y en cuanto activa la del panel, vuelve la regla A.
+    await sql`insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+              values (${randomUUID()}, ${studio.authUserId}, 'Tentare', 'totp', 'verified', now(), now(), 'JBSWY3DPEHPK3PXP')`;
+    const conAmbos = await studio.comoPropietaria.rpc('current_studio_id');
+    assert.equal(conAmbos.data, null);
+  } finally {
+    await sql`delete from auth.mfa_factors where user_id = ${studio.authUserId}`;
+    await limpiarFixtures(admin, [studio]);
+  }
+});
+
 test('si el estudio la exige, la propietaria sin factor tampoco ve nada hasta activarla', async () => {
   const studio = await crearStudioConPropietaria(admin);
   try {
@@ -79,6 +101,10 @@ test('la función que decide no la puede ejecutar anon', async () => {
            has_function_privilege('authenticated', 'public.nivel_acceso_suficiente()', 'EXECUTE') as auth`;
   assert.equal(r.anon, false);
   assert.equal(r.auth, true, 'authenticated la necesita: la llaman sus políticas');
+  const [h] = await sql<{ anon: boolean; auth: boolean }[]>`
+    select has_function_privilege('anon', 'public.tiene_factor_de_cuenta(uuid)', 'EXECUTE') as anon,
+           has_function_privilege('authenticated', 'public.tiene_factor_de_cuenta(uuid)', 'EXECUTE') as auth`;
+  assert.deepEqual(h, { anon: false, auth: false }, 'tiene_factor_de_cuenta solo la llaman otras funciones');
 });
 
 test.after(async () => { await sql.end(); });
