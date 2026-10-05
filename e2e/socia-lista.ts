@@ -96,6 +96,8 @@ export async function sembrarSociaLista(page: Page, opciones: { relojMadrid?: bo
   // Aforo ligero (el horario y la hoja de clase lo piden aparte del payload):
   // coherente con el fixture, que no tiene reservas de aforo.
   await page.route('**/api/public/aforo**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sesionIds: [SESION_ID], aforoReservas: [] }) }));
+  // Bonos: los movimientos y la semana de la cuota (P4). Vacío por defecto; un spec que los mire registra el suyo DESPUÉS.
+  await page.route('**/api/public/mis-bonos', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ movimientos: { movimientos: [], hayMas: false, cuadra: true, historialCompleto: true, desde: null }, semanas: [] }) }));
 }
 
 /** Abre la hoja de la clase de las 10:00. */

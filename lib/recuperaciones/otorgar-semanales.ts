@@ -21,7 +21,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { mapPlanTarifa, mapSuscripcion, hidratarTiposDePlanes } from '@/lib/supabase-data';
 import { planCubreTipoClase, planLimitaSemanaDeClase } from '@/lib/bono-logic.ts';
 import { inicioDelDiaEstudio, finDelDiaEstudio, fechaCortaEstudio, uid } from '@/lib/utils';
-import { canceladasCompensables, derechoDeRecuperaciones } from './derecho-semanal.ts';
+import { ESTADOS_QUE_USAN_LA_SEMANA, canceladasCompensables, derechoDeRecuperaciones } from './derecho-semanal.ts';
 import { semanaCerrada } from './otorgar-semanales-fechas.ts';
 import { publish } from '@/lib/notifications/engine';
 import { EVENTOS } from '@/lib/notifications/catalog';
@@ -108,7 +108,7 @@ export async function otorgarRecuperacionesSemanales(
         // de su semana. Sin esto, faltar sin avisar le devolvía una recuperación por un hueco
         // que dejó vacío ella.
         const usadas = suyas.filter(r =>
-          (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA' || r.estado === 'NO_ASISTIO')
+          (ESTADOS_QUE_USAN_LA_SEMANA as readonly unknown[]).includes(r.estado)
           && cubre(r.sesion_id as string)).length;
         // `cancelada_tardia === false` a propósito, no `!== true`: NULL es «no
         // se sabe» (cancelada antes de existir la columna) y eso no se compensa.

@@ -21,8 +21,12 @@ test('⚠️ el tope semanal cuenta el no-show en sus DOS conteos (total y por a
 });
 
 test('⚠️ la recuperación semanal tampoco regala un hueco por un no-show: cuenta como uso, igual que el tope', () => {
+  // Los estados que usan la semana tienen un dueño en TS (`ESTADOS_QUE_USAN_LA_SEMANA`, derecho-semanal.ts), que
+  // comparten el barrido y «Esta semana» de la cuota en la app: el barrido cuenta con él, y él lleva el no-show.
   const barrido = leer('lib/recuperaciones/otorgar-semanales.ts');
-  assert.match(barrido, /r\.estado === 'CONFIRMADA' \|\| r\.estado === 'ASISTIDA' \|\| r\.estado === 'NO_ASISTIO'/);
+  assert.match(barrido, /\(ESTADOS_QUE_USAN_LA_SEMANA as readonly unknown\[\]\)\.includes\(r\.estado\)/);
+  const dueno = leer('lib/recuperaciones/derecho-semanal.ts');
+  assert.match(dueno, /export const ESTADOS_QUE_USAN_LA_SEMANA = \['CONFIRMADA', 'ASISTIDA', 'NO_ASISTIO'\] as const;/);
 });
 
 test('⚠️ elegir_bono_consumible: primero el acotado, luego la caducidad, luego el id; y la mensual sigue ganando', () => {

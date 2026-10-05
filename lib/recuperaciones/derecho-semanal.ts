@@ -22,6 +22,13 @@ export function derechoDeRecuperaciones(
   return Math.min(huecosSinUsar, Math.max(0, canceladasATiempo));
 }
 
+/**
+ * Los estados que USAN una clase de la semana, los mismos que cuenta el tope de `reservar_plaza`
+ * (`calcular_excede_limite_semanal`): quien reserva y no viene también la ha usado. Dueño único en TS: el barrido de
+ * recuperaciones y «Esta semana» de la cuota en la app (lib/student/semana-cuota.ts).
+ */
+export const ESTADOS_QUE_USAN_LA_SEMANA = ['CONFIRMADA', 'ASISTIDA', 'NO_ASISTIO'] as const;
+
 /** Lo que el barrido necesita de cada reserva suya de la semana (las columnas de `reservas`). */
 export interface ReservaDeLaSemana {
   id: unknown;

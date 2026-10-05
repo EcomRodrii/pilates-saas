@@ -174,3 +174,9 @@ export async function getHayAlgoALaVenta(slug: string): Promise<boolean> {
   const d = await catalogo(slug);
   return d ? catalogoTienda(d.planesTarifa, d.citasServicios, d.productosFisicos).length > 0 : false;
 }
+
+/** Los nombres de los tipos de clase del estudio (para «Reformer: 1 de 2»). Del mismo payload. */
+export async function getNombresTiposClase(slug: string): Promise<Record<string, string>> {
+  const d = await catalogo(slug);
+  return Object.fromEntries((d?.tiposClase ?? []).map((t) => [t.id, t.nombre]));
+}

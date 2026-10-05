@@ -13,6 +13,8 @@ import { euros, fechaCorta, unir } from '@/lib/student/formato';
 import { saldoBono } from '@/lib/student/saldo-bono';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
+import { MovimientosBono } from '@/components/student/domain/MovimientosBono';
+import { esCuota } from '@/lib/student/bono-cubre';
 
 // Detalle de bono (§A.13): qué compró, cuánto le queda y en qué se ha ido.
 //
@@ -100,6 +102,12 @@ export default function DetalleBonoPage() {
           )}
         </div>
 
+        {/* En qué se ha ido y de dónde ha venido cada sesión (P4-D): el ledger de derechos, que sí sabe con qué se pagó
+            cada reserva (`bono_suscripcion_id`). Una cuota no gasta sesiones: no hay lista que enseñar. */}
+        {(b.tipoPlan === 'BONO' || b.tipoPlan === 'PUNTUAL') && Number.isFinite(b.creditosTotales)
+          ? <MovimientosBono slug={estudio.slug} bonoId={b.id} compacta={false} />
+          : esCuota(b) && <p className="t-meta" data-testid="cuota-sin-movimientos">Tu cuota no gasta sesiones.</p>}
+
         {/* ⚠️ Aquí había una sección «Sesiones usadas» que listaba las clases
             pagadas con este bono filtrando `reservas` por `r.bonoId`. Ese campo
             NO LO ESCRIBE NADIE: el único sitio del repo que pone un `bonoId` es
@@ -111,7 +119,8 @@ export default function DetalleBonoPage() {
             Y no es que faltara conectarlo: `proyectarReservas` ya documenta que
             `reservas` no guarda con qué se pagó (consumir el bono es un paso
             aparte y no deja columna). O sea que el dato no existe. Se quita la
-            promesa en vez de fingirla. */}
+            promesa en vez de fingirla. (5-oct-2026: el dato ya existe —el motor de derechos escribe
+            `bono_suscripcion_id` y el ledger—, y la lista de arriba sale de ahí.) */}
       </div>
     </StudentShell>
   );

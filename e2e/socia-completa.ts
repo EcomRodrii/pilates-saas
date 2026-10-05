@@ -309,6 +309,8 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
     activa: valoracionActiva, conSalud: false, historial: null,
   })));
 
+  // Bonos: los movimientos y la semana de la cuota (P4). Vacío por defecto; un spec que los mire registra el suyo DESPUÉS.
+  await ruta((p) => p === '/api/public/mis-bonos', (r) => r.fulfill(json({ movimientos: { movimientos: [], hayMas: false, cuadra: true, historialCompleto: true, desde: null }, semanas: [] })));
   await ruta((p) => p === '/api/public/socio', (r) => r.fulfill(json({ ok: true })));
   await ruta((p) => p === '/api/public/favoritos', (r) => r.fulfill(json({ favoritos: [] })));
   await ruta((p) => p === '/api/public/retos', (r) => r.fulfill(json({ ok: true })));
