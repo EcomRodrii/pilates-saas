@@ -14,15 +14,19 @@ import type { PropsTenti } from './tenti';
 //     lupa, la baldosa del Zap), en la misma caja: nada salta. Si el chunk no
 //     llega, `reserva` también; y si llega pero no hay canvas 2D, Tenti la
 //     recibe por props y la pinta él.
-//   · Siempre en 'reposo', sin sonido, sin toques, sin insignias, sin saludo y
-//     sin seguir al cursor (con el ratón en movimiento el bucle iría a 60 fps).
-//     No hay prop para pedir otra cosa: el tsc del CI lo vigila, y la guardia
+//   · Siempre en 'reposo' y sin insignias, pero vivo como en /interno/tenti
+//     (decisión del fundador del 5-oct): parpadea, mira alrededor, sigue el
+//     cursor con los ojos y se deja tocar (se aplasta y suena; se molesta y se
+//     marea si insistes). Tocarlo no le quita el foco al campo del buscador.
+//     Suena si «Sonidos de Tenti» está encendido en este dispositivo. No hay
+//     prop para pedir otra cosa: el tsc del CI lo vigila, y la guardia
 //     lib/tenti/donde-vive-tenti.test.ts vigila quién lo usa y a qué tamaño.
-//   · Solo `mira`: hacia dónde mira en horizontal (el buscador, hacia el texto).
+//   · `mira`: hacia dónde mira en horizontal (el buscador, hacia el texto). Si
+//     se mueve el ratón, manda el ratón hasta que se vuelva a escribir.
 //
-// El motor duerme entre parpadeos (tenti.tsx), así que en reposo cuesta unos
-// pocos fotogramas por segundo. Quien lo monta decide CUÁNDO vive: el buscador,
-// solo con la hoja abierta.
+// El motor duerme entre parpadeos y miradas (tenti.tsx), así que en reposo y
+// con el ratón quieto cuesta unos pocos fotogramas por segundo. Quien lo monta
+// decide CUÁNDO vive: el buscador, solo con la hoja abierta.
 //
 // De './tenti' solo se importa el tipo: un import de valor metería el motor en
 // el chunk de quien importa este fichero, que en el buscador es todo el panel.
@@ -54,7 +58,7 @@ const TentiCanvas = dynamic<PropsTenti>(
 export function TentiDecorativo({ tamano, reserva, mira, className }: PropsTentiDecorativo) {
   return (
     <ReservaCtx.Provider value={reserva}>
-      <TentiCanvas estado="reposo" tamano={tamano} mira={mira} reserva={reserva} className={className} />
+      <TentiCanvas estado="reposo" tamano={tamano} mira={mira} sigueCursor interactivo reserva={reserva} className={className} />
     </ReservaCtx.Provider>
   );
 }

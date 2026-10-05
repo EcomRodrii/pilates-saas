@@ -360,6 +360,9 @@ export const SECCIONES = [
       { id: 'inicio-del-panel', titulo: 'Tu Resumen', frase: 'Ordena y esconde las secciones de tu pantalla de Resumen. Los avisos de estado van siempre arriba.', guardado: 'barra', palabras: ['secciones', 'pantalla principal', 'inicio'] },
       { id: 'posicion-del-menu', titulo: 'Dónde va el menú', frase: 'A la izquierda o arriba, en el ordenador. En el móvil el menú no cambia.', guardado: 'barra', palabras: ['izquierda', 'arriba'] },
       { id: 'claro-u-oscuro', titulo: 'Claro u oscuro', frase: 'Solo para ti y en este navegador: no cambia nada a nadie más de tu equipo.', guardado: 'al-pulsar', palabras: ['modo oscuro', 'noche'] },
+      // Encendido por defecto (decisión del fundador, 5-oct-2026). Parpadear o
+      // mirar alrededor no suena nunca: solo esos momentos.
+      { id: 'sonidos-de-tenti', titulo: 'Sonidos de Tenti', frase: 'Tenti suena al abrir el buscador, al celebrar, cuando la IA termina y cuando lo tocas. Se guarda en este navegador.', guardado: 'al-pulsar', palabras: ['sonido', 'silenciar', 'audio', 'mascota', 'tenti'] },
     ],
   },
 ] as const satisfies readonly SeccionConfiguracion[];

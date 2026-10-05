@@ -198,7 +198,7 @@ export function ListoParaReservar({
             que no llegue, no mueve el titular. Para otros roles, el Check de
             siempre (lo decide TentiDiferido, no esta pantalla). */}
         <div className="mx-auto mb-2 grid size-20 place-items-center">
-          <TentiDiferido estado={estadoTenti} tamano={80} sigueCursor={false} reserva={<CuadroListo />} />
+          <TentiDiferido estado={estadoTenti} tamano={80} sigueCursor reserva={<CuadroListo />} />
         </div>
         <h2 className="text-[24px] font-bold tracking-tight text-foreground sm:text-[28px]">
           Tu estudio ya puede recibir reservas

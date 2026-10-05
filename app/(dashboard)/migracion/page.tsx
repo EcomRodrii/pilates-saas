@@ -37,6 +37,7 @@ import {
   type EntidadMigracion, type ContextoEstudio,
 } from '@/lib/migracion/clasificador';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
+import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
 
 type Paso = 'subir' | 'analizando' | 'revisar' | 'ejecutando' | 'acta';
 
@@ -197,6 +198,8 @@ export default function MigracionPage() {
     }
     setPlan(r);
     setPaso('revisar');
+    // Tenti avisa de que ha terminado de leer (si suena en este dispositivo).
+    sonarTenti('pop');
   }
 
   // Re-deriva las filas en cliente con las MISMAS funciones puras de lib/csv

@@ -19,35 +19,48 @@
 //   WITHOUT WARRANTY OF ANY KIND.
 //
 // Es la marca de «aquí interviene Tentare» en las pantallas de todos los días,
-// donde antes iba el Orb. Por eso NO es el canvas: sin requestAnimationFrame,
-// sin el motor en el chunk de la pantalla (ni sus sonidos) y sin JavaScript que
-// correr después de pintarse. El dibujo sale de lib/tenti/geometria.ts, la
-// misma geometría que anima el motor, y el tema lo cambia el CSS: los colores
-// son los tokens --tenti-* de app/globals.css, que .dark redefine.
+// donde antes iba el Orb. Desde el 5-oct-2026 (decisión del fundador: «no se
+// mueve en ningún lado») va VIVO: el canvas del motor, el mismo que en
+// /interno/tenti, a tamaño de icono. Parpadea, mira alrededor, sigue el cursor
+// con los ojos, respira (CSS, `tenti-respira-suave` en globals.css), y si no va
+// dentro de un botón o un enlace se deja tocar: se aplasta y suena, se molesta
+// si insistes y se marea si insistes mucho. Dentro de un botón o un enlace el
+// clic es del botón: ahí no es tocable ni suena por su cuenta.
+//
+// El motor llega en su propio chunk (el mismo que el del buscador y Listo, por
+// dynamic()): ninguna pantalla lo lleva en su chunk inicial. Mientras llega, si
+// no llega o si no hay canvas 2D, se ve el SVG quieto de siempre, en la MISMA
+// caja (ancho × alto del cuerpo): nada salta.
+//
+// El canvas es más grande que la caja (el cuerpo ocupa el 68,4 % de su lado) y
+// se sale de ella por arriba y por los lados, centrado en el cuerpo: así el
+// cuerpo mide `ancho`, como el icono, y la pantalla no se mueve un píxel.
 //
 // Dos estados, y ninguno más:
-//   · 'reposo' — la firma. Quieto del todo. No es un aviso ni un «todo bien»:
-//     si hay algo que avisar, lo dice el texto de al lado.
+//   · 'reposo' — la firma. No es un aviso ni un «todo bien»: si hay algo que
+//     avisar, lo dice el texto de al lado.
 //   · 'pensando' — una petición de verdad en vuelo (un botón de IA, Analizar),
-//     siempre junto a un gerundio en el texto. Es la MISMA pose respirando por
-//     CSS (`tenti-respira`, globals.css), no la del canvas, que mira arriba a la
-//     derecha como un asistente que piensa. Con «reducir movimiento» se queda
-//     quieto, y el estado lo dice el texto.
+//     siempre junto a un gerundio en el texto. Es el 'pensando' del motor (mira
+//     arriba a la derecha, sin la insignia de puntos), respirando más deprisa.
+//     Empezar a pensar no suena; terminar con resultado lo suena quien llama
+//     (`sonarTenti('pop')`), porque solo él sabe si hubo resultado.
+// Con «reducir movimiento», quieto (sin respirar, parpadear ni mirar).
 //
 // Siempre aria-hidden: va pegado a un texto que ya dice lo mismo, y su nombre
 // no puede colarse en el del botón o el enlace que lo lleva. Por eso no acepta
 // `titulo`.
 //
-// 'use client' es por useId(): hay varios Tentis por página (tres en Resumen,
-// dos en Automatizaciones), y con ids fijos los url(#…) de los degradados
-// resolverían todos al primero (mismo motivo que LogoTentare).
+// useId(): hay varios Tentis por página (tres en Resumen), y con ids fijos los
+// url(#…) de los degradados del SVG resolverían todos al primero.
 //
 // Dónde puede ir lo decide la guardia lib/tenti/donde-vive-tenti.test.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useId } from 'react';
+import dynamic from 'next/dynamic';
+import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { SILUETA_PX, dibujoDelIcono } from '@/lib/tenti/geometria';
+import { BAJADA, R_DEL_LADO, SEMIEJE_X, SILUETA_PX, dibujoDelIcono } from '@/lib/tenti/geometria';
+import type { PropsTenti } from './tenti';
 
 /** Anchos cerrados. Por debajo de 18 los ojos miden menos de 2 px y a DPR 1 se
  *  leen como manchas: el 16 no existe a propósito. */
@@ -69,19 +82,99 @@ export interface PropsTentiIcono {
 // Una vez por módulo: el dibujo no depende de nada.
 const D = dibujoDelIcono();
 
+/** El lado del canvas para que el CUERPO mida `ancho`: el cuerpo ocupa
+ *  2·SEMIEJE_X·R_DEL_LADO (0,684) del lado. Redondeado a px enteros. */
+function ladoDelCanvas(ancho: AnchoTentiIcono): number {
+  return Math.round(ancho / (2 * SEMIEJE_X * R_DEL_LADO));
+}
+
+/** Dónde va el canvas respecto a la caja del icono: centrado en el cuerpo, que
+ *  en el canvas baja BAJADA·R del centro. Enteros, para no pintar a medio píxel. */
+function encajeDelCanvas(ancho: AnchoTentiIcono): { lado: number; izquierda: number; arriba: number } {
+  const lado = ladoDelCanvas(ancho);
+  const alto = ancho * D.proporcion;
+  return {
+    lado,
+    izquierda: Math.round((ancho - lado) / 2),
+    arriba: Math.round(alto / 2 - lado * (0.5 + R_DEL_LADO * BAJADA)),
+  };
+}
+
+const ReservaCtx = createContext<ReactNode>(null);
+
+function SoloReserva(): ReactNode {
+  return useContext(ReservaCtx);
+}
+
+const TentiCanvas = dynamic<PropsTenti>(
+  () => import('./tenti').then((m) => m.Tenti).catch(() => SoloReserva),
+  { ssr: false, loading: () => <SoloReserva /> },
+);
+
+/** Lo que hace de un sitio «el clic es de otro»: ahí Tenti no se toca. */
+const DENTRO_DE_UN_CONTROL = 'a, button, label, summary, [role="button"], [role="link"], [role="switch"], [role="menuitem"], [role="tab"]';
+
 export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', className }: PropsTentiIcono) {
+  const caja = useRef<HTMLSpanElement>(null);
+  // Se sabe después de montar (hay que mirar el DOM): hasta entonces, no tocable.
+  const [tocable, setTocable] = useState(false);
+  useEffect(() => {
+    setTocable(!caja.current?.closest(DENTRO_DE_UN_CONTROL));
+  }, []);
+  const alto = Math.round(ancho * D.proporcion * 100) / 100;
+  const { lado, izquierda, arriba } = encajeDelCanvas(ancho);
+  // El SVG quieto vuelve a la caja desde la del canvas.
+  const reserva = (
+    <span className="absolute" style={{ left: -izquierda, top: -arriba, width: ancho, height: alto }}>
+      <SvgTenti ancho={ancho} alto={alto} sobre={sobre} />
+    </span>
+  );
+  return (
+    <span
+      ref={caja}
+      data-tenti-icono=""
+      data-estado={estado}
+      aria-hidden="true"
+      className={cn('relative inline-block shrink-0', className)}
+      style={{ width: ancho, height: alto }}
+    >
+      <span
+        className={cn('absolute', !tocable && 'pointer-events-none')}
+        style={{ left: izquierda, top: arriba, width: lado, height: lado }}
+      >
+        <ReservaCtx.Provider value={reserva}>
+          <TentiCanvas
+            estado={estado}
+            tamano={lado}
+            silueta={sobre}
+            // Fuera de un botón suena al tocarlo y al saludar; dentro, nunca por
+            // su cuenta (empezar a pensar no suena: ver arriba).
+            sonido={tocable ? undefined : false}
+            sigueCursor
+            interactivo={tocable}
+            saludaUnaVez={tocable}
+            reserva={reserva}
+            className="block"
+          />
+        </ReservaCtx.Provider>
+      </span>
+    </span>
+  );
+}
+
+/** El dibujo quieto, en SVG: la reserva mientras llega el motor o si no puede pintarse. */
+function SvgTenti({ ancho, alto, sobre }: { ancho: AnchoTentiIcono; alto: number; sobre: SuperficieTentiIcono }) {
   const propio = useId();
   const id = (n: string) => `tenti-${n}-${propio}`;
   return (
     <svg
-      data-tenti-icono=""
-      data-estado={estado}
+      data-tenti-svg=""
       aria-hidden="true"
       focusable="false"
       viewBox={D.viewBox}
       width={ancho}
-      height={Math.round(ancho * D.proporcion * 100) / 100}
-      className={cn('shrink-0', className)}
+      height={alto}
+      className="block"
     >
       <defs>
         <linearGradient id={id('cuerpo')} gradientUnits="userSpaceOnUse" {...D.degradado}>

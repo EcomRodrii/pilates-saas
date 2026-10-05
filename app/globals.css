@@ -1400,16 +1400,26 @@ body:has([data-barra-seleccion]) .panel-wa-fab { display: none; }
 .portal-estudio-visor { animation: portal-estudio-visor-in .2s ease-out both; }
 
 /* ── Tenti en icono (components/tenti/tenti-icono.tsx) ─────────────────────
-   'pensando' es la pose de reposo respirando: se aplasta un poco sobre su base
-   y vuelve, cada 1,4 s —la misma cadencia que el `t-cargando` del logo:
-   «espera larga: respira, no gira»—. Solo transform, así que lo mueve el
-   compositor y no repinta nada. Solo mientras hay una petición de verdad en
-   vuelo; en reposo no hay ninguna animación.
+   Respira siempre, sobre su base (decisión del fundador del 5-oct-2026: «no
+   se mueve en ningún lado»). En reposo, despacio y apenas (un 2-3 %, cada
+   4,2 s); en 'pensando' —una petición de verdad en vuelo— más hondo y más
+   deprisa, cada 1,4 s, la misma cadencia que el `t-cargando` del logo:
+   «espera larga: respira, no gira». Va en la CAJA del icono, así que respira
+   igual el canvas que el SVG de reserva. Solo transform: lo mueve el
+   compositor y no repinta el canvas ni despierta al motor.
    El bloque global de prefers-reduced-motion de más arriba lo deja quieto, y
    el estado lo dice el texto del botón («Preparando…»). */
-[data-tenti-icono][data-estado='pensando'] {
+[data-tenti-icono] {
   transform-origin: 50% 100%;
+  animation: tenti-respira-suave 4.2s ease-in-out infinite;
+}
+[data-tenti-icono][data-estado='pensando'] {
   animation: tenti-respira 1.4s ease-in-out infinite;
+}
+
+@keyframes tenti-respira-suave {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.025, 0.965); }
 }
 
 @keyframes tenti-respira {
