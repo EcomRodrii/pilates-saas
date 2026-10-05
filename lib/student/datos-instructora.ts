@@ -461,9 +461,13 @@ export async function enviarEnHiloInstructora(slug: string, conversacionId: stri
   }
 }
 
-/** Best-effort: si falla, la bandeja la sigue enseñando sin leer, que es el fallo seguro. */
-export async function marcarHiloLeidoInstructora(slug: string, conversacionId: string): Promise<void> {
+/**
+ * Best-effort: si falla, la bandeja la sigue enseñando sin leer, que es el fallo
+ * seguro. `hasta`: el último mensaje que ha pintado la pantalla (`null` si
+ * ninguno): lo que llegó después no se da por leído.
+ */
+export async function marcarHiloLeidoInstructora(slug: string, conversacionId: string, hasta: string | null): Promise<void> {
   try {
-    await postInstructora('mensajes', { slug, accion: 'leido', conversacionId });
+    await postInstructora('mensajes', { slug, accion: 'leido', conversacionId, hasta });
   } catch { /* best-effort */ }
 }

@@ -34,8 +34,8 @@ export default function HiloMensajesPage() {
   // Abrir el hilo marca leídos también sus avisos (el servidor lo hace en el
   // mismo PATCH). La campana vive en un caché de 60 s, así que se relee solo si
   // el servidor lo confirmó: sin confirmación, seguir encendida es lo honesto.
-  const marcarLeido = useCallback(async () => {
-    if (await marcarConversacionLeida(estudio.id, id)) invalidarNoLeidas(estudio.id);
+  const marcarLeido = useCallback(async (hasta: string | null) => {
+    if (await marcarConversacionLeida(estudio.id, id, hasta)) invalidarNoLeidas(estudio.id);
   }, [estudio.id, id]);
 
   return (

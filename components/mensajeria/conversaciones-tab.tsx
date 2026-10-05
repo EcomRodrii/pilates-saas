@@ -52,6 +52,13 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: true; data
   }
 }
 
+/** Marca el hilo leído hasta el mensaje `hasta` (el último pintado; `null` si ninguno). */
+function marcarLeidoHasta(conversacionId: string, hasta: string | null) {
+  return api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, {
+    method: 'PATCH', body: JSON.stringify({ hasta }),
+  });
+}
+
 // ── Hilo (datos + Realtime) ─────────────────────────────────────────────────
 
 function Hilo({
@@ -94,7 +101,10 @@ function Hilo({
     if (resultado.ok) {
       setMensajes(resultado.data.mensajes);
       setError(null);
-      if (!soloLectura) void api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
+      // Leído hasta el último mensaje que se va a pintar, no hasta «ahora»: uno
+      // que llegue entre la carga y el canal no se ha visto (ni su aviso).
+      const ultimo = resultado.data.mensajes[resultado.data.mensajes.length - 1]?.id ?? null;
+      if (!soloLectura) void marcarLeidoHasta(conversacionId, ultimo);
     } else {
       setError(resultado.error);
     }
@@ -126,7 +136,7 @@ function Hilo({
         .on('broadcast', { event: 'INSERT' }, ({ payload }) => {
           const fila = payload.record as RowMensajes;
           setMensajes(prev => anadirMensaje(prev, fila));
-          if (!soloLectura) void api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
+          if (!soloLectura) void marcarLeidoHasta(conversacionId, fila.id);
           // Un mensaje real es señal más fuerte que el "escribiendo…" que lo
           // precedió — se apaga en vez de esperar a que expire solo.
           if (fila.remitente_auth_user_id !== authUserId) {

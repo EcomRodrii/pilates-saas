@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
-import { authUserIdsParaNotificar, resolverNombreRemitente } from '@/lib/mensajeria/destinatarios';
+import { repartoAvisoMensaje, resolverNombreRemitente } from '@/lib/mensajeria/destinatarios';
 import { emitirMensajeRecibido } from '@/lib/notifications/emit';
 import { previsualizacionParaAviso } from '@/lib/mensajeria/presentacion';
 import { enforceRateLimit } from '@/lib/rate-limit';
@@ -115,17 +115,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const { data: conv } = await admin.from('conversaciones')
         .select('tipo, studio_id').eq('id', id).maybeSingle();
       if (!conv) return;
-      const authUserIds = await authUserIdsParaNotificar(
+      // Cada uno con su papel en el hilo, no con lo que sea su cuenta.
+      const reparto = await repartoAvisoMensaje(
         admin, { id, tipo: conv.tipo as string, studio_id: conv.studio_id as string }, user.userId,
       );
-      if (authUserIds.length === 0) return;
+      if (reparto.authUserIds.length === 0) return;
       // A su instructora le llega «Lucía M.», como la ve en su app; al mostrador, el nombre entero.
       const remitente = (await resolverNombreRemitente(
         admin, user.userId, conv.studio_id as string, { corto: conv.tipo === 'ALUMNA_INSTRUCTORA' },
       )) ?? 'Alguien';
       await emitirMensajeRecibido(admin, {
         studioId: conv.studio_id as string, conversacionId: id, mensajeId,
-        remitente, previsualizacion: previsualizacionParaAviso(conv.tipo as string, cuerpo), authUserIds,
+        remitente, previsualizacion: previsualizacionParaAviso(conv.tipo as string, cuerpo),
+        authUserIds: reparto.authUserIds, recipients: reparto.recipients, socioId: reparto.socioId,
         tipo: conv.tipo as string,
       });
     } catch (e) {

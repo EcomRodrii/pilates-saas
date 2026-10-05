@@ -97,13 +97,17 @@ export async function enviarMensaje(studioId: string, conversacionId: string, cu
  * apagarlo sin confirmación sería decir «leído» con los avisos sin leer.
  * Best-effort: si falla, no bloquea la lectura del hilo.
  */
-export async function marcarConversacionLeida(studioId: string, conversacionId: string): Promise<boolean> {
+export async function marcarConversacionLeida(
+  studioId: string, conversacionId: string, hasta: string | null,
+): Promise<boolean> {
   try {
     const auth = await portalAuthHeader();
     const res = await fetch(`/api/public/mensajeria/conversaciones/${encodeURIComponent(conversacionId)}/leido`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...auth },
-      body: JSON.stringify({ studioId }),
+      // `hasta`: el último mensaje que ha pintado la pantalla. Lo que llegó
+      // después no se ha visto y no se da por leído (ni su aviso).
+      body: JSON.stringify({ studioId, hasta }),
     });
     return res.ok;
   } catch {

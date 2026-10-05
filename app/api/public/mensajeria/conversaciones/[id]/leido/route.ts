@@ -3,9 +3,13 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
-import { marcarAvisosDeConversacionLeidos } from '@/lib/mensajeria/avisos-leidos';
+import { instanteDelMensaje, leerHasta, marcarAvisosDeConversacionLeidos } from '@/lib/mensajeria/avisos-leidos';
 
-// Marca `leido_hasta = now()` en la fila SOCIO de `conversacion_participantes`.
+// Marca leída la fila SOCIO de `conversacion_participantes` HASTA el último
+// mensaje que la app ha pintado (`hasta`, ver lib/mensajeria/avisos-leidos.ts):
+// uno que llegó después de cargar el hilo no se ha visto y sigue sin leer. Sin
+// `hasta` (app anterior) se marca hasta ahora, como antes.
+//
 // Sin RLS que proteja a la socia (no llega a auth.uid()), así que se
 // comprueba la participación a mano antes de escribir nada — mismo criterio
 // que GET/POST de mensajes en esta misma carpeta.
@@ -14,8 +18,9 @@ import { marcarAvisosDeConversacionLeidos } from '@/lib/mensajeria/avisos-leidos
 // si eso falla, 500, para que la app no apague el punto de la campana por su
 // cuenta con los avisos sin leer.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const body = await req.json().catch(() => null) as { studioId?: string } | null;
+  const body = await req.json().catch(() => null) as { studioId?: string; hasta?: unknown } | null;
   if (!body?.studioId) return errorPeticion('Falta el estudio.');
+  const hasta = leerHasta(body);
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
@@ -34,17 +39,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .maybeSingle();
   if (!participa) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
 
-  const { error } = await admin
-    .from('conversacion_participantes')
-    .update({ leido_hasta: new Date().toISOString() })
-    .eq('conversacion_id', id)
-    .eq('socio_id', socioId);
+  try {
+    // Hasta qué instante: el del mensaje pintado (si es de este hilo).
+    const instante = typeof hasta === 'string' ? await instanteDelMensaje(admin, id, hasta) : null;
+    // Sin nada pintado (hilo vacío) no hay nada que marcar.
+    if (hasta !== undefined && !instante) return new NextResponse(null, { status: 204 });
 
-  if (error) return errorInterno('public/mensajeria/leido:PATCH', error, 'No se ha podido marcar como leído.');
+    let marca = admin
+      .from('conversacion_participantes')
+      .update({ leido_hasta: instante ?? new Date().toISOString() })
+      .eq('conversacion_id', id)
+      .eq('socio_id', socioId);
+    // Nunca hacia atrás: otro dispositivo pudo leer más.
+    if (instante) marca = marca.lt('leido_hasta', instante);
+    const { error } = await marca;
+    if (error) return errorInterno('public/mensajeria/leido:PATCH', error, 'No se ha podido marcar como leído.');
 
-  const errorAvisos = await marcarAvisosDeConversacionLeidos(admin, {
-    userId: user.userId, studioId: body.studioId, conversacionId: id, lado: 'alumna',
-  });
-  if (errorAvisos) return errorInterno('public/mensajeria/leido:PATCH:avisos', errorAvisos, 'No se ha podido marcar como leído.');
-  return new NextResponse(null, { status: 204 });
+    const errorAvisos = await marcarAvisosDeConversacionLeidos(admin, {
+      userId: user.userId, studioId: body.studioId, conversacionId: id, lado: 'alumna',
+      ...(instante ? { hasta: instante } : {}),
+    });
+    if (errorAvisos) return errorInterno('public/mensajeria/leido:PATCH:avisos', errorAvisos, 'No se ha podido marcar como leído.');
+    return new NextResponse(null, { status: 204 });
+  } catch (e) {
+    return errorInterno('public/mensajeria/leido:PATCH', e, 'No se ha podido marcar como leído.');
+  }
 }

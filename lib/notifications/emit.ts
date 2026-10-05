@@ -11,6 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publish } from './engine.ts';
+import type { Recipient } from './types.ts';
 import { EVENTOS } from './catalog.ts';
 import { criterioArchivadoMensajeDia } from './mensaje-dia-archivado.ts';
 import { quienEscribeALaAlumna } from './aviso-mensaje.ts';
@@ -1291,6 +1292,14 @@ export async function emitirMensajeRecibido(
     studioId: string; conversacionId: string; mensajeId: string;
     remitente: string; previsualizacion?: string | null;
     authUserIds: string[]; slug?: string | null; tipo?: string | null;
+    /**
+     * En los hilos con alumna, quién recibe y COMO QUÉ, por su papel en el hilo
+     * (`repartoAvisoMensaje`, lib/mensajeria/destinatarios.ts). Sin ellos, el
+     * motor resuelve la audiencia por la cuenta (EQUIPO, congelado).
+     */
+    recipients?: Recipient[] | null;
+    /** La alumna del hilo: con `data.socioId`, su supresión borra estos avisos. */
+    socioId?: string | null;
   },
 ): Promise<void> {
   try {
@@ -1313,9 +1322,11 @@ export async function emitirMensajeRecibido(
         // (`previsualizacionParaAviso`), y así el aviso no guarda ni la clave.
         ...(p.previsualizacion ? { previsualizacion: `: "${p.previsualizacion}"` } : {}),
         authUserIds: p.authUserIds, slug, tipo: p.tipo ?? null,
+        ...(p.socioId ? { socioId: p.socioId } : {}),
       },
       resource: { type: 'mensaje', id: p.mensajeId },
       dedupKey: `mensaje-recibido:${p.mensajeId}`,
+      ...(p.recipients ? { recipients: p.recipients } : {}),
     });
   } catch (e) {
     console.error('[notifications] emitirMensajeRecibido:', e instanceof Error ? e.message : e);
@@ -1329,13 +1340,24 @@ export async function emitirMensajeRecibido(
 // corra varias veces dentro de esa ventana.
 export async function emitirMensajeDigestNoLeido(
   admin: SupabaseClient,
-  p: { studioId: string; authUserId: string; conversaciones: number; fecha: string; slug?: string | null },
+  p: {
+    studioId: string; authUserId: string; conversaciones: number; fecha: string; slug?: string | null;
+    /** Quién lo recibe y como qué, por su papel en sus hilos (alumna o equipo). */
+    recipients?: Recipient[] | null;
+    /**
+     * Solo cuando la misma cuenta recibe dos resúmenes el mismo día (alumna en
+     * unos hilos, equipo en otros): sin él, el segundo chocaría con la clave
+     * del primero. Para todos los demás la clave no cambia.
+     */
+    sufijoDedup?: string | null;
+  },
 ): Promise<void> {
   try {
     await publish({
       type: EVENTOS.MENSAJE_DIGEST_NO_LEIDO, studioId: p.studioId,
       data: { conversaciones: p.conversaciones, authUserIds: [p.authUserId], slug: p.slug ?? null },
-      dedupKey: `mensaje-digest:${p.authUserId}:${p.fecha}`,
+      dedupKey: `mensaje-digest:${p.authUserId}:${p.fecha}${p.sufijoDedup ? `:${p.sufijoDedup}` : ''}`,
+      ...(p.recipients ? { recipients: p.recipients } : {}),
     });
   } catch (e) {
     console.error('[notifications] emitirMensajeDigestNoLeido:', e instanceof Error ? e.message : e);

@@ -121,24 +121,28 @@ test.describe('Student PWA · hilo con su instructora', () => {
 // pedir el «leído» (tentare-os.md, punto ciego (1)).
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface Cuenta { leido: number; conteos: number; conteosTrasLeido: number; lista: number }
+interface Cuenta { leido: number; conteos: number; conteosTrasLeido: number; lista: number; hasta: unknown[] }
 
 async function montarLectura(
   page: Page,
   o: { sinLeer?: boolean; leido?: 'ok' | 'falla' | 'cae'; avisos?: unknown[] } = {},
 ): Promise<Cuenta> {
   await sembrarSociaLista(page);
-  const cuenta: Cuenta = { leido: 0, conteos: 0, conteosTrasLeido: 0, lista: 0 };
+  const cuenta: Cuenta = { leido: 0, conteos: 0, conteosTrasLeido: 0, lista: 0, hasta: [] };
   // Lo que el servidor sabe: hasta que el «leído» no se confirma, hay 1 aviso sin
   // leer y el hilo sale sin leer.
   let leidoHecho = false;
   const json = (b: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(b) });
 
+  // En los modos de fallo, la campana del mock baja a 0 en cuanto se INTENTA el
+  // «leído»: así una relectura indebida (la app apagándola sin que el servidor
+  // lo confirme) se vería en el badge, en vez de pasar en verde por casualidad.
+  const apagada = () => leidoHecho || (o.leido !== undefined && o.leido !== 'ok' && cuenta.leido > 0);
   await page.route((u) => u.pathname === '/api/notifications', (r) => {
     if (new URL(r.request().url()).searchParams.get('soloConteo') === '1') {
       cuenta.conteos++;
       if (cuenta.leido > 0) cuenta.conteosTrasLeido++;
-      return r.fulfill(json({ unread: leidoHecho ? 0 : 1 }));
+      return r.fulfill(json({ unread: apagada() ? 0 : 1 }));
     }
     return r.fulfill(json({ items: o.avisos ?? [], unread: leidoHecho ? 0 : 1 }));
   });
@@ -150,6 +154,7 @@ async function montarLectura(
   );
   await page.route((u) => u.pathname === `/api/public/mensajeria/conversaciones/${CONV}/leido`, (r) => {
     cuenta.leido++;
+    cuenta.hasta.push((r.request().postDataJSON() as { hasta?: unknown } | null)?.hasta);
     if (o.leido === 'cae') return r.abort('failed');
     if (o.leido === 'falla') return r.fulfill(json({ error: 'No se ha podido marcar como leído.' }, 500));
     leidoHecho = true;
@@ -197,6 +202,9 @@ test.describe('Student PWA · mensajes sin leer y sus avisos', () => {
     await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
 
     await expect.poll(() => cuenta.leido, { timeout: 15_000 }).toBe(1);
+    // Hasta el último mensaje que ha pintado, no «hasta ahora»: uno que llegue
+    // después de cargar no se ha visto.
+    expect(cuenta.hasta).toEqual(['m2']);
     // Una para pintar la campana al montar y otra DESPUÉS del «leído»: sin
     // relectura, el caché de 60 s la dejaba encendida.
     await expect.poll(() => cuenta.conteosTrasLeido, { timeout: 15_000 }).toBeGreaterThan(0);
@@ -206,10 +214,16 @@ test.describe('Student PWA · mensajes sin leer y sus avisos', () => {
 
   test('si el servidor dice que no (500), la campana sigue encendida', async ({ page }) => {
     const cuenta = await montarLectura(page, { leido: 'falla' });
+    // Se espera a que el 500 LLEGUE a la página, no solo a que salga la petición.
+    const respuesta = page.waitForResponse((r) => r.url().endsWith(`/conversaciones/${CONV}/leido`));
     await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
 
-    await expect.poll(() => cuenta.leido, { timeout: 15_000 }).toBeGreaterThan(0);
+    expect((await respuesta).status()).toBe(500);
+    expect(cuenta.leido).toBeGreaterThan(0);
+    // Un margen para que una relectura indebida, si la hubiera, llegue a pasar:
+    // el mock ya contestaría 0 y el badge se apagaría.
+    await page.waitForTimeout(1500);
     await expect(page.getByRole('link', { name: 'Notificaciones, 1 sin leer' })).toBeVisible();
     // Sin confirmación no se da por leído: ni se relee la campana.
     expect(cuenta.conteosTrasLeido).toBe(0);
@@ -217,10 +231,13 @@ test.describe('Student PWA · mensajes sin leer y sus avisos', () => {
 
   test('si se cae la red al marcar leído, la campana sigue encendida', async ({ page }) => {
     const cuenta = await montarLectura(page, { leido: 'cae' });
+    const caida = page.waitForEvent('requestfailed', (r) => r.url().endsWith(`/conversaciones/${CONV}/leido`));
     await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
 
-    await expect.poll(() => cuenta.leido, { timeout: 15_000 }).toBeGreaterThan(0);
+    await caida;
+    expect(cuenta.leido).toBeGreaterThan(0);
+    await page.waitForTimeout(1500);
     await expect(page.getByRole('link', { name: 'Notificaciones, 1 sin leer' })).toBeVisible();
     expect(cuenta.conteosTrasLeido).toBe(0);
   });

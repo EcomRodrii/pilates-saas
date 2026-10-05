@@ -4,6 +4,7 @@ import {
   abrirHiloConAlumna, avisarMensajeNuevo, enviarEnHilo, hilosDeInstructora, marcarHiloLeido, mensajesDeHilo,
 } from '@/lib/portal-instructora/mensajes-servidor';
 import { textoNoAbrir } from '@/lib/student/mensajes-instructora';
+import { leerHasta } from '@/lib/mensajeria/avisos-leidos';
 import { enforceRateLimit, rateLimit } from '@/lib/rate-limit';
 import { retryAfterSeconds, tooManyRequestsResponse } from '@/lib/rate-limit-core';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   const body = await req.json().catch(() => null) as {
-    slug?: string; accion?: unknown; socioId?: unknown; conversacionId?: unknown; cuerpo?: unknown;
+    slug?: string; accion?: unknown; socioId?: unknown; conversacionId?: unknown; cuerpo?: unknown; hasta?: unknown;
   } | null;
   if (!body?.slug) return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
   const accion = body.accion as Accion;
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
       }
 
       case 'leido': {
-        const ok = await marcarHiloLeido(suya, conversacionId as string);
+        const ok = await marcarHiloLeido(suya, conversacionId as string, leerHasta(body));
         if (!ok) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
         return new NextResponse(null, { status: 204 });
       }
