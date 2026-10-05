@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { marcarAvisosDeConversacionLeidos } from '@/lib/mensajeria/avisos-leidos';
 
 // Marca `leido_hasta = now()` en la fila propia de `conversacion_participantes`.
 // Cliente de SESIÓN: la policy `conversacion_participantes_marca_leido` ya
@@ -17,6 +19,10 @@ import { errorInterno } from '@/lib/errores-servidor';
 // ALUMNA_MOSTRADOR + puede_gestionar_calendario() en el propio estudio) —
 // en las demás conversaciones ese UPDATE simplemente no casa ninguna fila
 // (RLS lo descarta en silencio) y no hace nada.
+//
+// Después apaga sus avisos de ese hilo en la campana. Va con service-role porque
+// `notification` no se escribe con la sesión, pero acotado a SU cuenta y SU
+// estudio (`sesion.userId`, `sesion.studioId`): solo toca avisos suyos.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -48,5 +54,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (errorPropio) return errorInterno('mensajeria:leido:PATCH', errorPropio, 'No se ha podido marcar como leído.');
   if (errorMostrador) return errorInterno('mensajeria:leido:PATCH:mostrador', errorMostrador, 'No se ha podido marcar como leído.');
+
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+  const errorAvisos = await marcarAvisosDeConversacionLeidos(admin, {
+    userId: sesion.userId, studioId: sesion.studioId, conversacionId: id, lado: 'equipo',
+  });
+  if (errorAvisos) return errorInterno('mensajeria:leido:PATCH:avisos', errorAvisos, 'No se ha podido marcar como leído.');
   return new NextResponse(null, { status: 204 });
 }

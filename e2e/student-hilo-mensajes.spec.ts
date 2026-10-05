@@ -110,3 +110,136 @@ test.describe('Student PWA · hilo con su instructora', () => {
     await expect(page.getByTestId('aviso-hilo')).toHaveText('El estudio también puede leer esta conversación.');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Sin leer» y avisos: el punto de la lista lo decide el servidor (`sin_leer`),
+// abrir el hilo apaga la campana SOLO si el servidor confirma el «leído», y el
+// aviso de un mensaje abre el hilo.
+//
+// ⚠️ Cada «no se apagó» va con un contador de «sí se intentó» (`leido > 0`): sin
+// él, «la campana sigue encendida» sería verdad también si el hilo nunca llegó a
+// pedir el «leído» (tentare-os.md, punto ciego (1)).
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface Cuenta { leido: number; conteos: number; conteosTrasLeido: number; lista: number }
+
+async function montarLectura(
+  page: Page,
+  o: { sinLeer?: boolean; leido?: 'ok' | 'falla' | 'cae'; avisos?: unknown[] } = {},
+): Promise<Cuenta> {
+  await sembrarSociaLista(page);
+  const cuenta: Cuenta = { leido: 0, conteos: 0, conteosTrasLeido: 0, lista: 0 };
+  // Lo que el servidor sabe: hasta que el «leído» no se confirma, hay 1 aviso sin
+  // leer y el hilo sale sin leer.
+  let leidoHecho = false;
+  const json = (b: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(b) });
+
+  await page.route((u) => u.pathname === '/api/notifications', (r) => {
+    if (new URL(r.request().url()).searchParams.get('soloConteo') === '1') {
+      cuenta.conteos++;
+      if (cuenta.leido > 0) cuenta.conteosTrasLeido++;
+      return r.fulfill(json({ unread: leidoHecho ? 0 : 1 }));
+    }
+    return r.fulfill(json({ items: o.avisos ?? [], unread: leidoHecho ? 0 : 1 }));
+  });
+  // Solo la API: un predicado por `endsWith('/mensajes')` se comería también la
+  // PÁGINA `/portal/<slug>/mensajes` y la contestaría con JSON.
+  await page.route(
+    (u) => u.pathname.startsWith('/api/public/mensajeria/conversaciones/') && u.pathname.endsWith('/mensajes'),
+    (r) => r.fulfill(json({ mensajes })),
+  );
+  await page.route((u) => u.pathname === `/api/public/mensajeria/conversaciones/${CONV}/leido`, (r) => {
+    cuenta.leido++;
+    if (o.leido === 'cae') return r.abort('failed');
+    if (o.leido === 'falla') return r.fulfill(json({ error: 'No se ha podido marcar como leído.' }, 500));
+    leidoHecho = true;
+    return r.fulfill({ status: 204 });
+  });
+  await page.route((u) => u.pathname === '/api/public/mensajeria/conversaciones', (r) => {
+    cuenta.lista++;
+    return r.fulfill(json({ conversaciones: [{ ...conversacion, sin_leer: Boolean(o.sinLeer) && !leidoHecho }] }));
+  });
+  await page.route((u) => u.pathname === '/api/public/session', (r) => r.fulfill(
+    json({ socioId: SOCIO_ID, nombre: 'Ana Test', email: 'socia-e2e@test.com' }),
+  ));
+  return cuenta;
+}
+
+test.describe('Student PWA · mensajes sin leer y sus avisos', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });
+
+  test('el punto de la lista lo decide el servidor: sin `sin_leer`, no hay punto', async ({ page }) => {
+    const cuenta = await montarLectura(page, { sinLeer: false });
+    await page.goto(`/portal/${SLUG}/mensajes`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Perfecto, te guardo el sitio.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByLabel('Sin leer', { exact: true })).toHaveCount(0);
+    expect(cuenta.lista).toBeGreaterThan(0);
+  });
+
+  test('con `sin_leer` hay punto, y al volver del hilo se ha apagado', async ({ page }) => {
+    const cuenta = await montarLectura(page, { sinLeer: true });
+    await page.goto(`/portal/${SLUG}/mensajes`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByLabel('Sin leer', { exact: true })).toBeVisible({ timeout: 30_000 });
+
+    await page.getByText('Perfecto, te guardo el sitio.').click();
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => cuenta.leido, { timeout: 15_000 }).toBe(1);
+
+    await page.goBack();
+    await expect(page.getByText('Perfecto, te guardo el sitio.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByLabel('Sin leer', { exact: true })).toHaveCount(0);
+  });
+
+  test('abrir el hilo apaga la campana: «leído» confirmado y la campana se relee', async ({ page }) => {
+    const cuenta = await montarLectura(page, { leido: 'ok' });
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+
+    await expect.poll(() => cuenta.leido, { timeout: 15_000 }).toBe(1);
+    // Una para pintar la campana al montar y otra DESPUÉS del «leído»: sin
+    // relectura, el caché de 60 s la dejaba encendida.
+    await expect.poll(() => cuenta.conteosTrasLeido, { timeout: 15_000 }).toBeGreaterThan(0);
+    expect(cuenta.conteos).toBeGreaterThanOrEqual(2);
+    await expect(page.getByRole('link', { name: 'Notificaciones', exact: true })).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('si el servidor dice que no (500), la campana sigue encendida', async ({ page }) => {
+    const cuenta = await montarLectura(page, { leido: 'falla' });
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+
+    await expect.poll(() => cuenta.leido, { timeout: 15_000 }).toBeGreaterThan(0);
+    await expect(page.getByRole('link', { name: 'Notificaciones, 1 sin leer' })).toBeVisible();
+    // Sin confirmación no se da por leído: ni se relee la campana.
+    expect(cuenta.conteosTrasLeido).toBe(0);
+  });
+
+  test('si se cae la red al marcar leído, la campana sigue encendida', async ({ page }) => {
+    const cuenta = await montarLectura(page, { leido: 'cae' });
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+
+    await expect.poll(() => cuenta.leido, { timeout: 15_000 }).toBeGreaterThan(0);
+    await expect(page.getByRole('link', { name: 'Notificaciones, 1 sin leer' })).toBeVisible();
+    expect(cuenta.conteosTrasLeido).toBe(0);
+  });
+
+  test('en Avisos, tocar «Nuevo mensaje» abre el hilo, y el aviso no lleva el texto', async ({ page }) => {
+    const cuenta = await montarLectura(page, {
+      avisos: [{
+        id: 'n-1', title: 'Nuevo mensaje', body: 'Pilates Luz te ha escrito.',
+        deepLink: `/portal/${SLUG}/mensajes/${CONV}`, category: 'mensajeria', eventType: 'mensaje.recibido',
+        priority: 'MEDIA', readAt: null, createdAt: '2026-08-12T07:30:00Z', studioId: STUDIO_ID,
+      }],
+    });
+    await page.goto(`/portal/${SLUG}/notificaciones`, { waitUntil: 'domcontentloaded' });
+    const aviso = page.getByRole('link', { name: /Pilates Luz te ha escrito\./ });
+    await expect(aviso).toHaveAttribute('href', `/portal/${SLUG}/mensajes/${CONV}`, { timeout: 30_000 });
+
+    await aviso.click();
+    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/mensajes/${CONV}$`), { timeout: 30_000 });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => cuenta.leido, { timeout: 15_000 }).toBe(1);
+  });
+});

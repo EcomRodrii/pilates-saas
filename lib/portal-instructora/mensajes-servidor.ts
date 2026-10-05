@@ -123,7 +123,7 @@ export async function hilosDeInstructora(p: InstructoraDelHilo): Promise<HiloIns
   }
 
   return resumirConversaciones(
-    filas, (ultimos.data ?? []) as FilaUltimoMensaje[], (participantes.data ?? []) as FilaLectura[], p.userId,
+    filas, (ultimos.data ?? []) as FilaUltimoMensaje[], (participantes.data ?? []) as FilaLectura[], p.userId, 'equipo',
   ).map((c) => {
     const socioId = socioPorHilo.get(c.id);
     return { ...c, alumna: socioId ? alumnaPorId.get(socioId) ?? null : null } as HiloInstructora;

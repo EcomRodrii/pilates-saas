@@ -76,3 +76,25 @@ test('«faltan {antelacion}» no se deja guardar: con 1 hora diría «faltan 1 h
   // «es en {antelacion}» concuerda siempre: se puede.
   assert.equal(validarTexto('reserva.recordatorio_1h', { title: 'Tu clase es en {antelacion}', body: '{clase}' }), null);
 });
+
+test('mensaje nuevo: un texto propio con el principio del mensaje o con quien atiende cae al de fábrica', () => {
+  const e = 'mensaje.recibido';
+  // El de fábrica ya no lleva el texto del mensaje (guía 4.5.4 de Apple) y, en
+  // el hilo con el estudio, firma el estudio, no la persona de recepción.
+  assert.deepEqual(variablesPermitidas(e), ['quienEscribe']);
+  const conTexto = { title: 'Nuevo mensaje', body: '{quienEscribe}{previsualizacion}' };
+  assert.match(validarTexto(e, conTexto)!, /\{previsualizacion\}/);
+  assert.deepEqual(textoEfectivo(e, conTexto), textoDeFabrica(e));
+  // Tampoco en el título.
+  assert.deepEqual(textoEfectivo(e, { title: '{previsualizacion}', body: '{quienEscribe} te ha escrito' }), textoDeFabrica(e));
+  // Ni con el nombre de quien atiende.
+  assert.deepEqual(textoEfectivo(e, { title: 'Nuevo mensaje', body: '{remitente} te ha escrito' }), textoDeFabrica(e));
+  // Uno propio con {quienEscribe} sí vale.
+  const propio = { title: 'Te han contestado', body: '{quienEscribe} te ha respondido en la app' };
+  assert.deepEqual(textoEfectivo(e, propio), propio);
+});
+
+test('{quienEscribe} tiene nombre en el panel y ejemplo en la vista previa', () => {
+  assert.ok(ETIQUETA_VARIABLE.quienEscribe);
+  assert.equal(previsualizar(textoDeFabrica('mensaje.recibido')!).body, 'Pilates Luz te ha escrito.');
+});

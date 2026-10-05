@@ -13,38 +13,57 @@ function base(overrides: Partial<ConversacionConResumen>): ConversacionConResume
   } as ConversacionConResumen;
 }
 
-test('personal: leido_hasta anterior al último mensaje → sin leer', () => {
+// ── tieneSinLeer: desde el equipo (panel e instructora) ────────────────────
+
+test('equipo: leido_hasta anterior al último mensaje → sin leer', () => {
   const c = base({ leido_hasta: '2026-01-01T12:00:00Z' });
-  assert.equal(tieneSinLeer(c, 'yo'), true);
+  assert.equal(tieneSinLeer(c, 'yo', 'equipo'), true);
 });
 
-test('personal: leido_hasta posterior al último mensaje → leído', () => {
+test('equipo: leido_hasta posterior al último mensaje → leído', () => {
   const c = base({ leido_hasta: '2026-01-03T00:00:00Z' });
-  assert.equal(tieneSinLeer(c, 'yo'), false);
+  assert.equal(tieneSinLeer(c, 'yo', 'equipo'), false);
 });
 
-test('personal: sin fila propia (leido_hasta null) → false, no ALUMNA_MOSTRADOR', () => {
-  const c = base({ leido_hasta: null });
-  assert.equal(tieneSinLeer(c, 'yo'), false);
+// La propietaria que supervisa un hilo instructora–alumna no tiene fila: ni
+// puede marcarlo leído (la RLS de la marca exige que la fila sea suya). Si «sin
+// fila» contara como «sin leer», la bandeja y el menú contarían para siempre
+// todos los hilos de su equipo.
+test('equipo: la propietaria supervisando sin fila (solo_lectura) → leído', () => {
+  const c = base({ leido_hasta: null, solo_lectura: true, ultimo_remitente_auth_user_id: 'socia' });
+  assert.equal(tieneSinLeer(c, 'propietaria', 'equipo'), false);
+});
+
+test('equipo: un canal EQUIPO no tiene filas → leído', () => {
+  const c = base({ tipo: 'EQUIPO', leido_hasta: null, ultimo_remitente_auth_user_id: 'companera' });
+  assert.equal(tieneSinLeer(c, 'yo', 'equipo'), false);
+});
+
+// '-infinity' es el valor por defecto de `leido_hasta`: «nunca lo he abierto».
+// `new Date('-infinity')` es NaN y la comparación daba falso: un hilo que la
+// instructora nunca abrió salía leído.
+test('equipo: la instructora que nunca abrió el hilo (\'-infinity\') → sin leer', () => {
+  const c = base({ leido_hasta: '-infinity', ultimo_remitente_auth_user_id: 'socia' });
+  assert.equal(tieneSinLeer(c, 'instructora', 'equipo'), true);
 });
 
 // F-15 (auditoría 20ª pasada): el mostrador no tiene fila STAFF individual —
 // leido_hasta es SIEMPRE null ahí. Antes eso devolvía false sin más, así que
 // el badge no se encendía JAMÁS para nadie, aunque el mensaje llevara sin
 // contestar días.
-test('ALUMNA_MOSTRADOR: nunca marcado como leído (null) → sin leer', () => {
+test('equipo, ALUMNA_MOSTRADOR: nunca marcado como leído (null) → sin leer', () => {
   const c = base({ tipo: 'ALUMNA_MOSTRADOR', leido_hasta: null, mostrador_leido_hasta: null });
-  assert.equal(tieneSinLeer(c, 'yo'), true);
+  assert.equal(tieneSinLeer(c, 'yo', 'equipo'), true);
 });
 
-test('ALUMNA_MOSTRADOR: mostrador_leido_hasta anterior al último mensaje → sin leer', () => {
+test('equipo, ALUMNA_MOSTRADOR: mostrador_leido_hasta anterior al último mensaje → sin leer', () => {
   const c = base({ tipo: 'ALUMNA_MOSTRADOR', leido_hasta: null, mostrador_leido_hasta: '2026-01-01T12:00:00Z' });
-  assert.equal(tieneSinLeer(c, 'yo'), true);
+  assert.equal(tieneSinLeer(c, 'yo', 'equipo'), true);
 });
 
-test('ALUMNA_MOSTRADOR: mostrador_leido_hasta posterior al último mensaje → leído', () => {
+test('equipo, ALUMNA_MOSTRADOR: mostrador_leido_hasta posterior al último mensaje → leído', () => {
   const c = base({ tipo: 'ALUMNA_MOSTRADOR', leido_hasta: null, mostrador_leido_hasta: '2026-01-03T00:00:00Z' });
-  assert.equal(tieneSinLeer(c, 'yo'), false);
+  assert.equal(tieneSinLeer(c, 'yo', 'equipo'), false);
 });
 
 test('nunca marca como sin leer el propio mensaje, ni en el mostrador', () => {
@@ -52,13 +71,56 @@ test('nunca marca como sin leer el propio mensaje, ni en el mostrador', () => {
     tipo: 'ALUMNA_MOSTRADOR', mostrador_leido_hasta: null,
     ultimo_remitente_auth_user_id: 'yo',
   });
-  assert.equal(tieneSinLeer(c, 'yo'), false);
+  assert.equal(tieneSinLeer(c, 'yo', 'equipo'), false);
 });
 
-test('el push de una conversación con la instructora no lleva el texto; el resto, los primeros 80 caracteres', () => {
+// Las conversaciones nacen con `ultimo_mensaje_en = creado_en` (migr
+// 20260825175412): un hilo recién abierto sin mensajes no tiene nada que leer,
+// tampoco en el mostrador.
+test('sin mensajes → leído, también en el mostrador', () => {
+  const vacio = { creado_en: '2026-01-01T00:00:00Z', ultimo_mensaje_en: '2026-01-01T00:00:00Z' };
+  assert.equal(tieneSinLeer(base({ ...vacio, tipo: 'ALUMNA_MOSTRADOR' }), 'yo', 'equipo'), false);
+  assert.equal(tieneSinLeer(base({ ...vacio, leido_hasta: '-infinity' }), 'yo', 'alumna'), false);
+});
+
+// ── tieneSinLeer: desde la alumna ──────────────────────────────────────────
+//
+// En el hilo con el estudio la alumna lee con SU marca, nunca con la del
+// mostrador (que es la del equipo). Antes su app usaba la del mostrador, que su
+// bandeja ni siquiera trae: el punto se encendía siempre.
+
+test('alumna, hilo con el estudio: su marca posterior al último mensaje → leído (la del mostrador no cuenta)', () => {
+  const c = base({
+    tipo: 'ALUMNA_MOSTRADOR', leido_hasta: '2026-01-03T00:00:00Z', mostrador_leido_hasta: null,
+    ultimo_remitente_auth_user_id: 'recepcion',
+  });
+  assert.equal(tieneSinLeer(c, 'socia', 'alumna'), false);
+});
+
+test('alumna, hilo con el estudio: su marca anterior al último mensaje → sin leer (aunque el mostrador lo leyera)', () => {
+  const c = base({
+    tipo: 'ALUMNA_MOSTRADOR', leido_hasta: '2026-01-01T12:00:00Z', mostrador_leido_hasta: '2026-01-03T00:00:00Z',
+    ultimo_remitente_auth_user_id: 'recepcion',
+  });
+  assert.equal(tieneSinLeer(c, 'socia', 'alumna'), true);
+});
+
+test('alumna: nunca abrió el hilo (\'-infinity\') y el último es de la otra parte → sin leer', () => {
+  const c = base({ tipo: 'ALUMNA_MOSTRADOR', leido_hasta: '-infinity', ultimo_remitente_auth_user_id: 'recepcion' });
+  assert.equal(tieneSinLeer(c, 'socia', 'alumna'), true);
+});
+
+test('alumna: \'-infinity\' pero el último mensaje es suyo → leído', () => {
+  const c = base({ tipo: 'ALUMNA_MOSTRADOR', leido_hasta: '-infinity', ultimo_remitente_auth_user_id: 'socia' });
+  assert.equal(tieneSinLeer(c, 'socia', 'alumna'), false);
+});
+
+test('el push de un hilo con una alumna no lleva el texto, en ninguno de los dos; EQUIPO, los primeros 80 caracteres', () => {
   const largo = 'Me duele la rodilla desde la última clase y no sé si venir mañana, ¿qué me recomiendas hacer?';
   assert.equal(previsualizacionParaAviso('ALUMNA_INSTRUCTORA', largo), null);
-  assert.equal(previsualizacionParaAviso('ALUMNA_MOSTRADOR', largo), largo.slice(0, 80));
+  assert.equal(previsualizacionParaAviso('ALUMNA_MOSTRADOR', largo), null);
+  // El canal de equipo está congelado: se queda como estaba.
+  assert.equal(previsualizacionParaAviso('EQUIPO', largo), largo.slice(0, 80));
   assert.equal(previsualizacionParaAviso('EQUIPO', 'Hola'), 'Hola');
 });
 

@@ -402,12 +402,20 @@ export default function Mensajeria() {
   const escribeAClientas = puedeGestionarClientas(useRol());
   const [tab, setTab] = useState<Tab>('notificaciones');
   const [busqueda, setBusqueda] = useState('');
+  const [conversacionInicial, setConversacionInicial] = useState<string | null>(null);
 
   // Un atajo de la tarjeta de apertura llega con un borrador: abre directamente
   // «Enviar mensaje». El panel de envío lo lee al montarse y limpia la URL.
+  //
+  // El aviso de un mensaje nuevo llega con `?conversacion=<id>` (su enlace en el
+  // catálogo): abre «Conversaciones» con ese hilo. El aviso ya no lleva el texto
+  // del mensaje, así que tocarlo tiene que llevar a leerlo, no a buscarlo.
   useEffect(() => {
+    const search = window.location.search;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search; la URL no existe durante el render en servidor.
-    if (leerBorradorMensajeria(window.location.search)) setTab('enviar');
+    if (leerBorradorMensajeria(search)) { setTab('enviar'); return; }
+    const conversacion = new URLSearchParams(search).get('conversacion');
+    if (conversacion) { setConversacionInicial(conversacion); setTab('conversaciones'); }
   }, []);
 
   const [notifItems, setNotifItems] = useState<NotifItem[]>([]);
@@ -547,7 +555,7 @@ export default function Mensajeria() {
       {tab === 'comunidad' && <ComunidadFeed />}
 
       {/* ── CONVERSACIONES ── */}
-      {tab === 'conversaciones' && <ConversacionesTab />}
+      {tab === 'conversaciones' && <ConversacionesTab conversacionInicial={conversacionInicial} />}
 
       {/* ── ENVIAR MENSAJE ── */}
       {tab === 'enviar' && escribeAClientas && (

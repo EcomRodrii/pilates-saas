@@ -9,6 +9,7 @@ import {
 } from '@/lib/student/mensajeria';
 import { AVISO_ESTUDIO_PUEDE_LEER, tituloConversacionAlumna } from '@/lib/mensajeria/presentacion';
 import { HiloConversacion } from '@/components/student/domain/HiloConversacion';
+import { invalidarNoLeidas } from '@/lib/student/no-leidas';
 
 // Hilo de una conversación de la alumna. La pantalla es compartida con la de la
 // instructora (`HiloConversacion`); aquí solo se decide el título —el estudio o
@@ -30,7 +31,12 @@ export default function HiloMensajesPage() {
     return mensajes;
   }, [estudio.id, id]);
   const enviar = useCallback((cuerpo: string) => enviarMensaje(estudio.id, id, cuerpo), [estudio.id, id]);
-  const marcarLeido = useCallback(() => marcarConversacionLeida(estudio.id, id), [estudio.id, id]);
+  // Abrir el hilo marca leídos también sus avisos (el servidor lo hace en el
+  // mismo PATCH). La campana vive en un caché de 60 s, así que se relee solo si
+  // el servidor lo confirmó: sin confirmación, seguir encendida es lo honesto.
+  const marcarLeido = useCallback(async () => {
+    if (await marcarConversacionLeida(estudio.id, id)) invalidarNoLeidas(estudio.id);
+  }, [estudio.id, id]);
 
   return (
     <HiloConversacion

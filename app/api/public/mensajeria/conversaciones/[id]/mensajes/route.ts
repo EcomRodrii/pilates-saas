@@ -119,7 +119,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         admin, { id, tipo: conv.tipo as string, studio_id: conv.studio_id as string }, user.userId,
       );
       if (authUserIds.length === 0) return;
-      const remitente = (await resolverNombreRemitente(admin, user.userId, conv.studio_id as string)) ?? 'Alguien';
+      // A su instructora le llega «Lucía M.», como la ve en su app; al mostrador, el nombre entero.
+      const remitente = (await resolverNombreRemitente(
+        admin, user.userId, conv.studio_id as string, { corto: conv.tipo === 'ALUMNA_INSTRUCTORA' },
+      )) ?? 'Alguien';
       await emitirMensajeRecibido(admin, {
         studioId: conv.studio_id as string, conversacionId: id, mensajeId,
         remitente, previsualizacion: previsualizacionParaAviso(conv.tipo as string, cuerpo), authUserIds,

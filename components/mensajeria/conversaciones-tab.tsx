@@ -237,7 +237,13 @@ function Hilo({
 
 // ── Pestaña ─────────────────────────────────────────────────────────────────
 
-export function ConversacionesTab() {
+/**
+ * `conversacionInicial`: el hilo que hay que abrir al llegar (el enlace del aviso
+ * de un mensaje nuevo, `/mensajeria?conversacion=<id>`). Se abre en cuanto la
+ * bandeja lo trae; si no está en ella (otro estudio, o un hilo que ya no ve), se
+ * queda la bandeja, sin hilo vacío.
+ */
+export function ConversacionesTab({ conversacionInicial = null }: { conversacionInicial?: string | null } = {}) {
   const { socios, instructores, reservas, sesiones } = useStudio();
   const { user } = useAuth();
   const authUserId = user?.id ?? null;
@@ -274,6 +280,18 @@ export function ConversacionesTab() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la bandeja.
   useEffect(() => { void cargarLista(); }, [cargarLista]);
 
+  // Abrir el hilo del enlace, una vez y solo si la bandeja lo trae. Se limpia la
+  // URL (como el salto a una clase en /calendario): recargar no lo reabre.
+  const inicialPendiente = useRef(conversacionInicial);
+  useEffect(() => {
+    const id = inicialPendiente.current;
+    if (!id || !conversaciones) return;
+    inicialPendiente.current = null;
+    if (!conversaciones.some(c => c.id === id)) return;
+    setAbiertaId(id);
+    window.history.replaceState(null, '', window.location.pathname);
+  }, [conversaciones]);
+
   const abierta = conversaciones?.find(c => c.id === abiertaId) ?? null;
 
   const filas = useMemo(() => {
@@ -284,7 +302,7 @@ export function ConversacionesTab() {
         || (c.ultimo_cuerpo ?? '').toLowerCase().includes(q));
   }, [conversaciones, socios, instructores, filtro]);
 
-  const sinLeerTotal = (conversaciones ?? []).filter(c => tieneSinLeer(c, authUserId)).length;
+  const sinLeerTotal = (conversaciones ?? []).filter(c => tieneSinLeer(c, authUserId, 'equipo')).length;
 
   async function abrirConversacion(
     tipo: 'ALUMNA_INSTRUCTORA' | 'ALUMNA_MOSTRADOR', socioId: string, instructorId?: string,
@@ -416,7 +434,7 @@ export function ConversacionesTab() {
                       identidad={identidad}
                       indice={i}
                       activa={c.id === abiertaId}
-                      sinLeer={tieneSinLeer(c, authUserId)}
+                      sinLeer={tieneSinLeer(c, authUserId, 'equipo')}
                       esMio={Boolean(c.ultimo_remitente_auth_user_id && c.ultimo_remitente_auth_user_id === authUserId)}
                       onClick={() => setAbiertaId(c.id)}
                     />

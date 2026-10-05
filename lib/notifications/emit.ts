@@ -13,6 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { publish } from './engine.ts';
 import { EVENTOS } from './catalog.ts';
 import { criterioArchivadoMensajeDia } from './mensaje-dia-archivado.ts';
+import { quienEscribeALaAlumna } from './aviso-mensaje.ts';
 import { cuandoEstudio, horaEstudio, fechaCortaEstudio, TZ_ESTUDIO } from '@/lib/utils';
 
 function cuandoLargo(iso: string): string {
@@ -1294,17 +1295,23 @@ export async function emitirMensajeRecibido(
 ): Promise<void> {
   try {
     // Los enlaces de la socia y de la instructora viven en la app del estudio:
-    // sin slug no hay a dónde llevarlas, así que se resuelve si no llega.
+    // sin slug no hay a dónde llevarlas, así que se resuelve si no llega. Y en
+    // el hilo con el estudio hace falta su nombre (ver `quienEscribe`).
     let slug = p.slug ?? null;
-    if (!slug) {
-      const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
-      slug = (studio?.slug as string | null) ?? null;
+    let nombreEstudio: string | null = null;
+    if (!slug || p.tipo === 'ALUMNA_MOSTRADOR') {
+      const { data: studio } = await admin.from('studios').select('slug, nombre').eq('id', p.studioId).maybeSingle();
+      slug = slug ?? (studio?.slug as string | null) ?? null;
+      nombreEstudio = (studio?.nombre as string | null) ?? null;
     }
     await publish({
       type: EVENTOS.MENSAJE_RECIBIDO, studioId: p.studioId,
       data: {
         conversacionId: p.conversacionId, remitente: p.remitente,
-        previsualizacion: p.previsualizacion ? `: "${p.previsualizacion}"` : '',
+        quienEscribe: quienEscribeALaAlumna(p.tipo ?? null, p.remitente, nombreEstudio),
+        // Solo cuando la hay: en los hilos con alumna nunca
+        // (`previsualizacionParaAviso`), y así el aviso no guarda ni la clave.
+        ...(p.previsualizacion ? { previsualizacion: `: "${p.previsualizacion}"` } : {}),
         authUserIds: p.authUserIds, slug, tipo: p.tipo ?? null,
       },
       resource: { type: 'mensaje', id: p.mensajeId },

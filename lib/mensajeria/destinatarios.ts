@@ -9,6 +9,7 @@
 // `resolverDestinatarios('mostrador', ...)` en lib/notifications/recipients.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { nombresParaLista } from '../student/agenda-instructora.ts';
 
 interface ConversacionInfo { id: string; studio_id: string; tipo: string; }
 
@@ -83,13 +84,22 @@ export async function authUserIdsParaNotificar(
 // Nombre a mostrar del remitente ("María te ha escrito"). Prueba socia →
 // instructora/staff → dueña, en ese orden; si no encuentra nada legible,
 // deja que el caller ponga un genérico ("Alguien").
+//
+// `corto`: la alumna como la ve su instructora en la app («Lucía M.»,
+// `nombresParaLista`), sin apellidos completos. Es lo que lleva el push que le
+// llega a la instructora; al mostrador le sigue llegando el nombre entero.
 export async function resolverNombreRemitente(
-  admin: SupabaseClient, authUserId: string, studioId: string,
+  admin: SupabaseClient, authUserId: string, studioId: string, opciones: { corto?: boolean } = {},
 ): Promise<string | null> {
   const { data: socio } = await admin
     .from('socios').select('nombre, apellidos')
     .eq('auth_user_id', authUserId).eq('studio_id', studioId).maybeSingle();
-  if (socio?.nombre) return `${socio.nombre} ${socio.apellidos ?? ''}`.trim();
+  if (socio?.nombre) {
+    if (opciones.corto) {
+      return nombresParaLista([{ nombre: socio.nombre as string, apellidos: (socio.apellidos as string | null) ?? null }])[0];
+    }
+    return `${socio.nombre} ${socio.apellidos ?? ''}`.trim();
+  }
 
   const { data: staff } = await admin
     .from('instructores').select('nombre')

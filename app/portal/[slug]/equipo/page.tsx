@@ -31,8 +31,7 @@ import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components
 import { Foto, precargarFoto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
 import { FilaAccesos, type Acceso } from '@/components/student/domain/AccesosRapidos';
-import { useMiAuthUserId } from '@/lib/student/mensajeria';
-import { selloLista, tieneSinLeer, unaLinea } from '@/lib/mensajeria/presentacion';
+import { selloLista, unaLinea } from '@/lib/mensajeria/presentacion';
 import { TEXTO_SIN_VALORACIONES, textoValoraciones } from '@/lib/student/valoraciones-instructora';
 
 // «Hoy» de la instructora: lo que el estudio le pide cubrir, su próxima clase,
@@ -157,7 +156,6 @@ export default function HoyInstructoraPage() {
   const sinConfirmar = estadoClases && estadoClases.pendientes.length > 0 && (
     <ClasesSinConfirmar clases={estadoClases.pendientes} enviando={enviandoClase || !online} onResponder={responderPendientes} />
   );
-  const miId = useMiAuthUserId();
 
   const responder = async (oferta: OfertaSustitucion, accion: 'aceptar' | 'rechazar') => {
     if (respondiendo) return;
@@ -206,7 +204,8 @@ export default function HoyInstructoraPage() {
 
   const enCurso = proxima != null && ahoraMs != null && Date.parse(proxima.inicio) <= ahoraMs;
 
-  const sinLeer = (hilos ?? []).filter((h) => tieneSinLeer(h, miId));
+  // `sin_leer` lo calcula el servidor (lib/mensajeria/resumen.ts).
+  const sinLeer = (hilos ?? []).filter((h) => h.sin_leer);
   const hiloDestacado = sinLeer[0] ?? hilos?.[0] ?? null;
   const valoracion = textoValoraciones(perfil?.valoraciones ?? null);
   // Las cuatro cosas que hace fuera de su agenda, con la misma baldosa que la

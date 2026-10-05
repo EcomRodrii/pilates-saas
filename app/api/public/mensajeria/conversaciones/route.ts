@@ -150,7 +150,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     conversaciones: resumirConversaciones(
-      filas, (ultimos ?? []) as FilaUltimoMensaje[], (lecturas ?? []) as FilaLectura[], user.userId,
+      filas, (ultimos ?? []) as FilaUltimoMensaje[], (lecturas ?? []) as FilaLectura[], user.userId, 'alumna',
     ).map(c => ({
       ...c,
       interlocutor: c.tipo === 'ALUMNA_INSTRUCTORA'

@@ -7,8 +7,8 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
-import { fetchConversaciones, abrirConversacionConEstudio, useMiAuthUserId } from '@/lib/student/mensajeria';
-import { colorPersona, selloLista, tieneSinLeer, tituloConversacionAlumna, unaLinea } from '@/lib/mensajeria/presentacion';
+import { fetchConversaciones, abrirConversacionConEstudio } from '@/lib/student/mensajeria';
+import { colorPersona, selloLista, tituloConversacionAlumna, unaLinea } from '@/lib/mensajeria/presentacion';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Button } from '@/components/student/ui/Button';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
@@ -26,7 +26,6 @@ export default function MensajesPage() {
   const href = usePortalHref();
   const router = useRouter();
   const { toast } = useToast();
-  const miId = useMiAuthUserId();
   const [abriendo, setAbriendo] = useState(false);
 
   const cargar = useCallback(async () => {
@@ -66,7 +65,10 @@ export default function MensajesPage() {
           />
         )}
         {estado === 'ready' && data!.map((c) => {
-          const sinLeer = tieneSinLeer(c, miId);
+          // Lo calcula el servidor con SU marca de lectura (lib/mensajeria/resumen.ts):
+          // aquí no hace falta saber «quién soy», y mientras eso no resolvía, su propio
+          // mensaje encendía el punto.
+          const sinLeer = c.sin_leer;
           const nombre = tituloConversacionAlumna(c, estudio.nombre);
           return (
             <Link
@@ -92,7 +94,7 @@ export default function MensajesPage() {
                   {unaLinea(c.ultimo_cuerpo) || 'Sin mensajes todavía'}
                 </p>
               </div>
-              {sinLeer && <span aria-hidden style={{ width: 9, height: 9, flexShrink: 0, borderRadius: 99, background: 'var(--accent)' }} />}
+              {sinLeer && <span aria-label="Sin leer" style={{ width: 9, height: 9, flexShrink: 0, borderRadius: 99, background: 'var(--accent)' }} />}
             </Link>
           );
         })}

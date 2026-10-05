@@ -67,3 +67,48 @@ test('la propietaria lee los hilos de su equipo con alumnas sin poder escribir e
   expect(ambitos[0]).toBe('bandeja');
   expect(ambitos).toContain('supervision');
 });
+
+// El aviso de un mensaje ya no lleva el texto (guía 4.5.4 de Apple), así que
+// tocarlo tiene que llevar a leerlo: su enlace es `/mensajeria?conversacion=<id>`
+// y abre «Conversaciones» con ese hilo, no la pestaña de notificaciones.
+const HILO_MOSTRADOR = {
+  id: 'conv-mos-1', studio_id: 'studio-e2e', tipo: 'ALUMNA_MOSTRADOR', titulo: null,
+  ancla_sesion_id: null, ancla_reserva_id: null,
+  creado_en: '2026-09-10T10:00:00Z', ultimo_mensaje_en: '2026-09-12T08:00:00Z', mostrador_leido_hasta: null,
+  conversacion_participantes: [
+    { socio_id: 'soc-1', rol_en_conversacion: 'SOCIO', auth_user_id: 'auth-socia-e2e', leido_hasta: '2026-09-12T08:00:00Z' },
+  ],
+  leido_hasta: null, leido_hasta_otros: '2026-09-12T08:00:00Z',
+  ultimo_cuerpo: PREGUNTA, ultimo_remitente_auth_user_id: 'auth-socia-e2e',
+  solo_lectura: false, sin_leer: true,
+};
+
+test('el enlace del aviso de un mensaje abre ese hilo en «Conversaciones»', async ({ page }) => {
+  await montar(page);
+  const cuenta = { bandeja: 0, mensajesCargados: 0, leidos: 0 };
+
+  await page.route((u) => u.pathname === '/api/mensajeria/conversaciones', (r) => {
+    cuenta.bandeja++;
+    return r.fulfill({ json: { conversaciones: [HILO_MOSTRADOR] } });
+  });
+  await page.route((u) => u.pathname === `/api/mensajeria/conversaciones/${HILO_MOSTRADOR.id}/mensajes`, (r) => {
+    cuenta.mensajesCargados++;
+    return r.fulfill({ json: { mensajes: [{ id: 'm1', conversacion_id: HILO_MOSTRADOR.id, studio_id: 'studio-e2e', remitente_auth_user_id: 'auth-socia-e2e', cuerpo: PREGUNTA, creado_en: '2026-09-12T08:00:00Z' }] } });
+  });
+  await page.route((u) => u.pathname === `/api/mensajeria/conversaciones/${HILO_MOSTRADOR.id}/leido`, (r) => {
+    cuenta.leidos++;
+    return r.fulfill({ status: 204 });
+  });
+
+  await ir(page, `mensajeria?conversacion=${HILO_MOSTRADOR.id}`);
+
+  // El hilo abierto es el único sitio con compositor: la bandeja sola no lo tiene.
+  await expect(page.getByRole('textbox', { name: 'Mensaje' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Conversaciones', exact: true })).toBeVisible();
+  expect(cuenta.bandeja).toBeGreaterThan(0);
+  await expect.poll(() => cuenta.mensajesCargados, { timeout: 15_000 }).toBeGreaterThan(0);
+  // Abrirlo lo marca leído (y con él, su aviso en la campana).
+  await expect.poll(() => cuenta.leidos, { timeout: 15_000 }).toBeGreaterThan(0);
+  // Recargar no lo reabre: el enlace se consume.
+  await expect(page).toHaveURL(/\/mensajeria$/);
+});

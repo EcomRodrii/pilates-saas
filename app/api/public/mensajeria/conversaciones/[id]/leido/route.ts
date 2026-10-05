@@ -3,11 +3,16 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
+import { marcarAvisosDeConversacionLeidos } from '@/lib/mensajeria/avisos-leidos';
 
 // Marca `leido_hasta = now()` en la fila SOCIO de `conversacion_participantes`.
 // Sin RLS que proteja a la socia (no llega a auth.uid()), así que se
 // comprueba la participación a mano antes de escribir nada — mismo criterio
 // que GET/POST de mensajes en esta misma carpeta.
+//
+// Y apaga sus avisos de ese hilo en la campana (`marcarAvisosDeConversacionLeidos`):
+// si eso falla, 500, para que la app no apague el punto de la campana por su
+// cuenta con los avisos sin leer.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const body = await req.json().catch(() => null) as { studioId?: string } | null;
   if (!body?.studioId) return errorPeticion('Falta el estudio.');
@@ -36,5 +41,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .eq('socio_id', socioId);
 
   if (error) return errorInterno('public/mensajeria/leido:PATCH', error, 'No se ha podido marcar como leído.');
+
+  const errorAvisos = await marcarAvisosDeConversacionLeidos(admin, {
+    userId: user.userId, studioId: body.studioId, conversacionId: id, lado: 'alumna',
+  });
+  if (errorAvisos) return errorInterno('public/mensajeria/leido:PATCH:avisos', errorAvisos, 'No se ha podido marcar como leído.');
   return new NextResponse(null, { status: 204 });
 }
