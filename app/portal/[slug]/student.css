@@ -307,8 +307,15 @@
    · .10em en vez de .16em — el mono ya viene con su propio aire entre letras;
      la sans no, y con .16em las palabras se deshacían en letras sueltas.
    · 700 en vez del 500 heredado — en versales pequeñas la sans necesita cuerpo
-     para no verse desvaída al lado de un titular en 800. */
-.student-app .t-label { font-family: var(--font-heading); font-size: var(--t-label); font-weight: 700; letter-spacing: .10em; text-transform: uppercase; color: var(--subtle-foreground); margin: 0; }
+     para no verse desvaída al lado de un titular en 800.
+
+   ⚠️ `line-height: inherit` no cambia nada a propósito: es lo que ya hacía.
+   Desde el Brand System (brand/tokens.css, fase 1) existe además una `.t-label`
+   GLOBAL —la etiqueta en mono de Tentare— que trae su propio interlineado
+   (16px), y esta regla no lo declaraba: se le habría colado a los ~60 rótulos
+   de la app. Se fija aquí el de siempre hasta que la app de la alumna pase al
+   sistema nuevo (fase 16 de brand/implementation-plan.md). */
+.student-app .t-label { font-family: var(--font-heading); font-size: var(--t-label); font-weight: 700; letter-spacing: .10em; text-transform: uppercase; color: var(--subtle-foreground); margin: 0; line-height: inherit; }
 .student-app .t-meta { font-size: var(--t-meta); color: var(--muted-foreground); margin: 0; }
 /* Mono, para lo que de verdad es un CÓDIGO: el identificador de un recibo, el
    del pase de acceso, el de invitar a una amiga. Se lee carácter a carácter,

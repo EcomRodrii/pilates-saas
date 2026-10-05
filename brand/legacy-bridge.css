@@ -1,0 +1,60 @@
+/* ─────────────────────────────────────────────────────────────
+   TENTARE · LEGACY BRIDGE (fase 1)
+   Puentea los nombres de shadcn del repo a los tokens nuevos SOLO en:
+   fondos, superficies, texto, bordes y estados (claro).
+   Especificidad doble (:root:root, .dark.dark) para ganar a los bloques
+   :root / .dark de globals.css sin tocar su orden ni su contenido.
+
+   NO SE TOCA EN FASE 1 (siguen con su valor LEGACY de globals.css):
+     --brand* · --sidebar-primary* · --accent* · --portal-brand*   → fase 4/5
+     paleta categórica del calendario                              → OPEN DECISION
+     estados en oscuro (--destructive/--success/--warning/--info)  → OPEN DECISION
+     --radius · --motion-* · fuentes (Jakarta / Plex Mono)          → fase 2+
+     --tenti-* · .marca-auto                                        → ya usan el kit oficial / fuera de alcance
+
+   Rollback: quitar el @import de este archivo en app/globals.css.
+   ───────────────────────────────────────────────────────────── */
+
+:root:root {
+  /* LEGACY → valor anterior entre corchetes, para auditoría y rollback */
+  --background: var(--t-surface-canvas);          /* [LEGACY #EEEEE8] */
+  --card: var(--t-surface-raised);                /* [LEGACY #FFFFFF] */
+  --popover: var(--t-surface-raised);             /* [LEGACY #FFFFFF] */
+  --muted: var(--t-surface-sunken);               /* [LEGACY #F5F5F1] */
+  --secondary: var(--t-surface-sunken);           /* [LEGACY #F3F3EF] */
+  --foreground: var(--t-text-primary);            /* [LEGACY #1A1A1A] */
+  --card-foreground: var(--t-text-primary);       /* [LEGACY #1A1A1A] */
+  --popover-foreground: var(--t-text-primary);    /* [LEGACY #1A1A1A] */
+  --secondary-foreground: var(--t-text-primary);  /* [LEGACY #1A1A1A] */
+  --muted-foreground: var(--t-text-tertiary);     /* [LEGACY: ver globals.css l.127, ajustado a AA] */
+  --primary: var(--t-ink-900);                    /* [LEGACY #131313] */
+  --primary-foreground: var(--t-cream);           /* [LEGACY #FFFFFF] */
+  --border: var(--t-border-default);              /* [LEGACY #C8C8BD] */
+  --input: var(--t-ink-500);                      /* [LEGACY #83837A] — contorno de control ≥3:1 (WCAG 1.4.11) */
+  --ring: var(--t-border-focus);                  /* [LEGACY #6B7A3C oliva] */
+  --sidebar: var(--t-surface-nav);                /* [LEGACY #0F0F0F] */
+  --sidebar-foreground: #B4BAC2;                  /* [LEGACY #E8E8E4] valor de design-tokens (texto de menú) */
+  /* Estados — claro */
+  --destructive: var(--t-error-fg);               /* [LEGACY #A8442A] */
+  --success: var(--t-success-fg);                 /* [LEGACY #2F6B4F] */
+  --warning: var(--t-warning-fg);                 /* [LEGACY #8F6215] */
+  --info: var(--t-info-fg);                       /* [LEGACY #3F5A7A] */
+}
+
+/* Base oscura: superficies, texto y bordes. Estados en oscuro: OPEN DECISION → no se tocan. */
+.dark.dark {
+  --background: var(--t-surface-canvas);          /* [LEGACY #16161A] */
+  --card: var(--t-surface-raised);                /* [LEGACY #1E1E22] */
+  --popover: var(--t-surface-raised);             /* [LEGACY #1E1E22] */
+  --muted: var(--t-surface-sunken);               /* [LEGACY #232327] */
+  --secondary: var(--t-surface-sunken);           /* [LEGACY #26262B] */
+  --foreground: var(--t-text-primary);            /* [LEGACY #EDEDE8] */
+  --card-foreground: var(--t-text-primary);
+  --popover-foreground: var(--t-text-primary);
+  --secondary-foreground: var(--t-text-primary);
+  --muted-foreground: var(--t-text-secondary);    /* [LEGACY #9A9A98] */
+  --primary: var(--t-text-primary);               /* [LEGACY #EDEDE8] */
+  --primary-foreground: var(--t-surface-canvas);  /* [LEGACY #16161A] */
+  --border: var(--t-border-default);              /* [LEGACY #414147] */
+  --input: var(--t-ink-400);                      /* [LEGACY #76767B] */
+}
