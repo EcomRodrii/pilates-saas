@@ -48,7 +48,7 @@ const TentiCanvas = dynamic<PropsTenti>(
   { ssr: false, loading: () => <CajaVacia /> },
 );
 
-export function TentiDiferido({ estado, tamano, sigueCursor = true, reserva }: PropsTentiDiferido) {
+export function TentiDiferido({ estado, tamano, sigueCursor = false, reserva }: PropsTentiDiferido) {
   const rol = useRol();
   if (rol !== 'PROPIETARIO') return <>{reserva}</>;
   return (

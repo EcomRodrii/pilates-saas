@@ -314,8 +314,18 @@ esa lista con su motivo, no un import de paso.
   el canvas animado (`components/tenti/tenti.tsx`) solo en las primeras veces de
   la propietaria (el logo y Listo) y siempre diferido. Es el estado a 5-oct, no
   un veto: el fundador ya decidió el canvas también en el buscador ⌘K y en el
-  briefing de Automatizaciones, que llegan junto con el PR en el que el motor
-  duerme entre parpadeos (hoy pide rAF mientras se ve).
+  briefing de Automatizaciones.
+- **El canvas DUERME entre parpadeos.** Pide rAF solo mientras algo se mueve
+  (`animando()`: tweens, temporizadores, partículas, valores sin llegar;
+  `perpetuo()`: lo que oscila sin fin) y, si no, un `setTimeout` hasta
+  `proximoDespertar()`. Lo despiertan el estado, la emoción, el saludo, la
+  paleta, `mira`, el puntero (si sigue al cursor) y volver a verse; fuera de
+  pantalla o con la pestaña oculta no queda ni el rAF ni el temporizador.
+  `sigueCursor` va apagado por defecto (con el ratón en movimiento vuelve a 60
+  fps) y los sonidos llegan en su propio chunk. Medido con Listo en reposo: de
+  601 a 42 fotogramas en 10 s. ⚠️ Los temporizadores cuentan en `animando()` a
+  propósito: el hueco del parpadeo doble son 30 ms y sin eso se dormía con los
+  ojos a medio cerrar (lo cubre `lib/tenti/motor.test.ts`).
 - **Tres estados con un significado cada uno.** `reposo` es la firma: no es un
   aviso ni un «todo bien» (si hay algo que avisar, lo dice el texto, nunca su
   cara). `pensando`, solo con una petición de verdad en vuelo (un botón de IA,

@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { HUELLA_DEL_MOTOR, recolectarScripts } from './recolector-scripts';
+import { contarFotogramas } from './contador-fotogramas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El calendario de un estudio que todavía no tiene ninguna clase.
@@ -543,6 +544,26 @@ test.describe('Tenti celebra cuando el servidor confirma que una alumna nueva pu
     await vistaPreviaCargada(page);
     await page.waitForTimeout(3_000);
     await expect(tenti(page)).toHaveAttribute('data-estado', 'reposo');
+  });
+
+  // A 60 fps serían unos 360 fotogramas en 6 s. Dormido entre parpadeos (uno
+  // cada 2,2–5,4 s, unos 200 ms de animación cada uno) pinta unas decenas, y
+  // alguno tiene que pintar: en 6 s cabe al menos un parpadeo, así que cero
+  // querría decir que se ha quedado dormido para siempre.
+  test('en reposo el canvas duerme entre parpadeos', async ({ page }) => {
+    const fotogramas = await contarFotogramas(page);
+    await montar(page);
+    const servidor = await servidorDice(page, { estado: 'NO', motivo: 'STRIPE_SIN_CUENTA' });
+    await paginaDeReservas(page);
+    await crearHorarioPropuesto(page);
+    await expect(tenti(page)).toHaveAttribute('data-estado', 'reposo', { timeout: 15_000 });
+    await vistaPreviaCargada(page);
+    expect(servidor.intentos).toBeGreaterThan(0);
+    await page.waitForTimeout(1_000);
+    const { raf, pintados } = await fotogramas.durante(6_000);
+    expect(pintados).toBeGreaterThan(0);
+    expect(pintados).toBeLessThan(120);
+    expect(raf).toBeLessThan(150);
   });
 
   test('sin poder comprobarlo (el servidor falla) tampoco celebra', async ({ page }) => {
