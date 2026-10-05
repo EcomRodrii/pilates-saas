@@ -127,3 +127,15 @@ as $$
   end
   from candidata c;
 $$;
+
+-- Permisos, por escrito (CREATE OR REPLACE conserva los que ya tenían; esto
+-- solo deja constancia y es idempotente). anon no ejecuta ninguna. Las dos que
+-- llaman las políticas siguen para authenticated; las otras dos, solo el servidor.
+revoke all on function public.nivel_acceso_suficiente() from public, anon;
+grant execute on function public.nivel_acceso_suficiente() to authenticated, service_role;
+revoke all on function public.current_studio_id() from public, anon;
+grant execute on function public.current_studio_id() to authenticated, service_role;
+revoke all on function public.sesion_confiada_de(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.sesion_confiada_de(uuid, uuid) to service_role;
+revoke all on function public.correo_doble_factor_disponible(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.correo_doble_factor_disponible(uuid, uuid) to service_role;
