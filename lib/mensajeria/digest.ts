@@ -34,7 +34,7 @@ interface FilaDigest {
   auth_user_id: string;
   studio_id: string;
   studio_slug: string | null;
-  // ⚠️ Opcionales: la función de antes de 20261005100000 no los devuelve. Si el
+  // ⚠️ Opcionales: la función de antes de 20261005072520 no los devuelve. Si el
   // código sale antes que la migración, una fila sin `lado` se publica como
   // antes (el motor resuelve la audiencia por la cuenta) en vez de tratarse
   // como de equipo y descartarse: eso dejaba a TODAS las alumnas sin resumen.

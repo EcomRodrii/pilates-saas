@@ -1,5 +1,5 @@
 // Quien escribe un mensaje ya ha leído hasta su propio mensaje (migr
-// 20261005100000_mensajes_quien_escribe_ya_lo_ha_leido.sql). Sin eso, el correo
+// 20261005072520_mensajes_quien_escribe_ya_lo_ha_leido.sql). Sin eso, el correo
 // resumen («Tienes 1 conversación con mensajes nuevos por leer») le llegaba a la
 // alumna por SU mensaje, y el mostrador seguía «sin leer» después de contestar.
 // Contra Postgres de verdad (job `calidad-rls`), como el resto de supabase/tests.
