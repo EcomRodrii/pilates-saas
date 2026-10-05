@@ -236,7 +236,8 @@ export function PantallasValor({
   // de abajo quita la transición, no hay `transitionend` y no saluda — que es
   // lo que toca: el motor tampoco saludaría (`quieto`).
   const fundido: React.CSSProperties = {
-    display: 'flex', flex: 'none', pointerEvents: 'none',
+    // Tocable solo cuando ya se ve: mientras es transparente, ni se toca ni tapa nada.
+    display: 'flex', flex: 'none', pointerEvents: transformada ? 'auto' : 'none',
     opacity: transformada ? 1 : 0,
     transform: transformada ? 'translateY(0)' : 'translateY(12px)',
     transition: 'opacity 420ms linear 620ms, transform 560ms cubic-bezier(0.22,1,0.36,1) 620ms',
@@ -427,7 +428,7 @@ export function PantallasValor({
                   más de la mitad del lienzo, así que lo que sobresale es aire. */}
               {!escritorio && (
                 <div ref={envoltorio} onTransitionEnd={alTerminarFundido} style={{ ...fundido, margin: '-8px 0 -8px auto' }}>
-                  <Tenti ref={tenti} estado="reposo" tamano={64} sigueCursor />
+                  <Tenti ref={tenti} estado="reposo" tamano={64} sigueCursor interactivo />
                 </div>
               )}
             </div>
@@ -438,9 +439,11 @@ export function PantallasValor({
               en absoluto se montaba sobre la última tarjeta y le tapaba el
               check —visto en el navegador con el dibujo anterior—, y cualquier
               cambio de alto de una escena volvería a romperlo. Decorativo
-              (aria-hidden): el titular de al lado ya dice lo que pasa. Ni se
-              toca, ni suena, ni lleva insignia: los valores por defecto de
-              <Tenti> ya son esos. */}
+              (aria-hidden): el titular de al lado ya dice lo que pasa. Sin
+              insignia. Como en /interno/tenti (decisión del fundador del
+              5-oct): se deja tocar (se aplasta y suena), y saluda y se alegra
+              con su sonido si «Sonidos de Tenti» está encendido en este
+              dispositivo (lo lee <Tenti> solo). */}
           <div style={{ gridArea: 'escena', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
             {Escena ? (
               <Escena activa={transformada} />
@@ -454,7 +457,7 @@ export function PantallasValor({
             )}
             {escritorio && (
               <div ref={envoltorio} onTransitionEnd={alTerminarFundido} style={{ ...fundido, alignSelf: 'flex-end', marginRight: 4 }}>
-                <Tenti ref={tenti} estado="reposo" tamano={104} sigueCursor />
+                <Tenti ref={tenti} estado="reposo" tamano={104} sigueCursor interactivo />
               </div>
             )}
           </div>

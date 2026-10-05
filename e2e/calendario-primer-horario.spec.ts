@@ -547,9 +547,11 @@ test.describe('Tenti celebra cuando el servidor confirma que una alumna nueva pu
   });
 
   // A 60 fps serían unos 360 fotogramas en 6 s. Dormido entre parpadeos (uno
-  // cada 2,2–5,4 s, unos 200 ms de animación cada uno) pinta unas decenas, y
-  // alguno tiene que pintar: en 6 s cabe al menos un parpadeo, así que cero
-  // querría decir que se ha quedado dormido para siempre.
+  // cada 2,2–5,4 s, unos 200 ms de animación cada uno) y miradas (desde el
+  // 5-oct mira alrededor, como en /interno/tenti: una cada 4,5–10 s, ida y
+  // vuelta de ~1 s cada una a este tamaño) pinta como mucho la mitad, y alguno
+  // tiene que pintar: en 6 s cabe al menos un parpadeo, así que cero querría
+  // decir que se ha quedado dormido para siempre.
   test('en reposo el canvas duerme entre parpadeos', async ({ page }) => {
     const fotogramas = await contarFotogramas(page);
     await montar(page);
@@ -562,8 +564,8 @@ test.describe('Tenti celebra cuando el servidor confirma que una alumna nueva pu
     await page.waitForTimeout(1_000);
     const { raf, pintados } = await fotogramas.durante(6_000);
     expect(pintados).toBeGreaterThan(0);
-    expect(pintados).toBeLessThan(120);
-    expect(raf).toBeLessThan(150);
+    expect(pintados).toBeLessThan(200);
+    expect(raf).toBeLessThan(230);
   });
 
   test('sin poder comprobarlo (el servidor falla) tampoco celebra', async ({ page }) => {

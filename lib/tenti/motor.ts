@@ -27,15 +27,14 @@ import type { Sonido } from './sonidos.ts';
 import type { PaletaTenti } from './paleta.ts';
 // El dibujo (contorno, ojos, mofletes, luz) sale de la misma geometría que el
 // icono de lo diario: aquí solo se anima.
-import { BAJADA, LUZ, MOFLETE, OJO, colocarOjo, medidas, pildora, recorrerContorno } from './geometria.ts';
+import { BAJADA, LUZ, MOFLETE, OJO, SILUETA_PX, colocarOjo, medidas, pildora, recorrerContorno } from './geometria.ts';
 
 type RGB = [number, number, number];
 
 // Los sonidos van en su propio chunk y se piden la primera vez que hacen falta:
-// fuera del catálogo (/interno/tenti) ningún Tenti suena, y no tiene sentido
-// que cada pantalla con la mascota descargue la síntesis de veinticinco efectos.
-// Se piden al encender `sonido`, no al primer efecto, para que ese primero no
-// llegue tarde respecto al gesto que lo provoca.
+// con «Sonidos de Tenti» apagado (Configuración › Tu panel) no se descarga la
+// síntesis de veinticinco efectos. Se piden al encender `sonido`, no al primer
+// efecto, para que ese primero no llegue tarde respecto al gesto que lo provoca.
 let sonidos: typeof import('./sonidos.ts') | null = null;
 let pidiendoSonidos: Promise<void> | null = null;
 function cargarSonidos(): Promise<void> {
@@ -116,8 +115,11 @@ export const EMOCIONES = {
   orgullo: { etiqueta: 'Orgullo', ojo: 'star', sonido: 'proud' },
   guino: { etiqueta: 'Guiño', ojo: 'wink', sonido: 'wink' },
   bostezo: { etiqueta: 'Bostezo', ojo: 'tired', sonido: 'yawn' },
-  feliz: { etiqueta: 'Feliz', ojo: 'happy' },
-  molesto: { etiqueta: 'Molesto', ojo: 'line' },
+  // 'feliz' suena (corto y alegre): es la emoción del logo guardado. Al
+  // saludar va en silencio, porque el saludo ya lleva su propio sonido.
+  feliz: { etiqueta: 'Feliz', ojo: 'happy', sonido: 'love' },
+  // El segundo toque seguido: «¡eh!».
+  molesto: { etiqueta: 'Molesto', ojo: 'line', sonido: 'annoyed' },
 } satisfies Record<string, { etiqueta: string; ojo: FormaOjo; sonido?: Sonido }>;
 export type EmocionTenti = keyof typeof EMOCIONES;
 
@@ -150,6 +152,12 @@ export interface OpcionesTenti {
   insignias?: boolean;
   /** «Reducir movimiento»: sin recorrido, ver `animacionDeEntrada`. */
   quieto?: boolean;
+  /** Mira alrededor de vez en cuando, en reposo (`proximoDespertar` lo cuenta). */
+  miradas?: boolean;
+  /** El color de la silueta por dentro del cuerpo, o null para no pintarla.
+   *  Es la del icono (`SILUETA_PX`): a tamaño de icono, en claro, el cuerpo
+   *  crema da 1,04:1 sobre --card y sin ella Tenti son dos ojos flotando. */
+  silueta?: string | null;
 }
 
 interface ColoresRgb { luz: RGB; sombra: RGB; rubor: RGB }
@@ -166,6 +174,11 @@ export class Tenti {
   set sonido(v: boolean) { this.conSonido = v; if (v) void cargarSonidos(); }
   /** «Reducir movimiento». Se puede cambiar en vivo. */
   quieto: boolean;
+  /** Mirar alrededor en reposo. Se puede cambiar en vivo. */
+  miradas: boolean;
+  /** Ver `OpcionesTenti.silueta`. Se puede cambiar en vivo (claro ↔ oscuro). */
+  silueta: string | null;
+  private dpr = 1;
   private insignias: boolean;
   private paleta: PaletaTenti = PALETA_PROTOTIPO;
   private rgb: ColoresRgb = aRgb(PALETA_PROTOTIPO);
@@ -189,6 +202,10 @@ export class Tenti {
   private proxParpadeo: number;
   /** Hacia dónde mira, de -1 a 1 en cada eje. */
   mira = { x: 0, y: 0 };
+  /** La mirada de ambiente en curso (se suma a `mira`) y hasta cuándo dura. */
+  private mirada = { x: 0, y: 0 };
+  private miradaHasta = 0;
+  private proxMirada: number;
   private t0: number;
   private saludaHasta = 0;
   private ultimoAmbiente = 0;
@@ -197,20 +214,23 @@ export class Tenti {
 
   constructor(canvas: HTMLCanvasElement, {
     mini = false, colorCuerpo = null, sonido = false, paleta = null, insignias = true, quieto = false,
+    miradas = false, silueta = null,
   }: OpcionesTenti = {}) {
     this.c = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Tenti necesita un canvas 2D');
     this.x = ctx; this.mini = mini; this.colorCuerpo = colorCuerpo ? hexRgb(colorCuerpo) : null; this.sonido = sonido;
-    this.insignias = insignias; this.quieto = quieto;
+    this.insignias = insignias; this.quieto = quieto; this.miradas = miradas; this.silueta = silueta;
     if (paleta) this.ponerPaleta(paleta);
     this.proxParpadeo = AHORA() + 1500 + Math.random() * 2000;
+    this.proxMirada = AHORA() + 2500 + Math.random() * 4000;
     this.t0 = AHORA() - Math.random() * 5000;
   }
 
   /** Ajusta la resolución del canvas a su tamaño en pantalla. */
   medir(cssPx: number) {
     const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+    this.dpr = dpr;
     this.c.width = Math.round(cssPx * dpr); this.c.height = Math.round(cssPx * dpr);
   }
 
@@ -277,8 +297,10 @@ export class Tenti {
   }
 
   parpadear() { if (this.lock.open) return; this.anim('open', [[0.06, 70, E.inOut], [1, 130, E.out]]); }
-  /** Se aplasta, como al tocarlo. */
+  /** Se aplasta, como al tocarlo, y suena (el sonido no es movimiento: con
+   *  «reducir movimiento» suena igual, sin aplastarse). */
   aplastar() {
+    this.suena('slap');
     if (this.quieto) return;
     this.anim('sy', [[0.78, 70, E.out], [1.1, 130, E.out], [1, 170, E.inOut]]);
     this.anim('sx', [[1.16, 70, E.out], [0.95, 130, E.out], [1, 170, E.inOut]]);
@@ -343,7 +365,10 @@ export class Tenti {
   animando(): boolean {
     if (this.tw.length || this.temporizadores.size || this.parts.length || this.ojoForzado) return true;
     if (AHORA() < this.saludaHasta) return true;
-    for (const k of Object.keys(this.tg) as Prop[]) if (Math.abs(this.tg[k] - this.s[k]) > 0.002) return true;
+    // A tamaño de icono (mini) un 0,01 no llega a medio píxel: no merece los
+    // treinta fotogramas de cola que cuesta acercarse a 0,002.
+    const umbral = this.mini ? 0.01 : 0.002;
+    for (const k of Object.keys(this.tg) as Prop[]) if (Math.abs(this.tg[k] - this.s[k]) > umbral) return true;
     return Math.abs(this.col[0] - this.colT[0]) + Math.abs(this.col[1] - this.colT[1]) + Math.abs(this.col[2] - this.colT[2]) > 1;
   }
 
@@ -373,7 +398,14 @@ export class Tenti {
     if (this.quieto) return Infinity;
     const c = this.cfg;
     const ambiente = !this.mini && (c.zz || c.suda) ? this.ultimoAmbiente + 1300 : Infinity;
-    return Math.min(this.proxParpadeo, ambiente);
+    // Una mirada en curso se despierta para volver al frente; si no, para la siguiente.
+    const mirada = !this.miraAlrededor() ? Infinity : this.miradaHasta > AHORA() ? this.miradaHasta : this.proxMirada;
+    return Math.min(this.proxParpadeo, ambiente, mirada);
+  }
+
+  /** Si toca mirar alrededor: solo en reposo, y nunca con «reducir movimiento». */
+  private miraAlrededor(): boolean {
+    return this.miradas && !this.quieto && this.estado === 'reposo';
   }
 
   private actualizar() {
@@ -394,7 +426,20 @@ export class Tenti {
         }
       }
     }
-    let ty = q ? 0 : this.mira.x * 0.62, tp = q ? 0 : this.mira.y * 0.5;
+    // Las miradas de ambiente: de vez en cuando mira a un lado (y un poco arriba
+    // o abajo) un rato, y vuelve al frente. Se suman a `mira`, sin pisarla.
+    if (this.miraAlrededor()) {
+      if (n >= this.proxMirada) {
+        const lado = Math.random() < 0.5 ? -1 : 1;
+        this.mirada = { x: lado * (0.4 + Math.random() * 0.45), y: (Math.random() - 0.4) * 0.6 };
+        this.miradaHasta = n + 900 + Math.random() * 900;
+        this.proxMirada = this.miradaHasta + 4500 + Math.random() * 5500;
+      } else if (n >= this.miradaHasta) this.mirada = { x: 0, y: 0 };
+    } else {
+      this.mirada = { x: 0, y: 0 };
+      if (n >= this.proxMirada) this.proxMirada = n + 2500 + Math.random() * 4000;
+    }
+    let ty = q ? 0 : clamp(this.mira.x + this.mirada.x, -1, 1) * 0.62, tp = q ? 0 : clamp(this.mira.y + this.mirada.y, -1, 1) * 0.5;
     if (c.mira) { ty = ty * 0.35 + c.mira[0] * 0.55; tp = tp * 0.3 + c.mira[1] * 0.5; }
     if (c.escanea && !q) { ty = Math.sin(t * 2.6) * 0.6; tp = -0.06; }
     if (this.estado === 'dormido') { ty = 0; tp = -0.14; }
@@ -402,7 +447,10 @@ export class Tenti {
     const bota = c.bota && !q, respira = c.respira && !q;
     tg.yaw = ty; tg.pitch = tp; tg.tilt = c.ladea || 0; tg.oy = bota ? -Math.abs(Math.sin(t * 5.2)) * 0.07 : 0;
     tg.sy = respira ? 1 + Math.sin(t * 1.8) * 0.035 : 1; tg.sx = respira ? 1 - Math.sin(t * 1.8) * 0.02 : 1;
-    const kMira = 1 - Math.pow(0.0025, dt), kGen = 1 - Math.pow(0.0008, dt);
+    // En mini (tamaño de icono) la cabeza gira más deprisa: a 26-41 px el giro
+    // lento no se aprecia y cada fotograma de cola cuesta igual (medido en
+    // Resumen: las miradas eran la mayor parte de lo que pintaba en reposo).
+    const kMira = 1 - Math.pow(this.mini ? 0.0001 : 0.0025, dt), kGen = 1 - Math.pow(0.0008, dt);
     for (const k of Object.keys(tg) as Prop[]) { if (this.lock[k]) continue; s[k] += (tg[k] - s[k]) * (k === 'yaw' || k === 'pitch' ? kMira : kGen); }
     this.col = mix(this.col, this.colT, 1 - Math.pow(0.002, dt));
     if (n > this.proxParpadeo) {
@@ -449,6 +497,12 @@ export class Tenti {
       sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(vo.desde, 'rgba(0,0,0,0)'); sh.addColorStop(1, `rgba(0,0,0,${vo.opacidad})`); x.fillStyle = sh; x.fill(path);
       const hl = x.createRadialGradient(rx * br.centro[0], ry * br.centro[1], 0, rx * br.centro[0], ry * br.centro[1], R * br.radio);
       hl.addColorStop(0, `rgba(255,255,255,${br.opacidad})`); hl.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = hl; x.fill(path);
+      // La silueta, POR DENTRO, como la del icono: el trazo es el doble y el
+      // recorte se come la mitad de fuera. Mide SILUETA_PX en px de pantalla.
+      if (this.silueta) {
+        x.save(); x.clip(path); x.strokeStyle = this.silueta; x.lineWidth = 2 * SILUETA_PX * this.dpr / Math.max(0.5, Math.min(s.sx, s.sy));
+        x.stroke(path); x.restore();
+      }
     }
     // mofletes
     const bl = Math.max(s.blush, MOFLETE.minimo) * (1 - m);

@@ -4,15 +4,22 @@ import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type 
 import { Tenti as Motor, type EmocionTenti, type EstadoTenti } from '@/lib/tenti/motor';
 import { paletaDesdeTokens, type PaletaTenti } from '@/lib/tenti/paleta';
 import { ID_ANFITRION_PANEL } from '@/lib/panel-portal';
+import { prepararSonidos, useSonidosDeTenti } from '@/lib/tenti/preferencia-sonido';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
 
 // La mascota de Tentare. El dibujo y las animaciones viven en lib/tenti/motor.ts;
 // esto solo lo monta en un <canvas> y lo conecta con la página.
 //
-// Los valores por defecto son los de una pantalla de estudio, no los del
-// catálogo: no se toca, no suena, no saluda solo, no lleva insignia y es
-// decorativo. /interno/tenti enciende cada cosa a mano. Así un sitio nuevo no
-// puede salir ruidoso por olvidarse de un `false`.
+// Desde el 5-oct-2026 (decisión del fundador: «en /interno/tenti está
+// perfecto») Tenti se comporta en el panel como en el catálogo: parpadea, mira
+// alrededor, sigue el cursor con los ojos, se aplasta y suena al tocarlo, se
+// molesta si insistes y se marea si insistes mucho. Lo que cada sitio enciende
+// lo deciden sus envoltorios (TentiIcono, TentiDecorativo, TentiDiferido) y la
+// guardia lib/tenti/donde-vive-tenti.test.ts. Por defecto, aquí:
+//   · `sonido` sigue la preferencia del dispositivo («Sonidos de Tenti»,
+//     encendida salvo que la apaguen) y cambia al momento si la cambian;
+//   · `miradas` encendidas: en reposo mira alrededor de vez en cuando;
+//   · no se toca, no saluda solo, no sigue al cursor, sin insignia y decorativo.
 //
 // El bucle DUERME: pide fotogramas solo mientras algo se mueve (un tween, un
 // temporizador, una partícula, un valor que aún no ha llegado, o un estado que
@@ -44,8 +51,17 @@ export interface PropsTenti {
   /** Hacia dónde mira en horizontal, de -1 (izquierda) a 1 (derecha), cuando
    *  no sigue al cursor. Con «reducir movimiento» mira siempre al frente. */
   mira?: number;
-  /** Sonidos de sus reacciones. */
+  /** Sonidos de sus reacciones. Sin él, la preferencia del dispositivo
+   *  («Sonidos de Tenti», lib/tenti/preferencia-sonido.ts). */
   sonido?: boolean;
+  /** Mira alrededor de vez en cuando, en reposo. */
+  miradas?: boolean;
+  /** La silueta por dentro del cuerpo, la del icono: 'normal' con
+   *  --tenti-silueta, 'invertida' con el color del texto (sobre bg-primary). */
+  silueta?: 'normal' | 'invertida';
+  /** Saluda (con la mano y su sonido) la primera vez que se ve en esta sesión
+   *  del navegador: uno solo por sesión, entre todos los Tentis que lo pidan. */
+  saludaUnaVez?: boolean;
   /** Se aplasta al tocarlo, y se marea si insistes. */
   interactivo?: boolean;
   /** Saluda con la mano al montarse, aunque aún no se vea: quien necesite el saludo a la vista, que llame a saludar(). */
@@ -61,13 +77,28 @@ export interface PropsTenti {
 }
 
 const MAREO_TRAS_TOQUES = 4;
+const CLAVE_SALUDO_SESION = 'tenti-saludo-sesion';
+
+/** Si este Tenti se queda el saludo de la sesión: el primero que lo pida. */
+function tomarSaludoDeSesion(): boolean {
+  try {
+    if (sessionStorage.getItem(CLAVE_SALUDO_SESION)) return false;
+    sessionStorage.setItem(CLAVE_SALUDO_SESION, '1');
+    return true;
+  } catch { return false; }
+}
 const VENTANA_TOQUES_MS = 1700;
 const MAREO_MS = 2200;
 
 export function Tenti({
-  estado = 'reposo', tamano = 120, sigueCursor = false, mira, sonido = false, interactivo = false,
-  saludaAlAparecer = false, insignias = false, titulo, reserva = null, className, ref,
+  estado = 'reposo', tamano = 120, sigueCursor = false, mira, sonido: sonidoPedido, miradas = true, silueta,
+  saludaUnaVez = false, interactivo = false, saludaAlAparecer = false, insignias = false, titulo, reserva = null,
+  className, ref,
 }: PropsTenti) {
+  const preferencia = useSonidosDeTenti();
+  const sonido = sonidoPedido ?? preferencia;
+  const siluetaRef = useRef(silueta);
+  const saludaUnaVezRef = useRef(saludaUnaVez);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const motorRef = useRef<Motor | null>(null);
   const estadoRef = useRef(estado);
@@ -92,13 +123,21 @@ export function Tenti({
       return paletaDesdeTokens((t) => estilo.getPropertyValue(t));
     };
     const marcarPaleta = (p: PaletaTenti | null) => { canvas.dataset.paleta = p ? 'tokens' : 'defecto'; };
+    const leerSilueta = () => {
+      const s = siluetaRef.current;
+      if (!s) return null;
+      const estilo = getComputedStyle(canvas);
+      return (s === 'invertida' ? estilo.color : estilo.getPropertyValue('--tenti-silueta')).trim() || null;
+    };
     const reducido = window.matchMedia('(prefers-reduced-motion: reduce)');
     const marcarQuieto = (q: boolean) => { if (q) canvas.dataset.quieto = '1'; else delete canvas.dataset.quieto; };
 
     let creado: Motor | null = null;
     try {
       const paleta = leerPaleta();
-      creado = new Motor(canvas, { mini: tamano < 64, sonido, insignias, quieto: reducido.matches, paleta });
+      creado = new Motor(canvas, {
+        mini: tamano < 64, sonido, insignias, quieto: reducido.matches, paleta, miradas, silueta: leerSilueta(),
+      });
       creado.medir(tamano);
       creado.ponerEstado(estadoRef.current, { forzar: true, silencio: true });
       marcarPaleta(paleta);
@@ -143,7 +182,17 @@ export function Tenti({
       if (!raf && visible && !document.hidden) raf = requestAnimationFrame(bucle);
     }
 
-    const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) arrancar(); else dormir(); });
+    let saludoPendiente = saludaUnaVezRef.current;
+    const io = new IntersectionObserver(([e]) => {
+      visible = e.isIntersecting;
+      if (!visible) { dormir(); return; }
+      // El saludo de la sesión, la primera vez que se VE (no al montarse).
+      if (saludoPendiente && !motor.quieto) {
+        saludoPendiente = false;
+        try { if (tomarSaludoDeSesion() && motor.saludar()) canvas.dataset.saludo = String(motor.saludos); } catch (err) { fallar(err); return; }
+      }
+      arrancar();
+    });
     io.observe(canvas);
     const alVolver = () => { if (document.hidden) dormir(); else arrancar(); };
     document.addEventListener('visibilitychange', alVolver);
@@ -158,6 +207,7 @@ export function Tenti({
       try {
         const p = leerPaleta();
         motor.ponerPaleta(p);
+        motor.silueta = leerSilueta();
         marcarPaleta(p);
         arrancar();
       } catch (e) { fallar(e); }
@@ -181,7 +231,12 @@ export function Tenti({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tamano, fallo]);
 
-  useEffect(() => { if (motorRef.current) motorRef.current.sonido = sonido; }, [sonido]);
+  useEffect(() => {
+    if (motorRef.current) motorRef.current.sonido = sonido;
+    if (sonido) prepararSonidos();
+  }, [sonido, tamano, fallo]);
+
+  useEffect(() => { if (motorRef.current) { motorRef.current.miradas = miradas; despertarRef.current(); } }, [miradas, tamano, fallo]);
 
   useEffect(() => { motorRef.current?.mostrarInsignias(insignias); despertarRef.current(); }, [insignias]);
 
@@ -206,12 +261,13 @@ export function Tenti({
     return () => window.removeEventListener('pointermove', mover);
   }, [sigueCursor]);
 
-  // Hacia dónde mira quien no sigue al cursor (el buscador: hacia lo que se
-  // escribe). `fallo` va en las dependencias porque al rehacerse el motor
-  // vuelve a mirar al frente.
+  // Hacia dónde mira cuando se lo dicen (el buscador: hacia lo que se
+  // escribe). Si además sigue al cursor, manda lo último que pase: escribir o
+  // mover el ratón. `fallo` va en las dependencias porque al rehacerse el
+  // motor vuelve a mirar al frente.
   useEffect(() => {
     const m = motorRef.current;
-    if (sigueCursor || mira == null || !m) return;
+    if (mira == null || !m) return;
     m.mira.x = Math.max(-1, Math.min(1, mira));
     m.mira.y = 0;
     despertarRef.current();
@@ -259,6 +315,8 @@ export function Tenti({
       data-estado={estado}
       {...(titulo ? { role: 'img', 'aria-label': titulo } : { 'aria-hidden': true })}
       onClick={interactivo ? tocar : undefined}
+      // Tocarlo no le quita el foco a nadie (el campo del buscador sigue activo).
+      onMouseDown={interactivo ? (e) => e.preventDefault() : undefined}
       className={className}
       style={{ width: tamano, height: tamano, ...(interactivo ? { cursor: 'pointer', touchAction: 'manipulation' } : null) }}
     />

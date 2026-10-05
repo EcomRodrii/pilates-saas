@@ -1,6 +1,7 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { HUELLA_DEL_MOTOR, recolectarScripts } from './recolector-scripts';
 import { contarFotogramas } from './contador-fotogramas';
+import { espiarSonidos } from './espia-sonidos';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tenti aparece al abrir el buscador ⌘K («¿Qué quieres hacer o buscar?»), en el
@@ -11,7 +12,11 @@ import { contarFotogramas } from './contador-fotogramas';
 //   · sin canvas 2D se ve la lupa de siempre y la búsqueda funciona;
 //   · lo ve también recepción: el buscador es de todos;
 //   · en oscuro lee los tokens oscuros (la hoja va al anfitrión del panel);
-//   · el motor no viaja con el panel: llega al abrir la hoja.
+//   · el motor no viaja con el panel: llega al abrir la hoja;
+//   · suena al abrirse y al cerrarse, y al tocarlo (sin quitarle el foco al
+//     campo); no suena al parpadear, y con «Sonidos de Tenti» apagado, nunca.
+// Se monta en Clientas y no en Resumen: Resumen lleva sus propios Tentis vivos
+// (tres iconos), y aquí se cuenta lo que hace el del buscador.
 // Dónde puede ir y con qué props lo vigila lib/tenti/donde-vive-tenti.test.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -26,7 +31,7 @@ const json = (r: Route, body: unknown, status = 200) =>
   r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
 /**
- * El panel con todo mockeado, en /dashboard. Sin reloj falso a propósito: el
+ * El panel con todo mockeado, en /clientas (una pantalla sin Tenti propio). Sin reloj falso a propósito: el
  * motor anima con performance.now() y aquí se cuentan sus fotogramas.
  * Con otro rol, la dueña es otra persona y el rol sale de la fila de quien
  * entra en `instructores`, como en producción.
@@ -57,7 +62,7 @@ async function montar(page: Page, { rol = 'PROPIETARIO' as 'PROPIETARIO' | 'RECE
     id: 'ins-yo', studio_id: STUDIO_ID, nombre: 'Ana Mostrador', activo: true, rol, color: '#8B7355',
     auth_user_id: YO, email: 'ana@example.com', telefono: null,
   }]));
-  await page.goto('/dashboard');
+  await page.goto('/clientas');
 }
 
 const boton = (page: Page) => page.getByRole('button', { name: /Qué quieres hacer o buscar/ });
@@ -185,4 +190,53 @@ test('el motor no viaja con el panel: llega al abrir el buscador', async ({ page
   await boton(page).click();
   await tentiEnLaFila(page);
   await expect.poll(() => scripts.contiene(HUELLA_DEL_MOTOR), { timeout: 30_000 }).toBe(true);
+});
+
+test('suena al abrirse y al cerrarse, no al parpadear, y al tocarlo sin quitarle el foco al campo', async ({ page }) => {
+  const sonidos = await espiarSonidos(page);
+  await montar(page);
+  await expect(boton(page)).toBeVisible({ timeout: 60_000 });
+  expect(await sonidos.cuantos(), 'montar el panel no suena').toBe(0);
+
+  await boton(page).click();
+  await tentiEnLaFila(page);
+  await expect.poll(() => sonidos.cuantos(), { timeout: 10_000 }).toBeGreaterThan(0);
+  // Abierto y en reposo, 10 s: parpadea y mira alrededor, y nada de eso suena.
+  await page.waitForTimeout(500);
+  const trasAbrir = await sonidos.cuantos();
+  await page.waitForTimeout(10_000);
+  expect(await sonidos.cuantos(), 'ha sonado solo, sin que pasara nada').toBe(trasAbrir);
+
+  // Tocarlo: se aplasta y suena, y el campo sigue con el foco.
+  await campo(page).fill('Cal');
+  await tenti(page).click();
+  await expect.poll(() => sonidos.cuantos()).toBeGreaterThan(trasAbrir);
+  await expect(campo(page)).toBeFocused();
+
+  const antesDeCerrar = await sonidos.cuantos();
+  await page.keyboard.press('Escape');
+  await expect(hoja(page)).toHaveCount(0);
+  await expect.poll(() => sonidos.cuantos()).toBeGreaterThan(antesDeCerrar);
+});
+
+test('con «Sonidos de Tenti» apagado en este dispositivo, abrir, tocar y cerrar no suenan', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('tenti-sonidos', '0'));
+  const sonidos = await espiarSonidos(page);
+  await montar(page);
+  await boton(page).click({ timeout: 60_000 });
+  await tentiEnLaFila(page);
+  await tenti(page).click();
+  await page.keyboard.press('Escape');
+  await expect(hoja(page)).toHaveCount(0);
+  await page.waitForTimeout(1_500);
+  expect(await sonidos.cuantos()).toBe(0);
+  // Control positivo en la misma página: encenderlo (lo que hace el
+  // interruptor) y volver a abrir, sin recargar.
+  await page.evaluate(() => {
+    localStorage.setItem('tenti-sonidos', '1');
+    window.dispatchEvent(new StorageEvent('storage', { key: 'tenti-sonidos' }));
+  });
+  await boton(page).click();
+  await tentiEnLaFila(page);
+  await expect.poll(() => sonidos.cuantos(), { timeout: 10_000 }).toBeGreaterThan(0);
 });

@@ -330,3 +330,62 @@ test('perpetuo: lo que oscila sin fin no deja dormir; en reposo y con «reducir 
   assert.equal(mini.perpetuo(), false, "'pensando' en mini: el punto no se mueve");
   mini.destruir();
 });
+
+// ── Vivo a tamaño de icono: mira alrededor y lleva silueta ──────────────────
+//
+// Desde el 5-oct-2026 Tenti va vivo en todos sus sitios (decisión del
+// fundador), también a 18-28 px. Mirar alrededor no puede convertir la siesta
+// en un bucle de 60 fps, y la silueta es la del icono.
+
+const yaw = (m: Tenti) => (m as unknown as { s: { yaw: number } }).s.yaw;
+
+test('con miradas, en reposo mira a los lados de vez en cuando y vuelve al frente', () => {
+  const motor = crear({ paleta: PALETA, insignias: false, miradas: true, mini: true });
+  let maximo = 0, vueltasAlFrente = 0, fuera = false;
+  for (let i = 0; i < 30_000 / 16; i++) {
+    correr(motor, 16);
+    const y = Math.abs(yaw(motor));
+    maximo = Math.max(maximo, y);
+    if (y > 0.15) fuera = true;
+    else if (fuera && y < 0.02) { vueltasAlFrente++; fuera = false; }
+  }
+  motor.destruir();
+  assert.ok(maximo > 0.2, `en 30 s no ha mirado a ningún lado (yaw máx ${maximo.toFixed(3)})`);
+  assert.ok(vueltasAlFrente >= 2, `solo ha vuelto al frente ${vueltasAlFrente} veces en 30 s`);
+});
+
+test('con miradas, el bucle sigue durmiendo: muy por debajo de 60 fps', () => {
+  const motor = crear({ paleta: PALETA, insignias: false, miradas: true, mini: true });
+  const r = vivir(motor, 30_000);
+  motor.destruir();
+  // A 60 fps serían 1875: parpadeos y miradas tienen que quedarse en una parte.
+  assert.ok(r.fotogramas < 900, `${r.fotogramas} fotogramas en 30 s con miradas`);
+  assert.equal(r.despertaresPerdidos, 0);
+  for (const a of r.abiertosAlDormir) assert.ok(a > 0.99, `dormido con los ojos a medio cerrar (open=${a.toFixed(3)})`);
+});
+
+test("las miradas son solo de 'reposo', y con «reducir movimiento» no hay ninguna", () => {
+  const quieto = crear({ paleta: PALETA, insignias: false, miradas: true, mini: true, quieto: true });
+  correr(quieto, 20_000);
+  assert.equal(yaw(quieto), 0, 'con quieto ha girado la cabeza');
+  assert.equal(quieto.proximoDespertar(), Infinity);
+  quieto.destruir();
+  const hecho = crear({ paleta: PALETA, insignias: false, miradas: true, mini: true });
+  hecho.ponerEstado('hecho', { forzar: true, silencio: true });
+  correr(hecho, 3_000);
+  const tras = Math.abs(yaw(hecho));
+  correr(hecho, 15_000);
+  assert.ok(Math.abs(yaw(hecho)) < 0.01 && tras < 0.01, "en 'hecho' se ha puesto a mirar alrededor");
+  hecho.destruir();
+});
+
+test('la silueta se pinta con su color, y sin ella no hay trazo', () => {
+  const con = crear({ paleta: PALETA, insignias: false, silueta: '#94857A' });
+  const pintados = correr(con, 32).flat();
+  con.destruir();
+  assert.ok(pintados.some((c) => cerca(aRgb(c), hexRgb('#94857A'))), 'la silueta no usa su color');
+  const sin = crear({ paleta: PALETA, insignias: false });
+  const otros = correr(sin, 32).flat();
+  sin.destruir();
+  assert.ok(!otros.some((c) => cerca(aRgb(c), hexRgb('#94857A'))));
+});
