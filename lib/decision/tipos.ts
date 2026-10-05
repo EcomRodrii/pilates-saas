@@ -141,7 +141,7 @@ export interface Recomendacion {
    *  cerrarla como EJECUTADA o FALLIDA. Opcional: el motor y los tests construyen
    *  recomendaciones que aún no se han ejecutado. */
   resultado?: ResultadoEjecucion | null;
-  /** Cuándo la aplazó la propietaria con «Recuérdamelo» (migr 20261005154000);
+  /** Cuándo la aplazó la propietaria con «Recuérdamelo» (migr 20261005204656);
    *  sigue PENDIENTE. Opcional por lo mismo que `resultado`. */
   pospuestaEn?: string | null;
 }

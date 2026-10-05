@@ -344,7 +344,7 @@ export async function dbTransicionarRecomendacion(
  * de hoy), y con `expira_en` empujada no caduca sola mientras tanto (el
  * refresco del análisis ya no la acorta, `dbUpsertRecomendacion`).
  *
- * `pospuesta_en` guarda que se aplazó (migr 20261005154000): sin ella, al
+ * `pospuesta_en` guarda que se aplazó (migr 20261005204656): sin ella, al
  * recargar, el mensaje del día volvía con sus botones como si nadie lo hubiera
  * tocado.
  */
