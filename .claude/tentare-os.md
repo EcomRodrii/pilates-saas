@@ -374,18 +374,28 @@ esa lista con su motivo, no un import de paso.
 - **Trajes de temporada** (`lib/tenti/trajes.ts`, 5-oct-2026: «ahora, que viene
   Halloween»): el gorro de bruja del **5-oct al 1-nov, ambos incluidos, en hora
   de Madrid** (nunca UTC ni la del navegador: el cambio de hora cae dentro; los
-  bordes los prueba `trajes.test.ts`). Un traje nuevo es una entrada en `TRAJES`
-  y un dibujo en `motor.ts` y en `geometria.ts` (`Record<Traje, …>`: sin dibujo
-  no compila). Lo lleva donde Tenti se toca y **nunca dentro de un botón o un
-  enlace** (la misma regla, `DENTRO_DE_UN_CONTROL`): fuera, sin otra lista, los
-  botones de IA de salud. Colores `--tenti-traje-a/-b` (hex en `:root` y `.dark`,
-  no `--brand`: el brand slot lo reescribe). Su silueta va POR FUERA (por dentro
-  se comía el ala de 2 px), y el canvas grande solo la lleva donde el cono no se
-  despega de la superficie (`siluetaDelTraje`: sobre bg-primary en claro, 1,5:1).
-  Se pinta también a 18 px (mirado a DPR 1 y 2: se lee como gorro). El fundador
-  lo fuerza o lo quita en SU navegador desde `/interno/tenti` («En este
-  navegador, el panel lleva», localStorage `tenti-traje`); ningún estudio tiene
-  dónde tocarlo.
+  bordes los prueba `trajes.test.ts`). **El dibujo es el de Coucou, portado tal
+  cual** (`lib/tenti/trajes-coucou.ts`, 6-oct-2026: el fundador vio nuestro gorro
+  y dijo «mal outfit»; lo quiere EXACTAMENTE como el original): los diez trajes
+  del original (`OUTFITS`: beanie, santaHat, partyHat, crown, witchHat,
+  sunglasses, roundGlasses, scarf, pumpkin, bow) con **sus colores, no tokens**
+  (excepción deliberada a la paleta, explicada en `motor.test.ts`). No se
+  redibuja ni se «mejora» aquí: si algo cambia, se cambia en Coucou y se vuelve
+  a portar. Una temporada nueva (Papá Noel en Navidad) es rellenar `temporada`
+  en su entrada de `TRAJES`: cero código de dibujo. El motor les da el marco de
+  la cabeza del original (R, 1,14R × 0,88R, `VIEW_TILT`, yaw/pitch de la mirada)
+  y un muelle para lo que cuelga (`phys`), dentro de la transformación del
+  cuerpo; `back()` antes del cuerpo y `front()` tras cuerpo y ojos. Los trajes
+  no caben en el cuadro: con traje el canvas crece hacia fuera
+  (`lienzoDeTenti`/`MARGEN_TRAJE`, medido con todos los trajes en
+  `trajes-coucou.test.ts`) con márgenes negativos, y la caja no se mueve. El SVG
+  de reserva del icono va **sin traje** (solo se ve mientras carga el motor). Lo
+  lleva donde Tenti se toca y **nunca dentro de un botón o un enlace** (la misma
+  regla, `DENTRO_DE_UN_CONTROL`): fuera, sin otra lista, los botones de IA de
+  salud. El fundador fuerza cualquiera o lo quita en SU navegador desde
+  `/interno/tenti` («En este navegador, el panel lleva», localStorage
+  `tenti-traje`), donde está también la hoja de seis vistas de `sheet.html` para
+  compararla con la referencia; ningún estudio tiene dónde tocarlo.
 - **Nunca**: marca blanca (portal, /reservar, widget, kiosko, correos a socias),
   soporte (WhatsApp, ayuda: «te responde una persona, no una IA»), pantallas de
   dinero (Cobros, Caja, cierre, facturas…) ni junto a lo que redacta un modelo

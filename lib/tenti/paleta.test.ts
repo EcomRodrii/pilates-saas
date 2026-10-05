@@ -7,8 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { coloresDeTrajeDesdeTokens, hexDeColorCss, paletaDesdeTokens, siluetaDelTraje, TOKENS_TENTI, TOKENS_TRAJE } from './paleta.ts';
-import { TRAJES } from './trajes.ts';
+import { paletaDesdeTokens, TOKENS_TENTI } from './paleta.ts';
 import { luminanciaRelativa, hexARgb, ratioContraste } from '../wcag-contrast.ts';
 
 const css = readFileSync(join(import.meta.dirname, '../../app/globals.css'), 'utf8');
@@ -101,60 +100,4 @@ test('acepta hex con mayúsculas y minúsculas mezcladas, como el --destructive 
   assert.match(OSCURO['--destructive'], /[a-f]/, 'el ejemplo real ya no mezcla: actualiza este test');
   const leer = (t: string) => (t === TOKENS_TENTI.chispa ? ' #E08a6B ' : lector(CLARO)(t));
   assert.equal(paletaDesdeTokens(leer)?.chispa, '#E08a6B');
-});
-
-// ── El gorro de bruja (--tenti-traje-a/-b) ───────────────────────────────────
-
-test('los colores del gorro se declaran en los dos modos, y en claro son los de TRAJES', () => {
-  const oscuro = bloque('.dark');
-  for (const t of Object.values(TOKENS_TRAJE)) {
-    assert.ok(CLARO[t], `falta ${t} en :root`);
-    assert.ok(oscuro[t], `falta ${t} en .dark: heredaría el oliva de claro, que desaparece sobre el fondo oscuro`);
-  }
-  // TRAJES es lo de por si faltan los tokens: que no diga otra cosa que el CSS.
-  assert.deepEqual(coloresDeTrajeDesdeTokens(lector(CLARO)), TRAJES.bruja.colores);
-});
-
-for (const [modo, tokens] of MODOS) {
-  test(`(${modo}) el cono del gorro se ve sobre --card y --background (≥ 3:1), y la banda contra el cono (≥ 2:1)`, () => {
-    const cono = tokens[TOKENS_TRAJE.a], banda = tokens[TOKENS_TRAJE.b];
-    for (const fondo of ['--card', '--background']) {
-      const r = ratioContraste(cono, tokens[fondo])!;
-      assert.ok(r >= 3, `--tenti-traje-a (${cono}) da ${r.toFixed(2)}:1 sobre ${fondo} (${tokens[fondo]})`);
-      // Y ahí no lleva borde: no le hace falta.
-      assert.equal(siluetaDelTraje(cono, tokens[fondo], 'rgb(1, 2, 3)'), null, `(${modo}) borde de más sobre ${fondo}`);
-    }
-    const rb = ratioContraste(banda, cono)!;
-    assert.ok(rb >= 2, `la banda (${banda}) da ${rb.toFixed(2)}:1 contra el cono (${cono})`);
-  });
-}
-
-test('(oscuro) el cono se despega del cuerpo (≥ 3:1)', () => {
-  const r = ratioContraste(OSCURO[TOKENS_TRAJE.a], OSCURO['--tenti-cuerpo-luz'])!;
-  assert.ok(r >= 3, `el gorro da ${r.toFixed(2)}:1 contra el cuerpo`);
-});
-
-test('(claro) sobre bg-primary el cono no se despega, y lleva el borde del color del texto', () => {
-  const cono = CLARO[TOKENS_TRAJE.a], primario = CLARO['--primary'];
-  assert.ok(ratioContraste(cono, primario)! < 3, 'el cono ya se ve sobre bg-primary: el borde sobra, revisa siluetaDelTraje');
-  assert.equal(siluetaDelTraje(cono, primario, ' rgb(250, 250, 250) '), 'rgb(250, 250, 250)');
-  // Superficie que no se sabe leer: con borde (mejor de más que un gorro invisible).
-  assert.equal(siluetaDelTraje(cono, null, 'rgb(250, 250, 250)'), 'rgb(250, 250, 250)');
-});
-
-test('un token del gorro que falta no tira la paleta del cuerpo', () => {
-  const sinGorro = (t: string) => (Object.values(TOKENS_TRAJE).includes(t as never) ? '' : lector(CLARO)(t));
-  assert.equal(coloresDeTrajeDesdeTokens(sinGorro), null);
-  assert.notEqual(paletaDesdeTokens(sinGorro), null);
-});
-
-test('hexDeColorCss lee los colores calculados del navegador, y nada transparente', () => {
-  assert.equal(hexDeColorCss('rgb(19, 19, 19)'), '#131313');
-  assert.equal(hexDeColorCss('rgba(255, 255, 255, 1)'), '#ffffff');
-  assert.equal(hexDeColorCss('rgb(19 19 19 / 100%)'), '#131313');
-  assert.equal(hexDeColorCss('color(srgb 1 0.5 0)'), '#ff8000');
-  assert.equal(hexDeColorCss('#ABCDEF'), '#abcdef');
-  for (const nada of ['rgba(0, 0, 0, 0)', 'transparent', 'rgb(0 0 0 / 40%)', 'oklab(0.5 0 0)', '', null]) {
-    assert.equal(hexDeColorCss(nada), null, String(nada));
-  }
 });

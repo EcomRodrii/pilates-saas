@@ -56,8 +56,11 @@
 // donde se toca: dentro de un botón o un enlace, no. Así quedan fuera sin otra
 // lista los botones de IA que tratan salud (un disfraz junto a la lesión de una
 // alumna es frívolo) y los enlaces pequeños, donde el gorro compite con la
-// etiqueta. El SVG de reserva lleva el mismo gorro (lib/tenti/geometria.ts),
-// que se sale de la caja por arriba como el canvas: la caja no cambia.
+// etiqueta. Lo pinta el canvas (el traje de Coucou, lib/tenti/trajes-coucou.ts),
+// que con traje crece hacia fuera sin mover la caja. El SVG de reserva va SIN
+// traje a propósito: solo se ve los instantes que tarda en llegar el motor (o
+// si no hay canvas 2D), y redibujar a mano en SVG los trajes de Coucou sería
+// volver a tener un gorro que solo se parece al original.
 //
 // useId(): hay varios Tentis por página (tres en Resumen), y con ids fijos los
 // url(#…) de los degradados del SVG resolverían todos al primero.
@@ -68,9 +71,8 @@
 import dynamic from 'next/dynamic';
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { BAJADA, LADO_MINIMO_BANDA, R_DEL_LADO, SEMIEJE_X, SILUETA_PX, dibujoDelIcono, dibujoDelTraje } from '@/lib/tenti/geometria';
+import { BAJADA, R_DEL_LADO, SEMIEJE_X, SILUETA_PX, dibujoDelIcono } from '@/lib/tenti/geometria';
 import { useTrajeDeTenti } from '@/lib/tenti/preferencia-traje';
-import type { Traje } from '@/lib/tenti/trajes';
 import type { PropsTenti } from './tenti';
 
 /** Anchos cerrados. Por debajo de 18 los ojos miden menos de 2 px y a DPR 1 se
@@ -139,7 +141,7 @@ export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', classNa
   // El SVG quieto vuelve a la caja desde la del canvas.
   const reserva = (
     <span className="absolute" style={{ left: -izquierda, top: -arriba, width: ancho, height: alto }}>
-      <SvgTenti ancho={ancho} alto={alto} sobre={sobre} traje={traje} />
+      <SvgTenti ancho={ancho} alto={alto} sobre={sobre} />
     </span>
   );
   return (
@@ -179,10 +181,9 @@ export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', classNa
 }
 
 /** El dibujo quieto, en SVG: la reserva mientras llega el motor o si no puede pintarse. */
-function SvgTenti({ ancho, alto, sobre, traje }: { ancho: AnchoTentiIcono; alto: number; sobre: SuperficieTentiIcono; traje: Traje | null }) {
+function SvgTenti({ ancho, alto, sobre }: { ancho: AnchoTentiIcono; alto: number; sobre: SuperficieTentiIcono }) {
   const propio = useId();
   const id = (n: string) => `tenti-${n}-${propio}`;
-  const silueta = sobre === 'invertida' ? 'currentColor' : 'var(--tenti-silueta)';
   return (
     <svg
       data-tenti-svg=""
@@ -192,8 +193,6 @@ function SvgTenti({ ancho, alto, sobre, traje }: { ancho: AnchoTentiIcono; alto:
       width={ancho}
       height={alto}
       className="block"
-      // El gorro se sale del viewBox ceñido por arriba, como el canvas de la caja.
-      style={traje ? { overflow: 'visible' } : undefined}
     >
       <defs>
         <linearGradient id={id('cuerpo')} gradientUnits="userSpaceOnUse" {...D.degradado}>
@@ -227,7 +226,7 @@ function SvgTenti({ ancho, alto, sobre, traje }: { ancho: AnchoTentiIcono; alto:
       <path
         d={D.cuerpo}
         fill="none"
-        stroke={silueta}
+        stroke={sobre === 'invertida' ? 'currentColor' : 'var(--tenti-silueta)'}
         strokeWidth={2 * SILUETA_PX}
         vectorEffect="non-scaling-stroke"
         clipPath={`url(#${id('recorte')})`}
@@ -238,27 +237,6 @@ function SvgTenti({ ancho, alto, sobre, traje }: { ancho: AnchoTentiIcono; alto:
       {D.ojos.map((o) => (
         <rect key={o.x} x={o.x} y={o.y} width={o.ancho} height={o.alto} rx={o.rx} ry={o.ry} fill="var(--tenti-tinta)" />
       ))}
-      {traje && <GorroSvg traje={traje} silueta={silueta} banda={ladoDelCanvas(ancho) >= LADO_MINIMO_BANDA} id={id} />}
     </svg>
-  );
-}
-
-/** El traje en SVG, en la pose de reposo: el mismo dibujo y el mismo orden que
- *  el canvas (lib/tenti/motor.ts): sin banda donde el lienzo no llega a
- *  LADO_MINIMO_BANDA, y sin hebilla, porque el icono es siempre mini. */
-function GorroSvg({ traje, silueta, banda, id }: { traje: Traje; silueta: string; banda: boolean; id: (n: string) => string }) {
-  const g = dibujoDelTraje(traje);
-  const giro = `rotate(${g.ala.giro} ${g.ala.cx} ${g.ala.cy})`;
-  const trazo = { stroke: silueta, strokeWidth: 2 * SILUETA_PX, vectorEffect: 'non-scaling-stroke' } as const;
-  // La silueta POR FUERA (el trazo debajo del relleno), como en el canvas.
-  return (
-    <g data-gorro={traje}>
-      <defs>
-        <clipPath id={id('cono')}><path d={g.cono} /></clipPath>
-      </defs>
-      <path d={g.cono} fill="var(--tenti-traje-a)" {...trazo} paintOrder="stroke" />
-      {banda && <path d={g.banda} fill="var(--tenti-traje-b)" clipPath={`url(#${id('cono')})`} />}
-      <ellipse cx={g.ala.cx} cy={g.ala.cy} rx={g.ala.rx} ry={g.ala.ry} transform={giro} fill="var(--tenti-traje-a)" {...trazo} paintOrder="stroke" />
-    </g>
   );
 }

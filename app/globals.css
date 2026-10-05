@@ -234,16 +234,6 @@
      --background (lo vigila lib/tenti/paleta.test.ts). Sobre bg-primary y
      bg-brand el icono no la usa: toma el color del texto (`sobre="invertida"`). */
   --tenti-silueta: #94857A;
-  /* El traje de temporada de Tenti (lib/tenti/trajes.ts): el gorro de bruja,
-     del 5-oct al 1-nov. -a el cono y el ala, -b la banda. Hex literal y no
-     var(--brand): el brand slot reescribe --brand por tema, y el gorro es de
-     Tentare, no del estudio. El oliva de la marca da 12,1:1 sobre --card y
-     10,4:1 sobre --background; la banda, el dorado de las chispas, 4,4:1 contra
-     el cono. Sobre bg-primary el cono no se despega (1,5:1): ahí lo recorta la
-     silueta, que es la del cuerpo (el color del texto con
-     `sobre="invertida"`). Lo vigila lib/tenti/paleta.test.ts. */
-  --tenti-traje-a: #343825;
-  --tenti-traje-b: #B8975A;
   --brand-medio: #55622C;
   /* Delimita el botón cuando el fondo es oscuro y el oliva no se despega de él
      (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
@@ -407,11 +397,6 @@
      la silueta solo le cierra el borde, con el tono de su propia sombra, en
      vez de dibujarle un contorno claro alrededor (6,06:1 sobre --card). */
   --tenti-silueta: #A89A8B;
-  /* El gorro en oscuro: el oliva de claro desaparece sobre #16161A. Este da
-     3,4:1 sobre --card, 3,7:1 sobre --background y 3,1:1 contra el cuerpo; la
-     banda, arena, 2,8:1 contra el cono. */
-  --tenti-traje-a: #6E7550;
-  --tenti-traje-b: #D9C29E;
   --brand-foreground: #16161A;
   --brand-secondary: #A8B37A;
   --brand-borde: transparent;

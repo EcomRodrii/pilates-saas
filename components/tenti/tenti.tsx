@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from 'react';
-import { Tenti as Motor, type EmocionTenti, type EstadoTenti } from '@/lib/tenti/motor';
-import { coloresDeTrajeDesdeTokens, hexDeColorCss, paletaDesdeTokens, siluetaDelTraje, type PaletaTenti } from '@/lib/tenti/paleta';
+import { Tenti as Motor, type EmocionTenti, type EstadoTenti, type PoseTenti } from '@/lib/tenti/motor';
+import { lienzoDeTenti } from '@/lib/tenti/geometria';
+import { paletaDesdeTokens, type PaletaTenti } from '@/lib/tenti/paleta';
 import { useTrajeDeTenti } from '@/lib/tenti/preferencia-traje';
-import { TRAJES, type Traje } from '@/lib/tenti/trajes';
+import type { Traje } from '@/lib/tenti/trajes';
 import { ID_ANFITRION_PANEL } from '@/lib/panel-portal';
 import { prepararSonidos, useSonidosDeTenti } from '@/lib/tenti/preferencia-sonido';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
@@ -41,6 +42,9 @@ import { capturarExcepcion } from '@/lib/sentry-cliente';
 // El traje de temporada (el gorro de bruja, lib/tenti/trajes.ts) lo lleva por
 // defecto; quien lo monta dentro de un botón o un enlace pasa `conTraje={false}`
 // (TentiIcono, con la misma regla que decide si se toca). Se ve en data-traje.
+// Los trajes son los de Coucou y no caben en el cuadro: con traje el canvas
+// crece hacia fuera (`lienzoDeTenti`) con márgenes negativos, así que ocupa
+// en la página lo mismo que sin él y el cuerpo mide lo mismo.
 
 export interface TentiControl {
   emocion: (e: EmocionTenti) => void;
@@ -80,6 +84,8 @@ export interface PropsTenti {
   conTraje?: boolean;
   /** Un traje fijo, sea la época que sea: solo el catálogo. */
   traje?: Traje | null;
+  /** Una pose fija (la hoja de /interno/tenti, como sheet.html de Coucou): solo el catálogo. */
+  pose?: PoseTenti;
   /** Lo que se pinta si no se puede dibujar (sin canvas 2D, o el motor falla). Sin él, nada. */
   reserva?: ReactNode;
   className?: string;
@@ -103,13 +109,16 @@ const MAREO_MS = 2200;
 export function Tenti({
   estado = 'reposo', tamano = 120, sigueCursor = false, mira, sonido: sonidoPedido, miradas = true, silueta,
   saludaUnaVez = false, interactivo = false, saludaAlAparecer = false, insignias = false, titulo, reserva = null,
-  conTraje = true, traje: trajePedido, className, ref,
+  conTraje = true, traje: trajePedido, pose, className, ref,
 }: PropsTenti) {
   const preferencia = useSonidosDeTenti();
   const sonido = sonidoPedido ?? preferencia;
   const deTemporada = useTrajeDeTenti();
   const traje = trajePedido !== undefined ? trajePedido : conTraje ? deTemporada : null;
   const trajeRef = useRef(traje);
+  const poseRef = useRef(pose);
+  const lienzo = lienzoDeTenti(tamano, traje != null);
+  const lienzoRef = useRef(lienzo);
   const siluetaRef = useRef(silueta);
   const saludaUnaVezRef = useRef(saludaUnaVez);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -136,23 +145,11 @@ export function Tenti({
       return paletaDesdeTokens((t) => estilo.getPropertyValue(t));
     };
     const marcarPaleta = (p: PaletaTenti | null) => { canvas.dataset.paleta = p ? 'tokens' : 'defecto'; };
-    const leerColoresTraje = () => {
-      const estilo = getComputedStyle(canvas);
-      return coloresDeTrajeDesdeTokens((t) => estilo.getPropertyValue(t));
-    };
     const leerSilueta = () => {
       const s = siluetaRef.current;
       if (!s) return null;
       const estilo = getComputedStyle(canvas);
       return (s === 'invertida' ? estilo.color : estilo.getPropertyValue('--tenti-silueta')).trim() || null;
-    };
-    // Sin silueta del cuerpo (el canvas grande), el gorro solo lleva borde
-    // donde no se despega de su superficie (sobre bg-primary en claro), con el
-    // color del texto de esa superficie (lib/tenti/paleta.ts).
-    const leerSiluetaTraje = () => {
-      let fondo: string | null = null;
-      for (let e = canvas.parentElement; e && !fondo; e = e.parentElement) fondo = hexDeColorCss(getComputedStyle(e).backgroundColor);
-      return siluetaDelTraje(leerColoresTraje()?.a ?? TRAJES[trajeRef.current ?? 'bruja'].colores.a, fondo, getComputedStyle(canvas).color);
     };
     const reducido = window.matchMedia('(prefers-reduced-motion: reduce)');
     const marcarQuieto = (q: boolean) => { if (q) canvas.dataset.quieto = '1'; else delete canvas.dataset.quieto; };
@@ -162,7 +159,7 @@ export function Tenti({
       const paleta = leerPaleta();
       creado = new Motor(canvas, {
         mini: tamano < 64, sonido, insignias, quieto: reducido.matches, paleta, miradas, silueta: leerSilueta(),
-        traje: trajeRef.current, coloresTraje: leerColoresTraje(), siluetaTraje: leerSiluetaTraje(),
+        traje: trajeRef.current, pose: poseRef.current ?? null,
       });
       creado.medir(tamano);
       creado.ponerEstado(estadoRef.current, { forzar: true, silencio: true });
@@ -234,8 +231,6 @@ export function Tenti({
         const p = leerPaleta();
         motor.ponerPaleta(p);
         motor.silueta = leerSilueta();
-        motor.ponerColoresTraje(leerColoresTraje());
-        motor.siluetaTraje = leerSiluetaTraje();
         marcarPaleta(p);
         arrancar();
       } catch (e) { fallar(e); }
@@ -268,10 +263,21 @@ export function Tenti({
 
   useEffect(() => { motorRef.current?.mostrarInsignias(insignias); despertarRef.current(); }, [insignias]);
 
+  // Ponerse o quitarse el traje vuelve a medir el lienzo (el motor, al
+  // cambiarlo; el tamaño CSS, este mismo render).
   useEffect(() => {
     trajeRef.current = traje;
+    lienzoRef.current = lienzoDeTenti(tamano, traje != null);
     if (motorRef.current) { motorRef.current.traje = traje; despertarRef.current(); }
-  }, [traje]);
+  }, [traje, tamano]);
+
+  const p = pose;
+  useEffect(() => {
+    poseRef.current = p;
+    if (motorRef.current) { motorRef.current.pose = p ?? null; despertarRef.current(); }
+    // Por valor: la pose llega como objeto nuevo en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p?.yaw, p?.pitch, p?.tilt, p?.fisica.dx, p?.fisica.dy]);
 
   useEffect(() => {
     estadoRef.current = estado;
@@ -285,14 +291,15 @@ export function Tenti({
     if (!sigueCursor) return;
     const mover = (e: PointerEvent) => {
       const c = canvasRef.current, m = motorRef.current; if (!c || !m) return;
-      const r = c.getBoundingClientRect();
+      // Hacia el centro del CUADRO, no del lienzo: con traje el lienzo sube.
+      const r = c.getBoundingClientRect(), l = lienzoRef.current;
       m.mira.x = Math.tanh((e.clientX - (r.left + r.width / 2)) / 260);
-      m.mira.y = -Math.tanh((e.clientY - (r.top + r.height / 2)) / 200);
+      m.mira.y = -Math.tanh((e.clientY - (r.top + l.arriba + tamano / 2)) / 200);
       despertarRef.current();
     };
     window.addEventListener('pointermove', mover, { passive: true });
     return () => window.removeEventListener('pointermove', mover);
-  }, [sigueCursor]);
+  }, [sigueCursor, tamano]);
 
   // Hacia dónde mira cuando se lo dicen (el buscador: hacia lo que se
   // escribe). Si además sigue al cursor, manda lo último que pase: escribir o
@@ -352,7 +359,15 @@ export function Tenti({
       // Tocarlo no le quita el foco a nadie (el campo del buscador sigue activo).
       onMouseDown={interactivo ? (e) => e.preventDefault() : undefined}
       className={className}
-      style={{ width: tamano, height: tamano, ...(interactivo ? { cursor: 'pointer', touchAction: 'manipulation' } : null) }}
+      style={{
+        width: lienzo.ancho, height: lienzo.alto,
+        // Con traje, el lienzo se sale de su caja: ocupa `tamano` × `tamano`.
+        ...(lienzo.ancho !== tamano ? {
+          marginTop: -lienzo.arriba, marginBottom: -(lienzo.alto - tamano - lienzo.arriba),
+          marginLeft: -lienzo.izquierda, marginRight: -lienzo.izquierda,
+        } : null),
+        ...(interactivo ? { cursor: 'pointer', touchAction: 'manipulation' } : null),
+      }}
     />
   );
 }

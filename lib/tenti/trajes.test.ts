@@ -52,7 +52,8 @@ test('una temporada que cruza el año (de prueba: 15-dic → 6-ene) funciona', (
   const navidad = { desde: '12-15', hasta: '01-06' } as const;
   for (const md of ['12-15', '12-31', '01-01', '01-06']) assert.ok(enTemporada(md, navidad), md);
   for (const md of ['12-14', '01-07', '07-01']) assert.ok(!enTemporada(md, navidad), md);
-  const trajes: Record<string, DefTraje> = { navidad: { etiqueta: 'Gorro de Navidad', temporada: navidad, colores: { a: '#000001', b: '#000002' } } };
+  // Una temporada nueva no lleva dibujo: es uno de los trajes de Coucou que ya hay.
+  const trajes: Record<string, DefTraje> = { navidad: { etiqueta: 'Gorro de Papá Noel', temporada: navidad, coucou: 'santaHat' } };
   assert.equal(trajeDeTemporada(new Date('2026-12-31T23:30:00Z'), trajes), 'navidad', '00:30 del 1-ene en Madrid');
   assert.equal(trajeDeTemporada(new Date('2027-01-06T22:59:59Z'), trajes), 'navidad');
   assert.equal(trajeDeTemporada(new Date('2027-01-06T23:00:00Z'), trajes), null);
@@ -69,5 +70,16 @@ test("lo que elige este navegador: 'ninguno', un traje (en cualquier época) o e
     assert.equal(trajeElegido(otro, fuera), null, `${String(otro)} fuera de temporada → ninguno`);
   }
   assert.ok(esTraje('bruja'));
+  assert.equal(trajeElegido('lazo', dentro), 'lazo', 'cualquier traje del catálogo se puede forzar');
   assert.ok(!esTraje('constructor'), 'un nombre heredado de Object no es un traje');
+});
+
+test('hoy solo la bruja tiene temporada: los demás trajes de Coucou se ponen a mano (desde /interno)', () => {
+  const conTemporada = Object.entries(TRAJES).filter(([, d]) => d.temporada).map(([n]) => n);
+  assert.deepEqual(conTemporada, ['bruja']);
+  // Ningún día del año sale otro traje que la bruja.
+  for (let d = 0; d < 366; d++) {
+    const t = trajeDeTemporada(new Date(Date.UTC(2028, 0, 1, 12) + d * 86_400_000));
+    assert.ok(t === null || t === 'bruja', `día ${d}: ${t}`);
+  }
 });
