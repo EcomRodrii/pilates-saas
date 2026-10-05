@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { usePortalHref } from '@/components/student/contexto';
 import type { Pago } from '@/lib/student/tipos';
 import { euros, fechaCorta, metodoPagoTexto, unir } from '@/lib/student/formato';
@@ -26,7 +27,7 @@ export function PaymentItem({ p, delay = 0 }: { p: Pago; delay?: number }) {
   const href = usePortalHref();
   const e = ESTADO_PAGO[p.estado];
   return (
-    <Link href={href('/pagos/' + p.id)} className="card card--tap a-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '12px 14px', animationDelay: delay + 'ms' }}>
+    <Link href={href('/pagos/' + p.id)} transitionTypes={TRANSICION_ADELANTE} className="card card--tap a-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '12px 14px', animationDelay: delay + 'ms' }}>
       <div style={{ minWidth: 0 }}><p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.concepto}</p>{/* ⚠️ El separador va CONDICIONADO, y el paquete lo pone fijo. Sus mocks
             siempre traen método de cobro («Apple Pay», «Tarjeta ···· 4242»);
             en producción `recibos.metodo_cobro` puede estar a NULL —un cobro

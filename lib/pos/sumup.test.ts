@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  SCOPES_SUMUP, ErrorSumup, centimosDevueltosSumup, centimosSinPropina, clienteSumup, decidirDevolucionSumup, tieneContracargo, estadoDesdeSumup, importeCoincide, leerCuerpoAviso, leerReferenciaSumup,
+  SCOPES_SUMUP, SUMUP_ABIERTO, ErrorSumup, centimosDevueltosSumup, centimosSinPropina, clienteSumup, decidirDevolucionSumup, tieneContracargo, estadoDesdeSumup, importeCoincide, leerCuerpoAviso, leerReferenciaSumup,
   mismoCobro, normalizarCodigoSumup, proveedorDeReferencia, referenciaSumup, sumupParaEstudio, textoFalloConexionSumup,
   type FetchSumup, type TransaccionSumup,
 } from './sumup.ts';
@@ -210,11 +210,19 @@ test('historial: lo cobrado desde una hora, sin lo que no trae id', async () => 
 
 test('⚠️ SumUp solo se ofrece a los estudios de la lista (o a todos con *); sin la variable, a nadie', () => {
   const env = (v?: string) => ({ ...(v === undefined ? {} : { SUMUP_SOLO_ESTUDIOS: v }) }) as NodeJS.ProcessEnv;
-  assert.equal(sumupParaEstudio('st-1', env()), false);
-  assert.equal(sumupParaEstudio('st-1', env('')), false);
-  assert.equal(sumupParaEstudio('st-1', env('st-2, st-1')), true);
-  assert.equal(sumupParaEstudio('st-1', env('st-10')), false);
-  assert.equal(sumupParaEstudio('st-1', env('*')), true);
+  assert.equal(sumupParaEstudio('st-1', env(), true), false);
+  assert.equal(sumupParaEstudio('st-1', env(''), true), false);
+  assert.equal(sumupParaEstudio('st-1', env('st-2, st-1'), true), true);
+  assert.equal(sumupParaEstudio('st-1', env('st-10'), true), false);
+  assert.equal(sumupParaEstudio('st-1', env('*'), true), true);
+});
+
+test('⚠️ con SumUp cerrado no se ofrece a nadie, ni con * en la lista (sale «Próximamente»)', () => {
+  const env = { SUMUP_SOLO_ESTUDIOS: '*, st-1' } as unknown as NodeJS.ProcessEnv;
+  assert.equal(sumupParaEstudio('st-1', env, false), false);
+  // Mientras SumUp no apruebe el permiso de cobro, está cerrado también por defecto.
+  assert.equal(SUMUP_ABIERTO, false);
+  assert.equal(sumupParaEstudio('st-1', env), false);
 });
 
 test('mismoCobro y la propina', () => {

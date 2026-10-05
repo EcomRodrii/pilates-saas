@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { TRANSICION_PESTANA } from '@/lib/student/transiciones';
 import { usePathname } from 'next/navigation';
 import { useEstudio } from '@/components/student/contexto';
 import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
@@ -69,6 +70,8 @@ export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
   return (
     <nav
       aria-label="Principal"
+      // Ancla de las transiciones de pantalla: la barra no se mueve (student.css).
+      data-vt-ancla="nav"
       style={{
         position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 40, background: 'var(--velo)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--muted)',
         // ⚠️ Antes: `var(--safe-bottom)` ENTERA + 10 px de relleno + el aire del
@@ -97,6 +100,8 @@ export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
               // del router, volver a «Reservar» la subía siempre arriba. Solo
               // en la de la alumna: la instructora no tiene esa memoria.
               scroll={modo !== 'alumna'}
+              // Cambiar de pestaña: un fundido corto, nunca un deslizamiento.
+              transitionTypes={TRANSICION_PESTANA}
               onClick={() => {
                 // Tocar la pestaña en la que ya está la sube arriba, como en iOS.
                 if (path === destino) window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -110,7 +115,8 @@ export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
               style={{ position: 'relative', minWidth: 56, minHeight: 44, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, color: on ? 'var(--foreground)' : 'var(--subtle-foreground)', transition: 'color .2s' }}
             >
               <Icono nombre={t.icono} tamano={22} />
-              <span style={{ fontSize: 'var(--t-micro)', fontWeight: 800 }}>{t.label}</span>
+              {/* Con tope: cinco pestañas en 375 px no aguantan «Mis clases» a más de 13 px. */}
+              <span style={{ fontSize: 'min(var(--t-micro), 13px)', fontWeight: 800, whiteSpace: 'nowrap' }}>{t.label}</span>
               {conNumero && (
                 <span aria-hidden style={{ position: 'absolute', top: 2, right: 8, minWidth: 15, height: 15, borderRadius: 99, background: 'var(--accent)', color: 'var(--accent-foreground)', fontSize: 'var(--t-micro)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', animation: 'apDot .4s both' }}>
                   {badgeReservas}

@@ -26,7 +26,7 @@ export function useMensajesSinLeerStaff(activo: boolean): number {
       const res = await fetch('/api/mensajeria/conversaciones', { headers: await authHeader() });
       if (!res.ok) return;
       const { conversaciones } = await res.json() as { conversaciones: ConversacionConResumen[] };
-      setTotal(conversaciones.filter(c => tieneSinLeer(c, authUserId)).length);
+      setTotal(conversaciones.filter(c => tieneSinLeer(c, authUserId, 'equipo')).length);
     } catch {
       // Silencioso: un badge que no se actualiza esta vez no es un error que
       // deba interrumpir a nadie — se corrige solo en el próximo tick.

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { useParams } from 'next/navigation';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
@@ -178,7 +179,7 @@ export default function ReciboPage() {
               ya tiene. Se quedó sin ella porque es un `<Link>` suelto dentro
               de una tarjeta de filas, no un control con su propio estilo. */}
           {data.bonoId && (
-            <Link className="tap" href={href(`/bonos/${data.bonoId}`)} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
+            <Link className="tap" href={href(`/bonos/${data.bonoId}`)} transitionTypes={TRANSICION_ADELANTE} style={{ fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)' }}>
               Ver el bono →
             </Link>
           )}

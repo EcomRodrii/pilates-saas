@@ -28,7 +28,7 @@ const HILO = {
   ancla_sesion_id: null, ancla_reserva_id: null,
   creado_en: '2026-09-10T10:00:00Z', ultimo_mensaje_en: '2026-09-12T08:00:00Z', mostrador_leido_hasta: null,
   leido_hasta: '2026-09-11T08:00:00Z', leido_hasta_otros: null,
-  ultimo_cuerpo: PREGUNTA, ultimo_remitente_auth_user_id: 'auth-aina',
+  ultimo_cuerpo: PREGUNTA, ultimo_remitente_auth_user_id: 'auth-aina', sin_leer: true,
   alumna: { socioId: 'soc-aina', nombre: 'Aina P.', fotoUrl: null },
 };
 

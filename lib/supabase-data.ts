@@ -6316,14 +6316,24 @@ export async function fetchAllStudioData(studioId?: string) {
 // social/owner). El resto de la ficha fiscal no sale de aquí.
 
 
+/**
+ * `estricto`: si la lectura de `plan_tipos_clase` falla, LANZA en vez de
+ * devolver los planes sin tipos. Sin tipos, un plan acotado a Mat se lee como
+ * «para todas las clases» (`cubreTipo`), y la tienda lo afirma («Para todas las
+ * clases») a quien va a pagarlo. Lo usa el catálogo público, que además se
+ * cachea un minuto para todo el estudio: mejor un error con reintento. Los
+ * demás llamadores siguen como estaban (algunos están en caminos de cobro y
+ * devolución, y cambiarles el fallo es otra decisión).
+ */
 export async function hidratarTiposDePlanes<C extends { from: (t: string) => never }>(
-  client: C, studioId: string, planes: PlanTarifa[],
+  client: C, studioId: string, planes: PlanTarifa[], opciones: { estricto?: boolean } = {},
 ): Promise<PlanTarifa[]> {
   if (planes.length === 0) return planes;
   const db = client as unknown as {
-    from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => Promise<{ data: { plan_id: string; tipo_clase_id: string; limite_semanal: number | null }[] | null }> } };
+    from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => Promise<{ data: { plan_id: string; tipo_clase_id: string; limite_semanal: number | null }[] | null; error?: { message?: string } | null }> } };
   };
-  const { data } = await db.from('plan_tipos_clase').select('plan_id, tipo_clase_id, limite_semanal').eq('studio_id', studioId);
+  const { data, error } = await db.from('plan_tipos_clase').select('plan_id, tipo_clase_id, limite_semanal').eq('studio_id', studioId);
+  if (error && opciones.estricto) throw new Error(`plan_tipos_clase: ${error.message ?? 'error'}`);
   return unirTiposAPlanes(planes, data);
 }
 

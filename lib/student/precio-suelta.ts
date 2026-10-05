@@ -24,6 +24,8 @@ export interface PlanPrecio {
   sesiones?: number | null;
   /** La oferta de prueba nunca fija el precio de la clase suelta. */
   esPrueba?: boolean | null;
+  /** A qué tipos de clase sirve; vacío o ausente, a todos (la regla de `cubreTipo`). */
+  tiposClaseIds?: readonly string[] | null;
 }
 
 /**
@@ -70,4 +72,26 @@ export function precioDeSesion(
     return precioPuntualSesion;
   }
   return precioClaseSuelta(planes);
+}
+
+/**
+ * El precio de la clase suelta con la que se puede comparar un bono que sirve
+ * para `tiposDelBono` (vacío = para todas), o `null`.
+ *
+ * Solo cuentan las sueltas que sirven para TODAS esas clases: comparar un bono
+ * de Mat con una suelta que solo vale para Reformer da un «ahorras un 52 %»
+ * frente a algo que no se puede comprar para esas clases, el ahorro fabricado
+ * que `lib/reservar/ahorro-plan.ts` dice evitar. Por lo mismo, un bono para
+ * todas solo se compara con una suelta para todas.
+ */
+export function precioSueltaParaTipos(
+  planes: readonly PlanPrecio[] | null | undefined,
+  tiposDelBono: readonly string[],
+): number | null {
+  return precioClaseSuelta((planes ?? []).filter((p) => {
+    const tipos = p.tiposClaseIds ?? [];
+    if (tipos.length === 0) return true;
+    if (tiposDelBono.length === 0) return false;
+    return tiposDelBono.every((t) => tipos.includes(t));
+  }));
 }

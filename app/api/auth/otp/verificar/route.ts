@@ -5,7 +5,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 export const dynamic = 'force-dynamic';
 
-// Verificación de OTP de signup — reemplaza el enlace de confirmación.
+// Verificación del código de 6 cifras del correo: el de alta (sustituye al
+// enlace de confirmación) y el de entrar de una cuenta que ya existe.
 //
 // Por qué pasa por un endpoint propio y no `supabase.auth.verifyOtp()`
 // directo desde el cliente: gotrue no lleva la cuenta de intentos fallidos
@@ -54,10 +55,24 @@ export async function POST(req: NextRequest) {
   }
   const auth = createClient(url, anonKey, { auth: { persistSession: false } });
 
-  const { data, error } = await auth.auth.verifyOtp({ email, token, type: 'signup' });
+  // `email`, no `signup`: con `signup` gotrue solo mira el código de ALTA
+  // (`confirmation_token`), y una cuenta que ya existe no recibe ese correo sino
+  // el de «entrar» (Magic Link), cuyo código vive en `recovery_token`. Desde que
+  // esa plantilla manda solo el código (#2522), con `signup` ninguna alumna que
+  // ya tenía cuenta podía entrar con él. `email` acepta los dos —primero el de
+  // alta, luego el de entrar— (gotrue `verify.go`, verificación de OTP por correo).
+  // El límite de intentos por email de arriba es el mismo para los dos.
+  const { data, error } = await auth.auth.verifyOtp({ email, token, type: 'email' });
   if (error || !data.session) {
     return NextResponse.json(
-      { error: 'El código no es correcto o ha caducado. Comprueba el código o solicita uno nuevo.', errorCode: 'INVALIDO' },
+      {
+        error: 'El código no es correcto o ha caducado. Comprueba el código o solicita uno nuevo.',
+        errorCode: 'INVALIDO',
+        // Los intentos que le quedan, para que la pantalla pueda decirlo. Solo
+        // con un recuento de verdad (`resetAt`): si el limitador no ha podido
+        // contar (fail-open), «te quedan 6» sería un número inventado.
+        ...(porEmail.resetAt ? { intentosRestantes: porEmail.remaining } : {}),
+      },
       { status: 400 },
     );
   }

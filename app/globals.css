@@ -208,25 +208,25 @@
      comportaría como un neutro. */
 
   /* ── Tenti, la mascota ───────────────────────────────────────────────────
-     El kit de diseño venía en índigo (#3D3B73) y coral (#F07C80). Ninguno de
-     los dos está en el sistema de Tentare, así que la mascota se TIÑE aquí a
-     la identidad oliva/arena en vez de traerse su paleta — mismo motivo por
-     el que se purgó el rosa fuera de sistema de /suscripcion.
-
-     El dibujo NO cambia: son exactamente los trazados del kit
-     (components/marca/tenti-poses.ts), solo con los colores por variable.
-
-     ⚠️ El traje (`--tenti-traje`) va en verde medio y no en arena a propósito:
-     el torso es el trazo más gordo del dibujo y la arena se le pega a la piel,
-     que también es arena — Tenti se quedaba en una silueta sin ropa. El verde
-     medio la separa manteniendo la familia. Se puede pisar por instancia
-     (style={{'--tenti-traje': ...}}) igual que el kit permitía elegir traje. */
-  --tenti-contorno: #343825;
-  --tenti-traje: #5A6142;
-  --tenti-piel: #EBD9B8;
-  --tenti-pelo: #CFD2C0;
+     El Tenti de canvas (lib/tenti/motor.ts) lee su paleta de aquí
+     (lib/tenti/paleta.ts), y no trae la suya: el prototipo venía con menta,
+     rosa chicle, un aro negro y chispas blancas, nada de eso del sistema de
+     Tentare — mismo motivo por el que se purgó el rosa fuera de sistema de
+     /suscripcion. Su tinte de 'hecho' es --success, que se lee directo.
+     El yogui SVG de #1333 (y sus --tenti-contorno/-traje/-piel/-pelo) se
+     retiró: dos mascotas con el mismo nombre son peores que ninguna. */
   --tenti-rubor: #C98F76;
-  --tenti-chispa: #C9A96A;
+  /* Un punto más hondo que el #C9A96A del kit: las chispas del Tenti de canvas
+     son estrellitas de pocos píxeles que salen volando por ENCIMA del fondo, y
+     con aquel ocre daban 1,9:1 sobre --background — se intuían más que se
+     veían. Este da 2,4:1 y 2,8:1 sobre --card sin dejar de ser dorado (más
+     hondo ya tira a marrón). Lo vigila lib/tenti/paleta.test.ts. */
+  --tenti-chispa: #B8975A;
+  /* El cuerpo es el «mochi» del prototipo tal cual: en claro ya es de la
+     familia arena. */
+  --tenti-cuerpo-luz: #FFFAF5;
+  --tenti-cuerpo-sombra: #DDCCBF;
+  --tenti-tinta: #1A1412;
   --brand-medio: #55622C;
   /* Delimita el botón cuando el fondo es oscuro y el oliva no se despega de él
      (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
@@ -372,17 +372,20 @@
      5-10% son un verde apenas perceptible en vez de un baño beige. La arena se
      queda donde siempre debió estar en oscuro: como TEXTO sobre la marca. */
   --brand: #8A9165;
-  /* Tenti en oscuro. El contorno NO puede seguir siendo el oliva #343825: sobre
-     #16161A se funde con el fondo y la mascota se queda sin dibujo — manchas de
-     color sin silueta. Sube al oliva claro, que es el mismo salto que ya hace
-     `--brand` justo arriba. La piel baja de brillo para no ser un foco en una
-     pantalla apagada, y el traje sube para no comerse el contorno nuevo. */
-  --tenti-contorno: #C3CBA2;
-  --tenti-traje: #6F784C;
-  --tenti-piel: #C7B492;
-  --tenti-pelo: #8E9382;
+  /* Tenti en oscuro: los mismos mofletes y chispas, más apagados. Las chispas
+     se siguen viendo de sobra sobre el fondo y sobre --card (lo vigila
+     lib/tenti/paleta.test.ts). */
   --tenti-rubor: #A9755E;
   --tenti-chispa: #A98C55;
+  /* El cuerpo del Tenti de canvas, apagado: el crema de claro sobre #16161A es
+     un foco, lo más brillante de la pantalla. Elegido MIRANDO cuatro tonos al
+     lado del titular de Listo: #E4DCD2 brillaba tanto como el texto; más
+     oscuro que este, el cuerpo se volvía masilla gris y el brillo blanco fijo
+     del motor parecía un reflejo de linterna. Los ojos no cambian: sobre un
+     cuerpo claro siguen necesitando la tinta oscura. */
+  --tenti-cuerpo-luz: #D6CDC1;
+  --tenti-cuerpo-sombra: #A89A8B;
+  --tenti-tinta: #1A1412;
   --brand-foreground: #16161A;
   --brand-secondary: #A8B37A;
   --brand-borde: transparent;

@@ -23,7 +23,10 @@
 // `node --test` — la advertencia de arriba es sobre `@/`, no sobre compartir
 // código. Y compartir aquí importa: el nombre del periodo lo decide un solo
 // sitio para el panel y para el escaparate.
-import { nombrePeriodo } from '../bono-logic.ts';
+import { cicloInicialDe, nombrePeriodo } from '../bono-logic.ts';
+import { ahorroPorcentaje } from '../reservar/ahorro-plan.ts';
+import { precioSueltaParaTipos, type PlanPrecio } from './precio-suelta.ts';
+import { precioEnEuros } from '../reservar/tarjeta-plan.ts';
 
 export type FamiliaProducto = 'suscripcion' | 'bono' | 'suelta' | 'servicio' | 'producto';
 
@@ -270,6 +273,10 @@ export const AVISO_PRODUCTOS = 'Se compran en el estudio: te los damos en recepc
  * Se construye solo con datos ciertos: si un bono no declara caducidad no se
  * escribe «sin caducidad» —puede que el estudio la aplique por otra vía— sino
  * que simplemente no se menciona.
+ *
+ * La caducidad ya NO va aquí (P09): «caduca a los 150 días» obligaba a contar
+ * días con el calendario en la mano. Va en su propia línea, con la fecha de
+ * verdad: `vigenciaDeCompra`.
  */
 export function resumenProducto(
   p: ProductoTienda,
@@ -288,8 +295,133 @@ export function resumenProducto(
   if (p.limiteSemanal) partes.push(`máx. ${p.limiteSemanal}/semana`);
   const topes = topesPorActividad(p, nombresTipo);
   if (topes) partes.push(topes);
-  if (p.validezDias) partes.push(`caduca a los ${p.validezDias} días`);
   return partes.join(' · ');
+}
+
+// ── La tarjeta de la tienda (P09): que se lea sin hacer cuentas ─────────────
+//
+// Cada línea sale de un dato que ya existe y del MISMO cálculo que hace el
+// servidor al cobrar. Ninguna se rellena cuando no se sabe: una línea que falta
+// es mejor que una que promete algo que luego no pasa.
+
+/** El precio tal como se lee: «136 €», «13,60 €», «69 €/mes», «180 €/trimestre». */
+export function precioDeTienda(p: ProductoTienda): string {
+  const base = precioEnEuros(p.precio);
+  return p.familia === 'suscripcion' ? `${base}/${nombrePeriodo({ periodicidadMeses: p.periodicidadMeses })}` : base;
+}
+
+/**
+ * Lo que dice el botón, con el importe dentro: «Comprar · 136 €», «Contratar ·
+ * 69 €/mes». `null` en lo que se compra en el estudio, que no tiene botón.
+ *
+ * Es el precio del producto, el mismo que cobra el checkout. Si el estudio
+ * cobra matrícula o hay un código de descuento, el total lo desglosa la hoja de
+ * compra ANTES de pagar: el botón no se lo inventa.
+ */
+export function textoBotonCompra(p: ProductoTienda): string | null {
+  if (p.familia === 'producto') return null;
+  return `${p.familia === 'suscripcion' ? 'Contratar' : 'Comprar'} · ${precioDeTienda(p)}`;
+}
+
+/**
+ * «ahorras un 32 %» frente a pagar esas clases sueltas, o `null`.
+ *
+ * Solo en bonos y solo si es verdad: `ahorroPorcentaje` ya devuelve `null` sin
+ * clase suelta con la que comparar, sin ahorro, o si sale más caro, y redondea
+ * hacia abajo. Una cuota no se compara: no tiene precio por clase.
+ *
+ * Recibe los PLANES y no un precio ya elegido: la suelta de referencia tiene
+ * que servir para las mismas clases que el bono (`precioSueltaParaTipos`). Un
+ * bono de Mat frente a la única suelta, que es de Reformer, presumía de un
+ * ahorro sobre algo que no se puede comprar para esas clases.
+ */
+export function ahorroFrenteASuelta(p: ProductoTienda, planes: readonly PlanPrecio[] | null | undefined): number | null {
+  if (p.familia !== 'bono') return null;
+  return ahorroPorcentaje({ precio: p.precio, sesiones: p.sesiones }, precioSueltaParaTipos(planes, p.tiposClaseIds));
+}
+
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/**
+ * «Vale 150 días: si lo compras hoy, hasta el 4 de marzo», o `null`.
+ *
+ * ⚠️ La fecha sale de `cicloInicialDe`, la MISMA función con la que
+ * `entregarPlanComprado` escribe `fecha_fin` al cobrar (día del estudio, no de
+ * UTC). Calcularla aquí por otro camino es la forma de prometer un día y
+ * entregar otro. Y la fecha es el último día que vale: el bono sirve mientras
+ * `fecha_fin >= hoy` (`tieneEntitlementActivo`).
+ *
+ * El año solo se escribe cuando hace falta: una fecha sin año se lee como la
+ * próxima vez que llega, y eso solo confunde cuando está a casi un año o más
+ * (un bono de 365 días comprado el 5 de octubre «vale hasta el 5 de octubre»).
+ *
+ * `null` en las cuotas (se renuevan, no caducan: ver `renovacionDeCuota`) y en
+ * lo que no declara caducidad, que no se rellena con un «no caduca».
+ */
+export function vigenciaDeCompra(p: ProductoTienda, ahora: Date): string | null {
+  if (p.familia !== 'bono' && p.familia !== 'suelta') return null;
+  const dias = p.validezDias;
+  if (!dias || dias <= 0) return null;
+  const { fechaFin } = cicloInicialDe(
+    { tipo: p.familia === 'bono' ? 'BONO' : 'PUNTUAL', sesiones: p.sesiones, validezDias: dias },
+    ahora.toISOString(),
+  );
+  if (!fechaFin) return null;
+  const [anio, mes, dia] = fechaFin.split('-').map(Number);
+  const fecha = `${dia} de ${MESES[mes - 1]}${dias > 300 ? ` de ${anio}` : ''}`;
+  return `Vale ${dias} ${dias === 1 ? 'día' : 'días'}: si lo compras hoy, hasta el ${fecha}`;
+}
+
+/**
+ * La frase de renovación de una cuota, sacada de SU plan: «Se renueva sola cada
+ * mes hasta que te des de baja», o «cada trimestre» si se cobra por trimestres.
+ *
+ * Es lo que le pasa de verdad: el cobro de la cuota guarda la tarjeta para las
+ * renovaciones (`setup_future_usage`, solo en cuotas) y el cron la renueva cada
+ * periodo; el panel le explica lo mismo a la propietaria al crearla. No dice
+ * «la cancelas cuando quieras» porque la baja no está en la app: la da el
+ * estudio.
+ */
+export function renovacionDeCuota(p: ProductoTienda): string | null {
+  if (p.familia !== 'suscripcion') return null;
+  return `Se renueva sola cada ${nombrePeriodo({ periodicidadMeses: p.periodicidadMeses })} hasta que te des de baja.`;
+}
+
+/** «A», «A y B», «A, B y C». */
+function enLista(nombres: readonly string[]): string {
+  if (nombres.length <= 1) return nombres[0] ?? '';
+  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
+}
+
+/** Los nombres legibles de unos tipos de clase, sin repetir y sin inventar los que no se conocen. */
+function nombresDeTipos(ids: readonly string[], nombres: ReadonlyMap<string, string>): string[] {
+  const vistos = new Set<string>();
+  const legibles: string[] = [];
+  for (const id of ids) {
+    const n = nombres.get(id)?.trim();
+    if (!n || vistos.has(n)) continue;
+    vistos.add(n);
+    legibles.push(n);
+  }
+  return legibles;
+}
+
+/**
+ * Para qué clases sirve: «Para todas las clases» o «Para Reformer, Mat y Barre».
+ *
+ * La misma regla que el servidor (`cubreTipo`): sin tipos asignados sirve para
+ * todas. Solo en lo que se usa para reservar clases (cuotas, bonos, sueltas):
+ * una privada o una botella no se reservan contra el horario.
+ *
+ * `null` si está acotado a tipos que no se pueden nombrar (archivados o que el
+ * estudio no publica): decir «para todas» sería mentir, y decir «para» y nada,
+ * no decir nada.
+ */
+export function paraQueClases(p: ProductoTienda, nombres: ReadonlyMap<string, string>): string | null {
+  if (p.familia !== 'suscripcion' && p.familia !== 'bono' && p.familia !== 'suelta') return null;
+  if (p.tiposClaseIds.length === 0) return 'Para todas las clases';
+  const legibles = nombresDeTipos(p.tiposClaseIds, nombres);
+  return legibles.length ? `Para ${enLista(legibles)}` : null;
 }
 
 
@@ -325,19 +457,9 @@ export function coberturaDeTipos(
   nombres: ReadonlyMap<string, string>,
 ): string | null {
   if (!tiposClaseIds || tiposClaseIds.length === 0) return null;
-  const vistos = new Set<string>();
-  const legibles: string[] = [];
-  for (const id of tiposClaseIds) {
-    const n = nombres.get(id)?.trim();
-    if (!n || vistos.has(n)) continue;
-    vistos.add(n);
-    legibles.push(n);
-  }
-  if (legibles.length === 0) return null;
-  if (legibles.length === 1) return `Solo para ${legibles[0]}`;
+  const legibles = nombresDeTipos(tiposClaseIds, nombres);
   // «A, B y C» — la conjunción en español, no una lista con comas sueltas.
-  const ultimo = legibles[legibles.length - 1];
-  return `Solo para ${legibles.slice(0, -1).join(', ')} y ${ultimo}`;
+  return legibles.length ? `Solo para ${enLista(legibles)}` : null;
 }
 
 

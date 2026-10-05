@@ -11,11 +11,13 @@ import { SegundoPaso } from '@/components/student/acceso/SegundoPaso';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { portalAuthHeader } from '@/lib/student/api-publica';
+import { MINUTOS_CADUCIDAD_CODIGO } from '@/lib/student/entrada-codigo';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 import { traducirAuth } from '@/lib/student/auth-errores';
 import { mensajeSeguro } from '@/lib/errores';
 import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
+import { navegoDesdeFueraHaceNada } from '@/lib/nativo/navegacion-desde-fuera';
 import { BotonApple } from '@/components/nativo/BotonApple';
 import { BotonGoogle } from '@/components/nativo/BotonGoogle';
 import {
@@ -87,9 +89,16 @@ export default function EntradaApp() {
   };
 
   const trasSegundoPaso = useRef(false);
+  // Si la pantalla ya no está (un aviso o un enlace se llevó a la alumna a otra
+  // parte mientras se cargaban sus estudios), no se navega: el router es global
+  // y un `replace` tardío pisaría ese destino.
+  const montada = useRef(true);
+  useEffect(() => { montada.current = true; return () => { montada.current = false; }; }, []);
 
   const ir = useCallback((e: Pick<EstudioDeLaCuenta, 'slug' | 'como'>) => {
     guardarUltimo(e.slug);
+    // Ni si un aviso o un enlace acaba de llevarla a otra parte (arranque en frío).
+    if (!montada.current || navegoDesdeFueraHaceNada()) return;
     r.replace(rutaDeEntrada(e));
   }, [r]);
 
@@ -112,7 +121,7 @@ export default function EntradaApp() {
         const suyo = datos.estudios.find((e) => e.slug === estudio);
         // Aún no es suya: a darse de alta en él, con la cuenta que ya tiene.
         if (suyo) ir(suyo);
-        else r.replace(`/portal/${encodeURIComponent(estudio)}/acceso/registro`);
+        else if (montada.current && !navegoDesdeFueraHaceNada()) r.replace(`/portal/${encodeURIComponent(estudio)}/acceso/registro`);
         return;
       }
       const directo = elegir ? null : entradaDirecta(datos.estudios, leerUltimo());
@@ -252,7 +261,8 @@ export default function EntradaApp() {
             <div>
               <h1 className="t-h1">Mira tu correo</h1>
               <p className="t-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
-                Te hemos mandado un código a <b style={{ overflowWrap: 'anywhere' }}>{email.trim()}</b>. Escríbelo aquí, o abre en este móvil el enlace del correo si te llega uno.
+                {/* Solo el código: desde #2522 ningún correo de entrar trae enlace. */}
+                Te hemos mandado un código a <b style={{ overflowWrap: 'anywhere' }}>{email.trim()}</b>. Caduca en {MINUTOS_CADUCIDAD_CODIGO} minutos. Mira también en spam.
               </p>
             </div>
             <Input
@@ -261,8 +271,8 @@ export default function EntradaApp() {
               style={{ letterSpacing: '.4em', fontSize: 22, fontWeight: 800, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
             />
             <Button type="submit" full loading={codigo.verificando}>Entrar</Button>
-            <button type="button" onClick={() => void codigo.pedirOtro()} disabled={codigo.espera > 0} style={{ ...enlace, color: codigo.espera > 0 ? 'var(--muted-foreground)' : 'var(--accent)' }}>
-              {codigo.espera > 0 ? `${codigo.reenviado ? 'Te lo hemos vuelto a mandar. ' : ''}Otro en ${codigo.espera} s` : 'No me ha llegado: volver a enviar'}
+            <button type="button" onClick={() => void codigo.pedirOtro()} disabled={codigo.espera > 0 || codigo.reenviando} aria-busy={codigo.reenviando} style={{ ...enlace, color: codigo.espera > 0 ? 'var(--muted-foreground)' : 'var(--accent)' }}>
+              {codigo.reenviando ? 'Enviando…' : codigo.espera > 0 ? `${codigo.reenviado ? 'Te lo hemos vuelto a mandar. ' : ''}Otro en ${codigo.espera} s` : 'No me ha llegado: volver a enviar'}
             </button>
             <button type="button" onClick={() => { setGlobal(''); setFase('contrasena'); }} style={{ ...enlace, color: 'var(--muted-foreground)' }}>
               Usar mi contraseña

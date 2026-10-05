@@ -23,7 +23,7 @@ import { hoyEnEstudio } from './utils.ts';
 // Su gemela en SQL es `plan_cubre_tipo_clase` (migr 20260905143242), que la
 // usa `reservar_plaza` para el límite semanal por actividad. Si cambia una,
 // cambia la otra: la regla es la misma en los dos lados.
-export function planCubreTipoClase(plan: PlanTarifa, tipoClaseId?: string | null): boolean {
+export function planCubreTipoClase(plan: Pick<PlanTarifa, 'tiposClaseIds'>, tipoClaseId?: string | null): boolean {
   const tipos = plan.tiposClaseIds;
   if (!tipos || tipos.length === 0) return true;
   if (!tipoClaseId) return true;

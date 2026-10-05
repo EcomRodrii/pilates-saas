@@ -138,8 +138,8 @@ export function DosPasos({ volverA }: { volverA: string }) {
         <h2 id="dos-pasos-titulo" className="t-h3">Verificación en dos pasos</h2>
         <p className="t-small t-dim" style={{ marginTop: 4, lineHeight: 1.5 }}>
           {estado.activa
-            ? 'Activada. Al entrar en un dispositivo nuevo te pedimos además un código: te lo enviamos al correo si entras con tu contraseña, y si entras con un enlace, con Google o con Apple, el de tu app de autenticación.'
-            : 'Opcional. Además de tu contraseña, al entrar te pediremos un código. Así nadie entra en tu cuenta solo con tu contraseña.'}
+            ? 'Activada. Al entrar en un dispositivo nuevo te pedimos además un código: te lo enviamos al correo si entras con tu contraseña, y si entras con un código del correo, con Google o con Apple, el de tu app de autenticación.'
+            : 'Opcional. Al entrar en un dispositivo nuevo te pediremos además un código. Así nadie entra en tu cuenta solo con tu contraseña o con tu correo.'}
         </p>
       </div>
 
@@ -198,7 +198,7 @@ export function DosPasos({ volverA }: { volverA: string }) {
       <ConfirmationDialog
         open={confirmarQuitar} onClose={() => setConfirmarQuitar(false)}
         titulo="¿Desactivar la verificación en dos pasos?"
-        cuerpo="Volverás a entrar solo con tu contraseña, y se olvidarán los dispositivos recordados."
+        cuerpo="Volverás a entrar sin ese segundo código, y se olvidarán los dispositivos recordados."
         confirmar="Sí, desactivarla" tono="danger" loading={trabajando} onConfirm={() => void quitar()}
       />
     </section>

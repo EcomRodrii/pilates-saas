@@ -441,9 +441,9 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'acceso-de-una-clienta', categoria: 'portal', tipo: 'guia',
     titulo: 'Cómo entra una clienta al portal por primera vez',
-    descripcion: 'Con su email y contraseña, con un enlace si nunca se puso una, o con su cuenta de Google — todo desde una sola pantalla.',
-    terminos: ['login clienta', 'primera vez', 'contraseña olvidada', 'acceso'],
-    actualizado: '2026-09-14',
+    descripcion: 'Con su email y un código de 6 cifras que le llega al correo, con su contraseña si tiene una, o con su cuenta de Google — todo desde una sola pantalla.',
+    terminos: ['login clienta', 'primera vez', 'contraseña olvidada', 'acceso', 'código', 'código de acceso'],
+    actualizado: '2026-10-05',
     relacionados: ['portal/que-es-el-portal', 'problemas/una-clienta-no-puede-entrar'],
     estado: 'publicado',
   },

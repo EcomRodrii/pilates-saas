@@ -31,23 +31,46 @@ test.describe('Student PWA · lo que enseñó el iPhone', () => {
     const pequenos = await page.evaluate(() => {
       // `pointer: coarse` no se puede emular desde Playwright, así que se
       // comprueba la REGLA: la hoja de estilos tiene que declararla, y el
-      // tamaño base de cada campo se lee para dejar constancia.
+      // tamaño base de cada campo se lee para dejar constancia. Vale `16px` o
+      // `max(16px, …)`: el mínimo es lo que importa; con «Texto más grande» crece.
       // ⚠️ `CSSMediaRule` DE VERDAD (`type === 4`), no un `cssText.includes`.
       // Un comentario mal cerrado justo encima hizo que el navegador se
       // tragara el `@media` entero como selector de una regla inválida: la
       // regla desaparecía de la hoja y un `includes` sobre el texto de
       // cualquier regla seguía encontrando las palabras. El tipo no se puede
       // falsificar así.
-      const regla = Array.from(document.styleSheets)
+      const media = Array.from(document.styleSheets)
         .flatMap((h) => { try { return Array.from(h.cssRules); } catch { return []; } })
-        .some((r) => r.type === 4
+        .find((r) => r.type === 4
           && (r as CSSMediaRule).conditionText?.includes('coarse')
-          && /font-size:\s*16px\s*!important/.test(r.cssText));
+          && /font-size:\s*(16px|max\(16px,[^;]*\))\s*!important/.test(r.cssText)) as CSSMediaRule | undefined;
+      const regla = Boolean(media);
+      // ⚠️ Y que el VALOR se resuelve: con `max(16px, var(--t-body))`, una
+      // variable mal escrita o borrada deja la declaración inválida en tiempo de
+      // cálculo, el campo HEREDA el tamaño del padre y el `!important` hace que
+      // esa herencia gane a todo. La regex seguiría en verde. Se aplica el valor
+      // de la regla a un campo de prueba dentro de `.student-app`, con un padre
+      // de 10 px, y se mide.
+      const decl = Array.from(media?.cssRules ?? [])
+        .map((r) => (r as CSSStyleRule).style?.getPropertyValue('font-size'))
+        .find((v) => Boolean(v)) ?? '';
+      const app = document.querySelector('.student-app');
+      let efectivo = 0;
+      if (app && decl) {
+        const padre = document.createElement('div');
+        padre.style.fontSize = '10px';
+        const sonda = document.createElement('input');
+        sonda.style.setProperty('font-size', decl, 'important');
+        padre.appendChild(sonda);
+        app.appendChild(padre);
+        efectivo = parseFloat(getComputedStyle(sonda).fontSize);
+        padre.remove();
+      }
       const campos = Array.from(document.querySelectorAll('input, textarea, select')).map((e) => ({
         que: (e.getAttribute('name') || e.getAttribute('type') || e.tagName).slice(0, 20),
         px: parseFloat(getComputedStyle(e).fontSize),
       }));
-      return { regla, campos };
+      return { regla, campos, efectivo, decl };
     });
 
     // El `!important` NO es cosmético y por eso se afirma: el buscador de
@@ -57,6 +80,7 @@ test.describe('Student PWA · lo que enseñó el iPhone', () => {
     // pasando, porque solo comprobaba que la regla existiera.
     expect(pequenos.regla, 'la hoja impone el mínimo de 16 px (y gana a los `style` en línea)').toBe(true);
     expect(pequenos.campos.length, 'hay algún campo que mirar').toBeGreaterThan(0);
+    expect(pequenos.efectivo, `el valor de la regla (${pequenos.decl}) se resuelve a 16 px o más`).toBeGreaterThanOrEqual(16);
   });
 
   test('la portada es la del PORTAL, nunca la foto de la propietaria', async ({ page }) => {

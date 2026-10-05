@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useVolver } from '@/components/student/shell/volver';
 import type { Clase } from '@/lib/student/tipos';
 import { Foto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
@@ -14,7 +14,7 @@ import { Icono } from '@/components/student/ui/Icono';
  * cabecera flota encima (el `marginTop: -56` de la página compensa su hueco).
  */
 export function FichaClaseHero({ clase, chips, derecha }: { clase: Clase; chips: string[]; derecha?: React.ReactNode }) {
-  const router = useRouter();
+  const volver = useVolver();
   return (
     // ⚠️ `background`: `clase.fotoUrl` puede no existir, y sin tinta detrás el
     // héroe degradaba a crema — título y cabecera en blanco sobre claro,
@@ -47,7 +47,7 @@ export function FichaClaseHero({ clase, chips, derecha }: { clase: Clase; chips:
       />
       <button
         type="button"
-        onClick={() => router.back()}
+        onClick={volver}
         aria-label="Volver"
         className="tap tap--icono"
         style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', left: 14, width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}

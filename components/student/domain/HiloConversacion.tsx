@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useVolver } from '@/components/student/shell/volver';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useAsync } from '@/lib/student/useAsync';
@@ -47,7 +47,8 @@ export function HiloConversacion({
   /** Estable (useCallback). Lanza si no se pueden leer los mensajes. */
   cargar: () => Promise<RowMensajes[]>;
   enviar: (cuerpo: string) => Promise<ResultadoEnviar>;
-  marcarLeido: () => Promise<void>;
+  /** `hasta`: el id del último mensaje pintado (`null` si ninguno). */
+  marcarLeido: (hasta: string | null) => Promise<void>;
   miId: string | null;
   modo?: 'alumna' | 'instructora';
   /** Aviso fijo bajo la cabecera (p.ej. que el estudio puede leer la conversación). */
@@ -69,11 +70,14 @@ export function HiloConversacion({
 
   const mensajes = [...(data ?? []), ...extra];
 
-  // Marcar leído al abrir. Best-effort: si falla, la próxima carga de la bandeja
-  // seguirá enseñándola sin leer, que es el fallo seguro correcto — nunca al revés.
+  // Marcar leído al abrir, HASTA el último mensaje que se ha pintado: uno que
+  // llegue después no se ha visto. Best-effort: si falla, la próxima carga de la
+  // bandeja seguirá enseñándola sin leer, que es el fallo seguro correcto —
+  // nunca al revés.
+  const ultimoPintado = data && data.length > 0 ? data[data.length - 1].id : null;
   useEffect(() => {
-    if (estado === 'ready' || estado === 'empty') void marcarLeido();
-  }, [estado, marcarLeido]);
+    if (estado === 'ready' || estado === 'empty') void marcarLeido(ultimoPintado);
+  }, [estado, marcarLeido, ultimoPintado]);
 
   useEffect(() => {
     finRef.current?.scrollIntoView({ block: 'end' });
@@ -229,11 +233,11 @@ function CabeceraChat({ titulo, avatar, subtitulo, hrefPerfil }: {
   subtitulo: string | null;
   hrefPerfil: string | null;
 }) {
-  const r = useRouter();
+  const volver = useVolver();
   return (
     <div className="px" style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 8, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
       <button
-        type="button" onClick={() => r.back()} aria-label="Volver" className="tap tap--icono"
+        type="button" onClick={volver} aria-label="Volver" className="tap tap--icono"
         style={{ width: 36, height: 36, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
       >
         <Icono nombre="flecha-izquierda" tamano={18} />

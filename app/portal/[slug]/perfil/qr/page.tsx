@@ -8,7 +8,8 @@ import { useAsync } from '@/lib/student/useAsync';
 import { getAlumna } from '@/lib/student/datos';
 import { Button } from '@/components/student/ui/Button';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
-import { CajaQr, useQrAcceso } from '@/components/student/domain/QrAcceso';
+import { CajaQr, useBrilloAlMaximo, useQrAcceso } from '@/components/student/domain/QrAcceso';
+import { AnadirAWallet } from '@/components/student/domain/AnadirAWallet';
 
 // Perfil → QR de acceso.
 //
@@ -21,6 +22,8 @@ import { CajaQr, useQrAcceso } from '@/components/student/domain/QrAcceso';
 export default function QrAccesoPage() {
   const { estudio } = useEstudio();
   const { estado, qr, reintentar, regenerar } = useQrAcceso(estudio.slug, estudio.qrAcceso === true);
+  // En la app de iOS, brillo al máximo mientras el QR está en pantalla.
+  useBrilloAlMaximo(estado === 'listo');
   const cargarAlumna = useCallback(() => getAlumna(estudio.slug), [estudio.slug]);
   const { data: socia } = useAsync(cargarAlumna, (d) => !d);
   const [confirmar, setConfirmar] = useState(false);
@@ -71,6 +74,9 @@ export default function QrAccesoPage() {
                 Muéstralo al llegar al estudio
               </p>
             </section>
+
+            {/* Oculto mientras no haya certificado de Wallet, y fuera de la app. */}
+            {estado === 'listo' && <AnadirAWallet slug={estudio.slug} />}
 
             {aviso && (
               <p role="status" className="card" style={{ padding: '12px 14px', margin: 0, fontSize: 'var(--t-small)', fontWeight: 700 }}>

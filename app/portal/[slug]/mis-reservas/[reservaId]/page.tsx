@@ -9,13 +9,14 @@ import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { fechaLarga, hoyISO } from '@/lib/student/formato';
-import { CajaQr, useQrAcceso } from '@/components/student/domain/QrAcceso';
+import { CajaQr, useBrilloAlMaximo, useQrAcceso } from '@/components/student/domain/QrAcceso';
 import { Badge } from '@/components/student/ui/Badge';
 import { etiquetaHistorial } from '@/lib/student/etiqueta-historial';
 import { Button } from '@/components/student/ui/Button';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
 import { ValorarClase } from '@/components/student/domain/ValorarClase';
-import { añadirAlCalendario } from '@/lib/student/enlaces-clase';
+import { alCalendario } from '@/lib/student/calendario-dispositivo';
+import { useToast } from '@/components/student/ui/Toast';
 
 // Detalle de reserva + su QR de acceso (§A.10).
 //
@@ -44,6 +45,7 @@ export default function DetalleReservaPage() {
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.
   useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
+  const { toast } = useToast();
 
   // «Activa» = confirmada Y todavía por venir. Sin la segunda mitad, una clase
   // confirmada de hace tres meses —que el estudio nunca marcó como asistida—
@@ -54,6 +56,8 @@ export default function DetalleReservaPage() {
   // Solo se pide si se va a enseñar: reserva activa y el estudio con el control de acceso encendido.
   const qrAcceso = useQrAcceso(estudio.slug, activa && estudio.qrAcceso === true);
   const conQr = activa && estudio.qrAcceso === true && qrAcceso.estado !== 'apagado';
+  // En la app de iOS, brillo al máximo mientras el QR está en pantalla.
+  useBrilloAlMaximo(conQr && qrAcceso.estado === 'listo');
 
   if (estado === 'loading') {
     return (
@@ -142,7 +146,8 @@ export default function DetalleReservaPage() {
             {/* En «Mis clases» solo la PRÓXIMA lleva el botón del calendario; las
                 demás son filas de agenda que abren esta ficha. Aquí va para
                 todas. */}
-            <Button variant="light" full onClick={() => añadirAlCalendario(c, estudio.nombre, estudio.direccion, i?.nombre)}>
+            <Button variant="light" full onClick={() => void alCalendario({ slug: estudio.slug, nombre: estudio.nombre, direccion: estudio.direccion }, c, i?.nombre)
+              .then((r) => { if (r === 'añadida') toast('Añadida a tu calendario'); })}>
               + Calendario
             </Button>
             <Button variant="ghost" full onClick={() => router.push(href('/mis-reservas'))}>
