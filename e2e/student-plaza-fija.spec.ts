@@ -28,6 +28,10 @@ async function montar(page: Page, opts: { plaza?: boolean; recuperaciones?: numb
 }
 
 test.describe('Student PWA · clase fija y recuperaciones', () => {
+  // Como los demás bloques de este fichero: hay pruebas que pasan por dos pantallas (Bonos y Mis clases),
+  // y con 30 s la primera compilación de `next dev` se las comía enteras.
+  test.describe.configure({ timeout: 120_000 });
+
   test('Bonos se queda con las recuperaciones; la clase fija vive en Mis clases → Fija', async ({ page }) => {
     await montar(page, { recuperaciones: 2 });
     await page.goto(`${base}/bonos`);
