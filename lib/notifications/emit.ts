@@ -1345,9 +1345,9 @@ export async function emitirMensajeDigestNoLeido(
     /** Quién lo recibe y como qué, por su papel en sus hilos (alumna o equipo). */
     recipients?: Recipient[] | null;
     /**
-     * Solo cuando la misma cuenta recibe dos resúmenes el mismo día (alumna en
-     * unos hilos, equipo en otros): sin él, el segundo chocaría con la clave
-     * del primero. Para todos los demás la clave no cambia.
+     * El resumen de equipo lleva el suyo (`sufijoDedupDelResumen`): la misma
+     * cuenta puede recibir el de alumna y el de equipo el mismo día, y sin él
+     * el segundo chocaría con la clave del primero.
      */
     sufijoDedup?: string | null;
   },

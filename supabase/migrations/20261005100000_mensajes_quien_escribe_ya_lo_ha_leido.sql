@@ -12,7 +12,11 @@
 --   · En el hilo con el estudio, el mostrador seguía «sin leer» después de que
 --     recepción contestara.
 --
--- Sin cambios de esquema ni de RLS. No depende del código: puede aplicarse antes.
+-- Sin cambios de esquema ni de RLS. No depende del código y se aplica ANTES de
+-- desplegarlo: el resumen nuevo (`lib/mensajeria/digest.ts`) lee `lado` y
+-- `socio_id`, que la función vieja no devuelve. Si el código llega primero, no
+-- se rompe (publica como antes), pero el reparto por papel en el hilo no
+-- funciona hasta que esta migración esté aplicada.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- 1. El trigger. Ya es SECURITY DEFINER y salta en las tres vías de escritura
