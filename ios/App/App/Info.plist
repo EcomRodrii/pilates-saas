@@ -40,11 +40,11 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Para escanear el código QR de tu clase al llegar al estudio.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Para poner tus clases reservadas en tu calendario y quitarlas si las cancelas.</string>
+	<string>Para añadir tus clases reservadas a tu calendario.</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>Para poner tus clases reservadas en tu calendario y quitarlas si las cancelas.</string>
+	<string>Para añadir tus clases reservadas a tu calendario.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
-	<string>Para poner tus clases reservadas en tu calendario.</string>
+	<string>Para añadir tus clases reservadas a tu calendario.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Para elegir la foto de tu perfil.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

@@ -76,17 +76,6 @@ export async function getReservas(slug: string): Promise<Reserva[]> {
   return d ? proyectarReservas(d) : [];
 }
 
-/**
- * Sus reservas, o `null` si el payload NO trae a la socia (token caducado, vista
- * previa del panel). `getReservas` devuelve `[]` en los dos casos, y para quien
- * sincroniza su calendario no es lo mismo: «no tiene ninguna» borraría sus
- * eventos; «no sé quién es» no debe tocar nada.
- */
-export async function getReservasSiHaySocia(slug: string): Promise<Reserva[] | null> {
-  const d = await catalogo(slug);
-  return d?.socia ? proyectarReservas(d) : null;
-}
-
 export async function getBonos(slug: string): Promise<Bono[]> {
   const d = await catalogo(slug);
   return d ? proyectarBonos(d, Date.now()) : [];

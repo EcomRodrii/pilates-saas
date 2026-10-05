@@ -19,7 +19,6 @@ import { Icono } from '@/components/student/ui/Icono';
 import { useFotoUrl } from '@/lib/foto-signed-url';
 import { CajaQr, useQrAcceso } from '@/components/student/domain/QrAcceso';
 import { CambiarDeEstudio } from '@/components/student/domain/CambiarDeEstudio';
-import { CalendarioAutomatico } from '@/components/student/domain/CalendarioAutomatico';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -128,9 +127,6 @@ export default function PerfilPage() {
             { label: 'Contraseña y verificación', href: href('/perfil/seguridad') },
           ]}
         />
-
-        {/* Solo en la app de iOS (fuera no se pinta). */}
-        <CalendarioAutomatico slug={estudio.slug} nombre={estudio.nombre} direccion={estudio.direccion} />
 
         <ProfileSection
           titulo="Bonos y pagos"

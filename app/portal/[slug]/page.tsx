@@ -21,7 +21,7 @@ import { useAhoraMs } from '@/lib/student/use-ahora';
 import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { urlComoLlegar } from '@/lib/student/enlaces-clase';
-import { alCalendario, useSincronizarCalendario } from '@/lib/student/calendario-dispositivo';
+import { alCalendario } from '@/lib/student/calendario-dispositivo';
 import { useToast } from '@/components/student/ui/Toast';
 import type { Clase } from '@/lib/student/tipos';
 import { TuRitmo } from '@/components/student/domain/TuRitmo';
@@ -110,12 +110,10 @@ export default function InicioPage() {
   }, [estudio.slug, refrescar]);
   const plazaFija = data?.plazaFija ?? null;
   const { toast } = useToast();
-  // «Mis reservas en mi calendario» (Perfil, app de iOS): al día con lo cargado.
-  useSincronizarCalendario(estudio, data);
-  // «+ Calendario»: en la app, directo al calendario del iPhone (y queda
-  // apuntada para quitarla si cancela); fuera, el .ics / Google de siempre.
+  // «+ Calendario»: en la app (iOS 17+), la hoja de iOS ya rellena; si no, el
+  // .ics / Google de siempre (lib/student/calendario-dispositivo.ts).
   const alCal = (c: Clase, instructora?: string) => void alCalendario({ slug: estudio.slug, nombre: estudio.nombre, direccion: estudio.direccion }, c, instructora)
-    .then((r) => { if (r === 'añadida') toast('Añadida a tu calendario'); else if (r === 'ya-estaba') toast('Ya está en tu calendario'); });
+    .then((r) => { if (r === 'añadida') toast('Añadida a tu calendario'); });
   const gamificacion = data?.gamificacion ?? null;
 
   // ⚠️ El que el servidor gastaría primero, no «el primero del array».

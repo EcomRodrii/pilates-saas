@@ -19,7 +19,7 @@ import { etiquetaDia, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato'
 import { acotarFijasProximas, diaSemanaDe } from '@/lib/student/plaza-fija';
 import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
-import { alCalendario, useSincronizarCalendario } from '@/lib/student/calendario-dispositivo';
+import { alCalendario } from '@/lib/student/calendario-dispositivo';
 import { Badge, EnCursoBadge } from '@/components/student/ui/Badge';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { estaEnCurso } from '@/lib/student/estado-clase';
@@ -89,12 +89,10 @@ export default function MisReservasPage() {
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.
   useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
-  // «Mis reservas en mi calendario»: al cancelar aquí, la clase sale también del calendario.
-  useSincronizarCalendario(estudio, data);
-  // «+ Calendario»: en la app, directo al calendario del iPhone (y queda
-  // apuntada para quitarla si cancela); fuera, el .ics / Google de siempre.
+  // «+ Calendario»: en la app (iOS 17+), la hoja de iOS ya rellena; si no, el
+  // .ics / Google de siempre (lib/student/calendario-dispositivo.ts).
   const alCal = (c: Clase, instructora?: string) => void alCalendario({ slug: estudio.slug, nombre: estudio.nombre, direccion: estudio.direccion }, c, instructora)
-    .then((r) => { if (r === 'añadida') toast('Añadida a tu calendario'); else if (r === 'ya-estaba') toast('Ya está en tu calendario'); });
+    .then((r) => { if (r === 'añadida') toast('Añadida a tu calendario'); });
   const actualizar = useCallback(async () => {
     invalidarCatalogo(estudio.slug, { conservarVistas: true });
     await refrescar();

@@ -147,7 +147,7 @@ export default function DetalleReservaPage() {
                 demás son filas de agenda que abren esta ficha. Aquí va para
                 todas. */}
             <Button variant="light" full onClick={() => void alCalendario({ slug: estudio.slug, nombre: estudio.nombre, direccion: estudio.direccion }, c, i?.nombre)
-              .then((r) => { if (r === 'añadida') toast('Añadida a tu calendario'); else if (r === 'ya-estaba') toast('Ya está en tu calendario'); })}>
+              .then((r) => { if (r === 'añadida') toast('Añadida a tu calendario'); })}>
               + Calendario
             </Button>
             <Button variant="ghost" full onClick={() => router.push(href('/mis-reservas'))}>

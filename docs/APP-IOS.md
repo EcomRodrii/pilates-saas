@@ -42,8 +42,7 @@ la app) y cada función hace lo de siempre:
 | `alAbrirEnlace(handler)` | Universal Link / esquema propio → ruta interna | no hace nada |
 | `loginConApple()` | hoja nativa → `{ idToken, nonce }` | `{ error: 'solo-en-la-app' }` |
 | `loginConGoogleNativo(url)` | OAuth en Safari por encima → ruta de vuelta | `{ error: 'solo-en-la-app' }` |
-| `pedirAccesoCalendario()` / `crearEventoCalendario(e)` / `modificarEventoCalendario(id, e)` / `existeEventoCalendario(id, e)` / `borrarEventoCalendario(id)` | EventKit (`@ebarooni/capacitor-calendar`), acceso COMPLETO | `false` / `null` |
-| `crearEventoConHoja(e)` | la hoja de iOS para añadir un evento, sin permiso | `null` |
+| `crearEventoConHoja(e)` | la hoja de iOS para añadir un evento (`@ebarooni/capacitor-calendar`), sin pedir acceso | `null` |
 | `brilloAlMaximo()` | brillo a 1 y devuelve con qué restaurarlo (`@capacitor-community/screen-brightness`) | no hace nada |
 
 Lo puro, con tests: `enlaces.ts` (qué enlace es de Tentare y a qué ruta va),
@@ -254,17 +253,20 @@ Tentare. Decidirlo antes de prometerlo.
 - **Deslizar desde el borde para volver**: `allowsBackForwardNavigationGestures`
   en `TentareBridgeViewController.swift`. La web no anima esa vuelta (ya la anima
   WebKit); el botón «Volver» sí (`lib/student/transiciones.ts`).
-- **Calendario**. Perfil → «Mis reservas en mi calendario» pide acceso COMPLETO
-  (no «solo añadir»: con eso iOS no deja volver a encontrar el evento para
-  cambiarlo cuando el estudio mueve la clase, ni para quitarlo al cancelar). «+
-  Calendario» con el interruptor apagado NO pide ningún permiso: abre la hoja de
-  iOS con el evento relleno y ella pulsa «Añadir». Textos del permiso en
-  `Info.plist` (`NSCalendarsFullAccessUsageDescription`, `NSCalendarsUsageDescription`
-  para iOS < 17 y `NSCalendarsWriteOnlyAccessUsageDescription`). La memoria de qué
-  evento es de qué clase vive en el dispositivo, POR PERSONA y estudio, con la
-  huella de la hora para ponerlo al día, y se borra (con sus eventos) al cerrar
-  sesión o borrar la cuenta (`lib/student/calendario-auto.ts`). Todo pasa por una
-  sola cola (`lib/student/calendario-dispositivo.ts`).
+- **«+ Calendario» de un toque**: en iOS 17 o más, la hoja de iOS para añadir
+  un evento, ya rellena (`createEventWithPrompt`), que no pide acceso al
+  calendario ni guarda nada; en iOS 15 y 16 (ahí esa hoja va dentro de la app y
+  sin acceso no tiene dónde guardar) o si la hoja falla, el .ics por la hoja de
+  compartir, como antes (`lib/student/calendario-dispositivo.ts`). ⚠️ Probar en
+  un iPhone con iOS 17+ y en uno con iOS 15/16.
+  Los tres textos `NSCalendars*UsageDescription` siguen en `Info.plist` aunque la
+  app no pida acceso: el binario del plugin hace referencia a las APIs de
+  permiso de EventKit, y App Store Connect rechaza la subida (ITMS-90683) si
+  falta el texto de una API referenciada. Si se quita el plugin, se quitan.
+  La sincronización automática («Mis reservas en mi calendario») se RETIRÓ de
+  esta tanda: con datos reales podía borrar o duplicar eventos de la alumna
+  (consultas que fallan a medias, clases canceladas, cerrar sesión, eventos
+  añadidos a mano) y necesita su propio diseño y una prueba en un iPhone.
 - **Brillo al máximo** al enseñar el QR de acceso (Perfil → QR y el detalle de una
   reserva activa); vuelve el de antes al salir de la pantalla y también al salir
   de la app con el QR abierto (`visibilitychange`), y se vuelve a subir al volver.

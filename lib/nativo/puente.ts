@@ -441,10 +441,11 @@ export async function loginConGoogleNativo(
 
 // ─── Calendario del iPhone ────────────────────────────────────────────────
 //
-// Con `@ebarooni/capacitor-calendar` (EventKit). Pide acceso COMPLETO y no solo
-// de escritura: con «solo añadir» iOS no deja volver a encontrar el evento, y
-// entonces no se podría quitar al cancelar la reserva, que es la mitad de la
-// promesa del interruptor de Perfil. Los textos del permiso, en Info.plist.
+// «+ Calendario» con la hoja de iOS para añadir un evento
+// (`@ebarooni/capacitor-calendar`, `createEventWithPrompt`): el evento llega
+// relleno y ella pulsa «Añadir». La app no pide acceso al calendario ni guarda
+// nada de lo añadido. (La sincronización automática de todas sus reservas se
+// retiró de esta tanda: necesita su propio diseño y prueba en un iPhone.)
 
 export interface EventoCalendario {
   titulo: string;
@@ -455,72 +456,14 @@ export interface EventoCalendario {
   notas?: string;
 }
 
-/** ¿Hay acceso al calendario? Lo pide si aún no se ha preguntado. */
-export async function pedirAccesoCalendario(): Promise<boolean> {
-  if (!esAppNativa()) return false;
-  try {
-    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
-    const { result } = await CapacitorCalendar.requestFullCalendarAccess();
-    return result === 'granted';
-  } catch {
-    return false;
-  }
-}
-
-/** Crea el evento y devuelve su id del calendario, o `null` si no se pudo. */
-export async function crearEventoCalendario(e: EventoCalendario): Promise<string | null> {
-  if (!esAppNativa()) return null;
-  try {
-    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
-    const r = await CapacitorCalendar.createEvent({
-      title: e.titulo, startDate: e.inicioMs, endDate: e.finMs,
-      location: e.lugar, description: e.notas,
-      // Un aviso una hora antes, como el recordatorio del estudio.
-      alerts: [-60],
-    });
-    return r.id ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /**
- * Cambia la hora, el título o el lugar de un evento que creó la app (el estudio
- * movió la clase). `false` si no se pudo: sin acceso, o ella lo borró a mano.
- */
-export async function modificarEventoCalendario(id: string, e: EventoCalendario): Promise<boolean> {
-  if (!esAppNativa()) return false;
-  try {
-    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
-    await CapacitorCalendar.modifyEvent({
-      id, title: e.titulo, startDate: e.inicioMs, endDate: e.finMs, location: e.lugar, description: e.notas,
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * ¿Sigue en el calendario el evento que creó la app? Se busca en su franja (no
- * hay lectura por id). `null` si no se puede saber (sin acceso de lectura).
- */
-export async function existeEventoCalendario(id: string, e: Pick<EventoCalendario, 'inicioMs' | 'finMs'>): Promise<boolean | null> {
-  if (!esAppNativa()) return null;
-  try {
-    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
-    const { result } = await CapacitorCalendar.listEventsInRange({ from: e.inicioMs - 60_000, to: e.finMs + 60_000 });
-    return result.some((x) => x.id === id);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * «+ Calendario» sin la sincronización encendida: la hoja nativa de iOS con el
- * evento ya relleno, y ella pulsa «Añadir». No pide NINGÚN permiso de
- * calendario (la hoja es del sistema): pedir acceso completo para añadir una
- * clase suelta sería pedir de más. `true` si lo añadió.
+ * Abre la hoja de iOS con el evento relleno. `true` si lo añadió, `false` si la
+ * cerró sin añadir, `null` si la hoja no se pudo abrir (sin plugin, o falló):
+ * quien llama cae entonces al .ics de siempre.
+ *
+ * ⚠️ Solo desde iOS 17 esa hoja va fuera del proceso y no necesita acceso al
+ * calendario; en iOS 15 y 16 se presenta dentro de la app y, sin acceso, no
+ * tiene calendario donde guardar. Por eso `alCalendario` no la usa ahí.
  */
 export async function crearEventoConHoja(e: EventoCalendario): Promise<boolean | null> {
   if (!esAppNativa()) return null;
@@ -532,18 +475,6 @@ export async function crearEventoConHoja(e: EventoCalendario): Promise<boolean |
     return Boolean(r.id);
   } catch {
     return null;
-  }
-}
-
-/** Quita un evento que creó la app. `false` si no se pudo (sin acceso, o ya no existe). */
-export async function borrarEventoCalendario(id: string): Promise<boolean> {
-  if (!esAppNativa()) return false;
-  try {
-    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
-    await CapacitorCalendar.deleteEvent({ id });
-    return true;
-  } catch {
-    return false;
   }
 }
 
