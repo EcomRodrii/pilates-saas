@@ -186,6 +186,9 @@ export function motivoRechazoDatafono(
     case 'incorrect_pin':
     case 'invalid_pin': return 'El PIN no es correcto. No se ha cobrado nada: vuelve a cobrar.';
     case 'pin_try_exceeded': return 'Se han agotado los intentos de PIN de esta tarjeta. No se ha cobrado nada: prueba con otra.';
+    // El reintento con PIN tras el pago sin contacto, abandonado: vale la misma tarjeta.
+    case 'offline_pin_required':
+    case 'online_or_offline_pin_required': return 'La tarjeta pide el PIN. No se ha cobrado nada: vuelve a cobrar, insértala y marca el PIN.';
     default: return 'El banco ha rechazado la tarjeta. No se ha cobrado nada: prueba con otra.';
   }
 }

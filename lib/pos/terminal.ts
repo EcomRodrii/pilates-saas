@@ -5,7 +5,7 @@ import type { MetodoPago } from '@/lib/types';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { bizumActivo } from '@/lib/billing/bizum-activo';
-import { consultaDatafono, consultarCobroBizum, type ConsultaCobro } from './consulta-stripe.ts';
+import { cerrarSiRechazadoDatafono, consultaDatafono, consultarCobroBizum, type ConsultaCobro } from './consulta-stripe.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
 import { mensajeErrorLector } from './datafono.ts';
 
@@ -197,8 +197,12 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
 
     async consultar(ctx, referencia) {
       try {
-        const pi = await ctx.stripe.paymentIntents.retrieve(referencia, {}, { stripeAccount: ctx.stripeAccount });
-        // Una tarjeta rechazada es un final (ver `consultaDatafono`).
+        // Una tarjeta rechazada solo es un final cuando el lector ya no sigue con
+        // ella, y se cierra en Stripe antes de decirlo (ver `cerrarSiRechazadoDatafono`).
+        const { veredicto, pi, rechazo } = await cerrarSiRechazadoDatafono(ctx.stripe, referencia, ctx.stripeAccount, readerId);
+        if (veredicto === 'rechazado') return consultaDatafono(pi, rechazo);
+        // El lector sigue (p. ej. pidiendo el PIN tras el pago sin contacto): se espera.
+        if (veredicto === 'sigue') return { ...consultaDatafono(pi), estado: 'PROCESANDO', error: undefined };
         return consultaDatafono(pi);
       } catch (err) {
         console.error('[pos/terminal:datafono:consultar]', err instanceof Stripe.errors.StripeError ? err.message : err);

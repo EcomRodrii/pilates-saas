@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { consultaDatafono, consultarCobroBizum, estadoDesdeStripe } from './consulta-stripe.ts';
+import type Stripe from 'stripe';
+import { cerrarSiRechazadoDatafono, consultaDatafono, consultarCobroBizum, estadoDesdeStripe, lectorConElCobro } from './consulta-stripe.ts';
 
 // Bizum del mostrador: cuando Stripe crea la sesión de Checkout sin PaymentIntent,
 // la referencia guardada es la sesión (`cs_…`). Consultarla como PaymentIntent
@@ -145,29 +146,87 @@ test('⚠️ al cerrar un cobro de Bizum se guarda el PaymentIntent que cobró, 
 
 // Datáfono de Stripe. Medido en modo de prueba (5-oct-2026): con una tarjeta
 // rechazada el PaymentIntent vuelve a `requires_payment_method` con
-// `last_payment_error`, y el lector deja de pedir tarjeta (acción `failed`).
-const piDatafono = (o: Record<string, unknown>) => ({
-  status: 'requires_payment_method', last_payment_error: null, amount_received: 0,
+// `last_payment_error`, y el lector sigue un instante con él antes de quedar
+// `failed`. Con un datáfono físico, el reintento con PIN tras el pago sin contacto
+// deja ese mismo error mientras el lector pide el PIN.
+const piDatafono = (o: Record<string, unknown> = {}) => ({
+  id: 'pi_1', status: 'requires_payment_method', last_payment_error: null, amount_received: 0,
   metadata: { ventaId: 'v-1', studioId: 'st-1', origen: 'pos_terminal' }, ...o,
-}) as unknown as Parameters<typeof consultaDatafono>[0];
+}) as unknown as Stripe.PaymentIntent;
+const RECHAZO = { code: 'card_declined', decline_code: 'insufficient_funds', message: 'Your card has insufficient funds.' };
+const accion = (status: string, pi = 'pi_1') => ({ action: { type: 'process_payment_intent', status, process_payment_intent: { payment_intent: pi } } });
 
-test('⚠️ datáfono: tarjeta rechazada = RECHAZADO (final) con el motivo en español, no «acerca la tarjeta»', () => {
-  const c = consultaDatafono(piDatafono({
-    last_payment_error: { code: 'card_declined', decline_code: 'insufficient_funds', message: 'Your card has insufficient funds.' },
-  }));
-  assert.equal(c.estado, 'RECHAZADO');
-  assert.match(c.error ?? '', /no tiene saldo suficiente/);
-  assert.equal(c.metadata?.ventaId, 'v-1');
+function dobleDatafono(o: { pis: Record<string, unknown>[]; lector?: unknown; lectorFalla?: boolean; cancelarFalla?: boolean }) {
+  const llamadas: string[] = [];
+  let lecturas = 0;
+  const stripe = {
+    paymentIntents: {
+      retrieve: async () => { llamadas.push('pi.retrieve'); return piDatafono(o.pis[Math.min(lecturas++, o.pis.length - 1)]); },
+      cancel: async () => { llamadas.push('pi.cancel'); if (o.cancelarFalla) throw new Error('no'); return piDatafono({ status: 'canceled' }); },
+    },
+    terminal: { readers: { retrieve: async () => { llamadas.push('lector.retrieve'); if (o.lectorFalla) throw new Error('red'); return o.lector; } } },
+  };
+  return { stripe: stripe as unknown as Parameters<typeof cerrarSiRechazadoDatafono>[0], llamadas };
+}
+
+test('datáfono: el estado y el motivo; RECHAZADO solo cuando ya se cerró', () => {
+  assert.equal(consultaDatafono(piDatafono()).estado, 'PENDIENTE');
+  assert.equal(consultaDatafono(piDatafono({ status: 'succeeded', amount_received: 2500 })).importeCentimos, 2500);
+  // El error a secas ya no lo da por rechazado: puede que el lector siga (PIN).
+  assert.equal(consultaDatafono(piDatafono({ last_payment_error: RECHAZO })).estado, 'PENDIENTE');
+  // Cerrado: Stripe borra `last_payment_error` al cancelar; el motivo viaja aparte.
+  const r = consultaDatafono(piDatafono({ status: 'canceled', last_payment_error: null }), RECHAZO as Stripe.PaymentIntent.LastPaymentError);
+  assert.equal(r.estado, 'RECHAZADO');
+  assert.match(r.error ?? '', /no tiene saldo suficiente/);
 });
 
-test('datáfono: esperando la tarjeta (sin error) sigue PENDIENTE; cobrado, PAGADO con lo cobrado', () => {
-  const esperando = consultaDatafono(piDatafono({}));
-  assert.equal(esperando.estado, 'PENDIENTE');
-  assert.equal(esperando.error, undefined);
-  const pagado = consultaDatafono(piDatafono({ status: 'succeeded', amount_received: 2500 }));
-  assert.deepEqual([pagado.estado, pagado.importeCentimos], ['PAGADO', 2500]);
-  // Rechazado y después cancelado desde la Caja: manda el cancelado.
-  const cancelado = consultaDatafono(piDatafono({ status: 'canceled', last_payment_error: { code: 'card_declined' } }));
-  assert.equal(cancelado.estado, 'CANCELADO');
+test('lectorConElCobro: solo cuenta la acción de ESTE cobro', () => {
+  assert.equal(lectorConElCobro(accion('in_progress'), 'pi_1'), 'con-este');
+  assert.equal(lectorConElCobro(accion('failed'), 'pi_1'), 'fallo-este');
+  assert.equal(lectorConElCobro(accion('in_progress', 'pi_otro'), 'pi_1'), 'sin-este');
+  assert.equal(lectorConElCobro({ action: null }, 'pi_1'), 'sin-este');
+  assert.equal(lectorConElCobro(undefined, 'pi_1'), 'no-se-sabe');
+});
+
+test('⚠️ rechazo con el lector todavía en marcha (p. ej. pidiendo el PIN): se espera, no se cancela ni se anula', async () => {
+  const d = dobleDatafono({ pis: [{ last_payment_error: RECHAZO }], lector: accion('in_progress') });
+  const r = await cerrarSiRechazadoDatafono(d.stripe, 'pi_1', 'acct_1', 'tmr_1');
+  assert.equal(r.veredicto, 'sigue');
+  assert.ok(!d.llamadas.includes('pi.cancel'));
+});
+
+test('⚠️ sin poder leer el lector: se espera (no se sabe si sigue con el cobro)', async () => {
+  const d = dobleDatafono({ pis: [{ last_payment_error: RECHAZO }], lectorFalla: true });
+  assert.equal((await cerrarSiRechazadoDatafono(d.stripe, 'pi_1', 'acct_1', 'tmr_1')).veredicto, 'sigue');
+  assert.ok(!d.llamadas.includes('pi.cancel'));
+});
+
+test('⚠️ el lector ya falló: se cancela el cobro y SOLO entonces es RECHAZADO', async () => {
+  const d = dobleDatafono({ pis: [{ last_payment_error: RECHAZO }, { status: 'canceled', last_payment_error: null }], lector: accion('failed') });
+  const r = await cerrarSiRechazadoDatafono(d.stripe, 'pi_1', 'acct_1', 'tmr_1');
+  assert.equal(r.veredicto, 'rechazado');
+  assert.equal(r.rechazo?.decline_code, 'insufficient_funds', 'el motivo es el de antes de cancelar');
+  assert.deepEqual(d.llamadas, ['pi.retrieve', 'lector.retrieve', 'pi.cancel', 'pi.retrieve']);
+});
+
+test('el lector ya está con otra venta (o no hay lector guardado): se cierra este cobro igual', async () => {
+  const otra = dobleDatafono({ pis: [{ last_payment_error: RECHAZO }, { status: 'canceled' }], lector: accion('in_progress', 'pi_otro') });
+  assert.equal((await cerrarSiRechazadoDatafono(otra.stripe, 'pi_1', 'acct_1', 'tmr_1')).veredicto, 'rechazado');
+  const sin = dobleDatafono({ pis: [{ last_payment_error: RECHAZO }, { status: 'canceled' }] });
+  assert.equal((await cerrarSiRechazadoDatafono(sin.stripe, 'pi_1', 'acct_1', null)).veredicto, 'rechazado');
+  assert.ok(!sin.llamadas.includes('lector.retrieve'));
+});
+
+test('⚠️ al ir a cerrarlo había entrado: PAGADO; y si no se pudo cerrar, se sigue preguntando', async () => {
+  const entro = dobleDatafono({ pis: [{ last_payment_error: RECHAZO }, { status: 'succeeded', amount_received: 2500 }], lector: accion('failed'), cancelarFalla: true });
+  assert.equal((await cerrarSiRechazadoDatafono(entro.stripe, 'pi_1', 'acct_1', 'tmr_1')).veredicto, 'pagado');
+  const atascado = dobleDatafono({ pis: [{ last_payment_error: RECHAZO }, { last_payment_error: RECHAZO }], lector: accion('failed'), cancelarFalla: true });
+  assert.equal((await cerrarSiRechazadoDatafono(atascado.stripe, 'pi_1', 'acct_1', 'tmr_1')).veredicto, 'sigue');
+});
+
+test('sin rechazo no se toca nada', async () => {
+  const d = dobleDatafono({ pis: [{}] });
+  assert.equal((await cerrarSiRechazadoDatafono(d.stripe, 'pi_1', 'acct_1', 'tmr_1')).veredicto, 'no');
+  assert.deepEqual(d.llamadas, ['pi.retrieve']);
 });
 

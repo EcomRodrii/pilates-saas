@@ -921,6 +921,8 @@ export function PosTerminal() {
           onCobrar={enviarVenta}
           onHecho={() => { setMostrarCobro(false); vaciar(); refrescar(); }}
           onCerrar={() => { setMostrarCobro(false); refrescar(); }}
+          // Venta anulada (p. ej. tarjeta rechazada): intento nuevo, mismo ticket.
+          onVentaAnulada={() => setNonceVenta(nuevoNonce())}
         />
       )}
 

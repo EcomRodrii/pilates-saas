@@ -102,6 +102,8 @@ test('el rechazo de una tarjeta se dice en español, nunca con el texto de Strip
   assert.match(motivoRechazoDatafono({ code: 'card_declined', decline_code: 'insufficient_funds' }), /no tiene saldo suficiente/);
   assert.match(motivoRechazoDatafono({ code: 'expired_card' }), /caducada/);
   assert.match(motivoRechazoDatafono({ code: 'incorrect_pin' }), /PIN no es correcto/);
+  // Reintento con PIN abandonado: vale la misma tarjeta, no «prueba con otra».
+  assert.match(motivoRechazoDatafono({ code: 'card_declined', decline_code: 'offline_pin_required' }), /insértala y marca el PIN/);
   assert.match(motivoRechazoDatafono(null), /rechazado la tarjeta/);
   // Ninguno trae el inglés de Stripe.
   for (const c of ['card_declined', 'insufficient_funds', 'expired_card', 'lost_card', 'xyz']) {
