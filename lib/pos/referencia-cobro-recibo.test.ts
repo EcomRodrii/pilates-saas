@@ -22,8 +22,9 @@ test('fila tocada sin error → se sigue', () => {
   assert.equal(trasGuardarReferencia({ error: false, tocadas: 1 }), 'SEGUIR');
 });
 
-test('recibo cambiado, tras cancelar: solo CANCELADO o EXPIRADO dicen que se ha cancelado (409)', () => {
-  for (const estado of ['CANCELADO', 'EXPIRADO'] as EstadoPagoPOS[]) {
+test('recibo cambiado, tras cancelar: solo un final sin cobrar dice que se ha cancelado (409)', () => {
+  // RECHAZADO incluido: el datáfono solo lo da con el cobro ya cancelado en Stripe.
+  for (const estado of ['CANCELADO', 'EXPIRADO', 'RECHAZADO'] as EstadoPagoPOS[]) {
     const r = respuestaTrasCancelar(estado, 'CAMBIO');
     assert.equal(r.confirmado, true, estado);
     assert.equal(r.http, 409);
@@ -32,7 +33,7 @@ test('recibo cambiado, tras cancelar: solo CANCELADO o EXPIRADO dicen que se ha 
 });
 
 test('⚠️ error al guardar, cancelado de verdad → 503 y a reintentar', () => {
-  for (const estado of ['CANCELADO', 'EXPIRADO'] as EstadoPagoPOS[]) {
+  for (const estado of ['CANCELADO', 'EXPIRADO', 'RECHAZADO'] as EstadoPagoPOS[]) {
     assert.deepEqual(respuestaTrasCancelar(estado, 'ERROR_AL_GUARDAR'),
       { confirmado: true, http: 503, mensaje: 'No se ha podido iniciar el cobro: vuelve a intentarlo.' });
   }
@@ -50,7 +51,7 @@ test('⚠️ tras cancelar: con el pago dentro no se dice que se canceló, y se 
 
 test('⚠️ tras cancelar: sin confirmación del proveedor no se promete nada', () => {
   for (const motivo of ['CAMBIO', 'ERROR_AL_GUARDAR'] as const) {
-    for (const estado of ['PENDIENTE', 'PROCESANDO', 'RECHAZADO', 'ERROR'] as EstadoPagoPOS[]) {
+    for (const estado of ['PENDIENTE', 'PROCESANDO', 'ERROR'] as EstadoPagoPOS[]) {
       const r = respuestaTrasCancelar(estado, motivo);
       assert.equal(r.confirmado, false, `${motivo} ${estado}`);
       assert.doesNotMatch(r.mensaje, /Hemos cancelado|vuelve a intentarlo/, `${motivo} ${estado}`);

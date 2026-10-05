@@ -1356,13 +1356,17 @@ async function procesarEvento(
           });
           return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
         }
-        const { data: fila, error: errLector } = await admin.from('studios')
-          .select('stripe_terminal_reader_id').eq('id', studioDeCuenta as string).maybeSingle();
-        const readerId = (fila as { stripe_terminal_reader_id: string | null } | null)?.stripe_terminal_reader_id ?? null;
-        // Sin saber qué lector es (o sin ninguno guardado: cambió de lector o pasó a
-        // SumUp) no se puede saber si sigue con el cobro: no se toca, y lo resuelve
-        // el conciliador pasados unos minutos.
-        if (errLector || !readerId) return NextResponse.json({ received: true });
+        // El lector al que se mandó: va en el cobro desde el 5-oct-2026; si no, el
+        // guardado. Sin saber qué lector es (o sin ninguno guardado: cambió de lector o
+        // pasó a SumUp) no se puede saber si sigue con el cobro: no se toca, y lo
+        // resuelve el conciliador pasados unos minutos.
+        let readerId: string | null = pi.metadata?.lector || null;
+        if (!readerId) {
+          const { data: fila, error: errLector } = await admin.from('studios')
+            .select('stripe_terminal_reader_id').eq('id', studioDeCuenta as string).maybeSingle();
+          readerId = errLector ? null : (fila as { stripe_terminal_reader_id: string | null } | null)?.stripe_terminal_reader_id ?? null;
+        }
+        if (!readerId) return NextResponse.json({ received: true });
         const cierre = await cerrarSiRechazadoDatafono(stripe, pi.id, event.account, readerId).catch((e) => {
           console.error('[stripe webhook] no se pudo cerrar el rechazo del datáfono', pi.id, e instanceof Error ? e.message : e);
           return null;
