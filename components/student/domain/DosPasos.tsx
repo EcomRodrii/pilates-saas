@@ -31,7 +31,7 @@ import { fechaCortaEstudio } from '@/lib/utils';
 type Estado =
   | { tipo: 'cargando' }
   | { tipo: 'error' }
-  | { tipo: 'listo'; activa: boolean; factorId: string | null; nivel: 'aal1' | 'aal2' };
+  | { tipo: 'listo'; activa: boolean; factorId: string | null; nivel: 'aal1' | 'aal2'; tentare: boolean };
 
 interface Activando { factorId: string; qr: string; secreto: string }
 interface Dispositivo { id: string; nombre: string; ip: string | null; ultimoUsoEn: string; esEste: boolean }
@@ -62,9 +62,18 @@ export function DosPasos({ volverA }: { volverA: string }) {
     ]);
     if (factores.error || aal.error) { setEstado({ tipo: 'error' }); return; }
     const verificado = factores.data.totp.find((f) => f.status === 'verified') ?? null;
+    // Una cuenta del equipo de Tentare no puede quitarla: `/interno` la volvería
+    // a crear (lib/auth/obligatoria-tentare.ts). Solo se pregunta si está activa.
+    let tentare = false;
+    const t = verificado ? await token() : null;
+    if (t) {
+      tentare = await fetch('/api/auth/doble-factor/cuenta', { headers: { Authorization: `Bearer ${t}` }, cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null)).then((r: { obligatoriaTentare?: boolean } | null) => r?.obligatoriaTentare === true)
+        .catch(() => false);
+    }
     setEstado({
       tipo: 'listo', activa: !!verificado, factorId: verificado?.id ?? null,
-      nivel: aal.data.currentLevel === 'aal2' ? 'aal2' : 'aal1',
+      nivel: aal.data.currentLevel === 'aal2' ? 'aal2' : 'aal1', tentare,
     });
   }, []);
 
@@ -145,7 +154,11 @@ export function DosPasos({ volverA }: { volverA: string }) {
 
       {estado.activa ? (
         <>
-          {estado.nivel !== 'aal2' ? (
+          {estado.tentare ? (
+            <p className="t-meta" style={{ lineHeight: 1.5 }}>
+              Tu cuenta es del equipo de Tentare y su zona interna la exige, así que no se puede quitar.
+            </p>
+          ) : estado.nivel !== 'aal2' ? (
             <p className="t-meta">
               Para desactivarla, escribe antes el código de tu app.{' '}
               <Link href={`${href('/acceso/dos-pasos')}?codigo=1&next=${volverAqui}`} style={{ fontWeight: 800, color: 'var(--accent)' }}>

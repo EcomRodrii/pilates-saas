@@ -3,7 +3,9 @@
 // «Verificación en dos pasos» en Mi perfil (2-oct-2026, contrato de encargo):
 // cualquiera del equipo del panel puede activarla para su cuenta. Activar y
 // escribir el código se hace en /verificar-acceso; aquí se ve cómo está y se
-// puede quitar (salvo que el estudio la exija a todo el equipo).
+// puede quitar (salvo que el estudio la exija a todo el equipo, o que la cuenta
+// sea del equipo de Tentare: `/interno` la volvería a crear, ver
+// lib/auth/obligatoria-tentare.ts).
 //
 // Quitarla exige la sesión verificada (`aal2`): Supabase lo rechaza si no, y
 // con la sesión sin verificar ni se llega a este panel. Una sesión que entró
@@ -22,7 +24,7 @@ import { DispositivosConfianza } from '@/components/auth/dispositivos-confianza'
 // `sinCodigo`: tiene la verificación activada y esta sesión entró sin escribir
 // el código (dispositivo recordado). Para lo que Supabase protege con el código
 // de verdad —quitarla, cambiar email o contraseña— primero hay que escribirlo.
-type Estado = { tipo: 'cargando' } | { tipo: 'listo'; factores: { id: string }[]; exigida: boolean; sinCodigo: boolean };
+type Estado = { tipo: 'cargando' } | { tipo: 'listo'; factores: { id: string }[]; exigida: boolean; tentare: boolean; sinCodigo: boolean };
 
 export function BloqueDobleFactor() {
   const [estado, setEstado] = useState<Estado>({ tipo: 'cargando' });
@@ -36,12 +38,13 @@ export function BloqueDobleFactor() {
     const [factores, porEstudio, aal] = await Promise.all([
       supabase.auth.mfa.listFactors(),
       fetch('/api/auth/doble-factor', { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' })
-        .then(r => (r.ok ? r.json() : null)).catch(() => null) as Promise<{ estudioLoExige?: boolean } | null>,
+        .then(r => (r.ok ? r.json() : null)).catch(() => null) as Promise<{ estudioLoExige?: boolean; obligatoriaTentare?: boolean } | null>,
       supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
     ]);
     const totp = factores.data?.totp ?? [];
     setEstado({
       tipo: 'listo', factores: totp, exigida: porEstudio?.estudioLoExige === true,
+      tentare: porEstudio?.obligatoriaTentare === true,
       sinCodigo: totp.length > 0 && aal.data?.currentLevel === 'aal1',
     });
   }, []);
@@ -71,6 +74,7 @@ export function BloqueDobleFactor() {
 
   const activa = estado.tipo === 'listo' && estado.factores.length > 0;
   const exigida = estado.tipo === 'listo' && estado.exigida;
+  const tentare = estado.tipo === 'listo' && estado.tentare;
 
   return (
     <div className={cn(cardCls, 'p-6')}>
@@ -88,11 +92,13 @@ export function BloqueDobleFactor() {
           <p className="text-[13px] font-medium text-success">Activada en tu cuenta.</p>
           {estado.tipo === 'listo' && estado.sinCodigo && (
             <p className="text-[12px] text-muted-foreground">
-              Has entrado con el código del correo o desde un dispositivo de confianza. Para quitar la verificación o cambiar tu email o contraseña, escribe antes el código de tu app.{' '}
+              Has entrado con el código del correo o desde un dispositivo de confianza. Para {tentare ? '' : 'quitar la verificación o '}cambiar tu email o contraseña, escribe antes el código de tu app.{' '}
               <Link href="/verificar-acceso?codigo=1&volver=/mi-perfil" className="font-semibold text-foreground underline">Escribir el código de la app</Link>
             </p>
           )}
-          {exigida ? (
+          {tentare ? (
+            <p className="text-[12px] text-muted-foreground">Tu cuenta es del equipo de Tentare y la zona interna la exige, así que no se puede quitar. Marca «No volver a pedirlo en este dispositivo» al escribir el código y no te lo pediremos en 30 días.</p>
+          ) : exigida ? (
             <p className="text-[12px] text-muted-foreground">Tu estudio la pide a todo el equipo, así que no se puede quitar.</p>
           ) : confirmar ? (
             <div className="flex flex-wrap items-center gap-2">
