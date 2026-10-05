@@ -30,6 +30,14 @@ export const SOCIO_ID = 'socio-e2e-1';
 export const AHORA = '2026-08-12T08:00:00';
 export const SESION_ID = 'ses-10';
 
+/**
+ * El plan de CUOTA de los andamiajes: uno solo, para que la ficha, el horario y Bonos hablen de la misma cuota
+ * (`socia-completa` lo usa también). `limiteSemanal` se pone por test cuando hace falta.
+ */
+export const PLAN_MENSUAL = {
+  id: 'plan-mes', studioId: STUDIO_ID, nombre: 'Mensual ilimitado', tipo: 'MENSUAL', sesiones: null, precio: 89, activo: true, periodicidadMeses: 1,
+};
+
 export function fixtureSociaLista() {
   return {
     studio: {

@@ -1,6 +1,7 @@
 // La frase y el enlace para «Compartir esta clase». Puro (compartir-clase.test.ts).
 
 import { addDias, fechaLarga } from './formato.ts';
+import { referidorUtilizable } from './referido.ts';
 
 /** «¿Te vienes a Reformer el martes 7 de octubre a las 18:00?» (o «hoy», «mañana»). */
 export function textoCompartirClase(c: { nombre: string; fecha: string; hora: string }, hoy: string): string {
@@ -12,11 +13,21 @@ export function textoCompartirClase(c: { nombre: string; fecha: string; hora: st
 }
 
 /**
- * El enlace que se comparte: la página PÚBLICA del estudio (`/reservar/<slug>`),
- * donde la amiga ve el horario y reserva aunque no tenga cuenta. No hay hoy un
- * enlace público a UNA clase (esa página no lee ninguna clase de la URL), así
- * que no se inventa: la frase ya dice cuál es.
+ * El enlace que se comparte: la página PÚBLICA del estudio abierta en ESA clase (`/reservar/<slug>?sesion=<id>`, que
+ * pinta su ficha —«Te han invitado a esta clase»— y deja reservarla aunque no tenga cuenta), con quién la invita
+ * (`invita=<socioId>`).
+ *
+ * Este comentario decía que no había enlace público a UNA clase: sí lo hay, `?sesion=` abre `FichaClaseUnica`.
+ *
+ * `invita` no es `ref` a propósito: `ref` es la etiqueta del widget y acabaría en Crecimiento web y en «Llegó por». El id
+ * es opaco y la comprobación de verdad la hace el servidor al dar de alta (misma ficha, mismo estudio); aquí solo se
+ * descarta lo que no tiene forma de id.
  */
-export function enlaceCompartirClase(origen: string, slug: string): string {
-  return `${origen.replace(/\/$/, '')}/reservar/${encodeURIComponent(slug)}`;
+export function enlaceCompartirClase(origen: string, slug: string, opciones: { sesionId?: string | null; invita?: string | null } = {}): string {
+  const base = `${origen.replace(/\/$/, '')}/reservar/${encodeURIComponent(slug)}`;
+  const q = new URLSearchParams();
+  if (opciones.sesionId) q.set('sesion', opciones.sesionId);
+  if (referidorUtilizable(opciones.invita, null)) q.set('invita', (opciones.invita as string).trim());
+  const consulta = q.toString();
+  return consulta ? `${base}?${consulta}` : base;
 }

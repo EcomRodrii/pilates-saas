@@ -21,6 +21,7 @@ import { useAhoraMs } from '@/lib/student/use-ahora';
 import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { urlComoLlegar } from '@/lib/student/enlaces-clase';
+import { consultaMapa } from '@/lib/student/ficha-clase-textos';
 import { alCalendario } from '@/lib/student/calendario-dispositivo';
 import { useToast } from '@/components/student/ui/Toast';
 import type { Clase } from '@/lib/student/tipos';
@@ -189,7 +190,8 @@ export default function InicioPage() {
   // la propia tarjeta al servidor (el catálogo no trae clases terminadas). Sin
   // nada que valorar, no pinta nada.
   const tarjetaValorar = <QueTalLaClase studioId={estudio.id} />;
-  const comoLlegar = () => window.open(urlComoLlegar(estudio.direccion, estudio.nombre, navigator.userAgent), '_blank', 'noopener');
+  // La MISMA búsqueda que la ficha de la clase (dirección y ciudad): una sola regla para «Cómo llegar».
+  const comoLlegar = () => window.open(urlComoLlegar(consultaMapa(estudio.direccion, estudio.ciudad), estudio.nombre, navigator.userAgent), '_blank', 'noopener');
 
   // La portada va FUERA de la guardia (`heroe` de StudentShell): sale en el
   // HTML y no espera a `/api/public/session`. El saludo arranca sin nombre (así

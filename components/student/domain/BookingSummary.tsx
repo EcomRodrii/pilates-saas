@@ -9,7 +9,7 @@ import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
  * componente de aviso que ya usan el recibo, la hoja de compra y la tienda — no
  * se repintan a mano aquí.
  */
-const CARA: Record<TonoPago, { icono: NombreIcono; clase: string }> = {
+export const CARA: Record<TonoPago, { icono: NombreIcono; clase: string }> = {
   ok: { icono: 'hecho', clase: 'note--ok' },
   coste: { icono: 'aviso', clase: 'note--warn' },
   bloqueo: { icono: 'cerrar', clase: 'note--danger' },

@@ -15,3 +15,18 @@ test('enlaceCompartirClase: la página pública del estudio, desde donde esté l
   assert.equal(enlaceCompartirClase('https://www.tentare.app', 'estudio-alma'), 'https://www.tentare.app/reservar/estudio-alma');
   assert.equal(enlaceCompartirClase('http://localhost:3000/', 'a b'), 'http://localhost:3000/reservar/a%20b');
 });
+
+test('enlaceCompartirClase: abre ESA clase y lleva quién invita', () => {
+  assert.equal(
+    enlaceCompartirClase('https://www.tentare.app', 'estudio-alma', { sesionId: 'ses-10', invita: 'socio-1' }),
+    'https://www.tentare.app/reservar/estudio-alma?sesion=ses-10&invita=socio-1',
+  );
+  // Codificado.
+  assert.equal(
+    enlaceCompartirClase('https://www.tentare.app/', 'a b', { sesionId: 'ses 1&x' }),
+    'https://www.tentare.app/reservar/a%20b?sesion=ses+1%26x',
+  );
+  // Sin socia (o con algo que no es un id), sin `invita`.
+  assert.equal(enlaceCompartirClase('https://x.es', 'alma', { sesionId: 'ses-10', invita: null }), 'https://x.es/reservar/alma?sesion=ses-10');
+  assert.equal(enlaceCompartirClase('https://x.es', 'alma', { sesionId: 'ses-10', invita: '../etc' }), 'https://x.es/reservar/alma?sesion=ses-10');
+});
