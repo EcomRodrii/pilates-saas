@@ -15,6 +15,13 @@ import { ajustesParaBuscadorGlobal, sinTareasRepetidas } from '@/lib/configuraci
 import { puedeAbrirEnConfiguracion } from '@/lib/configuracion/destino';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { irEnConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
+import { TentiDecorativo } from '@/components/tenti/tenti-decorativo';
+
+/** Hacia dónde mira Tenti mientras se escribe: al frente con la caja vacía, y
+ *  hacia la derecha (donde va el texto) cuanto más largo, con tope. */
+function miraHaciaElTexto(consulta: string): number {
+  return consulta ? Math.min(0.85, 0.3 + consulta.length * 0.03) : 0;
+}
 
 export function GlobalSearch({
   collapsed,
@@ -219,8 +226,21 @@ export function GlobalSearch({
       >
         <>
           {/* Input */}
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
-              <Search size={16} style={{ color: 'var(--muted-foreground)' }} className="shrink-0" />
+            {/* Tenti en el sitio de la lupa: aparece al abrir, parpadea y mira
+                hacia lo que se escribe. Decorativo y siempre en reposo («Sin
+                resultados» ya lo dice el texto). Caja fija de 40 px con la lupa
+                centrada donde estaba (pl-1 + 20 = los 16 + 8 de antes), y la
+                lupa de siempre mientras llega su chunk, si no llega o si no hay
+                canvas 2D. Vive solo con la hoja abierta: cerrarla lo desmonta. */}
+            <div className="flex items-center pl-1 pr-4 py-1 border-b border-border">
+              <span className="size-10 shrink-0 flex items-center justify-center">
+                <TentiDecorativo
+                  tamano={40}
+                  mira={miraHaciaElTexto(query)}
+                  className="tenti-entra"
+                  reserva={<Search size={16} aria-hidden="true" style={{ color: 'var(--muted-foreground)' }} className="shrink-0" />}
+                />
+              </span>
               <input
                 ref={inputRef}
                 type="text"

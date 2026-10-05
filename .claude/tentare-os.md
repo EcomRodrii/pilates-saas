@@ -311,10 +311,13 @@ esa lista con su motivo, no un import de paso.
 - **Un dibujo, dos maneras de pintarlo** (`lib/tenti/geometria.ts`, la usan los
   dos): en lo diario, `TentiIcono` (SVG quieto, sin rAF y sin el motor en el
   chunk), que ve quien veía el Orb en ese sitio, recepción y gerencia incluidas;
-  el canvas animado (`components/tenti/tenti.tsx`) solo en las primeras veces de
-  la propietaria (el logo y Listo) y siempre diferido. Es el estado a 5-oct, no
-  un veto: el fundador ya decidió el canvas también en el buscador ⌘K y en el
-  briefing de Automatizaciones.
+  el canvas animado (`components/tenti/tenti.tsx`), siempre diferido, en las
+  primeras veces de la propietaria (el logo y Listo, con `TentiDiferido`) y,
+  decorativo y en reposo, en el buscador ⌘K (`TentiDecorativo`: lo ven todos
+  los roles, en el sitio de la lupa, solo con la hoja abierta, y mira hacia lo
+  que se escribe). Mientras llega su chunk, si no llega o sin canvas 2D, la
+  lupa de siempre en la misma caja. El fundador ya decidió también el briefing
+  de Automatizaciones.
 - **El canvas DUERME entre parpadeos.** Pide rAF solo mientras algo se mueve
   (`animando()`: tweens, temporizadores, partículas, valores sin llegar;
   `perpetuo()`: lo que oscila sin fin) y, si no, un `setTimeout` hasta
