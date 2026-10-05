@@ -65,9 +65,11 @@ test.describe('Student PWA · cabos sueltos de la auditoría', () => {
     await montar(page, conBonosAcotados);
     await ir(page, `${base}/comprar`);
     await expect(page.getByText('Bono Reformer')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('cobertura')).toHaveText('Solo para Reformer');
-    // Y SOLO uno: el bono abierto no lleva aviso, porque sirve para todo.
-    await expect(page.getByTestId('cobertura')).toHaveCount(1);
+    // Desde P09 cada tarjeta dice para qué clases sirve: el acotado, las suyas;
+    // el abierto, «todas». Lo que se comprueba es lo mismo: que el acotado lo
+    // dice y que el abierto no se anuncia como acotado.
+    await expect(page.locator('article').filter({ hasText: 'Bono Reformer' }).getByTestId('cobertura')).toHaveText('Para Reformer');
+    await expect(page.locator('article').filter({ hasText: 'Bono abierto' }).getByTestId('cobertura')).toHaveText('Para todas las clases');
   });
 
   test('la hoja de compra repite la restricción en la pantalla del pago', async ({ page }) => {

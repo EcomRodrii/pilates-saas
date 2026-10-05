@@ -65,7 +65,14 @@ export async function POST(req: NextRequest) {
   const { data, error } = await auth.auth.verifyOtp({ email, token, type: 'email' });
   if (error || !data.session) {
     return NextResponse.json(
-      { error: 'El código no es correcto o ha caducado. Comprueba el código o solicita uno nuevo.', errorCode: 'INVALIDO' },
+      {
+        error: 'El código no es correcto o ha caducado. Comprueba el código o solicita uno nuevo.',
+        errorCode: 'INVALIDO',
+        // Los intentos que le quedan, para que la pantalla pueda decirlo. Solo
+        // con un recuento de verdad (`resetAt`): si el limitador no ha podido
+        // contar (fail-open), «te quedan 6» sería un número inventado.
+        ...(porEmail.resetAt ? { intentosRestantes: porEmail.remaining } : {}),
+      },
       { status: 400 },
     );
   }

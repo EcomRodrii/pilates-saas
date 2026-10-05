@@ -245,12 +245,12 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     // `/acceso/login`, o sea exactamente el destino de ahora, con un salto de
     // más. Se apunta directo.
     //
-    // ⚠️ Y NO a `/acceso/recuperar`, que suena más preciso para «crea tu
-    // contraseña» y es un callejón para esta persona: usa
+    // ⚠️ Y NO a `/acceso/recuperar`, que es un callejón para esta persona: usa
     // `resetPasswordForEmail`, que con un email sin cuenta no manda nada. La
-    // puerta única sí sirve — su enlace de acceso es `signInWithOtp`, que CREA
-    // la cuenta si no existe.
-    const alPortal = page.getByRole('link', { name: /crea tu contraseña/i });
+    // puerta única sí sirve — su código sale por `signInWithOtp`, que CREA la
+    // cuenta si no existe. Y el texto no promete contraseña: desde P08 esa
+    // puerta deja dentro con el código, sin crear ninguna.
+    const alPortal = page.getByRole('link', { name: /entra con tu correo/i });
     await expect(alPortal).toBeVisible();
     await expect(alPortal).toHaveAttribute('href', `/portal/${SLUG}/acceso/login`);
   });

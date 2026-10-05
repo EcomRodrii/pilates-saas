@@ -1966,8 +1966,8 @@ export default function ReservarPage() {
   // P0 "reservar sin cuenta" (auditoría Momence vs Tentare): antes este paso
   // exigía además fijar contraseña — el enlace mágico YA verifica el email,
   // así que era un paso de más que ni el competidor auditado exige. Quien
-  // quiera volver sin depender del email cada vez puede fijarla más tarde
-  // desde /acceso (ver el enlace "Crea tu contraseña" en el paso 'done').
+  // quiera volver entra con su correo y un código desde /acceso (ver el enlace
+  // «Entra con tu correo» en el paso 'done').
   async function handleRegistroNombre() {
     if (!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)) return;
     setLoginError('');
@@ -4395,8 +4395,10 @@ export default function ReservarPage() {
                     loginConPassword), el enlace va directo a /login — mandarla
                     Las dos ramas van a la misma puerta única
                     (/acceso/login): lo que cambia es el TEXTO, porque quien ya
-                    tiene contraseña la escribe ahí y quien no, pide el enlace
-                    de acceso en esa misma pantalla. */}
+                    tiene contraseña la escribe ahí y quien no, entra con su
+                    correo y un código en esa misma pantalla. ⚠️ Decía «Crea tu
+                    contraseña», y desde P08 esa puerta ya no crea ninguna: el
+                    código la deja dentro sin contraseña. */}
                 <div className="w-full pt-3 mt-1 border-t border-[var(--portal-line)]">
                   <p className="text-[var(--portal-muted)] text-xs leading-relaxed text-center">
                     Tus clases y tus bonos están en tu portal.{' '}
@@ -4415,25 +4417,28 @@ export default function ReservarPage() {
                         Fuera del embebido se queda como estaba — ahí navegar
                         es lo correcto. */}
                     {tienePasswordPropia ? (
-                      <a href={`/portal/${slug}/acceso/login`} className="font-bold underline" style={{ color: PRIMARY }}
-                        {...(embedMode ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
-                        Entra con tu contraseña
-                      </a>
+                      <>
+                        <a href={`/portal/${slug}/acceso/login`} className="font-bold underline" style={{ color: PRIMARY }}
+                          {...(embedMode ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+                          Entra con tu contraseña
+                        </a>{' '}
+                        cuando quieras.
+                      </>
                     ) : (
-                      // `/acceso/login` también aquí, aunque el texto diga «crea
-                      // tu contraseña»: es la puerta ÚNICA (email + contraseña
-                      // opcional) y su enlace de acceso usa `signInWithOtp`, que
-                      // CREA la cuenta si no existe. `/acceso/recuperar` parecía
-                      // más preciso y es justo lo contrario: `resetPasswordForEmail`
-                      // no crea nada, así que a quien reservó SIN CUENTA —que es
-                      // exactamente para quien es este enlace— no le llegaría
-                      // ningún correo. Lo cazó `booking.spec.ts:225`.
-                      <a href={`/portal/${slug}/acceso/login`} className="font-bold underline" style={{ color: PRIMARY }}
-                        {...(embedMode ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
-                        Crea tu contraseña
-                      </a>
-                    )}{' '}
-                    y entra cuando quieras.
+                      // `/acceso/login`, la puerta ÚNICA: su código sale por
+                      // `signInWithOtp`, que CREA la cuenta si no existe.
+                      // `/acceso/recuperar` es justo lo contrario:
+                      // `resetPasswordForEmail` no crea nada, así que a quien
+                      // reservó SIN CUENTA —para quien es este enlace— no le
+                      // llegaría ningún correo. Lo cazó `booking.spec.ts:225`.
+                      <>
+                        <a href={`/portal/${slug}/acceso/login`} className="font-bold underline" style={{ color: PRIMARY }}
+                          {...(embedMode ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+                          Entra con tu correo
+                        </a>{' '}
+                        cuando quieras: te mandamos un código, sin contraseña.
+                      </>
+                    )}
                   </p>
                 </div>
                 <button onClick={closeBooking} className={`${BOTON_TERCIARIO} mt-1`}>
@@ -4545,9 +4550,9 @@ export default function ReservarPage() {
                         {codigoCorreo.reenviado && codigoCorreo.espera > 0
                           ? <>Te hemos escrito otra vez. Podrás pedir otro en {codigoCorreo.espera} s.</>
                           : (
-                            <button type="button" onClick={() => void codigoCorreo.pedirOtro()} disabled={codigoCorreo.espera > 0}
-                              className="font-semibold text-[var(--portal-ink)] underline">
-                              No me ha llegado: volver a enviar
+                            <button type="button" onClick={() => void codigoCorreo.pedirOtro()} disabled={codigoCorreo.espera > 0 || codigoCorreo.reenviando}
+                              aria-busy={codigoCorreo.reenviando} className="font-semibold text-[var(--portal-ink)] underline">
+                              {codigoCorreo.reenviando ? 'Enviando…' : 'No me ha llegado: volver a enviar'}
                             </button>
                           )}
                       </p>
