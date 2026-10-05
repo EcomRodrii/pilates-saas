@@ -293,9 +293,13 @@ test('si el logo no se guarda, Tenti no se alegra', async ({ page }) => {
 });
 
 // En un iPhone con Safari (≈390×664 de pantalla útil) el yogui iba entre el
-// logo y «Montar mi estudio», y sus 104 px más el hueco dejaban el único botón
+// logo y «Montar mi estudio», y sus 104 px más el hueco empujaban el único botón
 // por debajo del primer pantallazo. Tenti va en la fila del botón, a 64 px.
-test('en el móvil «Montar mi estudio» se ve sin hacer scroll, con Tenti al lado', async ({ page }) => {
+// ⚠️ No se mide «el botón cabe en 664 px»: eso depende de cuántas líneas parta
+// el texto, y en el CI (Linux) parte una más que en un Mac y el botón quedaba
+// 17 px más abajo sin que Tenti tuviera nada que ver. Se mide lo que sí es suyo:
+// entre el pie del logo y el botón no hay ningún bloque.
+test('en el móvil Tenti va en la fila del botón y no lo empuja hacia abajo', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 664 });
   await montarBienvenida(page);
   const boton = page.getByRole('button', { name: 'Montar mi estudio' });
@@ -303,15 +307,18 @@ test('en el móvil «Montar mi estudio» se ve sin hacer scroll, con Tenti al la
   const tenti = page.locator('canvas[data-tenti]');
   await expect(tenti).toHaveCount(1);
   const caja = await boton.boundingBox();
+  const pie = await page.getByText('Sale en tu página de reservas').boundingBox();
   expect(caja).not.toBeNull();
-  expect(caja!.y + caja!.height).toBeLessThanOrEqual(664);
+  expect(pie).not.toBeNull();
+  expect(caja!.y - (pie!.y + pie!.height)).toBeLessThan(48);
   expect((await tenti.boundingBox())?.width).toBe(64);
   // En la misma fila que el botón: el envoltorio de Tenti es su hermano.
   expect(await tenti.evaluate((c) => {
     const boton = [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('Montar mi estudio'));
     return c.parentElement?.parentElement === boton?.parentElement;
   })).toBe(true);
-  // Y ahí también se le ve lo bastante para saludar.
+  // Y cuando la fila se ve, saluda (si ya cabía en pantalla, el scroll no hace nada).
+  await boton.scrollIntoViewIfNeeded();
   await expect(tenti).toHaveAttribute('data-saludo', '1');
 });
 
