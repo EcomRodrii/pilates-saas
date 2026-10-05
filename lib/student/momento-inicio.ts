@@ -1,4 +1,4 @@
-import type { Clase, Reserva } from './tipos.ts';
+import type { Clase, HuellaSocia, Reserva } from './tipos.ts';
 import { addDias, horaFin } from './formato.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,4 +84,59 @@ export function haceCuanto(finIso: string, ahoraMs: number): string {
   const m = Math.max(1, Math.round((ahoraMs - new Date(finIso).getTime()) / MIN));
   if (m < 60) return `Hace ${m} min`;
   return `Hace ${Math.round(m / 60)} h`;
+}
+
+// ── La recién llegada (P03, 5-oct-2026) ──────────────────────────────────────
+
+/** Cuántos días de alta como mucho para darle la bienvenida: a las importadas con su fecha real no les llega. */
+export const DIAS_RECIEN_LLEGADA = 60;
+
+/**
+ * ¿Es una recién llegada? Solo si no ha pasado NADA con ella —ni una reserva, ni un bono o cuota, ni una clase fija, ni
+ * una recuperación, ni una cita— y su alta tiene 60 días o menos (o no consta).
+ *
+ * `null` (no se sabe: sin ficha, o el payload llegó incompleto porque falló una lectura) es «no»: con la duda no se le
+ * dice «Bienvenida» a quien lleva años. La vista previa del panel se decide aparte, en la página.
+ */
+export function esRecienLlegada(huella: HuellaSocia | null, hoy: string): boolean {
+  if (!huella) return false;
+  if (huella.reservasNoCanceladas + huella.suscripciones + huella.plazasFijas + huella.recuperaciones + huella.citas > 0) return false;
+  if (!huella.fechaAlta) return true;
+  return huella.fechaAlta.slice(0, 10) >= addDias(hoy, -DIAS_RECIEN_LLEGADA);
+}
+
+/**
+ * Cuántas clases con plaza hay en los próximos 7 días (hoy incluido): ni empezadas, ni ya suyas, ni llenas, ni sin abrir
+ * todavía, ni cerradas por la antelación mínima. Es orientativo, como «Huecos de hoy»: el aforo real lo decide el
+ * servidor. Sin reloj (`ahoraMs` null) no se descarta nada por la hora.
+ *
+ * `soloConBono`: TODAS las contadas necesitan un bono o cuota (`sinPrecioSuelto`) — es lo único que la app sabe de lo
+ * que no se puede reservar sin comprar.
+ */
+export function clasesConPlazaProximas(
+  clases: Pick<Clase, 'id' | 'fecha' | 'inicio' | 'fin' | 'plazasLibres' | 'seAbreEl' | 'cierraEl' | 'sinPrecioSuelto'>[],
+  reservas: Pick<Reserva, 'claseId' | 'estado'>[],
+  hoy: string,
+  ahoraMs: number | null,
+): { total: number; soloConBono: boolean } {
+  const hasta = addDias(hoy, 6);
+  const suyas = new Set(reservas.filter((r) => r.estado === 'confirmada' || r.estado === 'en-espera').map((r) => r.claseId));
+  const validas = clases.filter((c) => {
+    if (c.fecha < hoy || c.fecha > hasta) return false;
+    if (suyas.has(c.id) || c.plazasLibres <= 0) return false;
+    if (ahoraMs === null) return true;
+    if (Date.parse(c.inicio) <= ahoraMs) return false;
+    if (c.seAbreEl && ahoraMs < Date.parse(c.seAbreEl)) return false;
+    if (c.cierraEl && ahoraMs >= Date.parse(c.cierraEl)) return false;
+    return true;
+  });
+  return { total: validas.length, soloConBono: validas.length > 0 && validas.every((c) => c.sinPrecioSuelto === true) };
+}
+
+/**
+ * ¿Tiene «Tu ritmo» algo que contar? Una clase a la que ya vino, o un bono o cuota activos. Sin nada de eso la tarjeta
+ * eran ceros («0 clases», «Sin bono activo»): P03 la esconde hasta la primera clase asistida.
+ */
+export function tuRitmoTieneAlgoQueContar(reservas: Pick<Reserva, 'estado'>[], bonoActivo: unknown): boolean {
+  return Boolean(bonoActivo) || reservas.some((r) => r.estado === 'asistida');
 }

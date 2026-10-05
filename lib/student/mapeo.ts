@@ -21,7 +21,8 @@ import {
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
 // traduce el nivel de una CLASE (PRINCIPIANTE → Iniciación). Nada que ver.
 import { canjesDe, creditosPorAsistir, formasDeGanar, hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type ReglaDef, type RetoDef } from './gamificacion.ts';
-import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva, TipoPlanBono } from './tipos.ts';
+import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, HuellaSocia, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva, TipoPlanBono } from './tipos.ts';
+import { generoDe } from '../genero.ts';
 import type { PlazaCalendario, ReservaCalendario, SesionCalendario } from '../plazas-fijas-calendario.ts';
 import type { RenovacionPorPagar } from '../billing/renovacion-sin-tarjeta.ts';
 
@@ -326,6 +327,10 @@ export interface PayloadMin {
       id?: string; nombre?: string | null; apellidos?: string | null;
       email?: string | null; telefono?: string | null; direccion?: string | null;
       fotoUrl?: string | null; objetivoClasesMes?: number | null;
+      /** `socios.genero` (`mapSocio` → `generoDe`): «Alumno de X». */
+      genero?: string | null;
+      /** `socios.fecha_alta`: cuánto lleva (la bienvenida de la recién llegada). */
+      fechaAlta?: string | null;
     } | null;
     suscripciones?: SuscripcionMin[];
     reservas?: { id: string; sesionId: string; socioId: string; estado: string; creadoEn: string; posicionEspera: number | null; ofertaExpiraEn?: string | null }[];
@@ -358,6 +363,10 @@ export interface PayloadMin {
     achievementProgress?: ProgresoMin[];
     challengeProgress?: ProgresoMin[];
     retosApuntados?: string[];
+    /** Sus citas (sesiones privadas): cuentan en la huella (una alumna con citas no es «recién llegada»). */
+    citas?: { estado: string }[];
+    /** Falló alguna lectura de las que dicen «no tiene nada» (`fetchPublicStudioData`): no se afirma nada de ella. */
+    incompleta?: boolean;
   } | null;
 }
 
@@ -811,5 +820,23 @@ export function proyectarAlumna(d: PayloadMin): Alumna | null {
     telefono: s.telefono ?? undefined,
     fotoUrl: s.fotoUrl ?? null,
     objetivoClasesMes: s.objetivoClasesMes ?? null,
+    genero: generoDe(s.genero),
+  };
+}
+
+/**
+ * Lo que dice si ya ha pasado algo con ella en el estudio (P03). `null` si no se sabe: sin ficha, o el servidor avisó de
+ * que una lectura falló (`incompleta`) — con la duda, ni «Bienvenida» ni «Aún no has venido a ninguna clase».
+ */
+export function huellaDeLaSocia(d: PayloadMin): HuellaSocia | null {
+  const socia = d.socia;
+  if (!socia?.socio?.id || socia.incompleta) return null;
+  return {
+    reservasNoCanceladas: (socia.reservas ?? []).filter((r) => r.estado !== 'CANCELADA').length,
+    suscripciones: (socia.suscripciones ?? []).length,
+    plazasFijas: (socia.plazasFijas ?? []).length,
+    recuperaciones: (socia.recuperaciones ?? []).length,
+    citas: (socia.citas ?? []).filter((c) => c.estado !== 'CANCELADA').length,
+    fechaAlta: socia.socio.fechaAlta ?? null,
   };
 }

@@ -9,19 +9,22 @@ import { Icono } from '@/components/student/ui/Icono';
 
 // Invitar a una amiga.
 //
-// ⚠️ NO PROMETE UN PREMIO. La regla que da créditos a quien invita
-// (`REFERIDO_AMIGO`) es OPCIONAL por estudio y se paga cuando la invitada
-// ASISTE a su primera clase, no al registrarse. Decir aquí «ganáis las dos»
-// sería vender algo que puede no existir en este estudio y que, aun
-// existiendo, no depende de quien comparte el enlace.
+// ⚠️ El premio, SOLO si existe y con su condición real. La regla que da créditos
+// a quien invita (`REFERIDO_AMIGO`) es OPCIONAL por estudio y se paga cuando la
+// invitada ASISTE a su primera clase —y solo si se dio de alta con el enlace—,
+// con tope al mes. Sin la regla no se promete nada; con ella, la frase sale de
+// `premioPorInvitar` (lib/student/gamificacion.ts), la misma que la ficha de la
+// clase, y va en la tarjeta, no en la hoja. Nunca «ganáis las dos».
 //
-// Lo que sí es cierto y es lo que se dice: comparte el estudio con alguien.
+// Lo que sí es cierto siempre es lo que se dice: comparte el estudio con alguien.
 //
 // Se COMPARTE con la hoja del sistema (la nativa de iOS dentro de la app, la del
 // navegador si la tiene: WhatsApp, Mensajes, Mail…). Solo donde no hay hoja
 // —casi todo escritorio— se copia, que es lo único que hacía antes.
-export function InvitarAmiga({ slug, socioId, nombreEstudio }: {
+export function InvitarAmiga({ slug, socioId, nombreEstudio, premio = null }: {
   slug: string; socioId: string; nombreEstudio: string;
+  /** Lo que gana si el estudio premia invitar (`premioPorInvitar`); `null` = no se promete nada. */
+  premio?: string | null;
 }) {
   const [abierta, setAbierta] = useState(false);
   const { hayHoja, compartir, copiado, olvidar } = useCompartir();
@@ -48,6 +51,7 @@ export function InvitarAmiga({ slug, socioId, nombreEstudio }: {
         <span className="stack" style={{ ['--gap' as string]: '2px' }}>
           <span className="t-card-title">Invita a una amiga</span>
           <span className="t-meta">Comparte {nombreEstudio} con quien quieras</span>
+          {premio && <span className="t-meta" data-testid="premio-invitar">{premio}</span>}
         </span>
         <Icono nombre="chevron-derecha" tamano={18} stroke="var(--subtle-foreground)" className="no-shrink" />
       </button>

@@ -47,7 +47,29 @@ export interface StudioConfig {
   tema: Record<string, string>;
 }
 
-export interface Alumna { id: string; nombre: string; apellidos: string; email: string; telefono?: string; fotoUrl?: string | null; objetivoClasesMes?: number | null; }
+export interface Alumna {
+  id: string; nombre: string; apellidos: string; email: string; telefono?: string; fotoUrl?: string | null; objetivoClasesMes?: number | null;
+  /** Para «Alumna»/«Alumno de X» (`trato`). `null`/ausente = sin decir: femenino, lo de siempre. */
+  genero?: import('../genero.ts').Genero | null;
+}
+
+/**
+ * Si ya ha pasado algo con ella en el estudio (P03): lo que decide la bienvenida de la recién llegada. Sale del payload
+ * (`huellaDeLaSocia`); `null` = no se sabe (sin ficha, o el payload llegó incompleto) y entonces no se afirma nada.
+ */
+export interface HuellaSocia {
+  /** Reservas no canceladas (las de lista de espera y pendientes de aprobar cuentan). */
+  reservasNoCanceladas: number;
+  /** Suscripciones en cualquier estado (bono o cuota, viva o no). */
+  suscripciones: number;
+  /** Clases fijas en cualquier estado. */
+  plazasFijas: number;
+  recuperaciones: number;
+  /** Citas no canceladas. */
+  citas: number;
+  /** `socios.fecha_alta`. Ojo: en las importadas sin fecha es la de la importación. */
+  fechaAlta: string | null;
+}
 
 export interface Instructora {
   id: string; nombre: string; iniciales: string; fotoUrl: string | null; especialidades: string[];

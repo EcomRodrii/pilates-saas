@@ -1132,6 +1132,16 @@ export async function fetchPublicStudioData(
         .in('tipo', ['CREAR', 'PAUSAR']),
     ]);
 
+  // ⚠️ Si falla alguna de las lecturas de las que sale «no tiene nada» (suscripciones, reservas, clases fijas,
+  // recuperaciones, citas), se dice: la app daría la bienvenida —«Bienvenida a X», «Aún no has venido a ninguna clase»—
+  // a una alumna de años por un 504 suelto (cada lectura se traga su error y devuelve una lista vacía). No cambia el modo
+  // de fallo de nadie más: /reservar y el widget reciben lo de siempre. Una lectura nueva de la que salga «no tiene
+  // nada» se añade a esta lista.
+  const lecturaIncompleta = [susRes, resRes, plazasRes, recupRes, citasRes].some((r) => r.error);
+  if (lecturaIncompleta) {
+    reportDbError('[fetchPublicStudioData] lectura de la socia incompleta', [susRes, resRes, plazasRes, recupRes, citasRes].find((r) => r.error)?.error);
+  }
+
   const misRecibos = (recRes.data ?? []).map(mapRecibo);
   const misReciboIds = misRecibos.map(r => r.id);
   // Facturas no tiene socio_id directo, pero SÍ recibo_id: antes se traía la
@@ -1180,6 +1190,8 @@ export async function fetchPublicStudioData(
         diaSemana: p.dia_semana ?? null, horaInicio: p.hora_inicio ?? null, salaId: p.sala_id ?? null,
         desde: p.desde_propuesta ?? null, hasta: p.hasta_propuesta ?? null, creadaEn: p.creada_en,
       })),
+      // Ver `lecturaIncompleta` arriba: con esto la app no afirma «no tiene nada» por un fallo de lectura.
+      incompleta: lecturaIncompleta,
     },
   };
 }

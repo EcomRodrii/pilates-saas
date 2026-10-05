@@ -124,6 +124,8 @@ export interface PayloadPublico {
           guarda la pasarela, no el estudio. */
       tarjetaMarca?: string | null; tarjetaUltimos4?: string | null;
       tarjetaExpMes?: number | null; tarjetaExpAnio?: number | null;
+      genero?: string | null;
+      fechaAlta?: string | null;
     } | null;
     suscripciones: Suscripcion[];
     reservas: Reserva[];
@@ -144,6 +146,10 @@ export interface PayloadPublico {
     retosApuntados?: string[];
     /** Su renovación que NO se va a cobrar sola (sin tarjeta guardada). Ver `lib/billing/renovacion-sin-tarjeta.ts`. */
     renovacionPorPagar?: RenovacionPorPagar | null;
+    /** Sus citas: solo cuentan para saber si es una recién llegada (`huellaDeLaSocia`). */
+    citas?: { estado: string }[];
+    /** Falló alguna lectura de las que dicen «no tiene nada»: no se afirma nada de ella. */
+    incompleta?: boolean;
   } | null;
 }
 

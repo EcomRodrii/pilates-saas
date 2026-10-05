@@ -23,6 +23,8 @@ const base = `/portal/${SLUG}`;
 
 const PANTALLAS: Array<[string, string, OpcionesSocia]> = [
   ['inicio', '', { reservada: true }],
+  // La recién llegada (P03): sin bono ni reservas, Inicio enseña «Tu primera clase».
+  ['inicio-recien-llegada', '', { bono: null }],
   // Con una clase fija ofrecida: así se mide también su puerta en el horario.
   ['reservar', '/reservar', { clasesFijas: 1 }],
   // La ficha de una clase: el título y las filas ya no van sobre la foto, así que se pueden medir.
