@@ -38,9 +38,9 @@
 // no puede colarse en el del botón o el enlace que lo lleva. Por eso no acepta
 // `titulo`.
 //
-// 'use client' es por useId(): la barra móvil y la de escritorio conviven en el
-// DOM, y con ids fijos los url(#…) de los degradados resolverían todos al
-// primer Tenti de la página (mismo motivo que LogoTentare).
+// 'use client' es por useId(): hay varios Tentis por página (tres en Resumen,
+// dos en Automatizaciones), y con ids fijos los url(#…) de los degradados
+// resolverían todos al primero (mismo motivo que LogoTentare).
 //
 // Dónde puede ir lo decide la guardia lib/tenti/donde-vive-tenti.test.ts.
 // ─────────────────────────────────────────────────────────────────────────────

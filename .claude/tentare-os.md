@@ -312,8 +312,10 @@ esa lista con su motivo, no un import de paso.
   dos): en lo diario, `TentiIcono` (SVG quieto, sin rAF y sin el motor en el
   chunk), que ve quien veía el Orb en ese sitio, recepción y gerencia incluidas;
   el canvas animado (`components/tenti/tenti.tsx`) solo en las primeras veces de
-  la propietaria (el logo y Listo) y siempre diferido. ⚠️ El canvas todavía no
-  duerme entre parpadeos: pide rAF mientras se ve, y por eso no va en lo diario.
+  la propietaria (el logo y Listo) y siempre diferido. Es el estado a 5-oct, no
+  un veto: el fundador ya decidió el canvas también en el buscador ⌘K y en el
+  briefing de Automatizaciones, que llegan junto con el PR en el que el motor
+  duerme entre parpadeos (hoy pide rAF mientras se ve).
 - **Tres estados con un significado cada uno.** `reposo` es la firma: no es un
   aviso ni un «todo bien» (si hay algo que avisar, lo dice el texto, nunca su
   cara). `pensando`, solo con una petición de verdad en vuelo (un botón de IA,

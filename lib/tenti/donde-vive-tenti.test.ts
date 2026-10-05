@@ -425,6 +425,11 @@ for (const [fichero, { usos, motivo }] of Object.entries(CON_TENTI)) {
     const src = leerCodigo(fichero);
     assert.equal(src.match(/<TentiIcono\b/g)?.length ?? 0, usos,
       `Tenti va exactamente ${usos} vez/veces aquí. Si cambia, cambia CON_TENTI con su motivo.`);
+    // El nombre a secas: el import y una etiqueta por uso, nada más. Un alias
+    // (`const Cara = TentiIcono; <Cara estado="pensando" />`) se saltaría el
+    // recuento, los props cerrados y la regla de 'pensando', y tsc no lo para.
+    assert.equal(src.match(/\bTentiIcono\b/g)?.length ?? 0, usos + 1,
+      `${fichero}: TentiIcono solo puede aparecer en su import y en sus ${usos} etiqueta(s); nada de alias.`);
     assert.doesNotMatch(src, /\bSparkles\b/, '`Sparkles` significa «novedad» (el changelog). Para «esto lo hace Tentare», Tenti.');
     assert.doesNotMatch(src, /<Bot\b/, 'El robot tampoco: Tentare no es un bot que responde, es un sistema que decide.');
   });
