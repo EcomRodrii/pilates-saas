@@ -103,13 +103,25 @@ test.describe('El dashboard trae lo que necesita atención, sin ir a buscarlo', 
   });
 
   test('dice cuántas resuelve Tentare sola — lo que nivelAutonomia sabía y nadie enseñaba', async ({ page }) => {
+    // Con el `efecto` que manda GET /api/decisiones (lib/decision/efecto-aprobar.ts):
+    // «la hago yo» es exactamente donde el botón del Centro de Control no dice «Hecho».
     await montarDashboard(page, {
       prioridades: [
-        rec({ id: 'r-1', titulo: 'Manda el email', accion: { tipo: 'ENVIAR_EMAIL' } }),
-        rec({ id: 'r-2', titulo: 'Cambia el horario', accion: { tipo: 'MARCAR_GESTIONADO' } }),
+        rec({
+          id: 'r-1', titulo: 'Manda el email', tipo: 'ENVIAR_REACTIVACION', accion: { tipo: 'ENVIAR_EMAIL' },
+          socioId: 'soc-1', datosUsados: { nombre: 'Laura' }, efecto: 'ENVIAR_EMAIL',
+        }),
+        rec({ id: 'r-2', titulo: 'Cambia el horario', accion: { tipo: 'MARCAR_GESTIONADO' }, efecto: 'MARCAR' }),
+        // Un contacto sin mensaje para la socia: allí el botón dice «Hecho» y
+        // aprobarlo no le manda nada, así que tampoco es «con un toque».
+        rec({
+          id: 'r-3', titulo: 'Marta no consigue reservar desde que se dio de alta', tipo: 'RIESGO_RESERVA_FALLIDA',
+          accion: { tipo: 'CONTACTO_MANUAL' }, socioId: 'soc-2', datosUsados: { nombre: 'Marta' }, efecto: 'MARCAR',
+        }),
       ],
     });
-    await expect(page.getByText('Una la hago yo con un toque')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('3 cosas necesitan tu atención')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Una la hago yo con un toque')).toBeVisible();
   });
 
   test('sin nada pendiente no ocupa ni un píxel (nada de "todo en orden" cada mañana)', async ({ page }) => {

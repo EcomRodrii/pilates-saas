@@ -13,6 +13,7 @@
 // Puro y sin I/O (ver action-center.test.ts).
 // ─────────────────────────────────────────────────────────────────────────────
 import { severidad, type NivelSeveridad } from './severidad.ts';
+import { efectoDe } from './efecto-aprobar.ts';
 
 /** Lo que la pantalla necesita de cada recomendación. Estructural a propósito:
  *  el hook del cliente (`RecomendacionAPI`) y el tipo del servidor
@@ -26,6 +27,12 @@ export interface RecomendacionResumible {
   impacto: { valor: number; unidad: string } | null;
   accion: { tipo: string };
   score: number;
+  // Lo que necesita `efectoDe` para saber qué hace aprobarla: el `efecto` que
+  // manda la API y, si no viene, los datos para calcularlo igual.
+  tipo: string;
+  socioId: string | null;
+  datosUsados: Record<string, string | number | boolean>;
+  efecto?: unknown;
 }
 
 export interface ItemAccion {
@@ -36,10 +43,14 @@ export interface ItemAccion {
    * true = con un toque lo hace Tentare (manda el email, el WhatsApp, cobra el
    * recibo). false = solo te lo cuenta; la acción es tuya.
    *
-   * Sale del ejecutor real (F3, lib/inngest/decision.ts): al aprobar, todo
-   * tipo de acción dispara algo de verdad EXCEPTO `MARCAR_GESTIONADO`, que es
-   * informativo y no tiene efecto externo ninguno. No se deduce del piloto
-   * automático: eso es otra cosa (si además lo hace SIN preguntar).
+   * Sale del dueño único de «qué hace aprobar» (efecto-aprobar.ts, el mismo que
+   * pinta el botón del Centro de Control): todo efecto menos MARCAR. Antes se
+   * miraba aquí `accion.tipo !== 'MARCAR_GESTIONADO'`, y un contacto sin
+   * mensaje para la socia (una alta que no consigue reservar) o sin por dónde
+   * enviárselo contaba como «la hago yo con un toque»: un clic después, en el
+   * Centro de Control, su botón decía «Hecho» y aprobarla no mandaba nada. No se
+   * deduce del piloto automático: eso es otra cosa (si además lo hace SIN
+   * preguntar).
    */
   loHaceTentare: boolean;
 }
@@ -71,7 +82,7 @@ function aItem(r: RecomendacionResumible): ItemAccion {
     id: r.id,
     titulo: r.titulo,
     severidad: severidad(r.prioridad, r.riesgo, r.confianza.nivel),
-    loHaceTentare: r.accion.tipo !== 'MARCAR_GESTIONADO',
+    loHaceTentare: efectoDe(r) !== 'MARCAR',
   };
 }
 
@@ -104,7 +115,7 @@ export function resumirAcciones(
     eurPuntualEnRiesgo: suma(perdidas, 'EUR'),
     eurMesOportunidad: suma(ganancias, 'EUR_MES'),
     eurPuntualOportunidad: suma(ganancias, 'EUR'),
-    nUnToque: perdidas.filter(r => r.accion.tipo !== 'MARCAR_GESTIONADO').length,
+    nUnToque: perdidas.filter(r => efectoDe(r) !== 'MARCAR').length,
     vacio: recomendaciones.length === 0,
   };
 }

@@ -85,10 +85,12 @@ export function ActionCenter() {
       )}
 
       <div className="flex items-center justify-between gap-2 border-t pt-2.5" style={{ borderColor: 'var(--border)' }}>
-        {/* Lo que `nivelAutonomia`/`accion.tipo` ya sabían y la UI nunca decía:
-            de las cosas que necesitan atención, cuántas se resuelven aprobando
+        {/* De las cosas que necesitan atención, cuántas se resuelven aprobando
             (Tentare manda el email/WhatsApp o cobra) y cuántas son trabajo
-            suyo. Es la diferencia entre una bandeja y una lista de deberes. */}
+            suyo. Lo cuenta con el `efecto` de cada una, el mismo que pinta el
+            botón en el Centro de Control: «la hago yo» solo donde ese botón
+            no dice «Hecho». Es la diferencia entre una bandeja y una lista de
+            deberes. */}
         {r.nUnToque > 0 ? (
           <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
             <Zap size={14} style={{ color: 'var(--brand-secondary)' }} />

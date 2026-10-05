@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MOTIVO_SILENCIO_APERTURA } from '@/lib/decision/umbral';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { tieneFeature } from '@/lib/billing/entitlements';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { bloqueoPorPlan } from '@/lib/decision/plan-servidor';
 import {
   dbListPendientes, dbGetResumenDiarioReciente, dbGetMensajeDia, dbListMensajesRecientes,
   dbGetRecomendacion, dbListOutcomesRecientes, dbCountAutonomasHoy,
@@ -10,6 +10,8 @@ import {
 import { calcularEstadoEspecialista } from '@/lib/decision/director';
 import { seleccionarPrioridadesHome } from '@/lib/decision/prioridad';
 import { fraseConfianza } from '@/lib/decision/copy';
+import { efectoAlAprobar } from '@/lib/decision/efecto-aprobar';
+import { canalesDeSocias } from '@/lib/decision/canales-socia';
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 import type { EspecialistaId, Impacto, Recomendacion } from '@/lib/decision/tipos';
 import type { ActividadReciente } from '@/lib/types';
@@ -22,10 +24,8 @@ export async function GET(req: NextRequest) {
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (sesion.rol !== 'PROPIETARIO') return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
 
-  const { data: studio } = await requireSupabaseAdmin().from('studios').select('plan, subscription_status').eq('id', sesion.studioId).single();
-  if (!studio || !tieneFeature({ plan: studio.plan, subscriptionStatus: studio.subscription_status }, 'decisiones')) {
-    return NextResponse.json({ error: 'Tu plan no incluye el Centro de Control' }, { status: 403 });
-  }
+  const sinPlan = await bloqueoPorPlan(sesion.studioId);
+  if (sinPlan) return sinPlan;
 
   const now = new Date();
   const fechaHoy = now.toISOString().slice(0, 10);
@@ -64,15 +64,32 @@ export async function GET(req: NextRequest) {
   // El Umbral (lib/decision/umbral.ts): el veredicto del día es el elemento
   // principal de la pantalla — construido a partir de `decision_mensajes_dia`,
   // no de la lista completa de pendientes.
+  // Acotada al estudio de la sesión: se lee con service-role y se devuelve tal
+  // cual en `veredicto.recomendacion`, así que un `recomendacion_id` que no
+  // fuera de este estudio no puede enseñar la de otro. Si la lectura falla, un
+  // error que se pueda reintentar: sin ella, el veredicto diría «Todo bajo
+  // control» sobre el mensaje del día que no se ha podido leer.
   const recomendacionGanadora = mensajeHoy?.tipo === 'MENSAJE' && mensajeHoy.recomendacionId
-    ? await dbGetRecomendacion(mensajeHoy.recomendacionId)
+    ? await dbGetRecomendacion(mensajeHoy.recomendacionId, sesion.studioId)
     : null;
+  if (recomendacionGanadora === undefined) {
+    return NextResponse.json({ error: 'No se ha podido leer el mensaje de hoy. Vuelve a intentarlo.' }, { status: 500 });
+  }
+  // Qué hace de verdad el botón principal de cada recomendación que se pinta
+  // (lib/decision/efecto-aprobar.ts): cobrar, mandarle un mensaje a la socia o
+  // solo marcarla. Lo dice el servidor, que es quien la ejecuta, y con los
+  // canales de AHORA: sin email ni WhatsApp por el que llegarle, «Enviarle el
+  // mensaje» no se ofrece (lib/decision/canales-socia.ts, una consulta).
+  const canales = await canalesDeSocias(sesion.studioId, [
+    ...(recomendacionGanadora ? [recomendacionGanadora] : []), ...pendientes,
+  ]);
+  const conEfecto = (r: Recomendacion) => ({ ...r, efecto: efectoAlAprobar(r, canales(r)) });
   // Callar porque la apertura ya habló no es «una semana tranquila».
   const semanaTranquila = mensajesRecientes.length >= 5
     && mensajesRecientes.every(m => m.tipo === 'SILENCIO' && m.motivoSilencio !== MOTIVO_SILENCIO_APERTURA);
   const veredicto = {
     tipo: mensajeHoy?.tipo ?? ('SIN_ANALIZAR' as const),
-    recomendacion: recomendacionGanadora,
+    recomendacion: recomendacionGanadora ? conEfecto(recomendacionGanadora) : null,
     fraseConfianza: recomendacionGanadora ? fraseConfianza(recomendacionGanadora.confianza.nivel) : null,
     semanaTranquila,
     porApertura: mensajeHoy?.tipo === 'SILENCIO' && mensajeHoy.motivoSilencio === MOTIVO_SILENCIO_APERTURA,
@@ -132,8 +149,8 @@ export async function GET(req: NextRequest) {
     resumen,
     veredicto,
     seguimiento,
-    prioridades,
-    masSituaciones,
+    prioridades: prioridades.map(conEfecto),
+    masSituaciones: masSituaciones.map(conEfecto),
     porEspecialista,
     actividad,
     // Reorganización Centro de Control §1: cuenta lo que el piloto automático

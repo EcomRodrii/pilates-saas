@@ -50,10 +50,49 @@ export function claveCobroRecibo(reciboId: string, metodo: string, intentoId: un
   return `pos-recibo-${reciboId}-${metodo}-${intentoId}`;
 }
 
+/** Un cobro de Stripe de un recibo leído SIN tocarlo (`desenlaceDeCobroSoltado`). */
+type CobroLeido = { comprobado: false } | { comprobado: true; estado: EstadoPagoPOS; clave: string | null } | null;
+
+/**
+ * El MISMO intento repetido con su cobro aún vivo (misma clave, que va en la
+ * metadata del cobro): es el mismo cobro, y no se cancela antes de abrir «otro»
+ * (Stripe devolverá ese). Lo mira `soltarPagosEnMarchaAntesDeCobrar` para la Caja.
+ */
+export function esMismoIntentoVivo(leido: CobroLeido, claveIntento: string | null | undefined): boolean {
+  return !!claveIntento && !!leido && leido.comprobado && leido.clave === claveIntento
+    && (leido.estado === 'PENDIENTE' || leido.estado === 'PROCESANDO');
+}
+
+/**
+ * Lo leído, en el estado que entiende `soltarCobroDeMostradorAntesDeCobrarAMano`.
+ * Uno que no es de este recibo o ya no existe en la cuenta del estudio no puede
+ * cobrar aquí: se suelta (antes, una referencia que ya no se podía leer bloqueaba
+ * el recibo para siempre). Sin poder leerlo, ERROR: ni se suelta ni se cobra.
+ */
+export function estadoParaSoltar(leido: CobroLeido): EstadoPagoPOS {
+  if (!leido) return 'CANCELADO';
+  return leido.comprobado ? leido.estado : 'ERROR';
+}
+
+/**
+ * Por qué no se empieza un cobro de la Caja (`soltarPagosEnMarchaAntesDeCobrar`),
+ * dicho para la Caja. Los textos del dueño son los del cobro a mano («Ábrelo en la
+ * caja para cerrarlo»); los del pago online valen igual aquí.
+ */
+export function mensajeCajaAntesDeCobrar(r: { motivo: string; mensaje: string }): string {
+  if (r.motivo === 'YA_PAGADO_EN_EL_MOSTRADOR') {
+    return 'El cobro anterior de este recibo ya ha entrado: aparecerá cobrado en unos segundos. No lo vuelvas a cobrar.';
+  }
+  if (r.motivo === 'COBRO_EN_EL_MOSTRADOR') {
+    return 'Hay otro cobro de este recibo en marcha, así que no se ha empezado este. Espera a que termine o cancélalo.';
+  }
+  return r.mensaje;
+}
+
 /** Por qué se cancela: el recibo cambió (0 filas) o no se pudo guardar (error). */
 export type MotivoCancelacion = 'CAMBIO' | 'ERROR_AL_GUARDAR';
 
-const CAMBIO = 'Este recibo ha cambiado mientras se preparaba el cobro (se ha cobrado por otro lado o ya no está).';
+const CAMBIO = 'Este recibo ha cambiado mientras se preparaba el cobro (se ha cobrado o se ha empezado a pagar por otro lado, o ya no está).';
 const SIN_GUARDAR = 'No hemos podido registrar el cobro.';
 
 /**

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, Check, X, Mail, Euro, MessageCircle, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Clock, ChevronDown, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { AccionesRecomendacion } from './acciones-recomendacion';
 import { ESPECIALISTA_INFO } from './especialista-info';
 import { etiquetaImpacto, fraseConfianza } from '@/lib/decision/copy';
 import { severidad } from './severidad';
@@ -32,24 +32,16 @@ function formatearImpacto(imp: ImpactoAPI | null, riesgo: 'PERDIDA' | 'OPORTUNID
   return { etiqueta: etiquetaImpacto(riesgo, tipo as Parameters<typeof etiquetaImpacto>[1]), cifra };
 }
 
-// Botón principal específico por tipo, no un "Hecho" genérico siempre —
-// aprobar() ejecuta de verdad (app/api/decisiones/[id]/aprobar/route.ts →
-// DECISION_APPROVED), y para COBRAR_RECIBOS eso es cobrar una tarjeta real:
-// el botón tiene que decir lo que va a pasar, no un genérico que oculte que
-// mueve dinero.
-function botonPrincipal(tipo: string): { label: string; Icon: typeof Check } {
-  if (tipo === 'COBRAR_RECIBOS') return { label: 'Cobrar ahora', Icon: Euro };
-  if (tipo === 'ENVIAR_EMAIL') return { label: 'Enviar email', Icon: Mail };
-  return { label: 'Hecho', Icon: Check };
-}
-
 type Props =
   | {
       variante: 'completo';
       recomendacion: RecomendacionAPI;
       onAprobar: () => void;
+      onYaContactada: () => void;
       onRechazar: () => void;
       procesando?: boolean;
+      /** Su cobro aprobado agotó el tope de preguntar cómo ha ido (use-decisiones.ts). */
+      tardando?: boolean;
       whatsappHref?: string | null;
     }
   | {
@@ -79,11 +71,10 @@ export function FilaSituacion(props: Props) {
     );
   }
 
-  const { onAprobar, onRechazar, procesando, whatsappHref } = props;
+  const { onAprobar, onYaContactada, onRechazar, procesando, tardando, whatsappHref } = props;
   const impacto = formatearImpacto(r.impacto, r.riesgo, r.tipo);
   const esCritica = r.prioridad === 'CRITICA';
   const nivelSev = severidad(r.prioridad, r.riesgo, r.confianza.nivel);
-  const { label: labelPrincipal, Icon: IconPrincipal } = botonPrincipal(r.accion.tipo);
   const especialista = ESPECIALISTA_INFO[r.especialista];
   // P2-5: cuando detectarConflictos (lib/decision/conflictos.ts) marca dos
   // recomendaciones de especialistas distintos que se contradicen, lo anota
@@ -145,21 +136,18 @@ export function FilaSituacion(props: Props) {
           </ul>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <Button size="sm" onClick={onAprobar} disabled={procesando}>
-            <IconPrincipal size={14} /> {labelPrincipal}
-          </Button>
-          {whatsappHref && (
-            <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="inline-flex">
-              <Button size="sm" variant="outline" type="button" tabIndex={-1}>
-                <MessageCircle size={14} /> WhatsApp
-              </Button>
-            </a>
-          )}
-          <Button size="sm" variant="outline" onClick={onRechazar} disabled={procesando}>
-            <X size={14} /> Ya lo sé
-          </Button>
-        </div>
+        {/* El botón principal dice lo que hace (cobrar, mandarle un mensaje o
+            solo marcar): lo decide lib/decision/efecto-aprobar.ts, el mismo
+            dueño que en el veredicto del día. */}
+        <AccionesRecomendacion
+          recomendacion={r}
+          procesando={procesando}
+          tardando={tardando}
+          whatsappHref={whatsappHref}
+          onAprobar={onAprobar}
+          onYaContactada={onYaContactada}
+          onYaLoSe={onRechazar}
+        />
       </CardContent>
     </Card>
   );
