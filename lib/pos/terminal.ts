@@ -5,7 +5,9 @@ import type { MetodoPago } from '@/lib/types';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { bizumActivo } from '@/lib/billing/bizum-activo';
-import { cerrarSiRechazadoDatafono, consultaDatafono, consultarCobroBizum, type ConsultaCobro } from './consulta-stripe.ts';
+import {
+  anularCobroDelDatafono, cerrarSiRechazadoDatafono, consultaDatafono, consultarCobroBizum, envioFallidoDatafono, type ConsultaCobro,
+} from './consulta-stripe.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
 import { mensajeErrorLector } from './datafono.ts';
 
@@ -93,7 +95,16 @@ export type ResultadoInicio =
        */
       checkoutSessionId?: string;
     }
-  | { ok: false; error: string };
+  | {
+      ok: false; error: string;
+      /**
+       * El proveedor SABE que de este intento no puede entrar dinero: no llegó a
+       * crearse el cobro, o se creó y está cancelado en Stripe. Entonces otro
+       * intento no cobra dos veces, y la Caja puede estrenarlo. Sin decir, no se
+       * sabe (p. ej. el cobro se creó y no se pudo cancelar): se mantiene el intento.
+       */
+      cerrado?: boolean;
+    };
 
 export interface ProveedorTerminal {
   readonly id: 'datafono' | 'bizum' | 'manual';
@@ -142,6 +153,15 @@ export interface ProveedorTerminal {
 
 // ─── Datáfono (Stripe Terminal) ──────────────────────────────────────────────
 
+/**
+ * La clave de idempotencia de este intento ya estaba en uso (ver
+ * `envioFallidoDatafono`): nunca se anula por ello, sería cancelar el cobro bueno.
+ */
+function choqueDeClave(err: unknown): boolean {
+  return err instanceof Stripe.errors.StripeIdempotencyError
+    || (err instanceof Stripe.errors.StripeError && err.code === 'idempotency_key_in_use');
+}
+
 function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
   return {
     id: 'datafono',
@@ -150,10 +170,19 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
 
     async iniciar(ctx, p) {
       if (!readerId) {
-        return { ok: false, error: 'No hay ningún datáfono conectado. En la Caja, pulsa Cobrar y luego «Conectar datáfono».' };
+        return { ok: false, cerrado: true, error: 'No hay ningún datáfono conectado. En la Caja, pulsa Cobrar y luego «Conectar datáfono».' };
       }
+      // Apagado, sin wifi u ocupado: que lo diga, porque quien cobra puede
+      // arreglarlo en el acto. Lo demás, el genérico de siempre.
+      const mensaje = (err: unknown) => {
+        console.error('[pos/terminal:datafono]', err instanceof Stripe.errors.StripeError ? err.message : err);
+        const code = err instanceof Stripe.errors.StripeError ? err.code ?? '' : '';
+        return code.startsWith('terminal_reader_') ? mensajeErrorLector({ code }) : 'No se pudo enviar el importe al datáfono.';
+      };
+
+      let pi: Stripe.PaymentIntent;
       try {
-        const pi = await ctx.stripe.paymentIntents.create({
+        pi = await ctx.stripe.paymentIntents.create({
           amount: p.importeCentimos,
           currency: 'eur',
           payment_method_types: ['card_present'],
@@ -170,29 +199,42 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
           stripeAccount: ctx.stripeAccount,
           ...(p.claveIdempotencia ? { idempotencyKey: `${p.claveIdempotencia}-pi` } : {}),
         });
+      } catch (err) {
+        const cerrado = envioFallidoDatafono({ paso: 'crear', choque: choqueDeClave(err) }) === 'cerrado';
+        return { ok: false, cerrado, error: mensaje(err) };
+      }
 
+      try {
         await ctx.stripe.terminal.readers.processPaymentIntent(
           readerId, { payment_intent: pi.id }, {
             stripeAccount: ctx.stripeAccount,
             ...(p.claveIdempotencia ? { idempotencyKey: `${p.claveIdempotencia}-lector` } : {}),
           },
         );
-        // Solo en test: simula que alguien acerca la tarjeta, para poder probar
-        // el flujo entero sin hardware.
-        if (ctx.esTest) {
-          await ctx.stripe.testHelpers.terminal.readers.presentPaymentMethod(
-            readerId, {}, { stripeAccount: ctx.stripeAccount },
-          );
-        }
-        return { ok: true, referencia: pi.id, estado: 'PROCESANDO' };
       } catch (err) {
-        console.error('[pos/terminal:datafono]', err instanceof Stripe.errors.StripeError ? err.message : err);
-        // Apagado, sin wifi u ocupado: que lo diga, porque quien cobra puede
-        // arreglarlo en el acto. Lo demás, el genérico de siempre.
-        const code = err instanceof Stripe.errors.StripeError ? err.code ?? '' : '';
-        if (code.startsWith('terminal_reader_')) return { ok: false, error: mensajeErrorLector({ code }) };
-        return { ok: false, error: 'No se pudo enviar el importe al datáfono.' };
+        const error = mensaje(err);
+        const choque = choqueDeClave(err);
+        // El cobro existe y el lector no lo ha cogido… o sí (`terminal_reader_timeout`:
+        // no contestó a tiempo). Se cancela en Stripe: si no, se quedaba vivo con la
+        // venta ya anulada, y la Caja no dejaba volver a intentarlo (misma clave,
+        // misma venta muerta, «el datáfono no responde» aunque ya respondiera).
+        const estado = choque ? null : await anularCobroDelDatafono(ctx.stripe, pi.id, ctx.stripeAccount, readerId);
+        switch (envioFallidoDatafono({ paso: 'enviar', choque, estado })) {
+          case 'enviado': return { ok: true, referencia: pi.id, estado: 'PROCESANDO' };
+          case 'cerrado': return { ok: false, cerrado: true, error };
+          default: return { ok: false, error };
+        }
       }
+
+      // Solo en test: simula que alguien acerca la tarjeta, para poder probar el
+      // flujo entero sin hardware. Con un lector de verdad en modo de prueba no
+      // existe, y el cobro ya está en el lector: un fallo aquí no lo anula.
+      if (ctx.esTest) {
+        await ctx.stripe.testHelpers.terminal.readers.presentPaymentMethod(
+          readerId, {}, { stripeAccount: ctx.stripeAccount },
+        ).catch((err: unknown) => console.error('[pos/terminal:datafono:test]', err instanceof Error ? err.message : err));
+      }
+      return { ok: true, referencia: pi.id, estado: 'PROCESANDO' };
     },
 
     async consultar(ctx, referencia) {
@@ -214,21 +256,9 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
     },
 
     async cancelar(ctx, referencia) {
-      try {
-        if (readerId) {
-          // `{}` de parámetros y la cuenta Connect en el TERCER argumento: es
-          // la posición de las opciones de petición. Pasarla como segundo
-          // argumento la mandaría en el cuerpo y el cobro se cancelaría (o no)
-          // en la cuenta de la plataforma, no en la del estudio.
-          await ctx.stripe.terminal.readers.cancelAction(readerId, {}, { stripeAccount: ctx.stripeAccount });
-        }
-        await ctx.stripe.paymentIntents.cancel(referencia, {}, { stripeAccount: ctx.stripeAccount });
-      } catch (err) {
-        // Cancelar es best-effort: si el PaymentIntent ya no admite cancelación
-        // (porque acaba de cobrarse), lo correcto es NO tocarlo. El estado real
-        // lo dirá la siguiente consulta.
-        console.error('[pos/terminal:datafono:cancelar]', err instanceof Stripe.errors.StripeError ? err.message : err);
-      }
+      // Best-effort: si el cobro ya no admite cancelación (acaba de entrar), no se
+      // toca. El estado real lo dice la consulta que viene detrás.
+      await anularCobroDelDatafono(ctx.stripe, referencia, ctx.stripeAccount, readerId);
     },
   };
 }
