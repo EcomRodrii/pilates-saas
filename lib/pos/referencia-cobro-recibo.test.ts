@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  claveCobroRecibo, esMismoIntentoVivo, estadoParaSoltar, mensajeCajaAntesDeCobrar, respuestaTrasCancelar, trasGuardarReferencia,
+  claveCobroRecibo, esMismoIntentoVivo, estadoParaSoltar, mensajeCajaAntesDeCobrar, MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA,
+  respuestaTrasCancelar, trasGuardarReferencia, vidaDelCobroDeLaCaja,
 } from './referencia-cobro-recibo.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
 
@@ -170,4 +171,36 @@ test('⚠️ el arranque de un cobro de la Caja pasa por el dueño de «pagos en
   // Y al guardar, ni con un enlace de pago abierto después de cerrarlo.
   assert.ok(f.includes("? guardar.eq('checkout_session_id', enMarcha.checkoutLeido)\n      : guardar.is('checkout_session_id', null);"));
   assert.equal(f.indexOf('contextoCobroDe('), -1);
+});
+
+// El enlace de pago online de la socia con un cobro de la Caja guardado en el recibo.
+test('⚠️ enlace online: solo un cobro de la Caja vivo (o que entró) lo frena; uno muerto, no', () => {
+  for (const estado of ['PENDIENTE', 'PROCESANDO'] as EstadoPagoPOS[]) assert.equal(vidaDelCobroDeLaCaja(estado), 'vivo', estado);
+  assert.equal(vidaDelCobroDeLaCaja('PAGADO'), 'pagado');
+  // Un Bizum caducado que nadie soltó, o uno que ya no existe en la cuenta: no la deja sin pagar online.
+  for (const estado of ['RECHAZADO', 'CANCELADO', 'EXPIRADO'] as EstadoPagoPOS[]) assert.equal(vidaDelCobroDeLaCaja(estado), 'muerto', estado);
+  assert.equal(vidaDelCobroDeLaCaja(null), 'muerto');
+  // Sin poder leerlo, o un estado que no se reconoce: no se abre otro pago a ciegas.
+  assert.equal(vidaDelCobroDeLaCaja('SIN_LEER'), 'no-se-sabe');
+  assert.equal(vidaDelCobroDeLaCaja('ERROR'), 'no-se-sabe');
+  // A la socia se le dice qué pasa, de tú, y sin «inténtalo ya» cuando hay que esperar.
+  assert.match(MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA.vivo, /se está cobrando ahora mismo en el estudio/);
+  assert.match(MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA.pagado, /ya se ha pagado/);
+});
+
+test('⚠️ el enlace online mira el cobro de la Caja ANTES de reutilizar o crear una sesión, y al guardarla exige el mismo', () => {
+  const f = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'app/api/stripe/checkout/route.ts'), 'utf8'));
+  assert.ok(f.includes('checkout_session_id, cobro_off_session_clave, cobro_mostrador_pi,'), 'lo lee con el recibo');
+  const offSession = f.indexOf('if (recibo.cobro_off_session_clave) {');
+  const caja = f.indexOf('cobroCajaLeido = (recibo.cobro_mostrador_pi as string | null) ?? null;', offSession);
+  const mira = f.indexOf('await vidaDelCobroDeLaCajaEnElRecibo(admin, body.studioId, body.reciboId, cobroCajaLeido, { origen: req.nextUrl.origin });', caja);
+  const frena = f.indexOf("if (vida !== 'muerto') {", mira);
+  const reutiliza = f.indexOf('sesionAbiertaId = (recibo.checkout_session_id as string | null) ?? null;', frena);
+  const crea = f.indexOf('stripe.checkout.sessions.create(', reutiliza);
+  assert.ok(offSession > 0 && caja > offSession && mira > caja && frena > mira && reutiliza > frena && crea > reutiliza,
+    'tarjeta guardada → cobro de la Caja (vivo frena) → reutilizar una sesión abierta → crear');
+  // Solo lee: nunca para el cobro del mostrador desde el enlace de la socia.
+  assert.ok(!f.includes('soltarPagosEnMarchaAntesDeCobrar') && !/cancelar\(cobroCajaLeido|anularCobroDelDatafono/.test(f));
+  // Y la sesión nueva no se guarda si entre medias empezó otro cobro de la Caja.
+  assert.ok(f.includes("? guardar.eq('cobro_mostrador_pi', cobroCajaLeido)\n        : guardar.is('cobro_mostrador_pi', null)"));
 });
