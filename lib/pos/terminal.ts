@@ -239,12 +239,18 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
 
     async consultar(ctx, referencia) {
       try {
-        // Una tarjeta rechazada solo es un final cuando el lector ya no sigue con
-        // ella, y se cierra en Stripe antes de decirlo (ver `cerrarSiRechazadoDatafono`).
-        const { veredicto, pi, rechazo } = await cerrarSiRechazadoDatafono(ctx.stripe, referencia, ctx.stripeAccount, readerId);
+        // Un cobro sin pagar solo es un final cuando el lector ya no sigue con él, y
+        // se cierra en Stripe antes de decirlo (ver `cerrarSiRechazadoDatafono`). Con
+        // tarjeta rechazada, o sin tarjeta (`sinTarjeta`): otro envío al mismo lector
+        // le quitó el sitio (medido) o la acción del lector falló. Antes la Caja se
+        // quedaba 90 s en «Acerca la tarjeta» con el lector ya en otra cosa.
+        const { veredicto, pi, rechazo } = await cerrarSiRechazadoDatafono(
+          ctx.stripe, referencia, ctx.stripeAccount, readerId, { sinTarjeta: true },
+        );
         if (veredicto === 'rechazado') return consultaDatafono(pi, rechazo);
-        // El lector sigue (p. ej. pidiendo el PIN tras el pago sin contacto): se espera.
-        if (veredicto === 'sigue') return { ...consultaDatafono(pi), estado: 'PROCESANDO', error: undefined };
+        // El lector sigue con él: pidiendo el PIN tras el pago sin contacto (con el
+        // error del primer intento), o esperando la tarjeta («Acerca la tarjeta»).
+        if (veredicto === 'sigue' && pi.last_payment_error) return { ...consultaDatafono(pi), estado: 'PROCESANDO', error: undefined };
         return consultaDatafono(pi);
       } catch (err) {
         console.error('[pos/terminal:datafono:consultar]', err instanceof Stripe.errors.StripeError ? err.message : err);
@@ -341,6 +347,11 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
         // Stripe, o la cuenta sin terminar de verificar— y eso se arregla en
         // dos minutos SI alguien te lo dice. El mensaje de Stripe es
         // descriptivo y no expone secretos.
+        // Salvo el de clave repetida, que no es de configuración ni dice nada en el
+        // mostrador (llegaba en inglés): este intento ya se empezó con otros datos.
+        if (err instanceof Stripe.errors.StripeIdempotencyError) {
+          return { ok: false, error: 'Este cobro por Bizum ya se había empezado con otros datos. Vuelve a pulsar Cobrar.' };
+        }
         if (err instanceof Stripe.errors.StripeError) {
           return { ok: false, error: `Stripe no ha aceptado el cobro por Bizum: ${err.message}` };
         }

@@ -6,7 +6,7 @@ import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
 import { prepararCobroExistente } from '@/lib/pos/cobro-del-estudio';
 import { confirmarCobroRecibo } from '@/lib/billing/confirmar-cobro';
-import type { EstadoPagoPOS } from '@/lib/pos/tipos';
+import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -46,8 +46,12 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   const body = (await req.json().catch(() => null)) as
-    { reciboId?: unknown; metodo?: unknown; accion?: unknown } | null;
+    { reciboId?: unknown; metodo?: unknown; accion?: unknown; referencia?: unknown } | null;
   const reciboId = typeof body?.reciboId === 'string' ? body.reciboId : '';
+  // El cobro que espera la Caja. Solo se usa si el recibo ya lo soltó (abajo), y
+  // nunca se cree: tiene que ser, por su metadata, de este recibo y este estudio.
+  const referenciaCaja = typeof body?.referencia === 'string' && /^[A-Za-z0-9_:-]{3,200}$/.test(body.referencia)
+    ? body.referencia : null;
   const metodo = String(body?.metodo ?? 'DATAFONO') as MetodoPago;
   const accion = body?.accion === 'cancelar' ? 'cancelar' : 'consultar';
   if (!reciboId) return NextResponse.json({ error: 'Falta el recibo' }, { status: 400 });
@@ -61,10 +65,32 @@ export async function POST(req: NextRequest) {
   const responder = (pagoEstado: EstadoPagoPOS, extra: Record<string, unknown> = {}) =>
     NextResponse.json({ reciboId, estado: recibo.estado, pagoEstado, importe: Number(recibo.importe), ...extra });
 
+  // Qué fue de un cobro que el recibo ya soltó.
+  //  · Sin poder preguntar, o si entró o sigue en marcha: PROCESANDO. No se afirma
+  //    nada (ni se revela nada) y la Caja sigue preguntando; uno que entró lo
+  //    cierra el aviso de Stripe y el recibo sale COBRADO.
+  //  · Final sin cobrar: solo si su metadata (la que puso este servidor al crearlo)
+  //    dice que es de ESTE recibo y ESTE estudio. Si no, `null`.
+  const desenlaceDeCobroSoltado = async (ref: string): Promise<{ estado: EstadoPagoPOS; motivo: string | null } | null> => {
+    const prep = await prepararCobroExistente(admin, sesion.studioId, ref, metodo, { origen: req.nextUrl.origin });
+    if (!prep.ok) return { estado: 'PROCESANDO', motivo: null };
+    const est = await prep.cobro.consultar(ref).catch(() => null);
+    if (!est || est.estado === 'PAGADO' || !esEstadoFinal(est.estado)) return { estado: 'PROCESANDO', motivo: null };
+    const meta = est.metadata ?? {};
+    if (meta.reciboId !== reciboId || meta.studioId !== sesion.studioId) return null;
+    return { estado: est.estado, motivo: est.error ?? null };
+  };
+
   // Ya cerrado por el otro camino (el webhook llegó antes).
   if (recibo.estado === 'COBRADO') return responder('PAGADO', { cobrado: true });
 
   if (!recibo.cobro_mostrador_pi) {
+    // Otro camino lo cerró y soltó el recibo antes que esta consulta: el aviso de
+    // Stripe tras un rechazo, el conciliador, otra pestaña. «No llegó a iniciarse»
+    // era falso (se rechazó o se abandonó): con el cobro que espera la Caja se dice
+    // qué pasó.
+    const desenlace = referenciaCaja ? await desenlaceDeCobroSoltado(referenciaCaja) : null;
+    if (desenlace) return responder(desenlace.estado, desenlace.motivo ? { motivo: desenlace.motivo } : {});
     return responder('ERROR', { motivo: 'Ese cobro no llegó a iniciarse.' });
   }
 

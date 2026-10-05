@@ -44,19 +44,38 @@ export function estadoDesdeStripe(status: Stripe.PaymentIntent.Status): EstadoPa
   }
 }
 
+/** El motivo de un rechazo, venga del cobro (`last_payment_error`) o de su cargo. */
+type MotivoRechazo = { code?: string | null; decline_code?: string | null };
+
+/**
+ * El rechazo de un cargo fallido (`latest_charge`, expandido), o `null`. Al cancelar
+ * el cobro, Stripe borra `last_payment_error`, pero su último cargo conserva el
+ * motivo: `failure_code` y, en `outcome.reason`, el `decline_code` (medido el
+ * 5-oct-2026 con tres tarjetas de prueba).
+ */
+export function rechazoDelCargo(cargo: string | Stripe.Charge | null | undefined): MotivoRechazo | null {
+  if (!cargo || typeof cargo === 'string' || cargo.status !== 'failed') return null;
+  return { code: cargo.failure_code ?? null, decline_code: cargo.outcome?.reason ?? null };
+}
+
 /**
  * Un cobro del datáfono de Stripe (card_present), en el contrato del TPV.
  * `rechazo`: el error con el que se quedó, cuando ya se comprobó que era un
  * rechazo y se CERRÓ (ver `cerrarSiRechazadoDatafono`). Va aparte porque al
- * cancelarlo Stripe borra `last_payment_error` (medido). El motivo, en español.
+ * cancelarlo Stripe borra `last_payment_error` (medido). Sin él, un cobro ya
+ * cancelado cuyo último cargo falló también es un rechazo (`rechazoDelCargo`):
+ * así se sabe aunque lo cerrara otro camino (el aviso de Stripe, el conciliador).
+ * El motivo, en español.
  */
 export function consultaDatafono(
-  pi: Pick<Stripe.PaymentIntent, 'status' | 'last_payment_error' | 'amount_received' | 'metadata'>,
-  rechazo?: Stripe.PaymentIntent.LastPaymentError | null,
+  pi: Pick<Stripe.PaymentIntent, 'status' | 'last_payment_error' | 'amount_received' | 'metadata'>
+    & { latest_charge?: Stripe.PaymentIntent['latest_charge'] },
+  rechazo?: MotivoRechazo | null,
 ): ConsultaCobro {
-  const error = rechazo ?? pi.last_payment_error;
+  const cerrado = rechazo ?? (pi.status === 'canceled' ? rechazoDelCargo(pi.latest_charge) : null);
+  const error = cerrado ?? pi.last_payment_error;
   return {
-    estado: rechazo ? 'RECHAZADO' : estadoDesdeStripe(pi.status),
+    estado: cerrado ? 'RECHAZADO' : estadoDesdeStripe(pi.status),
     error: error ? motivoRechazoDatafono(error) : undefined,
     importeCentimos: pi.amount_received ?? null,
     metadata: (pi.metadata ?? {}) as Record<string, string>,
@@ -111,7 +130,8 @@ export async function cerrarSiRechazadoDatafono(
   opciones: { sinTarjeta?: boolean } = {},
 ): Promise<{ veredicto: VeredictoDatafono; pi: Stripe.PaymentIntent; rechazo?: Stripe.PaymentIntent.LastPaymentError }> {
   const opc = { stripeAccount };
-  const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {}, opc);
+  // Con el último cargo: es lo único que guarda el motivo de un rechazo ya cancelado.
+  const pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ['latest_charge'] }, opc);
   if (pi.status !== 'requires_payment_method') return { veredicto: 'no', pi };
   if (!pi.last_payment_error && !opciones.sinTarjeta) return { veredicto: 'no', pi };
 
@@ -125,7 +145,7 @@ export async function cerrarSiRechazadoDatafono(
 
   // Solo el cobro, nunca la acción del lector: podría estar ya con otra venta.
   await stripe.paymentIntents.cancel(paymentIntentId, {}, opc).catch(() => undefined);
-  const tras = await stripe.paymentIntents.retrieve(paymentIntentId, {}, opc);
+  const tras = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ['latest_charge'] }, opc);
   if (tras.status === 'canceled') {
     return pi.last_payment_error
       ? { veredicto: 'rechazado', pi: tras, rechazo: pi.last_payment_error }

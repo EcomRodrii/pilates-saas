@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type Stripe from 'stripe';
 import {
   anularCobroDelDatafono, cerrarSiRechazadoDatafono, consultaDatafono, consultarCobroBizum, envioFallidoDatafono, estadoDesdeStripe,
-  lectorConElCobro,
+  lectorConElCobro, rechazoDelCargo,
 } from './consulta-stripe.ts';
 
 // Bizum del mostrador: cuando Stripe crea la sesión de Checkout sin PaymentIntent,
@@ -334,4 +334,57 @@ test('⚠️ el datáfono anula con `anularCobroDelDatafono`, y la venta estrena
   assert.ok(venta.includes(".eq('id', base.ventaId).eq('studio_id', sesion.studioId).eq('estado', 'PENDIENTE_PAGO');"));
   const hoja = leer('components/pos/hoja-cobro.tsx');
   assert.ok(hoja.includes('if (r.codigo === CODIGO_INTENTO_CERRADO) onVentaAnuladaRef.current?.();'));
+});
+
+// Medido el 5-oct-2026: al cancelar el cobro, Stripe borra `last_payment_error`,
+// pero su último cargo (`latest_charge`, expandido) conserva el motivo.
+const cargoFallido = (failure_code: string, reason: string) =>
+  ({ id: 'ch_1', status: 'failed', failure_code, outcome: { reason, type: 'issuer_declined' } }) as unknown as Stripe.Charge;
+
+test('rechazoDelCargo: solo un cargo fallido y expandido da motivo', () => {
+  assert.deepEqual(rechazoDelCargo(cargoFallido('card_declined', 'insufficient_funds')), { code: 'card_declined', decline_code: 'insufficient_funds' });
+  assert.equal(rechazoDelCargo({ ...cargoFallido('x', 'y'), status: 'succeeded' } as Stripe.Charge), null);
+  assert.equal(rechazoDelCargo('ch_sin_expandir'), null);
+  assert.equal(rechazoDelCargo(null), null);
+});
+
+test('⚠️ un cobro ya cancelado tras un rechazo es RECHAZADO con su motivo, aunque lo cerrara otro camino', () => {
+  const r = consultaDatafono(piDatafono({ status: 'canceled', latest_charge: cargoFallido('card_declined', 'insufficient_funds') }));
+  assert.equal(r.estado, 'RECHAZADO');
+  assert.match(r.error ?? '', /no tiene saldo suficiente/);
+  const caducada = consultaDatafono(piDatafono({ status: 'canceled', latest_charge: cargoFallido('expired_card', 'expired_card') }));
+  assert.match(caducada.error ?? '', /caducada/);
+  // Cancelado sin cargo fallido (nadie pasó la tarjeta, o lo canceló quien cobra): CANCELADO, sin motivo inventado.
+  const sinCargo = consultaDatafono(piDatafono({ status: 'canceled' }));
+  assert.equal(sinCargo.estado, 'CANCELADO');
+  assert.equal(sinCargo.error, undefined);
+  // Un cargo fallido no convierte en rechazo un cobro que sigue vivo o que entró.
+  assert.equal(consultaDatafono(piDatafono({ latest_charge: cargoFallido('card_declined', 'generic_decline') })).estado, 'PENDIENTE');
+  assert.equal(consultaDatafono(piDatafono({ status: 'succeeded', latest_charge: cargoFallido('card_declined', 'x') })).estado, 'PAGADO');
+});
+
+test('⚠️ el sondeo del datáfono cierra el cobro que el lector ya no tiene, y espera «Acerca la tarjeta» mientras lo tiene', () => {
+  const terminal = leer('lib/pos/terminal.ts');
+  const datafono = terminal.slice(terminal.indexOf('function crearProveedorDatafono'), terminal.indexOf('function crearProveedorBizum'));
+  assert.ok(datafono.includes('ctx.stripe, referencia, ctx.stripeAccount, readerId, { sinTarjeta: true },'));
+  // PROCESANDO solo con el error del primer intento (el lector pide el PIN); sin él, PENDIENTE.
+  assert.ok(datafono.includes("if (veredicto === 'sigue' && pi.last_payment_error) return { ...consultaDatafono(pi), estado: 'PROCESANDO', error: undefined };"));
+  // Bizum: el error de clave repetida, en español (no es de configuración).
+  const bizum = terminal.slice(terminal.indexOf('function crearProveedorBizum'));
+  assert.ok(bizum.indexOf('err instanceof Stripe.errors.StripeIdempotencyError') < bizum.indexOf('Stripe no ha aceptado el cobro por Bizum'));
+});
+
+test('⚠️ recibo con el cobro ya soltado: el motivo sale del cobro de la Caja, y solo si es de ESTE recibo', () => {
+  const ruta = leer('app/api/pos/recibo/confirmar/route.ts');
+  const desenlace = ruta.slice(ruta.indexOf('const desenlaceDeCobroSoltado'), ruta.indexOf("if (recibo.estado === 'COBRADO')"));
+  // Lo que no es final (o entró) no se afirma: PROCESANDO, sin mirar de quién es.
+  assert.ok(desenlace.includes("if (!est || est.estado === 'PAGADO' || !esEstadoFinal(est.estado)) return { estado: 'PROCESANDO', motivo: null };"));
+  // Un final sin cobrar, solo con la metadata de este recibo y este estudio.
+  assert.ok(desenlace.indexOf('if (meta.reciboId !== reciboId || meta.studioId !== sesion.studioId) return null;')
+    < desenlace.indexOf('return { estado: est.estado, motivo: est.error ?? null };'));
+  assert.ok(ruta.includes('const desenlace = referenciaCaja ? await desenlaceDeCobroSoltado(referenciaCaja) : null;'));
+  const caja = leer('components/pos/deuda-clienta.tsx');
+  // No pregunta sin el cobro, y pregunta con él.
+  assert.ok(caja.includes("if (fase.f !== 'esperando' || !fase.referencia) return;"));
+  assert.ok(caja.includes("confirmarCobroRecibo(reciboId, metodo, 'consultar', referencia)"));
 });
