@@ -31,7 +31,7 @@ const servidor = [...ficheros(join(RAIZ, 'app')), ...ficheros(join(RAIZ, 'lib'))
 
 test('nadie identifica a una persona con getUser sin pasar por el segundo paso', () => {
   const sueltos = servidor
-    .filter((p) => /\.auth\.getUser\(/.test(sinComentarios(readFileSync(p, 'utf8'))))
+    .filter((p) => /\.auth\.(getUser|getClaims)\(/.test(sinComentarios(readFileSync(p, 'utf8'))))
     .filter((p) => !p.endsWith('lib/auth-server.ts'))
     .filter((p) => !/pasoDeLaSesion\(/.test(sinComentarios(readFileSync(p, 'utf8'))))
     .map((p) => relative(RAIZ, p));

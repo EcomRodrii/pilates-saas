@@ -74,7 +74,8 @@ async function resolverSesionStaffRapida(
   if (!identidad) return undefined;
   const factoresPromesa = (async () => {
     const { data, error } = await admin.rpc('factores_mfa_de', { p_user: identidad.id });
-    if (error || !Array.isArray(data)) throw FACTORES_NO_LEIDOS;
+    // Forma comprobada: un elemento raro contaría como «sin factores», y eso abriría.
+    if (error || !Array.isArray(data) || !data.every((f) => typeof f === 'object' && f !== null && 'status' in f)) throw FACTORES_NO_LEIDOS;
     return data as FactorDeUsuario[];
   })();
   // Si la rama de arriba lanza antes de que se lea la promesa, que no quede sin atender.
