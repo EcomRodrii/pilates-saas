@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { accionDeFila, cerradaPorAntelacion, estadoTemporalDeFila, type CondicionesFila } from './fila-horario.ts';
+import { accionDeFila, topeSemanalLleno, cerradaPorAntelacion, estadoTemporalDeFila, type CondicionesFila } from './fila-horario.ts';
 
 // La fila del horario: qué dice a la derecha y si ofrece «Reservar» (P11/P12).
 
@@ -28,7 +28,7 @@ test('cerrada por la antelación mínima: desde `cierraEl`; sin reloj no se afir
 
 const verde: CondicionesFila = {
   disp: 'disponible', sinPagar: true, temporal: 'plazas', cerrada: false, salaConSitios: false, requiereAprobacion: false,
-  requiereAutorizacion: false, aperturaSuave: false, online: true, relojListo: true, recienReservada: false,
+  requiereAutorizacion: false, aperturaSuave: false, online: true, relojListo: true, recienReservada: false, topeLleno: false,
 };
 
 test('«Reservar» en la fila: con plaza y sin pagar nada', () => {
@@ -46,7 +46,34 @@ test('cada condición apaga el botón por separado', () => {
   const apagan: Partial<CondicionesFila>[] = [
     { sinPagar: false }, { temporal: 'en-curso' }, { temporal: 'terminada' }, { temporal: 'se-abre' }, { cerrada: true },
     { salaConSitios: true }, { requiereAprobacion: true }, { requiereAutorizacion: true }, { aperturaSuave: true },
-    { online: false }, { relojListo: false }, { recienReservada: true },
+    { online: false }, { relojListo: false }, { recienReservada: true }, { topeLleno: true },
   ];
   for (const a of apagan) assert.equal(accionDeFila({ ...verde, ...a }), 'ninguna', JSON.stringify(a));
+});
+
+test('la cuota con el tope semanal lleno no ofrece el atajo (cuenta como el servidor, también la de recuperación)', () => {
+  const cuota = { tipoPlan: 'MENSUAL' as const, limiteSemanal: 2, limitePorTipo: { 'tc-r': 1 }, tiposClaseIds: [] };
+  const clases = [
+    { id: 'lun', fecha: '2026-10-05', tipoClaseId: 'tc-r' },
+    { id: 'mar', fecha: '2026-10-06', tipoClaseId: 'tc-m' },
+    { id: 'jue', fecha: '2026-10-08', tipoClaseId: 'tc-m' },
+    { id: 'sig', fecha: '2026-10-13', tipoClaseId: 'tc-m' },
+  ];
+  const hoy = '2026-10-05';
+  const jue = clases[2];
+  // Dos de la semana (una, la del Reformer, pudo pagarla una recuperación: cuenta igual) → lleno.
+  assert.equal(topeSemanalLleno(jue, cuota, [{ claseId: 'lun', estado: 'asistida' }, { claseId: 'mar', estado: 'confirmada' }], clases, hoy), true);
+  // Una sola, y otra cancelada → queda sitio.
+  assert.equal(topeSemanalLleno(jue, cuota, [{ claseId: 'mar', estado: 'confirmada' }, { claseId: 'lun', estado: 'cancelada' }], clases, hoy), false);
+  // La falta sin avisar también gasta la semana.
+  assert.equal(topeSemanalLleno(jue, cuota, [{ claseId: 'mar', estado: 'no-asistida' }, { claseId: 'lun', estado: 'confirmada' }], clases, hoy), true);
+  // Otra semana no cuenta.
+  assert.equal(topeSemanalLleno(clases[3], cuota, [{ claseId: 'lun', estado: 'asistida' }, { claseId: 'mar', estado: 'confirmada' }], clases, hoy), false);
+  // El tope de la actividad: un Reformer ya esta semana → el siguiente Reformer, lleno.
+  assert.equal(topeSemanalLleno({ fecha: '2026-10-09', tipoClaseId: 'tc-r' }, cuota, [{ claseId: 'lun', estado: 'confirmada' }], clases, hoy), true);
+  // Ante la duda (reserva que cuenta y cuya clase no está cargada), lleno si es la semana de hoy.
+  assert.equal(topeSemanalLleno(jue, cuota, [{ claseId: 'pasada', estado: 'asistida' }, { claseId: 'mar', estado: 'confirmada' }], clases, hoy), true);
+  // Un bono no tiene tope semanal, ni una cuota sin tope.
+  assert.equal(topeSemanalLleno(jue, { ...cuota, tipoPlan: 'BONO' }, [{ claseId: 'lun', estado: 'asistida' }, { claseId: 'mar', estado: 'confirmada' }], clases, hoy), false);
+  assert.equal(topeSemanalLleno(jue, { ...cuota, limiteSemanal: null, limitePorTipo: {} }, [{ claseId: 'mar', estado: 'confirmada' }], clases, hoy), false);
 });

@@ -36,11 +36,12 @@ test('cuentan confirmadas, asistidas y no-shows de la semana, solo de lo que cub
   assert.deepEqual(s.porTipo, [{ tipoClaseId: 'tc-r', limite: 1, cuentan: 1 }]);
 });
 
-test('las pagadas con recuperación se cuentan y se dicen aparte', () => {
+test('las pagadas con recuperación cuentan para el tope, como en el servidor, y se dice cuántas', () => {
   const s = contarSemana([r('a', 'CONFIRMADA', '2026-10-06T08:00:00Z'), r('b', 'ASISTIDA', '2026-10-05T08:00:00Z')], plan, V, new Set(['b']));
   assert.equal(s.cuentan, 2);
   assert.equal(s.conRecuperacion, 1);
-  assert.deepEqual(textoSemana(s), { cifra: '1 de 2', recuperacion: '+1 con recuperación' });
+  // Con el tope lleno no puede decir «1 de 2»: la siguiente la rechaza el servidor o gasta otra recuperación.
+  assert.deepEqual(textoSemana(s), { cifra: '2 de 2', recuperacion: '1 de ellas, con recuperación' });
 });
 
 test('por encima del tope no se recorta, y sin tope no hay texto', () => {

@@ -16,7 +16,7 @@ import { seReservaSinPagar } from '@/lib/student/como-se-paga';
 import { getFavoritos } from '@/lib/student/favoritos';
 import { avisoCancelacion, disponibilidad } from '@/lib/student/maquina-reserva';
 import { addDias, etiquetaDia, hoyISO } from '@/lib/student/formato';
-import { accionDeFila, cerradaPorAntelacion, estadoTemporalDeFila } from '@/lib/student/fila-horario';
+import { accionDeFila, cerradaPorAntelacion, estadoTemporalDeFila, topeSemanalLleno } from '@/lib/student/fila-horario';
 import {
   avisoDeSalto, diasConClases, diasConReserva, filtrarHorario, leerFiltrosGuardados, primerDiaConClases, salasDelHorario, type Franja,
 } from '@/lib/student/horario-dias';
@@ -313,6 +313,7 @@ export default function HorarioPage() {
                 requiereAutorizacion: c.requiereAutorizacion === true,
                 aperturaSuave: etiquetaAperturaSuave(c.inicio, estudio.aperturaSuaveHasta) !== null,
                 online, relojListo: ahoraMs !== null, recienReservada: recien.has(c.id) && disp !== 'reservada',
+                topeLleno: topeSemanalLleno(c, bono, data.reservas, data.clases, hoy),
               });
               return (
                 <FilaHorario

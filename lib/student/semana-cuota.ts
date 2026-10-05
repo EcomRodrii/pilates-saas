@@ -7,8 +7,9 @@
 //     `v_semana_ini + interval '7 days'`), no «hasta el lunes siguiente»: la semana del cambio de hora no pierde una hora;
 //   · cuentan CONFIRMADA, ASISTIDA y NO_ASISTIO (quien falta sin avisar ha usado esa clase), de clases no canceladas;
 //   · el total, solo de los tipos que cubre el plan; el de cada actividad, solo de esa actividad.
-//   · El SQL cuenta TAMBIÉN las pagadas con una recuperación: aquí se cuentan igual y se dicen aparte
-//     (`conRecuperacion`), para que «2 de 2» no esconda que una entró por una recuperación.
+//   · El SQL cuenta TAMBIÉN las pagadas con una recuperación: la cifra las incluye («2 de 2») y se dice cuántas
+//     de ellas («1 con recuperación»). Restarlas daba «1 de 2» con el tope ya lleno: la siguiente la rechazaba
+//     el servidor o le gastaba otra recuperación sin avisar.
 
 import { ESTADOS_QUE_USAN_LA_SEMANA } from '../recuperaciones/derecho-semanal.ts';
 
@@ -72,15 +73,17 @@ export function contarSemana(
 }
 
 /**
- * «1 de 2» sin las pagadas con recuperación, que van aparte; si se pasa del tope (el estudio la apuntó a mano), la
- * cifra entera: «3 clases · tu cuota incluye 2», sin recortar.
+ * «2 de 2» con TODAS las que cuentan para el tope, como el servidor; si se pasa (el estudio la apuntó a mano), la
+ * cifra entera: «3 clases · tu cuota incluye 2», sin recortar. Las pagadas con recuperación se dicen como detalle
+ * DENTRO de esa cuenta, no restadas.
  */
 export function textoSemana(s: SemanaCuota): { cifra: string; recuperacion: string | null } | null {
   if (s.limite === null) return null;
-  const propias = s.cuentan - s.conRecuperacion;
-  const cifra = propias > s.limite
-    ? `${propias} clases · tu cuota incluye ${s.limite}`
-    : `${propias} de ${s.limite}`;
-  const recuperacion = s.conRecuperacion > 0 ? `+${s.conRecuperacion} con recuperación` : null;
+  const cifra = s.cuentan > s.limite
+    ? `${s.cuentan} clases · tu cuota incluye ${s.limite}`
+    : `${s.cuentan} de ${s.limite}`;
+  const recuperacion = s.conRecuperacion > 0
+    ? (s.conRecuperacion === 1 ? '1 de ellas, con recuperación' : `${s.conRecuperacion} de ellas, con recuperación`)
+    : null;
   return { cifra, recuperacion };
 }

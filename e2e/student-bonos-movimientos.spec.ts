@@ -84,16 +84,16 @@ test('el detalle enseña la lista entera y «Ver más» pide la página siguient
   await expect(lista.getByRole('button', { name: 'Ver más' })).toHaveCount(0);
 });
 
-test('cuota con tope: «Esta semana 1 de 2», con la recuperación aparte y su actividad', async ({ page }) => {
+test('cuota con tope: «Esta semana 2 de 2» cuenta también la de recuperación, y lo dice', async ({ page }) => {
   const { a, cuerpos } = await montar(page, { bono: null, cuota: { limiteSemanal: 2 } }, (c, r) => r.fulfill(json({
     movimientos: null,
     semanas: (c.semanaDe as string[]).map((id) => ({ suscripcionId: id, limite: 2, cuentan: 2, conRecuperacion: 1, porTipo: [], desde: '2026-08-09T22:00:00.000Z', hasta: '2026-08-16T22:00:00.000Z' })),
   })));
   await page.goto(BONOS, { waitUntil: 'domcontentloaded' });
   const semana = page.getByTestId('cuota-semana');
-  await expect(semana.getByTestId('semana-cifra')).toHaveText('1 de 2', { timeout: 60_000 });
+  await expect(semana.getByTestId('semana-cifra')).toHaveText('2 de 2', { timeout: 60_000 });
   await expect(semana).toContainText('2 clases a la semana');
-  await expect(semana).toContainText('+1 con recuperación');
+  await expect(semana).toContainText('1 de ellas, con recuperación');
   expect(cuerpos.some((c) => (c.semanaDe as string[] | undefined)?.includes('sus-mes'))).toBe(true);
   // Una cuota no tiene movimientos de sesiones.
   await expect(page.getByTestId('movimientos-bono')).toHaveCount(0);

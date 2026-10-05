@@ -38,7 +38,7 @@ export function SemanaCuota({ slug, suscripcionId, nombresTipo }: {
           {semana.porTipo.filter((t) => nombresTipo[t.tipoClaseId]).map((t) => (
             <p key={t.tipoClaseId} className="t-meta t-num" style={{ margin: 0 }}>{nombresTipo[t.tipoClaseId]}: {t.cuentan} de {t.limite}</p>
           ))}
-          <p className="t-meta" style={{ margin: 0 }}>Cuentan las que has hecho y las que tienes reservadas.</p>
+          <p className="t-meta" style={{ margin: 0 }}>Cuentan las que has hecho, las que tienes reservadas y a las que faltaste sin avisar.</p>
         </>
       )}
     </div>
