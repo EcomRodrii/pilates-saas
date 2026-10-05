@@ -15,6 +15,8 @@ import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunnin
 import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/billing/confirmar-cobro';
 import { reservarClasePagada } from '@/lib/billing/reservar-clase-pagada';
 import { selloDelCobro } from '@/lib/billing/sello-del-cobro';
+import { resolverSesionCaducada } from '@/lib/billing/sesion-caducada';
+import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
 import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
 import { cerrarCheckoutDeBizumFallido } from '@/lib/pos/cerrar-bizum-fallido';
@@ -1412,6 +1414,30 @@ async function procesarEvento(
     if (session.metadata?.plazaEtapaId) {
       const admin = getSupabaseAdmin();
       if (admin) await liberarPlazaPorRef(admin, session.id);
+    }
+
+    // El pago online de un RECIBO caducó sin pagarse: si es una deuda (cuota o
+    // reintento armado), el recibo vuelve a su cobro de siempre; la renovación de
+    // un bono que ella pidió no se cobra sola. Ver lib/billing/sesion-caducada.ts.
+    // Hoy el endpoint no está suscrito a este evento: lo hace el conciliador, y
+    // esto queda por si se suscribe. Compare-and-set sobre ESTA sesión.
+    const reciboDeLaSesion = session.metadata?.reciboId;
+    if (reciboDeLaSesion) {
+      const admin = getSupabaseAdmin();
+      const studioId = admin ? await studioDeCuentaConnect(admin, event.account) : null;
+      if (admin && studioId && tenantAutorizado(studioId, session.metadata?.studioId)) {
+        const r = await resolverSesionCaducada(
+          admin, { studioId, reciboId: reciboDeLaSesion, sesionId: session.id },
+          recibo => tipoDePlanDelRecibo(admin, recibo),
+        );
+        // Si falla, lo recoge el conciliador en su siguiente pasada.
+        if (r === 'error') {
+          Sentry.captureMessage('[stripe webhook] no se pudo soltar la sesión caducada de un recibo', {
+            level: 'warning', tags: { area: 'cobros', tipo: 'sesion-caducada' },
+            extra: { sessionId: session.id, reciboId: reciboDeLaSesion, studioId },
+          });
+        }
+      }
     }
   }
 

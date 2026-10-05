@@ -12,7 +12,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { tipoDeReciboParaBizum } from '@/lib/billing/bizum-permitido';
+// Relativo y con `.ts`: lo importan también el conciliador y `node --test`.
+import { tipoDeReciboParaBizum } from './bizum-permitido.ts';
 
 /**
  * Devuelve `'MENSUAL' | 'SIN_PLAN' | <tipo del plan> | null`.

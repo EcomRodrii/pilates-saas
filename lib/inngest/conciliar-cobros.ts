@@ -43,6 +43,8 @@ import { selloDelCobro } from '../billing/sello-del-cobro.ts';
 import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
 import { liberarCupoMatriculaUnaVez } from '../billing/matricula-online.ts';
+import { resolverSesionCaducada, sesionesCaducadasDeRecibos } from '../billing/sesion-caducada.ts';
+import { tipoDePlanDelRecibo } from '../billing/tipo-plan-de-recibo.ts';
 import { cobroPosDeSesionCaducada } from '../pos/cerrar-bizum-fallido.ts';
 import { liberarCobroPosFallido } from '../pos/liberar-cobro-fallido.ts';
 import { barrerCobrosSumup } from '../pos/cobro-sumup.ts';
@@ -234,6 +236,7 @@ async function conciliarEstudio(
   }
   await devolverPlazasDeMatricula(admin, stripe, studio, [...sesionPorId.values()], [...piPorId.values()]);
   await soltarCobrosPosCaducados(admin, studio, [...sesionPorId.values()]);
+  await soltarSesionesCaducadasDeRecibos(admin, studio, [...sesionPorId.values()]);
   await resolverCobrosConMetodoGuardadoColgados(admin, stripe, studio, [...piPorId.values()], inicioListado);
   return pendientes.length;
 }
@@ -327,6 +330,36 @@ async function resolverCobrosConMetodoGuardadoColgados(
       } else {
         console.error('[conciliador] cobro con tarjeta guardada colgado sin resolver', r.id, e);
       }
+    }
+  }
+}
+
+// Pagos online de RECIBOS que caducaron sin pagarse (`recibos.checkout_session_id`
+// apuntando a una sesión `expired`): con la columna puesta, el recibo no lo cobra el
+// cobro diario, ni lo adopta el cron de renovaciones, ni entra en la remesa. Una
+// deuda (cuota, reintento armado) vuelve a su cobro; la renovación de un bono que
+// ella pidió, no. Ver lib/billing/sesion-caducada.ts. Corre en el barrido horario
+// (sesiones de 12 h, como las que se expiran a mano) y en la vigilancia diaria (72 h:
+// las del enlace de pago caducan a las 24 h, fuera de la ventana de 12 h).
+// Idempotente: compare-and-set sobre esa sesión.
+async function soltarSesionesCaducadasDeRecibos(
+  admin: SupabaseClient,
+  studio: { id: string; stripe_account_id: string },
+  sesiones: Stripe.Checkout.Session[],
+): Promise<void> {
+  for (const { sesionId, reciboId } of sesionesCaducadasDeRecibos(sesiones, studio.id)) {
+    try {
+      const r = await resolverSesionCaducada(
+        admin, { studioId: studio.id, reciboId, sesionId },
+        recibo => tipoDePlanDelRecibo(admin, recibo),
+      );
+      if (r === 'error') throw new Error('no se pudo leer o soltar el recibo');
+    } catch (e) {
+      // La sesión sigue en el listado de las próximas pasadas: se reintenta sola.
+      Sentry.captureException(e instanceof Error ? e : new Error('sesión caducada de un recibo'), {
+        level: 'warning', tags: { area: 'cobros', tipo: 'sesion-caducada' },
+        extra: { studioId: studio.id, reciboId, sesionId },
+      });
     }
   }
 }
@@ -450,6 +483,7 @@ async function vigilarEstudio(
 ): Promise<number> {
   const { pendientes, sesionPorId, piPorId } = await detectarPendientes(admin, stripe, studio, VENTANA_VIGILANCIA_HORAS);
   await devolverPlazasDeMatricula(admin, stripe, studio, [...sesionPorId.values()], [...piPorId.values()]);
+  await soltarSesionesCaducadasDeRecibos(admin, studio, [...sesionPorId.values()]);
 
   // Solo lo que ya está FUERA del alcance del barrido de recuperación. Lo más
   // reciente que 12 h no es un problema todavía: el otro cron lo cogerá en su
