@@ -1,10 +1,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { destinoTrasVerificar, exigeSegundoPaso, factoresVerificados, pasoDobleFactor } from './doble-factor-reglas.ts';
+import { readFileSync } from 'node:fs';
+import { destinoTrasVerificar, exigeSegundoPaso, factoresVerificados, NOMBRE_FACTOR_INTERNO, pasoDobleFactor } from './doble-factor-reglas.ts';
 
 test('solo cuentan los factores verificados', () => {
   assert.equal(factoresVerificados([{ status: 'verified' }, { status: 'unverified' }]), 1);
   assert.equal(factoresVerificados(null), 0);
+});
+
+test('el factor de la zona interna no enciende la verificación de la cuenta', () => {
+  assert.equal(factoresVerificados([{ status: 'verified', friendly_name: 'Tentare Internal' }]), 0);
+  assert.equal(factoresVerificados([{ status: 'verified', friendly_name: 'Tentare Internal' }, { status: 'verified', friendly_name: 'Tentare' }]), 1);
+  // El de la app del estudio lleva el nombre del estudio: cuenta.
+  assert.equal(factoresVerificados([{ status: 'verified', friendly_name: 'Estudio' }]), 1);
+});
+
+test('el nombre del factor interno es el que pone /interno/mfa', () => {
+  const pantalla = readFileSync(new URL('../../app/interno/mfa/page.tsx', import.meta.url), 'utf8');
+  assert.match(pantalla, /friendlyName: NOMBRE_FACTOR_INTERNO/);
+  // Y la migración que lo excluye en SQL usa el mismo texto.
+  const migr = readFileSync(new URL('../../supabase/migrations/20261005220308_factor_interno_solo_en_interno.sql', import.meta.url), 'utf8');
+  assert.match(migr, new RegExp(`is distinct from '${NOMBRE_FACTOR_INTERNO}'`));
 });
 
 test('regla A: quien la tiene activada necesita el segundo paso, también una instructora', () => {

@@ -8,7 +8,7 @@
 // Por defecto un código al CORREO de la cuenta; la app de autenticación para «No
 // tengo acceso a mi correo», y siempre si entró sin contraseña (con un enlace, un
 // código o Google el correo sería el mismo factor dos veces: lo decide el
-// servidor). «No volver a pedirlo en este dispositivo», desmarcado por defecto.
+// servidor). «No volver a pedirlo en este dispositivo», MARCADO por defecto (5-oct-2026: pedir el código en cada sesión del mismo móvil cansaba; quien no lo quiera lo desmarca).
 //
 // La cerradura es el servidor (`pasoDeLaSesion`, lib/auth-server.ts). Al terminar
 // quien la pinta recarga: lo que hubiera en memoria era de una sesión sin datos.
@@ -51,7 +51,7 @@ export function SegundoPaso({ slug, nombreEstudio, pideLaApp = false, alTerminar
   const [metodo, setMetodo] = useState<'correo' | 'app'>(pideLaApp ? 'app' : 'correo');
   const [correo, setCorreo] = useState<Correo>({ tipo: 'enviando' });
   const [codigo, setCodigo] = useState('');
-  const [recordar, setRecordar] = useState(false);
+  const [recordar, setRecordar] = useState(true);
   const [trabajando, setTrabajando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
@@ -196,7 +196,7 @@ export function SegundoPaso({ slug, nombreEstudio, pideLaApp = false, alTerminar
         <span style={{ fontSize: 'var(--t-small)', color: 'var(--foreground)' }}>
           No volver a pedirlo en este dispositivo
           <span className="t-meta" style={{ display: 'block' }}>
-            Durante {DIAS_DISPOSITIVO_CONFIANZA} días desde la última vez que entres. Márcalo solo en un móvil que uses únicamente tú.
+            Durante {DIAS_DISPOSITIVO_CONFIANZA} días desde la última vez que entres. Desmárcalo si este móvil lo usa más gente.
           </span>
         </span>
       </label>

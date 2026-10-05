@@ -139,6 +139,14 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   merezca el código de verdad (como apagar «exigir 2FA», `/api/estudio/doble-factor`).
   `/interno` NO lo acepta a propósito, y lo que GoTrue protege (quitar o añadir un factor)
   exige el código. La llave es la cookie: la IP y el nombre solo se enseñan en Mi perfil.
+  ⚠️ **El factor de `/interno` solo cuenta en `/interno`** (5-oct-2026, decisión del fundador). El
+  factor de Supabase es UNO por cuenta, y el que `/interno` obliga a crear encendía el código en el
+  panel y en la app del estudio. Ahora la regla A cuenta solo los factores que no se llaman
+  `NOMBRE_FACTOR_INTERNO` ('Tentare Internal'): en SQL `tiene_factor_de_cuenta` (migr
+  `20261005220308`), en TS `factoresVerificados`, y las guardias del navegador con
+  `sesionPideCodigo` (nunca `nextLevel === 'aal2'` a secas: lo pone cualquier factor). `/interno`
+  sigue exigiendo `aal2` con cualquier factor. «No volver a pedirlo en este dispositivo» viene
+  MARCADO: un código por sesión del mismo móvil era «me lo pide mil veces».
   **El segundo paso por CORREO es el de por defecto** (3-oct-2026, `lib/auth/codigo-correo-reglas.ts`,
   migr `20261003160000`): al entrar se manda un código al correo de la cuenta y la app TOTP queda
   para «No tengo acceso a mi correo». Mismo mecanismo que el dispositivo: la sesión sigue en `aal1`

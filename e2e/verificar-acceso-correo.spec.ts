@@ -66,6 +66,18 @@ test('por defecto el código va al correo de la cuenta, y con el bueno se entra'
   await page.getByLabel('Código de 6 dígitos').fill('048213');
   await page.getByRole('button', { name: 'Verificar' }).click();
   await page.waitForURL('**/dashboard');
+  // «No volver a pedirlo en este dispositivo» viene MARCADO (5-oct-2026).
+  expect(p.verificar).toEqual([expect.objectContaining({ codigo: '048213', recordar: true })]);
+});
+
+test('quien desmarca «No volver a pedirlo» no deja el dispositivo recordado', async ({ page }) => {
+  const p = await montar(page);
+  await page.goto('/verificar-acceso');
+  await expect(page.getByText(/Te hemos enviado un código de 6 dígitos/)).toBeVisible();
+  await page.getByLabel('No volver a pedir el código en este dispositivo').uncheck();
+  await page.getByLabel('Código de 6 dígitos').fill('048213');
+  await page.getByRole('button', { name: 'Verificar' }).click();
+  await page.waitForURL('**/dashboard');
   expect(p.verificar).toEqual([expect.objectContaining({ codigo: '048213', recordar: false })]);
 });
 

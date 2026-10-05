@@ -30,7 +30,7 @@ const FACTOR = { id: 'fac-1', factor_type: 'totp', status: 'verified', friendly_
  * si la sesión guardada lo sabe; `false` = la activó en otro dispositivo y solo
  * lo sabe el servidor (`/auth/v1/user`).
  */
-async function sesionConVerificacion(page: Page, enElMovil = true) {
+async function sesionConVerificacion(page: Page, enElMovil = true, factor: typeof FACTOR = FACTOR) {
   // Otro origen con Authorization: WebKit hace preflight y exige las cabeceras
   // CORS (Chromium lo deja pasar sin ellas). Sin esto, en WebKit la lectura fallaba.
   const cors = {
@@ -42,7 +42,7 @@ async function sesionConVerificacion(page: Page, enElMovil = true) {
     ? r.fulfill({ status: 204, headers: cors })
     : r.fulfill({
       status: 200, contentType: 'application/json', headers: cors,
-      body: JSON.stringify({ id: 'auth-marta', email: SOCIA.email, aud: 'authenticated', role: 'authenticated', factors: [FACTOR] }),
+      body: JSON.stringify({ id: 'auth-marta', email: SOCIA.email, aud: 'authenticated', role: 'authenticated', factors: [factor] }),
     }));
   await page.addInitScript(([token, email, factores]) => {
     localStorage.setItem('sb-portal-auth', JSON.stringify({
@@ -54,7 +54,7 @@ async function sesionConVerificacion(page: Page, enElMovil = true) {
         factors: factores,
       },
     }));
-  }, [tokenFalso('aal1'), SOCIA.email, enElMovil ? [FACTOR] : []] as const);
+  }, [tokenFalso('aal1'), SOCIA.email, enElMovil ? [factor] : []] as const);
 }
 
 /** Cuenta cada petición del segundo paso. `confiada` = lo que contesta el dispositivo recordado. */
@@ -161,4 +161,20 @@ test('si el servidor dice que falta el paso aunque el móvil crea que no, la app
   // Y se queda pidiendo el código (con los factores del servidor), sin rebotar a la app.
   await expect(page.getByText(/Te hemos enviado un código/)).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => n.enviar).toBe(1);
+});
+
+test('con solo el factor de la zona interna de Tentare, la app no pide el código', async ({ page }) => {
+  // 5-oct-2026: el factor que /interno obliga a crear ('Tentare Internal') solo
+  // cuenta allí. Antes encendía el código también en la app del estudio.
+  await montarPortal(page, { conSesion: true });
+  await sesionConVerificacion(page, true, { ...FACTOR, friendly_name: 'Tentare Internal' });
+  const n = await contarSegundoPaso(page);
+  let sesionPedida = 0;
+  page.on('request', (req) => { if (req.url().includes('/api/public/session')) sesionPedida++; });
+
+  await page.goto(`/portal/${SLUG}/perfil`);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => sesionPedida).toBeGreaterThan(0);
+  await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/perfil$`));
+  expect(n).toEqual({ usar: 0, enviar: 0, verificar: 0 });
 });

@@ -21,11 +21,27 @@
 
 export type NivelSesion = 'aal1' | 'aal2';
 
-export interface FactorDeUsuario { status?: string | null; factor_type?: string | null }
+export interface FactorDeUsuario { status?: string | null; factor_type?: string | null; friendly_name?: string | null }
 
-/** Factores verificados de un usuario de Supabase (`user.factors`). */
+/**
+ * El factor que `/interno` obliga a crear al equipo de Tentare (app/interno/mfa).
+ * Solo cuenta en la zona interna (decisión del fundador, 5-oct-2026): el factor
+ * de Supabase es uno por cuenta, y con él se pedía el código en el panel y en
+ * la app del estudio aunque la persona no la hubiera activado ahí.
+ */
+export const NOMBRE_FACTOR_INTERNO = 'Tentare Internal';
+
+export function esFactorInterno(f: FactorDeUsuario): boolean {
+  return f.friendly_name === NOMBRE_FACTOR_INTERNO;
+}
+
+/**
+ * Factores verificados que encienden la verificación de la CUENTA (`user.factors`):
+ * todos menos el de la zona interna. Misma regla en SQL: `tiene_factor_de_cuenta`
+ * (migr 20261005220308).
+ */
 export function factoresVerificados(factores: readonly FactorDeUsuario[] | null | undefined): number {
-  return (factores ?? []).filter(f => f.status === 'verified').length;
+  return (factores ?? []).filter(f => f.status === 'verified' && !esFactorInterno(f)).length;
 }
 
 /** ¿Hace falta el segundo paso para entrar? */
@@ -42,6 +58,16 @@ export function exigeSegundoPaso(p: { factoresVerificados: number; estudioLoExig
  */
 export function faltaSegundoPaso(p: { factoresVerificados: number; nivel: NivelSesion; confiada: boolean }): boolean {
   return p.factoresVerificados > 0 && p.nivel !== 'aal2' && !p.confiada;
+}
+
+/**
+ * ¿Le falta a esta sesión el código de la verificación de la cuenta? Lo que
+ * miran las guardias del NAVEGADOR (panel, app del estudio, red) sin ir a la red.
+ * No basta `nextLevel === 'aal2'` de supabase-js: lo pone cualquier factor,
+ * también el de la zona interna, que aquí no cuenta.
+ */
+export function sesionPideCodigo(p: { actual: string | null | undefined; factores: readonly FactorDeUsuario[] | null | undefined }): boolean {
+  return p.actual !== 'aal2' && factoresVerificados(p.factores) > 0;
 }
 
 /** Lo que contesta una ruta cuando la sesión es buena pero le falta el segundo paso. */
