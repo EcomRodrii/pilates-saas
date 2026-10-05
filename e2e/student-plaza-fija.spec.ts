@@ -1054,7 +1054,7 @@ test.describe('Student PWA · tu clase fija · no voy', () => {
     await page.getByTestId('semana-clase-fija').first().click({ timeout: 30_000 });
     const aviso = page.getByTestId('no-puedo-aviso');
     await expect(aviso).toContainText('es una cancelación tardía');
-    await expect(page.getByTestId('no-puedo-penalizacion')).toHaveText(/Tu estudio puede cobrarte 8[,.]00\s?€ por cancelar tan tarde\./);
+    await expect(page.getByTestId('no-puedo-penalizacion')).toHaveText(/Tu estudio puede cobrarte 8(,00)?\s?€ por cancelar tan tarde\./);
     expect(cuenta.cancelar, 'avisar no cancela nada').toBe(0);
 
     await page.getByRole('button', { name: 'Sí, no puedo asistir' }).click();
