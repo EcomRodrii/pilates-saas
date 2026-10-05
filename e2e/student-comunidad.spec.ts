@@ -125,9 +125,103 @@ test.describe('Student PWA · comunidad', () => {
     expect(cuenta).toEqual({ envios: 2, aceptar: 1 });
   });
 
+  test('una publicación fijada por el estudio lleva la marca «Fijado»', async ({ page }) => {
+    const [txt, ...resto] = posts();
+    await montar(page, { posts: [{ ...txt, fijado: true }, ...resto] });
+    await page.goto(`${base}/comunidad`);
+    await expect(post(page, 'p-txt').getByTestId('post-fijado')).toHaveText('Fijado', { timeout: 30_000 });
+    await expect(page.getByTestId('post-fijado')).toHaveCount(1);
+  });
+
   test('sin publicaciones → estado vacío honesto', async ({ page }) => {
     await montar(page, { posts: [] });
     await page.goto(`${base}/comunidad`);
     await expect(page.getByText(/aún no hay publicaciones/i)).toBeVisible({ timeout: 30_000 });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Borrar lo tuyo, denunciar y bloquear en el tablón (App Store 1.2). Cada camino
+// lleva su contador de peticiones: «no pasó nada» sería verdad también si la
+// pantalla no hubiera pedido nada.
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe('Student PWA · comentarios del tablón: borrar, denunciar y bloquear', () => {
+  const MIO = { id: 'c-mio', postId: 'p-txt', autorNombre: 'Ana T.', autorInicial: 'AT', texto: 'Me encanta la sala', creadoEn: '2026-08-11T11:00:00Z', esMio: true, deAlumna: true };
+  const DE_OTRA = { id: 'c-otra', postId: 'p-txt', autorNombre: 'Marta R.', autorInicial: 'MR', texto: 'Comentario feo', creadoEn: '2026-08-11T12:00:00Z', esMio: false, deAlumna: true };
+  const DEL_ESTUDIO = { id: 'c-est', postId: 'p-txt', autorNombre: 'Estudio Alma', autorInicial: 'E', texto: '¡Gracias a todas!', creadoEn: '2026-08-11T13:00:00Z', esMio: false, deAlumna: false };
+
+  async function montarComentarios(page: Page, o: { falla?: boolean } = {}) {
+    await montar(page, { posts: [{ ...posts()[0], comentariosCount: 3 }] });
+    const llamadas: { metodo: string; ruta: string; cuerpo: unknown }[] = [];
+    let lista = [MIO, DE_OTRA, DEL_ESTUDIO];
+    let lecturas = 0;
+    const json = (b: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(b) });
+    // Registradas DESPUÉS del arnés: Playwright prueba las rutas de la última a la primera.
+    await page.route((u) => u.pathname === '/api/public/comunidad/comentarios', (r) => {
+      lecturas++;
+      return r.fulfill(json({ comentarios: lista }));
+    });
+    await page.route((u) => u.pathname.startsWith('/api/public/comunidad/comentarios/'), (r) => {
+      const req = r.request();
+      const ruta = new URL(req.url()).pathname.replace('/api/public/comunidad/comentarios/', '');
+      llamadas.push({ metodo: req.method(), ruta, cuerpo: req.postDataJSON() });
+      if (o.falla) return r.fulfill(json({ error: 'No se ha podido enviar la denuncia. Inténtalo otra vez.' }, 500));
+      if (ruta === 'c-mio' && req.method() === 'DELETE') lista = lista.filter((c) => c.id !== 'c-mio');
+      if (ruta === 'c-otra/bloquear') lista = lista.filter((c) => c.id !== 'c-otra');
+      return r.fulfill(json(ruta.endsWith('/denunciar') ? { ok: true, mensaje: 'Gracias. Lo revisaremos.' } : { ok: true }));
+    });
+    await page.goto(`${base}/comunidad`);
+    const tarjeta = post(page, 'p-txt');
+    await tarjeta.getByRole('button', { name: /comentarios/ }).click({ timeout: 30_000 });
+    await expect(tarjeta.getByTestId('comentario')).toHaveCount(3, { timeout: 15_000 });
+    return { tarjeta, llamadas, lecturas: () => lecturas };
+  }
+
+  test('el suyo se borra, con confirmación', async ({ page }) => {
+    const { tarjeta, llamadas } = await montarComentarios(page);
+    await tarjeta.getByRole('button', { name: 'Opciones de tu comentario' }).click();
+    await expect(page.getByRole('button', { name: 'Denunciar este comentario' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Borrar mi comentario' }).click();
+    expect(llamadas).toHaveLength(0);
+    await page.getByRole('button', { name: 'Borrar', exact: true }).click();
+    await expect(tarjeta.getByTestId('comentario')).toHaveCount(2, { timeout: 15_000 });
+    expect(llamadas).toEqual([{ metodo: 'DELETE', ruta: 'c-mio', cuerpo: { studioId: STUDIO_ID } }]);
+  });
+
+  test('el de otra se denuncia y da las gracias', async ({ page }) => {
+    const { tarjeta, llamadas } = await montarComentarios(page);
+    await tarjeta.getByTestId('comentario').filter({ hasText: 'Comentario feo' }).click();
+    await page.getByRole('button', { name: 'Denunciar este comentario' }).click();
+    await expect(page.getByText('Gracias. Lo revisaremos.')).toBeVisible({ timeout: 15_000 });
+    expect(llamadas).toEqual([{ metodo: 'POST', ruta: 'c-otra/denunciar', cuerpo: { studioId: STUDIO_ID } }]);
+  });
+
+  test('si la denuncia no llega, lo dice y no da las gracias', async ({ page }) => {
+    const { tarjeta, llamadas } = await montarComentarios(page, { falla: true });
+    await tarjeta.getByTestId('comentario').filter({ hasText: 'Comentario feo' }).click();
+    await page.getByRole('button', { name: 'Denunciar este comentario' }).click();
+    await expect(page.getByText('No se ha podido enviar la denuncia')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Gracias. Lo revisaremos.')).toHaveCount(0);
+    expect(llamadas.length).toBeGreaterThan(0);
+  });
+
+  test('a una compañera se la bloquea con confirmación y su comentario deja de verse', async ({ page }) => {
+    const { tarjeta, llamadas, lecturas } = await montarComentarios(page);
+    await tarjeta.getByTestId('comentario').filter({ hasText: 'Comentario feo' }).click();
+    await page.getByRole('button', { name: 'Bloquear a Marta R.' }).click();
+    await expect(page.getByRole('heading', { name: '¿Bloquear a Marta R.?' })).toBeVisible();
+    expect(llamadas).toHaveLength(0);
+    await page.getByRole('button', { name: 'Bloquear', exact: true }).click();
+    await expect(tarjeta.getByTestId('comentario').filter({ hasText: 'Comentario feo' })).toHaveCount(0, { timeout: 15_000 });
+    expect(llamadas).toEqual([{ metodo: 'POST', ruta: 'c-otra/bloquear', cuerpo: { studioId: STUDIO_ID } }]);
+    // Lo que se ve después lo dice el servidor: se releyó el hilo.
+    expect(lecturas()).toBe(2);
+  });
+
+  test('al estudio no se le bloquea: su comentario solo se denuncia', async ({ page }) => {
+    const { tarjeta } = await montarComentarios(page);
+    await tarjeta.getByTestId('comentario').filter({ hasText: '¡Gracias a todas!' }).click();
+    await expect(page.getByRole('button', { name: 'Denunciar este comentario' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Bloquear/ })).toHaveCount(0);
   });
 });

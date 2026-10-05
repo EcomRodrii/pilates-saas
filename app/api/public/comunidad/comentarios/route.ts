@@ -4,9 +4,10 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
-import { uid } from '@/lib/utils';
 import { socioEnLaAudiencia, audienciaDelPost } from '@/lib/comunidad/audiencia';
 import { antesDePublicar, cuerpoNoPublicar } from '@/lib/moderacion/normas-servidor';
+import { bloqueadasConmigo, filaComentarioDeSocia } from '@/lib/comunidad/comentarios-servidor';
+import { filtrarComentariosParaSocia } from '@/lib/comunidad/comentarios-reglas';
 import type { DestinatariosCampana } from '@/lib/types';
 
 // Comentarios del tablón para el PORTAL — antes el tablón ni siquiera enseñaba
@@ -33,6 +34,8 @@ function mapRow(r: Record<string, unknown>) {
     esMio: false,
     /** Retirado por el estudio (moderación). Solo lo ve así quien lo escribió. */
     oculto: Boolean(r.oculto_en),
+    /** De una alumna (no del equipo): se puede bloquear a quien lo escribió. Nunca va su ficha. */
+    deAlumna: r.socio_id != null,
   };
 }
 
@@ -60,20 +63,26 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Esta publicación no está dirigida a ti' }, { status: 403 });
   }
 
-  const { data, error } = await admin
-    .from('comentarios_comunidad')
-    .select('*')
-    .eq('studio_id', studioId)
-    .eq('post_id', postId)
-    .order('creado_en', { ascending: true });
+  const [{ data, error }, bloqueadas] = await Promise.all([
+    admin
+      .from('comentarios_comunidad')
+      .select('*')
+      .eq('studio_id', studioId)
+      .eq('post_id', postId)
+      .order('creado_en', { ascending: true }),
+    bloqueadasConmigo(admin, studioId, socioId).catch(() => null),
+  ]);
   if (error) return errorInterno('public/comunidad/comentarios:GET', error, 'No se han podido cargar los comentarios.');
+  if (!bloqueadas) return errorInterno('public/comunidad/comentarios:GET', new Error('no se han podido leer los bloqueos'), 'No se han podido cargar los comentarios.');
 
   // Suyo: por su cuenta o por su ficha (si borró la cuenta y volvió con otra, la
-  // cuenta vieja ya no la reconoce). Lo que el estudio retiró solo lo ve quien lo
-  // escribió, marcado `oculto`; a las demás no les llega.
-  const comentarios = (data ?? [])
-    .map(row => ({ ...mapRow(row), esMio: row.autor_id === user.userId || (row.socio_id != null && row.socio_id === socioId) }))
-    .filter(c => !c.oculto || c.esMio);
+  // cuenta vieja ya no la reconoce). Lo retirado solo lo ve quien lo escribió;
+  // nada de alguien con quien hay un bloqueo; y en una publicación para un
+  // grupo, solo lo suyo y lo del estudio (`filtrarComentariosParaSocia`).
+  const comentarios = filtrarComentariosParaSocia(
+    (data ?? []) as (Record<string, unknown> & { socio_id: string | null; autor_id: string | null; oculto_en: string | null })[],
+    { socioId, authUserId: user.userId, audiencia, bloqueadas },
+  ).map(row => ({ ...mapRow(row), esMio: row.esMio }));
   return NextResponse.json({ comentarios });
 }
 
@@ -127,20 +136,11 @@ export async function POST(req: NextRequest) {
     .from('socios').select('nombre, apellidos').eq('id', socioId).maybeSingle();
   if (errSocio || !socio) return errorInterno('public/comunidad/comentarios:POST', errSocio, 'No se ha podido leer tu ficha.');
 
-  const nombreCompleto = `${socio.nombre} ${socio.apellidos ?? ''}`.trim();
-  const inicial = nombreCompleto.split(/\s+/).slice(0, 2).map(w => w[0] ?? '').join('').toUpperCase() || 'S';
-  const fila = {
-    id: `com-${uid()}`,
-    studio_id: studioId,
-    post_id: postId,
-    autor_id: user.userId,
-    // La ficha: la exportación y la supresión de sus datos la buscan por aquí.
-    socio_id: socioId,
-    autor_nombre: nombreCompleto || 'Clienta',
-    autor_inicial: inicial,
-    texto,
-    creado_en: new Date().toISOString(),
-  };
+  // Con nombre e inicial («Lucía M.»), nunca sus apellidos: lo leen sus compañeras.
+  const fila = filaComentarioDeSocia({
+    studioId, postId, authUserId: user.userId, socioId, texto,
+    socio: { nombre: socio.nombre as string | null, apellidos: (socio.apellidos as string | null) ?? null },
+  });
   const { error: errIns } = await admin.from('comentarios_comunidad').insert(fila);
   if (errIns) return errorInterno('public/comunidad/comentarios:POST', errIns, 'No se ha podido guardar el comentario.');
 

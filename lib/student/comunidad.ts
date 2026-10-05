@@ -17,7 +17,7 @@ interface FilaPost {
   logoUrl?: string | null;
   creadoEn: string; likes: number; likedByMe?: boolean; comentariosCount: number; tipo: 'TEXTO' | 'EVENTO';
   eventoFecha: string | null; eventoAforo: number | null; eventoLugar: string | null;
-  totalAsistentes?: number; apuntada?: boolean;
+  totalAsistentes?: number; apuntada?: boolean; fijado?: boolean;
 }
 
 export async function getTablon(studioId: string, antes?: string, limite = LIMITE_TABLON): Promise<Post[] | null> {
@@ -33,7 +33,7 @@ export async function getTablon(studioId: string, antes?: string, limite = LIMIT
       creadoEn: p.creadoEn, likes: p.likes ?? 0, likedByMe: p.likedByMe === true,
       comentariosCount: p.comentariosCount ?? 0, tipo: p.tipo ?? 'TEXTO',
       eventoFecha: p.eventoFecha ?? null, eventoAforo: p.eventoAforo ?? null, eventoLugar: p.eventoLugar ?? null,
-      totalAsistentes: p.totalAsistentes, apuntada: p.apuntada === true,
+      totalAsistentes: p.totalAsistentes, apuntada: p.apuntada === true, fijado: p.fijado === true,
     }));
   } catch {
     return null;
@@ -89,6 +89,34 @@ export async function postComentario(studioId: string, postId: string, texto: st
     return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };
   }
 }
+
+/** Borrar, denunciar o bloquear en el tablón. `mensaje`: lo que se le dice al terminar. */
+export type ResultadoModeracionTablon = { ok: true; mensaje?: string } | { ok: false; error: string };
+
+async function enComentario(
+  metodo: 'POST' | 'DELETE', comentarioId: string, sufijo: '' | '/denunciar' | '/bloquear', studioId: string, respaldo: string,
+): Promise<ResultadoModeracionTablon> {
+  try {
+    const auth = await portalAuthHeader();
+    const res = await fetch(`/api/public/comunidad/comentarios/${encodeURIComponent(comentarioId)}${sufijo}`, {
+      method: metodo,
+      headers: { 'Content-Type': 'application/json', ...auth },
+      body: JSON.stringify({ studioId }),
+    });
+    const cuerpo = (await res.json().catch(() => null)) as { mensaje?: string; error?: string } | null;
+    if (!res.ok) return { ok: false, error: cuerpo?.error ?? respaldo };
+    return { ok: true, mensaje: cuerpo?.mensaje };
+  } catch {
+    return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };
+  }
+}
+
+export const borrarComentario = (studioId: string, comentarioId: string) =>
+  enComentario('DELETE', comentarioId, '', studioId, 'No se ha podido borrar el comentario.');
+export const denunciarComentarioTablon = (studioId: string, comentarioId: string) =>
+  enComentario('POST', comentarioId, '/denunciar', studioId, 'No se ha podido enviar la denuncia.');
+export const bloquearAutoraComentario = (studioId: string, comentarioId: string) =>
+  enComentario('POST', comentarioId, '/bloquear', studioId, 'No se ha podido bloquear.');
 
 export type ResultadoRsvp = { ok: true; apuntada: boolean; totalAsistentes: number } | { ok: false; error: string };
 
