@@ -6,6 +6,7 @@ import { borrarPorSlug, claveCatalogo } from '@/lib/student/catalogo-clave';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { memoriaVistas } from '@/lib/student/memoria-vistas';
 import type { RenovacionPorPagar } from '@/lib/billing/renovacion-sin-tarjeta';
+import type { ReglaDef } from '@/lib/student/gamificacion';
 import type {
   AchievementDefinition, AchievementProgress, BannerPortal, ChallengeDefinition, ChallengeProgress,
   FavoritoClase, Instructor, LevelDefinition, MemberCredits, PlanTarifa, PlazaFija, Recibo,
@@ -98,6 +99,8 @@ export interface PayloadPublico {
   spots?: { id: string; salaId: string; nombre: string; fila: number; columna: number; activo?: boolean | null }[];
   /** Gamificación — lo que el ESTUDIO ha configurado. Vacío = no la usa. */
   levelDefinitions?: LevelDefinition[];
+  /** Sus reglas de créditos (cómo se ganan). Viajaban y se leían sin declarar (`PayloadMin` de mapeo). */
+  rewardRules?: ReglaDef[];
   achievementDefinitions?: AchievementDefinition[];
   challengeDefinitions?: ChallengeDefinition[];
   rewardCatalog?: RewardCatalogItem[];

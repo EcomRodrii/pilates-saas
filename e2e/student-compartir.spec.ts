@@ -119,4 +119,25 @@ test.describe('Student PWA · compartir', () => {
     await expect(page.getByText(/Enlace copiado/)).toHaveCount(0);
     expect(await page.evaluate(() => (window as unknown as { __intentosCopia: number }).__intentosCopia)).toBeGreaterThan(0);
   });
+
+  test('«Invita a una amiga a esta clase» sale con lo que gana, solo si el estudio premia invitar', async ({ page }) => {
+    await conHojaDelNavegador(page);
+    await sembrarSociaCompleta(page, { reglasCreditos: [{ trigger: 'REFERIDO_AMIGO', creditos: 100, topeMensual: 3 }] });
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    const fila = page.getByTestId('invitar-a-clase');
+    await expect(fila).toContainText('Invita a una amiga a esta clase', { timeout: 45_000 });
+    await expect(fila).toContainText('ganas 100 créditos cuando venga a su primera clase · hasta 3 amigas al mes');
+    await fila.click();
+    await expect.poll(async () => (await compartidos(page)).length).toBeGreaterThan(0);
+    const [d] = await compartidos(page);
+    expect(new URL(d.url ?? '').searchParams.get('invita')).toBe('socio-e2e-1');
+  });
+
+  test('sin la regla de invitar, no hay fila de premio (y el icono de compartir sigue)', async ({ page }) => {
+    await conHojaDelNavegador(page);
+    await sembrarSociaCompleta(page);
+    await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('compartir-clase')).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByTestId('invitar-a-clase')).toHaveCount(0);
+  });
 });

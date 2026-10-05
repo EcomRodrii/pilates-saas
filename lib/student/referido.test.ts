@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { referidorUtilizable, enlaceInvitacion, fraseInvitacion, textoInvitacion } from './referido.ts';
+import { referidorDeAlta, referidorUtilizable, enlaceInvitacion, fraseInvitacion, textoInvitacion } from './referido.ts';
 
 test('sin referidor no hay nada que mandar', () => {
   assert.equal(referidorUtilizable(null, 'soc-1'), false);
@@ -44,4 +44,20 @@ test('el texto invita y NO promete un premio que la alumna no controla', () => {
   assert.doesNotMatch(t, /gratis|regalo|gana|premio/i);
   // La hoja de compartir manda frase y enlace por separado; copiado, van juntos.
   assert.equal(t, `${fraseInvitacion('Estudio Alma')}\nhttps://x/y`);
+});
+
+// ── Quién invita en la página pública (P04: «Compartir esta clase») ──────────
+
+test('referidorDeAlta: `ref` primero, luego `invita`, luego lo guardado; todo pasa por la misma criba', () => {
+  assert.equal(referidorDeAlta({ refValido: null, invitaUrl: 'socio-amiga', guardado: null, nuevoId: 'soc-nueva' }), 'socio-amiga');
+  assert.equal(referidorDeAlta({ refValido: 'socio-ref', invitaUrl: 'socio-amiga', guardado: null, nuevoId: 'soc-nueva' }), 'socio-ref');
+  // Volviendo del correo en la misma pestaña, la URL ya no lo lleva: vale lo guardado.
+  assert.equal(referidorDeAlta({ refValido: null, invitaUrl: null, guardado: 'socio-amiga', nuevoId: 'soc-nueva' }), 'socio-amiga');
+  assert.equal(referidorDeAlta({ refValido: null, invitaUrl: null, guardado: null, nuevoId: 'soc-nueva' }), null);
+});
+
+test('referidorDeAlta: un `invita` con forma rota no sale; nadie se invita a sí misma', () => {
+  assert.equal(referidorDeAlta({ refValido: null, invitaUrl: '../x', guardado: null, nuevoId: 'soc-nueva' }), null);
+  assert.equal(referidorDeAlta({ refValido: null, invitaUrl: '../x', guardado: 'socio-amiga', nuevoId: 'soc-nueva' }), 'socio-amiga');
+  assert.equal(referidorDeAlta({ refValido: null, invitaUrl: 'soc-nueva', guardado: null, nuevoId: 'soc-nueva' }), null);
 });

@@ -40,7 +40,8 @@ import { FichaClaseHero } from '@/components/student/domain/FichaClaseHero';
 import { AutoReservable } from '@/components/student/domain/AutoReservable';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 import { ComoVienes } from '@/components/student/domain/ComoVienes';
-import { CompartirClase } from '@/components/student/domain/CompartirClase';
+import { CompartirClase, InvitarAClaseFila } from '@/components/student/domain/CompartirClase';
+import { formasDeGanar, premioPorInvitar } from '@/lib/student/gamificacion';
 import { cuandoSeAbre, etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
 import { useAunNoAbre } from '@/lib/reservar/use-aun-no-abre';
 
@@ -91,6 +92,8 @@ export default function FichaClasePage() {
       // Del mismo payload, 0 peticiones: quién es (el enlace de compartir lleva quién invita), qué vende el estudio
       // («Ver bonos y cuotas» solo si algo la cubre) y los nombres de los tipos (los topes por actividad).
       socioId: payload?.socia?.socio?.id ?? null,
+      // Cómo premia el estudio (sus reglas activas): la fila de invitar dice lo que gana, o no sale.
+      formasDeGanar: formasDeGanar(payload?.rewardRules ?? []),
       planesTarifa: payload?.planesTarifa ?? [],
       nombresTipo: Object.fromEntries((payload?.tiposClase ?? []).map((t) => [t.id, t.nombre])) as Record<string, string>,
     };
@@ -170,6 +173,7 @@ export default function FichaClasePage() {
   // «Cómo llegar» abre Mapas con la MISMA búsqueda que la tarjeta de Inicio (`consultaMapa`). Sin dirección no se pinta.
   const comoLlegar = () => window.open(urlComoLlegar(consultaMapa(estudio.direccion, estudio.ciudad), estudio.nombre, navigator.userAgent), '_blank', 'noopener');
   const suave = etiquetaAperturaSuave(clase.inicio, estudio.aperturaSuaveHasta);
+  const premio = premioPorInvitar(data?.formasDeGanar ?? [], nombreCreditos(estudio.creditosNombre));
 
   return (
     // `headerTransparente`, igual que Inicio: esta pantalla también abre con
@@ -272,6 +276,10 @@ export default function FichaClasePage() {
             ventanaCancelacionHoras={clase.ventanaCancelacionHoras ?? estudio.politicaCancelacionHoras}
             onCambio={refrescar}
           />
+
+          {/* Invitar a una amiga a ESTA clase, con lo que gana: solo si el estudio premia invitar y la clase no ha
+              empezado (el enlace la ofrecería con «Reservar mi plaza» y el servidor la rechazaría). */}
+          {premio && !empezada && <InvitarAClaseFila clase={clase} socioId={data?.socioId ?? null} premio={premio} />}
 
           {/* Una duda sobre la clase: al estudio, por la bandeja de siempre (la misma de Perfil → «Escribir al estudio»). */}
           <Link href={href('/mensajes')} className="card card--tap" data-testid="escribe-al-estudio" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px' }}>

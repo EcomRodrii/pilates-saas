@@ -153,6 +153,8 @@ const SPECS_WEBKIT = [
   // en Safari no es una pantalla fea, es una alumna que no puede entrar a
   // reservar y no sabe por qué. Siete pruebas cortas (~15 s en Chromium).
   '**/student-preguntas-alta.spec.ts',
+  // P04 (5-oct-2026): el enlace de «Compartir esta clase» lo abre la amiga, casi siempre desde su móvil.
+  '**/reservar-invitar-a-clase.spec.ts',
 ];
 
 export default defineConfig({
