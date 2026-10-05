@@ -60,7 +60,7 @@ test('las puertas que abren otro cobro del recibo respetan la marca, antes y en 
 test('cobrar a mano uno a uno: la marca se mira antes de cerrar el enlace o cancelar el datáfono', () => {
   const guarda = sinComentarios(leer('lib/cobros/antes-de-cobrar-a-mano-servidor.ts'));
   const cuerpo = guarda.slice(guarda.indexOf('export async function soltarPagosEnMarchaAntesDeCobrar('));
-  const mira = cuerpo.indexOf('if (fila?.cobro_off_session_clave) return { ok: false, mensaje: MENSAJE_COBRO_CON_METODO_GUARDADO };');
+  const mira = cuerpo.indexOf("if (fila?.cobro_off_session_clave) return { ok: false, motivo: 'COBRO_CON_METODO_GUARDADO', mensaje: MENSAJE_COBRO_CON_METODO_GUARDADO };");
   assert.ok(mira > 0, 'la guarda compartida no mira la marca');
   assert.ok(mira < cuerpo.indexOf('soltarCobroDeMostradorAntesDeCobrarAMano(') && mira < cuerpo.indexOf('cerrarPagoOnlineAntesDeCobrarAMano('),
     'antes de tocar el datáfono o el enlace de la clienta');

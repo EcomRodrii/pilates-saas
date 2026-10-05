@@ -322,7 +322,7 @@ type ClienteLectura = {
  * `consultar` puede cancelar (un cobro online de la socia en la misma cuenta, por
  * ejemplo): aquí solo se lee.
  *  - `null`: no es de este recibo y este estudio (por la metadata que puso este
- *    servidor al crearlo), o no es de Stripe.
+ *    servidor al crearlo), no existe en esta cuenta, o no es de Stripe.
  *  - `comprobado: false`: no se pudo leer. No se sabe nada de él.
  *  - `comprobado: true`: es de ESTE recibo. Con su estado de verdad (también
  *    PAGADO), con qué `metodo` se cobraba y de qué intento es (`clave`). Solo
@@ -356,7 +356,9 @@ export async function desenlaceDeCobroSoltado(
       comprobado: true, metodo: datafono ? 'DATAFONO' : 'BIZUM', estado: c.estado, motivo: c.error ?? null,
       clave: pi.metadata?.clave ?? null,
     };
-  } catch {
-    return { comprobado: false };
+  } catch (e) {
+    // No existe en esta cuenta (borrado, o el estudio cambió de cuenta): nadie puede
+    // pagarlo aquí. Cualquier otro fallo: no se sabe.
+    return (e as { code?: string } | null)?.code === 'resource_missing' ? null : { comprobado: false };
   }
 }

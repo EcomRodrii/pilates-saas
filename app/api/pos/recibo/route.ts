@@ -5,15 +5,15 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
 import { MAX_CENTIMOS_POS } from '@/lib/pos/terminal';
-import { cobroDeReciboSoloLectura, prepararCobroExistente, prepararCobroNuevo } from '@/lib/pos/cobro-del-estudio';
-import { proveedorDeReferencia } from '@/lib/pos/sumup';
+import { prepararCobroNuevo } from '@/lib/pos/cobro-del-estudio';
+import { preparadorDeStripe, soltarPagosEnMarchaAntesDeCobrar } from '@/lib/cobros/antes-de-cobrar-a-mano-servidor';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 import { MENSAJE_RECIBO_COBRANDOSE_CON_METODO_GUARDADO } from '@/lib/billing/cobro-off-session-marca';
 import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
 import { bloqueoCobroEnMostradorDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
-import { anteCobroPrevio, claveCobroRecibo, respuestaTrasCancelar, trasGuardarReferencia } from '@/lib/pos/referencia-cobro-recibo';
-import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
+import { claveCobroRecibo, mensajeCajaAntesDeCobrar, respuestaTrasCancelar, trasGuardarReferencia } from '@/lib/pos/referencia-cobro-recibo';
+import type { EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: recibo } = await admin.from('recibos')
-    .select('id, concepto, importe, estado, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, cobro_mostrador_pi, cobro_mostrador_checkout_session_id, cobro_off_session_clave, entrega_tipo, suscripcion_id')
+    .select('id, concepto, importe, estado, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, cobro_mostrador_pi, cobro_off_session_clave, entrega_tipo, suscripcion_id')
     .eq('id', reciboId).eq('studio_id', sesion.studioId)
     .maybeSingle();
   if (!recibo) return NextResponse.json({ error: 'No encontramos ese recibo' }, { status: 404 });
@@ -110,80 +110,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Ese importe no se puede cobrar por aquí.' }, { status: 400 });
   }
 
-  // SumUp no tiene clave de idempotencia: con un cobro suyo ya guardado en el
-  // recibo NUNCA se abre otro en el Solo sin saber cómo acabó el anterior. Si
-  // acabó sin cobrar, se suelta (compare-and-set por la referencia) y se sigue.
-  let referenciaPrevia = recibo.cobro_mostrador_pi as string | null;
-  if (proveedorDeReferencia(referenciaPrevia) === 'sumup') {
-    const previo = await prepararCobroExistente(admin, sesion.studioId, referenciaPrevia as string, metodo, { origen: req.nextUrl.origin });
-    if (!previo.ok) return NextResponse.json({ error: previo.motivo }, { status: previo.status });
-    const est = await previo.cobro.consultar(referenciaPrevia as string);
-    if (est.estado === 'PAGADO') {
-      return NextResponse.json({ error: 'Este recibo ya se ha cobrado en el datáfono. Recarga antes de volver a cobrar.' }, { status: 409 });
-    }
-    if (!esEstadoFinal(est.estado)) {
-      return NextResponse.json({ error: 'Hay un cobro de este recibo en marcha en el datáfono. Espera a que termine o cancélalo.' }, { status: 409 });
-    }
-    const { data: soltadas } = await admin.from('recibos')
-      .update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
-      .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('cobro_mostrador_pi', referenciaPrevia as string).select('id');
-    if (!soltadas?.length) return NextResponse.json({ error: 'Este recibo ha cambiado. Recarga y vuelve a intentarlo.' }, { status: 409 });
-    referenciaPrevia = null;
-  }
-
   // POS-1: la clave es la de ESTE intento (la manda la Caja, una por toque): el
   // mismo intento repetido recibe el mismo cobro, y uno nuevo, otro. Ver
   // `claveCobroRecibo`. Sin intento (una pestaña con el código viejo), uno del servidor.
   const claveIntento = claveCobroRecibo(reciboId, metodo, body?.intentoId)
     ?? `pos-recibo-${reciboId}-${metodo}-${crypto.randomUUID()}`;
 
-  // Con un cobro de Stripe aún guardado en el recibo, manda el último: el de otro
-  // intento se cancela ANTES de abrir este (`anteCobroPrevio`). Antes se abría otro
-  // encima y, con Bizum en uno y el datáfono en otro, los dos quedaban cobrables. Se
-  // lee sin tocarlo, y solo se actúa sobre él si es de este recibo.
-  if (proveedorDeReferencia(referenciaPrevia) === 'stripe') {
-    const ref = referenciaPrevia as string;
-    const antes = await cobroDeReciboSoloLectura(admin, sesion.studioId, reciboId, ref);
-    const inicial = anteCobroPrevio(antes, claveIntento);
-    // Vivo y de este mismo intento: conserva su referencia (Stripe devuelve el mismo cobro).
-    const mismoIntentoVivo = inicial === 'seguir' && antes?.comprobado === true
-      && (antes.estado === 'PENDIENTE' || antes.estado === 'PROCESANDO');
-    let decision = inicial;
-    if (inicial === 'cancelar' && antes?.comprobado) {
-      const previo = await prepararCobroExistente(admin, sesion.studioId, ref, antes.metodo, { origen: req.nextUrl.origin });
-      if (previo.ok) await previo.cobro.cancelar(ref, recibo.cobro_mostrador_checkout_session_id ?? null);
-      decision = anteCobroPrevio(await cobroDeReciboSoloLectura(admin, sesion.studioId, reciboId, ref), claveIntento);
-      if (decision === 'cancelar') {
-        return NextResponse.json({
-          error: 'Hay un cobro de este recibo en marcha y no se ha podido cancelar. Cancélalo en el datáfono o espera a que termine.',
-        }, { status: 409 });
-      }
-    }
-    if (decision === 'ya-cobrado') {
-      return NextResponse.json({ error: 'Este recibo ya se ha cobrado. Recarga antes de volver a cobrar.' }, { status: 409 });
-    }
-    if (decision === 'no-se-sabe') {
-      return NextResponse.json({
-        error: 'No hemos podido comprobar el cobro anterior de este recibo. Vuelve a intentarlo en un momento.',
-      }, { status: 409 });
-    }
-    if (!mismoIntentoVivo) {
-      // Acabado (o recién cancelado): se suelta, compare-and-set por la referencia.
-      const { data: soltadas } = await admin.from('recibos')
-        .update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
-        .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('cobro_mostrador_pi', ref).select('id');
-      if (!soltadas?.length) {
-        // Lo soltó otro camino a la vez (la Caja que lo esperaba, el aviso de Stripe):
-        // vale si ya no hay ninguno; si hay otro, es un intento nuevo de otra pestaña.
-        const { data: ahora } = await admin.from('recibos').select('cobro_mostrador_pi')
-          .eq('id', reciboId).eq('studio_id', sesion.studioId).maybeSingle();
-        if (ahora?.cobro_mostrador_pi) {
-          return NextResponse.json({ error: 'Este recibo ha cambiado. Recarga y vuelve a intentarlo.' }, { status: 409 });
-        }
-      }
-      referenciaPrevia = null;
-    }
-  }
+  // Lo que el recibo tenga en marcha por otro lado, con el MISMO dueño que el cobro a
+  // mano (`soltarPagosEnMarchaAntesDeCobrar`). Antes se abría el cobro nuevo encima: con
+  // Bizum en uno y el datáfono en otro (dos pestañas, la pantalla recargada a mitad), o
+  // con el enlace de pago online del recordatorio abierto, la socia podía pagar dos
+  // veces. Ahora manda el último: un cobro del mostrador de otro intento se cancela y
+  // se suelta (el del MISMO intento repetido no se toca: es el mismo cobro), y un
+  // enlace de pago abierto se cierra. Si alguno ya entró, sigue en curso o no se puede
+  // saber, no se abre otro. Un cobro de SumUp no se para nunca: se espera a que acabe.
+  const enMarcha = await soltarPagosEnMarchaAntesDeCobrar(
+    admin, { studioId: sesion.studioId, reciboId, claveIntento }, preparadorDeStripe(admin, sesion.studioId),
+  );
+  if (!enMarcha.ok) return NextResponse.json({ error: mensajeCajaAntesDeCobrar(enMarcha) }, { status: 409 });
+  const referenciaPrevia = enMarcha.referenciaQueSigue;
 
   // Quién cobra (Stripe o el datáfono de SumUp de la sede): lib/pos/cobro-del-estudio.ts.
   const preparado = await prepararCobroNuevo(admin, sesion.studioId, metodo, { origen: req.nextUrl.origin });
@@ -218,9 +163,14 @@ export async function POST(req: NextRequest) {
       // Ni con un cobro con su tarjeta guardada en vuelo (empezó tras la lectura de arriba).
       .is('cobro_off_session_clave', null)
       .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('estado', recibo.estado);
+    // Ni si se abrió un enlace de pago online después de cerrarlo (el leído arriba): la
+    // socia estaría pagando también por ahí.
+    const guardarSinOtroEnlace = enMarcha.checkoutLeido
+      ? guardar.eq('checkout_session_id', enMarcha.checkoutLeido)
+      : guardar.is('checkout_session_id', null);
     const { data: tocadas, error: errRef } = await (referenciaPrevia
-      ? guardar.eq('cobro_mostrador_pi', referenciaPrevia)
-      : guardar.is('cobro_mostrador_pi', null)
+      ? guardarSinOtroEnlace.eq('cobro_mostrador_pi', referenciaPrevia)
+      : guardarSinOtroEnlace.is('cobro_mostrador_pi', null)
     ).select('id');
     if (errRef) console.error('[pos/recibo] no se pudo guardar la referencia del cobro', errRef.message);
     // Sin fila tocada: si lo guardado es ESTE cobro, lo guardó otra petición del mismo

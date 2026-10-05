@@ -50,29 +50,43 @@ export function claveCobroRecibo(reciboId: string, metodo: string, intentoId: un
   return `pos-recibo-${reciboId}-${metodo}-${intentoId}`;
 }
 
+/** Un cobro de Stripe de un recibo leído SIN tocarlo (`desenlaceDeCobroSoltado`). */
+type CobroLeido = { comprobado: false } | { comprobado: true; estado: EstadoPagoPOS; clave: string | null } | null;
+
 /**
- * Qué hacer al empezar a cobrar un recibo que aún tiene guardado un cobro de Stripe
- * (leído con `cobroDeReciboSoloLectura`). Antes se abría otro encima y se pisaba la
- * referencia: con Bizum en uno y el datáfono en otro (dos pestañas, o la pantalla
- * recargada a mitad de cobro), los dos quedaban cobrables. Ahora manda el último:
- *  - `seguir`: no hay nada vivo (no es de este recibo, o ya acabó sin cobrar), o es
- *    este mismo intento repetido (misma clave: Stripe devuelve el mismo cobro).
- *  - `cancelar`: vivo y de otro intento. Se cancela ANTES de abrir el nuevo.
- *  - `ya-cobrado`: entró. Otro sería cobrar dos veces.
- *  - `no-se-sabe`: no se pudo leer, o un estado que no se reconoce. No se abre otro
- *    a ciegas.
- * Tras cancelar se vuelve a preguntar con la misma regla: si sigue `cancelar`, es
- * que no se pudo, y tampoco se abre otro.
+ * El MISMO intento repetido con su cobro aún vivo (misma clave, que va en la
+ * metadata del cobro): es el mismo cobro, y no se cancela antes de abrir «otro»
+ * (Stripe devolverá ese). Lo mira `soltarPagosEnMarchaAntesDeCobrar` para la Caja.
  */
-export function anteCobroPrevio(
-  previo: { comprobado: false } | { comprobado: true; estado: EstadoPagoPOS; clave: string | null } | null,
-  claveNueva: string,
-): 'seguir' | 'cancelar' | 'ya-cobrado' | 'no-se-sabe' {
-  if (!previo) return 'seguir';
-  if (!previo.comprobado || previo.estado === 'ERROR') return 'no-se-sabe';
-  if (previo.estado === 'PAGADO') return 'ya-cobrado';
-  if (previo.estado === 'RECHAZADO' || previo.estado === 'CANCELADO' || previo.estado === 'EXPIRADO') return 'seguir';
-  return previo.clave === claveNueva ? 'seguir' : 'cancelar';
+export function esMismoIntentoVivo(leido: CobroLeido, claveIntento: string | null | undefined): boolean {
+  return !!claveIntento && !!leido && leido.comprobado && leido.clave === claveIntento
+    && (leido.estado === 'PENDIENTE' || leido.estado === 'PROCESANDO');
+}
+
+/**
+ * Lo leído, en el estado que entiende `soltarCobroDeMostradorAntesDeCobrarAMano`.
+ * Uno que no es de este recibo o ya no existe en la cuenta del estudio no puede
+ * cobrar aquí: se suelta (antes, una referencia que ya no se podía leer bloqueaba
+ * el recibo para siempre). Sin poder leerlo, ERROR: ni se suelta ni se cobra.
+ */
+export function estadoParaSoltar(leido: CobroLeido): EstadoPagoPOS {
+  if (!leido) return 'CANCELADO';
+  return leido.comprobado ? leido.estado : 'ERROR';
+}
+
+/**
+ * Por qué no se empieza un cobro de la Caja (`soltarPagosEnMarchaAntesDeCobrar`),
+ * dicho para la Caja. Los textos del dueño son los del cobro a mano («Ábrelo en la
+ * caja para cerrarlo»); los del pago online valen igual aquí.
+ */
+export function mensajeCajaAntesDeCobrar(r: { motivo: string; mensaje: string }): string {
+  if (r.motivo === 'YA_PAGADO_EN_EL_MOSTRADOR') {
+    return 'El cobro anterior de este recibo ya ha entrado: aparecerá cobrado en unos segundos. No lo vuelvas a cobrar.';
+  }
+  if (r.motivo === 'COBRO_EN_EL_MOSTRADOR') {
+    return 'Hay un cobro de este recibo en marcha y no se ha podido cancelar, así que no se ha empezado otro. Espera a que termine o cancélalo.';
+  }
+  return r.mensaje;
 }
 
 /** Por qué se cancela: el recibo cambió (0 filas) o no se pudo guardar (error). */

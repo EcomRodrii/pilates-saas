@@ -443,10 +443,15 @@ test('cancelado en la pantalla del datáfono (`customer_canceled`, como lo docum
 });
 
 // La referencia del cobro que espera la Caja llega del NAVEGADOR: solo se lee.
-function dobleLectura(o: { pi?: Record<string, unknown>; sesion?: Record<string, unknown>; falla?: boolean }) {
+function dobleLectura(o: { pi?: Record<string, unknown>; sesion?: Record<string, unknown>; falla?: boolean; noExiste?: boolean }) {
   const llamadas: string[] = [];
   const stripe = {
-    paymentIntents: { retrieve: async () => { llamadas.push('pi.retrieve'); if (o.falla) throw new Error('red'); return piDatafono(o.pi); } },
+    paymentIntents: { retrieve: async () => {
+      llamadas.push('pi.retrieve');
+      if (o.noExiste) throw Object.assign(new Error('No such payment_intent'), { code: 'resource_missing' });
+      if (o.falla) throw new Error('red');
+      return piDatafono(o.pi);
+    } },
     checkout: { sessions: { retrieve: async () => { llamadas.push('cs.retrieve'); if (o.falla) throw new Error('red'); return { id: 'cs_1', status: 'open', ...o.sesion }; } } },
   };
   return { stripe: stripe as unknown as Parameters<typeof desenlaceDeCobroSoltado>[0], llamadas };
@@ -475,7 +480,9 @@ test('⚠️ desenlace de un cobro soltado: SOLO lee, y solo afirma un final si 
   // Sin poder leer: SIN comprobar (no se sabe de quién es: no se toca).
   assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ falla: true }).stripe, 'pi_1', 'acct_1', DE), { comprobado: false });
   // Cancelado sin cargo fallido: CANCELADO.
-  assert.equal((await desenlaceDeCobroSoltado(dobleLectura({ pi: { status: 'canceled', metadata: MD_RECIBO } }).stripe, 'pi_1', 'acct_1', DE))?.estado, 'CANCELADO');
+  assert.equal((await desenlaceDeCobroSoltado(dobleLectura({ pi: { status: 'canceled', metadata: MD_RECIBO } }).stripe, 'pi_1', 'acct_1', DE) as { estado?: string })?.estado, 'CANCELADO');
+  // No existe en esta cuenta (el estudio cambió de cuenta, o se borró): nadie puede pagarlo aquí.
+  assert.equal(await desenlaceDeCobroSoltado(dobleLectura({ noExiste: true }).stripe, 'pi_1', 'acct_1', DE), null);
 });
 
 test('desenlace de un cobro soltado por Bizum (la sesión): caducada → EXPIRADO; abierta → PROCESANDO; SumUp → nada', async () => {
