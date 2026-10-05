@@ -15,7 +15,8 @@
 // dispositivos y avisos push de Wallet.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { acentoDeEstudio } from '../student/tema.ts';
+import { acentoDe, resolverApariencia } from '../student/apariencia.ts';
+import { colorLegibleSobre } from '../color-utils.ts';
 
 export interface ConfigWallet {
   passTypeIdentifier: string;
@@ -72,17 +73,20 @@ export function rgbDeHex(hex: string | null | undefined, porDefecto = 'rgb(26, 2
 
 /**
  * Los colores del pase: los MISMOS del pase de acceso de la app (`--accent-deep`
- * y su tinta, `acentoDeEstudio`), no el color de marca en bruto. Con el bruto y
+ * y su tinta), calculados igual que la app (`acentoDe` con la apariencia que
+ * eligió el estudio: estilo oscuro, marca «fiel»…), no el color de marca en bruto. Con el bruto y
  * un texto crema fijo, una marca clara (un amarillo, un rosa) dejaba el pase
  * ilegible; el tono profundo derivado es oscuro siempre y su tinta está hecha
  * para leerse encima (pase.test.ts lo mide a 4,5:1).
  */
-export function coloresDelPase(colorPrimario: string | null | undefined) {
-  const a = acentoDeEstudio(colorPrimario);
+export function coloresDelPase(colorPrimario: string | null | undefined, apariencia?: unknown) {
+  const a = acentoDe(colorPrimario, resolverApariencia(apariencia));
+  // Con la tinta asegurada a AA sobre ese fondo: con estilo oscuro y marca
+  // «fiel», un amarillo dejaba las etiquetas por debajo de 4,5:1 (medido).
   return {
     backgroundColor: rgbDeHex(a.accentDeep),
-    foregroundColor: rgbDeHex(a.accentDeepForeground),
-    labelColor: rgbDeHex(a.accentDeepMuted),
+    foregroundColor: rgbDeHex(colorLegibleSobre(a.accentDeepForeground, a.accentDeep)),
+    labelColor: rgbDeHex(colorLegibleSobre(a.accentDeepMuted, a.accentDeep)),
   };
 }
 
@@ -90,7 +94,7 @@ export interface DatosPase {
   config: Pick<ConfigWallet, 'passTypeIdentifier' | 'teamIdentifier'>;
   /** Único por alumna y estudio: un pase nuevo del mismo par sustituye al viejo en Wallet. */
   serial: string;
-  estudio: { nombre: string; colorPrimario: string | null; direccion: string | null };
+  estudio: { nombre: string; colorPrimario: string | null; direccion: string | null; apariencia?: unknown };
   alumna: { nombre: string };
   /** El token del QR de acceso, tal cual lo pinta la app. */
   qr: string;
@@ -106,7 +110,7 @@ export function paseJson(d: DatosPase): Record<string, unknown> {
     organizationName: d.estudio.nombre,
     description: `Acceso a ${d.estudio.nombre}`,
     logoText: d.estudio.nombre,
-    ...coloresDelPase(d.estudio.colorPrimario),
+    ...coloresDelPase(d.estudio.colorPrimario, d.estudio.apariencia),
     sharingProhibited: true,
     generic: {
       primaryFields: [{ key: 'alumna', label: 'Alumna', value: d.alumna.nombre || 'Tu acceso' }],

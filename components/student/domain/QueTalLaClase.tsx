@@ -57,6 +57,8 @@ function Tarjeta({ studioId, p }: { studioId: string; p: ValoracionPendiente }) 
   const [enviando, setEnviando] = useState(false);
   const [comentario, setComentario] = useState('');
   const [comentada, setComentada] = useState(false);
+  // Ya estaba valorada de antes: no se ofrece el comentario (lo pisaría).
+  const [yaValorada, setYaValorada] = useState(false);
   // Lo que se anuncia. El contenedor `role="status"` está SIEMPRE montado: si
   // apareciera junto con el texto, VoiceOver no lo leería (y al desaparecer el
   // botón tocado, el foco se pierde). Así «¡Gracias!» se oye al enviarlo.
@@ -65,9 +67,17 @@ function Tarjeta({ studioId, p }: { studioId: string; p: ValoracionPendiente }) 
   const valorar = async (puntuacion: number) => {
     if (enviando || enviada !== null) return;
     setEnviando(true);
-    const r = await enviarValoracion(studioId, p.sesionId, puntuacion, '');
+    // Solo CREA: si ya la había valorado (desde el correo, otra pestaña…), el
+    // servidor no pisa su nota ni su comentario y lo dice.
+    const r = await enviarValoracion(studioId, p.sesionId, puntuacion, '', { soloSiNueva: true });
     setEnviando(false);
     if (!r.ok) { toast(r.error); return; }
+    if (r.yaValorada) {
+      setYaValorada(true);
+      setEnviada(puntuacion);
+      setAnuncio('Ya habías valorado esta clase. ¡Gracias!');
+      return;
+    }
     void vibrar('exito');
     setEnviada(puntuacion);
     setAnuncio(`${CARAS[puntuacion - 1].cara} ¡Gracias! Se lo hemos contado a tu estudio.`);
@@ -121,7 +131,7 @@ function Tarjeta({ studioId, p }: { studioId: string; p: ValoracionPendiente }) 
         {anuncio}
       </p>
 
-      {enviada !== null && !comentada && (
+      {enviada !== null && !comentada && !yaValorada && (
         <>
           <textarea
             value={comentario}

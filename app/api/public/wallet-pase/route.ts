@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     const pkpass = await firmarPase(config, {
       serial: `${estudio.id}:${socioId}`,
-      estudio: { nombre: estudio.nombre, colorPrimario: estudio.colorPrimario, direccion: estudio.direccion || null },
+      estudio: { nombre: estudio.nombre, colorPrimario: estudio.colorPrimario, direccion: estudio.direccion || null, apariencia: estudio.apariencia },
       alumna: { nombre: (socia?.nombre as string | null) ?? '' },
       qr: token,
     }, { icono, icono2x });

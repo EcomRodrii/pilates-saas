@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { coloresDelPase, configWallet, paseJson, rgbDeHex } from './pase.ts';
 import { ratioContraste } from '../wcag-contrast.ts';
+import { acentoDe, resolverApariencia } from '../student/apariencia.ts';
 
 const pem = (tipo: string) => Buffer.from(`-----BEGIN ${tipo}-----\nAAAA\n-----END ${tipo}-----\n`).toString('base64');
 const COMPLETO = {
@@ -57,10 +58,21 @@ test('paseJson: el código es el token del QR y no lleva más dato personal que 
 
 test('coloresDelPase: el texto se lee sobre el fondo (4,5:1) con cualquier marca, también las claras', () => {
   const aHex = (rgb: string) => '#' + rgb.match(/\d+/g)!.map((n) => Number(n).toString(16).padStart(2, '0')).join('');
+  const apariencias = [undefined, { estilo: 'carbon' }, { marca: 'fiel' }, { estilo: 'carbon', marca: 'fiel' }, { estilo: 'bosque' }];
   for (const marca of ['#FFE066', '#FFFFFF', '#F7A6C4', '#A8E6CF', '#3E6B4A', '#6366F1', '#000000', null, 'roto']) {
-    const c = coloresDelPase(marca);
-    const fondo = aHex(c.backgroundColor);
-    assert.ok((ratioContraste(aHex(c.foregroundColor), fondo) ?? 0) >= 4.5, `texto sobre ${marca}`);
-    assert.ok((ratioContraste(aHex(c.labelColor), fondo) ?? 0) >= 4.5, `etiquetas sobre ${marca}`);
+    for (const ap of apariencias) {
+      const c = coloresDelPase(marca, ap);
+      const fondo = aHex(c.backgroundColor);
+      assert.ok((ratioContraste(aHex(c.foregroundColor), fondo) ?? 0) >= 4.5, `texto sobre ${marca} ${JSON.stringify(ap)}`);
+      assert.ok((ratioContraste(aHex(c.labelColor), fondo) ?? 0) >= 4.5, `etiquetas sobre ${marca} ${JSON.stringify(ap)}`);
+    }
+  }
+});
+
+test('coloresDelPase: los MISMOS que el pase de la app (`--accent-deep`), también con estilo oscuro o marca fiel', () => {
+  for (const ap of [{ estilo: 'carbon' }, { marca: 'fiel' }]) {
+    const app = acentoDe('#6366F1', resolverApariencia(ap));
+    const pase = coloresDelPase('#6366F1', ap);
+    assert.equal(pase.backgroundColor, rgbDeHex(app.accentDeep), JSON.stringify(ap));
   }
 });

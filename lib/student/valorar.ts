@@ -23,21 +23,23 @@ export async function getValoracionClase(studioId: string, sesionId: string): Pr
   }
 }
 
-export type ResultadoValorar = { ok: true; actualizada: boolean } | { ok: false; error: string };
+export type ResultadoValorar = { ok: true; actualizada: boolean; yaValorada: boolean } | { ok: false; error: string };
 
 export async function enviarValoracion(
   studioId: string, sesionId: string, puntuacion: number, comentario: string,
+  /** Solo crear: si ya estaba valorada, el servidor no pisa nada y contesta `yaValorada`. */
+  opciones: { soloSiNueva?: boolean } = {},
 ): Promise<ResultadoValorar> {
   try {
     const auth = await portalAuthHeader();
     const res = await fetch('/api/public/valorar-clase', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...auth },
-      body: JSON.stringify({ studioId, sesionId, puntuacion, comentario: comentario.trim() || null }),
+      body: JSON.stringify({ studioId, sesionId, puntuacion, comentario: comentario.trim() || null, ...(opciones.soloSiNueva ? { soloSiNueva: true } : {}) }),
     });
-    const cuerpo = (await res.json().catch(() => null)) as { ok?: boolean; actualizada?: boolean; error?: string } | null;
+    const cuerpo = (await res.json().catch(() => null)) as { ok?: boolean; actualizada?: boolean; yaValorada?: boolean; error?: string } | null;
     if (!res.ok || !cuerpo?.ok) return { ok: false, error: cuerpo?.error ?? 'No se ha podido enviar tu valoración.' };
-    return { ok: true, actualizada: cuerpo.actualizada === true };
+    return { ok: true, actualizada: cuerpo.actualizada === true, yaValorada: cuerpo.yaValorada === true };
   } catch {
     return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };
   }

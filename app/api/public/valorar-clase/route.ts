@@ -33,6 +33,11 @@ async function socia(req: NextRequest, studioId: string) {
  * ese catálogo solo trae clases que aún no han terminado (lib/valoraciones/pendiente.ts).
  */
 export async function GET(req: NextRequest) {
+  // Las dos ramas (la de una clase y la de `?pendiente=1`, que la app pide en
+  // cada Inicio) piden la sesión y varias consultas con service role: con límite,
+  // igual que el POST y que el resto de lecturas autenticadas de /api/public.
+  const limited = await enforceRateLimit(req, 'public-valorar-clase-leer', { max: 60, windowSeconds: 60 });
+  if (limited) return limited;
   const studioId = req.nextUrl.searchParams.get('studioId') ?? '';
   const sesionId = req.nextUrl.searchParams.get('sesionId') ?? '';
   if (studioId && !sesionId && req.nextUrl.searchParams.get('pendiente') === '1') return pendiente(req, studioId);
@@ -61,7 +66,7 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   const body = (await req.json().catch(() => null)) as
-    { studioId?: string; sesionId?: string; puntuacion?: number; comentario?: string | null } | null;
+    { studioId?: string; sesionId?: string; puntuacion?: number; comentario?: string | null; soloSiNueva?: boolean } | null;
   if (!body?.studioId || !body?.sesionId) return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
   const v = normalizarValoracion(body.puntuacion, body.comentario);
   if (!v) return NextResponse.json({ error: 'Puntuación no válida' }, { status: 400 });
@@ -83,12 +88,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const r = await guardarValoracion(admin, { studioId: body.studioId, sesionId: body.sesionId, socioId, ...v });
+    // `soloSiNueva`: el primer toque de «¿Qué tal la clase?» solo CREA. Si ya la
+    // había valorado (desde el correo, desde otra pestaña), no pisa su nota ni su
+    // comentario: contesta «ya valorada».
+    const r = await guardarValoracion(admin, { studioId: body.studioId, sesionId: body.sesionId, socioId, ...v }, { soloSiNueva: body.soloSiNueva === true });
     if (!r.ok) {
       if (r.status === 500) return errorInterno('public/valorar-clase:POST', r.detalle, r.error);
       return NextResponse.json({ error: r.error }, { status: r.status });
     }
-    return NextResponse.json({ ok: true, actualizada: r.actualizada });
+    return NextResponse.json({ ok: true, actualizada: r.actualizada, yaValorada: r.yaValorada === true });
   } catch (err) {
     return errorInterno('public/valorar-clase:POST', err, 'No se ha podido guardar tu valoración.');
   }
@@ -111,7 +119,9 @@ async function pendiente(req: NextRequest, studioId: string) {
     // corta, así que son pocas filas pase lo que pase con el historial.
     const { data: sesiones, error: e1 } = await admin.from('sesiones')
       .select('id, fin, tipo_clase_id, instructor_id')
-      .eq('studio_id', studioId).eq('cancelada', false)
+      // Sin instructora no se puede guardar una valoración (`guardarValoracion`
+      // la rechaza siempre): no se ofrece lo que luego no se acepta.
+      .eq('studio_id', studioId).eq('cancelada', false).not('instructor_id', 'is', null)
       .gte('fin', new Date(ahora - VENTANA_VALORAR_MS).toISOString()).lte('fin', new Date(ahora).toISOString());
     if (e1) throw e1;
     if (!sesiones?.length) return NextResponse.json({ pendiente: null });
@@ -135,9 +145,7 @@ async function pendiente(req: NextRequest, studioId: string) {
       fila.tipo_clase_id
         ? admin.from('tipos_clase').select('nombre').eq('id', fila.tipo_clase_id).eq('studio_id', studioId).maybeSingle()
         : Promise.resolve({ data: null }),
-      fila.instructor_id
-        ? admin.from('instructores').select('nombre').eq('id', fila.instructor_id).eq('studio_id', studioId).maybeSingle()
-        : Promise.resolve({ data: null }),
+      admin.from('instructores').select('nombre').eq('id', fila.instructor_id as string).eq('studio_id', studioId).maybeSingle(),
     ]);
     return NextResponse.json({
       pendiente: {

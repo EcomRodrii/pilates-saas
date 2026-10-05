@@ -99,7 +99,8 @@ test('«¿Qué tal la clase?»: la clase la dice el servidor, una cara envía UN
   await cara.click({ force: true, timeout: 1_000 }).catch(() => {});
   await expect(tarjeta.getByRole('status')).toContainText('¡Gracias!');
   expect(envios).toBe(1);
-  expect(cuerpos[0]).toMatchObject({ studioId: STUDIO_ID, sesionId: 'ses-pasada', puntuacion: 5 });
+  // El primer toque solo CREA: si ya estuviera valorada, el servidor no pisaría nada.
+  expect(cuerpos[0]).toMatchObject({ studioId: STUDIO_ID, sesionId: 'ses-pasada', puntuacion: 5, soloSiNueva: true });
 
   // El comentario, con la MISMA nota; el servidor dice que no.
   const campo = tarjeta.getByRole('textbox', { name: 'Comentario para tu estudio' });
@@ -108,6 +109,7 @@ test('«¿Qué tal la clase?»: la clase la dice el servidor, una cara envía UN
   await tarjeta.getByRole('button', { name: 'Enviar comentario' }).click();
   await expect.poll(() => envios, { timeout: 10_000 }).toBe(2);
   expect(cuerpos[1]).toMatchObject({ sesionId: 'ses-pasada', puntuacion: 5, comentario: 'Muy buena clase' });
+  expect(cuerpos[1]).not.toHaveProperty('soloSiNueva');
   // Ni «enviado» ni el texto perdido: el aviso del servidor y el campo, con lo escrito.
   await expect(page.getByText(/la nota ya no se puede cambiar/)).toBeVisible();
   await expect(tarjeta.getByRole('status')).not.toContainText('Comentario enviado');
