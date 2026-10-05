@@ -10,7 +10,7 @@ import {
 import { EVENTOS } from '@/lib/notifications/catalog';
 import {
   CUERPO_MAX, ETIQUETA_VARIABLE, TIPOS_CON_TEXTO_EDITABLE, TITULO_MAX, previsualizar, textoDeFabrica,
-  validarTexto, variablesPermitidas, type TextoAviso,
+  textoEnLista, validarTexto, variablesPermitidas, type TextoAviso,
 } from '@/lib/notifications/textos-estudio';
 import { dbGuardarTextoAviso, dbListTextosAviso, dbRestaurarTextoAviso, enviarPruebaPush } from '@/lib/notifications/textos-estudio-db';
 
@@ -152,7 +152,7 @@ function Textos({ showToast }: { showToast: (m: string) => void }) {
                     }}
                   />
                 ) : (
-                  <Fila evento={t.evento} nombre={t.titulo} texto={propios[t.evento] ?? textoDeFabrica(t.evento)!} datos={datosDe(t.evento)} propio={!!propios[t.evento]} onEditar={() => setAbierto(t.evento)} />
+                  <Fila evento={t.evento} nombre={t.titulo} enLista={textoEnLista(t.evento, propios[t.evento])} datos={datosDe(t.evento)} onEditar={() => setAbierto(t.evento)} />
                 )}
               </li>
             ))}
@@ -163,18 +163,25 @@ function Textos({ showToast }: { showToast: (m: string) => void }) {
   );
 }
 
-function Fila({ evento, nombre, texto, datos, propio, onEditar }: {
-  evento: string; nombre: string; texto: TextoAviso; datos: Record<string, string>; propio: boolean; onEditar: () => void;
+function Fila({ evento, nombre, enLista, datos, onEditar }: {
+  evento: string; nombre: string; enLista: ReturnType<typeof textoEnLista>; datos: Record<string, string>; onEditar: () => void;
 }) {
-  const muestra = previsualizar(texto, datos, evento);
+  // La muestra es la del texto que SALE, no la del guardado si ya no vale.
+  const muestra = previsualizar(enLista.texto, datos, evento);
   return (
     <div className="flex items-start gap-3 px-4 py-3">
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-medium flex items-center gap-2">
           {nombre}
-          {propio && <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">Texto tuyo</span>}
+          {enLista.propio && <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">Texto tuyo</span>}
+          {enLista.yaNoSeUsa && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Tu texto ya no se usa</span>}
         </p>
         <p className="text-xs text-muted-foreground mt-0.5 truncate">{muestra.title} · {muestra.body}</p>
+        {enLista.yaNoSeUsa && (
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Llevaba algo que este aviso ya no incluye, así que sale el original. Ábrelo para escribir otro.
+          </p>
+        )}
       </div>
       <button type="button" className={btnSecondary} onClick={onEditar} aria-label={`Editar «${nombre}»`}>Editar</button>
     </div>

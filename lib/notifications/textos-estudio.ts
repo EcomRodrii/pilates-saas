@@ -82,6 +82,20 @@ export function textoEfectivo(evento: string, delEstudio: TextoAviso | null | un
   return textoDeFabrica(evento);
 }
 
+/**
+ * Qué enseña la lista de Configuración para un aviso. Un texto guardado que ya
+ * no vale (p. ej. uno de «mensaje nuevo» con el principio del mensaje, que el
+ * aviso ya no lleva) NO es el que sale: decir «Texto tuyo» y previsualizarlo
+ * sería mentir sobre lo que recibe la alumna. Sale el de fábrica, y se avisa.
+ * No se borra: es suyo, y desde el editor ve qué le falla.
+ */
+export function textoEnLista(
+  evento: string, guardado: TextoAviso | null | undefined,
+): { texto: TextoAviso; propio: boolean; yaNoSeUsa: boolean } {
+  if (guardado && validarTexto(evento, guardado) === null) return { texto: guardado, propio: true, yaNoSeUsa: false };
+  return { texto: textoDeFabrica(evento)!, propio: false, yaNoSeUsa: !!guardado };
+}
+
 // ── Para el panel: qué significa cada variable y cómo quedaría ─────────────
 
 export const ETIQUETA_VARIABLE: Record<string, string> = {
