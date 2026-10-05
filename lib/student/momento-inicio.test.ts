@@ -80,7 +80,7 @@ test('etiquetaMomento: horas y minutos hasta la clase, redondeado hacia arriba',
 
 test('etiquetaMomento: mañana y en curso', () => {
   assert.equal(etiquetaMomento({ clase: manana0900, cuando: 'manana' }, ms('2026-10-07T14:20:00Z')), 'Mañana');
-  assert.equal(etiquetaMomento({ clase: hoy1830, cuando: 'ahora' }, ms('2026-10-07T16:45:00Z')), 'Ahora · hasta las 19:20');
+  assert.equal(etiquetaMomento({ clase: hoy1830, cuando: 'ahora' }, ms('2026-10-07T16:45:00Z')), 'Tu clase, en curso · hasta las 19:20');
 });
 
 test('haceCuanto', () => {

@@ -58,7 +58,10 @@ export function ClaseDelMomentoCard({
           {/* `suppressHydrationWarning`: la cuenta atrás depende del reloj. */}
           <span className="t-label" suppressHydrationWarning style={{ color: 'var(--accent-deep-muted)', display: 'flex', alignItems: 'center', gap: 6 }} role={cuando === 'ahora' ? 'status' : undefined}>
             {cuando === 'ahora' && <span aria-hidden style={{ width: 7, height: 7, borderRadius: 99, background: 'var(--on-dark)', animation: 'apPulse 1.6s infinite' }} />}
-            {etiquetaMomento({ clase, cuando }, ahoraMs)}
+            {cuando === 'ahora'
+              // En dos piezas: «Tu clase, en curso» es el mismo rótulo que en el resto de la app.
+              ? (() => { const [rotulo, ...resto] = etiquetaMomento({ clase, cuando }, ahoraMs).split(' · '); return <><span>{rotulo}</span><span>· {resto.join(' · ')}</span></>; })()
+              : etiquetaMomento({ clase, cuando }, ahoraMs)}
           </span>
           <span style={{ fontSize: 'calc(var(--t-h1) * var(--heading-scale))', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.03em', lineHeight: 1.08, color: 'var(--on-dark)' }}>
             <span className="t-num">{clase.hora}</span> · {clase.nombre}

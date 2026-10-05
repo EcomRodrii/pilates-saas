@@ -62,13 +62,15 @@ export function claseDelMomento(
 }
 
 /**
- * «HOY · EN 2 H 10 MIN», «HOY · EN 25 MIN», «AHORA · HASTA LAS 19:20» o
+ * «HOY · EN 2 H 10 MIN», «HOY · EN 25 MIN», «TU CLASE, EN CURSO · HASTA LAS 19:20» o
  * «MAÑANA». Lo que falta se redondea HACIA ARRIBA al minuto: decir «en 0 min»
  * a 40 segundos de empezar sería mentir por defecto.
  */
 export function etiquetaMomento(m: Pick<ClaseDelMomento, 'clase' | 'cuando'>, ahoraMs: number | null): string {
   if (m.cuando === 'manana') return 'Mañana';
-  if (m.cuando === 'ahora') return `Ahora · hasta las ${horaFin(m.clase.hora, m.clase.duracionMin)}`;
+  // Las mismas palabras que el resto de la app para una clase que se está dando
+  // (NextClassCard, Mis clases): «Tu clase, en curso».
+  if (m.cuando === 'ahora') return `Tu clase, en curso · hasta las ${horaFin(m.clase.hora, m.clase.duracionMin)}`;
   if (ahoraMs === null) return 'Hoy';
   const faltan = Math.max(1, Math.ceil((new Date(m.clase.inicio).getTime() - ahoraMs) / MIN));
   const h = Math.floor(faltan / 60);
