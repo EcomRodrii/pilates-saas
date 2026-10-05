@@ -1,6 +1,9 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { OtpInput } from '@/components/auth/otp-input';
+import { LONGITUD_OTP } from '@/lib/otp-utils';
+import { MINUTOS_CADUCIDAD_CODIGO } from '@/lib/student/entrada-codigo';
 import { leerReferidor, olvidarReferidor } from '@/lib/student/referido-sesion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/student/ui/Input';
@@ -22,14 +25,14 @@ import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
  *
  *  · Pide el diseño: `app/(auth)/verificar-email/page.tsx`, casillas para un
  *    código y un botón «Confirmar».
- *  · Lo que manda gotrue depende del correo. El de ALTA (registro con
- *    contraseña, o «entrar con enlace» con un email que aún no tiene cuenta
- *    confirmada) trae SOLO un código de 6 cifras: la plantilla es común a todo
- *    el proyecto y el alta del equipo la pasó a código. El de entrar de una
- *    cuenta que ya existe, el de recuperar y el de Google vuelven con enlace.
+ *  · Lo que manda gotrue depende del correo. El de ALTA y el de ENTRAR traen
+ *    SOLO un código de 6 cifras (el de entrar desde #2522); se escribe en la
+ *    puerta de entrada (`PuertaDeEntrada`) o, sin ella, aquí. El de recuperar
+ *    la contraseña sigue siendo un enlace, y Google vuelve aquí redirigiendo.
  *  · Así que esta pantalla hace las dos cosas: sin sesión, pide el código
  *    (lib/student/codigo-del-correo.ts); con sesión —la abra el código o un
- *    enlace— elige contraseña si hace falta y firma el alta en el estudio.
+ *    enlace— elige contraseña si hace falta y firma el alta en el estudio
+ *    (o, si no hay firma, manda a «Tus datos»: `/acceso/registro?firma=1`).
  *
  * Es también la pantalla que cierra el callejón que dejó el borrado del portal:
  * `/reservar` enlazaba a `/portal/<slug>/login` y `/portal/<slug>/acceso` para
@@ -63,11 +66,16 @@ function Verificar() {
   // y la deja dentro, igual que si hubiera abierto un enlace.
   const [emailCodigo, setEmailCodigo] = useState(() => sp.get('email') ?? '');
   const { widget: captcha, pedirToken } = useCaptcha();
+  // Las seis casillas (P08), como en la puerta de entrada: `intento` las vuelve
+  // a montar vacías, y con la primera enfocada, cuando un código falla.
+  const [digitos, setDigitos] = useState<string[]>(() => Array<string>(LONGITUD_OTP).fill(''));
+  const [intento, setIntento] = useState(0);
+  const alFallar = useCallback(() => { setDigitos(Array<string>(LONGITUD_OTP).fill('')); setIntento((i) => i + 1); }, []);
   const codigoCorreo = useCodigoDelCorreo(emailCodigo, async () => {
     const token = await pedirToken();
     if (token === null) return { error: ERROR_CAPTCHA };
     return reenviarCodigoAlta(emailCodigo, token || undefined);
-  });
+  }, undefined, { alFallar });
 
   /**
    * A dónde iba antes de que le pidieran entrar, si venía de un enlace
@@ -98,6 +106,7 @@ function Verificar() {
   // `?crear=1` lo pone el enlace de recuperación: quien viene de ahí SIEMPRE
   // tiene que elegir contraseña, aunque ya tuviera una.
   const forzarPassword = sp.get('crear') === '1';
+  const viaCodigo = sp.get('via') === 'codigo';
 
   /**
    * Con sesión ya válida, crea la ficha de socia con la firma recogida en el
@@ -203,8 +212,10 @@ function Verificar() {
       if (res.motivo === 'es-instructora') { r.replace(href('/equipo')); return; }
       // Sesión válida, sin ficha y sin firma: un alta a medias. Antes caía en
       // la pantalla de elegir contraseña, que no dice nada de lo que falta y
-      // termina mandándola dentro sin ficha. Se le pide lo único que falta.
-      if (res.motivo === 'sin-firma') { r.replace(`${href('/acceso/registro')}?firma=1`); return; }
+      // termina mandándola dentro sin ficha. Se le pide lo único que falta:
+      // «Tus datos». `via=codigo` (viene del código del correo) solo añade allí
+      // la tira «Correo · Código · Tus datos».
+      if (res.motivo === 'sin-firma') { r.replace(`${href('/acceso/registro')}?firma=1${viaCodigo ? '&via=codigo' : ''}`); return; }
       // ⚠️ Y si el servidor RECHAZA el alta, aquí no pasaba absolutamente
       // nada: ni redirección ni mensaje. La pantalla se quedaba en «Elige tu
       // contraseña», que a quien viene de Google no le dice nada.
@@ -216,7 +227,7 @@ function Verificar() {
     // `firmarAlta` se recrea en cada render y meterlo en las dependencias
     // volvería a lanzarlo en bucle; lo que decide es el estado de sesión.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, autenticado, segundoPaso, socia, forzarPassword, instructora, cargandoInstructora]);
+  }, [isLoading, autenticado, segundoPaso, socia, forzarPassword, instructora, cargandoInstructora, viaCodigo]);
 
   const guardar = async () => {
     if (pass.length < 8) { setErr('Mínimo 8 caracteres'); return; }
@@ -306,9 +317,9 @@ function Verificar() {
         noValidate
       >
         <div>
-          <h2 className="t-h1">Revisa tu correo</h2>
+          <h2 className="t-h1">Mira tu correo</h2>
           <p className="t-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
-            Te hemos enviado un código de 6 cifras a <b>{emailMostrado}</b>. Escríbelo aquí para activar tu cuenta.
+            Te hemos enviado un código de 6 cifras a <b>{emailMostrado}</b>. Caduca a los {MINUTOS_CADUCIDAD_CODIGO} minutos. Mira también en spam o promociones.
           </p>
         </div>
 
@@ -319,14 +330,18 @@ function Verificar() {
             value={emailCodigo} onChange={(e) => setEmailCodigo(e.target.value)}
           />
         )}
-        <Input
-          label="Código" data-testid="codigo-correo"
-          inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={12}
-          value={codigoCorreo.codigo} onChange={(e) => codigoCorreo.escribir(e.target.value)}
-          error={codigoCorreo.error || undefined}
-          hint="Caduca a los 10 minutos. Mira también en spam o promociones."
+        <OtpInput
+          key={intento}
+          apariencia="app"
+          testIdPrimera="codigo-correo"
+          valor={digitos}
+          onCambiar={(d) => { setDigitos(d); codigoCorreo.escribir(d.join('')); }}
+          disabled={codigoCorreo.verificando}
+          error={!!codigoCorreo.error}
+          autoFocus={!!sp.get('email')}
         />
-        <Button type="submit" full loading={codigoCorreo.verificando}>Activar mi cuenta</Button>
+        {codigoCorreo.error && <p role="alert" className="field-error" style={{ margin: 0, textAlign: 'center' }}>{codigoCorreo.error}</p>}
+        <Button type="submit" full loading={codigoCorreo.verificando}>Entrar</Button>
 
         <p className="t-meta" style={{ textAlign: 'center', lineHeight: 1.5 }}>
           {codigoCorreo.reenviado && codigoCorreo.espera > 0

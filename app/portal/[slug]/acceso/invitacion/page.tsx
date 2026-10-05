@@ -68,7 +68,7 @@ function Invitacion() {
         </p>
       </div>
       <p className="t-meta" style={{ margin: 0, lineHeight: 1.5 }}>
-        ¿No tienes cuenta o no recuerdas la contraseña? En la siguiente pantalla usa «Continuar con Google» o «No tengo contraseña — mándame un enlace»: sirven igual si ya tenías cuenta que si no.
+        ¿No tienes cuenta o no recuerdas la contraseña? En la siguiente pantalla escribe tu correo y te mandamos un código, o usa «Continuar con Google»: sirven igual si ya tenías cuenta que si no.
       </p>
       <Button full data-testid="invitacion-entrar" onClick={() => r.push(href('/acceso/login'))}>
         Entrar

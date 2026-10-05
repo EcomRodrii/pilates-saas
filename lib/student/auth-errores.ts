@@ -47,7 +47,7 @@ export function traducirAuth(mensaje: string): string | null {
   if (m.includes('invalid login credentials')) return 'Email o contraseña incorrectos.';
   if (m.includes('rate limit') || m.includes('too many')) return 'Demasiados intentos. Espera un minuto y vuelve a intentarlo.';
   if (codigoDeError(mensaje) === 'sin-confirmar') return 'Tienes que confirmar tu email antes de entrar.';
-  if (m.includes('user already registered')) return 'Ya existe una cuenta con ese email. Entra con tu contraseña o pide un enlace.';
+  if (m.includes('user already registered')) return 'Ya existe una cuenta con ese email. Entra con tu contraseña o con un código.';
   if (m.includes('should be at least') || m.includes('password')) return 'La contraseña es demasiado corta. Usa al menos 8 caracteres.';
   return null;
 }
