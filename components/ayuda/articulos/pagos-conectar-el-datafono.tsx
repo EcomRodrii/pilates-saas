@@ -56,10 +56,11 @@ export default function Contenido() {
         como salen en su pantalla.
       </p>
 
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Con un SumUp Solo</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Con un SumUp Solo (próximamente)</h2>
       <p>
-        Si en el primer paso ves la opción <strong>Un SumUp Solo</strong>, también puedes cobrar con él, aunque no
-        tengas Stripe. El dinero va a tu cuenta de SumUp, con las comisiones que ya tengas con ellos.
+        En el primer paso sale <strong>Un SumUp Solo</strong> con la etiqueta <strong>Próximamente</strong>: todavía no
+        se puede conectar. Cuando se pueda, cobrarás con él aunque no tengas Stripe, y el dinero irá a tu cuenta de SumUp,
+        con las comisiones que ya tengas con ellos. Será así:
       </p>
       <p>
         La primera vez, la propietaria conecta la cuenta de SumUp: se abre SumUp, entra con su usuario y acepta. Después,
@@ -73,10 +74,16 @@ export default function Contenido() {
         apunta, sin devolver nada más.
       </p>
 
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Con el datáfono de tu banco (próximamente)</h2>
+      <p>
+        También sale en el primer paso, como <strong>Próximamente</strong>. Mientras, cobra en la Caja con{' '}
+        <strong>Tarjeta</strong>: tecleas el importe en el datáfono de tu banco y el cobro queda apuntado en Tentare.
+      </p>
+
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cambiarlo o desconectarlo</h2>
       <p>
         En <strong>Configuración &gt; Cobros y facturas</strong>, fila Datáfono: ves si está encendido, le cambias el
-        nombre, conectas otro en su lugar (de Stripe o un SumUp Solo) o lo desconectas. Con SumUp, también ves qué cuenta
+        nombre, conectas otro en su lugar o lo desconectas. Con SumUp, también ves qué cuenta
         está conectada y la propietaria puede desconectarla. Desconectarlo no toca los cobros ya hechos; hasta que conectes
         otro, en la Caja no podrás cobrar con datáfono. Puedes seguir cobrando con «Tarjeta», el datáfono de tu banco, como
         siempre.

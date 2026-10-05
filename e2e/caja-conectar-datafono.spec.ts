@@ -110,7 +110,7 @@ test('sin datáfono, el botón lo conecta y se vuelve a la misma venta con el da
   await abrirCobro(page);
 
   await page.getByRole('button', { name: /^Conectar datáfono/ }).click();
-  await page.getByRole('button', { name: /Sí, lo tengo aquí/ }).click();
+  await page.getByRole('button', { name: /Un datáfono de Stripe/ }).click();
   // La dirección es la del estudio, a la vista.
   await expect(page.getByText('Calle de Ejemplo 12, 28010 Madrid')).toBeVisible();
   await page.getByLabel('Las tres palabras').fill('Sepia Cerulean Aqua');
@@ -134,7 +134,7 @@ test('un código que Stripe rechaza se dice junto al campo, y no se da por conec
   });
   await abrirCobro(page);
   await page.getByRole('button', { name: /^Conectar datáfono/ }).click();
-  await page.getByRole('button', { name: /Sí, lo tengo aquí/ }).click();
+  await page.getByRole('button', { name: /Un datáfono de Stripe/ }).click();
   await page.getByLabel('Las tres palabras').fill('sepia-cerulean-agua');
   await page.getByRole('button', { name: 'Conectar', exact: true }).click();
 
@@ -147,7 +147,7 @@ test('un código mal escrito no llega al servidor', async ({ page }) => {
   const c = await montar(page, { emparejado: false, lectura: SIN_DATAFONO });
   await abrirCobro(page);
   await page.getByRole('button', { name: /^Conectar datáfono/ }).click();
-  await page.getByRole('button', { name: /Sí, lo tengo aquí/ }).click();
+  await page.getByRole('button', { name: /Un datáfono de Stripe/ }).click();
   await page.getByLabel('Las tres palabras').fill('hola');
   await page.getByRole('button', { name: 'Conectar', exact: true }).click();
 
@@ -193,6 +193,9 @@ test('sin Stripe, con SumUp: se conecta el Solo con su código y se vuelve a la 
   await page.getByRole('button', { name: /^Conectar datáfono/ }).click();
   // El de Stripe se ve, pero sin Stripe no se puede elegir.
   await expect(page.getByRole('button', { name: /Un datáfono de Stripe/ })).toBeDisabled();
+  // Con SumUp abierto para el estudio, el Solo NO es «Próximamente»; el del banco, sí.
+  await expect(page.getByRole('button', { name: /Un SumUp Solo/ })).not.toContainText('Próximamente');
+  await expect(page.getByRole('button', { name: /El datáfono de tu banco.*Próximamente/ })).toBeDisabled();
   await page.getByRole('button', { name: /Un SumUp Solo/ }).click();
   await expect(page.getByText('Estudio de Ejemplo')).toBeVisible();
   await page.getByLabel('El código').fill('k7q2 m9xp');
@@ -260,10 +263,20 @@ test('un código del Solo que SumUp rechaza se dice junto al campo, y no se da p
   await expect(page.getByText('Datáfono conectado')).toHaveCount(0);
 });
 
-test('con Stripe y sin SumUp para el estudio, el primer paso es el de siempre', async ({ page }) => {
-  await montar(page, { emparejado: false, lectura: SIN_DATAFONO });
+test('con Stripe y sin SumUp para el estudio: el Solo y el datáfono del banco salen como «Próximamente» y no llevan a nada', async ({ page }) => {
+  const c = await montar(page, { emparejado: false, lectura: SIN_DATAFONO });
   await abrirCobro(page);
   await page.getByRole('button', { name: /^Conectar datáfono/ }).click();
-  await expect(page.getByRole('button', { name: /Sí, lo tengo aquí/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Un SumUp Solo/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Un datáfono de Stripe/ })).toBeEnabled();
+  const sumup = page.getByRole('button', { name: /Un SumUp Solo.*Próximamente/ });
+  const banco = page.getByRole('button', { name: /El datáfono de tu banco.*Próximamente/ });
+  await expect(sumup).toBeDisabled();
+  await expect(banco).toBeDisabled();
+  // Pulsarlos no abre nada: ni la cuenta de SumUp ni ninguna conexión.
+  await sumup.click({ force: true });
+  await banco.click({ force: true });
+  await expect(page.getByText('Conecta tu datáfono')).toBeVisible();
+  expect(c.lecturas).toBeGreaterThan(0);
+  expect(c.oauth).toBe(0);
+  expect(c.conexiones).toBe(0);
 });

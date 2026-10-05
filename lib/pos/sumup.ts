@@ -56,12 +56,21 @@ export function sumupPuedeCobrarAqui(env: NodeJS.ProcessEnv = process.env): bool
 }
 
 /**
- * ¿Se ofrece SumUp a ESTE estudio? Hasta probarlo con el Solo de prueba, solo a
- * los que se pongan en `SUMUP_SOLO_ESTUDIOS` (ids separados por comas, o `*` para
- * todos). Sin la variable, a nadie. Solo decide si se puede CONECTAR: un estudio
- * que ya tiene su Solo sigue cobrando con él.
+ * ¿Está SumUp abierto? Mientras SumUp no apruebe el permiso de cobro de la app
+ * (`payments`, lo revisan a mano), ningún estudio puede conectarlo y «Conectar
+ * datáfono» lo enseña como «Próximamente» (decisión del fundador, 5-oct-2026).
+ * Al abrirlo, `SUMUP_SOLO_ESTUDIOS` sigue decidiendo a qué estudios se ofrece.
  */
-export function sumupParaEstudio(studioId: string, env: NodeJS.ProcessEnv = process.env): boolean {
+export const SUMUP_ABIERTO = false;
+
+/**
+ * ¿Se ofrece SumUp a ESTE estudio? Con SumUp abierto y, hasta probarlo con el
+ * Solo de prueba, solo a los que se pongan en `SUMUP_SOLO_ESTUDIOS` (ids separados
+ * por comas, o `*` para todos). Sin la variable, a nadie. Solo decide si se puede
+ * CONECTAR: un estudio que ya tiene su Solo sigue cobrando con él.
+ */
+export function sumupParaEstudio(studioId: string, env: NodeJS.ProcessEnv = process.env, abierto = SUMUP_ABIERTO): boolean {
+  if (!abierto) return false;
   const lista = (env.SUMUP_SOLO_ESTUDIOS ?? '').split(',').map(s => s.trim()).filter(Boolean);
   return lista.includes('*') || lista.includes(studioId);
 }
