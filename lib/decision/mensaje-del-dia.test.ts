@@ -161,7 +161,7 @@ test('lo que el piloto hizo «hoy»: solo EJECUTADA, y desde la medianoche de Ma
   assert.match(contar, /\.gte\('resuelto_en', inicioDeHoyEnEstudio\(now\)\)/);
   assert.match(cuerpoDe(db, 'export function dbCountAutonomasHoy('), /contarAutonomasHoyEn\(studioId, now, 'EJECUTADA'\)/);
   // Y la bandeja del Resumen cuenta igual.
-  const estado = leer('app/api/estado-estudio/route.ts');
+  const estado = leer('lib/estado-estudio-servidor.ts');
   assert.match(estado, /const inicioDiaISO = inicioDeHoyEnEstudio\(ahora\);/);
   assert.match(estado, /\.eq\('resuelto_por', 'AUTONOMIA'\)\.eq\('estado', 'EJECUTADA'\)\.gte\('resuelto_en', inicioDiaISO\)/);
 });

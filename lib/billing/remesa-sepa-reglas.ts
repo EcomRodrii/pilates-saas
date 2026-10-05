@@ -28,6 +28,7 @@
 // Puro, sin Supabase, para probarlo con node --test.
 
 import { cobroManualDeRecibo, type LecturaPenalizacionesDeRecibos } from './penalizacion-aprobar-reglas.ts';
+import { renovacionDeCuotaEnEspera, tipoPlanEmbebido, type MotivoRenovacionEnEspera } from './renovacion-adoptable.ts';
 
 /**
  * Días entre preparar la remesa y el cargo que se pide al banco (margen SEPA
@@ -50,12 +51,46 @@ export const COLUMNAS_COBRO_EN_MARCHA = [
 
 type ColumnaCobroEnMarcha = (typeof COLUMNAS_COBRO_EN_MARCHA)[number];
 
-export type FilaReciboRemesa = { id: string; estado: string | null } & { [K in ColumnaCobroEnMarcha]?: string | null };
+type CuotaEmbebida = { estado?: string | null; fecha_fin?: string | null; planes_tarifa?: unknown };
 
-/** Lo leído de la base justo antes de marcar. `ok: false` = no se pudo leer. */
+export type FilaReciboRemesa = { id: string; estado: string | null } & { [K in ColumnaCobroEnMarcha]?: string | null } & {
+  // Para no meter en la remesa la renovación de una cuota que no toca cobrar
+  // (`renovacionEnEsperaDeFila`). Sin ellas, como antes.
+  es_renovacion?: boolean | null;
+  tras_cancelar_cuota?: string | null;
+  suscripciones?: CuotaEmbebida | CuotaEmbebida[] | null;
+};
+
+/** Lo que lee `dbLeerRecibosParaRemesa`: las columnas de «cobro en marcha» y la cuota del recibo. */
+export const SELECT_RECIBOS_REMESA =
+  `id, estado, ${COLUMNAS_COBRO_EN_MARCHA.join(', ')}, es_renovacion, tras_cancelar_cuota, suscripciones(estado, fecha_fin, planes_tarifa(tipo))`;
+
+/**
+ * Lo leído de la base justo antes de marcar. `ok: false` = no se pudo leer. `hoy`
+ * (`yyyy-mm-dd`): el día de la lectura, para saber si una cuota ya venció.
+ */
 export type LecturaRecibosRemesa =
-  | { ok: true; filas: ReadonlyMap<string, FilaReciboRemesa> }
+  | { ok: true; filas: ReadonlyMap<string, FilaReciboRemesa>; hoy?: string }
   | { ok: false };
+
+/**
+ * ¿Es la renovación de una cuota que la remesa no puede cobrar todavía? La misma regla
+ * que el cobro automático (lib/billing/renovacion-adoptable.ts): ni antes de vencer, ni
+ * en pausa, ni cancelada sin «sigue reintentando». Revisión del 5-oct (#11): una
+ * renovación pedida desde la app y abandonada se domiciliaba semanas antes de vencer,
+ * o sobre una cuota ya cancelada (y al confirmarla, la reactivaba).
+ */
+export function renovacionEnEsperaDeFila(fila: FilaReciboRemesa, hoy: string): MotivoRenovacionEnEspera | null {
+  const cuota = Array.isArray(fila.suscripciones) ? fila.suscripciones[0] : fila.suscripciones;
+  if (!cuota) return null;
+  return renovacionDeCuotaEnEspera({
+    esRenovacion: fila.es_renovacion ?? null,
+    tipoPlan: tipoPlanEmbebido(cuota.planes_tarifa),
+    fechaFin: cuota.fecha_fin ?? null,
+    estadoCuota: cuota.estado ?? null,
+    trasCancelarCuota: fila.tras_cancelar_cuota ?? null,
+  }, hoy);
+}
 
 export function tieneCobroEnMarcha(fila: FilaReciboRemesa): boolean {
   return COLUMNAS_COBRO_EN_MARCHA.some(col => !!fila[col]);
@@ -69,17 +104,20 @@ export interface RemesaSinCobroEnMarcha<R> {
   fueraYaNoPendientes: number;
   /** No se pudo leer: fuera, por si acaso (un adeudo en el banco no se deshace con un clic). */
   fueraSinComprobar: number;
+  /** La renovación de una cuota que todavía no toca cobrar (`renovacionEnEsperaDeFila`). */
+  fueraRenovacionEnEspera?: number;
 }
 
 export function recibosSinCobroEnMarcha<R extends { id: string }>(
   recibos: readonly R[], lectura: LecturaRecibosRemesa,
 ): RemesaSinCobroEnMarcha<R> {
-  const out: RemesaSinCobroEnMarcha<R> = { entran: [], fueraCobroEnMarcha: 0, fueraYaNoPendientes: 0, fueraSinComprobar: 0 };
+  const out: RemesaSinCobroEnMarcha<R> = { entran: [], fueraCobroEnMarcha: 0, fueraYaNoPendientes: 0, fueraSinComprobar: 0, fueraRenovacionEnEspera: 0 };
   for (const r of recibos) {
     if (!lectura.ok) { out.fueraSinComprobar++; continue; }
     const fila = lectura.filas.get(r.id);
     if (!fila || fila.estado !== 'PENDIENTE') out.fueraYaNoPendientes++;
     else if (tieneCobroEnMarcha(fila)) out.fueraCobroEnMarcha++;
+    else if (lectura.hoy && renovacionEnEsperaDeFila(fila, lectura.hoy)) out.fueraRenovacionEnEspera = (out.fueraRenovacionEnEspera ?? 0) + 1;
     else out.entran.push(r);
   }
   return out;
@@ -94,6 +132,10 @@ export function avisoCobrosEnMarchaFueraDeRemesa(f: Omit<RemesaSinCobroEnMarcha<
     partes.push(`${recibos(f.fueraCobroEnMarcha)} no ${f.fueraCobroEnMarcha === 1 ? 'entra' : 'entran'}: ya ${f.fueraCobroEnMarcha === 1 ? 'tiene' : 'tienen'} un cobro en marcha (reintento programado, tarjeta, Bizum o datáfono).`);
   }
   if (f.fueraYaNoPendientes > 0) partes.push(avisoYaNoPendientes(f.fueraYaNoPendientes));
+  const enEspera = f.fueraRenovacionEnEspera ?? 0;
+  if (enEspera > 0) {
+    partes.push(`${recibos(enEspera)} no ${enEspera === 1 ? 'entra' : 'entran'}: ${enEspera === 1 ? 'es la renovación' : 'son renovaciones'} de una cuota que todavía no toca cobrar (sin vencer, en pausa o cancelada).`);
+  }
   if (f.fueraSinComprobar > 0) {
     partes.push(`${recibos(f.fueraSinComprobar)} no ${f.fueraSinComprobar === 1 ? 'entra' : 'entran'}: no hemos podido comprobar si ya se ${f.fueraSinComprobar === 1 ? 'está' : 'están'} cobrando. Vuelve a prepararlo en un momento.`);
   }
@@ -181,7 +223,9 @@ export type MotivoFueraDeRemesa =
   /** Ya no está pendiente (cobrado, anulado entre medias). */
   | 'YA_NO_PENDIENTE'
   /** No se pudo comprobar: fuera, por si acaso. */
-  | 'SIN_COMPROBAR';
+  | 'SIN_COMPROBAR'
+  /** La renovación de una cuota que aún no toca cobrar: cuál, en `detalle`. */
+  | 'RENOVACION_EN_ESPERA';
 
 const DETALLE_COBRO_EN_MARCHA: Record<ColumnaCobroEnMarcha, string> = {
   proximo_reintento: 'se cobra solo con su tarjeta o domiciliación',
@@ -191,7 +235,13 @@ const DETALLE_COBRO_EN_MARCHA: Record<ColumnaCobroEnMarcha, string> = {
   cobro_off_session_clave: 'se está cobrando ahora con su tarjeta o domiciliación guardada',
 };
 
-export const TEXTO_MOTIVO_FUERA: Record<Exclude<MotivoFueraDeRemesa, 'COBRO_EN_MARCHA'>, string> = {
+const DETALLE_RENOVACION_EN_ESPERA: Record<MotivoRenovacionEnEspera, string> = {
+  CUOTA_SIN_VENCER: 'es la renovación de una cuota que aún no ha vencido',
+  CUOTA_PAUSADA: 'es la renovación de una cuota en pausa',
+  CUOTA_CANCELADA: 'es la renovación de una cuota cancelada',
+};
+
+export const TEXTO_MOTIVO_FUERA: Record<Exclude<MotivoFueraDeRemesa, 'COBRO_EN_MARCHA' | 'RENOVACION_EN_ESPERA'>, string> = {
   PENALIZACION_SIN_APROBAR: 'es una penalización sin el cobro aprobado',
   YA_NO_PENDIENTE: 'ya no está pendiente',
   SIN_COMPROBAR: 'no hemos podido comprobar si ya se está cobrando',
@@ -238,6 +288,8 @@ export function vistaPreviaRemesa<R extends { id: string; socioId: string | null
     if (!fila || fila.estado !== 'PENDIENTE') { out.fuera.push({ recibo: r, motivo: 'YA_NO_PENDIENTE', detalle: TEXTO_MOTIVO_FUERA.YA_NO_PENDIENTE }); continue; }
     const columna = COLUMNAS_COBRO_EN_MARCHA.find(col => !!fila[col]);
     if (columna) { out.fuera.push({ recibo: r, motivo: 'COBRO_EN_MARCHA', detalle: DETALLE_COBRO_EN_MARCHA[columna] }); continue; }
+    const espera = p.cobrosEnMarcha.hoy ? renovacionEnEsperaDeFila(fila, p.cobrosEnMarcha.hoy) : null;
+    if (espera) { out.fuera.push({ recibo: r, motivo: 'RENOVACION_EN_ESPERA', detalle: DETALLE_RENOVACION_EN_ESPERA[espera] }); continue; }
     out.entran.push(r);
     out.total = Math.round((out.total + r.importe) * 100) / 100;
   }

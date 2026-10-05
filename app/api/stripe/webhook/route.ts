@@ -14,6 +14,9 @@ import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReem
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/billing/confirmar-cobro';
 import { reservarClasePagada } from '@/lib/billing/reservar-clase-pagada';
+import { selloDelCobro } from '@/lib/billing/sello-del-cobro';
+import { resolverSesionCaducada } from '@/lib/billing/sesion-caducada';
+import { tipoDePlanDelReciboEstricto } from '@/lib/billing/tipo-plan-de-recibo';
 import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
 import { cerrarCheckoutDeBizumFallido } from '@/lib/pos/cerrar-bizum-fallido';
@@ -644,10 +647,9 @@ async function procesarEvento(
           studioId,
           planId,
           socioId: socioId ?? null,
-          // Qué condiciones aceptó al pagar. Se sellaron en el checkout y viajan
-          // por la metadata: aquí solo se leen para dejarlas en el recibo.
-          terminosHash: session.metadata?.terminosHash ?? null,
-          terminosAceptadosEn: session.metadata?.terminosAceptadosEn ?? null,
+          // Qué condiciones aceptó al pagar (la huella, sellada en el checkout) y
+          // cuándo (al crear la sesión: `session.created`). Ver sello-del-cobro.ts.
+          ...selloDelCobro(session.metadata, session.created),
           // Email verificado por Stripe: es a quien hay que entregarle el bono
           // si compró antes de registrarse.
           email: session.customer_details?.email ?? session.customer_email ?? null,
@@ -999,10 +1001,9 @@ async function procesarEvento(
         studioId,
         planId,
         socioId: pi.metadata.socioId ?? null,
-          // Qué condiciones aceptó al pagar. Se sellaron en el checkout y viajan
-          // por la metadata: aquí solo se leen para dejarlas en el recibo.
-          terminosHash: pi.metadata.terminosHash ?? null,
-          terminosAceptadosEn: pi.metadata.terminosAceptadosEn ?? null,
+          // Qué condiciones aceptó al pagar (la huella, sellada en el checkout) y
+          // cuándo (al crear el cobro: `pi.created`). Ver sello-del-cobro.ts.
+          ...selloDelCobro(pi.metadata, pi.created),
         email: pi.metadata.socioEmail ?? null,
         nombre: pi.metadata.socioNombre ?? null,
         // Saneado en checkout-embebido antes de entrar en la metadata; la
@@ -1454,6 +1455,30 @@ async function procesarEvento(
     if (session.metadata?.plazaEtapaId) {
       const admin = getSupabaseAdmin();
       if (admin) await liberarPlazaPorRef(admin, session.id);
+    }
+
+    // El pago online de un RECIBO caducó sin pagarse: si es una deuda (cuota o
+    // reintento armado), el recibo vuelve a su cobro de siempre; la renovación de
+    // un bono que ella pidió no se cobra sola. Ver lib/billing/sesion-caducada.ts.
+    // Hoy el endpoint no está suscrito a este evento: lo hace el conciliador, y
+    // esto queda por si se suscribe. Compare-and-set sobre ESTA sesión.
+    const reciboDeLaSesion = session.metadata?.reciboId;
+    if (reciboDeLaSesion) {
+      const admin = getSupabaseAdmin();
+      const studioId = admin ? await studioDeCuentaConnect(admin, event.account) : null;
+      if (admin && studioId && tenantAutorizado(studioId, session.metadata?.studioId)) {
+        const r = await resolverSesionCaducada(
+          admin, { studioId, reciboId: reciboDeLaSesion, sesionId: session.id },
+          recibo => tipoDePlanDelReciboEstricto(admin, recibo),
+        );
+        // Si falla, lo recoge el conciliador en su siguiente pasada.
+        if (r === 'error') {
+          Sentry.captureMessage('[stripe webhook] no se pudo soltar la sesión caducada de un recibo', {
+            level: 'warning', tags: { area: 'cobros', tipo: 'sesion-caducada' },
+            extra: { sessionId: session.id, reciboId: reciboDeLaSesion, studioId },
+          });
+        }
+      }
     }
   }
 

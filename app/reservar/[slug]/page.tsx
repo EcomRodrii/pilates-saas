@@ -62,7 +62,7 @@ import { urlServida } from '@/lib/student/imagen-servida';
 import { fmtTime, fmtLong, telefonoValido } from '@/lib/reservar/formato';
 import { PantallaReserva } from '@/components/reserva/pantalla-reserva';
 import { SpotPickerPublico } from '@/components/reserva/spot-picker-publico';
-import { piDeClientSecret, RETARDOS_POLL_MS, type RespuestaEstadoPago } from '@/lib/billing/estado-pago-publico';
+import { piDeClientSecret, RETARDOS_POLL_MS, type ReservaPrevia, type RespuestaEstadoPago } from '@/lib/billing/estado-pago-publico';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
@@ -807,8 +807,10 @@ export default function ReservarPage() {
   // 'tardando' cuando se agota el techo del polling sin respuesta — la
   // pantalla nunca dice «confirmada» sin que el servidor lo haya dicho antes.
   const [confirmacionPago, setConfirmacionPago] = useState<
-    'confirmando' | 'confirmada' | 'lista_espera' | 'pendiente_aprobacion' | 'tardando' | 'fallida'
+    'confirmando' | 'confirmada' | 'lista_espera' | 'pendiente_aprobacion' | 'ya_tenia_plaza' | 'tardando' | 'fallida'
   >('confirmando');
+  // Con 'ya_tenia_plaza': lo que ya tenía en la clase (plaza, cola o pendiente).
+  const [reservaPrevia, setReservaPrevia] = useState<ReservaPrevia | null>(null);
   const [claseConfirmada, setClaseConfirmada] = useState<{ nombre: string; inicio: string } | null>(null);
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
   // Login con contraseña (día a día, sin depender del viaje de email — ver
@@ -2020,6 +2022,10 @@ export default function ReservarPage() {
           // Dato opcional y no bloqueante: si no cuadra el patrón, simplemente
           // no viaja, en vez de frenar una reserva ya pagada por un typo.
           fechaNacimiento: fechaNacimientoISO(datosInfoAdicional.fechaNacimiento) ?? undefined,
+          // El cobro que esta misma pantalla creó antes (volver a «Tus datos» y
+          // continuar): el servidor lo cancela antes de crear el nuevo, para que
+          // nunca queden dos pagables de la misma clase. Ver lib/billing/pago-anterior.ts.
+          pagoAnterior: datosClientSecret ?? undefined,
         }),
       });
       const data = await res.json() as { clientSecret?: string; error?: string };
@@ -2118,6 +2124,7 @@ export default function ReservarPage() {
     const puedePreguntar = !!piDeClientSecret(datosClientSecret) && !!loginForm.email.trim() && !!studio?.id;
     setConfirmacionPago(puedePreguntar ? 'confirmando' : 'tardando');
     setClaseConfirmada(null);
+    setReservaPrevia(null);
     setLoginStep('done');
   }
 
@@ -2150,6 +2157,7 @@ export default function ReservarPage() {
       if (resuelto && resuelto.estado !== 'en_proceso') {
         setConfirmacionPago(resuelto.estado);
         if (resuelto.clase) setClaseConfirmada(resuelto.clase);
+        setReservaPrevia(resuelto.previa ?? null);
         return;
       }
       if (intento + 1 >= RETARDOS_POLL_MS.length) {
@@ -2170,7 +2178,13 @@ export default function ReservarPage() {
     confirmacionPago === 'confirmada' ? '¡Plaza confirmada!'
     : confirmacionPago === 'lista_espera' ? '¡En lista de espera!'
     : confirmacionPago === 'pendiente_aprobacion' ? 'Pendiente de aprobación'
+    : confirmacionPago === 'ya_tenia_plaza'
+      ? (reservaPrevia === 'lista_espera' ? 'Ya estabas en la lista de espera'
+        : reservaPrevia === 'pendiente_aprobacion' ? 'Ya tenías esta clase pendiente'
+        : 'Ya tenías plaza en esta clase')
     : '¡Pago recibido!';
+  // Ya tenía plaza CONFIRMADA en la clase: sí tiene a qué ir (calendario incluido).
+  const yaTeniaPlazaConfirmada = confirmacionPago === 'ya_tenia_plaza' && reservaPrevia === 'confirmada';
 
   // El estado de la RESERVA, dicho con todas las letras y separado del estado
   // del pago: son dos cosas distintas y pueden no coincidir (pago recibido +
@@ -2180,6 +2194,10 @@ export default function ReservarPage() {
     confirmacionPago === 'confirmada' ? 'Confirmada'
     : confirmacionPago === 'lista_espera' ? 'En lista de espera'
     : confirmacionPago === 'pendiente_aprobacion' ? 'Pendiente de aprobación'
+    : confirmacionPago === 'ya_tenia_plaza'
+      ? (reservaPrevia === 'lista_espera' ? 'En lista de espera (ya lo estabas)'
+        : reservaPrevia === 'pendiente_aprobacion' ? 'Pendiente de aprobación (ya lo estaba)'
+        : 'Confirmada (ya la tenías)')
     : confirmacionPago === 'fallida' ? 'Sin plaza — el estudio te contactará'
     : confirmacionPago === 'tardando' ? 'Confirmando'
     : 'Confirmando…';
@@ -4243,7 +4261,13 @@ export default function ReservarPage() {
                   <div className="w-16 h-16 rounded-full flex items-center justify-center bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
                     <Loader2 size={30} className="animate-spin text-[var(--portal-muted)]" aria-label="Confirmando tu plaza" />
                   </div>
-                ) : confirmacionPago === 'lista_espera' || confirmacionPago === 'pendiente_aprobacion' ? (
+                ) : yaTeniaPlazaConfirmada ? (
+                  // Ya tenía su plaza: nada que celebrar de este pago, pero tampoco
+                  // nada que temer. Un check quieto, sin confeti.
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: `color-mix(in oklab, ${colorExito} 14%, var(--portal-surface))` }}>
+                    <CheckCircle2 size={30} style={{ color: colorExito }} />
+                  </div>
+                ) : confirmacionPago === 'lista_espera' || confirmacionPago === 'pendiente_aprobacion' || confirmacionPago === 'ya_tenia_plaza' ? (
                   <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: 'color-mix(in oklab, var(--warning) 18%, var(--portal-surface))' }}>
                     <Hourglass size={30} style={{ color: 'var(--warning)' }} />
                   </div>
@@ -4358,6 +4382,23 @@ export default function ReservarPage() {
                         <span className="font-semibold">{loginForm.email}</span>; si no
                         llega en unos minutos, escribe al estudio y te lo resuelven.</>
                       )}
+                      {confirmacionPago === 'ya_tenia_plaza' && reservaPrevia === 'confirmada' && (
+                        <>Ya estabas apuntada a esta clase, así que este pago no se ha usado
+                        para reservarla otra vez: queda a tu favor para otra clase. El estudio
+                        ya está avisado; si prefieres que te lo devuelvan, escríbeles.</>
+                      )}
+                      {confirmacionPago === 'ya_tenia_plaza' && reservaPrevia === 'lista_espera' && (
+                        <>Ya estabas en la lista de espera de esta clase, así que este pago no te
+                        da plaza: queda a tu favor. Si se libera un sitio, entras con tu lugar
+                        en la cola y te avisaremos a{' '}
+                        <span className="font-semibold">{loginForm.email}</span>. El estudio ya está avisado.</>
+                      )}
+                      {confirmacionPago === 'ya_tenia_plaza' && reservaPrevia === 'pendiente_aprobacion' && (
+                        <>Ya tenías esta clase pendiente de que el estudio la apruebe, así que
+                        este pago no se ha usado: queda a tu favor. Te llegará a{' '}
+                        <span className="font-semibold">{loginForm.email}</span> la respuesta
+                        del estudio, que ya está avisado.</>
+                      )}
                       {confirmacionPago === 'fallida' && (
                         <>El pago está recibido, pero no hemos podido asignarte la plaza en
                         esta clase. El estudio ya está avisado y se pondrá en contacto
@@ -4366,7 +4407,7 @@ export default function ReservarPage() {
                     </p>
                   </div>
                 )}
-                {(!pagoWebSinLogin || confirmacionPago === 'confirmada') && (
+                {(!pagoWebSinLogin || confirmacionPago === 'confirmada' || yaTeniaPlazaConfirmada) && (
                 <div className="w-full space-y-2.5 mt-1">
                   <p className="text-[var(--portal-muted)] text-xs font-semibold uppercase tracking-wide">Añadir a tu calendario</p>
                   {/* ⚠️ Estos dos botones tenían jerarquía invertida y fuera de

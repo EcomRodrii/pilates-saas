@@ -102,3 +102,41 @@ test('sin referencia o sin Stripe, se sigue', async () => {
   assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano(null, mostrador(['PROCESANDO']).cobro), { tipo: 'SEGUIR' });
   assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', null), { tipo: 'SEGUIR' });
 });
+
+// ─── Un cobro que sigue ESPERANDO, visto por la alumna que paga online ──────
+// A mano se cancela ya (quien cobra está delante). La alumna solo puede darlo por
+// abandonado pasado el margen: si no, le cortaría el cobro a la recepcionista.
+
+import { cobroDeMostradorAbandonado, MINUTOS_COBRO_MOSTRADOR_ABANDONADO } from './pago-online-al-cobrar-a-mano.ts';
+
+test('un cobro que sigue esperando NO se cancela si quien pregunta no puede darlo por abandonado', async () => {
+  const { cobro, ll } = mostrador(['PENDIENTE']);
+  const r = await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', { ...cobro, pendienteCancelable: () => false });
+  assert.deepEqual(r, { tipo: 'EN_MARCHA' });
+  assert.equal(ll.cancelar, 0, 'no se toca el cobro de quien lo tiene delante');
+  assert.equal(ll.soltar, 0);
+});
+
+test('abandonado pasado el margen: se cancela, se suelta y se sigue', async () => {
+  const { cobro, ll } = mostrador(['PENDIENTE', 'CANCELADO']);
+  const r = await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', { ...cobro, pendienteCancelable: () => true });
+  assert.deepEqual(r, { tipo: 'SEGUIR' });
+  assert.deepEqual(ll, { consultar: 2, cancelar: 1, soltar: 1 });
+});
+
+test('un cobro ya terminado sin cobrar se suelta aunque no se pueda cancelar nada', async () => {
+  for (const e of ['CANCELADO', 'EXPIRADO', 'RECHAZADO'] as const) {
+    const { cobro } = mostrador([e]);
+    assert.deepEqual(await soltarCobroDeMostradorAntesDeCobrarAMano('pi_1', { ...cobro, pendienteCancelable: () => false }), { tipo: 'SEGUIR' }, e);
+  }
+});
+
+test('el margen: sin saber cuándo empezó, no está abandonado; con 30 min, sí', () => {
+  const ahora = new Date('2026-10-05T12:00:00.000Z');
+  const hace = (min: number) => (ahora.getTime() - min * 60_000) / 1000;
+  assert.equal(cobroDeMostradorAbandonado(undefined, ahora), false);
+  assert.equal(cobroDeMostradorAbandonado(null, ahora), false);
+  assert.equal(cobroDeMostradorAbandonado(hace(MINUTOS_COBRO_MOSTRADOR_ABANDONADO - 1), ahora), false);
+  assert.equal(cobroDeMostradorAbandonado(hace(MINUTOS_COBRO_MOSTRADOR_ABANDONADO), ahora), true);
+  assert.equal(MINUTOS_COBRO_MOSTRADOR_ABANDONADO >= 30, true, 'el Bizum del mostrador dura 30 min: antes no está abandonado');
+});

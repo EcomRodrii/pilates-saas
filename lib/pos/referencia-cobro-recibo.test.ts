@@ -168,8 +168,9 @@ test('⚠️ el arranque de un cobro de la Caja pasa por el dueño de «pagos en
     'clave del intento → preparar (sin efectos) → dueño (con la clave) → no se abre si no deja → abrir el nuevo');
   // Ni una segunda copia de la regla: la ruta no cancela ni suelta cobros previos por su cuenta.
   assert.ok(!f.includes('prepararCobroExistente(') && !f.includes("proveedorDeReferencia(referenciaPrevia)"));
-  // Y al guardar, ni con un enlace de pago abierto después de cerrarlo.
-  assert.ok(f.includes("? guardar.eq('checkout_session_id', enMarcha.checkoutLeido)\n      : guardar.is('checkout_session_id', null);"));
+  // Y al guardar, ni con un enlace de pago abierto después de cerrarlo: «la leída o
+  // ninguna» (el conciliador suelta la sesión que caduca; eso no es un enlace nuevo).
+  assert.ok(f.includes('const guardarSinOtroEnlace = exigirCheckoutLeido(guardar, enMarcha.checkoutLeido);'));
   assert.equal(f.indexOf('contextoCobroDe('), -1);
 });
 

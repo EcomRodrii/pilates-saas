@@ -292,3 +292,51 @@ for (const [caso, query] of [
     expect(google).toEqual([]);
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Ya tenía plaza» (5-oct-2026): la socia que paga una clase en la que YA tenía
+// reserva veía «Sin plaza — el estudio te contactará». El servidor ahora dice qué
+// pasó con SU pago (`ya_tenia_plaza`) y qué tiene (`previa`), y la pantalla lo dice.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('ya tenía plaza CONFIRMADA: se le dice que la tiene y que el pago queda a su favor, nunca «sin plaza»', async ({ page }) => {
+  let polls = 0;
+  await page.route('**/api/public/estado-pago**', (r) => {
+    polls += 1;
+    const body = polls === 1
+      ? { estado: 'en_proceso' }
+      : { estado: 'ya_tenia_plaza', previa: 'confirmada', clase: { nombre: 'Reformer', inicio: '2026-08-12T10:00:00' } };
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+
+  await pagarHastaDone(page);
+
+  await expect(page.getByText('Ya tenías plaza en esta clase', { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('queda a tu favor', { exact: false })).toBeVisible();
+  await expect(page.getByText('Confirmada (ya la tenías)')).toBeVisible();
+  expect(polls, 'sin polls el test no prueba nada').toBeGreaterThanOrEqual(2);
+  // Lo que NO puede decirle a quien sí tiene plaza.
+  await expect(page.getByText('Sin plaza', { exact: false })).toHaveCount(0);
+  await expect(page.getByText('no hemos podido asignarte la plaza', { exact: false })).toHaveCount(0);
+  // Tiene una clase a la que ir: el calendario sí.
+  await expect(page.getByText('Añadir a tu calendario')).toBeVisible();
+});
+
+test('ya estaba en la LISTA DE ESPERA: se le dice eso, sin calendario y sin «la clase se ha llenado»', async ({ page }) => {
+  let polls = 0;
+  await page.route('**/api/public/estado-pago**', (r) => {
+    polls += 1;
+    return r.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ estado: 'ya_tenia_plaza', previa: 'lista_espera', clase: { nombre: 'Reformer', inicio: '2026-08-12T10:00:00' } }),
+    });
+  });
+
+  await pagarHastaDone(page);
+
+  await expect(page.getByText('Ya estabas en la lista de espera', { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('este pago no te da plaza', { exact: false })).toBeVisible();
+  expect(polls, 'sin polls el test no prueba nada').toBeGreaterThanOrEqual(1);
+  await expect(page.getByText('la clase se ha llenado justo antes', { exact: false })).toHaveCount(0);
+  await expect(page.getByText('Añadir a tu calendario')).not.toBeVisible();
+});
