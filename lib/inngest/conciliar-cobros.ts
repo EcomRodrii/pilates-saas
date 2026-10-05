@@ -43,8 +43,11 @@ import { selloDelCobro } from '../billing/sello-del-cobro.ts';
 import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
 import { liberarCupoMatriculaUnaVez } from '../billing/matricula-online.ts';
-import { resolverSesionCaducada, sesionesCaducadasDeRecibos } from '../billing/sesion-caducada.ts';
-import { tipoDePlanDelRecibo } from '../billing/tipo-plan-de-recibo.ts';
+import {
+  decidirSesionCaducada, estadoDeSesionGuardada, resolverSesionCaducada, sesionesCaducadasDeRecibos, soltarSesionCaducada,
+  TOPE_SESIONES_DESDE_LA_BASE,
+} from '../billing/sesion-caducada.ts';
+import { tipoDePlanDelReciboEstricto } from '../billing/tipo-plan-de-recibo.ts';
 import { cobroPosDeSesionCaducada } from '../pos/cerrar-bizum-fallido.ts';
 import { liberarCobroPosFallido } from '../pos/liberar-cobro-fallido.ts';
 import { barrerCobrosSumup } from '../pos/cobro-sumup.ts';
@@ -351,14 +354,71 @@ async function soltarSesionesCaducadasDeRecibos(
     try {
       const r = await resolverSesionCaducada(
         admin, { studioId: studio.id, reciboId, sesionId },
-        recibo => tipoDePlanDelRecibo(admin, recibo),
+        recibo => tipoDePlanDelReciboEstricto(admin, recibo),
       );
       if (r === 'error') throw new Error('no se pudo leer o soltar el recibo');
     } catch (e) {
-      // La sesión sigue en el listado de las próximas pasadas: se reintenta sola.
+      // Se reintenta sola: en el listado de las próximas pasadas y, pasada su
+      // ventana, en el barrido desde la base de la vigilancia diaria.
       Sentry.captureException(e instanceof Error ? e : new Error('sesión caducada de un recibo'), {
         level: 'warning', tags: { area: 'cobros', tipo: 'sesion-caducada' },
         extra: { studioId: studio.id, reciboId, sesionId },
+      });
+    }
+  }
+}
+
+// Lo mismo, pero partiendo de la BASE DE DATOS (solo la vigilancia diaria): los
+// recibos que siguen apuntando a una sesión que el listado ya no ve (más vieja que
+// su ventana, o con las pasadas falladas). Primero se decide con la base —una
+// renovación que se mantiene no gasta ninguna llamada a Stripe—, y solo lo que se
+// soltaría se le pregunta a Stripe, con un tope por pasada
+// (`TOPE_SESIONES_DESDE_LA_BASE`). Lo que no entra hoy, entra mañana. Sin cron nuevo.
+async function soltarSesionesCaducadasDesdeLaBase(
+  admin: SupabaseClient,
+  stripe: Stripe,
+  studio: { id: string; stripe_account_id: string },
+  yaListadas: Set<string>,
+): Promise<void> {
+  const { data: filas, error } = await admin.from('recibos')
+    .select('id, checkout_session_id')
+    .eq('studio_id', studio.id)
+    .in('estado', ['PENDIENTE', 'FALLIDO'])
+    .not('checkout_session_id', 'is', null)
+    .order('id')
+    .limit(500);
+  if (error) {
+    Sentry.captureMessage('[conciliador] no se pudieron leer los recibos con sesión de pago guardada', {
+      level: 'warning', tags: { area: 'cobros', tipo: 'sesion-caducada' }, extra: { studioId: studio.id, error: error.message },
+    });
+    return;
+  }
+  let preguntas = 0;
+  for (const fila of (filas ?? []) as { id: string; checkout_session_id: string }[]) {
+    const p = { studioId: studio.id, reciboId: fila.id, sesionId: fila.checkout_session_id };
+    // La del listado ya la resolvió `soltarSesionesCaducadasDeRecibos`.
+    if (yaListadas.has(p.sesionId)) continue;
+    try {
+      const destino = await decidirSesionCaducada(admin, p, recibo => tipoDePlanDelReciboEstricto(admin, recibo));
+      if (destino === 'error') throw new Error('no se pudo leer el recibo o su plan');
+      if (destino !== 'soltar') continue;
+      if (preguntas >= TOPE_SESIONES_DESDE_LA_BASE) break;
+      preguntas++;
+      let sesion: Stripe.Checkout.Session | null = null;
+      let errSesion: unknown = null;
+      try {
+        sesion = await stripe.checkout.sessions.retrieve(p.sesionId, undefined, { stripeAccount: studio.stripe_account_id });
+      } catch (e) {
+        errSesion = e;
+      }
+      // Solo se suelta una sesión que ya no se puede pagar (caducada, o que no
+      // existe en esa cuenta). Abierta o pagada, se deja: la cierra su cobro.
+      if (estadoDeSesionGuardada(sesion, errSesion) !== 'caducada') continue;
+      const r = await soltarSesionCaducada(admin, p);
+      if (r === 'error') throw new Error('no se pudo soltar la sesión del recibo');
+    } catch (e) {
+      Sentry.captureException(e instanceof Error ? e : new Error('sesión caducada de un recibo (base)'), {
+        level: 'warning', tags: { area: 'cobros', tipo: 'sesion-caducada' }, extra: { ...p },
       });
     }
   }
@@ -484,6 +544,7 @@ async function vigilarEstudio(
   const { pendientes, sesionPorId, piPorId } = await detectarPendientes(admin, stripe, studio, VENTANA_VIGILANCIA_HORAS);
   await devolverPlazasDeMatricula(admin, stripe, studio, [...sesionPorId.values()], [...piPorId.values()]);
   await soltarSesionesCaducadasDeRecibos(admin, studio, [...sesionPorId.values()]);
+  await soltarSesionesCaducadasDesdeLaBase(admin, stripe, studio, new Set(sesionPorId.keys()));
 
   // Solo lo que ya está FUERA del alcance del barrido de recuperación. Lo más
   // reciente que 12 h no es un problema todavía: el otro cron lo cogerá en su

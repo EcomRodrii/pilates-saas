@@ -16,7 +16,7 @@ import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/bil
 import { reservarClasePagada } from '@/lib/billing/reservar-clase-pagada';
 import { selloDelCobro } from '@/lib/billing/sello-del-cobro';
 import { resolverSesionCaducada } from '@/lib/billing/sesion-caducada';
-import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
+import { tipoDePlanDelReciboEstricto } from '@/lib/billing/tipo-plan-de-recibo';
 import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
 import { cerrarCheckoutDeBizumFallido } from '@/lib/pos/cerrar-bizum-fallido';
@@ -1428,7 +1428,7 @@ async function procesarEvento(
       if (admin && studioId && tenantAutorizado(studioId, session.metadata?.studioId)) {
         const r = await resolverSesionCaducada(
           admin, { studioId, reciboId: reciboDeLaSesion, sesionId: session.id },
-          recibo => tipoDePlanDelRecibo(admin, recibo),
+          recibo => tipoDePlanDelReciboEstricto(admin, recibo),
         );
         // Si falla, lo recoge el conciliador en su siguiente pasada.
         if (r === 'error') {
