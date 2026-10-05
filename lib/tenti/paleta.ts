@@ -16,6 +16,9 @@
 //
 // Puro (sin DOM) para poder probarlo con node --test: quien lo llama le pasa
 // cómo leer un token (getComputedStyle(canvas).getPropertyValue en el navegador).
+//
+// Los trajes NO salen de aquí: llevan los colores del original de Coucou
+// (lib/tenti/trajes-coucou.ts, decisión del fundador del 6-oct-2026).
 
 export interface PaletaTenti {
   /** Degradado del cuerpo y de las manos: [luz, sombra]. */

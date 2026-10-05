@@ -24,6 +24,14 @@
 // parpadeos y miradas. Suena solo si «Sonidos de Tenti» está encendido en el
 // dispositivo (lib/tenti/preferencia-sonido.ts, encendido por defecto).
 //
+// Desde el 5-oct-2026 (fundador: «ahora, que viene Halloween») Tenti lleva
+// trajes de temporada (lib/tenti/trajes.ts): el gorro de bruja del 5-oct al
+// 1-nov en hora de Madrid, el de Coucou tal cual (lib/tenti/trajes-coucou.ts,
+// 6-oct-2026). Lo lleva donde se toca y NUNCA dentro de un botón o
+// un enlace (la misma regla, `DENTRO_DE_UN_CONTROL`): así quedan fuera, sin
+// otra lista, los botones de IA que tratan salud. La temporada la decide el
+// calendario, nunca la pantalla: `traje` es del catálogo.
+//
 // Estructural a propósito: el motor dibuja once estados y siete emociones, y la
 // tentación de «ponerle cara» a una pantalla más es constante. Cada sitio nuevo
 // reabre una discusión entera (batería del iPad de recepción, una mascota junto
@@ -249,7 +257,12 @@ const DONDE_SE_SALUDA = new Set(['components/onboarding/pantallas-valor.tsx']);
  *  está aquí: desde el 5-oct se toca en todos sus sitios salvo dentro de un
  *  botón o un enlace. `sonido` sí: fuera del catálogo lo decide la preferencia
  *  del dispositivo, nunca la pantalla. */
-const PROPS_SOLO_DEL_CATALOGO = ['sonido', 'saludaAlAparecer', 'insignias', 'titulo', 'catalogo'];
+const PROPS_SOLO_DEL_CATALOGO = [
+  'sonido', 'saludaAlAparecer', 'insignias', 'titulo', 'catalogo',
+  // El traje lo decide la temporada (lib/tenti/trajes.ts), nunca la pantalla;
+  // y la pose fija es la hoja de Coucou del catálogo.
+  'traje', 'pose',
+];
 
 /** Estados y emociones del canvas fuera del catálogo. 'pensando' no está: en el
  *  panel solo lo pide el icono (ver PENSANDO_CUANDO). */
@@ -549,6 +562,14 @@ test('el icono vivo trae el motor aparte: dynamic() sin SSR, el SVG quieto de re
   const [lienzo] = etiquetas(`${ICONO}.tsx`, icono, ['TentiCanvas']);
   assert.equal(lienzo.props.get('interactivo'), 'tocable');
   assert.equal(lienzo.props.get('sonido'), 'tocable ? undefined : false', 'Dentro de un control, el icono no suena por su cuenta.');
+  // Ni lleva traje: un disfraz junto a la lesión de una alumna (los botones de
+  // IA de salud) es frívolo, y en un enlace pequeño compite con la etiqueta.
+  assert.equal(lienzo.props.get('conTraje'), 'tocable', 'Dentro de un control, el canvas del icono va sin traje.');
+  assert.match(icono, /const\s+traje\s*=\s*tocable\s*\?\s*\w+\s*:\s*null\s*;/, 'Y su data-traje tampoco: el traje solo si es tocable.');
+  // El SVG de reserva va sin traje (solo se ve mientras llega el motor): un
+  // gorro redibujado a mano en SVG es justo el «mal outfit» que se retiró.
+  assert.doesNotMatch(leerCodigo(`${ICONO}.tsx`), /data-gorro|dibujoDelTraje|trajes-coucou/, 'el SVG de reserva vuelve a llevar traje.');
+  assert.ok(!lienzo.props.has('traje'), 'El icono no fija un traje: lo decide la temporada.');
   assert.ok(!lienzo.props.has('insignias'), 'Sin insignias: el estado lo dice el texto.');
   assert.ok(importsValor.get(`${ICONO}.tsx`)!.includes(GEOMETRIA), 'El icono se dibuja con lib/tenti/geometria.');
   const cierre = cierreDeValor(`${ICONO}.tsx`);
@@ -565,6 +586,24 @@ test('el icono vivo trae el motor aparte: dynamic() sin SSR, el SVG quieto de re
   for (const caso of ['{ ancho: 16 }', "estado: 'hecho'", "estado: 'esperaTuOk'", "titulo: 'Tenti'"]) {
     assert.ok(new RegExp(`@ts-expect-error[^\\n]*\\n[^\\n]*${caso.replace(/[{}]/g, '\\$&')}`).test(tipos),
       `${ICONO}.tipos.ts ya no comprueba ${caso}.`);
+  }
+});
+
+test('los trajes son los de Coucou: el motor los pinta desde OUTFITS, y el renderizador va en el chunk del motor', () => {
+  const COUCOU = 'lib/tenti/trajes-coucou';
+  const motor = leerCodigo(`${MOTOR}.ts`);
+  // Ni un dibujo propio de traje en el motor: el del original, por su nombre de Coucou.
+  assert.match(motor, /OUTFITS\[TRAJES\[this\.ropa\]\.coucou\]/, 'el motor pinta el traje de OUTFITS (el de Coucou), no uno propio.');
+  assert.doesNotMatch(motor, /DIBUJO_TRAJE|GORRO_BRUJA|posturaDelGorro/, 'vuelve el gorro dibujado por nosotros.');
+  assert.ok(importsValor.get(`${MOTOR}.ts`)!.includes(COUCOU), 'motor.ts importa el renderizador de Coucou.');
+  // `OUTFITS` es un Record<NombreTrajeCoucou, …>: un traje sin dibujo no compila.
+  assert.match(leerCodigo(`${COUCOU}.ts`), /export\s+const\s+OUTFITS\s*:\s*Record<NombreTrajeCoucou,/);
+  assert.ok(leer(`${COUCOU}.ts`).includes(AVISO_MIT), 'trajes-coucou.ts: el código es de Coucou (MIT) y lleva su aviso.');
+  // El renderizador NO entra en el chunk de todo el panel: lo trae el motor,
+  // que llega aparte. trajes.ts (que lee la preferencia, en el panel) solo
+  // nombra el traje.
+  for (const desde of [`${ICONO}.tsx`, 'lib/tenti/preferencia-traje.ts', 'lib/tenti/trajes.ts', 'components/tenti/tenti-decorativo.tsx', 'components/tenti/tenti-diferido.tsx']) {
+    assert.ok(![...cierreDeValor(desde)].some(f => sinExt(f) === COUCOU), `${desde} mete los trajes de Coucou en su chunk.`);
   }
 });
 

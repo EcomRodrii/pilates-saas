@@ -52,6 +52,16 @@
 // no puede colarse en el del botón o el enlace que lo lleva. Por eso no acepta
 // `titulo`.
 //
+// El traje de temporada (el gorro de bruja, lib/tenti/trajes.ts) lo lleva solo
+// donde se toca: dentro de un botón o un enlace, no. Así quedan fuera sin otra
+// lista los botones de IA que tratan salud (un disfraz junto a la lesión de una
+// alumna es frívolo) y los enlaces pequeños, donde el gorro compite con la
+// etiqueta. Lo pinta el canvas (el traje de Coucou, lib/tenti/trajes-coucou.ts),
+// que con traje crece hacia fuera sin mover la caja. El SVG de reserva va SIN
+// traje a propósito: solo se ve los instantes que tarda en llegar el motor (o
+// si no hay canvas 2D), y redibujar a mano en SVG los trajes de Coucou sería
+// volver a tener un gorro que solo se parece al original.
+//
 // useId(): hay varios Tentis por página (tres en Resumen), y con ids fijos los
 // url(#…) de los degradados del SVG resolverían todos al primero.
 //
@@ -62,6 +72,7 @@ import dynamic from 'next/dynamic';
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { BAJADA, R_DEL_LADO, SEMIEJE_X, SILUETA_PX, dibujoDelIcono } from '@/lib/tenti/geometria';
+import { useTrajeDeTenti } from '@/lib/tenti/preferencia-traje';
 import type { PropsTenti } from './tenti';
 
 /** Anchos cerrados. Por debajo de 18 los ojos miden menos de 2 px y a DPR 1 se
@@ -123,6 +134,8 @@ export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', classNa
   useEffect(() => {
     setTocable(!caja.current?.closest(DENTRO_DE_UN_CONTROL));
   }, []);
+  const deTemporada = useTrajeDeTenti();
+  const traje = tocable ? deTemporada : null;
   const alto = Math.round(ancho * D.proporcion * 100) / 100;
   const { lado, izquierda, arriba } = encajeDelCanvas(ancho);
   // El SVG quieto vuelve a la caja desde la del canvas.
@@ -136,6 +149,7 @@ export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', classNa
       ref={caja}
       data-tenti-icono=""
       data-estado={estado}
+      data-traje={traje ?? undefined}
       aria-hidden="true"
       className={cn('relative inline-block shrink-0', className)}
       style={{ width: ancho, height: alto }}
@@ -155,6 +169,8 @@ export function TentiIcono({ ancho, estado = 'reposo', sobre = 'normal', classNa
             sigueCursor
             interactivo={tocable}
             saludaUnaVez={tocable}
+            // El traje, solo donde se toca: la misma regla.
+            conTraje={tocable}
             reserva={reserva}
             className="block"
           />
