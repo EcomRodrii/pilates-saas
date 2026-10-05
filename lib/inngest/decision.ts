@@ -37,12 +37,13 @@ import { dbGetIntegracionConfig } from '@/lib/db/supabase-data-admin';
 import { ALGORITHM_VERSION } from '@/lib/decision/version';
 import { elegirMensajeDelDia, type ImpactoRealCalibracion } from '@/lib/decision/umbral';
 import { aperturaAvisadaHoy } from '@/lib/opening/umbral-apertura';
+import { fechaDelMensaje } from '@/lib/decision/mensaje-del-dia';
 import { emitirDecisionMensajeDia } from '@/lib/notifications/emit';
 import {
   dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
   dbListPendientes, dbListResueltas90d, dbListMemoriaRows, construirMapaMemoria, dbUpsertResumenDiario, dbUpsertHechoMemoria,
   dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
-  dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy, dbAprobarAutonoma, dbListMensajesRecientes, dbUpsertMensajeDia,
+  dbLogActividadReciente, dbGetAutonomiaConfig, dbCountCupoAutonomasHoy, dbAprobarAutonoma, dbListMensajesRecientes, dbUpsertMensajeDia,
   dbListFeatureFlagRows, dbCalcularSeguimientoPorTipo, dbCalcularImpactoRealPorTipo, dbListSociasExcluidasDePerfilado,
   dbRedaccionIaActiva,
 } from '@/lib/decision/db';
@@ -200,11 +201,25 @@ export const analizarEstudio = inngest.createFunction(
     // Persistencia: lote único de recomendaciones (50+ recomendaciones × 200
     // estudios = 10.000+ steps/día sin esto). Cada recomendación es idempotente
     // por dedupeKey, así que un replay de esta operación no duplica nada.
-    if (recomendacionesRedactadas.length > 0) {
-      await step.run('persistir-recomendaciones-lote', () =>
-        Promise.all(recomendacionesRedactadas.map(r => dbUpsertRecomendacion(r)))
-      );
-    }
+    //
+    // El step devuelve el id que quedó en la base de datos para cada una, en el
+    // mismo orden: al refrescar una que ya existía, la fila conserva SU id, no
+    // el `uid()` de arriba (que además cambia en cada replay del handler). Todo
+    // lo que después nombra una recomendación —el mensaje del día, la puerta 2
+    // del Umbral— usa este id. Un array de cadenas: sobrevive al JSON del replay.
+    // Una ejecución que empezó antes de este despliegue trae `[null, …]`
+    // memorizado (el step no devolvía nada): el mensaje se guarda sin id y la
+    // pantalla lo encuentra por su `dedupe_key`.
+    const idsPersistidos: (string | null)[] = recomendacionesRedactadas.length > 0
+      ? await step.run('persistir-recomendaciones-lote', () =>
+          Promise.all(recomendacionesRedactadas.map(r => dbUpsertRecomendacion(r)))
+        )
+      : [];
+    const idPersistidoPorDedupe = new Map<string, string>();
+    recomendacionesRedactadas.forEach((r, i) => {
+      const id = idsPersistidos[i];
+      if (typeof id === 'string') idPersistidoPorDedupe.set(r.dedupeKey, id);
+    });
 
     // Igual: lote de expiraciones
     if (resultado.expiraciones.length > 0) {
@@ -223,7 +238,7 @@ export const analizarEstudio = inngest.createFunction(
     const { ids: autonomas, maxDiario } = await step.run('seleccionar-autonomas', async () => {
       const config = await dbGetAutonomiaConfig(studioId);
       if (!config.activa) return { ids: [] as { id: string }[], maxDiario: config.maxDiario };
-      const yaHoy = await dbCountAutonomasHoy(studioId, now);
+      const yaHoy = await dbCountCupoAutonomasHoy(studioId, now);
       // Se releen las PENDIENTE reales (estado + id ya persistidos), no el objeto en memoria.
       const pendientes = await dbListPendientes(studioId);
       return { ids: seleccionarAutonomas(pendientes, config, yaHoy).map(r => ({ id: r.id })), maxDiario: config.maxDiario };
@@ -233,7 +248,7 @@ export const analizarEstudio = inngest.createFunction(
     // Con 200 estudios × 2-3 autonomías/día, esto es 400-600 → 200 eventos.
     //
     // 52ª pasada de auditoría, H2: el cupo ya se estimó arriba con
-    // dbCountAutonomasHoy (para priorizar/ordenar cuántas intentar), pero la
+    // dbCountCupoAutonomasHoy (para priorizar/ordenar cuántas intentar), pero la
     // SEGURIDAD de no superar `maxDiario` no depende de ese conteo — cada
     // aprobación recuenta en caliente dentro de `aprobar_recomendacion_autonoma`
     // (advisory lock por estudio+día), así que una invocación solapada nunca
@@ -262,14 +277,22 @@ export const analizarEstudio = inngest.createFunction(
     // ── El Umbral (0/decision_mensaje_dia) ────────────────────────────────────
     // De todas las candidatas de hoy, como mucho UNA se convierte en el mensaje
     // del día — el resto no se oculta, sigue viva para mañana (cooldown/
-    // expiración ya existentes). Las que el piloto automático ya va a resolver
-    // solo (`autonomas`, arriba) no compiten por el mensaje: si el sistema ya
-    // lo hace, no hace falta interrumpir para pedir permiso.
+    // expiración ya existentes). Las que el piloto automático acaba de aprobar
+    // (`autonomasAprobadas`, arriba) no compiten por el mensaje: si el sistema
+    // ya lo hace, no hace falta interrumpir para pedir permiso. Una que intentó
+    // y la RPC paró por el tope NO la hace nadie, así que sí compite.
+    //
+    // ⚠️ Esa puerta comparaba ids de la base de datos (los del piloto) con los
+    // `uid()` en memoria de las candidatas, que nunca coinciden con una fila ya
+    // existente: no excluía nada. Ahora cruza por el id persistido.
     const elegirYGuardarMensajeDelDia = async () => {
-      const fecha = nowISOStr.slice(0, 10);
-      const idsAutonomas = new Set(autonomas.map(a => a.id));
+      // El día del mensaje en Madrid, el mismo con el que lo busca la pantalla.
+      const fecha = fechaDelMensaje(now);
+      const idsAutonomas = new Set(autonomasAprobadas);
       const dedupeKeysAutoResueltas = new Set(
-        recomendacionesRedactadas.filter(r => idsAutonomas.has(r.id)).map(r => r.dedupeKey)
+        recomendacionesRedactadas
+          .filter(r => idsAutonomas.has(idPersistidoPorDedupe.get(r.dedupeKey) ?? r.id))
+          .map(r => r.dedupeKey)
       );
       const historialReciente = (await dbListMensajesRecientes(studioId, now, 5))
         .map(m => ({ dedupeKey: m.dedupeKey, motivoMotor: m.motivoMotor }));
@@ -312,8 +335,10 @@ export const analizarEstudio = inngest.createFunction(
       const titulo = ganadora?.titulo ?? veredicto.candidata.tituloMotor;
       const motivo = ganadora?.motivo ?? veredicto.candidata.motivoMotor;
 
+      // El id de la FILA, no el de la candidata en memoria: con este, la pantalla
+      // encuentra la recomendación de su mensaje (GET /api/decisiones).
       await dbUpsertMensajeDia({
-        studioId, fecha, tipo: 'MENSAJE', recomendacionId: ganadora?.id ?? null,
+        studioId, fecha, tipo: 'MENSAJE', recomendacionId: idPersistidoPorDedupe.get(veredicto.candidata.dedupeKey) ?? null,
         dedupeKey: veredicto.candidata.dedupeKey, motivoMotor: veredicto.candidata.motivoMotor,
         motivoSilencio: null, enviadoEn: nowISOStr,
       });

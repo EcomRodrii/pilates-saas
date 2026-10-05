@@ -80,6 +80,13 @@ export interface VeredictoAPI {
   semanaTranquila: boolean;
   /** Callado porque la apertura del estudio ya avisó hoy (lib/opening/umbral-apertura.ts). */
   porApertura?: boolean;
+  /** La aplazó hoy con «Recuérdamelo» y sigue PENDIENTE (`pospuesta_en`,
+   * lib/decision/mensaje-del-dia.ts): el veredicto lo dice y no vuelve a pedírsela. */
+  pospuesta?: boolean;
+  /** Solo del cliente: acaba de responder al mensaje en esta pantalla y el
+   * servidor dijo que sí (la tarjeta se ha ido). Al recargar, el servidor manda
+   * la recomendación con lo que pasó de verdad. */
+  respondido?: boolean;
 }
 
 export interface SeguimientoAPI {
@@ -102,6 +109,8 @@ export interface DecisionesResponse {
    * del Centro de Control. Opcional: los e2e que mockean esta respuesta sin
    * este campo (previos a la reorganización) no deben romperse. */
   nAutonomasHoy?: number;
+  /** Las que el piloto intentó hoy y no salieron (FALLIDA): se dicen aparte. */
+  nAutonomasFallidasHoy?: number;
 }
 
 function buscarRecomendacion(prev: DecisionesResponse, id: string): RecomendacionAPI | null {
@@ -122,9 +131,22 @@ function quitarRecomendacion(prev: DecisionesResponse, id: string): DecisionesRe
     ...prev,
     prioridades: prev.prioridades.filter(r => r.id !== id),
     masSituaciones: prev.masSituaciones.filter(r => r.id !== id),
-    veredicto: prev.veredicto.recomendacion?.id === id ? { ...prev.veredicto, recomendacion: null } : prev.veredicto,
+    veredicto: prev.veredicto.recomendacion?.id === id ? { ...prev.veredicto, recomendacion: null, respondido: true } : prev.veredicto,
     porEspecialista: descontarDeSuEspecialista(prev, buscarRecomendacion(prev, id)),
   };
+}
+
+/**
+ * «Recuérdamelo» con el sí del servidor: sigue PENDIENTE, así que no se quita de
+ * ningún sitio. El veredicto pasa a decir que la ha dejado para más adelante, y
+ * la recomendación sigue en el detalle con sus botones (la página deja de
+ * filtrarla de las filas). Antes se quitaba de la pantalla, y al recargar volvía
+ * arriba con sus botones como si nadie la hubiera tocado.
+ */
+function marcarPospuesta(prev: DecisionesResponse, id: string): DecisionesResponse {
+  return prev.veredicto.recomendacion?.id === id
+    ? { ...prev, veredicto: { ...prev.veredicto, pospuesta: true } }
+    : quitarRecomendacion(prev, id);
 }
 
 /** La deja donde está, pero ya APROBADA: lo que el servidor acaba de confirmar. */
@@ -319,9 +341,9 @@ export function useDecisiones({ seguirCobros = false }: { seguirCobros?: boolean
     if (resultado.ok) {
       setData(prev => {
         if (!prev) return prev;
-        return accion === 'aprobar' && efecto === 'COBRAR'
-          ? marcarAprobada(prev, rec.id)
-          : quitarRecomendacion(prev, rec.id);
+        if (accion === 'aprobar' && efecto === 'COBRAR') return marcarAprobada(prev, rec.id);
+        if (accion === 'posponer') return marcarPospuesta(prev, rec.id);
+        return quitarRecomendacion(prev, rec.id);
       });
     }
     return resultado;

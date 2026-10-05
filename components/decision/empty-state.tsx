@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 // todavía ningún `resumen_diario` persistido para este estudio — el gate real
 // es "¿ha corrido ya el primer análisis?", no "¿cuántas semanas de historial
 // hay?" (P2-5: decisionDispatcher, lib/inngest/decision.ts, no filtra por
-// antigüedad — corre para CUALQUIER estudio elegible dos veces al día, y
+// antigüedad — corre para CUALQUIER estudio elegible una vez al día, a las 14:30 UTC, y
 // "Analizar ahora" lo dispara al instante). El copy anterior prometía
 // "unas semanas", algo que el sistema no exige ni cumple — se corrige para
 // no generar una expectativa falsa. Nunca "no hay datos" — siempre acompaña

@@ -5,8 +5,10 @@ import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { bloqueoPorPlan } from '@/lib/decision/plan-servidor';
 import {
   dbListPendientes, dbGetResumenDiarioReciente, dbGetMensajeDia, dbListMensajesRecientes,
-  dbGetRecomendacion, dbListOutcomesRecientes, dbCountAutonomasHoy,
+  dbGetRecomendacion, dbListOutcomesRecientes, dbCountAutonomasHoy, dbCountAutonomasFallidasHoy,
+  dbListRecomendacionesPorDedupe,
 } from '@/lib/decision/db';
+import { aplazadaElDiaDelMensaje, elegirRecomendacionDelMensaje, fechaDelMensaje } from '@/lib/decision/mensaje-del-dia';
 import { calcularEstadoEspecialista } from '@/lib/decision/director';
 import { seleccionarPrioridadesHome } from '@/lib/decision/prioridad';
 import { fraseConfianza } from '@/lib/decision/copy';
@@ -28,8 +30,11 @@ export async function GET(req: NextRequest) {
   if (sinPlan) return sinPlan;
 
   const now = new Date();
-  const fechaHoy = now.toISOString().slice(0, 10);
-  const [resumenCompleto, pendientesCrudos, actividadRes, mensajeHoy, mensajesRecientes, outcomesRecientes, nAutonomasHoy] = await Promise.all([
+  // El día en Madrid, el mismo con el que el análisis guarda el mensaje: con el
+  // día UTC, de 00:00 a 02:00 de Madrid se enseñaba el mensaje de ayer como el
+  // de hoy (lib/decision/mensaje-del-dia.ts).
+  const fechaHoy = fechaDelMensaje(now);
+  const [resumenCompleto, pendientesCrudos, actividadRes, mensajeHoy, mensajesRecientes, outcomesRecientes, nAutonomasHoy, nAutonomasFallidasHoy] = await Promise.all([
     dbGetResumenDiarioReciente(sesion.studioId, now),
     dbListPendientes(sesion.studioId),
     requireSupabaseAdmin().from('actividad_reciente').select('*').eq('studio_id', sesion.studioId).order('creado_en', { ascending: false }).limit(10),
@@ -37,6 +42,7 @@ export async function GET(req: NextRequest) {
     dbListMensajesRecientes(sesion.studioId, now, 7),
     dbListOutcomesRecientes(sesion.studioId, 3),
     dbCountAutonomasHoy(sesion.studioId, now),
+    dbCountAutonomasFallidasHoy(sesion.studioId, now),
   ]);
 
   // MARKETING queda fuera de TODO lo que ve el cliente mientras el módulo
@@ -67,14 +73,24 @@ export async function GET(req: NextRequest) {
   // Acotada al estudio de la sesión: se lee con service-role y se devuelve tal
   // cual en `veredicto.recomendacion`, así que un `recomendacion_id` que no
   // fuera de este estudio no puede enseñar la de otro. Si la lectura falla, un
-  // error que se pueda reintentar: sin ella, el veredicto diría «Todo bajo
-  // control» sobre el mensaje del día que no se ha podido leer.
-  const recomendacionGanadora = mensajeHoy?.tipo === 'MENSAJE' && mensajeHoy.recomendacionId
+  // error que se pueda reintentar: sin ella, el veredicto diría que no hay nada
+  // sobre el mensaje del día que no se ha podido leer.
+  //
+  // Respaldo por `dedupe_key`: hasta este cambio el análisis guardaba un
+  // `recomendacion_id` que nunca llegó a la base de datos (el id en memoria de
+  // la candidata), así que los mensajes ya guardados apuntan a nada. Se busca su
+  // recomendación por la clave del asunto, con el orden de
+  // `elegirRecomendacionDelMensaje`, también acotada al estudio.
+  const porId = mensajeHoy?.tipo === 'MENSAJE' && mensajeHoy.recomendacionId
     ? await dbGetRecomendacion(mensajeHoy.recomendacionId, sesion.studioId)
     : null;
-  if (recomendacionGanadora === undefined) {
+  const porDedupe = porId === null && mensajeHoy?.tipo === 'MENSAJE' && mensajeHoy.dedupeKey
+    ? await dbListRecomendacionesPorDedupe(sesion.studioId, mensajeHoy.dedupeKey)
+    : null;
+  if (porId === undefined || porDedupe === undefined) {
     return NextResponse.json({ error: 'No se ha podido leer el mensaje de hoy. Vuelve a intentarlo.' }, { status: 500 });
   }
+  const recomendacionGanadora = porId ?? (porDedupe ? elegirRecomendacionDelMensaje(porDedupe, fechaHoy) : null);
   // Qué hace de verdad el botón principal de cada recomendación que se pinta
   // (lib/decision/efecto-aprobar.ts): cobrar, mandarle un mensaje a la socia o
   // solo marcarla. Lo dice el servidor, que es quien la ejecuta, y con los
@@ -90,6 +106,9 @@ export async function GET(req: NextRequest) {
   const veredicto = {
     tipo: mensajeHoy?.tipo ?? ('SIN_ANALIZAR' as const),
     recomendacion: recomendacionGanadora ? conEfecto(recomendacionGanadora) : null,
+    // La aplazó hoy con «Recuérdamelo» y sigue PENDIENTE: el veredicto lo dice
+    // y no vuelve a pedírsela; la recomendación sigue en el detalle.
+    pospuesta: recomendacionGanadora ? aplazadaElDiaDelMensaje(recomendacionGanadora, fechaHoy) : false,
     fraseConfianza: recomendacionGanadora ? fraseConfianza(recomendacionGanadora.confianza.nivel) : null,
     semanaTranquila,
     porApertura: mensajeHoy?.tipo === 'SILENCIO' && mensajeHoy.motivoSilencio === MOTIVO_SILENCIO_APERTURA,
@@ -153,9 +172,10 @@ export async function GET(req: NextRequest) {
     masSituaciones: masSituaciones.map(conEfecto),
     porEspecialista,
     actividad,
-    // Reorganización Centro de Control §1: cuenta lo que el piloto automático
-    // ya resolvió hoy sin esperar criterio — reusa dbCountAutonomasHoy (ya
-    // existía para el cupo diario del piloto, sin caller aquí hasta ahora).
+    // Lo que el piloto automático hizo hoy (día de Madrid) sin esperar
+    // criterio: las que salieron (EJECUTADA) y, aparte, las que no (FALLIDA),
+    // para que el veredicto no cuente como resuelto lo que no salió.
     nAutonomasHoy,
+    nAutonomasFallidasHoy,
   });
 }
