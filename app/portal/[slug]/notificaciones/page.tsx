@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
-import { useAhoraMs } from '@/lib/student/use-ahora';
+import { useAhoraConPlazos, useAhoraMs } from '@/lib/student/use-ahora';
 import { useToast } from '@/components/student/ui/Toast';
 import { getNotificaciones, marcarLeidas } from '@/lib/student/perfil-y-avisos';
 import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
@@ -41,6 +41,9 @@ import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar
 // confirmación), añadir al calendario. Solo salen si la oferta sigue viva o la
 // clase sigue reservada, leído de sus reservas; y lo que se dice después es lo que
 // contestó el servidor.
+// Fuera del componente: solo se llama al pulsar (el lint de pureza no distingue un manejador de un render).
+const yaCaducada = (iso: string) => new Date(iso).getTime() <= Date.now();
+
 export default function NotificacionesPage() {
   const { estudio } = useEstudio();
   const href = usePortalHref();
@@ -50,8 +53,12 @@ export default function NotificacionesPage() {
   const ahoraMs = useAhoraMs();
   const [marcando, setMarcando] = useState(false);
   const [filtro, setFiltro] = useState<FiltroAvisos>('todo');
-  // Lo que ya contestó el servidor sobre una oferta (por reserva): sustituye a sus botones.
-  const [resueltas, setResueltas] = useState<Record<string, string>>({});
+  // Lo que ya contestó el servidor sobre una oferta, por id de reserva (y su clase,
+  // para encontrarlo desde el aviso): sustituye a sus botones. Se mira ANTES de
+  // buscar la oferta, porque tras la recarga la reserva ya no está en espera
+  // (confirmada, o cancelada si se le adelantaron o salió de la lista) y el
+  // resultado desaparecía justo cuando llegaban los datos que lo confirman.
+  const [resueltas, setResueltas] = useState<Record<string, { sesionId: string; texto: string }>>({});
   const [aceptando, setAceptando] = useState<string | null>(null);
   const [saliendo, setSaliendo] = useState<Reserva | null>(null);
   const [cancelando, setCancelando] = useState(false);
@@ -92,8 +99,11 @@ export default function NotificacionesPage() {
     }
   };
 
-  async function aceptar(reservaId: string) {
+  async function aceptar(oferta: Reserva) {
     if (aceptando) return;
+    // Caducada en el último segundo: no se pide nada que el servidor vaya a rechazar.
+    if (!oferta.ofertaExpiraEn || yaCaducada(oferta.ofertaExpiraEn)) { toast('Se acabó el plazo para aceptar esta plaza.'); return; }
+    const reservaId = oferta.id;
     setAceptando(reservaId);
     const res = await aceptarOfertaEspera(estudio.slug, estudio.id, reservaId, { online });
     setAceptando(null);
@@ -106,7 +116,10 @@ export default function NotificacionesPage() {
       return;
     }
     if (res.confirmada) void vibrar('exito');
-    setResueltas((p) => ({ ...p, [reservaId]: res.confirmada ? 'Plaza confirmada.' : 'Alguien se te adelantó por segundos: te hemos dado una clase de recuperación.' }));
+    setResueltas((p) => ({ ...p, [reservaId]: {
+      sesionId: oferta.claseId,
+      texto: res.confirmada ? 'Plaza confirmada.' : 'Alguien se te adelantó por segundos: te hemos dado una clase de recuperación.',
+    } }));
     void contexto.refrescar();
   }
 
@@ -120,19 +133,22 @@ export default function NotificacionesPage() {
       toast(res.error);
       return;
     }
-    const id = saliendo.id;
+    const { id, claseId } = saliendo;
     setSaliendo(null);
-    setResueltas((p) => ({ ...p, [id]: mensajeTrasCancelar(res, { esClaseFija: false, fechaCorta }) }));
+    setResueltas((p) => ({ ...p, [id]: { sesionId: claseId, texto: mensajeTrasCancelar(res, { esClaseFija: false, fechaCorta }) } }));
     void contexto.refrescar();
   }
 
   // `useAhoraMs` es `null` solo en el servidor: sin reloj no se agrupa (el día de «Hoy» saldría inventado).
-  const ahora = ahoraMs ?? 0;
   const hoy = ahoraMs === null ? '' : hoyEnEstudio(new Date(ahoraMs));
   const diaDe = (iso: string) => hoyEnEstudio(new Date(iso));
   const visibles = filtrarAvisos(data ?? [], filtro);
   const grupos = ahoraMs === null ? [] : agruparAvisosPorDia(visibles, hoy, diaDe);
   const ctx = contexto.data;
+
+  // La cuenta atrás de una oferta: el reloj de la app (cambia al empezar cada
+  // minuto) y un repintado en el INSTANTE en que caduca la más próxima.
+  const ahora = useAhoraConPlazos((ctx?.reservas ?? []).map((r) => (r.estado === 'en-espera' ? r.ofertaExpiraEn : null))) ?? 0;
 
   /** El botón de un aviso, si lo pide y existe la vía de verdad. */
   function accionDe(n: Notificacion) {
@@ -157,23 +173,29 @@ export default function NotificacionesPage() {
         </div>
       );
     }
-    // La oferta de la lista de espera: la reserva EN ESPERA de esa clase con su plazo aún vivo.
-    const oferta = suyas.find((r) => r.estado === 'en-espera' && !!r.ofertaExpiraEn);
-    if (oferta && resueltas[oferta.id]) {
-      return <p data-testid="aviso-resuelto" role="status" style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', fontWeight: 700 }}>{resueltas[oferta.id]}</p>;
+    // Lo que ya contestó el servidor manda (por su clase), y se mira ANTES de buscar la oferta.
+    const resuelta = Object.values(resueltas).find((r) => r.sesionId === n.sesionId);
+    if (resuelta) {
+      return <p data-testid="aviso-resuelto" role="status" style={{ margin: '8px 0 0', fontSize: 'var(--t-small)', fontWeight: 700 }}>{resuelta.texto}</p>;
     }
-    const plazo = oferta?.ofertaExpiraEn ? plazoDeOferta(oferta.ofertaExpiraEn, ahora, (iso) => horaEstudio(iso)) : null;
-    if (!oferta || !plazo) return null;
+    // La oferta de la lista de espera: la reserva EN ESPERA de esa clase con plazo.
+    const oferta = suyas.find((r) => r.estado === 'en-espera' && !!r.ofertaExpiraEn);
+    if (!oferta?.ofertaExpiraEn) return null;
+    const plazo = plazoDeOferta(oferta.ofertaExpiraEn, ahora, (iso) => horaEstudio(iso));
+    // ⚠️ El plazo va en la pareja `note--warn` (`--warning-foreground` sobre `--warning-soft`):
+    // directo sobre la tarjeta no llega a AA con el estilo «Carbón».
     return (
-      <div data-testid="aviso-oferta" style={{ marginTop: 10 }}>
-        <p style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--warning-foreground)' }}>{plazo}</p>
+      <div data-testid="aviso-oferta" data-vencida={plazo ? undefined : '1'} style={{ marginTop: 10 }}>
+        <p className="note note--warn" style={{ display: 'inline-block' }}>{plazo ?? 'Se acabó el plazo para aceptar esta plaza.'}</p>
         <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-          <Button size="sm" loading={aceptando === oferta.id} disabled={!online || !!aceptando} onClick={() => void aceptar(oferta.id)}>
+          <Button size="sm" loading={aceptando === oferta.id} disabled={!plazo || !online || !!aceptando} onClick={() => void aceptar(oferta)}>
             Aceptar la plaza
           </Button>
-          <Button variant="secondary" size="sm" disabled={!online || !!aceptando} onClick={() => setSaliendo(oferta)}>
-            No, gracias
-          </Button>
+          {plazo && (
+            <Button variant="secondary" size="sm" disabled={!online || !!aceptando} onClick={() => setSaliendo(oferta)}>
+              No, gracias
+            </Button>
+          )}
         </div>
       </div>
     );

@@ -1,5 +1,5 @@
 'use client';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 // El reloj de la app de la alumna. Antes no había ninguno: la PWA resolvía todo
 // a granularidad de DÍA (`hoyISO()`), que sirve igual en servidor y en cliente,
@@ -40,7 +40,7 @@ import { useSyncExternalStore } from 'react';
 export const CADENCIA_RELOJ_MS = 60_000;
 
 let ahoraMs: number | null = null;
-let timer: ReturnType<typeof setInterval> | null = null;
+let timer: ReturnType<typeof setTimeout> | null = null;
 const suscriptores = new Set<() => void>();
 
 function avisar(): void {
@@ -57,6 +57,19 @@ function releer(): void {
   avisar();
 }
 
+/**
+ * El siguiente tic, al EMPEZAR el minuto siguiente (+ un margen para no caer un
+ * milisegundo antes). Con un `setInterval` de 60 s que arrancaba al suscribirse,
+ * la hora pintada podía ir casi un minuto atrasada: una cuenta atrás seguía en
+ * «quedan 1 min» con el plazo ya vencido.
+ */
+function programar(): void {
+  timer = setTimeout(() => {
+    releer();
+    if (timer !== null) programar();
+  }, CADENCIA_RELOJ_MS - (Date.now() % CADENCIA_RELOJ_MS) + 25);
+}
+
 function alVolverAlFrente(): void {
   if (document.visibilityState === 'visible') releer();
 }
@@ -67,13 +80,13 @@ function suscribir(fn: () => void): () => void {
     // Primera lectura inmediata: quien acaba de montar necesita la hora ahora,
     // no dentro de un minuto.
     ahoraMs = Date.now();
-    timer = setInterval(releer, CADENCIA_RELOJ_MS);
+    programar();
     document.addEventListener('visibilitychange', alVolverAlFrente);
   }
   return () => {
     suscriptores.delete(fn);
     if (suscriptores.size === 0 && timer !== null) {
-      clearInterval(timer);
+      clearTimeout(timer);
       timer = null;
       document.removeEventListener('visibilitychange', alVolverAlFrente);
       // `ahoraMs` NO se pone a null al parar: si vuelve a montarse un
@@ -96,4 +109,27 @@ const leerEnServidor = (): number | null => null;
  */
 export function useAhoraMs(): number | null {
   return useSyncExternalStore(suscribir, leer, leerEnServidor);
+}
+
+/**
+ * El reloj de la app y, además, un repintado en el INSTANTE en que vence el plazo
+ * más próximo de `plazos` (ISO; los vacíos no cuentan). Para lo que caduca a un
+ * segundo cualquiera, como la oferta de una plaza de la lista de espera: con solo
+ * el reloj de minuto, «Aceptar la plaza» seguía activo hasta un minuto después de
+ * caducar, y el servidor la rechazaba.
+ */
+export function useAhoraConPlazos(plazos: readonly (string | null | undefined)[]): number | null {
+  const ahoraMs = useAhoraMs();
+  const [vencioA, setVencioA] = useState(0);
+  const ahora = ahoraMs === null ? null : Math.max(ahoraMs, vencioA);
+  const proximo = ahora === null ? undefined : plazos
+    .map((p) => (p ? Date.parse(p) : NaN))
+    .filter((t) => t > ahora)
+    .sort((a, b) => a - b)[0];
+  useEffect(() => {
+    if (proximo === undefined) return;
+    const t = setTimeout(() => setVencioA(Date.now()), Math.max(0, proximo - Date.now()) + 50);
+    return () => clearTimeout(t);
+  }, [proximo]);
+  return ahora;
 }

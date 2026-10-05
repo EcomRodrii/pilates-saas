@@ -21,7 +21,7 @@ import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
 import { alCalendario } from '@/lib/student/calendario-dispositivo';
 import { Badge, EnCursoBadge } from '@/components/student/ui/Badge';
-import { useAhoraMs } from '@/lib/student/use-ahora';
+import { useAhoraConPlazos } from '@/lib/student/use-ahora';
 import { estaEnCurso } from '@/lib/student/estado-clase';
 import { etiquetaHistorial } from '@/lib/student/etiqueta-historial';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
@@ -70,15 +70,6 @@ export default function MisReservasPage() {
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelando, setCancelando] = useState(false);
   const [aceptandoId, setAceptandoId] = useState<string | null>(null);
-  // El reloj compartido de la app, que AVANZA (ver `useAhoraMs`).
-  //
-  // Antes era `useState(() => Date.now())`, congelado al montar. Eso ya no basta
-  // por dos motivos: «en curso» tiene que aparecer y desaparecer sola mientras la
-  // pantalla está abierta, y ese inicializador corre TAMBIÉN en el SSR de este
-  // componente de cliente, así que servidor y cliente capturaban instantes
-  // distintos — un desajuste de hidratación latente. `null` hasta que hidrata.
-  const ahoraMs = useAhoraMs();
-
   const cargar = useCallback(async () => {
     const [reservas, clases, instructoras, plazaFija] = await Promise.all([
       getReservas(estudio.slug), getClases(estudio.slug), getInstructoras(estudio.slug), getPlazaFija(estudio.slug),
@@ -87,6 +78,16 @@ export default function MisReservasPage() {
   }, [estudio.slug]);
 
   const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `alumna:${estudio.slug}:mis-clases`);
+  // El reloj compartido de la app, que AVANZA (ver `useAhoraMs`).
+  //
+  // Antes era `useState(() => Date.now())`, congelado al montar. Eso ya no basta
+  // por dos motivos: «en curso» tiene que aparecer y desaparecer sola mientras la
+  // pantalla está abierta, y ese inicializador corre TAMBIÉN en el SSR de este
+  // componente de cliente, así que servidor y cliente capturaban instantes
+  // distintos — un desajuste de hidratación latente. `null` hasta que hidrata.
+  //
+  // …y repinta en el instante en que caduca una oferta: «Aceptar» no sigue activo hasta el minuto siguiente.
+  const ahoraMs = useAhoraConPlazos((data?.reservas ?? []).map((r) => (r.estado === 'en-espera' ? r.ofertaExpiraEn : null)));
   // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.

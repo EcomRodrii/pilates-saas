@@ -20,18 +20,35 @@ const aviso = (id: string, evento: string, categoria: string, creado: string, ti
   id, title: titulo, body: `Cuerpo de ${titulo}`, category: categoria, eventType: evento, createdAt: creado, readAt: null, ...extra,
 });
 
-async function montar(page: Page, opts: { avisos: unknown[]; ofertaExpiraEn?: string | null }) {
+/**
+ * El «servidor» de la prueba: su reserva en espera de la clase del aviso, que el
+ * test CAMBIA tras cada escritura, como el de verdad (aceptar la deja CONFIRMADA;
+ * salir de la lista, CANCELADA). Sin eso, un resultado que se borra al recargar
+ * pasaba verde porque la recarga devolvía lo mismo de antes.
+ */
+interface Servidor { reserva: { estado: string; ofertaExpiraEn: string | null } | null; lecturas: number }
+
+async function montar(page: Page, opts: { avisos: unknown[]; ofertaExpiraEn?: string | null }): Promise<Servidor> {
   await sembrarSociaLista(page, { relojMadrid: true });
-  const f = fixtureSociaLista();
-  if (opts.ofertaExpiraEn !== undefined) {
-    (f.socia.reservas as unknown[]).push({
-      id: 'res-espera', sesionId: SESION_ID, socioId: SOCIO_ID, estado: 'LISTA_ESPERA', creadoEn: '2026-08-10T09:00:00Z',
-      posicionEspera: 1, ofertaExpiraEn: opts.ofertaExpiraEn,
-    });
-  }
-  await page.route('**/api/public/studio-data', (r) => r.fulfill(json(f)));
+  const servidor: Servidor = {
+    reserva: opts.ofertaExpiraEn !== undefined ? { estado: 'LISTA_ESPERA', ofertaExpiraEn: opts.ofertaExpiraEn } : null,
+    lecturas: 0,
+  };
+  await page.route('**/api/public/studio-data', (r) => {
+    servidor.lecturas++;
+    const f = fixtureSociaLista();
+    if (servidor.reserva) {
+      (f.socia.reservas as unknown[]).push({
+        id: 'res-espera', sesionId: SESION_ID, socioId: SOCIO_ID, estado: servidor.reserva.estado, creadoEn: '2026-08-10T09:00:00Z',
+        posicionEspera: servidor.reserva.estado === 'LISTA_ESPERA' ? 1 : null,
+        ofertaExpiraEn: servidor.reserva.estado === 'LISTA_ESPERA' ? servidor.reserva.ofertaExpiraEn : null,
+      });
+    }
+    return r.fulfill(json(f));
+  });
   await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill(json({ items: opts.avisos, unread: opts.avisos.length })));
   await page.route((u) => u.pathname === '/api/public/comunidad/posts', (r) => r.fulfill(json({ posts: [] })));
+  return servidor;
 }
 
 const ofertaAviso = aviso('n-oferta', 'reserva.oferta_lista_espera', 'reservas', '2026-08-12T07:55:00+02:00', 'Se ha liberado una plaza', { resourceType: 'sesion', resourceId: SESION_ID });
@@ -82,11 +99,12 @@ test.describe('Student PWA · Avisos', () => {
     await expect(page.getByTestId('avisos-filtro-vacio')).toHaveText('Nada en «Pagos» por ahora.');
   });
 
-  test('«Aceptar la plaza»: UNA petición por la vía de Mis clases, y se dice lo que contestó el servidor', async ({ page }) => {
-    await montar(page, { avisos: [ofertaAviso], ofertaExpiraEn: OFERTA_HASTA });
+  test('«Aceptar la plaza»: UNA petición por la vía de Mis clases, y lo que contestó el servidor SIGUE tras recargar', async ({ page }) => {
+    const servidor = await montar(page, { avisos: [ofertaAviso], ofertaExpiraEn: OFERTA_HASTA });
     const cuerpos: Record<string, unknown>[] = [];
     await page.route('**/api/public/aceptar-oferta-espera', (r) => {
       cuerpos.push(JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>);
+      servidor.reserva = { estado: 'CONFIRMADA', ofertaExpiraEn: null };
       return r.fulfill(json({ ok: true, estado: 'CONFIRMADA' }));
     });
     await page.goto(`${base}/notificaciones`);
@@ -94,17 +112,28 @@ test.describe('Student PWA · Avisos', () => {
     await expect(oferta).toContainText('Tienes hasta las 08:30 · quedan 30 min', { timeout: 30_000 });
     expect(cuerpos, 'ver el aviso no acepta nada').toHaveLength(0);
 
+    const antes = servidor.lecturas;
     await oferta.getByRole('button', { name: 'Aceptar la plaza' }).click();
     await expect(page.getByTestId('aviso-resuelto')).toHaveText('Plaza confirmada.', { timeout: 30_000 });
     expect(cuerpos).toHaveLength(1);
     expect(cuerpos[0]).toMatchObject({ studioId: STUDIO_ID, reservaId: 'res-espera' });
     expect(Object.keys(cuerpos[0]), 'la socia la saca el servidor de su sesión').not.toContain('socioId');
+    // Ya ha vuelto a leer sus reservas (ahora CONFIRMADA, sin oferta) y el resultado sigue ahí.
+    await expect.poll(() => servidor.lecturas, { timeout: 30_000 }).toBeGreaterThan(antes);
+    await page.waitForTimeout(500);
+    await expect(page.getByTestId('aviso-resuelto')).toHaveText('Plaza confirmada.');
+    await expect(page.getByRole('button', { name: 'Aceptar la plaza' })).toHaveCount(0);
   });
 
   test('si el servidor dice que no (4xx), no se dice que sí: se ve el motivo y no hay «Plaza confirmada»', async ({ page }) => {
-    await montar(page, { avisos: [ofertaAviso], ofertaExpiraEn: OFERTA_HASTA });
+    const servidor = await montar(page, { avisos: [ofertaAviso], ofertaExpiraEn: OFERTA_HASTA });
     let intentos = 0;
-    await page.route('**/api/public/aceptar-oferta-espera', (r) => { intentos++; return r.fulfill(json({ error: 'Esa plaza ya no está disponible.' }, 409)); });
+    await page.route('**/api/public/aceptar-oferta-espera', (r) => {
+      intentos++;
+      // Como la RPC de verdad: un fallo al aceptar la deja sin el sitio.
+      servidor.reserva = { estado: 'CANCELADA', ofertaExpiraEn: null };
+      return r.fulfill(json({ error: 'Esa plaza ya no está disponible.' }, 409));
+    });
     await page.goto(`${base}/notificaciones`);
     await page.getByTestId('aviso-oferta').getByRole('button', { name: 'Aceptar la plaza' }).click({ timeout: 30_000 });
     await expect(page.getByText('Esa plaza ya no está disponible.')).toBeVisible({ timeout: 30_000 });
@@ -112,28 +141,52 @@ test.describe('Student PWA · Avisos', () => {
     await expect(page.getByTestId('aviso-resuelto')).toHaveCount(0);
   });
 
-  test('«No, gracias» pide confirmación antes de salir de la lista, y sale con UNA petición', async ({ page }) => {
-    await montar(page, { avisos: [ofertaAviso], ofertaExpiraEn: OFERTA_HASTA });
+  test('«No, gracias» pide confirmación antes de salir de la lista, sale con UNA petición, y lo dice también tras recargar', async ({ page }) => {
+    const servidor = await montar(page, { avisos: [ofertaAviso], ofertaExpiraEn: OFERTA_HASTA });
     const cancelaciones: Record<string, unknown>[] = [];
     await page.route('**/api/public/reserva', (r) => {
       cancelaciones.push(JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>);
+      servidor.reserva = { estado: 'CANCELADA', ofertaExpiraEn: null };
       return r.fulfill(json({ ok: true, tardia: false, bonoDevuelto: false, eraConfirmada: false, recuperacionCreada: false }));
     });
     await page.goto(`${base}/notificaciones`);
     await page.getByTestId('aviso-oferta').getByRole('button', { name: 'No, gracias' }).click({ timeout: 30_000 });
     await expect(page.getByText('¿Salir de la lista de espera?')).toBeVisible();
     expect(cancelaciones, 'abrir la confirmación no cancela nada').toHaveLength(0);
+    const antes = servidor.lecturas;
     await page.getByRole('button', { name: 'Sí, salir' }).click();
     await expect(page.getByTestId('aviso-resuelto')).toHaveText('Has salido de la lista de espera', { timeout: 30_000 });
     expect(cancelaciones).toHaveLength(1);
     expect(cancelaciones[0]).toMatchObject({ accion: 'cancelar', reservaId: 'res-espera' });
+    await expect.poll(() => servidor.lecturas, { timeout: 30_000 }).toBeGreaterThan(antes);
+    await page.waitForTimeout(500);
+    await expect(page.getByTestId('aviso-resuelto')).toHaveText('Has salido de la lista de espera');
   });
 
-  test('una oferta que ya ha caducado no lleva botón (el sitio ya no es suyo)', async ({ page }) => {
+  test('una oferta caducada lo dice, y el botón no se puede pulsar', async ({ page }) => {
     await montar(page, { avisos: [ofertaAviso], ofertaExpiraEn: '2026-08-12T07:59:00+02:00' });
+    let intentos = 0;
+    await page.route('**/api/public/aceptar-oferta-espera', (r) => { intentos++; return r.fulfill(json({ ok: true, estado: 'CONFIRMADA' })); });
     await page.goto(`${base}/notificaciones`);
-    await expect(page.getByTestId('aviso')).toContainText('Se ha liberado una plaza', { timeout: 30_000 });
-    await expect(page.getByTestId('aviso-oferta')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Aceptar la plaza' })).toHaveCount(0);
+    const oferta = page.getByTestId('aviso-oferta');
+    await expect(oferta).toContainText('Se acabó el plazo para aceptar esta plaza.', { timeout: 30_000 });
+    await expect(oferta.getByRole('button', { name: 'Aceptar la plaza' })).toBeDisabled();
+    await expect(oferta.getByRole('button', { name: 'No, gracias' })).toHaveCount(0);
+    expect(intentos).toBe(0);
+  });
+
+  test('al caducar mientras se mira, el botón se desactiva EN ESE MOMENTO (no un minuto después)', async ({ page }) => {
+    // Caduca a las 08:00:40; el reloj de la app cambia al empezar el minuto, que aquí sería 08:01.
+    await montar(page, { avisos: [ofertaAviso], ofertaExpiraEn: '2026-08-12T08:00:40+02:00' });
+    let intentos = 0;
+    await page.route('**/api/public/aceptar-oferta-espera', (r) => { intentos++; return r.fulfill(json({ ok: true, estado: 'CONFIRMADA' })); });
+    await page.goto(`${base}/notificaciones`);
+    const oferta = page.getByTestId('aviso-oferta');
+    await expect(oferta).toContainText('quedan 1 min', { timeout: 30_000 });
+    await expect(oferta.getByRole('button', { name: 'Aceptar la plaza' })).toBeEnabled();
+    await page.clock.fastForward(45_000);
+    await expect(oferta).toContainText('Se acabó el plazo para aceptar esta plaza.');
+    await expect(oferta.getByRole('button', { name: 'Aceptar la plaza' })).toBeDisabled();
+    expect(intentos).toBe(0);
   });
 });
