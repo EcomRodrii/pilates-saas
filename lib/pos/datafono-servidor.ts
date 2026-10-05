@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ContextoCobro } from './terminal.ts';
 import {
   ETIQUETA_POR_DEFECTO, MENSAJE_CODIGO_MAL_ESCRITO, direccionDelEstudio, direccionValida, mensajeErrorLector,
-  nombreModelo, normalizarCodigo, normalizarEtiqueta, type DireccionLector, type LectorDatafono,
+  nombreModelo, normalizarCodigo, normalizarEtiqueta, provinciaDeCodigoPostal, type DireccionLector, type LectorDatafono,
 } from './datafono.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,7 +78,12 @@ async function asegurarUbicacion(
 ): Promise<string> {
   const datos = {
     display_name: (fila.nombre || 'Estudio').slice(0, 100),
-    address: { line1: direccion.linea, city: direccion.ciudad, postal_code: direccion.codigoPostal, country: 'ES' },
+    address: {
+      line1: direccion.linea, city: direccion.ciudad, postal_code: direccion.codigoPostal, country: 'ES',
+      // Sin provincia, Stripe no registra la ubicación en España (ver `provinciaDeCodigoPostal`).
+      // `direccion` ya pasó por `direccionValida`, que exige un código postal con provincia.
+      state: provinciaDeCodigoPostal(direccion.codigoPostal) ?? undefined,
+    },
   };
   if (fila.stripe_terminal_location_id) {
     try {

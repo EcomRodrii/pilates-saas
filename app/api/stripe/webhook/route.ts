@@ -17,6 +17,7 @@ import { reservarClasePagada } from '@/lib/billing/reservar-clase-pagada';
 import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
 import { cerrarCheckoutDeBizumFallido } from '@/lib/pos/cerrar-bizum-fallido';
+import { motivoRechazoDatafono } from '@/lib/pos/datafono';
 import { metodoRealDeSesion } from '@/lib/billing/metodo-real-sesion';
 import { liberarCupoMatriculaUnaVez } from '@/lib/billing/matricula-online';
 import { liberarPlazaPorRef } from '@/lib/opening/cupo';
@@ -1336,7 +1337,11 @@ async function procesarEvento(
       }
       const respuesta = await liberarCobroPosFallidoDelWebhook(
         admin, event, pi.metadata, pi.id,
-        pi.last_payment_error?.message ?? 'El cobro no se pudo completar',
+        // El motivo llega a la Caja tal cual: el del datáfono, en español (el de
+        // Stripe viene en inglés). Mismo texto que da el sondeo de la Caja.
+        pi.metadata?.origen === 'pos_terminal'
+          ? motivoRechazoDatafono(pi.last_payment_error)
+          : pi.last_payment_error?.message ?? 'El cobro no se pudo completar',
       );
       if (respuesta) return respuesta;
     }

@@ -299,6 +299,49 @@ cambian color y encuadre.
 - Fuera a propósito: los emails a socias (marca del ESTUDIO, no de Tentare),
   `/portal/[slug]` (marca blanca) y `/interno`.
 
+## Brand System: `brand/` es la fuente de verdad visual (fase 1, 5-oct-2026)
+
+`brand/` (Brand OS, `design-tokens.json`, `tokens.css`, guías de componentes y
+de UI, plan por fases) manda sobre cualquier decisión visual antigua del repo,
+incluida la identidad oliva/arena, que queda RETIRADA y vive solo como LEGACY
+hasta su fase. Lo que el paquete no define es **OPEN DECISION**
+(`brand/implementation-plan.md` §D): se registra ahí, no se inventa.
+
+- **Se avanza por fases** (`implementation-plan.md` §B), pero varias por PR (el
+  fundador lo pidió así el 5-oct). Hechas: la 1 (tokens `--t-*`, utilidades
+  `bg-t-*`/`text-t-*`/`rounded-t-card`… y el puente `legacy-bridge.css`, que
+  reapunta `--background`, `--foreground`, `--border` y compañía), la 2 y la 3, y
+  la 4 y la 5 en lo que no toca `--brand` ni el foco (`brand/phase-2-5/README.md`).
+- ⚠️ **La tipografía de la marca vive SOLO en el panel** (`.tipografia-tentare`:
+  la pone `app/(dashboard)/layout.tsx` y, para los portales a `body`,
+  `TipografiaEnPortales`). `font-sans`/`font-heading`/`font-mono` leen
+  `--fuente-sans`/`--fuente-mono`: **no reapuntes el `@theme` a la marca para todo
+  el sitio**, `font-heading` lo usa la app de la alumna y le cambiarías la letra.
+  Schibsted Grotesk y DM Mono se sirven con su nombre real
+  (`app/_fuentes/fuentes-panel.ts`), que es el que dicen los tokens.
+- ⚠️ **Las utilidades de `brand/tokens.css` (`.t-label`, `.t-glass-dark`…) van sin
+  capa y ganan a cualquier utilidad de Tailwind**: no las combines con una clase
+  que toque la misma propiedad (`t-label text-[14px]` no cambia el tamaño).
+- ⚠️ **Los valores se cambian en `design-tokens.json` → `tokens.css`, nunca a
+  mano en un componente** ni en `globals.css`. `lib/brand-tokens.test.ts` cruza
+  los dos ficheros y vigila que el puente no toque lo que su fase no toca.
+- ⚠️ **No redefinir `--radius-3xl`**: la card aprobada es 24 px
+  (`rounded-t-card`), pero los 50 `rounded-3xl` (38,4 px) se migran componente a
+  componente en la fase 6. Redefinir el token los cambiaría todos a la vez,
+  incluidos los que no son cards.
+- ⚠️ **`--brand*` sigue siendo la marca del estudio** (`PanelThemeProvider`) y
+  conserva su oliva por defecto hasta las fases 4/5. Los estados en oscuro y la
+  paleta categórica no se tocan: OPEN DECISION.
+- ⚠️ **`border-t-success` y similares son ambiguos** desde que existe el espacio
+  `t-` (Tailwind emite las dos lecturas): para el borde de arriba, escríbelo
+  explícito (`border-t-[color:var(--success)]`). Lo vigila el mismo test.
+- La app de la alumna tiene sus propias `.t-*` (marca blanca). Una utilidad
+  global nueva de la marca con el mismo nombre se le cuela en lo que la suya no
+  declare: el test lo detecta y se protege en `student.css`, no en `brand/`.
+- **Trinquete de colores retirados** (mismo test): el panel no puede ganar neutros
+  antiguos ni oliva escritos a mano; el tope por fichero solo baja. Para pintar,
+  el token (`bg-background`, `text-foreground`, `bg-brand`…).
+
 ## Arquitectura de marca: Tentare Manager / Tentare Core
 
 Tentare se percibe como dos productos, no un panel único con roles:

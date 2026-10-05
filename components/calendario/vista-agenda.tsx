@@ -157,7 +157,10 @@ function Clase({ clase, seleccionada, marcada, atenuada, marca, onSeleccionar }:
             PROGRAMADA, la barra lleva el color del estado (aviso, conflicto…). */}
         <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ background: marca || estado === 'PROGRAMADA' ? tipo.color : p.barra }} />
 
-        <span className="flex w-12 shrink-0 flex-col tabular-nums">
+        {/* `min-w-12` y no `w-12`: la columna crece lo que mida la hora. Con un
+            ancho fijo, «09:00» en la letra del panel (Schibsted Grotesk, Brand
+            System) se salía un par de píxeles. Cifras tabulares: todas iguales. */}
+        <span className="flex min-w-12 shrink-0 flex-col tabular-nums">
           <span className="text-base font-bold leading-tight text-foreground">{horaEstudio(sesion.inicio)}</span>
           <span className="text-sm leading-tight text-muted-foreground">{horaEstudio(sesion.fin)}</span>
         </span>
