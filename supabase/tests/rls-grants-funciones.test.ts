@@ -70,6 +70,12 @@ const CASOS: Caso[] = [
   { firma: 'dar_plaza_fija_con_cupo(text, jsonb, integer)', anon: false, authenticated: false, serviceRole: true },
   // Anular una recuperación (migr 20261002144936): la llama el panel con su sesión (la propia función comprueba estudio y rol).
   { firma: 'anular_recuperacion(text, text)', anon: false, authenticated: true, serviceRole: true },
+  // El libro de consumos del asistente (migr 20261005210000): solo el servidor reserva, cierra y lee
+  // el saldo. Con EXECUTE en `authenticated`, una sesión cualquiera se daría consultas.
+  { firma: 'ia_cuota_mensual(text, boolean)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'ia_saldo_consultas(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'ia_reservar_consulta(text, uuid, text, uuid, text, numeric)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'ia_cerrar_consulta(uuid, text, text, integer, integer, integer, integer, numeric, integer, integer, text, text[])', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {
