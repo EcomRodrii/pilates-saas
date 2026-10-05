@@ -57,7 +57,10 @@ async function montarCentro(page: Page, conResumen: boolean) {
   // Los 7 especialistas llegan SIEMPRE, con o sin análisis: así los siembra la API.
   // veredicto/seguimiento: campos del Umbral (Fase 1) — sin relación con lo
   // que este test comprueba, así que van con el valor más neutro posible.
-  await page.route('**/api/decisiones**', route => json(route, {
+  // Solo /api/decisiones: el glob `**/api/decisiones**` atrapaba también
+  // /api/decisiones/autonomia (y cualquier endpoint nuevo debajo) y le
+  // contestaba con este cuerpo, que no es el suyo.
+  await page.route(u => u.pathname === '/api/decisiones', route => json(route, {
     resumen: conResumen ? RESUMEN : null,
     veredicto: { tipo: 'SIN_ANALIZAR', recomendacion: null, fraseConfianza: null, semanaTranquila: false },
     seguimiento: [],

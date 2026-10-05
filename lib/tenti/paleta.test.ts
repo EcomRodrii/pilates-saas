@@ -65,6 +65,13 @@ for (const [modo, tokens] of MODOS) {
   });
 }
 
+// El Orb se fue con sus colores: la lavanda y el rubor eran la única excepción
+// de morado y rosa del producto, y no pasan a Tenti. En CUALQUIER bloque, no
+// solo en los dos que lee este test (el Orb vivía en un segundo :root).
+test('no queda ningún token del Orb en globals.css', () => {
+  assert.doesNotMatch(css, /--orb-[\w-]*\s*:/);
+});
+
 test('el cuerpo y los ojos se declaran en los dos modos, no por herencia', () => {
   const oscuro = bloque('.dark');
   for (const t of [TOKENS_TENTI.cuerpoLuz, TOKENS_TENTI.cuerpoSombra, TOKENS_TENTI.tinta, '--tenti-silueta']) {

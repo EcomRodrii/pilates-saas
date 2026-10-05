@@ -2,7 +2,7 @@
 
 import { useRef, useState, useId } from 'react';
 import { ShieldCheck } from 'lucide-react';
-import { TentareOrb } from '@/components/marca/tentare-orb';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
 import type { AutonomiaConfig, TipoAccion } from '@/lib/decision/autonomia';
 import type { AutonomiaEstado } from './use-autonomia-config';
 
@@ -42,11 +42,13 @@ export function PilotoAutomatico({ autonomia }: { autonomia: AutonomiaEstado }) 
     <div className="rounded-3xl border border-border bg-card p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          {/* El Orb, no destellos: aquí Tentare ejecuta acciones por su cuenta,
-              que es literalmente lo que el Orb significa. `Sparkles` en este
-              producto ya quiere decir «novedad» (el changelog). */}
+          {/* Tenti, no destellos: aquí Tentare ejecuta acciones por su cuenta.
+              `Sparkles` en este producto ya quiere decir «novedad» (el
+              changelog). Quieto con el interruptor encendido o apagado, y
+              también mientras se guarda: no dice si el piloto va, eso lo dice
+              el interruptor. */}
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10">
-            <TentareOrb tam={18} />
+            <TentiIcono ancho={22} />
           </div>
           <div>
             <h2 className="font-heading text-[15px] font-semibold text-foreground">Piloto automático</h2>

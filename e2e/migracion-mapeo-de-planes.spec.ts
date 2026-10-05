@@ -66,10 +66,24 @@ async function seedSesionDeDuena(page: Page) {
 }
 
 /**
- * `analizar` se mockea con el plan que devolvería el servidor para ese CSV. El
- * mapeo de columnas tiene que ser el REAL, porque la página vuelve a parsear el
- * archivo en local para construir las filas que envía.
+ * El plan que devolvería el servidor para ese CSV. El mapeo de columnas tiene
+ * que ser el REAL, porque la página vuelve a parsear el archivo en local para
+ * construir las filas que envía.
  */
+const ANALISIS = {
+  orden: ['membresias'],
+  avisos: [],
+  archivos: [{
+    nombre: 'bonos.csv', entidad: 'membresias', entidadEtiqueta: 'Bonos y membresías',
+    origen: 'auto', confianza: 1, columnas: ['email', 'membershipName', 'creditsRemaining'],
+    mapeo: { email: 0, plan: 1, sesiones: 2, fecha_inicio: -1, fecha_fin: -1, estado: -1 },
+    total: 4, ok: 4, duplicadas: 0, errores: 0,
+    muestra: [{ email: 'maria@example.com', plan: '10 Class Pack', sesiones: 4 }],
+    cuarentena: [], avisos: [],
+  }],
+};
+
+/** `analizar` se mockea con ANALISIS. */
 async function mockBackend(page: Page, opts: { tarifas?: typeof TARIFAS } = {}) {
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/api/layout**', route =>
@@ -78,18 +92,7 @@ async function mockBackend(page: Page, opts: { tarifas?: typeof TARIFAS } = {}) 
   await page.route('**/api/theme**', route =>
     json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
   await page.route('**/api/migracion/recientes**', route => json(route, { batches: [] }));
-  await page.route('**/api/migracion/analizar**', route => json(route, {
-    orden: ['membresias'],
-    avisos: [],
-    archivos: [{
-      nombre: 'bonos.csv', entidad: 'membresias', entidadEtiqueta: 'Bonos y membresías',
-      origen: 'auto', confianza: 1, columnas: ['email', 'membershipName', 'creditsRemaining'],
-      mapeo: { email: 0, plan: 1, sesiones: 2, fecha_inicio: -1, fecha_fin: -1, estado: -1 },
-      total: 4, ok: 4, duplicadas: 0, errores: 0,
-      muestra: [{ email: 'maria@example.com', plan: '10 Class Pack', sesiones: 4 }],
-      cuarentena: [], avisos: [],
-    }],
-  }));
+  await page.route('**/api/migracion/analizar**', route => json(route, ANALISIS));
 
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route => json(route, STUDIO_ROW));
@@ -183,5 +186,65 @@ test.describe('Emparejar los planes del CSV con las tarifas del estudio', () => 
     ].join('\n'));
 
     await expect(panel(page)).toHaveCount(0);
+  });
+});
+
+// ── Tenti en «Analizar» (releva al Orb, 5-oct-2026) ─────────────────────────
+// Aquí Tentare lee unos archivos que no ha visto nunca y decide qué es cada
+// columna, y el resultado vuelve a esta pantalla: Tenti piensa mientras dura,
+// solo mientras dura. Importar las filas es trabajo mecánico: ahí no va.
+
+/** Una ruta que no contesta hasta `soltar()`, con su contador de intentos. */
+function retenida(cuerpo: unknown) {
+  const estado = { intentos: 0, soltar: () => {} };
+  const suelta = new Promise<void>(r => { estado.soltar = r; });
+  const responder = async (route: Route) => { estado.intentos++; await suelta; return json(route, cuerpo); };
+  return { estado, responder };
+}
+
+test.describe('Tenti en Analizar: piensa solo mientras analiza', () => {
+  test('con el análisis en vuelo, Tenti piensa y el botón dice aria-busy sin atenuarse', async ({ page }) => {
+    await mockBackend(page);
+    await seedSesionDeDuena(page);
+    // DESPUÉS del arnés, que ya contesta al análisis: la última ruta gana.
+    const analisis = retenida(ANALISIS);
+    await page.route('**/api/migracion/analizar**', analisis.responder);
+
+    await page.goto('/migracion');
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'bonos.csv', mimeType: 'text/csv', buffer: Buffer.from(CSV_MOMENCE, 'utf8'),
+    });
+    const boton = page.getByRole('button', { name: /^Analizar 1 archivo$/ });
+    await expect(boton).toBeVisible({ timeout: 30_000 });
+    await expect(boton.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'reposo');
+
+    await boton.click();
+    await expect.poll(() => analisis.estado.intentos, { timeout: 10_000 }).toBeGreaterThan(0);
+    const ocupado = page.getByRole('button', { name: /Analizando tus archivos/ });
+    await expect(ocupado).toHaveAttribute('aria-busy', 'true');
+    await expect(ocupado.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'pensando');
+    expect(await ocupado.evaluate(el => getComputedStyle(el).opacity)).toBe('1');
+
+    analisis.estado.soltar();
+    await expect(page.getByText(/Bonos y membresías/i).first()).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('importar las filas no es Tentare decidiendo: en ese paso no hay ningún Tenti', async ({ page }) => {
+    await mockBackend(page);
+    await seedSesionDeDuena(page);
+    const importacion = retenida({ total: 2, importadas: 2, duplicadas: 0, errores: [] });
+    await page.route('**/api/suscripciones/import**', importacion.responder);
+    // Los planes ya casan: sin panel de emparejar, el botón de importar está listo.
+    await subirYRevisar(page, [
+      'email,membershipName,creditsRemaining',
+      'maria@example.com,Bono 10 Reformer,4',
+      'bego@example.com,Mensual ilimitado,',
+    ].join('\n'));
+
+    await page.getByRole('button', { name: /^Importar \d+ registros?/ }).click();
+    await expect.poll(() => importacion.estado.intentos, { timeout: 10_000 }).toBeGreaterThan(0);
+    await expect(page.getByText(/Importando/)).toBeVisible();
+    await expect(page.locator('[data-tenti-icono]')).toHaveCount(0);
+    importacion.estado.soltar();
   });
 });

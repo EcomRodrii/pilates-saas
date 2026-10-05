@@ -151,7 +151,14 @@ function historicoDelContexto(huecoDeUnaPlaza = false) {
 
 export async function montarHome(
   page: Page,
-  opciones?: { calendarioVacio?: boolean; conClaseEnCurso?: boolean; ahora?: string; huecoDeUnaPlaza?: boolean },
+  opciones?: {
+    calendarioVacio?: boolean; conClaseEnCurso?: boolean; ahora?: string; huecoDeUnaPlaza?: boolean;
+    /** Quién entra. Con otro rol, la dueña es otra persona y quien entra es una
+     *  más del equipo: el rol sale de su fila en `instructores`, como en producción. */
+    rol?: 'PROPIETARIO' | 'MANAGER' | 'RECEPCION';
+    /** La bandeja de /api/estado-estudio. Sin ella, `{}` (no aplica: no se pinta). */
+    estadoEstudio?: unknown;
+  },
 ) {
   // Con una clase en curso hace falta poder ADELANTAR el reloj (el cronómetro
   // de «Próximas clases» cuenta segundos, y un reloj fijo no demuestra que
@@ -184,9 +191,23 @@ export async function montarHome(
   await page.route('**/api/calendario**', route =>
     json(route, opciones?.calendarioVacio ? {} : agendaDelDia(opciones?.conClaseEnCurso, unaPlaza)));
 
+  if (opciones?.estadoEstudio !== undefined) {
+    await page.route('**/api/estado-estudio**', route => json(route, opciones.estadoEstudio));
+  }
+
+  const rol = opciones?.rol ?? 'PROPIETARIO';
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
-    json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
+    json(route, {
+      id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen',
+      owner_auth_user_id: rol === 'PROPIETARIO' ? AUTH_UID : 'auth-e2e-otra-duena',
+    }));
+  if (rol !== 'PROPIETARIO') {
+    await page.route('**/rest/v1/instructores**', route => json(route, [{
+      id: 'ins-yo', studio_id: STUDIO_ID, nombre: 'Rocío Mostrador', email: null, telefono: null,
+      color: '#C9A27E', activo: true, rol, auth_user_id: AUTH_UID,
+    }]));
+  }
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
   await page.route('**/rest/v1/socios**', route => json(route, sociosDelEstudio(unaPlaza)));
   await page.route('**/rest/v1/suscripciones**', route => json(route, suscripcionesDelEstudio(unaPlaza)));
