@@ -1295,7 +1295,7 @@ export interface RowRecomendaciones {
   creado_en: string | null;
   resuelto_en: string | null;
   resuelto_por: string | null;
-  // migr 20261005121107.
+  // migr 20261005143004.
   resultado: any | null;
 }
 

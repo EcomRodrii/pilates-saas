@@ -7,7 +7,7 @@ import { join } from 'node:path';
 // (`construirSenalMedicion`) corren con service-role, sin RLS, y leen por los ids
 // que lleva la recomendación: `socio_id`, `accion.reciboIds`, `sesion_id`. Esos
 // ids no bastan solos —la FK a socios es global, y la fila la podía escribir la
-// propietaria con su sesión hasta la migración 20261005121107—: una recomendación
+// propietaria con su sesión hasta la migración 20261005143004—: una recomendación
 // de este estudio con el id de una socia de otro le escribía a esa socia, dejaba
 // su email en la Actividad de este y medía el outcome con datos ajenos. Cada
 // consulta de esta parte del fichero va acotada al estudio de la recomendación.

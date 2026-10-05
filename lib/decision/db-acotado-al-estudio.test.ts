@@ -5,7 +5,7 @@ import { join, relative } from 'node:path';
 
 // Las tablas del Decision OS se leen y se escriben con service-role, sin RLS: el
 // filtro por estudio lo pone cada consulta o no lo pone nadie. Y desde la
-// migración 20261005121107 solo el servidor las escribe — el navegador
+// migración 20261005143004 solo el servidor las escribe — el navegador
 // conserva la lectura. Estático: lib/decision/db.ts importa el servidor.
 
 const RAIZ = join(import.meta.dirname, '..', '..');
@@ -51,7 +51,7 @@ test('el refresco del análisis no devuelve a PENDIENTE una recomendación reci�
 const TABLAS = ['recomendaciones', 'recomendacion_outcomes', 'decision_mensajes_dia'] as const;
 
 test('la migración quita a `authenticated` la escritura de las tres tablas, y no se la devuelve', () => {
-  const sql = leer('supabase/migrations/20261005121107_recomendaciones_resultado_y_escritura_solo_servidor.sql').replace(/--.*$/gm, '');
+  const sql = leer('supabase/migrations/20261005143004_recomendaciones_resultado_y_escritura_solo_servidor.sql').replace(/--.*$/gm, '');
   for (const t of TABLAS) {
     assert.match(sql, new RegExp(`revoke insert, update, delete on table public\\.${t} from authenticated;`, 'i'), t);
   }

@@ -225,7 +225,7 @@ export async function dbTransicionarRecomendacion(
     .select('id')
     .maybeSingle();
   let { data, error } = await transicionar(patch);
-  // Desplegado antes de aplicar la migración de `resultado` (20261005121107):
+  // Desplegado antes de aplicar la migración de `resultado` (20261005143004):
   // el estado no puede quedarse sin cerrar por una columna que aún no existe —
   // un cobro ya hecho se quedaría APROBADO para siempre, sin su línea en
   // Actividad—, así que se cierra sin ella.
