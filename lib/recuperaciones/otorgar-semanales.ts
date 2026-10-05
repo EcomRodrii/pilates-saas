@@ -77,7 +77,7 @@ export async function otorgarRecuperacionesSemanales(
     const tipoDeSesion = new Map(sesiones.map(s => [s.id as string, (s.tipo_clase_id as string | null) ?? null]));
 
     const { data: reservas } = await admin
-      .from('reservas').select('id, socio_id, sesion_id, estado, cancelada_tardia, cancelada_motivo, creado_en')
+      .from('reservas').select('id, socio_id, sesion_id, estado, cancelada_tardia, cancelada_motivo, creado_en, bono_consumo_rastreado, bono_decidido_en')
       .eq('studio_id', studioId)
       .in('sesion_id', sesiones.map(s => s.id as string));
     if (!reservas?.length) continue;
@@ -114,7 +114,8 @@ export async function otorgarRecuperacionesSemanales(
         // se sabe» (cancelada antes de existir la columna) y eso no se compensa.
         // `cancelada_motivo` NULL: una clase soltada al pausar o quitar la plaza
         // fija ('plaza_fija_retirada') no la canceló ella clase a clase.
-        // Y no la de una clase a la que volvió a apuntarse: ahí fue (`canceladasCompensables`).
+        // Y solo las que le quitaron una clase: con plaza, una por clase, y no la de una
+        // clase a la que volvió a apuntarse (`canceladasCompensables`).
         const canceladas = canceladasCompensables(suyas
           .filter(r => r.estado === 'CANCELADA' && r.cancelada_tardia === false && r.cancelada_motivo == null
             && cubre(r.sesion_id as string))
