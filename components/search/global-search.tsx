@@ -75,9 +75,11 @@ export function GlobalSearch({
   }, [open]);
 
   // Tenti suena al abrirse el buscador y al cerrarse (si «Sonidos de Tenti»
-  // está encendido en este dispositivo). Solo en el CAMBIO: montar el panel con
-  // el buscador cerrado no suena, y StrictMode no lo duplica (el ref ya vale).
-  const abiertoAntes = useRef(open);
+  // está encendido en este dispositivo). Solo en el CAMBIO, y partiendo de
+  // cerrado: la barra del panel monta este componente la primera vez que se
+  // abre, ya con `abierto`, y esa apertura también suena. Montar cerrado no
+  // suena, y StrictMode no lo duplica (el ref ya vale).
+  const abiertoAntes = useRef(false);
   useEffect(() => {
     if (open === abiertoAntes.current) return;
     abiertoAntes.current = open;

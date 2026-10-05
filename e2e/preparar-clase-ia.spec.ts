@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { sesionFutura } from './sesion-futura';
+import { espiarSonidos } from './espia-sonidos';
 
 // Regresión de #970: el cliente mandaba { tipoClase, resumen } y route.ts
 // (app/api/ai/ficha-clinica-clase/route.ts) casteaba el body ENTERO como
@@ -113,21 +114,19 @@ test('Preparar clase con IA envía el resumen plano, no anidado bajo { tipoClase
   expect(bodyRecibido).toMatchObject({ totalAlumnas: 1, conCondiciones: 1 });
 });
 
-// ── Tenti en el botón (releva al Orb, 5-oct-2026) ──────────────────────────
-// El mismo Tenti antes y durante: quieto mientras espera el clic, pensando solo
-// con la petición en vuelo, y nunca junto a lo que redacta el modelo (el botón
-// se desmonta al llegar la preparación). Ocupado no es deshabilitado: mientras
-// trabaja, el botón dice aria-busy y no se atenúa.
-
-const animacionesSinFin = (page: Page) => page.evaluate(() => document.getAnimations().filter((a) => {
-  const objetivo = (a.effect as KeyframeEffect | null)?.target as Element | null;
-  return a.playState === 'running' && a.effect?.getTiming().iterations === Infinity && !!objetivo?.closest('[data-tenti-icono]');
-}).length);
+// ── Tenti en el botón (releva al Orb, 5-oct-2026; vivo desde esa tarde) ────
+// El mismo Tenti antes y durante: en reposo (vivo: parpadea, mira y respira)
+// mientras espera el clic, pensando solo con la petición en vuelo, y nunca
+// junto a lo que redacta el modelo (el botón se desmonta al llegar la
+// preparación). Ocupado no es deshabilitado: mientras trabaja, el botón dice
+// aria-busy y no se atenúa. Dentro del botón no se toca ni suena por su
+// cuenta: empezar a pensar no suena, y terminar con resultado suena una vez.
 
 test('Tenti espera quieto, piensa solo con la petición en vuelo y se va con el resultado', async ({ page }) => {
   let intentos = 0;
   let soltar = () => {};
   const suelta = new Promise<void>(r => { soltar = r; });
+  const sonidos = await espiarSonidos(page);
   await montarClaseConAdaptaciones(page, async route => {
     intentos++;
     await suelta;
@@ -136,30 +135,37 @@ test('Tenti espera quieto, piensa solo con la petición en vuelo y se va con el 
 
   const boton = page.getByRole('button', { name: 'Preparar clase con IA', exact: true });
   await expect(boton).toBeVisible({ timeout: 15_000 });
-  const icono = boton.locator('svg[data-tenti-icono]');
+  const icono = boton.locator('[data-tenti-icono]');
   await expect(icono).toHaveAttribute('data-estado', 'reposo');
   await expect(icono).toHaveAttribute('aria-hidden', 'true');
-  // En reposo, ninguna animación: la ficha de la clase se queda abierta todo el
-  // rato que dura pasar lista.
-  await page.waitForTimeout(3_000);
-  expect(await animacionesSinFin(page)).toBe(0);
+  // Vivo: el canvas del motor, dentro de la caja del icono, y sin dejarse
+  // tocar (el clic es del botón).
+  await expect(icono.locator('canvas[data-tenti]')).toHaveAttribute('data-estado', 'reposo', { timeout: 30_000 });
+  await expect(icono.locator('.pointer-events-none canvas[data-tenti]')).toHaveCount(1);
 
   await boton.click();
   await expect.poll(() => intentos, { timeout: 10_000 }).toBeGreaterThan(0);
   const ocupado = page.getByRole('button', { name: 'Preparando…', exact: true });
   await expect(ocupado).toHaveAttribute('aria-busy', 'true');
-  await expect(ocupado.locator('svg[data-tenti-icono]')).toHaveAttribute('data-estado', 'pensando');
+  await expect(ocupado.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'pensando');
+  await expect(ocupado.locator('canvas[data-tenti]')).toHaveAttribute('data-estado', 'pensando');
   // Ocupado no es deshabilitado: no se atenúa.
   expect(await ocupado.evaluate(el => getComputedStyle(el).opacity)).toBe('1');
+  // Empezar a pensar no suena (para que no pese).
+  await page.waitForTimeout(500);
+  expect(await sonidos.cuantos()).toBe(0);
 
   soltar();
   await expect(page.getByText('Clase con una alumna con el hombro lesionado.')).toBeVisible();
+  // Terminar con resultado, sí: un sonido corto.
+  await expect.poll(() => sonidos.cuantos(), { timeout: 10_000 }).toBeGreaterThan(0);
   // El botón se desmonta con el resultado: ninguna cara junto al texto del modelo.
   await expect(page.getByTestId('adaptaciones-clase').locator('[data-tenti-icono]')).toHaveCount(0);
 });
 
 test('si la preparación falla, Tenti vuelve a reposo, lo dice el texto y nunca celebra', async ({ page }) => {
   let intentos = 0;
+  const sonidos = await espiarSonidos(page);
   await montarClaseConAdaptaciones(page, route => {
     intentos++;
     return json(route, { error: 'boom' }, 500);
@@ -172,6 +178,9 @@ test('si la preparación falla, Tenti vuelve a reposo, lo dice el texto y nunca 
   // ⚠️ Sin contador, «volvió a reposo» podría ser cierto por no haberlo intentado.
   expect(intentos).toBeGreaterThan(0);
   await expect(boton).toHaveAttribute('aria-busy', 'false');
-  await expect(boton.locator('svg[data-tenti-icono]')).toHaveAttribute('data-estado', 'reposo');
+  await expect(boton.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'reposo');
   await expect(page.locator('[data-tenti-icono][data-estado="hecho"]')).toHaveCount(0);
+  // Sin resultado no hay sonido de «terminado».
+  await page.waitForTimeout(1_000);
+  expect(await sonidos.cuantos()).toBe(0);
 });
