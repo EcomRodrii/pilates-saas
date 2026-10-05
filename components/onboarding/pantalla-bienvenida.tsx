@@ -623,6 +623,16 @@ type Vals = ReturnType<typeof computeVals>;
  */
 export function PantallaBienvenida({ studio }: { studio: Studio }) {
   const [valorVisto, setValorVisto] = useState(false);
+  // Tenti saluda solo la PRIMERA vez que se ven, y «primera vez» no es «cada
+  // vez que se monta esto»: la bienvenida vuelve en cada arranque en frío hasta
+  // que se sella al terminar o saltar el asistente. No saluda si ya hay logo, si
+  // el asistente va a medias en este navegador (ya se conocieron), ni en una
+  // sede nueva de una cadena (la dueña ya pasó por aquí con la primera; esa
+  // primera se dio de alta antes de ser cadena, así que no lleva `cadenaId`).
+  // Congelado al montar: subir el logo no puede cambiarlo a mitad.
+  const [primerContacto] = useState(
+    () => !studio.logoUrl && !studio.cadenaId && leerProgresoWizard(studio.id) === null,
+  );
   const { updateStudio } = useStudio();
   // Primer paso a la vista (el logo). Una vez por montaje: el efecto puede
   // correr dos veces en desarrollo y el asistente se remonta al cambiar de
@@ -652,6 +662,7 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
         studioNombre={studio.nombre}
         logoActual={studio.logoUrl}
         onGuardarLogo={guardarLogo}
+        saludar={primerContacto}
       />
     );
   }

@@ -38,8 +38,18 @@ const BONO_ACTIVO = { id: 'plan-bono', studio_id: 's', nombre: 'Bono 10', precio
 async function montar(page: Page, {
   conClases = false, tiposClase = TIPOS, instructores = [CARMEN] as unknown[],
   planesActivos = false, cuentaStripe = null as string | null,
+  rol = 'PROPIETARIO' as 'PROPIETARIO' | 'MANAGER' | 'RECEPCION',
 } = {}) {
   const importaciones: Record<string, unknown>[] = [];
+  // Con otro rol, la dueña es otra persona y quien entra es una más del equipo
+  // (el rol sale de su fila en `instructores`, como en producción).
+  const duena = rol === 'PROPIETARIO' ? AUTH_UID : 'auth-e2e-otra-duena';
+  if (rol !== 'PROPIETARIO') {
+    instructores = [
+      ...(instructores as Record<string, unknown>[]).map(i => (i.authUserId === AUTH_UID ? { ...i, authUserId: duena } : i)),
+      { id: 'ins-yo', studioId: 's', nombre: 'Rocío Mostrador', email: null, telefono: null, color: '#C9A27E', activo: true, rol, authUserId: AUTH_UID },
+    ];
+  }
   await page.addInitScript(([k, u]) => {
     localStorage.setItem(k, JSON.stringify({
       access_token: 't', refresh_token: 'r', expires_at: 4102444800, expires_in: 9e8, token_type: 'bearer',
@@ -60,7 +70,7 @@ async function montar(page: Page, {
   };
   await page.route('**/api/calendario**', r => json(r, {
     sesiones: conClases ? [SESION] : [], reservas: [], sustituciones: [], salas: SALAS, instructores,
-    horaApertura: '07:00:00', horaCierre: '22:00:00', horarioSemana: [], rol: 'PROPIETARIO',
+    horaApertura: '07:00:00', horaCierre: '22:00:00', horarioSemana: [], rol,
   }));
   await page.route('**/api/clases/import', r => {
     importaciones.push(r.request().postDataJSON() as Record<string, unknown>);
@@ -77,7 +87,7 @@ async function montar(page: Page, {
   await page.route('**/rest/v1/salas**', r => json(r, SALAS));
   if (planesActivos) await page.route('**/rest/v1/planes_tarifa**', r => json(r, [BONO_ACTIVO]));
   await page.route('**/rest/v1/studios**', r => json(r, {
-    id: 's', nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID,
+    id: 's', nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: duena,
     bienvenida_vista_en: '2026-01-01T00:00:00Z', hora_apertura: '07:00:00', hora_cierre: '22:00:00',
     stripe_account_id: cuentaStripe,
   }));
@@ -451,5 +461,197 @@ test.describe('«Ya puede recibir reservas» solo promete lo que confirma el ser
     expect(luz).not.toBeNull();
     expect(luz!).toBeLessThan(0.4);
     await expect.poll(() => servidor.intentos, { timeout: 15_000 }).toBeGreaterThan(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tenti en «Tu estudio ya puede recibir reservas».
+//
+// Celebra ('hecho') solo cuando el servidor confirma que una alumna nueva
+// puede reservar, y solo para la propietaria. Y el motor de la mascota no puede
+// viajar con /calendario, que es la pantalla más usada del panel: llega por un
+// chunk aparte que solo se pide al abrir esta pantalla como propietaria.
+//
+// Ningún test ve un canvas: se leen sus data-* (data-estado, data-paleta). Lo
+// de «el motor no viaja» se mira en lo que el navegador DESCARGA, con un
+// recolector de respuestas .js — no con performance.getEntriesByType, cuyo
+// buffer de 250 entradas se llena con los fetch del panel y empieza a perder.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Una cadena que solo está en lib/tenti/motor.ts. Sobrevive a la minificación
+// (es un literal), así que vale igual con `next dev` que con el build de CI.
+const HUELLA_DEL_MOTOR = 'Tenti necesita un canvas 2D';
+const TITULAR = 'Tu estudio ya puede recibir reservas';
+
+/** Se registra ANTES de `montar` (es un evento, no una ruta): tiene que ver la primera carga. */
+function recolectarScripts(page: Page) {
+  const cuerpos: string[] = [];
+  const pendientes: Promise<unknown>[] = [];
+  page.on('response', r => {
+    const tipo = r.headers()['content-type'] ?? '';
+    if (!/javascript/.test(tipo) && !/\.js(\?|$)/.test(r.url())) return;
+    // Una respuesta sin cuerpo (redirección, abortada) no es un fallo del test.
+    pendientes.push(r.text().then(t => cuerpos.push(t), () => {}));
+  });
+  return {
+    async contiene(s: string) {
+      await Promise.all(pendientes);
+      return cuerpos.some(c => c.includes(s));
+    },
+    async cuantos() { await Promise.all(pendientes); return cuerpos.length; },
+  };
+}
+
+/**
+ * La vista previa del móvil carga `/reservar/[slug]` DE VERDAD, y 'hecho' espera
+ * a que cargue. Con el Supabase de mentira del e2e esa página tarda de 0,2 a
+ * 18 s en responder (lo que tarde en rendirse con el backend), así que se sirve
+ * una mínima: lo que aquí se prueba es Tenti, no la página de reservas. Con
+ * `retener`, no contesta hasta que se llame a `soltar()`. Va DESPUÉS de `montar`.
+ */
+async function paginaDeReservas(page: Page, { retener = false } = {}) {
+  const estado = { cargas: 0, soltar: () => {} };
+  const suelta = retener ? new Promise<void>(r => { estado.soltar = r; }) : Promise.resolve();
+  await page.route('**/reservar/studio-carmen', async r => {
+    await suelta;
+    estado.cargas++;
+    return r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Studio Carmen</title><p>Reserva tu clase</p>' });
+  });
+  return estado;
+}
+
+const tenti = (page: Page) => page.locator('canvas[data-tenti]');
+/** El esqueleto del móvil se quita en el `onLoad` del iframe: sin él, la página ya se ve. */
+const vistaPreviaCargada = (page: Page) =>
+  expect(page.locator('div.relative', { has: page.locator('iframe[title^="Página de reservas"]') }).locator('.animate-pulse')).toHaveCount(0, { timeout: 15_000 });
+const checkDeSiempre = (page: Page) =>
+  page.locator('div.text-center', { has: page.getByRole('heading', { name: TITULAR }) }).locator('svg.lucide-check');
+
+test.describe('Tenti celebra cuando el servidor confirma que una alumna nueva puede reservar', () => {
+  test('con el sí del servidor y su página ya cargada, Tenti pasa a «hecho»', async ({ page }) => {
+    const scripts = recolectarScripts(page);
+    const { importaciones } = await montar(page);
+    const servidor = await servidorDice(page, { estado: 'SI' });
+    const reservas = await paginaDeReservas(page);
+    await crearHorarioPropuesto(page);
+
+    await expect.poll(() => importaciones.length, { timeout: 15_000 }).toBe(1);
+    await expect(tenti(page)).toHaveAttribute('data-estado', 'hecho', { timeout: 8_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    expect(reservas.cargas).toBeGreaterThan(0);
+    await expect(tenti(page)).toHaveAttribute('aria-hidden', 'true');
+    // En lugar del Check, no sumado: los dos a la vez serían dos iconos.
+    await expect(checkDeSiempre(page)).toHaveCount(0);
+    // Control positivo del recolector: sin él, los tests de abajo («el motor no
+    // viaja») pasarían también con un recolector que no recogiera nada.
+    expect(await scripts.contiene(HUELLA_DEL_MOTOR)).toBe(true);
+  });
+
+  test('con un «no» del servidor se queda en reposo', async ({ page }) => {
+    await montar(page, { planesActivos: true });
+    const servidor = await servidorDice(page, { estado: 'NO', motivo: 'STRIPE_SIN_CUENTA' });
+    await paginaDeReservas(page);
+    await crearHorarioPropuesto(page);
+
+    await expect(page.getByText(/Una alumna nueva todavía no puede reservar/)).toBeVisible({ timeout: 15_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    // Tenti está y su página ya se ve: el reposo es por el «no», no porque
+    // falte otra de las condiciones.
+    await expect(tenti(page)).toHaveCount(1);
+    await vistaPreviaCargada(page);
+    await page.waitForTimeout(3_000);
+    await expect(tenti(page)).toHaveAttribute('data-estado', 'reposo');
+  });
+
+  test('sin poder comprobarlo (el servidor falla) tampoco celebra', async ({ page }) => {
+    await montar(page);
+    const servidor = await servidorDice(page, { error: 'boom' }, 500);
+    await paginaDeReservas(page);
+    await crearHorarioPropuesto(page);
+
+    await expect.poll(() => servidor.intentos, { timeout: 15_000 }).toBeGreaterThan(0);
+    await expect(tenti(page)).toHaveCount(1);
+    await vistaPreviaCargada(page);
+    await page.waitForTimeout(3_000);
+    await expect(tenti(page)).toHaveAttribute('data-estado', 'reposo');
+  });
+
+  test('con el sí del servidor, espera a que su página se vea dentro del móvil', async ({ page }) => {
+    await montar(page);
+    const servidor = await servidorDice(page, { estado: 'SI' });
+    const reservas = await paginaDeReservas(page, { retener: true });
+    await crearHorarioPropuesto(page);
+
+    await expect(page.getByText(PROMESA)).toBeVisible({ timeout: 15_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    // El servidor ya ha dicho que sí, pero la alumna todavía no ve nada.
+    await page.waitForTimeout(3_000);
+    await expect(tenti(page)).toHaveAttribute('data-estado', 'reposo');
+    reservas.soltar();
+    await expect(tenti(page)).toHaveAttribute('data-estado', 'hecho', { timeout: 8_000 });
+    expect(reservas.cargas).toBeGreaterThan(0);
+  });
+
+  test('recepción no ve a Tenti: ve el Check y no se descarga el motor', async ({ page }) => {
+    const scripts = recolectarScripts(page);
+    await montar(page, { rol: 'RECEPCION' });
+    const servidor = await servidorDice(page, { estado: 'SI' });
+    await crearHorarioPropuesto(page);
+
+    await expect(page.getByText(PROMESA)).toBeVisible({ timeout: 15_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    await expect(checkDeSiempre(page)).toBeVisible();
+    // Margen para que, si alguien quitara el control de rol, el chunk llegara a pedirse.
+    await page.waitForTimeout(2_000);
+    await expect(tenti(page)).toHaveCount(0);
+    expect(await scripts.cuantos()).toBeGreaterThan(0);
+    expect(await scripts.contiene(HUELLA_DEL_MOTOR)).toBe(false);
+  });
+
+  test('sin canvas 2D se ve el Check de siempre y la pantalla sigue funcionando', async ({ page }) => {
+    await page.addInitScript(() => {
+      HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext;
+    });
+    await montar(page);
+    const servidor = await servidorDice(page, { estado: 'SI' });
+    await crearHorarioPropuesto(page);
+
+    await expect(page.getByText(PROMESA)).toBeVisible({ timeout: 15_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    await expect(checkDeSiempre(page)).toBeVisible({ timeout: 8_000 });
+    await expect(tenti(page)).toHaveCount(0);
+    await expect(page.getByText('Algo ha ido mal')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Ver mi calendario' }).click();
+    await expect(page.getByRole('heading', { name: TITULAR })).toHaveCount(0);
+  });
+
+  test('el motor no viaja con el calendario de todos los días', async ({ page }) => {
+    const scripts = recolectarScripts(page);
+    await montar(page, { conClases: true });
+    await expect(page.getByRole('button', { name: 'Semana', exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: /Reformer/ }).first()).toBeVisible();
+    await page.waitForTimeout(2_000);
+    expect(await scripts.cuantos()).toBeGreaterThan(0);
+    expect(await scripts.contiene(HUELLA_DEL_MOTOR)).toBe(false);
+  });
+
+  test('en modo oscuro Tenti lee la paleta del tema oscuro', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('panel-dark-mode', '1'));
+    await montar(page);
+    const servidor = await servidorDice(page, { estado: 'SI' });
+    await paginaDeReservas(page);
+    await crearHorarioPropuesto(page);
+
+    await expect(tenti(page)).toHaveAttribute('data-paleta', 'tokens', { timeout: 8_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    // 'tokens' solo dice que los leyó; que sean los OSCUROS lo dice que el
+    // lienzo vea un cuerpo distinto del de :root (claro).
+    const cuerpo = await tenti(page).evaluate(el => ({
+      lienzo: getComputedStyle(el).getPropertyValue('--tenti-cuerpo-luz').trim(),
+      raiz: getComputedStyle(document.documentElement).getPropertyValue('--tenti-cuerpo-luz').trim(),
+    }));
+    expect(cuerpo.lienzo).not.toBe('');
+    expect(cuerpo.lienzo).not.toBe(cuerpo.raiz);
+    await expect(tenti(page)).toHaveAttribute('data-estado', 'hecho', { timeout: 8_000 });
   });
 });
