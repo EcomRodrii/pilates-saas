@@ -209,12 +209,19 @@ test('la clave distingue modo e identidad: dos peticiones distintas del mismo mi
 const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 const rutaCheckout = () => sinComentarios(readFileSync(new URL('../../app/api/stripe/checkout/route.ts', import.meta.url), 'utf8'));
 
-test('rama de recibo: 409 con el datáfono o el Bizum del mostrador en vuelo, antes de tocar ninguna sesión', () => {
+test('rama de recibo: con un cobro del mostrador guardado se PREGUNTA, antes de tocar ninguna sesión, y solo el vivo da 409', () => {
   const s = rutaCheckout();
   const mira = s.indexOf('if (recibo.cobro_mostrador_pi) {');
   assert.ok(mira > 0, 'la rama de recibo no mira el cobro del mostrador');
   assert.ok(mira < s.indexOf('sesionAbiertaId = (recibo.checkout_session_id'));
-  assert.match(s.slice(mira, mira + 300), /status: 409/);
+  const bloque = s.slice(mira, s.indexOf('const penalizacionNoPagable', mira));
+  // Al mismo dueño que el mostrador, con el margen de abandono: un datáfono que
+  // nadie canceló no deja a la alumna sin poder pagar para siempre.
+  assert.match(bloque, /await soltarCobroDeMostradorDelRecibo\(admin, \{/);
+  assert.match(bloque, /cancelarPendienteTrasMs: MINUTOS_COBRO_MOSTRADOR_ABANDONADO \* 60_000/);
+  assert.match(bloque, /mostrador\.tipo === 'YA_PAGADO'[\s\S]{0,200}status: 409/);
+  assert.match(bloque, /mostrador\.tipo === 'EN_MARCHA'[\s\S]{0,200}status: 409/);
+  assert.equal(bloque.split('status: 409').length - 1, 2, 'solo el cobro vivo, el ya cobrado o el que no se pudo preguntar');
 });
 
 test('rama de recibo: una sesión ya pagada da 409, nunca otra sesión', () => {

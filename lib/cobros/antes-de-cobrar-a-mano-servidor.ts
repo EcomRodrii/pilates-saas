@@ -188,7 +188,7 @@ export async function soltarCobroDeMostradorDelRecibo(
   }
   if (mostrador.tipo === 'YA_PAGADO') {
     Sentry.captureMessage('[cobros] cobro de un recibo sobre un cobro del mostrador ya pagado', {
-      level: 'warning', tags: { area: 'cobros', tipo: 'marcar-cobrado' }, extra: { reciboId, studioId, referencia: ref },
+      level: 'warning', tags: { area: 'cobros', tipo: 'cobro-mostrador' }, extra: { reciboId, studioId, referencia: ref },
     });
   }
   return mostrador;

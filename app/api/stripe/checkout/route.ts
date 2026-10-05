@@ -33,8 +33,11 @@ import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable, ESTADOS_COBRABLES } from '@/lib/billing/deuda-recibo';
 import {
-  MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO, MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR, MENSAJE_RECIBO_YA_PAGADO_ONLINE,
+  MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO, MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR, MENSAJE_RECIBO_YA_COBRADO_EN_EL_MOSTRADOR,
+  MENSAJE_RECIBO_YA_PAGADO_ONLINE,
 } from '@/lib/billing/cobro-off-session-marca';
+import { preparadorDeStripe, soltarCobroDeMostradorDelRecibo } from '@/lib/cobros/antes-de-cobrar-a-mano-servidor';
+import { MINUTOS_COBRO_MOSTRADOR_ABANDONADO } from '@/lib/billing/pago-online-al-cobrar-a-mano';
 import { telefonoValido } from '@/lib/csv';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
@@ -200,7 +203,7 @@ export async function POST(req: NextRequest) {
   if (body.reciboId) {
     const { data: recibo, error } = await admin
       .from('recibos')
-      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, cobro_off_session_clave, cobro_mostrador_pi, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, entrega_tipo, suscripcion_id')
+      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, cobro_off_session_clave, cobro_mostrador_pi, cobro_mostrador_checkout_session_id, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, entrega_tipo, suscripcion_id')
       .eq('id', body.reciboId)
       .maybeSingle();
     if (error || !recibo) {
@@ -230,9 +233,24 @@ export async function POST(req: NextRequest) {
     // otro sentido lo cubre el mostrador: «marcar cobrado», «Cobrar online» y el
     // datáfono / Bizum de la Caja (`/api/pos/recibo`) cierran el pago online de la
     // clienta antes de cobrar (`cerrarPagoOnlineDelRecibo`).
-    // El UPDATE que guarda la sesión lo vuelve a exigir.
+    //
+    // Pero la columna sola no dice que haya un cobro VIVO: un datáfono que nadie
+    // canceló se queda en ella para siempre. Se le pregunta a quien lo empezó, como
+    // hace el mostrador: si ya terminó sin cobrar, se suelta la referencia y se sigue;
+    // si sigue esperando más del margen (`MINUTOS_COBRO_MOSTRADOR_ABANDONADO`), se
+    // cancela y se suelta. Solo con un cobro en curso, ya cobrado o sin poder
+    // preguntar se contesta 409. El UPDATE que guarda la sesión lo vuelve a exigir.
     if (recibo.cobro_mostrador_pi) {
-      return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR }, { status: 409 }));
+      const mostrador = await soltarCobroDeMostradorDelRecibo(admin, {
+        studioId: body.studioId, reciboId: body.reciboId, referencia: recibo.cobro_mostrador_pi as string,
+        checkoutSessionId: (recibo.cobro_mostrador_checkout_session_id as string | null) ?? null,
+      }, preparadorDeStripe(admin, body.studioId), { cancelarPendienteTrasMs: MINUTOS_COBRO_MOSTRADOR_ABANDONADO * 60_000 });
+      if (mostrador.tipo === 'YA_PAGADO') {
+        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_RECIBO_YA_COBRADO_EN_EL_MOSTRADOR }, { status: 409 }));
+      }
+      if (mostrador.tipo === 'EN_MARCHA') {
+        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR }, { status: 409 }));
+      }
     }
     // El recibo de una penalización (`rec-penaliz-*`) solo se paga con el cobro
     // decidido (RECIBO_CREADO) o con la penalización FALLIDA, que es deuda de la

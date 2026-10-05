@@ -153,6 +153,10 @@ export const MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO =
 export const MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR =
   'El estudio está cobrando este recibo ahora mismo. Vuelve a mirarlo en unos minutos.';
 
+/** Para la clienta que abre el pago de un recibo que el estudio ya le ha cobrado en el datáfono o por Bizum. */
+export const MENSAJE_RECIBO_YA_COBRADO_EN_EL_MOSTRADOR =
+  'Este recibo ya se ha cobrado en el estudio: no hace falta que lo pagues.';
+
 /** Para la clienta que vuelve a abrir el pago de un recibo que ya pagó online y aún no consta cobrado. */
 export const MENSAJE_RECIBO_YA_PAGADO_ONLINE =
   'Este recibo ya está pagado: lo estamos confirmando. No hace falta que lo pagues otra vez.';
