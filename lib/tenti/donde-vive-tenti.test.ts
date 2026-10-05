@@ -218,6 +218,10 @@ const IMPORTAN_EL_DECORATIVO: Record<string, { tamano: number; motivo: string }>
   // tres roles del panel. Solo vive con la hoja abierta. 40 px: la fila del
   // input no crece (el cuerpo mide unos 27 px).
   'components/search/global-search.tsx': { tamano: 40, motivo: 'el buscador ⌘K: Tentare te ayuda a encontrar lo que quieres hacer' },
+  // El resumen del día de Automatizaciones, en el sitio de la baldosa del Zap
+  // (56 px, la misma caja): la cara de lo que Tentare hace solo. Pantalla solo
+  // de la propietaria.
+  'app/(dashboard)/automatizaciones/page.tsx': { tamano: 56, motivo: 'el resumen del día de Automatizaciones: lo que Tentare hace solo' },
 };
 
 /** Los únicos props de <TentiDecorativo>. El tipo cierra el resto (estado incluido). */

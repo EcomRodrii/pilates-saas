@@ -12,7 +12,9 @@ import { HUELLA_DEL_MOTOR, recolectarScripts } from './recolector-scripts';
 //     el interruptor del piloto le cambian la cara (eso lo dice el texto);
 //   · es decorativo (aria-hidden): su nombre no se cuela en el del enlace;
 //   · no hay ninguna animación corriendo en él, y el motor del canvas no viaja
-//     con ninguna de estas pantallas.
+//     con ninguna de estas pantallas salvo Automatizaciones, que desde el 5-oct
+//     lleva además a Tenti vivo en el sitio de la baldosa del Zap (diferido, en
+//     reposo y decorativo; si no puede pintarse, el Zap de siempre).
 // Los dos sitios donde piensa (un botón de IA y «Analizar») tienen su prueba
 // junto a su andamiaje: preparar-clase-ia.spec.ts y migracion-mapeo-de-planes.
 // Cuántos hay y dónde, en el código, lo vigila lib/tenti/donde-vive-tenti.test.ts.
@@ -27,14 +29,19 @@ const json = (r: Route, body: unknown, status = 200) =>
 
 const tenti = (page: Page) => page.locator('[data-tenti-icono]');
 
-/** Todos los Tentis de la página en reposo y decorativos, y ningún resto del Orb ni del canvas. */
-async function todosQuietosYDecorativos(page: Page) {
+/** Todos los Tentis de la página en reposo y decorativos, ningún resto del Orb
+ *  y tantos canvas como se digan (solo Automatizaciones lleva uno). */
+async function todosQuietosYDecorativos(page: Page, { canvas = 0 } = {}) {
   for (const t of await tenti(page).all()) {
     await expect(t).toHaveAttribute('data-estado', 'reposo');
     await expect(t).toHaveAttribute('aria-hidden', 'true');
   }
   await expect(page.locator('.orb-tentare')).toHaveCount(0);
-  await expect(page.locator('canvas[data-tenti]')).toHaveCount(0);
+  await expect(page.locator('canvas[data-tenti]')).toHaveCount(canvas);
+  for (const c of await page.locator('canvas[data-tenti]').all()) {
+    await expect(c).toHaveAttribute('data-estado', 'reposo');
+    await expect(c).toHaveAttribute('aria-hidden', 'true');
+  }
 }
 
 /** Animaciones sin fin corriendo dentro de un Tenti. En reposo no hay ninguna:
@@ -104,8 +111,10 @@ function logPendiente() {
   };
 }
 
+const briefing = (page: Page) => page.locator('div.rounded-2xl.bg-primary', { has: page.getByRole('heading', { level: 1 }) });
+
 test.describe('Automatizaciones: Tenti en el resumen del día y en «Esto ya lo hace Tentare»', () => {
-  test('dos Tentis quietos, y el resumen solo afirma lo que cuenta', async ({ page }) => {
+  test('los iconos quietos, Tenti vivo en el sitio del Zap, y el resumen solo afirma lo que cuenta', async ({ page }) => {
     const scripts = recolectarScripts(page);
     await montar(page);
     await ir(page, 'automatizaciones');
@@ -115,17 +124,58 @@ test.describe('Automatizaciones: Tenti en el resumen del día y en «Esto ya lo 
     await expect(page.getByText(/^Ninguna automatización espera tu visto bueno\./)).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText(/Hoy no tienes nada pendiente/)).toHaveCount(0);
     await expect(tenti(page)).toHaveCount(1);
+    // El canvas, en el sitio de la baldosa del Zap (decisión del fundador del
+    // 5-oct): en el resumen, y el Zap ya no está.
+    await expect(briefing(page).locator('canvas[data-tenti]')).toHaveCount(1, { timeout: 30_000 });
+    await expect(briefing(page).locator('svg.lucide-zap')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Reglas', exact: true }).click();
     const hecho = page.getByRole('heading', { name: 'Esto ya lo hace Tentare, sin que configures nada' });
     await expect(hecho).toBeVisible();
     await expect(hecho.locator('xpath=..').locator('[data-tenti-icono]')).toHaveCount(1);
     await expect(tenti(page)).toHaveCount(2);
-    await todosQuietosYDecorativos(page);
+    await todosQuietosYDecorativos(page, { canvas: 1 });
     await page.waitForTimeout(3_000);
     expect(await animacionesSinFin(page)).toBe(0);
-    expect(await scripts.cuantos()).toBeGreaterThan(0);
-    expect(await scripts.contiene(HUELLA_DEL_MOTOR)).toBe(false);
+    // Esta pantalla sí trae el motor: por su chunk diferido, al pintar el resumen.
+    expect(await scripts.contiene(HUELLA_DEL_MOTOR)).toBe(true);
+  });
+
+  test('sin canvas 2D, la baldosa del Zap de siempre', async ({ page }) => {
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, tipo: string, ...resto: unknown[]) {
+        if (tipo === '2d') return null;
+        return (original as (...a: unknown[]) => RenderingContext | null).call(this, tipo, ...resto);
+      } as typeof HTMLCanvasElement.prototype.getContext;
+    });
+    const scripts = recolectarScripts(page);
+    await montar(page);
+    await ir(page, 'automatizaciones');
+    await expect(page.getByText(/^Ninguna automatización espera tu visto bueno\./)).toBeVisible({ timeout: 60_000 });
+    // Que el motor haya llegado y no haya podido pintar: si no, el Zap sería el de «cargando».
+    await expect.poll(() => scripts.contiene(HUELLA_DEL_MOTOR), { timeout: 30_000 }).toBe(true);
+    await expect(briefing(page).locator('svg.lucide-zap')).toHaveCount(1);
+    await expect(page.locator('canvas[data-tenti]')).toHaveCount(0);
+    await expect(tenti(page)).toHaveCount(1);
+  });
+
+  test('si el chunk de Tenti no llega, la baldosa del Zap de siempre', async ({ page }) => {
+    await montar(page);
+    // DESPUÉS del arnés. El chunk del motor se reconoce por su contenido: se
+    // pide, y si es el del motor se corta.
+    let cortados = 0;
+    await page.route(/\/_next\/static\/.*\.js/, async (r) => {
+      const resp = await r.fetch();
+      const cuerpo = await resp.text();
+      if (cuerpo.includes(HUELLA_DEL_MOTOR)) { cortados++; return r.abort(); }
+      return r.fulfill({ response: resp, body: cuerpo });
+    });
+    await ir(page, 'automatizaciones');
+    await expect(page.getByText(/^Ninguna automatización espera tu visto bueno\./)).toBeVisible({ timeout: 60_000 });
+    await expect.poll(() => cortados, { timeout: 30_000 }).toBeGreaterThan(0);
+    await expect(briefing(page).locator('svg.lucide-zap')).toHaveCount(1);
+    await expect(page.locator('canvas[data-tenti]')).toHaveCount(0);
   });
 
   test('con algo esperando tu visto bueno, Tenti no cambia de cara: lo dice el texto', async ({ page }) => {
@@ -139,7 +189,8 @@ test.describe('Automatizaciones: Tenti en el resumen del día y en «Esto ya lo 
     expect(lecturas).toBeGreaterThan(0);
     await expect(page.getByText(/^Ninguna automatización espera tu visto bueno/)).toHaveCount(0);
     await expect(tenti(page)).toHaveCount(1);
-    await todosQuietosYDecorativos(page);
+    await expect(briefing(page).locator('canvas[data-tenti]')).toHaveCount(1, { timeout: 30_000 });
+    await todosQuietosYDecorativos(page, { canvas: 1 });
   });
 });
 

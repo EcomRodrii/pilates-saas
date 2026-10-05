@@ -316,8 +316,10 @@ esa lista con su motivo, no un import de paso.
   decorativo y en reposo, en el buscador ⌘K (`TentiDecorativo`: lo ven todos
   los roles, en el sitio de la lupa, solo con la hoja abierta, y mira hacia lo
   que se escribe). Mientras llega su chunk, si no llega o sin canvas 2D, la
-  lupa de siempre en la misma caja. El fundador ya decidió también el briefing
-  de Automatizaciones.
+  lupa de siempre en la misma caja. Y en el resumen del día de
+  Automatizaciones, en el sitio de la baldosa del Zap (56 px, con el Zap de
+  reserva); «Esto ya lo hace Tentare» sigue con su icono. Los sitios, sus
+  tamaños y sus props los cierra la guardia (`IMPORTAN_EL_DECORATIVO`).
 - **El canvas DUERME entre parpadeos.** Pide rAF solo mientras algo se mueve
   (`animando()`: tweens, temporizadores, partículas, valores sin llegar;
   `perpetuo()`: lo que oscila sin fin) y, si no, un `setTimeout` hasta
