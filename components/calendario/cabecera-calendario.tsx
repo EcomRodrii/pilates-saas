@@ -155,7 +155,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
                 )}
               >
                 <ListFilter size={16} />
-                {filtrando && <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-brand" aria-hidden />}
+                {filtrando && <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-brand-medio" aria-hidden />}
               </button>
             )}
             {p.onCrear && (

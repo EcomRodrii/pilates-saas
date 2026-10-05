@@ -2,7 +2,7 @@ import localFont from 'next/font/local';
 
 // Las dos familias del Brand System (brand/brand-os.md §6): Schibsted Grotesk
 // para todo y DM Mono para horas, cifras y etiquetas. Fase 2: SOLO en el panel
-// (`.tipografia-tentare`, app/(dashboard)/layout.tsx). La app de la alumna, la
+// (`.marca-panel`, app/(dashboard)/layout.tsx). La app de la alumna, la
 // landing y /ayuda siguen con Jakarta hasta su fase.
 //
 // Por qué un módulo aparte de fuentes.ts: lo importa solo el layout del panel,
@@ -18,7 +18,7 @@ import localFont from 'next/font/local';
 //
 // Solo los pesos aprobados (400/500/600 y 400/500). Lo que pida más peso
 // (`font-bold`, `font-extrabold`) cae al 600 sin negrita sintética: lo fija
-// `font-synthesis-weight: none` en `.tipografia-tentare` (globals.css).
+// `font-synthesis-weight: none` en `.marca-panel` (globals.css).
 
 const Schibsted_Grotesk = localFont({
   src: [

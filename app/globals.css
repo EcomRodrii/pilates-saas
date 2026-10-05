@@ -21,7 +21,7 @@
   --color-foreground: var(--foreground);
   /* Las utilidades `font-sans`, `font-heading` y `font-mono` leen una variable
      y no la fuente: fuera del panel siguen siendo Jakarta y la mono del sistema,
-     y dentro (`.tipografia-tentare`, más abajo) son las de la marca. Ver el
+     y dentro (`.marca-panel`, más abajo) son las de la marca. Ver el
      bloque «Tipografía de la marca». */
   --font-sans: var(--fuente-sans);
   --font-mono: var(--fuente-mono);
@@ -296,7 +296,7 @@
   --cat-9: #886116; /* ocre */
 
   /* Lo que leen `font-sans`/`font-heading`/`font-mono` fuera del panel: lo de
-     siempre. `.tipografia-tentare` los cambia por los de la marca. */
+     siempre. `.marca-panel` los cambia por los de la marca. */
   --fuente-sans: var(--font-jakarta);
   --fuente-mono: ui-monospace, monospace;
 
@@ -451,8 +451,8 @@
   --marca-producto: #A9B4C0;
 }
 
-/* ── Tipografía de la marca (Brand System, fase 2) ─────────────────────────
-   Schibsted Grotesk y DM Mono (brand/brand-os.md §6), SOLO dentro del panel:
+/* ── La marca dentro del panel (Brand System, fases 2, 4 y 5) ──────────────
+   Tipografía: Schibsted Grotesk y DM Mono (brand/brand-os.md §6), SOLO dentro del panel:
    la clase la pone app/(dashboard)/layout.tsx, que es también quien carga las
    fuentes (app/_fuentes/fuentes-panel.ts). La app de la alumna, /reservar, la
    landing y /ayuda no la llevan y siguen con su tipografía hasta su fase.
@@ -464,12 +464,39 @@
 
    `font-synthesis-weight: none`: la marca solo tiene 400/500/600 (DM Mono,
    400/500). Un `font-bold` o `font-extrabold` del panel cae así al 600 en vez de
-   engordarse a mano con una negrita sintética. */
-.tipografia-tentare {
+   engordarse a mano con una negrita sintética.
+
+   Brand slot por defecto (brand-os.md §5, implementation-plan.md: «su valor por
+   defecto pasa a Sand / Ink»): lo que ve el estudio que no ha elegido color.
+   `PanelThemeProvider` escribe en línea el del estudio que sí lo eligió y, con el
+   tema de fábrica (el oliva), no escribe nada para que mande esto
+   (lib/panel-marca.ts). En `:root` el oliva sigue siendo el de siempre: lo usan la
+   landing, /login y el alta, que no son de esta fase.
+   · `--brand-medio`, la marca a tamaño pequeño (enlaces, iconos, texto activo):
+     Sand no llega a 4,5:1 como texto, así que es el enlace de la marca (Blue 700).
+   · `--accent` es el hover de los menús: `surface-sunken` (guía, «Reglas globales»).
+   · Modo oscuro: el relleno de marca por defecto no está definido (OPEN DECISION
+     19) y sigue con la salvia del bloque `.dark`; el resto, abajo. */
+.marca-panel {
   --fuente-sans: var(--t-font-sans);
   --fuente-mono: var(--t-font-mono);
   font-family: var(--t-font-sans);
   font-synthesis-weight: none;
+
+  --brand: var(--t-brand);
+  --brand-foreground: var(--t-brand-foreground);
+  --brand-secondary: var(--t-brand-foreground);
+  --brand-medio: var(--t-text-link);
+  --accent: var(--t-surface-sunken);
+  --accent-foreground: var(--t-text-primary);
+}
+/* El bloque `.dark` vive en el mismo div que el tema y pisaría lo de arriba
+   (oliva claro y verde oscuro). `.marca-panel .dark` gana por especificidad, y el
+   `var()` se resuelve ahí, ya con los tokens oscuros. */
+.marca-panel .dark {
+  --brand-medio: var(--t-text-link);
+  --accent: var(--t-surface-sunken);
+  --accent-foreground: var(--t-text-primary);
 }
 
 @layer base {

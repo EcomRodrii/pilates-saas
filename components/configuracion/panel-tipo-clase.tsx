@@ -199,7 +199,7 @@ function CampoHeredado({
             type="button"
             onClick={onPersonalizar}
             aria-label={`Personalizar: ${label}`}
-            className="shrink-0 text-[12px] font-semibold text-brand hover:underline"
+            className="shrink-0 text-[12px] font-semibold text-brand-medio hover:underline"
           >
             Personalizar
           </button>
@@ -366,7 +366,7 @@ function Previsualizacion({ form, fotoUrl, logoUrl, onEditarImagenes }: {
           <button
             type="button"
             onClick={onEditarImagenes}
-            className="text-[10.5px] font-semibold text-brand underline underline-offset-2 hover:opacity-80"
+            className="text-[10.5px] font-semibold text-brand-medio underline underline-offset-2 hover:opacity-80"
           >
             {logoUrl || fotoUrl ? 'Cambiar logo o banner' : 'Poner logo y banner'}
           </button>
