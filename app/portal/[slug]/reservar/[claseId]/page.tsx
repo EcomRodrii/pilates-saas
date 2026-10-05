@@ -13,24 +13,19 @@ import { getBonos, getClases, getClasesFrescas, getInstructoras, getReservas } f
 import { getFavoritos } from '@/lib/student/favoritos';
 import { bonoParaClase, tieneBonoQueNoCubre } from '@/lib/student/bono-cubre';
 import { catalogo } from '@/lib/student/catalogo';
-import { confirmarReserva } from '@/lib/student/reservar';
-import type { TipoAccion } from '@/lib/student/reserva-acciones';
-import { avisoCancelacion, disponibilidad, transicionValida } from '@/lib/student/maquina-reserva';
-import { etiquetaDia, horaFin, precioClaseTexto } from '@/lib/student/formato';
-import { esCuota, textoPagoCorto } from '@/lib/student/como-se-paga';
-import type { BookingState } from '@/lib/student/tipos';
+import { avisoCancelacion, disponibilidad } from '@/lib/student/maquina-reserva';
+import { etiquetaDia, horaFin } from '@/lib/student/formato';
+import { textoPagoCorto } from '@/lib/student/como-se-paga';
+import { useHojaReserva } from '@/lib/student/use-hoja-reserva';
 import { AvailabilityBadge, EnCursoBadge, TerminadaBadge } from '@/components/student/ui/Badge';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
 import { etiquetaAperturaSuave } from '@/lib/opening/apertura-suave-texto';
-import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
 import { ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { BookingButton } from '@/components/student/domain/BookingButton';
-import { BookingSummary } from '@/components/student/domain/BookingSummary';
-import { ElegirHueco, huecosDeClase } from '@/components/student/domain/ElegirHueco';
-import { mensajeConfirmarReserva } from '@/lib/reserva-confirmacion-mensaje';
-import { BookingStatus } from '@/components/student/domain/BookingStatus';
+import { huecosDeClase } from '@/components/student/domain/ElegirHueco';
+import { HojaReserva } from '@/components/student/domain/HojaReserva';
 import { InstructorCard } from '@/components/student/domain/InstructorCard';
 import { FavoritoButton } from '@/components/student/domain/FavoritoButton';
 import { FichaClaseHero } from '@/components/student/domain/FichaClaseHero';
@@ -38,7 +33,6 @@ import { AutoReservable } from '@/components/student/domain/AutoReservable';
 import { InstructoraSheet } from '@/components/student/domain/InstructoraSheet';
 import { cuandoSeAbre, etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
 import { useAunNoAbre } from '@/lib/reservar/use-aun-no-abre';
-import { vibrar } from '@/lib/nativo/puente';
 import { CompartirClase } from '@/components/student/domain/CompartirClase';
 
 // Ficha de clase + hoja de reserva (§A.7). Es la pantalla donde la máquina de
@@ -61,25 +55,6 @@ export default function FichaClasePage() {
   const href = usePortalHref();
   const { estudio } = useEstudio();
   const { online } = useOnline();
-  const [bk, setBk] = useState<BookingState>('idle');
-  // El sitio elegido. `null` = que lo asigne el estudio, que es lo que pasaba
-  // SIEMPRE hasta ahora: la app sabía mandar `spotId` desde el primer día y
-  // ninguna pantalla llegaba a ponerlo nunca.
-  //
-  // Va aquí arriba, con el resto de hooks: más abajo hay returns tempranos
-  // (cargando, sin clase) y un `useState` después de uno de ellos se salta en
-  // esos renders, que es justo lo que prohíben las reglas de hooks.
-  const [hueco, setHueco] = useState<string | null>(null);
-  // El motivo CONCRETO del servidor, cuando lo hay. Va aparte del estado
-  // porque la máquina del diseño no tiene un estado para cada rechazo: «no
-  // tienes bono activo» y «has llegado a tu tope de reservas» caen los dos en
-  // `error`, y sin guardar el mensaje se pintaba el copy de avería genérico.
-  const [bkMensaje, setBkMensaje] = useState<string | undefined>(undefined);
-  // Qué se le puede ofrecer tras un rechazo (comprar, elegir otra clase…), por el CÓDIGO que dio el servidor.
-  const [bkAcciones, setBkAcciones] = useState<TipoAccion[] | undefined>(undefined);
-  // Título propio para «pendiente de aprobación», que comparte estado con la
-  // lista de espera pero no es lo mismo. Ver `DesenlaceReserva.pendienteAprobacion`.
-  const [bkTitulo, setBkTitulo] = useState<string | undefined>(undefined);
   // Corazón optimista: `null` = lo que diga el payload; true/false = lo que
   // acaba de pulsar la alumna (y se revierte si el servidor dice que no).
   const [favoritaLocal, setFavoritaLocal] = useState<boolean | null>(null);
@@ -103,6 +78,11 @@ export default function FichaClasePage() {
   }, [estudio.slug, claseId]);
 
   const { data, estado, reintentar, refrescar } = useAsync(cargar, (d) => !d.clase);
+  // La hoja de reserva: la MISMA que abre «Reservar» desde la fila del horario (`useHojaReserva` + `HojaReserva`).
+  // Tras confirmar relee con `refrescar` (sin esqueleto): con `reintentar` el esqueleto desmontaba la hoja a mitad de la
+  // celebración. Una hoja a la vez: al abrir esta se cierra la de la instructora.
+  const cerrarInstructora = useCallback(() => setVerInstructora(false), []);
+  const hoja = useHojaReserva({ slug: estudio.slug, studioId: estudio.id, online, onCambio: refrescar, alCambiarDeEstado: cerrarInstructora });
   // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.
@@ -131,80 +111,6 @@ export default function FichaClasePage() {
   const bonoNoCubre = clase ? tieneBonoQueNoCubre(data?.bonos ?? [], clase.tipoClaseId) : false;
   const aviso = clase ? avisoCancelacion(clase, estudio.politicaCancelacionHoras) : null;
   const favorita = favoritaLocal ?? (clase ? (data?.favoritos.has(clase.tipoClaseId) ?? false) : false);
-
-  /** Cambia de estado solo si la máquina lo permite. */
-  const ir = useCallback((a: BookingState) => {
-    // Una hoja a la vez: el velo tapa el puntero pero no el teclado, y Tab +
-    // Enter en «Reservar» abría la hoja de reserva encima de la de instructora.
-    setVerInstructora(false);
-    // El mensaje pertenece a la respuesta que lo trajo: al cambiar de estado
-    // por nuestra cuenta (reintentar, volver a la revisión) deja de valer.
-    setBkMensaje(undefined);
-    setBkAcciones(undefined);
-    setBkTitulo(undefined);
-    setBk((de) => (transicionValida(de, a) ? a : de));
-  }, []);
-
-  const confirmar = useCallback(async () => {
-    if (!clase) return;
-    if (!online) { ir('offline'); return; }
-    ir('submitting');
-    // `confirmarReserva` no lanza nunca: traduce cualquier fallo a un estado
-    // que esta pantalla sabe pintar. Si lanzara, el sheet se quedaría en
-    // «Confirmando…» para siempre, que es la peor pantalla posible.
-    const r = await confirmarReserva(estudio.slug, clase.id, estudio.id, {
-      online,
-      spotId: hueco,
-    });
-    setBk(r.state);
-    // El toque de «hecho», SOLO cuando el servidor ha dicho que sí.
-    if (r.state === 'confirmed') void vibrar('exito');
-    // Si pidió sitio y NO se lo dieron, se dice. El servidor lo responde en
-    // `spotAsignado` desde siempre; callarlo la dejaría llegando al estudio
-    // convencida de que tiene el que eligió. El texto es el canónico
-    // (`mensajeConfirmarReserva`), el mismo que ya usan el portal y el widget.
-    // ⚠️ Y si la reserva ha GASTADO una recuperación, se le dice. La RPC la
-    // consume sola al topar el límite semanal y no avisaba de nada: la alumna
-    // pasaba de 2 a 1 sin enterarse, y solo lo descubría volviendo a Inicio y
-    // comparando el número. Es asimétrico —ganar una sí se le cuenta— y encima
-    // es justo el momento en que le importa.
-    const avisoRecuperacion = r.state === 'confirmed' && r.recuperacionUsada
-      ? 'Has usado una de tus recuperaciones para esta clase.'
-      : null;
-    const avisoSitio = r.state === 'confirmed' && hueco && !r.spotAsignado
-      ? mensajeConfirmarReserva({ estado: 'CONFIRMADA', spotAsignado: r.spotAsignado ?? null }, hueco)
-      : null;
-    // El del sitio va primero: es una expectativa suya que no se ha cumplido, y
-    // pesa más que un dato informativo.
-    setBkTitulo(r.pendienteAprobacion ? 'Tu reserva está pendiente de aprobación' : undefined);
-    setBkAcciones(r.acciones);
-    setBkMensaje(
-      r.pendienteAprobacion
-        // Ni «lista de espera» ni «te avisamos si se libera una plaza»: la plaza
-        // está, lo que falta es que el estudio diga que sí.
-        ? 'Tienes la plaza guardada mientras el estudio la revisa. Te avisamos en cuanto la confirmen.'
-        : [avisoSitio, avisoRecuperacion].filter(Boolean).join(' ') || r.mensaje,
-    );
-    // Los datos han cambiado: la clase tiene una plaza menos y ella una reserva
-    // más. Sin recargar, volver atrás enseña el aforo de antes.
-    if (r.state === 'confirmed' || r.state === 'waitlisted') reintentar();
-  }, [clase, online, estudio.slug, estudio.id, ir, reintentar, hueco]);
-
-  const cerrar = useCallback(() => {
-    // Durante el envío la hoja no se cierra: cerrarla dejaría a la alumna sin
-    // saber en qué acabó una operación que ya está en marcha.
-    if (bk === 'submitting') return;
-    setBkMensaje(undefined);
-    setBkAcciones(undefined);
-    setBkTitulo(undefined);
-    setBk('idle');
-  }, [bk]);
-
-  const finalizar = useCallback(() => {
-    if (bk === 'confirmed' || bk === 'waitlisted') router.push(href('/mis-reservas'));
-    else if (bk === 'session-expired') router.push(href('/acceso/login'));
-    else { setBkMensaje(undefined); setBkAcciones(undefined); setBkTitulo(undefined); setBk('idle'); }
-  }, [bk, router, href]);
 
   if (estado === 'loading') {
     return (
@@ -235,10 +141,6 @@ export default function FichaClasePage() {
   }
 
   const huecos = clase ? huecosDeClase(data?.spots, data?.aforoReservas, clase.salaId, clase.id) : null;
-
-  const enSheet = bk !== 'idle';
-  const esFinal = enSheet && bk !== 'reviewing' && bk !== 'submitting';
-
 
   return (
     // `headerTransparente`, igual que Inicio: esta pantalla también abre con
@@ -346,8 +248,8 @@ export default function FichaClasePage() {
           <BookingButton
             estado={disp}
             online={online}
-            onReservar={() => ir('reviewing')}
-            onEspera={() => ir('reviewing')}
+            onReservar={hoja.abrir}
+            onEspera={hoja.abrir}
             onCancelar={() => router.push(href('/mis-reservas'))}
           />
         )}
@@ -358,59 +260,18 @@ export default function FichaClasePage() {
         open={verInstructora} onClose={() => setVerInstructora(false)}
       />
 
-      <Sheet open={enSheet} onClose={cerrar} label="Reservar clase">
-        {(bk === 'reviewing' || bk === 'submitting') && (
-          <>
-            <h3 className="t-h2">
-              {disp === 'completa' ? 'Clase llena — lista de espera' : 'Confirma tu plaza'}
-            </h3>
-            <div style={{ marginTop: 12 }}>
-              <BookingSummary
-                clase={clase}
-                instructora={inst}
-                bono={disp === 'completa' ? null : bono}
-                bonoNoCubre={bonoNoCubre}
-                enEspera={disp === 'completa'}
-                politicaHoras={aviso?.horasVentana ?? estudio.politicaCancelacionHoras}
-              />
-            </div>
-            {/* Elegir sitio: solo si la sala tiene huecos definidos, y solo
-                cuando hay plaza — en lista de espera no hay sitio que elegir
-                todavía. */}
-            {huecos && disp !== 'completa' && (
-              <ElegirHueco spots={huecos.spots} ocupados={huecos.ocupados} elegido={hueco} onElegir={setHueco} />
-            )}
-            {disp === 'completa' && (
-              <p className="t-meta" style={{ marginTop: 8, textAlign: 'center' }}>
-                Sin coste — solo reservas si se libera y tú confirmas.
-              </p>
-            )}
-            <Button full loading={bk === 'submitting'} onClick={confirmar} style={{ marginTop: 14, height: 50, fontSize: 'var(--t-body)' }}>
-              {disp === 'completa'
-                ? 'Unirme a la lista de espera'
-                : `Confirmar ${clase.hora}${bono ? (esCuota(bono) ? ' con tu cuota' : ' con bono') : ` · ${precioClaseTexto(clase)}`}`}
-            </Button>
-            {bk === 'submitting' && (
-              <p className="t-meta" style={{ marginTop: 8, textAlign: 'center' }}>
-                Confirmando con el estudio… no cierres la app.
-              </p>
-            )}
-          </>
-        )}
-
-        {esFinal && (
-          <BookingStatus
-            state={bk as Exclude<BookingState, 'idle' | 'reviewing' | 'submitting'>}
-            titulo={bkTitulo}
-            mensaje={bkMensaje}
-            acciones={bkAcciones}
-            onRetry={() => ir('reviewing')}
-            onWaitlist={() => ir('reviewing')}
-            onComprar={() => router.push(href('/comprar'))}
-            onClose={finalizar}
-          />
-        )}
-      </Sheet>
+      <HojaReserva
+        hoja={hoja}
+        clase={clase}
+        instructora={inst}
+        disp={disp}
+        bono={bono}
+        bonoNoCubre={bonoNoCubre}
+        politicaHoras={aviso?.horasVentana ?? estudio.politicaCancelacionHoras}
+        huecos={huecos}
+        yaEmpezo={enCurso || terminada}
+        contexto="ficha"
+      />
     </StudentShell>
   );
 }
