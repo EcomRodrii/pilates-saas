@@ -10,6 +10,7 @@ import { Button } from '@/components/student/ui/Button';
 import { Badge } from '@/components/student/ui/Badge';
 import { Foto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
+import { useNormasComunidad } from '@/components/student/domain/NormasComunidad';
 
 // Una publicación del tablón. Mismo idioma que NotificationItem: avatar
 // redondo, título en 800, cuerpo en t-meta, fecha relativa en voz baja.
@@ -31,6 +32,7 @@ function fechaEvento(iso: string): string {
 
 export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { post: Post; studioId: string; delay?: number; ahora?: Date }) {
   const { toast } = useToast();
+  const { conNormas, hoja: hojaNormas } = useNormasComunidad();
   // Optimista y con vuelta atrás: el servidor decide si hay plaza.
   const [local, setLocal] = useState<{ apuntada: boolean; total: number } | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -93,9 +95,13 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
     const texto = borrador.trim();
     if (!texto || enviandoComentario) return;
     setEnviandoComentario(true);
-    const r = await postComentario(studioId, post.id, texto);
+    // Si faltan las normas de la comunidad, se enseñan y el mismo comentario se repite.
+    const r = await conNormas(() => postComentario(studioId, post.id, texto));
     setEnviandoComentario(false);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) {
+      if (r.codigo !== 'NORMAS_PENDIENTES') toast(r.error);
+      return;
+    }
     setComentarios(prev => [...(prev ?? []), r.comentario]);
     setBorrador('');
   };
@@ -206,6 +212,7 @@ export function PostCard({ post, studioId, delay = 0, ahora = new Date() }: { po
           </div>
         </div>
       )}
+      {hojaNormas}
     </article>
   );
 }

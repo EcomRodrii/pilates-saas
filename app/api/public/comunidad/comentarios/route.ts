@@ -6,6 +6,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
 import { socioEnLaAudiencia, audienciaDelPost } from '@/lib/comunidad/audiencia';
+import { antesDePublicar, cuerpoNoPublicar } from '@/lib/moderacion/normas-servidor';
 import type { DestinatariosCampana } from '@/lib/types';
 
 // Comentarios del tablón para el PORTAL — antes el tablón ni siquiera enseñaba
@@ -112,6 +113,14 @@ export async function POST(req: NextRequest) {
   const audiencia = ((post.audiencia as DestinatariosCampana | null) ?? 'TODAS');
   if (!await socioEnLaAudiencia(admin, { studioId, socioId, audiencia })) {
     return NextResponse.json({ error: 'Esta publicación no está dirigida a ti' }, { status: 403 });
+  }
+
+  // Normas aceptadas y filtro de palabras (App Store 1.2), antes de guardar nada.
+  try {
+    const motivo = await antesDePublicar(admin, user.userId, texto);
+    if (motivo) return NextResponse.json(cuerpoNoPublicar(motivo), { status: motivo.status });
+  } catch (e) {
+    return errorInterno('public/comunidad/comentarios:POST:normas', e, 'No se ha podido guardar el comentario.');
   }
 
   const { data: socio, error: errSocio } = await admin

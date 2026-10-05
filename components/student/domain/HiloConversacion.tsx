@@ -13,6 +13,7 @@ import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { useToast } from '@/components/student/ui/Toast';
 import { Icono } from '@/components/student/ui/Icono';
+import { useNormasComunidad } from '@/components/student/domain/NormasComunidad';
 
 // Hilo de una conversación: el de la alumna (`/mensajes/[id]`) y el de la
 // instructora con una alumna suya (`/equipo/mensajes/[id]`). Misma pantalla;
@@ -61,6 +62,7 @@ export function HiloConversacion({
   hrefPerfil?: string | null;
 }) {
   const { toast } = useToast();
+  const { conNormas, hoja: hojaNormas } = useNormasComunidad();
   const [borrador, setBorrador] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [extra, setExtra] = useState<RowMensajes[]>([]);
@@ -87,9 +89,14 @@ export function HiloConversacion({
     const cuerpo = borrador.trim();
     if (!cuerpo || enviando) return;
     setEnviando(true);
-    const r = await enviar(cuerpo);
+    // Si faltan las normas de la comunidad, se enseñan y el mismo envío se repite.
+    const r = await conNormas(() => enviar(cuerpo));
     setEnviando(false);
-    if (!r.ok) { toast(r.error); return; }
+    if (!r.ok) {
+      // Sin aceptar las normas no hay nada que avisar: la hoja ya lo ha dicho todo.
+      if (r.codigo !== 'NORMAS_PENDIENTES') toast(r.error);
+      return;
+    }
     setExtra((e) => [...e, r.mensaje]);
     setBorrador('');
   };
@@ -222,6 +229,7 @@ export function HiloConversacion({
           </div>
         )}
       </div>
+      {hojaNormas}
     </StudentShell>
   );
 }

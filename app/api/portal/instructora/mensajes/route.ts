@@ -6,6 +6,8 @@ import {
 import { textoNoAbrir } from '@/lib/student/mensajes-instructora';
 import { leerHasta } from '@/lib/mensajeria/avisos-leidos';
 import { TEXTO_NO_ADMITE } from '@/lib/moderacion/reglas';
+import { antesDePublicar, cuerpoNoPublicar } from '@/lib/moderacion/normas-servidor';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit, rateLimit } from '@/lib/rate-limit';
 import { retryAfterSeconds, tooManyRequestsResponse } from '@/lib/rate-limit-core';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -85,6 +87,11 @@ export async function POST(req: NextRequest) {
       }
 
       case 'enviar': {
+        // Normas aceptadas y filtro de palabras (App Store 1.2), antes de guardar nada.
+        const admin = getSupabaseAdmin();
+        if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+        const motivo = await antesDePublicar(admin, sesion.userId, cuerpo);
+        if (motivo) return NextResponse.json(cuerpoNoPublicar(motivo), { status: motivo.status });
         const r = await enviarEnHilo(suya, conversacionId as string, cuerpo);
         if (!r) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
         // Cerrado por el estudio o con un bloqueo: el borrador se queda en su pantalla.

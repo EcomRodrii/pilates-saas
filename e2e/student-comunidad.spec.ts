@@ -98,6 +98,33 @@ test.describe('Student PWA · comunidad', () => {
     await expect(post(page, 'p-ev').getByRole('button', { name: 'Me apunto' })).toBeVisible();
   });
 
+  test('comentar la primera vez pide las normas; al aceptarlas, el comentario se publica', async ({ page }) => {
+    await montar(page);
+    const cuenta = { envios: 0, aceptar: 0 };
+    let aceptadas = false;
+    const json = (b: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(b) });
+    await page.route((u) => u.pathname === '/api/public/normas-comunidad', (r) => { cuenta.aceptar++; aceptadas = true; return r.fulfill(json({ aceptadas: true })); });
+    await page.route((u) => u.pathname === '/api/public/comunidad/comentarios', (r) => {
+      if (r.request().method() === 'GET') return r.fulfill(json({ comentarios: [] }));
+      cuenta.envios++;
+      if (!aceptadas) return r.fulfill(json({ error: 'Antes de escribir, acepta las normas de la comunidad.', codigo: 'NORMAS_PENDIENTES' }, 409));
+      return r.fulfill(json({ comentario: { id: 'c1', postId: 'p-txt', autorNombre: 'Ana T.', autorInicial: 'AT', texto: '¡Qué bonita!', creadoEn: new Date().toISOString(), esMio: true } }));
+    });
+    await page.goto(`${base}/comunidad`);
+    const tarjeta = post(page, 'p-txt');
+    await tarjeta.getByRole('button', { name: 'Comentar' }).click({ timeout: 30_000 });
+    await tarjeta.getByPlaceholder('Escribe un comentario…').fill('¡Qué bonita!');
+    await tarjeta.getByRole('button', { name: 'Enviar' }).click();
+    const hoja = page.getByTestId('hoja-normas');
+    await expect(hoja).toBeInViewport({ timeout: 15_000 });
+    await hoja.getByRole('button', { name: 'Acepto las normas' }).click();
+    // El mismo comentario, repetido una sola vez tras aceptar; publicado, el cuadro se vacía.
+    await expect.poll(() => cuenta.envios, { timeout: 15_000 }).toBe(2);
+    await expect(tarjeta.getByPlaceholder('Escribe un comentario…')).toHaveValue('', { timeout: 15_000 });
+    await expect(tarjeta.locator('p', { hasText: '¡Qué bonita!' })).toHaveCount(1);
+    expect(cuenta).toEqual({ envios: 2, aceptar: 1 });
+  });
+
   test('sin publicaciones → estado vacío honesto', async ({ page }) => {
     await montar(page, { posts: [] });
     await page.goto(`${base}/comunidad`);

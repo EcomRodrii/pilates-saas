@@ -130,6 +130,74 @@ test.describe('Student PWA · hilo que ya no admite mensajes', () => {
   });
 });
 
+test.describe('Student PWA · normas de la comunidad y filtro', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });
+
+  /** El servidor pide las normas hasta que se aceptan; después guarda el mensaje. */
+  async function montarNormas(page: Page, o: { filtro?: boolean } = {}) {
+    await montar(page);
+    const cuenta = { envios: 0, aceptar: 0 };
+    let aceptadas = false;
+    const json = (b: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(b) });
+    await page.route((u) => u.pathname === '/api/public/normas-comunidad', (r) => {
+      cuenta.aceptar++;
+      aceptadas = true;
+      return r.fulfill(json({ version: '2026-10-05', aceptadas: true }));
+    });
+    await page.route((u) => u.pathname === `/api/public/mensajeria/conversaciones/${CONV}/mensajes`, (r) => {
+      if (r.request().method() !== 'POST') return r.fallback();
+      cuenta.envios++;
+      if (o.filtro) return r.fulfill(json({ error: 'Tu mensaje tiene palabras que no se permiten en la comunidad. Cámbialo y vuelve a enviarlo.', codigo: 'FILTRO' }, 422));
+      if (!aceptadas) return r.fulfill(json({ error: 'Antes de escribir, acepta las normas de la comunidad.', codigo: 'NORMAS_PENDIENTES', version: '2026-10-05' }, 409));
+      const { cuerpo } = r.request().postDataJSON() as { cuerpo: string };
+      return r.fulfill(json({ mensaje: { id: 'm-nuevo', conversacion_id: CONV, studio_id: STUDIO_ID, remitente_auth_user_id: YO, cuerpo, creado_en: new Date().toISOString() } }));
+    });
+    return cuenta;
+  }
+
+  test('la primera vez enseña las normas; al aceptarlas, el mismo mensaje se envía', async ({ page }) => {
+    const cuenta = await montarNormas(page);
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+    await page.getByPlaceholder('Escribe un mensaje…').fill('Perfecto, gracias');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+
+    const hoja = page.getByTestId('hoja-normas');
+    await expect(hoja).toBeInViewport({ timeout: 15_000 });
+    await expect(hoja).toContainText('Tolerancia cero');
+    await hoja.getByRole('button', { name: 'Acepto las normas' }).click();
+    await expect(page.getByTestId('mensaje').filter({ hasText: 'Perfecto, gracias' })).toHaveCount(1, { timeout: 15_000 });
+    expect(cuenta).toEqual({ envios: 2, aceptar: 1 });
+  });
+
+  test('si no las acepta, no se envía nada más y el borrador se queda', async ({ page }) => {
+    const cuenta = await montarNormas(page);
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+    await page.getByPlaceholder('Escribe un mensaje…').fill('Perfecto, gracias');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    const hoja = page.getByTestId('hoja-normas');
+    await expect(hoja).toBeInViewport({ timeout: 15_000 });
+    await hoja.getByRole('button', { name: 'Ahora no' }).click();
+    await expect(hoja).not.toBeInViewport();
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toHaveValue('Perfecto, gracias');
+    await expect(page.getByTestId('mensaje').filter({ hasText: 'Perfecto, gracias' })).toHaveCount(0);
+    expect(cuenta).toEqual({ envios: 1, aceptar: 0 });
+  });
+
+  test('con palabras no permitidas, lo dice y el borrador se queda', async ({ page }) => {
+    const cuenta = await montarNormas(page, { filtro: true });
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+    await page.getByPlaceholder('Escribe un mensaje…').fill('algo feo');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByText(/palabras que no se permiten/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toHaveValue('algo feo');
+    expect(cuenta.envios).toBe(1);
+  });
+});
+
 test.describe('Student PWA · hilo con su instructora', () => {
   test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });

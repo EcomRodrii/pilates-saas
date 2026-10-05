@@ -453,7 +453,12 @@ export async function getMensajesHilo(slug: string, conversacionId: string): Pro
 export async function enviarEnHiloInstructora(slug: string, conversacionId: string, cuerpo: string): Promise<ResultadoEnviar> {
   try {
     const res = await postInstructora('mensajes', { slug, accion: 'enviar', conversacionId, cuerpo });
-    if (!res.ok) return { ok: false, error: await errorDe(res, 'No se ha podido enviar el mensaje.') };
+    if (!res.ok) {
+      // `codigo`: NORMAS_PENDIENTES (la pantalla enseña las normas y lo reintenta) o FILTRO.
+      const cuerpoError = await res.json().catch(() => null) as { error?: string; codigo?: string } | null;
+      const error = cuerpoError?.error ? mensajeSeguro(cuerpoError.error, 'No se ha podido enviar el mensaje.') : 'No se ha podido enviar el mensaje.';
+      return { ok: false, error, codigo: cuerpoError?.codigo };
+    }
     const d = await res.json() as { mensaje: RowMensajes };
     return { ok: true, mensaje: d.mensaje };
   } catch {

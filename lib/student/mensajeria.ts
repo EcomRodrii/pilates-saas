@@ -22,7 +22,12 @@ import type { ConversacionConResumen } from '@/lib/mensajeria/presentacion';
 // Fuera de esta primera entrega a propósito, no un olvido.
 
 export type ResultadoAbrir = { ok: true; id: string } | { ok: false; error: string };
-export type ResultadoEnviar = { ok: true; mensaje: RowMensajes } | { ok: false; error: string };
+/**
+ * `codigo`: lo que el servidor dice que falta para poder escribir.
+ * `NORMAS_PENDIENTES` = aceptar las normas de la comunidad (la pantalla las
+ * enseña y vuelve a intentarlo); `FILTRO` = palabras no permitidas.
+ */
+export type ResultadoEnviar = { ok: true; mensaje: RowMensajes } | { ok: false; error: string; codigo?: string };
 
 async function leerError(res: Response, respaldo: string): Promise<string> {
   const cuerpo = await res.json().catch(() => null) as { error?: string } | null;
@@ -83,7 +88,11 @@ export async function enviarMensaje(studioId: string, conversacionId: string, cu
       headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify({ studioId, cuerpo }),
     });
-    if (!res.ok) return { ok: false, error: await leerError(res, 'No se ha podido enviar el mensaje.') };
+    if (!res.ok) {
+      const cuerpoError = await res.json().catch(() => null) as { error?: string; codigo?: string } | null;
+      const error = cuerpoError?.error ? mensajeSeguro(cuerpoError.error, 'No se ha podido enviar el mensaje.') : 'No se ha podido enviar el mensaje.';
+      return { ok: false, error, codigo: cuerpoError?.codigo };
+    }
     const body = await res.json() as { mensaje: RowMensajes };
     return { ok: true, mensaje: body.mensaje };
   } catch {

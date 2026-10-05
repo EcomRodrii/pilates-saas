@@ -71,7 +71,8 @@ export async function fetchComentarios(studioId: string, postId: string): Promis
   }
 }
 
-export type ResultadoComentario = { ok: true; comentario: ComentarioTablon } | { ok: false; error: string };
+/** `codigo`: NORMAS_PENDIENTES (la pantalla enseña las normas y lo reintenta) o FILTRO. */
+export type ResultadoComentario = { ok: true; comentario: ComentarioTablon } | { ok: false; error: string; codigo?: string };
 
 export async function postComentario(studioId: string, postId: string, texto: string): Promise<ResultadoComentario> {
   try {
@@ -81,8 +82,8 @@ export async function postComentario(studioId: string, postId: string, texto: st
       headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify({ studioId, postId, texto }),
     });
-    const cuerpo = (await res.json().catch(() => null)) as { comentario?: ComentarioTablon; error?: string } | null;
-    if (!res.ok || !cuerpo?.comentario) return { ok: false, error: cuerpo?.error ?? 'No se ha podido publicar el comentario.' };
+    const cuerpo = (await res.json().catch(() => null)) as { comentario?: ComentarioTablon; error?: string; codigo?: string } | null;
+    if (!res.ok || !cuerpo?.comentario) return { ok: false, error: cuerpo?.error ?? 'No se ha podido publicar el comentario.', codigo: cuerpo?.codigo };
     return { ok: true, comentario: cuerpo.comentario };
   } catch {
     return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };

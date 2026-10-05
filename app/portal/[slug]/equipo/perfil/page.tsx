@@ -23,6 +23,7 @@ import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Icono } from '@/components/student/ui/Icono';
 import { CambiarDeEstudio } from '@/components/student/domain/CambiarDeEstudio';
+import { NormasYContacto } from '@/components/student/domain/NormasComunidad';
 
 // Perfil de la instructora en la app del estudio: quién es, su trabajo
 // (disponibilidad y ausencias), su tarifa, sus estudios, lo que puede hacer como
@@ -195,6 +196,9 @@ export default function PerfilInstructoraPage() {
             </div>
           </section>
         )}
+
+        {/* App Store 1.2: las normas del chat y el contacto de Tentare. */}
+        <NormasYContacto />
 
         {estudios.length > 1 && (
           <ProfileSection

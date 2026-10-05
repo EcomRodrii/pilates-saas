@@ -11,6 +11,7 @@ import {
   TEXTO_NO_ADMITE, errorDeModeracion, estadoDelHilo, mensajeParaApp,
   type EstadoHilo, type ParticipanteHilo,
 } from '@/lib/moderacion/reglas';
+import { antesDePublicar, cuerpoNoPublicar } from '@/lib/moderacion/normas-servidor';
 import type { RowMensajes } from '@/lib/db-types';
 
 const LIMITE_DEFECTO = 50;
@@ -132,6 +133,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // lo para el trigger de la base de datos (abajo, el mismo 409).
   if (hilo.estado !== 'ABIERTA') {
     return NextResponse.json({ error: TEXTO_NO_ADMITE, estado: hilo.estado }, { status: 409 });
+  }
+  // Normas aceptadas y filtro de palabras (App Store 1.2), antes de guardar nada.
+  try {
+    const motivo = await antesDePublicar(admin, user.userId, cuerpo);
+    if (motivo) return NextResponse.json(cuerpoNoPublicar(motivo), { status: motivo.status });
+  } catch (e) {
+    return errorInterno('public/mensajeria/mensajes:POST:normas', e, 'No se ha podido enviar el mensaje.');
   }
 
   const { data, error } = await admin
