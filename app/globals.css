@@ -227,6 +227,13 @@
   --tenti-cuerpo-luz: #FFFAF5;
   --tenti-cuerpo-sombra: #DDCCBF;
   --tenti-tinta: #1A1412;
+  /* La silueta del Tenti de ICONO (components/tenti/tenti-icono.tsx), por
+     dentro del cuerpo. Sin ella, en claro el cuerpo crema da 1,04:1 sobre
+     --card y a 18 px solo se ven dos ojos flotando. Este taupe es de la misma
+     familia que la sombra del cuerpo y da 3,56:1 sobre --card y 3,06:1 sobre
+     --background (lo vigila lib/tenti/paleta.test.ts). Sobre bg-primary y
+     bg-brand el icono no la usa: toma el color del texto (`sobre="invertida"`). */
+  --tenti-silueta: #94857A;
   --brand-medio: #55622C;
   /* Delimita el botón cuando el fondo es oscuro y el oliva no se despega de él
      (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
@@ -386,6 +393,10 @@
   --tenti-cuerpo-luz: #D6CDC1;
   --tenti-cuerpo-sombra: #A89A8B;
   --tenti-tinta: #1A1412;
+  /* En oscuro el cuerpo ya se despega del fondo (es lo claro de la tarjeta):
+     la silueta solo le cierra el borde, con el tono de su propia sombra, en
+     vez de dibujarle un contorno claro alrededor (6,06:1 sobre --card). */
+  --tenti-silueta: #A89A8B;
   --brand-foreground: #16161A;
   --brand-secondary: #A8B37A;
   --brand-borde: transparent;
@@ -1360,6 +1371,24 @@ body:has([data-barra-seleccion]) .panel-wa-fab { display: none; }
 .portal-estudio-hero-img { animation: portal-estudio-ken 16s ease-in-out infinite alternate; }
 @keyframes portal-estudio-visor-in { from { opacity: 0; } to { opacity: 1; } }
 .portal-estudio-visor { animation: portal-estudio-visor-in .2s ease-out both; }
+
+/* ── Tenti en icono (components/tenti/tenti-icono.tsx) ─────────────────────
+   'pensando' es la pose de reposo respirando: se aplasta un poco sobre su base
+   y vuelve, cada 1,4 s —la misma cadencia que el `t-cargando` del logo:
+   «espera larga: respira, no gira»—. Solo transform, así que lo mueve el
+   compositor y no repinta nada. Solo mientras hay una petición de verdad en
+   vuelo; en reposo no hay ninguna animación.
+   El bloque global de prefers-reduced-motion de más arriba lo deja quieto, y
+   el estado lo dice el texto del botón («Preparando…»). */
+[data-tenti-icono][data-estado='pensando'] {
+  transform-origin: 50% 100%;
+  animation: tenti-respira 1.4s ease-in-out infinite;
+}
+
+@keyframes tenti-respira {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.06, 0.86); }
+}
 
 /* ── El Orb de Tentare ───────────────────────────────────────────────────────
    La marca de «aquí está pensando Tentare»: analizar, detectar, recomendar,

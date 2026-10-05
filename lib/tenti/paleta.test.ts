@@ -49,9 +49,25 @@ for (const [modo, tokens] of MODOS) {
   });
 }
 
+// La silueta del icono (components/tenti/tenti-icono.tsx) es lo único que lo
+// recorta del fondo en claro: el cuerpo crema da 1,04:1 sobre --card. Va aparte
+// de TOKENS_TENTI porque la lee el CSS del SVG, no el canvas. 3:1 es lo que
+// WCAG 1.4.11 pide a un objeto gráfico; el icono es decorativo, pero sin ese
+// borde a 18 px solo quedan dos ojos flotando.
+for (const [modo, tokens] of MODOS) {
+  test(`(${modo}) la silueta del icono se ve sobre --card y sobre --background (≥ 3:1)`, () => {
+    const silueta = tokens['--tenti-silueta'];
+    assert.ok(silueta, `falta --tenti-silueta (${modo})`);
+    for (const fondo of ['--card', '--background']) {
+      const r = ratioContraste(silueta, tokens[fondo])!;
+      assert.ok(r >= 3, `--tenti-silueta (${silueta}) da ${r.toFixed(2)}:1 sobre ${fondo} (${tokens[fondo]})`);
+    }
+  });
+}
+
 test('el cuerpo y los ojos se declaran en los dos modos, no por herencia', () => {
   const oscuro = bloque('.dark');
-  for (const t of [TOKENS_TENTI.cuerpoLuz, TOKENS_TENTI.cuerpoSombra, TOKENS_TENTI.tinta]) {
+  for (const t of [TOKENS_TENTI.cuerpoLuz, TOKENS_TENTI.cuerpoSombra, TOKENS_TENTI.tinta, '--tenti-silueta']) {
     assert.ok(CLARO[t], `falta ${t} en :root`);
     assert.ok(oscuro[t], `falta ${t} en .dark: heredaría el valor claro`);
   }
