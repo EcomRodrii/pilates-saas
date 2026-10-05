@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
     if (cobroCajaLeido) {
       const vida = await vidaDelCobroDeLaCajaEnElRecibo(admin, body.studioId, body.reciboId, cobroCajaLeido, { origen: req.nextUrl.origin });
       if (vida !== 'muerto') {
-        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA[vida] }, { status: 409 }));
+        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA }, { status: 409 }));
       }
     }
     // El recibo de una penalización (`rec-penaliz-*`) solo se paga con el cobro
@@ -815,8 +815,9 @@ export async function POST(req: NextRequest) {
         // Ni con un cobro con tarjeta guardada en vuelo (empezó tras la lectura de arriba).
         .is('cobro_off_session_clave', null);
       // Ni con un cobro de la Caja distinto del leído (se empezó tras la lectura de arriba).
+      // El leído estaba muerto: si entre medias alguien lo soltó, tampoco es un cobro nuevo.
       const { data: guardadas, error: errGuardar } = await (cobroCajaLeido
-        ? guardar.eq('cobro_mostrador_pi', cobroCajaLeido)
+        ? guardar.or(`cobro_mostrador_pi.is.null,cobro_mostrador_pi.eq."${cobroCajaLeido}"`)
         : guardar.is('cobro_mostrador_pi', null)
       ).select('id');
       // Sin error pero sin tocar ninguna fila: el recibo ya no existe (se borró

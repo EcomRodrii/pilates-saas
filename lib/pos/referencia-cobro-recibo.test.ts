@@ -183,9 +183,9 @@ test('⚠️ enlace online: solo un cobro de la Caja vivo (o que entró) lo fren
   // Sin poder leerlo, o un estado que no se reconoce: no se abre otro pago a ciegas.
   assert.equal(vidaDelCobroDeLaCaja('SIN_LEER'), 'no-se-sabe');
   assert.equal(vidaDelCobroDeLaCaja('ERROR'), 'no-se-sabe');
-  // A la socia se le dice qué pasa, de tú, y sin «inténtalo ya» cuando hay que esperar.
-  assert.match(MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA.vivo, /se está cobrando ahora mismo en el estudio/);
-  assert.match(MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA.pagado, /ya se ha pagado/);
+  // Uno solo y sin decir que está en el estudio: la ruta es pública (basta el enlace del recibo).
+  assert.doesNotMatch(MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA, /estudio|mostrador|datáfono|pagado/);
+  assert.match(MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA, /Vuelve a mirarlo en unos minutos/);
 });
 
 test('⚠️ el enlace online mira el cobro de la Caja ANTES de reutilizar o crear una sesión, y al guardarla exige el mismo', () => {
@@ -202,5 +202,15 @@ test('⚠️ el enlace online mira el cobro de la Caja ANTES de reutilizar o cre
   // Solo lee: nunca para el cobro del mostrador desde el enlace de la socia.
   assert.ok(!f.includes('soltarPagosEnMarchaAntesDeCobrar') && !/cancelar\(cobroCajaLeido|anularCobroDelDatafono/.test(f));
   // Y la sesión nueva no se guarda si entre medias empezó otro cobro de la Caja.
-  assert.ok(f.includes("? guardar.eq('cobro_mostrador_pi', cobroCajaLeido)\n        : guardar.is('cobro_mostrador_pi', null)"));
+  // (El leído estaba muerto: si entre medias alguien lo soltó, no es un cobro nuevo.)
+  assert.ok(f.includes('? guardar.or(`cobro_mostrador_pi.is.null,cobro_mostrador_pi.eq."${cobroCajaLeido}"`)\n        : guardar.is(\'cobro_mostrador_pi\', null)'));
+});
+
+test('⚠️ sin cuenta de Stripe la referencia vieja se suelta; con la cuenta pero sin poder consultarla, se frena', () => {
+  const f = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'lib/cobros/antes-de-cobrar-a-mano-servidor.ts'), 'utf8'));
+  // Solo el 409 («sin cuenta conectada») es «referencia vieja»; el 503 del entorno, no.
+  assert.ok(f.includes("stripeDelEstudio = c.status === 409 ? { tipo: 'sin-cuenta' } : { tipo: 'sin-consultar' };"));
+  assert.ok(f.includes("? { consultar: async () => 'CANCELADO', cancelar: async () => {}, soltar: () => soltarReferencia(ref) }"));
+  assert.ok(f.includes("? { consultar: async () => 'ERROR', cancelar: async () => {}, soltar: async () => false }"));
+  assert.ok(f.includes("if (s.tipo === 'sin-consultar') return { ok: false, motivo: 'PAGO_ONLINE_SIN_COMPROBAR', mensaje: MENSAJE_PAGO_ONLINE_SIN_COMPROBAR };"));
 });

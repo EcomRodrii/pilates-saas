@@ -106,12 +106,14 @@ export function vidaDelCobroDeLaCaja(estado: EstadoPagoPOS | null | 'SIN_LEER'):
   return 'no-se-sabe';
 }
 
-/** Para la socia que abre el enlace de pago con un cobro de la Caja que no está muerto. */
-export const MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA: Record<Exclude<VidaCobroCaja, 'muerto'>, string> = {
-  vivo: 'Este recibo se está cobrando ahora mismo en el estudio. Vuelve a mirarlo en unos minutos.',
-  pagado: 'Este recibo ya se ha pagado en el estudio. En unos minutos aparecerá como pagado.',
-  'no-se-sabe': 'No hemos podido comprobar si este recibo se está cobrando en el estudio. Vuelve a intentarlo en unos minutos.',
-};
+/**
+ * Para quien abre el enlace de pago con un cobro de la Caja que no está muerto. Uno
+ * solo, sin decir si se está cobrando en el estudio o ya se cobró: la ruta es pública
+ * (basta el enlace del recibo, sin sesión) y diría en tiempo real que la socia está
+ * en el estudio. En unos minutos el recibo sale cobrado, o se puede pagar.
+ */
+export const MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA =
+  'Este recibo no se puede pagar online ahora mismo. Vuelve a mirarlo en unos minutos.';
 
 /** Por qué se cancela: el recibo cambió (0 filas) o no se pudo guardar (error). */
 export type MotivoCancelacion = 'CAMBIO' | 'ERROR_AL_GUARDAR';
