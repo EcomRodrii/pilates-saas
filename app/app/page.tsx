@@ -16,6 +16,7 @@ import { CODIGO_SEGUNDO_PASO } from '@/lib/auth/doble-factor-reglas';
 import { traducirAuth } from '@/lib/student/auth-errores';
 import { mensajeSeguro } from '@/lib/errores';
 import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
+import { navegoDesdeFueraHaceNada } from '@/lib/nativo/navegacion-desde-fuera';
 import { BotonApple } from '@/components/nativo/BotonApple';
 import { BotonGoogle } from '@/components/nativo/BotonGoogle';
 import {
@@ -87,9 +88,16 @@ export default function EntradaApp() {
   };
 
   const trasSegundoPaso = useRef(false);
+  // Si la pantalla ya no está (un aviso o un enlace se llevó a la alumna a otra
+  // parte mientras se cargaban sus estudios), no se navega: el router es global
+  // y un `replace` tardío pisaría ese destino.
+  const montada = useRef(true);
+  useEffect(() => { montada.current = true; return () => { montada.current = false; }; }, []);
 
   const ir = useCallback((e: Pick<EstudioDeLaCuenta, 'slug' | 'como'>) => {
     guardarUltimo(e.slug);
+    // Ni si un aviso o un enlace acaba de llevarla a otra parte (arranque en frío).
+    if (!montada.current || navegoDesdeFueraHaceNada()) return;
     r.replace(rutaDeEntrada(e));
   }, [r]);
 
@@ -112,7 +120,7 @@ export default function EntradaApp() {
         const suyo = datos.estudios.find((e) => e.slug === estudio);
         // Aún no es suya: a darse de alta en él, con la cuenta que ya tiene.
         if (suyo) ir(suyo);
-        else r.replace(`/portal/${encodeURIComponent(estudio)}/acceso/registro`);
+        else if (montada.current && !navegoDesdeFueraHaceNada()) r.replace(`/portal/${encodeURIComponent(estudio)}/acceso/registro`);
         return;
       }
       const directo = elegir ? null : entradaDirecta(datos.estudios, leerUltimo());

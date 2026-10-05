@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { useVolver } from '@/components/student/shell/volver';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionInstructora } from '@/lib/student/sesion-instructora';
@@ -46,6 +47,7 @@ const DIAS_BUSQUEDA = 30;
 export default function FichaClaseInstructoraPage() {
   const { sesionId } = useParams<{ sesionId: string }>();
   const router = useRouter();
+  const volver = useVolver();
   const href = usePortalHref();
   const { estudio } = useEstudio();
   const { online } = useOnline();
@@ -166,7 +168,9 @@ export default function FichaClaseInstructoraPage() {
         />
         <button
           type="button"
-          onClick={() => router.back()}
+          // `useVolver`: sin historial (enlace compartido, arranque en esta URL) va a
+          // su agenda en vez de sacarla de la app o no hacer nada.
+          onClick={volver}
           aria-label="Volver"
           className="tap tap--icono"
           style={{ position: 'absolute', top: 'calc(56px + var(--safe-top))', left: 14, width: 34, height: 34, border: 'none', borderRadius: 999, background: 'rgba(250,249,245,.92)', color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}

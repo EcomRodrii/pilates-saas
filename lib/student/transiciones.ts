@@ -63,6 +63,9 @@ export function rutaPadre(pathname: string): string {
   const resto = partes.slice(2);
   // Pantallas cuya ruta intermedia no existe como pantalla propia.
   if (resto[0] === 'reservar' && resto[1] === 'confirmacion') return `${raiz}/reservar`;
+  // La ficha de una clase de la instructora cuelga de su agenda: `/equipo/clase`
+  // a secas no es ninguna pantalla (la recoge el comodín y manda a Inicio).
+  if (resto[0] === 'equipo' && resto[1] === 'clase' && resto.length === 3) return `${raiz}/equipo/agenda`;
   if (resto.length <= 1) return raiz;
   return `${raiz}/${resto.slice(0, -1).join('/')}`;
 }

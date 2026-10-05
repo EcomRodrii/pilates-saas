@@ -70,3 +70,8 @@ test('apilarRuta: entrar con el código no deja el login como historial', () => 
   p = apilarRuta(p, '/portal/a');
   assert.deepEqual(p, ['/portal/a']);
 });
+
+test('rutaPadre: la ficha de clase de la instructora vuelve a su agenda; pasar lista, a la ficha', () => {
+  assert.equal(rutaPadre('/portal/alba/equipo/clase/ses-1'), '/portal/alba/equipo/agenda');
+  assert.equal(rutaPadre('/portal/alba/equipo/clase/ses-1/lista'), '/portal/alba/equipo/clase/ses-1');
+});

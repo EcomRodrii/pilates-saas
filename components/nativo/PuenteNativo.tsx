@@ -6,6 +6,7 @@ import { abrirFuera, alAbrirEnlace, alPulsarAviso, esAppNativa, estiloBarraDeEst
 import { destinoDeEnlace } from '@/lib/nativo/destino-enlace';
 import { tintaBarraDeEstado } from '@/lib/nativo/barra-de-estado';
 import { escalaDeTexto } from '@/lib/nativo/escala-texto';
+import { marcarNavegacionDesdeFuera } from '@/lib/nativo/navegacion-desde-fuera';
 
 /**
  * Lo que la app de iOS necesita en TODAS sus pantallas, y que en la web no hace
@@ -84,11 +85,12 @@ export function PuenteNativo({ fondoOscuro = false }: { fondoOscuro?: boolean } 
     let dejarAvisos: (() => void) | null = null;
     let dejarEnlaces: (() => void) | null = null;
     let vivo = true;
-    void alPulsarAviso((aviso) => { if (aviso.ruta) r.push(aviso.ruta); })
+    // `marcarNavegacionDesdeFuera`: en un arranque en frío, `/app` no pisa este destino.
+    void alPulsarAviso((aviso) => { if (aviso.ruta) { marcarNavegacionDesdeFuera(); r.push(aviso.ruta); } })
       .then((f) => { if (vivo) dejarAvisos = f; else f(); });
     // La vuelta de un login por navegador (`/auth/vuelta?code=…`) la canjea quien
     // lo abrió (`loginConGoogleNativo`); navegar a ella aquí la gastaría dos veces.
-    void alAbrirEnlace((ruta) => { if (!esVueltaDeOAuth(ruta, '/auth/vuelta')) r.push(ruta); })
+    void alAbrirEnlace((ruta) => { if (!esVueltaDeOAuth(ruta, '/auth/vuelta')) { marcarNavegacionDesdeFuera(); r.push(ruta); } })
       .then((f) => { if (vivo) dejarEnlaces = f; else f(); });
 
     return () => {
