@@ -8,6 +8,7 @@ import type {
 } from '@/lib/types';
 import type { Prediccion } from './prediccion.ts';
 import type { HechosAsistencia } from '../clientas/estado.ts';
+import type { ResultadoEjecucion } from './resultado-ejecucion.ts';
 
 export type EspecialistaId = 'RETENCION' | 'INGRESOS' | 'AGENDA' | 'CAPTACION' | 'MARKETING' | 'FINANZAS' | 'EQUIPO' | 'ONBOARDING';
 
@@ -136,6 +137,10 @@ export interface Recomendacion {
   creadoEn: string;
   resueltoEn: string | null;
   resueltoPor: string | null;
+  /** Lo que pasó al ejecutarla (resultado-ejecucion.ts): lo escribe el ejecutor al
+   *  cerrarla como EJECUTADA o FALLIDA. Opcional: el motor y los tests construyen
+   *  recomendaciones que aún no se han ejecutado. */
+  resultado?: ResultadoEjecucion | null;
 }
 
 // ── Memoria ──────────────────────────────────────────────────────────────────

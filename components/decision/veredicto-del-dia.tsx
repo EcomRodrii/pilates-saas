@@ -3,9 +3,8 @@
 import { ANCLA_LISTO } from '@/lib/opening/listo';
 import Link from 'next/link';
 import { useState } from 'react';
-import { Check, X, Clock3, MessageCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { AccionesRecomendacion } from './acciones-recomendacion';
 import { severidad } from './severidad';
 import { SeveridadBadge } from './severidad-badge';
 import type { VeredictoAPI } from './use-decisiones';
@@ -68,12 +67,15 @@ function EjemploDelUmbral() {
   );
 }
 
-export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, procesando, whatsappHref, nAutonomasHoy = 0, totalPendiente = 0, onVerPendiente, sinHistorial = false, bandejaHoy }: {
+export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe, onPosponer, procesando, tardando, whatsappHref, nAutonomasHoy = 0, totalPendiente = 0, onVerPendiente, sinHistorial = false, bandejaHoy }: {
   veredicto: VeredictoAPI;
-  onHecho: () => void;
+  onAprobar: () => void;
+  onYaContactada: () => void;
   onYaLoSe: () => void;
   onPosponer: () => void;
   procesando?: boolean;
+  /** Su cobro aprobado agotó el tope de preguntar cómo ha ido (use-decisiones.ts). */
+  tardando?: boolean;
   whatsappHref?: string | null;
   /** Reorganización Centro de Control §2 (PR2): "Para hoy" (BandejaHoy) ya no
    * es su propia Card suelta detrás del desplegable — se pinta aquí, dentro
@@ -211,24 +213,20 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
           </ul>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <Button size="sm" onClick={onHecho} disabled={procesando}>
-            <Check size={14} /> Hecho
-          </Button>
-          {whatsappHref && (
-            <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="inline-flex">
-              <Button size="sm" variant="outline" type="button" tabIndex={-1}>
-                <MessageCircle size={14} /> WhatsApp
-              </Button>
-            </a>
-          )}
-          <Button size="sm" variant="outline" onClick={onYaLoSe} disabled={procesando}>
-            <X size={14} /> Ya lo sé
-          </Button>
-          <Button size="sm" variant="outline" onClick={onPosponer} disabled={procesando}>
-            <Clock3 size={14} /> Recuérdamelo
-          </Button>
-        </div>
+        {/* Antes, un «Hecho» para todo que, según la recomendación, cobraba la
+            tarjeta de la socia o le mandaba un mensaje sin decirlo. El botón
+            principal lo decide lib/decision/efecto-aprobar.ts, igual que en
+            las filas de situación. */}
+        <AccionesRecomendacion
+          recomendacion={r}
+          procesando={procesando}
+          tardando={tardando}
+          whatsappHref={whatsappHref}
+          onAprobar={onAprobar}
+          onYaContactada={onYaContactada}
+          onYaLoSe={onYaLoSe}
+          onPosponer={onPosponer}
+        />
         {bandejaHoy}
       </CardContent>
     </Card>

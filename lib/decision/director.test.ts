@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Candidata, Recomendacion } from './tipos.ts';
 import type { CandidataPriorizada } from './prioridad.ts';
+import type { ResumenCobro } from './resultado-ejecucion.ts';
 import type { AutomationLog, Reserva } from '@/lib/types';
 import {
   coordinarColisiones, calcularEstadoGeneral, calcularResumenEjecutivo, construirMientrasDormias,
@@ -108,12 +109,57 @@ function reserva(p: Partial<Reserva> & Pick<Reserva, 'socioId'>): Reserva {
   return { id: 'res', studioId: 'e1', sesionId: 'ses1', estado: 'CONFIRMADA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: diasAntes(0.5), ...p };
 }
 
-test('construirMientrasDormias: reporta pagos recuperados con el total exacto', () => {
-  const rec = recomendacion({ tipo: 'RECUPERAR_PAGOS', datosUsados: { n: 4, total: 320 } });
+function resumenCobro(p: Partial<ResumenCobro> = {}): ResumenCobro {
+  return {
+    recibos: 5, cobrados: 0, importeCobradoEur: 0, enCurso: 0, importeEnCursoEur: 0, yaNoPendientes: 0,
+    sinConfirmar: 0, motivosSinConfirmar: [], noCobrados: 0, motivosNoCobrados: [], ...p,
+  };
+}
+
+test('construirMientrasDormias: un cobro que aprobó la propietaria no es «mientras dormías»', () => {
+  // COBRAR_RECIBOS nunca es autónomo: lo aprobó ella, y su resultado lo ve en la
+  // tarjeta y en Actividad, no bajo «Ejecutado automáticamente».
+  const rec = recomendacion({
+    tipo: 'RECUPERAR_PAGOS', resueltoPor: 'u1', datosUsados: { n: 4, total: 320 },
+    resultado: { detalle: 'Cobrados los 4 recibos: 320 €.', cobro: resumenCobro({ recibos: 4, cobrados: 4, importeCobradoEur: 320 }) },
+  });
+  assert.equal(construirMientrasDormias({ recomendacionesEjecutadas: [rec], automationLogs: [], reservasNuevas: [] }).length, 0);
+});
+
+test('construirMientrasDormias: cuenta lo que se cobró de verdad, no lo que el análisis pensaba cobrar', () => {
+  // 5 recibos y 150 € en el análisis; entró 1 de 30 €, dos se rechazaron y dos ya estaban pagados.
+  const rec = recomendacion({
+    tipo: 'RECUPERAR_PAGOS', resueltoPor: 'AUTONOMIA', datosUsados: { n: 5, total: 150 },
+    resultado: {
+      detalle: 'x',
+      cobro: resumenCobro({ recibos: 5, cobrados: 1, importeCobradoEur: 30, yaNoPendientes: 2, noCobrados: 2, motivosNoCobrados: ['Rechazada'] }),
+    },
+  });
+  const items = construirMientrasDormias({ recomendacionesEjecutadas: [rec], automationLogs: [], reservasNuevas: [] });
+  assert.equal(items.length, 1);
+  assert.match(items[0].texto, /5 pagos/);
+  assert.match(items[0].texto, /cobré 1: 30€/);
+  assert.doesNotMatch(items[0].texto, /150/);
+});
+
+test('construirMientrasDormias: sin resultado guardado, o sin nada cobrado, no se afirma ningún cobro', () => {
+  const sinResultado = recomendacion({ tipo: 'RECUPERAR_PAGOS', resueltoPor: 'AUTONOMIA', datosUsados: { n: 4, total: 320 } });
+  const nadaCobrado = recomendacion({
+    tipo: 'RECUPERAR_PAGOS', resueltoPor: 'AUTONOMIA',
+    resultado: { detalle: 'x', cobro: resumenCobro({ recibos: 2, enCurso: 2, importeEnCursoEur: 60 }) },
+  });
+  assert.equal(construirMientrasDormias({ recomendacionesEjecutadas: [sinResultado, nadaCobrado], automationLogs: [], reservasNuevas: [] }).length, 0);
+});
+
+test('construirMientrasDormias: todo cobrado → «Cobrados» con el total real', () => {
+  const rec = recomendacion({
+    tipo: 'RECUPERAR_PAGOS', resueltoPor: 'AUTONOMIA',
+    resultado: { detalle: 'x', cobro: resumenCobro({ recibos: 4, cobrados: 4, importeCobradoEur: 320 }) },
+  });
   const items = construirMientrasDormias({ recomendacionesEjecutadas: [rec], automationLogs: [], reservasNuevas: [] });
   assert.equal(items.length, 1);
   assert.ok(items[0].texto.includes('4 pagos'));
-  assert.ok(items[0].texto.includes('320'));
+  assert.ok(items[0].texto.includes('Cobrados: 320€'));
 });
 
 test('construirMientrasDormias: atribuye reserva solo con vínculo temporal verificado', () => {

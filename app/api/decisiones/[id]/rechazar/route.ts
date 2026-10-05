@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { dbGetRecomendacion, dbTransicionarRecomendacion, dbInsertOutcome, dbLogActividadReciente } from '@/lib/decision/db';
 import { outcomeInmediato } from '@/lib/decision/outcomes';
+import { bloqueoPorPlan } from '@/lib/decision/plan-servidor';
+import { lecturaFallida, transicionFallida } from '@/lib/decision/respuesta-transicion';
 
 // POST /api/decisiones/[id]/rechazar — transición condicional PENDIENTE→RECHAZADA
 // + outcome inmediato (alimenta el cooldown y el ajuste de feedback del
@@ -10,10 +12,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (sesion.rol !== 'PROPIETARIO') return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  const sinPlan = await bloqueoPorPlan(sesion.studioId);
+  if (sinPlan) return sinPlan;
 
   const { id } = await params;
 
   const recomendacion = await dbGetRecomendacion(id);
+  if (recomendacion === undefined) return lecturaFallida();
   if (!recomendacion) return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
   if (recomendacion.studioId !== sesion.studioId) {
     return NextResponse.json({ error: 'No autorizado para este estudio' }, { status: 403 });
@@ -24,9 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     resueltoPor: sesion.userId,
     resueltoEn: nowISO,
   });
-  if (!resultado.ok) {
-    return NextResponse.json({ error: resultado.motivo ?? 'No se pudo rechazar' }, { status: 409 });
-  }
+  if (!resultado.ok) return transicionFallida(resultado);
 
   await dbInsertOutcome({
     studioId: recomendacion.studioId, recomendacionId: id, evento: 'RECHAZADA',
