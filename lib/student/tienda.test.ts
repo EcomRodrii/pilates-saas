@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { catalogoTienda, coberturaProducto, resumenProducto, topesPorActividad } from './tienda.ts';
+import {
+  ahorroFrenteASuelta, catalogoTienda, coberturaProducto, paraQueClases, precioDeTienda, renovacionDeCuota, resumenProducto,
+  textoBotonCompra, topesPorActividad, vigenciaDeCompra,
+} from './tienda.ts';
+import { cicloInicialDe } from '../bono-logic.ts';
+import { precioClaseSuelta } from './precio-suelta.ts';
 
 const PLANES = [
   { id: 'p1', nombre: 'Mensual Ilimitado', tipo: 'MENSUAL', precio: 85, sesiones: null, activo: true },
@@ -61,12 +66,14 @@ test('resumen: la suscripción ilimitada lo dice, no enseña «null clases»', (
   assert.equal(resumenProducto(c[0]), 'Clases ilimitadas');
 });
 
-test('resumen: solo menciona la caducidad si el plan la declara', () => {
+test('la caducidad sale del resumen y va a su línea, con fecha: solo si el plan la declara', () => {
   const c = catalogoTienda(PLANES, []);
   const bono8 = c.find((p) => p.id === 'p2')!;
   const bono4 = c.find((p) => p.id === 'p3')!;
-  assert.match(resumenProducto(bono8), /caduca a los 90 días/);
-  assert.doesNotMatch(resumenProducto(bono4), /caduca/);
+  // «caduca a los 90 días» obligaba a contar días: ahora es una fecha.
+  assert.doesNotMatch(resumenProducto(bono8), /caduca/);
+  assert.equal(vigenciaDeCompra(bono8, new Date('2026-10-05T10:00:00Z')), 'Vale 90 días: si lo compras hoy, hasta el 3 de enero');
+  assert.equal(vigenciaDeCompra(bono4, new Date('2026-10-05T10:00:00Z')), null);
 });
 
 test('resumen de una privada incluye su duración', () => {
@@ -231,4 +238,84 @@ test('un producto NO trae nada que sugiera comprarlo online', () => {
 test('⚠️ la «clase de prueba» no se vende en la tienda de la app', () => {
   const productos = catalogoTienda([...PLANES, { id: 'prueba', nombre: 'Tu primera clase', tipo: 'PUNTUAL', precio: 5, sesiones: 1, activo: true, esPrueba: true }], []);
   assert.ok(!productos.some(p => p.id === 'prueba'));
+});
+
+// ── La tarjeta que se lee sin hacer cuentas (P09) ───────────────────────────
+
+const TIENDA = catalogoTienda([
+  { id: 'cuota', nombre: 'Cuota mensual 2 días', tipo: 'MENSUAL', precio: 69, sesiones: null, activo: true, limiteSemanal: 2, tiposClaseIds: ['tc-r', 'tc-m'] },
+  { id: 'tri', nombre: 'Trimestral', tipo: 'MENSUAL', precio: 180, sesiones: null, activo: true, periodicidadMeses: 3 },
+  { id: 'bono10', nombre: 'Bono 10 clases', tipo: 'BONO', precio: 136, sesiones: 10, activo: true, validezDias: 150 },
+  { id: 'anual', nombre: 'Bono anual 50 clases', tipo: 'BONO', precio: 600, sesiones: 50, activo: true, validezDias: 365 },
+  { id: 'suelta', nombre: 'Clase suelta', tipo: 'PUNTUAL', precio: 20, sesiones: 1, activo: true, validezDias: 30 },
+], [{ id: 'priv', nombre: 'Privada 1:1', precio: 45.5, duracionMin: 60, activo: true, autoReservable: true }],
+[{ id: 'agua', nombre: 'Botella', precio: 12, descripcion: null, imagenUrl: null }]);
+const de = (id: string) => TIENDA.find((p) => p.id === id)!;
+const TIPOS = new Map([['tc-r', 'Reformer'], ['tc-m', 'Mat'], ['tc-b', 'Barre']]);
+const HOY = new Date('2026-10-05T10:00:00Z');
+
+test('el precio y el botón llevan el importe, con el periodo de la cuota', () => {
+  assert.equal(precioDeTienda(de('bono10')), '136 €');
+  assert.equal(precioDeTienda(de('cuota')), '69 €/mes');
+  assert.equal(textoBotonCompra(de('bono10')), 'Comprar · 136 €');
+  assert.equal(textoBotonCompra(de('cuota')), 'Contratar · 69 €/mes');
+  // Una trimestral no se anuncia «/mes»: se cobra cada tres.
+  assert.equal(textoBotonCompra(de('tri')), 'Contratar · 180 €/trimestre');
+  // Con céntimos, los dos; sin ellos, ninguno (el mismo formato que /reservar).
+  assert.equal(textoBotonCompra(de('priv')), 'Comprar · 45,50 €');
+  // Lo que se compra en el estudio no tiene botón.
+  assert.equal(textoBotonCompra(de('agua')), null);
+});
+
+test('«ahorras un N %» solo en bonos y solo si es verdad frente a la suelta', () => {
+  const suelta = precioClaseSuelta([{ tipo: 'PUNTUAL', precio: 20, activo: true, sesiones: 1 }]);
+  // 13,60 €/clase frente a 20 € = 32 % (redondeado hacia abajo).
+  assert.equal(ahorroFrenteASuelta(de('bono10'), suelta), 32);
+  // Sin clase suelta con la que comparar no hay ahorro que presumir.
+  assert.equal(ahorroFrenteASuelta(de('bono10'), null), null);
+  // Un bono más caro por clase que la suelta no «ahorra»: no se pinta nada.
+  assert.equal(ahorroFrenteASuelta(de('bono10'), 13), null);
+  // Ni la cuota (no tiene precio por clase) ni la suelta (es la referencia).
+  assert.equal(ahorroFrenteASuelta(de('cuota'), suelta), null);
+  assert.equal(ahorroFrenteASuelta(de('suelta'), suelta), null);
+});
+
+test('la fecha de caducidad es la MISMA que escribe el cobro (cicloInicialDe)', () => {
+  // 5-oct + 150 días = 4-mar del año que viene. Se compara contra la función
+  // del servidor para que nunca puedan prometer días distintos.
+  const { fechaFin } = cicloInicialDe({ tipo: 'BONO', sesiones: 10, validezDias: 150 }, HOY.toISOString());
+  assert.equal(fechaFin, '2027-03-04');
+  assert.equal(vigenciaDeCompra(de('bono10'), HOY), 'Vale 150 días: si lo compras hoy, hasta el 4 de marzo');
+  // La suelta también caduca si el estudio lo dice.
+  assert.equal(vigenciaDeCompra(de('suelta'), HOY), 'Vale 30 días: si lo compras hoy, hasta el 4 de noviembre');
+});
+
+test('el día es el del estudio: a las 00:30 de Madrid ya es mañana aunque en UTC sea hoy', () => {
+  // 4-oct 22:30 UTC = 5-oct 00:30 en Madrid. El bono arranca el 5, como en el cobro.
+  assert.equal(vigenciaDeCompra(de('bono10'), new Date('2026-10-04T22:30:00Z')), 'Vale 150 días: si lo compras hoy, hasta el 4 de marzo');
+});
+
+test('a casi un año vista la fecha lleva el año, que si no se lee como hoy', () => {
+  assert.equal(vigenciaDeCompra(de('anual'), HOY), 'Vale 365 días: si lo compras hoy, hasta el 5 de octubre de 2027');
+});
+
+test('una cuota no «caduca»: dice cómo se renueva, sacado de SU periodo', () => {
+  assert.equal(vigenciaDeCompra(de('cuota'), HOY), null);
+  assert.equal(renovacionDeCuota(de('cuota')), 'Se renueva sola cada mes hasta que te des de baja.');
+  assert.equal(renovacionDeCuota(de('tri')), 'Se renueva sola cada trimestre hasta que te des de baja.');
+  // Nada de «la cancelas cuando quieras»: la baja no está en la app.
+  assert.doesNotMatch(renovacionDeCuota(de('cuota'))!, /cancel/i);
+  assert.equal(renovacionDeCuota(de('bono10')), null);
+});
+
+test('«Para»: todas las clases, o las que cubre con su nombre', () => {
+  assert.equal(paraQueClases(de('bono10'), TIPOS), 'Para todas las clases');
+  assert.equal(paraQueClases(de('cuota'), TIPOS), 'Para Reformer y Mat');
+  const tres = { ...de('bono10'), tiposClaseIds: ['tc-r', 'tc-m', 'tc-b'] };
+  assert.equal(paraQueClases(tres, TIPOS), 'Para Reformer, Mat y Barre');
+  // Acotado a un tipo que no se puede nombrar: ni «para todas» (mentira) ni «Para» a secas.
+  assert.equal(paraQueClases({ ...de('bono10'), tiposClaseIds: ['archivado'] }, TIPOS), null);
+  // Una privada o un producto no se reservan contra el horario.
+  assert.equal(paraQueClases(de('priv'), TIPOS), null);
+  assert.equal(paraQueClases(de('agua'), TIPOS), null);
 });

@@ -6,10 +6,13 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { catalogo } from '@/lib/student/catalogo';
-import { euros } from '@/lib/student/formato';
 import { precioPorSesion } from '@/lib/student/precio-por-clase';
-import { nombrePeriodo } from '@/lib/bono-logic';
-import { AVISO_PRODUCTOS, catalogoTienda, coberturaDeTipos, coberturaProducto, resumenProducto, TITULO_FAMILIA, type FamiliaProducto, type ProductoTienda } from '@/lib/student/tienda';
+import { precioClaseSuelta } from '@/lib/student/precio-suelta';
+import { precioEnEuros } from '@/lib/reservar/tarjeta-plan';
+import {
+  AVISO_PRODUCTOS, ahorroFrenteASuelta, catalogoTienda, coberturaDeTipos, paraQueClases, precioDeTienda, renovacionDeCuota,
+  resumenProducto, textoBotonCompra, TITULO_FAMILIA, vigenciaDeCompra, type FamiliaProducto, type ProductoTienda,
+} from '@/lib/student/tienda';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Button } from '@/components/student/ui/Button';
 import { HojaCompra } from '@/components/student/domain/HojaCompra';
@@ -71,6 +74,12 @@ export default function ComprarPage() {
       // Para poder decir A QUÉ está acotado un bono hace falta el nombre del
       // tipo, no su id. Los dos datos ya viajan en el mismo payload.
       nombresTipo: new Map((d?.tiposClase ?? []).map((t) => [t.id, t.nombre])),
+      // La referencia del «ahorras un N %»: la clase suelta que vende el
+      // estudio, leída igual que la cobra el checkout. Sin ella no hay ahorro.
+      precioSuelta: precioClaseSuelta(d?.planesTarifa ?? []),
+      // «Si lo compras hoy, hasta el…»: el «hoy» se fija al cargar, no en cada
+      // render (un render tiene que ser puro, y la fecha no cambia mirando).
+      ahora: new Date(),
     };
   }, [estudio.slug]);
 
@@ -104,6 +113,11 @@ export default function ComprarPage() {
           />
         ) : null}
 
+        {/* Aquí irá «Tu primera clase» (P07), ANTES de las familias y solo para
+            quien el servidor diga que puede estrenarla. No se pinta todavía: va
+            atada a reservar una clase concreta y entra con el diseño de pagar y
+            reservar en la misma hoja (P06), que pasa por revisión de pagos. */}
+
         {data && productos.length > 0 && familias.map(({ familia, items }) => (
           <section key={familia}>
             <h2 className="t-label" style={{ marginBottom: 9 }}>{TITULO_FAMILIA[familia]}</h2>
@@ -123,8 +137,9 @@ export default function ComprarPage() {
                 <TarjetaProducto
                   key={p.id}
                   p={p}
-                  cobertura={coberturaProducto(p, nombresTipo)}
                   nombresTipo={nombresTipo}
+                  precioSuelta={data.precioSuelta}
+                  ahora={data.ahora}
                   delay={i * 55}
                   // Los PLANES se cobran aquí dentro, con el mismo
                   // `CheckoutEmbebido` que usa `/reservar`. Los SERVICIOS de
@@ -181,17 +196,32 @@ export default function ComprarPage() {
   );
 }
 
-function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
-  p: ProductoTienda; cobertura: string | null;
+/**
+ * Una tarjeta que se lee sin hacer cuentas (P09): el nombre entero, el precio en
+ * grande y por clase, cuánto ahorras si es verdad, hasta QUÉ DÍA vale si lo
+ * compras hoy, para qué clases sirve y el importe en el botón.
+ *
+ * Solo presentación: cada línea sale de `lib/student/tienda.ts`, con el mismo
+ * cálculo que hace el servidor al cobrar, y la que no se sabe no se escribe.
+ */
+function TarjetaProducto({ p, nombresTipo, precioSuelta, ahora, delay, onComprar }: {
+  p: ProductoTienda;
   // Hacen falta para poder nombrar los topes por actividad («2 de Máquina y 1
-  // de Gyrotonic por semana»): sin ellos el resumen no los escribe.
+  // de Gyrotonic por semana») y para qué clases sirve: sin ellos no se escriben.
   nombresTipo: ReadonlyMap<string, string>;
+  precioSuelta: number | null;
+  ahora: Date;
   delay: number; onComprar: () => void;
 }) {
   const resumen = resumenProducto(p, nombresTipo);
   const porClase = precioPorSesion(p.precio, p.familia === 'suscripcion' ? null : p.sesiones);
+  const ahorro = ahorroFrenteASuelta(p, precioSuelta);
+  const vigencia = vigenciaDeCompra(p, ahora);
+  const renovacion = renovacionDeCuota(p);
+  const para = paraQueClases(p, nombresTipo);
+  const boton = textoBotonCompra(p);
   return (
-    <article className="card a-up" style={{ padding: '14px 15px', animationDelay: `${delay}ms` }}>
+    <article className="card a-up" style={{ padding: '15px 16px', animationDelay: `${delay}ms` }}>
       {/* La foto solo si la hay, y sin reservarle hueco cuando no: hoy NINGÚN
           producto de producción tiene imagen, así que un marco vacío sería lo
           que vería todo el mundo. Mismo criterio que el catálogo del TPV. */}
@@ -204,60 +234,41 @@ function TarjetaProducto({ p, cobertura, nombresTipo, delay, onComprar }: {
           style={{ width: '100%', height: 132, objectFit: 'cover', borderRadius: 'var(--radius-md)', marginBottom: 10, display: 'block' }}
         />
       )}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-        {/* El resumen va DEBAJO DEL NOMBRE, en su columna. Suelto tras la fila
-            quedaba bajo la columna del precio, que con «12 €/clase» es más
-            alta: «8 clases» caía separado de su nombre por un hueco. */}
-        <div style={{ minWidth: 0 }}>
-          <h3 style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800, letterSpacing: '-.01em' }}>{p.nombre}</h3>
-          {resumen && <p className="t-meta" style={{ margin: '4px 0 0' }}>{resumen}</p>}
-        </div>
-        <div style={{ flexShrink: 0, textAlign: 'right' }}>
-          <p style={{ margin: 0, fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)' }}>
-            {euros(p.precio)}
-            {p.familia === 'suscripcion' && (
-              <span className="t-meta">/{nombrePeriodo({ periodicidadMeses: p.periodicidadMeses })}</span>
-            )}
-          </p>
-          {/* El número que de verdad decide, y que la pantalla le estaba
-              dejando calcular a ella: con cinco productos a la vez, elegir
-              entre «56 €» y «96 €» es dividir de cabeza. No es una oferta ni
-              un descuento inventado — es el mismo precio, escrito por clase.
-              `precioPorSesion` devuelve `null` en todo lo que no se puede
-              dividir (un mensual ilimitado, una clase suelta), y entonces
-              aquí no se escribe nada. */}
-          {porClase !== null && (
-            <p className="t-meta t-num" data-testid="precio-por-clase" style={{ marginTop: 2 }}>{euros(porClase)}/clase</p>
-          )}
-        </div>
-      </div>
+      {/* El nombre ENTERO, en su propia línea: compartiendo fila con el precio,
+          un «Bono 10 clases mañana y tarde» se partía en tres renglones. */}
+      <h3 className="t-title" style={{ overflowWrap: 'anywhere' }}>{p.nombre}</h3>
+      {resumen && <p className="t-meta" style={{ margin: '3px 0 0' }}>{resumen}</p>}
 
+      <p style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 8, rowGap: 2, margin: '8px 0 0' }}>
+        <span data-testid="precio" className="t-num" style={{ fontSize: 'calc(var(--t-h1) * var(--heading-scale))', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em', lineHeight: 1.1 }}>
+          {precioDeTienda(p)}
+        </span>
+        {/* El número que de verdad decide: el mismo precio, escrito por clase.
+            `precioPorSesion` devuelve `null` en lo que no se divide (una cuota,
+            una suelta) y entonces no se escribe nada. El ahorro va en su propio
+            trozo y sin caja de color: es un dato, no un reclamo. */}
+        {porClase !== null && (
+          <span className="t-meta t-num">
+            <span data-testid="precio-por-clase">{precioEnEuros(porClase)}/clase</span>
+            {ahorro !== null && <span data-testid="ahorro">{` · ahorras un ${ahorro} %`}</span>}
+          </span>
+        )}
+      </p>
 
-      {/* La restricción va ANTES del precio de decidir, no después de pagar:
-          un bono acotado a un tipo de clase se rechaza al reservar cualquier
-          otro. Se pinta como aviso, no como un dato más de la lista de arriba,
-          porque cambia lo que la alumna puede hacer con lo que compra. */}
-      {cobertura && (
-        <p
-          data-testid="cobertura"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5, margin: '7px 0 0',
-            padding: '3px 9px', borderRadius: 999, background: 'var(--warning-soft)',
-            color: 'var(--warning-foreground)', fontSize: 'var(--t-meta)', fontWeight: 800,
-          }}
-        >
-          {cobertura}
-        </p>
-      )}
+      {vigencia && <p data-testid="vigencia" className="t-small" style={{ marginTop: 6 }}>{vigencia}</p>}
+      {renovacion && <p data-testid="renovacion" className="t-small" style={{ marginTop: 6 }}>{renovacion}</p>}
+      {/* Para qué clases sirve, ANTES de pagar: un bono acotado a un tipo de
+          clase se rechaza al reservar cualquier otro. */}
+      {para && <p data-testid="cobertura" className="t-meta" style={{ marginTop: 3 }}>{para}</p>}
       {p.descripcion && (
         <p style={{ margin: '7px 0 0', fontSize: 'var(--t-small)', lineHeight: 1.5, color: 'var(--muted-foreground)' }}>{p.descripcion}</p>
       )}
 
       {/* Sin botón en lo físico: se compra en el estudio. Un «Comprar» que
           abriera un cobro sería mentira, y uno que no hiciera nada, peor. */}
-      {p.familia !== 'producto' && (
-        <Button full onClick={onComprar} style={{ marginTop: 'var(--s-3)', height: 'var(--h-control-md)' }}>
-          {p.familia === 'suscripcion' ? 'Contratar' : 'Comprar'}
+      {boton && (
+        <Button variant="secondary" full onClick={onComprar} style={{ marginTop: 'var(--s-3)', height: 'var(--h-control-md)' }}>
+          {boton}
         </Button>
       )}
     </article>
