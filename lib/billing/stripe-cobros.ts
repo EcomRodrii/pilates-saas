@@ -13,6 +13,7 @@ import {
   MENSAJE_RESERVA_SIN_CONFIRMAR, reservarCobroOffSession, soltarMarcaCobroOffSession,
   type FilaReciboReserva, type MarcaCobroOffSession,
 } from '@/lib/billing/cobro-off-session-marca';
+import { soltarPagosEnMarchaAntesDeCobrar } from '@/lib/cobros/antes-de-cobrar-a-mano-servidor';
 
 // A-1: esta función corre SIEMPRE en servidor (ruta charge-off-session y
 // ejecutor de Inngest) sin sesión de usuario. Con el cliente anónimo, RLS
@@ -180,10 +181,30 @@ export async function cobrarReciboOffSession(params: {
   // marca, un «Marcar cobrado» (o el banco, o la remesa) entre la lectura de
   // arriba y el cargo cobraba el recibo dos veces. Mientras esté puesta, ninguna
   // de esas puertas lo cobra. Ver lib/billing/cobro-off-session-marca.ts.
+  //
+  // A mano (STAFF), antes de reservar: un pago online que la clienta tenga ABIERTO
+  // se cierra en Stripe, y un cobro del datáfono abandonado se cancela — el mismo
+  // dueño que «marcar cobrado» (`soltarPagosEnMarchaAntesDeCobrar`). Sin esto,
+  // «Cobrar online» cargaba la tarjeta guardada con el enlace de pago de la clienta
+  // todavía pagable, y si lo terminaba entraban DOS cobros reales. Si ya lo pagó,
+  // o no se puede saber, no se cobra. El cobro diario no lo necesita: ya no cobra
+  // con un pago online abierto (`.is('checkout_session_id', null)`).
+  // Con la marca de este intento ya puesta (un reintento del mismo intento) no se
+  // mira: lo decide la reserva (`REENTRANTE`), y el primer intento ya lo cerró.
+  let checkoutLeido: string | null | undefined;
+  if (via === 'STAFF' && !recibo.cobro_off_session_clave) {
+    const pagos = await soltarPagosEnMarchaAntesDeCobrar(
+      admin, { studioId: params.studioId, reciboId: params.reciboId },
+      async () => ({ stripe, cuenta: studio.stripe_account_id as string }),
+    );
+    if (!pagos.ok) return { ok: false, error: pagos.mensaje, errorCode: 'COBRO_EN_MARCHA' };
+    checkoutLeido = pagos.checkoutLeido;
+  }
+
   let marca: MarcaCobroOffSession;
   const reserva = await reservarCobroOffSession(admin, {
     studioId: params.studioId, reciboId: params.reciboId, clave: idempotencyKey, via,
-    intentos: intentosLeidos, ahoraISO: new Date().toISOString(),
+    intentos: intentosLeidos, ahoraISO: new Date().toISOString(), checkoutLeido,
   });
   if (reserva.tipo === 'ERROR') {
     // No se llegó a Stripe: no se ha cobrado nada y el siguiente intento lo repite.
@@ -197,7 +218,7 @@ export async function cobrarReciboOffSession(params: {
       .eq('id', params.reciboId).eq('studio_id', params.studioId).maybeSingle();
     if (errFila) return { ok: false, error: MENSAJE_RESERVA_SIN_CONFIRMAR, errorCode: 'ERROR_TRANSITORIO' };
     const perdida = clasificarReservaPerdida((fila as FilaReciboReserva | null) ?? null, {
-      clave: idempotencyKey, via, cuota, ahora: new Date(),
+      clave: idempotencyKey, via, cuota, ahora: new Date(), checkoutLeido,
     });
     switch (perdida.tipo) {
       case 'NO_ENCONTRADO':

@@ -105,7 +105,11 @@ const edadMs = (iso: string | null, ahora: Date) => (iso ? ahora.getTime() - new
  */
 export function clasificarReservaPerdida(
   fila: FilaReciboReserva | null,
-  p: { clave: string; via: ViaCobro; cuota: { estado: string } | null; ahora: Date },
+  p: {
+    clave: string; via: ViaCobro; cuota: { estado: string } | null; ahora: Date;
+    /** El pago online que se leyó (y se cerró) justo antes de reservar; ver `CondicionesReserva.checkoutLeido`. */
+    checkoutLeido?: string | null;
+  },
 ): ReservaPerdida {
   if (!fila) return { tipo: 'NO_ENCONTRADO' };
   const permiso = puedeIntentarCobro({
@@ -125,6 +129,9 @@ export function clasificarReservaPerdida(
   }
   if (fila.cobro_mostrador_pi) return { tipo: 'EN_MARCHA', por: 'MOSTRADOR' };
   if (p.via === 'AUTOMATICO' && fila.checkout_session_id) return { tipo: 'EN_MARCHA', por: 'PAGO_ONLINE' };
+  // A mano: la clienta ha abierto OTRO pago online después de que se cerrara el
+  // que se leyó. Ese puede estar pagándose ya.
+  if (p.checkoutLeido !== undefined && fila.checkout_session_id !== p.checkoutLeido) return { tipo: 'EN_MARCHA', por: 'PAGO_ONLINE' };
   return { tipo: 'CAMBIO' };
 }
 
@@ -142,6 +149,14 @@ export const MENSAJE_RECIBO_COBRANDOSE_CON_METODO_GUARDADO =
 export const MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO =
   'Este recibo se está cobrando ahora mismo con tu tarjeta o domiciliación guardada. Vuelve a mirarlo en unos minutos.';
 
+/** Para la clienta que abre el enlace de pago mientras el estudio lo cobra en el datáfono o por Bizum. */
+export const MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR =
+  'El estudio está cobrando este recibo ahora mismo. Vuelve a mirarlo en unos minutos.';
+
+/** Para la clienta que vuelve a abrir el pago de un recibo que ya pagó online y aún no consta cobrado. */
+export const MENSAJE_RECIBO_YA_PAGADO_ONLINE =
+  'Este recibo ya está pagado: lo estamos confirmando. No hace falta que lo pagues otra vez.';
+
 export const MENSAJE_RESERVA_SIN_CONFIRMAR =
   'No se ha podido preparar el cobro: no se ha cobrado nada. Vuelve a intentarlo en un momento.';
 
@@ -156,6 +171,14 @@ export interface CondicionesReserva {
   /** El `intentos_reintento` leído, del que sale la clave. */
   intentos: number | null;
   ahoraISO: string;
+  /**
+   * A mano (STAFF): el `checkout_session_id` que se leyó y se CERRÓ en Stripe justo
+   * antes (`soltarPagosEnMarchaAntesDeCobrar`). El UPDATE exige que siga siendo ese:
+   * si entre medias la clienta abrió otro pago online, no se cobra con su tarjeta
+   * guardada (lo podría estar pagando a la vez). Sin él (undefined), no se mira la
+   * columna: no se limpia al caducar la sesión y bloquearía para siempre.
+   */
+  checkoutLeido?: string | null;
 }
 
 export type ResultadoReserva =
@@ -188,6 +211,9 @@ export async function reservarCobroOffSession(admin: SupabaseClient, c: Condicio
   } else {
     q = q.in('estado', ['PENDIENTE', 'FALLIDO'])
       .or('tras_cancelar_cuota.is.null,tras_cancelar_cuota.neq.ANULADO');
+    if (c.checkoutLeido !== undefined) {
+      q = c.checkoutLeido === null ? q.is('checkout_session_id', null) : q.eq('checkout_session_id', c.checkoutLeido);
+    }
   }
   const { data, error } = await q.select('id, cobro_off_session_desde');
   if (error) return { tipo: 'ERROR', error: error.message };

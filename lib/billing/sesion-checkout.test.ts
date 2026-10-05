@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decidirSesionCheckout, claveCheckoutRecibo } from './sesion-checkout.ts';
+import { decidirSesionCheckout, claveCheckoutRecibo, modoDeSesion, type PeticionCheckout } from './sesion-checkout.ts';
 import { readFileSync } from 'node:fs';
 
 const IMPORTE = 5000; // 50,00€, en céntimos — el importe "actual" del recibo en todos los tests salvo los de M-3.
+// La petición de siempre: el enlace de Stripe, sin sesión de usuario.
+const H: PeticionCheckout = { modo: 'hospedado', pagadorVerificado: false };
 
 const abierta = (p: Partial<Parameters<typeof decidirSesionCheckout>[0]> = {}) => ({
   status: 'open',
@@ -14,36 +16,43 @@ const abierta = (p: Partial<Parameters<typeof decidirSesionCheckout>[0]> = {}) =
 });
 
 test('sin sesión previa se crea una', () => {
-  assert.equal(decidirSesionCheckout(null, ['card'], IMPORTE), 'crear');
+  assert.equal(decidirSesionCheckout(null, ['card'], IMPORTE, H), 'crear');
 });
 
 test('la sesión abierta del mismo método y mismo importe se REUTILIZA — esto es lo que evita el doble cobro', () => {
-  assert.equal(decidirSesionCheckout(abierta(), ['card'], IMPORTE), 'reutilizar');
+  assert.equal(decidirSesionCheckout(abierta(), ['card'], IMPORTE, H), 'reutilizar');
 });
 
 test('el orden de los métodos no cuenta', () => {
   const s = abierta({ payment_method_types: ['bizum', 'card'] });
-  assert.equal(decidirSesionCheckout(s, ['card', 'bizum'], IMPORTE), 'reutilizar');
+  assert.equal(decidirSesionCheckout(s, ['card', 'bizum'], IMPORTE, H), 'reutilizar');
 });
 
 test('cambiar de método expira la anterior antes de crear: nunca dos pagables a la vez', () => {
-  assert.equal(decidirSesionCheckout(abierta(), ['card', 'bizum'], IMPORTE), 'expirar-y-crear');
+  assert.equal(decidirSesionCheckout(abierta(), ['card', 'bizum'], IMPORTE, H), 'expirar-y-crear');
   const conBizum = abierta({ payment_method_types: ['card', 'bizum'] });
-  assert.equal(decidirSesionCheckout(conBizum, ['card'], IMPORTE), 'expirar-y-crear');
+  assert.equal(decidirSesionCheckout(conBizum, ['card'], IMPORTE, H), 'expirar-y-crear');
 });
 
-test('una sesión ya pagada o caducada no se toca, se crea otra', () => {
-  assert.equal(decidirSesionCheckout(abierta({ status: 'complete' }), ['card'], IMPORTE), 'crear');
-  assert.equal(decidirSesionCheckout(abierta({ status: 'expired' }), ['card'], IMPORTE), 'crear');
+test('una sesión caducada no se toca, se crea otra', () => {
+  assert.equal(decidirSesionCheckout(abierta({ status: 'expired' }), ['card'], IMPORTE, H), 'crear');
+});
+
+test('una sesión YA PAGADA no deja abrir otra: el dinero ya entró aunque el recibo aún no conste cobrado', () => {
+  // Antes era 'crear': con el webhook tarde (o rechazado), volver a pulsar «Pagar»
+  // abría una segunda sesión pagable del mismo recibo.
+  for (const p of [H, { modo: 'incrustado', pagadorVerificado: true } as PeticionCheckout]) {
+    assert.equal(decidirSesionCheckout(abierta({ status: 'complete' }), ['card'], IMPORTE, p), 'ya-pagada');
+  }
 });
 
 test('abierta y sin URL se expira: no sirve para pagar, pero otro sí podría pagarla', () => {
-  assert.equal(decidirSesionCheckout(abierta({ url: null }), ['card'], IMPORTE), 'expirar-y-crear');
+  assert.equal(decidirSesionCheckout(abierta({ url: null }), ['card'], IMPORTE, H), 'expirar-y-crear');
 });
 
 test('sin payment_method_types no se da por equivalente a lo pedido', () => {
   const s = abierta({ payment_method_types: null });
-  assert.equal(decidirSesionCheckout(s, ['card'], IMPORTE), 'expirar-y-crear');
+  assert.equal(decidirSesionCheckout(s, ['card'], IMPORTE, H), 'expirar-y-crear');
 });
 
 // M-3 (auditoría 22-sep): el importe del recibo se puede editar desde el panel
@@ -55,22 +64,22 @@ test('sin payment_method_types no se da por equivalente a lo pedido', () => {
 // 'Importe insuficiente' — dinero cobrado de verdad, sin recibo ni factura.
 test('M-3: el importe del recibo SUBIÓ desde que se abrió la sesión — se expira, nunca se reutiliza', () => {
   const s = abierta({ amount_total: IMPORTE }); // sesión vieja, 50,00€
-  assert.equal(decidirSesionCheckout(s, ['card'], IMPORTE + 3000), 'expirar-y-crear'); // recibo ahora en 80,00€
+  assert.equal(decidirSesionCheckout(s, ['card'], IMPORTE + 3000, H), 'expirar-y-crear'); // recibo ahora en 80,00€
 });
 
 test('M-3: el importe del recibo BAJÓ desde que se abrió la sesión — se expira, nunca se reutiliza', () => {
   const s = abierta({ amount_total: IMPORTE }); // sesión vieja, 50,00€
-  assert.equal(decidirSesionCheckout(s, ['card'], IMPORTE - 2000), 'expirar-y-crear'); // recibo ahora en 30,00€
+  assert.equal(decidirSesionCheckout(s, ['card'], IMPORTE - 2000, H), 'expirar-y-crear'); // recibo ahora en 30,00€
 });
 
 test('M-3: mismos métodos pero `amount_total` desconocido (null) — no se da por bueno, se expira', () => {
   const s = abierta({ amount_total: null });
-  assert.equal(decidirSesionCheckout(s, ['card'], IMPORTE), 'expirar-y-crear');
+  assert.equal(decidirSesionCheckout(s, ['card'], IMPORTE, H), 'expirar-y-crear');
 });
 
 test('M-3: mismo importe pero método distinto — sigue expirando por el método, como antes', () => {
   const s = abierta({ amount_total: IMPORTE, payment_method_types: ['card'] });
-  assert.equal(decidirSesionCheckout(s, ['card', 'bizum'], IMPORTE), 'expirar-y-crear');
+  assert.equal(decidirSesionCheckout(s, ['card', 'bizum'], IMPORTE, H), 'expirar-y-crear');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,23 +100,23 @@ test('M-3: mismo importe pero método distinto — sigue expirando por el métod
 const T0 = Date.parse('2026-09-24T10:00:00.000Z');
 
 test('PAY-3: dos importes distintos del mismo recibo dan claves de idempotencia distintas', () => {
-  const a = claveCheckoutRecibo('rec-1', ['card'], 5000, T0);
-  const b = claveCheckoutRecibo('rec-1', ['card'], 8000, T0);
+  const a = claveCheckoutRecibo('rec-1', ['card'], 5000, H, T0);
+  const b = claveCheckoutRecibo('rec-1', ['card'], 8000, H, T0);
   assert.notEqual(a, b, 'sin esto, la sesión nueva tras `expirar-y-crear` la rechaza Stripe');
 });
 
 test('PAY-3: la protección de la doble pestaña se conserva — mismo recibo e importe, misma clave', () => {
   assert.equal(
-    claveCheckoutRecibo('rec-1', ['card', 'bizum'], 5000, T0),
-    claveCheckoutRecibo('rec-1', ['bizum', 'card'], 5000, T0),
+    claveCheckoutRecibo('rec-1', ['card', 'bizum'], 5000, H, T0),
+    claveCheckoutRecibo('rec-1', ['bizum', 'card'], 5000, H, T0),
     'el orden de los métodos no puede cambiar la clave: dos peticiones simultáneas comparten sesión',
   );
 });
 
 test('PAY-3: cambiar el método sigue dando clave distinta, como antes', () => {
   assert.notEqual(
-    claveCheckoutRecibo('rec-1', ['card'], 5000, T0),
-    claveCheckoutRecibo('rec-1', ['card', 'bizum'], 5000, T0),
+    claveCheckoutRecibo('rec-1', ['card'], 5000, H, T0),
+    claveCheckoutRecibo('rec-1', ['card', 'bizum'], 5000, H, T0),
   );
 });
 
@@ -131,9 +140,9 @@ test('PAY-3: la ruta de checkout usa el helper, no una clave construida a mano',
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('D-3: volver al importe original NO reutiliza la clave de la sesión ya expirada', () => {
-  const primera = claveCheckoutRecibo('rec-1', ['card'], 5000, T0);
+  const primera = claveCheckoutRecibo('rec-1', ['card'], 5000, H, T0);
   // El panel corrige a 80 € (sesión nueva) y después deshace la corrección.
-  const vuelta = claveCheckoutRecibo('rec-1', ['card'], 5000, T0 + 5 * 60_000);
+  const vuelta = claveCheckoutRecibo('rec-1', ['card'], 5000, H, T0 + 5 * 60_000);
   assert.notEqual(
     primera, vuelta,
     'sin ventana temporal, Stripe devuelve cacheada la URL de una sesión expirada',
@@ -142,8 +151,87 @@ test('D-3: volver al importe original NO reutiliza la clave de la sesión ya exp
 
 test('D-3: la ventana no rompe la doble pestaña — dos peticiones del mismo minuto comparten clave', () => {
   assert.equal(
-    claveCheckoutRecibo('rec-1', ['card'], 5000, T0 + 1_000),
-    claveCheckoutRecibo('rec-1', ['card'], 5000, T0 + 40_000),
+    claveCheckoutRecibo('rec-1', ['card'], 5000, H, T0 + 1_000),
+    claveCheckoutRecibo('rec-1', ['card'], 5000, H, T0 + 40_000),
     'el caso que motivó la clave (doble clic) cae siempre dentro del mismo minuto',
   );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAY-3, la mitad que faltaba (5-oct-2026): la sesión abierta solo la hereda
+// QUIEN la abrió, y en el mismo modo. Una sesión abierta por la titular con su
+// sesión lleva `pagadorVerificado` y el webhook guarda en su ficha la tarjeta con
+// la que se pague: devolvérsela a quien solo conoce el reciboId metía la tarjeta
+// de un tercero en la ficha de la titular.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const V: PeticionCheckout = { modo: 'hospedado', pagadorVerificado: true };
+const verificada = (p: Parameters<typeof abierta>[0] = {}) => abierta({ metadata: { pagadorVerificado: '1' }, ...p });
+
+test('identidad: los cuatro cruces — solo se reutiliza con la misma', () => {
+  assert.equal(decidirSesionCheckout(verificada(), ['card'], IMPORTE, V), 'reutilizar', 'la titular recupera la suya');
+  assert.equal(decidirSesionCheckout(abierta(), ['card'], IMPORTE, H), 'reutilizar', 'un enlace sin sesión recupera el suyo');
+  assert.equal(decidirSesionCheckout(verificada(), ['card'], IMPORTE, H), 'expirar-y-crear',
+    'quien solo conoce el reciboId NO hereda la sesión verificada de la titular');
+  assert.equal(decidirSesionCheckout(abierta(), ['card'], IMPORTE, V), 'expirar-y-crear',
+    'la titular no hereda una anónima: no guardaría su tarjeta');
+});
+
+test('modo: una hospedada no sirve como incrustada ni al revés', () => {
+  const I: PeticionCheckout = { modo: 'incrustado', pagadorVerificado: true };
+  assert.equal(decidirSesionCheckout(verificada(), ['card'], IMPORTE, I), 'expirar-y-crear');
+  const incrustada = verificada({ ui_mode: 'embedded_page', url: null, client_secret: 'cs_secret_1' });
+  assert.equal(decidirSesionCheckout(incrustada, ['card'], IMPORTE, I), 'reutilizar', 'la misma incrustada se reutiliza con su client_secret');
+  assert.equal(decidirSesionCheckout(incrustada, ['card'], IMPORTE, V), 'expirar-y-crear');
+  assert.equal(decidirSesionCheckout(verificada({ ui_mode: 'embedded_page', client_secret: null }), ['card'], IMPORTE, I), 'expirar-y-crear',
+    'incrustada sin client_secret no se puede montar, y sigue siendo pagable');
+});
+
+test('modoDeSesion: lo que no se sabe leer no se reutiliza', () => {
+  assert.equal(modoDeSesion(null), 'hospedado');
+  assert.equal(modoDeSesion('hosted_page'), 'hospedado');
+  assert.equal(modoDeSesion('hosted'), 'hospedado');
+  assert.equal(modoDeSesion('embedded_page'), 'incrustado');
+  assert.equal(modoDeSesion('elements'), null);
+  assert.equal(decidirSesionCheckout(abierta({ ui_mode: 'elements' }), ['card'], IMPORTE, H), 'expirar-y-crear');
+});
+
+test('la clave distingue modo e identidad: dos peticiones distintas del mismo minuto no chocan en Stripe', () => {
+  const I: PeticionCheckout = { modo: 'incrustado', pagadorVerificado: false };
+  const peticiones: PeticionCheckout[] = [H, V, I, { modo: 'incrustado', pagadorVerificado: true }];
+  const claves = peticiones.map(p => claveCheckoutRecibo('rec-1', ['card'], 5000, p, T0));
+  assert.equal(new Set(claves).size, 4);
+  assert.equal(claveCheckoutRecibo('rec-1', ['card'], 5000, V, T0), claveCheckoutRecibo('rec-1', ['card'], 5000, V, T0 + 30_000));
+});
+
+// ── La ruta (alias `@/` y Stripe: `node --test` no la carga) ──
+
+const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const rutaCheckout = () => sinComentarios(readFileSync(new URL('../../app/api/stripe/checkout/route.ts', import.meta.url), 'utf8'));
+
+test('rama de recibo: 409 con el datáfono o el Bizum del mostrador en vuelo, antes de tocar ninguna sesión', () => {
+  const s = rutaCheckout();
+  const mira = s.indexOf('if (recibo.cobro_mostrador_pi) {');
+  assert.ok(mira > 0, 'la rama de recibo no mira el cobro del mostrador');
+  assert.ok(mira < s.indexOf('sesionAbiertaId = (recibo.checkout_session_id'));
+  assert.match(s.slice(mira, mira + 300), /status: 409/);
+});
+
+test('rama de recibo: una sesión ya pagada da 409, nunca otra sesión', () => {
+  const s = rutaCheckout();
+  assert.match(s, /decidirSesionCheckout\(previa, paymentMethodTypes, Math\.round\(importe \* 100\), peticionCheckout\)/);
+  assert.match(s, /if \(decision === 'ya-pagada'\) \{\s*return conCorsWidget\(req, NextResponse\.json\(\{ error: MENSAJE_RECIBO_YA_PAGADO_ONLINE \}, \{ status: 409 \}\)\);/);
+  assert.match(s, /claveCheckoutRecibo\(body\.reciboId, paymentMethodTypes, Math\.round\(importe \* 100\), peticionCheckout\)/);
+});
+
+test('rama de recibo: el UPDATE que guarda la sesión vuelve a exigir todo lo comprobado', () => {
+  const s = rutaCheckout();
+  const ini = s.indexOf('.update({ checkout_session_id: session.id })');
+  assert.ok(ini > 0);
+  const bloque = s.slice(ini, s.indexOf("await guardar.select('id')", ini));
+  for (const cond of [
+    ".is('cobro_off_session_clave', null)", ".in('estado', [...ESTADOS_COBRABLES])", ".is('cobro_mostrador_pi', null)",
+    ".is('reembolso_stripe_id', null)", ".is('reembolso_solicitado_en', null)", ".or('estado.neq.DEVUELTO,importe_devuelto.eq.0')",
+    "guardar.is('checkout_session_id', null)", "guardar.eq('checkout_session_id', sesionAbiertaId)",
+  ]) assert.ok(bloque.includes(cond), `falta ${cond} en el UPDATE`);
 });

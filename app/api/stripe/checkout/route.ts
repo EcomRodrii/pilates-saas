@@ -13,7 +13,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
-import { decidirSesionCheckout, claveCheckoutRecibo } from '@/lib/billing/sesion-checkout';
+import { decidirSesionCheckout, claveCheckoutRecibo, type PeticionCheckout } from '@/lib/billing/sesion-checkout';
 import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, MENSAJE_PAGO_EN_CURSO } from '@/lib/billing/pago-en-curso';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
@@ -31,8 +31,10 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
-import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
-import { MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO } from '@/lib/billing/cobro-off-session-marca';
+import { esReciboCobrable, ESTADOS_COBRABLES } from '@/lib/billing/deuda-recibo';
+import {
+  MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO, MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR, MENSAJE_RECIBO_YA_PAGADO_ONLINE,
+} from '@/lib/billing/cobro-off-session-marca';
 import { telefonoValido } from '@/lib/csv';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
@@ -198,7 +200,7 @@ export async function POST(req: NextRequest) {
   if (body.reciboId) {
     const { data: recibo, error } = await admin
       .from('recibos')
-      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, cobro_off_session_clave, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, entrega_tipo, suscripcion_id')
+      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, cobro_off_session_clave, cobro_mostrador_pi, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, entrega_tipo, suscripcion_id')
       .eq('id', body.reciboId)
       .maybeSingle();
     if (error || !recibo) {
@@ -222,6 +224,14 @@ export async function POST(req: NextRequest) {
     // sesión abierta, y el UPDATE que guarda la sesión nueva lo vuelve a exigir.
     if (recibo.cobro_off_session_clave) {
       return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO }, { status: 409 }));
+    }
+    // Lo mismo con el datáfono o el Bizum del mostrador en vuelo
+    // (`cobro_mostrador_pi`): abrirle un pago online sería un segundo cobro. El
+    // mostrador sí cierra el pago online de la clienta antes de cobrar
+    // (`soltarPagosEnMarchaAntesDeCobrar`); este era el sentido que faltaba.
+    // El UPDATE que guarda la sesión lo vuelve a exigir.
+    if (recibo.cobro_mostrador_pi) {
+      return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR }, { status: 409 }));
     }
     // El recibo de una penalización (`rec-penaliz-*`) solo se paga con el cobro
     // decidido (RECIBO_CREADO) o con la penalización FALLIDA, que es deuda de la
@@ -607,6 +617,9 @@ export async function POST(req: NextRequest) {
   // llega aquí desde la rama de recibo (la única que rellena
   // `sesionAbiertaId`), donde `matriculaCentimos` se queda a 0 — el mismo
   // cálculo que hace el webhook al comprobar el importe cobrado.
+  // Quién pide esta sesión y cómo se enseña (hoy siempre la página de Stripe):
+  // solo hereda la sesión abierta quien la abrió (ver `decidirSesionCheckout`).
+  const peticionCheckout: PeticionCheckout = { modo: 'hospedado', pagadorVerificado: !!body.reciboId && pagadorVerificado };
   if (sesionAbiertaId) {
     try {
       const previa = await stripe.checkout.sessions.retrieve(
@@ -614,9 +627,14 @@ export async function POST(req: NextRequest) {
         undefined,
         { stripeAccount: studio.stripe_account_id },
       );
-      const decision = decidirSesionCheckout(previa, paymentMethodTypes, Math.round(importe * 100));
+      const decision = decidirSesionCheckout(previa, paymentMethodTypes, Math.round(importe * 100), peticionCheckout);
       if (decision === 'reutilizar' && previa.url) {
         return conCorsWidget(req, NextResponse.json({ url: previa.url }));
+      }
+      // Ya se pagó por esa sesión y el recibo aún no consta cobrado (el webhook
+      // no ha llegado, o lo rechazó): otra sesión sería cobrarlo dos veces.
+      if (decision === 'ya-pagada') {
+        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_RECIBO_YA_PAGADO_ONLINE }, { status: 409 }));
       }
       if (decision === 'expirar-y-crear') {
         await stripe.checkout.sessions.expire(
@@ -751,7 +769,7 @@ export async function POST(req: NextRequest) {
         // `expirar-y-crear` por cambio de importe (M-3) pedía la sesión nueva
         // con la clave vieja y parámetros distintos, Stripe lo rechazaba y el
         // recibo quedaba impagable ~24 h con la sesión anterior ya expirada.
-        ? { idempotencyKey: claveCheckoutRecibo(body.reciboId, paymentMethodTypes, Math.round(importe * 100)) }
+        ? { idempotencyKey: claveCheckoutRecibo(body.reciboId, paymentMethodTypes, Math.round(importe * 100), peticionCheckout) }
         : clavePlan
           // Con plaza de cupo, la clave lleva su intento: un intento liberado y
           // vuelto a reservar necesita otra sesión, no la caducada.
@@ -792,14 +810,29 @@ export async function POST(req: NextRequest) {
     // la siguiente petición crearía otra: exactamente el bug que cierra esto.
     // Regla de la casa: cero escritura optimista en el camino del dinero.
     if (body.reciboId) {
-      const { data: guardadas, error: errGuardar } = await admin
+      let guardar = admin
         .from('recibos')
         .update({ checkout_session_id: session.id })
         .eq('id', body.reciboId)
         .eq('studio_id', body.studioId)
         // Ni con un cobro con tarjeta guardada en vuelo (empezó tras la lectura de arriba).
         .is('cobro_off_session_clave', null)
-        .select('id');
+        // Lo que se comprobó arriba, otra vez en el propio UPDATE: que siga
+        // siendo deuda (la misma regla que `esReciboCobrable`, menos el
+        // `importe_devuelto >= importe`, que PostgREST no compara), que el
+        // mostrador no lo esté cobrando, y que la sesión guardada siga siendo la
+        // que se leyó: si otra petición (otra pestaña, el enlace del email y la
+        // app a la vez) guardó la suya entre medias, esta no la pisa —quedarían
+        // dos sesiones pagables y Tentare solo conocería una—.
+        .in('estado', [...ESTADOS_COBRABLES])
+        .is('cobro_mostrador_pi', null)
+        .is('reembolso_stripe_id', null)
+        .is('reembolso_solicitado_en', null)
+        .or('estado.neq.DEVUELTO,importe_devuelto.eq.0');
+      guardar = sesionAbiertaId === null
+        ? guardar.is('checkout_session_id', null)
+        : guardar.eq('checkout_session_id', sesionAbiertaId);
+      const { data: guardadas, error: errGuardar } = await guardar.select('id');
       // Sin error pero sin tocar ninguna fila: el recibo ya no existe (se borró
       // entre la lectura de arriba y aquí, p. ej. el de una penalización que se
       // decidió no cobrar), o se está cobrando con su tarjeta guardada. Devolver la

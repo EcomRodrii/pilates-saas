@@ -3,7 +3,35 @@
 // runner de tests de este repo solo mira `lib/**` (`npm test`), así que la
 // lógica que se deja en una ruta no la ejercita nadie.
 
-export type DecisionCheckout = 'crear' | 'reutilizar' | 'expirar-y-crear';
+/**
+ * `ya-pagada`: la sesión guardada ya se COMPLETÓ, pero el recibo sigue sin
+ * constar cobrado (el webhook no ha llegado, o lo rechazó). El dinero ya entró
+ * por esa sesión: abrir otra sería cobrarlo dos veces. Hasta el 5-oct-2026 se
+ * creaba otra (`crear`). Mismo criterio que el mostrador
+ * (`cerrarPagoOnlineAntesDeCobrarAMano`: pagada → no se cobra).
+ */
+export type DecisionCheckout = 'crear' | 'reutilizar' | 'expirar-y-crear' | 'ya-pagada';
+
+/** Cómo se enseña la sesión: página de Stripe (enlace) o incrustada en la app. */
+export type ModoCheckout = 'hospedado' | 'incrustado';
+
+/**
+ * Quién pide el pago, para decidir si puede heredar la sesión abierta de otro.
+ * `pagadorVerificado` = hay sesión de usuario y resuelve a la TITULAR del recibo
+ * (PAY-3): solo entonces la sesión lleva `metadata.pagadorVerificado` y el
+ * webhook guarda la tarjeta de quien paga en su ficha.
+ */
+export interface PeticionCheckout {
+  modo: ModoCheckout;
+  pagadorVerificado: boolean;
+}
+
+/** `ui_mode` de Stripe → modo. Lo que no se sabe leer no se reutiliza nunca. */
+export function modoDeSesion(uiMode: string | null | undefined): ModoCheckout | null {
+  if (!uiMode || uiMode === 'hosted' || uiMode === 'hosted_page') return 'hospedado';
+  if (uiMode === 'embedded' || uiMode === 'embedded_page') return 'incrustado';
+  return null;
+}
 
 /** Lo que hace falta saber de la sesión previa. Recorte de Stripe.Checkout.Session. */
 export type SesionPrevia = {
@@ -20,6 +48,12 @@ export type SesionPrevia = {
    * importe.
    */
   amount_total?: number | null;
+  /** `hosted_page`/`embedded_page`…; `null` (sesiones viejas) = hospedada. */
+  ui_mode?: string | null;
+  /** Lo que se le devuelve a una sesión incrustada para montarla. */
+  client_secret?: string | null;
+  /** `pagadorVerificado: '1'` si la abrió la titular con su sesión (PAY-3). */
+  metadata?: Record<string, string> | null;
 };
 
 const mismosMetodos = (a: readonly string[], b: readonly string[]) =>
@@ -41,13 +75,27 @@ export function decidirSesionCheckout(
   previa: SesionPrevia | null,
   metodosPedidos: readonly string[],
   importeEsperadoCentimos: number,
+  peticion: PeticionCheckout,
 ): DecisionCheckout {
-  // Sin sesión previa, o con una que ya no se puede pagar (`complete`,
-  // `expired`): no hay nada que reutilizar ni que expirar.
+  // Ya pagada por esa sesión: ni se reutiliza ni se crea otra.
+  if (previa?.status === 'complete') return 'ya-pagada';
+  // Sin sesión previa, o caducada: no hay nada que reutilizar ni que expirar.
   if (!previa || previa.status !== 'open') return 'crear';
-  // Abierta pero sin URL no sirve para mandar a nadie a pagar — y sigue siendo
-  // pagable por quien ya la tenga, así que hay que expirarla, no ignorarla.
-  if (!previa.url) return 'expirar-y-crear';
+  // ⚠️ PAY-3, la mitad que faltaba: la sesión abierta solo la hereda QUIEN la
+  // abrió. Una abierta por la titular con su sesión lleva
+  // `pagadorVerificado`, y el webhook guarda en su ficha la tarjeta con la que
+  // se pague: si se le devolvía a quien solo conoce el reciboId, la tarjeta de
+  // un tercero acababa en la ficha de la titular (y al revés, una sesión anónima
+  // no se le da a la titular: no guardaría su tarjeta). Y el modo tiene que
+  // coincidir: una incrustada no sirve como enlace, ni al revés.
+  const verificadaPrevia = previa.metadata?.pagadorVerificado === '1';
+  if (verificadaPrevia !== peticion.pagadorVerificado) return 'expirar-y-crear';
+  const modoPrevio = modoDeSesion(previa.ui_mode);
+  if (modoPrevio !== peticion.modo) return 'expirar-y-crear';
+  // Abierta pero sin con qué mandar a nadie a pagar (URL o client_secret) — y
+  // sigue siendo pagable por quien ya la tenga, así que hay que expirarla, no
+  // ignorarla.
+  if (modoPrevio === 'hospedado' ? !previa.url : !previa.client_secret) return 'expirar-y-crear';
   // El importe cambió (o no se pudo leer) desde que se creó esta sesión: no es
   // segura para reutilizar, aunque los métodos de pago coincidan.
   if (previa.amount_total !== importeEsperadoCentimos) return 'expirar-y-crear';
@@ -80,6 +128,7 @@ export function claveCheckoutRecibo(
   reciboId: string,
   metodosPedidos: readonly string[],
   importeCentimos: number,
+  peticion: PeticionCheckout,
   ahoraMs: number = Date.now(),
 ): string {
   // ⚠️ Auditoría 2026-09-24 (D-3): el arreglo de PAY-3 es correcto para el
@@ -96,5 +145,11 @@ export function claveCheckoutRecibo(
   // que motivó la clave —doble pestaña, doble clic— porque dos peticiones
   // simultáneas caen en el mismo minuto.
   const ventana = Math.floor(ahoraMs / 60000);
-  return `checkout-${reciboId}-${[...metodosPedidos].sort().join('-')}-${importeCentimos}-${ventana}`;
+  // El modo y la identidad (5-oct-2026) también, por lo mismo que el importe:
+  // una sesión verificada y una anónima (o una hospedada y una incrustada) llevan
+  // parámetros distintos, y `decidirSesionCheckout` ya no deja que una herede la
+  // otra. Con la misma clave, la segunda petición del mismo minuto recibiría
+  // `idempotency_error` en vez de su propia sesión.
+  const quien = `${peticion.modo === 'incrustado' ? 'i' : 'h'}${peticion.pagadorVerificado ? 'v' : 'a'}`;
+  return `checkout-${reciboId}-${[...metodosPedidos].sort().join('-')}-${importeCentimos}-${quien}-${ventana}`;
 }
