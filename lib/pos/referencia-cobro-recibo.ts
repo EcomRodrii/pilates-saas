@@ -58,9 +58,11 @@ const SIN_GUARDAR = 'No hemos podido registrar el cobro.';
 
 /**
  * Qué se contesta tras pedir la cancelación, según lo que diga el proveedor al
- * volver a preguntarle. Cancelar es best-effort (`lib/pos/terminal.ts`): solo
- * CANCELADO (o EXPIRADO) confirma que no hay cobro; con cualquier otra cosa no se
- * promete nada.
+ * volver a preguntarle. Cancelar es best-effort (`lib/pos/terminal.ts`): solo un
+ * final sin cobrar confirma que no hay cobro; con cualquier otra cosa no se promete
+ * nada. RECHAZADO también lo es: el datáfono de Stripe solo lo da con el cobro ya
+ * cancelado (desde el 5-oct-2026, también si se rechazó antes de cancelarlo), y uno
+ * fallido de SumUp no se reintenta.
  *
  * HTTP: 409 si el recibo cambió (hay que recargar); 503 si fue un fallo al
  * guardar (el recibo sigue igual y se puede reintentar).
@@ -70,7 +72,7 @@ export function respuestaTrasCancelar(
 ): { mensaje: string; confirmado: boolean; http: 409 | 503 } {
   const http = motivo === 'CAMBIO' ? 409 : 503;
   const causa = motivo === 'CAMBIO' ? CAMBIO : SIN_GUARDAR;
-  if (estado === 'CANCELADO' || estado === 'EXPIRADO') {
+  if (estado === 'CANCELADO' || estado === 'EXPIRADO' || estado === 'RECHAZADO') {
     return {
       confirmado: true, http,
       mensaje: motivo === 'CAMBIO'

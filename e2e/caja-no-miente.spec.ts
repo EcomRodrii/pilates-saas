@@ -747,3 +747,59 @@ test('un recibo por datáfono NO se da por cobrado hasta que lo confirma Stripe'
     'el método viaja al servidor: es él quien elige proveedor, no la pantalla',
   ).toBe('DATAFONO');
 });
+
+test('⚠️ recibo: pregunta con SU cobro, y si otro camino ya cerró el rechazo, da el motivo de verdad', async ({ page }) => {
+  // El aviso de Stripe o el conciliador pueden cerrar el rechazo y soltar el recibo
+  // antes que el sondeo de la Caja. Sin la referencia, el servidor contestaba «Ese
+  // cobro no llegó a iniciarse», que era falso.
+  const cuerpos: Record<string, unknown>[] = [];
+  await montar(page, (route) => json(route, {}));
+  await page.route('**/api/pos/recibo', (route) =>
+    json(route, { reciboId: 'rec-cuota', referencia: 'pi_rechazado', url: null, pagoEstado: 'PENDIENTE', importe: 60 }));
+  await page.route('**/api/pos/recibo/confirmar', (route) => {
+    cuerpos.push(JSON.parse(route.request().postData() ?? '{}'));
+    return json(route, {
+      reciboId: 'rec-cuota', estado: 'PENDIENTE', pagoEstado: 'RECHAZADO', importe: 60,
+      motivo: 'La tarjeta no tiene saldo suficiente. No se ha cobrado nada: prueba con otra.',
+    });
+  });
+
+  await abrirCaja(page);
+  await page.getByPlaceholder(/Buscar artículo/i).fill('María');
+  await page.getByRole('button', { name: /María García/ }).click();
+  await page.getByRole('button', { name: 'Datáfono' }).click();
+
+  await expect(page.getByText(/no tiene saldo suficiente/)).toBeVisible({ timeout: 15_000 });
+  expect(cuerpos.length).toBeGreaterThan(0);
+  expect((cuerpos[0] as { referencia?: string }).referencia, 'el sondeo lleva el cobro que espera').toBe('pi_rechazado');
+});
+
+test('⚠️ recibo: no pregunta antes de tener el cobro, ni deja cancelar lo que aún no existe', async ({ page }) => {
+  // Si mandar el cobro tardaba más de una vuelta del sondeo (2 s), la primera
+  // consulta llegaba sin cobro guardado y la Caja enseñaba «no llegó a iniciarse».
+  let arrancado = false;
+  let antesDeArrancar = 0;
+  let consultas = 0;
+  await montar(page, (route) => json(route, {}));
+  await page.route('**/api/pos/recibo', async (route) => {
+    await new Promise((r) => setTimeout(r, 3_500));
+    arrancado = true;
+    return json(route, { reciboId: 'rec-cuota', referencia: 'pi_lento', url: null, pagoEstado: 'PENDIENTE', importe: 60 });
+  });
+  await page.route('**/api/pos/recibo/confirmar', (route) => {
+    consultas++;
+    if (!arrancado) antesDeArrancar++;
+    return json(route, { reciboId: 'rec-cuota', estado: 'PENDIENTE', pagoEstado: 'PENDIENTE', importe: 60 });
+  });
+
+  await abrirCaja(page);
+  await page.getByPlaceholder(/Buscar artículo/i).fill('María');
+  await page.getByRole('button', { name: /María García/ }).click();
+  await page.getByRole('button', { name: 'Datáfono' }).click();
+
+  await expect(page.getByRole('button', { name: 'Cancelar el cobro' })).toBeDisabled();
+  await expect.poll(() => consultas, { timeout: 15_000 }).toBeGreaterThan(0);
+  expect(antesDeArrancar, 'ninguna consulta antes de que vuelva el envío del cobro').toBe(0);
+  await expect(page.getByRole('button', { name: 'Cancelar el cobro' })).toBeEnabled();
+  await expect(page.getByText(/no llegó a iniciarse/)).toHaveCount(0);
+});
