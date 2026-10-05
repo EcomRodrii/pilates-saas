@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useAsync } from '@/lib/student/useAsync';
-import { enviarValoracion, getValoracionClase, type EstadoValoracion } from '@/lib/student/valorar';
+import { enviarValoracion, getValoracionPendiente, type ValoracionPendiente } from '@/lib/student/valorar';
 import { haceCuanto } from '@/lib/student/momento-inicio';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { useToast } from '@/components/student/ui/Toast';
@@ -13,20 +13,26 @@ import { vibrar } from '@/lib/nativo/puente';
 // siguientes a una clase a la que ASISTIÓ y que aún no ha valorado (maqueta
 // aprobada, oct-2026).
 //
+// Qué clase es lo dice el SERVIDOR (`getValoracionPendiente`): el catálogo de la
+// app solo trae clases que aún no han terminado, así que desde aquí la clase a
+// la que acaba de ir no se ve (era el fallo de la primera versión: la tarjeta no
+// salía nunca).
+//
 // No es un sistema nuevo: es la MISMA valoración que la tarjeta del detalle de
 // la reserva (`ValorarClase`), contra la misma puerta (`/api/public/valorar-clase`,
-// que es quien decide si se puede: solo tras asistir). Las cinco caras son la
-// puntuación de 1 a 5 de siempre.
+// que decide si se puede: solo tras asistir). Las cinco caras son la puntuación
+// de 1 a 5 de siempre.
 //
 // Un toque: tocar una cara ENVÍA (una petición, y no deja una segunda mientras
-// va). La frase es opcional y va después: si la escribe, se manda como cambio de
-// esa misma valoración (el servidor la actualiza, no duplica).
+// va). La frase es opcional y va después, con la MISMA nota: el servidor deja
+// completar el comentario aunque haya cambiado el mes (`puedeActualizarValoracion`).
 //
 // ⚠️ «Tu nombre y lo que escribas solo los ve tu estudio», y no «no se publica»
 // a secas, que sería mentira: la NOTA cuenta, sin nombre, en la media que la app
-// enseña de cada instructora (`InstructorCard`). Lo que sí no sale nunca del
+// enseña de cada instructora (`InstructorCard`). Lo que no sale nunca del
 // estudio es quién la puso ni el comentario (la instructora tampoco los ve:
-// `lib/student/valoraciones-instructora.ts`).
+// `lib/student/valoraciones-instructora.ts`). Por eso el campo no dice
+// «Cuéntale algo a {instructora}»: ella no lo va a leer.
 
 const CARAS: { cara: string; texto: string }[] = [
   { cara: '😣', texto: 'Mal' },
@@ -36,42 +42,50 @@ const CARAS: { cara: string; texto: string }[] = [
   { cara: '🤩', texto: '¡Increíble!' },
 ];
 
-export function QueTalLaClase({ studioId, sesionId, clase, instructora, fin }: {
-  studioId: string; sesionId: string; clase: string; instructora?: string; fin: string;
-}) {
+export function QueTalLaClase({ studioId }: { studioId: string }) {
+  const cargar = useCallback(() => getValoracionPendiente(studioId), [studioId]);
+  const { data } = useAsync<ValoracionPendiente | null>(cargar, (d) => !d);
+  if (!data) return null;
+  // `key`: si llega otra clase pendiente, la tarjeta empieza de cero.
+  return <Tarjeta key={data.sesionId} studioId={studioId} p={data} />;
+}
+
+function Tarjeta({ studioId, p }: { studioId: string; p: ValoracionPendiente }) {
   const { toast } = useToast();
   const ahoraMs = useAhoraMs();
-  const cargar = useCallback(() => getValoracionClase(studioId, sesionId), [studioId, sesionId]);
-  const { data, estado } = useAsync<EstadoValoracion | null>(cargar, (d) => !d);
   const [enviada, setEnviada] = useState<number | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [comentario, setComentario] = useState('');
   const [comentada, setComentada] = useState(false);
-
-  // Solo si el servidor dice que puede y que aún no lo ha hecho. Ya enviada
-  // desde aquí, se queda en pantalla para dar las gracias.
-  if (enviada === null && (estado !== 'ready' || !data || !data.puedeValorar || data.valoracion)) return null;
+  // Lo que se anuncia. El contenedor `role="status"` está SIEMPRE montado: si
+  // apareciera junto con el texto, VoiceOver no lo leería (y al desaparecer el
+  // botón tocado, el foco se pierde). Así «¡Gracias!» se oye al enviarlo.
+  const [anuncio, setAnuncio] = useState('');
 
   const valorar = async (puntuacion: number) => {
     if (enviando || enviada !== null) return;
     setEnviando(true);
-    const r = await enviarValoracion(studioId, sesionId, puntuacion, '');
+    const r = await enviarValoracion(studioId, p.sesionId, puntuacion, '');
     setEnviando(false);
     if (!r.ok) { toast(r.error); return; }
     void vibrar('exito');
     setEnviada(puntuacion);
+    setAnuncio(`${CARAS[puntuacion - 1].cara} ¡Gracias! Se lo hemos contado a tu estudio.`);
   };
 
   const comentar = async () => {
     if (enviando || enviada === null || !comentario.trim()) return;
     setEnviando(true);
-    const r = await enviarValoracion(studioId, sesionId, enviada, comentario);
+    const r = await enviarValoracion(studioId, p.sesionId, enviada, comentario);
     setEnviando(false);
+    // Si el servidor dice que no, se dice y el texto se queda escrito para
+    // reintentarlo: nunca «enviado» sin que lo esté.
     if (!r.ok) { toast(r.error); return; }
     setComentada(true);
+    setAnuncio('Comentario enviado. ¡Gracias!');
   };
 
-  const titulo = `¿Qué tal ${clase}${instructora ? ` con ${instructora}` : ''}?`;
+  const titulo = `¿Qué tal ${p.clase}${p.instructora ? ` con ${p.instructora}` : ''}?`;
   return (
     <section
       className="card a-pop"
@@ -79,10 +93,10 @@ export function QueTalLaClase({ studioId, sesionId, clase, instructora, fin }: {
       aria-label="Valorar tu última clase"
       style={{ padding: 'var(--s-4) var(--s-4) var(--s-3)', border: '1.5px solid var(--accent)', borderRadius: 'var(--radius-hero)', display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}
     >
-      {enviada === null ? (
+      {enviada === null && (
         <>
           <div>
-            {ahoraMs !== null && <p className="t-label" style={{ color: 'var(--accent)' }}>{haceCuanto(fin, ahoraMs)}</p>}
+            {ahoraMs !== null && <p className="t-label" style={{ color: 'var(--accent)' }}>{haceCuanto(p.fin, ahoraMs)}</p>}
             <p className="t-card-title" style={{ marginTop: 4, fontSize: 'calc(var(--t-h2) * var(--heading-scale))' }}>{titulo}</p>
           </div>
           <div role="group" aria-label="Tu valoración" style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--s-2)' }}>
@@ -101,31 +115,28 @@ export function QueTalLaClase({ studioId, sesionId, clase, instructora, fin }: {
             ))}
           </div>
         </>
-      ) : (
+      )}
+
+      <p role="status" className="t-card-title" style={anuncio ? undefined : { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+        {anuncio}
+      </p>
+
+      {enviada !== null && !comentada && (
         <>
-          <p className="t-card-title" role="status">
-            {CARAS[enviada - 1].cara} ¡Gracias! Se lo hemos contado a tu estudio.
-          </p>
-          {comentada ? (
-            <p className="t-meta">Y tu comentario también.</p>
-          ) : (
-            <>
-              <textarea
-                value={comentario}
-                onChange={(e) => setComentario(e.target.value)}
-                placeholder={instructora ? `Cuéntale algo a ${instructora} (opcional)` : '¿Algo que quieras contar? (opcional)'}
-                rows={2}
-                maxLength={500}
-                aria-label="Comentario"
-                className="input"
-                style={{ height: 'auto', padding: '10px 14px', resize: 'none', lineHeight: 1.45 }}
-              />
-              {comentario.trim() && (
-                <Button full onClick={() => void comentar()} disabled={enviando}>
-                  {enviando ? 'Enviando…' : 'Enviar comentario'}
-                </Button>
-              )}
-            </>
+          <textarea
+            value={comentario}
+            onChange={(e) => setComentario(e.target.value)}
+            placeholder="¿Algo que quieras contar? (opcional)"
+            rows={2}
+            maxLength={500}
+            aria-label="Comentario para tu estudio"
+            className="input"
+            style={{ height: 'auto', padding: '10px 14px', resize: 'none', lineHeight: 1.45 }}
+          />
+          {comentario.trim() && (
+            <Button full onClick={() => void comentar()} disabled={enviando}>
+              {enviando ? 'Enviando…' : 'Enviar comentario'}
+            </Button>
           )}
         </>
       )}

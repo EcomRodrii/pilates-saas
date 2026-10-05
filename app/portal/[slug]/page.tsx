@@ -44,7 +44,7 @@ import { tiposDeLasClases } from '@/lib/student/mapeo';
 import { cuerpoSinHuecosHoy } from '@/lib/student/huecos-texto';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
-import { claseDelMomento, claseParaValorar } from '@/lib/student/momento-inicio';
+import { claseDelMomento } from '@/lib/student/momento-inicio';
 import { ClaseDelMomentoCard } from '@/components/student/domain/ClaseDelMomentoCard';
 import { QueTalLaClase } from '@/components/student/domain/QueTalLaClase';
 
@@ -187,19 +187,10 @@ export default function InicioPage() {
   // encoge con transición al saberlo, sin saltar.
   const momento = data ? claseDelMomento(data.reservas, data.clases, hoy, ahoraMs) : null;
   const compacta = momento !== null;
-  // «¿Qué tal la clase?»: asistió hace menos de 24 h. Si ya la valoró lo dice
-  // el servidor dentro de la tarjeta (no se pinta).
-  const paraValorar = data ? claseParaValorar(data.reservas, data.clases, ahoraMs) : null;
-  const tarjetaValorar = paraValorar && (
-    <QueTalLaClase
-      key={paraValorar.clase.id}
-      studioId={estudio.id}
-      sesionId={paraValorar.clase.id}
-      clase={paraValorar.clase.nombre}
-      instructora={data?.instructoras.find((i) => i.id === paraValorar.clase.instructoraId)?.nombre}
-      fin={paraValorar.clase.fin}
-    />
-  );
+  // «¿Qué tal la clase?»: la clase recién terminada a la que asistió la pide
+  // la propia tarjeta al servidor (el catálogo no trae clases terminadas). Sin
+  // nada que valorar, no pinta nada.
+  const tarjetaValorar = <QueTalLaClase studioId={estudio.id} />;
   const comoLlegar = () => window.open(urlComoLlegar(estudio.direccion, estudio.nombre, navigator.userAgent), '_blank', 'noopener');
 
   // La portada va FUERA de la guardia (`heroe` de StudentShell): sale en el
@@ -298,7 +289,9 @@ export default function InicioPage() {
             // x=288 a x=375 — la mano del 👋 se pintaba encima de las palabras.
             // Con el hueco puesto, el saludo parte en dos líneas, que es
             // además como parte en la maqueta.
-            ...(estudio.fraseHeroe ? { paddingRight: 112 } : null),
+            // Solo si la frase se pinta: en la portada compacta no va, y el
+            // hueco cortaba el saludo sin nada al lado.
+            ...(estudio.fraseHeroe && !compacta ? { paddingRight: 112 } : null),
             // ⚠️ Reforzado al cambiar la foto por defecto (banner nuevo, más
             // luminoso). MEDIDO sobre la foto real, ocultando solo el texto y
             // NO el velo: con el degradado anterior el kicker daba **3,73:1**

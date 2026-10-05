@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { claseDelMomento, claseParaValorar, etiquetaMomento, haceCuanto } from './momento-inicio.ts';
+import { claseDelMomento, etiquetaMomento, haceCuanto } from './momento-inicio.ts';
 import type { Clase, Reserva } from './tipos.ts';
 
 // 2026-10-07 es MARTES. Madrid va en UTC+2 (horario de verano): las 18:30 de
@@ -81,35 +81,6 @@ test('etiquetaMomento: horas y minutos hasta la clase, redondeado hacia arriba',
 test('etiquetaMomento: mañana y en curso', () => {
   assert.equal(etiquetaMomento({ clase: manana0900, cuando: 'manana' }, ms('2026-10-07T14:20:00Z')), 'Mañana');
   assert.equal(etiquetaMomento({ clase: hoy1830, cuando: 'ahora' }, ms('2026-10-07T16:45:00Z')), 'Ahora · hasta las 19:20');
-});
-
-test('claseParaValorar: asistida y terminada hace menos de 24 h', () => {
-  const v = claseParaValorar([reserva('r1', 'c-ma', 'asistida')], [estaManana], ms('2026-10-07T09:00:00Z'));
-  assert.equal(v?.clase.id, 'c-ma');
-});
-
-test('claseParaValorar: a las 24 h justas ya no', () => {
-  assert.equal(claseParaValorar([reserva('r1', 'c-ma', 'asistida')], [estaManana], ms('2026-10-08T07:50:00Z')), null);
-  assert.ok(claseParaValorar([reserva('r1', 'c-ma', 'asistida')], [estaManana], ms('2026-10-08T07:49:00Z')));
-});
-
-test('claseParaValorar: sin ASISTIDA no se ofrece (la regla del servidor)', () => {
-  for (const e of ['confirmada', 'no-asistida', 'cancelada'] as const) {
-    assert.equal(claseParaValorar([reserva('r1', 'c-ma', e)], [estaManana], ms('2026-10-07T09:00:00Z')), null, e);
-  }
-});
-
-test('claseParaValorar: una clase que aún no ha terminado no se valora', () => {
-  assert.equal(claseParaValorar([reserva('r1', 'c-hoy', 'asistida')], [hoy1830], ms('2026-10-07T17:00:00Z')), null);
-});
-
-test('claseParaValorar: con dos, la más reciente; sin reloj, ninguna', () => {
-  const ayer = clase('c-ay', '2026-10-06', '19:00', '2026-10-06T17:00:00Z', '2026-10-06T17:50:00Z');
-  const v = claseParaValorar(
-    [reserva('r0', 'c-ay', 'asistida'), reserva('r1', 'c-ma', 'asistida')], [ayer, estaManana], ms('2026-10-07T09:00:00Z'),
-  );
-  assert.equal(v?.clase.id, 'c-ma');
-  assert.equal(claseParaValorar([reserva('r1', 'c-ma', 'asistida')], [estaManana], null), null);
 });
 
 test('haceCuanto', () => {

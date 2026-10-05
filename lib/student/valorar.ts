@@ -42,3 +42,24 @@ export async function enviarValoracion(
     return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };
   }
 }
+
+/** La clase que puede valorar AHORA en Inicio («¿Qué tal la clase?»). */
+export interface ValoracionPendiente { sesionId: string; fin: string; clase: string; instructora: string | null }
+
+/**
+ * La pide al servidor (`?pendiente=1`) porque el catálogo de la app no trae las
+ * clases ya terminadas. `null` si no hay ninguna o si algo falla: la tarjeta no
+ * se pinta, que es lo de antes.
+ */
+export async function getValoracionPendiente(studioId: string): Promise<ValoracionPendiente | null> {
+  try {
+    const auth = await portalAuthHeader();
+    const res = await fetch(`/api/public/valorar-clase?studioId=${encodeURIComponent(studioId)}&pendiente=1`, { headers: auth });
+    if (!res.ok) return null;
+    const cuerpo = (await res.json().catch(() => null)) as { pendiente?: ValoracionPendiente | null } | null;
+    const p = cuerpo?.pendiente;
+    return p && typeof p.sesionId === 'string' && typeof p.fin === 'string' && typeof p.clase === 'string' ? p : null;
+  } catch {
+    return null;
+  }
+}

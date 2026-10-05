@@ -59,6 +59,19 @@ export function puedeCambiarValoracion(creadoEn: string, ahora: Date): boolean {
   return mesEnMadrid(new Date(t)) >= mesEnMadrid(ahora);
 }
 
+/**
+ * ¿Se puede reescribir una valoración que ya existe? Dentro de su mes, sí. Con
+ * el mes cerrado, solo si la NOTA no cambia: el comentario no entra en ninguna
+ * nota publicada ni lo ve la instructora, así que completarlo no deja ver nada.
+ * Es lo que permite «¿Qué tal la clase?»: la cara se envía al tocarla y la frase,
+ * después, aunque entre medias haya cambiado el mes.
+ */
+export function puedeActualizarValoracion(
+  previa: { creadoEn: string; puntuacion: number }, puntuacionNueva: number, ahora: Date,
+): boolean {
+  return puedeCambiarValoracion(previa.creadoEn, ahora) || previa.puntuacion === puntuacionNueva;
+}
+
 function ultimoDiaDe(mes: string): string {
   const [anio, m] = mes.split('-').map(Number);
   const dia = new Date(Date.UTC(anio, m, 0)).getUTCDate();

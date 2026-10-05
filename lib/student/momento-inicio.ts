@@ -8,8 +8,10 @@ import { addDias, horaFin } from './formato.ts';
 //
 //   1. ¿Tiene una clase HOY o MAÑANA? Entonces esa clase va lo primero, bajo una
 //      portada más baja. Sin clase en esos dos días, Inicio queda como estaba.
-//   2. ¿Acaba de ASISTIR a una clase (menos de 24 h) que aún no ha valorado?
-//      Entonces «¿Qué tal la clase?» va arriba.
+//   2. «¿Qué tal la clase?» NO se decide aquí: la clase a la que acaba de ir
+//      ya no viene en el catálogo de la app (solo trae clases sin terminar), así
+//      que la elige el servidor (lib/valoraciones/pendiente.ts). De aquí solo
+//      sale `haceCuanto`, para su sello.
 //
 // ⚠️ «Hoy» y «mañana» son días del ESTUDIO (`hoyISO`, Europe/Madrid), igual que
 // el resto de la app: `Clase.fecha` ya viene en esa zona.
@@ -27,8 +29,6 @@ export interface ClaseDelMomento {
 }
 
 const MIN = 60_000;
-/** Cuánto dura la oferta de valorar una clase tras terminar. */
-export const VENTANA_VALORAR_MS = 24 * 60 * MIN;
 
 function juntar(reservas: Reserva[], clases: Clase[]) {
   const porId = new Map(clases.map((c) => [c.id, c]));
@@ -75,25 +75,6 @@ export function etiquetaMomento(m: Pick<ClaseDelMomento, 'clase' | 'cuando'>, ah
   const min = faltan % 60;
   if (h === 0) return `Hoy · en ${min} min`;
   return min === 0 ? `Hoy · en ${h} h` : `Hoy · en ${h} h ${min} min`;
-}
-
-/**
- * La clase que puede valorar ahora: ASISTIDA (es la regla del servidor,
- * `puedeValorarReserva`) y terminada hace menos de 24 h. Si hay varias, la más
- * reciente. Si ya la valoró lo dice el servidor; esto no lo sabe.
- */
-export function claseParaValorar(
-  reservas: Reserva[], clases: Clase[], ahoraMs: number | null,
-): { reserva: Reserva; clase: Clase } | null {
-  if (ahoraMs === null) return null;
-  const candidata = juntar(reservas, clases)
-    .filter((x) => x.r.estado === 'asistida')
-    .filter((x) => {
-      const fin = new Date(x.c.fin).getTime();
-      return Number.isFinite(fin) && fin <= ahoraMs && ahoraMs - fin < VENTANA_VALORAR_MS;
-    })
-    .sort((a, b) => b.c.fin.localeCompare(a.c.fin))[0];
-  return candidata ? { reserva: candidata.r, clase: candidata.c } : null;
 }
 
 /** «Hace 20 min», «Hace 3 h». Para el sello de «¿Qué tal la clase?». */
