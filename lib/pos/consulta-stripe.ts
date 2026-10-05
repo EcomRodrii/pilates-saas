@@ -202,15 +202,19 @@ export async function anularCobroDelDatafono(
   // de parámetros: de segundo iría en el cuerpo y se tocaría la cuenta de la
   // plataforma, no la del estudio.
   const opc = { stripeAccount };
-  if (readerId) {
+  // El lector al que se mandó (va en el cobro desde el 5-oct-2026); si no, el guardado.
+  // Si entre medias se emparejó otro, el viejo sigue enseñando el importe.
+  const lectorId = await stripe.paymentIntents.retrieve(paymentIntentId, {}, opc)
+    .then(pi => pi.metadata?.lector || readerId, () => readerId);
+  if (lectorId) {
     try {
-      const lector = await stripe.terminal.readers.retrieve(readerId, {}, opc) as Stripe.Terminal.Reader;
+      const lector = await stripe.terminal.readers.retrieve(lectorId, {}, opc) as Stripe.Terminal.Reader;
       // ⚠️ Entre leerlo y pararlo, otra Caja puede mandarle su cobro (un envío nuevo
       // le quita el sitio al que espera tarjeta: medido) y se pararía el suyo. Stripe
       // no deja cancelar «solo si es este». No mueve dinero: ese cobro se queda fuera
       // del lector, su Caja espera y el conciliador lo cierra.
       if (lectorConElCobro(lector, paymentIntentId) === 'con-este') {
-        await stripe.terminal.readers.cancelAction(readerId, {}, opc);
+        await stripe.terminal.readers.cancelAction(lectorId, {}, opc);
       }
     } catch (err) {
       console.error('[pos/datafono:anular] lector', err instanceof Error ? err.message : err);
@@ -317,32 +321,38 @@ type ClienteLectura = {
  * puede cancelar (un cobro online de la socia en la misma cuenta, por ejemplo).
  *  - `null`: no es de este recibo y este estudio (por la metadata que puso este
  *    servidor al crearlo), o no es de Stripe.
- *  - PROCESANDO: no se pudo leer, entró, o sigue en marcha. No se afirma nada.
- *  - Un final sin cobrar: RECHAZADO con su motivo (datáfono), CANCELADO o EXPIRADO.
+ *  - `comprobado: false`: no se pudo leer. PROCESANDO, sin afirmar nada.
+ *  - `comprobado: true`: es de ESTE recibo (y con qué `metodo` se cobraba). Un
+ *    final sin cobrar (RECHAZADO con su motivo, CANCELADO, EXPIRADO) o, si entró o
+ *    sigue en marcha, PROCESANDO. Solo entonces se puede actuar sobre él.
  */
 export async function desenlaceDeCobroSoltado(
   stripe: ClienteLectura, referencia: string, stripeAccount: string, de: { reciboId: string; studioId: string },
-): Promise<{ estado: EstadoPagoPOS; motivo: string | null } | null> {
+): Promise<
+  | { comprobado: false; estado: 'PROCESANDO'; motivo: null }
+  | { comprobado: true; estado: EstadoPagoPOS; motivo: string | null; metodo: 'DATAFONO' | 'BIZUM' }
+  | null
+> {
   const opc = { stripeAccount };
   const esDe = (md: Stripe.Metadata | null | undefined) => md?.reciboId === de.reciboId && md?.studioId === de.studioId;
-  const sinAfirmar = { estado: 'PROCESANDO' as const, motivo: null };
+  // Solo un final sin cobrar se dice; entró o sigue en marcha, no se afirma nada.
+  const sinCobrar: EstadoPagoPOS[] = ['RECHAZADO', 'CANCELADO', 'EXPIRADO', 'ERROR'];
   try {
     // Bizum guarda casi siempre la sesión: caducada es su final sin cobrar.
     if (referencia.startsWith('cs_')) {
       const sesion = await stripe.checkout.sessions.retrieve(referencia, {}, opc);
       if (!esDe(sesion.metadata)) return null;
-      return sesion.status === 'expired' ? { estado: 'EXPIRADO', motivo: null } : sinAfirmar;
+      return { comprobado: true, metodo: 'BIZUM', estado: sesion.status === 'expired' ? 'EXPIRADO' : 'PROCESANDO', motivo: null };
     }
     if (!referencia.startsWith('pi_')) return null;
     const pi = await stripe.paymentIntents.retrieve(referencia, { expand: ['latest_charge'] }, opc);
     if (!esDe(pi.metadata)) return null;
-    const c = pi.metadata?.origen === 'pos_terminal'
-      ? consultaDatafono(pi)
-      : { estado: estadoDesdeStripe(pi.status), error: undefined };
-    // Solo un final sin cobrar se dice; entró o sigue en marcha, no se afirma nada.
-    const sinCobrar: EstadoPagoPOS[] = ['RECHAZADO', 'CANCELADO', 'EXPIRADO', 'ERROR'];
-    return sinCobrar.includes(c.estado) ? { estado: c.estado, motivo: c.error ?? null } : sinAfirmar;
+    const datafono = pi.metadata?.origen === 'pos_terminal';
+    const c = datafono ? consultaDatafono(pi) : { estado: estadoDesdeStripe(pi.status), error: undefined };
+    return sinCobrar.includes(c.estado)
+      ? { comprobado: true, metodo: datafono ? 'DATAFONO' : 'BIZUM', estado: c.estado, motivo: c.error ?? null }
+      : { comprobado: true, metodo: datafono ? 'DATAFONO' : 'BIZUM', estado: 'PROCESANDO', motivo: null };
   } catch {
-    return sinAfirmar;
+    return { comprobado: false, estado: 'PROCESANDO', motivo: null };
   }
 }

@@ -166,6 +166,7 @@ function dobleDatafono(o: {
 }) {
   const llamadas: string[] = [];
   const lectores: string[] = [];
+  const parados: string[] = [];
   let lecturas = 0;
   const stripe = {
     paymentIntents: {
@@ -185,13 +186,18 @@ function dobleDatafono(o: {
           if (o.lectorFalla) throw new Error('red');
           return o.lector;
         },
-        cancelAction: async () => { llamadas.push('lector.cancelAction'); if (o.pararLectorFalla) throw new Error('terminal_reader_offline'); return o.lector; },
+        cancelAction: async (id: string) => {
+          llamadas.push('lector.cancelAction');
+          parados.push(id);
+          if (o.pararLectorFalla) throw new Error('terminal_reader_offline');
+          return o.lector;
+        },
       },
     },
   };
   return {
     stripe: stripe as unknown as Parameters<typeof cerrarSiRechazadoDatafono>[0] & Parameters<typeof anularCobroDelDatafono>[0],
-    llamadas, lectores,
+    llamadas, lectores, parados,
   };
 }
 
@@ -278,7 +284,7 @@ test('⚠️ conciliador (`sinTarjeta`): nadie pasó la tarjeta y el lector ya n
 test('anular: el lector con ESTE cobro se para, y el cobro se cancela', async () => {
   const d = dobleDatafono({ pis: [{}], lector: accion('in_progress') });
   assert.equal(await anularCobroDelDatafono(d.stripe, 'pi_1', 'acct_1', 'tmr_1'), 'canceled');
-  assert.deepEqual(d.llamadas, ['lector.retrieve', 'lector.cancelAction', 'pi.cancel']);
+  assert.deepEqual(d.llamadas, ['pi.retrieve', 'lector.retrieve', 'lector.cancelAction', 'pi.cancel']);
 });
 
 test('⚠️ anular: el lector con el cobro de OTRA venta no se toca (antes se le paraba a ciegas)', async () => {
@@ -297,7 +303,14 @@ test('⚠️ anular: con el lector apagado (no se puede leer ni parar) el cobro 
   assert.ok(sinParar.llamadas.includes('pi.cancel'));
   const sinLector = dobleDatafono({ pis: [{}] });
   assert.equal(await anularCobroDelDatafono(sinLector.stripe, 'pi_1', 'acct_1', null), 'canceled');
-  assert.deepEqual(sinLector.llamadas, ['pi.cancel']);
+  assert.deepEqual(sinLector.llamadas, ['pi.retrieve', 'pi.cancel']);
+});
+
+test('⚠️ anular: se para el lector al que se MANDÓ el cobro, no el emparejado hoy', async () => {
+  const d = dobleDatafono({ pis: [{ metadata: { lector: 'tmr_viejo' } }], lector: accion('in_progress') });
+  assert.equal(await anularCobroDelDatafono(d.stripe, 'pi_1', 'acct_1', 'tmr_nuevo'), 'canceled');
+  assert.deepEqual(d.lectores, ['tmr_viejo']);
+  assert.deepEqual(d.parados, ['tmr_viejo']);
 });
 
 test('⚠️ anular: si ya no admitía cancelación, manda lo que diga el cobro (y sin saberlo, null)', async () => {
@@ -440,6 +453,7 @@ const MD_RECIBO = { reciboId: 'rec-1', studioId: 'st-1', origen: 'pos_terminal' 
 test('⚠️ desenlace de un cobro soltado: SOLO lee, y solo afirma un final si es de ESTE recibo y estudio', async () => {
   const rechazado = dobleLectura({ pi: { status: 'canceled', metadata: MD_RECIBO, latest_charge: cargoFallido('card_declined', 'insufficient_funds') } });
   const r = await desenlaceDeCobroSoltado(rechazado.stripe, 'pi_1', 'acct_1', DE);
+  assert.equal(r?.comprobado, true);
   assert.equal(r?.estado, 'RECHAZADO');
   assert.match(r?.motivo ?? '', /no tiene saldo suficiente/);
   assert.deepEqual(rechazado.llamadas, ['pi.retrieve'], 'ni cancela ni toca nada');
@@ -448,18 +462,22 @@ test('⚠️ desenlace de un cobro soltado: SOLO lee, y solo afirma un final si 
   assert.equal(await desenlaceDeCobroSoltado(ajeno.stripe, 'pi_1', 'acct_1', DE), null);
   const sinMetadata = dobleLectura({ pi: { status: 'requires_payment_method', metadata: {} } });
   assert.equal(await desenlaceDeCobroSoltado(sinMetadata.stripe, 'pi_1', 'acct_1', DE), null);
-  // Vivo, entró o no se pudo leer: PROCESANDO, sin afirmar nada.
+  // Vivo o entró, y de este recibo: PROCESANDO comprobado (se puede actuar sobre él).
   for (const pi of [{ metadata: MD_RECIBO }, { status: 'succeeded', metadata: MD_RECIBO }]) {
-    assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ pi }).stripe, 'pi_1', 'acct_1', DE), { estado: 'PROCESANDO', motivo: null });
+    assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ pi }).stripe, 'pi_1', 'acct_1', DE),
+      { comprobado: true, metodo: 'DATAFONO', estado: 'PROCESANDO', motivo: null });
   }
-  assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ falla: true }).stripe, 'pi_1', 'acct_1', DE), { estado: 'PROCESANDO', motivo: null });
+  // Sin poder leer: PROCESANDO SIN comprobar (no se sabe de quién es: no se toca).
+  assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ falla: true }).stripe, 'pi_1', 'acct_1', DE),
+    { comprobado: false, estado: 'PROCESANDO', motivo: null });
   // Cancelado sin cargo fallido: CANCELADO.
   assert.equal((await desenlaceDeCobroSoltado(dobleLectura({ pi: { status: 'canceled', metadata: MD_RECIBO } }).stripe, 'pi_1', 'acct_1', DE))?.estado, 'CANCELADO');
 });
 
 test('desenlace de un cobro soltado por Bizum (la sesión): caducada → EXPIRADO; abierta → PROCESANDO; SumUp → nada', async () => {
   const caducada = dobleLectura({ sesion: { status: 'expired', metadata: MD_RECIBO } });
-  assert.deepEqual(await desenlaceDeCobroSoltado(caducada.stripe, 'cs_1', 'acct_1', DE), { estado: 'EXPIRADO', motivo: null });
+  assert.deepEqual(await desenlaceDeCobroSoltado(caducada.stripe, 'cs_1', 'acct_1', DE),
+    { comprobado: true, metodo: 'BIZUM', estado: 'EXPIRADO', motivo: null });
   assert.deepEqual(caducada.llamadas, ['cs.retrieve']);
   const abierta = dobleLectura({ sesion: { status: 'open', metadata: MD_RECIBO } });
   assert.equal((await desenlaceDeCobroSoltado(abierta.stripe, 'cs_1', 'acct_1', DE))?.estado, 'PROCESANDO');
@@ -468,17 +486,24 @@ test('desenlace de un cobro soltado por Bizum (la sesión): caducada → EXPIRAD
   assert.equal(await desenlaceDeCobroSoltado(dobleLectura({}).stripe, 'sumup:1790000000:abcdefgh', 'acct_1', DE), null);
 });
 
-test('⚠️ la ruta de recibos solo LEE el cobro de la Caja, y no toca el guardado si es de otro intento', () => {
+test('⚠️ la ruta de recibos: la referencia de la Caja se comprueba ANTES de tocarla, y el guardado de otro intento nunca se toca', () => {
   const ruta = leer('app/api/pos/recibo/confirmar/route.ts');
-  // La referencia del navegador nunca llega a `prepararCobroExistente` ni a `consultar`/`cancelar`.
-  assert.ok(!ruta.includes('prepararCobroExistente(admin, sesion.studioId, ref,'));
-  assert.ok(!/consultar\(referenciaCaja|cancelar\(referenciaCaja/.test(ruta));
   assert.ok(ruta.includes('return desenlaceDeCobroSoltado(cx.ctx.stripe, ref, cx.ctx.stripeAccount, { reciboId, studioId: sesion.studioId });'));
-  // Si la Caja espera otro cobro que el guardado, se contesta ANTES de cancelar o consultar el guardado.
-  const rama = ruta.indexOf('if (referenciaCaja && !mismoCobro(referenciaCaja, recibo.cobro_mostrador_pi)) {');
-  assert.ok(rama > 0);
-  assert.ok(rama < ruta.indexOf('await cobro.cancelar(recibo.cobro_mostrador_pi'));
-  assert.ok(rama < ruta.indexOf('await cobro.consultar(recibo.cobro_mostrador_pi)'));
+  const ini = ruta.indexOf('if (referenciaCaja && !mismoCobro(referenciaCaja, recibo.cobro_mostrador_pi)) {');
+  const rama = ruta.slice(ini, ruta.indexOf("if (!recibo.cobro_mostrador_pi) {", ini));
+  assert.ok(ini > 0 && rama.length > 0);
+  // Sin comprobar que es de este recibo, se contesta sin tocar nada…
+  const comprobado = rama.indexOf("if (!d?.comprobado) return responder('PROCESANDO');");
+  assert.ok(comprobado > 0);
+  // …y solo después se actúa sobre el cobro de la Caja.
+  for (const accion of ['prepararCobroExistente(admin, sesion.studioId, referenciaCaja, d.metodo', 'propio.cobro.cancelar(referenciaCaja', 'propio.cobro.consultar(referenciaCaja)']) {
+    assert.ok(rama.indexOf(accion) > comprobado, accion);
+  }
+  // En esa rama el guardado (de otro intento) no se cancela ni se consulta, y la rama siempre contesta.
+  assert.ok(!rama.includes('cobro.cancelar(recibo.cobro_mostrador_pi') && !rama.includes('cobro.consultar(recibo.cobro_mostrador_pi'));
+  // Fuera de esa rama, la referencia de la Caja no llega a ningún proveedor.
+  const fuera = ruta.slice(0, ini) + ruta.slice(ini + rama.length);
+  assert.ok(!fuera.includes('referenciaCaja, metodo') && !/(cancelar|consultar)\(referenciaCaja/.test(fuera));
   const caja = leer('components/pos/deuda-clienta.tsx');
   // No pregunta sin el cobro, y pregunta con él.
   assert.ok(caja.includes("if (fase.f !== 'esperando' || !fase.referencia) return;"));

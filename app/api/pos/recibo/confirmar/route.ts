@@ -6,7 +6,7 @@ import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
 import { prepararCobroExistente } from '@/lib/pos/cobro-del-estudio';
 import { confirmarCobroRecibo } from '@/lib/billing/confirmar-cobro';
-import type { EstadoPagoPOS } from '@/lib/pos/tipos';
+import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import { contextoCobroDe } from '@/lib/pos/terminal';
 import { desenlaceDeCobroSoltado } from '@/lib/pos/consulta-stripe';
 import { mismoCobro, proveedorDeReferencia } from '@/lib/pos/sumup';
@@ -72,10 +72,10 @@ export async function POST(req: NextRequest) {
   // Qué fue del cobro que espera la Caja cuando el recibo ya no lo tiene, SOLO
   // leyendo (`desenlaceDeCobroSoltado`): la referencia llega del navegador. `null`
   // si no es de este recibo y este estudio, o no es de Stripe (SumUp).
-  const desenlaceDelCobroDeLaCaja = async (ref: string): Promise<{ estado: EstadoPagoPOS; motivo: string | null } | null> => {
+  const desenlaceDelCobroDeLaCaja = async (ref: string) => {
     if (proveedorDeReferencia(ref) !== 'stripe') return null;
     const cx = await contextoCobroDe(admin, sesion.studioId);
-    if (!cx.ok) return { estado: 'PROCESANDO', motivo: null };
+    if (!cx.ok) return null;
     return desenlaceDeCobroSoltado(cx.ctx.stripe, ref, cx.ctx.stripeAccount, { reciboId, studioId: sesion.studioId });
   };
 
@@ -84,13 +84,30 @@ export async function POST(req: NextRequest) {
 
   // La Caja espera un cobro que el recibo ya no tiene: otro camino lo cerró y lo
   // soltó (el aviso de Stripe tras un rechazo, el conciliador), o lo sustituyó otro
-  // intento (otra pestaña). Se dice qué fue del SUYO, sin tocar nada: antes salía
-  // «no llegó a iniciarse» (falso: se rechazó o se abandonó), y «Cancelar el cobro»
-  // aquí cancelaba el cobro vivo de la otra pestaña.
+  // intento (otra pestaña). Antes salía «no llegó a iniciarse» (falso: se rechazó o
+  // se abandonó), y «Cancelar el cobro» aquí cancelaba el cobro vivo de la otra
+  // pestaña. El guardado NUNCA se toca desde aquí: es de otro intento.
   if (referenciaCaja && !mismoCobro(referenciaCaja, recibo.cobro_mostrador_pi)) {
-    const desenlace = await desenlaceDelCobroDeLaCaja(referenciaCaja);
-    if (desenlace) return responder(desenlace.estado, desenlace.motivo ? { motivo: desenlace.motivo } : {});
-    // No es de este recibo: como si no hubiera llegado.
+    const d = await desenlaceDelCobroDeLaCaja(referenciaCaja);
+    // Sin comprobar que es de este recibo (no es de Stripe, no se pudo leer, o es de
+    // otro): ni se afirma ni se toca nada.
+    if (!d?.comprobado) return responder('PROCESANDO');
+    if (d.estado !== 'PROCESANDO') return responder(d.estado, d.motivo ? { motivo: d.motivo } : {});
+    // Vivo (o entró) y de ESTE recibo, comprobado antes de tocarlo: se trata como el
+    // guardado. Se puede cancelar, y cerrarlo si el lector ya no lo tiene.
+    const propio = await prepararCobroExistente(admin, sesion.studioId, referenciaCaja, d.metodo, { origen: req.nextUrl.origin });
+    if (!propio.ok) return responder('PROCESANDO', { aviso: propio.motivo });
+    try {
+      if (accion === 'cancelar') {
+        await propio.cobro.cancelar(referenciaCaja, referenciaCaja.startsWith('cs_') ? referenciaCaja : null);
+      }
+      const est = await propio.cobro.consultar(referenciaCaja);
+      // Uno que entró lo cierra el aviso de Stripe: cierra el recibo por su metadata.
+      if (est.estado === 'PAGADO' || !esEstadoFinal(est.estado)) return responder(est.estado === 'PAGADO' ? 'PROCESANDO' : est.estado);
+      return responder(est.estado, { motivo: est.error ?? null });
+    } catch (e) {
+      return errorInterno('[pos/recibo] excepción con el cobro de la Caja', e, 'No hemos podido comprobar el cobro.');
+    }
   }
 
   if (!recibo.cobro_mostrador_pi) {

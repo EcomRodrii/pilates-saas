@@ -45,7 +45,7 @@ test('⚠️ el aviso payment_failed del datáfono solo anula con el cobro cerra
   const f = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'app/api/stripe/webhook/route.ts'), 'utf8'));
   const rama = f.indexOf("if (pi.metadata?.origen === 'pos_terminal') {");
   const sinCuenta = f.indexOf("return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });", rama);
-  const sinLector = f.indexOf('if (errLector || !readerId) return NextResponse.json({ received: true });', sinCuenta);
+  const sinLector = f.indexOf('if (!readerId) return NextResponse.json({ received: true });', sinCuenta);
   const cierre = f.indexOf('await cerrarSiRechazadoDatafono(stripe, pi.id, event.account, readerId)', sinLector);
   const corte = f.indexOf("if (!cierre || cierre.veredicto !== 'rechazado') return NextResponse.json({ received: true });", cierre);
   const anula = f.indexOf("pagoEstado: 'RECHAZADO',", corte);
