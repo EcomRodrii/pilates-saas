@@ -94,7 +94,7 @@ function BadgeContador({ n, compacto, etiqueta = 'sin leer' }: { n: number; comp
   }
   return (
     <span
-      className="ml-auto flex min-w-[18px] items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold text-destructive-foreground"
+      className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-2 text-[12px] font-medium tabular-nums text-destructive-foreground"
       role="status"
     >
       <span className="sr-only">{n} {etiqueta}</span>
@@ -115,6 +115,8 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, conta
       title={collapsed ? (contador ? `${label} (${contador} ${contadorEtiqueta})` : nuevo ? `${label} (nuevo)` : label) : undefined}
       className={cn(
         'flex items-center rounded-full text-[13px] font-medium transition-all relative',
+        // Alto de siempre (~36), no los 40 de la guía: con 40, a 900 px de alto
+        // «Configuración» se quedaba bajo el pliegue del menú (OPEN DECISION 18).
         collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-2.5 px-3 py-2',
         // ⚠️ Tumbado, el item NO se encoge ni parte la etiqueta. Sin esto,
         // «Centro de Control» se rompía en tres líneas y «Configuración» salía
@@ -124,7 +126,7 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, conta
         active ? 'bg-brand text-brand-foreground font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-card/5'
       )}
     >
-      <Icon size={15} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
+      <Icon size={17} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
       {!collapsed && label}
       {Boolean(contador) ? <BadgeContador n={contador!} compacto={collapsed} etiqueta={contadorEtiqueta} /> : nuevo && <BadgeNuevo compacto={collapsed} />}
     </Link>
@@ -222,7 +224,7 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
         {sections.map((section, si) => (
           <div key={si} className="mb-2">
             {section.label && (
-              <p className="px-3 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-white/25">
+              <p className="t-label px-3 pt-3 pb-1.5 text-white/50">
                 {section.label}
               </p>
             )}
@@ -534,7 +536,7 @@ export function Sidebar() {
           {/* El rótulo del grupo no cabe tumbado: en horizontal manda el
               orden, que ya agrupa por sección. */}
           {section.label && !collapsed && !horizontal && (
-            <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/50">
+            <p className="t-label px-3 pt-3 pb-1 text-white/50">
               {section.label}
             </p>
           )}
@@ -641,6 +643,10 @@ export function Sidebar() {
             : 'top-[104px] left-4 bottom-4 flex-col rounded-[28px]',
           !horizontal && SIDEBAR_SIZES[size].aside,
         )}
+        // Sigue en #0A0A0A y no en `surface-nav` (Brand System): con el puente, en
+        // oscuro `--sidebar` vale lo mismo que el lienzo y el menú desaparecía
+        // contra él. Va con la OPEN DECISION 2 (`surface-nav` en oscuro), y con el
+        // degradado de abajo, que repite este color.
         style={{ backgroundColor: '#0A0A0A', ...(horizontal && { minHeight: BARRA_ALTO_INICIAL }) }}
       >
         {/* El logo, solo en horizontal: aquí sí hay sitio a la izquierda. */}
