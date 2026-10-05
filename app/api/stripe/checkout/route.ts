@@ -35,6 +35,7 @@ import { comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-dat
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable, ESTADOS_COBRABLES } from '@/lib/billing/deuda-recibo';
+import { CODIGO_CUOTA_EN_PAUSA, MENSAJE_CUOTA_EN_PAUSA, pagoOnlineDeRenovacionPermitido } from '@/lib/billing/renovar-plan-reglas';
 import {
   MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO, MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR, MENSAJE_RECIBO_YA_COBRADO_EN_EL_MOSTRADOR,
   MENSAJE_RECIBO_YA_PAGADO_ONLINE,
@@ -215,7 +216,7 @@ export async function POST(req: NextRequest) {
   if (body.reciboId) {
     const { data: recibo, error } = await admin
       .from('recibos')
-      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, cobro_off_session_clave, cobro_mostrador_pi, cobro_mostrador_checkout_session_id, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, entrega_tipo, suscripcion_id')
+      .select('importe, concepto, estado, studio_id, socio_id, checkout_session_id, cobro_off_session_clave, cobro_mostrador_pi, cobro_mostrador_checkout_session_id, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, entrega_tipo, suscripcion_id, es_renovacion')
       .eq('id', body.reciboId)
       .maybeSingle();
     if (error || !recibo) {
@@ -239,6 +240,21 @@ export async function POST(req: NextRequest) {
     // sesión abierta, y el UPDATE que guarda la sesión nueva lo vuelve a exigir.
     if (recibo.cobro_off_session_clave) {
       return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO }, { status: 409 }));
+    }
+    // La renovación de una cuota en PAUSADA no se paga desde la app: al cobrarse
+    // la dejaría ACTIVA sin que el estudio la reanudara (decisión del fundador,
+    // 5-oct-2026; lib/billing/renovar-plan-reglas.ts). El estudio tampoco la cobra
+    // con la cuota pausada (`puedeIntentarCobro`: CUOTA_PAUSADA). Sin poder leer la
+    // cuota, no se abre el pago (503).
+    if (recibo.es_renovacion === true && recibo.suscripcion_id) {
+      const { data: cuota, error: errCuota } = await admin.from('suscripciones')
+        .select('estado').eq('id', recibo.suscripcion_id as string).eq('studio_id', body.studioId).maybeSingle();
+      if (errCuota) {
+        return conCorsWidget(req, NextResponse.json({ error: 'No hemos podido comprobar tu plan. Inténtalo en un momento.' }, { status: 503 }));
+      }
+      if (!pagoOnlineDeRenovacionPermitido({ es_renovacion: true }, (cuota?.estado as string | null) ?? null)) {
+        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_CUOTA_EN_PAUSA, codigo: CODIGO_CUOTA_EN_PAUSA }, { status: 409 }));
+      }
     }
     // Lo mismo con el datáfono o el Bizum del mostrador en vuelo
     // (`cobro_mostrador_pi`): abrirle un pago online sería un segundo cobro. El

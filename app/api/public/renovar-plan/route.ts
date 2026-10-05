@@ -6,6 +6,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
+import { renovacionPorLaAlumna } from '@/lib/billing/renovar-plan-reglas';
 
 // "Renovar en un toque" desde el portal: garantiza que exista el recibo de
 // renovación del plan de la socia y devuelve su id — el portal lo paga acto
@@ -50,18 +51,23 @@ export async function POST(req: NextRequest) {
     const sus = (susRows ?? []).find(s => s.estado === 'ACTIVA') ?? (susRows ?? [])[0];
     if (!sus) return NextResponse.json({ error: 'No tienes ningún plan que renovar' }, { status: 404 });
 
-    // Renovar sola una cuota CANCELADA (también por impago) lo elige el estudio
+    // ¿Lo puede renovar ELLA? (lib/billing/renovar-plan-reglas.ts). Renovar deja la
+    // suscripción ACTIVA al cobrarse: una cuota en PAUSADA no se renueva desde la
+    // app (la descongelaría sin que el estudio lo decidiera) — decisión del
+    // fundador, 5-oct-2026. Va ANTES de reutilizar un recibo pendiente: uno que
+    // ya existiera para esa cuota tampoco se le entrega para pagar. Renovar sola
+    // una cuota CANCELADA (también por impago) lo elige el estudio
     // (`renovar_sola_cuota_cancelada`, por defecto sí, como hasta ahora).
+    let renovarSolaCuotaCancelada = true;
     if (sus.estado === 'CANCELADA') {
       const { data: politica, error: polErr } = await admin
         .from('studios').select('renovar_sola_cuota_cancelada').eq('id', body.studioId).maybeSingle();
       if (polErr) throw new Error(polErr.message);
-      if (politica?.renovar_sola_cuota_cancelada === false) {
-        return NextResponse.json(
-          { error: 'Tu plan está cancelado. Para volver a activarlo, habla con tu estudio.' },
-          { status: 409 },
-        );
-      }
+      renovarSolaCuotaCancelada = politica?.renovar_sola_cuota_cancelada !== false;
+    }
+    const puede = renovacionPorLaAlumna(sus.estado as string | null, { renovarSolaCuotaCancelada });
+    if (!puede.ok) {
+      return NextResponse.json({ error: puede.error, codigo: puede.codigo }, { status: 409 });
     }
 
     const { data: plan, error: planErr } = await admin
