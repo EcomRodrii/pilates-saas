@@ -76,3 +76,53 @@ test('la cadencia del polling es creciente y suma ~35s', () => {
     assert.ok(RETARDOS_POLL_MS[i] >= RETARDOS_POLL_MS[i - 1]);
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Ya tenía plaza» (5-oct-2026): quien paga una clase en la que YA tenía una
+// reserva viva veía «no hemos podido asignarte la plaza», teniéndola. Ahora el
+// aviso del servidor dice qué pasó con SU pago, y la pantalla dice lo que tiene.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { avisoDeYaTenia, elegirAvisoDelPago, reservaPreviaDe, type AvisoSinPlaza } from './estado-pago-publico.ts';
+import { readFileSync as leerFuente } from 'node:fs';
+import { join as unir } from 'node:path';
+
+const avisoDe = (data: Record<string, unknown> | null, resource_id: string | null = 'ses-1'): AvisoSinPlaza => ({ data, resource_id });
+
+test('el aviso que vale es el de ESTE pago; el de otro pago de la misma clase, nunca', () => {
+  const otro = avisoDe({ socioId: 'soc-1', paymentIntentId: 'pi_OTRO', situacionCodigo: 'sin-reserva' });
+  const este = avisoDe({ socioId: 'soc-1', paymentIntentId: 'pi_ESTE', situacionCodigo: 'ya-tenia-reserva' });
+  assert.equal(elegirAvisoDelPago([otro, este], 'pi_ESTE'), este);
+  assert.equal(elegirAvisoDelPago([otro], 'pi_ESTE'), null, 'el de otro pago no dice nada de este');
+  // Uno de antes de este cambio (sin pago anotado) sigue valiendo, como antes.
+  const viejo = avisoDe({ socioId: 'soc-1' });
+  assert.equal(elegirAvisoDelPago([otro, viejo], 'pi_ESTE'), viejo);
+  assert.equal(elegirAvisoDelPago(null, 'pi_ESTE'), null);
+});
+
+test('las tres situaciones de «ya tenía una reserva» se reconocen; las demás no', () => {
+  for (const c of ['ya-tenia-reserva', 'ya-en-espera', 'ya-pendiente-aprobacion']) assert.equal(avisoDeYaTenia(avisoDe({ situacionCodigo: c })), true, c);
+  for (const c of ['sin-reserva', 'en-espera', 'cerrada', undefined]) assert.equal(avisoDeYaTenia(avisoDe({ situacionCodigo: c })), false, String(c));
+  assert.equal(avisoDeYaTenia(null), false);
+});
+
+test('lo que tiene ahora en la clase: plaza antes que pendiente, y pendiente antes que cola', () => {
+  assert.equal(reservaPreviaDe(['LISTA_ESPERA', 'CONFIRMADA']), 'confirmada');
+  assert.equal(reservaPreviaDe(['ASISTIDA']), 'confirmada');
+  assert.equal(reservaPreviaDe(['LISTA_ESPERA', 'PENDIENTE_APROBACION']), 'pendiente_aprobacion');
+  assert.equal(reservaPreviaDe(['LISTA_ESPERA']), 'lista_espera');
+  // La canceló entre medias: ya no hay nada que decir de ella (sale «fallida», que es verdad).
+  assert.equal(reservaPreviaDe([]), null);
+  assert.equal(reservaPreviaDe(['CANCELADA']), null);
+});
+
+test('la ruta elige el aviso por pago y, si ya tenía reserva, contesta lo que TIENE', () => {
+  const s = leerFuente(unir(import.meta.dirname, '..', '..', 'app/api/public/estado-pago/route.ts'), 'utf8');
+  assert.match(s, /aviso = elegirAvisoDelPago\(avisos as AvisoSinPlaza\[\] \| null, pi\);/);
+  assert.match(s, /\.select\('data, resource_id'\)/);
+  const ya = s.indexOf('avisoDeYaTenia(aviso)');
+  const lee = s.indexOf(".eq('sesion_id', aviso.resource_id)", ya);
+  const estado = s.indexOf("const estado = previa ? 'ya_tenia_plaza'", lee);
+  assert.ok(ya > 0 && lee > ya && estado > lee, 'aviso del pago → su reserva viva en esa clase → estado');
+  assert.match(s, /return respuesta\(req, \{ estado, clase, \.\.\.\(previa \? \{ previa \} : \{\}\) \}\);/);
+});

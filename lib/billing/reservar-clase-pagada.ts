@@ -86,9 +86,12 @@ export async function reservarClasePagada(
         extra: { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, ...p.referencia, motivo: r.motivo, detalle: r.detalle },
       });
       const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+      // Lo que ya tenía decide el texto y el destino: plaza → la ficha (devolver o
+      // dejarlo a su favor); cola o pendiente de aprobar → el calendario de la clase.
+      const { situacionYaTenia } = await import('@/lib/notifications/pagada-sin-plaza');
       await emitirReservaPagadaSinPlaza(admin, {
         studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId,
-        situacion: yaTenia ? 'ya-tenia-reserva' : 'sin-reserva',
+        situacion: yaTenia ? situacionYaTenia(r.estadoPrevio) : 'sin-reserva',
         paymentIntentId: p.paymentIntentId,
       });
     } else if (r.estado === 'LISTA_ESPERA') {

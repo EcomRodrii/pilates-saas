@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { estadoDeLaRespuesta, estadoDeReservaDelPago, ESTADOS_RESERVA_VIVA } from './reserva-tras-pago-reglas.ts';
+import { estadoDeLaRespuesta, estadoDeReservaDelPago, estadoPrevioDeLaSocia, ESTADOS_RESERVA_VIVA } from './reserva-tras-pago-reglas.ts';
 
 // La reserva que hace el servidor DESPUÉS de cobrar una clase
 // (`reservarPlazaTrasPagoPublico`). El dinero ya entró: equivocarse hacia
@@ -81,8 +81,24 @@ test('reservarPlazaTrasPagoPublico: YA_RESERVADA sin reserva propia devuelve ya-
   assert.ok(decide > 0 && yaTenia > decide && exito > yaTenia, 'se decide con la reserva del pago, y el «ya tenía» va antes del éxito');
 });
 
-test('reservarClasePagada avisa al mostrador del pago sin usar, con el pago para no pisar otro aviso', () => {
+test('reservarClasePagada avisa al mostrador del pago sin usar, según lo que ya tenía, con el pago para no pisar otro aviso', () => {
   const s = sinComentarios(leer('lib/billing/reservar-clase-pagada.ts'));
-  assert.match(s, /situacion: yaTenia \? 'ya-tenia-reserva' : 'sin-reserva'/);
+  assert.match(s, /situacion: yaTenia \? situacionYaTenia\(r\.estadoPrevio\) : 'sin-reserva'/);
   assert.match(s, /paymentIntentId: p\.paymentIntentId/);
+});
+
+test('lo que ya tenía: plaza antes que pendiente, y pendiente antes que cola', () => {
+  assert.equal(estadoPrevioDeLaSocia(['LISTA_ESPERA', 'CONFIRMADA']), 'CONFIRMADA');
+  assert.equal(estadoPrevioDeLaSocia(['ASISTIDA']), 'ASISTIDA');
+  assert.equal(estadoPrevioDeLaSocia(['LISTA_ESPERA', 'PENDIENTE_APROBACION']), 'PENDIENTE_APROBACION');
+  assert.equal(estadoPrevioDeLaSocia(['LISTA_ESPERA']), 'LISTA_ESPERA');
+  assert.equal(estadoPrevioDeLaSocia([]), null);
+});
+
+test('reservarPlazaTrasPagoPublico: con «ya tenía» lee su reserva viva en la clase y la devuelve', () => {
+  const cuerpo = sinComentarios(cuerpoDe(leer('lib/db/supabase-data-admin.ts'), 'reservarPlazaTrasPagoPublico'));
+  const rama = cuerpo.slice(cuerpo.indexOf('if (!estadoExistente) {'));
+  assert.match(rama, /\.eq\('studio_id', params\.studioId\)\.eq\('sesion_id', params\.sesionId\)\.eq\('socio_id', params\.socioId\)/);
+  assert.match(rama, /\.in\('estado', \[\.\.\.ESTADOS_RESERVA_VIVA\]\)/);
+  assert.match(rama, /motivo: 'ya-tenia-reserva', detalle: 'ya tenía otra reserva en esta clase', estadoPrevio/);
 });

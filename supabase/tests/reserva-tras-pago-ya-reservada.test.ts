@@ -16,18 +16,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { clienteAdminLocal, crearSocia, crearStudioConPropietaria, limpiarFixtures } from '../../lib/db/rls-test-helpers.ts';
-import { estadoDeReservaDelPago } from '../../lib/billing/reserva-tras-pago-reglas.ts';
+import { estadoDeReservaDelPago, estadoPrevioDeLaSocia } from '../../lib/billing/reserva-tras-pago-reglas.ts';
+import { situacionYaTenia } from '../../lib/notifications/pagada-sin-plaza.ts';
 import { dedupKeyPagadaSinPlaza } from '../../lib/notifications/pagada-sin-plaza.ts';
 
 const admin = clienteAdminLocal();
 let n = 0;
 const unico = (prefijo: string) => `${prefijo}-${process.pid}-${Date.now()}-${n++}`;
 
-async function sesionFutura(studioId: string): Promise<string> {
+async function sesionFutura(studioId: string, aforo = 5): Promise<string> {
   const id = unico('sesion-pago');
   const inicio = new Date(Date.now() + 3 * 86_400_000);
   const { error } = await admin.from('sesiones').insert({
-    id, studio_id: studioId, aforo_maximo: 5,
+    id, studio_id: studioId, aforo_maximo: aforo,
     inicio: inicio.toISOString(), fin: new Date(inicio.getTime() + 50 * 60_000).toISOString(),
   });
   assert.equal(error, null, error?.message);
@@ -109,6 +110,33 @@ test('el aviso de un pago sin usar no se traga el de OTRO pago de la misma clase
     const repetido = await aviso(dedupKeyPagadaSinPlaza('ya-tenia-reserva', { ...p, paymentIntentId: 'pi_A' }));
     assert.ok(repetido.error, 'el mismo pago avisado dos veces tiene que chocar con el dedup');
     assert.equal(repetido.error.code, '23505');
+  } finally {
+    await limpiarFixtures(admin, [studio]);
+  }
+});
+
+test('si lo que ya tenía era un sitio en la LISTA DE ESPERA, eso es lo que consta (el aviso no dice «ya tenía plaza»)', async () => {
+  const studio = await crearStudioConPropietaria(admin);
+  try {
+    const [otra, socioId] = await Promise.all([crearSocia(admin, studio.studioId), crearSocia(admin, studio.studioId)]);
+    const sesionId = await sesionFutura(studio.studioId, 1);
+    const llena = await reservarTrasPago(studio.studioId, sesionId, otra, unico('res-otra'));
+    assert.equal(llena.error, null, llena.error?.message);
+    const enCola = await reservarTrasPago(studio.studioId, sesionId, socioId, unico('res-cola'));
+    assert.equal(enCola.error, null, enCola.error?.message);
+    assert.equal((enCola.data as { estado: string }[])[0]?.estado, 'LISTA_ESPERA');
+
+    const r = await reservarTrasPago(studio.studioId, sesionId, socioId, unico('res-web-pago'));
+    assert.ok(r.error);
+    assert.match(r.error.message, /YA_RESERVADA/);
+    // Lo mismo que lee `reservarPlazaTrasPagoPublico` para decir qué tenía.
+    const { data: suyas, error } = await admin.from('reservas').select('estado')
+      .eq('studio_id', studio.studioId).eq('sesion_id', sesionId).eq('socio_id', socioId)
+      .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA', 'PENDIENTE_APROBACION']);
+    assert.equal(error, null, error?.message);
+    const previo = estadoPrevioDeLaSocia((suyas ?? []).map(f => (f.estado as string | null) ?? null));
+    assert.equal(previo, 'LISTA_ESPERA');
+    assert.equal(situacionYaTenia(previo), 'ya-en-espera');
   } finally {
     await limpiarFixtures(admin, [studio]);
   }

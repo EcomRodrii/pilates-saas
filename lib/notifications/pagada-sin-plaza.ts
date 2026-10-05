@@ -16,6 +16,10 @@
 //  · 'ya-tenia-reserva' — la socia YA tenía plaza en esa clase (con su bono, o
 //    de otro pago): este pago no se ha usado para reservar. Hasta el 5-oct-2026
 //    salía como «confirmada» y no avisaba a nadie.
+//  · 'ya-en-espera' / 'ya-pendiente-aprobacion' — lo mismo, pero lo que ya tenía
+//    era un sitio en la LISTA DE ESPERA o una reserva PENDIENTE de aprobar: decirle
+//    al mostrador «ya tenía plaza» lo engañaba (no la ubicaría), y lo útil es el
+//    calendario de la clase, no la ficha para devolver.
 //
 // ⚠️ dedupKey PROPIA por situación: `uq_notification_dedup` es un UNIQUE
 // permanente, así que si 'cerrada' reusara la clave de 'en-espera' el segundo
@@ -29,7 +33,8 @@
 // cual: cambiarla volvería a mandar avisos ya enviados.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SituacionPagadaSinPlaza = 'sin-reserva' | 'en-espera' | 'cerrada' | 'ya-tenia-reserva';
+export type SituacionPagadaSinPlaza =
+  | 'sin-reserva' | 'en-espera' | 'cerrada' | 'ya-tenia-reserva' | 'ya-en-espera' | 'ya-pendiente-aprobacion';
 
 export const SITUACION_PAGADA_SIN_PLAZA: Record<SituacionPagadaSinPlaza, { texto: string; dedup: string; porPago: boolean }> = {
   'sin-reserva': {
@@ -52,7 +57,31 @@ export const SITUACION_PAGADA_SIN_PLAZA: Record<SituacionPagadaSinPlaza, { texto
     dedup: 'reserva-pagada-ya-tenia',
     porPago: true,
   },
+  'ya-en-espera': {
+    texto: ' pero ya estaba en la lista de espera de esa clase: este pago no le da plaza y su crédito está intacto. Si se libera sitio, entra con su lugar en la cola.',
+    dedup: 'reserva-pagada-ya-en-espera',
+    porPago: true,
+  },
+  'ya-pendiente-aprobacion': {
+    texto: ' pero ya tenía esa clase pendiente de que la aprobéis: este pago no se ha usado y su crédito está intacto.',
+    dedup: 'reserva-pagada-ya-pendiente',
+    porPago: true,
+  },
 };
+
+/** Las situaciones en las que la socia ya tenía una reserva viva en la clase. */
+export const SITUACIONES_YA_TENIA: readonly SituacionPagadaSinPlaza[] = ['ya-tenia-reserva', 'ya-en-espera', 'ya-pendiente-aprobacion'];
+
+/**
+ * La situación según lo que YA tenía (el estado de su reserva viva en la clase).
+ * Sin poder saberlo, la de «ya tenía plaza», que es lo que hace saltar YA_RESERVADA
+ * en la mayoría de los casos.
+ */
+export function situacionYaTenia(estadoPrevio: string | null | undefined): SituacionPagadaSinPlaza {
+  if (estadoPrevio === 'LISTA_ESPERA') return 'ya-en-espera';
+  if (estadoPrevio === 'PENDIENTE_APROBACION') return 'ya-pendiente-aprobacion';
+  return 'ya-tenia-reserva';
+}
 
 /**
  * La clave de dedup del aviso (el motor le añade después la identidad de cada
@@ -68,7 +97,11 @@ export function dedupKeyPagadaSinPlaza(
   return `${dedup}:${p.sesionId}:${p.socioId}`;
 }
 
-/** A dónde lleva el aviso: a la ficha cuando lo que toca es devolver o dejar el pago a su favor. */
+/**
+ * A dónde lleva el aviso: a la ficha cuando lo que toca es devolver o dejar el pago
+ * a su favor (la clase pasó, o ya tenía plaza). Si está en la cola o pendiente de
+ * aprobar, lo útil es el calendario de la clase: ahí se la ubica o se aprueba.
+ */
 export function avisoLlevaALaFicha(situacion: SituacionPagadaSinPlaza): boolean {
   return situacion === 'cerrada' || situacion === 'ya-tenia-reserva';
 }

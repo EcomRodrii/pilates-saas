@@ -328,9 +328,13 @@ export async function emitirReservaPagadaSinPlaza(
       // `cerrada`/`aLaFicha` deciden el deepLink de la plantilla: cuando el pago
       // no tiene clase a la que llevarla, lo útil es su ficha (ahí está el botón
       // de devolver el recibo), no el calendario.
+      // `situacionCodigo` y `paymentIntentId`: la pantalla de /reservar lee este
+      // aviso (`/api/public/estado-pago`) para decirle a la socia la verdad de SU
+      // pago, no la de otro de la misma clase.
       data: {
         ...ctx, socioId: p.socioId, socia, situacion: texto,
         cerrada: situacion === 'cerrada', aLaFicha: avisoLlevaALaFicha(situacion),
+        situacionCodigo: situacion, paymentIntentId: p.paymentIntentId ?? null,
       },
       resource: { type: 'sesion', id: p.sesionId },
       // Por (sesión, socia) en las situaciones de siempre: si el webhook

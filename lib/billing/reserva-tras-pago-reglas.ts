@@ -52,3 +52,15 @@ export function estadoDeLaRespuesta(fila: unknown): string | null {
   const estado = (fila as { estado?: unknown } | null | undefined)?.estado;
   return typeof estado === 'string' && estado.length > 0 ? estado : null;
 }
+
+/**
+ * Lo que la socia YA tenía en la clase cuando el pago dio YA_RESERVADA sin reserva
+ * propia: el estado más fuerte de sus reservas vivas (plaza > pendiente > cola).
+ * `null` si ya no consta ninguna (la canceló entre medias).
+ */
+export function estadoPrevioDeLaSocia(estados: readonly (string | null)[]): string | null {
+  for (const fuerte of ['CONFIRMADA', 'ASISTIDA', 'PENDIENTE_APROBACION', 'LISTA_ESPERA']) {
+    if (estados.includes(fuerte)) return fuerte;
+  }
+  return null;
+}

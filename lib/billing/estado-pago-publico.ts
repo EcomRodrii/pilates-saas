@@ -15,11 +15,20 @@ export type EstadoPagoPublico =
   | 'confirmada'
   | 'lista_espera'
   | 'pendiente_aprobacion'
+  // La socia YA tenía una reserva viva en esa clase (con su bono, de otro pago…):
+  // este pago no la ha reservado otra vez y queda a su favor. `previa` dice qué
+  // tenía. Antes salía «fallida» («no hemos podido asignarte la plaza») a quien
+  // SÍ tenía plaza.
+  | 'ya_tenia_plaza'
   | 'fallida';
+
+export type ReservaPrevia = 'confirmada' | 'lista_espera' | 'pendiente_aprobacion';
 
 export interface RespuestaEstadoPago {
   estado: EstadoPagoPublico;
   clase?: { nombre: string; inicio: string };
+  /** Solo con `ya_tenia_plaza`: lo que ya tenía en la clase. */
+  previa?: ReservaPrevia;
 }
 
 // El cliente guarda el clientSecret (`pi_xxx_secret_yyy`); el id del
@@ -66,3 +75,39 @@ export function resolverEstadoPago(
 // más tarda (el webhook de Stripe suele llegar en 1-5s; más allá de medio
 // minuto ya no es «un momento» y se pasa al copy de «tardando»).
 export const RETARDOS_POLL_MS = [1000, 2000, 3000, 5000, 8000, 8000, 8000];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El aviso de «cobrado sin plaza» que deja el servidor, leído para la socia
+// (5-oct-2026). Antes se buscaba CUALQUIER aviso de esa socia desde el cobro:
+// el de otro pago de la misma clase valía para este. Ahora se elige el de ESTE
+// pago (`data.paymentIntentId`); uno de antes de este cambio, sin pago anotado,
+// sigue valiendo como antes, y uno de OTRO pago nunca.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AvisoSinPlaza {
+  data: Record<string, unknown> | null;
+  resource_id: string | null;
+}
+
+export function elegirAvisoDelPago(avisos: readonly AvisoSinPlaza[] | null | undefined, pi: string): AvisoSinPlaza | null {
+  const lista = avisos ?? [];
+  const delPago = lista.find(a => a.data?.paymentIntentId === pi);
+  if (delPago) return delPago;
+  return lista.find(a => a.data?.paymentIntentId === undefined || a.data?.paymentIntentId === null) ?? null;
+}
+
+const SITUACIONES_YA_TENIA = new Set(['ya-tenia-reserva', 'ya-en-espera', 'ya-pendiente-aprobacion']);
+
+/** ¿El aviso dice que ya tenía una reserva en la clase? */
+export function avisoDeYaTenia(aviso: AvisoSinPlaza | null): boolean {
+  const codigo = aviso?.data?.situacionCodigo;
+  return typeof codigo === 'string' && SITUACIONES_YA_TENIA.has(codigo);
+}
+
+/** Lo que tiene ahora en la clase, por sus reservas vivas (plaza > pendiente > cola). */
+export function reservaPreviaDe(estados: readonly (string | null)[]): ReservaPrevia | null {
+  if (estados.includes('CONFIRMADA') || estados.includes('ASISTIDA')) return 'confirmada';
+  if (estados.includes('PENDIENTE_APROBACION')) return 'pendiente_aprobacion';
+  if (estados.includes('LISTA_ESPERA')) return 'lista_espera';
+  return null;
+}

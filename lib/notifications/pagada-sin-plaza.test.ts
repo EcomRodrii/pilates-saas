@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { avisoLlevaALaFicha, dedupKeyPagadaSinPlaza, SITUACION_PAGADA_SIN_PLAZA } from './pagada-sin-plaza.ts';
+import { avisoLlevaALaFicha, dedupKeyPagadaSinPlaza, SITUACION_PAGADA_SIN_PLAZA, situacionYaTenia } from './pagada-sin-plaza.ts';
 import { EVENTOS, plantillaDe, render } from './catalog.ts';
 
 // `uq_notification_dedup (studio_id, dedup_key)` decide si un aviso de dinero
@@ -62,4 +62,40 @@ test('emitirReservaPagadaSinPlaza usa la clave de este módulo, no una construid
   const cuerpo = emit.slice(emit.indexOf('export async function emitirReservaPagadaSinPlaza('));
   const fin = cuerpo.indexOf('\n}\n');
   assert.match(cuerpo.slice(0, fin), /dedupKey: dedupKeyPagadaSinPlaza\(situacion, p\)/);
+});
+
+test('lo que ya tenía decide el aviso: plaza, cola o pendiente de aprobar', () => {
+  assert.equal(situacionYaTenia('CONFIRMADA'), 'ya-tenia-reserva');
+  assert.equal(situacionYaTenia('ASISTIDA'), 'ya-tenia-reserva');
+  assert.equal(situacionYaTenia('LISTA_ESPERA'), 'ya-en-espera');
+  assert.equal(situacionYaTenia('PENDIENTE_APROBACION'), 'ya-pendiente-aprobacion');
+  assert.equal(situacionYaTenia(null), 'ya-tenia-reserva');
+});
+
+test('en la cola o pendiente de aprobar NO se dice «ya tenía plaza», y se lleva al calendario (no a devolver)', () => {
+  const pl = plantillaDe(EVENTOS.RESERVA_PAGADA_SIN_PLAZA, 'PROPIETARIO')!;
+  const base = { socia: 'Una socia', clase: 'Reformer', cuando: 'el martes' };
+  const cola = render(pl.body, { ...base, situacion: SITUACION_PAGADA_SIN_PLAZA['ya-en-espera'].texto });
+  assert.match(cola, /lista de espera/);
+  assert.doesNotMatch(cola, /ya tenía plaza/);
+  const pendiente = render(pl.body, { ...base, situacion: SITUACION_PAGADA_SIN_PLAZA['ya-pendiente-aprobacion'].texto });
+  assert.match(pendiente, /pendiente de que la aprobéis/);
+  assert.doesNotMatch(pendiente, /ya tenía plaza/);
+  assert.equal(avisoLlevaALaFicha('ya-en-espera'), false);
+  assert.equal(avisoLlevaALaFicha('ya-pendiente-aprobacion'), false);
+  // Por pago, como «ya tenía plaza»: nacen de que haya dos pagos de la misma clase.
+  for (const sit of ['ya-en-espera', 'ya-pendiente-aprobacion'] as const) {
+    assert.notEqual(
+      dedupKeyPagadaSinPlaza(sit, { ...base_ids, paymentIntentId: 'pi_A' }),
+      dedupKeyPagadaSinPlaza(sit, { ...base_ids, paymentIntentId: 'pi_B' }),
+    );
+  }
+});
+
+const base_ids = { sesionId: 'ses-1', socioId: 'soc-1' };
+
+test('el aviso guarda su situación y su pago: la pantalla de la socia lo lee por pago', () => {
+  const emit = readFileSync(join(import.meta.dirname, 'emit.ts'), 'utf8');
+  const cuerpo = emit.slice(emit.indexOf('export async function emitirReservaPagadaSinPlaza('));
+  assert.match(cuerpo.slice(0, cuerpo.indexOf('\n}\n')), /situacionCodigo: situacion, paymentIntentId: p\.paymentIntentId \?\? null,/);
 });

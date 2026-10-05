@@ -73,7 +73,7 @@ import {
   planDeClaseSuelta, type DesenlaceAnulacion, type DesenlaceVentaSuelta,
 } from '@/lib/reservas/clase-suelta';
 import { importeAdeudado } from '@/lib/billing/situacion-recibo';
-import { estadoDeLaRespuesta, estadoDeReservaDelPago } from '@/lib/billing/reserva-tras-pago-reglas';
+import { estadoDeLaRespuesta, estadoDeReservaDelPago, estadoPrevioDeLaSocia, ESTADOS_RESERVA_VIVA } from '@/lib/billing/reserva-tras-pago-reglas';
 import { anularVentaClaseSuelta, prepararVentaClaseSuelta, quedaTrasAnular, type QuedaTrasVenta } from '@/lib/billing/clase-suelta-mostrador';
 import type { MotivoPlazaNoMaterializada } from '@/lib/notifications/emit';
 import type { FormaPegada } from '@/lib/widgets/pegado';
@@ -3153,7 +3153,11 @@ export async function reservarPlazaTrasPagoPublico(params: {
   spotId?: string | null;
 }): Promise<
   | { ok: true; estado: string; reservaId: string; spotAsignado: string | null }
-  | { ok: false; motivo: 'sesion-no-encontrada' | 'sesion-invalida' | 'spot-ocupado' | 'ya-tenia-reserva' | 'error'; detalle?: string }
+  | {
+    ok: false; motivo: 'sesion-no-encontrada' | 'sesion-invalida' | 'spot-ocupado' | 'ya-tenia-reserva' | 'error'; detalle?: string;
+    /** Con `ya-tenia-reserva`: el estado de la reserva viva que ya tenía (CONFIRMADA, LISTA_ESPERA…). */
+    estadoPrevio?: string | null;
+  }
 > {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -3233,7 +3237,13 @@ export async function reservarPlazaTrasPagoPublico(params: {
       }
       const estadoExistente = estadoDeReservaDelPago(existente, { socioId: params.socioId, sesionId: params.sesionId });
       if (!estadoExistente) {
-        return { ok: false, motivo: 'ya-tenia-reserva', detalle: 'ya tenía otra reserva en esta clase' };
+        // Qué tenía: no es lo mismo plaza que un sitio en la cola o una reserva
+        // pendiente de aprobar (el aviso al mostrador y la pantalla lo dicen distinto).
+        const { data: suyas } = await admin.from('reservas').select('estado')
+          .eq('studio_id', params.studioId).eq('sesion_id', params.sesionId).eq('socio_id', params.socioId)
+          .in('estado', [...ESTADOS_RESERVA_VIVA]);
+        const estadoPrevio = estadoPrevioDeLaSocia((suyas ?? []).map(r => (r.estado as string | null) ?? null));
+        return { ok: false, motivo: 'ya-tenia-reserva', detalle: 'ya tenía otra reserva en esta clase', estadoPrevio };
       }
       const spotExistente = (existente?.spot_id as string | null) ?? null;
       // La entrega anterior insertó la reserva y pudo morir antes de descontar
