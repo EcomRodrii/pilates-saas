@@ -438,6 +438,10 @@ function studioPublico(r: RowStudios) {
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     reservaAntelacionHora: horaHHMM(r.reserva_antelacion_hora),
     permiteListaEspera: r.permite_lista_espera ?? true,
+    // El estudio aprueba cada reserva (migr 20260730192445). Solo decide si la fila del horario de la alumna ENSEÑA el
+    // atajo de «Reservar»: quien decide es `crearReservaPublica` con `heredaOverride`. Sin esta línea llegaría
+    // `undefined` y la fila ofrecería el atajo en un estudio que aprueba a mano.
+    requiereAprobacion: r.requiere_aprobacion ?? false,
     // Plaza fija desde la app (migr 20260915231920): la app solo enseña «pedir
     // plaza fija» o «pedir una pausa» si el estudio lo permite. La puerta de
     // verdad es `/api/public/plaza-fija`, que con el ajuste apagado da 403.

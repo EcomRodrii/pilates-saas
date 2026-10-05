@@ -150,8 +150,22 @@ export interface Clase {
   precioSuelto: number;     // € si no hay bono
   /** `true` si el estudio NO vende clases sueltas — distinto de «cuesta 0 €». */
   sinPrecioSuelto?: boolean;
-  /** Banner ancho de la cabecera. Hereda: sala → tipo de clase → estudio. */
+  /**
+   * Banner ancho de la cabecera. Hereda: tipo de clase → sala → portada del estudio → la por defecto de su familia
+   * (`imagenDeClase`). Este comentario decía «sala → tipo → estudio»: el orden real es el de `proyectarClases`.
+   */
   fotoUrl: string;
+  /**
+   * La foto PROPIA para la miniatura del horario (P11): la del tipo de clase o, si no, la de su sala, nunca una de por
+   * defecto ni la del estudio (`fotoPropia`). Ausente = sin foto propia: la fila pinta el logo o el color.
+   */
+  fotoPropiaUrl?: string;
+  /** El estudio aprueba cada reserva de esta clase (`requiere_aprobacion`, el tipo ?? el estudio). Lo decide el servidor. */
+  requiereAprobacion?: boolean;
+  /** La clase exige que el estudio autorice a la alumna (`requiere_autorizacion`), y la app no sabe si lo está. */
+  requiereAutorizacion?: boolean;
+  /** Su sala tiene sitios que elegir: reservar con sitio solo se hace desde la ficha. */
+  salaConSitios?: boolean;
   /**
    * Logo CUADRADO del tipo de clase, para la fila del horario.
    *

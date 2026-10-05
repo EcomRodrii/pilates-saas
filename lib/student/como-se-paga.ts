@@ -90,3 +90,11 @@ export function textoPagoFila(clase: ClaseMin, bono: BonoMin | null): string {
   if (bono) return '1 sesión';
   return precioClaseTexto(clase);
 }
+
+/**
+ * ¿Se reserva sin pagar nada? Es la condición del botón «Reservar» de la fila del horario (P12): exactamente la frase
+ * «No pagas nada hoy» de la hoja (`comoSePaga` en tono ok), así que el botón y la hoja no pueden contradecirse.
+ */
+export function seReservaSinPagar(clase: ClaseMin, bono: BonoMin | null): boolean {
+  return comoSePaga(clase, bono, false).tono === 'ok';
+}

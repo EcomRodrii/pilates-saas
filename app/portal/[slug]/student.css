@@ -814,3 +814,21 @@ html[data-vt-volver]::view-transition-new(.alumna-otra-entra) { animation: alumn
     animation: none !important; transition: none !important;
   }
 }
+
+/* ── Horario de la alumna (P11–P13, 5-oct-2026) ──
+   La tira de 14 días en formato semana («LUN / 6»), más estrecha que `.day` para que quepa una semana a 390 px. El día
+   elegido va en `--accent-soft` (el par que ya pasa el contraste en los cuatro estilos), no en tinta invertida. */
+.student-app .day.day--semana { min-width: 46px; width: 46px; padding: 6px 0 4px !important; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: 14px; border-color: transparent; background: transparent; }
+.student-app .day--semana .day__semana { font-size: var(--t-micro); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.student-app .day--semana .day__numero { font-size: 18px; font-weight: 800; line-height: 1.1; }
+.student-app .day--semana .day__pie { min-height: 12px; display: flex; align-items: center; justify-content: center; gap: 3px; font-size: var(--t-micro); font-weight: 700; }
+.student-app .day--semana .day__punto { display: inline-block; width: 5px; height: 5px; border-radius: 99px; background: var(--accent); }
+.student-app .day.day--semana[aria-selected="true"] { border-color: transparent; background: var(--accent-soft); color: var(--accent-soft-foreground); }
+.student-app .day--semana[aria-selected="true"] .day__punto { background: currentColor; }
+.student-app .day--semana[aria-disabled="true"] { opacity: .4; cursor: default; }
+
+/* La fila del horario: la tarjeta entera lleva a la ficha con un enlace ESTIRADO, y el botón «Reservar» queda POR
+   ENCIMA (si no, tocarlo abriría la ficha). El nombre, en hasta dos líneas. */
+.student-app .fila-horario__enlace::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.student-app .fila-horario__nombre { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.student-app .fila-horario__derecha { position: relative; z-index: 1; }

@@ -7,7 +7,8 @@
 import { horaEstudio, hoyEnEstudio } from '../utils.ts';
 import { situacionRecibo } from '../billing/situacion-recibo.ts';
 import { horasDeCobroTardio, penalizacionTardiaQueSeCobraria } from '../billing/penalizacion-importe.ts';
-import { imagenDeClase } from '../imagenes-por-defecto.ts';
+import { fotoPropia, imagenDeClase } from '../imagenes-por-defecto.ts';
+import { spotsActivosDeLaSala } from './huecos-sala.ts';
 import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
 import { hayOrdenGuardado, ordenarTipos } from '../tipos-clase/orden-y-archivo.ts';
@@ -293,13 +294,17 @@ export interface PayloadMin {
     cancelacionVentanaHoras?: number | null; terminosPropios?: boolean | null;
     /** Antelación mínima para reservar, en minutos (0 = ninguna). Viaja en `studioPublico`. */
     reservaVentanaMinimaMinutos?: number | null;
+    /** El estudio aprueba cada reserva (lo hereda el tipo que no lo fije). Viaja en `studioPublico`. */
+    requiereAprobacion?: boolean | null;
   } | null;
   sesiones?: {
     id: string; inicio: string; fin: string; aforoMaximo: number;
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; reservaVentanaMinimaMinutos?: number | null; orden?: number | null; penalizacionImporteEur?: number | null }[];
+  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; reservaVentanaMinimaMinutos?: number | null; orden?: number | null; penalizacionImporteEur?: number | null; requiereAprobacion?: boolean | null; requiereAutorizacion?: boolean | null }[];
+  /** Los sitios de cada sala (`mapSpot`). Viajan desde siempre; la hoja de la ficha los usa para elegir sitio. */
+  spots?: { id: string; salaId: string; activo?: boolean | null }[];
   levelDefinitions?: NivelDef[];
   achievementDefinitions?: LogroDef[];
   challengeDefinitions?: RetoDef[];
@@ -397,6 +402,8 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
     ? new Map(ordenarTipos(d.tiposClase ?? []).map((t, i) => [t.id, i]))
     : new Map<string, number>();
   const salas = new Map((d.salas ?? []).map((s) => [s.id, s]));
+  // Las salas con sitios que elegir (el mismo criterio que la hoja): una vez para todo el horario.
+  const salasConSitios = new Set((d.spots ?? []).map((s) => s.salaId).filter((id) => spotsActivosDeLaSala(d.spots, id).length > 0));
 
   // Ocupadas por sesión, con el MISMO criterio que la RPC.
   const ocupadas = new Map<string, number>();
@@ -493,6 +500,13 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       // cara de la dueña. Mismo fallo que tenía la portada de Inicio, y el
       // mismo campo.
       fotoUrl: imagenDeClase({ fotoUrl: tipo?.fotoUrl ?? sala?.fotoUrl ?? d.studio?.imagenBienvenidaUrl, nombre: tipo?.nombre }),
+      // La miniatura del horario: SOLO la foto propia del tipo o de su sala (nunca la del estudio ni una por defecto).
+      fotoPropiaUrl: fotoPropia(tipo?.fotoUrl, sala?.fotoUrl) ?? undefined,
+      // Lo que la fila del horario necesita para NO ofrecer «Reservar» donde el servidor exige algo más (quien decide
+      // sigue siendo `crearReservaPublica`): la misma herencia tipo ?? estudio que `heredaOverride`.
+      requiereAprobacion: tipo?.requiereAprobacion ?? d.studio?.requiereAprobacion ?? false,
+      requiereAutorizacion: tipo?.requiereAutorizacion === true,
+      salaConSitios: salasConSitios.has(s.salaId),
       // El logo NO hereda: ver el comentario en `Clase.logoUrl`.
       logoUrl: tipo?.logoUrl ?? undefined,
       descripcion: tipo?.descripcion ?? undefined,

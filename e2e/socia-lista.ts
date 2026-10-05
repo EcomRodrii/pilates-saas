@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // «Socia lista para reservar» — el andamiaje mínimo para que un clic en
@@ -111,4 +111,57 @@ export async function abrirHojaDeClase(page: Page) {
 /** Pulsa confirmar en la hoja. Quien lo llame debe exigir intentos > 0. */
 export async function pulsarReservar(page: Page) {
   await page.getByRole('button', { name: /^Reservar$/ }).last().click();
+}
+
+// ── Ayudantes del horario (P11–P13) ─────────────────────────────────────────
+// Suman al fixture sin cambiar lo que hay. Las rutas propias de cada spec van SIEMPRE después de `sembrarSociaLista`:
+// en Playwright gana la última registrada.
+
+type Fixture = Record<string, unknown>;
+
+/**
+ * Un bono (o la CUOTA, el `PLAN_MENSUAL` de arriba) para la socia del fixture. `tipos`: los tipos de clase a los que
+ * está acotado; `restantes`: lo que le queda al bono.
+ */
+export function conBono(f: Fixture, o: { cuota?: boolean; tipos?: string[]; restantes?: number } = {}): Fixture {
+  const plan = o.cuota
+    ? { ...PLAN_MENSUAL, ...(o.tipos ? { tiposClaseIds: o.tipos } : {}) }
+    : { id: 'plan-bono', studioId: STUDIO_ID, nombre: 'Bono 8 sesiones', tipo: 'BONO', sesiones: 8, precio: 96, activo: true, ...(o.tipos ? { tiposClaseIds: o.tipos } : {}) };
+  f.planesTarifa = [...((f.planesTarifa as unknown[]) ?? []), plan];
+  (f.socia as Fixture).suscripciones = [{
+    id: o.cuota ? 'sus-mes' : 'sus-1', socioId: SOCIO_ID, planId: plan.id, estado: 'ACTIVA',
+    sesionesRestantes: o.cuota ? null : (o.restantes ?? 5), fechaInicio: '2026-08-01', fechaFin: '2026-12-31',
+  }];
+  return f;
+}
+
+/**
+ * Las sesiones del horario con su instante y su ZONA (`+02:00`, hora de Madrid): sin zona, el navegador las lee en la
+ * de la máquina y con TZ=UTC (el CI) una clase de las 10:00 sale a las 12:00. La primera es la del fixture (`ses-10`).
+ */
+export function conSesiones(f: Fixture, sesiones: Array<{ id: string; fecha?: string; hora: string; min?: number } & Record<string, unknown>>): Fixture {
+  f.sesiones = sesiones.map(({ id, fecha = '2026-08-12', hora, min = 50, ...resto }) => {
+    const [h, m] = hora.split(':').map(Number);
+    const fin = h * 60 + m + min;
+    const hhmm = `${String(Math.floor(fin / 60)).padStart(2, '0')}:${String(fin % 60).padStart(2, '0')}`;
+    return {
+      id, studioId: STUDIO_ID, tipoClaseId: 'tc-r', salaId: 'sala-1', instructorId: 'ins-1', aforoMaximo: 10, cancelada: false,
+      inicio: `${fecha}T${hora}:00+02:00`, fin: `${fecha}T${hhmm}:00+02:00`, ...resto,
+    };
+  });
+  return f;
+}
+
+/**
+ * Cuenta los POST a una ruta y contesta con `responder`. Devuelve el contador (los cuerpos): quien lo use exige que se
+ * haya intentado algo antes de interpretar nada (un test de fallo sin contador puede pasar por no haber pedido nada).
+ */
+export async function contarPost(page: Page, ruta: string, responder: (r: Route) => Promise<unknown> | unknown): Promise<unknown[]> {
+  const cuerpos: unknown[] = [];
+  await page.route(ruta, (r) => {
+    if (r.request().method() !== 'POST') return r.continue();
+    cuerpos.push(r.request().postDataJSON());
+    return responder(r) as Promise<void>;
+  });
+  return cuerpos;
 }

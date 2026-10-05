@@ -48,10 +48,12 @@ test.describe('Student PWA · el logo de la clase en el horario', () => {
     );
   });
 
-  test('⚠️ sin logo propio la fila NO enseña imagen, aunque la sala y el estudio tengan foto', async ({ page }) => {
+  test('⚠️ sin logo propio, una foto POR DEFECTO de la sala no sale en la fila (ni como logo ni como foto)', async ({ page }) => {
     // Heredarlo sería lo cómodo y estaría mal: el mismo icono repetido en
-    // todas las filas se lee como un error de la app. `lib/imagenes-por-defecto.ts`
-    // documenta esa misma decisión para las miniaturas de listados.
+    // todas las filas se lee como un error de la app. Desde P11 (5-oct-2026) la
+    // fila lleva la foto PROPIA del tipo o de la sala (la propia sí sale: lo
+    // prueba student-horario-reservar-fila), pero nunca una de `/por-defecto/`
+    // ni la del estudio (`fotoPropia`, lib/imagenes-por-defecto.ts).
     await montar(page, { salaFotoUrl: '/por-defecto/estudio-vertical.webp' });
     await page.goto(`${base}/reservar`);
     // La pantalla ha cargado: hay filas de clase.

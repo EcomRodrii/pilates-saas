@@ -120,3 +120,15 @@ test('textoPagoFila: «1 sesión» solo con un bono que gasta sesiones; sin nada
   assert.equal(textoPagoFila(soloBono, null), 'Solo con bono');
   assert.equal(textoPagoFila({ sinPrecioSuelto: false, precioSuelto: 0 }, null), 'Gratis');
 });
+
+// ── El atajo «Reservar» de la fila del horario (P12) ────────────────────────
+// Sale cuando la hoja diría «No pagas nada hoy»: la misma clasificación, para que no puedan contradecirse.
+
+test('seReservaSinPagar: con bono con sesiones o con cuota, sí; con suelta, sin bono o agotado, no', async () => {
+  const { seReservaSinPagar } = await import('./como-se-paga.ts');
+  assert.equal(seReservaSinPagar(suelta, conBono), true);
+  assert.equal(seReservaSinPagar(suelta, cuotaConTipo), true);
+  assert.equal(seReservaSinPagar(suelta, null), false);
+  assert.equal(seReservaSinPagar(soloBono, null), false);
+  assert.equal(seReservaSinPagar(suelta, gastado), false);
+});
