@@ -5,6 +5,7 @@ import {
 } from '@/lib/portal-instructora/mensajes-servidor';
 import { textoNoAbrir } from '@/lib/student/mensajes-instructora';
 import { leerHasta } from '@/lib/mensajeria/avisos-leidos';
+import { TEXTO_NO_ADMITE } from '@/lib/moderacion/reglas';
 import { enforceRateLimit, rateLimit } from '@/lib/rate-limit';
 import { retryAfterSeconds, tooManyRequestsResponse } from '@/lib/rate-limit-core';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -77,14 +78,18 @@ export async function POST(req: NextRequest) {
       }
 
       case 'mensajes': {
-        const mensajes = await mensajesDeHilo(suya, conversacionId as string);
-        if (!mensajes) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
-        return NextResponse.json({ mensajes }, { headers: { 'Cache-Control': 'no-store' } });
+        const hilo = await mensajesDeHilo(suya, conversacionId as string);
+        if (!hilo) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
+        // `estado` es aditivo: dice si el hilo admite mensajes (la app de antes lo ignora).
+        return NextResponse.json({ mensajes: hilo.mensajes, estado: hilo.estado }, { headers: { 'Cache-Control': 'no-store' } });
       }
 
       case 'enviar': {
-        const mensaje = await enviarEnHilo(suya, conversacionId as string, cuerpo);
-        if (!mensaje) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
+        const r = await enviarEnHilo(suya, conversacionId as string, cuerpo);
+        if (!r) return NextResponse.json({ error: NO_ENCONTRADO }, { status: 404 });
+        // Cerrado por el estudio o con un bloqueo: el borrador se queda en su pantalla.
+        if (!r.ok) return NextResponse.json({ error: TEXTO_NO_ADMITE, estado: r.estado }, { status: 409 });
+        const mensaje = r.mensaje;
         // Avisar nunca retrasa la respuesta: el mensaje ya está guardado.
         after(() => avisarMensajeNuevo({ ...suya, remitente: sesion.nombre }, conversacionId as string, mensaje.id));
         return NextResponse.json({ mensaje });

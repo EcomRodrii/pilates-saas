@@ -17,10 +17,10 @@ const LIMITE_MAXIMO = 50;
 // verlo en producción: "nadie puede dar like, nadie puede comentar") abre
 // like real (`likedByMe` aquí, alternar en /posts/[id]/like) y comentarios
 // (/api/public/comunidad/comentarios). Mismo patrón que
-// /api/public/mensajeria/conversaciones: la socia no tiene JWT
-// `authenticated` de Postgres (su sesión no llega a auth.uid() en RLS), así
-// que esta ruta usa service-role y filtra a mano — nunca confía en RLS para
-// resolver quién es ella.
+// /api/public/mensajeria/conversaciones: la socia tiene JWT de Supabase, pero
+// el tablón no se le abre por PostgREST, así que esta ruta usa service-role
+// (aquí la RLS no actúa) y filtra a mano — nunca confía en RLS para resolver
+// quién es ella.
 //
 // El filtro de audiencia por post reutiliza `resolverDestinatariasCampana`
 // TAL CUAL (misma función que ya resuelve el segmento de una campaña de

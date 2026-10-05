@@ -83,6 +83,56 @@ test('INSTRUCTOR no ve recuperaciones ajenas, aunque sean de su propio estudio',
   }
 });
 
+// Comunidad (migr 20261005150000): el tablón no lo usa en ningún sitio por
+// PostgREST (Comunidad es una de las pérdidas aceptadas al retirar Tentare Core).
+test('INSTRUCTOR no lee los comentarios ni los «me gusta» del tablón; la propietaria sí', async () => {
+  const studio = await crearStudioConPropietaria(admin);
+  let instructora;
+  try {
+    instructora = await crearInstructora(admin, studio.studioId);
+    const postId = `post-rls-${Date.now()}`;
+    const { error: errPost } = await admin.from('posts_comunidad').insert({
+      id: postId, studio_id: studio.studioId, autor_id: studio.authUserId, autor_nombre: 'Estudio', texto: 'Aviso',
+    });
+    assert.ok(!errPost, `no se pudo montar el post de fixture: ${errPost?.message}`);
+    const { error: errCom } = await admin.from('comentarios_comunidad').insert({
+      id: `com-rls-${Date.now()}`, studio_id: studio.studioId, post_id: postId,
+      autor_id: studio.authUserId, autor_nombre: 'Estudio', texto: 'Un comentario',
+    });
+    assert.ok(!errCom, `no se pudo montar el comentario de fixture: ${errCom?.message}`);
+    const { error: errLike } = await admin.from('post_likes').insert({ post_id: postId, user_id: studio.authUserId, studio_id: studio.studioId });
+    assert.ok(!errLike, `no se pudo montar el «me gusta» de fixture: ${errLike?.message}`);
+
+    for (const tabla of ['comentarios_comunidad', 'post_likes'] as const) {
+      const { data } = await instructora.comoInstructora.from(tabla).select('post_id');
+      assert.deepEqual(data, [], `la instructora vio ${tabla} — RLS de INSTRUCTOR reabierta`);
+      const { data: comoPropietaria } = await studio.comoPropietaria.from(tabla).select('post_id');
+      assert.equal(comoPropietaria?.length, 1, `la propietaria debería seguir viendo ${tabla}`);
+    }
+  } finally {
+    if (instructora) await limpiarInstructora(admin, instructora);
+    await limpiarFixtures(admin, [studio]);
+  }
+});
+
+test('RECEPCION sigue leyendo los comentarios del tablón (el cierre es solo de INSTRUCTOR)', async () => {
+  const studio = await crearStudioConPropietaria(admin);
+  let recepcion;
+  try {
+    recepcion = await crearInstructora(admin, studio.studioId, 'RECEPCION');
+    const postId = `post-rls-${Date.now()}`;
+    await admin.from('posts_comunidad').insert({ id: postId, studio_id: studio.studioId, autor_id: studio.authUserId, autor_nombre: 'Estudio', texto: 'Aviso' });
+    await admin.from('comentarios_comunidad').insert({
+      id: `com-rls-${Date.now()}`, studio_id: studio.studioId, post_id: postId, autor_id: studio.authUserId, autor_nombre: 'Estudio', texto: 'Hola',
+    });
+    const { data } = await recepcion.comoInstructora.from('comentarios_comunidad').select('id');
+    assert.equal(data?.length, 1, 'recepción ha perdido la lectura del tablón');
+  } finally {
+    if (recepcion) await limpiarInstructora(admin, recepcion);
+    await limpiarFixtures(admin, [studio]);
+  }
+});
+
 // ── Lo que SÍ conserva (pérdida aceptada solo en lo de arriba) ──────────────
 //
 // El propio comentario de la migración lo dice: "Los bloqueos de agenda los

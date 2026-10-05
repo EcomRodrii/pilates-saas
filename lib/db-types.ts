@@ -1403,6 +1403,12 @@ export interface RowComentariosComunidad {
   autor_inicial: string | null;
   texto: string;
   creado_en: string | null;
+  // migr 20261005150100.
+  oculto_en: string | null;
+  // migr 20261005150100.
+  oculto_por: string | null;
+  // migr 20261005150100.
+  socio_id: string | null;
 }
 
 export interface RowCamposPersonalizados {
@@ -2693,6 +2699,10 @@ export interface RowConversaciones {
   ultimo_mensaje_en: string;
   // migr 20260901232656.
   mostrador_leido_hasta: string | null;
+  // migr 20261005150100.
+  cerrada_en: string | null;
+  // migr 20261005150100.
+  cerrada_por: string | null;
 }
 
 export interface RowConversacionParticipantes {
@@ -2704,6 +2714,8 @@ export interface RowConversacionParticipantes {
   unido_en: string;
   // migr 20261004120218.
   id: number;
+  // migr 20261005150100.
+  bloqueo_en: string | null;
 }
 
 export interface RowMensajes {
@@ -2713,6 +2725,10 @@ export interface RowMensajes {
   remitente_auth_user_id: string | null;
   cuerpo: string;
   creado_en: string;
+  // migr 20261005150100.
+  oculto_en: string | null;
+  // migr 20261005150100.
+  oculto_por: string | null;
 }
 
 export interface RowDocumentosSocio {
@@ -3951,6 +3967,32 @@ export interface RowDobleFactorCorreoBloqueos {
   auth_user_id: string;
   desde: string;
   motivo: string;
+}
+
+export interface RowDenuncias {
+  id: string;
+  studio_id: string;
+  ambito: string;
+  motivo: string;
+  destino: string;
+  conversacion_id: string | null;
+  mensaje_id: string | null;
+  comentario_id: string | null;
+  autor_auth_user_id: string | null;
+  denunciante_auth_user_id: string | null;
+  socio_id: string | null;
+  detalle: string | null;
+  estado: string;
+  creada_en: string;
+  resuelta_en: string | null;
+  resuelta_por: string | null;
+  revisada_por: string | null;
+}
+
+export interface RowNormasComunidadAceptaciones {
+  auth_user_id: string;
+  version: string;
+  aceptada_en: string;
 }
 
 
@@ -6071,6 +6113,9 @@ export type ComentariosComunidadInsert = {
   autor_inicial?: string | null | null;
   texto?: string | null;
   creado_en?: string | null | null;
+  oculto_en?: string | null | null;
+  oculto_por?: string | null | null;
+  socio_id?: string | null | null;
 }
 
 export type ComentariosComunidadUpdate = {
@@ -6082,6 +6127,9 @@ export type ComentariosComunidadUpdate = {
   autor_inicial?: string | null | null;
   texto?: string | null;
   creado_en?: string | null | null;
+  oculto_en?: string | null | null;
+  oculto_por?: string | null | null;
+  socio_id?: string | null | null;
 }
 
 export type CamposPersonalizadosInsert = {
@@ -8454,6 +8502,8 @@ export type ConversacionesInsert = {
   creado_en?: string | null;
   ultimo_mensaje_en?: string | null;
   mostrador_leido_hasta?: string | null | null;
+  cerrada_en?: string | null | null;
+  cerrada_por?: string | null | null;
 }
 
 export type ConversacionesUpdate = {
@@ -8466,6 +8516,8 @@ export type ConversacionesUpdate = {
   creado_en?: string | null;
   ultimo_mensaje_en?: string | null;
   mostrador_leido_hasta?: string | null | null;
+  cerrada_en?: string | null | null;
+  cerrada_por?: string | null | null;
 }
 
 export type ConversacionParticipantesInsert = {
@@ -8476,6 +8528,7 @@ export type ConversacionParticipantesInsert = {
   leido_hasta?: string | null;
   unido_en?: string | null;
   id?: number | null;
+  bloqueo_en?: string | null | null;
 }
 
 export type ConversacionParticipantesUpdate = {
@@ -8486,6 +8539,7 @@ export type ConversacionParticipantesUpdate = {
   leido_hasta?: string | null;
   unido_en?: string | null;
   id?: number | null;
+  bloqueo_en?: string | null | null;
 }
 
 export type MensajesInsert = {
@@ -8495,6 +8549,8 @@ export type MensajesInsert = {
   remitente_auth_user_id?: string | null | null;
   cuerpo?: string | null;
   creado_en?: string | null;
+  oculto_en?: string | null | null;
+  oculto_por?: string | null | null;
 }
 
 export type MensajesUpdate = {
@@ -8504,6 +8560,8 @@ export type MensajesUpdate = {
   remitente_auth_user_id?: string | null | null;
   cuerpo?: string | null;
   creado_en?: string | null;
+  oculto_en?: string | null | null;
+  oculto_por?: string | null | null;
 }
 
 export type DocumentosSocioInsert = {
@@ -10924,6 +10982,58 @@ export type DobleFactorCorreoBloqueosUpdate = {
   motivo?: string | null;
 }
 
+export type DenunciasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  ambito?: string | null;
+  motivo?: string | null;
+  destino?: string | null;
+  conversacion_id?: string | null | null;
+  mensaje_id?: string | null | null;
+  comentario_id?: string | null | null;
+  autor_auth_user_id?: string | null | null;
+  denunciante_auth_user_id?: string | null | null;
+  socio_id?: string | null | null;
+  detalle?: string | null | null;
+  estado?: string | null;
+  creada_en?: string | null;
+  resuelta_en?: string | null | null;
+  resuelta_por?: string | null | null;
+  revisada_por?: string | null | null;
+}
+
+export type DenunciasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  ambito?: string | null;
+  motivo?: string | null;
+  destino?: string | null;
+  conversacion_id?: string | null | null;
+  mensaje_id?: string | null | null;
+  comentario_id?: string | null | null;
+  autor_auth_user_id?: string | null | null;
+  denunciante_auth_user_id?: string | null | null;
+  socio_id?: string | null | null;
+  detalle?: string | null | null;
+  estado?: string | null;
+  creada_en?: string | null;
+  resuelta_en?: string | null | null;
+  resuelta_por?: string | null | null;
+  revisada_por?: string | null | null;
+}
+
+export type NormasComunidadAceptacionesInsert = {
+  auth_user_id?: string | null;
+  version?: string | null;
+  aceptada_en?: string | null;
+}
+
+export type NormasComunidadAceptacionesUpdate = {
+  auth_user_id?: string | null;
+  version?: string | null;
+  aceptada_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -12146,6 +12256,16 @@ export type Database = {
         Row: RowDobleFactorCorreoBloqueos;
         Insert: DobleFactorCorreoBloqueosInsert;
         Update: DobleFactorCorreoBloqueosUpdate;
+      };
+      denuncias: {
+        Row: RowDenuncias;
+        Insert: DenunciasInsert;
+        Update: DenunciasUpdate;
+      };
+      normas_comunidad_aceptaciones: {
+        Row: RowNormasComunidadAceptaciones;
+        Insert: NormasComunidadAceptacionesInsert;
+        Update: NormasComunidadAceptacionesUpdate;
       };
     };
   };

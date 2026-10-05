@@ -172,6 +172,7 @@ test('todas las tablas y columnas que toca la función existen en db-types (una 
     recomendaciones: ['studio_id', 'titulo', 'motivo', 'datos_usados'], decision_mensajes_dia: ['studio_id', 'recomendacion_id', 'motivo_motor'],
     decision_snapshots: ['studio_id'], post_likes: ['studio_id', 'user_id'], notification: ['studio_id', 'recipient_user_id', 'recipient_role', 'recipient_instructor_id', 'resource_id', 'data', 'title', 'body'],
     conversacion_participantes: ['auth_user_id', 'rol_en_conversacion', 'conversacion_id'], conversaciones: ['id', 'studio_id'],
+    denuncias: ['studio_id', 'denunciante_auth_user_id', 'autor_auth_user_id', 'socio_id', 'detalle'],
     actividad_reciente: ['studio_id', 'texto', 'actor_nombre'], posts_comunidad: ['autor_id', 'autor_nombre', 'autor_inicial'],
     comentarios_comunidad: ['autor_id', 'autor_nombre', 'autor_inicial'], sustituciones: ['ranking', 'motivo', 'candidatos_network', 'instructor_original_id', 'sustituta_final_id'],
     instructor_work_sessions: ['status', 'instructor_id'], socios: ['auth_user_id', 'borrado_en'], liquidaciones_instructoras: ['estado', 'instructor_id'],
@@ -195,6 +196,11 @@ test('las listas por cuenta borran lo personal de ESA cuenta en ESTE estudio (nu
   assert.match(funcion, /recipient_user_id = v_uid\s+and \(not v_es_socia or recipient_role <> 'SOCIA'\)/);
   assert.match(funcion, /delete from public\.conversacion_participantes cp\s+where cp\.auth_user_id = v_uid and cp\.rol_en_conversacion = 'STAFF'/);
   assert.match(funcion, /delete from public\.post_likes where studio_id = p_studio_id and user_id = v_uid;/);
+  // Denuncias de la app (20261005150100): lo que contó y su cuenta fuera; la fila queda como constancia.
+  // Su lado de socia (las que llevan su ficha) no se toca.
+  assert.match(funcion, /update public\.denuncias dn set denunciante_auth_user_id = null, detalle = null\s+where dn\.studio_id = p_studio_id and dn\.denunciante_auth_user_id = v_uid\s+and \(not v_es_socia or dn\.socio_id is null\);/);
+  assert.match(funcion, /update public\.denuncias dn set autor_auth_user_id = null, detalle = null\s+where dn\.studio_id = p_studio_id and dn\.autor_auth_user_id = v_uid and not v_es_socia;/);
+  assert.doesNotMatch(funcion, /delete from public\.denuncias/);
 });
 
 test('las excepciones de disponibilidad se borran ANTES que las ausencias (caen por cascade)', () => {

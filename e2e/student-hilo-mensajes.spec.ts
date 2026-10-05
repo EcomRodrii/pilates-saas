@@ -98,6 +98,38 @@ test.describe('Student PWA · hilo de mensajes', () => {
   });
 });
 
+test.describe('Student PWA · hilo que ya no admite mensajes', () => {
+  test.describe.configure({ timeout: 120_000 });
+  test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });
+
+  // El estudio cerró el hilo, o hay un bloqueo (moderación): el servidor responde 409.
+  test('al enviar, lo dice, el borrador se queda y no se pinta la burbuja', async ({ page }) => {
+    await montar(page, { conInstructora: true });
+    let intentos = 0;
+    // Registrada DESPUÉS del arnés: Playwright prueba las rutas de la última a la primera.
+    await page.route(
+      (u) => u.pathname === `/api/public/mensajeria/conversaciones/${CONV}/mensajes`,
+      (r) => {
+        if (r.request().method() !== 'POST') return r.fallback();
+        intentos++;
+        return r.fulfill({
+          status: 409, contentType: 'application/json',
+          body: JSON.stringify({ error: 'Esta conversación ya no admite mensajes.', estado: 'NO_ADMITE' }),
+        });
+      },
+    );
+    await page.goto(`/portal/${SLUG}/mensajes/${CONV}`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Sí, quedan dos. ¿Te la reservo?')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByPlaceholder('Escribe un mensaje…').fill('¿Y el jueves?');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByText('Esta conversación ya no admite mensajes.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toHaveValue('¿Y el jueves?');
+    await expect(page.getByTestId('mensaje').filter({ hasText: '¿Y el jueves?' })).toHaveCount(0);
+    expect(intentos).toBe(1);
+  });
+});
+
 test.describe('Student PWA · hilo con su instructora', () => {
   test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'Europe/Madrid' });

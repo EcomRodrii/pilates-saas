@@ -273,6 +273,8 @@ export interface Post {
 export interface ComentarioTablon {
   id: string; postId: string; autorNombre: string; autorInicial: string | null;
   texto: string; creadoEn: string; esMio: boolean;
+  /** Retirado por el estudio: solo le llega a quien lo escribió. */
+  oculto?: boolean;
 }
 
 /** Máquina de estados de reserva (ver lib/booking-machine.ts). */

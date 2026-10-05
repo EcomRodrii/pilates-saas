@@ -9,6 +9,10 @@ import {
 } from '@/lib/mensajeria/resumen';
 import { emitirMensajeRecibido } from '@/lib/notifications/emit';
 import { instanteDelMensaje, marcarAvisosDeConversacionLeidos } from '@/lib/mensajeria/avisos-leidos';
+import {
+  errorDeModeracion, estadoDelHilo, mensajeParaApp,
+  type EstadoHilo, type MensajeParaApp, type ParticipanteHilo,
+} from '@/lib/moderacion/reglas';
 import type { RowConversaciones, RowMensajes } from '@/lib/db-types';
 import type { AlumnaDelHilo, HiloInstructora, MotivoNoAbrir } from '@/lib/student/mensajes-instructora';
 
@@ -50,10 +54,15 @@ function adminOLanza(): Admin {
   return admin;
 }
 
-/** ¿Es un hilo instructora–alumna de este estudio en el que ella es la parte STAFF? */
-async function esHiloSuyo(admin: Admin, p: InstructoraDelHilo, conversacionId: string): Promise<boolean> {
+/**
+ * ¿Es un hilo instructora–alumna de este estudio en el que ella es la parte
+ * STAFF? `null` si no. Si lo es, trae además si admite mensajes (cerrado por el
+ * estudio o con un bloqueo, migr 20261005150100).
+ */
+async function esHiloSuyo(admin: Admin, p: InstructoraDelHilo, conversacionId: string): Promise<{ estado: EstadoHilo } | null> {
   const [conv, parte] = await Promise.all([
-    admin.from('conversaciones').select('id')
+    admin.from('conversaciones')
+      .select('id, cerrada_en, conversacion_participantes(rol_en_conversacion, auth_user_id, socio_id, bloqueo_en)')
       .eq('id', conversacionId).eq('studio_id', p.studioId).eq('tipo', TIPO).maybeSingle(),
     admin.from('conversacion_participantes').select('conversacion_id')
       .eq('conversacion_id', conversacionId).eq('auth_user_id', p.userId).eq('rol_en_conversacion', 'STAFF')
@@ -61,7 +70,14 @@ async function esHiloSuyo(admin: Admin, p: InstructoraDelHilo, conversacionId: s
   ]);
   if (conv.error) throw conv.error;
   if (parte.error) throw parte.error;
-  return Boolean(conv.data && parte.data);
+  if (!conv.data || !parte.data) return null;
+  return {
+    estado: estadoDelHilo({
+      tipo: TIPO, cerradaEn: conv.data.cerrada_en as string | null,
+      participantes: (conv.data.conversacion_participantes ?? []) as ParticipanteHilo[],
+      yo: { authUserId: p.userId },
+    }),
+  };
 }
 
 /** Su bandeja: sus hilos con alumnas de este estudio, el más reciente primero. */
@@ -95,7 +111,7 @@ export async function hilosDeInstructora(p: InstructoraDelHilo): Promise<HiloIns
   const convIds = filas.map((c) => c.id);
 
   const [ultimos, participantes] = await Promise.all([
-    admin.from('mensajes').select('conversacion_id, cuerpo, remitente_auth_user_id, creado_en')
+    admin.from('mensajes').select('conversacion_id, cuerpo, remitente_auth_user_id, creado_en, oculto_en')
       .in('conversacion_id', convIds).in('creado_en', instantesUltimoMensaje(filas)),
     admin.from('conversacion_participantes').select('conversacion_id, auth_user_id, leido_hasta, socio_id')
       .in('conversacion_id', convIds),
@@ -125,6 +141,8 @@ export async function hilosDeInstructora(p: InstructoraDelHilo): Promise<HiloIns
 
   return resumirConversaciones(
     filas, (ultimos.data ?? []) as FilaUltimoMensaje[], (participantes.data ?? []) as FilaLectura[], p.userId, 'equipo',
+    // Lo que el estudio retiró no se lee en la app, tampoco en la última línea.
+    { ocultarRetirados: true },
   ).map((c) => {
     const socioId = socioPorHilo.get(c.id);
     return { ...c, alumna: socioId ? alumnaPorId.get(socioId) ?? null : null } as HiloInstructora;
@@ -169,23 +187,39 @@ export async function abrirHiloConAlumna(
   return { ok: true, id: fila.id };
 }
 
-/** Los últimos mensajes de un hilo suyo, del más antiguo al más nuevo. `null` si no es suyo. */
-export async function mensajesDeHilo(p: InstructoraDelHilo, conversacionId: string): Promise<RowMensajes[] | null> {
+/**
+ * Los últimos mensajes de un hilo suyo, del más antiguo al más nuevo, y si el hilo
+ * admite mensajes. `null` si no es suyo. Lo que retiró el estudio sale sin su
+ * texto (`mensajeParaApp`), también lo que escribió ella.
+ */
+export async function mensajesDeHilo(
+  p: InstructoraDelHilo, conversacionId: string,
+): Promise<{ mensajes: MensajeParaApp<RowMensajes>[]; estado: EstadoHilo } | null> {
   const admin = adminOLanza();
-  if (!(await esHiloSuyo(admin, p, conversacionId))) return null;
+  const hilo = await esHiloSuyo(admin, p, conversacionId);
+  if (!hilo) return null;
   const { data, error } = await admin.from('mensajes')
-    .select('id, conversacion_id, studio_id, remitente_auth_user_id, cuerpo, creado_en')
+    .select('id, conversacion_id, studio_id, remitente_auth_user_id, cuerpo, creado_en, oculto_en')
     .eq('conversacion_id', conversacionId).order('creado_en', { ascending: false }).limit(LIMITE_MENSAJES);
   if (error) throw error;
-  return ((data ?? []) as RowMensajes[]).slice().reverse();
+  return { mensajes: ((data ?? []) as RowMensajes[]).slice().reverse().map(mensajeParaApp), estado: hilo.estado };
 }
 
-/** Escribe en un hilo suyo. `null` si no es suyo. El cuerpo llega ya validado (1–4000). */
+export type ResultadoEnviarEnHilo = { ok: true; mensaje: RowMensajes } | { ok: false; estado: EstadoHilo };
+
+/**
+ * Escribe en un hilo suyo. `null` si no es suyo; `ok: false` si el hilo ya no
+ * admite mensajes (cerrado o bloqueado: lo comprueba antes y, si cambia entre
+ * medias, lo para el trigger de la base de datos). El cuerpo llega ya validado
+ * (1–4000).
+ */
 export async function enviarEnHilo(
   p: InstructoraDelHilo, conversacionId: string, cuerpo: string,
-): Promise<RowMensajes | null> {
+): Promise<ResultadoEnviarEnHilo | null> {
   const admin = adminOLanza();
-  if (!(await esHiloSuyo(admin, p, conversacionId))) return null;
+  const hilo = await esHiloSuyo(admin, p, conversacionId);
+  if (!hilo) return null;
+  if (hilo.estado !== 'ABIERTA') return { ok: false, estado: hilo.estado };
   const { data, error } = await admin.from('mensajes')
     .insert({
       id: `msg-${crypto.randomUUID()}`,
@@ -196,8 +230,12 @@ export async function enviarEnHilo(
     })
     .select('id, conversacion_id, studio_id, remitente_auth_user_id, cuerpo, creado_en')
     .single();
-  if (error) throw error;
-  return data as RowMensajes;
+  if (error) {
+    const moderacion = errorDeModeracion(error);
+    if (moderacion) return { ok: false, estado: moderacion.estado };
+    throw error;
+  }
+  return { ok: true, mensaje: data as RowMensajes };
 }
 
 /**

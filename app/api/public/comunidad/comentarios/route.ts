@@ -12,8 +12,9 @@ import type { DestinatariosCampana } from '@/lib/types';
 // el contador de comentarios a la socia (ver lib/student/tipos.ts), y no
 // existía ninguna vía para que escribiera uno. Mismo patrón que
 // app/api/comunidad/comentarios/route.ts (staff) pero con la comprobación de
-// identidad de socia — service-role + socioAutenticado, nunca RLS directa
-// (la socia no tiene JWT `authenticated` de Postgres).
+// identidad de socia — service-role + socioAutenticado, nunca RLS directa (la
+// socia tiene JWT de Supabase, pero el tablón no se le abre por PostgREST: todo
+// lo suyo pasa por aquí, y aquí la RLS no actúa).
 //
 // A diferencia del staff (que trae TODOS los comentarios del estudio de una
 // vez para su propia bandeja interna), aquí se pide por post: la socia solo
@@ -29,6 +30,8 @@ function mapRow(r: Record<string, unknown>) {
     texto: r.texto as string,
     creadoEn: r.creado_en as string,
     esMio: false,
+    /** Retirado por el estudio (moderación). Solo lo ve así quien lo escribió. */
+    oculto: Boolean(r.oculto_en),
   };
 }
 
@@ -64,7 +67,12 @@ export async function GET(req: NextRequest) {
     .order('creado_en', { ascending: true });
   if (error) return errorInterno('public/comunidad/comentarios:GET', error, 'No se han podido cargar los comentarios.');
 
-  const comentarios = (data ?? []).map(row => ({ ...mapRow(row), esMio: row.autor_id === user.userId }));
+  // Suyo: por su cuenta o por su ficha (si borró la cuenta y volvió con otra, la
+  // cuenta vieja ya no la reconoce). Lo que el estudio retiró solo lo ve quien lo
+  // escribió, marcado `oculto`; a las demás no les llega.
+  const comentarios = (data ?? [])
+    .map(row => ({ ...mapRow(row), esMio: row.autor_id === user.userId || (row.socio_id != null && row.socio_id === socioId) }))
+    .filter(c => !c.oculto || c.esMio);
   return NextResponse.json({ comentarios });
 }
 
@@ -117,6 +125,8 @@ export async function POST(req: NextRequest) {
     studio_id: studioId,
     post_id: postId,
     autor_id: user.userId,
+    // La ficha: la exportación y la supresión de sus datos la buscan por aquí.
+    socio_id: socioId,
     autor_nombre: nombreCompleto || 'Clienta',
     autor_inicial: inicial,
     texto,

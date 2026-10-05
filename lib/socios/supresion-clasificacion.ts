@@ -72,7 +72,7 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
   },
   notification: {
     accion: 'BORRAR',
-    detalle: 'Las suyas (`recipient_socio_id`, o su cuenta como SOCIA) y las del staff que la nombran (`data.socioId` / `data.socioIds`). `notification_delivery` en cascada.',
+    detalle: 'Las suyas (`recipient_socio_id`, o su cuenta como SOCIA), las del staff que la nombran (`data.socioId` / `data.socioIds`) y los avisos de mensajes de sus conversaciones (`data.conversacionId`: llevan su nombre como remitente). `notification_delivery` en cascada.',
   },
   tareas: { accion: 'BORRAR', detalle: 'Tareas del staff sobre ella (título con su nombre), seguimientos incluidos.' },
   consultas_contacto: { accion: 'BORRAR', detalle: 'Lo que preguntó antes de ser clienta: las enlazadas a su ficha y las de su mismo email.' },
@@ -102,9 +102,13 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
     accion: 'ANONIMIZAR',
     detalle: 'Los que ella envió en conversaciones que se quedan (con otras socias): `cuerpo` → «[mensaje eliminado]».',
   },
-  conversacion_participantes: { accion: 'BORRAR', detalle: 'Su participación.' },
+  conversacion_participantes: { accion: 'BORRAR', detalle: 'Su participación (con su bloqueo, si lo puso).' },
   posts_comunidad: { accion: 'BORRAR', detalle: 'Publicaciones suyas (`autor_id` = su cuenta o su ficha). Comentarios/likes/asistentes del post en cascada.' },
-  comentarios_comunidad: { accion: 'BORRAR', detalle: 'Comentarios suyos (`autor_id`).' },
+  comentarios_comunidad: { accion: 'BORRAR', detalle: 'Comentarios suyos (`autor_id` = su cuenta o su ficha, o `socio_id` = su ficha).' },
+  denuncias: {
+    accion: 'ANONIMIZAR',
+    detalle: 'Denuncias y bloqueos de la app. Las que hizo: `socio_id`, `denunciante_auth_user_id` y `detalle` (lo que contó) a NULL. Las de algo suyo: `autor_auth_user_id` y `detalle` a NULL (si el contenido se borra, caen en cascada). La fila queda: es la constancia de que se moderó.',
+  },
   post_likes: { accion: 'BORRAR', detalle: 'Sus «me gusta» (`user_id` en este estudio).' },
   post_evento_asistentes: { accion: 'BORRAR', detalle: 'Su asistencia a eventos.' },
 

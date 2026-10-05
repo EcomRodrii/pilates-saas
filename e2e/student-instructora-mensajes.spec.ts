@@ -36,7 +36,7 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page, o: { abrirSinClase?: boolean; enviarFalla?: boolean } = {}) {
+async function montar(page: Page, o: { abrirSinClase?: boolean; enviarFalla?: boolean; hiloNoAdmite?: boolean } = {}) {
   const contador = { abrir: 0, hilos: 0, enviados: [] as string[] };
   await montarPortal(page, { conSesion: true, sinSocia: true });
   await page.route('**/api/public/session**', (route) => json(route, { error: 'No hay ninguna socia' }, 404));
@@ -62,6 +62,8 @@ async function montar(page: Page, o: { abrirSinClase?: boolean; enviarFalla?: bo
       case 'enviar':
         contador.enviados.push(cuerpo.cuerpo ?? '');
         if (o.enviarFalla) return json(route, { error: 'No se ha podido enviar el mensaje. Vuelve a intentarlo.' }, 500);
+        // El estudio cerró el hilo, o hay un bloqueo (moderación): el servidor dice que no.
+        if (o.hiloNoAdmite) return json(route, { error: 'Esta conversación ya no admite mensajes.', estado: 'NO_ADMITE' }, 409);
         return json(route, {
           // La cuenta de la sesión del mock (`montarPortal`): así el mensaje que
           // envía sale como suyo, a la derecha, igual que en la app de verdad.
@@ -127,5 +129,19 @@ test.describe('Mensajes de la instructora con sus alumnas', () => {
     await expect(page.getByTestId('mensaje').filter({ hasText: 'Esto no llega' })).toHaveCount(0);
     await expect(page.getByTestId('mensaje')).toHaveCount(1);
     expect(contador.enviados.length).toBeGreaterThan(0);
+  });
+
+  test('si el hilo ya no admite mensajes (cerrado o bloqueado), lo dice y conserva el borrador', async ({ page }) => {
+    const contador = await montar(page, { hiloNoAdmite: true });
+    await page.goto(`/portal/${SLUG}/equipo/mensajes/conv-1`);
+    await expect(page.getByText(PREGUNTA)).toBeVisible({ timeout: 30_000 });
+
+    await page.getByPlaceholder('Escribe un mensaje…').fill('¿Seguimos el jueves?');
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByText('Esta conversación ya no admite mensajes.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('Escribe un mensaje…')).toHaveValue('¿Seguimos el jueves?');
+    await expect(page.getByTestId('mensaje').filter({ hasText: '¿Seguimos el jueves?' })).toHaveCount(0);
+    // Sí se intentó, una vez: el «no» es del servidor, no de una pantalla que no llegó a pedir nada.
+    expect(contador.enviados).toEqual(['¿Seguimos el jueves?']);
   });
 });

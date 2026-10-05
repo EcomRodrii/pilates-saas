@@ -190,7 +190,7 @@ export async function GET(req: NextRequest) {
 
   const { data: ultimos } = await sesionCliente
     .from('mensajes')
-    .select('conversacion_id, cuerpo, remitente_auth_user_id, creado_en')
+    .select('conversacion_id, cuerpo, remitente_auth_user_id, creado_en, oculto_en')
     .in('conversacion_id', filas.map(c => c.id))
     .in('creado_en', instantesUltimoMensaje(filas));
 
@@ -202,6 +202,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     conversaciones: resumirConversaciones(
       filas, (ultimos ?? []) as FilaUltimoMensaje[], lecturas, sesion.userId, 'equipo',
+      // El panel modera: ve el texto de lo retirado, con `ultimo_oculto`.
+      { ocultarRetirados: false },
     ),
   });
 }

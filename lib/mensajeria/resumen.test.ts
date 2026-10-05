@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resumirConversaciones, type FilaLectura, type FilaUltimoMensaje } from './resumen.ts';
+import { TEXTO_RETIRADO } from '../moderacion/reglas.ts';
 
 const conv = (id: string, tipo: string) => ({
   id, tipo, creado_en: '2026-09-01T10:00:00Z', ultimo_mensaje_en: '2026-09-14T10:00:00Z',
@@ -73,4 +74,29 @@ test('desde la instructora: el hilo que nunca abrió sale sin leer; el que solo 
     lecturas, 'laura', 'equipo',
   );
   assert.deepEqual(r.map((c) => [c.id, c.sin_leer]), [['laura', true], ['suyo', false]]);
+});
+
+// ── Moderación: lo retirado por el estudio en la última línea de la bandeja ─
+
+const retirado: FilaUltimoMensaje[] = [
+  { conversacion_id: 'laura', cuerpo: 'Algo feo', remitente_auth_user_id: 'socia', creado_en: '2026-09-14T10:00:00Z', oculto_en: '2026-09-14T11:00:00Z' },
+];
+const lecturasRetirado: FilaLectura[] = [{ conversacion_id: 'laura', auth_user_id: 'socia', leido_hasta: '-infinity' }];
+
+test('en las apps, si lo último lo retiró el estudio, la bandeja no enseña el texto (por defecto, tampoco)', () => {
+  for (const opciones of [{ ocultarRetirados: true }, undefined]) {
+    const [c] = resumirConversaciones([conv('laura', 'ALUMNA_INSTRUCTORA')], retirado, lecturasRetirado, 'laura', 'equipo', opciones);
+    assert.equal(c.ultimo_cuerpo, TEXTO_RETIRADO);
+    assert.equal(c.ultimo_oculto, true);
+  }
+});
+
+test('en el panel, que modera, la bandeja trae el texto y la marca', () => {
+  const [c] = resumirConversaciones([conv('laura', 'ALUMNA_INSTRUCTORA')], retirado, lecturasRetirado, 'duena', 'equipo', { ocultarRetirados: false });
+  assert.equal(c.ultimo_cuerpo, 'Algo feo');
+  assert.equal(c.ultimo_oculto, true);
+  // Y uno normal sale igual que siempre.
+  const [n] = resumirConversaciones([conv('laura', 'ALUMNA_INSTRUCTORA')], [{ ...retirado[0], oculto_en: null }], lecturasRetirado, 'duena', 'equipo', { ocultarRetirados: true });
+  assert.equal(n.ultimo_cuerpo, 'Algo feo');
+  assert.equal(n.ultimo_oculto, false);
 });

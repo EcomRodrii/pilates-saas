@@ -69,11 +69,11 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ id: fila?.id as string, creada: Boolean(fila?.creada) });
 }
 
-// Lista las conversaciones de la socia autenticada. La socia no tiene JWT
-// `authenticated` de Postgres (su sesión es una cookie/token propio del
-// portal, nunca llega a auth.uid() en RLS) — así que esta ruta usa
-// service-role y filtra EXPLÍCITAMENTE por su socio_id, nunca confiando en
-// que RLS lo haría por ella.
+// Lista las conversaciones de la socia autenticada. La socia SÍ tiene un JWT
+// `authenticated` de Supabase, pero la mensajería no se le abre por PostgREST:
+// `es_participante_conversacion` solo cuenta filas del equipo (migr
+// 20261005150000), así que todo lo suyo pasa por aquí. Esta ruta usa
+// service-role y filtra EXPLÍCITAMENTE por su socio_id: la RLS no la protege.
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const studioId = searchParams.get('studioId');
@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
   // y hasta dónde ha leído cada participante.
   const { data: ultimos } = await admin
     .from('mensajes')
-    .select('conversacion_id, cuerpo, remitente_auth_user_id, creado_en')
+    .select('conversacion_id, cuerpo, remitente_auth_user_id, creado_en, oculto_en')
     .in('conversacion_id', filas.map(c => c.id))
     .in('creado_en', instantesUltimoMensaje(filas));
 
@@ -157,6 +157,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     conversaciones: resumirConversaciones(
       filas, (ultimos ?? []) as FilaUltimoMensaje[], (lecturas ?? []) as FilaLectura[], user.userId, 'alumna',
+      // Lo que el estudio retiró no se lee en la app, tampoco en la última línea.
+      { ocultarRetirados: true },
     ).map(c => ({
       ...c,
       interlocutor: c.tipo === 'ALUMNA_INSTRUCTORA'
