@@ -63,3 +63,11 @@ test('menores de 14: no se abre un chat con instructora desde ninguna de las dos
   const instructora = leer('lib/portal-instructora/mensajes-servidor.ts');
   assert.ok(instructora.indexOf('alumnaMenorParaChat(') > 0 && instructora.indexOf('alumnaMenorParaChat(') < instructora.indexOf(".rpc('abrir_conversacion'"));
 });
+
+test('«Personas bloqueadas»: solo lo que bloqueó ELLA, por su ficha en ESTE estudio', () => {
+  const f = leer('app/api/public/bloqueos/route.ts');
+  assert.match(f, /const socioId = await socioAutenticado\(user\.userId, studioId\)/);
+  assert.match(f, /\.eq\('estado', 'bloqueada'\)\.eq\('bloqueada_por', socioId\)/, 'nunca quién la bloqueó a ella');
+  assert.match(f, /\.eq\('socio_id', socioId\)\.eq\('rol_en_conversacion', 'SOCIO'\)/);
+  assert.match(f, /\.eq\('studio_id', studioId\)\.eq\('tipo', 'ALUMNA_INSTRUCTORA'\)/);
+});

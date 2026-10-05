@@ -3,7 +3,7 @@
 //
 // Lo usan dos puertas con la MISMA función, para que no puedan divergir:
 //   · la alumna, desde su app  → GET /api/public/mis-datos (incluye su salud:
-//     son sus datos; y sus denuncias y bloqueos de la app);
+//     son sus datos; y sus denuncias, sus bloqueos y las normas que aceptó);
 //   · el estudio, desde la ficha → GET /api/socios/[id]/exportar (la salud
 //     solo si el rol puede ver la ficha clínica Y la socia tiene el
 //     consentimiento vigente — el mismo criterio que la RLS, que aquí no
@@ -266,6 +266,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     participaciones, valoraciones, preferenciasClase, favoritos, documentos,
     comunicaciones, excepciones, autorizadas, eventos, solicitudes, consentimientosSalud, aceptacionesContrato, consentimientosMarketing, memoria, recomendaciones,
     accesos, bajas, consultasSuyas, avisos, camposPersonalizados, comentariosTablon, denuncias,
+    meGusta, bloqueosTablon, normasAceptadas,
     valoracionesIniciales, valoracionesInicialesSalud, condiciones, respuestasCuestionario, respuestasSesion, notasProgreso,
   ] = await Promise.all([
     tabla('reservas', 'id, sesion_id, estado, posicion_espera, check_in_en, creado_en, cancelada_tardia, valoracion_experiencia'),
@@ -294,7 +295,8 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('challenge_history', 'id, nombre, creado_en'),
     tabla('challenge_progress', 'id, challenge_id, progreso_actual, completado, completado_en'),
     tabla('reto_participaciones', 'id, reto_key, created_at'),
-    leer(db, 'conversacion_participantes', 'conversacion_id', [['eq', 'socio_id', socioId]], 'conversacion_id'),
+    // Con `bloqueo_en`: si bloqueó a la otra parte de ese hilo (solo sale en su propia descarga).
+    leer(db, 'conversacion_participantes', 'conversacion_id, bloqueo_en', [['eq', 'socio_id', socioId]], 'conversacion_id'),
     tabla('valoraciones', 'id, sesion_id, instructor_id, puntuacion, comentario, creado_en'),
     tabla('preferencias_socio', 'disponibilidad, instructor_favorito_id, tipo_clase_favorita, duracion_preferida, nivel, notif_email, notif_whatsapp, actualizado_en', 'socio_id'),
     tabla('favoritos_clase', 'id, tipo_clase_id, created_at'),
@@ -327,6 +329,18 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     tabla('comentarios_comunidad', 'id, post_id, texto, creado_en, oculto_en', 'creado_en'),
     // Sin quién la revisó (`resuelta_por`) ni de quién era lo denunciado: son cuentas de otras personas.
     esLaAlumna ? tabla('denuncias', 'id, ambito, motivo, estado, revisada_por, detalle, creada_en, resuelta_en', 'creada_en') : sinFilas,
+    // Sus «me gusta» del tablón: van por su CUENTA (`post_likes.user_id`), no por su ficha.
+    authUserId
+      ? leer(db, 'post_likes', 'post_id, creado_en', [['eq', 'studio_id', studioId], ['eq', 'user_id', authUserId]], 'creado_en')
+      : sinFilas,
+    // A quién bloqueó en el tablón: solo que lo hizo y cuándo, sin la ficha de la otra (es de otra persona).
+    esLaAlumna
+      ? leer(db, 'socio_companeras', 'id, estado, resuelto_en', [['eq', 'studio_id', studioId], ['eq', 'bloqueada_por', socioId]], 'id')
+      : sinFilas,
+    // Las normas de la comunidad que aceptó (por su cuenta; valen para todos sus estudios).
+    esLaAlumna && authUserId
+      ? leer(db, 'normas_comunidad_aceptaciones', 'version, aceptada_en', [['eq', 'auth_user_id', authUserId]], 'aceptada_en')
+      : sinFilas,
     conSalud ? tabla('valoraciones_iniciales', 'id, estado, objetivos, objetivo_principal, experiencia, nivel, actividad_habitual, frecuencia, expectativas, creado_en, actualizado_en, completada_en') : sinFilas,
     conSalud ? tabla('valoraciones_iniciales_salud', 'valoracion_id, tiene_molestias, zonas, detalle, estado_cuerpo, creado_en', 'valoracion_id') : sinFilas,
     conSalud ? tabla('condiciones_salud', 'id, categoria, etiqueta, zona, restricciones, severidad, estado, inicio, fin, revisar_en, notas, creado_en, actualizado_en') : sinFilas,
@@ -567,6 +581,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
           comentarios: porFecha(comentariosTablon, 'creado_en').map(c => ({
             fecha: str(c.creado_en), texto: str(c.texto), retiradoPorElEstudio: Boolean(c.oculto_en),
           })),
+          meGusta: porFecha(meGusta, 'creado_en').map(l => ({ fecha: str(l.creado_en), publicacion: str(l.post_id) })),
         },
         // Lo que denunció o bloqueó en la app y qué se decidió. Solo en su propia descarga.
         ...(esLaAlumna ? {
@@ -574,6 +589,12 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
             fecha: str(d.creada_en), sobre: str(d.ambito), tipo: str(d.motivo), estado: str(d.estado),
             revisadaPor: str(d.revisada_por), resueltaEn: str(d.resuelta_en), loQueContaste: str(d.detalle),
           })),
+          // A quién bloqueó: dónde y desde cuándo. Sin la identidad de la otra persona.
+          bloqueos: [
+            ...bloqueosTablon.filter(b => b.estado === 'bloqueada').map(b => ({ donde: 'tablon', desde: str(b.resuelto_en) })),
+            ...participaciones.filter(p => p.bloqueo_en).map(p => ({ donde: 'mensajes', desde: str(p.bloqueo_en) })),
+          ],
+          normasDeLaComunidadAceptadas: normasAceptadas.map(n => ({ version: str(n.version), fecha: str(n.aceptada_en) })),
         } : {}),
         perfilado: {
           hechos: memoria.map(m => ({ clave: str(m.clave), origen: str(m.origen), evidencia: str(m.evidencia), activo: bool(m.activa), fecha: str(m.creado_en), caduca: str(m.expira_en) })),

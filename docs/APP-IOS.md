@@ -218,6 +218,38 @@ Puntos de la revisión que tocan a esta app:
 - `ITSAppUsesNonExemptEncryption = false` en `Info.plist`: la app solo usa
   HTTPS, y así no pregunta por exportación de cifrado en cada subida.
 
+### Guía 1.2 (contenido generado por usuarios): dónde está cada pieza
+
+La app tiene chat (alumna ↔ estudio, alumna ↔ instructora) y un tablón con
+comentarios, así que la revisión pide cuatro cosas. Dónde vive cada una, para
+enseñárselo al revisor y para no romperlo sin darse cuenta:
+
+| Lo que pide Apple | En la app | En el código |
+| --- | --- | --- |
+| Normas que se aceptan antes de publicar, con tolerancia cero | Hoja «Normas de la comunidad» la primera vez que se escribe en el chat o en el tablón; también en Ayuda | `lib/moderacion/normas.ts`, `normas-servidor.ts` (las exige el SERVIDOR al enviar: 409 `NORMAS_PENDIENTES`) |
+| Filtro de contenido | Un mensaje o comentario con palabras no permitidas no se guarda y se dice por qué | `lib/moderacion/filtro.ts` (422 `FILTRO`) |
+| Denunciar | Tocar un mensaje o un comentario de otra persona → «Denunciar» → «Gracias. Lo revisaremos.» | `lib/moderacion/chat-servidor.ts`, `lib/comunidad/comentarios-servidor.ts` → `registrarDenuncia` |
+| Bloquear | Chat con su instructora y tablón: «Bloquear a …» con confirmación; se deshace en Perfil › Privacidad y datos › «Personas bloqueadas» | `conversacion_participantes.bloqueo_en` (+ trigger que impide escribir) y `socio_companeras` |
+| Actuar sobre lo denunciado en 24 h | El estudio decide en Inicio (bandeja «por decidir»): mantener, retirar o cerrar la conversación. Si no lo hace en 24 h, o si la denuncia va contra el propio estudio, la revisa Tentare en `/interno/denuncias`. La alumna recibe aviso de lo decidido | `resolver_denuncia` (migr `20261005150100`), `HORAS_REVISION_ESTUDIO`; alarma `denuncias-esperando-a-tentare` y `denuncias-sin-revisar-48h` en `/api/health/flujos`, que manda a Sentry el digest de mensajes |
+| Contacto del desarrollador | Ayuda › «Normas y contacto»: Tentare como desarrollador de la app | `CONTACTO_TENTARE` (`components/student/domain/NormasComunidad.tsx`) |
+
+Lo que el revisor tiene que poder probar con la cuenta de prueba: escribir al
+estudio (y aceptar las normas), denunciar un mensaje, comentar en el tablón,
+borrar su comentario, denunciar o bloquear a otra alumna, y desbloquearla.
+Para eso la cuenta de prueba necesita un estudio con al menos una publicación
+con un comentario de otra alumna, y un mensaje del estudio en su hilo.
+
+Decisiones de producto que van con esto (5-oct-2026): el hilo de la alumna con
+su estudio se denuncia pero no se bloquea (es el canal del servicio); con una
+alumna menor de 14 años no se abre un chat con instructora (los mensajes van
+por el estudio); en las publicaciones para un grupo, cada alumna ve solo sus
+comentarios y los del estudio; «silenciar» en el tablón no existe (bloquear y
+moderar cubren la 1.2).
+
+⚠️ Releer el texto vigente de las guías 1.2, 4.5.4 y 5.1.1(v) en
+developer.apple.com antes de cada envío a revisión y cruzarlo con esta tabla:
+este resumen se escribió sin poder abrirlas.
+
 ## Apps por estudio
 
 Salen de este mismo proyecto cambiando la identidad al compilar:

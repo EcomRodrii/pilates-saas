@@ -199,7 +199,8 @@ test('historial del contrato (art. 15): fecha, vía, si coincidía y el texto; n
 test('alcance: cada lectura de una tabla con socio_id va filtrada por la socia, y por el estudio si la tabla lo tiene', async () => {
   const { db, llamadas } = bdFalsa(fixture());
   await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA });
-  const sinEstudio = new Set(['codigos_descuento_consumos', 'conversacion_participantes', 'post_evento_asistentes']);
+  // `normas_comunidad_aceptaciones` va por su cuenta: las normas valen para todos sus estudios.
+  const sinEstudio = new Set(['codigos_descuento_consumos', 'conversacion_participantes', 'post_evento_asistentes', 'normas_comunidad_aceptaciones']);
   for (const l of llamadas) {
     const tiene = (op: string, c: string, v?: unknown) => l.filtros.some(f => f[0] === op && f[1] === c && (v === undefined || f[2] === v));
     if (l.tabla in COBERTURA_TABLAS) {
@@ -287,7 +288,20 @@ function fixtureModeracion(): Record<string, Fila[]> {
       { id: 'cv1', studio_id: 'st1', tipo: 'ALUMNA_MOSTRADOR' },
       { id: 'cv2', studio_id: 'st1', tipo: 'ALUMNA_INSTRUCTORA' },
     ],
-    conversacion_participantes: [...f.conversacion_participantes, { conversacion_id: 'cv2', socio_id: 's1' }],
+    conversacion_participantes: [...f.conversacion_participantes, { conversacion_id: 'cv2', socio_id: 's1', bloqueo_en: '2026-09-09T10:00:00Z' }],
+    post_likes: [
+      { post_id: 'p1', studio_id: 'st1', user_id: 'u1', creado_en: '2026-09-05T12:00:00Z' },
+      { post_id: 'p1', studio_id: 'st1', user_id: 'u2', creado_en: '2026-09-05T12:30:00Z' },
+    ],
+    socio_companeras: [
+      { id: 'sc1', studio_id: 'st1', solicitante_id: 's1', destinataria_id: 's2', estado: 'bloqueada', bloqueada_por: 's1', resuelto_en: '2026-09-10T10:00:00Z' },
+      // La bloqueó otra: eso no es suyo (y no se le cuenta).
+      { id: 'sc2', studio_id: 'st1', solicitante_id: 's3', destinataria_id: 's1', estado: 'bloqueada', bloqueada_por: 's3', resuelto_en: '2026-09-10T11:00:00Z' },
+    ],
+    normas_comunidad_aceptaciones: [
+      { auth_user_id: 'u1', version: '2026-10-05', aceptada_en: '2026-10-05T09:00:00Z' },
+      { auth_user_id: 'u2', version: '2026-10-05', aceptada_en: '2026-10-05T09:30:00Z' },
+    ],
     mensajes: [
       ...f.mensajes,
       { id: 'ms3', studio_id: 'st1', conversacion_id: 'cv2', remitente_auth_user_id: 'u1', cuerpo: 'Laura, ¿me cambias el ejercicio?', creado_en: '2026-09-03T10:00:00Z', oculto_en: '2026-09-04T10:00:00Z' },
@@ -357,4 +371,25 @@ test('mensajes: la propietaria y la propia alumna se llevan también los de su i
       ['Laura, ¿me cambias el ejercicio?', true],
     ]);
   }
+});
+
+test('tablón y moderación: sus «me gusta», a quién bloqueó (sin quién era) y las normas que aceptó', async () => {
+  const alumna = await exportarDatosSocia(bdFalsa(fixtureModeracion()).db,
+    { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA });
+  const otros = alumna!.secciones.otros as { tablon: { meGusta: Fila[] }; bloqueos: Fila[]; normasDeLaComunidadAceptadas: Fila[] };
+  assert.deepEqual(otros.tablon.meGusta, [{ fecha: '2026-09-05T12:00:00Z', publicacion: 'p1' }]);
+  assert.deepEqual(otros.bloqueos, [
+    { donde: 'tablon', desde: '2026-09-10T10:00:00Z' },
+    { donde: 'mensajes', desde: '2026-09-09T10:00:00Z' },
+  ]);
+  assert.deepEqual(otros.normasDeLaComunidadAceptadas, [{ version: '2026-10-05', fecha: '2026-10-05T09:00:00Z' }]);
+  assert.ok(!JSON.stringify(otros.bloqueos).includes('s2'), 'sin la ficha de la otra persona');
+
+  // Desde la ficha del estudio: los «me gusta» sí (son del tablón del estudio); bloqueos y normas, no (ni se leen).
+  const { db, llamadas } = bdFalsa(fixtureModeracion());
+  const panel = await exportarDatosSocia(db,
+    { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: true, puerta: { estudio: 'PROPIETARIO' }, ahora: AHORA });
+  const o = panel!.secciones.otros as Record<string, unknown>;
+  assert.ok(!('bloqueos' in o) && !('normasDeLaComunidadAceptadas' in o));
+  assert.ok(!llamadas.some((l) => l.tabla === 'socio_companeras' || l.tabla === 'normas_comunidad_aceptaciones'));
 });
