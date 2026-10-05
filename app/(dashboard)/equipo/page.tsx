@@ -1174,7 +1174,7 @@ function TarjetaMiembro({
           <div>
             <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums">{cif.ocupacionTexto}</p>
             <span className="block h-1 mt-2 rounded-full bg-foreground/[0.07]">
-              <span className="block h-1 rounded-full bg-brand transition-[width] duration-700" style={{ width: `${cif.ocupacionBarraPct}%` }} />
+              <span className="block h-1 rounded-full bg-brand-medio transition-[width] duration-700" style={{ width: `${cif.ocupacionBarraPct}%` }} />
             </span>
             <p className="text-[12px] text-muted-foreground mt-2">{cif.ocupacionPie}</p>
           </div>

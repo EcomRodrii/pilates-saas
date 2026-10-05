@@ -591,7 +591,7 @@ export function PostCardPanel({
       className="contenido-anim overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_3px_rgba(0,0,0,0.03)] transition-shadow duration-300 hover:shadow-[0_8px_28px_-20px_rgba(0,0,0,0.4)]"
       style={{ animationDelay: `${Math.min(indice, 6) * 45}ms` }}
     >
-      {esEvento && <div aria-hidden className="h-1 bg-brand" />}
+      {esEvento && <div aria-hidden className="h-1 bg-brand-medio" />}
 
       <div className="p-4 sm:p-5">
         {post.fijado && (

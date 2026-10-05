@@ -319,7 +319,7 @@ export function ComunidadFeed() {
             <div className="divide-y divide-border">
               {proximosEventos.map(ev => (
                 <div key={ev.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                  <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-brand" />
+                  <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-brand-medio" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-semibold text-foreground">{ev.titulo}</p>
                     <p className="text-[12px] capitalize text-muted-foreground">{ev.cuando}</p>

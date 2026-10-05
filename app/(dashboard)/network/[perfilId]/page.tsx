@@ -176,7 +176,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
                 <Heart size={15} className={cn(esFavorito ? 'text-destructive' : 'text-muted-foreground')} fill={esFavorito ? 'currentColor' : 'none'} />
               </button>
             </div>
-            <p className="mt-0.5 text-[13.5px] font-bold text-brand">{tituloProfesionalDe(perfil.especialidades)}</p>
+            <p className="mt-0.5 text-[13.5px] font-bold text-brand-medio">{tituloProfesionalDe(perfil.especialidades)}</p>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-[12.5px] text-muted-foreground">
               {perfil.resumenResenas.total > 0 && (
                 <span className="flex items-center gap-1 font-semibold text-foreground">
@@ -284,7 +284,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
               <div className="space-y-2.5">
                 {estudiosActuales.map((e, i) => (
                   <div key={`${e.nombre}-${i}`} className="flex items-start gap-2.5">
-                    <Building2 size={15} className="mt-0.5 shrink-0 text-brand" />
+                    <Building2 size={15} className="mt-0.5 shrink-0 text-brand-medio" />
                     <div>
                       <p className="text-[13px] font-bold text-foreground">{e.nombre}</p>
                       {e.ciudad && <p className="text-[12px] text-muted-foreground">{e.ciudad}</p>}
@@ -300,7 +300,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
               <div className="space-y-2.5">
                 {certificaciones.map((c, i) => (
                   <div key={`${c.nombre}-${i}`} className="flex items-start gap-2.5">
-                    <GraduationCap size={15} className="mt-0.5 shrink-0 text-brand" />
+                    <GraduationCap size={15} className="mt-0.5 shrink-0 text-brand-medio" />
                     <div>
                       <p className="text-[13px] font-bold text-foreground">{c.nombre}</p>
                       <p className="text-[12px] text-muted-foreground">{c.institucion}{c.anio ? ` · ${c.anio}` : ''}</p>

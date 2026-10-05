@@ -339,7 +339,7 @@ function FilaTimeline({
           una línea que no lleva a ninguna parte. */}
       <div aria-hidden className="flex flex-col items-center">
         <div className="h-4" />
-        <span className="h-2 w-2 rounded-full bg-brand shrink-0" />
+        <span className="h-2 w-2 rounded-full bg-brand-medio shrink-0" />
         <div className="w-px flex-1 bg-border" />
       </div>
 

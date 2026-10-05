@@ -172,7 +172,7 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
   if (fase.f === 'esperando') {
     return (
       <div className="rounded-xl border border-brand/40 bg-brand/5 p-4 space-y-2 text-center">
-        <Loader2 size={20} className="animate-spin text-brand mx-auto" />
+        <Loader2 size={20} className="animate-spin text-brand-medio mx-auto" />
         <p className="text-[13.5px] font-semibold text-foreground">
           {fase.metodo === 'DATAFONO' ? `Acerca la tarjeta al datáfono${etiquetaDatafono ? ` ${etiquetaDatafono}` : ''}…` : 'Esperando el Bizum…'}
         </p>
@@ -183,7 +183,7 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
         </p>
         {fase.url && (
           <a href={fase.url} target="_blank" rel="noopener noreferrer"
-            className="inline-block text-[12.5px] font-semibold text-brand underline">
+            className="inline-block text-[12.5px] font-semibold text-brand-medio underline">
             Abrir el pago
           </a>
         )}

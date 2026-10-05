@@ -48,7 +48,7 @@ function EscenaNuevas() {
     <div className="w-full h-full px-2.5 py-2 flex flex-col justify-center gap-1">
       <Fila Icono={Mail} tinte="text-success" fondo="bg-success/12" texto="Bienvenida" />
       <Fila Icono={Bell} tinte="text-info" fondo="bg-info/12" texto="Recordatorio" className="ml-2" />
-      <Fila Icono={Sparkles} tinte="text-brand" fondo="bg-brand/12" texto="Reactivación" className="ml-4" />
+      <Fila Icono={Sparkles} tinte="text-brand-medio" fondo="bg-brand/12" texto="Reactivación" className="ml-4" />
     </div>
   );
 }
@@ -178,10 +178,10 @@ function Flotante({
 const FLOTANTES: Record<Cat, { Icono: React.ElementType; tinte: string; fondo: string; titulo: string; pie: string; desp: string }[]> = {
   nuevas: [
     { Icono: Mail, tinte: 'text-success', fondo: 'bg-success/12', titulo: 'Email de bienvenida', pie: 'Automático', desp: 'ml-0' },
-    { Icono: Sparkles, tinte: 'text-brand', fondo: 'bg-brand/12', titulo: 'Reactivación', pie: 'Tras 30 días', desp: 'ml-4' },
+    { Icono: Sparkles, tinte: 'text-brand-medio', fondo: 'bg-brand/12', titulo: 'Reactivación', pie: 'Tras 30 días', desp: 'ml-4' },
   ],
   mejoras: [
-    { Icono: Calendar, tinte: 'text-brand', fondo: 'bg-brand/12', titulo: 'Tu semana', pie: 'Se abre al instante', desp: 'ml-0' },
+    { Icono: Calendar, tinte: 'text-brand-medio', fondo: 'bg-brand/12', titulo: 'Tu semana', pie: 'Se abre al instante', desp: 'ml-0' },
     { Icono: Gauge, tinte: 'text-success', fondo: 'bg-success/12', titulo: 'Más rápido', pie: 'En todo el panel', desp: 'ml-4' },
   ],
   correcciones: [

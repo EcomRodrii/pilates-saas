@@ -83,7 +83,7 @@ type ClienteDatafono = {
   terminal: { readers: Pick<Stripe['terminal']['readers'], 'retrieve'> };
 };
 
-export type VeredictoDatafono = 'no' | 'sigue' | 'rechazado' | 'pagado';
+export type VeredictoDatafono = 'no' | 'sigue' | 'rechazado' | 'abandonado' | 'pagado';
 
 /**
  * ¿El cobro del datáfono se ha quedado en un rechazo? Y si sí, se CIERRA antes
@@ -102,14 +102,18 @@ export type VeredictoDatafono = 'no' | 'sigue' | 'rechazado' | 'pagado';
  *     podido cerrar. Se vuelve a preguntar; no se anula nada.
  *   - `rechazado`: el lector ya no está con él y se ha cancelado en Stripe. Con
  *     `rechazo`, el error que tenía al detectarlo (al cancelar, Stripe lo borra).
+ *   - `abandonado`: solo con `sinTarjeta` (el conciliador, pasados unos minutos):
+ *     nadie llegó a pasar la tarjeta, el lector ya no lo espera, y se ha cancelado.
  *   - `pagado`: al ir a cerrarlo, había entrado.
  */
 export async function cerrarSiRechazadoDatafono(
   stripe: ClienteDatafono, paymentIntentId: string, stripeAccount: string, readerId: string | null,
+  opciones: { sinTarjeta?: boolean } = {},
 ): Promise<{ veredicto: VeredictoDatafono; pi: Stripe.PaymentIntent; rechazo?: Stripe.PaymentIntent.LastPaymentError }> {
   const opc = { stripeAccount };
   const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {}, opc);
-  if (pi.status !== 'requires_payment_method' || !pi.last_payment_error) return { veredicto: 'no', pi };
+  if (pi.status !== 'requires_payment_method') return { veredicto: 'no', pi };
+  if (!pi.last_payment_error && !opciones.sinTarjeta) return { veredicto: 'no', pi };
 
   const lector = readerId
     ? lectorConElCobro(
@@ -122,9 +126,60 @@ export async function cerrarSiRechazadoDatafono(
   // Solo el cobro, nunca la acción del lector: podría estar ya con otra venta.
   await stripe.paymentIntents.cancel(paymentIntentId, {}, opc).catch(() => undefined);
   const tras = await stripe.paymentIntents.retrieve(paymentIntentId, {}, opc);
-  if (tras.status === 'canceled') return { veredicto: 'rechazado', pi: tras, rechazo: pi.last_payment_error };
+  if (tras.status === 'canceled') {
+    return pi.last_payment_error
+      ? { veredicto: 'rechazado', pi: tras, rechazo: pi.last_payment_error }
+      : { veredicto: 'abandonado', pi: tras };
+  }
   if (tras.status === 'succeeded') return { veredicto: 'pagado', pi: tras };
   return { veredicto: 'sigue', pi: tras };
+}
+
+type ClienteAnular = {
+  paymentIntents: Pick<Stripe['paymentIntents'], 'retrieve' | 'cancel'>;
+  terminal: { readers: Pick<Stripe['terminal']['readers'], 'retrieve' | 'cancelAction'> };
+};
+
+/**
+ * Anula un cobro del datáfono: «Cancelar el cobro» en la Caja, o un envío al
+ * lector que falló con el cobro ya creado. Devuelve cómo ha quedado en Stripe
+ * (`null`: no se ha podido saber).
+ *
+ * - La acción del lector solo se cancela si sigue con ESTE cobro: `cancelAction`
+ *   cancela lo que esté haciendo, y podría ser ya el cobro de otra venta.
+ * - El cobro se cancela aunque lo del lector falle (apagado, sin wifi): un cobro
+ *   cancelado en Stripe ya no puede entrar, pase quien pase la tarjeta. Antes iban
+ *   en el mismo `try`, y con el lector apagado el cobro se quedaba vivo.
+ */
+export async function anularCobroDelDatafono(
+  stripe: ClienteAnular, paymentIntentId: string, stripeAccount: string, readerId: string | null,
+): Promise<Stripe.PaymentIntent.Status | null> {
+  // La cuenta Connect va en el TERCER argumento (opciones de petición), con `{}`
+  // de parámetros: de segundo iría en el cuerpo y se tocaría la cuenta de la
+  // plataforma, no la del estudio.
+  const opc = { stripeAccount };
+  if (readerId) {
+    try {
+      const lector = await stripe.terminal.readers.retrieve(readerId, {}, opc) as Stripe.Terminal.Reader;
+      // ⚠️ Entre leerlo y pararlo, otra Caja puede mandarle su cobro (un envío nuevo
+      // le quita el sitio al que espera tarjeta: medido) y se pararía el suyo. Stripe
+      // no deja cancelar «solo si es este». No mueve dinero: ese cobro se queda fuera
+      // del lector, su Caja espera y el conciliador lo cierra.
+      if (lectorConElCobro(lector, paymentIntentId) === 'con-este') {
+        await stripe.terminal.readers.cancelAction(readerId, {}, opc);
+      }
+    } catch (err) {
+      console.error('[pos/datafono:anular] lector', err instanceof Error ? err.message : err);
+    }
+  }
+  try {
+    return (await stripe.paymentIntents.cancel(paymentIntentId, {}, opc)).status;
+  } catch (err) {
+    // Ya no admitía cancelación (acababa de entrar, o ya estaba cancelado) o no se
+    // llegó a Stripe: manda lo que diga el cobro.
+    console.error('[pos/datafono:anular] cobro', err instanceof Error ? err.message : err);
+    return stripe.paymentIntents.retrieve(paymentIntentId, {}, opc).then(pi => pi.status, () => null);
+  }
 }
 
 type ClienteConsulta = Pick<Stripe, 'paymentIntents' | 'checkout' | 'charges'>;
@@ -177,4 +232,31 @@ async function consultarPaymentIntent(stripe: ClienteConsulta, id: string, strip
     // el cargo de un PI pendiente no tiene nada que resolver todavía.
     metodoReal: pi.status === 'succeeded' ? await metodoRealBizum(stripe as Stripe, pi, stripeAccount) : undefined,
   };
+}
+
+/**
+ * Qué es un cobro del datáfono cuyo envío falló (`iniciar`, lib/pos/terminal.ts):
+ *  - `enviado`: está o puede estar en el lector, o ya entró. Se sigue como enviado:
+ *    lo resuelven el sondeo de la Caja, el aviso de Stripe o el conciliador.
+ *  - `cerrado`: de este intento no puede entrar dinero. La Caja puede estrenar otro.
+ *  - `no-se-sabe`: se mantiene el intento (ERROR), como siempre.
+ *
+ * `choque`: la clave de idempotencia ya estaba en uso. En una venta solo lo provoca
+ * el reintento automático del SDK de Stripe (hasta 2, en errores de conexión y en
+ * 409), que puede haber llegado a hacer lo que pedía; en un recibo, también otra
+ * petición del mismo intento. Por eso con choque nunca se anula ni se cierra.
+ * `estado`: cómo quedó el cobro tras `anularCobroDelDatafono` (solo sin choque).
+ */
+export function envioFallidoDatafono(
+  o: { paso: 'crear'; choque: boolean } | { paso: 'enviar'; choque: boolean; estado: Stripe.PaymentIntent.Status | null },
+): 'enviado' | 'cerrado' | 'no-se-sabe' {
+  // Sin cobro creado nada puede entrar, y si se creó sin llegar la respuesta ningún
+  // lector lo tiene. Con choque, otra petición del intento puede haberlo creado y
+  // mandado al lector.
+  if (o.paso === 'crear') return o.choque ? 'no-se-sabe' : 'cerrado';
+  // Misma clave, mismo cobro: alguien lo está mandando al lector.
+  if (o.choque) return 'enviado';
+  // Entró justo antes de cancelarlo: lo cierra el sondeo, no se anula la venta.
+  if (o.estado === 'succeeded') return 'enviado';
+  return o.estado === 'canceled' ? 'cerrado' : 'no-se-sabe';
 }
