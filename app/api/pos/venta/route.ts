@@ -10,7 +10,7 @@ import { uid } from '@/lib/utils';
 import { proveedorPara, MAX_CENTIMOS_POS } from '@/lib/pos/terminal';
 import { prepararCobroNuevo } from '@/lib/pos/cobro-del-estudio';
 import { entregarVentaPOS } from '@/lib/pos/venta-servidor';
-import { mensajeErrorVenta, codigoDeErrorPg, type LineaVentaPeticion } from '@/lib/pos/tipos';
+import { CODIGO_INTENTO_CERRADO, mensajeErrorVenta, codigoDeErrorPg, type LineaVentaPeticion } from '@/lib/pos/tipos';
 import { cuotaSinClienta, MENSAJE_CUOTA_SIN_CLIENTA } from '@/lib/pos/cuota-exige-clienta';
 import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import type { MetodoPago } from '@/lib/types';
@@ -75,6 +75,34 @@ function saneaLineas(bruto: unknown): { lineas: LineaVentaPeticion[] } | { error
     lineas.push({ tipo, cantidad, referenciaId });
   }
   return { lineas };
+}
+
+/**
+ * Anula una venta que no llegó a cobrarse. Sin `cerrado`, ERROR: el cobro podría
+ * seguir vivo y la Caja mantiene el intento. Con `cerrado` (no hay cobro que pueda
+ * entrar) sale CANCELADO, se sueltan sus plazas de etapa (con la clave nueva no se
+ * reutilizarían: se quedaban 31 min) y se devuelve el código para que la Caja estrene
+ * intento; con la misma clave le devolveríamos esta venta anulada, y con el datáfono
+ * apagado y ya encendido seguiría diciendo «no responde».
+ * ⚠️ El código solo sale con la venta ANULADA de verdad: si la anulación fallara, se
+ * quedaría en PENDIENTE_PAGO sin cobro y nadie volvería a mirarla (con la misma
+ * clave, el reintento la anula al confirmar: «no llegó a iniciarse»).
+ */
+async function anularVentaSinCobro(
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+  p: { studioId: string; ventaId: string; plazas: string[]; motivo: string; cerrado: boolean },
+): Promise<{ codigo?: typeof CODIGO_INTENTO_CERRADO }> {
+  const { error } = await admin.rpc('fallar_pago_venta_pos', {
+    p_venta_id: p.ventaId, p_studio_id: p.studioId,
+    p_pago_estado: p.cerrado ? 'CANCELADO' : 'ERROR', p_motivo: p.motivo,
+  });
+  if (!p.cerrado) return {};
+  for (const id of p.plazas) await liberarPlaza(admin, id);
+  if (error) {
+    console.error('[pos/venta] no se pudo anular la venta sin cobro', p.ventaId, error.message);
+    return {};
+  }
+  return { codigo: CODIGO_INTENTO_CERRADO };
 }
 
 export async function POST(req: NextRequest) {
@@ -304,11 +332,11 @@ export async function POST(req: NextRequest) {
   if (!preparado.ok) {
     // No se pudo ni intentar el cobro: se anula la venta y se devuelve el
     // stock reservado. Dejarla PENDIENTE_PAGO para siempre bloquearía género.
-    await admin.rpc('fallar_pago_venta_pos', {
-      p_venta_id: base.ventaId, p_studio_id: sesion.studioId,
-      p_pago_estado: 'ERROR', p_motivo: preparado.motivo,
+    // No hay cobro que pueda entrar: el intento queda cerrado.
+    const cierre = await anularVentaSinCobro(admin, {
+      studioId: sesion.studioId, ventaId: base.ventaId, plazas: plazasPOS, motivo: preparado.motivo, cerrado: true,
     });
-    return NextResponse.json({ error: preparado.motivo }, { status: preparado.status });
+    return NextResponse.json({ error: preparado.motivo, ...cierre }, { status: preparado.status });
   }
 
   const concepto = sane.lineas.length === 1 ? 'Venta en el estudio' : `Venta de ${sane.lineas.length} artículos`;
@@ -318,15 +346,17 @@ export async function POST(req: NextRequest) {
     claveIdempotencia: `pos-venta-${base.ventaId}-${metodoPago}` });
 
   if (!inicio.ok) {
-    await admin.rpc('fallar_pago_venta_pos', {
-      p_venta_id: base.ventaId, p_studio_id: sesion.studioId,
-      p_pago_estado: 'ERROR', p_motivo: inicio.error,
+    const cierre = await anularVentaSinCobro(admin, {
+      studioId: sesion.studioId, ventaId: base.ventaId, plazas: plazasPOS, motivo: inicio.error, cerrado: !!inicio.cerrado,
     });
-    return NextResponse.json({ error: inicio.error }, { status: 409 });
+    return NextResponse.json({ error: inicio.error, ...cierre }, { status: 409 });
   }
 
   // Se guarda la referencia y se marca PROCESANDO. La venta sigue
   // PENDIENTE_PAGO: nadie la da por cobrada hasta que el proveedor lo diga.
+  // Solo si sigue pendiente: si el aviso de Stripe ya la cerró (el cobro entra en
+  // segundos), PROCESANDO sobre una venta PAGADA lo rechaza `ventas_pos_estado_coherente`
+  // y saltaría una alarma falsa.
   const { error: errRef } = await admin.from('ventas_pos').update({
     stripe_payment_intent_id: inicio.referencia || null,
     // P-1 (27ª pasada): solo Bizum la rellena. Hace falta para poder expirar
@@ -334,7 +364,7 @@ export async function POST(req: NextRequest) {
     checkout_session_id: inicio.checkoutSessionId ?? null,
     pago_estado: inicio.estado,
     pago_actualizado_en: new Date().toISOString(),
-  }).eq('id', base.ventaId).eq('studio_id', sesion.studioId);
+  }).eq('id', base.ventaId).eq('studio_id', sesion.studioId).eq('estado', 'PENDIENTE_PAGO');
   if (errRef) {
     // La referencia es lo que permite confirmar después. Sin ella el cobro
     // podría completarse en Stripe y quedarse huérfano — hay que verlo.

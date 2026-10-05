@@ -327,6 +327,55 @@ test('⚠️ venta anulada SIN el cobro cerrado (ERROR): «Probar otra vez» NO 
   expect(a.idempotenciaClave, 'sin el cobro cerrado, el intento se mantiene').toBe(b.idempotenciaClave);
 });
 
+test('⚠️ el datáfono no respondía: con el intento CERRADO, «Probar otra vez» estrena clave', async ({ page }) => {
+  // El servidor canceló el cobro en Stripe (o no llegó a crearse) y lo dice con
+  // `INTENTO_CERRADO`. Con la misma clave devolvía la venta anulada, y con el
+  // datáfono ya encendido la Caja seguía diciendo «no responde».
+  const c = await montar(page, (route) => (c.ventas === 1
+    ? json(route, {
+      error: 'El datáfono Mostrador no responde. Comprueba que está encendido y conectado al wifi, y vuelve a intentarlo.',
+      codigo: 'INTENTO_CERRADO',
+    }, 409)
+    : json(route, {
+      ventaId: 'v2', numero: 2, subtotal: 25, descuento: 0, baseImponible: 20.66,
+      ivaTotal: 4.34, total: 25, cambio: null,
+      estado: 'PENDIENTE_PAGO', pagoEstado: 'PROCESANDO',
+      pago: { referencia: 'pi_2', url: null },
+    })));
+
+  await abrirCaja(page);
+  await anadirCalcetines(page);
+  await page.getByRole('button', { name: /Cobrar/ }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect(page.getByText(/no responde/i)).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole('button', { name: 'Probar otra vez' }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect.poll(() => c.ventas, { timeout: 15_000 }).toBe(2);
+  const a = c.cuerpos[0] as { idempotenciaClave: string };
+  const b = c.cuerpos[1] as { idempotenciaClave: string };
+  expect(a.idempotenciaClave, 'con el intento cerrado, el siguiente es nuevo').not.toBe(b.idempotenciaClave);
+});
+
+test('⚠️ el envío al datáfono falló SIN el intento cerrado: «Probar otra vez» mantiene la clave', async ({ page }) => {
+  // Sin `INTENTO_CERRADO` el cobro podría seguir vivo (no se pudo cancelar):
+  // otra clave sería otro cobro.
+  const c = await montar(page, (route) => json(route, { error: 'No se pudo enviar el importe al datáfono.' }, 409));
+
+  await abrirCaja(page);
+  await anadirCalcetines(page);
+  await page.getByRole('button', { name: /Cobrar/ }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect(page.getByText(/No se pudo enviar el importe/i)).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole('button', { name: 'Probar otra vez' }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect.poll(() => c.ventas, { timeout: 15_000 }).toBe(2);
+  const a = c.cuerpos[0] as { idempotenciaClave: string };
+  const b = c.cuerpos[1] as { idempotenciaClave: string };
+  expect(a.idempotenciaClave, 'sin el intento cerrado, se mantiene').toBe(b.idempotenciaClave);
+});
+
 test('⚠️ «Cancelar el cobro» sin la cancelación confirmada: sigue esperando y NO ofrece otro método', async ({ page }) => {
   // El servidor no ha podido cancelar (el datáfono sigue con el cobro, p. ej.
   // pidiendo el PIN): volver a elegir método invitaba a cobrar dos veces.
