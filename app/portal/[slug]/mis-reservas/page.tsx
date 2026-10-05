@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -32,6 +32,8 @@ import type { Clase, Instructora, Reserva } from '@/lib/student/tipos';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { vibrar } from '@/lib/nativo/puente';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
+import { alLlegarAccionPendiente, tomarAccionPendiente } from '@/lib/student/accion-pendiente';
+import type { AccionPendiente } from '@/lib/notifications/acciones-ios';
 
 // Feedback real de una propietaria en prueba (14-sep): una socia no sabía que
 // podía cancelar SOLO un día de su clase fija sin perder el hueco semanal — esta
@@ -161,6 +163,40 @@ export default function MisReservasPage() {
     // alguien de la cola. Tachar la fila a mano enseñaría un estado inventado.
     reintentar();
   };
+
+  // Un botón del aviso del iPhone («Aceptar la plaza», «No, gracias», «No puedo
+  // ir»): la orden llega EN MEMORIA desde el evento nativo (nunca por la URL) y se
+  // ejecuta aquí, con la sesión de la alumna y por la MISMA vía que los botones de
+  // esta pantalla. Aceptar la plaza es lo que pulsó; salir de la lista y «no puedo
+  // ir» abren su confirmación de siempre. Ver lib/notifications/acciones-ios.ts.
+  const [accionAviso, setAccionAviso] = useState<AccionPendiente | null>(null);
+  useEffect(() => {
+    const recoger = () => { const a = tomarAccionPendiente(estudio.slug); if (a) setAccionAviso(a); };
+    recoger();
+    return alLlegarAccionPendiente(recoger);
+  }, [estudio.slug]);
+  // Se ejecuta cuando hay orden Y datos: la orden llega de un sistema externo (el aviso nativo) y los datos, de la red.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!accionAviso || !data || ahoraMs === null) return;
+    setAccionAviso(null);
+    const suya = (data.reservas ?? []).filter((r) => r.claseId === accionAviso.sesionId);
+    if (accionAviso.tipo === 'no-puedo-ir') {
+      const r = suya.find((x) => x.estado === 'confirmada');
+      if (!r) { toast('Ya no tienes reserva en esa clase.'); return; }
+      setTab('prox');
+      setCancelId(r.id);
+      return;
+    }
+    const oferta = suya.find((x) => ofertaViva(x));
+    if (!oferta) { toast('Esa plaza ya no está disponible.'); return; }
+    if (accionAviso.tipo === 'salir-espera') { setTab('prox'); setCancelId(oferta.id); return; }
+    setTab('prox');
+    void handleAceptarOferta(oferta.id);
+    // `handleAceptarOferta` y `ofertaViva` se recrean en cada render; lo que dispara esto es la orden y los datos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accionAviso, data, ahoraMs]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // P-5 (auditoría 23ª pasada): hasta ahora no había NINGUNA vía en la PWA
   // para aceptar una oferta de lista de espera — el aviso llegaba, y la

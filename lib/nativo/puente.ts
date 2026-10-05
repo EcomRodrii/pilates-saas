@@ -291,7 +291,7 @@ export async function alPulsarAviso(handler: (aviso: AvisoPulsado) => void): Pro
   const { PushNotifications } = await import('@capacitor/push-notifications');
   const asa = await PushNotifications.addListener('pushNotificationActionPerformed', (accion) => {
     const datos = (accion.notification?.data ?? {}) as Record<string, unknown>;
-    handler({ ruta: rutaDeAviso(datos), datos });
+    handler({ ruta: rutaDeAviso(datos), datos, accion: typeof accion.actionId === 'string' ? accion.actionId : 'tap' });
   });
   return () => void asa.remove();
 }
