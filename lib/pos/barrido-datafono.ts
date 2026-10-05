@@ -68,7 +68,7 @@ export async function resolverCobrosDatafonoColgados(
           lector = error ? 'no-se-sabe' : { readerId: (data as { stripe_terminal_reader_id: string | null } | null)?.stripe_terminal_reader_id ?? null };
         }
         if (lector === 'no-se-sabe') continue;
-        const r = await cerrarSiRechazadoDatafono(stripe, pi.id, studio.stripe_account_id, lector.readerId, { sinTarjeta: true });
+        const r = await cerrarSiRechazadoDatafono(stripe, pi.id, studio.stripe_account_id, lector.readerId, { sinTarjeta: true, ahoraSeg });
         final = r.pi;
         rechazo = r.rechazo;
         veredicto = r.veredicto === 'pagado' || r.veredicto === 'rechazado' || r.veredicto === 'abandonado' ? r.veredicto : null;

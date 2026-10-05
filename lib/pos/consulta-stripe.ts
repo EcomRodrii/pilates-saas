@@ -105,43 +105,67 @@ type ClienteDatafono = {
 export type VeredictoDatafono = 'no' | 'sigue' | 'rechazado' | 'abandonado' | 'pagado';
 
 /**
- * ¿El cobro del datáfono se ha quedado en un rechazo? Y si sí, se CIERRA antes
- * de decirlo, para que nadie pueda cobrarlo después sobre una venta anulada o un
- * recibo suelto (mismo patrón que Bizum: se cierra y solo entonces se anula).
+ * Segundos que se deja a un cobro recién mandado antes de darlo por dejado sin
+ * tarjeta (`sinTarjeta`). Un envío bueno deja la acción en el lector al instante
+ * (medido), pero si el SDK de Stripe aún está reintentándolo (choque de clave,
+ * `envioFallidoDatafono`), puede llegar un momento después.
+ */
+export const SEGUNDOS_ANTES_DE_DAR_POR_DEJADO = 10;
+
+/**
+ * ¿El cobro del datáfono se ha quedado en un rechazo, o el lector lo ha dejado?
+ * Y si sí, se CIERRA antes de decirlo, para que nadie pueda cobrarlo después sobre
+ * una venta anulada o un recibo suelto (mismo patrón que Bizum: se cierra y solo
+ * entonces se anula).
  *
  * ⚠️ Medido en modo de prueba (5-oct-2026): con una tarjeta rechazada, Stripe deja
  * el cobro en `requires_payment_method` con `last_payment_error`, y durante un
  * instante el lector SIGUE con él (`in_progress`) antes de quedar `failed`. Con un
  * datáfono físico, Stripe documenta además el reintento con PIN: el pago sin
  * contacto «se rechaza» (`offline_pin_required`…) y el lector pide insertar la
- * tarjeta y el PIN en la MISMA acción. Por eso el error del cobro solo no basta:
+ * tarjeta y el PIN en la MISMA acción. Por eso el error del cobro solo no basta.
  *
- *   - `no`: no hay rechazo (sin error, o ya en otro estado).
+ * El lector al que se pregunta es el que recibió el cobro (`metadata.lector`, desde
+ * el 5-oct-2026), no el guardado hoy en el estudio: si entre medias se empareja
+ * otro, el viejo puede seguir con él. Uno que ya no existe no lo tiene.
+ *
+ *   - `no`: no hay nada que cerrar (sin error, o ya en otro estado).
  *   - `sigue`: el lector sigue con este cobro, no se ha podido saber, o no se ha
  *     podido cerrar. Se vuelve a preguntar; no se anula nada.
  *   - `rechazado`: el lector ya no está con él y se ha cancelado en Stripe. Con
  *     `rechazo`, el error que tenía al detectarlo (al cancelar, Stripe lo borra).
- *   - `abandonado`: solo con `sinTarjeta` (el conciliador, pasados unos minutos):
- *     nadie llegó a pasar la tarjeta, el lector ya no lo espera, y se ha cancelado.
+ *   - `abandonado`: solo con `sinTarjeta` (el sondeo de la Caja y el conciliador),
+ *     pasados `SEGUNDOS_ANTES_DE_DAR_POR_DEJADO`: nadie pasó la tarjeta, el lector
+ *     ya no lo tiene (otro envío le quitó el sitio, o su acción falló) y se ha
+ *     cancelado. `canceladoEnLector`: lo cancelaron en la pantalla del datáfono.
  *   - `pagado`: al ir a cerrarlo, había entrado.
  */
 export async function cerrarSiRechazadoDatafono(
   stripe: ClienteDatafono, paymentIntentId: string, stripeAccount: string, readerId: string | null,
-  opciones: { sinTarjeta?: boolean } = {},
-): Promise<{ veredicto: VeredictoDatafono; pi: Stripe.PaymentIntent; rechazo?: Stripe.PaymentIntent.LastPaymentError }> {
+  opciones: { sinTarjeta?: boolean; ahoraSeg?: number } = {},
+): Promise<{
+  veredicto: VeredictoDatafono; pi: Stripe.PaymentIntent;
+  rechazo?: Stripe.PaymentIntent.LastPaymentError; canceladoEnLector?: boolean;
+}> {
   const opc = { stripeAccount };
   // Con el último cargo: es lo único que guarda el motivo de un rechazo ya cancelado.
   const pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ['latest_charge'] }, opc);
   if (pi.status !== 'requires_payment_method') return { veredicto: 'no', pi };
-  if (!pi.last_payment_error && !opciones.sinTarjeta) return { veredicto: 'no', pi };
+  const ahora = opciones.ahoraSeg ?? Math.floor(Date.now() / 1000);
+  const sinTarjeta = !!opciones.sinTarjeta && ahora - pi.created >= SEGUNDOS_ANTES_DE_DAR_POR_DEJADO;
+  if (!pi.last_payment_error && !sinTarjeta) return { veredicto: 'no', pi };
 
-  const lector = readerId
-    ? lectorConElCobro(
-      await stripe.terminal.readers.retrieve(readerId, {}, opc).then(r => r as Stripe.Terminal.Reader, () => undefined),
-      paymentIntentId,
+  const lectorId = pi.metadata?.lector || readerId;
+  // `null`: ese lector ya no existe (no puede tener el cobro); `undefined`: no se pudo leer.
+  const leido = lectorId
+    ? await stripe.terminal.readers.retrieve(lectorId, {}, opc).then(
+      r => r as Stripe.Terminal.Reader,
+      (e: { code?: string }) => (e?.code === 'resource_missing' ? null : undefined),
     )
-    : 'sin-este';
+    : null;
+  const lector = lectorConElCobro(leido, paymentIntentId);
   if (lector === 'con-este' || lector === 'no-se-sabe') return { veredicto: 'sigue', pi };
+  const canceladoEnLector = lector === 'fallo-este' && leido?.action?.failure_code === 'customer_canceled';
 
   // Solo el cobro, nunca la acción del lector: podría estar ya con otra venta.
   await stripe.paymentIntents.cancel(paymentIntentId, {}, opc).catch(() => undefined);
@@ -149,7 +173,7 @@ export async function cerrarSiRechazadoDatafono(
   if (tras.status === 'canceled') {
     return pi.last_payment_error
       ? { veredicto: 'rechazado', pi: tras, rechazo: pi.last_payment_error }
-      : { veredicto: 'abandonado', pi: tras };
+      : { veredicto: 'abandonado', pi: tras, canceladoEnLector };
   }
   if (tras.status === 'succeeded') return { veredicto: 'pagado', pi: tras };
   return { veredicto: 'sigue', pi: tras };
@@ -279,4 +303,46 @@ export function envioFallidoDatafono(
   // Entró justo antes de cancelarlo: lo cierra el sondeo, no se anula la venta.
   if (o.estado === 'succeeded') return 'enviado';
   return o.estado === 'canceled' ? 'cerrado' : 'no-se-sabe';
+}
+
+type ClienteLectura = {
+  paymentIntents: Pick<Stripe['paymentIntents'], 'retrieve'>;
+  checkout: { sessions: Pick<Stripe['checkout']['sessions'], 'retrieve'> };
+};
+
+/**
+ * Qué fue de un cobro de Stripe del mostrador que el recibo ya no tiene: lo soltó
+ * otro camino tras cerrarlo (el aviso de Stripe, el conciliador), o lo sustituyó
+ * otro intento. ⚠️ SOLO LEE: la referencia llega del navegador, y un `consultar`
+ * puede cancelar (un cobro online de la socia en la misma cuenta, por ejemplo).
+ *  - `null`: no es de este recibo y este estudio (por la metadata que puso este
+ *    servidor al crearlo), o no es de Stripe.
+ *  - PROCESANDO: no se pudo leer, entró, o sigue en marcha. No se afirma nada.
+ *  - Un final sin cobrar: RECHAZADO con su motivo (datáfono), CANCELADO o EXPIRADO.
+ */
+export async function desenlaceDeCobroSoltado(
+  stripe: ClienteLectura, referencia: string, stripeAccount: string, de: { reciboId: string; studioId: string },
+): Promise<{ estado: EstadoPagoPOS; motivo: string | null } | null> {
+  const opc = { stripeAccount };
+  const esDe = (md: Stripe.Metadata | null | undefined) => md?.reciboId === de.reciboId && md?.studioId === de.studioId;
+  const sinAfirmar = { estado: 'PROCESANDO' as const, motivo: null };
+  try {
+    // Bizum guarda casi siempre la sesión: caducada es su final sin cobrar.
+    if (referencia.startsWith('cs_')) {
+      const sesion = await stripe.checkout.sessions.retrieve(referencia, {}, opc);
+      if (!esDe(sesion.metadata)) return null;
+      return sesion.status === 'expired' ? { estado: 'EXPIRADO', motivo: null } : sinAfirmar;
+    }
+    if (!referencia.startsWith('pi_')) return null;
+    const pi = await stripe.paymentIntents.retrieve(referencia, { expand: ['latest_charge'] }, opc);
+    if (!esDe(pi.metadata)) return null;
+    const c = pi.metadata?.origen === 'pos_terminal'
+      ? consultaDatafono(pi)
+      : { estado: estadoDesdeStripe(pi.status), error: undefined };
+    // Solo un final sin cobrar se dice; entró o sigue en marcha, no se afirma nada.
+    const sinCobrar: EstadoPagoPOS[] = ['RECHAZADO', 'CANCELADO', 'EXPIRADO', 'ERROR'];
+    return sinCobrar.includes(c.estado) ? { estado: c.estado, motivo: c.error ?? null } : sinAfirmar;
+  } catch {
+    return sinAfirmar;
+  }
 }

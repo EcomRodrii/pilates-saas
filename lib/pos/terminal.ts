@@ -191,7 +191,9 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
           // el recibo— aunque el navegador del mostrador se cierre a mitad del
           // cobro. Sin esto haría falta el rodeo del backstop de
           // reconciliación, que no sabe a qué apuntar.
-          metadata: { studioId: ctx.studioId, origen: 'pos_terminal', ...metadataDe(p.ref), concepto: p.concepto },
+          // `lector`: a quién preguntar si sigue con él (`cerrarSiRechazadoDatafono`), aunque
+          // el estudio empareje otro mientras tanto.
+          metadata: { studioId: ctx.studioId, origen: 'pos_terminal', ...metadataDe(p.ref), concepto: p.concepto, lector: readerId },
           ...(applicationFeeAmount(p.importeCentimos) !== undefined
             ? { application_fee_amount: applicationFeeAmount(p.importeCentimos) }
             : {}),
@@ -206,7 +208,9 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
 
       try {
         await ctx.stripe.terminal.readers.processPaymentIntent(
-          readerId, { payment_intent: pi.id }, {
+          // Botón de cancelar en la pantalla del datáfono (decisión del fundador, 5-oct-2026):
+          // su acción falla con `customer_canceled` y el sondeo lo cierra en segundos.
+          readerId, { payment_intent: pi.id, process_config: { enable_customer_cancellation: true } }, {
             stripeAccount: ctx.stripeAccount,
             ...(p.claveIdempotencia ? { idempotencyKey: `${p.claveIdempotencia}-lector` } : {}),
           },
@@ -242,12 +246,15 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
         // Un cobro sin pagar solo es un final cuando el lector ya no sigue con él, y
         // se cierra en Stripe antes de decirlo (ver `cerrarSiRechazadoDatafono`). Con
         // tarjeta rechazada, o sin tarjeta (`sinTarjeta`): otro envío al mismo lector
-        // le quitó el sitio (medido) o la acción del lector falló. Antes la Caja se
-        // quedaba 90 s en «Acerca la tarjeta» con el lector ya en otra cosa.
-        const { veredicto, pi, rechazo } = await cerrarSiRechazadoDatafono(
+        // le quitó el sitio (medido), lo cancelaron en su pantalla o su acción falló.
+        // Antes la Caja se quedaba 90 s en «Acerca la tarjeta» con el lector ya en otra cosa.
+        const { veredicto, pi, rechazo, canceladoEnLector } = await cerrarSiRechazadoDatafono(
           ctx.stripe, referencia, ctx.stripeAccount, readerId, { sinTarjeta: true },
         );
         if (veredicto === 'rechazado') return consultaDatafono(pi, rechazo);
+        if (veredicto === 'abandonado' && canceladoEnLector) {
+          return { ...consultaDatafono(pi), error: 'Se ha cancelado en el datáfono. No se ha cobrado nada.' };
+        }
         // El lector sigue con él: pidiendo el PIN tras el pago sin contacto (con el
         // error del primer intento), o esperando la tarjeta («Acerca la tarjeta»).
         if (veredicto === 'sigue' && pi.last_payment_error) return { ...consultaDatafono(pi), estado: 'PROCESANDO', error: undefined };

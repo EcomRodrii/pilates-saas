@@ -6,7 +6,10 @@ import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
 import { prepararCobroExistente } from '@/lib/pos/cobro-del-estudio';
 import { confirmarCobroRecibo } from '@/lib/billing/confirmar-cobro';
-import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
+import type { EstadoPagoPOS } from '@/lib/pos/tipos';
+import { contextoCobroDe } from '@/lib/pos/terminal';
+import { desenlaceDeCobroSoltado } from '@/lib/pos/consulta-stripe';
+import { mismoCobro, proveedorDeReferencia } from '@/lib/pos/sumup';
 import type { MetodoPago } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -48,8 +51,9 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as
     { reciboId?: unknown; metodo?: unknown; accion?: unknown; referencia?: unknown } | null;
   const reciboId = typeof body?.reciboId === 'string' ? body.reciboId : '';
-  // El cobro que espera la Caja. Solo se usa si el recibo ya lo soltó (abajo), y
-  // nunca se cree: tiene que ser, por su metadata, de este recibo y este estudio.
+  // El cobro que espera la Caja. Solo se usa si no es el que tiene el recibo (abajo),
+  // y nunca se cree ni se toca: lo que se diga de él, solo si su metadata es la de
+  // este recibo y este estudio.
   const referenciaCaja = typeof body?.referencia === 'string' && /^[A-Za-z0-9_:-]{3,200}$/.test(body.referencia)
     ? body.referencia : null;
   const metodo = String(body?.metodo ?? 'DATAFONO') as MetodoPago;
@@ -65,32 +69,31 @@ export async function POST(req: NextRequest) {
   const responder = (pagoEstado: EstadoPagoPOS, extra: Record<string, unknown> = {}) =>
     NextResponse.json({ reciboId, estado: recibo.estado, pagoEstado, importe: Number(recibo.importe), ...extra });
 
-  // Qué fue de un cobro que el recibo ya soltó.
-  //  · Sin poder preguntar, o si entró o sigue en marcha: PROCESANDO. No se afirma
-  //    nada (ni se revela nada) y la Caja sigue preguntando; uno que entró lo
-  //    cierra el aviso de Stripe y el recibo sale COBRADO.
-  //  · Final sin cobrar: solo si su metadata (la que puso este servidor al crearlo)
-  //    dice que es de ESTE recibo y ESTE estudio. Si no, `null`.
-  const desenlaceDeCobroSoltado = async (ref: string): Promise<{ estado: EstadoPagoPOS; motivo: string | null } | null> => {
-    const prep = await prepararCobroExistente(admin, sesion.studioId, ref, metodo, { origen: req.nextUrl.origin });
-    if (!prep.ok) return { estado: 'PROCESANDO', motivo: null };
-    const est = await prep.cobro.consultar(ref).catch(() => null);
-    if (!est || est.estado === 'PAGADO' || !esEstadoFinal(est.estado)) return { estado: 'PROCESANDO', motivo: null };
-    const meta = est.metadata ?? {};
-    if (meta.reciboId !== reciboId || meta.studioId !== sesion.studioId) return null;
-    return { estado: est.estado, motivo: est.error ?? null };
+  // Qué fue del cobro que espera la Caja cuando el recibo ya no lo tiene, SOLO
+  // leyendo (`desenlaceDeCobroSoltado`): la referencia llega del navegador. `null`
+  // si no es de este recibo y este estudio, o no es de Stripe (SumUp).
+  const desenlaceDelCobroDeLaCaja = async (ref: string): Promise<{ estado: EstadoPagoPOS; motivo: string | null } | null> => {
+    if (proveedorDeReferencia(ref) !== 'stripe') return null;
+    const cx = await contextoCobroDe(admin, sesion.studioId);
+    if (!cx.ok) return { estado: 'PROCESANDO', motivo: null };
+    return desenlaceDeCobroSoltado(cx.ctx.stripe, ref, cx.ctx.stripeAccount, { reciboId, studioId: sesion.studioId });
   };
 
   // Ya cerrado por el otro camino (el webhook llegó antes).
   if (recibo.estado === 'COBRADO') return responder('PAGADO', { cobrado: true });
 
-  if (!recibo.cobro_mostrador_pi) {
-    // Otro camino lo cerró y soltó el recibo antes que esta consulta: el aviso de
-    // Stripe tras un rechazo, el conciliador, otra pestaña. «No llegó a iniciarse»
-    // era falso (se rechazó o se abandonó): con el cobro que espera la Caja se dice
-    // qué pasó.
-    const desenlace = referenciaCaja ? await desenlaceDeCobroSoltado(referenciaCaja) : null;
+  // La Caja espera un cobro que el recibo ya no tiene: otro camino lo cerró y lo
+  // soltó (el aviso de Stripe tras un rechazo, el conciliador), o lo sustituyó otro
+  // intento (otra pestaña). Se dice qué fue del SUYO, sin tocar nada: antes salía
+  // «no llegó a iniciarse» (falso: se rechazó o se abandonó), y «Cancelar el cobro»
+  // aquí cancelaba el cobro vivo de la otra pestaña.
+  if (referenciaCaja && !mismoCobro(referenciaCaja, recibo.cobro_mostrador_pi)) {
+    const desenlace = await desenlaceDelCobroDeLaCaja(referenciaCaja);
     if (desenlace) return responder(desenlace.estado, desenlace.motivo ? { motivo: desenlace.motivo } : {});
+    // No es de este recibo: como si no hubiera llegado.
+  }
+
+  if (!recibo.cobro_mostrador_pi) {
     return responder('ERROR', { motivo: 'Ese cobro no llegó a iniciarse.' });
   }
 
