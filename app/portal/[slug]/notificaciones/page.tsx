@@ -14,7 +14,7 @@ import { getNotificaciones, marcarLeidas } from '@/lib/student/perfil-y-avisos';
 import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
 import { aceptarOfertaEspera, cancelarReserva } from '@/lib/student/reservas-acciones';
 import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
-import { añadirAlCalendario } from '@/lib/student/enlaces-clase';
+import { alCalendario } from '@/lib/student/calendario-dispositivo';
 import { fechaCorta } from '@/lib/student/formato';
 import { invalidarNoLeidas } from '@/lib/student/no-leidas';
 import { vibrar } from '@/lib/nativo/puente';
@@ -166,7 +166,9 @@ export default function NotificacionesPage() {
         <div style={{ marginTop: 10 }}>
           <Button
             variant="secondary" size="sm"
-            onClick={() => añadirAlCalendario(clase, estudio.nombre, estudio.direccion, ctx.instructoras.find((i) => i.id === clase.instructoraId)?.nombre)}
+            // Como «+ Calendario» de Mis clases (#2530): en la app, la hoja de iOS ya rellena; si no, el .ics de siempre.
+            onClick={() => void alCalendario({ slug: estudio.slug, nombre: estudio.nombre, direccion: estudio.direccion }, clase, ctx.instructoras.find((i) => i.id === clase.instructoraId)?.nombre)
+              .then((r) => { if (r === 'añadida') toast('Añadida a tu calendario'); })}
           >
             Añadir al calendario
           </Button>
