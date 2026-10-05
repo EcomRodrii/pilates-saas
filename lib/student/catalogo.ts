@@ -4,6 +4,7 @@ import { cargarAforoPublico, cargarDatosPublicos } from '@/lib/student/api-publi
 import { aplicarAforo } from '@/lib/student/aforo-fresco';
 import { borrarPorSlug, claveCatalogo } from '@/lib/student/catalogo-clave';
 import { supabasePortal } from '@/lib/db/supabase-portal';
+import { memoriaVistas } from '@/lib/student/memoria-vistas';
 import type { RenovacionPorPagar } from '@/lib/billing/renovacion-sin-tarjeta';
 import type {
   AchievementDefinition, AchievementProgress, BannerPortal, ChallengeDefinition, ChallengeProgress,
@@ -191,12 +192,25 @@ if (typeof window !== 'undefined') {
   });
 }
 
-/** Tira el caché de un estudio (de todas las personas). Se llama tras reservar, cancelar, cerrar sesión… */
-export function invalidarCatalogo(slug: string): void {
+/**
+ * Tira el caché de un estudio (de todas las personas). Se llama tras reservar,
+ * cancelar, cerrar sesión…
+ *
+ * `conservarVistas`: para cuando NO ha escrito ella —el aforo en vivo porque
+ * otra persona reservó, o tirar para actualizar—. Ahí lo que recuerda cada
+ * pestaña sigue sirviendo para pintarse al volver (y se refresca al montarse);
+ * tirarlo con cada reserva ajena dejaría la memoria vacía en un estudio con
+ * movimiento, que es justo donde más se nota.
+ */
+export function invalidarCatalogo(slug: string, opciones?: { conservarVistas?: boolean }): void {
   borrarPorSlug(cache, slug);
   // También los vuelos en curso: uno lanzado ANTES de la escritura traería el
   // payload de antes y lo guardaría como si fuera el de después.
   borrarPorSlug(enVuelo, slug);
+  // Y lo que cada pantalla recuerda para pintarse al volver (`useAsync` con
+  // `clave`): tras reservar o cancelar, «Mis clases» no puede enseñar ni un
+  // instante la lista de antes. Prefiere el esqueleto a una lista que miente.
+  if (!opciones?.conservarVistas) memoriaVistas.olvidarEstudio(slug);
 }
 
 /**

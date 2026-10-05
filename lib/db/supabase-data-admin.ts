@@ -56,7 +56,7 @@ import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, exigePlanAlRese
 import { reservasARetirarDePlaza } from '@/lib/plazas-fijas-retirada';
 import { sesionEncajaEnPlaza, normalizarHoraInicio, HORIZONTE_MATERIALIZAR_DIAS, HORIZONTE_AVISOS_PLAZA_FIJA_DIAS } from '@/lib/plazas-fijas-slot';
 import {
-  cuotaParaPlazaFija, cupoAutomatico, motivoNoAutomatica, superaLimiteSemanal, TOPE_AUTOMATICO_POR_DEFECTO_PCT,
+  avisoTopeAutomatico, cuotaParaPlazaFija, cupoAutomatico, motivoNoAutomatica, superaLimiteSemanal, TOPE_AUTOMATICO_POR_DEFECTO_PCT,
   type AprobacionPlazaFija, type DatosPlazaFija, type ResultadoGuardarPlazaFija,
 } from '@/lib/plazas-fijas-reglas';
 import { duracionPedida, etiquetaDuracion, plazasVencidasQueEstorban } from '@/lib/clases-fijas-reglas';
@@ -182,15 +182,6 @@ function dbEscritura(): SupabaseClient {
 
 // Sentinel truthy (no se muestra en ningún sitio, solo hace que `!bienvenidaVistaEn`
 // sea false) para filas sin la columna `bienvenida_vista_en` — ver mapStudio.
-
-export async function dbSetTerminalReader(studioId: string, readerId: string | null, locationId: string | null) {
-  const admin = getSupabaseAdmin();
-  if (!admin) return;
-  const { error } = await admin.from('studios')
-    .update({ stripe_terminal_reader_id: readerId, stripe_terminal_location_id: locationId })
-    .eq('id', studioId);
-  if (error) reportDbError('[dbSetTerminalReader]', error);
-}
 
 export type ComunicacionSocio = {
   id: string;
@@ -4255,7 +4246,7 @@ async function otorgarRecuperacionPlazaFijaSiAplica(
     p_studio_id: params.studioId,
     p_socio_id: params.socioId,
     p_origen_reserva_id: params.reservaId,
-    p_motivo: 'Plaza fija — no puede esta semana',
+    p_motivo: 'Clase fija — no puede esta semana',
   });
   const recuperacionCreada = data === 'CREADA';
   // Para que quien la pidió pueda decir "recupérala antes del [fecha]" sin ir a
@@ -4558,8 +4549,8 @@ export interface TextosPlazaFija { sinAutorizacion: string; sinCuota: string; du
 
 const TEXTOS_PLAZA_FIJA_PANEL: TextosPlazaFija = {
   sinAutorizacion: 'Esta clase necesita autorización y esta clienta no la tiene. Dásela en su ficha y vuelve a intentarlo.',
-  sinCuota: 'Para tener plaza fija necesita una cuota activa que incluya esta clase. Con bono se reserva clase a clase.',
-  duplicada: 'Ya tiene una plaza fija en esa clase',
+  sinCuota: 'Para tener clase fija necesita una cuota activa que incluya esta clase. Con bono se reserva clase a clase.',
+  duplicada: 'Ya tiene una clase fija en esa clase',
   sitioOcupado: 'Ese sitio ya está asignado a otra clienta en esa clase',
 };
 
@@ -4656,7 +4647,7 @@ export async function validarPlazaFijaDesdeSesion(
     .eq('studio_id', studioId).eq('socio_id', socioId).in('estado', ['ACTIVA', 'PAUSADA']);
   const suyas = (suyasRows ?? []).map(r => plazaFijaDeFila(r as Record<string, unknown>));
   const anterior = plazaId ? suyas.find(p => p.id === plazaId) ?? null : null;
-  if (plazaId && !anterior) return { ok: false as const, error: 'Plaza fija no encontrada' };
+  if (plazaId && !anterior) return { ok: false as const, error: 'Clase fija no encontrada' };
 
   // PAUSADA cuenta también: pausar y volver a la misma clase no puede dejar dos
   // filas para la misma franja.
@@ -4692,7 +4683,7 @@ async function guardarPlazaFijaDesdeSesion(
   if (!plazaId && !datos.confirmarLimite && exceso) {
     return {
       ok: false, codigo: 'SUPERA_LIMITE', limite: exceso.limite,
-      error: `Su cuota es de ${exceso.limite} ${exceso.limite === 1 ? 'clase' : 'clases'} por semana y ya tiene ${activas} ${activas === 1 ? 'plaza fija' : 'plazas fijas'}.`,
+      error: `Su cuota es de ${exceso.limite} ${exceso.limite === 1 ? 'clase' : 'clases'} por semana y ya tiene ${activas} ${activas === 1 ? 'clase fija' : 'clases fijas'}.`,
     };
   }
 
@@ -4711,7 +4702,7 @@ async function guardarPlazaFijaDesdeSesion(
         .eq('studio_id', studioId).eq('socio_id', socioId).in('id', vencidas);
       if (errBaja) {
         capturarExcepcion(new Error(errBaja.message), { tags: { area: 'plazas-fijas' }, extra: { studioId } });
-        return { ok: false, error: 'No se pudo guardar la plaza fija' };
+        return { ok: false, error: 'No se pudo guardar la clase fija' };
       }
     }
   }
@@ -4730,13 +4721,13 @@ async function guardarPlazaFijaDesdeSesion(
     if (errCupo) {
       if (errCupo.message.includes('plazas_fijas_spot_sin_solape')) return { ok: false, error: textos.sitioOcupado };
       capturarExcepcion(new Error(errCupo.message), { tags: { area: 'plazas-fijas' }, extra: { studioId } });
-      return { ok: false, error: 'No se pudo guardar la plaza fija' };
+      return { ok: false, error: 'No se pudo guardar la clase fija' };
     }
     const r = dada as { ok?: boolean; codigo?: string } | null;
     if (!r?.ok) {
       return r?.codigo === 'SIN_CUPO'
-        ? { ok: false, error: 'Esa clase ya tiene todas las plazas fijas que se dan sin pasar por el estudio.', codigo: 'SIN_CUPO' }
-        : { ok: false, error: 'No se pudo guardar la plaza fija' };
+        ? { ok: false, error: 'Esa clase ya ha llegado al tope de alumnas con clase fija que se dan sin pasar por el estudio.', codigo: 'SIN_CUPO' }
+        : { ok: false, error: 'No se pudo guardar la clase fija' };
     }
   }
   const escritura = anterior
@@ -4751,9 +4742,9 @@ async function guardarPlazaFijaDesdeSesion(
   if (escritura.error) {
     if (escritura.error.message.includes('plazas_fijas_spot_sin_solape')) return { ok: false, error: textos.sitioOcupado };
     capturarExcepcion(new Error(escritura.error.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId } });
-    return { ok: false, error: 'No se pudo guardar la plaza fija' };
+    return { ok: false, error: 'No se pudo guardar la clase fija' };
   }
-  if (!escritura.data) return { ok: false, error: 'Plaza fija no encontrada' };
+  if (!escritura.data) return { ok: false, error: 'Clase fija no encontrada' };
   const plaza = plazaFijaDeFila(escritura.data as unknown as Record<string, unknown>);
 
   // Mover de clase suelta lo que ya tenía reservado en la franja vieja, con el
@@ -4807,7 +4798,7 @@ export async function guardarPlazaFijaStaff(
   if (params.plazaId) {
     const { data: plaza } = await admin.from('plazas_fijas').select('socio_id')
       .eq('id', params.plazaId).eq('studio_id', params.studioId).maybeSingle();
-    if (!plaza) return { ok: false, error: 'Plaza fija no encontrada' };
+    if (!plaza) return { ok: false, error: 'Clase fija no encontrada' };
     socioId = plaza.socio_id as string;
   }
   return guardarPlazaFijaDesdeSesion(
@@ -4943,7 +4934,7 @@ async function aplicarEstadoPlazaFija(
       .eq('id', params.plazaId).eq('studio_id', params.studioId);
     if (params.socioId) lectura = lectura.eq('socio_id', params.socioId);
     const { data: fila } = await lectura.maybeSingle();
-    if (!fila) return { error: 'Plaza fija no encontrada' as const };
+    if (!fila) return { error: 'Clase fija no encontrada' as const };
     const actual = plazaFijaDeFila(fila as unknown as Record<string, unknown>);
     // Una pausa que soltó su sitio no se reanuda cambiando el estado: vuelve por la
     // misma puerta que la vuelta del cron, que comprueba que el sitio siga libre.
@@ -4979,9 +4970,9 @@ async function aplicarEstadoPlazaFija(
     // Reanudar una plaza con spot propio puede chocar si ese sitio se le dio
     // a otra socia mientras estaba en pausa (plazas_fijas_spot_sin_solape).
     if (error.message.includes('plazas_fijas_spot_sin_solape')) return { error: mensajeSitioOcupado };
-    return { error: 'No se pudo actualizar la plaza fija' as const };
+    return { error: 'No se pudo actualizar la clase fija' as const };
   }
-  if (!data) return { error: 'Plaza fija no encontrada' as const };
+  if (!data) return { error: 'Clase fija no encontrada' as const };
   // Quitada la plaza, lo que se pidiera sobre ella (una pausa, su vuelta) ya no
   // tiene respuesta posible: sale de la bandeja.
   if (params.estado === 'BAJA') {
@@ -5045,17 +5036,17 @@ export async function pausarPlazaFijaStaff(
     admin.from('plazas_fijas').select(COLUMNAS_PLAZA_FIJA).eq('id', plazaId).eq('studio_id', studioId).maybeSingle(),
     admin.from('studios').select('plaza_fija_pausa_libera_sitio').eq('id', studioId).maybeSingle(),
   ]);
-  if (!fila) return { error: 'Plaza fija no encontrada' };
+  if (!fila) return { error: 'Clase fija no encontrada' };
   const actual = plazaFijaDeFila(fila as unknown as Record<string, unknown>);
   const conSitioLibre = actual.estado === 'PAUSADA' && actual.pausaLiberaSitio === true;
   // Una plaza de baja, o pausada sin fechas, no se pausa.
-  if (actual.estado !== 'ACTIVA' && !conSitioLibre) return { error: 'Plaza fija no encontrada' };
+  if (actual.estado !== 'ACTIVA' && !conSitioLibre) return { error: 'Clase fija no encontrada' };
 
   if (conSitioLibre) {
     if (!pausa) {
       const v = await volverDePausaPlazaFija(admin, actual, { forzar: true });
       if ('error' in v) return { error: v.error };
-      if (v.accion !== 'VOLVER') return { error: 'Su sitio lo tiene ahora otra clienta: cámbiale el sitio de la plaza fija o quítasela.' };
+      if (v.accion !== 'VOLVER') return { error: 'Su sitio lo tiene ahora otra clienta: cámbiale el sitio de la clase fija o quítasela.' };
       return { ok: true, plaza: v.plaza, canceladas: [], mantenidas: [], fallidas: 0, creadas: v.creadas };
     }
     // Hacer que empiece más tarde le devolvería un sitio que ya puede tener otra.
@@ -5068,7 +5059,7 @@ export async function pausarPlazaFijaStaff(
       capturarExcepcion(new Error(error.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId } });
       return { error: 'No se pudo guardar la pausa' };
     }
-    if (!data) return { error: 'Plaza fija no encontrada' };
+    if (!data) return { error: 'Clase fija no encontrada' };
     const plaza = plazaFijaDeFila(data as unknown as Record<string, unknown>);
     // El motor no le reserva nada mientras está PAUSADA: si la vuelta cae ahora en
     // la última semana, el cron de esta noche la decide.
@@ -5097,7 +5088,7 @@ export async function pausarPlazaFijaStaff(
     capturarExcepcion(new Error(error.message), { tags: { area: 'plazas-fijas' }, extra: { studioId, plazaId } });
     return { error: 'No se pudo guardar la pausa' };
   }
-  if (!data) return { error: 'Plaza fija no encontrada' };
+  if (!data) return { error: 'Clase fija no encontrada' };
   const plaza = plazaFijaDeFila(data as unknown as Record<string, unknown>);
 
   const retirada = pausa
@@ -5180,7 +5171,7 @@ export async function volverDePausaPlazaFija(
       const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
       await emitirPeticionPlazaFija(admin, {
         studioId: plaza.studioId, solicitudId: pregunta.id, socioId: plaza.socioId,
-        peticion: `acaba su pausa el ${diaMes(plaza.pausaHasta)} y no ha vuelto sola a su plaza fija de ${franjaParaAlumna(plaza.diaSemana, plaza.horaInicio)}: ${textoMotivoVuelta(decision.motivo)}`,
+        peticion: `acaba su pausa el ${diaMes(plaza.pausaHasta)} y no ha vuelto sola a su clase fija de ${franjaParaAlumna(plaza.diaSemana, plaza.horaInicio)}: ${textoMotivoVuelta(decision.motivo)}`,
       });
     }
     return decision;
@@ -5194,9 +5185,9 @@ export async function volverDePausaPlazaFija(
     // Entre la comprobación y la escritura otra plaza se ha quedado su sitio.
     if (error.message.includes('plazas_fijas_spot_sin_solape')) return { accion: 'IMPOSIBLE', motivo: 'SITIO_OCUPADO' };
     capturarExcepcion(new Error(error.message), { tags: { area: 'plazas-fijas' }, extra });
-    return { error: 'No se pudo recuperar la plaza fija' };
+    return { error: 'No se pudo recuperar la clase fija' };
   }
-  if (!data) return { error: 'Plaza fija no encontrada' };
+  if (!data) return { error: 'Clase fija no encontrada' };
   const vuelta = plazaFijaDeFila(data as unknown as Record<string, unknown>);
 
   // Si la pregunta estaba en la bandeja, queda respondida.
@@ -5386,7 +5377,7 @@ export async function solicitarPlazaFijaAlumna(
   const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
   await emitirPeticionPlazaFija(admin, {
     studioId: p.studioId, solicitudId: data.id, socioId: p.socioId,
-    peticion: `pide plaza fija ${franjaParaAlumna(v.dow, v.horaInicio)}${duracion.hasta ? ` durante ${etiquetaDuracion(duracion.meses as number)}` : ''}${v.exceso ? `, y pasaría del límite de ${v.exceso.limite} por semana de su cuota` : ''}`,
+    peticion: `pide clase fija ${franjaParaAlumna(v.dow, v.horaInicio)}${duracion.hasta ? ` durante ${etiquetaDuracion(duracion.meses as number)}` : ''}${v.exceso ? `, y pasaría del límite de ${v.exceso.limite} por semana de su cuota` : ''}`,
   });
   return { ok: true, solicitudId: data.id };
 }
@@ -5405,7 +5396,7 @@ export async function solicitarPausaPlazaFijaAlumna(
   if (studio?.plaza_fija_pausa_desde_app !== true) {
     return { error: 'Tu estudio gestiona las pausas en recepción: pídesela a ellos.', status: 403 };
   }
-  if (!fila) return { error: 'Plaza fija no encontrada', status: 404 };
+  if (!fila) return { error: 'Clase fija no encontrada', status: 404 };
   const plaza = plazaFijaDeFila(fila as unknown as Record<string, unknown>);
   if (plaza.estado !== 'ACTIVA') return { error: 'Tu clase fija ya está en pausa.', status: 400 };
   if (estadoPausa(plaza, hoy) !== 'sin_pausa') {
@@ -5425,7 +5416,7 @@ export async function solicitarPausaPlazaFijaAlumna(
   const { emitirPeticionPlazaFija } = await import('@/lib/notifications/emit');
   await emitirPeticionPlazaFija(admin, {
     studioId: p.studioId, solicitudId: data.id, socioId: p.socioId,
-    peticion: `pide pausar su plaza fija de ${franjaParaAlumna(plaza.diaSemana, plaza.horaInicio)} del ${diaMes(p.desde)} al ${diaMes(p.hasta)}`,
+    peticion: `pide pausar su clase fija de ${franjaParaAlumna(plaza.diaSemana, plaza.horaInicio)} del ${diaMes(p.desde)} al ${diaMes(p.hasta)}`,
   });
   return { ok: true, solicitudId: data.id };
 }
@@ -5509,6 +5500,8 @@ export interface PeticionPlazaFijaPanel {
   hasta: string | null;
   motivoSistema: MotivoVueltaPendiente | null;
   creadaEn: string;
+  /** CREAR con aprobación automática: por qué no entra sola (la clase ya está en el tope del estudio). */
+  avisoTope?: string | null;
   /** CREAR_CLASE_FIJA / AMPLIAR_CLASE_FIJA: la oferta, lo que eligió y si tiene sitio (solo aplica a crear). */
   claseFija?: { nombre: string; duracion: string; hasta: string; aviso: string | null } | null;
 }
@@ -5516,11 +5509,11 @@ export interface PeticionPlazaFijaPanel {
 type FilaPeticion = {
   id: string; tipo: PeticionPlazaFijaPanel['tipo']; socio_id: string; plaza_id: string | null;
   sesion_id: string | null; dia_semana: number | null; hora_inicio: string | null; tipo_clase_id: string | null;
-  supera_limite: boolean; desde_propuesta: string | null; hasta_propuesta: string | null;
+  sala_id: string | null; supera_limite: boolean; desde_propuesta: string | null; hasta_propuesta: string | null;
   motivo_sistema: string | null; creada_en: string;
   clase_fija_id: string | null; duracion_meses: number | null; vigencia_hasta_propuesta: string | null;
 };
-const COLUMNAS_PETICION = 'id, tipo, socio_id, plaza_id, sesion_id, dia_semana, hora_inicio, tipo_clase_id, supera_limite, desde_propuesta, hasta_propuesta, motivo_sistema, creada_en, clase_fija_id, duracion_meses, vigencia_hasta_propuesta';
+const COLUMNAS_PETICION = 'id, tipo, socio_id, plaza_id, sesion_id, dia_semana, hora_inicio, tipo_clase_id, sala_id, supera_limite, desde_propuesta, hasta_propuesta, motivo_sistema, creada_en, clase_fija_id, duracion_meses, vigencia_hasta_propuesta';
 
 /** Las pendientes del estudio, la más antigua primero. La ruta ya ha comprobado el rol. */
 export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId: string): Promise<PeticionPlazaFijaPanel[]> {
@@ -5559,6 +5552,9 @@ export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId:
     ? await (await import('@/lib/db/clases-fijas')).resumenOfertasPendientes(admin, studioId, filas.map(f => f.clase_fija_id).filter((x): x is string => !!x))
     : new Map<string, { nombre: string; estado: string; plazasLibres: number | null }>();
 
+  // Solo explica: si no se puede calcular, la lista sale igual, sin la frase.
+  const avisoTopeDe = await avisosTopeAutomatico(admin, studioId, filas).catch(() => new Map<string, string>());
+
   return filas.flatMap((f): PeticionPlazaFijaPanel[] => {
     if (f.tipo === 'CREAR_CLASE_FIJA' || f.tipo === 'AMPLIAR_CLASE_FIJA') {
       const o = f.clase_fija_id ? ofertas.get(f.clase_fija_id) : null;
@@ -5594,8 +5590,45 @@ export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId:
       hasta: f.tipo === 'PAUSAR' ? f.hasta_propuesta : f.tipo === 'REANUDAR' ? plaza?.pausaHasta ?? null : null,
       motivoSistema: (f.motivo_sistema as MotivoVueltaPendiente | null) ?? null,
       creadaEn: f.creada_en,
+      avisoTope: avisoTopeDe.get(f.id) ?? null,
     }];
   });
+}
+
+/**
+ * Para cada petición suelta (CREAR) de un estudio que aprueba solo: si la clase ya está en su tope, la frase que lo explica
+ * (`avisoTopeAutomatico`). Cuenta las plazas como `dar_plaza_fija_con_cupo` (ACTIVA o PAUSADA, vigentes, misma sala, día y hora,
+ * y tipo compatible) y saca el aforo de la clase que se pidió. Es solo una explicación: si algo no se puede leer, no se enseña
+ * nada y la petición se decide igual.
+ */
+async function avisosTopeAutomatico(admin: SupabaseClient, studioId: string, filas: FilaPeticion[]): Promise<Map<string, string>> {
+  const avisos = new Map<string, string>();
+  const crear = filas.filter(f => f.tipo === 'CREAR' && !f.supera_limite && f.sesion_id && f.sala_id && f.dia_semana !== null && f.hora_inicio);
+  if (crear.length === 0) return avisos;
+  const aprobacion = await aprobacionPlazaFija(admin, studioId);
+  if (aprobacion.modo !== 'AUTOMATICA') return avisos;
+  const hoy = hoyEnEstudio();
+  const [{ data: ses, error: errSes }, { data: pfs, error: errPf }] = await Promise.all([
+    admin.from('sesiones').select('id, aforo_maximo').eq('studio_id', studioId).in('id', crear.map(f => f.sesion_id as string)),
+    admin.from('plazas_fijas').select('sala_id, dia_semana, hora_inicio, tipo_clase_id, vigencia_hasta')
+      .eq('studio_id', studioId).in('estado', ['ACTIVA', 'PAUSADA'])
+      .in('dia_semana', [...new Set(crear.map(f => f.dia_semana as number))]),
+  ]);
+  if (errSes || errPf) return avisos;
+  const aforo = new Map((ses ?? []).map(r => [r.id as string, r.aforo_maximo as number | null]));
+  for (const f of crear) {
+    const hora = normalizarHoraInicio(f.hora_inicio as string);
+    const ocupadas = (pfs ?? []).filter(pf => pf.sala_id === f.sala_id && pf.dia_semana === f.dia_semana
+      && normalizarHoraInicio(pf.hora_inicio as string) === hora
+      && (!pf.vigencia_hasta || (pf.vigencia_hasta as string) >= hoy)
+      && (!pf.tipo_clase_id || !f.tipo_clase_id || pf.tipo_clase_id === f.tipo_clase_id)).length;
+    const texto = avisoTopeAutomatico({
+      modo: aprobacion.modo, superaLimite: f.supera_limite, ocupadas,
+      cupo: cupoAutomatico(aforo.get(f.sesion_id as string), aprobacion.topePct), pct: aprobacion.topePct,
+    });
+    if (texto) avisos.set(f.id, texto);
+  }
+  return avisos;
 }
 
 export type ResultadoResolverPeticion =
@@ -5672,7 +5705,7 @@ export async function resolverPeticionPlazaFija(
     if (!plaza || plaza.estado === 'BAJA') {
       await admin.from('solicitudes_plaza_fija').update({ estado: 'CADUCADA', resuelta_en: ahora() })
         .eq('id', sol.id).eq('estado', 'PENDIENTE');
-      return { error: 'Esa plaza fija ya no existe: la petición se ha quitado de la lista.', status: 409 };
+      return { error: 'Esa clase fija ya no existe: la petición se ha quitado de la lista.', status: 409 };
     }
   }
   const franja = plaza
@@ -5777,7 +5810,7 @@ export async function resolverPeticionPlazaFija(
     await responder(p.automatica
       ? `Tu clase fija de ${franja} está confirmada.${proxima}`
       : `Tu estudio te ha dado la clase fija de ${franja}.${proxima}`);
-    return { ok: true, mensaje: 'Plaza fija dada', ...(paraAlumna ? { paraAlumna } : {}) };
+    return { ok: true, mensaje: 'Clase fija dada', ...(paraAlumna ? { paraAlumna } : {}) };
   }
 
   if (sol.tipo === 'PAUSAR') {
@@ -5814,7 +5847,7 @@ export async function resolverPeticionPlazaFija(
     }
     await anotar({ resultado_plaza_id: v.plaza.id });
     await responder(`Tu clase fija de ${franja} vuelve después de tu pausa.`);
-    return { ok: true, mensaje: 'Vuelve a su plaza fija' };
+    return { ok: true, mensaje: 'Vuelve a su clase fija' };
   }
   // Rechazar la vuelta quita la plaza. Primero se reclama la petición (nadie la
   // aprueba mientras tanto); si quitar la plaza falla, vuelve a quedar pendiente.
@@ -5827,7 +5860,7 @@ export async function resolverPeticionPlazaFija(
     return { error: baja.error, status: 400 };
   }
   await responder(conMotivo(`Tu clase fija de ${franja} no continúa después de tu pausa`));
-  return { ok: true, mensaje: 'Plaza fija quitada' };
+  return { ok: true, mensaje: 'Clase fija quitada' };
 }
 
 // ─── Citas 1:1 auto-reservables (0046) — escrituras/lecturas públicas ─────────
@@ -7266,7 +7299,7 @@ export async function dbSetGoogleCalendarEmail(studioId: string, email: string |
 // Cifradas en la app (lib/integraciones/cifrado-credenciales.ts). Toda lectura
 // y escritura de `integracion_credenciales` pasa por estos ayudantes: un
 // `.from()` suelto se saltaría el cifrado (lo vigila su test).
-type ProveedorCredenciales = 'google_calendar' | 'klaviyo' | 'gmail' | 'zoom';
+type ProveedorCredenciales = 'google_calendar' | 'klaviyo' | 'gmail' | 'zoom' | 'sumup';
 
 interface CredencialesOAuth {
   accessToken: string;
@@ -7300,12 +7333,12 @@ const SIN_CLAVE_INTEGRACIONES = 'No se pueden guardar las credenciales sin cifra
  * puede descifrar (sin clave, otra clave, alterado) NO se devuelve: es `null`,
  * y la integración se trata como no conectada hasta reconectarla.
  */
-async function leerCredencialesOAuth(studioId: string, provider: ProveedorCredenciales, etiqueta: string): Promise<(CredencialesOAuth & { metadata: unknown }) | null> {
+async function leerCredencialesOAuth(studioId: string, provider: ProveedorCredenciales, etiqueta: string): Promise<(CredencialesOAuth & { metadata: unknown; version: string | null }) | null> {
   const admin = getSupabaseAdmin();
   if (!admin) return null;
   const { data, error } = await admin
     .from('integracion_credenciales')
-    .select('access_token, refresh_token, expires_at, metadata')
+    .select('access_token, refresh_token, expires_at, metadata, actualizado_en')
     .eq('studio_id', studioId)
     .eq('provider', provider)
     .maybeSingle();
@@ -7325,17 +7358,30 @@ async function leerCredencialesOAuth(studioId: string, provider: ProveedorCreden
     return null;
   }
   // Los mismos tipos que se devolvían antes de cifrar: sin reinterpretar nulos.
-  return { accessToken: acceso.valor as string, refreshToken: renovar.valor, expiresAt: data.expires_at as string, metadata: data.metadata };
+  return {
+    accessToken: acceso.valor as string, refreshToken: renovar.valor, expiresAt: data.expires_at as string, metadata: data.metadata,
+    // Versión de la fila: con ella, una renovación solo se guarda si nadie la cambió entre medias.
+    version: (data.actualizado_en as string | null) ?? null,
+  };
 }
 
-async function guardarCredencialesOAuth(studioId: string, provider: ProveedorCredenciales, c: CredencialesOAuth, etiqueta: string, metadata?: Record<string, unknown> | null) {
+/**
+ * `soloSiVersion`: guarda SOLO si la fila sigue en esa versión (`actualizado_en`
+ * leído). Es la renovación de un token que ROTA (SumUp): si otro proceso ya lo
+ * renovó, no se pisa su token nuevo con uno que el proveedor acaba de invalidar.
+ * Devuelve si quedó guardado (sin `soloSiVersion`, `true` salvo error).
+ */
+async function guardarCredencialesOAuth(
+  studioId: string, provider: ProveedorCredenciales, c: CredencialesOAuth, etiqueta: string,
+  metadata?: Record<string, unknown> | null, opciones: { soloSiVersion?: string } = {},
+): Promise<boolean> {
   const admin = getSupabaseAdmin();
-  if (!admin) return;
+  if (!admin) return false;
   const claves = clavesDelEntorno();
   // Lanza: quien guarda (el callback de OAuth, la renovación del token) tiene
   // que enterarse de que no quedó guardado.
   if (sinClaveDeCifrado(claves)) throw new Error(SIN_CLAVE_INTEGRACIONES);
-  const { error } = await admin.from('integracion_credenciales').upsert({
+  const fila = {
     studio_id: studioId,
     provider,
     access_token: paraGuardar(c.accessToken, contextoCredencial(studioId, provider, 'access_token'), claves).valor,
@@ -7343,8 +7389,18 @@ async function guardarCredencialesOAuth(studioId: string, provider: ProveedorCre
     expires_at: c.expiresAt,
     ...(metadata !== undefined ? { metadata } : {}),
     actualizado_en: new Date().toISOString(),
-  }, { onConflict: 'studio_id,provider' });
-  if (error) reportDbError(etiqueta, error);
+  };
+  const tabla = admin.from('integracion_credenciales');
+  if (opciones.soloSiVersion) {
+    const { data, error } = await tabla.update(fila)
+      .eq('studio_id', studioId).eq('provider', provider).eq('actualizado_en', opciones.soloSiVersion)
+      .select('studio_id');
+    if (error) { reportDbError(etiqueta, error); return false; }
+    return (data?.length ?? 0) > 0;
+  }
+  const { error } = await tabla.upsert(fila, { onConflict: 'studio_id,provider' });
+  if (error) { reportDbError(etiqueta, error); return false; }
+  return true;
 }
 
 /** `false` = no se ha borrado (sin service role, o la base de datos ha dicho que no). */
@@ -7492,6 +7548,44 @@ export async function dbSetZoomEmail(studioId: string, email: string | null) {
 
 export type ZoomCredenciales = CredencialesOAuth;
 
+
+// SumUp (datáfono SumUp Solo en la Caja). `merchantCode` en metadata: es la cuenta
+// de SumUp del estudio y va en todas las rutas de su API. Su refresh token ROTA:
+// la renovación guarda con `soloSiVersion` (ver lib/pos/sumup-oauth.ts).
+export interface SumupCredenciales extends CredencialesOAuth {
+  merchantCode: string;
+  /** Cómo se llama el comercio en SumUp (para enseñar QUÉ cuenta está conectada). */
+  nombreComercio: string | null;
+  /** Versión de la fila al leerla (`actualizado_en`). */
+  version: string | null;
+}
+
+export async function dbGetSumupCredenciales(studioId: string): Promise<SumupCredenciales | null> {
+  const c = await leerCredencialesOAuth(studioId, 'sumup', '[dbGetSumupCredenciales]');
+  if (!c) return null;
+  const metadata = c.metadata as { merchantCode?: unknown; nombreComercio?: unknown } | null;
+  if (typeof metadata?.merchantCode !== 'string' || !metadata.merchantCode) return null;
+  return {
+    accessToken: c.accessToken, refreshToken: c.refreshToken, expiresAt: c.expiresAt, merchantCode: metadata.merchantCode,
+    nombreComercio: typeof metadata.nombreComercio === 'string' && metadata.nombreComercio ? metadata.nombreComercio : null,
+    version: c.version,
+  };
+}
+
+/** Al conectar la cuenta (OAuth). Lanza si no se pudo guardar. */
+export async function dbSaveSumupCredenciales(studioId: string, c: CredencialesOAuth & { merchantCode: string; nombreComercio: string | null }) {
+  const ok = await guardarCredencialesOAuth(studioId, 'sumup', c, '[dbSaveSumupCredenciales]', { merchantCode: c.merchantCode, nombreComercio: c.nombreComercio });
+  if (!ok) throw new Error('No se han podido guardar las credenciales de SumUp');
+}
+
+/** Tras renovar el token: solo si nadie lo renovó antes. `false` = otro proceso ganó; hay que releer. */
+export async function dbRenovarSumupCredenciales(studioId: string, c: CredencialesOAuth, versionLeida: string): Promise<boolean> {
+  return guardarCredencialesOAuth(studioId, 'sumup', c, '[dbRenovarSumupCredenciales]', undefined, { soloSiVersion: versionLeida });
+}
+
+export async function dbDeleteSumupCredenciales(studioId: string): Promise<boolean> {
+  return borrarCredencialesOAuth(studioId, 'sumup', '[dbDeleteSumupCredenciales]');
+}
 
 export async function dbGetZoomCredenciales(studioId: string): Promise<ZoomCredenciales | null> {
   const c = await leerCredencialesOAuth(studioId, 'zoom', '[dbGetZoomCredenciales]');

@@ -51,15 +51,15 @@ test('textoTrasPausa cuenta lo que ha hecho el servidor', () => {
   const pausa = { desde: '2026-08-10', hasta: '2026-08-23' };
   assert.equal(
     textoTrasPausa({ canceladas: 2, mantenidas: 1, fallidas: 0, creadas: 0 }, pausa),
-    'Plaza fija en pausa del 10/08/2026 al 23/08/2026 · 2 clases canceladas · 1 se mantiene por estar dentro del plazo de cancelación',
+    'Clase fija en pausa del 10/08/2026 al 23/08/2026 · 2 clases canceladas · 1 se mantiene por estar dentro del plazo de cancelación',
   );
   assert.equal(
     textoTrasPausa({ canceladas: 0, mantenidas: 0, fallidas: 1, creadas: 0 }, pausa),
-    'Plaza fija en pausa del 10/08/2026 al 23/08/2026 · 1 no se pudo cancelar: revísala en el calendario',
+    'Clase fija en pausa del 10/08/2026 al 23/08/2026 · 1 no se pudo cancelar: revísala en el calendario',
   );
   assert.equal(
     textoTrasPausa({ canceladas: 1, mantenidas: 0, fallidas: 0, creadas: 0, sitioLibre: true }, pausa),
-    'Plaza fija en pausa del 10/08/2026 al 23/08/2026 · su sitio queda libre mientras tanto · 1 clase cancelada',
+    'Clase fija en pausa del 10/08/2026 al 23/08/2026 · su sitio queda libre mientras tanto · 1 clase cancelada',
   );
   assert.equal(textoTrasPausa({ canceladas: 0, mantenidas: 0, fallidas: 0, creadas: 1 }, null), 'Pausa quitada · 1 clase reservada de nuevo');
   assert.equal(textoTrasPausa({ canceladas: 0, mantenidas: 0, fallidas: 0, creadas: 0 }, null), 'Pausa quitada');

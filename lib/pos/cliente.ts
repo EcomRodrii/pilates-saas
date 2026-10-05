@@ -33,21 +33,30 @@ export interface ResumenHoy {
 }
 export interface CatalogoPOS {
   ivaDefecto: number;
-  cobro: { stripeConectado: boolean; datafonoEmparejado: boolean };
+  cobro: {
+    stripeConectado: boolean;
+    datafonoEmparejado: boolean;
+    /** De quién es el datáfono emparejado (el de Stripe o el SumUp Solo). */
+    datafonoProveedor?: 'stripe' | 'sumup' | null;
+    /** ¿Se le ofrece SumUp a este estudio? Sin Stripe, es lo que deja conectar un datáfono. */
+    sumupDisponible?: boolean;
+  };
   productos: ProductoPOSCatalogo[];
   planes: PlanPOSCatalogo[];
   caja: CajaAbierta | null;
   hoy: ResumenHoy;
 }
 
-async function pedir<T>(url: string, init?: RequestInit): Promise<T | { error: string }> {
+async function pedir<T>(url: string, init?: RequestInit): Promise<T | { error: string; codigo?: string }> {
   try {
     const res = await fetch(url, {
       ...init,
       headers: { 'Content-Type': 'application/json', ...(await authHeader()), ...(init?.headers ?? {}) },
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    if (!res.ok) {
+      return { error: mensajeSeguro(data.error, mensajeHttp(res.status)), ...(typeof data.codigo === 'string' ? { codigo: data.codigo } : {}) };
+    }
     return data as T;
   } catch {
     return { error: 'No hemos podido conectar. Comprueba la conexión.' };
@@ -144,8 +153,13 @@ export function ventasPorAsignarDePlan(planId: string) {
   return pedir<{ ventas: VentaPorAsignar[] }>(`/api/pos/ventas/por-asignar?planId=${encodeURIComponent(planId)}`);
 }
 
-export function devolverVenta(p: { ventaId: string; lineas?: { lineaId: string; cantidad: number }[]; motivo?: string }) {
-  return pedir<{ ok: true; devolucionId: string; importe: number; esTotal: boolean; dineroDevuelto: boolean; creditosRetirados: number; enEfectivo: boolean }>(
+/**
+ * `soloApuntar`: venta cobrada con SumUp cuya devolución YA consta en SumUp (hecha
+ * desde su app): se apunta aquí sin devolver nada más. Solo lo acepta el servidor
+ * si SumUp tiene devuelto justo eso de más (ver `decidirDevolucionSumup`).
+ */
+export function devolverVenta(p: { ventaId: string; lineas?: { lineaId: string; cantidad: number }[]; motivo?: string; soloApuntar?: boolean }) {
+  return pedir<{ ok: true; devolucionId: string; importe: number; esTotal: boolean; dineroDevuelto: boolean; creditosRetirados: number; enEfectivo: boolean; yaEstaba?: boolean }>(
     '/api/pos/devolucion', { method: 'POST', body: JSON.stringify(p) },
   );
 }

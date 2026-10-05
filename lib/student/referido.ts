@@ -33,7 +33,12 @@ export function enlaceInvitacion(origen: string, slug: string, socioId: string):
   return `${base}/portal/${encodeURIComponent(slug)}/acceso/registro?ref=${encodeURIComponent(socioId)}`;
 }
 
+/** La frase de la invitación, sin el enlace (la hoja de compartir lo lleva aparte). */
+export function fraseInvitacion(estudio: string): string {
+  return `Te invito a probar ${estudio}. Entra desde aquí y nos vemos en clase:`;
+}
+
 /** El texto que se comparte con el enlace. */
 export function textoInvitacion(estudio: string, enlace: string): string {
-  return `Te invito a probar ${estudio}. Entra desde aquí y nos vemos en clase:\n${enlace}`;
+  return `${fraseInvitacion(estudio)}\n${enlace}`;
 }

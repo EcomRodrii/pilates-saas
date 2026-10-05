@@ -63,6 +63,17 @@ async function montar(page: Page, opts: {
 
 const home = (page: Page) => page.getByText(/¿qué te apetece hoy\?/i);
 
+/**
+ * Ya ha decidido y la deja pasar. ⚠️ La portada de Inicio (con «¿Qué te apetece
+ * hoy?») se pinta ANTES de que la guardia resuelva (30-sep-2026, ver
+ * `ShellConHeroe`), así que verla no dice que se hayan mirado las preguntas: lo
+ * dice la barra de abajo, que solo sale cuando la guardia ha terminado.
+ */
+async function dentro(page: Page) {
+  await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('main[aria-busy]')).toHaveCount(0);
+}
+
 test.describe('Student PWA · preguntas del estudio antes de empezar', () => {
   // ⚠️ Sin service worker. En el build de producción (el del CI) la app registra
   // `/sw.js`, y en WebKit una página ya controlada por él manda sus `fetch` a
@@ -127,8 +138,9 @@ test.describe('Student PWA · preguntas del estudio antes de empezar', () => {
   test('ya lo contestó todo: entra directa, sin preguntas', async ({ page }) => {
     const { lecturas } = await montar(page, { get: estado([], { 'cp-objetivo': 'Fuerza', 'cp-como': null, 'cp-practico': true }) });
     await page.goto(CON);
-    await expect(home(page)).toBeVisible({ timeout: 30_000 });
-    expect(lecturas.length).toBeGreaterThan(0);
+    await expect.poll(() => lecturas.length, { timeout: 30_000 }).toBeGreaterThan(0);
+    await dentro(page);
+    await expect(home(page)).toBeVisible();
     await expect(page.getByTestId('preguntas-alta')).toHaveCount(0);
   });
 
@@ -140,14 +152,18 @@ test.describe('Student PWA · preguntas del estudio antes de empezar', () => {
     let intentos = 0;
     await page.route((u) => u.pathname === '/api/public/preguntas-alta', (r) => { intentos++; return r.fulfill(json({ error: 'boom' }, 500)); });
     await page.goto(CON);
-    await expect(home(page)).toBeVisible({ timeout: 30_000 });
-    expect(intentos).toBeGreaterThan(0);
+    await expect.poll(() => intentos, { timeout: 30_000 }).toBeGreaterThan(0);
+    // No atascada: la guardia termina aunque la lectura haya fallado.
+    await dentro(page);
+    await expect(page.getByTestId('preguntas-alta')).toHaveCount(0);
   });
 
   test('apagado (lo de serie): ni se pregunta al servidor', async ({ page }) => {
     const { lecturas } = await montar(page);
     await page.goto(SIN);
-    await expect(home(page)).toBeVisible({ timeout: 30_000 });
+    // Con la guardia ya resuelta: antes, el cero podía ser solo «aún no ha preguntado».
+    await dentro(page);
+    await expect(home(page)).toBeVisible();
     expect(lecturas).toHaveLength(0);
     await expect(page.getByTestId('preguntas-alta')).toHaveCount(0);
   });

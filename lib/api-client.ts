@@ -1,6 +1,7 @@
 'use client';
 
 import type { TipoRebote } from '@/lib/emails/rebotes';
+import { senalConLimite } from '@/lib/senal-con-limite';
 import { supabase } from '@/lib/db/supabase';
 import { unaVez } from '@/lib/una-vez';
 import { portalAuthHeader } from '@/lib/student/api-publica';
@@ -1126,6 +1127,8 @@ export interface PeticionPlazaFija {
   hasta: string | null;
   motivoSistema: 'SIN_CUPO' | 'SITIO_OCUPADO' | 'SIN_CUOTA' | 'SUPERA_LIMITE' | 'PREGUNTAR' | null;
   creadaEn: string;
+  /** CREAR con aprobación automática: por qué no entra sola (la clase ya está en el tope del estudio). */
+  avisoTope?: string | null;
   /** CREAR_CLASE_FIJA / AMPLIAR_CLASE_FIJA: la oferta, cuánto tiempo eligió y, si hay algo que avisar, qué. */
   claseFija?: { nombre: string; duracion: string; hasta: string; aviso: string | null } | null;
 }
@@ -1594,24 +1597,6 @@ export async function sellarFactura(fac: Factura): Promise<{ ok: boolean; sellad
 }
 
 // ── Stripe Terminal (datáfono físico) ──────────────────────────────────────────
-export async function terminalEstadoLector(): Promise<{ ok?: boolean; emparejado?: boolean; estado?: string; test?: boolean; error?: string }> {
-  try {
-    const res = await fetch('/api/terminal/lector', { headers: { ...(await authHeader()) } });
-    return await res.json();
-  } catch { return { error: 'No se pudo consultar el datáfono' }; }
-}
-
-export async function terminalRegistrarLector(registrationCode?: string): Promise<{ ok?: boolean; readerId?: string; test?: boolean; error?: string }> {
-  try {
-    const res = await fetch('/api/terminal/lector', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ registrationCode }),
-    });
-    return await res.json();
-  } catch { return { error: 'No se pudo registrar el datáfono' }; }
-}
-
 export async function terminalCobrar(params: { studioId: string; amount: number; concepto: string }): Promise<{ ok?: boolean; paymentIntentId?: string; error?: string }> {
   try {
     const res = await fetch('/api/terminal/cobrar', {
@@ -2076,7 +2061,7 @@ export async function avisarClaseCancelada(sesionId: string): Promise<boolean> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ sesionId }),
-      signal: AbortSignal.timeout(10_000),
+      signal: senalConLimite(10_000),
     });
     return res.ok;
   } catch { /* best-effort: no bloquea la cancelación */ return false; }
@@ -2126,7 +2111,7 @@ export async function enviarEmailCancelacionClase(params: {
       // socias se avisaron de verdad), así que necesita el mismo techo que
       // `avisarClaseCancelada`: sin él, un /api/emails/send colgado dejaba el
       // borrado de la clase esperando sin límite.
-      signal: AbortSignal.timeout(10_000),
+      signal: senalConLimite(10_000),
       body: JSON.stringify({
         tipo: 'cancelacion',
         to: params.to,

@@ -540,7 +540,10 @@ export type FilaReciboPanel = Omit<RowRecibos,
   | 'terminos_hash' | 'terminos_aceptados_en'
   // El cobro con tarjeta o domiciliación guardada EN MARCHA (lib/billing/cobro-off-session-marca.ts):
   // dura segundos y la decide el servidor; la remesa la lee aparte, justo antes de marcar.
-  | 'cobro_off_session_clave' | 'cobro_off_session_desde'>;
+  | 'cobro_off_session_clave' | 'cobro_off_session_desde'
+  // El cargo de SumUp que cerró un recibo cobrado en su datáfono (migr datafono_sumup).
+  // Hoy solo lo escribe y lo lee el servidor; el panel lo verá cuando haya devolución por SumUp.
+  | 'sumup_transaction_id'>;
 
 export function mapSocio(r: FilaSocioPanel): Socio {
   // ⚠️ `versionTexto` llega VACÍO desde el arranque del panel, y es a propósito.

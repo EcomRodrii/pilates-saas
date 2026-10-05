@@ -32,7 +32,7 @@ export function marcaReserva(
 export function avisoQuitarReserva(estado: EstadoReserva, marca: MarcaReserva): string {
   if (estado === 'LISTA_ESPERA' || estado === 'PENDIENTE_APROBACION') return 'Perderá su sitio en la lista de espera.';
   if (marca === 'fija') {
-    return 'Sigue con su plaza fija: solo se quita de esta clase. Si hay lista de espera, entra la siguiente persona.';
+    return 'Sigue con su clase fija: solo se quita de esta clase. Si hay lista de espera, entra la siguiente persona.';
   }
   if (marca === 'recuperacion') {
     return 'Vuelve a tener su clase para recuperar, con la misma caducidad. Si hay lista de espera, entra la siguiente persona.';
@@ -55,7 +55,7 @@ export function textoTrasQuitar(
   if (res.recuperacionAlCerrarSemana) {
     return 'Quitada · si no usa ese hueco esta semana, tendrá una clase para recuperar al acabarla';
   }
-  if (marca === 'fija') return 'Quitada de esta clase · sigue con su plaza fija';
+  if (marca === 'fija') return 'Quitada de esta clase · sigue con su clase fija';
   if (marca === 'recuperacion') return 'Quitada · vuelve a tener su clase para recuperar';
   return null;
 }

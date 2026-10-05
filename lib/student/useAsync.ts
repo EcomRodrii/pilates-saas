@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ViewState } from '@/lib/student/tipos';
 import { useOnline } from '@/lib/student/useOnline';
 import { supabasePortal } from '@/lib/db/supabase-portal';
+import { memoriaVistas } from '@/lib/student/memoria-vistas';
+import { personaEnElDispositivo } from '@/lib/student/persona-dispositivo';
 
 // `hooks/useAsync.ts` del paquete: carga datos y deriva los cinco estados de
 // vista (loading / ready / empty / error / offline) que usan TODAS las listas.
@@ -34,29 +36,35 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 // cambiar de pestaña en la app de la instructora volvía a enseñar el esqueleto
 // y a pedirlo todo, 1-2 s por pantalla ya vista. Solo para pantallas de LECTURA:
 // una que edita sobre sus datos no debe arrancar de una copia.
-// ⚠️ Lo guardado vive en memoria (se va al recargar) y se vacía al cerrar sesión,
-// para que otra cuenta en la misma pestaña no vea ni un instante lo de la anterior.
+// ⚠️ Lo guardado vive en memoria (se va al recargar) y es POR PERSONA: la clave
+// lleva la identidad de la sesión del dispositivo (lib/student/memoria-vistas.ts),
+// así que otra cuenta en la misma pestaña no ve ni un instante lo de la
+// anterior. Además se vacía al cerrar sesión y, por estudio, tras cualquier
+// escritura (`invalidarCatalogo`).
+//
+// Desde el 4-oct-2026 la usan también las pestañas de la alumna (Inicio,
+// Reservar, Mis clases, Bonos, Perfil, Avisos): cambiar de pestaña tiene que ser
+// instantáneo, como en una app nativa.
 
-const vistasGuardadas = new Map<string, unknown>();
 let escuchandoSalida = false;
 
-function guardarVista(clave: string, d: unknown): void {
-  vistasGuardadas.set(clave, d);
+function guardarVista(clave: string, personaAlPedir: string | null, d: unknown): void {
+  memoriaVistas.guardar(clave, personaAlPedir, personaEnElDispositivo(), d);
   if (escuchandoSalida) return;
   escuchandoSalida = true;
   supabasePortal.auth.onAuthStateChange((evento) => {
-    if (evento === 'SIGNED_OUT') vistasGuardadas.clear();
+    if (evento === 'SIGNED_OUT') memoriaVistas.olvidarTodo();
   });
 }
 
 /** Lo último cargado con esa clave, sin pedir nada (p. ej. el nombre de una alumna ya visto en la bandeja). */
 export function vistaGuardada<T>(clave: string): T | null {
-  return vistasGuardadas.has(clave) ? vistasGuardadas.get(clave) as T : null;
+  return memoriaVistas.leer<T>(clave, personaEnElDispositivo()) ?? null;
 }
 
 /** Para `logout` y los tests: nada de lo guardado vale ya. */
 export function olvidarVistasGuardadas(): void {
-  vistasGuardadas.clear();
+  memoriaVistas.olvidarTodo();
 }
 
 export interface ResultadoAsync<T> {
@@ -72,26 +80,37 @@ export function useAsync<T>(
   vacio: (d: T) => boolean = (d) => Array.isArray(d) && d.length === 0,
   clave?: string,
 ): ResultadoAsync<T> {
-  const [data, setData] = useState<T | null>(() => (clave && vistasGuardadas.has(clave) ? vistasGuardadas.get(clave) as T : null));
+  // Lo guardado se lee UNA vez, al montar, y para la persona del dispositivo.
+  // En el servidor no hay nada guardado (ni persona): mismo primer render que
+  // al hidratar una carga en frío.
+  const [inicial] = useState(() => {
+    if (!clave || typeof window === 'undefined') return { hay: false as const };
+    const persona = personaEnElDispositivo();
+    return memoriaVistas.tiene(clave, persona)
+      ? { hay: true as const, valor: memoriaVistas.leer<T>(clave, persona) as T }
+      : { hay: false as const };
+  });
+  const [data, setData] = useState<T | null>(inicial.hay ? inicial.valor : null);
   const [estado, setEstado] = useState<ViewState>(() => {
-    if (!clave || !vistasGuardadas.has(clave)) return 'loading';
-    return vacio(vistasGuardadas.get(clave) as T) ? 'empty' : 'ready';
+    if (!inicial.hay) return 'loading';
+    return vacio(inicial.valor) ? 'empty' : 'ready';
   });
   const [tick, setTick] = useState(0);
   const { online } = useOnline();
 
   useEffect(() => {
     let vivo = true;
+    const persona = personaEnElDispositivo();
     fn()
       .then((d) => {
         if (!vivo) return;
-        if (clave) guardarVista(clave, d);
+        if (clave) guardarVista(clave, persona, d);
         setData(d);
         setEstado(vacio(d) ? 'empty' : 'ready');
       })
       .catch(() => {
         // Con una copia en pantalla, un refresco fallido no la tapa con un error.
-        if (vivo) setEstado((e) => (clave && vistasGuardadas.has(clave) && e !== 'loading' ? e : 'error'));
+        if (vivo) setEstado((e) => (clave && memoriaVistas.tiene(clave, persona) && e !== 'loading' ? e : 'error'));
       });
     return () => { vivo = false; };
     // `vacio` fuera a propósito: casi siempre es una lambda en línea, así que
@@ -109,9 +128,10 @@ export function useAsync<T>(
   // una lista que ya se ve. `vacio` fuera de las deps por el mismo motivo que
   // en el efecto.
   const refrescar = useCallback(async () => {
+    const persona = personaEnElDispositivo();
     try {
       const d = await fn();
-      if (clave) guardarVista(clave, d);
+      if (clave) guardarVista(clave, persona, d);
       setData(d);
       setEstado(vacio(d) ? 'empty' : 'ready');
     } catch {

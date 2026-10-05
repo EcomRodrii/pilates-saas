@@ -6,6 +6,7 @@ import { codigoDeError, emailYaEnUso, traducirAuth, type CodigoAuth } from './au
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { olvidarInvitacionApp } from '@/lib/student/invitacion-app';
+import { CLAVE_ULTIMO_ESTUDIO } from '@/lib/app-nativa/mis-estudios';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { mensajeSeguro } from '@/lib/errores';
 
@@ -270,5 +271,15 @@ export function useAuthStudent(slug: string) {
     invalidarCatalogo(slug); olvidarInvitacionApp(slug); await supabasePortal.auth.signOut();
   }, [slug]);
 
-  return { loginConPassword, enviarEnlace, registrarCuenta, reenviarCodigoAlta, fijarPassword, cambiarPassword, cambiarEmail, recuperar, entrarConGoogle, logout };
+  // Tras «Borrar mi cuenta»: lo mismo que `logout` sin hablar con el servidor de
+  // avisos (ya los borró la ruta, y con la cuenta borrada contestaría 401), más el
+  // último estudio de la app de iOS, que ya no es de nadie. `local`: la cuenta ya
+  // no existe, no queda ninguna sesión que cerrar en las demás.
+  const olvidarCuentaBorrada = useCallback(async () => {
+    invalidarCatalogo(slug); olvidarInvitacionApp(slug);
+    try { localStorage.removeItem(CLAVE_ULTIMO_ESTUDIO); } catch { /* modo privado */ }
+    await supabasePortal.auth.signOut({ scope: 'local' });
+  }, [slug]);
+
+  return { loginConPassword, enviarEnlace, registrarCuenta, reenviarCodigoAlta, fijarPassword, cambiarPassword, cambiarEmail, recuperar, entrarConGoogle, logout, olvidarCuentaBorrada };
 }

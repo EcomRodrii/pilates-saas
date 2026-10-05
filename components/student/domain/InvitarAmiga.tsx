@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
-import { copiarAlPortapapeles } from '@/lib/utils';
-import { enlaceInvitacion, textoInvitacion } from '@/lib/student/referido';
+import { enlaceInvitacion, fraseInvitacion } from '@/lib/student/referido';
+import { useCompartir } from '@/lib/student/use-compartir';
 import { Icono } from '@/components/student/ui/Icono';
 
 // Invitar a una amiga.
@@ -16,12 +16,15 @@ import { Icono } from '@/components/student/ui/Icono';
 // existiendo, no depende de quien comparte el enlace.
 //
 // Lo que sí es cierto y es lo que se dice: comparte el estudio con alguien.
+//
+// Se COMPARTE con la hoja del sistema (la nativa de iOS dentro de la app, la del
+// navegador si la tiene: WhatsApp, Mensajes, Mail…). Solo donde no hay hoja
+// —casi todo escritorio— se copia, que es lo único que hacía antes.
 export function InvitarAmiga({ slug, socioId, nombreEstudio }: {
   slug: string; socioId: string; nombreEstudio: string;
 }) {
   const [abierta, setAbierta] = useState(false);
-  // `null` = todavía no lo ha intentado.
-  const [copiado, setCopiado] = useState<boolean | null>(null);
+  const { hayHoja, compartir, copiado, olvidar } = useCompartir();
 
   // El origen se lee del navegador: en local, en preview y en producción el
   // enlace tiene que ser el de DONDE está, no uno fijo.
@@ -29,12 +32,9 @@ export function InvitarAmiga({ slug, socioId, nombreEstudio }: {
     ? enlaceInvitacion(window.location.origin, slug, socioId)
     : '';
 
-  const copiar = async () => {
-    // ⚠️ Se mira el RESULTADO. `copiarAlPortapapeles` devuelve si de verdad
-    // escribió, y decir «Copiado» sin comprobarlo ya salió mal en este repo:
-    // tres pantallas lo afirmaban con el portapapeles vacío.
-    setCopiado(await copiarAlPortapapeles(textoInvitacion(nombreEstudio, enlace)));
-  };
+  // ⚠️ Si toca copiar, se mira el RESULTADO (`useCompartir`): decir «Copiado»
+  // sin comprobarlo ya salió mal en este repo.
+  const invitar = () => compartir({ titulo: `Invitación a ${nombreEstudio}`, texto: fraseInvitacion(nombreEstudio), url: enlace });
 
   return (
     <>
@@ -42,7 +42,7 @@ export function InvitarAmiga({ slug, socioId, nombreEstudio }: {
         type="button"
         className="card card--tap card--pad row row--between tap"
         style={{ width: '100%', textAlign: 'left' }}
-        onClick={() => { setCopiado(null); setAbierta(true); }}
+        onClick={() => { olvidar(); setAbierta(true); }}
         data-testid="abrir-invitar"
       >
         <span className="stack" style={{ ['--gap' as string]: '2px' }}>
@@ -72,7 +72,9 @@ export function InvitarAmiga({ slug, socioId, nombreEstudio }: {
             {enlace}
           </p>
 
-          <Button full onClick={() => void copiar()}>Copiar la invitación</Button>
+          <Button full onClick={() => void invitar()} data-testid="compartir-invitacion">
+            {hayHoja ? 'Compartir la invitación' : 'Copiar la invitación'}
+          </Button>
 
           {copiado !== null && (
             <p

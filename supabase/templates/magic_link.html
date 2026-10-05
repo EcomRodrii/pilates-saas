@@ -3,13 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tu enlace de acceso</title>
+    <title>Tu código para entrar</title>
   </head>
-  <!-- Correo de Tentare, no del estudio: aquí manda la marca de Tentare (oliva
-       #343825 + arena #D9C29E), como lib/emails/tentare/plantilla.ts; los correos
-       del estudio (lib/emails/estudio/) visten la suya. Sin tarjeta blanca centrada: el crema ES el papel. El botón
-       es una píldora porque toda la app lo es (rounded-full en el panel,
-       borderRadius:999 en la landing) — con esquinas de 12 no parecía nuestro. -->
+  <!-- Correo de Tentare para ENTRAR en una cuenta que ya existe (gotrue manda
+       esta plantilla, «Magic Link», a `signInWithOtp` con un email ya confirmado;
+       a uno nuevo le manda confirmation.html). Desde el 4-oct-2026 lleva el CÓDIGO
+       y no el enlace, igual que el alta: todas las pantallas que lo piden (la
+       entrada de la app de iOS, el acceso de la app de cada estudio, /reservar y
+       el widget) tienen dónde escribirlo, y un enlace dentro de un correo no abre
+       la app, y lo gastan los escáneres de correo. El código (Token) es el OTP de 6
+       dígitos (otp_length=6). ⚠️ Este fichero es la copia del repo: la que se
+       envía es la del proyecto (Authentication → Emails → Magic Link). -->
   <body style="margin:0; padding:0; background-color:#EEEEE8;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#EEEEE8;">
       <tr>
@@ -28,29 +32,37 @@
             <tr>
               <td style="padding-top:30px;">
                 <h1 style="margin:0; color:#343825; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:28px; line-height:1.2; font-weight:700; letter-spacing:-0.025em;">
-                  Tu enlace de acceso
+                  Tu código para entrar
                 </h1>
               </td>
             </tr>
             <tr>
               <td style="padding-top:16px;">
                 <p style="margin:0; color:#3A3A34; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:16px; line-height:1.65;">
-                  Tentare es la aplicación que usa tu estudio de Pilates para gestionar tus reservas — no te has apuntado a nada nuevo, es donde ya tienes tu cuenta. Pulsa el botón para entrar.
+                  Escríbelo en la app de tu estudio para entrar en tu cuenta:
                 </p>
               </td>
             </tr>
 
             <tr>
-              <td style="padding-top:28px;">
+              <td style="padding-top:24px; padding-bottom:4px;">
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td style="background-color:#343825; border-radius:999px;">
-                      <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:15px 32px; color:#D9C29E; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:15px; font-weight:700; text-decoration:none; letter-spacing:-0.01em;">
-                        Entrar
-                      </a>
+                    <td style="background-color:#343825; border-radius:16px; padding:20px 28px;">
+                      <span style="color:#D9C29E; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:34px; font-weight:700; letter-spacing:0.28em;">
+                        {{ .Token }}
+                      </span>
                     </td>
                   </tr>
                 </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding-top:20px;">
+                <p style="margin:0; color:#63635D; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:14px; line-height:1.6;">
+                  Este código caduca en 10 minutos.
+                </p>
               </td>
             </tr>
 
@@ -64,7 +76,7 @@
             <tr>
               <td style="padding-top:14px;">
                 <p style="margin:0; color:#63635D; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:13.5px; line-height:1.6;">
-                  Es un enlace de un solo uso y caduca por tu seguridad. Si no lo has pedido tú, puedes ignorar este correo con tranquilidad.
+                  Tentare es la aplicación que usa tu estudio de Pilates para tus reservas. Si no has intentado entrar, puedes ignorar este correo con tranquilidad: sin el código nadie puede abrir tu cuenta.
                 </p>
               </td>
             </tr>

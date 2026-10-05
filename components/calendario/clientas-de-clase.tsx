@@ -61,7 +61,7 @@ export interface ClientasDeClaseProps {
 // cada semana), gastando una recuperación, o por una reserva de una vez. Las tres
 // llevan etiqueta: el mostrador tiene que ver de un vistazo quién está por qué.
 const ETIQUETA_MARCA: Record<Exclude<MarcaReserva, null> | 'reserva', { texto: string; titulo: string }> = {
-  fija: { texto: 'Plaza fija', titulo: 'Viene por su plaza fija: se le reserva sola cada semana' },
+  fija: { texto: 'Clase fija', titulo: 'Viene por su clase fija: se le reserva sola cada semana' },
   recuperacion: { texto: 'Recuperación', titulo: 'Viene gastando una clase para recuperar' },
   reserva: { texto: 'Reserva', titulo: 'Reservó esta clase una vez, ella o el estudio' },
 };
@@ -172,7 +172,7 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
             menu.push({ texto: 'Apuntarla la semana que viene', icono: CalendarPlus, onClick: () => p.onRepetirSemanaSiguiente?.(r.id), nota: 'A la misma clase, siete días después' });
           }
           if (r.estado === 'CONFIRMADA' && p.onHacerPlazaFija && fila.puedeHacerFija && !p.plazaFijaExistePara?.(r.socioId)) {
-            menu.push({ texto: 'Hacerle plaza fija', icono: Pin, onClick: () => p.onHacerPlazaFija?.(r.id), nota: 'Que venga cada semana a este hueco, sin apuntarla clase a clase' });
+            menu.push({ texto: 'Darle clase fija', icono: Pin, onClick: () => p.onHacerPlazaFija?.(r.id), nota: 'Que venga cada semana a este hueco, sin apuntarla clase a clase' });
           }
           if (r.estado === 'ASISTIDA' && p.onNotaVoz && !fila.plataforma) {
             menu.push({ texto: 'Nota de voz', icono: Mic, onClick: () => p.onNotaVoz?.(r.socioId), nota: 'Piloto' });

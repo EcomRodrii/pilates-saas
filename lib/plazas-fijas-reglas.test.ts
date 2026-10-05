@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuotaParaPlazaFija, cupoAutomatico, motivoNoAutomatica, superaLimiteSemanal } from './plazas-fijas-reglas.ts';
+import { avisoTopeAutomatico, cuotaParaPlazaFija, cupoAutomatico, motivoNoAutomatica, superaLimiteSemanal } from './plazas-fijas-reglas.ts';
 import type { PlanTarifa, Suscripcion } from './types.ts';
 
 const HOY = '2026-09-15';
@@ -105,4 +105,24 @@ test('un impago que le bloquea reservar tampoco se salta con una plaza fija', ()
 test('con varios motivos, manda el primero: el límite semanal gana a lo demás', () => {
   assert.equal(motivoNoAutomatica({ ...CUMPLE, superaLimite: true, reservaConAprobacion: true, impagoBloqueante: true }), 'SUPERA_LIMITE');
   assert.equal(motivoNoAutomatica({ ...CUMPLE, reservaConAprobacion: true, impagoBloqueante: true }), 'RESERVA_CON_APROBACION');
+});
+
+// ─── Por qué una petición no entra sola: el tope de la clase ───────────────────
+// Probado con un estudio de verdad (4-oct-2026): con «se da sola» al 50 % y aforo 8, la 5.ª petición se quedó en el Resumen
+// sin ninguna explicación, igual que en un estudio que aprueba a mano, y la propietaria no sabía por qué esa no.
+
+test('avisoTopeAutomatico: con la clase en su tope, dice cuántas tiene, el tope y el porcentaje', () => {
+  const t = avisoTopeAutomatico({ modo: 'AUTOMATICA', superaLimite: false, ocupadas: 4, cupo: 4, pct: 50 });
+  assert.equal(t, 'Esta clase ya tiene 4 alumnas con clase fija y tu tope para darlas solas es 4 (el 50 % del aforo): esta la decides tú.');
+  assert.match(avisoTopeAutomatico({ modo: 'AUTOMATICA', superaLimite: false, ocupadas: 1, cupo: 1, pct: 25 }) ?? '', /1 alumna con clase fija y/);
+});
+
+test('avisoTopeAutomatico: nada que explicar si aprueba a mano, si pasa del límite (ya se dice aparte) o si cabe', () => {
+  assert.equal(avisoTopeAutomatico({ modo: 'MANUAL', superaLimite: false, ocupadas: 9, cupo: 4, pct: 50 }), null);
+  assert.equal(avisoTopeAutomatico({ modo: 'AUTOMATICA', superaLimite: true, ocupadas: 9, cupo: 4, pct: 50 }), null);
+  assert.equal(avisoTopeAutomatico({ modo: 'AUTOMATICA', superaLimite: false, ocupadas: 3, cupo: 4, pct: 50 }), null);
+});
+
+test('avisoTopeAutomatico: una clase sin aforo (tope 0) se explica sin inventar un porcentaje', () => {
+  assert.match(avisoTopeAutomatico({ modo: 'AUTOMATICA', superaLimite: false, ocupadas: 0, cupo: 0, pct: 50 }) ?? '', /no tiene aforo/);
 });

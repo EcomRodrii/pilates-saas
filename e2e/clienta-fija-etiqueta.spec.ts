@@ -84,7 +84,7 @@ async function montar(page: Page, ruta: string) {
 }
 
 test.describe('Clientas: «Clienta fija» al lado del nombre', () => {
-  test('la lista marca a quien tiene plaza fija, en femenino o masculino, y a nadie más', async ({ page }) => {
+  test('la lista marca a quien tiene clase fija, en femenino o masculino, y a nadie más', async ({ page }) => {
     await montar(page, '/clientas');
     // .first(): la fila de escritorio y la tarjeta móvil conviven en el DOM.
     await expect(page.getByText('Ana Prueba').first()).toBeVisible({ timeout: 30_000 });

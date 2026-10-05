@@ -161,6 +161,8 @@ export interface PlanMin {
   /** Tipos de clase a los que está acotado. Vacío = todos. Lo cuelga
       `hidratarTiposDePlanes` en el payload público. */
   tiposClaseIds?: string[];
+  /** Clases por semana que permite (una cuota «2 clases/semana»). `null` = sin tope. */
+  limiteSemanal?: number | null;
 }
 
 /**
@@ -206,6 +208,7 @@ export function bonoDeSuscripcion(s: SuscripcionMin, plan: PlanMin | undefined, 
     // A qué tipos de clase está acotado: lo necesita la hoja de clase para no
     // prometer «no pagas nada hoy» con un bono que no cubre esa clase.
     tiposClaseIds: plan?.tiposClaseIds,
+    limiteSemanal: plan?.limiteSemanal ?? null,
     id: s.id,
     nombre: plan?.nombre ?? 'Bono',
     creditosTotales: ilimitado ? Infinity : totales,

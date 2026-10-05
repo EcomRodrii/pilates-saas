@@ -23,15 +23,15 @@ export function textoPlazaFijaSinCuota(
   switch (politica) {
     case 'LIBERAR':
       if (cuando === 'ahora') {
-        return 'Su plaza fija se guarda, pero se liberan todas las clases que ya tenía reservadas, también las de estos días, sin penalización.';
+        return 'Su clase fija se guarda, pero se liberan todas las clases que ya tenía reservadas, también las de estos días, sin penalización.';
       }
       if (cuando === 'al-final') {
-        return `Su plaza fija se guarda, pero se liberan las clases que tenía reservadas ${despues}, sin penalización.`;
+        return `Su clase fija se guarda, pero se liberan las clases que tenía reservadas ${despues}, sin penalización.`;
       }
-      return `Su plaza fija se guarda, pero se liberan sus clases reservadas sin penalización: las de ${despues} si le das de baja, o todas desde hoy si la cancelas ahora.`;
+      return `Su clase fija se guarda, pero se liberan sus clases reservadas sin penalización: las de ${despues} si le das de baja, o todas desde hoy si la cancelas ahora.`;
     case 'MANTENER_SIN_PENALIZAR':
-      return 'Su plaza fija se guarda y conserva las clases ya reservadas; si no viene, no se le cobra penalización. No se le reservan clases nuevas.';
+      return 'Su clase fija se guarda y conserva las clases ya reservadas; si no viene, no se le cobra penalización. No se le reservan clases nuevas.';
     case 'MANTENER':
-      return 'Su plaza fija se guarda y conserva las clases ya reservadas, con tus reglas de siempre. No se le reservan clases nuevas.';
+      return 'Su clase fija se guarda y conserva las clases ya reservadas, con tus reglas de siempre. No se le reservan clases nuevas.';
   }
 }

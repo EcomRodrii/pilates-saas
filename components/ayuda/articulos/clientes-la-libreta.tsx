@@ -5,7 +5,7 @@ export default function Contenido() {
     <>
       <AyudaAntesDeEmpezar>
         Tus clientas en una hoja, siempre al día. Cada una con su plan, las sesiones que le quedan, sus
-        recuperaciones vivas y su plaza fija si la tiene. La imprimes o la guardas en PDF.
+        recuperaciones vivas y su clase fija si la tiene. La imprimes o la guardas en PDF.
       </AyudaAntesDeEmpezar>
 
       <p>

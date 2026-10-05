@@ -149,8 +149,8 @@ export function DialogoRenovarSerie({ serieId, nombre, onClose, onHecho }: {
               {simulacion.plazasFijas > 0 && (
                 <li>
                   {simulacion.plazasFijas === 1
-                    ? 'La plaza fija de este horario sigue: se le reserva cada semana como hasta ahora.'
-                    : `Las ${simulacion.plazasFijas} plazas fijas de este horario siguen: se les reserva cada semana como hasta ahora.`}
+                    ? 'La clase fija de este horario sigue: se le reserva cada semana como hasta ahora.'
+                    : `Las ${simulacion.plazasFijas} clases fijas de este horario siguen: se les reserva cada semana como hasta ahora.`}
                 </li>
               )}
               {simulacion.instructoraInactiva && (

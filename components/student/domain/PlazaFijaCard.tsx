@@ -1,5 +1,6 @@
 'use client';
 
+import { vibrar } from '@/lib/nativo/puente';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -120,6 +121,7 @@ export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = 
       return;
     }
     setNoPuedo(null);
+    void vibrar('aviso');
     toast(mensajeTrasCancelar(r, { esClaseFija: true, fechaCorta }));
     onCambio?.();
   }

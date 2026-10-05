@@ -251,7 +251,7 @@ export function lineasDeImpacto(i: ImpactoEdicionSerie): LineaImpacto[] {
   if (i.alumnasConPlazaFija > 0) {
     out.push({
       tono: 'dato',
-      texto: `${plural(i.alumnasConPlazaFija, 'alumna tiene', 'alumnas tienen')} plaza fija en estas clases${
+      texto: `${plural(i.alumnasConPlazaFija, 'alumna tiene', 'alumnas tienen')} clase fija en estas clases${
         i.cambian.hora > 0 || i.cambian.sala > 0 ? ': su plaza se mueve con la serie' : ''}.`,
     });
   }

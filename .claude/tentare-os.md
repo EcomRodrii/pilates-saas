@@ -101,6 +101,11 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
 - **Seguridad**: la RLS es la cerradura real, la UI nunca es el límite de seguridad — regla
   explícita y repetida en `lib/permisos-reglas.ts`. Cualquier permiso nuevo se implementa en
   ambos sitios o no está terminado.
+  ⚠️ **En una política, las funciones de ayuda van SIEMPRE envueltas**: `( select
+  public.current_rol() )`, nunca `current_rol()` a pelo (igual `current_studio_id`, las
+  `puede_*`, `auth.uid`…). A pelo, Postgres las ejecuta por cada fila: el embudo del widget
+  cortó por timeout con 2.000 filas. Migr `20261004222102` las envolvió todas (4-oct-2026,
+  0 diferencias de filas visibles, ~5× más rápido); solo vale para funciones STABLE.
   ⚠️ **`REVOKE EXECUTE ... FROM PUBLIC` NO basta para una función "solo service_role".**
   `pg_default_acl` en `dwqvdycjcffqwfkzapvi` da `EXECUTE` en toda función `SECURITY DEFINER`
   nueva DIRECTO a `anon`/`authenticated`/`service_role`, no solo a `PUBLIC` — revocar
@@ -1281,8 +1286,12 @@ antes de decidir: sus 11 alumnas tienen cuota y clase fija, casi todas dadas des
 - **Clases fijas con nombre retiradas** de las dos caras. Las tablas y las plazas que dieron siguen (dejar una deja todos sus
   días); el catálogo devuelve `ofertas: []`, pedir/ampliar una contesta 410. No reintroducir sin pedirlo.
 - **Bono:** «reservar las próximas clases» va en la ficha como RESERVA, en lugar del interruptor (sin cuota no hay clase fija).
-- **Panel:** «Crear clase» ofrece «Clase» o **«Clase semanal»** (antes «Clase fija», que chocaba). Pendiente: el panel
-  sigue diciendo «plaza fija» para el hueco de la alumna; unificarlo a «clase fija» es otro PR.
+- **Panel:** «Crear clase» ofrece «Clase» o **«Clase semanal»** (antes «Clase fija», que chocaba), y el hueco de la alumna
+  se llama **«clase fija»** en todo el producto (panel, ayuda, avisos, errores), igual que en su app. Cuando se cuenta dentro
+  de una clase se dice «alumnas con clase fija» («1/8 con clase fija»), nunca «clases fijas de una clase». ⚠️ El código, las
+  tablas y las rutas siguen diciendo `plaza_fija`/`plazas-fijas` (no se renombra nada que no se vea), y las palabras de
+  búsqueda conservan «plaza fija» además de «clase fija». La web comercial (`app/funcionalidades/plazas-fijas` y compañía)
+  sigue con «plaza fija» hasta que el fundador lo decida.
 
 Lo de abajo es la historia; donde contradiga esto, manda esto.
 

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
-import { urlIconoEstudio } from '@/lib/monograma-estudio';
-import { textoBusquedaEstudio } from '@/lib/app-nativa/buscar-estudio';
+import { coincideEstudio, textoBusquedaEstudio, vocalesComodin } from '@/lib/app-nativa/buscar-estudio';
+import { iconoDelEstudio } from '@/lib/app-nativa/icono-estudio';
 import { escaparLike } from '@/lib/escapar-like';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +13,9 @@ export const dynamic = 'force-dynamic';
 // su consentimiento. Lo mismo que ya es público en /reservar/<slug> (nombre, dónde
 // está e icono), solo de estudios con la página abierta, y con tope por IP para que
 // no sirva de directorio que se baja entero.
+//
+// Sin tildes ni mayúsculas: «nucleo» encuentra «Núcleo». La base trae de más
+// (cada vocal es comodín de una letra) y aquí se filtra de verdad.
 export async function GET(req: NextRequest) {
   const limitado = await enforceRateLimit(req, 'app-buscar-estudio', { max: 30, windowSeconds: 600 });
   if (limitado) return limitado;
@@ -23,20 +26,22 @@ export async function GET(req: NextRequest) {
 
   try {
     const { data, error } = await admin.from('studios')
-      .select('slug, nombre, ciudad, logo_url, color_primario')
-      .ilike('nombre', `%${escaparLike(texto)}%`)
+      .select('id, slug, nombre, ciudad, logo_url, color_primario')
+      .ilike('nombre', `%${vocalesComodin(escaparLike(texto))}%`)
       .not('slug', 'is', null)
       .not('pagina_publica_oculta', 'is', true)
       .order('nombre', { ascending: true })
-      .limit(8);
+      .limit(40);
     if (error) throw error;
-    const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
-    const estudios = (data ?? []).map((s) => ({
+    const filas = (data ?? []).filter((s) => coincideEstudio((s.nombre as string | null) ?? '', texto)).slice(0, 8);
+    const estudios = await Promise.all(filas.map(async (s) => ({
       slug: s.slug as string,
       nombre: (s.nombre as string | null) ?? (s.slug as string),
       ciudad: (s.ciudad as string | null) ?? null,
-      icono: urlIconoEstudio(s.nombre as string | null, s.color_primario as string | null, 192, { logoUrl: s.logo_url as string | null }, base),
-    }));
+      icono: await iconoDelEstudio({
+        id: s.id as string, nombre: s.nombre as string | null, logo_url: s.logo_url as string | null, color_primario: s.color_primario as string | null,
+      }),
+    })));
     return NextResponse.json({ estudios }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     return errorInterno('public/app/estudios:GET', err, 'No se ha podido buscar. Inténtalo de nuevo.');

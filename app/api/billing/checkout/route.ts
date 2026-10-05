@@ -10,6 +10,11 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
 import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
 import { claveCheckoutLock, reclamarCheckoutLock, liberarCheckoutLock } from '@/lib/billing/checkout-lock';
+import {
+  leerCadenaDeLaSede, cadenaPagaSusSedes, consultarCadenaAntesDeIndividual, checkoutsAbiertosDeLasSedes, caducarCheckouts,
+  MENSAJE_SEDE_INCLUIDA_EN_CADENA, MENSAJE_PAGO_DE_CADENA_A_MEDIAS, MENSAJE_PAGO_DE_SEDE_A_MEDIAS,
+} from '@/lib/billing/sede-incluida-en-cadena';
+import { leerRecompensaPendiente, canjearRecompensa, devolverRecompensa } from '@/lib/billing/recompensa-review-boost';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
 // suscribir su negocio. Crea (o reutiliza) el Customer de Stripe del estudio y
@@ -57,29 +62,6 @@ export async function POST(req: NextRequest) {
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 
-  // Review Boost: si hay una recompensa pendiente (feedback interno 4-5★, ver
-  // app/api/growth/review-boost/feedback/route.ts), se aplica el 20% al
-  // Checkout SIN que el estudio tenga que teclear ningún código —
-  // `discounts` y `allow_promotion_codes` son mutuamente excluyentes en la
-  // API de Stripe. Compare-and-set: si otra petición concurrente ya la
-  // canjeó, esta pierde la carrera y cae al camino normal sin fallar.
-  //
-  // Límite conocido y aceptado (documentado en el plan): un checkout
-  // abandonado deja la recompensa "canjeada" sin que el estudio haya pagado
-  // — bajo impacto (20% de un mes), no justifica una reserva-con-TTL.
-  let discounts: Stripe.Checkout.SessionCreateParams['discounts'] | undefined;
-  const { data: recompensa } = await admin
-    .from('review_boost_recompensas')
-    .select('id, stripe_coupon_id')
-    .eq('studio_id', studio.id).is('canjeada_en', null).maybeSingle();
-  if (recompensa) {
-    const { data: reclamada } = await admin
-      .from('review_boost_recompensas')
-      .update({ canjeada_en: new Date().toISOString() })
-      .eq('id', recompensa.id).is('canjeada_en', null).select('id').maybeSingle();
-    if (reclamada) discounts = [{ coupon: recompensa.stripe_coupon_id as string }];
-  }
-
   // PAY-3 (62ª pasada): cerrojo de una fila por estudio, además de la clave de
   // idempotencia (que lleva un bucket de minuto a propósito, ver el comentario
   // de la migración) y de `checkoutPrevio` (que solo ve lo que Stripe YA tiene
@@ -92,11 +74,48 @@ export async function POST(req: NextRequest) {
       { status: 409 },
     );
   }
+  // Cerrojo de la CADENA, además del de la sede: el checkout de cadena y el
+  // individual de una de sus sedes miran los pagos del otro antes de crear el
+  // suyo (ver lib/billing/sede-incluida-en-cadena.ts), y sin un cerrojo común dos
+  // peticiones a la vez desde dos sedes no se verían.
+  let claveCadena: string | null = null;
+  const cerrarCadena = async (cadenaId: string): Promise<NextResponse | null> => {
+    const clave = claveCheckoutLock('cadena', cadenaId);
+    if (!(await reclamarCheckoutLock(admin, clave))) {
+      return NextResponse.json(
+        { error: 'Ya hay un pago en marcha para esta suscripción. Espera unos segundos y vuelve a intentarlo.' },
+        { status: 409 },
+      );
+    }
+    claveCadena = clave;
+    return null;
+  };
   try {
+    // Review Boost (ver lib/billing/recompensa-review-boost.ts): se lee aquí y se
+    // canjea justo antes de crear la sesión, nunca antes de un posible 409.
+    const recompensa = await leerRecompensaPendiente(admin, studio.id);
+    // Crea la sesión con la recompensa canjeada en ese momento; si Stripe falla,
+    // se devuelve. `discounts` y `allow_promotion_codes` son mutuamente
+    // excluyentes en la API de Stripe.
+    const crearConRecompensa = async (
+      crear: (discounts: Stripe.Checkout.SessionCreateParams['discounts'] | undefined) => Promise<Stripe.Checkout.Session>,
+    ): Promise<NextResponse> => {
+      const canjeadaEn = recompensa ? await canjearRecompensa(admin, recompensa) : null;
+      const discounts = recompensa && canjeadaEn ? [{ coupon: recompensa.cupon }] : undefined;
+      let session: Stripe.Checkout.Session;
+      try {
+        session = await crear(discounts);
+      } catch (err) {
+        if (recompensa && canjeadaEn) await devolverRecompensa(admin, recompensa, canjeadaEn);
+        throw err;
+      }
+      if (discounts) capturar(studio.id, { nombre: 'review_boost_reward_claimed', props: {} });
+      return NextResponse.json({ url: session.url });
+    };
     // PAY-5: se pregunta a STRIPE, no a `studio.subscription_id` (que solo escribe
     // el webhook, minutos después). Ver lib/billing/checkout-saas-previo.ts.
     async function checkoutPrevio(customerId: string): Promise<NextResponse | null> {
-      const previo = await consultarCheckoutPrevio(stripe, customerId, plan as string, Boolean(discounts));
+      const previo = await consultarCheckoutPrevio(stripe, customerId, plan as string, Boolean(recompensa));
       // Caducar lo que sobra (best-effort: si una ya estaba completada o caducada
       // Stripe lo rechaza, y en el peor caso queda como estaba antes de este arreglo).
       for (const id of previo.expirar) await stripe.checkout.sessions.expire(id).catch(() => {});
@@ -147,6 +166,8 @@ export async function POST(req: NextRequest) {
         }
       }
       if (!cadena) throw new Error('No se pudo resolver la cadena');
+      const cerrada = await cerrarCadena(cadena.id);
+      if (cerrada) return cerrada;
 
       // 19ª auditoría · F-4: el guard anti-doble-suscripción vivía SOLO después
       // del `return` de esta rama, así que protegía a BASE/ESTUDIO y no a
@@ -197,12 +218,23 @@ export async function POST(req: NextRequest) {
         await admin.from('cadenas').update({ stripe_customer_id: customerId }).eq('id', cadena.id);
       }
 
+      // Y al revés que en la rama individual: un Checkout de plan individual que
+      // siga abierto en alguna de sus sedes se caduca antes de abrir el de la
+      // cadena, para que no queden dos formas de pagar lo mismo. Si alguno no se
+      // deja caducar (lo normal: se acaba de pagar), no se abre este.
+      const deLasSedes = await checkoutsAbiertosDeLasSedes(admin, stripe, cadena.id, customerId);
+      if (!(await caducarCheckouts(stripe, deLasSedes))) {
+        return NextResponse.json({ error: MENSAJE_PAGO_DE_SEDE_A_MEDIAS }, { status: 409 });
+      }
+
       const yaHay = await checkoutPrevio(customerId);
       if (yaHay) return yaHay;
 
-      const session = await stripe.checkout.sessions.create({
+      const idCadena = cadena.id;
+      const customerCadena = customerId;
+      return await crearConRecompensa(discounts => stripe.checkout.sessions.create({
         mode: 'subscription',
-        customer: customerId,
+        customer: customerCadena,
         line_items: [{ price, quantity: 1 }],
         // Sin `trial_period_days`: la prueba gratuita ya se ha disfrutado
         // ANTES de llegar aquí (7 días locales, sin tarjeta, desde que se creó
@@ -211,9 +243,9 @@ export async function POST(req: NextRequest) {
         subscription_data: {
           // PAY-2: leído por el webhook para cancelar la individual SOLO cuando
           // esta suscripción de cadena está confirmada — nunca antes.
-          metadata: { cadenaId: cadena.id, plan, ...(cancelarAlConfirmar ? { cancelarSuscripcionAnterior: cancelarAlConfirmar } : {}) },
+          metadata: { cadenaId: idCadena, plan, ...(cancelarAlConfirmar ? { cancelarSuscripcionAnterior: cancelarAlConfirmar } : {}) },
         },
-        metadata: { cadenaId: cadena.id, plan },
+        metadata: { cadenaId: idCadena, plan },
         success_url: `${appUrl}/suscripcion?suscripcion=ok`,
         cancel_url: `${appUrl}/suscripcion?suscripcion=cancel`,
         locale: 'es',
@@ -230,16 +262,13 @@ export async function POST(req: NextRequest) {
         // `claveCheckoutPlanModoA`): un reintento minutos después, con la
         // suscripción anterior ya cancelada, sigue pudiendo contratar.
         // ⚠️ Auditoría 2026-09-25 (PAY-5-cadena): la clave no distinguía el descuento y
-        // este se decide más arriba canjeando `review_boost_recompensas` con un CAS. La
+        // este se decide canjeando `review_boost_recompensas` con un CAS. La
         // primera petición canjea y crea la sesión CON `discounts`; una segunda del
         // mismo minuto ya no encuentra la recompensa, manda `allow_promotion_codes` con
         // la MISMA clave y parámetros distintos, Stripe la rechaza (500) y la propietaria
         // ha perdido el 20 %. Mismo discriminante que la rama BASE/ESTUDIO.
-        idempotencyKey: `billing-checkout-cadena-${cadena.id}-${plan}-${discounts ? `d${recompensa?.stripe_coupon_id ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}`,
-      });
-
-      if (discounts) capturar(studio.id, { nombre: 'review_boost_reward_claimed', props: {} });
-      return NextResponse.json({ url: session.url });
+        idempotencyKey: `billing-checkout-cadena-${idCadena}-${plan}-${discounts ? `d${recompensa?.cupon ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}`,
+      }));
     }
 
     // No crear una segunda suscripción en paralelo: el control de "ya está
@@ -259,6 +288,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Plan individual para una sede cuya cadena ya paga: sería un segundo cobro
+    // por lo mismo, y el guard de arriba no lo ve (la sede hereda el estado de la
+    // cadena, no su `subscription_id`). Se mira la BD y también a Stripe, porque
+    // el webhook tarda; un Checkout de cadena abierto se caduca (puede estar
+    // abandonado) y, si no se deja, no se abre este. Va antes de crear el cliente
+    // de la sede. Ver lib/billing/sede-incluida-en-cadena.ts.
+    if (studio.cadena_id) {
+      const cerrada = await cerrarCadena(studio.cadena_id as string);
+      if (cerrada) return cerrada;
+      const cadena = await leerCadenaDeLaSede(admin, studio.cadena_id as string);
+      if (cadena && cadenaPagaSusSedes(cadena.estado)) {
+        return NextResponse.json({ error: MENSAJE_SEDE_INCLUIDA_EN_CADENA }, { status: 409 });
+      }
+      // Si la sede comparte cliente con la cadena (las migradas en 0066), ya lo
+      // mira `checkoutPrevio` de abajo, que además puede reutilizar su Checkout.
+      if (cadena?.clienteStripe && cadena.clienteStripe !== studio.stripe_customer_id) {
+        const enStripe = await consultarCadenaAntesDeIndividual(stripe, cadena.clienteStripe);
+        if (enStripe.accion === 'bloquear') {
+          return NextResponse.json({ error: MENSAJE_SEDE_INCLUIDA_EN_CADENA }, { status: 409 });
+        }
+        if (!(await caducarCheckouts(stripe, enStripe.expirar))) {
+          return NextResponse.json({ error: MENSAJE_PAGO_DE_CADENA_A_MEDIAS }, { status: 409 });
+        }
+      }
+    }
+
     // Customer del estudio (se crea una vez y se guarda).
     let customerId = studio.stripe_customer_id as string | null;
     if (!customerId) {
@@ -274,9 +329,10 @@ export async function POST(req: NextRequest) {
     const yaHay = await checkoutPrevio(customerId);
     if (yaHay) return yaHay;
 
-    const session = await stripe.checkout.sessions.create({
+    const customerSede = customerId;
+    return await crearConRecompensa(discounts => stripe.checkout.sessions.create({
       mode: 'subscription',
-      customer: customerId,
+      customer: customerSede,
       line_items: [{ price, quantity: 1 }],
       // Vincula la suscripción al estudio y al plan (lo lee el webhook).
       //
@@ -300,22 +356,20 @@ export async function POST(req: NextRequest) {
       // una Checkout Session real sobre el MISMO customer.
       // ⚠️ Auditoría 2026-09-24 (PAY-5, gemelo del SaaS): la clave identificaba
       // (estudio, plan, minuto) pero NO el descuento, y el descuento se decide
-      // 180 líneas más arriba canjeando `review_boost_recompensas` con un CAS.
+      // canjeando `review_boost_recompensas` con un CAS.
       // La primera petición canjea y crea la sesión CON `discounts`; una segunda
       // del mismo minuto (doble clic, dos pestañas) ya no encuentra la
       // recompensa sin canjear, manda `allow_promotion_codes: true` con la MISMA
       // clave y parámetros distintos, Stripe la rechaza y la propietaria recibe
       // un 500 «No se pudo iniciar la suscripción». Es exactamente el bug que
       // PAY-3 acaba de cerrar en el checkout de socias, en su gemelo del SaaS.
-      idempotencyKey: `billing-checkout-${studio.id}-${plan}-${discounts ? `d${recompensa?.stripe_coupon_id ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}`,
-    });
-
-    if (discounts) capturar(studio.id, { nombre: 'review_boost_reward_claimed', props: {} });
-    return NextResponse.json({ url: session.url });
+      idempotencyKey: `billing-checkout-${studio.id}-${plan}-${discounts ? `d${recompensa?.cupon ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}`,
+    }));
   } catch (err) {
     return errorInterno('billing/checkout:POST', err, 'No se pudo iniciar la suscripción. Inténtalo de nuevo más tarde.');
   } finally {
     // Best-effort: si falla, el cerrojo expira solo a los 30 s (ver la migración).
+    if (claveCadena) await liberarCheckoutLock(admin, claveCadena);
     await liberarCheckoutLock(admin, claveLock);
   }
 }

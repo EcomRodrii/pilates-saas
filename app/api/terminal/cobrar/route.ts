@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   const stripeAccount = studio?.stripe_account_id ?? null;
   const readerId = studio?.stripe_terminal_reader_id ?? null;
   if (!stripeAccount) return NextResponse.json({ error: 'El estudio no tiene Stripe conectado' }, { status: 409 });
-  if (!readerId) return NextResponse.json({ error: 'No hay datáfono emparejado. Configúralo primero.' }, { status: 409 });
+  if (!readerId) return NextResponse.json({ error: 'No hay ningún datáfono conectado. Conéctalo desde la Caja.' }, { status: 409 });
 
   // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
   const fee = applicationFeeAmount(amount);

@@ -45,7 +45,7 @@ export function ElegirClienta({ titulo, subtitulo, clientas, onElegir, onClose }
         />
         {resultados.length === 0 ? (
           <p className="text-sm text-muted-foreground py-3">
-            {clientas.length === 0 ? 'No hay clientas activas sin plaza fija en esta clase.' : 'Ninguna clienta con ese nombre.'}
+            {clientas.length === 0 ? 'No hay clientas activas sin clase fija en esta clase.' : 'Ninguna clienta con ese nombre.'}
           </p>
         ) : (
           <ul className="max-h-72 overflow-y-auto rounded-lg border border-border">

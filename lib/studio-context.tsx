@@ -1797,7 +1797,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const datos = await respuesta?.json().catch(() => null) as ResultadoGuardarPlazaFija | null;
     if (!respuesta?.ok || !datos || !datos.ok) {
       const fallo = datos && !datos.ok ? datos : null;
-      return { ok: false, error: fallo?.error ?? 'No se pudo guardar la plaza fija', codigo: fallo?.codigo, limite: fallo?.limite };
+      return { ok: false, error: fallo?.error ?? 'No se pudo guardar la clase fija', codigo: fallo?.codigo, limite: fallo?.limite };
     }
     const { plaza } = datos;
     setPlazasFijas(prev => prev.some(p => p.id === plaza.id)
@@ -1833,7 +1833,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ok?: boolean; canceladas?: string[]; mantenidas?: string[]; fallidas?: number; error?: string;
     } | null;
     if (!respuesta?.ok || !datos?.ok) {
-      return { ok: false, error: datos?.error ?? 'No se pudo quitar la plaza fija' };
+      return { ok: false, error: datos?.error ?? 'No se pudo quitar la clase fija' };
     }
     setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, estado: 'BAJA' as const } : p));
     const canceladas = new Set(datos.canceladas ?? []);

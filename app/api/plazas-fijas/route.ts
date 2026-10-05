@@ -51,7 +51,7 @@ async function manejar(req: NextRequest, metodo: 'POST' | 'PATCH') {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ ok: false, error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarClientas(sesion.rol) || !puedeGestionarCalendario(sesion.rol)) {
-    return NextResponse.json({ ok: false, error: 'No tienes permiso para cambiar plazas fijas' }, { status: 403 });
+    return NextResponse.json({ ok: false, error: 'No tienes permiso para cambiar clases fijas' }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -73,7 +73,7 @@ async function manejar(req: NextRequest, metodo: 'POST' | 'PATCH') {
     });
     return responder(r);
   } catch (err) {
-    return errorInterno(`plazas-fijas:${metodo}`, err, 'No se ha podido guardar la plaza fija.');
+    return errorInterno(`plazas-fijas:${metodo}`, err, 'No se ha podido guardar la clase fija.');
   }
 }
 

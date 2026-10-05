@@ -91,7 +91,7 @@ export default function Libreta() {
               <th className="py-2 px-3 font-bold">Plan</th>
               <th className="py-2 px-3 font-bold">Sesiones</th>
               <th className="py-2 px-3 font-bold">Recuperaciones</th>
-              <th className="py-2 pl-3 font-bold">Plaza fija</th>
+              <th className="py-2 pl-3 font-bold">Clase fija</th>
             </tr>
           </thead>
           <tbody>
@@ -119,7 +119,7 @@ export default function Libreta() {
         {filas.length === 0 && <EmptyState compacto icono={Notebook} titulo="No hay clientas activas todavía." />}
 
         <p className="text-[11px] text-muted-foreground mt-6 leading-relaxed">
-          Esta es tu libreta: cada clienta con su plan, sus sesiones, sus recuperaciones vivas y su plaza fija. Son tus datos, siempre contigo.
+          Esta es tu libreta: cada clienta con su plan, sus sesiones, sus recuperaciones vivas y su clase fija. Son tus datos, siempre contigo.
           Generada el {fechaCorta(hoyISO)} desde {studio?.nombre ?? 'tu estudio'}.
         </p>
       </div>

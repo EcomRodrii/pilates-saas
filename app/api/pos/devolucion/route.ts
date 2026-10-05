@@ -8,6 +8,9 @@ import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { uid } from '@/lib/utils';
 import { contextoCobroDe } from '@/lib/pos/terminal';
+import { proveedorDeReferencia } from '@/lib/pos/sumup';
+import { devolverEnSumup } from '@/lib/pos/sumup-devolucion';
+import { fallarWebhookEvent, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
 import { revertirCreditosVentaPOS } from '@/lib/pos/venta-servidor';
 import { registrarDevolucion } from '@/lib/billing/registrar-devolucion';
 import { seguirCreditosAlRecibo } from '@/lib/billing/creditos-recibo-server';
@@ -26,7 +29,8 @@ export const dynamic = 'force-dynamic';
 // ─── El orden: primero el dinero, después el libro ────────────────────────
 // Para cobros con tarjeta/Bizum se reembolsa en Stripe ANTES de tocar nada
 // nuestro. Si el reembolso falla, no se ha escrito nada y se puede reintentar
-// limpiamente.
+// limpiamente. Lo cobrado con el datáfono de SumUp, igual, en SumUp
+// (lib/pos/sumup-devolucion.ts, con su candado y su conciliación propios).
 //
 // Si falla AL REVÉS —Stripe devuelve el dinero y nuestro registro no se
 // escribe— NO se responde error: el dinero ya salió y decirle a quien está en
@@ -57,6 +61,8 @@ export async function POST(req: NextRequest) {
   const ventaId = typeof body?.ventaId === 'string' ? body.ventaId : null;
   if (!ventaId) return NextResponse.json({ error: 'Falta la venta' }, { status: 400 });
   const motivo = typeof body?.motivo === 'string' ? body.motivo.slice(0, 200) : null;
+  // Solo SumUp: ya devuelta desde su app, se apunta sin devolver (lo valida devolverEnSumup).
+  const soloApuntar = body?.soloApuntar === true;
 
   // Líneas explícitas para una devolución parcial; sin ellas, se devuelve todo
   // lo que quede pendiente.
@@ -87,8 +93,11 @@ export async function POST(req: NextRequest) {
     .select('id').eq('studio_id', sesion.studioId).eq('estado', 'ABIERTA').maybeSingle();
 
   const devolucionId = `dev-${uid()}`;
-  const porStripe = Boolean(venta.stripe_payment_intent_id)
+  // El dinero lo devuelve quien lo cobró: Stripe, o el datáfono de SumUp (`sumup:`).
+  const porProveedor = Boolean(venta.stripe_payment_intent_id)
     && (venta.metodo_pago === 'DATAFONO' || venta.metodo_pago === 'BIZUM' || venta.metodo_pago === 'TARJETA');
+  const porSumup = porProveedor && proveedorDeReferencia(venta.stripe_payment_intent_id) === 'sumup';
+  const porStripe = porProveedor && !porSumup;
 
   const traducirFallo = (e: { message: string }, contexto: string) => {
     const codigo = codigoDeErrorPg(e.message);
@@ -119,6 +128,24 @@ export async function POST(req: NextRequest) {
   // bono y sin dinero, y el reintento era imposible: la segunda llamada chocaba
   // con DEVOLUCION_EXCEDE porque el libro ya se había escrito. Así, si el
   // reembolso no sale, no se ha tocado nada y se puede repetir.
+  // Cobrada con el datáfono de SumUp: se devuelve en SumUp, con su candado (un
+  // doble toque no devuelve dos veces) y mirando antes lo que SumUp tiene ya
+  // devuelto (si un intento anterior devolvió y no se apuntó, ahora solo se apunta).
+  let sumup: { transaccionId: string; candado: string; yaEstaba: boolean } | null = null;
+  if (porSumup && importe > 0) {
+    const r = await devolverEnSumup(admin, {
+      studioId: sesion.studioId, ventaId, referencia: venta.stripe_payment_intent_id as string,
+      totalVenta: Math.round(Number(venta.total ?? 0) * 100),
+      devueltoLibro: Math.round(Number(venta.importe_devuelto ?? 0) * 100),
+      pedido: Math.round(importe * 100),
+      soloApuntar,
+    });
+    if (!r.ok) {
+      return NextResponse.json({ error: r.error, importe, dineroDevuelto: false, ...(r.codigo ? { codigo: r.codigo } : {}) }, { status: r.status });
+    }
+    sumup = { transaccionId: r.transaccionId, candado: r.candado, yaEstaba: r.yaEstaba };
+  }
+
   if (porStripe && importe > 0) {
     const ctx = await contextoCobroDe(admin, sesion.studioId);
     if (!ctx.ok) {
@@ -157,12 +184,36 @@ export async function POST(req: NextRequest) {
     // alguien lo reintentara y devolviera dos veces. Se avisa a gritos y se
     // sigue: el webhook `charge.refunded` acaba escribiendo la fila de
     // `devoluciones` por su cuenta. Mismo criterio que /api/reembolsos.
-    Sentry.captureException(new Error('Devolución cobrada en Stripe pero sin registrar en el libro'), {
+    Sentry.captureException(new Error(porSumup
+      ? 'Devolución hecha en SumUp pero sin registrar en el libro'
+      : 'Devolución cobrada en Stripe pero sin registrar en el libro'), {
       level: 'error', tags: { area: 'cobros' },
       extra: { ventaId, devolucionId, importe, studioId: sesion.studioId, detalle: errAplicar.message },
     });
+    // SumUp no tiene aviso que lo repare. Pero reintentar es seguro: el dinero
+    // ya consta en SumUp y el siguiente intento solo lo apunta. Se suelta el
+    // candado para que pueda ser ya.
+    if (sumup) {
+      // La fila de `devoluciones` sí, aunque el libro falle: SumUp no tiene aviso que
+      // la escriba después, y el dinero ya salió. Idempotente por referencia: el
+      // reintento que apunte no la duplica.
+      const acumulado = Math.round((Number(venta.importe_devuelto ?? 0) + importe) * 100);
+      await registrarDevolucion(admin, {
+        studioId: sesion.studioId, ventaPosId: ventaId,
+        origen: acumulado >= Math.round(Number(venta.total ?? 0) * 100) ? 'REEMBOLSO_TOTAL' : 'REEMBOLSO_PARCIAL',
+        devueltoCentimos: acumulado,
+        referencia: `sumup:${sumup.transaccionId}:${acumulado}`,
+        stripeChargeId: null,
+      });
+      await fallarWebhookEvent(admin, sumup.candado);
+      return NextResponse.json({
+        error: 'El dinero se ha devuelto en SumUp, pero no hemos podido apuntarlo aquí. Vuelve a pulsar Devolver con lo mismo: solo se apuntará, no se devolverá otra vez.',
+        importe, dineroDevuelto: true,
+      }, { status: 500 });
+    }
     if (!porStripe) return traducirFallo(errAplicar, 'pos:devolucion');
   }
+  if (sumup) await marcarWebhookProcesado(admin, sumup.candado);
 
   const fila = Array.isArray(aplicado) ? aplicado[0] : aplicado;
   const esTotal = fila?.r_es_total === true;
@@ -191,25 +242,27 @@ export async function POST(req: NextRequest) {
         // Cómo se pagó la venta (EFECTIVO, TARJETA, BIZUM…), y si el dinero lo devolvió Stripe o salió a mano:
         // «tarjeta» no es lo mismo que «reembolsado por Stripe».
         metodo_pago: (venta.metodo_pago as string | null) ?? null,
-        reembolsado_por: porStripe ? 'stripe' : 'a mano',
+        reembolsado_por: porStripe ? 'stripe' : porSumup ? 'sumup' : 'a mano',
         libro_aplicado: !errAplicar,
         devolucion_id: devolucionId,
       },
     });
   }
 
-  // ── 4. Fila de auditoría del canal EFECTIVO ──────────────────────────────
+  // ── 4. Fila de auditoría del canal EFECTIVO (y SumUp) ────────────────────
   // Para tarjeta y Bizum la escribe el webhook `charge.refunded`
   // (`procesarReembolsoVentaPos`), idempotente por charge. El efectivo no pasa
   // por Stripe, así que si no se escribe aquí «la tabla única de reembolsos de
-  // cualquier canal» se queda justo sin ese canal.
+  // cualquier canal» se queda justo sin ese canal. SumUp tampoco avisa: se
+  // escribe aquí, con una referencia por transacción y acumulado (idempotente).
   if (!porStripe && importe > 0) {
+    const devueltoCentimos = Math.round((Number(venta.importe_devuelto ?? 0) + importe) * 100);
     await registrarDevolucion(admin, {
       studioId: sesion.studioId,
       ventaPosId: ventaId,
       origen: esTotal ? 'REEMBOLSO_TOTAL' : 'REEMBOLSO_PARCIAL',
-      devueltoCentimos: Math.round((Number(venta.importe_devuelto ?? 0) + importe) * 100),
-      referencia: `pos-efectivo:${devolucionId}`,
+      devueltoCentimos,
+      referencia: sumup ? `sumup:${sumup.transaccionId}:${devueltoCentimos}` : `pos-efectivo:${devolucionId}`,
       stripeChargeId: null,
     });
   }
@@ -237,6 +290,8 @@ export async function POST(req: NextRequest) {
     creditosRetirados,
     // El efectivo sale del cajón a mano: el libro ya lo apuntó, pero quien
     // cobra tiene que sacarlo físicamente.
-    enEfectivo: !porStripe,
+    enEfectivo: !porProveedor,
+    // SumUp: ya estaba devuelto allí; aquí solo se ha apuntado (no ha salido dinero nuevo).
+    yaEstaba: sumup?.yaEstaba ?? false,
   });
 }

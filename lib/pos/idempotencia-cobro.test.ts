@@ -17,5 +17,8 @@ test('los tres create de Stripe del TPV pasan idempotencyKey derivada del intent
 
 test('venta y recibo mandan la clave; la del recibo cambia al cambiar la referencia guardada', () => {
   assert.match(leer('../../app/api/pos/venta/route.ts'), /claveIdempotencia: `pos-venta-\$\{base\.ventaId\}-\$\{metodoPago\}`/);
-  assert.match(leer('../../app/api/pos/recibo/route.ts'), /claveIdempotencia: `pos-recibo-\$\{reciboId\}-\$\{metodo\}-\$\{recibo\.cobro_mostrador_pi \?\? 'sin'\}`/);
+  const recibo = leer('../../app/api/pos/recibo/route.ts');
+  // La referencia guardada; solo deja de serlo si era un cobro de SumUp ya terminado y se soltó.
+  assert.match(recibo, /let referenciaPrevia = recibo\.cobro_mostrador_pi as string \| null;/);
+  assert.match(recibo, /claveIdempotencia: `pos-recibo-\$\{reciboId\}-\$\{metodo\}-\$\{referenciaPrevia \?\? 'sin'\}`/);
 });

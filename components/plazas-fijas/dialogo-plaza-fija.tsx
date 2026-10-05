@@ -35,7 +35,7 @@ const capitalizar = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Lo que ha pasado de verdad al guardar, con las cifras del servidor. */
 export function textoPlazaGuardada(r: PlazaFijaGuardada, movida: boolean): string {
-  const partes = [movida ? 'Plaza fija cambiada' : 'Plaza fija guardada'];
+  const partes = [movida ? 'Clase fija cambiada' : 'Clase fija guardada'];
   if (r.primeraFecha) {
     partes.push(`ya tiene reservada la clase del ${fechaCortaEstudio(`${r.primeraFecha}T12:00:00Z`)}`);
   } else if (!r.hayClaseProgramada) {
@@ -143,7 +143,7 @@ export function DialogoPlazaFija({
     <Dialog open onOpenChange={abierto => { if (!abierto && !guardando) onClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{plaza ? 'Cambiar plaza fija' : 'Asignar plaza fija'}</DialogTitle>
+          <DialogTitle>{plaza ? 'Cambiar clase fija' : 'Asignar clase fija'}</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground -mt-1">
           Elige la clase a la que viene cada semana. Se le reservan ya las clases programadas en ese horario, hasta unos seis meses por delante (menos las que empiezan dentro del plazo de cancelación), y después solas: cada
@@ -152,7 +152,7 @@ export function DialogoPlazaFija({
         {(sinNingunaCuota || cuotaNoIncluyeClase) && (
           <p role="status" className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2 text-xs font-medium text-warning">
             {sinNingunaCuota
-              ? 'No tiene ninguna cuota activa, así que no se le puede dar plaza fija todavía. Asígnale primero una cuota.'
+              ? 'No tiene ninguna cuota activa, así que no se le puede dar clase fija todavía. Asígnale primero una cuota.'
               : 'Su cuota no incluye esta clase: elige una clase que cubra, o cámbiale la cuota.'}
           </p>
         )}
@@ -232,7 +232,7 @@ export function DialogoPlazaFija({
                 <option value="">Cualquiera libre</option>
                 {spotsSala.map(s => (
                   <option key={s.id} value={s.id} disabled={ocupados.has(s.id)}>
-                    {s.nombre}{ocupados.has(s.id) ? ' (de otra plaza fija)' : ''}
+                    {s.nombre}{ocupados.has(s.id) ? ' (de otra clase fija)' : ''}
                   </option>
                 ))}
               </select>
@@ -315,7 +315,7 @@ export function DialogoPlazaFija({
             onClick={() => guardar(false)}
             className="text-xs font-bold px-4 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {guardando ? 'Guardando…' : plaza ? 'Guardar cambios' : 'Asignar plaza fija'}
+            {guardando ? 'Guardando…' : plaza ? 'Guardar cambios' : 'Asignar clase fija'}
           </button>
         </div>
       </DialogContent>

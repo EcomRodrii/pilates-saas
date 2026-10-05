@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { entregarVentaPOS } from '@/lib/pos/venta-servidor';
+import { cerrarReciboPos, cerrarVentaPos } from '@/lib/pos/cerrar-cobro-pos';
 import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado, fallarWebhookEvent, claveWebhook } from '@/lib/webhook-idempotencia';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
@@ -893,145 +893,35 @@ async function procesarEvento(
       // Va ANTES del backstop de reconciliación: con `reciboId` en la metadata
       // sí sabemos a qué apuntar, y dejarlo caer al backstop lo convertiría en
       // un cobro huérfano que alguien tendría que casar a mano.
+      // El cierre (recibo o venta, con sus ramas de venta anulada y segundo cobro)
+      // vive en lib/pos/cerrar-cobro-pos.ts: lo comparte el aviso del datáfono de SumUp.
       const reciboIdPos = pi.metadata?.reciboId;
       if (reciboIdPos) {
-        // P-3 (27ª pasada): el método se leía del ORIGEN (`pos_bizum` →
-        // BIZUM), no del cargo real — pero la sesión de Bizum del mostrador
-        // acepta `['card', 'bizum']` (#1744), así que una clienta puede pagar
-        // con tarjeta un cobro que se lanzó como "Bizum". El total del
-        // arqueo cuadraba igual; el desglose por método mentía. Mismo
-        // gemelo que ya lo hace bien en checkout.session.completed (arriba,
-        // ~línea 445): se lee `payment_method_details.type` del cargo real.
-        // El datáfono (card_present) nunca pasa por aquí: siempre es TARJETA.
-        // La derivación en sí vive en `metodoRealBizum` (lib/pos/metodo-real-bizum.ts),
-        // compartida con los dos caminos síncronos (recibo/venta) — 28ª
-        // pasada: antes cada camino la resolvía por su cuenta y solo este
-        // (el que casi nunca gana la carrera) quedó arreglado en la 27ª.
+        // P-3 (27ª pasada): el método se lee del CARGO real, no del origen: la
+        // sesión de Bizum del mostrador acepta también tarjeta (#1744).
         const metodoCobro: 'BIZUM' | 'TARJETA' = origenPos === 'pos_bizum'
           ? await metodoRealBizum(stripe, pi, event.account)
           : 'TARJETA';
-        const res = await confirmarCobroRecibo(admin, {
-          studioId,
-          reciboId: reciboIdPos,
-          // El CHECK de `recibos.metodo_cobro` no conoce DATAFONO (es anterior
-          // al TPV): un cobro por datáfono es una tarjeta.
-          metodoCobro,
-          paymentIntentId: pi.id,
-          fuente: 'tpv',
-          // El apunte de caja es un efecto del cobro: lo hace quien gana la
-          // transición (este webhook o el TPV releyendo el cobro), una vez.
-          actor: { userId: null, nombre: 'Datáfono' },
+        const cierre = await cerrarReciboPos(admin, {
+          studioId, reciboId: reciboIdPos, metodoCobro, paymentIntentId: pi.id, referencia: pi.id, aviso: 'stripe webhook',
         });
-        if (!res.ok) {
-          Sentry.captureMessage('[stripe webhook] recibo cobrado en mostrador sin poder cerrarlo', {
-            level: 'error', tags: { area: 'cobros' },
-            extra: { paymentIntentId: pi.id, reciboId: reciboIdPos, studioId, detalle: res.error },
-          });
-          // 5xx para que Stripe reintente: el dinero está cobrado y el recibo
-          // sigue abierto, que es justo lo que no puede quedarse así.
-          return NextResponse.json({ error: 'Fallo al cerrar el recibo' }, { status: 500 });
-        }
-
-        await admin.from('recibos').update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
-          .eq('id', reciboIdPos).eq('studio_id', studioId);
-
+        if (!cierre.ok) return NextResponse.json({ error: cierre.error }, { status: 500 });
         await marcarProcesado();
         return NextResponse.json({ received: true });
       }
 
       const ventaIdPos = pi.metadata?.ventaId;
       if (ventaIdPos) {
-        // 28ª pasada: mismo bug de P-3 (27ª pasada) sin cerrar para las
-        // ventas de producto — el desglose por método en el arqueo
-        // (`ventas_pos.metodo_pago`) se quedaba con el que pulsó quien cobra
-        // ("Bizum"), nunca corregido si la clienta acabó pagando con
-        // tarjeta. `p_metodo_pago` deja que la RPC lo sobrescriba solo
-        // cuando el proveedor puede resolverlo de verdad.
+        // Mismo motivo que arriba (#1744): Bizum que acabó pagándose con tarjeta.
         const metodoPagoReal = origenPos === 'pos_bizum'
           ? await metodoRealBizum(stripe, pi, event.account)
           : null;
-        const { data: conf, error: errConf } = await admin.rpc('confirmar_pago_venta_pos', {
-          p_venta_id: ventaIdPos,
-          p_studio_id: studioId,
-          p_payment_intent_id: pi.id,
-          p_importe_confirmado: (pi.amount_received ?? pi.amount ?? 0) / 100,
-          p_metodo_pago: metodoPagoReal,
+        const cierre = await cerrarVentaPos(admin, {
+          studioId, ventaId: ventaIdPos, referencia: pi.id,
+          importe: (pi.amount_received ?? pi.amount ?? 0) / 100,
+          metodoPagoReal, concepto: pi.metadata.concepto ?? null, aviso: 'stripe webhook',
         });
-        if (errConf) {
-          // 5xx a propósito: Stripe reintenta. Un cobro real cuya venta no se
-          // cierra es dinero cobrado sin bono entregado ni factura.
-          Sentry.captureMessage('[stripe webhook] no se pudo confirmar la venta POS', {
-            level: 'error', tags: { area: 'cobros' },
-            extra: { paymentIntentId: pi.id, ventaId: ventaIdPos, studioId, detalle: errConf.message },
-          });
-          return NextResponse.json({ error: 'Fallo al confirmar la venta' }, { status: 500 });
-        }
-        const filaConf = Array.isArray(conf) ? conf[0] : conf;
-        if (filaConf?.r_aplicado === true) {
-          await entregarVentaPOS(admin, { studioId, ventaId: ventaIdPos });
-        } else if (filaConf?.r_estado === 'ANULADA') {
-          // El cobro triunfó sobre una venta que ya se había anulado: se
-          // canceló en el mostrador, o el proveedor devolvió un estado que se
-          // leyó como fallo, y la tarjeta liquidó después. El estudio tiene el
-          // dinero y la clienta no tiene ni bono ni recibo ni factura.
-          //
-          // Con un solo booleano esto pasaba en silencio. Se deja en
-          // `reconciliaciones_pos` —la tabla que existe exactamente para
-          // "cobro sin registrar", idempotente por PK del PaymentIntent— y se
-          // avisa, para que alguien lo resuelva en vez de descubrirlo cuadrando
-          // con el banco.
-          Sentry.captureMessage('[stripe webhook] cobro confirmado sobre una venta POS ya anulada', {
-            level: 'error', tags: { area: 'cobros' },
-            extra: { paymentIntentId: pi.id, ventaId: ventaIdPos, studioId,
-                     importe: (pi.amount_received ?? pi.amount ?? 0) / 100 },
-          });
-          const { error: errRec } = await admin.from('reconciliaciones_pos').insert({
-            payment_intent_id: pi.id,
-            studio_id: studioId,
-            importe: (pi.amount_received ?? pi.amount ?? 0) / 100,
-            concepto: pi.metadata.concepto ?? 'Cobro sobre venta anulada',
-          });
-          if (errRec && errRec.code !== '23505') {
-            return NextResponse.json({ error: 'Fallo al registrar el cobro huérfano' }, { status: 500 });
-          }
-        } else if (filaConf?.r_estado === 'PAGADA') {
-          // ⚠️ Auditoría 2026-09-21: este caso NO tenía rama y pasaba en
-          // silencio. `confirmar_pago_venta_pos` devuelve `r_aplicado = false`
-          // con `r_estado = 'PAGADA'` cuando la venta YA estaba cobrada, y su
-          // `COALESCE` conserva el PaymentIntent del PRIMER cobro. Si el
-          // segundo PaymentIntent es otro, hay un SEGUNDO CARGO REAL sobre la
-          // misma venta del que Tentare no guardaba ni una línea: ni fila en
-          // `reconciliaciones_pos`, ni Sentry, ni el id del cargo.
-          //
-          // El camino de recibo sí lo detecta explícitamente ("SEGUNDO cobro
-          // del mismo recibo: hay que devolver uno", lib/billing/confirmar-
-          // cobro.ts). Aquí se le da el mismo trato que a la venta anulada:
-          // marcador idempotente por PK del PaymentIntent + aviso.
-          //
-          // Reprocesar el MISMO evento (reenvío desde el Dashboard) es
-          // inofensivo: el id coincide y no se hace nada.
-          const { data: ventaYaPagada } = await admin
-            .from('ventas_pos')
-            .select('stripe_payment_intent_id')
-            .eq('id', ventaIdPos).eq('studio_id', studioId).maybeSingle();
-          const piPrevio = (ventaYaPagada?.stripe_payment_intent_id as string | null) ?? null;
-          if (piPrevio && piPrevio !== pi.id) {
-            Sentry.captureMessage('[stripe webhook] SEGUNDO cobro sobre una venta POS ya pagada', {
-              level: 'error', tags: { area: 'cobros', tipo: 'doble-cobro' },
-              extra: { paymentIntentId: pi.id, paymentIntentPrevio: piPrevio, ventaId: ventaIdPos, studioId,
-                       importe: (pi.amount_received ?? pi.amount ?? 0) / 100 },
-            });
-            const { error: errDup } = await admin.from('reconciliaciones_pos').insert({
-              payment_intent_id: pi.id,
-              studio_id: studioId,
-              importe: (pi.amount_received ?? pi.amount ?? 0) / 100,
-              concepto: pi.metadata.concepto ?? 'Segundo cobro sobre venta ya pagada',
-            });
-            if (errDup && errDup.code !== '23505') {
-              return NextResponse.json({ error: 'Fallo al registrar el cobro duplicado' }, { status: 500 });
-            }
-          }
-        }
+        if (!cierre.ok) return NextResponse.json({ error: cierre.error }, { status: 500 });
         capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: origenPos === 'pos_bizum' ? 'bizum' : 'terminal' } });
         await marcarProcesado();
         return NextResponse.json({ received: true });

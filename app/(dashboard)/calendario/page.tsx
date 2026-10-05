@@ -1239,7 +1239,7 @@ export default function Calendario() {
   }
 
   function avisoPlazaFijaNoSeMueve(n: number): string {
-    return `${n === 1 ? 'Una clienta tiene plaza fija' : `${n} clientas tienen plaza fija`} a esta hora. Solo se mueve esta clase: la plaza fija sigue anclada a su día y hora de siempre. Para cambiar el horario fijo, edita la serie o la plaza fija desde la ficha de la clienta.`;
+    return `${n === 1 ? 'Una clienta tiene clase fija' : `${n} clientas tienen clase fija`} a esta hora. Solo se mueve esta clase: la clase fija sigue anclada a su día y hora de siempre. Para cambiar el horario fijo, edita la serie o la clase fija desde la ficha de la clienta.`;
   }
 
   async function avisarCambioInstructora(aviso: NonNullable<typeof avisoInstructora>) {
@@ -3571,7 +3571,7 @@ export default function Calendario() {
 
       {plazaFijaEnTarjeta && (
         <ElegirClienta
-          titulo="Añadir plaza fija"
+          titulo="Añadir clase fija"
           subtitulo={nombreSerie(plazaFijaEnTarjeta, nombreTipoDe, nombreSalaDe)}
           clientas={socios
             .filter(s => s.activo && !plazaFijaEnTarjeta.plazasFijas.some(p => p.socioId === s.id))

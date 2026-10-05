@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarClientas(sesion.rol) || !puedeGestionarCalendario(sesion.rol)) {
-    return NextResponse.json({ error: 'No tienes permiso para cambiar plazas fijas' }, { status: 403 });
+    return NextResponse.json({ error: 'No tienes permiso para cambiar clases fijas' }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as { plazaId?: unknown; estado?: unknown; pausa?: unknown } | null;
@@ -48,14 +48,14 @@ export async function POST(req: NextRequest) {
       : p && typeof p === 'object' && typeof p.desde === 'string' && typeof p.hasta === 'string'
         ? { desde: p.desde, hasta: p.hasta }
         : undefined;
-    if (!plazaId || pausa === undefined) return NextResponse.json({ error: 'Faltan la plaza fija o las fechas de la pausa' }, { status: 400 });
+    if (!plazaId || pausa === undefined) return NextResponse.json({ error: 'Faltan la clase fija o las fechas de la pausa' }, { status: 400 });
 
     const admin = getSupabaseAdmin();
     if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
     try {
       const r = await pausarPlazaFijaStaff(admin, { studioId: sesion.studioId, plazaId, pausa });
       if ('error' in r) {
-        return NextResponse.json({ error: r.error }, { status: r.error === 'Plaza fija no encontrada' ? 404 : 400 });
+        return NextResponse.json({ error: r.error }, { status: r.error === 'Clase fija no encontrada' ? 404 : 400 });
       }
       return NextResponse.json(r);
     } catch (err) {
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   }
 
   const estado = ESTADOS.find(e => e === body?.estado) as EstadoPlaza | undefined;
-  if (!plazaId || !estado) return NextResponse.json({ error: 'Falta la plaza fija o el estado' }, { status: 400 });
+  if (!plazaId || !estado) return NextResponse.json({ error: 'Falta la clase fija o el estado' }, { status: 400 });
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
@@ -72,10 +72,10 @@ export async function POST(req: NextRequest) {
   try {
     const r = await cambiarEstadoPlazaFijaStaff(admin, { studioId: sesion.studioId, plazaId, estado });
     if ('error' in r) {
-      return NextResponse.json({ error: r.error }, { status: r.error === 'Plaza fija no encontrada' ? 404 : 400 });
+      return NextResponse.json({ error: r.error }, { status: r.error === 'Clase fija no encontrada' ? 404 : 400 });
     }
     return NextResponse.json(r);
   } catch (err) {
-    return errorInterno('plazas-fijas/estado:POST', err, 'No se ha podido cambiar la plaza fija.');
+    return errorInterno('plazas-fijas/estado:POST', err, 'No se ha podido cambiar la clase fija.');
   }
 }

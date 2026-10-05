@@ -84,7 +84,7 @@ export function decidirVueltaDePausa(p: {
 export function textoMotivoVuelta(motivo: MotivoVueltaPendiente): string {
   switch (motivo) {
     case 'SITIO_OCUPADO': return 'su sitio lo tiene ahora otra alumna';
-    case 'SIN_CUPO': return 'su clase está llena de plazas fijas';
+    case 'SIN_CUPO': return 'su clase ya tiene todas las alumnas con clase fija que caben';
     case 'SIN_CUOTA': return 'ya no tiene una cuota que cubra esa clase';
     case 'SUPERA_LIMITE': return 'pasaría del límite de clases por semana de su cuota';
     case 'PREGUNTAR': return 'elegiste confirmar cada vuelta';

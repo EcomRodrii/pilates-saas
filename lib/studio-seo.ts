@@ -176,6 +176,11 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
   // el estudio de prueba en el servidor. NUNCA se activa en producción (la env no
   // existe allí); coincide con el fixture de e2e/booking.spec.ts.
   if (process.env.E2E_TEST === '1') {
+    // Un estudio que NO se puede leer (la base no contesta), por SLUG como las
+    // demás palancas: el layout de la alumna lanza y es el límite de
+    // `app/portal/error.tsx` quien tiene que pintar la pantalla de la app, no
+    // `global-error` (e2e/student-error-al-cargar-estudio.spec.ts).
+    if (slug === 'tentare-no-disponible') return { estudio: null, causa: 'no-disponible' };
     return { estudio: {
       id: 'studio-test', nombre: 'Tentare', ciudad: 'Málaga', direccion: 'Calle Test 1',
       // Configurable por el mismo motivo que `E2E_LOGO_URL` y

@@ -15,7 +15,7 @@ export default function Contenido() {
         <p>Desde Clientas &gt; Importar, arrastra tu CSV o Excel. Las columnas mínimas que necesita son <strong>Nombre</strong> y <strong>Email</strong>; puedes descargar una plantilla de ejemplo si no la tienes clara.</p>
         <AyudaCaptura
           src="/help/clientes/importar-clientes.png"
-          alt="Pantalla de importación de clientas: subir archivo CSV o Excel, con enlaces a migración automática, importar bonos e importar plazas fijas"
+          alt="Pantalla de importación de clientas: subir archivo CSV o Excel, con enlaces a migración automática, importar bonos e importar clases fijas"
           caption="Paso 1 de 3 — subir archivo."
         />
       </AyudaPaso>
@@ -30,7 +30,7 @@ export default function Contenido() {
 
       <AyudaResultado>
         Esta pantalla importa solo los datos de la clienta. Si además quieres traer sus bonos y membresías activas, o
-        sus plazas fijas semanales, esta misma pantalla enlaza a esos dos importadores aparte — o, si vienes de otra
+        sus clases fijas semanales, esta misma pantalla enlaza a esos dos importadores aparte — o, si vienes de otra
         plataforma entera, prueba la migración automática (arrastras tus exports tal cual y Tentare los reconoce
         solos, con deshacer).
       </AyudaResultado>

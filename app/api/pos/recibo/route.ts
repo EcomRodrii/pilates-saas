@@ -4,14 +4,16 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
-import { contextoCobroDe, proveedorPara, MAX_CENTIMOS_POS } from '@/lib/pos/terminal';
+import { MAX_CENTIMOS_POS } from '@/lib/pos/terminal';
+import { prepararCobroExistente, prepararCobroNuevo } from '@/lib/pos/cobro-del-estudio';
+import { proveedorDeReferencia } from '@/lib/pos/sumup';
 import { esReciboCobrable } from '@/lib/billing/deuda-recibo';
 import { MENSAJE_RECIBO_COBRANDOSE_CON_METODO_GUARDADO } from '@/lib/billing/cobro-off-session-marca';
 import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
 import { bloqueoCobroEnMostradorDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import { respuestaTrasCancelar, trasGuardarReferencia } from '@/lib/pos/referencia-cobro-recibo';
-import type { EstadoPagoPOS } from '@/lib/pos/tipos';
+import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -108,20 +110,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Ese importe no se puede cobrar por aquí.' }, { status: 400 });
   }
 
-  const ctx = await contextoCobroDe(admin, sesion.studioId);
-  if (!ctx.ok) return NextResponse.json({ error: ctx.motivo }, { status: 409 });
+  // SumUp no tiene clave de idempotencia: con un cobro suyo ya guardado en el
+  // recibo NUNCA se abre otro en el Solo sin saber cómo acabó el anterior. Si
+  // acabó sin cobrar, se suelta (compare-and-set por la referencia) y se sigue.
+  let referenciaPrevia = recibo.cobro_mostrador_pi as string | null;
+  if (proveedorDeReferencia(referenciaPrevia) === 'sumup') {
+    const previo = await prepararCobroExistente(admin, sesion.studioId, referenciaPrevia as string, metodo, { origen: req.nextUrl.origin });
+    if (!previo.ok) return NextResponse.json({ error: previo.motivo }, { status: previo.status });
+    const est = await previo.cobro.consultar(referenciaPrevia as string);
+    if (est.estado === 'PAGADO') {
+      return NextResponse.json({ error: 'Este recibo ya se ha cobrado en el datáfono. Recarga antes de volver a cobrar.' }, { status: 409 });
+    }
+    if (!esEstadoFinal(est.estado)) {
+      return NextResponse.json({ error: 'Hay un cobro de este recibo en marcha en el datáfono. Espera a que termine o cancélalo.' }, { status: 409 });
+    }
+    const { data: soltadas } = await admin.from('recibos')
+      .update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
+      .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('cobro_mostrador_pi', referenciaPrevia as string).select('id');
+    if (!soltadas?.length) return NextResponse.json({ error: 'Este recibo ha cambiado. Recarga y vuelve a intentarlo.' }, { status: 409 });
+    referenciaPrevia = null;
+  }
 
-  const prov = proveedorPara(metodo, { readerId: ctx.readerId, origen: req.nextUrl.origin });
+  // Quién cobra (Stripe o el datáfono de SumUp de la sede): lib/pos/cobro-del-estudio.ts.
+  const preparado = await prepararCobroNuevo(admin, sesion.studioId, metodo, { origen: req.nextUrl.origin });
+  if (!preparado.ok) return NextResponse.json({ error: preparado.motivo }, { status: 409 });
+  const { cobro } = preparado;
 
   try {
-    const inicio = await prov.iniciar(ctx.ctx, {
+    const inicio = await cobro.iniciar({
       importeCentimos: centimos,
       concepto: recibo.concepto?.slice(0, 120) || 'Cuota',
       ref: { reciboId },
       // POS-1: dos toques seguidos sobre el mismo recibo comparten la referencia previa
       // y por tanto la clave: Stripe devuelve el mismo cobro. Tras cancelar cambia la
       // referencia guardada, y con ella la clave.
-      claveIdempotencia: `pos-recibo-${reciboId}-${metodo}-${recibo.cobro_mostrador_pi ?? 'sin'}`,
+      claveIdempotencia: `pos-recibo-${reciboId}-${metodo}-${referenciaPrevia ?? 'sin'}`,
     });
     if (!inicio.ok) return NextResponse.json({ error: inicio.error }, { status: 409 });
 
@@ -144,20 +167,20 @@ export async function POST(req: NextRequest) {
       // Ni con un cobro con su tarjeta guardada en vuelo (empezó tras la lectura de arriba).
       .is('cobro_off_session_clave', null)
       .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('estado', recibo.estado);
-    const { data: tocadas, error: errRef } = await (recibo.cobro_mostrador_pi
-      ? guardar.eq('cobro_mostrador_pi', recibo.cobro_mostrador_pi)
+    const { data: tocadas, error: errRef } = await (referenciaPrevia
+      ? guardar.eq('cobro_mostrador_pi', referenciaPrevia)
       : guardar.is('cobro_mostrador_pi', null)
     ).select('id');
     if (errRef) console.error('[pos/recibo] no se pudo guardar la referencia del cobro', errRef.message);
     if (trasGuardarReferencia({ error: !!errRef, tocadas: tocadas?.length ?? 0 }) === 'CANCELAR') {
       // Con error tampoco se sigue: sin la referencia guardada, el sondeo de
       // `confirmar` diría «no llegó a iniciarse» con el datáfono o el enlace de
-      // Bizum vivos. Se cancela en la cuenta Connect del estudio
-      // (`ctx.ctx.stripeAccount`) y se vuelve a preguntar: cancelar es
+      // Bizum vivos. Se cancela con quien lo empezó (Stripe en la cuenta Connect
+      // del estudio, o su Solo de SumUp) y se vuelve a preguntar: cancelar es
       // best-effort y no dice si lo logró.
       const motivo = errRef ? 'ERROR_AL_GUARDAR' : 'CAMBIO';
-      await prov.cancelar(ctx.ctx, inicio.referencia, inicio.checkoutSessionId ?? null);
-      const tras = await prov.consultar(ctx.ctx, inicio.referencia);
+      await cobro.cancelar(inicio.referencia, inicio.checkoutSessionId ?? null);
+      const tras = await cobro.consultar(inicio.referencia);
       const respuesta = respuestaTrasCancelar(tras.estado, motivo);
       // Solo ids.
       Sentry.captureMessage(errRef

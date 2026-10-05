@@ -94,7 +94,7 @@ function Tarjeta({ t, p }: { t: TarjetaHorario; p: VistaHorarioProps }) {
           ))}
         </div>
         <p className="mt-1.5 text-xs text-foreground">
-          {activas.length}/{t.aforo} plazas fijas{enPausa > 0 ? ` · ${enPausa} en pausa` : ''}
+          {activas.length}/{t.aforo} con clase fija{enPausa > 0 ? ` · ${enPausa} en pausa` : ''}
         </p>
         {nombres.length > 0 && (
           <p className="text-xs text-muted-foreground truncate">
@@ -117,9 +117,9 @@ function Tarjeta({ t, p }: { t: TarjetaHorario; p: VistaHorarioProps }) {
             </button>
           )}
           {p.puedeAsignarPlaza && (
-            <button type="button" onClick={() => p.onAnadirPlaza(t)} aria-label={`Añadir plaza fija en ${nombre}`}
+            <button type="button" onClick={() => p.onAnadirPlaza(t)} aria-label={`Añadir clase fija en ${nombre}`}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
-              <Plus size={12} />Plaza fija
+              <Plus size={12} />Clase fija
             </button>
           )}
         </div>
@@ -154,7 +154,7 @@ export function VistaHorario(p: VistaHorarioProps) {
       {tarjetas.length > 0 && (
         <p className="mb-3 text-xs text-muted-foreground" data-testid="resumen-horario">
           {tarjetas.length === 1 ? '1 clase que se repite' : `${tarjetas.length} clases que se repiten`}
-          {' · '}{nFijas === 1 ? '1 plaza fija' : `${nFijas} plazas fijas`}
+          {' · '}{nFijas === 1 ? '1 clase fija' : `${nFijas} clases fijas`}
           {nPronto > 0 && (
             <span className="font-medium text-warning">
               {' · '}{nPronto === 1 ? '1 termina en menos de un mes' : `${nPronto} terminan en menos de un mes`}
@@ -166,11 +166,11 @@ export function VistaHorario(p: VistaHorarioProps) {
         <p className="mb-3 text-xs text-muted-foreground text-pretty" data-testid="aviso-peticiones-plaza-fija">
           {p.alumnasPidenPlaza ? (
             p.plazasSeApruebanSolas
-              ? <>Tus alumnas pueden pedir su plaza fija desde la app; se da sola si cumple tus reglas, y la que no las cumple la decides en Resumen.</>
-              : <>Tus alumnas pueden pedir su plaza fija desde la app; lo decides en Resumen.</>
+              ? <>Tus alumnas pueden pedir su clase fija desde la app; se da sola si cumple tus reglas, y la que no las cumple la decides en Resumen.</>
+              : <>Tus alumnas pueden pedir su clase fija desde la app; lo decides en Resumen.</>
           ) : (
             <>
-              Tus alumnas no pueden pedir su plaza fija desde la app: se la das tú, aquí o en su ficha.
+              Tus alumnas no pueden pedir su clase fija desde la app: se la das tú, aquí o en su ficha.
               {p.hrefAjustePeticiones && (
                 <>{' '}<Link href={p.hrefAjustePeticiones} className="font-medium underline underline-offset-2 hover:text-primary">Dejar que la pidan ellas</Link></>
               )}
@@ -208,7 +208,7 @@ export function VistaHorario(p: VistaHorarioProps) {
         <div className="mt-5 rounded-xl border border-warning/40 bg-warning/5 p-3" data-testid="plazas-sin-clase">
           <p className="text-xs font-semibold text-warning flex items-center gap-1.5">
             <AlertTriangle size={13} aria-hidden />
-            {huerfanas.length === 1 ? 'Una plaza fija se ha quedado sin clase' : `${huerfanas.length} plazas fijas se han quedado sin clase`}
+            {huerfanas.length === 1 ? 'Una clase fija apunta a un horario que ya no existe' : `${huerfanas.length} clases fijas apuntan a un horario que ya no existe`}
           </p>
           <ul className="mt-1.5 flex flex-col gap-1">
             {huerfanas.map(pf => (

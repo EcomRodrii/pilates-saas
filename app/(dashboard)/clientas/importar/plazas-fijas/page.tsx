@@ -113,8 +113,8 @@ export default function ImportarPlazasFijasPage() {
     <div className="space-y-6 min-h-dvh" style={{ backgroundColor: 'var(--background)' }}>
       <PageHeader
         back={{ href: '/clientas/importar', label: 'Volver a importar clientas' }}
-        title="Importar plazas fijas"
-        description="Trae las plazas fijas (el hueco semanal de cada clienta) desde un CSV."
+        title="Importar clases fijas"
+        description="Trae las clases fijas (el hueco semanal de cada clienta) desde un CSV."
       />
 
       <div className="flex items-start gap-2 text-[12.5px] rounded-xl px-4 py-3 border max-w-2xl" style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 6%, transparent)', borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
@@ -245,7 +245,7 @@ export default function ImportarPlazasFijasPage() {
             </button>
             <button onClick={ejecutarImport} disabled={!puedeImportar}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed">
-              {importando ? 'Importando…' : <>Importar {conteo.ok} plazas fijas <ArrowRight size={14} /></>}
+              {importando ? 'Importando…' : <>Importar {conteo.ok} clases fijas <ArrowRight size={14} /></>}
             </button>
           </div>
         </div>
@@ -266,7 +266,7 @@ export default function ImportarPlazasFijasPage() {
             <div className="bg-card border border-border rounded-2xl p-6 text-center">
               <div className="w-12 h-12 rounded-2xl bg-primary/10 mx-auto mb-3 flex items-center justify-center"><PartyPopper size={22} className="text-primary" /></div>
               <p className="text-[17px] font-bold text-foreground">
-                {resultado.importadas} {resultado.importadas === 1 ? 'plaza fija importada' : 'plazas fijas importadas'}
+                {resultado.importadas} {resultado.importadas === 1 ? 'clase fija importada' : 'clases fijas importadas'}
               </p>
               <p className="text-[13px] text-muted-foreground mt-1">
                 {resultado.duplicadas > 0 && `${resultado.duplicadas} omitidas por existir ya (misma socia, día, hora y sala). `}

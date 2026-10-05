@@ -15,6 +15,8 @@ import { Icono } from '@/components/student/ui/Icono';
 import { useCodigoDelCorreo } from '@/lib/student/codigo-del-correo';
 import { useAppNativa } from '@/lib/nativo/use-app-nativa';
 import { BotonApple } from '@/components/nativo/BotonApple';
+import { LogoGoogle } from '@/components/nativo/BotonGoogle';
+import { entrarConGoogleEnLaApp } from '@/lib/nativo/google';
 
 /**
  * Entrar. Literal del paquete (`app/(auth)/login/page.tsx`) con el backend real
@@ -32,8 +34,8 @@ export default function LoginPage() {
   const href = usePortalHref();
   const { loginConPassword, enviarEnlace, entrarConGoogle } = useAuthStudent(slug);
   const { widget: captcha, pedirToken } = useCaptcha();
-  // Dentro de la app de iOS: Apple sí, Google no (bloquea su login dentro de una
-  // app así; volverá con el navegador seguro de iOS).
+  // Dentro de la app de iOS: Apple, y Google por el navegador seguro de iOS
+  // (Google bloquea su login dentro de un WebView).
   const enApp = useAppNativa();
 
   const [f, setF] = useState({ email: '', pass: '' });
@@ -151,6 +153,24 @@ export default function LoginPage() {
       // Solo se vuelve aquí si gotrue rechazó ANTES de redirigir; si todo va
       // bien, la pestaña ya se ha ido a Google.
       if ('error' in res) { setYendoAGoogle(false); setGlobal(res.error); }
+    });
+  };
+
+  /**
+   * Dentro de la app de iOS, Google no deja entrar desde el WebView: se abre en
+   * un Safari por encima y vuelve con un código (PKCE, lib/nativo/google.ts). La
+   * sesión queda abierta aquí mismo, y `/acceso/verificar` sigue igual que a la
+   * vuelta de la web: a donde iba, o a firmar el alta si aún no tiene ficha.
+   */
+  const irAGoogleEnLaApp = () => {
+    setGlobal('');
+    try { sessionStorage.setItem(`st_next_${slug}`, destino); } catch { /* modo privado */ }
+    setYendoAGoogle(true);
+    fijarRecordarSesion(recordar);
+    void entrarConGoogleEnLaApp().then((res) => {
+      setYendoAGoogle(false);
+      if ('ok' in res) r.replace(href('/acceso/verificar'));
+      else if ('error' in res) setGlobal(res.error);
     });
   };
 
@@ -287,29 +307,19 @@ export default function LoginPage() {
         <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
       </div>
 
-      {enApp ? (
-        <BotonApple disabled={cargando} onEntrado={() => r.replace(href('/acceso/verificar'))} onError={setGlobal} />
-      ) : (
+      {enApp && <BotonApple disabled={cargando} onEntrado={() => r.replace(href('/acceso/verificar'))} onError={setGlobal} />}
       <button
         type="button"
-        onClick={irAGoogle}
+        onClick={enApp ? irAGoogleEnLaApp : irAGoogle}
         disabled={cargando || yendoAGoogle || !online}
         aria-busy={yendoAGoogle}
         data-testid="entrar-con-google"
         className="btn btn--secondary"
         style={{ width: '100%', gap: 8 }}
       >
-        {/* Marca de Google en SVG en línea: el CSP del proyecto no admite
-            imágenes de terceros y un PNG local se ve mal en pantallas densas. */}
-        <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden focusable="false">
-          <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.8-6.8C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.6 17.7 9.5 24 9.5z" />
-          <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v8.3h12.6c-.3 2.1-1.6 5.2-4.6 7.3l7.7 6c4.5-4.2 6.4-10.1 6.4-17.5z" />
-          <path fill="#FBBC05" d="M10.5 28.6A14.6 14.6 0 0 1 9.7 24c0-1.6.3-3.2.8-4.6l-7.9-6.2A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.2z" />
-          <path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.7-5.9l-7.7-6c-2.1 1.4-4.8 2.4-8 2.4-6.3 0-11.6-4.1-13.5-9.9l-7.9 6.2C6.5 42.6 14.6 48 24 48z" />
-        </svg>
+        <LogoGoogle />
         {yendoAGoogle ? 'Abriendo Google…' : 'Continuar con Google'}
       </button>
-      )}
 
       <p className="t-meta" style={{ textAlign: 'center' }}>
         ¿Primera vez? <Link href={href('/acceso/registro')} className="tap" style={{ fontWeight: 800, color: 'var(--foreground)' }}>Crear cuenta</Link>

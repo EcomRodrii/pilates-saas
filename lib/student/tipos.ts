@@ -183,6 +183,8 @@ export interface Bono {
   compradoEn: string; expiraEn: string | null; estado: EstadoBono; precio: number;
   /** Tipos de clase que cubre. Vacío = todos (misma regla que el servidor). */
   tiposClaseIds?: string[];
+  /** Clases por semana que permite su plan (una cuota «2 clases/semana»). `null`/ausente = sin tope. */
+  limiteSemanal?: number | null;
 }
 
 /**

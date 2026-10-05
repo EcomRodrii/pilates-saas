@@ -17,6 +17,7 @@ import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { Icono } from '@/components/student/ui/Icono';
 import { useFotoUrl } from '@/lib/foto-signed-url';
 import { CajaQr, useQrAcceso } from '@/components/student/domain/QrAcceso';
+import { CambiarDeEstudio } from '@/components/student/domain/CambiarDeEstudio';
 
 // Perfil (§A.17). Cerrar sesión es de verdad: `supabasePortal.auth.signOut()`.
 // El paquete solo navega a /login, que dejaría la sesión viva — y en un móvil
@@ -28,7 +29,7 @@ export default function PerfilPage() {
   const href = usePortalHref();
   const router = useRouter();
   const cargarAlumna = useCallback(() => getAlumna(estudio.slug), [estudio.slug]);
-  const { data: socia } = useAsync(cargarAlumna, (d) => !d);
+  const { data: socia } = useAsync(cargarAlumna, (d) => !d, `alumna:${estudio.slug}:perfil`);
   // SEC-01 (auditoría 23-sep): `socia.fotoUrl` ya no es una URL pública
   // pintable directa — mismo criterio que `perfil/datos/page.tsx`. Solo se
   // pide la firma si `fotoUrl` existe (evita un "object not found" en cada
@@ -99,6 +100,9 @@ export default function PerfilPage() {
           </Link>
         )}
 
+        {/* Solo en la app de iOS «Tentare» (dentro se pinta sola o no). */}
+        <CambiarDeEstudio />
+
         {/* ⚠️ Dos bloques y no uno. «Cuenta» acumulaba OCHO filas seguidas,
             y las cuatro últimas no son ajustes de cuenta: son dinero. En un
             listado plano de ocho, «Contraseña» y «Método de pago» pesan lo
@@ -167,6 +171,7 @@ export default function PerfilPage() {
           titulo="Sesión"
           items={[{ label: 'Cerrar sesión', onClick: () => setSalir(true), destructivo: true }]}
         />
+
 
         <p className="t-meta" style={{ textAlign: 'center', color: 'var(--subtle-foreground)' }}>
           App de {estudio.nombre} · con Tentare

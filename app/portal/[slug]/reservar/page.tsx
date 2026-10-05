@@ -18,6 +18,13 @@ import { ClassCard } from '@/components/student/domain/ClassCard';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Icono } from '@/components/student/ui/Icono';
 import { tiposDeLasClases } from '@/lib/student/mapeo';
+import { invalidarCatalogo } from '@/lib/student/catalogo';
+import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
+
+// El día que estaba mirando, por estudio, para volver a él al cambiar de
+// pestaña (con su scroll, que pone el marco). En memoria: se va al recargar. Un
+// día que ya pasó no se recupera: se vuelve a hoy.
+const ultimoDia = new Map<string, string>();
 
 // Horario (§A.6): días + filtros + lista de clases.
 //
@@ -36,7 +43,15 @@ export default function HorarioPage() {
   const { estudio } = useEstudio();
   const href = usePortalHref();
   const sp = useSearchParams();
-  const [dia, setDia] = useState(hoyISO());
+  const [dia, setDiaEstado] = useState(() => {
+    const hoy = hoyISO();
+    const antes = typeof window !== 'undefined' ? ultimoDia.get(estudio.slug) : undefined;
+    return antes && antes >= hoy ? antes : hoy;
+  });
+  const setDia = useCallback((d: string) => {
+    ultimoDia.set(estudio.slug, d);
+    setDiaEstado(d);
+  }, [estudio.slug]);
   // `?filtro=` — lo usan la baldosa «Mis favoritas» y la hoja de filtros de
   // Inicio, que si no llevarían a un horario sin filtrar y dejarían a la alumna
   // buscando ella misma la píldora.
@@ -58,11 +73,15 @@ export default function HorarioPage() {
     return { clases, reservas, bonos, instructoras, favoritos };
   }, [estudio.slug]);
 
-  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `alumna:${estudio.slug}:horario`);
   // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.
   useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
+  const actualizar = useCallback(async () => {
+    invalidarCatalogo(estudio.slug, { conservarVistas: true });
+    await refrescar();
+  }, [estudio.slug, refrescar]);
 
   // Al volver a la app (otra pestaña, el móvil bloqueado) las plazas pueden
   // haber cambiado: se relee el aforo ligero, no el payload entero, y en
@@ -111,6 +130,7 @@ export default function HorarioPage() {
 
   return (
     <StudentShell>
+      <TirarParaActualizar onRefrescar={actualizar} />
       <PageHeader
         titulo="Horario"
         accion={<Link href={href('/calendario')} className="btn btn--secondary btn--sm">Calendario</Link>}

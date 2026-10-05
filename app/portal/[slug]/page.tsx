@@ -38,6 +38,9 @@ import { Foto, precargarFoto } from '@/components/student/ui/Foto';
 import { Icono } from '@/components/student/ui/Icono';
 import { enVistaPreviaDelPanel } from '@/lib/student/vista-previa-panel';
 import { tiposDeLasClases } from '@/lib/student/mapeo';
+import { cuerpoSinHuecosHoy } from '@/lib/student/huecos-texto';
+import { invalidarCatalogo } from '@/lib/student/catalogo';
+import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
 
 // Cuánto mide el héroe en cada ancho. Lo leen el `<img>` y su precarga: si
 // dijeran cosas distintas, el navegador bajaría la portada dos veces.
@@ -86,11 +89,19 @@ export default function InicioPage() {
     return { clases, reservas, bonos, instructoras, plazaFija, gamificacion, minimoRacha, favoritos };
   }, [estudio.slug]);
 
-  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false);
+  // Con `clave`: al volver a Inicio desde otra pestaña se ve al momento lo de
+  // antes y se refresca por detrás (ver `useAsync`).
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `alumna:${estudio.slug}:inicio`);
   // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.
   useAforoEnVivoPortal(estudio.slug, estudio.id, refrescar);
+  // Tirar para actualizar: el catálogo se cachea 60 s, así que sin tirarlo
+  // `refrescar` devolvería lo mismo. Las demás pestañas conservan su memoria.
+  const actualizar = useCallback(async () => {
+    invalidarCatalogo(estudio.slug, { conservarVistas: true });
+    await refrescar();
+  }, [estudio.slug, refrescar]);
   const plazaFija = data?.plazaFija ?? null;
   const gamificacion = data?.gamificacion ?? null;
 
@@ -348,6 +359,7 @@ export default function InicioPage() {
     // suyo —reservas, bono— sale vacío). Sin esto, la propietaria que no es
     // alumna de su propio estudio —casi todas— veía el login en «Inicio».
     <StudentShell headerTransparente conLema vistaPrevia heroe={heroe}>
+      <TirarParaActualizar onRefrescar={actualizar} />
       {/* Buscador. No decora: lleva a `/reservar?q=`, que busca en TODO el
           horario por nombre de clase, tipo o instructora, ignorando acentos. */}
       <form
@@ -497,7 +509,9 @@ export default function InicioPage() {
                 <EmptyState
                   ilustracion="calendario"
                   titulo="Hoy ya no quedan huecos"
-                  cuerpo="Mira mañana — suele haber más plazas por la mañana."
+                  // Solo lo que dicen las clases cargadas: antes afirmaba «suele
+                  // haber más plazas por la mañana» sin ningún dato detrás.
+                  cuerpo={cuerpoSinHuecosHoy(data.clases, hoy)}
                   accion="Ver el horario"
                   href={href('/reservar')}
                 />

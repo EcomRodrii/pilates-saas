@@ -84,6 +84,13 @@ test('el registro de actividad nunca lleva el IBAN entero', () => {
 
 // ── Contrato con la base de datos ────────────────────────────────────────────
 
+test('migración: el alta de un estudio tampoco trae un datáfono puesto, ni de Stripe ni de SumUp', () => {
+  const sql = sinComentariosSql(migracion('_studios_alta_sin_lector_sumup.sql'));
+  assert.match(sql, /new\.stripe_terminal_reader_id\s*:=\s*null/i);
+  assert.match(sql, /new\.sumup_reader_id\s*:=\s*null/i);
+  assert.match(sql, /new\.stripe_account_id\s*:=\s*null/i, 'sin perder lo que ya vaciaba');
+});
+
 test('migración: authenticated pierde la escritura de las columnas de cuenta de cobro', () => {
   const sql = sinComentariosSql(migracion('_studios_cuenta_cobro_solo_servidor.sql'));
   assert.match(sql, /revoke\s+update\s*\([^)]*stripe_account_id[^)]*\)\s*on\s+public\.studios\s+from\s+authenticated/i);
@@ -130,7 +137,7 @@ test('el navegador ya no escribe la cuenta de cobro ni la mapea en dbUpdateStudi
 });
 
 test('las rutas de servidor comprueban la dueña antes de tocar la cuenta de cobro', () => {
-  for (const ruta of ['app/api/integrations/stripe/desconectar/route.ts', 'app/api/estudio/sepa/route.ts']) {
+  for (const ruta of ['app/api/integrations/stripe/desconectar/route.ts', 'app/api/estudio/sepa/route.ts', 'app/api/integrations/sumup/route.ts']) {
     const src = leer(ruta);
     assert.match(src, /verificarSesionStaff\(req\)/, ruta);
     assert.match(src, /owner_auth_user_id/, ruta);

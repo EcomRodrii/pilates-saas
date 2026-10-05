@@ -136,7 +136,9 @@ test('⚠️ Bizum consulta con `consultarCobroBizum` y expira la sesión aunque
 
 test('⚠️ al cerrar un cobro de Bizum se guarda el PaymentIntent que cobró, nunca la sesión', () => {
   const recibo = leer('app/api/pos/recibo/confirmar/route.ts');
-  assert.ok(recibo.includes("paymentIntentId: est.paymentIntentId\n          ?? (recibo.cobro_mostrador_pi.startsWith('cs_') ? null : recibo.cobro_mostrador_pi),"));
+  assert.ok(recibo.includes("paymentIntentId: esSumup ? null : est.paymentIntentId\n          ?? (recibo.cobro_mostrador_pi.startsWith('cs_') ? null : recibo.cobro_mostrador_pi),"));
+  // Lo de SumUp va a su propia columna: un id suyo en la de Stripe acabaría en una devolución de Stripe.
+  assert.ok(recibo.includes('cargoSumup: esSumup ? est.cargoSumup ?? null : null,'));
   const venta = leer('app/api/pos/venta/confirmar/route.ts');
   assert.ok(venta.includes("p_payment_intent_id: estadoProveedor.paymentIntentId\n        ?? (venta.stripe_payment_intent_id.startsWith('cs_') ? null : venta.stripe_payment_intent_id),"));
 });

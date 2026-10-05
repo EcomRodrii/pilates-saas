@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   try {
     return NextResponse.json({ peticiones: await listarPeticionesPlazaFija(admin, sesion.studioId) });
   } catch (err) {
-    return errorInterno('plazas-fijas/solicitudes:GET', err, 'No se han podido cargar las peticiones de plaza fija. Recarga la página.');
+    return errorInterno('plazas-fijas/solicitudes:GET', err, 'No se han podido cargar las peticiones de clase fija. Recarga la página.');
   }
 }
 

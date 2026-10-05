@@ -13,7 +13,7 @@ export default function Contenido() {
 
       <AyudaCaptura
         src="/help/clientes/ficha-de-clienta.png"
-        alt="Ficha de una clienta: plan activo, plaza fija, recuperaciones y excepciones de automatizaciones"
+        alt="Ficha de una clienta: plan activo, clase fija, recuperaciones y excepciones de automatizaciones"
         caption="La ficha de una clienta real — resumen, plan y las pestañas de reservas, salud, pagos, comunicaciones y documentos."
       />
 

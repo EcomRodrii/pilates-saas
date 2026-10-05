@@ -149,7 +149,9 @@ export async function recuperarPlazasCaducadas(
           if (venta.checkout_session_id) {
             const s = await stripe.checkout.sessions.retrieve(venta.checkout_session_id as string, undefined, { stripeAccount });
             suelta = s.status === 'expired';
-          } else if (venta.stripe_payment_intent_id) {
+          } else if (venta.stripe_payment_intent_id && !String(venta.stripe_payment_intent_id).startsWith('sumup:')) {
+            // Un cobro del datáfono de SumUp (`sumup:`) no se le pregunta a Stripe:
+            // la plaza vuelve cuando su venta se anule (lo cierra su sondeo o su aviso).
             const pi = await stripe.paymentIntents.retrieve(venta.stripe_payment_intent_id as string, undefined, { stripeAccount });
             suelta = pi.status === 'canceled';
           }

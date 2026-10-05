@@ -1,5 +1,6 @@
 'use client';
 
+import { vibrar } from '@/lib/nativo/puente';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -65,6 +66,8 @@ export function ReservarProximas({ sesionId, saldo, ventanaCancelacionHoras, onR
       return;
     }
     setHecho(r.datos);
+    // Solo si de verdad quedó alguna reservada (lo dice el servidor).
+    if (r.datos.resumen.reservadas > 0) void vibrar('exito');
     setIntento(nuevoIntento());
     onReservadas?.();
   }
@@ -77,9 +80,13 @@ export function ReservarProximas({ sesionId, saldo, ventanaCancelacionHoras, onR
     <section data-testid="reservar-proximas" className="card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div>
         <p style={{ margin: 0, fontSize: 'var(--t-body)', fontWeight: 800 }}>Reserva las próximas clases con tu bono</p>
-        <p className="t-meta" style={{ margin: '3px 0 0' }}>
-          Una clase cada semana, a la misma hora. Tienes {saldo === 1 ? '1 sesión' : `${saldo} sesiones`} en tu bono.
-        </p>
+        {/* El saldo es el de ANTES de reservar: con las clases ya reservadas, el resumen de abajo dice cuántas quedan, y
+            dejar esta frase decía «Tienes 8» justo encima de «te quedan 4». */}
+        {!hecho && (
+          <p className="t-meta" style={{ margin: '3px 0 0' }}>
+            Una clase cada semana, a la misma hora. Tienes {saldo === 1 ? '1 sesión' : `${saldo} sesiones`} en tu bono.
+          </p>
+        )}
       </div>
 
       {!hecho && (

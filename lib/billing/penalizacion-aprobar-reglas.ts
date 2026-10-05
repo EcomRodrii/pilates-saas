@@ -754,7 +754,7 @@ const POR_QUE_NO_A_MANO: Partial<Record<EstadoPenalizacion, string>> = {
   OMITIDA_SIN_CONSENTIMIENTO: 'se dejó sin cobrar porque el contrato que aceptó la alumna no recoge este cargo.',
   OMITIDA_COMPENSADA: 'se dejó sin cobrar porque esa reserva ya dio una recuperación a la alumna.',
   OMITIDA_REVERTIDA: 'se anuló al corregir la asistencia.',
-  OMITIDA_SIN_CUOTA: 'se dejó sin cobrar porque era una clase de su plaza fija y ya no tenía cuota, como elegiste en Configuración.',
+  OMITIDA_SIN_CUOTA: 'se dejó sin cobrar porque era una clase que tenía por su clase fija y ya no tenía cuota, como elegiste en Configuración.',
   COBRADA: 'ya consta como cobrada.',
   // No se vuelve a cobrar con la tarjeta: tras agotar los reintentos sería un cargo
   // nuevo mientras la alumna puede estar pagándola. Marcar el recibo cobrado sí es

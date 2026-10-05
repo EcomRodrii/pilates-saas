@@ -47,7 +47,7 @@ const AVISO_SIN_CLASE = 'No hay ninguna clase programada ese día a esa hora en 
 
 // Lo que ha pasado de verdad al quitar la plaza, con las cifras del servidor.
 function textoPlazaQuitada(canceladas: number, mantenidas: number, fallidas: number): string {
-  const partes = ['Plaza fija quitada'];
+  const partes = ['Clase fija quitada'];
   if (canceladas > 0) partes.push(canceladas === 1 ? '1 clase cancelada' : `${canceladas} clases canceladas`);
   if (mantenidas > 0) {
     partes.push(mantenidas === 1
@@ -97,13 +97,13 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
         <div className="min-w-0">
           <p className="text-sm font-bold text-foreground flex items-center gap-1.5">
             <CalendarClock size={15} className="shrink-0 text-muted-foreground" aria-hidden />
-            Plaza fija
+            Clase fija
           </p>
           <p className="text-xs text-muted-foreground">Viene siempre a la misma clase: se le reserva sola cada semana, sin que tengas que apuntarla clase a clase.</p>
         </div>
         <button
           onClick={() => setDialogo({ plaza: null })}
-          aria-label="Añadir plaza fija"
+          aria-label="Añadir clase fija"
           className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors shrink-0"
         >
           <Plus size={14} /> Añadir
@@ -111,7 +111,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
       </div>
 
       {mias.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-2">Aún no tiene plaza fija. Elige la clase a la que viene cada semana.</p>
+        <p className="text-xs text-muted-foreground py-2">Aún no tiene clase fija. Elige la clase a la que viene cada semana.</p>
       ) : (
         <div className="space-y-2">
           {mias.map(p => {
@@ -177,7 +177,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                     <button
                       onClick={() => setAPausar(p)}
                       title={pausa === 'sin_pausa' ? 'Pausar unas fechas (vacaciones, lesión…)' : 'Cambiar o quitar la pausa'}
-                      aria-label={`${pausa === 'sin_pausa' ? 'Pausar' : 'Cambiar la pausa de'} la plaza fija del ${diaLabel(p.diaSemana)} ${hora}`}
+                      aria-label={`${pausa === 'sin_pausa' ? 'Pausar' : 'Cambiar la pausa de'} la clase fija del ${diaLabel(p.diaSemana)} ${hora}`}
                       className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
                     >
                       <Pause size={14} />
@@ -186,15 +186,15 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
                   <button
                     onClick={() => setDialogo({ plaza: p })}
                     title="Cambiar de clase, sitio o fechas"
-                    aria-label={`Editar la plaza fija del ${diaLabel(p.diaSemana)} ${hora}`}
+                    aria-label={`Editar la clase fija del ${diaLabel(p.diaSemana)} ${hora}`}
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
                   >
                     <Pencil size={14} />
                   </button>
                   <button
                     onClick={() => setABorrar(p)}
-                    title="Quitar plaza fija"
-                    aria-label={`Quitar la plaza fija del ${diaLabel(p.diaSemana)} ${hora}`}
+                    title="Quitar clase fija"
+                    aria-label={`Quitar la clase fija del ${diaLabel(p.diaSemana)} ${hora}`}
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted"
                   >
                     <Trash2 size={14} />
@@ -235,7 +235,7 @@ export function FichaPlazaFija({ socioId, onToast }: { socioId: string; onToast:
       <ConfirmDialog
         open={aBorrar !== null}
         onOpenChange={a => { if (!a) setABorrar(null); }}
-        titulo={aBorrar ? `¿Quitar la plaza fija del ${diaLabel(aBorrar.diaSemana)} ${aBorrar.horaInicio.slice(0, 5)}?` : ''}
+        titulo={aBorrar ? `¿Quitar la clase fija del ${diaLabel(aBorrar.diaSemana)} ${aBorrar.horaInicio.slice(0, 5)}?` : ''}
         descripcion="Deja de reservarle esa clase cada semana y cancela las que ya tenía apuntadas en ese horario, sin penalización; si hay alguien en lista de espera, entra en su lugar. Las que empiezan dentro del plazo de cancelación se mantienen."
         textoConfirmar="Quitar"
         destructivo

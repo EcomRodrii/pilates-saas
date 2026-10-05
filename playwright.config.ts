@@ -57,6 +57,10 @@ const USA_BUILD = process.env.E2E_USA_BUILD === '1';
 // del estudio. El panel no entra — se usa desde el iPad de recepción, sí, pero
 // ahí hay alguien que puede avisar; una socia con el widget roto se va.
 const SPECS_WEBKIT = [
+  // La entrada de la app de iOS (/app): la app es la web en un WKWebView, así que
+  // ESTE es su motor de verdad. Pública, la sufre la alumna antes de tener nada.
+  // Siete tests de unos segundos cada uno con todo mockeado.
+  '**/app-entrada.spec.ts',
   '**/reservar-acoplar-widget.spec.ts',
   // El formulario de contacto del estudio: público, y quien lo sufre roto es
   // alguien de fuera que escribe desde el móvil y, si no le funciona, no insiste.

@@ -279,7 +279,7 @@ subject = "Recupera tu contraseña en Tentare"
 content_path = "./supabase/templates/recovery.html"
 
 [auth.email.template.magic_link]
-subject = "Tu enlace de acceso a Tentare"
+subject = "Tu código para entrar en Tentare"
 content_path = "./supabase/templates/magic_link.html"
 
 [auth.email.template.email_change]

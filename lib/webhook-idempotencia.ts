@@ -90,3 +90,25 @@ export async function marcarWebhookProcesado(admin: SupabaseClient, eventId: str
     /* no-op */
   }
 }
+
+/**
+ * La misma reclamación atómica, como CANDADO de una operación que mueve dinero
+ * (no de un aviso entrante): falla CERRADO. Si la base de datos no contesta, no
+ * se sabe si otro está ya en ello, y devolver dinero a ciegas no es seguro.
+ * `previa` = la clave ya existía (un intento anterior, fallido o caducado).
+ */
+export async function reclamarOperacion(
+  admin: SupabaseClient, clave: string, tipo: string, expiraSegundos: number,
+): Promise<{ estado: 'reclamada' | 'ocupada' | 'error'; previa: boolean }> {
+  try {
+    const { data: antes, error: errAntes } = await admin.from('webhook_events').select('id').eq('id', clave).maybeSingle();
+    if (errAntes) return { estado: 'error', previa: false };
+    const { data, error } = await admin.rpc('reclamar_webhook_event', {
+      p_event_id: clave, p_tipo: tipo, p_expira_segundos: expiraSegundos,
+    });
+    if (error) return { estado: 'error', previa: !!antes };
+    return { estado: data === true ? 'reclamada' : 'ocupada', previa: !!antes };
+  } catch {
+    return { estado: 'error', previa: false };
+  }
+}

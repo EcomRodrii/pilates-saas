@@ -12,7 +12,11 @@ import { calcularCambio, sugerenciasEfectivo } from '@/lib/pos/ticket';
 import { confirmarPago, esError, type RespuestaVenta } from '@/lib/pos/cliente';
 import { necesitaAtestiguar, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
+import { estadoBotonDatafono, mensajeSinConexion } from '@/lib/pos/datafono';
 import { BotonFactura } from './boton-factura';
+import { ConectarDatafono } from './conectar-datafono';
+import { useDatafono } from './use-datafono';
+import type { CatalogoPOS } from '@/lib/pos/cliente';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El cobro.
@@ -63,7 +67,7 @@ export function HojaCobro({
   total, cobroDisponible, bizumPermitido, onCobrar, onHecho, onCerrar,
 }: {
   total: number;
-  cobroDisponible: { stripeConectado: boolean; datafonoEmparejado: boolean };
+  cobroDisponible: CatalogoPOS['cobro'];
   /**
    * ¿Se puede ofrecer Bizum para ESTE ticket? Falso si lleva una cuota: Bizum
    * no deja método guardado y la renovación no podría cobrarse sola
@@ -78,6 +82,24 @@ export function HojaCobro({
 }) {
   const [fase, setFase] = useState<Fase>({ f: 'metodo' });
   const [entregado, setEntregado] = useState('');
+
+  // ── El datáfono ───────────────────────────────────────────────────────────
+  // El catálogo solo sabe si hay uno guardado; esto le pregunta a su proveedor
+  // (Stripe o SumUp) si está encendido. Mientras no responde, manda el catálogo.
+  const datafono = useDatafono(
+    cobroDisponible.stripeConectado || cobroDisponible.datafonoEmparejado || !!cobroDisponible.sumupDisponible,
+  );
+  const [conectandoDatafono, setConectandoDatafono] = useState(false);
+  const [avisoDatafono, setAvisoDatafono] = useState<string | null>(null);
+  const lectorDatafono = datafono.estado ? datafono.estado.lector : undefined;
+  const estadoDatafono = estadoBotonDatafono({
+    stripeConectado: cobroDisponible.stripeConectado && (datafono.estado?.stripeConectado ?? true),
+    sumupDisponible: datafono.estado?.sumup.disponible ?? !!cobroDisponible.sumupDisponible,
+    proveedor: datafono.estado ? datafono.estado.proveedor : cobroDisponible.datafonoProveedor ?? null,
+    emparejado: datafono.estado?.emparejado ?? cobroDisponible.datafonoEmparejado,
+    lector: lectorDatafono,
+  });
+  const etiquetaDatafono = lectorDatafono?.etiqueta ?? null;
 
   const cambio = calcularCambio(total, parseFloat(entregado.replace(',', '.')) || 0);
   const sugerencias = sugerenciasEfectivo(total);
@@ -128,7 +150,7 @@ export function HojaCobro({
         // Se sigue intentando hasta agotar el tiempo, en vez de dar el cobro
         // por perdido y arriesgarse a cobrar dos veces.
         if (Date.now() < limite) { temporizador = setTimeout(tick, INTERVALO_MS); return; }
-        setFase({ f: 'fallo', mensaje: 'No hemos podido confirmar el cobro. Compruébalo en tu panel de Stripe ANTES de volver a cobrar.' });
+        setFase({ f: 'fallo', mensaje: 'No hemos podido confirmar el cobro. Compruébalo en el panel de tu cuenta de cobro (Stripe o SumUp) ANTES de volver a cobrar.' });
         return;
       }
 
@@ -185,7 +207,7 @@ export function HojaCobro({
   }
 
   const disponible = (m: MetodoPago) => {
-    if (m === 'DATAFONO') return cobroDisponible.datafonoEmparejado;
+    if (m === 'DATAFONO') return estadoDatafono !== 'sin-stripe';
     if (m === 'BIZUM') return cobroDisponible.stripeConectado && bizumPermitido;
     return true;
   };
@@ -207,6 +229,24 @@ export function HojaCobro({
     fase.f === 'esperando' || fase.f === 'enviando' ? null
       : fase.f === 'exito' ? () => onHecho(fase.venta)
         : onCerrar;
+
+  // Conectar el datáfono sustituye a la hoja (no se apilan dos diálogos); la
+  // venta y la fase siguen en este componente, así que al volver está igual.
+  if (conectandoDatafono) {
+    return (
+      <ConectarDatafono
+        direccionEstudio={datafono.estado?.direccion ?? null}
+        esTest={datafono.estado?.test ?? false}
+        textoVolver="Volver al cobro"
+        textoFinal={`Volver a cobrar ${formatEuro(total)}`}
+        stripeConectado={cobroDisponible.stripeConectado && (datafono.estado?.stripeConectado ?? true)}
+        sumup={datafono.estado?.sumup}
+        enCobro
+        onConectado={(l, proveedor) => { datafono.ponerLector(l, proveedor); setAvisoDatafono(null); }}
+        onCerrar={() => setConectandoDatafono(false)}
+      />
+    );
+  }
 
   return (
     <DashboardSheet
@@ -248,13 +288,47 @@ export function HojaCobro({
               última fila de una rejilla de cinco. */}
           {fase.f === 'metodo' && (
             <div className="p-4 grid grid-cols-2 gap-3">
-              {METODOS.map(({ valor, label, Icono, ayuda }) => {
+              {avisoDatafono && estadoDatafono === 'sin-conexion' && (
+                <div role="alert" className="col-span-2 flex items-start gap-2.5 rounded-xl bg-warning/10 px-3.5 py-3 text-left">
+                  <AlertTriangle size={17} className="mt-0.5 shrink-0 text-warning" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] text-foreground text-pretty">{avisoDatafono}</p>
+                    <button
+                      type="button"
+                      onClick={datafono.recargar}
+                      disabled={datafono.comprobando}
+                      className="mt-1 -ml-1 inline-flex min-h-10 items-center gap-1.5 rounded-lg px-1 text-[13.5px] font-semibold text-foreground underline underline-offset-2 disabled:opacity-60"
+                    >
+                      {datafono.comprobando && <Loader2 size={14} className="animate-spin" />}
+                      Volver a comprobar
+                    </button>
+                  </div>
+                </div>
+              )}
+              {METODOS.map(({ valor, label: labelBase, Icono, ayuda: ayudaBase }) => {
                 const ok = disponible(valor);
+                const esDatafono = valor === 'DATAFONO';
+                const conectar = esDatafono && estadoDatafono === 'sin-conectar';
+                const apagadoPeroPulsable = esDatafono && estadoDatafono === 'sin-conexion';
+                const label = conectar ? 'Conectar datáfono' : labelBase;
+                const ayuda: React.ReactNode = !esDatafono ? ayudaBase
+                  : conectar ? 'Para cobrar con tarjeta desde aquí'
+                    : estadoDatafono === 'listo' || estadoDatafono === 'sin-conexion' ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span className={cn('size-1.5 rounded-full', estadoDatafono === 'listo' ? 'bg-success' : 'bg-warning')} />
+                        {etiquetaDatafono ?? 'Datáfono'} · {estadoDatafono === 'listo' ? 'listo' : 'sin conexión'}
+                      </span>
+                    ) : etiquetaDatafono ?? ayudaBase;
                 return (
                   <button
                     key={valor}
                     disabled={!ok}
                     onClick={() => {
+                      // Sin datáfono: el botón lo conecta, y al terminar se vuelve
+                      // a esta misma venta. Apagado: no se manda nada al lector,
+                      // se dice qué hacer y se vuelve a preguntar.
+                      if (conectar) { setConectandoDatafono(true); return; }
+                      if (apagadoPeroPulsable) { setAvisoDatafono(mensajeSinConexion(etiquetaDatafono)); datafono.recargar(); return; }
                       if (valor === 'EFECTIVO') { setEntregado(''); setFase({ f: 'efectivo' }); }
                       else if (necesitaAtestiguar(valor)) setFase({ f: 'atestiguar', metodo: valor });
                       else lanzar(valor, null);
@@ -264,22 +338,20 @@ export function HojaCobro({
                       'h-24 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition-all',
                       'active:scale-[0.97]',
                       valor === 'EFECTIVO' && 'col-span-2',
-                      ok
-                        ? 'border-border bg-background hover:border-foreground/40 hover:bg-card'
-                        : 'border-border/50 bg-muted/40 opacity-50 cursor-not-allowed',
+                      !ok ? 'border-border/50 bg-muted/40 opacity-50 cursor-not-allowed'
+                        : conectar ? 'border-dashed border-foreground/35 bg-background hover:border-foreground/60'
+                          : apagadoPeroPulsable ? 'border-border/60 bg-muted/40 opacity-70'
+                            : 'border-border bg-background hover:border-foreground/40 hover:bg-card',
                     )}
                   >
                     <Icono size={22} className="text-foreground" />
                     <span className="text-[15px] font-semibold text-foreground">{label}</span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {/* Un método apagado dice por qué. Del datáfono solo el
-                          estado: hoy no hay ninguna pantalla donde emparejar un
-                          lector, y mandar a buscarla era mandar a ninguna parte. */}
+                    <span className="px-2 text-center text-[11px] leading-tight text-muted-foreground">
+                      {/* Un método apagado dice por qué. El datáfono solo se
+                          apaga sin Stripe: sin lector, el botón lo conecta. */}
                       {ok
                         ? ayuda
-                        : valor === 'DATAFONO'
-                          ? 'Sin datáfono emparejado'
-                          : valor === 'BIZUM' && !bizumPermitido
+                        : valor === 'BIZUM' && !bizumPermitido
                             // El motivo de verdad. «Conecta Stripe» aquí sería
                             // mandar a arreglar algo que no está roto.
                             ? 'No vale para una cuota: no deja método guardado'
@@ -431,7 +503,7 @@ export function HojaCobro({
 
               <div className="space-y-1">
                 <p className="text-[17px] font-bold text-foreground flex items-center justify-center gap-2">
-                  <Loader2 size={16} className="animate-spin" /> {textoEspera(fase.estado, Boolean(fase.url))}
+                  <Loader2 size={16} className="animate-spin" /> {textoEspera(fase.estado, Boolean(fase.url), etiquetaDatafono)}
                 </p>
                 {/* Nunca «Pagado» aquí. Lo que se dice es literalmente lo que
                     sabemos: que estamos esperando a que lo confirme el banco. */}
@@ -532,11 +604,11 @@ export function HojaCobro({
 
 // El estado del proveedor, dicho en el idioma del mostrador. `requires_action`
 // no significa nada para quien está cobrando.
-function textoEspera(estado: EstadoPagoPOS, esBizum: boolean): string {
+function textoEspera(estado: EstadoPagoPOS, esBizum: boolean, datafono: string | null): string {
   if (esBizum) return estado === 'PROCESANDO' ? 'Pago en curso…' : 'Esperando el pago';
   switch (estado) {
     case 'PROCESANDO': return 'Procesando…';
-    case 'PENDIENTE':  return 'Acerca la tarjeta al datáfono';
+    case 'PENDIENTE':  return datafono ? `Acerca la tarjeta al datáfono ${datafono}` : 'Acerca la tarjeta al datáfono';
     default:           return 'Esperando al datáfono';
   }
 }

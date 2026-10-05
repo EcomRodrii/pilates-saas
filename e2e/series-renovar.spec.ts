@@ -64,12 +64,12 @@ test.describe('Inicio · clases que se repiten y se acaban', () => {
     });
     const fila = page.getByTestId('serie-por-renovar');
     await expect(fila.getByText(NOMBRE)).toBeVisible();
-    await expect(fila.getByText(/3 alumnas con plaza fija/)).toBeVisible();
+    await expect(fila.getByText(/3 alumnas con clase fija/)).toBeVisible();
 
     await page.getByRole('button', { name: `Revisar y renovar ${NOMBRE}` }).click();
     const dialogo = page.getByRole('dialog');
     await expect(dialogo.getByText('Se crean 51 clases.')).toBeVisible();
-    await expect(dialogo.getByText(/Las 3 plazas fijas de este horario siguen/)).toBeVisible();
+    await expect(dialogo.getByText(/Las 3 clases fijas de este horario siguen/)).toBeVisible();
     await expect(dialogo.getByText('22/12/2026: la sala está ocupada a esa hora')).toBeVisible();
     await expect(dialogo.getByLabel('Semanas más')).toHaveValue('52');
     // Revisar no crea nada: solo simula, con las semanas del último período.

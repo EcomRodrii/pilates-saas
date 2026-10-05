@@ -1,5 +1,6 @@
 'use client';
 import { addDias, etiquetaDia, fechaCorta, hoyISO } from '@/lib/student/formato';
+import { vibrar } from '@/lib/nativo/puente';
 /**
  * ⚠️ Sin `aria-pressed`: el paquete lo pone junto a `aria-selected` sobre un
  * `role="tab"`, y ese rol no lo admite — un lector de pantalla anuncia dos
@@ -11,7 +12,7 @@ export function DateSelector({ value, onChange, dias = 7 }: { value: string; onC
   return (
     <div role="tablist" aria-label="Día" className="no-scrollbar" style={{ display: 'flex', gap: 7, overflowX: 'auto', padding: '0 var(--px)' }}>
       {Array.from({ length: dias }).map((_, i) => { const iso = addDias(h, i); return (
-        <button key={iso} role="tab" type="button" className="day" aria-selected={iso === value} onClick={() => onChange(iso)}>{etiquetaDia(iso)}<small>{fechaCorta(iso).slice(4)}</small></button>
+        <button key={iso} role="tab" type="button" className="day" aria-selected={iso === value} onClick={() => { if (iso !== value) void vibrar('suave'); onChange(iso); }}>{etiquetaDia(iso)}<small>{fechaCorta(iso).slice(4)}</small></button>
       ); })}
     </div>
   );

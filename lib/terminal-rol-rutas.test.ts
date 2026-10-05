@@ -68,7 +68,9 @@ for (const rel of RUTAS_DE_CAJA) {
   test(`${rel}: el guardia de rol va antes de tocar Stripe o la base de datos`, () => {
     for (const { metodo, cuerpo } of handlers(leer(rel))) {
       const guardia = cuerpo.indexOf('puedeMoverDinero(sesion.rol)');
-      for (const efecto of ['admin.from(', 's.stripe.', 'stripe.terminal.', 'studioConnect(']) {
+      // `cargar(`, `contextoCobroDe(` y lo de SumUp: lo que toca la base de datos o
+      // el proveedor en /api/terminal/lector, que no llama a `admin.from(` directo.
+      for (const efecto of ['admin.from(', 's.stripe.', 'stripe.terminal.', 'studioConnect(', 'cargar(', 'contextoCobroDe(', 'Sumup(']) {
         const pos = cuerpo.indexOf(efecto);
         if (pos < 0) continue;
         assert.ok(
