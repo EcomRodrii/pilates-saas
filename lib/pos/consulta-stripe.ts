@@ -315,44 +315,48 @@ type ClienteLectura = {
 };
 
 /**
- * Qué fue de un cobro de Stripe del mostrador que el recibo ya no tiene: lo soltó
- * otro camino tras cerrarlo (el aviso de Stripe, el conciliador), o lo sustituyó
- * otro intento. ⚠️ SOLO LEE: la referencia llega del navegador, y un `consultar`
- * puede cancelar (un cobro online de la socia en la misma cuenta, por ejemplo).
+ * Un cobro de Stripe del mostrador de un recibo, SOLO LEYENDO (no cancela nada).
+ * Lo usan la Caja que pregunta por SU cobro cuando el recibo ya no lo tiene (lo
+ * soltó otro camino tras cerrarlo, o lo sustituyó otro intento) y el arranque de
+ * un cobro con otro aún guardado. ⚠️ La referencia puede llegar del navegador, y un
+ * `consultar` puede cancelar (un cobro online de la socia en la misma cuenta, por
+ * ejemplo): aquí solo se lee.
  *  - `null`: no es de este recibo y este estudio (por la metadata que puso este
  *    servidor al crearlo), o no es de Stripe.
- *  - `comprobado: false`: no se pudo leer. PROCESANDO, sin afirmar nada.
- *  - `comprobado: true`: es de ESTE recibo (y con qué `metodo` se cobraba). Un
- *    final sin cobrar (RECHAZADO con su motivo, CANCELADO, EXPIRADO) o, si entró o
- *    sigue en marcha, PROCESANDO. Solo entonces se puede actuar sobre él.
+ *  - `comprobado: false`: no se pudo leer. No se sabe nada de él.
+ *  - `comprobado: true`: es de ESTE recibo. Con su estado de verdad (también
+ *    PAGADO), con qué `metodo` se cobraba y de qué intento es (`clave`). Solo
+ *    entonces se puede actuar sobre él; qué se le dice a quién lo decide quien llama.
  */
 export async function desenlaceDeCobroSoltado(
   stripe: ClienteLectura, referencia: string, stripeAccount: string, de: { reciboId: string; studioId: string },
 ): Promise<
-  | { comprobado: false; estado: 'PROCESANDO'; motivo: null }
-  | { comprobado: true; estado: EstadoPagoPOS; motivo: string | null; metodo: 'DATAFONO' | 'BIZUM' }
+  | { comprobado: false }
+  | { comprobado: true; estado: EstadoPagoPOS; motivo: string | null; metodo: 'DATAFONO' | 'BIZUM'; clave: string | null }
   | null
 > {
   const opc = { stripeAccount };
   const esDe = (md: Stripe.Metadata | null | undefined) => md?.reciboId === de.reciboId && md?.studioId === de.studioId;
-  // Solo un final sin cobrar se dice; entró o sigue en marcha, no se afirma nada.
-  const sinCobrar: EstadoPagoPOS[] = ['RECHAZADO', 'CANCELADO', 'EXPIRADO', 'ERROR'];
   try {
     // Bizum guarda casi siempre la sesión: caducada es su final sin cobrar.
     if (referencia.startsWith('cs_')) {
       const sesion = await stripe.checkout.sessions.retrieve(referencia, {}, opc);
       if (!esDe(sesion.metadata)) return null;
-      return { comprobado: true, metodo: 'BIZUM', estado: sesion.status === 'expired' ? 'EXPIRADO' : 'PROCESANDO', motivo: null };
+      const estado: EstadoPagoPOS = sesion.status === 'expired' ? 'EXPIRADO'
+        : sesion.status === 'complete' ? (sesion.payment_status === 'paid' ? 'PAGADO' : 'PROCESANDO')
+        : 'PENDIENTE';
+      return { comprobado: true, metodo: 'BIZUM', estado, motivo: null, clave: sesion.metadata?.clave ?? null };
     }
     if (!referencia.startsWith('pi_')) return null;
     const pi = await stripe.paymentIntents.retrieve(referencia, { expand: ['latest_charge'] }, opc);
     if (!esDe(pi.metadata)) return null;
     const datafono = pi.metadata?.origen === 'pos_terminal';
     const c = datafono ? consultaDatafono(pi) : { estado: estadoDesdeStripe(pi.status), error: undefined };
-    return sinCobrar.includes(c.estado)
-      ? { comprobado: true, metodo: datafono ? 'DATAFONO' : 'BIZUM', estado: c.estado, motivo: c.error ?? null }
-      : { comprobado: true, metodo: datafono ? 'DATAFONO' : 'BIZUM', estado: 'PROCESANDO', motivo: null };
+    return {
+      comprobado: true, metodo: datafono ? 'DATAFONO' : 'BIZUM', estado: c.estado, motivo: c.error ?? null,
+      clave: pi.metadata?.clave ?? null,
+    };
   } catch {
-    return { comprobado: false, estado: 'PROCESANDO', motivo: null };
+    return { comprobado: false };
   }
 }

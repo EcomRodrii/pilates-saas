@@ -50,6 +50,31 @@ export function claveCobroRecibo(reciboId: string, metodo: string, intentoId: un
   return `pos-recibo-${reciboId}-${metodo}-${intentoId}`;
 }
 
+/**
+ * Qué hacer al empezar a cobrar un recibo que aún tiene guardado un cobro de Stripe
+ * (leído con `cobroDeReciboSoloLectura`). Antes se abría otro encima y se pisaba la
+ * referencia: con Bizum en uno y el datáfono en otro (dos pestañas, o la pantalla
+ * recargada a mitad de cobro), los dos quedaban cobrables. Ahora manda el último:
+ *  - `seguir`: no hay nada vivo (no es de este recibo, o ya acabó sin cobrar), o es
+ *    este mismo intento repetido (misma clave: Stripe devuelve el mismo cobro).
+ *  - `cancelar`: vivo y de otro intento. Se cancela ANTES de abrir el nuevo.
+ *  - `ya-cobrado`: entró. Otro sería cobrar dos veces.
+ *  - `no-se-sabe`: no se pudo leer, o un estado que no se reconoce. No se abre otro
+ *    a ciegas.
+ * Tras cancelar se vuelve a preguntar con la misma regla: si sigue `cancelar`, es
+ * que no se pudo, y tampoco se abre otro.
+ */
+export function anteCobroPrevio(
+  previo: { comprobado: false } | { comprobado: true; estado: EstadoPagoPOS; clave: string | null } | null,
+  claveNueva: string,
+): 'seguir' | 'cancelar' | 'ya-cobrado' | 'no-se-sabe' {
+  if (!previo) return 'seguir';
+  if (!previo.comprobado || previo.estado === 'ERROR') return 'no-se-sabe';
+  if (previo.estado === 'PAGADO') return 'ya-cobrado';
+  if (previo.estado === 'RECHAZADO' || previo.estado === 'CANCELADO' || previo.estado === 'EXPIRADO') return 'seguir';
+  return previo.clave === claveNueva ? 'seguir' : 'cancelar';
+}
+
 /** Por qué se cancela: el recibo cambió (0 filas) o no se pudo guardar (error). */
 export type MotivoCancelacion = 'CAMBIO' | 'ERROR_AL_GUARDAR';
 

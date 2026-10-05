@@ -69,6 +69,15 @@ export function metadataDe(ref: ReferenciaCobro): Record<string, string> {
   return ref.ventaId ? { ventaId: ref.ventaId } : { reciboId: ref.reciboId! };
 }
 
+/**
+ * La clave del intento en la metadata del cobro: así se sabe si un cobro ya guardado
+ * en un recibo es de ESTE intento (la misma petición repetida, que no se cancela)
+ * o de otro (`anteCobroPrevio`, lib/pos/referencia-cobro-recibo.ts).
+ */
+export function metadataDeIntento(claveIdempotencia: string | undefined): Record<string, string> {
+  return claveIdempotencia ? { clave: claveIdempotencia } : {};
+}
+
 export interface PeticionCobro {
   /** En céntimos, calculado EN SERVIDOR a partir de la venta o el recibo. */
   importeCentimos: number;
@@ -192,8 +201,11 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
           // cobro. Sin esto haría falta el rodeo del backstop de
           // reconciliación, que no sabe a qué apuntar.
           // `lector`: a quién preguntar si sigue con él (`cerrarSiRechazadoDatafono`), aunque
-          // el estudio empareje otro mientras tanto.
-          metadata: { studioId: ctx.studioId, origen: 'pos_terminal', ...metadataDe(p.ref), concepto: p.concepto, lector: readerId },
+          // el estudio empareje otro mientras tanto. `clave`: de qué intento es (`metadataDeIntento`).
+          metadata: {
+            studioId: ctx.studioId, origen: 'pos_terminal', ...metadataDe(p.ref), concepto: p.concepto, lector: readerId,
+            ...metadataDeIntento(p.claveIdempotencia),
+          },
           ...(applicationFeeAmount(p.importeCentimos) !== undefined
             ? { application_fee_amount: applicationFeeAmount(p.importeCentimos) }
             : {}),
@@ -318,12 +330,12 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
             },
           }],
           payment_intent_data: {
-            metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ...metadataDe(p.ref) },
+            metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ...metadataDe(p.ref), ...metadataDeIntento(p.claveIdempotencia) },
             ...(applicationFeeAmount(p.importeCentimos) !== undefined
               ? { application_fee_amount: applicationFeeAmount(p.importeCentimos) }
               : {}),
           },
-          metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ...metadataDe(p.ref) },
+          metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ...metadataDe(p.ref), ...metadataDeIntento(p.claveIdempotencia) },
           success_url: `${origen}/pos?bizum=ok`,
           cancel_url: `${origen}/pos?bizum=cancelado`,
           // P-1 (27ª pasada): cota el enlace aunque nadie pulse "Cancelar" en

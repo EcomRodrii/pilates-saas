@@ -4,12 +4,10 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
-import { prepararCobroExistente } from '@/lib/pos/cobro-del-estudio';
+import { cobroDeReciboSoloLectura, prepararCobroExistente } from '@/lib/pos/cobro-del-estudio';
 import { confirmarCobroRecibo } from '@/lib/billing/confirmar-cobro';
 import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
-import { contextoCobroDe } from '@/lib/pos/terminal';
-import { desenlaceDeCobroSoltado } from '@/lib/pos/consulta-stripe';
-import { mismoCobro, proveedorDeReferencia } from '@/lib/pos/sumup';
+import { mismoCobro } from '@/lib/pos/sumup';
 import type { MetodoPago } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -69,16 +67,6 @@ export async function POST(req: NextRequest) {
   const responder = (pagoEstado: EstadoPagoPOS, extra: Record<string, unknown> = {}) =>
     NextResponse.json({ reciboId, estado: recibo.estado, pagoEstado, importe: Number(recibo.importe), ...extra });
 
-  // Qué fue del cobro que espera la Caja cuando el recibo ya no lo tiene, SOLO
-  // leyendo (`desenlaceDeCobroSoltado`): la referencia llega del navegador. `null`
-  // si no es de este recibo y este estudio, o no es de Stripe (SumUp).
-  const desenlaceDelCobroDeLaCaja = async (ref: string) => {
-    if (proveedorDeReferencia(ref) !== 'stripe') return null;
-    const cx = await contextoCobroDe(admin, sesion.studioId);
-    if (!cx.ok) return null;
-    return desenlaceDeCobroSoltado(cx.ctx.stripe, ref, cx.ctx.stripeAccount, { reciboId, studioId: sesion.studioId });
-  };
-
   // Ya cerrado por el otro camino (el webhook llegó antes).
   if (recibo.estado === 'COBRADO') return responder('PAGADO', { cobrado: true });
 
@@ -88,11 +76,12 @@ export async function POST(req: NextRequest) {
   // se abandonó), y «Cancelar el cobro» aquí cancelaba el cobro vivo de la otra
   // pestaña. El guardado NUNCA se toca desde aquí: es de otro intento.
   if (referenciaCaja && !mismoCobro(referenciaCaja, recibo.cobro_mostrador_pi)) {
-    const d = await desenlaceDelCobroDeLaCaja(referenciaCaja);
+    // SOLO leyendo: la referencia llega del navegador (`cobroDeReciboSoloLectura`).
+    const d = await cobroDeReciboSoloLectura(admin, sesion.studioId, reciboId, referenciaCaja);
     // Sin comprobar que es de este recibo (no es de Stripe, no se pudo leer, o es de
     // otro): ni se afirma ni se toca nada.
     if (!d?.comprobado) return responder('PROCESANDO');
-    if (d.estado !== 'PROCESANDO') return responder(d.estado, d.motivo ? { motivo: d.motivo } : {});
+    if (d.estado !== 'PAGADO' && esEstadoFinal(d.estado)) return responder(d.estado, d.motivo ? { motivo: d.motivo } : {});
     // Vivo (o entró) y de ESTE recibo, comprobado antes de tocarlo: se trata como el
     // guardado. Se puede cancelar, y cerrarlo si el lector ya no lo tiene.
     const propio = await prepararCobroExistente(admin, sesion.studioId, referenciaCaja, d.metodo, { origen: req.nextUrl.origin });

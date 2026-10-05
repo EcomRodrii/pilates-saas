@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { claveCobroRecibo, respuestaTrasCancelar, trasGuardarReferencia } from './referencia-cobro-recibo.ts';
+import { anteCobroPrevio, claveCobroRecibo, respuestaTrasCancelar, trasGuardarReferencia } from './referencia-cobro-recibo.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
 
 // «Vengo a pagar la cuota» con datáfono o Bizum: si la referencia del cobro no
@@ -106,7 +106,58 @@ test('⚠️ la clave del cobro de un recibo es la del INTENTO: dos intentos, do
 
 test('⚠️ la ruta usa la clave del intento (y una nueva del servidor si no llega), nunca la del recibo a secas', () => {
   const fuente = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'app/api/pos/recibo/route.ts'), 'utf8'));
-  assert.ok(fuente.includes('claveIdempotencia: claveCobroRecibo(reciboId, metodo, body?.intentoId)'));
+  // Una sola vez: la misma clave decide qué hacer con el cobro guardado y abre el nuevo.
+  assert.ok(fuente.includes('const claveIntento = claveCobroRecibo(reciboId, metodo, body?.intentoId)'));
+  assert.ok(fuente.includes('claveIdempotencia: claveIntento,'));
+  assert.equal(fuente.split('claveCobroRecibo(reciboId, metodo, body?.intentoId)').length - 1, 1);
   assert.doesNotMatch(fuente, /referenciaPrevia \?\? 'sin'/);
 });
 
+// Un recibo con otro cobro de Stripe aún guardado al empezar uno nuevo: manda el último.
+const previo = (estado: EstadoPagoPOS, clave: string | null = 'k-viejo') => ({ comprobado: true as const, estado, clave });
+
+test('⚠️ anteCobroPrevio: uno vivo de OTRO intento se cancela antes; el mismo intento repetido, no', () => {
+  for (const estado of ['PENDIENTE', 'PROCESANDO'] as EstadoPagoPOS[]) {
+    assert.equal(anteCobroPrevio(previo(estado), 'k-nuevo'), 'cancelar', estado);
+    assert.equal(anteCobroPrevio(previo(estado, 'k-nuevo'), 'k-nuevo'), 'seguir', `${estado}: misma clave, mismo cobro`);
+    // Sin clave guardada (cobros de antes de guardarla): de otro intento.
+    assert.equal(anteCobroPrevio(previo(estado, null), 'k-nuevo'), 'cancelar', `${estado} sin clave`);
+  }
+});
+
+test('⚠️ anteCobroPrevio: si ya entró no se abre otro, y sin poder leerlo tampoco', () => {
+  assert.equal(anteCobroPrevio(previo('PAGADO'), 'k-nuevo'), 'ya-cobrado');
+  assert.equal(anteCobroPrevio(previo('PAGADO', 'k-nuevo'), 'k-nuevo'), 'ya-cobrado', 'ni siquiera el mismo intento: ya está cobrado');
+  assert.equal(anteCobroPrevio({ comprobado: false }, 'k-nuevo'), 'no-se-sabe');
+  assert.equal(anteCobroPrevio(previo('ERROR'), 'k-nuevo'), 'no-se-sabe', 'un estado que no se reconoce no se da por acabado');
+});
+
+test('anteCobroPrevio: uno ya acabado sin cobrar, o que no es de este recibo, deja seguir', () => {
+  for (const estado of ['RECHAZADO', 'CANCELADO', 'EXPIRADO'] as EstadoPagoPOS[]) {
+    assert.equal(anteCobroPrevio(previo(estado), 'k-nuevo'), 'seguir', estado);
+  }
+  assert.equal(anteCobroPrevio(null, 'k-nuevo'), 'seguir');
+});
+
+test('⚠️ el arranque de un recibo: lee el cobro guardado sin tocarlo, cancela el de otro intento y lo suelta ANTES de abrir el nuevo', () => {
+  const f = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'app/api/pos/recibo/route.ts'), 'utf8'));
+  const sumup = f.indexOf("if (proveedorDeReferencia(referenciaPrevia) === 'sumup') {");
+  const stripe = f.indexOf("if (proveedorDeReferencia(referenciaPrevia) === 'stripe') {", sumup);
+  const lee = f.indexOf('const antes = await cobroDeReciboSoloLectura(admin, sesion.studioId, reciboId, ref);', stripe);
+  const decide = f.indexOf('const inicial = anteCobroPrevio(antes, claveIntento);', lee);
+  const cancela = f.indexOf('await previo.cobro.cancelar(ref, recibo.cobro_mostrador_checkout_session_id ?? null);', decide);
+  const relee = f.indexOf('decision = anteCobroPrevio(await cobroDeReciboSoloLectura(admin, sesion.studioId, reciboId, ref), claveIntento);', cancela);
+  const noPudo = f.indexOf("if (decision === 'cancelar') {", relee);
+  const cobrado = f.indexOf("if (decision === 'ya-cobrado') {", noPudo);
+  const nose = f.indexOf("if (decision === 'no-se-sabe') {", cobrado);
+  const suelta = f.indexOf(".eq('cobro_mostrador_pi', ref).select('id');", nose);
+  const nuevo = f.indexOf('await prepararCobroNuevo(', suelta);
+  const iniciar = f.indexOf('await cobro.iniciar(', nuevo);
+  assert.ok(sumup > 0 && stripe > sumup && lee > stripe && decide > lee && cancela > decide && relee > cancela
+    && noPudo > relee && cobrado > noPudo && nose > cobrado && suelta > nose && nuevo > suelta && iniciar > nuevo,
+  'SumUp → Stripe: leer → decidir → cancelar → releer → (no se pudo / ya cobrado / no se sabe) → soltar → abrir el nuevo');
+  // El ACTUAL se cancela con quien lo empezó (su método, leído del cobro), no con el que pulsa la Caja.
+  assert.ok(f.includes('await prepararCobroExistente(admin, sesion.studioId, ref, antes.metodo, { origen: req.nextUrl.origin });'));
+  // Y la ruta no elige proveedor ni lee Stripe por su cuenta.
+  assert.equal(f.indexOf('contextoCobroDe('), -1);
+});
