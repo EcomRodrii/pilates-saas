@@ -173,9 +173,9 @@ export const HORAS_PARA_AVISAR = 24;
  * Desde ahí lo resuelve el barrido, y solo desde ahí puede una máquina dar por muerto
  * uno «caducado»: eso no lo dice SumUp, es que su API aún no devuelve la transacción
  * (`estadoDesdeSumup`, a los dos minutos), y puede ser un retraso. Lo usan el barrido
- * y quien mira si el cobro de la Caja de un recibo sigue vivo
- * (`vidaDelCobroDeLaCajaEnElRecibo`: el cobro con la tarjeta guardada y el enlace de
- * pago online, que no se adelantan al barrido).
+ * y quien decide sobre el cobro de la Caja de un recibo sin tenerlo delante, que no se
+ * adelanta al barrido: el enlace de pago online (`vidaDelCobroDeLaCajaEnElRecibo`) y
+ * el cobro diario (`soltarCobroDeMostradorDelRecibo` con margen).
  */
 export function yaNoEsDelMostrador(referencia: string | null | undefined, ahora: Date): boolean {
   const ref = leerReferenciaSumup(referencia);
