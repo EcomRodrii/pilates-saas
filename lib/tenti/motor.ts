@@ -24,10 +24,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Sonido } from './sonidos.ts';
-import type { PaletaTenti } from './paleta.ts';
-// El dibujo (contorno, ojos, mofletes, luz) sale de la misma geometría que el
-// icono de lo diario: aquí solo se anima.
-import { BAJADA, LUZ, MOFLETE, OJO, SILUETA_PX, colocarOjo, medidas, pildora, recorrerContorno } from './geometria.ts';
+import type { ColoresTraje, PaletaTenti } from './paleta.ts';
+// El dibujo (contorno, ojos, mofletes, luz, y el gorro) sale de la misma
+// geometría que el icono de lo diario: aquí solo se anima.
+import {
+  BAJADA, BANDA_ESQUINAS, GORRO_BRUJA, HEBILLA_ESQUINAS, LADO_MINIMO_BANDA, LUZ, MOFLETE, OJO, SILUETA_PX,
+  colocarOjo, medidas, pildora, posturaDelGorro, recorrerContorno, trazarCono,
+} from './geometria.ts';
+import { TRAJES, type Traje } from './trajes.ts';
 
 type RGB = [number, number, number];
 
@@ -133,15 +137,56 @@ function corazon(x: CanvasRenderingContext2D, s: number) {
   x.bezierCurveTo(-s * 1.05, -s * 0.15, -s * 0.5, -s * 0.95, 0, -s * 0.38);
   x.bezierCurveTo(s * 0.5, -s * 0.95, s * 1.05, -s * 0.15, 0, s * 0.38); x.closePath();
 }
+function poligono(x: CanvasRenderingContext2D, puntos: readonly (readonly [number, number])[], R: number) {
+  x.beginPath();
+  puntos.forEach(([px, py], i) => { if (i) x.lineTo(px * R, py * R); else x.moveTo(px * R, py * R); });
+  x.closePath();
+}
 function estrella(x: CanvasRenderingContext2D, ro: number, ri: number) {
   x.beginPath();
   for (let i = 0; i < 10; i++) { const r = i % 2 ? ri : ro, a = -Math.PI / 2 + i * Math.PI / 5; x.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
   x.closePath();
 }
 
-type Prop = 'yaw' | 'pitch' | 'roll' | 'tilt' | 'open' | 'sx' | 'sy' | 'oy' | 'ox' | 'tint' | 'morph' | 'hands' | 'blush' | 'es' | 'badgeS';
+// `escurre`: lo que se le ha escurrido el gorro (0…1), dormido.
+type Prop = 'yaw' | 'pitch' | 'roll' | 'tilt' | 'open' | 'sx' | 'sy' | 'oy' | 'ox' | 'tint' | 'morph' | 'hands' | 'blush' | 'es' | 'badgeS' | 'escurre';
 type Clave = [valor: number, ms: number, curva: Curva];
 interface Tween { p: Prop; keys: Clave[]; i: number; from: number; t0: number; after?: () => void }
+/** Lo que necesita el dibujo de un traje: ya dentro de la transformación del
+ *  cuerpo y con el origen en el centro del ala, girado. */
+interface LienzoTraje {
+  x: CanvasRenderingContext2D; R: number; colores: ColoresTraje;
+  silueta: string | null; anchoSilueta: number;
+  /** La banda no llega a 1 px en un lienzo de menos de LADO_MINIMO_BANDA. */
+  banda: boolean;
+  /** La hebilla, fuera de mini. */
+  hebilla: boolean;
+}
+
+// Un dibujo por traje: un traje nuevo en TRAJES sin el suyo aquí no compila.
+// Orden: silueta del cono → cono → banda (recortada al cono) → silueta del ala
+// → ala (delante de la base del cono) → hebilla. La silueta del gorro va POR
+// FUERA, al revés que la del cuerpo: el ala mide 2-3 px en un icono, y por
+// dentro se la comía entera (un ala gris en claro, del color del cuerpo en
+// oscuro, visto en las capturas). Por fuera el ala sigue siendo del color del
+// gorro, y la silueta del ala, al pasar por encima de la base del cono, los
+// separa. El gorro ya se sale de la caja: medio píxel más no mueve nada. Las
+// partículas se pintan después, por encima.
+const DIBUJO_TRAJE: Record<Traje, (l: LienzoTraje) => void> = {
+  bruja: ({ x, R, colores, silueta, anchoSilueta, banda, hebilla }) => {
+    const cono = new Path2D();
+    trazarCono(cono, (px, py) => [px * R, py * R]);
+    const ala = new Path2D();
+    ala.ellipse(0, 0, R * GORRO_BRUJA.ala.rx, R * GORRO_BRUJA.ala.ry, 0, 0, Math.PI * 2);
+    if (silueta) { x.strokeStyle = silueta; x.lineWidth = anchoSilueta; x.stroke(cono); }
+    x.fillStyle = colores.a; x.fill(cono);
+    if (banda) { x.save(); x.clip(cono); x.fillStyle = colores.b; poligono(x, BANDA_ESQUINAS, R); x.fill(); x.restore(); }
+    if (silueta) { x.strokeStyle = silueta; x.lineWidth = anchoSilueta; x.stroke(ala); }
+    x.fillStyle = colores.a; x.fill(ala);
+    if (hebilla && banda) { x.strokeStyle = colores.a; x.lineWidth = R * 0.05; poligono(x, HEBILLA_ESQUINAS, R); x.stroke(); }
+  },
+};
+
 interface Particula { type: 'heart' | 'star' | 'spark' | 'sweat' | 'z'; x: number; y: number; vx: number; vy: number; age: number; life: number; rot: number; sz: number }
 
 export interface OpcionesTenti {
@@ -158,6 +203,14 @@ export interface OpcionesTenti {
    *  Es la del icono (`SILUETA_PX`): a tamaño de icono, en claro, el cuerpo
    *  crema da 1,04:1 sobre --card y sin ella Tenti son dos ojos flotando. */
   silueta?: string | null;
+  /** El traje de temporada (./trajes.ts), o null. */
+  traje?: Traje | null;
+  /** El borde del traje, por fuera. Sin él, el de `silueta`. Existe porque el
+   *  canvas grande no lleva silueta y sobre bg-primary en claro el gorro oliva
+   *  no se despega (1,5:1): ahí lo recorta el color del texto. */
+  siluetaTraje?: string | null;
+  /** Sus colores (--tenti-traje-a/-b). Sin ellos, los de `TRAJES`. */
+  coloresTraje?: ColoresTraje | null;
 }
 
 interface ColoresRgb { luz: RGB; sombra: RGB; rubor: RGB }
@@ -178,13 +231,18 @@ export class Tenti {
   miradas: boolean;
   /** Ver `OpcionesTenti.silueta`. Se puede cambiar en vivo (claro ↔ oscuro). */
   silueta: string | null;
+  /** El traje que lleva (el gorro de bruja), o null. Se puede cambiar en vivo. */
+  traje: Traje | null;
+  /** Ver `OpcionesTenti.siluetaTraje`. Se puede cambiar en vivo (claro ↔ oscuro). */
+  siluetaTraje: string | null;
+  private coloresTraje: ColoresTraje | null = null;
   private dpr = 1;
   private insignias: boolean;
   private paleta: PaletaTenti = PALETA_PROTOTIPO;
   private rgb: ColoresRgb = aRgb(PALETA_PROTOTIPO);
   /** Cuántas veces ha saludado DE VERDAD (con `quieto`, saludar() no cuenta). */
   saludos = 0;
-  private s: Record<Prop, number> = { yaw: 0, pitch: 0, roll: 0, tilt: 0, open: 1, sx: 1, sy: 1, oy: 0, ox: 0, tint: 0, morph: 0, hands: 0, blush: 0, es: 1, badgeS: 0 };
+  private s: Record<Prop, number> = { yaw: 0, pitch: 0, roll: 0, tilt: 0, open: 1, sx: 1, sy: 1, oy: 0, ox: 0, tint: 0, morph: 0, hands: 0, blush: 0, es: 1, badgeS: 0, escurre: 0 };
   private tg: Record<Prop, number> = { ...this.s };
   private tw: Tween[] = [];
   private lock: Partial<Record<Prop, 1>> = {};
@@ -214,13 +272,14 @@ export class Tenti {
 
   constructor(canvas: HTMLCanvasElement, {
     mini = false, colorCuerpo = null, sonido = false, paleta = null, insignias = true, quieto = false,
-    miradas = false, silueta = null,
+    miradas = false, silueta = null, traje = null, coloresTraje = null, siluetaTraje = null,
   }: OpcionesTenti = {}) {
     this.c = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Tenti necesita un canvas 2D');
     this.x = ctx; this.mini = mini; this.colorCuerpo = colorCuerpo ? hexRgb(colorCuerpo) : null; this.sonido = sonido;
     this.insignias = insignias; this.quieto = quieto; this.miradas = miradas; this.silueta = silueta;
+    this.traje = traje; this.coloresTraje = coloresTraje; this.siluetaTraje = siluetaTraje;
     if (paleta) this.ponerPaleta(paleta);
     this.proxParpadeo = AHORA() + 1500 + Math.random() * 2000;
     this.proxMirada = AHORA() + 2500 + Math.random() * 4000;
@@ -281,6 +340,9 @@ export class Tenti {
     this.colT = hexRgb(this.colorDe(this.estado)); this.col = [...this.colT];
     if (this.insignia) this.colInsignia = this.colorDe(this.estado);
   }
+
+  /** Los colores del traje (claro ↔ oscuro). Con null, los de `TRAJES`. */
+  ponerColoresTraje(c: ColoresTraje | null) { this.coloresTraje = c; }
 
   /** Enseña u oculta la insignia del estado actual. */
   mostrarInsignias(v: boolean) { this.insignias = v; this.ponerInsignia(v ? this.cfg.insignia : null); }
@@ -447,6 +509,8 @@ export class Tenti {
     const bota = c.bota && !q, respira = c.respira && !q;
     tg.yaw = ty; tg.pitch = tp; tg.tilt = c.ladea || 0; tg.oy = bota ? -Math.abs(Math.sin(t * 5.2)) * 0.07 : 0;
     tg.sy = respira ? 1 + Math.sin(t * 1.8) * 0.035 : 1; tg.sx = respira ? 1 - Math.sin(t * 1.8) * 0.02 : 1;
+    // Dormido, el gorro se le escurre; con «reducir movimiento», en su sitio.
+    tg.escurre = this.estado === 'dormido' && !q ? 1 : 0;
     // En mini (tamaño de icono) la cabeza gira más deprisa: a 26-41 px el giro
     // lento no se aprecia y cada fotograma de cola cuesta igual (medido en
     // Resumen: las miradas eran la mayor parte de lo que pintaba en reposo).
@@ -520,6 +584,19 @@ export class Tenti {
       x.save(); x.translate(o.x, o.y); x.scale(o.escalaX, o.escalaY); this.ojo(forma, R * OJO.w * s.es, R * OJO.h * s.es, s.open, sd); x.restore();
     }
     x.restore();
+    // el traje: dentro de la transformación del cuerpo, así se aplasta y se
+    // ladea con él; además sigue a la cabeza, salta y se bambolea al girar, se
+    // lo levanta con la mano al saludar y se le escurre dormido.
+    if (this.traje) {
+      const g = posturaDelGorro({ yaw: s.yaw, roll: s.roll, manos: s.hands, dormido: s.escurre });
+      x.save(); x.translate(g.x * R, g.y * R); x.rotate(g.giro);
+      DIBUJO_TRAJE[this.traje]({
+        x, R, colores: this.coloresTraje ?? TRAJES[this.traje].colores,
+        silueta: this.silueta ?? this.siluetaTraje, anchoSilueta: 2 * SILUETA_PX * this.dpr / Math.max(0.5, Math.min(s.sx, s.sy)),
+        banda: W / this.dpr >= LADO_MINIMO_BANDA, hebilla: !this.mini,
+      });
+      x.restore();
+    }
     x.restore();
     // manos
     if (s.hands > 0.01) {
@@ -533,7 +610,8 @@ export class Tenti {
     }
     // insignia
     if (this.insignias && this.insignia && s.badgeS > 0.01) {
-      const bs = s.badgeS * (this.mini ? 1.25 : 1); const bx = cx - rx * 0.76 * s.sx, by = cy - ry * 0.72 * s.sy;
+      // Con traje, sube para no pisar el ala.
+      const bs = s.badgeS * (this.mini ? 1.25 : 1); const bx = cx - rx * 0.76 * s.sx, by = cy - ry * 0.72 * s.sy - (this.traje ? R * 0.3 : 0);
       x.save(); x.translate(bx, by); x.scale(bs, bs); const bcol = this.colInsignia;
       if (this.insignia === 'dots' && !this.mini) {
         const w = R * 0.74, h = R * 0.42; x.fillStyle = '#000'; rr(x, -w / 2 - R * 0.07, -h / 2 - R * 0.07, w + R * 0.14, h + R * 0.14, (h + R * 0.14) / 2); x.fill();

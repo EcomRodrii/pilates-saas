@@ -12,6 +12,7 @@
 import { test, mock, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { Tenti, ESTADOS, animacionDeEntrada, type EstadoTenti } from './motor.ts';
+import { TRAJES } from './trajes.ts';
 import type { PaletaTenti } from './paleta.ts';
 
 const PALETA: PaletaTenti = {
@@ -49,7 +50,7 @@ let fotogramaActual: string[] = [];
 
 before(() => {
   (globalThis as { Path2D?: unknown }).Path2D = class {
-    moveTo() {} lineTo() {} closePath() {} roundRect() {}
+    moveTo() {} lineTo() {} closePath() {} roundRect() {} quadraticCurveTo() {} ellipse() {}
   };
   performance.now = () => reloj;
 });
@@ -388,4 +389,108 @@ test('la silueta se pinta con su color, y sin ella no hay trazo', () => {
   const otros = correr(sin, 32).flat();
   sin.destruir();
   assert.ok(!otros.some((c) => cerca(aRgb(c), hexRgb('#94857A'))));
+});
+
+// ── El traje: el gorro de bruja ─────────────────────────────────────────────
+//
+// Sus colores salen de ponerColoresTraje (los tokens --tenti-traje-a/-b) y,
+// sin ellos, de TRAJES; nunca del prototipo. Se pinta DENTRO de la
+// transformación del cuerpo, así que se aplasta y se ladea con él.
+
+// Colores de prueba, distintos de los de TRAJES, para saber de dónde sale cada uno.
+const GORRO = { a: '#2B3A1C', b: '#C4A060' };
+
+/** Un contexto que apunta, en orden, save/restore/scale y cada color de relleno o trazo. */
+function contextoQueApunta(eventos: string[]): CanvasRenderingContext2D {
+  const degradado = () => ({ addColorStop: () => {} });
+  const campos: Record<string | symbol, unknown> = {};
+  return new Proxy(campos, {
+    get(t, k) {
+      if (k === 'createLinearGradient' || k === 'createRadialGradient') return degradado;
+      if (k === 'save' || k === 'restore' || k === 'scale') return () => { eventos.push(String(k)); };
+      if (k in t) return t[k];
+      return () => {};
+    },
+    set(t, k, v) {
+      if ((k === 'fillStyle' || k === 'strokeStyle') && typeof v === 'string') eventos.push(`color:${v}`);
+      t[k] = v;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+test('con traje, el gorro se pinta con ponerColoresTraje, dentro de la transformación del cuerpo', () => {
+  const eventos: string[] = [];
+  const canvas = { width: 0, height: 0, getContext: () => contextoQueApunta(eventos) } as unknown as HTMLCanvasElement;
+  const motor = new Tenti(canvas, { paleta: PALETA, insignias: false, traje: 'bruja' });
+  motor.medir(120);
+  motor.ponerColoresTraje(GORRO);
+  eventos.length = 0;
+  motor.fotograma();
+  motor.destruir();
+  // La profundidad de save/restore: el cuerpo se escala dentro del primer save.
+  let prof = 0, profCuerpo = -1, dentro = false;
+  const vistos = new Set<string>();
+  for (const e of eventos) {
+    if (e === 'save') prof++;
+    else if (e === 'restore') { prof--; if (dentro && prof < profCuerpo) dentro = false; }
+    else if (e === 'scale' && profCuerpo < 0) { profCuerpo = prof; dentro = true; }
+    else if (e.startsWith('color:')) {
+      const c = e.slice(6).toUpperCase();
+      if (c === GORRO.a.toUpperCase() || c === GORRO.b.toUpperCase()) {
+        assert.ok(dentro, `el gorro pinta ${c} fuera de la transformación del cuerpo: no se aplastaría con él`);
+        vistos.add(c);
+      }
+    }
+  }
+  assert.ok(profCuerpo > 0, 'la sonda no ha visto la transformación del cuerpo');
+  assert.deepEqual([...vistos].sort(), [GORRO.a, GORRO.b].map((c) => c.toUpperCase()).sort(), 'el cono y la banda con los colores del traje');
+});
+
+test('sin colores de los tokens, los de TRAJES; sin traje, ningún gorro; y nunca un color del prototipo', () => {
+  const colores = (opciones: ConstructorParameters<typeof Tenti>[1]) => {
+    const motor = crear(opciones);
+    const pintados = correr(motor, 64).flat().map(aRgb);
+    motor.destruir();
+    return pintados;
+  };
+  const conTraje = colores({ paleta: PALETA, insignias: false, traje: 'bruja' });
+  for (const c of [TRAJES.bruja.colores.a, TRAJES.bruja.colores.b]) {
+    assert.ok(conTraje.some((p) => cerca(p, hexRgb(c))), `el gorro no usa ${c} de TRAJES`);
+  }
+  for (const p of conTraje) for (const [nombre, prohibido] of PROHIBIDOS_RGB) assert.ok(!cerca(p, prohibido), `el gorro pinta ${nombre}`);
+  const sinTraje = colores({ paleta: PALETA, insignias: false });
+  for (const c of [TRAJES.bruja.colores.a, TRAJES.bruja.colores.b]) {
+    assert.ok(!sinTraje.some((p) => cerca(p, hexRgb(c))), `sin traje se pinta ${c}`);
+  }
+});
+
+test('el traje se pone y se quita en vivo, y su borde sale de siluetaTraje si no hay silueta', () => {
+  const motor = crear({ paleta: PALETA, insignias: false, siluetaTraje: '#ABCDEF' });
+  motor.ponerColoresTraje(GORRO);
+  const sin = correr(motor, 32).flat().map(aRgb);
+  assert.ok(!sin.some((c) => cerca(c, hexRgb(GORRO.a))));
+  motor.traje = 'bruja';
+  const con = correr(motor, 32).flat().map(aRgb);
+  motor.destruir();
+  assert.ok(con.some((c) => cerca(c, hexRgb(GORRO.a))), 'al ponérselo no se pinta');
+  assert.ok(con.some((c) => cerca(c, hexRgb('#ABCDEF'))), 'el borde del gorro no usa siluetaTraje');
+});
+
+const escurre = (m: Tenti) => (m as unknown as { s: { escurre: number } }).s.escurre;
+
+test("dormido se le escurre el gorro; despierto vuelve; con «reducir movimiento», ni se mueve", () => {
+  const motor = crear({ paleta: PALETA, insignias: false, traje: 'bruja' });
+  motor.ponerEstado('dormido', { forzar: true, silencio: true });
+  correr(motor, 3000);
+  assert.ok(escurre(motor) > 0.95, `dormido, escurre ${escurre(motor).toFixed(3)}`);
+  motor.ponerEstado('reposo', { silencio: true });
+  correr(motor, 3000);
+  assert.ok(escurre(motor) < 0.05, `despierto, escurre ${escurre(motor).toFixed(3)}`);
+  motor.destruir();
+  const quieto = crear({ paleta: PALETA, insignias: false, traje: 'bruja', quieto: true });
+  quieto.ponerEstado('dormido', { forzar: true, silencio: true });
+  correr(quieto, 3000);
+  assert.equal(escurre(quieto), 0);
+  quieto.destruir();
 });

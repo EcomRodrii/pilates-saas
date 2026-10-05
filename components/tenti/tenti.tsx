@@ -2,7 +2,9 @@
 
 import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from 'react';
 import { Tenti as Motor, type EmocionTenti, type EstadoTenti } from '@/lib/tenti/motor';
-import { paletaDesdeTokens, type PaletaTenti } from '@/lib/tenti/paleta';
+import { coloresDeTrajeDesdeTokens, hexDeColorCss, paletaDesdeTokens, siluetaDelTraje, type PaletaTenti } from '@/lib/tenti/paleta';
+import { useTrajeDeTenti } from '@/lib/tenti/preferencia-traje';
+import { TRAJES, type Traje } from '@/lib/tenti/trajes';
 import { ID_ANFITRION_PANEL } from '@/lib/panel-portal';
 import { prepararSonidos, useSonidosDeTenti } from '@/lib/tenti/preferencia-sonido';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
@@ -35,6 +37,10 @@ import { capturarExcepcion } from '@/lib/sentry-cliente';
 // data-paleta ('tokens' o 'defecto'), data-quieto, data-emocion (la última que
 // se le pidió) y data-saludo (cuántas veces ha saludado DE VERDAD; con «reducir
 // movimiento» no saluda y no sube).
+//
+// El traje de temporada (el gorro de bruja, lib/tenti/trajes.ts) lo lleva por
+// defecto; quien lo monta dentro de un botón o un enlace pasa `conTraje={false}`
+// (TentiIcono, con la misma regla que decide si se toca). Se ve en data-traje.
 
 export interface TentiControl {
   emocion: (e: EmocionTenti) => void;
@@ -70,6 +76,10 @@ export interface PropsTenti {
   insignias?: boolean;
   /** Nombre accesible. Sin él, Tenti es decorativo (aria-hidden): el texto de al lado ya dice lo que pasa. */
   titulo?: string;
+  /** Lleva el traje de temporada (o el que pida este navegador desde /interno/tenti). */
+  conTraje?: boolean;
+  /** Un traje fijo, sea la época que sea: solo el catálogo. */
+  traje?: Traje | null;
   /** Lo que se pinta si no se puede dibujar (sin canvas 2D, o el motor falla). Sin él, nada. */
   reserva?: ReactNode;
   className?: string;
@@ -93,10 +103,13 @@ const MAREO_MS = 2200;
 export function Tenti({
   estado = 'reposo', tamano = 120, sigueCursor = false, mira, sonido: sonidoPedido, miradas = true, silueta,
   saludaUnaVez = false, interactivo = false, saludaAlAparecer = false, insignias = false, titulo, reserva = null,
-  className, ref,
+  conTraje = true, traje: trajePedido, className, ref,
 }: PropsTenti) {
   const preferencia = useSonidosDeTenti();
   const sonido = sonidoPedido ?? preferencia;
+  const deTemporada = useTrajeDeTenti();
+  const traje = trajePedido !== undefined ? trajePedido : conTraje ? deTemporada : null;
+  const trajeRef = useRef(traje);
   const siluetaRef = useRef(silueta);
   const saludaUnaVezRef = useRef(saludaUnaVez);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -123,11 +136,23 @@ export function Tenti({
       return paletaDesdeTokens((t) => estilo.getPropertyValue(t));
     };
     const marcarPaleta = (p: PaletaTenti | null) => { canvas.dataset.paleta = p ? 'tokens' : 'defecto'; };
+    const leerColoresTraje = () => {
+      const estilo = getComputedStyle(canvas);
+      return coloresDeTrajeDesdeTokens((t) => estilo.getPropertyValue(t));
+    };
     const leerSilueta = () => {
       const s = siluetaRef.current;
       if (!s) return null;
       const estilo = getComputedStyle(canvas);
       return (s === 'invertida' ? estilo.color : estilo.getPropertyValue('--tenti-silueta')).trim() || null;
+    };
+    // Sin silueta del cuerpo (el canvas grande), el gorro solo lleva borde
+    // donde no se despega de su superficie (sobre bg-primary en claro), con el
+    // color del texto de esa superficie (lib/tenti/paleta.ts).
+    const leerSiluetaTraje = () => {
+      let fondo: string | null = null;
+      for (let e = canvas.parentElement; e && !fondo; e = e.parentElement) fondo = hexDeColorCss(getComputedStyle(e).backgroundColor);
+      return siluetaDelTraje(leerColoresTraje()?.a ?? TRAJES[trajeRef.current ?? 'bruja'].colores.a, fondo, getComputedStyle(canvas).color);
     };
     const reducido = window.matchMedia('(prefers-reduced-motion: reduce)');
     const marcarQuieto = (q: boolean) => { if (q) canvas.dataset.quieto = '1'; else delete canvas.dataset.quieto; };
@@ -137,6 +162,7 @@ export function Tenti({
       const paleta = leerPaleta();
       creado = new Motor(canvas, {
         mini: tamano < 64, sonido, insignias, quieto: reducido.matches, paleta, miradas, silueta: leerSilueta(),
+        traje: trajeRef.current, coloresTraje: leerColoresTraje(), siluetaTraje: leerSiluetaTraje(),
       });
       creado.medir(tamano);
       creado.ponerEstado(estadoRef.current, { forzar: true, silencio: true });
@@ -208,6 +234,8 @@ export function Tenti({
         const p = leerPaleta();
         motor.ponerPaleta(p);
         motor.silueta = leerSilueta();
+        motor.ponerColoresTraje(leerColoresTraje());
+        motor.siluetaTraje = leerSiluetaTraje();
         marcarPaleta(p);
         arrancar();
       } catch (e) { fallar(e); }
@@ -239,6 +267,11 @@ export function Tenti({
   useEffect(() => { if (motorRef.current) { motorRef.current.miradas = miradas; despertarRef.current(); } }, [miradas, tamano, fallo]);
 
   useEffect(() => { motorRef.current?.mostrarInsignias(insignias); despertarRef.current(); }, [insignias]);
+
+  useEffect(() => {
+    trajeRef.current = traje;
+    if (motorRef.current) { motorRef.current.traje = traje; despertarRef.current(); }
+  }, [traje]);
 
   useEffect(() => {
     estadoRef.current = estado;
@@ -313,6 +346,7 @@ export function Tenti({
       ref={canvasRef}
       data-tenti=""
       data-estado={estado}
+      data-traje={traje ?? undefined}
       {...(titulo ? { role: 'img', 'aria-label': titulo } : { 'aria-hidden': true })}
       onClick={interactivo ? tocar : undefined}
       // Tocarlo no le quita el foco a nadie (el campo del buscador sigue activo).

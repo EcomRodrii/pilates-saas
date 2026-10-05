@@ -371,6 +371,21 @@ esa lista con su motivo, no un import de paso.
   en los dos modos, `lib/tenti/paleta.test.ts`) es lo que lo despega de --card en
   claro; sobre `bg-primary`/`bg-brand`, `sobre="invertida"` (toma el color del
   texto).
+- **Trajes de temporada** (`lib/tenti/trajes.ts`, 5-oct-2026: «ahora, que viene
+  Halloween»): el gorro de bruja del **5-oct al 1-nov, ambos incluidos, en hora
+  de Madrid** (nunca UTC ni la del navegador: el cambio de hora cae dentro; los
+  bordes los prueba `trajes.test.ts`). Un traje nuevo es una entrada en `TRAJES`
+  y un dibujo en `motor.ts` y en `geometria.ts` (`Record<Traje, …>`: sin dibujo
+  no compila). Lo lleva donde Tenti se toca y **nunca dentro de un botón o un
+  enlace** (la misma regla, `DENTRO_DE_UN_CONTROL`): fuera, sin otra lista, los
+  botones de IA de salud. Colores `--tenti-traje-a/-b` (hex en `:root` y `.dark`,
+  no `--brand`: el brand slot lo reescribe). Su silueta va POR FUERA (por dentro
+  se comía el ala de 2 px), y el canvas grande solo la lleva donde el cono no se
+  despega de la superficie (`siluetaDelTraje`: sobre bg-primary en claro, 1,5:1).
+  Se pinta también a 18 px (mirado a DPR 1 y 2: se lee como gorro). El fundador
+  lo fuerza o lo quita en SU navegador desde `/interno/tenti` («En este
+  navegador, el panel lleva», localStorage `tenti-traje`); ningún estudio tiene
+  dónde tocarlo.
 - **Nunca**: marca blanca (portal, /reservar, widget, kiosko, correos a socias),
   soporte (WhatsApp, ayuda: «te responde una persona, no una IA»), pantallas de
   dinero (Cobros, Caja, cierre, facturas…) ni junto a lo que redacta un modelo
