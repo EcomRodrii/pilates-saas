@@ -57,7 +57,9 @@ export function TentiDiferido({ estado, tamano, sigueCursor = false, reserva }: 
   if (rol !== 'PROPIETARIO') return <>{reserva}</>;
   return (
     <ReservaCtx.Provider value={reserva}>
-      <TentiCanvas estado={estado} tamano={tamano} sigueCursor={sigueCursor} interactivo reserva={reserva} />
+      {/* Listo es un hito: 'hecho' con celebración, y suena porque responde a
+          la clase que se acaba de crear (lib/tenti/momentos.ts). */}
+      <TentiCanvas estado={estado} tamano={tamano} sigueCursor={sigueCursor} interactivo celebra sonarCambios reserva={reserva} />
     </ReservaCtx.Provider>
   );
 }

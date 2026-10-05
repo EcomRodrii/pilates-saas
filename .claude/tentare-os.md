@@ -332,7 +332,10 @@ esa lista con su motivo, no un import de paso.
   buscador ('open'/'close'), el saludo ('greet') y el logo guardado ('love'),
   Listo ('finish'), la IA que termina CON resultado ('pop', lo pide quien
   llama con `sonarTenti`; empezar a pensar no suena) y tocarlo ('slap',
-  'annoyed', 'dizzy'). Encendido por defecto; el interruptor «Sonidos de
+  'annoyed', 'dizzy'). Un cambio de ESTADO solo suena si responde a algo que
+  acabas de pedir en esa pantalla y no lleva ya su `pop` (`sonarCambios`: Listo
+  y la migración, `SUENAN_AL_CAMBIAR` en la guardia); las emociones que llegan
+  sin gesto (amor, orgullo, guiño, bostezo, sorpresa), nunca. Encendido por defecto; el interruptor «Sonidos de
   Tenti» (Configuración › Tu panel › Solo para ti, de este navegador, como
   claro u oscuro) lo apaga, y todos los Tentis le hacen caso sin recargar
   (`lib/tenti/preferencia-sonido.ts`). Quién suena y con qué lo cierra la
@@ -355,18 +358,50 @@ esa lista con su motivo, no un import de paso.
   fotogramas y 1,1–1,5 %. En mini la cabeza gira más deprisa porque las
   miradas eran casi todo lo que se pintaba. `e2e/tenti-vivo.spec.ts` lo anota
   en cada pasada.
-- **Tres estados con un significado cada uno.** `reposo` es la firma: no es un
-  aviso ni un «todo bien» (si hay algo que avisar, lo dice el texto, nunca su
-  cara). `pensando`, solo con una petición de verdad en vuelo (un botón de IA,
-  Analizar), con la forma `X ? 'pensando' : 'reposo'` y el botón en `aria-busy`
-  (ocupado no es deshabilitado: no se atenúa); es el 'pensando' del motor (mira
-  arriba a la derecha) sin la insignia de puntos, y respira por CSS mientras
-  dura la petición.
-  `hecho`, solo Listo. El resto de estados y emociones viven en
-  `/interno/tenti`. Con «reducir movimiento», quieto.
+  **Regla del movimiento sin fin** (`movimiento` del motor, 5-oct por la
+  noche): en lo diario un estado solo se mueve sin fin mientras dure algo que
+  tiene fin y que la pantalla espera. Lo que describe una situación
+  (`esperaTuOk` bota, `dormido` respira, `agobiado` suda, `trabajando`) entra
+  con su gesto, oscila como mucho **4 s** y se queda en su pose; una petición
+  con fin (la herramienta del asistente, `buscando`), **30 s**; solo el
+  catálogo, `sinFin` (lo vigila la guardia). Un `esperaTuOk` botando todo el
+  día en el iPad de recepción serían 60 fps sin fin.
+- **Cada estado, una cosa (`lib/tenti/momentos.ts`)** (fundador, 5-oct por la
+  noche: «que use todos sus estados y emociones, cada uno en su momento»).
+  `SIGNIFICADO` dice qué es cada uno y `MAPA` dónde sale y con qué dato; la
+  guardia y `/interno/tenti` leen esos dos objetos. **Las pantallas no escriben
+  estados: los piden con su dato** (`estadoDeLaBandeja`, `estadoDelAutonomo`,
+  `estadoDeHoy`, `estadoDeLaMigracion`), salvo los literales que `MAPA` da a
+  ese fichero.
+  `reposo` la firma (nunca «todo bien»: lo dice el texto) · `pensando` una
+  petición tuya en vuelo, con la forma `X ? 'pensando' : 'reposo'` y
+  `aria-busy`, respirando por CSS · `trabajando` Tentare hace un proceso solo
+  («Tentare lo está haciendo», importar en la migración) · `hecho` algo que
+  veías acaba de terminar y el servidor lo confirma: con celebración en los
+  hitos (Listo, el acta de la migración), breve en lo diario · `error` algo que
+  Tentare hizo por ti no salió (nunca un error de formulario) · `esperaTuOk`
+  algo no avanza sin tu sí · `agobiado` la bandeja llega a `UMBRAL_AGOBIO` (10,
+  **sin medir todavía**: mirar el p90 antes de fiarse) · `pregunta` te pregunta
+  y puedes no contestar (la bienvenida de apertura) · `dormido` el ESTUDIO
+  descansa (hoy ya no quedan clases, o no hay) · `mareado` solo al tocarlo ·
+  `buscando`, con el asistente. Emociones, una vez y sin sonido: `amor` (alguien
+  viene hoy por primera vez), `orgullo` (el día con más alumnas, con ≥ 56 días
+  de historia y ≥ 10 alumnas), `guino` (lo único es un hueco), una vez al día
+  por dispositivo; `bostezo` al volver tras 30 min fuera; `sorpresa` si la
+  bandeja sube con la pantalla delante.
+  ⚠️ `esperaTuOk` es SIEMPRE la cifra de la bandeja única (`nDecidir` o su
+  línea), nunca un recuento propio; sin la bandeja, `reposo`. Nunca en el Centro
+  de Control: sus sugerencias no bloquean nada.
+  ⚠️ `dormido` va SIEMPRE con «Tentare sigue atento…» (`FRASE_DORMIDO`) y nunca
+  donde se firma trabajo autónomo (piloto, Automatizaciones, «lo está
+  haciendo»): se leería «Tentare apagado».
+  ⚠️ `amor` excluye a quien trae historial importado (`tieneHistorialPrevio`) y
+  a quien no tiene ficha: mejor sin `amor` que uno falso con una socia migrada.
+  Con «reducir movimiento», quieto.
 - **El icono es cerrado por tipo**: anchos 18|20|22|24|28 (el 16 no existe: los
   ojos no se leen), siempre `aria-hidden`, sin `titulo`, y la misma API de
-  siempre (vivo o no, los doce sitios no cambian). Lo comprueba tsc en
+  siempre (vivo o no, los sitios no cambian), con los estados de `MAPA` salvo
+  `buscando` y `mareado`, y las emociones del panel salvo `feliz` y `molesto`. Lo comprueba tsc en
   `components/tenti/tenti-icono.tipos.ts`. La silueta (`--tenti-silueta`, ≥ 3:1
   en los dos modos, `lib/tenti/paleta.test.ts`) es lo que lo despega de --card en
   claro; sobre `bg-primary`/`bg-brand`, `sobre="invertida"` (toma el color del

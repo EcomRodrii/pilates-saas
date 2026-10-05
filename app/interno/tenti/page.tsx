@@ -9,12 +9,15 @@
 // sonido, el saludo al aparecer, las insignias y el nombre accesible: en el
 // componente vienen apagados. Y el traje: aquí se elige a mano; en el panel lo
 // decide la temporada (lib/tenti/trajes.ts), salvo que este navegador pida otra
-// cosa en «En este navegador, el panel lleva».
+// cosa en «En este navegador, el panel lleva». Y el movimiento: aquí todo
+// oscila sin fin (`movimiento="sinFin"`); en el panel, lo que describe una
+// situación oscila 4 s y se queda en su pose (lib/tenti/motor.ts).
 
 import { useEffect, useRef, useState } from 'react';
 import { Tenti, type TentiControl } from '@/components/tenti/tenti';
 import { EMOCIONES, ESTADOS, type EmocionTenti, type EstadoTenti } from '@/lib/tenti/motor';
 import { R_DEL_LADO, SEMIEJE_X } from '@/lib/tenti/geometria';
+import { MAPA, SIGNIFICADO, SIN_SITIO_TODAVIA } from '@/lib/tenti/momentos';
 import { ponerTrajeGuardado, usePreferenciaTraje, useTrajeDeTenti, type PreferenciaTraje } from '@/lib/tenti/preferencia-traje';
 import { LISTA_TRAJES, SIN_TRAJE, TRAJES, trajeDeTemporada, type Traje } from '@/lib/tenti/trajes';
 
@@ -58,7 +61,7 @@ export default function TentiPagina() {
       <section className="grid gap-6 rounded-2xl border border-border bg-card p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-muted/40 py-6">
           <Tenti
-            ref={control} estado={estado} tamano={240} sonido={sonido} traje={traje}
+            ref={control} estado={estado} tamano={240} sonido={sonido} traje={traje} movimiento="sinFin" sonarCambios celebra
             interactivo saludaAlAparecer insignias sigueCursor titulo={`Tenti: ${ESTADOS[estado].etiqueta.toLowerCase()}`}
           />
           <p className="text-[13px] font-semibold text-foreground">{ESTADOS[estado].etiqueta}</p>
@@ -107,12 +110,14 @@ export default function TentiPagina() {
           {/* 26 y 41: los lienzos de un icono de 18 y de 28 px. */}
           {[26, 41, 40, 64, 96, 160].map((t) => (
             <div key={t} className="flex flex-col items-center gap-1">
-              <Tenti estado={estado} tamano={t} traje={traje} interactivo insignias />
+              <Tenti estado={estado} tamano={t} traje={traje} movimiento="sinFin" celebra interactivo insignias />
               <span className="text-[11.5px] text-muted-foreground tabular-nums">{t} px</span>
             </div>
           ))}
         </div>
       </section>
+
+      <CadaEstadoEnSuSitio />
 
       <EnEsteNavegador />
 
@@ -190,7 +195,7 @@ function MaquetaListo() {
         {(['claro', 'oscuro'] as const).map((modo) => (
           <div key={modo} className={`${modo === 'oscuro' ? 'dark ' : ''}rounded-xl border border-border bg-background px-4 py-5 text-center`}>
             <div className="mx-auto mb-2 grid size-20 place-items-center">
-              <Tenti estado={estadoListo} tamano={80} sigueCursor={false} />
+              <Tenti estado={estadoListo} tamano={80} sigueCursor={false} celebra sonarCambios />
             </div>
             <h3 className="text-[17px] font-bold leading-tight tracking-tight text-foreground">Tu estudio ya puede recibir reservas</h3>
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
@@ -208,6 +213,43 @@ function MaquetaListo() {
         </button>
       </div>
     </div>
+  );
+}
+
+// Lo que significa cada estado y emoción y dónde sale en el panel: los mismos
+// dos objetos (SIGNIFICADO y MAPA, lib/tenti/momentos.ts) que lee la guardia,
+// así que el catálogo no puede contar otra cosa que el producto.
+function CadaEstadoEnSuSitio() {
+  const sitios = Object.entries(MAPA);
+  const dondeEstado = (e: EstadoTenti) => sitios.filter(([, s]) => s.estados.includes(e)).map(([, s]) => s.sitio);
+  const dondeEmocion = (e: EmocionTenti) => sitios.filter(([, s]) => s.emociones.includes(e)).map(([, s]) => s.sitio);
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5" data-cada-estado="">
+      <p className={rotulo}>Cada estado, en su sitio</p>
+      <p className="mb-3 max-w-3xl text-[12.5px] text-muted-foreground">
+        Cada estado significa una sola cosa en todo el producto, y cada sitio lo pide con el dato que lo decide. En el panel,
+        lo que describe una situación oscila 4 s y se queda quieto; los cambios solo suenan si responden a algo que se acaba de pedir.
+      </p>
+      <div className="grid gap-x-6 gap-y-3 lg:grid-cols-2">
+        {(Object.keys(ESTADOS) as EstadoTenti[]).map((e) => {
+          const donde = dondeEstado(e);
+          return (
+            <div key={e} className="text-[12.5px]">
+              <p className="font-semibold text-foreground">{ESTADOS[e].etiqueta}</p>
+              <p className="text-muted-foreground">{SIGNIFICADO.estados[e].es} <span className="opacity-80">Nunca: {SIGNIFICADO.estados[e].nunca}</span></p>
+              <p className="text-muted-foreground">{donde.length ? `Sale en: ${donde.join(' · ')}` : `Todavía sin sitio: ${SIN_SITIO_TODAVIA[e] ?? '—'}`}</p>
+            </div>
+          );
+        })}
+        {(Object.keys(EMOCIONES) as EmocionTenti[]).map((e) => (
+          <div key={e} className="text-[12.5px]">
+            <p className="font-semibold text-foreground">{EMOCIONES[e].etiqueta} <span className="font-normal text-muted-foreground">(emoción)</span></p>
+            <p className="text-muted-foreground">{SIGNIFICADO.emociones[e].es} Cuándo: {SIGNIFICADO.emociones[e].cuando}</p>
+            <p className="text-muted-foreground">Sale en: {dondeEmocion(e).join(' · ')}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

@@ -31,20 +31,21 @@ const json = (r: Route, body: unknown, status = 200) =>
 
 const tenti = (page: Page) => page.locator('[data-tenti-icono]');
 
-/** Todos los Tentis de la página en reposo, vivos (un canvas por icono) y
- *  decorativos, ningún resto del Orb, y además tantos canvas sueltos como se
- *  digan (solo Automatizaciones lleva uno, el del resumen del día). */
+/** Todos los Tentis de la página vivos (un canvas por icono, en el mismo
+ *  estado que su icono) y decorativos, ningún resto del Orb, y además tantos
+ *  canvas sueltos como se digan (solo Automatizaciones lleva uno, el del resumen
+ *  del día). Qué estado lleva cada uno lo dice cada test: desde el 5-oct no es
+ *  siempre 'reposo' (lib/tenti/momentos.ts). */
 async function todosVivosYDecorativos(page: Page, { canvas = 0 } = {}) {
   const iconos = await tenti(page).all();
   for (const t of iconos) {
-    await expect(t).toHaveAttribute('data-estado', 'reposo');
     await expect(t).toHaveAttribute('aria-hidden', 'true');
     await expect(t.locator('canvas[data-tenti]')).toHaveCount(1, { timeout: 30_000 });
+    await expect(t.locator('canvas[data-tenti]')).toHaveAttribute('data-estado', (await t.getAttribute('data-estado'))!);
   }
   await expect(page.locator('.orb-tentare')).toHaveCount(0);
   await expect(page.locator('canvas[data-tenti]')).toHaveCount(iconos.length + canvas);
   for (const c of await page.locator('canvas[data-tenti]').all()) {
-    await expect(c).toHaveAttribute('data-estado', 'reposo');
     await expect(c).toHaveAttribute('aria-hidden', 'true');
   }
 }
@@ -88,6 +89,11 @@ test.describe('Resumen: Tenti en los tres sitios donde estaba el Orb', () => {
 
     await expect(tenti(page)).toHaveCount(3);
     await todosVivosYDecorativos(page);
+    // Cada uno en su estado (lib/tenti/momentos.ts): lo que está en marcha,
+    // 'trabajando'; los otros dos, la firma.
+    await expect(bandeja.getByText('Tentare lo está haciendo').locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'trabajando');
+    await expect(banner.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'reposo');
+    await expect(tira.locator('xpath=..').locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'reposo');
     expect(await animacionesSinFin(page)).toBe(0);
     // El motor llega, pero aparte (dynamic()): que no viaje en el chunk de la
     // pantalla lo vigila lib/tenti/donde-vive-tenti.test.ts.
@@ -184,19 +190,22 @@ test.describe('Automatizaciones: Tenti en el resumen del día y en «Esto ya lo 
     await expect(page.locator('canvas[data-tenti]')).toHaveCount(0);
   });
 
-  test('con algo esperando tu visto bueno, Tenti no cambia de cara: lo dice el texto', async ({ page }) => {
+  test('con algo esperando y la bandeja sin contestar, el texto lo dice y la cara no lo afirma', async ({ page }) => {
     await montar(page);
     // DESPUÉS del arnés: la última ruta registrada gana.
     let lecturas = 0;
     await page.route('**/rest/v1/automation_logs**', (r) => { lecturas++; return json(r, [logPendiente()]); });
     await ir(page, 'automatizaciones');
 
-    await expect(page.getByText(/requieren tu atención/)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/1 caso que requiere tu atención/)).toBeVisible({ timeout: 60_000 });
     expect(lecturas).toBeGreaterThan(0);
     await expect(page.getByText(/^Ninguna automatización espera tu visto bueno/)).toHaveCount(0);
     await expect(tenti(page)).toHaveCount(1);
     await expect(briefing(page).locator('canvas[data-tenti]')).toHaveCount(2, { timeout: 30_000 });
     await todosVivosYDecorativos(page, { canvas: 1 });
+    // La bandeja del arnés es `{}`: sin su cifra, la cara no afirma nada
+    // (lib/tenti/momentos.ts, estadoDelAutonomo).
+    await expect(briefing(page).locator('.size-14 canvas[data-tenti]')).toHaveAttribute('data-estado', 'reposo');
   });
 });
 

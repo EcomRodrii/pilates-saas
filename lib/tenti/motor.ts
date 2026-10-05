@@ -67,6 +67,31 @@ const mix = (a: RGB, b: RGB, t: number): RGB => [lerp(a[0], b[0], t), lerp(a[1],
 // no se pudieron leer: el componente lo marca con data-paleta="defecto").
 const PALETA_PROTOTIPO: PaletaTenti = {
   cuerpo: ['#FFFAF5', '#DDCCBF'], tinta: '#1A1412', rubor: '#FF7896', chispa: '#FFFFFF', hecho: '#34D399',
+  estados: { error: '#F4505E', esperaTuOk: '#F5A524', agobiado: '#FB923C', trabajando: '#3B9EFF' },
+};
+// Las partículas y los ojos de las emociones, sin paleta: los del prototipo.
+// Con paleta salen de sus tokens (corazón → rubor, estrella → chispa, gota →
+// el color de 'trabajando', --info): ver `ponerPaleta`.
+const PROTOTIPO_EMOCIONES = { corazon: '#FF4D6D', estrella: '#F7B32B', gota: '#7CC7FF' };
+
+/**
+ * Cuánto oscila un estado al entrar en él (escanear, botar, respirar, la
+ * insignia de puntos y las partículas de ambiente), según lo que describe:
+ *   · 'situacion' — algo que es así un rato largo (espera tu visto bueno,
+ *     agobiado, dormido, trabajando por su cuenta): entra con su gesto, oscila
+ *     MOVIMIENTO_SITUACION_MS y se queda en su pose, quieto. Un 'esperaTuOk'
+ *     botando todo el día en el iPad de recepción serían 60 fps sin fin.
+ *   · 'peticion' — algo que tiene fin y que la pantalla espera (una
+ *     herramienta del asistente buscando): hasta MOVIMIENTO_PETICION_MS.
+ *   · 'sinFin' — el catálogo (/interno/tenti) y el prototipo: mientras dure.
+ * No acota el mareo (lo acota quien lo pone), el saludo ni los ojos de una
+ * emoción (los acota su duración).
+ */
+export type Movimiento = 'situacion' | 'peticion' | 'sinFin';
+export const MOVIMIENTO_SITUACION_MS = 4000;
+export const MOVIMIENTO_PETICION_MS = 30_000;
+const DURACION_MOVIMIENTO: Record<Movimiento, number> = {
+  situacion: MOVIMIENTO_SITUACION_MS, peticion: MOVIMIENTO_PETICION_MS, sinFin: Infinity,
 };
 
 type FormaOjo = 'pill' | 'wide' | 'dot' | 'line' | 'flat' | 'happy' | 'closed' | 'spiral' | 'heart' | 'star' | 'tired' | 'wink';
@@ -106,9 +131,14 @@ const ENTRADA: Partial<Record<EstadoTenti, AnimacionEntrada[]>> = {
  * Qué anima al entrar en `estado`. Con `quieto` («reducir movimiento») se queda,
  * como mucho, en un parpadeo: el cambio se ve en los ojos y el color, sin giros,
  * botes ni chispas que crucen la pantalla.
+ *
+ * `celebra` solo cambia 'hecho': con `false` es el 'hecho' BREVE de lo diario
+ * (el tinte y los ojos felices, sin girar ni chispas); con `true`, la
+ * celebración de los hitos (Listo, la migración). Significan lo mismo: algo que
+ * veías acaba de terminar y el servidor lo confirma.
  */
-export function animacionDeEntrada(estado: EstadoTenti, quieto: boolean): AnimacionEntrada[] {
-  const a = ENTRADA[estado] ?? ['parpadear'];
+export function animacionDeEntrada(estado: EstadoTenti, quieto: boolean, celebra = true): AnimacionEntrada[] {
+  const a = estado === 'hecho' && !celebra ? ['parpadear' as const] : ENTRADA[estado] ?? ['parpadear'];
   return quieto ? a.filter((x) => x === 'parpadear') : a;
 }
 
@@ -211,6 +241,8 @@ export interface OpcionesTenti {
   siluetaTraje?: string | null;
   /** Sus colores (--tenti-traje-a/-b). Sin ellos, los de `TRAJES`. */
   coloresTraje?: ColoresTraje | null;
+  /** Cuánto oscila un estado (ver `Movimiento`). Sin él, sin fin, como el prototipo. */
+  movimiento?: Movimiento;
 }
 
 interface ColoresRgb { luz: RGB; sombra: RGB; rubor: RGB }
@@ -240,6 +272,13 @@ export class Tenti {
   private insignias: boolean;
   private paleta: PaletaTenti = PALETA_PROTOTIPO;
   private rgb: ColoresRgb = aRgb(PALETA_PROTOTIPO);
+  private emociones = PROTOTIPO_EMOCIONES;
+  private mov: Movimiento = 'sinFin';
+  /** Hasta cuándo oscila el estado actual (ver `Movimiento`). */
+  private oscilaHasta = Infinity;
+  /** Ver `Movimiento`. Cambiarlo vuelve a contar desde ahora. */
+  get movimiento(): Movimiento { return this.mov; }
+  set movimiento(v: Movimiento) { this.mov = v; this.armarOscilacion(); }
   /** Cuántas veces ha saludado DE VERDAD (con `quieto`, saludar() no cuenta). */
   saludos = 0;
   private s: Record<Prop, number> = { yaw: 0, pitch: 0, roll: 0, tilt: 0, open: 1, sx: 1, sy: 1, oy: 0, ox: 0, tint: 0, morph: 0, hands: 0, blush: 0, es: 1, badgeS: 0, escurre: 0 };
@@ -272,14 +311,14 @@ export class Tenti {
 
   constructor(canvas: HTMLCanvasElement, {
     mini = false, colorCuerpo = null, sonido = false, paleta = null, insignias = true, quieto = false,
-    miradas = false, silueta = null, traje = null, coloresTraje = null, siluetaTraje = null,
+    miradas = false, silueta = null, traje = null, coloresTraje = null, siluetaTraje = null, movimiento = 'sinFin',
   }: OpcionesTenti = {}) {
     this.c = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Tenti necesita un canvas 2D');
     this.x = ctx; this.mini = mini; this.colorCuerpo = colorCuerpo ? hexRgb(colorCuerpo) : null; this.sonido = sonido;
     this.insignias = insignias; this.quieto = quieto; this.miradas = miradas; this.silueta = silueta;
-    this.traje = traje; this.coloresTraje = coloresTraje; this.siluetaTraje = siluetaTraje;
+    this.traje = traje; this.coloresTraje = coloresTraje; this.siluetaTraje = siluetaTraje; this.mov = movimiento;
     if (paleta) this.ponerPaleta(paleta);
     this.proxParpadeo = AHORA() + 1500 + Math.random() * 2000;
     this.proxMirada = AHORA() + 2500 + Math.random() * 4000;
@@ -309,20 +348,31 @@ export class Tenti {
     this.tw.push({ p, keys, i: 0, from: this.s[p], t0: AHORA(), after }); this.lock[p] = 1;
   }
 
-  /** El color de un estado: 'hecho' tiñe con el de la paleta (--success en el panel). */
-  private colorDe(n: EstadoTenti): string { return n === 'hecho' ? this.paleta.hecho : ESTADOS[n].col; }
+  /** El color de un estado: 'hecho' tiñe con el de la paleta (--success en el
+   *  panel), y los estados que enseña el panel con los suyos (--destructive,
+   *  --warning, --info). Los demás, con el del prototipo. */
+  private colorDe(n: EstadoTenti): string {
+    if (n === 'hecho') return this.paleta.hecho;
+    const e = this.paleta.estados as Partial<Record<EstadoTenti, string>>;
+    return e[n] ?? ESTADOS[n].col;
+  }
 
-  ponerEstado(n: EstadoTenti, { forzar = false, silencio = false } = {}) {
+  private armarOscilacion() { this.oscilaHasta = AHORA() + DURACION_MOVIMIENTO[this.mov]; }
+  /** Si el estado aún oscila (ver `Movimiento`). Con `quieto`, nunca. */
+  private oscila(n = AHORA()): boolean { return !this.quieto && n < this.oscilaHasta; }
+
+  ponerEstado(n: EstadoTenti, { forzar = false, silencio = false, celebra = true } = {}) {
     const c: ConfigEstado | undefined = ESTADOS[n];
     if (!c || (this.estado === n && !forzar)) return;
     const prev = this.estado; this.estado = n; this.cfg = c;
+    this.armarOscilacion();
     this.colT = hexRgb(this.colorDe(n));
     // Si el tinte de antes no se veía, su color no pinta nada: arrancar la
     // mezcla desde él solo enseñaría un tono intermedio sucio (el gris azulado
     // de 'reposo' cruzándose con el verde de 'hecho').
     if (this.s.tint < 0.01) this.col = [...this.colT];
     this.tg.tint = c.tint; this.tg.tilt = c.ladea || 0; this.ponerInsignia(this.insignias ? c.insignia : null);
-    for (const a of animacionDeEntrada(n, this.quieto)) {
+    for (const a of animacionDeEntrada(n, this.quieto, celebra)) {
       if (a === 'rodar') this.rodar(950, 1);
       else if (a === 'chispas') this.luego(() => this.emitir('spark', 5), 500);
       else if (a === 'sacudir') this.anim('ox', [[0.08, 50, E.out], [-0.08, 70, E.inOut], [0.05, 70, E.inOut], [0, 90, E.out]]);
@@ -334,9 +384,17 @@ export class Tenti {
     if (!silencio) this.suena(c.sonido);
   }
 
+  /**
+   * Suena el estado en el que está, sin volver a animarlo. Para quien pone el
+   * estado en silencio y decide aparte si ese cambio responde a algo que se
+   * acaba de pedir (components/tenti/tenti.tsx, `sonarCambios`).
+   */
+  sonarEstado() { this.suena(this.cfg.sonido); }
+
   /** Cambia los colores (al pasar de claro a oscuro). No anima: el resto de la pantalla tampoco. */
   ponerPaleta(p: PaletaTenti | null) {
     this.paleta = p ?? PALETA_PROTOTIPO; this.rgb = aRgb(this.paleta);
+    this.emociones = p ? { corazon: p.rubor, estrella: p.chispa, gota: p.estados.trabajando } : PROTOTIPO_EMOCIONES;
     this.colT = hexRgb(this.colorDe(this.estado)); this.col = [...this.colT];
     if (this.insignia) this.colInsignia = this.colorDe(this.estado);
   }
@@ -439,12 +497,15 @@ export class Tenti {
    * la insignia de puntos, los ojos que giran (espiral, estrella) y la mano del
    * saludo. Mientras sea cierto, un fotograma por refresco; si no, el bucle
    * duerme hasta `proximoDespertar()`. Con `quieto` nada de esto se mueve.
+   * Escanear, botar, respirar y la insignia, solo mientras el estado oscila
+   * (`Movimiento`): pasado el tope, pose quieta y el bucle se duerme.
    */
   perpetuo(): boolean {
     if (this.quieto) return false;
-    const c = this.cfg;
-    if (c.escanea || c.bota || c.respira || this.estado === 'mareado') return true;
-    if (this.insignias && this.insignia === 'dots' && !this.mini) return true;
+    const c = this.cfg, oscila = this.oscila();
+    if (oscila && (c.escanea || c.bota || c.respira)) return true;
+    if (this.estado === 'mareado') return true;
+    if (oscila && this.insignias && this.insignia === 'dots' && !this.mini) return true;
     const forma = this.ojoForzado || c.ojo;
     if (forma === 'spiral' || forma === 'star') return true;
     return AHORA() < this.saludaHasta;
@@ -452,14 +513,14 @@ export class Tenti {
 
   /**
    * Cuándo vuelve a pasar algo sin que nadie lo pida: el próximo parpadeo y,
-   * solo fuera de mini, la siguiente partícula de ambiente de 'dormido' y
-   * 'agobiado' (que el panel no usa). Con `quieto`, nunca: ni parpadea ni echa
-   * partículas, así que no hay por qué despertar.
+   * solo fuera de mini y mientras el estado oscila, la siguiente partícula de
+   * ambiente de 'dormido' y 'agobiado'. Con `quieto`, nunca: ni parpadea ni
+   * echa partículas, así que no hay por qué despertar.
    */
   proximoDespertar(): number {
     if (this.quieto) return Infinity;
     const c = this.cfg;
-    const ambiente = !this.mini && (c.zz || c.suda) ? this.ultimoAmbiente + 1300 : Infinity;
+    const ambiente = !this.mini && (c.zz || c.suda) && this.oscila() ? this.ultimoAmbiente + 1300 : Infinity;
     // Una mirada en curso se despierta para volver al frente; si no, para la siguiente.
     const mirada = !this.miraAlrededor() ? Infinity : this.miradaHasta > AHORA() ? this.miradaHasta : this.proxMirada;
     return Math.min(this.proxParpadeo, ambiente, mirada);
@@ -478,6 +539,9 @@ export class Tenti {
     // partículas de ambiente. Lo que oscila nunca acabaría, y el bucle no
     // podría dormirse.
     const q = this.quieto;
+    // Lo que oscila (escanear, botar, respirar, el ambiente), solo hasta el
+    // tope de su `Movimiento`: después, cada objetivo vuelve a su pose.
+    const oscila = this.oscila(n);
     for (const tw of [...this.tw]) {
       const k = tw.keys[tw.i]; const p = clamp((n - tw.t0) / k[1], 0, 1); s[tw.p] = tw.from + (k[0] - tw.from) * k[2](p);
       if (p >= 1) {
@@ -503,10 +567,10 @@ export class Tenti {
     }
     let ty = q ? 0 : clamp(this.mira.x + this.mirada.x, -1, 1) * 0.62, tp = q ? 0 : clamp(this.mira.y + this.mirada.y, -1, 1) * 0.5;
     if (c.mira) { ty = ty * 0.35 + c.mira[0] * 0.55; tp = tp * 0.3 + c.mira[1] * 0.5; }
-    if (c.escanea && !q) { ty = Math.sin(t * 2.6) * 0.6; tp = -0.06; }
+    if (c.escanea && oscila) { ty = Math.sin(t * 2.6) * 0.6; tp = -0.06; }
     if (this.estado === 'dormido') { ty = 0; tp = -0.14; }
     if (this.estado === 'mareado' && !q) ty = Math.sin(t * 9) * 0.25;
-    const bota = c.bota && !q, respira = c.respira && !q;
+    const bota = c.bota && oscila, respira = c.respira && oscila;
     tg.yaw = ty; tg.pitch = tp; tg.tilt = c.ladea || 0; tg.oy = bota ? -Math.abs(Math.sin(t * 5.2)) * 0.07 : 0;
     tg.sy = respira ? 1 + Math.sin(t * 1.8) * 0.035 : 1; tg.sx = respira ? 1 - Math.sin(t * 1.8) * 0.02 : 1;
     // Dormido, el gorro se le escurre; con «reducir movimiento», en su sitio.
@@ -522,7 +586,7 @@ export class Tenti {
       this.proxParpadeo = n + 2200 + Math.random() * 3200;
     }
     if (this.ojoForzado && n > this.ojoHasta) this.ojoForzado = null;
-    if (!q && !this.mini && n - this.ultimoAmbiente > 1300) {
+    if (oscila && !this.mini && n - this.ultimoAmbiente > 1300) {
       this.ultimoAmbiente = n;
       if (c.zz) this.emitir('z', 1);
       if (c.suda && Math.random() < 0.5) this.emitir('sweat', 1);
@@ -647,11 +711,11 @@ export class Tenti {
       const borde = clamp((py - sz * (p.type === 'z' ? 1.4 : 1)) / fundidoBorde, 0, 1);
       if (borde <= 0) continue;
       x.save(); x.translate(px, py); x.globalAlpha = clamp(a, 0, 1) * borde;
-      if (p.type === 'heart') { x.fillStyle = '#FF4D6D'; x.rotate(Math.sin(p.age * 6) * 0.3); corazon(x, sz); x.fill(); }
-      else if (p.type === 'star') { x.fillStyle = '#F7B32B'; x.rotate(p.rot + p.age * 2); estrella(x, sz, sz * 0.45); x.fill(); }
+      if (p.type === 'heart') { x.fillStyle = this.emociones.corazon; x.rotate(Math.sin(p.age * 6) * 0.3); corazon(x, sz); x.fill(); }
+      else if (p.type === 'star') { x.fillStyle = this.emociones.estrella; x.rotate(p.rot + p.age * 2); estrella(x, sz, sz * 0.45); x.fill(); }
       else if (p.type === 'spark') { x.fillStyle = this.paleta.chispa; x.rotate(p.rot); estrella(x, sz * 0.8, sz * 0.18); x.fill(); }
       else if (p.type === 'sweat') {
-        x.fillStyle = '#7CC7FF'; x.beginPath(); x.moveTo(0, -sz); x.quadraticCurveTo(sz * 0.8, sz * 0.2, 0, sz * 0.6); x.quadraticCurveTo(-sz * 0.8, sz * 0.2, 0, -sz); x.fill();
+        x.fillStyle = this.emociones.gota; x.beginPath(); x.moveTo(0, -sz); x.quadraticCurveTo(sz * 0.8, sz * 0.2, 0, sz * 0.6); x.quadraticCurveTo(-sz * 0.8, sz * 0.2, 0, -sz); x.fill();
       } else { x.fillStyle = 'rgba(210,220,235,1)'; x.font = `700 ${sz * 1.9}px -apple-system,system-ui,sans-serif`; x.fillText('z', 0, 0); }
       x.restore();
     }
@@ -672,8 +736,8 @@ export class Tenti {
         for (let a = 0; a < 4.4 * Math.PI; a += 0.2) { const r = w * 0.06 + a * w * 0.058, aa = a + t * 9 * sd; const px = Math.cos(aa) * r, py = Math.sin(aa) * r; if (a) x.lineTo(px, py); else x.moveTo(px, py); }
         x.stroke(); break;
       }
-      case 'heart': x.fillStyle = '#FF4D6D'; corazon(x, w * 1.2); x.fill(); x.fillStyle = this.paleta.tinta; break;
-      case 'star': x.fillStyle = '#F7B32B'; x.rotate(t * 1.5 * sd); estrella(x, w * 1.05, w * 0.46); x.fill(); x.fillStyle = this.paleta.tinta; break;
+      case 'heart': x.fillStyle = this.emociones.corazon; corazon(x, w * 1.2); x.fill(); x.fillStyle = this.paleta.tinta; break;
+      case 'star': x.fillStyle = this.emociones.estrella; x.rotate(t * 1.5 * sd); estrella(x, w * 1.05, w * 0.46); x.fill(); x.fillStyle = this.paleta.tinta; break;
       case 'tired': rr(x, -w / 2, -h * 0.02, w, h * 0.38, w / 2); x.fill(); rr(x, -w * 0.62, -h * 0.1, w * 1.24, w * 0.22, w * 0.11); x.fill(); break;
       case 'wink':
         if (sd < 0) { rr(x, -w / 2, -h / 2, w, h, w / 2); x.fill(); }

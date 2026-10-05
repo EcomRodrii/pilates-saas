@@ -8,8 +8,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useId } from 'react';
 import {
-  Upload, FileSpreadsheet, AlertTriangle, CheckCircle2,
-  Loader2, Undo2, ChevronDown, ChevronUp, ArrowRight,
+  Upload, FileSpreadsheet, AlertTriangle,
+  Undo2, ChevronDown, ChevronUp, ArrowRight,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -38,6 +38,7 @@ import {
 } from '@/lib/migracion/clasificador';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
+import { estadoDeLaMigracion } from '@/lib/tenti/momentos';
 
 type Paso = 'subir' | 'analizando' | 'revisar' | 'ejecutando' | 'acta';
 
@@ -144,6 +145,8 @@ export default function MigracionPage() {
   const [confirmDeshacer, setConfirmDeshacer] = useState(false);
   const [deshaciendo, setDeshaciendo] = useState(false);
   const [deshecho, setDeshecho] = useState<Record<string, number> | null>(null);
+  // El Tenti del acta (lib/tenti/momentos.ts): 'hecho' o 'error'; deshecha, ninguno.
+  const estadoActa = estadoDeLaMigracion({ resultados, deshecho: !!deshecho });
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   // Mapeo "plan del CSV → tarifa mía", por nombre normalizado. El importador
   // casa por nombre, así que un estudio que YA tiene su catálogo montado no
@@ -458,8 +461,8 @@ export default function MigracionPage() {
                     leyendo unos ficheros que no ha visto nunca y decidiendo qué
                     es cada columna, y el resultado vuelve a esta pantalla. No se
                     cambia de icono al ponerse a trabajar: es el mismo, pensando.
-                    El paso de importar (Loader2, más abajo) no lleva a Tenti:
-                    insertar filas es trabajo mecánico, no Tentare decidiendo. */}
+                    Importar (más abajo) es otra cosa: Tentare mete las filas
+                    solo, sin decidir nada, y eso es 'trabajando'. */}
                 <TentiIcono ancho={20} sobre="invertida" estado={paso === 'analizando' ? 'pensando' : 'reposo'} />
                 {paso === 'analizando'
                   ? 'Analizando tus archivos…'
@@ -712,9 +715,15 @@ export default function MigracionPage() {
       )}
 
       {/* ── Paso 3: ejecutando ─────────────────────────────────────────────── */}
+      {/* Tentare importa solo: 'trabajando' (lib/tenti/momentos.ts), en lugar
+          del spinner. Responde al clic en «Importar», así que su cambio suena
+          ('work'), y el acta de abajo suena al terminar ('finish' o 'error').
+          Cada uno va en su paso: nunca hay dos Tentis a la vez. */}
       {paso === 'ejecutando' && (
         <div className="text-center py-16">
-          <Loader2 size={30} className="mx-auto mb-4 animate-spin text-brand-medio" />
+          <div className="mb-4 flex justify-center">
+            <TentiIcono ancho={28} estado="trabajando" sonarCambios />
+          </div>
           <p className="text-[14px] font-bold text-foreground">{progreso}</p>
           <p className="text-[12px] text-muted-foreground mt-1">Tu software anterior sigue funcionando: aquí no se corta nada.</p>
         </div>
@@ -723,11 +732,15 @@ export default function MigracionPage() {
       {/* ── Paso 4: acta ───────────────────────────────────────────────────── */}
       {paso === 'acta' && (
         <div className="space-y-4">
-          <div className={`rounded-2xl border p-5 ${deshecho ? 'border-border bg-muted/40' : 'border-success/30 bg-success/5'}`}>
+          {/* El acta, con Tenti: mudar el estudio entero es un hito, así que
+              'hecho' con celebración si todo entró, o 'error' si una entidad
+              falló (el texto dice dónde se detuvo). Deshecha, sin Tenti. Y la
+              caja no se pinta de verde si algo falló. */}
+          <div className={`rounded-2xl border p-5 ${deshecho ? 'border-border bg-muted/40' : estadoActa === 'error' ? 'border-destructive/30 bg-destructive/5' : 'border-success/30 bg-success/5'}`}>
             <div className="flex items-center gap-2.5 mb-3">
-              {deshecho
+              {deshecho || !estadoActa
                 ? <><Undo2 size={18} className="text-muted-foreground" /><p className="text-[15px] font-extrabold text-foreground">Migración deshecha</p></>
-                : <><CheckCircle2 size={18} className="text-success" /><p className="text-[15px] font-extrabold text-foreground">Acta de migración</p></>}
+                : <><TentiIcono ancho={22} estado={estadoActa} celebra sonarCambios /><p className="text-[15px] font-extrabold text-foreground">Acta de migración</p></>}
             </div>
             <div className="space-y-1.5">
               {resultados.map(r => (

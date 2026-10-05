@@ -36,7 +36,20 @@ for (const [modo, tokens] of MODOS) {
       rubor: tokens['--tenti-rubor'],
       chispa: tokens['--tenti-chispa'],
       hecho: tokens['--success'],
+      estados: {
+        error: tokens['--destructive'], esperaTuOk: tokens['--warning'], agobiado: tokens['--warning'], trabajando: tokens['--info'],
+      },
     });
+  });
+
+  // Los estados que el panel enseña desde el 5-oct (lib/tenti/momentos.ts)
+  // tiñen con los tokens de estado del panel, nunca con el azul, el ámbar o el
+  // rojo del prototipo. Sin uno de ellos, la paleta entera cae a 'defecto'.
+  test(`(${modo}) sin un token de estado, la paleta cae entera a 'defecto'`, () => {
+    for (const falta of ['--destructive', '--warning', '--info']) {
+      const sin = { ...tokens }; delete sin[falta];
+      assert.equal(paletaDesdeTokens(lector(sin)), null, `sin ${falta} la paleta no cae`);
+    }
   });
 
   // Decorativas, así que no se les pide AA, pero por debajo de 2:1 dejan de
