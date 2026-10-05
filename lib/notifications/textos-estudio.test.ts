@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ETIQUETA_VARIABLE, TIPOS_CON_TEXTO_EDITABLE, esTextoEditable, previsualizar, textoDeFabrica,
-  textoEfectivo, validarTexto, variablesPermitidas,
+  textoEfectivo, textoEnLista, validarTexto, variablesPermitidas,
 } from './textos-estudio.ts';
 
 const EVENTOS = TIPOS_CON_TEXTO_EDITABLE.flatMap(g => g.tipos.map(t => t.evento));
@@ -75,4 +75,40 @@ test('«faltan {antelacion}» no se deja guardar: con 1 hora diría «faltan 1 h
   assert.deepEqual(textoEfectivo('reserva.recordatorio_1h', guardado), textoDeFabrica('reserva.recordatorio_1h'));
   // «es en {antelacion}» concuerda siempre: se puede.
   assert.equal(validarTexto('reserva.recordatorio_1h', { title: 'Tu clase es en {antelacion}', body: '{clase}' }), null);
+});
+
+test('mensaje nuevo: un texto propio con el principio del mensaje o con quien atiende cae al de fábrica', () => {
+  const e = 'mensaje.recibido';
+  // El de fábrica ya no lleva el texto del mensaje (guía 4.5.4 de Apple) y, en
+  // el hilo con el estudio, firma el estudio, no la persona de recepción.
+  assert.deepEqual(variablesPermitidas(e), ['quienEscribe']);
+  const conTexto = { title: 'Nuevo mensaje', body: '{quienEscribe}{previsualizacion}' };
+  assert.match(validarTexto(e, conTexto)!, /\{previsualizacion\}/);
+  assert.deepEqual(textoEfectivo(e, conTexto), textoDeFabrica(e));
+  // Tampoco en el título.
+  assert.deepEqual(textoEfectivo(e, { title: '{previsualizacion}', body: '{quienEscribe} te ha escrito' }), textoDeFabrica(e));
+  // Ni con el nombre de quien atiende.
+  assert.deepEqual(textoEfectivo(e, { title: 'Nuevo mensaje', body: '{remitente} te ha escrito' }), textoDeFabrica(e));
+  // Uno propio con {quienEscribe} sí vale.
+  const propio = { title: 'Te han contestado', body: '{quienEscribe} te ha respondido en la app' };
+  assert.deepEqual(textoEfectivo(e, propio), propio);
+});
+
+test('{quienEscribe} tiene nombre en el panel y ejemplo en la vista previa', () => {
+  assert.ok(ETIQUETA_VARIABLE.quienEscribe);
+  assert.equal(previsualizar(textoDeFabrica('mensaje.recibido')!).body, 'Pilates Luz te ha escrito.');
+});
+
+test('Configuración no enseña como «tuyo» un texto que ya no sale: el de fábrica, y aviso', () => {
+  const e = 'mensaje.recibido';
+  // Guardado con el principio del mensaje, que el aviso ya no lleva.
+  const viejo = { title: 'Mensaje de {remitente}', body: '{remitente}{previsualizacion}' };
+  const r = textoEnLista(e, viejo);
+  assert.deepEqual(r, { texto: textoDeFabrica(e), propio: false, yaNoSeUsa: true });
+  // Y su vista previa no trae el principio de ningún mensaje.
+  assert.doesNotMatch(`${previsualizar(r.texto).title} ${previsualizar(r.texto).body}`, /Nos vemos/);
+  // Uno que vale sigue siendo suyo; sin texto propio, el de fábrica sin aviso.
+  const vale = { title: 'Te han contestado', body: '{quienEscribe} te ha respondido' };
+  assert.deepEqual(textoEnLista(e, vale), { texto: vale, propio: true, yaNoSeUsa: false });
+  assert.deepEqual(textoEnLista(e, undefined), { texto: textoDeFabrica(e), propio: false, yaNoSeUsa: false });
 });

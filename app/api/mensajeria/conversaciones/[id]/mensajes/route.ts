@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { authUserIdsParaNotificar, resolverNombreRemitente } from '@/lib/mensajeria/destinatarios';
+import { repartoAvisoMensaje, resolverNombreRemitente } from '@/lib/mensajeria/destinatarios';
 import { emitirMensajeRecibido } from '@/lib/notifications/emit';
 import { previsualizacionParaAviso } from '@/lib/mensajeria/presentacion';
 import { enforceRateLimit } from '@/lib/rate-limit';
@@ -119,14 +119,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const { data: conv } = await admin.from('conversaciones')
         .select('tipo, studio_id').eq('id', id).maybeSingle();
       if (!conv) return;
-      const authUserIds = await authUserIdsParaNotificar(
+      // Cada uno con su papel en el hilo, no con lo que sea su cuenta.
+      const reparto = await repartoAvisoMensaje(
         admin, { id, tipo: conv.tipo as string, studio_id: conv.studio_id as string }, sesion.userId,
       );
-      if (authUserIds.length === 0) return;
+      if (reparto.authUserIds.length === 0) return;
       const remitente = (await resolverNombreRemitente(admin, sesion.userId, conv.studio_id as string)) ?? 'Alguien';
       await emitirMensajeRecibido(admin, {
         studioId: conv.studio_id as string, conversacionId: id, mensajeId,
-        remitente, previsualizacion: previsualizacionParaAviso(conv.tipo as string, cuerpo), authUserIds,
+        remitente, previsualizacion: previsualizacionParaAviso(conv.tipo as string, cuerpo),
+        authUserIds: reparto.authUserIds, recipients: reparto.recipients, socioId: reparto.socioId,
         tipo: conv.tipo as string,
       });
     } catch (e) {

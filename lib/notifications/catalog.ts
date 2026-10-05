@@ -423,16 +423,28 @@ function plantillasPagadaSinPlaza(): Record<string, Plantilla> {
 // divergir entre PROPIETARIO/MANAGER/RECEPCION/INSTRUCTOR al editarlo. La
 // socia lleva plantilla propia porque su deepLink vive en el portal, no en
 // el panel.
+//
+// ⚠️ Ningún aviso de un hilo con una alumna lleva el texto del mensaje (guía
+// 4.5.4 de Apple: ahí se habla de salud y el push se ve con el móvil bloqueado).
+// No lo decide la plantilla sino `previsualizacionParaAviso`
+// (lib/mensajeria/presentacion.ts), que solo deja vista previa en el canal
+// EQUIPO; `{previsualizacion}` se queda en las plantillas del equipo y de la
+// instructora porque las comparte ese canal, congelado y que no se toca. En un
+// hilo con alumna el evento no la trae y queda vacía.
 function plantillasMensajeRecibido(): Record<string, Plantilla> {
   const staff: Plantilla = {
     title: 'Nuevo mensaje',
     body: '{remitente} te ha escrito{previsualizacion}.',
     deepLink: (d: Datos) => `/mensajeria?conversacion=${s(d.conversacionId)}`,
   };
+  // `{quienEscribe}` y no `{remitente}`: en el hilo con el estudio contesta
+  // quien esté en recepción, y a la alumna le escribe el ESTUDIO, no esa
+  // persona (lo pone emitirMensajeRecibido). Toca el aviso y abre el hilo, no
+  // la bandeja de avisos.
   const socia: Plantilla = {
     title: 'Nuevo mensaje',
-    body: '{remitente} te ha escrito{previsualizacion}.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/notificaciones`,
+    body: '{quienEscribe} te ha escrito.',
+    deepLink: (d: Datos) => (d.slug ? `/portal/${s(d.slug)}/mensajes/${s(d.conversacionId)}` : null),
   };
   // La instructora lee sus mensajes en la app del estudio (Tentare Core se
   // retiró el 14-sep-2026). El canal de equipo no está en la app —decisión
@@ -464,10 +476,11 @@ function plantillasMensajeDigest(): Record<string, Plantilla> {
     body: 'Tienes {conversaciones} conversación(es) con mensajes nuevos por leer.',
     deepLink: () => `/mensajeria`,
   };
+  // A Mensajes, que es donde está el punto de cada hilo sin leer.
   const socia: Plantilla = {
     title: 'Tienes mensajes sin leer',
     body: 'Tienes {conversaciones} conversación(es) con mensajes nuevos por leer.',
-    deepLink: (d: Datos) => `/portal/${s(d.slug)}/notificaciones`,
+    deepLink: (d: Datos) => (d.slug ? `/portal/${s(d.slug)}/mensajes` : null),
   };
   return {
     ...Object.fromEntries(
@@ -1107,11 +1120,10 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     deepLink: () => `/network/oportunidades`,
   },
   // ── Community & Messaging OS (P0) ──
-  // {previsualizacion} viene ya formateado (': "primeras palabras…"' o vacío)
-  // desde emitirMensajeRecibido — mismo patrón que {motivoTexto}. Deeplink
-  // distinto por lado: staff cae en la pestaña de mensajería del panel,
-  // la socia en su bandeja del portal (todavía no hay una pantalla de chat
-  // dedicada — se enlaza a lo más cercano que ya existe hasta que la haya).
+  // {previsualizacion} viene ya formateado (': "primeras palabras…"') desde
+  // emitirMensajeRecibido, y solo en el canal EQUIPO — mismo patrón que
+  // {motivoTexto}. Deeplink distinto por lado: staff cae en el hilo dentro de
+  // la mensajería del panel, la socia en el hilo de su app.
   ...plantillasMensajeRecibido(),
   ...plantillasMensajeDigest(),
   ...plantillaPostComunidadNuevo(),
