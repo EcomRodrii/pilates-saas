@@ -22,10 +22,28 @@ export function avisoDeCambioDeClase(c: { cambiaInstructora: boolean; cambioHora
 }
 
 /**
- * La clave de duplicados del aviso de sustituta. LA MISMA que usa el motor de
- * sustituciones (`clase-cubierta:<sesión>:<nombre>`): si una sustitución confirma
- * a Laura y además alguien la pone a mano en el panel, la alumna recibe UN aviso.
+ * La clave de duplicados del aviso de sustituta: UN cambio = UNA clave.
+ *
+ * Lleva la instructora que ENTRA y un sello del cambio. Antes era solo
+ * `clase-cubierta:<sesión>:<nombre>`, compartida por el motor de sustituciones y
+ * el panel, y la tabla de avisos no olvida una clave: tras «la dará Laura» →
+ * «la dará Ana», volver a poner a Laura chocaba con la primera y no llegaba nada;
+ * las alumnas seguían creyendo que la daba Ana.
+ * - Motor: `selloDelMotor(sustitucionId)`. Cada sustitución es un cambio; repetir
+ *   la confirmación de la MISMA no avisa dos veces.
+ * - Panel: `selloDelPanel(ahora)`. Cada guardado es un cambio; un doble envío en
+ *   el mismo segundo no avisa dos veces.
+ * Motor y panel no comparten clave: no pueden silenciarse el uno al otro.
  */
-export function claveAvisoSustituta(sesionId: string, instructora: string): string {
-  return `clase-cubierta:${sesionId}:${instructora}`;
+export function claveAvisoSustituta(p: { sesionId: string; instructora: string; sello: string }): string {
+  return `clase-cubierta:${p.sesionId}:${p.instructora}:${p.sello}`;
+}
+
+export function selloDelMotor(sustitucionId: string): string {
+  return `sust-${sustitucionId}`;
+}
+
+/** Al segundo, en UTC: lo que tarda una persona en volver a cambiar la clase es mucho más. */
+export function selloDelPanel(ahora: Date): string {
+  return `panel-${ahora.toISOString().slice(0, 19)}`;
 }

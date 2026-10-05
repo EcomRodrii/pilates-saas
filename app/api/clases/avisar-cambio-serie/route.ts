@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { emitirClaseModificada } from '@/lib/notifications/emit';
-import { avisoDeCambioDeClase } from '@/lib/notifications/cambio-de-clase';
+import { avisoDeCambioDeClase, selloDelPanel } from '@/lib/notifications/cambio-de-clase';
 import { sociasDeSesion } from '@/lib/notifications/recipients';
 import { enviarEmailesCambioClase } from '@/lib/emails/enviar-cambio-clase';
 import { avisoPorAlumna, type CambioClaseSerie } from '@/lib/avisos-serie';
@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
   if (!staff) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ ok: true, skipped: true });
+  // Un sello para todo el guardado de la serie (cada clase lleva además su id en la clave).
+  const sello = selloDelPanel(new Date());
 
   const b = (await req.json().catch(() => null)) as { cambios?: CambioClaseSerie[] } | null;
   const cambios = Array.isArray(b?.cambios)
@@ -101,6 +103,8 @@ export async function POST(req: NextRequest) {
       clase: clase.clase, cuando: clase.cuando, sala: clase.sala,
       instructora: c.instructora ? clase.instructor : '',
       soloInstructora: avisoDeCambioDeClase({ cambiaInstructora: !!c.instructora, cambioHora: c.cambioHora === true, cambioSala: c.cambioSala === true }) === 'sustituta',
+      // Este guardado es UN cambio: su propia clave de aviso (volver a lo de antes también avisa).
+      sello,
     });
   }
 

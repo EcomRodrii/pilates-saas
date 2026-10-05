@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { enviarEmailAvisoAlumna } from './email';
 import { resolverMarcaEstudio } from '../emails/plantillas-server.ts';
 import { marcaCorreoDesde } from '../emails/estudio/marca-correo.ts';
-import { claveAvisoSustituta } from '../notifications/cambio-de-clase.ts';
+import { claveAvisoSustituta, selloDelMotor } from '../notifications/cambio-de-clase.ts';
 import type { AvisoAlumna } from '@/lib/emails/estudio/avisos';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
@@ -21,7 +21,8 @@ export async function avisarAlumnas(
   admin: SupabaseClient,
   // 'reprogramada': la clase se salva moviéndola — `cuandoAntes` es el horario
   // ORIGINAL ya formateado (la sesión, en ese momento, ya tiene el nuevo).
-  params: { sesionId: string; studioId: string; tipo: 'cubierta' | 'cancelada' | 'reprogramada'; sustituta?: string; cuandoAntes?: string },
+  // `sustitucionId` ('cubierta'): cada sustitución es un cambio distinto y lleva su propia clave de aviso.
+  params: { sesionId: string; studioId: string; tipo: 'cubierta' | 'cancelada' | 'reprogramada'; sustituta?: string; cuandoAntes?: string; sustitucionId?: string },
 ): Promise<{ avisadas: number; total: number; skipped: boolean; desactivado: boolean }> {
   const { data: estudio } = await admin
     .from('studios').select('nombre, slug, avisar_alumnas, color_primario, logo_url, email').eq('id', params.studioId).maybeSingle();
@@ -90,8 +91,9 @@ export async function avisarAlumnas(
         sustituta: params.sustituta ?? 'otra instructora',
       },
       resource: { type: 'sesion', id: params.sesionId },
-      // La misma clave que el cambio de instructora desde el panel: nunca dos avisos.
-      dedupKey: claveAvisoSustituta(params.sesionId, params.sustituta ?? ''),
+      // Una clave por sustitución (`selloDelMotor`): repetir esta no avisa dos veces,
+      // y otra posterior —o un cambio desde el panel— no queda silenciada por esta.
+      dedupKey: claveAvisoSustituta({ sesionId: params.sesionId, instructora: params.sustituta ?? '', sello: selloDelMotor(params.sustitucionId ?? params.sesionId) }),
     });
   }
 
