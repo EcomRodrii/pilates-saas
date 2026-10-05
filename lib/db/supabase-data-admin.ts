@@ -782,8 +782,10 @@ export async function fetchPublicStudioData(
     }, {});
 
     // Mismo motivo que en el panel: el portal decide con esto si una clase
-    // está incluida en el bono o hay que enseñar precio de suelta.
-    const planesConTiposPub = await hidratarTiposDePlanes(admin as never, studioId, (planesRes.data ?? []).map(mapPlanTarifa));
+    // está incluida en el bono o hay que enseñar precio de suelta. ESENCIAL,
+    // como las de arriba (`estricto`): sin los tipos, un bono de Mat se vende
+    // como «Para todas las clases» y se cachea así un minuto.
+    const planesConTiposPub = await hidratarTiposDePlanes(admin as never, studioId, (planesRes.data ?? []).map(mapPlanTarifa), { estricto: true });
 
     // La media por instructora, agregada AQUÍ y no en la pantalla: al kit le
     // llega la nota ya hecha con su número de valoraciones, y quien la pinta

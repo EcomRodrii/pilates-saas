@@ -25,6 +25,7 @@
 // sitio para el panel y para el escaparate.
 import { cicloInicialDe, nombrePeriodo } from '../bono-logic.ts';
 import { ahorroPorcentaje } from '../reservar/ahorro-plan.ts';
+import { precioSueltaParaTipos, type PlanPrecio } from './precio-suelta.ts';
 import { precioEnEuros } from '../reservar/tarjeta-plan.ts';
 
 export type FamiliaProducto = 'suscripcion' | 'bono' | 'suelta' | 'servicio' | 'producto';
@@ -328,10 +329,15 @@ export function textoBotonCompra(p: ProductoTienda): string | null {
  * Solo en bonos y solo si es verdad: `ahorroPorcentaje` ya devuelve `null` sin
  * clase suelta con la que comparar, sin ahorro, o si sale más caro, y redondea
  * hacia abajo. Una cuota no se compara: no tiene precio por clase.
+ *
+ * Recibe los PLANES y no un precio ya elegido: la suelta de referencia tiene
+ * que servir para las mismas clases que el bono (`precioSueltaParaTipos`). Un
+ * bono de Mat frente a la única suelta, que es de Reformer, presumía de un
+ * ahorro sobre algo que no se puede comprar para esas clases.
  */
-export function ahorroFrenteASuelta(p: ProductoTienda, precioSuelta: number | null | undefined): number | null {
+export function ahorroFrenteASuelta(p: ProductoTienda, planes: readonly PlanPrecio[] | null | undefined): number | null {
   if (p.familia !== 'bono') return null;
-  return ahorroPorcentaje({ precio: p.precio, sesiones: p.sesiones }, precioSuelta);
+  return ahorroPorcentaje({ precio: p.precio, sesiones: p.sesiones }, precioSueltaParaTipos(planes, p.tiposClaseIds));
 }
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];

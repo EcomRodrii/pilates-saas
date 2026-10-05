@@ -7,7 +7,6 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { catalogo } from '@/lib/student/catalogo';
 import { precioPorSesion } from '@/lib/student/precio-por-clase';
-import { precioClaseSuelta } from '@/lib/student/precio-suelta';
 import { precioEnEuros } from '@/lib/reservar/tarjeta-plan';
 import {
   AVISO_PRODUCTOS, ahorroFrenteASuelta, catalogoTienda, coberturaDeTipos, paraQueClases, precioDeTienda, renovacionDeCuota,
@@ -74,9 +73,10 @@ export default function ComprarPage() {
       // Para poder decir A QUÉ está acotado un bono hace falta el nombre del
       // tipo, no su id. Los dos datos ya viajan en el mismo payload.
       nombresTipo: new Map((d?.tiposClase ?? []).map((t) => [t.id, t.nombre])),
-      // La referencia del «ahorras un N %»: la clase suelta que vende el
-      // estudio, leída igual que la cobra el checkout. Sin ella no hay ahorro.
-      precioSuelta: precioClaseSuelta(d?.planesTarifa ?? []),
+      // La referencia del «ahorras un N %»: las clases sueltas que vende el
+      // estudio, leídas igual que las cobra el checkout. Cada bono se compara
+      // con la que sirve para SUS clases (`ahorroFrenteASuelta`).
+      planesTarifa: d?.planesTarifa ?? [],
       // «Si lo compras hoy, hasta el…»: el «hoy» se fija al cargar, no en cada
       // render (un render tiene que ser puro, y la fecha no cambia mirando).
       ahora: new Date(),
@@ -138,7 +138,7 @@ export default function ComprarPage() {
                   key={p.id}
                   p={p}
                   nombresTipo={nombresTipo}
-                  precioSuelta={data.precioSuelta}
+                  planesTarifa={data.planesTarifa}
                   ahora={data.ahora}
                   delay={i * 55}
                   // Los PLANES se cobran aquí dentro, con el mismo
@@ -204,18 +204,18 @@ export default function ComprarPage() {
  * Solo presentación: cada línea sale de `lib/student/tienda.ts`, con el mismo
  * cálculo que hace el servidor al cobrar, y la que no se sabe no se escribe.
  */
-function TarjetaProducto({ p, nombresTipo, precioSuelta, ahora, delay, onComprar }: {
+function TarjetaProducto({ p, nombresTipo, planesTarifa, ahora, delay, onComprar }: {
   p: ProductoTienda;
   // Hacen falta para poder nombrar los topes por actividad («2 de Máquina y 1
   // de Gyrotonic por semana») y para qué clases sirve: sin ellos no se escriben.
   nombresTipo: ReadonlyMap<string, string>;
-  precioSuelta: number | null;
+  planesTarifa: readonly PlanTarifa[];
   ahora: Date;
   delay: number; onComprar: () => void;
 }) {
   const resumen = resumenProducto(p, nombresTipo);
   const porClase = precioPorSesion(p.precio, p.familia === 'suscripcion' ? null : p.sesiones);
-  const ahorro = ahorroFrenteASuelta(p, precioSuelta);
+  const ahorro = ahorroFrenteASuelta(p, planesTarifa);
   const vigencia = vigenciaDeCompra(p, ahora);
   const renovacion = renovacionDeCuota(p);
   const para = paraQueClases(p, nombresTipo);

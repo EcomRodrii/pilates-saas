@@ -5,7 +5,6 @@ import {
   textoBotonCompra, topesPorActividad, vigenciaDeCompra,
 } from './tienda.ts';
 import { cicloInicialDe } from '../bono-logic.ts';
-import { precioClaseSuelta } from './precio-suelta.ts';
 
 const PLANES = [
   { id: 'p1', nombre: 'Mensual Ilimitado', tipo: 'MENSUAL', precio: 85, sesiones: null, activo: true },
@@ -268,16 +267,32 @@ test('el precio y el botón llevan el importe, con el periodo de la cuota', () =
 });
 
 test('«ahorras un N %» solo en bonos y solo si es verdad frente a la suelta', () => {
-  const suelta = precioClaseSuelta([{ tipo: 'PUNTUAL', precio: 20, activo: true, sesiones: 1 }]);
+  const suelta = [{ tipo: 'PUNTUAL', precio: 20, activo: true, sesiones: 1 }];
   // 13,60 €/clase frente a 20 € = 32 % (redondeado hacia abajo).
   assert.equal(ahorroFrenteASuelta(de('bono10'), suelta), 32);
   // Sin clase suelta con la que comparar no hay ahorro que presumir.
+  assert.equal(ahorroFrenteASuelta(de('bono10'), []), null);
   assert.equal(ahorroFrenteASuelta(de('bono10'), null), null);
   // Un bono más caro por clase que la suelta no «ahorra»: no se pinta nada.
-  assert.equal(ahorroFrenteASuelta(de('bono10'), 13), null);
+  assert.equal(ahorroFrenteASuelta(de('bono10'), [{ tipo: 'PUNTUAL', precio: 13, activo: true, sesiones: 1 }]), null);
   // Ni la cuota (no tiene precio por clase) ni la suelta (es la referencia).
   assert.equal(ahorroFrenteASuelta(de('cuota'), suelta), null);
   assert.equal(ahorroFrenteASuelta(de('suelta'), suelta), null);
+});
+
+test('⚠️ el ahorro se compara con una suelta que sirva para LAS CLASES del bono', () => {
+  const [bonoMat] = catalogoTienda([
+    { id: 'bmat', nombre: 'Bono 10 Mat', tipo: 'BONO', precio: 120, sesiones: 10, activo: true, tiposClaseIds: ['tc-m'] },
+  ], []);
+  const sueltaReformer = { tipo: 'PUNTUAL', precio: 25, activo: true, sesiones: 1, tiposClaseIds: ['tc-r'] };
+  // La única suelta es de Reformer: una clase de Mat no se puede comprar suelta
+  // a 25 €, así que «ahorras un 52 %» sería un ahorro fabricado.
+  assert.equal(ahorroFrenteASuelta(bonoMat, [sueltaReformer]), null);
+  // Con una suelta para todas (o que incluya Mat), sí hay con qué comparar.
+  assert.equal(ahorroFrenteASuelta(bonoMat, [sueltaReformer, { tipo: 'PUNTUAL', precio: 20, activo: true, sesiones: 1 }]), 40);
+  assert.equal(ahorroFrenteASuelta(bonoMat, [{ ...sueltaReformer, tiposClaseIds: ['tc-r', 'tc-m'] }]), 52);
+  // Un bono para todas no se compara con una suelta que solo vale para unas.
+  assert.equal(ahorroFrenteASuelta(de('bono10'), [sueltaReformer]), null);
 });
 
 test('la fecha de caducidad es la MISMA que escribe el cobro (cicloInicialDe)', () => {
