@@ -473,10 +473,10 @@ test('⚠️ desenlace de un cobro soltado: SOLO lee, y solo afirma un final si 
   assert.equal(await desenlaceDeCobroSoltado(sinMetadata.stripe, 'pi_1', 'acct_1', DE), null);
   // Vivo o entró, y de este recibo: con su estado de verdad y su intento (quien llama decide).
   assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ pi: { metadata: { ...MD_RECIBO, clave: 'k-1' } } }).stripe, 'pi_1', 'acct_1', DE),
-    { comprobado: true, metodo: 'DATAFONO', estado: 'PENDIENTE', motivo: null, clave: 'k-1' });
+    { comprobado: true, metodo: 'DATAFONO', estado: 'PENDIENTE', motivo: null, clave: 'k-1', creadoEn: 1790000000 });
   assert.equal((await desenlaceDeCobroSoltado(dobleLectura({ pi: { status: 'succeeded', metadata: MD_RECIBO } }).stripe, 'pi_1', 'acct_1', DE))?.comprobado, true);
   assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ pi: { status: 'succeeded', metadata: MD_RECIBO } }).stripe, 'pi_1', 'acct_1', DE),
-    { comprobado: true, metodo: 'DATAFONO', estado: 'PAGADO', motivo: null, clave: null });
+    { comprobado: true, metodo: 'DATAFONO', estado: 'PAGADO', motivo: null, clave: null, creadoEn: 1790000000 });
   // Sin poder leer: SIN comprobar (no se sabe de quién es: no se toca).
   assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ falla: true }).stripe, 'pi_1', 'acct_1', DE), { comprobado: false });
   // Cancelado sin cargo fallido: CANCELADO.

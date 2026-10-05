@@ -84,36 +84,3 @@ test('el conciliador resuelve las marcas colgadas en cada barrido, preguntando a
   assert.equal((resolver.match(/soltarMarcaCobroOffSession\(/g) ?? []).length, 1);
   assert.match(resolver, /case 'SOLTAR':\s*await soltarMarcaCobroOffSession\(/);
 });
-
-test('⚠️ un cobro de la Caja MUERTO no deja el recibo sin cobrarse solo: se suelta y se reserva otra vez, una', () => {
-  // Un Bizum del mostrador caducado (que nadie suelta: no hay aviso `checkout.session.expired`)
-  // o un cobro del datáfono cancelado frenaban el cobro con la tarjeta guardada para siempre.
-  const cobros = sinComentarios(leer('lib/billing/stripe-cobros.ts'));
-  const caso = cobros.indexOf("case 'EN_MARCHA': {");
-  const soltar = cobros.indexOf('await soltarCobroDeLaCajaSiEstaMuerto(admin, {', caso);
-  const otra = cobros.indexOf('})) return reservar(false);', soltar);
-  const frena = cobros.indexOf("return { no: { ok: false, error: MENSAJE_COBRO_EN_MARCHA[perdida.por], errorCode: 'COBRO_EN_MARCHA' } };", otra);
-  assert.ok(caso > 0 && soltar > caso && otra > soltar && frena > otra,
-    'solo con el cobro de la Caja muerto y soltado se vuelve a reservar; si no, sigue frenando');
-  assert.ok(cobros.includes("if (soltarCajaMuerta && perdida.por === 'MOSTRADOR' && cobroCaja && await soltarCobroDeLaCajaSiEstaMuerto("));
-  // Una vez: la segunda reserva va sin soltar nada, y si también se pierde responde con
-  // lo que diga el recibo releído entonces (otro cobro, ya cobrado…), no siempre «el mostrador».
-  assert.equal(cobros.split('reservar(true)').length - 1, 1);
-  assert.equal(cobros.split('reservar(false)').length - 1, 1);
-  const reservar = cobros.slice(cobros.indexOf('const reservar = async (soltarCajaMuerta: boolean)'), cobros.indexOf('const reservado = await reservar(true);'));
-  const pide = reservar.indexOf('reservarCobroOffSession(admin, {');
-  const relee = reservar.indexOf('.select(COLUMNAS_RELECTURA_RESERVA)', pide);
-  const clasifica = reservar.indexOf('clasificarReservaPerdida(', relee);
-  assert.ok(pide > 0 && relee > pide && clasifica > relee, 'cada reserva perdida se relee y se clasifica');
-  // Se suelta solo si está muerto (se mira sin tocarlo) y solo ESA referencia.
-  const caja = sinComentarios(leer('lib/pos/cobro-del-estudio.ts'));
-  const fn = caja.slice(caja.indexOf('export async function soltarCobroDeLaCajaSiEstaMuerto'));
-  assert.ok(fn.indexOf("if (vida !== 'muerto') return false;") < fn.indexOf('.update({ cobro_mostrador_pi: null'));
-  assert.ok(fn.includes(".eq('cobro_mostrador_pi', p.referencia)"));
-  // ⚠️ Un SumUp «caducado» no lo dice SumUp (su API aún no devuelve la transacción, y puede
-  // ser un retraso): no está muerto hasta que lo soltaría el barrido. Si no, la tarjeta
-  // guardada se cobraría encima de un cobro del Solo que sí entró.
-  const vida = caja.slice(caja.indexOf('export async function vidaDelCobroDeLaCajaEnElRecibo'), caja.indexOf('export async function soltarCobroDeLaCajaSiEstaMuerto'));
-  const sumup = vida.indexOf("if (est.estado === 'EXPIRADO' && !yaNoEsDelMostrador(referencia, new Date())) return 'no-se-sabe';");
-  assert.ok(sumup > 0 && sumup < vida.indexOf('return vidaDelCobroDeLaCaja(est.estado);'));
-});

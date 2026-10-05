@@ -12,7 +12,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { tipoDeReciboParaBizum } from '@/lib/billing/bizum-permitido';
+// Relativo y con `.ts`: lo importan también el conciliador y `node --test`.
+import { tipoDeReciboParaBizum } from './bizum-permitido.ts';
 
 /**
  * Devuelve `'MENSUAL' | 'SIN_PLAN' | <tipo del plan> | null`.
@@ -32,5 +33,28 @@ export async function tipoDePlanDelRecibo(
   if (!sus?.plan_id) return null;
   const { data: plan } = await admin
     .from('planes_tarifa').select('tipo').eq('id', sus.plan_id).maybeSingle();
+  return (plan?.tipo as string | null | undefined) ?? null;
+}
+
+/**
+ * Lo mismo, pero un fallo de la base de datos LANZA en vez de devolver `null`:
+ * quien decide algo de dinero con el tipo (soltar o mantener la sesión caducada
+ * de una renovación, lib/billing/sesion-caducada.ts) tiene que distinguir «no
+ * se ha podido leer» (se reintenta) de «el plan no dice su tipo».
+ */
+export async function tipoDePlanDelReciboEstricto(
+  admin: SupabaseClient,
+  recibo: { entrega_tipo?: string | null; suscripcion_id?: string | null },
+): Promise<string | null> {
+  const veredicto = tipoDeReciboParaBizum(recibo.entrega_tipo ?? null, recibo.suscripcion_id ?? null);
+  if (veredicto !== 'CONSULTAR_PLAN') return veredicto;
+
+  const { data: sus, error } = await admin
+    .from('suscripciones').select('plan_id').eq('id', recibo.suscripcion_id).maybeSingle();
+  if (error) throw new Error(`tipo de plan del recibo (suscripción): ${error.message}`);
+  if (!sus?.plan_id) return null;
+  const { data: plan, error: errPlan } = await admin
+    .from('planes_tarifa').select('tipo').eq('id', sus.plan_id).maybeSingle();
+  if (errPlan) throw new Error(`tipo de plan del recibo (plan): ${errPlan.message}`);
   return (plan?.tipo as string | null | undefined) ?? null;
 }

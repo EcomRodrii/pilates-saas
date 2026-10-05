@@ -1574,7 +1574,9 @@ test('⚠️ el checkout comprueba la penalización antes de reutilizar o crear 
 test('⚠️ el checkout no devuelve la URL si guardar la sesión no tocó el recibo: la expira', () => {
   const fuente = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'app/api/stripe/checkout/route.ts'), 'utf8'));
   const desde = fuente.indexOf('.update({ checkout_session_id: session.id })');
-  const url = fuente.indexOf('NextResponse.json({ url: session.url })', desde);
+  // La ÚLTIMA: antes de caducar, si la sesión guardada ya es esta (la guardó la otra
+  // petición del mismo intento), se devuelve su URL (lib/billing/sesion-checkout.ts).
+  const url = fuente.lastIndexOf('NextResponse.json({ url: session.url })');
   assert.ok(desde > 0 && url > desde);
   const bloque = fuente.slice(desde, url);
   assert.match(bloque, /\.select\('id'\)/, 'sin `select` no se sabe cuántas filas tocó');

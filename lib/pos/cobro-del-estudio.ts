@@ -148,9 +148,8 @@ export async function cobroDeReciboSoloLectura(
 
 /**
  * ¿Sigue vivo el cobro de la Caja guardado en un recibo? (`vidaDelCobroDeLaCaja`).
- * SOLO LEE: lo preguntan el enlace de pago de la socia y el cobro con la tarjeta
- * guardada, que nunca paran el cobro del mostrador (lo lleva la Caja). Un cobro de
- * SumUp se le pregunta a SumUp.
+ * SOLO LEE: lo pregunta el enlace de pago de la socia, que nunca para el cobro del
+ * mostrador (lo lleva la Caja). Un cobro de SumUp se le pregunta a SumUp.
  */
 export async function vidaDelCobroDeLaCajaEnElRecibo(
   admin: SupabaseClient, studioId: string, reciboId: string, referencia: string, o: { origen: string },
@@ -161,31 +160,11 @@ export async function vidaDelCobroDeLaCajaEnElRecibo(
     const est = await prep.cobro.consultar(referencia).catch(() => null);
     if (!est) return vidaDelCobroDeLaCaja('SIN_LEER');
     // «Caducado» no lo dice SumUp: es que su API aún no devuelve la transacción, y puede
-    // ser un retraso. Hasta que lo soltaría el barrido, no se sabe (si no, un cargo a la
-    // tarjeta guardada o un pago online se sumarían a un cobro del Solo que sí entró).
+    // ser un retraso. Hasta que lo soltaría el barrido, no se sabe (si no, un pago online
+    // se sumaría a un cobro del Solo que sí entró).
     if (est.estado === 'EXPIRADO' && !yaNoEsDelMostrador(referencia, new Date())) return 'no-se-sabe';
     return vidaDelCobroDeLaCaja(est.estado);
   }
   const leido = await cobroDeReciboSoloLectura(admin, studioId, reciboId, referencia);
   return vidaDelCobroDeLaCaja(!leido ? null : leido.comprobado ? leido.estado : 'SIN_LEER');
-}
-
-/**
- * Suelta el cobro de la Caja guardado en un recibo SOLO si está muerto
- * (`vidaDelCobroDeLaCajaEnElRecibo`): cancelado, rechazado, un Bizum caducado que
- * nadie soltó, o que ya no existe en la cuenta. Uno así no es un cobro en marcha y
- * no puede dejar el recibo sin cobrarse para siempre (el cobro con la tarjeta
- * guardada lo exige vacío). Compare-and-set sobre esa misma referencia: uno nuevo
- * que se haya empezado entre medias no se toca. Devuelve si lo soltó.
- */
-export async function soltarCobroDeLaCajaSiEstaMuerto(
-  admin: SupabaseClient, p: { studioId: string; reciboId: string; referencia: string },
-): Promise<boolean> {
-  const vida = await vidaDelCobroDeLaCajaEnElRecibo(admin, p.studioId, p.reciboId, p.referencia, { origen: '' });
-  if (vida !== 'muerto') return false;
-  const { data, error } = await admin.from('recibos')
-    .update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
-    .eq('id', p.reciboId).eq('studio_id', p.studioId).eq('cobro_mostrador_pi', p.referencia)
-    .select('id');
-  return !error && (data?.length ?? 0) > 0;
 }
