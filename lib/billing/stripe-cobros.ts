@@ -181,59 +181,53 @@ export async function cobrarReciboOffSession(params: {
   // marca, un «Marcar cobrado» (o el banco, o la remesa) entre la lectura de
   // arriba y el cargo cobraba el recibo dos veces. Mientras esté puesta, ninguna
   // de esas puertas lo cobra. Ver lib/billing/cobro-off-session-marca.ts.
-  let marca: MarcaCobroOffSession;
-  const reserva = await reservarCobroOffSession(admin, {
-    studioId: params.studioId, reciboId: params.reciboId, clave: idempotencyKey, via,
-    intentos: intentosLeidos, ahoraISO: new Date().toISOString(),
-  });
-  if (reserva.tipo === 'ERROR') {
-    // No se llegó a Stripe: no se ha cobrado nada y el siguiente intento lo repite.
-    console.error('[cobrarReciboOffSession] no se pudo reservar el recibo', params.reciboId, reserva.error);
-    return { ok: false, error: MENSAJE_RESERVA_SIN_CONFIRMAR, errorCode: 'ERROR_TRANSITORIO' };
-  }
-  if (reserva.tipo === 'RESERVADA') {
-    marca = reserva.marca;
-  } else {
+  const sinConfirmar: ResultadoCobro = { ok: false, error: MENSAJE_RESERVA_SIN_CONFIRMAR, errorCode: 'ERROR_TRANSITORIO' };
+  const reservar = async (soltarCajaMuerta: boolean):
+    Promise<{ marca: MarcaCobroOffSession; no?: never } | { no: ResultadoCobro; marca?: never }> => {
+    const reserva = await reservarCobroOffSession(admin, {
+      studioId: params.studioId, reciboId: params.reciboId, clave: idempotencyKey, via,
+      intentos: intentosLeidos, ahoraISO: new Date().toISOString(),
+    });
+    if (reserva.tipo === 'ERROR') {
+      // No se llegó a Stripe: no se ha cobrado nada y el siguiente intento lo repite.
+      console.error('[cobrarReciboOffSession] no se pudo reservar el recibo', params.reciboId, reserva.error);
+      return { no: sinConfirmar };
+    }
+    if (reserva.tipo === 'RESERVADA') return { marca: reserva.marca };
     const { data: fila, error: errFila } = await admin.from('recibos').select(COLUMNAS_RELECTURA_RESERVA)
       .eq('id', params.reciboId).eq('studio_id', params.studioId).maybeSingle();
-    if (errFila) return { ok: false, error: MENSAJE_RESERVA_SIN_CONFIRMAR, errorCode: 'ERROR_TRANSITORIO' };
+    if (errFila) return { no: sinConfirmar };
     const perdida = clasificarReservaPerdida((fila as FilaReciboReserva | null) ?? null, {
       clave: idempotencyKey, via, cuota, ahora: new Date(),
     });
     switch (perdida.tipo) {
       case 'NO_ENCONTRADO':
-        return { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' };
+        return { no: { ok: false, error: 'Recibo no encontrado', errorCode: 'NO_ENCONTRADO' } };
       case 'SIN_PERMISO':
-        return resultadoSinPermiso(perdida.motivo);
+        return { no: resultadoSinPermiso(perdida.motivo) };
       case 'EN_MARCHA': {
         // Un cobro de la Caja ya MUERTO (cancelado, rechazado, un Bizum caducado que
         // nadie soltó) no es un cobro en marcha: se suelta y se reserva otra vez, una.
         // Antes dejaba el recibo sin cobrarse solo para siempre. Uno vivo, que ya
-        // entró o que no se puede leer, sigue frenando el cargo.
+        // entró o que no se puede leer, sigue frenando el cargo. Si la segunda reserva
+        // también se pierde, se responde con lo que diga el recibo entonces.
         const cobroCaja = (fila as FilaReciboReserva | null)?.cobro_mostrador_pi ?? null;
-        if (perdida.por === 'MOSTRADOR' && cobroCaja && await soltarCobroDeLaCajaSiEstaMuerto(admin, {
+        if (soltarCajaMuerta && perdida.por === 'MOSTRADOR' && cobroCaja && await soltarCobroDeLaCajaSiEstaMuerto(admin, {
           studioId: params.studioId, reciboId: params.reciboId, referencia: cobroCaja,
-        })) {
-          const otra = await reservarCobroOffSession(admin, {
-            studioId: params.studioId, reciboId: params.reciboId, clave: idempotencyKey, via,
-            intentos: intentosLeidos, ahoraISO: new Date().toISOString(),
-          });
-          if (otra.tipo === 'RESERVADA') {
-            marca = otra.marca;
-            break;
-          }
-        }
-        return { ok: false, error: MENSAJE_COBRO_EN_MARCHA[perdida.por], errorCode: 'COBRO_EN_MARCHA' };
+        })) return reservar(false);
+        return { no: { ok: false, error: MENSAJE_COBRO_EN_MARCHA[perdida.por], errorCode: 'COBRO_EN_MARCHA' } };
       }
       case 'CAMBIO':
-        return { ok: false, error: MENSAJE_RESERVA_SIN_CONFIRMAR, errorCode: 'ERROR_TRANSITORIO' };
+        return { no: sinConfirmar };
       case 'REENTRANTE':
         // El mismo intento, todavía joven (reintento del step, «Reintentar» tras un
         // 503): se sigue con la MISMA clave y Stripe devuelve lo que ya hizo.
-        marca = perdida.marca;
-        break;
+        return { marca: perdida.marca };
     }
-  }
+  };
+  const reservado = await reservar(true);
+  if (reservado.no) return reservado.no;
+  const marca = reservado.marca;
   // Rechazo o 3DS: no entró dinero, el recibo vuelve a poder cobrarse. Si no se
   // puede soltar, la suelta el conciliador después de preguntar a Stripe.
   const soltarMarca = async () => {

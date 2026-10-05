@@ -168,6 +168,20 @@ export const MINUTOS_ANTES_DE_BARRER = 10;
 /** Un cobro que sigue sin resolverse pasado esto ya no es un retraso: se avisa. */
 export const HORAS_PARA_AVISAR = 24;
 
+/**
+ * ¿Ha pasado ya el tiempo en que un cobro de SumUp es del mostrador y de su aviso?
+ * Desde ahí lo resuelve el barrido, y solo desde ahí puede una máquina dar por muerto
+ * uno «caducado»: eso no lo dice SumUp, es que su API aún no devuelve la transacción
+ * (`estadoDesdeSumup`, a los dos minutos), y puede ser un retraso. Lo usan el barrido
+ * y quien mira si el cobro de la Caja de un recibo sigue vivo
+ * (`vidaDelCobroDeLaCajaEnElRecibo`: el cobro con la tarjeta guardada y el enlace de
+ * pago online, que no se adelantan al barrido).
+ */
+export function yaNoEsDelMostrador(referencia: string | null | undefined, ahora: Date): boolean {
+  const ref = leerReferenciaSumup(referencia);
+  return !!ref && ahora.getTime() - ref.emitidaEn.getTime() >= MINUTOS_ANTES_DE_BARRER * 60_000;
+}
+
 export interface CobroEnVuelo {
   studioId: string;
   objeto: { tipo: 'venta' | 'recibo'; id: string };
@@ -188,8 +202,8 @@ export function cobrosParaBarrer(
   for (const f of filas) {
     const ref = leerReferenciaSumup(f.referencia);
     if (!ref || !f.referencia) continue;
+    if (!yaNoEsDelMostrador(f.referencia, ahora)) continue;
     const minutos = (ahora.getTime() - ref.emitidaEn.getTime()) / 60_000;
-    if (minutos < MINUTOS_ANTES_DE_BARRER) continue;
     const lista = porEstudio.get(f.studioId) ?? [];
     lista.push({ studioId: f.studioId, objeto: { tipo: f.tipo, id: f.id }, referencia: f.referencia, minutos });
     porEstudio.set(f.studioId, lista);

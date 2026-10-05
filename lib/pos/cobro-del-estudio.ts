@@ -6,7 +6,7 @@ import { desenlaceDeCobroSoltado, type ConsultaCobro } from './consulta-stripe.t
 import { vidaDelCobroDeLaCaja, type VidaCobroCaja } from './referencia-cobro-recibo.ts';
 import { clienteSumup, proveedorDeReferencia, sumupPuedeCobrarAqui, type ClienteSumup } from './sumup.ts';
 import { urlDeAviso } from './sumup-aviso.ts';
-import { crearProveedorSumup } from './terminal-sumup.ts';
+import { crearProveedorSumup, yaNoEsDelMostrador } from './terminal-sumup.ts';
 import { tokenSumup } from './sumup-oauth.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -148,8 +148,9 @@ export async function cobroDeReciboSoloLectura(
 
 /**
  * ¿Sigue vivo el cobro de la Caja guardado en un recibo? (`vidaDelCobroDeLaCaja`).
- * SOLO LEE: lo pregunta el enlace de pago de la socia, que nunca para el cobro del
- * mostrador (lo lleva la Caja). Un cobro de SumUp se le pregunta a SumUp.
+ * SOLO LEE: lo preguntan el enlace de pago de la socia y el cobro con la tarjeta
+ * guardada, que nunca paran el cobro del mostrador (lo lleva la Caja). Un cobro de
+ * SumUp se le pregunta a SumUp.
  */
 export async function vidaDelCobroDeLaCajaEnElRecibo(
   admin: SupabaseClient, studioId: string, reciboId: string, referencia: string, o: { origen: string },
@@ -158,7 +159,12 @@ export async function vidaDelCobroDeLaCajaEnElRecibo(
     const prep = await prepararCobroExistente(admin, studioId, referencia, 'DATAFONO', o);
     if (!prep.ok) return vidaDelCobroDeLaCaja('SIN_LEER');
     const est = await prep.cobro.consultar(referencia).catch(() => null);
-    return vidaDelCobroDeLaCaja(est ? est.estado : 'SIN_LEER');
+    if (!est) return vidaDelCobroDeLaCaja('SIN_LEER');
+    // «Caducado» no lo dice SumUp: es que su API aún no devuelve la transacción, y puede
+    // ser un retraso. Hasta que lo soltaría el barrido, no se sabe (si no, un cargo a la
+    // tarjeta guardada o un pago online se sumarían a un cobro del Solo que sí entró).
+    if (est.estado === 'EXPIRADO' && !yaNoEsDelMostrador(referencia, new Date())) return 'no-se-sabe';
+    return vidaDelCobroDeLaCaja(est.estado);
   }
   const leido = await cobroDeReciboSoloLectura(admin, studioId, reciboId, referencia);
   return vidaDelCobroDeLaCaja(!leido ? null : leido.comprobado ? leido.estado : 'SIN_LEER');
