@@ -119,7 +119,8 @@ export interface ContextoValidacion {
 
 const RE_DIGITOS = /\d+/g;
 
-function tokensNumericos(texto: string): string[] {
+/** Los números de un texto, como tokens de dígitos («1.234,50 €» → 1, 234, 50). La usa también el filtro de cifras del asistente (lib/asistente/cifras.ts). */
+export function tokensNumericos(texto: string): string[] {
   return texto.match(RE_DIGITOS) ?? [];
 }
 

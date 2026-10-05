@@ -3955,6 +3955,71 @@ export interface RowDobleFactorCorreoBloqueos {
   motivo: string;
 }
 
+export interface RowAsistenteConversaciones {
+  id: string;
+  studio_id: string;
+  auth_user_id: string;
+  rol: string;
+  titulo: string | null;
+  referencias: any;
+  tokens_contexto: number;
+  en_curso_desde: string | null;
+  creada_en: string;
+  ultima_en: string;
+}
+
+export interface RowAsistenteMensajes {
+  id: string;
+  conversacion_id: string;
+  studio_id: string;
+  orden: number;
+  rol: string;
+  contenido: any;
+  bloques: any;
+  consumo_id: string | null;
+  creado_en: string;
+}
+
+export interface RowIaConsumos {
+  id: string;
+  studio_id: string;
+  auth_user_id: string | null;
+  origen: string;
+  conversacion_id: string | null;
+  modelo: string;
+  estado: string;
+  periodo: string;
+  coste_max_usd: number;
+  input_tokens: number;
+  cache_read_input_tokens: number;
+  cache_creation_input_tokens: number;
+  output_tokens: number;
+  n_llamadas: number;
+  n_herramientas: number;
+  herramientas: string[];
+  coste_usd: number | null;
+  unidades: number;
+  unidades_cuota: number;
+  unidades_pack: number;
+  unidades_sin_saldo: number;
+  codigo_error: string | null;
+  creado_en: string;
+  cerrado_en: string | null;
+}
+
+export interface RowIaPacks {
+  id: string;
+  studio_id: string;
+  unidades: number;
+  unidades_usadas: number;
+  precio_eur: number;
+  comprado_en: string;
+  caduca_en: string;
+  estado: string;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -10928,6 +10993,136 @@ export type DobleFactorCorreoBloqueosUpdate = {
   motivo?: string | null;
 }
 
+export type AsistenteConversacionesInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  auth_user_id?: string | null;
+  rol?: string | null;
+  titulo?: string | null | null;
+  referencias?: any | null;
+  tokens_contexto?: number | null;
+  en_curso_desde?: string | null | null;
+  creada_en?: string | null;
+  ultima_en?: string | null;
+}
+
+export type AsistenteConversacionesUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  auth_user_id?: string | null;
+  rol?: string | null;
+  titulo?: string | null | null;
+  referencias?: any | null;
+  tokens_contexto?: number | null;
+  en_curso_desde?: string | null | null;
+  creada_en?: string | null;
+  ultima_en?: string | null;
+}
+
+export type AsistenteMensajesInsert = {
+  id?: string | null;
+  conversacion_id?: string | null;
+  studio_id?: string | null;
+  orden?: number | null;
+  rol?: string | null;
+  contenido?: any | null;
+  bloques?: any | null;
+  consumo_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type AsistenteMensajesUpdate = {
+  id?: string | null;
+  conversacion_id?: string | null;
+  studio_id?: string | null;
+  orden?: number | null;
+  rol?: string | null;
+  contenido?: any | null;
+  bloques?: any | null;
+  consumo_id?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type IaConsumosInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  auth_user_id?: string | null | null;
+  origen?: string | null;
+  conversacion_id?: string | null | null;
+  modelo?: string | null;
+  estado?: string | null;
+  periodo?: string | null;
+  coste_max_usd?: number | null;
+  input_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+  output_tokens?: number | null;
+  n_llamadas?: number | null;
+  n_herramientas?: number | null;
+  herramientas?: string[] | null;
+  coste_usd?: number | null | null;
+  unidades?: number | null;
+  unidades_cuota?: number | null;
+  unidades_pack?: number | null;
+  unidades_sin_saldo?: number | null;
+  codigo_error?: string | null | null;
+  creado_en?: string | null;
+  cerrado_en?: string | null | null;
+}
+
+export type IaConsumosUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  auth_user_id?: string | null | null;
+  origen?: string | null;
+  conversacion_id?: string | null | null;
+  modelo?: string | null;
+  estado?: string | null;
+  periodo?: string | null;
+  coste_max_usd?: number | null;
+  input_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+  output_tokens?: number | null;
+  n_llamadas?: number | null;
+  n_herramientas?: number | null;
+  herramientas?: string[] | null;
+  coste_usd?: number | null | null;
+  unidades?: number | null;
+  unidades_cuota?: number | null;
+  unidades_pack?: number | null;
+  unidades_sin_saldo?: number | null;
+  codigo_error?: string | null | null;
+  creado_en?: string | null;
+  cerrado_en?: string | null | null;
+}
+
+export type IaPacksInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  unidades?: number | null;
+  unidades_usadas?: number | null;
+  precio_eur?: number | null;
+  comprado_en?: string | null;
+  caduca_en?: string | null;
+  estado?: string | null;
+  stripe_checkout_session_id?: string | null | null;
+  stripe_payment_intent_id?: string | null | null;
+}
+
+export type IaPacksUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  unidades?: number | null;
+  unidades_usadas?: number | null;
+  precio_eur?: number | null;
+  comprado_en?: string | null;
+  caduca_en?: string | null;
+  estado?: string | null;
+  stripe_checkout_session_id?: string | null | null;
+  stripe_payment_intent_id?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -12150,6 +12345,26 @@ export type Database = {
         Row: RowDobleFactorCorreoBloqueos;
         Insert: DobleFactorCorreoBloqueosInsert;
         Update: DobleFactorCorreoBloqueosUpdate;
+      };
+      asistente_conversaciones: {
+        Row: RowAsistenteConversaciones;
+        Insert: AsistenteConversacionesInsert;
+        Update: AsistenteConversacionesUpdate;
+      };
+      asistente_mensajes: {
+        Row: RowAsistenteMensajes;
+        Insert: AsistenteMensajesInsert;
+        Update: AsistenteMensajesUpdate;
+      };
+      ia_consumos: {
+        Row: RowIaConsumos;
+        Insert: IaConsumosInsert;
+        Update: IaConsumosUpdate;
+      };
+      ia_packs: {
+        Row: RowIaPacks;
+        Insert: IaPacksInsert;
+        Update: IaPacksUpdate;
       };
     };
   };
