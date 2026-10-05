@@ -21,11 +21,19 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { emitirMensajeDigestNoLeido } from '../notifications/emit.ts';
+import type { Recipient } from '../notifications/types.ts';
+import { equipoDelResumen } from './destinatarios.ts';
 
+// Una fila por cuenta, estudio y LADO: la misma cuenta puede ser alumna en unos
+// hilos y equipo (instructora) en otros del mismo estudio, y cada resumen lleva
+// a su bandeja (la app de la alumna o la suya de instructora). Antes se agrupaba
+// solo por cuenta y el motor la resolvía mirando primero en `socios`.
 interface FilaDigest {
   auth_user_id: string;
   studio_id: string;
   studio_slug: string | null;
+  lado: 'SOCIO' | 'STAFF';
+  socio_id: string | null;
   conversaciones: number;
 }
 
@@ -41,14 +49,26 @@ export async function barrerDigestMensajesNoLeidos(): Promise<{ avisos: number }
 
   const filas = (data ?? []) as FilaDigest[];
   const hoy = new Date().toISOString().slice(0, 10);
+  // Quien recibe dos el mismo día y estudio: el de equipo lleva sufijo en la
+  // clave, para no chocar con el de alumna (los demás, la clave de siempre).
+  const conAlumna = new Set(filas.filter(f => f.lado === 'SOCIO').map(f => `${f.auth_user_id}|${f.studio_id}`));
   let avisos = 0;
   for (const fila of filas) {
+    let destinatario: Recipient | null;
+    if (fila.lado === 'SOCIO') {
+      destinatario = { role: 'SOCIA', userId: fila.auth_user_id, socioId: fila.socio_id };
+    } else {
+      destinatario = await equipoDelResumen(admin, fila.studio_id, fila.auth_user_id);
+      if (!destinatario) continue; // ya no es del equipo de ese estudio
+    }
     await emitirMensajeDigestNoLeido(admin, {
       studioId: fila.studio_id,
       authUserId: fila.auth_user_id,
       conversaciones: fila.conversaciones,
       fecha: hoy,
       slug: fila.studio_slug,
+      recipients: [destinatario],
+      sufijoDedup: fila.lado === 'STAFF' && conAlumna.has(`${fila.auth_user_id}|${fila.studio_id}`) ? 'equipo' : null,
     });
     avisos++;
   }

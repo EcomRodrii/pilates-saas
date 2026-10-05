@@ -136,4 +136,67 @@ test('escribe la instructora: la alumna SÍ sale en el resumen y la instructora 
   }
 });
 
+test('la alumna que volvió con otra cuenta escribe al mostrador: su mensaje NO se da por leído en el mostrador', async () => {
+  const studio = await crearStudioConPropietaria(admin);
+  const alumna = await alumnaConCuenta(admin, studio.studioId);
+  const { data: nueva, error } = await admin.auth.admin.createUser({
+    email: `vuelve-${randomUUID()}@rls-test.invalid`, password: 'rls-test-password-1234', email_confirm: true,
+  });
+  if (error || !nueva.user) throw new Error(`No se pudo crear la cuenta nueva: ${error?.message ?? 'sin usuario'}`);
+  try {
+    const conv = await conversacion(studio.studioId, 'ALUMNA_MOSTRADOR');
+    await participante(conv, alumna.authUserId, 'SOCIO', alumna.socioId);
+    // «Borrar mi cuenta» y volver: la fila del hilo se queda sin cuenta (ON DELETE
+    // SET NULL) y la ficha, reclamada con la nueva.
+    await sql`update public.conversacion_participantes set auth_user_id = null where conversacion_id = ${conv}`;
+    await sql`update public.socios set auth_user_id = ${nueva.user.id} where id = ${alumna.socioId}`;
+
+    const enviado = await escribir(conv, studio.studioId, nueva.user.id);
+
+    assert.equal(await mostradorEnMensaje(conv, enviado), null, 'escribe la alumna, no el equipo: el mostrador sigue sin leerlo');
+    const [fila] = await sql<{ igual: boolean }[]>`
+      select cp.leido_hasta = m.creado_en as igual
+        from public.conversacion_participantes cp, public.mensajes m
+       where cp.conversacion_id = ${conv} and cp.rol_en_conversacion = 'SOCIO' and m.id = ${enviado}`;
+    assert.equal(fila.igual, true, 'su fila SOCIO (sin cuenta) sí sube hasta su mensaje');
+  } finally {
+    await limpiarFixtures(admin, [studio]);
+    await admin.auth.admin.deleteUser(alumna.authUserId).catch(() => {});
+    await admin.auth.admin.deleteUser(nueva.user.id).catch(() => {});
+  }
+});
+
+test('un hilo abierto sin ningún mensaje no manda el resumen; y el resumen dice de qué lado es', async () => {
+  const studio = await crearStudioConPropietaria(admin);
+  const alumna = await alumnaConCuenta(admin, studio.studioId);
+  const instructora = await crearInstructora(admin, studio.studioId);
+  try {
+    const conv = await conversacion(studio.studioId, 'ALUMNA_INSTRUCTORA');
+    await participante(conv, alumna.authUserId, 'SOCIO', alumna.socioId);
+    await participante(conv, instructora.authUserId, 'STAFF');
+    // Nadie ha escrito: su marca está en '-infinity' y aun así no hay nada que leer.
+    assert.equal(await enElResumen(alumna.authUserId, studio.studioId), false);
+
+    await escribir(conv, studio.studioId, instructora.authUserId);
+    const filas = await sql<{ lado: string; socio_id: string | null }[]>`
+      select lado, socio_id from public.mensajes_no_leidos_para_digest()
+       where auth_user_id = ${alumna.authUserId} and studio_id = ${studio.studioId}`;
+    assert.deepEqual(filas.map((f) => [f.lado, f.socio_id]), [['SOCIO', alumna.socioId]]);
+  } finally {
+    await limpiarInstructora(admin, instructora);
+    await limpiarFixtures(admin, [studio]);
+    await admin.auth.admin.deleteUser(alumna.authUserId).catch(() => {});
+  }
+});
+
+test('el resumen y el trigger solo los ejecuta el servidor', async () => {
+  for (const fn of ['public.mensajes_no_leidos_para_digest()', 'public.actualizar_ultimo_mensaje_conversacion()']) {
+    const [p] = await sql<{ anon: boolean; auth: boolean; servicio: boolean }[]>`
+      select has_function_privilege('anon', ${fn}, 'EXECUTE') as anon,
+             has_function_privilege('authenticated', ${fn}, 'EXECUTE') as auth,
+             has_function_privilege('service_role', ${fn}, 'EXECUTE') as servicio`;
+    assert.deepEqual(p, { anon: false, auth: false, servicio: true }, fn);
+  }
+});
+
 test.after(async () => { await sql.end(); });
