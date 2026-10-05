@@ -15,6 +15,7 @@ import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { decidirSesionCheckout, claveCheckoutRecibo } from '@/lib/billing/sesion-checkout';
 import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
+import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, MENSAJE_PAGO_EN_CURSO } from '@/lib/billing/pago-en-curso';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
 import { esSociaNueva } from '@/lib/billing/socia-nueva';
 import { rechazoCompraPrueba } from '@/lib/billing/clase-prueba';
@@ -418,8 +419,8 @@ export async function POST(req: NextRequest) {
     // 32ª pasada de auditoría: este camino (Modo A, redirección al Checkout
     // Session hospedado) quedó fuera del trabajo de consentimiento legal de
     // #1756/#1761 — solo tocaron el checkout embebido (Modo B). El webhook
-    // YA sabe leer `session.metadata.terminosHash`/`terminosAceptadosEn` y
-    // dejarlos en el recibo (ver `entregarPlanComprado`); simplemente nunca
+    // YA sabe leer `session.metadata.terminosHash` (y fechar la aceptación con
+    // `session.created`) y dejarlos en el recibo (ver `entregarPlanComprado`); simplemente nunca
     // se sellaban aquí, así que quedaban NULL en el 100% de estas compras.
     // Mismo cálculo que `checkout-embebido/route.ts`: el hash lo compone el
     // SERVIDOR a partir de los textos vigentes del estudio, nunca el cliente.
@@ -439,10 +440,11 @@ export async function POST(req: NextRequest) {
       ));
     }
     const sello = await sellarCondicionesVigentes(admin, body.studioId);
-    if (sello) {
-      metadata.terminosHash = sello.hash;
-      metadata.terminosAceptadosEn = sello.aceptadoEn;
-    }
+    // Solo la huella. CUÁNDO se aceptaron es `session.created`, y lo lee el
+    // webhook (lib/billing/sello-del-cobro.ts): una fecha en la metadata hacía
+    // distintos los parámetros de cada petición, y con la misma clave de
+    // idempotencia Stripe rechazaba el segundo intento del mismo pago.
+    if (sello) metadata.terminosHash = sello.hash;
   } else {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el recibo o el plan a cobrar' }, { status: 400 }));
   }
@@ -835,6 +837,21 @@ export async function POST(req: NextRequest) {
 
     return conCorsWidget(req, NextResponse.json({ url: session.url }));
   } catch (err) {
+    // Stripe ya tiene una sesión con ESTA clave y otros parámetros: el mismo
+    // intento reabierto con datos distintos. Esa sesión sigue viva y la plaza de
+    // cupo es la suya (misma clave): no se suelta. Solo vuelve la plaza de
+    // matrícula gratis que esta petición reservó para sí. Ver
+    // lib/billing/pago-en-curso.ts.
+    if (esErrorDeIdempotencia(err)) {
+      if (cupoMatriculaReservado) {
+        await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+      }
+      Sentry.captureMessage('[stripe/checkout] el mismo intento de pago volvió con otros parámetros', {
+        level: 'warning', tags: { area: 'stripe-checkout', tipo: 'pago-en-curso' },
+        extra: { studioId: body.studioId, conRecibo: !!body.reciboId, conClase: !!body.sesionId, conPlaza: !!plaza },
+      });
+      return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_EN_CURSO, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
+    }
     // Si el cobro no llegó a nacer, la plaza que se reservó para decidir su
     // precio no se ha usado. Devolverla antes de contestar el error.
     if (plaza) await liberarPlaza(admin, plaza.id);

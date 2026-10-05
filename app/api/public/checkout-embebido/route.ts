@@ -12,6 +12,8 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { comprobarVentanaReserva, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { claveCheckoutEmbebido } from '@/lib/billing/clave-checkout-embebido';
+import { parametrosPaymentIntentEmbebido } from '@/lib/billing/pago-embebido-parametros';
+import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, MENSAJE_PAGO_EN_CURSO } from '@/lib/billing/pago-en-curso';
 import { setupFutureUsageCheckout } from '@/lib/billing/uso-futuro-tarjeta';
 import { telefonoValido } from '@/lib/csv';
 import type { TipoPlan } from '@/lib/types';
@@ -520,69 +522,40 @@ export async function POST(req: NextRequest) {
   // El hash lo calcula el servidor desde los textos del estudio: si lo mandara
   // el navegador, la prueba de qué se aceptó vendría de la parte interesada.
   // Best-effort — si falla, la compra sigue sin sello (ver `legal-sellado.ts`).
+  // CUÁNDO se aceptaron no viaja en el cobro: es `pi.created` (ver
+  // lib/billing/sello-del-cobro.ts). Ninguno de los parámetros de abajo puede
+  // depender del reloj: con la misma clave, Stripe exige que sean idénticos.
   const { sellarCondicionesVigentes } = await import('@/lib/legal-sellado');
   const sello = await sellarCondicionesVigentes(admin, body.studioId);
-
-  const metadata: Record<string, string> = {
+  const parametros = parametrosPaymentIntentEmbebido({
     studioId: body.studioId,
     planId: body.planId,
-    origen: 'plan_web_embebido',
-  };
-  if (sello) {
-    metadata.terminosHash = sello.hash;
-    metadata.terminosAceptadosEn = sello.aceptadoEn;
-  }
-  // P-1 (auditoría 58ª): si nadie llega a confirmar este PaymentIntent (o
-  // Stripe lo rechaza), el webhook necesita saber que se llevó una plaza
-  // gratis de matrícula para devolverla — ver `liberarCupoMatriculaUnaVez`.
-  if (cupoMatriculaReservado) metadata.cupoMatriculaReservado = '1';
-  if (plaza) metadata.plazaEtapaId = plaza.id;
-  if (socioId) metadata.socioId = socioId;
-  // Stripe exige valores de metadata como string no vacío.
-  if (body.origenLead) metadata.origenLead = body.origenLead;
-  if (body.socioEmail) metadata.socioEmail = body.socioEmail;
-  if (body.socioNombre) metadata.socioNombre = body.socioNombre;
-  if (socioTelefono) metadata.socioTelefono = socioTelefono;
-  if (body.sesionId) metadata.sesionId = body.sesionId;
-  // La sesión del widget, para anotar la compra en su embudo al entregarla.
-  const widgetSesion = sesionWidgetValida(body.widgetSesion);
-  if (widgetSesion) metadata.widgetSesion = widgetSesion;
-  // Solo tiene sentido junto a sesionId (misma clase que reservar_plaza va a
-  // confirmar) — sin sesión no hay reserva a la que asignarle un sitio.
-  if (body.sesionId && body.spotId) metadata.spotId = body.spotId;
-  if (codigoDescuentoId) metadata.codigoDescuentoId = codigoDescuentoId;
-  if (matriculaCentimos > 0) metadata.matriculaCentimos = String(matriculaCentimos);
-  if (body.genero) metadata.genero = body.genero;
-  if (body.comoConociste) metadata.comoConociste = body.comoConociste;
-  if (body.codigoPostal) metadata.codigoPostal = body.codigoPostal;
-  if (body.fechaNacimiento) metadata.fechaNacimiento = body.fechaNacimiento;
+    planNombre: plan.nombre,
+    terminosHash: sello?.hash ?? null,
+    cupoMatriculaReservado: cupoMatriculaReservado !== null,
+    plazaEtapaId: plaza?.id ?? null,
+    socioId,
+    socioEmail: body.socioEmail ?? null,
+    socioNombre: body.socioNombre ?? null,
+    socioTelefono,
+    origenLead: body.origenLead ?? null,
+    sesionId: body.sesionId ?? null,
+    widgetSesion: sesionWidgetValida(body.widgetSesion),
+    spotId: body.spotId ?? null,
+    codigoDescuentoId,
+    matriculaCentimos,
+    genero: body.genero ?? null,
+    comoConociste: body.comoConociste ?? null,
+    codigoPostal: body.codigoPostal ?? null,
+    fechaNacimiento: body.fechaNacimiento ?? null,
+    amountCentimos,
+    usoFuturo,
+    customerId,
+    fee,
+  });
 
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountCentimos,
-      currency: 'eur',
-      // `allow_redirects: 'never'` en vez de una lista fija con solo 'card':
-      // así Stripe sigue excluyendo automáticamente todo lo que exige salir
-      // del widget (Bizum incluido — acción externa en la app del banco, se
-      // ofrece aparte con redirect avisado, §4 del diseño), pero SÍ deja
-      // pasar los métodos "de tarjeta" que no navegan a ningún sitio: Link,
-      // Apple Pay, Google Pay. Con `payment_method_types: ['card']` a secas
-      // (como estaba antes) esos tres desaparecían del Payment Element sin
-      // que hiciera falta — no son un redirect, son la misma tarjeta con
-      // menos fricción.
-      automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
-      // Condicional por tipo de plan (P0): solo MENSUAL autoriza cargos
-      // futuros. Con 'off_session' incondicional, una clase suelta de 1 €
-      // pintaba el consentimiento de cargos futuros de Stripe sin necesitarlo.
-      // Ver lib/billing/uso-futuro-tarjeta.ts (y el `-v2` de la clave de
-      // idempotencia, versionada por este mismo cambio).
-      ...(usoFuturo ? { setup_future_usage: usoFuturo } : {}),
-      ...(customerId ? { customer: customerId } : {}),
-      receipt_email: body.socioEmail ?? undefined,
-      description: plan.nombre,
-      ...(fee !== undefined ? { application_fee_amount: fee } : {}),
-      metadata,
-    }, {
+    const paymentIntent = await stripe.paymentIntents.create(parametros, {
       stripeAccount,
       // Mejora respecto al camino existente (Checkout Session no la lleva):
       // dos pestañas del mismo intento legítimo no generan dos PaymentIntents
@@ -639,6 +612,21 @@ export async function POST(req: NextRequest) {
       matricula: matriculaCentimos / 100,
     }));
   } catch (err) {
+    // Stripe ya tiene un cobro con ESTA clave y otros parámetros: el mismo intento
+    // reabierto con datos distintos. Ese cobro sigue vivo y se puede pagar, y la
+    // plaza de cupo es la SUYA (se reserva con la misma clave): soltarla vendía una
+    // de más. Solo vuelve la plaza de matrícula gratis, que esta petición reservó
+    // para sí sola. Ver lib/billing/pago-en-curso.ts.
+    if (esErrorDeIdempotencia(err)) {
+      if (cupoMatriculaReservado) {
+        await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+      }
+      Sentry.captureMessage('[checkout-embebido] el mismo intento de pago volvió con otros parámetros', {
+        level: 'warning', tags: { modulo: 'checkout-embebido', tipo: 'pago-en-curso' },
+        extra: { studioId: body.studioId, conClase: !!body.sesionId, conPlaza: !!plaza, ...detalleErrorStripe(err) },
+      });
+      return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_EN_CURSO, codigo: CODIGO_PAGO_EN_CURSO }, { status: 409 }));
+    }
     // Si el cobro no llegó a nacer, la plaza no se ha usado.
     if (plaza) await liberarPlaza(admin, plaza.id);
     if (cupoMatriculaReservado) {

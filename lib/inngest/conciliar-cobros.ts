@@ -39,6 +39,7 @@ import {
 } from '../billing/cobro-off-session-marca.ts';
 import { metodoRealDeSesion } from '../billing/metodo-real-sesion.ts';
 import { reservarClasePagada } from '../billing/reservar-clase-pagada.ts';
+import { selloDelCobro } from '../billing/sello-del-cobro.ts';
 import { guardarMetodoDeCompra } from '../billing/guardar-metodo-de-compra.ts';
 import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '../billing/conciliar-sesiones.ts';
 import { liberarCupoMatriculaUnaVez } from '../billing/matricula-online.ts';
@@ -845,11 +846,13 @@ async function entregar(
     // La compra, en el embudo del widget (el webhook no llegó a anotarla).
     widgetSesion: (sesion?.metadata?.widgetSesion ?? pi?.metadata?.widgetSesion) ?? null,
     sesionClaseId: (sesion?.metadata?.sesionId ?? pi?.metadata?.sesionId) ?? null,
-    // Igual que el webhook: sellado en el checkout, aquí solo se lee. El
-    // conciliador recoge cobros que el webhook no llegó a procesar, así que
-    // sin esto esas compras se quedarían sin constancia de qué se aceptó.
-    terminosHash: (sesion?.metadata?.terminosHash ?? pi?.metadata?.terminosHash) ?? null,
-    terminosAceptadosEn: (sesion?.metadata?.terminosAceptadosEn ?? pi?.metadata?.terminosAceptadosEn) ?? null,
+    // Igual que el webhook: la huella se selló en el checkout y el momento es
+    // el `created` del objeto de Stripe que la trae. El conciliador recoge
+    // cobros que el webhook no llegó a procesar, así que sin esto esas compras
+    // se quedarían sin constancia de qué se aceptó.
+    ...(sesion?.metadata?.terminosHash
+      ? selloDelCobro(sesion.metadata, sesion.created)
+      : selloDelCobro(pi?.metadata, pi?.created)),
     // Mismo criterio que el webhook (app/api/stripe/webhook/route.ts): sin
     // socioId conocido, es una compra de invitada.
     esInvitada: !p.socioId,

@@ -63,8 +63,12 @@ test('los dos checkouts gemelos ponen la sesión validada en la metadata', () =>
   for (const r of ['app/api/public/checkout-embebido/route.ts', 'app/api/stripe/checkout/route.ts']) {
     const f = fuente(r);
     assert.ok(f.includes('sesionWidgetValida(body.widgetSesion)'), r);
-    assert.ok(f.includes('metadata.widgetSesion = widgetSesion'), r);
   }
+  assert.ok(fuente('app/api/stripe/checkout/route.ts').includes('metadata.widgetSesion = widgetSesion'));
+  // El embebido arma sus parámetros en un módulo puro (sin reloj, ver
+  // lib/billing/pago-embebido-parametros.ts): la sesión validada va ahí.
+  assert.ok(fuente('app/api/public/checkout-embebido/route.ts').includes('widgetSesion: sesionWidgetValida(body.widgetSesion)'));
+  assert.ok(fuente('lib/billing/pago-embebido-parametros.ts').includes('metadata.widgetSesion = d.widgetSesion'));
 });
 
 test('las tres entregas (webhook ×2 y conciliador) pasan la sesión; la anota entregarPlanComprado', () => {

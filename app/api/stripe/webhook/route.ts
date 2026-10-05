@@ -14,6 +14,7 @@ import { ORIGENES_CON_RECIBO, ORIGENES_POS, procesarChargeRefunded, procesarReem
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { confirmarCobroRecibo, consumirCodigoDescuentoSiAplica } from '@/lib/billing/confirmar-cobro';
 import { reservarClasePagada } from '@/lib/billing/reservar-clase-pagada';
+import { selloDelCobro } from '@/lib/billing/sello-del-cobro';
 import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
 import { cerrarCheckoutDeBizumFallido } from '@/lib/pos/cerrar-bizum-fallido';
@@ -643,10 +644,9 @@ async function procesarEvento(
           studioId,
           planId,
           socioId: socioId ?? null,
-          // Qué condiciones aceptó al pagar. Se sellaron en el checkout y viajan
-          // por la metadata: aquí solo se leen para dejarlas en el recibo.
-          terminosHash: session.metadata?.terminosHash ?? null,
-          terminosAceptadosEn: session.metadata?.terminosAceptadosEn ?? null,
+          // Qué condiciones aceptó al pagar (la huella, sellada en el checkout) y
+          // cuándo (al crear la sesión: `session.created`). Ver sello-del-cobro.ts.
+          ...selloDelCobro(session.metadata, session.created),
           // Email verificado por Stripe: es a quien hay que entregarle el bono
           // si compró antes de registrarse.
           email: session.customer_details?.email ?? session.customer_email ?? null,
@@ -998,10 +998,9 @@ async function procesarEvento(
         studioId,
         planId,
         socioId: pi.metadata.socioId ?? null,
-          // Qué condiciones aceptó al pagar. Se sellaron en el checkout y viajan
-          // por la metadata: aquí solo se leen para dejarlas en el recibo.
-          terminosHash: pi.metadata.terminosHash ?? null,
-          terminosAceptadosEn: pi.metadata.terminosAceptadosEn ?? null,
+          // Qué condiciones aceptó al pagar (la huella, sellada en el checkout) y
+          // cuándo (al crear el cobro: `pi.created`). Ver sello-del-cobro.ts.
+          ...selloDelCobro(pi.metadata, pi.created),
         email: pi.metadata.socioEmail ?? null,
         nombre: pi.metadata.socioNombre ?? null,
         // Saneado en checkout-embebido antes de entrar en la metadata; la
