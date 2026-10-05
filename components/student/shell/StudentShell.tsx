@@ -3,7 +3,8 @@
 import { useNoLeidas } from '@/lib/student/no-leidas';
 import { useEstudio } from '@/components/student/contexto';
 
-import type { CSSProperties, ReactNode } from 'react';
+import { ViewTransition, type CSSProperties, type ReactNode } from 'react';
+import { CLASES_ENTRADA, CLASES_SALIDA } from '@/lib/student/transiciones';
 import { EsqueletoTarjetas, GuardiaSesion, useGuardiaSesion } from '@/components/student/GuardiaSesion';
 import { PreguntasAlta } from '@/components/student/PreguntasAlta';
 import { ScriptEnLinea } from '@/components/student/ui/ScriptEnLinea';
@@ -142,11 +143,13 @@ function ShellConHeroe({ heroe, children, noLeidas, badgeReservas, headerTranspa
     <div className="shell" suppressHydrationWarning data-revisita={revisita ? '' : undefined}>
       <ScriptEnLinea js={MARCAR_SIN_SESION} />
       <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
-      <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined} aria-busy={esperando || undefined}>
-        <OfflineBanner />
-        {heroe}
-        {esperando ? <div className="px esqueleto-inicio"><EsqueletoTarjetas /></div> : children}
-      </main>
+      <PantallaConTransicion>
+        <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined} aria-busy={esperando || undefined}>
+          <OfflineBanner />
+          {heroe}
+          {esperando ? <div className="px esqueleto-inicio"><EsqueletoTarjetas /></div> : children}
+        </main>
+      </PantallaConTransicion>
       {!sinNav && !esperando && <BottomNavigation badgeReservas={badgeReservas} modo="alumna" />}
       <div id="student-portal-host" />
     </div>
@@ -166,10 +169,12 @@ function ShellConGuardia({ children, noLeidas, badgeReservas, headerTransparente
   const contenido = (
     <div className="shell" data-revisita={revisita ? '' : undefined}>
       <StudioHeader noLeidas={noLeidas || sinLeer} transparente={headerTransparente} conLema={conLema} />
-      <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined}>
-        <OfflineBanner />
-        {children}
-      </main>
+      <PantallaConTransicion>
+        <main className="page" style={Object.keys(estiloPage).length ? estiloPage : undefined}>
+          <OfflineBanner />
+          {children}
+        </main>
+      </PantallaConTransicion>
       {!sinNav && <BottomNavigation badgeReservas={badgeReservas} modo={modo} />}
       {/* Anfitrión de las hojas (`Sheet`). Existe por dos motivos a la vez, y
           hacen falta LOS DOS:
@@ -187,4 +192,21 @@ function ShellConGuardia({ children, noLeidas, badgeReservas, headerTransparente
   return modo === 'instructora'
     ? <GuardiaInstructora>{contenido}</GuardiaInstructora>
     : <GuardiaSesion vistaPrevia={vistaPrevia}>{contenido}</GuardiaSesion>;
+}
+
+/**
+ * El contenido de la pantalla entra y sale según el TIPO de la navegación
+ * (lib/student/transiciones.ts): una ficha desde la derecha, volver hacia la
+ * derecha, pestañas con un fundido. `enter`/`exit` y no `update`: cada pantalla
+ * monta su propio marco, así que al navegar este envoltorio se desmonta y se
+ * vuelve a montar. Ninguna otra transición de React (filtrar, refrescar) lo
+ * mueve: `default="none"`. La cabecera y la barra de abajo quedan fuera y se
+ * anclan en el CSS (student.css, «Transiciones de pantalla»).
+ */
+function PantallaConTransicion({ children }: { children: ReactNode }) {
+  return (
+    <ViewTransition enter={CLASES_ENTRADA} exit={CLASES_SALIDA} default="none">
+      {children}
+    </ViewTransition>
+  );
 }

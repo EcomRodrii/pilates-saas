@@ -274,6 +274,10 @@ export async function sembrarSociaCompleta(page: Page, o: OpcionesSocia = {}): P
     activo: true, qr: QR_ACCESO_E2E, creadoEn: '2026-08-01T10:00:00.000Z',
   })));
 
+  // Apple Wallet: inerte hasta tener el certificado (docs/APP-IOS.md). El botón
+  // no se pinta, que es lo de producción hoy.
+  await ruta((p) => p === '/api/public/wallet-pase', (r) => r.fulfill(json({ disponible: false })));
+
   await ruta((p) => p === '/api/public/valoracion', (r) => r.fulfill(json({
     activa: valoracionActiva, conSalud: false, historial: null,
   })));

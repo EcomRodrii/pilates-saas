@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { agregadoPublicable, mesEnMadrid, puedeCambiarValoracion, type VotoValoracion } from './agregado.ts';
+import { agregadoPublicable, mesEnMadrid, puedeActualizarValoracion, puedeCambiarValoracion, type VotoValoracion } from './agregado.ts';
 
 const voto = (alumna: string, puntuacion: number, creadoEn: string): VotoValoracion => ({ alumna, puntuacion, creadoEn });
 const AHORA = new Date('2026-09-14T10:00:00Z');
@@ -88,4 +88,14 @@ test('una valoración se puede cambiar dentro de su mes, nunca con el mes ya cer
   // En hora de Madrid: el 31-ago a las 22:30 UTC ya es septiembre.
   assert.equal(puedeCambiarValoracion('2026-08-31T22:30:00Z', ahora), true);
   assert.equal(puedeCambiarValoracion('no-es-fecha', ahora), false);
+});
+
+test('puedeActualizarValoracion: con el mes cerrado solo se completa el comentario, con la MISMA nota', () => {
+  const ahora = new Date('2026-09-15T10:00:00Z');
+  // Mismo mes: nota y comentario.
+  assert.equal(puedeActualizarValoracion({ creadoEn: '2026-09-02T10:00:00Z', puntuacion: 5 }, 3, ahora), true);
+  // Mes cerrado: la nota no se mueve (se vería el cambio de UNA alumna)…
+  assert.equal(puedeActualizarValoracion({ creadoEn: '2026-08-31T21:50:00Z', puntuacion: 5 }, 3, ahora), false);
+  // …pero el comentario sí: «¿Qué tal la clase?» envía la cara y luego la frase.
+  assert.equal(puedeActualizarValoracion({ creadoEn: '2026-08-31T21:50:00Z', puntuacion: 5 }, 5, ahora), true);
 });

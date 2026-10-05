@@ -78,6 +78,11 @@ export default function AccesoLayout({ children }: { children: React.ReactNode }
       </div>
 
       <div className="st-auth-body">{children}</div>
+      {/* El anfitrión de las hojas (`Sheet`), como el de `StudentShell`: dentro
+          de `.student-app` para que la hoja lleve el kit y los colores del
+          estudio. Sin él caía a `document.body` y salía sin una regla de estilo
+          (la hoja con la privacidad del estudio en «Tus datos»). */}
+      <div id="student-portal-host" />
     </div>
   );
 }

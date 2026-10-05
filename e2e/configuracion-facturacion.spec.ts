@@ -228,11 +228,12 @@ test('sin el envío activo no se deja encender y dice por qué (0 peticiones)', 
   const { patches } = await montar(page, '/configuracion?tab=cobros#facturacion', { fila: { ...FILA, nif: NIF }, envio: { estado: 'SIN_CONFIGURAR', activadoEn: null } });
   await expect(emitir(page)).toBeVisible({ timeout: 30_000 });
   await emitir(page).click();
-  await expect(page.getByText('ese envío todavía no está abierto a los estudios')).toBeVisible();
+  await expect(page.getByText('se puede activar el día que se activa tu envío')).toBeVisible();
   await expect(page.getByText('Se podrá activar cuando tu envío a la AEAT esté activo.').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
-  // Con el alta cerrada, no se ofrece el camino a quien no la ha empezado.
-  await expect(page.getByRole('link', { name: 'Ver tu alta en la AEAT' })).toHaveCount(0);
+  // Con el alta abierta (5-oct-2026), también a quien no la ha empezado.
+  await expect(page.getByText('Todavía no has autorizado el envío a la AEAT.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Dar de alta el envío' })).toHaveAttribute('href', '/configuracion/verifactu');
   await page.waitForTimeout(400);
   expect(patches).toHaveLength(0);
 });

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { abrirFuera, alAbrirEnlace, alPulsarAviso, esAppNativa, estiloBarraDeEstado, esVueltaDeOAuth, ocultarPantallaDeCarga } from '@/lib/nativo/puente';
 import { destinoDeEnlace } from '@/lib/nativo/destino-enlace';
 import { tintaBarraDeEstado } from '@/lib/nativo/barra-de-estado';
+import { escalaDeTexto } from '@/lib/nativo/escala-texto';
+import { marcarNavegacionDesdeFuera } from '@/lib/nativo/navegacion-desde-fuera';
 
 /**
  * Lo que la app de iOS necesita en TODAS sus pantallas, y que en la web no hace
@@ -29,6 +31,27 @@ export function PuenteNativo({ fondoOscuro = false }: { fondoOscuro?: boolean } 
     if (!esAppNativa()) return;
     void estiloBarraDeEstado(tintaBarraDeEstado({ fondoOscuro }));
   }, [fondoOscuro]);
+
+  // «Texto más grande» de iOS: se mide el cuerpo del sistema con una sonda
+  // (`font: -apple-system-body`) y se aplica como `--escala-texto`, que
+  // multiplica la escala tipográfica de la app con su tope (lib/nativo/escala-texto.ts).
+  // Se vuelve a medir al volver a la app: el ajuste se cambia fuera de ella.
+  useEffect(() => {
+    if (!esAppNativa()) return;
+    const medir = () => {
+      const sonda = document.createElement('span');
+      sonda.style.cssText = 'font: -apple-system-body; position: absolute; visibility: hidden; pointer-events: none;';
+      sonda.textContent = 'A';
+      document.body.appendChild(sonda);
+      const px = parseFloat(getComputedStyle(sonda).fontSize);
+      sonda.remove();
+      document.documentElement.style.setProperty('--escala-texto', String(escalaDeTexto(px)));
+    };
+    medir();
+    const alVolver = () => { if (document.visibilityState === 'visible') medir(); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => document.removeEventListener('visibilitychange', alVolver);
+  }, []);
 
   useEffect(() => {
     if (!esAppNativa()) return;
@@ -62,11 +85,12 @@ export function PuenteNativo({ fondoOscuro = false }: { fondoOscuro?: boolean } 
     let dejarAvisos: (() => void) | null = null;
     let dejarEnlaces: (() => void) | null = null;
     let vivo = true;
-    void alPulsarAviso((aviso) => { if (aviso.ruta) r.push(aviso.ruta); })
+    // `marcarNavegacionDesdeFuera`: en un arranque en frío, `/app` no pisa este destino.
+    void alPulsarAviso((aviso) => { if (aviso.ruta) { marcarNavegacionDesdeFuera(); r.push(aviso.ruta); } })
       .then((f) => { if (vivo) dejarAvisos = f; else f(); });
     // La vuelta de un login por navegador (`/auth/vuelta?code=…`) la canjea quien
     // lo abrió (`loginConGoogleNativo`); navegar a ella aquí la gastaría dos veces.
-    void alAbrirEnlace((ruta) => { if (!esVueltaDeOAuth(ruta, '/auth/vuelta')) r.push(ruta); })
+    void alAbrirEnlace((ruta) => { if (!esVueltaDeOAuth(ruta, '/auth/vuelta')) { marcarNavegacionDesdeFuera(); r.push(ruta); } })
       .then((f) => { if (vivo) dejarEnlaces = f; else f(); });
 
     return () => {

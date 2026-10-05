@@ -6,51 +6,45 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/student/ui/Input';
 import { Button } from '@/components/student/ui/Button';
+import { Sheet } from '@/components/student/ui/Sheet';
 import { useAuthStudent } from '@/lib/student/auth';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useOnline } from '@/lib/student/useOnline';
 import { guardarFirma, leerFirma } from '@/lib/student/consentimiento';
 import { catalogo } from '@/lib/student/catalogo';
 import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
-import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { Icono } from '@/components/student/ui/Icono';
+import { PuertaDeEntrada } from '@/components/student/acceso/PuertaDeEntrada';
 
 /**
- * Crear cuenta. Literal del paquete (`app/(auth)/registro/page.tsx`): mismos
- * campos, mismo medidor de fuerza de tres barras, mismo checkbox de política.
+ * Darse de alta en el estudio (P08, 5-oct-2026). Dos cosas que de verdad son
+ * distintas, como siempre:
  *
- * Lo que cambia respecto al paquete es lo que pasa al pulsar. Aquí ocurren DOS
- * cosas que el diseño no podía saber que estaban separadas:
+ *  1. La IDENTIDAD (gotrue). Ya no lleva contraseña: es la misma puerta que
+ *     entrar —correo y código— y el código crea la cuenta si no existe. Sin
+ *     sesión, esta pantalla ES esa puerta (`PuertaDeEntrada`).
+ *  2. La FICHA DE SOCIA de este estudio, que necesita un JWT verificado. Con
+ *     sesión y sin ficha, esta pantalla es «Tus datos»: nombre, teléfono y el
+ *     consentimiento del ESTUDIO. Aquí llega desde `/acceso/verificar` (rama
+ *     sin-firma, `?firma=1`) tras el código, Google o Apple, o desde la app
+ *     Tentare cuando eliges un estudio en el que aún no estás.
  *
- *  1. La IDENTIDAD (gotrue): `signUp` con email y contraseña.
- *  2. La FICHA DE SOCIA de este estudio, que necesita un JWT verificado y por
- *     tanto no puede crearse hasta que confirme el correo.
+ * ⚠️ Lo que no cambia, y es lo que importa del alta: la firma se guarda en
+ * `sessionStorage` (`guardarFirma`) con el texto legal COMPLETO del estudio que
+ * se ha leído y aceptado, y la persiste `/acceso/verificar` (`firmarAlta`) en
+ * cuanto hay sesión. `socios.aceptacion_origen` lo fija el servidor, nunca el
+ * cliente. Sin firma no hay ficha.
  *
- * Una persona puede tener cuenta y no ser socia de ESTE estudio, así que son
- * dos cosas de verdad, no un paso partido por gusto. La firma del contrato se
- * recoge aquí y la persiste `/acceso/verificar` en cuanto hay sesión.
+ * La contraseña deja de pedirse aquí. Quien la quiera la crea con «¿Has
+ * olvidado la contraseña?» (el enlace de recuperación lleva a «Elige tu
+ * contraseña», `?crear=1`, que vale también para quien nunca tuvo una) y la
+ * cambia en Perfil → Seguridad, que hoy pide la actual.
  *
- * ── MODO FIRMA (`?firma=1`) ────────────────────────────────────────────────
- * La misma pantalla, sin la parte de identidad: solo nombre, teléfono y
- * aceptación. Sirve a los dos casos en que hace falta la firma y NO hace falta
- * crear credenciales:
- *
- *  · Para cerrar un alta a medias: sesión válida, sin ficha y sin firma. Es de
- *    donde viene ahora la vuelta de Google — `/acceso/verificar` manda aquí
- *    SOLO cuando ya ha comprobado que esa persona no tiene ficha en este
- *    estudio.
- *
- * ⚠️ Antes había un segundo camino, y era un bug: `/acceso/login` desviaba
- * aquí ANTES de salir hacia Google, para tener la firma por si acaso. Como la
- * firma vive en `sessionStorage`, en una pestaña nueva nunca estaba, así que
- * «Continuar con Google» no llegaba nunca a Google. Se quitó: el consentimiento
- * se pide a la vuelta y solo a quien hay que dar de alta de verdad. Ver el
- * comentario de `irAGoogle` en `acceso/login/page.tsx`.
- *
- * Está aquí y no en un componente aparte porque el consentimiento debe vivir en
- * UN solo sitio: el texto que se firma, la casilla y lo que se guarda son los
- * mismos: el día que cambie el texto legal, cambia una vez.
+ * ── `?firma=1` sin sesión ───────────────────────────────────────────────────
+ * Recoge la firma ANTES de ir a Google. Ya no lo usa ningún camino del producto
+ * (el consentimiento se pide a la vuelta, ver `acceso/verificar`), pero un
+ * enlace viejo puede traerlo y sigue funcionando.
  */
 export default function RegistroPage() {
   const r = useRouter();
@@ -58,70 +52,85 @@ export default function RegistroPage() {
   const { estudio, slug } = useEstudio();
   const href = usePortalHref();
   const { online } = useOnline();
-  const { registrarCuenta, entrarConGoogle } = useAuthStudent(slug);
-  const { widget: captcha, pedirToken } = useCaptcha();
-  const { autenticado } = useSesionStudent(slug);
+  const { entrarConGoogle } = useAuthStudent(slug);
+  const { autenticado, isLoading, socia } = useSesionStudent(slug);
 
-  // Solo firma: ni email ni contraseña. La identidad la pone Google, o ya la
-  // puso el enlace del correo.
-  const soloFirma = sp.get('firma') === '1';
   // ⚠️ Quien invita viaja en el enlace y hay que guardarlo: entre esta pantalla
   // y la que crea la ficha hay un correo o una vuelta por Google, y la query no
-  // sobrevive a eso. Se guarda donde ya vive la firma, con la misma duración y
-  // el mismo modo de fallar.
-  //
-  // En un EFECTO, no durante el render: escribir en `sessionStorage` es un
-  // efecto secundario, se ejecutaría en cada render y no es lo que un render
-  // debe hacer. No lleva `setState`, así que no cae en lo que el compilador de
-  // React rechaza.
+  // sobrevive a eso. En un EFECTO: escribir en `sessionStorage` no es render.
   const refDelEnlace = sp.get('ref');
   useEffect(() => {
     if (refDelEnlace) guardarReferidor(slug, refDelEnlace);
   }, [slug, refDelEnlace]);
 
+  // Ya es alumna de este estudio (abrió un enlace de invitación con la sesión
+  // puesta): no hay datos que pedirle. `/acceso/verificar` sabe a dónde va.
+  useEffect(() => {
+    if (!isLoading && autenticado && socia) r.replace(href('/acceso/verificar'));
+  }, [isLoading, autenticado, socia, r, href]);
+
+  // «Tus datos» en cuanto hay sesión, aunque no venga `?firma=1` (la app Tentare
+  // manda aquí a quien ya ha entrado): pedirle otra vez correo sería pedirle
+  // una cuenta que ya tiene.
+  const tusDatos = sp.get('firma') === '1' || autenticado;
+
+  if (!tusDatos) {
+    // Mientras se sabe si hay sesión, nada: la puerta asomaría un instante a
+    // quien ya ha entrado y viene a darse de alta en otro estudio.
+    if (isLoading) return <p className="t-meta" role="status" aria-busy>Un momento…</p>;
+    return (
+      <PuertaDeEntrada
+        titulo={`Únete a ${estudio.nombre}`}
+        subtitulo="Te mandamos un código a tu correo. Después solo te pedimos tu nombre."
+        destino={href()}
+      />
+    );
+  }
+  return <TusDatos viaCodigo={sp.get('via') === 'codigo'} autenticado={autenticado} online={online} entrarConGoogle={entrarConGoogle} alTerminar={() => r.replace(href('/acceso/verificar'))} />;
+}
+
+const PASOS = ['Correo', 'Código', 'Tus datos'] as const;
+
+function TusDatos({ viaCodigo, autenticado, online, entrarConGoogle, alTerminar }: {
+  /** Viene del código del correo: se pinta la tira «Correo · Código · Tus datos». */
+  viaCodigo: boolean;
+  autenticado: boolean;
+  online: boolean;
+  entrarConGoogle: () => Promise<{ ok: true } | { error: string }>;
+  alTerminar: () => void;
+}) {
+  const { estudio, slug } = useEstudio();
+  const href = usePortalHref();
+
   // `marketing` empieza en false y así debe quedarse: el RGPD no admite la casilla premarcada.
-  const [f, setF] = useState({ nombre: '', email: '', telefono: '', pass: '', acepto: false, marketing: false });
+  const [f, setF] = useState({ nombre: '', telefono: '', acepto: false, marketing: false });
   const [err, setErr] = useState<Record<string, string>>({});
   const [global, setGlobal] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [verLegal, setVerLegal] = useState(false);
 
-  // El texto legal del estudio, que es lo que se firma. Sale del payload
-  // público (`studioPublico` lo incluye), no de una constante: cada estudio
-  // tiene el suyo y lo que hay que guardar es el que estaba vigente hoy.
-  const [textoLegal, setTextoLegal] = useState('');
+  // Los dos documentos DEL ESTUDIO, que es lo que se firma. Salen del payload
+  // público (`studioPublico` ya los compone con los de por defecto si el estudio
+  // no los ha reescrito), no de una constante: cada estudio tiene los suyos y lo
+  // que se guarda es el texto vigente hoy.
+  const [legal, setLegal] = useState<{ privacidad: string; terminos: string } | null>(null);
   useEffect(() => {
     let vivo = true;
     void catalogo(slug).then((d) => {
       if (!vivo || !d?.studio) return;
       const s = d.studio as { politicaPrivacidad?: string; terminosServicio?: string };
-      setTextoLegal(textoLegalCompleto({
-        politicaPrivacidad: s.politicaPrivacidad ?? '',
-        terminosServicio: s.terminosServicio ?? '',
-      }));
+      setLegal({ privacidad: s.politicaPrivacidad ?? '', terminos: s.terminosServicio ?? '' });
     });
     return () => { vivo = false; };
   }, [slug]);
-
-  /** Lo que se firma, en el instante en que se pulsa. */
-  const firmaDeAhora = () => ({
-    fecha: new Date().toISOString(),
-    firma: f.nombre.trim(),
-    versionTexto: textoLegal,
-    telefono: f.telefono.trim() || undefined,
-    marketing: f.marketing || undefined,
-  });
+  const textoLegal = legal ? textoLegalCompleto({ politicaPrivacidad: legal.privacidad, terminosServicio: legal.terminos }) : '';
 
   /**
-   * Modo firma: guardar el consentimiento y seguir hacia donde tocaba.
-   *
-   * Sin captcha a propósito: aquí no se crea ninguna credencial —`signUp` no se
-   * llama— y `signInWithOAuth` ni siquiera acepta el parámetro. Pedir un token
-   * de Turnstile sería añadir 3,5 s y un motivo de fallo a un paso que no
-   * autentica nada.
+   * Guardar el consentimiento y seguir. Sin captcha a propósito: aquí no se
+   * crea ninguna credencial.
    *
    * Se exige `textoLegal` cargado: sin él la firma iría con `versionTexto`
-   * vacío, `firmaCompleta()` la rechazaría y el alta moriría al volver de
-   * Google — justo el callejón que este cambio cierra.
+   * vacío, `firmaCompleta()` la rechazaría y el alta moriría al volver.
    */
   const firmarYSeguir = async () => {
     const e: Record<string, string> = {};
@@ -132,73 +141,64 @@ export default function RegistroPage() {
     if (!textoLegal) { setGlobal('Estamos cargando las condiciones. Inténtalo en un segundo.'); return; }
 
     setCargando(true);
-    guardarFirma(slug, firmaDeAhora());
+    guardarFirma(slug, {
+      fecha: new Date().toISOString(),
+      firma: f.nombre.trim(),
+      versionTexto: textoLegal,
+      telefono: f.telefono.trim() || undefined,
+      marketing: f.marketing || undefined,
+    });
 
-    // `guardarFirma` se traga sus fallos (modo privado, almacenamiento lleno),
-    // así que hay que comprobar que la firma está DE VERDAD antes de seguir.
-    // Sin esta comprobación, `verificar` volvería a mandarnos aquí al no
-    // encontrarla y las dos pantallas se rebotarían en bucle.
+    // `guardarFirma` se traga sus fallos (modo privado, almacenamiento lleno):
+    // sin comprobarla, `verificar` volvería a mandarnos aquí y las dos
+    // pantallas se rebotarían en bucle.
     if (!leerFirma(slug)) {
       setCargando(false);
-      setGlobal('Tu navegador no nos deja guardar el consentimiento. Prueba a salir del modo privado, o entra con tu email y contraseña.');
+      setGlobal('Tu navegador no nos deja guardar el consentimiento. Prueba a salir del modo privado y vuelve a intentarlo.');
       return;
     }
 
-    // Ya tiene sesión (viene de cerrar un alta a medias): no hay que pasar por
-    // Google otra vez, solo volver a la pantalla que persiste el alta.
-    if (autenticado) { r.replace(href('/acceso/verificar')); return; }
+    // Con sesión: a la pantalla que persiste el alta y la deja dentro.
+    if (autenticado) { alTerminar(); return; }
 
     const res = await entrarConGoogle();
-    // Solo se llega aquí si gotrue rechazó ANTES de redirigir; si todo va bien
-    // la pestaña ya se ha ido a Google.
+    // Solo se llega aquí si gotrue rechazó ANTES de redirigir.
     if ('error' in res) { setCargando(false); setGlobal(res.error); }
   };
 
-  const crear = async () => {
-    const e: Record<string, string> = {};
-    if (!f.nombre.trim()) e.nombre = 'Escribe tu nombre';
-    if (!/.+@.+\..+/.test(f.email)) e.email = 'Escribe un email válido';
-    if (f.pass.length < 8) e.pass = 'Mínimo 8 caracteres';
-    if (!f.acepto) e.acepto = 'Necesitamos tu consentimiento';
-    setErr(e); setGlobal('');
-    if (Object.keys(e).length) return;
-
-    setCargando(true);
-    const token = await pedirToken();
-    if (token === null) { setCargando(false); setGlobal(ERROR_CAPTCHA); return; }
-
-    const res = await registrarCuenta(f.email, f.pass, token || undefined);
-    if ('error' in res) { setCargando(false); setGlobal(res.error); return; }
-
-    // La firma queda guardada para la pantalla de verificación, que es la que
-    // ya tendrá sesión para persistirla. Se guarda DESPUÉS del alta correcta:
-    // guardarla antes dejaría una firma huérfana si gotrue rechaza el email.
-    guardarFirma(slug, firmaDeAhora());
-
-    setCargando(false);
-    r.push(`${href('/acceso/verificar')}?email=${encodeURIComponent(f.email)}`);
-  };
-
-  // Medidor de fuerza del paquete, sin cambios.
-  const fuerza = f.pass.length === 0 ? 0 : f.pass.length < 8 ? 1 : /[A-Z]/.test(f.pass) && /\d/.test(f.pass) ? 3 : 2;
+  const casilla = (marcada: boolean) => ({
+    width: 20, height: 20, flexShrink: 0, marginTop: 1, borderRadius: 6, border: 'none',
+    background: marcada ? 'var(--accent)' : 'var(--card)', boxShadow: marcada ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)',
+    color: 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'all .2s',
+  }) as const;
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); void (soloFirma ? firmarYSeguir() : crear()); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} noValidate>
+    <form onSubmit={(e) => { e.preventDefault(); void firmarYSeguir(); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} noValidate>
+      {viaCodigo && (
+        <ol aria-label="Pasos para entrar" style={{ display: 'flex', gap: 6, listStyle: 'none', margin: '0 0 4px', padding: 0 }}>
+          {PASOS.map((p, i) => {
+            const actual = i === PASOS.length - 1;
+            return (
+              <li key={p} aria-current={actual ? 'step' : undefined} style={{ flex: 1, minWidth: 0 }}>
+                <span aria-hidden style={{ display: 'block', height: 3, borderRadius: 99, background: 'var(--accent)' }} />
+                <span className="t-meta" style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 5, fontWeight: actual ? 800 : 600, color: actual ? 'var(--foreground)' : 'var(--muted-foreground)' }}>
+                  {!actual && <Icono nombre="hecho" tamano={13} grosor={2} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
+                  {p}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
       <div>
-        <h2 className="t-h1">
-          {!soloFirma ? 'Crea tu cuenta' : autenticado ? 'Ya casi estás' : 'Un paso antes'}
-        </h2>
-        <p className="t-meta" style={{ marginTop: 4 }}>
-          {/* ⚠️ Con sesión ya resuelta NO se dice «si aún no lo estás». Aquí
-              solo se llega desde `/acceso/verificar`, que ya ha mirado y ha
-              visto que no hay ficha en este estudio; el condicional era una
-              duda que la pantalla no tiene, y leído desde fuera parecía que
-              Tentare no sabe quién eres justo después de identificarte. */}
-          {!soloFirma
-            ? `Para reservar en ${estudio.nombre}. Un minuto.`
-            : autenticado
-              ? `Ya te hemos identificado. Solo nos falta tu nombre para darte de alta en ${estudio.nombre}.`
-              : `Tu nombre y tu consentimiento, para poder darte de alta en ${estudio.nombre} si aún no lo estás.`}
+        <h2 className="t-h1">Tus datos</h2>
+        <p className="t-meta" style={{ marginTop: 4, lineHeight: 1.5 }}>
+          {/* Con sesión ya resuelta NO se dice «si aún no lo estás»: aquí solo se
+              llega después de comprobar que no hay ficha en este estudio. */}
+          {autenticado
+            ? `Es tu primera vez en ${estudio.nombre}: solo nos falta tu nombre.`
+            : `Tu nombre y tu consentimiento, para darte de alta en ${estudio.nombre} si aún no lo estás.`}
         </p>
       </div>
 
@@ -208,40 +208,30 @@ export default function RegistroPage() {
         </p>
       )}
 
-      <Input label="Nombre" autoComplete="given-name" value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} error={err.nombre} />
-      {/* En modo firma la identidad la pone Google (o ya la puso el correo):
-          pedir email y contraseña aquí sería pedir credenciales que nadie va a
-          usar, y dar a entender que se está creando una segunda cuenta. */}
-      {!soloFirma && (
-        <Input label="Email" type="email" autoComplete="email" inputMode="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} error={err.email} />
-      )}
+      <Input label="Nombre" autoComplete="name" value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} error={err.nombre} />
+      {/* Opcional: ningún estudio puede hoy exigir el teléfono en el alta. Si lo
+          necesita, lo pide en sus preguntas, que se contestan al entrar. */}
       <Input label="Teléfono" type="tel" autoComplete="tel" inputMode="tel" value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} hint="Para avisarte si se libera una plaza. Opcional." />
-
-      {!soloFirma && (
-        <div>
-          <Input label="Contraseña" type="password" autoComplete="new-password" value={f.pass} onChange={(e) => setF({ ...f, pass: e.target.value })} error={err.pass} />
-          <div aria-hidden style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-            {[1, 2, 3].map((n) => (
-              <span key={n} style={{ flex: 1, height: 4, borderRadius: 99, background: fuerza >= n ? (fuerza === 1 ? 'var(--warning)' : 'var(--success)') : 'var(--muted)', transition: 'background .25s' }} />
-            ))}
-          </div>
-        </div>
-      )}
 
       <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
         <button
           type="button" role="checkbox" aria-checked={f.acepto}
-          aria-label={`Acepto la política de privacidad de ${estudio.nombre}`}
+          aria-label={`Acepto las condiciones y la política de privacidad de ${estudio.nombre}`}
           onClick={() => setF({ ...f, acepto: !f.acepto })}
-          style={{ width: 20, height: 20, flexShrink: 0, marginTop: 1, borderRadius: 6, border: 'none', background: f.acepto ? 'var(--accent)' : 'var(--card)', boxShadow: f.acepto ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'all .2s' }}
+          style={casilla(f.acepto)}
         >
           {f.acepto && <Icono nombre="hecho" tamano={16} grosor={2} />}
         </button>
         <span style={{ fontSize: 'var(--t-small)', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>
-          Al inscribirme, acepto la{' '}
-          <Link href="/privacidad" target="_blank" style={{ color: 'var(--foreground)', fontWeight: 700, textDecoration: 'underline' }}>
-            política de privacidad
-          </Link>{' '}
+          He leído y acepto{' '}
+          {/* El texto del ESTUDIO, el mismo que se firma, en una hoja: antes este
+              enlace llevaba a la política de Tentare, que no es lo que acepta. */}
+          <button
+            type="button" onClick={() => setVerLegal(true)} disabled={!legal}
+            style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--foreground)', fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 2, cursor: 'pointer' }}
+          >
+            las condiciones y la política de privacidad
+          </button>{' '}
           de {estudio.nombre}.
         </span>
       </label>
@@ -254,7 +244,7 @@ export default function RegistroPage() {
           type="button" role="checkbox" aria-checked={f.marketing}
           aria-label={`Quiero recibir novedades y ofertas de ${estudio.nombre} por email`}
           onClick={() => setF({ ...f, marketing: !f.marketing })}
-          style={{ width: 20, height: 20, flexShrink: 0, marginTop: 1, borderRadius: 6, border: 'none', background: f.marketing ? 'var(--accent)' : 'var(--card)', boxShadow: f.marketing ? 'none' : 'inset 0 0 0 1.5px var(--border-strong)', color: 'var(--accent-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, transition: 'all .2s' }}
+          style={casilla(f.marketing)}
         >
           {f.marketing && <Icono nombre="hecho" tamano={16} grosor={2} />}
         </button>
@@ -269,18 +259,25 @@ export default function RegistroPage() {
       </details>
 
       <Button type="submit" full loading={cargando} disabled={!online} style={{ marginTop: 4 }}>
-        {!online ? 'Sin conexión' : soloFirma ? (autenticado ? 'Aceptar y continuar' : 'Aceptar y continuar con Google') : 'Crear cuenta'}
+        {!online ? 'Sin conexión' : autenticado ? 'Entrar' : 'Aceptar y continuar con Google'}
       </Button>
 
       <p className="t-meta" style={{ textAlign: 'center' }}>
-        {soloFirma
-          ? <Link href={href('/acceso/login')} style={{ fontWeight: 800, color: 'var(--foreground)' }}>Volver a acceso</Link>
-          : <>¿Ya tienes cuenta? <Link href={href('/acceso/login')} style={{ fontWeight: 800, color: 'var(--foreground)' }}>Entrar</Link></>}
+        <Link href={href('/acceso/login')} style={{ fontWeight: 800, color: 'var(--foreground)' }}>Volver a acceso</Link>
       </p>
 
-      {/* En modo firma no hay captcha porque no se llama a `signUp`: montarlo
-          cargaría Turnstile para nada. */}
-      {!soloFirma && captcha}
+      <Sheet open={verLegal} onClose={() => setVerLegal(false)} label={`Condiciones y privacidad de ${estudio.nombre}`}>
+        <div className="px" style={{ paddingBottom: 16 }}>
+          <h2 className="t-title">Condiciones y privacidad de {estudio.nombre}</h2>
+          <div data-testid="texto-legal-estudio" style={{ maxHeight: '60vh', overflowY: 'auto', marginTop: 10 }}>
+            <h3 className="t-card-title" style={{ marginTop: 6 }}>Política de privacidad</h3>
+            <p className="t-small" style={{ whiteSpace: 'pre-wrap', marginTop: 6, color: 'var(--muted-foreground)' }}>{legal?.privacidad}</p>
+            <h3 className="t-card-title" style={{ marginTop: 14 }}>Condiciones del servicio</h3>
+            <p className="t-small" style={{ whiteSpace: 'pre-wrap', marginTop: 6, color: 'var(--muted-foreground)' }}>{legal?.terminos}</p>
+          </div>
+          <Button variant="secondary" full onClick={() => setVerLegal(false)} style={{ marginTop: 14 }}>Cerrar</Button>
+        </div>
+      </Sheet>
     </form>
   );
 }

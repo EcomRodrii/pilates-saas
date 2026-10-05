@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { coloresMonograma, inicialDe } from '@/lib/monograma-estudio';
 import { usePortalHref } from '@/components/student/contexto';
 import type { Clase, Disponibilidad, Instructora } from '@/lib/student/tipos';
@@ -28,7 +29,7 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
   const seAbre = clase.seAbreEl && ahoraMs !== null && estado !== 'reservada' && estado !== 'lista-espera' && ahoraMs < Date.parse(clase.seAbreEl)
     ? clase.seAbreEl : null;
   return (
-    <Link href={href('/reservar/' + clase.id)} className="card card--tap a-up" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', animationDelay: delay + 'ms', borderColor: estado === 'reservada' ? 'var(--accent)' : undefined, borderWidth: estado === 'reservada' ? 1.5 : 1 }}>
+    <Link href={href('/reservar/' + clase.id)} transitionTypes={TRANSICION_ADELANTE} className="card card--tap a-up" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', animationDelay: delay + 'ms', borderColor: estado === 'reservada' ? 'var(--accent)' : undefined, borderWidth: estado === 'reservada' ? 1.5 : 1 }}>
       {/* El bloque de la izquierda: LOGO de la clase sobre la hora.
           Aquí es donde se mira, y es lo que identifica a esta clase — el banner
           de la cabecera HEREDA (tipo → sala → estudio), así que a menudo es la

@@ -44,7 +44,8 @@ async function montar(page: Page, plan: { id: string; nombre: string; precio: nu
 async function abrirPago(page: Page, nombre: string, boton: 'Comprar' | 'Contratar') {
   await page.goto(`${base}/comprar`, { waitUntil: 'domcontentloaded' });
   await expect(page.getByText(nombre)).toBeVisible({ timeout: 30_000 });
-  await page.locator('article').filter({ hasText: nombre }).getByRole('button', { name: boton, exact: true }).click();
+  // El botón lleva el importe desde P09 («Comprar · 70 €», «Contratar · 89 €/mes»).
+  await page.locator('article').filter({ hasText: nombre }).getByRole('button', { name: new RegExp(`^${boton} · `) }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('button', { name: 'Continuar al pago' }).click();
 }
