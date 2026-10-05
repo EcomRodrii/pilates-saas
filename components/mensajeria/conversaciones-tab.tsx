@@ -52,6 +52,13 @@ async function api<T>(url: string, init?: RequestInit): Promise<{ ok: true; data
   }
 }
 
+/** Marca el hilo leído hasta el mensaje `hasta` (el último pintado; `null` si ninguno). */
+function marcarLeidoHasta(conversacionId: string, hasta: string | null) {
+  return api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, {
+    method: 'PATCH', body: JSON.stringify({ hasta }),
+  });
+}
+
 // ── Hilo (datos + Realtime) ─────────────────────────────────────────────────
 
 function Hilo({
@@ -94,7 +101,10 @@ function Hilo({
     if (resultado.ok) {
       setMensajes(resultado.data.mensajes);
       setError(null);
-      if (!soloLectura) void api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
+      // Leído hasta el último mensaje que se va a pintar, no hasta «ahora»: uno
+      // que llegue entre la carga y el canal no se ha visto (ni su aviso).
+      const ultimo = resultado.data.mensajes[resultado.data.mensajes.length - 1]?.id ?? null;
+      if (!soloLectura) void marcarLeidoHasta(conversacionId, ultimo);
     } else {
       setError(resultado.error);
     }
@@ -126,7 +136,7 @@ function Hilo({
         .on('broadcast', { event: 'INSERT' }, ({ payload }) => {
           const fila = payload.record as RowMensajes;
           setMensajes(prev => anadirMensaje(prev, fila));
-          if (!soloLectura) void api(`/api/mensajeria/conversaciones/${conversacionId}/leido`, { method: 'PATCH' });
+          if (!soloLectura) void marcarLeidoHasta(conversacionId, fila.id);
           // Un mensaje real es señal más fuerte que el "escribiendo…" que lo
           // precedió — se apaga en vez de esperar a que expire solo.
           if (fila.remitente_auth_user_id !== authUserId) {
@@ -237,7 +247,15 @@ function Hilo({
 
 // ── Pestaña ─────────────────────────────────────────────────────────────────
 
-export function ConversacionesTab() {
+/**
+ * `conversacionPedida`: el hilo que hay que abrir (el enlace del aviso de un
+ * mensaje nuevo, `/mensajeria?conversacion=<id>`). Cada petición es un objeto
+ * nuevo y se atiende una vez, cuando llega y no solo al montar. Se abre en
+ * cuanto la bandeja lo trae; si no está, se relee la bandeja una vez (el hilo
+ * pudo nacer después de cargarla) y, si sigue sin estar (otro estudio, o un hilo
+ * que no ve), se queda la bandeja, sin hilo vacío.
+ */
+export function ConversacionesTab({ conversacionPedida = null }: { conversacionPedida?: { id: string } | null } = {}) {
   const { socios, instructores, reservas, sesiones } = useStudio();
   const { user } = useAuth();
   const authUserId = user?.id ?? null;
@@ -274,6 +292,31 @@ export function ConversacionesTab() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la bandeja.
   useEffect(() => { void cargarLista(); }, [cargarLista]);
 
+  // Abrir el hilo del enlace, una vez por petición y solo si la bandeja lo trae.
+  // Se limpia la URL (como el salto a una clase en /calendario): recargar no lo
+  // reabre, y el mismo aviso tocado otra vez sí.
+  const atendida = useRef<{ id: string } | null>(null);
+  const releida = useRef<{ id: string } | null>(null);
+  useEffect(() => {
+    const p = conversacionPedida;
+    if (!p || p === atendida.current) return;
+    // Los avisos son de su bandeja, nunca de «Equipo con alumnas».
+    if (ambito !== 'bandeja') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- responde a una petición externa (el enlace de un aviso), no es un valor derivado.
+      setAbiertaId(null); setConversaciones(null); setFiltro(''); setAmbito('bandeja');
+      return;
+    }
+    if (!conversaciones) return;
+    if (!conversaciones.some(c => c.id === p.id)) {
+      if (releida.current !== p) { releida.current = p; void cargarLista(); return; }
+      atendida.current = p;
+      return;
+    }
+    atendida.current = p;
+    setAbiertaId(p.id);
+    window.history.replaceState(null, '', window.location.pathname);
+  }, [conversacionPedida, conversaciones, cargarLista, ambito]);
+
   const abierta = conversaciones?.find(c => c.id === abiertaId) ?? null;
 
   const filas = useMemo(() => {
@@ -284,7 +327,7 @@ export function ConversacionesTab() {
         || (c.ultimo_cuerpo ?? '').toLowerCase().includes(q));
   }, [conversaciones, socios, instructores, filtro]);
 
-  const sinLeerTotal = (conversaciones ?? []).filter(c => tieneSinLeer(c, authUserId)).length;
+  const sinLeerTotal = (conversaciones ?? []).filter(c => tieneSinLeer(c, authUserId, 'equipo')).length;
 
   async function abrirConversacion(
     tipo: 'ALUMNA_INSTRUCTORA' | 'ALUMNA_MOSTRADOR', socioId: string, instructorId?: string,
@@ -416,7 +459,7 @@ export function ConversacionesTab() {
                       identidad={identidad}
                       indice={i}
                       activa={c.id === abiertaId}
-                      sinLeer={tieneSinLeer(c, authUserId)}
+                      sinLeer={tieneSinLeer(c, authUserId, 'equipo')}
                       esMio={Boolean(c.ultimo_remitente_auth_user_id && c.ultimo_remitente_auth_user_id === authUserId)}
                       onClick={() => setAbiertaId(c.id)}
                     />

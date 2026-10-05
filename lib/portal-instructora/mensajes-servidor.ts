@@ -2,12 +2,13 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { filasDeSociaConInstructora } from '@/lib/datos-salud/acceso-servidor';
 import { instructoraAtiendeSocia } from '@/lib/datos-salud/acceso-instructora';
 import { nombresParaLista } from '@/lib/student/agenda-instructora';
-import { authUserIdsParaNotificar } from '@/lib/mensajeria/destinatarios';
+import { repartoAvisoMensaje } from '@/lib/mensajeria/destinatarios';
 import { previsualizacionParaAviso } from '@/lib/mensajeria/presentacion';
 import {
   instantesUltimoMensaje, resumirConversaciones, type FilaLectura, type FilaUltimoMensaje,
 } from '@/lib/mensajeria/resumen';
 import { emitirMensajeRecibido } from '@/lib/notifications/emit';
+import { instanteDelMensaje, marcarAvisosDeConversacionLeidos } from '@/lib/mensajeria/avisos-leidos';
 import type { RowConversaciones, RowMensajes } from '@/lib/db-types';
 import type { AlumnaDelHilo, HiloInstructora, MotivoNoAbrir } from '@/lib/student/mensajes-instructora';
 
@@ -123,7 +124,7 @@ export async function hilosDeInstructora(p: InstructoraDelHilo): Promise<HiloIns
   }
 
   return resumirConversaciones(
-    filas, (ultimos.data ?? []) as FilaUltimoMensaje[], (participantes.data ?? []) as FilaLectura[], p.userId,
+    filas, (ultimos.data ?? []) as FilaUltimoMensaje[], (participantes.data ?? []) as FilaLectura[], p.userId, 'equipo',
   ).map((c) => {
     const socioId = socioPorHilo.get(c.id);
     return { ...c, alumna: socioId ? alumnaPorId.get(socioId) ?? null : null } as HiloInstructora;
@@ -199,14 +200,30 @@ export async function enviarEnHilo(
   return data as RowMensajes;
 }
 
-/** Marca un hilo suyo como leído por ella. `false` si no es suyo. */
-export async function marcarHiloLeido(p: InstructoraDelHilo, conversacionId: string): Promise<boolean> {
+/**
+ * Marca un hilo suyo como leído por ella, hasta el último mensaje que su
+ * pantalla ha pintado (`hasta`; sin él, hasta ahora: app anterior), y apaga sus
+ * avisos de ese hilo. `false` si no es suyo.
+ */
+export async function marcarHiloLeido(
+  p: InstructoraDelHilo, conversacionId: string, hasta?: string | null,
+): Promise<boolean> {
   const admin = adminOLanza();
   if (!(await esHiloSuyo(admin, p, conversacionId))) return false;
-  const { error } = await admin.from('conversacion_participantes')
-    .update({ leido_hasta: new Date().toISOString() })
+  const instante = typeof hasta === 'string' ? await instanteDelMensaje(admin, conversacionId, hasta) : null;
+  // Sin nada pintado (hilo vacío) no hay nada que marcar.
+  if (hasta !== undefined && !instante) return true;
+  let marca = admin.from('conversacion_participantes')
+    .update({ leido_hasta: instante ?? new Date().toISOString() })
     .eq('conversacion_id', conversacionId).eq('auth_user_id', p.userId).eq('rol_en_conversacion', 'STAFF');
+  if (instante) marca = marca.lt('leido_hasta', instante); // nunca hacia atrás
+  const { error } = await marca;
   if (error) throw error;
+  const errorAvisos = await marcarAvisosDeConversacionLeidos(admin, {
+    userId: p.userId, studioId: p.studioId, conversacionId, lado: 'equipo',
+    ...(instante ? { hasta: instante } : {}),
+  });
+  if (errorAvisos) throw errorAvisos;
   return true;
 }
 
@@ -221,13 +238,15 @@ export async function avisarMensajeNuevo(
   // del body puede ser una dirección antigua.
   try {
     const admin = adminOLanza();
-    const authUserIds = await authUserIdsParaNotificar(
+    // La alumna, como SOCIA por su papel en el hilo (no por lo que sea su cuenta).
+    const reparto = await repartoAvisoMensaje(
       admin, { id: conversacionId, tipo: TIPO, studio_id: p.studioId }, p.userId,
     );
-    if (authUserIds.length === 0) return;
+    if (reparto.authUserIds.length === 0) return;
     await emitirMensajeRecibido(admin, {
       studioId: p.studioId, conversacionId, mensajeId, remitente: p.remitente,
-      previsualizacion: previsualizacionParaAviso(TIPO, ''), authUserIds, tipo: TIPO,
+      previsualizacion: previsualizacionParaAviso(TIPO, ''), tipo: TIPO,
+      authUserIds: reparto.authUserIds, recipients: reparto.recipients, socioId: reparto.socioId,
     });
   } catch (e) {
     console.error('[portal-instructora/mensajes] aviso tras enviar falló', e instanceof Error ? e.message : e);

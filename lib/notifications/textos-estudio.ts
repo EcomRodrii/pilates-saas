@@ -82,6 +82,20 @@ export function textoEfectivo(evento: string, delEstudio: TextoAviso | null | un
   return textoDeFabrica(evento);
 }
 
+/**
+ * Qué enseña la lista de Configuración para un aviso. Un texto guardado que ya
+ * no vale (p. ej. uno de «mensaje nuevo» con el principio del mensaje, que el
+ * aviso ya no lleva) NO es el que sale: decir «Texto tuyo» y previsualizarlo
+ * sería mentir sobre lo que recibe la alumna. Sale el de fábrica, y se avisa.
+ * No se borra: es suyo, y desde el editor ve qué le falla.
+ */
+export function textoEnLista(
+  evento: string, guardado: TextoAviso | null | undefined,
+): { texto: TextoAviso; propio: boolean; yaNoSeUsa: boolean } {
+  if (guardado && validarTexto(evento, guardado) === null) return { texto: guardado, propio: true, yaNoSeUsa: false };
+  return { texto: textoDeFabrica(evento)!, propio: false, yaNoSeUsa: !!guardado };
+}
+
 // ── Para el panel: qué significa cada variable y cómo quedaría ─────────────
 
 export const ETIQUETA_VARIABLE: Record<string, string> = {
@@ -102,6 +116,7 @@ export const ETIQUETA_VARIABLE: Record<string, string> = {
   precioNuevo: 'precio nuevo',
   clases: 'clases que puede recuperar',
   remitente: 'quién escribe',
+  quienEscribe: 'quién le escribe (el estudio o su instructora)',
   autor: 'quién publica',
   previsualizacion: 'el principio del mensaje',
   titulo: 'título del documento',
@@ -117,7 +132,7 @@ const MUESTRA: Record<string, string> = {
   clase: 'Reformer', cuando: 'jueves 25 a las 18:30', hora: '18:30', fecha: '30 de septiembre',
   antelacion: '24 horas', faltan: 'faltan 24 horas', sala: 'Sala Norte', instructora: 'Ana', sustituta: 'Marta',
   concepto: 'Bono 10', importe: '75', sesiones: '2', plan: 'Bono 10', precioAnterior: '69 €',
-  precioNuevo: '75 €', clases: '1 clase', remitente: 'Ana', autor: 'El estudio',
+  precioNuevo: '75 €', clases: '1 clase', remitente: 'Ana', quienEscribe: 'Pilates Luz', autor: 'El estudio',
   previsualizacion: ': «¿Nos vemos el jueves?»', titulo: 'Consentimiento', respuesta: 'Te hemos guardado la plaza.',
   motivoTexto: '', estudio: 'Pilates Luz', nombre: 'Reformer Lunes 18:00', hasta: '30 de septiembre',
   cierre: 'Amplíala desde tu app si quieres seguir teniéndola.',

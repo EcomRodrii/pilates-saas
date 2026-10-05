@@ -8,9 +8,8 @@ import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { useAsync } from '@/lib/student/useAsync';
-import { useMiAuthUserId } from '@/lib/student/mensajeria';
 import { getHilosInstructora } from '@/lib/student/datos-instructora';
-import { selloLista, tieneSinLeer, unaLinea } from '@/lib/mensajeria/presentacion';
+import { selloLista, unaLinea } from '@/lib/mensajeria/presentacion';
 import { AvatarSocia } from '@/components/student/domain/AvatarSocia';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 
@@ -25,7 +24,6 @@ export default function MensajesInstructoraPage() {
   const router = useRouter();
   const { instructora } = useSesionInstructora(estudio.slug, true, true);
   const esInstructora = Boolean(instructora);
-  const miId = useMiAuthUserId();
 
   const cargar = useCallback(
     // Monta antes que su guardia (es su padre): sin confirmar, no se pide nada.
@@ -35,7 +33,8 @@ export default function MensajesInstructoraPage() {
   // Misma clave que la tarjeta de mensajes de «Hoy»: son los mismos hilos.
   const { data, estado, reintentar } = useAsync(cargar, undefined, `instr:${estudio.slug}:hilos`);
   // Cuántas esperan respuesta, arriba: es lo que viene a mirar (pasada de diseño 6).
-  const pendientes = estado === 'ready' ? (data ?? []).filter((h) => tieneSinLeer(h, miId)).length : 0;
+  // `sin_leer` lo calcula el servidor (lib/mensajeria/resumen.ts).
+  const pendientes = estado === 'ready' ? (data ?? []).filter((h) => h.sin_leer).length : 0;
   const sub = estado !== 'ready' ? undefined
     : pendientes === 0 ? 'Con tus alumnas · todo leído'
       : pendientes === 1 ? 'Con tus alumnas · 1 sin leer'
@@ -59,7 +58,7 @@ export default function MensajesInstructoraPage() {
           />
         )}
         {estado === 'ready' && data!.map((h) => {
-          const sinLeer = tieneSinLeer(h, miId);
+          const sinLeer = h.sin_leer;
           const nombre = h.alumna?.nombre ?? 'Alumna';
           return (
             <Link

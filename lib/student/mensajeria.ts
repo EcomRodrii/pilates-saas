@@ -91,21 +91,35 @@ export async function enviarMensaje(studioId: string, conversacionId: string, cu
   }
 }
 
-export async function marcarConversacionLeida(studioId: string, conversacionId: string): Promise<void> {
+/**
+ * Marca el hilo leído y, con él, sus avisos de la campana. `true` solo si el
+ * servidor lo confirma: quien llama apaga el punto de la campana con eso, y
+ * apagarlo sin confirmación sería decir «leído» con los avisos sin leer.
+ * Best-effort: si falla, no bloquea la lectura del hilo.
+ */
+export async function marcarConversacionLeida(
+  studioId: string, conversacionId: string, hasta: string | null,
+): Promise<boolean> {
   try {
     const auth = await portalAuthHeader();
-    await fetch(`/api/public/mensajeria/conversaciones/${encodeURIComponent(conversacionId)}/leido`, {
+    const res = await fetch(`/api/public/mensajeria/conversaciones/${encodeURIComponent(conversacionId)}/leido`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...auth },
-      body: JSON.stringify({ studioId }),
+      // `hasta`: el último mensaje que ha pintado la pantalla. Lo que llegó
+      // después no se ha visto y no se da por leído (ni su aviso).
+      body: JSON.stringify({ studioId, hasta }),
     });
-  } catch { /* best-effort: no bloquea la lectura si falla */ }
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 // ── Quién soy ────────────────────────────────────────────────────────────
 //
-// `tieneSinLeer`/agrupar-por-remitente necesitan saber cuál de los dos
-// `auth_user_id` de un mensaje es "yo". Un `getSession()` suelto fue la causa
+// Agrupar por remitente (quién dijo qué en el hilo) necesita saber cuál de los
+// dos `auth_user_id` de un mensaje es "yo". El punto de «sin leer» de la lista
+// ya no: lo calcula el servidor (`sin_leer`). Un `getSession()` suelto fue la causa
 // del bug de Realtime que nunca conectaba en el lado STAFF (#1514) — pero
 // aquella era una suscripción a un canal en tiempo real; aquí no hay ningún
 // canal (esta pantalla es fetch simple, como el resto de la Student PWA:

@@ -47,7 +47,8 @@ export function HiloConversacion({
   /** Estable (useCallback). Lanza si no se pueden leer los mensajes. */
   cargar: () => Promise<RowMensajes[]>;
   enviar: (cuerpo: string) => Promise<ResultadoEnviar>;
-  marcarLeido: () => Promise<void>;
+  /** `hasta`: el id del último mensaje pintado (`null` si ninguno). */
+  marcarLeido: (hasta: string | null) => Promise<void>;
   miId: string | null;
   modo?: 'alumna' | 'instructora';
   /** Aviso fijo bajo la cabecera (p.ej. que el estudio puede leer la conversación). */
@@ -69,11 +70,14 @@ export function HiloConversacion({
 
   const mensajes = [...(data ?? []), ...extra];
 
-  // Marcar leído al abrir. Best-effort: si falla, la próxima carga de la bandeja
-  // seguirá enseñándola sin leer, que es el fallo seguro correcto — nunca al revés.
+  // Marcar leído al abrir, HASTA el último mensaje que se ha pintado: uno que
+  // llegue después no se ha visto. Best-effort: si falla, la próxima carga de la
+  // bandeja seguirá enseñándola sin leer, que es el fallo seguro correcto —
+  // nunca al revés.
+  const ultimoPintado = data && data.length > 0 ? data[data.length - 1].id : null;
   useEffect(() => {
-    if (estado === 'ready' || estado === 'empty') void marcarLeido();
-  }, [estado, marcarLeido]);
+    if (estado === 'ready' || estado === 'empty') void marcarLeido(ultimoPintado);
+  }, [estado, marcarLeido, ultimoPintado]);
 
   useEffect(() => {
     finRef.current?.scrollIntoView({ block: 'end' });

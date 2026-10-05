@@ -44,7 +44,9 @@ export default function HiloInstructoraPage() {
     return mensajes;
   }, [esInstructora, estudio.slug, id]);
   const enviar = useCallback((cuerpo: string) => enviarEnHiloInstructora(estudio.slug, id, cuerpo), [estudio.slug, id]);
-  const marcarLeido = useCallback(() => marcarHiloLeidoInstructora(estudio.slug, id), [estudio.slug, id]);
+  const marcarLeido = useCallback(
+    (hasta: string | null) => marcarHiloLeidoInstructora(estudio.slug, id, hasta), [estudio.slug, id],
+  );
 
   return (
     <HiloConversacion

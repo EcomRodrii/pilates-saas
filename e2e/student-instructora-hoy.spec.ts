@@ -27,6 +27,8 @@ const HILO_SIN_LEER = {
   ultimo_cuerpo: '¿Mañana hacemos suelo pélvico?',
   ultimo_remitente_auth_user_id: 'usuario-alumna',
   leido_hasta: '2026-09-12T09:00:00.000Z',
+  // Lo calcula el servidor (lib/mensajeria/resumen.ts); la app lo lee tal cual.
+  sin_leer: true,
   alumna: { socioId: 'soc-1', nombre: 'Aina P.', fotoUrl: null },
 };
 
