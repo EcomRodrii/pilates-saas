@@ -38,9 +38,10 @@ import { ALGORITHM_VERSION } from '@/lib/decision/version';
 import { elegirMensajeDelDia, type ImpactoRealCalibracion } from '@/lib/decision/umbral';
 import { aperturaAvisadaHoy } from '@/lib/opening/umbral-apertura';
 import { fechaDelMensaje } from '@/lib/decision/mensaje-del-dia';
+import { sesionDelEvento } from '@/lib/decision/analisis-en-curso';
 import { emitirDecisionMensajeDia } from '@/lib/notifications/emit';
 import {
-  dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
+  dbInsertDecisionSession, dbExisteDecisionSession, dbCerrarSesionInterrumpida, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
   dbListPendientes, dbListResueltas90d, dbListMemoriaRows, construirMapaMemoria, dbUpsertResumenDiario, dbUpsertHechoMemoria,
   dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
   dbLogActividadReciente, dbGetAutonomiaConfig, dbCountCupoAutonomasHoy, dbAprobarAutonoma, dbListMensajesRecientes, dbUpsertMensajeDia,
@@ -114,15 +115,52 @@ export const decisionDispatcher = inngest.createFunction(
 // F2 · ANALIZAR ESTUDIO — un run por estudio. concurrency 3 (comparte el
 // límite de cuenta del plan free con automatizaciones, Arquitectura §11).
 // ═══════════════════════════════════════════════════════════════════════════
+/**
+ * El `onFailure` del análisis: agotó sus reintentos y su sesión se quedaba
+ * abierta (sin `finalizado_en`), así que la pantalla habría seguido diciendo
+ * «Analizando…» hasta que pasaran los 10 min de la ventana. Se cierra como
+ * FALLIDA: por su id si el evento lo trae (los de «Analizar ahora»), y por el
+ * instante con el que se creó (`nowISO`: la del cron la crea el propio análisis
+ * con él). Solo toca una sesión ABIERTA de ese estudio.
+ *
+ * Lo que llega es el `inngest/function.failed` con el evento original en
+ * `data.event`; se lee también `data` a secas, como en `cerrarEjecucionInterrumpida`.
+ */
+async function cerrarAnalisisInterrumpido(evento: unknown): Promise<void> {
+  const e = evento as { data?: { event?: { data?: unknown } } } | undefined;
+  const datos = (e?.data?.event?.data ?? e?.data) as { studioId?: unknown; nowISO?: unknown } | undefined;
+  const studioId = typeof datos?.studioId === 'string' ? datos.studioId : null;
+  if (!studioId) {
+    console.error('[decision-analizar-estudio:onFailure] sin el estudio', JSON.stringify(evento));
+    return;
+  }
+  const sesion = sesionDelEvento(datos);
+  const nowISO = typeof datos?.nowISO === 'string' ? datos.nowISO : null;
+  const motivo = 'El análisis no terminó tras sus reintentos';
+  if (sesion) await dbCerrarSesionInterrumpida(studioId, { id: sesion }, motivo);
+  // También por el instante: si la del evento no existía, el análisis creó otra con él.
+  if (nowISO) await dbCerrarSesionInterrumpida(studioId, { iniciadoEn: nowISO }, motivo);
+}
+
 export const analizarEstudio = inngest.createFunction(
-  { id: 'decision-analizar-estudio', triggers: [{ event: EVENTS.DECISION_ANALYZE }], concurrency: { limit: 3 }, retries: 3 },
+  {
+    id: 'decision-analizar-estudio', triggers: [{ event: EVENTS.DECISION_ANALYZE }], concurrency: { limit: 3 }, retries: 3,
+    onFailure: async ({ event }) => { await cerrarAnalisisInterrumpido(event); },
+  },
   async ({ event, step }) => {
     const { studioId, disparadoPor, nowISO } = event.data as { studioId: string; disparadoPor: 'CRON' | 'MANUAL' | 'REACTIVO'; nowISO: string };
     const now = new Date(nowISO);
 
-    const sessionId = await step.run('crear-sesion', () =>
-      dbInsertDecisionSession({ studioId, disparadoPor, algorithmVersion: ALGORITHM_VERSION, iniciadoEn: nowISO })
-    );
+    // «Analizar ahora» crea la sesión antes de enviar el evento y manda su id
+    // (app/api/decisiones/analizar): se reutiliza, y así la pantalla sabe desde
+    // el 202 que el análisis está en marcha. Si no viene (el cron, o un evento
+    // enviado antes de este cambio) o no es de este estudio, se crea aquí como
+    // siempre. El id que devuelve el step queda memorizado: idempotente en replay.
+    const sesionPedida = sesionDelEvento(event.data);
+    const sessionId = await step.run('crear-sesion', async () => {
+      if (sesionPedida && await dbExisteDecisionSession(sesionPedida, studioId)) return sesionPedida;
+      return dbInsertDecisionSession({ studioId, disparadoPor, algorithmVersion: ALGORITHM_VERSION, iniciadoEn: nowISO });
+    });
 
     // Las siete lecturas van en UN step (antes siete): cada step es una ejecución
     // de Inngest y estas solo leen, así que si falla una repetir las siete no

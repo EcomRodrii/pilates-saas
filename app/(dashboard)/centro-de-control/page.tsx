@@ -11,6 +11,7 @@ import { useAutonomiaConfig } from '@/components/decision/use-autonomia-config';
 import { elegibleParaAutonomia } from '@/lib/decision/autonomia';
 import { sigueAbierta } from '@/lib/decision/efecto-aprobar';
 import { partirMasSituaciones } from '@/lib/decision/prioridad';
+import { TEXTO_ANALISIS_TARDANDO } from '@/lib/decision/analisis-en-curso';
 import type { Recomendacion } from '@/lib/decision/tipos';
 import { FilaSituacion } from '@/components/decision/fila-situacion';
 import { WhileYouSlept } from '@/components/decision/while-you-slept';
@@ -84,14 +85,18 @@ function AnclaSituacion({ id, resaltada, children }: { id: string; resaltada: bo
 
 export default function CentroDeControlPage() {
   // `seguirCobros`: tras «Cobrar ahora», la pantalla pregunta cómo ha ido y lo dice.
-  const { data, loading, error, aprobar, rechazar, posponer, yaContactada, analizarAhora, recargar, cobrosTardando } = useDecisiones({ seguirCobros: true });
+  // `seguirAnalisis`: tras «Analizar ahora» (o con uno en marcha desde otra
+  // pestaña), pregunta cuándo termina y entonces recarga.
+  const { data, loading, error, aprobar, rechazar, posponer, yaContactada, analizarAhora, analisis, recargar, cobrosTardando } = useDecisiones({ seguirCobros: true, seguirAnalisis: true });
   const { socios, studio } = useStudio();
   const autonomia = useAutonomiaConfig();
   // Las recomendaciones con una petición en vuelo, todas: con un solo id, pulsar
   // en otra tarjeta mientras la primera esperaba le volvía a encender los
   // botones a la primera, que ahora sigue en pantalla hasta la respuesta.
   const [procesando, setProcesando] = useState<ReadonlySet<string>>(() => new Set());
-  const [analizando, setAnalizando] = useState(false);
+  // El POST de «Analizar ahora» en vuelo; lo que dura el análisis lo lleva `analisis`.
+  const [lanzando, setLanzando] = useState(false);
+  const analizando = lanzando || analisis === 'en-curso';
   const [detalleAbierto, setDetalleAbierto] = useState(false);
   const toast = useToast();
 
@@ -260,15 +265,15 @@ export default function CentroDeControlPage() {
   }
 
   async function handleAnalizar() {
-    setAnalizando(true);
+    setLanzando(true);
     try {
       const res = await analizarAhora();
-      if (!res.ok) { toast.show(res.error ?? 'No se pudo lanzar el análisis'); return; }
-      // El análisis es asíncrono (Inngest) — un margen antes de refrescar para
-      // darle tiempo a persistir, sin bloquear la pantalla con un spinner largo.
-      setTimeout(recargar, 4000);
+      if (res.mensaje) {
+        if (res.esError) toast.showError(res.mensaje);
+        else toast.show(res.mensaje);
+      }
     } finally {
-      setAnalizando(false);
+      setLanzando(false);
     }
   }
 
@@ -311,10 +316,15 @@ export default function CentroDeControlPage() {
             {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ_ESTUDIO })}
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleAnalizar} disabled={analizando}>
-          <RefreshCw size={14} className={analizando ? 'animate-spin' : ''} />
-          Analizar ahora
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button variant="ghost" size="sm" onClick={handleAnalizar} disabled={analizando} aria-busy={analizando || undefined}>
+            <RefreshCw size={14} className={analizando ? 'animate-spin' : ''} />
+            {analizando ? 'Analizando…' : 'Analizar ahora'}
+          </Button>
+          {analisis === 'tardando' && (
+            <p role="status" className="max-w-[16rem] text-right text-[12px] text-muted-foreground">{TEXTO_ANALISIS_TARDANDO}</p>
+          )}
+        </div>
       </div>
 
       <ContratoDecisionOS hayAnalisis={!modoAprendizaje} />

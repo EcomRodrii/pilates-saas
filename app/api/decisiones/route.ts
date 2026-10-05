@@ -6,7 +6,7 @@ import { bloqueoPorPlan } from '@/lib/decision/plan-servidor';
 import {
   dbListPendientes, dbGetResumenDiarioReciente, dbGetMensajeDia, dbListMensajesRecientes,
   dbGetRecomendacion, dbListOutcomesRecientes, dbCountAutonomasHoy, dbCountAutonomasFallidasHoy,
-  dbListRecomendacionesPorDedupe,
+  dbListRecomendacionesPorDedupe, dbAnalisisManualEnCurso,
 } from '@/lib/decision/db';
 import { aplazadaElDiaDelMensaje, elegirRecomendacionDelMensaje, fechaDelMensaje } from '@/lib/decision/mensaje-del-dia';
 import { calcularEstadoEspecialista } from '@/lib/decision/director';
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   // día UTC, de 00:00 a 02:00 de Madrid se enseñaba el mensaje de ayer como el
   // de hoy (lib/decision/mensaje-del-dia.ts).
   const fechaHoy = fechaDelMensaje(now);
-  const [resumenCompleto, pendientesCrudos, actividadRes, mensajeHoy, mensajesRecientes, outcomesRecientes, nAutonomasHoy, nAutonomasFallidasHoy] = await Promise.all([
+  const [resumenCompleto, pendientesCrudos, actividadRes, mensajeHoy, mensajesRecientes, outcomesRecientes, nAutonomasHoy, nAutonomasFallidasHoy, analisisEnCurso] = await Promise.all([
     dbGetResumenDiarioReciente(sesion.studioId, now),
     dbListPendientes(sesion.studioId),
     requireSupabaseAdmin().from('actividad_reciente').select('*').eq('studio_id', sesion.studioId).order('creado_en', { ascending: false }).limit(10),
@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
     dbListOutcomesRecientes(sesion.studioId, 3),
     dbCountAutonomasHoy(sesion.studioId, now),
     dbCountAutonomasFallidasHoy(sesion.studioId, now),
+    dbAnalisisManualEnCurso(sesion.studioId, now),
   ]);
 
   // MARKETING queda fuera de TODO lo que ve el cliente mientras el módulo
@@ -177,5 +178,9 @@ export async function GET(req: NextRequest) {
     // para que el veredicto no cuente como resuelto lo que no salió.
     nAutonomasHoy,
     nAutonomasFallidasHoy,
+    // Hay un «Analizar ahora» en marcha (sesión MANUAL abierta de hace < 10 min):
+    // la pantalla pregunta cuándo termina aunque no lo haya pedido desde esta
+    // pestaña (GET /api/decisiones/analisis-en-curso). Nunca el del cron.
+    analisisEnCurso,
   });
 }

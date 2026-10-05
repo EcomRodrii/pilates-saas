@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { authHeader } from '@/lib/api-client';
 import { efectoDe, recibosDeLaAccion, type EfectoAprobar } from '@/lib/decision/efecto-aprobar';
 import type { ResultadoEjecucion } from '@/lib/decision/resultado-ejecucion';
+import {
+  SONDEO_ANALISIS_MS, SONDEO_ANALISIS_TARDANDO_MS, TOPE_SONDEO_ANALISIS_MS, TEXTO_ACABO_DE_ANALIZAR, TEXTO_YA_EN_MARCHA,
+} from '@/lib/decision/analisis-en-curso';
 
 // Tipos del lado del cliente para la respuesta de GET /api/decisiones
 // (DECISION-OS-ARQUITECTURA.md §7). No importan lib/decision/tipos.ts
@@ -111,6 +114,27 @@ export interface DecisionesResponse {
   nAutonomasHoy?: number;
   /** Las que el piloto intentó hoy y no salieron (FALLIDA): se dicen aparte. */
   nAutonomasFallidasHoy?: number;
+  /** Hay un «Analizar ahora» en marcha (lib/decision/analisis-en-curso.ts). */
+  analisisEnCurso?: boolean;
+}
+
+/**
+ * «Analizar ahora», visto desde la pantalla: `quieto`; `en-curso` mientras
+ * pregunta cada 5 s si ha terminado; `tardando` si se agotó el tope de 90 s sin
+ * que terminara (no se da por hecho: se dice que tarda).
+ */
+export type EstadoAnalisis = 'quieto' | 'en-curso' | 'tardando';
+
+/** GET /api/decisiones/analisis-en-curso. `null` si no hay una respuesta con forma (red, 4xx/5xx, un `{}`). */
+async function leerAnalisisEnCurso(): Promise<boolean | null> {
+  try {
+    const res = await fetch('/api/decisiones/analisis-en-curso', { headers: { ...(await authHeader()) }, cache: 'no-store' });
+    if (!res.ok) return null;
+    const cuerpo = await res.json().catch(() => null);
+    return typeof cuerpo?.analisisEnCurso === 'boolean' ? cuerpo.analisisEnCurso : null;
+  } catch {
+    return null;
+  }
 }
 
 function buscarRecomendacion(prev: DecisionesResponse, id: string): RecomendacionAPI | null {
@@ -233,7 +257,7 @@ async function enviarAccion(id: string, accion: AccionRecomendacion, cuerpo?: Re
  * `seguirCobros`: pregunta cómo terminan los cobros aprobados (solo el Centro de
  * Control, que es donde se pinta su resultado; el Action Center de Inicio no).
  */
-export function useDecisiones({ seguirCobros = false }: { seguirCobros?: boolean } = {}) {
+export function useDecisiones({ seguirCobros = false, seguirAnalisis = false }: { seguirCobros?: boolean; seguirAnalisis?: boolean } = {}) {
   const [data, setData] = useState<DecisionesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -243,6 +267,10 @@ export function useDecisiones({ seguirCobros = false }: { seguirCobros?: boolean
   // efecto se repite (otra acción cambia `data`, o el doble montaje del modo
   // estricto).
   const seguidosDesde = useRef(new Map<string, number>());
+  // «Analizar ahora» (solo el Centro de Control, `seguirAnalisis`).
+  const [analisis, setAnalisis] = useState<EstadoAnalisis>('quieto');
+  // Desde cuándo se pregunta: el tope no vuelve a empezar al recargar.
+  const analisisDesde = useRef<number | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -269,12 +297,16 @@ export function useDecisiones({ seguirCobros = false }: { seguirCobros?: boolean
       }
       setData(cuerpo);
       setError(null);
+      // Un análisis en marcha, lo haya pedido esta pestaña u otra: se sigue.
+      if (seguirAnalisis && cuerpo.analisisEnCurso === true) {
+        setAnalisis(prev => (prev === 'quieto' ? 'en-curso' : prev));
+      }
     } catch {
       setError('No se pudo conectar con el servidor');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [seguirAnalisis]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- Dispara la carga asíncrona de recomendaciones. El estado viene de la red.
   useEffect(() => { cargar(); }, [cargar]);
@@ -319,6 +351,48 @@ export function useDecisiones({ seguirCobros = false }: { seguirCobros?: boolean
     };
   }, [data, seguirCobros, cobrosTardando]);
 
+  // Mientras hay un análisis en marcha: cada 5 s se pregunta si sigue
+  // (GET /api/decisiones/analisis-en-curso, una consulta), y en cuanto dice
+  // que no, se recarga la pantalla con lo nuevo. Tope de 90 s (medido: p95 61 s,
+  // máximo 82 s): agotado, `tardando`, y la pantalla dice que tarda en vez de
+  // fingir que ha terminado. Desde ahí se sigue preguntando, pero cada 30 s, para
+  // cumplir lo que dice («te lo enseño cuando termine»): el servidor deja de
+  // darlo por en curso a los 10 min aunque nadie cierre su sesión, así que no
+  // pregunta para siempre. Sin respuesta (red, 500) se sigue preguntando.
+  // Antes: un `setTimeout(recargar, 4000)` a ciegas.
+  useEffect(() => {
+    if (analisis === 'quieto') return;
+    let vivo = true;
+    let temporizador: ReturnType<typeof setTimeout> | null = null;
+    const desde = analisisDesde.current ?? Date.now();
+    analisisDesde.current = desde;
+    const esperar = (ms: number) => new Promise<void>((resolver) => { temporizador = setTimeout(resolver, ms); });
+    void (async () => {
+      for (;;) {
+        await esperar(analisis === 'en-curso'
+          ? Math.max(0, Math.min(SONDEO_ANALISIS_MS, desde + TOPE_SONDEO_ANALISIS_MS - Date.now()))
+          : SONDEO_ANALISIS_TARDANDO_MS);
+        if (!vivo) return;
+        const sigue = await leerAnalisisEnCurso();
+        if (!vivo) return;
+        if (sigue === false) {
+          analisisDesde.current = null;
+          setAnalisis('quieto');
+          await cargar();
+          return;
+        }
+        if (analisis === 'en-curso' && Date.now() >= desde + TOPE_SONDEO_ANALISIS_MS) {
+          setAnalisis('tardando');
+          return;
+        }
+      }
+    })();
+    return () => {
+      vivo = false;
+      if (temporizador) clearTimeout(temporizador);
+    };
+  }, [analisis, cargar]);
+
   // Ninguna acción quita la tarjeta antes de que el servidor diga que sí. Antes
   // eran optimistas: la tarjeta desaparecía al pulsar y, si el servidor decía
   // que no, volvía al recargar con un «Comprueba tu conexión» que no era el
@@ -356,19 +430,27 @@ export function useDecisiones({ seguirCobros = false }: { seguirCobros?: boolean
   // «Ya la he contactado»: la marca hecha sin mandarle nada (/gestionada).
   const yaContactada = useCallback((rec: RecomendacionAPI) => accionar(rec, 'gestionada'), [accionar]);
 
-  // Aquí no hay tarjeta que tocar: solo hace falta no dejar colgado el botón
-  // si el fetch lanza (offline) y decir POR QUÉ si el servidor rechaza (p.ej.
-  // 429 "ya hay un análisis reciente en curso").
-  const analizarAhora = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+  // «Analizar ahora». Con el 202 el análisis está en marcha (su sesión ya
+  // existe) y se empieza a preguntar cuándo termina. Un 429 puede ser dos
+  // cosas, y la pantalla hace distinto en cada una: si hay uno en marcha (lo
+  // dice el mismo sondeo), se sigue ese; si no, es que se acaba de analizar.
+  // `mensaje`: lo que la pantalla le dice a la propietaria, si algo; `esError`
+  // si es un fallo (y no un «ya hay uno» o «acabo de analizar»).
+  const analizarAhora = useCallback(async (): Promise<{ ok: boolean; mensaje?: string; esError?: boolean }> => {
+    const seguir = () => { analisisDesde.current = Date.now(); setAnalisis('en-curso'); };
     try {
       const res = await fetch('/api/decisiones/analizar', { method: 'POST', headers: { ...(await authHeader()) } });
-      if (res.ok) return { ok: true };
+      if (res.ok) { seguir(); return { ok: true }; }
+      if (res.status === 429) {
+        if (await leerAnalisisEnCurso()) { seguir(); return { ok: true, mensaje: TEXTO_YA_EN_MARCHA }; }
+        return { ok: false, mensaje: TEXTO_ACABO_DE_ANALIZAR };
+      }
       const d = await res.json().catch(() => null);
-      return { ok: false, error: d?.error ?? 'No se pudo lanzar el análisis' };
+      return { ok: false, esError: true, mensaje: typeof d?.error === 'string' && d.error ? d.error : 'No se pudo lanzar el análisis' };
     } catch {
-      return { ok: false, error: 'Error de conexión' };
+      return { ok: false, esError: true, mensaje: 'No se ha podido conectar con el servidor. Comprueba tu conexión y vuelve a intentarlo.' };
     }
   }, []);
 
-  return { data, loading, error, recargar: cargar, aprobar, rechazar, posponer, yaContactada, analizarAhora, cobrosTardando };
+  return { data, loading, error, recargar: cargar, aprobar, rechazar, posponer, yaContactada, analizarAhora, analisis, cobrosTardando };
 }

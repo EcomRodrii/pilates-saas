@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/nextjs';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
 import { inicioDeHoyEnEstudio } from './mensaje-del-dia.ts';
+import { enCursoDesde } from './analisis-en-curso.ts';
 import { importeIngresado } from '@/lib/billing/situacion-recibo';
 import type {
   AccionDecision, Confianza, DecisionFeatureFlag, DecisionFlag, DecisionSession, EspecialistaId,
@@ -43,8 +44,10 @@ function reportError(tag: string, error: unknown) {
 
 export async function dbInsertDecisionSession(input: {
   studioId: string; disparadoPor: DecisionSession['disparadoPor']; algorithmVersion: string; iniciadoEn: string;
+  /** POST /analizar la crea con su id antes de enviar el evento (lib/decision/analisis-en-curso.ts). */
+  id?: string;
 }): Promise<string> {
-  const id = uid();
+  const id = input.id ?? uid();
   const { error } = await db().from('decision_sessions').insert({
     id, studio_id: input.studioId, disparado_por: input.disparadoPor,
     algorithm_version: input.algorithmVersion, iniciado_en: input.iniciadoEn,
@@ -62,6 +65,83 @@ export async function dbInsertDecisionSession(input: {
     throw error instanceof Error ? error : new Error(`[dbInsertDecisionSession]: ${JSON.stringify(error)}`);
   }
   return id;
+}
+
+/**
+ * ¿Existe esta sesión, y es de este estudio? La usa el análisis para
+ * reutilizar la que creó POST /analizar. Lanza si no se puede leer: dentro de
+ * `step.run('crear-sesion')`, que Inngest lo reintente antes que crear otra.
+ */
+export async function dbExisteDecisionSession(id: string, studioId: string): Promise<boolean> {
+  const { data, error } = await db().from('decision_sessions')
+    .select('id').eq('id', id).eq('studio_id', studioId).maybeSingle();
+  if (error) {
+    reportError('[dbExisteDecisionSession]', error);
+    throw error instanceof Error ? error : new Error(`[dbExisteDecisionSession]: ${JSON.stringify(error)}`);
+  }
+  return !!data;
+}
+
+/**
+ * Las sesiones de este estudio de los últimos 10 min (VENTANA_EN_CURSO_MS),
+ * para que POST /analizar decida si puede lanzar otro (`motivoParaNoAnalizar`).
+ * `undefined` si la consulta falla.
+ */
+export async function dbListSesionesRecientes(studioId: string, ahora: Date): Promise<{
+  disparadoPor: string; iniciadoEn: string | null; finalizadoEn: string | null;
+}[] | undefined> {
+  const { data, error } = await db().from('decision_sessions')
+    .select('disparado_por, iniciado_en, finalizado_en')
+    .eq('studio_id', studioId)
+    .gte('iniciado_en', enCursoDesde(ahora))
+    .order('iniciado_en', { ascending: false })
+    .limit(10);
+  if (error) { reportError('[dbListSesionesRecientes]', error); return undefined; }
+  return (data ?? []).map(r => ({
+    disparadoPor: r.disparado_por as string, iniciadoEn: (r.iniciado_en as string | null) ?? null,
+    finalizadoEn: (r.finalizado_en as string | null) ?? null,
+  }));
+}
+
+/**
+ * ¿Hay un «Analizar ahora» de este estudio en marcha? Una sesión MANUAL sin
+ * cerrar de hace menos de 10 min. Nunca la del cron: la pantalla solo sigue lo
+ * que pidió la propietaria. `false` también si la consulta falla: la pantalla
+ * no se queda «analizando» por un error de lectura.
+ */
+export async function dbAnalisisManualEnCurso(studioId: string, ahora: Date): Promise<boolean> {
+  const { data, error } = await db().from('decision_sessions')
+    .select('id')
+    .eq('studio_id', studioId)
+    .eq('disparado_por', 'MANUAL')
+    .is('finalizado_en', null)
+    .gte('iniciado_en', enCursoDesde(ahora))
+    .limit(1);
+  if (error) { reportError('[dbAnalisisManualEnCurso]', error); return false; }
+  return (data ?? []).length > 0;
+}
+
+/**
+ * Cierra como FALLIDA la sesión de un análisis que no terminó: la de POST
+ * /analizar cuyo evento no se pudo enviar, o la del análisis que agotó sus
+ * reintentos (`onFailure`). Por su id si se sabe; si no (un análisis del cron,
+ * cuya sesión creó el propio análisis), por el instante con el que se creó, que
+ * es el `nowISO` del evento. Solo toca una sesión ABIERTA de este estudio: una
+ * que ya terminó se queda como terminó. Lanza si no se puede escribir.
+ */
+export async function dbCerrarSesionInterrumpida(
+  studioId: string, cual: { id: string } | { iniciadoEn: string }, motivo: string,
+): Promise<void> {
+  let q = db().from('decision_sessions')
+    .update({ estado: 'FALLIDA', finalizado_en: new Date().toISOString(), errores: [motivo] })
+    .eq('studio_id', studioId)
+    .is('finalizado_en', null);
+  q = 'id' in cual ? q.eq('id', cual.id) : q.eq('iniciado_en', cual.iniciadoEn);
+  const { error } = await q;
+  if (error) {
+    reportError('[dbCerrarSesionInterrumpida]', error);
+    throw error instanceof Error ? error : new Error(`[dbCerrarSesionInterrumpida]: ${JSON.stringify(error)}`);
+  }
 }
 
 export async function dbFinalizarDecisionSession(id: string, patch: {
