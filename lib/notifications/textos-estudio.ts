@@ -19,7 +19,14 @@ import { PUSH_POR_TIPO } from './push-por-tipo.ts';
 export const TITULO_MAX = 80;
 export const CUERPO_MAX = 240;
 
-export const TIPOS_CON_TEXTO_EDITABLE = PUSH_POR_TIPO.SOCIA;
+// Los avisos de moderación (lo que se decidió sobre una denuncia, lo retirado) no
+// se personalizan: son la explicación que recibe la alumna de una decisión sobre
+// lo que escribió o denunció, y no puede cambiarla nadie del estudio.
+const NO_PERSONALIZABLES = new Set(['denuncia.resuelta', 'contenido.retirado']);
+
+export const TIPOS_CON_TEXTO_EDITABLE = PUSH_POR_TIPO.SOCIA
+  .map(g => ({ ...g, tipos: g.tipos.filter(t => !NO_PERSONALIZABLES.has(t.evento)) }))
+  .filter(g => g.tipos.length > 0);
 const EDITABLES = new Set(TIPOS_CON_TEXTO_EDITABLE.flatMap(g => g.tipos.map(t => t.evento)));
 
 export function esTextoEditable(evento: string): boolean {

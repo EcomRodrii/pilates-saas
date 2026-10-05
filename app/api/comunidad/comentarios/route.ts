@@ -20,6 +20,7 @@ function mapRow(r: Record<string, unknown>): ComentarioComunidad {
     autorInicial: (r.autor_inicial as string | null) ?? null,
     texto: r.texto as string,
     creadoEn: r.creado_en as string,
+    ocultoEn: (r.oculto_en as string | null) ?? null,
   };
 }
 

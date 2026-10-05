@@ -1903,6 +1903,8 @@ export interface ComentarioComunidad {
   autorInicial: string | null;
   texto: string;
   creadoEn: string;
+  /** Retirado por el estudio (moderación): las alumnas no lo ven; el panel, marcado. */
+  ocultoEn?: string | null;
 }
 
 // ─── Gamificación: créditos y recompensas ─────────────────────────────────────

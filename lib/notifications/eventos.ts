@@ -238,6 +238,12 @@ export const EVENTOS = {
   RED_VACANTE_ENCAJA: 'red.vacante_encaja',
   // Community & Messaging OS (P0): mensaje nuevo en una conversación.
   MENSAJE_RECIBIDO: 'mensaje.recibido',
+  // Moderación de la app (App Store 1.2, migr 20261005150100): una denuncia o un
+  // bloqueo nuevo, a quien la revisa en el estudio; la decisión, a quien
+  // denunció; y lo retirado, a quien lo escribió. Nunca llevan el texto.
+  DENUNCIA_NUEVA: 'denuncia.nueva',
+  DENUNCIA_RESUELTA: 'denuncia.resuelta',
+  CONTENIDO_RETIRADO: 'contenido.retirado',
   // Digest de baja frecuencia de mensajes sin leer (cron, nunca uno por
   // mensaje) — ver comentario de la regla más abajo.
   MENSAJE_DIGEST_NO_LEIDO: 'mensaje.digest_no_leido',

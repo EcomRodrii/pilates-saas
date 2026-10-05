@@ -75,6 +75,11 @@ export interface ConteosEstudio {
   alertasApertura?: number | null;
   /** Jornadas del equipo abiertas más horas de las que permite el estudio, o marcadas por revisar. */
   jornadasPorRevisar?: number | null;
+  /**
+   * Denuncias y bloqueos de la app que esperan al estudio (App Store 1.2): las de
+   * los ámbitos que revisa quien mira. Si nadie las revisa en 24 h, las revisa Tentare.
+   */
+  denunciasPorRevisar?: number | null;
   /** Clases que una instructora dijo no dar y nadie ha revisado todavía. */
   clasesNoDadasPorRevisar?: number | null;
   /**
@@ -118,6 +123,7 @@ export const ANCLA_DECIDIR: Partial<Record<ClaveConteo, string>> = {
   reconciliacionesPorRevisar: 'decidir-reconciliaciones',
   doblesCobrosPorRevisar: 'decidir-dobles-cobros',
   alertasApertura: 'decidir-apertura',
+  denunciasPorRevisar: 'decidir-denuncias',
 };
 
 export interface LineaEstado {
@@ -163,6 +169,10 @@ const LINEAS: DefLinea[] = [
   // pierde la apertura. Se ve y se resuelve en su tarjeta de Inicio.
   { id: 'alertasApertura', bandeja: 'decidir', href: null,
     uno: 'Tu apertura tiene un aviso', varios: n => `Tu apertura tiene ${n} avisos` },
+  // Una alumna espera que alguien mire lo que denunció, y el plazo es de horas:
+  // si nadie lo revisa en 24 h, lo revisa Tentare. Se decide en su tarjeta.
+  { id: 'denunciasPorRevisar', bandeja: 'decidir', href: null,
+    uno: 'Una denuncia de la app por revisar', varios: n => `${n} denuncias de la app por revisar` },
   // Lo primero que tiene que poner: sin NIF, ningún cobro saca su factura.
   { id: 'facturasSinNif', bandeja: 'decidir', href: '/configuracion?tab=cobros#datos-fiscales',
     uno: 'Falta el NIF del estudio: sin él tus cobros no sacan factura',

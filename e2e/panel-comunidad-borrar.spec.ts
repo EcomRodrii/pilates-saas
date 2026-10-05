@@ -94,3 +94,48 @@ test.describe('Panel · Comunidad · borrar una publicación', () => {
     expect(intentos.postgrest).toBe(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Retirar un comentario del tablón sin esperar a una denuncia (App Store 1.2).
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('Panel · Comunidad · retirar un comentario', () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  async function montarConComentario(page: Page, status: number) {
+    const intentos = { retirar: 0, cuerpo: null as unknown };
+    await montar(page);
+    await page.route('**/rest/v1/posts_comunidad**', (r) => json(r, [{ ...POST, comentarios_count: 1 }]));
+    await page.route((u) => u.pathname === '/api/comunidad/comentarios', (r) => json(r, {
+      comentarios: [{ id: 'com-1', studioId: 'studio-test', postId: 'post-1', autorId: 'auth-x', autorNombre: 'Bea O.', autorInicial: 'BO', texto: 'Un comentario feo', creadoEn: new Date().toISOString(), ocultoEn: null }],
+    }));
+    await page.route((u) => u.pathname === '/api/comunidad/comentarios/com-1/retirar', (r) => {
+      intentos.retirar++;
+      intentos.cuerpo = r.request().postDataJSON();
+      return status === 200 ? json(r, { retirado: true, cambiado: true }) : json(r, { error: 'No se ha podido guardar. Inténtalo otra vez.' }, status);
+    });
+    await ir(page, 'comunidad');
+    await expect(page.getByText(TEXTO)).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Comentarios (1)' }).first().click();
+    return intentos;
+  }
+
+  test('lo retira y queda marcado, solo cuando el servidor lo confirma', async ({ page }) => {
+    const intentos = await montarConComentario(page, 200);
+    const comentario = page.getByTestId('comentario-panel').filter({ hasText: 'Un comentario feo' });
+    await comentario.getByRole('button', { name: 'Retirar' }).click({ timeout: 15_000 });
+    await expect(comentario).toContainText('Retirado', { timeout: 15_000 });
+    await expect(comentario.getByRole('button', { name: 'Volver a mostrar' })).toBeVisible();
+    expect(intentos.retirar).toBe(1);
+    expect(intentos.cuerpo).toEqual({ retirar: true });
+  });
+
+  test('si el servidor dice que no, no lo marca como retirado', async ({ page }) => {
+    const intentos = await montarConComentario(page, 500);
+    const comentario = page.getByTestId('comentario-panel').filter({ hasText: 'Un comentario feo' });
+    await comentario.getByRole('button', { name: 'Retirar' }).click({ timeout: 15_000 });
+    await expect(page.getByText('No se ha podido guardar. Inténtalo otra vez.')).toBeVisible({ timeout: 15_000 });
+    await expect(comentario.getByRole('button', { name: 'Retirar' })).toBeVisible();
+    expect(intentos.retirar).toBeGreaterThan(0);
+  });
+});

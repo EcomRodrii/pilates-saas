@@ -41,6 +41,8 @@ import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-
 import { ReconciliacionesPendientes } from '@/components/dashboard/reconciliaciones-pendientes';
 import { CanjesPendientes } from '@/components/dashboard/canjes-pendientes';
 import { BajasPorRevisar } from '@/components/dashboard/bajas-por-revisar';
+import { DenunciasPorRevisar } from '@/components/dashboard/denuncias-por-revisar';
+import { ambitosQueRevisa } from '@/lib/moderacion/denuncias';
 import { DoblesCobrosPorRevisar } from '@/components/dashboard/dobles-cobros-por-revisar';
 import { ClasesSinInstructora } from '@/components/dashboard/clases-sin-instructora';
 import { PlazasFijasPorDecidir } from '@/components/dashboard/plazas-fijas-por-decidir';
@@ -725,6 +727,8 @@ export default function Dashboard() {
                   ningún error. Lo fija `estado-del-estudio.spec.ts`: «si el
                   recuento aún dice nada y la tarjeta sí tiene algo, se ve la
                   tarjeta». Probado y revertido el 23-sep. */}
+              {/* Denuncias de la app: tienen reloj (a las 24 h las revisa Tentare). Quien revisa algún ámbito. */}
+              {ambitosQueRevisa(rolActual).length > 0 && <DenunciasPorRevisar onToast={showToast} />}
               {/* La primera: es la única que puede caducar sola (la clase empieza). */}
               {gestionaCalendario && <ReservasPorAprobar onToast={showToast} />}
               {/* Clases con alumnas apuntadas que nadie va a dar (RES-8): nada las cancela solo. */}

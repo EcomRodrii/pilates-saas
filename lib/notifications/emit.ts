@@ -1640,3 +1640,77 @@ export async function emitirBriefApertura(
     console.error('[notifications] emitirBriefApertura:', e instanceof Error ? e.message : e);
   }
 }
+
+// ── Moderación de la app (App Store 1.2) ─────────────────────────────────────
+// Los tres avisos de una denuncia. Destinatarios EXPLÍCITOS (`recipients`), cada
+// uno con su papel: una cuenta puede ser alumna y equipo a la vez, y el aviso va
+// a la app correcta. Ninguno lleva el texto denunciado.
+
+/** Una denuncia (o un bloqueo) nueva, a quien la revisa en el estudio. Una por denuncia. */
+export async function emitirDenunciaNueva(
+  admin: SupabaseClient,
+  p: { studioId: string; denunciaId: string; ambito: string; motivo: string; recipients: Recipient[] },
+): Promise<void> {
+  if (p.recipients.length === 0) return;
+  try {
+    const que = p.motivo === 'BLOQUEO'
+      ? (p.ambito === 'TABLON' ? 'Una alumna ha bloqueado a otra en el tablón.' : 'Han bloqueado a alguien en un chat con su instructora.')
+      : (p.ambito === 'TABLON' ? 'Han denunciado un comentario del tablón.' : 'Han denunciado un mensaje del chat con una instructora.');
+    await publish({
+      type: EVENTOS.DENUNCIA_NUEVA, studioId: p.studioId,
+      data: { denunciaId: p.denunciaId, ambito: p.ambito, queDenuncia: que, authUserIds: p.recipients.map(r => r.userId) },
+      resource: { type: 'denuncia', id: p.denunciaId },
+      dedupKey: `denuncia-nueva:${p.denunciaId}`,
+      recipients: p.recipients,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirDenunciaNueva:', e instanceof Error ? e.message : e);
+  }
+}
+
+/** La decisión, a quien denunció: «Hemos revisado tu denuncia: …». */
+export async function emitirDenunciaResuelta(
+  admin: SupabaseClient,
+  p: { studioId: string; denunciaId: string; ambito: string; conversacionId: string | null; resultado: string; recipient: Recipient },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.DENUNCIA_RESUELTA, studioId: p.studioId,
+      data: {
+        denunciaId: p.denunciaId, ambito: p.ambito, conversacionId: p.conversacionId, resultado: p.resultado,
+        slug: (studio?.slug as string | null) ?? null, authUserIds: [p.recipient.userId],
+        ...(p.recipient.socioId ? { socioId: p.recipient.socioId } : {}),
+      },
+      resource: { type: 'denuncia', id: p.denunciaId },
+      dedupKey: `denuncia-resuelta:${p.denunciaId}`,
+      recipients: [p.recipient],
+    });
+  } catch (e) {
+    console.error('[notifications] emitirDenunciaResuelta:', e instanceof Error ? e.message : e);
+  }
+}
+
+/** Lo retirado, a quien lo escribió: «Se ha retirado un comentario tuyo…». Uno por contenido. */
+export async function emitirContenidoRetirado(
+  admin: SupabaseClient,
+  p: { studioId: string; contenidoId: string; ambito: string; conversacionId: string | null; recipient: Recipient },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.CONTENIDO_RETIRADO, studioId: p.studioId,
+      data: {
+        ambito: p.ambito, conversacionId: p.conversacionId,
+        queTuyo: p.ambito === 'TABLON' ? 'un comentario tuyo del tablón' : 'un mensaje tuyo',
+        slug: (studio?.slug as string | null) ?? null, authUserIds: [p.recipient.userId],
+        ...(p.recipient.socioId ? { socioId: p.recipient.socioId } : {}),
+      },
+      resource: { type: p.ambito === 'TABLON' ? 'comentario' : 'mensaje', id: p.contenidoId },
+      dedupKey: `contenido-retirado:${p.contenidoId}`,
+      recipients: [p.recipient],
+    });
+  } catch (e) {
+    console.error('[notifications] emitirContenidoRetirado:', e instanceof Error ? e.message : e);
+  }
+}
