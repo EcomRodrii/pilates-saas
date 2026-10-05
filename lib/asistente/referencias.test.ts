@@ -49,3 +49,22 @@ test('ningún nombre de las fixtures llega a lo que va a Anthropic, ni correos n
     assert.ok(!enviado.includes(nombre), `«${nombre}» se ha colado: ${enviado}`);
   }
 });
+
+// Revisión de seguridad del 5-oct: el motivo de una recomendación A4 (LLENAR_PLAZAS,
+// sin socioId) nombra a OTRA socia («la primera, Lucía…»). Seudonimizar solo con la
+// socia de la recomendación dejaba ese nombre camino de Anthropic.
+test('el texto de una recomendación sale sin el nombre de ninguna alumna, aunque no sea la suya', () => {
+  const t = tablaReferencias();
+  const motivo = 'Quedan 3 plazas el jueves — la primera, Lucía, suele venir a esa hora';
+  const { texto } = marcarPersonasEnPregunta(motivo, PERSONAS, t);
+  assert.doesNotMatch(texto, /Lucía/);
+  assert.match(texto, /\[ALUMNA_\d+\]/);
+});
+
+test('la herramienta de «qué revisar hoy» seudonimiza con TODAS las personas del estudio', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('./herramientas/estudio.ts', import.meta.url), 'utf8');
+  assert.match(src, /marcarPersonasEnPregunta\(texto, ctx\.personas, ctx\.refs\)/,
+    'sinNombres tiene que usar la lista entera (ctx.personas), no solo la socia de la recomendación');
+  assert.doesNotMatch(src, /sinNombres\([^)]*socioId/);
+});

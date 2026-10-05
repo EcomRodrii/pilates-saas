@@ -273,8 +273,10 @@ end;
 $$;
 
 -- ── Reservar una consulta (fail-closed) ─────────────────────────────────────
--- Antes de llamar a Anthropic. El FOR UPDATE de la fila del estudio serializa
--- reservas y cierres del MISMO estudio (milisegundos): dos pestañas no gastan la
+-- Antes de llamar a Anthropic. El FOR NO KEY UPDATE de la fila del estudio serializa
+-- reservas y cierres del MISMO estudio (milisegundos; NO KEY para no chocar con
+-- el FOR KEY SHARE que toma cualquier escritura en una tabla con FK a studios):
+-- dos pestañas no gastan la
 -- última consulta las dos. Topes de catástrofe en dólares (coste real o, si no
 -- se ha cerrado, el máximo reservado): 3 $/día por estudio y 50 $/día en total
 -- (este sin bloqueo global a propósito: el exceso posible es concurrencia ×
@@ -300,7 +302,7 @@ begin
     raise exception 'coste máximo fuera de rango: %', p_coste_max_usd;
   end if;
 
-  perform 1 from public.studios s where s.id = p_studio_id for update;
+  perform 1 from public.studios s where s.id = p_studio_id for no key update;
   if not found then
     return query select null::uuid, 'SIN_ESTUDIO'::text, 0;
     return;
@@ -348,8 +350,10 @@ $$;
 -- solo si se CONSUMIÓ. FALLIDA/LIBERADA = 0 unidades a la clienta, con el coste
 -- real anotado (lo absorbe Tentare). Reparto: primero la cuota que queda, luego
 -- los packs vigentes por caducidad (el que antes caduca, antes se gasta), y el
--- resto `unidades_sin_saldo` (la última pregunta del mes puede pasarse en ≤ 4:
--- se anota, no se esconde). Una segunda llamada con el mismo id devuelve lo ya
+-- resto `unidades_sin_saldo` (cada pregunta en vuelo reserva 1 y puede cerrar
+-- en hasta 5: con N preguntas a la vez al final del saldo el exceso llega a 4·N,
+-- acotado por el antirráfaga de 12/min y el tope de 3 $/día; se anota, no se
+-- esconde). Una segunda llamada con el mismo id devuelve lo ya
 -- cerrado sin tocar nada.
 create or replace function public.ia_cerrar_consulta(
   p_consumo_id uuid, p_studio_id text, p_estado text,
@@ -379,7 +383,7 @@ begin
   end if;
 
   -- Mismo orden de bloqueo que la reserva (estudio y luego consumo): sin interbloqueos.
-  perform 1 from public.studios s where s.id = p_studio_id for update;
+  perform 1 from public.studios s where s.id = p_studio_id for no key update;
 
   select c.* into v_c from public.ia_consumos c
    where c.id = p_consumo_id and c.studio_id = p_studio_id

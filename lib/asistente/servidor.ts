@@ -120,7 +120,7 @@ export async function guardarTurno(admin: SupabaseClient, sesion: SesionAsistent
   if (error) console.error('[asistente] cerrando la conversación', error.code);
 }
 
-// ── El libro de consumos (migr 20261005210000_asistente_y_consumos_ia) ──────
+// ── El libro de consumos (migr 20261005213749_asistente_y_consumos_ia) ──────
 
 export type CodigoReserva = 'OK' | 'SIN_SALDO' | 'TOPE_DIARIO_ESTUDIO' | 'TOPE_DIARIO_GLOBAL' | 'SIN_ESTUDIO';
 

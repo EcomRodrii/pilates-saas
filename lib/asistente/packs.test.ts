@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { PACKS_CONSULTAS } from './packs.ts';
 import { CONSULTAS_ASISTENTE_PRUEBA, PLAN_ENTITLEMENTS, PLANES } from '../billing/entitlements.ts';
 
-const migracion = readFileSync(new URL('../../supabase/migrations/20261005210000_asistente_y_consumos_ia.sql', import.meta.url), 'utf8');
+const migracion = readFileSync(new URL('../../supabase/migrations/20261005213749_asistente_y_consumos_ia.sql', import.meta.url), 'utf8');
 
 test('las unidades de los packs son las que admite el CHECK de ia_packs', () => {
   const check = migracion.match(/unidades integer not null check \(unidades in \(([^)]+)\)\)/);

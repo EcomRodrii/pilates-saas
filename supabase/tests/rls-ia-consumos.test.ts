@@ -1,4 +1,4 @@
-// El libro de consumos del asistente (migr 20261005210000_asistente_y_consumos_ia.sql),
+// El libro de consumos del asistente (migr 20261005213749_asistente_y_consumos_ia.sql),
 // contra Postgres de verdad (job `calidad-rls`): la cuota por plan, la reserva
 // fail-closed, la fórmula de unidades, el reparto cuota → pack → sin saldo, la
 // idempotencia del cierre, los topes en dólares y quién lee qué.

@@ -7,7 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { z } from 'zod';
 import type Anthropic from '@anthropic-ai/sdk';
 import type { Rol } from '../types.ts';
-import type { TablaReferencias } from './referencias.ts';
+import type { TablaReferencias, PersonaDelEstudio } from './referencias.ts';
 
 export const NOMBRES_HERRAMIENTAS = [
   'resumen_del_estudio', 'que_revisar_hoy', 'contar_alumnas', 'alumnas_sin_venir', 'agenda_del_dia',
@@ -71,6 +71,10 @@ export interface ContextoHerramienta {
   /** 'YYYY-MM-DD' del estudio. */
   hoy: string;
   refs: TablaReferencias;
+  /** Todas las personas del estudio (las mismas con que se marca la pregunta): cualquier texto
+   *  redactado que salga hacia Anthropic se seudonimiza con la lista ENTERA, no con la persona
+   *  que la recomendación dice tratar — su motivo puede nombrar a otra (A4 «la primera, X…»). */
+  personas: readonly PersonaDelEstudio[];
   plan: { decisiones: boolean };
 }
 

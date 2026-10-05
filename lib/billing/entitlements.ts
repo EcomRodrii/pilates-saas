@@ -41,7 +41,7 @@ export interface Entitlements {
   };
   /**
    * Consultas del asistente al mes (mes de Madrid). Espejo de
-   * `ia_cuota_mensual()` (migr 20261005210000), que es la dueña del saldo:
+   * `ia_cuota_mensual()` (migr 20261005213749), que es la dueña del saldo:
    * esto solo sirve para los textos, y un test cruza los dos números.
    */
   consultasAsistenteMes: number;

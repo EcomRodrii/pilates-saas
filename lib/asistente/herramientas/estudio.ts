@@ -19,20 +19,13 @@ import { diaLargo } from './definiciones.ts';
 import { clasesDelRango } from './agenda.ts';
 import { euros, exigir, tono, tramosDelPeriodo, variacion } from './comun.ts';
 
-/** El texto de una recomendación lo pudo redactar un modelo con el nombre de la alumna dentro: se seudonimiza antes de que salga. */
-async function sinNombres(texto: string, socioId: string | null, ctx: ContextoHerramienta): Promise<string> {
-  const [socia, equipo] = await Promise.all([
-    socioId
-      ? ctx.admin.from('socios').select('id, nombre, apellidos').eq('studio_id', ctx.studioId).eq('id', socioId).maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-    ctx.admin.from('instructores').select('id, nombre').eq('studio_id', ctx.studioId).limit(500),
-  ]);
-  if (socia.error || equipo.error) exigir(null, 'nombres para seudonimizar');
-  const personas = [
-    ...(socia.data ? [{ tipo: 'socia' as const, id: socia.data.id as string, nombre: socia.data.nombre as string | null, apellidos: socia.data.apellidos as string | null }] : []),
-    ...((equipo.data ?? []) as { id: string; nombre: string | null }[]).map(i => ({ tipo: 'instructora' as const, id: i.id, nombre: i.nombre })),
-  ];
-  return marcarPersonasEnPregunta(texto, personas, ctx.refs).texto.slice(0, 300);
+/** El texto de una recomendación lo pudo redactar un modelo, y nombra a quien
+ *  sea: no solo a `reco.socioId` (A4 dice «la primera, <nombre>…» de una socia que
+ *  no es la de la recomendación). Se seudonimiza con TODAS las personas del estudio,
+ *  la misma lista con que se marca la pregunta; lo que no se pueda reconocer
+ *  como persona del estudio no sale como nombre propio. */
+function sinNombres(texto: string, ctx: ContextoHerramienta): string {
+  return marcarPersonasEnPregunta(texto, ctx.personas, ctx.refs).texto.slice(0, 300);
 }
 
 export async function queRevisarHoy(_input: unknown, ctx: ContextoHerramienta): Promise<ResultadoHerramienta> {
@@ -50,8 +43,8 @@ export async function queRevisarHoy(_input: unknown, ctx: ContextoHerramienta): 
       const reco = await dbGetRecomendacion(mensaje.recomendacionId, ctx.studioId);
       if (reco) {
         veredicto = {
-          titulo: await sinNombres(reco.titulo, reco.socioId, ctx),
-          motivo: await sinNombres(reco.motivo, reco.socioId, ctx),
+          titulo: sinNombres(reco.titulo, ctx),
+          motivo: sinNombres(reco.motivo, ctx),
         };
       }
     }
