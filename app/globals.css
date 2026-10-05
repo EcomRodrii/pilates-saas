@@ -219,7 +219,19 @@
   --tenti-piel: #EBD9B8;
   --tenti-pelo: #CFD2C0;
   --tenti-rubor: #C98F76;
-  --tenti-chispa: #C9A96A;
+  /* Un punto más hondo que el #C9A96A del kit: las chispas del Tenti de canvas
+     son estrellitas de pocos píxeles que salen volando por ENCIMA del fondo, y
+     con aquel ocre daban 1,9:1 sobre --background — se intuían más que se
+     veían. Este da 2,4:1 y 2,8:1 sobre --card sin dejar de ser dorado (más
+     hondo ya tira a marrón). Lo vigila lib/tenti/paleta.test.ts. */
+  --tenti-chispa: #B8975A;
+  /* El Tenti de canvas (lib/tenti/motor.ts) lee su paleta de aquí
+     (lib/tenti/paleta.ts): el cuerpo, los ojos, y --tenti-rubor y
+     --tenti-chispa de arriba, que comparte con el dibujo del kit. El cuerpo es
+     el «mochi» del prototipo tal cual: en claro ya es de la familia arena. */
+  --tenti-cuerpo-luz: #FFFAF5;
+  --tenti-cuerpo-sombra: #DDCCBF;
+  --tenti-tinta: #1A1412;
   --brand-medio: #55622C;
   /* Delimita el botón cuando el fondo es oscuro y el oliva no se despega de él
      (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
@@ -371,6 +383,15 @@
   --tenti-pelo: #8E9382;
   --tenti-rubor: #A9755E;
   --tenti-chispa: #A98C55;
+  /* El cuerpo del Tenti de canvas, apagado: el crema de claro sobre #16161A es
+     un foco, lo más brillante de la pantalla. Elegido MIRANDO cuatro tonos al
+     lado del titular de Listo: #E4DCD2 brillaba tanto como el texto; más
+     oscuro que este, el cuerpo se volvía masilla gris y el brillo blanco fijo
+     del motor parecía un reflejo de linterna. Los ojos no cambian: sobre un
+     cuerpo claro siguen necesitando la tinta oscura. */
+  --tenti-cuerpo-luz: #D6CDC1;
+  --tenti-cuerpo-sombra: #A89A8B;
+  --tenti-tinta: #1A1412;
   --brand-foreground: #16161A;
   --brand-secondary: #A8B37A;
   --brand-borde: transparent;

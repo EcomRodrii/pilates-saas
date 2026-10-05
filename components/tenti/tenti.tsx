@@ -1,32 +1,51 @@
 'use client';
 
-import { useEffect, useImperativeHandle, useRef, type Ref } from 'react';
-import { Tenti as Motor, ESTADOS, type EmocionTenti, type EstadoTenti } from '@/lib/tenti/motor';
+import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from 'react';
+import { Tenti as Motor, type EmocionTenti, type EstadoTenti } from '@/lib/tenti/motor';
+import { paletaDesdeTokens, type PaletaTenti } from '@/lib/tenti/paleta';
+import { ID_ANFITRION_PANEL } from '@/lib/panel-portal';
+import { capturarExcepcion } from '@/lib/sentry-cliente';
 
 // La mascota de Tentare. El dibujo y las animaciones viven en lib/tenti/motor.ts;
 // esto solo lo monta en un <canvas> y lo conecta con la página.
 //
+// Los valores por defecto son los de una pantalla de estudio, no los del
+// catálogo: no se toca, no suena, no saluda solo, no lleva insignia y es
+// decorativo. /interno/tenti enciende cada cosa a mano. Así un sitio nuevo no
+// puede salir ruidoso por olvidarse de un `false`.
+//
 // ⚠️ Gasta un requestAnimationFrame mientras se ve: se para solo cuando sale de
-// pantalla o la pestaña se oculta. Con «reducir movimiento» no sigue el cursor
-// y solo anima el instante en que cambia algo.
+// pantalla o la pestaña se oculta. Con «reducir movimiento» el motor no tiene
+// recorrido (`quieto`) y el bucle duerme en cuanto no queda nada por moverse.
+//
+// Se deja observar desde los e2e, porque ningún test ve un canvas: data-estado,
+// data-paleta ('tokens' o 'defecto'), data-quieto, data-emocion (la última que
+// se le pidió) y data-saludo (cuántas veces ha saludado DE VERDAD; con «reducir
+// movimiento» no saluda y no sube).
 
 export interface TentiControl {
   emocion: (e: EmocionTenti) => void;
   saludar: () => void;
 }
 
-interface Props {
+export interface PropsTenti {
   estado?: EstadoTenti;
-  /** Lado del cuadro en px. Tenti ocupa algo más de la mitad. */
+  /** Lado del cuadro en px. Tenti ocupa algo más de la mitad. Cambiarlo recrea el motor. */
   tamano?: number;
   /** Mueve los ojos hacia el cursor. */
   sigueCursor?: boolean;
-  /** Sonidos de sus reacciones. Apagados por defecto. */
+  /** Sonidos de sus reacciones. */
   sonido?: boolean;
   /** Se aplasta al tocarlo, y se marea si insistes. */
   interactivo?: boolean;
-  /** Saluda con la mano al aparecer. */
+  /** Saluda con la mano al montarse, aunque aún no se vea: quien necesite el saludo a la vista, que llame a saludar(). */
   saludaAlAparecer?: boolean;
+  /** El piloto de estado sobre la cabeza. */
+  insignias?: boolean;
+  /** Nombre accesible. Sin él, Tenti es decorativo (aria-hidden): el texto de al lado ya dice lo que pasa. */
+  titulo?: string;
+  /** Lo que se pinta si no se puede dibujar (sin canvas 2D, o el motor falla). Sin él, nada. */
+  reserva?: ReactNode;
   className?: string;
   ref?: Ref<TentiControl>;
 }
@@ -36,70 +55,121 @@ const VENTANA_TOQUES_MS = 1700;
 const MAREO_MS = 2200;
 
 export function Tenti({
-  estado = 'reposo', tamano = 120, sigueCursor = true, sonido = false, interactivo = true,
-  saludaAlAparecer = false, className, ref,
-}: Props) {
+  estado = 'reposo', tamano = 120, sigueCursor = true, sonido = false, interactivo = false,
+  saludaAlAparecer = false, insignias = false, titulo, reserva = null, className, ref,
+}: PropsTenti) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const motorRef = useRef<Motor | null>(null);
-  const despiertoHasta = useRef(0);
   const estadoRef = useRef(estado);
   const toques = useRef<number[]>([]);
   const mareadoHasta = useRef(0);
-  const despertarRef = useRef<(ms?: number) => void>(() => {});
+  const despertarRef = useRef<() => void>(() => {});
+  const fallarRef = useRef<(e: unknown) => void>(() => {});
+  const [fallo, setFallo] = useState(false);
 
   // Montaje: el motor y su bucle de fotogramas.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const motor = new Motor(canvas, { mini: tamano < 64, sonido });
-    motor.medir(tamano);
-    motor.ponerEstado(estadoRef.current, { forzar: true, silencio: true });
-    motorRef.current = motor;
-
+    // La mascota es adorno: si algo de aquí lanza, la pantalla sigue y en su
+    // hueco va `reserva`, sin un <canvas> a medio pintar.
+    const fallar = (e: unknown) => {
+      capturarExcepcion(e, { tags: { area: 'tenti' } });
+      setFallo(true);
+    };
+    const leerPaleta = () => {
+      const estilo = getComputedStyle(canvas);
+      return paletaDesdeTokens((t) => estilo.getPropertyValue(t));
+    };
+    const marcarPaleta = (p: PaletaTenti | null) => { canvas.dataset.paleta = p ? 'tokens' : 'defecto'; };
     const reducido = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const marcarQuieto = (q: boolean) => { if (q) canvas.dataset.quieto = '1'; else delete canvas.dataset.quieto; };
+
+    let creado: Motor | null = null;
+    try {
+      const paleta = leerPaleta();
+      creado = new Motor(canvas, { mini: tamano < 64, sonido, insignias, quieto: reducido.matches, paleta });
+      creado.medir(tamano);
+      creado.ponerEstado(estadoRef.current, { forzar: true, silencio: true });
+      marcarPaleta(paleta);
+      marcarQuieto(creado.quieto);
+    } catch (e) {
+      // Si llegó a crearse, que no deje temporizadores sueltos (las chispas de 'hecho').
+      try { creado?.destruir(); } catch { /* ya estamos en el camino de fallo */ }
+      // El fallo del canvas solo se ve al montar: no hay otro sitio donde enterarse.
+      capturarExcepcion(e, { tags: { area: 'tenti' } });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFallo(true);
+      return;
+    }
+    const motor = creado;
+    motorRef.current = motor;
+    fallarRef.current = fallar;
+
     let visible = true;
     let raf = 0;
-    const despertar = (ms = 900) => { despiertoHasta.current = Math.max(despiertoHasta.current, performance.now() + ms); arrancar(); };
     const bucle = () => {
       raf = 0;
       if (!visible || document.hidden) return;
-      motor.fotograma();
-      if (!reducido.matches || performance.now() < despiertoHasta.current) raf = requestAnimationFrame(bucle);
+      try { motor.fotograma(); } catch (e) { fallar(e); return; }
+      // Con «reducir movimiento», solo mientras quede algo por terminar; si no,
+      // a 60 fps mientras se vea.
+      if (!motor.quieto || motor.animando()) raf = requestAnimationFrame(bucle);
     };
-    function arrancar() { if (!raf) raf = requestAnimationFrame(bucle); }
+    const arrancar = () => { if (!raf) raf = requestAnimationFrame(bucle); };
 
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) arrancar(); });
     io.observe(canvas);
     const alVolver = () => { if (!document.hidden) arrancar(); };
     document.addEventListener('visibilitychange', alVolver);
-    despertar(1200);
-    if (saludaAlAparecer && !reducido.matches) motor.saludar();
-    despertarRef.current = despertar;
+    const alCambiarMovimiento = () => { motor.quieto = reducido.matches; marcarQuieto(motor.quieto); arrancar(); };
+    reducido.addEventListener('change', alCambiarMovimiento);
+
+    // Claro ↔ oscuro: `PanelThemeProvider` pone `.dark` en un <div>, el padre del
+    // anfitrión de portales, nunca en <html>. Fuera del panel no hay a quién
+    // escuchar, y los tokens de :root no cambian.
+    const contenedorTema = document.getElementById(ID_ANFITRION_PANEL)?.parentElement;
+    const mo = contenedorTema ? new MutationObserver(() => {
+      try {
+        const p = leerPaleta();
+        motor.ponerPaleta(p);
+        marcarPaleta(p);
+        arrancar();
+      } catch (e) { fallar(e); }
+    }) : null;
+    if (contenedorTema) mo?.observe(contenedorTema, { attributes: true, attributeFilter: ['class'] });
+
+    despertarRef.current = arrancar;
+    arrancar();
+    if (saludaAlAparecer) {
+      try { if (motor.saludar()) canvas.dataset.saludo = String(motor.saludos); } catch (e) { fallar(e); }
+    }
 
     return () => {
-      cancelAnimationFrame(raf); io.disconnect(); document.removeEventListener('visibilitychange', alVolver);
-      motor.destruir(); motorRef.current = null; despertarRef.current = () => {};
+      cancelAnimationFrame(raf); io.disconnect(); mo?.disconnect();
+      document.removeEventListener('visibilitychange', alVolver);
+      reducido.removeEventListener('change', alCambiarMovimiento);
+      motor.destruir(); motorRef.current = null; despertarRef.current = () => {}; fallarRef.current = () => {};
     };
-    // El motor se crea una vez por tamaño; el resto de props se aplican abajo sin recrearlo.
+    // El motor se crea una vez por tamaño (y se suelta si ha fallado); el resto
+    // de props se aplican abajo sin recrearlo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tamano]);
-
-  const despertar = (ms?: number) => despertarRef.current(ms);
+  }, [tamano, fallo]);
 
   useEffect(() => { if (motorRef.current) motorRef.current.sonido = sonido; }, [sonido]);
+
+  useEffect(() => { motorRef.current?.mostrarInsignias(insignias); despertarRef.current(); }, [insignias]);
 
   useEffect(() => {
     estadoRef.current = estado;
     if (performance.now() < mareadoHasta.current) return;
-    motorRef.current?.ponerEstado(estado);
-    despertar(1500);
+    try { motorRef.current?.ponerEstado(estado); } catch (e) { fallarRef.current(e); return; }
+    despertarRef.current();
   }, [estado]);
 
-  // Los ojos siguen al cursor.
+  // Los ojos siguen al cursor. Con «reducir movimiento», el motor no hace caso.
   useEffect(() => {
     if (!sigueCursor) return;
-    const reducido = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (reducido.matches) return;
     const mover = (e: PointerEvent) => {
       const c = canvasRef.current, m = motorRef.current; if (!c || !m) return;
       const r = c.getBoundingClientRect();
@@ -110,13 +180,25 @@ export function Tenti({
     return () => window.removeEventListener('pointermove', mover);
   }, [sigueCursor]);
 
+  // ⚠️ También con try/catch: quien llama puede estar a mitad de algo que no es
+  // Tenti (la bienvenida pide 'feliz' justo después de guardar el logo), y un
+  // fallo del dibujo no puede convertir ese guardado en un error.
   useImperativeHandle(ref, () => ({
-    emocion: (e) => { motorRef.current?.emocion(e); despertar(2000); },
-    saludar: () => { motorRef.current?.saludar(); despertar(2000); },
+    emocion: (e) => {
+      const m = motorRef.current, c = canvasRef.current; if (!m || !c) return;
+      try { m.emocion(e); } catch (err) { fallarRef.current(err); return; }
+      c.dataset.emocion = e;
+      despertarRef.current();
+    },
+    saludar: () => {
+      const m = motorRef.current, c = canvasRef.current; if (!m || !c) return;
+      try { if (m.saludar()) c.dataset.saludo = String(m.saludos); } catch (err) { fallarRef.current(err); return; }
+      despertarRef.current();
+    },
   }), []);
 
   function tocar() {
-    const m = motorRef.current; if (!m || !interactivo) return;
+    const m = motorRef.current; if (!m) return;
     const n = performance.now();
     toques.current = [...toques.current.filter((t) => n - t < VENTANA_TOQUES_MS), n];
     m.aplastar();
@@ -124,22 +206,24 @@ export function Tenti({
       toques.current = [];
       mareadoHasta.current = n + MAREO_MS;
       m.ponerEstado('mareado');
-      setTimeout(() => { mareadoHasta.current = 0; motorRef.current?.ponerEstado(estadoRef.current); despertar(1500); }, MAREO_MS);
-      despertar(MAREO_MS + 300);
+      setTimeout(() => { mareadoHasta.current = 0; motorRef.current?.ponerEstado(estadoRef.current); despertarRef.current(); }, MAREO_MS);
     } else if (toques.current.length >= 2) {
       m.emocion('molesto', 900);
-      despertar(1200);
-    } else despertar(800);
+    }
+    despertarRef.current();
   }
+
+  if (fallo) return <>{reserva}</>;
 
   return (
     <canvas
       ref={canvasRef}
-      onClick={tocar}
-      role="img"
-      aria-label={`Tenti: ${ESTADOS[estado].etiqueta.toLowerCase()}`}
+      data-tenti=""
+      data-estado={estado}
+      {...(titulo ? { role: 'img', 'aria-label': titulo } : { 'aria-hidden': true })}
+      onClick={interactivo ? tocar : undefined}
       className={className}
-      style={{ width: tamano, height: tamano, cursor: interactivo ? 'pointer' : undefined, touchAction: 'manipulation' }}
+      style={{ width: tamano, height: tamano, ...(interactivo ? { cursor: 'pointer', touchAction: 'manipulation' } : null) }}
     />
   );
 }
