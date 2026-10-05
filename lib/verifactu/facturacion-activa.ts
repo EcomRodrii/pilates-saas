@@ -12,13 +12,12 @@ import type { EstadoEstudioVerifactu } from './apoderamiento.ts';
  * Si el alta del envío a la AEAT se ofrece a cualquier estudio desde
  * Configuración → Facturación.
  *
- * ⚠️ Cerrada a propósito (30-sep-2026): el mandato que acepta el estudio remite a
- * un contrato de encargo de tratamiento que aún no existe, y la declaración
- * responsable está sin suscribir. Mientras tanto, el alta solo la ve quien ya la
- * ha empezado (el fundador le pasa el enlace a `/configuracion/verifactu`).
- * Abrirla es cambiar esto a `true`, con esas dos cosas resueltas.
+ * Abierta el 5-oct-2026 (decisión del fundador), con la declaración responsable
+ * suscrita. Abrirla solo enseña el camino: no se envía nada a la AEAT hasta que
+ * Tentare verifica el poder y activa el estudio a mano en /interno.
+ * Con `false`, el alta solo la ve quien ya la ha empezado.
  */
-export const ALTA_ABIERTA_A_ESTUDIOS = false;
+export const ALTA_ABIERTA_A_ESTUDIOS = true;
 
 /** El envío se activó alguna vez: desde ese día el estudio funciona como VERI*FACTU. */
 export function envioActivado(activadoEn: string | null | undefined): boolean {
