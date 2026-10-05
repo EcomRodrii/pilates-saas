@@ -21,9 +21,8 @@
 // Es la marca de «aquí interviene Tentare» en las pantallas de todos los días,
 // donde antes iba el Orb. Desde el 5-oct-2026 (decisión del fundador: «no se
 // mueve en ningún lado») va VIVO: el canvas del motor, el mismo que en
-// /interno/tenti, a tamaño de icono. Parpadea, mira alrededor, sigue el cursor
-// con los ojos, respira (CSS, `tenti-respira-suave` en globals.css), y si no va
-// dentro de un botón o un enlace se deja tocar: se aplasta y suena, se molesta
+// /interno/tenti, a tamaño de icono. Parpadea, mira alrededor y sigue el cursor
+// con los ojos, y si no va dentro de un botón o un enlace se deja tocar: se aplasta y suena, se molesta
 // si insistes y se marea si insistes mucho. Dentro de un botón o un enlace el
 // clic es del botón: ahí no es tocable ni suena por su cuenta.
 //
@@ -41,10 +40,13 @@
 //     avisar, lo dice el texto de al lado.
 //   · 'pensando' — una petición de verdad en vuelo (un botón de IA, Analizar),
 //     siempre junto a un gerundio en el texto. Es el 'pensando' del motor (mira
-//     arriba a la derecha, sin la insignia de puntos), respirando más deprisa.
+//     arriba a la derecha, sin la insignia de puntos), y además respira por CSS
+//     (`tenti-respira`, globals.css) mientras dura la petición.
 //     Empezar a pensar no suena; terminar con resultado lo suena quien llama
 //     (`sonarTenti('pop')`), porque solo él sabe si hubo resultado.
 // Con «reducir movimiento», quieto (sin respirar, parpadear ni mirar).
+// En reposo no respira, como en el catálogo: medido, una respiración CSS sin fin
+// en cada icono costaba más hilo principal que los tres canvas juntos.
 //
 // Siempre aria-hidden: va pegado a un texto que ya dice lo mismo, y su nombre
 // no puede colarse en el del botón o el enlace que lo lleva. Por eso no acepta

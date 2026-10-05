@@ -433,7 +433,7 @@ export class Tenti {
         const lado = Math.random() < 0.5 ? -1 : 1;
         this.mirada = { x: lado * (0.4 + Math.random() * 0.45), y: (Math.random() - 0.4) * 0.6 };
         this.miradaHasta = n + 900 + Math.random() * 900;
-        this.proxMirada = this.miradaHasta + 3500 + Math.random() * 5000;
+        this.proxMirada = this.miradaHasta + 4500 + Math.random() * 5500;
       } else if (n >= this.miradaHasta) this.mirada = { x: 0, y: 0 };
     } else {
       this.mirada = { x: 0, y: 0 };
@@ -447,7 +447,10 @@ export class Tenti {
     const bota = c.bota && !q, respira = c.respira && !q;
     tg.yaw = ty; tg.pitch = tp; tg.tilt = c.ladea || 0; tg.oy = bota ? -Math.abs(Math.sin(t * 5.2)) * 0.07 : 0;
     tg.sy = respira ? 1 + Math.sin(t * 1.8) * 0.035 : 1; tg.sx = respira ? 1 - Math.sin(t * 1.8) * 0.02 : 1;
-    const kMira = 1 - Math.pow(0.0025, dt), kGen = 1 - Math.pow(0.0008, dt);
+    // En mini (tamaño de icono) la cabeza gira más deprisa: a 26-41 px el giro
+    // lento no se aprecia y cada fotograma de cola cuesta igual (medido en
+    // Resumen: las miradas eran la mayor parte de lo que pintaba en reposo).
+    const kMira = 1 - Math.pow(this.mini ? 0.0001 : 0.0025, dt), kGen = 1 - Math.pow(0.0008, dt);
     for (const k of Object.keys(tg) as Prop[]) { if (this.lock[k]) continue; s[k] += (tg[k] - s[k]) * (k === 'yaw' || k === 'pitch' ? kMira : kGen); }
     this.col = mix(this.col, this.colT, 1 - Math.pow(0.002, dt));
     if (n > this.proxParpadeo) {
