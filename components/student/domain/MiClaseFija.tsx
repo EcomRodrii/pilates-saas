@@ -76,7 +76,7 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
 
   // «No voy»: UNA semana de su clase fija. No toca la recurrencia.
   const [noVoy, setNoVoy] = useState<{
-    plaza: PlazaFijaVista; semana: SemanaFija & { ventanaCancelacionHoras: number | null; penalizacionTardiaEur: number | null };
+    plaza: PlazaFijaVista; semana: SemanaFija & { ventanaCancelacionHoras: number | null; penalizacionTardiaEur: number | null; penalizacionTardiaHoras: number | null };
   } | null>(null);
   const [cancelando, setCancelando] = useState(false);
   // Lo que ya ha contestado el servidor, por clase: manda sobre los datos hasta que la pantalla los vuelve a leer.
@@ -146,8 +146,10 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
   }
 
   const avisoNoVoy = noVoy && instante ? avisoCancelacion(noVoy.semana, estudio.politicaCancelacionHoras, instante) : null;
-  const penalizacionNoVoy = noVoy && avisoNoVoy && !avisoNoVoy.devolveriaCredito
-    ? avisoPenalizacionTardia(noVoy.semana.penalizacionTardiaEur, euros) : null;
+  // Solo junto al «tarde» del propio diálogo: las dos ventanas salen de fuentes que pueden
+  // desfasarse (la del estudio se lee al abrir la app), y no pueden contradecirse.
+  const penalizacionNoVoy = noVoy && instante && avisoNoVoy && !avisoNoVoy.devolveriaCredito
+    ? avisoPenalizacionTardia(noVoy.semana, instante, euros) : null;
   const resumenMes = hoy ? resumenDelMes(calendario, hoy) : null;
 
   return (
@@ -225,7 +227,7 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
                           puedeNoIr={online && s.estado === 'va' && !!s.reservaId && avisoCancelacion({ fecha: s.fecha, hora: s.hora, ventanaCancelacionHoras: null }, estudio.politicaCancelacionHoras, instante ?? undefined).puede}
                           onNoVoy={() => {
                             const p = plaza.proximas.find((x) => x.sesionId === s.sesionId);
-                            setNoVoy({ plaza, semana: { ...s, ventanaCancelacionHoras: p?.ventanaCancelacionHoras ?? null, penalizacionTardiaEur: p?.penalizacionTardiaEur ?? null } });
+                            setNoVoy({ plaza, semana: { ...s, ventanaCancelacionHoras: p?.ventanaCancelacionHoras ?? null, penalizacionTardiaEur: p?.penalizacionTardiaEur ?? null, penalizacionTardiaHoras: p?.penalizacionTardiaHoras ?? null } });
                           }}
                         />
                       </li>

@@ -77,6 +77,8 @@ export interface Clase {
    * `null`/ausente = nada. Solo para avisar antes de confirmar: quien cobra es el servidor.
    */
   penalizacionTardiaEur?: number | null;
+  /** Hasta cuántas horas antes del inicio se cobraría (`horasDeCobroTardio`); `null` = nunca. */
+  penalizacionTardiaHoras?: number | null;
   /**
    * Cuándo se abre la reserva de esta clase (ISO), con los días del tipo o del
    * estudio y la hora fija del estudio; `null`/ausente = sin límite. Es el
@@ -268,6 +270,8 @@ export interface PlazaFijaVista {
 export type ProximaClaseFijaVista = import('./plaza-fija.ts').ProximaClaseFija & {
   ventanaCancelacionHoras: number | null;
   penalizacionTardiaEur: number | null;
+  /** Hasta cuántas horas antes del inicio se cobraría (`horasDeCobroTardio`); `null` = nunca. */
+  penalizacionTardiaHoras: number | null;
 };
 /**
  * ⚠️ NO se redeclara aquí: se reexporta la de `plaza-fija.ts`, que es donde vive

@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { importeDelContrato, penalizacionTardiaQueSeCobraria } from './penalizacion-importe.ts';
+import { horasDeCobroTardio, importeDelContrato, penalizacionTardiaQueSeCobraria } from './penalizacion-importe.ts';
 import { consentimientoCubrePenalizacion } from './penalizacion-consentimiento.ts';
+import { avisoPenalizacionTardia } from '../student/clase-fija-vista.ts';
+import { instanteEnEstudio } from '../utils.ts';
 
 const cobraria = (aplicaTardia: boolean | null, importeEstudio: number | null, importeTipoSesion: number | null) =>
   penalizacionTardiaQueSeCobraria({ aplicaTardia, importeEstudio, importeTipoSesion });
@@ -50,5 +52,91 @@ test('lo que avisa la app es exactamente lo que deja pasar el guardia del contra
       assert.equal(aviso !== null, guardia.ok, `estudio ${estudio}, tipo ${tipo}`);
       if (aviso !== null) assert.equal(aviso, estudio);
     }
+  }
+});
+
+test('con términos propios del estudio el guardia no cobra nunca, y la app no avisa', () => {
+  assert.equal(penalizacionTardiaQueSeCobraria({ aplicaTardia: true, importeEstudio: 8, importeTipoSesion: null, terminosPropios: true }), null);
+  assert.equal(penalizacionTardiaQueSeCobraria({ aplicaTardia: true, importeEstudio: 8, importeTipoSesion: null, terminosPropios: false }), 8);
+  const texto = 'contrato';
+  const guardia = consentimientoCubrePenalizacion({
+    studio: { terminosServicio: 'Mis términos', penalizacionImporteEur: 8, cancelacionVentanaHoras: 12 },
+    penalizacion: { tipo: 'NO_SHOW', importe: 8, detectadaEn: null },
+    sesion: null, textoAceptado: texto, textoActual: texto,
+  });
+  assert.deepEqual(guardia, { ok: false, motivo: 'terminos_propios' });
+});
+
+test('la ventana en la que se cobra es la menor entre la de la detección y la del contrato', () => {
+  assert.equal(horasDeCobroTardio({ ventanaTipoSesion: null, ventanaEstudio: 12 }), 12);
+  assert.equal(horasDeCobroTardio({ ventanaTipoSesion: 24, ventanaEstudio: 12 }), 12, 'el tipo detecta a 24 h, el contrato solo cobra a 12');
+  assert.equal(horasDeCobroTardio({ ventanaTipoSesion: 6, ventanaEstudio: 12 }), 6, 'el tipo detecta a 6 h: antes no hay nada que cobrar');
+  assert.equal(horasDeCobroTardio({ ventanaTipoSesion: 0, ventanaEstudio: 12 }), null, 'un 0 en el tipo: sin ventana no se detecta');
+  assert.equal(horasDeCobroTardio({ ventanaTipoSesion: null, ventanaEstudio: null }), null);
+});
+
+// Cruce con el guardia real en CANCELACION_TARDIA: para cada combinación de ventanas y
+// horas antes del inicio, la app avisa exactamente cuando se detecta Y el guardia cobra.
+test('lo que avisa la app por la ventana es exactamente lo que el guardia deja cobrar', () => {
+  const texto = 'contrato';
+  const inicio = Date.parse('2026-10-12T10:00:00Z');
+  for (const ventanaEstudio of [6, 12, 24]) {
+    for (const ventanaTipo of [null, 6, 12, 24]) {
+      for (const horasAntes of [1, 5, 6, 7, 11, 12, 13, 18, 23, 24, 25]) {
+        const deteccion = ventanaTipo ?? ventanaEstudio;
+        const detectada = horasAntes <= deteccion;
+        const horas = horasDeCobroTardio({ ventanaTipoSesion: ventanaTipo, ventanaEstudio });
+        const avisa = horas !== null && horasAntes <= horas;
+        if (!detectada) { assert.equal(avisa, false, `estudio ${ventanaEstudio}, tipo ${ventanaTipo}, ${horasAntes} h: no se detecta`); continue; }
+        const guardia = consentimientoCubrePenalizacion({
+          studio: { terminosServicio: null, penalizacionImporteEur: 8, cancelacionVentanaHoras: ventanaEstudio },
+          penalizacion: { tipo: 'CANCELACION_TARDIA', importe: 8, detectadaEn: new Date(inicio - horasAntes * 36e5).toISOString() },
+          sesion: { inicio: new Date(inicio).toISOString() }, textoAceptado: texto, textoActual: texto,
+        });
+        assert.equal(avisa, guardia.ok, `estudio ${ventanaEstudio}, tipo ${ventanaTipo}, ${horasAntes} h antes`);
+      }
+    }
+  }
+});
+
+// El cruce de verdad: lo que PINTA la app (`avisoPenalizacionTardia`, la misma que usan los
+// dos diálogos) frente a la detección del SQL (`coalesce(tipo, estudio) > 0` y
+// `now() >= inicio - ventana`) más el guardia de cobro real, con instantes UTC y con el
+// móvil en varias zonas: la fecha y la hora de la clase son las del ESTUDIO.
+// Límite conocido, fuera de esto: el payload manda la ventana del estudio con `?? 12`, así
+// que una columna a NULL (0 estudios hoy; ningún formulario la deja así) avisaría de más.
+test('lo que pinta la app es exactamente detección + guardia, en cualquier zona del móvil', () => {
+  const eur = (n: number) => `${n} €`;
+  const fecha = '2026-10-12', hora = '10:00';
+  const inicio = Date.parse(instanteEnEstudio(fecha, hora)!);
+  const texto = 'contrato';
+  const tzOriginal = process.env.TZ;
+  try {
+    for (const tz of ['Europe/Madrid', 'Atlantic/Canary', 'America/New_York', 'Europe/Athens']) {
+      process.env.TZ = tz;
+      for (const ventanaEstudio of [null, 0, 6, 12, 24]) {
+        for (const ventanaTipo of [null, 0, 6, 12, 24]) {
+          for (const minutosAntes of [30, 330, 360, 361, 690, 720, 721, 1080, 1440, 1441, 1500]) {
+            const ahora = new Date(inicio - minutosAntes * 60_000);
+            const ventana = ventanaTipo ?? ventanaEstudio ?? 0;
+            const detecta = ventana > 0 && ahora.getTime() >= inicio - ventana * 36e5;
+            const clase = {
+              fecha, hora,
+              penalizacionTardiaEur: penalizacionTardiaQueSeCobraria({ aplicaTardia: true, importeEstudio: 8, importeTipoSesion: null }),
+              penalizacionTardiaHoras: horasDeCobroTardio({ ventanaTipoSesion: ventanaTipo, ventanaEstudio }),
+            };
+            const avisa = avisoPenalizacionTardia(clase, ahora, eur) !== null;
+            const cobra = detecta && consentimientoCubrePenalizacion({
+              studio: { terminosServicio: null, penalizacionImporteEur: 8, cancelacionVentanaHoras: ventanaEstudio },
+              penalizacion: { tipo: 'CANCELACION_TARDIA', importe: 8, detectadaEn: ahora.toISOString() },
+              sesion: { inicio: new Date(inicio).toISOString() }, textoAceptado: texto, textoActual: texto,
+            }).ok;
+            assert.equal(avisa, cobra, `${tz}, estudio ${ventanaEstudio}, tipo ${ventanaTipo}, ${minutosAntes} min antes`);
+          }
+        }
+      }
+    }
+  } finally {
+    if (tzOriginal === undefined) delete process.env.TZ; else process.env.TZ = tzOriginal;
   }
 });

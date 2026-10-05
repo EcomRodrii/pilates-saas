@@ -3,7 +3,7 @@ import { renovacionPorPagar, type FilaReciboRenovacion } from '@/lib/billing/ren
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { capturar } from '@/lib/analytics';
 import { supabase } from '@/lib/db/supabase';
-import { configLegalDeFila } from '@/lib/legal-textos';
+import { configLegalDeFila, tieneTextoPropio } from '@/lib/legal-textos';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { tokenCoincideConHash } from '@/lib/token-hash';
 import { exigirLectura } from '@/lib/exigir-lectura';
@@ -425,6 +425,10 @@ function studioPublico(r: RowStudios) {
     // `cancelar_reserva_plaza` (`coalesce(…, true)`): sin esto la app de la alumna
     // avisaba de un cargo por cancelar tarde que el estudio había apagado.
     penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
+    // Con términos de servicio propios el guardia de cobro nunca deja cobrar una
+    // penalización (`terminos_propios`): la app no debe avisar de un cargo. Del
+    // texto GUARDADO, no del compuesto de arriba (que nunca está vacío).
+    terminosPropios: tieneTextoPropio(r.terminos_servicio as string | null | undefined),
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',

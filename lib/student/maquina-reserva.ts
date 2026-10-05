@@ -16,6 +16,7 @@
 //     studios.cancelacion_ventana_horas`, no un número global.
 
 import type { BookingState, Clase, Disponibilidad, Reserva } from './tipos';
+import { instanteEnEstudio } from '../utils.ts';
 
 /** Disponibilidad visible de una clase PARA ESTA alumna. */
 export function disponibilidad(c: Clase, reservas: Reserva[], soportaEspera: boolean): Disponibilidad {
@@ -72,7 +73,7 @@ export function avisoCancelacion(c: Pick<Clase, 'fecha' | 'hora' | 'ventanaCance
   // estudio (`tipos_clase.ventana_cancelacion_horas ?? studios.cancelacion_ventana_horas`).
   // Sin esto, una clase con política propia se anunciaba con la del estudio.
   const horas = c.ventanaCancelacionHoras ?? horasPolitica;
-  const inicio = new Date(c.fecha + 'T' + c.hora + ':00').getTime();
+  const inicio = inicioEnEstudio(c.fecha, c.hora);
   const restan = (inicio - ahora.getTime()) / 36e5;
   return {
     puede: restan > 0,
@@ -110,3 +111,17 @@ export const COPY: Record<EstadoFinal, { titulo: string; cuerpo: string; tono: '
   offline: { titulo: 'Sin conexión', cuerpo: 'No podemos confirmar la reserva sin conexión. Inténtalo cuando vuelvas a tener red — no se ha hecho ningún cargo.', tono: 'error' },
   error: { titulo: 'Algo no ha salido como esperábamos', cuerpo: 'Tu reserva no se ha completado y no se ha usado ninguna sesión. Inténtalo de nuevo.', tono: 'error' },
 };
+
+/**
+ * El instante en que empieza una clase, leyendo su fecha y hora en la zona del
+ * ESTUDIO (así llegan: `fechaLocal`/`horaLocal`), no en la del móvil.
+ *
+ * ⚠️ `new Date('2026-10-12T10:00:00')` las lee en la zona del dispositivo: en
+ * Canarias (o con el móvil en otro huso) el corte de la ventana se movía una hora
+ * respecto al del servidor, que compara instantes. Respaldo para una fecha que
+ * no existe en esa zona (el salto de hora): el parseo de siempre.
+ */
+export function inicioEnEstudio(fecha: string, hora: string): number {
+  const iso = instanteEnEstudio(fecha, hora);
+  return iso ? Date.parse(iso) : new Date(`${fecha}T${hora}:00`).getTime();
+}

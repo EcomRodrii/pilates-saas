@@ -101,11 +101,21 @@ test('volver a reservarla solo se ofrece cuando no le regala ni le esconde nada'
   assert.equal(trasNoIr({ eraConfirmada: true, tardia: true }, fc).invitarAReservar, false, 'volver no anula la cancelación tardía');
 });
 
-test('la confirmación nombra la penalización solo si hay una, y como «puede»', () => {
+test('la confirmación nombra la penalización solo si hay una, como «puede», y solo dentro de la ventana en la que se cobra', () => {
   const eur = (n: number) => `${n.toFixed(2).replace('.', ',')} €`;
-  assert.equal(avisoPenalizacionTardia(8, eur), 'Tu estudio puede cobrarte 8,00 € por cancelar tan tarde.');
-  assert.equal(avisoPenalizacionTardia(0, eur), null);
-  assert.equal(avisoPenalizacionTardia(null, eur), null);
+  const clase = { fecha: '2026-10-12', hora: '10:00', penalizacionTardiaEur: 8, penalizacionTardiaHoras: 12 };
+  // Instantes de verdad: las 10:00 son las del ESTUDIO (08:00Z), esté donde esté el móvil.
+  const inicio = Date.parse('2026-10-12T08:00:00Z');
+  const a = (h: string) => new Date(Date.parse(`2026-10-12T${h}:00Z`) - 2 * 36e5);
+  const antes = (horas: number) => new Date(inicio - horas * 36e5);
+  assert.equal(avisoPenalizacionTardia(clase, antes(6), eur), 'Tu estudio puede cobrarte 8,00 € por cancelar tan tarde.');
+  assert.equal(avisoPenalizacionTardia(clase, antes(12), eur), 'Tu estudio puede cobrarte 8,00 € por cancelar tan tarde.', 'el corte es el del servidor: inicio − ventana');
+  // Un tipo de 24 h en un estudio de 12 h: a 18 h se detecta, pero el contrato no lo cobra.
+  assert.equal(avisoPenalizacionTardia(clase, antes(18), eur), null);
+  assert.equal(avisoPenalizacionTardia(clase, a('10:30'), eur), null, 'ya empezada no hay nada que cancelar');
+  assert.equal(avisoPenalizacionTardia({ ...clase, penalizacionTardiaEur: 0 }, antes(6), eur), null);
+  assert.equal(avisoPenalizacionTardia({ ...clase, penalizacionTardiaEur: null }, antes(6), eur), null);
+  assert.equal(avisoPenalizacionTardia({ ...clase, penalizacionTardiaHoras: null }, antes(6), eur), null, 'sin ventana no se detecta nada');
 });
 
 test('no queda nada de «Deshacer» en la tarjeta', async () => {

@@ -8,6 +8,7 @@
 // la respuesta de `cancelar_reserva_plaza`.
 
 import { marcasDelMes, nombreMes, type MarcaDiaFijo, type PlazaCalendario, type ReservaCalendario, type SesionCalendario } from '../plazas-fijas-calendario.ts';
+import { inicioEnEstudio } from './maquina-reserva.ts';
 
 // ── El estado de su clase, arriba a la derecha de la tarjeta ─────────────────
 
@@ -161,14 +162,26 @@ export function trasNoIr(res: RespuestaNoVoy, fechaCorta: (iso: string) => strin
 }
 
 /**
- * La línea de la penalización en la confirmación de cancelar cuando ya es tarde.
- * `importe` es lo que de verdad se cobraría por ESA clase
- * (`penalizacionTardiaQueSeCobraria`: detección + guardia del contrato), resuelto
- * por su sesión. Dice «puede»: cobrarla depende también de su tarjeta y de lo
- * que firmó.
+ * La línea de la penalización en la confirmación de cancelar, o `null`.
+ * Sale solo si de verdad se cobraría por ESA clase y AHORA: el importe
+ * (`penalizacionTardiaQueSeCobraria`) y la ventana (`horasDeCobroTardio`: la menor
+ * entre la de la detección y la del contrato), los dos resueltos por su sesión.
+ * Con la ventana de la detección a secas avisaba de cargos que el guardia no cobra
+ * (un tipo de clase de 24 h en un estudio de 12 h, cancelando a 18 h). Dice
+ * «puede»: cobrarla depende también de su tarjeta y de lo que firmó.
  */
-export function avisoPenalizacionTardia(importe: number | null | undefined, euros: (n: number) => string): string | null {
-  return typeof importe === 'number' && importe > 0 ? `Tu estudio puede cobrarte ${euros(importe)} por cancelar tan tarde.` : null;
+export function avisoPenalizacionTardia(
+  c: { fecha: string; hora: string; penalizacionTardiaEur?: number | null; penalizacionTardiaHoras?: number | null },
+  ahora: Date,
+  euros: (n: number) => string,
+): string | null {
+  const importe = c.penalizacionTardiaEur;
+  const horas = c.penalizacionTardiaHoras;
+  if (!(typeof importe === 'number' && importe > 0) || !(typeof horas === 'number' && horas > 0)) return null;
+  // El mismo corte que la detección y el guardia (`cancelada >= inicio - horas`),
+  // con la hora del ESTUDIO (`inicioEnEstudio`), no la del móvil.
+  const restan = (inicioEnEstudio(c.fecha, c.hora) - ahora.getTime()) / 36e5;
+  return restan > 0 && restan <= horas ? `Tu estudio puede cobrarte ${euros(importe)} por cancelar tan tarde.` : null;
 }
 
 // ── «Ver el mes entero»: la línea de debajo ──────────────────────────────────

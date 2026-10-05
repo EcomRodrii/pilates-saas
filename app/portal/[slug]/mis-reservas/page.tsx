@@ -137,8 +137,9 @@ export default function MisReservasPage() {
   const selEsFija = !!sel && sel.r.estado !== 'en-espera' && esClaseFija(sel.r.id);
   // Tarde y con penalización que de verdad se cobraría por ESA clase: se dice antes de confirmar
   // (la misma regla y el mismo texto que «no voy» en Fija: `avisoPenalizacionTardia`).
+  // Solo junto al «tarde» del propio diálogo (ver MiClaseFija): no pueden contradecirse.
   const penalizacionSel = sel && sel.r.estado !== 'en-espera' && aviso && !aviso.devolveriaCredito
-    ? avisoPenalizacionTardia(sel.c.penalizacionTardiaEur, euros) : null;
+    ? avisoPenalizacionTardia(sel.c, new Date(), euros) : null;
 
   // Sin `useCallback` a propósito: cierra sobre `sel`, que se deriva en el
   // render a partir de `data`, y el compilador de React no puede preservar esa

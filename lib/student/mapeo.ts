@@ -6,7 +6,7 @@
 // mismo motivo que el resto del fichero.
 import { horaEstudio, hoyEnEstudio } from '../utils.ts';
 import { situacionRecibo } from '../billing/situacion-recibo.ts';
-import { penalizacionTardiaQueSeCobraria } from '../billing/penalizacion-importe.ts';
+import { horasDeCobroTardio, penalizacionTardiaQueSeCobraria } from '../billing/penalizacion-importe.ts';
 import { imagenDeClase } from '../imagenes-por-defecto.ts';
 import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
@@ -255,6 +255,7 @@ export interface PayloadMin {
     fotoUrl?: string | null; imagenBienvenidaUrl?: string | null;
     reservaAntelacionMaximaDias?: number | null; reservaAntelacionHora?: string | null;
     penalizacionImporteEur?: number | null; penalizacionAplicaCancelacionTardia?: boolean | null;
+    cancelacionVentanaHoras?: number | null; terminosPropios?: boolean | null;
   } | null;
   sesiones?: {
     id: string; inicio: string; fin: string; aforoMaximo: number;
@@ -371,6 +372,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       tipoOrden: puesto.get(s.tipoClaseId),
       ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null,
       penalizacionTardiaEur: penalizacionTardiaDe(d, tipo),
+      penalizacionTardiaHoras: horasDeCobroDe(d, tipo),
       permiteListaEspera: tipo?.permiteListaEspera ?? null,
       seAbreEl: seAbreEl(s.inicio, tipo?.reservaAntelacionMaximaDias, d.studio),
       creditosAlAsistir: porAsistir,
@@ -565,7 +567,7 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
       { diaSemana: p.diaSemana, hora: p.hora, salaId: p.salaId }, d.socia?.reservas ?? [], sesiones, hoyISO, horaAhora, Number.POSITIVE_INFINITY,
     ).map((x) => {
       const tipo = tipoDeSesion(d, x.sesionId);
-      return { ...x, ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null, penalizacionTardiaEur: penalizacionTardiaDe(d, tipo) };
+      return { ...x, ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null, penalizacionTardiaEur: penalizacionTardiaDe(d, tipo), penalizacionTardiaHoras: horasDeCobroDe(d, tipo) };
     }),
   }));
 }
@@ -584,6 +586,19 @@ function penalizacionTardiaDe(d: PayloadMin, tipo: { penalizacionImporteEur?: nu
     aplicaTardia: d.studio?.penalizacionAplicaCancelacionTardia,
     importeEstudio: d.studio?.penalizacionImporteEur,
     importeTipoSesion: tipo?.penalizacionImporteEur,
+    terminosPropios: d.studio?.terminosPropios,
+  });
+}
+
+/**
+ * Hasta cuántas horas antes de empezar ESA clase cancelar se cobraría (`horasDeCobroTardio`:
+ * la menor entre la ventana de la detección y la del contrato). La del estudio, como la
+ * manda el servidor (`?? 12`, el mismo valor por defecto de la columna).
+ */
+function horasDeCobroDe(d: PayloadMin, tipo: { ventanaCancelacionHoras?: number | null } | undefined): number | null {
+  return horasDeCobroTardio({
+    ventanaTipoSesion: tipo?.ventanaCancelacionHoras,
+    ventanaEstudio: d.studio?.cancelacionVentanaHoras ?? 12,
   });
 }
 
