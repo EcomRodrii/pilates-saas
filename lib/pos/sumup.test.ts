@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ErrorSumup, centimosDevueltosSumup, centimosSinPropina, clienteSumup, decidirDevolucionSumup, tieneContracargo, estadoDesdeSumup, importeCoincide, leerCuerpoAviso, leerReferenciaSumup,
+  SCOPES_SUMUP, ErrorSumup, centimosDevueltosSumup, centimosSinPropina, clienteSumup, decidirDevolucionSumup, tieneContracargo, estadoDesdeSumup, importeCoincide, leerCuerpoAviso, leerReferenciaSumup,
   mismoCobro, normalizarCodigoSumup, proveedorDeReferencia, referenciaSumup, sumupParaEstudio, textoFalloConexionSumup,
   type FetchSumup, type TransaccionSumup,
 } from './sumup.ts';
@@ -271,4 +271,10 @@ test('⚠️ devolver con SumUp: nunca dos veces el mismo dinero, y nada si no c
   assert.equal(d(1000, 0, 2500), 'descuadre', 'devuelto desde la app de SumUp: no se toca');
   assert.equal(d(0, 1000, 2500), 'descuadre');
   assert.equal(d(2500, 2500, 2500), 'excede');
+});
+
+test('⚠️ Tentare pide a la cuenta del estudio los permisos de los lectores: sin ellos no se empareja el Solo', () => {
+  for (const s of ['payments', 'readers.read', 'readers.write', 'transactions.history', 'user.profile_readonly']) {
+    assert.ok((SCOPES_SUMUP as readonly string[]).includes(s), s);
+  }
 });

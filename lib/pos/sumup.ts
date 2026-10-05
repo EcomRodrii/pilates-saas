@@ -82,6 +82,18 @@ export function textoFalloConexionSumup(codigo: string | null): string {
   }
 }
 
+/**
+ * Los permisos que Tentare pide a la cuenta de SumUp del estudio. Tienen que estar
+ * también marcados en la app OAuth de Tentare en SumUp (Ajustes → Para
+ * desarrolladores → Aplicaciones de OAuth2 → Acceso a datos):
+ *  · `payments`: cobrar y devolver. Restringido: SumUp lo aprueba a mano.
+ *  · `readers.read` / `readers.write`: ver el Solo y emparejarlo. Sin ellos no hay
+ *    forma de conectar el datáfono (lo vimos al dar de alta la app, 5-oct-2026).
+ *  · `transactions.history`: leer el resultado de los cobros y el historial.
+ *  · `user.profile_readonly`: el código y el nombre del comercio.
+ */
+export const SCOPES_SUMUP = ['payments', 'readers.read', 'readers.write', 'transactions.history', 'user.profile_readonly'] as const;
+
 export type ProveedorDeReferencia = 'sumup' | 'stripe';
 
 /** Quién cobra lo que hay guardado. `null` = no hay cobro en vuelo. */
