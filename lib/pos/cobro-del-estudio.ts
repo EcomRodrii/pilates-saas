@@ -6,7 +6,7 @@ import { desenlaceDeCobroSoltado, type ConsultaCobro } from './consulta-stripe.t
 import { vidaDelCobroDeLaCaja, type VidaCobroCaja } from './referencia-cobro-recibo.ts';
 import { clienteSumup, proveedorDeReferencia, sumupPuedeCobrarAqui, type ClienteSumup } from './sumup.ts';
 import { urlDeAviso } from './sumup-aviso.ts';
-import { crearProveedorSumup } from './terminal-sumup.ts';
+import { crearProveedorSumup, yaNoEsDelMostrador } from './terminal-sumup.ts';
 import { tokenSumup } from './sumup-oauth.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -158,7 +158,12 @@ export async function vidaDelCobroDeLaCajaEnElRecibo(
     const prep = await prepararCobroExistente(admin, studioId, referencia, 'DATAFONO', o);
     if (!prep.ok) return vidaDelCobroDeLaCaja('SIN_LEER');
     const est = await prep.cobro.consultar(referencia).catch(() => null);
-    return vidaDelCobroDeLaCaja(est ? est.estado : 'SIN_LEER');
+    if (!est) return vidaDelCobroDeLaCaja('SIN_LEER');
+    // «Caducado» no lo dice SumUp: es que su API aún no devuelve la transacción, y puede
+    // ser un retraso. Hasta que lo soltaría el barrido, no se sabe (si no, un pago online
+    // se sumaría a un cobro del Solo que sí entró).
+    if (est.estado === 'EXPIRADO' && !yaNoEsDelMostrador(referencia, new Date())) return 'no-se-sabe';
+    return vidaDelCobroDeLaCaja(est.estado);
   }
   const leido = await cobroDeReciboSoloLectura(admin, studioId, reciboId, referencia);
   return vidaDelCobroDeLaCaja(!leido ? null : leido.comprobado ? leido.estado : 'SIN_LEER');

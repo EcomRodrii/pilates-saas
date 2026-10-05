@@ -7,11 +7,19 @@
 // Vive en /interno a propósito: es una maqueta para el fundador, no algo que
 // vea un estudio. Por eso aquí, y solo aquí, se encienden a mano el toque, el
 // sonido, el saludo al aparecer, las insignias y el nombre accesible: en el
-// componente vienen apagados.
+// componente vienen apagados. Y el traje: aquí se elige a mano (todos los de
+// Coucou, lib/tenti/trajes-coucou.ts); en el panel lo decide la temporada
+// (lib/tenti/trajes.ts), salvo que este navegador pida otra cosa en «En este
+// navegador, el panel lleva». La hoja del traje repite las seis vistas de
+// sheet.html de Coucou, para compararla con su captura de referencia.
 
 import { useEffect, useRef, useState } from 'react';
 import { Tenti, type TentiControl } from '@/components/tenti/tenti';
 import { EMOCIONES, ESTADOS, type EmocionTenti, type EstadoTenti } from '@/lib/tenti/motor';
+import { MARGEN_TRAJE, R_DEL_LADO, SEMIEJE_X } from '@/lib/tenti/geometria';
+import { VISTAS_DE_LA_HOJA } from '@/lib/tenti/trajes-coucou';
+import { ponerTrajeGuardado, usePreferenciaTraje, useTrajeDeTenti, type PreferenciaTraje } from '@/lib/tenti/preferencia-traje';
+import { LISTA_TRAJES, SIN_TRAJE, TRAJES, trajeDeTemporada, type Traje } from '@/lib/tenti/trajes';
 
 const boton = 'rounded-xl border border-border bg-background px-3 py-1.5 text-[13px] font-semibold text-foreground hover:bg-muted';
 const botonOn = 'rounded-xl border border-foreground bg-foreground px-3 py-1.5 text-[13px] font-semibold text-background';
@@ -20,9 +28,24 @@ const rotulo = 'mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-fo
 // Lo que tarda Listo en celebrar como pronto: se lee el titular primero.
 const LISTO_MADURA_MS = 1500;
 
+// Los lienzos de los iconos del panel: el canvas mide `ancho / 0,684` para que
+// el CUERPO mida el ancho del icono (components/tenti/tenti-icono.tsx).
+const lienzoDeIcono = (ancho: number) => Math.round(ancho / (2 * SEMIEJE_X * R_DEL_LADO));
+const ANCHOS_DE_ICONO = [18, 22, 28] as const;
+
+/** «del 5 de octubre al 1 de noviembre», de la temporada del traje. */
+function textoTemporada(t: Traje): string {
+  const temporada = TRAJES[t].temporada;
+  if (!temporada) return 'sin temporada';
+  const fmt = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+  const dia = (md: string) => fmt.format(new Date(`2000-${md}T12:00:00Z`));
+  return `del ${dia(temporada.desde)} al ${dia(temporada.hasta)}`;
+}
+
 export default function TentiPagina() {
   const [estado, setEstado] = useState<EstadoTenti>('reposo');
   const [sonido, setSonido] = useState(false);
+  const [traje, setTraje] = useState<Traje | null>('bruja');
   const control = useRef<TentiControl>(null);
 
   return (
@@ -36,9 +59,10 @@ export default function TentiPagina() {
       </header>
 
       <section className="grid gap-6 rounded-2xl border border-border bg-card p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-muted/40 py-6">
+        {/* Arriba, el aire que el traje ocupa por encima del cuadro. */}
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-muted/40 py-6" style={traje ? { paddingTop: 24 + 240 * MARGEN_TRAJE.arriba } : undefined}>
           <Tenti
-            ref={control} estado={estado} tamano={240} sonido={sonido}
+            ref={control} estado={estado} tamano={240} sonido={sonido} traje={traje}
             interactivo saludaAlAparecer insignias sigueCursor titulo={`Tenti: ${ESTADOS[estado].etiqueta.toLowerCase()}`}
           />
           <p className="text-[13px] font-semibold text-foreground">{ESTADOS[estado].etiqueta}</p>
@@ -63,6 +87,17 @@ export default function TentiPagina() {
               <button type="button" className={boton} onClick={() => control.current?.saludar()}>Saludar</button>
             </div>
           </div>
+          <div>
+            <p className={rotulo}>Traje</p>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Traje">
+              <button type="button" aria-pressed={traje === null} className={traje === null ? botonOn : boton} onClick={() => setTraje(null)}>Sin traje</button>
+              {LISTA_TRAJES.map((t) => (
+                <button key={t} type="button" aria-pressed={traje === t} className={traje === t ? botonOn : boton} onClick={() => setTraje(t)}>
+                  {TRAJES[t].etiqueta}
+                </button>
+              ))}
+            </div>
+          </div>
           <label className="flex items-center gap-2 text-[13px] text-foreground">
             <input type="checkbox" checked={sonido} onChange={(e) => setSonido(e.target.checked)} />
             Con sonido
@@ -72,15 +107,22 @@ export default function TentiPagina() {
 
       <section className="rounded-2xl border border-border bg-card p-5">
         <p className={rotulo}>Tamaños</p>
-        <div className="flex flex-wrap items-end gap-6">
-          {[40, 64, 96, 160].map((t) => (
+        <div className={`flex flex-wrap items-end gap-6 ${traje ? 'pt-16' : ''}`}>
+          {/* 26 y 41: los lienzos de un icono de 18 y de 28 px. */}
+          {[26, 41, 40, 64, 96, 160].map((t) => (
             <div key={t} className="flex flex-col items-center gap-1">
-              <Tenti estado={estado} tamano={t} interactivo insignias />
+              <Tenti estado={estado} tamano={t} traje={traje} interactivo insignias />
               <span className="text-[11.5px] text-muted-foreground tabular-nums">{t} px</span>
             </div>
           ))}
         </div>
       </section>
+
+      <HojaDelTraje traje={traje ?? 'bruja'} />
+
+      <EnEsteNavegador />
+
+      <RejillaDelTraje traje={traje ?? 'bruja'} />
 
       <section>
         <p className={rotulo}>Las primeras veces en el panel (solo la propietaria)</p>
@@ -172,5 +214,128 @@ function MaquetaListo() {
         </button>
       </div>
     </div>
+  );
+}
+
+// El traje del PANEL en este navegador (localStorage, como «Sonidos de Tenti»):
+// así el fundador ve el panel entero con el gorro antes de su temporada, y solo
+// él lo ve. Para los estudios manda la temporada.
+const OPCIONES_NAVEGADOR: { valor: PreferenciaTraje; etiqueta: string }[] = [
+  { valor: null, etiqueta: 'El de temporada' },
+  ...LISTA_TRAJES.map((t) => ({ valor: t, etiqueta: TRAJES[t].etiqueta })),
+  { valor: SIN_TRAJE, etiqueta: 'Nunca' },
+];
+
+/** Los que tienen temporada, con sus fechas: «el gorro de bruja del 5 de octubre al 1 de noviembre». */
+const CON_TEMPORADA = LISTA_TRAJES.filter((t) => TRAJES[t].temporada)
+  .map((t) => `${TRAJES[t].etiqueta.toLowerCase()} ${textoTemporada(t)}`).join(', ');
+
+function EnEsteNavegador() {
+  const pedido = usePreferenciaTraje();
+  const lleva = useTrajeDeTenti();
+  // La temporada de hoy no depende del navegador: se calcula al pintar.
+  const [hoy] = useState(() => trajeDeTemporada(new Date()));
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5">
+      <p className={rotulo}>En este navegador, el panel lleva</p>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="En este navegador, el panel lleva">
+        {OPCIONES_NAVEGADOR.map((o) => (
+          <button
+            key={o.etiqueta} type="button" aria-pressed={pedido === o.valor}
+            className={pedido === o.valor ? botonOn : boton} onClick={() => ponerTrajeGuardado(o.valor)}
+          >
+            {o.etiqueta}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-[12.5px] text-muted-foreground">
+        De temporada hoy: {hoy ? TRAJES[hoy].etiqueta.toLowerCase() : 'sin traje'} · por temporada: {CON_TEMPORADA} (hora
+        de Madrid). Ahora, en este navegador: <strong className="text-foreground">{lleva ? TRAJES[lleva].etiqueta.toLowerCase() : 'sin traje'}</strong>.
+        Dentro de un botón o un enlace Tenti nunca lo lleva.
+      </p>
+    </section>
+  );
+}
+
+// El traje a cada tamaño del panel, sobre las tres superficies donde vive, en
+// claro y en oscuro: el sitio donde se decide si a 18 px se lee o es una mancha.
+function RejillaDelTraje({ traje }: { traje: Traje }) {
+  const tamanos = [
+    // Solo el icono lleva silueta, como en el panel.
+    ...ANCHOS_DE_ICONO.map((a) => ({ lado: lienzoDeIcono(a), etiqueta: `icono ${a}`, icono: true })),
+    { lado: 40, etiqueta: 'buscador 40', icono: false }, { lado: 56, etiqueta: 'resumen 56', icono: false },
+    { lado: 80, etiqueta: 'Listo 80', icono: false }, { lado: 104, etiqueta: 'logo 104', icono: false },
+  ];
+  const superficies = [
+    { clase: 'bg-card text-foreground', nombre: '--card', silueta: 'normal' as const },
+    { clase: 'bg-background text-foreground', nombre: '--background', silueta: 'normal' as const },
+    { clase: 'bg-primary text-primary-foreground', nombre: 'bg-primary', silueta: 'invertida' as const },
+  ];
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5" data-rejilla-traje="">
+      <p className={rotulo}>{TRAJES[traje].etiqueta}, en claro y en oscuro</p>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {(['claro', 'oscuro'] as const).map((modo) => (
+          <div key={modo} className={`${modo === 'oscuro' ? 'dark ' : ''}space-y-2 rounded-xl border border-border bg-background p-3`}>
+            <p className="text-[11.5px] font-semibold text-muted-foreground">{modo}</p>
+            {superficies.map((sup) => (
+              <div key={sup.nombre} className={`flex flex-wrap items-end gap-3 rounded-lg px-3 pb-2 ${sup.clase}`} style={{ paddingTop: 16 + 104 * MARGEN_TRAJE.arriba }}>
+                {tamanos.map((t) => (
+                  <div key={t.etiqueta} className="flex flex-col items-center gap-1">
+                    <Tenti estado="reposo" tamano={t.lado} traje={traje} silueta={t.icono ? sup.silueta : undefined} miradas={false} />
+                    <span className="text-[10.5px] tabular-nums opacity-70">{t.etiqueta}</span>
+                  </div>
+                ))}
+                <span className="ml-auto text-[10.5px] opacity-70">{sup.nombre}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// La hoja de sheet.html de Coucou con Tenti: las seis vistas (L, frente, R,
+// arriba, abajo, inclinado) con la física que el original les pone a mano, y
+// el lienzo de un icono de 28 px. Una fila por traje, o todos a la vez para
+// ponerla al lado de la captura de referencia del original.
+const NOMBRE_VISTA: Record<(typeof VISTAS_DE_LA_HOJA)[number]['label'], string> = {
+  L: 'izquierda', front: 'frente', R: 'derecha', up: 'arriba', down: 'abajo', tilt: 'inclinado',
+};
+
+function HojaDelTraje({ traje }: { traje: Traje }) {
+  const [todos, setTodos] = useState(false);
+  const filas: (Traje | null)[] = todos ? [null, ...LISTA_TRAJES] : [traje];
+  const lado = 96;
+  return (
+    <section className="dark rounded-2xl border border-border bg-background p-5 text-foreground" data-hoja-traje="">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <p className={`${rotulo} mb-0`}>La hoja de Coucou · {todos ? 'todos los trajes' : TRAJES[traje].etiqueta}</p>
+        <button type="button" aria-pressed={todos} className={todos ? botonOn : boton} onClick={() => setTodos((v) => !v)}>
+          Todos los trajes
+        </button>
+      </div>
+      <div className="space-y-1">
+        {filas.map((t) => (
+          <div key={t ?? 'ninguno'} className="flex items-center gap-1.5" data-fila-traje={t ?? 'ninguno'}>
+            <span className="w-28 shrink-0 text-right text-[11.5px] text-muted-foreground">{t ? TRAJES[t].etiqueta : 'Sin traje'}</span>
+            {VISTAS_DE_LA_HOJA.map((v) => (
+              <div key={v.label} className="flex flex-col items-center rounded-[10px] bg-card px-2 pb-1" style={{ paddingTop: lado * MARGEN_TRAJE.arriba }}>
+                <Tenti
+                  estado="reposo" tamano={lado} traje={t} miradas={false}
+                  pose={{ yaw: v.yaw, pitch: v.pitch, tilt: 'tilt' in v ? v.tilt : 0, fisica: v.phys }}
+                />
+                <span className="text-[10.5px] text-muted-foreground">{NOMBRE_VISTA[v.label]}</span>
+              </div>
+            ))}
+            <div className="flex flex-col items-center rounded-[10px] bg-black px-2 pb-1" style={{ paddingTop: 41 * MARGEN_TRAJE.arriba }}>
+              <Tenti estado="reposo" tamano={lienzoDeIcono(28)} traje={t} miradas={false} pose={{ yaw: 0, pitch: 0, fisica: { dx: 0, dy: 0 } }} />
+              <span className="text-[10.5px] text-muted-foreground">icono 28</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

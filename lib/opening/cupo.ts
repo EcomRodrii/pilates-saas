@@ -67,6 +67,27 @@ export async function liberarPlaza(admin: SupabaseClient, plazaId: string): Prom
   if (error) console.error('[opening:cupo] liberar', plazaId, error);
 }
 
+/**
+ * Suelta la plaza solo si es de ESTE cobro, o de ninguno (5-oct-2026). La plaza se
+ * reserva con la clave del intento, así que dos peticiones del mismo intento pueden
+ * tener la misma: soltarla porque el cobro de ESTA petición falló dejaba sin plaza
+ * al cobro de la otra, todavía pagable (y se vendía una de más). Compare-and-set en
+ * el propio UPDATE: si entre medias otro cobro la liga, no se toca.
+ */
+export async function liberarPlazaSiEsDe(admin: SupabaseClient, plazaId: string, ref: string | null): Promise<boolean> {
+  const filtroRef = ref ? `stripe_ref.is.null,stripe_ref.eq.${ref}` : 'stripe_ref.is.null';
+  if (ref && !/^(pi|cs)_[A-Za-z0-9_]+$/.test(ref)) return false;
+  const { data, error } = await admin.from('launch_stage_plazas')
+    .update({ estado: 'LIBERADA', updated_at: new Date().toISOString() })
+    .eq('id', plazaId).eq('estado', 'RESERVADA').or(filtroRef)
+    .select('id');
+  if (error) { console.error('[opening:cupo] liberar si es de', plazaId, error); return false; }
+  return (data?.length ?? 0) > 0;
+}
+
+/** La plaza que no tiene ningún cobro ligado (un `idempotency_error`: ESTA petición no creó nada). */
+export const liberarPlazaSinCobro = (admin: SupabaseClient, plazaId: string) => liberarPlazaSiEsDe(admin, plazaId, null);
+
 /** Tras `checkout.session.expired`/PaymentIntent cancelado. Solo suelta lo RESERVADO. */
 export async function liberarPlazaPorRef(admin: SupabaseClient, ref: string): Promise<void> {
   const { error } = await admin.rpc('liberar_plaza_etapa_por_ref', { p_ref: ref });

@@ -17,8 +17,10 @@ for (const ruta of ['app/api/stripe/checkout/route.ts', 'app/api/public/checkout
     const fuente = leer(ruta);
     const ventana = fuente.indexOf('comprobarVentanaReserva(');
     assert.ok(ventana > 0, 'no llama a comprobarVentanaReserva');
-    // Antes de crear nada en Stripe (la llamada de verdad, no un comentario que la nombre).
-    const cobro = fuente.search(/await\s+(?:stripe|getStripe\(\))\S*\.(?:paymentIntents|checkout\.sessions)\.create\(/);
+    // Antes de crear nada en Stripe (la llamada de verdad, no un comentario que la
+    // nombre): directa con `await`, o dentro de la función que crea el cobro
+    // (`crearSesion`/`crearCobro`, que también mira la repetición idempotente).
+    const cobro = fuente.search(/(?:await\s+|=>\s*)(?:stripe|getStripe\(\))\S*\.(?:paymentIntents|checkout\.sessions)\.create\(/);
     assert.ok(cobro > 0, 'no se encuentra la llamada que crea el cobro: el test ya no mira nada');
     assert.ok(ventana < cobro, 'la ventana se comprueba después de crear el cobro');
   });

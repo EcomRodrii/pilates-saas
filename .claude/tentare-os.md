@@ -139,6 +139,14 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   merezca el código de verdad (como apagar «exigir 2FA», `/api/estudio/doble-factor`).
   `/interno` NO lo acepta a propósito, y lo que GoTrue protege (quitar o añadir un factor)
   exige el código. La llave es la cookie: la IP y el nombre solo se enseñan en Mi perfil.
+  ⚠️ **El factor de `/interno` solo cuenta en `/interno`** (5-oct-2026, decisión del fundador). El
+  factor de Supabase es UNO por cuenta, y el que `/interno` obliga a crear encendía el código en el
+  panel y en la app del estudio. Ahora la regla A cuenta solo los factores que no se llaman
+  `NOMBRE_FACTOR_INTERNO` ('Tentare Internal'): en SQL `tiene_factor_de_cuenta` (migr
+  `20261005220308`), en TS `factoresVerificados`, y las guardias del navegador con
+  `sesionPideCodigo` (nunca `nextLevel === 'aal2'` a secas: lo pone cualquier factor). `/interno`
+  sigue exigiendo `aal2` con cualquier factor. «No volver a pedirlo en este dispositivo» viene
+  MARCADO: un código por sesión del mismo móvil era «me lo pide mil veces».
   **El segundo paso por CORREO es el de por defecto** (3-oct-2026, `lib/auth/codigo-correo-reglas.ts`,
   migr `20261003160000`): al entrar se manda un código al correo de la cuenta y la app TOTP queda
   para «No tengo acceso a mi correo». Mismo mecanismo que el dispositivo: la sesión sigue en `aal1`
@@ -371,6 +379,31 @@ esa lista con su motivo, no un import de paso.
   en los dos modos, `lib/tenti/paleta.test.ts`) es lo que lo despega de --card en
   claro; sobre `bg-primary`/`bg-brand`, `sobre="invertida"` (toma el color del
   texto).
+- **Trajes de temporada** (`lib/tenti/trajes.ts`, 5-oct-2026: «ahora, que viene
+  Halloween»): el gorro de bruja del **5-oct al 1-nov, ambos incluidos, en hora
+  de Madrid** (nunca UTC ni la del navegador: el cambio de hora cae dentro; los
+  bordes los prueba `trajes.test.ts`). **El dibujo es el de Coucou, portado tal
+  cual** (`lib/tenti/trajes-coucou.ts`, 6-oct-2026: el fundador vio nuestro gorro
+  y dijo «mal outfit»; lo quiere EXACTAMENTE como el original): los diez trajes
+  del original (`OUTFITS`: beanie, santaHat, partyHat, crown, witchHat,
+  sunglasses, roundGlasses, scarf, pumpkin, bow) con **sus colores, no tokens**
+  (excepción deliberada a la paleta, explicada en `motor.test.ts`). No se
+  redibuja ni se «mejora» aquí: si algo cambia, se cambia en Coucou y se vuelve
+  a portar. Una temporada nueva (Papá Noel en Navidad) es rellenar `temporada`
+  en su entrada de `TRAJES`: cero código de dibujo. El motor les da el marco de
+  la cabeza del original (R, 1,14R × 0,88R, `VIEW_TILT`, yaw/pitch de la mirada)
+  y un muelle para lo que cuelga (`phys`), dentro de la transformación del
+  cuerpo; `back()` antes del cuerpo y `front()` tras cuerpo y ojos. Los trajes
+  no caben en el cuadro: con traje el canvas crece hacia fuera
+  (`lienzoDeTenti`/`MARGEN_TRAJE`, medido con todos los trajes en
+  `trajes-coucou.test.ts`) con márgenes negativos, y la caja no se mueve. El SVG
+  de reserva del icono va **sin traje** (solo se ve mientras carga el motor). Lo
+  lleva donde Tenti se toca y **nunca dentro de un botón o un enlace** (la misma
+  regla, `DENTRO_DE_UN_CONTROL`): fuera, sin otra lista, los botones de IA de
+  salud. El fundador fuerza cualquiera o lo quita en SU navegador desde
+  `/interno/tenti` («En este navegador, el panel lleva», localStorage
+  `tenti-traje`), donde está también la hoja de seis vistas de `sheet.html` para
+  compararla con la referencia; ningún estudio tiene dónde tocarlo.
 - **Nunca**: marca blanca (portal, /reservar, widget, kiosko, correos a socias),
   soporte (WhatsApp, ayuda: «te responde una persona, no una IA»), pantallas de
   dinero (Cobros, Caja, cierre, facturas…) ni junto a lo que redacta un modelo
@@ -1196,8 +1229,11 @@ categoría que [[colisiones-entre-sesiones-paralelas]].
 ## ⚠️ Un merge de solo documentación NO despliega
 
 `vercel.json` lleva un `ignoreCommand` que **cancela el build** cuando el diff
-contra el commit anterior solo toca `docs/**`, `**/*.md`, `e2e/**` o
-`**/*.test.ts`. Es deliberado (ahorra builds), pero tiene una trampa: el check
+contra el commit anterior solo toca `docs/**`, `**/*.md`, `e2e/**`,
+`**/*.test.ts`, `supabase/**`, `.github/**` o `.claude/**` (los tres últimos desde
+6-oct-2026: el build de Vercel es el 94 % de la factura, $62 de $67 al mes, y una
+migración o un workflow no cambian lo que se construye; el `db-types.ts` que
+acompaña a una migración sí dispara el build). Es deliberado (ahorra builds), pero tiene una trampa: el check
 de Vercel sale **verde** igualmente, con el texto «Canceled by Ignored Build
 Step». Verde ahí significa «no había nada que construir», no «desplegado».
 

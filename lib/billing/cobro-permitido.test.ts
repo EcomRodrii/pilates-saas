@@ -47,3 +47,20 @@ test('armar reintentos: solo con la cuota activa y un recibo que nadie marcó al
   assert.equal(puedeArmarReintento(recibo({ proximoReintento: null, trasCancelarCuota: 'REINTENTAR' }), { estado: 'ACTIVA' }), false);
   assert.equal(puedeArmarReintento(recibo({ proximoReintento: null }), null), false);
 });
+
+// Revisión del 5-oct (#11/#12): una cuota nunca se cobra SOLA antes de vencer, tampoco
+// un recibo adoptado antes de que la adopción mirara fechas, o con la cuota alargada.
+test('automático: la renovación de una cuota sin vencer espera a su día; a mano, decide el estudio', () => {
+  const rec: ReciboParaCobrar = { estado: 'PENDIENTE', proximoReintento: '2026-10-06T06:00:00Z', trasCancelarCuota: null, esRenovacion: true };
+  const cuota = (fechaFin: string | null, tipoPlan = 'MENSUAL') => ({ estado: 'ACTIVA', tipoPlan, fechaFin });
+  assert.deepEqual(puedeIntentarCobro(rec, cuota('2026-10-31'), 'AUTOMATICO', '2026-10-06'), { ok: false, motivo: 'CUOTA_SIN_VENCER' });
+  assert.deepEqual(puedeIntentarCobro(rec, cuota('2026-10-06'), 'AUTOMATICO', '2026-10-06'), { ok: false, motivo: 'CUOTA_SIN_VENCER' }, 'el día que vence, aún no');
+  assert.deepEqual(puedeIntentarCobro(rec, cuota(null), 'AUTOMATICO', '2026-10-06'), { ok: false, motivo: 'CUOTA_SIN_VENCER' }, 'sin fecha de fin, no se cobra sola');
+  assert.deepEqual(puedeIntentarCobro(rec, cuota('2026-10-05'), 'AUTOMATICO', '2026-10-06'), { ok: true });
+  // Un bono, una venta o un recibo sin la marca: como antes.
+  assert.deepEqual(puedeIntentarCobro(rec, cuota('2026-12-31', 'BONO'), 'AUTOMATICO', '2026-10-06'), { ok: true });
+  assert.deepEqual(puedeIntentarCobro({ ...rec, esRenovacion: false }, cuota('2026-12-31'), 'AUTOMATICO', '2026-10-06'), { ok: true });
+  assert.deepEqual(puedeIntentarCobro({ ...rec, esRenovacion: undefined }, { estado: 'ACTIVA' }, 'AUTOMATICO', '2026-10-06'), { ok: true });
+  // A mano («Cobrar online» del estudio) es una decisión de una persona: no se toca.
+  assert.deepEqual(puedeIntentarCobro(rec, cuota('2026-10-31'), 'STAFF', '2026-10-06'), { ok: true });
+});

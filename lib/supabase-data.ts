@@ -39,7 +39,7 @@ import { leerPiezasGuardadas, type PiezaGuardada } from '@/lib/widgets/pieza-pan
 import {
   penalizacionDelRecibo, type LecturaPenalizacionesDeRecibos,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
-import { COLUMNAS_COBRO_EN_MARCHA, type FilaReciboRemesa, type LecturaRecibosRemesa } from '@/lib/billing/remesa-sepa-reglas';
+import { COLUMNAS_COBRO_EN_MARCHA, SELECT_RECIBOS_REMESA, type FilaReciboRemesa, type LecturaRecibosRemesa } from '@/lib/billing/remesa-sepa-reglas';
 import { importeIngresado } from '@/lib/billing/situacion-recibo';
 import type { ColumnaReciboActualizable, ColumnaReciboInsertable } from '@/lib/cobros/recibo-escritura-navegador';
 import type { ReciboPrevioDeCita } from '@/lib/cobros/recibo-de-cita';
@@ -3374,11 +3374,12 @@ export async function dbLeerRecibosParaRemesa(ids: string[]): Promise<LecturaRec
   if (ids.length === 0) return { ok: true, filas };
   try {
     const { data, error } = await supabase.from('recibos')
-      .select(`id, estado, ${COLUMNAS_COBRO_EN_MARCHA.join(', ')}`)
+      .select(SELECT_RECIBOS_REMESA)
       .in('id', ids);
     if (error) return { ok: false };
     for (const fila of (data ?? []) as unknown as FilaReciboRemesa[]) filas.set(fila.id, fila);
-    return { ok: true, filas };
+    // El «hoy» del cron de renovaciones: con él se sabe si una cuota ya venció.
+    return { ok: true, filas, hoy: new Date().toISOString().slice(0, 10) };
   } catch {
     return { ok: false };
   }

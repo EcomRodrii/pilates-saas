@@ -311,7 +311,13 @@ test('en el móvil Tenti va en la fila del botón y no lo empuja hacia abajo', a
   expect(caja).not.toBeNull();
   expect(pie).not.toBeNull();
   expect(caja!.y - (pie!.y + pie!.height)).toBeLessThan(48);
-  expect((await tenti.boundingBox())?.width).toBe(64);
+  // Lo que OCUPA en la fila: con un traje de temporada (el gorro de bruja en
+  // octubre) el lienzo se sale de su caja con márgenes negativos y su caja de
+  // dibujo es más ancha, pero en la fila sigue midiendo 64.
+  expect(await tenti.evaluate((c) => {
+    const e = getComputedStyle(c);
+    return c.getBoundingClientRect().width + parseFloat(e.marginLeft) + parseFloat(e.marginRight);
+  })).toBeCloseTo(64, 1);
   // En la misma fila que el botón: el envoltorio de Tenti es su hermano.
   expect(await tenti.evaluate((c) => {
     const boton = [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('Montar mi estudio'));

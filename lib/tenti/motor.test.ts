@@ -12,6 +12,7 @@
 import { test, mock, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { Tenti, ESTADOS, animacionDeEntrada, type EstadoTenti } from './motor.ts';
+import { lienzoDeTenti } from './geometria.ts';
 import type { PaletaTenti } from './paleta.ts';
 
 const PALETA: PaletaTenti = {
@@ -34,6 +35,11 @@ const cerca = (a: RGB, b: RGB) => a.every((v, i) => Math.abs(v - b[i]) <= 1);
 
 // Colores del prototipo que no pueden volver a pintarse con paleta: el menta de
 // 'hecho', los mofletes rosa chicle y los de los estados que el panel no usa.
+// ⚠️ Los TRAJES quedan fuera de esta regla, y a propósito: llevan los colores
+// del original de Coucou (lib/tenti/trajes-coucou.ts), decisión del fundador
+// del 6-oct-2026 («lo quiero exactamente como el original»). Por eso las
+// comprobaciones de paleta corren sin traje, y las del traje, abajo, piden
+// justo sus colores de Coucou (el blanco del pompón incluido).
 const PROHIBIDOS_RGB: Array<[string, RGB]> = [
   ['#34D399', hexRgb('#34D399')], ['rgba(255,120,150', [255, 120, 150]], ['#FF4D6D', hexRgb('#FF4D6D')],
   ['#F7B32B', hexRgb('#F7B32B')], ['#7CC7FF', hexRgb('#7CC7FF')], ['#3B9EFF', hexRgb('#3B9EFF')], ['#F5A524', hexRgb('#F5A524')],
@@ -49,7 +55,7 @@ let fotogramaActual: string[] = [];
 
 before(() => {
   (globalThis as { Path2D?: unknown }).Path2D = class {
-    moveTo() {} lineTo() {} closePath() {} roundRect() {}
+    moveTo() {} lineTo() {} closePath() {} roundRect() {} quadraticCurveTo() {} bezierCurveTo() {} ellipse() {} arc() {} arcTo() {} rect() {} addPath() {}
   };
   performance.now = () => reloj;
 });
@@ -388,4 +394,167 @@ test('la silueta se pinta con su color, y sin ella no hay trazo', () => {
   const otros = correr(sin, 32).flat();
   sin.destruir();
   assert.ok(!otros.some((c) => cerca(aRgb(c), hexRgb('#94857A'))));
+});
+
+// ── El traje: los de Coucou ─────────────────────────────────────────────────
+//
+// El dibujo de cada traje lo prueba trajes-coucou.test.ts; aquí, cómo lo monta
+// el motor: lo de detrás antes del cuerpo y lo de delante después de cuerpo y
+// ojos, todo DENTRO de la transformación del cuerpo (así se aplasta y se ladea
+// con él), el lienzo que crece con traje y la física de lo que cuelga.
+
+/** Un contexto que apunta, en orden, save/restore/scale y cada color (de
+ *  relleno, de trazo o parada de un degradado). */
+function contextoQueApunta(eventos: string[]): CanvasRenderingContext2D {
+  const degradado = () => ({ addColorStop: (_: number, c: string) => { eventos.push(`color:${c}`); } });
+  const campos: Record<string | symbol, unknown> = {};
+  return new Proxy(campos, {
+    get(t, k) {
+      if (k === 'createLinearGradient' || k === 'createRadialGradient') return degradado;
+      if (k === 'save' || k === 'restore' || k === 'scale') return () => { eventos.push(String(k)); };
+      if (k in t) return t[k];
+      return () => {};
+    },
+    set(t, k, v) {
+      if ((k === 'fillStyle' || k === 'strokeStyle') && typeof v === 'string') eventos.push(`color:${v}`);
+      t[k] = v;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+function motorQueApunta(eventos: string[], opciones: ConstructorParameters<typeof Tenti>[1]) {
+  const canvas = { width: 0, height: 0, getContext: () => contextoQueApunta(eventos) } as unknown as HTMLCanvasElement;
+  const motor = new Tenti(canvas, opciones);
+  motor.medir(120);
+  return { motor, canvas };
+}
+
+test('con el gorro de bruja: el ala de detrás antes del cuerpo, el gorro después de los ojos, todo dentro de la transformación del cuerpo', () => {
+  const eventos: string[] = [];
+  const { motor } = motorQueApunta(eventos, { paleta: PALETA, insignias: false, traje: 'bruja' });
+  eventos.length = 0;
+  motor.fotograma();
+  motor.destruir();
+  // Dónde está cada cosa en el fotograma, y a qué profundidad de save().
+  let prof = 0, profCuerpo = -1;
+  const sitio = new Map<string, { i: number; dentro: boolean }>();
+  eventos.forEach((e, i) => {
+    if (e === 'save') prof++;
+    else if (e === 'restore') prof--;
+    else if (e === 'scale' && profCuerpo < 0) profCuerpo = prof;
+    else if (e.startsWith('color:') && !sitio.has(e.slice(6))) sitio.set(e.slice(6), { i, dentro: profCuerpo > 0 && prof >= profCuerpo });
+  });
+  const ver = (c: string) => { const v = sitio.get(c); assert.ok(v, `no se pinta ${c}`); return v; };
+  const alaDetras = ver('#2A0A4F'), cuerpo = ver('rgba(255,250,245,1)'), ojos = ver(PALETA.tinta);
+  const cono = ver('#7C3AED'), banda = ver('#F97316'), hebilla = ver('#FCD34D');
+  assert.ok(alaDetras.i < cuerpo.i, 'el ala de detrás va antes que el cuerpo');
+  for (const [nombre, v] of [['cono', cono], ['banda', banda], ['hebilla', hebilla]] as const) {
+    assert.ok(v.i > ojos.i, `el ${nombre} va después de los ojos`);
+  }
+  for (const [nombre, v] of [['ala', alaDetras], ['cono', cono], ['banda', banda], ['hebilla', hebilla]] as const) {
+    assert.ok(v.dentro, `${nombre}: fuera de la transformación del cuerpo, no se aplastaría con él`);
+  }
+});
+
+test('los colores del traje son los del original de Coucou; sin traje no hay ninguno', () => {
+  const colores = (opciones: ConstructorParameters<typeof Tenti>[1]) => {
+    const motor = crear(opciones);
+    const pintados = correr(motor, 64).flat().map(aRgb);
+    motor.destruir();
+    return pintados;
+  };
+  const DE_COUCOU = ['#5B21B6', '#7C3AED', '#2E1065', '#F97316', '#FCD34D', '#C2410C'];
+  const con = colores({ paleta: PALETA, insignias: false, traje: 'bruja' });
+  for (const c of DE_COUCOU) assert.ok(con.some((p) => cerca(p, hexRgb(c))), `el gorro de bruja no usa ${c}, el del original`);
+  const sin = colores({ paleta: PALETA, insignias: false });
+  for (const c of DE_COUCOU) assert.ok(!sin.some((p) => cerca(p, hexRgb(c))), `sin traje se pinta ${c}`);
+});
+
+test('la calabaza recolorea el cuerpo con sus colores; los demás trajes, no', () => {
+  const cuerpo = (traje: 'calabaza' | 'bruja') => {
+    const motor = crear({ paleta: PALETA, insignias: false, traje });
+    const pintados = correr(motor, 32).flat().map(aRgb);
+    motor.destruir();
+    return pintados;
+  };
+  const calabaza = cuerpo('calabaza');
+  assert.ok(calabaza.some((p) => cerca(p, hexRgb('#FFA94D'))) && calabaza.some((p) => cerca(p, hexRgb('#E8590C'))));
+  assert.ok(!calabaza.some((p) => cerca(p, hexRgb(PALETA.cuerpo[0]))), 'con calabaza, el cuerpo sigue crema');
+  assert.ok(cuerpo('bruja').some((p) => cerca(p, hexRgb(PALETA.cuerpo[0]))), 'con gorro, el cuerpo es el de siempre');
+});
+
+test('con traje el lienzo crece (lienzoDeTenti), y se vuelve a medir al ponérselo y al quitárselo', () => {
+  const eventos: string[] = [];
+  const { motor, canvas } = motorQueApunta(eventos, { paleta: PALETA, insignias: false });
+  assert.deepEqual([canvas.width, canvas.height], [120, 120]);
+  motor.traje = 'bruja';
+  const l = lienzoDeTenti(120, true);
+  assert.deepEqual([canvas.width, canvas.height], [Math.round(l.ancho), Math.round(l.alto)]);
+  assert.ok(canvas.height > 120 && canvas.width > 120);
+  motor.traje = null;
+  assert.deepEqual([canvas.width, canvas.height], [120, 120]);
+  motor.destruir();
+});
+
+const fisica = (m: Tenti) => (m as unknown as { fis: { dx: number; dy: number } }).fis;
+
+test('lo que cuelga del traje se queda atrás al girar, rebota y se asienta; con «reducir movimiento», sin muelle', () => {
+  const motor = crear({ paleta: PALETA, insignias: false, traje: 'bruja', miradas: false });
+  correr(motor, 500);
+  assert.ok(Math.abs(fisica(motor).dx) < 0.01, 'quieto al frente, la física en reposo');
+  motor.mira.x = 1; // gira la cabeza a la derecha
+  let minimo = 0;
+  const hasta = reloj + 3000;
+  while (reloj < hasta) { correr(motor, 16); minimo = Math.min(minimo, fisica(motor).dx); }
+  const asentado = fisica(motor).dx;
+  // Girada a la derecha cuelga hacia la izquierda (dx < 0), como «R» en sheet.html.
+  assert.ok(asentado < -0.5, `asentado en ${asentado.toFixed(3)}`);
+  assert.ok(minimo < asentado - 0.02, `no rebota: mínimo ${minimo.toFixed(3)}, asentado ${asentado.toFixed(3)}`);
+  // Asentado de verdad: sin velocidad y donde la deja la cabeza (sheet.html: R → dx -0,6 con yaw 0,5).
+  const v = (motor as unknown as { vfis: { dx: number; dy: number } }).vfis;
+  assert.ok(Math.abs(v.dx) + Math.abs(v.dy) < 0.01, 'tres segundos después aún rebota');
+  const yaw = (motor as unknown as { s: { yaw: number } }).s.yaw;
+  assert.ok(Math.abs(asentado - -1.2 * yaw) < 0.01, `asentado en ${asentado.toFixed(3)} con la cabeza a ${yaw.toFixed(3)}`);
+  motor.destruir();
+
+  // Aplastarlo lanza arriba lo que cuelga (dy < 0)…
+  const vivo = crear({ paleta: PALETA, insignias: false, traje: 'bruja', miradas: false });
+  correr(vivo, 300);
+  vivo.aplastar();
+  let arriba = 0;
+  for (let t = 0; t < 600; t += 16) { correr(vivo, 16); arriba = Math.min(arriba, fisica(vivo).dy); }
+  assert.ok(arriba < -0.1, `al aplastarlo, dy llega a ${arriba.toFixed(3)}`);
+  vivo.destruir();
+  // …y con «reducir movimiento», ni se aplasta ni se mueve nada.
+  const quieto = crear({ paleta: PALETA, insignias: false, traje: 'bruja', quieto: true });
+  quieto.aplastar();
+  for (let t = 0; t < 400; t += 16) { correr(quieto, 16); const f = fisica(quieto); assert.ok(Math.abs(f.dx) + Math.abs(f.dy) === 0, 'con «reducir movimiento» no rebota'); }
+  quieto.destruir();
+});
+
+test('una pose fija (la hoja de /interno) manda sobre la cabeza y la física', () => {
+  const pose = { yaw: -0.5, pitch: 0.4, tilt: 0.12, fisica: { dx: 0.6, dy: -0.4 } };
+  const motor = crear({ paleta: PALETA, insignias: false, traje: 'bruja', pose });
+  motor.mira.x = 1;
+  correr(motor, 200);
+  const s = (motor as unknown as { s: { yaw: number; pitch: number; tilt: number } }).s;
+  assert.deepEqual([s.yaw, s.pitch, s.tilt], [-0.5, 0.4, 0.12]);
+  assert.deepEqual(fisica(motor), { dx: 0.6, dy: -0.4 });
+  // Es una lámina, como sheet.html: no parpadea ni pide despertarse.
+  const abierto = (motor as unknown as { s: { open: number } }).s;
+  for (let t = 0; t < 8000; t += 16) { correr(motor, 16); assert.equal(abierto.open, 1, 'con pose fija parpadea'); }
+  assert.equal(motor.proximoDespertar(), Infinity);
+  motor.destruir();
+});
+
+test('cada traje se pinta en el motor sin lanzar, en cualquier estado', () => {
+  for (const traje of ['gorroDeLana', 'papaNoel', 'fiesta', 'corona', 'bruja', 'gafasDeSol', 'gafasRedondas', 'bufanda', 'calabaza', 'lazo'] as const) {
+    for (const estado of Object.keys(ESTADOS) as EstadoTenti[]) {
+      const motor = crear({ paleta: PALETA, insignias: true, traje });
+      motor.ponerEstado(estado, { forzar: true, silencio: true });
+      assert.doesNotThrow(() => correr(motor, 400), `${traje} en '${estado}'`);
+      motor.destruir();
+    }
+  }
 });

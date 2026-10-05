@@ -7,7 +7,7 @@
 // `exige_doble_factor`) y `verificarSesionStaff`. Por eso, si algo falla aquí,
 // devuelve 'ok' y deja que el panel siga: el servidor no dará nada que no deba.
 import { supabase } from '@/lib/db/supabase';
-import type { PasoDobleFactor } from '@/lib/auth/doble-factor-reglas';
+import { sesionPideCodigo, type PasoDobleFactor } from '@/lib/auth/doble-factor-reglas';
 import {
   confiarDispositivo, enviarCodigoCorreo, recordarDispositivo, reabrirCorreo, verificarCodigoCorreo, type EnvioCorreo,
 } from '@/lib/auth/doble-factor-acciones';
@@ -21,9 +21,11 @@ export type PasoDelPanel = PasoDobleFactor | 'recargar';
 export async function pasoDobleFactorDelPanel(accessToken: string): Promise<PasoDelPanel> {
   try {
     // Sin red: el nivel sale del propio token y los factores, de la sesión.
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const [{ data: aal }, { data: { session } }] = await Promise.all([
+      supabase.auth.mfa.getAuthenticatorAssuranceLevel(), supabase.auth.getSession(),
+    ]);
     if (aal?.currentLevel === 'aal2') return 'ok';
-    if (aal?.nextLevel === 'aal2') {
+    if (sesionPideCodigo({ actual: aal?.currentLevel, factores: session?.user.factors })) {
       // Tiene la verificación activada y la sesión no la ha pasado: si viene de
       // un dispositivo recordado, entra sin código.
       const confianza = await confiarEnEsteDispositivo(accessToken);
@@ -54,8 +56,10 @@ export async function confiarEnEsteDispositivo(accessToken: string): Promise<'nu
  */
 export async function confiarAntesDeEntrar(accessToken: string): Promise<void> {
   try {
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') await confiarEnEsteDispositivo(accessToken);
+    const [{ data: aal }, { data: { session } }] = await Promise.all([
+      supabase.auth.mfa.getAuthenticatorAssuranceLevel(), supabase.auth.getSession(),
+    ]);
+    if (sesionPideCodigo({ actual: aal?.currentLevel, factores: session?.user.factors })) await confiarEnEsteDispositivo(accessToken);
   } catch {
     // El panel lo vuelve a intentar al arrancar.
   }

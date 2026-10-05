@@ -77,6 +77,12 @@ const CASOS: Caso[] = [
   { firma: 'resolver_denuncia(text, text, text, text, uuid)', anon: false, authenticated: false, serviceRole: true },
   // La usan las políticas del panel (authenticated), nunca anon (migr 20261005150000: ya solo cuenta filas STAFF).
   { firma: 'es_participante_conversacion(text)', anon: false, authenticated: true, serviceRole: true },
+  // El libro de consumos del asistente (migr 20261005213749): solo el servidor reserva, cierra y lee
+  // el saldo. Con EXECUTE en `authenticated`, una sesión cualquiera se daría consultas.
+  { firma: 'ia_cuota_mensual(text, boolean)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'ia_saldo_consultas(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'ia_reservar_consulta(text, uuid, text, uuid, text, numeric)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'ia_cerrar_consulta(uuid, text, text, integer, integer, integer, integer, numeric, integer, integer, text, text[])', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {

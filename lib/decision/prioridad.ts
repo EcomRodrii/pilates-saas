@@ -2,6 +2,7 @@
 // ajuste de aprendizaje por feedback, score multiplicativo, cortes de
 // prioridad y los caps que la Bible exige (≤3 críticas, ≤2 por especialista
 // en el bloque Prioridades).
+import { hoyEnEstudio } from '../utils.ts';
 import type { Candidata, EspecialistaId, Impacto, NivelConfianza, Prioridad, Recomendacion, Riesgo, TipoRecomendacion } from './tipos.ts';
 
 export const PESOS = {
@@ -197,13 +198,17 @@ interface ParaPartir { id: string; prioridad: Prioridad; creadoEn: string }
  *
  * Puramente de presentación: no cambia qué se persiste ni el array que
  * consume `/dashboard` (Action Center sigue viendo `masSituaciones` entero).
+ *
+ * `fechaHoy` es el día en Madrid (`hoyEnEstudio`), y el de `creadoEn` también se
+ * mira en Madrid: con el día UTC, una detectada con «Analizar ahora» a las 00:30
+ * de Madrid (22:30 UTC del día anterior) pasaba por vieja y caía a seguimiento.
  */
 export function partirMasSituaciones<T extends ParaPartir>(
   masSituaciones: T[],
   fechaHoy: string,
 ): { seguimiento: T[]; nuevas: T[] } {
   const seguimiento = masSituaciones.filter(r =>
-    (r.prioridad === 'MEDIA' || r.prioridad === 'BAJA') && r.creadoEn.slice(0, 10) < fechaHoy);
+    (r.prioridad === 'MEDIA' || r.prioridad === 'BAJA') && hoyEnEstudio(new Date(r.creadoEn)) < fechaHoy);
   const idsSeguimiento = new Set(seguimiento.map(r => r.id));
   const nuevas = masSituaciones.filter(r => !idsSeguimiento.has(r.id));
   return { seguimiento, nuevas };

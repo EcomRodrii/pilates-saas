@@ -12,6 +12,7 @@
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { confiarDispositivo } from '@/lib/auth/doble-factor-acciones';
 import { sesionDelToken } from '@/lib/auth/dispositivo-confianza-reglas';
+import { factoresVerificados } from '@/lib/auth/doble-factor-reglas';
 import { decidirPasoPortal, type PasoPortal } from './doble-factor-portal-reglas.ts';
 
 export type { PasoPortal } from './doble-factor-portal-reglas.ts';
@@ -30,8 +31,13 @@ const yaConfiadas = new Set<string>();
 export async function pasoDelPortal(token: string, mismoOrigen = true): Promise<PasoPortal> {
   let nivel: { actual: string | null; siguiente: string | null };
   try {
-    const { data } = await supabasePortal.auth.mfa.getAuthenticatorAssuranceLevel();
-    nivel = { actual: data?.currentLevel ?? null, siguiente: data?.nextLevel ?? null };
+    const [{ data }, { data: { session } }] = await Promise.all([
+      supabasePortal.auth.mfa.getAuthenticatorAssuranceLevel(), supabasePortal.auth.getSession(),
+    ]);
+    // `nextLevel` lo pone cualquier factor, también el de la zona interna de
+    // Tentare, que aquí no cuenta (lib/auth/doble-factor-reglas.ts).
+    const deCuenta = factoresVerificados(session?.user.factors) > 0;
+    nivel = { actual: data?.currentLevel ?? null, siguiente: deCuenta ? data?.nextLevel ?? null : null };
   } catch {
     // Sin poder leerlo, que decida el servidor (contestará `doble_factor_requerido`).
     return 'ok';

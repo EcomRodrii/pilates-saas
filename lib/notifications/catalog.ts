@@ -415,9 +415,11 @@ function plantillasPagadaSinPlaza(): Record<string, Plantilla> {
   const plantilla: Plantilla = {
     title: 'Cobrado pero sin plaza',
     body: '{socia} pagó {clase} el {cuando}{situacion} Contacta con ella para resolverlo.',
-    // `cerrada` lo pone SOLO el barrido de esperas que ya no pueden entrar
-    // (lib/lista-espera/esperas-sin-plaza.ts). Sin él, el destino de siempre.
-    deepLink: (d: Datos) => (d.cerrada ? `/clientas/${s(d.socioId)}` : `/calendario?sesion=${s(d.sesionId)}`),
+    // `cerrada` lo pone el barrido de esperas que ya no pueden entrar
+    // (lib/lista-espera/esperas-sin-plaza.ts); `aLaFicha`, un pago que no se
+    // usó porque ya tenía plaza (`avisoLlevaALaFicha`). Sin ninguno, el destino
+    // de siempre.
+    deepLink: (d: Datos) => (d.cerrada || d.aLaFicha ? `/clientas/${s(d.socioId)}` : `/calendario?sesion=${s(d.sesionId)}`),
   };
   return Object.fromEntries(
     (['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const).map(
@@ -717,11 +719,13 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   //  · sin reserva  → 'reserva-pagada-sin-plaza:…'   (el webhook no pudo reservar)
   //  · lista espera → 'reserva-pagada-en-espera:…'   (cayó en la cola, aún puede entrar)
   //  · cerrada      → 'espera-sin-plaza-cerrada:…'   (la clase pasó y nunca entró)
+  //  · ya tenía     → 'reserva-pagada-ya-tenia:<pi>' (ya tenía plaza: el pago no se usó)
+  // Claves y textos en lib/notifications/pagada-sin-plaza.ts.
   //
-  // `deepLink` a la ficha de la clienta SOLO en el último: es donde vive el
-  // botón de devolver el recibo, que es la acción que toca cuando ya no hay
-  // clase a la que llevarla. Mientras la clase no ha pasado, lo útil sigue
-  // siendo el calendario.
+  // `deepLink` a la ficha de la clienta en «cerrada» y «ya tenía»: es donde vive
+  // el botón de devolver el recibo, que es la acción que toca cuando el pago no
+  // tiene clase a la que llevarla. En los demás, lo útil sigue siendo el
+  // calendario.
   ...plantillasPagadaSinPlaza(),
   // Clase cancelada → cada socia apuntada
   [`${EVENTOS.CLASE_CANCELADA}#SOCIA`]: {

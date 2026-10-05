@@ -67,7 +67,7 @@ test('revisar una baja es de quien gestiona el equipo, acotado a su estudio y so
 });
 
 test('la bandeja cuenta las bajas por revisar solo para quien gestiona el equipo, sin la suya propia', () => {
-  const src = sinComentarios(leer('app/api/estado-estudio/route.ts'));
+  const src = sinComentarios(leer('lib/estado-estudio-servidor.ts'));
   const bloque = src.slice(src.indexOf('si(gestionaEquipo, async () => {'));
   assert.ok(bloque.length > 0, 'el recuento va gateado por gestionaEquipo');
   assert.match(bloque.slice(0, 900), /from\('bajas_instructora'\)[\s\S]*\.neq\('instructor_id', propia\)[\s\S]*contar\('bajas-revisar'/);

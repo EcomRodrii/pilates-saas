@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { textoLegalVigenteDeFila } from '@/lib/legal-textos';
-import { hashTextoLegal } from '@/lib/legal-hash';
+import { textoLegalVigenteDeFila } from './legal-textos.ts';
+import { hashTextoLegal } from './legal-hash.ts';
 
 // Sella qué condiciones estaban vigentes cuando una clienta compra.
 //
@@ -17,9 +17,15 @@ import { hashTextoLegal } from '@/lib/legal-hash';
 // queda sin sello (`NULL`, que la columna admite y significa exactamente eso)
 // en vez de tumbar el cobro. Mismo criterio que `emitirPagoRealizado`.
 
+// ── Sin reloj, a propósito ───────────────────────────────────────────────────
+// El sello es solo la HUELLA. Hasta el 5-oct-2026 llevaba también
+// `aceptadoEn: new Date()`, que viajaba en la metadata del cobro: los
+// parámetros cambiaban en cada petición y Stripe rechazaba con
+// `idempotency_error` el segundo intento del mismo pago (500 al reabrir la hoja
+// de pago de una clase, durante 24 h). El momento de aceptar es el de crear el
+// cobro, y lo lee el webhook de Stripe (`lib/billing/sello-del-cobro.ts`).
 export interface SelloLegal {
   hash: string;
-  aceptadoEn: string;
 }
 
 /**
@@ -76,7 +82,7 @@ export async function sellarCondicionesVigentes(
       { onConflict: 'studio_id,hash', ignoreDuplicates: true },
     );
 
-    return { hash, aceptadoEn: new Date().toISOString() };
+    return { hash };
   } catch {
     // Ver la nota de arriba: sin sello, pero la compra sigue.
     return null;

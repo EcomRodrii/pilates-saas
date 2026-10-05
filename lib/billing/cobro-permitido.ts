@@ -17,6 +17,8 @@
 //
 // Puro: se prueba con `node --test`.
 
+import { cuotaAunSinVencer } from './renovacion-adoptable.ts';
+
 /** Quién intenta cobrar. AUTOMATICO = el cobro diario; STAFF = alguien del estudio lo pide a mano. */
 export type ViaCobro = 'AUTOMATICO' | 'STAFF';
 
@@ -26,15 +28,28 @@ export interface ReciboParaCobrar {
   estado: string;
   proximoReintento: string | null;
   trasCancelarCuota: MarcaTrasCancelarCuota | null;
+  /** `recibos.es_renovacion`. Sin él, no se mira el vencimiento (como antes). */
+  esRenovacion?: boolean | null;
+}
+
+/** Lo que se sabe de la cuota del recibo. `tipoPlan`/`fechaFin`, para no cobrar una renovación antes de vencer. */
+export interface CuotaParaCobrar {
+  estado: string;
+  tipoPlan?: string | null;
+  fechaFin?: string | null;
 }
 
 export type MotivoSinCobro =
-  | 'ANULADO' | 'NO_PENDIENTE' | 'SIN_REINTENTO_PROGRAMADO' | 'SIN_REINTENTOS' | 'CUOTA_PAUSADA' | 'CUOTA_CANCELADA';
+  | 'ANULADO' | 'NO_PENDIENTE' | 'SIN_REINTENTO_PROGRAMADO' | 'SIN_REINTENTOS' | 'CUOTA_PAUSADA' | 'CUOTA_CANCELADA'
+  // La renovación de una cuota que aún no ha vencido: el cobro automático espera a su día.
+  | 'CUOTA_SIN_VENCER';
 
 export function puedeIntentarCobro(
   recibo: ReciboParaCobrar,
-  cuota: { estado: string } | null,
+  cuota: CuotaParaCobrar | null,
   via: ViaCobro,
+  /** `yyyy-mm-dd`, el «hoy» del cron de renovaciones. Solo lo usa la vía AUTOMATICO. */
+  hoy: string = new Date().toISOString().slice(0, 10),
 ): { ok: true } | { ok: false; motivo: MotivoSinCobro } {
   if (recibo.estado === 'ANULADO' || recibo.trasCancelarCuota === 'ANULADO') return { ok: false, motivo: 'ANULADO' };
 
@@ -52,6 +67,12 @@ export function puedeIntentarCobro(
   if (recibo.estado !== 'PENDIENTE') return { ok: false, motivo: 'NO_PENDIENTE' };
   if (recibo.trasCancelarCuota === 'SIN_REINTENTOS') return { ok: false, motivo: 'SIN_REINTENTOS' };
   if (!recibo.proximoReintento) return { ok: false, motivo: 'SIN_REINTENTO_PROGRAMADO' };
+  // ⚠️ Una cuota nunca se cobra sola antes de vencer (revisión del 5-oct, #11/#12):
+  // tampoco un recibo que se adoptó antes de que la adopción mirara fechas, o cuya
+  // cuota alguien alargó después. Espera a su día; el cobro diario lo vuelve a mirar.
+  if (recibo.esRenovacion === true && cuota && cuotaAunSinVencer({ tipoPlan: cuota.tipoPlan ?? null, fechaFin: cuota.fechaFin ?? null }, hoy)) {
+    return { ok: false, motivo: 'CUOTA_SIN_VENCER' };
+  }
   if (cuota === null || cuota.estado === 'ACTIVA') return { ok: true };
   if (cuota.estado === 'PAUSADA') return { ok: false, motivo: 'CUOTA_PAUSADA' };
   // CANCELADA (o EXPIRADA): solo si al cancelar el estudio dijo «sigue
