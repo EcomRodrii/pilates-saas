@@ -112,3 +112,53 @@ test('el enlace del aviso de un mensaje abre ese hilo en «Conversaciones»', as
   // Recargar no lo reabre: el enlace se consume.
   await expect(page).toHaveURL(/\/mensajeria$/);
 });
+
+// Y estando YA en Mensajería: Next no remonta la página si solo cambia la
+// búsqueda, así que «Ver más» desde su propia pestaña de notificaciones (lo
+// normal en recepción) no hacía nada, y tampoco un segundo aviso después del
+// primero.
+test('desde Notificaciones de Mensajería, «Ver más» abre el hilo del aviso; y otro aviso después, el suyo', async ({ page }) => {
+  await montar(page);
+  const hilo = (id: string, socioId: string, auth: string) => ({
+    ...HILO_MOSTRADOR, id, ultimo_cuerpo: `Último de ${id}`, ultimo_remitente_auth_user_id: auth,
+    conversacion_participantes: [{ socio_id: socioId, rol_en_conversacion: 'SOCIO', auth_user_id: auth, leido_hasta: '2026-09-12T08:00:00Z' }],
+  });
+  const HILOS = [hilo('conv-mos-a', 'soc-1', 'auth-maria'), hilo('conv-mos-b', 'soc-3', 'auth-carmen')];
+  const cuenta = { mensajes: { 'conv-mos-a': 0, 'conv-mos-b': 0 } as Record<string, number> };
+  const aviso = (id: string, quien: string, conv: string) => ({
+    id, title: 'Nuevo mensaje', body: `${quien} te ha escrito.`, category: 'mensajeria', eventType: 'mensaje.recibido',
+    priority: 'MEDIA', createdAt: '2026-09-12T08:00:00Z', readAt: '2026-09-12T08:05:00Z',
+    deepLink: `/mensajeria?conversacion=${conv}`, studioId: 'studio-e2e',
+  });
+
+  await page.route((u) => u.pathname === '/api/notifications', (r) => r.fulfill({ json: {
+    items: [aviso('nt-a', 'María García', 'conv-mos-a'), aviso('nt-b', 'Carmen Del Río', 'conv-mos-b')], unread: 0,
+  } }));
+  await page.route((u) => u.pathname === '/api/mensajeria/conversaciones', (r) => r.fulfill({ json: { conversaciones: HILOS } }));
+  await page.route((u) => /^\/api\/mensajeria\/conversaciones\/conv-mos-[ab]\/mensajes$/.test(u.pathname), (r) => {
+    const conv = new URL(r.request().url()).pathname.split('/')[4];
+    cuenta.mensajes[conv]++;
+    return r.fulfill({ json: { mensajes: [{
+      id: `m-${conv}`, conversacion_id: conv, studio_id: 'studio-e2e', remitente_auth_user_id: 'auth-socia',
+      cuerpo: `Mensaje del hilo ${conv}`, creado_en: '2026-09-12T08:00:00Z',
+    }] } });
+  });
+  await page.route((u) => /\/api\/mensajeria\/conversaciones\/conv-mos-[ab]\/leido$/.test(u.pathname), (r) => r.fulfill({ status: 204 }));
+
+  await ir(page, 'mensajeria');
+  // La pestaña por defecto es Notificaciones.
+  const primero = page.getByRole('listitem').filter({ hasText: 'María García te ha escrito.' });
+  await primero.getByRole('link', { name: 'Ver más' }).click({ timeout: 30_000 });
+  await expect(page.getByText('Mensaje del hilo conv-mos-a')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('textbox', { name: 'Mensaje' })).toBeVisible();
+  expect(cuenta.mensajes['conv-mos-a']).toBeGreaterThan(0);
+  await expect(page).toHaveURL(/\/mensajeria$/);
+
+  // Vuelve a Notificaciones y toca el otro aviso: se abre el SUYO.
+  await page.getByRole('button').filter({ hasText: 'Notificaciones' }).click();
+  const segundo = page.getByRole('listitem').filter({ hasText: 'Carmen Del Río te ha escrito.' });
+  await segundo.getByRole('link', { name: 'Ver más' }).click({ timeout: 30_000 });
+  await expect(page.getByText('Mensaje del hilo conv-mos-b')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Mensaje del hilo conv-mos-a')).toHaveCount(0);
+  expect(cuenta.mensajes['conv-mos-b']).toBeGreaterThan(0);
+});

@@ -248,12 +248,14 @@ function Hilo({
 // ── Pestaña ─────────────────────────────────────────────────────────────────
 
 /**
- * `conversacionInicial`: el hilo que hay que abrir al llegar (el enlace del aviso
- * de un mensaje nuevo, `/mensajeria?conversacion=<id>`). Se abre en cuanto la
- * bandeja lo trae; si no está en ella (otro estudio, o un hilo que ya no ve), se
- * queda la bandeja, sin hilo vacío.
+ * `conversacionPedida`: el hilo que hay que abrir (el enlace del aviso de un
+ * mensaje nuevo, `/mensajeria?conversacion=<id>`). Cada petición es un objeto
+ * nuevo y se atiende una vez, cuando llega y no solo al montar. Se abre en
+ * cuanto la bandeja lo trae; si no está, se relee la bandeja una vez (el hilo
+ * pudo nacer después de cargarla) y, si sigue sin estar (otro estudio, o un hilo
+ * que no ve), se queda la bandeja, sin hilo vacío.
  */
-export function ConversacionesTab({ conversacionInicial = null }: { conversacionInicial?: string | null } = {}) {
+export function ConversacionesTab({ conversacionPedida = null }: { conversacionPedida?: { id: string } | null } = {}) {
   const { socios, instructores, reservas, sesiones } = useStudio();
   const { user } = useAuth();
   const authUserId = user?.id ?? null;
@@ -290,17 +292,30 @@ export function ConversacionesTab({ conversacionInicial = null }: { conversacion
   // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la bandeja.
   useEffect(() => { void cargarLista(); }, [cargarLista]);
 
-  // Abrir el hilo del enlace, una vez y solo si la bandeja lo trae. Se limpia la
-  // URL (como el salto a una clase en /calendario): recargar no lo reabre.
-  const inicialPendiente = useRef(conversacionInicial);
+  // Abrir el hilo del enlace, una vez por petición y solo si la bandeja lo trae.
+  // Se limpia la URL (como el salto a una clase en /calendario): recargar no lo
+  // reabre, y el mismo aviso tocado otra vez sí.
+  const atendida = useRef<{ id: string } | null>(null);
+  const releida = useRef<{ id: string } | null>(null);
   useEffect(() => {
-    const id = inicialPendiente.current;
-    if (!id || !conversaciones) return;
-    inicialPendiente.current = null;
-    if (!conversaciones.some(c => c.id === id)) return;
-    setAbiertaId(id);
+    const p = conversacionPedida;
+    if (!p || p === atendida.current) return;
+    // Los avisos son de su bandeja, nunca de «Equipo con alumnas».
+    if (ambito !== 'bandeja') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- responde a una petición externa (el enlace de un aviso), no es un valor derivado.
+      setAbiertaId(null); setConversaciones(null); setFiltro(''); setAmbito('bandeja');
+      return;
+    }
+    if (!conversaciones) return;
+    if (!conversaciones.some(c => c.id === p.id)) {
+      if (releida.current !== p) { releida.current = p; void cargarLista(); return; }
+      atendida.current = p;
+      return;
+    }
+    atendida.current = p;
+    setAbiertaId(p.id);
     window.history.replaceState(null, '', window.location.pathname);
-  }, [conversaciones]);
+  }, [conversacionPedida, conversaciones, cargarLista, ambito]);
 
   const abierta = conversaciones?.find(c => c.id === abiertaId) ?? null;
 

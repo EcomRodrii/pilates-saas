@@ -1,7 +1,8 @@
 'use client';
 
 import { leerBorradorMensajeria } from '@/lib/opening/comunicaciones';
-import { useState, useMemo, useId, useEffect, useCallback } from 'react';
+import { Suspense, useState, useMemo, useId, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { useRol, puedeGestionarClientas } from '@/lib/permisos';
@@ -392,6 +393,30 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
   );
 }
 
+// ── El hilo que pide la URL ──────────────────────────────────────────────────
+//
+// El aviso de un mensaje nuevo lleva a `/mensajeria?conversacion=<id>` (su enlace
+// en el catálogo) y ya no trae el texto del mensaje: tocarlo tiene que llevar a
+// leerlo. Y hay que reaccionar a CADA cambio, no solo al montar: Next no remonta
+// la página si solo cambia la búsqueda, así que «Ver más» desde la pestaña de
+// notificaciones de esta misma pantalla, la campana estando aquí o un segundo
+// aviso después del primero no hacían nada. Se recuerda la última URL procesada
+// (el patrón de #2008: `useSearchParams` puede ir un render por detrás tras un
+// `replaceState`). En su propio componente y con `Suspense` para no suspender
+// la pantalla entera por leer la búsqueda.
+function ConversacionDeLaUrl({ onPedida }: { onPedida: (id: string) => void }) {
+  const conversacion = useSearchParams().get('conversacion');
+  const procesada = useRef<string | null>(null);
+  useEffect(() => {
+    // Al limpiarse la URL se olvida: el mismo aviso, tocado otra vez, vuelve a abrir.
+    if (!conversacion) { procesada.current = null; return; }
+    if (conversacion === procesada.current) return;
+    procesada.current = conversacion;
+    onPedida(conversacion);
+  }, [conversacion, onPedida]);
+  return null;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Mensajeria() {
@@ -402,20 +427,20 @@ export default function Mensajeria() {
   const escribeAClientas = puedeGestionarClientas(useRol());
   const [tab, setTab] = useState<Tab>('notificaciones');
   const [busqueda, setBusqueda] = useState('');
-  const [conversacionInicial, setConversacionInicial] = useState<string | null>(null);
+  // Cada petición es un objeto nuevo, aunque el id se repita: así el mismo
+  // aviso, tocado otra vez, vuelve a abrir su hilo.
+  const [pedida, setPedida] = useState<{ id: string } | null>(null);
+  const abrirPedida = useCallback((id: string) => {
+    setPedida({ id });
+    setTab('conversaciones');
+    setBusqueda('');
+  }, []);
 
   // Un atajo de la tarjeta de apertura llega con un borrador: abre directamente
   // «Enviar mensaje». El panel de envío lo lee al montarse y limpia la URL.
-  //
-  // El aviso de un mensaje nuevo llega con `?conversacion=<id>` (su enlace en el
-  // catálogo): abre «Conversaciones» con ese hilo. El aviso ya no lleva el texto
-  // del mensaje, así que tocarlo tiene que llevar a leerlo, no a buscarlo.
   useEffect(() => {
-    const search = window.location.search;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search; la URL no existe durante el render en servidor.
-    if (leerBorradorMensajeria(search)) { setTab('enviar'); return; }
-    const conversacion = new URLSearchParams(search).get('conversacion');
-    if (conversacion) { setConversacionInicial(conversacion); setTab('conversaciones'); }
+    if (leerBorradorMensajeria(window.location.search)) setTab('enviar');
   }, []);
 
   const [notifItems, setNotifItems] = useState<NotifItem[]>([]);
@@ -460,6 +485,7 @@ export default function Mensajeria() {
 
   return (
     <div className="space-y-6">
+      <Suspense fallback={null}><ConversacionDeLaUrl onPedida={abrirPedida} /></Suspense>
       <PageHeader
         title="Mensajería"
         description="Notificaciones, comunidad y conversaciones con tus alumnas"
@@ -475,7 +501,7 @@ export default function Mensajeria() {
       {/* Tabs */}
       <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
         {TABS.map(t => (
-          <button key={t.id} onClick={() => { setTab(t.id); setBusqueda(''); }}
+          <button key={t.id} onClick={() => { setTab(t.id); setBusqueda(''); setPedida(null); }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
             style={tab === t.id
               ? { backgroundColor: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
@@ -555,7 +581,7 @@ export default function Mensajeria() {
       {tab === 'comunidad' && <ComunidadFeed />}
 
       {/* ── CONVERSACIONES ── */}
-      {tab === 'conversaciones' && <ConversacionesTab conversacionInicial={conversacionInicial} />}
+      {tab === 'conversaciones' && <ConversacionesTab conversacionPedida={pedida} />}
 
       {/* ── ENVIAR MENSAJE ── */}
       {tab === 'enviar' && escribeAClientas && (
