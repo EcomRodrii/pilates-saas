@@ -438,3 +438,63 @@ export async function loginConGoogleNativo(
     })();
   });
 }
+
+// ─── Calendario del iPhone ────────────────────────────────────────────────
+//
+// «+ Calendario» con la hoja de iOS para añadir un evento
+// (`@ebarooni/capacitor-calendar`, `createEventWithPrompt`): el evento llega
+// relleno y ella pulsa «Añadir». La app no pide acceso al calendario ni guarda
+// nada de lo añadido. (La sincronización automática de todas sus reservas se
+// retiró de esta tanda: necesita su propio diseño y prueba en un iPhone.)
+
+export interface EventoCalendario {
+  titulo: string;
+  /** Instantes reales (ms), los de `Clase.inicio`/`Clase.fin`. */
+  inicioMs: number;
+  finMs: number;
+  lugar?: string;
+  notas?: string;
+}
+
+/**
+ * Abre la hoja de iOS con el evento relleno. `true` si lo añadió, `false` si la
+ * cerró sin añadir, `null` si la hoja no se pudo abrir (sin plugin, o falló):
+ * quien llama cae entonces al .ics de siempre.
+ *
+ * ⚠️ Solo desde iOS 17 esa hoja va fuera del proceso y no necesita acceso al
+ * calendario; en iOS 15 y 16 se presenta dentro de la app y, sin acceso, no
+ * tiene calendario donde guardar. Por eso `alCalendario` no la usa ahí.
+ */
+export async function crearEventoConHoja(e: EventoCalendario): Promise<boolean | null> {
+  if (!esAppNativa()) return null;
+  try {
+    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
+    const r = await CapacitorCalendar.createEventWithPrompt({
+      title: e.titulo, startDate: e.inicioMs, endDate: e.finMs, location: e.lugar, description: e.notas, alerts: [-60],
+    });
+    return Boolean(r.id);
+  } catch {
+    return null;
+  }
+}
+
+// ─── Brillo de la pantalla ────────────────────────────────────────────────
+//
+// Al enseñar el QR de acceso: el lector del estudio lo lee mucho mejor con la
+// pantalla a tope. Se guarda el brillo de antes y se devuelve al cerrar.
+
+/** Sube el brillo al máximo y devuelve con qué restaurarlo (no hace nada fuera de la app). */
+export async function brilloAlMaximo(): Promise<() => Promise<void>> {
+  const nada = async () => {};
+  if (!esAppNativa()) return nada;
+  try {
+    const { ScreenBrightness } = await import('@capacitor-community/screen-brightness');
+    const { brightness } = await ScreenBrightness.getBrightness();
+    await ScreenBrightness.setBrightness({ brightness: 1 });
+    return async () => {
+      try { await ScreenBrightness.setBrightness({ brightness }); } catch { /* sin plugin, iOS lo devuelve al bloquear */ }
+    };
+  } catch {
+    return nada;
+  }
+}

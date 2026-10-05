@@ -58,6 +58,11 @@ test('ningún carácter haciendo de icono', () => {
   // recompensa») es tipografía y no se toca. Los emoji que el ESTUDIO pone a
   // sus logros y recompensas son datos, no literales, y tampoco los mira.
   const glifo = /(>\s*([←→‹›✓×★✎♥♡⚠+]|\p{Extended_Pictographic})️?\s*<)|(['"]([←‹›✓×★✎♥♡⚠]|\p{Extended_Pictographic})️?['"])|(['"]\\u(2713|2714|2715|2717|00d7|2190|2192|2039|203a|2605|2606|270e|26a0|2665|2661)['"])/iu;
-  const fuera = ficheros.filter((f) => glifo.test(f.codigo)).map((f) => `${f.ruta}: ${f.codigo.match(glifo)?.[0].trim()}`);
+  // ⚠️ Una sola excepción, con motivo: las cinco caras de «¿Qué tal la clase?»
+  // NO hacen de icono, SON la escala de la valoración (1 a 5), tal cual la
+  // aprobó el fundador en la maqueta (oct-2026); cada una lleva su nombre
+  // accesible («Muy bien (4 de 5)»). El set no tiene caras y no se dibujan.
+  const GLIFOS_PERMITIDOS = new Set(['components/student/domain/QueTalLaClase.tsx']);
+  const fuera = ficheros.filter((f) => !GLIFOS_PERMITIDOS.has(f.ruta) && glifo.test(f.codigo)).map((f) => `${f.ruta}: ${f.codigo.match(glifo)?.[0].trim()}`);
   assert.deepEqual(fuera, []);
 });

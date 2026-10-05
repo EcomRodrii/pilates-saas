@@ -128,10 +128,11 @@ test('Bonos enseña las sesiones que quedan en la tipografía de cifra, no en un
 
   const cifra = page.getByTestId('bono-restantes');
   await expect(cifra).toHaveText('5');
-  // 34 px es `--t-display`, el escalón que la hoja describe como «un importe,
-  // un saldo: la cifra que se viene a mirar». Se comprueba el tamaño PINTADO
-  // y no la clase: una clase presente pero pisada no se vería.
-  await expect(cifra).toHaveCSS('font-size', '34px');
+  // 38 px es `--t-display` (era 34 antes de subir la escala, #2530), el escalón
+  // que la hoja describe como «un importe, un saldo: la cifra que se viene a
+  // mirar». Se comprueba el tamaño PINTADO y no la clase: una clase presente
+  // pero pisada no se vería.
+  await expect(cifra).toHaveCSS('font-size', '38px');
   await expect(page.getByText('Te quedan')).toBeVisible();
   await expect(page.getByText('de 8 sesiones')).toBeVisible();
 });

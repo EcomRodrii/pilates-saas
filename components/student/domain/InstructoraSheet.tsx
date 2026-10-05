@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import type { Clase, Instructora, Reserva } from '@/lib/student/tipos';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { AvailabilityBadge } from '@/components/student/ui/Badge';
@@ -43,7 +44,7 @@ export function InstructoraSheet({ instructora, clases, reservas, soportaEspera,
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {proximas.map((c) => (
-                  <Link key={c.id} href={href(`/reservar/${c.id}`)} onClick={onClose} className="card card--tap" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
+                  <Link key={c.id} href={href(`/reservar/${c.id}`)} transitionTypes={TRANSICION_ADELANTE} onClick={onClose} className="card card--tap" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
                     <span className="t-num" style={{ fontSize: 'var(--t-small)', fontWeight: 800, minWidth: 44 }}>{c.hora}</span>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: 'block', fontSize: 'var(--t-small)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre}</span>

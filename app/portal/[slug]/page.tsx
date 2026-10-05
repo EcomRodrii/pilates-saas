@@ -20,7 +20,10 @@ import { ClassCard } from '@/components/student/domain/ClassCard';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
 import { EmptyState, ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
-import { añadirAlCalendario, urlComoLlegar } from '@/lib/student/enlaces-clase';
+import { urlComoLlegar } from '@/lib/student/enlaces-clase';
+import { alCalendario } from '@/lib/student/calendario-dispositivo';
+import { useToast } from '@/components/student/ui/Toast';
+import type { Clase } from '@/lib/student/tipos';
 import { TuRitmo } from '@/components/student/domain/TuRitmo';
 import { AccesosRapidos } from '@/components/student/domain/AccesosRapidos';
 import { ProximaClaseVacia } from '@/components/student/domain/ProximaClaseVacia';
@@ -41,6 +44,9 @@ import { tiposDeLasClases } from '@/lib/student/mapeo';
 import { cuerpoSinHuecosHoy } from '@/lib/student/huecos-texto';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
+import { claseDelMomento } from '@/lib/student/momento-inicio';
+import { ClaseDelMomentoCard } from '@/components/student/domain/ClaseDelMomentoCard';
+import { QueTalLaClase } from '@/components/student/domain/QueTalLaClase';
 
 // Cuánto mide el héroe en cada ancho. Lo leen el `<img>` y su precarga: si
 // dijeran cosas distintas, el navegador bajaría la portada dos veces.
@@ -103,6 +109,11 @@ export default function InicioPage() {
     await refrescar();
   }, [estudio.slug, refrescar]);
   const plazaFija = data?.plazaFija ?? null;
+  const { toast } = useToast();
+  // «+ Calendario»: en la app (iOS 17+), la hoja de iOS ya rellena; si no, el
+  // .ics / Google de siempre (lib/student/calendario-dispositivo.ts).
+  const alCal = (c: Clase, instructora?: string) => void alCalendario({ slug: estudio.slug, nombre: estudio.nombre, direccion: estudio.direccion }, c, instructora)
+    .then((r) => { if (r === 'añadida') toast('Añadida a tu calendario'); });
   const gamificacion = data?.gamificacion ?? null;
 
   // ⚠️ El que el servidor gastaría primero, no «el primero del array».
@@ -166,6 +177,20 @@ export default function InicioPage() {
     .filter((c) => c.plazasLibres > 0);
   const huecos = libresHoy.slice(0, 3);
 
+  // ── Inicio según el momento (maqueta aprobada, oct-2026) ──────────────────
+  // Con clase HOY o MAÑANA, esa clase va lo primero, bajo una portada más baja.
+  // Es la misma reserva que «Tu próxima clase» (mismo filtro), así que esa
+  // tarjeta no se repite abajo. Sin clase en esos dos días, todo como antes.
+  // Mientras no hay datos (`data` nulo) la portada es la alta de siempre: se
+  // encoge con transición al saberlo, sin saltar.
+  const momento = data ? claseDelMomento(data.reservas, data.clases, hoy, ahoraMs) : null;
+  const compacta = momento !== null;
+  // «¿Qué tal la clase?»: la clase recién terminada a la que asistió la pide
+  // la propia tarjeta al servidor (el catálogo no trae clases terminadas). Sin
+  // nada que valorar, no pinta nada.
+  const tarjetaValorar = <QueTalLaClase studioId={estudio.id} />;
+  const comoLlegar = () => window.open(urlComoLlegar(estudio.direccion, estudio.nombre, navigator.userAgent), '_blank', 'noopener');
+
   // La portada va FUERA de la guardia (`heroe` de StudentShell): sale en el
   // HTML y no espera a `/api/public/session`. El saludo arranca sin nombre (así
   // en el servidor y en el primer render) y lo completa al resolverse la sesión.
@@ -180,7 +205,15 @@ export default function InicioPage() {
       {/* `background`: mismo motivo que en la ficha de clase — un estudio puede
           no haber subido portada, y sin tinta detrás el héroe degrada a crema y
           se lleva por delante saludo, titular y cabecera transparente. */}
-      <section style={{ position: 'relative', height: 316, overflow: 'hidden', background: '#0F0F0C' }}>
+      {/* Con clase hoy o mañana, la portada baja a 160 px (más la zona segura,
+          que en la app ocupa la cabecera) y encoge al hacer scroll
+          (`.heroe-compacto`, student.css). */}
+      <section
+        data-testid="portada-inicio"
+        data-compacta={compacta ? '' : undefined}
+        className={compacta ? 'heroe-compacto' : undefined}
+        style={{ position: 'relative', height: compacta ? 'calc(160px + var(--safe-top))' : 316, overflow: 'hidden', background: '#0F0F0C', transition: 'height .45s cubic-bezier(.2,.7,0,1)' }}
+      >
         <Foto
           src={estudio.fotoPortada}
           ancho={640}
@@ -246,14 +279,17 @@ export default function InicioPage() {
             // foto (ver su `marginTop` negativo), y con el bloque de texto
             // pegado abajo la píldora blanca le comía el borde inferior al
             // botón «Reservar clase».
-            position: 'absolute', left: 0, right: 0, bottom: 44, color: 'var(--on-dark)',
+            // Compacta: sin buscador encima, lo que monta sobre el borde es la clase.
+            position: 'absolute', left: 0, right: 0, bottom: compacta ? 30 : 44, color: 'var(--on-dark)',
             paddingTop: 34, paddingBottom: 4,
             // ⚠️ Sitio RESERVADO para el carril de la frase. Sin esto, medido en
             // el navegador: el saludo ocupaba de x=18 a x=375 y el carril de
             // x=288 a x=375 — la mano del 👋 se pintaba encima de las palabras.
             // Con el hueco puesto, el saludo parte en dos líneas, que es
             // además como parte en la maqueta.
-            ...(estudio.fraseHeroe ? { paddingRight: 112 } : null),
+            // Solo si la frase se pinta: en la portada compacta no va, y el
+            // hueco cortaba el saludo sin nada al lado.
+            ...(estudio.fraseHeroe && !compacta ? { paddingRight: 112 } : null),
             // ⚠️ Reforzado al cambiar la foto por defecto (banner nuevo, más
             // luminoso). MEDIDO sobre la foto real, ocultando solo el texto y
             // NO el velo: con el degradado anterior el kicker daba **3,73:1**
@@ -288,26 +324,36 @@ export default function InicioPage() {
               el tamaño y las versales. */}
           {/* `suppressHydrationWarning`: se pinta en el servidor, y la fecha o la
               franja del saludo pueden cambiar entre ese instante y el de hidratar. */}
+          {/* Compacta: sin la fecha. En 160 px, con la cabecera encima, la
+              fecha se montaba sobre el nombre del estudio (medido a 375 px);
+              la fecha de la clase ya va en su tarjeta, justo debajo. */}
+          {!compacta && (
           <p className="t-label a-up" suppressHydrationWarning style={{ color: 'var(--on-dark)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {estudio.nombre} · {fechaLarga(hoy)}
           </p>
+          )}
           {/* ⚠️ La JERARQUÍA se invierte respecto a lo que había: el saludo pasa
               a ser el titular y «¿Qué te apetece hoy?» baja a subtítulo. Antes
               el nombre de la alumna iba en 13 px y la pregunta genérica en 32:
               lo grande era lo que no la nombraba. */}
-          <h1 className="a-up" suppressHydrationWarning style={{ margin: '8px 0 0', fontSize: 30, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.035em', lineHeight: 1.06, animationDelay: '60ms' }}>
+          <h1 className="a-up" suppressHydrationWarning style={{ margin: compacta ? '4px 0 0' : '8px 0 0', fontSize: compacta ? 28 : 30, fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.035em', lineHeight: 1.06, animationDelay: '60ms', ...(compacta ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } : null) }}>
             {saludo(socia?.nombre ?? '')} 👋
           </h1>
           {/* Lo escribe el estudio; sin escribir nada, el del producto. ⚠️ Aquí
               el vacío NO es «no se pinta» —como en el lema o la manuscrita—,
               porque esta línea ya existía antes de ser configurable. Ver
               `lib/student/subtitulo-heroe.ts`. */}
+          {/* Compacta (maqueta): fecha y saludo, nada más. «Reservar clase»
+              sigue a un toque en las baldosas de debajo. */}
+          {!compacta && (
           <p className="a-up" style={{ margin: '6px 0 0', fontSize: 'var(--t-body)', fontWeight: 600, color: 'rgba(250,249,245,.9)', animationDelay: '120ms' }}>
             {subtituloDelHeroe(estudio.subtituloHeroe)}
           </p>
+          )}
           {/* El héroe tenía foto, saludo y titular, y ninguna forma de salir de
               él: para reservar había que bajar al buscador o a la barra. Aquí va
               la acción, que es a lo que viene la mayoría. */}
+          {!compacta && (
           <Link
             href={href('/reservar')}
             className="tap a-up"
@@ -323,6 +369,7 @@ export default function InicioPage() {
               <Icono nombre="flecha-derecha" tamano={18} />
             </span>
           </Link>
+          )}
         </div>
 
         {/* Frase del estudio, al costado. Palabras APILADAS, no texto rotado:
@@ -331,7 +378,7 @@ export default function InicioPage() {
             Solo si el estudio la ha escrito — y va en el tercio ALTO del héroe,
             donde el velo aún está al .58/.18, no en el medio, que es el tramo
             claro donde ya se midió que el texto desaparece. */}
-        {estudio.fraseHeroe && (
+        {estudio.fraseHeroe && !compacta && (
           <p
             aria-hidden
             style={{
@@ -358,10 +405,26 @@ export default function InicioPage() {
     // como la vería una recién llegada (el catálogo del estudio es público; lo
     // suyo —reservas, bono— sale vacío). Sin esto, la propietaria que no es
     // alumna de su propio estudio —casi todas— veía el login en «Inicio».
-    <StudentShell headerTransparente conLema vistaPrevia heroe={heroe}>
+    // Compacta: sin el lema bajo el nombre, que en 160 px pisaba el saludo.
+    <StudentShell headerTransparente conLema={!compacta} vistaPrevia heroe={heroe}>
       <TirarParaActualizar onRefrescar={actualizar} />
       {/* Buscador. No decora: lleva a `/reservar?q=`, que busca en TODO el
           horario por nombre de clase, tipo o instructora, ignorando acentos. */}
+      {momento && data && (
+        // A caballo sobre el borde de la portada, como el buscador cuando no hay clase.
+        <div className="px" style={{ marginTop: -22, position: 'relative', zIndex: 3, display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <ClaseDelMomentoCard
+            reserva={momento.reserva}
+            clase={momento.clase}
+            cuando={momento.cuando}
+            instructora={data.instructoras.find((i) => i.id === momento.clase.instructoraId)}
+            conQr={estudio.qrAcceso === true}
+            onComoLlegar={comoLlegar}
+            onCalendario={() => alCal(momento.clase, data.instructoras.find((i) => i.id === momento.clase.instructoraId)?.nombre)}
+          />
+          {tarjetaValorar}
+        </div>
+      )}
       <form
         className="px a-up"
         // ⚠️ El buscador va A CABALLO entre la foto y la página, no debajo:
@@ -369,7 +432,7 @@ export default function InicioPage() {
         // las dos zonas —sin esto el héroe termina en una línea recta y la
         // página parece empezar dos veces— y es como está en la guía de marca.
         // `zIndex` porque el héroe pinta su degradado por encima del flujo.
-        style={{ marginTop: -26, position: 'relative', zIndex: 3, display: 'flex', gap: 10, alignItems: 'center' }}
+        style={{ marginTop: compacta ? 14 : -26, position: 'relative', zIndex: 3, display: 'flex', gap: 10, alignItems: 'center' }}
         onSubmit={(e) => {
           e.preventDefault();
           const q = new FormData(e.currentTarget).get('q');
@@ -427,7 +490,9 @@ export default function InicioPage() {
 
         {data && estado !== 'loading' && estado !== 'error' && (
           <>
-            {proxima ? (
+            {/* Sin clase hoy/mañana, «¿Qué tal la clase?» va lo primero aquí. */}
+            {!compacta && tarjetaValorar}
+            {compacta ? null : proxima ? (
               <NextClassCard
                 reserva={proxima.r}
                 clase={proxima.c}
@@ -435,8 +500,8 @@ export default function InicioPage() {
                 // ⚠️ Sin estos dos manejadores la tarjeta pintaba «+ Calendario»
                 // y «Cómo llegar» MUERTOS: el paquete los resuelve con un toast
                 // de maqueta y al copiarlo se quedaron sin nada detrás.
-                onCalendario={() => añadirAlCalendario(proxima.c, estudio.nombre, estudio.direccion, data.instructoras.find((i) => i.id === proxima.c.instructoraId)?.nombre)}
-                onComoLlegar={() => window.open(urlComoLlegar(estudio.direccion, estudio.nombre, navigator.userAgent), '_blank', 'noopener')}
+                onCalendario={() => alCal(proxima.c, data.instructoras.find((i) => i.id === proxima.c.instructoraId)?.nombre)}
+                onComoLlegar={comoLlegar}
               />
             ) : (
               <ProximaClaseVacia huecosHoy={libresHoy.length} hrefReservar={href('/reservar')} />

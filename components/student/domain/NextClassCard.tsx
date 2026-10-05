@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { usePortalHref } from '@/components/student/contexto';
 import type { Clase, Instructora, Reserva } from '@/lib/student/tipos';
 import { etiquetaDia, horaFin } from '@/lib/student/formato';
@@ -35,7 +36,7 @@ export function NextClassCard({ reserva, clase, instructora, onCalendario, onCom
         <p style={{ margin: '6px 0 0', fontSize: 'var(--t-h3)', fontFamily: 'var(--font-heading)', fontWeight: 'var(--heading-weight)', letterSpacing: '-.02em', color: 'var(--on-dark)' }}>{clase.nombre}</p>
         <p style={{ margin: '2px 0 0', fontSize: 'var(--t-meta)', color: 'color-mix(in srgb, var(--accent-deep-foreground) 80%, transparent)' }}>con {instructora?.nombre} · {clase.sala} · {clase.duracionMin} min</p>
         <div style={{ display: 'flex', gap: 7, marginTop: 11, flexWrap: 'wrap' }}>
-          <Link href={href('/mis-reservas/' + reserva.id)} className="btn btn--sm tap" style={{ background: 'var(--on-dark)', color: 'var(--accent-deep)', height: 34 }}>Ver mi reserva</Link>
+          <Link href={href('/mis-reservas/' + reserva.id)} transitionTypes={TRANSICION_ADELANTE} className="btn btn--sm tap" style={{ background: 'var(--on-dark)', color: 'var(--accent-deep)', height: 34 }}>Ver mi reserva</Link>
           <button type="button" onClick={onComoLlegar} className="btn btn--sm tap" style={{ height: 34, background: 'color-mix(in srgb, var(--accent-deep-foreground) 12%, transparent)', color: 'var(--accent-deep-foreground)', border: '1px solid color-mix(in srgb, var(--accent-deep-foreground) 35%, transparent)' }}>Cómo llegar</button>
           <button type="button" onClick={onCalendario} className="btn btn--sm tap" style={{ height: 34, background: 'color-mix(in srgb, var(--accent-deep-foreground) 12%, transparent)', color: 'var(--accent-deep-foreground)', border: '1px solid color-mix(in srgb, var(--accent-deep-foreground) 35%, transparent)' }}>+ Calendario</button>
         </div>

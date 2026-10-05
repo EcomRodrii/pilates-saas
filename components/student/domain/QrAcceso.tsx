@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getQrAcceso } from '@/lib/student/qr-acceso';
 import { qrSvgMarkup } from '@/lib/qr-svg';
+import { brilloAlMaximo } from '@/lib/nativo/puente';
 
 // El QR de acceso de la alumna: la caja blanca que lee la cámara y el hook que
 // lo trae. Lo comparten Perfil → QR de acceso y el detalle de una reserva, para
@@ -92,4 +93,48 @@ export function CajaQr({ qr, estado, tamano = 168, onReintentar }: {
       )}
     </div>
   );
+}
+
+/**
+ * Mientras se enseña el QR dentro de la app de iOS, la pantalla a tope de
+ * brillo: el lector del estudio lo lee a la primera. Al salir de la pantalla
+ * (o si el QR deja de estar) vuelve el brillo que había.
+ *
+ * ⚠️ También al salir de la APP con el QR abierto: iOS no lo devuelve solo, y
+ * el iPhone se quedaba al máximo en el bolsillo. Al volver, se sube otra vez.
+ * En la web no hace nada.
+ */
+export function useBrilloAlMaximo(activo: boolean) {
+  useEffect(() => {
+    if (!activo) return;
+    let restaurar: (() => Promise<void>) | null = null;
+    let vivo = true;
+    // Una subida a la vez: si vuelve y se va muy rápido, que no se crucen.
+    let pendiente: Promise<void> = Promise.resolve();
+    const subir = () => {
+      pendiente = pendiente.then(async () => {
+        if (!vivo || restaurar || document.visibilityState !== 'visible') return;
+        const r = await brilloAlMaximo();
+        if (vivo && document.visibilityState === 'visible') restaurar = r;
+        else await r();
+      });
+    };
+    const bajar = () => {
+      pendiente = pendiente.then(async () => {
+        const r = restaurar;
+        restaurar = null;
+        await r?.();
+      });
+    };
+    const alCambiar = () => { if (document.visibilityState === 'visible') subir(); else bajar(); };
+    subir();
+    document.addEventListener('visibilitychange', alCambiar);
+    window.addEventListener('pagehide', bajar);
+    return () => {
+      vivo = false;
+      document.removeEventListener('visibilitychange', alCambiar);
+      window.removeEventListener('pagehide', bajar);
+      bajar();
+    };
+  }, [activo]);
 }

@@ -2,6 +2,7 @@
 
 import { vibrar } from '@/lib/nativo/puente';
 import Link from 'next/link';
+import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PlazaFijaVista, ProximaClaseFijaVista, RecuperacionesVista } from '@/lib/student/tipos';
@@ -45,7 +46,7 @@ function EnlaceClase({ sesionId, etiqueta, flex = false, children }: { sesionId:
   const href = usePortalHref();
   const estilo: React.CSSProperties = { display: 'block', minWidth: 0, color: 'inherit', ...(flex ? { flex: 1 } : {}) };
   if (!sesionId) return <div style={estilo}>{children}</div>;
-  return <Link href={href('/reservar/' + sesionId)} aria-label={etiqueta} data-testid="enlace-clase-fija" style={estilo}>{children}</Link>;
+  return <Link href={href('/reservar/' + sesionId)} transitionTypes={TRANSICION_ADELANTE} aria-label={etiqueta} data-testid="enlace-clase-fija" style={estilo}>{children}</Link>;
 }
 
 export function PlazaFijaCard({ plazas, recuperaciones, hrefHorario, compacta = false, onCambio, calendario }: {

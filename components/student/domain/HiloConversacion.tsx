@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useVolver } from '@/components/student/shell/volver';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useAsync } from '@/lib/student/useAsync';
@@ -229,11 +229,11 @@ function CabeceraChat({ titulo, avatar, subtitulo, hrefPerfil }: {
   subtitulo: string | null;
   hrefPerfil: string | null;
 }) {
-  const r = useRouter();
+  const volver = useVolver();
   return (
     <div className="px" style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 8, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
       <button
-        type="button" onClick={() => r.back()} aria-label="Volver" className="tap tap--icono"
+        type="button" onClick={volver} aria-label="Volver" className="tap tap--icono"
         style={{ width: 36, height: 36, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
       >
         <Icono nombre="flecha-izquierda" tamano={18} />
