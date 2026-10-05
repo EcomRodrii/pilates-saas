@@ -33,6 +33,54 @@ export function renovacionAdoptable(c: CuotaDelRecibo, hoy: string): boolean {
   return true;
 }
 
+/**
+ * Una cuota que todavía no ha vencido (o sin fecha de fin): su renovación no se cobra
+ * sola por NINGÚN camino automático (adopción, cobro diario, remesa). `hoy` y
+ * `fechaFin` en `yyyy-mm-dd`.
+ */
+export function cuotaAunSinVencer(c: CuotaDelRecibo, hoy: string): boolean {
+  return c.tipoPlan === 'MENSUAL' && (!c.fechaFin || c.fechaFin >= hoy);
+}
+
+/**
+ * El primer día en que la renovación de una cuota se puede cobrar sola: el siguiente
+ * a su `fecha_fin` (el mismo en que `generarRecibosRenovacion` la daría por vencida).
+ * La adopción programa ahí el reintento en vez de dejar el recibo sin cobro automático
+ * hasta entonces (y diciendo «no tiene tarjeta» a quien sí la tiene).
+ */
+export function primerDiaDeCobro(fechaFin: string): string {
+  const d = new Date(`${fechaFin}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+export type MotivoRenovacionEnEspera = 'CUOTA_SIN_VENCER' | 'CUOTA_PAUSADA' | 'CUOTA_CANCELADA';
+
+export interface RenovacionDeCuota {
+  esRenovacion: boolean | null;
+  tipoPlan: string | null;
+  fechaFin: string | null;
+  estadoCuota: string | null;
+  /** `recibos.tras_cancelar_cuota`: lo que se decidió al cancelar la cuota. */
+  trasCancelarCuota: string | null;
+}
+
+/**
+ * ¿Esta renovación de CUOTA espera, en vez de cobrarse sin que la alumna la pague ella
+ * (remesa del banco)? La misma regla que el cobro automático (`puedeIntentarCobro`,
+ * `renovacionAdoptable`): ni en pausa, ni cancelada sin «sigue reintentando», ni antes
+ * de vencer. Revisión del 5-oct (#11): una renovación pedida desde la app y abandonada
+ * acababa en la remesa semanas antes del vencimiento, o con la cuota ya cancelada.
+ * `null` = no espera (o no es una renovación de cuota: eso lo decide quien lo creó).
+ */
+export function renovacionDeCuotaEnEspera(r: RenovacionDeCuota, hoy: string): MotivoRenovacionEnEspera | null {
+  if (r.esRenovacion !== true || r.tipoPlan !== 'MENSUAL') return null;
+  if (r.estadoCuota === 'PAUSADA') return 'CUOTA_PAUSADA';
+  if ((r.estadoCuota === 'CANCELADA' || r.estadoCuota === 'EXPIRADA') && r.trasCancelarCuota !== 'REINTENTAR') return 'CUOTA_CANCELADA';
+  if (cuotaAunSinVencer({ tipoPlan: r.tipoPlan, fechaFin: r.fechaFin }, hoy)) return 'CUOTA_SIN_VENCER';
+  return null;
+}
+
 /** El tipo de plan de una fila de `suscripciones` con `planes_tarifa(tipo)` embebido (objeto o lista). */
 export function tipoPlanEmbebido(plan: unknown): string | null {
   const p = (Array.isArray(plan) ? plan[0] : plan) as { tipo?: unknown } | null | undefined;

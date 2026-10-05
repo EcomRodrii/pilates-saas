@@ -126,6 +126,20 @@ test('cobrarReciboOffSession (a mano): cuenta → cierra el pago online → rese
   assert.match(s.slice(clasifica, clasifica + 200), /clave: idempotencyKey, via, cuota, ahora: new Date\(\), checkoutLeido,/);
 });
 
+// Revisión del 5-oct (#5): un datáfono abandonado congelaba el cobro diario (y la
+// remesa) de ese recibo para siempre. El cobro diario lo suelta con el MISMO dueño y
+// el mismo margen que la alumna que paga online, antes de reservar.
+test('cobro diario: un cobro del mostrador abandonado se suelta antes de reservar, con el margen de 30 min', () => {
+  const s = leer('lib/billing/stripe-cobros.ts');
+  const auto = s.indexOf("} else if (via === 'AUTOMATICO' && recibo.cobro_mostrador_pi && !recibo.cobro_off_session_clave) {");
+  const reserva = s.indexOf('reservarCobroOffSession(', auto);
+  assert.ok(auto > 0 && reserva > auto);
+  const tramo = s.slice(auto, reserva);
+  assert.match(tramo, /await soltarCobroDeMostradorDelRecibo\(/);
+  assert.match(tramo, /\{ cancelarPendienteTrasMs: MINUTOS_COBRO_MOSTRADOR_ABANDONADO \* 60_000 \}/);
+  assert.match(tramo, /if \(mostrador\.tipo !== 'SEGUIR'\) return \{ ok: false, error: MENSAJE_COBRO_EN_MARCHA\.MOSTRADOR, errorCode: 'COBRO_EN_MARCHA' \};/);
+});
+
 // ── Roles: las tres puertas del mostrador que acaban en `cobrarReciboOffSession` ──
 
 test('mover dinero: propietaria y recepción sí; gerencia e instructora no', () => {

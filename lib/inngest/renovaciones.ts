@@ -19,7 +19,7 @@ import { fetchAllRows } from '@/lib/supabase-data';
 import { idsEstudios } from './estudios.ts';
 import { repartirVencidas } from '@/lib/billing/baja-al-vencer';
 import { puedeArmarReintento, type ReciboParaCobrar } from '@/lib/billing/cobro-permitido';
-import { renovacionAdoptable, tipoPlanEmbebido } from '@/lib/billing/renovacion-adoptable';
+import { primerDiaDeCobro, renovacionAdoptable, tipoPlanEmbebido } from '@/lib/billing/renovacion-adoptable';
 import { debeAvisarSubidaPrecio } from '@/lib/billing/aviso-subida-precio';
 import { emitirRenovacionSinTarjeta } from '@/lib/notifications/emit';
 
@@ -175,38 +175,53 @@ async function adoptarRecibosCliente(studioId: string, nowISO: string, conMetodo
   if (bajaErr) throw new Error(bajaErr.message);
   const cuotaPorId = new Map((cuotas ?? []).map(s => [s.id as string, s]));
   const hoy = nowISO.slice(0, 10);
-  const idsAAdoptar = (candidatos ?? [])
-    .filter(r => conMetodoCobro.has(r.socio_id as string))
-    .filter(r => {
-      const cuota = cuotaPorId.get(r.suscripcion_id as string);
-      if (!cuota || cuota.baja_al_vencer === true) return false;
-      // ⚠️ Una cuota nunca se cobra antes de vencer: el mismo criterio con el que
-      // `generarRecibosRenovacion` crea su recibo (lib/billing/renovacion-adoptable.ts).
-      if (!renovacionAdoptable({
-        tipoPlan: tipoPlanEmbebido(cuota.planes_tarifa),
-        fechaFin: (cuota.fecha_fin as string | null) ?? null,
-      }, hoy)) return false;
-      return puedeArmarReintento(
-        { estado: r.estado as string, proximoReintento: null, trasCancelarCuota: (r.tras_cancelar_cuota as ReciboParaCobrar['trasCancelarCuota']) ?? null },
-        { estado: cuota.estado as string },
-      );
-    })
-    .map(r => r.id as string);
-  if (idsAAdoptar.length === 0) return 0;
+  // Cuándo se cobra cada uno: ya (`nowISO`), o el día siguiente al vencimiento de su
+  // cuota. Revisión del 5-oct (#12): una cuota aún sin vencer, con método de cobro, se
+  // quedaba SIN reintento hasta su día, y mientras tanto la app de la alumna y la
+  // bandeja del estudio decían «no se cobra sola: no tiene tarjeta guardada» a quien
+  // sí la tiene. Ahora se programa para su día: el cobro diario solo coge lo que ya
+  // toca (`proximo_reintento <= ahora`), la remesa no lo mete (lo cobra su tarjeta), y
+  // el propio cobro vuelve a comprobar el vencimiento (`puedeIntentarCobro`).
+  const cuandoPorRecibo = new Map<string, string>();
+  for (const r of candidatos ?? []) {
+    if (!conMetodoCobro.has(r.socio_id as string)) continue;
+    const cuota = cuotaPorId.get(r.suscripcion_id as string);
+    if (!cuota || cuota.baja_al_vencer === true) continue;
+    if (!puedeArmarReintento(
+      { estado: r.estado as string, proximoReintento: null, trasCancelarCuota: (r.tras_cancelar_cuota as ReciboParaCobrar['trasCancelarCuota']) ?? null },
+      { estado: cuota.estado as string },
+    )) continue;
+    const datosCuota = { tipoPlan: tipoPlanEmbebido(cuota.planes_tarifa), fechaFin: (cuota.fecha_fin as string | null) ?? null };
+    // ⚠️ Una cuota nunca se cobra antes de vencer: el mismo criterio con el que
+    // `generarRecibosRenovacion` crea su recibo (lib/billing/renovacion-adoptable.ts).
+    if (renovacionAdoptable(datosCuota, hoy)) {
+      cuandoPorRecibo.set(r.id as string, nowISO);
+    } else if (datosCuota.tipoPlan === 'MENSUAL' && datosCuota.fechaFin) {
+      cuandoPorRecibo.set(r.id as string, `${primerDiaDeCobro(datosCuota.fechaFin)}T00:00:00.000Z`);
+    }
+    // Sin saber el plan (o una cuota sin fecha de fin), no se programa: mañana se vuelve a mirar.
+  }
+  if (cuandoPorRecibo.size === 0) return 0;
   // Compare-and-set: solo lo que sigue exactamente como se leyó (pendiente, sin
-  // reintento, sin checkout y sin marca de cancelación).
-  const { data, error } = await admin
-    .from('recibos')
-    .update({ proximo_reintento: nowISO })
-    .in('id', idsAAdoptar)
-    .eq('studio_id', studioId)
-    .eq('estado', 'PENDIENTE')
-    .is('proximo_reintento', null)
-    .is('checkout_session_id', null)
-    .is('tras_cancelar_cuota', null)
-    .select('id');
-  if (error) throw new Error(error.message);
-  return (data ?? []).length;
+  // reintento, sin checkout y sin marca de cancelación). Una escritura por fecha.
+  const porFecha = new Map<string, string[]>();
+  for (const [id, cuando] of cuandoPorRecibo) porFecha.set(cuando, [...(porFecha.get(cuando) ?? []), id]);
+  let adoptados = 0;
+  for (const [cuando, ids] of porFecha) {
+    const { data, error } = await admin
+      .from('recibos')
+      .update({ proximo_reintento: cuando })
+      .in('id', ids)
+      .eq('studio_id', studioId)
+      .eq('estado', 'PENDIENTE')
+      .is('proximo_reintento', null)
+      .is('checkout_session_id', null)
+      .is('tras_cancelar_cuota', null)
+      .select('id');
+    if (error) throw new Error(error.message);
+    adoptados += (data ?? []).length;
+  }
+  return adoptados;
 }
 
 async function generarRecibosRenovacion(studioId: string, nowISO: string, conMetodoCobro: Set<string>): Promise<number> {
