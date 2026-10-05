@@ -262,6 +262,8 @@ test('las tres preguntas de apertura: Tenti donde estaba el Orb', async ({ page 
   await expect(page.getByRole('heading', { name: 'Una última cosa antes de entrar' })).toBeVisible({ timeout: 60_000 });
   expect(lecturas).toBeGreaterThan(0);
   await expect(tenti(page)).toHaveCount(1);
+  // Son preguntas que se pueden dejar para luego: 'pregunta' (lib/tenti/momentos.ts).
+  await expect(tenti(page)).toHaveAttribute('data-estado', 'pregunta');
   await todosVivosYDecorativos(page);
 });
 
