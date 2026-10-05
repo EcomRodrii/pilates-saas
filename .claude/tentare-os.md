@@ -1264,8 +1264,11 @@ categoría que [[colisiones-entre-sesiones-paralelas]].
 ## ⚠️ Un merge de solo documentación NO despliega
 
 `vercel.json` lleva un `ignoreCommand` que **cancela el build** cuando el diff
-contra el commit anterior solo toca `docs/**`, `**/*.md`, `e2e/**` o
-`**/*.test.ts`. Es deliberado (ahorra builds), pero tiene una trampa: el check
+contra el commit anterior solo toca `docs/**`, `**/*.md`, `e2e/**`,
+`**/*.test.ts`, `supabase/**`, `.github/**` o `.claude/**` (los tres últimos desde
+6-oct-2026: el build de Vercel es el 94 % de la factura, $62 de $67 al mes, y una
+migración o un workflow no cambian lo que se construye; el `db-types.ts` que
+acompaña a una migración sí dispara el build). Es deliberado (ahorra builds), pero tiene una trampa: el check
 de Vercel sale **verde** igualmente, con el texto «Canceled by Ignored Build
 Step». Verde ahí significa «no había nada que construir», no «desplegado».
 
