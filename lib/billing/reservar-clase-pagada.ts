@@ -101,8 +101,11 @@ export async function reservarClasePagada(
       // que poder llamarla hoy. Si se libera plaza, la promoción automática
       // sigue siendo el camino normal.
       const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+      // Con SU pago: /reservar elige el aviso de ESTE pago (estado-pago), y uno sin
+      // pago valdría para cualquier otro pago de esa socia ese día.
       await emitirReservaPagadaSinPlaza(admin, {
         studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, situacion: 'en-espera',
+        paymentIntentId: p.paymentIntentId,
       });
     }
   } catch (e) {

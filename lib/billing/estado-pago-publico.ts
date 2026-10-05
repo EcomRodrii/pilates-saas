@@ -80,8 +80,10 @@ export const RETARDOS_POLL_MS = [1000, 2000, 3000, 5000, 8000, 8000, 8000];
 // El aviso de «cobrado sin plaza» que deja el servidor, leído para la socia
 // (5-oct-2026). Antes se buscaba CUALQUIER aviso de esa socia desde el cobro:
 // el de otro pago de la misma clase valía para este. Ahora se elige el de ESTE
-// pago (`data.paymentIntentId`); uno de antes de este cambio, sin pago anotado,
-// sigue valiendo como antes, y uno de OTRO pago nunca.
+// pago (`data.paymentIntentId`). Uno LEGADO (de antes de este cambio: sin
+// `situacionCodigo` ni pago anotado) sigue valiendo como antes; uno nuevo sin pago
+// (no se supo cuál era) no vale para ninguno: un «en-espera» de la clase X no puede
+// decirle «sin plaza» al pago de la clase Y, que sí la tiene.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface AvisoSinPlaza {
@@ -93,7 +95,13 @@ export function elegirAvisoDelPago(avisos: readonly AvisoSinPlaza[] | null | und
   const lista = avisos ?? [];
   const delPago = lista.find(a => a.data?.paymentIntentId === pi);
   if (delPago) return delPago;
-  return lista.find(a => a.data?.paymentIntentId === undefined || a.data?.paymentIntentId === null) ?? null;
+  return lista.find(a => avisoLegado(a)) ?? null;
+}
+
+/** De antes de anotar el pago: no lleva ni su situación ni su pago. */
+function avisoLegado(a: AvisoSinPlaza): boolean {
+  const d = a.data ?? {};
+  return d.situacionCodigo === undefined && (d.paymentIntentId === undefined || d.paymentIntentId === null);
 }
 
 const SITUACIONES_YA_TENIA = new Set(['ya-tenia-reserva', 'ya-en-espera', 'ya-pendiente-aprobacion']);

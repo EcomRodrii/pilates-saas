@@ -2287,8 +2287,14 @@ async function avisarEsperaSinPlaza(
     // que Resend esté configurado.
     if (cierre.avisarEstudio) {
       const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+      // El pago de esta reserva, para que /reservar no tome este aviso por el de OTRO
+      // pago (estado-pago elige el aviso por pago). Sale de su recibo `rec-web-…`, el
+      // del mismo sufijo; sin él, el aviso no vale para ningún pago.
+      const { data: reciboDelPago } = await admin.from('recibos').select('stripe_payment_intent_id')
+        .eq('id', fila.id.replace(/^res-web-/, 'rec-web-')).eq('studio_id', fila.studio_id).maybeSingle();
       await emitirReservaPagadaSinPlaza(admin, {
         studioId: fila.studio_id, sesionId: fila.sesion_id, socioId: fila.socio_id, situacion: 'cerrada',
+        paymentIntentId: (reciboDelPago?.stripe_payment_intent_id as string | null | undefined) ?? null,
       });
     }
 

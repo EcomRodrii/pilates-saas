@@ -100,6 +100,28 @@ test('el aviso que vale es el de ESTE pago; el de otro pago de la misma clase, n
   assert.equal(elegirAvisoDelPago(null, 'pi_ESTE'), null);
 });
 
+// Revisión del 5-oct (#0): un aviso NUEVO sin pago anotado (no se supo cuál era) no
+// vale para ninguno. Un «en-espera» de la clase X le decía «sin plaza» al pago de la
+// clase Y, que sí la tenía.
+test('un aviso nuevo sin pago no vale para otro pago; solo el legado (sin situación) sigue valiendo', () => {
+  const enEsperaSinPago = avisoDe({ socioId: 'soc-1', paymentIntentId: null, situacionCodigo: 'en-espera' });
+  assert.equal(elegirAvisoDelPago([enEsperaSinPago], 'pi_Y'), null);
+  const cerradaSinPago = avisoDe({ socioId: 'soc-1', situacionCodigo: 'cerrada' });
+  assert.equal(elegirAvisoDelPago([cerradaSinPago], 'pi_Y'), null);
+  const delPago = avisoDe({ socioId: 'soc-1', paymentIntentId: 'pi_Y', situacionCodigo: 'en-espera' });
+  assert.equal(elegirAvisoDelPago([enEsperaSinPago, delPago], 'pi_Y'), delPago);
+});
+
+test('los avisos «en-espera» y «cerrada» nacen con su pago', () => {
+  const pagada = leerFuente(unir(import.meta.dirname, 'reservar-clase-pagada.ts'), 'utf8');
+  const enEspera = pagada.slice(pagada.indexOf("situacion: 'en-espera'"), pagada.indexOf("situacion: 'en-espera'") + 120);
+  assert.match(enEspera, /paymentIntentId: p\.paymentIntentId/);
+  const admin = leerFuente(unir(import.meta.dirname, '..', 'db', 'supabase-data-admin.ts'), 'utf8');
+  const cerrada = admin.slice(admin.indexOf("situacion: 'cerrada'"), admin.indexOf("situacion: 'cerrada'") + 200);
+  assert.match(cerrada, /paymentIntentId: \(reciboDelPago\?\.stripe_payment_intent_id/);
+  assert.match(admin, /fila\.id\.replace\(\/\^res-web-\/, 'rec-web-'\)/);
+});
+
 test('las tres situaciones de «ya tenía una reserva» se reconocen; las demás no', () => {
   for (const c of ['ya-tenia-reserva', 'ya-en-espera', 'ya-pendiente-aprobacion']) assert.equal(avisoDeYaTenia(avisoDe({ situacionCodigo: c })), true, c);
   for (const c of ['sin-reserva', 'en-espera', 'cerrada', undefined]) assert.equal(avisoDeYaTenia(avisoDe({ situacionCodigo: c })), false, String(c));
