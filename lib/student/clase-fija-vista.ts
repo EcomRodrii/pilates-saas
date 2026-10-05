@@ -115,112 +115,126 @@ export function proximasSemanas(
   return salida;
 }
 
-// ── «No voy»: lo que pasó de verdad, y si se puede deshacer ──────────────────
+// ── «No voy»: lo que pasó de verdad ──────────────────────────────────────────
+//
+// ⚠️ Sin «Deshacer», a propósito. Volver a reservar esa clase por la reserva
+// normal NO deja las cosas como estaban: la penalización de una cancelación
+// tardía ya está detectada, una recuperación ya creada la alumna no la puede
+// anular, el hueco puede haberse ofrecido ya a la siguiente de la lista, y la
+// reserva normal aplica reglas que la clase fija se salta (máximo de reservas a
+// la vez, ventana de antelación). Deshacerlo de verdad sería restaurar la plaza
+// en el servidor, y eso no existe todavía.
 
 export interface RespuestaNoVoy {
   eraConfirmada: boolean;
+  /** Cancelada dentro del plazo de cancelación (la cascada tipo → estudio, la decide el servidor). */
   tardia?: boolean;
   recuperacionCreada?: boolean;
   recuperacionCaducaEl?: string | null;
   recuperacionAlCerrarSemana?: boolean;
 }
 
-/** La frase de debajo de las píldoras tras decir «no voy», con lo que contestó el servidor. */
-export function lineaTrasNoIr(res: RespuestaNoVoy, fechaCorta: (iso: string) => string): string {
+/**
+ * Lo que se le dice tras «no voy», con lo que contestó el servidor.
+ * `invitarAReservar`: si se le ofrece volver a reservarla desde su ficha. Solo
+ * cuando volver no le regala nada ni le esconde nada:
+ * - con una recuperación ya creada, NO: se quedaría con la clase y la recuperación;
+ * - tardía, NO: volver a ir no anula la cancelación tardía (ni una penalización);
+ * - si la recuperación se reparte al cerrar la semana, SÍ: el barrido no compensa
+ *   una clase a la que volvió (`canceladasCompensables`).
+ */
+export function trasNoIr(res: RespuestaNoVoy, fechaCorta: (iso: string) => string): { texto: string; invitarAReservar: boolean } {
   if (res.recuperacionCreada) {
     const hasta = res.recuperacionCaducaEl ? ` hasta el ${fechaCorta(res.recuperacionCaducaEl)}` : '';
-    return `Tienes una clase para recuperar${hasta}. Tu clase fija sigue activa.`;
+    return { texto: `Tienes una clase para recuperar${hasta}: úsala desde el horario. Tu clase fija sigue activa.`, invitarAReservar: false };
+  }
+  if (res.tardia) {
+    return { texto: 'Fuera de plazo: esta vez no hay clase para recuperar. Tu clase fija sigue activa.', invitarAReservar: false };
   }
   if (res.recuperacionAlCerrarSemana) {
-    return 'Si no usas ese hueco esta semana, al acabarla tendrás una clase para recuperar. Tu clase fija sigue activa.';
+    return {
+      texto: 'Si no usas ese hueco esta semana, al acabarla tendrás una clase para recuperar. Tu clase fija sigue activa.',
+      invitarAReservar: true,
+    };
   }
-  if (res.tardia) return 'Fuera de plazo: esta vez no hay clase para recuperar. Tu clase fija sigue activa.';
-  return 'Tu clase fija sigue activa.';
+  return { texto: 'Tu clase fija sigue activa.', invitarAReservar: true };
 }
 
 /**
- * ¿Se puede ofrecer «Deshacer»? Solo cuando volver a reservar esa clase (por la
- * reserva de siempre) deja las cosas como estaban:
- *
- * - Con una recuperación ya creada, NO: la alumna no puede anularla
- *   (`anular_recuperacion` es del mostrador) y se quedaría con la clase Y la
- *   recuperación — una clase de regalo.
- * - Tardía, NO: puede haber una penalización detectada por la cancelación, y
- *   volver a reservar no la deshace.
- * - Si la recuperación se reparte al cerrar la semana, SÍ: volver a ocupar el
- *   hueco es justo lo que hace que no se reparta.
- *
- * Aun así puede no salir (alguien ha cogido el sitio): eso lo dice el servidor.
+ * La línea de la penalización en la confirmación de «no voy» cuando ya es tarde.
+ * Solo si el estudio (o ese tipo de clase) tiene una, y como «puede»: cobrarla
+ * depende también de la tarjeta guardada y de lo que firmó. `importe` con el
+ * mismo `coalesce` que `cancelar_reserva_plaza` (tipo de clase → estudio).
  */
-export function puedeDeshacerNoVoy(res: RespuestaNoVoy): boolean {
-  return res.eraConfirmada && !res.tardia && !res.recuperacionCreada;
-}
-
-/**
- * Lo que pasó al pulsar «Deshacer» (volver a reservar esa clase por la reserva de
- * siempre), dicho con lo que contestó el servidor. `vuelve` = tiene plaza otra vez.
- * Si el sitio ya lo ha cogido otra persona, se dice: no es un «deshecho».
- */
-export function lineaTrasDeshacer(d: {
-  state: string; posicionEspera?: number | null; pendienteAprobacion?: boolean;
-  recuperacionUsada?: { caducaEl: string | null } | null; mensaje?: string;
-}): { texto: string; vuelve: boolean } {
-  switch (d.state) {
-    case 'confirmed':
-      return { vuelve: true, texto: d.recuperacionUsada ? 'Vuelves a ir. Se ha usado una de tus clases por recuperar.' : 'Vuelves a ir.' };
-    case 'waitlisted':
-      return d.pendienteAprobacion
-        ? { vuelve: false, texto: 'Vuelve a estar pedida: tu estudio tiene que aprobarla.' }
-        : { vuelve: false, texto: `Ya había cogido el sitio otra persona: estás en la lista de espera${d.posicionEspera ? ` (puesto ${d.posicionEspera})` : ''}.` };
-    case 'duplicate': return { vuelve: true, texto: 'Ya la tienes reservada.' };
-    case 'full': return { vuelve: false, texto: d.mensaje ?? 'Ya no queda sitio en esa clase: no se ha podido deshacer.' };
-    case 'offline': return { vuelve: false, texto: 'Sin conexión: no se ha podido deshacer. Inténtalo cuando tengas red.' };
-    default: return { vuelve: false, texto: d.mensaje ?? 'No se ha podido deshacer. Tu clase de ese día sigue cancelada.' };
-  }
+export function avisoPenalizacionTardia(importe: number | null | undefined, euros: (n: number) => string): string | null {
+  return typeof importe === 'number' && importe > 0 ? `Tu estudio puede cobrarte ${euros(importe)} por cancelar tan tarde.` : null;
 }
 
 // ── «Ver el mes entero»: la línea de debajo ──────────────────────────────────
 
-/** «Octubre: 4 clases, 1 que no vas». `null` si este mes no le queda ninguna. */
+/**
+ * «Octubre: 4 clases, 1 que no vas · 2 sin reservar». `null` si este mes no le
+ * queda nada. Una clase sin reserva NO es una de sus clases: puede estar llena o
+ * no cubrirla su cuota, así que se cuenta aparte y no se promete.
+ */
 export function resumenDelMes(datos: DatosCalendarioFija, hoy: string): string | null {
   const mes = hoy.slice(0, 7);
   let clases = 0;
   let noVa = 0;
+  let sinReservar = 0;
   for (const [fecha, dias] of marcasDelMes(mes, datos.plazas, datos.sesiones, datos.reservas, hoy)) {
     if (fecha < hoy) continue;
     for (const d of dias) {
       if (d.marca === 'PAUSA') continue;
+      if (d.marca === 'SIN_RESERVA') { sinReservar++; continue; }
       clases++;
       if (d.marca === 'NO_VA') noVa++;
     }
   }
-  if (clases === 0) return null;
+  if (clases === 0 && sinReservar === 0) return null;
   const nombre = nombreMes(mes).split(' de ')[0];
-  const partes = [`${nombre.charAt(0).toUpperCase()}${nombre.slice(1)}: ${clases === 1 ? '1 clase' : `${clases} clases`}`];
+  const partes: string[] = [];
+  if (clases > 0) partes.push(clases === 1 ? '1 clase' : `${clases} clases`);
   if (noVa > 0) partes.push(noVa === 1 ? '1 que no vas' : `${noVa} que no vas`);
-  return partes.join(', ');
+  const sin = sinReservar > 0 ? `${sinReservar} sin reservar` : null;
+  const texto = [partes.join(', '), sin].filter(Boolean).join(' · ');
+  return `${nombre.charAt(0).toUpperCase()}${nombre.slice(1)}: ${texto}`;
 }
 
 // ── Sin clase fija: cómo se pide ─────────────────────────────────────────────
 
 /**
- * Los tres pasos, diciendo la verdad sobre ESTE estudio: si no deja pedirla
- * desde la app, el paso es pedírsela a él; si la aprueba solo, no se le promete
- * que «tu estudio la confirma».
+ * Cómo se consigue, diciendo la verdad sobre ESTE estudio y sobre ELLA:
+ * - si el estudio no deja pedirla desde la app, el paso es pedírsela a él;
+ * - si la aprueba solo, no se le promete que «tu estudio la confirma»;
+ * - sin una cuota que cubra sus clases, la ficha no le enseña el interruptor (con
+ *   bono no hay clase fija): primero la cuota, y no se le enseña de muestra un
+ *   interruptor que no va a encontrar. Con bono, lo que sí tiene en la ficha es
+ *   reservar varias semanas de una vez (solo si el estudio deja pedirla desde la app).
  */
-export function pasosParaPedirla(estudio: { puedePedirPlazaFija?: boolean; plazaFijaAutomatica?: boolean }): string[] {
-  if (estudio.puedePedirPlazaFija !== true) {
-    return [
-      'Elige la clase a la que vas siempre',
-      'Pídesela a tu estudio (en recepción o por mensaje)',
-      'Cuando te la den, aparece aquí y se reserva sola',
-    ];
+export function comoConseguirla(
+  estudio: { puedePedirPlazaFija?: boolean; plazaFijaAutomatica?: boolean },
+  tieneCuota: boolean,
+): { pasos: string[]; muestraInterruptor: boolean; conBono: string | null } {
+  const desdeLaApp = estudio.puedePedirPlazaFija === true;
+  const cuota = 'Consigue una cuota que cubra tus clases: la clase fija va con cuota, no con bono';
+  if (!desdeLaApp) {
+    return {
+      pasos: tieneCuota
+        ? ['Elige la clase a la que vas siempre', 'Pídesela a tu estudio (en recepción o por mensaje)', 'Cuando te la den, aparece aquí y se reserva sola']
+        : [cuota, 'Pídesela a tu estudio (en recepción o por mensaje)', 'Cuando te la den, aparece aquí y se reserva sola'],
+      muestraInterruptor: false, conBono: null,
+    };
   }
-  return [
-    'Abre la clase a la que vas siempre',
-    'Activa «Clase fija» y elige hasta cuándo',
-    estudio.plazaFijaAutomatica === true
-      ? 'Si cumples las reglas de tu estudio, es tuya al momento; si no, la confirma'
-      : 'Tu estudio la confirma y ya está',
-  ];
+  const confirma = estudio.plazaFijaAutomatica === true
+    ? 'Si cumples las reglas de tu estudio, es tuya al momento; si no, la confirma'
+    : 'Tu estudio la confirma y ya está';
+  if (!tieneCuota) {
+    return {
+      pasos: [cuota, 'Abre la clase a la que vas siempre y activa «Clase fija»', confirma],
+      muestraInterruptor: false,
+      conBono: 'Con bono, desde la ficha de una clase puedes reservar varias semanas de una vez.',
+    };
+  }
+  return { pasos: ['Abre la clase a la que vas siempre', 'Activa «Clase fija» y elige hasta cuándo', confirma], muestraInterruptor: true, conBono: null };
 }

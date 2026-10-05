@@ -253,13 +253,14 @@ export interface PayloadMin {
   studio?: {
     fotoUrl?: string | null; imagenBienvenidaUrl?: string | null;
     reservaAntelacionMaximaDias?: number | null; reservaAntelacionHora?: string | null;
+    penalizacionImporteEur?: number | null;
   } | null;
   sesiones?: {
     id: string; inicio: string; fin: string; aforoMaximo: number;
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; orden?: number | null }[];
+  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; orden?: number | null; penalizacionImporteEur?: number | null }[];
   levelDefinitions?: NivelDef[];
   achievementDefinitions?: LogroDef[];
   challengeDefinitions?: RetoDef[];
@@ -554,6 +555,7 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
     estado: p.estado, proximaFecha: p.proximaFecha, sinClase: p.sinClase, vigenciaHasta: p.vigenciaHasta, pausa: p.pausa,
     pausaPedida: p.pausaPedida, deClaseFija: p.deClaseFija,
     instructora: instructoraDeSuHueco(d, p, sesiones, hoyISO, horaAhora),
+    penalizacionTardiaEur: penalizacionDeSuHueco(d, p.tipoClaseId),
     // Lo que su clase fija le tiene ya reservado (las 5 próximas semanas de «Mis clases → Fija»).
     // Una plaza en pausa o sin clase no lo enseña.
     proximas: p.estado !== 'ACTIVA' ? [] : proximasDeUnaPlaza(
@@ -563,6 +565,12 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
       return { ...x, ventanaCancelacionHoras: (d.tiposClase ?? []).find((t) => t.id === tipoId)?.ventanaCancelacionHoras ?? null };
     }),
   }));
+}
+
+/** Tipo de clase → estudio, como `cancelar_reserva_plaza`: un 0 en el tipo de clase es «sin penalización», no «hereda». */
+function penalizacionDeSuHueco(d: PayloadMin, tipoClaseId: string | null | undefined): number | null {
+  const delTipo = tipoClaseId ? (d.tiposClase ?? []).find((t) => t.id === tipoClaseId)?.penalizacionImporteEur : undefined;
+  return delTipo ?? d.studio?.penalizacionImporteEur ?? null;
 }
 
 /**

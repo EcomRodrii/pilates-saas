@@ -1,6 +1,32 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { derechoDeRecuperaciones } from './derecho-semanal.ts';
+import { canceladasCompensables, derechoDeRecuperaciones } from './derecho-semanal.ts';
+
+// «No voy» a su clase fija del lunes y, después, la vuelve a reservar desde la
+// ficha: va a esa clase. Con una cuota de 2 a la semana y solo esa clase,
+// `derechoDeRecuperaciones(2, 1, 1)` daría 1 — una recuperación por una clase a
+// la que fue. La cancelación de una sesión a la que volvió no se compensa.
+test('la cancelación de una clase a la que volvió a apuntarse no se compensa', () => {
+  const suyas = [
+    { id: 'res-pf-lunes', sesion_id: 'ses-lunes', estado: 'CANCELADA' },
+    { id: 'res-a-mano', sesion_id: 'ses-lunes', estado: 'CONFIRMADA' },
+    { id: 'res-pf-jueves', sesion_id: 'ses-jueves', estado: 'CANCELADA' },
+  ];
+  const canceladas = suyas.filter((r) => r.estado === 'CANCELADA');
+  assert.deepEqual(canceladasCompensables(canceladas, suyas).map((r) => r.id), ['res-pf-jueves']);
+  // Fue (o faltó sin avisar): también cuenta como que volvió.
+  for (const estado of ['ASISTIDA', 'NO_ASISTIO']) {
+    assert.deepEqual(canceladasCompensables(canceladas, [...canceladas, { id: 'x', sesion_id: 'ses-jueves', estado }]).map((r) => r.id), ['res-pf-lunes']);
+  }
+  // Volver a la lista de espera no es ir: esa sí se compensa.
+  assert.equal(canceladasCompensables(canceladas, [...canceladas, { id: 'y', sesion_id: 'ses-jueves', estado: 'LISTA_ESPERA' }]).length, 2);
+});
+
+test('el barrido semanal pasa sus cancelaciones por `canceladasCompensables`', async () => {
+  const { readFileSync } = await import('node:fs');
+  const codigo = readFileSync(new URL('./otorgar-semanales.ts', import.meta.url), 'utf8');
+  assert.match(codigo, /const canceladas = canceladasCompensables\(suyas/);
+});
 
 // El caso que da nombre a la funcionalidad: 2 por semana, cancela una a tiempo
 // y ya no le cabe otra → recupera una.

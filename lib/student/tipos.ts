@@ -253,6 +253,12 @@ export interface PlazaFijaVista {
   deClaseFija: boolean;
   /** Quién da la próxima clase de su hueco (`null` = sin clase próxima o sin saberlo). */
   instructora: string | null;
+  /**
+   * Lo que su estudio puede cobrar por cancelar tarde una clase de su hueco: el del
+   * tipo de clase o, si no tiene, el del estudio (el mismo `coalesce` que
+   * `cancelar_reserva_plaza`). `null`/0 = no hay penalización.
+   */
+  penalizacionTardiaEur: number | null;
 }
 /** Una próxima clase de su clase fija, con la ventana de cancelación de SU tipo de clase (`null` = la del estudio). */
 export type ProximaClaseFijaVista = import('./plaza-fija.ts').ProximaClaseFija & { ventanaCancelacionHoras: number | null };

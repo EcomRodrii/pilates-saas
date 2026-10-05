@@ -4344,15 +4344,22 @@ export async function ejecutarCancelacionReserva(
   // `socio_id` sale de la RESERVA (no de params.socioId, que puede ser null si
   // lo dispara el sistema) — es a ELLA a quien hay que devolverle el bono.
   const { data: cancelada } = await admin
-    .from('reservas').select('sesion_id, socio_id').eq('id', params.reservaId).maybeSingle();
+    .from('reservas').select('sesion_id, socio_id, cancelada_tardia').eq('id', params.reservaId).maybeSingle();
   let bonoDevuelto = false;
-  let tardia = false;
   // Las plazas fijas materializadas (res-pf-) las inserta el cron CONFIRMADAS sin
   // consumir bono (materializar_plazas_fijas no toca el bono). Por tanto cancelarlas
   // NO debe devolver una sesión que nunca se descontó: su compensación es la
   // recuperación (ver cancelarReservaPublica). Sin este guard, cancelar una plaza
   // fija regalaba una sesión de bono + una recuperación (doble compensación).
   const esPlazaFija = params.reservaId.startsWith('res-pf-');
+  // Una clase fija también se cancela tarde, y entonces no hay recuperación y
+  // puede haber penalización (la detecta `cancelar_reserva_plaza`, que no
+  // distingue `res-pf-`). Antes `tardia` solo se calculaba en el bloque de
+  // devolver el bono, así que para una clase fija llegaba SIEMPRE `false` y su app
+  // la trataba como cancelada a tiempo. Es solo el DATO que se informa: lo que se
+  // devuelve y lo que se penaliza no cambia. Se lee de la reserva, donde lo dejó el
+  // trigger con la ventana del tipo de clase por encima de la del estudio.
+  let tardia = esPlazaFija && row?.era_confirmada === true && cancelada?.cancelada_tardia === true;
   if (row?.era_confirmada && cancelada?.sesion_id && cancelada?.socio_id && !esPlazaFija) {
     const pol = await cargarPoliticaEstudio(admin, params.studioId);
     const { data: ses } = await admin

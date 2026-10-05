@@ -1,24 +1,24 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { vibrar } from '@/lib/nativo/puente';
 import type { PlazaFijaVista, RecuperacionesVista } from '@/lib/student/tipos';
 import type { CalendarioClaseFija as DatosCalendario } from '@/lib/student/mapeo';
-import { etiquetaDia, fechaCorta, fechaLarga, horaAhora } from '@/lib/student/formato';
+import { etiquetaDia, euros, fechaCorta, fechaLarga, horaAhora } from '@/lib/student/formato';
 import { nombreDia } from '@/lib/student/plaza-fija';
 import { TEXTOS_PLAZA_FIJA, losDias } from '@/lib/student/plaza-fija-textos';
 import {
-  estadoTarjetaFija, lineaTrasDeshacer, lineaTrasNoIr, pasosParaPedirla, proximasSemanas, puedeDeshacerNoVoy, resumenDelMes,
+  avisoPenalizacionTardia, comoConseguirla, estadoTarjetaFija, proximasSemanas, resumenDelMes, trasNoIr,
   type EstadoSemana, type SemanaFija,
 } from '@/lib/student/clase-fija-vista';
 import { anularPeticionPlazaFija, pedirPausaPlazaFija } from '@/lib/student/plaza-fija-peticion';
 import { cancelarReserva } from '@/lib/student/reservas-acciones';
-import { confirmarReserva } from '@/lib/student/reservar';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
 import { tileFecha } from '@/lib/student/agenda-proximas';
 import { useOnline } from '@/lib/student/useOnline';
+import { useAhoraMs } from '@/lib/student/use-ahora';
 import { validarPausa } from '@/lib/plazas-fijas-pausa';
 import { hoyEnEstudio } from '@/lib/utils';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
@@ -44,9 +44,13 @@ import { DialogoDejarClaseFija } from '@/components/student/domain/DialogoDejarC
 //
 // ⚠️ Nada optimista. Una píldora cambia solo cuando el servidor ha contestado que
 // sí; con un no, se queda como estaba y el diálogo sigue abierto con el motivo.
+//
+// Sin «Deshacer» tras «no voy» (ver `trasNoIr`): volver a reservarla por la reserva
+// normal no deja las cosas como estaban. Se le dice lo que pasó y, solo cuando
+// volver no le regala ni le esconde nada, el enlace a la ficha de esa clase.
 
 type PausaPedida = { id: string; desde: string; hasta: string } | null;
-type Resultado = { plazaClave: string; fecha: string; sesionId: string; linea: string; deshacer: boolean; deshecho?: string };
+type Resultado = { plazaClave: string; fecha: string; sesionId: string; texto: string; invitarAReservar: boolean };
 
 const clave = (p: PlazaFijaVista) => `${p.diaSemana}-${p.hora}-${p.sala}`;
 const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -62,7 +66,13 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
   const router = useRouter();
   const { online } = useOnline();
   const { toast } = useToast();
-  const [hoy] = useState(() => hoyEnEstudio());
+  // El reloj compartido, que AVANZA: con `useState(() => hoyEnEstudio())` el día
+  // se congelaba al montar, y la app que se queda abierta de noche enseñaba por la
+  // mañana la clase de ayer como próxima. `hoy` y la hora salen del MISMO instante.
+  const ahoraMs = useAhoraMs();
+  const instante = ahoraMs === null ? null : new Date(ahoraMs);
+  const hoy = instante ? hoyEnEstudio(instante) : '';
+  const ahora = instante ? horaAhora(instante) : '00:00';
 
   // «No voy»: UNA semana de su clase fija. No toca la recurrencia.
   const [noVoy, setNoVoy] = useState<{ plaza: PlazaFijaVista; semana: SemanaFija & { ventanaCancelacionHoras: number | null } } | null>(null);
@@ -70,7 +80,12 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
   // Lo que ya ha contestado el servidor, por clase: manda sobre los datos hasta que la pantalla los vuelve a leer.
   const [confirmadas, setConfirmadas] = useState<Record<string, EstadoSemana>>({});
   const [resultado, setResultado] = useState<Resultado | null>(null);
-  const [deshaciendo, setDeshaciendo] = useState(false);
+  // Tras confirmar, la semana deja de ser un botón (pasa a enlace) y el foco se
+  // perdía en el <body>: se lleva a lo que contestó el servidor, que se lee entero.
+  const resultadoRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (resultado) resultadoRef.current?.focus();
+  }, [resultado]);
 
   // Pausa: pedirla NO la aplica; lo que cambia aquí es lo que ella ya ha pedido (confirmado por el servidor).
   const [pedidas, setPedidas] = useState<Record<string, PausaPedida>>({});
@@ -85,7 +100,6 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
 
   const pausaPedidaDe = (p: PlazaFijaVista): PausaPedida => (p.id && p.id in pedidas ? pedidas[p.id] : p.pausaPedida);
   const avisoPausa = hasta ? validarPausa(desde, hasta, hoy) : null;
-  const ahora = horaAhora();
 
   function abrirPausa(p: PlazaFijaVista) {
     setPidiendo(p); setDesde(hoy); setHasta(''); setError('');
@@ -125,39 +139,21 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
     setNoVoy(null);
     void vibrar('aviso');
     setConfirmadas((prev) => ({ ...prev, [semana.sesionId]: 'no-va' }));
-    setResultado({
-      plazaClave: clave(plaza), fecha: semana.fecha, sesionId: semana.sesionId,
-      linea: lineaTrasNoIr(r, fechaCorta), deshacer: puedeDeshacerNoVoy(r),
-    });
+    setResultado({ plazaClave: clave(plaza), fecha: semana.fecha, sesionId: semana.sesionId, ...trasNoIr(r, fechaCorta) });
     onCambio();
   }
 
-  // «Deshacer» = volver a reservar esa clase por la reserva de siempre. Puede no
-  // salir (otra persona ha cogido el sitio): se dice lo que contestó el servidor.
-  async function deshacer() {
-    if (!resultado || deshaciendo) return;
-    setDeshaciendo(true);
-    const d = await confirmarReserva(estudio.slug, resultado.sesionId, estudio.id, { online });
-    setDeshaciendo(false);
-    if (d.state === 'session-expired') { router.push(href('/acceso/login')); return; }
-    const t = lineaTrasDeshacer(d);
-    if (t.vuelve) {
-      setConfirmadas((prev) => ({ ...prev, [resultado.sesionId]: 'va-a-mano' }));
-      void vibrar('exito');
-    }
-    setResultado({ ...resultado, deshacer: false, deshecho: t.texto });
-    onCambio();
-  }
-
-  const avisoNoVoy = noVoy ? avisoCancelacion(noVoy.semana, estudio.politicaCancelacionHoras) : null;
-  const resumenMes = resumenDelMes(calendario, hoy);
+  const avisoNoVoy = noVoy && instante ? avisoCancelacion(noVoy.semana, estudio.politicaCancelacionHoras, instante) : null;
+  const penalizacionNoVoy = noVoy && avisoNoVoy && !avisoNoVoy.devolveriaCredito
+    ? avisoPenalizacionTardia(noVoy.plaza.penalizacionTardiaEur, euros) : null;
+  const resumenMes = hoy ? resumenDelMes(calendario, hoy) : null;
 
   return (
     <div data-testid="plaza-fija" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {plazas.map((plaza) => {
         const pedida = pausaPedidaDe(plaza);
         const e = estadoTarjetaFija(plaza, pedida, fechaCorta);
-        const semanas = proximasSemanas(plaza, calendario, hoy, ahora)
+        const semanas = (hoy ? proximasSemanas(plaza, calendario, hoy, ahora) : [])
           .map((s) => ({ ...s, estado: confirmadas[s.sesionId] ?? s.estado }));
         const res = resultado?.plazaClave === clave(plaza) ? resultado : null;
         const siguiente = plaza.proximas[0];
@@ -220,11 +216,11 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
                 ) : (
                   <ul style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'flex', gap: 7 }}>
                     {semanas.map((s) => (
-                      <li key={s.sesionId} style={{ flex: '1 1 0', minWidth: 0 }}>
+                      <li key={s.sesionId} style={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}>
                         <Pildora
                           semana={s}
                           hrefFicha={href(`/reservar/${s.sesionId}`)}
-                          puedeNoIr={online && s.estado === 'va' && !!s.reservaId && avisoCancelacion({ fecha: s.fecha, hora: s.hora, ventanaCancelacionHoras: null }, estudio.politicaCancelacionHoras).puede}
+                          puedeNoIr={online && s.estado === 'va' && !!s.reservaId && avisoCancelacion({ fecha: s.fecha, hora: s.hora, ventanaCancelacionHoras: null }, estudio.politicaCancelacionHoras, instante ?? undefined).puede}
                           onNoVoy={() => {
                             const p = plaza.proximas.find((x) => x.sesionId === s.sesionId);
                             setNoVoy({ plaza, semana: { ...s, ventanaCancelacionHoras: p?.ventanaCancelacionHoras ?? null } });
@@ -234,24 +230,30 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
                     ))}
                   </ul>
                 )}
-                {res && (
-                  <div data-testid="no-voy-resultado" role="status" style={{ marginTop: 12, background: 'var(--muted)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontSize: 'var(--t-small)', lineHeight: 1.45 }}>
-                    <b>{mayuscula(etiquetaDia(res.fecha))}: no vas.</b> {res.linea}
-                    {res.deshacer && (
-                      <>
-                        {' '}
-                        <button
-                          type="button" className="tap" onClick={() => void deshacer()} disabled={deshaciendo || !online}
-                          style={{ border: 'none', background: 'none', padding: 0, font: 'inherit', fontWeight: 800, color: 'var(--accent)', cursor: 'pointer' }}
-                        >
-                          {deshaciendo ? 'Deshaciendo…' : 'Deshacer'}
-                        </button>
-                        <span className="t-meta" style={{ display: 'block', marginTop: 2 }}>Vuelve a reservarla, si sigue habiendo sitio.</span>
-                      </>
-                    )}
-                    {res.deshecho && <span data-testid="deshacer-resultado" style={{ display: 'block', marginTop: 4, fontWeight: 700 }}>{res.deshecho}</span>}
-                  </div>
-                )}
+                {/* Montada siempre (vacía hasta que el servidor contesta): una región
+                    `status` que aparece ya con el texto puede no anunciarse. */}
+                <div
+                  role="status" tabIndex={-1} ref={res ? resultadoRef : undefined}
+                  data-testid={res ? 'no-voy-resultado' : undefined}
+                  style={res
+                    ? { marginTop: 12, background: 'var(--muted)', color: 'var(--foreground)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontSize: 'var(--t-small)', lineHeight: 1.45, outline: 'none' }
+                    : { outline: 'none' }}
+                >
+                  {res && (
+                    <>
+                      <b>{mayuscula(etiquetaDia(res.fecha, hoy || undefined))}: no vas.</b> {res.texto}
+                      {res.invitarAReservar && (
+                        <span style={{ display: 'block', marginTop: 4 }}>
+                          Si cambias de idea,{' '}
+                          {/* `--foreground` subrayado y no el acento: el acento se calibra contra la tarjeta, no contra `--muted`. */}
+                          <Link href={href(`/reservar/${res.sesionId}`)} data-testid="volver-a-reservarla" style={{ color: 'var(--foreground)', fontWeight: 800, textDecoration: 'underline' }}>
+                            vuelve a reservarla desde el horario
+                          </Link>.
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </section>
@@ -339,6 +341,12 @@ export function MiClaseFija({ plazas, recuperaciones, calendario, hrefHorario, o
             <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>
               {avisoNoVoy.devolveriaCredito ? TEXTOS_PLAZA_FIJA.noPuedoATiempo : TEXTOS_PLAZA_FIJA.noPuedoTarde(avisoNoVoy.horasVentana)}
             </p>
+            {/* Tarde y con penalización en su estudio (o en ese tipo de clase): se dice ANTES de confirmar. */}
+            {penalizacionNoVoy && (
+              <p data-testid="no-puedo-penalizacion" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--accent-soft-foreground)' }}>
+                {penalizacionNoVoy}
+              </p>
+            )}
           </div>
         )}
       </ConfirmationDialog>
@@ -385,7 +393,8 @@ function TituloClase({ plaza }: { plaza: PlazaFijaVista }) {
 }
 
 const TEXTO_SEMANA: Record<EstadoSemana, string> = {
-  va: 'Vas', 'va-a-mano': 'Vas', 'no-va': 'No vas', pausa: 'Pausa', 'sin-reservar': 'Sin plaza',
+  // «Sin reservar» y no «Sin plaza»: no se sabe si está llena o si su cuota no la cubre (lo mismo que dice el calendario).
+  va: 'Vas', 'va-a-mano': 'Vas', 'no-va': 'No vas', pausa: 'Pausa', 'sin-reservar': 'Sin reservar',
 };
 
 /** Una semana. Con su reserva de clase fija, un toque = «no voy» (con confirmación). Si no, abre la ficha de ese día. */
@@ -395,7 +404,7 @@ function Pildora({ semana, hrefFicha, puedeNoIr, onNoVoy }: {
   const t = tileFecha(semana.fecha);
   const va = semana.estado === 'va' || semana.estado === 'va-a-mano';
   const estilo: React.CSSProperties = {
-    display: 'block', width: '100%', borderRadius: 16, padding: '9px 0 8px', textAlign: 'center', font: 'inherit',
+    display: 'block', width: '100%', height: '100%', boxSizing: 'border-box', borderRadius: 16, padding: '9px 2px 8px', textAlign: 'center', font: 'inherit',
     border: `1.5px ${semana.estado === 'sin-reservar' ? 'dashed' : 'solid'} ${va ? 'var(--accent)' : 'var(--border)'}`,
     background: va ? 'var(--accent-soft)' : 'var(--muted)',
     color: va ? 'var(--accent-soft-foreground)' : 'var(--muted-foreground)',
@@ -406,7 +415,7 @@ function Pildora({ semana, hrefFicha, puedeNoIr, onNoVoy }: {
     <>
       <span style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '.06em' }}>{t.semana}</span>
       <span className="t-num" style={{ display: 'block', fontSize: 21, fontWeight: 800, lineHeight: 1.1, textDecoration: semana.estado === 'no-va' ? 'line-through' : 'none' }}>{t.dia}</span>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10.5, fontWeight: 800 }}>
+      <span style={{ display: 'inline-flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 2, maxWidth: '100%', fontSize: 10.5, fontWeight: 800, lineHeight: 1.15 }}>
         {va && <Icono nombre="hecho" tamano={11} grosor={2.6} />}
         {TEXTO_SEMANA[semana.estado]}
       </span>
@@ -447,13 +456,15 @@ function Fila({ icono, titulo, detalle, accion, onClick, acento, peligro, disabl
     <>
       <span aria-hidden style={{
         width: 40, height: 40, borderRadius: 13, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: acento ? 'var(--accent-soft)' : 'var(--muted)',
-        color: peligro ? 'var(--destructive)' : acento ? 'var(--accent-soft-foreground)' : 'var(--foreground)',
+        // ⚠️ Lo rojo va en la pareja `--destructive-foreground` sobre `--destructive-soft`, la de `btn--danger`:
+        // `--destructive` en texto sobre la tarjeta no llega a AA con el estilo «Carbón» (3,4:1), que no lo redefine.
+        background: peligro ? 'var(--destructive-soft)' : acento ? 'var(--accent-soft)' : 'var(--muted)',
+        color: peligro ? 'var(--destructive-foreground)' : acento ? 'var(--accent-soft-foreground)' : 'var(--foreground)',
       }}>
         <Icono nombre={icono} tamano={20} />
       </span>
       <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-        <span style={{ display: 'block', fontSize: 'var(--t-body)', fontWeight: peligro ? 700 : 800, color: peligro ? 'var(--destructive)' : 'var(--foreground)' }}>{titulo}</span>
+        <span style={{ display: 'block', fontSize: 'var(--t-body)', fontWeight: peligro ? 700 : 800, color: 'var(--foreground)' }}>{titulo}</span>
         {detalle && <span className="t-meta" style={{ display: 'block', marginTop: 1 }}>{detalle}</span>}
       </span>
     </>
@@ -476,15 +487,14 @@ function Fila({ icono, titulo, detalle, accion, onClick, acento, peligro, disabl
 // ── Sin clase fija (maqueta `FijaVacia`) ─────────────────────────────────────
 
 /**
- * Qué es una clase fija, cómo se pide EN ESTE estudio y cómo se ve el interruptor
- * en la ficha de la clase. Si el estudio no deja pedirla desde la app, los pasos
- * lo dicen («Pídesela a tu estudio») y no se enseña un interruptor que no le va a
- * funcionar.
+ * Qué es una clase fija, cómo se consigue EN ESTE estudio Y CON LO QUE ELLA TIENE
+ * (`comoConseguirla`), y cómo se ve el interruptor en la ficha de la clase. Si el
+ * estudio no deja pedirla desde la app, o si no tiene una cuota que cubra sus
+ * clases, no se le enseña un interruptor que no va a encontrar.
  */
-export function ClaseFijaVacia({ hrefHorario }: { hrefHorario: string }) {
+export function ClaseFijaVacia({ hrefHorario, tieneCuota }: { hrefHorario: string; tieneCuota: boolean }) {
   const { estudio } = useEstudio();
-  const pasos = pasosParaPedirla(estudio);
-  const desdeLaApp = estudio.puedePedirPlazaFija === true;
+  const { pasos, muestraInterruptor, conBono } = comoConseguirla(estudio, tieneCuota);
   return (
     <div data-testid="clase-fija-vacia" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div className="card a-up" style={{ textAlign: 'center', padding: '22px 20px' }}>
@@ -505,7 +515,8 @@ export function ClaseFijaVacia({ hrefHorario }: { hrefHorario: string }) {
           </li>
         ))}
       </ol>
-      {desdeLaApp && (
+      {conBono && <p data-testid="clase-fija-con-bono" className="t-meta" style={{ margin: '0 4px' }}>{conBono}</p>}
+      {muestraInterruptor && (
         // Cómo se verá en la ficha de la clase: el interruptor de verdad, de muestra (no hace nada aquí).
         <figure style={{ margin: 0 }}>
           <div className="card" aria-hidden inert style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px' }}>

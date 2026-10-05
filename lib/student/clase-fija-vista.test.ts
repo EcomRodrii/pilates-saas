@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  FRASE_ACTIVA, estadoTarjetaFija, lineaTrasDeshacer, lineaTrasNoIr, pasosParaPedirla, proximasSemanas, puedeDeshacerNoVoy, resumenDelMes,
+  FRASE_ACTIVA, avisoPenalizacionTardia, comoConseguirla, estadoTarjetaFija, proximasSemanas, resumenDelMes, trasNoIr,
   type DatosCalendarioFija,
 } from './clase-fija-vista.ts';
 
@@ -84,49 +84,69 @@ test('sin clases programadas: ninguna semana (la pantalla dice que se reservará
   assert.deepEqual(proximasSemanas(plaza([]), { plazas: [plazaCal], sesiones: [], reservas: [] }, '2026-08-12', '09:00'), []);
 });
 
-// ── «No voy» y «Deshacer» ────────────────────────────────────────────────────
+// ── «No voy» ─────────────────────────────────────────────────────────────────
 
 test('lo que se dice tras «no voy» sale de la respuesta del servidor', () => {
-  assert.equal(lineaTrasNoIr({ eraConfirmada: true, recuperacionCreada: true, recuperacionCaducaEl: '2026-09-11' }, fc), 'Tienes una clase para recuperar hasta el F2026-09-11. Tu clase fija sigue activa.');
-  assert.match(lineaTrasNoIr({ eraConfirmada: true, recuperacionAlCerrarSemana: true }, fc), /al acabarla tendrás una clase para recuperar/);
-  assert.match(lineaTrasNoIr({ eraConfirmada: true, tardia: true }, fc), /Fuera de plazo: esta vez no hay clase para recuperar/);
-  assert.equal(lineaTrasNoIr({ eraConfirmada: true }, fc), 'Tu clase fija sigue activa.');
+  assert.deepEqual(trasNoIr({ eraConfirmada: true, recuperacionCreada: true, recuperacionCaducaEl: '2026-09-11' }, fc),
+    { texto: 'Tienes una clase para recuperar hasta el F2026-09-11: úsala desde el horario. Tu clase fija sigue activa.', invitarAReservar: false });
+  assert.match(trasNoIr({ eraConfirmada: true, recuperacionAlCerrarSemana: true }, fc).texto, /al acabarla tendrás una clase para recuperar/);
+  assert.equal(trasNoIr({ eraConfirmada: true, tardia: true }, fc).texto, 'Fuera de plazo: esta vez no hay clase para recuperar. Tu clase fija sigue activa.');
+  assert.equal(trasNoIr({ eraConfirmada: true }, fc).texto, 'Tu clase fija sigue activa.');
 });
 
-test('«Deshacer» solo cuando volver a reservarla deja las cosas como estaban', () => {
-  assert.equal(puedeDeshacerNoVoy({ eraConfirmada: true }), true);
-  assert.equal(puedeDeshacerNoVoy({ eraConfirmada: true, recuperacionAlCerrarSemana: true }), true, 'volver a ocupar el hueco es lo que hace que no se reparta');
-  assert.equal(puedeDeshacerNoVoy({ eraConfirmada: true, recuperacionCreada: true }), false, 'se quedaría con la clase Y la recuperación');
-  assert.equal(puedeDeshacerNoVoy({ eraConfirmada: true, tardia: true }), false, 'puede haber una penalización que reservar no deshace');
-  assert.equal(puedeDeshacerNoVoy({ eraConfirmada: false }), false);
+test('volver a reservarla solo se ofrece cuando no le regala ni le esconde nada', () => {
+  assert.equal(trasNoIr({ eraConfirmada: true }, fc).invitarAReservar, true);
+  assert.equal(trasNoIr({ eraConfirmada: true, recuperacionAlCerrarSemana: true }, fc).invitarAReservar, true, 'el barrido no compensa una clase a la que volvió');
+  assert.equal(trasNoIr({ eraConfirmada: true, recuperacionCreada: true }, fc).invitarAReservar, false, 'se quedaría con la clase Y la recuperación');
+  assert.equal(trasNoIr({ eraConfirmada: true, tardia: true }, fc).invitarAReservar, false, 'volver no anula la cancelación tardía');
 });
 
-test('tras «Deshacer» se dice lo que contestó el servidor, también si ya no hay sitio', () => {
-  assert.deepEqual(lineaTrasDeshacer({ state: 'confirmed' }), { vuelve: true, texto: 'Vuelves a ir.' });
-  assert.match(lineaTrasDeshacer({ state: 'confirmed', recuperacionUsada: { caducaEl: null } }).texto, /Se ha usado una de tus clases por recuperar/);
-  assert.deepEqual(lineaTrasDeshacer({ state: 'waitlisted', posicionEspera: 2 }), { vuelve: false, texto: 'Ya había cogido el sitio otra persona: estás en la lista de espera (puesto 2).' });
-  assert.equal(lineaTrasDeshacer({ state: 'full' }).vuelve, false);
-  assert.equal(lineaTrasDeshacer({ state: 'error' }).texto, 'No se ha podido deshacer. Tu clase de ese día sigue cancelada.');
+test('la confirmación nombra la penalización solo si hay una, y como «puede»', () => {
+  const eur = (n: number) => `${n.toFixed(2).replace('.', ',')} €`;
+  assert.equal(avisoPenalizacionTardia(8, eur), 'Tu estudio puede cobrarte 8,00 € por cancelar tan tarde.');
+  assert.equal(avisoPenalizacionTardia(0, eur), null);
+  assert.equal(avisoPenalizacionTardia(null, eur), null);
+});
+
+test('no queda nada de «Deshacer» en la tarjeta', async () => {
+  const { readFileSync } = await import('node:fs');
+  const tarjeta = readFileSync(new URL('../../components/student/domain/MiClaseFija.tsx', import.meta.url), 'utf8');
+  // Fuera de los comentarios (que explican por qué no está).
+  const codigo = tarjeta.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  assert.doesNotMatch(codigo, /Deshacer|confirmarReserva/);
 });
 
 // ── El mes ───────────────────────────────────────────────────────────────────
 
-test('el resumen del mes cuenta sus clases desde hoy y las que no va', () => {
+test('el resumen del mes cuenta sus clases y las que no va; las que no tiene reservadas, aparte', () => {
   const datos: DatosCalendarioFija = { plazas: [plazaCal], sesiones, reservas: [{ sesionId: 's0', estado: 'CONFIRMADA' }, { sesionId: 's1', estado: 'CANCELADA' }] };
-  assert.equal(resumenDelMes(datos, '2026-08-12'), 'Agosto: 3 clases, 1 que no vas');
+  assert.equal(resumenDelMes(datos, '2026-08-12'), 'Agosto: 2 clases, 1 que no vas · 1 sin reservar');
+  assert.equal(resumenDelMes({ plazas: [plazaCal], sesiones, reservas: [] }, '2026-08-12'), 'Agosto: 3 sin reservar', 'una clase sin reserva no es una de sus clases');
   assert.equal(resumenDelMes({ plazas: [plazaCal], sesiones: [], reservas: [] }, '2026-08-12'), null);
 });
 
 // ── Sin clase fija ───────────────────────────────────────────────────────────
 
-test('los pasos dicen la verdad del estudio: si no deja pedirla desde la app, «Pídesela a tu estudio»', () => {
-  const sinApp = pasosParaPedirla({});
-  assert.equal(sinApp.length, 3);
-  assert.match(sinApp[1], /Pídesela a tu estudio/);
-  assert.ok(!sinApp.some((p) => /Activa «Clase fija»/.test(p)));
+test('cómo conseguirla dice la verdad del estudio: si no deja pedirla desde la app, «Pídesela a tu estudio»', () => {
+  const sinApp = comoConseguirla({}, true);
+  assert.equal(sinApp.pasos.length, 3);
+  assert.match(sinApp.pasos[1], /Pídesela a tu estudio/);
+  assert.ok(!sinApp.pasos.some((p) => /Activa «Clase fija»/.test(p)));
+  assert.equal(sinApp.muestraInterruptor, false);
 
-  const conApp = pasosParaPedirla({ puedePedirPlazaFija: true });
-  assert.equal(conApp[1], 'Activa «Clase fija» y elige hasta cuándo');
-  assert.equal(conApp[2], 'Tu estudio la confirma y ya está');
-  assert.match(pasosParaPedirla({ puedePedirPlazaFija: true, plazaFijaAutomatica: true })[2], /es tuya al momento; si no, la confirma/);
+  const conApp = comoConseguirla({ puedePedirPlazaFija: true }, true);
+  assert.deepEqual(conApp.pasos, ['Abre la clase a la que vas siempre', 'Activa «Clase fija» y elige hasta cuándo', 'Tu estudio la confirma y ya está']);
+  assert.equal(conApp.muestraInterruptor, true);
+  assert.match(comoConseguirla({ puedePedirPlazaFija: true, plazaFijaAutomatica: true }, true).pasos[2], /es tuya al momento; si no, la confirma/);
+});
+
+test('…y la de ella: sin cuota no se le enseña un interruptor que no va a encontrar', () => {
+  const sinCuota = comoConseguirla({ puedePedirPlazaFija: true }, false);
+  assert.match(sinCuota.pasos[0], /cuota que cubra tus clases/);
+  assert.equal(sinCuota.muestraInterruptor, false);
+  assert.match(sinCuota.conBono ?? '', /Con bono, desde la ficha de una clase puedes reservar varias semanas/);
+  // Sin peticiones desde la app tampoco hay «varias semanas» en la ficha: no se promete.
+  const ni = comoConseguirla({}, false);
+  assert.match(ni.pasos[0], /cuota/);
+  assert.equal(ni.conBono, null);
 });

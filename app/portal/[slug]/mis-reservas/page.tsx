@@ -294,7 +294,7 @@ export default function MisReservasPage() {
 
         {data && estado !== 'loading' && estado !== 'error' && tab === 'fijas' && (
           data.plazaFija.plazas.length === 0 ? (
-            <ClaseFijaVacia hrefHorario={href('/reservar')} />
+            <ClaseFijaVacia hrefHorario={href('/reservar')} tieneCuota={data.plazaFija.tieneCuota} />
           ) : (
             // Las recuperaciones están aquí Y en Bonos: aquí, como «Elegir clase» junto a su clase fija.
             // `refrescar` y no `reintentar`: `reintentar` pasa por `loading` y desmontaría la tarjeta

@@ -21,7 +21,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { mapPlanTarifa, mapSuscripcion, hidratarTiposDePlanes } from '@/lib/supabase-data';
 import { planCubreTipoClase, planLimitaSemanaDeClase } from '@/lib/bono-logic.ts';
 import { inicioDelDiaEstudio, finDelDiaEstudio, fechaCortaEstudio, uid } from '@/lib/utils';
-import { derechoDeRecuperaciones } from './derecho-semanal.ts';
+import { canceladasCompensables, derechoDeRecuperaciones } from './derecho-semanal.ts';
 import { semanaCerrada } from './otorgar-semanales-fechas.ts';
 import { publish } from '@/lib/notifications/engine';
 import { EVENTOS } from '@/lib/notifications/catalog';
@@ -114,10 +114,11 @@ export async function otorgarRecuperacionesSemanales(
         // se sabe» (cancelada antes de existir la columna) y eso no se compensa.
         // `cancelada_motivo` NULL: una clase soltada al pausar o quitar la plaza
         // fija ('plaza_fija_retirada') no la canceló ella clase a clase.
-        const canceladas = suyas
+        // Y no la de una clase a la que volvió a apuntarse: ahí fue (`canceladasCompensables`).
+        const canceladas = canceladasCompensables(suyas
           .filter(r => r.estado === 'CANCELADA' && r.cancelada_tardia === false && r.cancelada_motivo == null
             && cubre(r.sesion_id as string))
-          .sort((a, b) => String(a.creado_en).localeCompare(String(b.creado_en)));
+          .sort((a, b) => String(a.creado_en).localeCompare(String(b.creado_en))), suyas);
 
         const derecho = derechoDeRecuperaciones(limite, usadas, canceladas.length);
         for (const r of canceladas.slice(0, derecho)) {

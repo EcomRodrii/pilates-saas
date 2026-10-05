@@ -21,3 +21,20 @@ export function derechoDeRecuperaciones(
   // cancelación. Solo se compensa el segundo.
   return Math.min(huecosSinUsar, Math.max(0, canceladasATiempo));
 }
+
+/**
+ * De sus cancelaciones a tiempo, las que pueden compensarse: NO la de una clase a
+ * la que ha vuelto a apuntarse (otra reserva suya activa en la MISMA sesión).
+ *
+ * Ahí no perdió nada: va a esa clase. Sin esto, «no voy» y luego reservarla otra
+ * vez desde la ficha contaba como una cancelación sin recuperar, y si su cuota le
+ * deja más clases a la semana de las que usa (`derechoDeRecuperaciones` no puede
+ * distinguir un hueco que dejó ella de uno que le quitó la cancelación), se le
+ * daba una recuperación por una clase a la que fue: una clase de regalo.
+ */
+export function canceladasCompensables<T extends { sesion_id: unknown; estado: unknown }>(canceladas: T[], suyas: T[]): T[] {
+  const vuelveA = new Set(suyas
+    .filter((r) => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA' || r.estado === 'NO_ASISTIO')
+    .map((r) => String(r.sesion_id)));
+  return canceladas.filter((r) => !vuelveA.has(String(r.sesion_id)));
+}
