@@ -140,6 +140,24 @@ test('cobro diario: un cobro del mostrador abandonado se suelta antes de reserva
   assert.match(tramo, /if \(mostrador\.tipo !== 'SEGUIR'\) return \{ ok: false, error: MENSAJE_COBRO_EN_MARCHA\.MOSTRADOR, errorCode: 'COBRO_EN_MARCHA' \};/);
 });
 
+// ⚠️ Un SumUp «caducado» (a los dos minutos sin transacción) no lo dice SumUp: puede ser un
+// retraso de su API. Sin nadie delante del Solo (con margen: el cobro diario, el pago online
+// de la alumna), no cuenta como terminado hasta que lo soltaría su barrido; si no, la
+// tarjeta guardada se cobraría encima de un cobro que sí entró. Sin margen, sin cambios.
+test('⚠️ SumUp «caducado»: sin nadie delante no se suelta antes que su barrido', () => {
+  const s = leer('lib/cobros/antes-de-cobrar-a-mano-servidor.ts');
+  const fn = s.slice(s.indexOf('export async function soltarCobroDeMostradorDelRecibo('));
+  const sumup = fn.slice(fn.indexOf("if (proveedorDeReferencia(ref) === 'sumup') {"), fn.indexOf('const cs = p.checkoutSessionId;'));
+  assert.ok(sumup.length > 0);
+  assert.match(sumup, /return estado === 'EXPIRADO' && margen > 0 && !yaNoEsDelMostrador\(ref, ahora\) \? 'PENDIENTE' : estado;/);
+  assert.match(sumup, /pendienteCancelable: \(\) => margen <= 0,/, 'y ese PENDIENTE no se cancela con margen');
+  // El enlace de pago online lo mira antes, sin tocarlo, con la misma regla.
+  const caja = leer('lib/pos/cobro-del-estudio.ts');
+  const vida = caja.slice(caja.indexOf('export async function vidaDelCobroDeLaCajaEnElRecibo('));
+  const regla = vida.indexOf("if (est.estado === 'EXPIRADO' && !yaNoEsDelMostrador(referencia, new Date())) return 'no-se-sabe';");
+  assert.ok(regla > 0 && regla < vida.indexOf('return vidaDelCobroDeLaCaja(est.estado);'));
+});
+
 // ── Roles: las tres puertas del mostrador que acaban en `cobrarReciboOffSession` ──
 
 test('mover dinero: propietaria y recepción sí; gerencia e instructora no', () => {

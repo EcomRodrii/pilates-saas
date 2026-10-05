@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cobrosParaBarrer, crearProveedorSumup, esDeEste, MINUTOS_ANTES_DE_BARRER, movimientosPorMirar, referenciaExterna } from './terminal-sumup.ts';
+import {
+  cobrosParaBarrer, crearProveedorSumup, esDeEste, MINUTOS_ANTES_DE_BARRER, movimientosPorMirar, referenciaExterna, yaNoEsDelMostrador,
+} from './terminal-sumup.ts';
 import { ErrorSumup, leerReferenciaSumup, sumupPuedeCobrarAqui, type ClienteSumup, type TransaccionSumup } from './sumup.ts';
 
 // El Solo de SumUp detrás del mismo contrato que el datáfono de Stripe. Sin red:
@@ -196,6 +198,19 @@ test('cobrosParaBarrer: deja al mostrador sus primeros minutos, agrupa por estud
   assert.deepEqual([...g.keys()], ['st-1', 'st-2']);
   assert.deepEqual(g.get('st-1')?.map(c => c.objeto.id), ['v-1']);
   assert.deepEqual(g.get('st-2')?.map(c => [c.objeto.tipo, c.objeto.id, c.minutos]), [['recibo', 'r-2', MINUTOS_ANTES_DE_BARRER]]);
+});
+
+test('⚠️ yaNoEsDelMostrador: un SumUp «caducado» a los dos minutos todavía no es de nadie más', () => {
+  const emitida = (segundosAntes: number) => `sumup:${Math.floor(T0.getTime() / 1000) - segundosAntes}:ctx-abc12345`;
+  // `estadoDesdeSumup` lo da por caducado a los dos minutos sin transacción: puede ser un retraso de SumUp.
+  assert.equal(yaNoEsDelMostrador(emitida(2 * 60 + 1), T0), false);
+  assert.equal(yaNoEsDelMostrador(emitida(MINUTOS_ANTES_DE_BARRER * 60 - 1), T0), false);
+  // Desde el mismo momento en que lo barre el barrido, y no antes.
+  assert.equal(yaNoEsDelMostrador(emitida(MINUTOS_ANTES_DE_BARRER * 60), T0), true);
+  assert.equal(yaNoEsDelMostrador(emitida(3 * 3600), T0), true);
+  // Lo que no es una referencia de SumUp no se da por de nadie.
+  assert.equal(yaNoEsDelMostrador('pi_123', T0), false);
+  assert.equal(yaNoEsDelMostrador(null, T0), false);
 });
 
 test('⚠️ movimientosPorMirar: lo cobrado que nada cerró ni espera, incluida la venta ANULADA que cobró', () => {

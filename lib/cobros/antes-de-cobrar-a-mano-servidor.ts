@@ -12,6 +12,7 @@ import {
 } from '../billing/pago-online-al-cobrar-a-mano.ts';
 import { MENSAJE_COBRO_CON_METODO_GUARDADO, penalizacionesDeLosRecibos, recibosDePenalizacionAnulada } from './marcar-cobrado.ts';
 import { proveedorDeReferencia } from '../pos/sumup.ts';
+import { yaNoEsDelMostrador } from '../pos/terminal-sumup.ts';
 import { prepararCobroExistente } from '../pos/cobro-del-estudio.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -165,6 +166,8 @@ export type CobroDelMostradorSoltado = CobroDeMostradorAlCobrarAMano | { tipo: '
  * no cortarle el cobro a quien lo tiene delante.
  *
  * Con SumUp no se cancela nada (no se sabe cuándo empezó): si no ha terminado, espera.
+ * Y con margen, un «caducado» de SumUp no cuenta como terminado hasta que lo soltaría
+ * su barrido (`yaNoEsDelMostrador`).
  */
 export async function soltarCobroDeMostradorDelRecibo(
   admin: SupabaseClient,
@@ -196,7 +199,16 @@ export async function soltarCobroDeMostradorDelRecibo(
     const pre = await prepararCobroExistente(admin, studioId, ref, 'DATAFONO', { origen: '' });
     mostrador = await soltarCobroDeMostradorAntesDeCobrarAMano(ref, pre.ok
       ? {
-        consultar: async () => (await pre.cobro.consultar(ref)).estado,
+        consultar: async () => {
+          const estado = (await pre.cobro.consultar(ref)).estado;
+          // «Caducado» no lo dice SumUp: es que su API aún no devuelve la transacción (a
+          // los dos minutos), y puede ser un retraso. Con margen (el cobro diario, el pago
+          // online) sigue esperando hasta que lo soltaría el barrido: si no, se cobraría
+          // encima de un cobro que sí entró. Sin margen, como siempre. ⚠️ Sin margen
+          // llegan también la penalización automática y el Decision OS (vía STAFF de
+          // `cobrarReciboOffSession`), sin nadie delante del Solo: pendiente para SumUp.
+          return estado === 'EXPIRADO' && margen > 0 && !yaNoEsDelMostrador(ref, ahora) ? 'PENDIENTE' : estado;
+        },
         cancelar: async () => {},
         soltar: () => soltarReferencia(ref),
         // De SumUp no se sabe cuándo empezó: a mano se «cancela» (no hace nada) y se
