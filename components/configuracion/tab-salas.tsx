@@ -115,8 +115,8 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
       nombre: form.nombre.trim(),
       capacidad: capacidadNum,
       color: form.color,
-      // La app de la alumna usa esta imagen como foto de las clases que
-      // ocurren en la sala. Vacío = se cae al tipo de clase y luego al estudio.
+      // La app de la alumna usa esta imagen en las clases de la sala cuyo tipo
+      // de clase no tiene foto propia (lib/student/mapeo.ts: tipo → sala → estudio).
       fotoUrl: form.fotoUrl.trim() || null,
     };
     const afectadas = modal === 'editar' && editId ? clasesQueSePasan(editId, fields.capacidad) : [];
@@ -418,7 +418,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
             </Field>
             <Field
               label="Imagen de la sala"
-              description="La app de tus alumnas la usa como foto de todas las clases que ocurren aquí. Si la dejas vacía se usa la del tipo de clase y, si tampoco tiene, la del estudio."
+              description="La app de tus alumnas la usa como foto de las clases de esta sala cuyo tipo de clase no tenga foto propia (la del tipo de clase manda)."
             >
               <input
                 className={inputCls}
