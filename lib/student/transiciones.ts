@@ -74,14 +74,28 @@ export function rutaPadre(pathname: string): string {
  * aviso push la app arranca directamente en la ficha.
  *
  * Una ruta igual a la penúltima es una vuelta atrás (botón, gesto o navegador):
- * se desapila. Cualquier otra se apila. Pura: recibe la pila y devuelve otra.
+ * se desapila. Cualquier otra se apila. Las de acceso (login, código…) vacían la
+ * pila. Pura: recibe la pila y devuelve otra.
  */
 export function apilarRuta(pila: readonly string[], ruta: string): string[] {
+  // Las pantallas de acceso no son historial de la app: tras entrar con el
+  // código, «Volver» no puede devolverla al login. Entrar ahí empieza de cero.
+  if (/^\/portal\/[^/]+\/acceso(\/|$)/.test(ruta)) return [];
   if (pila[pila.length - 1] === ruta) return [...pila];
   if (pila.length >= 2 && pila[pila.length - 2] === ruta) return pila.slice(0, -1);
   const nueva = [...pila, ruta];
   // Sin crecer para siempre en una sesión larga.
   return nueva.length > 50 ? nueva.slice(-50) : nueva;
+}
+
+/**
+ * Una navegación con `router.replace` SUSTITUYE la cima: no deja nada detrás.
+ * Si se apilara, tras volver a la pantalla padre sin historial la pila creería
+ * que hay a dónde volver, y el siguiente «Volver» haría un `history.back()` que
+ * no lleva a ningún sitio (o saca de la app).
+ */
+export function reemplazarCima(pila: readonly string[], ruta: string): string[] {
+  return pila.length === 0 ? [ruta] : [...pila.slice(0, -1), ruta];
 }
 
 const ATRIBUTO_VOLVER = 'data-vt-volver';

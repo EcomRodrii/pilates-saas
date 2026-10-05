@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { configWallet, paseJson, rgbDeHex } from './pase.ts';
+import { coloresDelPase, configWallet, paseJson, rgbDeHex } from './pase.ts';
+import { ratioContraste } from '../wcag-contrast.ts';
 
 const pem = (tipo: string) => Buffer.from(`-----BEGIN ${tipo}-----\nAAAA\n-----END ${tipo}-----\n`).toString('base64');
 const COMPLETO = {
@@ -52,4 +53,14 @@ test('paseJson: el código es el token del QR y no lleva más dato personal que 
   assert.equal(p.sharingProhibited, true);
   const texto = JSON.stringify(p);
   assert.ok(!/@|telefono|email/i.test(texto));
+});
+
+test('coloresDelPase: el texto se lee sobre el fondo (4,5:1) con cualquier marca, también las claras', () => {
+  const aHex = (rgb: string) => '#' + rgb.match(/\d+/g)!.map((n) => Number(n).toString(16).padStart(2, '0')).join('');
+  for (const marca of ['#FFE066', '#FFFFFF', '#F7A6C4', '#A8E6CF', '#3E6B4A', '#6366F1', '#000000', null, 'roto']) {
+    const c = coloresDelPase(marca);
+    const fondo = aHex(c.backgroundColor);
+    assert.ok((ratioContraste(aHex(c.foregroundColor), fondo) ?? 0) >= 4.5, `texto sobre ${marca}`);
+    assert.ok((ratioContraste(aHex(c.labelColor), fondo) ?? 0) >= 4.5, `etiquetas sobre ${marca}`);
+  }
 });

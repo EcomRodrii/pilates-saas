@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { apilarRuta, CLASES_ENTRADA, CLASES_SALIDA, rutaPadre, TIPO_ADELANTE, TIPO_ATRAS, TIPO_PESTANA } from './transiciones.ts';
+import { apilarRuta, CLASES_ENTRADA, CLASES_SALIDA, reemplazarCima, rutaPadre, TIPO_ADELANTE, TIPO_ATRAS, TIPO_PESTANA } from './transiciones.ts';
 
 test('rutaPadre: una ficha vuelve a su lista', () => {
   assert.equal(rutaPadre('/portal/alba/reservar/ses-1'), '/portal/alba/reservar');
@@ -50,4 +50,23 @@ test('cada tipo tiene su clase de entrada y de salida, distintas', () => {
     assert.ok(CLASES_SALIDA[t]);
     assert.notEqual(CLASES_ENTRADA[t], CLASES_SALIDA[t]);
   }
+});
+
+test('reemplazarCima: volver a la pantalla padre sin historial no deja historial falso', () => {
+  // Llegó directa a un recibo (aviso push): una sola entrada.
+  let p = apilarRuta([], '/portal/a/pagos/p1');
+  // «Volver» sin historial → replace a la lista de pagos: sustituye, no apila.
+  p = reemplazarCima(p, '/portal/a/pagos');
+  assert.deepEqual(p, ['/portal/a/pagos']);
+  // Así el siguiente «Volver» sabe que tampoco hay nada detrás.
+  assert.equal(p.length >= 2, false);
+  assert.deepEqual(reemplazarCima([], '/portal/a'), ['/portal/a']);
+});
+
+test('apilarRuta: entrar con el código no deja el login como historial', () => {
+  let p = apilarRuta([], '/portal/a/acceso/login');
+  p = apilarRuta(p, '/portal/a/acceso/verificar');
+  assert.deepEqual(p, []);
+  p = apilarRuta(p, '/portal/a');
+  assert.deepEqual(p, ['/portal/a']);
 });

@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { sembrarSociaCompleta, SLUG, STUDIO_ID, SOCIO_ID } from './socia-completa';
-import { fixtureSociaLista } from './socia-lista';
+import { sembrarSociaCompleta, SLUG, STUDIO_ID } from './socia-completa';
 
 // Inicio según el momento (maqueta aprobada, oct-2026):
 //   · con clase HOY o MAÑANA, esa clase va lo primero, encima del buscador, y
@@ -59,18 +58,13 @@ test('sin clase hoy ni mañana, Inicio queda como estaba', async ({ page }) => {
   expect(a.sinMockear()).toEqual([]);
 });
 
-test('«¿Qué tal la clase?»: tocar una cara envía UNA valoración', async ({ page }) => {
+test('«¿Qué tal la clase?»: la clase la dice el servidor, una cara envía UNA vez y el comentario rechazado no se da por enviado', async ({ page }) => {
+  // Como el servidor real: el catálogo NO trae la clase ya terminada (solo
+  // clases con `fin >= ahora`). Quien sabe que asistió a la de las 06:00 es
+  // `GET /api/public/valorar-clase?pendiente=1`.
   await sembrarSociaCompleta(page, { reservada: false });
 
-  // Una clase de esta mañana (06:00–06:50) a la que ASISTIÓ.
-  const f = fixtureSociaLista() as unknown as Record<string, unknown>;
-  const sesiones = f.sesiones as Array<Record<string, unknown>>;
-  sesiones.push({ ...sesiones[0], id: 'ses-pasada', inicio: '2026-08-12T06:00:00', fin: '2026-08-12T06:50:00' });
-  (f.socia as Record<string, unknown>).reservas = [
-    { id: 'res-pasada', socioId: SOCIO_ID, sesionId: 'ses-pasada', estado: 'ASISTIDA', creadoEn: '2026-08-01T09:00:00Z' },
-  ];
-  await page.route('**/api/public/studio-data', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(f) }));
-
+  let pidePendiente = 0;
   let envios = 0;
   const cuerpos: unknown[] = [];
   await page.route('**/api/public/valorar-clase**', async (r) => {
@@ -79,7 +73,16 @@ test('«¿Qué tal la clase?»: tocar una cara envía UNA valoración', async ({
       cuerpos.push(r.request().postDataJSON());
       // Un poco de red: el segundo toque cae mientras va el primero.
       await new Promise((res) => setTimeout(res, 300));
-      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, actualizada: false }) });
+      // El segundo POST es el comentario, y el servidor lo rechaza.
+      return envios === 1
+        ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, actualizada: false }) })
+        : r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Ya valoraste esta clase y ese mes está cerrado: la nota ya no se puede cambiar.' }) });
+    }
+    if (new URL(r.request().url()).searchParams.get('pendiente') === '1') {
+      pidePendiente++;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        pendiente: { sesionId: 'ses-pasada', fin: '2026-08-12T06:50:00', clase: 'Reformer', instructora: 'Ana' },
+      }) });
     }
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ puedeValorar: true, motivo: null, valoracion: null }) });
   });
@@ -87,22 +90,39 @@ test('«¿Qué tal la clase?»: tocar una cara envía UNA valoración', async ({
   await page.goto(INICIO);
   const tarjeta = page.getByTestId('que-tal-la-clase');
   await expect(tarjeta).toBeVisible({ timeout: 60_000 });
+  expect(pidePendiente).toBeGreaterThan(0);
   await expect(tarjeta).toContainText('¿Qué tal Reformer con Ana?');
   await expect(tarjeta).toContainText('Tu nombre y lo que escribas solo los ve tu estudio.');
 
   const cara = tarjeta.getByRole('button', { name: /¡Increíble!/ });
   await cara.click();
-  await cara.click({ force: true }).catch(() => {});
+  await cara.click({ force: true, timeout: 1_000 }).catch(() => {});
   await expect(tarjeta.getByRole('status')).toContainText('¡Gracias!');
-
   expect(envios).toBe(1);
   expect(cuerpos[0]).toMatchObject({ studioId: STUDIO_ID, sesionId: 'ses-pasada', puntuacion: 5 });
+
+  // El comentario, con la MISMA nota; el servidor dice que no.
+  const campo = tarjeta.getByRole('textbox', { name: 'Comentario para tu estudio' });
+  await expect(campo).toHaveAttribute('placeholder', '¿Algo que quieras contar? (opcional)');
+  await campo.fill('Muy buena clase');
+  await tarjeta.getByRole('button', { name: 'Enviar comentario' }).click();
+  await expect.poll(() => envios, { timeout: 10_000 }).toBe(2);
+  expect(cuerpos[1]).toMatchObject({ sesionId: 'ses-pasada', puntuacion: 5, comentario: 'Muy buena clase' });
+  // Ni «enviado» ni el texto perdido: el aviso del servidor y el campo, con lo escrito.
+  await expect(page.getByText(/la nota ya no se puede cambiar/)).toBeVisible();
+  await expect(tarjeta.getByRole('status')).not.toContainText('Comentario enviado');
+  await expect(campo).toHaveValue('Muy buena clase');
 });
 
-test('«Volver» en una ficha a la que se llegó directa va a la pantalla padre', async ({ page }) => {
-  await sembrarSociaCompleta(page, { reservada: true });
-  await page.goto(`${INICIO}/mis-reservas/res-1`);
-  await expect(page.getByRole('heading', { name: 'Tu reserva' })).toBeVisible({ timeout: 60_000 });
+test('«Volver» en una ficha a la que se llegó directa va a la pantalla padre, y otra vez, a Inicio', async ({ page }) => {
+  await sembrarSociaCompleta(page, { reservada: true, recibos: 1 });
+  await page.goto(`${INICIO}/pagos/rec-1`);
+  await expect(page.getByRole('heading', { name: 'Recibo' })).toBeVisible({ timeout: 60_000 });
   await page.getByRole('button', { name: 'Volver' }).click();
-  await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/mis-reservas$`), { timeout: 30_000 });
+  await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/pagos$`), { timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Pagos' })).toBeVisible({ timeout: 30_000 });
+  // La vuelta anterior SUSTITUYÓ la ficha: no hay historial falso detrás, así
+  // que este «Volver» no hace un `history.back()` al vacío: va a Inicio.
+  await page.getByRole('button', { name: 'Volver' }).click();
+  await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}$`), { timeout: 30_000 });
 });

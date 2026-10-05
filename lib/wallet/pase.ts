@@ -15,6 +15,8 @@
 // dispositivos y avisos push de Wallet.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { acentoDeEstudio } from '../student/tema.ts';
+
 export interface ConfigWallet {
   passTypeIdentifier: string;
   teamIdentifier: string;
@@ -68,6 +70,22 @@ export function rgbDeHex(hex: string | null | undefined, porDefecto = 'rgb(26, 2
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 }
 
+/**
+ * Los colores del pase: los MISMOS del pase de acceso de la app (`--accent-deep`
+ * y su tinta, `acentoDeEstudio`), no el color de marca en bruto. Con el bruto y
+ * un texto crema fijo, una marca clara (un amarillo, un rosa) dejaba el pase
+ * ilegible; el tono profundo derivado es oscuro siempre y su tinta está hecha
+ * para leerse encima (pase.test.ts lo mide a 4,5:1).
+ */
+export function coloresDelPase(colorPrimario: string | null | undefined) {
+  const a = acentoDeEstudio(colorPrimario);
+  return {
+    backgroundColor: rgbDeHex(a.accentDeep),
+    foregroundColor: rgbDeHex(a.accentDeepForeground),
+    labelColor: rgbDeHex(a.accentDeepMuted),
+  };
+}
+
 export interface DatosPase {
   config: Pick<ConfigWallet, 'passTypeIdentifier' | 'teamIdentifier'>;
   /** Único por alumna y estudio: un pase nuevo del mismo par sustituye al viejo en Wallet. */
@@ -88,9 +106,7 @@ export function paseJson(d: DatosPase): Record<string, unknown> {
     organizationName: d.estudio.nombre,
     description: `Acceso a ${d.estudio.nombre}`,
     logoText: d.estudio.nombre,
-    backgroundColor: rgbDeHex(d.estudio.colorPrimario),
-    foregroundColor: 'rgb(250, 249, 245)',
-    labelColor: 'rgb(234, 240, 231)',
+    ...coloresDelPase(d.estudio.colorPrimario),
     sharingProhibited: true,
     generic: {
       primaryFields: [{ key: 'alumna', label: 'Alumna', value: d.alumna.nombre || 'Tu acceso' }],

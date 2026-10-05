@@ -258,7 +258,10 @@
    plataforma acotado a pantalla táctil, no una preferencia de diseño: por eso
    puede pisar al componente. */
 @media (pointer: coarse) {
-  .student-app input, .student-app textarea, .student-app select { font-size: 16px !important; }
+  /* `max()`: nunca por debajo de 16 px (el zoom de Safari), y con el «Texto más
+     grande» del iPhone crecen como el resto del texto (`--t-body` ya lleva
+     `--escala-texto`). Con 16 px fijos se quedaban pequeños al lado de su rótulo. */
+  .student-app input, .student-app textarea, .student-app select { font-size: max(16px, var(--t-body)) !important; }
 }
 .student-app button { cursor: pointer; }
 .student-app input { outline: none; }

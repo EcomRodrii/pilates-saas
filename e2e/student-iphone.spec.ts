@@ -31,7 +31,8 @@ test.describe('Student PWA · lo que enseñó el iPhone', () => {
     const pequenos = await page.evaluate(() => {
       // `pointer: coarse` no se puede emular desde Playwright, así que se
       // comprueba la REGLA: la hoja de estilos tiene que declararla, y el
-      // tamaño base de cada campo se lee para dejar constancia.
+      // tamaño base de cada campo se lee para dejar constancia. Vale `16px` o
+      // `max(16px, …)`: el mínimo es lo que importa; con «Texto más grande» crece.
       // ⚠️ `CSSMediaRule` DE VERDAD (`type === 4`), no un `cssText.includes`.
       // Un comentario mal cerrado justo encima hizo que el navegador se
       // tragara el `@media` entero como selector de una regla inválida: la
@@ -42,7 +43,7 @@ test.describe('Student PWA · lo que enseñó el iPhone', () => {
         .flatMap((h) => { try { return Array.from(h.cssRules); } catch { return []; } })
         .some((r) => r.type === 4
           && (r as CSSMediaRule).conditionText?.includes('coarse')
-          && /font-size:\s*16px\s*!important/.test(r.cssText));
+          && /font-size:\s*(16px|max\(16px,[^;]*\))\s*!important/.test(r.cssText));
       const campos = Array.from(document.querySelectorAll('input, textarea, select')).map((e) => ({
         que: (e.getAttribute('name') || e.getAttribute('type') || e.tagName).slice(0, 20),
         px: parseFloat(getComputedStyle(e).fontSize),

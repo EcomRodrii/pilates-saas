@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { apilarRuta, marcarVolver, rutaPadre, TRANSICION_ATRAS } from '@/lib/student/transiciones';
+import { apilarRuta, marcarVolver, reemplazarCima, rutaPadre, TRANSICION_ATRAS } from '@/lib/student/transiciones';
 
 // «Volver» de las fichas de la app de la alumna.
 //
@@ -15,12 +15,16 @@ import { apilarRuta, marcarVolver, rutaPadre, TRANSICION_ATRAS } from '@/lib/stu
 // Una por pestaña del navegador / por arranque de la app: es memoria de módulo
 // a propósito (una recarga empieza de cero, igual que el historial que importa).
 let pila: string[] = [];
+// La próxima ruta llega por un `router.replace` nuestro: sustituye la cima.
+let porReemplazo = false;
 
 /** Lleva la cuenta de por dónde ha pasado. Se monta UNA vez, en el layout del portal. */
 export function RastroDeRutas() {
   const pathname = usePathname();
   useEffect(() => {
-    if (pathname) pila = apilarRuta(pila, pathname);
+    if (!pathname) return;
+    pila = porReemplazo ? reemplazarCima(pila, pathname) : apilarRuta(pila, pathname);
+    porReemplazo = false;
   }, [pathname]);
   return null;
 }
@@ -34,6 +38,9 @@ export function useVolver(): () => void {
       router.back();
       return;
     }
-    router.replace(rutaPadre(pathname ?? '/'), { transitionTypes: TRANSICION_ATRAS });
+    const destino = rutaPadre(pathname ?? '/');
+    if (destino === pathname) return;
+    porReemplazo = true;
+    router.replace(destino, { transitionTypes: TRANSICION_ATRAS });
   }, [router, pathname]);
 }

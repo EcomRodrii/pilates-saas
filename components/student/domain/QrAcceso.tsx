@@ -98,14 +98,43 @@ export function CajaQr({ qr, estado, tamano = 168, onReintentar }: {
 /**
  * Mientras se enseña el QR dentro de la app de iOS, la pantalla a tope de
  * brillo: el lector del estudio lo lee a la primera. Al salir de la pantalla
- * (o si el QR deja de estar), vuelve el brillo que había. En la web no hace nada.
+ * (o si el QR deja de estar) vuelve el brillo que había.
+ *
+ * ⚠️ También al salir de la APP con el QR abierto: iOS no lo devuelve solo, y
+ * el iPhone se quedaba al máximo en el bolsillo. Al volver, se sube otra vez.
+ * En la web no hace nada.
  */
 export function useBrilloAlMaximo(activo: boolean) {
   useEffect(() => {
     if (!activo) return;
     let restaurar: (() => Promise<void>) | null = null;
     let vivo = true;
-    void brilloAlMaximo().then((r) => { if (vivo) restaurar = r; else void r(); });
-    return () => { vivo = false; void restaurar?.(); };
+    // Una subida a la vez: si vuelve y se va muy rápido, que no se crucen.
+    let pendiente: Promise<void> = Promise.resolve();
+    const subir = () => {
+      pendiente = pendiente.then(async () => {
+        if (!vivo || restaurar || document.visibilityState !== 'visible') return;
+        const r = await brilloAlMaximo();
+        if (vivo && document.visibilityState === 'visible') restaurar = r;
+        else await r();
+      });
+    };
+    const bajar = () => {
+      pendiente = pendiente.then(async () => {
+        const r = restaurar;
+        restaurar = null;
+        await r?.();
+      });
+    };
+    const alCambiar = () => { if (document.visibilityState === 'visible') subir(); else bajar(); };
+    subir();
+    document.addEventListener('visibilitychange', alCambiar);
+    window.addEventListener('pagehide', bajar);
+    return () => {
+      vivo = false;
+      document.removeEventListener('visibilitychange', alCambiar);
+      window.removeEventListener('pagehide', bajar);
+      bajar();
+    };
   }, [activo]);
 }
