@@ -333,7 +333,10 @@ export async function montar(page: Page): Promise<CoberturaPanel> {
   await page.route('**/api/layout**', (r) => json(r, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
   await page.route('**/api/billing/estado**', (r) => json(r, { bloqueado: false }));
   await page.route('**/api/billing/status**', (r) => json(r, { activa: true, plan: 'ESTUDIO', features: {} }));
-  await page.route('**/api/theme**', (r) => json(r, { primary: '#343825', secondary: '#D9C29E', logoUrl: null, radius: 12 }));
+  // El tema de fábrica (DEFAULT_THEME): el de 8 de los 10 estudios reales al
+  // pasar al Brand System. Con él el panel pinta la marca por defecto (Sand/Ink,
+  // lib/panel-marca.ts), que es lo que tienen que medir los barridos de contraste.
+  await page.route('**/api/theme**', (r) => json(r, { primary: '#343825', secondary: '#5A6142', logoUrl: null, radius: 12 }));
 
   await page.route('**/rest/v1/rpc/current_studio_id', (r) => json(r, STUDIO_ID));
   await page.route('**/rest/v1/studios**', (r) => json(r, STUDIO_ROW));

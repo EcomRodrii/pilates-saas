@@ -22,7 +22,7 @@ import { mismoCobro, proveedorDeReferencia } from './sumup.ts';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type CierrePos = { ok: true } | { ok: false; error: string };
-type Aviso = 'stripe webhook' | 'pos/sumup';
+type Aviso = 'stripe webhook' | 'pos/sumup' | 'conciliador';
 
 /** «Vengo a pagar la cuota» cobrada en el datáfono o por Bizum. */
 export async function cerrarReciboPos(admin: SupabaseClient, p: {

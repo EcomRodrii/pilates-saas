@@ -41,7 +41,7 @@ const nextConfig: NextConfig = {
   //     de package.json, no aquí.
   //
   // El bloque estaba además envuelto en un `NODE_ENV === 'production' ? {} : …`
-  // que no protegía nada: `main` no tiene ninguna otra opción `experimental`.
+  // que no protegía nada: `main` no tenía ninguna otra opción `experimental` (la de la caché de Turbopack, más abajo, llegó después).
   //
   // Segundos que Next espera a que se genere una página estática antes de
   // rendirse. El default de Next 16 son 60 (ver `@default 60` en
@@ -56,6 +56,19 @@ const nextConfig: NextConfig = {
   // matara el timeout del runner, que es el peor final posible: se lee como
   // «CI lenta», no como «hay una página rota».
   staticPageGenerationTimeout: 120,
+  // ⚠️ Caché de Turbopack en el BUILD, apagada a propósito. Next 16.3 la
+  // enciende por defecto (`.next/cache/turbopack`), y el CI restaura la de OTRO
+  // commit (restore-keys): el 5-oct, el build de #2534 salió con el globals.css
+  // de `main`, sin los tokens que el PR añadía, aunque el checkout tenía el
+  // fichero nuevo. Lo destaparon dos e2e de Tenti (`data-paleta` en 'defecto');
+  // cualquier PR que tocara el CSS se habría probado contra el CSS viejo, y la
+  // misma caché la restaura también el build de Vercel. Un build más lento es
+  // un precio pequeño frente a desplegar estilos que no son los del commit.
+  // Se reabre solo midiendo que un cambio de globals.css entra con la caché
+  // restaurada de otro commit (docs: …/01-next-config-js/turbopackFileSystemCache.md).
+  experimental: {
+    turbopackFileSystemCacheForBuild: false,
+  },
   // Añade `crossorigin="anonymous"` a las etiquetas <script> que Next inyecta.
   // Sin él, el navegador oculta la pila de cualquier error lanzado por un
   // script servido desde otro origen (CDN, dominio de assets) y solo entrega

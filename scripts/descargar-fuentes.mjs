@@ -38,7 +38,18 @@ const FAMILIAS = [
   { familia: 'Sacramento', dir: 'sacramento', pesos: [400] },
   { familia: 'Libre Caslon Text', dir: 'librecaslontext', pesos: [400, 700], cursiva: true },
   { familia: 'Figtree', dir: 'figtree', pesos: [300, 400, 500, 600, 700] },
+  // Las dos del Brand System (brand/brand-os.md §6): solo los pesos aprobados.
+  { familia: 'Schibsted Grotesk', dir: 'schibstedgrotesk', pesos: [400, 500, 600] },
+  { familia: 'DM Mono', dir: 'dmmono', pesos: [400, 500] },
 ];
+
+// `node scripts/descargar-fuentes.mjs schibstedgrotesk dmmono` baja solo esas
+// carpetas: sin argumentos se vuelven a bajar TODAS, y Google puede haber
+// publicado otra versión de una que ya está en producción.
+const SOLO = process.argv.slice(2);
+for (const dir of SOLO) {
+  if (!FAMILIAS.some((f) => f.dir === dir)) throw new Error(`No hay ninguna familia con dir «${dir}»`);
+}
 
 function urlCss({ familia, pesos, cursiva }) {
   const nombre = familia.replaceAll(' ', '+');
@@ -70,7 +81,7 @@ function caras(css) {
   }));
 }
 
-for (const f of FAMILIAS) {
+for (const f of FAMILIAS.filter((f) => SOLO.length === 0 || SOLO.includes(f.dir))) {
   const destino = join(RAIZ, f.dir);
   await mkdir(destino, { recursive: true });
   const elegidas = caras(await pedirCss(urlCss(f))).filter((c) => SUBCONJUNTOS.includes(c.subconjunto));

@@ -1,0 +1,159 @@
+/* ─────────────────────────────────────────────────────────────
+   TENTARE TOKENS v1.1 — generado desde brand/design-tokens.json
+   TODOS los tokens nuevos llevan el prefijo --t- para no chocar con los
+   nombres de shadcn/Tailwind del repo (--background, --radius-*, --font-sans,
+   --shadow-*, --motion-*). Los nombres antiguos se puentean en
+   legacy-bridge.css. El mapeo a utilidades está en tailwind-theme.css.
+   Capa 1 core · Capa 2 semantic · Capa 3 brand slot.
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* 1 · CORE */
+  --t-ink-950: #12161B; --t-ink-900: #222A33; --t-ink-800: #2A313A; --t-ink-700: #3A424D;
+  --t-ink-500: #5E6670; --t-ink-400: #8A9098; --t-ink-300: #A9AFB6;
+  --t-cream: #F7F4EE; --t-paper: #FFFFFF; --t-stone: #ECE6DC; --t-sand: #D8CDBB;
+  --t-line: #E3DCD0; --t-line-strong: #CFC6B8;
+  --t-blue-100: #DCE7EC; --t-blue-500: #4C9CB0; --t-blue-700: #3E6A82;
+  --t-magenta-100: #F2DDE6; --t-magenta-500: #B4537E; --t-magenta-700: #963A62;
+  --t-success-700: #2F6A53; --t-success-100: #DDEBE4;
+  --t-warning-700: #855A16; --t-warning-100: #F4E7D0;
+  --t-error-700: #A3342A;   --t-error-100: #F5DCD7;
+  --t-gradient-logo: linear-gradient(135deg, var(--t-blue-500), var(--t-magenta-500));
+  --t-gradient-progress: linear-gradient(90deg, var(--t-blue-500), var(--t-magenta-500));
+
+  /* 2 · SEMANTIC (light) */
+  --t-surface-canvas: var(--t-cream);
+  --t-surface-raised: var(--t-paper);
+  --t-surface-sunken: var(--t-stone);
+  --t-surface-inverse: var(--t-ink-900);
+  --t-surface-nav: var(--t-ink-950);
+  --t-text-primary: var(--t-ink-900);
+  --t-text-secondary: var(--t-ink-700);
+  --t-text-tertiary: var(--t-ink-500);
+  --t-text-disabled: var(--t-ink-300);
+  --t-text-inverse: var(--t-cream);
+  --t-text-link: var(--t-blue-700);
+  --t-text-accent: var(--t-magenta-700);
+  --t-border-subtle: var(--t-line);
+  --t-border-default: var(--t-line-strong);
+  --t-border-strong: var(--t-ink-900);
+  --t-border-focus: var(--t-blue-500);
+  --t-selection: var(--t-blue-100);
+  --t-attention: var(--t-magenta-500);
+  --t-success-fg: var(--t-success-700); --t-success-bg: var(--t-success-100);
+  --t-warning-fg: var(--t-warning-700); --t-warning-bg: var(--t-warning-100);
+  --t-error-fg: var(--t-error-700);     --t-error-bg: var(--t-error-100);
+  --t-info-fg: var(--t-blue-700);       --t-info-bg: var(--t-blue-100);
+
+  /* 3 · BRAND SLOT (marca blanca: el tema del estudio sobrescribe solo esto) */
+  --t-brand: var(--t-sand);
+  --t-brand-foreground: var(--t-ink-900);
+  --t-brand-strong: var(--t-ink-900);
+  --t-brand-strong-foreground: var(--t-cream);
+
+  /* TYPOGRAPHY */
+  --t-font-sans: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --t-font-mono: 'DM Mono', ui-monospace, monospace;
+  --t-fw-regular: 400; --t-fw-medium: 500; --t-fw-semibold: 600;
+  --t-fs-display: 72px; --t-lh-display: 72px; --t-ls-display: -0.04em;
+  --t-fs-h1: 48px;      --t-lh-h1: 50px;      --t-ls-h1: -0.03em;
+  --t-fs-h2: 31px;      --t-lh-h2: 36px;      --t-ls-h2: -0.02em;
+  --t-fs-page: 30px;    --t-lh-page: 36px;    --t-ls-page: -0.03em;
+  --t-fs-h3: 20px;      --t-lh-h3: 26px;      --t-ls-h3: -0.01em;
+  --t-fs-body-lg: 17px; --t-lh-body-lg: 27px;
+  --t-fs-body: 16px;    --t-lh-body: 26px;
+  --t-fs-ui: 14px;      --t-lh-ui: 20px;
+  --t-fs-small: 13px;   --t-lh-small: 18px;
+  --t-fs-label: 12px;   --t-lh-label: 16px;   --t-ls-label: 0.08em;
+  --t-fs-caption: 11px; --t-lh-caption: 14px; --t-ls-caption: 0.06em;
+  --t-fs-data: 14px;    --t-fs-data-lg: 24px; --t-ls-data-lg: -0.02em;
+  --t-fs-metric: 48px;  --t-ls-metric: -0.04em;
+
+  /* SPACE (base 4) */
+  --t-space-0: 0px; --t-space-1: 4px; --t-space-2: 8px; --t-space-3: 12px; --t-space-4: 16px; --t-space-5: 20px;
+  --t-space-6: 24px; --t-space-8: 32px; --t-space-10: 40px; --t-space-12: 48px; --t-space-16: 64px; --t-space-24: 96px; --t-space-32: 128px;
+
+  /* RADIUS */
+  --t-radius-none: 0px; --t-radius-xs: 6px; --t-radius-sm: 8px; --t-radius-md: 12px; --t-radius-lg: 16px;
+  --t-radius-xl: 20px; --t-radius-2xl: 24px; --t-radius-3xl: 28px; --t-radius-full: 9999px;
+  /* BRAND radius (marketing, documentos, piezas de marca) */
+  --t-radius-brand-image: var(--t-radius-none); --t-radius-brand-card: var(--t-radius-md);
+  /* PRODUCT PATTERNS existentes y aprobados en el repo — NO se migran en fase 1.
+     Se apuntan a los valores reales del repo para que el sistema los nombre sin cambiarlos. */
+  --t-radius-product-control: var(--t-radius-full);            /* Button / Input / Badge: rounded-full */
+  --t-radius-product-card: 24px;                               /* Card APROBADO = 24px. Los `rounded-3xl` actuales (38,4px en este repo) son LEGACY → se migran en fase 6 (Cards / tables) */
+  --t-radius-product-nav: 28px;                                /* Sidebar: rounded-[28px] */
+  --t-radius-modal: var(--t-radius-xl); --t-radius-menu: var(--t-radius-md);
+
+  /* BORDERS */
+  --t-bw-hairline: 1px; --t-bw-focus: 2px; --t-bw-schedule: 1.5px; --t-bw-progress: 3px;
+
+  /* SHADOWS */
+  --t-shadow-card: 0 0 0 1px rgba(34,42,51,0.05), 0 1px 3px rgba(0,0,0,0.03);
+  --t-shadow-dropdown: 0 12px 32px -12px rgba(34,42,51,0.25);
+  --t-shadow-floating: 0 24px 48px -22px rgba(34,42,51,0.40);
+  --t-shadow-modal: 0 30px 60px -20px rgba(18,22,27,0.50);
+  --t-shadow-nav: 0 14px 44px rgba(34,42,51,0.14);
+
+  /* GLASS */
+  --t-glass-light-bg: rgba(247,244,238,0.80); --t-glass-light-blur: 12px;
+  --t-glass-marketing-bg: rgba(247,244,238,0.72); --t-glass-marketing-blur: 20px; --t-glass-marketing-border: rgba(255,255,255,0.6);
+  --t-glass-solid-bg: rgba(255,255,255,0.95); --t-glass-solid-blur: 8px;
+  --t-glass-dark-bg: rgba(34,42,51,0.86); --t-glass-dark-blur: 16px; --t-glass-dark-border: rgba(255,255,255,0.14);
+
+  /* SIZES */
+  --t-size-control-sm: 28px; --t-size-control-md: 36px; --t-size-control-lg: 44px; --t-size-input: 40px;
+  --t-size-touch-min: 44px; --t-size-icon: 16px; --t-size-avatar-sm: 32px; --t-size-avatar-md: 40px; --t-size-badge: 20px;
+
+  /* LAYOUT */
+  --t-grid-max: 1280px; --t-panel-max: 1320px; --t-topbar-h: 56px;
+  --t-sidebar-compact: 64px; --t-sidebar-normal: 224px; --t-sidebar-large: 288px;
+  --t-gutter: 24px; --t-margin: 64px;
+
+  /* MOTION */
+  --t-dur-micro: 160ms; --t-dur-component: 240ms; --t-dur-screen: 400ms; --t-dur-brand: 600ms; --t-dur-brand-long: 900ms;
+  --t-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --t-reveal-distance: 16px;
+}
+
+@media (max-width: 1023px) { :root { --t-gutter: 20px; --t-margin: 32px; } }
+@media (max-width: 639px)  { :root { --t-gutter: 16px; --t-margin: 20px; } }
+
+/* Base oscura: superficies, texto y bordes. Estados en oscuro = OPEN DECISION (no se definen aquí). */
+.dark, [data-theme="dark"] {
+  --t-surface-canvas: #12161B;
+  --t-surface-raised: #1B2027;
+  --t-surface-sunken: #242A33;
+  --t-surface-nav: #0D1014; /* OPEN DECISION */
+  --t-text-primary: #F2EEE7;
+  --t-text-secondary: #B4BAC2;
+  --t-text-tertiary: #8A9098;
+  --t-text-inverse: #12161B;
+  --t-border-subtle: #2F3640;
+  --t-border-default: #3A424D;
+  --t-border-strong: #F2EEE7;
+  --t-text-link: #7FAFC6;
+  --t-text-accent: #D4769E;
+  --t-attention: #D4769E;
+  --t-selection: rgba(127,175,198,0.16);
+  --t-shadow-card: 0 0 0 1px rgba(255,255,255,0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-dur-micro: 0ms; --t-dur-component: 0ms; --t-dur-screen: 0ms; --t-dur-brand: 0ms; --t-dur-brand-long: 0ms; --t-reveal-distance: 0px; }
+}
+
+/* Utilidades de recursos propietarios (ver ui-rules.md)
+   -webkit-backdrop-filter ANTES que backdrop-filter: con el orden al revés,
+   LightningCSS (Next) se queda solo con el último y Chrome/Firefox no desenfocan
+   (ver phase-2-5/README.md). */
+.t-label { font-family: var(--t-font-mono); font-size: var(--t-fs-label); line-height: var(--t-lh-label); letter-spacing: var(--t-ls-label); text-transform: uppercase; font-weight: var(--t-fw-medium); }
+.t-data { font-family: var(--t-font-mono); font-variant-numeric: tabular-nums; }
+.t-metric { font-size: var(--t-fs-metric); letter-spacing: var(--t-ls-metric); font-weight: var(--t-fw-medium); font-variant-numeric: tabular-nums; line-height: 1; }
+.t-glass-light { background: var(--t-glass-light-bg); -webkit-backdrop-filter: blur(var(--t-glass-light-blur)); backdrop-filter: blur(var(--t-glass-light-blur)); }
+.t-glass-solid { background: var(--t-glass-solid-bg); -webkit-backdrop-filter: blur(var(--t-glass-solid-blur)); backdrop-filter: blur(var(--t-glass-solid-blur)); border-top: var(--t-bw-hairline) solid var(--t-border-subtle); }
+.t-glass-dark { background: var(--t-glass-dark-bg); -webkit-backdrop-filter: blur(var(--t-glass-dark-blur)); backdrop-filter: blur(var(--t-glass-dark-blur)); border: var(--t-bw-hairline) solid var(--t-glass-dark-border); color: #F2EEE7; }
+.t-schedule-line { flex: 1; border-top: var(--t-bw-schedule) solid var(--t-border-strong); }
+.t-schedule-line[data-state="pending"] { border-top-style: dashed; border-top-color: var(--t-text-disabled); }
+.t-progress { height: var(--t-bw-progress); border-radius: 2px; background: var(--t-gradient-progress); }
+.t-now-dot { width: 9px; height: 9px; border-radius: var(--t-radius-full); background: var(--t-attention); }

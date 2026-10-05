@@ -15,10 +15,14 @@ test('los tres create de Stripe del TPV pasan idempotencyKey derivada del intent
   assert.match(t, /idempotencyKey: `\$\{p\.claveIdempotencia\}-cs`/);
 });
 
-test('venta y recibo mandan la clave; la del recibo cambia al cambiar la referencia guardada', () => {
+test('venta y recibo mandan la clave; la del recibo es la del INTENTO, no la del recibo', () => {
   assert.match(leer('../../app/api/pos/venta/route.ts'), /claveIdempotencia: `pos-venta-\$\{base\.ventaId\}-\$\{metodoPago\}`/);
   const recibo = leer('../../app/api/pos/recibo/route.ts');
-  // La referencia guardada; solo deja de serlo si era un cobro de SumUp ya terminado y se soltó.
-  assert.match(recibo, /let referenciaPrevia = recibo\.cobro_mostrador_pi as string \| null;/);
-  assert.match(recibo, /claveIdempotencia: `pos-recibo-\$\{reciboId\}-\$\{metodo\}-\$\{referenciaPrevia \?\? 'sin'\}`/);
+  // ⚠️ Antes era `pos-recibo-${reciboId}-${metodo}-${referenciaPrevia ?? 'sin'}`: la confirmación
+  // suelta la referencia en cualquier final, así que tras cancelar o un rechazo volvía la clave
+  // del primer intento y Stripe devolvía el cobro muerto (medido en modo de prueba, 5-oct-2026).
+  assert.match(recibo, /claveIdempotencia: claveCobroRecibo\(reciboId, metodo, body\?\.intentoId\)/);
+  assert.doesNotMatch(recibo, /referenciaPrevia \?\? 'sin'/);
+  // Y la Caja manda uno nuevo por toque.
+  assert.match(leer('../../components/pos/deuda-clienta.tsx'), /cobrarReciboEnMostrador\(reciboId, metodo, uuidV4\(\)\)/);
 });

@@ -411,7 +411,7 @@ export function EditorAparienciaApp() {
                   >
                     <span className="flex items-center justify-between text-[12px] text-muted-foreground">
                       {t.nombre}
-                      {activo && <Check size={14} className="text-brand" aria-hidden />}
+                      {activo && <Check size={14} className="text-brand-medio" aria-hidden />}
                     </span>
                     <span
                       className="mt-1 block text-foreground"
@@ -546,7 +546,7 @@ export function EditorAparienciaApp() {
             role={aviso?.tipo === 'error' ? 'alert' : 'status'}
             className={cn(
               'flex items-center gap-1.5 text-[13px] transition-colors duration-300',
-              aviso?.tipo === 'error' ? 'text-destructive' : reciénPublicado ? 'font-medium text-brand' : 'text-muted-foreground',
+              aviso?.tipo === 'error' ? 'text-destructive' : reciénPublicado ? 'font-medium text-brand-medio' : 'text-muted-foreground',
             )}
           >
             {reciénPublicado && <Check size={15} className="shrink-0" aria-hidden />}

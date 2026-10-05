@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Banknote, CreditCard, Smartphone, ArrowRightLeft, Loader2, CheckCircle2,
   XCircle, AlertTriangle, ArrowLeft, Delete, X,
@@ -10,7 +10,7 @@ import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { qrSvgMarkup } from '@/lib/qr-svg';
 import { calcularCambio, sugerenciasEfectivo } from '@/lib/pos/ticket';
 import { confirmarPago, esError, type RespuestaVenta } from '@/lib/pos/cliente';
-import { necesitaAtestiguar, type EstadoPagoPOS } from '@/lib/pos/tipos';
+import { CODIGO_INTENTO_CERRADO, necesitaAtestiguar, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 import { estadoBotonDatafono, mensajeSinConexion } from '@/lib/pos/datafono';
 import { BotonFactura } from './boton-factura';
@@ -49,7 +49,9 @@ type Fase =
   // que se le pregunta a quien cobra ANTES de dar nada por bueno.
   | { f: 'atestiguar'; metodo: MetodoPago }
   | { f: 'enviando' }
-  | { f: 'esperando'; venta: RespuestaVenta; estado: EstadoPagoPOS; url?: string | null }
+  // `aviso`: se pidió cancelar y no se ha podido confirmar (el datáfono sigue con
+  // el cobro, o no se sabe): se sigue esperando y se dice por qué.
+  | { f: 'esperando'; venta: RespuestaVenta; estado: EstadoPagoPOS; url?: string | null; aviso?: string }
   // `verificado` = lo confirmó un TERCERO (Stripe), no la persona que cobra.
   // La pantalla de éxito tiene que decir cuál de las dos cosas es: «Cobrado» a
   // secas para un cobro que nadie ha comprobado es la mentira que este
@@ -64,7 +66,7 @@ const ESPERA_MAX_MS = 90_000;
 const INTERVALO_MS = 1_500;
 
 export function HojaCobro({
-  total, cobroDisponible, bizumPermitido, onCobrar, onHecho, onCerrar,
+  total, cobroDisponible, bizumPermitido, onCobrar, onHecho, onCerrar, onVentaAnulada,
 }: {
   total: number;
   cobroDisponible: CatalogoPOS['cobro'];
@@ -75,10 +77,17 @@ export function HojaCobro({
    */
   bizumPermitido: boolean;
   /** Registra la venta en el servidor. Devuelve lo que respondió. */
-  onCobrar: (metodo: MetodoPago, efectivoRecibido: number | null) => Promise<RespuestaVenta | { error: string }>;
+  onCobrar: (metodo: MetodoPago, efectivoRecibido: number | null) => Promise<RespuestaVenta | { error: string; codigo?: string }>;
   /** La venta quedó cobrada de verdad. Vacía el ticket. */
   onHecho: (venta: RespuestaVenta) => void;
   onCerrar: () => void;
+  /**
+   * El servidor ha ANULADO la venta (tarjeta rechazada, cobro cancelado…): no se
+   * ha cobrado nada. La Caja estrena intento, o «Probar otra vez» recibiría la
+   * misma venta anulada. Solo con la anulación confirmada: si no se sabe si se
+   * cobró, el intento se mantiene a propósito.
+   */
+  onVentaAnulada?: () => void;
 }) {
   const [fase, setFase] = useState<Fase>({ f: 'metodo' });
   const [entregado, setEntregado] = useState('');
@@ -104,6 +113,11 @@ export function HojaCobro({
   const cambio = calcularCambio(total, parseFloat(entregado.replace(',', '.')) || 0);
   const sugerencias = sugerenciasEfectivo(total);
 
+  // La última versión del aviso de anulación, sin meterlo en las dependencias del
+  // sondeo (lo reiniciaría en cada render y la espera de 90 s no acabaría nunca).
+  const onVentaAnuladaRef = useRef(onVentaAnulada);
+  useEffect(() => { onVentaAnuladaRef.current = onVentaAnulada; }, [onVentaAnulada]);
+
   // ── Lanzar el cobro ───────────────────────────────────────────────────────
   const lanzar = useCallback(async (m: MetodoPago, efectivo: number | null) => {
     // El estado de carga se enciende ANTES del await, no después: la petición
@@ -112,7 +126,15 @@ export function HojaCobro({
     // captcha invisible.
     setFase({ f: 'enviando' });
     const r = await onCobrar(m, efectivo);
-    if (esError(r)) { setFase({ f: 'fallo', mensaje: r.error }); return; }
+    if (esError(r)) {
+      // El servidor sabe que de este intento no puede entrar dinero (no llegó a
+      // crearse el cobro, o está cancelado): «Probar otra vez» estrena otro. Sin
+      // eso, la misma clave devolvía la venta anulada, y con el datáfono apagado y
+      // ya encendido seguía diciendo «no responde».
+      if (r.codigo === CODIGO_INTENTO_CERRADO) onVentaAnuladaRef.current?.();
+      setFase({ f: 'fallo', mensaje: r.error });
+      return;
+    }
 
     if (r.estado === 'PAGADA') {
       // ⚠️ El EFECTIVO también cuenta como verificado, y no es un matiz: el
@@ -133,7 +155,6 @@ export function HojaCobro({
   // dependiera de `fase`, cada cambio de estado del pago reiniciaría el bucle
   // y el temporizador de 90 s no llegaría a agotarse nunca.
   const ventaEnCurso = fase.f === 'esperando' ? fase.venta.ventaId : null;
-
   useEffect(() => {
     if (!ventaEnCurso) return;
     const limite = Date.now() + ESPERA_MAX_MS;
@@ -174,6 +195,7 @@ export function HojaCobro({
       }
       if (r.estado === 'ANULADA') {
         setFase({ f: 'fallo', mensaje: r.motivo || 'El cobro no se ha completado. No se ha cobrado nada.' });
+        if (cobroCerrado(r.pagoEstado)) onVentaAnuladaRef.current?.();
         return;
       }
 
@@ -196,14 +218,28 @@ export function HojaCobro({
   async function cancelarEspera() {
     if (fase.f !== 'esperando') return;
     setFase({ f: 'enviando' });
-    const r = await confirmarPago(fase.venta.ventaId, 'cancelar');
+    const { venta, url } = fase;
+    const r = await confirmarPago(venta.ventaId, 'cancelar');
     // Si entre el clic y la cancelación la tarjeta llegó a pasarse, manda lo
     // que diga Stripe: cancelar no puede deshacer un cobro real.
     if (!esError(r) && r.estado === 'PAGADA') {
-      setFase({ f: 'exito', venta: { ...fase.venta, estado: 'PAGADA', pagoEstado: 'PAGADO' }, entrega: r.entrega, verificado: true });
+      setFase({ f: 'exito', venta: { ...venta, estado: 'PAGADA', pagoEstado: 'PAGADO' }, entrega: r.entrega, verificado: true });
       return;
     }
-    setFase({ f: 'metodo' });
+    if (!esError(r) && r.estado === 'ANULADA') {
+      if (cobroCerrado(r.pagoEstado)) onVentaAnuladaRef.current?.();
+      setFase({ f: 'metodo' });
+      return;
+    }
+    // Sin la anulación confirmada (el datáfono sigue con el cobro —p. ej. pidiendo
+    // el PIN— o no se ha podido preguntar), el cobro puede seguir vivo: ofrecer
+    // otro método sería abrir la puerta a cobrar dos veces. Se sigue esperando.
+    setFase({
+      f: 'esperando', venta, url, estado: esError(r) ? 'PROCESANDO' : r.pagoEstado,
+      aviso: esError(r)
+        ? 'No hemos podido confirmar la cancelación. Espera: no cobres con otro método hasta que se aclare.'
+        : 'No se ha podido cancelar: el cobro sigue en marcha. Espera a que termine; no cobres con otro método.',
+    });
   }
 
   const disponible = (m: MetodoPago) => {
@@ -491,7 +527,7 @@ export function HojaCobro({
                 <>
                   <p className="text-[16px] font-semibold text-foreground">Que escanee este código</p>
                   <div className="w-44 h-44" dangerouslySetInnerHTML={{ __html: qrSvgMarkup(fase.url) }} />
-                  <a href={fase.url} target="_blank" rel="noopener noreferrer" className="text-[13px] text-brand underline">
+                  <a href={fase.url} target="_blank" rel="noopener noreferrer" className="text-[13px] text-brand-medio underline">
                     Abrir el enlace de pago
                   </a>
                 </>
@@ -510,6 +546,11 @@ export function HojaCobro({
                 <p className="text-[13px] text-muted-foreground max-w-[280px]">
                   Esperando la confirmación del banco. No cierres esta pantalla.
                 </p>
+                {fase.aviso && (
+                  <p role="alert" className="mt-2 rounded-xl bg-warning/10 px-3 py-2 text-[13px] font-medium text-foreground max-w-[300px]">
+                    {fase.aviso}
+                  </p>
+                )}
               </div>
 
               <button
@@ -600,6 +641,15 @@ export function HojaCobro({
       </>
     </DashboardSheet>
   );
+}
+
+/**
+ * ¿El cobro anulado está CERRADO en el proveedor? Solo entonces la Caja estrena
+ * intento: con ERROR (no llegó a iniciarse, o lo anuló el aviso de Stripe sin
+ * cerrarlo) el cobro podría seguir vivo, y un intento nuevo sería otro cobro.
+ */
+function cobroCerrado(e: EstadoPagoPOS): boolean {
+  return e === 'RECHAZADO' || e === 'CANCELADO' || e === 'EXPIRADO';
 }
 
 // El estado del proveedor, dicho en el idioma del mostrador. `requires_action`

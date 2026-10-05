@@ -12,7 +12,7 @@ import { MENSAJE_RECIBO_COBRANDOSE_CON_METODO_GUARDADO } from '@/lib/billing/cob
 import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
 import { bloqueoCobroEnMostradorDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
-import { respuestaTrasCancelar, trasGuardarReferencia } from '@/lib/pos/referencia-cobro-recibo';
+import { claveCobroRecibo, respuestaTrasCancelar, trasGuardarReferencia } from '@/lib/pos/referencia-cobro-recibo';
 import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
-  const body = (await req.json().catch(() => null)) as { reciboId?: unknown; metodo?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { reciboId?: unknown; metodo?: unknown; intentoId?: unknown } | null;
   const reciboId = typeof body?.reciboId === 'string' ? body.reciboId : '';
   const metodo = String(body?.metodo ?? '') as MetodoPago;
   if (!reciboId) return NextResponse.json({ error: 'Falta el recibo' }, { status: 400 });
@@ -141,10 +141,11 @@ export async function POST(req: NextRequest) {
       importeCentimos: centimos,
       concepto: recibo.concepto?.slice(0, 120) || 'Cuota',
       ref: { reciboId },
-      // POS-1: dos toques seguidos sobre el mismo recibo comparten la referencia previa
-      // y por tanto la clave: Stripe devuelve el mismo cobro. Tras cancelar cambia la
-      // referencia guardada, y con ella la clave.
-      claveIdempotencia: `pos-recibo-${reciboId}-${metodo}-${referenciaPrevia ?? 'sin'}`,
+      // POS-1: la clave es la de ESTE intento (la manda la Caja, una por toque): el
+      // mismo intento repetido recibe el mismo cobro, y uno nuevo, otro. Ver
+      // `claveCobroRecibo`. Sin intento (una pestaña con el código viejo), uno del servidor.
+      claveIdempotencia: claveCobroRecibo(reciboId, metodo, body?.intentoId)
+        ?? `pos-recibo-${reciboId}-${metodo}-${crypto.randomUUID()}`,
     });
     if (!inicio.ok) return NextResponse.json({ error: inicio.error }, { status: 409 });
 
@@ -172,7 +173,15 @@ export async function POST(req: NextRequest) {
       : guardar.is('cobro_mostrador_pi', null)
     ).select('id');
     if (errRef) console.error('[pos/recibo] no se pudo guardar la referencia del cobro', errRef.message);
-    if (trasGuardarReferencia({ error: !!errRef, tocadas: tocadas?.length ?? 0 }) === 'CANCELAR') {
+    // Sin fila tocada: si lo guardado es ESTE cobro, lo guardó otra petición del mismo
+    // intento (misma clave, mismo cobro) y no hay nada que cancelar.
+    let yaGuardadaEsLaMisma = false;
+    if (!errRef && !tocadas?.length) {
+      const { data: ahora } = await admin.from('recibos').select('cobro_mostrador_pi')
+        .eq('id', reciboId).eq('studio_id', sesion.studioId).maybeSingle();
+      yaGuardadaEsLaMisma = ahora?.cobro_mostrador_pi === inicio.referencia;
+    }
+    if (trasGuardarReferencia({ error: !!errRef, tocadas: tocadas?.length ?? 0, yaGuardadaEsLaMisma }) === 'CANCELAR') {
       // Con error tampoco se sigue: sin la referencia guardada, el sondeo de
       // `confirmar` diría «no llegó a iniciarse» con el datáfono o el enlace de
       // Bizum vivos. Se cancela con quien lo empezó (Stripe en la cuenta Connect

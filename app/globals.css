@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "../brand/tokens.css";
+@import "../brand/tailwind-theme.css";
+@import "../brand/legacy-bridge.css";
 
 @custom-variant dark (&:is(.dark *));
 /* Un ordenador con poca pantalla de alto: los portátiles de 768 a 900 px (1366×768
@@ -16,9 +19,13 @@
   --breakpoint-xs: 30rem;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-jakarta);
-  --font-mono: ui-monospace, monospace;
-  --font-heading: var(--font-jakarta);
+  /* Las utilidades `font-sans`, `font-heading` y `font-mono` leen una variable
+     y no la fuente: fuera del panel siguen siendo Jakarta y la mono del sistema,
+     y dentro (`.marca-panel`, más abajo) son las de la marca. Ver el
+     bloque «Tipografía de la marca». */
+  --font-sans: var(--fuente-sans);
+  --font-mono: var(--fuente-mono);
+  --font-heading: var(--fuente-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -201,25 +208,25 @@
      comportaría como un neutro. */
 
   /* ── Tenti, la mascota ───────────────────────────────────────────────────
-     El kit de diseño venía en índigo (#3D3B73) y coral (#F07C80). Ninguno de
-     los dos está en el sistema de Tentare, así que la mascota se TIÑE aquí a
-     la identidad oliva/arena en vez de traerse su paleta — mismo motivo por
-     el que se purgó el rosa fuera de sistema de /suscripcion.
-
-     El dibujo NO cambia: son exactamente los trazados del kit
-     (components/marca/tenti-poses.ts), solo con los colores por variable.
-
-     ⚠️ El traje (`--tenti-traje`) va en verde medio y no en arena a propósito:
-     el torso es el trazo más gordo del dibujo y la arena se le pega a la piel,
-     que también es arena — Tenti se quedaba en una silueta sin ropa. El verde
-     medio la separa manteniendo la familia. Se puede pisar por instancia
-     (style={{'--tenti-traje': ...}}) igual que el kit permitía elegir traje. */
-  --tenti-contorno: #343825;
-  --tenti-traje: #5A6142;
-  --tenti-piel: #EBD9B8;
-  --tenti-pelo: #CFD2C0;
+     El Tenti de canvas (lib/tenti/motor.ts) lee su paleta de aquí
+     (lib/tenti/paleta.ts), y no trae la suya: el prototipo venía con menta,
+     rosa chicle, un aro negro y chispas blancas, nada de eso del sistema de
+     Tentare — mismo motivo por el que se purgó el rosa fuera de sistema de
+     /suscripcion. Su tinte de 'hecho' es --success, que se lee directo.
+     El yogui SVG de #1333 (y sus --tenti-contorno/-traje/-piel/-pelo) se
+     retiró: dos mascotas con el mismo nombre son peores que ninguna. */
   --tenti-rubor: #C98F76;
-  --tenti-chispa: #C9A96A;
+  /* Un punto más hondo que el #C9A96A del kit: las chispas del Tenti de canvas
+     son estrellitas de pocos píxeles que salen volando por ENCIMA del fondo, y
+     con aquel ocre daban 1,9:1 sobre --background — se intuían más que se
+     veían. Este da 2,4:1 y 2,8:1 sobre --card sin dejar de ser dorado (más
+     hondo ya tira a marrón). Lo vigila lib/tenti/paleta.test.ts. */
+  --tenti-chispa: #B8975A;
+  /* El cuerpo es el «mochi» del prototipo tal cual: en claro ya es de la
+     familia arena. */
+  --tenti-cuerpo-luz: #FFFAF5;
+  --tenti-cuerpo-sombra: #DDCCBF;
+  --tenti-tinta: #1A1412;
   --brand-medio: #55622C;
   /* Delimita el botón cuando el fondo es oscuro y el oliva no se despega de él
      (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
@@ -287,6 +294,11 @@
   --cat-7: #99516B; /* rosa teja */
   --cat-8: #9B553F; /* caramelo */
   --cat-9: #886116; /* ocre */
+
+  /* Lo que leen `font-sans`/`font-heading`/`font-mono` fuera del panel: lo de
+     siempre. `.marca-panel` los cambia por los de la marca. */
+  --fuente-sans: var(--font-jakarta);
+  --fuente-mono: ui-monospace, monospace;
 
   /* Marca de la app de socias — sobreescrito por lib/portal-theme.tsx según
      studio.temaPortal (compartido, Supabase, solo editable por el propietario). */
@@ -360,17 +372,20 @@
      5-10% son un verde apenas perceptible en vez de un baño beige. La arena se
      queda donde siempre debió estar en oscuro: como TEXTO sobre la marca. */
   --brand: #8A9165;
-  /* Tenti en oscuro. El contorno NO puede seguir siendo el oliva #343825: sobre
-     #16161A se funde con el fondo y la mascota se queda sin dibujo — manchas de
-     color sin silueta. Sube al oliva claro, que es el mismo salto que ya hace
-     `--brand` justo arriba. La piel baja de brillo para no ser un foco en una
-     pantalla apagada, y el traje sube para no comerse el contorno nuevo. */
-  --tenti-contorno: #C3CBA2;
-  --tenti-traje: #6F784C;
-  --tenti-piel: #C7B492;
-  --tenti-pelo: #8E9382;
+  /* Tenti en oscuro: los mismos mofletes y chispas, más apagados. Las chispas
+     se siguen viendo de sobra sobre el fondo y sobre --card (lo vigila
+     lib/tenti/paleta.test.ts). */
   --tenti-rubor: #A9755E;
   --tenti-chispa: #A98C55;
+  /* El cuerpo del Tenti de canvas, apagado: el crema de claro sobre #16161A es
+     un foco, lo más brillante de la pantalla. Elegido MIRANDO cuatro tonos al
+     lado del titular de Listo: #E4DCD2 brillaba tanto como el texto; más
+     oscuro que este, el cuerpo se volvía masilla gris y el brillo blanco fijo
+     del motor parecía un reflejo de linterna. Los ojos no cambian: sobre un
+     cuerpo claro siguen necesitando la tinta oscura. */
+  --tenti-cuerpo-luz: #D6CDC1;
+  --tenti-cuerpo-sombra: #A89A8B;
+  --tenti-tinta: #1A1412;
   --brand-foreground: #16161A;
   --brand-secondary: #A8B37A;
   --brand-borde: transparent;
@@ -434,6 +449,54 @@
   --marca-a: #8FD0DF;
   --marca-b: #E9A7C2;
   --marca-producto: #A9B4C0;
+}
+
+/* ── La marca dentro del panel (Brand System, fases 2, 4 y 5) ──────────────
+   Tipografía: Schibsted Grotesk y DM Mono (brand/brand-os.md §6), SOLO dentro del panel:
+   la clase la pone app/(dashboard)/layout.tsx, que es también quien carga las
+   fuentes (app/_fuentes/fuentes-panel.ts). La app de la alumna, /reservar, la
+   landing y /ayuda no la llevan y siguen con su tipografía hasta su fase.
+
+   ⚠️ No se cambia el `--font-heading` de `@theme` a la marca para todo el sitio:
+   `font-heading` lo usan sobre todo la app de la alumna (26 sitios) y se le
+   habría cambiado la letra. Por eso la utilidad lee `--fuente-sans` y aquí se
+   redefine.
+
+   `font-synthesis-weight: none`: la marca solo tiene 400/500/600 (DM Mono,
+   400/500). Un `font-bold` o `font-extrabold` del panel cae así al 600 en vez de
+   engordarse a mano con una negrita sintética.
+
+   Brand slot por defecto (brand-os.md §5, implementation-plan.md: «su valor por
+   defecto pasa a Sand / Ink»): lo que ve el estudio que no ha elegido color.
+   `PanelThemeProvider` escribe en línea el del estudio que sí lo eligió y, con el
+   tema de fábrica (el oliva), no escribe nada para que mande esto
+   (lib/panel-marca.ts). En `:root` el oliva sigue siendo el de siempre: lo usan la
+   landing, /login y el alta, que no son de esta fase.
+   · `--brand-medio`, la marca a tamaño pequeño (enlaces, iconos, texto activo):
+     Sand no llega a 4,5:1 como texto, así que es el enlace de la marca (Blue 700).
+   · `--accent` es el hover de los menús: `surface-sunken` (guía, «Reglas globales»).
+   · Modo oscuro: el relleno de marca por defecto no está definido (OPEN DECISION
+     19) y sigue con la salvia del bloque `.dark`; el resto, abajo. */
+.marca-panel {
+  --fuente-sans: var(--t-font-sans);
+  --fuente-mono: var(--t-font-mono);
+  font-family: var(--t-font-sans);
+  font-synthesis-weight: none;
+
+  --brand: var(--t-brand);
+  --brand-foreground: var(--t-brand-foreground);
+  --brand-secondary: var(--t-brand-foreground);
+  --brand-medio: var(--t-text-link);
+  --accent: var(--t-surface-sunken);
+  --accent-foreground: var(--t-text-primary);
+}
+/* El bloque `.dark` vive en el mismo div que el tema y pisaría lo de arriba
+   (oliva claro y verde oscuro). `.marca-panel .dark` gana por especificidad, y el
+   `var()` se resuelve ahí, ya con los tokens oscuros. */
+.marca-panel .dark {
+  --brand-medio: var(--t-text-link);
+  --accent: var(--t-surface-sunken);
+  --accent-foreground: var(--t-text-primary);
 }
 
 @layer base {

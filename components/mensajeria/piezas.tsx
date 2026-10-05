@@ -143,7 +143,7 @@ export function FilaConversacion({ row, identidad, activa, sinLeer, esMio, onCli
         <span
           aria-hidden="true"
           className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full"
-          style={{ backgroundColor: 'var(--brand)' }}
+          style={{ backgroundColor: 'var(--brand-medio)' }}
         />
       )}
       <AvatarConversacion tipo={row.tipo} identidad={identidad} />
@@ -169,7 +169,7 @@ export function FilaConversacion({ row, identidad, activa, sinLeer, esMio, onCli
               : <span className="italic text-muted-foreground">Sin mensajes todavía</span>}
           </span>
           {sinLeer && (
-            <span aria-label="Sin leer" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: 'var(--brand)' }} />
+            <span aria-label="Sin leer" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: 'var(--brand-medio)' }} />
           )}
         </span>
       </span>

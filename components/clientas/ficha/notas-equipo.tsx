@@ -172,7 +172,7 @@ export function NotasDelEquipo({ socioId, notas, rol, autoras, hoyISO, ella = 'e
               <li key={nota.id} className="group py-2.5">
                 <div className="flex items-start gap-2">
                   {nota.fijada
-                    ? <Pin size={14} className="mt-1 shrink-0 text-brand" aria-label="Fijada" />
+                    ? <Pin size={14} className="mt-1 shrink-0 text-brand-medio" aria-label="Fijada" />
                     : nota.tipo === 'SISTEMA' ? <Bot size={14} className="mt-1 shrink-0 text-muted-foreground" aria-hidden /> : null}
                   <p className={cn('min-w-0 flex-1 whitespace-pre-line text-[13.5px] text-pretty', nota.tipo === 'SISTEMA' ? 'text-muted-foreground' : 'text-foreground', nota.fijada && 'font-medium')}>
                     {nota.texto}

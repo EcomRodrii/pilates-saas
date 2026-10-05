@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Banknote, CreditCard, Smartphone, Loader2, AlertCircle } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { formatEuro } from '@/lib/utils';
+import { formatEuro, uuidV4 } from '@/lib/utils';
 import { cobrarReciboEnMostrador, confirmarCobroRecibo, esError } from '@/lib/pos/cliente';
 import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import { bizumPermitidoPara, tipoDeReciboParaBizum } from '@/lib/billing/bizum-permitido';
@@ -153,7 +153,9 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
   async function cobrarConProveedor(reciboId: string, metodo: 'DATAFONO' | 'BIZUM') {
     setError(null);
     setFase({ f: 'esperando', reciboId, metodo, estado: 'PENDIENTE', url: null, intentos: 0 });
-    const r = await cobrarReciboEnMostrador(reciboId, metodo);
+    // Un intento nuevo por toque: si no, tras cancelar o un rechazo el proveedor
+    // devolvía el cobro muerto y el datáfono no pedía la tarjeta.
+    const r = await cobrarReciboEnMostrador(reciboId, metodo, uuidV4());
     if (esError(r)) { setError(r.error); setFase({ f: 'quieto' }); return; }
     setFase({ f: 'esperando', reciboId, metodo, estado: r.pagoEstado, url: r.url, intentos: 0 });
   }
@@ -170,7 +172,7 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
   if (fase.f === 'esperando') {
     return (
       <div className="rounded-xl border border-brand/40 bg-brand/5 p-4 space-y-2 text-center">
-        <Loader2 size={20} className="animate-spin text-brand mx-auto" />
+        <Loader2 size={20} className="animate-spin text-brand-medio mx-auto" />
         <p className="text-[13.5px] font-semibold text-foreground">
           {fase.metodo === 'DATAFONO' ? `Acerca la tarjeta al datáfono${etiquetaDatafono ? ` ${etiquetaDatafono}` : ''}…` : 'Esperando el Bizum…'}
         </p>
@@ -181,7 +183,7 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
         </p>
         {fase.url && (
           <a href={fase.url} target="_blank" rel="noopener noreferrer"
-            className="inline-block text-[12.5px] font-semibold text-brand underline">
+            className="inline-block text-[12.5px] font-semibold text-brand-medio underline">
             Abrir el pago
           </a>
         )}
