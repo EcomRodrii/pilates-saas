@@ -31,7 +31,7 @@ export default function TentiPagina() {
         <h1 className="text-[22px] font-bold text-foreground">Tenti</h1>
         <p className="mt-1 max-w-2xl text-[13.5px] text-muted-foreground">
           La mascota de Tentare. Mueve los ojos hacia el cursor, parpadea sola, se aplasta si la tocas y se marea si insistes.
-          Todavía no aparece en ningún estudio: abajo están los dos sitios donde saldría, solo para la propietaria.
+          Así se comporta también en el panel, en todos sus sitios; abajo, las dos primeras veces de la propietaria.
         </p>
       </header>
 
@@ -39,7 +39,7 @@ export default function TentiPagina() {
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-muted/40 py-6">
           <Tenti
             ref={control} estado={estado} tamano={240} sonido={sonido}
-            interactivo saludaAlAparecer insignias titulo={`Tenti: ${ESTADOS[estado].etiqueta.toLowerCase()}`}
+            interactivo saludaAlAparecer insignias sigueCursor titulo={`Tenti: ${ESTADOS[estado].etiqueta.toLowerCase()}`}
           />
           <p className="text-[13px] font-semibold text-foreground">{ESTADOS[estado].etiqueta}</p>
         </div>
@@ -83,10 +83,10 @@ export default function TentiPagina() {
       </section>
 
       <section>
-        <p className={rotulo}>Dónde saldría en el panel (solo la propietaria)</p>
+        <p className={rotulo}>Las primeras veces en el panel (solo la propietaria)</p>
         <p className="mb-3 max-w-3xl text-[12.5px] text-muted-foreground">
-          Con los ajustes de verdad: decorativo, sin toque, sin sonido y sin insignia. Las dos son «primeras veces» del
-          estudio; ninguna pantalla del día a día lo lleva.
+          Sin insignia y decorativo. Suenan (el saludo, el logo guardado, la celebración) si «Sonidos de Tenti» está
+          encendido en este dispositivo (Configuración › Tu panel); en el panel, además, se dejan tocar.
         </p>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
           <MaquetaBienvenida />

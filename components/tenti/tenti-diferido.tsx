@@ -18,9 +18,13 @@ import type { PropsTenti } from './tenti';
 //   · Si el chunk no llega (red, despliegue nuevo), `reserva`. Y si llega pero
 //     no hay canvas 2D, también: Tenti la recibe por props y la pinta él.
 //
-// ⚠️ `estado` acepta solo 'reposo' y 'hecho', y no hay forma de pedir sonido,
-// saludo, toques ni insignias: el tsc del CI lo vigila, no una regex. Quien
-// necesite más, que lo hable antes (ver la guardia lib/tenti/donde-vive-tenti).
+// Se deja tocar, como en /interno/tenti: se aplasta y suena.
+//
+// ⚠️ `estado` acepta solo 'reposo' y 'hecho', y no hay forma de pedir saludo
+// ni insignias: el tsc del CI lo vigila, no una regex. El sonido sigue
+// la preferencia del dispositivo («Sonidos de Tenti»): al pasar a 'hecho' suena
+// la celebración ('finish'). Quien necesite más, que lo hable antes (ver la
+// guardia lib/tenti/donde-vive-tenti).
 // De './tenti' solo se importa el tipo: un import de valor metería el motor en
 // el chunk de quien importa este fichero.
 
@@ -48,12 +52,12 @@ const TentiCanvas = dynamic<PropsTenti>(
   { ssr: false, loading: () => <CajaVacia /> },
 );
 
-export function TentiDiferido({ estado, tamano, sigueCursor = true, reserva }: PropsTentiDiferido) {
+export function TentiDiferido({ estado, tamano, sigueCursor = false, reserva }: PropsTentiDiferido) {
   const rol = useRol();
   if (rol !== 'PROPIETARIO') return <>{reserva}</>;
   return (
     <ReservaCtx.Provider value={reserva}>
-      <TentiCanvas estado={estado} tamano={tamano} sigueCursor={sigueCursor} reserva={reserva} />
+      <TentiCanvas estado={estado} tamano={tamano} sigueCursor={sigueCursor} interactivo reserva={reserva} />
     </ReservaCtx.Provider>
   );
 }

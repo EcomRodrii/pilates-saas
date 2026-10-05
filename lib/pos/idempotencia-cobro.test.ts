@@ -21,7 +21,8 @@ test('venta y recibo mandan la clave; la del recibo es la del INTENTO, no la del
   // ⚠️ Antes era `pos-recibo-${reciboId}-${metodo}-${referenciaPrevia ?? 'sin'}`: la confirmación
   // suelta la referencia en cualquier final, así que tras cancelar o un rechazo volvía la clave
   // del primer intento y Stripe devolvía el cobro muerto (medido en modo de prueba, 5-oct-2026).
-  assert.match(recibo, /claveIdempotencia: claveCobroRecibo\(reciboId, metodo, body\?\.intentoId\)/);
+  assert.match(recibo, /const claveIntento = claveCobroRecibo\(reciboId, metodo, body\?\.intentoId\)/);
+  assert.match(recibo, /claveIdempotencia: claveIntento,/);
   assert.doesNotMatch(recibo, /referenciaPrevia \?\? 'sin'/);
   // Y la Caja manda uno nuevo por toque.
   assert.match(leer('../../components/pos/deuda-clienta.tsx'), /cobrarReciboEnMostrador\(reciboId, metodo, uuidV4\(\)\)/);

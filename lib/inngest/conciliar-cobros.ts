@@ -45,6 +45,7 @@ import { liberarCupoMatriculaUnaVez } from '../billing/matricula-online.ts';
 import { cobroPosDeSesionCaducada } from '../pos/cerrar-bizum-fallido.ts';
 import { liberarCobroPosFallido } from '../pos/liberar-cobro-fallido.ts';
 import { barrerCobrosSumup } from '../pos/cobro-sumup.ts';
+import { resolverCobrosDatafonoColgados } from '../pos/barrido-datafono.ts';
 import { pisAbandonadosConPlaza, plazaDePICancelado, plazaDeSesionCaducada, type PlazaADevolver } from '../billing/cupo-matricula-abandonado.ts';
 import { detectarCadenaRotaVerifactu, type FilaCadenaVerifactu } from '../verifactu-cadena.ts';
 import { averiasRecientes, cobradoConFacturaSiempre, HORAS_REINTENTO_FACTURA, recibosCobradosSinFactura, recibosConFacturaAutomaticaAusente, type ReciboCobrado } from '../facturas-sin-sellar.ts';
@@ -233,6 +234,14 @@ async function conciliarEstudio(
   }
   await devolverPlazasDeMatricula(admin, stripe, studio, [...sesionPorId.values()], [...piPorId.values()]);
   await soltarCobrosPosCaducados(admin, studio, [...sesionPorId.values()]);
+  // Datáfono de Stripe: lo que nadie terminó de mirar (cobrado sin cerrar,
+  // rechazado o abandonado). Su fallo no corta lo que viene detrás.
+  await resolverCobrosDatafonoColgados(admin, stripe, studio, [...piPorId.values()]).catch((e) => {
+    console.error('[conciliador] cobros del datáfono colgados', studio.id, e instanceof Error ? e.message : e);
+    Sentry.captureException(e instanceof Error ? e : new Error('cobros del datáfono colgados'), {
+      level: 'warning', tags: { area: 'cobros', tipo: 'datafono-colgado' }, extra: { studioId: studio.id },
+    });
+  });
   await resolverCobrosConMetodoGuardadoColgados(admin, stripe, studio, [...piPorId.values()], inicioListado);
   return pendientes.length;
 }

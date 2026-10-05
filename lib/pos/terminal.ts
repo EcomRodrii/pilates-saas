@@ -5,7 +5,9 @@ import type { MetodoPago } from '@/lib/types';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { bizumActivo } from '@/lib/billing/bizum-activo';
-import { cerrarSiRechazadoDatafono, consultaDatafono, consultarCobroBizum, type ConsultaCobro } from './consulta-stripe.ts';
+import {
+  anularCobroDelDatafono, cerrarSiRechazadoDatafono, consultaDatafono, consultarCobroBizum, envioFallidoDatafono, type ConsultaCobro,
+} from './consulta-stripe.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
 import { mensajeErrorLector } from './datafono.ts';
 
@@ -67,6 +69,15 @@ export function metadataDe(ref: ReferenciaCobro): Record<string, string> {
   return ref.ventaId ? { ventaId: ref.ventaId } : { reciboId: ref.reciboId! };
 }
 
+/**
+ * La clave del intento en la metadata del cobro: así se sabe si un cobro ya guardado
+ * en un recibo es de ESTE intento (la misma petición repetida, que no se cancela)
+ * o de otro (`soltarPagosEnMarchaAntesDeCobrar`, lib/cobros/antes-de-cobrar-a-mano-servidor.ts).
+ */
+export function metadataDeIntento(claveIdempotencia: string | undefined): Record<string, string> {
+  return claveIdempotencia ? { clave: claveIdempotencia } : {};
+}
+
 export interface PeticionCobro {
   /** En céntimos, calculado EN SERVIDOR a partir de la venta o el recibo. */
   importeCentimos: number;
@@ -93,7 +104,16 @@ export type ResultadoInicio =
        */
       checkoutSessionId?: string;
     }
-  | { ok: false; error: string };
+  | {
+      ok: false; error: string;
+      /**
+       * El proveedor SABE que de este intento no puede entrar dinero: no llegó a
+       * crearse el cobro, o se creó y está cancelado en Stripe. Entonces otro
+       * intento no cobra dos veces, y la Caja puede estrenarlo. Sin decir, no se
+       * sabe (p. ej. el cobro se creó y no se pudo cancelar): se mantiene el intento.
+       */
+      cerrado?: boolean;
+    };
 
 export interface ProveedorTerminal {
   readonly id: 'datafono' | 'bizum' | 'manual';
@@ -142,6 +162,15 @@ export interface ProveedorTerminal {
 
 // ─── Datáfono (Stripe Terminal) ──────────────────────────────────────────────
 
+/**
+ * La clave de idempotencia de este intento ya estaba en uso (ver
+ * `envioFallidoDatafono`): nunca se anula por ello, sería cancelar el cobro bueno.
+ */
+function choqueDeClave(err: unknown): boolean {
+  return err instanceof Stripe.errors.StripeIdempotencyError
+    || (err instanceof Stripe.errors.StripeError && err.code === 'idempotency_key_in_use');
+}
+
 function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
   return {
     id: 'datafono',
@@ -150,10 +179,19 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
 
     async iniciar(ctx, p) {
       if (!readerId) {
-        return { ok: false, error: 'No hay ningún datáfono conectado. En la Caja, pulsa Cobrar y luego «Conectar datáfono».' };
+        return { ok: false, cerrado: true, error: 'No hay ningún datáfono conectado. En la Caja, pulsa Cobrar y luego «Conectar datáfono».' };
       }
+      // Apagado, sin wifi u ocupado: que lo diga, porque quien cobra puede
+      // arreglarlo en el acto. Lo demás, el genérico de siempre.
+      const mensaje = (err: unknown) => {
+        console.error('[pos/terminal:datafono]', err instanceof Stripe.errors.StripeError ? err.message : err);
+        const code = err instanceof Stripe.errors.StripeError ? err.code ?? '' : '';
+        return code.startsWith('terminal_reader_') ? mensajeErrorLector({ code }) : 'No se pudo enviar el importe al datáfono.';
+      };
+
+      let pi: Stripe.PaymentIntent;
       try {
-        const pi = await ctx.stripe.paymentIntents.create({
+        pi = await ctx.stripe.paymentIntents.create({
           amount: p.importeCentimos,
           currency: 'eur',
           payment_method_types: ['card_present'],
@@ -162,7 +200,12 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
           // el recibo— aunque el navegador del mostrador se cierre a mitad del
           // cobro. Sin esto haría falta el rodeo del backstop de
           // reconciliación, que no sabe a qué apuntar.
-          metadata: { studioId: ctx.studioId, origen: 'pos_terminal', ...metadataDe(p.ref), concepto: p.concepto },
+          // `lector`: a quién preguntar si sigue con él (`cerrarSiRechazadoDatafono`), aunque
+          // el estudio empareje otro mientras tanto. `clave`: de qué intento es (`metadataDeIntento`).
+          metadata: {
+            studioId: ctx.studioId, origen: 'pos_terminal', ...metadataDe(p.ref), concepto: p.concepto, lector: readerId,
+            ...metadataDeIntento(p.claveIdempotencia),
+          },
           ...(applicationFeeAmount(p.importeCentimos) !== undefined
             ? { application_fee_amount: applicationFeeAmount(p.importeCentimos) }
             : {}),
@@ -170,39 +213,63 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
           stripeAccount: ctx.stripeAccount,
           ...(p.claveIdempotencia ? { idempotencyKey: `${p.claveIdempotencia}-pi` } : {}),
         });
+      } catch (err) {
+        const cerrado = envioFallidoDatafono({ paso: 'crear', choque: choqueDeClave(err) }) === 'cerrado';
+        return { ok: false, cerrado, error: mensaje(err) };
+      }
 
+      try {
         await ctx.stripe.terminal.readers.processPaymentIntent(
-          readerId, { payment_intent: pi.id }, {
+          // Botón de cancelar en la pantalla del datáfono (decisión del fundador, 5-oct-2026):
+          // su acción falla con `customer_canceled` y el sondeo lo cierra en segundos.
+          readerId, { payment_intent: pi.id, process_config: { enable_customer_cancellation: true } }, {
             stripeAccount: ctx.stripeAccount,
             ...(p.claveIdempotencia ? { idempotencyKey: `${p.claveIdempotencia}-lector` } : {}),
           },
         );
-        // Solo en test: simula que alguien acerca la tarjeta, para poder probar
-        // el flujo entero sin hardware.
-        if (ctx.esTest) {
-          await ctx.stripe.testHelpers.terminal.readers.presentPaymentMethod(
-            readerId, {}, { stripeAccount: ctx.stripeAccount },
-          );
-        }
-        return { ok: true, referencia: pi.id, estado: 'PROCESANDO' };
       } catch (err) {
-        console.error('[pos/terminal:datafono]', err instanceof Stripe.errors.StripeError ? err.message : err);
-        // Apagado, sin wifi u ocupado: que lo diga, porque quien cobra puede
-        // arreglarlo en el acto. Lo demás, el genérico de siempre.
-        const code = err instanceof Stripe.errors.StripeError ? err.code ?? '' : '';
-        if (code.startsWith('terminal_reader_')) return { ok: false, error: mensajeErrorLector({ code }) };
-        return { ok: false, error: 'No se pudo enviar el importe al datáfono.' };
+        const error = mensaje(err);
+        const choque = choqueDeClave(err);
+        // El cobro existe y el lector no lo ha cogido… o sí (`terminal_reader_timeout`:
+        // no contestó a tiempo). Se cancela en Stripe: si no, se quedaba vivo con la
+        // venta ya anulada, y la Caja no dejaba volver a intentarlo (misma clave,
+        // misma venta muerta, «el datáfono no responde» aunque ya respondiera).
+        const estado = choque ? null : await anularCobroDelDatafono(ctx.stripe, pi.id, ctx.stripeAccount, readerId);
+        switch (envioFallidoDatafono({ paso: 'enviar', choque, estado })) {
+          case 'enviado': return { ok: true, referencia: pi.id, estado: 'PROCESANDO' };
+          case 'cerrado': return { ok: false, cerrado: true, error };
+          default: return { ok: false, error };
+        }
       }
+
+      // Solo en test: simula que alguien acerca la tarjeta, para poder probar el
+      // flujo entero sin hardware. Con un lector de verdad en modo de prueba no
+      // existe, y el cobro ya está en el lector: un fallo aquí no lo anula.
+      if (ctx.esTest) {
+        await ctx.stripe.testHelpers.terminal.readers.presentPaymentMethod(
+          readerId, {}, { stripeAccount: ctx.stripeAccount },
+        ).catch((err: unknown) => console.error('[pos/terminal:datafono:test]', err instanceof Error ? err.message : err));
+      }
+      return { ok: true, referencia: pi.id, estado: 'PROCESANDO' };
     },
 
     async consultar(ctx, referencia) {
       try {
-        // Una tarjeta rechazada solo es un final cuando el lector ya no sigue con
-        // ella, y se cierra en Stripe antes de decirlo (ver `cerrarSiRechazadoDatafono`).
-        const { veredicto, pi, rechazo } = await cerrarSiRechazadoDatafono(ctx.stripe, referencia, ctx.stripeAccount, readerId);
+        // Un cobro sin pagar solo es un final cuando el lector ya no sigue con él, y
+        // se cierra en Stripe antes de decirlo (ver `cerrarSiRechazadoDatafono`). Con
+        // tarjeta rechazada, o sin tarjeta (`sinTarjeta`): otro envío al mismo lector
+        // le quitó el sitio (medido), lo cancelaron en su pantalla o su acción falló.
+        // Antes la Caja se quedaba 90 s en «Acerca la tarjeta» con el lector ya en otra cosa.
+        const { veredicto, pi, rechazo, canceladoEnLector } = await cerrarSiRechazadoDatafono(
+          ctx.stripe, referencia, ctx.stripeAccount, readerId, { sinTarjeta: true },
+        );
         if (veredicto === 'rechazado') return consultaDatafono(pi, rechazo);
-        // El lector sigue (p. ej. pidiendo el PIN tras el pago sin contacto): se espera.
-        if (veredicto === 'sigue') return { ...consultaDatafono(pi), estado: 'PROCESANDO', error: undefined };
+        if (veredicto === 'abandonado' && canceladoEnLector) {
+          return { ...consultaDatafono(pi), error: 'Se ha cancelado en el datáfono. No se ha cobrado nada.' };
+        }
+        // El lector sigue con él: pidiendo el PIN tras el pago sin contacto (con el
+        // error del primer intento), o esperando la tarjeta («Acerca la tarjeta»).
+        if (veredicto === 'sigue' && pi.last_payment_error) return { ...consultaDatafono(pi), estado: 'PROCESANDO', error: undefined };
         return consultaDatafono(pi);
       } catch (err) {
         console.error('[pos/terminal:datafono:consultar]', err instanceof Stripe.errors.StripeError ? err.message : err);
@@ -214,21 +281,9 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
     },
 
     async cancelar(ctx, referencia) {
-      try {
-        if (readerId) {
-          // `{}` de parámetros y la cuenta Connect en el TERCER argumento: es
-          // la posición de las opciones de petición. Pasarla como segundo
-          // argumento la mandaría en el cuerpo y el cobro se cancelaría (o no)
-          // en la cuenta de la plataforma, no en la del estudio.
-          await ctx.stripe.terminal.readers.cancelAction(readerId, {}, { stripeAccount: ctx.stripeAccount });
-        }
-        await ctx.stripe.paymentIntents.cancel(referencia, {}, { stripeAccount: ctx.stripeAccount });
-      } catch (err) {
-        // Cancelar es best-effort: si el PaymentIntent ya no admite cancelación
-        // (porque acaba de cobrarse), lo correcto es NO tocarlo. El estado real
-        // lo dirá la siguiente consulta.
-        console.error('[pos/terminal:datafono:cancelar]', err instanceof Stripe.errors.StripeError ? err.message : err);
-      }
+      // Best-effort: si el cobro ya no admite cancelación (acaba de entrar), no se
+      // toca. El estado real lo dice la consulta que viene detrás.
+      await anularCobroDelDatafono(ctx.stripe, referencia, ctx.stripeAccount, readerId);
     },
   };
 }
@@ -275,12 +330,12 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
             },
           }],
           payment_intent_data: {
-            metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ...metadataDe(p.ref) },
+            metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ...metadataDe(p.ref), ...metadataDeIntento(p.claveIdempotencia) },
             ...(applicationFeeAmount(p.importeCentimos) !== undefined
               ? { application_fee_amount: applicationFeeAmount(p.importeCentimos) }
               : {}),
           },
-          metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ...metadataDe(p.ref) },
+          metadata: { studioId: ctx.studioId, origen: 'pos_bizum', ...metadataDe(p.ref), ...metadataDeIntento(p.claveIdempotencia) },
           success_url: `${origen}/pos?bizum=ok`,
           cancel_url: `${origen}/pos?bizum=cancelado`,
           // P-1 (27ª pasada): cota el enlace aunque nadie pulse "Cancelar" en
@@ -311,6 +366,11 @@ function crearProveedorBizum(origen: string): ProveedorTerminal {
         // Stripe, o la cuenta sin terminar de verificar— y eso se arregla en
         // dos minutos SI alguien te lo dice. El mensaje de Stripe es
         // descriptivo y no expone secretos.
+        // Salvo el de clave repetida, que no es de configuración ni dice nada en el
+        // mostrador (llegaba en inglés): este intento ya se empezó con otros datos.
+        if (err instanceof Stripe.errors.StripeIdempotencyError) {
+          return { ok: false, error: 'Este cobro por Bizum ya se había empezado con otros datos. Vuelve a pulsar Cobrar.' };
+        }
         if (err instanceof Stripe.errors.StripeError) {
           return { ok: false, error: `Stripe no ha aceptado el cobro por Bizum: ${err.message}` };
         }

@@ -1185,7 +1185,7 @@ function PropuestasNetwork({ s, tipoClase, destacada = false, bloqueada = false,
         return (
           <Link
             href={`/network/mensajes?hilo=${encodeURIComponent(servidor.solicitudId)}`}
-            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-brand/40 bg-card text-brand text-[12px] font-bold hover:bg-brand/5 transition"
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-brand/40 bg-card text-brand-medio text-[12px] font-bold hover:bg-brand/5 transition"
           >
             <MessageCircle size={13} /> Formalizar en el chat
           </Link>

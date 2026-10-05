@@ -16,7 +16,8 @@ import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } fr
 import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
-import { TentareOrb } from '@/components/marca/tentare-orb';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
+import { TentiDecorativo } from '@/components/tenti/tenti-decorativo';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
   mensajesDeTrigger, plantillaDe, vistaPreviaMensaje, mensajesPersonalizados,
@@ -160,7 +161,10 @@ function HechoPorTentare() {
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center gap-2">
-        <TentareOrb tam={16} />
+        {/* La firma más literal de Tenti: seis cosas que Tentare hace solo y de
+            serie. Fijo, sin depender de las reglas; el ✓ de cada línea no es
+            Tenti celebrando nada. */}
+        <TentiIcono ancho={18} />
         <h2 className="text-sm font-semibold text-foreground">Esto ya lo hace Tentare, sin que configures nada</h2>
       </div>
       <ul className="mt-2.5 space-y-1.5">
@@ -179,6 +183,15 @@ function HechoPorTentare() {
 }
 
 // ─── Morning Briefing ─────────────────────────────────────────────────────────
+
+/** El Zap de siempre: lo que se ve mientras llega Tenti, o si no puede pintarse. */
+function BaldosaZap() {
+  return (
+    <div className="size-14 rounded-2xl bg-card/10 flex items-center justify-center">
+      <Zap size={28} aria-hidden="true" className="text-primary-foreground/80" />
+    </div>
+  );
+}
 
 function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   const today = new Date().toISOString().slice(0, 10);
@@ -200,10 +213,12 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            {/* Mismo criterio que el Piloto automático: el Orb marca dónde
-                está trabajando Tentare solo. Va a 20 px sobre el fondo de
-                marca, donde su iridiscencia se lee bien. */}
-            <TentareOrb tam={20} />
+            {/* Tenti, como en el Piloto automático: aquí Tentare trabaja solo.
+                Quieto pase lo que pase con los recuentos de abajo: si algo
+                espera tu visto bueno o ha fallado, lo dicen el texto y las
+                cifras, nunca su cara. Sobre bg-primary, con la silueta del
+                color del texto (en oscuro el fondo es casi el del cuerpo). */}
+            <TentiIcono ancho={24} sobre="invertida" />
             {/* ⚠️ Tinta `primary-foreground`, nunca `white`: en oscuro la
                 tarjeta `bg-primary` es CLARA y el blanco fijo se quedaba en
                 1,17:1. Las opacidades bajan como mucho a /70 — a /50 la letra
@@ -223,7 +238,10 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
           </h1>
           {pendingAdmin.length === 0 ? (
             <p className="text-primary-foreground/70 text-sm">
-              Hoy no tienes nada pendiente. El sistema gestionó{' '}
+              {/* Solo afirma lo que cuenta —las automatizaciones que esperan
+                  tu visto bueno—, no «nada pendiente» en general: el mismo
+                  criterio que el banner de Resumen. */}
+              Ninguna automatización espera tu visto bueno. El sistema gestionó{' '}
               <span className="text-primary-foreground font-semibold">{ejecutadas} acciones</span> automáticamente.
             </p>
           ) : (
@@ -234,8 +252,13 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
             </p>
           )}
         </div>
-        <div className="shrink-0 w-14 h-14 rounded-2xl bg-card/10 flex items-center justify-center">
-          <Zap size={28} className="text-primary-foreground/80" />
+        {/* Tenti en el sitio de la baldosa del Zap: la cara de lo que Tentare
+            hace solo. Vivo pero en reposo y decorativo, pase lo que pase con
+            los recuentos (lo dicen el texto y las cifras). La baldosa de
+            siempre mientras llega su chunk, si no llega o si no hay canvas 2D,
+            en la misma caja de 56 px: nada salta. */}
+        <div className="shrink-0 size-14">
+          <TentiDecorativo tamano={56} reserva={<BaldosaZap />} />
         </div>
       </div>
 

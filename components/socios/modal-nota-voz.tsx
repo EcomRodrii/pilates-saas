@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import * as Sentry from '@sentry/nextjs';
 import { Mic, Square, CheckCircle2 } from 'lucide-react';
-import { TentareOrb } from '@/components/marca/tentare-orb';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
+import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudio } from '@/lib/studio-context';
 import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
@@ -41,6 +42,8 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
     try {
       const r = await estructurarNotaIA({ texto: transcripcion, socioId, instructorId, sesionId });
       setResultado(r);
+      // Tenti avisa de que ha terminado (si suena en este dispositivo).
+      sonarTenti('pop');
     } catch (err) {
       setErrorAccion(err instanceof Error && err.message ? err.message : 'No se pudo procesar la nota. Inténtalo de nuevo.');
       Sentry.captureMessage('piloto-voz: fallo al estructurar nota', { tags: { motivo: 'estructurar-ia' } });
@@ -118,13 +121,16 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
                 <button
                   onClick={procesar}
                   disabled={procesando}
-                  className="flex items-center gap-1.5 px-4 py-2 border border-border rounded-xl text-xs font-bold disabled:opacity-40 hover:bg-muted transition-colors"
+                  aria-busy={procesando}
+                  className="flex items-center gap-1.5 px-4 py-2 border border-border rounded-xl text-xs font-bold [&:disabled:not([aria-busy=true])]:opacity-40 hover:bg-muted transition-colors"
                 >
-                  {/* El Orb en sus dos estados, en vez de un robot que se convierte en
+                  {/* Tenti en sus dos estados, en vez de un robot que se convierte en
                     un spinner genérico: es el MISMO objeto, primero quieto y
                     después pensando. Un icono distinto mientras trabaja decía que
-                    había empezado otra cosa. */}
-                  <TentareOrb tam={15} estado={procesando ? 'pensando' : 'reposo'} />
+                    había empezado otra cosa. Ocupado no es deshabilitado: no se
+                    atenúa. Ni en «Escuchando…» (lo transcribe el navegador) ni
+                    junto a la nota que estructura el modelo. */}
+                  <TentiIcono ancho={18} estado={procesando ? 'pensando' : 'reposo'} />
                   {procesando ? 'Procesando…' : 'Estructurar con IA'}
                 </button>
               )}

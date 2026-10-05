@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowDown, ArrowRight, Check } from 'lucide-react';
-import { TentareOrb } from '@/components/marca/tentare-orb';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { ANCLA_DECIDIR, invalidarEstadoEstudio, useEstadoEstudio } from '@/lib/estado-estudio-cliente';
 import type { LineaEstado } from '@/lib/estado-estudio';
 
@@ -83,8 +83,11 @@ export function EstadoDelEstudio({ accionesEnLinea }: { accionesEnLinea?: React.
           {accionesEnLinea}
         </div>
 
+        {/* Tenti firma lo que Tentare está haciendo por su cuenta: quieto, y el
+            bloque solo existe si hay algo en marcha. No dice «todo bien» ni
+            celebra nada: lo resuelto va aparte, con su Check. */}
         {datos && conBandeja && datos.enMarcha.length > 0 && (
-          <Bloque titulo="Tentare lo está haciendo" icono={<TentareOrb tam={14} />}>
+          <Bloque titulo="Tentare lo está haciendo" icono={<TentiIcono ancho={18} />}>
             <Lineas lineas={datos.enMarcha} tenue />
           </Bloque>
         )}

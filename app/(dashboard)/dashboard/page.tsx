@@ -21,7 +21,7 @@ import { AvisoIntegracionesCaidas } from '@/components/dashboard/aviso-integraci
 import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
 import { ProximasClases } from '@/components/dashboard/proximas-clases';
 import { EstadoDelEstudio } from '@/components/dashboard/estado-del-estudio';
-import { TentareOrb } from '@/components/marca/tentare-orb';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { ActionCenter } from '@/components/decision/action-center';
 import { fetchLayout } from '@/lib/api-client';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
@@ -834,10 +834,13 @@ export default function Dashboard() {
               href="/automatizaciones"
               className="flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              {/* El Orb, no un robot: aquí Tentare está ejecutando cosas por
-                  su cuenta, y esa es exactamente la idea que representa. */}
+              {/* Tenti en reposo, no un robot: aquí Tentare ejecuta cosas por
+                  su cuenta. Es decorativo (aria-hidden): el nombre del enlace
+                  sigue siendo «Sistema autónomo — …». Sobre bg-primary, con la
+                  silueta del color del texto: en oscuro el fondo es casi el
+                  del cuerpo. */}
               <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-card/10">
-                <TentareOrb tam={18} />
+                <TentiIcono ancho={22} sobre="invertida" />
               </div>
               <div className="min-w-0 flex-1">
                 {esperando === 0 ? (

@@ -10,7 +10,7 @@ import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { qrSvgMarkup } from '@/lib/qr-svg';
 import { calcularCambio, sugerenciasEfectivo } from '@/lib/pos/ticket';
 import { confirmarPago, esError, type RespuestaVenta } from '@/lib/pos/cliente';
-import { necesitaAtestiguar, type EstadoPagoPOS } from '@/lib/pos/tipos';
+import { CODIGO_INTENTO_CERRADO, necesitaAtestiguar, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 import { estadoBotonDatafono, mensajeSinConexion } from '@/lib/pos/datafono';
 import { BotonFactura } from './boton-factura';
@@ -77,7 +77,7 @@ export function HojaCobro({
    */
   bizumPermitido: boolean;
   /** Registra la venta en el servidor. Devuelve lo que respondió. */
-  onCobrar: (metodo: MetodoPago, efectivoRecibido: number | null) => Promise<RespuestaVenta | { error: string }>;
+  onCobrar: (metodo: MetodoPago, efectivoRecibido: number | null) => Promise<RespuestaVenta | { error: string; codigo?: string }>;
   /** La venta quedó cobrada de verdad. Vacía el ticket. */
   onHecho: (venta: RespuestaVenta) => void;
   onCerrar: () => void;
@@ -113,6 +113,11 @@ export function HojaCobro({
   const cambio = calcularCambio(total, parseFloat(entregado.replace(',', '.')) || 0);
   const sugerencias = sugerenciasEfectivo(total);
 
+  // La última versión del aviso de anulación, sin meterlo en las dependencias del
+  // sondeo (lo reiniciaría en cada render y la espera de 90 s no acabaría nunca).
+  const onVentaAnuladaRef = useRef(onVentaAnulada);
+  useEffect(() => { onVentaAnuladaRef.current = onVentaAnulada; }, [onVentaAnulada]);
+
   // ── Lanzar el cobro ───────────────────────────────────────────────────────
   const lanzar = useCallback(async (m: MetodoPago, efectivo: number | null) => {
     // El estado de carga se enciende ANTES del await, no después: la petición
@@ -121,7 +126,15 @@ export function HojaCobro({
     // captcha invisible.
     setFase({ f: 'enviando' });
     const r = await onCobrar(m, efectivo);
-    if (esError(r)) { setFase({ f: 'fallo', mensaje: r.error }); return; }
+    if (esError(r)) {
+      // El servidor sabe que de este intento no puede entrar dinero (no llegó a
+      // crearse el cobro, o está cancelado): «Probar otra vez» estrena otro. Sin
+      // eso, la misma clave devolvía la venta anulada, y con el datáfono apagado y
+      // ya encendido seguía diciendo «no responde».
+      if (r.codigo === CODIGO_INTENTO_CERRADO) onVentaAnuladaRef.current?.();
+      setFase({ f: 'fallo', mensaje: r.error });
+      return;
+    }
 
     if (r.estado === 'PAGADA') {
       // ⚠️ El EFECTIVO también cuenta como verificado, y no es un matiz: el
@@ -142,11 +155,6 @@ export function HojaCobro({
   // dependiera de `fase`, cada cambio de estado del pago reiniciaría el bucle
   // y el temporizador de 90 s no llegaría a agotarse nunca.
   const ventaEnCurso = fase.f === 'esperando' ? fase.venta.ventaId : null;
-  // La última versión del aviso de anulación, sin meterlo en las dependencias del
-  // sondeo (lo reiniciaría en cada render y la espera de 90 s no acabaría nunca).
-  const onVentaAnuladaRef = useRef(onVentaAnulada);
-  useEffect(() => { onVentaAnuladaRef.current = onVentaAnulada; }, [onVentaAnulada]);
-
   useEffect(() => {
     if (!ventaEnCurso) return;
     const limite = Date.now() + ESPERA_MAX_MS;
@@ -519,7 +527,7 @@ export function HojaCobro({
                 <>
                   <p className="text-[16px] font-semibold text-foreground">Que escanee este código</p>
                   <div className="w-44 h-44" dangerouslySetInnerHTML={{ __html: qrSvgMarkup(fase.url) }} />
-                  <a href={fase.url} target="_blank" rel="noopener noreferrer" className="text-[13px] text-brand underline">
+                  <a href={fase.url} target="_blank" rel="noopener noreferrer" className="text-[13px] text-brand-medio underline">
                     Abrir el enlace de pago
                   </a>
                 </>

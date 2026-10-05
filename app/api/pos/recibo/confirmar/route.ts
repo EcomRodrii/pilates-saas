@@ -4,9 +4,10 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
-import { prepararCobroExistente } from '@/lib/pos/cobro-del-estudio';
+import { cobroDeReciboSoloLectura, prepararCobroExistente } from '@/lib/pos/cobro-del-estudio';
 import { confirmarCobroRecibo } from '@/lib/billing/confirmar-cobro';
-import type { EstadoPagoPOS } from '@/lib/pos/tipos';
+import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
+import { mismoCobro } from '@/lib/pos/sumup';
 import type { MetodoPago } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -46,8 +47,13 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   const body = (await req.json().catch(() => null)) as
-    { reciboId?: unknown; metodo?: unknown; accion?: unknown } | null;
+    { reciboId?: unknown; metodo?: unknown; accion?: unknown; referencia?: unknown } | null;
   const reciboId = typeof body?.reciboId === 'string' ? body.reciboId : '';
+  // El cobro que espera la Caja. Solo se usa si no es el que tiene el recibo (abajo),
+  // y nunca se cree ni se toca: lo que se diga de él, solo si su metadata es la de
+  // este recibo y este estudio.
+  const referenciaCaja = typeof body?.referencia === 'string' && /^[A-Za-z0-9_:-]{3,200}$/.test(body.referencia)
+    ? body.referencia : null;
   const metodo = String(body?.metodo ?? 'DATAFONO') as MetodoPago;
   const accion = body?.accion === 'cancelar' ? 'cancelar' : 'consultar';
   if (!reciboId) return NextResponse.json({ error: 'Falta el recibo' }, { status: 400 });
@@ -63,6 +69,35 @@ export async function POST(req: NextRequest) {
 
   // Ya cerrado por el otro camino (el webhook llegó antes).
   if (recibo.estado === 'COBRADO') return responder('PAGADO', { cobrado: true });
+
+  // La Caja espera un cobro que el recibo ya no tiene: otro camino lo cerró y lo
+  // soltó (el aviso de Stripe tras un rechazo, el conciliador), o lo sustituyó otro
+  // intento (otra pestaña). Antes salía «no llegó a iniciarse» (falso: se rechazó o
+  // se abandonó), y «Cancelar el cobro» aquí cancelaba el cobro vivo de la otra
+  // pestaña. El guardado NUNCA se toca desde aquí: es de otro intento.
+  if (referenciaCaja && !mismoCobro(referenciaCaja, recibo.cobro_mostrador_pi)) {
+    // SOLO leyendo: la referencia llega del navegador (`cobroDeReciboSoloLectura`).
+    const d = await cobroDeReciboSoloLectura(admin, sesion.studioId, reciboId, referenciaCaja);
+    // Sin comprobar que es de este recibo (no es de Stripe, no se pudo leer, o es de
+    // otro): ni se afirma ni se toca nada.
+    if (!d?.comprobado) return responder('PROCESANDO');
+    if (d.estado !== 'PAGADO' && esEstadoFinal(d.estado)) return responder(d.estado, d.motivo ? { motivo: d.motivo } : {});
+    // Vivo (o entró) y de ESTE recibo, comprobado antes de tocarlo: se trata como el
+    // guardado. Se puede cancelar, y cerrarlo si el lector ya no lo tiene.
+    const propio = await prepararCobroExistente(admin, sesion.studioId, referenciaCaja, d.metodo, { origen: req.nextUrl.origin });
+    if (!propio.ok) return responder('PROCESANDO', { aviso: propio.motivo });
+    try {
+      if (accion === 'cancelar') {
+        await propio.cobro.cancelar(referenciaCaja, referenciaCaja.startsWith('cs_') ? referenciaCaja : null);
+      }
+      const est = await propio.cobro.consultar(referenciaCaja);
+      // Uno que entró lo cierra el aviso de Stripe: cierra el recibo por su metadata.
+      if (est.estado === 'PAGADO' || !esEstadoFinal(est.estado)) return responder(est.estado === 'PAGADO' ? 'PROCESANDO' : est.estado);
+      return responder(est.estado, { motivo: est.error ?? null });
+    } catch (e) {
+      return errorInterno('[pos/recibo] excepción con el cobro de la Caja', e, 'No hemos podido comprobar el cobro.');
+    }
+  }
 
   if (!recibo.cobro_mostrador_pi) {
     return responder('ERROR', { motivo: 'Ese cobro no llegó a iniciarse.' });

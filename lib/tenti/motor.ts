@@ -23,10 +23,27 @@
 // «reducir movimiento» (`quieto`) quita todo recorrido, no solo lo acorta.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { sonar, type Sonido } from './sonidos.ts';
+import type { Sonido } from './sonidos.ts';
 import type { PaletaTenti } from './paleta.ts';
+// El dibujo (contorno, ojos, mofletes, luz) sale de la misma geometría que el
+// icono de lo diario: aquí solo se anima.
+import { BAJADA, LUZ, MOFLETE, OJO, SILUETA_PX, colocarOjo, medidas, pildora, recorrerContorno } from './geometria.ts';
 
 type RGB = [number, number, number];
+
+// Los sonidos van en su propio chunk y se piden la primera vez que hacen falta:
+// con «Sonidos de Tenti» apagado (Configuración › Tu panel) no se descarga la
+// síntesis de veinticinco efectos. Se piden al encender `sonido`, no al primer
+// efecto, para que ese primero no llegue tarde respecto al gesto que lo provoca.
+let sonidos: typeof import('./sonidos.ts') | null = null;
+let pidiendoSonidos: Promise<void> | null = null;
+function cargarSonidos(): Promise<void> {
+  return (pidiendoSonidos ??= import('./sonidos.ts').then(
+    (m) => { sonidos = m; },
+    // Si el chunk no llega, otro intento la próxima vez: un sonido no rompe nada.
+    () => { pidiendoSonidos = null; },
+  ));
+}
 
 const AHORA = () => performance.now();
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -41,9 +58,6 @@ const E: Record<'out' | 'inOut' | 'back' | 'lin', Curva> = {
 const hexRgb = (h: string): RGB => { h = h.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; };
 const rgba = (c: RGB, a: number) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 const mix = (a: RGB, b: RGB, t: number): RGB => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
-
-// Dónde van los ojos en el cuerpo (la «pista mochi» del prototipo).
-const OJO = { w: 0.25, h: 0.27, sp: 0.37, p: -0.12 };
 
 // Los colores del prototipo, para cuando nadie le pasa una paleta (o los tokens
 // no se pudieron leer: el componente lo marca con data-paleta="defecto").
@@ -101,8 +115,11 @@ export const EMOCIONES = {
   orgullo: { etiqueta: 'Orgullo', ojo: 'star', sonido: 'proud' },
   guino: { etiqueta: 'Guiño', ojo: 'wink', sonido: 'wink' },
   bostezo: { etiqueta: 'Bostezo', ojo: 'tired', sonido: 'yawn' },
-  feliz: { etiqueta: 'Feliz', ojo: 'happy' },
-  molesto: { etiqueta: 'Molesto', ojo: 'line' },
+  // 'feliz' suena (corto y alegre): es la emoción del logo guardado. Al
+  // saludar va en silencio, porque el saludo ya lleva su propio sonido.
+  feliz: { etiqueta: 'Feliz', ojo: 'happy', sonido: 'love' },
+  // El segundo toque seguido: «¡eh!».
+  molesto: { etiqueta: 'Molesto', ojo: 'line', sonido: 'annoyed' },
 } satisfies Record<string, { etiqueta: string; ojo: FormaOjo; sonido?: Sonido }>;
 export type EmocionTenti = keyof typeof EMOCIONES;
 
@@ -135,6 +152,12 @@ export interface OpcionesTenti {
   insignias?: boolean;
   /** «Reducir movimiento»: sin recorrido, ver `animacionDeEntrada`. */
   quieto?: boolean;
+  /** Mira alrededor de vez en cuando, en reposo (`proximoDespertar` lo cuenta). */
+  miradas?: boolean;
+  /** El color de la silueta por dentro del cuerpo, o null para no pintarla.
+   *  Es la del icono (`SILUETA_PX`): a tamaño de icono, en claro, el cuerpo
+   *  crema da 1,04:1 sobre --card y sin ella Tenti son dos ojos flotando. */
+  silueta?: string | null;
 }
 
 interface ColoresRgb { luz: RGB; sombra: RGB; rubor: RGB }
@@ -145,9 +168,17 @@ export class Tenti {
   private x: CanvasRenderingContext2D;
   private mini: boolean;
   private colorCuerpo: RGB | null;
-  sonido: boolean;
+  private conSonido = false;
+  /** Si sus reacciones suenan. Al encenderlo se piden los sonidos (otro chunk). */
+  get sonido(): boolean { return this.conSonido; }
+  set sonido(v: boolean) { this.conSonido = v; if (v) void cargarSonidos(); }
   /** «Reducir movimiento». Se puede cambiar en vivo. */
   quieto: boolean;
+  /** Mirar alrededor en reposo. Se puede cambiar en vivo. */
+  miradas: boolean;
+  /** Ver `OpcionesTenti.silueta`. Se puede cambiar en vivo (claro ↔ oscuro). */
+  silueta: string | null;
+  private dpr = 1;
   private insignias: boolean;
   private paleta: PaletaTenti = PALETA_PROTOTIPO;
   private rgb: ColoresRgb = aRgb(PALETA_PROTOTIPO);
@@ -171,6 +202,10 @@ export class Tenti {
   private proxParpadeo: number;
   /** Hacia dónde mira, de -1 a 1 en cada eje. */
   mira = { x: 0, y: 0 };
+  /** La mirada de ambiente en curso (se suma a `mira`) y hasta cuándo dura. */
+  private mirada = { x: 0, y: 0 };
+  private miradaHasta = 0;
+  private proxMirada: number;
   private t0: number;
   private saludaHasta = 0;
   private ultimoAmbiente = 0;
@@ -179,20 +214,23 @@ export class Tenti {
 
   constructor(canvas: HTMLCanvasElement, {
     mini = false, colorCuerpo = null, sonido = false, paleta = null, insignias = true, quieto = false,
+    miradas = false, silueta = null,
   }: OpcionesTenti = {}) {
     this.c = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Tenti necesita un canvas 2D');
     this.x = ctx; this.mini = mini; this.colorCuerpo = colorCuerpo ? hexRgb(colorCuerpo) : null; this.sonido = sonido;
-    this.insignias = insignias; this.quieto = quieto;
+    this.insignias = insignias; this.quieto = quieto; this.miradas = miradas; this.silueta = silueta;
     if (paleta) this.ponerPaleta(paleta);
     this.proxParpadeo = AHORA() + 1500 + Math.random() * 2000;
+    this.proxMirada = AHORA() + 2500 + Math.random() * 4000;
     this.t0 = AHORA() - Math.random() * 5000;
   }
 
   /** Ajusta la resolución del canvas a su tamaño en pantalla. */
   medir(cssPx: number) {
     const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+    this.dpr = dpr;
     this.c.width = Math.round(cssPx * dpr); this.c.height = Math.round(cssPx * dpr);
   }
 
@@ -201,7 +239,11 @@ export class Tenti {
     this.temporizadores.add(t);
   }
   destruir() { for (const t of this.temporizadores) clearTimeout(t); this.temporizadores.clear(); }
-  private suena(n?: Sonido) { if (this.sonido && n) sonar(n); }
+  private suena(n?: Sonido) {
+    if (!this.conSonido || !n) return;
+    if (sonidos) sonidos.sonar(n);
+    else void cargarSonidos().then(() => { if (this.conSonido) sonidos?.sonar(n); });
+  }
 
   private anim(p: Prop, keys: Clave[], after?: () => void) {
     this.tw = this.tw.filter((t) => t.p !== p);
@@ -255,8 +297,10 @@ export class Tenti {
   }
 
   parpadear() { if (this.lock.open) return; this.anim('open', [[0.06, 70, E.inOut], [1, 130, E.out]]); }
-  /** Se aplasta, como al tocarlo. */
+  /** Se aplasta, como al tocarlo, y suena (el sonido no es movimiento: con
+   *  «reducir movimiento» suena igual, sin aplastarse). */
   aplastar() {
+    this.suena('slap');
     if (this.quieto) return;
     this.anim('sy', [[0.78, 70, E.out], [1.1, 130, E.out], [1, 170, E.inOut]]);
     this.anim('sx', [[1.16, 70, E.out], [0.95, 130, E.out], [1, 170, E.inOut]]);
@@ -312,15 +356,56 @@ export class Tenti {
   /**
    * Si queda algo por moverse: un tween, un temporizador, una partícula, unos
    * ojos forzados que tienen que volver, o un valor que aún no ha llegado a su
-   * objetivo. Con `quieto`, el bucle de fotogramas sigue mientras esto sea
+   * objetivo. El bucle de fotogramas sigue mientras esto (o `perpetuo()`) sea
    * cierto y ni uno más: pararlo a una hora fija dejaba un parpadeo a medias,
-   * con los ojos entornados hasta el siguiente despertar.
+   * con los ojos entornados hasta el siguiente despertar. Los temporizadores
+   * cuentan a propósito: el hueco del parpadeo doble son 30 ms, y así el bucle
+   * no se duerme entre los dos.
    */
   animando(): boolean {
     if (this.tw.length || this.temporizadores.size || this.parts.length || this.ojoForzado) return true;
     if (AHORA() < this.saludaHasta) return true;
-    for (const k of Object.keys(this.tg) as Prop[]) if (Math.abs(this.tg[k] - this.s[k]) > 0.002) return true;
+    // A tamaño de icono (mini) un 0,01 no llega a medio píxel: no merece los
+    // treinta fotogramas de cola que cuesta acercarse a 0,002.
+    const umbral = this.mini ? 0.01 : 0.002;
+    for (const k of Object.keys(this.tg) as Prop[]) if (Math.abs(this.tg[k] - this.s[k]) > umbral) return true;
     return Math.abs(this.col[0] - this.colT[0]) + Math.abs(this.col[1] - this.colT[1]) + Math.abs(this.col[2] - this.colT[2]) > 1;
+  }
+
+  /**
+   * Lo que se mueve sin fin mientras dure: escanear, botar, respirar, el mareo,
+   * la insignia de puntos, los ojos que giran (espiral, estrella) y la mano del
+   * saludo. Mientras sea cierto, un fotograma por refresco; si no, el bucle
+   * duerme hasta `proximoDespertar()`. Con `quieto` nada de esto se mueve.
+   */
+  perpetuo(): boolean {
+    if (this.quieto) return false;
+    const c = this.cfg;
+    if (c.escanea || c.bota || c.respira || this.estado === 'mareado') return true;
+    if (this.insignias && this.insignia === 'dots' && !this.mini) return true;
+    const forma = this.ojoForzado || c.ojo;
+    if (forma === 'spiral' || forma === 'star') return true;
+    return AHORA() < this.saludaHasta;
+  }
+
+  /**
+   * Cuándo vuelve a pasar algo sin que nadie lo pida: el próximo parpadeo y,
+   * solo fuera de mini, la siguiente partícula de ambiente de 'dormido' y
+   * 'agobiado' (que el panel no usa). Con `quieto`, nunca: ni parpadea ni echa
+   * partículas, así que no hay por qué despertar.
+   */
+  proximoDespertar(): number {
+    if (this.quieto) return Infinity;
+    const c = this.cfg;
+    const ambiente = !this.mini && (c.zz || c.suda) ? this.ultimoAmbiente + 1300 : Infinity;
+    // Una mirada en curso se despierta para volver al frente; si no, para la siguiente.
+    const mirada = !this.miraAlrededor() ? Infinity : this.miradaHasta > AHORA() ? this.miradaHasta : this.proxMirada;
+    return Math.min(this.proxParpadeo, ambiente, mirada);
+  }
+
+  /** Si toca mirar alrededor: solo en reposo, y nunca con «reducir movimiento». */
+  private miraAlrededor(): boolean {
+    return this.miradas && !this.quieto && this.estado === 'reposo';
   }
 
   private actualizar() {
@@ -341,7 +426,20 @@ export class Tenti {
         }
       }
     }
-    let ty = q ? 0 : this.mira.x * 0.62, tp = q ? 0 : this.mira.y * 0.5;
+    // Las miradas de ambiente: de vez en cuando mira a un lado (y un poco arriba
+    // o abajo) un rato, y vuelve al frente. Se suman a `mira`, sin pisarla.
+    if (this.miraAlrededor()) {
+      if (n >= this.proxMirada) {
+        const lado = Math.random() < 0.5 ? -1 : 1;
+        this.mirada = { x: lado * (0.4 + Math.random() * 0.45), y: (Math.random() - 0.4) * 0.6 };
+        this.miradaHasta = n + 900 + Math.random() * 900;
+        this.proxMirada = this.miradaHasta + 4500 + Math.random() * 5500;
+      } else if (n >= this.miradaHasta) this.mirada = { x: 0, y: 0 };
+    } else {
+      this.mirada = { x: 0, y: 0 };
+      if (n >= this.proxMirada) this.proxMirada = n + 2500 + Math.random() * 4000;
+    }
+    let ty = q ? 0 : clamp(this.mira.x + this.mirada.x, -1, 1) * 0.62, tp = q ? 0 : clamp(this.mira.y + this.mirada.y, -1, 1) * 0.5;
     if (c.mira) { ty = ty * 0.35 + c.mira[0] * 0.55; tp = tp * 0.3 + c.mira[1] * 0.5; }
     if (c.escanea && !q) { ty = Math.sin(t * 2.6) * 0.6; tp = -0.06; }
     if (this.estado === 'dormido') { ty = 0; tp = -0.14; }
@@ -349,7 +447,10 @@ export class Tenti {
     const bota = c.bota && !q, respira = c.respira && !q;
     tg.yaw = ty; tg.pitch = tp; tg.tilt = c.ladea || 0; tg.oy = bota ? -Math.abs(Math.sin(t * 5.2)) * 0.07 : 0;
     tg.sy = respira ? 1 + Math.sin(t * 1.8) * 0.035 : 1; tg.sx = respira ? 1 - Math.sin(t * 1.8) * 0.02 : 1;
-    const kMira = 1 - Math.pow(0.0025, dt), kGen = 1 - Math.pow(0.0008, dt);
+    // En mini (tamaño de icono) la cabeza gira más deprisa: a 26-41 px el giro
+    // lento no se aprecia y cada fotograma de cola cuesta igual (medido en
+    // Resumen: las miradas eran la mayor parte de lo que pintaba en reposo).
+    const kMira = 1 - Math.pow(this.mini ? 0.0001 : 0.0025, dt), kGen = 1 - Math.pow(0.0008, dt);
     for (const k of Object.keys(tg) as Prop[]) { if (this.lock[k]) continue; s[k] += (tg[k] - s[k]) * (k === 'yaw' || k === 'pitch' ? kMira : kGen); }
     this.col = mix(this.col, this.colT, 1 - Math.pow(0.002, dt));
     if (n > this.proxParpadeo) {
@@ -369,17 +470,13 @@ export class Tenti {
   private dibujar() {
     const x = this.x, W = this.c.width, H = this.c.height, s = this.s, P = this.rgb;
     x.clearRect(0, 0, W, H);
-    const R = W * 0.3; const rx = R * 1.14, ry = R * 0.88;
-    const cx = W / 2 + s.ox * R, cy = H / 2 + s.oy * R + R * 0.06;
+    const { R, rx, ry } = medidas(W);
+    const cx = W / 2 + s.ox * R, cy = H / 2 + s.oy * R + R * BAJADA;
     const col = this.col;
     x.save(); x.translate(cx, cy); x.rotate(s.tilt); x.scale(s.sx, s.sy);
     const path = new Path2D(), m = s.morph;
     if (m < 0.01) {
-      for (let i = 0; i <= 72; i++) {
-        const a = i / 72 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
-        const px = rx * Math.sign(ca) * Math.pow(Math.abs(ca), 2 / 2.7), py = ry * Math.sign(sa) * Math.pow(Math.abs(sa), 2 / 2.7);
-        if (i) path.lineTo(px, py); else path.moveTo(px, py);
-      }
+      recorrerContorno(rx, ry, (px, py, i) => { if (i) path.lineTo(px, py); else path.moveTo(px, py); });
       path.closePath();
     } else {
       const w = lerp(rx, R * 1.02, m), h = lerp(ry, R * 0.94, m), r = lerp(Math.min(rx, ry), R * 0.34, m);
@@ -390,34 +487,37 @@ export class Tenti {
     {
       let c0: RGB, c1: RGB;
       if (bc) { c0 = mix(bc, [255, 255, 255], 0.35); c1 = mix(bc, [0, 0, 0], 0.18); } else { c0 = P.luz; c1 = P.sombra; }
-      const g = x.createLinearGradient(rx * 0.7, -ry * 0.85, -rx * 0.8, ry * 0.9); g.addColorStop(0, rgba(c0, 1)); g.addColorStop(1, rgba(c1, 1)); x.fillStyle = g; x.fill(path);
+      const { degradado: dg, volumen: vo, brillo: br } = LUZ;
+      const g = x.createLinearGradient(rx * dg.desde[0], ry * dg.desde[1], rx * dg.hasta[0], ry * dg.hasta[1]); g.addColorStop(0, rgba(c0, 1)); g.addColorStop(1, rgba(c1, 1)); x.fillStyle = g; x.fill(path);
       if (!bc && s.tint > 0.01) {
         const tg2 = x.createLinearGradient(0, ry, 0, -ry * 0.25); tg2.addColorStop(0, rgba(col, 0.92 * s.tint)); tg2.addColorStop(1, rgba(col, 0));
         x.fillStyle = tg2; x.fill(path);
       }
-      const sh = x.createRadialGradient(rx * 0.25, -ry * 0.32, R * 0.15, 0, 0, R * 1.25);
-      sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.6, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.2)'); x.fillStyle = sh; x.fill(path);
-      const hl = x.createRadialGradient(rx * 0.34, -ry * 0.46, 0, rx * 0.34, -ry * 0.46, R * 0.42);
-      hl.addColorStop(0, 'rgba(255,255,255,.55)'); hl.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = hl; x.fill(path);
+      const sh = x.createRadialGradient(rx * vo.foco[0], ry * vo.foco[1], R * vo.radioFoco, 0, 0, R * vo.radio);
+      sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(vo.desde, 'rgba(0,0,0,0)'); sh.addColorStop(1, `rgba(0,0,0,${vo.opacidad})`); x.fillStyle = sh; x.fill(path);
+      const hl = x.createRadialGradient(rx * br.centro[0], ry * br.centro[1], 0, rx * br.centro[0], ry * br.centro[1], R * br.radio);
+      hl.addColorStop(0, `rgba(255,255,255,${br.opacidad})`); hl.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = hl; x.fill(path);
+      // La silueta, POR DENTRO, como la del icono: el trazo es el doble y el
+      // recorte se come la mitad de fuera. Mide SILUETA_PX en px de pantalla.
+      if (this.silueta) {
+        x.save(); x.clip(path); x.strokeStyle = this.silueta; x.lineWidth = 2 * SILUETA_PX * this.dpr / Math.max(0.5, Math.min(s.sx, s.sy));
+        x.stroke(path); x.restore();
+      }
     }
     // mofletes
-    const bl = Math.max(s.blush, 0.35) * (1 - m);
+    const bl = Math.max(s.blush, MOFLETE.minimo) * (1 - m);
     if (bl > 0.01) {
-      x.save(); x.clip(path); const yo = Math.sin(s.yaw) * rx * 0.8; x.fillStyle = rgba(P.rubor, 0.5 * bl);
-      for (const sd of [-1, 1]) { x.beginPath(); x.ellipse(sd * rx * 0.55 + yo, ry * 0.2, R * 0.17, R * 0.1, 0, 0, Math.PI * 2); x.fill(); }
+      x.save(); x.clip(path); const yo = Math.sin(s.yaw) * rx * MOFLETE.giro; x.fillStyle = rgba(P.rubor, MOFLETE.opacidad * bl);
+      for (const sd of [-1, 1]) { x.beginPath(); x.ellipse(sd * rx * MOFLETE.x + yo, ry * MOFLETE.y, R * MOFLETE.rx, R * MOFLETE.ry, 0, 0, Math.PI * 2); x.fill(); }
       x.restore();
     }
     // ojos: sobre una esfera, para que giren con la cabeza
     const tinta = this.paleta.tinta;
     x.save(); x.clip(path); x.fillStyle = tinta; x.strokeStyle = tinta;
     const forma = this.ojoForzado || this.cfg.ojo;
-    for (const sd of [-1, 1]) {
-      const yaw = sd * OJO.sp + s.yaw; let pitch = OJO.p + s.pitch + s.roll;
-      pitch = ((pitch + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
-      const cp = Math.cos(pitch); if (Math.cos(yaw) * cp < 0.04) continue;
-      const px = Math.sin(yaw) * cp * rx; let py = -Math.sin(pitch) * ry; if (m > 0) py += ry * 0.14 * m;
-      const fx = lerp(Math.max(0.18, Math.cos(yaw)), 1, m * 0.7), fy = lerp(Math.max(0.18, cp), 1, m * 0.7);
-      x.save(); x.translate(px, py); x.scale(fx, fy); this.ojo(forma, R * OJO.w * s.es, R * OJO.h * s.es, s.open, sd); x.restore();
+    for (const sd of [-1, 1] as const) {
+      const o = colocarOjo(sd, s.yaw, s.pitch, rx, ry, m, s.roll); if (!o) continue;
+      x.save(); x.translate(o.x, o.y); x.scale(o.escalaX, o.escalaY); this.ojo(forma, R * OJO.w * s.es, R * OJO.h * s.es, s.open, sd); x.restore();
     }
     x.restore();
     x.restore();
@@ -483,7 +583,7 @@ export class Tenti {
     const x = this.x, t = AHORA() / 1000;
     switch (forma) {
       case 'wide': w *= 1.16; h *= 1.12; // y sigue como 'pill', más grande
-      case 'pill': { const hh = Math.max(h * abierto, w * 0.3); rr(x, -w / 2, -hh / 2, w, hh, Math.min(w / 2, hh / 2)); x.fill(); break; }
+      case 'pill': { const p = pildora(w, h, abierto); rr(x, -w / 2, -p.alto / 2, w, p.alto, p.radio); x.fill(); break; }
       case 'dot': x.beginPath(); x.arc(0, 0, w * 0.45, 0, Math.PI * 2); x.fill(); break;
       case 'line': x.rotate(-sd * 0.2); rr(x, -w * 0.78, -w * 0.21, w * 1.56, w * 0.42, w * 0.21); x.fill(); break;
       case 'flat': rr(x, -w * 0.72, -w * 0.2, w * 1.44, w * 0.4, w * 0.2); x.fill(); break;

@@ -12,6 +12,7 @@ import type {
   Prioridad, Recomendacion, ResumenDiario, Riesgo, TipoRecomendacion,
 } from './tipos.ts';
 import type { NuevoHechoMemoria } from './memoria.ts';
+import type { ResultadoEjecucion } from './resultado-ejecucion.ts';
 import type { CandidataPriorizada } from './prioridad.ts';
 import { type AutonomiaConfig, AUTONOMIA_CONFIG_DEFAULT, sanitizarConfig } from './autonomia.ts';
 import { FLAG_REDACCION_IA, redaccionIaActiva } from './redaccion-ia.ts';
@@ -88,6 +89,7 @@ interface RowRecomendaciones {
   accion: Record<string, unknown>; socio_id: string | null; sesion_id: string | null; recibo_id: string | null;
   tiempo_estimado_min: number; estado: string; vista_en: string | null; expira_en: string;
   creado_en: string; resuelto_en: string | null; resuelto_por: string | null;
+  resultado?: Record<string, unknown> | null;
 }
 
 function mapRecomendacion(row: RowRecomendaciones): Recomendacion {
@@ -102,9 +104,12 @@ function mapRecomendacion(row: RowRecomendaciones): Recomendacion {
     tiempoEstimadoMin: row.tiempo_estimado_min, estado: row.estado as EstadoRecomendacion,
     vistaEn: row.vista_en, expiraEn: row.expira_en, creadoEn: row.creado_en,
     resueltoEn: row.resuelto_en, resueltoPor: row.resuelto_por,
+    resultado: (row.resultado ?? null) as ResultadoEjecucion | null,
   };
 }
 
+// Sin `resultado` a propósito: lo escribe solo el ejecutor, al cerrarla
+// (`dbTransicionarRecomendacion`), y el refresco de una PENDIENTE no lo pisa.
 function recomendacionToDb(r: Recomendacion) {
   return {
     id: r.id, studio_id: r.studioId, decision_session_id: r.decisionSessionId, algorithm_version: r.algorithmVersion,
@@ -172,7 +177,12 @@ export async function dbUpsertRecomendacion(r: Recomendacion): Promise<void> {
     const actualizable: Partial<typeof row> = { ...row };
     delete actualizable.id;
     delete actualizable.creado_en;
-    const { error } = await db().from('recomendaciones').update(actualizable).eq('id', existente.id);
+    // `estado = 'PENDIENTE'` también en el UPDATE, no solo en la lectura de
+    // arriba: entre las dos la propietaria puede aprobarla, y el refresco
+    // (que trae `estado: 'PENDIENTE'` y `resuelto_*: null`) la devolvía a
+    // PENDIENTE con el cobro ya encolado. Si ya no lo está, no se toca: el
+    // motor la recalculará cuando salga de APROBADA, como arriba.
+    const { error } = await db().from('recomendaciones').update(actualizable).eq('id', existente.id).eq('estado', 'PENDIENTE');
     if (error) reportError('[dbUpsertRecomendacion:update]', error);
   } else {
     const { error } = await db().from('recomendaciones').insert(row);
@@ -189,27 +199,42 @@ export async function dbUpsertRecomendacion(r: Recomendacion): Promise<void> {
 // comprobación `recomendacion.studioId !== sesion.studioId` de las rutas
 // aprobar/rechazar) — correcta hoy, pero frágil: un futuro caller que no la
 // repitiera reabriría el mismo hueco que ya se cerró una vez en #195.
+// `noEstaba` separa «ya no estaba en `desde`» (otra vía la resolvió: un 409 que
+// se le puede explicar a la propietaria) de un fallo de la base de datos (un
+// 500): las rutas devuelven a la pantalla el error de verdad, no el mismo para
+// los dos. `resultado` lo pasa el ejecutor al cerrarla: va en el MISMO UPDATE
+// que el estado, así que nunca hay una EJECUTADA/FALLIDA sin lo que pasó.
 export async function dbTransicionarRecomendacion(
   id: string,
   studioId: string,
   desde: EstadoRecomendacion,
   hacia: EstadoRecomendacion,
-  extra: { resueltoPor?: string | null; resueltoEn?: string } = {}
-): Promise<{ ok: boolean; motivo?: string }> {
+  extra: { resueltoPor?: string | null; resueltoEn?: string | null; resultado?: ResultadoEjecucion } = {}
+): Promise<{ ok: boolean; motivo?: string; noEstaba?: boolean }> {
   const patch: Record<string, unknown> = { estado: hacia };
   if (extra.resueltoPor !== undefined) patch.resuelto_por = extra.resueltoPor;
   if (extra.resueltoEn !== undefined) patch.resuelto_en = extra.resueltoEn;
+  if (extra.resultado !== undefined) patch.resultado = extra.resultado;
 
-  const { data, error } = await db()
+  const transicionar = (p: Record<string, unknown>) => db()
     .from('recomendaciones')
-    .update(patch)
+    .update(p)
     .eq('id', id)
     .eq('studio_id', studioId)
     .eq('estado', desde)
     .select('id')
     .maybeSingle();
+  let { data, error } = await transicionar(patch);
+  // Desplegado antes de aplicar la migración de `resultado` (20261005143004):
+  // el estado no puede quedarse sin cerrar por una columna que aún no existe —
+  // un cobro ya hecho se quedaría APROBADO para siempre, sin su línea en
+  // Actividad—, así que se cierra sin ella.
+  if (error && 'resultado' in patch && /resultado/.test(error.message ?? '') && (error.code === 'PGRST204' || error.code === '42703')) {
+    const { resultado: _sinColumna, ...sinResultado } = patch;
+    ({ data, error } = await transicionar(sinResultado));
+  }
   if (error) { reportError('[dbTransicionarRecomendacion]', error); return { ok: false, motivo: error.message }; }
-  if (!data) return { ok: false, motivo: `La recomendación no estaba en estado ${desde}` };
+  if (!data) return { ok: false, motivo: `La recomendación no estaba en estado ${desde}`, noEstaba: true };
   return { ok: true };
 }
 
@@ -262,10 +287,38 @@ export async function dbListResueltas90d(studioId: string, now: Date): Promise<R
   return (data ?? []).map(r => mapRecomendacion(r as RowRecomendaciones));
 }
 
-export async function dbGetRecomendacion(id: string): Promise<Recomendacion | null> {
-  const { data, error } = await db().from('recomendaciones').select('*').eq('id', id).maybeSingle();
-  if (error) { reportError('[dbGetRecomendacion]', error); return null; }
+/**
+ * `undefined` si la consulta falla, `null` si no hay ninguna: no es lo mismo.
+ * El ejecutor daba un fallo pasajero de la base de datos por «no existe» y
+ * terminaba sin hacer nada, con la recomendación APROBADA para siempre; las
+ * rutas respondían 404 a lo que era un 500.
+ *
+ * `studioId`, cuando se sabe de qué estudio tiene que ser: corre con
+ * service-role, sin RLS, y la de otro estudio no existe para quien pregunta.
+ */
+export async function dbGetRecomendacion(id: string, studioId?: string): Promise<Recomendacion | null | undefined> {
+  let consulta = db().from('recomendaciones').select('*').eq('id', id);
+  if (studioId !== undefined) consulta = consulta.eq('studio_id', studioId);
+  const { data, error } = await consulta.maybeSingle();
+  if (error) { reportError('[dbGetRecomendacion]', error); return undefined; }
   return data ? mapRecomendacion(data as RowRecomendaciones) : null;
+}
+
+/**
+ * Solo el estado y lo que pasó al ejecutarla, para que la pantalla pregunte
+ * cómo terminó un cobro sin pedir otra vez el Centro de Control entero
+ * (GET /api/decisiones/[id]/estado). Acotada al estudio en la propia consulta:
+ * la de otro estudio no existe. `undefined` si la consulta falla, `null` si no
+ * hay ninguna.
+ */
+export async function dbGetEstadoRecomendacion(
+  id: string, studioId: string,
+): Promise<{ estado: EstadoRecomendacion; resultado: ResultadoEjecucion | null } | null | undefined> {
+  const { data, error } = await db()
+    .from('recomendaciones').select('estado, resultado').eq('id', id).eq('studio_id', studioId).maybeSingle();
+  if (error) { reportError('[dbGetEstadoRecomendacion]', error); return undefined; }
+  if (!data) return null;
+  return { estado: data.estado as EstadoRecomendacion, resultado: (data.resultado ?? null) as ResultadoEjecucion | null };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -681,9 +734,13 @@ export async function dbCalcularSeguimientoPorTipo(
   const ids = [...new Set((mensajes ?? []).map(m => m.recomendacion_id as string))];
   if (ids.length === 0) return [];
 
+  // Acotada al estudio también aquí, aunque los ids salgan de sus mensajes:
+  // corre con service-role, y un id que apuntara a la recomendación de otro
+  // estudio calibraría su Umbral con decisiones ajenas.
   const { data: recos, error: errRecos } = await db()
     .from('recomendaciones')
     .select('tipo, estado')
+    .eq('studio_id', studioId)
     .in('id', ids);
   if (errRecos) { reportError('[dbCalcularSeguimientoPorTipo:recomendaciones]', errRecos); return []; }
 

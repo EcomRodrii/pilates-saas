@@ -219,7 +219,7 @@ export function EditorZip({ id }: { id: string }) {
       <div className="min-h-dvh flex items-center justify-center p-6">
         <div className="text-center space-y-3">
           <p className="text-[15px] font-semibold text-foreground">No se ha encontrado este tema importado.</p>
-          <Link href={RUTA_APARIENCIA} className="text-[13px] text-brand underline">Volver a Apariencia</Link>
+          <Link href={RUTA_APARIENCIA} className="text-[13px] text-brand-medio underline">Volver a Apariencia</Link>
         </div>
       </div>
     );
@@ -233,7 +233,7 @@ export function EditorZip({ id }: { id: string }) {
           <p className="text-[15px] font-semibold text-foreground">
             Este tema no se pudo importar en modo estático — no se puede editar.
           </p>
-          <Link href={RUTA_APARIENCIA} className="text-[13px] text-brand underline">Volver a Apariencia</Link>
+          <Link href={RUTA_APARIENCIA} className="text-[13px] text-brand-medio underline">Volver a Apariencia</Link>
         </div>
       </div>
     );

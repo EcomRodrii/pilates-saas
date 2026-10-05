@@ -211,13 +211,20 @@ export function cobrarReciboEnMostrador(reciboId: string, metodo: 'DATAFONO' | '
   );
 }
 
+/**
+ * `referencia`: el cobro que espera esta Caja (el que devolvió
+ * `cobrarReciboEnMostrador`). Si otro camino ya lo cerró y soltó el recibo (el
+ * aviso de Stripe, el conciliador), con ella el servidor dice qué pasó.
+ */
 export function confirmarCobroRecibo(
-  reciboId: string, metodo: 'DATAFONO' | 'BIZUM', accion: 'consultar' | 'cancelar' = 'consultar',
+  reciboId: string, metodo: 'DATAFONO' | 'BIZUM', accion: 'consultar' | 'cancelar' = 'consultar', referencia?: string | null,
 ) {
   return pedir<{
     reciboId: string; estado: string; pagoEstado: EstadoPagoPOS; importe: number;
     cobrado?: boolean; motivo?: string | null; aviso?: string;
-  }>('/api/pos/recibo/confirmar', { method: 'POST', body: JSON.stringify({ reciboId, metodo, accion }) });
+  }>('/api/pos/recibo/confirmar', {
+    method: 'POST', body: JSON.stringify({ reciboId, metodo, accion, ...(referencia ? { referencia } : {}) }),
+  });
 }
 
 /** ¿La respuesta trae un error? Estrecha el tipo para no repetir el `in` por todas partes. */

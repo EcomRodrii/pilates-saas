@@ -77,7 +77,7 @@ export function VentasRecientes() {
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Receipt className="size-4 text-brand" />
+          <Receipt className="size-4 text-brand-medio" />
           <p className="text-[13px] font-medium text-foreground">Ventas recientes</p>
         </div>
         <Link href="/cobros?tab=cobrado" className="text-[12px] font-semibold text-brand-medio hover:underline">

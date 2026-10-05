@@ -262,7 +262,7 @@ function ConexionUsc({ config, onGuardada, showToast }: {
       <button
         type="submit"
         disabled={guardando}
-        className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+        className="rounded-lg px-3 py-1.5 text-xs font-semibold text-brand-foreground disabled:opacity-50"
         style={{ background: 'var(--brand)' }}
       >
         {guardando ? 'Guardando…' : 'Guardar conexión'}

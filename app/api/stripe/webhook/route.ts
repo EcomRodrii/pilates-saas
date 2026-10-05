@@ -18,6 +18,7 @@ import { liberarCobroPosFallido } from '@/lib/pos/liberar-cobro-fallido';
 import { metodoRealBizum } from '@/lib/pos/metodo-real-bizum';
 import { cerrarCheckoutDeBizumFallido } from '@/lib/pos/cerrar-bizum-fallido';
 import { motivoRechazoDatafono } from '@/lib/pos/datafono';
+import { cerrarSiRechazadoDatafono } from '@/lib/pos/consulta-stripe';
 import { metodoRealDeSesion } from '@/lib/billing/metodo-real-sesion';
 import { liberarCupoMatriculaUnaVez } from '@/lib/billing/matricula-online';
 import { liberarPlazaPorRef } from '@/lib/opening/cupo';
@@ -1335,13 +1336,53 @@ async function procesarEvento(
           return NextResponse.json({ received: true });
         }
       }
+      // Datáfono: lo mismo que Bizum —se cierra primero y solo si queda cerrado se
+      // anula—, mirando además al lector: con un datáfono físico, el pago sin
+      // contacto «se rechaza» y el lector pide el PIN en la MISMA acción. Si el
+      // lector sigue con el cobro, o no se ha podido cerrar, no se toca nada: lo
+      // resuelve el sondeo de la Caja o, si nadie mira, el conciliador horario
+      // (`resolverCobrosDatafonoColgados`). Ver `cerrarSiRechazadoDatafono`.
+      // ⚠️ No vale responder 5xx para «mirarlo luego»: este endpoint contesta 200
+      // antes de procesar, y Stripe no reintenta.
+      if (pi.metadata?.origen === 'pos_terminal') {
+        if (!event.account) return NextResponse.json({ received: true });
+        // La cuenta se resuelve UNA vez y aquí mismo: si se dejara caer al camino
+        // de Bizum, un fallo pasajero en esta lectura acabaría anulando sin cerrar.
+        const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
+        if (!tenantAutorizado(studioDeCuenta, pi.metadata?.studioId)) {
+          Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata (POS fallido)', {
+            level: 'error', tags: { area: 'cobros' },
+            extra: { eventAccount: event.account, studioIdMetadata: pi.metadata?.studioId, studioDeCuenta, origen: 'pos_terminal' },
+          });
+          return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
+        }
+        // El lector al que se mandó: va en el cobro desde el 5-oct-2026; si no, el
+        // guardado. Sin saber qué lector es (o sin ninguno guardado: cambió de lector o
+        // pasó a SumUp) no se puede saber si sigue con el cobro: no se toca, y lo
+        // resuelve el conciliador pasados unos minutos.
+        let readerId: string | null = pi.metadata?.lector || null;
+        if (!readerId) {
+          const { data: fila, error: errLector } = await admin.from('studios')
+            .select('stripe_terminal_reader_id').eq('id', studioDeCuenta as string).maybeSingle();
+          readerId = errLector ? null : (fila as { stripe_terminal_reader_id: string | null } | null)?.stripe_terminal_reader_id ?? null;
+        }
+        if (!readerId) return NextResponse.json({ received: true });
+        const cierre = await cerrarSiRechazadoDatafono(stripe, pi.id, event.account, readerId).catch((e) => {
+          console.error('[stripe webhook] no se pudo cerrar el rechazo del datáfono', pi.id, e instanceof Error ? e.message : e);
+          return null;
+        });
+        if (!cierre || cierre.veredicto !== 'rechazado') return NextResponse.json({ received: true });
+        // Cerrado en Stripe: RECHAZADO (la Caja deja volver a cobrar) y el motivo en
+        // español, el mismo que da el sondeo de la Caja.
+        await liberarCobroPosFallido(admin, {
+          studioId: studioDeCuenta as string, metadata: pi.metadata, paymentIntentId: pi.id,
+          motivo: motivoRechazoDatafono(cierre.rechazo ?? pi.last_payment_error), pagoEstado: 'RECHAZADO',
+        });
+        return NextResponse.json({ received: true });
+      }
       const respuesta = await liberarCobroPosFallidoDelWebhook(
         admin, event, pi.metadata, pi.id,
-        // El motivo llega a la Caja tal cual: el del datáfono, en español (el de
-        // Stripe viene en inglés). Mismo texto que da el sondeo de la Caja.
-        pi.metadata?.origen === 'pos_terminal'
-          ? motivoRechazoDatafono(pi.last_payment_error)
-          : pi.last_payment_error?.message ?? 'El cobro no se pudo completar',
+        pi.last_payment_error?.message ?? 'El cobro no se pudo completar',
       );
       if (respuesta) return respuesta;
     }

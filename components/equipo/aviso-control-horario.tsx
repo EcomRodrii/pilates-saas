@@ -23,7 +23,7 @@ export function AvisoControlHorario({ pendientes, enLiquidaciones = false }: {
     <section data-testid="aviso-control-horario" aria-labelledby="aviso-control-horario-titulo"
       className="rounded-2xl border border-brand/30 bg-brand/5 p-5 text-[13px]">
       <div className="flex items-start gap-3">
-        <span aria-hidden className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
+        <span aria-hidden className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand-medio">
           <Clock size={16} />
         </span>
         <div className="min-w-0 space-y-2">

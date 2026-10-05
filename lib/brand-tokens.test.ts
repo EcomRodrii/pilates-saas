@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { ratioContraste } from './wcag-contrast.ts';
 
 // Guarda del Brand System (brand/, fase 1). Tres cosas que un repaso visual no ve:
 //   · que tokens.css no se aparte de design-tokens.json, que es su origen;
@@ -227,13 +228,14 @@ test('fase 2: solo se cargan los pesos aprobados', () => {
 test('fase 2: la tipografía de la marca solo vive en el panel', () => {
   // La app de la alumna, /reservar, la landing y /ayuda siguen con la suya hasta
   // su fase: ni cargan estas fuentes ni llevan el ámbito que las aplica.
-  const conAmbito = ficherosDe('app', 'components', 'lib').filter(f => f.endsWith('.tsx') && /\btipografia-tentare\b/.test(leer(f)));
-  // El layout la pone en el envoltorio y `TipografiaEnPortales` en `body` mientras
+  const sinComentariosTs = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
+  const conAmbito = ficherosDe('app', 'components', 'lib').filter(f => f.endsWith('.tsx') && /\bmarca-panel\b/.test(sinComentariosTs(leer(f))));
+  // El layout la pone en el envoltorio y `MarcaEnPortales` en `body` mientras
   // el panel está montado (los diálogos y tooltips de base-ui van a `body`).
-  assert.deepEqual(conAmbito.sort(), ['app/(dashboard)/layout.tsx', 'components/layout/tipografia-en-portales.tsx']);
+  assert.deepEqual(conAmbito.sort(), ['app/(dashboard)/layout.tsx', 'components/layout/marca-en-portales.tsx']);
   const cargan = ficherosDe('app', 'components', 'lib').filter(f => /_fuentes\/fuentes-panel['"]/.test(leer(f)));
   assert.deepEqual(cargan, ['app/(dashboard)/layout.tsx']);
-  const ambito = bloque(globalsCss, '.tipografia-tentare');
+  const ambito = bloque(globalsCss, '.marca-panel');
   assert.equal(ambito.get('--fuente-sans'), 'var(--t-font-sans)');
   assert.equal(ambito.get('--fuente-mono'), 'var(--t-font-mono)');
   for (const utilidad of ['--font-sans', '--font-heading']) {
@@ -289,4 +291,31 @@ test('glass: el prefijo -webkit- va ANTES que backdrop-filter', () => {
     if (sin === -1 && con === -1) continue;
     assert.ok(con !== -1 && sin !== -1 && con < sin, `.${clase}: -webkit-backdrop-filter tiene que ir antes que backdrop-filter`);
   }
+});
+
+test('fase 4/5: el brand slot por defecto del panel sale de los tokens y se lee', () => {
+  const ambito = bloque(globalsCss, '.marca-panel');
+  assert.equal(ambito.get('--brand'), 'var(--t-brand)');
+  assert.equal(ambito.get('--brand-foreground'), 'var(--t-brand-foreground)');
+  const hex = (v: string) => resolver(v);
+  // Texto sobre el relleno de marca, y la marca a tamaño pequeño sobre lienzo y tarjeta.
+  assert.ok(ratioContraste(hex('var(--t-brand-foreground)'), hex('var(--t-brand)'))! >= 4.5);
+  for (const fondo of ['var(--t-surface-canvas)', 'var(--t-surface-raised)']) {
+    assert.ok(ratioContraste(hex(ambito.get('--brand-medio')!), hex(fondo))! >= 4.5, `--brand-medio sobre ${fondo}`);
+  }
+  // `:root` NO cambia: la landing, /login y el alta siguen con el oliva hasta su fase.
+  assert.match(globalsCss, /\n\s*--brand:\s*#343825;/);
+});
+
+test('fase 4/5: en el panel no hay texto en el color de marca crudo', () => {
+  // `text-brand` pinta el texto con el relleno de la marca: con la de fábrica
+  // (Sand) o con una marca clara de un estudio no llega a 4,5:1. Para texto,
+  // iconos o un indicador pequeño: `text-brand-medio` / `bg-brand-medio`, que
+  // `PanelThemeProvider` calcula legible para cada estudio.
+  const FUERA = /^components\/(landing|funcionalidades|comparativa|recursos|soluciones|ayuda|student|reserva|widgets|checkout-widget|cuenta-widget|network|network-publico|network-v2|auth|onboarding|marca)\//;
+  const crudo = /(?<![\w-])text-brand(?![\w\/-])/;
+  const usos = ficherosDe('app/(dashboard)', 'components')
+    .filter(f => /\.tsx$/.test(f) && !FUERA.test(f) && !f.includes('.frozen.'))
+    .filter(f => leer(f).split('\n').some(l => !/^\s*(\/\/|\*|\{\/\*)/.test(l) && crudo.test(l)));
+  assert.deepEqual(usos, [], `text-brand crudo en: ${usos.join(', ')}`);
 });

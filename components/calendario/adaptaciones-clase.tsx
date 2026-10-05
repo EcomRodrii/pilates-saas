@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronRight, HeartPulse, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TentareOrb } from '@/components/marca/tentare-orb';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
+import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
 
 // «Adaptaciones» en la ficha de la clase: cuántas clientas vienen con notas de
 // salud, plegado en una barra (abrirla enseña qué evitar con cada una), y al
@@ -27,6 +28,13 @@ export function AdaptacionesClase({ alertas, puedePreparar, preparando, preparac
   onCerrarPreparacion: () => void;
 }) {
   const [abierta, setAbierta] = useState(false);
+  // La preparación la pide la ficha de la clase; aquí se ve cuando llega. Al
+  // pasar de «preparando» a tener resultado, Tenti avisa (si suena aquí).
+  const preparandoAntes = useRef(preparando);
+  useEffect(() => {
+    if (preparandoAntes.current && !preparando && preparacion) sonarTenti('pop');
+    preparandoAntes.current = preparando;
+  }, [preparando, preparacion]);
   return (
     <div className="rounded-xl bg-[color-mix(in_srgb,var(--warning)_10%,var(--card))] px-3.5 py-2.5" data-testid="adaptaciones-clase">
       <div className="flex items-center gap-2">
@@ -47,10 +55,14 @@ export function AdaptacionesClase({ alertas, puedePreparar, preparando, preparac
             type="button"
             onClick={onPreparar}
             disabled={preparando}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[12.5px] font-semibold text-foreground hover:bg-card/70 disabled:opacity-50"
+            aria-busy={preparando}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[12.5px] font-semibold text-foreground hover:bg-card/70 [&:disabled:not([aria-busy=true])]:opacity-50"
           >
-            {/* El Orb en sus dos estados: el MISMO objeto, primero quieto y después pensando. */}
-            <TentareOrb tam={15} estado={preparando ? 'pensando' : 'reposo'} />
+            {/* Tenti en sus dos estados: el MISMO objeto, primero quieto y
+                después pensando mientras la petición está en vuelo. Ocupado no
+                es deshabilitado: no se atenúa. Al llegar la preparación el botón
+                se desmonta; Tenti nunca va junto a lo que redacta el modelo. */}
+            <TentiIcono ancho={18} estado={preparando ? 'pensando' : 'reposo'} />
             {preparando ? 'Preparando…' : 'Preparar clase con IA'}
           </button>
         )}

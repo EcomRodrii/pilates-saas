@@ -2,10 +2,13 @@
 // Portados del prototipo de Coucou (MIT, Copyright (c) 2026 Louis Raillé; ver
 // el aviso completo en ./motor.ts).
 //
-// ⚠️ Apagados salvo que la persona los encienda: un panel que suena solo en
-// una recepción es justo lo que hace que alguien cierre la pestaña. Y el
-// navegador no deja crear el AudioContext hasta el primer gesto, así que se
-// crea perezoso, en el primer `sonar`.
+// Encendidos por defecto (decisión del fundador, 5-oct-2026), y solo en
+// momentos: abrir y cerrar el buscador, el saludo, el logo guardado, la
+// celebración de Listo, la IA que termina y tocar a Tenti. Parpadear o mirar
+// alrededor no suena nunca. Se apagan por dispositivo en Configuración › Tu
+// panel › «Sonidos de Tenti» (./preferencia-sonido.ts). El navegador no deja
+// sonar hasta el primer gesto: el AudioContext se crea perezoso, y
+// `desbloquear()` lo despierta en el primer clic o tecla.
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -85,6 +88,13 @@ const BIBLIOTECA = {
   sleep() { tono({ f: 330, to: 290, d: 0.5, g: 0.03 }); },
 };
 export type Sonido = keyof typeof BIBLIOTECA;
+
+/** Crea (o despierta) el audio. Llamado DENTRO de un gesto, para que Safari
+ *  deje sonar después lo que llega sin gesto (la IA que termina). */
+export function desbloquear() {
+  if (!iniciar() || !ctx) return;
+  if (ctx.state === 'suspended') void ctx.resume();
+}
 
 /** Hace sonar un efecto. Si el navegador no tiene audio, no pasa nada. */
 export function sonar(n: Sonido) {
