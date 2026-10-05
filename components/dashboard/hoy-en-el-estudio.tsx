@@ -8,7 +8,7 @@ import { useRol } from '@/lib/permisos';
 import { puedeVer } from '@/lib/permisos-reglas';
 import { authHeader } from '@/lib/api-client';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { TentareOrb } from '@/components/marca/tentare-orb';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { Toast, useToast } from '@/components/ui/toast';
 import { RellenarHuecoPanel } from './rellenar-hueco-panel';
 import { BarraPlazas } from './barra-plazas';
@@ -240,10 +240,12 @@ export function HoyEnElEstudio() {
       <h2 className="sr-only">Tu día en el estudio</h2>
 
       {/* Lo que ha visto Tentare. Solo aparece cuando de verdad hay algo que
-          contar — si el día está limpio, no se interrumpe a nadie. */}
+          contar — si el día está limpio, no se interrumpe a nadie. Tenti va
+          quieto: firma la frase, no la dice él, y si hay un aviso («sin
+          instructora») lo da el texto, nunca su cara. */}
       {!cargando && (resumen.huecos > 0 || resumen.problemas > 0) && (
         <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-2.5">
-          <TentareOrb tam={22} />
+          <TentiIcono ancho={28} />
           <p className="text-[12.5px] text-foreground">{fraseDeTentare(resumen, clases)}</p>
         </div>
       )}

@@ -36,7 +36,7 @@ import {
   ENTIDADES, analizarConMapeoManual, avisosGlobalesYOrden,
   type EntidadMigracion, type ContextoEstudio,
 } from '@/lib/migracion/clasificador';
-import { TentareOrb } from '@/components/marca/tentare-orb';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
 
 type Paso = 'subir' | 'analizando' | 'revisar' | 'ejecutando' | 'acta';
 
@@ -442,16 +442,22 @@ export default function MigracionPage() {
                   </button>
                 </div>
               ))}
+              {/* Ocupado no es deshabilitado: mientras analiza, el botón dice
+                  aria-busy y NO se atenúa (Tenti y el gerundio ya dicen que
+                  trabaja). `disabled` sigue impidiendo el doble clic. */}
               <button
                 onClick={analizar}
                 disabled={paso === 'analizando'}
-                className="mt-2 w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-brand text-brand-foreground text-[14px] font-extrabold hover:brightness-95 disabled:opacity-60 transition"
+                aria-busy={paso === 'analizando'}
+                className="mt-2 w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-brand text-brand-foreground text-[14px] font-extrabold hover:brightness-95 [&:disabled:not([aria-busy=true])]:opacity-60 transition"
               >
-                {/* El Orb en sus dos estados. Aquí Tentare está de verdad
+                {/* Tenti en sus dos estados. Aquí Tentare está de verdad
                     leyendo unos ficheros que no ha visto nunca y decidiendo qué
-                    es cada columna — no es un destello decorativo. Y no se
-                    cambia el icono al ponerse a trabajar: es el mismo, pensando. */}
-                <TentareOrb tam={16} estado={paso === 'analizando' ? 'pensando' : 'reposo'} />
+                    es cada columna, y el resultado vuelve a esta pantalla. No se
+                    cambia de icono al ponerse a trabajar: es el mismo, pensando.
+                    El paso de importar (Loader2, más abajo) no lleva a Tenti:
+                    insertar filas es trabajo mecánico, no Tentare decidiendo. */}
+                <TentiIcono ancho={20} sobre="invertida" estado={paso === 'analizando' ? 'pensando' : 'reposo'} />
                 {paso === 'analizando'
                   ? 'Analizando tus archivos…'
                   : <>Analizar {archivos.length} archivo{archivos.length === 1 ? '' : 's'}</>}

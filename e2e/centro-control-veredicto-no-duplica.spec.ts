@@ -49,7 +49,10 @@ async function montarCentro(page: Page) {
     json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
 
   const ganadora = recomendacion('rec-duplicada');
-  await page.route('**/api/decisiones**', route => json(route, {
+  // Solo /api/decisiones: el glob `**/api/decisiones**` atrapaba también
+  // /api/decisiones/autonomia (y cualquier endpoint nuevo debajo) y le
+  // contestaba con este cuerpo, que no es el suyo.
+  await page.route(u => u.pathname === '/api/decisiones', route => json(route, {
     resumen: {
       saludo: 'Buenos días', mientrasDormias: [], nDecisiones: 1,
       tiempoEstimadoMin: 5, impactoTotal: null, generadoEn: '2026-09-22T06:30:00+00:00',

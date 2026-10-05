@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { HUELLA_DEL_MOTOR, recolectarScripts } from './recolector-scripts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El calendario de un estudio que todavía no tiene ninguna clase.
@@ -478,29 +479,10 @@ test.describe('«Ya puede recibir reservas» solo promete lo que confirma el ser
 // buffer de 250 entradas se llena con los fetch del panel y empieza a perder.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Una cadena que solo está en lib/tenti/motor.ts. Sobrevive a la minificación
-// (es un literal), así que vale igual con `next dev` que con el build de CI.
-const HUELLA_DEL_MOTOR = 'Tenti necesita un canvas 2D';
+// El recolector (y la huella del motor) viven en ./recolector-scripts.ts: los
+// comparte e2e/tenti-relevo-orb.spec.ts, y el control positivo de abajo vale
+// para los dos.
 const TITULAR = 'Tu estudio ya puede recibir reservas';
-
-/** Se registra ANTES de `montar` (es un evento, no una ruta): tiene que ver la primera carga. */
-function recolectarScripts(page: Page) {
-  const cuerpos: string[] = [];
-  const pendientes: Promise<unknown>[] = [];
-  page.on('response', r => {
-    const tipo = r.headers()['content-type'] ?? '';
-    if (!/javascript/.test(tipo) && !/\.js(\?|$)/.test(r.url())) return;
-    // Una respuesta sin cuerpo (redirección, abortada) no es un fallo del test.
-    pendientes.push(r.text().then(t => cuerpos.push(t), () => {}));
-  });
-  return {
-    async contiene(s: string) {
-      await Promise.all(pendientes);
-      return cuerpos.some(c => c.includes(s));
-    },
-    async cuantos() { await Promise.all(pendientes); return cuerpos.length; },
-  };
-}
 
 /**
  * La vista previa del móvil carga `/reservar/[slug]` DE VERDAD, y 'hecho' espera

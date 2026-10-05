@@ -299,6 +299,43 @@ cambian color y encuadre.
 - Fuera a propósito: los emails a socias (marca del ESTUDIO, no de Tentare),
   `/portal/[slug]` (marca blanca) y `/interno`.
 
+## Tenti es Tentare (releva al Orb, 5-oct-2026, decisión del fundador)
+
+Tenti, la mascota, es la marca de «aquí interviene Tentare» (lo hace solo, lo
+vigila o te lo ofrece) y está en **todos** los sitios donde iba el Orb, que ya no
+existe: ni `tentare-orb.tsx`, ni su CSS, ni su lavanda y su rubor. La lista de
+sitios, con el motivo de cada uno, la lleva la guardia
+`lib/tenti/donde-vive-tenti.test.ts` (`CON_TENTI`): añadir o quitar uno es editar
+esa lista con su motivo, no un import de paso.
+
+- **Un dibujo, dos maneras de pintarlo** (`lib/tenti/geometria.ts`, la usan los
+  dos): en lo diario, `TentiIcono` (SVG quieto, sin rAF y sin el motor en el
+  chunk), que ve quien veía el Orb en ese sitio, recepción y gerencia incluidas;
+  el canvas animado (`components/tenti/tenti.tsx`) solo en las primeras veces de
+  la propietaria (el logo y Listo) y siempre diferido. Es el estado a 5-oct, no
+  un veto: el fundador ya decidió el canvas también en el buscador ⌘K y en el
+  briefing de Automatizaciones, que llegan junto con el PR en el que el motor
+  duerme entre parpadeos (hoy pide rAF mientras se ve).
+- **Tres estados con un significado cada uno.** `reposo` es la firma: no es un
+  aviso ni un «todo bien» (si hay algo que avisar, lo dice el texto, nunca su
+  cara). `pensando`, solo con una petición de verdad en vuelo (un botón de IA,
+  Analizar), con la forma `X ? 'pensando' : 'reposo'` y el botón en `aria-busy`
+  (ocupado no es deshabilitado: no se atenúa); es la misma pose respirando por
+  CSS, sin la mirada del canvas, y con «reducir movimiento» se queda quieto.
+  `hecho`, solo el canvas de Listo. El resto de estados y emociones viven en
+  `/interno/tenti`.
+- **El icono es cerrado por tipo**: anchos 18|20|22|24|28 (el 16 no existe: los
+  ojos no se leen), siempre `aria-hidden`, sin `titulo`. Lo comprueba tsc en
+  `components/tenti/tenti-icono.tipos.ts`. La silueta (`--tenti-silueta`, ≥ 3:1
+  en los dos modos, `lib/tenti/paleta.test.ts`) es lo que lo despega de --card en
+  claro; sobre `bg-primary`/`bg-brand`, `sobre="invertida"` (toma el color del
+  texto).
+- **Nunca**: marca blanca (portal, /reservar, widget, kiosko, correos a socias),
+  soporte (WhatsApp, ayuda: «te responde una persona, no una IA»), pantallas de
+  dinero (Cobros, Caja, cierre, facturas…) ni junto a lo que redacta un modelo
+  (el veredicto, el Contrato, las filas del Centro de Control, el resultado de
+  una adaptación o de una nota). En la web comercial se propone, no se pone.
+
 ## Brand System: `brand/` es la fuente de verdad visual (fase 1, 5-oct-2026)
 
 `brand/` (Brand OS, `design-tokens.json`, `tokens.css`, guías de componentes y
