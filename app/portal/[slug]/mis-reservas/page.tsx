@@ -32,7 +32,7 @@ import type { Clase, Instructora, Reserva } from '@/lib/student/tipos';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { vibrar } from '@/lib/nativo/puente';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
-import { alLlegarAccionPendiente, tomarAccionPendiente } from '@/lib/student/accion-pendiente';
+import { alLlegarAccionPendiente, decidirOrdenAviso, hayAccionPendiente, tomarAccionPendiente } from '@/lib/student/accion-pendiente';
 import type { AccionPendiente } from '@/lib/notifications/acciones-ios';
 
 // Feedback real de una propietaria en prueba (14-sep): una socia no sabía que
@@ -170,33 +170,48 @@ export default function MisReservasPage() {
   // ejecuta aquí, con la sesión de la alumna y por la MISMA vía que los botones de
   // esta pantalla. Aceptar la plaza es lo que pulsó; salir de la lista y «no puedo
   // ir» abren su confirmación de siempre. Ver lib/notifications/acciones-ios.ts.
-  const [accionAviso, setAccionAviso] = useState<AccionPendiente | null>(null);
+  //
+  // ⚠️ Se decide con datos RECIÉN TRAÍDOS, no con la copia guardada: la pantalla se
+  // pinta con lo que recordaba (y el catálogo vive 60 s), y una oferta abierta
+  // mientras la app estaba en segundo plano no salía ahí: se le decía «ya no está
+  // disponible» con la plaza esperándola. La orden no se recoge hasta tener esos
+  // datos; si la pantalla se va antes, sigue esperando (dos minutos, ver
+  // `accion-pendiente.ts`).
+  const [ordenAviso, setOrdenAviso] = useState<{ orden: AccionPendiente; reservas: Reserva[] } | null>(null);
   useEffect(() => {
-    const recoger = () => { const a = tomarAccionPendiente(estudio.slug); if (a) setAccionAviso(a); };
-    recoger();
-    return alLlegarAccionPendiente(recoger);
-  }, [estudio.slug]);
-  // Se ejecuta cuando hay orden Y datos: la orden llega de un sistema externo (el aviso nativo) y los datos, de la red.
+    let vivo = true;
+    let buscando = false;
+    const recoger = async () => {
+      if (buscando || !hayAccionPendiente(estudio.slug)) return;
+      buscando = true;
+      invalidarCatalogo(estudio.slug, { conservarVistas: true });
+      const frescos = await cargar().catch(() => null);
+      buscando = false;
+      if (!vivo) return;
+      const orden = tomarAccionPendiente(estudio.slug);
+      if (!orden) return;
+      if (!frescos) { toast('No hemos podido comprobar esa clase. Revisa tu conexión y vuelve a intentarlo.'); return; }
+      // La pantalla, con lo mismo que se ha leído (sale del catálogo recién traído: no pide otra vez).
+      await refrescar();
+      if (vivo) setOrdenAviso({ orden, reservas: frescos.reservas });
+    };
+    void recoger();
+    const dejarDeOir = alLlegarAccionPendiente(() => { void recoger(); });
+    return () => { vivo = false; dejarDeOir(); };
+  }, [estudio.slug, cargar, refrescar, toast]);
+  // Con la orden y SUS datos frescos: lo decide `decidirOrdenAviso` (puro, con tests).
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!accionAviso || !data || ahoraMs === null) return;
-    setAccionAviso(null);
-    const suya = (data.reservas ?? []).filter((r) => r.claseId === accionAviso.sesionId);
-    if (accionAviso.tipo === 'no-puedo-ir') {
-      const r = suya.find((x) => x.estado === 'confirmada');
-      if (!r) { toast('Ya no tienes reserva en esa clase.'); return; }
-      setTab('prox');
-      setCancelId(r.id);
-      return;
-    }
-    const oferta = suya.find((x) => ofertaViva(x));
-    if (!oferta) { toast('Esa plaza ya no está disponible.'); return; }
-    if (accionAviso.tipo === 'salir-espera') { setTab('prox'); setCancelId(oferta.id); return; }
+    if (!ordenAviso) return;
+    setOrdenAviso(null);
+    const d = decidirOrdenAviso(ordenAviso.orden, ordenAviso.reservas, Date.now());
+    if (d.tipo === 'aviso') { toast(d.texto); return; }
     setTab('prox');
-    void handleAceptarOferta(oferta.id);
-    // `handleAceptarOferta` y `ofertaViva` se recrean en cada render; lo que dispara esto es la orden y los datos.
+    if (d.tipo === 'confirmar-cancelar') { setCancelId(d.reservaId); return; }
+    void handleAceptarOferta(d.reservaId);
+    // `handleAceptarOferta` se recrea en cada render; lo que dispara esto es la orden.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accionAviso, data, ahoraMs]);
+  }, [ordenAviso]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // P-5 (auditoría 23ª pasada): hasta ahora no había NINGUNA vía en la PWA

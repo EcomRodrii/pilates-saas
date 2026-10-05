@@ -190,3 +190,72 @@ test.describe('Student PWA · Avisos', () => {
     expect(intentos).toBe(0);
   });
 });
+
+// ── Los botones del aviso del iPhone ─────────────────────────────────────────
+//
+// Lo que Capacitor mete en el WebView, lo justo para que `alPulsarAviso` escuche
+// (`pushNotificationActionPerformed`) y la prueba pueda «pulsar» un botón del
+// aviso: la cabecera nativa del plugin y un `nativeCallback` que guarda la
+// escucha. Los demás plugins siguen siendo los de web (y fallan, como en
+// `student-borrar-cuenta.spec.ts`): aquí solo se prueba lo que decide la web.
+async function comoAppNativa(page: Page) {
+  await page.addInitScript(() => {
+    const escuchas: { ev: string; cb: (d: unknown) => void }[] = [];
+    const w = window as unknown as Record<string, unknown>;
+    w.CapacitorCustomPlatform = { name: 'ios' };
+    w.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'ios',
+      PluginHeaders: [{ name: 'PushNotifications', methods: [{ name: 'addListener', rtype: 'callback' }, { name: 'removeListener', rtype: 'promise' }] }],
+      nativeCallback: (plugin: string, metodo: string, opciones: { eventName?: string }, cb: (d: unknown) => void) => {
+        if (plugin === 'PushNotifications' && metodo === 'addListener' && opciones.eventName) escuchas.push({ ev: opciones.eventName, cb });
+        return Promise.resolve(`e2e-${escuchas.length}`);
+      },
+      nativePromise: () => Promise.reject(new Error('e2e: sin carcasa')),
+    };
+    w.__e2eEscuchasAviso = () => escuchas.filter((e) => e.ev === 'pushNotificationActionPerformed').length;
+    w.__e2ePulsarAviso = (accion: unknown) => {
+      for (const e of escuchas) if (e.ev === 'pushNotificationActionPerformed') e.cb(accion);
+    };
+  });
+}
+
+test.describe('App de iOS · botón «Aceptar la plaza» del aviso', () => {
+  test.describe.configure({ timeout: 150_000 });
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('la copia guardada no tiene la oferta y el servidor sí: se decide con lo fresco y se acepta (UNA petición)', async ({ page }) => {
+    await comoAppNativa(page);
+    // En espera, SIN oferta: es lo que Mis clases se guarda al verla.
+    const servidor = await montar(page, { avisos: [], ofertaExpiraEn: null });
+    const aceptadas: Record<string, unknown>[] = [];
+    await page.route('**/api/public/aceptar-oferta-espera', (r) => {
+      aceptadas.push(JSON.parse(r.request().postData() ?? '{}') as Record<string, unknown>);
+      servidor.reserva = { estado: 'CONFIRMADA', ofertaExpiraEn: null };
+      return r.fulfill(json({ ok: true, estado: 'CONFIRMADA' }));
+    });
+
+    // Mis clases abierta: lo que tiene en pantalla (y en el catálogo, que vive 60 s) es la reserva en espera SIN oferta.
+    await page.goto(`${base}/mis-reservas`);
+    await expect(page.getByRole('heading', { name: 'Mis clases' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText('Lista de espera · 1ª')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: /Aceptar/ })).toHaveCount(0);
+    const lecturasConLaCopia = servidor.lecturas;
+
+    // Con la app en segundo plano se libera un hueco: el servidor ya tiene la oferta.
+    servidor.reserva = { estado: 'LISTA_ESPERA', ofertaExpiraEn: '2026-08-12T08:30:00+02:00' };
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __e2eEscuchasAviso: () => number }).__e2eEscuchasAviso()), { timeout: 30_000 }).toBeGreaterThan(0);
+    expect(aceptadas, 'nada se acepta antes de pulsar').toHaveLength(0);
+
+    await page.evaluate(({ sid, url }) => (window as unknown as { __e2ePulsarAviso: (a: unknown) => void }).__e2ePulsarAviso({
+      actionId: 'aceptar-plaza', notification: { data: { ev: 'reserva.oferta_lista_espera', sid, url } },
+    }), { sid: SESION_ID, url: `${base}/mis-reservas` });
+
+    await expect(page).toHaveURL(new RegExp(`${base}/mis-reservas`), { timeout: 30_000 });
+    await expect(page.getByText('¡Plaza confirmada! ✓')).toBeVisible({ timeout: 30_000 });
+    expect(servidor.lecturas, 'decidió con datos traídos DESPUÉS del aviso, no con la copia').toBeGreaterThan(lecturasConLaCopia);
+    expect(aceptadas).toHaveLength(1);
+    expect(aceptadas[0]).toMatchObject({ studioId: STUDIO_ID, reservaId: 'res-espera' });
+    await expect(page.getByText('Esa plaza ya no está disponible.')).toHaveCount(0);
+  });
+});
