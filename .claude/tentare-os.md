@@ -312,9 +312,9 @@ hasta su fase. Lo que el paquete no define es **OPEN DECISION**
   `bg-t-*`/`text-t-*`/`rounded-t-card`… y el puente `legacy-bridge.css`, que
   reapunta `--background`, `--foreground`, `--border` y compañía), la 2 y la 3, y
   la 4 y la 5 en lo que no toca `--brand` ni el foco (`brand/phase-2-5/README.md`).
-- ⚠️ **La tipografía de la marca vive SOLO en el panel** (`.tipografia-tentare`:
+- ⚠️ **La tipografía de la marca vive SOLO en el panel** (`.marca-panel`:
   la pone `app/(dashboard)/layout.tsx` y, para los portales a `body`,
-  `TipografiaEnPortales`). `font-sans`/`font-heading`/`font-mono` leen
+  `MarcaEnPortales`). `font-sans`/`font-heading`/`font-mono` leen
   `--fuente-sans`/`--fuente-mono`: **no reapuntes el `@theme` a la marca para todo
   el sitio**, `font-heading` lo usa la app de la alumna y le cambiarías la letra.
   Schibsted Grotesk y DM Mono se sirven con su nombre real
@@ -329,9 +329,15 @@ hasta su fase. Lo que el paquete no define es **OPEN DECISION**
   (`rounded-t-card`), pero los 50 `rounded-3xl` (38,4 px) se migran componente a
   componente en la fase 6. Redefinir el token los cambiaría todos a la vez,
   incluidos los que no son cards.
-- ⚠️ **`--brand*` sigue siendo la marca del estudio** (`PanelThemeProvider`) y
-  conserva su oliva por defecto hasta las fases 4/5. Los estados en oscuro y la
-  paleta categórica no se tocan: OPEN DECISION.
+- ⚠️ **`--brand*` es la marca del estudio** (`PanelThemeProvider`). Desde el
+  5-oct, con el tema de fábrica (el oliva, `lib/panel-marca.ts`) el panel no
+  escribe nada y manda el valor por defecto de la marca (`.marca-panel`: Sand con
+  texto en Ink). `/reservar`, la app de la alumna y `:root` (landing, login)
+  siguen con el oliva. **Texto o indicador pequeño en el color de marca: siempre
+  `text-brand-medio` / `bg-brand-medio`** (legible por construcción, sigue al
+  estudio), nunca `text-brand`, ni blanco fijo sobre `bg-brand`: usa
+  `text-brand-foreground`. Los estados en oscuro y la paleta categórica no se
+  tocan: OPEN DECISION.
 - ⚠️ **`border-t-success` y similares son ambiguos** desde que existe el espacio
   `t-` (Tailwind emite las dos lecturas): para el borde de arriba, escríbelo
   explícito (`border-t-[color:var(--success)]`). Lo vigila el mismo test.

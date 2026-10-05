@@ -8,15 +8,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // La acción principal en superficies del estudio: `--brand` es SU color
-        // (marca blanca, PanelThemeProvider). Sigue siendo el valor por defecto;
-        // pasarlo a `primary` es la migración del brand slot (fases 4/5, aparte).
-        default: "bg-brand text-brand-foreground hover:brightness-95",
-        // `primary` de la guía de componentes: Ink, la acción principal de una
-        // vista que no lleva el color del estudio. `--primary` es Ink 900 en
-        // claro y se invierte en oscuro (legacy-bridge.css), así que sirve en
-        // los dos modos; el `--t-brand-strong` del paquete aún no tiene oscuro.
-        primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+        // `primary` de la guía de componentes (brand-strong): Ink, la acción
+        // principal de la vista, una por vista. `--primary` es Ink 900 en claro y
+        // se invierte en oscuro (legacy-bridge.css), así que sirve en los dos
+        // modos; el `--t-brand-strong` del paquete aún no tiene oscuro.
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        // `brand`: el color del ESTUDIO (marca blanca, PanelThemeProvider), para
+        // la acción principal en superficies del estudio. Hasta la fase 4/5 era
+        // el valor por defecto de todos los botones.
+        brand: "bg-brand text-brand-foreground hover:brightness-95",
         outline:
           "border-border bg-background text-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

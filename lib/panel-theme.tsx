@@ -7,8 +7,7 @@ import { fetchThemePublicado } from '@/lib/api-client';
 // PanelThemeProvider está montado en TODAS las rutas del panel — importar
 // desde ahí bundlaría zod en las 22.
 import { ID_ANFITRION_PANEL } from '@/lib/panel-portal';
-import { foregroundParaFondo } from '@/lib/wcag-contrast';
-import { colorLegibleSobre, mezclarHex } from '@/lib/color-utils';
+import { variablesDeMarca, VARIABLES_DE_MARCA } from '@/lib/panel-marca';
 import type { ThemeConfig } from '@/lib/theme-schema';
 
 const DARK_KEY = 'panel-dark-mode';
@@ -27,25 +26,18 @@ export function usePanelTheme(): PanelThemeValue {
   return ctx;
 }
 
-// `--card` en claro y en oscuro (app/globals.css). No se leen del DOM porque
-// esto corre antes del primer pintado.
-const CARD_CLARO = '#FFFFFF';
-const CARD_OSCURO = '#1E1E22';
-
 // ⚠️ El modo entra aquí como argumento, y no es un detalle. La clase `.dark` y
 // estas custom properties viven en el MISMO div, y un `style` en línea gana a
 // una regla de clase: el `--brand-secondary: #A8B37A` del bloque oscuro de
 // globals.css nunca llegaba a aplicarse en un estudio con tema propio. Se
 // quedaba con el color calculado para fondo claro, sobre fondo oscuro.
+//
+// Con el tema de fábrica (el oliva) no se escribe nada: manda la marca por
+// defecto del Brand System (`.marca-panel`, app/globals.css). Ver lib/panel-marca.ts.
 function aplicarMarca(el: HTMLElement, theme: ThemeConfig, dark: boolean) {
-  el.style.setProperty('--brand', theme.primary);
-  el.style.setProperty('--brand-foreground', foregroundParaFondo(theme.primary));
-  // El fondo real de este color no es la tarjeta, sino su tinte de marca al
-  // 12 % — que es donde el panel pinta badges y pestañas activas.
-  el.style.setProperty(
-    '--brand-secondary',
-    colorLegibleSobre(theme.secondary, mezclarHex(theme.primary, dark ? CARD_OSCURO : CARD_CLARO, 0.12)),
-  );
+  for (const v of VARIABLES_DE_MARCA) el.style.removeProperty(v);
+  const vars = variablesDeMarca(theme, dark);
+  if (vars) for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
 }
 
 function leerMarcaCacheada(): ThemeConfig | null {

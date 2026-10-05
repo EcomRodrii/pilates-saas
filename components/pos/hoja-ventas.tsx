@@ -172,7 +172,7 @@ export function HojaVentas({ onCerrar, onCambio }: { onCerrar: () => void; onCam
                         </span>
                       )}
                       {(v.bonosPorAsignar ?? 0) > 0 && (
-                        <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded bg-brand/15 text-brand">
+                        <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded bg-brand/15 text-brand-medio">
                           {v.bonosPorAsignar === 1 ? 'Bono por asignar' : `${v.bonosPorAsignar} bonos por asignar`}
                         </span>
                       )}

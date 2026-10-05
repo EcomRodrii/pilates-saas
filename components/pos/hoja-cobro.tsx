@@ -519,7 +519,7 @@ export function HojaCobro({
                 <>
                   <p className="text-[16px] font-semibold text-foreground">Que escanee este código</p>
                   <div className="w-44 h-44" dangerouslySetInnerHTML={{ __html: qrSvgMarkup(fase.url) }} />
-                  <a href={fase.url} target="_blank" rel="noopener noreferrer" className="text-[13px] text-brand underline">
+                  <a href={fase.url} target="_blank" rel="noopener noreferrer" className="text-[13px] text-brand-medio underline">
                     Abrir el enlace de pago
                   </a>
                 </>
