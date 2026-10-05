@@ -12,7 +12,7 @@ import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/student/datos';
-import { PlazaFijaCard } from '@/components/student/domain/PlazaFijaCard';
+import { ClaseFijaVacia, MiClaseFija } from '@/components/student/domain/MiClaseFija';
 import { cancelarReserva, aceptarOfertaEspera } from '@/lib/student/reservas-acciones';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
 import { etiquetaDia, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato';
@@ -64,7 +64,7 @@ export default function MisReservasPage() {
   // `?tab=fijas`: llegan desde la tarjeta de Inicio y desde la ficha de una clase
   // fija. Cualquier otro valor cae en «Próximas».
   const sp = useSearchParams();
-  const [tab, setTab] = useState<Tab>(sp.get('tab') === 'fijas' ? 'fijas' : sp.get('tab') === 'hist' ? 'hist' : 'prox');
+  const [tab, setTab] = useState<Tab>(sp.get('tab') === 'fijas' || sp.get('tab') === 'fija' ? 'fijas' : sp.get('tab') === 'hist' ? 'hist' : 'prox');
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelando, setCancelando] = useState(false);
   const [aceptandoId, setAceptandoId] = useState<string | null>(null);
@@ -258,19 +258,15 @@ export default function MisReservasPage() {
 
         {data && estado !== 'loading' && estado !== 'error' && tab === 'fijas' && (
           data.plazaFija.plazas.length === 0 ? (
-            <EmptyState
-              ilustracion="calendario"
-              titulo="Aún no tienes clase fija"
-              cuerpo={TEXTOS_PLAZA_FIJA.vacia}
-              accion="Ver el horario"
-              href={href('/reservar')}
-            />
+            <ClaseFijaVacia hrefHorario={href('/reservar')} />
           ) : (
-            // Las recuperaciones se quedan en Bonos, junto a su saldo: aquí solo sus clases fijas.
-            <PlazaFijaCard
+            // Las recuperaciones están aquí Y en Bonos: aquí, como «Elegir clase» junto a su clase fija.
+            // `refrescar` y no `reintentar`: `reintentar` pasa por `loading` y desmontaría la tarjeta
+            // justo cuando enseña lo que contestó el servidor al decir «no voy».
+            <MiClaseFija
               plazas={data.plazaFija.plazas} calendario={data.plazaFija.calendario}
-              recuperaciones={{ disponibles: 0, proximaCaducidad: null, detalle: [] }}
-              hrefHorario={href('/reservar')} onCambio={reintentar}
+              recuperaciones={data.plazaFija.recuperaciones}
+              hrefHorario={href('/reservar')} onCambio={() => void refrescar()}
             />
           )
         )}
@@ -431,7 +427,7 @@ export default function MisReservasPage() {
 
 type Tab = 'prox' | 'fijas' | 'hist';
 const TABS: Tab[] = ['prox', 'fijas', 'hist'];
-const ETIQUETA_TAB: Record<Tab, string> = { prox: 'Próximas', fijas: 'Fijas', hist: 'Historial' };
+const ETIQUETA_TAB: Record<Tab, string> = { prox: 'Próximas', fijas: 'Fija', hist: 'Historial' };
 
 // ── Piezas de «Próximas» ─────────────────────────────────────────────────────
 

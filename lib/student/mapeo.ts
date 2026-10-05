@@ -548,19 +548,40 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
     salaId: s.salaId, tipoClaseId: s.tipoClaseId, cancelada: s.cancelada,
   }));
   return plazasFijasDe(d.socia?.plazasFijas ?? [], hoyISO, horaAhora, sesiones, d.socia?.peticionesPlazaFija ?? []).map((p) => ({
-    id: p.id, diaSemana: p.diaSemana, hora: p.hora,
+    id: p.id, diaSemana: p.diaSemana, hora: p.hora, salaId: p.salaId,
     sala: (d.salas ?? []).find((s) => s.id === p.salaId)?.nombre ?? 'Sala',
     tipo: p.tipoClaseId ? ((d.tiposClase ?? []).find((t) => t.id === p.tipoClaseId)?.nombre ?? null) : null,
     estado: p.estado, proximaFecha: p.proximaFecha, sinClase: p.sinClase, vigenciaHasta: p.vigenciaHasta, pausa: p.pausa,
     pausaPedida: p.pausaPedida, deClaseFija: p.deClaseFija,
-    // Lo que su clase fija le tiene ya reservado. Una plaza en pausa o sin clase no lo enseña.
+    instructora: instructoraDeSuHueco(d, p, sesiones, hoyISO, horaAhora),
+    // Lo que su clase fija le tiene ya reservado (las 5 próximas semanas de «Mis clases → Fija»).
+    // Una plaza en pausa o sin clase no lo enseña.
     proximas: p.estado !== 'ACTIVA' ? [] : proximasDeUnaPlaza(
-      { diaSemana: p.diaSemana, hora: p.hora, salaId: p.salaId }, d.socia?.reservas ?? [], sesiones, hoyISO, horaAhora,
+      { diaSemana: p.diaSemana, hora: p.hora, salaId: p.salaId }, d.socia?.reservas ?? [], sesiones, hoyISO, horaAhora, 5,
     ).map((x) => {
       const tipoId = (d.sesiones ?? []).find((s) => s.id === x.sesionId)?.tipoClaseId;
       return { ...x, ventanaCancelacionHoras: (d.tiposClase ?? []).find((t) => t.id === tipoId)?.ventanaCancelacionHoras ?? null };
     }),
   }));
+}
+
+/**
+ * Quién da la PRÓXIMA clase de su hueco (día, hora y sala), por el horario
+ * publicado. Es la de la próxima, no «su profesora para siempre»: una semana la
+ * puede dar otra. `null` si no hay clase próxima o no se sabe quién la da.
+ */
+function instructoraDeSuHueco(
+  d: PayloadMin, p: { diaSemana: number; hora: string; salaId: string },
+  sesiones: { id: string; fecha: string; hora: string; salaId: string; cancelada: boolean }[], hoyISO: string, horaAhora: string,
+): string | null {
+  const siguiente = sesiones
+    .filter((s) => !s.cancelada && s.salaId === p.salaId && s.hora === p.hora
+      && new Date(`${s.fecha}T12:00:00Z`).getUTCDay() === p.diaSemana
+      && (s.fecha > hoyISO || (s.fecha === hoyISO && s.hora >= horaAhora)))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
+  if (!siguiente) return null;
+  const instructorId = (d.sesiones ?? []).find((s) => s.id === siguiente.id)?.instructorId;
+  return (d.instructores ?? []).find((i) => i.id === instructorId)?.nombre ?? null;
 }
 
 /**

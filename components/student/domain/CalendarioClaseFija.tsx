@@ -12,7 +12,7 @@ import {
 } from '@/lib/plazas-fijas-calendario';
 
 // El mes de su clase fija, con los días que ya tiene reservados. Solo informa:
-// cancelar un día sigue siendo «No puedo asistir» o «Mis clases». Un día con
+// cancelar un día sigue siendo tocarlo en «Próximas semanas» o «Mis clases». Un día con
 // clase se puede tocar y abre su ficha, igual que en el horario.
 //
 // Empieza en el mes de hoy: el payload de la app no trae clases pasadas, así que

@@ -198,7 +198,15 @@ export interface Bono {
 export type EstadoPago = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded' | 'reimbursed';
 export interface Pago { id: string; concepto: string; importe: number; fecha: string; estado: EstadoPago; metodo: string; bonoId?: string; }
 
-export interface Notificacion { id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar' | 'atencion'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string; }
+export interface Notificacion {
+  id: string; tipo: 'plaza-liberada' | 'recordatorio' | 'bono' | 'estudio' | 'valorar' | 'atencion'; titulo: string; cuerpo: string; fecha: string; leida: boolean; enlace?: string;
+  /** La categoría con la que la guardó el motor (`reservas`, `clases`, `pagos`…): decide su filtro. */
+  categoria?: string | null;
+  /** El tipo de evento del catálogo (`reserva.oferta_lista_espera`…): decide su icono y su botón. */
+  evento?: string | null;
+  /** La clase de la que habla, si es de una clase. */
+  sesionId?: string | null;
+}
 
 /** Todo lo que la alumna ve de gamificación (lib/student/gamificacion.ts). */
 export interface GamificacionVista {
@@ -230,6 +238,8 @@ export interface PlazaFijaVista {
   /** Para pedir una pausa de esta plaza. `null` si el payload no lo trae. */
   id: string | null;
   diaSemana: number; hora: string; sala: string; tipo: string | null; estado: 'ACTIVA' | 'PAUSADA';
+  /** Su sala (id): con el día y la hora, identifica su hueco en el horario. */
+  salaId: string;
   /** La pausa que ha pedido y el estudio aún no ha contestado. */
   pausaPedida: { id: string; desde: string; hasta: string } | null;
   proximaFecha: string | null; vigenciaHasta: string | null;
@@ -241,6 +251,8 @@ export interface PlazaFijaVista {
   proximas: ProximaClaseFijaVista[];
   /** Viene de una clase fija con nombre (varios días): se deja entera, no una franja suelta. */
   deClaseFija: boolean;
+  /** Quién da la próxima clase de su hueco (`null` = sin clase próxima o sin saberlo). */
+  instructora: string | null;
 }
 /** Una próxima clase de su clase fija, con la ventana de cancelación de SU tipo de clase (`null` = la del estudio). */
 export type ProximaClaseFijaVista = import('./plaza-fija.ts').ProximaClaseFija & { ventanaCancelacionHoras: number | null };
