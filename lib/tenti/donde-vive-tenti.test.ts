@@ -21,19 +21,75 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, posix } from 'node:path';
+import ts from 'typescript';
 import { ESTADOS, EMOCIONES } from './motor.ts';
 
 const raiz = join(import.meta.dirname, '..', '..');
 
-// Sin comentarios, como lib/panel-portal.test.ts: los ficheros vigilados
-// explican en los suyos por qué NO importan el componente directo, y esa
-// explicación no puede hacer fallar a la guardia.
-const leerCodigo = (rel: string) =>
-  readFileSync(join(raiz, rel), 'utf8')
-    .replace(/\{?\/\*[\s\S]*?\*\/\}?/g, '')
-    .split('\n')
-    .filter(l => !/^\s*\/\//.test(l))
-    .join('\n');
+// ── Leer el código como lo lee el compilador ─────────────────────────────────
+//
+// Qué es comentario y qué es un import lo dice TypeScript, no una regex. La que
+// había (`/\{?\/\*[\s\S]*?\*\/\}?/g`, quitando los bloques antes que las líneas)
+// leía el `components/calendario/*` de un `//` como el principio de un bloque y
+// se tragaba el código hasta el siguiente `*/`: no veía ni un import de
+// /calendario, de donde cuelga Listo, ni de app/widget-bundle/main.tsx, raíz de
+// la marca blanca, y seguía en verde con Tenti metido en cualquiera de los dos.
+// Un escáner suelto tampoco basta: sin el parser no sabe si un `/` abre una regex
+// (`/https:\/*/` lleva dentro un `/*`), dónde vuelve a empezar una plantilla, ni
+// que el texto de un JSX no es código.
+
+const leer = (rel: string) => readFileSync(join(raiz, rel), 'utf8');
+const arbol = (rel: string, texto: string) =>
+  ts.createSourceFile(rel, texto, ts.ScriptTarget.Latest, false, rel.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+
+/** El texto sin comentarios, con el mismo largo y los mismos saltos de línea.
+ *  Un comentario solo puede estar entre dos tokens, y el parser es el único que
+ *  sabe dónde acaba cada uno: se recogen los de delante de cada token. */
+function sinComentarios(sf: ts.SourceFile): string {
+  const t = sf.text;
+  const rangos = new Map<number, number>();
+  const visitar = (n: ts.Node): void => {
+    // El JSDoc ya sale como comentario del token al que precede, y el texto de
+    // un JSX es contenido: un `http://` ahí no abre nada.
+    if (ts.isJSDoc(n) || n.kind === ts.SyntaxKind.JsxText) return;
+    const hijos = n.getChildren(sf);
+    if (hijos.length) { hijos.forEach(visitar); return; }
+    // Los del final de la línea anterior son «trailing»; los de las siguientes, «leading».
+    for (const r of [...ts.getTrailingCommentRanges(t, n.pos) ?? [], ...ts.getLeadingCommentRanges(t, n.pos) ?? []]) {
+      rangos.set(r.pos, r.end);
+    }
+  };
+  visitar(sf);
+  let out = '';
+  let i = 0;
+  for (const [desde, hasta] of [...rangos].sort((a, b) => a[0] - b[0])) {
+    out += t.slice(i, desde) + t.slice(desde, hasta).replace(/[^\r\n]/g, ' ');
+    i = hasta;
+  }
+  return out + t.slice(i);
+}
+
+// Sin comentarios: los ficheros vigilados explican en los suyos por qué NO
+// importan el componente directo, y esa explicación no puede hacer fallar a la
+// guardia.
+const leerCodigo = (rel: string) => sinComentarios(arbol(rel, leer(rel)));
+
+/** Cada import, export…from, import() (también el de un tipo) y require() con
+ *  una ruta literal, con el nodo que lo hace. */
+function importsDe(sf: ts.SourceFile): { spec: string; nodo: ts.Node }[] {
+  const out: { spec: string; nodo: ts.Node }[] = [];
+  const anotar = (nodo: ts.Node, e: ts.Node | undefined) => { if (e && ts.isStringLiteralLike(e)) out.push({ spec: e.text, nodo }); };
+  const visitar = (n: ts.Node): void => {
+    if (ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) anotar(n, n.moduleSpecifier);
+    else if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference)) anotar(n, n.moduleReference.expression);
+    else if (ts.isCallExpression(n) && (n.expression.kind === ts.SyntaxKind.ImportKeyword
+      || (ts.isIdentifier(n.expression) && n.expression.text === 'require'))) anotar(n, n.arguments[0]);
+    else if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument)) anotar(n, n.argument.literal);
+    ts.forEachChild(n, visitar);
+  };
+  visitar(sf);
+  return out;
+}
 
 const COMPONENTE = 'components/tenti/tenti';
 const DIFERIDO = 'components/tenti/tenti-diferido';
@@ -103,18 +159,6 @@ function fuentes(dir: string, acc: string[] = []): string[] {
 }
 const TODAS = ['app', 'components', 'lib', 'emails'].flatMap(d => fuentes(d));
 
-/** Especificadores de cada import, export…from, import() y require(). */
-function especificadores(codigo: string): string[] {
-  const out: string[] = [];
-  for (const re of [
-    /\bfrom\s*['"]([^'"]+)['"]/g,
-    /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-    /^\s*import\s*['"]([^'"]+)['"]/gm,
-    /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
-  ]) for (const m of codigo.matchAll(re)) out.push(m[1]);
-  return out;
-}
-
 /** El módulo al que apunta, relativo a la raíz y sin extensión; null si es un paquete. */
 function modulo(desde: string, spec: string): string | null {
   let ruta: string;
@@ -126,10 +170,51 @@ function modulo(desde: string, spec: string): string | null {
 
 const esTenti = (m: string | null) => m === 'components/tenti' || !!m?.startsWith('components/tenti/');
 
-const imports = new Map(TODAS.map(f => [f, especificadores(leerCodigo(f)).map(s => modulo(f, s))]));
+const TEXTOS = new Map(TODAS.map(f => [f, leer(f)]));
+const imports = new Map(TODAS.map(f => [f, importsDe(arbol(f, TEXTOS.get(f)!)).map(i => modulo(f, i.spec))]));
 
 /** El fichero real de un módulo, o null si no está entre las fuentes. */
 const PORMODULO = new Map(TODAS.map(f => [f.replace(/\.tsx?$/, '').replace(/\/index$/, ''), f]));
+
+// ── 0 · La guardia ve el código que hay ──────────────────────────────────────
+
+test('sin comentarios quita los comentarios y nada más', () => {
+  const src = [
+    '// components/calendario/* no abre ningún bloque',
+    "import { A } from './a';",
+    'const r = /https:\\/*/; // y aquí sí empieza uno',
+    'const t = `// no es comentario ${1 /* este sí */}`;',
+    'export const X = () => <p>http://texto {/* este también */}</p>;',
+    "/** y el JSDoc */ import { B } from './b';",
+  ].join('\n');
+  const sin = sinComentarios(arbol('x.tsx', src));
+  assert.equal(sin.length, src.length);
+  assert.equal(sin.split('\n').length, src.split('\n').length);
+  for (const queda of ["import { A } from './a';", 'const r = /https:\\/*/;', '`// no es comentario ${1', '<p>http://texto {', "import { B } from './b';"]) {
+    assert.ok(sin.includes(queda), `se ha comido código: ${queda}`);
+  }
+  for (const va of ['calendario/*', 'aquí sí', 'este sí', 'este también', 'JSDoc']) {
+    assert.ok(!sin.includes(va), `sigue el comentario: ${va}`);
+  }
+});
+
+test('la guardia ve todos los imports del proyecto que ve TypeScript', () => {
+  // Un segundo lector, independiente: preProcessFile, con el que el propio TS
+  // descubre los módulos de un proyecto. Solo rutas del proyecto: también lee
+  // como import el ejemplo de código que una plantilla genera para el estudio.
+  const ciegos = TODAS.flatMap(f => {
+    const ve = new Set(imports.get(f));
+    return ts.preProcessFile(TEXTOS.get(f)!, true, true).importedFiles
+      .map(i => modulo(f, i.fileName))
+      .filter(m => m != null && !ve.has(m))
+      .map(m => `${f} → ${m}`);
+  });
+  assert.deepEqual(ciegos, [], 'La guardia no ve estos imports: lo que no ve, no lo vigila.');
+  // Los dos que la regex no veía, por nombre: de /calendario cuelga Listo, y el
+  // widget es la raíz de la marca blanca.
+  assert.ok(imports.get('app/(dashboard)/calendario/page.tsx')!.includes('components/onboarding/listo-para-reservar'));
+  assert.ok(imports.get('app/widget-bundle/main.tsx')!.includes('components/reserva/reserva-calendario'));
+});
 
 // ── 1 · Quién importa ────────────────────────────────────────────────────────
 
@@ -148,10 +233,16 @@ test('solo tres ficheros importan el componente de Tenti, y solo Listo el diferi
 
 test('quien importa a Tenti no le cambia el nombre (la guardia lo busca por su etiqueta)', () => {
   for (const f of TODAS.filter(x => !FUERA_DE_LAS_REGLAS(x) && imports.get(x)!.some(esTenti))) {
-    for (const m of leerCodigo(f).matchAll(/import\s+([^;]*?)\s+from\s*['"]([^'"]+)['"]/g)) {
-      if (!esTenti(modulo(f, m[2]))) continue;
-      assert.match(m[1], /^(type\s+)?\{[^}]*\}$/, `${f}: import con nombre, no por defecto ni \`* as\`.`);
-      assert.doesNotMatch(m[1], /\bas\b/, `${f}: un alias esconde las etiquetas <Tenti> de esta guardia.`);
+    for (const { spec, nodo } of importsDe(arbol(f, TEXTOS.get(f)!))) {
+      if (!esTenti(modulo(f, spec))) continue;
+      // Un import() o un re-export lo deja con el nombre que quiera quien lo use.
+      const clausula = ts.isImportDeclaration(nodo) ? nodo.importClause : undefined;
+      const nombres = clausula?.namedBindings;
+      assert.ok(clausula && !clausula.name && nombres && ts.isNamedImports(nombres),
+        `${f}: \`import { … } from\`, no por defecto, \`* as\`, import() ni re-export.`);
+      for (const e of nombres.elements) {
+        assert.ok(!e.propertyName, `${f}: un alias esconde las etiquetas <Tenti> de esta guardia.`);
+      }
     }
   }
 });
