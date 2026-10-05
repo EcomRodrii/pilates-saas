@@ -14,9 +14,15 @@ import { capturarExcepcion } from '@/lib/sentry-cliente';
 // decorativo. /interno/tenti enciende cada cosa a mano. Así un sitio nuevo no
 // puede salir ruidoso por olvidarse de un `false`.
 //
-// ⚠️ Gasta un requestAnimationFrame mientras se ve: se para solo cuando sale de
-// pantalla o la pestaña se oculta. Con «reducir movimiento» el motor no tiene
-// recorrido (`quieto`) y el bucle duerme en cuanto no queda nada por moverse.
+// El bucle DUERME: pide fotogramas solo mientras algo se mueve (un tween, un
+// temporizador, una partícula, un valor que aún no ha llegado, o un estado que
+// oscila sin fin) y, si no, se despierta con un setTimeout a la hora del
+// próximo parpadeo. Lo despiertan también un cambio de estado, de emoción, de
+// insignia, de paleta (claro ↔ oscuro), el puntero si sigue al cursor, `mira`
+// y volver a verse. Fuera de pantalla o con la pestaña oculta no queda ni el
+// fotograma ni el temporizador. En reposo pinta unos pocos fotogramas por
+// segundo en vez de 60. Con «reducir movimiento» el motor no tiene recorrido
+// (`quieto`) y ni siquiera se despierta para parpadear.
 //
 // Se deja observar desde los e2e, porque ningún test ve un canvas: data-estado,
 // data-paleta ('tokens' o 'defecto'), data-quieto, data-emocion (la última que
@@ -32,8 +38,12 @@ export interface PropsTenti {
   estado?: EstadoTenti;
   /** Lado del cuadro en px. Tenti ocupa algo más de la mitad. Cambiarlo recrea el motor. */
   tamano?: number;
-  /** Mueve los ojos hacia el cursor. */
+  /** Mueve los ojos hacia el cursor. Apagado por defecto: con el ratón en
+   *  movimiento el bucle vuelve a 60 fps, así que quien lo quiera, lo pide. */
   sigueCursor?: boolean;
+  /** Hacia dónde mira en horizontal, de -1 (izquierda) a 1 (derecha), cuando
+   *  no sigue al cursor. Con «reducir movimiento» mira siempre al frente. */
+  mira?: number;
   /** Sonidos de sus reacciones. */
   sonido?: boolean;
   /** Se aplasta al tocarlo, y se marea si insistes. */
@@ -55,7 +65,7 @@ const VENTANA_TOQUES_MS = 1700;
 const MAREO_MS = 2200;
 
 export function Tenti({
-  estado = 'reposo', tamano = 120, sigueCursor = true, sonido = false, interactivo = false,
+  estado = 'reposo', tamano = 120, sigueCursor = false, mira, sonido = false, interactivo = false,
   saludaAlAparecer = false, insignias = false, titulo, reserva = null, className, ref,
 }: PropsTenti) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -108,19 +118,34 @@ export function Tenti({
 
     let visible = true;
     let raf = 0;
+    let reloj: ReturnType<typeof setTimeout> | null = null;
+    const dormir = () => {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      if (reloj != null) { clearTimeout(reloj); reloj = null; }
+    };
     const bucle = () => {
       raf = 0;
       if (!visible || document.hidden) return;
-      try { motor.fotograma(); } catch (e) { fallar(e); return; }
-      // Con «reducir movimiento», solo mientras quede algo por terminar; si no,
-      // a 60 fps mientras se vea.
-      if (!motor.quieto || motor.animando()) raf = requestAnimationFrame(bucle);
+      let seguir: boolean, despertar: number;
+      try {
+        motor.fotograma();
+        seguir = motor.animando() || motor.perpetuo();
+        despertar = seguir ? 0 : motor.proximoDespertar();
+      } catch (e) { fallar(e); return; }
+      if (seguir) { raf = requestAnimationFrame(bucle); return; }
+      // Nada se mueve: hasta el próximo parpadeo, ni un fotograma. Si llega
+      // un poco antes (los relojes no van a la par), el fotograma de entonces
+      // vuelve a programar el resto.
+      if (Number.isFinite(despertar)) reloj = setTimeout(arrancar, Math.max(0, despertar - performance.now()));
     };
-    const arrancar = () => { if (!raf) raf = requestAnimationFrame(bucle); };
+    function arrancar() {
+      if (reloj != null) { clearTimeout(reloj); reloj = null; }
+      if (!raf && visible && !document.hidden) raf = requestAnimationFrame(bucle);
+    }
 
-    const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) arrancar(); });
+    const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) arrancar(); else dormir(); });
     io.observe(canvas);
-    const alVolver = () => { if (!document.hidden) arrancar(); };
+    const alVolver = () => { if (document.hidden) dormir(); else arrancar(); };
     document.addEventListener('visibilitychange', alVolver);
     const alCambiarMovimiento = () => { motor.quieto = reducido.matches; marcarQuieto(motor.quieto); arrancar(); };
     reducido.addEventListener('change', alCambiarMovimiento);
@@ -146,7 +171,7 @@ export function Tenti({
     }
 
     return () => {
-      cancelAnimationFrame(raf); io.disconnect(); mo?.disconnect();
+      dormir(); io.disconnect(); mo?.disconnect();
       document.removeEventListener('visibilitychange', alVolver);
       reducido.removeEventListener('change', alCambiarMovimiento);
       motor.destruir(); motorRef.current = null; despertarRef.current = () => {}; fallarRef.current = () => {};
@@ -175,10 +200,22 @@ export function Tenti({
       const r = c.getBoundingClientRect();
       m.mira.x = Math.tanh((e.clientX - (r.left + r.width / 2)) / 260);
       m.mira.y = -Math.tanh((e.clientY - (r.top + r.height / 2)) / 200);
+      despertarRef.current();
     };
     window.addEventListener('pointermove', mover, { passive: true });
     return () => window.removeEventListener('pointermove', mover);
   }, [sigueCursor]);
+
+  // Hacia dónde mira quien no sigue al cursor (el buscador: hacia lo que se
+  // escribe). `fallo` va en las dependencias porque al rehacerse el motor
+  // vuelve a mirar al frente.
+  useEffect(() => {
+    const m = motorRef.current;
+    if (sigueCursor || mira == null || !m) return;
+    m.mira.x = Math.max(-1, Math.min(1, mira));
+    m.mira.y = 0;
+    despertarRef.current();
+  }, [mira, sigueCursor, tamano, fallo]);
 
   // ⚠️ También con try/catch: quien llama puede estar a mitad de algo que no es
   // Tenti (la bienvenida pide 'feliz' justo después de guardar el logo), y un

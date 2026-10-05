@@ -17,6 +17,7 @@ import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
+import { TentiDecorativo } from '@/components/tenti/tenti-decorativo';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
   mensajesDeTrigger, plantillaDe, vistaPreviaMensaje, mensajesPersonalizados,
@@ -183,6 +184,15 @@ function HechoPorTentare() {
 
 // ─── Morning Briefing ─────────────────────────────────────────────────────────
 
+/** El Zap de siempre: lo que se ve mientras llega Tenti, o si no puede pintarse. */
+function BaldosaZap() {
+  return (
+    <div className="size-14 rounded-2xl bg-card/10 flex items-center justify-center">
+      <Zap size={28} aria-hidden="true" className="text-primary-foreground/80" />
+    </div>
+  );
+}
+
 function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
   const today = new Date().toISOString().slice(0, 10);
   const todayLogs = logs.filter(l => l.ejecutadoEn.startsWith(today));
@@ -242,8 +252,13 @@ function MorningBriefing({ logs }: { logs: AutomationLog[] }) {
             </p>
           )}
         </div>
-        <div className="shrink-0 w-14 h-14 rounded-2xl bg-card/10 flex items-center justify-center">
-          <Zap size={28} className="text-primary-foreground/80" />
+        {/* Tenti en el sitio de la baldosa del Zap: la cara de lo que Tentare
+            hace solo. Vivo pero en reposo y decorativo, pase lo que pase con
+            los recuentos (lo dicen el texto y las cifras). La baldosa de
+            siempre mientras llega su chunk, si no llega o si no hay canvas 2D,
+            en la misma caja de 56 px: nada salta. */}
+        <div className="shrink-0 size-14">
+          <TentiDecorativo tamano={56} reserva={<BaldosaZap />} />
         </div>
       </div>
 

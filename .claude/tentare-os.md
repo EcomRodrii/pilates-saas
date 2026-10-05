@@ -311,11 +311,26 @@ esa lista con su motivo, no un import de paso.
 - **Un dibujo, dos maneras de pintarlo** (`lib/tenti/geometria.ts`, la usan los
   dos): en lo diario, `TentiIcono` (SVG quieto, sin rAF y sin el motor en el
   chunk), que ve quien veía el Orb en ese sitio, recepción y gerencia incluidas;
-  el canvas animado (`components/tenti/tenti.tsx`) solo en las primeras veces de
-  la propietaria (el logo y Listo) y siempre diferido. Es el estado a 5-oct, no
-  un veto: el fundador ya decidió el canvas también en el buscador ⌘K y en el
-  briefing de Automatizaciones, que llegan junto con el PR en el que el motor
-  duerme entre parpadeos (hoy pide rAF mientras se ve).
+  el canvas animado (`components/tenti/tenti.tsx`), siempre diferido, en las
+  primeras veces de la propietaria (el logo y Listo, con `TentiDiferido`) y,
+  decorativo y en reposo, en el buscador ⌘K (`TentiDecorativo`: lo ven todos
+  los roles, en el sitio de la lupa, solo con la hoja abierta, y mira hacia lo
+  que se escribe). Mientras llega su chunk, si no llega o sin canvas 2D, la
+  lupa de siempre en la misma caja. Y en el resumen del día de
+  Automatizaciones, en el sitio de la baldosa del Zap (56 px, con el Zap de
+  reserva); «Esto ya lo hace Tentare» sigue con su icono. Los sitios, sus
+  tamaños y sus props los cierra la guardia (`IMPORTAN_EL_DECORATIVO`).
+- **El canvas DUERME entre parpadeos.** Pide rAF solo mientras algo se mueve
+  (`animando()`: tweens, temporizadores, partículas, valores sin llegar;
+  `perpetuo()`: lo que oscila sin fin) y, si no, un `setTimeout` hasta
+  `proximoDespertar()`. Lo despiertan el estado, la emoción, el saludo, la
+  paleta, `mira`, el puntero (si sigue al cursor) y volver a verse; fuera de
+  pantalla o con la pestaña oculta no queda ni el rAF ni el temporizador.
+  `sigueCursor` va apagado por defecto (con el ratón en movimiento vuelve a 60
+  fps) y los sonidos llegan en su propio chunk. Medido con Listo en reposo: de
+  601 a 42 fotogramas en 10 s. ⚠️ Los temporizadores cuentan en `animando()` a
+  propósito: el hueco del parpadeo doble son 30 ms y sin eso se dormía con los
+  ojos a medio cerrar (lo cubre `lib/tenti/motor.test.ts`).
 - **Tres estados con un significado cada uno.** `reposo` es la firma: no es un
   aviso ni un «todo bien» (si hay algo que avisar, lo dice el texto, nunca su
   cara). `pensando`, solo con una petición de verdad en vuelo (un botón de IA,

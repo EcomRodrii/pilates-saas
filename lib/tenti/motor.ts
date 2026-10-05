@@ -23,13 +23,28 @@
 // «reducir movimiento» (`quieto`) quita todo recorrido, no solo lo acorta.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { sonar, type Sonido } from './sonidos.ts';
+import type { Sonido } from './sonidos.ts';
 import type { PaletaTenti } from './paleta.ts';
 // El dibujo (contorno, ojos, mofletes, luz) sale de la misma geometría que el
 // icono de lo diario: aquí solo se anima.
 import { BAJADA, LUZ, MOFLETE, OJO, colocarOjo, medidas, pildora, recorrerContorno } from './geometria.ts';
 
 type RGB = [number, number, number];
+
+// Los sonidos van en su propio chunk y se piden la primera vez que hacen falta:
+// fuera del catálogo (/interno/tenti) ningún Tenti suena, y no tiene sentido
+// que cada pantalla con la mascota descargue la síntesis de veinticinco efectos.
+// Se piden al encender `sonido`, no al primer efecto, para que ese primero no
+// llegue tarde respecto al gesto que lo provoca.
+let sonidos: typeof import('./sonidos.ts') | null = null;
+let pidiendoSonidos: Promise<void> | null = null;
+function cargarSonidos(): Promise<void> {
+  return (pidiendoSonidos ??= import('./sonidos.ts').then(
+    (m) => { sonidos = m; },
+    // Si el chunk no llega, otro intento la próxima vez: un sonido no rompe nada.
+    () => { pidiendoSonidos = null; },
+  ));
+}
 
 const AHORA = () => performance.now();
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -145,7 +160,10 @@ export class Tenti {
   private x: CanvasRenderingContext2D;
   private mini: boolean;
   private colorCuerpo: RGB | null;
-  sonido: boolean;
+  private conSonido = false;
+  /** Si sus reacciones suenan. Al encenderlo se piden los sonidos (otro chunk). */
+  get sonido(): boolean { return this.conSonido; }
+  set sonido(v: boolean) { this.conSonido = v; if (v) void cargarSonidos(); }
   /** «Reducir movimiento». Se puede cambiar en vivo. */
   quieto: boolean;
   private insignias: boolean;
@@ -201,7 +219,11 @@ export class Tenti {
     this.temporizadores.add(t);
   }
   destruir() { for (const t of this.temporizadores) clearTimeout(t); this.temporizadores.clear(); }
-  private suena(n?: Sonido) { if (this.sonido && n) sonar(n); }
+  private suena(n?: Sonido) {
+    if (!this.conSonido || !n) return;
+    if (sonidos) sonidos.sonar(n);
+    else void cargarSonidos().then(() => { if (this.conSonido) sonidos?.sonar(n); });
+  }
 
   private anim(p: Prop, keys: Clave[], after?: () => void) {
     this.tw = this.tw.filter((t) => t.p !== p);
@@ -312,15 +334,46 @@ export class Tenti {
   /**
    * Si queda algo por moverse: un tween, un temporizador, una partícula, unos
    * ojos forzados que tienen que volver, o un valor que aún no ha llegado a su
-   * objetivo. Con `quieto`, el bucle de fotogramas sigue mientras esto sea
+   * objetivo. El bucle de fotogramas sigue mientras esto (o `perpetuo()`) sea
    * cierto y ni uno más: pararlo a una hora fija dejaba un parpadeo a medias,
-   * con los ojos entornados hasta el siguiente despertar.
+   * con los ojos entornados hasta el siguiente despertar. Los temporizadores
+   * cuentan a propósito: el hueco del parpadeo doble son 30 ms, y así el bucle
+   * no se duerme entre los dos.
    */
   animando(): boolean {
     if (this.tw.length || this.temporizadores.size || this.parts.length || this.ojoForzado) return true;
     if (AHORA() < this.saludaHasta) return true;
     for (const k of Object.keys(this.tg) as Prop[]) if (Math.abs(this.tg[k] - this.s[k]) > 0.002) return true;
     return Math.abs(this.col[0] - this.colT[0]) + Math.abs(this.col[1] - this.colT[1]) + Math.abs(this.col[2] - this.colT[2]) > 1;
+  }
+
+  /**
+   * Lo que se mueve sin fin mientras dure: escanear, botar, respirar, el mareo,
+   * la insignia de puntos, los ojos que giran (espiral, estrella) y la mano del
+   * saludo. Mientras sea cierto, un fotograma por refresco; si no, el bucle
+   * duerme hasta `proximoDespertar()`. Con `quieto` nada de esto se mueve.
+   */
+  perpetuo(): boolean {
+    if (this.quieto) return false;
+    const c = this.cfg;
+    if (c.escanea || c.bota || c.respira || this.estado === 'mareado') return true;
+    if (this.insignias && this.insignia === 'dots' && !this.mini) return true;
+    const forma = this.ojoForzado || c.ojo;
+    if (forma === 'spiral' || forma === 'star') return true;
+    return AHORA() < this.saludaHasta;
+  }
+
+  /**
+   * Cuándo vuelve a pasar algo sin que nadie lo pida: el próximo parpadeo y,
+   * solo fuera de mini, la siguiente partícula de ambiente de 'dormido' y
+   * 'agobiado' (que el panel no usa). Con `quieto`, nunca: ni parpadea ni echa
+   * partículas, así que no hay por qué despertar.
+   */
+  proximoDespertar(): number {
+    if (this.quieto) return Infinity;
+    const c = this.cfg;
+    const ambiente = !this.mini && (c.zz || c.suda) ? this.ultimoAmbiente + 1300 : Infinity;
+    return Math.min(this.proxParpadeo, ambiente);
   }
 
   private actualizar() {

@@ -39,7 +39,7 @@ export default function TentiPagina() {
         <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-muted/40 py-6">
           <Tenti
             ref={control} estado={estado} tamano={240} sonido={sonido}
-            interactivo saludaAlAparecer insignias titulo={`Tenti: ${ESTADOS[estado].etiqueta.toLowerCase()}`}
+            interactivo saludaAlAparecer insignias sigueCursor titulo={`Tenti: ${ESTADOS[estado].etiqueta.toLowerCase()}`}
           />
           <p className="text-[13px] font-semibold text-foreground">{ESTADOS[estado].etiqueta}</p>
         </div>

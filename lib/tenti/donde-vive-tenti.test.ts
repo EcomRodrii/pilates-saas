@@ -10,8 +10,11 @@
 // Un solo dibujo (lib/tenti/geometria.ts), pintado de dos maneras:
 //   · el ICONO (components/tenti/tenti-icono.tsx): SVG quieto, en lo diario. Lo
 //     ve quien veía el Orb en cada sitio, también recepción y gerencia.
-//   · el PERSONAJE (components/tenti/tenti.tsx): el canvas animado, solo en las
-//     primeras veces de la propietaria (la pantalla del logo y Listo).
+//   · el PERSONAJE (components/tenti/tenti.tsx): el canvas animado, en las
+//     primeras veces de la propietaria (la pantalla del logo y Listo) y, desde
+//     el 5-oct (decisión del fundador), decorativo y en reposo en dos sitios
+//     que se ven a diario: el buscador ⌘K y el resumen de Automatizaciones.
+//     Ahí va siempre por TentiDecorativo, y el motor duerme entre parpadeos.
 //
 // Estructural a propósito: el motor dibuja once estados y siete emociones, y la
 // tentación de «ponerle cara» a una pantalla más es constante. Cada sitio nuevo
@@ -123,6 +126,7 @@ function importsDeValor(sf: ts.SourceFile): string[] {
 
 const COMPONENTE = 'components/tenti/tenti';
 const DIFERIDO = 'components/tenti/tenti-diferido';
+const DECORATIVO = 'components/tenti/tenti-decorativo';
 const ICONO = 'components/tenti/tenti-icono';
 const MOTOR = 'lib/tenti/motor';
 const GEOMETRIA = 'lib/tenti/geometria';
@@ -191,8 +195,9 @@ const IMPORTAN_EL_COMPONENTE = new Set([
   // el chunk diferido de PantallaBienvenida, y el ref de saludar()/emocion() no
   // atraviesa next/dynamic.
   'components/onboarding/pantallas-valor.tsx',
-  // El envoltorio diferido, que solo importa el TIPO y el módulo dentro de dynamic().
+  // Los dos envoltorios diferidos, que solo importan el TIPO y el módulo dentro de dynamic().
   'components/tenti/tenti-diferido.tsx',
+  'components/tenti/tenti-decorativo.tsx',
 ]);
 
 /** Los únicos que importan `components/tenti/tenti-diferido`. */
@@ -201,6 +206,26 @@ const IMPORTAN_EL_DIFERIDO = new Set([
   // de PrimerHorario, así que el motor solo puede llegar por el diferido.
   'components/onboarding/listo-para-reservar.tsx',
 ]);
+
+/**
+ * Los únicos que importan `components/tenti/tenti-decorativo`: el canvas en lo
+ * diario, con su tamaño. Decorativo, siempre en reposo y sin nada que pedir más
+ * que hacia dónde mira; lo ve cualquier rol que llegue ahí.
+ */
+const IMPORTAN_EL_DECORATIVO: Record<string, { tamano: number; motivo: string }> = {
+  // El buscador ⌘K («¿Qué quieres hacer o buscar?»): al abrir la hoja, Tenti
+  // aparece en el sitio de la lupa y mira hacia lo que se escribe. Lo ven los
+  // tres roles del panel. Solo vive con la hoja abierta. 40 px: la fila del
+  // input no crece (el cuerpo mide unos 27 px).
+  'components/search/global-search.tsx': { tamano: 40, motivo: 'el buscador ⌘K: Tentare te ayuda a encontrar lo que quieres hacer' },
+  // El resumen del día de Automatizaciones, en el sitio de la baldosa del Zap
+  // (56 px, la misma caja): la cara de lo que Tentare hace solo. Pantalla solo
+  // de la propietaria.
+  'app/(dashboard)/automatizaciones/page.tsx': { tamano: 56, motivo: 'el resumen del día de Automatizaciones: lo que Tentare hace solo' },
+};
+
+/** Los únicos props de <TentiDecorativo>. El tipo cierra el resto (estado incluido). */
+const PROPS_DEL_DECORATIVO = new Set(['tamano', 'reserva', 'mira', 'className']);
 
 /** Donde 'hecho' está permitido: significa UNA cosa en todo el producto, que el
  *  servidor confirmó que una alumna nueva puede reservar. */
@@ -501,7 +526,7 @@ test('el icono no arrastra el motor: SVG quieto, la geometría compartida y el a
 
 // ── 3 · El personaje (canvas): quién lo importa ──────────────────────────────
 
-test('solo tres ficheros importan el componente de Tenti, y solo Listo el diferido', () => {
+test('solo cuatro ficheros importan el componente de Tenti, solo Listo el diferido y los sitios de lo diario el decorativo', () => {
   const delComponente = TODAS.filter(f => imports.get(f)!.includes(COMPONENTE)).sort();
   assert.deepEqual(delComponente, [...IMPORTAN_EL_COMPONENTE].sort(),
     'Un sitio nuevo para el canvas es una decisión de producto: añádelo a IMPORTAN_EL_COMPONENTE con su motivo. ' +
@@ -509,9 +534,12 @@ test('solo tres ficheros importan el componente de Tenti, y solo Listo el diferi
   const delDiferido = TODAS.filter(f => imports.get(f)!.includes(DIFERIDO)).sort();
   assert.deepEqual(delDiferido, [...IMPORTAN_EL_DIFERIDO].sort(),
     'TentiDiferido solo está en «Tu estudio ya puede recibir reservas».');
+  const delDecorativo = TODAS.filter(f => imports.get(f)!.includes(DECORATIVO)).sort();
+  assert.deepEqual(delDecorativo, Object.keys(IMPORTAN_EL_DECORATIVO).sort(),
+    'El canvas en una pantalla de todos los días es una decisión de producto: añádelo a IMPORTAN_EL_DECORATIVO con su motivo.');
   const otros = TODAS.filter(f => !f.startsWith('components/tenti/')
-    && imports.get(f)!.some(m => esTenti(m) && m !== COMPONENTE && m !== DIFERIDO && m !== ICONO));
-  assert.deepEqual(otros, [], 'components/tenti solo expone el componente, su versión diferida y el icono.');
+    && imports.get(f)!.some(m => esTenti(m) && m !== COMPONENTE && m !== DIFERIDO && m !== DECORATIVO && m !== ICONO));
+  assert.deepEqual(otros, [], 'components/tenti solo expone el componente, sus dos versiones diferidas y el icono.');
 });
 
 test('el motor solo lo importan Tenti por dentro y el catálogo', () => {
@@ -572,6 +600,42 @@ test('TentiDiferido solo trae el motor por dynamic(), sin SSR, y solo para la pr
       new RegExp(`\\b${p}\\b`), `TentiDiferido no expone \`${p}\`.`);
   }
 });
+
+test('TentiDecorativo trae el motor por dynamic(), sin SSR, con la reserva mientras carga y siempre en reposo', () => {
+  const src = leerCodigo(`${DECORATIVO}.tsx`);
+  for (const m of src.matchAll(/import\s+([^;]*?)\s+from\s*['"]\.\/tenti['"]/g)) {
+    assert.match(m[1], /^type\s/, 'De ./tenti solo el tipo: un import de valor mete el motor en el chunk del panel (el buscador va en todas las pantallas).');
+  }
+  assert.equal([...src.matchAll(/\bimport\s*\(\s*['"]\.\/tenti['"]\s*\)/g)].length, 1, 'Un solo import() del componente.');
+  assert.match(src, /^const\s+\w+\s*=\s*dynamic\s*(<[^>]*>)?\s*\(\s*\(\)\s*=>\s*import\s*\(\s*['"]\.\/tenti['"]\s*\)[\s\S]*?\.catch\([\s\S]*?\{[^}]*\bssr\s*:\s*false/m,
+    "dynamic(() => import('./tenti').then(…).catch(…), { ssr: false }) a nivel de módulo: si el chunk no llega, lo de siempre.");
+  assert.match(src, /loading\s*:\s*\(\)\s*=>\s*<SoloReserva\s*\/>/, 'Mientras llega el chunk, la reserva (la lupa, el Zap): nada salta.');
+  const lienzos = etiquetas(`${DECORATIVO}.tsx`, src, ['TentiCanvas']);
+  assert.equal(lienzos.length, 1);
+  const [lienzo] = lienzos;
+  assert.equal(lienzo.props.get('estado'), '"reposo"', 'Siempre en reposo: si hay algo que avisar, lo dice el texto.');
+  assert.deepEqual([...lienzo.props.keys()].sort(), ['className', 'estado', 'mira', 'reserva', 'tamano'],
+    'Ni sonido, ni toques, ni saludo, ni insignias, ni seguir al cursor, ni nombre accesible: es decorativo.');
+  const props = src.slice(src.indexOf('interface PropsTentiDecorativo'), src.indexOf('const ReservaCtx'));
+  assert.match(props, /tamano\s*:\s*40\s*\|\s*56\s*;/, 'Los tamaños del decorativo son cerrados (40 | 56): así lo vigila también tsc.');
+  for (const p of [...PROPS_SOLO_DEL_CATALOGO, 'estado', 'sigueCursor']) {
+    assert.doesNotMatch(props, new RegExp(`\\b${p}\\b`), `TentiDecorativo no expone \`${p}\`.`);
+  }
+});
+
+for (const [fichero, { tamano, motivo }] of Object.entries(IMPORTAN_EL_DECORATIVO)) {
+  test(`${fichero}: un TentiDecorativo de ${tamano} px (${motivo})`, () => {
+    const src = leerCodigo(fichero);
+    const vistas = etiquetas(fichero, src, ['TentiDecorativo']);
+    assert.equal(vistas.length, 1, 'Uno, en su sitio. Si cambia, cambia IMPORTAN_EL_DECORATIVO con su motivo.');
+    assert.equal(src.match(/\bTentiDecorativo\b/g)?.length ?? 0, 2, 'TentiDecorativo solo en su import y en su etiqueta: nada de alias.');
+    const [e] = vistas;
+    assert.ok(!e.esparce, '<TentiDecorativo {...}> no se puede vigilar; pasa cada prop a mano.');
+    for (const p of e.props.keys()) assert.ok(PROPS_DEL_DECORATIVO.has(p), `<TentiDecorativo ${p}> no es un prop del decorativo.`);
+    assert.equal(e.props.get('tamano'), String(tamano), `tamano={${tamano}}, literal: cambiarlo recrea el motor.`);
+    assert.ok(e.props.get('reserva'), 'Con la reserva de siempre (la lupa, el Zap) para mientras carga o si falla.');
+  });
+}
 
 // ── 5 · Lo que se le deja hacer fuera del catálogo ───────────────────────────
 
