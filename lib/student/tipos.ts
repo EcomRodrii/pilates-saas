@@ -73,6 +73,11 @@ export interface Clase {
   /** Ventana de cancelación propia de este tipo de clase; `null` = la del estudio. */
   ventanaCancelacionHoras: number | null;
   /**
+   * Lo que su estudio le cobraría por cancelar tarde ESTA clase (`penalizacionTardiaQueSeCobraria`):
+   * `null`/ausente = nada. Solo para avisar antes de confirmar: quien cobra es el servidor.
+   */
+  penalizacionTardiaEur?: number | null;
+  /**
    * Cuándo se abre la reserva de esta clase (ISO), con los días del tipo o del
    * estudio y la hora fija del estudio; `null`/ausente = sin límite. Es el
    * INSTANTE, no «si ya está abierta»: eso lo decide la pantalla con su reloj
@@ -253,15 +258,17 @@ export interface PlazaFijaVista {
   deClaseFija: boolean;
   /** Quién da la próxima clase de su hueco (`null` = sin clase próxima o sin saberlo). */
   instructora: string | null;
-  /**
-   * Lo que su estudio puede cobrar por cancelar tarde una clase de su hueco: el del
-   * tipo de clase o, si no tiene, el del estudio (el mismo `coalesce` que
-   * `cancelar_reserva_plaza`). `null`/0 = no hay penalización.
-   */
-  penalizacionTardiaEur: number | null;
 }
-/** Una próxima clase de su clase fija, con la ventana de cancelación de SU tipo de clase (`null` = la del estudio). */
-export type ProximaClaseFijaVista = import('./plaza-fija.ts').ProximaClaseFija & { ventanaCancelacionHoras: number | null };
+/**
+ * Una próxima clase de su clase fija, con lo de SU sesión: la ventana de cancelación de su
+ * tipo de clase (`null` = la del estudio) y lo que se le cobraría por cancelarla tarde
+ * (`penalizacionTardiaQueSeCobraria`, `null` = nada). Por sesión y no por la plaza: una
+ * plaza sin tipo (las importadas) se reserva en clases de tipos distintos.
+ */
+export type ProximaClaseFijaVista = import('./plaza-fija.ts').ProximaClaseFija & {
+  ventanaCancelacionHoras: number | null;
+  penalizacionTardiaEur: number | null;
+};
 /**
  * ⚠️ NO se redeclara aquí: se reexporta la de `plaza-fija.ts`, que es donde vive
  * la proyección que la construye. Estaban las dos escritas a mano y a la

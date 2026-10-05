@@ -421,6 +421,10 @@ function studioPublico(r: RowStudios) {
     // enseñan (arriba); viaja también suelto para que quien recomponga el texto
     // en el cliente con `configLegalDe(studio, …)` tenga los mismos datos.
     penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
+    // Si el estudio cobra las cancelaciones tardías («Cobrar si cancela tarde»), como
+    // `cancelar_reserva_plaza` (`coalesce(…, true)`): sin esto la app de la alumna
+    // avisaba de un cargo por cancelar tarde que el estudio había apagado.
+    penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
     compraPublicaModo: (r.compra_publica_modo as 'EXIGIR_REGISTRO' | 'CREAR_FICHA') ?? 'EXIGIR_REGISTRO',

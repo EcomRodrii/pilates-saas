@@ -753,10 +753,13 @@ async function montarConClaseFija(page: Page, opts: {
   sinReserva?: string[];
   /** Lo que el estudio cobra por cancelar tarde (`studios.penalizacion_importe_eur`). */
   penalizacionEur?: number;
+  /** «Cobrar si cancela tarde» (`studios.penalizacion_aplica_cancelacion_tardia`). Sin dato, encendido. */
+  cobraCancelarTarde?: boolean;
 } = {}) {
   await sembrarSociaLista(page);
   const f = fixtureSociaLista() as unknown as Record<string, unknown>;
   if (opts.penalizacionEur != null) (f.studio as Record<string, unknown>).penalizacionImporteEur = opts.penalizacionEur;
+  if (opts.cobraCancelarTarde != null) (f.studio as Record<string, unknown>).penalizacionAplicaCancelacionTardia = opts.cobraCancelarTarde;
   const sesiones = f.sesiones as unknown[];
   const clasesFijas = [
     ...CLASES_FIJAS,
@@ -1067,6 +1070,28 @@ test.describe('Student PWA · tu clase fija · no voy', () => {
     expect(cuenta.cancelar).toBe(1);
     // Volver a ir no anula la cancelación tardía: no se le invita.
     await expect(linea.getByTestId('volver-a-reservarla')).toHaveCount(0);
+  });
+
+  test('«Mis clases → Próximas»: cancelar tarde una de su clase fija también avisa ANTES de lo que se cobraría', async ({ page }) => {
+    await montarConClaseFija(page, { penalizacionEur: 8 });
+    await page.clock.setSystemTime(new Date('2026-08-13T05:00:00+02:00'));
+    const cuenta = await rutaReserva(page, { cancelar: { status: 200, body: { ...CANCELADA_A_TIEMPO.body, tardia: true } } });
+    await page.goto(`${base}/mis-reservas`);
+    await expect(page.getByText('Tu clase fija ✓').first()).toBeVisible({ timeout: 30_000 });
+    // La primera es la de hoy (jueves 13 a las 10:00): a 5 h, dentro del plazo de 12 h.
+    await page.getByRole('button', { name: /^Cancelar$/ }).first().click();
+    await expect(page.getByTestId('cancelar-clase-fija-aviso')).toContainText('es una cancelación tardía');
+    await expect(page.getByTestId('cancelar-penalizacion')).toHaveText(/Tu estudio puede cobrarte 8(,00)?\s?€ por cancelar tan tarde\./);
+    expect(cuenta.cancelar, 'avisar no cancela nada').toBe(0);
+  });
+
+  test('con «Cobrar si cancela tarde» apagado, la confirmación tardía no habla de cobrar nada', async ({ page }) => {
+    await montarConClaseFija(page, { penalizacionEur: 8, cobraCancelarTarde: false });
+    await page.clock.setSystemTime(new Date('2026-08-13T05:00:00+02:00'));
+    await page.goto(`${base}/mis-reservas?tab=fijas`);
+    await page.getByTestId('semana-clase-fija').first().click({ timeout: 30_000 });
+    await expect(page.getByTestId('no-puedo-aviso')).toContainText('es una cancelación tardía');
+    await expect(page.getByTestId('no-puedo-penalizacion')).toHaveCount(0);
   });
 
   test('sin penalización en el estudio, la confirmación tardía no habla de cobrar nada', async ({ page }) => {

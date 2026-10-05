@@ -15,7 +15,8 @@ import { getClases, getInstructoras, getPlazaFija, getReservas } from '@/lib/stu
 import { ClaseFijaVacia, MiClaseFija } from '@/components/student/domain/MiClaseFija';
 import { cancelarReserva, aceptarOfertaEspera } from '@/lib/student/reservas-acciones';
 import { avisoCancelacion } from '@/lib/student/maquina-reserva';
-import { etiquetaDia, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato';
+import { etiquetaDia, euros, fechaCorta, hoyISO, horaFin } from '@/lib/student/formato';
+import { avisoPenalizacionTardia } from '@/lib/student/clase-fija-vista';
 import { acotarFijasProximas, diaSemanaDe } from '@/lib/student/plaza-fija';
 import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import { mensajeTrasCancelar } from '@/lib/student/cancelar-mensajes';
@@ -134,6 +135,10 @@ export default function MisReservasPage() {
   const sel = items.find((x) => x.r.id === cancelId);
   const aviso = sel ? avisoCancelacion(sel.c, estudio.politicaCancelacionHoras) : null;
   const selEsFija = !!sel && sel.r.estado !== 'en-espera' && esClaseFija(sel.r.id);
+  // Tarde y con penalización que de verdad se cobraría por ESA clase: se dice antes de confirmar
+  // (la misma regla y el mismo texto que «no voy» en Fija: `avisoPenalizacionTardia`).
+  const penalizacionSel = sel && sel.r.estado !== 'en-espera' && aviso && !aviso.devolveriaCredito
+    ? avisoPenalizacionTardia(sel.c.penalizacionTardiaEur, euros) : null;
 
   // Sin `useCallback` a propósito: cierra sobre `sel`, que se deriva en el
   // render a partir de `data`, y el compilador de React no puede preservar esa
@@ -445,6 +450,9 @@ export default function MisReservasPage() {
             <p style={{ margin: 0, fontSize: 'var(--t-small)', color: 'var(--accent-soft-foreground)' }}>
               {aviso.devolveriaCredito ? TEXTOS_PLAZA_FIJA.noPuedoATiempo : TEXTOS_PLAZA_FIJA.noPuedoTarde(aviso.horasVentana)}
             </p>
+            {penalizacionSel && (
+              <p data-testid="cancelar-penalizacion" style={{ margin: 0, fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--accent-soft-foreground)' }}>{penalizacionSel}</p>
+            )}
           </div>
         )}
         {sel && sel.r.estado !== 'en-espera' && !selEsFija && (
@@ -459,6 +467,9 @@ export default function MisReservasPage() {
                 ? 'Estás dentro del plazo: deberías recuperar la sesión de tu bono.'
                 : `Quedan menos de ${aviso?.horasVentana ?? estudio.politicaCancelacionHoras} h: es probable que la sesión no se devuelva.`}
             </p>
+            {penalizacionSel && (
+              <p data-testid="cancelar-penalizacion" style={{ margin: '6px 0 0', fontSize: 'var(--t-small)', fontWeight: 700, color: 'var(--warning-foreground)' }}>{penalizacionSel}</p>
+            )}
             {/* ⚠️ El número sale de `aviso.horasVentana`, que es la ventana YA
                 RESUELTA (la del tipo de clase manda sobre la del estudio), no de
                 `estudio.politicaCancelacionHoras`. Escribir la del estudio era

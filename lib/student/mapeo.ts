@@ -6,6 +6,7 @@
 // mismo motivo que el resto del fichero.
 import { horaEstudio, hoyEnEstudio } from '../utils.ts';
 import { situacionRecibo } from '../billing/situacion-recibo.ts';
+import { penalizacionTardiaQueSeCobraria } from '../billing/penalizacion-importe.ts';
 import { imagenDeClase } from '../imagenes-por-defecto.ts';
 import { diasHastaCaducar } from '../creditos-caducidad.ts';
 import { precioDeSesion } from './precio-suelta.ts';
@@ -253,7 +254,7 @@ export interface PayloadMin {
   studio?: {
     fotoUrl?: string | null; imagenBienvenidaUrl?: string | null;
     reservaAntelacionMaximaDias?: number | null; reservaAntelacionHora?: string | null;
-    penalizacionImporteEur?: number | null;
+    penalizacionImporteEur?: number | null; penalizacionAplicaCancelacionTardia?: boolean | null;
   } | null;
   sesiones?: {
     id: string; inicio: string; fin: string; aforoMaximo: number;
@@ -369,6 +370,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       tipoClaseId: s.tipoClaseId,
       tipoOrden: puesto.get(s.tipoClaseId),
       ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null,
+      penalizacionTardiaEur: penalizacionTardiaDe(d, tipo),
       permiteListaEspera: tipo?.permiteListaEspera ?? null,
       seAbreEl: seAbreEl(s.inicio, tipo?.reservaAntelacionMaximaDias, d.studio),
       creditosAlAsistir: porAsistir,
@@ -555,22 +557,34 @@ export function proyectarPlazasFijas(d: PayloadMin, hoyISO: string, horaAhora = 
     estado: p.estado, proximaFecha: p.proximaFecha, sinClase: p.sinClase, vigenciaHasta: p.vigenciaHasta, pausa: p.pausa,
     pausaPedida: p.pausaPedida, deClaseFija: p.deClaseFija,
     instructora: instructoraDeSuHueco(d, p, sesiones, hoyISO, horaAhora),
-    penalizacionTardiaEur: penalizacionDeSuHueco(d, p.tipoClaseId),
-    // Lo que su clase fija le tiene ya reservado (las 5 próximas semanas de «Mis clases → Fija»).
-    // Una plaza en pausa o sin clase no lo enseña.
+    // TODO lo que su clase fija le tiene ya reservado, sin tope: «Mis clases → Fija» enseña 5
+    // semanas con el reloj VIVO, y con una lista cortada al cargar (5, a la hora de la carga),
+    // al empezar la clase de hoy la 5.ª semana se quedaba sin su reserva y perdía el «no voy».
+    // Una plaza en pausa o sin clase no lo enseña. Ventana y penalización, las de SU sesión.
     proximas: p.estado !== 'ACTIVA' ? [] : proximasDeUnaPlaza(
-      { diaSemana: p.diaSemana, hora: p.hora, salaId: p.salaId }, d.socia?.reservas ?? [], sesiones, hoyISO, horaAhora, 5,
+      { diaSemana: p.diaSemana, hora: p.hora, salaId: p.salaId }, d.socia?.reservas ?? [], sesiones, hoyISO, horaAhora, Number.POSITIVE_INFINITY,
     ).map((x) => {
-      const tipoId = (d.sesiones ?? []).find((s) => s.id === x.sesionId)?.tipoClaseId;
-      return { ...x, ventanaCancelacionHoras: (d.tiposClase ?? []).find((t) => t.id === tipoId)?.ventanaCancelacionHoras ?? null };
+      const tipo = tipoDeSesion(d, x.sesionId);
+      return { ...x, ventanaCancelacionHoras: tipo?.ventanaCancelacionHoras ?? null, penalizacionTardiaEur: penalizacionTardiaDe(d, tipo) };
     }),
   }));
 }
 
-/** Tipo de clase → estudio, como `cancelar_reserva_plaza`: un 0 en el tipo de clase es «sin penalización», no «hereda». */
-function penalizacionDeSuHueco(d: PayloadMin, tipoClaseId: string | null | undefined): number | null {
-  const delTipo = tipoClaseId ? (d.tiposClase ?? []).find((t) => t.id === tipoClaseId)?.penalizacionImporteEur : undefined;
-  return delTipo ?? d.studio?.penalizacionImporteEur ?? null;
+function tipoDeSesion(d: PayloadMin, sesionId: string) {
+  const tipoId = (d.sesiones ?? []).find((s) => s.id === sesionId)?.tipoClaseId;
+  return (d.tiposClase ?? []).find((t) => t.id === tipoId);
+}
+
+/**
+ * Lo que su estudio le cobraría por cancelar tarde una clase de ese tipo: la misma regla
+ * que la detección y el guardia de cobro (`penalizacionTardiaQueSeCobraria`). `null` = nada.
+ */
+function penalizacionTardiaDe(d: PayloadMin, tipo: { penalizacionImporteEur?: number | null } | undefined): number | null {
+  return penalizacionTardiaQueSeCobraria({
+    aplicaTardia: d.studio?.penalizacionAplicaCancelacionTardia,
+    importeEstudio: d.studio?.penalizacionImporteEur,
+    importeTipoSesion: tipo?.penalizacionImporteEur,
+  });
 }
 
 /**

@@ -161,10 +161,11 @@ export function trasNoIr(res: RespuestaNoVoy, fechaCorta: (iso: string) => strin
 }
 
 /**
- * La línea de la penalización en la confirmación de «no voy» cuando ya es tarde.
- * Solo si el estudio (o ese tipo de clase) tiene una, y como «puede»: cobrarla
- * depende también de la tarjeta guardada y de lo que firmó. `importe` con el
- * mismo `coalesce` que `cancelar_reserva_plaza` (tipo de clase → estudio).
+ * La línea de la penalización en la confirmación de cancelar cuando ya es tarde.
+ * `importe` es lo que de verdad se cobraría por ESA clase
+ * (`penalizacionTardiaQueSeCobraria`: detección + guardia del contrato), resuelto
+ * por su sesión. Dice «puede»: cobrarla depende también de su tarjeta y de lo
+ * que firmó.
  */
 export function avisoPenalizacionTardia(importe: number | null | undefined, euros: (n: number) => string): string | null {
   return typeof importe === 'number' && importe > 0 ? `Tu estudio puede cobrarte ${euros(importe)} por cancelar tan tarde.` : null;

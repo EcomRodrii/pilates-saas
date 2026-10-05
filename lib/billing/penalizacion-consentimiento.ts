@@ -13,6 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { horasCancelacionContrato, tieneTextoPropio } from '../legal-textos.ts';
+import { importeDelContrato } from './penalizacion-importe.ts';
 
 export type MotivoSinConsentimiento =
   /** Lo que aceptó no es el texto vigente (cambió, o nunca aceptó ninguno). */
@@ -53,12 +54,6 @@ export interface EntradaConsentimiento {
 
 const HORA_MS = 3_600_000;
 
-function centimos(v: number | string | null | undefined): number | null {
-  if (v === null || v === undefined || v === '') return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.round(n * 100) : null;
-}
-
 function numero(v: number | string | null | undefined): number | null {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
@@ -71,9 +66,9 @@ export function consentimientoCubrePenalizacion(e: EntradaConsentimiento): Vered
   if (typeof e.textoAceptado !== 'string' || e.textoAceptado !== e.textoActual) return no('texto_distinto');
   if (tieneTextoPropio(e.studio.terminosServicio)) return no('terminos_propios');
 
-  const importeContrato = centimos(e.studio.penalizacionImporteEur);
-  if (importeContrato === null || importeContrato <= 0) return no('estudio_sin_penalizacion');
-  if (centimos(e.penalizacion.importe) !== importeContrato) return no('importe_distinto');
+  // La regla del importe vive en `penalizacion-importe.ts`: la comparte el aviso de la app de la alumna.
+  const importe = importeDelContrato(e.studio.penalizacionImporteEur, e.penalizacion.importe);
+  if (!importe.ok) return no(importe.motivo);
 
   if (e.penalizacion.tipo === 'NO_SHOW') return { ok: true };
   if (e.penalizacion.tipo !== 'CANCELACION_TARDIA') return no('sin_datos');
