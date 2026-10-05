@@ -9,6 +9,8 @@ import { olvidarInvitacionApp } from '@/lib/student/invitacion-app';
 import { CLAVE_ULTIMO_ESTUDIO } from '@/lib/app-nativa/mis-estudios';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
 import { mensajeSeguro } from '@/lib/errores';
+import { olvidarCalendarioDeLaPersona } from '@/lib/student/calendario-dispositivo';
+import { personaEnElDispositivo } from '@/lib/student/persona-dispositivo';
 
 // Acciones de acceso de la alumna, en MISMO ORIGEN.
 //
@@ -268,6 +270,9 @@ export function useAuthStudent(slug: string) {
     // Antes de cerrar sesión (después el servidor no sabría de quién es): este
     // dispositivo deja de recibir los avisos de esta cuenta.
     await soltarPushStudent(slug);
+    // Su calendario del iPhone y su memoria, fuera (por persona: en un móvil
+    // compartido la siguiente no puede heredar ni borrar sus eventos).
+    await olvidarCalendarioDeLaPersona(slug, personaEnElDispositivo()).catch(() => {});
     invalidarCatalogo(slug); olvidarInvitacionApp(slug); await supabasePortal.auth.signOut();
   }, [slug]);
 
@@ -276,6 +281,7 @@ export function useAuthStudent(slug: string) {
   // último estudio de la app de iOS, que ya no es de nadie. `local`: la cuenta ya
   // no existe, no queda ninguna sesión que cerrar en las demás.
   const olvidarCuentaBorrada = useCallback(async () => {
+    await olvidarCalendarioDeLaPersona(slug, personaEnElDispositivo()).catch(() => {});
     invalidarCatalogo(slug); olvidarInvitacionApp(slug);
     try { localStorage.removeItem(CLAVE_ULTIMO_ESTUDIO); } catch { /* modo privado */ }
     await supabasePortal.auth.signOut({ scope: 'local' });

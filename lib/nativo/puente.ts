@@ -484,6 +484,57 @@ export async function crearEventoCalendario(e: EventoCalendario): Promise<string
   }
 }
 
+/**
+ * Cambia la hora, el título o el lugar de un evento que creó la app (el estudio
+ * movió la clase). `false` si no se pudo: sin acceso, o ella lo borró a mano.
+ */
+export async function modificarEventoCalendario(id: string, e: EventoCalendario): Promise<boolean> {
+  if (!esAppNativa()) return false;
+  try {
+    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
+    await CapacitorCalendar.modifyEvent({
+      id, title: e.titulo, startDate: e.inicioMs, endDate: e.finMs, location: e.lugar, description: e.notas,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ¿Sigue en el calendario el evento que creó la app? Se busca en su franja (no
+ * hay lectura por id). `null` si no se puede saber (sin acceso de lectura).
+ */
+export async function existeEventoCalendario(id: string, e: Pick<EventoCalendario, 'inicioMs' | 'finMs'>): Promise<boolean | null> {
+  if (!esAppNativa()) return null;
+  try {
+    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
+    const { result } = await CapacitorCalendar.listEventsInRange({ from: e.inicioMs - 60_000, to: e.finMs + 60_000 });
+    return result.some((x) => x.id === id);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * «+ Calendario» sin la sincronización encendida: la hoja nativa de iOS con el
+ * evento ya relleno, y ella pulsa «Añadir». No pide NINGÚN permiso de
+ * calendario (la hoja es del sistema): pedir acceso completo para añadir una
+ * clase suelta sería pedir de más. `true` si lo añadió.
+ */
+export async function crearEventoConHoja(e: EventoCalendario): Promise<boolean | null> {
+  if (!esAppNativa()) return null;
+  try {
+    const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
+    const r = await CapacitorCalendar.createEventWithPrompt({
+      title: e.titulo, startDate: e.inicioMs, endDate: e.finMs, location: e.lugar, description: e.notas, alerts: [-60],
+    });
+    return Boolean(r.id);
+  } catch {
+    return null;
+  }
+}
+
 /** Quita un evento que creó la app. `false` si no se pudo (sin acceso, o ya no existe). */
 export async function borrarEventoCalendario(id: string): Promise<boolean> {
   if (!esAppNativa()) return false;

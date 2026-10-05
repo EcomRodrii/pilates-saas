@@ -42,7 +42,8 @@ la app) y cada función hace lo de siempre:
 | `alAbrirEnlace(handler)` | Universal Link / esquema propio → ruta interna | no hace nada |
 | `loginConApple()` | hoja nativa → `{ idToken, nonce }` | `{ error: 'solo-en-la-app' }` |
 | `loginConGoogleNativo(url)` | OAuth en Safari por encima → ruta de vuelta | `{ error: 'solo-en-la-app' }` |
-| `pedirAccesoCalendario()` / `crearEventoCalendario(e)` / `borrarEventoCalendario(id)` | EventKit (`@ebarooni/capacitor-calendar`), acceso COMPLETO | `false` / `null` |
+| `pedirAccesoCalendario()` / `crearEventoCalendario(e)` / `modificarEventoCalendario(id, e)` / `existeEventoCalendario(id, e)` / `borrarEventoCalendario(id)` | EventKit (`@ebarooni/capacitor-calendar`), acceso COMPLETO | `false` / `null` |
+| `crearEventoConHoja(e)` | la hoja de iOS para añadir un evento, sin permiso | `null` |
 | `brilloAlMaximo()` | brillo a 1 y devuelve con qué restaurarlo (`@capacitor-community/screen-brightness`) | no hace nada |
 
 Lo puro, con tests: `enlaces.ts` (qué enlace es de Tentare y a qué ruta va),
@@ -253,15 +254,22 @@ Tentare. Decidirlo antes de prometerlo.
 - **Deslizar desde el borde para volver**: `allowsBackForwardNavigationGestures`
   en `TentareBridgeViewController.swift`. La web no anima esa vuelta (ya la anima
   WebKit); el botón «Volver» sí (`lib/student/transiciones.ts`).
-- **Calendario** (Perfil → «Mis reservas en mi calendario» y «+ Calendario»):
-  acceso COMPLETO y no «solo añadir», porque con «solo añadir» iOS no deja volver
-  a encontrar el evento para quitarlo al cancelar. Textos del permiso en
+- **Calendario**. Perfil → «Mis reservas en mi calendario» pide acceso COMPLETO
+  (no «solo añadir»: con eso iOS no deja volver a encontrar el evento para
+  cambiarlo cuando el estudio mueve la clase, ni para quitarlo al cancelar). «+
+  Calendario» con el interruptor apagado NO pide ningún permiso: abre la hoja de
+  iOS con el evento relleno y ella pulsa «Añadir». Textos del permiso en
   `Info.plist` (`NSCalendarsFullAccessUsageDescription`, `NSCalendarsUsageDescription`
   para iOS < 17 y `NSCalendarsWriteOnlyAccessUsageDescription`). La memoria de qué
-  evento es de qué clase vive en el dispositivo (`localStorage`,
-  `lib/student/calendario-auto.ts`).
+  evento es de qué clase vive en el dispositivo, POR PERSONA y estudio, con la
+  huella de la hora para ponerlo al día, y se borra (con sus eventos) al cerrar
+  sesión o borrar la cuenta (`lib/student/calendario-auto.ts`). Todo pasa por una
+  sola cola (`lib/student/calendario-dispositivo.ts`).
 - **Brillo al máximo** al enseñar el QR de acceso (Perfil → QR y el detalle de una
-  reserva activa); vuelve el de antes al salir.
+  reserva activa); vuelve el de antes al salir de la pantalla y también al salir
+  de la app con el QR abierto (`visibilitychange`), y se vuelve a subir al volver.
+  Comprobar en un iPhone que WKWebView emite `visibilitychange` al pasar a segundo
+  plano; si no, añadir `App.addListener('pause')`.
 
 ### Apple Wallet (preparado, INERTE)
 

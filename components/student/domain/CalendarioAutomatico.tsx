@@ -5,7 +5,7 @@ import { useAppNativa } from '@/lib/nativo/use-app-nativa';
 import { Interruptor } from '@/components/student/ui/Interruptor';
 import { useToast } from '@/components/student/ui/Toast';
 import { activarCalendario, calendarioActivo, desactivarCalendario, sincronizarCalendario } from '@/lib/student/calendario-dispositivo';
-import { getClases, getInstructoras, getReservas } from '@/lib/student/datos';
+import { textoTrasActivar } from '@/lib/student/calendario-auto';
 
 // Perfil → «Mis reservas en mi calendario». Solo en la app de iOS: en la web no
 // hay calendario al que escribir (allí sigue «+ Calendario» con su .ics).
@@ -34,13 +34,15 @@ export function CalendarioAutomatico({ slug, nombre, direccion }: { slug: string
           return;
         }
         setOn(true);
-        const [reservas, clases, instructoras] = await Promise.all([getReservas(slug), getClases(slug), getInstructoras(slug)]);
-        await sincronizarCalendario(e, reservas, clases, (id) => instructoras.find((i) => i.id === id)?.nombre);
-        toast('Tus reservas ya están en tu calendario');
+        toast(textoTrasActivar(await sincronizarCalendario(e)));
       } else {
         await desactivarCalendario(slug);
         setOn(false);
       }
+    } catch {
+      // Sin conexión al leer sus reservas, o el calendario no contestó: el
+      // interruptor dice lo que de verdad quedó guardado.
+      toast('No hemos podido ponerlo al día. Lo intentaremos la próxima vez que abras la app.');
     } finally {
       setOcupado(false);
     }
@@ -58,3 +60,4 @@ export function CalendarioAutomatico({ slug, nombre, direccion }: { slug: string
     </div>
   );
 }
+
