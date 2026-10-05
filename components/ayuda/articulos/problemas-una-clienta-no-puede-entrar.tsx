@@ -22,14 +22,13 @@ export default function Contenido() {
           Confirma con ella el email exacto que usó al reservar — es la clave que la identifica, no su nombre.
         </p>
         <p style={{ margin: '0 0 12px' }}>
-          Dile que pulse{' '}
-          <strong>&ldquo;No tengo contraseña — mándame un enlace&rdquo;</strong> en la pantalla de acceso (o
-          &ldquo;¿Has olvidado la contraseña?&rdquo; si sí tenía una), en vez de intentar adivinar una contraseña que
-          quizá nunca llegó a crear. Ver{' '}
+          Dile que escriba su email en la pantalla de acceso y pulse <strong>&ldquo;Seguir&rdquo;</strong>: le llega un
+          código de 6 cifras para entrar, tenga contraseña o no, en vez de intentar adivinar una que quizá nunca llegó
+          a crear. Ver{' '}
           <Link href="/ayuda/portal/acceso-de-una-clienta" style={{ color: 'inherit', textDecoration: 'underline' }}>cómo entra una clienta por primera vez</Link>.
         </p>
         <p style={{ margin: '0 0 12px' }}>
-          Si el enlace no le llega en unos minutos, pídele que revise spam, y comprueba tú en la ficha de la clienta
+          Si el código no le llega en unos minutos, pídele que revise spam, y comprueba tú en la ficha de la clienta
           que el email guardado es exactamente el mismo que está usando ella.
         </p>
         <p style={{ margin: 0 }}>
@@ -44,7 +43,7 @@ export default function Contenido() {
 
       <AyudaResultado>
         Tú no puedes crearle una contraseña ni entrar en su lugar — el acceso siempre lo termina de poner ella, por
-        seguridad. Si el enlace nunca llega, revisa{' '}
+        seguridad. Si el código nunca llega, revisa{' '}
         <Link href="/ayuda/problemas/no-llega-un-email" style={{ color: 'inherit', textDecoration: 'underline' }}>no llega un email</Link>.
       </AyudaResultado>
     </>

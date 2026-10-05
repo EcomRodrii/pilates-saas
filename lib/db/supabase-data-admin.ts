@@ -790,8 +790,10 @@ export async function fetchPublicStudioData(
     }, {});
 
     // Mismo motivo que en el panel: el portal decide con esto si una clase
-    // está incluida en el bono o hay que enseñar precio de suelta.
-    const planesConTiposPub = await hidratarTiposDePlanes(admin as never, studioId, (planesRes.data ?? []).map(mapPlanTarifa));
+    // está incluida en el bono o hay que enseñar precio de suelta. ESENCIAL,
+    // como las de arriba (`estricto`): sin los tipos, un bono de Mat se vende
+    // como «Para todas las clases» y se cachea así un minuto.
+    const planesConTiposPub = await hidratarTiposDePlanes(admin as never, studioId, (planesRes.data ?? []).map(mapPlanTarifa), { estricto: true });
 
     // La media por instructora, agregada AQUÍ y no en la pantalla: al kit le
     // llega la nota ya hecha con su número de valoraciones, y quien la pinta
@@ -6172,6 +6174,17 @@ export async function resolverSociaAutenticada(slug: string, authUserId: string,
     .ilike('email', escaparLike(email.trim())).eq('studio_id', studio.id).is('auth_user_id', null).maybeSingle();
   if (!claimable) return null;
   await admin.from('socios').update({ auth_user_id: authUserId }).eq('id', claimable.id);
+  // Sus conversaciones vuelven a ser suyas. Si borró su cuenta y vuelve con
+  // otra, su fila SOCIO de cada hilo se quedó con la cuenta a NULL (FK ON DELETE
+  // SET NULL, migr 20261004120218): la autorización va por `socio_id` y la deja
+  // escribir, pero todo lo que reconoce «quién soy» por la cuenta (el «sin leer»
+  // de su bandeja, el resumen diario) la daba por otra persona. Acotado: solo
+  // filas SOCIO de ESTA ficha y sin cuenta, nunca una que ya tenga dueña. Si
+  // falla (p. ej. esa cuenta ya está en el mismo hilo), el acceso no se toca.
+  const { error: errorHilos } = await admin.from('conversacion_participantes')
+    .update({ auth_user_id: authUserId })
+    .eq('socio_id', claimable.id).eq('rol_en_conversacion', 'SOCIO').is('auth_user_id', null);
+  if (errorHilos) console.error('[resolverSociaAutenticada] no se pudieron revincular sus conversaciones:', errorHilos.message);
   return { socioId: claimable.id, nombre: `${claimable.nombre} ${claimable.apellidos}`.trim(), email: claimable.email, fotoUrl: claimable.foto_url ?? null };
 }
 

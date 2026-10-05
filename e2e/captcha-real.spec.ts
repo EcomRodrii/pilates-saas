@@ -60,15 +60,18 @@ test.describe('Turnstile real', () => {
   test('«volver a enviar» funciona tras cambiar de pantalla (el contenedor se remonta)', async ({ page }) => {
     const envios = await montar(page);
     await abrirLoginConWidget(page);
-    await page.getByLabel('Email', { exact: true }).fill('nueva@example.com');
-    await page.getByRole('button', { name: /mándame un enlace/i }).click();
+    // La puerta de P08: correo → «Seguir» → casillas.
+    await page.getByLabel('Tu correo').fill('nueva@example.com');
+    await page.getByRole('button', { name: 'Seguir', exact: true }).click();
     await expect(page.getByTestId('codigo-correo')).toBeVisible({ timeout: 45_000 });
     const antes = envios.n;
     expect(antes, 'el primer correo tenía que salir').toBeGreaterThan(0);
 
-    await page.getByRole('button', { name: /volver a enviar/i }).click();
+    // Desde P08 la cuenta atrás del reenvío arranca con el PRIMER correo (60 s,
+    // el margen del servidor): se espera a que se pueda pedir otro.
+    await page.getByRole('button', { name: /No me ha llegado: reenviar/i }).click({ timeout: 90_000 });
 
-    await expect(page.getByText(/Te hemos escrito otra vez/i)).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(/Te hemos mandado otro/i)).toBeVisible({ timeout: 45_000 });
     expect(envios.n, 'el reenvío tenía que salir').toBe(antes + 1);
   });
 
@@ -86,8 +89,8 @@ test.describe('Turnstile real', () => {
     }, viejo);
     expect(lanza, 'el widget tenía que quedar muerto para que la prueba valga').toBe(true);
 
-    await page.getByLabel('Email', { exact: true }).fill('nueva@example.com');
-    await page.getByRole('button', { name: /mándame un enlace/i }).click();
+    await page.getByLabel('Tu correo').fill('nueva@example.com');
+    await page.getByRole('button', { name: 'Seguir', exact: true }).click();
 
     await expect(page.getByTestId('codigo-correo')).toBeVisible({ timeout: 45_000 });
     expect(envios.n, 'el correo tenía que salir').toBeGreaterThan(0);

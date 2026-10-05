@@ -120,10 +120,16 @@ export async function GET(req: NextRequest) {
     .in('conversacion_id', filas.map(c => c.id))
     .in('creado_en', instantesUltimoMensaje(filas));
 
-  const { data: lecturas } = await admin
+  const { data: lecturasCrudas } = await admin
     .from('conversacion_participantes')
-    .select('conversacion_id, auth_user_id, leido_hasta, rol_en_conversacion')
+    .select('conversacion_id, auth_user_id, leido_hasta, rol_en_conversacion, socio_id')
     .in('conversacion_id', filas.map(c => c.id));
+  // Su marca es la de SU fila SOCIO, la reconozca o no la cuenta: si borró su
+  // cuenta y volvió con otra, la fila pudo quedarse sin cuenta (o con la vieja)
+  // y el resumen la daría por otra persona (nunca «sin leer»).
+  const lecturas = (lecturasCrudas ?? []).map(l => (
+    l.rol_en_conversacion === 'SOCIO' && l.socio_id === socioId ? { ...l, auth_user_id: user.userId } : l
+  ));
 
   // Con quién habla en las conversaciones con su instructora: nombre y foto, lo
   // mismo que ya enseña el equipo público del estudio. Nada más de ella.
@@ -150,7 +156,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     conversaciones: resumirConversaciones(
-      filas, (ultimos ?? []) as FilaUltimoMensaje[], (lecturas ?? []) as FilaLectura[], user.userId,
+      filas, (ultimos ?? []) as FilaUltimoMensaje[], (lecturas ?? []) as FilaLectura[], user.userId, 'alumna',
     ).map(c => ({
       ...c,
       interlocutor: c.tipo === 'ALUMNA_INSTRUCTORA'

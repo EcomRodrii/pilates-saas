@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { codigoDeError, emailYaEnUso, traducirAuth } from './auth-errores.ts';
+import { codigoDeError, emailYaEnUso, segundosHastaOtroCorreo, traducirAuth } from './auth-errores.ts';
 
 test('el email sin confirmar se detecta por TEXTO y por código', () => {
   // gotrue manda `email_not_confirmed` en las versiones nuevas y «Email not
@@ -42,4 +42,15 @@ test('«ese email ya es de otra cuenta» se reconoce en las tres formas de gotru
   assert.equal(emailYaEnUso('A user with this email address has already been registered'), true);
   assert.equal(emailYaEnUso('Invalid login credentials'), false);
   assert.equal(emailYaEnUso(''), false);
+});
+
+test('el límite de un correo por minuto NO es un error: ya salió un código, y vale', () => {
+  // Volver a «Seguir» con el mismo correo antes del minuto: gotrue no manda otro.
+  const m = 'For security purposes, you can only request this after 42 seconds.';
+  assert.equal(segundosHastaOtroCorreo(m), 42);
+  assert.equal(segundosHastaOtroCorreo('For security purposes, you can only request this after 1 second.'), 1);
+  assert.match(traducirAuth(m)!, /Te acabamos de mandar un código/);
+  // ⚠️ El tope por HORA del proyecto es otra cosa: no dice que haya salido nada.
+  assert.equal(segundosHastaOtroCorreo('Email rate limit exceeded'), null);
+  assert.equal(segundosHastaOtroCorreo('Invalid login credentials'), null);
 });

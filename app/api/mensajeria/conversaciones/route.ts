@@ -201,7 +201,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     conversaciones: resumirConversaciones(
-      filas, (ultimos ?? []) as FilaUltimoMensaje[], lecturas, sesion.userId,
+      filas, (ultimos ?? []) as FilaUltimoMensaje[], lecturas, sesion.userId, 'equipo',
     ),
   });
 }

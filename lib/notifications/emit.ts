@@ -11,9 +11,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publish } from './engine.ts';
+import type { Recipient } from './types.ts';
 import { EVENTOS } from './catalog.ts';
 import { criterioArchivadoMensajeDia } from './mensaje-dia-archivado.ts';
 import { claveAvisoSustituta, selloDelPanel } from './cambio-de-clase.ts';
+import { quienEscribeALaAlumna } from './aviso-mensaje.ts';
 import { cuandoEstudio, horaEstudio, fechaCortaEstudio, TZ_ESTUDIO } from '@/lib/utils';
 
 function cuandoLargo(iso: string): string {
@@ -1319,25 +1321,41 @@ export async function emitirMensajeRecibido(
     studioId: string; conversacionId: string; mensajeId: string;
     remitente: string; previsualizacion?: string | null;
     authUserIds: string[]; slug?: string | null; tipo?: string | null;
+    /**
+     * En los hilos con alumna, quién recibe y COMO QUÉ, por su papel en el hilo
+     * (`repartoAvisoMensaje`, lib/mensajeria/destinatarios.ts). Sin ellos, el
+     * motor resuelve la audiencia por la cuenta (EQUIPO, congelado).
+     */
+    recipients?: Recipient[] | null;
+    /** La alumna del hilo: con `data.socioId`, su supresión borra estos avisos. */
+    socioId?: string | null;
   },
 ): Promise<void> {
   try {
     // Los enlaces de la socia y de la instructora viven en la app del estudio:
-    // sin slug no hay a dónde llevarlas, así que se resuelve si no llega.
+    // sin slug no hay a dónde llevarlas, así que se resuelve si no llega. Y en
+    // el hilo con el estudio hace falta su nombre (ver `quienEscribe`).
     let slug = p.slug ?? null;
-    if (!slug) {
-      const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
-      slug = (studio?.slug as string | null) ?? null;
+    let nombreEstudio: string | null = null;
+    if (!slug || p.tipo === 'ALUMNA_MOSTRADOR') {
+      const { data: studio } = await admin.from('studios').select('slug, nombre').eq('id', p.studioId).maybeSingle();
+      slug = slug ?? (studio?.slug as string | null) ?? null;
+      nombreEstudio = (studio?.nombre as string | null) ?? null;
     }
     await publish({
       type: EVENTOS.MENSAJE_RECIBIDO, studioId: p.studioId,
       data: {
         conversacionId: p.conversacionId, remitente: p.remitente,
-        previsualizacion: p.previsualizacion ? `: "${p.previsualizacion}"` : '',
+        quienEscribe: quienEscribeALaAlumna(p.tipo ?? null, p.remitente, nombreEstudio),
+        // Solo cuando la hay: en los hilos con alumna nunca
+        // (`previsualizacionParaAviso`), y así el aviso no guarda ni la clave.
+        ...(p.previsualizacion ? { previsualizacion: `: "${p.previsualizacion}"` } : {}),
         authUserIds: p.authUserIds, slug, tipo: p.tipo ?? null,
+        ...(p.socioId ? { socioId: p.socioId } : {}),
       },
       resource: { type: 'mensaje', id: p.mensajeId },
       dedupKey: `mensaje-recibido:${p.mensajeId}`,
+      ...(p.recipients ? { recipients: p.recipients } : {}),
     });
   } catch (e) {
     console.error('[notifications] emitirMensajeRecibido:', e instanceof Error ? e.message : e);
@@ -1351,13 +1369,24 @@ export async function emitirMensajeRecibido(
 // corra varias veces dentro de esa ventana.
 export async function emitirMensajeDigestNoLeido(
   admin: SupabaseClient,
-  p: { studioId: string; authUserId: string; conversaciones: number; fecha: string; slug?: string | null },
+  p: {
+    studioId: string; authUserId: string; conversaciones: number; fecha: string; slug?: string | null;
+    /** Quién lo recibe y como qué, por su papel en sus hilos (alumna o equipo). */
+    recipients?: Recipient[] | null;
+    /**
+     * El resumen de equipo lleva el suyo (`sufijoDedupDelResumen`): la misma
+     * cuenta puede recibir el de alumna y el de equipo el mismo día, y sin él
+     * el segundo chocaría con la clave del primero.
+     */
+    sufijoDedup?: string | null;
+  },
 ): Promise<void> {
   try {
     await publish({
       type: EVENTOS.MENSAJE_DIGEST_NO_LEIDO, studioId: p.studioId,
       data: { conversaciones: p.conversaciones, authUserIds: [p.authUserId], slug: p.slug ?? null },
-      dedupKey: `mensaje-digest:${p.authUserId}:${p.fecha}`,
+      dedupKey: `mensaje-digest:${p.authUserId}:${p.fecha}${p.sufijoDedup ? `:${p.sufijoDedup}` : ''}`,
+      ...(p.recipients ? { recipients: p.recipients } : {}),
     });
   } catch (e) {
     console.error('[notifications] emitirMensajeDigestNoLeido:', e instanceof Error ? e.message : e);

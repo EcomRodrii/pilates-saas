@@ -12,7 +12,7 @@
 // trigger dejara de copiar el instante exacto, esto devolvería previsualización
 // vacía (nunca la equivocada): degrada, no miente.
 
-import type { ResumenConversacion } from './presentacion.ts';
+import { tieneSinLeer, type LadoLectura, type ResumenConversacion } from './presentacion.ts';
 
 export interface FilaUltimoMensaje {
   conversacion_id: string;
@@ -32,11 +32,27 @@ export function instantesUltimoMensaje(conversaciones: { ultimo_mensaje_en: stri
   return Array.from(new Set(conversaciones.map(c => c.ultimo_mensaje_en)));
 }
 
-export function resumirConversaciones<T extends { id: string; ultimo_mensaje_en: string }>(
+/** Lo mínimo de cada conversación para resumirla. */
+interface ConversacionAResumir {
+  id: string;
+  tipo: string;
+  creado_en: string;
+  ultimo_mensaje_en: string;
+  /** Solo lo pide la bandeja del panel: es la marca compartida del mostrador. */
+  mostrador_leido_hasta?: string | null;
+}
+
+/**
+ * `lado`: quién pregunta. Decide qué marca de lectura cuenta para `sin_leer`
+ * (ver `tieneSinLeer`): la alumna, la suya; el equipo, la suya o la del
+ * mostrador.
+ */
+export function resumirConversaciones<T extends ConversacionAResumir>(
   conversaciones: T[],
   ultimos: FilaUltimoMensaje[],
   lecturas: FilaLectura[],
   miAuthUserId: string,
+  lado: LadoLectura,
 ): (T & ResumenConversacion)[] {
   const ultimoPorConversacion = new Map<string, FilaUltimoMensaje>();
   for (const m of ultimos) {
@@ -62,7 +78,7 @@ export function resumirConversaciones<T extends { id: string; ultimo_mensaje_en:
 
   return conversaciones.map(c => {
     const ultimo = ultimoPorConversacion.get(c.id);
-    return {
+    const resumen = {
       ...c,
       leido_hasta: mio.get(c.id) ?? null,
       leido_hasta_otros: otros.get(c.id) ?? null,
@@ -70,7 +86,8 @@ export function resumirConversaciones<T extends { id: string; ultimo_mensaje_en:
       ultimo_remitente_auth_user_id: ultimo?.remitente_auth_user_id ?? null,
       // La propietaria lee los hilos instructora–alumna del estudio sin
       // participar: en esos, solo lectura (la RLS ya le impide escribir).
-      solo_lectura: (c as { tipo?: string }).tipo === 'ALUMNA_INSTRUCTORA' && !participo.has(c.id),
+      solo_lectura: c.tipo === 'ALUMNA_INSTRUCTORA' && !participo.has(c.id),
     };
+    return { ...resumen, sin_leer: tieneSinLeer(resumen, miAuthUserId, lado) };
   });
 }

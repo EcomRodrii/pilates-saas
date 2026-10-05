@@ -183,10 +183,15 @@ export async function cargarEtapas(admin: SupabaseClient, studioId: string): Pro
   return { etapas, planes };
 }
 
-/** Tope para la lectura de Stripe desde la home: si no contesta, «sin comprobar». */
-const TIMEOUT_STRIPE_MS = 2500;
+/**
+ * Tope para la lectura de Stripe desde la home: si no contesta, «sin comprobar».
+ * Lo comparte «ya puede recibir reservas» (lib/onboarding/puede-reservar-servidor.ts):
+ * las dos pantallas preguntan lo mismo a Stripe y no pueden esperar distinto.
+ */
+export const TIMEOUT_STRIPE_MS = 2500;
 
-function stripeServidor(): Stripe | null {
+/** null sin clave o con la de relleno (`sk_test_XXXX` = sin configurar): quien llama lo trata como SIN_RESPUESTA. */
+export function stripeServidor(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) return null;
   return new Stripe(key, { apiVersion: '2026-06-24.dahlia' });

@@ -48,7 +48,7 @@ test.describe('Student PWA · hoja de compra', () => {
   test('una suscripción mensual dice «/mes» también al confirmar', async ({ page }) => {
     await montar(page);
     await page.goto(`${base}/comprar`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: /^Contratar$/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Contratar · / }).first().click({ timeout: 30_000 });
     const texto = await textoDeLaHoja(page);
     expect(texto, 'la hoja presenta un cobro recurrente como pago único').toContain('89 €/mes');
   });
@@ -58,7 +58,7 @@ test.describe('Student PWA · hoja de compra', () => {
     // no se reinventa aquí ni se da por hecho que toda suscripción es mensual.
     await montar(page);
     await page.goto(`${base}/comprar`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: /^Contratar$/ }).nth(1).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Contratar · / }).nth(1).click({ timeout: 30_000 });
     const texto = await textoDeLaHoja(page);
     expect(texto).toContain('240 €/trimestre');
   });
@@ -66,7 +66,7 @@ test.describe('Student PWA · hoja de compra', () => {
   test('un bono NO lleva periodo: se paga una vez', async ({ page }) => {
     await montar(page);
     await page.goto(`${base}/comprar`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: /^Comprar$/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Comprar · / }).first().click({ timeout: 30_000 });
     const texto = await textoDeLaHoja(page);
     expect(texto).toContain('96 €');
     expect(texto, 'a un bono se le ha colado un periodo').not.toMatch(/96 €\s*\/\s*\w/);
@@ -75,7 +75,7 @@ test.describe('Student PWA · hoja de compra', () => {
   test('sin pagos activados no se ofrece pagar, y se dice por qué', async ({ page }) => {
     await montar(page, { conStripe: false });
     await page.goto(`${base}/comprar`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: /^Comprar$/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Comprar · / }).first().click({ timeout: 30_000 });
     await expect(page.getByText(/todavía no tiene los pagos activados/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: /Continuar al pago/ })).toHaveCount(0);
   });
@@ -110,7 +110,7 @@ test.describe('Student PWA · hoja de compra', () => {
     const hoja = page.locator('[role="dialog"]').last();
 
     // Abre "Bono 8 sesiones" (96 €), llega hasta el paso de pago, y cancela.
-    await page.getByRole('button', { name: /^Comprar$/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Comprar · / }).first().click({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Continuar al pago' }).click();
     await expect(hoja.getByText('Confirmar reserva')).toBeVisible({ timeout: 30_000 });
     await expect(hoja.getByText('96 €').first()).toBeVisible();
@@ -119,7 +119,7 @@ test.describe('Student PWA · hoja de compra', () => {
 
     // Abre "Mensual ilimitado" (89 €) justo después: el Total tiene que ser
     // el de ESTE plan, no el arrastrado del anterior.
-    await page.getByRole('button', { name: /^Contratar$/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Contratar · / }).first().click({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Continuar al pago' }).click();
     await expect(hoja.getByText('Confirmar reserva')).toBeVisible({ timeout: 30_000 });
     await expect(hoja.getByText('96 €')).toHaveCount(0);
@@ -137,7 +137,7 @@ test.describe('Student PWA · hoja de compra', () => {
     await page.route((u) => u.pathname === '/api/public/checkout-embebido', (r) =>
       r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientSecret: 'pi_plan_secret_x', importe: 96 }) }));
     await page.goto(`${base}/comprar`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: /^Comprar$/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /^Comprar · / }).first().click({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Continuar al pago' }).click();
     await expect(page.locator('[role="dialog"]').last().getByText('Confirmar reserva')).toBeVisible({ timeout: 30_000 });
     // El control: Elements se creó (lo que apunta el stub) y con una letra.

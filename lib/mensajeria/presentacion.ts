@@ -33,6 +33,13 @@ export interface ResumenConversacion {
    * propietaria). La RLS ya le impide escribir; esto decide la pantalla.
    */
   solo_lectura?: boolean;
+  /**
+   * El punto de «sin leer», calculado en el SERVIDOR con `tieneSinLeer` y el
+   * lado de quien pregunta. Las dos apps lo leen tal cual: calcularlo en el
+   * navegador necesitaba saber «quién soy» (`useMiAuthUserId`), y mientras eso
+   * no resolvía el propio mensaje encendía el punto.
+   */
+  sin_leer: boolean;
 }
 
 export type ConversacionConResumen = RowConversaciones & ResumenConversacion;
@@ -167,24 +174,49 @@ export function agruparHilo<T extends MensajeAgrupable>(
 // ── Estado de lectura ───────────────────────────────────────────────────────
 
 /**
- * Hay algo sin leer si el último mensaje llegó después de mi `leido_hasta` Y no
- * lo escribí yo. Lo segundo importa: sin ello, tu propio mensaje te marca la
- * conversación como no leída en cuanto lo envías desde otro dispositivo.
- *
- * F-15 (auditoría 20ª pasada): `ALUMNA_MOSTRADOR` no tiene fila STAFF
- * individual (decisión de diseño ya cerrada — el mostrador se resuelve
- * dinámicamente, no por una foto fija de quién atendía al abrirlo), así que
- * `leido_hasta` (personal) es SIEMPRE `null` ahí. Antes eso devolvía `false`
- * sin más: el badge del mostrador no se encendía JAMÁS, para nadie, aunque
- * fuera el canal principal socia→estudio. Se usa `mostrador_leido_hasta`
- * (compartido, en la propia conversación) solo para ese tipo; el resto sigue
- * con la marca personal de siempre.
+ * Desde qué lado se mira un hilo. La alumna lee con SU marca
+ * (`leido_hasta` de su fila SOCIO). El equipo, con la suya de STAFF, salvo en
+ * el mostrador, que no tiene fila por persona y comparte
+ * `mostrador_leido_hasta` (F-15, auditoría 20ª pasada: el mostrador se resuelve
+ * dinámicamente, no por una foto fija de quién atendía al abrirlo).
  */
-export function tieneSinLeer(c: ConversacionConResumen, miAuthUserId: string | null): boolean {
+export type LadoLectura = 'alumna' | 'equipo';
+
+/** Lo que `tieneSinLeer` necesita de una fila de la bandeja, y nada más. */
+export type FilaParaLectura = Pick<
+  ConversacionConResumen, 'tipo' | 'creado_en' | 'ultimo_mensaje_en' | 'leido_hasta' | 'ultimo_remitente_auth_user_id'
+> & { mostrador_leido_hasta?: string | null };
+
+/**
+ * ¿Hay algo sin leer para quien pregunta? Por este orden:
+ *
+ *  1. El último mensaje es mío → no. Sin esto, tu propio mensaje te marcaba la
+ *     conversación como no leída en cuanto lo enviabas desde otro dispositivo.
+ *  2. No hay mensajes (`ultimo_mensaje_en` nace igual que `creado_en`,
+ *     migr 20260825175412) → no. El mostrador se encendía con un hilo vacío.
+ *  3. La marca es la del mostrador si miro desde el equipo un hilo
+ *     ALUMNA_MOSTRADOR; si no, la mía.
+ *  4. Sin marca: en el mostrador es «nadie lo ha abierto nunca» → sí (F-15,
+ *     como antes). En el resto es «no tengo fila» —la propietaria que supervisa
+ *     un hilo de su equipo (`solo_lectura`), o un canal EQUIPO— → no: no puede
+ *     marcarlo leído (la RLS de la marca exige que la fila sea suya) y se
+ *     quedaría encendido para siempre.
+ *  5. Una marca que no es una fecha es `'-infinity'` (el valor por defecto de
+ *     `leido_hasta`: «nunca lo he abierto») → sí. Antes, `new Date('-infinity')`
+ *     daba NaN, la comparación daba falso y un hilo que nunca abriste salía
+ *     leído.
+ *  6. Si no, se comparan las fechas.
+ */
+export function tieneSinLeer(c: FilaParaLectura, miAuthUserId: string | null, lado: LadoLectura): boolean {
   if (c.ultimo_remitente_auth_user_id && c.ultimo_remitente_auth_user_id === miAuthUserId) return false;
-  const leidoHasta = c.tipo === 'ALUMNA_MOSTRADOR' ? c.mostrador_leido_hasta : c.leido_hasta;
-  if (!leidoHasta) return c.tipo === 'ALUMNA_MOSTRADOR' ? true : false;
-  return new Date(leidoHasta).getTime() < new Date(c.ultimo_mensaje_en).getTime();
+  const ultimo = Date.parse(c.ultimo_mensaje_en);
+  if (ultimo <= Date.parse(c.creado_en)) return false;
+  const mostrador = lado === 'equipo' && c.tipo === 'ALUMNA_MOSTRADOR';
+  const marca = mostrador ? c.mostrador_leido_hasta : c.leido_hasta;
+  if (marca == null) return mostrador;
+  const leido = Date.parse(marca);
+  if (Number.isNaN(leido)) return true;
+  return leido < ultimo;
 }
 
 /** ✓ enviado / ✓✓ leído para el ÚLTIMO mensaje propio del hilo. */
@@ -205,13 +237,15 @@ export function estadoEntrega(
 export const AVISO_ESTUDIO_PUEDE_LEER = 'El estudio también puede leer esta conversación.';
 
 /**
- * El texto que viaja en el push de un mensaje nuevo. En las conversaciones
- * instructora–alumna, ninguno («Ana te ha escrito»), en las dos direcciones
- * (decisión del 14-sep-2026): son las que más pueden hablar de lesiones, y un
- * push se ve con el móvil bloqueado y pasa por servicios de terceros.
+ * El texto que viaja en el push de un mensaje nuevo. En los hilos con una
+ * alumna —con su instructora y con el estudio—, ninguno («Ana te ha escrito»),
+ * en las dos direcciones: ahí se habla de lesiones y de salud, un push se ve con
+ * el móvil bloqueado y pasa por servicios de terceros (guía 4.5.4 de Apple; el
+ * hilo con la instructora ya iba así desde el 14-sep-2026, y el del estudio es
+ * donde más se cuenta). El canal EQUIPO no se toca: está congelado.
  */
 export function previsualizacionParaAviso(tipo: string, cuerpo: string): string | null {
-  return tipo === 'ALUMNA_INSTRUCTORA' ? null : cuerpo.slice(0, 80);
+  return tipo === 'ALUMNA_INSTRUCTORA' || tipo === 'ALUMNA_MOSTRADOR' ? null : cuerpo.slice(0, 80);
 }
 
 /**

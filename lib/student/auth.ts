@@ -2,7 +2,7 @@
 
 import { soltarPushStudent } from '@/lib/student/push';
 import { useCallback } from 'react';
-import { codigoDeError, emailYaEnUso, traducirAuth, type CodigoAuth } from './auth-errores.ts';
+import { codigoDeError, emailYaEnUso, segundosHastaOtroCorreo, traducirAuth, type CodigoAuth } from './auth-errores.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { olvidarInvitacionApp } from '@/lib/student/invitacion-app';
@@ -29,7 +29,8 @@ import { mensajeSeguro } from '@/lib/errores';
 // está invertido —el token tarda ~3,5 s— así que se pide AL ENVIAR, nunca al
 // montar. Ver components/auth/turnstile-widget.tsx.
 
-export type ResultadoAuth = { ok: true } | { error: string; codigo?: CodigoAuth };
+/** `esperaS`: a esa dirección ya salió un código hace nada (límite de uno por minuto); ese es el que vale. */
+export type ResultadoAuth = { ok: true } | { error: string; codigo?: CodigoAuth; esperaS?: number };
 
 
 export function useAuthStudent(slug: string) {
@@ -53,8 +54,11 @@ export function useAuthStudent(slug: string) {
   }, []);
 
   /**
-   * Enlace mágico. Vuelve a `/portal/<slug>/acceso/verificar`, que es donde la
-   * alumna elige contraseña si todavía no tiene.
+   * El correo para entrar: trae un CÓDIGO de 6 cifras (las dos plantillas de
+   * entrar del proyecto son solo código desde #2522). Si el email no tiene
+   * cuenta, gotrue la crea: entrar y darse de alta son la misma puerta. El
+   * `emailRedirectTo` se queda por si algún día la plantilla vuelve a llevar
+   * enlace: aterrizaría en `/acceso/verificar`, que sabe qué hacer.
    */
   const enviarEnlace = useCallback(async (email: string, captchaToken?: string): Promise<ResultadoAuth> => {
     const { error } = await supabasePortal.auth.signInWithOtp({
@@ -62,7 +66,12 @@ export function useAuthStudent(slug: string) {
       options: { emailRedirectTo: `${window.location.origin}${base}/acceso/verificar`, captchaToken },
     });
     if (captchaToken) captchaGastado();
-    return error ? { error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No se ha podido enviar el enlace. Inténtalo de nuevo en unos segundos.')) } : { ok: true };
+    if (!error) return { ok: true };
+    const esperaS = segundosHastaOtroCorreo(error.message);
+    return {
+      error: (traducirAuth(error.message) ?? mensajeSeguro(error.message, 'No hemos podido mandarte el código. Inténtalo de nuevo en unos segundos.')),
+      ...(esperaS !== null ? { esperaS } : {}),
+    };
   }, [base]);
 
   /**
