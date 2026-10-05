@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, Check, ChevronRight, CreditCard, ExternalLink, Link2, Loader2, Lock, MapPin, Store, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, CreditCard, ExternalLink, Landmark, Link2, Loader2, Lock, MapPin, Store, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
@@ -17,13 +17,15 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 // «Conectar datáfono»: tres pasos y se vuelve a donde se estaba.
 //
-//   1. ¿Lo tienes? — si no, dónde se compra y lo que cuesta (dicho una vez).
-//      Si al estudio se le ofrece SumUp: ¿el de Stripe o un SumUp Solo?
+//   1. ¿Cuál tienes? — el de Stripe, un SumUp Solo, el de tu banco, o todavía
+//      ninguno (dónde se compra y lo que cuesta, dicho una vez).
 //   2. Stripe: las tres palabras que enseña el datáfono, cómo lo llamas y dónde
 //      está. SumUp: la cuenta de SumUp (una vez, solo la dueña) y el código del Solo.
 //   3. Listo.
 //
-// Sin SumUp para el estudio, la pantalla es exactamente la de siempre.
+// Lo que aún no se puede conectar sale en el paso 1 como «Próximamente», sin poder
+// pulsarse (decisión del fundador, 5-oct-2026): el SumUp Solo mientras no esté
+// abierto para el estudio (`sumupParaEstudio`), y el datáfono del banco siempre.
 //
 // Se abre desde la Caja (el botón «Conectar datáfono» de la hoja de cobro o de
 // la deuda de una clienta) y desde Configuración. Desde la Caja, la venta que se
@@ -189,26 +191,23 @@ export function ConectarDatafono({
                 Con el datáfono conectado, el cobro llega solo: lo mandas desde aquí, la clienta pasa la tarjeta y la
                 venta queda cobrada. Sin teclear el importe dos veces.
               </p>
-              {sumup.disponible ? (
-                <div className="mt-4 space-y-3">
-                  <Opcion icono={CreditCard} titulo="Un datáfono de Stripe"
-                    texto={stripeConectado
-                      ? 'Stripe Reader S700 o BBPOS WisePOS E.'
-                      : 'Antes hay que conectar el cobro con tarjeta (Stripe) en Configuración → Cobros y facturas.'}
-                    deshabilitada={!stripeConectado} onClick={() => setPaso('codigo')} />
+              <div className="mt-4 space-y-3">
+                <Opcion icono={CreditCard} titulo="Un datáfono de Stripe"
+                  texto={stripeConectado
+                    ? 'Stripe Reader S700 o BBPOS WisePOS E.'
+                    : 'Antes hay que conectar el cobro con tarjeta (Stripe) en Configuración → Cobros y facturas.'}
+                  deshabilitada={!stripeConectado} onClick={() => setPaso('codigo')} />
+                {sumup.disponible ? (
                   <Opcion icono={IconoSumup} titulo="Un SumUp Solo" texto="El de pantalla táctil de SumUp. Cobra en tu cuenta de SumUp."
                     onClick={() => setPaso(sumup.cuenta ? 'codigo-sumup' : 'cuenta-sumup')} />
-                  <Opcion icono={Store} titulo="Todavía no tengo" texto="Te decimos cuáles valen y dónde se compran."
-                    onClick={() => setPaso('comprar')} />
-                </div>
-              ) : (
-                <div className="mt-4 space-y-3">
-                  <Opcion icono={CreditCard} titulo="Sí, lo tengo aquí" texto="Un datáfono de Stripe: Stripe Reader S700 o BBPOS WisePOS E."
-                    onClick={() => setPaso('codigo')} />
-                  <Opcion icono={Store} titulo="Todavía no lo tengo" texto="Te decimos dónde se compra y lo que cuesta."
-                    onClick={() => setPaso('comprar')} />
-                </div>
-              )}
+                ) : (
+                  <Opcion icono={IconoSumup} titulo="Un SumUp Solo" texto="El de pantalla táctil de SumUp." proximamente />
+                )}
+                <Opcion icono={Landmark} titulo="El datáfono de tu banco"
+                  texto="Mientras, elige «Tarjeta» al cobrar y queda apuntado." proximamente />
+                <Opcion icono={Store} titulo="Todavía no tengo" texto="Te decimos cuáles valen y dónde se compran."
+                  onClick={() => setPaso('comprar')} />
+              </div>
             </div>
           </>
         )}
@@ -520,18 +519,22 @@ function Hecho({ children }: { children: ReactNode }) {
   );
 }
 
-function Opcion({ icono: Icono, titulo, texto, onClick, deshabilitada }: {
-  icono: typeof Store | typeof IconoSumup; titulo: string; texto: string; onClick: () => void; deshabilitada?: boolean;
+/** Una opción del paso 1. `proximamente`: se ve, con su etiqueta, pero no se puede pulsar. */
+function Opcion({ icono: Icono, titulo, texto, onClick, deshabilitada, proximamente }: {
+  icono: typeof Store | typeof IconoSumup; titulo: string; texto: string;
+  onClick?: () => void; deshabilitada?: boolean; proximamente?: boolean;
 }) {
   return (
-    <button type="button" onClick={onClick} disabled={deshabilitada}
+    <button type="button" onClick={onClick} disabled={deshabilitada || proximamente}
       className="flex min-h-20 w-full items-center gap-4 rounded-2xl border-2 border-border bg-background px-4 py-3 text-left transition-colors hover:border-foreground/40 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border disabled:active:scale-100">
       <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-foreground"><Icono size={20} aria-hidden /></span>
       <span className="min-w-0 flex-1">
         <span className="block text-[15.5px] font-semibold text-foreground">{titulo}</span>
         <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">{texto}</span>
       </span>
-      <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+      {proximamente
+        ? <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[12px] font-semibold text-muted-foreground">Próximamente</span>
+        : <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />}
     </button>
   );
 }

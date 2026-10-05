@@ -10,10 +10,9 @@ test('envioActivado: solo con fecha de primera activación', () => {
   assert.equal(envioActivado(undefined), false);
 });
 
-test('ofrecerAlta: con el alta cerrada, solo a quien ya la empezó', () => {
-  assert.equal(ALTA_ABIERTA_A_ESTUDIOS, false, 'si se abre, revisa los textos de Facturación y de la ayuda');
-  assert.equal(ofrecerAlta('SIN_CONFIGURAR'), false);
-  for (const e of ['PENDIENTE_AUTORIZACION', 'AUTORIZACION_EN_REVISION', 'VERIFICADO'] as const) assert.equal(ofrecerAlta(e), true, e);
+test('ofrecerAlta: con el alta abierta, a cualquier estudio, también al que no la ha empezado', () => {
+  assert.equal(ALTA_ABIERTA_A_ESTUDIOS, true, 'si se cierra, revisa los textos de Facturación y del alta');
+  for (const e of ['SIN_CONFIGURAR', 'PENDIENTE_AUTORIZACION', 'AUTORIZACION_EN_REVISION', 'VERIFICADO'] as const) assert.equal(ofrecerAlta(e), true, e);
 });
 
 test('pasoDelAlta: cada estado previo a la activación dice qué falta', () => {

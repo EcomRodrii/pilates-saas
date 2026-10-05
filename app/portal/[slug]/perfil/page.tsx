@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
+import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { useSesionStudent } from '@/lib/student/sesion';
 import { InvitarAmiga } from '@/components/student/domain/InvitarAmiga';
 import { useRouter } from 'next/navigation';
@@ -59,6 +60,7 @@ export default function PerfilPage() {
             guardado. */}
         <Link
           href={href('/perfil/datos')}
+                  transitionTypes={TRANSICION_ADELANTE}
           className="card card--pad-lg card--tap row"
           style={{ ['--gap' as string]: '13px' }}
         >
@@ -82,6 +84,7 @@ export default function PerfilPage() {
         {estudio.qrAcceso && qrAcceso.estado !== 'apagado' && (
           <Link
             href={href('/perfil/qr')}
+                  transitionTypes={TRANSICION_ADELANTE}
             className="card card--tap row"
             data-testid="perfil-qr-acceso"
             style={{

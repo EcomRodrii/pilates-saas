@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { usePortalHref } from '@/components/student/contexto';
 import type { Bono } from '@/lib/student/tipos';
 import { fechaCorta } from '@/lib/student/formato';
@@ -20,7 +21,7 @@ export function CreditCard({ bono, compacta = false }: { bono: Bono; compacta?: 
   const tono = bono.estado === 'activo' ? (!ilimitado && quedan <= 1 ? 'few' : 'ok') : 'neutral';
   const etiqueta = bono.estado === 'activo' ? (!ilimitado && quedan === 0 ? 'Sin sesiones' : 'Activo') : bono.estado === 'agotado' ? 'Agotado' : 'Expirado';
   return (
-    <Link href={href('/bonos/' + bono.id)} className="card card--tap" style={{ display: 'block', padding: compacta ? '12px 15px' : '15px 17px', opacity: bono.estado === 'activo' ? 1 : .7 }}>
+    <Link href={href('/bonos/' + bono.id)} transitionTypes={TRANSICION_ADELANTE} className="card card--tap" style={{ display: 'block', padding: compacta ? '12px 15px' : '15px 17px', opacity: bono.estado === 'activo' ? 1 : .7 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
         <p style={{ margin: 0, fontSize: compacta ? 12.5 : 13.5, fontWeight: 800 }}>{bono.nombre}</p>
         {compacta ? <span className="t-num" style={{ fontSize: 'var(--t-meta)', fontWeight: 700, color: 'var(--accent)' }}>quedan {quedan}</span> : <Badge tone={tono}>{etiqueta}</Badge>}
