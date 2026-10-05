@@ -200,9 +200,14 @@ export function moverStock(p: {
 // Efectivo NO pasa por aquí: lo cierra `marcarCobrado` del contexto, que va a
 // `/api/cobros/marcar-cobrado` (y el servidor lo apunta en caja). Esto es solo para lo que confirma un tercero.
 
-export function cobrarReciboEnMostrador(reciboId: string, metodo: 'DATAFONO' | 'BIZUM') {
+/**
+ * `intentoId`: uno nuevo por cada toque de «Cobrar» (`uuidV4`). Es la clave del
+ * cobro ante el proveedor: el mismo intento repetido recibe el mismo cobro, y uno
+ * nuevo tras cancelar o un rechazo, otro (ver `claveCobroRecibo`).
+ */
+export function cobrarReciboEnMostrador(reciboId: string, metodo: 'DATAFONO' | 'BIZUM', intentoId: string) {
   return pedir<{ reciboId: string; referencia: string; url: string | null; pagoEstado: EstadoPagoPOS; importe: number }>(
-    '/api/pos/recibo', { method: 'POST', body: JSON.stringify({ reciboId, metodo }) },
+    '/api/pos/recibo', { method: 'POST', body: JSON.stringify({ reciboId, metodo, intentoId }) },
   );
 }
 
