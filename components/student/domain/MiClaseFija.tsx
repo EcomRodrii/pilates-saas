@@ -27,8 +27,10 @@ import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { Input } from '@/components/student/ui/Input';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { useToast } from '@/components/student/ui/Toast';
-import { Icono, type NombreIcono } from '@/components/student/ui/Icono';
+import { Icono } from '@/components/student/ui/Icono';
 import { InterruptorAuto } from '@/components/student/ui/InterruptorAuto';
+// La fila de acción con baldosa vive en ui/: la comparte la cuota de Bonos.
+import { FilaAccion as Fila } from '@/components/student/ui/FilaAccion';
 import { CalendarioClaseFija } from '@/components/student/domain/CalendarioClaseFija';
 import { DialogoDejarClaseFija } from '@/components/student/domain/DialogoDejarClaseFija';
 
@@ -448,43 +450,6 @@ function Pildora({ semana, hrefFicha, puedeNoIr, onNoVoy }: {
     >
       {dentro}
     </Link>
-  );
-}
-
-/** Una fila de acciones: icono, qué es y, si toca, su botón. Tocar la fila hace lo suyo. */
-function Fila({ icono, titulo, detalle, accion, onClick, acento, peligro, disabled, testId }: {
-  icono: NombreIcono; titulo: string; detalle?: string; accion?: React.ReactNode; onClick?: () => void;
-  acento?: boolean; peligro?: boolean; disabled?: boolean; testId?: string;
-}) {
-  const dentro = (
-    <>
-      <span aria-hidden style={{
-        width: 40, height: 40, borderRadius: 13, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        // ⚠️ Lo rojo va en la pareja `--destructive-foreground` sobre `--destructive-soft`, la de `btn--danger`:
-        // `--destructive` en texto sobre la tarjeta no llega a AA con el estilo «Carbón» (3,4:1), que no lo redefine.
-        background: peligro ? 'var(--destructive-soft)' : acento ? 'var(--accent-soft)' : 'var(--muted)',
-        color: peligro ? 'var(--destructive-foreground)' : acento ? 'var(--accent-soft-foreground)' : 'var(--foreground)',
-      }}>
-        <Icono nombre={icono} tamano={20} />
-      </span>
-      <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-        <span style={{ display: 'block', fontSize: 'var(--t-body)', fontWeight: peligro ? 700 : 800, color: 'var(--foreground)' }}>{titulo}</span>
-        {detalle && <span className="t-meta" style={{ display: 'block', marginTop: 1 }}>{detalle}</span>}
-      </span>
-    </>
-  );
-  const fila: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '13px 0', width: '100%' };
-  return (
-    <div data-testid={testId} style={{ borderTop: '1px solid var(--border)', marginTop: -1 }}>
-      {onClick ? (
-        <button type="button" className="tap" onClick={onClick} disabled={disabled} style={{ ...fila, border: 'none', background: 'none', font: 'inherit', color: 'inherit', cursor: 'pointer', opacity: disabled ? 0.6 : 1 }}>
-          {dentro}
-          {!peligro && <span aria-hidden style={{ color: 'var(--subtle-foreground)', display: 'flex' }}><Icono nombre="chevron-derecha" tamano={18} /></span>}
-        </button>
-      ) : (
-        <div style={fila}>{dentro}{accion}</div>
-      )}
-    </div>
   );
 }
 
