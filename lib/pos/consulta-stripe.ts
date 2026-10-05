@@ -1,4 +1,5 @@
 import type Stripe from 'stripe';
+import { motivoRechazoDatafono } from './datafono.ts';
 import { metodoRealBizum } from './metodo-real-bizum.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
 
@@ -41,6 +42,27 @@ export function estadoDesdeStripe(status: Stripe.PaymentIntent.Status): EstadoPa
     case 'canceled':                 return 'CANCELADO';
     default:                         return 'ERROR';
   }
+}
+
+/**
+ * Un cobro del datáfono de Stripe (card_present), en el contrato del TPV.
+ *
+ * ⚠️ Tarjeta rechazada: Stripe deja el cobro esperando otra tarjeta
+ * (`requires_payment_method` con `last_payment_error`), pero el datáfono ya no la
+ * pide: su acción queda `failed` (medido en modo de prueba). Sin esto la Caja
+ * pintaba «Acerca la tarjeta» hasta agotar la espera. Es un final, como el
+ * rechazo de SumUp: la venta se anula y se vuelve a cobrar. El motivo, en español.
+ */
+export function consultaDatafono(
+  pi: Pick<Stripe.PaymentIntent, 'status' | 'last_payment_error' | 'amount_received' | 'metadata'>,
+): ConsultaCobro {
+  const rechazada = pi.status === 'requires_payment_method' && !!pi.last_payment_error;
+  return {
+    estado: rechazada ? 'RECHAZADO' : estadoDesdeStripe(pi.status),
+    error: pi.last_payment_error ? motivoRechazoDatafono(pi.last_payment_error) : undefined,
+    importeCentimos: pi.amount_received ?? null,
+    metadata: (pi.metadata ?? {}) as Record<string, string>,
+  };
 }
 
 type ClienteConsulta = Pick<Stripe, 'paymentIntents' | 'checkout' | 'charges'>;

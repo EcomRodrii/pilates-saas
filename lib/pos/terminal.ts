@@ -5,7 +5,7 @@ import type { MetodoPago } from '@/lib/types';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { bizumActivo } from '@/lib/billing/bizum-activo';
-import { consultarCobroBizum, estadoDesdeStripe, type ConsultaCobro } from './consulta-stripe.ts';
+import { consultaDatafono, consultarCobroBizum, type ConsultaCobro } from './consulta-stripe.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
 import { mensajeErrorLector } from './datafono.ts';
 
@@ -198,12 +198,8 @@ function crearProveedorDatafono(readerId: string | null): ProveedorTerminal {
     async consultar(ctx, referencia) {
       try {
         const pi = await ctx.stripe.paymentIntents.retrieve(referencia, {}, { stripeAccount: ctx.stripeAccount });
-        return {
-          estado: estadoDesdeStripe(pi.status),
-          error: pi.last_payment_error?.message ?? undefined,
-          importeCentimos: pi.amount_received ?? null,
-          metadata: (pi.metadata ?? {}) as Record<string, string>,
-        };
+        // Una tarjeta rechazada es un final (ver `consultaDatafono`).
+        return consultaDatafono(pi);
       } catch (err) {
         console.error('[pos/terminal:datafono:consultar]', err instanceof Stripe.errors.StripeError ? err.message : err);
         // No se pudo PREGUNTAR. Eso no es "no pagado": es "no lo sé". Se

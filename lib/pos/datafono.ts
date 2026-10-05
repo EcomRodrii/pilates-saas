@@ -87,6 +87,31 @@ export function normalizarCodigo(texto: unknown): string | null {
   return /^[a-z0-9]+(?:-[a-z0-9]+){1,5}$/.test(codigo) ? codigo : null;
 }
 
+/**
+ * La provincia de cada código postal español, por sus dos primeras cifras, en el
+ * código ISO 3166-2:ES sin el «ES-» (28 → «M», Madrid).
+ *
+ * ⚠️ Stripe NO registra la ubicación de un datáfono en España sin provincia
+ * (`address[state]`, «Missing required address field for a Location in ES»), y la
+ * comprueba contra su lista: el nombre o este código, nada más («Comunidad de
+ * Madrid» o «ES-M», fuera). Se manda el código porque los nombres tienen variantes
+ * (Gerona/Girona, Vizcaya/Bizkaia). Las 52 probadas una a una contra Stripe en modo
+ * de prueba el 5-oct-2026.
+ */
+const PROVINCIA_POR_CP: Record<string, string> = {
+  '01': 'VI', '02': 'AB', '03': 'A', '04': 'AL', '05': 'AV', '06': 'BA', '07': 'PM', '08': 'B', '09': 'BU', '10': 'CC',
+  '11': 'CA', '12': 'CS', '13': 'CR', '14': 'CO', '15': 'C', '16': 'CU', '17': 'GI', '18': 'GR', '19': 'GU', '20': 'SS',
+  '21': 'H', '22': 'HU', '23': 'J', '24': 'LE', '25': 'L', '26': 'LO', '27': 'LU', '28': 'M', '29': 'MA', '30': 'MU',
+  '31': 'NA', '32': 'OR', '33': 'O', '34': 'P', '35': 'GC', '36': 'PO', '37': 'SA', '38': 'TF', '39': 'S', '40': 'SG',
+  '41': 'SE', '42': 'SO', '43': 'T', '44': 'TE', '45': 'TO', '46': 'V', '47': 'VA', '48': 'BI', '49': 'ZA', '50': 'Z',
+  '51': 'CE', '52': 'ML',
+};
+
+/** La provincia (código ISO sin «ES-») de un código postal español, o `null` si no lo es. */
+export function provinciaDeCodigoPostal(codigoPostal: string): string | null {
+  return /^\d{5}$/.test(codigoPostal) ? PROVINCIA_POR_CP[codigoPostal.slice(0, 2)] ?? null : null;
+}
+
 /** Una dirección con la que Stripe puede registrar el sitio del datáfono, o `null`. */
 export function direccionValida(d: {
   linea?: unknown; codigoPostal?: unknown; ciudad?: unknown;
@@ -96,7 +121,8 @@ export function direccionValida(d: {
   const linea = txt(d.linea).slice(0, 200);
   const ciudad = txt(d.ciudad).slice(0, 100);
   const codigoPostal = txt(d.codigoPostal).replace(/\s/g, '');
-  if (linea.length < 3 || ciudad.length < 2 || !/^\d{5}$/.test(codigoPostal)) return null;
+  // Un código postal que no es de ninguna provincia (00…, 53…) Stripe lo rechazaría.
+  if (linea.length < 3 || ciudad.length < 2 || !provinciaDeCodigoPostal(codigoPostal)) return null;
   return { linea, codigoPostal, ciudad };
 }
 
@@ -143,4 +169,23 @@ export function mensajeErrorLector(
   }
   if (err?.param === 'registration_code' || /registration code/i.test(err?.message ?? '')) return MENSAJE_CODIGO_NO_VALE;
   return 'No se ha podido conectar con el datáfono. Inténtalo otra vez en un momento.';
+}
+
+/**
+ * Por qué el banco no ha aceptado la tarjeta en el datáfono, dicho para el
+ * mostrador. Stripe lo da en inglés («Your card was declined.») y ese texto
+ * acababa tal cual en la Caja. Con un rechazo no se mueve dinero, así que
+ * «No se ha cobrado nada» es verdad. Lo que no se reconoce, mensaje genérico.
+ */
+export function motivoRechazoDatafono(
+  err: { code?: string | null; decline_code?: string | null } | null | undefined,
+): string {
+  switch (err?.decline_code ?? err?.code ?? '') {
+    case 'insufficient_funds': return 'La tarjeta no tiene saldo suficiente. No se ha cobrado nada: prueba con otra.';
+    case 'expired_card': return 'La tarjeta está caducada. No se ha cobrado nada: prueba con otra.';
+    case 'incorrect_pin':
+    case 'invalid_pin': return 'El PIN no es correcto. No se ha cobrado nada: vuelve a cobrar.';
+    case 'pin_try_exceeded': return 'Se han agotado los intentos de PIN de esta tarjeta. No se ha cobrado nada: prueba con otra.';
+    default: return 'El banco ha rechazado la tarjeta. No se ha cobrado nada: prueba con otra.';
+  }
 }

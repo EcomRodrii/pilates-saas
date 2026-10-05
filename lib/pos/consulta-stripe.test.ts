@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { consultarCobroBizum, estadoDesdeStripe } from './consulta-stripe.ts';
+import { consultaDatafono, consultarCobroBizum, estadoDesdeStripe } from './consulta-stripe.ts';
 
 // Bizum del mostrador: cuando Stripe crea la sesión de Checkout sin PaymentIntent,
 // la referencia guardada es la sesión (`cs_…`). Consultarla como PaymentIntent
@@ -142,3 +142,32 @@ test('⚠️ al cerrar un cobro de Bizum se guarda el PaymentIntent que cobró, 
   const venta = leer('app/api/pos/venta/confirmar/route.ts');
   assert.ok(venta.includes("p_payment_intent_id: estadoProveedor.paymentIntentId\n        ?? (venta.stripe_payment_intent_id.startsWith('cs_') ? null : venta.stripe_payment_intent_id),"));
 });
+
+// Datáfono de Stripe. Medido en modo de prueba (5-oct-2026): con una tarjeta
+// rechazada el PaymentIntent vuelve a `requires_payment_method` con
+// `last_payment_error`, y el lector deja de pedir tarjeta (acción `failed`).
+const piDatafono = (o: Record<string, unknown>) => ({
+  status: 'requires_payment_method', last_payment_error: null, amount_received: 0,
+  metadata: { ventaId: 'v-1', studioId: 'st-1', origen: 'pos_terminal' }, ...o,
+}) as unknown as Parameters<typeof consultaDatafono>[0];
+
+test('⚠️ datáfono: tarjeta rechazada = RECHAZADO (final) con el motivo en español, no «acerca la tarjeta»', () => {
+  const c = consultaDatafono(piDatafono({
+    last_payment_error: { code: 'card_declined', decline_code: 'insufficient_funds', message: 'Your card has insufficient funds.' },
+  }));
+  assert.equal(c.estado, 'RECHAZADO');
+  assert.match(c.error ?? '', /no tiene saldo suficiente/);
+  assert.equal(c.metadata?.ventaId, 'v-1');
+});
+
+test('datáfono: esperando la tarjeta (sin error) sigue PENDIENTE; cobrado, PAGADO con lo cobrado', () => {
+  const esperando = consultaDatafono(piDatafono({}));
+  assert.equal(esperando.estado, 'PENDIENTE');
+  assert.equal(esperando.error, undefined);
+  const pagado = consultaDatafono(piDatafono({ status: 'succeeded', amount_received: 2500 }));
+  assert.deepEqual([pagado.estado, pagado.importeCentimos], ['PAGADO', 2500]);
+  // Rechazado y después cancelado desde la Caja: manda el cancelado.
+  const cancelado = consultaDatafono(piDatafono({ status: 'canceled', last_payment_error: { code: 'card_declined' } }));
+  assert.equal(cancelado.estado, 'CANCELADO');
+});
+

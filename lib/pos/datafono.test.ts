@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MENSAJE_CODIGO_NO_VALE, datafonoCobra, direccionDelEstudio, direccionValida, estadoBotonDatafono, mensajeErrorLector,
+  MENSAJE_CODIGO_NO_VALE, datafonoCobra, direccionDelEstudio, direccionValida, estadoBotonDatafono, mensajeErrorLector, motivoRechazoDatafono, provinciaDeCodigoPostal,
   mensajeSinConexion, nombreModelo, normalizarCodigo, normalizarEtiqueta, type LectorDatafono,
 } from './datafono.ts';
 
@@ -80,3 +80,32 @@ test('los errores de Stripe, en el idioma del mostrador; lo que no se reconoce n
   assert.match(mensajeErrorLector({ code: 'api_error', message: 'Something broke' }), /No se ha podido conectar/);
   assert.match(mensajeSinConexion(null), /datáfono Mostrador/);
 });
+
+test('⚠️ la provincia sale del código postal (Stripe no registra un datáfono en España sin ella)', () => {
+  assert.equal(provinciaDeCodigoPostal('28010'), 'M');
+  assert.equal(provinciaDeCodigoPostal('08001'), 'B');
+  assert.equal(provinciaDeCodigoPostal('15001'), 'C');
+  assert.equal(provinciaDeCodigoPostal('07001'), 'PM');
+  assert.equal(provinciaDeCodigoPostal('01001'), 'VI');
+  assert.equal(provinciaDeCodigoPostal('52001'), 'ML');
+  // Las 52 provincias tienen la suya; fuera de 01–52 no es un código postal español.
+  for (let n = 1; n <= 52; n++) assert.ok(provinciaDeCodigoPostal(`${String(n).padStart(2, '0')}123`), `prefijo ${n}`);
+  for (const cp of ['00123', '53123', '99999', '2801', '280100', 'abcde', '']) assert.equal(provinciaDeCodigoPostal(cp), null, cp);
+  // Y una dirección con un código postal sin provincia no vale: Stripe la rechazaría.
+  assert.equal(direccionValida({ linea: 'Calle de Ejemplo 12', codigoPostal: '00123', ciudad: 'Madrid' }), null);
+  assert.equal(direccionValida({ linea: 'Calle de Ejemplo 12', codigoPostal: '99999', ciudad: 'Madrid' }), null);
+});
+
+test('el rechazo de una tarjeta se dice en español, nunca con el texto de Stripe', () => {
+  assert.equal(motivoRechazoDatafono({ code: 'card_declined', decline_code: 'generic_decline' }),
+    'El banco ha rechazado la tarjeta. No se ha cobrado nada: prueba con otra.');
+  assert.match(motivoRechazoDatafono({ code: 'card_declined', decline_code: 'insufficient_funds' }), /no tiene saldo suficiente/);
+  assert.match(motivoRechazoDatafono({ code: 'expired_card' }), /caducada/);
+  assert.match(motivoRechazoDatafono({ code: 'incorrect_pin' }), /PIN no es correcto/);
+  assert.match(motivoRechazoDatafono(null), /rechazado la tarjeta/);
+  // Ninguno trae el inglés de Stripe.
+  for (const c of ['card_declined', 'insufficient_funds', 'expired_card', 'lost_card', 'xyz']) {
+    assert.doesNotMatch(motivoRechazoDatafono({ decline_code: c }), /declined|card/i);
+  }
+});
+

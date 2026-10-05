@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { respuestaTrasCancelar, trasGuardarReferencia } from './referencia-cobro-recibo.ts';
+import { claveCobroRecibo, respuestaTrasCancelar, trasGuardarReferencia } from './referencia-cobro-recibo.ts';
 import type { EstadoPagoPOS } from './tipos.ts';
 
 // «Vengo a pagar la cuota» con datáfono o Bizum: si la referencia del cobro no
@@ -71,7 +71,7 @@ test('⚠️ la ruta del mostrador guarda la referencia con CAS sobre estado y r
   const cas = fuente.indexOf(".eq('id', reciboId).eq('studio_id', sesion.studioId).eq('estado', recibo.estado);", update);
   const casRef = fuente.indexOf("? guardar.eq('cobro_mostrador_pi', referenciaPrevia)\n      : guardar.is('cobro_mostrador_pi', null)", cas);
   const select = fuente.indexOf(").select('id');", casRef);
-  const decision = fuente.indexOf("trasGuardarReferencia({ error: !!errRef, tocadas: tocadas?.length ?? 0 }) === 'CANCELAR'", select);
+  const decision = fuente.indexOf("trasGuardarReferencia({ error: !!errRef, tocadas: tocadas?.length ?? 0, yaGuardadaEsLaMisma }) === 'CANCELAR'", select);
   const motivo = fuente.indexOf("const motivo = errRef ? 'ERROR_AL_GUARDAR' : 'CAMBIO';", decision);
   const cancelar = fuente.indexOf('await cobro.cancelar(inicio.referencia, inicio.checkoutSessionId ?? null);', motivo);
   const consultar = fuente.indexOf('await cobro.consultar(inicio.referencia);', cancelar);
@@ -85,3 +85,27 @@ test('⚠️ la ruta del mostrador guarda la referencia con CAS sobre estado y r
   // Solo ids a Sentry.
   assert.ok(fuente.includes('extra: { reciboId, studioId: sesion.studioId, referencia: inicio.referencia, pagoEstado: tras.estado, motivo }'));
 });
+
+test('⚠️ otra petición del MISMO intento ya guardó este cobro: se sigue, no se cancela el bueno', () => {
+  assert.equal(trasGuardarReferencia({ error: false, tocadas: 0, yaGuardadaEsLaMisma: true }), 'SEGUIR');
+  assert.equal(trasGuardarReferencia({ error: false, tocadas: 0, yaGuardadaEsLaMisma: false }), 'CANCELAR');
+  // Con error no se sabe qué hay guardado: se cancela igual.
+  assert.equal(trasGuardarReferencia({ error: true, tocadas: 0, yaGuardadaEsLaMisma: true }), 'CANCELAR');
+});
+
+test('⚠️ la clave del cobro de un recibo es la del INTENTO: dos intentos, dos claves; el mismo intento, la misma', () => {
+  const a = claveCobroRecibo('rec-1', 'DATAFONO', 'b7e1c2d4-0f3a-4c5e-9a1b-2c3d4e5f6a7b');
+  const b = claveCobroRecibo('rec-1', 'DATAFONO', '4a5b6c7d-8e9f-4a0b-8c1d-2e3f4a5b6c7d');
+  assert.ok(a && b && a !== b, 'tras cancelar o un rechazo, el intento siguiente no recibe el cobro muerto');
+  assert.equal(claveCobroRecibo('rec-1', 'DATAFONO', 'b7e1c2d4-0f3a-4c5e-9a1b-2c3d4e5f6a7b'), a);
+  for (const malo of [undefined, null, '', 'corto', 'con espacios aquí', 'x'.repeat(65), 42, { a: 1 }]) {
+    assert.equal(claveCobroRecibo('rec-1', 'DATAFONO', malo), null, String(malo));
+  }
+});
+
+test('⚠️ la ruta usa la clave del intento (y una nueva del servidor si no llega), nunca la del recibo a secas', () => {
+  const fuente = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'app/api/pos/recibo/route.ts'), 'utf8'));
+  assert.ok(fuente.includes('claveIdempotencia: claveCobroRecibo(reciboId, metodo, body?.intentoId)'));
+  assert.doesNotMatch(fuente, /referenciaPrevia \?\? 'sin'/);
+});
+

@@ -79,7 +79,8 @@ test('conectar: ubicación con la dirección DEL ESTUDIO y el lector en su cuent
   const ubic = llamadas.find(l => l.que === 'locations.create')!;
   assert.deepEqual(ubic.args[0], {
     display_name: 'Pilates Centro',
-    address: { line1: 'Calle de Ejemplo 12', city: 'Madrid', postal_code: '28010', country: 'ES' },
+    // ⚠️ Con la provincia: sin `state`, Stripe rechaza la ubicación en España (medido en modo de prueba).
+    address: { line1: 'Calle de Ejemplo 12', city: 'Madrid', postal_code: '28010', country: 'ES', state: 'M' },
   });
   const lector = llamadas.find(l => l.que === 'readers.create')!;
   assert.deepEqual(lector.args[0], { registration_code: 'sepia-cerulean-aqua', location: 'tml_nueva', label: 'Sala' });
