@@ -122,7 +122,7 @@ export function HojaStock({ productoId, onCerrar, onCambio }: {
                   <button key={a.id} onClick={() => { setAccion(a.id); setError(null); }}
                     className={cn(
                       'h-12 rounded-xl border text-[13px] font-semibold inline-flex items-center justify-center gap-1.5',
-                      accion === a.id ? 'border-brand bg-brand/10 text-brand' : 'border-border text-foreground',
+                      accion === a.id ? 'border-brand bg-brand/10 text-brand-medio' : 'border-border text-foreground',
                     )}>
                     <a.icono size={14} /> {a.etiqueta}
                   </button>

@@ -1295,6 +1295,8 @@ export interface RowRecomendaciones {
   creado_en: string | null;
   resuelto_en: string | null;
   resuelto_por: string | null;
+  // migr 20261005143004.
+  resultado: any | null;
 }
 
 export interface RowRecomendacionOutcomes {
@@ -5882,6 +5884,7 @@ export type RecomendacionesInsert = {
   creado_en?: string | null | null;
   resuelto_en?: string | null | null;
   resuelto_por?: string | null | null;
+  resultado?: any | null | null;
 }
 
 export type RecomendacionesUpdate = {
@@ -5912,6 +5915,7 @@ export type RecomendacionesUpdate = {
   creado_en?: string | null | null;
   resuelto_en?: string | null | null;
   resuelto_por?: string | null | null;
+  resultado?: any | null | null;
 }
 
 export type RecomendacionOutcomesInsert = {

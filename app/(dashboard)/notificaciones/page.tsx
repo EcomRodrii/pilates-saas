@@ -160,7 +160,7 @@ export default function NotificationCenterPage() {
                             type="button"
                             onClick={() => reintentar(n.id)}
                             disabled={reintentando === n.id}
-                            className="mt-1 self-start text-[11px] font-semibold text-brand hover:underline disabled:opacity-50"
+                            className="mt-1 self-start text-[11px] font-semibold text-brand-medio hover:underline disabled:opacity-50"
                           >
                             {reintentando === n.id ? 'Reintentando…' : 'Reintentar'}
                           </button>

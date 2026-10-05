@@ -34,6 +34,10 @@ import {
 import { authHeader } from '@/lib/api-client';
 import { anfitrionPortal } from '@/lib/panel-portal';
 import { capturarEvento } from '@/lib/posthog-cliente';
+// ⚠️ TentiDiferido y NUNCA '@/components/tenti/tenti': este componente lo
+// importan sin diferir /calendario y PrimerHorario, y un import directo metería
+// el motor de la mascota en cada carga del calendario, para todos los roles.
+import { TentiDiferido } from '@/components/tenti/tenti-diferido';
 
 // El móvil de la vista previa. Se dibuja a tamaño de teléfono de verdad
 // (iPhone 14/15, el más común entre las alumnas) y se encoge para caber.
@@ -86,6 +90,20 @@ export function ListoParaReservar({
   }, []);
   const avisoFinal = avisoListo(srv, aviso);
   const finalParrafo = finalDelParrafo(srv, aviso);
+
+  // Tenti celebra ('hecho') con TRES condiciones y ninguna menos: que el
+  // servidor haya dicho que una alumna nueva puede reservar (la MISMA respuesta
+  // que pinta la promesa de al lado), que su página ya se vea dentro del móvil
+  // y que haya pasado un momento, para que primero se lea el titular. Con 'NO',
+  // sin comprobar o con la red caída se queda en reposo: lo que no se ha podido
+  // confirmar no se celebra.
+  const [maduro, setMaduro] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setMaduro(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+  const estadoTenti = srv?.estado === 'SI' && cargada && maduro ? 'hecho' : 'reposo';
+
   // Cierra con Escape, como cualquier pantalla que tapa el panel.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onSeguir(); };
@@ -176,9 +194,12 @@ export function ListoParaReservar({
     <div className="fixed inset-0 z-[60] grid grid-cols-[minmax(0,1fr)] place-items-center overflow-y-auto bg-background">
       <div className="mx-auto w-full max-w-[820px] px-5 py-10 sm:py-14">
       <div className="text-center">
-        <span className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-brand text-brand-foreground">
-          <Check size={24} strokeWidth={3} aria-hidden />
-        </span>
+        {/* Caja FIJA de 80×80, con Tenti o con el Check: que llegue el chunk, o
+            que no llegue, no mueve el titular. Para otros roles, el Check de
+            siempre (lo decide TentiDiferido, no esta pantalla). */}
+        <div className="mx-auto mb-2 grid size-20 place-items-center">
+          <TentiDiferido estado={estadoTenti} tamano={80} sigueCursor reserva={<CuadroListo />} />
+        </div>
         <h2 className="text-[24px] font-bold tracking-tight text-foreground sm:text-[28px]">
           Tu estudio ya puede recibir reservas
         </h2>
@@ -311,5 +332,15 @@ export function ListoParaReservar({
     </div>,
     anfitrionPortal(),
     )
+  );
+}
+
+// El icono de siempre: lo que ve quien no es la propietaria, y lo que queda si
+// Tenti no se puede pintar (el chunk no llega o no hay canvas 2D).
+function CuadroListo() {
+  return (
+    <span className="grid size-12 place-items-center rounded-2xl bg-brand text-brand-foreground">
+      <Check size={24} strokeWidth={3} aria-hidden />
+    </span>
   );
 }

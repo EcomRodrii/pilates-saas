@@ -36,8 +36,14 @@ function TooltipProvider({ ...props }: TooltipPrimitive.Provider.Props) {
 // es el que está posicionado. Con el z-index puesto aquí, un InfoTip dentro de
 // un diálogo (tab-planes, "Cómo elegir el tipo de plan") se abría por debajo
 // del propio diálogo.
+//
+// Glass oscuro de la marca (brand/component-guidelines.md, Tooltip): `.t-glass-dark`
+// pone fondo, desenfoque, borde y tinta, y es oscuro en los dos modos — el
+// portal va a `body`, fuera de `.dark`, así que no depende de él. Radio `sm`
+// (8) y 240 de ancho. ⚠️ `.t-glass-dark` va sin capa y gana a las utilidades:
+// aquí no se le añade ningún fondo, borde ni color.
 const tooltipPopupClass =
-  "max-w-64 origin-[var(--transform-origin)] rounded-lg bg-popover px-2 py-1 text-xs text-popover-foreground ring-1 ring-foreground/10 shadow-md transition-[transform,opacity] duration-100 ease-out data-starting-style:opacity-0 data-starting-style:scale-98 data-ending-style:opacity-0 data-ending-style:scale-98 data-instant:transition-none"
+  "t-glass-dark max-w-[240px] origin-[var(--transform-origin)] rounded-[var(--t-radius-sm)] px-2 py-1 text-xs shadow-md transition-[transform,opacity] duration-100 ease-out data-starting-style:opacity-0 data-starting-style:scale-98 data-ending-style:opacity-0 data-ending-style:scale-98 data-instant:transition-none"
 
 function Tooltip({
   content,
@@ -54,8 +60,10 @@ function Tooltip({
 }) {
   return (
     <TooltipPrimitive.Root>
+      {/* 400 ms con el ratón (la guía); con el teclado, al recibir el foco. */}
       <TooltipPrimitive.Trigger
         data-slot="tooltip-trigger"
+        delay={400}
         render={children}
       />
       <TooltipPrimitive.Portal>

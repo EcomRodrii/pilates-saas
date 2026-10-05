@@ -1,0 +1,46 @@
+/* ─────────────────────────────────────────────────────────────
+   TENTARE · TAILWIND v4 THEME (fase 1)
+   Utilidades NUEVAS con espacio de nombres `t-`, para no pisar las
+   existentes (bg-background, rounded-3xl, font-sans…):
+     bg-t-canvas · bg-t-raised · text-t-primary · border-t-subtle
+     rounded-t-card · font-t-mono · shadow-t-card
+   Se importa en app/globals.css justo después de "shadcn/tailwind.css".
+   ───────────────────────────────────────────────────────────── */
+@theme inline {
+  --color-t-canvas: var(--t-surface-canvas);
+  --color-t-raised: var(--t-surface-raised);
+  --color-t-sunken: var(--t-surface-sunken);
+  --color-t-inverse: var(--t-surface-inverse);
+  --color-t-nav: var(--t-surface-nav);
+  --color-t-primary: var(--t-text-primary);
+  --color-t-secondary: var(--t-text-secondary);
+  --color-t-tertiary: var(--t-text-tertiary);
+  --color-t-disabled: var(--t-text-disabled);
+  --color-t-on-inverse: var(--t-text-inverse);
+  --color-t-link: var(--t-text-link);
+  --color-t-accent: var(--t-text-accent);
+  --color-t-subtle: var(--t-border-subtle);
+  --color-t-default: var(--t-border-default);
+  --color-t-strong: var(--t-border-strong);
+  --color-t-focus: var(--t-border-focus);
+  --color-t-selection: var(--t-selection);
+  --color-t-attention: var(--t-attention);
+  --color-t-success: var(--t-success-fg); --color-t-success-bg: var(--t-success-bg);
+  --color-t-warning: var(--t-warning-fg); --color-t-warning-bg: var(--t-warning-bg);
+  --color-t-error: var(--t-error-fg);     --color-t-error-bg: var(--t-error-bg);
+  --color-t-info: var(--t-info-fg);       --color-t-info-bg: var(--t-info-bg);
+  --color-t-blue: var(--t-blue-500);
+  --color-t-magenta: var(--t-magenta-500);
+  --font-t-sans: var(--t-font-sans);
+  --font-t-mono: var(--t-font-mono);
+  --radius-t-card: var(--t-radius-product-card);
+  --radius-t-control: var(--t-radius-product-control);
+  --radius-t-nav: var(--t-radius-product-nav);
+  --radius-t-modal: var(--t-radius-modal);
+  --radius-t-menu: var(--t-radius-menu);
+  --shadow-t-card: var(--t-shadow-card);
+  --shadow-t-dropdown: var(--t-shadow-dropdown);
+  --shadow-t-floating: var(--t-shadow-floating);
+  --shadow-t-modal: var(--t-shadow-modal);
+  --ease-t-standard: var(--t-ease-standard);
+}

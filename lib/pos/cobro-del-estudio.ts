@@ -2,7 +2,8 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MetodoPago } from '@/lib/types';
 import { contextoCobroDe, proveedorPara, type PeticionCobro, type ResultadoInicio } from './terminal.ts';
-import type { ConsultaCobro } from './consulta-stripe.ts';
+import { desenlaceDeCobroSoltado, type ConsultaCobro } from './consulta-stripe.ts';
+import { vidaDelCobroDeLaCaja, type VidaCobroCaja } from './referencia-cobro-recibo.ts';
 import { clienteSumup, proveedorDeReferencia, sumupPuedeCobrarAqui, type ClienteSumup } from './sumup.ts';
 import { urlDeAviso } from './sumup-aviso.ts';
 import { crearProveedorSumup } from './terminal-sumup.ts';
@@ -128,4 +129,37 @@ export async function prepararCobroExistente(
 ): Promise<CobroPreparado> {
   if (proveedorDeReferencia(referencia) === 'sumup') return cobroSumup(admin, studioId, { exigirLector: false });
   return cobroStripe(admin, studioId, metodo, o.origen);
+}
+
+/**
+ * Un cobro de Stripe de un recibo, SOLO LEYENDO (`desenlaceDeCobroSoltado`): la
+ * referencia que manda la Caja, o el cobro que un recibo aún tiene guardado al
+ * empezar otro. `null` si no es de Stripe (SumUp) o no es de este recibo; sin
+ * poder leer, `{ comprobado: false }`.
+ */
+export async function cobroDeReciboSoloLectura(
+  admin: SupabaseClient, studioId: string, reciboId: string, referencia: string,
+): ReturnType<typeof desenlaceDeCobroSoltado> {
+  if (proveedorDeReferencia(referencia) !== 'stripe') return null;
+  const cx = await contextoCobroDe(admin, studioId);
+  if (!cx.ok) return { comprobado: false };
+  return desenlaceDeCobroSoltado(cx.ctx.stripe, referencia, cx.ctx.stripeAccount, { reciboId, studioId });
+}
+
+/**
+ * ¿Sigue vivo el cobro de la Caja guardado en un recibo? (`vidaDelCobroDeLaCaja`).
+ * SOLO LEE: lo pregunta el enlace de pago de la socia, que nunca para el cobro del
+ * mostrador (lo lleva la Caja). Un cobro de SumUp se le pregunta a SumUp.
+ */
+export async function vidaDelCobroDeLaCajaEnElRecibo(
+  admin: SupabaseClient, studioId: string, reciboId: string, referencia: string, o: { origen: string },
+): Promise<VidaCobroCaja> {
+  if (proveedorDeReferencia(referencia) === 'sumup') {
+    const prep = await prepararCobroExistente(admin, studioId, referencia, 'DATAFONO', o);
+    if (!prep.ok) return vidaDelCobroDeLaCaja('SIN_LEER');
+    const est = await prep.cobro.consultar(referencia).catch(() => null);
+    return vidaDelCobroDeLaCaja(est ? est.estado : 'SIN_LEER');
+  }
+  const leido = await cobroDeReciboSoloLectura(admin, studioId, reciboId, referencia);
+  return vidaDelCobroDeLaCaja(!leido ? null : leido.comprobado ? leido.estado : 'SIN_LEER');
 }

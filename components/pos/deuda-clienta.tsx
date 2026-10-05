@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Banknote, CreditCard, Smartphone, Loader2, AlertCircle } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
-import { formatEuro } from '@/lib/utils';
+import { formatEuro, uuidV4 } from '@/lib/utils';
 import { cobrarReciboEnMostrador, confirmarCobroRecibo, esError } from '@/lib/pos/cliente';
 import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import { bizumPermitidoPara, tipoDeReciboParaBizum } from '@/lib/billing/bizum-permitido';
@@ -54,7 +54,8 @@ const MAX_CONSULTAS = 90;
 type Fase =
   | { f: 'quieto' }
   | { f: 'efectivo'; reciboId: string }
-  | { f: 'esperando'; reciboId: string; metodo: 'DATAFONO' | 'BIZUM'; estado: EstadoPagoPOS; url: string | null; intentos: number }
+  // `referencia`: el cobro que se espera; `null` mientras se manda (aún no hay a quién preguntar).
+  | { f: 'esperando'; reciboId: string; metodo: 'DATAFONO' | 'BIZUM'; estado: EstadoPagoPOS; url: string | null; intentos: number; referencia: string | null }
   | { f: 'hecho'; reciboId: string };
 
 export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrado: () => void }) {
@@ -107,12 +108,14 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
   // Sondeo mientras la clienta pasa la tarjeta. El estado lo decide SIEMPRE el
   // servidor releyendo el PaymentIntent; esto solo pregunta.
   useEffect(() => {
-    if (fase.f !== 'esperando') return;
-    const { reciboId, metodo } = fase;
+    // Sin referencia, el cobro aún se está mandando: preguntar antes contestaba «no
+    // llegó a iniciarse» si el envío tardaba más de una vuelta del sondeo.
+    if (fase.f !== 'esperando' || !fase.referencia) return;
+    const { reciboId, metodo, referencia } = fase;
     if (fase.intentos >= MAX_CONSULTAS) return;
     let vivo = true;
     const t = setTimeout(() => {
-      confirmarCobroRecibo(reciboId, metodo).then((r) => {
+      confirmarCobroRecibo(reciboId, metodo, 'consultar', referencia).then((r) => {
         if (!vivo) return;
         if (esError(r)) { setError(r.error); setFase({ f: 'quieto' }); return; }
         if (r.cobrado) { setFase({ f: 'hecho', reciboId }); onCobrado(); return; }
@@ -152,25 +155,29 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
 
   async function cobrarConProveedor(reciboId: string, metodo: 'DATAFONO' | 'BIZUM') {
     setError(null);
-    setFase({ f: 'esperando', reciboId, metodo, estado: 'PENDIENTE', url: null, intentos: 0 });
-    const r = await cobrarReciboEnMostrador(reciboId, metodo);
+    setFase({ f: 'esperando', reciboId, metodo, estado: 'PENDIENTE', url: null, intentos: 0, referencia: null });
+    // Un intento nuevo por toque: si no, tras cancelar o un rechazo el proveedor
+    // devolvía el cobro muerto y el datáfono no pedía la tarjeta.
+    const r = await cobrarReciboEnMostrador(reciboId, metodo, uuidV4());
     if (esError(r)) { setError(r.error); setFase({ f: 'quieto' }); return; }
-    setFase({ f: 'esperando', reciboId, metodo, estado: r.pagoEstado, url: r.url, intentos: 0 });
+    setFase({ f: 'esperando', reciboId, metodo, estado: r.pagoEstado, url: r.url, intentos: 0, referencia: r.referencia });
   }
 
   async function cancelar() {
-    if (fase.f !== 'esperando') return;
-    const { reciboId, metodo } = fase;
+    // Sin referencia el cobro aún se está mandando y no hay nada que cancelar todavía
+    // (el botón está apagado ese segundo).
+    if (fase.f !== 'esperando' || !fase.referencia) return;
+    const { reciboId, metodo, referencia } = fase;
     // Sin tope aquí: agotado el sondeo es justo CUANDO más falta hace poder
     // salir de la pantalla de espera.
     setFase({ f: 'quieto' });
-    await confirmarCobroRecibo(reciboId, metodo, 'cancelar');
+    await confirmarCobroRecibo(reciboId, metodo, 'cancelar', referencia);
   }
 
   if (fase.f === 'esperando') {
     return (
       <div className="rounded-xl border border-brand/40 bg-brand/5 p-4 space-y-2 text-center">
-        <Loader2 size={20} className="animate-spin text-brand mx-auto" />
+        <Loader2 size={20} className="animate-spin text-brand-medio mx-auto" />
         <p className="text-[13.5px] font-semibold text-foreground">
           {fase.metodo === 'DATAFONO' ? `Acerca la tarjeta al datáfono${etiquetaDatafono ? ` ${etiquetaDatafono}` : ''}…` : 'Esperando el Bizum…'}
         </p>
@@ -181,11 +188,12 @@ export function DeudaClienta({ socioId, onCobrado }: { socioId: string; onCobrad
         </p>
         {fase.url && (
           <a href={fase.url} target="_blank" rel="noopener noreferrer"
-            className="inline-block text-[12.5px] font-semibold text-brand underline">
+            className="inline-block text-[12.5px] font-semibold text-brand-medio underline">
             Abrir el pago
           </a>
         )}
-        <button onClick={cancelar} className="block w-full h-10 rounded-lg text-[13px] font-medium text-muted-foreground">
+        <button onClick={cancelar} disabled={!fase.referencia}
+          className="block w-full h-10 rounded-lg text-[13px] font-medium text-muted-foreground disabled:opacity-50">
           Cancelar el cobro
         </button>
       </div>

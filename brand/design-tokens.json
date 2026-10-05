@@ -1,0 +1,151 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "$description": "TENTARE DESIGN TOKENS v1.0 — fuente de verdad. Derivado de las sesiones 01–10 y de docs/marca/LEEME.md. Valores marcados OPEN DECISION no deben usarse hasta decidirse.",
+  "color": {
+    "core": {
+      "ink-950": { "$value": "#12161B", "$description": "Menú lateral, canvas oscuro" },
+      "ink-900": { "$value": "#222A33", "$description": "Tinta oficial del logo. Texto principal, estructura" },
+      "ink-800": { "$value": "#2A313A" },
+      "ink-700": { "$value": "#3A424D", "$description": "Texto secundario" },
+      "ink-500": { "$value": "#5E6670", "$description": "Texto terciario, metadatos (≥12px)" },
+      "ink-400": { "$value": "#8A9098", "$description": "Solo decorativo, nunca texto" },
+      "ink-300": { "$value": "#A9AFB6", "$description": "Deshabilitado, líneas punteadas" },
+      "cream": { "$value": "#F7F4EE", "$description": "Fondo de marca y canvas del panel" },
+      "paper": { "$value": "#FFFFFF" },
+      "stone": { "$value": "#ECE6DC" },
+      "sand": { "$value": "#D8CDBB" },
+      "line": { "$value": "#E3DCD0" },
+      "line-strong": { "$value": "#CFC6B8" },
+      "blue-100": { "$value": "#DCE7EC" },
+      "blue-500": { "$value": "#4C9CB0", "$description": "Turquesa oficial. Rellenos y trazos, nunca texto (2,9:1 sobre Cream)" },
+      "blue-700": { "$value": "#3E6A82", "$description": "Texto azul, enlaces (5,3:1)" },
+      "magenta-100": { "$value": "#F2DDE6" },
+      "magenta-500": { "$value": "#B4537E", "$description": "Magenta oficial. CTA de alta, marcador «ahora»" },
+      "magenta-700": { "$value": "#963A62", "$description": "Texto magenta (6,2:1)" },
+      "success-700": { "$value": "#2F6A53" }, "success-100": { "$value": "#DDEBE4" },
+      "warning-700": { "$value": "#855A16" }, "warning-100": { "$value": "#F4E7D0" },
+      "error-700": { "$value": "#A3342A" }, "error-100": { "$value": "#F5DCD7" }
+    },
+    "gradient": {
+      "logo": { "$value": "linear-gradient(135deg, #4C9CB0, #B4537E)", "$description": "Solo isotipo" },
+      "progress": { "$value": "linear-gradient(90deg, #4C9CB0, #B4537E)", "$description": "Solo progreso/tiempo transcurrido, superficie ≤5%" }
+    },
+    "semantic": {
+      "light": {
+        "surface-canvas": { "$value": "{color.core.cream}" },
+        "surface-raised": { "$value": "{color.core.paper}" },
+        "surface-sunken": { "$value": "{color.core.stone}" },
+        "surface-inverse": { "$value": "{color.core.ink-900}" },
+        "surface-nav": { "$value": "{color.core.ink-950}" },
+        "text-primary": { "$value": "{color.core.ink-900}" },
+        "text-secondary": { "$value": "{color.core.ink-700}" },
+        "text-tertiary": { "$value": "{color.core.ink-500}" },
+        "text-disabled": { "$value": "{color.core.ink-300}" },
+        "text-inverse": { "$value": "{color.core.cream}" },
+        "text-link": { "$value": "{color.core.blue-700}" },
+        "text-accent": { "$value": "{color.core.magenta-700}" },
+        "border-subtle": { "$value": "{color.core.line}" },
+        "border-default": { "$value": "{color.core.line-strong}" },
+        "border-strong": { "$value": "{color.core.ink-900}" },
+        "border-focus": { "$value": "{color.core.blue-500}" },
+        "selection": { "$value": "{color.core.blue-100}" },
+        "attention": { "$value": "{color.core.magenta-500}" },
+        "success-fg": { "$value": "{color.core.success-700}" }, "success-bg": { "$value": "{color.core.success-100}" },
+        "warning-fg": { "$value": "{color.core.warning-700}" }, "warning-bg": { "$value": "{color.core.warning-100}" },
+        "error-fg": { "$value": "{color.core.error-700}" }, "error-bg": { "$value": "{color.core.error-100}" },
+        "info-fg": { "$value": "{color.core.blue-700}" }, "info-bg": { "$value": "{color.core.blue-100}" }
+      },
+      "dark": {
+        "surface-canvas": { "$value": "#12161B" },
+        "surface-raised": { "$value": "#1B2027" },
+        "surface-sunken": { "$value": "#242A33" },
+        "surface-nav": { "$value": "#0D1014", "$description": "OPEN DECISION: valor propuesto, no validado" },
+        "text-primary": { "$value": "#F2EEE7" },
+        "text-secondary": { "$value": "#B4BAC2" },
+        "text-tertiary": { "$value": "#8A9098" },
+        "border-subtle": { "$value": "#2F3640" },
+        "accent-blue": { "$value": "#7FAFC6" },
+        "accent-magenta": { "$value": "#D4769E" },
+        "states": { "$value": "OPEN DECISION", "$description": "Success/warning/error en oscuro sin definir en sesión 04" }
+      }
+    },
+    "brand-slot": {
+      "brand": { "$value": "{color.core.sand}", "$description": "Marca blanca: lo sobrescribe el tema del estudio" },
+      "brand-foreground": { "$value": "{color.core.ink-900}" },
+      "brand-strong": { "$value": "{color.core.ink-900}", "$description": "Botón primario sólido" },
+      "brand-strong-foreground": { "$value": "{color.core.cream}" }
+    }
+  },
+  "font": {
+    "family": {
+      "sans": { "$value": "'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif" },
+      "mono": { "$value": "'DM Mono', ui-monospace, monospace" }
+    },
+    "weight": { "regular": { "$value": 400 }, "medium": { "$value": 500 }, "semibold": { "$value": 600 } },
+    "scale": {
+      "display": { "size": "72px", "line": "72px", "tracking": "-0.04em", "weight": 600, "family": "sans" },
+      "h1": { "size": "48px", "line": "50px", "tracking": "-0.03em", "weight": 600, "family": "sans" },
+      "h2": { "size": "31px", "line": "36px", "tracking": "-0.02em", "weight": 600, "family": "sans" },
+      "page-title": { "size": "30px", "line": "36px", "tracking": "-0.03em", "weight": 600, "family": "sans", "$description": "Saludo / título de pantalla del panel" },
+      "h3": { "size": "20px", "line": "26px", "tracking": "-0.01em", "weight": 600, "family": "sans" },
+      "body-lg": { "size": "17px", "line": "27px", "tracking": "0", "weight": 400, "family": "sans" },
+      "body": { "size": "16px", "line": "26px", "tracking": "0", "weight": 400, "family": "sans" },
+      "ui": { "size": "14px", "line": "20px", "tracking": "0", "weight": 500, "family": "sans" },
+      "small": { "size": "13px", "line": "18px", "tracking": "0", "weight": 400, "family": "sans", "$description": "Mínimo en producto" },
+      "label": { "size": "12px", "line": "16px", "tracking": "0.08em", "weight": 500, "family": "mono", "case": "uppercase" },
+      "caption-mono": { "size": "11px", "line": "14px", "tracking": "0.06em", "weight": 400, "family": "mono" },
+      "data": { "size": "14px", "line": "20px", "tracking": "0", "weight": 400, "family": "mono", "$description": "Horas, precios en tabla, ocupación" },
+      "data-lg": { "size": "24px", "line": "24px", "tracking": "-0.02em", "weight": 500, "family": "mono", "$description": "Hora de fila en «Hoy en el estudio»" },
+      "metric": { "size": "48px", "line": "48px", "tracking": "-0.04em", "weight": 500, "family": "sans", "numeric": "tabular-nums", "$description": "Unidad al 40% del tamaño" }
+    }
+  },
+  "space": { "0": "0px", "1": "4px", "2": "8px", "3": "12px", "4": "16px", "5": "20px", "6": "24px", "8": "32px", "10": "40px", "12": "48px", "16": "64px", "24": "96px", "32": "128px" },
+  "radius": {
+    "none": { "$value": "0px", "$description": "Imagen editorial, bloques de marca" },
+    "xs": { "$value": "6px" },
+    "sm": { "$value": "8px" },
+    "md": { "$value": "12px", "$description": "Alertas, dropdown, tarjetas de marketing" },
+    "lg": { "$value": "16px", "$description": "--radius actual del panel" },
+    "xl": { "$value": "20px", "$description": "Modal" },
+    "2xl": { "$value": "24px", "$description": "Card de producto APROBADO (24px). No usar rounded-3xl: en el repo resuelve a 38,4px (LEGACY)" },
+    "3xl": { "$value": "28px", "$description": "Sidebar flotante" },
+    "full": { "$value": "9999px", "$description": "Botones, inputs, badges, pills, navegación" }
+  },
+  "border": {
+    "width-hairline": { "$value": "1px" },
+    "width-focus": { "$value": "2px" },
+    "width-schedule": { "$value": "1.5px", "$description": "Línea de horario" },
+    "width-progress": { "$value": "3px" }
+  },
+  "shadow": {
+    "card": { "$value": "0 0 0 1px rgba(34,42,51,0.05), 0 1px 3px rgba(0,0,0,0.03)" },
+    "dropdown": { "$value": "0 12px 32px -12px rgba(34,42,51,0.25)" },
+    "floating": { "$value": "0 24px 48px -22px rgba(34,42,51,0.40)" },
+    "modal": { "$value": "0 30px 60px -20px rgba(18,22,27,0.50)" },
+    "nav": { "$value": "0 14px 44px rgba(34,42,51,0.14)" }
+  },
+  "glass": {
+    "light": { "background": "rgba(247,244,238,0.80)", "blur": "12px", "$description": "Topbar fija, barra inferior móvil, cabeceras fijas" },
+    "light-marketing": { "background": "rgba(247,244,238,0.72)", "blur": "20px", "saturate": "1.4", "border": "rgba(255,255,255,0.6)", "$description": "Nav web, avisos sobre foto" },
+    "solid": { "background": "rgba(255,255,255,0.95)", "blur": "8px", "border": "{color.core.line}", "$description": "Barras de guardar, pies de paneles" },
+    "dark": { "background": "rgba(34,42,51,0.86)", "blur": "16px", "border": "rgba(255,255,255,0.14)", "$description": "Toasts, etiquetas sobre fotos, FAB" }
+  },
+  "grid": {
+    "desktop": { "columns": 12, "gutter": "24px", "margin": "64px", "max": "1280px" },
+    "tablet": { "columns": 8, "gutter": "20px", "margin": "32px" },
+    "mobile": { "columns": 4, "gutter": "16px", "margin": "20px" },
+    "panel": { "max": "1320px", "sidebar-compact": "64px", "sidebar-normal": "224px", "sidebar-large": "288px", "topbar": "56px" },
+    "brand-module": { "$value": "24px", "$description": "Retícula visible en piezas de marca" }
+  },
+  "breakpoint": { "sm": "640px", "md": "768px", "lg": "1024px", "xl": "1280px", "hero-stack": { "$value": "980px", "$description": "Heredado de la landing actual" } },
+  "motion": {
+    "duration": { "micro": "160ms", "component": "240ms", "screen": "400ms", "brand": "600ms", "brand-long": "900ms" },
+    "easing": { "standard": "cubic-bezier(0.2, 0, 0, 1)" },
+    "reveal-distance": "16px",
+    "rules": "Sin rebotes ni springs. prefers-reduced-motion: solo opacidad / fotograma final."
+  },
+  "size": {
+    "control-sm": "28px", "control-md": "36px", "control-lg": "44px", "input": "40px",
+    "touch-min": "44px", "icon": "16px", "icon-lg": "20px", "avatar-sm": "32px", "avatar-md": "40px", "badge": "20px"
+  }
+}

@@ -35,7 +35,9 @@ const SECCIONES: Array<{ href: string; etiqueta: string; icono: typeof Building2
   { href: '/interno/crecimiento', etiqueta: 'Crecimiento', icono: Sprout, permisos: ['crm.update'] },
   { href: '/interno/actualizaciones', etiqueta: 'Actualizaciones', icono: Megaphone, permisos: ['content.write'] },
   { href: '/interno/ayuda', etiqueta: 'Ayuda', icono: LifeBuoy, permisos: ['content.write'] },
-  // La mascota, en maqueta hasta que se decida dónde vive en el panel.
+  // El catálogo de la mascota: el único sitio con sonido, toques, insignias, la
+  // mirada de 'pensando' y los estados que el panel no usa. Dónde vive Tenti en
+  // el panel lo dice lib/tenti/donde-vive-tenti.test.ts.
   { href: '/interno/tenti', etiqueta: 'Tenti', icono: Smile, permisos: ['content.write'] },
   { href: '/interno/auditoria', etiqueta: 'Auditoría', icono: ScrollText, permisos: ['logs.read'] },
   { href: '/interno/network', etiqueta: 'Network', icono: Network, permisos: ['network.moderate'] },

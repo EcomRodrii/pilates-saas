@@ -258,6 +258,157 @@ test('si el datáfono rechaza la tarjeta, lo dice y no da la venta por buena', a
   expect(c.confirmaciones).toBeGreaterThan(0);
 });
 
+test('⚠️ tras un rechazo, «Probar otra vez» es un intento NUEVO: otra clave, otra venta', async ({ page }) => {
+  // La venta rechazada queda ANULADA en el servidor. Con la misma clave, el
+  // servidor devolvía esa venta muerta y el segundo intento fallaba al instante
+  // («Esta venta ya estaba registrada…»). Solo se estrena intento con la
+  // anulación CONFIRMADA: un fallo de red mantiene la clave (test de abajo).
+  const c = await montar(
+    page,
+    (route) => json(route, {
+      ventaId: `v${c.ventas}`, numero: c.ventas, subtotal: 25, descuento: 0, baseImponible: 20.66,
+      ivaTotal: 4.34, total: 25, cambio: null,
+      estado: 'PENDIENTE_PAGO', pagoEstado: 'PROCESANDO',
+      pago: { referencia: `pi_${c.ventas}`, url: null },
+    }),
+    (route) => json(route, {
+      ventaId: 'v1', numero: 1, estado: 'ANULADA', pagoEstado: 'RECHAZADO',
+      total: 25, motivo: 'El banco ha rechazado la tarjeta. No se ha cobrado nada: prueba con otra.',
+    }),
+  );
+
+  await abrirCaja(page);
+  await anadirCalcetines(page);
+  await page.getByRole('button', { name: /Cobrar/ }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect(page.getByText(/rechazado la tarjeta/i)).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole('button', { name: 'Probar otra vez' }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect.poll(() => c.ventas, { timeout: 15_000 }).toBe(2);
+
+  const a = c.cuerpos[0] as { idempotenciaClave: string };
+  const b = c.cuerpos[1] as { idempotenciaClave: string };
+  expect(
+    a.idempotenciaClave,
+    'tras una venta ANULADA, el siguiente intento no puede recibir la venta muerta',
+  ).not.toBe(b.idempotenciaClave);
+  expect(c.confirmaciones).toBeGreaterThan(0);
+});
+
+test('⚠️ venta anulada SIN el cobro cerrado (ERROR): «Probar otra vez» NO estrena intento', async ({ page }) => {
+  // Con ERROR el cobro puede seguir vivo (no llegó a guardarse su referencia, o lo
+  // anuló el aviso de Stripe sin cerrarlo): un intento nuevo sería un segundo cobro.
+  // El servidor devuelve la misma venta y lo dice.
+  const c = await montar(
+    page,
+    (route) => json(route, {
+      ventaId: 'v1', numero: 1, subtotal: 25, descuento: 0, baseImponible: 20.66,
+      ivaTotal: 4.34, total: 25, cambio: null,
+      estado: 'PENDIENTE_PAGO', pagoEstado: 'PROCESANDO',
+      pago: { referencia: 'pi_1', url: null },
+    }),
+    (route) => json(route, {
+      ventaId: 'v1', numero: 1, estado: 'ANULADA', pagoEstado: 'ERROR', total: 25, motivo: 'El cobro no llegó a iniciarse.',
+    }),
+  );
+
+  await abrirCaja(page);
+  await anadirCalcetines(page);
+  await page.getByRole('button', { name: /Cobrar/ }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect(page.getByText(/no llegó a iniciarse/i)).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole('button', { name: 'Probar otra vez' }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect.poll(() => c.ventas, { timeout: 15_000 }).toBe(2);
+  const a = c.cuerpos[0] as { idempotenciaClave: string };
+  const b = c.cuerpos[1] as { idempotenciaClave: string };
+  expect(a.idempotenciaClave, 'sin el cobro cerrado, el intento se mantiene').toBe(b.idempotenciaClave);
+});
+
+test('⚠️ el datáfono no respondía: con el intento CERRADO, «Probar otra vez» estrena clave', async ({ page }) => {
+  // El servidor canceló el cobro en Stripe (o no llegó a crearse) y lo dice con
+  // `INTENTO_CERRADO`. Con la misma clave devolvía la venta anulada, y con el
+  // datáfono ya encendido la Caja seguía diciendo «no responde».
+  const c = await montar(page, (route) => (c.ventas === 1
+    ? json(route, {
+      error: 'El datáfono Mostrador no responde. Comprueba que está encendido y conectado al wifi, y vuelve a intentarlo.',
+      codigo: 'INTENTO_CERRADO',
+    }, 409)
+    : json(route, {
+      ventaId: 'v2', numero: 2, subtotal: 25, descuento: 0, baseImponible: 20.66,
+      ivaTotal: 4.34, total: 25, cambio: null,
+      estado: 'PENDIENTE_PAGO', pagoEstado: 'PROCESANDO',
+      pago: { referencia: 'pi_2', url: null },
+    })));
+
+  await abrirCaja(page);
+  await anadirCalcetines(page);
+  await page.getByRole('button', { name: /Cobrar/ }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect(page.getByText(/no responde/i)).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole('button', { name: 'Probar otra vez' }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect.poll(() => c.ventas, { timeout: 15_000 }).toBe(2);
+  const a = c.cuerpos[0] as { idempotenciaClave: string };
+  const b = c.cuerpos[1] as { idempotenciaClave: string };
+  expect(a.idempotenciaClave, 'con el intento cerrado, el siguiente es nuevo').not.toBe(b.idempotenciaClave);
+});
+
+test('⚠️ el envío al datáfono falló SIN el intento cerrado: «Probar otra vez» mantiene la clave', async ({ page }) => {
+  // Sin `INTENTO_CERRADO` el cobro podría seguir vivo (no se pudo cancelar):
+  // otra clave sería otro cobro.
+  const c = await montar(page, (route) => json(route, { error: 'No se pudo enviar el importe al datáfono.' }, 409));
+
+  await abrirCaja(page);
+  await anadirCalcetines(page);
+  await page.getByRole('button', { name: /Cobrar/ }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect(page.getByText(/No se pudo enviar el importe/i)).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole('button', { name: 'Probar otra vez' }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect.poll(() => c.ventas, { timeout: 15_000 }).toBe(2);
+  const a = c.cuerpos[0] as { idempotenciaClave: string };
+  const b = c.cuerpos[1] as { idempotenciaClave: string };
+  expect(a.idempotenciaClave, 'sin el intento cerrado, se mantiene').toBe(b.idempotenciaClave);
+});
+
+test('⚠️ «Cancelar el cobro» sin la cancelación confirmada: sigue esperando y NO ofrece otro método', async ({ page }) => {
+  // El servidor no ha podido cancelar (el datáfono sigue con el cobro, p. ej.
+  // pidiendo el PIN): volver a elegir método invitaba a cobrar dos veces.
+  let cancelaciones = 0;
+  const c = await montar(
+    page,
+    (route) => json(route, {
+      ventaId: 'v1', numero: 1, subtotal: 25, descuento: 0, baseImponible: 20.66,
+      ivaTotal: 4.34, total: 25, cambio: null,
+      estado: 'PENDIENTE_PAGO', pagoEstado: 'PROCESANDO',
+      pago: { referencia: 'pi_1', url: null },
+    }),
+    async (route) => {
+      const cuerpo = JSON.parse(route.request().postData() ?? '{}') as { accion?: string };
+      if (cuerpo.accion === 'cancelar') cancelaciones++;
+      await json(route, { ventaId: 'v1', numero: 1, estado: 'PENDIENTE_PAGO', pagoEstado: 'PROCESANDO', total: 25 });
+    },
+  );
+
+  await abrirCaja(page);
+  await anadirCalcetines(page);
+  await page.getByRole('button', { name: /Cobrar/ }).click();
+  await page.getByRole('button', { name: /^Datáfono/ }).click();
+  await expect(page.getByText(/Esperando la confirmación del banco/i)).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole('button', { name: 'Cancelar el cobro' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: /No se ha podido cancelar/ })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Esperando la confirmación del banco/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Efectivo/ })).toHaveCount(0);
+  expect(cancelaciones).toBeGreaterThan(0);
+  expect(c.ventas).toBe(1);
+});
+
 test('si el servidor responde 409 al registrar, el mostrador se entera', async ({ page }) => {
   // Un 4xx del servidor: sin stock. El TPV anterior se lo tragaba y enseñaba
   // el overlay de éxito igualmente.
@@ -595,4 +746,60 @@ test('un recibo por datáfono NO se da por cobrado hasta que lo confirma Stripe'
     arranque.metodo,
     'el método viaja al servidor: es él quien elige proveedor, no la pantalla',
   ).toBe('DATAFONO');
+});
+
+test('⚠️ recibo: pregunta con SU cobro, y si otro camino ya cerró el rechazo, da el motivo de verdad', async ({ page }) => {
+  // El aviso de Stripe o el conciliador pueden cerrar el rechazo y soltar el recibo
+  // antes que el sondeo de la Caja. Sin la referencia, el servidor contestaba «Ese
+  // cobro no llegó a iniciarse», que era falso.
+  const cuerpos: Record<string, unknown>[] = [];
+  await montar(page, (route) => json(route, {}));
+  await page.route('**/api/pos/recibo', (route) =>
+    json(route, { reciboId: 'rec-cuota', referencia: 'pi_rechazado', url: null, pagoEstado: 'PENDIENTE', importe: 60 }));
+  await page.route('**/api/pos/recibo/confirmar', (route) => {
+    cuerpos.push(JSON.parse(route.request().postData() ?? '{}'));
+    return json(route, {
+      reciboId: 'rec-cuota', estado: 'PENDIENTE', pagoEstado: 'RECHAZADO', importe: 60,
+      motivo: 'La tarjeta no tiene saldo suficiente. No se ha cobrado nada: prueba con otra.',
+    });
+  });
+
+  await abrirCaja(page);
+  await page.getByPlaceholder(/Buscar artículo/i).fill('María');
+  await page.getByRole('button', { name: /María García/ }).click();
+  await page.getByRole('button', { name: 'Datáfono' }).click();
+
+  await expect(page.getByText(/no tiene saldo suficiente/)).toBeVisible({ timeout: 15_000 });
+  expect(cuerpos.length).toBeGreaterThan(0);
+  expect((cuerpos[0] as { referencia?: string }).referencia, 'el sondeo lleva el cobro que espera').toBe('pi_rechazado');
+});
+
+test('⚠️ recibo: no pregunta antes de tener el cobro, ni deja cancelar lo que aún no existe', async ({ page }) => {
+  // Si mandar el cobro tardaba más de una vuelta del sondeo (2 s), la primera
+  // consulta llegaba sin cobro guardado y la Caja enseñaba «no llegó a iniciarse».
+  let arrancado = false;
+  let antesDeArrancar = 0;
+  let consultas = 0;
+  await montar(page, (route) => json(route, {}));
+  await page.route('**/api/pos/recibo', async (route) => {
+    await new Promise((r) => setTimeout(r, 3_500));
+    arrancado = true;
+    return json(route, { reciboId: 'rec-cuota', referencia: 'pi_lento', url: null, pagoEstado: 'PENDIENTE', importe: 60 });
+  });
+  await page.route('**/api/pos/recibo/confirmar', (route) => {
+    consultas++;
+    if (!arrancado) antesDeArrancar++;
+    return json(route, { reciboId: 'rec-cuota', estado: 'PENDIENTE', pagoEstado: 'PENDIENTE', importe: 60 });
+  });
+
+  await abrirCaja(page);
+  await page.getByPlaceholder(/Buscar artículo/i).fill('María');
+  await page.getByRole('button', { name: /María García/ }).click();
+  await page.getByRole('button', { name: 'Datáfono' }).click();
+
+  await expect(page.getByRole('button', { name: 'Cancelar el cobro' })).toBeDisabled();
+  await expect.poll(() => consultas, { timeout: 15_000 }).toBeGreaterThan(0);
+  expect(antesDeArrancar, 'ninguna consulta antes de que vuelva el envío del cobro').toBe(0);
+  await expect(page.getByRole('button', { name: 'Cancelar el cobro' })).toBeEnabled();
+  await expect(page.getByText(/no llegó a iniciarse/)).toHaveCount(0);
 });

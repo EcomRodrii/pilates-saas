@@ -38,12 +38,18 @@ export async function liberarCobroPosFallido(
      * ninguno de los dos se pisaría un reintento más nuevo del mismo recibo.
      */
     checkoutSessionId?: string | null;
+    /**
+     * Con qué estado de pago se anula la venta. ERROR por defecto (no se sabe si
+     * el cobro quedó cerrado). RECHAZADO o CANCELADO solo con el cobro ya CERRADO en
+     * el proveedor: la Caja estrena intento con ellos («Probar otra vez»).
+     */
+    pagoEstado?: 'ERROR' | 'RECHAZADO' | 'CANCELADO' | 'EXPIRADO';
   },
 ): Promise<{ tipo: 'venta' | 'recibo' | 'ninguno' }> {
   const ventaId = p.metadata?.ventaId;
   if (ventaId) {
     await admin.rpc('fallar_pago_venta_pos', {
-      p_venta_id: ventaId, p_studio_id: p.studioId, p_pago_estado: 'ERROR', p_motivo: p.motivo,
+      p_venta_id: ventaId, p_studio_id: p.studioId, p_pago_estado: p.pagoEstado ?? 'ERROR', p_motivo: p.motivo,
     });
     return { tipo: 'venta' };
   }

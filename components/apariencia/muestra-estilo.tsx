@@ -85,7 +85,7 @@ export function MuestraEstilo({ app, primary, activo, onElegir }: {
       <span className="block border-t border-border bg-card px-3 py-2">
         <span className="flex items-center justify-between gap-2 text-[13px] font-semibold text-foreground">
           {e.nombre}
-          {activo && <Check size={14} className="text-brand" aria-hidden />}
+          {activo && <Check size={14} className="text-brand-medio" aria-hidden />}
         </span>
         <span className="block text-[12px] leading-snug text-muted-foreground">{e.descripcion}</span>
       </span>

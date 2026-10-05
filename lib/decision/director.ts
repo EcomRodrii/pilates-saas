@@ -92,14 +92,29 @@ export interface EntradaMientrasDormias {
 export function construirMientrasDormias(entrada: EntradaMientrasDormias): ItemMientrasDormias[] {
   const items: ItemMientrasDormias[] = [];
 
-  const pagosRecuperados = entrada.recomendacionesEjecutadas.filter(r => r.tipo === 'RECUPERAR_PAGOS');
-  if (pagosRecuperados.length > 0) {
-    const total = redondear2(pagosRecuperados.reduce((acc, r) => acc + (typeof r.datosUsados.total === 'number' ? r.datosUsados.total : 0), 0));
-    const n = pagosRecuperados.reduce((acc, r) => acc + (typeof r.datosUsados.n === 'number' ? r.datosUsados.n : 1), 0);
+  // Solo lo que hizo Tentare SOLO (piloto automático, resuelto_por='AUTONOMIA'):
+  // el bloque dice «Mientras dormías, esto es lo que hice» bajo «Ejecutado
+  // automáticamente». Un cobro lo aprueba siempre la propietaria (COBRAR_RECIBOS
+  // nunca es autónomo, autonomia.ts), así que hoy no entra ninguno: lo que pasó
+  // con el suyo lo ve en la tarjeta en la que lo aprobó y en Actividad.
+  //
+  // Y si alguno entra, con lo que se cobró DE VERDAD (`resultado.cobro`, lo que
+  // guardó el ejecutor), nunca con `datosUsados`: eso es lo que el análisis
+  // pensaba cobrar, y un cobro de 1 recibo de 5 decía «Cobrados: 150€» cuando
+  // entraron 30. Sin resultado guardado no hay cifra que afirmar.
+  const cobros = entrada.recomendacionesEjecutadas
+    .filter(r => r.tipo === 'RECUPERAR_PAGOS' && r.resueltoPor === 'AUTONOMIA')
+    .flatMap(r => (r.resultado?.cobro ? [r.resultado.cobro] : []));
+  const cobrados = cobros.reduce((acc, c) => acc + c.cobrados, 0);
+  if (cobrados > 0) {
+    const intentados = cobros.reduce((acc, c) => acc + c.recibos, 0);
+    const total = redondear2(cobros.reduce((acc, c) => acc + c.importeCobradoEur, 0));
     items.push({
       icono: '✓',
-      texto: `Reintenté ${n} pagos que se habían quedado a medias — cosas de tarjetas. Cobrados: ${total}€.`,
-      verificadoPor: `recomendaciones EJECUTADA tipo RECUPERAR_PAGOS (${pagosRecuperados.length})`,
+      texto: cobrados === intentados
+        ? `Reintenté ${intentados} pagos que se habían quedado a medias — cosas de tarjetas. Cobrados: ${total}€.`
+        : `Reintenté ${intentados} pagos que se habían quedado a medias y cobré ${cobrados}: ${total}€.`,
+      verificadoPor: `recomendaciones EJECUTADA por AUTONOMIA tipo RECUPERAR_PAGOS, con su resultado (${cobros.length})`,
     });
   }
 

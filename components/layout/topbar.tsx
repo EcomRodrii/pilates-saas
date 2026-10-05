@@ -83,16 +83,20 @@ export function Topbar() {
     // de este fondo translúcido. La variable la escribe el propio menú al
     // MEDIRSE (`aplicarHuecos`), que es lo único que no se queda desfasado
     // cuando la barra crece de dos filas a tres.
-    <div data-panel-topbar className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 has-[[aria-expanded=true]]:z-40 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-sm">
-      <div className="flex items-center gap-2 flex-1 max-w-md">
+    // Glass ligero de la marca (brand/tokens.css): fondo al 80 % —que en claro
+    // es justo `--t-glass-light-bg`— y su desenfoque. El fondo sale de
+    // `--background` y no del token porque el glass en oscuro no está definido
+    // (OPEN DECISION): así sigue al modo, como siempre.
+    <div data-panel-topbar className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 has-[[aria-expanded=true]]:z-40 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-(--t-glass-light-blur)">
+      <div className="flex items-center gap-2 flex-1 max-w-[440px]">
         <button
           onClick={() => abrirBuscador(true)}
-          className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-all w-full"
+          className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-all w-full"
         >
           <Zap size={14} aria-hidden="true" className="shrink-0" />
           <Search size={14} aria-hidden="true" className="shrink-0 opacity-70" />
           <span className="flex-1 text-left">¿Qué quieres hacer o buscar?</span>
-          <kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono leading-none bg-white/15 text-white/70">{atajo}</kbd>
+          <kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono leading-none bg-brand-foreground/10 text-brand-foreground">{atajo}</kbd>
         </button>
         {buscadorMontado && (
           <GlobalSearch

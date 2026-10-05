@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { dbGetRecomendacion, dbPosponerRecomendacion, dbLogActividadReciente } from '@/lib/decision/db';
+import { bloqueoPorPlan } from '@/lib/decision/plan-servidor';
+import { lecturaFallida } from '@/lib/decision/respuesta-transicion';
 
 const DIAS_POSPONER = 4;
 const MS_DIA = 86400000;
@@ -12,10 +14,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (sesion.rol !== 'PROPIETARIO') return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+  const sinPlan = await bloqueoPorPlan(sesion.studioId);
+  if (sinPlan) return sinPlan;
 
   const { id } = await params;
 
   const recomendacion = await dbGetRecomendacion(id);
+  if (recomendacion === undefined) return lecturaFallida();
   if (!recomendacion) return NextResponse.json({ error: 'No encontrada' }, { status: 404 });
   if (recomendacion.studioId !== sesion.studioId) {
     return NextResponse.json({ error: 'No autorizado para este estudio' }, { status: 403 });
