@@ -28,8 +28,14 @@ test('la migración de cierre quita lo que el navegador no usa y lo comprueba al
   const sql = leer(cierre!);
   assert.match(sql, /revoke insert, delete on table public\.conversaciones from authenticated/);
   assert.match(sql, /revoke insert, delete on table public\.conversacion_participantes from authenticated/);
-  assert.match(sql, /revoke update on table public\.comentarios_comunidad from authenticated/);
-  assert.match(sql, /drop policy if exists comentarios_comunidad_editar on public\.comentarios_comunidad/);
+  assert.match(sql, /revoke insert, update, delete on table public\.comentarios_comunidad from authenticated/);
+  assert.match(sql, /revoke insert on table public\.posts_comunidad from authenticated/);
+  assert.match(sql, /revoke insert, update, delete on table public\.post_likes from anon, authenticated/);
+  for (const [politica, tabla] of [
+    ['comentarios_comunidad_editar', 'comentarios_comunidad'], ['comentarios_comunidad_insertar_propio', 'comentarios_comunidad'],
+    ['comentarios_comunidad_borrar', 'comentarios_comunidad'], ['posts_comunidad_insertar_propio', 'posts_comunidad'],
+    ['post_likes_write', 'post_likes'],
+  ]) assert.match(sql, new RegExp(`drop policy if exists ${politica} on public\\.${tabla}`));
   // NO un REVOKE UPDATE de tabla en conversaciones: se llevaría el GRANT de columna que usa el panel.
   assert.doesNotMatch(sql, /revoke[^;]*update[^;]*on table public\.conversaciones from authenticated/);
   for (const comprobacion of [
@@ -51,7 +57,9 @@ test('ninguna migración posterior devuelve al navegador lo que se cerró', () =
       ['mensajes', 'update|delete|all'],
       ['conversaciones', 'insert|delete|all'],
       ['conversacion_participantes', 'insert|delete|all'],
-      ['comentarios_comunidad', 'update|all'],
+      ['comentarios_comunidad', 'insert|update|delete|all'],
+      ['posts_comunidad', 'insert|all'],
+      ['post_likes', 'insert|update|delete|all'],
     ] as const) {
       assert.doesNotMatch(sql,
         new RegExp(String.raw`grant\s+[^;]*\b(${privilegios})\b[^;]*on\s+(table\s+)?(public\.)?${tabla}\b[^;]*${aCliente}`, 'i'),
@@ -59,8 +67,10 @@ test('ninguna migración posterior devuelve al navegador lo que se cerró', () =
     }
     assert.doesNotMatch(sql, /create\s+policy\s+\S+\s+on\s+(public\.)?mensajes\s+[^;]*for\s+(update|delete|all)\b/i,
       `${f} crea una política de escritura sobre mensajes`);
-    assert.doesNotMatch(sql, /create\s+policy\s+\S+\s+on\s+(public\.)?comentarios_comunidad\s+[^;]*for\s+(update|all)\b/i,
-      `${f} vuelve a dejar editar comentarios desde el navegador`);
+    assert.doesNotMatch(sql, /create\s+policy\s+\S+\s+on\s+(public\.)?(comentarios_comunidad|post_likes)\s+[^;]*for\s+(insert|update|delete|all)\b/i,
+      `${f} vuelve a dejar escribir comentarios o «me gusta» desde el navegador`);
+    assert.doesNotMatch(sql, /create\s+policy\s+\S+\s+on\s+(public\.)?posts_comunidad\s+[^;]*for\s+(insert|all)\b/i,
+      `${f} vuelve a dejar publicar desde el navegador`);
   }
 });
 
@@ -98,12 +108,13 @@ test('el barrido ve el código del navegador (no verde por vacío)', () => {
   assert.ok(!CLIENTE.some((f) => f.includes(join('app', 'api'))), 'las rutas de servidor no cuentan como navegador');
 });
 
-test('ninguna pantalla escribe por PostgREST en la mensajería ni edita comentarios del tablón', () => {
+test('ninguna pantalla escribe por PostgREST en la mensajería ni en el tablón (salvo editar y fijar publicaciones)', () => {
   const prohibidas: [RegExp, string][] = [
     [/from\(\s*['"]mensajes['"]\s*\)[\s\S]{0,200}?\.\s*(insert|update|upsert|delete)\s*\(/, 'mensajes'],
     [/from\(\s*['"]conversaciones['"]\s*\)[\s\S]{0,200}?\.\s*(insert|upsert|delete)\s*\(/, 'conversaciones'],
     [/from\(\s*['"]conversacion_participantes['"]\s*\)[\s\S]{0,200}?\.\s*(insert|upsert|delete)\s*\(/, 'conversacion_participantes'],
-    [/from\(\s*['"]comentarios_comunidad['"]\s*\)[\s\S]{0,200}?\.\s*(update|upsert)\s*\(/, 'comentarios_comunidad'],
+    [/from\(\s*['"](comentarios_comunidad|post_likes)['"]\s*\)[\s\S]{0,200}?\.\s*(insert|update|upsert|delete)\s*\(/, 'comentarios_comunidad / post_likes'],
+    [/from\(\s*['"]posts_comunidad['"]\s*\)[\s\S]{0,200}?\.\s*(insert|upsert)\s*\(/, 'posts_comunidad'],
     [/from\(\s*['"](denuncias|normas_comunidad_aceptaciones)['"]\s*\)/, 'las tablas de moderación'],
   ];
   const hallazgos: string[] = [];

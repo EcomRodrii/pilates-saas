@@ -42,6 +42,9 @@ test('es_participante_conversacion exige ficha activa en el estudio para una fil
   assert.match(cuerpo, /cp\.rol_en_conversacion\s*=\s*'STAFF'/, `${fichero}: solo cuenta la fila del equipo`);
   assert.doesNotMatch(cuerpo, /'SOCIO'/, `${fichero}: la fila SOCIO no debe abrir la mensajería por PostgREST`);
   assert.match(cuerpo, /coalesce\(i\.activo,\s*true\)/, `${fichero}: una fila STAFF sin ficha activa no debe contar`);
+  // Ni la de una INSTRUCTORA: su app va por el servidor, y por PostgREST vería el
+  // bloqueo de la alumna y lo retirado (revisión de seguridad, 5-oct-2026).
+  assert.match(cuerpo, /i\.rol is distinct from 'INSTRUCTOR'/, `${fichero}: la instructora no entra por PostgREST`);
   assert.match(cuerpo, /i\.studio_id\s*=\s*c\.studio_id/,
     `${fichero}: la ficha activa tiene que ser la del estudio de la conversación, no otra sede`);
   assert.match(cuerpo, /owner_auth_user_id\s*=\s*cp\.auth_user_id/, `${fichero}: la dueña no se queda fuera`);

@@ -16,11 +16,24 @@
 --     editar, fijar, audiencia y evento. `likes` y `comentarios_count` se quedan
 --     porque esa función todavía los acepta; los mueven las RPC.
 --
--- ⚠️ Va DESPUÉS de desplegar el código: un panel con el bundle anterior (la PWA
+-- ⚠️ Va DESPUÉS de desplegar el código (las 20261005150000-150300, ANTES): un panel con el bundle anterior (la PWA
 -- del iPad) borra por RLS. Con esto aplicado, ese camino falla a la vista (42501:
 -- el post vuelve a su sitio y sale el aviso) en vez de dejar la foto huérfana. Se
 -- puede repetir.
 -- ─────────────────────────────────────────────────────────────────────────────
+
+-- La ficha de la autora en los comentarios escritos ENTRE aplicar la
+-- 20261005150100 (que ya la rellenó una vez) y desplegar el código nuevo: el POST
+-- de antes no la guardaba. El mismo UPDATE, idempotente.
+update public.comentarios_comunidad cc set socio_id = s.id
+  from public.socios s
+ where cc.socio_id is null
+   and s.studio_id = cc.studio_id
+   and (cc.autor_id = s.id or (s.auth_user_id is not null and cc.autor_id = s.auth_user_id::text))
+   and not exists (select 1 from public.instructores i
+                    where i.studio_id = cc.studio_id and i.auth_user_id::text = cc.autor_id)
+   and not exists (select 1 from public.studios st
+                    where st.id = cc.studio_id and st.owner_auth_user_id::text = cc.autor_id);
 
 revoke delete on table public.posts_comunidad from authenticated;
 drop policy if exists posts_comunidad_borrar on public.posts_comunidad;

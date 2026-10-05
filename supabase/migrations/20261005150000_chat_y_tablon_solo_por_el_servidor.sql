@@ -14,9 +14,12 @@
 -- así que no hay nada de la app que dependa de esa rama.
 --
 -- Qué se cierra, y qué NO se toca a propósito:
---   · `es_participante_conversacion` solo cuenta filas STAFF (con ficha activa
---     en el estudio de la conversación, o la dueña), igual que antes para el
---     equipo. Misma firma: `create or replace` conserva el ACL, y aun así se
+--   · `es_participante_conversacion` solo cuenta filas STAFF de quien trabaja en
+--     el PANEL: ficha activa en el estudio de la conversación con un rol que no
+--     sea INSTRUCTOR (gerencia y recepción que también dan clases sí), o la
+--     dueña. La instructora, como la alumna, va por su app y por el servidor: por
+--     PostgREST vería que la alumna la bloqueó (`bloqueo_en`, que su app no le
+--     dice a propósito) y el texto de lo retirado. Misma firma: `create or replace` conserva el ACL, y aun así se
 --     fija y se comprueba abajo. La siguen necesitando las políticas del panel
 --     (`authenticated`).
 --   · `mensajes`: fuera UPDATE y DELETE para `authenticated` (no había política
@@ -30,17 +33,27 @@
 --     concedía sin ninguna política que los usara). El UPDATE de `leido_hasta`
 --     se queda.
 --   · `anon` no tiene nada que hacer en ninguna de las tres.
---   · `comentarios_comunidad`: fuera UPDATE y su política de editar. Con la
---     moderación (20261005150100), un comentario retirado lleva `oculto_en`, y
---     quien lo escribió no puede volver a enseñarlo editando la fila. Nadie
---     edita comentarios desde el navegador (grep: ningún `.from('comentarios_comunidad')`
---     fuera de rutas de servidor).
+--   · `comentarios_comunidad`: fuera INSERT, UPDATE y DELETE, y sus políticas de
+--     insertar, editar y borrar. Con la moderación (20261005150100), un
+--     comentario lleva la ficha de su autora (`socio_id`) y, si se retira,
+--     `oculto_en`: desde el navegador se podría poner la ficha de otra alumna
+--     (saldría como suyo y en su exportación), volver a enseñar lo retirado, o
+--     borrar lo denunciado (y la denuncia con él, en cascada). Todo pasa por las
+--     rutas de servidor (grep: ningún `.from('comentarios_comunidad')` de
+--     escritura fuera de ellas).
+--   · `posts_comunidad`: fuera INSERT y su política: publicar es solo de
+--     `/api/comunidad/posts`, que comprueba el rol y la foto. (El DELETE y la
+--     foto, en 20261005150400.)
+--   · `post_likes`: fuera la escritura y su política. El «me gusta» lo
+--     escriben las RPC `toggle_like_post` (panel) y la del portal, SECURITY
+--     DEFINER, que no la necesitan.
 --   · INSTRUCTOR sale de la lectura de `comentarios_comunidad` y `post_likes`
 --     por PostgREST, con el mismo patrón que 20260921221053: desde que trabaja en
 --     la app del estudio, el panel no tiene pantallas para ella y Comunidad es
 --     una de las pérdidas aceptadas. Los demás roles, igual que antes.
 --
--- Va ANTES de desplegar el código y se puede repetir. El código de hoy no usa
+-- Va ANTES de desplegar (y de mergear) el código —el código nuevo lee columnas
+-- de la 20261005150100— y se puede repetir. El código de hoy no usa
 -- nada de lo que se quita (lo comprueba lib/mensajeria/escritura-solo-servidor-contrato.test.ts).
 -- ─────────────────────────────────────────────────────────────────────────────
 
@@ -65,6 +78,7 @@ as $function$
             where i.auth_user_id = cp.auth_user_id
               and i.studio_id = c.studio_id
               and coalesce(i.activo, true)
+              and i.rol is distinct from 'INSTRUCTOR'
          )
          or exists (
            select 1 from public.studios s
@@ -76,7 +90,7 @@ as $function$
 $function$;
 
 comment on function public.es_participante_conversacion(text) is
-  'Participa en la conversación POR POSTGREST: fila STAFF con ficha activa en el estudio de la conversación, o la dueña del estudio. La alumna no entra por aquí: su app va por rutas de servidor. Base de las políticas de conversaciones, participantes, mensajes y Realtime.';
+  'Participa en la conversación POR POSTGREST: fila STAFF con ficha activa y de panel (no INSTRUCTOR) en el estudio de la conversación, o la dueña del estudio. La alumna y la instructora no entran por aquí: sus apps van por rutas de servidor. Base de las políticas de conversaciones, participantes, mensajes y Realtime.';
 
 -- La necesitan las políticas de `authenticated` (el panel). Nunca anon.
 revoke all on function public.es_participante_conversacion(text) from public;
@@ -92,8 +106,16 @@ revoke update, delete on table public.mensajes from authenticated;
 revoke insert, delete on table public.conversaciones from authenticated;
 revoke insert, delete on table public.conversacion_participantes from authenticated;
 
-revoke update on table public.comentarios_comunidad from authenticated;
+revoke insert, update, delete on table public.comentarios_comunidad from authenticated;
+drop policy if exists comentarios_comunidad_insertar_propio on public.comentarios_comunidad;
 drop policy if exists comentarios_comunidad_editar on public.comentarios_comunidad;
+drop policy if exists comentarios_comunidad_borrar on public.comentarios_comunidad;
+
+revoke insert on table public.posts_comunidad from authenticated;
+drop policy if exists posts_comunidad_insertar_propio on public.posts_comunidad;
+
+revoke insert, update, delete on table public.post_likes from anon, authenticated;
+drop policy if exists post_likes_write on public.post_likes;
 
 -- ── 3. INSTRUCTOR fuera de la lectura del tablón por PostgREST ──────────────
 alter policy comentarios_comunidad_lectura on public.comentarios_comunidad
@@ -108,6 +130,12 @@ begin
      or has_table_privilege('authenticated', 'public.mensajes', 'DELETE')
      or has_any_column_privilege('authenticated', 'public.mensajes', 'UPDATE')
      or has_any_column_privilege('authenticated', 'public.comentarios_comunidad', 'UPDATE')
+     or has_any_column_privilege('authenticated', 'public.comentarios_comunidad', 'INSERT')
+     or has_table_privilege('authenticated', 'public.comentarios_comunidad', 'DELETE')
+     or has_any_column_privilege('authenticated', 'public.posts_comunidad', 'INSERT')
+     or has_any_column_privilege('authenticated', 'public.post_likes', 'INSERT')
+     or has_any_column_privilege('authenticated', 'public.post_likes', 'UPDATE')
+     or has_table_privilege('authenticated', 'public.post_likes', 'DELETE')
      or has_table_privilege('authenticated', 'public.conversaciones', 'INSERT')
      or has_table_privilege('authenticated', 'public.conversaciones', 'DELETE')
      or has_table_privilege('authenticated', 'public.conversacion_participantes', 'INSERT')
@@ -127,9 +155,12 @@ begin
      or not has_table_privilege('authenticated', 'public.conversaciones', 'SELECT') then
     raise exception 'chat: el panel ha perdido un permiso que usa';
   end if;
-  if exists (select 1 from pg_policy p where p.polrelid = 'public.comentarios_comunidad'::regclass
-              and p.polname = 'comentarios_comunidad_editar') then
-    raise exception 'tablón: sigue la política de editar comentarios';
+  if exists (select 1 from pg_policy p
+              where (p.polrelid = 'public.comentarios_comunidad'::regclass
+                     and p.polname in ('comentarios_comunidad_editar', 'comentarios_comunidad_insertar_propio', 'comentarios_comunidad_borrar'))
+                 or (p.polrelid = 'public.posts_comunidad'::regclass and p.polname = 'posts_comunidad_insertar_propio')
+                 or (p.polrelid = 'public.post_likes'::regclass and p.polname = 'post_likes_write')) then
+    raise exception 'tablón: sigue una política de escritura del navegador (comentarios, publicaciones o «me gusta»)';
   end if;
   if has_function_privilege('anon', 'public.es_participante_conversacion(text)', 'EXECUTE') then
     raise exception 'es_participante_conversacion: anon no debe poder ejecutarla';

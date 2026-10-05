@@ -4,8 +4,8 @@
 // `calidad-rls`), como el resto de supabase/tests.
 //
 // Lo que se prueba, en la base de datos y no en la ruta:
-//   · la alumna, con su JWT de Supabase, no ve ni escribe su hilo por PostgREST
-//     (su app va por rutas de servidor); la instructora sí sigue viéndolo;
+//   · ni la alumna ni la instructora ven o escriben su hilo por PostgREST (sus
+//     apps van por rutas de servidor); quien da clases y trabaja en el panel sí;
 //   · el navegador ya no actualiza ni borra mensajes, ni edita comentarios, ni
 //     toca las tablas de moderación;
 //   · nadie escribe en un hilo cerrado o bloqueado, ni con service_role, ni
@@ -101,15 +101,28 @@ test('1. la alumna, con su JWT, no ve su hilo por PostgREST ni puede escribir en
   }
 });
 
-test('2. la instructora (fila STAFF con ficha activa) sigue leyendo su hilo', async () => {
+test('2. la instructora tampoco lee su hilo por PostgREST; quien da clases y trabaja en el panel, sí', async () => {
   const studio = await crearStudioConPropietaria(admin);
   const h = await hiloConInstructora(studio);
+  // Gerencia que también da clases: es la parte STAFF de un hilo con la alumna.
+  const gerente = await crearInstructora(admin, studio.studioId, 'MANAGER');
   try {
+    // La instructora va por su app (servidor): por PostgREST vería el bloqueo de
+    // la alumna y el texto de lo retirado, que su app no le enseña.
     const { data, error } = await h.instructora.comoInstructora.from('mensajes').select('id').eq('conversacion_id', h.conv);
     assert.ok(!error, error?.message);
-    assert.equal(data?.length, 2, 'la instructora ya no ve su propio hilo');
+    assert.deepEqual(data, [], 'la instructora lee su hilo por PostgREST');
+    const bloqueo = await h.instructora.comoInstructora.from('conversacion_participantes').select('bloqueo_en').eq('conversacion_id', h.conv);
+    assert.deepEqual(bloqueo.data, [], 'la instructora ve los participantes (y el bloqueo) por PostgREST');
+
+    const suHilo = await conversacion(studio.studioId, 'ALUMNA_INSTRUCTORA');
+    await participante(suHilo, h.alumna.authUserId, 'SOCIO', h.alumna.socioId);
+    await participante(suHilo, gerente.authUserId, 'STAFF');
+    await escribir(suHilo, studio.studioId, gerente.authUserId);
+    const delGerente = await gerente.comoInstructora.from('mensajes').select('id').eq('conversacion_id', suHilo);
+    assert.equal(delGerente.data?.length, 1, 'quien da clases y trabaja en el panel ha perdido su hilo');
   } finally {
-    await limpiar(studio, [h.instructora], [h.alumna.authUserId]);
+    await limpiar(studio, [h.instructora, gerente], [h.alumna.authUserId]);
   }
 });
 
@@ -149,6 +162,34 @@ test('4. nadie edita un comentario del tablón desde el navegador, ni la propiet
     assert.equal(data?.length, 1);
   } finally {
     await limpiarFixtures(admin, [studio]);
+  }
+});
+
+test('4b. el tablón no se escribe desde el navegador: ni comentarios, ni publicaciones, ni «me gusta»', async () => {
+  const studio = await crearStudioConPropietaria(admin);
+  const alumna = await alumnaConSesion(studio.studioId);
+  try {
+    const { postId, comentarioId } = await postConComentario(studio, studio.authUserId);
+    // Con la ficha de OTRA (la alumna): saldría como suyo y en su exportación.
+    const comentar = await studio.comoPropietaria.from('comentarios_comunidad').insert({
+      id: `com-${randomUUID()}`, studio_id: studio.studioId, post_id: postId, autor_id: studio.authUserId,
+      autor_nombre: 'Lucía M.', texto: 'suplantado', socio_id: alumna.socioId,
+    });
+    assert.equal(comentar.error?.code, '42501', `INSERT de comentarios: ${comentar.error?.message}`);
+    const borrar = await studio.comoPropietaria.from('comentarios_comunidad').delete().eq('id', comentarioId);
+    assert.equal(borrar.error?.code, '42501', `DELETE de comentarios: ${borrar.error?.message}`);
+    const publicar = await studio.comoPropietaria.from('posts_comunidad').insert({
+      id: `post-${randomUUID()}`, studio_id: studio.studioId, autor_id: studio.authUserId, autor_nombre: 'Estudio', texto: 'x',
+    });
+    assert.equal(publicar.error?.code, '42501', `INSERT de publicaciones: ${publicar.error?.message}`);
+    const gustar = await studio.comoPropietaria.from('post_likes').insert({ post_id: postId, user_id: studio.authUserId, studio_id: studio.studioId });
+    assert.equal(gustar.error?.code, '42501', `INSERT de «me gusta»: ${gustar.error?.message}`);
+    // El «me gusta» del panel sigue funcionando por su RPC.
+    const rpc = await studio.comoPropietaria.rpc('toggle_like_post', { p_post_id: postId, p_studio_id: studio.studioId });
+    assert.ok(!rpc.error, `toggle_like_post: ${rpc.error?.message}`);
+  } finally {
+    await limpiarFixtures(admin, [studio]);
+    await admin.auth.admin.deleteUser(alumna.authUserId).catch(() => {});
   }
 });
 
