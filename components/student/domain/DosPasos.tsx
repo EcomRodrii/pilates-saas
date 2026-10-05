@@ -25,13 +25,14 @@ import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
 import { useOnline } from '@/lib/student/useOnline';
 import { mensajeErrorCodigoApp } from '@/lib/auth/codigo-app';
 import { reabrirCorreo } from '@/lib/auth/doble-factor-acciones';
+import { esFactorInterno } from '@/lib/auth/doble-factor-reglas';
 import { DIAS_DISPOSITIVO_CONFIANZA } from '@/lib/auth/dispositivo-confianza-reglas';
 import { fechaCortaEstudio } from '@/lib/utils';
 
 type Estado =
   | { tipo: 'cargando' }
   | { tipo: 'error' }
-  | { tipo: 'listo'; activa: boolean; factorId: string | null; nivel: 'aal1' | 'aal2'; tentare: boolean };
+  | { tipo: 'listo'; activa: boolean; factorId: string | null; nivel: 'aal1' | 'aal2'; soloInterno: boolean };
 
 interface Activando { factorId: string; qr: string; secreto: string }
 interface Dispositivo { id: string; nombre: string; ip: string | null; ultimoUsoEn: string; esEste: boolean }
@@ -61,19 +62,12 @@ export function DosPasos({ volverA }: { volverA: string }) {
       supabasePortal.auth.mfa.getAuthenticatorAssuranceLevel(),
     ]);
     if (factores.error || aal.error) { setEstado({ tipo: 'error' }); return; }
-    const verificado = factores.data.totp.find((f) => f.status === 'verified') ?? null;
-    // Una cuenta del equipo de Tentare no puede quitarla: `/interno` la volvería
-    // a crear (lib/auth/obligatoria-tentare.ts). Solo se pregunta si está activa.
-    let tentare = false;
-    const t = verificado ? await token() : null;
-    if (t) {
-      tentare = await fetch('/api/auth/doble-factor/cuenta', { headers: { Authorization: `Bearer ${t}` }, cache: 'no-store' })
-        .then((r) => (r.ok ? r.json() : null)).then((r: { obligatoriaTentare?: boolean } | null) => r?.obligatoriaTentare === true)
-        .catch(() => false);
-    }
+    // El factor de la zona interna de Tentare no cuenta aquí (lib/auth/doble-factor-reglas.ts).
+    const verificado = factores.data.totp.find((f) => f.status === 'verified' && !esFactorInterno(f)) ?? null;
+    const soloInterno = !verificado && factores.data.totp.some((f) => f.status === 'verified');
     setEstado({
       tipo: 'listo', activa: !!verificado, factorId: verificado?.id ?? null,
-      nivel: aal.data.currentLevel === 'aal2' ? 'aal2' : 'aal1', tentare,
+      nivel: aal.data.currentLevel === 'aal2' ? 'aal2' : 'aal1', soloInterno,
     });
   }, []);
 
@@ -154,11 +148,7 @@ export function DosPasos({ volverA }: { volverA: string }) {
 
       {estado.activa ? (
         <>
-          {estado.tentare ? (
-            <p className="t-meta" style={{ lineHeight: 1.5 }}>
-              Tu cuenta es del equipo de Tentare y su zona interna la exige, así que no se puede quitar.
-            </p>
-          ) : estado.nivel !== 'aal2' ? (
+          {estado.nivel !== 'aal2' ? (
             <p className="t-meta">
               Para desactivarla, escribe antes el código de tu app.{' '}
               <Link href={`${href('/acceso/dos-pasos')}?codigo=1&next=${volverAqui}`} style={{ fontWeight: 800, color: 'var(--accent)' }}>
@@ -172,6 +162,10 @@ export function DosPasos({ volverA }: { volverA: string }) {
           )}
           <DispositivosRecordados />
         </>
+      ) : estado.soloInterno ? (
+        <p className="t-meta" style={{ lineHeight: 1.5 }}>
+          Tu cuenta tiene una app de códigos para la zona interna de Tentare. Aquí no se pide.
+        </p>
       ) : !activando ? (
         <>
           <p className="t-meta" style={{ lineHeight: 1.5 }}>

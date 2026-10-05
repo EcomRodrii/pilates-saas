@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/db/supabase';
 import { confiarDispositivo } from '@/lib/auth/doble-factor-acciones';
+import { sesionPideCodigo } from '@/lib/auth/doble-factor-reglas';
 
 export type PasoNetwork = 'mirando' | 'ok' | 'saliendo';
 
@@ -24,7 +25,7 @@ export function useSegundoPasoNetwork(): PasoNetwork {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { if (vivo) setPaso('ok'); return; }
         const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        if (!(aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2')) { if (vivo) setPaso('ok'); return; }
+        if (!sesionPideCodigo({ actual: aal?.currentLevel, factores: session.user.factors })) { if (vivo) setPaso('ok'); return; }
         const confianza = await confiarDispositivo(session.access_token);
         if (!vivo) return;
         if (confianza === 'confiada') { setPaso('ok'); return; }
