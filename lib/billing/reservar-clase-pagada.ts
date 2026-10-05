@@ -75,12 +75,25 @@ export async function reservarClasePagada(
       paymentIntentId: p.paymentIntentId, spotId: p.spotId,
     });
     if (!r.ok) {
+      // `ya-tenia-reserva`: la socia ya tenía plaza en la clase (con su bono, o
+      // de otro pago), así que ESTE pago no se ha usado. No es un fallo del
+      // sistema (warning, no error), pero hay dinero que devolver o dejar a su
+      // favor: el mostrador tiene que enterarse igual.
+      const yaTenia = r.motivo === 'ya-tenia-reserva';
       Sentry.captureMessage(t.sinPlaza, {
-        level: 'error', ...(t.tags ? { tags: t.tags } : {}),
+        level: yaTenia ? 'warning' : 'error',
+        tags: { ...(t.tags ?? {}), ...(yaTenia ? { situacion: 'ya-tenia-reserva' } : {}) },
         extra: { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, ...p.referencia, motivo: r.motivo, detalle: r.detalle },
       });
       const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
-      await emitirReservaPagadaSinPlaza(admin, { studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId });
+      // Lo que ya tenía decide el texto y el destino: plaza → la ficha (devolver o
+      // dejarlo a su favor); cola o pendiente de aprobar → el calendario de la clase.
+      const { situacionYaTenia } = await import('@/lib/notifications/pagada-sin-plaza');
+      await emitirReservaPagadaSinPlaza(admin, {
+        studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId,
+        situacion: yaTenia ? situacionYaTenia(r.estadoPrevio) : 'sin-reserva',
+        paymentIntentId: p.paymentIntentId,
+      });
     } else if (r.estado === 'LISTA_ESPERA') {
       // Pagó y la clase se llenó entre crear el cobro y confirmarlo:
       // `reservar_plaza` la metió en la cola (ok:true). Desde el panel es una
@@ -88,8 +101,11 @@ export async function reservarClasePagada(
       // que poder llamarla hoy. Si se libera plaza, la promoción automática
       // sigue siendo el camino normal.
       const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+      // Con SU pago: /reservar elige el aviso de ESTE pago (estado-pago), y uno sin
+      // pago valdría para cualquier otro pago de esa socia ese día.
       await emitirReservaPagadaSinPlaza(admin, {
         studioId: p.studioId, sesionId: p.sesionId, socioId: p.socioId, situacion: 'en-espera',
+        paymentIntentId: p.paymentIntentId,
       });
     }
   } catch (e) {

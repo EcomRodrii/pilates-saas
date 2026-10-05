@@ -37,6 +37,8 @@ const STATUS_POR_ERROR: Record<CobroErrorCode, number> = {
   SIN_REINTENTOS: 409,
   // Ya se está cobrando por otro camino (tarjeta guardada, datáfono): no se ha cobrado.
   COBRO_EN_MARCHA: 409,
+  // Solo en el cobro automático (la renovación de una cuota aún sin vencer espera): aquí no llega.
+  CUOTA_SIN_VENCER: 409,
 };
 
 export async function POST(req: NextRequest) {
