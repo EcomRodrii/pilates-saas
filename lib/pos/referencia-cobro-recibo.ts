@@ -84,7 +84,7 @@ export function mensajeCajaAntesDeCobrar(r: { motivo: string; mensaje: string })
     return 'El cobro anterior de este recibo ya ha entrado: aparecerá cobrado en unos segundos. No lo vuelvas a cobrar.';
   }
   if (r.motivo === 'COBRO_EN_EL_MOSTRADOR') {
-    return 'Hay un cobro de este recibo en marcha y no se ha podido cancelar, así que no se ha empezado otro. Espera a que termine o cancélalo.';
+    return 'Hay otro cobro de este recibo en marcha, así que no se ha empezado este. Espera a que termine o cancélalo.';
   }
   return r.mensaje;
 }
@@ -92,7 +92,7 @@ export function mensajeCajaAntesDeCobrar(r: { motivo: string; mensaje: string })
 /** Por qué se cancela: el recibo cambió (0 filas) o no se pudo guardar (error). */
 export type MotivoCancelacion = 'CAMBIO' | 'ERROR_AL_GUARDAR';
 
-const CAMBIO = 'Este recibo ha cambiado mientras se preparaba el cobro (se ha cobrado por otro lado o ya no está).';
+const CAMBIO = 'Este recibo ha cambiado mientras se preparaba el cobro (se ha cobrado o se ha empezado a pagar por otro lado, o ya no está).';
 const SIN_GUARDAR = 'No hemos podido registrar el cobro.';
 
 /**

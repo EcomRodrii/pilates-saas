@@ -160,7 +160,12 @@ export async function soltarPagosEnMarchaAntesDeCobrar(
       // La Caja repitiendo la misma petición: es el mismo cobro, no se cancela.
       referenciaQueSigue = ref;
     } else {
-      const mostrador = await soltarCobroDeMostradorAntesDeCobrarAMano(ref, s && {
+      // Sin Stripe en el estudio no hay datáfono ni Bizum que pudieran cobrar: la
+      // referencia es vieja y se suelta (antes se seguía sin soltarla, y quien guarda
+      // después exige el recibo sin cobro del mostrador: no se podía cobrar).
+      const mostrador = await soltarCobroDeMostradorAntesDeCobrarAMano(ref, !s
+        ? { consultar: async () => 'CANCELADO', cancelar: async () => {}, soltar: () => soltarReferencia(ref) }
+        : {
         consultar: async () => estadoParaSoltar(await desenlaceDeCobroSoltado(s.stripe, ref, s.cuenta, de)),
         // Solo ESTE cobro. En el datáfono, `anularCobroDelDatafono` para su lector solo
         // si sigue con él (nunca el cobro de otra venta) y cancela el cobro aunque el
@@ -173,7 +178,7 @@ export async function soltarPagosEnMarchaAntesDeCobrar(
           } catch { /* lo dirá la siguiente consulta */ }
         },
         soltar: () => soltarReferencia(ref),
-      });
+        });
       if (mostrador.tipo === 'YA_PAGADO') {
         Sentry.captureMessage('[cobros] cobro a mano sobre un cobro del mostrador ya pagado', {
           level: 'warning', tags: { area: 'cobros', tipo: 'marcar-cobrado' }, extra: { reciboId, studioId, referencia: ref },

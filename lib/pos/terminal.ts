@@ -72,7 +72,7 @@ export function metadataDe(ref: ReferenciaCobro): Record<string, string> {
 /**
  * La clave del intento en la metadata del cobro: así se sabe si un cobro ya guardado
  * en un recibo es de ESTE intento (la misma petición repetida, que no se cancela)
- * o de otro (`anteCobroPrevio`, lib/pos/referencia-cobro-recibo.ts).
+ * o de otro (`soltarPagosEnMarchaAntesDeCobrar`, lib/cobros/antes-de-cobrar-a-mano-servidor.ts).
  */
 export function metadataDeIntento(claveIdempotencia: string | undefined): Record<string, string> {
   return claveIdempotencia ? { clave: claveIdempotencia } : {};

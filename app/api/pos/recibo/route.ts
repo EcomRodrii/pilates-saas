@@ -116,24 +116,26 @@ export async function POST(req: NextRequest) {
   const claveIntento = claveCobroRecibo(reciboId, metodo, body?.intentoId)
     ?? `pos-recibo-${reciboId}-${metodo}-${crypto.randomUUID()}`;
 
+  // Quién cobra (Stripe o el datáfono de SumUp de la sede): lib/pos/cobro-del-estudio.ts.
+  const preparado = await prepararCobroNuevo(admin, sesion.studioId, metodo, { origen: req.nextUrl.origin });
+  if (!preparado.ok) return NextResponse.json({ error: preparado.motivo }, { status: 409 });
+  const { cobro } = preparado;
+
   // Lo que el recibo tenga en marcha por otro lado, con el MISMO dueño que el cobro a
-  // mano (`soltarPagosEnMarchaAntesDeCobrar`). Antes se abría el cobro nuevo encima: con
-  // Bizum en uno y el datáfono en otro (dos pestañas, la pantalla recargada a mitad), o
-  // con el enlace de pago online del recordatorio abierto, la socia podía pagar dos
-  // veces. Ahora manda el último: un cobro del mostrador de otro intento se cancela y
-  // se suelta (el del MISMO intento repetido no se toca: es el mismo cobro), y un
-  // enlace de pago abierto se cierra. Si alguno ya entró, sigue en curso o no se puede
-  // saber, no se abre otro. Un cobro de SumUp no se para nunca: se espera a que acabe.
+  // mano (`soltarPagosEnMarchaAntesDeCobrar`), y solo ahora que se sabe que este cobro
+  // se puede hacer: preparar no toca nada, esto sí (cierra el enlace de la socia,
+  // cancela el cobro de otra pestaña). Antes se abría el cobro nuevo encima: con Bizum en
+  // uno y el datáfono en otro (dos pestañas, la pantalla recargada a mitad), o con el
+  // enlace de pago online del recordatorio abierto, la socia podía pagar dos veces.
+  // Ahora manda el último: un cobro del mostrador de otro intento se cancela y se suelta
+  // (el del MISMO intento repetido no se toca: es el mismo cobro), y un enlace de pago
+  // abierto se cierra. Si alguno ya entró, sigue en curso o no se puede saber, no se abre
+  // otro. Un cobro de SumUp no se para nunca: se espera a que acabe.
   const enMarcha = await soltarPagosEnMarchaAntesDeCobrar(
     admin, { studioId: sesion.studioId, reciboId, claveIntento }, preparadorDeStripe(admin, sesion.studioId),
   );
   if (!enMarcha.ok) return NextResponse.json({ error: mensajeCajaAntesDeCobrar(enMarcha) }, { status: 409 });
   const referenciaPrevia = enMarcha.referenciaQueSigue;
-
-  // Quién cobra (Stripe o el datáfono de SumUp de la sede): lib/pos/cobro-del-estudio.ts.
-  const preparado = await prepararCobroNuevo(admin, sesion.studioId, metodo, { origen: req.nextUrl.origin });
-  if (!preparado.ok) return NextResponse.json({ error: preparado.motivo }, { status: 409 });
-  const { cobro } = preparado;
 
   try {
     const inicio = await cobro.iniciar({

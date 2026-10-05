@@ -147,20 +147,24 @@ test('la Caja dice por qué no empieza el cobro con sus palabras, sin prometer l
   assert.match(mensajeCajaAntesDeCobrar({ motivo: 'YA_PAGADO_EN_EL_MOSTRADOR', mensaje: 'x' }), /aparecerá cobrado en unos segundos/);
   assert.doesNotMatch(mensajeCajaAntesDeCobrar({ motivo: 'YA_PAGADO_EN_EL_MOSTRADOR', mensaje: 'x' }), /[Rr]ecarga/);
   // Vale para el datáfono y para Bizum.
-  assert.doesNotMatch(mensajeCajaAntesDeCobrar({ motivo: 'COBRO_EN_EL_MOSTRADOR', mensaje: 'x' }), /datáfono/);
+  assert.doesNotMatch(mensajeCajaAntesDeCobrar({ motivo: 'COBRO_EN_EL_MOSTRADOR', mensaje: 'x' }), /datáfono|no se ha podido cancelar/,
+    'también sale cuando hay otro intento guardado (no siempre es que no se pudiera cancelar)');
   assert.equal(mensajeCajaAntesDeCobrar({ motivo: 'YA_PAGADO_ONLINE', mensaje: 'del dueño' }), 'del dueño');
 });
 
 test('⚠️ el arranque de un cobro de la Caja pasa por el dueño de «pagos en marcha» ANTES de abrir el nuevo', () => {
   const f = sinComentarios(readFileSync(join(import.meta.dirname, '../..', 'app/api/pos/recibo/route.ts'), 'utf8'));
   const clave = f.indexOf('const claveIntento = claveCobroRecibo(reciboId, metodo, body?.intentoId)');
-  const duenyo = f.indexOf('await soltarPagosEnMarchaAntesDeCobrar(', clave);
+  // Preparar el cobro nuevo no toca nada: va ANTES del dueño, que sí cierra cosas (el
+  // enlace de la socia, el cobro de otra pestaña). Sin cuenta, no se cierra nada para nada.
+  const nuevo = f.indexOf('await prepararCobroNuevo(', clave);
+  const noSePuede = f.indexOf('if (!preparado.ok) return NextResponse.json({ error: preparado.motivo }, { status: 409 });', nuevo);
+  const duenyo = f.indexOf('await soltarPagosEnMarchaAntesDeCobrar(', noSePuede);
   const conIntento = f.indexOf('admin, { studioId: sesion.studioId, reciboId, claveIntento }, preparadorDeStripe(admin, sesion.studioId),', duenyo);
   const corta = f.indexOf('if (!enMarcha.ok) return NextResponse.json({ error: mensajeCajaAntesDeCobrar(enMarcha) }, { status: 409 });', conIntento);
-  const nuevo = f.indexOf('await prepararCobroNuevo(', corta);
-  const iniciar = f.indexOf('await cobro.iniciar(', nuevo);
-  assert.ok(clave > 0 && duenyo > clave && conIntento > duenyo && corta > conIntento && nuevo > corta && iniciar > nuevo,
-    'clave del intento → dueño (con la clave) → no se abre si no deja → abrir el nuevo');
+  const iniciar = f.indexOf('await cobro.iniciar(', corta);
+  assert.ok(clave > 0 && nuevo > clave && noSePuede > nuevo && duenyo > noSePuede && conIntento > duenyo && corta > conIntento && iniciar > corta,
+    'clave del intento → preparar (sin efectos) → dueño (con la clave) → no se abre si no deja → abrir el nuevo');
   // Ni una segunda copia de la regla: la ruta no cancela ni suelta cobros previos por su cuenta.
   assert.ok(!f.includes('prepararCobroExistente(') && !f.includes("proveedorDeReferencia(referenciaPrevia)"));
   // Y al guardar, ni con un enlace de pago abierto después de cerrarlo.
