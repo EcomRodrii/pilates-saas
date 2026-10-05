@@ -3,10 +3,11 @@ import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { resolverSesionStaff, type EstudioPropio, type FichaEquipo, type SesionStaff } from '@/lib/auth/sesion-staff-reglas';
-import { factoresVerificados, faltaSegundoPaso, pasoDobleFactor, type PasoDobleFactor } from '@/lib/auth/doble-factor-reglas';
+import { factoresVerificados, faltaSegundoPaso, pasoDobleFactor, type FactorDeUsuario, type PasoDobleFactor } from '@/lib/auth/doble-factor-reglas';
 import { nivelAutenticacion } from '@/lib/interno/mfa';
 import { sesionDelToken } from '@/lib/auth/dispositivo-confianza-reglas';
 import { sesionConfiada } from '@/lib/auth/dispositivo-confianza';
+import { identidadDeClaims } from '@/lib/auth/identidad-de-claims';
 
 export type { SesionStaff };
 
@@ -20,8 +21,70 @@ export type { SesionStaff };
 export async function resolverSesionStaffConPaso(
   req: NextRequest,
 ): Promise<{ sesion: SesionStaff; paso: PasoDobleFactor; factores: number; estudioLoExige: boolean } | null> {
+  const rapida = await resolverSesionStaffRapida(req);
+  if (rapida !== undefined) return rapida;
   const r = await usuarioConToken(req);
   return r ? resolverConUsuario(r.token, r.user) : null;
+}
+
+/** La lectura de factores falló: no se puede decidir el segundo paso, se vuelve al camino lento. */
+const FACTORES_NO_LEIDOS = Symbol('factores-no-leidos');
+
+/**
+ * Camino rápido de la sesión de staff: el token se valida EN LOCAL y los factores
+ * de verificación en dos pasos vienen de la base de datos, en paralelo con el
+ * resto de lecturas, en vez de una llamada a GoTrue por petición.
+ *
+ * Medido en producción (Sentry, 14 días): `GET /auth/v1/user` tarda 1.249 ms de
+ * media y su p95 es de 10 s, sobre una base Nano que hace swap; la consulta real
+ * de una ruta típica, 170 ms. La clave de firma del proyecto es asimétrica (ECC
+ * P-256), así que `getClaims` comprueba firma y caducidad con la clave pública
+ * (JWKS, cacheada por supabase-js) sin red.
+ *
+ * Devuelve `undefined` cuando NO puede decidir —token que no verifica en local
+ * (caducado, firmado con la clave simétrica antigua, JWKS inalcanzable), sin
+ * service-role, o factores sin leer— y entonces manda el camino de siempre
+ * (`getUser`). Nunca abre más de lo que abría ese camino.
+ *
+ * ⚠️ Lo que se pierde: una sesión revocada (cerrar sesión en todas partes,
+ * usuaria baneada) sigue valiendo hasta que caduque el token (≤1 h). Es lo mismo
+ * que ya pasa con la RLS (PostgREST solo comprueba firma y caducidad). Lo que NO
+ * se pierde: que siga siendo del equipo o dueña de un estudio, la baja de
+ * `instructores.activo` y el segundo paso, que se resuelven contra la base de
+ * datos en cada petición.
+ */
+async function resolverSesionStaffRapida(
+  req: NextRequest,
+): Promise<{ sesion: SesionStaff; paso: PasoDobleFactor; factores: number; estudioLoExige: boolean } | null | undefined> {
+  const token = req.headers.get('authorization')?.replace(/^Bearer /, '');
+  if (!token) return undefined;
+  const admin = getSupabaseAdmin();
+  if (!admin) return undefined;
+  let claims: Record<string, unknown> | null = null;
+  try {
+    const { data, error } = await supabase.auth.getClaims(token);
+    if (error || !data) return undefined;
+    claims = data.claims as unknown as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+  const identidad = identidadDeClaims(claims);
+  // Un token válido que no es de una persona (clave anónima o de servicio): lo
+  // mismo que respondía `getUser`, que lo rechazaba.
+  if (!identidad) return undefined;
+  const factoresPromesa = (async () => {
+    const { data, error } = await admin.rpc('factores_mfa_de', { p_user: identidad.id });
+    if (error || !Array.isArray(data)) throw FACTORES_NO_LEIDOS;
+    return data as FactorDeUsuario[];
+  })();
+  // Si la rama de arriba lanza antes de que se lea la promesa, que no quede sin atender.
+  factoresPromesa.catch(() => undefined);
+  try {
+    return await resolverConUsuario(token, { id: identidad.id, email: identidad.email, factors: factoresPromesa });
+  } catch (e) {
+    if (e === FACTORES_NO_LEIDOS) return undefined;
+    throw e;
+  }
 }
 
 /**
@@ -51,7 +114,13 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
 }
 
 async function resolverConUsuario(
-  token: string, user: { id: string; email?: string | null; factors?: { status?: string | null }[] | null },
+  token: string,
+  user: {
+    id: string; email?: string | null;
+    // La lista, o una promesa que se resuelve en paralelo con las demás lecturas
+    // (camino rápido). Una promesa que rechaza hace rechazar a toda la función.
+    factors?: readonly FactorDeUsuario[] | null | Promise<readonly FactorDeUsuario[]>;
+  },
 ): Promise<{ sesion: SesionStaff; paso: PasoDobleFactor; factores: number; estudioLoExige: boolean } | null> {
   // A-1: el JWT ya se validó arriba (getUser). La RESOLUCIÓN de rol/estudio se
   // hace con service-role: la tabla `instructores` no tiene política anon, así
@@ -102,10 +171,9 @@ async function resolverConUsuario(
   // el servidor por un dispositivo recordado? (lib/auth/dispositivo-confianza.ts;
   // la base de datos se lo pregunta igual con `sesion_de_confianza()`). Solo con
   // service-role: sin él no se puede leer y la sesión sigue sin verificar.
-  const factores = factoresVerificados(user.factors);
   const nivelToken = nivelAutenticacion(token);
   const admin = getSupabaseAdmin();
-  const [{ data: activa }, { data: instructores }, { data: studios }, exigenPropios, exigenFichas, confiada] = await Promise.all([
+  const [{ data: activa }, { data: instructores }, { data: studios }, exigenPropios, exigenFichas, listaFactores] = await Promise.all([
     db.from('sesion_activa').select('studio_id').eq('auth_user_id', user.id).maybeSingle(),
     db.from('instructores').select('studio_id, rol, nombre, activo')
       .eq('auth_user_id', user.id).order('studio_id', { ascending: true }),
@@ -113,10 +181,14 @@ async function resolverConUsuario(
       .eq('owner_auth_user_id', user.id).order('id', { ascending: true }),
     db.from('studios').select('id').eq('owner_auth_user_id', user.id).eq('exigir_doble_factor', true),
     db.from('instructores').select('studio_id, studios!inner(id)').eq('auth_user_id', user.id).eq('studios.exigir_doble_factor', true),
-    nivelToken === 'aal1' && factores > 0 && admin
-      ? sesionConfiada(admin, user.id, sesionDelToken(token))
-      : Promise.resolve(false),
+    Promise.resolve(user.factors),
   ]);
+  // Depende de cuántos factores tiene, así que va después de leerlos. Solo se
+  // pregunta con la verificación activada y la sesión en `aal1`.
+  const factores = factoresVerificados(listaFactores);
+  const confiada = nivelToken === 'aal1' && factores > 0 && admin
+    ? await sesionConfiada(admin, user.id, sesionDelToken(token))
+    : false;
 
   const sesion = resolverSesionStaff({
     userId: user.id,
