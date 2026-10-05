@@ -80,6 +80,8 @@ test.describe('La bandeja', () => {
     const icono = () => region(page).locator('[data-tenti-icono]').first();
     await expect(icono()).toHaveAttribute('data-estado', 'esperaTuOk', { timeout: 60_000 });
     await expect(icono().locator('canvas[data-tenti]')).toHaveCount(1, { timeout: 30_000 });
+    // Las emociones esperan a verse: la bandeja va debajo de la agenda.
+    await icono().scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
     await expect(icono().locator('canvas[data-tenti]')).not.toHaveAttribute('data-emocion', /.+/);
 
