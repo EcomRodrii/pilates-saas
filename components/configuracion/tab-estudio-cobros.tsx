@@ -635,7 +635,7 @@ export function FormFacturacion({ onGuardado }: PropsFormularioCajon) {
             <p className="mt-2 text-muted-foreground text-pretty">
               {pasoDelAlta(alta.estado)}{' '}
               <Link href="/configuracion/verifactu" className="font-medium text-foreground underline underline-offset-2">
-                Ver tu alta en la AEAT
+                {alta.estado === 'SIN_CONFIGURAR' ? 'Dar de alta el envío' : 'Ver tu alta en la AEAT'}
               </Link>
             </p>
           )}
