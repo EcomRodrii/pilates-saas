@@ -17,13 +17,16 @@ import { SLUG, SOCIO_ID, sembrarSociaLista } from './socia-lista';
 
 const base = `/portal/${SLUG}`;
 
-/** Eventos reales del catálogo, con el icono que les toca. */
+/**
+ * Eventos reales del catálogo, con el icono que les toca. La tabla es la de Avisos por días (2f0676ae3,
+ * `ICONO_POR_EVENTO` en lib/student/avisos-vista.ts): una cancelación lleva la ✕ (`cerrar`) y un recordatorio el reloj.
+ */
 const AVISOS: Array<{ id: string; eventType: string; category: string; title: string; icono: string }> = [
   { id: 'n-lib', eventType: 'reserva.plaza_liberada', category: 'reservas', title: 'Se ha liberado una plaza', icono: 'plaza' },
-  { id: 'n-can', eventType: 'reserva.cancelada', category: 'reservas', title: 'Tu reserva se ha cancelado', icono: 'alerta' },
+  { id: 'n-can', eventType: 'reserva.cancelada', category: 'reservas', title: 'Tu reserva se ha cancelado', icono: 'cerrar' },
   { id: 'n-aba', eventType: 'reserva.abandonada', category: 'reservas', title: 'No terminaste tu reserva', icono: 'alerta' },
-  { id: 'n-rec', eventType: 'reserva.recordatorio_1h', category: 'reservas', title: 'Tu clase es dentro de 1 hora', icono: 'campana' },
-  { id: 'n-cla', eventType: 'clase.cancelada', category: 'clases', title: 'Se ha cancelado tu clase', icono: 'alerta' },
+  { id: 'n-rec', eventType: 'reserva.recordatorio_1h', category: 'reservas', title: 'Tu clase es dentro de 1 hora', icono: 'reloj' },
+  { id: 'n-cla', eventType: 'clase.cancelada', category: 'clases', title: 'Se ha cancelado tu clase', icono: 'cerrar' },
   { id: 'n-pag', eventType: 'pago.fallido', category: 'pagos', title: 'No hemos podido cobrarte', icono: 'alerta' },
   { id: 'n-bon', eventType: 'bono.por_caducar', category: 'pagos', title: 'Tu bono caduca pronto', icono: 'bono' },
   { id: 'n-val', eventType: 'clase.valorar', category: 'reservas', title: '¿Qué tal la clase?', icono: 'estrella' },
@@ -45,10 +48,19 @@ async function montar(page: Page) {
   })));
 }
 
-/** El icono de la fila cuyo título es exactamente `titulo`. */
+/**
+ * El icono de la fila cuyo título es exactamente `titulo`: la cara es el PRIMER icono del aviso (`data-testid="aviso"`);
+ * los botones que pueda llevar debajo vienen después.
+ *
+ * ⚠️ Antes se subía por XPath desde el título (`ancestor::*[self::a or self::div][1]/..`), atado a cuántas cajas había
+ * entre el título y la cara. Avisos por días (2f0676ae3) metió el texto en su propio bloque, ese salto dejó de llegar a
+ * la cara y el test se quedaba esperando un icono que la pantalla sí pinta. El aviso ya lleva su propio testid: se cuelga
+ * de él.
+ */
 async function iconoDe(page: Page, titulo: string) {
-  const fila = page.getByText(titulo, { exact: true }).locator('xpath=ancestor::*[self::a or self::div][1]/..');
-  return fila.first().locator('[data-icono]').first().getAttribute('data-icono');
+  const aviso = page.getByTestId('aviso').filter({ has: page.getByText(titulo, { exact: true }) });
+  await expect(aviso, `no hay un aviso «${titulo}»`).toHaveCount(1);
+  return aviso.locator('[data-icono]').first().getAttribute('data-icono');
 }
 
 test.describe('Student PWA · la cara de cada aviso', () => {
@@ -73,7 +85,8 @@ test.describe('Student PWA · la cara de cada aviso', () => {
     for (const malo of ['Tu reserva se ha cancelado', 'No terminaste tu reserva', 'Se ha cancelado tu clase', 'No hemos podido cobrarte']) {
       const icono = await iconoDe(page, malo);
       expect(icono, `una plaza que se abre encima de «${malo}»`).not.toBe('plaza');
-      expect(icono, `un recordatorio encima de «${malo}»`).not.toBe('campana');
+      expect(icono, `un recordatorio encima de «${malo}»`).not.toBe('reloj');
+      expect(icono, `un «hecho» encima de «${malo}»`).not.toBe('hecho');
     }
     // Y la cara de buena noticia sigue existiendo donde sí toca.
     expect(await iconoDe(page, 'Se ha liberado una plaza')).toBe('plaza');

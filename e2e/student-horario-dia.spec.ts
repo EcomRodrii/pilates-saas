@@ -31,7 +31,12 @@ async function abrir(page: Page, ruta = '/reservar') {
 
 test.describe('Student PWA · horario: el día y los filtros', () => {
   test.describe.configure({ timeout: 120_000 });
-  test.use({ viewport: { width: 390, height: 844 } });
+  // ⚠️ Sin service worker, como e2e/student-preguntas-alta.spec.ts: en el build de producción (el del CI) la app registra
+  // `/sw.js`, y en WebKit una página ya controlada por él manda sus `fetch` a través del worker, así que `page.route` no
+  // los ve y llegaban al servidor de verdad (al recargar, el horario de verdad, sin las dos salas del test).
+  // En `next dev` no hay worker: por eso pasaba en local.
+  // No cambia nada de lo que se prueba.
+  test.use({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
 
   test('a las 21:00, sin nada por empezar hoy, abre mañana y lo dice; tocar «Hoy» quita el aviso', async ({ page }) => {
     await montar(page, '2026-08-12T21:00:00+02:00', (f) => conSesiones(f, [

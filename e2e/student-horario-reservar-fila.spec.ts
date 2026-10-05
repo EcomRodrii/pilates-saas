@@ -37,7 +37,12 @@ async function abrirHorario(page: Page) {
 
 test.describe('Student PWA · horario: reservar desde la fila', () => {
   test.describe.configure({ timeout: 120_000 });
-  test.use({ viewport: { width: 390, height: 844 } });
+  // ⚠️ Sin service worker, como e2e/student-preguntas-alta.spec.ts: en el build de producción (el del CI) la app registra
+  // `/sw.js`, y en WebKit una página ya controlada por él manda sus `fetch` a través del worker, así que `page.route` no
+  // los ve y llegaban al servidor de verdad (la reserva volvía con 401, «Tu sesión ha caducado»).
+  // En `next dev` no hay worker: por eso pasaba en local.
+  // No cambia nada de lo que se prueba.
+  test.use({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
 
   test('con bono: «Reservar» abre la misma hoja que la ficha, y nada se ha pedido aún', async ({ page }) => {
     await montar(page, (f) => conBono(f));
