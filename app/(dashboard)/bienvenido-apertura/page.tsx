@@ -1,12 +1,14 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pantalla puente: entre el asistente de bienvenida (11 preguntas) y el
-// calendario/migración a donde iba a ir directamente. NO es un paso más del
-// wizard — se sella `bienvenidaVistaEn` antes de llegar aquí — es la
-// continuación natural de "acabo de montar mi estudio" con las 3 preguntas de
-// Opening OS (`OnboardingApertura`, ya usadas en la tarjeta del dashboard)
-// para que la propietaria no se las encuentre después como una sorpresa.
+// Las 3 preguntas de Opening OS (`OnboardingApertura`, las mismas de la
+// tarjeta de apertura de Resumen) en una pantalla propia.
+//
+// ⚠️ Era la pantalla puente entre el asistente de bienvenida y el calendario,
+// y desde #2270 ya no lo es: el asistente va directo a su destino
+// (components/onboarding/pantalla-bienvenida.tsx) y estas preguntas siguen en
+// Resumen. Ningún enlace del producto trae aquí, pero la ruta sigue existiendo:
+// retirarla es otra decisión.
 //
 // Reutiliza EXACTAMENTE el contrato de `apertura-estudio.tsx`
 // (`GET /api/opening`, `PATCH { onboarding }` / `{ yaAbierto: true }`) — misma
@@ -20,7 +22,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 import { OnboardingApertura } from '@/components/dashboard/onboarding-apertura';
-import { TentareOrb } from '@/components/marca/tentare-orb';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
 
 const DESTINO_DEFECTO = '/calendario';
 
@@ -117,8 +119,11 @@ function PuenteApertura() {
   return (
     <main className="grid min-h-dvh place-items-center px-4 py-10">
       <div className="w-full max-w-[420px]">
+        {/* Tenti, donde estaba el Orb: es Tentare quien te propone por dónde
+            empezar. 28 es el ancho más grande del icono; el canvas no entra
+            en una pantalla sin enlaces solo para ganar tamaño. */}
         <div className="flex justify-center">
-          <TentareOrb tam={40} />
+          <TentiIcono ancho={28} />
         </div>
         <h1 className="mt-4 text-center text-[19px] font-bold leading-tight tracking-tight text-foreground">
           Una última cosa antes de entrar

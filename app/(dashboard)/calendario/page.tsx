@@ -2756,7 +2756,12 @@ export default function Calendario() {
   }, [respuestasSesion, sesionActual]);
 
   const [prepIA, setPrepIA] = useState<{ resumen: string; evitar: string[]; variantes: string[] } | null>(null);
-  const [prepIALoading, setPrepIALoading] = useState(false);
+  // El id de la clase cuya preparación está en vuelo, no un booleano: si la
+  // ficha cambia de clase antes de que responda la IA, la nueva no debe salir
+  // «Preparando…» ni recibir la preparación (datos de salud) de la anterior.
+  const [prepIAEnVuelo, setPrepIAEnVuelo] = useState<string | null>(null);
+  const sesionVivaRef = useRef(sesionId);
+  useEffect(() => { sesionVivaRef.current = sesionId; }, [sesionId]);
   const [prepIAError, setPrepIAError] = useState(false);
   // «Añadir» a una clienta o una plaza vendida por ClassPass/USC/Wellhub (solo
   // las plataformas activadas en Conexiones). Lo que se escribe en el buscador
@@ -2783,7 +2788,8 @@ export default function Calendario() {
 
   async function prepararClaseIA() {
     if (!sesionActual) return;
-    setPrepIALoading(true);
+    const id = sesionActual.id;
+    setPrepIAEnVuelo(id);
     setPrepIA(null);
     setPrepIAError(false);
     try {
@@ -2797,13 +2803,14 @@ export default function Calendario() {
         // la imparte ella (lo comprueba el servidor).
         body: JSON.stringify({ ...resumen, sesionId: sesionActual.id }),
       });
-      if (!res.ok) { setPrepIAError(true); return; }
-      const data = await res.json();
+      const data = res.ok ? await res.json() : null;
+      if (sesionVivaRef.current !== id) return;
+      if (!data) { setPrepIAError(true); return; }
       setPrepIA(data);
     } catch {
-      setPrepIAError(true);
+      if (sesionVivaRef.current === id) setPrepIAError(true);
     } finally {
-      setPrepIALoading(false);
+      setPrepIAEnVuelo(v => (v === id ? null : v));
     }
   }
 
@@ -3146,7 +3153,7 @@ export default function Calendario() {
                   key={`adaptaciones-${sesionActual.id}`}
                   alertas={alertasClase}
                   puedePreparar={esPropiaClase}
-                  preparando={prepIALoading}
+                  preparando={prepIAEnVuelo !== null && prepIAEnVuelo === sesionId}
                   preparacion={prepIA}
                   error={prepIAError}
                   onPreparar={prepararClaseIA}
