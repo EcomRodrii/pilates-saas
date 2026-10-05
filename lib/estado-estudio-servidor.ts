@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { hoyEnEstudio } from '@/lib/utils';
+import { inicioDeHoyEnEstudio } from '@/lib/decision/mensaje-del-dia';
 import {
   puedeGestionarApertura, puedeGestionarAutomatizaciones, puedeGestionarCalendario, puedeGestionarClientas,
   puedeGestionarEquipo, puedeMoverDinero, puedeVer, puedeVerFinanzas,
@@ -44,10 +45,10 @@ export async function contarConteosEstudio(
 ): Promise<ConteosEstudio> {
   const ahoraISO = ahora.toISOString();
   const hace24hISO = new Date(ahora.getTime() - 24 * 3600_000).toISOString();
-  // Mismo corte de «hoy» que dbCountAutonomasHoy (lib/decision/db.ts), para que
-  // esta cifra y la del Veredicto del Día no discrepen.
-  const inicioDia = new Date(ahora); inicioDia.setUTCHours(0, 0, 0, 0);
-  const inicioDiaISO = inicioDia.toISOString();
+  // «Hoy» es el día de Madrid, el mismo corte que dbCountAutonomasHoy
+  // (lib/decision/db.ts), para que esta cifra y la del Veredicto del Día no
+  // discrepen. Con el día UTC, de 00:00 a 02:00 de Madrid contaba lo de ayer.
+  const inicioDiaISO = inicioDeHoyEnEstudio(ahora);
   const HEAD = { count: 'exact', head: true } as const;
 
   const contar = async (etiqueta: string, q: PromiseLike<{ count: number | null; error: unknown }>) => {
@@ -209,7 +210,9 @@ export async function contarConteosEstudio(
       .eq('estado', 'confirmada').gte('resuelto_en', hace24hISO))),
     si(rol === 'PROPIETARIO', () => contar('autonomas', admin.from('recomendaciones')
       .select('id', HEAD).eq('studio_id', studioId)
-      .eq('resuelto_por', 'AUTONOMIA').gte('resuelto_en', inicioDiaISO))),
+      // Solo las que salieron (EJECUTADA), como el veredicto: una APROBADA aún
+      // no ha hecho nada y una FALLIDA no salió.
+      .eq('resuelto_por', 'AUTONOMIA').eq('estado', 'EJECUTADA').gte('resuelto_en', inicioDiaISO))),
     si(gestionaAutomatizaciones, () => contar('auto-ejecutadas', admin.from('automation_logs')
       .select('id', HEAD).eq('studio_id', studioId)
       .eq('resultado', 'EJECUTADO').gte('ejecutado_en', inicioDiaISO))),

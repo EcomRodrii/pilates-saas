@@ -3,7 +3,7 @@ import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '.
 import type { Recibo, PlanTarifa } from '@/lib/types';
 import {
   construirIndices, frecuenciaHabitual, agruparFranjasRecurrentes, demandaInsatisfecha, pagosEnRiesgo,
-  impagosManualesPorSocio,
+  impagosManualesPorSocio, etiquetaFranja,
   type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
 import { confianzaAbrirSesion, confianzaRecuperarPagos, confianzaCobrarPendienteManual, confianzaRevisarPrecio } from '../confianza.ts';
@@ -81,9 +81,10 @@ function reglaI1(clave: string, franja: FranjaRecurrente, s: SnapshotEstudio, id
   // «Abre otra clase» de un tipo archivado es una propuesta que no se puede
   // seguir: la base de datos no deja programar clases nuevas suyas.
   if (tipo?.archivadoEn) return null;
-  const inicioRef = new Date(referencia.inicio);
-  const diaSemana = inicioRef.toLocaleDateString('es-ES', { weekday: 'long', timeZone: 'UTC' });
-  const hora = inicioRef.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+  // En hora del estudio, como la ve la propietaria en su calendario. Iba en UTC:
+  // en verano, «tu clase del martes a las 18:00» era la de las 20:00, y una de las
+  // 00:30 del martes salía como del lunes.
+  const { diaSemana, hora } = etiquetaFranja(referencia.inicio);
 
   let semanasConsecutivas = 0;
   for (const o of franja.ocupaciones) {
