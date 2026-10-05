@@ -1,6 +1,7 @@
 'use client';
 
 import type { TipoRebote } from '@/lib/emails/rebotes';
+import { senalConLimite } from '@/lib/senal-con-limite';
 import { supabase } from '@/lib/db/supabase';
 import { unaVez } from '@/lib/una-vez';
 import { portalAuthHeader } from '@/lib/student/api-publica';
@@ -2060,7 +2061,7 @@ export async function avisarClaseCancelada(sesionId: string): Promise<boolean> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ sesionId }),
-      signal: AbortSignal.timeout(10_000),
+      signal: senalConLimite(10_000),
     });
     return res.ok;
   } catch { /* best-effort: no bloquea la cancelación */ return false; }
@@ -2110,7 +2111,7 @@ export async function enviarEmailCancelacionClase(params: {
       // socias se avisaron de verdad), así que necesita el mismo techo que
       // `avisarClaseCancelada`: sin él, un /api/emails/send colgado dejaba el
       // borrado de la clase esperando sin límite.
-      signal: AbortSignal.timeout(10_000),
+      signal: senalConLimite(10_000),
       body: JSON.stringify({
         tipo: 'cancelacion',
         to: params.to,
