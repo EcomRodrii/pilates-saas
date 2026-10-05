@@ -13,6 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { publish } from './engine.ts';
 import { EVENTOS } from './catalog.ts';
 import { criterioArchivadoMensajeDia } from './mensaje-dia-archivado.ts';
+import { claveAvisoSustituta } from './cambio-de-clase.ts';
 import { cuandoEstudio, horaEstudio, fechaCortaEstudio, TZ_ESTUDIO } from '@/lib/utils';
 
 function cuandoLargo(iso: string): string {
@@ -680,11 +681,30 @@ export async function emitirClaseCancelada(
 // Devuelve a cuántas SOCIAS se ha avisado de verdad (la instructora entrante
 // también recibe aviso, pero no cuenta: quien pregunta es la dueña y lo que
 // quiere saber es cuántas alumnas se han enterado).
+//
+// `soloInstructora`: lo único que ha cambiado es quién la da (ni hora ni sala).
+// Entonces NO es «tu clase ha cambiado: pasa a <la misma hora>», que se lee como
+// un cambio de horario: es el aviso de sustituta (`clase.sustituta`, «tu clase
+// sigue en pie, la dará Laura»), el mismo que manda el motor de sustituciones y
+// con la misma clave de duplicados, así que las dos vías nunca avisan dos veces.
+// Ver `lib/notifications/cambio-de-clase.ts`. La instructora que entra se entera
+// por «Nueva clase asignada» (antes le llegaba el «tu clase ha cambiado»).
 export async function emitirClaseModificada(
-  admin: SupabaseClient, p: { studioId: string; sesionId: string; clase: string; cuando: string; sala: string; instructora?: string },
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; clase: string; cuando: string; sala: string; instructora?: string; soloInstructora?: boolean },
 ): Promise<number> {
   try {
     const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    if (p.soloInstructora && p.instructora) {
+      const creadas = await publish({
+        type: EVENTOS.CLASE_SUSTITUTA, studioId: p.studioId,
+        data: { clase: p.clase, cuando: p.cuando, sesionId: p.sesionId, sustituta: p.instructora, slug: (studio?.slug as string | null) ?? '' },
+        resource: { type: 'sesion', id: p.sesionId },
+        dedupKey: claveAvisoSustituta(p.sesionId, p.instructora),
+      });
+      const { data: ses } = await admin.from('sesiones').select('instructor_id').eq('id', p.sesionId).eq('studio_id', p.studioId).maybeSingle();
+      if (ses?.instructor_id) await emitirSustitucionAceptada(admin, { studioId: p.studioId, sesionId: p.sesionId, instructorId: ses.instructor_id as string });
+      return creadas.filter(c => c.destinatario.role === 'SOCIA').length;
+    }
     // La socia ve la nueva instructora en el cuerpo ({sala}{instructora}); vacío
     // si no cambió. Con separador para no pegarla a la sala.
     const instructoraTxt = p.instructora ? ` · con ${p.instructora}` : '';

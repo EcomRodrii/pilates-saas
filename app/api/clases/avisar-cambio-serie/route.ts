@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { emitirClaseModificada } from '@/lib/notifications/emit';
+import { avisoDeCambioDeClase } from '@/lib/notifications/cambio-de-clase';
 import { sociasDeSesion } from '@/lib/notifications/recipients';
 import { enviarEmailesCambioClase } from '@/lib/emails/enviar-cambio-clase';
 import { avisoPorAlumna, type CambioClaseSerie } from '@/lib/avisos-serie';
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
       studioId: staff.studioId, sesionId: c.sesionId,
       clase: clase.clase, cuando: clase.cuando, sala: clase.sala,
       instructora: c.instructora ? clase.instructor : '',
+      soloInstructora: avisoDeCambioDeClase({ cambiaInstructora: !!c.instructora, cambioHora: c.cambioHora === true, cambioSala: c.cambioSala === true }) === 'sustituta',
     });
   }
 

@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { enviarEmailAvisoAlumna } from './email';
 import { resolverMarcaEstudio } from '../emails/plantillas-server.ts';
 import { marcaCorreoDesde } from '../emails/estudio/marca-correo.ts';
+import { claveAvisoSustituta } from '../notifications/cambio-de-clase.ts';
 import type { AvisoAlumna } from '@/lib/emails/estudio/avisos';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
@@ -89,7 +90,8 @@ export async function avisarAlumnas(
         sustituta: params.sustituta ?? 'otra instructora',
       },
       resource: { type: 'sesion', id: params.sesionId },
-      dedupKey: `clase-cubierta:${params.sesionId}:${params.sustituta ?? ''}`,
+      // La misma clave que el cambio de instructora desde el panel: nunca dos avisos.
+      dedupKey: claveAvisoSustituta(params.sesionId, params.sustituta ?? ''),
     });
   }
 
