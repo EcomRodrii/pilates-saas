@@ -15,7 +15,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 //
 // Qué se hace con ella (decisión D-3, por defecto, ver `queHacerConSesionCaducada`):
 //   · una DEUDA (cuota, o recibo con un reintento ya programado) vuelve a su cobro
-//     de siempre: se suelta la sesión;
+//     de siempre: se suelta la sesión. Una cuota nunca se cobra sola antes de su
+//     vencimiento: el cron solo la adopta ya vencida (lib/billing/renovacion-adoptable.ts),
+//     así que soltar la renovación que ella pidió antes de tiempo no la adelanta;
 //   · la renovación de un BONO o una clase suelta que la propia clienta pidió
 //     («Renovar mi plan») y no pagó NO se cobra nunca sola: se mantiene, igual que
 //     hoy (ver el comentario D-3 de lib/inngest/renovaciones.ts).

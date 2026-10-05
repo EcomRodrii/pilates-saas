@@ -19,6 +19,7 @@ import { fetchAllRows } from '@/lib/supabase-data';
 import { idsEstudios } from './estudios.ts';
 import { repartirVencidas } from '@/lib/billing/baja-al-vencer';
 import { puedeArmarReintento, type ReciboParaCobrar } from '@/lib/billing/cobro-permitido';
+import { renovacionAdoptable, tipoPlanEmbebido } from '@/lib/billing/renovacion-adoptable';
 import { debeAvisarSubidaPrecio } from '@/lib/billing/aviso-subida-precio';
 import { emitirRenovacionSinTarjeta } from '@/lib/notifications/emit';
 
@@ -147,6 +148,12 @@ async function adoptarRecibosCliente(studioId: string, nowISO: string, conMetodo
     // app/api/stripe/checkout crea la sesión (antes de que pague o no),
     // así que es la señal de "esto lo está llevando ella en persona,
     // no lo adoptes" — sin inventar ninguna columna nueva.
+    //
+    // Desde el 5-oct-2026 una sesión que CADUCA sin pagarse se suelta
+    // (lib/billing/sesion-caducada.ts) para que una cuota no se quede sin
+    // cobrar para siempre. Por eso la cuota solo se adopta ya VENCIDA (más
+    // abajo, `renovacionAdoptable`): lo que ella pidió renovar antes de tiempo
+    // y no pagó espera a su día, nunca se cobra adelantado.
     .is('checkout_session_id', null);
   if (candErr) throw new Error(candErr.message);
   // Baja programada a fin de periodo (migr 20260913215533): nunca se adopta
@@ -162,16 +169,23 @@ async function adoptarRecibosCliente(studioId: string, nowISO: string, conMetodo
   if (idsSuscripcion.length === 0) return 0;
   const { data: cuotas, error: bajaErr } = await admin
     .from('suscripciones')
-    .select('id, estado, baja_al_vencer')
+    .select('id, estado, baja_al_vencer, fecha_fin, planes_tarifa(tipo)')
     .eq('studio_id', studioId)
     .in('id', idsSuscripcion);
   if (bajaErr) throw new Error(bajaErr.message);
   const cuotaPorId = new Map((cuotas ?? []).map(s => [s.id as string, s]));
+  const hoy = nowISO.slice(0, 10);
   const idsAAdoptar = (candidatos ?? [])
     .filter(r => conMetodoCobro.has(r.socio_id as string))
     .filter(r => {
       const cuota = cuotaPorId.get(r.suscripcion_id as string);
       if (!cuota || cuota.baja_al_vencer === true) return false;
+      // ⚠️ Una cuota nunca se cobra antes de vencer: el mismo criterio con el que
+      // `generarRecibosRenovacion` crea su recibo (lib/billing/renovacion-adoptable.ts).
+      if (!renovacionAdoptable({
+        tipoPlan: tipoPlanEmbebido(cuota.planes_tarifa),
+        fechaFin: (cuota.fecha_fin as string | null) ?? null,
+      }, hoy)) return false;
       return puedeArmarReintento(
         { estado: r.estado as string, proximoReintento: null, trasCancelarCuota: (r.tras_cancelar_cuota as ReciboParaCobrar['trasCancelarCuota']) ?? null },
         { estado: cuota.estado as string },
