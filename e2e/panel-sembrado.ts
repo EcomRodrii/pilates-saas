@@ -304,8 +304,12 @@ export async function montar(page: Page): Promise<CoberturaPanel> {
   await page.route((u) => u.pathname === '/api/mensajeria/conversaciones', (r) => json(r, { conversaciones: CONVERSACIONES_PANEL }));
 
   await page.route((u) => u.pathname === '/api/decisiones', (r) => json(r, DECISIONES));
+  // La forma de GET /api/decisiones/autonomia (`useAutonomiaConfig`). Con la de
+  // antes —`{ activa, cupoDiario, … }`, sin `config`— el hook se quedaba sin
+  // config y la tarjeta del Piloto no se pintaba en ningún e2e.
   await page.route((u) => u.pathname === '/api/decisiones/autonomia', (r) => json(r, {
-    activa: false, cupoDiario: 3, usadasHoy: 2, tipos: [],
+    config: { activa: false, tiposPermitidos: ['ENVIAR_EMAIL'], maxDiario: 5 },
+    tiposDisponibles: ['ENVIAR_EMAIL', 'CONTACTO_MANUAL'], maxDiarioTope: 50,
   }));
   await page.route((u) => u.pathname === '/api/calendario', (r) => json(r, {
     sesiones: SESIONES.map(mapSesionCal), reservas: RESERVAS.map(mapReservaCal), sustituciones: [],

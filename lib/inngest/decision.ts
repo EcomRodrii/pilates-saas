@@ -2,6 +2,7 @@
 // patrón dispatcher→fan-out→steps idempotentes de lib/inngest/automatizaciones.ts.
 // El cliente se importa desde './client' (mismo orden que ese archivo, nota OTel).
 import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
+import * as Sentry from '@sentry/nextjs';
 import { Resend } from 'resend';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
@@ -20,6 +21,14 @@ import { redactar, type ItemARedactar, type ItemRedactado } from '@/lib/decision
 import { ventanaDiasDe, medirOutcome, type SenalMedicion } from '@/lib/decision/outcomes';
 import { resolverNivelAutonomiaPorTipo } from '@/lib/decision/confianza';
 import { mensajeParaSocia } from '@/lib/decision/mensajes-socia';
+import {
+  canalesSocia, emailConfigurado, esEfectoAprobar, FUERA_DE_LA_RECOMENDACION, puedeEscribirle, recibosACobrar, recibosAprobadosFuera,
+} from '@/lib/decision/efecto-aprobar';
+import {
+  cobroEjecutado, detalleCobro, detalleInterrumpida, lineaActividad, pudoMoverDinero, resumirCobro,
+  type IntentoCobro, type ResultadoEjecucion, type ResumenCobro,
+} from '@/lib/decision/resultado-ejecucion';
+import { importeIngresado, situacionRecibo } from '@/lib/billing/situacion-recibo';
 import { personalizarMensajeSocia } from '@/lib/decision/personalizacion';
 import { generarCodigoReactivacion } from '@/lib/codigos-descuento';
 import { enviarWhatsAppTexto } from '@/lib/whatsapp';
@@ -386,12 +395,15 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   // La marca sale de `resolverMarcaEstudio`, no de un `select` a mano: el color
   // de `studios.color_primario` es un índigo de alta (lib/emails/color-marca.ts)
   // y de paso trae el Reply-To del estudio.
+  // La ficha, acotada a SU estudio: con service-role no hay RLS que lo haga, y
+  // el `socio_id` de la fila no es de fiar por sí solo (la FK a socios es global).
   const [{ data: socio }, studio, conIA] = await Promise.all([
-    requireSupabaseAdmin().from('socios').select('nombre, email').eq('id', r.socioId).single(),
+    requireSupabaseAdmin().from('socios').select('nombre, email').eq('id', r.socioId).eq('studio_id', r.studioId).maybeSingle(),
     resolverMarcaEstudio(r.studioId),
     dbRedaccionIaActiva(r.studioId),
   ]);
-  if (!socio?.email) return { ok: false, detalle: 'La socia no tiene email registrado' };
+  if (!socio) return { ok: false, detalle: 'No se ha encontrado su ficha: no se le ha enviado nada' };
+  if (!socio.email) return { ok: false, detalle: 'La socia no tiene email registrado' };
 
   const estudioNombre = studio.nombre ?? '';
 
@@ -406,7 +418,7 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   if (!base) return { ok: false, detalle: 'Sin mensaje para la socia para este tipo de recomendación' };
 
   const apiKey = process.env.RESEND_API_KEY;
-  const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
+  const resend = emailConfigurado(apiKey) ? new Resend(apiKey) : null;
   if (!resend) return { ok: false, detalle: 'Resend no configurado (RESEND_API_KEY)' };
 
   const mensaje = await personalizarMensajeSocia(base, {
@@ -439,57 +451,71 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
   };
 }
 
-// Al aprobar una recomendación de CONTACTO_MANUAL: se envía a la socia el mensaje
-// orientado a ELLA (no el motivo del propietario) por email. El propietario tiene
-// además el botón de WhatsApp en la tarjeta. Sin socia/email/mensaje → se marca
-// gestionada sin fallar (la acción real la hace el propietario por WhatsApp).
+// Al aprobar una recomendación de CONTACTO_MANUAL («Enviarle el mensaje», o el
+// piloto automático): se le manda a la socia el mensaje orientado a ELLA (no el
+// motivo del propietario), por WhatsApp si la recomendación es de ese canal y el
+// estudio lo tiene conectado, y si no por email. Sin socia o sin mensaje para
+// ella, aprobar solo la marca (el botón decía «Hecho», efecto-aprobar.ts).
+//
+// Pero si HABÍA un mensaje para ella y no sale por ningún canal, FALLA. Antes se
+// daba por hecha igual («contáctala por WhatsApp desde la tarjeta», una tarjeta
+// que ya no existía): quedaba EJECUTADA, contaba como seguida para el Umbral y
+// se medía como si se le hubiera escrito. Los canales son los mismos que mira el
+// botón (`canalesSocia`), así que «Enviarle el mensaje» solo sale donde hay por
+// dónde; aquí se vuelven a mirar porque pueden cambiar entre el clic y el envío.
 async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; detalle: string }> {
   if (!r.socioId) return { ok: true, detalle: 'Recomendación sin socia — marcada como gestionada.' };
   const [{ data: socio }, studio, conIA] = await Promise.all([
-    requireSupabaseAdmin().from('socios').select('nombre, email, telefono').eq('id', r.socioId).single(),
+    // Acotada a SU estudio, como en `ejecutarEnvioEmail`.
+    requireSupabaseAdmin().from('socios').select('nombre, email, telefono').eq('id', r.socioId).eq('studio_id', r.studioId).maybeSingle(),
     resolverMarcaEstudio(r.studioId),
     dbRedaccionIaActiva(r.studioId),
   ]);
   const base = mensajeParaSocia(r.tipo, r.datosUsados, studio.nombre ?? '');
   if (!base) return { ok: true, detalle: 'Sin mensaje automático para este tipo — marcada como gestionada.' };
-  // Mismo mensaje, reescrito con IA para que suene personal (falla-suave).
-  const mensaje = await personalizarMensajeSocia(base, { nombreEstudio: studio.nombre ?? '', tipo: r.tipo, datosUsados: r.datosUsados, conIA });
+  if (!socio) return { ok: false, detalle: 'No se ha encontrado su ficha: no se le ha enviado nada.' };
 
-  // Si la recomendación es de canal WhatsApp y el estudio tiene su WhatsApp
-  // Business conectado (Meta Cloud API, no Twilio — se retiró: en producción no
-  // existía ninguna variable TWILIO_*, así que esta rama no se ejecutó nunca),
-  // se envía el WhatsApp de VERDAD al aprobar. Si Meta lo rechaza o el estudio
-  // no lo tiene conectado, cae al email; y si tampoco hay email, queda el botón
-  // manual de WhatsApp en la tarjeta.
+  // WhatsApp de VERDAD (Meta Cloud API, no Twilio — se retiró: en producción no
+  // existía ninguna variable TWILIO_*) si la recomendación es de ese canal y el
+  // estudio tiene su WhatsApp Business conectado. Si Meta lo rechaza, cae al
+  // email.
   //
   // Texto y no plantilla: `mensaje.cuerpo` lo reescribe la IA para cada socia,
   // así que no hay cuerpo fijo que Meta pueda aprobar de antemano. Fuera de la
   // ventana de 24 h devuelve 131047 — y ahí ese respaldo por email deja de ser
   // un detalle y pasa a ser el camino normal, que es justo por lo que este
   // emisor no necesita plantilla propia.
-  const canalRec = r.accion.tipo === 'CONTACTO_MANUAL' ? r.accion.canal : null;
-  if (canalRec === 'WHATSAPP' && socio?.telefono) {
-    const whatsapp = whatsappDelEstudio(await dbGetIntegracionConfig(r.studioId, 'WHATSAPP'));
-    if (whatsapp) {
-      const rw = await enviarWhatsAppTexto(whatsapp, socio.telefono, mensaje.cuerpo);
-      if (rw.ok) return { ok: true, detalle: `WhatsApp enviado a ${socio.telefono}` };
-      // no-ok → sigue al respaldo por email
-    }
+  const porWhatsapp = r.accion.tipo === 'CONTACTO_MANUAL' && r.accion.canal === 'WHATSAPP' && !!socio.telefono;
+  const whatsapp = porWhatsapp ? whatsappDelEstudio(await dbGetIntegracionConfig(r.studioId, 'WHATSAPP')) : null;
+  const apiKey = process.env.RESEND_API_KEY;
+  const canales = canalesSocia({ accion: r.accion, socia: socio, whatsappConectado: !!whatsapp, emailConfigurado: emailConfigurado(apiKey) });
+  if (!puedeEscribirle(canales)) {
+    const porQue = [
+      socio.email ? 'el envío de emails no está configurado' : 'no tiene email',
+      ...(porWhatsapp ? ['el WhatsApp del estudio no está conectado'] : []),
+    ];
+    return { ok: false, detalle: `No se le ha enviado nada: ${porQue.join(' y ')}.` };
   }
 
-  if (!socio?.email) return { ok: true, detalle: 'La socia no tiene email — contáctala por WhatsApp desde la tarjeta.' };
+  // Mismo mensaje, reescrito con IA para que suene personal (falla-suave). Solo
+  // ahora que se sabe que hay por dónde mandárselo.
+  const mensaje = await personalizarMensajeSocia(base, { nombreEstudio: studio.nombre ?? '', tipo: r.tipo, datosUsados: r.datosUsados, conIA });
 
-  const apiKey = process.env.RESEND_API_KEY;
-  const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
-  if (!resend) return { ok: true, detalle: 'Email no configurado — contáctala por WhatsApp desde la tarjeta.' };
+  if (canales.whatsapp && whatsapp) {
+    const rw = await enviarWhatsAppTexto(whatsapp, socio.telefono, mensaje.cuerpo);
+    if (rw.ok) return { ok: true, detalle: `WhatsApp enviado a ${socio.telefono}` };
+    // no-ok → sigue al respaldo por email, si lo hay
+    if (!canales.email) return { ok: false, detalle: 'No se le ha enviado nada: WhatsApp no ha aceptado el mensaje y no tiene email.' };
+  }
 
+  const resend = new Resend(apiKey);
   const html = correoAutomatizacion({
     socioNombre: socio.nombre, titulo: mensaje.asunto, mensaje: mensaje.cuerpo,
     marca: marcaCorreoDesde(studio, 'Tu estudio'),
   });
   const { error } = await resend.emails.send(
     {
-      from: remitentePorMarca(studio.nombre || 'Tentare'), to: [socio.email], subject: mensaje.asunto, html,
+      from: remitentePorMarca(studio.nombre || 'Tentare'), to: [socio.email as string], subject: mensaje.asunto, html,
       ...(studio.replyTo ? { replyTo: studio.replyTo } : {}),
     },
     { idempotencyKey: r.id }
@@ -498,29 +524,119 @@ async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; d
   return { ok: true, detalle: `Mensaje enviado por email a ${socio.email}` };
 }
 
-export const ejecutarRecomendacion = inngest.createFunction(
-  { id: 'decision-ejecutar-recomendacion', triggers: [{ event: EVENTS.DECISION_APPROVED }], retries: 3 },
-  async ({ event, step }) => {
-    const { recomendacionId } = event.data as { recomendacionId: string };
+/**
+ * El `onFailure` del ejecutor: agotó sus reintentos (la base de datos caída al
+ * leerla o al cerrarla, un paso que lanza siempre) y la recomendación se quedaba
+ * APROBADA para siempre —«Cobro en marcha» sin fin en la pantalla, y el motor sin
+ * poder volver a proponerla, porque `dbUpsertRecomendacion` no toca una
+ * APROBADA—. Aquí se cierra como FALLIDA diciendo qué revisar, porque no se sabe
+ * hasta dónde llegó (`detalleInterrumpida`), con su línea en Actividad.
+ *
+ * Es seguro aunque el run cobrara algo antes de morir: solo pasa de APROBADA
+ * (si ya se cerró, no la toca), y volver a cobrar no duplica el cargo —
+ * `cobrarReciboOffSession` solo cobra un recibo PENDIENTE o FALLIDO, con
+ * compare-and-set e idempotencia por recibo e intento—.
+ *
+ * Lo que llega es el `inngest/function.failed` con el evento original en
+ * `data.event` (FailureEventPayload); se lee también `data` a secas, como en
+ * campanas.ts, porque si no encuentra el id la recomendación se queda atascada
+ * exactamente igual que antes y nadie lo notaría.
+ */
+async function cerrarEjecucionInterrumpida(evento: unknown): Promise<void> {
+  const e = evento as { data?: { event?: { data?: unknown } } } | undefined;
+  const datos = (e?.data?.event?.data ?? e?.data) as { recomendacionId?: unknown; efecto?: unknown } | undefined;
+  const recomendacionId = typeof datos?.recomendacionId === 'string' ? datos.recomendacionId : null;
+  if (!recomendacionId) {
+    console.error('[decision-ejecutar-recomendacion:onFailure] sin el id de la recomendación', JSON.stringify(evento));
+    return;
+  }
+  const r = await dbGetRecomendacion(recomendacionId);
+  // Sin poder leerla, que Inngest lo reintente: callar aquí la deja atascada.
+  if (r === undefined) throw new Error(`[onFailure] no se ha podido leer la recomendación ${recomendacionId}`);
+  if (!r || r.estado !== 'APROBADA') return;
 
-    const recomendacion = await step.run('fetch', () => dbGetRecomendacion(recomendacionId));
+  const efecto = esEfectoAprobar(datos?.efecto) ? datos.efecto : null;
+  const loQuePaso: ResultadoEjecucion = { detalle: detalleInterrumpida(r.accion.tipo, efecto), interrumpida: true };
+  const t = await dbTransicionarRecomendacion(recomendacionId, r.studioId, 'APROBADA', 'FALLIDA', {
+    resueltoEn: new Date().toISOString(), resultado: loQuePaso,
+  });
+  if (!t.ok) {
+    if (t.noEstaba) return; // otra vía la cerró entre la lectura y aquí
+    throw new Error(`[onFailure] no se ha podido cerrar la recomendación ${recomendacionId}: ${t.motivo ?? 'error desconocido'}`);
+  }
+  const nombreSocia = typeof r.datosUsados.nombre === 'string' ? r.datosUsados.nombre : null;
+  await dbLogActividadReciente({
+    studioId: r.studioId, tipo: 'DECISION_GESTIONADA',
+    texto: lineaActividad({ titulo: r.titulo, nombreSocia, ok: false, resultado: loQuePaso }),
+    socioId: r.socioId, origen: r.resueltoPor === 'AUTONOMIA' ? 'TENTARE' : 'EQUIPO',
+  });
+}
+
+export const ejecutarRecomendacion = inngest.createFunction(
+  {
+    id: 'decision-ejecutar-recomendacion', triggers: [{ event: EVENTS.DECISION_APPROVED }], retries: 3,
+    // Una ejecución por recomendación a la vez: un evento repetido (el envío de
+    // /aprobar que dio error con el evento ya dentro, un reenvío a mano) espera a
+    // que termine la primera, y al llegar la encuentra cerrada.
+    concurrency: { key: 'event.data.recomendacionId', limit: 1 },
+    onFailure: async ({ event }) => { await cerrarEjecucionInterrumpida(event); },
+  },
+  async ({ event, step }) => {
+    // `efecto` y `reciboIds`: lo que enseñaba el botón que aprobó la propietaria
+    // (app/api/decisiones/[id]/aprobar), comprobado allí contra la recomendación
+    // de ese momento. El piloto automático no los manda —nadie vio un botón—, y
+    // un evento encolado antes de este cambio tampoco: entonces se ejecuta lo que
+    // diga la recomendación, como siempre.
+    const { recomendacionId, efecto, reciboIds: reciboIdsAprobados } = event.data as { recomendacionId: string; efecto?: unknown; reciboIds?: unknown };
+    const efectoAprobado = esEfectoAprobar(efecto) ? efecto : null;
+
+    const recomendacion = await step.run('fetch', async () => {
+      const r = await dbGetRecomendacion(recomendacionId);
+      // Un fallo de la base de datos no es «no existe»: antes salía de aquí sin
+      // hacer nada y la recomendación se quedaba APROBADA para siempre. Lanzar
+      // hace que Inngest lo reintente; agotados los reintentos, `onFailure`.
+      if (r === undefined) throw new Error(`No se ha podido leer la recomendación ${recomendacionId}`);
+      return r;
+    });
     if (!recomendacion) return { ok: false, motivo: 'Recomendación no encontrada' };
     if (recomendacion.estado !== 'APROBADA') return { ok: false, motivo: `Estado inesperado: ${recomendacion.estado}` };
 
-    let resultado: { ok: boolean; detalle: string };
+    let resultado: { ok: boolean; detalle: string; cobro?: ResumenCobro };
 
-    if (recomendacion.accion.tipo === 'ENVIAR_EMAIL') {
+    if (efectoAprobado === 'MARCAR') {
+      // El botón decía «Hecho»: aprobar no manda nada ni cobra nada, aunque la
+      // recomendación sea de contacto (sin mensaje para ella, o sin por dónde
+      // enviárselo cuando se aprobó). Nunca se hace más de lo que dijo el botón.
+      resultado = { ok: true, detalle: 'Marcada como gestionada.' };
+    } else if (recomendacion.accion.tipo === 'ENVIAR_EMAIL') {
       resultado = await step.run('enviar-email', () => ejecutarEnvioEmail(recomendacion));
     } else if (recomendacion.accion.tipo === 'COBRAR_RECIBOS') {
-      const reciboIds = recomendacion.accion.reciboIds;
+      // Solo los recibos que enseñó la tarjeta (`recibosACobrar`): la fila de
+      // RECUPERAR_PAGOS es una por estudio y cada análisis la refresca en el sitio.
+      const reciboIds = recibosACobrar(recomendacion.accion.reciboIds, reciboIdsAprobados);
       const recibosInfo = await step.run('recibos-info', async () => {
-        const { data } = await requireSupabaseAdmin().from('recibos').select('id, socio_id').in('id', reciboIds);
+        // Acotada al estudio: la cobranza ya filtra por él, esto es no leer
+        // siquiera un recibo ajeno (los ids vienen de la fila, que no es de fiar sola).
+        const { data, error } = await requireSupabaseAdmin().from('recibos').select('id, socio_id').in('id', reciboIds).eq('studio_id', recomendacion.studioId);
+        // Un fallo de la base de datos no es «recibo no encontrado»: los daba
+        // todos por no encontrados y la cerraba FALLIDA con un motivo falso.
+        // Lanzar lo reintenta (aún no se ha cobrado nada).
+        if (error) throw new Error(`No se han podido leer los recibos: ${error.message}`);
         return (data ?? []) as Array<{ id: string; socio_id: string | null }>;
       });
-      let cobrados = 0;
-      const detalles: string[] = [];
+      // Lo de cada recibo, tal cual lo dice la cobranza: con eso se escribe el
+      // desglose (resultado-ejecucion.ts) que leen la tarjeta, Actividad y el
+      // director, en vez de dar por cobrado todo lo que la tarjeta proponía.
+      // Los que aprobó y ya no están en la recomendación (un análisis la
+      // refrescó entre comprobar y aprobar) no se cobran, pero se dicen.
+      const intentos: IntentoCobro[] = recibosAprobadosFuera(recomendacion.accion.reciboIds, reciboIdsAprobados)
+        .map(() => ({ ok: false, errorCode: 'NO_PENDIENTE', error: FUERA_DE_LA_RECOMENDACION }));
+      const encontrados = new Set(recibosInfo.map(i => i.id));
+      for (const id of reciboIds) {
+        if (!encontrados.has(id)) intentos.push({ ok: false, errorCode: 'NO_ENCONTRADO', error: 'Recibo no encontrado' });
+      }
       for (const info of recibosInfo) {
-        if (!info.socio_id) { detalles.push(`${info.id}: sin socia asociada`); continue; }
+        if (!info.socio_id) { intentos.push({ ok: false, error: 'Recibo sin clienta asociada' }); continue; }
         // El recibo de una penalización solo se cobra con el cobro ya decidido
         // (RECIBO_CREADO), el mismo guardia que «Cobrar online». `pagosEnRiesgo` ya
         // no los propone; esto cubre una recomendación creada antes de ese filtro
@@ -532,7 +648,7 @@ export const ejecutarRecomendacion = inngest.createFunction(
           const bloqueo = await step.run(`guardia-penalizacion-${info.id}`, () =>
             bloqueoCobroManualDePenalizacion(requireSupabaseAdmin(), { studioId: recomendacion.studioId, reciboId: info.id })
           );
-          if (bloqueo) { detalles.push(`${info.id}: ${bloqueo.mensaje}`); continue; }
+          if (bloqueo) { intentos.push({ ok: false, error: bloqueo.mensaje }); continue; }
         }
         // A-10: sin idempotencyKey explícita — cobrarReciboOffSession la deriva del
         // reciboId, de modo que este ejecutor y la aprobación manual comparten la
@@ -540,12 +656,10 @@ export const ejecutarRecomendacion = inngest.createFunction(
         const r = await step.run(`cobrar-${info.id}`, () =>
           cobrarReciboOffSession({ reciboId: info.id, socioId: info.socio_id!, studioId: recomendacion.studioId })
         );
-        if (r.ok) cobrados++; else detalles.push(`${info.id}: ${r.error ?? 'fallo'}`);
+        intentos.push(r);
       }
-      resultado = {
-        ok: cobrados > 0,
-        detalle: cobrados === recibosInfo.length ? `${cobrados} recibos cobrados.` : `${cobrados}/${recibosInfo.length} recibos cobrados. ${detalles.join('; ')}`,
-      };
+      const cobro = resumirCobro(intentos);
+      resultado = { ok: cobroEjecutado(cobro), detalle: detalleCobro(cobro), cobro };
     } else if (recomendacion.accion.tipo === 'CONTACTO_MANUAL') {
       // Aprobar una recomendación de contacto → enviar el mensaje a la socia.
       resultado = await step.run('contactar-socia', () => ejecutarContactoSocia(recomendacion));
@@ -555,38 +669,72 @@ export const ejecutarRecomendacion = inngest.createFunction(
     }
 
     const resueltoEn = await step.run('now', async () => new Date().toISOString());
+    // Lo que pasó, en la misma fila y el mismo UPDATE que el estado: es lo que
+    // lee la tarjeta tras «Cobrar ahora» (GET /api/decisiones/[id]/estado).
+    const loQuePaso: ResultadoEjecucion = { detalle: resultado.detalle, ...(resultado.cobro ? { cobro: resultado.cobro } : {}) };
     // Quién firma la línea del feed: el piloto automático aprueba con
     // resuelto_por='AUTONOMIA' (aprobar_recomendacion_autonoma) y eso lo hizo
     // Tentare solo. Si la aprobó la propietaria, la decisión es suya y Tentare
     // solo la ejecuta: es actividad del equipo.
     const origenActividad = recomendacion.resueltoPor === 'AUTONOMIA' ? 'TENTARE' : 'EQUIPO';
+    // Traza visible en el feed "Actividad" del Centro (antes aprobar no dejaba
+    // rastro alguno). Un cobro dice lo que se cobró y lo que no —antes era
+    // «Gestionada: Se quedaron 2 pagos sin completar», sin un solo euro—, y sin
+    // «No se pudo completar» delante de uno que pudo entrar (lineaActividad).
+    const nombreSocia = typeof recomendacion.datosUsados.nombre === 'string' ? recomendacion.datosUsados.nombre : null;
+    const textoAct = lineaActividad({ titulo: recomendacion.titulo, nombreSocia, ok: resultado.ok, resultado: loQuePaso });
 
-    if (resultado.ok) {
-      // A-17: el insert del outcome y la programación de la medición van GATEADOS
-      // por la transición real APROBADA→EJECUTADA. Sin esto, un segundo run del
-      // ejecutor sobre la misma recomendación (doble aprobación / reintento no
-      // memoizado) insertaba OTRA fila outcome 'EJECUTADA' —sin unicidad en la
-      // tabla—, y luego dbGetOutcomePorRecomendacion (maybeSingle) fallaba con >1
-      // fila: la medición no actualizaba nada y el outcome quedaba PENDIENTE para
-      // siempre. Con el guard, solo el run que efectivamente transiciona escribe.
-      const trans = await step.run('marcar-ejecutada', () => dbTransicionarRecomendacion(recomendacionId, recomendacion.studioId, 'APROBADA', 'EJECUTADA', { resueltoEn }));
-      if (trans.ok) {
-        await step.run('outcome-ejecutada', () => dbInsertOutcome({
-          studioId: recomendacion.studioId, recomendacionId, evento: 'EJECUTADA', outcome: 'PENDIENTE',
-          senalObservada: null, ventanaDias: ventanaDiasDe(recomendacion.tipo), medidoEn: null,
-          impactoReal: null, confianzaMedicion: null, // aún no medido — lo rellena medirOutcomeFn
-        }));
-        // ID único por recomendación para evitar deduplicación erróneaó del mismo evento
-        await step.sendEvent(`medicion-${recomendacionId}`, { name: EVENTS.DECISION_MEASURE, data: { recomendacionId } });
-        // Traza visible en el feed "Actividad" del Centro (antes aprobar no dejaba
-        // rastro alguno). El detalle ya dice qué pasó (email enviado / gestionada).
-        const nombreSocia = typeof recomendacion.datosUsados.nombre === 'string' ? recomendacion.datosUsados.nombre : null;
-        const textoAct = nombreSocia ? `${nombreSocia}: ${resultado.detalle}` : `Gestionada: ${recomendacion.titulo}`;
-        await step.run('log-actividad', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: textoAct, socioId: recomendacion.socioId, origen: origenActividad }));
-      }
-    } else {
-      await step.run('marcar-fallida', () => dbTransicionarRecomendacion(recomendacionId, recomendacion.studioId, 'APROBADA', 'FALLIDA', { resueltoEn }));
-      await step.run('log-actividad-fallo', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: `No se pudo completar: ${recomendacion.titulo} — ${resultado.detalle}`, socioId: recomendacion.socioId, origen: origenActividad }));
+    // Cerrarla (APROBADA → EJECUTADA o FALLIDA, con lo que pasó). Un fallo de la
+    // base de datos la dejaba APROBADA para siempre: «Cobro en marcha» sin fin y
+    // el motor sin poder volver a proponerla. Lanzar dentro del paso hace que
+    // Inngest reintente SOLO este paso —lo de antes, cobros incluidos, está
+    // memorizado y no se repite—, y si se agotan los reintentos, `onFailure`.
+    // `noEstaba` no es un fallo: otra vía la movió (abajo).
+    const cerrar = (hacia: 'EJECUTADA' | 'FALLIDA') => async () => {
+      const t = await dbTransicionarRecomendacion(recomendacionId, recomendacion.studioId, 'APROBADA', hacia, { resueltoEn, resultado: loQuePaso });
+      if (!t.ok && !t.noEstaba) throw new Error(`No se ha podido cerrar la recomendación como ${hacia}: ${t.motivo ?? 'error desconocido'}`);
+      return t;
+    };
+
+    // A-17: el insert del outcome y la programación de la medición van GATEADOS
+    // por la transición real APROBADA→EJECUTADA. Sin esto, un segundo run del
+    // ejecutor sobre la misma recomendación (doble aprobación / reintento no
+    // memoizado) insertaba OTRA fila outcome 'EJECUTADA' —sin unicidad en la
+    // tabla—, y luego dbGetOutcomePorRecomendacion (maybeSingle) fallaba con >1
+    // fila: la medición no actualizaba nada y el outcome quedaba PENDIENTE para
+    // siempre. Con el guard, solo el run que efectivamente transiciona escribe.
+    const trans = resultado.ok
+      ? await step.run('marcar-ejecutada', cerrar('EJECUTADA'))
+      : await step.run('marcar-fallida', cerrar('FALLIDA'));
+    if (trans.ok && resultado.ok) {
+      await step.run('outcome-ejecutada', () => dbInsertOutcome({
+        studioId: recomendacion.studioId, recomendacionId, evento: 'EJECUTADA', outcome: 'PENDIENTE',
+        senalObservada: null, ventanaDias: ventanaDiasDe(recomendacion.tipo), medidoEn: null,
+        impactoReal: null, confianzaMedicion: null, // aún no medido — lo rellena medirOutcomeFn
+      }));
+      // ID único por recomendación para evitar deduplicación erróneaó del mismo evento
+      await step.sendEvent(`medicion-${recomendacionId}`, { name: EVENTS.DECISION_MEASURE, data: { recomendacionId } });
+      await step.run('log-actividad', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: textoAct, socioId: recomendacion.socioId, origen: origenActividad }));
+    } else if (trans.ok) {
+      await step.run('log-actividad-fallo', () => dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: textoAct, socioId: recomendacion.socioId, origen: origenActividad }));
+    } else if (!trans.noEstaba) {
+      // Solo con un cierre memorizado por el código de antes, que no lanzaba: la
+      // función falla y `onFailure` la cierra, en vez de dejarla APROBADA.
+      throw new Error(`No se ha podido cerrar la recomendación ${recomendacionId}: ${trans.motivo ?? 'error desconocido'}`);
+    } else if (resultado.cobro && pudoMoverDinero(resultado.cobro)) {
+      // Ya no estaba APROBADA al ir a cerrarla, y este run ha movido dinero. Pasa
+      // si /aprobar la devolvió a PENDIENTE (el envío del evento dio error con el
+      // evento ya dentro) mientras aquí se cobraba: la tarjeta vuelve a ofrecer
+      // «Cobrar ahora» sobre lo que ya se cobró. El recibo no se cobra dos veces
+      // —`cobrarReciboOffSession` lo comprueba—, pero lo cobrado no puede
+      // quedarse sin rastro: su línea en Actividad, y Sentry para mirarlo.
+      await step.run('cobro-sin-cerrar', async () => {
+        await dbLogActividadReciente({ studioId: recomendacion.studioId, tipo: 'DECISION_GESTIONADA', texto: textoAct, socioId: recomendacion.socioId, origen: origenActividad });
+        Sentry.captureMessage('[decision] cobro hecho sobre una recomendación que ya no estaba APROBADA: revisar la tarjeta y el recibo', {
+          level: 'error', tags: { area: 'decision-os' },
+          extra: { recomendacionId, studioId: recomendacion.studioId, detalle: resultado.detalle },
+        });
+      });
     }
 
     return resultado;
@@ -597,12 +745,22 @@ export const ejecutarRecomendacion = inngest.createFunction(
 // F4 · MEDIR OUTCOME — un run por recomendación ejecutada, con sleepUntil
 // durable (Arquitectura §6 F4): no consume cómputo mientras espera.
 // ═══════════════════════════════════════════════════════════════════════════
+// Cada consulta va acotada al estudio de la recomendación (`studio_id`): corre
+// con service-role, sin RLS, y los ids que lleva la fila (`socio_id`,
+// `reciboIds`, `sesion_id`) no bastan por sí solos — la FK a socios es global.
+// Sin el filtro, un id de otro estudio medía con datos ajenos y el resultado
+// quedaba en el outcome de este. Lo cobrado se lee con situacion-recibo.ts:
+// neto de reembolsos, nunca `estado === 'COBRADO'` y el importe en bruto.
+type FilaReciboMedicion = { estado: string; importe: number; importe_devuelto: number | null };
+const cobradoDe = (x: FilaReciboMedicion) => ({ estado: x.estado, importe: x.importe, importeDevuelto: x.importe_devuelto });
+
 async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> {
   if (r.tipo === 'RECUPERAR_PAGOS' && r.accion.tipo === 'COBRAR_RECIBOS') {
-    const { data: recibos } = await requireSupabaseAdmin().from('recibos').select('estado, importe').in('id', r.accion.reciboIds);
+    const { data: recibos } = await requireSupabaseAdmin().from('recibos')
+      .select('estado, importe, importe_devuelto').in('id', r.accion.reciboIds).eq('studio_id', r.studioId);
     const total = recibos?.length ?? 0;
-    const cobradosFilas = (recibos ?? []).filter((x: { estado: string }) => x.estado === 'COBRADO');
-    const importeCobradoEur = cobradosFilas.reduce((suma: number, x: { importe: number }) => suma + Number(x.importe), 0);
+    const cobradosFilas = ((recibos ?? []) as FilaReciboMedicion[]).filter(x => situacionRecibo(cobradoDe(x)) === 'COBRADO');
+    const importeCobradoEur = cobradosFilas.reduce((suma, x) => suma + importeIngresado(cobradoDe(x)), 0);
     return {
       reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false,
       recibosCobrados: cobradosFilas.length, recibosTotal: total, importeCobradoEur, precioMensualPlanEur: null,
@@ -616,12 +774,13 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
   // ya COBRADO tras la ventana de medición.
   if (r.tipo === 'COBRAR_PENDIENTE' && r.socioId) {
     const { data: recibos } = await requireSupabaseAdmin()
-      .from('recibos').select('estado, fecha_vencimiento, importe').eq('socio_id', r.socioId);
+      .from('recibos').select('estado, fecha_vencimiento, importe, importe_devuelto').eq('socio_id', r.socioId).eq('studio_id', r.studioId);
     const corte = new Date(r.resueltoEn ?? 0).getTime();
-    const relevantes = (recibos ?? []).filter((x: { fecha_vencimiento: string }) => new Date(x.fecha_vencimiento).getTime() <= corte);
+    const relevantes = ((recibos ?? []) as Array<FilaReciboMedicion & { fecha_vencimiento: string }>)
+      .filter(x => new Date(x.fecha_vencimiento).getTime() <= corte);
     const total = relevantes.length;
-    const cobradosFilas = relevantes.filter((x: { estado: string }) => x.estado === 'COBRADO');
-    const importeCobradoEur = cobradosFilas.reduce((suma: number, x: { importe: number }) => suma + Number(x.importe), 0);
+    const cobradosFilas = relevantes.filter(x => situacionRecibo(cobradoDe(x)) === 'COBRADO');
+    const importeCobradoEur = cobradosFilas.reduce((suma, x) => suma + importeIngresado(cobradoDe(x)), 0);
     return {
       reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false,
       recibosCobrados: cobradosFilas.length, recibosTotal: total, importeCobradoEur, precioMensualPlanEur: null,
@@ -637,8 +796,8 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
   if (r.tipo === 'LLENAR_PLAZAS' && r.sesionId) {
     const admin = requireSupabaseAdmin();
     const [{ data: sesion }, { data: reservas }] = await Promise.all([
-      admin.from('sesiones').select('aforo_maximo, inicio, cancelada').eq('id', r.sesionId).maybeSingle(),
-      admin.from('reservas').select('estado, creado_en').eq('sesion_id', r.sesionId),
+      admin.from('sesiones').select('aforo_maximo, inicio, cancelada').eq('id', r.sesionId).eq('studio_id', r.studioId).maybeSingle(),
+      admin.from('reservas').select('estado, creado_en').eq('sesion_id', r.sesionId).eq('studio_id', r.studioId),
     ]);
     const vacio = {
       reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false,
@@ -673,8 +832,8 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
 
   const resueltoEnISO = r.resueltoEn ?? new Date(0).toISOString();
   const [{ data: reservas }, { data: suscripciones }] = await Promise.all([
-    requireSupabaseAdmin().from('reservas').select('creado_en').eq('socio_id', r.socioId).eq('estado', 'ASISTIDA').gt('creado_en', resueltoEnISO),
-    requireSupabaseAdmin().from('suscripciones').select('estado, fecha_inicio, plan_id').eq('socio_id', r.socioId),
+    requireSupabaseAdmin().from('reservas').select('creado_en').eq('socio_id', r.socioId).eq('studio_id', r.studioId).eq('estado', 'ASISTIDA').gt('creado_en', resueltoEnISO),
+    requireSupabaseAdmin().from('suscripciones').select('estado, fecha_inicio, plan_id').eq('socio_id', r.socioId).eq('studio_id', r.studioId),
   ]);
 
   const reservaAsistidaPosterior = (reservas ?? []).length > 0;
@@ -689,7 +848,7 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
   let precioMensualPlanEur: number | null = null;
   if (renovada?.plan_id) {
     const { data: plan } = await requireSupabaseAdmin()
-      .from('planes_tarifa').select('precio').eq('id', renovada.plan_id).maybeSingle();
+      .from('planes_tarifa').select('precio').eq('id', renovada.plan_id).eq('studio_id', r.studioId).maybeSingle();
     precioMensualPlanEur = plan?.precio != null ? Number(plan.precio) : null;
   }
 
@@ -705,7 +864,13 @@ export const medirOutcomeFn = inngest.createFunction(
   async ({ event, step }) => {
     const { recomendacionId } = event.data as { recomendacionId: string };
 
-    const recomendacion = await step.run('fetch', () => dbGetRecomendacion(recomendacionId));
+    const recomendacion = await step.run('fetch', async () => {
+      const r = await dbGetRecomendacion(recomendacionId);
+      // Un fallo de la base de datos no es «no ejecutada»: se reintenta, en vez
+      // de perder la medición para siempre.
+      if (r === undefined) throw new Error(`No se ha podido leer la recomendación ${recomendacionId}`);
+      return r;
+    });
     if (!recomendacion || recomendacion.estado !== 'EJECUTADA' || !recomendacion.resueltoEn) {
       return { ok: false, motivo: 'No ejecutada o sin fecha de resolución' };
     }
