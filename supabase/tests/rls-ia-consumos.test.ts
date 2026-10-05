@@ -185,3 +185,6 @@ test('RLS: la gerente solo ve lo suyo, recepción nada, los packs solo la propie
     await limpiarFixtures(admin, [f]);
   }
 });
+
+// Sin cerrar la conexión, el proceso de node --test no termina y el job se cuelga hasta el timeout.
+test.after(async () => { await sql.end(); });
