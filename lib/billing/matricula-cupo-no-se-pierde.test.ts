@@ -24,7 +24,10 @@ test('⚠️ checkout embebido: si Stripe repite el PaymentIntent del mismo inte
 
 test('⚠️ Checkout Session: si Stripe repite la sesión del mismo intento, la plaza de esta petición vuelve', () => {
   const src = fuente('../../app/api/stripe/checkout/route.ts');
-  assert.match(src, /if \(cupoMatriculaReservado && esRespuestaRepetida\(session\)\) \{\s*await liberarCupoMatricula\(/);
+  // `creadaAqui` = no es la repetición de otra petición (o lo es de una caducada y
+  // esta petición creó otra, que se queda con la plaza).
+  assert.match(src, /let creadaAqui = !esRespuestaRepetida\(session\);/);
+  assert.match(src, /if \(cupoMatriculaReservado && !creadaAqui\) \{\s*await liberarCupoMatricula\(/);
   assert.ok(src.indexOf('esRespuestaRepetida(session)') > src.indexOf('stripe.checkout.sessions.create('));
 });
 

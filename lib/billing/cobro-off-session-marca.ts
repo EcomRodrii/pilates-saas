@@ -33,6 +33,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { puedeIntentarCobro, type MarcaTrasCancelarCuota, type MotivoSinCobro, type ViaCobro } from './cobro-permitido.ts';
+import { exigirCheckoutLeido } from './pago-online-al-cobrar-a-mano.ts';
 
 /** El mismo intento vuelve a entrar sin escribir nada durante este tiempo. */
 export const MINUTOS_REENTRADA = 10;
@@ -130,8 +131,11 @@ export function clasificarReservaPerdida(
   if (fila.cobro_mostrador_pi) return { tipo: 'EN_MARCHA', por: 'MOSTRADOR' };
   if (p.via === 'AUTOMATICO' && fila.checkout_session_id) return { tipo: 'EN_MARCHA', por: 'PAGO_ONLINE' };
   // A mano: la clienta ha abierto OTRO pago online después de que se cerrara el
-  // que se leyó. Ese puede estar pagándose ya.
-  if (p.checkoutLeido !== undefined && fila.checkout_session_id !== p.checkoutLeido) return { tipo: 'EN_MARCHA', por: 'PAGO_ONLINE' };
+  // que se leyó. Ese puede estar pagándose ya. Que la columna esté vacía no es eso:
+  // la suelta el conciliador cuando la sesión caduca (lib/billing/sesion-caducada.ts).
+  if (p.checkoutLeido !== undefined && fila.checkout_session_id !== null && fila.checkout_session_id !== p.checkoutLeido) {
+    return { tipo: 'EN_MARCHA', por: 'PAGO_ONLINE' };
+  }
   return { tipo: 'CAMBIO' };
 }
 
@@ -177,10 +181,10 @@ export interface CondicionesReserva {
   ahoraISO: string;
   /**
    * A mano (STAFF): el `checkout_session_id` que se leyó y se CERRÓ en Stripe justo
-   * antes (`soltarPagosEnMarchaAntesDeCobrar`). El UPDATE exige que siga siendo ese:
-   * si entre medias la clienta abrió otro pago online, no se cobra con su tarjeta
-   * guardada (lo podría estar pagando a la vez). Sin él (undefined), no se mira la
-   * columna: no se limpia al caducar la sesión y bloquearía para siempre.
+   * antes (`soltarPagosEnMarchaAntesDeCobrar`). El UPDATE exige que siga siendo ese, o
+   * ninguno (`exigirCheckoutLeido`): si entre medias la clienta abrió otro pago online,
+   * no se cobra con su tarjeta guardada (lo podría estar pagando a la vez). Sin él
+   * (undefined), no se mira la columna.
    */
   checkoutLeido?: string | null;
 }
@@ -215,9 +219,7 @@ export async function reservarCobroOffSession(admin: SupabaseClient, c: Condicio
   } else {
     q = q.in('estado', ['PENDIENTE', 'FALLIDO'])
       .or('tras_cancelar_cuota.is.null,tras_cancelar_cuota.neq.ANULADO');
-    if (c.checkoutLeido !== undefined) {
-      q = c.checkoutLeido === null ? q.is('checkout_session_id', null) : q.eq('checkout_session_id', c.checkoutLeido);
-    }
+    if (c.checkoutLeido !== undefined) q = exigirCheckoutLeido(q, c.checkoutLeido);
   }
   const { data, error } = await q.select('id, cobro_off_session_desde');
   if (error) return { tipo: 'ERROR', error: error.message };

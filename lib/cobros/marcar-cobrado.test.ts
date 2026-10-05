@@ -380,5 +380,6 @@ test('uno a uno en el mostrador: se mira cada recibo justo antes, después de la
   assert.doesNotMatch(ruta + ayuda, /readers\.cancelAction/);
   const confirmar = readFileSync(join(import.meta.dirname, '../billing/confirmar-cobro.ts'), 'utf8');
   assert.match(confirmar, /else if \(p\.sinCobroDeMostrador\) \{\s*consulta = consulta\.is\('cobro_mostrador_pi', null\);/);
-  assert.match(confirmar, /p\.checkoutLeido === null \? consulta\.is\('checkout_session_id', null\) : consulta\.eq\('checkout_session_id', p\.checkoutLeido\)/);
+  // La leída o ninguna (la vacía el conciliador al caducar): ver `exigirCheckoutLeido`.
+  assert.match(confirmar, /if \(p\.checkoutLeido !== undefined\) consulta = exigirCheckoutLeido\(consulta, p\.checkoutLeido\);/);
 });

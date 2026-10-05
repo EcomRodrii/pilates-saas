@@ -153,3 +153,57 @@ export function claveCheckoutRecibo(
   const quien = `${peticion.modo === 'incrustado' ? 'i' : 'h'}${peticion.pagadorVerificado ? 'v' : 'a'}`;
   return `checkout-${reciboId}-${[...metodosPedidos].sort().join('-')}-${importeCentimos}-${quien}-${ventana}`;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La REPETICIÓN idempotente de Stripe (5-oct-2026). Con la misma clave y los
+// mismos parámetros, Stripe no crea otra sesión: devuelve la primera tal como era
+// al CREARSE (`status: 'open'` y su URL), aunque desde entonces se haya pagado o
+// haya caducado. Devolver esa URL sin mirar es mandar a pagar a una sesión muerta,
+// o a una ya pagada. Se decide con la sesión de AHORA (`retrieve`).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SesionRepetida = 'usar' | 'nueva' | 'pagada' | 'no-se-sabe';
+
+export function queHacerConSesionRepetida(actual: { status: string | null } | null): SesionRepetida {
+  if (!actual) return 'no-se-sabe';
+  // Sigue abierta: es la misma, se usa (otra pestaña del mismo intento).
+  if (actual.status === 'open') return 'usar';
+  // Caducó: este intento necesita una sesión NUEVA, con otra clave.
+  if (actual.status === 'expired') return 'nueva';
+  // Completada: ya se pagó por ella. Nunca otra.
+  if (actual.status === 'complete') return 'pagada';
+  return 'no-se-sabe';
+}
+
+/** Clave para una sesión nueva del mismo intento cuando la de su clave ya no sirve. */
+export const claveTrasSesion = (clave: string, sesionMuerta: string) => `${clave}:tras-${sesionMuerta}`;
+
+const ID_SESION_SEGURO = /^cs_[A-Za-z0-9_]+$/;
+
+interface ConFiltrosSesion<Q> {
+  is(columna: string, valor: null): Q;
+  eq(columna: string, valor: string): Q;
+  in(columna: string, valores: string[]): Q;
+  or(filtro: string): Q;
+}
+
+/**
+ * El compare-and-set que guarda la sesión de un recibo: la guardada sigue siendo la
+ * que se leyó… o ya es ESTA misma. Lo segundo pasa cuando dos peticiones del mismo
+ * intento reciben de Stripe la misma sesión (la repetición idempotente): la que
+ * llega segunda no puede tomarlo por «otra sesión» y caducar la que ya se entregó.
+ */
+export function exigirSesionLeidaOEsta<Q extends ConFiltrosSesion<Q>>(q: Q, leida: string | null, esta: string): Q {
+  const seguro = ID_SESION_SEGURO.test(esta) && (leida === null || ID_SESION_SEGURO.test(leida));
+  if (!seguro) return leida === null ? q.is('checkout_session_id', null) : q.eq('checkout_session_id', leida);
+  if (leida === null) return q.or(`checkout_session_id.is.null,checkout_session_id.eq.${esta}`);
+  return q.in('checkout_session_id', [leida, esta]);
+}
+
+/** Para quien pide pagar y no se ha podido comprobar el pago que ya tenía abierto. */
+export const MENSAJE_SESION_PREVIA_SIN_COMPROBAR =
+  'No hemos podido comprobar el pago que ya tenías abierto. Inténtalo en un momento: no se te ha cobrado nada.';
+
+/** Para quien vuelve a pagar una compra (no un recibo) que ya ha pagado. */
+export const MENSAJE_COMPRA_YA_PAGADA =
+  'Ya has pagado esta compra: te llegará la confirmación por email. No hace falta que la pagues otra vez.';

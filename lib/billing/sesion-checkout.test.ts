@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decidirSesionCheckout, claveCheckoutRecibo, modoDeSesion, type PeticionCheckout } from './sesion-checkout.ts';
+import {
+  claveCheckoutRecibo, claveTrasSesion, decidirSesionCheckout, exigirSesionLeidaOEsta, modoDeSesion, queHacerConSesionRepetida,
+  type PeticionCheckout,
+} from './sesion-checkout.ts';
 import { readFileSync } from 'node:fs';
 
 const IMPORTE = 5000; // 50,00€, en céntimos — el importe "actual" del recibo en todos los tests salvo los de M-3.
@@ -239,6 +242,71 @@ test('rama de recibo: el UPDATE que guarda la sesión vuelve a exigir todo lo co
   for (const cond of [
     ".is('cobro_off_session_clave', null)", ".in('estado', [...ESTADOS_COBRABLES])", ".is('cobro_mostrador_pi', null)",
     ".is('reembolso_stripe_id', null)", ".is('reembolso_solicitado_en', null)", ".or('estado.neq.DEVUELTO,importe_devuelto.eq.0')",
-    "guardar.is('checkout_session_id', null)", "guardar.eq('checkout_session_id', sesionAbiertaId)",
+    'exigirSesionLeidaOEsta(guardar, sesionAbiertaId, session.id)',
   ]) assert.ok(bloque.includes(cond), `falta ${cond} en el UPDATE`);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La repetición idempotente de Stripe (5-oct-2026): trae la sesión como era al
+// crearse. Dos peticiones del mismo intento reciben la MISMA sesión, y la segunda
+// en escribir no puede tomarla por «otra» y caducar la que ya se entregó.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('repetición: se decide con la sesión de AHORA, no con la que devuelve Stripe', () => {
+  assert.equal(queHacerConSesionRepetida({ status: 'open' }), 'usar');
+  assert.equal(queHacerConSesionRepetida({ status: 'expired' }), 'nueva', 'una URL caducada no se entrega: otra, con otra clave');
+  assert.equal(queHacerConSesionRepetida({ status: 'complete' }), 'pagada', 'pagada: ni su URL ni otra sesión');
+  assert.equal(queHacerConSesionRepetida(null), 'no-se-sabe');
+  assert.equal(queHacerConSesionRepetida({ status: null }), 'no-se-sabe');
+  assert.notEqual(claveTrasSesion('checkout-rec-1-card-5000-hv-1', 'cs_muerta'), 'checkout-rec-1-card-5000-hv-1');
+});
+
+type FiltroSesion = [op: string, columna: string, valor: unknown];
+function builderSesion() {
+  const filtros: FiltroSesion[] = [];
+  const b = {
+    is(c: string, v: null) { filtros.push(['is', c, v]); return b; },
+    eq(c: string, v: string) { filtros.push(['eq', c, v]); return b; },
+    in(c: string, v: string[]) { filtros.push(['in', c, v]); return b; },
+    or(expr: string) { filtros.push(['or', '', expr]); return b; },
+  };
+  return { b, filtros };
+}
+
+test('guardar la sesión: la leída, o ya ESTA (la guardó la otra petición del mismo intento)', () => {
+  const sinLeida = builderSesion();
+  exigirSesionLeidaOEsta(sinLeida.b, null, 'cs_nueva');
+  assert.deepEqual(sinLeida.filtros, [['or', '', 'checkout_session_id.is.null,checkout_session_id.eq.cs_nueva']]);
+  const conLeida = builderSesion();
+  exigirSesionLeidaOEsta(conLeida.b, 'cs_vieja', 'cs_nueva');
+  assert.deepEqual(conLeida.filtros, [['in', 'checkout_session_id', ['cs_vieja', 'cs_nueva']]]);
+  // Un id con otra forma no entra en un filtro compuesto: lo de siempre, estricto.
+  const raro = builderSesion();
+  exigirSesionLeidaOEsta(raro.b, 'cs_vieja', 'cs_x,id.neq.y');
+  assert.deepEqual(raro.filtros, [['eq', 'checkout_session_id', 'cs_vieja']]);
+});
+
+test('rama de recibo: si no se puede revisar la sesión guardada, NO se crea otra (salvo que no exista)', () => {
+  const s = rutaCheckout();
+  const ini = s.indexOf('if (sesionAbiertaId) {');
+  const bloque = s.slice(ini, s.indexOf('const clavePlan', ini));
+  assert.match(bloque, /if \(!sesionNoExisteEnStripe\(err\)\) \{[\s\S]{0,400}status: 503/);
+  // Cerrar la previa con el mismo dueño que el mostrador: si la acaban de pagar, 409.
+  assert.match(bloque, /await cerrarPagoOnlineAntesDeCobrarAMano\(previa\.id, \{/);
+  assert.match(bloque, /cierre\.tipo === 'YA_PAGADO'[\s\S]{0,200}status: 409/);
+  assert.match(bloque, /cierre\.tipo === 'NO_SE_SABE'[\s\S]{0,200}status: 503/);
+  assert.doesNotMatch(bloque, /catch \(err\) \{\s*\/\/ La sesión guardada ya no se puede consultar/, 'ya no se sigue a ciegas');
+});
+
+test('la repetición de Stripe se mira antes de entregar su URL, y la segunda petición no caduca la de la primera', () => {
+  const s = rutaCheckout();
+  const crea = s.indexOf('= await crearSesion(claveSesion);');
+  const mira = s.indexOf('queHacerConSesionRepetida(actual)', crea);
+  const guarda = s.indexOf('.update({ checkout_session_id: session.id })', crea);
+  assert.ok(crea > 0 && mira > crea && guarda > mira, 'crear → mirar la repetición → guardar');
+  assert.match(s.slice(mira, guarda), /session = await crearSesion\(claveTrasSesion\(claveSesion, session\.id\)\)/, 'caducada: otra con otra clave');
+  const cero = s.indexOf('if (reciboDesaparecido) {', guarda);
+  const caduca = s.indexOf('await stripe.checkout.sessions.expire(session.id', guarda);
+  assert.ok(cero > 0 && caduca > cero, 'antes de caducar se relee');
+  assert.match(s.slice(cero, caduca), /ahora\?\.checkout_session_id === session\.id[\s\S]{0,120}url: session\.url/);
 });

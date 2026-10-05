@@ -36,10 +36,11 @@ export const MENSAJE_COBRO_EN_EL_DATAFONO =
   'Se está cobrando en el datáfono: no se ha cobrado aquí. Espera a que termine, o cancélalo en la caja.';
 
 /** La sesión no existe en esa cuenta (borrada, o de otra cuenta): nadie puede pagarla. */
-function noExiste(e: unknown): boolean {
+export function sesionNoExisteEnStripe(e: unknown): boolean {
   const err = e as { code?: string; statusCode?: number } | null;
   return err?.code === 'resource_missing' || err?.statusCode === 404;
 }
+const noExiste = sesionNoExisteEnStripe;
 
 export async function cerrarPagoOnlineAntesDeCobrarAMano(
   sesionId: string | null | undefined,

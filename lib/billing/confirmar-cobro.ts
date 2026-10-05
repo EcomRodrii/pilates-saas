@@ -59,6 +59,7 @@ import {
 } from './cobro-confirmado-reglas.ts';
 
 import { COLUMNAS_COBRO_EN_MARCHA } from './remesa-sepa-reglas.ts';
+import { exigirCheckoutLeido } from './pago-online-al-cobrar-a-mano.ts';
 export type { OrigenCobro } from './cobro-confirmado-reglas.ts';
 
 // Fuera del runtime de Next (`node --test`) el paquete no expone
@@ -119,8 +120,9 @@ export interface ParamsConfirmarCobro {
   sinCobroDeMostrador?: boolean;
   /**
    * Cobro a mano uno a uno: el `checkout_session_id` que se leyó (y se cerró, si
-   * estaba abierto) justo antes. El compare-and-set exige que siga siendo ese: si la
-   * clienta abrió otro enlace entre medias, no se cobra. `undefined` = no se mira.
+   * estaba abierto) justo antes. El compare-and-set exige que siga siendo ese, o
+   * ninguno: si la clienta abrió otro enlace entre medias, no se cobra.
+   * `undefined` = no se mira.
    */
   checkoutLeido?: string | null;
   /** «Hacerle factura» de un cobro a mano en efectivo: la factura la emite el servidor, como la de tarjeta. */
@@ -430,9 +432,9 @@ export async function confirmarCobro(
   if (!marcaYaExigida && (ESPERA_A_UN_COBRO_OFF_SESSION[p.origen] || p.sinCobroDeMostrador)) {
     consulta = consulta.is('cobro_off_session_clave', null);
   }
-  if (p.checkoutLeido !== undefined) {
-    consulta = p.checkoutLeido === null ? consulta.is('checkout_session_id', null) : consulta.eq('checkout_session_id', p.checkoutLeido);
-  }
+  // La sesión que se leyó (y se cerró), o ninguna: la columna vacía la deja el
+  // conciliador al caducar la sesión, y eso no es un pago nuevo (`exigirCheckoutLeido`).
+  if (p.checkoutLeido !== undefined) consulta = exigirCheckoutLeido(consulta, p.checkoutLeido);
 
   // `metodo_cobro` vuelve del MISMO UPDATE: con `metodo: null` es el que ya
   // tenía el recibo, sin una lectura aparte que pudiera cruzarse con otra.

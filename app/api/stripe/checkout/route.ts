@@ -13,7 +13,10 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
-import { decidirSesionCheckout, claveCheckoutRecibo, type PeticionCheckout } from '@/lib/billing/sesion-checkout';
+import {
+  claveCheckoutRecibo, claveTrasSesion, decidirSesionCheckout, exigirSesionLeidaOEsta, MENSAJE_COMPRA_YA_PAGADA,
+  MENSAJE_SESION_PREVIA_SIN_COMPROBAR, queHacerConSesionRepetida, type PeticionCheckout,
+} from '@/lib/billing/sesion-checkout';
 import { claveCheckoutPlanModoA } from '@/lib/billing/clave-checkout-embebido';
 import { CODIGO_PAGO_EN_CURSO, esErrorDeIdempotencia, MENSAJE_PAGO_EN_CURSO } from '@/lib/billing/pago-en-curso';
 import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
@@ -37,7 +40,9 @@ import {
   MENSAJE_RECIBO_YA_PAGADO_ONLINE,
 } from '@/lib/billing/cobro-off-session-marca';
 import { preparadorDeStripe, soltarCobroDeMostradorDelRecibo } from '@/lib/cobros/antes-de-cobrar-a-mano-servidor';
-import { MINUTOS_COBRO_MOSTRADOR_ABANDONADO } from '@/lib/billing/pago-online-al-cobrar-a-mano';
+import {
+  cerrarPagoOnlineAntesDeCobrarAMano, MINUTOS_COBRO_MOSTRADOR_ABANDONADO, sesionNoExisteEnStripe,
+} from '@/lib/billing/pago-online-al-cobrar-a-mano';
 import { telefonoValido } from '@/lib/csv';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
@@ -640,12 +645,26 @@ export async function POST(req: NextRequest) {
   // solo hereda la sesión abierta quien la abrió (ver `decidirSesionCheckout`).
   const peticionCheckout: PeticionCheckout = { modo: 'hospedado', pagadorVerificado: !!body.reciboId && pagadorVerificado };
   if (sesionAbiertaId) {
+    // ⚠️ Si no se puede revisar ni cerrar la sesión guardada, NO se crea otra
+    // (5-oct-2026). Antes un fallo aquí solo se anotaba y se seguía: con la sesión
+    // ya pagada y el webhook sin llegar se saltaba el 'ya-pagada', y si la clienta
+    // la terminaba justo entre la consulta y el cierre quedaban dos pagables. Mismo
+    // criterio que el mostrador (`cerrarPagoOnlineAntesDeCobrarAMano`): sin saberlo,
+    // no se cobra. Solo una sesión que no existe en esa cuenta deja seguir.
+    const cuentaConnect = studio.stripe_account_id;
+    let previa: Stripe.Checkout.Session | null = null;
     try {
-      const previa = await stripe.checkout.sessions.retrieve(
-        sesionAbiertaId,
-        undefined,
-        { stripeAccount: studio.stripe_account_id },
-      );
+      previa = await stripe.checkout.sessions.retrieve(sesionAbiertaId, undefined, { stripeAccount: cuentaConnect });
+    } catch (err) {
+      if (!sesionNoExisteEnStripe(err)) {
+        console.error('[stripe/checkout] no se pudo revisar la sesión previa', sesionAbiertaId, err);
+        if (cupoMatriculaReservado) {
+          await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+        }
+        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_SESION_PREVIA_SIN_COMPROBAR }, { status: 503 }));
+      }
+    }
+    if (previa) {
       const decision = decidirSesionCheckout(previa, paymentMethodTypes, Math.round(importe * 100), peticionCheckout);
       if (decision === 'reutilizar' && previa.url) {
         return conCorsWidget(req, NextResponse.json({ url: previa.url }));
@@ -656,17 +675,18 @@ export async function POST(req: NextRequest) {
         return conCorsWidget(req, NextResponse.json({ error: MENSAJE_RECIBO_YA_PAGADO_ONLINE }, { status: 409 }));
       }
       if (decision === 'expirar-y-crear') {
-        await stripe.checkout.sessions.expire(
-          sesionAbiertaId,
-          undefined,
-          { stripeAccount: studio.stripe_account_id },
-        );
+        // Cerrar, y volver a mirar si no se deja: lo normal es que la acaben de pagar.
+        const cierre = await cerrarPagoOnlineAntesDeCobrarAMano(previa.id, {
+          consultar: id => stripe.checkout.sessions.retrieve(id, undefined, { stripeAccount: cuentaConnect }),
+          cerrar: id => stripe.checkout.sessions.expire(id, undefined, { stripeAccount: cuentaConnect }),
+        });
+        if (cierre.tipo === 'YA_PAGADO') {
+          return conCorsWidget(req, NextResponse.json({ error: MENSAJE_RECIBO_YA_PAGADO_ONLINE }, { status: 409 }));
+        }
+        if (cierre.tipo === 'NO_SE_SABE') {
+          return conCorsWidget(req, NextResponse.json({ error: MENSAJE_SESION_PREVIA_SIN_COMPROBAR }, { status: 503 }));
+        }
       }
-    } catch (err) {
-      // La sesión guardada ya no se puede consultar (borrada, cuenta cambiada,
-      // Stripe caído). No es motivo para impedir el pago: se sigue y se crea
-      // una nueva. El peor caso es exactamente el comportamiento de antes.
-      console.error('[stripe/checkout] no se pudo revisar la sesión previa', sesionAbiertaId, err);
     }
   }
 
@@ -711,7 +731,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    const parametrosSesion: Stripe.Checkout.SessionCreateParams = {
       mode: 'payment',
       payment_method_types: paymentMethodTypes,
       line_items: [
@@ -769,32 +789,65 @@ export async function POST(req: NextRequest) {
       // Sale de la plaza, no de Date.now(): un reintento del mismo intento
       // manda los mismos parámetros y la idempotencia de Stripe no protesta.
       ...(plaza ? { expires_at: Math.floor(new Date(plaza.expiraEn).getTime() / 1000) } : {}),
-    }, {
+    };
+    // Cinturón además de los tirantes: la reutilización de arriba no cubre la
+    // carrera de dos peticiones que entran ANTES de que ninguna haya llegado a
+    // guardar `checkout_session_id`. Con la misma clave, Stripe devuelve la
+    // sesión que ya creó en vez de crear otra. Lleva los métodos de pago
+    // porque cambiarlos sí exige una sesión distinta, y con la misma clave y
+    // parámetros distintos Stripe respondería un error de idempotencia.
+    //
+    // Para la compra de un plan, `clavePlan` (D-3): la afirmación que vivía
+    // aquí —"no hay un id estable con el que construir una clave que no
+    // colisione entre personas"— dejó de ser cierta cuando el Modo B lo
+    // resolvió identificando el INTENTO (persona hasheada + plan + descuento
+    // + ventana), y quedó sin aplicar en este camino.
+    const claveSesion: string | null = body.reciboId
+      // PAY-3: la clave lleva TAMBIÉN el importe. Sin él, el camino
+      // `expirar-y-crear` por cambio de importe (M-3) pedía la sesión nueva
+      // con la clave vieja y parámetros distintos, Stripe lo rechazaba y el
+      // recibo quedaba impagable ~24 h con la sesión anterior ya expirada.
+      ? claveCheckoutRecibo(body.reciboId, paymentMethodTypes, Math.round(importe * 100), peticionCheckout)
+      : clavePlan
+        // Con plaza de cupo, la clave lleva su intento: un intento liberado y
+        // vuelto a reservar necesita otra sesión, no la caducada.
+        ? (plaza ? claveStripe(clavePlan, plaza.intento) : clavePlan)
+        : null;
+    const crearSesion = (clave: string | null) => stripe.checkout.sessions.create(parametrosSesion, {
       stripeAccount: studio.stripe_account_id,
-      // Cinturón además de los tirantes: la reutilización de arriba no cubre la
-      // carrera de dos peticiones que entran ANTES de que ninguna haya llegado a
-      // guardar `checkout_session_id`. Con la misma clave, Stripe devuelve la
-      // sesión que ya creó en vez de crear otra. Lleva los métodos de pago
-      // porque cambiarlos sí exige una sesión distinta, y con la misma clave y
-      // parámetros distintos Stripe respondería un error de idempotencia.
-      //
-      // Para la compra de un plan, `clavePlan` (D-3): la afirmación que vivía
-      // aquí —"no hay un id estable con el que construir una clave que no
-      // colisione entre personas"— dejó de ser cierta cuando el Modo B lo
-      // resolvió identificando el INTENTO (persona hasheada + plan + descuento
-      // + ventana), y quedó sin aplicar en este camino.
-      ...(body.reciboId
-        // PAY-3: la clave lleva TAMBIÉN el importe. Sin él, el camino
-        // `expirar-y-crear` por cambio de importe (M-3) pedía la sesión nueva
-        // con la clave vieja y parámetros distintos, Stripe lo rechazaba y el
-        // recibo quedaba impagable ~24 h con la sesión anterior ya expirada.
-        ? { idempotencyKey: claveCheckoutRecibo(body.reciboId, paymentMethodTypes, Math.round(importe * 100), peticionCheckout) }
-        : clavePlan
-          // Con plaza de cupo, la clave lleva su intento: un intento liberado y
-          // vuelto a reservar necesita otra sesión, no la caducada.
-          ? { idempotencyKey: plaza ? claveStripe(clavePlan, plaza.intento) : clavePlan }
-          : {}),
+      ...(clave ? { idempotencyKey: clave } : {}),
     });
+    let session: Stripe.Checkout.Session = await crearSesion(claveSesion);
+    // ¿La creó ESTA petición, o es la repetición de otra con la misma clave?
+    let creadaAqui = !esRespuestaRepetida(session);
+    if (!creadaAqui && claveSesion) {
+      // La repetición trae la sesión como era al CREARSE: si desde entonces caducó o
+      // se pagó, su URL ya no sirve (o pagaría lo pagado). Se mira la de ahora.
+      let actual: Stripe.Checkout.Session | null = null;
+      try {
+        actual = await stripe.checkout.sessions.retrieve(session.id, undefined, { stripeAccount: studio.stripe_account_id });
+      } catch (errActual) {
+        console.error('[stripe/checkout] no se pudo mirar la sesión repetida', session.id, errActual);
+      }
+      const repetida = queHacerConSesionRepetida(actual);
+      if (repetida === 'nueva') {
+        // Caducada: este mismo intento necesita otra, con una clave que no la repita.
+        session = await crearSesion(claveTrasSesion(claveSesion, session.id));
+        creadaAqui = !esRespuestaRepetida(session);
+      } else if (repetida === 'usar' && actual) {
+        session = actual;
+      } else {
+        // Ya pagada, o sin poder saberlo: ni se devuelve su URL ni se crea otra. La
+        // plaza de cupo es la de esa sesión (misma clave): no se suelta. La de
+        // matrícula gratis la reservó esta petición para sí: vuelve.
+        if (cupoMatriculaReservado) {
+          await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
+        }
+        return conCorsWidget(req, repetida === 'pagada'
+          ? NextResponse.json({ error: body.reciboId ? MENSAJE_RECIBO_YA_PAGADO_ONLINE : MENSAJE_COMPRA_YA_PAGADA, codigo: 'ya-pagado' }, { status: 409 })
+          : NextResponse.json({ error: MENSAJE_SESION_PREVIA_SIN_COMPROBAR }, { status: 503 }));
+      }
+    }
 
     // La plaza queda ligada a ESTE cobro. Si no se puede guardar, no hay forma
     // de confirmarla ni de soltarla después: se deshace la venta entera.
@@ -819,8 +872,9 @@ export async function POST(req: NextRequest) {
     // pestañas): Stripe devuelve la de antes y esta petición no ha creado nada,
     // pero SÍ ha reservado otra plaza de matrícula gratis, que no usará nadie.
     // (La matrícula solo se reserva en compras de plan, nunca con `reciboId`,
-    // así que el bloque de abajo no puede devolverla otra vez.)
-    if (cupoMatriculaReservado && esRespuestaRepetida(session)) {
+    // así que el bloque de abajo no puede devolverla otra vez.) Si la repetida
+    // había caducado y esta petición creó otra (`creadaAqui`), la plaza va con ella.
+    if (cupoMatriculaReservado && !creadaAqui) {
       await liberarCupoMatricula(admin, cupoMatriculaReservado.planId, cupoMatriculaReservado.studioId);
     }
 
@@ -848,15 +902,24 @@ export async function POST(req: NextRequest) {
         .is('reembolso_stripe_id', null)
         .is('reembolso_solicitado_en', null)
         .or('estado.neq.DEVUELTO,importe_devuelto.eq.0');
-      guardar = sesionAbiertaId === null
-        ? guardar.is('checkout_session_id', null)
-        : guardar.eq('checkout_session_id', sesionAbiertaId);
+      // …o ya es ESTA misma: dos peticiones del mismo intento reciben de Stripe la
+      // misma sesión, y la segunda en escribir no puede tomarla por otra.
+      guardar = exigirSesionLeidaOEsta(guardar, sesionAbiertaId, session.id);
       const { data: guardadas, error: errGuardar } = await guardar.select('id');
       // Sin error pero sin tocar ninguna fila: el recibo ya no existe (se borró
       // entre la lectura de arriba y aquí, p. ej. el de una penalización que se
       // decidió no cobrar), o se está cobrando con su tarjeta guardada. Devolver la
       // URL sería abrir un pago de algo que Tentare ya no tiene, o un segundo cobro.
       const reciboDesaparecido = !errGuardar && (guardadas?.length ?? 0) === 0;
+      if (reciboDesaparecido) {
+        // Antes de caducar nada: si la sesión guardada ya es ESTA (la guardó la otra
+        // petición del mismo intento), es la buena y se devuelve.
+        const { data: ahora } = await admin.from('recibos').select('checkout_session_id')
+          .eq('id', body.reciboId).eq('studio_id', body.studioId).maybeSingle();
+        if (ahora?.checkout_session_id === session.id) {
+          return conCorsWidget(req, NextResponse.json({ url: session.url }));
+        }
+      }
       if (errGuardar || reciboDesaparecido) {
         if (errGuardar) console.error('[stripe/checkout] no se pudo registrar la sesión', session.id, errGuardar);
         try {

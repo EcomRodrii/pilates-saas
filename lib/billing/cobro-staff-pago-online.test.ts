@@ -38,7 +38,8 @@ const RESERVA = { studioId: 'st-1', reciboId: 'rec-1', clave: 'offsession-cobro-
 test('reservar a mano exige que la sesión guardada siga siendo la que se cerró', async () => {
   const conSesion = fakeAdmin();
   await reservarCobroOffSession(conSesion.admin, { ...RESERVA, checkoutLeido: 'cs_cerrada' });
-  assert.ok(conSesion.filtros.some(([o, c, v]) => o === 'eq' && c === 'checkout_session_id' && v === 'cs_cerrada'));
+  // La que se cerró, o ninguna (el conciliador la suelta al caducar): nunca otra.
+  assert.ok(conSesion.filtros.some(([o, , v]) => o === 'or' && v === 'checkout_session_id.is.null,checkout_session_id.eq.cs_cerrada'));
 
   const sinSesion = fakeAdmin();
   await reservarCobroOffSession(sinSesion.admin, { ...RESERVA, checkoutLeido: null });
@@ -61,6 +62,11 @@ test('si la reserva pierde porque la clienta abrió OTRO pago online, es «pago 
   assert.deepEqual(
     clasificarReservaPerdida(fila({ checkout_session_id: 'cs_nueva' }), { clave: RESERVA.clave, via: 'STAFF', cuota: null, ahora, checkoutLeido: 'cs_cerrada' }),
     { tipo: 'EN_MARCHA', por: 'PAGO_ONLINE' },
+  );
+  // Vacía: la soltó el conciliador al caducar la que se cerró. No es un pago nuevo.
+  assert.deepEqual(
+    clasificarReservaPerdida(fila({ checkout_session_id: null, intentos_reintento: 1 }), { clave: RESERVA.clave, via: 'STAFF', cuota: null, ahora, checkoutLeido: 'cs_cerrada' }),
+    { tipo: 'CAMBIO' },
   );
   // La misma que se cerró: no es eso.
   assert.deepEqual(
