@@ -17,7 +17,8 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import { LONGITUD_OTP, limpiarCodigo } from '@/lib/otp-utils';
 import { codigoCaducado, type FalloCodigo } from '@/lib/student/entrada-codigo';
 
-type Resultado = { ok: true } | { error: string };
+/** `esperaS`: el servidor no manda otro porque a esa dirección salió uno hace menos de un minuto (ver `segundosHastaOtroCorreo`). */
+type Resultado = { ok: true } | { error: string; esperaS?: number };
 type ResultadoCodigo = { ok: true } | { error: string; errorCode?: string; intentosRestantes?: number };
 
 /** Comprueba el código y, si vale, deja la sesión abierta en el cliente del portal. */
@@ -82,6 +83,12 @@ export function useCodigoDelCorreo(email: string, reenviar: () => Promise<Result
   const [verificando, setVerificando] = useState(false);
   const [espera, setEspera] = useState(0);
   const [reenviado, setReenviado] = useState(false);
+  // Mientras sale el reenvío. El captcha tarda segundos y el botón no puede
+  // quedarse quieto ni admitir otra pulsación: la segunda pisaba a la primera
+  // esperando token y la primera acababa reiniciando el widget a los 30 s. La
+  // ref es el cerrojo (el estado llega un render tarde); el estado, lo que se pinta.
+  const [reenviando, setReenviando] = useState(false);
+  const reenviandoRef = useRef(false);
   // Cuándo salió el último correo. Una ref y no un estado: no se pinta, solo
   // se consulta al fallar.
   const enviadoEn = useRef<number | null>(null);
@@ -92,9 +99,15 @@ export function useCodigoDelCorreo(email: string, reenviar: () => Promise<Result
     return () => clearInterval(t);
   }, [espera]);
 
-  const anotarEnvio = useCallback(() => {
-    enviadoEn.current = Date.now();
-    setEspera(ESPERA_REENVIO_S);
+  /**
+   * `restanteS`, cuando quien manda se entera de que el correo salió ANTES (el
+   * servidor no deja mandar otro hasta dentro de `restanteS`): la cuenta atrás
+   * sigue la del servidor y la caducidad se mide desde aquel envío.
+   */
+  const anotarEnvio = useCallback((restanteS: number = ESPERA_REENVIO_S) => {
+    const restante = Math.min(ESPERA_REENVIO_S, Math.max(0, restanteS));
+    enviadoEn.current = Date.now() - (ESPERA_REENVIO_S - restante) * 1000;
+    setEspera(restante);
   }, []);
 
   const verificar = useCallback(async (valor: string): Promise<boolean> => {
@@ -133,14 +146,26 @@ export function useCodigoDelCorreo(email: string, reenviar: () => Promise<Result
   }, [verificar, verificando]);
 
   const pedirOtro = useCallback(async () => {
-    if (espera > 0) return;
+    if (espera > 0 || reenviandoRef.current) return;
+    reenviandoRef.current = true;
+    setReenviando(true);
     setError(''); setFallo(null); setReenviado(false);
-    const res = await reenviar();
-    if ('error' in res) { setError(res.error); return; }
-    enviadoEn.current = Date.now();
-    setReenviado(true);
-    setEspera(ESPERA_REENVIO_S);
-  }, [espera, reenviar]);
+    try {
+      const res = await reenviar();
+      if ('error' in res) {
+        // Ya salió uno hace nada (otra pestaña, otro dispositivo): ese vale, no es un error.
+        if (res.esperaS) { anotarEnvio(res.esperaS); return; }
+        setError(res.error);
+        return;
+      }
+      enviadoEn.current = Date.now();
+      setReenviado(true);
+      setEspera(ESPERA_REENVIO_S);
+    } finally {
+      reenviandoRef.current = false;
+      setReenviando(false);
+    }
+  }, [espera, reenviar, anotarEnvio]);
 
-  return { codigo, escribir, verificar: () => verificar(codigo), verificando, error, fallo, pedirOtro, espera, reenviado, anotarEnvio };
+  return { codigo, escribir, verificar: () => verificar(codigo), verificando, error, fallo, pedirOtro, reenviando, espera, reenviado, anotarEnvio };
 }

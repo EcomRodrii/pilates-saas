@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/student/ui/Input';
@@ -73,6 +73,10 @@ export function PuertaDeEntrada({ titulo, subtitulo, destino }: {
   // cuando un código falla.
   const [digitos, setDigitos] = useState<string[]>(VACIO);
   const [intento, setIntento] = useState(0);
+  // A qué correo salió el último código. Volver a «Seguir» con el MISMO antes del
+  // minuto no manda otro (gotrue lo rechazaría): vuelve a las casillas, porque el
+  // código que tiene en el buzón sigue valiendo diez minutos.
+  const enviadoA = useRef<string | null>(null);
 
   /** Lo deja `/acceso/verificar` al aterrizar: a dónde iba antes de que le pidieran entrar. */
   const guardarDestino = () => {
@@ -80,7 +84,7 @@ export function PuertaDeEntrada({ titulo, subtitulo, destino }: {
   };
 
   /** Manda el código. Si el email no tiene cuenta, gotrue la crea y el correo trae el mismo código. */
-  const mandarCodigo = useCallback(async (): Promise<{ ok: true } | { error: string }> => {
+  const mandarCodigo = useCallback(async (): Promise<{ ok: true } | { error: string; esperaS?: number }> => {
     const token = await pedirToken();
     if (token === null) return { error: ERROR_CAPTCHA };
     return enviarEnlace(email, token || undefined);
@@ -97,16 +101,24 @@ export function PuertaDeEntrada({ titulo, subtitulo, destino }: {
   const seguir = async () => {
     if (!emailValido(email)) { setErrEmail('Escribe un email válido'); return; }
     setErrEmail(''); setGlobal(''); setSinConfirmar(false);
+    fijarRecordarSesion(recordar);
+    const destinatario = email.trim().toLowerCase();
+    const aCasillas = () => { enviadoA.current = destinatario; setDigitos(VACIO); setFase('codigo'); };
+    if (enviadoA.current === destinatario && codigo.espera > 0) { aCasillas(); return; }
     // El estado de carga ANTES de pedir el token: Turnstile tarda segundos y la
     // pantalla no puede quedarse quieta ni dejar pulsar dos veces.
     setCargando(true);
-    fijarRecordarSesion(recordar);
     const res = await mandarCodigo();
     setCargando(false);
-    if ('error' in res) { setGlobal(res.error); return; }
+    if ('error' in res) {
+      // A esa dirección le salió uno hace menos de un minuto (otra pestaña, o
+      // volvió atrás y adelante): ese es el que vale.
+      if (res.esperaS) { codigo.anotarEnvio(res.esperaS); aCasillas(); return; }
+      setGlobal(res.error);
+      return;
+    }
     codigo.anotarEnvio();
-    setDigitos(VACIO);
-    setFase('codigo');
+    aCasillas();
   };
 
   const entrarConContrasena = async () => {
@@ -252,8 +264,11 @@ export function PuertaDeEntrada({ titulo, subtitulo, destino }: {
                   : `No me ha llegado · reenviar en ${formatearCuentaAtras(codigo.espera)}`}
               </span>
             ) : (
-              <button type="button" onClick={() => void codigo.pedirOtro()} style={{ ...enlace, padding: 0 }}>
-                No me ha llegado: reenviar
+              <button
+                type="button" onClick={() => void codigo.pedirOtro()} disabled={codigo.reenviando} aria-busy={codigo.reenviando}
+                style={{ ...enlace, padding: 0, cursor: codigo.reenviando ? 'progress' : 'pointer' }}
+              >
+                {codigo.reenviando ? 'Enviando…' : 'No me ha llegado: reenviar'}
               </button>
             )}
           </p>

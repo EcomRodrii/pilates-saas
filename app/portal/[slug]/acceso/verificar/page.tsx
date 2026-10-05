@@ -348,10 +348,10 @@ function Verificar() {
             ? <>Te hemos enviado otro código. Podrás pedir uno más en {codigoCorreo.espera} s.</>
             : (
               <button
-                type="button" onClick={() => void codigoCorreo.pedirOtro()} disabled={codigoCorreo.espera > 0 || !emailCodigo.trim()}
-                style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 800, color: 'var(--foreground)', textDecoration: 'underline', cursor: 'pointer' }}
+                type="button" onClick={() => void codigoCorreo.pedirOtro()} disabled={codigoCorreo.espera > 0 || codigoCorreo.reenviando || !emailCodigo.trim()} aria-busy={codigoCorreo.reenviando}
+                style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 800, color: 'var(--foreground)', textDecoration: 'underline', cursor: codigoCorreo.reenviando ? 'progress' : 'pointer' }}
               >
-                No me ha llegado: enviar otro código
+                {codigoCorreo.reenviando ? 'Enviando…' : 'No me ha llegado: enviar otro código'}
               </button>
             )}
         </p>

@@ -45,6 +45,7 @@ export function codigoDeError(mensaje: string): CodigoAuth | undefined {
 export function traducirAuth(mensaje: string): string | null {
   const m = (mensaje ?? '').toLowerCase();
   if (m.includes('invalid login credentials')) return 'Email o contraseña incorrectos.';
+  if (segundosHastaOtroCorreo(mensaje) !== null) return 'Te acabamos de mandar un código. Mira tu correo; si no llega, podrás pedir otro en un minuto.';
   if (m.includes('rate limit') || m.includes('too many')) return 'Demasiados intentos. Espera un minuto y vuelve a intentarlo.';
   if (codigoDeError(mensaje) === 'sin-confirmar') return 'Tienes que confirmar tu email antes de entrar.';
   if (m.includes('user already registered')) return 'Ya existe una cuenta con ese email. Entra con tu contraseña o con un código.';
@@ -68,4 +69,22 @@ export function traducirAuth(mensaje: string): string | null {
 export function emailYaEnUso(mensaje: string): boolean {
   const m = (mensaje ?? '').toLowerCase();
   return m.includes('email_exists') || m.includes('already registered') || m.includes('already been registered');
+}
+
+/**
+ * Los segundos que faltan para poder mandar otro correo a ESA dirección, si el
+ * fallo es el límite de gotrue de un correo por minuto (`max_frequency`):
+ * «For security purposes, you can only request this after N seconds.». `null`
+ * con cualquier otro fallo.
+ *
+ * Que salte quiere decir que a esa dirección le salió un código hace menos de
+ * un minuto, y ese código sigue valiendo: la pantalla tiene que dar dónde
+ * escribirlo, no un error. Volver a «Seguir» con el mismo correo lo provocaba.
+ *
+ * ⚠️ No confundir con «Email rate limit exceeded», el tope por HORA de todo el
+ * proyecto: ese no dice que haya salido nada a esta dirección.
+ */
+export function segundosHastaOtroCorreo(mensaje: string): number | null {
+  const m = /only request this after (\d+) seconds?/i.exec(mensaje ?? '');
+  return m ? Number(m[1]) : null;
 }

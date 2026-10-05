@@ -271,8 +271,8 @@ export default function EntradaApp() {
               style={{ letterSpacing: '.4em', fontSize: 22, fontWeight: 800, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
             />
             <Button type="submit" full loading={codigo.verificando}>Entrar</Button>
-            <button type="button" onClick={() => void codigo.pedirOtro()} disabled={codigo.espera > 0} style={{ ...enlace, color: codigo.espera > 0 ? 'var(--muted-foreground)' : 'var(--accent)' }}>
-              {codigo.espera > 0 ? `${codigo.reenviado ? 'Te lo hemos vuelto a mandar. ' : ''}Otro en ${codigo.espera} s` : 'No me ha llegado: volver a enviar'}
+            <button type="button" onClick={() => void codigo.pedirOtro()} disabled={codigo.espera > 0 || codigo.reenviando} aria-busy={codigo.reenviando} style={{ ...enlace, color: codigo.espera > 0 ? 'var(--muted-foreground)' : 'var(--accent)' }}>
+              {codigo.reenviando ? 'Enviando…' : codigo.espera > 0 ? `${codigo.reenviado ? 'Te lo hemos vuelto a mandar. ' : ''}Otro en ${codigo.espera} s` : 'No me ha llegado: volver a enviar'}
             </button>
             <button type="button" onClick={() => { setGlobal(''); setFase('contrasena'); }} style={{ ...enlace, color: 'var(--muted-foreground)' }}>
               Usar mi contraseña
