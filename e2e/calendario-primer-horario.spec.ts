@@ -367,6 +367,29 @@ test.describe('«Ya puede recibir reservas» solo promete lo que confirma el ser
     await expect(page.getByText(PROMESA)).toHaveCount(0);
   });
 
+  test('si Stripe no ha contestado, no promete: dice que no se ha podido comprobar', async ({ page }) => {
+    // Con cuenta conectada el aviso del cliente calla, así que un «sin
+    // comprobar» del servidor que acabara en la promesa era la mentira de antes.
+    await montar(page, { planesActivos: true, cuentaStripe: 'acct_e2e' });
+    const servidor = await servidorDice(page, { estado: 'SIN_COMPROBAR', motivo: 'STRIPE' });
+    await crearHorarioPropuesto(page);
+
+    await expect(page.getByText(/No hemos podido comprobar si Stripe ya puede cobrar/)).toBeVisible({ timeout: 15_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    await expect(page.getByText(PROMESA)).toHaveCount(0);
+  });
+
+  test('con la página oculta no dice que está abierta: lo cuenta el aviso', async ({ page }) => {
+    await montar(page);
+    const servidor = await servidorDice(page, { estado: 'NO', motivo: 'PAGINA_OCULTA', conClave: false });
+    await crearHorarioPropuesto(page);
+
+    await expect(page.getByText(/Tu página está oculta y sin clave/)).toBeVisible({ timeout: 15_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    await expect(page.getByText('Tu página está abierta', { exact: false })).toHaveCount(0);
+    await expect(page.getByText(PROMESA)).toHaveCount(0);
+  });
+
   test('con el sí del servidor, promete, y el aviso del cliente se retira', async ({ page }) => {
     // Control positivo: sin él, los dos de arriba pasarían también con una
     // pantalla que no prometiera nunca nada.

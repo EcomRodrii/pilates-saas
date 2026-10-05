@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  avisoListo, leerRespuestaPuedeReservar, prometeReservas, puedeReservarAlumnaNueva,
+  avisoListo, finalDelParrafo, leerRespuestaPuedeReservar, prometeReservas, puedeReservarAlumnaNueva,
+  veredictoSinPreguntarAStripe,
   type DatosPuedeReservar, type PlanPuedeReservar, type ResultadoPuedeReservar,
 } from './puede-reservar.ts';
 import { instanteDeApertura } from '../booking-logic.ts';
@@ -33,6 +34,7 @@ function datos(cambios: Partial<Omit<DatosPuedeReservar, 'estudio'>> & { estudio
     stripe: 'PUEDE',
     ...resto,
     estudio: {
+      paginaOculta: false, paginaConClave: false,
       reservaExigirPlan: true, reservaVentanaMinimaMinutos: null, reservaAntelacionMaximaDias: null,
       reservaAntelacionHora: null, aperturaSuave: false, fechaApertura: null,
       ...estudio,
@@ -46,7 +48,7 @@ const CASOS: { caso: string; d: DatosPuedeReservar; espera: ResultadoPuedeReserv
   { caso: '(1) exige bono, hay uno a la venta que la cubre y Stripe cobra', d: datos(), espera: { estado: 'SI' } },
   { caso: '(2) lo mismo sin Stripe: la evaluación del 13-sep', d: datos({ stripe: 'SIN_CUENTA' }), espera: { estado: 'NO', motivo: 'STRIPE_SIN_CUENTA' } },
   { caso: '(3) Stripe conectado pero sin charges_enabled', d: datos({ stripe: 'NO_PUEDE' }), espera: { estado: 'NO', motivo: 'STRIPE_NO_PUEDE' } },
-  { caso: '(4) Stripe no contesta y era lo único que faltaba', d: datos({ stripe: 'SIN_RESPUESTA' }), espera: { estado: 'SIN_COMPROBAR' } },
+  { caso: '(4) Stripe no contesta y era lo único que faltaba', d: datos({ stripe: 'SIN_RESPUESTA' }), espera: { estado: 'SIN_COMPROBAR', motivo: 'STRIPE' } },
   {
     caso: '(5) exige bono pero no hay ninguna tarifa activa: el gate no bloquea',
     d: datos({ planes: [{ ...BONO, activo: false }], stripe: 'SIN_CUENTA' }), espera: { estado: 'SI' },
@@ -58,6 +60,14 @@ const CASOS: { caso: string; d: DatosPuedeReservar; espera: ResultadoPuedeReserv
   {
     caso: '(7) el único plan a la venta es de otro tipo de clase',
     d: datos({ planes: [{ ...BONO, tiposClaseIds: ['tc-2'] }] }), espera: { estado: 'NO', motivo: 'SIN_PLAN_QUE_CUBRA' },
+  },
+  {
+    caso: '(7b) la clase de prueba no es salida: desde el enlace que se comparte no se vende',
+    // Sin tipos cubriría cualquier clase, pero solo se ofrece en `?prueba=1` y
+    // ni el checkout ni la tienda la venden (`planesComprablesParaReservar`). El
+    // bono de tc-2 hace que se exija plan, y para tc-1 no hay nada que comprar.
+    d: datos({ planes: [{ ...BONO, tiposClaseIds: ['tc-2'] }, { id: 'prueba', activo: true, precio: 15, esPrueba: true }] }),
+    espera: { estado: 'NO', motivo: 'SIN_PLAN_QUE_CUBRA' },
   },
   {
     caso: '(8) un plan sin tipos asignados cubre todos, como en el checkout',
@@ -218,27 +228,100 @@ test('una tarifa activa a 0 € obliga a tener plan pero no se puede comprar', (
   assert.deepEqual(evaluar(datos({ planes: [{ ...BONO, precio: 0 }] })), { estado: 'NO', motivo: 'SIN_PLAN_QUE_CUBRA' });
 });
 
+test('un no por la fecha no tapa lo que no se arregla esperando', () => {
+  // La evaluación del 13-sep (sin Stripe, exige bono, un bono a la venta) con la
+  // única clase fuera de plazo: «no se podrá reservar hasta el 15» daría a
+  // entender que el 15 sí, y sin Stripe tampoco. Se cuenta lo de Stripe.
+  const lejana = { inicio: '2026-10-22T09:00:00Z', cancelada: false, aforoMaximo: 8, tipoClaseId: 'tc-1' };
+  assert.deepEqual(
+    evaluar(datos({ stripe: 'SIN_CUENTA', sesiones: [lejana], estudio: { reservaAntelacionMaximaDias: 7 } })),
+    { estado: 'NO', motivo: 'STRIPE_SIN_CUENTA' },
+  );
+  assert.deepEqual(
+    evaluar(datos({ stripe: 'NO_PUEDE', sesiones: [lejana], estudio: { reservaAntelacionMaximaDias: 7 } })),
+    { estado: 'NO', motivo: 'STRIPE_NO_PUEDE' },
+  );
+  // Con la apertura suave, igual: las fundadoras tampoco podrían comprarlo online.
+  assert.deepEqual(
+    evaluar(datos({ stripe: 'SIN_CUENTA', estudio: { aperturaSuave: true, fechaApertura: '2026-10-15' } })),
+    { estado: 'NO', motivo: 'STRIPE_SIN_CUENTA' },
+  );
+  // Y con el cierre, el plan que no la cubre y la autorización.
+  const cierre = { id: 'c', desde: '2026-10-06', hasta: '2026-10-06', motivo: null };
+  assert.deepEqual(evaluar(datos({ cierres: [cierre], planes: [{ ...BONO, tiposClaseIds: ['tc-2'] }] })),
+    { estado: 'NO', motivo: 'SIN_PLAN_QUE_CUBRA' });
+  assert.deepEqual(evaluar(datos({
+    cierres: [cierre],
+    tipos: [{ id: 'tc-1', reservaExigirPlan: null, reservaVentanaMinimaMinutos: null, reservaAntelacionMaximaDias: null, requiereAutorizacion: true }],
+  })), { estado: 'NO', motivo: 'NECESITA_AUTORIZACION' });
+  // Si Stripe no contesta, no se sabe si eso fallará: se queda la fecha, que sí se sabe.
+  assert.deepEqual(
+    evaluar(datos({ stripe: 'SIN_RESPUESTA', sesiones: [lejana], estudio: { reservaAntelacionMaximaDias: 7 } })),
+    { estado: 'NO', motivo: 'ANTELACION', antelacionDias: 7, abreEl: instanteDeApertura(lejana.inicio, 7, null).toISOString() },
+  );
+});
+
+test('la fecha que se cuenta es la de una clase que SÍ se podrá reservar cuando llegue', () => {
+  // La de Mat (sin plan que la cubra) abre antes; la de Reformer, que sí tiene
+  // bono, abre el 15. Decir «hasta el 13» prometería una clase que ese día
+  // tampoco se puede reservar.
+  const mat = { inicio: '2026-10-20T09:00:00Z', cancelada: false, aforoMaximo: 8, tipoClaseId: 'tc-2' };
+  const reformer = { inicio: '2026-10-22T09:00:00Z', cancelada: false, aforoMaximo: 8, tipoClaseId: 'tc-1' };
+  const r = evaluar(datos({
+    sesiones: [mat, reformer], planes: [{ ...BONO, tiposClaseIds: ['tc-1'] }], estudio: { reservaAntelacionMaximaDias: 7 },
+  }));
+  assert.deepEqual(r, { estado: 'NO', motivo: 'ANTELACION', antelacionDias: 7, abreEl: instanteDeApertura(reformer.inicio, 7, null).toISOString() });
+});
+
+test('con la página oculta no reserva nadie de fuera, aunque todo lo demás esté bien', () => {
+  // `fetchPublicStudioData` no enseña clases y las puertas que escriben dicen
+  // que no sin el pase de la clave (lib/publico/pagina-cerrada-peticion.ts).
+  assert.deepEqual(evaluar(datos({ estudio: { paginaOculta: true, paginaConClave: true } })),
+    { estado: 'NO', motivo: 'PAGINA_OCULTA', conClave: true });
+  assert.deepEqual(evaluar(datos({ estudio: { paginaOculta: true }, sesiones: [] })),
+    { estado: 'NO', motivo: 'PAGINA_OCULTA', conClave: false }, 'va antes que todo: no es de una clase');
+  // Y el aviso no dice que está abierta, ni el párrafo tampoco.
+  const conClave = leerRespuestaPuedeReservar(JSON.parse(JSON.stringify({ estado: 'NO', motivo: 'PAGINA_OCULTA', conClave: true })));
+  assert.match(avisoListo(conClave, null) ?? '', /^Tu página está oculta: .* solo podrá reservar quien entre con tu clave\. Para abrirla, ve a Configuración > Mi app y mi web > Ocultar tu página\.$/);
+  assert.match(avisoListo({ estado: 'NO', motivo: 'PAGINA_OCULTA', conClave: false }, null) ?? '', /sin clave: .* desde fuera no puede reservar nadie/);
+  assert.match(avisoListo({ estado: 'NO', motivo: 'PAGINA_OCULTA' }, null) ?? '', /^Tu página está oculta: /);
+  assert.equal(finalDelParrafo(conClave, null), null);
+  assert.equal(prometeReservas(conClave, null), false);
+});
+
 test('el ajuste del estudio sin valor se lee como «se exige», el defecto del servidor', () => {
   assert.deepEqual(evaluar(datos({ stripe: 'SIN_CUENTA', estudio: { reservaExigirPlan: null } })),
     { estado: 'NO', motivo: 'STRIPE_SIN_CUENTA' });
 });
 
-test('Stripe solo cambia el veredicto cuando es lo único que falta', () => {
-  // Es lo que deja al servidor no preguntar a Stripe (2,5 s de tope) salvo que
-  // sin su respuesta salga SIN_COMPROBAR.
+test('a Stripe solo se le pregunta cuando su respuesta cambia el veredicto', () => {
+  // Es lo que deja al servidor no gastar 2,5 s en Stripe sin necesidad: si
+  // `veredictoSinPreguntarAStripe` contesta, conteste lo que conteste Stripe sale
+  // eso mismo; si no contesta, cobre o no cobre sale distinto.
+  const LEJANA = '2026-10-22T09:00:00Z';
   const variantes: DatosPuedeReservar[] = [
     datos(), datos({ planes: [] }), datos({ planes: [{ ...BONO, tiposClaseIds: ['tc-2'] }] }),
-    datos({ estudio: { reservaAntelacionMaximaDias: 1 }, sesiones: [{ inicio: '2026-10-22T09:00:00Z', cancelada: false, aforoMaximo: 8, tipoClaseId: 'tc-1' }] }),
     datos({ estudio: { reservaExigirPlan: false } }), datos({ sesiones: [] }),
+    datos({ estudio: { paginaOculta: true } }),
+    // Con la fecha por medio, Stripe cambia el MOTIVO sin que ninguno sea un
+    // «sin comprobar»: comparando solo SIN_COMPROBAR, aquí no se le preguntaba.
+    datos({ estudio: { reservaAntelacionMaximaDias: 1 }, sesiones: [{ inicio: LEJANA, cancelada: false, aforoMaximo: 8, tipoClaseId: 'tc-1' }] }),
+    datos({ estudio: { reservaAntelacionMaximaDias: 1, reservaExigirPlan: false }, sesiones: [{ inicio: LEJANA, cancelada: false, aforoMaximo: 8, tipoClaseId: 'tc-1' }] }),
   ];
-  let comparadas = 0;
+  let sinPreguntar = 0;
+  let preguntando = 0;
   for (const d of variantes) {
-    const sin = evaluar({ ...d, stripe: 'SIN_RESPUESTA' });
-    if (sin.estado === 'SIN_COMPROBAR') continue;
-    comparadas++;
-    for (const stripe of ['PUEDE', 'NO_PUEDE'] as const) assert.deepEqual(evaluar({ ...d, stripe }), sin);
+    const { stripe: _, ...sinStripe } = d;
+    const v = veredictoSinPreguntarAStripe(sinStripe, AHORA);
+    if (v) {
+      sinPreguntar++;
+      for (const stripe of ['PUEDE', 'NO_PUEDE', 'SIN_RESPUESTA'] as const) assert.deepEqual(evaluar({ ...d, stripe }), v);
+    } else {
+      preguntando++;
+      assert.notDeepEqual(evaluar({ ...d, stripe: 'PUEDE' }), evaluar({ ...d, stripe: 'NO_PUEDE' }));
+    }
   }
-  assert.ok(comparadas >= 4, 'sin casos que comparar, este test no prueba nada');
+  assert.ok(sinPreguntar >= 4 && preguntando >= 2, 'sin casos de los dos lados, este test no prueba nada');
 });
 
 // ─── Lo que lee la pantalla ──────────────────────────────────────────────────
@@ -272,10 +355,32 @@ test('el aviso y la promesa salen de la MISMA respuesta', () => {
   // Un motivo que esta versión no conoce: el aviso de siempre, sin promesa.
   assert.equal(avisoListo({ estado: 'NO', motivo: 'NUEVO' }, cliente), cliente);
   assert.equal(prometeReservas({ estado: 'NO', motivo: 'NUEVO' }, null), false);
-  // Sin comprobar: exactamente lo que decía la pantalla antes.
+  // Sin poder ni preguntar (red, 500, `{}`): exactamente lo que decía la pantalla antes.
   assert.equal(avisoListo({ estado: 'SIN_COMPROBAR' }, cliente), cliente);
   assert.equal(prometeReservas({ estado: 'SIN_COMPROBAR' }, cliente), false);
   assert.equal(prometeReservas({ estado: 'SIN_COMPROBAR' }, null), true);
+  // Pero el SIN_COMPROBAR del SERVIDOR sabe que depende de Stripe: con cuenta
+  // conectada el cliente nunca avisa, y prometer aquí era la mentira de antes.
+  const stripeSinContestar = leerRespuestaPuedeReservar({ estado: 'SIN_COMPROBAR', motivo: 'STRIPE' });
+  assert.deepEqual(stripeSinContestar, { estado: 'SIN_COMPROBAR', motivo: 'STRIPE' });
+  assert.equal(prometeReservas(stripeSinContestar, null), false);
+  assert.match(avisoListo(stripeSinContestar, null) ?? '', /No hemos podido comprobar si Stripe ya puede cobrar/);
+  assert.equal(finalDelParrafo(stripeSinContestar, null), 'Tu página está abierta.');
+  // Un motivo de duda que esta versión no conoce: tampoco promete.
+  assert.equal(prometeReservas({ estado: 'SIN_COMPROBAR', motivo: 'OTRO' }, null), false);
+  assert.equal(avisoListo({ estado: 'SIN_COMPROBAR', motivo: 'OTRO' }, cliente), cliente);
+  // Y el servidor solo contesta SIN_COMPROBAR con su motivo.
+  assert.deepEqual(evaluar(datos({ stripe: 'SIN_RESPUESTA' })), stripeSinContestar);
+});
+
+test('el párrafo no dice nada de la página hasta saberlo', () => {
+  // Mientras espera, ni «abierta» (con la página oculta es falso) ni la promesa.
+  assert.equal(finalDelParrafo(null, null), null);
+  assert.equal(finalDelParrafo(null, AVISO_VENTA_SIN_STRIPE), null);
+  assert.equal(finalDelParrafo({ estado: 'SI' }, null), 'Tu página está abierta: cualquiera con este enlace puede reservar.');
+  assert.equal(finalDelParrafo({ estado: 'NO', motivo: 'STRIPE_SIN_CUENTA' }, null), 'Tu página está abierta.');
+  assert.equal(finalDelParrafo({ estado: 'SIN_COMPROBAR' }, null), 'Tu página está abierta: cualquiera con este enlace puede reservar.');
+  assert.equal(finalDelParrafo({ estado: 'SIN_COMPROBAR' }, AVISO_VENTA_SIN_STRIPE), 'Tu página está abierta.');
 });
 
 test('los avisos con fecha la escriben en el día del estudio', () => {

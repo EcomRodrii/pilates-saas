@@ -29,7 +29,7 @@ import { copiarAlPortapapeles } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { avisoVentaOnline } from '@/lib/onboarding';
 import {
-  avisoListo, leerRespuestaPuedeReservar, prometeReservas, type RespuestaPuedeReservar,
+  avisoListo, finalDelParrafo, leerRespuestaPuedeReservar, type RespuestaPuedeReservar,
 } from '@/lib/onboarding/puede-reservar';
 import { authHeader } from '@/lib/api-client';
 import { anfitrionPortal } from '@/lib/panel-portal';
@@ -89,7 +89,7 @@ export function ListoParaReservar({
     return () => ctrl.abort();
   }, []);
   const avisoFinal = avisoListo(srv, aviso);
-  const promete = prometeReservas(srv, aviso);
+  const finalParrafo = finalDelParrafo(srv, aviso);
 
   // Tenti celebra ('hecho') con TRES condiciones y ninguna menos: que el
   // servidor haya dicho que una alumna nueva puede reservar (la MISMA respuesta
@@ -103,6 +103,7 @@ export function ListoParaReservar({
     return () => clearTimeout(t);
   }, []);
   const estadoTenti = srv?.estado === 'SI' && cargada && maduro ? 'hecho' : 'reposo';
+
   // Cierra con Escape, como cualquier pantalla que tapa el panel.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onSeguir(); };
@@ -206,9 +207,10 @@ export function ListoParaReservar({
           {clasesCreadas > 0 && (
             <>Has dejado <strong className="text-foreground">{clasesCreadas === 1 ? '1 clase' : `${clasesCreadas} clases`}</strong> {clasesCreadas === 1 ? 'programada' : 'programadas'}. </>
           )}
-          {/* La promesa, solo cuando es verdad (`prometeReservas`): mientras el
-              servidor contesta, o si ha dicho que no, se queda en «abierta». */}
-          {promete ? 'Tu página está abierta: cualquiera con este enlace puede reservar.' : 'Tu página está abierta.'}
+          {/* La promesa, solo cuando es verdad (`finalDelParrafo`): con un no se
+              queda en «abierta», salvo con la página oculta, que lo cuenta el
+              aviso; y mientras el servidor contesta, ni lo uno ni lo otro. */}
+          {finalParrafo}
         </p>
         {avisoFinal && (
           <p className="mx-auto mt-3 flex max-w-[560px] items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-left text-[13px] leading-snug text-foreground">

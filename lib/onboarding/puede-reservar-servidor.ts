@@ -4,7 +4,7 @@ import { stripeServidor, TIMEOUT_STRIPE_MS } from '../opening/servidor.ts';
 import { horaHHMM } from '../booking-logic.ts';
 import { hoyEnEstudio } from '../utils.ts';
 import {
-  puedeReservarAlumnaNueva,
+  esVendibleDesdeElEnlace, puedeReservarAlumnaNueva, veredictoSinPreguntarAStripe,
   type DatosPuedeReservar, type PlanPuedeReservar, type ResultadoPuedeReservar,
 } from './puede-reservar.ts';
 
@@ -30,8 +30,10 @@ export async function cargarDatosPuedeReservar(
   admin: SupabaseClient, studioId: string, now: Date,
 ): Promise<DatosPuedeReservarServidor> {
   const [studioR, sesionesR, tiposR, planesR, cierresR] = await Promise.all([
+    // La clave de la página oculta solo se lee para saber si HAY una (la misma
+    // pregunta que `huellaClave`); ni sale de aquí ni se compara con nada.
     admin.from('studios')
-      .select('stripe_account_id, reserva_exigir_plan, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, reserva_antelacion_hora, apertura_suave, fecha_apertura')
+      .select('stripe_account_id, reserva_exigir_plan, reserva_ventana_minima_minutos, reserva_antelacion_maxima_dias, reserva_antelacion_hora, apertura_suave, fecha_apertura, pagina_publica_oculta, pagina_publica_clave_hash')
       .eq('id', studioId).maybeSingle(),
     // `is not true`: `cancelada` admite NULL, y un `= false` se las dejaría fuera.
     admin.from('sesiones').select('inicio, cancelada, aforo_maximo, tipo_clase_id')
@@ -55,9 +57,9 @@ export async function cargarDatosPuedeReservar(
   const planes: PlanPuedeReservar[] = (planesR.data ?? []).map(p => ({
     id: p.id as string, activo: Boolean(p.activo), precio: Number(p.precio), esPrueba: p.es_prueba === true,
   }));
-  // Qué tipos cubre cada plan, solo de los que se pueden comprar: los demás no
-  // le sirven de salida a una alumna nueva.
-  const vendibles = planes.filter(p => p.activo && p.precio > 0).map(p => p.id);
+  // Qué tipos cubre cada plan, solo de los que se pueden comprar desde el enlace:
+  // los demás no le sirven de salida a una alumna nueva.
+  const vendibles = planes.filter(esVendibleDesdeElEnlace).map(p => p.id);
   if (vendibles.length > 0) {
     const { data, error: e } = await admin.from('plan_tipos_clase').select('plan_id, tipo_clase_id')
       .eq('studio_id', studioId).in('plan_id', vendibles);
@@ -84,6 +86,8 @@ export async function cargarDatosPuedeReservar(
         requiereAutorizacion: t.requiere_autorizacion === true,
       })),
       estudio: {
+        paginaOculta: s.pagina_publica_oculta === true,
+        paginaConClave: Boolean(s.pagina_publica_clave_hash),
         reservaExigirPlan: (s.reserva_exigir_plan as boolean | null) ?? null,
         reservaVentanaMinimaMinutos: (s.reserva_ventana_minima_minutos as number | null) ?? null,
         reservaAntelacionMaximaDias: (s.reserva_antelacion_maxima_dias as number | null) ?? null,
@@ -99,16 +103,16 @@ export async function cargarDatosPuedeReservar(
 
 /**
  * El veredicto entero. A Stripe (hasta 2,5 s) solo se le pregunta cuando su
- * respuesta puede cambiarlo: si sin ella ya sale un sí, o un no por otra causa,
- * cobre o no cobre da lo mismo (lo fija un test de puede-reservar.test.ts).
+ * respuesta cambia el veredicto: si cobre o no cobre sale lo mismo, no hace
+ * falta (`veredictoSinPreguntarAStripe`, lo fija un test de puede-reservar.test.ts).
  */
 export async function puedeReservarEnServidor(
   admin: SupabaseClient, studioId: string, now: Date,
 ): Promise<ResultadoPuedeReservar> {
   const { datos, cuentaStripe } = await cargarDatosPuedeReservar(admin, studioId, now);
   if (!cuentaStripe) return puedeReservarAlumnaNueva({ ...datos, stripe: 'SIN_CUENTA' }, now);
-  const sinPreguntar = puedeReservarAlumnaNueva({ ...datos, stripe: 'SIN_RESPUESTA' }, now);
-  if (sinPreguntar.estado !== 'SIN_COMPROBAR') return sinPreguntar;
+  const sinPreguntar = veredictoSinPreguntarAStripe(datos, now);
+  if (sinPreguntar) return sinPreguntar;
   const stripe = stripeServidor();
   const estado = stripe ? await estadoCobroCuenta(stripe, cuentaStripe, { timeoutMs: TIMEOUT_STRIPE_MS }) : 'SIN_RESPUESTA';
   return puedeReservarAlumnaNueva({ ...datos, stripe: estado }, now);
