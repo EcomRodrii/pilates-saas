@@ -10,6 +10,7 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { getBonos, getPagos } from '@/lib/student/datos';
 import { euros, fechaCorta, unir } from '@/lib/student/formato';
+import { saldoBono } from '@/lib/student/saldo-bono';
 import { CreditCard } from '@/components/student/domain/CreditCard';
 import { ErrorState, Skeleton } from '@/components/student/ui/States';
 
@@ -64,6 +65,9 @@ export default function DetalleBonoPage() {
   }
 
   const { b, pago } = data;
+  // «Usadas / total» solo cuando es verdad: un bono de UN ciclo (sin renovar) y con no más de las que trae su plan. Con
+  // el saldo real, un bono renovado de 8 con 11 habría dicho «0 / 11»; antes decía «0 / 8» y la tarjeta «Te quedan 8».
+  const saldo = saldoBono(b);
 
   return (
     <StudentShell>
@@ -80,9 +84,9 @@ export default function DetalleBonoPage() {
         <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--t-small)' }}>
           <Fila k="Comprado" v={unir(fechaCorta(b.compradoEn), euros(b.precio))} />
           {/* Un mensual ilimitado trae `creditosTotales: Infinity`: «0 / Infinity» no es un dato, es un fallo. */}
-          {Number.isFinite(b.creditosTotales)
-            ? <Fila k="Usadas / total" v={`${b.creditosUsados} / ${b.creditosTotales}`} />
-            : <Fila k="Sesiones" v="Sin límite" />}
+          {saldo.ilimitado
+            ? <Fila k="Sesiones" v="Sin límite" />
+            : saldo.de != null && <Fila k="Usadas / total" v={`${saldo.de - saldo.quedan} / ${saldo.de}`} />}
           <Fila k="Caducidad" v={b.expiraEn ? fechaCorta(b.expiraEn) : 'Sin caducidad'} />
           {/* ⚠️ `tap`: este enlace mide 19 px de alto y el mínimo táctil de
               WCAG 2.5.8 son 24. La clase crece la zona sensible a 44 px con un

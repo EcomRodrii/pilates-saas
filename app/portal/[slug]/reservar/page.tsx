@@ -212,7 +212,7 @@ export default function HorarioPage() {
                 clase={c}
                 instructora={data.instructoras.find((x) => x.id === c.instructoraId)}
                 estado={disponibilidad(c, data.reservas, estudio.soportaListaEspera)}
-                conBono={Boolean(bonoParaClase(data?.bonos ?? [], c.tipoClaseId))}
+                bono={bonoParaClase(data?.bonos ?? [], c.tipoClaseId)}
                 delay={i * 55}
               />
             ))

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canjesDe, creditosPorAsistir, formasDeGanar, hayGamificacion, logrosDe, nivelDe, recompensasDe, retosDe } from './gamificacion.ts';
+import { canjesDe, creditosPorAsistir, formasDeGanar, hayGamificacion, logrosDe, nivelDe, premioPorInvitar, recompensasDe, retosDe } from './gamificacion.ts';
 
 const niveles = [
   { id: 'n1', nombre: 'Inicio', orden: 1, umbralCreditos: 0, color: '#aaa', icono: '🌱', beneficios: null },
@@ -244,7 +244,7 @@ test('formasDeGanar: solo reglas activas con créditos, en el orden de la pantal
     regla('INVENTADO', 99),
   ]);
   assert.deepEqual(f.map((x) => x.trigger), ['ASISTENCIA_CLASE', 'COMPRA']);
-  assert.deepEqual(f[0], { trigger: 'ASISTENCIA_CLASE', titulo: 'Asistir a una clase', detalle: null, creditos: 10, porCadaEuros: null });
+  assert.deepEqual(f[0], { trigger: 'ASISTENCIA_CLASE', titulo: 'Asistir a una clase', detalle: null, creditos: 10, porCadaEuros: null, topeMensual: null });
   assert.equal(f[1].detalle, 'Por cada 10 € que gastes en el estudio');
   assert.equal(f[1].porCadaEuros, 10);
 });
@@ -285,3 +285,31 @@ test('hayGamificacion: un estudio que solo da créditos, o un saldo que ya tiene
   assert.equal(hayGamificacion({ ...vacio, formasDeGanar: [], saldo: 0 }), false);
 });
 
+
+// ── Lo que gana por invitar: UNA frase para la ficha y Perfil ─────────────────
+// El premio lo paga el check-in de la PRIMERA clase de la amiga, solo si se dio de alta con el enlace y es nueva
+// (`decidirPremioReferido`), con el tope mensual de la regla. «Si se apunta, ganas» prometía de más.
+
+test('premioPorInvitar: la condición real, el nombre de los créditos del estudio y el tope si lo hay', () => {
+  assert.equal(
+    premioPorInvitar(formasDeGanar([regla('REFERIDO_AMIGO', 100, { topeMensual: 3 })]), 'créditos'),
+    'Si es nueva y crea su cuenta con tu enlace, ganas 100 créditos cuando venga a su primera clase · hasta 3 amigas al mes',
+  );
+  assert.equal(
+    premioPorInvitar(formasDeGanar([regla('REFERIDO_AMIGO', 50, { topeMensual: 1 })]), 'puntos'),
+    'Si es nueva y crea su cuenta con tu enlace, ganas 50 puntos cuando venga a su primera clase · hasta 1 amiga al mes',
+  );
+  // Sin tope, sin la coletilla.
+  assert.equal(
+    premioPorInvitar(formasDeGanar([regla('REFERIDO_AMIGO', 20)]), 'créditos'),
+    'Si es nueva y crea su cuenta con tu enlace, ganas 20 créditos cuando venga a su primera clase',
+  );
+  assert.equal(formasDeGanar([regla('REFERIDO_AMIGO', 20, { topeMensual: 2 })])[0].topeMensual, 2);
+});
+
+test('premioPorInvitar: sin la regla activa, o a 0 créditos, no promete nada', () => {
+  assert.equal(premioPorInvitar(formasDeGanar([]), 'créditos'), null);
+  assert.equal(premioPorInvitar(formasDeGanar([regla('REFERIDO_AMIGO', 100, { activa: false })]), 'créditos'), null);
+  assert.equal(premioPorInvitar(formasDeGanar([regla('REFERIDO_AMIGO', 0)]), 'créditos'), null);
+  assert.equal(premioPorInvitar(formasDeGanar([regla('ASISTENCIA_CLASE', 10)]), 'créditos'), null);
+});

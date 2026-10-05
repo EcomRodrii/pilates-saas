@@ -87,6 +87,12 @@ export interface Clase {
    */
   seAbreEl?: string | null;
   /**
+   * Cuándo se CIERRA la reserva por la antelación mínima (ISO): el inicio menos los minutos del tipo o, si el tipo no
+   * los fija, los del estudio. `null`/ausente = sin antelación mínima. La misma cuenta que `puedeReservarPorVentanaMinima`
+   * en el servidor, que es quien decide; aquí solo sirve para no OFRECER reservar una clase ya cerrada.
+   */
+  cierraEl?: string | null;
+  /**
    * ¿Este tipo de clase admite lista de espera? `null` = lo que diga el estudio.
    *
    * ⚠️ Es una de las cuatro reglas de reserva sobrescribibles por tipo (migr
@@ -167,12 +173,11 @@ export interface Reserva {
   id: string; claseId: string; alumnaId: string; estado: EstadoReserva;
   creadaEn: string;
   /**
-   * ⚠️ NO existe `bonoId` en una reserva, y no es un olvido: `reservas` no
-   * guarda con qué se pagó (consumir el bono es un paso aparte,
-   * `consumir_sesion_bono`, y no deja columna) — lo documenta
-   * `proyectarReservas`. El campo estaba declarado, nadie lo escribía nunca, y
-   * la ficha del bono filtraba por él: su lista de «sesiones usadas» salía
-   * vacía siempre. Se quita para que no vuelva a parecer que el dato está ahí.
+   * ⚠️ Con qué se pagó: lo guarda `reservas.bono_suscripcion_id`, que escribe `reservar_plaza` al consumir el bono en
+   * su misma transacción (motor de derechos, 2-oct-2026), y viaja en el payload (`mapReserva.bonoSuscripcionId`).
+   * Este comentario decía lo contrario («`reservas` no guarda con qué se pagó»): era verdad antes del motor y dejó de
+   * serlo. Ojo con dos casos en los que llega `null` sin que signifique «no pagó con bono»: las reservas IMPORTADAS y
+   * las anteriores al rastreo. Nunca se deduce: si no está, no se sabe.
    */
   posicionEspera?: number;
   /**
@@ -184,14 +189,41 @@ export interface Reserva {
   ofertaExpiraEn?: string;
 }
 
-export type EstadoBono = 'activo' | 'agotado' | 'expirado';
+/**
+ * `pausado` y `cancelado` son de la SUSCRIPCIÓN (`PAUSADA`/`CANCELADA`): antes caían los dos en `expirado`, y una cuota
+ * en pausa salía «Expirado» y una cancelada con fecha futura decía «caducó <fecha que aún no ha llegado>».
+ */
+export type EstadoBono = 'activo' | 'agotado' | 'expirado' | 'pausado' | 'cancelado';
+/** El tipo del plan: `MENSUAL` es una cuota; `BONO` y `PUNTUAL`, sesiones que se gastan. */
+export type TipoPlanBono = 'MENSUAL' | 'BONO' | 'PUNTUAL';
 export interface Bono {
-  id: string; nombre: string; creditosTotales: number; creditosUsados: number;
+  id: string; nombre: string;
+  /**
+   * ⚠️ El SALDO REAL: `max(sesiones del plan, restantes)`, de modo que totales − usados = restantes siempre. Renovar
+   * un bono SUMA al mismo (`renovar_bono_idempotente`), y con «totales = sesiones del plan» un bono de 8 con 11 se
+   * pintaba como 8. «De cuántas» no sale de aquí: sale de `saldoBono` (lib/student/saldo-bono.ts). `Infinity` = sin
+   * límite.
+   */
+  creditosTotales: number; creditosUsados: number;
   compradoEn: string; expiraEn: string | null; estado: EstadoBono; precio: number;
   /** Tipos de clase que cubre. Vacío = todos (misma regla que el servidor). */
   tiposClaseIds?: string[];
   /** Clases por semana que permite su plan (una cuota «2 clases/semana»). `null`/ausente = sin tope. */
   limiteSemanal?: number | null;
+  /**
+   * Topes por actividad de su plan (`plan_tipos_clase.limite_semanal`), por id de tipo de clase. Solo los de verdad
+   * (> 0): un tipo sin tope no aparece. Vacío/ausente = sin topes por actividad.
+   */
+  limitePorTipo?: Record<string, number>;
+  /** Tipo de su plan. `null`/ausente = no se sabe (sin plan o un tipo desconocido): ver `esCuota`. */
+  tipoPlan?: TipoPlanBono | null;
+  /** Sesiones que trae su plan (`planes_tarifa.sesiones`). `null`/ausente = sin límite o sin plan. */
+  sesionesDelPlan?: number | null;
+  /**
+   * Se ha renovado alguna vez (tiene un recibo `es_renovacion`). Renovar SUMA al mismo bono, así que desde la primera
+   * renovación «de M» ya no es verdad: con 3 del ciclo anterior y 8 nuevas no quedan «11 de 8».
+   */
+  renovado?: boolean;
 }
 
 /**

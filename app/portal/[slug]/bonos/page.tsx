@@ -17,6 +17,8 @@ import { euros } from '@/lib/student/formato';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Ilustracion } from '@/components/student/ui/Ilustracion';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
+import { esCuota } from '@/lib/student/bono-cubre';
+import { CUOTA_EN_PAUSA } from '@/lib/student/pagos-acciones';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
 
 // Bonos (§A.12). Lo único que mueve dinero son dos atajos al checkout de
@@ -115,6 +117,10 @@ function Bonos() {
 
   const activos = data?.filter((b) => b.estado === 'activo') ?? [];
   const otros = data?.filter((b) => b.estado !== 'activo') ?? [];
+  // Decisión del fundador (5-oct-2026): sin nada activo y con la cuota EN PAUSA no se ofrece «Renovar mi plan».
+  // `renovar-plan` renueva la suscripción ACTIVA o, si no hay, la más reciente, y esa puede ser la cuota en pausa:
+  // el botón le cobraría la renovación de algo que el estudio ha parado. Se lo decimos y que lo hable con su estudio.
+  const cuotaEnPausa = activos.length === 0 && otros.some((b) => b.estado === 'pausado' && esCuota(b));
 
   return (
     <StudentShell>
@@ -170,7 +176,14 @@ function Bonos() {
         {data && estado === 'ready' && (
           <>
             {activos.length === 0 && (
-              otros.length > 0 ? (
+              cuotaEnPausa ? (
+                <div className="card card--pad stack" data-testid="cuota-en-pausa" style={{ ['--gap' as string]: 'var(--s-2)', alignItems: 'center', textAlign: 'center' }}>
+                  <Ilustracion nombre="bono" alto={76} />
+                  <p className="t-small" style={{ fontWeight: 800 }}>Sin bono activo</p>
+                  <p className="t-meta">{CUOTA_EN_PAUSA}</p>
+                  <Link href={href('/comprar')} className="t-small tap" style={{ fontWeight: 800, color: 'var(--accent)' }}>o comprar un bono distinto</Link>
+                </div>
+              ) : otros.length > 0 ? (
                 // B-1: si ya tuvo un plan (aunque hoy esté agotado/caducado),
                 // ofrecerle renovar ESE plan es más directo que mandarla a
                 // "Comprar" a elegir de nuevo entre todos — mismo plan, mismo

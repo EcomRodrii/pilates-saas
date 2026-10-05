@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ahorroFrenteASuelta, catalogoTienda, coberturaProducto, paraQueClases, precioDeTienda, renovacionDeCuota, resumenProducto,
+  ahorroFrenteASuelta, catalogoTienda, coberturaProducto, hayALaVentaQueCubra, paraQueClases, precioDeTienda, renovacionDeCuota, resumenProducto,
   textoBotonCompra, topesPorActividad, vigenciaDeCompra,
 } from './tienda.ts';
 import { cicloInicialDe } from '../bono-logic.ts';
@@ -333,4 +333,26 @@ test('«Para»: todas las clases, o las que cubre con su nombre', () => {
   // Una privada o un producto no se reservan contra el horario.
   assert.equal(paraQueClases(de('priv'), TIPOS), null);
   assert.equal(paraQueClases(de('agua'), TIPOS), null);
+});
+
+// ── ¿Hay algo a la venta que dé derecho a ESTA clase? ────────────────────────
+// La ficha, Inicio y Bonos ofrecen la tienda solo si van a encontrar ahí lo que se les promete.
+
+test('hayALaVentaQueCubra: un plan del escaparate que cubra el tipo, y nada más', () => {
+  const plan = (o: Record<string, unknown>) => ({ id: 'p', nombre: 'P', precio: 50, tipo: 'BONO', activo: true, ...o });
+  // Un bono general cubre cualquier clase.
+  assert.equal(hayALaVentaQueCubra([plan({})], 'tc-ref'), true);
+  // Acotado a Mat: no cubre un Reformer.
+  assert.equal(hayALaVentaQueCubra([plan({ tiposClaseIds: ['tc-mat'] })], 'tc-ref'), false);
+  assert.equal(hayALaVentaQueCubra([plan({ tiposClaseIds: ['tc-mat'] })], 'tc-mat'), true);
+  // Lo que el escaparate no enseña tampoco cuenta: apagado, de prueba o sin precio.
+  assert.equal(hayALaVentaQueCubra([plan({ activo: false })], 'tc-ref'), false);
+  assert.equal(hayALaVentaQueCubra([plan({ esPrueba: true })], 'tc-ref'), false);
+  assert.equal(hayALaVentaQueCubra([plan({ precio: 0 })], 'tc-ref'), false);
+  // Cuota y clase suelta también dan derecho a la clase.
+  assert.equal(hayALaVentaQueCubra([plan({ tipo: 'MENSUAL' })], 'tc-ref'), true);
+  assert.equal(hayALaVentaQueCubra([plan({ tipo: 'PUNTUAL' })], 'tc-ref'), true);
+  // Sin nada a la venta.
+  assert.equal(hayALaVentaQueCubra([], 'tc-ref'), false);
+  assert.equal(hayALaVentaQueCubra(null, 'tc-ref'), false);
 });

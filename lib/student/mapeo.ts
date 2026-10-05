@@ -20,7 +20,7 @@ import {
 // `nivelDe` con alias: en este fichero ya hay una `nivelDe` local, la que
 // traduce el nivel de una CLASE (PRINCIPIANTE → Iniciación). Nada que ver.
 import { canjesDe, creditosPorAsistir, formasDeGanar, hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type ReglaDef, type RetoDef } from './gamificacion.ts';
-import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva } from './tipos.ts';
+import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva, TipoPlanBono } from './tipos.ts';
 import type { PlazaCalendario, ReservaCalendario, SesionCalendario } from '../plazas-fijas-calendario.ts';
 import type { RenovacionPorPagar } from '../billing/renovacion-sin-tarjeta.ts';
 
@@ -164,6 +164,21 @@ export interface PlanMin {
   tiposClaseIds?: string[];
   /** Clases por semana que permite (una cuota «2 clases/semana»). `null` = sin tope. */
   limiteSemanal?: number | null;
+  /** Topes por actividad (`plan_tipos_clase.limite_semanal`), por id de tipo. `null` = ese tipo sin tope. Lo cuelga
+      `hidratarTiposDePlanes` en el payload público junto a `tiposClaseIds`. */
+  limitePorTipo?: Record<string, number | null>;
+}
+
+/** `planes_tarifa.tipo` → el del modelo. Un tipo que la app no conoce es `null`, no se adivina. */
+function tipoPlanDe(tipo: string | null | undefined): TipoPlanBono | null {
+  return tipo === 'MENSUAL' || tipo === 'BONO' || tipo === 'PUNTUAL' ? tipo : null;
+}
+
+/** Solo los topes de verdad (> 0), como la tienda: el panel escribe `null` en los tipos sin tope. */
+function topesPorTipoDe(plan: PlanMin | undefined): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(plan?.limitePorTipo ?? {}).filter((e): e is [string, number] => typeof e[1] === 'number' && e[1] > 0),
+  );
 }
 
 /**
@@ -178,10 +193,20 @@ export interface PlanMin {
  * `ahora` se pasa por parámetro y no se lee de `Date.now()` dentro: así el
  * caso «caducado» es comprobable sin viajar en el tiempo.
  */
-export function bonoDeSuscripcion(s: SuscripcionMin, plan: PlanMin | undefined, ahora: number): Bono {
+export function bonoDeSuscripcion(
+  s: SuscripcionMin, plan: PlanMin | undefined, ahora: number,
+  /** Se ha renovado alguna vez (`proyectarBonos` lo saca de sus recibos `es_renovacion`). */
+  opciones: { renovado?: boolean } = {},
+): Bono {
   const ilimitado = s.sesionesRestantes === null;
-  const totales = plan?.sesiones ?? 0;
+  const tipoPlan = tipoPlanDe(plan?.tipo);
+  const delPlan = plan?.sesiones ?? null;
   const restantes = s.sesionesRestantes ?? 0;
+  // ⚠️ SALDO REAL. Era `totales = plan.sesiones` y `usados = max(0, totales − restantes)`: renovar SUMA al mismo bono
+  // (`renovar_bono_idempotente`), así que con 3 del ciclo anterior y 8 nuevas (11) la app decía «Te quedan 8». Con
+  // `max(plan, restantes)` totales − usados es siempre lo que queda. «De cuántas» ya no sale de aquí: `saldoBono`.
+  // Y un bono sin plan (borrado) ya no llega con 0 y saldo de verdad: llega con sus restantes.
+  const totales = Math.max(delPlan ?? 0, restantes);
   // ⚠️ Se compara DÍA con DÍA, no un día contra un instante.
   //
   // Esto era `new Date(s.fechaFin).getTime() < ahora`, y `s.fechaFin` es
@@ -202,14 +227,24 @@ export function bonoDeSuscripcion(s: SuscripcionMin, plan: PlanMin | undefined, 
   // sobra pero fuera de plazo está expirado, que es lo que dirá el servidor al
   // intentar usarlo.
   if (caducado) estado = 'expirado';
+  // En pausa y cancelada son cosas distintas de «caducó», y se decían igual: una cuota en pausa salía «Expirado».
+  else if (s.estado === 'PAUSADA') estado = 'pausado';
+  else if (s.estado === 'CANCELADA') estado = 'cancelado';
   else if (s.estado !== 'ACTIVA') estado = 'expirado';
-  else if (!ilimitado && restantes <= 0) estado = 'agotado';
+  // Una CUOTA no se agota: el servidor la da por buena tenga o no contador (`socio_tiene_entitlement_activo`:
+  // `p.tipo = 'MENSUAL'` sin mirar el saldo) y el motor no gasta ese contador (`elegir_bono_consumible` solo elige
+  // BONO y PUNTUAL).
+  else if (!ilimitado && tipoPlan !== 'MENSUAL' && restantes <= 0) estado = 'agotado';
 
   return {
     // A qué tipos de clase está acotado: lo necesita la hoja de clase para no
     // prometer «no pagas nada hoy» con un bono que no cubre esa clase.
     tiposClaseIds: plan?.tiposClaseIds,
     limiteSemanal: plan?.limiteSemanal ?? null,
+    limitePorTipo: topesPorTipoDe(plan),
+    tipoPlan,
+    sesionesDelPlan: delPlan,
+    renovado: opciones.renovado === true,
     id: s.id,
     nombre: plan?.nombre ?? 'Bono',
     creditosTotales: ilimitado ? Infinity : totales,
@@ -256,13 +291,15 @@ export interface PayloadMin {
     reservaAntelacionMaximaDias?: number | null; reservaAntelacionHora?: string | null;
     penalizacionImporteEur?: number | null; penalizacionAplicaCancelacionTardia?: boolean | null;
     cancelacionVentanaHoras?: number | null; terminosPropios?: boolean | null;
+    /** Antelación mínima para reservar, en minutos (0 = ninguna). Viaja en `studioPublico`. */
+    reservaVentanaMinimaMinutos?: number | null;
   } | null;
   sesiones?: {
     id: string; inicio: string; fin: string; aforoMaximo: number;
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; orden?: number | null; penalizacionImporteEur?: number | null }[];
+  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; reservaVentanaMinimaMinutos?: number | null; orden?: number | null; penalizacionImporteEur?: number | null }[];
   levelDefinitions?: NivelDef[];
   achievementDefinitions?: LogroDef[];
   challengeDefinitions?: RetoDef[];
@@ -287,7 +324,9 @@ export interface PayloadMin {
     } | null;
     suscripciones?: SuscripcionMin[];
     reservas?: { id: string; sesionId: string; socioId: string; estado: string; creadoEn: string; posicionEspera: number | null; ofertaExpiraEn?: string | null }[];
-    recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null; importeDevuelto?: number | null; reembolsoStripeId?: string | null; reembolsoSolicitadoEn?: string | null }[];
+    recibos?: { id: string; concepto?: string | null; importe?: number | null; estado: string; fechaCobro?: string | null; fechaVencimiento?: string | null; metodoCobro?: string | null; suscripcionId?: string | null; importeDevuelto?: number | null; reembolsoStripeId?: string | null; reembolsoSolicitadoEn?: string | null;
+      /** Es la renovación de su plan (`recibos.es_renovacion`, `mapRecibo`): decide si «de M» sigue siendo verdad. */
+      esRenovacion?: boolean | null }[];
     /** Tipos de clase marcados como favoritos (`favoritos_clase`). */
     favoritos?: { tipoClaseId: string }[];
     plazasFijas?: PlazaFijaMin[];
@@ -337,6 +376,18 @@ function seAbreEl(
   return instanteDeApertura(inicioISO, dias, studio?.reservaAntelacionHora ?? null).toISOString();
 }
 
+/**
+ * El instante en que se CIERRA la reserva por la antelación mínima, o `null` sin ella. Los minutos del tipo mandan y,
+ * si el tipo no los fija, los del estudio (`heredaOverride`); 0 o menos es «sin antelación mínima». Misma cuenta que
+ * `puedeReservarPorVentanaMinima` (lib/booking-logic.ts), que es la que aplica el servidor.
+ */
+function cierraEl(inicioISO: string, minutosTipo: number | null | undefined, studio: PayloadMin['studio']): string | null {
+  const minutos = minutosTipo ?? studio?.reservaVentanaMinimaMinutos ?? 0;
+  if (!minutos || minutos <= 0) return null;
+  const inicio = Date.parse(inicioISO);
+  return Number.isNaN(inicio) ? null : new Date(inicio - minutos * 60_000).toISOString();
+}
+
 export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
   const tipos = new Map((d.tiposClase ?? []).map((t) => [t.id, t]));
   // El orden de los tipos que decidió el estudio, para los filtros por tipo.
@@ -375,6 +426,7 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       penalizacionTardiaHoras: horasDeCobroDe(d, tipo),
       permiteListaEspera: tipo?.permiteListaEspera ?? null,
       seAbreEl: seAbreEl(s.inicio, tipo?.reservaAntelacionMaximaDias, d.studio),
+      cierraEl: cierraEl(s.inicio, tipo?.reservaVentanaMinimaMinutos, d.studio),
       creditosAlAsistir: porAsistir,
       fecha: f,
       hora: horaLocal(s.inicio),
@@ -681,11 +733,9 @@ export function proyectarReservas(d: PayloadMin): Reserva[] {
     alumnaId: r.socioId,
     estado: estadoReservaDe(r.estado),
     creadaEn: r.creadoEn,
-    // NO hay `pagadaCon`: `reservas` no guarda con qué se pagó (el consumo de
-    // bono es un paso aparte, `consumir_sesion_bono`, y no deja columna). Lo
-    // que había era una suposición —«¿tiene bono activo HOY?»— que etiquetaba
-    // como pagadas con bono reservas de hace meses. Lo único cierto sobre el
-    // dinero es el recibo (`Pago`), y se enseña en Pagos.
+    // NO hay `pagadaCon` deducido. Lo que había era una suposición —«¿tiene bono activo HOY?»— que etiquetaba como
+    // pagadas con bono reservas de hace meses. Hoy la reserva sí guarda qué bono la pagó (`bono_suscripcion_id`, ver
+    // `Reserva` en tipos.ts), y solo eso vale: importadas y anteriores al rastreo llegan a null y no se deducen.
     posicionEspera: r.posicionEspera ?? undefined,
     ofertaExpiraEn: r.ofertaExpiraEn ?? undefined,
   }));
@@ -695,7 +745,10 @@ export function proyectarBonos(d: PayloadMin, ahora: number): Bono[] {
   const socia = d.socia;
   if (!socia) return [];
   const planes = new Map((d.planesTarifa ?? []).map((p) => [p.id, p]));
-  return (socia.suscripciones ?? []).map((s) => bonoDeSuscripcion(s, planes.get(s.planId), ahora));
+  // Las suscripciones que ya se renovaron alguna vez: desde entonces «de M» deja de ser verdad (renovar SUMA al mismo
+  // bono). Se calcula aquí, una vez, para que la tarjeta, la ficha, Perfil y Bonos lo decidan igual sin pasarse recibos.
+  const renovadas = new Set((socia.recibos ?? []).filter((r) => r.esRenovacion === true && r.suscripcionId).map((r) => r.suscripcionId as string));
+  return (socia.suscripciones ?? []).map((s) => bonoDeSuscripcion(s, planes.get(s.planId), ahora, { renovado: renovadas.has(s.id) }));
 }
 
 /**

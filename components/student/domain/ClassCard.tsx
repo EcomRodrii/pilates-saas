@@ -3,9 +3,10 @@ import Link from 'next/link';
 import { TRANSICION_ADELANTE } from '@/lib/student/transiciones';
 import { coloresMonograma, inicialDe } from '@/lib/monograma-estudio';
 import { usePortalHref } from '@/components/student/contexto';
-import type { Clase, Disponibilidad, Instructora } from '@/lib/student/tipos';
+import type { Bono, Clase, Disponibilidad, Instructora } from '@/lib/student/tipos';
 import { AvailabilityBadge, EnCursoBadge, TerminadaBadge } from '@/components/student/ui/Badge';
-import { precioClaseTexto, horaFin } from '@/lib/student/formato';
+import { horaFin } from '@/lib/student/formato';
+import { textoPagoFila } from '@/lib/student/como-se-paga';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
 import { etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
@@ -14,7 +15,11 @@ import { etiquetaSeAbre } from '@/lib/reservar/apertura-texto';
 // por `usePortalHref()`: dejarlos absolutos mandaría a la alumna a la landing
 // de Tentare o al panel.
 /** Fila de clase del horario (kit): hora mono | divisor | logo | nombre + avatar instructora | badge + precio. */
-export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { clase: Clase; instructora?: Instructora; estado: Disponibilidad; conBono: boolean; delay?: number }) {
+export function ClassCard({ clase, instructora, estado, bono, delay = 0 }: {
+  clase: Clase; instructora?: Instructora; estado: Disponibilidad;
+  /** Lo que pagaría ESTA clase (`bonoParaClase`, con «la mensual gana»). `null` = nada la cubre. */
+  bono: Bono | null; delay?: number;
+}) {
   const href = usePortalHref();
   const chip = coloresMonograma(clase.color);
   // El reloj lo pide la TARJETA, no la pantalla: así las tres que la usan
@@ -104,7 +109,9 @@ export function ClassCard({ clase, instructora, estado, conBono, delay = 0 }: { 
         ) : (
           <>
             <AvailabilityBadge estado={estado} plazas={clase.plazasLibres} />
-            <p style={{ margin: '5px 0 0', fontSize: 'var(--t-meta)', fontWeight: 800, color: 'var(--muted-foreground)' }}>{conBono ? '1 sesión' : precioClaseTexto(clase)}</p>
+            {/* «Cuota», «1 sesión» o el precio, de la misma clasificación que la hoja (`como-se-paga.ts`): con una cuota
+                decía «1 sesión» y no se le iba a descontar nada. */}
+            <p style={{ margin: '5px 0 0', fontSize: 'var(--t-meta)', fontWeight: 800, color: 'var(--muted-foreground)' }}>{textoPagoFila(clase, bono)}</p>
           </>
         )}
       </div>
