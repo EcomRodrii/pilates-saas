@@ -6,6 +6,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import { mensajeSeguro } from '@/lib/errores';
 import type { RowMensajes } from '@/lib/db-types';
 import type { ConversacionConResumen } from '@/lib/mensajeria/presentacion';
+import type { EstadoHilo } from '@/lib/moderacion/reglas';
 
 // Chat de la alumna con su estudio, sobre el backend YA EXISTENTE de
 // `/api/public/mensajeria/*` (mismo esquema/RLS que el lado staff, ver
@@ -28,6 +29,45 @@ export type ResultadoAbrir = { ok: true; id: string } | { ok: false; error: stri
  * enseña y vuelve a intentarlo); `FILTRO` = palabras no permitidas.
  */
 export type ResultadoEnviar = { ok: true; mensaje: RowMensajes } | { ok: false; error: string; codigo?: string };
+
+/** Un mensaje como lo da el servidor: lo retirado por el estudio llega con `oculto` y sin su texto. */
+export type MensajeHilo = RowMensajes & { oculto?: boolean };
+
+/** Los mensajes de un hilo y si admite mensajes (cerrado o con un bloqueo, App Store 1.2). */
+export interface HiloCargado { mensajes: MensajeHilo[]; estado: EstadoHilo }
+
+/** Denunciar o bloquear: `mensaje` es lo que se le dice al terminar («Gracias. Lo revisaremos.»). */
+export type ResultadoModeracionApp =
+  | { ok: true; mensaje?: string; estado?: EstadoHilo }
+  | { ok: false; error: string };
+
+const ESTADOS: readonly EstadoHilo[] = ['ABIERTA', 'BLOQUEADA_POR_MI', 'NO_ADMITE'];
+/** Una app del servidor de antes no manda `estado`: se da por abierto, como hasta ahora. */
+export function estadoDeRespuesta(v: unknown): EstadoHilo {
+  return ESTADOS.includes(v as EstadoHilo) ? (v as EstadoHilo) : 'ABIERTA';
+}
+
+async function postModeracion(url: string, cuerpo: Record<string, unknown>, respaldo: string): Promise<ResultadoModeracionApp> {
+  try {
+    const auth = await portalAuthHeader();
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth }, body: JSON.stringify(cuerpo) });
+    if (!res.ok) return { ok: false, error: await leerError(res, respaldo) };
+    const d = await res.json().catch(() => ({})) as { mensaje?: string; estado?: unknown };
+    return { ok: true, mensaje: d.mensaje, estado: d.estado === undefined ? undefined : estadoDeRespuesta(d.estado) };
+  } catch {
+    return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };
+  }
+}
+
+export function denunciarMensajeAlumna(studioId: string, conversacionId: string, mensajeId: string): Promise<ResultadoModeracionApp> {
+  return postModeracion(`/api/public/mensajeria/conversaciones/${encodeURIComponent(conversacionId)}/denunciar`,
+    { studioId, mensajeId }, 'No se ha podido enviar la denuncia.');
+}
+
+export function bloquearChatAlumna(studioId: string, conversacionId: string, bloquear: boolean): Promise<ResultadoModeracionApp> {
+  return postModeracion(`/api/public/mensajeria/conversaciones/${encodeURIComponent(conversacionId)}/bloquear`,
+    { studioId, bloquear }, 'No se ha podido guardar.');
+}
 
 async function leerError(res: Response, respaldo: string): Promise<string> {
   const cuerpo = await res.json().catch(() => null) as { error?: string } | null;
@@ -67,14 +107,14 @@ export async function abrirConversacionConEstudio(studioId: string): Promise<Res
   }
 }
 
-export async function fetchMensajes(studioId: string, conversacionId: string): Promise<RowMensajes[] | null> {
+export async function fetchMensajes(studioId: string, conversacionId: string): Promise<HiloCargado | null> {
   try {
     const auth = await portalAuthHeader();
     const url = `/api/public/mensajeria/conversaciones/${encodeURIComponent(conversacionId)}/mensajes?studioId=${encodeURIComponent(studioId)}&limite=100`;
     const res = await fetch(url, { headers: auth });
     if (!res.ok) return null;
-    const cuerpo = await res.json() as { mensajes?: RowMensajes[] };
-    return cuerpo.mensajes ?? [];
+    const cuerpo = await res.json() as { mensajes?: MensajeHilo[]; estado?: unknown };
+    return { mensajes: cuerpo.mensajes ?? [], estado: estadoDeRespuesta(cuerpo.estado) };
   } catch {
     return null;
   }

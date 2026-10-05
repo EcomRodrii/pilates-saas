@@ -3,6 +3,7 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { alumnaMenorParaChat, TEXTO_MENOR_CHAT } from '@/lib/moderacion/chat-servidor';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import {
   instantesUltimoMensaje, resumirConversaciones,
@@ -42,6 +43,18 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   const socioId = await socioAutenticado(user.userId, body.studioId);
   if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+  // Con una alumna menor de 14, el chat con una instructora no se abre: los
+  // mensajes van por el estudio (opción prudente, ver `alumnaMenorParaChat`).
+  if (tipo === 'ALUMNA_INSTRUCTORA') {
+    try {
+      if (await alumnaMenorParaChat(admin, body.studioId, socioId)) {
+        return NextResponse.json({ error: TEXTO_MENOR_CHAT, motivo: 'MENOR' }, { status: 409 });
+      }
+    } catch (e) {
+      return errorInterno('public/mensajeria/conversaciones:POST:edad', e, 'No se ha podido abrir la conversación.');
+    }
+  }
 
   const { data, error } = await admin.rpc('abrir_conversacion', {
     p_studio_id: body.studioId,

@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { ConversacionConResumen } from '../mensajeria/presentacion.ts';
+import { TEXTO_MENOR_CHAT } from '../moderacion/reglas.ts';
 
 export interface AlumnaDelHilo {
   socioId: string;
@@ -20,9 +21,10 @@ export interface AlumnaDelHilo {
 export type HiloInstructora = ConversacionConResumen & { alumna: AlumnaDelHilo | null };
 
 /** Por qué no se puede empezar una conversación con esta alumna. */
-export type MotivoNoAbrir = 'SIN_CUENTA' | 'SIN_CLASE_CONFIRMADA';
+export type MotivoNoAbrir = 'SIN_CUENTA' | 'SIN_CLASE_CONFIRMADA' | 'MENOR';
 
 export function textoNoAbrir(motivo: MotivoNoAbrir): string {
+  if (motivo === 'MENOR') return TEXTO_MENOR_CHAT;
   return motivo === 'SIN_CUENTA'
     ? 'Esta alumna todavía no usa la app, así que no puede recibir mensajes.'
     : 'Podrás escribirle cuando tenga una clase confirmada contigo.';

@@ -6,7 +6,8 @@ import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useSesionInstructora } from '@/lib/student/sesion-instructora';
 import { useMiAuthUserId } from '@/lib/student/mensajeria';
 import {
-  enviarEnHiloInstructora, getHilosInstructora, getMensajesHilo, marcarHiloLeidoInstructora,
+  bloquearHiloInstructora, denunciarEnHiloInstructora, enviarEnHiloInstructora, getHilosInstructora, getMensajesHilo,
+  marcarHiloLeidoInstructora,
 } from '@/lib/student/datos-instructora';
 import type { AlumnaDelHilo, HiloInstructora } from '@/lib/student/mensajes-instructora';
 import { vistaGuardada } from '@/lib/student/useAsync';
@@ -44,6 +45,10 @@ export default function HiloInstructoraPage() {
     return mensajes;
   }, [esInstructora, estudio.slug, id]);
   const enviar = useCallback((cuerpo: string) => enviarEnHiloInstructora(estudio.slug, id, cuerpo), [estudio.slug, id]);
+  const denunciar = useCallback(
+    (mensajeId: string) => denunciarEnHiloInstructora(estudio.slug, id, mensajeId), [estudio.slug, id],
+  );
+  const bloquear = useCallback((b: boolean) => bloquearHiloInstructora(estudio.slug, id, b), [estudio.slug, id]);
   const marcarLeido = useCallback(
     (hasta: string | null) => marcarHiloLeidoInstructora(estudio.slug, id, hasta), [estudio.slug, id],
   );
@@ -60,6 +65,9 @@ export default function HiloInstructoraPage() {
       enviar={enviar}
       marcarLeido={marcarLeido}
       miId={miId}
+      denunciar={denunciar}
+      bloquear={bloquear}
+      nombreOtraParte={alumna?.nombre ?? null}
     />
   );
 }

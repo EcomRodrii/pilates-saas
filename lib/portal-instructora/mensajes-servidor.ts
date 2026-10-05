@@ -13,6 +13,7 @@ import {
   errorDeModeracion, estadoDelHilo, mensajeParaApp,
   type EstadoHilo, type MensajeParaApp, type ParticipanteHilo,
 } from '@/lib/moderacion/reglas';
+import { alumnaMenorParaChat, bloquearEnChat, denunciarMensaje, type ResultadoModeracionChat } from '@/lib/moderacion/chat-servidor';
 import type { RowConversaciones, RowMensajes } from '@/lib/db-types';
 import type { AlumnaDelHilo, HiloInstructora, MotivoNoAbrir } from '@/lib/student/mensajes-instructora';
 
@@ -168,6 +169,8 @@ export async function abrirHiloConAlumna(
     .eq('id', p.socioId).eq('studio_id', p.studioId).is('borrado_en', null).maybeSingle();
   if (eSocio) throw eSocio;
   if (!socio) return null;
+  // Con una alumna menor de 14, los mensajes van por el estudio (opción prudente).
+  if (await alumnaMenorParaChat(admin, p.studioId, p.socioId, ahora)) return { ok: false, motivo: 'MENOR' };
 
   const { data, error } = await admin.rpc('abrir_conversacion', {
     p_studio_id: p.studioId,
@@ -236,6 +239,24 @@ export async function enviarEnHilo(
     throw error;
   }
   return { ok: true, mensaje: data as RowMensajes };
+}
+
+/** Denuncia un mensaje de la alumna en un hilo suyo. `null` si el hilo no es suyo. */
+export async function denunciarEnHilo(
+  p: InstructoraDelHilo, conversacionId: string, mensajeId: string, detalle: string | null,
+): Promise<ResultadoModeracionChat | null> {
+  return denunciarMensaje(adminOLanza(), {
+    studioId: p.studioId, conversacionId, mensajeId, detalle, yo: { tipo: 'INSTRUCTORA', authUserId: p.userId },
+  });
+}
+
+/** Bloquea (o desbloquea) a la alumna de un hilo suyo. `null` si el hilo no es suyo. */
+export async function bloquearEnHilo(
+  p: InstructoraDelHilo, conversacionId: string, bloquear: boolean, detalle: string | null,
+): Promise<ResultadoModeracionChat | null> {
+  return bloquearEnChat(adminOLanza(), {
+    studioId: p.studioId, conversacionId, bloquear, detalle, yo: { tipo: 'INSTRUCTORA', authUserId: p.userId },
+  });
 }
 
 /**
