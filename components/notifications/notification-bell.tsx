@@ -20,6 +20,8 @@ import { fetchMisEstudios } from '@/lib/supabase-data';
 // sedes de la cadena (un pago fallido de la sede B tiene que verse aunque estés
 // mirando la A). Sin studioId a propósito — ver lib/notifications/ambito.ts.
 const AMBITO_STAFF: AmbitoNotif = { ambito: 'staff' };
+// Cada cuánto se repregunta con la pestaña visible (ver el efecto de más abajo).
+const SONDEO_MS = 120_000;
 import { cn } from '@/lib/utils';
 import { irEnConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 
@@ -96,6 +98,11 @@ export function NotificationBell() {
   // El setState de cargar() ocurre DESPUÉS del await (asíncrono), no en cascada;
   // el lint del compilador da un falso positivo con el fetch-en-effect.
   //
+  // 120 s y no 60 (6-oct-2026): cada tic es una validación de sesión más seis
+  // consultas sobre una base Nano que hace swap, por cada pestaña abierta. Lo
+  // urgente (una venta) va por Realtime; el resto no pierde nada por tardar
+  // hasta dos minutos, y volver a la pestaña recarga al instante.
+  //
   // El tic se salta con la pestaña oculta: una sesión de mostrador que se deja
   // abierta toda la noche pedía notificaciones 60 veces por hora sin que nadie
   // mirase. Para que volver a la pestaña no obligue a esperar al siguiente
@@ -103,7 +110,7 @@ export function NotificationBell() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void cargar();
-    const t = setInterval(() => { if (!document.hidden) void cargar(); }, 60_000);
+    const t = setInterval(() => { if (!document.hidden) void cargar(); }, SONDEO_MS);
     const alVolver = () => { if (!document.hidden) void cargar(); };
     document.addEventListener('visibilitychange', alVolver);
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', alVolver); };
