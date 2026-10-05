@@ -90,6 +90,14 @@ export const ACCION_LISTO: Record<IdComprobacion, string> = {
 };
 
 const n = (x: number, uno: string, varios: string) => `${x} ${x === 1 ? uno : varios}`;
+
+/**
+ * «12 de octubre»: el día en que se abre la reserva, en la hora del estudio. Lo
+ * comparte la pantalla de «ya puede recibir reservas» (lib/onboarding/puede-reservar.ts):
+ * las dos cuentan la misma fecha y no pueden escribirla distinto.
+ */
+export const diaDeApertura = (abre: Date) =>
+  abre.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
 const relleno = (s: string | null) => !s || s.trim() === '';
 
 export function evaluarListo(d: DatosListo, now: Date, puedeAbrir: (href: string) => boolean): Comprobacion[] {
@@ -166,7 +174,7 @@ export function evaluarListo(d: DatosListo, now: Date, puedeAbrir: (href: string
       id: 'antelacion', titulo: 'Reservas abiertas', bloquea: false,
       estado: falta ? 'FALTA' : 'OK',
       detalle: falta
-        ? `Solo dejas reservar con ${n(d.antelacionMaximaDias, 'día', 'días')} de antelación: tu primera clase no se podrá reservar hasta el ${abre.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })}.`
+        ? `Solo dejas reservar con ${n(d.antelacionMaximaDias, 'día', 'días')} de antelación: tu primera clase no se podrá reservar hasta el ${diaDeApertura(abre)}.`
         : '',
     });
   }

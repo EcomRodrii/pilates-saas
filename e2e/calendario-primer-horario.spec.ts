@@ -30,7 +30,15 @@ const CARMEN = {
   activo: true, rol: 'PROPIETARIO', authUserId: AUTH_UID,
 };
 
-async function montar(page: Page, { conClases = false, tiposClase = TIPOS, instructores = [CARMEN] as unknown[] } = {}) {
+// Un bono activo con precio, en snake_case como sale de Supabase: con él, y sin
+// Stripe, el aviso del cliente (`avisoVentaOnline`) ya salta en «ya puede
+// recibir reservas».
+const BONO_ACTIVO = { id: 'plan-bono', studio_id: 's', nombre: 'Bono 10', precio: 90, tipo: 'BONO', sesiones: 10, activo: true };
+
+async function montar(page: Page, {
+  conClases = false, tiposClase = TIPOS, instructores = [CARMEN] as unknown[],
+  planesActivos = false, cuentaStripe = null as string | null,
+} = {}) {
   const importaciones: Record<string, unknown>[] = [];
   await page.addInitScript(([k, u]) => {
     localStorage.setItem(k, JSON.stringify({
@@ -67,9 +75,11 @@ async function montar(page: Page, { conClases = false, tiposClase = TIPOS, instr
   }))));
   await page.route('**/rest/v1/tipos_clase**', r => json(r, tiposClase));
   await page.route('**/rest/v1/salas**', r => json(r, SALAS));
+  if (planesActivos) await page.route('**/rest/v1/planes_tarifa**', r => json(r, [BONO_ACTIVO]));
   await page.route('**/rest/v1/studios**', r => json(r, {
     id: 's', nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID,
     bienvenida_vista_en: '2026-01-01T00:00:00Z', hora_apertura: '07:00:00', hora_cierre: '22:00:00',
+    stripe_account_id: cuentaStripe,
   }));
   await page.route('**/rest/v1/rpc/current_studio_id', r => json(r, 's'));
 
@@ -296,5 +306,127 @@ test.describe('Con el equipo vacío se pregunta quién da las clases', () => {
     expect(altas).toBe(0);
     expect(configuraciones).toBe(0);
     for (const f of (importaciones[0] as { rows: { instructor: string | null }[] }).rows) expect(f.instructor).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Tu estudio ya puede recibir reservas» — lo confirma el servidor.
+//
+// La pantalla prometía «cualquiera con este enlace puede reservar» con una
+// heurística del cliente que daba por cobrable a un Stripe solo por estar
+// conectado. Ahora lo decide `/api/onboarding/puede-reservar` con las reglas de
+// la reserva de verdad. ⚠️ Todos con contador: sin él, «no promete» pasaría
+// igual aunque la pantalla no hubiera preguntado nada.
+// ─────────────────────────────────────────────────────────────────────────────
+const PROMESA = /cualquiera con este enlace puede reservar/;
+
+/** Va DESPUÉS de `montar` (la última ruta registrada gana) y cuenta cada pregunta. */
+async function servidorDice(page: Page, cuerpo: unknown, status = 200) {
+  const llamadas = { intentos: 0 };
+  await page.route('**/api/onboarding/puede-reservar', r => { llamadas.intentos++; return json(r, cuerpo, status); });
+  return llamadas;
+}
+
+async function crearHorarioPropuesto(page: Page) {
+  await page.getByRole('button', { name: 'Ver el horario propuesto' }).click({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Este sería tu horario' })).toBeVisible();
+  await page.getByRole('button', { name: 'Crear este horario' }).click();
+  await expect(page.getByRole('heading', { name: 'Tu estudio ya puede recibir reservas' })).toBeVisible({ timeout: 15_000 });
+}
+
+test.describe('«Ya puede recibir reservas» solo promete lo que confirma el servidor', () => {
+  test('sin Stripe, pidiendo bono: avisa y no promete que cualquiera puede reservar', async ({ page }) => {
+    await montar(page, { planesActivos: true });
+    const servidor = await servidorDice(page, { estado: 'NO', motivo: 'STRIPE_SIN_CUENTA' });
+    await crearHorarioPropuesto(page);
+
+    await expect.poll(() => servidor.intentos, { timeout: 15_000 }).toBeGreaterThan(0);
+    await expect(page.getByText(/Una alumna nueva todavía no puede reservar/)).toBeVisible();
+    await expect(page.getByText('Tu página está abierta.', { exact: false })).toBeVisible();
+    await expect(page.getByText(PROMESA)).toHaveCount(0);
+  });
+
+  test('con Stripe conectado que aún no cobra: lo dice el servidor, aunque el cliente lo diera por bueno', async ({ page }) => {
+    // Con cuenta de Stripe el aviso del cliente calla: este es justo el hueco.
+    await montar(page, { planesActivos: true, cuentaStripe: 'acct_e2e' });
+    const servidor = await servidorDice(page, { estado: 'NO', motivo: 'STRIPE_NO_PUEDE' });
+    await crearHorarioPropuesto(page);
+
+    await expect(page.getByText(/Stripe aún no puede cobrar/)).toBeVisible({ timeout: 15_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    await expect(page.getByText(PROMESA)).toHaveCount(0);
+  });
+
+  test('con el sí del servidor, promete, y el aviso del cliente se retira', async ({ page }) => {
+    // Control positivo: sin él, los dos de arriba pasarían también con una
+    // pantalla que no prometiera nunca nada.
+    await montar(page, { planesActivos: true });
+    const servidor = await servidorDice(page, { estado: 'SI' });
+    await crearHorarioPropuesto(page);
+
+    await expect(page.getByText(PROMESA)).toBeVisible({ timeout: 15_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    await expect(page.getByText(/Una alumna nueva todavía no puede reservar/)).toHaveCount(0);
+  });
+
+  test('si el servidor falla, se queda como estaba y nada se rompe', async ({ page }) => {
+    await montar(page);
+    const servidor = await servidorDice(page, { error: 'boom' }, 500);
+    await crearHorarioPropuesto(page);
+
+    // Sin aviso del cliente y sin poder comprobarlo: lo de siempre, la promesa.
+    await expect(page.getByText(PROMESA)).toBeVisible({ timeout: 15_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    await expect(page.getByText('Algo ha ido mal')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Ver mi calendario' }).click();
+    await expect(page.getByRole('heading', { name: 'Tu estudio ya puede recibir reservas' })).toHaveCount(0);
+  });
+
+  test('en un móvil cabe: ni el titular ni el enlace se salen por la derecha', async ({ page }) => {
+    // La rejilla crecía hasta el ancho del enlace sin cortar: a 390 px la
+    // pantalla medía 444 y el titular salía cortado. Justo en el móvil, que es
+    // donde se comparte el enlace.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await montar(page);
+    const servidor = await servidorDice(page, { estado: 'SI' });
+    await crearHorarioPropuesto(page);
+
+    await expect(page.getByText(PROMESA)).toBeVisible({ timeout: 15_000 });
+    expect(servidor.intentos).toBeGreaterThan(0);
+    const anchos = await page.getByRole('heading', { name: 'Tu estudio ya puede recibir reservas' }).evaluate(el => {
+      let n: Element | null = el;
+      while (n && getComputedStyle(n).position !== 'fixed') n = n.parentElement;
+      return n ? { contenido: n.scrollWidth, pantalla: n.clientWidth } : null;
+    });
+    expect(anchos).not.toBeNull();
+    expect(anchos!.contenido).toBeLessThanOrEqual(anchos!.pantalla);
+  });
+
+  test('en modo oscuro la pantalla sale oscura: va dentro del contenedor del tema', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('panel-dark-mode', '1'));
+    await montar(page);
+    const servidor = await servidorDice(page, { estado: 'SI' });
+    await crearHorarioPropuesto(page);
+
+    const titular = page.getByRole('heading', { name: 'Tu estudio ya puede recibir reservas' });
+    // Con el portal a <body> esto era null: el contenedor con `.dark` quedaba fuera.
+    expect(await titular.evaluate(el => el.closest('.dark') !== null)).toBe(true);
+    // Y el fondo pintado es oscuro de verdad, no la hoja clara de antes. Se pasa
+    // por un canvas para leerlo en RGB: el color calculado puede salir en
+    // oklab/oklch, y sacarle números a esa cadena mediría cualquier cosa.
+    const luz = await titular.evaluate(el => {
+      let n: Element | null = el;
+      while (n && getComputedStyle(n).position !== 'fixed') n = n.parentElement;
+      if (!n) return null;
+      const ctx = document.createElement('canvas').getContext('2d');
+      if (!ctx) return null;
+      ctx.fillStyle = getComputedStyle(n).backgroundColor;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+      return a === 0 ? null : (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    });
+    expect(luz).not.toBeNull();
+    expect(luz!).toBeLessThan(0.4);
+    await expect.poll(() => servidor.intentos, { timeout: 15_000 }).toBeGreaterThan(0);
   });
 });

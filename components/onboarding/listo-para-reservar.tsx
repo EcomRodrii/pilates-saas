@@ -28,6 +28,11 @@ import { AlertTriangle, ArrowRight, Check, Copy, ExternalLink, MessageCircle, Sh
 import { copiarAlPortapapeles } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { avisoVentaOnline } from '@/lib/onboarding';
+import {
+  avisoListo, leerRespuestaPuedeReservar, prometeReservas, type RespuestaPuedeReservar,
+} from '@/lib/onboarding/puede-reservar';
+import { authHeader } from '@/lib/api-client';
+import { anfitrionPortal } from '@/lib/panel-portal';
 import { capturarEvento } from '@/lib/posthog-cliente';
 
 // El móvil de la vista previa. Se dibuja a tamaño de teléfono de verdad
@@ -61,6 +66,26 @@ export function ListoParaReservar({
     reservaExigirPlan: studio.reservaExigirPlan ?? true,
     numPlanesActivos: planesTarifa.filter(p => p.activo).length,
   }) : null;
+
+  // ⚠️ Pero ese aviso es una heurística del cliente, y se equivocaba justo en el
+  // caso que más duele: con Stripe conectado y la verificación a medias
+  // (`charges_enabled` en false) callaba, y la pantalla prometía «cualquiera con
+  // este enlace puede reservar» mientras el «¿Lista para abrir?» de Inicio decía
+  // que Stripe aún no cobra. Quien lo decide ahora es el servidor, con las mismas
+  // reglas que la reserva de verdad; el aviso del cliente solo se queda mientras
+  // contesta, o si no ha podido comprobarlo.
+  const [srv, setSrv] = useState<RespuestaPuedeReservar | null>(null);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    authHeader()
+      .then(headers => fetch('/api/onboarding/puede-reservar', { headers, signal: ctrl.signal }))
+      .then(async res => leerRespuestaPuedeReservar(res.ok ? await res.json().catch(() => null) : null))
+      .catch(() => leerRespuestaPuedeReservar(null))
+      .then(r => { if (!ctrl.signal.aborted) setSrv(r); });
+    return () => ctrl.abort();
+  }, []);
+  const avisoFinal = avisoListo(srv, aviso);
+  const promete = prometeReservas(srv, aviso);
   // Cierra con Escape, como cualquier pantalla que tapa el panel.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onSeguir(); };
@@ -90,7 +115,7 @@ export function ListoParaReservar({
   // La hoja nativa de compartir (WhatsApp, Instagram, Mensajes…) solo donde es
   // lo natural: un móvil o una tableta. En escritorio existe a medias y un
   // botón «Compartir» que abre un menú raro es peor que copiar. Este componente
-  // solo se pinta en el navegador (portal a <body>), así que no hay SSR aquí.
+  // solo se pinta en el navegador (va por portal), así que no hay SSR aquí.
   const puedeCompartirNativo = typeof navigator !== 'undefined'
     && typeof navigator.share === 'function'
     && typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
@@ -116,7 +141,7 @@ export function ListoParaReservar({
   );
 
   return (
-    // ⚠️ A PANTALLA COMPLETA, y por PORTAL a <body>.
+    // ⚠️ A PANTALLA COMPLETA, y por PORTAL al anfitrión del panel.
     //
     // Primero se montó como un bloque más de la rejilla, y en el navegador se
     // veía por qué está mal: el titular «Tu estudio ya puede recibir reservas»
@@ -134,8 +159,21 @@ export function ListoParaReservar({
     // descendiente `fixed` en relativo A ÉL: la pantalla «completa» se quedaba
     // dibujada dentro del hueco del calendario, debajo de los KPIs, con su
     // titular fuera de vista. Ya pasó con los drawers del panel.
+    //
+    // ⚠️ Al anfitrión del panel (`anfitrionPortal()`), NUNCA a <body>: <body>
+    // queda fuera del contenedor que lleva `.dark`, y en modo oscuro este
+    // momento se pintaba en claro. Era el único componente del panel que lo
+    // hacía, y la guardia (lib/panel-portal.test.ts) no lo veía porque su regex
+    // se cortaba en el primer `)`. El marco del móvil sigue el tema; lo de dentro
+    // es la página de reservas, que es marca blanca y va en claro.
+    //
+    // ⚠️ `grid-cols-[minmax(0,1fr)]`, aquí y en la rejilla de abajo, y no un
+    // `grid` a secas: la columna implícita es `auto` y crece hasta el ancho
+    // mínimo de su contenido, que es el enlace entero sin cortar. En un móvil de
+    // 390 px la pantalla medía 444: el titular salía cortado y el enlace no se
+    // truncaba — justo en el móvil, que es donde sale «Compartir mi enlace».
     createPortal(
-    <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-background">
+    <div className="fixed inset-0 z-[60] grid grid-cols-[minmax(0,1fr)] place-items-center overflow-y-auto bg-background">
       <div className="mx-auto w-full max-w-[820px] px-5 py-10 sm:py-14">
       <div className="text-center">
         <span className="mx-auto mb-4 grid size-12 place-items-center rounded-2xl bg-brand text-brand-foreground">
@@ -145,19 +183,22 @@ export function ListoParaReservar({
           Tu estudio ya puede recibir reservas
         </h2>
         <p className="mx-auto mt-2 max-w-[520px] text-[14px] leading-relaxed text-muted-foreground">
-          {clasesCreadas > 0
-            ? <>Has dejado <strong className="text-foreground">{clasesCreadas === 1 ? '1 clase' : `${clasesCreadas} clases`}</strong> {clasesCreadas === 1 ? 'programada' : 'programadas'}. Tu página está abierta: cualquiera con este enlace puede reservar.</>
-            : <>Tu página está abierta: cualquiera con este enlace puede reservar.</>}
+          {clasesCreadas > 0 && (
+            <>Has dejado <strong className="text-foreground">{clasesCreadas === 1 ? '1 clase' : `${clasesCreadas} clases`}</strong> {clasesCreadas === 1 ? 'programada' : 'programadas'}. </>
+          )}
+          {/* La promesa, solo cuando es verdad (`prometeReservas`): mientras el
+              servidor contesta, o si ha dicho que no, se queda en «abierta». */}
+          {promete ? 'Tu página está abierta: cualquiera con este enlace puede reservar.' : 'Tu página está abierta.'}
         </p>
-        {aviso && (
+        {avisoFinal && (
           <p className="mx-auto mt-3 flex max-w-[560px] items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-left text-[13px] leading-snug text-foreground">
             <AlertTriangle size={15} className="mt-[1px] shrink-0 text-warning" aria-hidden />
-            <span>{aviso}</span>
+            <span>{avisoFinal}</span>
           </p>
         )}
       </div>
 
-      <div className="mt-7 grid gap-6 sm:grid-cols-[minmax(0,1fr)_260px] sm:items-start">
+      <div className="mt-7 grid grid-cols-[minmax(0,1fr)] gap-6 sm:grid-cols-[minmax(0,1fr)_260px] sm:items-start">
         {/* El enlace, primero: es lo único que tiene que hacer ahora. */}
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -267,7 +308,7 @@ export function ListoParaReservar({
         </div>
       </div>
     </div>,
-    document.body,
+    anfitrionPortal(),
     )
   );
 }

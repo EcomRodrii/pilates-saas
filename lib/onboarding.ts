@@ -67,8 +67,11 @@ export function avisoVentaOnline(
   if (d.stripeAccountId) return null;
   if (!d.reservaExigirPlan) return null;
   if (!d.numPlanesActivos) return null;
-  return 'Una alumna nueva todavía no puede reservar desde tu página: pides bono para reservar y, sin Stripe, no puede comprarlo online. Conecta Stripe o véndeselo tú en el mostrador.';
+  return AVISO_VENTA_SIN_STRIPE;
 }
+
+/** El aviso de arriba, tal cual: lo repite el servidor cuando confirma el mismo caso (lib/onboarding/puede-reservar.ts). */
+export const AVISO_VENTA_SIN_STRIPE = 'Una alumna nueva todavía no puede reservar desde tu página: pides bono para reservar y, sin Stripe, no puede comprarlo online. Conecta Stripe o véndeselo tú en el mostrador.';
 
 /**
  * Lo que el panel ya tiene cargado (`useStudio()`) y hace falta para el checklist.
