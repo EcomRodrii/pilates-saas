@@ -389,7 +389,11 @@ test('⚠️ el sondeo del datáfono cierra el cobro que el lector ya no tiene, 
   const datafono = terminal.slice(terminal.indexOf('function crearProveedorDatafono'), terminal.indexOf('function crearProveedorBizum'));
   assert.ok(datafono.includes('ctx.stripe, referencia, ctx.stripeAccount, readerId, { sinTarjeta: true },'));
   // El cobro sabe a qué lector se mandó, y el lector enseña el botón de cancelar.
-  assert.ok(datafono.includes("concepto: p.concepto, lector: readerId },"));
+  assert.ok(datafono.includes("concepto: p.concepto, lector: readerId,"));
+  // Y de qué intento es (lo mira el arranque de un recibo con otro cobro guardado).
+  assert.ok(datafono.includes('...metadataDeIntento(p.claveIdempotencia),'));
+  const bizumIni = terminal.slice(terminal.indexOf('function crearProveedorBizum'));
+  assert.equal(bizumIni.split('...metadataDeIntento(p.claveIdempotencia)').length - 1, 2, 'en la sesión y en su PaymentIntent');
   assert.ok(datafono.includes('process_config: { enable_customer_cancellation: true }'));
   assert.ok(datafono.includes("if (veredicto === 'abandonado' && canceladoEnLector) {"));
   // PROCESANDO solo con el error del primer intento (el lector pide el PIN); sin él, PENDIENTE.
@@ -439,10 +443,15 @@ test('cancelado en la pantalla del datáfono (`customer_canceled`, como lo docum
 });
 
 // La referencia del cobro que espera la Caja llega del NAVEGADOR: solo se lee.
-function dobleLectura(o: { pi?: Record<string, unknown>; sesion?: Record<string, unknown>; falla?: boolean }) {
+function dobleLectura(o: { pi?: Record<string, unknown>; sesion?: Record<string, unknown>; falla?: boolean; noExiste?: boolean }) {
   const llamadas: string[] = [];
   const stripe = {
-    paymentIntents: { retrieve: async () => { llamadas.push('pi.retrieve'); if (o.falla) throw new Error('red'); return piDatafono(o.pi); } },
+    paymentIntents: { retrieve: async () => {
+      llamadas.push('pi.retrieve');
+      if (o.noExiste) throw Object.assign(new Error('No such payment_intent'), { code: 'resource_missing' });
+      if (o.falla) throw new Error('red');
+      return piDatafono(o.pi);
+    } },
     checkout: { sessions: { retrieve: async () => { llamadas.push('cs.retrieve'); if (o.falla) throw new Error('red'); return { id: 'cs_1', status: 'open', ...o.sesion }; } } },
   };
   return { stripe: stripe as unknown as Parameters<typeof desenlaceDeCobroSoltado>[0], llamadas };
@@ -462,25 +471,29 @@ test('⚠️ desenlace de un cobro soltado: SOLO lee, y solo afirma un final si 
   assert.equal(await desenlaceDeCobroSoltado(ajeno.stripe, 'pi_1', 'acct_1', DE), null);
   const sinMetadata = dobleLectura({ pi: { status: 'requires_payment_method', metadata: {} } });
   assert.equal(await desenlaceDeCobroSoltado(sinMetadata.stripe, 'pi_1', 'acct_1', DE), null);
-  // Vivo o entró, y de este recibo: PROCESANDO comprobado (se puede actuar sobre él).
-  for (const pi of [{ metadata: MD_RECIBO }, { status: 'succeeded', metadata: MD_RECIBO }]) {
-    assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ pi }).stripe, 'pi_1', 'acct_1', DE),
-      { comprobado: true, metodo: 'DATAFONO', estado: 'PROCESANDO', motivo: null });
-  }
-  // Sin poder leer: PROCESANDO SIN comprobar (no se sabe de quién es: no se toca).
-  assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ falla: true }).stripe, 'pi_1', 'acct_1', DE),
-    { comprobado: false, estado: 'PROCESANDO', motivo: null });
+  // Vivo o entró, y de este recibo: con su estado de verdad y su intento (quien llama decide).
+  assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ pi: { metadata: { ...MD_RECIBO, clave: 'k-1' } } }).stripe, 'pi_1', 'acct_1', DE),
+    { comprobado: true, metodo: 'DATAFONO', estado: 'PENDIENTE', motivo: null, clave: 'k-1' });
+  assert.equal((await desenlaceDeCobroSoltado(dobleLectura({ pi: { status: 'succeeded', metadata: MD_RECIBO } }).stripe, 'pi_1', 'acct_1', DE))?.comprobado, true);
+  assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ pi: { status: 'succeeded', metadata: MD_RECIBO } }).stripe, 'pi_1', 'acct_1', DE),
+    { comprobado: true, metodo: 'DATAFONO', estado: 'PAGADO', motivo: null, clave: null });
+  // Sin poder leer: SIN comprobar (no se sabe de quién es: no se toca).
+  assert.deepEqual(await desenlaceDeCobroSoltado(dobleLectura({ falla: true }).stripe, 'pi_1', 'acct_1', DE), { comprobado: false });
   // Cancelado sin cargo fallido: CANCELADO.
-  assert.equal((await desenlaceDeCobroSoltado(dobleLectura({ pi: { status: 'canceled', metadata: MD_RECIBO } }).stripe, 'pi_1', 'acct_1', DE))?.estado, 'CANCELADO');
+  assert.equal((await desenlaceDeCobroSoltado(dobleLectura({ pi: { status: 'canceled', metadata: MD_RECIBO } }).stripe, 'pi_1', 'acct_1', DE) as { estado?: string })?.estado, 'CANCELADO');
+  // No existe en esta cuenta (el estudio cambió de cuenta, o se borró): nadie puede pagarlo aquí.
+  assert.equal(await desenlaceDeCobroSoltado(dobleLectura({ noExiste: true }).stripe, 'pi_1', 'acct_1', DE), null);
 });
 
 test('desenlace de un cobro soltado por Bizum (la sesión): caducada → EXPIRADO; abierta → PROCESANDO; SumUp → nada', async () => {
   const caducada = dobleLectura({ sesion: { status: 'expired', metadata: MD_RECIBO } });
   assert.deepEqual(await desenlaceDeCobroSoltado(caducada.stripe, 'cs_1', 'acct_1', DE),
-    { comprobado: true, metodo: 'BIZUM', estado: 'EXPIRADO', motivo: null });
+    { comprobado: true, metodo: 'BIZUM', estado: 'EXPIRADO', motivo: null, clave: null });
   assert.deepEqual(caducada.llamadas, ['cs.retrieve']);
   const abierta = dobleLectura({ sesion: { status: 'open', metadata: MD_RECIBO } });
-  assert.equal((await desenlaceDeCobroSoltado(abierta.stripe, 'cs_1', 'acct_1', DE))?.estado, 'PROCESANDO');
+  assert.equal((await desenlaceDeCobroSoltado(abierta.stripe, 'cs_1', 'acct_1', DE) as { estado?: string })?.estado, 'PENDIENTE');
+  const pagada = dobleLectura({ sesion: { status: 'complete', payment_status: 'paid', metadata: MD_RECIBO } });
+  assert.equal((await desenlaceDeCobroSoltado(pagada.stripe, 'cs_1', 'acct_1', DE) as { estado?: string })?.estado, 'PAGADO');
   const ajena = dobleLectura({ sesion: { status: 'expired', metadata: { reciboId: 'rec-otro', studioId: 'st-1' } } });
   assert.equal(await desenlaceDeCobroSoltado(ajena.stripe, 'cs_1', 'acct_1', DE), null);
   assert.equal(await desenlaceDeCobroSoltado(dobleLectura({}).stripe, 'sumup:1790000000:abcdefgh', 'acct_1', DE), null);
@@ -488,7 +501,7 @@ test('desenlace de un cobro soltado por Bizum (la sesión): caducada → EXPIRAD
 
 test('⚠️ la ruta de recibos: la referencia de la Caja se comprueba ANTES de tocarla, y el guardado de otro intento nunca se toca', () => {
   const ruta = leer('app/api/pos/recibo/confirmar/route.ts');
-  assert.ok(ruta.includes('return desenlaceDeCobroSoltado(cx.ctx.stripe, ref, cx.ctx.stripeAccount, { reciboId, studioId: sesion.studioId });'));
+  assert.ok(ruta.includes('const d = await cobroDeReciboSoloLectura(admin, sesion.studioId, reciboId, referenciaCaja);'));
   const ini = ruta.indexOf('if (referenciaCaja && !mismoCobro(referenciaCaja, recibo.cobro_mostrador_pi)) {');
   const rama = ruta.slice(ini, ruta.indexOf("if (!recibo.cobro_mostrador_pi) {", ini));
   assert.ok(ini > 0 && rama.length > 0);
