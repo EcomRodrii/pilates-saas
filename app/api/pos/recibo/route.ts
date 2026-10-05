@@ -13,6 +13,8 @@ import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-
 import { tipoDePlanDelRecibo } from '@/lib/billing/tipo-plan-de-recibo';
 import { bloqueoCobroEnMostradorDePenalizacion } from '@/lib/billing/penalizacion-recibo-server';
 import { claveCobroRecibo, respuestaTrasCancelar, trasGuardarReferencia } from '@/lib/pos/referencia-cobro-recibo';
+import { cerrarPagoOnlineDelRecibo, preparadorDeStripe } from '@/lib/cobros/antes-de-cobrar-a-mano-servidor';
+import { exigirCheckoutLeido } from '@/lib/billing/pago-online-al-cobrar-a-mano';
 import { esEstadoFinal, type EstadoPagoPOS } from '@/lib/pos/tipos';
 import type { MetodoPago } from '@/lib/types';
 
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: recibo } = await admin.from('recibos')
-    .select('id, concepto, importe, estado, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, cobro_mostrador_pi, cobro_off_session_clave, entrega_tipo, suscripcion_id')
+    .select('id, concepto, importe, estado, importe_devuelto, reembolso_stripe_id, reembolso_solicitado_en, checkout_session_id, cobro_mostrador_pi, cobro_off_session_clave, entrega_tipo, suscripcion_id')
     .eq('id', reciboId).eq('studio_id', sesion.studioId)
     .maybeSingle();
   if (!recibo) return NextResponse.json({ error: 'No encontramos ese recibo' }, { status: 404 });
@@ -136,6 +138,18 @@ export async function POST(req: NextRequest) {
   if (!preparado.ok) return NextResponse.json({ error: preparado.motivo }, { status: 409 });
   const { cobro } = preparado;
 
+  // ⚠️ El pago online que la alumna tenga ABIERTO de este recibo (enlace o app) se
+  // cierra en Stripe antes de arrancar el datáfono o el Bizum, con el mismo dueño que
+  // «marcar cobrado» y «Cobrar online». Sin esto, si lo terminaba después (un 3DS que
+  // aprueba más tarde en la app del banco), entraban DOS cobros reales y solo quedaba
+  // devolver uno a mano. Si ya lo pagó, o no se puede saber, no se cobra aquí. Lo
+  // leído viaja al compare-and-set que guarda la referencia.
+  const online = await cerrarPagoOnlineDelRecibo(
+    admin, { studioId: sesion.studioId, reciboId },
+    (recibo.checkout_session_id as string | null) ?? null, preparadorDeStripe(admin, sesion.studioId),
+  );
+  if (!online.ok) return NextResponse.json({ error: online.mensaje }, { status: 409 });
+
   try {
     const inicio = await cobro.iniciar({
       importeCentimos: centimos,
@@ -157,7 +171,7 @@ export async function POST(req: NextRequest) {
     // el recibo se borró o cambió mientras se arrancaba el cobro, no hay a qué
     // apuntarlo; y si otro arranque simultáneo ya guardó la suya, no se pisa
     // (su datáfono o su enlace seguirían vivos sin nadie que les pregunte).
-    const guardar = admin.from('recibos')
+    let guardar = admin.from('recibos')
       .update({
         cobro_mostrador_pi: inicio.referencia,
         // P-1 (27ª pasada): solo Bizum la rellena — hace falta para poder
@@ -168,6 +182,8 @@ export async function POST(req: NextRequest) {
       // Ni con un cobro con su tarjeta guardada en vuelo (empezó tras la lectura de arriba).
       .is('cobro_off_session_clave', null)
       .eq('id', reciboId).eq('studio_id', sesion.studioId).eq('estado', recibo.estado);
+    // Ni si la alumna abrió OTRO pago online después de cerrar el que se leyó.
+    guardar = exigirCheckoutLeido(guardar, online.checkoutLeido);
     const { data: tocadas, error: errRef } = await (referenciaPrevia
       ? guardar.eq('cobro_mostrador_pi', referenciaPrevia)
       : guardar.is('cobro_mostrador_pi', null)

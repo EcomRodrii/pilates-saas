@@ -227,8 +227,9 @@ export async function POST(req: NextRequest) {
     }
     // Lo mismo con el datáfono o el Bizum del mostrador en vuelo
     // (`cobro_mostrador_pi`): abrirle un pago online sería un segundo cobro. El
-    // mostrador sí cierra el pago online de la clienta antes de cobrar
-    // (`soltarPagosEnMarchaAntesDeCobrar`); este era el sentido que faltaba.
+    // otro sentido lo cubre el mostrador: «marcar cobrado», «Cobrar online» y el
+    // datáfono / Bizum de la Caja (`/api/pos/recibo`) cierran el pago online de la
+    // clienta antes de cobrar (`cerrarPagoOnlineDelRecibo`).
     // El UPDATE que guarda la sesión lo vuelve a exigir.
     if (recibo.cobro_mostrador_pi) {
       return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR }, { status: 409 }));

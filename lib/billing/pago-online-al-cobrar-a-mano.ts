@@ -89,6 +89,13 @@ export interface CobroDeMostrador {
   cancelar(): Promise<void>;
   /** Suelta la referencia del recibo (compare-and-set sobre la misma). `false` = no se pudo. */
   soltar(): Promise<boolean>;
+  /**
+   * ¿Se puede cancelar un cobro que sigue ESPERANDO (PENDIENTE)? Sin esto, sí: quien
+   * cobra a mano está en el mostrador y decide. La alumna que paga online no: solo
+   * si lleva abandonado más de un margen (`MINUTOS_COBRO_MOSTRADOR_ABANDONADO`), para
+   * no cortarle el cobro a quien lo tiene delante. Se pregunta tras `consultar()`.
+   */
+  pendienteCancelable?(): boolean;
 }
 
 export type CobroDeMostradorAlCobrarAMano = { tipo: 'SEGUIR' } | { tipo: 'YA_PAGADO' } | { tipo: 'EN_MARCHA' };
@@ -103,7 +110,7 @@ export async function soltarCobroDeMostradorAntesDeCobrarAMano(
   // Sin Stripe no hay datáfono ni Bizum que pudieran cobrar: la referencia es vieja.
   if (!cobro) return { tipo: 'SEGUIR' };
   let estado = await cobro.consultar();
-  if (estado === 'PENDIENTE') {
+  if (estado === 'PENDIENTE' && (cobro.pendienteCancelable?.() ?? true)) {
     await cobro.cancelar();
     estado = await cobro.consultar();
   }
@@ -115,5 +122,43 @@ export async function soltarCobroDeMostradorAntesDeCobrarAMano(
 
 export const MENSAJE_YA_PAGADO_EN_EL_DATAFONO =
   'Ya se cobró en el datáfono: no se ha cobrado aquí. Ábrelo en la caja para cerrarlo.';
+
+/**
+ * Cuánto tiene que llevar ESPERANDO un cobro del mostrador (datáfono o Bizum sin
+ * pagar) para que la alumna que paga online pueda darlo por abandonado: el Bizum
+ * del mostrador dura 30 minutos, y un datáfono con la clienta delante se resuelve
+ * en uno o dos. Pasado esto nadie lo está cobrando.
+ */
+export const MINUTOS_COBRO_MOSTRADOR_ABANDONADO = 30;
+
+/** ¿Lleva el cobro esperando más del margen? Sin saber cuándo empezó, no. */
+export function cobroDeMostradorAbandonado(creadoEnSeg: number | null | undefined, ahora: Date): boolean {
+  if (typeof creadoEnSeg !== 'number' || !Number.isFinite(creadoEnSeg)) return false;
+  return ahora.getTime() - creadoEnSeg * 1000 >= MINUTOS_COBRO_MOSTRADOR_ABANDONADO * 60_000;
+}
+
+// ─── El compare-and-set de «la sesión de pago que se leyó (y se cerró)» ──────
+// Quien cobra un recibo por otra vía cierra antes su pago online
+// (`cerrarPagoOnlineAntesDeCobrarAMano`) y su escritura exige que la sesión
+// guardada siga siendo la leída: si entre medias la clienta abrió OTRA, no se
+// cobra. Pero que la columna pase a vacía no es un pago nuevo: la suelta el
+// conciliador cuando la sesión caduca (lib/billing/sesion-caducada.ts) o el cobro
+// que gana. Así que «la leída, o ninguna».
+
+interface ConFiltrosCheckout<Q> {
+  is(columna: string, valor: null): Q;
+  eq(columna: string, valor: string): Q;
+  or(filtro: string): Q;
+}
+
+/** Los ids de sesión de Stripe (`cs_test_…`, `cs_live_…`) son seguros dentro de un `or` de PostgREST. */
+const ID_SESION_SEGURO = /^cs_[A-Za-z0-9_]+$/;
+
+export function exigirCheckoutLeido<Q extends ConFiltrosCheckout<Q>>(q: Q, leido: string | null): Q {
+  if (leido === null) return q.is('checkout_session_id', null);
+  // Un id con otra forma no se mete en el `or`: se exige tal cual (más estricto).
+  if (!ID_SESION_SEGURO.test(leido)) return q.eq('checkout_session_id', leido);
+  return q.or(`checkout_session_id.is.null,checkout_session_id.eq.${leido}`);
+}
 export const MENSAJE_SE_ABRIO_UN_PAGO =
   'Mientras tanto se ha empezado a cobrar este recibo por otro camino (pago online, datáfono o su tarjeta o domiciliación guardada): no se ha cobrado aquí. Vuelve a mirarlo en unos minutos.';

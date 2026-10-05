@@ -26,6 +26,12 @@ export interface ConsultaCobro {
    * recibo (`recibos.sumup_transaction_id`); nunca va a la columna de Stripe.
    */
   cargoSumup?: string;
+  /**
+   * Cuándo nació el cobro en Stripe (`created`, en segundos). Lo usa quien tiene
+   * que decidir si un cobro que sigue esperando está abandonado
+   * (`cobroDeMostradorAbandonado`). Sin él, no se da por abandonado.
+   */
+  creadoEn?: number;
 }
 
 // Se traduce en un solo sitio, y a un vocabulario nuestro: `requires_action` no
@@ -129,6 +135,10 @@ export async function cerrarSiRechazadoDatafono(
 
 type ClienteConsulta = Pick<Stripe, 'paymentIntents' | 'checkout' | 'charges'>;
 
+/** Solo si Stripe lo da: un `creadoEn` inventado daría por abandonado un cobro que no lo está. */
+const creadoEnDe = (created: unknown): { creadoEn?: number } =>
+  (typeof created === 'number' && Number.isFinite(created) ? { creadoEn: created } : {});
+
 /**
  * Bizum del mostrador. La referencia es el PaymentIntent… salvo cuando Stripe
  * crea la sesión de Checkout sin él (lo crea al pagar): entonces se guardó la
@@ -145,7 +155,7 @@ export async function consultarCobroBizum(
     if (!referencia.startsWith('cs_')) return await consultarPaymentIntent(stripe, referencia, stripeAccount);
 
     const sesion = await stripe.checkout.sessions.retrieve(referencia, {}, { stripeAccount });
-    if (sesion.status === 'expired') return { estado: 'EXPIRADO' };
+    if (sesion.status === 'expired') return { estado: 'EXPIRADO', ...creadoEnDe(sesion.created) };
     if (sesion.status === 'complete' && sesion.payment_status === 'paid') {
       const pi = typeof sesion.payment_intent === 'string' ? sesion.payment_intent : sesion.payment_intent?.id ?? null;
       // Con su PaymentIntent, lo que diga ÉL (importe cobrado, metadata, método
@@ -159,8 +169,8 @@ export async function consultarCobroBizum(
     }
     // Abierta: la alumna aún no ha pagado («Esperando el pago»). Completada con el
     // pago sin entrar: en curso.
-    if (sesion.status === 'open') return { estado: 'PENDIENTE' };
-    return { estado: 'PROCESANDO' };
+    if (sesion.status === 'open') return { estado: 'PENDIENTE', ...creadoEnDe(sesion.created) };
+    return { estado: 'PROCESANDO', ...creadoEnDe(sesion.created) };
   } catch {
     return { estado: 'PROCESANDO' };
   }
@@ -170,6 +180,7 @@ async function consultarPaymentIntent(stripe: ClienteConsulta, id: string, strip
   const pi = await stripe.paymentIntents.retrieve(id, {}, { stripeAccount });
   return {
     estado: estadoDesdeStripe(pi.status),
+    ...creadoEnDe(pi.created),
     error: pi.last_payment_error?.message ?? undefined,
     importeCentimos: pi.amount_received ?? null,
     metadata: (pi.metadata ?? {}) as Record<string, string>,
