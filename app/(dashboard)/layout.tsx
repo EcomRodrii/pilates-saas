@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
+import { MarcaEnPortales } from '@/components/layout/marca-en-portales';
+import { variablesTipografiaPanel } from '../_fuentes/fuentes-panel';
 
 // El manifest raíz (app/manifest.ts) es el de la PLATAFORMA — landing +
 // paraguas genérico, start_url: '/'. Instalar "la app" desde dentro del panel
@@ -19,5 +21,13 @@ export const metadata: Metadata = {
 };
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardShell>{children}</DashboardShell>;
+  // La tipografía de la marca (fase 2 del Brand System) vive solo en el panel:
+  // ver `.marca-panel` en app/globals.css. `contents` para que el
+  // envoltorio no cree caja y el shell se maquete exactamente igual.
+  return (
+    <div className={`${variablesTipografiaPanel} marca-panel contents`}>
+      <MarcaEnPortales />
+      <DashboardShell>{children}</DashboardShell>
+    </div>
+  );
 }

@@ -26,7 +26,7 @@ function IconButton({
   side = "top",
   className,
   variant = "ghost",
-  size = "icon",
+  size = "icon-lg",
   ...props
 }: Omit<React.ComponentProps<typeof Button>, "children"> & {
   /** Qué hace el botón, en imperativo: "Eliminar factura", "Enviar recordatorio". */

@@ -382,7 +382,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
         <button
           onClick={enviar}
           disabled={enviando || faltaAsunto || !mensaje.trim() || destinatarias.length === 0}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-bold transition-all disabled:opacity-40"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-brand-foreground text-sm font-bold transition-all disabled:opacity-40"
           style={{ backgroundColor: 'var(--brand)' }}
         >
           <Send size={14} />
@@ -552,7 +552,7 @@ export default function Mensajeria() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-brand shrink-0" />}
+                        {!isRead && <div className="w-1.5 h-1.5 rounded-full bg-brand-medio shrink-0" />}
                         <p className={`text-sm leading-tight ${isRead ? 'font-medium text-foreground' : 'font-bold text-foreground'}`}>
                           {n.title}
                         </p>

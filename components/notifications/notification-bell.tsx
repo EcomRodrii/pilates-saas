@@ -215,7 +215,7 @@ export function NotificationBell() {
           onClick={() => { setVentaToast(null); setAbierto(true); }}
           className="fixed top-4 right-4 z-[60] w-[320px] max-w-[calc(100vw-24px)] flex items-start gap-3 bg-card border border-border rounded-2xl shadow-2xl px-4 py-3 cursor-pointer animate-in fade-in slide-in-from-top-2"
         >
-          <span className="mt-0.5 flex items-center justify-center w-8 h-8 rounded-full bg-brand/10 text-brand shrink-0">
+          <span className="mt-0.5 flex items-center justify-center w-8 h-8 rounded-full bg-brand/10 text-brand-medio shrink-0">
             <PartyPopper size={16} />
           </span>
           <span className="flex-1 min-w-0">

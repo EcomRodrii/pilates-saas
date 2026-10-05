@@ -1593,7 +1593,8 @@ test('⚠️ el ejecutor del Decision OS pasa el recibo de una penalización por
   const esPenalizacion = fuente.indexOf('if (!cobroManualDeRecibo(info.id).ok) {', bucle);
   const step = fuente.indexOf('await step.run(`guardia-penalizacion-${info.id}`, () =>', esPenalizacion);
   const guardia = fuente.indexOf('bloqueoCobroManualDePenalizacion(requireSupabaseAdmin(), { studioId: recomendacion.studioId, reciboId: info.id })', step);
-  const salta = fuente.indexOf('if (bloqueo) { detalles.push(`${info.id}: ${bloqueo.mensaje}`); continue; }', guardia);
+  // Saltar con motivo: el motivo entra en el desglose del cobro (resultado-ejecucion.ts).
+  const salta = fuente.indexOf('if (bloqueo) { intentos.push({ ok: false, error: bloqueo.mensaje }); continue; }', guardia);
   const cobro = fuente.indexOf('await step.run(`cobrar-${info.id}`, () =>', salta);
   assert.ok(bucle > 0 && esPenalizacion > bucle && step > esPenalizacion && guardia > step && salta > guardia && cobro > salta,
     'bucle → ¿penalización? → step de guardia → saltar con motivo → cobrar');

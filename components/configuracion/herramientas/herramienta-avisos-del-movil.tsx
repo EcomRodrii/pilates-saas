@@ -173,7 +173,7 @@ function Fila({ evento, nombre, enLista, datos, onEditar }: {
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-medium flex items-center gap-2">
           {nombre}
-          {enLista.propio && <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">Texto tuyo</span>}
+          {enLista.propio && <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand-medio">Texto tuyo</span>}
           {enLista.yaNoSeUsa && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Tu texto ya no se usa</span>}
         </p>
         <p className="text-xs text-muted-foreground mt-0.5 truncate">{muestra.title} · {muestra.body}</p>

@@ -40,13 +40,14 @@ import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { esReciboCobrable, ESTADOS_COBRABLES } from '@/lib/billing/deuda-recibo';
 import { CODIGO_CUOTA_EN_PAUSA, MENSAJE_CUOTA_EN_PAUSA, pagoOnlineDeRenovacionPermitido } from '@/lib/billing/renovar-plan-reglas';
 import {
-  MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO, MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR, MENSAJE_RECIBO_YA_COBRADO_EN_EL_MOSTRADOR,
-  MENSAJE_RECIBO_YA_PAGADO_ONLINE,
+  MENSAJE_PAGO_ONLINE_COBRANDOSE_CON_METODO_GUARDADO, MENSAJE_RECIBO_YA_PAGADO_ONLINE,
 } from '@/lib/billing/cobro-off-session-marca';
 import { preparadorDeStripe, soltarCobroDeMostradorDelRecibo } from '@/lib/cobros/antes-de-cobrar-a-mano-servidor';
 import {
   cerrarPagoOnlineAntesDeCobrarAMano, MINUTOS_COBRO_MOSTRADOR_ABANDONADO, sesionNoExisteEnStripe,
 } from '@/lib/billing/pago-online-al-cobrar-a-mano';
+import { vidaDelCobroDeLaCajaEnElRecibo } from '@/lib/pos/cobro-del-estudio';
+import { MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA } from '@/lib/pos/referencia-cobro-recibo';
 import { telefonoValido } from '@/lib/csv';
 import { paginaCerradaParaPeticion } from '@/lib/publico/pagina-cerrada-peticion';
 import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
@@ -227,6 +228,9 @@ export async function POST(req: NextRequest) {
   // Sesión de Checkout que este recibo ya tenga abierta (migr 20260817214500).
   // Es lo que impide crear una SEGUNDA sesión pagable del mismo recibo.
   let sesionAbiertaId: string | null = null;
+  // El cobro de la Caja que tenía el recibo al leerlo (`cobro_mostrador_pi`): el UPDATE
+  // que guarda la sesión nueva exige que siga siendo ese.
+  let cobroCajaLeido: string | null = null;
   // Qué se cobra, a efectos de Bizum (lib/billing/bizum-permitido.ts): el
   // `tipo` del plan, `SIN_PLAN`, o `null` si no se ha podido saber. Una cuota
   // (MENSUAL: mensual, trimestral o anual) no admite Bizum.
@@ -283,28 +287,29 @@ export async function POST(req: NextRequest) {
         return conCorsWidget(req, NextResponse.json({ error: MENSAJE_CUOTA_EN_PAUSA, codigo: CODIGO_CUOTA_EN_PAUSA }, { status: 409 }));
       }
     }
-    // Lo mismo con el datáfono o el Bizum del mostrador en vuelo
-    // (`cobro_mostrador_pi`): abrirle un pago online sería un segundo cobro. El
-    // otro sentido lo cubre el mostrador: «marcar cobrado», «Cobrar online» y el
-    // datáfono / Bizum de la Caja (`/api/pos/recibo`) cierran el pago online de la
-    // clienta antes de cobrar (`cerrarPagoOnlineDelRecibo`).
+    // Se le está cobrando AHORA en la Caja (datáfono o Bizum del mostrador): lo mismo,
+    // sería un segundo cobro. Pero solo si ese cobro sigue vivo: uno viejo ya muerto
+    // (un Bizum caducado, que nadie suelta) no puede dejarla sin pagar online para
+    // siempre. Se mira SIN tocarlo (la Caja lo lleva), y el UPDATE de abajo exige que
+    // siga siendo el mismo: uno nuevo de la Caja entre medias, y no se guarda.
     //
-    // Pero la columna sola no dice que haya un cobro VIVO: un datáfono que nadie
-    // canceló se queda en ella para siempre. Se le pregunta a quien lo empezó, como
-    // hace el mostrador: si ya terminó sin cobrar, se suelta la referencia y se sigue;
-    // si sigue esperando más del margen (`MINUTOS_COBRO_MOSTRADOR_ABANDONADO`), se
-    // cancela y se suelta. Solo con un cobro en curso, ya cobrado o sin poder
-    // preguntar se contesta 409. El UPDATE que guarda la sesión lo vuelve a exigir.
-    if (recibo.cobro_mostrador_pi) {
-      const mostrador = await soltarCobroDeMostradorDelRecibo(admin, {
-        studioId: body.studioId, reciboId: body.reciboId, referencia: recibo.cobro_mostrador_pi as string,
-        checkoutSessionId: (recibo.cobro_mostrador_checkout_session_id as string | null) ?? null,
-      }, preparadorDeStripe(admin, body.studioId), { cancelarPendienteTrasMs: MINUTOS_COBRO_MOSTRADOR_ABANDONADO * 60_000 });
-      if (mostrador.tipo === 'YA_PAGADO') {
-        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_RECIBO_YA_COBRADO_EN_EL_MOSTRADOR }, { status: 409 }));
+    // Salvo uno ABANDONADO: un datáfono que sigue esperando tarjeta pasado el margen
+    // (`MINUTOS_COBRO_MOSTRADOR_ABANDONADO`, lo que dura un Bizum del mostrador) no lo
+    // está cobrando nadie. Con el MISMO dueño que el mostrador y el cobro diario, se
+    // cancela ESE cobro (nunca la acción del lector con otra venta) y se suelta: si no,
+    // un datáfono que nadie canceló dejaba el recibo sin poder pagarse online nunca.
+    cobroCajaLeido = (recibo.cobro_mostrador_pi as string | null) ?? null;
+    if (cobroCajaLeido) {
+      let vida = await vidaDelCobroDeLaCajaEnElRecibo(admin, body.studioId, body.reciboId, cobroCajaLeido, { origen: req.nextUrl.origin });
+      if (vida === 'vivo') {
+        const mostrador = await soltarCobroDeMostradorDelRecibo(admin, {
+          studioId: body.studioId, reciboId: body.reciboId, referencia: cobroCajaLeido,
+          checkoutSessionId: (recibo.cobro_mostrador_checkout_session_id as string | null) ?? null,
+        }, preparadorDeStripe(admin, body.studioId), { cancelarPendienteTrasMs: MINUTOS_COBRO_MOSTRADOR_ABANDONADO * 60_000 });
+        if (mostrador.tipo === 'SEGUIR') vida = 'muerto';
       }
-      if (mostrador.tipo === 'EN_MARCHA') {
-        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_COBRANDOSE_EN_EL_MOSTRADOR }, { status: 409 }));
+      if (vida !== 'muerto') {
+        return conCorsWidget(req, NextResponse.json({ error: MENSAJE_PAGO_ONLINE_CON_COBRO_DE_LA_CAJA }, { status: 409 }));
       }
     }
     // El recibo de una penalización (`rec-penaliz-*`) solo se paga con el cobro
@@ -1009,24 +1014,28 @@ export async function POST(req: NextRequest) {
         .is('cobro_off_session_clave', null)
         // Lo que se comprobó arriba, otra vez en el propio UPDATE: que siga
         // siendo deuda (la misma regla que `esReciboCobrable`, menos el
-        // `importe_devuelto >= importe`, que PostgREST no compara), que el
-        // mostrador no lo esté cobrando, y que la sesión guardada siga siendo la
-        // que se leyó: si otra petición (otra pestaña, el enlace del email y la
-        // app a la vez) guardó la suya entre medias, esta no la pisa —quedarían
-        // dos sesiones pagables y Tentare solo conocería una—.
+        // `importe_devuelto >= importe`, que PostgREST no compara), y que la sesión
+        // guardada siga siendo la que se leyó: si otra petición (otra pestaña, el
+        // enlace del email y la app a la vez) guardó la suya entre medias, esta no la
+        // pisa —quedarían dos sesiones pagables y Tentare solo conocería una—.
         .in('estado', [...ESTADOS_COBRABLES])
-        .is('cobro_mostrador_pi', null)
         .is('reembolso_stripe_id', null)
         .is('reembolso_solicitado_en', null)
         .or('estado.neq.DEVUELTO,importe_devuelto.eq.0');
+      // Ni con un cobro de la Caja distinto del leído (se empezó tras la lectura de arriba).
+      // El leído estaba muerto: si entre medias alguien lo soltó, tampoco es un cobro nuevo.
+      guardar = cobroCajaLeido
+        ? guardar.or(`cobro_mostrador_pi.is.null,cobro_mostrador_pi.eq."${cobroCajaLeido}"`)
+        : guardar.is('cobro_mostrador_pi', null);
       // …o ya es ESTA misma: dos peticiones del mismo intento reciben de Stripe la
       // misma sesión, y la segunda en escribir no puede tomarla por otra.
       guardar = exigirSesionLeidaOEsta(guardar, sesionAbiertaId, session.id);
       const { data: guardadas, error: errGuardar } = await guardar.select('id');
       // Sin error pero sin tocar ninguna fila: el recibo ya no existe (se borró
       // entre la lectura de arriba y aquí, p. ej. el de una penalización que se
-      // decidió no cobrar), o se está cobrando con su tarjeta guardada. Devolver la
-      // URL sería abrir un pago de algo que Tentare ya no tiene, o un segundo cobro.
+      // decidió no cobrar), o se está cobrando con su tarjeta guardada o en la Caja.
+      // Devolver la URL sería abrir un pago de algo que Tentare ya no tiene, o un
+      // segundo cobro.
       const reciboDesaparecido = !errGuardar && (guardadas?.length ?? 0) === 0;
       if (reciboDesaparecido) {
         // Antes de caducar nada: si la sesión guardada ya es ESTA (la guardó la otra

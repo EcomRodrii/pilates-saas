@@ -22,6 +22,14 @@ export type EstadoPagoPOS =
   | 'PENDIENTE' | 'PROCESANDO' | 'PAGADO'
   | 'RECHAZADO' | 'CANCELADO' | 'EXPIRADO' | 'ERROR';
 
+/**
+ * `codigo` del error con el que el servidor dice que una venta no llegó a cobrarse
+ * y que su intento está CERRADO: no hay cobro que pueda entrar (no llegó a crearse,
+ * o está cancelado en Stripe). La Caja estrena intento, como tras un rechazo. Sin
+ * él, un error al empezar mantiene la clave: el cobro podría seguir vivo.
+ */
+export const CODIGO_INTENTO_CERRADO = 'INTENTO_CERRADO';
+
 /** El pago ya no puede cambiar: ni se espera más ni se reintenta solo. */
 export function esEstadoFinal(e: EstadoPagoPOS): boolean {
   return e === 'PAGADO' || e === 'RECHAZADO' || e === 'CANCELADO' || e === 'EXPIRADO' || e === 'ERROR';

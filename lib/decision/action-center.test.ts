@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   resumirAcciones, tituloAtencion, tituloOportunidades, fraseEuros,
   type RecomendacionResumible,
@@ -10,7 +12,7 @@ function rec(p: Partial<RecomendacionResumible> = {}): RecomendacionResumible {
   return {
     id: `r-${++n}`, titulo: 'Algo', prioridad: 'MEDIA', riesgo: 'PERDIDA',
     confianza: { nivel: 'MEDIA' }, impacto: null, accion: { tipo: 'CONTACTO_MANUAL' },
-    score: 50, ...p,
+    score: 50, tipo: 'RECUPERAR_SOCIA', socioId: 'soc-1', datosUsados: { nombre: 'Marta' }, ...p,
   };
 }
 
@@ -53,21 +55,45 @@ test('el tope acota lo que se PINTA, no lo que se cuenta', () => {
   assert.equal(r.nUnToque, 9);
 });
 
-// ── "lo hace Tentare" sale del ejecutor real ────────────────────────────────
+// ── "lo hace Tentare" sale del mismo dueño que el botón (efecto-aprobar.ts) ──
 
-test('MARCAR_GESTIONADO es lo único que Tentare NO hace por ti', () => {
+test('«la hago yo con un toque» solo donde el botón del Centro de Control no dice «Hecho»', () => {
   const r = resumirAcciones([
-    rec({ titulo: 'email', accion: { tipo: 'ENVIAR_EMAIL' } }),
-    rec({ titulo: 'whatsapp', accion: { tipo: 'CONTACTO_MANUAL' } }),
-    rec({ titulo: 'cobro', accion: { tipo: 'COBRAR_RECIBOS' } }),
-    rec({ titulo: 'aviso', accion: { tipo: 'MARCAR_GESTIONADO' } }),
-  ], 4);
+    rec({ titulo: 'email', tipo: 'ENVIAR_REACTIVACION', accion: { tipo: 'ENVIAR_EMAIL' } }),
+    rec({ titulo: 'mensaje', accion: { tipo: 'CONTACTO_MANUAL' } }),
+    rec({ titulo: 'cobro', tipo: 'RECUPERAR_PAGOS', socioId: null, datosUsados: {}, accion: { tipo: 'COBRAR_RECIBOS' } }),
+    rec({ titulo: 'aviso', tipo: 'FUSIONAR_SESIONES', socioId: null, datosUsados: {}, accion: { tipo: 'MARCAR_GESTIONADO' } }),
+    // Contacto sin mensaje para la socia: aprobarlo no le manda nada.
+    rec({ titulo: 'no-reserva', tipo: 'RIESGO_RESERVA_FALLIDA', accion: { tipo: 'CONTACTO_MANUAL' } }),
+    // Contacto sin socia.
+    rec({ titulo: 'sin-socia', socioId: null, accion: { tipo: 'CONTACTO_MANUAL' } }),
+  ], 6);
   const porTitulo = Object.fromEntries(r.atencion.map(x => [x.titulo, x.loHaceTentare]));
   assert.equal(porTitulo['email'], true);
-  assert.equal(porTitulo['whatsapp'], true);
+  assert.equal(porTitulo['mensaje'], true);
   assert.equal(porTitulo['cobro'], true);
   assert.equal(porTitulo['aviso'], false);
+  assert.equal(porTitulo['no-reserva'], false);
+  assert.equal(porTitulo['sin-socia'], false);
   assert.equal(r.nUnToque, 3);
+});
+
+test('manda el `efecto` que trae la API: sin por dónde escribirle, el servidor dice MARCAR y no cuenta', () => {
+  const r = resumirAcciones([
+    rec({ titulo: 'sin-canal', accion: { tipo: 'CONTACTO_MANUAL' }, efecto: 'MARCAR' }),
+    rec({ titulo: 'con-canal', accion: { tipo: 'CONTACTO_MANUAL' }, efecto: 'ENVIAR_MENSAJE' }),
+  ], 2);
+  const porTitulo = Object.fromEntries(r.atencion.map(x => [x.titulo, x.loHaceTentare]));
+  assert.equal(porTitulo['sin-canal'], false);
+  assert.equal(porTitulo['con-canal'], true);
+  assert.equal(r.nUnToque, 1);
+});
+
+test('el Action Center no tiene criterio propio: lo lee de efecto-aprobar', () => {
+  const src = readFileSync(join(import.meta.dirname, 'action-center.ts'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  assert.match(src, /from '\.\/efecto-aprobar\.ts'/);
+  assert.doesNotMatch(src, /MARCAR_GESTIONADO/, 'una regla propia sobre accion.tipo vuelve a dar dos dueños');
 });
 
 // ── Los euros no se mezclan ─────────────────────────────────────────────────

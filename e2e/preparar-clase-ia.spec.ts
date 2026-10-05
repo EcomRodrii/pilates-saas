@@ -1,5 +1,6 @@
-import { test, expect, type Route } from '@playwright/test';
+import { test, expect, type Page, type Route } from '@playwright/test';
 import { sesionFutura } from './sesion-futura';
+import { espiarSonidos } from './espia-sonidos';
 
 // Regresión de #970: el cliente mandaba { tipoClase, resumen } y route.ts
 // (app/api/ai/ficha-clinica-clase/route.ts) casteaba el body ENTERO como
@@ -47,15 +48,19 @@ function instructorApi(r: any) {
   return { id: r.id, studioId: r.studio_id, nombre: r.nombre, email: r.email, telefono: r.telefono, color: r.color, activo: r.activo, avatar: r.avatar, fotoUrl: r.foto_url, rol: r.rol ?? 'INSTRUCTOR', authUserId: r.auth_user_id };
 }
 
-test('Preparar clase con IA envía el resumen plano, no anidado bajo { tipoClase, resumen }', async ({ page }) => {
+/**
+ * El calendario con una clase futura y una alumna con una condición de salud
+ * activa: así sale «Adaptaciones» con «Preparar clase con IA» en su ficha.
+ * `alPreparar` contesta a /api/ai/ficha-clinica-clase (va con el resto del
+ * andamiaje: la última ruta registrada gana y aquí no hay comodín después).
+ */
+async function montarClaseConAdaptaciones(page: Page, alPreparar: (route: Route) => Promise<void> | void) {
   const { inicio, fin } = sesionFutura();
   const sesiones = [{
     id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
     inicio, fin, aforo_maximo: 10, cancelada: false, notas: null, serie_id: null, precio_puntual: null,
   }];
   const reservas = [{ id: 'r1', studio_id: STUDIO_ID, sesion_id: 'ses-1', socio_id: 's1', estado: 'CONFIRMADA', creada_en: '2026-01-01T08:00:00' }];
-
-  let bodyRecibido: unknown = null;
 
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -69,11 +74,7 @@ test('Preparar clase con IA envía el resumen plano, no anidado bajo { tipoClase
   await page.route('**/api/layout**', route => json(route, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
   await page.route('**/api/billing/estado**', route => json(route, { bloqueado: false }));
   await page.route('**/api/theme**', route => json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
-  // El endpoint real: capturamos el body exacto que le llega.
-  await page.route('**/api/ai/ficha-clinica-clase', route => {
-    bodyRecibido = JSON.parse(route.request().postData() ?? '{}');
-    return json(route, { resumen: 'ok', evitar: [], variantes: [] });
-  });
+  await page.route('**/api/ai/ficha-clinica-clase', alPreparar);
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route => json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
@@ -92,6 +93,15 @@ test('Preparar clase con IA envía el resumen plano, no anidado bajo { tipoClase
 
   await page.goto('/calendario');
   await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
+}
+
+test('Preparar clase con IA envía el resumen plano, no anidado bajo { tipoClase, resumen }', async ({ page }) => {
+  let bodyRecibido: unknown = null;
+  // El endpoint real: capturamos el body exacto que le llega.
+  await montarClaseConAdaptaciones(page, route => {
+    bodyRecibido = JSON.parse(route.request().postData() ?? '{}');
+    return json(route, { resumen: 'ok', evitar: [], variantes: [] });
+  });
 
   const boton = page.getByRole('button', { name: 'Preparar clase con IA' });
   await expect(boton).toBeVisible({ timeout: 15_000 });
@@ -102,4 +112,75 @@ test('Preparar clase con IA envía el resumen plano, no anidado bajo { tipoClase
   expect(bodyRecibido).not.toHaveProperty('resumen');
   expect(bodyRecibido).not.toHaveProperty('tipoClase');
   expect(bodyRecibido).toMatchObject({ totalAlumnas: 1, conCondiciones: 1 });
+});
+
+// ── Tenti en el botón (releva al Orb, 5-oct-2026; vivo desde esa tarde) ────
+// El mismo Tenti antes y durante: en reposo (vivo: parpadea, mira y respira)
+// mientras espera el clic, pensando solo con la petición en vuelo, y nunca
+// junto a lo que redacta el modelo (el botón se desmonta al llegar la
+// preparación). Ocupado no es deshabilitado: mientras trabaja, el botón dice
+// aria-busy y no se atenúa. Dentro del botón no se toca ni suena por su
+// cuenta: empezar a pensar no suena, y terminar con resultado suena una vez.
+
+test('Tenti espera quieto, piensa solo con la petición en vuelo y se va con el resultado', async ({ page }) => {
+  let intentos = 0;
+  let soltar = () => {};
+  const suelta = new Promise<void>(r => { soltar = r; });
+  const sonidos = await espiarSonidos(page);
+  await montarClaseConAdaptaciones(page, async route => {
+    intentos++;
+    await suelta;
+    return json(route, { resumen: 'Clase con una alumna con el hombro lesionado.', evitar: ['Saltos'], variantes: [] });
+  });
+
+  const boton = page.getByRole('button', { name: 'Preparar clase con IA', exact: true });
+  await expect(boton).toBeVisible({ timeout: 15_000 });
+  const icono = boton.locator('[data-tenti-icono]');
+  await expect(icono).toHaveAttribute('data-estado', 'reposo');
+  await expect(icono).toHaveAttribute('aria-hidden', 'true');
+  // Vivo: el canvas del motor, dentro de la caja del icono, y sin dejarse
+  // tocar (el clic es del botón).
+  await expect(icono.locator('canvas[data-tenti]')).toHaveAttribute('data-estado', 'reposo', { timeout: 30_000 });
+  await expect(icono.locator('.pointer-events-none canvas[data-tenti]')).toHaveCount(1);
+
+  await boton.click();
+  await expect.poll(() => intentos, { timeout: 10_000 }).toBeGreaterThan(0);
+  const ocupado = page.getByRole('button', { name: 'Preparando…', exact: true });
+  await expect(ocupado).toHaveAttribute('aria-busy', 'true');
+  await expect(ocupado.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'pensando');
+  await expect(ocupado.locator('canvas[data-tenti]')).toHaveAttribute('data-estado', 'pensando');
+  // Ocupado no es deshabilitado: no se atenúa.
+  expect(await ocupado.evaluate(el => getComputedStyle(el).opacity)).toBe('1');
+  // Empezar a pensar no suena (para que no pese).
+  await page.waitForTimeout(500);
+  expect(await sonidos.cuantos()).toBe(0);
+
+  soltar();
+  await expect(page.getByText('Clase con una alumna con el hombro lesionado.')).toBeVisible();
+  // Terminar con resultado, sí: un sonido corto.
+  await expect.poll(() => sonidos.cuantos(), { timeout: 10_000 }).toBeGreaterThan(0);
+  // El botón se desmonta con el resultado: ninguna cara junto al texto del modelo.
+  await expect(page.getByTestId('adaptaciones-clase').locator('[data-tenti-icono]')).toHaveCount(0);
+});
+
+test('si la preparación falla, Tenti vuelve a reposo, lo dice el texto y nunca celebra', async ({ page }) => {
+  let intentos = 0;
+  const sonidos = await espiarSonidos(page);
+  await montarClaseConAdaptaciones(page, route => {
+    intentos++;
+    return json(route, { error: 'boom' }, 500);
+  });
+
+  const boton = page.getByRole('button', { name: 'Preparar clase con IA', exact: true });
+  await expect(boton).toBeVisible({ timeout: 15_000 });
+  await boton.click();
+  await expect(page.getByText('No se pudo generar la preparación. Inténtalo de nuevo.')).toBeVisible({ timeout: 10_000 });
+  // ⚠️ Sin contador, «volvió a reposo» podría ser cierto por no haberlo intentado.
+  expect(intentos).toBeGreaterThan(0);
+  await expect(boton).toHaveAttribute('aria-busy', 'false');
+  await expect(boton.locator('[data-tenti-icono]')).toHaveAttribute('data-estado', 'reposo');
+  await expect(page.locator('[data-tenti-icono][data-estado="hecho"]')).toHaveCount(0);
+  // Sin resultado no hay sonido de «terminado».
+  await page.waitForTimeout(1_000);
+  expect(await sonidos.cuantos()).toBe(0);
 });

@@ -957,7 +957,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
           )}
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted">Cancelar</button>
           <button onClick={() => valid && onSave(form, foto)} disabled={!valid}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40"
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-brand-foreground transition-all disabled:opacity-40"
             style={{ backgroundColor: 'var(--brand)' }}>
             {initial ? 'Guardar cambios' : 'Crear producto'}
           </button>
@@ -1081,7 +1081,7 @@ export default function Productos() {
         actions={mueveDinero && (
           <button
             onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-brand-foreground text-sm font-bold transition-colors"
             style={{ backgroundColor: 'var(--brand)' }}
           >
             <Plus size={15} />

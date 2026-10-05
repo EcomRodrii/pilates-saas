@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useStudio } from '@/lib/studio-context';
 import { mensajeParaSocia, enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
-import { useDecisiones, type RecomendacionAPI } from '@/components/decision/use-decisiones';
+import { useDecisiones, type RecomendacionAPI, type ResultadoAccion } from '@/components/decision/use-decisiones';
 import { useAutonomiaConfig } from '@/components/decision/use-autonomia-config';
 import { elegibleParaAutonomia } from '@/lib/decision/autonomia';
+import { sigueAbierta } from '@/lib/decision/efecto-aprobar';
 import { partirMasSituaciones } from '@/lib/decision/prioridad';
 import type { Recomendacion } from '@/lib/decision/tipos';
 import { FilaSituacion } from '@/components/decision/fila-situacion';
@@ -82,10 +83,14 @@ function AnclaSituacion({ id, resaltada, children }: { id: string; resaltada: bo
 }
 
 export default function CentroDeControlPage() {
-  const { data, loading, error, aprobar, rechazar, posponer, analizarAhora, recargar } = useDecisiones();
+  // `seguirCobros`: tras «Cobrar ahora», la pantalla pregunta cómo ha ido y lo dice.
+  const { data, loading, error, aprobar, rechazar, posponer, yaContactada, analizarAhora, recargar, cobrosTardando } = useDecisiones({ seguirCobros: true });
   const { socios, studio } = useStudio();
   const autonomia = useAutonomiaConfig();
-  const [procesandoId, setProcesandoId] = useState<string | null>(null);
+  // Las recomendaciones con una petición en vuelo, todas: con un solo id, pulsar
+  // en otra tarjeta mientras la primera esperaba le volvía a encender los
+  // botones a la primera, que ahora sigue en pantalla hasta la respuesta.
+  const [procesando, setProcesando] = useState<ReadonlySet<string>>(() => new Set());
   const [analizando, setAnalizando] = useState(false);
   const [detalleAbierto, setDetalleAbierto] = useState(false);
   const toast = useToast();
@@ -120,8 +125,12 @@ export default function CentroDeControlPage() {
   // bajo control" nunca contradiga "N cosas necesitan tu atención" a un clic
   // de distancia — ver hallazgo de auditoría "Veredicto de Marta" 2026-08-20.
   // Deliberadamente NO usa `prioridadesParaTarjetas`: cuenta lo pendiente de
-  // verdad, no lo que se pinta como tarjeta en esta pantalla.
-  const totalPendiente = data ? data.prioridades.length + data.masSituaciones.length : 0;
+  // verdad, no lo que se pinta como tarjeta en esta pantalla. Un cobro recién
+  // aprobado sigue en pantalla diciendo que está en marcha, pero ya no está
+  // pendiente: no cuenta (`sigueAbierta`).
+  const totalPendiente = data
+    ? data.prioridades.filter(r => sigueAbierta(r.estado)).length + data.masSituaciones.filter(r => sigueAbierta(r.estado)).length
+    : 0;
 
   // Reorganización §2 (PR2): sustituye a ExecutiveSummary, que sacaba
   // "tiempo estimado"/"impacto potencial" de `resumen` — un snapshot de
@@ -129,7 +138,7 @@ export default function CentroDeControlPage() {
   // pintan como tarjetas, para que nunca diverja de lo que se ve (bug
   // "2 vs 11" ya documentado). NO incluye `enSeguimiento`: son filas sin
   // botones de acción (PR3), no aportan tiempo/impacto que sumar.
-  const itemsVivos = [...prioridadesParaTarjetas, ...situacionesNuevas];
+  const itemsVivos = [...prioridadesParaTarjetas, ...situacionesNuevas].filter(r => sigueAbierta(r.estado));
   const tiempoEstimadoVivoMin = itemsVivos.reduce((acc, r) => acc + r.tiempoEstimadoMin, 0);
   const impactoEurMesVivo = itemsVivos.reduce(
     (acc, r) => acc + (r.impacto?.unidad === 'EUR_MES' ? r.impacto.valor : 0), 0,
@@ -231,25 +240,18 @@ export default function CentroDeControlPage() {
     return enlaceWhatsApp(socia?.telefono, mensaje.cuerpo);
   }
 
-  async function handleAprobar(id: string) {
-    setProcesandoId(id);
-    const ok = await aprobar(id);
-    if (!ok) toast.show('No se pudo confirmar. Comprueba tu conexión e inténtalo de nuevo.');
-    setProcesandoId(null);
-  }
-
-  async function handleRechazar(id: string) {
-    setProcesandoId(id);
-    const ok = await rechazar(id);
-    if (!ok) toast.show('No se pudo confirmar. Comprueba tu conexión e inténtalo de nuevo.');
-    setProcesandoId(null);
-  }
-
-  async function handlePosponer(id: string) {
-    setProcesandoId(id);
-    const ok = await posponer(id);
-    if (!ok) toast.show('No se pudo confirmar. Comprueba tu conexión e inténtalo de nuevo.');
-    setProcesandoId(null);
+  // Las cuatro acciones de una recomendación. Ninguna quita la tarjeta antes de
+  // la respuesta (use-decisiones.ts): mientras tanto, sus botones apagados; con
+  // un no, la tarjeta como estaba y el error que dio el servidor, como error.
+  async function accionar(r: RecomendacionAPI, accion: (r: RecomendacionAPI) => Promise<ResultadoAccion>) {
+    setProcesando(prev => new Set(prev).add(r.id));
+    const res = await accion(r);
+    if (!res.ok) toast.showError(res.error);
+    setProcesando(prev => {
+      const sigue = new Set(prev);
+      sigue.delete(r.id);
+      return sigue;
+    });
   }
 
   async function handleAnalizar() {
@@ -313,10 +315,12 @@ export default function CentroDeControlPage() {
       {/* 1. Estado global */}
       <VeredictoDelDia
         veredicto={data.veredicto}
-        onHecho={() => data.veredicto.recomendacion && handleAprobar(data.veredicto.recomendacion.id)}
-        onYaLoSe={() => data.veredicto.recomendacion && handleRechazar(data.veredicto.recomendacion.id)}
-        onPosponer={() => data.veredicto.recomendacion && handlePosponer(data.veredicto.recomendacion.id)}
-        procesando={!!data.veredicto.recomendacion && procesandoId === data.veredicto.recomendacion.id}
+        onAprobar={() => data.veredicto.recomendacion && accionar(data.veredicto.recomendacion, aprobar)}
+        onYaContactada={() => data.veredicto.recomendacion && accionar(data.veredicto.recomendacion, yaContactada)}
+        onYaLoSe={() => data.veredicto.recomendacion && accionar(data.veredicto.recomendacion, rechazar)}
+        onPosponer={() => data.veredicto.recomendacion && accionar(data.veredicto.recomendacion, posponer)}
+        procesando={!!data.veredicto.recomendacion && procesando.has(data.veredicto.recomendacion.id)}
+        tardando={!!data.veredicto.recomendacion && cobrosTardando.has(data.veredicto.recomendacion.id)}
         whatsappHref={data.veredicto.recomendacion ? whatsappHref(data.veredicto.recomendacion) : null}
         nAutonomasHoy={data.nAutonomasHoy ?? 0}
         totalPendiente={totalPendiente}
@@ -368,9 +372,11 @@ export default function CentroDeControlPage() {
                   <FilaSituacion
                     variante="completo"
                     recomendacion={r}
-                    onAprobar={() => handleAprobar(r.id)}
-                    onRechazar={() => handleRechazar(r.id)}
-                    procesando={procesandoId === r.id}
+                    onAprobar={() => accionar(r, aprobar)}
+                    onYaContactada={() => accionar(r, yaContactada)}
+                    onRechazar={() => accionar(r, rechazar)}
+                    procesando={procesando.has(r.id)}
+                    tardando={cobrosTardando.has(r.id)}
                     whatsappHref={whatsappHref(r)}
                   />
                 </AnclaSituacion>
@@ -380,9 +386,11 @@ export default function CentroDeControlPage() {
                   <FilaSituacion
                     variante="completo"
                     recomendacion={r}
-                    onAprobar={() => handleAprobar(r.id)}
-                    onRechazar={() => handleRechazar(r.id)}
-                    procesando={procesandoId === r.id}
+                    onAprobar={() => accionar(r, aprobar)}
+                    onYaContactada={() => accionar(r, yaContactada)}
+                    onRechazar={() => accionar(r, rechazar)}
+                    procesando={procesando.has(r.id)}
+                    tardando={cobrosTardando.has(r.id)}
                     whatsappHref={whatsappHref(r)}
                   />
                 </AnclaSituacion>
@@ -457,7 +465,7 @@ export default function CentroDeControlPage() {
       <ActivityList items={actividadCompleta} />
       </div>
       )}
-      {toast.message && <Toast message={toast.message} onDismiss={toast.dismiss} />}
+      {toast.message && <Toast message={toast.message} onDismiss={toast.dismiss} variant={toast.variant} />}
     </div>
   );
 }

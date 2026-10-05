@@ -3,7 +3,8 @@ import * as Sentry from '@sentry/nextjs';
 import Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { contextoCobroDe } from '../pos/terminal.ts';
-import { consultarCobroBizum } from '../pos/consulta-stripe.ts';
+import { anularCobroDelDatafono, desenlaceDeCobroSoltado } from '../pos/consulta-stripe.ts';
+import { esMismoIntentoVivo, estadoParaSoltar } from '../pos/referencia-cobro-recibo.ts';
 import {
   MENSAJE_COBRO_EN_EL_DATAFONO, MENSAJE_PAGO_ONLINE_SIN_COMPROBAR, MENSAJE_YA_PAGADO_EN_EL_DATAFONO, MENSAJE_YA_PAGADO_ONLINE,
   cerrarPagoOnlineAntesDeCobrarAMano, cobroDeMostradorAbandonado, soltarCobroDeMostradorAntesDeCobrarAMano,
@@ -53,12 +54,23 @@ export async function bloqueadosPorPenalizacion(
   return bloqueados;
 }
 
-export type StripeDelEstudio = { stripe: Stripe; cuenta: string } | null;
+/**
+ * - `listo`: se puede consultar.
+ * - `sin-cuenta`: el estudio no tiene cuenta de Stripe; ningún cobro de Stripe puede
+ *   seguir vivo en ella.
+ * - `sin-consultar`: la cuenta existe, pero el entorno no deja consultarla (falta la
+ *   clave, el modo no cuadra). Un cobro puede seguir vivo, así que no se cobra lo que
+ *   lo necesite.
+ */
+export type StripeDelEstudio =
+  | { tipo: 'listo'; stripe: Stripe; cuenta: string }
+  | { tipo: 'sin-cuenta' }
+  | { tipo: 'sin-consultar' };
 
 /**
  * Stripe del estudio, preparado una vez y solo si hace falta, con el mismo guardia
  * de modo que el resto de cobros (`contextoCobroDe`) y tiempos cortos: la pantalla
- * espera. `null` = no se puede consultar (y entonces no se cobra lo que lo necesite).
+ * espera.
  */
 export function preparadorDeStripe(admin: SupabaseClient, studioId: string): () => Promise<StripeDelEstudio> {
   let stripeDelEstudio: StripeDelEstudio | undefined;
@@ -69,9 +81,11 @@ export function preparadorDeStripe(admin: SupabaseClient, studioId: string): () 
       Sentry.captureMessage('[cobros] cobro a mano con un pago en marcha y sin Stripe para comprobarlo', {
         level: 'warning', tags: { area: 'cobros', tipo: 'marcar-cobrado' }, extra: { studioId, motivo: c.motivo },
       });
-      stripeDelEstudio = null;
+      // 409 es «sin cuenta conectada»; lo demás (503) es el entorno.
+      stripeDelEstudio = c.status === 409 ? { tipo: 'sin-cuenta' } : { tipo: 'sin-consultar' };
     } else {
       stripeDelEstudio = {
+        tipo: 'listo',
         stripe: new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: '2026-06-24.dahlia', timeout: 5_000, maxNetworkRetries: 1 }),
         cuenta: c.ctx.stripeAccount,
       };
@@ -80,45 +94,65 @@ export function preparadorDeStripe(admin: SupabaseClient, studioId: string): () 
   };
 }
 
+/** Por qué no se cobra (cada camino lo dice a su manera: `mensajeCajaAntesDeCobrar`). */
+export type MotivoPagoEnMarcha =
+  | 'SIN_LEER' | 'COBRO_CON_METODO_GUARDADO' | 'YA_PAGADO_EN_EL_MOSTRADOR' | 'COBRO_EN_EL_MOSTRADOR'
+  | 'YA_PAGADO_ONLINE' | 'PAGO_ONLINE_SIN_COMPROBAR';
+
 export type PagosEnMarcha =
-  /** Se puede cobrar. `checkoutLeido` viaja al compare-and-set, que no cobra si cambió. */
-  | { ok: true; checkoutLeido: string | null }
-  | { ok: false; mensaje: string };
+  /**
+   * Se puede cobrar. `checkoutLeido` viaja al compare-and-set, que no cobra si cambió.
+   * `referenciaQueSigue`: el cobro del mostrador que queda en el recibo; solo el del
+   * MISMO intento repetido (`claveIntento`), que es el mismo cobro. Si no, `null`.
+   */
+  | { ok: true; checkoutLeido: string | null; referenciaQueSigue: string | null }
+  | { ok: false; mensaje: string; motivo: MotivoPagoEnMarcha };
 
 /**
  * Uno a uno: antes de cobrar el recibo se mira, EN ESE MOMENTO, si tiene un pago en
  * marcha. Un enlace de pago abierto se CIERRA en Stripe (que la clienta no pueda
  * pagarlo también online), y un cobro del datáfono o Bizum abandonado se cancela y
  * se suelta; si ya se pagó o sigue en curso, no se cobra.
+ *
+ * Lo usan el cobro a mano y, desde el 5-oct-2026, el arranque de un cobro de la Caja
+ * (`app/api/pos/recibo`): antes abría el nuevo encima del anterior y, con Bizum en uno
+ * y el datáfono en otro, los dos quedaban cobrables. Ahí manda el último: el cobro del
+ * mostrador de otro intento se cancela, y el del mismo intento (`claveIntento`) no.
  */
 export async function soltarPagosEnMarchaAntesDeCobrar(
   admin: SupabaseClient,
-  p: { studioId: string; reciboId: string },
+  p: { studioId: string; reciboId: string; claveIntento?: string },
   prepararStripe: () => Promise<StripeDelEstudio>,
 ): Promise<PagosEnMarcha> {
   const { studioId, reciboId } = p;
   const { data: fila, error: errFila } = await admin.from('recibos')
     .select('checkout_session_id, cobro_mostrador_pi, cobro_mostrador_checkout_session_id, cobro_off_session_clave')
     .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
-  if (errFila) return { ok: false, mensaje: 'No se ha podido comprobar si tiene un cobro en marcha. Inténtalo otra vez.' };
+  if (errFila) return { ok: false, motivo: 'SIN_LEER', mensaje: 'No se ha podido comprobar si tiene un cobro en marcha. Inténtalo otra vez.' };
   // Se está cobrando AHORA con su tarjeta o domiciliación guardada: no se cobra, y
   // antes de cerrarle el enlace o cancelar el datáfono para nada. El compare-and-set
   // de `confirmarCobro` lo vuelve a exigir (lib/billing/cobro-off-session-marca.ts).
-  if (fila?.cobro_off_session_clave) return { ok: false, mensaje: MENSAJE_COBRO_CON_METODO_GUARDADO };
+  if (fila?.cobro_off_session_clave) return { ok: false, motivo: 'COBRO_CON_METODO_GUARDADO', mensaje: MENSAJE_COBRO_CON_METODO_GUARDADO };
 
   const ref = (fila?.cobro_mostrador_pi as string | null) ?? null;
+  let referenciaQueSigue: string | null = null;
   if (ref) {
     // A mano, quien cobra está en el mostrador: un cobro que sigue esperando se cancela ya.
     const mostrador = await soltarCobroDeMostradorDelRecibo(admin, {
-      studioId, reciboId, referencia: ref,
+      studioId, reciboId, referencia: ref, claveIntento: p.claveIntento,
       checkoutSessionId: (fila?.cobro_mostrador_checkout_session_id as string | null) ?? null,
     }, prepararStripe);
-    if (mostrador.tipo === 'YA_PAGADO') return { ok: false, mensaje: MENSAJE_YA_PAGADO_EN_EL_DATAFONO };
-    if (mostrador.tipo === 'EN_MARCHA') return { ok: false, mensaje: MENSAJE_COBRO_EN_EL_DATAFONO };
+    if (mostrador.tipo === 'YA_PAGADO') return { ok: false, motivo: 'YA_PAGADO_EN_EL_MOSTRADOR', mensaje: MENSAJE_YA_PAGADO_EN_EL_DATAFONO };
+    if (mostrador.tipo === 'EN_MARCHA') return { ok: false, motivo: 'COBRO_EN_EL_MOSTRADOR', mensaje: MENSAJE_COBRO_EN_EL_DATAFONO };
+    if (mostrador.tipo === 'MISMO_INTENTO') referenciaQueSigue = ref;
   }
 
-  return cerrarPagoOnlineDelRecibo(admin, { studioId, reciboId }, (fila?.checkout_session_id as string | null) ?? null, prepararStripe);
+  const online = await cerrarPagoOnlineDelRecibo(admin, { studioId, reciboId }, (fila?.checkout_session_id as string | null) ?? null, prepararStripe);
+  return online.ok ? { ...online, referenciaQueSigue } : online;
 }
+
+/** Lo que pasó con el cobro del mostrador guardado. `MISMO_INTENTO`: la Caja repitiendo la misma petición. */
+export type CobroDelMostradorSoltado = CobroDeMostradorAlCobrarAMano | { tipo: 'MISMO_INTENTO' };
 
 /**
  * El cobro del datáfono o del Bizum del mostrador que quedó en el recibo
@@ -126,18 +160,18 @@ export async function soltarPagosEnMarchaAntesDeCobrar(
  * se suelta la referencia (compare-and-set sobre ella).
  *
  * `cancelarPendienteTrasMs` decide qué se hace con uno que sigue ESPERANDO: a mano
- * (por defecto, 0) se cancela ya; la alumna que paga online solo lo da por
- * abandonado pasado el margen (`MINUTOS_COBRO_MOSTRADOR_ABANDONADO`).
+ * (por defecto, 0) se cancela ya; el pago online de la alumna y el cobro diario solo
+ * lo dan por abandonado pasado el margen (`MINUTOS_COBRO_MOSTRADOR_ABANDONADO`), para
+ * no cortarle el cobro a quien lo tiene delante.
  *
- * Nunca se le manda parar al lector: podría estar cobrando otra venta. Con SumUp
- * tampoco se cancela nada (no se sabe cuándo empezó): si no ha terminado, espera.
+ * Con SumUp no se cancela nada (no se sabe cuándo empezó): si no ha terminado, espera.
  */
 export async function soltarCobroDeMostradorDelRecibo(
   admin: SupabaseClient,
-  p: { studioId: string; reciboId: string; referencia: string; checkoutSessionId: string | null },
+  p: { studioId: string; reciboId: string; referencia: string; checkoutSessionId: string | null; claveIntento?: string },
   prepararStripe: () => Promise<StripeDelEstudio>,
   opciones: { cancelarPendienteTrasMs?: number; ahora?: Date } = {},
-): Promise<CobroDeMostradorAlCobrarAMano> {
+): Promise<CobroDelMostradorSoltado> {
   const { studioId, reciboId, referencia: ref } = p;
   const margen = opciones.cancelarPendienteTrasMs ?? 0;
   const ahora = opciones.ahora ?? new Date();
@@ -145,7 +179,13 @@ export async function soltarCobroDeMostradorDelRecibo(
     const { data, error } = await admin.from('recibos')
       .update({ cobro_mostrador_pi: null, cobro_mostrador_checkout_session_id: null })
       .eq('id', reciboId).eq('studio_id', studioId).eq('cobro_mostrador_pi', r).select('id');
-    return !error && (data?.length ?? 0) > 0;
+    if (error) return false;
+    if ((data?.length ?? 0) > 0) return true;
+    // Sin fila: otro camino lo soltó a la vez (la Caja que lo esperaba, el aviso de
+    // Stripe). Vale si ya no hay ninguno; si hay otro, es un intento nuevo.
+    const { data: ahoraFila, error: errAhora } = await admin.from('recibos').select('cobro_mostrador_pi')
+      .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
+    return !errAhora && !ahoraFila?.cobro_mostrador_pi;
   };
   let mostrador: CobroDeMostradorAlCobrarAMano;
   // Un cobro del datáfono de SumUp (`sumup:`): se le pregunta a SumUp, no a Stripe.
@@ -160,31 +200,46 @@ export async function soltarCobroDeMostradorDelRecibo(
         cancelar: async () => {},
         soltar: () => soltarReferencia(ref),
         // De SumUp no se sabe cuándo empezó: a mano se «cancela» (no hace nada) y se
-        // vuelve a preguntar; online no se da por abandonado (lo suelta su barrido).
+        // vuelve a preguntar; con margen no se da por abandonado (lo suelta su barrido).
         pendienteCancelable: () => margen <= 0,
       }
       : { consultar: async () => 'ERROR', cancelar: async () => {}, soltar: async () => false });
   } else {
     const cs = p.checkoutSessionId;
     const s = await prepararStripe();
+    // Se lee SIN tocarlo, y solo cuenta si es de este recibo (lo dice su metadata).
+    const de = { reciboId, studioId };
+    const leido = s.tipo === 'listo' ? await desenlaceDeCobroSoltado(s.stripe, ref, s.cuenta, de) : null;
+    // La Caja repitiendo la misma petición: es el mismo cobro, no se cancela.
+    if (esMismoIntentoVivo(leido, p.claveIntento)) return { tipo: 'MISMO_INTENTO' };
     let creadoEn: number | undefined;
-    mostrador = await soltarCobroDeMostradorAntesDeCobrarAMano(ref, s && {
+    mostrador = await soltarCobroDeMostradorAntesDeCobrarAMano(ref, s.tipo === 'sin-cuenta'
+      // Sin cuenta de Stripe no hay datáfono ni Bizum que pudieran cobrar: la referencia
+      // es vieja y se suelta (antes se seguía sin soltarla, y quien guarda después exige
+      // el recibo sin cobro del mostrador: no se podía cobrar).
+      ? { consultar: async () => 'CANCELADO', cancelar: async () => {}, soltar: () => soltarReferencia(ref) }
+      // Con la cuenta, pero sin poder consultarla: puede seguir vivo, y no se cobra.
+      : s.tipo === 'sin-consultar'
+      ? { consultar: async () => 'ERROR', cancelar: async () => {}, soltar: async () => false }
+      : {
       consultar: async () => {
-        const c = await consultarCobroBizum(s.stripe, ref, s.cuenta);
-        creadoEn = c.creadoEn;
-        return c.estado;
+        const d = await desenlaceDeCobroSoltado(s.stripe, ref, s.cuenta, de);
+        creadoEn = d && d.comprobado ? d.creadoEn : undefined;
+        return estadoParaSoltar(d);
       },
-      // Solo ESTE cobro: nada de cancelar la acción del lector, que podría estar
-      // cobrando otra venta en ese momento.
+      // Solo ESTE cobro. En el datáfono, `anularCobroDelDatafono` para su lector solo
+      // si sigue con él (nunca el cobro de otra venta) y cancela el cobro aunque el
+      // lector no responda; en Bizum, se caduca la sesión, que es lo que se paga.
       cancelar: async () => {
         try {
           if (cs || ref.startsWith('cs_')) await s.stripe.checkout.sessions.expire(cs ?? ref, undefined, { stripeAccount: s.cuenta });
+          else if (leido?.comprobado && leido.metodo === 'DATAFONO') await anularCobroDelDatafono(s.stripe, ref, s.cuenta, null);
           else await s.stripe.paymentIntents.cancel(ref, {}, { stripeAccount: s.cuenta });
         } catch { /* lo dirá la siguiente consulta */ }
       },
       soltar: () => soltarReferencia(ref),
       pendienteCancelable: () => margen <= 0 || cobroDeMostradorAbandonado(creadoEn, ahora),
-    });
+      });
   }
   if (mostrador.tipo === 'YA_PAGADO') {
     Sentry.captureMessage('[cobros] cobro de un recibo sobre un cobro del mostrador ya pagado', {
@@ -197,10 +252,9 @@ export async function soltarCobroDeMostradorDelRecibo(
 /**
  * El pago online (enlace o app) que el recibo tenga guardado se CIERRA en Stripe
  * antes de cobrarlo por otra vía, para que la clienta no pueda pagarlo también:
- * «marcar cobrado», «Cobrar online» (tarjeta guardada) y el datáfono / Bizum del
- * mostrador (`/api/pos/recibo`). Si ya lo pagó, o no se puede saber, no se cobra.
- * `checkoutLeido` viaja después al compare-and-set de quien cobra
- * (`exigirCheckoutLeido`).
+ * «marcar cobrado», «Cobrar online» (tarjeta guardada) y el datáfono / Bizum de la
+ * Caja. Si ya lo pagó, o no se puede saber, no se cobra. `checkoutLeido` viaja
+ * después al compare-and-set de quien cobra (`exigirCheckoutLeido`).
  */
 export async function cerrarPagoOnlineDelRecibo(
   _admin: SupabaseClient,
@@ -210,10 +264,13 @@ export async function cerrarPagoOnlineDelRecibo(
 ): Promise<PagosEnMarcha> {
   if (checkoutLeido) {
     const s = await prepararStripe();
-    const sesiones: SesionesDeStripe | null = s && {
+    // Con la cuenta pero sin poder consultarla, el enlace puede seguir pagable: no se cobra.
+    // Sin cuenta, nadie puede pagarlo ya (`cerrarPagoOnlineAntesDeCobrarAMano` sigue).
+    if (s.tipo === 'sin-consultar') return { ok: false, motivo: 'PAGO_ONLINE_SIN_COMPROBAR', mensaje: MENSAJE_PAGO_ONLINE_SIN_COMPROBAR };
+    const sesiones: SesionesDeStripe | null = s.tipo === 'listo' ? {
       consultar: id => s.stripe.checkout.sessions.retrieve(id, undefined, { stripeAccount: s.cuenta }),
       cerrar: id => s.stripe.checkout.sessions.expire(id, undefined, { stripeAccount: s.cuenta }),
-    };
+    } : null;
     const online = await cerrarPagoOnlineAntesDeCobrarAMano(checkoutLeido, sesiones);
     if (online.tipo === 'YA_PAGADO') {
       // Si el webhook rechazó esa sesión (otro importe, otra cuenta), el recibo no se
@@ -221,9 +278,9 @@ export async function cerrarPagoOnlineDelRecibo(
       Sentry.captureMessage('[cobros] cobro a mano sobre un enlace de pago ya pagado', {
         level: 'warning', tags: { area: 'cobros', tipo: 'marcar-cobrado' }, extra: { reciboId: p.reciboId, studioId: p.studioId, sesionId: checkoutLeido },
       });
-      return { ok: false, mensaje: MENSAJE_YA_PAGADO_ONLINE };
+      return { ok: false, motivo: 'YA_PAGADO_ONLINE', mensaje: MENSAJE_YA_PAGADO_ONLINE };
     }
-    if (online.tipo === 'NO_SE_SABE') return { ok: false, mensaje: MENSAJE_PAGO_ONLINE_SIN_COMPROBAR };
+    if (online.tipo === 'NO_SE_SABE') return { ok: false, motivo: 'PAGO_ONLINE_SIN_COMPROBAR', mensaje: MENSAJE_PAGO_ONLINE_SIN_COMPROBAR };
   }
-  return { ok: true, checkoutLeido };
+  return { ok: true, checkoutLeido, referenciaQueSigue: null };
 }

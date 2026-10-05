@@ -2,7 +2,8 @@
 
 // Ficha Clínica Operativa — pestaña "Salud" del detalle de socia.
 // FICHA-CLINICA.md §3 (timeline), §2 (restricciones), §4 (semáforo), §5 (riesgo).
-// Solo se monta para PROPIETARIO/INSTRUCTOR (el gating vive en la página).
+// Solo se monta para la PROPIETARIA (`puedeVerFichaClinica`; el gating vive en
+// la página). La instructora lee la salud de sus alumnas en la app del estudio.
 
 import { useMemo, useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
@@ -27,7 +28,8 @@ import { consentimientoSaludPorEdad, EDAD_MINIMA_CONSENTIMIENTO_SALUD } from '@/
 import type { FirmanteConsentimiento } from '@/lib/datos-salud/consentimiento';
 import { sugerirAdaptacionesSocio, type AdaptacionSocioIA } from '@/lib/ai/ficha-clinica-socio-client';
 import type { ResultadoEscritura } from '@/lib/errores';
-import { TentareOrb } from '@/components/marca/tentare-orb';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
+import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
 
 // ─── Etiquetas de presentación ───────────────────────────────────────────────
 
@@ -585,6 +587,8 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
     try {
       const r = await sugerirAdaptacionesSocio(socioId, activas);
       setAdaptacionIA(r);
+      // Tenti avisa de que ha terminado (si suena en este dispositivo).
+      sonarTenti('pop');
     } catch {
       setAdaptacionIAError(true);
     } finally {
@@ -676,13 +680,17 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
             <button
               onClick={adaptarConIA}
               disabled={adaptacionIALoading}
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[11px] font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-50 transition-colors"
+              aria-busy={adaptacionIALoading}
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[11px] font-bold text-primary-foreground bg-primary hover:brightness-95 [&:disabled:not([aria-busy=true])]:opacity-50 transition-colors"
             >
-              {/* El Orb en sus dos estados, en vez de un robot que se convierte en
+              {/* Tenti en sus dos estados, en vez de un robot que se convierte en
                 un spinner genérico: es el MISMO objeto, primero quieto y
                 después pensando. Un icono distinto mientras trabaja decía que
-                había empezado otra cosa. */}
-              <TentareOrb tam={15} estado={adaptacionIALoading ? 'pensando' : 'reposo'} />
+                había empezado otra cosa. Ocupado no es deshabilitado: no se
+                atenúa. Solo en el botón, nunca junto a la adaptación que
+                redacta el modelo; sobre bg-primary, con la silueta del color
+                del texto. */}
+              <TentiIcono ancho={18} sobre="invertida" estado={adaptacionIALoading ? 'pensando' : 'reposo'} />
               {adaptacionIALoading ? 'Adaptando…' : 'Adaptar ejercicios con IA'}
             </button>
           )}

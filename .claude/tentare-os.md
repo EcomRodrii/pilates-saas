@@ -299,6 +299,133 @@ cambian color y encuadre.
 - Fuera a propósito: los emails a socias (marca del ESTUDIO, no de Tentare),
   `/portal/[slug]` (marca blanca) y `/interno`.
 
+## Tenti es Tentare (releva al Orb, 5-oct-2026, decisión del fundador)
+
+Tenti, la mascota, es la marca de «aquí interviene Tentare» (lo hace solo, lo
+vigila o te lo ofrece) y está en **todos** los sitios donde iba el Orb, que ya no
+existe: ni `tentare-orb.tsx`, ni su CSS, ni su lavanda y su rubor. La lista de
+sitios, con el motivo de cada uno, la lleva la guardia
+`lib/tenti/donde-vive-tenti.test.ts` (`CON_TENTI`): añadir o quitar uno es editar
+esa lista con su motivo, no un import de paso.
+
+- **Vivo en todos sus sitios, como en `/interno/tenti`** (decisión del fundador,
+  5-oct-2026 por la tarde: «no se mueve en ningún lado… tampoco hace el
+  sonido»; «en /interno/tenti está perfecto»). Deroga «icono quieto en lo
+  diario» y «sonido apagado por defecto». Un dibujo (`lib/tenti/geometria.ts`)
+  y un motor: `TentiIcono` es el canvas del motor a tamaño de icono (el
+  `tamano` del canvas es `ancho / 0,684`, para que el CUERPO mida lo que medía
+  el icono, y se sale de la caja centrado en el cuerpo: nada se mueve), con el
+  SVG quieto de reserva mientras llega el chunk, si no llega o sin canvas 2D;
+  lleva la silueta del icono (`--tenti-silueta`, o el color del texto con
+  `sobre="invertida"`). Parpadea, mira alrededor (`miradas` del motor, solo en
+  reposo) y sigue el cursor con los ojos; en reposo NO respira, como en el
+  catálogo (una respiración CSS sin fin por icono costaba, medido, más hilo
+  principal que los tres canvas de Resumen juntos). Si NO va dentro de un
+  botón o un enlace, se deja tocar: se aplasta y suena, se molesta si insistes y se marea si insistes
+  mucho, y el primero que se ve en la sesión saluda. Dentro de un botón o un
+  enlace el clic es del botón: ni tocable ni suena por su cuenta. El canvas
+  grande va en el logo y Listo (`TentiDiferido`, solo la propietaria) y en el
+  buscador ⌘K y el resumen de Automatizaciones (`TentiDecorativo`, todos los
+  roles). Sin insignias en el panel. El motor llega SIEMPRE por `dynamic()`:
+  nunca en el chunk inicial de una pantalla (lo vigila la guardia).
+- **Suena solo en momentos**, nunca al parpadear ni al mirar: abrir y cerrar el
+  buscador ('open'/'close'), el saludo ('greet') y el logo guardado ('love'),
+  Listo ('finish'), la IA que termina CON resultado ('pop', lo pide quien
+  llama con `sonarTenti`; empezar a pensar no suena) y tocarlo ('slap',
+  'annoyed', 'dizzy'). Encendido por defecto; el interruptor «Sonidos de
+  Tenti» (Configuración › Tu panel › Solo para ti, de este navegador, como
+  claro u oscuro) lo apaga, y todos los Tentis le hacen caso sin recargar
+  (`lib/tenti/preferencia-sonido.ts`). Quién suena y con qué lo cierra la
+  guardia (`SUENAN`). ⚠️ El navegador no deja sonar antes del primer gesto:
+  `prepararSonidos()` despierta el audio en el primer clic o tecla, que es lo
+  que Safari necesita para que después suene lo que llega sin gesto.
+- **El canvas DUERME entre parpadeos y miradas.** Pide rAF solo mientras algo
+  se mueve (`animando()`: tweens, temporizadores, partículas, valores sin
+  llegar —en mini con un umbral de 0,01, que no llega a medio píxel—;
+  `perpetuo()`: lo que oscila sin fin) y, si no, un `setTimeout` hasta
+  `proximoDespertar()` (parpadeo o mirada). Lo despiertan el estado, la
+  emoción, el saludo, la paleta, `mira`, el puntero y volver a verse; fuera de
+  pantalla o con la pestaña oculta no queda ni el rAF ni el temporizador. Con
+  el ratón en movimiento va a 60 fps mientras se mueve (siguen el cursor).
+  ⚠️ Los temporizadores cuentan en `animando()` a propósito: el hueco del
+  parpadeo doble son 30 ms y sin eso se dormía con los ojos a medio cerrar (lo
+  cubre `lib/tenti/motor.test.ts`). Medido (5-oct, Chromium headless con
+  `next dev`, 10 s de Resumen en reposo con sus tres Tentis y el ratón quieto):
+  con el SVG quieto, 0 fotogramas y ~0,3 % del hilo principal; vivos, ~100
+  fotogramas y 1,1–1,5 %. En mini la cabeza gira más deprisa porque las
+  miradas eran casi todo lo que se pintaba. `e2e/tenti-vivo.spec.ts` lo anota
+  en cada pasada.
+- **Tres estados con un significado cada uno.** `reposo` es la firma: no es un
+  aviso ni un «todo bien» (si hay algo que avisar, lo dice el texto, nunca su
+  cara). `pensando`, solo con una petición de verdad en vuelo (un botón de IA,
+  Analizar), con la forma `X ? 'pensando' : 'reposo'` y el botón en `aria-busy`
+  (ocupado no es deshabilitado: no se atenúa); es el 'pensando' del motor (mira
+  arriba a la derecha) sin la insignia de puntos, y respira por CSS mientras
+  dura la petición.
+  `hecho`, solo Listo. El resto de estados y emociones viven en
+  `/interno/tenti`. Con «reducir movimiento», quieto.
+- **El icono es cerrado por tipo**: anchos 18|20|22|24|28 (el 16 no existe: los
+  ojos no se leen), siempre `aria-hidden`, sin `titulo`, y la misma API de
+  siempre (vivo o no, los doce sitios no cambian). Lo comprueba tsc en
+  `components/tenti/tenti-icono.tipos.ts`. La silueta (`--tenti-silueta`, ≥ 3:1
+  en los dos modos, `lib/tenti/paleta.test.ts`) es lo que lo despega de --card en
+  claro; sobre `bg-primary`/`bg-brand`, `sobre="invertida"` (toma el color del
+  texto).
+- **Nunca**: marca blanca (portal, /reservar, widget, kiosko, correos a socias),
+  soporte (WhatsApp, ayuda: «te responde una persona, no una IA»), pantallas de
+  dinero (Cobros, Caja, cierre, facturas…) ni junto a lo que redacta un modelo
+  (el veredicto, el Contrato, las filas del Centro de Control, el resultado de
+  una adaptación o de una nota). En la web comercial se propone, no se pone.
+
+## Brand System: `brand/` es la fuente de verdad visual (fase 1, 5-oct-2026)
+
+`brand/` (Brand OS, `design-tokens.json`, `tokens.css`, guías de componentes y
+de UI, plan por fases) manda sobre cualquier decisión visual antigua del repo,
+incluida la identidad oliva/arena, que queda RETIRADA y vive solo como LEGACY
+hasta su fase. Lo que el paquete no define es **OPEN DECISION**
+(`brand/implementation-plan.md` §D): se registra ahí, no se inventa.
+
+- **Se avanza por fases** (`implementation-plan.md` §B), pero varias por PR (el
+  fundador lo pidió así el 5-oct). Hechas: la 1 (tokens `--t-*`, utilidades
+  `bg-t-*`/`text-t-*`/`rounded-t-card`… y el puente `legacy-bridge.css`, que
+  reapunta `--background`, `--foreground`, `--border` y compañía), la 2 y la 3, y
+  la 4 y la 5 en lo que no toca `--brand` ni el foco (`brand/phase-2-5/README.md`).
+- ⚠️ **La tipografía de la marca vive SOLO en el panel** (`.marca-panel`:
+  la pone `app/(dashboard)/layout.tsx` y, para los portales a `body`,
+  `MarcaEnPortales`). `font-sans`/`font-heading`/`font-mono` leen
+  `--fuente-sans`/`--fuente-mono`: **no reapuntes el `@theme` a la marca para todo
+  el sitio**, `font-heading` lo usa la app de la alumna y le cambiarías la letra.
+  Schibsted Grotesk y DM Mono se sirven con su nombre real
+  (`app/_fuentes/fuentes-panel.ts`), que es el que dicen los tokens.
+- ⚠️ **Las utilidades de `brand/tokens.css` (`.t-label`, `.t-glass-dark`…) van sin
+  capa y ganan a cualquier utilidad de Tailwind**: no las combines con una clase
+  que toque la misma propiedad (`t-label text-[14px]` no cambia el tamaño).
+- ⚠️ **Los valores se cambian en `design-tokens.json` → `tokens.css`, nunca a
+  mano en un componente** ni en `globals.css`. `lib/brand-tokens.test.ts` cruza
+  los dos ficheros y vigila que el puente no toque lo que su fase no toca.
+- ⚠️ **No redefinir `--radius-3xl`**: la card aprobada es 24 px
+  (`rounded-t-card`), pero los 50 `rounded-3xl` (38,4 px) se migran componente a
+  componente en la fase 6. Redefinir el token los cambiaría todos a la vez,
+  incluidos los que no son cards.
+- ⚠️ **`--brand*` es la marca del estudio** (`PanelThemeProvider`). Desde el
+  5-oct, con el tema de fábrica (el oliva, `lib/panel-marca.ts`) el panel no
+  escribe nada y manda el valor por defecto de la marca (`.marca-panel`: Sand con
+  texto en Ink). `/reservar`, la app de la alumna y `:root` (landing, login)
+  siguen con el oliva. **Texto o indicador pequeño en el color de marca: siempre
+  `text-brand-medio` / `bg-brand-medio`** (legible por construcción, sigue al
+  estudio), nunca `text-brand`, ni blanco fijo sobre `bg-brand`: usa
+  `text-brand-foreground`. Los estados en oscuro y la paleta categórica no se
+  tocan: OPEN DECISION.
+- ⚠️ **`border-t-success` y similares son ambiguos** desde que existe el espacio
+  `t-` (Tailwind emite las dos lecturas): para el borde de arriba, escríbelo
+  explícito (`border-t-[color:var(--success)]`). Lo vigila el mismo test.
+- La app de la alumna tiene sus propias `.t-*` (marca blanca). Una utilidad
+  global nueva de la marca con el mismo nombre se le cuela en lo que la suya no
+  declare: el test lo detecta y se protege en `student.css`, no en `brand/`.
+- **Trinquete de colores retirados** (mismo test): el panel no puede ganar neutros
+  antiguos ni oliva escritos a mano; el tope por fichero solo baja. Para pintar,
+  el token (`bg-background`, `text-foreground`, `bg-brand`…).
+
 ## Arquitectura de marca: Tentare Manager / Tentare Core
 
 Tentare se percibe como dos productos, no un panel único con roles:

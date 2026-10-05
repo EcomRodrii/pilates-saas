@@ -202,7 +202,7 @@ export async function cobrarReciboOffSession(params: {
   if (via === 'STAFF' && !recibo.cobro_off_session_clave) {
     const pagos = await soltarPagosEnMarchaAntesDeCobrar(
       admin, { studioId: params.studioId, reciboId: params.reciboId },
-      async () => ({ stripe, cuenta: studio.stripe_account_id as string }),
+      async () => ({ tipo: 'listo' as const, stripe, cuenta: studio.stripe_account_id as string }),
     );
     if (!pagos.ok) return { ok: false, error: pagos.mensaje, errorCode: 'COBRO_EN_MARCHA' };
     checkoutLeido = pagos.checkoutLeido;
@@ -219,7 +219,7 @@ export async function cobrarReciboOffSession(params: {
         studioId: params.studioId, reciboId: params.reciboId, referencia: recibo.cobro_mostrador_pi as string,
         checkoutSessionId: (recibo.cobro_mostrador_checkout_session_id as string | null) ?? null,
       },
-      async () => ({ stripe, cuenta: studio.stripe_account_id as string }),
+      async () => ({ tipo: 'listo' as const, stripe, cuenta: studio.stripe_account_id as string }),
       { cancelarPendienteTrasMs: MINUTOS_COBRO_MOSTRADOR_ABANDONADO * 60_000 },
     );
     if (mostrador.tipo !== 'SEGUIR') return { ok: false, error: MENSAJE_COBRO_EN_MARCHA.MOSTRADOR, errorCode: 'COBRO_EN_MARCHA' };

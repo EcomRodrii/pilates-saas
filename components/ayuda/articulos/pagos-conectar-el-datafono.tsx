@@ -44,6 +44,13 @@ export default function Contenido() {
         en su pantalla y la venta queda <strong>Cobrada</strong> cuando Stripe confirma el pago, no antes.
       </AyudaResultado>
 
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cancelar un cobro</h2>
+      <p>
+        Mientras el datáfono espera la tarjeta, puedes cancelarlo desde la Caja (<strong>Cancelar el cobro</strong>) o en
+        la pantalla del propio datáfono. En los dos casos la Caja lo ve en unos segundos: no se cobra nada y puedes volver
+        a cobrar, con el datáfono o con otro método.
+      </p>
+
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Si dice «sin conexión»</h2>
       <p>
         El datáfono está apagado o sin wifi. No se le manda nada: enciéndelo, comprueba el wifi y pulsa{' '}

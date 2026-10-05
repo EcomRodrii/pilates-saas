@@ -44,25 +44,24 @@ test('un id con otra forma no entra en el `or`: se exige tal cual', () => {
   assert.deepEqual(filtros, [['eq', 'checkout_session_id', 'cs_x),id.neq.(y']]);
 });
 
-test('/api/pos/recibo: rol que mueve dinero, y cierra el pago online ANTES de arrancar el cobro', () => {
+test('/api/pos/recibo: rol que mueve dinero, y cierra el pago online (con el dueño de «pagos en marcha») ANTES de arrancar el cobro', () => {
   const s = leer('app/api/pos/recibo/route.ts');
   const sesion = s.indexOf('await verificarSesionStaff(req)');
   const rol = s.indexOf('if (!puedeMoverDinero(sesion.rol)) {');
   const prepara = s.indexOf('await prepararCobroNuevo(');
-  const cierra = s.indexOf('await cerrarPagoOnlineDelRecibo(');
+  const cierra = s.indexOf('await soltarPagosEnMarchaAntesDeCobrar(');
   const inicia = s.indexOf('await cobro.iniciar(');
   assert.ok(sesion > 0 && rol > sesion && prepara > rol && cierra > prepara && inicia > cierra,
-    'sesión → rol → preparar → cerrar el pago online → arrancar el cobro');
+    'sesión → rol → preparar → pagos en marcha (cierra el pago online) → arrancar el cobro');
   assert.match(s.slice(rol, rol + 200), /status: 403/);
-  assert.match(s.slice(cierra, inicia), /if \(!online\.ok\) return NextResponse\.json\(\{ error: online\.mensaje \}, \{ status: 409 \}\);/,
+  assert.match(s.slice(cierra, inicia), /if \(!enMarcha\.ok\) return NextResponse\.json\(\{ error: mensajeCajaAntesDeCobrar\(enMarcha\) \}, \{ status: 409 \}\);/,
     'ya pagado online o sin poder saberlo: no se cobra');
-  assert.match(s, /checkout_session_id, cobro_mostrador_pi, cobro_off_session_clave, entrega_tipo/, 'lee la sesión guardada');
 });
 
-test('/api/pos/recibo: guardar la referencia exige la sesión que se leyó (otra abierta después: no se cobra)', () => {
+test('/api/pos/recibo: guardar la referencia exige la sesión que se leyó, o ninguna (otra abierta después: no se cobra)', () => {
   const s = leer('app/api/pos/recibo/route.ts');
   const guarda = s.indexOf('cobro_mostrador_pi: inicio.referencia,');
-  const exige = s.indexOf('guardar = exigirCheckoutLeido(guardar, online.checkoutLeido);', guarda);
+  const exige = s.indexOf('const guardarSinOtroEnlace = exigirCheckoutLeido(guardar, enMarcha.checkoutLeido);', guarda);
   const select = s.indexOf(".select('id')", guarda);
   assert.ok(guarda > 0 && exige > guarda && select > exige);
 });
@@ -78,8 +77,9 @@ test('las tres vías del mostrador cierran el pago online con el MISMO dueño', 
   const guarda = leer('lib/cobros/antes-de-cobrar-a-mano-servidor.ts');
   // «marcar cobrado» y «Cobrar online» pasan por soltarPagosEnMarchaAntesDeCobrar, que termina en él.
   const soltar = guarda.slice(guarda.indexOf('export async function soltarPagosEnMarchaAntesDeCobrar('), guarda.indexOf('export async function soltarCobroDeMostradorDelRecibo('));
-  assert.match(soltar, /return cerrarPagoOnlineDelRecibo\(/);
+  assert.match(soltar, /await soltarCobroDeMostradorDelRecibo\(/);
+  assert.match(soltar, /const online = await cerrarPagoOnlineDelRecibo\(/);
   assert.match(leer('lib/billing/stripe-cobros.ts'), /await soltarPagosEnMarchaAntesDeCobrar\(/);
   assert.match(leer('app/api/cobros/marcar-cobrado/route.ts'), /await soltarPagosEnMarchaAntesDeCobrar\(/);
-  assert.match(leer('app/api/pos/recibo/route.ts'), /await cerrarPagoOnlineDelRecibo\(/);
+  assert.match(leer('app/api/pos/recibo/route.ts'), /await soltarPagosEnMarchaAntesDeCobrar\(/);
 });
