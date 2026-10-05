@@ -18,7 +18,7 @@ import { marca } from '../referencias.ts';
 import { campo } from '../recorte.ts';
 import { MAX_FILAS } from '../limites.ts';
 import { diaDeLaAgenda, diaLargo, sumarDiasYmd, type EntradaAgenda, type EntradaHuecos } from './definiciones.ts';
-import { exigir, fallo } from './comun.ts';
+import { exigir, fallo, sinVacios } from './comun.ts';
 
 const DIAS_ALCANCE = 60;
 
@@ -40,11 +40,12 @@ export function describirClase(c: ClaseDelDia, rango: RangoDelEstudio, ctx: Cont
     sesionId: c.sesionId, hora, tipoClase, sala, instructora: ref, ocupadas: c.ocupadas, aforo: c.aforo,
     enEspera: c.enEspera, senal: c.senal, motivo,
   };
-  const modelo = {
+  // Sin lo vacío: `senal: 'OK'`, `cancelada: false`, `motivo: null`, `enEspera: 0`.
+  const modelo = sinVacios({
     hora, tipoClase, sala, instructora: ref ? marca(ref) : 'sin asignar',
     ocupadas: `${c.ocupadas} de ${c.aforo}`, huecos: c.huecos, enEspera: c.enEspera,
-    cancelada: c.estado === 'CANCELADA', terminada: c.finalizada, senal: c.senal, motivo,
-  };
+    cancelada: c.estado === 'CANCELADA', terminada: c.finalizada, senal: c.senal === 'OK' ? null : c.senal, motivo,
+  }, ['enEspera']);
   return { bloque, modelo };
 }
 
@@ -60,10 +61,10 @@ export async function agendaDelDia(input: EntradaAgenda, ctx: ContextoHerramient
   return {
     paraModelo: {
       dia: diaLargo(dia),
-      resumen: {
+      resumen: sinVacios({
         clases: resumen.clases, alumnasApuntadas: resumen.alumnas, huecosLibres: resumen.huecos,
         pendientesDeConfirmar: resumen.pendientes, clasesQuePidenAtencion: resumen.problemas, canceladas: resumen.canceladas,
-      },
+      }, ['pendientesDeConfirmar', 'clasesQuePidenAtencion', 'canceladas']),
       clases: filas.map(f => f.modelo),
     },
     bloques: [{
@@ -86,7 +87,6 @@ export async function clasesProximasConHuecos(input: EntradaHuecos, ctx: Context
   const titulo = input.cuales === 'flojas' ? `Clases flojas en los próximos ${input.dias} días` : `Clases llenas en los próximos ${input.dias} días`;
   return {
     paraModelo: {
-      criterio: input.cuales === 'flojas' ? 'Con la mitad del aforo o más libre' : 'Sin huecos o con lista de espera',
       clasesProgramadas: clases.filter(c => c.estado !== 'CANCELADA' && !c.finalizada).length,
       total: elegidas.length,
       clases: filas.map(f => f.modelo),

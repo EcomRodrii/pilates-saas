@@ -57,6 +57,23 @@ export function tramosDelPeriodo(periodo: keyof typeof PERIODOS, cual: 'actual' 
   };
 }
 
+/**
+ * Una fila para el MODELO sin lo que no dice nada: `null`, `undefined`, `false`,
+ * '' y los ceros de las claves que se nombren (`enEspera: 0`). Cada fila de 20
+ * repetía `cancelada: false, terminada: false, motivo: null…`: un tercio de los
+ * tokens de una agenda eran claves vacías. Los ceros que sí dicen algo
+ * («huecos: 0», «total: 0») no se nombran y se quedan.
+ */
+export function sinVacios<T extends Record<string, unknown>>(fila: T, ceros: readonly (keyof T)[] = []): Partial<T> {
+  const out: Partial<T> = {};
+  for (const [k, v] of Object.entries(fila) as [keyof T, T[keyof T]][]) {
+    if (v === null || v === undefined || v === false || v === '') continue;
+    if (v === 0 && ceros.includes(k)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
 /** Una respuesta de «no he podido»: va al modelo como `is_error`, sin tarjeta. */
 export function fallo(mensaje: string): ResultadoHerramienta {
   return { paraModelo: { error: mensaje }, bloques: [], esError: true };

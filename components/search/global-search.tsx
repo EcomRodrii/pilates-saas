@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { TRANSICION_SECCION } from '@/lib/panel/transiciones';
 import { useStudio } from '@/lib/studio-context';
-import { Search, ArrowRight, Calendar, CreditCard, X, Zap, Users, SlidersHorizontal } from 'lucide-react';
+import { Search, ArrowRight, Calendar, CreditCard, X, Zap, Users, SlidersHorizontal, MessageCircleQuestionMark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAtajoBuscar } from '@/lib/use-atajo-buscar';
 import { usePermisos } from '@/lib/permisos';
@@ -17,6 +17,10 @@ import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { irEnConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 import { TentiDecorativo } from '@/components/tenti/tenti-decorativo';
 import { sonarTenti } from '@/lib/tenti/preferencia-sonido';
+import { useAsistente, usePuertaAsistente } from '@/lib/asistente-context';
+import { pareceUnaPregunta } from '@/lib/asistente/pregunta';
+import { sugerenciasPara } from '@/lib/asistente/estado-ui';
+import { puedeVerFinanzas } from '@/lib/permisos-reglas';
 
 /** Hacia dónde mira Tenti mientras se escribe: al frente con la caja vacía, y
  *  hacia la derecha (donde va el texto) cuanto más largo, con tope. */
@@ -198,7 +202,33 @@ export function GlobalSearch({
       : instructores.filter(i => i.activo).slice(0, 3);
   }, [instructores, puedeVerEquipo, q]);
 
+  // «Preguntar a Tentare» (el asistente): para quien puede usarlo (rol, plan y
+  // servidor; si no, ni se pinta). Con la caja vacía, tres preguntas de ejemplo;
+  // con texto, una fila que va PRIMERA si parece una pregunta (o no hay nada
+  // más) y si no al final, para no robarle la navegación a quien busca algo.
+  const puertaAsistente = usePuertaAsistente();
+  const { abrir: abrirAsistente } = useAsistente();
+  const preguntarATentare = (p: string) => { setOpen(false); abrirAsistente(p); };
+
   const hasResults = modulosRes.length > 0 || ajustesRes.length > 0 || tareasSinRepetir.length > 0 || sociosRes.length > 0 || sesionesRes.length > 0 || recibosRes.length > 0 || instructoresRes.length > 0;
+
+  const asistentePrimero = puertaAsistente && !!query.trim() && (pareceUnaPregunta(query) || !hasResults);
+  const filaAsistente = puertaAsistente && !!query.trim() && (
+    <div className="mb-1">
+      <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>Pregúntale a Tentare</p>
+      <button onClick={() => preguntarATentare(query)} data-testid="buscador-preguntar"
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-brand/10">
+          <MessageCircleQuestionMark size={14} className="text-brand-medio" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">Preguntar a Tentare: «{query.trim()}»</p>
+          <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>Te responde con los datos de tu estudio</p>
+        </div>
+        <ArrowRight size={14} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+      </button>
+    </div>
+  );
 
   // Estando en Configuración, una tarea de Configuración («Datos fiscales») la
   // abre el shell: con el router la dirección se quedaba pegada (#2030).
@@ -273,6 +303,7 @@ export function GlobalSearch({
 
             {/* Results */}
             <div className="max-h-[400px] overflow-y-auto p-2">
+              {asistentePrimero && filaAsistente}
               {/* Secciones del menú — primero: "escribo Calendario, quiero ir a Calendario" */}
               {modulosRes.length > 0 && (
                 <div className="mb-1">
@@ -337,6 +368,23 @@ export function GlobalSearch({
                           <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>{t.pista}</p>
                         )}
                       </div>
+                      <ArrowRight size={14} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Preguntas de ejemplo para Tentare, con la caja vacía */}
+              {puertaAsistente && !q && (
+                <div className="mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>Pregúntale a Tentare</p>
+                  {sugerenciasPara(puedeVerFinanzas(rol), 3).map(s => (
+                    <button key={s} onClick={() => preguntarATentare(s)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-brand/10">
+                        <MessageCircleQuestionMark size={14} className="text-brand-medio" />
+                      </div>
+                      <p className="flex-1 min-w-0 text-sm font-semibold text-foreground truncate">{s}</p>
                       <ArrowRight size={14} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
                     </button>
                   ))}
@@ -443,7 +491,9 @@ export function GlobalSearch({
                 </div>
               )}
 
-              {!hasResults && q.length > 0 && (
+              {!asistentePrimero && filaAsistente}
+
+              {!hasResults && q.length > 0 && !puertaAsistente && (
                 <div className="py-12 text-center">
                   <p className="text-sm font-medium" style={{ color: 'var(--muted-foreground)' }}>Sin resultados para «{query}»</p>
                 </div>

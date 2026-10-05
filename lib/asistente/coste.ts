@@ -9,7 +9,10 @@ export interface UsoAcumulado {
   input: number;
   output: number;
   cacheRead: number;
+  /** Todo lo escrito en caché (5 min + 1 h): es lo que guarda `ia_consumos`. */
   cacheCreation: number;
+  /** De eso, lo escrito con TTL de una hora (el prefijo, 2× en vez de 1,25×). Solo si hubo. */
+  cacheCreation1h?: number;
 }
 
 export const USO_CERO: UsoAcumulado = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
@@ -19,21 +22,27 @@ interface UsoDeAnthropic {
   output_tokens: number;
   cache_read_input_tokens?: number | null;
   cache_creation_input_tokens?: number | null;
+  /** El desglose por TTL de lo escrito en caché. */
+  cache_creation?: { ephemeral_1h_input_tokens?: number | null } | null;
 }
 
 export function sumarUso(a: UsoAcumulado, u: UsoDeAnthropic): UsoAcumulado {
+  const unaHora = (a.cacheCreation1h ?? 0) + (u.cache_creation?.ephemeral_1h_input_tokens ?? 0);
   return {
     input: a.input + (u.input_tokens ?? 0),
     output: a.output + (u.output_tokens ?? 0),
     cacheRead: a.cacheRead + (u.cache_read_input_tokens ?? 0),
     cacheCreation: a.cacheCreation + (u.cache_creation_input_tokens ?? 0),
+    ...(unaHora > 0 ? { cacheCreation1h: unaHora } : {}),
   };
 }
 
 /** Dólares, redondeados a la millonésima (la precisión de `ia_consumos.coste_usd`). */
 export function costeUsd(u: UsoAcumulado): number {
   const p = PRECIOS_HAIKU_45;
-  const usd = (u.input * p.entrada + u.output * p.salida + u.cacheRead * p.lecturaCache + u.cacheCreation * p.escrituraCache) / 1_000_000;
+  const unaHora = Math.min(u.cacheCreation1h ?? 0, u.cacheCreation);
+  const usd = (u.input * p.entrada + u.output * p.salida + u.cacheRead * p.lecturaCache
+    + (u.cacheCreation - unaHora) * p.escrituraCache + unaHora * p.escrituraCache1h) / 1_000_000;
   return Math.round(usd * 1_000_000) / 1_000_000;
 }
 

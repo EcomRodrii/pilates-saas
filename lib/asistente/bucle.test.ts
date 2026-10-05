@@ -206,3 +206,16 @@ test('conPuntoDeCache no toca el historial original', () => {
   assert.equal(h[0].content, 'hola');
   assert.deepEqual(c[0].content, [{ type: 'text', text: 'hola', cache_control: { type: 'ephemeral' } }]);
 });
+
+test('una cifra de una respuesta pasada (ya filtrada) está respaldada; una nueva sin respaldo, no', async () => {
+  const m = montar([{ texto: 'Como te decía, tienes 84 activas. Y además 97 en espera.' }]);
+  m.entrada.historial = [
+    { role: 'user', content: [{ type: 'text', text: '¿Cuántas activas tengo?' }] },
+    { role: 'assistant', content: [{ type: 'text', text: 'Tienes 84 alumnas activas.' }] },
+  ];
+  m.entrada.pregunta = '¿Y eso es mucho?';
+  const r = await ejecutarTurno(m.deps, m.entrada);
+  assert.equal(r.motivo, 'OK');
+  assert.equal(textoEmitido(m.eventos).trim(), 'Como te decía, tienes 84 activas.');
+  assert.ok(m.eventos.some(e => e.t === 'aviso' && e.codigo === 'CIFRA_SIN_RESPALDO'));
+});
