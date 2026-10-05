@@ -137,7 +137,7 @@ function Cuerpo({ onCerrar, studioId, veDinero, preguntaInicial, movil }: {
     <ReferenciasCtx.Provider value={estado.referencias}>
       {movil && <span aria-hidden="true" className="mx-auto mt-2 mb-0.5 block h-1 w-9 shrink-0 rounded-full bg-border" />}
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5 lg:px-5">
-        <TentiAsistente momento={estado.momento} className="-my-1 -ml-1" />
+        <TentiAsistente momento={estado.momento} className="-ml-1" />
         <div className="min-w-0 flex-1">
           <h2 className="font-heading text-[17px] font-semibold leading-tight text-foreground">Tentare</h2>
           <p className="truncate text-[12.5px] text-muted-foreground" data-testid="asistente-saldo">{textoSaldo(estado.disponibles, saldo)}</p>

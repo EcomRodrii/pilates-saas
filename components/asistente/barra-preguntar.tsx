@@ -2,6 +2,7 @@
 
 import { MessageCircleQuestionMark } from 'lucide-react';
 import { useAsistente, usePuertaAsistente } from '@/lib/asistente-context';
+import { useAtajoBuscar } from '@/lib/use-atajo-buscar';
 
 // La puerta del Centro de Control (spec §5.1): una línea con aspecto de campo,
 // bajo el h1, que abre el panel. Ligera a propósito (va en el chunk del Centro
@@ -12,6 +13,8 @@ import { useAsistente, usePuertaAsistente } from '@/lib/asistente-context';
 export function BarraPreguntar() {
   const puerta = usePuertaAsistente();
   const { abrir } = useAsistente();
+  // ⌘J en Mac, Ctrl+J en el resto (el mismo criterio que ⌘K).
+  const atajo = useAtajoBuscar().replace(/K$/, 'J');
   if (!puerta) return null;
   return (
     <button
@@ -22,7 +25,7 @@ export function BarraPreguntar() {
     >
       <MessageCircleQuestionMark size={17} aria-hidden="true" className="shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
       <span className="min-w-0 flex-1 truncate text-[14px] text-muted-foreground">Pregúntale a Tentare sobre tu estudio…</span>
-      <kbd className="hidden shrink-0 rounded-md border border-border bg-card px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:inline">⌘J</kbd>
+      <kbd className="hidden shrink-0 rounded-md border border-border bg-card px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:inline">{atajo}</kbd>
     </button>
   );
 }

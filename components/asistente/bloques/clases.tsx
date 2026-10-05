@@ -17,7 +17,7 @@ function Fila({ c }: { c: ClaseDelBloque }) {
     <li>
       <Link
         href={`/calendario?sesion=${encodeURIComponent(c.sesionId)}`}
-        className="grid grid-cols-[3.25rem_1fr_6.5rem] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60"
+        className="grid grid-cols-[3rem_1fr_5.5rem] items-center gap-3 px-4 py-3 sm:grid-cols-[3.25rem_1fr_6.5rem] transition-colors hover:bg-muted/60"
         data-clase={c.sesionId}
       >
         <span className="font-mono text-[13px] leading-tight tabular-nums text-foreground">
@@ -28,8 +28,7 @@ function Fila({ c }: { c: ClaseDelBloque }) {
           <span className="block truncate text-[14px] font-semibold text-foreground">{c.tipoClase}</span>
           <span className="block truncate text-[12px] text-muted-foreground">
             {c.sala}
-            {c.sala && (c.instructora || c.motivo) ? ' · ' : ''}
-            {c.instructora ? <NombrePersona referencia={c.instructora} /> : (!c.motivo && 'Sin instructora')}
+            {c.instructora && <>{c.sala ? ' · ' : ''}<NombrePersona referencia={c.instructora} /></>}
           </span>
           {c.motivo && c.senal !== 'OK' && (
             <span className={cn('mt-0.5 flex items-center gap-1.5 text-[12px] font-medium', c.senal === 'PROBLEMA' ? 'text-destructive' : 'text-warning')}>
